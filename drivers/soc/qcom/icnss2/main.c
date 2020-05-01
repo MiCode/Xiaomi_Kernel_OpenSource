@@ -2763,6 +2763,14 @@ static int icnss_pm_resume(struct device *dev)
 	    !test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto out;
 
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = wlfw_exit_power_save_send_msg(priv);
+		if (ret) {
+			priv->stats.pm_resume_err++;
+			return ret;
+		}
+	}
+
 	ret = priv->ops->pm_resume(dev);
 
 out:

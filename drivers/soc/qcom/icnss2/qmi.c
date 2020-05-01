@@ -338,6 +338,79 @@ out:
 	return ret;
 }
 
+int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
+{
+	int ret;
+	struct wlfw_exit_power_save_req_msg_v01 *req;
+	struct wlfw_exit_power_save_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
+	icnss_pr_dbg("Sending exit power save, state: 0x%lx\n",
+		     priv->state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	priv->stats.exit_power_save_req++;
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_exit_power_save_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_qmi_fatal_err("Fail to init txn for exit power save%d\n",
+				    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_EXIT_POWER_SAVE_REQ_V01,
+			       WLFW_EXIT_POWER_SAVE_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_exit_power_save_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_qmi_fatal_err("Fail to send exit power save req %d\n",
+				    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_qmi_fatal_err("Exit power save wait failed with ret %d\n",
+				    ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_qmi_fatal_err(
+		    "QMI exit power save request rejected,result:%d error:%d\n",
+				    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	priv->stats.exit_power_save_resp++;
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(resp);
+	kfree(req);
+	priv->stats.exit_power_save_err++;
+	return ret;
+}
+
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 {
 	int ret;

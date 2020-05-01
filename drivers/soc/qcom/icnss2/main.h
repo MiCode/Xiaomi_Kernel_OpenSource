@@ -207,6 +207,9 @@ struct icnss_stats {
 	uint32_t device_info_req;
 	uint32_t device_info_resp;
 	uint32_t device_info_err;
+	u32 exit_power_save_req;
+	u32 exit_power_save_resp;
+	u32 exit_power_save_err;
 };
 
 #define WLFW_MAX_TIMESTAMP_LEN 32
