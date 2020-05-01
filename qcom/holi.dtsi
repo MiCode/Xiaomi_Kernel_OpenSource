@@ -535,6 +535,8 @@
 	};
 };
 
+#define PMK8350_SID	6
+
 #include "holi-pinctrl.dtsi"
 #include "pm6350.dtsi"
 #include "pm7250b.dtsi"
@@ -544,7 +546,29 @@
 #include "holi-gdsc.dtsi"
 #include "holi-ion.dtsi"
 
+&pmk8350 {
+	reg = <6 SPMI_USID>;
+
+	pon_pbs@800 {
+		status = "disabled";
+	};
+
+	pon_hlos@1300 {
+		status = "disabled";
+	};
+};
+
+&pmk8350_adc_tm {
+	interrupts = <0x6 0x34 0x0 IRQ_TYPE_EDGE_RISING>;
+};
+
+&pmk8350_rtc {
+	interrupts = <0x6 0x62 0x1 IRQ_TYPE_EDGE_RISING>;
+};
+
 &pmk8350_vadc {
+	interrupts = <0x6 0x31 0x0 IRQ_TYPE_EDGE_RISING>;
+
 	/delete-node/ pm8350_ref_gnd;
 	/delete-node/ pm8350_vref_1p25;
 	/delete-node/ pm8350_die_temp;
