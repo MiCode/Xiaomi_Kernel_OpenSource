@@ -179,8 +179,11 @@
 #define INIT_MEMLEN_MAX  (8*1024*1024)
 #define MAX_CACHE_BUF_SIZE (8*1024*1024)
 
-/* Position of privilege bit in remote process attribute */
-#define FASTRPC_MODE_PRIVILEGED		(1 << 6)
+/* Fastrpc remote process attributes */
+enum fastrpc_proc_attr {
+	FASTRPC_MODE_UNSIGNED_MODULE = (1 << 3),
+	FASTRPC_MODE_PRIVILEGED      = (1 << 6),
+};
 
 #define PERF_END (void)0
 
@@ -492,7 +495,8 @@ struct fastrpc_file {
 	uint32_t mode;
 	uint32_t profile;
 	int sessionid;
-	int tgid;
+	int tgid_open;	/* Process ID during device open */
+	int tgid;		/* Process ID that uses device for RPC calls */
 	int cid;
 	uint64_t ssrcount;
 	int pd;
@@ -2810,6 +2814,22 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	}
 	inbuf.pageslen = 1;
 
+	/*
+	 * Third-party apps don't have permission to open the fastrpc device, so
+	 * it is opened on their behalf by a trusted process. Such untrusted
+	 * apps are not allowed to offload to signedPD on DSP. This is detected
+	 * by comparing current PID with the one stored during device open.
+	 */
+	if (fl->tgid != fl->tgid_open) {
+		VERIFY(err, uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE);
+		if (err) {
+			err = -EINVAL;
+			pr_err("Error: adsprpc: %s: %s: untrusted app trying to offload to signed remote process\n",
+				__func__, current->comm);
+			goto bail;
+		}
+	}
+
 	/* Disregard any privilege bits from userspace */
 	uproc->attrs &= (~FASTRPC_MODE_PRIVILEGED);
 
@@ -4388,6 +4408,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	init_waitqueue_head(&fl->async_wait_queue);
 	INIT_HLIST_NODE(&fl->hn);
 	fl->sessionid = 0;
+	fl->tgid_open = current->tgid;
 	fl->apps = me;
 	fl->mode = FASTRPC_MODE_SERIAL;
 	fl->cid = -1;
