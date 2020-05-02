@@ -553,9 +553,34 @@
 };
 
 #include "holi-pinctrl.dtsi"
+#include "pm6350.dtsi"
+#include "pm7250b.dtsi"
+#include "pm6150l.dtsi"
+#include "pmk8350.dtsi"
 #include "holi-stub-regulator.dtsi"
 #include "holi-gdsc.dtsi"
 #include "holi-ion.dtsi"
+
+&pmk8350_vadc {
+	/delete-node/ pm8350_ref_gnd;
+	/delete-node/ pm8350_vref_1p25;
+	/delete-node/ pm8350_die_temp;
+	/delete-node/ pm8350_vph_pwr;
+
+	/delete-node/ pm8350b_ref_gnd;
+	/delete-node/ pm8350b_vref_1p25;
+	/delete-node/ pm8350b_die_temp;
+	/delete-node/ pm8350b_vph_pwr;
+	/delete-node/ pm8350b_vbat_sns;
+
+	/delete-node/ pmr735a_ref_gnd;
+	/delete-node/ pmr735a_vref_1p25;
+	/delete-node/ pmr735a_die_temp;
+
+	/delete-node/ pmr735b_ref_gnd;
+	/delete-node/ pmr735b_vref_1p25;
+	/delete-node/ pmr735b_die_temp;
+};
 
 &gcc_camss_top_gdsc {
 	status = "ok";
