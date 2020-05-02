@@ -60,10 +60,7 @@
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
-#define ADSP_MMAP_HEAP_ADDR 4
-#define ADSP_MMAP_REMOTE_HEAP_ADDR 8
-#define ADSP_MMAP_ADD_PAGES 0x1000
-#define ADSP_MMAP_ADD_PAGES_LLC  0x3000
+
 #define FASTRPC_DMAHANDLE_NOMAP (16)
 
 #define DEBUGFS_SIZE 3072
@@ -184,10 +181,21 @@
 #define INIT_MEMLEN_MAX  (8*1024*1024)
 #define MAX_CACHE_BUF_SIZE (8*1024*1024)
 
+/* Max no. of persistent headers pre-allocated per process */
+#define MAX_PERSISTENT_HEADERS    (25)
+
 /* Fastrpc remote process attributes */
 enum fastrpc_proc_attr {
 	FASTRPC_MODE_UNSIGNED_MODULE = (1 << 3),
 	FASTRPC_MODE_PRIVILEGED      = (1 << 6),
+};
+
+/* Type of fastrpc DMA bufs sent to DSP */
+enum fastrpc_buf_type {
+	METADATA_BUF,
+	COPYDATA_BUF,
+	INITMEM_BUF,
+	USERHEAP_BUF,
 };
 
 #define PERF_END (void)0
@@ -289,7 +297,8 @@ struct fastrpc_buf {
 	unsigned long dma_attr;
 	uintptr_t raddr;
 	uint32_t flags;
-	int remote;
+	int type;		/* One of "fastrpc_buf_type" */
+	bool in_use;	/* Used only for persistent header buffers */
 };
 
 struct fastrpc_ctx_lst;
@@ -496,6 +505,14 @@ struct fastrpc_file {
 	struct fastrpc_ctx_lst clst;
 	struct fastrpc_session_ctx *sctx;
 	struct fastrpc_buf *init_mem;
+
+	/* No. of persistent headers */
+	unsigned int num_pers_hdrs;
+	/* Pre-allocated header buffer */
+	struct fastrpc_buf *pers_hdr_buf;
+	/* Pre-allocated buffer divided into N chunks */
+	struct fastrpc_buf *hdr_bufs;
+
 	struct fastrpc_session_ctx *secsctx;
 	uint32_t mode;
 	uint32_t profile;
@@ -608,6 +625,9 @@ static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
+static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
+				uint32_t flags, uintptr_t va, uint64_t phys,
+				size_t size, uintptr_t *raddr);
 
 static inline int64_t getnstimediff(struct timespec64 *start)
 {
@@ -710,17 +730,24 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 
 	if (!fl)
 		return;
+	if (buf->in_use) {
+		/* Don't free persistent header buf. Just mark as available */
+		spin_lock(&fl->hlock);
+		buf->in_use = false;
+		spin_unlock(&fl->hlock);
+		return;
+	}
 	if (cache && buf->size < MAX_CACHE_BUF_SIZE) {
 		spin_lock(&fl->hlock);
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
 		spin_unlock(&fl->hlock);
+		buf->type = -1;
 		return;
 	}
-	if (buf->remote) {
+	if (buf->type == USERHEAP_BUF) {
 		spin_lock(&fl->hlock);
 		hlist_del_init(&buf->hn_rem);
 		spin_unlock(&fl->hlock);
-		buf->remote = 0;
 		buf->raddr = 0;
 	}
 	if (!IS_ERR_OR_NULL(buf->virt)) {
@@ -1252,37 +1279,85 @@ bail:
 	return err;
 }
 
+static inline bool fastrpc_get_cached_buf(struct fastrpc_file *fl,
+		size_t size, int buf_type, struct fastrpc_buf **obuf)
+{
+	bool found = false;
+	struct fastrpc_buf *buf = NULL, *fr = NULL;
+	struct hlist_node *n = NULL;
+
+	if (buf_type == USERHEAP_BUF)
+		goto bail;
+
+	/* find the smallest buffer that fits in the cache */
+	spin_lock(&fl->hlock);
+	hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
+		if (buf->size >= size && (!fr || fr->size > buf->size))
+			fr = buf;
+	}
+	if (fr)
+		hlist_del_init(&fr->hn);
+	spin_unlock(&fl->hlock);
+	if (fr) {
+		fr->type = buf_type;
+		*obuf = fr;
+		found = true;
+	}
+bail:
+	return found;
+}
+
+static inline bool fastrpc_get_persistent_buf(struct fastrpc_file *fl,
+		size_t size, int buf_type, struct fastrpc_buf **obuf)
+{
+	unsigned int i = 0;
+	bool found = false;
+	struct fastrpc_buf *buf = NULL;
+
+	spin_lock(&fl->hlock);
+	if (!fl->num_pers_hdrs)
+		goto bail;
+
+	/*
+	 * Persistent header buffer can be used only if
+	 * metadata length is less than 1 page size.
+	 */
+	if (buf_type != METADATA_BUF || size > PAGE_SIZE)
+		goto bail;
+
+	for (i = 0; i < fl->num_pers_hdrs; i++) {
+		buf = &fl->hdr_bufs[i];
+		/* If buffer not in use, then assign it for requested alloc */
+		if (!buf->in_use) {
+			buf->in_use = true;
+			*obuf = buf;
+			found = true;
+			break;
+		}
+	}
+bail:
+	spin_unlock(&fl->hlock);
+	return found;
+}
+
 static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 			unsigned long dma_attr, uint32_t rflags,
-			int remote, struct fastrpc_buf **obuf)
+			int buf_type, struct fastrpc_buf **obuf)
 {
 	int err = 0, vmid;
-	struct fastrpc_buf *buf = NULL, *fr = NULL;
-	struct hlist_node *n;
+	struct fastrpc_buf *buf = NULL;
 
 	VERIFY(err, size > 0 && fl->sctx->smmu.dev);
 	if (err) {
 		err = (fl->sctx->smmu.dev == NULL) ? -ENODEV : err;
 		goto bail;
 	}
+	if (fastrpc_get_persistent_buf(fl, size, buf_type, obuf))
+		return err;
+	if (fastrpc_get_cached_buf(fl, size, buf_type, obuf))
+		return err;
 
-	if (!remote) {
-		/* find the smallest buffer that fits in the cache */
-		spin_lock(&fl->hlock);
-		hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
-			if (buf->size >= size && (!fr || fr->size > buf->size))
-				fr = buf;
-		}
-		if (fr)
-			hlist_del_init(&fr->hn);
-		spin_unlock(&fl->hlock);
-		if (fr) {
-			*obuf = fr;
-			return 0;
-		}
-	}
-
-	buf = NULL;
+	/* If unable to get persistent or cached buf, allocate new buffer */
 	VERIFY(err, NULL != (buf = kzalloc(sizeof(*buf), GFP_KERNEL)));
 	if (err) {
 		err = -ENOMEM;
@@ -1296,7 +1371,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	buf->dma_attr = dma_attr;
 	buf->flags = rflags;
 	buf->raddr = 0;
-	buf->remote = 0;
+	buf->type = buf_type;
 	buf->virt = dma_alloc_attrs(fl->sctx->smmu.dev, buf->size,
 						(dma_addr_t *)&buf->phys,
 						GFP_KERNEL, buf->dma_attr);
@@ -1338,12 +1413,11 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		}
 	}
 
-	if (remote) {
+	if (buf_type == USERHEAP_BUF) {
 		INIT_HLIST_NODE(&buf->hn_rem);
 		spin_lock(&fl->hlock);
 		hlist_add_head(&buf->hn_rem, &fl->remote_bufs);
 		spin_unlock(&fl->hlock);
-		buf->remote = remote;
 	}
 	*obuf = buf;
  bail:
@@ -1957,7 +2031,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			(sizeof(uint32_t) * M_CRCLIST) + sizeof(early_hint);
 
 	if (metalen) {
-		err = fastrpc_buf_alloc(ctx->fl, metalen, 0, 0, 0, &ctx->buf);
+		err = fastrpc_buf_alloc(ctx->fl, metalen, 0, 0,
+				METADATA_BUF, &ctx->buf);
 		if (err)
 			goto bail;
 		VERIFY(err, !IS_ERR_OR_NULL(ctx->buf->virt));
@@ -2008,7 +2083,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ctx->copybuf = ctx->buf;
 		rlen = totallen - metalen;
 	} else if (copylen) {
-		err = fastrpc_buf_alloc(ctx->fl, copylen, 0, 0, 0,
+		err = fastrpc_buf_alloc(ctx->fl, copylen, 0, 0, COPYDATA_BUF,
 				&ctx->copybuf);
 		if (err)
 			goto bail;
@@ -2804,12 +2879,81 @@ bail:
 	return err;
 }
 
+static int fastrpc_create_persistent_headers(struct fastrpc_file *fl,
+			uint32_t user_concurrency)
+{
+	int err = 0, i = 0;
+	uint64_t virtb = 0;
+	struct fastrpc_buf *pers_hdr_buf = NULL, *hdr_bufs = NULL, *buf = NULL;
+	unsigned int num_pers_hdrs = 0;
+	size_t hdr_buf_alloc_len = 0;
+
+	if (fl->pers_hdr_buf || !user_concurrency)
+		goto bail;
+
+	/*
+	 * Pre-allocate memory for persistent header buffers based
+	 * on concurrency info passed by user. Upper limit enforced.
+	 */
+	num_pers_hdrs = (user_concurrency > MAX_PERSISTENT_HEADERS) ?
+		MAX_PERSISTENT_HEADERS : user_concurrency;
+	hdr_buf_alloc_len = num_pers_hdrs*PAGE_SIZE;
+	err = fastrpc_buf_alloc(fl, hdr_buf_alloc_len, 0, 0,
+			METADATA_BUF, &pers_hdr_buf);
+	if (err)
+		goto bail;
+	virtb = ptr_to_uint64(pers_hdr_buf->virt);
+
+	/* Map entire buffer on remote subsystem in single RPC call */
+	err = fastrpc_mem_map_to_dsp(fl, -1, 0, ADSP_MMAP_PERSIST_HDR, 0,
+			pers_hdr_buf->phys, pers_hdr_buf->size,
+			&pers_hdr_buf->raddr);
+	if (err)
+		goto bail;
+
+	/* Divide and store as N chunks, each of 1 page size */
+	hdr_bufs = kcalloc(num_pers_hdrs, sizeof(struct fastrpc_buf),
+				GFP_KERNEL);
+	if (!hdr_bufs) {
+		err = -ENOMEM;
+		goto bail;
+	}
+	spin_lock(&fl->hlock);
+	fl->pers_hdr_buf = pers_hdr_buf;
+	fl->num_pers_hdrs = num_pers_hdrs;
+	fl->hdr_bufs = hdr_bufs;
+	for (i = 0; i < num_pers_hdrs; i++) {
+		buf = &fl->hdr_bufs[i];
+		buf->fl = fl;
+		buf->virt = uint64_to_ptr(virtb + (i*PAGE_SIZE));
+		buf->phys = pers_hdr_buf->phys + (i*PAGE_SIZE);
+		buf->size = PAGE_SIZE;
+		buf->dma_attr = pers_hdr_buf->dma_attr;
+		buf->flags = pers_hdr_buf->flags;
+		buf->type = pers_hdr_buf->type;
+		buf->in_use = false;
+	}
+	spin_unlock(&fl->hlock);
+bail:
+	if (err) {
+		fl->pers_hdr_buf = NULL;
+		fl->hdr_bufs = NULL;
+		fl->num_pers_hdrs = 0;
+		if (!IS_ERR_OR_NULL(pers_hdr_buf))
+			fastrpc_buf_free(pers_hdr_buf, 0);
+		if (!IS_ERR_OR_NULL(hdr_bufs))
+			kfree(hdr_bufs);
+	}
+	return err;
+}
+
 static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_invoke2 *inv2)
 {
 	union {
 		struct fastrpc_ioctl_invoke_async inv;
 		struct fastrpc_ioctl_async_response async_res;
+		uint32_t user_concurrency;
 	} p;
 	struct fastrpc_dsp_capabilities *dsp_cap_ptr = NULL;
 	uint32_t size = 0;
@@ -2853,6 +2997,18 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 		}
 		err = fastrpc_get_async_response(&p.async_res,
 						(void *)inv2->invparam, fl);
+		break;
+	case FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS:
+		if (inv2->size != sizeof(uint32_t)) {
+			err = -EBADE;
+			goto bail;
+		}
+		K_COPY_FROM_USER(err, 0, &p.user_concurrency,
+				(void *)inv2->invparam, size);
+		if (err)
+			goto bail;
+		err = fastrpc_create_persistent_headers(fl,
+				p.user_concurrency);
 		break;
 	default:
 		err = -ENOTTY;
@@ -3040,7 +3196,8 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	imem_dma_attr = DMA_ATTR_EXEC_MAPPING |
 					DMA_ATTR_DELAYED_UNMAP |
 					DMA_ATTR_NO_KERNEL_MAPPING;
-	err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
+	err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0,
+				INITMEM_BUF, &imem);
 	if (err)
 		goto bail;
 	fl->init_mem = imem;
@@ -4180,7 +4337,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		if (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)
 			dma_attr |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 		err = fastrpc_buf_alloc(fl, ud->size, dma_attr, ud->flags,
-								1, &rbuf);
+						USERHEAP_BUF, &rbuf);
 		if (err)
 			goto bail;
 		err = fastrpc_mmap_on_dsp(fl, ud->flags, 0,
@@ -4466,6 +4623,10 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		fastrpc_buf_free(fl->init_mem, 0);
 	fastrpc_context_list_dtor(fl);
 	fastrpc_cached_buf_list_free(fl);
+	if (!IS_ERR_OR_NULL(fl->hdr_bufs))
+		kfree(fl->hdr_bufs);
+	if (!IS_ERR_OR_NULL(fl->pers_hdr_buf))
+		fastrpc_buf_free(fl->pers_hdr_buf, 0);
 	mutex_lock(&fl->map_mutex);
 	do {
 		lmap = NULL;
