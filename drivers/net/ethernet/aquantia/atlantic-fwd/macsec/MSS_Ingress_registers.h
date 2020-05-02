@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Atlantic Network Driver
  *
- * Copyright (C) 2020 Marvell International Ltd.
+ * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,6 +12,7 @@
 #ifndef MSS_INGRESS_REGS_HEADER
 #define MSS_INGRESS_REGS_HEADER
 
+#define SEC_INGRESS_PACKET_EDIT_CTL_REGISTER_ADDR 0x00007035
 #define MSS_INGRESS_CTL_REGISTER_ADDR 0x0000800E
 #define MSS_INGRESS_LUT_ADDR_CTL_REGISTER_ADDR 0x00008080
 #define MSS_INGRESS_LUT_CTL_REGISTER_ADDR 0x00008081
