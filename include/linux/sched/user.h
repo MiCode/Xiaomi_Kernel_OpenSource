@@ -7,6 +7,7 @@
 #include <linux/percpu_counter.h>
 #include <linux/refcount.h>
 #include <linux/ratelimit.h>
+#include <linux/android_kabi.h>
 
 /*
  * Some day this will be a full-fledged user tracking system..
@@ -33,6 +34,9 @@ struct user_struct {
 
 	/* Miscellaneous per-user rate limit */
 	struct ratelimit_state ratelimit;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 extern int uids_sysfs_init(void);
