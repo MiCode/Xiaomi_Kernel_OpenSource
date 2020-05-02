@@ -26,6 +26,7 @@
 
 #if defined(__KERNEL__) || defined(__linux__)
 #include <linux/types.h>
+#include <linux/time.h>
 #else
 #include <sys/ioctl.h>
 #endif
