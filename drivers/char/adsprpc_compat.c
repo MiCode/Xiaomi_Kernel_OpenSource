@@ -36,7 +36,7 @@
 		_IOWR('R', 15, struct compat_fastrpc_ioctl_munmap_64)
 #define COMPAT_FASTRPC_IOCTL_GET_DSP_INFO \
 		_IOWR('R', 17, \
-			struct compat_fastrpc_ioctl_remote_dsp_capability)
+			struct compat_fastrpc_ioctl_capability)
 #define COMPAT_FASTRPC_IOCTL_INVOKE2 \
 			 _IOWR('R', 18, struct compat_fastrpc_ioctl_invoke2)
 
@@ -166,7 +166,7 @@ struct compat_fastrpc_ioctl_control {
 	};
 };
 
-struct compat_fastrpc_ioctl_remote_dsp_capability {
+struct compat_fastrpc_ioctl_capability {
 	/*
 	 * @param[in]: DSP domain ADSP_DOMAIN_ID,
 	 * SDSP_DOMAIN_ID, or CDSP_DOMAIN_ID
@@ -555,8 +555,8 @@ static int compat_get_fastrpc_ioctl_init(
 }
 
 static int compat_put_fastrpc_ioctl_get_dsp_info(
-	struct compat_fastrpc_ioctl_remote_dsp_capability __user *info32,
-	struct fastrpc_ioctl_remote_dsp_capability __user *info)
+	struct compat_fastrpc_ioctl_capability __user *info32,
+	struct fastrpc_ioctl_capability __user *info)
 {
 	compat_uint_t u;
 	int err = 0;
@@ -634,8 +634,8 @@ static int compat_fastrpc_getperf(struct file *filp,
 static int compat_fastrpc_get_dsp_info(struct file *filp,
 		unsigned long arg)
 {
-	struct compat_fastrpc_ioctl_remote_dsp_capability __user *info32;
-	struct fastrpc_ioctl_remote_dsp_capability *info;
+	struct compat_fastrpc_ioctl_capability __user *info32;
+	struct fastrpc_ioctl_capability *info;
 	compat_uint_t u;
 	long ret;
 	int err = 0;
