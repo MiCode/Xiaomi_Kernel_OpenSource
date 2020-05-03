@@ -38,19 +38,15 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&SLVR_OFF &SLVR_RAIL_OFF>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x20000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 
 				L3_0: l3-cache {
 				      compatible = "arm,arch-cache";
-				      cache-size = <0x200000>;
 				      cache-level = <3>;
 				};
 			};
@@ -63,13 +59,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&SLVR_OFF &SLVR_RAIL_OFF>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x20000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
@@ -82,13 +75,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&SLVR_OFF &SLVR_RAIL_OFF>;
 			next-level-cache = <&L2_2>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x20000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
@@ -101,13 +91,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&SLVR_OFF &SLVR_RAIL_OFF>;
 			next-level-cache = <&L2_3>;
 			L2_3: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x20000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
@@ -120,13 +107,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <520>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&GOLD_OFF &GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_4>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x40000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
@@ -139,13 +123,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <520>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&GOLD_OFF &GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_5>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x40000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
@@ -158,13 +139,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <520>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&GOLD_OFF &GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_6>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x40000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
@@ -177,13 +155,10 @@
 			enable-method = "psci";
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <552>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
 			cpu-idle-states = <&GOLD_OFF &GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_7>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
-			      cache-size = <0x80000>;
 			      cache-level = <2>;
 			      next-level-cache = <&L3_0>;
 			};
