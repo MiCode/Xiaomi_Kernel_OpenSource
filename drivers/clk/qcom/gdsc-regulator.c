@@ -321,18 +321,19 @@ static int gdsc_disable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
-	int i, ret = 0;
+	int i, ret = 0, parent_enabled;
 
 	if (rdev->supply) {
 		regulator_lock(rdev->supply->rdev);
-		ret = regulator_is_enabled(rdev->supply);
-		if (ret < 0) {
+		parent_enabled = regulator_is_enabled(rdev->supply);
+		if (parent_enabled < 0) {
+			ret = parent_enabled;
 			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
 				sc->rdesc.name, ret);
 			goto done;
 		}
 
-		if (!ret) {
+		if (!parent_enabled) {
 			dev_err(&rdev->dev, "%s cannot disable GDSC while parent is disabled\n",
 				sc->rdesc.name);
 			ret = -EIO;
