@@ -68,7 +68,7 @@ static void qrtr_haven_kick(struct qrtr_haven_dev *qdev)
 	hh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
 	int ret;
 
-	ret = hh_dbl_send(qdev->tx_dbl, &dbl_mask);
+	ret = hh_dbl_send(qdev->tx_dbl, &dbl_mask, HH_DBL_NONBLOCK);
 	if (ret)
 		dev_err(qdev->dev, "failed to raise doorbell %d\n", ret);
 }

@@ -68,7 +68,7 @@ static inline int channel_hh_kick(struct neuron_mq_data_priv *priv)
 	hh_dbl_flags_t dbl_mask = CH_DBL_MASK;
 	int ret;
 
-	ret = hh_dbl_send(priv->tx_dbl, &dbl_mask);
+	ret = hh_dbl_send(priv->tx_dbl, &dbl_mask, 0);
 	if (ret)
 		pr_err("failed to raise virq to the sender %d\n", ret);
 
@@ -217,6 +217,19 @@ static int read_config(struct neuron_mq_data_priv *priv)
 	return 0;
 }
 
+static void msgq_init(struct neuron_mq_data_priv *priv)
+{
+	struct neuron_shmem_channel_header *hdr = priv->base;
+	struct neuron_msg_queue *msgq = &priv->msgq;
+
+	msgq->headp = &hdr->head;
+	msgq->space_for_next_p = &hdr->space_for_next;
+	msgq->offset = (u32)-1;
+
+	/* Set it to -1 as UNINITIALIZED */
+	smp_store_release(msgq->headp, (u32)-1);
+}
+
 /* Thread to sync with the receiver. Note: this thread might never finishes if
  * it fails to sync with the peer.
  */
@@ -225,6 +238,7 @@ static int channel_sync_thread(void *data)
 	struct neuron_mq_data_priv *priv = (struct neuron_mq_data_priv *)data;
 	struct neuron_shmem_channel_header *hdr;
 
+	msgq_init(priv);
 	hdr = (struct neuron_shmem_channel_header *)priv->base;
 	hdr->version = CHANNEL_VERSION;
 	hdr->tail_offset = -1;
@@ -263,19 +277,6 @@ static int channel_sync_thread(void *data)
 	neuron_channel_wakeup(priv->dev);
 
 	return 0;
-}
-
-static void msgq_init(struct neuron_mq_data_priv *priv)
-{
-	struct neuron_shmem_channel_header *hdr = priv->base;
-	struct neuron_msg_queue *msgq = &priv->msgq;
-
-	msgq->headp = &hdr->head;
-	msgq->space_for_next_p = &hdr->space_for_next;
-	msgq->offset = (u32)-1;
-
-	/* Set it to -1 as UNINITIALIZED */
-	smp_store_release(msgq->headp, (u32)-1);
 }
 
 static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
@@ -367,7 +368,6 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 		goto fail_rx_dbl;
 	}
 
-	msgq_init(priv);
 	init_waitqueue_head(&priv->wait_q);
 	/* Start the thread for syncing with the receiver. */
 	priv->sync_thread = kthread_run(channel_sync_thread, priv,
