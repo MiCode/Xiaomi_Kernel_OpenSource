@@ -123,6 +123,8 @@ memory allocation over a PCIe bridge
 				0 (use scm call),
 				1 (override scm call as though it returned true), and
 				2 (override scm call as though it returned false)
+- qcom,ipa-gpi-event-rp-ddr: Boolean context flag to control whether GPI and GCI event
+                                rings read pointer should be read from the ddr.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
