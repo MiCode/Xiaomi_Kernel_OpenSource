@@ -176,7 +176,7 @@ enum gsi_evt_ring_elem_size {
  * @ring_len:        length of ring in bytes (must be integral multiple of
  *                   re_size)
  * @ring_base_addr:  physical base address of ring. Address must be aligned to
- *		     ring_len rounded to power of two
+ *                   ring_len rounded to power of two
  * @ring_base_vaddr: virtual base address of ring (set to NULL when not
  *                   applicable)
  * @int_modt:        cycles base interrupt moderation (32KHz clock)
@@ -186,6 +186,8 @@ enum gsi_evt_ring_elem_size {
  * @rp_update_addr:  physical address to which event read pointer should be
  *                   written on every event generation. must be set to 0 when
  *                   no update is desdired
+ * @rp_update_vaddr: virtual address of event ring read pointer (set to NULL
+ *                   when not applicable)
  * @exclusive:       if true, only one GSI channel can be associated with this
  *                   event ring. if false, the event ring can be shared among
  *                   multiple GSI channels but in that case no polling
@@ -196,6 +198,7 @@ enum gsi_evt_ring_elem_size {
  * @evchid:          the event ID that is being specifically requested (this is
  *                   relevant for MHI where doorbell routing requires ERs to be
  *                   physically contiguous)
+ * @gsi_read_event_ring_rp: function reads the value of the event ring RP.
  */
 struct gsi_evt_ring_props {
 	enum gsi_evt_chtype intf;
@@ -209,11 +212,14 @@ struct gsi_evt_ring_props {
 	uint32_t intvec;
 	uint64_t msi_addr;
 	uint64_t rp_update_addr;
+	void *rp_update_vaddr;
 	bool exclusive;
 	void (*err_cb)(struct gsi_evt_err_notify *notify);
 	void *user_data;
 	bool evchid_valid;
 	uint8_t evchid;
+	uint64_t (*gsi_read_event_ring_rp)(struct gsi_evt_ring_props *props,
+						uint8_t id, int ee);
 };
 
 enum gsi_chan_mode {
@@ -2036,6 +2042,5 @@ static inline void gsi_wdi3_write_evt_ring_db(
 static inline void gsi_wdi3_dump_register(unsigned long chan_hdl)
 {
 }
-
 #endif /* IS_ENABLED(CONFIG_GSI) */
 #endif
