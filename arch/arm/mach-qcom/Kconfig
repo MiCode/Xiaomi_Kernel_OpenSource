@@ -1,31 +1,64 @@
 # SPDX-License-Identifier: GPL-2.0-only
-menuconfig ARCH_QCOM
-	bool "Qualcomm Support"
-	depends on ARCH_MULTI_V7
-	select ARCH_SUPPORTS_BIG_ENDIAN
-	select ARM_GIC
-	select ARM_AMBA
-	select PINCTRL
-	select QCOM_SCM if SMP
-	help
-	  Support for Qualcomm's devicetree based systems.
 
 if ARCH_QCOM
+menu "QCOM SoC Type"
 
 config ARCH_MSM8X60
 	bool "Enable support for MSM8X60"
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
 	select CLKSRC_QCOM
+	select CLKSRC_OF
+	select COMMON_CLK
 
 config ARCH_MSM8960
 	bool "Enable support for MSM8960"
 	select CLKSRC_QCOM
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
+
 
 config ARCH_MSM8974
 	bool "Enable support for MSM8974"
 	select HAVE_ARM_ARCH_TIMER
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
 
 config ARCH_MDM9615
 	bool "Enable support for MDM9615"
 	select CLKSRC_QCOM
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select ARM_GIC
+	select ARM_AMBA
+	select QCOM_SCM if SMP
+	select CLKSRC_OF
+	select COMMON_CLK
 
+config ARCH_SDXLEMUR
+	bool "Enable support for SDXLEMUR"
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PCI
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	select GENERIC_CLOCKEVENTS_BROADCAST
+
+endmenu
 endif
