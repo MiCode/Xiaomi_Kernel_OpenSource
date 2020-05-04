@@ -39,6 +39,8 @@ struct bt_power_clk_data {
  */
 struct bluetooth_power_platform_data {
 	int bt_gpio_sys_rst;                   /* Bluetooth reset gpio */
+	int bt_gpio_sw_ctrl;                   /* Bluetooth sw_ctrl gpio */
+	int bt_gpio_debug;                     /* Bluetooth debug gpio */
 	struct device *slim_dev;
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
@@ -53,4 +55,10 @@ int btpower_get_chipset_version(void);
 #define BT_CMD_PWR_CTRL			0xbfad
 #define BT_CMD_CHIPSET_VERS		0xbfae
 #define BT_CMD_GET_CHIPSET_ID		0xbfaf
+#define BT_CMD_GETVAL_RESET_GPIO    0xbfb5
+#define BT_CMD_GETVAL_SW_CTRL_GPIO  0xbfb0
+#define BT_CMD_GETVAL_VDD_AON_LDO   0xbfb1
+#define BT_CMD_GETVAL_VDD_DIG_LDO   0xbfb2
+#define BT_CMD_GETVAL_VDD_RFA1_LDO  0xbfb3
+#define BT_CMD_GETVAL_VDD_RFA2_LDO  0xbfb4
 #endif /* __LINUX_BLUETOOTH_POWER_H */

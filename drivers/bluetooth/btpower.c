@@ -218,8 +218,9 @@ static int bt_configure_gpios(int on)
 {
 	int rc = 0;
 	int bt_reset_gpio = bt_power_pdata->bt_gpio_sys_rst;
-
-	pr_debug("%s: bt_gpio= %d on: %d\n", __func__, bt_reset_gpio, on);
+	int bt_sw_ctrl_gpio  =  bt_power_pdata->bt_gpio_sw_ctrl;
+	int bt_debug_gpio  =  bt_power_pdata->bt_gpio_debug;
+	int assert_dbg_gpio = 0;
 
 	if (on) {
 		rc = gpio_request(bt_reset_gpio, "bt_sys_rst_n");
@@ -235,16 +236,66 @@ static int bt_configure_gpios(int on)
 			return rc;
 		}
 		msleep(50);
+		pr_debug("BTON:Turn Bt Off bt-reset-gpio(%d) value(%d)\n",
+			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			pr_debug("BTON:Turn Bt Off\n");
+			pr_debug("bt-sw-ctrl-gpio(%d) value(%d)\n",
+				bt_sw_ctrl_gpio,
+				gpio_get_value(bt_sw_ctrl_gpio));
+		}
+
 		rc = gpio_direction_output(bt_reset_gpio, 1);
 		if (rc) {
 			pr_err("%s: Unable to set direction\n", __func__);
 			return rc;
 		}
 		msleep(50);
+		/*  Check  if  SW_CTRL  is  asserted  */
+		if  (bt_sw_ctrl_gpio  >=  0)  {
+			rc  =  gpio_direction_input(bt_sw_ctrl_gpio);
+			if  (rc)  {
+				pr_err("%s:SWCTRL Dir Set Problem:%d\n",
+					__func__, rc);
+			}  else  if  (!gpio_get_value(bt_sw_ctrl_gpio))  {
+				/* SW_CTRL not asserted, assert debug GPIO */
+				if  (bt_debug_gpio  >=  0)
+					assert_dbg_gpio = 1;
+			}
+		}
+		if (assert_dbg_gpio) {
+			rc  =  gpio_request(bt_debug_gpio, "bt_debug_n");
+			if  (rc)  {
+				pr_err("unable to request Debug Gpio\n");
+			}  else  {
+				rc = gpio_direction_output(bt_debug_gpio,  1);
+				if (rc)
+					pr_err("%s:Prob Set Debug-Gpio\n",
+						__func__);
+			}
+		}
+		pr_info("BTON:Turn Bt On bt-reset-gpio(%d) value(%d)\n",
+			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			pr_debug("BTON:Turn Bt On\n");
+			pr_debug("bt-sw-ctrl-gpio(%d) value(%d)\n",
+				bt_sw_ctrl_gpio,
+				gpio_get_value(bt_sw_ctrl_gpio));
+		}
 	} else {
 		gpio_set_value(bt_reset_gpio, 0);
 		msleep(100);
+		pr_debug("BT-OFF:bt-reset-gpio(%d) value(%d)\n",
+			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			pr_debug("BT-OFF:bt-sw-ctrl-gpio(%d) value(%d)\n",
+				bt_sw_ctrl_gpio,
+				gpio_get_value(bt_sw_ctrl_gpio));
+		}
 	}
+
+	pr_debug("%s: bt_gpio= %d on: %d\n", __func__, bt_reset_gpio, on);
+
 	return rc;
 }
 
@@ -287,6 +338,10 @@ static int bluetooth_power(int on)
 gpio_fail:
 		if (bt_power_pdata->bt_gpio_sys_rst > 0)
 			gpio_free(bt_power_pdata->bt_gpio_sys_rst);
+		if  (bt_power_pdata->bt_gpio_sw_ctrl  >  0)
+			gpio_free(bt_power_pdata->bt_gpio_sw_ctrl);
+		if  (bt_power_pdata->bt_gpio_debug  >  0)
+			gpio_free(bt_power_pdata->bt_gpio_debug);
 		if (bt_power_pdata->bt_chip_clk)
 			bt_clk_disable(bt_power_pdata->bt_chip_clk);
 clk_fail:
@@ -589,6 +644,18 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 			pr_err("%s: bt-reset-gpio not provided in device tree\n",
 				__func__);
 
+		bt_power_pdata->bt_gpio_sw_ctrl  =
+			of_get_named_gpio(pdev->dev.of_node,
+						"qca,bt-sw-ctrl-gpio",  0);
+		if (bt_power_pdata->bt_gpio_sw_ctrl < 0)
+			pr_err("bt-sw_ctrl-gpio not provided in devicetree\n");
+
+		bt_power_pdata->bt_gpio_debug  =
+			of_get_named_gpio(pdev->dev.of_node,
+						"qca,bt-debug-gpio",  0);
+		if (bt_power_pdata->bt_gpio_debug < 0)
+			pr_err("bt-debug-gpio not provided in devicetree\n");
+
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
 		if (rc < 0)
@@ -683,10 +750,45 @@ int btpower_get_chipset_version(void)
 }
 EXPORT_SYMBOL(btpower_get_chipset_version);
 
+static long get_resource_value(char *res_name)
+{
+	int ret = 0;
+	int i = 0;
+	long value = -1;
+	struct bt_power_vreg_data *vreg;
+
+	for (; i < BT_VREG_INFO_SIZE; i++) {
+		vreg = &bt_power_pdata->vreg_info[i];
+
+		if (!vreg->reg)
+			continue;
+		else {
+			if (strnstr(vreg->name, res_name,
+					strlen(vreg->name)))
+				break;
+		}
+	}
+	if (i < BT_VREG_INFO_SIZE) {
+		if (regulator_is_enabled(vreg->reg)) {
+			value = (int)regulator_get_voltage(vreg->reg);
+			pr_debug("%s:%s value(%d)\n",
+				__func__, res_name, value);
+			ret = value;
+		} else {
+			pr_err("%s:%s not configure/enabled\n",
+				__func__, res_name);
+			ret = -EINVAL;
+		}
+	}
+
+	return ret;
+}
+
 static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, pwr_cntrl = 0;
 	int chipset_version = 0;
+	long value = -1;
 
 	switch (cmd) {
 	case BT_CMD_SLIM_TEST:
@@ -718,8 +820,8 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case BT_CMD_CHIPSET_VERS:
 		chipset_version = (int)arg;
-		pr_err("%s: BT_CMD_CHIP_VERS soc_version:%x\n", __func__,
-		chipset_version);
+		pr_err("%s: unified Current SOC Version : %x\n", __func__,
+			chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
 		} else {
@@ -739,6 +841,44 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			pr_err("%s: compatible string not valid\n", __func__);
 			ret = -EINVAL;
 		}
+		break;
+	case BT_CMD_GETVAL_RESET_GPIO:
+		if (bt_power_pdata->bt_gpio_sys_rst > 0) {
+			value = (long)gpio_get_value(
+				bt_power_pdata->bt_gpio_sys_rst);
+			pr_debug("%s:GET_RESET_GPIO(%d) value(%d)\n",
+				bt_power_pdata->bt_gpio_sys_rst,
+				__func__, value);
+			ret = value;
+		} else {
+			pr_err("%s: RESET_GPIO not configured\n", __func__);
+			ret = -EINVAL;
+		}
+		break;
+	case BT_CMD_GETVAL_SW_CTRL_GPIO:
+		if (bt_power_pdata->bt_gpio_sw_ctrl > 0) {
+			value = (long)gpio_get_value(
+				bt_power_pdata->bt_gpio_sw_ctrl);
+			pr_debug("%s:GET_SWCTRL_GPIO(%d) value(%d)\n",
+				bt_power_pdata->bt_gpio_sw_ctrl,
+					__func__, value);
+			ret = value;
+		} else {
+			pr_err("%s:SW_CTRL_GPIO not configured\n", __func__);
+			ret = -EINVAL;
+		}
+		break;
+	case BT_CMD_GETVAL_VDD_AON_LDO:
+		ret = get_resource_value("vdd-aon");
+		break;
+	case BT_CMD_GETVAL_VDD_DIG_LDO:
+		ret = get_resource_value("vdd-dig");
+		break;
+	case BT_CMD_GETVAL_VDD_RFA1_LDO:
+		ret = get_resource_value("vdd-rfa1");
+		break;
+	case BT_CMD_GETVAL_VDD_RFA2_LDO:
+		ret = get_resource_value("vdd-rfa2");
 		break;
 	default:
 		return -ENOIOCTLCMD;
