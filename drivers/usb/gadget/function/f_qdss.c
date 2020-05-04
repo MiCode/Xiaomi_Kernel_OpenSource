@@ -1121,8 +1121,21 @@ static struct config_item_type qdss_func_type = {
 static void usb_qdss_free_inst(struct usb_function_instance *fi)
 {
 	struct usb_qdss_opts *opts;
+	struct usb_qdss_ch *ch;
+	unsigned long flags;
 
 	opts = container_of(fi, struct usb_qdss_opts, func_inst);
+	spin_lock_irqsave(&qdss_lock, flags);
+	list_for_each_entry(ch, &usb_qdss_ch_list, list) {
+		if (!strcmp(opts->channel_name, ch->name)) {
+			list_del(&ch->list);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&qdss_lock, flags);
+	kfree(opts->channel_name);
+	destroy_workqueue(opts->usb_qdss->wq);
 	kfree(opts->usb_qdss);
 	kfree(opts);
 }
