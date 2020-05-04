@@ -209,7 +209,8 @@ static int msm_cvp_session_process_hfi(
 		return -EINVAL;
 	}
 	pkt_type = in_pkt->pkt_data[1];
-	if (pkt_type == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS)
+	if (pkt_type == HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS ||
+		pkt_type == HFI_CMD_SESSION_CVP_SET_MODEL_BUFFERS)
 		rc = msm_cvp_map_user_persist(inst, in_pkt, offset, buf_num);
 	else if (pkt_type == HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS)
 		rc = msm_cvp_mark_user_persist(inst, in_pkt, offset, buf_num);
@@ -297,8 +298,10 @@ static int cvp_fence_dme(struct msm_cvp_inst *inst,
 	sq = &inst->session_queue_fence;
 	ktid = pkt->client_data.kdata;
 
-	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state))
+	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state)) {
+		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
 		goto exit;
+	}
 
 	rc = call_hfi_op(hdev, session_send, (void *)inst->session,
 			(struct cvp_kmd_hfi_packet *)pkt);
@@ -359,8 +362,10 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 	sq = &inst->session_queue_fence;
 	ktid = pkt->client_data.kdata;
 
-	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state))
+	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state)) {
+		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
 		goto exit;
+	}
 
 	rc = call_hfi_op(hdev, session_send, (void *)inst->session,
 			(struct cvp_kmd_hfi_packet *)pkt);
@@ -461,8 +466,8 @@ wait:
 	synx = (u32 *)f->synx;
 
 	ktid = pkt->client_data.kdata & (FENCE_BIT - 1);
-	dprintk(CVP_SYNX, "%s starts working on frame %llu frameID %llu\n",
-		current->comm, ktid, f->frame_id);
+	dprintk(CVP_SYNX, "%s on frame %llu frameID %llu ktid %llu\n",
+		current->comm, ktid, f->frame_id, ktid);
 
 	switch (f->type) {
 	case HFI_CMD_SESSION_CVP_DME_FRAME:
@@ -484,8 +489,8 @@ wait:
 	list_del_init(&f->list);
 	mutex_unlock(&q->lock);
 
-	dprintk(CVP_SYNX, "%s is done with frame %llu frameID %llu\n",
-		current->comm, ktid, f->frame_id);
+	dprintk(CVP_SYNX, "%s is done with frame %llu frameID %llu rc %d\n",
+		current->comm, ktid, f->frame_id, rc);
 
 	cvp_free_fence_data(f);
 
@@ -585,7 +590,8 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 	}
 
 
-	dprintk(CVP_SYNX, "%s: frameID %llu\n", __func__, f->frame_id);
+	dprintk(CVP_SYNX, "%s: frameID %llu ktid %llu\n",
+			__func__, f->frame_id, pkt->client_data.kdata);
 
 	memcpy(f->pkt, pkt, pkt->size);
 

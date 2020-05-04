@@ -9,6 +9,41 @@
 #include "msm_cvp_core.h"
 #include "msm_cvp_dsp.h"
 
+void cvp_dump_fence_queue(struct msm_cvp_inst *inst)
+{
+	struct cvp_fence_queue *q;
+	struct cvp_fence_command *f;
+	struct synx_session ssid;
+	int i;
+
+	q = &inst->fence_cmd_queue;
+	ssid = inst->synx_session_id;
+	mutex_lock(&q->lock);
+	dprintk(CVP_WARN, "inst %x fence q mode %d, ssid %d\n",
+			hash32_ptr(inst->session), q->mode, ssid.client_id);
+
+	dprintk(CVP_WARN, "fence cmdq wait list:\n");
+	list_for_each_entry(f, &q->wait_list, list) {
+		dprintk(CVP_WARN, "frame pkt type 0x%x\n", f->pkt->packet_type);
+		for (i = 0; i < f->output_index; i++)
+			dprintk(CVP_WARN, "idx %d client hdl %d, state %d\n",
+				i, f->synx[i],
+				synx_get_status(ssid, f->synx[i]));
+
+	}
+
+	dprintk(CVP_WARN, "fence cmdq schedule list:\n");
+	list_for_each_entry(f, &q->sched_list, list) {
+		dprintk(CVP_WARN, "frame pkt type 0x%x\n", f->pkt->packet_type);
+		for (i = 0; i < f->output_index; i++)
+			dprintk(CVP_WARN, "idx %d client hdl %d, state %d\n",
+				i, f->synx[i],
+				synx_get_status(ssid, f->synx[i]));
+
+	}
+	mutex_unlock(&q->lock);
+}
+
 static int cvp_import_synx_deprecate(struct msm_cvp_inst *inst, u32 type,
 		u32 *fence, u32 *synx)
 {
