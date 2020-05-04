@@ -66,6 +66,8 @@ struct adreno_a6xx_core {
 	const struct a6xx_protected_regs *protected_regs;
 	/** @disable_tseskip: True if TSESkip logic is disabled */
 	bool disable_tseskip;
+	/** @gx_cpr_toggle: True to toggle GX CPR FSM to avoid CPR stalls */
+	bool gx_cpr_toggle;
 	/** @highest_bank_bit: The bit of the highest DDR bank */
 	u32 highest_bank_bit;
 };
