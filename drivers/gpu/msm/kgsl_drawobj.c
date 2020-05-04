@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -28,11 +28,10 @@
 #include "kgsl_trace.h"
 
 /*
- * Define an kmem cache for the memobj & sparseobj structures since we
+ * Define an kmem cache for the memobj structures since we
  * allocate and free them so frequently
  */
 static struct kmem_cache *memobjs_cache;
-static struct kmem_cache *sparseobjs_cache;
 
 static void free_fence_names(struct kgsl_drawobj_sync *syncobj)
 {
@@ -64,9 +63,6 @@ void kgsl_drawobj_destroy_object(struct kref *kref)
 	case CMDOBJ_TYPE:
 	case MARKEROBJ_TYPE:
 		kfree(CMDOBJ(drawobj));
-		break;
-	case SPARSEOBJ_TYPE:
-		kfree(SPARSEOBJ(drawobj));
 		break;
 	}
 }
@@ -224,18 +220,6 @@ static void drawobj_sync_func(struct kgsl_device *device,
 	kgsl_drawobj_put(&event->syncobj->base);
 }
 
-static void drawobj_destroy_sparse(struct kgsl_drawobj *drawobj)
-{
-	struct kgsl_sparseobj_node *mem, *tmpmem;
-	struct list_head *list = &SPARSEOBJ(drawobj)->sparselist;
-
-	/* Free the sparse mem here */
-	list_for_each_entry_safe(mem, tmpmem, list, node) {
-		list_del_init(&mem->node);
-		kmem_cache_free(sparseobjs_cache, mem);
-	}
-}
-
 static void drawobj_destroy_sync(struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_drawobj_sync *syncobj = SYNCOBJ(drawobj);
@@ -330,8 +314,6 @@ void kgsl_drawobj_destroy(struct kgsl_drawobj *drawobj)
 		drawobj_destroy_sync(drawobj);
 	else if (drawobj->type & (CMDOBJ_TYPE | MARKEROBJ_TYPE))
 		drawobj_destroy_cmd(drawobj);
-	else if (drawobj->type == SPARSEOBJ_TYPE)
-		drawobj_destroy_sparse(drawobj);
 	else
 		return;
 
@@ -696,27 +678,6 @@ static void *_drawobj_create(struct kgsl_device *device,
 }
 
 /**
- * kgsl_drawobj_sparse_create() - Create a new sparse obj structure
- * @device: Pointer to a KGSL device struct
- * @context: Pointer to a KGSL context struct
- * @flags: Flags for the sparse obj
- *
- * Allocate an new kgsl_drawobj_sparse structure
- */
-struct kgsl_drawobj_sparse *kgsl_drawobj_sparse_create(
-		struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int flags)
-{
-	struct kgsl_drawobj_sparse *sparseobj = _drawobj_create(device,
-		context, sizeof(*sparseobj), SPARSEOBJ_TYPE);
-
-	if (!IS_ERR(sparseobj))
-		INIT_LIST_HEAD(&sparseobj->sparselist);
-
-	return sparseobj;
-}
-
-/**
  * kgsl_drawobj_sync_create() - Create a new sync obj
  * structure
  * @device: Pointer to a KGSL device struct
@@ -951,62 +912,6 @@ static int kgsl_drawobj_add_memobject(struct list_head *head,
 	return 0;
 }
 
-static int kgsl_drawobj_add_sparseobject(struct list_head *head,
-		struct kgsl_sparse_binding_object *obj, unsigned int virt_id)
-{
-	struct kgsl_sparseobj_node *mem;
-
-	mem = kmem_cache_alloc(sparseobjs_cache, GFP_KERNEL);
-	if (mem == NULL)
-		return -ENOMEM;
-
-	mem->virt_id = virt_id;
-	mem->obj.id = obj->id;
-	mem->obj.virtoffset = obj->virtoffset;
-	mem->obj.physoffset = obj->physoffset;
-	mem->obj.size = obj->size;
-	mem->obj.flags = obj->flags;
-
-	list_add_tail(&mem->node, head);
-	return 0;
-}
-
-int kgsl_drawobj_sparse_add_sparselist(struct kgsl_device *device,
-		struct kgsl_drawobj_sparse *sparseobj, unsigned int id,
-		void __user *ptr, unsigned int size, unsigned int count)
-{
-	struct kgsl_sparse_binding_object obj;
-	int i, ret = 0;
-
-	ret = _verify_input_list(count, ptr, size);
-	if (ret <= 0)
-		return ret;
-
-	for (i = 0; i < count; i++) {
-		memset(&obj, 0, sizeof(obj));
-
-		ret = kgsl_copy_from_user(&obj, ptr, sizeof(obj), size);
-		if (ret)
-			return ret;
-
-		if (!(obj.flags & (KGSL_SPARSE_BIND | KGSL_SPARSE_UNBIND)))
-			return -EINVAL;
-
-		ret = kgsl_drawobj_add_sparseobject(&sparseobj->sparselist,
-			&obj, id);
-		if (ret)
-			return ret;
-
-		ptr += sizeof(obj);
-	}
-
-	sparseobj->size = size;
-	sparseobj->count = count;
-
-	return 0;
-}
-
-
 #define CMDLIST_FLAGS \
 	(KGSL_CMDLIST_IB | \
 	 KGSL_CMDLIST_CTXTSWITCH_PREAMBLE | \
@@ -1147,15 +1052,13 @@ int kgsl_drawobj_sync_add_synclist(struct kgsl_device *device,
 void kgsl_drawobjs_cache_exit(void)
 {
 	kmem_cache_destroy(memobjs_cache);
-	kmem_cache_destroy(sparseobjs_cache);
 }
 
 int kgsl_drawobjs_cache_init(void)
 {
 	memobjs_cache = KMEM_CACHE(kgsl_memobj_node, 0);
-	sparseobjs_cache = KMEM_CACHE(kgsl_sparseobj_node, 0);
 
-	if (!memobjs_cache || !sparseobjs_cache)
+	if (!memobjs_cache)
 		return -ENOMEM;
 
 	return 0;
