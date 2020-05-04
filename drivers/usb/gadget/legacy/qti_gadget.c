@@ -44,6 +44,7 @@ struct qti_usb_gadget {
 	const char *composition_funcs;
 	bool enabled;
 	struct device *dev;
+	struct device_node *cfg_node;
 };
 
 extern char *saved_command_line;
@@ -348,7 +349,7 @@ static int qti_usb_config_add(struct qti_usb_gadget *gadget,
 				  const char *name, u8 num)
 {
 	struct qti_usb_config *qcfg;
-	int ret = 0;
+	int ret = 0, val = 0;
 
 	qcfg = kzalloc(sizeof(*qcfg), GFP_KERNEL);
 	if (!qcfg)
@@ -362,6 +363,11 @@ static int qti_usb_config_add(struct qti_usb_gadget *gadget,
 	qcfg->c.bConfigurationValue = num;
 	qcfg->c.bmAttributes = USB_CONFIG_ATT_ONE;
 	qcfg->c.MaxPower = CONFIG_USB_GADGET_VBUS_DRAW;
+
+	ret = of_property_read_u32(gadget->cfg_node, "qcom,bmAttributes", &val);
+	if (!ret)
+		qcfg->c.bmAttributes = (u8)val;
+
 	INIT_LIST_HEAD(&qcfg->func_list);
 	INIT_LIST_HEAD(&qcfg->qti_funcs);
 
@@ -535,6 +541,8 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 		if (val == pid) {
 			of_property_read_string(child, "qcom,composition",
 					&gadget->composition_funcs);
+
+			gadget->cfg_node = child;
 			break;
 		}
 	}
