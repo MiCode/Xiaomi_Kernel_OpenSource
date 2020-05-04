@@ -552,18 +552,19 @@ static inline void kgsl_schedule_work(struct work_struct *work)
 	queue_work(kgsl_driver.workqueue, work);
 }
 
-static inline int
+static inline struct kgsl_mem_entry *
 kgsl_mem_entry_get(struct kgsl_mem_entry *entry)
 {
-	if (entry)
-		return kref_get_unless_zero(&entry->refcount);
-	return 0;
+	if (!IS_ERR_OR_NULL(entry) && kref_get_unless_zero(&entry->refcount))
+		return entry;
+
+	return NULL;
 }
 
 static inline void
 kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 {
-	if (entry)
+	if (!IS_ERR_OR_NULL(entry))
 		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
 
