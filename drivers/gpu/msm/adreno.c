@@ -1429,6 +1429,9 @@ static int adreno_probe(struct platform_device *pdev)
 	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
 
+	if (adreno_is_a6xx(adreno_dev))
+		device->mmu.features |= KGSL_MMU_SMMU_APERTURE;
+
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
 	status = kgsl_device_platform_probe(device);

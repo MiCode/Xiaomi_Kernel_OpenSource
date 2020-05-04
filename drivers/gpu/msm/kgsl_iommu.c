@@ -1203,8 +1203,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) &&
-		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
+	if (kgsl_mmu_is_perprocess(mmu) && MMU_FEATURE(mmu,
+				KGSL_MMU_SMMU_APERTURE)) {
 		struct scm_desc desc = {0};
 
 		desc.args[0] = 0xFFFF0000 | ((CP_APERTURE_REG & 0xff) << 8) |
