@@ -330,6 +330,31 @@
 	status= "ok";
 };
 
+&ufs2phy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+	vdda-phy-supply = <&pm8195_3_l5>;
+	vdda-pll-supply = <&pm8195_1_l9>;
+	vdda-phy-max-microamp = <138000>;
+	vdda-pll-max-microamp = <65100>;
+
+	status = "ok";
+};
+
+&ufshc2_mem {
+	vdd-hba-supply = <&ufs_card_2_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8195_1_l17>;
+	vcc-voltage-level = <2894000 2904000>;
+	vcc-low-voltage-sup;
+	vccq-supply = <&pm8195_2_l5>;
+	vccq2-supply = <&pm8195_s4>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	status= "ok";
+};
+
 &usb2_phy0 {
 	vdd-supply = <&pm8195_3_l5>;
 	vdda18-supply = <&pm8195_1_l12>;
