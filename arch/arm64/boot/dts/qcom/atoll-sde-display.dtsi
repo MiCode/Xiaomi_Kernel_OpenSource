@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,7 +152,9 @@
 		qcom,dsi-phy-num = <0>;
 
 		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
-					"cphy_byte_clk0", "cphy_pixel_clk0";
+					"cphy_byte_clk0", "cphy_pixel_clk0",
+					"shadow_cphybyte_clk0",
+					"shadow_cphypixel_clk0";
 		qcom,dsi-panel = <&dsi_nt36672c_video>;
 	};
 
@@ -169,11 +171,14 @@
 			<&mdss_dsi0_pll CPHY_BYTECLK_SRC_0_CLK>,
 			<&mdss_dsi0_pll CPHY_PCLK_SRC_0_CLK>,
 			 <&mdss_dsi0_pll SHADOW_BYTECLK_SRC_0_CLK>,
-			 <&mdss_dsi0_pll SHADOW_PCLK_SRC_0_CLK>;
+			 <&mdss_dsi0_pll SHADOW_PCLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll SHADOW_CPHY_BYTECLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll SHADOW_CPHY_PCLK_SRC_0_CLK>;
 		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
 				"src_byte_clk0", "src_pixel_clk0",
 				"cphy_byte_clk0", "cphy_pixel_clk0",
-				"shadow_byte_clk0", "shadow_pixel_clk0";
+				"shadow_byte_clk0", "shadow_pixel_clk0",
+				"shadow_cphybyte_clk0", "shadow_cphypixel_clk0";
 
 		pinctrl-names = "panel_active", "panel_suspend";
 		pinctrl-0 = <&sde_te_active &disp_pins_default>;
@@ -363,6 +368,10 @@
 	qcom,dsi-supported-dfps-list = <60 90 50>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-skip-timing-update;
+	qcom,dsi-dyn-clk-list =
+		<1052068500 1047684883 1043301259 1038917642 1034534025>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 23 09 09 26 24 09
