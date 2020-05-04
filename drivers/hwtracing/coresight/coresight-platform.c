@@ -68,6 +68,13 @@ static void of_coresight_get_ports_legacy(const struct device_node *node,
 {
 	struct device_node *ep = NULL;
 	int in = 0, out = 0;
+	struct device_node *ports = NULL, *port = NULL;
+
+	ports = of_get_child_by_name(node, "ports");
+	port = of_get_child_by_name(node, "port");
+
+	if (!ports && !port)
+		return;
 
 	do {
 		ep = of_graph_get_next_endpoint(node, ep);
