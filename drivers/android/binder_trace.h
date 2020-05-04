@@ -119,6 +119,17 @@ TRACE_EVENT(binder_wait_for_work,
 		  __entry->thread_todo)
 );
 
+DECLARE_TRACE(binder_txn_latency_alloc,
+	TP_PROTO(struct binder_transaction *t),
+	TP_ARGS(t)
+);
+
+DECLARE_TRACE(binder_txn_latency_info,
+	TP_PROTO(struct seq_file *m,
+		 struct binder_transaction *t),
+	TP_ARGS(m, t)
+);
+
 TRACE_EVENT(binder_txn_latency_free,
 	TP_PROTO(struct binder_transaction *t,
 		 int from_proc, int from_thread,
@@ -132,6 +143,8 @@ TRACE_EVENT(binder_txn_latency_free,
 		__field(int, to_thread)
 		__field(unsigned int, code)
 		__field(unsigned int, flags)
+		__field(unsigned long, start_sec)
+		__field(unsigned long, start_nsec)
 	),
 	TP_fast_assign(
 		__entry->debug_id = t->debug_id;
@@ -141,11 +154,18 @@ TRACE_EVENT(binder_txn_latency_free,
 		__entry->to_thread = to_thread;
 		__entry->code = t->code;
 		__entry->flags = t->flags;
+#if IS_ENABLED(CONFIG_BINDER_TRANSACTION_LATENCY_TRACKING)
+		__entry->start_sec = t->timestamp.tv_sec;
+		__entry->start_nsec = t->timestamp.tv_nsec / NSEC_PER_MSEC;
+#else
+		__entry->start_sec = 0;
+		__entry->start_nsec = 0;
+#endif
 	),
-	TP_printk("transaction=%d from %d:%d to %d:%d flags=0x%x code=0x%x",
+	TP_printk("transaction=%d from %d:%d to %d:%d flags=0x%x code=0x%x start %lu.%03ld",
 		  __entry->debug_id, __entry->from_proc, __entry->from_thread,
 		  __entry->to_proc, __entry->to_thread, __entry->code,
-		  __entry->flags)
+		  __entry->flags, __entry->start_sec, __entry->start_nsec)
 );
 
 TRACE_EVENT(binder_transaction,
