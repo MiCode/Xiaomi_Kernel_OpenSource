@@ -130,6 +130,7 @@
 
 };
 
+#include "sdm429-bus.dtsi"
 #include "sdm429-pinctrl.dtsi"
 #include "sdm429-cpu.dtsi"
 #include "sdm429-ion.dtsi"
