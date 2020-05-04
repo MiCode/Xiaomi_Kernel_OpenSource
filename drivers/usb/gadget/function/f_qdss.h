@@ -54,6 +54,7 @@ struct f_qdss {
 
 	/* for mdm channel SW path */
 	struct list_head data_write_pool;
+	struct list_head queued_data_pool;
 
 	struct work_struct connect_w;
 	struct work_struct disconnect_w;
@@ -62,6 +63,7 @@ struct f_qdss {
 	unsigned int ctrl_in_enabled:1;
 	unsigned int ctrl_out_enabled:1;
 	struct workqueue_struct *wq;
+	bool qdss_close;
 };
 
 struct usb_qdss_opts {
