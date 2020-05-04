@@ -621,7 +621,7 @@ static int msm_otg_phy_clk_reset(struct msm_otg *motg)
 {
 	int ret;
 
-	if (!motg->phy_reset_clk)
+	if (!motg->phy_reset_clk && !motg->phy_reset)
 		return 0;
 
 	if (motg->sleep_clk)
@@ -823,7 +823,7 @@ static void msm_usb_phy_reset(struct msm_otg *motg)
 				motg->phy_csr_regs + QUSB2PHY_PORT_POWERDOWN);
 		break;
 	case SNPS_FEMTO_PHY:
-		if (!motg->phy_por_clk) {
+		if (!motg->phy_por_clk && !motg->phy_por_reset) {
 			pr_err("phy_por_clk missing\n");
 			break;
 		}
