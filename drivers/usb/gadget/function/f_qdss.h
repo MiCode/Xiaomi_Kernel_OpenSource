@@ -7,6 +7,7 @@
 #define _F_QDSS_H
 
 #include <linux/kernel.h>
+#include <linux/ipc_logging.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/composite.h>
@@ -64,6 +65,20 @@ struct f_qdss {
 	struct workqueue_struct *wq;
 	bool qdss_close;
 };
+
+static void *_qdss_ipc_log;
+
+#define NUM_PAGES	10 /* # of pages for ipc logging */
+
+#ifdef CONFIG_DYNAMIC_DEBUG
+#define qdss_log(fmt, ...) do { \
+	ipc_log_string(_qdss_ipc_log, "%s: " fmt,  __func__, ##__VA_ARGS__); \
+	dynamic_pr_debug("%s: " fmt, __func__, ##__VA_ARGS__); \
+} while (0)
+#else
+#define qdss_log(fmt, ...) \
+	ipc_log_string(_qdss_ipc_log, "%s: " fmt,  __func__, ##__VA_ARGS__)
+#endif
 
 struct usb_qdss_opts {
 	struct usb_function_instance func_inst;
