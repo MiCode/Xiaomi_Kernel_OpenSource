@@ -3,7 +3,7 @@
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
-#define pr_fmt(fmt) "haven: "
+#define pr_fmt(fmt) "haven: " fmt
 
 #include <linux/arm-smccc.h>
 #include <linux/debugfs.h>
@@ -120,6 +120,7 @@ static int hh_dbgfs_trace_class_clear(void *data, u64 val)
 
 static int hh_dbgfs_trace_class_get(void *data, u64 *val)
 {
+	*val = 0;
 	return hh_remap_error(hh_hcall_trace_update_class_flags(0, 0, val));
 }
 
@@ -211,3 +212,6 @@ static void __exit hh_ctrl_exit(void)
 	hh_dbgfs_unregister();
 }
 module_exit(hh_ctrl_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Haven Hypervisor Control Driver");
