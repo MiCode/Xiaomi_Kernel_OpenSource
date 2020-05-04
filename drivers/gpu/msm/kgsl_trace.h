@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_KGSL_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -1053,101 +1053,6 @@ TRACE_EVENT(kgsl_msg,
 		"%s", __get_str(msg)
 	)
 );
-
-DECLARE_EVENT_CLASS(sparse_alloc_template,
-	TP_PROTO(unsigned int id, uint64_t size, unsigned int pagesize),
-	TP_ARGS(id, size, pagesize),
-	TP_STRUCT__entry(
-		__field(unsigned int, id)
-		__field(uint64_t, size)
-		__field(unsigned int, pagesize)
-	),
-	TP_fast_assign(
-		__entry->id = id;
-		__entry->size = size;
-		__entry->pagesize = pagesize;
-	),
-	TP_printk("id=%d size=0x%llX pagesize=0x%X",
-		__entry->id, __entry->size, __entry->pagesize)
-);
-
-DEFINE_EVENT(sparse_alloc_template, sparse_phys_alloc,
-	TP_PROTO(unsigned int id, uint64_t size, unsigned int pagesize),
-	TP_ARGS(id, size, pagesize)
-);
-
-DEFINE_EVENT(sparse_alloc_template, sparse_virt_alloc,
-	TP_PROTO(unsigned int id, uint64_t size, unsigned int pagesize),
-	TP_ARGS(id, size, pagesize)
-);
-
-DECLARE_EVENT_CLASS(sparse_free_template,
-	TP_PROTO(unsigned int id),
-	TP_ARGS(id),
-	TP_STRUCT__entry(
-		__field(unsigned int, id)
-	),
-	TP_fast_assign(
-		__entry->id = id;
-	),
-	TP_printk("id=%d", __entry->id)
-);
-
-DEFINE_EVENT(sparse_free_template, sparse_phys_free,
-	TP_PROTO(unsigned int id),
-	TP_ARGS(id)
-);
-
-DEFINE_EVENT(sparse_free_template, sparse_virt_free,
-	TP_PROTO(unsigned int id),
-	TP_ARGS(id)
-);
-
-TRACE_EVENT(sparse_bind,
-	TP_PROTO(unsigned int v_id, uint64_t v_off,
-		unsigned int p_id, uint64_t p_off,
-		uint64_t size, uint64_t flags),
-	TP_ARGS(v_id, v_off, p_id, p_off, size, flags),
-	TP_STRUCT__entry(
-		__field(unsigned int, v_id)
-		__field(uint64_t, v_off)
-		__field(unsigned int, p_id)
-		__field(uint64_t, p_off)
-		__field(uint64_t, size)
-		__field(uint64_t, flags)
-	),
-	TP_fast_assign(
-		__entry->v_id = v_id;
-		__entry->v_off = v_off;
-		__entry->p_id = p_id;
-		__entry->p_off = p_off;
-		__entry->size = size;
-		__entry->flags = flags;
-	),
-	TP_printk(
-	"v_id=%d v_off=0x%llX p_id=%d p_off=0x%llX size=0x%llX flags=0x%llX",
-		__entry->v_id, __entry->v_off,
-		__entry->p_id, __entry->p_off,
-		__entry->size, __entry->flags)
-);
-
-TRACE_EVENT(sparse_unbind,
-	TP_PROTO(unsigned int v_id, uint64_t v_off, uint64_t size),
-	TP_ARGS(v_id, v_off, size),
-	TP_STRUCT__entry(
-		__field(unsigned int, v_id)
-		__field(uint64_t, v_off)
-		__field(uint64_t, size)
-	),
-	TP_fast_assign(
-		__entry->v_id = v_id;
-		__entry->v_off = v_off;
-		__entry->size = size;
-	),
-	TP_printk("v_id=%d v_off=0x%llX size=0x%llX",
-		__entry->v_id, __entry->v_off, __entry->size)
-);
-
 
 TRACE_EVENT(kgsl_clock_throttling,
 	TP_PROTO(
