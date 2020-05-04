@@ -92,3 +92,14 @@ obj-$(CONFIG_COMMON_CLK_MT8192_VDECSYS_SOC) += clk-mt8192-vdec_soc.o
 obj-$(CONFIG_COMMON_CLK_MT8192_VENCSYS) += clk-mt8192-venc.o
 obj-$(CONFIG_COMMON_CLK_MT8516) += clk-mt8516.o
 obj-$(CONFIG_COMMON_CLK_MT8516_AUDSYS) += clk-mt8516-aud.o
+obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o
+fhctl-y += clk-fhctl.o
+fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_DEBUG) += clk-fhctl-debug.o
+ifneq ($(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS),y)
+fhctl-y += clk-fhctl-ap.o
+else
+fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_SSPM) += clk-fhctl-sspm.o
+fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_MCUPM) += clk-fhctl-mcupm.o
+endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/

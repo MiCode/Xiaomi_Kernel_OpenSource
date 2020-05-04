@@ -707,4 +707,51 @@ config COMMON_CLK_MT8516_AUDSYS
 	help
 	  This driver supports MediaTek MT8516 audsys clocks.
 
+config COMMON_CLK_MTK_FREQ_HOPPING
+	tristate "Mediatek Frequency Hopping driver"
+	help
+	  FREQHOPPING driver support for MediaTek SOC
+	  If you want to use MediaTek FREQHOPPING driver,
+	  say Y or M here.
+	  If unsure, say N.
+
+config COMMON_CLK_MTK_FREQ_HOPPING_DEBUG
+	bool "Mediatek Frequency Hopping debug fs"
+	depends on DEBUG_FS && COMMON_CLK_MTK_FREQ_HOPPING
+	help
+	  This option is for debugging purpose
+	  say Y to use debugfs interface to control
+	  Freqhopping.
+	  Otherwise, say N
+
+config COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+	bool "Mediatek Frequency Hopping controlled by subsys"
+	help
+	  If FREQHOPPING HW is controlled by other processor,
+	  such as SSPM, this should be set.
+	  This option is selected when subsys configure is enabled.
+	  When this option is not enabled, FREQHOPPING HW is controlled
+	  by kernel driver directly.
+
+config COMMON_CLK_MTK_FREQ_HOPPING_SSPM
+	bool "Mediatek Frequency Hopping controlled by SSPM"
+	depends on COMMON_CLK_MTK_FREQ_HOPPING && MTK_TINYSYS_SSPM_SUPPORT
+	select COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+	help
+	  If FREQHOPPING HW is controlled by SSPM,
+	  say Y here.
+	  Otherwise, say N.
+	  Enabling this config will auto set COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+
+config COMMON_CLK_MTK_FREQ_HOPPING_MCUPM
+	bool "Mediatek Frequency Hopping controlled by MCUPM"
+	depends on COMMON_CLK_MTK_FREQ_HOPPING && MTK_TINYSYS_MCUPM_SUPPORT
+	select COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+	help
+	  If FREQHOPPING HW is controlled by MCUPM,
+	  say Y here.
+	  Otherwise, say N.
+	  Enabling this config will auto set COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+
+
 endmenu
