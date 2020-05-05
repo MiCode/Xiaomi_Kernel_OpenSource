@@ -266,6 +266,7 @@ enum {
 #define THERMREG_DISABLED_BIT			BIT(0)
 
 #define DIE_TEMP_STATUS_REG			(MISC_BASE + 0x09)
+#define DIE_TEMP_MASK				GENMASK(3, 0)
 #define DIE_TEMP_SHDN_BIT			BIT(3)
 #define DIE_TEMP_RST_BIT			BIT(2)
 #define DIE_TEMP_UB_BIT				BIT(1)

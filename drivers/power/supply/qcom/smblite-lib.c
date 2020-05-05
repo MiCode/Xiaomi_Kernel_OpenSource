@@ -2892,23 +2892,23 @@ static void smblite_lib_thermal_regulation_work(struct work_struct *work)
 	}
 
 	if (stat & DIE_TEMP_UB_BIT) {
-		icl_ua = get_effective_result(chg->usb_icl_votable)
-				- THERM_REGULATION_STEP_UA;
-
-		/* Decrement ICL by one step */
-		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
-				true, icl_ua - THERM_REGULATION_STEP_UA);
-
 		/* Check if we reached minimum ICL limit */
 		if (icl_ua < USBIN_500UA + THERM_REGULATION_STEP_UA)
 			goto exit;
 
+		/* Decrement ICL by one step */
+		icl_ua -= THERM_REGULATION_STEP_UA;
+		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
+				true, icl_ua);
+
 		goto reschedule;
 	}
 
-	if (stat & DIE_TEMP_LB_BIT) {
+	/* check if DIE_TEMP is below LB */
+	if (!(stat & DIE_TEMP_MASK)) {
+		icl_ua += THERM_REGULATION_STEP_UA;
 		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
-				true, icl_ua + THERM_REGULATION_STEP_UA);
+				true, icl_ua);
 
 		/*
 		 * Check if we need further increments:
