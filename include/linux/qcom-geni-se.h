@@ -330,6 +330,7 @@ struct se_geni_rsc {
 #define TX_EOT			(BIT(1))
 #define TX_SBE			(BIT(2))
 #define TX_RESET_DONE		(BIT(3))
+#define TX_GENI_CANCEL_IRQ	(BIT(14))
 
 /* SE_DMA_RX_IRQ_STAT Register fields */
 #define RX_DMA_DONE		(BIT(0))
@@ -338,8 +339,14 @@ struct se_geni_rsc {
 #define RX_RESET_DONE		(BIT(3))
 #define RX_FLUSH_DONE		(BIT(4))
 #define RX_GENI_GP_IRQ		(GENMASK(10, 5))
-#define RX_GENI_CANCEL_IRQ	(BIT(11))
+#define RX_GENI_CANCEL_IRQ	(BIT(14))
 #define RX_GENI_GP_IRQ_EXT	(GENMASK(13, 12))
+
+/* DMA DEBUG Register fields */
+#define DMA_TX_ACTIVE		(BIT(0))
+#define DMA_RX_ACTIVE		(BIT(1))
+#define DMA_TX_STATE		(GENMASK(7, 4))
+#define DMA_RX_STATE		(GENMASK(11, 8))
 
 #define DEFAULT_BUS_WIDTH	(4)
 #define DEFAULT_SE_CLK		(19200000)
