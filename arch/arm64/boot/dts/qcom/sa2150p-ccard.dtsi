@@ -192,6 +192,23 @@
 	extcon = <&usb2_extcon>;
 };
 
+&ethqos_hw {
+	status = "okay";
+	vreg_emac_phy-supply = <&vreg_emac_phy>;
+	vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+	rxc-skew-ps = <0>;
+
+	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state";
+	pinctrl-15 = <&emac_phy_reset_state>;
+};
+
 &emac_hw {
 	status = "okay";
 	vreg_emac_phy-supply = <&vreg_emac_phy>;
