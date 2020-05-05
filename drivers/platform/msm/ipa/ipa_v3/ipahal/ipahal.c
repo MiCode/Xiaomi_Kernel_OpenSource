@@ -1319,7 +1319,7 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
 		ctx->hdr_add.tlv.length = 2;
 		ctx->hdr_add.tlv.value = hdr_len;
-		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+		hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%x\n",
 			ctx->hdr_add.hdr_addr);
