@@ -859,6 +859,51 @@ static ssize_t qti_flash_led_max_current_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", snode->led->max_current);
 }
 
+static int qti_flash_led_regulator_control(struct led_classdev *led_cdev,
+					int options)
+{
+	struct flash_switch_data *snode;
+	union power_supply_propval ret = {0, };
+	int rc = 0;
+
+	snode = container_of(led_cdev, struct flash_switch_data, cdev);
+
+	if (snode->led->data->pmic_type != PM2250)
+		return 0;
+
+	rc = is_main_psy_available(snode->led);
+	if (rc < 0)
+		return rc;
+
+	if (options & ENABLE_REGULATOR) {
+		ret.intval = 1;
+		rc = power_supply_set_property(snode->led->main_psy,
+				POWER_SUPPLY_PROP_FLASH_ACTIVE,
+				&ret);
+		if (rc < 0) {
+			pr_err("Failed to set FLASH_ACTIVE on charger rc=%d\n",
+							rc);
+			return rc;
+		}
+
+		pr_debug("FLASH_ACTIVE = 1\n");
+	} else if (options & DISABLE_REGULATOR) {
+		ret.intval = 0;
+		rc = power_supply_set_property(snode->led->main_psy,
+				POWER_SUPPLY_PROP_FLASH_ACTIVE,
+				&ret);
+		if (rc < 0) {
+			pr_err("Failed to set FLASH_ACTIVE on charger rc=%d\n",
+							rc);
+			return rc;
+		}
+
+		pr_debug("FLASH_ACTIVE = 0\n");
+	}
+
+	return 0;
+}
+
 int qti_flash_led_prepare(struct led_trigger *trig, int options,
 				int *max_current)
 {
@@ -901,18 +946,42 @@ int qti_flash_led_prepare(struct led_trigger *trig, int options,
 		return 0;
 	}
 
-	if (options & ENABLE_REGULATOR)
-		return 0;
+	rc = qti_flash_led_regulator_control(led_cdev, options);
+	if (rc < 0)
+		pr_err("Failed to set flash control options\n");
 
-	if (options & DISABLE_REGULATOR)
-		return 0;
-
-	return -EINVAL;
+	return rc;
 }
 EXPORT_SYMBOL(qti_flash_led_prepare);
 
+static ssize_t qti_flash_led_prepare_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc, options;
+	u32 val;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	rc = kstrtouint(buf, 0, &val);
+	if (rc < 0)
+		return rc;
+
+	if (val != 0 && val != 1)
+		return count;
+
+	options = val ? ENABLE_REGULATOR : DISABLE_REGULATOR;
+
+	rc = qti_flash_led_regulator_control(led_cdev, options);
+	if (rc < 0) {
+		pr_err("failed to query led regulator\n");
+		return rc;
+	}
+
+	return count;
+}
+
 static struct device_attribute qti_flash_led_attrs[] = {
 	__ATTR(max_current, 0664, qti_flash_led_max_current_show, NULL),
+	__ATTR(enable, 0664, NULL, qti_flash_led_prepare_store),
 };
 
 static int qti_flash_brightness_set_blocking(
