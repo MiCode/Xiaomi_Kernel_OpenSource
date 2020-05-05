@@ -340,6 +340,8 @@ struct icnss_priv {
 	atomic_t is_shutdown;
 	u32 qdss_mem_seg_len;
 	struct icnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
+	void *get_info_cb_ctx;
+	int (*get_info_cb)(void *ctx, void *event, int event_len);
 };
 
 struct icnss_reg_info {
