@@ -51,4 +51,22 @@ config MTK_MMSYS
 	  Say yes here to add support for the MediaTek Multimedia
 	  Subsystem (MMSYS).
 
+config MTK_IPI
+	tristate "MediaTek IPI Support"
+	depends on RPMSG_MTK
+	help
+	  Say yes here to add support for the MediaTek IPI between tinysys.
+	  MTK IPI consists of APIs to do Linux to/from uP/DSP communication
+	  based on rpmsg. Synchronization among tasks is also handled by
+	  this layer. If uP/DSP drivers handle by themselves, they can use
+	  rpmsg directly.
+
+config MTK_MBOX
+	tristate "MediaTek Mbox Support"
+	help
+	  Say yes here to add support for the MediaTek Mbox driver.
+	  MTK MBOX is a physical H/W which consists of configurable 128
+	  or 256 bytes SRAM and 32 bit irq. The driver does read/write
+	  SRAM and IRQ handling.
+
 endmenu
