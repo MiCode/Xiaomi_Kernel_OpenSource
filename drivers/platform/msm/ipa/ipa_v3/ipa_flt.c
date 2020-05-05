@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "ipa_i.h"
@@ -1693,17 +1693,23 @@ int ipa3_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 	}
 
 	mutex_lock(&ipa3_ctx->lock);
+
 	for (i = 0; i < hdls->num_rules; i++) {
 		/* if hashing not supported, all tables are non-hash tables*/
 		if (ipa3_ctx->ipa_fltrt_not_hashable)
 			hdls->rules[i].rule.hashable = false;
+
 		__ipa_convert_flt_mdfy_in(hdls->rules[i], &rule);
-		if (__ipa_mdfy_flt_rule(&rule, hdls->ip)) {
-			IPAERR_RL("failed to mdfy flt rule %i\n", i);
+
+		result = __ipa_mdfy_flt_rule(&rule, hdls->ip);
+
+		__ipa_convert_flt_mdfy_out(rule, &hdls->rules[i]);
+
+		if (result) {
+			IPAERR_RL("failed to mdfy flt rule %d\n", i);
 			hdls->rules[i].status = IPA_FLT_STATUS_OF_MDFY_FAILED;
 		} else {
 			hdls->rules[i].status = 0;
-			__ipa_convert_flt_mdfy_out(rule, &hdls->rules[i]);
 		}
 	}
 
