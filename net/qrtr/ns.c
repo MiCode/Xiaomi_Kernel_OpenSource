@@ -154,8 +154,8 @@ static int service_announce_del(struct sockaddr_qrtr *dest,
 	msg.msg_namelen = sizeof(*dest);
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-	if (ret < 0)
-		pr_err("failed to announce del service\n");
+	if (ret < 0 && ret != -ENODEV)
+		pr_err("failed to announce del service %d\n", ret);
 
 	return ret;
 }
@@ -185,8 +185,8 @@ static void lookup_notify(struct sockaddr_qrtr *to, struct qrtr_server *srv,
 	msg.msg_namelen = sizeof(*to);
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-	if (ret < 0)
-		pr_err("failed to send lookup notification\n");
+	if (ret < 0 && ret != -ENODEV)
+		pr_err("failed to send lookup notification %d\n", ret);
 }
 
 static int announce_servers(struct sockaddr_qrtr *sq)
@@ -216,7 +216,10 @@ static int announce_servers(struct sockaddr_qrtr *sq)
 
 		ret = service_announce_new(sq, srv);
 		if (ret < 0) {
-			pr_err("failed to announce new service\n");
+			if (ret == -ENODEV)
+				continue;
+
+			pr_err("failed to announce new service %d\n", ret);
 			return ret;
 		}
 
@@ -322,7 +325,7 @@ static int say_hello(struct sockaddr_qrtr *dest)
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
 	if (ret < 0)
-		pr_err("failed to send hello msg\n");
+		pr_err("failed to send hello msg %d\n", ret);
 
 	return ret;
 }
@@ -405,8 +408,8 @@ static int ctrl_cmd_bye(struct sockaddr_qrtr *from)
 		msg.msg_namelen = sizeof(sq);
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-		if (ret < 0) {
-			pr_err("failed to send bye cmd\n");
+		if (ret < 0 && ret != -ENODEV) {
+			pr_err("failed to send bye cmd %d\n", ret);
 			return ret;
 		}
 		rcu_read_lock();
@@ -492,8 +495,8 @@ static int ctrl_cmd_del_client(struct sockaddr_qrtr *from,
 		msg.msg_namelen = sizeof(sq);
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-		if (ret < 0) {
-			pr_err("failed to send del client cmd\n");
+		if (ret < 0 && ret != -ENODEV) {
+			pr_err("failed to send del client cmd %d\n", ret);
 			return ret;
 		}
 		rcu_read_lock();
@@ -530,7 +533,7 @@ static int ctrl_cmd_new_server(struct sockaddr_qrtr *from,
 	if (srv->node == qrtr_ns.local_node) {
 		ret = service_announce_new(&qrtr_ns.bcast_sq, srv);
 		if (ret < 0) {
-			pr_err("failed to announce new service\n");
+			pr_err("failed to announce new service %d\n", ret);
 			return ret;
 		}
 	}
