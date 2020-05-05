@@ -7493,7 +7493,7 @@ unsigned long free_reserved_area(void *start, void *end, int poison, char *s)
 
 #ifdef CONFIG_HAVE_MEMBLOCK
 		memblock_dbg("memblock_free: [%#016llx-%#016llx] %pS\n",
-			__pa(start), __pa(end), (void *)_RET_IP_);
+			(u64)__pa(start), (u64)__pa(end), (void *)_RET_IP_);
 #endif
 
 	return pages;
