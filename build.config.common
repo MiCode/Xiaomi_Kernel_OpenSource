@@ -1,4 +1,4 @@
-BRANCH=android-5.4
+BRANCH=android-5.4-stable
 KERNEL_DIR=common
 
 CC=clang
