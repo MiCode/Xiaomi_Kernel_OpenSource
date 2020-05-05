@@ -2137,25 +2137,34 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 {
 	int rc = 0;
 	struct mhi_req *req = mreq;
-	struct mhi_dev_channel *ch = req->client->channel;
+	struct mhi_dev_channel *ch;
 	u32 snd_cmpl = req->snd_cmpl;
+	bool inbound = false;
 
-	if (mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
-			MHI_DEV_CH_TYPE_INBOUND_CHANNEL)
-		ch->pend_wr_count--;
+	ch = &mhi_ctx->ch[req->chan];
 
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
-			req->len, DMA_FROM_DEVICE);
+		req->len, DMA_FROM_DEVICE);
+
+	if (mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
+		MHI_DEV_CH_TYPE_INBOUND_CHANNEL) {
+		inbound = true;
+		ch->pend_wr_count--;
+	}
 
 	/*
-	 * Channel got stopped or closed with transfers pending
+	 * Channel got closed with transfers pending
 	 * Do not trigger callback or send cmpl to host
 	 */
 	if (ch->state == MHI_DEV_CH_CLOSED ||
 		ch->state == MHI_DEV_CH_STOPPED) {
-		mhi_log(MHI_MSG_DBG,
-			"Ch %d not in started state, %d writes pending\n",
+		if (inbound)
+			mhi_log(MHI_MSG_DBG,
+			"Ch %d closed with %d writes pending\n",
 			ch->ch_id, ch->pend_wr_count + 1);
+		else
+			mhi_log(MHI_MSG_DBG,
+			"Ch %d closed with read pending\n", ch->ch_id);
 		return;
 	}
 
@@ -2707,6 +2716,7 @@ int mhi_dev_open_channel(uint32_t chan_id,
 	ch->active_client = (*handle_client);
 	(*handle_client)->channel = ch;
 	(*handle_client)->event_trigger = mhi_dev_client_cb_reason;
+	ch->pend_wr_count = 0;
 
 	if (ch->state == MHI_DEV_CH_UNINT) {
 		ch->ring = &mhi_ctx->ring[chan_id + mhi_ctx->ch_ring_start];

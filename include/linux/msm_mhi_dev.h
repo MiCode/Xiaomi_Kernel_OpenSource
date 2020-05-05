@@ -64,6 +64,7 @@ struct mhi_req {
 	struct list_head                list;
 	union mhi_dev_ring_element_type *el;
 	void (*client_cb)(void *req);
+	bool				is_stale;
 };
 
 /* SW channel client list */
