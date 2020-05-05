@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,5 +284,73 @@
 		resets = <&clock_gcc GCC_USB3_PHY_BCR>,
 			<&clock_gcc GCC_USB3PHY_PHY_BCR>;
 		reset-names = "phy_reset", "phy_phy_reset";
+	};
+};
+
+/ {
+	qcom_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,vid = <0x05c6>;
+
+		composition1 {
+			qcom,pid = <0x901c>;
+			qcom,composition = "diag.diag,uac2.0";
+		};
+
+		composition2 {
+			qcom,pid = <0x9021>;
+			qcom,composition = "diag.diag,gsi.rmnet";
+		};
+
+		composition3 {
+			qcom,pid = <0x904a>;
+			qcom,composition = "diag.diag,qdss.qdss";
+		};
+
+		composition4 {
+			qcom,pid = <0x9057>;
+			qcom,composition = "gsi.rndis|gsi.ecm";
+		};
+
+		composition5 {
+			qcom,pid = <0x905b>;
+			qcom,composition = "gsi.mbim";
+			qcom,bmAttributes = <0xa0>;
+		};
+
+		composition6 {
+			qcom,pid = <0x9063>;
+			qcom,composition = "gsi.rndis|gsi.ecm|gsi.mbim";
+			qcom,bmAttributes = <0xa0>;
+		};
+
+		composition7 {
+			qcom,pid = <0x9067>;
+			qcom,composition = "mass_storage.0,gsi.rmnet|mass_storage.1,gsi.mbim";
+			qcom,bmAttributes = <0xa0>;
+		};
+
+		composition8 {
+			qcom,pid = <0x90b1>;
+			qcom,composition = "gsi.ecm";
+			qcom,bmAttributes = <0xa0>;
+		};
+
+		composition9 {
+			qcom,pid = <0x90d6>;
+			qcom,composition = "diag.diag,gsi.mbim,gsi.gps,cser.dun.0";
+			qcom,bmAttributes = <0xa0>;
+		};
+
+		composition10 {
+			qcom,pid = <0x90e2>;
+			qcom,composition = "gsi.mbim,gsi.gps";
+			qcom,bmAttributes = <0xa0>;
+		};
+
+		composition11 {
+			qcom,pid = <0xf000>;
+			qcom,composition = "mass_storage.0";
+		};
 	};
 };
