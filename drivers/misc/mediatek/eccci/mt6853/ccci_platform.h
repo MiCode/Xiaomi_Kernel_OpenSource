@@ -39,6 +39,7 @@ int ccci_platform_init(struct ccci_modem *md);
 void ccci_reset_ccif_hw(unsigned char md_id,
 			int ccif_id, void __iomem *baseA, void __iomem *baseB);
 void ccci_set_clk_cg(struct ccci_modem *md, unsigned int is_on);
+extern void ccci_md_devapc_register_cb(void);
 #ifdef ENABLE_DRAM_API
 extern phys_addr_t get_max_DRAM_size(void);
 #endif
