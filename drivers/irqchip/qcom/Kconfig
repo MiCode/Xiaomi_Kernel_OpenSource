@@ -58,3 +58,11 @@ config QTI_MPM
 	help
 	  QTI MSM Power Manager driver to manage and configure wakeup
 	  IRQs.
+
+config QTI_PDC_VIRT
+        bool "QTI PDC VIRT"
+        select QTI_PDC
+        help
+          QTI Power Domain Controller for Virtual platforms
+	  This is used for managing and configuring
+	  the wakeup interrupts on virtual platforms.

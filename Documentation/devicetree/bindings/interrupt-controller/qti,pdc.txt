@@ -32,7 +32,8 @@ Properties:
 		    "qcom,pdc-sm6150",
 	            "qcom,pdc-sm8150",
 		    "qcom,pdc-sdxprairie",
-	            "qcom,pdc-atoll"
+	            "qcom,pdc-atoll",
+		    "qcom,pdc-virt"
 
 - reg:
 	Usage: required
@@ -58,6 +59,14 @@ Properties:
 	Value type: <bool>
 	Definition: Identifies the node as an interrupt controller.
 
+- qcom,pdc-pins:
+	Usage: optional
+	Value type: <u32 array>
+	Definition: Specifies the PDC pin and its mapping hwirq.
+			The first element of the tuple is the PDC port.
+			The second element is the GIC hwirq number for the PDC port.
+			Usage is required when using "qcom,pdc-virt" as compatible.
+
 Example:
 
 pdcgic: interrupt-controller@0xb220000{
@@ -66,4 +75,13 @@ pdcgic: interrupt-controller@0xb220000{
 	#interrupt-cells = <3>;
 	interrupt-parent = <&intc>;
 	interrupt-controller;
+};
+
+pdcgic: interrupt-controller@0xb220000{
+	compatible = "qcom,pdc-virt";
+	reg = <0xb220000 0x30000>;
+	#interrupt-cells = <3>;
+	interrupt-parent = <&intc>;
+	interrupt-controller;
+	qcom,pdc-pins = <8 520>, <9 521>;
 };
