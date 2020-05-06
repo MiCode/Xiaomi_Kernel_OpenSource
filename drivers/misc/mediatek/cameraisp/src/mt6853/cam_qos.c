@@ -1004,6 +1004,9 @@ int SV_SetPMQOS(
 					(module < ISP_IRQ_TYPE_INT_CAMSV_0_ST ||
 					module > ISP_IRQ_TYPE_INT_CAMSV_1_ST))
 					continue;
+#else
+				if (i == _camsv_ufeo_)
+					continue;
 #endif
 				ptr = (struct ISP_BW *)pvalue;
 				mtk_pmqos_set(module, i, ptr[i]);
