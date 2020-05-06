@@ -19,11 +19,19 @@
 #define DEBUG_BUF_SIZE 2000
 
 static char buf[DEBUG_BUF_SIZE] = { 0 };
+#ifdef CONFIG_MT6360_PMIC
+static const char * const pmic_reg_name[]
+  /* 6359p    6315 */
+= { "vcore", "3_vbuck1"};
+static const char * const pmic_name[]
+= { "6359p", "6315"};
+#else
 static const char * const pmic_reg_name[]
   /* 6359p    6362  */
 = { "vcore", "mt6362-buck1"};
 static const char * const pmic_name[]
 = { "6359p", "6362"};
+#endif
 
 int write_pmic(int pmic_num, unsigned int addr,
 		unsigned int mask, unsigned int reg_val)
@@ -92,7 +100,7 @@ void dump_pmic(int pmic_num, const char *scenario,
 		for (i = 0; i < pmic_gs_len; i += 3) {
 			ret = regmap_read(regmap, pmic_gs[i], &val0);
 			if (ret) {
-				pr_notice("read pmic 6315-%d 0x%x error\n",
+				pr_notice("read pmic-%d 0x%x error\n",
 					pmic_num, pmic_gs[i]);
 				goto ERROR;
 			}
@@ -138,14 +146,15 @@ void dump_pmic(int pmic_num, const char *scenario,
 		for (i = 0; i < pmic_gs_len; i += 3) {
 			ret = regmap_read(regmap, pmic_gs[i], &val0);
 			if (ret) {
-				pr_notice("read pmic 6315-%d 0x%x error\n",
+				pr_notice("read pmic-%d 0x%x error\n",
 				pmic_num, pmic_gs[i]);
 				goto ERROR;
 			}
 			dump_cnt++;
 			p += snprintf(p, sizeof(buf) - (p - buf),
-				"%s - 6315-%d - 0x%08x - 0x%08x\n",
-				scenario, pmic_num, pmic_gs[i], val0);
+				"%s - %s-%d - 0x%08x - 0x%08x\n",
+				scenario, pmic_name[pmic_num], pmic_num,
+					pmic_gs[i], val0);
 
 			if (dump_cnt && ((dump_cnt % PER_LINE_TO_PRINT) == 0)) {
 				pr_notice("%s", buf);
