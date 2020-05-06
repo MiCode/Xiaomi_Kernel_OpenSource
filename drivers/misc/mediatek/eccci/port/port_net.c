@@ -402,6 +402,10 @@ static void recv_from_port_list(struct port_t *port)
 
 	spin_lock_irqsave(&port->port_rx_list.lock, flags);
 	skb = __skb_dequeue(&port->port_rx_list);
+	if (skb == NULL) {
+		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+		return;
+	}
 	spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
 	port_ch_dump(port, 0, skb, skb->len);
 	ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port), skb, NULL);
@@ -410,6 +414,7 @@ static void recv_from_port_list(struct port_t *port)
 int mtk_ccci_handle_port_list(int status, char *name)
 {
 	int ret = 0, channel;
+	unsigned long flags;
 	struct port_t *port;
 	struct sk_buff *skb;
 
@@ -421,9 +426,11 @@ int mtk_ccci_handle_port_list(int status, char *name)
 		atomic_set(&port->is_up, 1);
 	else {
 		atomic_set(&port->is_up, 0);
+		spin_lock_irqsave(&port->port_rx_list.lock, flags);
 		while ((skb = __skb_dequeue(&port->port_rx_list))
 			!= NULL)
-			ccci_free_skb(skb);
+			dev_kfree_skb_any(skb);
+		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
 		return ret;
 	}
 	while (!skb_queue_empty(&port->port_rx_list))
