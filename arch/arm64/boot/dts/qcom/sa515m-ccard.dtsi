@@ -258,8 +258,6 @@
 };
 
 &soc {
-	/delete-node/ bt_qca6390;
-
 	bluetooth: bt_qca6390 {
 		compatible = "qca,qca6390";
 		qca,bt-reset-gpio = <&pmxprairie_gpios 6 0>;
