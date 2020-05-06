@@ -150,15 +150,53 @@ static void mhi_toggle_dev_wake(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->wake_put(mhi_cntrl, true);
 }
 
+/* Add event ring elements and ring er db */
+static void mhi_setup_event_rings(struct mhi_controller *mhi_cntrl, bool add_el)
+{
+	struct mhi_event *mhi_event;
+	int i;
+	bool skip_er_setup;
+
+	mhi_event = mhi_cntrl->mhi_event;
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
+		struct mhi_ring *ring = &mhi_event->ring;
+
+		if (mhi_event->offload_ev)
+			continue;
+
+		/* skip HW event ring setup in ready state */
+		if (mhi_cntrl->dev_state == MHI_STATE_READY)
+			skip_er_setup = mhi_event->hw_ring;
+		else
+			skip_er_setup = !mhi_event->hw_ring;
+
+		/* if no er element to add, ring all er dbs */
+		if (add_el && skip_er_setup)
+			continue;
+
+		if (add_el) {
+			ring->wp = ring->base + ring->len - ring->el_size;
+			*ring->ctxt_wp =
+				ring->iommu_base + ring->len - ring->el_size;
+			/* Update all cores */
+			smp_wmb();
+		}
+
+		/* Ring the event ring db */
+		spin_lock_irq(&mhi_event->lock);
+		mhi_ring_er_db(mhi_event);
+		spin_unlock_irq(&mhi_event->lock);
+	}
+}
+
 /* Handle device ready state transition */
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl)
 {
 	void __iomem *base = mhi_cntrl->regs;
-	struct mhi_event *mhi_event;
 	enum mhi_pm_state cur_state;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	u32 reset = 1, ready = 0;
-	int ret, i;
+	int ret = -EINVAL;
 
 	/* Wait for RESET to be cleared and READY bit to be set by the device */
 	wait_event_timeout(mhi_cntrl->state_event,
@@ -210,25 +248,8 @@ int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl)
 		goto error_mmio;
 	}
 
-	/* Add elements to all SW event rings */
-	mhi_event = mhi_cntrl->mhi_event;
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		struct mhi_ring *ring = &mhi_event->ring;
-
-		/* Skip if this is an offload or HW event */
-		if (mhi_event->offload_ev || mhi_event->hw_ring)
-			continue;
-
-		ring->wp = ring->base + ring->len - ring->el_size;
-		*ring->ctxt_wp = ring->iommu_base + ring->len - ring->el_size;
-		/* Update all cores */
-		smp_wmb();
-
-		/* Ring the event ring db */
-		spin_lock_irq(&mhi_event->lock);
-		mhi_ring_er_db(mhi_event);
-		spin_unlock_irq(&mhi_event->lock);
-	}
+	/* add SW event ring elements and ring SW event ring dbs */
+	mhi_setup_event_rings(mhi_cntrl, true);
 
 	/* Set MHI to M0 state */
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_M0);
@@ -265,18 +286,10 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 
 	/* Ring all event rings and CMD ring only if we're in mission mode */
 	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) {
-		struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
 		struct mhi_cmd *mhi_cmd =
 			&mhi_cntrl->mhi_cmd[PRIMARY_CMD_RING];
 
-		for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-			if (mhi_event->offload_ev)
-				continue;
-
-			spin_lock_irq(&mhi_event->lock);
-			mhi_ring_er_db(mhi_event);
-			spin_unlock_irq(&mhi_event->lock);
-		}
+		mhi_setup_event_rings(mhi_cntrl, false);
 
 		/* Only ring primary cmd ring if ring is not empty */
 		spin_lock_irq(&mhi_cmd->lock);
@@ -375,10 +388,9 @@ int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl)
 /* Handle device Mission Mode transition */
 static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_event *mhi_event;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	enum mhi_ee_type ee = MHI_EE_MAX;
-	int i, ret;
+	int ret;
 
 	dev_dbg(dev, "Processing Mission Mode transition\n");
 
@@ -411,24 +423,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 		goto error_mission_mode;
 	}
 
-	/* Add elements to all HW event rings */
-	mhi_event = mhi_cntrl->mhi_event;
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		struct mhi_ring *ring = &mhi_event->ring;
-
-		if (mhi_event->offload_ev || !mhi_event->hw_ring)
-			continue;
-
-		ring->wp = ring->base + ring->len - ring->el_size;
-		*ring->ctxt_wp = ring->iommu_base + ring->len - ring->el_size;
-		/* Update to all cores */
-		smp_wmb();
-
-		spin_lock_irq(&mhi_event->lock);
-		if (MHI_DB_ACCESS_VALID(mhi_cntrl))
-			mhi_ring_er_db(mhi_event);
-		spin_unlock_irq(&mhi_event->lock);
-	}
+	/* Add elements to all HW event rings and ring HW event ring dbs */
+	mhi_setup_event_rings(mhi_cntrl, true);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
