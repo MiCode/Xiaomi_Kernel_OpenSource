@@ -3985,9 +3985,13 @@ page_owner=on loop.max_part=7";
 		vdec_step2 = <312 1 7 12>;
 		vdec_step3 = <218 1 7 23>;
 		mdp_step0 = <594 1 8 24>;
+		mdp_step0_ext = <594 2 9 0x1A713B>;
 		mdp_step1 = <416 1 8 11>;
+		mdp_step1_ext = <416 2 9 0x1A713B>;
 		mdp_step2 = <343 1 8 18>;
+		mdp_step2_ext = <343 2 9 0x1A713B>;
 		mdp_step3 = <229 1 8 19>;
+		mdp_step3_ext = <229 2 9 0x1604EC>;
 		ccu_step0 = <499 1 9 15>;
 		ccu_step1 = <392 1 9 16>;
 		ccu_step2 = <364 1 9 21>;
@@ -4037,7 +4041,7 @@ page_owner=on loop.max_part=7";
 			<&topckgen TOP_MMPLL_D7>,	/* 16 */
 			<&topckgen TOP_MAINPLL_D4_D2>,	/* 17 */
 			<&topckgen TOP_MMPLL_D4_D2>,	/* 18 */
-			<&topckgen TOP_MMPLL_D6_D2>,	/* 19 */
+			<&topckgen TOP_MMPLL_D5_D2>,	/* 19 */
 			<&topckgen TOP_MMPLL_D6>,	/* 20 */
 			<&topckgen TOP_MAINPLL_D6>,	/* 21 */
 			<&topckgen TOP_UNIVPLL_D5_D2>,	/* 22 */
@@ -4063,7 +4067,7 @@ page_owner=on loop.max_part=7";
 			"TOP_MMPLL_D7",	/* 16 */
 			"TOP_MAINPLL_D4_D2",	/* 17 */
 			"TOP_MMPLL_D4_D2",	/* 18 */
-			"TOP_MMPLL_D6_D2",	/* 19 */
+			"TOP_MMPLL_D5_D2",	/* 19 */
 			"TOP_MMPLL_D6",	/* 20 */
 			"TOP_MAINPLL_D6",	/* 21 */
 			"TOP_UNIVPLL_D5_D2",	/* 22 */
