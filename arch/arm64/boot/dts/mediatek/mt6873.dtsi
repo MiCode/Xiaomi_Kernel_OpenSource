@@ -269,5 +269,15 @@
 			cm_mgr,vp_down = <100 100 100 100 100>;
 			cm_mgr,vp_up = <100 100 100 100 100>;
 		};
+
+		efuse: efuse@11c10000 {
+			compatible = "mediatek,devinfo";
+			reg = <0 0x11c10000 0 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			efuse_segment: segment@78 {
+				reg = <0x78 0x4>;
+			};
+		};
 	};
 };
