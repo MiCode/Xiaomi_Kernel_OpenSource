@@ -1050,9 +1050,7 @@ static void smi_subsys_after_on(enum subsys_id sys)
 	for (i = SMI_DEV_NUM - 1; i >= 0; i--)
 		if (subsys & (1 << i)) {
 			smi_clk_record(i, true, NULL);
-#ifndef CONFIG_MACH_MT6853
 			mtk_smi_clk_enable(smi_dev[i]);
-#endif
 			mtk_smi_conf_set(smi_dev[i], smi_scen);
 			smi_larb_port_set(smi_dev[i]);
 #if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
@@ -1085,9 +1083,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 			if (i == SMI_LARB_NUM && !(smi_mm_first & subsys))
 				cmdq_mbox_stop(smi_cmdq.clt);
 #endif
-#ifndef CONFIG_MACH_MT6853
 			mtk_smi_clk_disable(smi_dev[i]);
-#endif
 		}
 	smi_mm_first &= ~subsys;
 #if IS_ENABLED(CONFIG_MMPROFILE)
