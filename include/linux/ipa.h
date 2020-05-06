@@ -1873,6 +1873,19 @@ int ipa_del_socksv5_conn(uint32_t handle);
 
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
+/* low-level IPA client Connect / Disconnect */
+
+static inline int ipa_connect(const struct ipa_connect_params *in,
+	struct ipa_sps_params *sps, u32 *clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_disconnect(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
 /*
  * Resume / Suspend
  */

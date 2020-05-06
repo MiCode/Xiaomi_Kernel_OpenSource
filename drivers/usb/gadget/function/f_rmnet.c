@@ -484,8 +484,10 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	if (dev->xport_type == BAM_DMUX)
 		gbam_cleanup(dev->bam_dmux_func_type);
-	else
+	else {
+		ipa_data_flush_workqueue();
 		ipa_data_free(dev->ipa_func_type);
+	}
 }
 
 static void frmnet_purge_responses(struct f_rmnet *dev)
