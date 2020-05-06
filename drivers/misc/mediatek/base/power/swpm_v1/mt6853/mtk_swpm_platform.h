@@ -32,7 +32,7 @@
 #define NR_CORE_VOLT				(4)
 #define NR_CPU_OPP				(16)
 #define NR_CPU_CORE				(8)
-#define NR_CPU_L_CORE				(4)
+#define NR_CPU_L_CORE				(6)
 
 #define ALL_METER_TYPE				(0xFFFF)
 #define EN_POWER_METER_ONLY			(0x1)
