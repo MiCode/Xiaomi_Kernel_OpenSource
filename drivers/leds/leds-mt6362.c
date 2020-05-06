@@ -806,9 +806,7 @@ static int mt6362_ioctl(unsigned int cmd, unsigned long arg)
 	struct flashlight_dev_arg *fl_arg;
 	int channel;
 	struct led_classdev_flash *flcdev;
-	struct mt6362_flash_cdev *mtcdev;
 	struct led_classdev *lcdev;
-	struct mt6362_leds_data *data;
 
 	fl_arg = (struct flashlight_dev_arg *)arg;
 	channel = fl_arg->channel;
@@ -824,14 +822,15 @@ static int mt6362_ioctl(unsigned int cmd, unsigned long arg)
 		return -EINVAL;
 	}
 
-	mtcdev = (void *)flcdev;
-	data = dev_get_drvdata(lcdev->dev->parent);
 	lcdev = &flcdev->led_cdev;
+	if (lcdev == NULL) {
+		pr_info("Get lcdev failed\n");
+		return -EINVAL;
+	}
 
 	switch (cmd) {
 	case FLASH_IOC_SET_ONOFF:
 		pr_info("FLASH_IOC_SET_ONOFF(%d): %d\n",
-		//dev_info(lcdev->dev, "FLASH_IOC_SET_ONOFF(%d): %d\n",
 				channel, (int)fl_arg->arg);
 		mt6362_fled_brightness_set(lcdev, (int)fl_arg->arg);
 		break;

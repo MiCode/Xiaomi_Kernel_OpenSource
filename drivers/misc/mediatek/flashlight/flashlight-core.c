@@ -1573,7 +1573,8 @@ static int fl_uninit(void)
 		if (fdev->ops) {
 			fdev->ops->flashlight_open();
 			fdev->ops->flashlight_set_driver(1);
-			fl_enable(fdev, 0);
+			if (fdev->enable != 0)
+				fl_enable(fdev, 0);
 			fdev->ops->flashlight_set_driver(0);
 			fdev->ops->flashlight_release();
 		}
