@@ -1152,9 +1152,16 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 		container_of(thread->chan->mbox, struct cmdq_sec, mbox);
 	struct cmdq_sec_task *task;
 
+	if (!sec_data) {
+		cmdq_err("pkt:%p sec_data not ready from thrd-idx:%u",
+			pkt, thread->idx);
+		return -EINVAL;
+	}
+
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task)
 		return -ENOMEM;
+	pkt->task_alloc = true;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq->mmp.queue, MMPROFILE_FLAG_PULSE,
@@ -1163,16 +1170,9 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 
 	task->pkt = pkt;
 	task->thread = thread;
-	if (sec_data) {
-		task->scenario = sec_data->scenario;
-		task->engineFlag = sec_data->enginesNeedDAPC |
-			sec_data->enginesNeedPortSecurity;
-	} else {
-		cmdq_err("pkt:%p sec_data not ready from thrd-idx:%u",
-			pkt, thread->idx);
-		kfree(task);
-		return -EINVAL;
-	}
+	task->scenario = sec_data->scenario;
+	task->engineFlag = sec_data->enginesNeedDAPC |
+		sec_data->enginesNeedPortSecurity;
 
 	INIT_WORK(&task->exec_work, cmdq_sec_task_exec_work);
 	queue_work(thread->task_exec_wq, &task->exec_work);
