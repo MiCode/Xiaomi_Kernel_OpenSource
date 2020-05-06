@@ -2899,6 +2899,16 @@ static void __mt_gpufreq_init_table(void)
 	else
 		g_segment_max_opp_idx = 18;
 
+/* Turbo Testing */
+#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+						"turbo") != NULL) {
+		gpufreq_pr_info("@%s: turbo flavor name: %s\n",
+			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+		g_segment_max_opp_idx = 0;
+	}
+#endif
+
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
 
 	g_opp_table = kzalloc((NUM_OF_OPP_IDX)*sizeof(*opp_table), GFP_KERNEL);
