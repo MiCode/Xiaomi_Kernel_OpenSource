@@ -1,0 +1,229 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+// Copyright (c) 2019 MediaTek Inc.
+
+#ifndef __MTK_CAM_SENINF_DEF_H__
+#define __MTK_CAM_SENINF_DEF_H__
+
+#define SENINF_VC_MAXCNT 8
+#define SENINF_DEF_PIXEL_MODE 2
+
+#define SENINF_TIMESTAMP_CLK 1000
+#define HW_BUF_EFFECT 80
+
+#define CSI_CLK_416MHZ
+
+/* data lane hs settle, base on 208 MHz csi ck */
+#ifdef CSI_CLK_208MHZ
+#define SENINF_SETTLE_DELAY_DT 0x15
+#define SENINF_SETTLE_DELAY_CK 0x9
+#endif
+
+/* data lane hs settle, base on 312 MHz csi ck */
+#ifdef CSI_CLK_312MHZ
+#define SENINF_SETTLE_DELAY_DT 0x20
+#define SENINF_SETTLE_DELAY_CK 0xD
+#endif
+
+/* clock lane hs settle, base on 393 MHz csi ck */
+#ifdef CSI_CLK_393MHZ
+#define SENINF_SETTLE_DELAY_DT 0x28
+#define SENINF_SETTLE_DELAY_CK 0x10
+#endif
+
+/* clock lane hs settle, base on 416 MHz csi ck */
+#ifdef CSI_CLK_416MHZ
+#define SENINF_SETTLE_DELAY_DT 0x27
+#define SENINF_SETTLE_DELAY_CK 0x13
+#endif
+
+//#define SENINF_HS_TRAIL_PARAMETER 0x8 //SENINF_CLK_208M
+//#define SENINF_HS_TRAIL_PARAMETER 0xa //SENINF_CLK_312M
+#define SENINF_HS_TRAIL_PARAMETER 0x30
+
+/* under 800Mbps, trail should be enable */
+#define SENINF_HS_TRAIL_EN_CONDITION 800000000
+
+#define SENSOR_CLOCK_POLARITY_HIGH	0
+#define SENSOR_CLOCK_POLARITY_LOW	1
+#define NUM_PORTS			2
+#define DEFAULT_WIDTH			1600
+#define DEFAULT_HEIGHT			1200
+
+#define SENINF_DEBUG
+
+#ifdef SENINF_DEBUG
+#define SENINF_DEBUG_FL_IGNORE_CAM_LINK 1
+#define SENINF_DEBUG_FL_ALLOC_CAM_MUX 2
+#endif
+
+enum {
+	PAD_SINK = 0,
+	PAD_SRC_RAW0,
+	PAD_SRC_RAW1,
+	PAD_SRC_RAW2,
+	PAD_SRC_HDR0,
+	PAD_SRC_HDR1,
+	PAD_SRC_HDR2,
+	PAD_SRC_PDAF0,
+	PAD_SRC_PDAF1,
+	PAD_MAXCNT,
+};
+
+enum {
+	SENSOR_MIPI_1_LANE = 0,
+	SENSOR_MIPI_2_LANE,
+	SENSOR_MIPI_3_LANE,
+	SENSOR_MIPI_4_LANE,
+};
+
+enum CSI_PORT {
+	CSI_PORT_0 = 0,
+	CSI_PORT_1,
+	CSI_PORT_2,
+	CSI_PORT_3,
+	CSI_PORT_0A,
+	CSI_PORT_0B,
+	CSI_PORT_1A,
+	CSI_PORT_1B,
+	CSI_PORT_2A,
+	CSI_PORT_2B,
+	CSI_PORT_3A,
+	CSI_PORT_3B,
+	CSI_PORT_MAX_NUM,
+};
+
+#define SENINF_CSI_PORT_NAMES \
+	"0", \
+	"1", \
+	"2", \
+	"3", \
+	"0A", \
+	"0B", \
+	"1A", \
+	"1B", \
+	"2A", \
+	"2B", \
+	"3A", \
+	"3B", \
+
+enum SENINF_ENUM {
+	SENINF_1 = 0x0,
+	SENINF_2 = 0x1,
+	SENINF_3 = 0x2,
+	SENINF_4 = 0x3,
+	SENINF_5 = 0x4,
+	SENINF_6 = 0x5,
+	SENINF_7 = 0x6,
+	SENINF_8 = 0x7,
+	SENINF_NUM,
+};
+
+enum SENINF_MUX_ENUM {
+	SENINF_MUX1 = 0x0,
+	SENINF_MUX2 = 0x1,
+	SENINF_MUX3 = 0x2,
+	SENINF_MUX4 = 0x3,
+	SENINF_MUX5 = 0x4,
+	SENINF_MUX6 = 0x5,
+	SENINF_MUX7 = 0x6,
+	SENINF_MUX8 = 0x7,
+	SENINF_MUX_NUM,
+	SENINF_MUX_ERROR = -1,
+};
+
+enum SENINF_CAM_MUX_ENUM {
+	SENINF_CAM_MUX0 = 0x0,
+	SENINF_CAM_MUX1 = 0x1,
+	SENINF_CAM_MUX2 = 0x2,
+	SENINF_CAM_MUX3 = 0x3,
+	SENINF_CAM_MUX4 = 0x4,
+	SENINF_CAM_MUX5 = 0x5,
+	SENINF_CAM_MUX6 = 0x6,
+	SENINF_CAM_MUX7 = 0x7,
+	SENINF_CAM_MUX8 = 0x8,
+	SENINF_CAM_MUX9 = 0x9,
+	SENINF_CAM_MUX10 = 0xA,
+	SENINF_CAM_MUX11 = 0xB,
+	SENINF_CAM_MUX12 = 0xC,
+	SENINF_CAM_MUX_NUM,
+	SENINF_CAM_MUX_ERR = 0xff
+};
+
+enum SENINF_SOURCE_ENUM { //0:CSI2(2.5G), 3: parallel, 8:NCSI2(1.5G)
+	CSI2 = 0x0, /* 2.5G support */
+	TEST_MODEL = 0x1,
+	CCIR656	= 0x2,
+	PARALLEL_SENSOR = 0x3,
+	SERIAL_SENSOR = 0x4,
+	HD_TV = 0x5,
+	EXT_CSI2_OUT1 = 0x6,
+	EXT_CSI2_OUT2 = 0x7,
+	MIPI_SENSOR = 0x8,/* 1.5G support */
+	VIRTUAL_CHANNEL_1 = 0x9,
+	VIRTUAL_CHANNEL_2 = 0xA,
+	VIRTUAL_CHANNEL_3 = 0xB,
+	VIRTUAL_CHANNEL_4 = 0xC,
+	VIRTUAL_CHANNEL_5 = 0xD,
+	VIRTUAL_CHANNEL_6 = 0xE,
+};
+
+enum SENINF_CSI2_ENUM {
+	CSI2_1_5G = 0x0, /* 1.5G support */
+	CSI2_2_5G = 0x1, /* 2.5G support */
+	CSI2_2_5G_CPHY = 0x2, /* 2.5G support */
+};
+
+enum TG_FORMAT_ENUM {
+	RAW_8BIT_FMT = 0x0,
+	RAW_10BIT_FMT = 0x1,
+	RAW_12BIT_FMT = 0x2,
+	YUV422_FMT = 0x3,
+	RAW_14BIT_FMT = 0x4,
+	RGB565_MIPI_FMT	= 0x5,
+	RGB888_MIPI_FMT	= 0x6,
+	JPEG_FMT = 0x7
+};
+
+enum VC_FEATURE {
+	VC_NONE = 0,
+	VC_MIN_NUM,
+	VC_RAW_DATA = VC_MIN_NUM,
+	VC_RAW_DATA_MAX,
+
+	VC_PDAF_MIN_NUM = VC_RAW_DATA_MAX,
+	VC_PDAF_STATS = VC_PDAF_MIN_NUM,
+	VC_PDAF_MAX_NUM,
+
+	VC_HDR_MIN_NUM = VC_PDAF_MAX_NUM,
+	VC_HDR_MVHDR = VC_HDR_MIN_NUM,
+	VC_HDR_MAX_NUM,
+
+	VC_3HDR_MIN_NUM = VC_HDR_MAX_NUM,
+	VC_3HDR_EMBEDDED = VC_3HDR_MIN_NUM,
+	VC_3HDR_FLICKER,
+	VC_3HDR_Y,
+	VC_3HDR_AE,
+	VC_3HDR_MAX_NUM,
+	VC_MAX_NUM = VC_3HDR_MAX_NUM,
+};
+
+enum {
+	CLK_CAM_SENINF = 0,
+	CLK_TOP_SENINF,
+	CLK_TOP_SENINF1,
+	CLK_TOP_SENINF2,
+	CLK_TOP_SENINF3,
+	CLK_TOP_SENINF_END,
+	CLK_TOP_CAMTM = CLK_TOP_SENINF_END,
+	CLK_MAXCNT,
+};
+
+#define SENINF_CLK_NAMES \
+	"clk_cam_seninf", \
+	"clk_top_seninf", \
+	"clk_top_seninf1", \
+	"clk_top_seninf2", \
+	"clk_top_seninf3", \
+	"clk_top_camtm", \
+
+#endif

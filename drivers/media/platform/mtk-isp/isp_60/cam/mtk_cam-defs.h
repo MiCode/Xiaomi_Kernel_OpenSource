@@ -1,0 +1,158 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#ifndef __MTKCAM_DEFS_H
+#define __MTKCAM_DEFS_H
+
+#ifndef BUILD_COPROCESSOR
+#include <linux/types.h>
+#else
+#include "camsys/uP-header/types.h"
+#endif
+
+/*
+ * Note:
+ *	Following definitions are used in IPI-messaging.
+ *	Values are used in software control flow only and cannot be applied to
+ *	hw registers directly.
+ */
+
+/* camsys hw pipelines */
+enum mtkcam_pipe_subdev {
+	MTKCAM_SUBDEV_RAW_0	= 0,
+	MTKCAM_SUBDEV_RAW_1,
+	MTKCAM_SUBDEV_RAW_2,
+	MTKCAM_SUBDEV_CAMSV_0,
+	MTKCAM_SUBDEV_CAMSV_1,
+	MTKCAM_SUBDEV_CAMSV_2,
+	MTKCAM_SUBDEV_CAMSV_3,
+	MTKCAM_SUBDEV_CAMSV_4,
+	MTKCAM_SUBDEV_CAMSV_5,
+	MTKCAM_SUBDEV_CAMSV_6,
+	MTKCAM_SUBDEV_CAMSV_7,
+	MTKCAM_SUBDEV_MRAW_A,
+	MTKCAM_SUBDEV_MRAW_B,
+};
+
+static inline int is_raw_subdev(unsigned char subdev_id)
+{
+	return (subdev_id == MTKCAM_SUBDEV_RAW_0 ||
+		subdev_id == MTKCAM_SUBDEV_RAW_1 ||
+		subdev_id == MTKCAM_SUBDEV_RAW_2);
+}
+
+enum mtkcam_pipe_dev {
+	MTKCAM_PIPE_RAW_A	= 0,
+	MTKCAM_PIPE_RAW_B,
+	MTKCAM_PIPE_RAW_C,
+	MTKCAM_PIPE_CAMSV_0,
+	MTKCAM_PIPE_CAMSV_1,
+	MTKCAM_PIPE_CAMSV_2,
+	MTKCAM_PIPE_CAMSV_3,
+	MTKCAM_PIPE_CAMSV_4,
+	MTKCAM_PIPE_CAMSV_5,
+	MTKCAM_PIPE_CAMSV_6,
+	MTKCAM_PIPE_CAMSV_7,
+	MTKCAM_PIPE_MRAW_A,
+	MTKCAM_PIPE_MRAW_B,
+};
+
+enum mtkcam_ipi_raw_video_id {
+	MTKCAM_IPI_RAW_ID_UNKNOWN	= 0,
+	MTKCAM_IPI_RAW_RAWI_2,	/* RAWI_R2 */
+	MTKCAM_IPI_RAW_UFDI_2,	/* UFDI_R2 */
+	MTKCAM_IPI_RAW_RAWI_3,	/* RAWI_R3 */
+	MTKCAM_IPI_RAW_IMGO,	/* IMGO_R1 */
+	MTKCAM_IPI_RAW_UFEO,	/* UFEO_R1 */
+	MTKCAM_IPI_RAW_RRZO,	/* RRZO_R1 */
+	MTKCAM_IPI_RAW_UFGO,	/* UFGO_R1 */
+	MTKCAM_IPI_RAW_YUVO,	/* YUVO_R1 */
+	MTKCAM_IPI_RAW_YUVBO,	/* YUVBO_R1 */
+	MTKCAM_IPI_RAW_YUVCO,	/* YUVCO_R1 */
+	MTKCAM_IPI_RAW_RSSO_1,	/* RSSO_R1 */
+	MTKCAM_IPI_RAW_RSSO_2,	/* RSSO_R2 */
+	MTKCAM_IPI_RAW_CRZO_1,	/* CRZO_R1 */
+	MTKCAM_IPI_RAW_CRZO_2,	/* CRZO_R2 */
+	MTKCAM_IPI_RAW_CRZBO,	/* CRZBO_R1 */
+	MTKCAM_IPI_RAW_META_STATS_CFG,	/* All settings */
+	MTKCAM_IPI_RAW_META_STATS_0, /* statistics */
+
+	/*
+	 * MTKCAM_IPI_RAW_META_STATS_1 is for AFO only, the buffer can be
+	 * dequeued once we got the  dma done.
+	 */
+	MTKCAM_IPI_RAW_META_STATS_1,
+
+	/* statistics may be pass to DIP */
+	MTKCAM_IPI_RAW_META_STATS_2,
+	MTKCAM_IPI_RAW_ID_MAX,
+};
+
+enum mtkcam_ipi_camsv_video_id {
+	MTKCAM_IPI_CAMSV_ID_UNKNOWN	= 0,
+	MTKCAM_IPI_CAMSV_MAIN_OUT,	/* imgo */
+
+	MTKCAM_IPI_CAMSV_ID_MAX,
+};
+
+enum mtkcam_ipi_mraw_video_id {
+	MTKCAM_IPI_MRAW_ID_UNKNOWN	= 0,
+	MTKCAM_IPI_MRAW_MAIN_OUT,	/* imgo */
+	MTKCAM_IPI_MRAW_STATISTICS, /* all statistics */
+
+	MTKCAM_IPI_MRAW_ID_MAX,
+};
+
+/* camsys supported format */
+enum mtkcam_ipi_fmt {
+	MTKCAM_IPI_IMG_FMT_BAYER8	= 0,
+	MTKCAM_IPI_IMG_FMT_BAYER10	= 1,
+	MTKCAM_IPI_IMG_FMT_BAYER12	= 2,
+	MTKCAM_IPI_IMG_FMT_BAYER14	= 4, /* FIXME */
+	MTKCAM_IPI_IMG_FMT_YUV		= 3, /* FIXME */
+	MTKCAM_IPI_IMG_FMT_RGB565	= 5,
+	MTKCAM_IPI_IMG_FMT_RGB888	= 6,
+	MTKCAM_IPI_IMG_FMT_JPEG		= 7,
+	MTKCAM_IPI_IMG_FMT_FG_BAYER8	= 8,
+	MTKCAM_IPI_IMG_FMT_FG_BAYER10	= 9,
+	MTKCAM_IPI_IMG_FMT_FG_BAYER12	= 10,
+	MTKCAM_IPI_IMG_FMT_FG_BAYER14	= 11,
+	MTKCAM_IPI_INPUT_FMT_UNKNOWN	= 12,
+};
+
+/* Supported bayer pixel order: */
+enum mtkcam_ipi_bayer_pxl_id {
+	MTKCAM_IPI_BAYER_PXL_ID_B		= 0,
+	MTKCAM_IPI_BAYER_PXL_ID_GB		= 1,
+	MTKCAM_IPI_BAYER_PXL_ID_GR		= 2,
+	MTKCAM_IPI_BAYER_PXL_ID_R		= 3,
+	MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN		= 4,
+};
+
+/* special input patterns */
+enum mtkcam_ipi_sensor_pattern {
+	MTKCAM_IPI_SENSOR_PATTERN_NORMAL		= 0,
+	MTKCAM_IPI_SENSOR_PATTERN_DUAL_PIX		= 1,
+	MTKCAM_IPI_SENSOR_PATTERN_QUADCODE		= 2, /* FIXME: ?? */
+	MTKCAM_IPI_SENSOR_PATTERN_4CELL			= 3,
+	MTKCAM_IPI_SENSOR_PATTERN_MONO			= 4,
+	MTKCAM_IPI_SENSOR_PATTERN_IVHDR			= 5,
+	MTKCAM_IPI_SENSOR_PATTERN_ZVHDR			= 6,
+	MTKCAM_IPI_SENSOR_PATTERN_4CELL_IVHDR		= 7,
+	MTKCAM_IPI_SENSOR_PATTERN_4CELL_ZVHDR		= 8,
+	MTKCAM_IPI_SENSOR_PATTERN_DUAL_PIX_IVHDR	= 9,
+	MTKCAM_IPI_SENSOR_PATTERN_DUAL_PIX_ZVHDR	= 10,
+	/* FIXME: can be ignored? */
+	MTKCAM_IPI_SENSOR_PATTERN_YUV			= 11,
+	 /* FIXME: what's 'normal' pd? */
+	MTKCAM_IPI_SENSOR_PATTERN_NORMAL_PD		= 12,
+};
+
+enum mtkcam_ipi_raw_path_control {
+	MTKCAM_IPI_RAW_PATH_UNPROCESSED		= 0,
+	MTKCAM_IPI_RAW_PATH_FULLY_PROCESSED	= 1,
+};
+
+#endif /* __MTKCAM_DEFS_H */
