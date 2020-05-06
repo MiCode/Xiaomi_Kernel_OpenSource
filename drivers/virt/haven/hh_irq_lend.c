@@ -307,7 +307,7 @@ int hh_irq_release(enum hh_irq_label label)
 	ret = hh_rm_vm_irq_release_notify(entry->vmid,
 					  entry->virq_handle);
 	if (!ret)
-		entry->state = HH_IRQ_STATE_NONE;
+		entry->state = HH_IRQ_STATE_WAIT_LEND;
 	return ret;
 }
 EXPORT_SYMBOL(hh_irq_release);
