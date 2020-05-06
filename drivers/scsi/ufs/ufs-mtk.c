@@ -1256,6 +1256,7 @@ int ufs_mtk_linkup_fail_handler(struct ufs_hba *hba, int left_retry)
 
 int ufs_mtk_check_powerctl(struct ufs_hba *hba)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int err = 0;
 	u32 val = 0;
 
@@ -1269,16 +1270,27 @@ int ufs_mtk_check_powerctl(struct ufs_hba *hba)
 			VENDOR_UNIPROPOWERDOWNCONTROL, val, err);
 	}
 
+	/*
+	 * Set unipro as non-lpm mode anyway for initialization and error
+	 * recovery
+	 */
+	host->unipro_lpm = false;
+
 	return err;
 }
 
 static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 	enum ufs_notify_change_status stage)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int ret = 0;
 
 	switch (stage) {
 	case PRE_CHANGE:
+		if (host->unipro_lpm)
+			hba->hba_enable_delay_us = 0;
+		else
+			hba->hba_enable_delay_us = 600;
 		break;
 	case POST_CHANGE:
 		ret = ufs_mtk_enable_crypto(hba);
@@ -1421,6 +1433,8 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			return ret;
 		}
 
+		host->unipro_lpm = true;
+
 		ufs_mtk_pltfrm_suspend(hba);
 
 		/* vendor-specific crypto suspend */
@@ -1457,6 +1471,7 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int ret = 0;
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -1488,6 +1503,8 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 				__func__, ret);
 			return ret;
 		}
+
+		host->unipro_lpm = false;
 
 		/*
 		 * Leave hibern8 state
