@@ -106,7 +106,7 @@ char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
 	((((unsigned long)regval)&F_MSK(msb, lsb))>>lsb)
 
 /* it must be open after atf driver is ready */
-//#define IOMMU_DESIGN_OF_BANK
+#define IOMMU_DESIGN_OF_BANK
 /* m4u atf debug parameter */
 #define IOMMU_ATF_INDEX_MASK     F_MSK(3, 0)
 #define IOMMU_ATF_BANK_MASK      F_MSK(7, 4)
