@@ -33,7 +33,7 @@
 /*
  * marco
  */
-#define PMIF_TIMEOUT    0
+#define PMIF_TIMEOUT    1
 #define PMIF_BRINGUP    0
 
 /* macro for PMIF SWINF FSM */
@@ -263,6 +263,7 @@ enum infra_regs {
 	PMICW_CLOCK_CTRL,
 	INFRA_GLOBALCON_RST2_SET,
 	INFRA_GLOBALCON_RST2_CLR,
+	INFRA_GLOBALCON_RST2,
 };
 
 static const u32 mt6xxx_infra_regs[] = {
@@ -273,12 +274,14 @@ static const u32 mt6xxx_infra_regs[] = {
 	[PMICW_CLOCK_CTRL] =			0x0108,
 	[INFRA_GLOBALCON_RST2_SET] =		0x0140,
 	[INFRA_GLOBALCON_RST2_CLR] =		0x0144,
+	[INFRA_GLOBALCON_RST2] =		0x0148,
 };
 
 enum topckgen_regs {
 	CLK_CFG_UPDATE1,
 	CLK_CFG_UPDATE2,
 	CLK_CFG_8_CLR,
+	CLK_CFG_8,
 	CLK_CFG_15,
 	CLK_CFG_16,
 	CLK_CFG_15_CLR,
@@ -288,6 +291,7 @@ enum topckgen_regs {
 static const u32 mt6xxx_topckgen_regs[] = {
 	[CLK_CFG_UPDATE1] =			0x0008,
 	[CLK_CFG_UPDATE2] =			0x000c,
+	[CLK_CFG_8] =				0x0090,
 	[CLK_CFG_8_CLR] =			0x0098,
 	[CLK_CFG_15] =				0x0100,
 	[CLK_CFG_15_CLR] =			0x0108,
@@ -551,16 +555,28 @@ static int pmif_wait_for_state(struct spmi_controller *ctrl,
 {
 	struct pmif *arb = spmi_controller_get_drvdata(ctrl);
 	unsigned long long start_time_ns = 0, timeout_ns = 0;
+	u32 offset = 0, offset1 = 0, offset2 = 0;
 
 	start_time_ns = sched_clock();
 	timeout_ns = 10000 * 1000;  /* 10000us */
 
+	offset = arb->toprgu_regs[WDT_SWSYSRST2];
+	offset1 = arb->infra_regs[INFRA_GLOBALCON_RST2];
+	offset2 = arb->topckgen_regs[CLK_CFG_8];
 	do {
 		if (pmif_timeout_ns(ctrl, start_time_ns, timeout_ns)) {
+			dev_notice(&ctrl->dev,
+				"[PMIF] WDT_RST2:0x%x INF_RST2:0x%x CLK:0x%x\n",
+				readl(arb->toprgu_base + offset),
+				readl(arb->infra_base + offset1),
+				readl(arb->topckgen_base + offset2));
 			if (fp(arb)) {
 				return 0;
 			} else if (fp(arb) == 0) {
 				dev_notice(&ctrl->dev, "[PMIF] FSM Timeout\n");
+				spmi_dump_pmif_swinf_reg();
+				spmi_dump_pmif_all_reg();
+				spmi_dump_spmimst_all_reg();
 				return -ETIMEDOUT;
 			}
 		}
