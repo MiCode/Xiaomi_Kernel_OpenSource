@@ -2667,6 +2667,7 @@ static void update_vpu_info(void)
 {
 #ifdef EARA_THERMAL_VPU_SUPPORT
 	int opp, i;
+	int peak_freq = 0;
 
 	if (!eara_thrm_apu_ready())
 		return;
@@ -2693,14 +2694,14 @@ static void update_vpu_info(void)
 		return;
 	}
 
+	peak_freq = eara_thrm_vpu_opp_to_freq(0);
 	for (opp = 0; opp < g_vpu_opp_num; opp++) {
 		vpu_dvfs_tbl.power[opp] = vpu_power_table[opp].power;
 		vpu_dvfs_tbl.freq[opp] = eara_thrm_vpu_opp_to_freq(opp);
 		vpu_dvfs_tbl.cap[opp] =
 			eara_thrm_vpu_opp_to_freq(opp) * 100;
-		if (eara_thrm_vpu_opp_to_freq(0))
-			vpu_dvfs_tbl.cap[opp] /=
-				eara_thrm_vpu_opp_to_freq(0);
+		if (peak_freq)
+			vpu_dvfs_tbl.cap[opp] /= peak_freq;
 
 	}
 
@@ -2717,6 +2718,7 @@ static void update_mdla_info(void)
 {
 #ifdef EARA_THERMAL_MDLA_SUPPORT
 	int opp, i;
+	int peak_freq;
 
 	if (!eara_thrm_apu_ready())
 		return;
@@ -2743,14 +2745,15 @@ static void update_mdla_info(void)
 		return;
 	}
 
+	peak_freq = eara_thrm_mdla_opp_to_freq(0);
+
 	for (opp = 0; opp < g_mdla_opp_num; opp++) {
 		mdla_dvfs_tbl.power[opp] = mdla_power_table[opp].power;
 		mdla_dvfs_tbl.freq[opp] = eara_thrm_mdla_opp_to_freq(opp);
 		mdla_dvfs_tbl.cap[opp] =
 			eara_thrm_mdla_opp_to_freq(opp) * 100;
-		if (eara_thrm_mdla_opp_to_freq(0))
-			mdla_dvfs_tbl.cap[opp] /=
-				eara_thrm_mdla_opp_to_freq(0);
+		if (peak_freq)
+			mdla_dvfs_tbl.cap[opp] /= peak_freq;
 	}
 
 	mdla_core_num = eara_thrm_get_mdla_core_num();
