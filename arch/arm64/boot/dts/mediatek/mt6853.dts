@@ -1498,6 +1498,10 @@ page_owner=on";
 		slverr = <0>;
 	};
 
+	upower: upower {
+		compatible = "mediatek,mt6853-upower";
+	};
+
 	dvfsp@10227000 {
 		compatible = "mediatek,dvfsp";
 		reg = <0 0x10227000 0 0x1000>;
