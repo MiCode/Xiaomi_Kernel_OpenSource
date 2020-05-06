@@ -1,0 +1,44 @@
+config VIDEO_MTK_ISP_COMMON
+	bool "Mediatek camera subsystem driver"
+	select DMA_SHARED_BUFFER
+	select VIDEO_V4L2_SUBDEV_API
+	select VIDEOBUF2_DMA_CONTIG
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_V4L2
+	select VIDEOBUF2_MEMOPS
+	select MEDIA_CONTROLLER
+	select MEDIA_CONTROLLER_REQUEST_API
+
+	help
+	    Generic helpers for Mediatek SoCs ISP drivers. Mediatek
+	    SoCs ISP drivers have similar image handling flow. For
+	    example, Mediatek's ISP IPs may accept multiple input
+	    buffers of a frame and generate multiple output buffers
+	    of different format, size and effect. The helpers
+	    provide the functions to create the common flow.
+
+	    This feature will be removed in the upstream version
+	    of Mediatek SoCs ISP drivers. It added some
+	    abstraction implementing V4L2 and VB2 ops using
+	    MTK-specific ops, which is not a discouraged pattern
+	    of V4L2 drivers.
+
+	    Choose y if you have drivers using the common utilities.
+
+config VIDEO_MTK_ISP_CAMSYS
+	tristate "Mediatek camsys processing function"
+	select V4L2_FWNODE
+
+	help
+	    Camsys driver controls 3A (autofocus, exposure,
+	    and white balance) with tuning feature and output
+	    the first capture image buffer in Mediatek's camera system.
+
+	    This driver also provides a mipi-csi2 host driver used as a
+	    interface to connect camera with Mediatek's SOCs. It is able
+	    to handle multiple cameras
+	    simultaneously.
+
+	    Choose y if you want to use Mediatek SoCs to create image
+	    capture application such as video recording and still image
+	    capture.
