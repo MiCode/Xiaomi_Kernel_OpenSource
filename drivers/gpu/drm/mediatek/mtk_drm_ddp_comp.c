@@ -621,7 +621,8 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
-static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
+static enum mtk_iommu_callback_ret_t
+	mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 {
 	struct mtk_ddp_comp *comp = data;
 
@@ -633,7 +634,7 @@ static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 		mtk_dump_reg(comp);
 	}
 
-	return 0;
+	return MTK_IOMMU_CALLBACK_HANDLED;
 }
 #endif
 
