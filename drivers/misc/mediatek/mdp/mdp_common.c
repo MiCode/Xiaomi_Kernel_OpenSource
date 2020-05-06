@@ -1116,7 +1116,8 @@ const u32 isp_iwc_buf_size[] = {
 static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
 	struct cmdqRecStruct *handle,
 	struct iwc_cq_meta *iwc_msg1,
-	struct iwc_cq_meta2 *iwc_msg2)
+	struct iwc_cq_meta2 *iwc_msg2,
+	bool user_space)
 {
 	u32 i;
 	struct iwc_meta_buf {
@@ -1133,7 +1134,17 @@ static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
 		CMDQ_ISP_BUFS_MSG1(isp_dmgi),
 	};
 
-	memcpy(&iwc_msg2->handles, meta, sizeof(iwc_msg2->handles));
+	if (user_space) {
+		if (copy_from_user(&iwc_msg2->handles,
+			meta,
+			sizeof(iwc_msg2->handles))) {
+			CMDQ_ERR("Copy IspMeta from User Failed\n");
+		}
+	} else {
+		memcpy(&iwc_msg2->handles,
+			meta,
+			sizeof(iwc_msg2->handles));
+	}
 
 	for (i = 0; i < ARRAY_SIZE(meta->ispBufs); i++) {
 		if (!meta->ispBufs[i].va || !meta->ispBufs[i].size)
@@ -1148,15 +1159,27 @@ static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
 		}
 
 		*bufs[i].sz = meta->ispBufs[i].size;
-		memcpy(bufs[i].va,
-			(void *)(unsigned long)(meta->ispBufs[i].va),
-			meta->ispBufs[i].size);
+
+		if (user_space) {
+			if (copy_from_user(bufs[i].va,
+				(void *)(unsigned long)
+					(meta->ispBufs[i].va),
+				meta->ispBufs[i].size)) {
+				CMDQ_ERR("Copy ispBufs[%u].va failed\n",
+					i);
+			}
+		} else {
+			memcpy(bufs[i].va,
+				(void *)(unsigned long)
+					(meta->ispBufs[i].va),
+				meta->ispBufs[i].size);
+		}
 	}
 }
 #endif
 
 static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
-	struct cmdqRecStruct *handle)
+	struct cmdqRecStruct *handle, bool user_space)
 {
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	u64 dapc, port;
@@ -1192,7 +1215,8 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 			return -ENOMEM;
 		}
 		cmdq_mdp_fill_isp_meta(&desc->secData.ispMeta, handle,
-			handle->sec_isp_msg1, handle->sec_isp_msg2);
+			handle->sec_isp_msg1, handle->sec_isp_msg2,
+			user_space);
 		meta_type = CMDQ_METAEX_CQ;
 		cmdq_sec_pkt_set_payload(handle->pkt, 1,
 			sizeof(struct iwc_cq_meta), handle->sec_isp_msg1);
@@ -1253,7 +1277,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 
 	/* set secure data */
 	handle->secStatus = NULL;
-	cmdq_mdp_setup_sec(desc, handle);
+	cmdq_mdp_setup_sec(desc, handle, user_space);
 
 	handle->engineFlag = desc->engineFlag & ~inorder_mask;
 	handle->pkt->priority = desc->priority;
@@ -1269,9 +1293,24 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	if (desc->prop_size && desc->prop_addr &&
 		desc->prop_size < CMDQ_MAX_USER_PROP_SIZE) {
 		handle->prop_addr = kzalloc(desc->prop_size, GFP_KERNEL);
-		memcpy(handle->prop_addr, (void *)CMDQ_U32_PTR(desc->prop_addr),
-			desc->prop_size);
 		handle->prop_size = desc->prop_size;
+
+		if (handle->prop_addr && user_space) {
+			if (copy_from_user(handle->prop_addr,
+				(void *)CMDQ_U32_PTR(desc->prop_addr),
+				desc->prop_size)) {
+				kfree(handle->prop_addr);
+				handle->prop_addr = NULL;
+				handle->prop_size = 0;
+			}
+		} else if (handle->prop_addr) {
+			memcpy(handle->prop_addr,
+				(void *)CMDQ_U32_PTR(desc->prop_addr),
+				desc->prop_size);
+		} else {
+			handle->prop_addr = NULL;
+			handle->prop_size = 0;
+		}
 	} else {
 		handle->prop_addr = NULL;
 		handle->prop_size = 0;
