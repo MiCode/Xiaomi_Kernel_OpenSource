@@ -467,7 +467,7 @@ static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_I2C_PSEUDO, "i2c_pseudo",
 			"ifrao_i2c0", 1, 1),
 	FACTOR(CLK_TOP_APDMA_PSEUDO, "apdma_pseudo",
-			"ifrao_i2c3", 1, 1),
+			"ifrao_i2c1", 1, 1),
 };
 
 static const char * const axi_parents[] = {
@@ -2011,8 +2011,8 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 10),
 	GATE_IFRAO2(CLK_IFRAO_I2C0, "ifrao_i2c0",
 			"i2c_ck"/* parent */, 11),
-	GATE_IFRAO2(CLK_IFRAO_I2C3, "ifrao_i2c3",
-			"axi_ck"/* parent */, 14),
+	GATE_IFRAO2(CLK_IFRAO_I2C1, "ifrao_i2c1",
+			"axi_ck"/* parent */, 12),
 	GATE_IFRAO2(CLK_IFRAO_PWM_HCLK, "ifrao_pwm_hclk",
 			"axi_ck"/* parent */, 15),
 	GATE_IFRAO2(CLK_IFRAO_PWM1, "ifrao_pwm1",

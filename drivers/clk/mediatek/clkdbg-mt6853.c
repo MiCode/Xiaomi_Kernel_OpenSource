@@ -1091,8 +1091,9 @@ static bool is_valid_reg(void __iomem *addr)
 
 void print_subsys_reg(enum dbg_sys_id id)
 {
-	struct regbase *rb_dump = &rb[id];
+	struct regbase *rb_dump;
 	const struct regname *rns = &rn[0];
+	int i;
 
 	if (rns == NULL)
 		return;
@@ -1104,7 +1105,7 @@ void print_subsys_reg(enum dbg_sys_id id)
 
 	rb_dump = &rb[id];
 
-	for (; rns->base != NULL; rns++) {
+	for (i = 0; i < ARRAY_SIZE(rn); i++, rns++) {
 		if (!is_valid_reg(ADDR(rns)))
 			return;
 
