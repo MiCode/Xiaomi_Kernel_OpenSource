@@ -121,12 +121,14 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 static bool sleep_disabled;
 module_param_named(sleep_disabled, sleep_disabled, bool, 0664);
 
+#ifdef CONFIG_SMP
 static int lpm_cpu_qos_notify(struct notifier_block *nb,
 		unsigned long val, void *ptr);
 
 static struct notifier_block dev_pm_qos_nb[MAX_LPM_CPUS] = {
 	[0 ... (MAX_LPM_CPUS - 1)] = { .notifier_call = lpm_cpu_qos_notify },
 };
+#endif
 
 #ifdef CONFIG_SCHED_WALT
 static bool check_cpu_isolated(int cpu)
@@ -140,6 +142,7 @@ static bool check_cpu_isolated(int cpu)
 }
 #endif
 
+#ifdef CONFIG_SMP
 static int lpm_cpu_qos_notify(struct notifier_block *nb,
 		unsigned long val, void *ptr)
 {
@@ -171,6 +174,7 @@ static int lpm_online_cpu(unsigned int cpu)
 				DEV_PM_QOS_RESUME_LATENCY);
 	return 0;
 }
+#endif
 
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
@@ -219,6 +223,7 @@ static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 	spin_unlock(&debug_lock);
 }
 
+#ifdef CONFIG_SMP
 static int lpm_dying_cpu(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
@@ -241,7 +246,7 @@ static int lpm_starting_cpu(unsigned int cpu)
 						0, true);
 	return 0;
 }
-
+#endif
 static void histtimer_cancel(void)
 {
 	unsigned int cpu = raw_smp_processor_id();
@@ -1695,7 +1700,7 @@ static int lpm_probe(struct platform_device *pdev)
 		pr_err("Failed to register with cpuidle framework\n");
 		goto failed;
 	}
-
+#ifdef CONFIG_SMP
 	ret = cpuhp_setup_state(CPUHP_AP_QCOM_TIMER_STARTING,
 			"AP_QCOM_SLEEP_STARTING",
 			lpm_starting_cpu, lpm_dying_cpu);
@@ -1707,7 +1712,7 @@ static int lpm_probe(struct platform_device *pdev)
 			lpm_online_cpu, lpm_offline_cpu);
 	if (ret)
 		goto failed;
-
+#endif
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
 		pr_err("Cannot find kobject for module %s\n", KBUILD_MODNAME);
