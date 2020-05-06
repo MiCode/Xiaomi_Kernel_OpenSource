@@ -761,7 +761,7 @@ static void swpm_update_lkg_table(void)
 	swpm_core_thermal_cb();
 }
 
-static int swpm_log_loop(void)
+static void swpm_log_loop(unsigned long data)
 {
 	char buf[256] = {0};
 	char *ptr = buf;
@@ -828,8 +828,6 @@ static int swpm_log_loop(void)
 #endif
 
 	swpm_update_periodic_timer();
-
-	return 0;
 }
 
 static void swpm_core_pwr_data_init(void)
@@ -1116,7 +1114,7 @@ static int __init swpm_platform_init(void)
 	swpm_pass_to_sspm();
 
 	/* set preiodic timer task */
-	swpm_set_periodic_timer((void *)&swpm_log_loop);
+	swpm_set_periodic_timer(swpm_log_loop);
 
 #if SWPM_TEST
 	/* enable all pwr meter and set swpm timer to start */

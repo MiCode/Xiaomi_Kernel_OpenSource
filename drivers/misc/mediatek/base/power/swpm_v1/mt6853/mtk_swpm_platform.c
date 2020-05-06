@@ -700,7 +700,7 @@ static void swpm_update_lkg_table(void)
 	swpm_core_thermal_cb();
 }
 
-static int swpm_log_loop(void)
+static void swpm_log_loop(unsigned long data)
 {
 	char buf[256] = {0};
 	char *ptr = buf;
@@ -767,8 +767,6 @@ static int swpm_log_loop(void)
 #endif
 
 	swpm_update_periodic_timer();
-
-	return 0;
 }
 
 static void swpm_core_pwr_data_init(void)
@@ -922,6 +920,17 @@ static inline void swpm_subsys_data_ref_init(void)
 	swpm_unlock(&swpm_mutex);
 }
 
+static int dram_bw_proc_show(struct seq_file *m, void *v)
+{
+	if (share_idx_ref != NULL)
+		seq_printf(m, "DRAM BW R/W=%d/%d\n",
+			   share_idx_ref->mem_idx.read_bw[0],
+			   share_idx_ref->mem_idx.write_bw[0]);
+
+	return 0;
+}
+
+PROC_FOPS_RO(dram_bw);
 /***************************************************************************
  *  API
  ***************************************************************************/
@@ -1017,6 +1026,13 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 	swpm_unlock(&swpm_mutex);
 }
 
+static void swpm_platform_procfs(void)
+{
+	struct swpm_entry dram_bw = PROC_ENTRY(dram_bw);
+
+	swpm_append_procfs(&dram_bw);
+}
+
 static int __init swpm_platform_init(void)
 {
 	int ret = 0;
@@ -1027,6 +1043,8 @@ static int __init swpm_platform_init(void)
 #endif
 
 	swpm_create_procfs();
+
+	swpm_platform_procfs();
 
 	swpm_get_rec_addr(&rec_phys_addr,
 			  &rec_virt_addr,
@@ -1055,7 +1073,7 @@ static int __init swpm_platform_init(void)
 	swpm_pass_to_sspm();
 
 	/* set preiodic timer task */
-	swpm_set_periodic_timer((void *)&swpm_log_loop);
+	swpm_set_periodic_timer(swpm_log_loop);
 
 #if SWPM_TEST
 	/* enable all pwr meter and set swpm timer to start */

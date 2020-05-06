@@ -44,38 +44,6 @@
 #define MAX(a, b)			((a) >= (b) ? (a) : (b))
 #define MIN(a, b)			((a) >= (b) ? (b) : (a))
 
-/* PROCFS */
-#define PROC_FOPS_RW(name)                                                 \
-	static int name ## _proc_open(struct inode *inode,                 \
-		struct file *file)                                         \
-	{                                                                  \
-		return single_open(file, name ## _proc_show,               \
-			PDE_DATA(inode));                                  \
-	}                                                                  \
-	static const struct file_operations name ## _proc_fops = {         \
-		.owner      = THIS_MODULE,                                 \
-		.open       = name ## _proc_open,                          \
-		.read	    = seq_read,                                    \
-		.llseek	    = seq_lseek,                                   \
-		.release    = single_release,                              \
-		.write      = name ## _proc_write,                         \
-	}
-#define PROC_FOPS_RO(name)                                                 \
-	static int name ## _proc_open(struct inode *inode,                 \
-		struct file *file)                                         \
-	{                                                                  \
-		return single_open(file, name ## _proc_show,               \
-			PDE_DATA(inode));                                  \
-	}                                                                  \
-	static const struct file_operations name ## _proc_fops = {         \
-		.owner = THIS_MODULE,                                      \
-		.open  = name ## _proc_open,                               \
-		.read  = seq_read,                                         \
-		.llseek = seq_lseek,                                       \
-		.release = single_release,                                 \
-	}
-#define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
-
 /****************************************************************************
  *  Type Definitions
  ****************************************************************************/
@@ -94,6 +62,7 @@ static struct swpm_manager swpm_m = {
 	.ref_tbl_size = 0,
 };
 
+static struct proc_dir_entry *swpm_dir;
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
 static unsigned int log_interval_ms = DEFAULT_LOG_INTERVAL_MS;
 /****************************************************************************
@@ -535,17 +504,31 @@ PROC_FOPS_RW(idd_tbl);
 /***************************************************************************
  *  API
  ***************************************************************************/
+int swpm_append_procfs(struct swpm_entry *p)
+{
+	if (!swpm_dir) {
+		swpm_err("[%s] /proc/swpm failed creation\n", __func__);
+		return -1;
+	}
+	if (!p) {
+		swpm_err("[%s] append failure, fp null\n", __func__);
+		return -1;
+	}
+
+	if (!proc_create(p->name, 0664, swpm_dir, p->fops)) {
+		swpm_err("[%s]: append /proc/swpm/%s failed\n",
+			__func__, p->name);
+		return -1;
+	}
+
+	return 0;
+}
+
 int swpm_create_procfs(void)
 {
-	struct proc_dir_entry *swpm_dir = NULL;
 	int i = 0;
 
-	struct pentry {
-		const char *name;
-		const struct file_operations *fops;
-	};
-
-	struct pentry swpm_entries[] = {
+	struct swpm_entry swpm_entries[] = {
 		PROC_ENTRY(dump_power),
 		PROC_ENTRY(dump_lkg_power),
 		PROC_ENTRY(debug),
@@ -632,7 +615,7 @@ int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
 	return 0;
 }
 
-int swpm_set_periodic_timer(void *func)
+int swpm_set_periodic_timer(void (*func)(unsigned long))
 {
 	swpm_lock(&swpm_mutex);
 
