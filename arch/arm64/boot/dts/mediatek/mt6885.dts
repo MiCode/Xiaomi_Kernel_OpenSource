@@ -1213,11 +1213,13 @@ page_owner=on loop.max_part=7";
 		clocks = <&scpsys SCP_SYS_ADSP>, /* add ck cg later */
 			<&topckgen TOP_MUX_ADSP>,
 			<&clk26m>,
-			<&topckgen TOP_ADSPPLL_CK>;
+			<&topckgen TOP_ADSPPLL_CK>,
+			<&topckgen TOP_MUX_SCP>;
 		clock-names = "scp_sys_adsp", /* add ck cg later */
 			"clk_top_adsp_sel",
 			"clk_top_clk26m",
-			"clk_top_adsppll";
+			"clk_top_adsppll",
+			"clk_top_scp_sel";
 		adsp-rsv-ipidma-a = <0x100000>;
 		adsp-rsv-ipidma-b = <0x100000>;
 		adsp-rsv-logger-a = <0x80000>;
