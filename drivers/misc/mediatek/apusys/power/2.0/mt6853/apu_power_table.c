@@ -19,11 +19,10 @@
 /* opp, mW */
 struct apu_opp_info vpu_power_table[APU_OPP_NUM] = {
 	{APU_OPP_0, 212},
-	{APU_OPP_1, 212},
-	{APU_OPP_2, 176},
-	{APU_OPP_3, 133},
-	{APU_OPP_4, 98},
-	{APU_OPP_5, 44},
+	{APU_OPP_1, 176},
+	{APU_OPP_2, 133},
+	{APU_OPP_3, 98},
+	{APU_OPP_4, 44},
 };
 EXPORT_SYMBOL(vpu_power_table);
 
@@ -35,6 +34,5 @@ struct apu_opp_info mdla_power_table[APU_OPP_NUM] = {
 	{APU_OPP_2, 0},
 	{APU_OPP_3, 0},
 	{APU_OPP_4, 0},
-	{APU_OPP_5, 0},
 };
 EXPORT_SYMBOL(mdla_power_table);

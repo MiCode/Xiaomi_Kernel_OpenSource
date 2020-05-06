@@ -27,7 +27,6 @@ enum APU_OPP_INDEX {
 	APU_OPP_2 = 2,
 	APU_OPP_3 = 3,
 	APU_OPP_4 = 4,
-	APU_OPP_5 = 5,
 	APU_OPP_NUM
 };
 
