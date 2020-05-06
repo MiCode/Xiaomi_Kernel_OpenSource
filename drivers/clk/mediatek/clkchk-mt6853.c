@@ -816,7 +816,7 @@ struct pg_check_swcg {
 struct subsys_cgs_check {
 	enum subsys_id id;		/* the Subsys id */
 	struct pg_check_swcg *swcgs;	/* those CGs that would be checked */
-	char *subsys_name;		/*
+	enum dbg_sys_id dbg_id;		/*
 					 * subsys_name is used in
 					 * print_subsys_reg() and can be NULL
 					 * if not porting ready yet.
@@ -959,16 +959,16 @@ struct pg_check_swcg cam_rawb_swcgs[] = {
 
 struct subsys_cgs_check mtk_subsys_check[] = {
 	/*{SYS_DIS, mm_swcgs, NULL}, */
-	{SYS_DIS, mm_swcgs, "mmsys"},
-	{SYS_DIS, mdp_swcgs, "mdpsys"},
-	{SYS_VDE, vdec_swcgs, "vdecsys"},
-	{SYS_VEN, venc_swcgs, "vencsys"},
-	{SYS_ISP, img1_swcgs, "img1sys"},
-	{SYS_ISP2, img2_swcgs, "img2sys"},
-	{SYS_IPE, ipe_swcgs, "ipesys"},
-	{SYS_CAM, cam_swcgs, "camsys"},
-	{SYS_CAM_RAWA, cam_rawa_swcgs, "cam_rawa_sys"},
-	{SYS_CAM_RAWB, cam_rawb_swcgs, "cam_rawb_sys"},
+	{SYS_DIS, mm_swcgs, mmsys},
+	{SYS_DIS, mdp_swcgs, mdpsys},
+	{SYS_VDE, vdec_swcgs, vdecsys},
+	{SYS_VEN, venc_swcgs, vencsys},
+	{SYS_ISP, img1_swcgs, img1sys},
+	{SYS_ISP2, img2_swcgs, img2sys},
+	{SYS_IPE, ipe_swcgs, ipesys},
+	{SYS_CAM, cam_swcgs, camsys},
+	{SYS_CAM_RAWA, cam_rawa_swcgs, cam_rawa_sys},
+	{SYS_CAM_RAWB, cam_rawb_swcgs, cam_rawb_sys},
 };
 
 static unsigned int check_cg_state(struct pg_check_swcg *swcg)
@@ -1009,9 +1009,7 @@ void mtk_check_subsys_swcg(enum subsys_id id)
 			pr_notice("%s:(%d) warning!\n", __func__, id);
 
 			/* print registers dump */
-			if (mtk_subsys_check[i].subsys_name)
-				print_subsys_reg(
-					mtk_subsys_check[i].subsys_name);
+			print_subsys_reg(mtk_subsys_check[i].dbg_id);
 		}
 	}
 
