@@ -413,7 +413,8 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	}
 #endif
 
-	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT)) {
+	if (ATOMR_CLK(id) == 1 &&
+		readl(smi_dev[id]->base + SMI_LARB_STAT) == 1) {
 		smi_debug_bus_hang_detect(false, user);
 		aee_kernel_exception(user,
 			"larb%u disable by %s but still busy\n", id, user);
