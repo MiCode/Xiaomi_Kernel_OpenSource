@@ -31,6 +31,30 @@ static struct regulator *vsram_reg_id;
 static int curr_vvpu_volt;
 static int curr_vsram_volt;
 
+#define MT6315VPU_UP_RATE       10500   /* 12.5mV/us - 20% */
+#define MT6315VPU_DOWN_RATE     4800    /*    6mV/us - 20% */
+#define MT6315VPU_CONSTRAIN     30      /* the min interval between 2 cmds */
+
+#define MT6359P_UP_RATE         9000    /* 10mV/us - 10% */
+#define MT6359P_DOWN_RATE       4500    /*  5mV/us - 10% */
+#define MT6359P_CONSTRAIN       0       /* the min interval between 2 cmds */
+
+#ifdef CONFIG_REGULATOR_MT6315
+#define VPU_BUCK_UP_RATE	MT6315VPU_UP_RATE
+#define VPU_BUCK_DOWN_RATE	MT6315VPU_DOWN_RATE
+#define VPU_BUCK_CONSTRAIN	MT6315VPU_CONSTRAIN
+#define VPU_BUCK_NAME		"MT6315"
+#else
+#define VPU_BUCK_UP_RATE	MT6359P_UP_RATE
+#define VPU_BUCK_DOWN_RATE	MT6359P_DOWN_RATE
+#define VPU_BUCK_CONSTRAIN	MT6359P_CONSTRAIN
+#define VPU_BUCK_NAME		"MT6359P"
+#endif
+
+#define SRAM_BUCK_UP_RATE        11250    /* 12.5mV/us - 10% */
+#define SRAM_BUCK_DOWN_RATE      4500     /*  5mV/us - 10% */
+#define BUCK_LATENCY             8        /*  latency while programing pmic*/
+
 /* pm qos client */
 static struct pm_qos_request pm_qos_vcore_request[APUSYS_DVFS_USER_NUM];
 
@@ -259,12 +283,34 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 	return ret;
 }
 
+static int get_slew_rate(int volt_diff, enum DVFS_BUCK buck)
+{
+	int slew_rate = 0;
+
+	if (buck == VPU_BUCK) {
+		if (volt_diff > 0)	/* VPU Rising */
+			slew_rate = VPU_BUCK_UP_RATE;
+		else if (volt_diff < 0)	/* VPU Falling */
+			slew_rate = VPU_BUCK_DOWN_RATE;
+	} else if (buck == SRAM_BUCK) {
+		if (volt_diff > 0)	/* SRAM Rising */
+			slew_rate = SRAM_BUCK_UP_RATE;
+		else if (volt_diff < 0) /* SRAM Falling */
+			slew_rate = SRAM_BUCK_DOWN_RATE;
+	} else {
+		LOG_WRN("no slew rate match buck %d\n", buck);
+		return 0;
+	}
+	return slew_rate;
+}
+
 static int settle_time_check
 (enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 {
 	int settle_time = 0;
 	int volt_diff = 0;
-	unsigned int volt_abs = 0;
+	u32 volt_abs = 0;
+	int slew_rate = 0;
 
 	if (buck == VPU_BUCK) {
 		volt_diff = voltage_mV - curr_vvpu_volt;
@@ -279,20 +325,29 @@ static int settle_time_check
 
 	/* save the absolute value of volt_diff for ceil */
 	volt_abs = abs(volt_diff);
-	if (volt_diff > 0) {
-		/* Rising spec : (10mV/us) + 8us */
-		settle_time = DIV_ROUND_UP_ULL(volt_abs, 10000) + 8;
-	} else if (volt_diff < 0) {
-		/* Falling spec : (5mV/us) + 8us */
-		settle_time = DIV_ROUND_UP_ULL(volt_abs, 5000) + 8;
+
+	/* voltage changed and find out settle_time */
+	if (volt_diff) {
+		slew_rate = get_slew_rate(volt_diff, buck);
+		settle_time =
+			DIV_ROUND_UP_ULL(volt_abs, slew_rate) + BUCK_LATENCY;
 	} else {
 		LOG_DBG("%s buck:%d voltage no change (%d)\n",
-					__func__, buck, voltage_mV);
+			__func__, buck, voltage_mV);
 		return 0;
 	}
 
-	LOG_DBG("%s buck:%d, settle time:%d, volt_diff:%d\n",
-				__func__, buck, settle_time, volt_diff);
+	/* for vvpu, take the worst case of slew rate and constrain */
+	if (buck == VPU_BUCK)
+		settle_time = max(settle_time, VPU_BUCK_CONSTRAIN);
+
+	LOG_DBG("%s buck:%d %s, settle:%d(us), %s %d(uv), slew:%d(uv/us)\n",
+		__func__, buck,
+		(buck == VPU_BUCK) ? VPU_BUCK_NAME : "",
+		settle_time,
+		(volt_diff > 0) ? "up" : "down",
+		volt_diff,
+		slew_rate);
 
 	if (settle_time > 200)
 		settle_time = 200;
@@ -300,8 +355,9 @@ static int settle_time_check
 #if APUSYS_SETTLE_TIME_TEST
 	/* Here (buck + 1) due to index of Vsram = -1.*/
 	apusys_opps.st[buck + 1].end = sched_clock();
-	LOG_WRN("APUSYS_SETTLE_TIME_TEST bkid:%d,%s %d(uv),settletime:%d(us)\n",
-		buck, (volt_diff > 0) ? "up" : "down", volt_diff, settle_time);
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST bkid:%d %s,%s %d(uv),settle:%d(us)\n",
+		buck, (buck == VPU_BUCK) ? VPU_BUCK_NAME : "",
+		(volt_diff > 0) ? "up" : "down", volt_diff, settle_time);
 #endif
 
 	return settle_time;
@@ -424,7 +480,8 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	/* regulator not implement delay or HW_CONTORL_PMIC flow*/
 	if (!settle_time) {
 		settle_time = settle_time_check(buck, voltage_mV);
-		udelay(settle_time);
+		if (settle_time > 0)
+			udelay(settle_time);
 	}
 #if VOLTAGE_CHECKER
 	check_volt = regulator_get_voltage(reg_id);
