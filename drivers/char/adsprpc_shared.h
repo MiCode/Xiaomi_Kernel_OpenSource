@@ -105,8 +105,9 @@
 #define REMOTE_SCALARS_MAKE(method, in, out) \
 		REMOTE_SCALARS_MAKEX(0, method, in, out, 0, 0)
 
-
-#ifndef VERIFY_PRINT_ERROR
+#ifdef VERIFY_PRINT_ERROR
+#define VERIFY_EPRINTF(format, ...) pr_err(format, ##__VA_ARGS__)
+#else
 #define VERIFY_EPRINTF(format, args) (void)0
 #endif
 
@@ -118,13 +119,14 @@
 #define __STR__(x) #x ":"
 #define __TOSTR__(x) __STR__(x)
 #define __FILE_LINE__ __FILE__ ":" __TOSTR__(__LINE__)
+#define __ADSPRPC_LINE__ "adsprpc:" __TOSTR__(__LINE__)
 
 #define VERIFY(err, val) \
 do {\
 	VERIFY_IPRINTF(__FILE_LINE__"info: calling: " #val "\n");\
 	if ((val) == 0) {\
 		(err) = (err) == 0 ? -1 : (err);\
-		VERIFY_EPRINTF(__FILE_LINE__"error: %d: " #val "\n", (err));\
+		VERIFY_EPRINTF(__ADSPRPC_LINE__" error: %d: "#val "\n", (err));\
 	} else {\
 		VERIFY_IPRINTF(__FILE_LINE__"info: passed: " #val "\n");\
 	} \
