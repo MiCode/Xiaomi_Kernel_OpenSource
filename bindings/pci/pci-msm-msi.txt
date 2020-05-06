@@ -30,6 +30,11 @@ Main node
 	Value type: <prop-encoded-array>
 	Definition: Array of tuples which describe interrupt lines for PCIe MSI
 
+-qcom,snps:
+	Usage: optional
+	Value type: <bool>
+	Definition: Set if interrupt controller is Synopsys instead of QGIC
+
 =======
 Example
 =======
