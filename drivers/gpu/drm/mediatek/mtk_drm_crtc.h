@@ -730,4 +730,6 @@ struct golden_setting_context *
 	__get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc);
 /***********************  PanelMaster  ********************************/
 void mtk_crtc_start_for_pm(struct drm_crtc *crtc);
+void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait);
+
 #endif /* MTK_DRM_CRTC_H */

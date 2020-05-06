@@ -207,19 +207,22 @@ struct compat_esd_para {
 	compat_uint_t esd_ret_buffer;
 };
 
-
+#endif
+/* end CONFIG_COMPAT */
 int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
-	const char *name, void *config_value);
+	const char *name, int config_value);
 u32 fbconfig_mtk_dsi_get_lanes_num(struct mtk_ddp_comp *comp);
 int fbconfig_mtk_dsi_get_mode_type(struct mtk_ddp_comp *comp);
 int fbconfig_get_esd_check_test(struct drm_crtc *crtc,
 	uint32_t cmd, uint8_t *buffer, uint32_t num);
 
-
-
-
-#endif
-/* end CONFIG_COMPAT */
+int Panel_Master_lcm_get_dsi_timing_entry(struct drm_crtc *crtc,
+	int type);
+int Panel_Master_mipi_set_timing_entry(struct drm_crtc *crtc,
+	struct MIPI_TIMING timing);
+int Panel_Master_mipi_set_cc_entry(struct drm_crtc *crtc,
+	int enable);
+int Panel_Master_mipi_get_cc_entry(struct drm_crtc *crtc);
 
 #endif
 /* __MTK_FBCONFIG_KDEBUG_H */

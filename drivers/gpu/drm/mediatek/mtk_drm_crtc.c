@@ -6338,4 +6338,67 @@ void mtk_crtc_start_for_pm(struct drm_crtc *crtc)
 
 }
 
+void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
+{
+	struct cmdq_pkt *cmdq_handle;
+
+	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
+
+	/* 0. Waiting CLIENT_DSI_CFG thread done */
+	if (crtc_id == 0) {
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (!need_wait)
+		goto skip;
+
+	if (crtc_id == 2) {
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		/* 1. wait stream eof & clear tocken */
+		/* clear eof token to prevent any config after this command */
+		cmdq_pkt_wfe(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+		/* clear dirty token to prevent trigger loop start */
+		cmdq_pkt_clear_event(
+			cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	} else if (mtk_crtc_is_connector_enable(mtk_crtc)) {
+		/* In vdo mode, DSI would be stop when disable connector
+		 * Do not wait frame done in this case.
+		 */
+		cmdq_pkt_wfe(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+	}
+
+skip:
+	/* 2. stop all modules in this CRTC */
+	mtk_crtc_stop_ddp(mtk_crtc, cmdq_handle);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	/* 3. stop trig loop  */
+	if (mtk_crtc_with_trigger_loop(crtc)) {
+		mtk_crtc_stop_trig_loop(crtc);
+#if defined(CONFIG_MACH_MT6873)
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+				(!mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_stop_sodi_loop(crtc);
+#endif
+	}
+
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
+}
 /* ***********  Panel Master end ************** */

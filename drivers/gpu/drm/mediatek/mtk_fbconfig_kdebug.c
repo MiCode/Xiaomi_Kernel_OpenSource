@@ -253,13 +253,12 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		}
 		if (enable > 1)
 			return -EFAULT;
-		Panel_Master_dsi_config_entry(crtc, "PM_MIPI_SET_CC", &enable);
+		Panel_Master_mipi_set_cc_entry(crtc, enable);
 		return 0;
 	}
 	case LCM_GET_DSI_CONTINU:
 	{
-		uint32_t ret = Panel_Master_dsi_config_entry(crtc,
-			"PM_LCM_GET_DSI_CONTINU", NULL);
+		uint32_t ret = Panel_Master_mipi_get_cc_entry(crtc);
 
 		/*need to improve ,0 now means nothing but one parameter. */
 		pr_debug("LCM_GET_DSI_CONTINU=>DSI: %d\n", ret);
@@ -276,7 +275,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		pr_debug("LCM_GET_DSI_CLK=>dsi:%d\n", clk);
-		Panel_Master_dsi_config_entry(crtc, "PM_CLK", &clk);
+		Panel_Master_dsi_config_entry(crtc, "PM_CLK", clk);
 		return 0;
 	}
 	case LCM_GET_DSI_CLK:
@@ -300,7 +299,8 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		pr_debug("Pmaster:set mipi ssc line:%d\n", __LINE__);
-		Panel_Master_dsi_config_entry(crtc, "PM_SSC", &dsi_ssc);
+		/* not support ssc in drm */
+		/* Panel_Master_dsi_config_entry(crtc, "PM_SSC", dsi_ssc); */
 		return 0;
 	}
 	case LCM_GET_DSI_SSC:
@@ -337,8 +337,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 				 __LINE__);
 			return -EFAULT;
 		}
-		ret = Panel_Master_dsi_config_entry(crtc,
-			"PM_LCM_GET_DSI_TIMING", &(timing.type));
+		ret = Panel_Master_lcm_get_dsi_timing_entry(crtc, timing.type);
 		pr_debug("fbconfig=>LCM_GET_DSI_TIMING:%d\n", ret);
 		timing.value = ret;
 		return copy_to_user(argp,
@@ -357,8 +356,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 				 __LINE__);
 			return -EFAULT;
 		}
-		ret = Panel_Master_dsi_config_entry(crtc,
-			"PM_MIPI_SET_TIMING", &timing);
+		ret = Panel_Master_mipi_set_timing_entry(crtc, timing);
 		return ret;
 	}
 	case FB_LAYER_GET_EN:
@@ -419,7 +417,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	}
 	case DRIVER_IC_RESET:
 	{
-		Panel_Master_dsi_config_entry(crtc, "PM_DRIVER_IC_RESET", NULL);
+		Panel_Master_dsi_config_entry(crtc, "PM_DRIVER_IC_RESET", 0);
 		return 0;
 	}
 	case FB_GET_MISC:
