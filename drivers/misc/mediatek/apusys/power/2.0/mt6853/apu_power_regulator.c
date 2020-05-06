@@ -31,13 +31,13 @@ static struct regulator *vsram_reg_id;
 static int curr_vvpu_volt;
 static int curr_vsram_volt;
 
-#define MT6315VPU_UP_RATE       10500   /* 12.5mV/us - 20% */
+#define MT6315VPU_UP_RATE       10000   /* 12.5mV/us - 20% */
 #define MT6315VPU_DOWN_RATE     4800    /*    6mV/us - 20% */
-#define MT6315VPU_CONSTRAIN     30      /* the min interval between 2 cmds */
+#define MT6315VPU_CONSTRAIN     30      /* min interval between 2 cmds */
 
-#define MT6359P_UP_RATE         9000    /* 10mV/us - 10% */
-#define MT6359P_DOWN_RATE       4500    /*  5mV/us - 10% */
-#define MT6359P_CONSTRAIN       0       /* the min interval between 2 cmds */
+#define MT6359P_UP_RATE         11250   /* 12.5mV/us - 10% */
+#define MT6359P_DOWN_RATE       4500    /*    5mV/us - 10% */
+#define MT6359P_CONSTRAIN       0       /* min interval between 2 cmds */
 
 #ifdef CONFIG_REGULATOR_MT6315
 #define VPU_BUCK_UP_RATE	MT6315VPU_UP_RATE
@@ -52,8 +52,8 @@ static int curr_vsram_volt;
 #endif
 
 #define SRAM_BUCK_UP_RATE        11250    /* 12.5mV/us - 10% */
-#define SRAM_BUCK_DOWN_RATE      4500     /*  5mV/us - 10% */
-#define BUCK_LATENCY             8        /*  latency while programing pmic*/
+#define SRAM_BUCK_DOWN_RATE      4500     /*    5mV/us - 10% */
+#define BUCK_LATENCY             8        /* latency while programing pmic */
 
 /* pm qos client */
 static struct pm_qos_request pm_qos_vcore_request[APUSYS_DVFS_USER_NUM];
