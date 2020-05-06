@@ -437,7 +437,7 @@ static int kgsl_mem_entry_attach_to_process(struct kgsl_device *device,
 
 	if (id < 0) {
 		if (!kgsl_memdesc_use_cpu_map(memdesc))
-			kgsl_mmu_put_gpuaddr(memdesc);
+			kgsl_mmu_put_gpuaddr(memdesc->pagetable, memdesc);
 		kgsl_process_private_put(process);
 		return id;
 	}
@@ -500,7 +500,7 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 
 	spin_unlock(&entry->priv->mem_lock);
 
-	kgsl_mmu_put_gpuaddr(&entry->memdesc);
+	kgsl_sharedmem_put_gpuaddr(&entry->memdesc);
 
 	kgsl_process_private_put(entry->priv);
 
@@ -3860,7 +3860,7 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 
 	ret = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 	if (ret) {
-		kgsl_mmu_put_gpuaddr(&entry->memdesc);
+		kgsl_mmu_put_gpuaddr(private->pagetable, &entry->memdesc);
 		return (unsigned long) ret;
 	}
 

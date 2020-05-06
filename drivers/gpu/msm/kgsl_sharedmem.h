@@ -271,6 +271,19 @@ kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 }
 
 /**
+ * kgsl_memdesc_put_gpuaddr - Release the gpuaddr assigned to a memdesc
+ * @memdesc: Pointer to a GPU memory object
+ *
+ * Call the memdesc specific function to release the GPU address assigned to the
+ * memdesc and unmap the memory
+ */
+static inline void kgsl_sharedmem_put_gpuaddr(struct kgsl_memdesc *memdesc)
+{
+	if (memdesc && memdesc->ops->put_gpuaddr)
+		memdesc->ops->put_gpuaddr(memdesc);
+}
+
+/**
  * kgsl_cachemode_is_cached - Return true if the passed flags indicate a cached
  * buffer
  * @flags: A bitmask of KGSL_MEMDESC_ flags

@@ -200,8 +200,6 @@ int kgsl_mmu_start(struct kgsl_device *device);
 void kgsl_print_global_pt_entries(struct seq_file *s);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 
-int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
-		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_map_child(struct kgsl_pagetable *pt,
@@ -214,7 +212,6 @@ int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 int kgsl_mmu_unmap_range(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc, u64 offset, u64 length);
-void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);
 bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
@@ -257,6 +254,36 @@ struct kgsl_pagetable *kgsl_get_pagetable(unsigned long name);
 	(((_pt) != NULL) && \
 	 ((_pt)->pt_ops != NULL) && \
 	 ((_pt)->pt_ops->_field != NULL))
+
+/**
+ * kgsl_mmu_get_gpuaddr - Assign a GPU address to the memdesc
+ * @pagetable: GPU pagetable to assign the address in
+ * @memdesc: mem descriptor to assign the memory to
+ *
+ * Return: 0 on success or negative on failure
+ */
+static inline int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
+		 struct kgsl_memdesc *memdesc)
+{
+	if (PT_OP_VALID(pagetable, get_gpuaddr))
+		return pagetable->pt_ops->get_gpuaddr(pagetable, memdesc);
+
+	return -ENOMEM;
+}
+
+/**
+ * kgsl_mmu_put_gpuaddr - Remove a GPU address from a pagetable
+ * @pagetable: Pagetable to release the memory from
+ * @memdesc: Memory descriptor containing the GPU address to free
+ *
+ * Release a GPU address in the MMU virtual address space.
+ */
+static inline void kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc)
+{
+	if (PT_OP_VALID(pagetable, put_gpuaddr))
+		pagetable->pt_ops->put_gpuaddr(memdesc);
+}
 
 static inline u64 kgsl_mmu_get_current_ttbr0(struct kgsl_mmu *mmu)
 {

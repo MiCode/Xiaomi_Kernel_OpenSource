@@ -304,21 +304,6 @@ int kgsl_mmu_set_svm_region(struct kgsl_pagetable *pagetable, uint64_t gpuaddr,
 	return -ENOMEM;
 }
 
-/**
- * kgsl_mmu_get_gpuaddr() - Assign a GPU address to the memdesc
- * @pagetable: GPU pagetable to assign the address in
- * @memdesc: mem descriptor to assign the memory to
- */
-int
-kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
-		struct kgsl_memdesc *memdesc)
-{
-	if (PT_OP_VALID(pagetable, get_gpuaddr))
-		return pagetable->pt_ops->get_gpuaddr(pagetable, memdesc);
-
-	return -ENOMEM;
-}
-
 int
 kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				struct kgsl_memdesc *memdesc)
@@ -404,43 +389,6 @@ int kgsl_mmu_map_zero_page_to_range(struct kgsl_pagetable *pt,
 	}
 
 	return 0;
-}
-
-/**
- * kgsl_mmu_put_gpuaddr() - Remove a GPU address from a pagetable
- * @pagetable: Pagetable to release the memory from
- * @memdesc: Memory descriptor containing the GPU address to free
- */
-void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc)
-{
-	struct kgsl_pagetable *pagetable = memdesc->pagetable;
-	int unmap_fail = 0;
-
-	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
-		return;
-
-	if (!kgsl_memdesc_is_global(memdesc))
-		unmap_fail = kgsl_mmu_unmap(pagetable, memdesc);
-
-	/*
-	 * Do not free the gpuaddr/size if unmap fails. Because if we
-	 * try to map this range in future, the iommu driver will throw
-	 * a BUG_ON() because it feels we are overwriting a mapping.
-	 */
-	if (PT_OP_VALID(pagetable, put_gpuaddr) && (unmap_fail == 0))
-		pagetable->pt_ops->put_gpuaddr(memdesc);
-
-	memdesc->pagetable = NULL;
-
-
-	/*
-	 * If SVM tries to take a GPU address it will lose the race until the
-	 * gpuaddr returns to zero so we shouldn't need to worry about taking a
-	 * lock here
-	 */
-	if (!kgsl_memdesc_is_global(memdesc))
-		memdesc->gpuaddr = 0;
-
 }
 
 /**
