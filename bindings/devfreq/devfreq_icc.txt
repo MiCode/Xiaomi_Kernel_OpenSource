@@ -8,6 +8,7 @@ CPU, GPU) master port(s) to the slave (Eg: DDR) port(s).
 Required properties:
 - compatible:		Must be "qcom,devfreq-icc" or "qcom,devfreq-icc-ddr"
 			or "qcom,devfreq-icc-llcc" or "qcom,devfreq-icc-l3"
+			or "qcom,devfreq-icc-l3bw"
 - interconnects:	Pairs of phandles and interconnect provider specificers
 			to denote the edge source and destination ports of the
 			desired interconnect path.
@@ -16,12 +17,17 @@ Required properties:
 			requested from the device master port to the slave port.
 			The list of values depend on the supported bus/slave
 			frequencies and the bus width. Required for all devices
-			except those compatible with "qcom,devfreq-icc-l3".
+			except those compatible with "qcom,devfreq-icc-l3" or
+			"qcom,devfreq-icc-l3bw".
 - reg:			Physical base address and region size of the memory
 			mapped registers containing the device's frequency
-			table. Required for "qcom,devfreq-icc-l3" devices.
+			table. Required for "qcom,devfreq-icc-l3" and
+			"qcom,devfreq-icc-l3bw" devices.
 - reg-names:		Name used for the above registers. Expected name is
-			"ftbl-base". Required for "qcom,devfreq-icc-l3" devices.
+			"ftbl-base". Required for "qcom,devfreq-icc-l3"
+			and "qcom,devfreq-icc-l3bw" devices.
+- qcom,bus-width:	Bus width of the interconnect path. Only required for
+			"qcom,devfreq-icc-l3bw" devices.
 Optional properties:
 - qcom,active-only:	Indicates that the bandwidth votes need to be
 			enforced only when the CPU subsystem is active.
