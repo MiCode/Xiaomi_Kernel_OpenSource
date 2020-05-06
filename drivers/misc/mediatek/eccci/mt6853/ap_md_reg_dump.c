@@ -67,7 +67,7 @@ void md_io_remap_internal_dump_register(struct ccci_modem *md)
 			/* ioremap fail, skip internal dump. */
 			ioremap_dump_flag = 0;
 			CCCI_MEM_LOG_TAG(md->index, TAG,
-				"Dump MD failed to ioremap %u bytes from 0x%X\n",
+				"Dump MD failed to ioremap %lu bytes from 0x%llX\n",
 				dump_reg_tab[i].size, dump_reg_tab[i].addr);
 			CCCI_MEM_LOG_TAG(md->index, TAG,
 				"MD ioremap fail, skip internal dump.ioremap_dump_flag:%u\n",
