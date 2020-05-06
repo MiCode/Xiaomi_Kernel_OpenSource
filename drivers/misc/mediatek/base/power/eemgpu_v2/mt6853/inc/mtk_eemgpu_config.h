@@ -14,9 +14,7 @@
 #define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-#ifdef CONFIG_MT6360_PMIC
-#define EEMG_NOT_READY		(1)
-#endif
+/* #define EEMG_NOT_READY		(1) */
 #define CONFIG_EEMG_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEMG_BANK_SOC		(0) /* use voltage bin, so disable it */

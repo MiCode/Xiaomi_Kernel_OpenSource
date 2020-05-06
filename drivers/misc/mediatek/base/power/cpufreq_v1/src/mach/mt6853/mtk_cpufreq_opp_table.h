@@ -418,9 +418,9 @@ static struct opp_tbl_info opp_tbls[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 		[CPU_LEVEL_2] = { opp_tbl_L_e1_0,
 			ARRAY_SIZE(opp_tbl_L_e1_0) },
 		[CPU_LEVEL_3] = { opp_tbl_L_e2_0,
-			ARRAY_SIZE(opp_tbl_LL_e2_0) },
+			ARRAY_SIZE(opp_tbl_L_e2_0) },
 		[CPU_LEVEL_4] = { opp_tbl_L_e2_0,
-			ARRAY_SIZE(opp_tbl_LL_e2_0) },
+			ARRAY_SIZE(opp_tbl_L_e2_0) },
 
 	},
 	/* CCI */
@@ -432,9 +432,9 @@ static struct opp_tbl_info opp_tbls[NR_MT_CPU_DVFS][NUM_CPU_LEVEL] = {
 		[CPU_LEVEL_2] = { opp_tbl_CCI_e1_0,
 			ARRAY_SIZE(opp_tbl_CCI_e1_0) },
 		[CPU_LEVEL_3] = { opp_tbl_CCI_e2_0,
-			ARRAY_SIZE(opp_tbl_LL_e2_0) },
+			ARRAY_SIZE(opp_tbl_CCI_e2_0) },
 		[CPU_LEVEL_4] = { opp_tbl_CCI_e2_0,
-			ARRAY_SIZE(opp_tbl_LL_e2_0) },
+			ARRAY_SIZE(opp_tbl_CCI_e2_0) },
 	},
 };
 
