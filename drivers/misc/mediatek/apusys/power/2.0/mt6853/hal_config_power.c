@@ -291,14 +291,21 @@ enum DVFS_FREQ volt_to_ipuif_freq(int target_volt)
 }
 #endif
 
-static void prepare_apu_regulator(struct device *dev, int prepare)
+static int prepare_apu_regulator(struct device *dev, int prepare)
 {
+	int ret = 0;
+
 	if (prepare) {
 		// obtain regulator handle
-		prepare_regulator(VCORE_BUCK, dev);
-		prepare_regulator(SRAM_BUCK, dev);
-		prepare_regulator(VPU_BUCK, dev);
-
+		ret = prepare_regulator(VCORE_BUCK, dev);
+		if (ret)
+			goto out;
+		ret = prepare_regulator(SRAM_BUCK, dev);
+		if (ret)
+			goto out;
+		ret = prepare_regulator(VPU_BUCK, dev);
+		if (ret)
+			goto out;
 		// register pm_qos notifier here,
 		// vcore need to use pm_qos for voltage voting
 		pm_qos_register();
@@ -311,6 +318,9 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 		// unregister pm_qos notifier here,
 		pm_qos_unregister();
 	}
+
+out:
+	return ret;
 }
 
 /******************************************
@@ -386,7 +396,7 @@ static int init_power_resource(void *param)
 {
 	struct hal_param_init_power *init_data = NULL;
 	struct device *dev = NULL;
-
+	int ret = 0;
 	init_data = (struct hal_param_init_power *)param;
 
 	dev = init_data->dev;
@@ -416,23 +426,40 @@ static int init_power_resource(void *param)
 	LOG_DBG("%s , g_APU_SPM_BASE 0x%p\n", __func__, g_APU_SPM_BASE);
 
 	if (!is_apu_power_initilized) {
-		prepare_apu_regulator(dev, 1);
+		ret = prepare_apu_regulator(dev, 1);
+		if (ret)
+			goto out;
 #ifndef MTK_FPGA_PORTING
-		prepare_apu_clock(dev);
+		ret = prepare_apu_clock(dev);
+		if (ret)
+			goto out;
 #endif
 		is_apu_power_initilized = 1;
 	}
-	enable_apu_vcore_clksrc();
-	enable_apu_conn_clksrc();
+	ret = enable_apu_vcore_clksrc();
+	if (ret)
+		goto out;
+
+	ret = enable_apu_conn_clksrc();
+	if (ret)
+		goto out;
 	hw_init_setting();
-	set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
+	ret = set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
+	if (ret)
+		goto out;
 	disable_apu_conn_clksrc();
 
-	buck_control(VPU0, 3); // buck on
-	udelay(100);
-	buck_control(VPU0, 0); // buck off
+	ret = buck_control(VPU0, 3); // buck on
+	if (ret)
+		goto out;
 
-	return 0;
+	udelay(100);
+	ret = buck_control(VPU0, 0); // buck off
+	if (ret)
+		goto out;
+
+out:
+	return ret;
 }
 
 static int segment_user_support_check(void *param)

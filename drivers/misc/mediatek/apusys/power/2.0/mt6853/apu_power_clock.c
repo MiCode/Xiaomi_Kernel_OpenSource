@@ -222,10 +222,6 @@ int enable_apu_conn_clksrc(void)
 	int ret_all = 0;
 
 	ENABLE_CLK(clk_top_dsp_sel);
-	//ENABLE_CLK(clk_top_ipu_if_sel);
-
-	//enable_pll();
-
 	if (ret_all)
 		LOG_ERR("%s, ret = %d\n", __func__, ret_all);
 	else
@@ -449,7 +445,7 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 	LOG_ERR("%s config domain %s to freq %d failed\n",
 		__func__, buck_domain_str[domain], freq);
-	return -1;
+	return -ENODEV;
 }
 
 static unsigned int apu_get_dds(enum DVFS_FREQ freq,

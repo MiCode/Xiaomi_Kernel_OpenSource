@@ -100,6 +100,7 @@ static void d_work_power_info_func(struct work_struct *work);
 static void d_work_power_init_func(struct work_struct *work);
 static DECLARE_WORK(d_work_power_info, d_work_power_info_func);
 static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
+struct delayed_work d_work_power;
 
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source pwr_wake_lock;
@@ -625,8 +626,15 @@ static void default_power_on_func(void)
 
 static void d_work_power_init_func(struct work_struct *work)
 {
-	apusys_power_init(VPU0, (void *)&init_power_data);
+	int ret = 0;
 
+	ret = apusys_power_init(VPU0, (void *)&init_power_data);
+	if (ret == -EPROBE_DEFER) {
+		INIT_DEFERRABLE_WORK(&d_work_power, d_work_power_init_func);
+		queue_delayed_work(wq, &d_work_power,
+						   msecs_to_jiffies(100));
+		return;
+	}
 #if DEFAULT_POWER_ON
 	default_power_on_func();
 #endif // DEFAULT_POWER_ON

@@ -101,31 +101,28 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 #else
 		vvpu_reg_id = regulator_get(dev, "vvpu");
 #endif
-		if (!vvpu_reg_id) {
-			ret = -ENOENT;
-			LOG_ERR("regulator_get vvpu_reg_id failed\n");
+		if (IS_ERR(vvpu_reg_id)) {
+			ret = PTR_ERR(vvpu_reg_id);
+			LOG_ERR("regulator_get vpu failed, ret: %d\n", ret);
 			return ret;
 		}
-
 	} else if (buck == VCORE_BUCK) {
 		vcore_reg_id = regulator_get(dev, "vcore");
-		if (!vcore_reg_id) {
-			ret = -ENOENT;
-			LOG_ERR("regulator_get vcore_reg_id failed\n");
+		if (IS_ERR(vcore_reg_id)) {
+			ret = PTR_ERR(vcore_reg_id);
+			LOG_ERR("regulator_get vcore failed, ret: %d\n", ret);
 			return ret;
 		}
-
 	} else if (buck == SRAM_BUCK) {
 		vsram_reg_id = regulator_get(dev, "vsram_apu");
-		if (!vsram_reg_id) {
-			ret = -ENOENT;
-			LOG_ERR("regulator_get vsram_reg_id failed\n");
+		if (IS_ERR(vsram_reg_id)) {
+			ret = PTR_ERR(vsram_reg_id);
+			LOG_ERR("regulator_get vsram failed, ret %d\n", ret);
 			return ret;
 		}
-
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
-		return -1;
+		return -EINVAL;
 	}
 
 	return ret;
@@ -243,7 +240,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 	int ret = 0;
 
 	if (buck == VPU_BUCK) {
-		if (!vvpu_reg_id) {
+		if (IS_ERR(vvpu_reg_id)) {
 			ret = -ENOENT;
 			LOG_ERR("vvpu_reg_id is invalid\n");
 			return ret;
@@ -254,7 +251,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 		LOG_DBG("release vvpu_reg_id success\n");
 
 	} else if (buck == VCORE_BUCK) {
-		if (!vcore_reg_id) {
+		if (IS_ERR(vcore_reg_id)) {
 			ret = -ENOENT;
 			LOG_ERR("vcore_reg_id is invalid\n");
 			return ret;
@@ -265,7 +262,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 		LOG_DBG("release vcore_reg_id success\n");
 
 	} else if (buck == SRAM_BUCK) {
-		if (!vsram_reg_id) {
+		if (IS_ERR(vsram_reg_id)) {
 			ret = -ENOENT;
 			LOG_ERR("vsram_reg_id is invalid\n");
 			return ret;
@@ -469,20 +466,37 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	}
 
 	ret = regulator_set_voltage(reg_id, voltage_mV, voltage_MAX);
-	if (ret)
+	if (ret) {
+		LOG_ERR("%s set buck %d %s failded, ret = %d\n",
+			__func__,
+			buck,
+			(buck == VPU_BUCK) ? VPU_BUCK_NAME : "",
+			ret);
 		return ret;
+	}
 
 	/* check whether regulator driver implement slew rate delay */
 	settle_time =
 		regulator_set_voltage_time(reg_id, voltage_mV, voltage_MAX);
 #endif
-
-	/* regulator not implement delay or HW_CONTORL_PMIC flow*/
-	if (!settle_time) {
+	/*
+	 * (A) Regulator frame work return error
+	 * (B) Regutlaor not implement regulator delay
+	 * (C) Choose HW_CONTORL_PMIC flow.
+	 *
+	 * will get settle_time <= 0 and
+	 * start calcuating settle_time and udelay that value.
+	 */
+	if (settle_time <= 0) {
 		settle_time = settle_time_check(buck, voltage_mV);
 		if (settle_time > 0)
 			udelay(settle_time);
-	}
+	} else
+		LOG_DBG("%s buck:%d %s, OS use settletime:%d(us)\n",
+			__func__, buck,
+			(buck == VPU_BUCK) ? VPU_BUCK_NAME : "",
+			settle_time);
+
 #if VOLTAGE_CHECKER
 	check_volt = regulator_get_voltage(reg_id);
 	if (voltage_mV != check_volt) {
@@ -552,13 +566,13 @@ void dump_voltage(struct apu_power_info *info)
 	unsigned int vsram = 0;
 	unsigned int dump_div = 1;
 
-	if (vvpu_reg_id)
+	if (!IS_ERR(vvpu_reg_id))
 		vvpu = regulator_get_voltage(vvpu_reg_id);
 
-	if (vcore_reg_id)
+	if (!IS_ERR(vcore_reg_id))
 		vcore = regulator_get_voltage(vcore_reg_id);
 
-	if (vsram_reg_id)
+	if (!IS_ERR(vsram_reg_id))
 		vsram = regulator_get_voltage(vsram_reg_id);
 
 	if (info->dump_div > 0)

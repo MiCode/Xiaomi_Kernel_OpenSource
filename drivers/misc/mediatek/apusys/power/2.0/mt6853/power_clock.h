@@ -36,8 +36,9 @@ static inline void check_vpu_clk_sts(void) { }
 	{ \
 		clk = devm_clk_get(dev, #clk); \
 		if (IS_ERR(clk)) { \
-			ret = -ENOENT; \
-			LOG_ERR("can not find clk: %s\n", #clk); \
+			ret = PTR_ERR(clk); \
+			LOG_ERR("can not find clk: %s ret %d\n", #clk, ret); \
+			return ret; \
 		} \
 	}
 
