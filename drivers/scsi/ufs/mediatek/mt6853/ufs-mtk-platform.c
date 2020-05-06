@@ -337,14 +337,14 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	else
 		ufshcd_writel(hba, 0, REG_UFS_ADDR_XOUFS_ST);
 
-	retry = 3; /* 2.4ms wosrt case */
+	retry = 48; /* 2.4ms wosrt case */
 	do {
 		value = ufshcd_readl(hba, REG_UFS_ADDR_XOUFS_ST);
 
 		if ((value == 0x3) || (value == 0))
 			break;
 
-		mdelay(1);
+		udelay(50);
 		if (retry) {
 			retry--;
 		} else {
