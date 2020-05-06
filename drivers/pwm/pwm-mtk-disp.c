@@ -61,10 +61,14 @@ struct mtk_disp_pwm {
 	const struct mtk_pwm_data *data;
 	struct clk *clk_main;
 	struct clk *clk_mm;
+	struct clk *clk_source;
 	void __iomem *base;
 	void __iomem *pmw_src_addr;
 	bool pwm_src_enabled;
 	u32 source_rate;
+	bool pwm_src_set;
+	u32 source_fmeter_base;
+
 };
 
 static inline struct mtk_disp_pwm *to_mtk_disp_pwm(struct pwm_chip *chip)
@@ -84,26 +88,19 @@ static void mtk_disp_pwm_update_bits(struct mtk_disp_pwm *mdp, u32 offset,
 	writel(value, address);
 }
 
-static int get_pwm_src_rate(struct device *dev, struct mtk_disp_pwm *mdp)
+static int get_pwm_src_rate(struct mtk_disp_pwm *mdp)
 {
-	int ret = 0;
-	u32 pwm_src_base = 0;
 
 	mdp->source_rate = 0;
 
-	ret = of_property_read_u32(dev->of_node, "pwm_src_fmeter_id",
-		&pwm_src_base);
-	if (ret < 0)
-		return -1;
-
-	mdp->source_rate = mt_get_ckgen_freq(pwm_src_base)*1000;
+	mdp->source_rate = mt_get_ckgen_freq(mdp->source_fmeter_base)*1000;
 
 	if (mdp->source_rate == 0) {
 		dev_notice(mdp->chip.dev,
 			"get freq fail %d\n", mdp->source_rate);
 	}
 
-	return ret;
+	return mdp->source_rate;
 }
 
 static int get_pwm_src_base(struct device *dev, struct mtk_disp_pwm *mdp)
@@ -112,6 +109,11 @@ static int get_pwm_src_base(struct device *dev, struct mtk_disp_pwm *mdp)
 	struct device_node *node;
 	void __iomem *pmw_src_base;
 	u32 addr_offset = 0;
+
+	ret = of_property_read_u32(dev->of_node, "pwm_src_fmeter_id",
+		&mdp->source_fmeter_base);
+	if (ret < 0)
+		dev_info(dev, "no pwm_src_fmeter_id\n");
 
 	node = of_parse_phandle(dev->of_node, "pwm_src_base", 0);
 	if (!node) {
@@ -273,6 +275,16 @@ static int mtk_disp_pwm_enable_impl(struct mtk_disp_pwm *mdp)
 	}
 
 	pwm_src_power_on(mdp);
+	if (mdp->pwm_src_set != true) {
+		if (!IS_ERR(mdp->clk_source)) {
+			err = clk_set_parent(mdp->clk_mm, mdp->clk_source);
+				if (err < 0)
+					dev_info(mdp->chip.dev, "no pwm_src\n");
+			dev_info(mdp->chip.dev, "select clk_mm with pwm_src\n");
+		}
+		get_pwm_src_rate(mdp);
+		mdp->pwm_src_set = true;
+	}
 
 	mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN, mdp->data->enable_mask,
 				 mdp->data->enable_mask);
@@ -347,23 +359,7 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto disable_clk_main;
 
-	ret = clk_enable(g_mdp->clk_mm);
-	if (ret < 0)
-		goto disable_clk_mm;
-
-	pwm_src = devm_clk_get(&pdev->dev, "pwm_src");
-	if (!IS_ERR(pwm_src)) {
-		ret = clk_set_parent(g_mdp->clk_mm, pwm_src);
-		if (ret < 0) {
-			clk_disable(g_mdp->clk_mm);
-			goto disable_clk_mm;
-		}
-
-		dev_info(&pdev->dev, "select clk_mm with pwm_src\n");
-	}
-
-	get_pwm_src_rate(&pdev->dev, g_mdp);
-	clk_disable(g_mdp->clk_mm);
+	g_mdp->clk_source = devm_clk_get(&pdev->dev, "pwm_src");
 	get_pwm_src_base(&pdev->dev, g_mdp);
 
 
