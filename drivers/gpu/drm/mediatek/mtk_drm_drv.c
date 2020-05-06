@@ -678,9 +678,6 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	if (!mtk_atomic_skip_plane_update(private, state)) {
 		drm_atomic_helper_commit_planes(drm, state,
 						DRM_PLANE_COMMIT_ACTIVE_ONLY);
-#ifdef MTK_DRM_ESD_SUPPORT
-		drm_atomic_esd_chk_first_enable(drm, state);
-#endif
 	}
 
 	mtk_atomic_doze_finish(drm, state);
@@ -699,6 +696,9 @@ static void mtk_atomic_work(struct work_struct *work)
 		container_of(work, struct mtk_drm_private, commit.work);
 
 	mtk_atomic_complete(private, private->commit.state);
+#ifdef MTK_DRM_ESD_SUPPORT
+	drm_atomic_esd_chk_first_enable(private->drm, private->commit.state);
+#endif
 }
 
 static int mtk_atomic_check(struct drm_device *dev,
@@ -2877,9 +2877,10 @@ static void mtk_drm_shutdown(struct platform_device *pdev)
 {
 	struct mtk_drm_private *private = platform_get_drvdata(pdev);
 	struct drm_device *drm = private->drm;
-
+	struct drm_crtc *crtc = private->crtc[0];
 	if (drm) {
 		DDPMSG("%s\n", __func__);
+		mtk_disp_esd_check_switch(crtc, false);
 		drm_atomic_helper_shutdown(drm);
 	}
 }
