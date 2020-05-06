@@ -7506,6 +7506,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	unsigned long target_capacity = ULONG_MAX;
 	unsigned long min_wake_util = ULONG_MAX;
 	unsigned long target_max_spare_cap = 0;
+	unsigned long target_orig_max_spare_cap = 0;
 	unsigned long target_util = ULONG_MAX;
 	unsigned long best_active_util = ULONG_MAX;
 	unsigned long max_capacity = cluster_max_capacity();
@@ -7556,7 +7557,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			unsigned long capacity = capacity_of(i);
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_util, new_util;
-			long spare_cap;
+			long spare_cap, real_spare_cap;
 			int idle_idx = INT_MAX;
 			bool turning;
 
@@ -7576,6 +7577,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 */
 			wake_util = cpu_util_without(i, p);
 			new_util = wake_util + task_util_est(p);
+			real_spare_cap = capacity - new_util;
 
 			/*
 			 * Ensure minimum capacity to grant the required boost.
@@ -7695,9 +7697,22 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				if (capacity_curr > new_util &&
 				    spare_cap > target_max_spare_cap) {
 					target_max_spare_cap = spare_cap;
+					target_orig_max_spare_cap =
+						real_spare_cap;
 					target_cpu = i;
 					continue;
 				}
+				/*
+				 * If util including uclamp are equal,
+				 * then consider real
+				 * spare capacity
+				 */
+				if (capacity_curr > new_util &&
+				    spare_cap == target_max_spare_cap)
+					if (real_spare_cap <=
+						target_orig_max_spare_cap)
+						continue;
+
 				if (target_cpu != -1)
 					continue;
 
@@ -7817,6 +7832,17 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			if (capacity_orig == target_capacity &&
 			    spare_cap < target_max_spare_cap)
 				continue;
+			/*
+			 * If spare_cap include uclamp util is equal,
+			 * then consider real spare_cap. This could avoid
+			 * all task fall back to the last cpu if all cpu
+			 * running a task with uclamp
+			 * min is 1024.
+			 */
+			if (capacity_orig == target_capacity &&
+			    spare_cap == target_max_spare_cap)
+				if (real_spare_cap <= target_orig_max_spare_cap)
+					continue;
 
 			/*
 			 * If little core will use frequency
@@ -7833,6 +7859,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 
 			if (!turning) {
 				target_max_spare_cap = spare_cap;
+				target_orig_max_spare_cap = real_spare_cap;
 				target_capacity = capacity_orig;
 				target_util = new_util;
 				target_cpu = i;
