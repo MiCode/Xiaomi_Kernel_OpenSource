@@ -40,7 +40,7 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 		mtk_v4l2_err("[%d] cmd=%d, ctx->type=%d, wait_event_interruptible_timeout time=%ums out %d %d!",
 			ctx->id, ctx->type, command, timeout_ms,
 			ctx->int_cond[core_id], ctx->int_type);
-		smi_debug_bus_hang_detect(0, "VCODEC");
+		//smi_debug_bus_hang_detect(0, "VCODEC");
 	} else if (-ERESTARTSYS == ret) {
 		mtk_v4l2_err("[%d] cmd=%d, ctx->type=%d, wait_event_interruptible_timeout interrupted by a signal %d %d",
 			ctx->id, ctx->type, command, ctx->int_cond[core_id],
