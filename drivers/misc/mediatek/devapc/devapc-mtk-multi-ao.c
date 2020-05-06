@@ -1390,8 +1390,10 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 #ifdef CONFIG_DEVAPC_SWP_SUPPORT
 	devapc_swp_ctx->devapc_swp_base = of_iomap(node, slave_type_num + 2);
-	driver_create_file(pdev->dev.driver,
+	ret = driver_create_file(pdev->dev.driver,
 			&driver_attr_set_swp_addr);
+	if (ret)
+		pr_info(PFX "create SWP sysfs file failed, ret:%d\n", ret);
 #endif
 
 	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
