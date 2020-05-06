@@ -868,6 +868,7 @@ static int cnss_pci_force_wake_get(struct cnss_pci_data *pci_priv)
 
 	if (cnss_pci_is_device_awake(dev) != true) {
 		cnss_pr_err("Timed out to request force wake\n");
+		cnss_pci_force_wake_release(dev);
 		return -ETIMEDOUT;
 	}
 
