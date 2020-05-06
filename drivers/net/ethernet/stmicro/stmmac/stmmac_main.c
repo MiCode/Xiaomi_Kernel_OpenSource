@@ -1028,15 +1028,9 @@ static int stmmac_init_phy(struct net_device *dev)
 		phydev->speed = SPEED_100;
 		phydev->duplex = DUPLEX_FULL;
 
-		phydev->supported =
-			SUPPORTED_100baseT_Full | SUPPORTED_TP | SUPPORTED_MII |
-			SUPPORTED_10baseT_Full;
-		phydev->supported &= ~SUPPORTED_Autoneg;
-
 		phydev->advertising = phydev->supported;
-		phydev->advertising &= ~ADVERTISED_Autoneg;
+		phydev->advertising &= ~(SUPPORTED_1000baseT_Full);
 
-		phy_set_max_speed(phydev, SPEED_100);
 		pr_info(" qcom-ethqos: %s early eth setting successful\n",
 			__func__);
 
