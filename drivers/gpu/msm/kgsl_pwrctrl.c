@@ -3284,6 +3284,41 @@ int kgsl_pwr_limits_set_freq(void *limit_ptr, unsigned int freq)
 EXPORT_SYMBOL(kgsl_pwr_limits_set_freq);
 
 /**
+ * kgsl_pwr_limits_set_gpu_fmax() - Set the requested limit for the
+ * client, if requested freq value is larger than fmax supported
+ * function returns with success.
+ * @limit_ptr: Client handle
+ * @freq: Client requested frequency
+ *
+ * Set the new limit for the client and adjust the clocks
+ */
+int kgsl_pwr_limits_set_gpu_fmax(void *limit_ptr, unsigned int freq)
+{
+	struct kgsl_pwrctrl *pwr;
+	struct kgsl_pwr_limit *limit = limit_ptr;
+	int level;
+
+	if (IS_ERR_OR_NULL(limit))
+		return -EINVAL;
+
+	pwr = &limit->device->pwrctrl;
+
+	/*
+	 * When requested frequency is greater than fmax,
+	 * requested limit is implicit, return success here.
+	 */
+	if (freq >= pwr->pwrlevels[0].gpu_freq)
+		return 0;
+
+	level = _get_nearest_pwrlevel(pwr, freq);
+	if (level < 0)
+		return -EINVAL;
+	_update_limits(limit, KGSL_PWR_SET_LIMIT, level);
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_pwr_limits_set_gpu_fmax);
+
+/**
  * kgsl_pwr_limits_set_default() - Set the default thermal limit for the client
  * @limit_ptr: Client handle
  *
