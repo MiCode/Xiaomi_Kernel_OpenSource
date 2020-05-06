@@ -14,6 +14,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/regulator/consumer.h>
+#include <linux/kernel.h>
+#include <mt-plat/mtk_devinfo.h>
 
 #ifdef CONFIG_MTK_FREQ_HOPPING
 #include <mtk_freqhopping_drv.h>
@@ -632,8 +634,15 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	unsigned int lv = CPU_LEVEL_2;
 #endif
 	int val = (get_devinfo_with_index(62) & 0x300);
+#if defined(CONFIG_ARM64) && \
+	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+	if (strstr(
+		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+			"_turbo")){
+		lv = CPU_LEVEL_0;
+		tag_pr_info("turbo project over\n");
+	}
 #if 0
-
 	val = val >> 8;
 	switch (val) {
 	case 0:
@@ -646,6 +655,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	}
 	turbo_flag = 0;
 #endif
+#endif
+
 	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 	return lv;
