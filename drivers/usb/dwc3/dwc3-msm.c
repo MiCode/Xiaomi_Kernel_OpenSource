@@ -473,7 +473,6 @@ struct dwc3_msm {
 	enum usb_device_speed override_usb_speed;
 	u32			*gsi_reg;
 	int			gsi_reg_offset_cnt;
-	bool			gsi_io_coherency_disabled;
 
 	struct notifier_block	dpdm_nb;
 	struct regulator	*dpdm_reg;
@@ -1372,27 +1371,20 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	int i = 0;
 	size_t len;
-	unsigned long dma_attr;
 	dma_addr_t buffer_addr;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3		*dwc = dep->dwc;
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_trb *trb;
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 2);
 	struct scatterlist *sg;
 	struct sg_table *sgt;
 
-	if (mdwc->gsi_io_coherency_disabled)
-		dma_attr = DMA_ATTR_FORCE_NON_COHERENT;
-	else
-		dma_attr = DMA_ATTR_FORCE_COHERENT;
-
 	/* Allocate TRB buffers */
 
 	len = req->buf_len * req->num_bufs;
-	req->buf_base_addr = dma_alloc_attrs(dwc->sysdev, len, &req->dma,
-					GFP_KERNEL, dma_attr);
+	req->buf_base_addr = dma_alloc_coherent(dwc->sysdev, len, &req->dma,
+					GFP_KERNEL);
 	if (!req->buf_base_addr) {
 		dev_err(dwc->dev, "buf_base_addr allocate failed %s\n",
 				dep->name);
@@ -1406,9 +1398,9 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 
 	/* Allocate and configgure TRBs */
 
-	dep->trb_pool = dma_alloc_attrs(dwc->sysdev,
+	dep->trb_pool = dma_alloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
-				&dep->trb_pool_dma, GFP_KERNEL, dma_attr);
+				&dep->trb_pool_dma, GFP_KERNEL);
 
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
@@ -1512,8 +1504,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	return 0;
 
 free_trb_buffer:
-	dma_free_attrs(dwc->sysdev, len, req->buf_base_addr, req->dma,
-			dma_attr);
+	dma_free_coherent(dwc->sysdev, len, req->buf_base_addr, req->dma);
 	req->buf_base_addr = NULL;
 	sg_free_table(&req->sgt_data_buff);
 	return -ENOMEM;
@@ -1529,30 +1520,24 @@ static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	unsigned long dma_attr;
 
 	if (!dep->gsi)
 		return;
 
-	if (mdwc->gsi_io_coherency_disabled)
-		dma_attr = DMA_ATTR_FORCE_NON_COHERENT;
-	else
-		dma_attr = DMA_ATTR_FORCE_COHERENT;
-
 	/*  Free TRBs and TRB pool for EP */
 	if (dep->trb_pool_dma) {
-		dma_free_attrs(dwc->sysdev,
+		dma_free_coherent(dwc->sysdev,
 			dep->num_trbs * sizeof(struct dwc3_trb),
-			dep->trb_pool, dep->trb_pool_dma, dma_attr);
+			dep->trb_pool,
+			dep->trb_pool_dma);
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
 	}
 	sg_free_table(&req->sgt_trb_xfer_ring);
 
 	/* free TRB buffers */
-	dma_free_attrs(dwc->sysdev, req->buf_len * req->num_bufs,
-		req->buf_base_addr, req->dma, dma_attr);
+	dma_free_coherent(dwc->sysdev, req->buf_len * req->num_bufs,
+		req->buf_base_addr, req->dma);
 	req->buf_base_addr = NULL;
 	sg_free_table(&req->sgt_data_buff);
 }
@@ -4154,10 +4139,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
-
-	mdwc->gsi_io_coherency_disabled = of_property_read_bool(node,
-				"qcom,gsi-disable-io-coherency");
-
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
