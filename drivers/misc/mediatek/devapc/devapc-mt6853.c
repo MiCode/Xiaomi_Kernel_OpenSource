@@ -151,7 +151,7 @@ static struct mtk_device_info mt6853_devices_infra[] = {
 	{1, 45, 113, "IMGSYS", true},
 	{1, 46, 114, "IMGSYS", true},
 	{1, 47, 115, "SMI", true},
-	{1, 48, 116, "IMGSYS", true},
+	{1, 48, 116, "SMI", true},
 	{1, 49, 117, "IMGSYS", true},
 	{1, 50, 118, "IMGSYS", true},
 	{1, 51, 119, "IMGSYS", true},
