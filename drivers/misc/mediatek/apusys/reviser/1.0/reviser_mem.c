@@ -149,6 +149,12 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 		goto error;
 	}
 
+	/*
+	 * Avoid a kmemleak false positive.
+	 * The pointer is using for debugging,
+	 * but it will be used by other apusys HW
+	 */
+	kmemleak_not_leak(kva);
 
 	mem->kva = (uint64_t)kva;
 	mem->iova = (uint32_t)iova;
