@@ -71,6 +71,12 @@ Subnode common properties for OLEDB and AB/IBB regulator devices.
 	Definition: A boolean property to specify that the pull down control
 		    for AB/IBB needs to be configured during AOD mode.
 
+- qcom,ibb-single-phase:
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to specify that IBB regulator needs to
+		    be configured in single phase always.
+
 Example:
 
 pm8150a_amoled: oledb@e000 {
