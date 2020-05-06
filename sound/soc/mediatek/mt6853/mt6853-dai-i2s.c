@@ -737,6 +737,9 @@ static const struct snd_soc_dapm_widget mtk_dai_i2s_widgets[] = {
 			 SND_SOC_NOPM, 0, 0, &i2s3_out_mux_control),
 	SND_SOC_DAPM_MUX("I2S5_Out_Mux",
 			 SND_SOC_NOPM, 0, 0, &i2s5_out_mux_control),
+	SND_SOC_DAPM_INPUT("I2S_DUMMY_IN"),
+	SND_SOC_DAPM_MUX("I2S0_In_Mux",
+			 SND_SOC_NOPM, 0, 0, &i2s0_in_mux_control),
 
 	/* i2s in lpbk */
 	SND_SOC_DAPM_MUX("I2S0_Lpbk_Mux",
