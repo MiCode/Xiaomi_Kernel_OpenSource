@@ -551,6 +551,15 @@ static int atl_set_txsc(struct atl_hw *hw, int txsc_idx)
 	sc_rec.fresh = 1;
 
 	if (atl_macsec_bridge) {
+		struct aq_mss_ingress_prectlf_record rx_prectlf_rec;
+
+		memset(&rx_prectlf_rec, 0, sizeof(rx_prectlf_rec));
+		ret = aq_mss_set_ingress_prectlf_record(hw, &rx_prectlf_rec, 0);
+		if (ret)
+			return ret;
+		ret = aq_mss_set_packet_edit_control(hw, 0);
+		if (ret)
+			return ret;
 		ret = aq_mss_set_drop_igprc_miss_packets(hw, 1);
 		if (ret)
 			return ret;
@@ -719,7 +728,19 @@ static int atl_clear_txsc(struct atl_nic *nic, const int txsc_idx,
 		if (ret)
 			return ret;
 
+		/* if last txsc is removed then pass macsec packets to host */
 		if (atl_macsec_bridge) {
+			struct aq_mss_ingress_prectlf_record rx_prectlf;
+
+			memset(&rx_prectlf, 0, sizeof(rx_prectlf));
+			rx_prectlf.match_type = 4; /* Match eth_type only */
+			rx_prectlf.action = 0;
+			ret = aq_mss_set_ingress_prectlf_record(hw, &rx_prectlf, 0);
+			if (ret)
+				return ret;
+			ret = aq_mss_set_packet_edit_control(hw, 0xb068);
+			if (ret)
+				return ret;
 			ret = aq_mss_set_drop_igprc_miss_packets(hw, 0);
 			if (ret)
 				return ret;
@@ -911,7 +932,6 @@ static int atl_set_rxsc(struct atl_hw *hw, const u32 rxsc_idx)
 		&hw->macsec_cfg.atl_rxsc[rxsc_idx];
 	struct aq_mss_ingress_preclass_record pre_class_record;
 	const struct macsec_rx_sc *rx_sc = atl_rxsc->sw_rxsc;
-	struct aq_mss_ingress_prectlf_record rx_prectlf_rec;
 	const struct macsec_secy *secy = atl_rxsc->sw_secy;
 	const u32 hw_sc_idx = atl_rxsc->hw_sc_idx;
 	struct aq_mss_ingress_sc_record sc_record;
@@ -920,12 +940,6 @@ static int atl_set_rxsc(struct atl_hw *hw, const u32 rxsc_idx)
 
 	atl_dev_dbg("set rx_sc: rxsc_idx=%d, sci %#llx, hw_sc_idx=%d\n",
 		    rxsc_idx, rx_sc->sci, hw_sc_idx);
-
-	if (atl_macsec_bridge) {
-		memset(&rx_prectlf_rec, 0, sizeof(rx_prectlf_rec));
-		aq_mss_set_ingress_prectlf_record(hw, &rx_prectlf_rec, 0);
-		aq_mss_set_packet_edit_control(hw, 0);
-	}
 
 	memset(&pre_class_record, 0, sizeof(pre_class_record));
 	nsci = cpu_to_be64((__force u64)rx_sc->sci);
@@ -1060,18 +1074,7 @@ static int atl_clear_rxsc(struct atl_nic *nic, const int rxsc_idx,
 
 	if (clear_type & ATL_CLEAR_HW) {
 		struct aq_mss_ingress_preclass_record pre_class_record;
-		struct aq_mss_ingress_prectlf_record rx_prectlf;
 		struct aq_mss_ingress_sc_record sc_record;
-
-		/* if last rxsc is removed then pass macsec packets to host */
-		if (atl_macsec_bridge &&
-		    hweight_long(hw->macsec_cfg.rxsc_idx_busy) == 1) {
-			memset(&rx_prectlf, 0, sizeof(rx_prectlf));
-			rx_prectlf.match_type = 4; /* Match eth_type only */
-			rx_prectlf.action = 0;
-			aq_mss_set_ingress_prectlf_record(hw, &rx_prectlf, 0);
-			aq_mss_set_packet_edit_control(hw, 0xb068);
-		}
 
 		memset(&pre_class_record, 0, sizeof(pre_class_record));
 		memset(&sc_record, 0, sizeof(sc_record));
