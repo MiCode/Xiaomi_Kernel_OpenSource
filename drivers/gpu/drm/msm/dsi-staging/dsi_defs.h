@@ -241,6 +241,23 @@ enum dsi_dfps_type {
 };
 
 /**
+ * enum dsi_dyn_clk_feature_type - Dynamic clock feature support type
+ * @DSI_DYN_CLK_TYPE_LEGACY:	Constant FPS is not supported
+ * @DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP:	Constant FPS supported with
+ *		change in hfp
+ * @DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP:	Constant FPS supported with
+ *		change in vfp
+ * @DSI_DYN_CLK_TYPE_MAX:
+ */
+
+enum dsi_dyn_clk_feature_type {
+	DSI_DYN_CLK_TYPE_LEGACY = 0,
+	DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP,
+	DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP,
+	DSI_DYN_CLK_TYPE_MAX
+};
+
+/**
  * enum dsi_cmd_set_type  - DSI command set type
  * @DSI_CMD_SET_PRE_ON:	                   Panel pre on
  * @DSI_CMD_SET_ON:                        Panel on
