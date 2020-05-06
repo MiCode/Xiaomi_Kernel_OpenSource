@@ -81,3 +81,10 @@ config MMC_TEST
 	  This driver is only of interest to those developing or
 	  testing a host driver. Most people should say N here.
 
+config SDC_QTI
+	tristate "Enable QTI specific code in MMC upstream driver"
+	depends on QGKI && MMC_SDHCI_MSM
+	default n
+	help
+	  This configuration flag allows adding QTI code in
+	  MMC upstream driver.
