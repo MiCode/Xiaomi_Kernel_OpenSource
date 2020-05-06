@@ -184,7 +184,7 @@ static int led_level_pwm_set(struct mtk_led_data *led_dat,
 		return 0;
 
 	led_dat->conf.level = brightness;
-	max = led_dat->conf.cdev.max_brightness;
+	max = (1 << led_dat->conf.trans_bits) - 1;
 	duty = led_dat->info.config.pwm_period_ns;
 	duty *= brightness;
 	do_div(duty, max);
@@ -202,7 +202,7 @@ static int led_level_pwm_set(struct mtk_led_data *led_dat,
 int mt_leds_brightness_set(char *name, int level)
 {
 	struct mtk_led_data *led_dat;
-	int index, led_Level;
+	int index;
 
 	index = getLedDespIndex(name);
 	if (index < 0) {
@@ -211,12 +211,8 @@ int mt_leds_brightness_set(char *name, int level)
 	}
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
-	led_Level = (
-		(((1 << led_dat->conf.led_bits) - 1) * level
-		+ (((1 << led_dat->conf.trans_bits) - 1) / 2))
-		/ ((1 << led_dat->conf.trans_bits) - 1));
-	led_level_pwm_set(led_dat, led_Level);
-	led_dat->conf.level = led_Level;
+	led_level_pwm_set(led_dat, level);
+	led_dat->conf.level = level;
 
 	return 0;
 }
@@ -279,8 +275,8 @@ static int led_level_set(struct led_classdev *led_cdev,
 #ifdef CONFIG_MTK_AAL_SUPPORT
 		disp_pq_notify_backlight_changed(trans_level);
 #else
-	led_level_pwm_set(led_dat, brightness);
-	led_dat->last_level = brightness;
+	led_level_pwm_set(led_dat, trans_level);
+	led_dat->last_level = trans_level;
 
 #endif
 	return 0;
@@ -305,7 +301,7 @@ int setMaxBrightness(char *name, int percent, bool enable)
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
 
-	max_l = led_dat->conf.cdev.max_brightness;
+	max_l = (1 << led_dat->conf.trans_bits) - 1;
 	limit_l = (percent * max_l) / 100;
 	pr_info("before: name: %s, percent : %d, limit_l : %d, enable: %d",
 		leds_info->leds[index]->name, percent, limit_l, enable);
@@ -338,9 +334,9 @@ static int led_data_init(struct device *dev, struct mtk_led_data *s_led)
 	s_led->conf.cdev.max_brightness = s_led->info.config.max_brightness;
 	s_led->conf.cdev.flags = LED_CORE_SUSPENDRESUME;
 	s_led->conf.cdev.brightness_set_blocking = led_level_set;
-	s_led->brightness = s_led->conf.cdev.max_brightness;
-	s_led->conf.level = s_led->conf.cdev.max_brightness;
-	s_led->last_level = s_led->conf.cdev.max_brightness;
+	s_led->brightness = (1 << s_led->conf.trans_bits) - 1;
+	s_led->conf.level = s_led->brightness;
+	s_led->last_level = s_led->brightness;
 	ret = devm_led_classdev_register(dev, &(s_led->conf.cdev));
 	if (ret < 0) {
 		pr_notice("led class register fail!");
