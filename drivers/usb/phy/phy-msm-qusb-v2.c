@@ -650,11 +650,15 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 	u32 linestate = 0, intr_mask = 0;
 
 	if (qphy->suspended == suspend) {
+		if (qphy->phy.flags & PHY_SUS_OVERRIDE)
+			goto suspend;
+
 		dev_dbg(phy->dev, "%s: USB PHY is already suspended\n",
-			__func__);
+								__func__);
 		return 0;
 	}
 
+suspend:
 	if (suspend) {
 		/* Bus suspend case */
 		if (qphy->cable_connected) {
@@ -699,11 +703,16 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			qusb_phy_enable_clocks(qphy, false);
 		} else { /* Cable disconnect case */
 			/* Disable all interrupts */
-			writel_relaxed(0x00,
-				qphy->base + qphy->phy_reg[INTR_CTRL]);
-			qusb_phy_reset(qphy);
-			qusb_phy_enable_clocks(qphy, false);
-			qusb_phy_disable_power(qphy);
+			dev_dbg(phy->dev, "%s: phy->flags:0x%x\n",
+			__func__, qphy->phy.flags);
+			if (!(qphy->phy.flags & EUD_SPOOF_DISCONNECT)) {
+				dev_dbg(phy->dev, "turning off clocks/ldo\n");
+				writel_relaxed(0x00,
+					qphy->base + qphy->phy_reg[INTR_CTRL]);
+				qusb_phy_reset(qphy);
+				qusb_phy_enable_clocks(qphy, false);
+				qusb_phy_disable_power(qphy);
+			}
 		}
 		qphy->suspended = true;
 	} else {
@@ -1247,6 +1256,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->suspended = true;
 	qusb_phy_create_debugfs(qphy);
+
+	/*
+	 * EUD may be enable in boot loader and to keep EUD session alive across
+	 * kernel boot till USB phy driver is initialized based on cable status,
+	 * keep LDOs on here.
+	 */
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg))
+		qusb_phy_enable_power(qphy);
 
 	return ret;
 }
