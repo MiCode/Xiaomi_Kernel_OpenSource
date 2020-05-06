@@ -129,7 +129,7 @@ static int start(struct bus_tracer_plt *plt)
 
 	return 0;
 }
-
+#if 0
 static void disable_etb(void __iomem *base)
 {
 	if (!base)
@@ -140,7 +140,7 @@ static void disable_etb(void __iomem *base)
 	CS_LOCK(base);
 	dsb(sy);
 }
-
+#endif
 static void enable_etb(void __iomem *base)
 {
 	unsigned int depth, i;
@@ -162,7 +162,7 @@ static void enable_etb(void __iomem *base)
 	CS_LOCK(base);
 	dsb(sy);
 }
-
+#if 0
 static int dump_etb(void __iomem *base, char **ptr)
 {
 	unsigned int i;
@@ -218,9 +218,10 @@ static int dump_etb(void __iomem *base, char **ptr)
 	dsb(sy);
 	return 0;
 }
-
+#endif
 static int dump(struct bus_tracer_plt *plt, char *buf, int len)
 {
+#if 0
 	int i;
 
 	for (i = 0; i <= plt->num_tracer-1; ++i) {
@@ -240,7 +241,7 @@ static int dump(struct bus_tracer_plt *plt, char *buf, int len)
 		pr_notice("[bus tracer] error when dumping etb\n");
 		return -2;
 	}
-
+#endif
 	return 0;
 }
 
