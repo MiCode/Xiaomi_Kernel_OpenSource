@@ -6234,6 +6234,7 @@ page_owner=on loop.max_part=7";
 			safety_timer = <10>;		/* hour */
 			ircmp_resistor = <25000>;	/* uohm */
 			ircmp_vclamp = <32000>;		/* uV */
+			specta_det = <0>;
 			/* 0: disable, 1: 300ms, 2: 600ms, 3: unlimit */
 			dcdt_sel = <2>;
 			/* 0: 5.8V, 1: 6.5V, 2: 11V, 3: 14.5V */

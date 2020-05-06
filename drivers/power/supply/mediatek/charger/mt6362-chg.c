@@ -149,6 +149,8 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6362_MASK_DISDRV_UG2LG	BIT(1)
 /* 0x50 */
 #define MT6362_MASK_BC12_EN		BIT(7)
+#define MT6362_MASK_SPECTA_EN		(0x40)
+#define MT6362_SHFT_SPECTA_EN		BIT(6)
 #define MT6362_MASK_DCDT_SEL		(0x30)
 #define MT6362_SHFT_DCDT_SEL		(4)
 /* 0x51 */
@@ -225,6 +227,7 @@ struct mt6362_chg_platform_data {
 	u32 ircmp_resistor;
 	u32 ircmp_vclamp;
 	u32 dcdt_sel;
+	u32 specta_det;
 	u32 vbusov_sel;
 	u32 en_te;
 	u32 en_wdt;
@@ -2704,6 +2707,11 @@ static int mt6362_chg_apply_pdata(struct mt6362_chg_data *data,
 			&pdata->dcdt_sel,
 			MT6362_REG_BC12_FUNC, MT6362_MASK_DCDT_SEL,
 			MT6362_SHFT_DCDT_SEL,
+		},
+		{
+			&pdata->specta_det,
+			MT6362_REG_BC12_FUNC, MT6362_MASK_SPECTA_EN,
+			MT6362_SHFT_SPECTA_EN,
 		},
 		{
 			&pdata->vbusov_sel,
