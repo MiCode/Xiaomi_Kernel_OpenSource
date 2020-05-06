@@ -4375,8 +4375,8 @@ page_owner=on";
 		compatible = "mediatek,2x1_sub_common",
 				"mediatek,smi_common";
 		reg = <0 0x1502f000 0 0x1000>;
-		clocks = <&scpsys SCP_SYS_DIS>;
-		clock-names = "scp-dis";
+		clocks = <&scpsys SCP_SYS_ISP>;
+		clock-names = "scp-isp";
 		mediatek,smi-id = <28>;
 	};
 
