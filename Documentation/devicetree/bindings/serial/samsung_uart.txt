@@ -25,6 +25,8 @@ Required properties:
     internal baud clock mux).
 - clocks: phandles and specifiers for all clocks specified in "clock-names"
   property, in the same order, according to clock bindings documentation [2].
+- reg-io-width: The size (in bytes) of the IO accesses that should be
+  performed on the device.
 
 [1] Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
 [2] Documentation/devicetree/bindings/clock/clock-bindings.txt
