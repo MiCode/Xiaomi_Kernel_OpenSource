@@ -66,7 +66,7 @@ struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
 
 /* Time in nano seconds. This number must be less than a second. */
 #ifdef ENABLE_WQ_GRO
-long int gro_flush_timer __read_mostly = 1000000L;
+long int gro_flush_timer __read_mostly = 2000000L;
 #else
 long int gro_flush_timer;
 #endif
@@ -75,6 +75,7 @@ long int gro_flush_timer;
 #define DEV_OPEN                1
 #define DEV_CLOSE               0
 
+static unsigned long timeout_flush_num, clear_flush_num;
 
 void set_ccmni_rps(unsigned long value)
 {
@@ -284,6 +285,7 @@ static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 		diff = timespec_sub(curr_time, ccmni->flush_time);
 		if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
 			napi_gro_flush(ccmni->napi, false);
+			timeout_flush_num++;
 			getnstimeofday(&ccmni->flush_time);
 		}
 	}
@@ -1546,6 +1548,7 @@ static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 			spin_lock_bh(ccmni->spinlock);
 			ccmni->rx_gro_cnt++;
 			napi_gro_flush(ccmni->napi, false);
+			clear_flush_num++;
 			spin_unlock_bh(ccmni->spinlock);
 			preempt_enable();
 		}
@@ -1717,6 +1720,8 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 	/* ccmni diff from ccmni_tmp for MD IRAT */
 	ccmni = (struct ccmni_instance *)netdev_priv(dev);
 	dev_queue = netdev_get_tx_queue(dev, 0);
+	CCMNI_INF_MSG(md_id, "to:clr(%lu:%lu)\r\n",
+		timeout_flush_num, clear_flush_num);
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_CCMNI_MQ) {
 		ack_queue = netdev_get_tx_queue(dev, CCMNI_TXQ_FAST);
 		qdisc = dev_queue->qdisc;
