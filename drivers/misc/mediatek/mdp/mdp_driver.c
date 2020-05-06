@@ -370,6 +370,7 @@ do { \
 static long cmdq_driver_destroy_secure_medadata(
 	struct cmdqCommandStruct *pCommand)
 {
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	u32 i;
 
 	kfree(CMDQ_U32_PTR(pCommand->secData.addrMetadatas));
@@ -377,7 +378,7 @@ static long cmdq_driver_destroy_secure_medadata(
 
 	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++)
 		CMDQ_PTR_FREE_NULL(pCommand->secData.ispMeta.ispBufs[i].va);
-
+#endif
 	return 0;
 }
 
