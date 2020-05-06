@@ -25,6 +25,7 @@
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
+#define MTK_DISABLE_DCM_SUPPORT
 #include "clk-mt6853-pg.h"
 
 enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
