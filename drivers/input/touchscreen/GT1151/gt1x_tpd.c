@@ -67,8 +67,8 @@ static int tpd_i2c_detect(struct i2c_client *client,
 				struct i2c_board_info *info);
 static int tpd_i2c_remove(struct i2c_client *client);
 
-static irqreturn_t tpd_eint_interrupt_handler(unsigned int irq,
-							struct irq_desc *desc);
+static irqreturn_t tpd_eint_interrupt_handler(int irq,
+							void *desc);
 
 #define GTP_DRIVER_NAME  "gt1151"
 static const struct i2c_device_id tpd_i2c_id[] = { {GTP_DRIVER_NAME, 0}, {} };
@@ -804,8 +804,8 @@ static s32 tpd_i2c_probe(struct i2c_client *client,
 	return 0;
 }
 
-static irqreturn_t tpd_eint_interrupt_handler(unsigned int irq,
-							struct irq_desc *desc)
+static irqreturn_t tpd_eint_interrupt_handler(int irq,
+							void *desc)
 {
 	unsigned long flags;
 
