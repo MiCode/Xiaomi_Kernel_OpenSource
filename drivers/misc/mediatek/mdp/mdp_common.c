@@ -1038,12 +1038,6 @@ void cmdq_mdp_add_consume_item(void)
 	}
 }
 
-static s32 cmdq_mdp_copy_cmd_to_task(struct cmdqRecStruct *handle,
-	void *src, u32 size, bool user_space)
-{
-	return cmdq_pkt_copy_cmd(handle, src, size, user_space);
-}
-
 static void cmdq_mdp_store_debug(struct cmdqCommandStruct *desc,
 	struct cmdqRecStruct *handle)
 {
@@ -1283,20 +1277,10 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		handle->prop_size = 0;
 	}
 
-	CMDQ_SYSTRACE_BEGIN("%s copy command\n", __func__);
 	copy_size = desc->blockSize - 2 * CMDQ_INST_SIZE;
-	if (copy_size > 0) {
-		err = cmdq_mdp_copy_cmd_to_task(handle,
-			(void *)(unsigned long)desc->pVABase,
-			copy_size, user_space);
-		if (err < 0)
-			goto flush_err_end;
-	}
-	CMDQ_SYSTRACE_END();
-
 	CMDQ_SYSTRACE_BEGIN("%s check valid %u\n", __func__, copy_size);
 	if (user_space && !cmdq_core_check_user_valid(
-		(void *)(unsigned long)desc->pVABase, copy_size)) {
+		(void *)(unsigned long)desc->pVABase, copy_size, handle)) {
 		CMDQ_SYSTRACE_END();
 		err = -EFAULT;
 		goto flush_err_end;
@@ -1324,18 +1308,9 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	}
 #endif
 
-	CMDQ_SYSTRACE_BEGIN("%s copy cmd\n", __func__);
-	err = cmdq_mdp_copy_cmd_to_task(handle,
-		(void *)(unsigned long)desc->pVABase + copy_size,
-		2 * CMDQ_INST_SIZE, user_space);
-	if (err < 0) {
-		CMDQ_SYSTRACE_END();
-		goto flush_err_end;
-	}
-	CMDQ_SYSTRACE_END();
-
-	/* mark finalized since we copy it */
+	/* finalize it */
 	handle->finalized = true;
+	cmdq_pkt_finalize(handle->pkt);
 
 	/* assign handle for mdp */
 	*handle_out = handle;
