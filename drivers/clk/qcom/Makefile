@@ -77,6 +77,8 @@ obj-$(CONFIG_QCOM_CLK_RPM) += clk-rpm.o
 obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
 obj-$(CONFIG_QCOM_CLK_VIRT) += clk-virt.o clk-virt-sm8150.o clk-virt-sm6150.o
 obj-$(CONFIG_QCS_CMN_BLK_PLL) += cmn-blk-pll.o
+obj-$(CONFIG_SDM_DEBUGCC_429W) += debugcc-sdm429w.o
+obj-$(CONFIG_SDM_GCC_429W) += gcc-sdm429w.o
 obj-$(CONFIG_SM_CAMCC_ATOLL) += camcc-atoll.o
 obj-$(CONFIG_SM_DEBUGCC_ATOLL) += debugcc-atoll.o
 obj-$(CONFIG_SM_DEBUGCC_TRINKET) += debugcc-trinket.o
@@ -90,6 +92,5 @@ obj-$(CONFIG_SM_VIDEOCC_ATOLL) += videocc-atoll.o
 obj-$(CONFIG_SM_VIDEOCC_TRINKET) += videocc-trinket.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_VIRTIO_CLK) += virtio_clk.o virtio_clk_sm8150.o virtio_clk_sm6150.o virtio_clk_sa8195p.o
-obj-$(CONFIG_SDM_GCC_429W) += gcc-sdm429w.o
 
 obj-y += mdss/
