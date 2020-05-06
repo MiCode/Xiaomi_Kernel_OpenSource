@@ -294,8 +294,6 @@ static struct regname rn[] = {
 	REGNAME(vdecsys, 0x0008, VDEC_LARB1_CKEN_SET),
 
 	REGNAME(vencsys, 0x0000, VENC_CG_CON),
-
-	{}
 };
 
 static const struct regname *get_all_regnames(void)
@@ -396,7 +394,6 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("aes_msdcfde_sel", 416000, 416000, 416000, 416000),
 	MTK_VF_TABLE("mcupm_sel", 182000, 182000, 182000, 182000),
 	MTK_VF_TABLE("sflash_sel", 62400, 62400, 62400, 62400),
-	{},
 };
 
 /*
@@ -556,7 +553,6 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK(ABIST_2, FM_MMPLL_D6_CK, "fm_mmpll_d6_ck"),
 	FMCLK(ABIST_2, FM_MMPLL_D7_CK, "fm_mmpll_d7_ck"),
 	FMCLK(ABIST_2, FM_MMPLL_D9_CK, "fm_mmpll_d9_ck"),
-	{},
 };
 
 #define _CKGEN(x)		(rb[topckgen].virt + (x))
@@ -688,6 +684,8 @@ static unsigned int check_mux_pdn(unsigned int ID)
 		for (i = 0; i < ARRAY_SIZE(fclks); i++)
 			if (fclks[i].id == ID)
 				break;
+		if (i >= ARRAY_SIZE(fclks))
+			return 1;
 		if ((clk_readl(rb[topckgen].virt + fclks[i].ofs)
 				& BIT(fclks[i].pdn)))
 			return 1;

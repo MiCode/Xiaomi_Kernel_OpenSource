@@ -4362,8 +4362,15 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	if (action == MTCMOS_BUS_PROT && sys->ops->unprepare)
 		r = sys->ops->unprepare(sys);
-	else if (action == MTCMOS_PWR && sys->ops->disable)
+	else if (action == MTCMOS_PWR && sys->ops->disable) {
+		/*
+		 * Check if subsys CGs are still on before the mtcmos  is going
+		 * to be off. (Could do nothing here for early porting)
+		 */
+		mtk_check_subsys_swcg(id);
+
 		r = sys->ops->disable(sys);
+	}
 
 	WARN_ON(r);
 

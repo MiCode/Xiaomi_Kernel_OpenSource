@@ -53,5 +53,6 @@ struct pg_callbacks {
 extern struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb);
 extern void subsys_if_on(void);
 extern void mtcmos_force_off(void);
+extern void mtk_check_subsys_swcg(enum subsys_id id);
 
 #endif/* __DRV_CLK_MT6758_PG_H */

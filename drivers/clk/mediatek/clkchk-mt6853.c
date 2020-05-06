@@ -16,9 +16,11 @@
 #include <linux/version.h>
 
 #include <mt-plat/aee.h>
+#include "clk-mt6853-pg.h"
+#include "clkdbg-mt6853.h"
 
-#define TAG	"[clkchk] "
-#define	BUG_ON_CHK_ENABLE	0
+#define TAG			"[clkchk] "
+#define	BUG_ON_CHK_ENABLE	1
 
 const char * const *get_mt6853_all_clk_names(void)
 {
@@ -502,8 +504,6 @@ static const char * const off_pll_names[] = {
 	"msdcpll",
 	"mmpll",
 	"tvdpll",
-	"apll1",
-	"apll2",
 	"npupll",
 	"usbpll",
 	NULL
@@ -511,6 +511,8 @@ static const char * const off_pll_names[] = {
 
 static const char * const notice_pll_names[] = {
 	"adsppll",
+	"apll1",
+	"apll2",
 	NULL
 };
 
@@ -526,7 +528,6 @@ static const char * const off_mtcmos_names[] = {
 	"PG_IPE",
 	"PG_VDEC",
 	"PG_VENC",
-	"PG_AUDIO",
 	"PG_CAM",
 	"PG_CAM_RAWA",
 	"PG_CAM_RAWB",
@@ -538,6 +539,7 @@ static const char * const notice_mtcmos_names[] = {
 	"PG_MD1",
 	"PG_CONN",
 	"PG_ADSP",
+	"PG_AUDIO",
 	NULL
 };
 
@@ -799,12 +801,254 @@ static struct syscore_ops clkchk_syscore_ops = {
 	.resume = clkchk_syscore_resume,
 };
 
+/*
+ *	Before MTCMOS off procedure, perform the Subsys CGs sanity check.
+ */
+struct pg_check_swcg {
+	struct clk *c;
+	const char *name;
+};
+
+#define SWCG(_name) {						\
+		.name = _name,					\
+	}
+
+struct subsys_cgs_check {
+	enum subsys_id id;		/* the Subsys id */
+	struct pg_check_swcg *swcgs;	/* those CGs that would be checked */
+	char *subsys_name;		/*
+					 * subsys_name is used in
+					 * print_subsys_reg() and can be NULL
+					 * if not porting ready yet.
+					 */
+};
+
+/*
+ * The clk names in Mediatek CCF.
+ */
+struct pg_check_swcg mm_swcgs[] = {
+	SWCG("mm_disp_mutex0"),
+	SWCG("mm_apb_bus"),
+	SWCG("mm_disp_ovl0"),
+	SWCG("mm_disp_rdma0"),
+	SWCG("mm_disp_ovl0_2l"),
+	SWCG("mm_disp_wdma0"),
+	SWCG("mm_disp_ccorr1"),
+	SWCG("mm_disp_rsz0"),
+	SWCG("mm_disp_aal0"),
+	SWCG("mm_disp_ccorr0"),
+	SWCG("mm_disp_color0"),
+	SWCG("mm_smi_infra"),
+	SWCG("mm_disp_dsc_wrap"),
+	SWCG("mm_disp_gamma0"),
+	SWCG("mm_disp_postmask0"),
+	SWCG("mm_disp_spr0"),
+	SWCG("mm_disp_dither0"),
+	SWCG("mm_smi_common"),
+	SWCG("mm_disp_cm0"),
+	SWCG("mm_dsi0"),
+	SWCG("mm_disp_fake_eng0"),
+	SWCG("mm_disp_fake_eng1"),
+	SWCG("mm_smi_gals"),
+	SWCG("mm_smi_iommu"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg mdp_swcgs[] = {
+	SWCG("mdp_rdma0"),
+	SWCG("mdp_tdshp0"),
+	SWCG("mdp_img_dl_async0"),
+	SWCG("mdp_img_dl_async1"),
+	SWCG("mdp_rdma1"),
+	SWCG("mdp_tdshp1"),
+	SWCG("mdp_smi0"),
+	SWCG("mdp_apb_bus"),
+	SWCG("mdp_wrot0"),
+	SWCG("mdp_rsz0"),
+	SWCG("mdp_hdr0"),
+	SWCG("mdp_mutex0"),
+	SWCG("mdp_wrot1"),
+	SWCG("mdp_rsz1"),
+	SWCG("mdp_fake_eng0"),
+	SWCG("mdp_aal0"),
+	SWCG("mdp_aal1"),
+	SWCG("mdp_color0"),
+	SWCG("mdp_img_dl_rel0_as0"),
+	SWCG("mdp_img_dl_rel1_as1"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg vdec_swcgs[] = {
+	SWCG("vdec_larb1_cken"),
+	SWCG("vdec_cken"),
+	SWCG("vdec_active"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg venc_swcgs[] = {
+	SWCG("venc_set0_larb"),
+	SWCG("venc_set1_venc"),
+	SWCG("jpgenc"),
+	SWCG("venc_set5_gals"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg img1_swcgs[] = {
+	SWCG("imgsys1_larb9"),
+	SWCG("imgsys1_larb10"),
+	SWCG("imgsys1_dip"),
+	SWCG("imgsys1_gals"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg img2_swcgs[] = {
+	SWCG("imgsys2_larb9"),
+	SWCG("imgsys2_larb10"),
+	SWCG("imgsys2_mfb"),
+	SWCG("imgsys2_wpe"),
+	SWCG("imgsys2_mss"),
+	SWCG("imgsys2_gals"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg ipe_swcgs[] = {
+	SWCG("ipe_larb19"),
+	SWCG("ipe_larb20"),
+	SWCG("ipe_smi_subcom"),
+	SWCG("ipe_fd"),
+	SWCG("ipe_fe"),
+	SWCG("ipe_rsc"),
+	SWCG("ipe_dpe"),
+	SWCG("ipe_gals"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg cam_swcgs[] = {
+	SWCG("cam_m_larb13"),
+	SWCG("cam_m_larb14"),
+	SWCG("cam_m_reserved0"),
+	SWCG("cam_m_cam"),
+	SWCG("cam_m_camtg"),
+	SWCG("cam_m_seninf"),
+	SWCG("cam_m_camsv1"),
+	SWCG("cam_m_camsv2"),
+	SWCG("cam_m_camsv3"),
+	SWCG("cam_m_ccu0"),
+	SWCG("cam_m_ccu1"),
+	SWCG("cam_m_mraw0"),
+	SWCG("cam_m_reserved2"),
+	SWCG("cam_m_fake_eng"),
+	SWCG("cam_m_ccu_gals"),
+	SWCG("cam_m_cam2mm_gals"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg cam_rawa_swcgs[] = {
+	SWCG("cam_ra_larbx"),
+	SWCG("cam_ra_cam"),
+	SWCG("cam_ra_camtg"),
+	SWCG(NULL),
+};
+
+struct pg_check_swcg cam_rawb_swcgs[] = {
+	SWCG("cam_rb_larbx"),
+	SWCG("cam_rb_cam"),
+	SWCG("cam_rb_camtg"),
+	SWCG(NULL),
+};
+
+struct subsys_cgs_check mtk_subsys_check[] = {
+	/*{SYS_DIS, mm_swcgs, NULL}, */
+	{SYS_DIS, mm_swcgs, "mmsys"},
+	{SYS_DIS, mdp_swcgs, "mdpsys"},
+	{SYS_VDE, vdec_swcgs, "vdecsys"},
+	{SYS_VEN, venc_swcgs, "vencsys"},
+	{SYS_ISP, img1_swcgs, "img1sys"},
+	{SYS_ISP2, img2_swcgs, "img2sys"},
+	{SYS_IPE, ipe_swcgs, "ipesys"},
+	{SYS_CAM, cam_swcgs, "camsys"},
+	{SYS_CAM_RAWA, cam_rawa_swcgs, "cam_rawa_sys"},
+	{SYS_CAM_RAWB, cam_rawb_swcgs, "cam_rawb_sys"},
+};
+
+static unsigned int check_cg_state(struct pg_check_swcg *swcg)
+{
+	int enable_count = 0;
+
+	if (!swcg)
+		return 0;
+
+	while (swcg->name) {
+		if (!IS_ERR_OR_NULL(swcg->c)) {
+			if (__clk_get_enable_count(swcg->c) > 0) {
+				pr_notice("%s[%-17s: %3d]\n",
+				__func__,
+				__clk_get_name(swcg->c),
+				__clk_get_enable_count(swcg->c));
+				enable_count++;
+			}
+		}
+		swcg++;
+	}
+
+	return enable_count;
+}
+
+void mtk_check_subsys_swcg(enum subsys_id id)
+{
+	int i;
+	unsigned int ret = 0;
+
+	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
+		if (mtk_subsys_check[i].id != id)
+			continue;
+
+		/* check if Subsys CGs are still on */
+		ret = check_cg_state(mtk_subsys_check[i].swcgs);
+		if (ret) {
+			pr_notice("%s:(%d) warning!\n", __func__, id);
+
+			/* print registers dump */
+			if (mtk_subsys_check[i].subsys_name)
+				print_subsys_reg(
+					mtk_subsys_check[i].subsys_name);
+		}
+	}
+
+	if (ret) {
+		pr_err("%s(%d): %d\n", __func__, id, ret);
+		BUG_ON(1);
+	}
+}
+
+static void __init pg_check_swcg_init_common(struct pg_check_swcg *swcg)
+{
+	if (!swcg)
+		return;
+
+	while (swcg->name) {
+		struct clk *c = __clk_lookup(swcg->name);
+
+		if (IS_ERR_OR_NULL(c))
+			pr_notice("[%17s: NULL]\n", swcg->name);
+		else
+			swcg->c = c;
+		swcg++;
+	}
+}
+
 static int __init clkchk_init(void)
 {
+	/* fill the 'struct clk *' ptr of every CGs*/
+	int i;
+
 	if (!of_machine_is_compatible("mediatek,MT6853"))
 		return -ENODEV;
 
 	register_syscore_ops(&clkchk_syscore_ops);
+
+	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++)
+		pg_check_swcg_init_common(mtk_subsys_check[i].swcgs);
 
 	return 0;
 }
