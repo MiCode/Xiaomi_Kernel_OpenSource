@@ -1142,7 +1142,7 @@ static struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
 	{"APMCU_Read",        { 1, 2, 2, 2,	2, 2, 2, 2,	2, 2, 1, 0,	0, 0 } },
 };
 
-static const char *infra_mi_trans(int bus_id)
+static const char *infra_mi_trans(uint32_t bus_id)
 {
 	int master_count = ARRAY_SIZE(infra_mi_id_to_master);
 	const char *master = "UNKNOWN_MASTER_FROM_INFRA";
@@ -1169,7 +1169,7 @@ static const char *infra_mi_trans(int bus_id)
 	return master;
 }
 
-static const char *peri_mi_trans(int bus_id)
+static const char *peri_mi_trans(uint32_t bus_id)
 {
 	int master_count = ARRAY_SIZE(peri_mi_id_to_master);
 	const char *master = "UNKNOWN_MASTER_FROM_PERI";
@@ -1205,7 +1205,7 @@ static const char *peri_mi_trans(int bus_id)
 	return master;
 }
 
-static const char *mt6853_bus_id_to_master(int bus_id, uint32_t vio_addr,
+static const char *mt6853_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, int domain)
 {
 	const char *err_master = "UNKNOWN_MASTER";

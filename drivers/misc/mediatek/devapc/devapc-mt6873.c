@@ -1245,7 +1245,7 @@ static struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
 	{"APMCU_read",        { 1, 2, 2, 2,	2, 2, 2, 2,	2, 2, 1, 0,	0, 0 } },
 };
 
-static const char *infra_mi_trans(int bus_id)
+static const char *infra_mi_trans(uint32_t bus_id)
 {
 	int master_count = ARRAY_SIZE(infra_mi_id_to_master);
 	const char *master = "UNKNOWN_MASTER_FROM_INFRA";
@@ -1272,7 +1272,7 @@ static const char *infra_mi_trans(int bus_id)
 	return master;
 }
 
-static const char *peri_mi_trans(int bus_id)
+static const char *peri_mi_trans(uint32_t bus_id)
 {
 	int master_count = ARRAY_SIZE(peri_mi_id_to_master);
 	const char *master = "UNKNOWN_MASTER_FROM_PERI";
@@ -1308,7 +1308,7 @@ static const char *peri_mi_trans(int bus_id)
 	return master;
 }
 
-static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
+static const char *mt6873_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, int domain)
 {
 	uint8_t h_1byte;
@@ -1458,13 +1458,15 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 		vio_sta_num = INFRACFG_MDP_VIO_STA_NUM;
 		vio0_offset = INFRACFG_MDP_SEC_VIO0_OFFSET;
 
-		strncpy(mm_str, "INFRACFG_MDP_SEC_VIO", sizeof(mm_str));
+		strncpy(mm_str, "INFRACFG_MDP_SEC_VIO",
+				sizeof("INFRACFG_MDP_SEC_VIO"));
 
 	} else if (mmsys_vio) {
 		vio_sta_num = INFRACFG_MM_VIO_STA_NUM;
 		vio0_offset = INFRACFG_MM_SEC_VIO0_OFFSET;
 
-		strncpy(mm_str, "INFRACFG_MM_SEC_VIO", sizeof(mm_str));
+		strncpy(mm_str, "INFRACFG_MM_SEC_VIO",
+				sizeof("INFRACFG_MM_SEC_VIO"));
 
 	} else {
 		pr_err(PFX "%s: param check failed, %s:%s, %s:%s, %s:%s\n",
