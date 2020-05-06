@@ -320,52 +320,36 @@ unsigned int ccb_configs_len =
 			sizeof(ccb_configs)/sizeof(struct ccci_ccb_config);
 
 
+/* Iperf setting */
+/* static const struct dvfs_ref s_dvfs_tbl[] = { */
+/*	{1700000000LL, 1181000, 138300, 0, 0x02, 0xF0, 0xF0}, */
+/*	{1350000000LL, 1500000, -1, -1, 0x02, 0xF0, 0xF0}, */
+/*	{1000000000LL, 900000, -1, -1, 0x02, 0xF0, 0xF0}, */
+/*	{210000000LL, 900000, -1, -1, 0xFF, 0xFF, 0x0D}, */
+/*	{0LL, -1, -1, -1, 0xFF, 0xFF, 0x0D}, */
+/* }; */
 
-int mtk_ccci_cpu_freq_rta(u64 dl_speed, u64 ul_speed, int ref[], int n)
+/* APK setting */
+static  struct dvfs_ref s_dvfs_tbl[] = {
+	/* Add DRAM 0 */
+	{1700000000LL, 1530000, 1526000, 0, 0x02, 0xF0, 0xF0},
+	/* Add DRAM 1, inc ll freq */
+	{1350000000LL, 1530000, 1526000, 1, 0x02, 0xF0, 0xF0},
+	/* inc L freq */
+	{1000000000LL, 1300000, 1406000, -1, 0x02, 0xF0, 0xF0},
+	/* inc ll freq */
+	{450000000LL, 1200000, 1406000, -1, 0x02, 0xF0, 0xF0},
+	/* inc ll freq */
+	{230000000LL, 1181000, -1, -1, 0xFF, 0xFF, 0x0D},
+	/* normal */
+	{0LL, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+};
+
+struct dvfs_ref *mtk_ccci_get_dvfs_table(int *tbl_num)
 {
-	static int last_lvl;
-
-	if (n != 2) {
-		CCCI_REPEAT_LOG(-1, "speed", "%s: cluster not 2(%d)\r\n",
-					__func__, n);
-		return 0;
-	}
-
-	if ((dl_speed + ul_speed) >= 1350000000LL) {
-		ref[0] = 1500000;
-		ref[1] = -1;
-		if (last_lvl != 1) {
-			last_lvl = 1;
-			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
-					__func__, last_lvl);
-			return 1;
-		}
-		return 0;
-	}
-	if ((dl_speed + ul_speed) >= 1000000000LL) {
-		ref[0] = 800000;
-		ref[1] = -1;
-		if (last_lvl != 2) {
-			last_lvl = 2;
-			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
-					__func__, last_lvl);
-			return 1;
-		}
-		return 0;
-	}
-
-	if ((dl_speed + ul_speed) < 800000000LL) {
-		ref[0] = -1;
-		ref[1] = -1;
-		if (last_lvl != 0) {
-			last_lvl = 0;
-			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
-					__func__, last_lvl);
-			return 1;
-		}
-		return 0;
-	}
-
-	return 0;
+	*tbl_num = (int)ARRAY_SIZE(s_dvfs_tbl);
+	return s_dvfs_tbl;
 }
+
+
 
