@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -24,6 +24,15 @@
 
 #define GET_PDATA_OF_ATTR(attr) \
 	(container_of(attr, struct ddr_stats_kobj_attr, ka)->pd)
+
+#ifdef CONFIG_ARM
+#define readq_relaxed(a) ({			\
+	u64 val = readl_relaxed((a) + 4);	\
+	val <<= 32;				\
+	val |=  readl_relaxed((a));		\
+	val;					\
+})
+#endif
 
 struct ddr_stats_platform_data {
 	phys_addr_t phys_addr_base;
@@ -60,10 +69,12 @@ static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 {
 	u32 cp_idx = 0;
 	u32 name;
-	u32 duration;
+	u64 duration;
 
-	if (accumulated_duration)
-		duration = (data->duration * 100) / accumulated_duration;
+	if (accumulated_duration) {
+		duration = data->duration * 100;
+		do_div(duration, accumulated_duration);
+	}
 
 	name = (data->name >> 8) & 0xFF;
 
@@ -71,7 +82,7 @@ static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 		name = (data->name) & 0xFF;
 		*count = *count + 1;
 		return snprintf(buf, length,
-				"LPM %d:\tName:0x%x\tcount:%u\tTime(msec):%llu (~%d%%)\n",
+				"LPM %d:\tName:0x%x\tcount:%u\tTime(msec):%llu (~%llu%%)\n",
 				*count, name, data->count,
 				data->duration, duration);
 	} else if (name == 0x1) {
@@ -82,7 +93,7 @@ static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 			return 0;
 
 		return snprintf(buf, length,
-				"Freq %dMhz:\tCP IDX:%u\tcount:%u\tTime(msec):%llu (~%d%%)\n",
+				"Freq %dMhz:\tCP IDX:%u\tcount:%u\tTime(msec):%llu (~%llu%%)\n",
 				name, cp_idx, data->count,
 				data->duration, duration);
 	}
