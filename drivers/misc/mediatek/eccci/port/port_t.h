@@ -122,6 +122,7 @@ struct port_t {
 	port_skb_handler skb_handler;
 	struct sk_buff_head port_rx_list;
 	atomic_t is_up; /*for ccmni status*/
+	spinlock_t flag_lock;
 };
 /****************************************************************************/
 /* API Region called by ccci port object */

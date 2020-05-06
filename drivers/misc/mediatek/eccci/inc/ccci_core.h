@@ -603,6 +603,8 @@ int ccci_get_adc_num(void);
 int ccci_get_adc_val(void);
 #endif
 
+int hif_empty_query(int qno);
+
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 extern void fsm_scp_init0(void);
 #endif

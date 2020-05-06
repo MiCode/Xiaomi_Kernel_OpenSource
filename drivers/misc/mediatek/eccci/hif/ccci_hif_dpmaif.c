@@ -2096,6 +2096,19 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 	return idx;
 }
 
+int hif_empty_query(int qno)
+{
+	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
+
+	if (txq == NULL) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"query dpmaif empty fail for NULL txq\n");
+		return 0;
+	}
+	return atomic_read(&txq->tx_budget) >
+				txq->drb_size_cnt / 8;
+}
+
 static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 {
 	unsigned int rel_cnt, hw_rd_cnt, real_rel_cnt;

@@ -1566,6 +1566,7 @@ static inline void proxy_init_all_ports(struct port_proxy *proxy_p)
 		port->minor_base = proxy_p->minor_base;
 		if (port->ops->init)
 			port->ops->init(port);
+		spin_lock_init(&port->flag_lock);
 	}
 	proxy_setup_channel_mapping(proxy_p);
 }

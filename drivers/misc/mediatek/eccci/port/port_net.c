@@ -520,7 +520,10 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 	int qno, unsigned int state)
 {
 	int is_ack = 0;
+	unsigned long flags = 0;
 
+	if (dir == OUT)
+		spin_lock_irqsave(&port->flag_lock, flags);
 	if (dir == OUT && qno == NET_ACK_TXQ_INDEX(port)
 		&& port->txq_index != qno)
 		is_ack = 1;
@@ -530,8 +533,15 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 			((!is_ack && ((port->flags &
 			PORT_F_TX_DATA_FULLED) == 0)) ||
 			(is_ack && ((port->flags &
-			PORT_F_TX_ACK_FULLED) == 0)))))
+			PORT_F_TX_ACK_FULLED) == 0))))) {
+			if (dir == OUT)
+				spin_unlock_irqrestore(&port->flag_lock, flags);
 			return;
+		}
+	}
+	if (state == TX_FULL && hif_empty_query(qno)) {
+		spin_unlock_irqrestore(&port->flag_lock, flags);
+		return;
 	}
 	ccmni_ops.queue_state_callback(port->md_id,
 		GET_CCMNI_IDX(port), state, is_ack);
@@ -548,6 +558,8 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 	default:
 		break;
 	};
+	if (dir == OUT)
+		spin_unlock_irqrestore(&port->flag_lock, flags);
 }
 
 static void port_net_md_state_notify(struct port_t *port, unsigned int state)
