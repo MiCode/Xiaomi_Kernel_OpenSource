@@ -2017,6 +2017,10 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
 		vcu_ptr->vpud_is_going_down = 1;
 		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+
+		// VPUD is going to be killed. stop next map/unmap fd
+		vcud_task = NULL;
+		files = NULL;
 	}
 }
 
