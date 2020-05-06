@@ -1496,7 +1496,7 @@ static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {
 
 static const struct mtk_mmsys_driver_data mt6853_mmsys_driver_data = {
 	.main_path_data = &mt6853_mtk_main_path_data,
-	.ext_path_data = NULL,
+	.ext_path_data = &mt6853_mtk_third_path_data,
 	.third_path_data = &mt6853_mtk_third_path_data,
 	.fake_eng_data = &mt6853_fake_eng_data,
 	.mmsys_id = MMSYS_MT6853,
