@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -24,8 +24,13 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NOMINAL + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NOMINAL + 1, 1, vdd_corner);
+
+static struct clk_vdd_class *video_cc_lahaina_regulators[] = {
+	&vdd_mm,
+	&vdd_mx
+};
 
 enum {
 	P_BI_TCXO,
@@ -550,6 +555,8 @@ static const struct qcom_cc_desc video_cc_lahaina_desc = {
 	.num_clks = ARRAY_SIZE(video_cc_lahaina_clocks),
 	.resets = video_cc_lahaina_resets,
 	.num_resets = ARRAY_SIZE(video_cc_lahaina_resets),
+	.clk_regulators = video_cc_lahaina_regulators,
+	.num_clk_regulators = ARRAY_SIZE(video_cc_lahaina_regulators),
 };
 
 static const struct of_device_id video_cc_lahaina_match_table[] = {
@@ -563,20 +570,6 @@ static int video_cc_lahaina_probe(struct platform_device *pdev)
 	struct regmap *regmap;
 	struct clk *clk;
 	int ret;
-
-	vdd_mm.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mm");
-	if (IS_ERR(vdd_mm.regulator[0])) {
-		if (PTR_ERR(vdd_mm.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
-		return PTR_ERR(vdd_mm.regulator[0]);
-	}
-
-	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
-	if (IS_ERR(vdd_mx.regulator[0])) {
-		if (PTR_ERR(vdd_mx.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_mx regulator\n");
-		return PTR_ERR(vdd_mx.regulator[0]);
-	}
 
 	regmap = qcom_cc_map(pdev, &video_cc_lahaina_desc);
 	if (IS_ERR(regmap))
