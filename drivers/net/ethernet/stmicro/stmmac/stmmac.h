@@ -288,7 +288,7 @@ struct stmmac_priv {
 
 	bool boot_kpi;
 	bool early_eth;
-
+	bool early_eth_config_set;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 #endif
