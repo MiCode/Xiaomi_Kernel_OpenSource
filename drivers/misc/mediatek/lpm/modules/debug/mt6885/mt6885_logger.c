@@ -326,7 +326,7 @@ static void mt6885_suspend_show_detailed_wakeup_reason
 		if (mt6885_spm_wakesrc_irqs[i].name == NULL ||
 			!mt6885_spm_wakesrc_irqs[i].irq_no)
 			continue;
-		if (mt6885_spm_wakesrc_irqs[i].wakesrc == wakesta->r12) {
+		if (mt6885_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
 			irq_no = mt6885_spm_wakesrc_irqs[i].irq_no;
 			if (mt_irq_get_pending(irq_no))
 				log_wakeup_reason(irq_no);
