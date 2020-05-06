@@ -46,7 +46,7 @@
 
 #define  CCMNI_MTU              1500
 #define  CCMNI_TX_QUEUE         1000
-#define  CCMNI_NETDEV_WDT_TO    ((1*HZ)/20)
+#define  CCMNI_NETDEV_WDT_TO    (1*HZ)
 
 #define  IPV4_VERSION           0x40
 #define  IPV6_VERSION           0x60
