@@ -341,7 +341,7 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_DMDP_TDSHP0, MTK_DMDP_TDSHP, 0, NULL, 0},
 	{DDP_COMPONENT_DSC0, MTK_DISP_DSC, 0, NULL, 0},
 	{DDP_COMPONENT_MERGE0, MTK_DISP_MERGE, 0, NULL, 0},
-	{DDP_COMPONENT_DSI0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SPR0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)

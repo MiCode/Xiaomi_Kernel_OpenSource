@@ -120,7 +120,7 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
 	EXPR(DDP_COMPONENT_DSC0)                                            \
 	EXPR(DDP_COMPONENT_MERGE0)                                          \
-	EXPR(DDP_COMPONENT_DSI0_VIRTUAL)                                    \
+	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
 	EXPR(DDP_COMPONENT_CM0)                                          \
 	EXPR(DDP_COMPONENT_SPR0)                                          \
 	EXPR(DDP_COMPONENT_ID_MAX)
