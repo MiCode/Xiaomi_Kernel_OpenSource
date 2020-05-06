@@ -3693,6 +3693,28 @@
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU7>;
 	};
 
+	snoop_l3_bw: qcom,snoop-l3-bw {
+		compatible = "qcom,devfreq-icc-l3bw";
+		reg = <0x18590100 0xa0>;
+		reg-names = "ftbl-base";
+		qcom,bus-width = <32>;
+		governor = "powersave";
+		interconnects =
+			<&epss_l3_cpu MASTER_EPSS_L3_APPS
+			 &epss_l3_cpu SLAVE_EPSS_L3_SHARED>;
+	};
+
+	snoop_l3_bwmon: qcom,snoop-l3-bwmon@9091000 {
+		compatible = "qcom,bimc-bwmon4";
+		reg = <0x90b9100 0x300>, <0x90b9000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,mport = <0>;
+		qcom,hw-timer-hz = <19200000>;
+		qcom,target-dev = <&snoop_l3_bw>;
+		qcom,count-unit = <0x10000>;
+	};
+
 	cpu0_cpu_llcc_lat: qcom,cpu0-cpu-llcc-lat {
 		compatible = "qcom,devfreq-icc";
 		governor = "performance";
