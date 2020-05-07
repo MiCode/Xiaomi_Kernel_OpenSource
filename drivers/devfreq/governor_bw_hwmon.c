@@ -409,7 +409,6 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		hw->up_wake_mbps = (max(MIN_MBPS, req_mbps)
 					* (100 + node->up_thres)) / 100;
 		hw->down_wake_mbps = 0;
-		hw->undo_over_req_mbps = 0;
 		thres = mbps_to_bytes(max(MIN_MBPS, req_mbps / 2),
 					node->sample_ms);
 	} else {
@@ -422,10 +421,6 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		 */
 		hw->up_wake_mbps = (req_mbps * (100 + node->up_thres)) / 100;
 		hw->down_wake_mbps = (meas_mbps * node->down_thres) / 100;
-		if (node->wake == UP_WAKE)
-			hw->undo_over_req_mbps = min(req_mbps, meas_mbps_zone);
-		else
-			hw->undo_over_req_mbps = 0;
 		thres = mbps_to_bytes(meas_mbps, node->sample_ms);
 	}
 
@@ -545,7 +540,6 @@ static int start_monitor(struct devfreq *df, bool init)
 		mbps = (df->previous_freq * node->io_percent) / 100;
 		hw->up_wake_mbps = mbps;
 		hw->down_wake_mbps = MIN_MBPS;
-		hw->undo_over_req_mbps = 0;
 		ret = hw->start_hwmon(hw, mbps);
 	} else {
 		ret = hw->resume_hwmon(hw);
