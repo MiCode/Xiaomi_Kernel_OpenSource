@@ -53,6 +53,7 @@ enum {
 static unsigned long cpu_hw_rate, xo_rate;
 static const u16 *offsets;
 static unsigned int lut_row_size = LUT_ROW_SIZE;
+static unsigned int lut_max_entries = LUT_MAX_ENTRIES;
 static bool accumulative_counter;
 
 struct cpufreq_qcom {
@@ -66,6 +67,7 @@ struct cpufreq_qcom {
 	int dcvsh_irq;
 	char dcvsh_irq_name[MAX_FN_SIZE];
 	bool is_irq_enabled;
+	bool is_irq_requested;
 };
 
 struct cpufreq_counter {
@@ -113,7 +115,7 @@ static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c)
 	max_vc = readl_relaxed(c->base + offsets[REG_LLM_DCVS_VC_VOTE]) &
 						GENMASK(13, 8);
 
-	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
+	for (i = 0; i < lut_max_entries; i++) {
 		if (c->table[i].driver_data != max_vc)
 			continue;
 		else {
@@ -242,7 +244,7 @@ static unsigned int qcom_cpufreq_hw_get(unsigned int cpu)
 		return 0;
 
 	index = readl_relaxed(policy->driver_data + offsets[REG_PERF_STATE]);
-	index = min(index, LUT_MAX_ENTRIES - 1);
+	index = min(index, lut_max_entries - 1);
 
 	return policy->freq_table[index].frequency;
 }
@@ -295,7 +297,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 
 	dev_pm_opp_of_register_em(policy->cpus);
 
-	if (c->dcvsh_irq > 0) {
+	if (c->dcvsh_irq > 0 && !c->is_irq_requested) {
 		snprintf(c->dcvsh_irq_name, sizeof(c->dcvsh_irq_name),
 					"dcvsh-irq-%d", policy->cpu);
 		ret = devm_request_threaded_irq(cpu_dev, c->dcvsh_irq, NULL,
@@ -306,6 +308,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 			return ret;
 		}
 
+		c->is_irq_requested = true;
 		c->is_irq_enabled = true;
 		writel_relaxed(LT_IRQ_STATUS, c->base + offsets[REG_INTR_EN]);
 		c->freq_limit_attr.attr.name = "dcvsh_freq_limit";
@@ -374,14 +377,14 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	u32 data, src, lval, i, core_count, prev_cc, prev_freq, freq, volt;
 	unsigned long cpu;
 
-	c->table = devm_kcalloc(dev, LUT_MAX_ENTRIES + 1,
+	c->table = devm_kcalloc(dev, lut_max_entries + 1,
 				sizeof(*c->table), GFP_KERNEL);
 	if (!c->table)
 		return -ENOMEM;
 
 	cpu = cpumask_first(&c->related_cpus);
 
-	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
+	for (i = 0; i < lut_max_entries; i++) {
 		data = readl_relaxed(c->base + offsets[REG_FREQ_LUT] +
 				      i * lut_row_size);
 		src = FIELD_GET(LUT_SRC, data);
@@ -544,6 +547,9 @@ static int qcom_resources_init(struct platform_device *pdev)
 
 	of_property_read_u32(pdev->dev.of_node, "qcom,lut-row-size",
 			      &lut_row_size);
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,lut-max-entries",
+			      &lut_max_entries);
 
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);
