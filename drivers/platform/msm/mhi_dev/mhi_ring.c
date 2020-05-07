@@ -281,6 +281,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 	uint32_t num_elem = 1;
 	uint32_t num_free_elem;
 	struct mhi_dev *mhi_ctx;
+	uint32_t i;
 
 	if (WARN_ON(!ring || !element))
 		return -EINVAL;
@@ -312,6 +313,10 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 	} else
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
 
+	mhi_log(MHI_MSG_VERBOSE,
+		"Writing %d elements, ring old 0x%x, new 0x%x\n",
+		num_elem, old_offset, ring->rd_offset);
+
 	ring->ring_ctx->generic.rp = (ring->rd_offset *
 		sizeof(union mhi_dev_ring_element_type)) +
 		ring->ring_ctx->generic.rbase;
@@ -342,6 +347,19 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		return 0;
 	}
 
+	// Log elements added to ring
+	for (i = 0; i < num_elem; ++i) {
+		mhi_log(MHI_MSG_VERBOSE, "evnt ptr : 0x%llx\n",
+			(element + i)->evt_tr_comp.ptr);
+		mhi_log(MHI_MSG_VERBOSE, "evnt len : 0x%x\n",
+			(element + i)->evt_tr_comp.len);
+		mhi_log(MHI_MSG_VERBOSE, "evnt code :0x%x\n",
+			(element + i)->evt_tr_comp.code);
+		mhi_log(MHI_MSG_VERBOSE, "evnt type :0x%x\n",
+			(element + i)->evt_tr_comp.type);
+		mhi_log(MHI_MSG_VERBOSE, "evnt chid :0x%x\n",
+			(element + i)->evt_tr_comp.chid);
+	}
 	/* Adding multiple ring elements */
 	if (ring->rd_offset == 0 || (ring->rd_offset > old_offset)) {
 		/* No wrap-around case */
@@ -351,6 +369,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		mhi_ctx->write_to_host(ring->mhi_dev, &host_addr,
 			ereq, MHI_DEV_DMA_ASYNC);
 	} else {
+		mhi_log(MHI_MSG_VERBOSE, "Wrap around case\n");
 		/* Wrap-around case - first chunk uses dma sync */
 		host_addr.virt_addr = element;
 		host_addr.size = (ring->ring_size - old_offset) *
@@ -405,6 +424,28 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 	if (!ring->ring_cache)
 		return -ENOMEM;
 
+	if (ring->type == RING_TYPE_ER) {
+		ring->evt_rp_cache = dma_alloc_coherent(mhi->dev,
+			sizeof(uint64_t) * ring->ring_size,
+			&ring->evt_rp_cache_dma_handle,
+			GFP_KERNEL);
+		if (!ring->evt_rp_cache) {
+			mhi_log(MHI_MSG_ERROR,
+				"Failed to allocate evt rp cache\n");
+			rc = -ENOMEM;
+			goto cleanup;
+		}
+		ring->msi_buf = dma_alloc_coherent(mhi->dev,
+			sizeof(uint32_t),
+			&ring->msi_buf_dma_handle,
+			GFP_KERNEL);
+		if (!ring->msi_buf) {
+			mhi_log(MHI_MSG_ERROR, "Failed to allocate msi buf\n");
+			rc = -ENOMEM;
+			goto cleanup;
+		}
+	}
+
 	offset = (size_t)(ring->ring_ctx->generic.rbase -
 					mhi->ctrl_base.host_pa);
 
@@ -439,6 +480,20 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 			(size_t)ring->ring_ctx->generic.wp);
 	ring->wr_offset = wr_offset;
 
+	return rc;
+
+cleanup:
+	dma_free_coherent(mhi->dev,
+		ring->ring_size *
+		sizeof(union mhi_dev_ring_element_type),
+		ring->ring_cache,
+		ring->ring_cache_dma_handle);
+	if (ring->evt_rp_cache) {
+		dma_free_coherent(mhi->dev,
+			sizeof(uint64_t) * ring->ring_size,
+			ring->evt_rp_cache,
+			ring->evt_rp_cache_dma_handle);
+	}
 	return rc;
 }
 EXPORT_SYMBOL(mhi_ring_start);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017-2018,2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #define MHI_CTRL_INT_CLEAR_A7				(0x004C)
 #define MHI_CTRL_INT_CLEAR_A7_CLEAR_MASK		0xffffffff
 #define MHI_CTRL_INT_CLEAR_A7_CLEAR_SHIFT		0x0
+#define MHI_CTRL_INT_MMIO_WR_CLEAR			BIT(2)
 #define MHI_CTRL_INT_CRDB_CLEAR				BIT(1)
 #define MHI_CTRL_INT_CRDB_MHICTRL_CLEAR			BIT(0)
 

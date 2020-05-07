@@ -28,7 +28,8 @@
 			<GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "error_irq", "wdg_bite_irq", "ipc_irq",
 			"general_irq";
-		iommus = <&apps_smmu 0x1461 0x0>, <&apps_smmu 0x1462 0x0>,
+		iommus = <&apps_smmu 0x1441 0x0>, <&apps_smmu 0x1442 0x0>,
+			<&apps_smmu 0x1461 0x0>, <&apps_smmu 0x1462 0x0>,
 			<&apps_smmu 0x1481 0x0>, <&apps_smmu 0x1482 0x0>;
 
 		clocks = <&clock_npucc NPU_CC_XO_CLK>,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,9 @@
 #define NW_DEBUG_TIMEOUT msecs_to_jiffies(NW_DEBUG_TIMEOUT_MS)
 #define NPU_MBOX_IDLE_TIMEOUT_MS 500 /* set for 500ms */
 #define NPU_MBOX_IDLE_TIMEOUT msecs_to_jiffies(NPU_MBOX_IDLE_TIMEOUT_MS)
+#define NPU_FW_TIMEOUT_POLL_INTERVAL_MS 10
+#define NPU_FW_ACK_TIMEOUT_MS 5000
+#define NPU_FW_BRINGUP_TIMEOUT_MS (1000 * 60) /* set for 60 seconds */
 #define FIRMWARE_VERSION 0x00001000
 #define MAX_LOADED_NETWORK 32
 #define NPU_IPC_BUF_LENGTH 4096
@@ -133,7 +136,9 @@ struct npu_host_ctx {
 	uint32_t wdg_irq_sts;
 	bool fw_error;
 	bool cancel_work;
+	bool app_crashed;
 	struct notifier_block nb;
+	struct notifier_block panic_nb;
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;

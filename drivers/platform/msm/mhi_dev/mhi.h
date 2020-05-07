@@ -361,6 +361,7 @@ enum mhi_dev_ch_operation {
 enum mhi_dev_tr_compl_evt_type {
 	SEND_EVENT_BUFFER,
 	SEND_EVENT_RD_OFFSET,
+	SEND_MSI
 };
 
 enum mhi_dev_transfer_type {
@@ -390,6 +391,14 @@ struct mhi_dev_ring {
 	union mhi_dev_ring_element_type		*ring_cache;
 	/* Physical address of the cached ring copy on the device side */
 	dma_addr_t				ring_cache_dma_handle;
+	/* Device VA of read pointer array (used only for event rings) */
+	uint64_t			*evt_rp_cache;
+	/* PA of the read pointer array (used only for event rings) */
+	dma_addr_t				evt_rp_cache_dma_handle;
+	/* Device VA of msi buffer (used only for event rings)  */
+	uint32_t			*msi_buf;
+	/* PA of msi buf (used only for event rings) */
+	dma_addr_t				msi_buf_dma_handle;
 	/* Physical address of the host where we will write/read to/from */
 	struct mhi_addr				ring_shadow;
 	/* Ring type - cmd, event, transfer ring and its rp/wp... */
@@ -435,7 +444,10 @@ struct event_req {
 	enum mhi_dev_tr_compl_evt_type event_type;
 	u32			event_ring;
 	void			(*client_cb)(void *req);
+	void			(*rd_offset_cb)(void *req);
+	void			(*msi_cb)(void *req);
 	struct list_head	list;
+	u32			flush_num;
 };
 
 struct mhi_dev_channel {
@@ -479,6 +491,8 @@ struct mhi_dev_channel {
 	/* td size being read/written from/to so far */
 	uint32_t			td_size;
 	uint32_t			pend_wr_count;
+	uint32_t			msi_cnt;
+	uint32_t			flush_req_cnt;
 	bool				skip_td;
 };
 
@@ -593,6 +607,13 @@ struct mhi_dev {
 	/*Register for interrupt*/
 	bool				mhi_int;
 	bool				mhi_int_en;
+
+	/* Enable M2 autonomous mode from MHI */
+	bool				enable_m2;
+
+	/* Dont timeout waiting for M0 */
+	bool				no_m0_timeout;
+
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
 	/* Tx, Rx DMA channels */
@@ -1103,4 +1124,5 @@ void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
 void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state);
 
+void mhi_dev_pm_relax(void);
 #endif /* _MHI_H */

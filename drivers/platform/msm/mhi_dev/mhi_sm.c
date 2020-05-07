@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -750,6 +750,7 @@ static void mhi_sm_dev_event_manager(struct work_struct *work)
 		res = mhi_sm_change_to_M3();
 		if (res)
 			MHI_SM_ERR("Failed switching to M3 state\n");
+		mhi_dev_pm_relax();
 		break;
 	case MHI_DEV_EVENT_HW_ACC_WAKEUP:
 	case MHI_DEV_EVENT_CORE_WAKEUP:
@@ -871,7 +872,7 @@ static void mhi_sm_pcie_event_manager(struct work_struct *work)
 		spin_unlock_irqrestore(&mhi_sm_ctx->mhi_dev->lock, flags);
 
 		res = ep_pcie_enable_endpoint(mhi_sm_ctx->mhi_dev->phandle,
-			EP_PCIE_OPT_ENUM);
+			EP_PCIE_OPT_ENUM | EP_PCIE_OPT_ENUM_ASYNC);
 		if (res) {
 			MHI_SM_ERR("ep-pcie failed to link train, return %d\n",
 				res);
@@ -969,6 +970,7 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	/* Initiate MHI IPA reset */
+	ipa_dma_disable();
 	ipa_mhi_destroy();
 	ipa_dma_destroy();
 	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);

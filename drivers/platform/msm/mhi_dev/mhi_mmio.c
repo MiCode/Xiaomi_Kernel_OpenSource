@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017-2018,2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -420,7 +420,8 @@ int mhi_dev_mmio_clear_interrupts(struct mhi_dev *dev)
 				MHI_ERDB_INT_CLEAR_A7_n_CLEAR_MASK);
 
 	mhi_dev_mmio_write(dev, MHI_CTRL_INT_CLEAR_A7,
-					MHI_CTRL_INT_CRDB_CLEAR);
+		(MHI_CTRL_INT_MMIO_WR_CLEAR | MHI_CTRL_INT_CRDB_CLEAR |
+		MHI_CTRL_INT_CRDB_MHICTRL_CLEAR));
 
 	return 0;
 }

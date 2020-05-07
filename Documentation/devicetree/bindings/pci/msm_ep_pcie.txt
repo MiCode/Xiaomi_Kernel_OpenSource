@@ -70,6 +70,7 @@ Optional Properties:
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
   - qcom,pcie-m2-autonomous: Enable L1ss sleep/exit to support M2 autonomous mode.
+  - qcom,mhi-soc-reset-offset: AXI register offset to initiate a SOC reset.
 
 Example:
 

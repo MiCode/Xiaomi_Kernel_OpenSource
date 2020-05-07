@@ -1,3 +1,20 @@
+Version 1.1.6
+=============
+[ATLDRV-1355] - Sporadically unable to set EEE
+[ATLDRV-1407] - AQ078: Link comes back up after rmmod
+[ATLDRV-1416] - Failed probe during stress remove/rescan
+[ATLDRV-1435] - AQ080: MACSEC offload packet loss under concurrent streams
+[ATLDRV-1436] - AQ079: non-MACSEC_Data packets received in macsec0
+[ATLDRV-1456] - FWD: BUG: KASAN: use-after-free in atl_remove+0x1c9/0x220 [atlantic_fwd]
+[ATLDRV-1458] - AQ082: Accounting for RX bytes and packets
+[ATLDRV-1441] - FWD: Run Flexera Code Insight
+[ATLDRV-1457] - FWD: Linux-5.7.0 support
+
+Version 1.1.5
+=============
+[ATLDRV-1382] - Failed install Driver 1.1.4 on Antigua
+[ATLDRV-1384] - WOL does not work on Antigua
+
 Version 1.1.4
 ==============
 [ATLDRV-1371] - Add supported eee with 2.5G and 5G

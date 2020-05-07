@@ -467,19 +467,21 @@
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
 		qcom,sysmon-id = <0>;
-		qcom,ssctl-instance-id = <0x12>;
+		qcom,ssctl-instance-id = <0x22>;
 
 		interrupts-extended = <&intc 0 250 1>,
 				<&modem_smp2p_in 0 0>,
 				<&modem_smp2p_in 2 0>,
 				<&modem_smp2p_in 1 0>,
-				<&modem_smp2p_in 3 0>;
+				<&modem_smp2p_in 3 0>,
+				<&modem_smp2p_in 7 0>;
 
 		interrupt-names = "qcom,wdog",
 				"qcom,err-fatal",
 				"qcom,proxy-unvote",
 				"qcom,err-ready",
-				"qcom,stop-ack";
+				"qcom,stop-ack",
+				"qcom,shutdown-ack";
 
 		qcom,smem-states = <&modem_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
@@ -1239,6 +1241,7 @@
 		qcom,pcie-aggregated-irq;
 		qcom,pcie-mhi-a7-irq;
 		qcom,phy-status-reg = <0x814>;
+		qcom,mhi-soc-reset-offset = <0xb01b8>;
 
 		qcom,phy-init = <0x1240 0x001 0x0 0x1
 				0x100c 0x002 0x0 0x1
@@ -1461,6 +1464,7 @@
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
+		emac-phy-addr = <7>;
 		reg = <0x20000 0x10000>,
 		   <0x36000 0x100>,
 		   <0xf100000 0x300000>;

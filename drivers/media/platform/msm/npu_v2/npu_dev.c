@@ -2009,6 +2009,10 @@ static int npu_ipcc_bridge_mbox_send_data(struct mbox_chan *chan, void *data)
 	queue_work(host_ctx->wq, &host_ctx->bridge_mbox_work);
 	spin_unlock_irqrestore(&host_ctx->bridge_mbox_lock, flags);
 
+	if (host_ctx->app_crashed)
+		npu_bridge_mbox_send_data(host_ctx,
+					ipcc_mbox_chan->npu_mbox, NULL);
+
 	return 0;
 }
 

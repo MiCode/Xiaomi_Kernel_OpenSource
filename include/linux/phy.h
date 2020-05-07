@@ -417,6 +417,7 @@ struct phy_device {
 	bool suspended;
 	bool sysfs_links;
 	bool loopback_enabled;
+	bool skip_sw_reset;
 
 	enum phy_state state;
 
