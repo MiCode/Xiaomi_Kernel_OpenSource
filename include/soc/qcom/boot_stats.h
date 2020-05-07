@@ -19,10 +19,8 @@ struct boot_stats {
 	uint32_t bootloader_start;
 	uint32_t bootloader_end;
 	uint32_t kernel_entry;
-	uint32_t bootloader_load_kernel;
 	uint32_t load_kernel_start;
 	uint32_t load_kernel_done;
-	uint32_t bootloader_chksum_time;
 	uint32_t bootloader_chksum_start;
 	uint32_t bootloader_chksum_done;
 };
