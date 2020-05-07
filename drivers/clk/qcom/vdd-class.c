@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk-provider.h>
 #include <linux/kernel.h>
 #include <linux/regulator/consumer.h>
+#include <linux/device.h>
 
 #include "vdd-class.h"
 #include "clk-regmap.h"
@@ -180,5 +181,31 @@ int clk_list_rate_vdd_level(struct clk_hw *hw, unsigned int rate)
 		return 0;
 
 	return clk_find_vdd_level(hw, vdd_data, rate);
+}
+
+int clk_regulator_init(struct device *dev, const struct qcom_cc_desc *desc)
+{
+	struct clk_vdd_class *vdd_class;
+	struct regulator *regulator;
+	const char *name;
+	u32 i, cnt;
+
+	for (i = 0; i < desc->num_clk_regulators; i++) {
+		vdd_class = desc->clk_regulators[i];
+
+		for (cnt = 0; cnt < vdd_class->num_regulators; cnt++) {
+			name = vdd_class->regulator_names[cnt];
+			regulator = devm_regulator_get(dev, name);
+			if (IS_ERR(regulator)) {
+				if (PTR_ERR(regulator) != -EPROBE_DEFER)
+					dev_err(dev, "%s error %s regulator\n",
+						__func__, name);
+				return PTR_ERR(regulator);
+			}
+			vdd_class->regulator[cnt] = regulator;
+		}
+	}
+
+	return 0;
 }
 
