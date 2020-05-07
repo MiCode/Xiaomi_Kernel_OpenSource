@@ -148,6 +148,7 @@ enum power_event {
 /* MAC config */
 #define GMAC_CONFIG_IPC			BIT(27)
 #define GMAC_CONFIG_2K			BIT(22)
+#define GMAC_CONFIG_CRC			BIT(21)
 #define GMAC_CONFIG_ACS			BIT(20)
 #define GMAC_CONFIG_BE			BIT(18)
 #define GMAC_CONFIG_JD			BIT(17)
