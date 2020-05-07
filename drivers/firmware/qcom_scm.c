@@ -369,6 +369,7 @@ bool qcom_scm_is_secure_wdog_trigger_available(void)
 	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_BOOT,
 						QCOM_SCM_BOOT_SEC_WDOG_TRIGGER);
 }
+EXPORT_SYMBOL(qcom_scm_is_secure_wdog_trigger_available);
 
 bool qcom_scm_is_mode_switch_available(void)
 {
