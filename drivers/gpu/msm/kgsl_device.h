@@ -592,9 +592,6 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
 		return true;
-	else if (gmu_core_isenabled(device) &&
-			test_bit(GMU_CLK_ON, &device->gmu_core.flags))
-		return true;
 	else
 		return false;
 }

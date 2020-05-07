@@ -508,12 +508,16 @@ static void a6xx_rgmu_disable_clks(struct adreno_device *adreno_dev)
 static int a6xx_rgmu_disable_gdsc(struct adreno_device *adreno_dev)
 {
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	/* Wait up to 5 seconds for the regulator to go off */
 	if (kgsl_regulator_disable_wait(rgmu->cx_gdsc, 5000))
 		return 0;
 
 	dev_err(&rgmu->pdev->dev, "RGMU CX gdsc off timeout\n");
+
+	device->state = KGSL_STATE_NONE;
+
 	return -ETIMEDOUT;
 }
 
@@ -578,6 +582,8 @@ static int a6xx_rgmu_enable_clks(struct adreno_device *adreno_dev)
 		dev_err(&rgmu->pdev->dev, "Failed to enable RGMU clocks\n");
 		return ret;
 	}
+
+	device->state = KGSL_STATE_AWARE;
 
 	return 0;
 }
@@ -1050,8 +1056,6 @@ no_gx_power:
 		llcc_slice_deactivate(adreno_dev->gpuhtw_llc_slice);
 
 	clear_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);
-
-	device->state = KGSL_STATE_NONE;
 
 	del_timer_sync(&device->idle_timer);
 

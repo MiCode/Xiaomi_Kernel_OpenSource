@@ -34,7 +34,6 @@ enum gmu_core_boot {
 /* Bits for the flags field in the gmu structure */
 enum gmu_core_flags {
 	GMU_BOOT_INIT_DONE = 0,
-	GMU_CLK_ON,
 	GMU_HFI_ON,
 	GMU_FAULT,
 	GMU_DCVS_REPLAY,

@@ -1691,6 +1691,7 @@ out:
 static void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	a6xx_gmu_irq_disable(adreno_dev);
 
@@ -1708,6 +1709,8 @@ static void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
+
+	device->state = KGSL_STATE_NONE;
 }
 
 static int a6xx_gmu_dcvs_set(struct adreno_device *adreno_dev,
@@ -2049,6 +2052,7 @@ static int a6xx_gmu_clk_set_rate(struct a6xx_gmu_device *gmu, const char *id,
 static int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
 	ret = a6xx_gmu_clk_set_rate(gmu, "gmu_clk", GMU_FREQUENCY);
@@ -2068,6 +2072,8 @@ static int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 		dev_err(&gmu->pdev->dev, "Cannot enable GMU clocks\n");
 		return ret;
 	}
+
+	device->state = KGSL_STATE_AWARE;
 
 	return 0;
 }
@@ -2740,6 +2746,8 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 	if (!kgsl_regulator_disable_wait(gmu->cx_gdsc, 5000))
 		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
 
+	device->state = KGSL_STATE_NONE;
+
 	return ret;
 
 error:
@@ -3013,8 +3021,6 @@ no_gx_power:
 		llcc_slice_deactivate(adreno_dev->gpuhtw_llc_slice);
 
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
-
-	device->state = KGSL_STATE_NONE;
 
 	del_timer_sync(&device->idle_timer);
 
