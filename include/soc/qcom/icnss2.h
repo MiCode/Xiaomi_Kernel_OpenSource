@@ -167,4 +167,7 @@ extern void icnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
 extern int icnss_qmi_send(struct device *dev, int type, void *cmd,
 			  int cmd_len, void *cb_ctx,
 			  int (*cb)(void *ctx, void *event, int event_len));
+extern int icnss_force_wake_request(struct device *dev);
+extern int icnss_force_wake_release(struct device *dev);
+extern int icnss_is_device_awake(struct device *dev);
 #endif /* _ICNSS_WLAN_H_ */
