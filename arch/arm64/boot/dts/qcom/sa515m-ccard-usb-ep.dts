@@ -20,6 +20,32 @@
 	compatible = "qcom,sa515m-ccard",
 		"qcom,sdxprairie", "qcom,ccard";
 	qcom,board-id = <25 2>, <25 0x102>;
+
+	/delete-node/ qcom_gadget;
+	qcom_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,vid = <0x05c6>;
+
+		composition1 {
+			qcom,pid = <0x9103>;
+			qcom,composition = "diag.diag,ipc.ipc,gsi.rmnet,gsi.rmnet.v2x,ecm.ecm,gsi.dpl";
+		};
+
+		composition2 {
+			qcom,pid = <0x9107>;
+			qcom,composition = "diag.diag,ipc.ipc,gsi.rmnet.v2x,gsi.ecm,gsi.dpl";
+		};
+
+		composition3 {
+			qcom,pid = <0x910b>;
+			qcom,composition = "diag.diag,gsi.rmnet,gsi.dpl,ipc.ipc,ecm.ecm";
+		};
+
+		composition4 {
+			qcom,pid = <0x910d>;
+			qcom,composition = "diag.diag,gsi.dpl,ipc.ipc,gsi.ecm";
+		};
+	};
 };
 
 &ipa_hw {
