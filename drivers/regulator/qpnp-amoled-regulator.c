@@ -72,6 +72,7 @@ struct ibb_regulator {
 	/* DT params */
 	bool			swire_control;
 	bool			pd_control;
+	bool			single_phase;
 };
 
 struct qpnp_amoled {
@@ -301,6 +302,10 @@ static int qpnp_ibb_regulator_set_load(struct regulator_dev *rdev,
 	if (!is_phase_ctrl_supported(&chip->ibb))
 		return 0;
 
+	/* For IBB single phase, it's configured only once. */
+	if (chip->ibb.single_phase)
+		return 0;
+
 	if (load_uA < 0)
 		return -EINVAL;
 	else if (load_uA <= SINGLE_PHASE_ILIMIT_UA)
@@ -491,6 +496,7 @@ static int qpnp_amoled_regulator_register(struct qpnp_amoled *chip,
 static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 {
 	int rc;
+	u8 val;
 
 	rc = qpnp_amoled_regulator_register(chip, OLEDB);
 	if (rc < 0) {
@@ -511,6 +517,15 @@ static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 		dev_err(chip->dev, "Failed to register IBB regulator rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	if (is_phase_ctrl_supported(&chip->ibb) && chip->ibb.single_phase) {
+		val = FORCE_SINGLE_PHASE_BIT;
+
+		rc = qpnp_amoled_masked_write(chip, IBB_DUAL_PHASE_CTL(chip),
+			IBB_DUAL_PHASE_CTL_MASK, val);
+		if (rc < 0)
+			return rc;
 	}
 
 	return 0;
@@ -555,12 +570,14 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 			break;
 		case IBB_PERIPH_TYPE:
 			chip->ibb_base = base;
+			chip->ibb.subtype = val[1];
 			chip->ibb.vreg.node = temp;
 			chip->ibb.swire_control = of_property_read_bool(temp,
 							"qcom,swire-control");
 			chip->ibb.pd_control = of_property_read_bool(temp,
 							"qcom,aod-pd-control");
-			chip->ibb.subtype = val[1];
+			chip->ibb.single_phase = of_property_read_bool(temp,
+							"qcom,ibb-single-phase");
 			break;
 		default:
 			pr_err("Unknown peripheral type 0x%x\n", val[0]);
