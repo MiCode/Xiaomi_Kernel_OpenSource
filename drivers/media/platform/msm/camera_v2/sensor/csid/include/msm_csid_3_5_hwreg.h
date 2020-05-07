@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,7 +49,7 @@ static struct csid_reg_parms_t csid_v3_5 = {
 	0xB8,
 	0xBC,
 	11,
-	0x7FFF,
+	0x7FFFF,
 	0x4,
 	17,
 	0x30050000,
