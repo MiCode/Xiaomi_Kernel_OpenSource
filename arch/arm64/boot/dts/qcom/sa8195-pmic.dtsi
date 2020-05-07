@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,3 +95,82 @@
 #include "sa8195p-regulator.dtsi"
 #include "pm8195.dtsi"
 
+&thermal_zones {
+	pm8195_1_temp_alarm: pm8195_1_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8195_1_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8195_1_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8195_1_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8195_2_temp_alarm: pm8195_2_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8195_2_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8195_2_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8195_2_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8195_3_temp_alarm: pm8195_3_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8195_3_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8195_3_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8195_3_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+};
