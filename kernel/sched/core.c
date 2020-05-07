@@ -8411,46 +8411,4 @@ int set_task_boost(int boost, u64 period)
 	}
 	return 0;
 }
-
-void sched_account_irqtime(int cpu, struct task_struct *curr,
-				u64 delta, u64 wallclock)
-{
-	struct rq *rq = cpu_rq(cpu);
-	unsigned long flags, nr_ticks;
-	u64 cur_jiffies_ts;
-
-	raw_spin_lock_irqsave(&rq->lock, flags);
-
-	/*
-	 * cputime (wallclock) uses sched_clock so use the same here for
-	 * consistency.
-	 */
-	delta += sched_clock() - wallclock;
-	cur_jiffies_ts = get_jiffies_64();
-
-	if (is_idle_task(curr))
-		walt_update_task_ravg(curr, rq, IRQ_UPDATE, sched_ktime_clock(),
-								delta);
-
-	nr_ticks = cur_jiffies_ts - rq->wrq.irqload_ts;
-
-	if (nr_ticks) {
-		if (nr_ticks < 10) {
-			/* Decay CPU's irqload by 3/4 for each window. */
-			rq->wrq.avg_irqload *= (3 * nr_ticks);
-			rq->wrq.avg_irqload = div64_u64(rq->wrq.avg_irqload,
-							4 * nr_ticks);
-		} else {
-			rq->wrq.avg_irqload = 0;
-		}
-		rq->wrq.avg_irqload += rq->wrq.cur_irqload;
-		rq->wrq.high_irqload = (rq->wrq.avg_irqload >=
-				    sysctl_sched_cpu_high_irqload);
-		rq->wrq.cur_irqload = 0;
-	}
-
-	rq->wrq.cur_irqload += delta;
-	rq->wrq.irqload_ts = cur_jiffies_ts;
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
-}
 #endif

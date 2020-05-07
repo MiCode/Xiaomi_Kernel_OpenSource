@@ -199,8 +199,11 @@ void __weak set_window_start(struct rq *rq) { }
 
 bool __weak do_pl_notif(struct rq *rq) { return false; }
 
-void __weak sched_account_irqstart(int cpu, struct task_struct *curr,
-					u64 wallclock) { }
+void __weak walt_sched_account_irqstart(int cpu, struct task_struct *curr) { }
+void __weak walt_sched_account_irqend(int cpu, struct task_struct *curr,
+				      u64 delta)
+{
+}
 
 void __weak update_cluster_topology(void) { }
 

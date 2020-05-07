@@ -54,18 +54,11 @@ void irqtime_account_irq(struct task_struct *curr)
 	struct irqtime *irqtime = this_cpu_ptr(&cpu_irqtime);
 	s64 delta;
 	int cpu;
-#ifdef CONFIG_SCHED_WALT
-	u64 wallclock;
-	bool account = true;
-#endif
 
 	if (!sched_clock_irqtime)
 		return;
 
 	cpu = smp_processor_id();
-#ifdef CONFIG_SCHED_WALT
-	wallclock = sched_clock_cpu(cpu);
-#endif
 	delta = sched_clock_cpu(cpu) - irqtime->irq_start_time;
 	irqtime->irq_start_time += delta;
 
@@ -79,14 +72,15 @@ void irqtime_account_irq(struct task_struct *curr)
 		irqtime_account_delta(irqtime, delta, CPUTIME_IRQ);
 	else if (in_serving_softirq() && curr != this_cpu_ksoftirqd())
 		irqtime_account_delta(irqtime, delta, CPUTIME_SOFTIRQ);
-#ifdef CONFIG_SCHED_WALT
-	else
-		account = false;
 
-	if (account)
-		sched_account_irqtime(cpu, curr, delta, wallclock);
-	else if (curr != this_cpu_ksoftirqd())
-		sched_account_irqstart(cpu, curr, wallclock);
+#ifdef CONFIG_SCHED_WALT
+	if (is_idle_task(curr)) {
+		if (hardirq_count() || in_serving_softirq())
+			walt_sched_account_irqend(cpu, curr, delta);
+		else
+			walt_sched_account_irqstart(cpu, curr);
+	}
+	cpu_rq(cpu)->wrq.last_irq_window = cpu_rq(cpu)->wrq.window_start;
 #endif
 }
 EXPORT_SYMBOL_GPL(irqtime_account_irq);
