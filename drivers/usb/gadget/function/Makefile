@@ -62,5 +62,8 @@ usb_f_ccid-y			:= f_ccid.o
 obj-$(CONFIG_USB_F_CCID)	+= usb_f_ccid.o
 usb_f_cdev-y			:= f_cdev.o
 obj-$(CONFIG_USB_F_CDEV)	+= usb_f_cdev.o
-usb_f_gsi-y			:= f_gsi.o rndis.o
+usb_f_gsi-y			:= f_gsi.o
+ifeq ($(CONFIG_USB_F_RNDIS),)
+usb_f_gsi-y			+= rndis.o
+endif
 obj-$(CONFIG_USB_F_GSI)		+= usb_f_gsi.o
