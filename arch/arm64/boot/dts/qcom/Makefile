@@ -91,7 +91,9 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-iot-sku1.dtb \
 		qcs405-iot-sku13.dtb \
 		qcs407-iot-sku13.dtb \
 		qcs405-iot-robot-reference-board.dtb \
-		qcs404-iot-robot-reference-board.dtb
+		qcs404-iot-robot-reference-board.dtb \
+		qcs405-iot-robot-reference-dvt-board.dtb \
+		qcs404-iot-robot-reference-dvt-board.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \
@@ -467,6 +469,24 @@ dtb-$(CONFIG_ARCH_SDM660) += sdm660-sim.dtb \
 	sdm660-usbc-audio-mtp.dtb \
 	sdm660-usbc-audio-rcm.dtb
 endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+        dtbo-$(CONFIG_ARCH_SDM429W) += sdm429-wtp-overlay.dtbo\
+		sdm429-wdp-overlay.dtbo\
+		sda429-wdp-overlay.dtbo\
+		sda429-wtp-overlay.dtbo
+
+sdm429-wtp-overlay.dtbo-base := sdm429.dtb
+sdm429-wdp-overlay.dtbo-base := sdm429.dtb
+sda429-wtp-overlay.dtbo-base := sda429.dtb
+sda429-wdp-overlay.dtbo-base := sda429.dtb
+else
+dtb-$(CONFIG_ARCH_SDM429W) += sdm429-wtp.dtb\
+	sdm429-wdp.dtb\
+	sda429-wtp.dtb\
+	sda429-wdp.dtb
+endif
+
 
 endif
 ifeq ($(CONFIG_ARM64),y)

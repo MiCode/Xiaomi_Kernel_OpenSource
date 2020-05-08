@@ -39,6 +39,7 @@
 #include <net/route.h>
 #include <net/netfilter/br_netfilter.h>
 #include <net/netns/generic.h>
+#include <net/icmp.h>
 
 #include <linux/uaccess.h>
 #include "br_private.h"
@@ -643,6 +644,9 @@ static unsigned int br_nf_forward_arp(void *priv,
 		nf_bridge_pull_encap_header(skb);
 	}
 
+	if (unlikely(!pskb_may_pull(skb, sizeof(struct arphdr))))
+		return NF_DROP;
+
 	if (arp_hdr(skb)->ar_pln != 4) {
 		if (IS_VLAN_ARP(skb))
 			nf_bridge_push_encap_header(skb);
@@ -687,8 +691,13 @@ br_nf_ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
 	unsigned int mtu = ip_skb_dst_mtu(sk, skb);
 	struct iphdr *iph = ip_hdr(skb);
 
-	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) ||
-		     (IPCB(skb)->frag_max_size &&
+	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->ignore_df))) {
+		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+			  htonl(mtu));
+		kfree_skb(skb);
+		return -EMSGSIZE;
+	}
+	if (unlikely((IPCB(skb)->frag_max_size &&
 		      IPCB(skb)->frag_max_size > mtu))) {
 		IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
 		kfree_skb(skb);

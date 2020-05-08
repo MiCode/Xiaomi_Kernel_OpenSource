@@ -1,12 +1,13 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+// SPDX-License-Identifier: GPL-2.0-only
+/* Atlantic Network Driver
  *
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
  * Portions Copyright (C) various contributors (see specific commit references)
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include "atl_common.h"

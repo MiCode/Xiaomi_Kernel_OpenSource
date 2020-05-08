@@ -21,6 +21,7 @@ Required properties:
 			qcom,mode-y-offset: A u32 property of y offset.
 			qcom,mode-width: A u32 property of width.
 			qcom,mode-height: A u32 property of height, including line padding.
+- qcom,shared-display-name:  A string used as a descriptive name of the shared display.
 
 
 qcom,shared-display-base properties:
@@ -71,6 +72,7 @@ Example:
 		compatible = "qcom,shared-display";
 		qcom,shared-display-base = <&sde_sh_base0>;
 		qcom,blend-stage-range = <0 5>;
+		qcom,shared-display-name = "shared-disp-0";
 		qcom,shared-display-src-mode {
 			qcom,mode-h-active = <1920>;
 			qcom,mode-v-active = <2160>;
@@ -87,6 +89,7 @@ Example:
 		compatible = "qcom,shared-display";
 		qcom,shared-display-base = <&sde_sh_base0>;
 		qcom,blend-stage-range = <5 5>;
+		qcom,shared-display-name = "shared-disp-1";
 		qcom,shared-display-src-mode {
 			qcom,mode-h-active = <1920>;
 			qcom,mode-v-active = <2160>;

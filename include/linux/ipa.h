@@ -682,6 +682,7 @@ struct ipa_ext_intf {
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
  * @napi_enabled: when true, IPA call client callback to start polling
+ * @bypass_agg: when true, IPA bypasses the aggregation
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -694,6 +695,7 @@ struct ipa_sys_connect_params {
 	struct napi_struct *napi_obj;
 	bool napi_enabled;
 	bool recycle_enabled;
+	bool bypass_agg;
 };
 
 /**
@@ -1870,6 +1872,19 @@ int ipa_add_socksv5_conn(struct ipa_socksv5_info *info);
 int ipa_del_socksv5_conn(uint32_t handle);
 
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
+
+/* low-level IPA client Connect / Disconnect */
+
+static inline int ipa_connect(const struct ipa_connect_params *in,
+	struct ipa_sps_params *sps, u32 *clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_disconnect(u32 clnt_hdl)
+{
+	return -EPERM;
+}
 
 /*
  * Resume / Suspend

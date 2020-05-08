@@ -1,10 +1,12 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+// SPDX-License-Identifier: GPL-2.0-only
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/interrupt.h>
@@ -172,6 +174,8 @@ unlock:
 }
 
 
+#define ATL2_FW_READ_DONE         BIT(0x10)
+#define ATL2_FW_READ_REQ          BIT(0x11)
 #define ATL2_BOOT_STARTED         BIT(0x18)
 #define ATL2_CRASH_INIT           BIT(0x1B)
 #define ATL2_BOOT_CODE_FAILED     BIT(0x1C)
@@ -181,12 +185,14 @@ unlock:
 				  ATL2_BOOT_CODE_FAILED | \
 				  ATL2_FW_INIT_FAILED)
 #define ATL2_FW_BOOT_COMPLETE_MASK (ATL2_FW_BOOT_FAILED_MASK | \
+				    ATL2_FW_READ_REQ | \
 				    ATL2_FW_INIT_COMP_SUCCESS)
 
 #define ATL2_FW_BOOT_REQ_REBOOT        BIT(0x0)
 #define ATL2_FW_BOOT_REQ_HOST_BOOT     BIT(0x8)
 #define ATL2_FW_BOOT_REQ_MAC_FAST_BOOT BIT(0xA)
 #define ATL2_FW_BOOT_REQ_PHY_FAST_BOOT BIT(0xB)
+#define ATL2_FW_BOOT_REQ_HOST_ITI      BIT(0xC)
 
 static bool atl2_mcp_boot_complete(struct atl_hw *hw)
 {
@@ -217,24 +223,21 @@ static int atl2_hw_reset(struct atl_hw *hw)
 		  ((rbl_status & ATL2_BOOT_STARTED) == 0) ||
 		  (rbl_status == 0xffffffff));
 	if (!(rbl_status & ATL2_BOOT_STARTED))
-		atl_dev_dbg("Boot code probably hanged, reboot anyway");
+		atl_dev_dbg("Boot code probably hung, reboot anyway");
 
 
 	atl_write(hw, ATL2_MCP_HOST_REQ_INT_CLR, 0x01);
 	rbl_request = ATL2_FW_BOOT_REQ_REBOOT;
+	if (hw->mcp.ops) {
+		rbl_request |= ATL2_FW_BOOT_REQ_MAC_FAST_BOOT;
+		rbl_request |= ATL2_FW_BOOT_REQ_HOST_ITI;
+	}
 #ifdef AQ_CFG_FAST_START
 	rbl_request |= ATL2_FW_BOOT_REQ_MAC_FAST_BOOT;
 #endif
 
-/*
-	atl_set_bits(hw, 0x404, 1);
-*/
 	atl_write(hw, ATL2_MIF_BOOT_REG_ADR, rbl_request);
-/*
-	if (hw->mcp.ops)
-		hw->mcp.ops->restore_cfg(hw);
-	atl_clear_bits(hw, 0x404, 1);
-*/
+
 	/* Wait for RBL boot */
 	busy_wait(200, mdelay(1), rbl_status,
 		  atl_read(hw, ATL2_MIF_BOOT_REG_ADR),
@@ -242,16 +245,17 @@ static int atl2_hw_reset(struct atl_hw *hw)
 		  (rbl_status == 0xffffffff));
 	if (!(rbl_status & ATL2_BOOT_STARTED)) {
 		err = -ETIME;
-		atl_dev_err("Boot code hanged");
+		atl_dev_err("Boot code hung, rbl_status %#x", rbl_status);
 		goto unlock;
 	}
 
-	busy_wait(100, mdelay(1), rbl_complete,
-		  atl2_mcp_boot_complete(hw),
+next_turn:
+	busy_wait(1000, mdelay(1), rbl_complete, atl2_mcp_boot_complete(hw),
 		  !rbl_complete);
 	if (!rbl_complete) {
 		err = -ETIME;
-		atl_dev_err("FW Restart timed out");
+		atl_dev_err("FW Restart timed out, status %#x",
+			    atl_read(hw, ATL2_MIF_BOOT_REG_ADR));
 		goto unlock;
 	}
 
@@ -264,6 +268,24 @@ static int atl2_hw_reset(struct atl_hw *hw)
 	}
 
 	if (atl_read(hw, ATL2_MCP_HOST_REQ_INT) & 0x1) {
+		uint32_t req_adr = atl_read(hw, ATL2_MIF_BOOT_READ_REQ_ADR);
+		uint32_t req_len = atl_read(hw, ATL2_MIF_BOOT_READ_REQ_LEN);
+
+		atl_write(hw, ATL2_MCP_HOST_REQ_INT_CLR, 0x01);
+
+		if (((req_adr & BIT(31)) != 0) ||
+		    (req_len >= ATL2_FW_HOSTLOAD_REQ_LEN_MAX)) {
+			err = -EIO;
+			atl_dev_err("FW read request invalid");
+			goto unlock;
+		}
+		if (req_adr >= ATL2_ITI_ADDRESS_START)
+			if (hw->mcp.ops) {
+				err = hw->mcp.ops->restore_cfg(hw);
+				if (!err)
+					goto next_turn;
+			}
+
 		err = -EIO;
 		atl_dev_err("No FW detected. Dynamic FW load not implemented");
 		goto unlock;
@@ -528,7 +550,7 @@ int atl_alloc_link_intr(struct atl_nic *nic)
 
 	if (nic->flags & ATL_FL_MULTIPLE_VECTORS) {
 		ret = request_irq(pci_irq_vector(pdev, 0), atl_link_irq, 0,
-		nic->ndev->name, nic);
+				  nic->ndev->name, nic);
 		if (ret)
 			atl_nic_err("request MSI link vector failed: %d\n",
 				-ret);
@@ -954,10 +976,15 @@ static int atl_msm_wait(struct atl_hw *hw)
 {
 	uint32_t val;
 
-	busy_wait(10, udelay(1), val, atl_read(hw, ATL_MPI_MSM_ADDR),
+	busy_wait(10, udelay(10), val, atl_read(hw, ATL_MPI_MSM_ADDR),
 		val & BIT(12));
-	if (val & BIT(12))
+	if (val & BIT(12)) {
+		/* If MSM CLKL off, return ENODATA */
+		if ((atl_read(hw, ATL_MPI_MSM_CTRL) & BIT(0xB)) == 0)
+			return -ENODATA;
+
 		return -ETIME;
+	}
 
 	return 0;
 }
@@ -983,9 +1010,13 @@ int atl_msm_read(struct atl_hw *hw, uint32_t addr, uint32_t *val)
 {
 	int ret;
 
+	/* If MSM CLKL off, fail here */
+	if ((atl_read(hw, ATL_MPI_MSM_CTRL) & BIT(0xB)) == 0)
+		return -ENODATA;
+
 	ret = atl_hwsem_get(hw, ATL_MCP_SEM_MSM);
 	if (ret)
-		return ret;
+		return -ENODATA;
 
 	ret = __atl_msm_read(hw, addr, val);
 	atl_hwsem_put(hw, ATL_MCP_SEM_MSM);

@@ -9,6 +9,8 @@ Required subnode properties:
 - qcom,composition: List of configurations where each is separated by '|'.
 	And each configuration has comma separated list of functions
 	specified as: <f1_name>.<f1_instance_name>,<f2_name>....
+- qcom,bmAttributes: Config characteritics of composite device.
+	e.g. remote wakeup capability, self or bus powered.
 
 Optional properties:
 - qcom,default-pid: ProductId to be used by composite device.
@@ -29,5 +31,11 @@ Example:
 		composition2 {
 			qcom,pid = <0x9105>;
 			qcom,composition = "diag.diag,gsi.dpl";
+		};
+
+		composition3 {
+			qcom,pid = <0x9063>;
+			qcom,composition = "gsi.rndis|gsi.ecm|gsi.mbim";
+			qcom,bmAttributes = <0xa0>;
 		};
 	};

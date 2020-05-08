@@ -1338,6 +1338,7 @@ static int dsi_panel_parse_dyn_clk_caps(struct dsi_panel *panel)
 	struct dsi_dyn_clk_caps *dyn_clk_caps = &panel->dyn_clk_caps;
 	struct dsi_parser_utils *utils = &panel->utils;
 	const char *name = panel->name;
+	const char *type = NULL;
 
 	supported = utils->read_bool(utils->data, "qcom,dsi-dyn-clk-enable");
 
@@ -1377,6 +1378,25 @@ static int dsi_panel_parse_dyn_clk_caps(struct dsi_panel *panel)
 
 	dyn_clk_caps->dyn_clk_support = true;
 
+	type = utils->get_property(utils->data,
+				   "qcom,dsi-dyn-clk-type", NULL);
+	if (!type) {
+		dyn_clk_caps->type = DSI_DYN_CLK_TYPE_LEGACY;
+		dyn_clk_caps->maintain_const_fps = false;
+		return 0;
+	}
+
+	if (!strcmp(type, "constant-fps-adjust-hfp")) {
+		dyn_clk_caps->type = DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP;
+		dyn_clk_caps->maintain_const_fps = true;
+	} else if (!strcmp(type, "constant-fps-adjust-vfp")) {
+		dyn_clk_caps->type = DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP;
+		dyn_clk_caps->maintain_const_fps = true;
+	} else {
+		dyn_clk_caps->type = DSI_DYN_CLK_TYPE_LEGACY;
+		dyn_clk_caps->maintain_const_fps = false;
+	}
+	pr_debug("Dynamic clock type is %d\n", dyn_clk_caps->type);
 	return 0;
 }
 
@@ -3289,7 +3309,7 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 
 	rc = dsi_panel_parse_qsync_caps(panel, of_node);
 	if (rc)
-		pr_err("failed to parse qsync features, rc=%d\n", rc);
+		pr_debug("failed to parse qsync features, rc=%d\n", rc);
 
 	/* allow qsync support only if DFPS is with VFP approach */
 	if ((panel->dfps_caps.dfps_support) &&

@@ -34,6 +34,7 @@ Required properties :
 			"qcom,atoll-gcc"
 			"qcom,gcc-sdm660"
 			"qcom,gcc-sdm429w"
+			"qcom,gcc-mdss-sdm429w"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

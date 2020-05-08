@@ -253,6 +253,11 @@ static struct hap_addr_val twm_ext_cfg[] = {
 static int wf_repeat[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 static int wf_s_repeat[4] = {1, 2, 4, 8};
 
+static int twm_sys_enable;
+module_param_named(
+	haptics_twm, twm_sys_enable, int, 0600
+);
+
 static inline bool is_secure(u8 addr)
 {
 	return ((addr & 0xFF) > 0xD0);
@@ -2027,6 +2032,7 @@ static void qti_haptics_shutdown(struct platform_device *pdev)
 {
 	struct qti_hap_chip *chip = dev_get_drvdata(&pdev->dev);
 	int rc;
+	bool enable_haptics_twm;
 
 	dev_dbg(chip->dev, "Shutdown!\n");
 
@@ -2042,7 +2048,9 @@ static void qti_haptics_shutdown(struct platform_device *pdev)
 		chip->vdd_enabled = false;
 	}
 
-	if (chip->twm_state == PMIC_TWM_ENABLE && chip->haptics_ext_pin_twm) {
+	enable_haptics_twm = chip->haptics_ext_pin_twm && twm_sys_enable;
+
+	if (chip->twm_state == PMIC_TWM_ENABLE && enable_haptics_twm) {
 		rc = qti_haptics_twm_config(chip);
 		if (rc < 0)
 			pr_err("Haptics TWM config failed rc=%d\n", rc);

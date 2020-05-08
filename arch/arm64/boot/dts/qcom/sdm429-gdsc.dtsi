@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	venus_gdsc: qcom,gdsc@184c018 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus";
+		reg = <0x184c018 0x4>;
+		status = "disabled";
+	};
+
+	venus_core0_gdsc: qcom,gdsc@184c028 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core0";
+		reg = <0x184c028 0x4>;
+		status = "disabled";
+	};
+
+	mdss_gdsc: qcom,gdsc@184d078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mdss";
+		reg = <0x184d078 0x4>;
+		status = "disabled";
+	};
+
+	jpeg_gdsc: qcom,gdsc@185701c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_jpeg";
+		reg = <0x185701c 0x4>;
+		status = "disabled";
+	};
+
+	vfe_gdsc: qcom,gdsc@1858034 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe";
+		reg = <0x1858034 0x4>;
+		status = "disabled";
+	};
+
+	vfe1_gdsc: qcom,gdsc@185806c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe1";
+		reg = <0x185806c 0x4>;
+		status = "disabled";
+	};
+
+	cpp_gdsc: qcom,gdsc@1858078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_cpp";
+		reg = <0x1858078 0x4>;
+		status = "disabled";
+	};
+
+	oxili_gx_gdsc: qcom,gdsc@185901c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_oxili_gx";
+		reg = <0x185901c 0x4>;
+		status = "disabled";
+	};
+
+	oxili_cx_gdsc: qcom,gdsc@1859044 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_oxili_cx";
+		reg = <0x1859044 0x4>;
+		status = "disabled";
+	};
+};

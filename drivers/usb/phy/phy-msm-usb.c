@@ -49,6 +49,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/sched/clock.h>
+#include <linux/usb_bam.h>
 
 #include <linux/msm-bus.h>
 

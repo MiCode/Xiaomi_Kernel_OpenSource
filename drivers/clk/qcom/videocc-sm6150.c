@@ -361,7 +361,6 @@ static int video_cc_sa6150_resume(struct device *dev)
 
 static const struct dev_pm_ops video_cc_sa6150_pm_ops = {
 	.restore_early = video_cc_sa6150_resume,
-	.thaw_early = video_cc_sa6150_resume,
 };
 
 

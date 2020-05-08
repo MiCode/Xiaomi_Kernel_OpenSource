@@ -603,6 +603,7 @@ static void socket_read_work_fn(struct work_struct *work)
 	struct diag_socket_info *info = container_of(work,
 						     struct diag_socket_info,
 						     read_work);
+	struct diagfwd_info *fwd_info;
 
 	if (!info) {
 		diag_ws_release();
@@ -623,8 +624,9 @@ static void socket_read_work_fn(struct work_struct *work)
 		diag_ws_release();
 		return;
 	}
-
-	if (!info->fwd_ctxt && info->port_type == PORT_TYPE_SERVER)
+	fwd_info = info->fwd_ctxt;
+	if (info->port_type == PORT_TYPE_SERVER &&
+		(!fwd_info || !atomic_read(&fwd_info->opened)))
 		diag_socket_drop_data(info);
 
 	if (!atomic_read(&info->opened) && info->port_type == PORT_TYPE_SERVER)

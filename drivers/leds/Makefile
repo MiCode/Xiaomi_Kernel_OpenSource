@@ -49,6 +49,7 @@ obj-$(CONFIG_LEDS_PCA963X)		+= leds-pca963x.o
 obj-$(CONFIG_LEDS_PCA9956B)		+= leds-pca9956b.o
 obj-$(CONFIG_LEDS_DA903X)		+= leds-da903x.o
 obj-$(CONFIG_LEDS_DA9052)		+= leds-da9052.o
+obj-$(CONFIG_LEDS_QCOM_CLK)		+= leds-qcom-clk.o
 obj-$(CONFIG_LEDS_QPNP_FLASH_V2)        += leds-qpnp-flash-v2.o
 obj-$(CONFIG_LEDS_QPNP_HAPTICS)		+= leds-qpnp-haptics.o
 obj-$(CONFIG_LEDS_WM831X_STATUS)	+= leds-wm831x-status.o

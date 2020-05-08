@@ -1,10 +1,12 @@
-/*
- * Marvell Semiconductor Altantic Network Driver
- * Copyright (C) 2019 Marvell Semiconductor. All rights reserved
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #ifndef _ATL2_FW_H_
@@ -40,7 +42,8 @@ struct link_options_s {
 	uint32_t eee_2P5G:1;
 	uint32_t eee_5G:1;
 	uint32_t eee_10G:1;
-	uint32_t rsvd3:3;
+	uint32_t rsvd3:2;
+	uint32_t low_power_autoneg:1;
 
 	uint32_t pause_rx:1;
 	uint32_t pause_tx:1;
@@ -88,7 +91,10 @@ struct sleep_proxy_s {
 		uint32_t wake_on_link_down:1;
 		uint32_t wake_on_ping:1;
 		uint32_t wake_on_timer:1;
-		uint32_t rsvd:26;
+		uint32_t wake_on_link_mac_method:1;
+		uint32_t rsrvd1:1;
+		uint32_t restore_link_before_wake:1;
+		uint32_t rsvd:23;
 
 		uint32_t link_up_timeout;
 		uint32_t link_down_timeout;
@@ -538,6 +544,16 @@ struct fw_interface_out {
 	struct trace_s trace;
 };
 
+struct fw_iti_subblock_header {
+	uint32_t type :8;
+	uint32_t length :24;
+};
+
+struct fw_iti_hdr {
+	uint32_t instuction_bitmask;
+	uint32_t reserved;
+	struct fw_iti_subblock_header iti[6];
+};
 /* End of HW byte packed interface declaration */
 #pragma pack(pop)
 
@@ -574,6 +590,9 @@ struct fw_interface_out {
 #define ATL2_FW_HOST_INTERRUPT_TEMPERATURE_WARNING 0x2000
 #define ATL2_FW_HOST_INTERRUPT_HEARTBEAT           0x4000
 
+#define ATL2_ITI_ADDRESS_START    0x100000
+#define ATL2_ITI_ADDRESS_BLOCK_1  (ATL2_ITI_ADDRESS_START +\
+				   sizeof(struct fw_iti_hdr) / sizeof(uint32_t))
 enum {
 	ATL2_MEMORY_MAILBOX_STATUS_FAIL = 0,
 	ATL2_MEMORY_MAILBOX_STATUS_SUCCESS = 1
