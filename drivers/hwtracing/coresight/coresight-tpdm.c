@@ -101,6 +101,8 @@ do {									\
 /* TPDM Specific Registers */
 #define TPDM_ITATBCNTRL		(0xEF0)
 #define TPDM_CLK_CTRL		(0x220)
+#define TPDM_ITCNTRL		(0xF00)
+
 
 #define TPDM_DATASETS		32
 #define TPDM_BC_MAX_COUNTERS	32
@@ -133,6 +135,11 @@ do {									\
 #define TPDM_REVISION_B		1
 
 #define HW_ENABLE_CHECK_VALUE   0x10
+
+
+#define ATBCNTRL_VAL_32		0xC00F1409
+#define ATBCNTRL_VAL_64		0xC01F1409
+
 
 enum tpdm_dataset {
 	TPDM_DS_IMPLDEF,
@@ -908,6 +915,41 @@ static ssize_t reset_store(struct device *dev,
 	return size;
 }
 static DEVICE_ATTR_WO(reset);
+
+static ssize_t integration_test_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf,
+					  size_t size)
+{
+	int i, ret = 0;
+	unsigned long val;
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	ret = kstrtoul(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	if (val != 1 && val != 2)
+		return -EINVAL;
+
+	if (!drvdata->enable)
+		return -EINVAL;
+
+	if (val == 1)
+		val = ATBCNTRL_VAL_64;
+	else
+		val = ATBCNTRL_VAL_32;
+	TPDM_UNLOCK(drvdata);
+	tpdm_writel(drvdata, 0x1, TPDM_ITCNTRL);
+
+	for (i = 1; i < 5; i++)
+		tpdm_writel(drvdata, val, TPDM_ITATBCNTRL);
+
+	tpdm_writel(drvdata, 0, TPDM_ITCNTRL);
+	TPDM_LOCK(drvdata);
+	return size;
+}
+static DEVICE_ATTR_WO(integration_test);
 
 static ssize_t gp_regs_show(struct device *dev,
 				 struct device_attribute *attr,
@@ -3962,6 +4004,7 @@ static struct attribute *tpdm_attrs[] = {
 	&dev_attr_available_datasets.attr,
 	&dev_attr_enable_datasets.attr,
 	&dev_attr_reset.attr,
+	&dev_attr_integration_test.attr,
 	&dev_attr_gp_regs.attr,
 	NULL,
 };
