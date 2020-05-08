@@ -17,6 +17,20 @@
 	};
 };
 
+&soc {
+	mx_sdpm@0x00636000 {
+		compatible = "qcom,sdpm";
+		reg = <0x00636000 0x1000>;
+		clock-names = "cam_cc_ipe", "video_cc_mvs0", "gcc_gp1";
+		clocks = <&clock_camcc CAM_CC_IPE_0_CLK_SRC>,
+			<&clock_videocc VIDEO_CC_MVS0_CLK_SRC>,
+			<&clock_gcc GCC_GP1_CLK_SRC>;
+		cam_cc_ipe-supply = <&cam_cc_ipe_0_gdsc>;
+		video_cc_mvs0-supply = <&video_cc_mvs0_gdsc>;
+		csr-id = <1 3 5>;
+	};
+};
+
 &cpufreq_hw {
 	qcom,cpu-isolation {
 		compatible = "qcom,cpu-isolate";
