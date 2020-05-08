@@ -625,7 +625,7 @@ static ssize_t _name##_show(struct device *dev,				\
 	bool flag;							\
 	struct ufs_hba *hba = dev_get_drvdata(dev);			\
 	if (ufshcd_query_flag(hba, UPIU_QUERY_OPCODE_READ_FLAG,		\
-		QUERY_FLAG_IDN##_uname, &flag))				\
+		QUERY_FLAG_IDN##_uname, 0, &flag))				\
 		return -EINVAL;						\
 	return sprintf(buf, "%s\n", flag ? "true" : "false"); \
 }									\
