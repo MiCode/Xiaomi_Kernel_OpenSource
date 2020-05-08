@@ -511,6 +511,12 @@ static int mhi_init_debugfs_mhi_vote_open(struct inode *inode, struct file *fp)
 	return single_open(fp, mhi_debugfs_mhi_vote_show, inode->i_private);
 }
 
+static int mhi_init_debugfs_mhi_regdump_open(struct inode *inode,
+					     struct file *fp)
+{
+	return single_open(fp, mhi_debugfs_mhi_regdump_show, inode->i_private);
+}
+
 static const struct file_operations debugfs_state_ops = {
 	.open = mhi_init_debugfs_mhi_states_open,
 	.release = single_release,
@@ -535,8 +541,17 @@ static const struct file_operations debugfs_vote_ops = {
 	.read = seq_read,
 };
 
+static const struct file_operations debugfs_regdump_ops = {
+	.open = mhi_init_debugfs_mhi_regdump_open,
+	.release = single_release,
+	.read = seq_read,
+};
+
 DEFINE_DEBUGFS_ATTRIBUTE(debugfs_trigger_reset_fops, NULL,
 			 mhi_debugfs_trigger_reset, "%llu\n");
+
+DEFINE_DEBUGFS_ATTRIBUTE(debugfs_trigger_soc_reset_fops, NULL,
+			 mhi_debugfs_trigger_soc_reset, "%llu\n");
 
 void mhi_init_debugfs(struct mhi_controller *mhi_cntrl)
 {
@@ -563,6 +578,11 @@ void mhi_init_debugfs(struct mhi_controller *mhi_cntrl)
 			    &debugfs_vote_ops);
 	debugfs_create_file("reset", 0444, dentry, mhi_cntrl,
 			    &debugfs_trigger_reset_fops);
+	debugfs_create_file("regdump", 0444, dentry, mhi_cntrl,
+			    &debugfs_regdump_ops);
+	debugfs_create_file("soc_reset", 0444, dentry, mhi_cntrl,
+			    &debugfs_trigger_soc_reset_fops);
+
 	mhi_cntrl->dentry = dentry;
 }
 
