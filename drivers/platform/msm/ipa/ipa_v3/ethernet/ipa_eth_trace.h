@@ -51,6 +51,38 @@ TRACE_EVENT(lan_rx_skb,
 	)
 );
 
+/*
+ * Tracepoint for ethernet link activity check by PM.
+ */
+TRACE_EVENT(net_check_active,
+	TP_PROTO(
+		struct ipa_eth_device *eth_dev,
+		struct rtnl_link_stats64 *old_stats,
+		struct rtnl_link_stats64 *new_stats,
+		unsigned long assume_active
+	),
+	TP_ARGS(eth_dev, old_stats, new_stats, assume_active),
+	TP_STRUCT__entry(
+		__field(const char *, dev)
+		__field(u64, old_rx_packets)
+		__field(u64, new_rx_packets)
+		__field(u64, diff_rx_packets)
+		__field(unsigned long, assume_active)
+	),
+	TP_fast_assign(
+		__entry->dev = eth_dev->net_dev->name;
+		__entry->old_rx_packets = old_stats->rx_packets;
+		__entry->new_rx_packets = new_stats->rx_packets;
+		__entry->diff_rx_packets =
+			__entry->new_rx_packets - __entry->old_rx_packets;
+		__entry->assume_active = assume_active;
+	),
+	TP_printk("dev=%s assume_active=%lu rx_total=%llu rx_diff=+%llu",
+		__entry->dev, __entry->assume_active,
+		__entry->new_rx_packets, __entry->diff_rx_packets
+	)
+);
+
 #endif /* _IPA_ETH_TRACE_H */
 
 /* This part must be outside protection */
