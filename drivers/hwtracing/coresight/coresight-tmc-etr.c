@@ -1354,6 +1354,14 @@ void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 	int ret = 0;
 
 	mutex_lock(&drvdata->mem_lock);
+	if (drvdata->out_mode != TMC_ETR_OUT_MODE_USB
+			|| drvdata->mode == CS_MODE_DISABLED) {
+		dev_err(&drvdata->csdev->dev,
+		"%s: ETR is not USB mode, or ETR is disabled.\n", __func__);
+		mutex_unlock(&drvdata->mem_lock);
+		return;
+	}
+
 	if (event == USB_QDSS_CONNECT) {
 		ret = tmc_etr_fill_usb_bam_data(drvdata);
 		if (ret)
