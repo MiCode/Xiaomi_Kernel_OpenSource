@@ -1,0 +1,20 @@
+* BTFM Slimbus Slave Driver
+BTFM Slimbus Slave driver configure and initialize slimbus slave device.
+Bluetooth SCO and FM Audio data is transferred over slimbus interface.
+
+Required properties:
+	- compatible: Should be set to one of the following:
+		btfmslim_slave
+	- qcom,btfm-slim-ifd: BTFM slimbus slave device entry name
+
+Optional properties:
+	- qcom,btfm-slim-ifd-elemental-addr: BTFM slimbus slave device
+		enumeration address
+
+Example:
+	btfmslim_codec: qca6390 {
+		compatible = "qcom,btfmslim_slave";
+		elemental-addr = [00 01 20 02 17 02];
+		qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+		qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+	};

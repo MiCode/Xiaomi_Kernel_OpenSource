@@ -1,0 +1,93 @@
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
+	interrupt-parent = <&vgic>;
+
+	chosen {
+		bootargs = "root=/dev/ram rw init=/init console=hvc0 loglevel=8";
+		linux,initrd-start = <0x2a900000>;
+		linux,initrd-end = <0x2b42171a>; /* 11 MB */
+		kaslr-seed = <0xfeedbeef 0xc0def00d>;
+	};
+
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		CPU0: cpu@0 {
+			compatible = "arm,armv8";
+			reg = <0x0 0x0>;
+			device_type = "cpu";
+			enable-method = "psci";
+			cpu-idle-states = <0x2>;
+		};
+	};
+
+	vgic: interrupt-controller@17a00000 {
+		compatible = "arm,gic-v3";
+		interrupt-controller;
+		#interrupt-cells = <0x3>;
+		reg = <0x0 0x17a00000 0x0 0x10000>,     /* GICD */
+		      <0x0 0x17a60000 0x0 0x100000>;    /* GICR * 8 */
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	memory@28000000 {
+		device_type = "memory";
+		reg = <0x0 0x28000000 0x0 0x8000000>; /* Temp S2 mapping */
+	};
+
+	qcom,vm-config {
+		compatible = "qcom,vm-1.0";
+		vm-type = "aarch64-guest";
+		boot-config = "fdt,unified";
+		os-type = "linux";
+		kernel-entry-segment = "kernel";
+		kernel-entry-offset = <0x0 0x0>;
+		vendor = "Qualcomm";
+		image-name = "qcom,trustedvm";
+		qcom,pasid = <0x0 0x1c>;
+
+		memory {
+			#address-cells = <0x2>;
+			#size-cells = <0x0>;
+			base-address = <0x0 0xD0800000>;
+			size-min = <0x0 0x8000000>;    /* 128 MB */
+		};
+
+		segments {
+				/* offset and size */
+			kernel = <0x0 0x8000 0x0 0x2000000>;  /* 32 MB */
+			dt = <0x0 0x7000000 0x0 0x4000>;      /* 16 KB */
+		};
+
+		vcpus {
+			config = "/cpus";
+			affinity = "static";
+			affinity-map = <0x0>;   /* VCPU -> CPU */
+		};
+
+		interrupts {
+			config = &vgic;
+		};
+
+		vdevices {
+			peer-default;
+		};
+	};
+
+	arch_timer: timer {
+		compatible = "arm,armv8-timer";
+		always-on;
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
+	};
+};

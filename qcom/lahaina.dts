@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "lahaina.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. lahaina v1 SoC";
+	compatible = "qcom,lahaina";
+	qcom,board-id = <0 0>;
+};

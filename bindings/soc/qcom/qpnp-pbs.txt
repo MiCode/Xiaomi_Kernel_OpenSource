@@ -1,0 +1,30 @@
+QPNP PBS
+
+QPNP (Qualcomm Technologies, Inc. Plug N Play) PBS is programmable boot sequence
+and this driver is for helping the client drivers triggering such sequence
+to be configured in PMIC.
+
+This document describes the bindings for QPNP PBS driver.
+
+=======================
+Required Node Structure
+=======================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,qpnp-pbs".
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition:  Base address of the PBS registers.
+
+
+=======
+Example
+=======
+	pm660l_pbs: qcom,pbs@7300 {
+		compatible = "qcom,qpnp-pbs";
+		reg = <0x7300 0x100>;
+	};

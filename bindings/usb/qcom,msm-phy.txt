@@ -1,0 +1,153 @@
+QCOM USB PHY transceivers
+
+HSUSB PHY
+
+Required properties:
+ - compatible: Should be "qcom,usb-hsphy-snps-femto"
+ - reg: Address and length of the register set for the device
+   Required regs are:
+	"hsusb_phy_base" : the base register for the PHY
+ - <supply-name>-supply: phandle to the regulator device tree node
+   Required "supply-name" examples are:
+	"vdd" : vdd supply for HSPHY digital circuit operation
+	"vdda18" : 1.8v supply for HSPHY
+	"vdda33" : 3.3v supply for HSPHY
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "ref_clk_src" is a mandatory clock.
+ - qcom,vdd-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner
+ - resets: reset specifier pair consists of phandle for the reset controller
+   and reset lines used by this controller.
+ - reset-names: reset signal name strings sorted in the same order as the resets
+   property.
+
+Optional properties:
+ - qcom,param-override-seq: parameter override sequence with value, reg offset
+   pair.
+ - qcom,rcal-mask: efuse calibration mask.
+ - reg: Address and length of the register set for the device
+   Optional regs are:
+        "phy_rcal_reg": register address for efuse used for rext calibration
+        "eud_enable_reg" : register address to read eud enable/disable status.
+
+Example:
+	hsphy@f9200000 {
+		compatible = "qcom,usb-hsphy-snps-femto";
+		reg = <0xff1000 0x400>;
+		vdd-supply = <&pm8841_s2_corner>;
+		vdda18-supply = <&pm8941_l6>;
+		vdda33-supply = <&pm8941_l24>;
+		qcom,vdd-voltage-level = <0 872000 872000>;
+		qcom,param-override-seq = <0x43 0x70>;
+	};
+
+SSUSB-QMP PHY
+
+Required properties:
+ - compatible: Should be "qcom,usb-ssphy-qmp", "qcom,usb-ssphy-qmp-v1" or
+   "qcom,usb-ssphy-qmp-v2" or "qcom,usb-ssphy-qmp-usb3-or-dp" or
+   "qcom,usb-ssphy-qmp-dp-combo"
+ - reg: Address and length of the register set for the device
+   Required reg-names entry must contain:
+   "qmp_phy_base" : QMP PHY Base register set.
+ - <supply-name>-supply: phandle to the regulator device tree node
+   Required "supply-name" examples are:
+	"vdd" : vdd supply for SSPHY digital circuit operation
+	"core" : high-voltage analog supply for SSPHY
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. Required clocks are "aux_clk" and "pipe_clk".
+ - qcom,vdd-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner
+ - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg offset, its
+   value, delay after register write.
+ - qcom,qmp-phy-reg-offset: Provides important phy register offsets in an order
+   defined in the phy driver.
+   Provide below mentioned register offsets in order for non USB DP combo PHY:
+   USB3_PHY_PCS_STATUS,
+   USB3_PHY_AUTONOMOUS_MODE_CTRL,
+   USB3_PHY_LFPS_RXTERM_IRQ_CLEAR,
+   USB3_PHY_POWER_DOWN_CONTROL,
+   USB3_PHY_SW_RESET,
+   USB3_PHY_START
+
+   In addion to above following set of registers offset needed for USB DP combo PHY in mentioned order:
+   USB3_DP_DP_PHY_PD_CTL,
+   USB3_DP_COM_POWER_DOWN_CTRL,
+   USB3_DP_COM_SW_RESET,
+   USB3_DP_COM_RESET_OVRD_CTRL,
+   USB3_DP_COM_PHY_MODE_CTRL,
+   USB3_DP_COM_TYPEC_CTRL,
+   USB3_DP_COM_SWI_CTRL,
+
+   Optional register for enabling/disabling VLS clamp if available:
+   USB3_PCS_MISC_CLAMP_ENABLE
+
+   Optional register for configuring USB Type-C port select if available:
+   USB3_PHY_PCS_MISC_TYPEC_CTRL
+
+- resets: reset specifier pair consists of phandle for the reset controller
+  and reset lines used by this controller.
+- reset-names: reset signal name strings sorted in the same order as the resets
+  property.
+
+Optional properties:
+ - reg: Additional register set of address and length to control QMP PHY are:
+   "tcsr_usb3_dp_phymode" : top-level CSR register to be written to select
+   super speed usb qmp phy.
+   "pcs_clamp_enable_reg" : Clamps the phy data inputs and enables USB3
+   autonomous mode.
+   "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
+   clamp which allows phy to detect autonomous mode.
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "cfg_ahb_clk" and "com_aux_clk" are an optional clocks.
+ - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
+   the USB PHY and the controller must rely on external VBUS notification in
+   order to manually relay the notification to the SSPHY.
+ - qcom,vdd-max-load-uA: If present, indicates the maximum current (in uA) the
+   PHY is expected to draw from the vdd power supply.
+ - qcom,core-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+ - qcom,core-max-load-uA: If present, indicates the maximum current (in uA) the
+   PHY is expected to draw from the core power supply.
+   microvolts or a value corresponding to voltage corner.
+ - qcom,link-training-reset: This property indicates to start link training
+   timer to reset the elastic buffer based on rx equalization value.
+ - extcon : phandle to external connector devices which provide type-C based
+            "USB-HOST" cable events. This phandle is used for notifying number
+            of lanes used in case of USB+DP concurrent mode to driver.
+
+Example:
+	ssphy0: ssphy@f9b38000 {
+		compatible = "qcom,usb-ssphy-qmp";
+		reg = <0xf9b38000 0x16c>,
+			<0x01947244 0x4>;
+		reg-names = "qmp_phy_base",
+			"vls_clamp_reg";
+		vdd-supply = <&pmd9635_l4>;
+		vdda18-supply = <&pmd9635_l8>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,vbus-valid-override;
+
+		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
+			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+			 <&clock_gcc clk_ln_bb_clk1>,
+			 <&clock_gcc clk_gcc_usb3_clkref_clk>;
+
+		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk",
+			      "ref_clk_src", "ref_clk";
+
+		resets = <&clock_gcc GCC_USB3_PHY_BCR>,
+			<&clock_gcc GCC_USB3PHY_PHY_BCR>;
+		reset-names = "phy_reset",
+				"phy_phy_reset";
+
+	};

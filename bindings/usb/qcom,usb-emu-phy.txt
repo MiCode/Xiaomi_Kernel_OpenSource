@@ -1,0 +1,30 @@
+Qualcomm Technologies, Inc. emulation USB PHY
+
+Required properties:
+- compatible:	should contain "qcom,usb-emu-phy"
+- reg:		offset and length of the register set in the memory map
+- qcom,emu-init-seq:	emulation initialization sequence of value,reg pairs
+
+Optional properties:
+- reg:		Additional register names supported are
+		"qscratch_base"
+
+Example PHY device node:
+
+	usb_emu_phy@a720000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a720000 0x9500>,
+		      <0x0a6f8800 0x100>;
+		reg-names = "base", "qscratch_base";
+
+		qcom,emu-init-seq = <0xfff0 0x4
+				     0xfff3 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x1a0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};

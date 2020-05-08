@@ -1,0 +1,13 @@
+Richwave FM radio device
+
+-FM RX playback with RDS
+FM signal is demodulated then audio L/R samples are sent to external audio codec.
+FM Rx RDS data received sent to host processor on I2C.
+
+Required Properties:
+- compatible: "rtc6226"
+
+Example:
+	rtc6226 {
+		compatible = "rtc6226";
+	};
