@@ -438,13 +438,12 @@ seek_tune_fail:
 		if (!wait_for_completion_timeout(&radio->completion,
 			msecs_to_jiffies(WAIT_TIMEOUT_MSEC)))
 			FMDERR("%s: didn't receive STD for tune\n", __func__);
-		else {
+		else
 			FMDERR("%s: received STD for tune\n", __func__);
-			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
-		}
 	}
 seek_cancelled:
 	rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
+	rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
 	radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
 	FMDERR("%s seek cancelled %d\n", __func__, retval);
 	return;
