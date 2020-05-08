@@ -1030,7 +1030,7 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.func.disable = rndis_disable;
 	rndis->port.func.free_func = rndis_free;
 
-	params = rndis_register(rndis_response_available, rndis, NULL);
+	params = rndis_register(rndis_response_available, rndis);
 	if (IS_ERR(params)) {
 		kfree(rndis);
 		return ERR_CAST(params);
