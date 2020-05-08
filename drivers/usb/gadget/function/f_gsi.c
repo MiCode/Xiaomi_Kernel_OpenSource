@@ -2048,10 +2048,14 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 
 	buf = (rndis_init_msg_type *)req->buf;
 	if (le32_to_cpu(buf->MessageType) == RNDIS_MSG_INIT) {
+		log_event_dbg("RNDIS host major:%d minor:%d version\n",
+				le32_to_cpu(buf->MajorVersion),
+				le32_to_cpu(buf->MinorVersion));
+
 		/* honor host dl aggr size */
-		gsi->d_port.in_aggr_size = gsi->params->dl_max_xfer_size;
-		log_event_dbg("RNDIS host dl_aggr_size:%d\n",
-				gsi->params->dl_max_xfer_size);
+		gsi->d_port.in_aggr_size = le32_to_cpu(buf->MaxTransferSize);
+		log_event_dbg("RNDIS host DL MaxTransferSize:%d\n",
+				le32_to_cpu(buf->MaxTransferSize));
 	}
 }
 
