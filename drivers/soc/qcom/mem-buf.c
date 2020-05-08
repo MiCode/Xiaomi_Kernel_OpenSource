@@ -28,6 +28,7 @@
 #include <uapi/linux/mem-buf.h>
 
 #define MEM_BUF_MAX_DEVS 1
+#define MEM_BUF_MHP_ALIGNMENT (1UL << SUBSECTION_SHIFT)
 #define MEM_BUF_TIMEOUT_MS 2000
 #define to_rmt_msg(_work) container_of(_work, struct mem_buf_rmt_msg, work)
 
@@ -977,6 +978,13 @@ static int mem_buf_map_mem_s1(struct mem_buf_desc *membuf)
 	for (i = 0; i < membuf->sgl_desc->n_sgl_entries; i++) {
 		base = membuf->sgl_desc->sgl_entries[i].ipa_base;
 		size = membuf->sgl_desc->sgl_entries[i].size;
+		if (!IS_ALIGNED(base, MEM_BUF_MHP_ALIGNMENT) ||
+		    !IS_ALIGNED(size, MEM_BUF_MHP_ALIGNMENT)) {
+			ret = -EINVAL;
+			pr_err("%s: IPA base: 0x%lx or size: 0x%lx not aligned properly\n",
+			       __func__, base, size);
+			goto err_add_mem;
+		}
 		nid = memory_add_physaddr_to_nid(base);
 		memblock_add_node(base, size, nid);
 		ret = arch_add_memory(nid, base, size, &restrictions);
@@ -1310,7 +1318,7 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (!membuf)
 		return ERR_PTR(-ENOMEM);
 
-	membuf->size = alloc_data->size;
+	membuf->size = ALIGN(alloc_data->size, MEM_BUF_MHP_ALIGNMENT);
 	membuf->acl_desc = mem_buf_acl_to_hh_acl(alloc_data->nr_acl_entries,
 						 alloc_data->acl_list);
 	if (IS_ERR(membuf->acl_desc)) {
