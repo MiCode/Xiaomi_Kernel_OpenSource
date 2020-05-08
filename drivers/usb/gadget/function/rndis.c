@@ -576,7 +576,7 @@ static int rndis_init_response(struct rndis_params *params,
 		+ sizeof(struct ethhdr)
 		+ sizeof(struct rndis_packet_msg_type)
 		+ 22));
-	resp->PacketAlignmentFactor = cpu_to_le32(params->pkt_alignment_factor);
+	resp->PacketAlignmentFactor = cpu_to_le32(0);
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
 
@@ -1175,19 +1175,6 @@ int rndis_rm_hdr(struct gether *port,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(rndis_rm_hdr);
-
-void rndis_set_pkt_alignment_factor(struct rndis_params *params,
-		u8 pkt_alignment_factor)
-{
-	pr_debug("%s:\n", __func__);
-
-	if (!params) {
-		pr_err("%s: failed, params NULL\n", __func__);
-		return;
-	}
-
-	params->pkt_alignment_factor = pkt_alignment_factor;
-}
 
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 

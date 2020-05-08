@@ -2186,13 +2186,37 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			goto invalid;
 
 		if (gsi->prot_id == IPA_USB_RNDIS) {
+			rndis_init_cmplt_type *res;
+
 			/* return the result */
 			buf = rndis_get_next_response(gsi->params, &n);
-			if (buf) {
-				memcpy(req->buf, buf, n);
-				rndis_free_response(gsi->params, buf);
-				value = n;
+			if (!buf)
+				break;
+
+			res = (rndis_init_cmplt_type *)buf;
+			if (le32_to_cpu(res->MessageType) == RNDIS_MSG_INIT_C) {
+				log_event_dbg("%s: max_pkt_per_xfer : %d",
+					__func__, DEFAULT_MAX_PKT_PER_XFER);
+				res->MaxPacketsPerTransfer =
+					cpu_to_le32(DEFAULT_MAX_PKT_PER_XFER);
+
+				res->MaxTransferSize = cpu_to_le32(
+					le32_to_cpu(res->MaxTransferSize)
+					* DEFAULT_MAX_PKT_PER_XFER);
+
+				/* In case of aggregated packets QC device
+				 * will request aliment to 4 (2^2).
+				 */
+				log_event_dbg("%s: pkt_alignment_factor : %d",
+					__func__, DEFAULT_PKT_ALIGNMENT_FACTOR);
+				res->PacketAlignmentFactor =
+					cpu_to_le32(
+						DEFAULT_PKT_ALIGNMENT_FACTOR);
 			}
+
+			memcpy(req->buf, buf, n);
+			rndis_free_response(gsi->params, buf);
+			value = n;
 			break;
 		}
 
@@ -2858,18 +2882,6 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 			rndis_set_param_vendor(gsi->params, gsi->vendorID,
 				gsi->manufacturer))
 			goto dereg_rndis;
-
-		log_event_dbg("%s: max_pkt_per_xfer : %d", __func__,
-					DEFAULT_MAX_PKT_PER_XFER);
-		rndis_set_max_pkt_xfer(gsi->params, DEFAULT_MAX_PKT_PER_XFER);
-
-		/* In case of aggregated packets QC device will request
-		 * aliment to 4 (2^2).
-		 */
-		log_event_dbg("%s: pkt_alignment_factor : %d", __func__,
-					DEFAULT_PKT_ALIGNMENT_FACTOR);
-		rndis_set_pkt_alignment_factor(gsi->params,
-					DEFAULT_PKT_ALIGNMENT_FACTOR);
 
 		/* Windows7/Windows10 automatically loads RNDIS drivers for
 		 * class drivers which represents MISC_ACTIVE_SYNC,

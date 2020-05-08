@@ -172,7 +172,6 @@ typedef struct rndis_params {
 	u32			vendorID;
 	u8			max_pkt_per_xfer;
 	const char		*vendorDescr;
-	u8			pkt_alignment_factor;
 	void			(*resp_avail)(void *v);
 	void			(*flow_ctrl_enable)(bool enable,
 			struct rndis_params *params);
@@ -205,7 +204,5 @@ int  rndis_signal_disconnect(struct rndis_params *params);
 int  rndis_state(struct rndis_params *params);
 extern void rndis_set_host_mac(struct rndis_params *params, const u8 *addr);
 void rndis_flow_control(struct rndis_params *params, bool enable_flow_control);
-void rndis_set_pkt_alignment_factor(struct rndis_params *params,
-		u8 pkt_alignment_factor);
 
 #endif  /* _LINUX_RNDIS_H */
