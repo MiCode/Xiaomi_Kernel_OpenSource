@@ -14,6 +14,9 @@
 #include <linux/extcon.h>
 #include <linux/extcon-provider.h>
 #include <linux/debugfs.h>
+#include <linux/gpio/consumer.h>
+#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
@@ -180,6 +183,11 @@ struct qusb_phy {
 	struct delayed_work	port_det_w;
 	enum port_state		port_state;
 	unsigned int		dcd_timeout;
+
+	int			notifier_gpio;
+	bool			is_gpio_active_low;
+	int			notifier_irq;
+	bool			is_port_valid;
 
 	/* debugfs entries */
 	struct dentry		*root;
@@ -1014,6 +1022,61 @@ static void qusb_phy_create_debugfs(struct qusb_phy *qphy)
 	debugfs_create_x8("tune5", 0644, qphy->root, &qphy->tune5);
 }
 
+int qphy_get_notifier_gpio_state(struct qusb_phy *qphy)
+{
+	int value;
+
+	if (gpio_is_valid(qphy->notifier_gpio)) {
+		value = gpio_get_value(qphy->notifier_gpio);
+		return qphy->is_gpio_active_low ? !value : value;
+	}
+
+	return 1;
+}
+
+static irqreturn_t qphy_notifier_irq_handler(int irq, void *_qphy)
+{
+	struct qusb_phy *qphy = (struct qusb_phy *)_qphy;
+
+	if (gpio_is_valid(qphy->notifier_gpio)) {
+		qphy->is_port_valid = qphy_get_notifier_gpio_state(qphy);
+
+		dev_dbg(qphy->phy.dev, "Got notification: %d\n",
+							qphy->is_port_valid);
+		queue_delayed_work(system_freezable_wq,
+						&qphy->port_det_w, 0);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static int qphy_register_notifier_interrupt(struct qusb_phy *qphy,
+						struct platform_device *pdev)
+{
+	int ret = 0;
+
+	qphy->notifier_irq = platform_get_irq_byname(pdev, "notifier_irq");
+	if (qphy->notifier_irq < 0) {
+		dev_err(qphy->phy.dev, "failed to get notifier irq\n");
+		return qphy->notifier_irq;
+	}
+
+	ret = devm_request_threaded_irq(qphy->phy.dev, qphy->notifier_irq, NULL,
+					qphy_notifier_irq_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT |
+					IRQF_SHARED,
+					pdev->name, qphy);
+	if (ret < 0) {
+		dev_err(qphy->phy.dev, "failed to request handler for irq\n");
+		return ret;
+	}
+
+	qphy->is_port_valid = qphy_get_notifier_gpio_state(qphy);
+
+	return ret;
+}
+
 static int qusb_phy_vbus_notifier(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -1258,18 +1321,34 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 							port_det_w.work);
 	unsigned long delay = 0;
 	int status, ret;
+	bool vbus_active, id_state;
 
 	dev_dbg(qphy->phy.dev, "state: %d\n", qphy->port_state);
 
+	/*
+	 * The events for cable connect should be ignored if
+	 * the is_port_valid set to false to prevent the USB
+	 * stack being brought up and voting for the regulators.
+	 */
+	qphy->is_port_valid = qphy_get_notifier_gpio_state(qphy);
+	if (!qphy->is_port_valid) {
+		dev_err(qphy->phy.dev, "Port not valid, notify disconnect\n");
+		vbus_active = false;
+		id_state = true;
+	} else {
+		vbus_active = qphy->vbus_active;
+		id_state = qphy->id_state;
+	}
+
 	switch (qphy->port_state) {
 	case PORT_UNKNOWN:
-		if (!qphy->id_state) {
+		if (!id_state) {
 			qphy->port_state = PORT_HOST_MODE;
 			qusb_phy_notify_extcon(qphy, EXTCON_USB_HOST, 1);
 			return;
 		}
 
-		if (qphy->vbus_active) {
+		if (vbus_active) {
 			/* Enable DCD sequence */
 			ret = qusb_phy_prepare_chg_det(qphy);
 			if (ret)
@@ -1287,7 +1366,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		qphy->port_state = PORT_UNKNOWN;
 		break;
 	case PORT_DCD_IN_PROGRESS:
-		if (!qphy->vbus_active) {
+		if (!vbus_active) {
 			/* Disable PHY sequence */
 			qphy->port_state = PORT_DISCONNECTED;
 			break;
@@ -1309,7 +1388,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		}
 		break;
 	case PORT_PRIMARY_IN_PROGRESS:
-		if (!qphy->vbus_active) {
+		if (!vbus_active) {
 			qphy->port_state = PORT_DISCONNECTED;
 			break;
 		}
@@ -1328,7 +1407,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		}
 		break;
 	case PORT_SECONDARY_IN_PROGRESS:
-		if (!qphy->vbus_active) {
+		if (!vbus_active) {
 			qphy->port_state = PORT_DISCONNECTED;
 			break;
 		}
@@ -1350,14 +1429,14 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		 * during detection.
 		 */
 	case PORT_CHG_DET_DONE:
-		if (!qphy->vbus_active) {
+		if (!vbus_active) {
 			qphy->port_state = PORT_UNKNOWN;
 			qusb_phy_notify_extcon(qphy, EXTCON_USB, 0);
 		}
 
 		return;
 	case PORT_HOST_MODE:
-		if (qphy->id_state) {
+		if (id_state) {
 			qphy->port_state = PORT_UNKNOWN;
 			qusb_phy_notify_extcon(qphy, EXTCON_USB_HOST, 0);
 		}
@@ -1417,6 +1496,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	const char *phy_type;
 	bool hold_phy_reset;
 	u32 temp;
+	enum of_gpio_flags flags;
 
 	qphy = devm_kzalloc(dev, sizeof(*qphy), GFP_KERNEL);
 	if (!qphy)
@@ -1681,6 +1761,18 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	}
 
+	qphy->notifier_gpio = of_get_named_gpio_flags(dev->of_node,
+							"notifier", 0, &flags);
+	if (gpio_is_valid(qphy->notifier_gpio)) {
+		qphy->is_gpio_active_low = flags & OF_GPIO_ACTIVE_LOW;
+		ret = qphy_register_notifier_interrupt(qphy, pdev);
+		if (ret)
+			return ret;
+	} else {
+		qphy->notifier_gpio = 0;
+		qphy->is_port_valid = true;
+	}
+
 	ret = usb_add_phy_dev(&qphy->phy);
 	if (ret)
 		return ret;
@@ -1744,6 +1836,26 @@ static int qusb_phy_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int qusb_phy_pm_resume(struct device *dev)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	/*
+	 * The notifier is not wakeup capable, so get the state of the GPIO
+	 * once the system wakes up.
+	 */
+	if (gpio_is_valid(qphy->notifier_gpio))
+		queue_delayed_work(system_freezable_wq, &qphy->port_det_w, 0);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops qusb_phy_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, qusb_phy_pm_resume)
+};
+
 static const struct of_device_id qusb_phy_id_table[] = {
 	{ .compatible = "qcom,qusb2phy", },
 	{ },
@@ -1755,6 +1867,7 @@ static struct platform_driver qusb_phy_driver = {
 	.remove		= qusb_phy_remove,
 	.driver = {
 		.name	= "msm-qusb-phy",
+		.pm	= &qusb_phy_dev_pm_ops,
 		.of_match_table = of_match_ptr(qusb_phy_id_table),
 	},
 };
