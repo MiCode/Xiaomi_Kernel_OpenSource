@@ -3401,18 +3401,20 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 {
-	dbg_event(0xFF, "WAKEUP", 0);
+	enum dwc3_link_state link_state = dwc->link_state;
 
-	/*
-	 * TODO take core out of low power mode when that's
-	 * implemented.
-	 */
+	dbg_log_string("WAKEUP: link_state:%d", link_state);
+	dwc->link_state = DWC3_LINK_STATE_U0;
 
-	if (dwc->gadget_driver && dwc->gadget_driver->resume) {
-		spin_unlock(&dwc->lock);
-		dwc->gadget_driver->resume(&dwc->gadget);
-		spin_lock(&dwc->lock);
-	}
+	/* For L1 resume case, don't perform resume */
+	if (link_state != DWC3_LINK_STATE_U3)
+		return;
+
+	/* Handle bus resume case */
+	dbg_event(0xFF, "notify", 0);
+	dwc->b_suspend = false;
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT, 0);
+	dwc3_resume_gadget(dwc);
 }
 
 static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
