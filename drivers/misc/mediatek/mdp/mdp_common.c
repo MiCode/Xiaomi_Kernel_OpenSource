@@ -936,9 +936,11 @@ static s32 cmdq_mdp_consume_handle(void)
 		}
 
 		if (secure_run != handle->secData.is_secure) {
+			mutex_unlock(&mdp_thread_mutex);
 			CMDQ_LOG(
-				"skip secure inorder handle:%p engine:%#llx\n",
-				handle, handle->engineFlag);
+				"skip secure inorder handle:%p engine:%#llx sec:%s\n",
+				handle, handle->engineFlag,
+				handle->secData.is_secure ? "true" : "false");
 			break;
 		}
 
@@ -2186,11 +2188,13 @@ static bool mdp_is_isp_img(struct cmdqRecStruct *handle)
 		 handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O2)));
 }
 
+#ifdef CONFIG_MTK_SMI_EXT
 static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
 {
 	return (handle->engineFlag &
 		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
 }
+#endif
 
 static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
@@ -2480,9 +2484,11 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	smi_larb_mon_act_cnt();
 #endif
 #endif
-#endif	/* CONFIG_MTK_SMI_EXT */
 
 done:
+
+#endif	/* CONFIG_MTK_SMI_EXT */
+
 	CMDQ_SYSTRACE_END();
 }
 

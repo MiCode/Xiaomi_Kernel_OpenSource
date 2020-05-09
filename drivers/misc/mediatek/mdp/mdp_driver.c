@@ -645,6 +645,9 @@ static s32 cmdq_driver_copy_handle_prop_from_user(void *from, u32 size,
 		}
 
 		*to = task_prop;
+	} else {
+		CMDQ_LOG("Initialize prop_addr to NULL...\n");
+		*to = NULL;
 	}
 
 	return 0;
@@ -652,8 +655,10 @@ static s32 cmdq_driver_copy_handle_prop_from_user(void *from, u32 size,
 
 static void cmdq_release_handle_property(void **prop_addr, u32 *prop_size)
 {
-	if (!prop_addr || !prop_size)
+	if (!prop_addr || !prop_size || !*prop_size) {
+		CMDQ_LOG("Return w/o need of kfree(prop_addr)\n");
 		return;
+	}
 
 	kfree(*prop_addr);
 	*prop_addr = NULL;
