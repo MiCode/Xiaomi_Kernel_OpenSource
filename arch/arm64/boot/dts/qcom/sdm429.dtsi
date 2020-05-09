@@ -362,6 +362,311 @@
 	};
 
 	thermal_zones: thermal-zones { };
+
+	tcsr_mutex_regs: syscon@1905000 {
+		compatible = "syscon";
+		reg = <0x1905000 0x8000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_regs 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	apcs: syscon@0b011008 {
+		compatible = "syscon";
+		reg = <0x0b011008 0x04>;
+	};
+
+	rpm_msg_ram: memory@60000 {
+		compatible = "qcom,rpm-msg-ram";
+		reg = <0x60000 0x8000>;
+	};
+
+	smem_mem: smem_region@86300000 {
+		reg = <0x86300000 0x100000>;
+		no-map;
+	};
+
+	smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
+	qcom,smd {
+		compatible = "qcom,smd";
+
+		modem {
+			qcom,smd-edge = <0>;
+			qcom,ipc = <&apcs 0 12>;
+			qcom,remote-pid = <1>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_EDGE_RISING>;
+			label = "mpss";
+
+			qcom,smd-channels = "IPCRTR";
+			qcom,modem_qrtr {
+				qcom,net-id = <1>;
+				qcom,low-latency;
+			};
+		};
+
+		wcnss {
+			qcom,smd-edge = <6>;
+			qcom,ipc = <&apcs 0 17>;
+			qcom,remote-pid = <4>;
+			interrupts = <GIC_SPI 142 IRQ_TYPE_EDGE_RISING>;
+			label = "wcnss";
+
+			qcom,smd-channels = "IPCRTR";
+			qcom,wcnss_qrtr {
+				qcom,net-id = <1>;
+				qcom,low-latency;
+			};
+		};
+
+		adsp {
+			qcom,smd-edge = <1>;
+			qcom,ipc = <&apcs 0 8>;
+			qcom,remote-pid = <2>;
+			interrupts = <GIC_SPI 289 IRQ_TYPE_EDGE_RISING>;
+			label = "adsp";
+
+			qcom,smd-channels = "IPCRTR";
+			qcom,adsp_qrtr {
+				qcom,net-id = <1>;
+				qcom,low-latency;
+			};
+		};
+
+		rpm {
+			qcom,smd-edge = <15>;
+			qcom,ipc = <&apcs 0 0>;
+			interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
+			label = "rpm";
+
+			rpm_requests: rpm_requests@0 {
+				compatible = "qcom,rpm-smd";
+				qcom,smd-channels = "rpm_requests";
+			};
+		};
+	};
+
+	qcom,smsm {
+		compatible = "qcom,smsm";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ipc-1 = <&apcs 0 13>;
+		qcom,ipc-2 = <&apcs 0 9>;
+		qcom,ipc-6 = <&apcs 0 19>;
+
+		apps_smsm: apps@0 {
+			reg = <0>;
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smsm: modem@1 {
+			reg = <1>;
+			interrupts = <0 26 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		adsp_smsm: adsp@2 {
+			reg = <2>;
+			interrupts = <0 289 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
+		wcnss_smsm: wcnss@6 {
+			reg = <6>;
+			interrupts = <0 144 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	modem-smp2p {
+		compatible = "qcom,smp2p";
+		qcom,smem = <435>, <428>;
+
+		interrupts = <GIC_SPI 27 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs 0 14>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	adsp-smp2p {
+		compatible = "qcom,smp2p";
+		qcom,smem = <443>, <429>;
+
+		interrupts = <GIC_SPI 291 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs 0 10>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <2>;
+
+		adsp_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		adsp_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	wcnss-smp2p {
+		compatible = "qcom,smp2p";
+		qcom,smem = <451>, <431>;
+
+		interrupts = <GIC_SPI 143 IRQ_TYPE_EDGE_RISING>;
+		qcom,ipc = <&apcs 0 18>;
+
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <4>;
+
+		wcnss_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+		};
+
+		wcnss_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+
+	qcom,smdpkt {
+		compatible = "qcom,smdpkt";
+
+		qcom,smdpkt-data5-cntl {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA5_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl0";
+		};
+
+		qcom,smdpkt-data22 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA22";
+			qcom,smdpkt-dev-name = "smd22";
+		};
+
+		qcom,smdpkt-data40-cntl {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA40_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl8";
+		};
+
+		qcom,smdpkt-data2 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA2";
+			qcom,smdpkt-dev-name = "at_mdm0";
+		};
+
+		qcom,smdpkt-apr-apps2 {
+			qcom,smdpkt-edge = "adsp";
+			qcom,smdpkt-ch-name = "apr_apps2";
+			qcom,smdpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,smdpkt-apps-fm {
+			qcom,smdpkt-edge = "wcnss";
+			qcom,smdpkt-ch-name = "APPS_FM";
+			qcom,smdpkt-dev-name = "smd1";
+		};
+
+		qcom,smdpkt-apps-riva-bt-acl {
+			qcom,smdpkt-edge = "wcnss";
+			qcom,smdpkt-ch-name = "APPS_RIVA_BT_ACL";
+			qcom,smdpkt-dev-name = "smd2";
+		};
+
+		qcom,smdpkt-apps-riva-bt-cmd {
+			qcom,smdpkt-edge = "wcnss";
+			qcom,smdpkt-ch-name = "APPS_RIVA_BT_CMD";
+			qcom,smdpkt-dev-name = "smd3";
+		};
+
+		qcom,smdpkt-mbalbridge {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "MBALBRIDGE";
+			qcom,smdpkt-dev-name = "smd4";
+		};
+
+		qcom,smdpkt-apps-riva-ant-cmd {
+			qcom,smdpkt-edge = "wcnss";
+			qcom,smdpkt-ch-name = "APPS_RIVA_ANT_CMD";
+			qcom,smdpkt-dev-name = "smd5";
+		};
+
+		qcom,smdpkt-apps-riva-ant-data {
+			qcom,smdpkt-edge = "wcnss";
+			qcom,smdpkt-ch-name = "APPS_RIVA_ANT_DATA";
+			qcom,smdpkt-dev-name = "smd6";
+		};
+
+		qcom,smdpkt-data1 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA1";
+			qcom,smdpkt-dev-name = "smd7";
+		};
+
+		qcom,smdpkt-data4 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA4";
+			qcom,smdpkt-dev-name = "smd8";
+		};
+
+		qcom,smdpkt-data11 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA11";
+			qcom,smdpkt-dev-name = "smd11";
+		};
+
+		qcom,smdpkt-data21 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DATA21";
+			qcom,smdpkt-dev-name = "smd21";
+		};
+	};
+
+	qcom,bam_dmux@4044000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0x4044000 0x19000>;
+		qcom,rx-ring-size = <32>;
+		qcom,max-rx-mtu = <4096>;
+		qcom,fast-shutdown;
+		qcom,no-cpu-affinity;
+
+		qcom,smem-states = <&apps_smsm 1>, <&apps_smsm 11>;
+		qcom,smem-state-names = "pwrctrl", "pwrctrlack";
+
+		interrupts-extended =
+				<&intc GIC_SPI 162 IRQ_TYPE_EDGE_RISING>,
+				<&modem_smsm 1 IRQ_TYPE_EDGE_BOTH>,
+				<&modem_smsm 11 IRQ_TYPE_EDGE_BOTH>;
+
+		interrupt-names = "dmux", "ctrl", "ack";
+	};
 };
 
 #include "sdm429-gdsc.dtsi"
