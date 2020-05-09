@@ -17,7 +17,7 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/device.h>
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
 #endif
 
@@ -69,7 +69,7 @@ static struct pack_cmd_mgr g_pack_mgr;
 static struct task_struct *sched_task;
 
 //----------------------------------------------
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 static struct wakeup_source *apusys_sched_ws;
 static uint32_t ws_count;
 static struct mutex ws_mutex;
@@ -77,7 +77,7 @@ static struct mutex ws_mutex;
 
 static void sched_ws_init(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	ws_count = 0;
 	mutex_init(&ws_mutex);
 	apusys_sched_ws = wakeup_source_register(NULL, "apusys_sched");
@@ -90,7 +90,7 @@ static void sched_ws_init(void)
 
 static void sched_ws_lock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	mutex_lock(&ws_mutex);
 	if (apusys_sched_ws && !ws_count) {
 		mdw_flw_debug("lock wakelock\n");
@@ -105,7 +105,7 @@ static void sched_ws_lock(void)
 
 static void sched_ws_unlock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	mutex_lock(&ws_mutex);
 	ws_count--;
 	if (apusys_sched_ws && !ws_count) {
