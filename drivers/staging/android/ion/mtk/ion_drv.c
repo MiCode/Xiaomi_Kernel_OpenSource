@@ -390,12 +390,12 @@ static long ion_sys_cache_sync(struct ion_client *client,
 
 	buffer = kernel_handle->buffer;
 	sync_size = param->size;
+	sync_va = (unsigned long)param->va;
 
 	switch (sync_type) {
 	case ION_CACHE_CLEAN_BY_RANGE:
 	case ION_CACHE_INVALID_BY_RANGE:
 	case ION_CACHE_FLUSH_BY_RANGE:
-
 #ifdef ION_CACHE_SYNC_ALL_REDIRECTION_SUPPORT
 	/* Users call cache sync all with valid handle,
 	 *     only do cache sync with its buffer.
@@ -404,8 +404,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_INVALID_ALL:
 	case ION_CACHE_FLUSH_ALL:
 #endif
-		sync_va = (unsigned long)param->va;
-
 		if (sync_size == 0 || sync_va == 0) {
 			/* whole buffer cache sync
 			 * get sync_va and sync_size here
@@ -447,11 +445,11 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
 	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
-		sync_va = param->iova;
 		table = buffer->sg_table;
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		heap = buffer->heap;
+		sync_va = param->iova;
 		if (heap->ops->get_table)
 			heap->ops->get_table(buffer, table);
 		if (!table) {
