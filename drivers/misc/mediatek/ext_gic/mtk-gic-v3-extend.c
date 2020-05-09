@@ -557,11 +557,18 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 	_mt_set_pol_reg(base + reg*4, value);
 }
 
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6853)
+#define GIC_INT_MASK (MCUSYS_BASE_SWMODE + 0xaa88)
+#define GIC500_ACTIVE_CPU_SHIFT 0
+#define GIC500_ACTIVE_CPU_MASK (0xff << GIC500_ACTIVE_CPU_SHIFT)
+#else
 #define GIC_INT_MASK (MCUSYS_BASE_SWMODE + 0x5e8)
 #define GIC500_ACTIVE_SEL_SHIFT 3
 #define GIC500_ACTIVE_SEL_MASK (0x7 << GIC500_ACTIVE_SEL_SHIFT)
 #define GIC500_ACTIVE_CPU_SHIFT 16
 #define GIC500_ACTIVE_CPU_MASK (0xff << GIC500_ACTIVE_CPU_SHIFT)
+#endif
 static spinlock_t domain_lock;
 int print_en;
 
