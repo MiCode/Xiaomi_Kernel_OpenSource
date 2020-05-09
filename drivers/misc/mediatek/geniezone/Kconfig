@@ -5,7 +5,6 @@ config MTK_ENABLE_GENIEZONE
 	select MTK_GZ_KREE
 	select VIRTIO
 	select GZ_LOG
-	select MTK_GZ_SUPPORT_SDSP if (!MACH_MT6768 && !MTK_NEBULA_VM_SUPPORT)
 	select MT_GZ_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
 	help
 	  This is used for Trusty to support MTK Geniezone
@@ -35,6 +34,7 @@ config GZ_VPU_WITH_M4U
 
 config MTK_GZ_SUPPORT_SDSP
 	bool "GenieZone support SDSP"
+	depends on MTK_ENABLE_GENIEZONE
 	help
 	  GZ smcall into mtee for sdsp on and off.
 	  When switch normal/secure vpu, need add
