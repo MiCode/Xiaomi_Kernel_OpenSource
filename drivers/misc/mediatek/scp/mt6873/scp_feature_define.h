@@ -35,12 +35,12 @@
 #define SCP_REGISTER_SUB_SENSOR          (1)
 
 /* emi mpu define*/
-#ifdef CONFIG_MTK_EMI
-	#define ENABLE_SCP_EMI_PROTECTION    (1)
-#else
-	#define ENABLE_SCP_EMI_PROTECTION    (0)
-#endif
-#define MPU_REGION_ID_SCP_SMEM           6
+#define ENABLE_SCP_EMI_PROTECTION        (0)
+
+#define MPU_REGION_ID_SCP_SMEM           7
+#define MPU_DOMAIN_D0                    0
+#define MPU_DOMAIN_D3                    3
+
 
 #define SCPSYS_CORE0                     0
 #define SCPSYS_CORE1                     1
