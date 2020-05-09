@@ -48,9 +48,9 @@ static struct task_struct *slbc_request_task;
 static struct task_struct *slbc_release_task;
 #endif /* SLBC_THREAD */
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 static struct wakeup_source *slbc_ws;
-#endif
+#endif /* CONFIG_PM_SLEEP */
 
 static int slbc_enable = 1;
 static int buffer_ref;
@@ -679,14 +679,14 @@ request_done:
 	slbc_debug_log("%s: slbc_req_status %lx", __func__, slbc_req_status);
 
 request_done1:
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #if 0
 	if (slbc_ref++ == 0)
 		__pm_stay_awake(slbc_ws);
 #else
 	slbc_ref++;
 #endif
-#endif
+#endif /* CONFIG_PM_SLEEP */
 
 	d->ref++;
 	uid_ref[uid]++;
@@ -867,14 +867,14 @@ release_done:
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 
 release_done1:
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #if 0
 	if (--slbc_ref == 0)
 		__pm_relax(slbc_ws);
 #else
 	--slbc_ref;
 #endif
-#endif
+#endif /* CONFIG_PM_SLEEP */
 
 	d->ref--;
 	uid_ref[uid]--;
@@ -1210,7 +1210,7 @@ int __init slbc_module_init(void)
 	slbc_ws = wakeup_source_register(NULL, "slbc");
 	if (!slbc_ws)
 		pr_debug("slbc wakelock register fail!\n");
-#endif
+#endif /* CONFIG_PM_SLEEP */
 
 	ret = slbc_create_debug_fs();
 	if (ret) {
