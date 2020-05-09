@@ -5258,7 +5258,7 @@
 			};
 		};
 
-		qcom,altmode {
+		altmode: qcom,altmode {
 			compatible = "qcom,altmode-glink";
 			qcom,altmode-name = "altmode_0";
 		};
