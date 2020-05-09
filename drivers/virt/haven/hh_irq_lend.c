@@ -16,6 +16,7 @@
 
 struct hh_irq_entry {
 	hh_vmid_t vmid;
+	enum hh_vm_names vm_name;
 	hh_irq_handle_fn handle;
 	void *data;
 
@@ -80,11 +81,20 @@ static int hh_irq_lent_nb_handler(struct notifier_block *this,
 {
 	unsigned long flags;
 	enum hh_irq_label label;
+	enum hh_vm_names owner_name;
 	struct hh_irq_entry *entry;
 	struct hh_rm_notif_vm_irq_lent_payload *lent = data;
+	int ret;
 
 	if (cmd != HH_RM_NOTIF_VM_IRQ_LENT)
 		return NOTIFY_DONE;
+
+	ret = hh_rm_get_vm_name(lent->owner_vmid, &owner_name);
+	if (ret) {
+		pr_warn_ratelimited("%s: unknown name for vmid: %d\n", __func__,
+				    lent->owner_vmid);
+		return ret;
+	}
 
 	spin_lock_irqsave(&hh_irq_lend_lock, flags);
 	for (label = 0; label < HH_IRQ_LABEL_MAX; label++) {
@@ -93,8 +103,8 @@ static int hh_irq_lent_nb_handler(struct notifier_block *this,
 			continue;
 
 		if (label == lent->virq_label &&
-		    (entry->vmid == HH_VM_MAX ||
-		     entry->vmid == lent->owner_vmid)) {
+		    (entry->vm_name == HH_VM_MAX ||
+		     entry->vm_name == owner_name)) {
 			entry->vmid = lent->owner_vmid;
 			entry->virq_handle = lent->virq_handle;
 
@@ -207,7 +217,6 @@ EXPORT_SYMBOL(hh_irq_reclaim);
 int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
 			 hh_irq_handle_fn on_lend, void *data)
 {
-	int ret;
 	unsigned long flags;
 	struct hh_irq_entry *entry;
 
@@ -222,19 +231,13 @@ int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
 		return -EINVAL;
 	}
 
-	ret = hh_rm_get_vmid(name, &entry->vmid);
-	if (ret) {
-		entry->state = HH_IRQ_STATE_NONE;
-		spin_unlock_irqrestore(&hh_irq_lend_lock, flags);
-		return ret;
-	}
-
+	entry->vm_name = name;
 	entry->handle = on_lend;
 	entry->data = data;
 	entry->state = HH_IRQ_STATE_WAIT_LEND;
 	spin_unlock_irqrestore(&hh_irq_lend_lock, flags);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(hh_irq_wait_for_lend);
 
@@ -304,7 +307,7 @@ int hh_irq_release(enum hh_irq_label label)
 	ret = hh_rm_vm_irq_release_notify(entry->vmid,
 					  entry->virq_handle);
 	if (!ret)
-		entry->state = HH_IRQ_STATE_NONE;
+		entry->state = HH_IRQ_STATE_WAIT_LEND;
 	return ret;
 }
 EXPORT_SYMBOL(hh_irq_release);
