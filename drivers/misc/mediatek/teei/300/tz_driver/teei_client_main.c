@@ -831,22 +831,6 @@ static int teei_config_open(struct inode *inode, struct file *file)
 }
 
 /**
- * @brief	Map the vma with the free pages
- *
- * @param	filp
- * @param	vma
- *
- * @return	0: success
- *		EINVAL: Invalid parament
- *		ENOMEM: No enough memory
- */
-
-static int teei_config_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	return 0;
-}
-
-/**
  * @brief		The release operation of /dev/teei_config device node.
  *
  * @param		inode: device inode structure
@@ -898,7 +882,6 @@ static const struct file_operations teei_config_fops = {
 #endif
 	.open = teei_config_open,
 	.read = teei_config_read,
-	.mmap = teei_config_mmap,
 	.release = teei_config_release
 };
 

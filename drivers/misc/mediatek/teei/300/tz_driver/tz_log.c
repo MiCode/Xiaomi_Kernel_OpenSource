@@ -34,7 +34,7 @@
 struct tz_log_state *g_tz_log_state;
 
 static int __tz_driver_read_logs(struct tz_log_state *s, char *buffer,
-				uint32_t get, int cnt)
+				uint32_t get, unsigned int cnt)
 {
 	struct log_rb *log = s->log;
 	int i = 0;
@@ -54,7 +54,7 @@ int tz_driver_read_logs(char *buffer, unsigned long count)
 	uint32_t alloc = 0;
 	int read_chars = 0;
 	struct log_rb *log = NULL;
-	int real_cnt = 0;
+	unsigned int real_cnt = 0;
 
 	local_s = g_tz_log_state;
 	log = local_s->log;
@@ -71,8 +71,8 @@ int tz_driver_read_logs(char *buffer, unsigned long count)
 			get = alloc - log->sz;
 		}
 
-		if ((put - get) > count)
-			real_cnt = count;
+		if ((put - get) > (unsigned int)count)
+			real_cnt = (unsigned int)count;
 		else
 			real_cnt = put - get;
 
@@ -227,6 +227,116 @@ static int tz_log_panic_notify(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+#ifdef ENABLED_TEEI_BOOT_LOG
+static struct tz_log_state *get_tz_log_state(void)
+{
+	struct tz_driver_state *drv_state = get_tz_drv_state();
+	struct platform_device *pdev = drv_state->tz_log_pdev;
+
+	return pdev->dev.platform_data;
+}
+
+static void *boot_log_seq_start(struct seq_file *f, loff_t *pos)
+{
+	struct tz_log_state *s = get_tz_log_state();
+	struct boot_log_rb *log = s->boot_log;
+
+	if (*pos >= log->put)
+		return NULL;
+
+	return (void *)log;
+}
+
+static void *boot_log_seq_next(struct seq_file *f, void *v, loff_t *pos)
+{
+	struct boot_log_rb *log = v;
+
+	if (*pos >= log->put)
+		return NULL;
+
+	*pos = log->get;
+	return v;
+}
+
+static void boot_log_seq_stop(struct seq_file *f, void *v)
+{
+}
+
+static int boot_log_read_line(struct boot_log_rb *log, char *out)
+{
+	int put = log->put;
+	int get = log->get;
+	int i;
+	char c = '\0';
+	size_t max_to_read = min((size_t)(put - get),
+				(size_t)TZ_LINE_BUFFER_SIZE - 1);
+
+	size_t mask = log->sz - 1;
+
+	for (i = 0; i < max_to_read && c != '\n';)
+		out[i++] = c = log->data[get++ & mask];
+	out[i] = '\0';
+
+	return i;
+}
+
+static int boot_log_seq_show(struct seq_file *f, void *v)
+{
+	struct boot_log_rb *log = v;
+	char line_buffer[TZ_LINE_BUFFER_SIZE];
+	uint32_t read_chars;
+
+	read_chars = boot_log_read_line(log, line_buffer);
+
+	if (read_chars) {
+		seq_printf(f, "%s", line_buffer);
+		log->get += read_chars;
+	}
+
+	return 0;
+}
+
+static const struct seq_operations boot_log_seq_ops = {
+	.start = boot_log_seq_start,
+	.next = boot_log_seq_next,
+	.stop = boot_log_seq_stop,
+	.show = boot_log_seq_show
+};
+
+static int boot_log_open(struct inode *inode, struct file *file)
+{
+	struct tz_log_state *s = get_tz_log_state();
+	struct boot_log_rb *log = s->boot_log;
+
+	log->get = 0;
+
+	return seq_open(file, &boot_log_seq_ops);
+};
+
+static const struct file_operations boot_log_fops = {
+	.open = boot_log_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release
+};
+
+static struct dentry *root_entry;
+static int tz_log_debugfs_init(void)
+{
+	root_entry = debugfs_create_dir("tz_log", NULL);
+	if (!root_entry) {
+		IMSG_WARN("Can not create tz_log debugfs\n");
+		return -1;
+	}
+
+	debugfs_create_file("boot_log", 0444, root_entry, NULL, &boot_log_fops);
+
+	return 0;
+}
+
+
+#endif
+
 int tz_log_probe(struct platform_device *pdev)
 {
 	struct tz_log_state *s;
@@ -281,6 +391,10 @@ int tz_log_probe(struct platform_device *pdev)
 		goto error_panic_notifier;
 	}
 	platform_device_add_data(pdev, s, sizeof(struct tz_log_state));
+
+#ifdef ENABLED_TEEI_BOOT_LOG
+	tz_log_debugfs_init();
+#endif
 
 	return 0;
 

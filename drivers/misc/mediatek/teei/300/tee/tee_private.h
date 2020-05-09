@@ -124,10 +124,10 @@ struct tee_device {
 
 int tee_shm_init(void);
 
-int tee_shm_get_fd(struct tee_shm *shm);
+int isee_shm_get_fd(struct tee_shm *shm);
 
-bool tee_device_get(struct tee_device *teedev);
-void tee_device_put(struct tee_device *teedev);
+bool isee_device_get(struct tee_device *teedev);
+void isee_device_put(struct tee_device *teedev);
 
 extern void dma_buf_unmap_attachment(struct dma_buf_attachment *attach,
 				struct sg_table *sg_table,

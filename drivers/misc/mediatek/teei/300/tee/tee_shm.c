@@ -61,7 +61,7 @@ static void tee_shm_release(struct tee_shm *shm)
 	}
 
 	kfree(shm);
-	tee_device_put(teedev);
+	isee_device_put(teedev);
 }
 
 static struct sg_table *tee_shm_op_map_dma_buf(struct dma_buf_attachment
@@ -124,7 +124,7 @@ static struct dma_buf_ops tee_shm_dma_buf_ops = {
 };
 
 /**
- * tee_shm_alloc() - Allocate shared memory
+ * isee_shm_alloc() - Allocate shared memory
  * @ctx:	Context that allocates the shared memory
  * @size:	Requested size of shared memory
  * @flags:	Flags setting properties for the requested shared memory.
@@ -135,7 +135,7 @@ static struct dma_buf_ops tee_shm_dma_buf_ops = {
  * set. If TEE_SHM_DMA_BUF global shared memory will be allocated and
  * associated with a dma-buf handle, else driver private memory.
  */
-struct tee_shm *tee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
+struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
 {
 	struct tee_device *teedev = ctx->teedev;
 	struct tee_shm_pool_mgr *poolm = NULL;
@@ -154,7 +154,7 @@ struct tee_shm *tee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (!tee_device_get(teedev))
+	if (!isee_device_get(teedev))
 		return ERR_PTR(-EINVAL);
 
 	if (!teedev->pool) {
@@ -224,17 +224,17 @@ err_pool_free:
 err_kfree:
 	kfree(shm);
 err_dev_put:
-	tee_device_put(teedev);
+	isee_device_put(teedev);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(tee_shm_alloc);
+EXPORT_SYMBOL_GPL(isee_shm_alloc);
 
 /**
- * tee_shm_get_fd() - Increase reference count and return file descriptor
+ * isee_shm_get_fd() - Increase reference count and return file descriptor
  * @shm:	Shared memory handle
  * @returns user space file descriptor to shared memory
  */
-int tee_shm_get_fd(struct tee_shm *shm)
+int isee_shm_get_fd(struct tee_shm *shm)
 {
 	int fd;
 
@@ -248,10 +248,10 @@ int tee_shm_get_fd(struct tee_shm *shm)
 }
 
 /**
- * tee_shm_free() - Free shared memory
+ * isee_shm_free() - Free shared memory
  * @shm:	Handle to shared memory to free
  */
-void tee_shm_free(struct tee_shm *shm)
+void isee_shm_free(struct tee_shm *shm)
 {
 	/*
 	 * dma_buf_put() decreases the dmabuf reference counter and will
@@ -265,16 +265,16 @@ void tee_shm_free(struct tee_shm *shm)
 	else
 		tee_shm_release(shm);
 }
-EXPORT_SYMBOL_GPL(tee_shm_free);
+EXPORT_SYMBOL_GPL(isee_shm_free);
 
 /**
- * tee_shm_va2pa() - Get physical address of a virtual address
+ * isee_shm_va2pa() - Get physical address of a virtual address
  * @shm:	Shared memory handle
  * @va:		Virtual address to tranlsate
  * @pa:		Returned physical address
  * @returns 0 on success and < 0 on failure
  */
-int tee_shm_va2pa(struct tee_shm *shm, void *va, phys_addr_t *pa)
+int isee_shm_va2pa(struct tee_shm *shm, void *va, phys_addr_t *pa)
 {
 	if (!(shm->flags & TEE_SHM_MAPPED))
 		return -EINVAL;
@@ -284,19 +284,19 @@ int tee_shm_va2pa(struct tee_shm *shm, void *va, phys_addr_t *pa)
 	if ((char *)va >= ((char *)shm->kaddr + shm->size))
 		return -EINVAL;
 
-	return tee_shm_get_pa(
+	return isee_shm_get_pa(
 			shm, (unsigned long)va - (unsigned long)shm->kaddr, pa);
 }
-EXPORT_SYMBOL_GPL(tee_shm_va2pa);
+EXPORT_SYMBOL_GPL(isee_shm_va2pa);
 
 /**
- * tee_shm_pa2va() - Get virtual address of a physical address
+ * isee_shm_pa2va() - Get virtual address of a physical address
  * @shm:	Shared memory handle
  * @pa:		Physical address to tranlsate
  * @va:		Returned virtual address
  * @returns 0 on success and < 0 on failure
  */
-int tee_shm_pa2va(struct tee_shm *shm, phys_addr_t pa, void **va)
+int isee_shm_pa2va(struct tee_shm *shm, phys_addr_t pa, void **va)
 {
 	if (!(shm->flags & TEE_SHM_MAPPED))
 		return -EINVAL;
@@ -307,7 +307,7 @@ int tee_shm_pa2va(struct tee_shm *shm, phys_addr_t pa, void **va)
 		return -EINVAL;
 
 	if (va) {
-		void *v = tee_shm_get_va(shm, pa - shm->paddr);
+		void *v = isee_shm_get_va(shm, pa - shm->paddr);
 
 		if (IS_ERR(v))
 			return PTR_ERR(v);
@@ -315,16 +315,16 @@ int tee_shm_pa2va(struct tee_shm *shm, phys_addr_t pa, void **va)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(tee_shm_pa2va);
+EXPORT_SYMBOL_GPL(isee_shm_pa2va);
 
 /**
- * tee_shm_get_va() - Get virtual address of a shared memory plus an offset
+ * isee_shm_get_va() - Get virtual address of a shared memory plus an offset
  * @shm:	Shared memory handle
  * @offs:	Offset from start of this shared memory
  * @returns virtual address of the shared memory + offs if offs is within
  *	the bounds of this shared memory, else an ERR_PTR
  */
-void *tee_shm_get_va(struct tee_shm *shm, size_t offs)
+void *isee_shm_get_va(struct tee_shm *shm, size_t offs)
 {
 	if (!(shm->flags & TEE_SHM_MAPPED))
 		return ERR_PTR(-EINVAL);
@@ -332,17 +332,17 @@ void *tee_shm_get_va(struct tee_shm *shm, size_t offs)
 		return ERR_PTR(-EINVAL);
 	return (char *)shm->kaddr + offs;
 }
-EXPORT_SYMBOL_GPL(tee_shm_get_va);
+EXPORT_SYMBOL_GPL(isee_shm_get_va);
 
 /**
- * tee_shm_get_pa() - Get physical address of a shared memory plus an offset
+ * isee_shm_get_pa() - Get physical address of a shared memory plus an offset
  * @shm:	Shared memory handle
  * @offs:	Offset from start of this shared memory
  * @pa:		Physical address to return
  * @returns 0 if offs is within the bounds of this shared memory, else an
  *	error code.
  */
-int tee_shm_get_pa(struct tee_shm *shm, size_t offs, phys_addr_t *pa)
+int isee_shm_get_pa(struct tee_shm *shm, size_t offs, phys_addr_t *pa)
 {
 	if (offs >= shm->size)
 		return -EINVAL;
@@ -350,16 +350,16 @@ int tee_shm_get_pa(struct tee_shm *shm, size_t offs, phys_addr_t *pa)
 		*pa = shm->paddr + offs;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(tee_shm_get_pa);
+EXPORT_SYMBOL_GPL(isee_shm_get_pa);
 
 /**
- * tee_shm_get_from_id() - Find shared memory object and increase reference
+ * isee_shm_get_from_id() - Find shared memory object and increase reference
  * count
  * @ctx:	Context owning the shared memory
  * @id:		Id of shared memory object
  * @returns a pointer to 'struct tee_shm' on success or an ERR_PTR on failure
  */
-struct tee_shm *tee_shm_get_from_id(struct tee_context *ctx, int id)
+struct tee_shm *isee_shm_get_from_id(struct tee_context *ctx, int id)
 {
 	struct tee_device *teedev;
 	struct tee_shm *shm;
@@ -377,26 +377,26 @@ struct tee_shm *tee_shm_get_from_id(struct tee_context *ctx, int id)
 	mutex_unlock(&teedev->mutex);
 	return shm;
 }
-EXPORT_SYMBOL_GPL(tee_shm_get_from_id);
+EXPORT_SYMBOL_GPL(isee_shm_get_from_id);
 
 /**
- * tee_shm_get_id() - Get id of a shared memory object
+ * isee_shm_get_id() - Get id of a shared memory object
  * @shm:	Shared memory handle
  * @returns id
  */
-int tee_shm_get_id(struct tee_shm *shm)
+int isee_shm_get_id(struct tee_shm *shm)
 {
 	return shm->id;
 }
-EXPORT_SYMBOL_GPL(tee_shm_get_id);
+EXPORT_SYMBOL_GPL(isee_shm_get_id);
 
 /**
- * tee_shm_put() - Decrease reference count on a shared memory handle
+ * isee_shm_put() - Decrease reference count on a shared memory handle
  * @shm:	Shared memory handle
  */
-void tee_shm_put(struct tee_shm *shm)
+void isee_shm_put(struct tee_shm *shm)
 {
 	if (shm->flags & TEE_SHM_DMA_BUF)
 		dma_buf_put(shm->dmabuf);
 }
-EXPORT_SYMBOL_GPL(tee_shm_put);
+EXPORT_SYMBOL_GPL(isee_shm_put);

@@ -42,18 +42,18 @@ static struct tee_shm *get_msg_arg(struct tee_context *ctx, size_t num_params,
 	struct tee_shm *shm;
 	struct optee_msg_arg *ma;
 
-	shm = tee_shm_alloc(ctx, OPTEE_MSG_GET_ARG_SIZE(num_params),
+	shm = isee_shm_alloc(ctx, OPTEE_MSG_GET_ARG_SIZE(num_params),
 			    TEE_SHM_MAPPED);
 	if (IS_ERR(shm))
 		return shm;
 
-	ma = tee_shm_get_va(shm, 0);
+	ma = isee_shm_get_va(shm, 0);
 	if (IS_ERR(ma)) {
 		rc = PTR_ERR(ma);
 		goto out;
 	}
 
-	rc = tee_shm_get_pa(shm, 0, msg_parg);
+	rc = isee_shm_get_pa(shm, 0, msg_parg);
 	if (rc)
 		goto out;
 
@@ -62,7 +62,7 @@ static struct tee_shm *get_msg_arg(struct tee_context *ctx, size_t num_params,
 	*msg_arg = ma;
 out:
 	if (rc) {
-		tee_shm_free(shm);
+		isee_shm_free(shm);
 		return ERR_PTR(rc);
 	}
 
@@ -83,14 +83,14 @@ static struct soter_session *find_session(struct soter_context_data *ctxdata,
 }
 
 /**
- * optee_from_msg_param() - convert from OPTEE_MSG parameters to
+ * isee_from_msg_param() - convert from OPTEE_MSG parameters to
  *			    struct tee_param
  * @params:	subsystem internal parameter representation
  * @num_params:	number of elements in the parameter arrays
  * @msg_params:	OPTEE_MSG parameters
  * Returns 0 on success or <0 on failure
  */
-int optee_from_msg_param(struct tee_param *params, size_t num_params,
+int isee_from_msg_param(struct tee_param *params, size_t num_params,
 			 const struct optee_msg_param *msg_params)
 {
 	int rc;
@@ -130,7 +130,7 @@ int optee_from_msg_param(struct tee_param *params, size_t num_params,
 				p->u.memref.shm = NULL;
 				break;
 			}
-			rc = tee_shm_get_pa(shm, 0, &pa);
+			rc = isee_shm_get_pa(shm, 0, &pa);
 			if (rc)
 				return rc;
 			p->u.memref.shm_offs = mp->u.tmem.buf_ptr - pa;
@@ -141,7 +141,7 @@ int optee_from_msg_param(struct tee_param *params, size_t num_params,
 				size_t o = p->u.memref.shm_offs +
 					   p->u.memref.size - 1;
 
-				rc = tee_shm_get_pa(shm, o, NULL);
+				rc = isee_shm_get_pa(shm, o, NULL);
 				if (rc)
 					return rc;
 			}
@@ -154,13 +154,13 @@ int optee_from_msg_param(struct tee_param *params, size_t num_params,
 }
 
 /**
- * optee_to_msg_param() - convert from struct tee_params to OPTEE_MSG parameters
+ * isee_to_msg_param() - convert from struct tee_params to OPTEE_MSG parameters
  * @msg_params:	OPTEE_MSG parameters
  * @num_params:	number of elements in the parameter arrays
  * @params:	subsystem itnernal parameter representation
  * Returns 0 on success or <0 on failure
  */
-int optee_to_msg_param(struct optee_msg_param *msg_params, size_t num_params,
+int isee_to_msg_param(struct optee_msg_param *msg_params, size_t num_params,
 		       const struct tee_param *params)
 {
 	int rc;
@@ -197,7 +197,7 @@ int optee_to_msg_param(struct optee_msg_param *msg_params, size_t num_params,
 				mp->u.tmem.buf_ptr = 0;
 				break;
 			}
-			rc = tee_shm_get_pa(p->u.memref.shm,
+			rc = isee_shm_get_pa(p->u.memref.shm,
 					    p->u.memref.shm_offs, &pa);
 			if (rc)
 				return rc;
@@ -261,7 +261,7 @@ int soter_open_session(struct tee_context *ctx,
 	memcpy(&msg_arg->params[1].u.value, arg->uuid, sizeof(arg->clnt_uuid));
 	msg_arg->params[1].u.value.c = arg->clnt_login;
 
-	rc = optee_to_msg_param(msg_arg->params + 2, arg->num_params, param);
+	rc = isee_to_msg_param(msg_arg->params + 2, arg->num_params, param);
 	if (rc)
 		goto out;
 
@@ -290,7 +290,7 @@ int soter_open_session(struct tee_context *ctx,
 		kfree(sess);
 	}
 
-	if (optee_from_msg_param(param, arg->num_params, msg_arg->params + 2)) {
+	if (isee_from_msg_param(param, arg->num_params, msg_arg->params + 2)) {
 		arg->ret = TEEC_ERROR_COMMUNICATION;
 		arg->ret_origin = TEEC_ORIGIN_COMMS;
 		/* Close session again to avoid leakage */
@@ -301,7 +301,7 @@ int soter_open_session(struct tee_context *ctx,
 		arg->ret_origin = msg_arg->ret_origin;
 	}
 out:
-	tee_shm_free(shm);
+	isee_shm_free(shm);
 
 	return rc;
 }
@@ -333,7 +333,7 @@ int soter_close_session(struct tee_context *ctx, u32 session)
 	msg_arg->session = session;
 	soter_do_call_with_arg(ctx, msg_parg);
 
-	tee_shm_free(shm);
+	isee_shm_free(shm);
 
 	return 0;
 }
@@ -366,7 +366,7 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 	msg_arg->session = arg->session;
 	msg_arg->cancel_id = arg->cancel_id;
 
-	rc = optee_to_msg_param(msg_arg->params, arg->num_params, param);
+	rc = isee_to_msg_param(msg_arg->params, arg->num_params, param);
 	if (rc)
 		goto out;
 
@@ -404,7 +404,7 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 	}
 #endif
 
-	if (optee_from_msg_param(param, arg->num_params, msg_arg->params)) {
+	if (isee_from_msg_param(param, arg->num_params, msg_arg->params)) {
 		msg_arg->ret = TEEC_ERROR_COMMUNICATION;
 		msg_arg->ret_origin = TEEC_ORIGIN_COMMS;
 	}
@@ -412,7 +412,7 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 	arg->ret = msg_arg->ret;
 	arg->ret_origin = msg_arg->ret_origin;
 out:
-	tee_shm_free(shm);
+	isee_shm_free(shm);
 	return rc;
 }
 
