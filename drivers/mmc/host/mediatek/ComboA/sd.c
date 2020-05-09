@@ -2542,7 +2542,7 @@ error:
 
 #if defined(CONFIG_MTK_HW_FDE) && !defined(CONFIG_MTK_HW_FDE_AES) \
 	&& !defined(CONFIG_MMC_CRYPTO)
-#include "mtk_ufs_hw_fde.c"
+#include "mtk_hw_fde.c"
 #endif
 
 static void msdc_dma_start(struct msdc_host *host)
