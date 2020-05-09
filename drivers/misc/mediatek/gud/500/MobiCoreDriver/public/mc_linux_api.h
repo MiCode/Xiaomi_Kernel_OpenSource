@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2018 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2019 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -12,7 +12,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef MOBICORE_COMPONENT_BUILD_TAG
-#define MOBICORE_COMPONENT_BUILD_TAG \
-	"t-base-MTK-A64-Android-500a-V003-20200413_223906_4040_103211"
+#ifndef _MC_LINUX_API_H_
+#define _MC_LINUX_API_H_
+
+#include <linux/types.h>
+
+/*
+ * Manage dynamically switch TEE worker threads/TEE affinity to big core only.
+ * Or default core affinity.
+ */
+#if defined(BIG_CORE_SWITCH_AFFINITY_MASK)
+void set_tee_worker_threads_on_big_core(bool big_core);
 #endif
+
+#endif /* _MC_LINUX_API_H_ */

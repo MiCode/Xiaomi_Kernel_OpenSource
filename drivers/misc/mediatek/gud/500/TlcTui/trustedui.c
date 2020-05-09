@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2015 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015,2020 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -16,10 +16,7 @@
 #include <linux/spinlock.h>
 #include <linux/module.h>
 
-/* This file is only compiled when the code is built-in */
-#ifndef MODULE
-
-#include <linux/t-base-tui.h>
+#include <t-base-tui.h>
 
 static int trustedui_mode = TRUSTEDUI_MODE_OFF;
 static int trustedui_blank_counter;
@@ -123,5 +120,3 @@ int trustedui_clear_mask(int mask)
 	return mode;
 }
 EXPORT_SYMBOL(trustedui_clear_mask);
-
-#endif

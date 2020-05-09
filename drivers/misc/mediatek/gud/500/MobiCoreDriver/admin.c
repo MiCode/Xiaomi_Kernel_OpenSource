@@ -213,7 +213,7 @@ static void request_cancel(void);
 
 static int request_send(u32 command, const struct mc_uuid_t *uuid, bool is_gp)
 {
-	int counter = 0;
+	int counter_ms = 0;
 	int wait_tens = 0;
 	int ret = 0;
 
@@ -225,15 +225,15 @@ static int request_send(u32 command, const struct mc_uuid_t *uuid, bool is_gp)
 		if (signal_pending(current))
 			return -ERESTARTSYS;
 
-		if (counter >= 10000) { /* 10000ms = 10s */
+		if (counter_ms == 10000) { /* print every 10s */
 			wait_tens++;
 			mc_dev_info("daemon not connected after %d0s, waiting",
 				    wait_tens);
-			counter = 0;
+			counter_ms = 0;
 		}
 
 		msleep(20);
-		counter += 20; /* counter in unit of 1ms */
+		counter_ms += 20;
 		mutex_lock(&g_request.states_mutex);
 	}
 
