@@ -1,4 +1,3 @@
-#include <dt-bindings/interconnect/qcom,sm8150.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
@@ -712,76 +711,6 @@
 				      "sleep_clk";
 		clocks = <&rpmhcc RPMH_CXO_CLK>,
 			 <&sleep_clk>;
-	};
-
-	config_noc: interconnect@1500000 {
-		compatible = "qcom,sm8150-config_noc";
-		#interconnect-cells = <1>;
-	};
-
-	system_noc: interconnect@1620000 {
-		compatible = "qcom,sm8150-system_noc";
-		#interconnect-cells = <1>;
-	};
-
-	aggre1_noc: interconnect@16e0000 {
-		compatible = "qcom,sm8150-aggre1_noc";
-		#interconnect-cells = <1>;
-	};
-
-	aggre2_noc: interconnect@1700000 {
-		compatible = "qcom,sm8150-aggre2_noc";
-		#interconnect-cells = <1>;
-	};
-
-	mmss_noc: interconnect@1740000 {
-		compatible = "qcom,sm8150-mmss_noc";
-		#interconnect-cells = <1>;
-	};
-
-	dc_noc: interconnect@9160000 {
-		compatible = "qcom,sm8150-dc_noc";
-		#interconnect-cells = <1>;
-	};
-
-	gem_noc: interconnect@9680000 {
-		compatible = "qcom,sm8150-gem_noc";
-		#interconnect-cells = <1>;
-	};
-
-	camnoc_virt: interconnect {
-		compatible = "qcom,sm8150-camnoc_virt";
-		#interconnect-cells = <1>;
-	};
-
-	compute_noc: interconnect {
-		compatible = "qcom,sm8150-compute_noc";
-		#interconnect-cells = <1>;
-	};
-
-	gem_noc_dispaly: interconnect {
-		compatible = "qcom,sm8150-gem_noc_display";
-		#interconnect-cells = <1>;
-	};
-
-	ipa_virt: interconnect {
-		compatible = "qcom,sm8150-ipa_virt";
-		#interconnect-cells = <1>;
-	};
-
-	mc_virt: interconnect {
-		compatible = "qcom,sm8150-mc_virt";
-		#interconnect-cells = <1>;
-	};
-
-	mc_virt_display: interconnect {
-		compatible = "qcom,sm8150-mc_virt_display";
-		#interconnect-cells = <1>;
-	};
-
-	mmss_noc_display: interconnect {
-		compatible = "qcom,sm8150-mmss_noc_display";
-		#interconnect-cells = <1>;
 	};
 
 	qupv3_id_1: geniqup@ac0000 {
