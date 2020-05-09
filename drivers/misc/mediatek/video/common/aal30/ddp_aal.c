@@ -43,7 +43,9 @@
 #include <ddp_path.h>
 #include <primary_display.h>
 #include <disp_drv_platform.h>
+#ifdef CONFIG_MTK_DRE30_SUPPORT
 #include <disp_lowpower.h>
+#endif
 #ifdef CONFIG_MTK_SMI_EXT
 #include <mtk_smi.h>
 #include <smi_public.h>
