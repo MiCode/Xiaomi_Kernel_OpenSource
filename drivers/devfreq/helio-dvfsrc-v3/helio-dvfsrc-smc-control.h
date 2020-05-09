@@ -5,7 +5,8 @@
 
 #ifndef __HELIO_DVFSRC_COMMON_H__
 #define __HELIO_DVFSRC_COMMON_H__
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
+	|| defined(CONFIG_MACH_MT6853)
 
 #include<linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
