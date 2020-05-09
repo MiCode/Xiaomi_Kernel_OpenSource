@@ -12,4 +12,7 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/koro/$(CONFIG_MTK_PLATFORM)/inc
 obj-y += mtk_wdt_v2.o
