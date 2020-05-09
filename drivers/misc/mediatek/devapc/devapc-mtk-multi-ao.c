@@ -41,9 +41,18 @@ static void devapc_test_cb(void)
 	pr_info(PFX "%s success !\n", __func__);
 }
 
+static enum devapc_cb_status devapc_test_adv_cb(uint32_t vio_addr)
+{
+	pr_info(PFX "%s success !\n", __func__);
+	pr_info(PFX "vio_addr: 0x%x\n", vio_addr);
+
+	return DEVAPC_NOT_KE;
+}
+
 static struct devapc_vio_callbacks devapc_test_handle = {
 	.id = DEVAPC_SUBSYS_TEST,
 	.debug_dump = devapc_test_cb,
+	.debug_dump_adv = devapc_test_adv_cb,
 };
 
 /*
@@ -760,6 +769,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	struct devapc_vio_callbacks *viocb;
 	char dispatch_key[48] = {0};
 	enum infra_subsys_id id;
+	uint32_t ret_cb = 0;
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
@@ -814,6 +824,11 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 			if (viocb->id == id && viocb->debug_dump)
 				viocb->debug_dump();
 
+			/* call MD cb_adv if it's registered */
+			if (viocb->id == id && id == INFRA_SUBSYS_MD &&
+					viocb->debug_dump_adv)
+				ret_cb = viocb->debug_dump_adv(vio_addr);
+
 			/* always call clkmgr cb if it's registered */
 			if (viocb->id == DEVAPC_SUBSYS_CLKMGR &&
 					viocb->debug_dump)
@@ -822,7 +837,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	}
 
 	/* Severity level */
-	if (dbg_stat->enable_KE) {
+	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
 		BUG_ON(id != INFRA_SUBSYS_CONN);
 
