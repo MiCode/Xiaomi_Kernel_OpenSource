@@ -86,6 +86,7 @@
 
 &qcs405_snd {
 	qcom,tasha-codec = <0>;
+	qcom,wcn-btfm = <0>;
 	qcom,model = "qcs404-wsa-rb1-snd-card";
 };
 
