@@ -725,6 +725,14 @@ static void mtk_rtc_enable_k_eosc_revised(void)
 					PMIC_RG_RTC_EOSC32_CK_PDN_MASK,
 					PMIC_RG_RTC_EOSC32_CK_PDN_SHIFT);
 
+	/* We use solution 2 of eosc cali to fix mt6359p 32k */
+	ret = rtc_update_bits(RTC_AL_YEA, RTC_K_EOSC_RSV_2, RTC_K_EOSC_RSV_2);
+	if (ret < 0)
+		goto exit;
+	ret = rtc_write_trigger();
+	if (ret < 0)
+		goto exit;
+
 	if (rtc_eosc_cali_td) {
 		pr_notice("%s: rtc_eosc_cali_td = %d\n",
 						__func__, rtc_eosc_cali_td);
