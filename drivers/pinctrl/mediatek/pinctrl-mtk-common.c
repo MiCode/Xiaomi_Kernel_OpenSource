@@ -82,7 +82,11 @@ int mtk_pinctrl_set_gpio_value(struct mtk_pinctrl *pctl, int pin,
 		reg_set_addr = spec_pin_info->offset + port_align;
 		reg_rst_addr = spec_pin_info->offset + (port_align << 1);
 		reg_bit = BIT(spec_pin_info->bit);
+#ifndef CONFIG_ARCH_MEDIATEK/* For phone */
 		regmap = pctl->regmap[spec_pin_info->ip_num];
+#else/* For Tablet */
+		regmap = pctl->regmap1;
+#endif
 		reg_value = value << spec_pin_info->bit;
 		bit_width = spec_pin_info->width;
 		mask = (BIT(bit_width) - 1) << spec_pin_info->bit;
@@ -107,7 +111,11 @@ int mtk_pinctrl_update_gpio_value(struct mtk_pinctrl *pctl, int pin,
 
 	if (spec_update_pin != NULL) {
 		reg_update_addr = spec_update_pin->offset;
+#ifndef CONFIG_ARCH_MEDIATEK/* For phone */
 		regmap = pctl->regmap[spec_update_pin->ip_num];
+#else/* For Tablet */
+		regmap = pctl->regmap1;
+#endif
 		reg_value = value << spec_update_pin->bit;
 		bit_width = spec_update_pin->width;
 		mask = (BIT(bit_width) - 1) << spec_update_pin->bit;
@@ -134,7 +142,11 @@ int mtk_pinctrl_get_gpio_value(struct mtk_pinctrl *pctl,
 		reg_get_addr = spec_pin_info->offset;
 		bit_width = spec_pin_info->width;
 		reg_bit = spec_pin_info->bit;
+#ifndef CONFIG_ARCH_MEDIATEK/* For phone */
 		regmap = pctl->regmap[spec_pin_info->ip_num];
+#else/* For Tablet */
+		regmap = pctl->regmap1;
+#endif
 		regmap_read(regmap, reg_get_addr, &reg_value);
 		return ((reg_value >> reg_bit) & (BIT(bit_width) - 1));
 	} else {
