@@ -31,3 +31,4 @@ obj-$(CONFIG_MACH_MT6768) += platform/mt6768/
 obj-$(CONFIG_MACH_MT6785) += platform/mt6785/
 obj-$(CONFIG_MACH_MT6885) += platform/mt6885/
 obj-$(CONFIG_MACH_MT6873) += platform/mt6873/
+obj-$(CONFIG_MACH_MT6853) += platform/mt6853/
