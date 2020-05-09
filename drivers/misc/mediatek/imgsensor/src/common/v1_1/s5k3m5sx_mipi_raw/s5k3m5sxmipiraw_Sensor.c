@@ -3430,8 +3430,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	#if 0
 		LOG_INF("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
 			(UINT32)*feature_data);
+	#endif
 		wininfo =
 	(struct SENSOR_WINSIZE_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
 
@@ -3622,13 +3624,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
 		switch (*(feature_data + 1)) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		case MSDK_SCENARIO_ID_CUSTOM1:
 			*feature_return_para_32 = 1; /*BINNING_NONE*/
 			break;
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 		case MSDK_SCENARIO_ID_SLIM_VIDEO:
-			*feature_return_para_32 = 4; /*BINNING_SUMMED*/
-		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+		case MSDK_SCENARIO_ID_CUSTOM2:
+		case MSDK_SCENARIO_ID_CUSTOM3:
+		case MSDK_SCENARIO_ID_CUSTOM4:
+		case MSDK_SCENARIO_ID_CUSTOM5:
 		default:
 			*feature_return_para_32 = 2; /*BINNING_AVERAGED*/
 			break;
@@ -3689,8 +3695,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	break;
 
 	case SENSOR_FEATURE_GET_VC_INFO:
+	#if 0
 		LOG_INF("SENSOR_FEATURE_GET_VC_INFO %d\n",
 			(UINT16)*feature_data);
+	#endif
 		pvcinfo =
 		 (struct SENSOR_VC_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
 		switch (*feature_data_32) {

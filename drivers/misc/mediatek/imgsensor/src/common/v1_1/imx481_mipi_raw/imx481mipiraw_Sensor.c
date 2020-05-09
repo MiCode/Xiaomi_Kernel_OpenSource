@@ -382,10 +382,6 @@ static void set_shutter(kal_uint32 shutter)
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
 
-	pr_debug("Enter! shutter =%d, framelength =%d\n",
-		shutter,
-		imgsensor.frame_length);
-
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
 	imgsensor.shutter = shutter;
 	spin_unlock_irqrestore(&imgsensor_drv_lock, flags);
@@ -2285,8 +2281,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	#if 0
 		pr_debug("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
 			(UINT32) *feature_data);
+	#endif
 
 		wininfo =
 	(struct SENSOR_WINSIZE_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
