@@ -50,7 +50,7 @@ extern struct cpumask trusty_big_cmask;
 extern int perf_boost_cnt;
 extern struct mutex perf_boost_lock;
 extern struct platform_driver tz_system_driver;
-#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 /*for kernel-4.14*/
 extern struct wakeup_source TeeServiceCall_wake_lock;
 #else
