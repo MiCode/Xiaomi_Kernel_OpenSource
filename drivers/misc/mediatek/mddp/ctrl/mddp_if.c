@@ -81,7 +81,7 @@ int32_t mddp_drv_attach(
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL_GPL(mddp_drv_attach);
+EXPORT_SYMBOL(mddp_drv_attach);
 
 void mddp_drv_detach(
 	struct mddp_drv_conf_t *conf,
@@ -90,7 +90,7 @@ void mddp_drv_detach(
 	if (MDDP_CHECK_APP_TYPE(conf->app_type))
 		mddp_sm_dereg_callback(conf, handle);
 }
-EXPORT_SYMBOL_GPL(mddp_drv_detach);
+EXPORT_SYMBOL(mddp_drv_detach);
 
 int32_t mddp_on_enable(enum mddp_app_type_e in_type)
 {
