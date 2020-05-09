@@ -1637,6 +1637,11 @@ dprec_logger_get_current_hold_period(unsigned int type_logsrc)
 	return 0;
 }
 
+int _primary_monitor_fps_thread(void *data)
+{
+	return 0;
+}
+
 void dprec_logger_start(unsigned int type_logsrc, unsigned int val1,
 			unsigned int val2)
 {
@@ -1704,6 +1709,10 @@ int dprec_logger_get_result_string(enum DPREC_LOGGER_ENUM source,
 int dprec_logger_get_result_string_all(char *stringbuf, int strlen)
 {
 	return 0;
+}
+
+void cal_fps_for_debug(void)
+{
 }
 
 void dprec_stub_irq(unsigned int irq_bit)
