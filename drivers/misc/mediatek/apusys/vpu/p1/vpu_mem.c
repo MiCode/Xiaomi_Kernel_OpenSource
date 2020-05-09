@@ -53,7 +53,7 @@ static void vpu_dump_sg(struct scatterlist *s, unsigned int nents)
 
 static void vpu_dump_sgt(struct sg_table *sgt)
 {
-	if (!sgt)
+	if (!sgt || !sgt->sgl)
 		return;
 
 	vpu_dump_sg(sgt->sgl, sgt->nents);
@@ -108,14 +108,14 @@ vpu_mem_alloc(struct platform_device *pdev,
 	goto out;
 
 error:
-	kfree(kva);
+	kvfree(kva);
 out:
 	return ret;
 }
 
 void vpu_mem_free(struct vpu_mem *m)
 {
-	kfree((void *)m->va);
+	kvfree((void *)m->va);
 }
 
 static struct page **

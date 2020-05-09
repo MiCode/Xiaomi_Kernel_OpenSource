@@ -254,5 +254,7 @@ int vpu_free_algo(struct __vpu_algo *algo);
 int vpu_execute(struct vpu_device *vd, struct vpu_request *req);
 int vpu_preempt(struct vpu_device *vd, struct vpu_request *req);
 
+int vpu_kbuf_alloc(struct vpu_device *vd);
+int vpu_kbuf_free(struct vpu_device *vd);
 #endif
 
