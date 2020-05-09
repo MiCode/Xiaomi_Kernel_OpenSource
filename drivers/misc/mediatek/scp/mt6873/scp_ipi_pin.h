@@ -31,48 +31,48 @@ enum {
 };
 
 enum {
-/* core0 */
+/* core1 */
 	/* the following will use mbox0 */
-	IPI_OUT_CHRE_0		   =  0,
-	IPI_OUT_CHREX_0		   =  1,
-	IPI_OUT_SENSOR_0	   =  2,
+	IPI_OUT_AUDIO_VOW_1       =  0,
+	IPI_IN_AUDIO_VOW_ACK_1	  =  1,
+	IPI_IN_AUDIO_VOW_1        =  2,
+
+/* core0 */
 	/* the following will use mbox1 */
-	IPI_OUT_APCCCI_0	   =  3,
-	IPI_OUT_DVFS_SLEEP_0	   =  4,
-	IPI_OUT_DVFS_SET_FREQ_0	   =  5,
-	IPI_OUT_TEST_0		   =  6,
-	IPI_IN_CHRE_0		   =  7,
-	IPI_IN_SENSOR_0		   =  8,
-	IPI_IN_APCCCI_0		   =  9,
-	IPI_IN_SCP_ERROR_INFO_0	   = 10,
-	IPI_IN_SCP_READY_0	   = 11,
-	IPI_IN_SCP_RAM_DUMP_0	   = 12,
+	IPI_OUT_APCCCI_0          =  3,
+	IPI_OUT_DVFS_SLEEP_0	  =  4,
+	IPI_OUT_DVFS_SET_FREQ_0	  =  5,
+	IPI_OUT_TEST_0            =  6,
+	IPI_IN_APCCCI_0           =  7,
+	IPI_IN_SCP_ERROR_INFO_0   =  8,
+	IPI_IN_SCP_READY_0        =  9,
+	IPI_IN_SCP_RAM_DUMP_0     = 10,
+
 	/* the following will use mbox2 */
-	IPI_OUT_SCP_MPOOL_0	   = 13,
-	IPI_IN_SCP_MPOOL_0	   = 14,
+	IPI_OUT_SCP_MPOOL_0       = 11,
+	IPI_IN_SCP_MPOOL_0        = 12,
 
 /* core1 */
 	/* the following will use mbox3 */
-	IPI_OUT_AUDIO_VOW_1	   = 15,
-	IPI_OUT_AUDIO_ULTRA_SND_1  = 16,
-	IPI_OUT_DVFS_SLEEP_1	   = 17,
-	IPI_OUT_DVFS_SET_FREQ_1	   = 18,
-	IPI_OUT_TEST_1		   = 19,
-	IPI_OUT_LOGGER_ENABLE_1    = 20,
-	IPI_OUT_LOGGER_WAKEUP_1    = 21,
-	IPI_OUT_LOGGER_INIT_1	   = 22,
-	IPI_OUT_SCPCTL_1	   = 23,
-	IPI_OUT_SCP_LOG_FILTER_1   = 24,
-	IPI_IN_AUDIO_VOW_1	   = 25,
-	IPI_IN_AUDIO_ULTRA_SND_1   = 26,
-	IPI_IN_SCP_ERROR_INFO_1	   = 27,
-	IPI_IN_LOGGER_WAKEUP_1	   = 28,
-	IPI_IN_LOGGER_INIT_1	   = 29,
-	IPI_IN_SCP_READY_1	   = 30,
-	IPI_IN_SCP_RAM_DUMP_1	   = 31,
+	IPI_OUT_AUDIO_ULTRA_SND_1 = 13,
+	IPI_OUT_DVFS_SLEEP_1      = 14,
+	IPI_OUT_DVFS_SET_FREQ_1   = 15,
+	IPI_OUT_TEST_1            = 16,
+	IPI_OUT_LOGGER_ENABLE_1   = 17,
+	IPI_OUT_LOGGER_WAKEUP_1   = 18,
+	IPI_OUT_LOGGER_INIT_1     = 19,
+	IPI_OUT_SCPCTL_1          = 20,
+	IPI_OUT_SCP_LOG_FILTER_1  = 21,
+	IPI_IN_AUDIO_ULTRA_SND_1  = 22,
+	IPI_IN_SCP_ERROR_INFO_1   = 23,
+	IPI_IN_LOGGER_WAKEUP_1    = 24,
+	IPI_IN_LOGGER_INIT_1      = 25,
+	IPI_IN_SCP_READY_1        = 26,
+	IPI_IN_SCP_RAM_DUMP_1     = 27,
+
 	/* the following will use mbox4 */
-	IPI_OUT_SCP_MPOOL_1	   = 32,
-	IPI_IN_SCP_MPOOL_1	   = 33,
+	IPI_OUT_SCP_MPOOL_1       = 28,
+	IPI_IN_SCP_MPOOL_1        = 29,
 	SCP_IPI_COUNT
 };
 

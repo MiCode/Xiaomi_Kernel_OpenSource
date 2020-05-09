@@ -60,10 +60,11 @@ struct mtk_mbox_info scp_mbox_info[SCP_MBOX_TOTAL] = {
  * pin_lock: (spinlock_t)lock of the pin
  */
 struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
-	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_CHRE_0, 0,
-	 IPI_IN_CHRE_0, { 0 }, 0, 0, 0, { { { { 0 } } } }, {0, 0, 0, 0, 0, 0} },
-	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_SENSOR_0, 0,
-	 IPI_IN_SENSOR_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
+	{0, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_VOW_ACK_1, 0,
+	 IPI_IN_AUDIO_VOW_ACK_1, { 0 }, 0, 0, 0, { { { { 0 } } } },
+	{0, 0, 0, 0, 0, 0} },
+	{0, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_VOW_1, 0,
+	 IPI_IN_AUDIO_VOW_1, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
 	{1, 0, 0, 0, 1, 0, PIN_IN_SIZE_APCCCI_0, 0,
 	 IPI_IN_APCCCI_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
@@ -79,9 +80,6 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
 	{0, 0, 0, 0, 0, 0} },
 	{2, 0, 0, 0, 1, 0, PIN_IN_SIZE_SCP_MPOOL, 0,
 	 IPI_IN_SCP_MPOOL_0, { 0 }, 0, 0, 0, { { { { 0 } } } },
-	{0, 0, 0, 0, 0, 0} },
-	{3, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_VOW_1, 0,
-	 IPI_IN_AUDIO_VOW_1, { 0 }, 0, 0, 0, { { { { 0 } } } },
 	{0, 0, 0, 0, 0, 0} },
 	{3, 0, 0, 0, 1, 0, PIN_IN_SIZE_AUDIO_ULTRA_SND_1, 0,
 	 IPI_IN_AUDIO_ULTRA_SND_1, { 0 }, 0, 0, 0, { { { { 0 } } } },
@@ -121,12 +119,8 @@ struct mtk_mbox_pin_recv scp_mbox_pin_recv[] = {
  * pin_lock   : (spinlock_t)lock of the pin
  */
 struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
-	{0, 0, 0, 0, PIN_OUT_SIZE_CHRE_0, 0,
-	 IPI_OUT_CHRE_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
-	{0, 0, 0, 0, PIN_OUT_SIZE_CHREX_0, 0,
-	 IPI_OUT_CHREX_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
-	{0, 0, 0, 0, PIN_OUT_SIZE_SENSOR_0, 0,
-	 IPI_OUT_SENSOR_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
+	{0, 0, 0, 0, PIN_OUT_SIZE_AUDIO_VOW_1, 0,
+	 IPI_OUT_AUDIO_VOW_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{1, 0, 0, 0, PIN_OUT_SIZE_APCCCI_0, 0,
 	 IPI_OUT_APCCCI_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{1, 0, 0, 0, PIN_OUT_SIZE_DVFS_SLEEP_0, 0,
@@ -137,8 +131,6 @@ struct mtk_mbox_pin_send scp_mbox_pin_send[] = {
 	 IPI_OUT_TEST_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{2, 0, 0, 0, PIN_OUT_SIZE_SCP_MPOOL, 0,
 	 IPI_OUT_SCP_MPOOL_0, { { 0 } }, { 0 }, { { { { 0 } } } } },
-	{3, 0, 0, 0, PIN_OUT_SIZE_AUDIO_VOW_1, 0,
-	 IPI_OUT_AUDIO_VOW_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{3, 0, 0, 0, PIN_OUT_SIZE_AUDIO_ULTRA_SND_1, 0,
 	 IPI_OUT_AUDIO_ULTRA_SND_1, { { 0 } }, { 0 }, { { { { 0 } } } } },
 	{3, 0, 0, 0, PIN_OUT_SIZE_DVFS_SLEEP_1, 0,
