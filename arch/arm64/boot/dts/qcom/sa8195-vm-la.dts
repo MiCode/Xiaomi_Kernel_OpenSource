@@ -13,42 +13,11 @@
 /dts-v1/;
 
 #include "sa8195-vm.dtsi"
+#include "sa8195-vm-la.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8195 Single LA Virtual Machine";
 	compatible = "qcom,sa8195p";
 	qcom,pmic-name = "PM8195";
 	qcom,board-id = <0 0>;
-};
-
-&slpi_tlmm {
-	status = "ok";
-};
-
-&apps_smmu {
-	status = "ok";
-};
-
-&qupv3_se13_4uart {
-	status = "ok";
-};
-
-&usb0 {
-	status = "ok";
-};
-
-&usb2_phy0 {
-	status = "ok";
-};
-
-&pcie0_msi {
-	status = "ok";
-};
-
-&pcie0 {
-	status = "ok";
-};
-
-&sdhc_2 {
-	status = "ok";
 };

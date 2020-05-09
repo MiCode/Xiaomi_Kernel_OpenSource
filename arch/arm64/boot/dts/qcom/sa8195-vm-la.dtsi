@@ -10,14 +10,45 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "sa8195-vm.dtsi"
-#include "sa8195-vm-lv.dtsi"
-
 / {
-	model = "Qualcomm Technologies, Inc. SA8195 Single LV Virtual Machine";
-	compatible = "qcom,sa8195p";
-	qcom,pmic-name = "PM8195";
-	qcom,board-id = <0 0>;
+	reserved_memory: reserved-memory {
+
+		pmem_shared: pmem_shared_region@a0000000 {
+			reg = <0x0 0xa0000000 0x0 0x20000000>;
+			label = "pmem_shared_mem";
+		};
+	};
+
+};
+
+&slpi_tlmm {
+	status = "ok";
+};
+
+&apps_smmu {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&usb0 {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	status = "ok";
+};
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};
+
+&sdhc_2 {
+	status = "ok";
 };
