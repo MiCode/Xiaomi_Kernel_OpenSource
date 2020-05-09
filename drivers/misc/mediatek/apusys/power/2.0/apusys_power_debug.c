@@ -279,7 +279,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_FIX_OPP:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 				"invalid argument, expected:1, received:%d\n",
 									argc);
 			goto out;
@@ -299,7 +299,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		default:
 
 			if (ret) {
-				PWR_LOG_INF("invalid argument, received:%d\n",
+				PWR_LOG_ERR("invalid argument, received:%d\n",
 						(int)(args[0]));
 				goto out;
 			}
@@ -311,7 +311,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_DVFS_DEBUG:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 				"invalid argument, expected:1, received:%d\n",
 									argc);
 			goto out;
@@ -319,16 +319,14 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 
 		ret = args[0] >= APUSYS_MAX_NUM_OPPS;
 		if (ret) {
-			PWR_LOG_INF(
-				"opp step(%d) is out-of-bound,	 max opp:%d\n",
-					(int)(args[0]), APUSYS_MAX_NUM_OPPS);
+			PWR_LOG_ERR("opp (%d) is out-of-bound, max opp:%d\n",
+				    (int)(args[0]), APUSYS_MAX_NUM_OPPS - 1);
 			goto out;
 		}
 		PWR_LOG_INF("@@test%d\n", argc);
 		PWR_LOG_INF("lock opp=%d\n", (int)(args[0]));
 
 		fixed_opp = args[0];
-
 		fix_dvfs_debug();
 
 		break;
@@ -337,24 +335,24 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	{
 		ret = (argc == 3) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 			"invalid argument, expected:1, received:%d\n",
 								argc);
 			goto out;
 		}
 
 		if (args[0] < 0 || args[0] >= APUSYS_DVFS_USER_NUM) {
-			PWR_LOG_INF("user(%d) is invalid\n",
+			PWR_LOG_ERR("user(%d) is invalid\n",
 					(int)(args[0]));
 			goto out;
 		}
 		if (args[1] > 100 || args[1] < 0) {
-			PWR_LOG_INF("min boost(%d) is out-of-bound\n",
+			PWR_LOG_ERR("min boost(%d) is out-of-bound\n",
 					(int)(args[1]));
 			goto out;
 		}
 		if (args[2] > 100 || args[2] < 0) {
-			PWR_LOG_INF("max boost(%d) is out-of-bound\n",
+			PWR_LOG_ERR("max boost(%d) is out-of-bound\n",
 					(int)(args[2]));
 			goto out;
 		}
@@ -403,11 +401,27 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_SET_THERMAL_OPP:
 			ret = (argc == 2) ? 0 : -EINVAL;
 			if (ret) {
-				PWR_LOG_INF(
+				PWR_LOG_ERR(
 				"invalid argument, expected:1, received:%d\n",
 									argc);
 				goto out;
 			}
+			/* make sure args[0], DVFS_USER, within the range */
+			if (args[0] < 0 || args[0] >= APUSYS_DVFS_USER_NUM) {
+				PWR_LOG_ERR("user(%d) is invalid\n",
+						(int)(args[0]));
+				goto out;
+			}
+
+			/* make sure args[1], OPP, within the range */
+			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
+			if (ret) {
+				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
+					    (int)(args[0]),
+					    APUSYS_MAX_NUM_OPPS - 1);
+				goto out;
+			}
+
 			apusys_opps.thermal_opp[args[0]] = args[1];
 			apusys_dvfs_policy(0);
 			break;
@@ -419,6 +433,38 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 									argc);
 				goto out;
 			}
+
+			/* make sure args[0], DVFS_USER, within the range */
+			if (args[0] < 0 || args[0] >= APUSYS_DVFS_USER_NUM) {
+				PWR_LOG_ERR("user(%d) is invalid\n",
+						(int)(args[0]));
+				goto out;
+			}
+
+			/*
+			 * Make sure args[1], min of power lock
+			 * within the range
+			 */
+			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
+			if (ret) {
+				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
+					    (int)(args[1]),
+					    APUSYS_MAX_NUM_OPPS - 1);
+				goto out;
+			}
+
+			/*
+			 * Make sure args[2], max of power lock
+			 * within the range
+			 */
+			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
+			if (ret) {
+				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
+					    (int)(args[1]),
+					    APUSYS_MAX_NUM_OPPS - 1);
+				goto out;
+			}
+
 			apusys_opps.power_lock_min_opp[args[0]] = args[1];
 			apusys_opps.power_lock_max_opp[args[0]] = args[2];
 			break;
@@ -435,7 +481,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_POWER_STRESS:
 		ret = (argc == 3) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 				"invalid argument, expected:3, received:%d\n",
 				argc);
 			goto out;
@@ -450,7 +496,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_OPP_TABLE:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 				"invalid argument, expected:1, received:%d\n",
 				argc);
 			goto out;
@@ -460,7 +506,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_CURR_STATUS:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 				"invalid argument, expected:1, received:%d\n",
 				argc);
 			goto out;
@@ -470,7 +516,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 	case POWER_PARAM_LOG_LEVEL:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
-			PWR_LOG_INF(
+			PWR_LOG_ERR(
 				"invalid argument, expected:1, received:%d\n",
 				argc);
 			goto out;
@@ -481,7 +527,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			change_log_level(args[0]);
 		break;
 	default:
-		PWR_LOG_INF("unsupport the power parameter:%d\n", param);
+		PWR_LOG_ERR("unsupport the power parameter:%d\n", param);
 		break;
 	}
 
