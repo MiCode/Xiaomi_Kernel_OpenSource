@@ -294,7 +294,7 @@ static inline int hh_hcall_trace_update_class_flags(
 			(struct hh_hcall_args){ set_flags, clear_flags, 0 },
 			&_resp);
 
-	if ((ret != 0) && new_flags)
+	if (!ret && new_flags)
 		*new_flags = _resp.resp1;
 
 	return ret;
