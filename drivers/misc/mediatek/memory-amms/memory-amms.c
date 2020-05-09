@@ -544,7 +544,9 @@ void amms_handle_event(void)
 	pr_info("%s:pending = %lld\n", __func__, (long long)pending);
 
 	// Not support clear pending for legacy chip
-	if (((long long)pending) == -1) {
+	if ((((long long)pending) != AMMS_PENDING_DRDI_FREE_BIT)
+	&& (((long long)pending) != AMMS_PENDING_POS_DEALLOC_BIT)
+	&& (((long long)pending) != AMMS_PENDING_POS_ALLOC_BIT)) {
 		if (!amms_static_free) {
 			addr = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR,
 			0, 0, 0, 0);
