@@ -87,6 +87,8 @@
 
 #define IPA_QMAP_ID_BYTE 0
 
+#define IPA_TX_MAX_DESC (20)
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -212,6 +214,7 @@ static void ipa3_tasklet_write_done(unsigned long data)
 	struct ipa3_sys_context *sys;
 	struct ipa3_tx_pkt_wrapper *this_pkt;
 	bool xmit_done = false;
+	unsigned int max_tx_pkt = 0;
 
 	sys = (struct ipa3_sys_context *)data;
 	spin_lock_bh(&sys->spinlock);
@@ -223,9 +226,17 @@ static void ipa3_tasklet_write_done(unsigned long data)
 			spin_unlock_bh(&sys->spinlock);
 			ipa3_wq_write_done_common(sys, this_pkt);
 			spin_lock_bh(&sys->spinlock);
+			max_tx_pkt++;
 			if (xmit_done)
 				break;
 		}
+		/* If TX packets processing continuously in tasklet other
+		 * softirqs are not able to run on that core which is leading
+		 * to watchdog bark. For avoiding these scenarios exit from
+		 * tasklet after reaching max limit.
+		 */
+		if (max_tx_pkt == IPA_TX_MAX_DESC)
+			break;
 	}
 	spin_unlock_bh(&sys->spinlock);
 }

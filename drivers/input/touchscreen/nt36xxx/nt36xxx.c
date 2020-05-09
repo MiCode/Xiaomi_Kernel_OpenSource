@@ -1486,7 +1486,9 @@ err_input_register_device_failed:
 	}
 err_input_dev_alloc_failed:
 err_chipvertrim_failed:
+	nvt_gpio_deconfig(ts);
 err_gpio_config_failed:
+	NVT_ERR("ret = %d\n", ret);
 	return ret;
 }
 
@@ -1626,7 +1628,8 @@ static int32_t nvt_ts_remove(struct i2c_client *client)
 #endif
 
 #if WAKEUP_GESTURE
-	device_init_wakeup(&ts->input_dev->dev, 0);
+	if (ts->input_dev)
+		device_init_wakeup(&ts->input_dev->dev, 0);
 #endif
 
 	nvt_irq_enable(false);
@@ -1696,7 +1699,8 @@ static void nvt_ts_shutdown(struct i2c_client *client)
 #endif
 
 #if WAKEUP_GESTURE
-	device_init_wakeup(&ts->input_dev->dev, 0);
+	if (ts->input_dev)
+		device_init_wakeup(&ts->input_dev->dev, 0);
 #endif
 }
 

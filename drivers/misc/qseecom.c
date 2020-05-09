@@ -2252,10 +2252,6 @@ err_resp:
 				goto exit;
 			}
 
-			ret = qseecom_dmabuf_cache_operations(ptr_svc->dmabuf,
-						QSEECOM_CACHE_INVALIDATE);
-			if (ret)
-				goto exit;
 		} else {
 			ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
 					cmd_buf, cmd_len, resp, sizeof(*resp));
@@ -2587,10 +2583,6 @@ err_resp:
 					ret, data->client.app_id);
 				goto exit;
 			}
-			ret = qseecom_dmabuf_cache_operations(ptr_svc->dmabuf,
-						QSEECOM_CACHE_INVALIDATE);
-			if (ret)
-				goto exit;
 		} else {
 			ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
 					cmd_buf, cmd_len, resp, sizeof(*resp));
@@ -3761,14 +3753,6 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 					ret, data->client.app_id);
 		goto exit;
 	}
-	if (data->client.dmabuf) {
-		ret = qseecom_dmabuf_cache_operations(data->client.dmabuf,
-					QSEECOM_CACHE_INVALIDATE);
-		if (ret) {
-			pr_err("cache operation failed %d\n", ret);
-			goto exit;
-		}
-	}
 
 	if (qseecom.qsee_reentrancy_support) {
 		ret = __qseecom_process_reentrancy(&resp, ptr_app, data);
@@ -3789,6 +3773,15 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 				ret = -EINVAL;
 				goto exit;
 			}
+		}
+	}
+
+	if (data->client.dmabuf) {
+		ret = qseecom_dmabuf_cache_operations(data->client.dmabuf,
+					QSEECOM_CACHE_INVALIDATE);
+		if (ret) {
+			pr_err("cache operation failed %d\n", ret);
+			goto exit;
 		}
 	}
 exit:

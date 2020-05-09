@@ -1194,10 +1194,18 @@ static void qusb_phy_chg_det_enable_seq(struct qusb_phy *qphy, int state)
 #define CHG_PRIMARY_DET_TIME_MSEC	100
 #define CHG_SECONDARY_DET_TIME_MSEC	100
 
-static int qusb_phy_enable_phy(struct qusb_phy *qphy)
+static int qusb_phy_prepare_chg_det(struct qusb_phy *qphy)
 {
 	int ret;
 
+	/*
+	 * Set dpdm_enable to indicate charger detection
+	 * is in progress. This also prevents the core
+	 * driver from doing the set_suspend and init
+	 * calls of the PHY which inteferes with the charger
+	 * detection during bootup.
+	 */
+	qphy->dpdm_enable = true;
 	ret = qusb_phy_enable_power(qphy, true);
 	if (ret)
 		return ret;
@@ -1209,7 +1217,7 @@ static int qusb_phy_enable_phy(struct qusb_phy *qphy)
 	return 0;
 }
 
-static void qusb_phy_disable_phy(struct qusb_phy *qphy)
+static void qusb_phy_unprepare_chg_det(struct qusb_phy *qphy)
 {
 	int ret;
 
@@ -1227,6 +1235,10 @@ static void qusb_phy_disable_phy(struct qusb_phy *qphy)
 	if (qphy->tcsr_clamp_dig_n)
 		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
 	qusb_phy_enable_power(qphy, false);
+
+	qphy->dpdm_enable = false;
+	regulator_notifier_call_chain(qphy->dpdm_rdev,
+					REGULATOR_EVENT_DISABLE, NULL);
 }
 
 static void qusb_phy_port_state_work(struct work_struct *w)
@@ -1248,7 +1260,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 
 		if (qphy->vbus_active) {
 			/* Enable DCD sequence */
-			ret = qusb_phy_enable_phy(qphy);
+			ret = qusb_phy_prepare_chg_det(qphy);
 			if (ret)
 				return;
 
@@ -1260,7 +1272,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		}
 		return;
 	case PORT_DISCONNECTED:
-		qusb_phy_disable_phy(qphy);
+		qusb_phy_unprepare_chg_det(qphy);
 		qphy->port_state = PORT_UNKNOWN;
 		break;
 	case PORT_DCD_IN_PROGRESS:
@@ -1281,7 +1293,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		} else if (qphy->dcd_timeout >= CHG_DCD_TIMEOUT_MSEC) {
 			qusb_phy_notify_charger(qphy,
 						POWER_SUPPLY_TYPE_USB_DCP);
-			qusb_phy_disable_phy(qphy);
+			qusb_phy_unprepare_chg_det(qphy);
 			qphy->port_state = PORT_CHG_DET_DONE;
 		}
 		break;
@@ -1298,7 +1310,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 			delay = CHG_SECONDARY_DET_TIME_MSEC;
 
 		} else {
-			qusb_phy_disable_phy(qphy);
+			qusb_phy_unprepare_chg_det(qphy);
 			qusb_phy_notify_charger(qphy, POWER_SUPPLY_TYPE_USB);
 			qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
 			qphy->port_state = PORT_CHG_DET_DONE;
@@ -1320,7 +1332,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 			qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
 		}
 
-		qusb_phy_disable_phy(qphy);
+		qusb_phy_unprepare_chg_det(qphy);
 		qphy->port_state = PORT_CHG_DET_DONE;
 		/*
 		 * Fall through to check if cable got disconnected
