@@ -567,7 +567,7 @@ static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 		pr_info(PFX "violation is triggered before. %s:0x%x\n",
 				"shift_bit", *shift_bit);
 
-	} else if (vio_shift_sta & (0x1 << *shift_bit)) {
+	} else if (vio_shift_sta & (0x1UL << *shift_bit)) {
 		pr_info(PFX "%s: 0x%x is matched with %s:%d\n",
 				"vio_shift_sta", vio_shift_sta,
 				"shift_bit", *shift_bit);
@@ -782,30 +782,30 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	if (!strncmp(vio_master, "APMCU", 5))
 		strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
 				slave_type, vio_index, vio_addr),
-				sizeof(dispatch_key));
+				sizeof(dispatch_key) - 1);
 	else
-		strncpy(dispatch_key, vio_master, sizeof(dispatch_key));
+		strncpy(dispatch_key, vio_master, sizeof(dispatch_key) - 1);
 
 	dispatch_key[sizeof(dispatch_key) - 1] = '\0';
 
 	/* Callback func for vio master */
 	if (!strncasecmp(vio_master, "MD", 2)) {
 		id = INFRA_SUBSYS_MD;
-		strncpy(dispatch_key, "MD", sizeof(dispatch_key));
+		strncpy(dispatch_key, "MD", sizeof(dispatch_key) - 1);
 
 	} else if (!strncasecmp(vio_master, "CONN", 4) ||
 			!strncasecmp(dispatch_key, "CONN", 4)) {
 		id = INFRA_SUBSYS_CONN;
-		strncpy(dispatch_key, "CONNSYS", sizeof(dispatch_key));
+		strncpy(dispatch_key, "CONNSYS", sizeof(dispatch_key) - 1);
 
 	} else if (!strncasecmp(vio_master, "TINYSYS", 7)) {
 		id = INFRA_SUBSYS_ADSP;
-		strncpy(dispatch_key, "TINYSYS", sizeof(dispatch_key));
+		strncpy(dispatch_key, "TINYSYS", sizeof(dispatch_key) - 1);
 
 	} else if (!strncasecmp(vio_master, "GCE", 3) ||
 			!strncasecmp(dispatch_key, "GCE", 3)) {
 		id = INFRA_SUBSYS_GCE;
-		strncpy(dispatch_key, "GCE", sizeof(dispatch_key));
+		strncpy(dispatch_key, "GCE", sizeof(dispatch_key) - 1);
 
 	} else if (!strncasecmp(vio_master, "APMCU", 5))
 		if (vio_info->domain_id == 0)
