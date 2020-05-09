@@ -188,7 +188,7 @@ static inline bool pd_process_data_msg(
 			return true;
 		break;
 #endif	/* CONFIG_USB_PD_PR_SWAP */
-		/* fall-through */
+
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_ALERT_REMOTE
 	case PD_DATA_ALERT:

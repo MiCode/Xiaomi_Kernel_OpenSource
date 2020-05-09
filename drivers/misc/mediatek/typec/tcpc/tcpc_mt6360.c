@@ -1692,6 +1692,8 @@ static int mt6360_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 		if (!alert[i])
 			continue;
 		MT6360_INFO("Vend INT%d:0x%02X\n", i + 1, alert[i]);
+		MT6360_INFO("Mask INT%d:0x%02X\n", i + 1, mask[i]);
+		alert[i] &= mask[i];
 	}
 
 	mt6360_vend_alert_status_clear(tcpc, alert);
@@ -2014,8 +2016,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	mt6360_init_water_detection(tcpc);
 #endif /* CONFIG_WATER_DETECTION */
 
-	if (sw_reset)
-		mt6360_init_alert_mask(tcpc);
+	mt6360_init_alert_mask(tcpc);
 
 	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN) {
 		mt6360_i2c_write8(tcpc, MT6360_REG_WATCHDOG_CTRL,
@@ -2203,7 +2204,10 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 	int ret = 0;
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
-	u8 ctd_evt, status;
+	u8 ctd_evt;
+#if CONFIG_MTK_GAUGE_VERSION == 30
+	u8 status;
+#endif
 
 	chip->tcpc->typec_cable_type = TCPC_CABLE_TYPE_NONE;
 	chip->handle_init_ctd = true;
@@ -2212,12 +2216,14 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 		return ret;
 	if (ctd_evt & MT6360_M_CTD) {
 		mt6360_get_cable_type(chip->tcpc, &chip->init_cable_type);
+#if CONFIG_MTK_GAUGE_VERSION == 30
 		if (chip->init_cable_type == TCPC_CABLE_TYPE_C2C) {
 			ret = charger_dev_get_ctd_dischg_status(chip->chgdev,
 								&status);
 			if (ret >= 0 && (status & 0x82))
 				chip->init_cable_type = TCPC_CABLE_TYPE_A2C;
 		}
+#endif
 	}
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
@@ -2227,12 +2233,9 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 			   struct mt6360_tcpc_platform_data *pdata)
 {
-	struct device_node *np = dev->of_node;
+	struct device_node *np = NULL;
 	struct resource *res;
 	int res_cnt, ret;
-
-	if (!np)
-		return -EINVAL;
 
 	pr_info("%s\n", __func__);
 
@@ -2241,6 +2244,7 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 		dev_err(dev, "%s find node fail\n", __func__);
 		return -ENODEV;
 	}
+	dev->of_node = np;
 
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
 	ret = of_get_named_gpio(np, "mt6360pd,intr_gpio", 0);
@@ -2343,15 +2347,9 @@ static void check_printk_performance(void)
 static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 {
 	struct tcpc_desc *desc;
-	struct device_node *np;
+	struct device_node *np = dev->of_node;
 	u32 val, len;
 	const char *name = "default";
-
-	np = of_find_node_by_name(NULL, "type_c_port0");
-	if (!np) {
-		dev_err(dev, "%s find type_c_port0 fail\n", __func__);
-		return -ENODEV;
-	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)

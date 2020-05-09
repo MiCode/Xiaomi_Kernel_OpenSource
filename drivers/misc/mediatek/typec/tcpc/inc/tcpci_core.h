@@ -333,6 +333,7 @@ struct tcpc_device {
 
 	struct delayed_work	init_work;
 	struct delayed_work	event_init_work;
+	struct workqueue_struct *evt_wq;
 	struct srcu_notifier_head evt_nh[TCP_NOTIFY_IDX_NR];
 	struct tcpc_managed_res *mr_head;
 	struct mutex mr_lock;

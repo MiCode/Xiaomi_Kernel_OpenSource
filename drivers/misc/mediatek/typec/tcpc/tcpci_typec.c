@@ -366,12 +366,12 @@ static int typec_check_water_status(struct tcpc_device *tcpc_dev)
  */
 
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
-
 static bool typec_try_enter_norp_src(struct tcpc_device *tcpc_dev)
 {
 	if (tcpci_check_vbus_valid_from_ic(tcpc_dev) &&
-	    (tcpc_dev->typec_state == typec_unattached_snk)) {
-		TYPEC_DBG("norp_src=1\r\n");
+	    typec_is_cc_no_res() &&
+	    tcpc_dev->typec_state == typec_unattached_snk) {
+		TYPEC_INFO("norp_src=1\r\n");
 		tcpc_enable_timer(tcpc_dev, TYPEC_TIMER_NORP_SRC);
 		return true;
 	}
@@ -382,8 +382,10 @@ static bool typec_try_enter_norp_src(struct tcpc_device *tcpc_dev)
 static void typec_unattach_wait_pe_idle_entry(struct tcpc_device *tcpc);
 static bool typec_try_exit_norp_src(struct tcpc_device *tcpc_dev)
 {
-	if (tcpc_dev->typec_state == typec_attached_norp_src) {
-		TYPEC_DBG("norp_src=0\r\n");
+	if ((!tcpci_check_vbus_valid_from_ic(tcpc_dev) ||
+	     !typec_is_cc_no_res()) &&
+	    tcpc_dev->typec_state == typec_attached_norp_src) {
+		TYPEC_INFO("norp_src=0\r\n");
 		typec_unattach_wait_pe_idle_entry(tcpc_dev);
 		typec_alert_attach_state_change(tcpc_dev);
 		return true;
@@ -581,8 +583,7 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc_dev)
 	}
 
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
-	if (typec_is_cc_no_res())
-		typec_try_enter_norp_src(tcpc_dev);
+	typec_try_enter_norp_src(tcpc_dev);
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 }
 
@@ -1022,10 +1023,9 @@ static inline void typec_legacy_enable_discharge(
 {
 #ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
 	if (tcpc_dev->tcpc_flags & TCPC_FLAGS_PREFER_LEGACY2) {
-		if (en)
-			tcpci_enable_force_discharge(tcpc_dev, 0);
-		else
-			tcpci_disable_force_discharge(tcpc_dev);
+		mutex_lock(&tcpc_dev->access_lock);
+		tcpci_enable_force_discharge(tcpc_dev, en, 0);
+		mutex_unlock(&tcpc_dev->access_lock);
 	}
 #endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
 }
@@ -2010,18 +2010,19 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc_dev)
 	if (ret < 0)
 		return ret;
 
-#ifdef CONFIG_TYPEC_CAP_NORP_SRC
-	typec_try_exit_norp_src(tcpc_dev);
-#endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
-
 	TYPEC_INFO("[CC_Alert] %d/%d\r\n", typec_get_cc1(), typec_get_cc2());
 
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Waring] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\r\n");
 		if (tcpc_dev->typec_lpm && !tcpc_dev->typec_cable_only)
 			typec_enter_low_power_mode(tcpc_dev);
 		return 0;
 	}
+
+#ifdef CONFIG_TYPEC_CAP_NORP_SRC
+	if (typec_try_exit_norp_src(tcpc_dev))
+		return 0;
+#endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 
 	typec_disable_low_power_mode(tcpc_dev);
 
@@ -2065,7 +2066,7 @@ static inline int typec_handle_drp_try_timeout(struct tcpc_device *tcpc_dev)
 	tcpc_disable_timer(tcpc_dev, TYPEC_TRY_TIMER_DRP_TRY);
 
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Waring] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\r\n");
 		return 0;
 	}
 
@@ -2111,7 +2112,7 @@ static inline int typec_handle_debounce_timeout(struct tcpc_device *tcpc_dev)
 #endif
 
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Waring] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\r\n");
 		return 0;
 	}
 
@@ -2190,7 +2191,7 @@ out:
 static inline int typec_handle_src_reach_vsafe0v(struct tcpc_device *tcpc_dev)
 {
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Waring] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\r\n");
 		return 0;
 	}
 
@@ -2350,8 +2351,10 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 #ifdef CONFIG_TYPEC_CAP_AUTO_DISCHARGE
 	case TYPEC_RT_TIMER_AUTO_DISCHARGE:
 		if (!tcpc_dev->typec_power_ctrl) {
+			mutex_lock(&tcpc_dev->access_lock);
 			tcpci_enable_ext_discharge(tcpc_dev, false);
 			tcpci_enable_auto_discharge(tcpc_dev, false);
+			mutex_unlock(&tcpc_dev->access_lock);
 		}
 		break;
 #endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
@@ -2483,14 +2486,13 @@ int tcpc_typec_handle_ps_change(struct tcpc_device *tcpc_dev, int vbus_level)
 #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
-	if (typec_is_cc_no_res()) {
-		if (!typec_try_enter_norp_src(tcpc_dev))
-			typec_try_exit_norp_src(tcpc_dev);
-	}
+	if (!typec_try_enter_norp_src(tcpc_dev))
+		if (typec_try_exit_norp_src(tcpc_dev))
+			return 0;
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Waring] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\r\n");
 		if (tcpc_dev->typec_lpm && !tcpc_dev->typec_cable_only)
 			typec_enter_low_power_mode(tcpc_dev);
 		return 0;
@@ -2672,15 +2674,12 @@ int tcpc_typec_change_role(
 		return -EINVAL;
 	}
 
-	mutex_lock(&tcpc_dev->access_lock);
 	if (tcpc_dev->typec_role == typec_role) {
 		TYPEC_INFO("typec_new_role: %s is the same\r\n",
 			typec_role_name[typec_role]);
-		mutex_unlock(&tcpc_dev->access_lock);
 		return 0;
 	}
 	tcpc_dev->typec_role = typec_role;
-	mutex_unlock(&tcpc_dev->access_lock);
 
 	TYPEC_INFO("typec_new_role: %s\r\n", typec_role_name[typec_role]);
 
@@ -2749,8 +2748,10 @@ int tcpc_typec_init(struct tcpc_device *tcpc_dev, uint8_t typec_role)
 	tcpc_dev->typec_remote_cc[0] = TYPEC_CC_VOLT_OPEN;
 	tcpc_dev->typec_remote_cc[1] = TYPEC_CC_VOLT_OPEN;
 
+	mutex_lock(&tcpc_dev->access_lock);
 	tcpc_dev->wake_lock_pd = 0;
 	tcpc_dev->wake_lock_user = true;
+	mutex_unlock(&tcpc_dev->access_lock);
 	tcpc_dev->typec_usb_sink_curr = CONFIG_TYPEC_SNK_CURR_DFT;
 
 #ifdef CONFIG_TYPEC_CAP_CUSTOM_HV
