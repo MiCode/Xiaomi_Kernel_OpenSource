@@ -28,6 +28,7 @@
 
 #if defined CONFIG_BT_SLIM_QCA6390 || defined CONFIG_BTFM_SLIM_WCN3990
 #include "btfm_slim.h"
+#include "btfm_slim_slave.h"
 #endif
 #include <linux/fs.h>
 
@@ -40,6 +41,7 @@ static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qca,qca6174" },
 	{	.compatible = "qca,wcn3990" },
 	{	.compatible = "qca,qca6390" },
+	{	.compatible = "qca,wcn6750" },
 	{}
 };
 
@@ -270,10 +272,14 @@ static int bt_configure_gpios(int on)
 			return rc;
 		}
 		msleep(50);
-		BT_PWR_ERR("BTON:Turn Bt Off bt-reset-gpio(%d) value(%d)\n",
-			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
-		BT_PWR_ERR("BTON:Turn Bt Off bt-sw-ctrl-gpio(%d) value(%d)\n",
-			bt_sw_ctrl_gpio,  gpio_get_value(bt_sw_ctrl_gpio));
+		BT_PWR_INFO("BTON:Turn Bt Off bt-reset-gpio(%d) value(%d)\n",
+				bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			BT_PWR_INFO("BTON:Turn Bt Off");
+			BT_PWR_INFO("bt-sw-ctrl-gpio(%d) value(%d)",
+					bt_sw_ctrl_gpio,
+					gpio_get_value(bt_sw_ctrl_gpio));
+		}
 
 		rc = gpio_direction_output(bt_reset_gpio, 1);
 		if (rc) {
@@ -304,22 +310,30 @@ static int bt_configure_gpios(int on)
 					BT_PWR_ERR("Prob: Set Debug-Gpio\n");
 			}
 		}
-		BT_PWR_ERR("BTON:Turn Bt On bt-reset-gpio(%d) value(%d)\n",
-			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
-		BT_PWR_ERR("BTON:Turn Bt On bt-sw-ctrl-gpio(%d) value(%d)\n",
-			bt_sw_ctrl_gpio,  gpio_get_value(bt_sw_ctrl_gpio));
+		BT_PWR_INFO("BTON:Turn Bt On bt-reset-gpio(%d) value(%d)\n",
+				bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			BT_PWR_INFO("BTON:Turn Bt On");
+			BT_PWR_INFO("bt-sw-ctrl-gpio(%d) value(%d)",
+					bt_sw_ctrl_gpio,
+					gpio_get_value(bt_sw_ctrl_gpio));
+		}
 	} else {
 		gpio_set_value(bt_reset_gpio, 0);
 		if  (bt_debug_gpio  >=  0)
 			gpio_set_value(bt_debug_gpio,  0);
 		msleep(100);
-		BT_PWR_ERR("BT-OFF:bt-reset-gpio(%d) value(%d)\n",
-			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
-		BT_PWR_ERR("BT-OFF:bt-sw-ctrl-gpio(%d) value(%d)\n",
-			bt_sw_ctrl_gpio,  gpio_get_value(bt_sw_ctrl_gpio));
+		BT_PWR_INFO("BT-OFF:bt-reset-gpio(%d) value(%d)\n",
+				bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+
+		if (bt_sw_ctrl_gpio >= 0) {
+			BT_PWR_INFO("BT-OFF:bt-sw-ctrl-gpio(%d) value(%d)",
+					bt_sw_ctrl_gpio,
+					gpio_get_value(bt_sw_ctrl_gpio));
+		}
 	}
 
-	BT_PWR_ERR("bt_gpio= %d on: %d is successful", bt_reset_gpio, on);
+	BT_PWR_INFO("bt_gpio= %d on: %d is successful", bt_reset_gpio, on);
 	return rc;
 }
 
@@ -846,6 +860,18 @@ int get_chipset_version(void)
 	return soc_id;
 }
 
+int bt_disable_asd(void)
+{
+	int rc = 0;
+	if (bt_power_pdata->bt_vdd_asd) {
+		BT_PWR_INFO("Disabling ASD regulator");
+		rc = bt_vreg_disable(bt_power_pdata->bt_vdd_asd);
+	} else {
+		BT_PWR_INFO("ASD regulator is not configured");
+	}
+	return rc;
+}
+
 static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, pwr_cntrl = 0;
@@ -882,6 +908,11 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		BT_PWR_ERR("BT_CMD_CHIP_VERS soc_version:%x", chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
+			if (soc_id == QCA_HSP_SOC_ID_0100 ||
+				soc_id == QCA_HSP_SOC_ID_0110 ||
+				soc_id == QCA_HSP_SOC_ID_0200) {
+				ret = bt_disable_asd();
+			}
 		} else {
 			BT_PWR_ERR("got invalid soc version");
 			soc_id = 0;

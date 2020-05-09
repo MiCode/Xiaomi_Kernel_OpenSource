@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -859,8 +859,10 @@ static int gsi_ep_enable(struct f_gsi *gsi)
 		ret = usb_gsi_ep_op(gsi->d_port.out_ep,
 				&gsi->d_port.out_request, GSI_EP_OP_CONFIG);
 		if (ret) {
-			usb_gsi_ep_op(gsi->d_port.in_ep,
-				&gsi->d_port.in_request, GSI_EP_OP_DISABLE);
+			if (gsi->d_port.in_ep)
+				usb_gsi_ep_op(gsi->d_port.in_ep,
+					&gsi->d_port.in_request,
+					GSI_EP_OP_DISABLE);
 			return ret;
 		}
 	}

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -9,7 +9,69 @@
 
 #include <linux/mmc/mmc.h>
 #include <linux/pm_qos.h>
+#include <linux/reset.h>
 #include "sdhci-pltfm.h"
+
+/* check IP CATALOG version */
+#define SDCC_IP_CATALOG 0x328
+
+/* DBG register offsets */
+#define SDCC_TESTBUS_CONFIG 0x32C
+#define SDCC_DEBUG_EN_DIS_REG 0x390
+#define SDCC_DEBUG_FEATURE_CFG_REG 0x394
+#define SDCC_DEBUG_FSM_TRACE_CFG_REG 0x398
+#define SDCC_DEBUG_FSM_TRACE_RD_REG 0x39C
+#define SDCC_DEBUG_FSM_TRACE_FIFO_FLUSH_REG 0x3A0
+#define SDCC_DEBUG_PANIC_ERROR_EN_REG 0x3A4
+#define SDCC_DEBUG_ERROR_STATE_EXIT_REG 0x3B8
+#define SDCC_CURR_DESC_ADDR 0x3EC
+#define SDCC_CURR_DESC_INFO 0x3F0
+#define SDCC_PROC_DESC0_ADDR 0x3E4
+#define SDCC_PROC_DESC0_INFO 0x3E8
+#define SDCC_PROC_DESC1_ADDR 0x3DC
+#define SDCC_PROC_DESC1_INFO 0x3E0
+#define SDCC_DEBUG_IIB_REG 0x980
+#define SDCC_DEBUG_MASK_PATTERN_REG 0x3C0
+#define SDCC_DEBUG_MATCH_PATTERN_REG 0x3C4
+#define SDCC_DEBUG_MM_TB_CFG_REG 0x3BC
+
+#define ENABLE_DBG 0x35350000
+#define DISABLE_DBG 0x26260000
+
+#define DUMMY 0x1 /* value doesn't matter */
+
+/* Panic on Err */
+#define BOOT_ACK_REC_EN BIT(0)
+#define BOOT_ACK_ERR_EN BIT(1)
+#define BOOT_TIMEOUT_EN BIT(2)
+#define AUTO_CMD19_TOUT_EN BIT(3)
+#define STBITE_EN BIT(4)
+#define CTOUT_EN BIT(5)
+#define CCRCF_EN BIT(6)
+#define CMD_END_BIT_ERR_EN BIT(7)
+#define CMD_INDEX_ERR_EN BIT(8)
+#define DTOUT_EN BIT(9)
+#define DCRCF_EN BIT(10)
+#define DATA_END_BIT_ERR_EN BIT(11)
+#define CMDQ_HALT_ACK_INT_EN BIT(16)
+#define CMDQ_TASK_COMPLETED_INT_EN BIT(17)
+#define CMDQ_RESP_ERR_INT_EN BIT(18)
+#define CMDQ_TASK_CLEARED_INT_EN BIT(19)
+#define CMDQ_GENERAL_CRYPTO_ERROR_EN BIT(20)
+#define CMDQ_INVALID_CRYPTO_CFG_ERROR_EN BIT(21)
+#define CMDQ_DEVICE_EXCEPTION_INT_EN BIT(22)
+#define ADMA_ERROR_EXT_EN BIT(23)
+#define HC_NONCQ_ICE_INT_STATUS_MASKED_EN BIT(24)
+
+/* Select debug Feature */
+#define FSM_HISTORY BIT(0)
+#define PANIC_ALERT BIT(1)
+#define AUTO_RECOVERY_DISABLE BIT(2)
+#define MM_TRIGGER_DISABLE BIT(3)
+#define DESC_HISTORY BIT(4)
+#define IIB_EN BIT(6)
+
+#define TESTBUS_EN BIT(31)
 
 /* This structure keeps information per regulator */
 struct sdhci_msm_reg_data {
@@ -265,6 +327,9 @@ struct sdhci_msm_host {
 	struct sdhci_msm_dll_hsr *dll_hsr;
 	struct sdhci_msm_ice_data ice;
 	u32 ice_clk_rate;
+	bool debug_mode_enabled;
+	bool reg_store;
+	struct reset_control *core_reset;
 };
 
 extern char *saved_command_line;

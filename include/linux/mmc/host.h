@@ -199,6 +199,8 @@ struct mmc_host_ops {
 					 unsigned int max_dtr, int host_drv,
 					 int card_drv, int *drv_type);
 	void	(*hw_reset)(struct mmc_host *host);
+	void    (*enter_dbg_mode)(struct mmc_host *host);
+	void    (*exit_dbg_mode)(struct mmc_host *host);
 	void	(*card_event)(struct mmc_host *host);
 
 	/*
@@ -630,6 +632,7 @@ struct mmc_host {
 	bool inlinecrypt_reset_needed;  /* Inline crypto reset */
 
 	bool crash_on_err;	/* crash the system on error */
+	bool need_hw_reset;
 	atomic_t active_reqs;
 	unsigned long		private[0] ____cacheline_aligned;
 };

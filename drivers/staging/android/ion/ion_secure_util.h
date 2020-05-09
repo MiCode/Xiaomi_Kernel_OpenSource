@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018,2020, The Linux Foundation. All rights reserved.
  */
 
 #include "ion.h"
@@ -22,5 +22,7 @@ int ion_hyp_assign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags);
 
 bool hlos_accessible_buffer(struct ion_buffer *buffer);
+
+bool is_secure_allocation(unsigned long flags);
 
 #endif /* _ION_SECURE_UTIL_H */

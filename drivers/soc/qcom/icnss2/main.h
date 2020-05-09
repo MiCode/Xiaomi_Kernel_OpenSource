@@ -21,6 +21,7 @@
 
 #define WCN6750_DEVICE_ID 0x6750
 #define ADRASTEA_DEVICE_ID 0xabcd
+#define QMI_WLFW_MAX_NUM_MEM_SEG 32
 
 extern uint64_t dynamic_feature_mask;
 
@@ -48,6 +49,9 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
 	ICNSS_DRIVER_EVENT_IDLE_RESTART,
 	ICNSS_DRIVER_EVENT_FW_INIT_DONE_IND,
+	ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
+	ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
+	ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
@@ -130,6 +134,15 @@ struct icnss_clk_info {
 	u32 enabled;
 };
 
+struct icnss_fw_mem {
+	size_t size;
+	void *va;
+	phys_addr_t pa;
+	u8 valid;
+	u32 type;
+	unsigned long attrs;
+};
+
 struct icnss_stats {
 	struct {
 		uint32_t posted;
@@ -194,6 +207,9 @@ struct icnss_stats {
 	uint32_t device_info_req;
 	uint32_t device_info_resp;
 	uint32_t device_info_err;
+	u32 exit_power_save_req;
+	u32 exit_power_save_resp;
+	u32 exit_power_save_err;
 };
 
 #define WLFW_MAX_TIMESTAMP_LEN 32
@@ -322,6 +338,8 @@ struct icnss_priv {
 	bool is_ssr;
 	struct kobject *icnss_kobject;
 	atomic_t is_shutdown;
+	u32 qdss_mem_seg_len;
+	struct icnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 };
 
 struct icnss_reg_info {
