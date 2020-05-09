@@ -1049,11 +1049,8 @@ void disconnect_check(struct mtu3 *mtu)
 
 	mdelay(50);
 
-#ifdef CONFIG_POWER_EXT
-	vbus_exist = upmu_get_rgs_chrdet();
-#else
-	vbus_exist = upmu_is_chr_det();
-#endif
+	vbus_exist = mtu3_hal_is_vbus_exist();
+
 	pr_info("vbus_exist:<%d>\n", vbus_exist);
 	if (vbus_exist)
 		return;
