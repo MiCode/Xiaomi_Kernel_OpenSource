@@ -33,7 +33,7 @@
 #include "ged_log.h"
 #include "ged_base.h"
 
-#include "ged_fdvfs.h"
+//#include "ged_fdvfs.h"
 
 #include <linux/platform_device.h>
 #include <linux/clk.h>
@@ -460,7 +460,7 @@ static IMG_BOOL MTKDoGpuDVFS(IMG_UINT32 ui32NewFreqID, IMG_BOOL bIdleDevice)
 	return IMG_FALSE;
 }
 
-static void MTKFDVFSCommitFreqIdx(unsigned long ui32NewFreqID, GED_FDVFS_COMMIT_TYPE eCommitType, int *pbCommited)
+/*static void MTKFDVFSCommitFreqIdx(unsigned long ui32NewFreqID, GED_FDVFS_COMMIT_TYPE eCommitType, int *pbCommited)
 {
 	PVRSRV_DEV_POWER_STATE ePowerState;
 	PVRSRV_DEVICE_NODE *psDevNode = MTKGetRGXDevNode();
@@ -501,11 +501,11 @@ static void MTKFDVFSCommitFreqIdx(unsigned long ui32NewFreqID, GED_FDVFS_COMMIT_
 
 			if (eResult == PVRSRV_OK)
 				PVRSRVDevicePostClockSpeedChange(psDevNode, IMG_FALSE, (void *)NULL);
-
+*/
 
 		/* Always return true because the APM would almost letting GPU  */
 		/* power down with high possibility while DVFS committing  */
-		if (pbCommited)
+/*		if (pbCommited)
 			*pbCommited = IMG_TRUE;
 			return;
 		}
@@ -513,7 +513,7 @@ static void MTKFDVFSCommitFreqIdx(unsigned long ui32NewFreqID, GED_FDVFS_COMMIT_
 
 	if (pbCommited)
 		*pbCommited = IMG_FALSE;
-}
+}*/
 
 /* For ged_dvfs idx commit */
 static void MTKCommitFreqIdx(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
