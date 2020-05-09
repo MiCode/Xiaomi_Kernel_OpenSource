@@ -25,18 +25,20 @@
 #include <linux/interrupt.h>
 #include "goodix_ts_core.h"
 #include "goodix_cfg_bin.h"
+#include <linux/uaccess.h>
+#include <linux/miscdevice.h>
 
 #define TS_DT_COMPATIBLE "goodix,gt9886"
 #define TS_DRIVER_NAME "GT9886"
 #define I2C_MAX_TRANSFER_SIZE	256
-#define TS_ADDR_LENGTH	2
-#define TS_DOZE_ENABLE_RETRY_TIMES		3
-#define TS_DOZE_DISABLE_RETRY_TIMES		9
+#define TS_ADDR_LENGTH		2
+#define TS_DOZE_ENABLE_RETRY_TIMES	3
+#define TS_DOZE_DISABLE_RETRY_TIMES	9
 #define TS_WAIT_CFG_READY_RETRY_TIMES	30
 #define TS_WAIT_CMD_FREE_RETRY_TIMES	10
 
 #define TS_REG_COORDS_BASE	0x824E
-#define TS_REG_CMD			0x8040
+#define TS_REG_CMD		0x8040
 #define TS_REG_REQUEST		0x8044
 #define TS_REG_VERSION		0x8240
 #define TS_REG_CFG_BASE		0x8050
@@ -45,7 +47,7 @@
 #define TS_REG_ESD_TICK_R	0x3103
 #define TS_REG_PID		0x4535
 
-#define CFG_XMAX_OFFSET (0x8052 - 0x8050)
+#define CFG_XMAX_OFFSET	(0x8052 - 0x8050)
 #define CFG_YMAX_OFFSET	(0x8054 - 0x8050)
 
 #define REQUEST_HANDLED	0x00
@@ -55,8 +57,8 @@
 #define REQUEST_MAINCLK	0x04
 #define REQUEST_IDLE	0x05
 
-#define COMMAND_SLEEP				0x05
-#define COMMAND_CLOSE_HID			0xaa
+#define COMMAND_SLEEP			0x05
+#define COMMAND_CLOSE_HID		0xaa
 #define COMMAND_START_SEND_CFG		0x80
 #define COMMAND_END_SEND_CFG		0x83
 #define COMMAND_SEND_SMALL_CFG		0x81
@@ -64,10 +66,10 @@
 #define COMMAND_START_READ_CFG		0x86
 #define COMMAND_READ_CFG_PREPARE_OK	0x85
 
-#define BYTES_PER_COORD 8
-#define TS_MAX_SENSORID	5
-#define TS_CFG_MAX_LEN	1024
-#define TS_CFG_HEAD_LEN	4
+#define BYTES_PER_COORD		8
+#define TS_MAX_SENSORID		5
+#define TS_CFG_MAX_LEN		1024
+#define TS_CFG_HEAD_LEN		4
 #define TS_CFG_BAG_NUM_INDEX	2
 #define TS_CFG_BAG_START_INDEX	4
 #if TS_CFG_MAX_LEN > GOODIX_CFG_MAX_SIZE
@@ -77,18 +79,120 @@
 #define TAG_I2C ""
 #define TS_DOZE_DISABLE_DATA	0xAA
 #define TS_DOZE_CLOSE_OK_DATA	0xBB
-#define TS_DOZE_ENABLE_DATA		0xCC
-#define	TS_CMD_REG_READY		0xFF
+#define TS_DOZE_ENABLE_DATA	0xCC
+#define	TS_CMD_REG_READY	0xFF
 
-/***********only for smt start****************/
-int tpd_res_max_x;
-int tpd_res_max_y;
-
-module_param(tpd_res_max_x, int, 0664);
-module_param(tpd_res_max_y, int, 0664);
 /***********for config & firmware*************/
 const char *gt9886_firmware_buf;
 const char *gt9886_config_buf;
+
+static struct goodix_ts_board_data *touch_filter_bdata;
+static int tpd_misc_open(struct inode *inode, struct file *file)
+{
+	return nonseekable_open(inode, file);
+}
+
+#ifdef CONFIG_COMPAT
+static long tpd_compat_ioctl(
+			struct file *file, unsigned int cmd,
+			unsigned long arg)
+{
+	long ret;
+	void __user *arg32 = compat_ptr(arg);
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+	switch (cmd) {
+	case COMPAT_TPD_GET_FILTER_PARA:
+		if (arg32 == NULL) {
+			ts_err("invalid argument.");
+			return -EINVAL;
+		}
+		ret = file->f_op->unlocked_ioctl(file, TPD_GET_FILTER_PARA,
+					   (unsigned long)arg32);
+		if (ret) {
+			ts_err("TPD_GET_FILTER_PARA unlocked_ioctl failed.");
+			return ret;
+		}
+		break;
+	default:
+		ts_err("tpd: unknown IOCTL: 0x%08x\n", cmd);
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+	return ret;
+}
+#endif
+
+static long tpd_unlocked_ioctl(struct file *file,
+			unsigned int cmd, unsigned long arg)
+{
+	/* char strbuf[256]; */
+	void __user *data;
+
+	long err = 0;
+
+	if (_IOC_DIR(cmd) & _IOC_READ)
+		err = !access_ok(VERIFY_WRITE,
+			(void __user *)arg, _IOC_SIZE(cmd));
+	else if (_IOC_DIR(cmd) & _IOC_WRITE)
+		err = !access_ok(VERIFY_READ,
+			(void __user *)arg, _IOC_SIZE(cmd));
+	if (err) {
+		pr_info("tpd: access error: %08X, (%2d, %2d)\n",
+			cmd, _IOC_DIR(cmd), _IOC_SIZE(cmd));
+		return -EFAULT;
+	}
+
+	switch (cmd) {
+	case TPD_GET_FILTER_PARA:
+			data = (void __user *) arg;
+
+			if (data == NULL) {
+				err = -EINVAL;
+				ts_err("GET_FILTER_PARA: data is null\n");
+				break;
+			}
+
+			if (copy_to_user(data,
+				&(touch_filter_bdata->tpd_filter),
+				sizeof(struct tpd_filter_t))) {
+				ts_err("GET_FILTER_PARA: copy data error\n");
+				err = -EFAULT;
+				break;
+			}
+			break;
+	default:
+		ts_info("tpd: unknown IOCTL: 0x%08x\n", cmd);
+		err = -ENOIOCTLCMD;
+		break;
+
+	}
+
+	return err;
+}
+
+static const struct file_operations gt9886_fops = {
+/* .owner = THIS_MODULE, */
+	.open = tpd_misc_open,
+	.release = NULL,
+	.unlocked_ioctl = tpd_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = tpd_compat_ioctl,
+#endif
+};
+
+/*---------------------------------------------------------------------------*/
+static struct miscdevice tpd_misc_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "touch",
+	.fops = &gt9886_fops,
+};
+
+int gt9886_touch_filter_register(void)
+{
+	return misc_register(&tpd_misc_device);
+}
 
 #ifdef CONFIG_OF
 /**
@@ -101,6 +205,7 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 		struct goodix_ts_board_data *board_data)
 {
 	int r, err;
+	int convert_err = -EINVAL;
 
 	r = of_property_read_u32(node, "goodix,panel-max-id",
 				&board_data->panel_max_id);
@@ -116,13 +221,40 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 	if (r)
 		err = -ENOENT;
 
-	r = of_property_read_u32(node, "goodix,panel-max-y",
+	if (board_data->flag_use_1080x2160 == true) {
+		r = of_property_read_u32(node,
+				"goodix,panel-max-y-fhdp",
 				&board_data->panel_max_y);
+		if (r)
+			err = -ENOENT;
+	} else {
+		r = of_property_read_u32(node, "goodix,panel-max-y",
+					&board_data->panel_max_y);
+		if (r)
+			err = -ENOENT;
+	}
+	/* For unreal lcm test */
+#if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
+	convert_err = kstrtou32(CONFIG_LCM_WIDTH, 10,
+		&board_data->input_max_x);
+	if (convert_err)
+		ts_err("GET LCM WIDTH failed!\n");
+	convert_err = kstrtou32(CONFIG_LCM_HEIGHT, 10,
+		&board_data->input_max_y);
+	if (convert_err)
+		ts_err("GET LCM HEIGHT failed!\n");
+#else
+	ts_info("Set Default lcm-resolution!");
+	r = of_property_read_u32(node, "goodix,input-max-x",
+				 &board_data->input_max_x);
 	if (r)
 		err = -ENOENT;
-	/* Only for SMT */
-	tpd_res_max_x = board_data->panel_max_x;
-	tpd_res_max_y = board_data->panel_max_y;
+
+	r = of_property_read_u32(node, "goodix,input-max-y",
+				&board_data->input_max_y);
+	if (r)
+		err = -ENOENT;
+#endif
 	r = of_property_read_u32(node, "goodix,panel-max-w",
 				&board_data->panel_max_w);
 	if (r)
@@ -141,7 +273,6 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 
 	board_data->y2y = of_property_read_bool(node,
 			"goodix,y2y");
-
 	return 0;
 }
 
@@ -151,11 +282,22 @@ static int goodix_parse_dt_resolution(struct device_node *node,
  * @board_data: pointer to board data structure
  * return: 0 - no error, <0 error
  */
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1];
+};
+
 static int goodix_parse_dt(struct device_node *node,
 	struct goodix_ts_board_data *board_data)
 {
 	struct property *prop;
 	int r;
+	struct device_node *lcm_name_node;
+	struct tag_videolfb *videolfb_tag = NULL;
+	unsigned long size = 0;
 
 	if (!board_data) {
 		ts_err("Invalid board data");
@@ -187,16 +329,49 @@ static int goodix_parse_dt(struct device_node *node,
 		return -EINVAL;
 	}
 
-	r = of_property_read_string(node, "goodix,firmware-version",
-			&gt9886_firmware_buf);
-	if (r < 0)
-		ts_err("Invalid firmware version in dts : %d", r);
+	ts_info("start to parse lcm name");
+	lcm_name_node = of_find_node_by_path("/chosen");
+	if (lcm_name_node) {
+		videolfb_tag = (struct tag_videolfb *)
+			of_get_property(lcm_name_node,
+			"atag,videolfb",
+			(int *)&size);
+		if (!videolfb_tag)
+			ts_err("Invalid lcm name");
+	}
 
-	r = of_property_read_string(node, "goodix,config-version",
-			&gt9886_config_buf);
-	if (r < 0) {
-		ts_err("Invalid config version in dts : %d", r);
-		return -EINVAL;
+	ts_info("read lcm name : %s", videolfb_tag->lcmname);
+	if (strcmp("hx83112b_fhdp_dsi_vdo_fhd_auo_rt4801_drv",
+		videolfb_tag->lcmname) == 0) {
+		r = of_property_read_string(node,
+				"goodix,firmware-version-fhdp",
+				&gt9886_firmware_buf);
+		if (r < 0)
+			ts_err("Invalid firmware version in dts : %d", r);
+
+		r = of_property_read_string(node,
+				"goodix,config-version-fhdp",
+				&gt9886_config_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
+		board_data->flag_use_1080x2160 = true;
+	} else {
+		r = of_property_read_string(node,
+				"goodix,firmware-version",
+				&gt9886_firmware_buf);
+		if (r < 0)
+			ts_err("Invalid firmware version in dts : %d", r);
+
+		r = of_property_read_string(node,
+				"goodix,config-version",
+				&gt9886_config_buf);
+		if (r < 0) {
+			ts_err("Invalid config version in dts : %d", r);
+			return -EINVAL;
+		}
+		board_data->flag_use_1080x2280 = true;
 	}
 
 	board_data->avdd_name = "vtouch";
@@ -266,6 +441,27 @@ static int goodix_parse_dt(struct device_node *node,
 						(prop->length / sizeof(u32));
 		}
 	}
+	/* touch filter */
+	of_property_read_u32(node, "tpd-filter-enable",
+			&(board_data->tpd_filter.enable));
+	if (board_data->tpd_filter.enable) {
+		of_property_read_u32(node, "tpd-filter-pixel-density",
+			&(board_data->tpd_filter.pixel_density));
+		if (of_property_read_u32_array(node,
+			"tpd-filter-custom-prameters",
+			(u32 *)(board_data->tpd_filter.W_W),
+			ARRAY_SIZE(board_data->tpd_filter.W_W)))
+			ts_info("get tpd-filter-custom-parameters");
+		if (of_property_read_u32_array(node,
+			"tpd-filter-custom-speed",
+			board_data->tpd_filter.VECLOCITY_THRESHOLD,
+			ARRAY_SIZE(board_data->tpd_filter.VECLOCITY_THRESHOLD)))
+			ts_info("get tpd-filter-custom-speed");
+	}
+	ts_info("[tpd]tpd-filter-enable = %d, pixel_density = %d\n",
+		board_data->tpd_filter.enable,
+		board_data->tpd_filter.pixel_density);
+
 	ts_info("***key:%d, %d, %d, %d, %d",
 			board_data->panel_key_map[0],
 			board_data->panel_key_map[1],
@@ -722,31 +918,27 @@ static int goodix_read_pid(struct goodix_ts_device *dev,
 		struct goodix_ts_version *version)
 {
 	u8 buffer[12] = {0};
-	u8 pid[] = GOODIX_TS_PID;
-	int r;
+	int r, retry;
 	u8 pid_read_len = 4;
 
-	/*disable doze mode, just valid for normandy*/
-	/* this func must be used in pairs*/
-	goodix_set_i2c_doze_mode(dev, false);
-
-	/*read pid*/
-	r = goodix_i2c_read(dev, TS_REG_PID, buffer, pid_read_len);
-	if (r < 0) {
-		ts_err("Read pid failed");
-		if (version)
-			version->valid = false;
-		return -EINVAL;
+	for (retry = 0; retry < GOODIX_CHIPID_RETRY_TIMES; retry++) {
+		/*read pid*/
+		r = goodix_i2c_read(dev, TS_REG_PID,
+				buffer, pid_read_len);
+		if (!r)
+			break;
+		ts_info("Touch id = %s, retry = %d", buffer, retry);
 	}
 
-	goodix_set_i2c_doze_mode(dev, true);
-
-	if (strcmp(buffer, pid) == 0)
-		ts_info("pid = GT9886");
+	if (strcmp(buffer, GOODIX_TS_PID_GT9886) == 0)
+		ts_info("Touch id = GT9886");
+	else if (strcmp(buffer, GOODIX_TS_PID_GT9885) == 0)
+		ts_info("Touch id = GT9885");
 	else {
-		ts_err("pid != GT9886");
+		ts_err("Touch id = %s", buffer);
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -1173,45 +1365,6 @@ static int goodix_send_config(struct goodix_ts_device *dev,
 	return r;
 }
 
-
-
-#if 0
-/**
- * goodix_send_config - send config data to device.
- * @dev: pointer to device
- * @config: pointer to config data struct to be send
- * @return: 0 - succeed, < 0 - failed
- */
-static int goodix_send_config(struct goodix_ts_device *dev,
-		struct goodix_ts_config *config)
-{
-	int r = 0;
-
-	if (!config || !config->data) {
-		ts_err("Null config data");
-		return -EINVAL;
-	}
-
-	ts_info("Send %s,ver:%02xh,size:%d",
-		config->name, config->data[0],
-		config->length);
-
-	mutex_lock(&config->lock);
-	r = goodix_i2c_write(dev, config->reg_base,
-			config->data, config->length);
-	if (r)
-		goto exit;
-
-	/* make sure the firmware accept the config data*/
-	if (config->delay)
-		msleep(config->delay);
-exit:
-	mutex_unlock(&config->lock);
-	return r;
-}
-#endif
-
-
 /**
  * goodix_close_hidi2c_mode
  *   Called by touch core module when bootup
@@ -1223,7 +1376,7 @@ static int goodix_close_hidi2c_mode(struct goodix_ts_device *ts_dev)
 	int r = 0;
 	int try_times;
 	int j;
-	unsigned char buffer[1];
+	unsigned char buffer[1] = {0};
 	unsigned char reg_sta = 0;
 	struct goodix_ts_cmd ts_cmd;
 
@@ -1616,6 +1769,7 @@ static void goodix_swap_coords(struct goodix_ts_device *dev,
 			coords->x = coords->y;
 			coords->y = temp;
 		}
+
 		if (bdata->x2x)
 			coords->x = bdata->panel_max_x - coords->x;
 		if (bdata->y2y)
@@ -1963,7 +2117,7 @@ static int goodix_event_handler(struct goodix_ts_device *dev,
 		/* handle hotknot event */
 		ts_info("Hotknot event");
 	} else {
-		ts_info("unknown event type");
+		ts_debug("unknown event type");
 		r = -EINVAL;
 	}
 
@@ -2172,6 +2326,7 @@ static int goodix_i2c_probe(struct i2c_client *client,
 	ts_device->dev = &client->dev;
 	ts_device->board_data = ts_bdata;
 	ts_device->hw_ops = &hw_i2c_ops;
+	touch_filter_bdata = ts_bdata;
 
 	/* ts core device */
 	goodix_pdev = kzalloc(sizeof(struct platform_device), GFP_KERNEL);
@@ -2194,10 +2349,30 @@ static int goodix_i2c_probe(struct i2c_client *client,
 	 * module will probe the touch device.
 	 */
 	r = platform_device_register(goodix_pdev);
+	if (r) {
+		ts_err("failed register gt9886 platform device, %d", r);
+		goto err_pdev;
+	}
+
+	/* register platform driver*/
+	r = goodix_ts_core_init();
+	if (r) {
+		ts_err("failed register platform driver, %d", r);
+		goto err_pdriver;
+	}
 
 	ts_info("%s OUT", __func__);
 
 	return r;
+
+err_pdriver:
+	platform_device_unregister(goodix_pdev);
+
+err_pdev:
+	kfree(goodix_pdev);
+	goodix_pdev = NULL;
+	return r;
+
 }
 
 static int goodix_i2c_remove(struct i2c_client *client)
@@ -2253,7 +2428,7 @@ static void __exit goodix_i2c_exit(void)
 	i2c_del_driver(&goodix_i2c_driver);
 }
 
-module_init(goodix_i2c_init);
+late_initcall(goodix_i2c_init);
 module_exit(goodix_i2c_exit);
 
 MODULE_DESCRIPTION("Goodix GT9886 Touchscreen Hardware Module");

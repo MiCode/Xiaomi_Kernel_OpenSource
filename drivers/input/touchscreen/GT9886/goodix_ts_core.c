@@ -17,18 +17,10 @@
   * General Public License for more details.
   *
   */
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/interrupt.h>
 #include <linux/of_platform.h>
-#include <linux/completion.h>
-#include <linux/debugfs.h>
-#include <linux/of_irq.h>
-#ifdef CONFIG_FB
-#include <linux/notifier.h>
-#include <linux/fb.h>
+#include <uapi/linux/sched/types.h>
+#ifdef CONFIG_DRM_MEDIATEK
+#include "mtk_panel_ext.h"
 #endif
 #define TAG_CORE ""
 #include "goodix_ts_core.h"
@@ -38,9 +30,15 @@
 #define INPUT_TYPE_B_PROTOCOL
 #endif
 
-#define GOOIDX_INPUT_PHYS		"goodix_ts/input0"
-int LCM_RES_X;
-int LCM_RES_Y;
+#define GOOIDX_INPUT_PHYS	"goodix_ts/input0"
+
+struct goodix_ts_core *resume_core_data;
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+EXPORT_SYMBOL(resume_core_data);
+#endif
+
+static struct task_struct *gt9886_polling_thread;
+static int goodix_ts_event_polling(void *arg);
 
 struct goodix_module goodix_modules;
 
@@ -48,6 +46,7 @@ struct goodix_module goodix_modules;
 static struct work_struct touch_resume_work;
 static struct workqueue_struct *touch_resume_workqueue;
 static int touch_suspend_flag;
+static atomic_t touch_need_resume_200Hz = ATOMIC_INIT(0);
 
 /**
  * __do_register_ext_module - register external module
@@ -150,7 +149,6 @@ int goodix_register_ext_module(struct goodix_ext_module *module)
 	schedule_work(&module->work);
 
 	ts_info("%s OUT", __func__);
-
 
 	return 0;
 }
@@ -382,53 +380,78 @@ static ssize_t goodix_ts_chip_info_show(struct device  *dev,
 
 	return cnt;
 }
-static int flag_resume_enter_200Hz;
+
 static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 {
 	u8 write_data, read_data;
-	u8 enter_200Hz[] = {0x38, 0x00, 0xC8};
-	u8 exit_200Hz[] = {0x38, 0x01, 0xC7};
-	int ret = 0;
-	u32 retry_time0 = 3;
-	u32 retry_time1 = 3;
+	u8 write_cmd[3] = {0};
+	int ret = 0, i = 0;
+	int flag_read_success = 0;
+	u32 retry_time = 3;
 
 	if (ts_dev == NULL)
 		return -EINVAL;
-	while (retry_time0) {
+
+	/* write cmd */
+	switch (en) {
+	case 0:
+		/* en=0. exit: write CMD 38 01 C7 */
+		write_cmd[0] = 0x38;
+		write_cmd[1] = 0x01;
+		write_cmd[2] = 0xC7;
+		break;
+	case 1:
+		/* en=1. enter: write CMD 38 00 C8 */
+		write_cmd[0] = 0x38;
+		write_cmd[1] = 0x00;
+		write_cmd[2] = 0xC8;
+		break;
+	case 2:
+		/* en=2. disable doze mode:write CMD 38 04 C4 */
+		write_cmd[0] = 0x38;
+		write_cmd[1] = 0x04;
+		write_cmd[2] = 0xC4;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	while (retry_time) {
 		/* 1. write 0xAA to 0x30F0 */
 		write_data = 0xAA;
 		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x30F0,
 							&write_data, 1);
-		if (ret)
-			ts_err("goodix_i2c_write error!\n");
+		if (ret) {
+			ts_err("goodix_i2c_write 0x30F0 error!\n");
+			usleep_range(10000, 10100);
+			retry_time--;
+			continue;
+		}
 
-		retry_time1 = 3;
 		usleep_range(1000, 1100);
-		while (retry_time1) {
+		for (i = 0; i < 3; i++) {
 			/* 2. read 0xBB to 0x3100 */
 			ret = ts_dev->hw_ops->read_trans(ts_dev, 0x3100,
 							&read_data, 1);
 			if (!ret)
-				ts_err("goodix_i2c_read error!\n");
+				ts_err("goodix_i2c_read 0x3100 error!\n");
 
+			usleep_range(10000, 10100);
 			if (read_data == 0xBB) {
-				usleep_range(10000, 10100);
-				goto operate;
-			} else
-				retry_time1--;
+				flag_read_success = 1;
+				break;
+			}
 		}
-		retry_time0--;
+		retry_time--;
+		if (flag_read_success == 1)
+			break;
 	}
-	return -EINVAL;
-operate:
-	if (en == 1)
-		/* en=1. enter: write change CMD 38 00 C8 */
-		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
-						enter_200Hz, 3);
-	else if (en == 0)
-		/* en=0. exit: write change CMD 38 01 C7 */
-		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
-						exit_200Hz, 3);
+
+	if (flag_read_success == 0)
+		return -EINVAL;
+
+	ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
+					write_cmd, 3);
 	if (ret) {
 		ts_err("goodix_i2c_write error!\n");
 		return -EINVAL;
@@ -441,9 +464,10 @@ operate:
 		ts_err("goodix_i2c_write error!\n");
 		return -EINVAL;
 	}
-	flag_resume_enter_200Hz = en;
+
 	return 0;
 }
+
 static ssize_t goodix_ts_report_rate_change_store(
 		struct device *dev,
 		struct device_attribute *attr,
@@ -453,20 +477,69 @@ static ssize_t goodix_ts_report_rate_change_store(
 	struct goodix_ts_core *core_data =
 		dev_get_drvdata(dev);
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
-	int en, ret = 0;
+	int en = 0, ret = 0;
+
+	if (touch_suspend_flag) {
+		atomic_set(&touch_need_resume_200Hz, 1);
+		return -EAGAIN;
+	}
 
 	if (!buf) {
 		ts_err("%s() buf is NULL.Exit!\n", __func__);
 		return -EINVAL;
 	}
 
-	if (sscanf(buf, "%d", &en) != 1)
+	ret = kstrtou32(buf, 0, &en);
+	if (ret)
+		return -EINVAL;
+
+	ret = goodix_ts_enable(ts_dev, en);
+	if (ret)
+		return -EAGAIN;
+
+	return count;
+}
+
+
+static ssize_t goodix_ts_report_mode_change_store(
+		struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t count)
+{
+	struct goodix_ts_core *core_data =
+		dev_get_drvdata(dev);
+	int ret = 0;
+	u32 en = 0;
+
+	if (!buf) {
+		ts_err("%s() buf is NULL.Exit!\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = kstrtou32(buf, 0, &en);
+	if (ret)
 		return -EINVAL;
 
 	if (en == 1 || en == 0) {
-		ret = goodix_ts_enable(ts_dev, en);
+		ret = goodix_ts_irq_enable(core_data, en);
 		if (ret)
 			return -EINVAL;
+		if (en == 0 && gt9886_polling_thread == NULL) {
+			gt9886_polling_thread =
+				kthread_run(goodix_ts_event_polling,
+				0, GOODIX_CORE_DRIVER_NAME);
+			if (IS_ERR(gt9886_polling_thread)) {
+				ret = PTR_ERR(gt9886_polling_thread);
+				ts_err(" failed to create kernel thread: %d\n",
+					ret);
+			}
+		} else if (en == 1) {
+			if (gt9886_polling_thread) {
+				kthread_stop(gt9886_polling_thread);
+				gt9886_polling_thread = NULL;
+			}
+		}
 	} else
 		return -EINVAL;
 
@@ -627,7 +700,7 @@ static ssize_t goodix_ts_send_cfg_store(struct device *dev,
 				dev_get_drvdata(dev);
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 	int en, r;
-	const struct firmware *cfg_img;
+	const struct firmware *cfg_img = NULL;
 	struct goodix_ts_config *config = NULL;
 
 	ts_info("******IN");
@@ -756,6 +829,8 @@ static DEVICE_ATTR(driver_info, 0444, goodix_ts_driver_info_show, NULL);
 static DEVICE_ATTR(chip_info, 0444, goodix_ts_chip_info_show, NULL);
 static DEVICE_ATTR(change_rate, 0220, NULL,
 				goodix_ts_report_rate_change_store);
+static DEVICE_ATTR(change_mode, 0220, NULL,
+				goodix_ts_report_mode_change_store);
 static DEVICE_ATTR(config_data, 0444, goodix_ts_config_data_show, NULL);
 static DEVICE_ATTR(reset, 0220, NULL, goodix_ts_reset_store);
 static DEVICE_ATTR(send_cfg, 0220, NULL, goodix_ts_send_cfg_store);
@@ -768,6 +843,7 @@ static struct attribute *sysfs_attrs[] = {
 	&dev_attr_driver_info.attr,
 	&dev_attr_chip_info.attr,
 	&dev_attr_change_rate.attr,
+	&dev_attr_change_mode.attr,
 	&dev_attr_config_data.attr,
 	&dev_attr_reset.attr,
 	&dev_attr_send_cfg.attr,
@@ -913,9 +989,6 @@ static int goodix_ts_input_report(struct input_dev *dev,
 			input_report_abs(dev, ABS_MT_TRACKING_ID, id);
 			input_report_abs(dev, ABS_MT_TOOL_TYPE, MT_TOOL_FINGER);
 			//input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
-
-			coords->x = GTP_WARP_X(LCM_RES_X, coords->x);
-			coords->y = GTP_WARP_Y(LCM_RES_Y, coords->y);
 			input_report_abs(dev, ABS_MT_POSITION_X, coords->x);
 			input_report_abs(dev, ABS_MT_POSITION_Y, coords->y);
 			input_report_abs(dev, ABS_MT_TOUCH_MAJOR, coords->w);
@@ -1038,6 +1111,34 @@ int goodix_ts_irq_enable(struct goodix_ts_core *core_data,
 	return 0;
 }
 EXPORT_SYMBOL(goodix_ts_irq_enable);
+
+/**
+ * goodix_ts_event_polling used for bring up
+ */
+static int goodix_ts_event_polling(void *arg)
+{
+	struct goodix_ts_event *ts_event = &resume_core_data->ts_event;
+	struct goodix_ts_device *ts_dev =  resume_core_data->ts_dev;
+	struct sched_param param = { .sched_priority = 4 };
+	int ret;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+	do {
+		usleep_range(30000, 35100);
+		/* read touch data from touch device */
+		ret = ts_dev->hw_ops->event_handler(ts_dev, ts_event);
+		if (likely(ret >= 0)) {
+			if (ts_event->event_type == EVENT_TOUCH) {
+				/* report touch */
+				goodix_ts_input_report(
+					resume_core_data->input_dev,
+					&ts_event->event_data.touch_data);
+			}
+		}
+	} while (!kthread_should_stop());
+	return 0;
+}
+
 /**
  * goodix_ts_power_init - Get regulator for touch device
  * @core_data: pointer to touch core data
@@ -1155,6 +1256,16 @@ static int goodix_ts_pinctrl_init(struct goodix_ts_core *core_data)
 	if (IS_ERR_OR_NULL(core_data->pinctrl)) {
 		ts_err("Failed to get pinctrl handler");
 		return PTR_ERR(core_data->pinctrl);
+	}
+
+	/* default i2c mode */
+	core_data->pin_i2c_mode_default = pinctrl_lookup_state(
+				core_data->pinctrl, PINCTRL_STATE_I2C_DEFAULT);
+	if (IS_ERR_OR_NULL(core_data->pin_i2c_mode_default)) {
+		r = PTR_ERR(core_data->pin_i2c_mode_default);
+		ts_err("Failed to get pinctrl state:%s, r:%d",
+				PINCTRL_STATE_I2C_DEFAULT, r);
+		core_data->pin_i2c_mode_default = NULL;
 	}
 
 	/* int active state */
@@ -1297,6 +1408,7 @@ err_request_eint_gpio:
 err_request_reset_gpio:
 	return r;
 }
+
 /**
  * goodix_input_set_params - set input parameters
  */
@@ -1306,19 +1418,12 @@ static void goodix_ts_set_input_params(struct input_dev *input_dev,
 	int i;
 
 	if (ts_bdata->swap_axis)
-		swap(ts_bdata->panel_max_x, ts_bdata->panel_max_y);
-#ifdef LCM_UNREAR_RESOLUTION
-		LCM_RES_X = (int)DISP_GetScreenWidth();
-		LCM_RES_Y = (int)DISP_GetScreenHeight();
-#else
-		LCM_RES_X = tpd_res_max_x;
-		LCM_RES_Y = tpd_res_max_y;
-#endif
+		swap(ts_bdata->input_max_x, ts_bdata->input_max_y);
 
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			0, LCM_RES_X, 0, 0);
+			0, ts_bdata->input_max_x, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			0, LCM_RES_Y, 0, 0);
+			0, ts_bdata->input_max_y, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 			0, ts_bdata->panel_max_w, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
@@ -1354,7 +1459,7 @@ int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
 	core_data->input_dev = input_dev;
 	input_set_drvdata(input_dev, core_data);
 
-	input_dev->name = GOODIX_CORE_DRIVER_NAME;
+	input_dev->name = GOODIX_INPUT_DEV_NAME;
 	input_dev->phys = GOOIDX_INPUT_PHYS;
 	input_dev->id.product = 0xDEAD;
 	input_dev->id.vendor = 0xBEEF;
@@ -1612,7 +1717,41 @@ int goodix_ts_esd_init(struct goodix_ts_core *core)
 	}
 	return 0;
 }
+#ifdef CONFIG_DRM_MEDIATEK
+static int goodix_ts_power_on_reinit(void)
+{
+	struct goodix_ts_core *core_data = resume_core_data;
+	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 
+	if (atomic_read(&core_data->suspended))
+		return -EINVAL;
+
+	ts_info("%s start!\n", __func__);
+
+#ifdef GT9886_ESD_ENABLE
+	goodix_ts_esd_off(core_data);
+#endif
+
+	goodix_ts_irq_enable(core_data, false);
+	goodix_ts_power_off(core_data);
+	/* release all the touch IDs */
+	core_data->ts_event.event_data.touch_data.touch_num = 0;
+	goodix_ts_input_report(core_data->input_dev,
+			&core_data->ts_event.event_data.touch_data);
+
+	goodix_ts_power_on(core_data);
+	if (atomic_cmpxchg(&touch_need_resume_200Hz, true, false))
+		goodix_ts_enable(ts_dev, true);
+	goodix_ts_irq_enable(core_data, true);
+
+#ifdef GT9886_ESD_ENABLE
+	goodix_ts_esd_on(core_data);
+#endif
+
+	ts_info("%s end\n", __func__);
+	return 0;
+}
+#endif
 /**
  * goodix_ts_suspend - Touchscreen suspend function
  * Called by PM/FB/EARLYSUSPEN module to put the device to  sleep
@@ -1769,20 +1908,21 @@ out:
 	 * and charger detector to turn on the work
 	 */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
-	/* resume enter 200Hz */
-	r = goodix_ts_enable(ts_dev, flag_resume_enter_200Hz);
-	if (r)
-		ts_debug("enable 200Hz failed!!!");
+
+	if (atomic_cmpxchg(&touch_need_resume_200Hz, 1, 0)) {
+		r = goodix_ts_enable(ts_dev, 1);
+		if (r)
+			return -EAGAIN;
+	}
+
 	ts_debug("Resume end");
 	return 0;
 }
 
-static struct goodix_ts_core *resume_core_data;
 /* resume work queue callback */
 static void resume_workqueue_callback(struct work_struct *work)
 {
 	goodix_ts_resume(resume_core_data);
-	touch_suspend_flag = 0;
 }
 
 #ifdef CONFIG_FB
@@ -1805,16 +1945,25 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 			int *blank = fb_event->data;
 
 			if (*blank == FB_BLANK_UNBLANK) {
-				if (touch_suspend_flag) {
+				if (touch_suspend_flag
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+				&& !atomic_read(&gt9886_tui_flag)
+#endif
+				) {
 					err = queue_work(touch_resume_workqueue,
 						&touch_resume_work);
 					if (!err) {
 						ts_err("start resume_workqueue failed\n");
 						return err;
 					}
+					touch_suspend_flag = 0;
 				}
 			} else if (*blank == FB_BLANK_POWERDOWN) {
-				if (!touch_suspend_flag) {
+				if (!touch_suspend_flag
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+				&& !atomic_read(&gt9886_tui_flag)
+#endif
+				) {
 					err = cancel_work_sync(
 						&touch_resume_work);
 					if (!err)
@@ -1931,7 +2080,9 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	struct goodix_ts_device *ts_device;
 	struct goodix_ts_board_data *ts_bdata;
 	int r;
-
+#ifdef CONFIG_DRM_MEDIATEK
+	void **ret = NULL;
+#endif
 	ts_info("%s IN", __func__);
 
 	ts_device = pdev->dev.platform_data;
@@ -1974,12 +2125,18 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	/* Pinctrl handle is optional. */
 	r = goodix_ts_pinctrl_init(core_data);
 	if (!r && core_data->pinctrl) {
+		if (core_data->pin_i2c_mode_default) {
+			r = pinctrl_select_state(core_data->pinctrl,
+			    core_data->pin_i2c_mode_default);
+			if (r < 0)
+				ts_err("Failed to select default, r:%d", r);
+		}
 		r = pinctrl_select_state(core_data->pinctrl,
-					core_data->pin_int_sta_active);
+				core_data->pin_int_sta_active);
 		if (r < 0)
 			ts_err("Failed to select int active pinstate, r:%d", r);
 		r = pinctrl_select_state(core_data->pinctrl,
-					core_data->pin_rst_sta_active);
+				core_data->pin_rst_sta_active);
 		if (r < 0)
 			ts_err("Failed to select rst active pinstate, r:%d", r);
 	}
@@ -1992,15 +2149,15 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	if (r < 0)
 		goto err;
 
-	usleep_range(100000, 101000);
+	msleep(50);
 
 	/*i2c test*/
 	r = ts_device->hw_ops->read_pid(ts_device,
 			&ts_device->chip_version);
 	if (!r)
-		ts_info("i2c test SUCCESS");
+		ts_info("i2c test SUCCESS!!!");
 	else {
-		ts_err("i2c test FAILED");
+		ts_err("i2c test FAILED!!!");
 		goto err;
 	}
 
@@ -2020,6 +2177,15 @@ static int goodix_ts_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	r = gt9886_touch_filter_register();
+	if (r)
+		ts_err("tpd_misc_device register failed! ret = %d!\n", r);
+#ifdef CONFIG_DRM_MEDIATEK
+	if (mtk_panel_tch_handle_init()) {
+		ret = mtk_panel_tch_handle_init();
+		*ret = (void *)goodix_ts_power_on_reinit;
+	}
+#endif
 	ts_info("%s OUT, r:%d", __func__, r);
 	return r;
 
@@ -2076,8 +2242,7 @@ static struct platform_driver goodix_ts_driver = {
 	.id_table = ts_core_ids,
 };
 
-
-static int __init goodix_ts_core_init(void)
+int goodix_ts_core_init(void)
 {
 	ts_info("Core layer init");
 
@@ -2093,16 +2258,9 @@ static int __init goodix_ts_core_init(void)
 	return platform_driver_register(&goodix_ts_driver);
 }
 
-
-static void __exit goodix_ts_core_exit(void)
+void goodix_ts_core_exit(void)
 {
 	ts_info("Core layer exit");
 	platform_driver_unregister(&goodix_ts_driver);
 }
 
-module_init(goodix_ts_core_init);
-module_exit(goodix_ts_core_exit);
-
-MODULE_DESCRIPTION("Goodix Touchscreen Core Module");
-MODULE_AUTHOR("Goodix, Inc.");
-MODULE_LICENSE("GPL v2");
