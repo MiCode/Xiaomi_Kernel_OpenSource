@@ -2826,11 +2826,11 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 
+	smi_bus_prepare_enable(SMI_LARB19, DPE_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB20, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_TOP_MUX_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_TOP_MUX_DPE clock\n");
-	smi_bus_prepare_enable(SMI_LARB19, DPE_DEV_NAME);
-	smi_bus_prepare_enable(SMI_LARB20, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_IPESYS_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IPESYS_DPE clock\n");
@@ -2840,9 +2840,10 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 static inline void DPE_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(dpe_clk.CG_IPESYS_DPE);
+	clk_disable_unprepare(dpe_clk.CG_TOP_MUX_DPE);
 	smi_bus_disable_unprepare(SMI_LARB19, DPE_DEV_NAME);
 	smi_bus_disable_unprepare(SMI_LARB20, DPE_DEV_NAME);
-	clk_disable_unprepare(dpe_clk.CG_TOP_MUX_DPE);
+
 }
 #endif
 
