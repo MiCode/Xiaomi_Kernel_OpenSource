@@ -655,7 +655,7 @@
 	};
 
 	touch: touch {
-		compatible = "mediatek,touch";
+		compatible = "goodix,touch";
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {
