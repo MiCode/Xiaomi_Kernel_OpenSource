@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 #include <kree/mem.h>
 #include <kree/system.h>
 #include <tz_cross/ta_mem.h>
@@ -530,6 +531,8 @@ TZ_RESULT KREE_UnregisterSharedmem(KREE_SESSION_HANDLE session,
 	}
 	return TZ_RESULT_SUCCESS;
 }
+EXPORT_SYMBOL(KREE_UnregisterSharedmem);
+
 #endif
 
 #if API_secureMem		/*secure memory APIs */
@@ -769,7 +772,7 @@ static TZ_RESULT _kree_mcm_Append(KREE_SESSION_HANDLE session,
 		mutex_unlock(&chmem_mutex);
 		return TZ_RESULT_ERROR_GENERIC;
 	}
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	ret = gz_do_m4u_map(*cm_hd, param->buffer, param->size,
 			param->region_id);
 #endif
@@ -805,7 +808,7 @@ static TZ_RESULT _kree_mcm_Release(KREE_SESSION_HANDLE session,
 		mutex_unlock(&chmem_mutex);
 		return ret;
 	}
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	ret = gz_do_m4u_umap(cm_handle);
 #endif
 
@@ -881,6 +884,7 @@ TZ_RESULT KREE_AppendSecureMultichunkmem(KREE_SESSION_HANDLE session,
 	return _kree_mcm_Append(session, cm_handle,
 			param, TZCMD_MEM_APPEND_MULTI_CHUNKMEM_ION);
 }
+EXPORT_SYMBOL(KREE_AppendSecureMultichunkmem);
 
 TZ_RESULT KREE_ReleaseSecureMultichunkmem(KREE_SESSION_HANDLE session,
 	KREE_SHAREDMEM_HANDLE cm_handle)
@@ -888,6 +892,7 @@ TZ_RESULT KREE_ReleaseSecureMultichunkmem(KREE_SESSION_HANDLE session,
 	return _kree_mcm_Release(session, cm_handle,
 			TZCMD_MEM_RELEASE_CHUNKMEM_ION);
 }
+EXPORT_SYMBOL(KREE_ReleaseSecureMultichunkmem);
 
 TZ_RESULT KREE_AllocSecureMultichunkmem(KREE_SESSION_HANDLE session,
 	KREE_SHAREDMEM_HANDLE chm_handle, KREE_SECUREMEM_HANDLE *mem_handle,
@@ -925,6 +930,7 @@ TZ_RESULT KREE_ReferenceSecureMultichunkmem(KREE_SESSION_HANDLE session,
 
 	return ret;
 }
+EXPORT_SYMBOL(KREE_ReferenceSecureMultichunkmem);
 
 TZ_RESULT KREE_UnreferenceSecureMultichunkmem(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE mem_handle, uint32_t *count)
@@ -1042,6 +1048,7 @@ TZ_RESULT KREE_ION_AllocChunkmem(KREE_SESSION_HANDLE session,
 	return _kree_mcm_Alloc_ion(session, chm_handle,
 			IONHandle, alignment, size, 0);
 }
+EXPORT_SYMBOL(KREE_ION_AllocChunkmem);
 
 TZ_RESULT KREE_ION_ZallocChunkmem(KREE_SESSION_HANDLE session,
 	KREE_SHAREDMEM_HANDLE chm_handle, KREE_ION_HANDLE *IONHandle,
@@ -1050,6 +1057,7 @@ TZ_RESULT KREE_ION_ZallocChunkmem(KREE_SESSION_HANDLE session,
 	return _kree_mcm_Alloc_ion(session, chm_handle,
 			IONHandle, alignment, size, 1);
 }
+EXPORT_SYMBOL(KREE_ION_ZallocChunkmem);
 
 TZ_RESULT KREE_ION_ReferenceChunkmem(KREE_SESSION_HANDLE session,
 	KREE_ION_HANDLE IONHandle)
@@ -1068,6 +1076,7 @@ TZ_RESULT KREE_ION_ReferenceChunkmem(KREE_SESSION_HANDLE session,
 
 	return KREE_ReferenceSecureMultichunkmem(session, mem_handle);
 }
+EXPORT_SYMBOL(KREE_ION_ReferenceChunkmem);
 
 TZ_RESULT KREE_ION_UnreferenceChunkmem(KREE_SESSION_HANDLE session,
 	KREE_ION_HANDLE IONHandle)
@@ -1102,6 +1111,7 @@ TZ_RESULT KREE_ION_UnreferenceChunkmem(KREE_SESSION_HANDLE session,
 
 	return ret;
 }
+EXPORT_SYMBOL(KREE_ION_UnreferenceChunkmem);
 
 TZ_RESULT KREE_ION_AccessChunkmem(KREE_SESSION_HANDLE session,
 	union MTEEC_PARAM param[4], uint32_t cmd)
@@ -1193,7 +1203,7 @@ TZ_RESULT KREE_ION_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 
 	return TZ_RESULT_SUCCESS;
 }
-
+EXPORT_SYMBOL(KREE_ION_QueryChunkmem_TEST);
 #endif
 
 #if API_chunkMem /*for general case chunk mem (4KB page unit) */
@@ -1243,6 +1253,7 @@ TZ_RESULT KREE_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 
 	return TZ_RESULT_SUCCESS;
 }
+EXPORT_SYMBOL(KREE_QueryChunkmem_TEST);
 #endif
 
 #if API_NotSupport /*API_NOT_SUPPORT */
@@ -1352,7 +1363,7 @@ TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
 {
 	TZ_RESULT ret;
 	union MTEEC_PARAM p[4];
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	bool is_region_on = ((size == 0x0) ? false : true);
 #endif
 
@@ -1376,7 +1387,7 @@ TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
 			__func__, ret);
 		return ret;
 	}
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	if (is_region_on)
 		ret = gz_do_m4u_map(session, (void *)pa, size, region_id);
 	else
@@ -1390,3 +1401,4 @@ TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
 
 	return TZ_RESULT_SUCCESS;
 }
+EXPORT_SYMBOL(KREE_ConfigSecureMultiChunkMemInfo);
