@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 /** Commands for TA SYSTEM **/
 
 #ifndef __TRUSTZONE_TA_SYSTEM__
@@ -49,7 +50,8 @@ extern struct cpumask trusty_big_cmask;
 extern int perf_boost_cnt;
 extern struct mutex perf_boost_lock;
 extern struct platform_driver tz_system_driver;
-#ifdef CONFIG_PM_WAKELOCKS
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+/*for kernel-4.14*/
 extern struct wakeup_source TeeServiceCall_wake_lock;
 #else
 extern struct wake_lock TeeServiceCall_wake_lock;

@@ -11,6 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+
 #include <linux/random.h>
 #include <gz-trusty/trusty.h>
 #include <gz-trusty/smcall.h>

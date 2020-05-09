@@ -40,9 +40,6 @@
 #include <kree/mem.h>
 #include <kree/tz_mod.h>
 #include "unittest.h"
-
-#include "memory_ssmr.h"
-#include "mtee_regions.h"
 #include "gz_chmem_ut.h"
 /***************************************************/
 /*you can update the following #define option*/
@@ -56,7 +53,7 @@
    * (2) add '#' to line: default MTK_SDSP_SHARED_PERM_VPU_TEE if (MACH_MT6779)
    * --> # default MTK_SDSP_SHARED_PERM_VPU_TEE if (MACH_MT6779)
    */
-#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
 #define ssmr_ready_for_mcm 1
 #else
 #define ssmr_ready_for_mcm 0
@@ -66,6 +63,12 @@
 #define KREE_DEBUG(fmt...) pr_debug("[CM_kUT]" fmt)
 #define KREE_INFO(fmt...) pr_info("[CM_kUT]" fmt)
 #define KREE_ERR(fmt...) pr_info("[CM_kUT][ERR]" fmt)
+
+
+#if ssmr_ready_for_mcm
+#include "memory_ssmr.h"
+#include "mtee_regions.h"
+#endif
 
 /***************************************************/
 /*don't update the following #define option*/
@@ -86,6 +89,7 @@
 #define test_body_fun 1
 #define test_main_entry 1
 
+//extern int ssmr_online(unsigned int feat);
 #if test_data
 
 #define _flag_align_y 1
@@ -121,33 +125,34 @@ struct _ssmr_chmem_regions {
 };
 
 struct _ssmr_chmem_regions _ssmr_CM_ary[] = {
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if ssmr_ready_for_mcm
+
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	/*MTEE/TEE Protect-shared */
 	{SSMR_FEAT_PROT_SHAREDMEM, MTEE_MCHUNKS_PROT},
 #endif
-#if ssmr_ready_for_mcm
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 	/*HA ELF */
 	{SSMR_FEAT_TA_ELF, MTEE_MCHUNKS_HAPP},
 	/*HA Stack/Heap */
 	{SSMR_FEAT_TA_STACK_HEAP, MTEE_MCHUNKS_HAPP_EXTRA},
 #endif
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_MEM_SUPPORT)
 	/*SDSP Firmware */
 	{SSMR_FEAT_SDSP_FIRMWARE, MTEE_MCHUNKS_SDSP},
 #endif
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
 	/*SDSP/TEE Shared */
-#if defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
 	{SSMR_FEAT_SDSP_TEE_SHAREDMEM, MTEE_MCHUNKS_SDSP_SHARED_MTEE_TEE},
-#elif defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
+#elif IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
 	{SSMR_FEAT_SDSP_TEE_SHAREDMEM, MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE},
 #else
 	{SSMR_FEAT_SDSP_TEE_SHAREDMEM, MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE},
 #endif
 #endif
-#else
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	/*MTEE/TEE Protect-shared */
 	{SSMR_FEAT_PROT_SHAREDMEM, 0}
 #endif
@@ -174,10 +179,10 @@ void _show_t_CM_ary(void)
 			continue;
 
 		switch (_t_CM_ary[i].region_id) {
+#if ssmr_ready_for_mcm
 		case MTEE_MCHUNKS_PROT:
 			strncpy(mstr, "PROT_SHAREDMEM", 14);
 			break;
-#if ssmr_ready_for_mcm
 		case MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE:
 			strncpy(mstr, "SDSP_TEE_SHAREDMEM (VPU_TEE)", 28);
 			break;
@@ -213,6 +218,8 @@ void _show_t_CM_ary(void)
 /*get region from SSMR*/
 static int ssmr_get(u64 *pa, u32 *size, u32 feat)
 {
+#if ssmr_ready_for_mcm
+
 	phys_addr_t ssmr_pa;
 	unsigned long ssmr_size;
 
@@ -231,17 +238,21 @@ static int ssmr_get(u64 *pa, u32 *size, u32 feat)
 
 	KREE_DEBUG("ssmr offline passed! feat:%d, pa: 0x%llx, sz: 0x%x\n", feat,
 		   *pa, *size);
+#endif
 	return TZ_RESULT_SUCCESS;
 }
 
 /*free region to SSMR*/
 static int ssmr_put(u32 feat)
 {
+#if ssmr_ready_for_mcm
 	if (ssmr_online(feat)) {
 		KREE_ERR("ssmr online failed (feat:%d)!\n", feat);
 		return TZ_RESULT_ERROR_GENERIC;
 	}
 	KREE_DEBUG("ssmr online passed!\n");
+#endif
+
 	return TZ_RESULT_SUCCESS;
 }
 
@@ -251,7 +262,7 @@ TZ_RESULT _get_MCM_from_SSMR(void)
 	uint32_t size = 0x0;
 	int i, test_mcm_num;
 
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	test_mcm_num = 1;
 #else
 	test_mcm_num = 0;
@@ -786,6 +797,11 @@ out_end:
 /*UT main entry*/
 int chunk_memory_ut(void *args)
 {
+
+#if !ssmr_ready_for_mcm
+	KREE_DEBUG("SSMR not ready. stop.\n");
+	return TZ_RESULT_ERROR_NOT_SUPPORTED;
+#else
 	int ret;
 
 	ret = _get_MCM_from_SSMR();
@@ -814,127 +830,7 @@ int chunk_memory_ut(void *args)
 out:
 	_free_MCM_to_SSMR();
 	return TZ_RESULT_SUCCESS;
+#endif
 }
 #endif				//end of #if test_main_entry
 
-
-
-#define mytest_vreg 1
-
-#if mytest_vreg
-
-#define GZ_REG_SIZE 0x2000
-#define GZREG_BASE_t1 0x1070A000
-#define GZREG_BASE_t2 0x1070C000
-
-#define GZREG_WIDTH 4
-#define GZREG_TOTAL_SIZE 0x1000 /* control register size */
-
-#define DREG_BASE (GZREG_BASE + GZREG_TOTAL_SIZE)
-#define DREG_TOTAL_SIZE (GZ_REG_SIZE - GZREG_TOTAL_SIZE)
-
-
-#define test_Vmemory 0
-#if test_Vmemory
-static int vmemory_test(void *args)
-{
-	/*test data register*/
-	int i;
-	char *ptr;
-	void __iomem *data_io = ioremap(DREG_BASE, DREG_TOTAL_SIZE);
-
-	ptr = (char *) data_io;
-	if (ptr) {
-		for (i = 0; i < 4; i++)
-			KREE_DEBUG("r[%d] = %c\n", i, ptr[i]);
-	}
-
-	if (data_io)
-		iounmap(data_io);
-
-	return TZ_RESULT_SUCCESS;
-}
-
-#endif
-
-#define test_vreg_from_gzha 0
-int vreg_test(void *args)
-{
-	uint32_t v;
-
-#if test_vreg_from_gzha
-	KREE_SESSION echo_sn;
-	int ret;
-	union MTEEC_PARAM p[4];
-	uint32_t paramTypes;
-#endif
-
-	void __iomem *io_1 = ioremap(GZREG_BASE_t1, GZREG_TOTAL_SIZE);
-
-	void __iomem *io_2 = ioremap(GZREG_BASE_t2, GZREG_TOTAL_SIZE);
-
-	KREE_DEBUG("[%s][%d] runs...\n", __func__, __LINE__);
-	if (io_1) {
-		KREE_DEBUG("swreg: write control reg:io_1\n");
-		writel(0x00000002, io_1 + (1 * GZREG_WIDTH));
-		writel(0x00000001, io_1 + (2 * GZREG_WIDTH));
-		v = readl(io_1 + (1 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-		v = readl(io_1 + (2 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-		v = readl(io_1 + (4 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-		v = readl(io_1 + (5 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-	} else
-		KREE_DEBUG("swreg: null io_1\n");
-
-	if (io_1)
-		iounmap(io_1);
-
-	if (io_2) {
-		KREE_DEBUG("swreg: write control reg:io_2\n");
-		writel(0x00000003, io_2 + (1 * GZREG_WIDTH));
-		writel(0x00000004, io_2 + (2 * GZREG_WIDTH));
-		v = readl(io_2 + (1 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-		v = readl(io_2 + (2 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-		v = readl(io_2 + (4 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-		v = readl(io_2 + (5 * GZREG_WIDTH));
-		KREE_DEBUG("swreg: red %#08x\n", v);
-	} else
-		KREE_DEBUG("swreg: null io_2\n");
-
-	if (io_2)
-		iounmap(io_2);
-
-#if test_vreg_from_gzha
-	/*session: echo svr */
-	ret = _create_session(echo_srv_name, &echo_sn);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("echo_sn create fail\n");
-		return ret;
-	}
-
-	paramTypes = TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT);
-
-	/*TZCMD_TEST_VREG_FROM_HA*/
-	ret = KREE_TeeServiceCall(echo_sn, 0x9004, paramTypes, p);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] Fail(0x%x)\n", __func__, ret);
-		return ret;
-	}
-
-	/*close session */
-	ret = _close_session(echo_sn);
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("echo_sn close fail\n");
-		return ret;
-	}
-#endif
-
-	return TZ_RESULT_SUCCESS;
-}
-#endif

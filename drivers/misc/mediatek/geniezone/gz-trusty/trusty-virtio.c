@@ -815,13 +815,16 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 		goto err_create_kick_wq;
 	}
 
+	/*for kernel-4.14*/
 	tctx->kick_wq_attrs = alloc_workqueue_attrs(GFP_KERNEL);
+
 	if (!tctx->kick_wq_attrs) {
 		ret = -ENOMEM;
 		goto err_alloc_kick_wq_attrs;
 	}
-
+	/*for kernel-4.14*/
 	tctx->check_wq_attrs = alloc_workqueue_attrs(GFP_KERNEL);
+
 	if (!tctx->check_wq_attrs) {
 		ret = -ENOMEM;
 		goto err_alloc_check_wq_attrs;
@@ -849,9 +852,15 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 
 err_add_devices:
 err_bind_big_small_core:
-	free_workqueue_attrs(tctx->check_wq_attrs);
+	if (tctx->check_wq_attrs) {
+		/*for kernel-4.14*/
+		free_workqueue_attrs(tctx->check_wq_attrs);
+	}
 err_alloc_check_wq_attrs:
-	free_workqueue_attrs(tctx->kick_wq_attrs);
+	if (tctx->kick_wq_attrs) {
+		/*for kernel-4.14*/
+		free_workqueue_attrs(tctx->kick_wq_attrs);
+	}
 err_alloc_kick_wq_attrs:
 	destroy_workqueue(tctx->kick_wq);
 err_create_kick_wq:
@@ -885,11 +894,17 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	/* free shared area */
 	free_pages_exact(tctx->shared_va, tctx->shared_sz);
 
-	/* free kick workqueue attrs */
-	free_workqueue_attrs(tctx->kick_wq_attrs);
+	/* free workqueue attrs */
+	if (tctx->kick_wq_attrs) {
+		/*for kernel-4.14*/
+		free_workqueue_attrs(tctx->kick_wq_attrs);
+	}
 
 	/* free check workqueue attrs */
-	free_workqueue_attrs(tctx->check_wq_attrs);
+	if (tctx->check_wq_attrs) {
+		/*for kernel-4.14*/
+		free_workqueue_attrs(tctx->check_wq_attrs);
+	}
 
 	/* free context */
 	kfree(tctx);

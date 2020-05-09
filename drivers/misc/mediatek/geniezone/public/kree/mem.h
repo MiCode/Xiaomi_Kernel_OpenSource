@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 /*
  * Mediatek GenieZone v1.2.0127
  * Header files for KREE memory related functions.
@@ -19,8 +20,8 @@
 #ifndef __KREE_MEM_H__
 #define __KREE_MEM_H__
 
-#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)	\
-	|| defined(CONFIG_MTK_ENABLE_GENIEZONE)
+#if IS_ENABLED(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)	\
+	|| IS_ENABLED(CONFIG_MTK_ENABLE_GENIEZONE)
 
 #include <tz_cross/trustzone.h>
 #include <tz_cross/gz_version.h>
@@ -591,7 +592,7 @@ TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
 					     uint32_t region_id);
 
 /*fix mtee sync*/
-#ifdef CONFIG_MTEE_CMA_SECURE_MEMORY
+#if IS_ENABLED(CONFIG_MTEE_CMA_SECURE_MEMORY)
 /**
  * REE service call to allocate chunk memory
  *

@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/log2.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h> /* Linux kernel 4.14 */
 #include <linux/wait.h>
 #include <linux/poll.h>
 #include <linux/spinlock.h>
@@ -146,6 +147,7 @@ void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 	*size = glctx.size;
 	*start = 0;
 }
+EXPORT_SYMBOL(get_gz_log_buffer);
 
 /* driver functions */
 static int trusty_log_call_notify(struct notifier_block *nb,
@@ -505,3 +507,7 @@ static void __exit trusty_gz_log_exit(void)
 
 arch_initcall(trusty_gz_log_init);
 module_exit(trusty_gz_log_exit);
+/*module_platform_driver(trusty_gz_log_driver);*/
+MODULE_LICENSE("GPL");
+
+

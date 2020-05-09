@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 /*
  * Mediatek GenieZone v1.2.0127
  * Header files for KREE memory related functions.

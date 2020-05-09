@@ -11,12 +11,14 @@
  * GNU General Public License for more details.
  */
 
+
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
+#include <linux/pm_wakeup.h>
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
 #include <gz-trusty/trusty_ipc.h>
@@ -28,22 +30,22 @@
 #include <tz_cross/trustzone.h>
 
 #include "gz_main.h"
-#include "gz_ut.h"
+#include "mtee_ut/gz_ut.h"
 #include "unittest.h"
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 #include <mt-plat/devapc_public.h>
 #endif
 
 /* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
 #ifdef MTK_PPM_SUPPORT
-#ifdef CONFIG_MACH_MT6758
+#if IS_ENABLED(CONFIG_MACH_MT6758)
 #include "legacy_controller.h"
 #else
 #include "mtk_ppm_platform.h"
 #endif
 #endif
 
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 #include <m4u.h>
 #include <m4u_port.h>
 #include <kree/sdsp_m4u_mva.h>
@@ -55,16 +57,17 @@ struct sg_table sg_sdsp_elf;
 struct m4u_client_t *m4u_gz_client;
 #endif
 
-#if defined(CONFIG_GZ_VPU_WITH_M4U)
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 uint32_t sdsp_elf_size[2] = { 0, 0 };
 uint64_t sdsp_elf_pa[2] = { 0, 0 };
 #endif
 
 #define MTEE_kernel_UT_RUN 1
 #if MTEE_kernel_UT_RUN		//add tmp
-#include "gz_shmem_ut.h"
-#include "gz_chmem_ut.h"
-#include "gz_sec_storage_ut.h"
+#include "mtee_ut/gz_shmem_ut.h"
+#include "mtee_ut/gz_chmem_ut.h"
+#include "mtee_ut/gz_rkp_ut.h"
+#include "mtee_ut/gz_sec_storage_ut.h"
 #endif
 
 #define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
@@ -75,7 +78,7 @@ static const struct file_operations fops = {.owner = THIS_MODULE,
 	.open = gz_dev_open,
 	.release = gz_dev_release,
 	.unlocked_ioctl = gz_ioctl,
-#if defined(CONFIG_COMPAT)
+#if IS_ENABLED(CONFIG_COMPAT)
 	.compat_ioctl = gz_compat_ioctl,
 #endif
 };
@@ -139,7 +142,15 @@ static ssize_t gz_test_store(struct device *dev,
 		break;
 	case '6':
 		KREE_DEBUG("test VReg\n");
-		th = kthread_run(vreg_test, NULL, "GZ VReg test");
+		th = kthread_run(vreg_test, NULL, "VReg test");
+		break;
+	case '9':
+		KREE_DEBUG("test RKP_GZKM\n");
+		th = kthread_run(test_rkp_gzkernel_memory, NULL, "RKP_GZKM");
+		break;
+	case 'a':
+		KREE_DEBUG("test RKP\n");
+		th = kthread_run(test_rkp, NULL, "RKP_LinuxKM");
 		break;
 	case 'C':
 		KREE_DEBUG("test GZ Secure Storage\n");
@@ -431,7 +442,7 @@ int gz_get_cpuinfo_thread(void *data)
 #ifdef MTK_PPM_SUPPORT
 	struct cpufreq_policy curr_policy;
 #endif
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	int ret;
 	uint32_t sdsp_elf_buf_mva;
 	uint32_t sdsp_elf_buf_size;
@@ -443,7 +454,7 @@ int gz_get_cpuinfo_thread(void *data)
 
 	KREE_DEBUG("%s driver register done\n", __func__);
 
-#ifdef CONFIG_MACH_MT6758
+#if IS_ENABLED(CONFIG_MACH_MT6758)
 	msleep(3000);
 #else
 	msleep(1000);
@@ -461,7 +472,7 @@ int gz_get_cpuinfo_thread(void *data)
 		  cpus_cluster_freq[1].max_freq, cpus_cluster_freq[1].min_freq);
 #endif
 
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 	if (!m4u_gz_client)
 		m4u_gz_client = m4u_create_client();
 	KREE_DEBUG("m4u_gz_client(%p)\n", m4u_gz_client);
@@ -497,7 +508,8 @@ int gz_get_cpuinfo_thread(void *data)
 	perf_boost_cnt = 0;
 	mutex_init(&perf_boost_lock);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+	/*kernel-4.14*/
 	wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
 #else
 	wake_lock_init(&TeeServiceCall_wake_lock, WAKE_LOCK_SUSPEND,
@@ -507,7 +519,7 @@ int gz_get_cpuinfo_thread(void *data)
 	return 0;
 }
 
-#if defined(CONFIG_GZ_VPU_WITH_M4U) && defined(CONFIG_OF_RESERVED_MEM)
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U) && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 static int __init store_sdsp_fw1_setup(struct reserved_mem *rmem)
 {
 	KREE_DEBUG("%s %s base(0x%llx) size(0x%llx)\n",
@@ -532,7 +544,7 @@ RESERVEDMEM_OF_DECLARE(store_sdsp_fw2, "mediatek,gz-sdsp2-fw",
 	store_sdsp_fw2_setup);
 #endif
 
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 #include <mtee_regions.h>
 struct gz_mva_map_table_t {
 	const uint32_t region_id;
@@ -546,11 +558,11 @@ struct gz_mva_map_table_t {
 #define MAX_GZ_MVA_MAP 1
 struct gz_mva_map_table_t gz_mva_map_table[MAX_GZ_MVA_MAP] = {
 	{
-#if defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)
 	 .region_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE,
-#elif defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
+#elif IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
 	 .region_id = MTEE_MCHUNKS_SDSP_SHARED_MTEE_TEE,
-#elif defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
+#elif IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
 	 .region_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE,
 #else
 	 .region_id = 0xFFFFFFFF,
@@ -900,7 +912,7 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 		case TZPT_MEM_INPUT:
 		case TZPT_MEM_OUTPUT:
 		case TZPT_MEM_INOUT:
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 			if (compat) {
 				ubuf = compat_ptr(oparam[i].mem32.buffer);
 				ubuf_sz = oparam[i].mem32.size;
@@ -999,7 +1011,7 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 		case TZPT_MEM_INPUT:
 		case TZPT_MEM_OUTPUT:
 		case TZPT_MEM_INOUT:
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 			if (compat)
 				ubuf = compat_ptr(oparam[i].mem32.buffer);
 			else
@@ -1363,7 +1375,7 @@ static long gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
-#if defined(CONFIG_COMPAT)
+#if IS_ENABLED(CONFIG_COMPAT)
 static long gz_compat_ioctl(struct file *filep, unsigned int cmd,
 	unsigned long arg)
 {
@@ -1415,13 +1427,13 @@ static int find_big_core(int *big_core_first, int *big_core_last)
 	return 0;
 }
 
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 static void gz_devapc_vio_dump(void)
 {
 	pr_debug("%s:%d GZ devapc is triggered!\n", __func__, __LINE__);
 
 	if (IS_ERR_OR_NULL(tz_system_dev)) {
-		pr_err("GZ KREE is still not initialized!\n");
+		KREE_ERR("GZ KREE is still not initialized!\n");
 		return;
 	}
 
@@ -1498,9 +1510,11 @@ static int __init gz_init(void)
 		}
 	}
 
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&gz_devapc_vio_handle);
 #endif
+
+
 	return res;
 }
 

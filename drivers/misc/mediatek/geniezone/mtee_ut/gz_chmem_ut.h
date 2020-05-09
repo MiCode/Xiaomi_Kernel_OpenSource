@@ -15,6 +15,5 @@
 #define __GZ_CHMEM_UT_H__
 
 int chunk_memory_ut(void *args);
-int vreg_test(void *args);
 
 #endif

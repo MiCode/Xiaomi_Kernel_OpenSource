@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 #include <gz-trusty/trusty_ipc.h>
 #include "gz_sec_storage_ut.h"
 
