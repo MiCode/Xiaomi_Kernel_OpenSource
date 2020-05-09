@@ -49,9 +49,6 @@ void sspm_ipi_timeout_cb(int ipi_id)
 		ipi_id, pin_name[ipi_id]);
 
 	ipi_monitor_dump(&sspm_ipidev);
-#ifdef CONFIG_MEDIATEK_EMI
-	mtk_emidbg_dump();
-#endif
 
 	BUG_ON(1);
 }
