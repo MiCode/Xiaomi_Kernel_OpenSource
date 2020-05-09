@@ -188,6 +188,7 @@ struct ufs_mtk_host {
 	enum perf_mode perf_mode;
 	bool perf_en;
 	bool spm_sw_mode;
+	bool unipro_lpm;
 	int crypto_vcore_opp;
 	struct clk *crypto_clk_mux;
 	struct clk *crypto_parent_clk_normal;
