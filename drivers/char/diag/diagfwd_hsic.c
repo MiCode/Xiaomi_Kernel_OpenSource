@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,7 +297,7 @@ static void hsic_read_work_fn(struct work_struct *work)
 	unsigned char *buf = NULL;
 	struct diag_hsic_info *ch = container_of(work, struct diag_hsic_info,
 						 read_work);
-	if (!ch || !ch->enabled || !ch->opened)
+	if (!ch || !ch->enabled || !ch->opened || ch->suspended)
 		return;
 
 	do {
