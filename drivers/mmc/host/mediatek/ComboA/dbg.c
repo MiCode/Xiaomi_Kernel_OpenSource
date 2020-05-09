@@ -920,9 +920,6 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 #if defined(CONFIG_MTK_HW_FDE) && !defined(CONFIG_MTK_HW_FDE_AES)
 	seq_puts(m, "hardware fde support\n");
 #endif
-#if defined(CONFIG_HIE)
-	seq_puts(m, "hardware hie support\n");
-#endif
 }
 
 void msdc_cmdq_func(struct msdc_host *host, const int num, struct seq_file *m)

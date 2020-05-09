@@ -171,14 +171,18 @@ struct mmc_request {
 	struct list_head	hlist;
 #endif
 
-#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE) \
-	|| defined(CONFIG_MTK_EMMC_HW_CQ)
 	struct request		*req;
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	bool		is_mmc_req; /* request is from mmc layer */
 #endif
 
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	struct mmc_cmdq_req *cmdq_req;
+#endif
+#ifdef CONFIG_MMC_CRYPTO
+	bool crypto_enable;
+	u8 crypto_key_slot;
+	u64 data_unit_num;
 #endif
 
 	/* Allow other commands during this ongoing data transfer or busy wait */
