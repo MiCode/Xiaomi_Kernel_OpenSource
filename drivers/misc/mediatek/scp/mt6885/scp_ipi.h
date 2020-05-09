@@ -17,6 +17,7 @@
 #include "scp_ipi_wrapper.h"
 
 enum scp_ipi_status {
+	SCP_IPI_NOT_READY = -2,
 	SCP_IPI_ERROR = -1,
 	SCP_IPI_DONE,
 	SCP_IPI_BUSY,
