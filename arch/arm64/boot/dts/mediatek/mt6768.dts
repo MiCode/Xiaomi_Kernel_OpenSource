@@ -3759,7 +3759,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #ifdef CONFIG_CHARGER_RT9471
 #include "rt9471.dtsi"
 #endif
-#ifdef CONFIG_TCPC_CLASS
+#ifdef CONFIG_TCPC_RT1711H
 #include "tcpc_config.dtsi"
 #endif
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
