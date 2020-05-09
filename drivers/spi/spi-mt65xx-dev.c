@@ -34,7 +34,6 @@
 #endif
 
 static struct spi_device *spi_test;
-//u32 speed = 34500000;
 u32 speed = 10000000;
 
 struct mtk_spi {
@@ -55,13 +54,13 @@ struct mtk_spi {
 static struct mtk_chip_config mtk_test_chip_info = {
 	.rx_mlsb = 0,
 	.tx_mlsb = 0,
-	.cs_pol = 0,
 	.sample_sel = 0,
 
 	.cs_setuptime = 0,
 	.cs_holdtime = 0,
 	.cs_idletime = 0,
 	.deassert_mode = 0,
+	.tick_delay = 0,
 };
 
 #define SPI_CFG0_REG                      0x0000
@@ -435,7 +434,7 @@ static ssize_t spi_store(struct device *dev, struct device_attribute *attr,
 	struct mtk_chip_config *chip_config;
 	u32 cs_idletime, pad_sel;
 	int cpol, cpha, tx_mlsb, rx_mlsb;
-	int sample_sel, tckdly, cs_pol;
+	int sample_sel, tckdly;
 	u32 reg_val;
 	int dump_all, dump;
 	int index;
@@ -588,12 +587,6 @@ set:
 			pr_info("%s() Set sample_sel=%d to chip_config\n",
 				__func__, sample_sel);
 			chip_config->sample_sel = sample_sel;
-		}
-	} else if (!strncmp(buf, "cs_pol=", 7)) {
-		if (sscanf(buf + 7, "%d", &cs_pol) == 1) {
-			pr_info("%s() Set cs_pol=%d to chip_config\n",
-				__func__, cs_pol);
-			chip_config->cs_pol = cs_pol;
 		}
 	} else if (!strncmp(buf, "pad_sel=", 8)) {
 		if (sscanf(buf + 8, "%d", &pad_sel) == 1) {
