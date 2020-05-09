@@ -22,7 +22,8 @@
 #define APUSYS_BASE (0x19000000)
 #define APUSYS_TO_INFRA_BASE (0x10000000)
 #define NA	(-1)
-char reg_all_mem[APUSYS_REG_SIZE];
+
+char *reg_all_mem;
 bool apusys_dump_force;
 bool apusys_dump_skip_gals;
 static void *apu_top;
@@ -34,7 +35,6 @@ static struct mutex dbg_lock;
 #define TOTAL_DBG_MUX_COUNT (28)
 #define SEGMENT_COUNT (27)
 
-#define MAX_LINE (5000)
 
 struct dbg_mux_sel_value {
 	char name[128];
@@ -221,30 +221,31 @@ void dump_gals(struct seq_file *sfile)
 
 void apusys_dump_reg_skip_gals(int onoff)
 {
-	mutex_lock(&dbg_lock);
 	if (onoff)
 		apusys_dump_skip_gals = true;
 	else
 		apusys_dump_skip_gals = false;
-	mutex_unlock(&dbg_lock);
 }
 
 void apusys_reg_dump(void)
 {
-	/*mutex_lock(&dbg_lock);*/
 	int i, offset, size;
+	mutex_lock(&dbg_lock);
+
+	if (reg_all_mem == NULL)
+		reg_all_mem = vzalloc(APUSYS_REG_SIZE);
 
 	if (!apusys_dump_skip_gals)
 		dump_gals_reg();
 
-	for (i = 0; i < SEGMENT_COUNT; ++i)	{
+	for (i = 0; i < SEGMENT_COUNT; ++i) {
 		offset = range_table[i].base - APUSYS_BASE;
 		size = range_table[i].size;
 
 		memcpy_fromio(reg_all_mem + offset, apu_top + offset, size);
 	}
 
-	/*mutex_unlock(&dbg_lock);*/
+	mutex_unlock(&dbg_lock);
 }
 
 static void *dump_start(struct seq_file *sfile, loff_t *pos)
@@ -270,11 +271,17 @@ int dump_show(struct seq_file *sfile, void *v)
 	u64 nanosec_rem;
 	int i;
 
-	t = sched_clock();
-	nanosec_rem = do_div(t, 1000000000);
-
 	if (apusys_dump_force)
 		apusys_reg_dump();
+
+
+	if (reg_all_mem == NULL)
+		goto out;
+
+	mutex_lock(&dbg_lock);
+
+	t = sched_clock();
+		nanosec_rem = do_div(t, 1000000000);
 
 	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
@@ -290,6 +297,12 @@ int dump_show(struct seq_file *sfile, void *v)
 	seq_hex_dump(sfile, "", DUMP_PREFIX_OFFSET, 16, 4,
 		reg_all_mem, APUSYS_REG_SIZE, false);
 
+	vfree(reg_all_mem);
+	reg_all_mem = NULL;
+
+	mutex_unlock(&dbg_lock);
+
+out:
 	return 0;
 }
 
@@ -326,7 +339,7 @@ void apusys_dump_init(void)
 	apu_top = ioremap_nocache(APUSYS_BASE, APUSYS_REG_SIZE);
 	apu_to_infra_top = ioremap_nocache(APUSYS_TO_INFRA_BASE, 0x10000);
 
-	memset(reg_all_mem, 0, APUSYS_REG_SIZE);
+	reg_all_mem = NULL;
 	apusys_dump_force = false;
 	apusys_dump_skip_gals = false;
 }
@@ -337,4 +350,3 @@ void apusys_dump_exit(void)
 	iounmap(apu_top);
 	iounmap(apu_to_infra_top);
 }
-
