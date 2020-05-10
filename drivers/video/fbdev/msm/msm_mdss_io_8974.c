@@ -545,8 +545,7 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	 * is only done from the clock master. This will ensure that the PLL is
 	 * off when PHY reset is called.
 	 */
-	if (mdss_dsi_is_ctrl_clk_slave(ctrl) ||
-		(ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM))
+	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
 		return;
 
 	mdss_dsi_phy_sw_reset_sub(ctrl);
@@ -1449,6 +1448,13 @@ void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 		else
 			pr_warn("%s: unable to get slave ctrl\n", __func__);
 	}
+}
+
+static void mdss_dsi_phy_hstx_drv_ctrl(
+	struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
+{
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM)
+		mdss_dsi_12nm_phy_hstx_drv_ctrl(ctrl, enable);
 }
 
 void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
@@ -2495,6 +2501,12 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 
 	pdata = &ctrl->panel_data;
 
+	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_HS_CLK) &&
+		(new_state == MDSS_DSI_CLK_OFF)) {
+		/* Disable HS TX driver in DSI PHY if applicable */
+		mdss_dsi_phy_hstx_drv_ctrl(ctrl, false);
+	}
+
 	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_LP_CLK) &&
 		(new_state == MDSS_DSI_CLK_OFF)) {
 		if (pdata->panel_info.mipi.force_clk_lane_hs)
@@ -2604,7 +2616,8 @@ int mdss_dsi_post_clkon_cb(void *priv,
 		if (ctrl->phy_power_off || mmss_clamp)
 			mdss_dsi_phy_power_on(ctrl, mmss_clamp);
 	}
-	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_HS_CLK)) {
+
+	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_LP_CLK)) {
 		if (ctrl->ulps && mmss_clamp) {
 			/*
 			 * ULPS Entry Request. This is needed if the lanes were
@@ -2646,7 +2659,14 @@ int mdss_dsi_post_clkon_cb(void *priv,
 
 		/* enable split link for cmn clk cfg1 */
 		mdss_dsi_split_link_clk_cfg(ctrl, 1);
+
+		/* Enable HS TX driver in DSI PHY if applicable */
+		if ((clk & MDSS_DSI_LINK_CLK) &&
+				(l_type == MDSS_DSI_LINK_HS_CLK))
+			mdss_dsi_phy_hstx_drv_ctrl(ctrl, true);
 	}
+
+
 error:
 	return rc;
 }
@@ -2758,6 +2778,30 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 			}
 
 		}
+	}
+
+	/* Disable dynamic clock gating*/
+	if (ctrl->mdss_util->dyn_clk_gating_ctrl)
+		ctrl->mdss_util->dyn_clk_gating_ctrl(0);
+
+	if ((clk_type & MDSS_DSI_LINK_CLK) &&
+		(l_type == MDSS_DSI_LINK_HS_CLK)) {
+		u32 data = 0;
+
+		data = MIPI_INP((ctrl->ctrl_io.base) + 0x0120);
+		/*
+		 * For 12nm PHY, the PLL unlock bit in DSI_CLK_STATUS gets set
+		 * when PLL is turned off. When device comes out of static
+		 * screen without the DSI controller getting power collapsed,
+		 * the bit might not clear sometimes. Clear the bit before
+		 * turning ON the PLL. This avoids false error interrupt due to
+		 * PLL unlocked bit after PLL is turned ON.
+		 */
+		if (data & BIT(16)) {
+			pr_debug("pll unlocked: 0x%x\n", data);
+			MIPI_OUTP((ctrl->ctrl_io.base) + 0x120, BIT(16));
+		}
+
 	}
 
 	if ((clk_type & MDSS_DSI_LINK_CLK) &&
