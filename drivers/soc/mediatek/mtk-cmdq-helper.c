@@ -69,7 +69,7 @@ static void cmdq_client_timeout(struct timer_list *t)
 {
 	struct cmdq_client *client = from_timer(client, t, timer);
 
-	dev_err(client->client.dev, "cmdq timeout!\n");
+	pr_notice("[cmdq]cmdq timeout!\n");
 }
 
 struct cmdq_client *cmdq_mbox_create(struct device *dev, int index, u32 timeout)
@@ -215,7 +215,6 @@ int cmdq_pkt_write_mask(struct cmdq_pkt *pkt, u8 subsys,
 		if (err < 0)
 			return err;
 
-		offset_mask |= CMDQ_WRITE_ENABLE_MASK;
 	}
 	err = cmdq_pkt_write(pkt, subsys, offset_mask, value);
 
@@ -244,6 +243,9 @@ int cmdq_pkt_clear_event(struct cmdq_pkt *pkt, u16 event)
 
 	if (event >= CMDQ_MAX_EVENT)
 		return -EINVAL;
+	inst.op = CMDQ_CODE_WFE;
+	inst.value = CMDQ_WFE_UPDATE;
+	inst.event = event;
 
 	inst.op = CMDQ_CODE_WFE;
 	inst.value = CMDQ_WFE_UPDATE;
