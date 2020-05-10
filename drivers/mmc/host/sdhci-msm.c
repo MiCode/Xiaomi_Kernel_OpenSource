@@ -4714,7 +4714,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_msm_host *msm_host;
 	struct resource *core_memres = NULL;
-	int ret = 0, dead = 0;
+	int ret = 0, dead = 0, tlmm_cfg = 0;
 	u16 host_version;
 	u32 irq_status, irq_ctl;
 	struct resource *tlmm_memres = NULL;
@@ -4954,7 +4954,15 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto vreg_deinit;
 		}
-		writel_relaxed(readl_relaxed(tlmm_mem) | 0x2, tlmm_mem);
+
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "tlmm_cfg",
+					   &tlmm_cfg);
+		if (ret)
+			writel_relaxed(readl_relaxed(tlmm_mem) | 0x2, tlmm_mem);
+		else
+			writel_relaxed(readl_relaxed(tlmm_mem) | tlmm_cfg,
+						 tlmm_mem);
 	}
 
 	/*
