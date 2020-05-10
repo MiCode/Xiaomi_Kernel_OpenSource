@@ -34,7 +34,6 @@
 #define F_SLEW(f, s, h, m, n, sf) { (f), (s), (2 * (h) - 1), (m), (n), (sf) }
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
-static DEFINE_VDD_REGULATORS(vdd_sr_pll, VDD_SR_PLL_NUM, 1, vdd_sr_levels);
 
 enum {
 	P_BI_TCXO,
@@ -354,8 +353,8 @@ static const struct parent_map gcc_parent_map_20[] = {
 
 static const char * const gcc_parent_names_20[] = {
 	"bi_tcxo",
-	"gpll0",
-	"gpll6",
+	"gpll0_out_main",
+	"gpll6_out_aux",
 	"sleep_clk",
 	"core_bi_pll_test_se",
 };
@@ -395,6 +394,17 @@ static struct clk_alpha_pll gpll0_out_main = {
 	},
 };
 
+static struct clk_fixed_factor gpll0_out_aux = {
+	.mult = 1,
+	.div = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "gpll0_out_aux",
+		.parent_names = (const char *[]){ "gpll0_out_main" },
+		.num_parents = 1,
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
 static struct clk_alpha_pll gpll0_ao_out_main = {
 	.offset = 0x21000,
 	.soft_vote = &soft_vote_gpll0,
@@ -406,20 +416,6 @@ static struct clk_alpha_pll gpll0_ao_out_main = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gpll0_ao_out_main",
 			.parent_names = (const char *[]){ "bi_tcxo_a" },
-			.num_parents = 1,
-			.ops = &clk_alpha_pll_ops,
-		},
-	},
-};
-
-static struct clk_alpha_pll gpll1_out_main = {
-	.offset = 0x20000,
-	.clkr = {
-		.enable_reg = 0x45000,
-		.enable_mask = BIT(1),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpll1_out_main",
-			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
 		},
@@ -474,11 +470,15 @@ static struct clk_alpha_pll gpll4_out_main = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
+			.vdd_class = &vdd_cx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_NOMINAL] = 1400000000},
 		},
 	},
 };
 
-static struct clk_pll gpll6 = {
+static struct clk_pll gpll6_out_main = {
 	.l_reg = 0x37004,
 	.m_reg = 0x37008,
 	.n_reg = 0x3700C,
@@ -491,21 +491,15 @@ static struct clk_pll gpll6 = {
 		.parent_names = (const char *[]){ "bi_tcxo" },
 		.num_parents = 1,
 		.ops = &clk_pll_ops,
-		.vdd_class = &vdd_sr_pll,
-		.rate_max = (unsigned long [VDD_SR_PLL_NUM]) {
-			[VDD_SR_PLL_SVS] = 1080000000,
-		},
-		.num_rate_max = VDD_SR_PLL_NUM,
 	},
 };
-
 
 static struct clk_regmap gpll6_out_aux = {
 	.enable_reg = 0x45000,
 	.enable_mask = BIT(7),
 	.hw.init = &(struct clk_init_data){
 		.name = "gpll6_out_aux",
-		.parent_names = (const char *[]){ "gpll6" },
+		.parent_names = (const char *[]){ "gpll6_out_main" },
 		.num_parents = 1,
 		.ops = &clk_pll_vote_ops,
 	},
@@ -3773,6 +3767,10 @@ static struct clk_dummy wcnss_m_clk = {
 	},
 };
 
+struct clk_hw *gcc_sdm429w_hws[] = {
+	[GPLL0_OUT_AUX] = &gpll0_out_aux.hw,
+};
+
 static struct clk_regmap *gcc_sdm429w_clocks[] = {
 	[APSS_AHB_CLK_SRC] = &apss_ahb_clk_src.clkr,
 	[BLSP1_QUP1_I2C_APPS_CLK_SRC] = &blsp1_qup1_i2c_apps_clk_src.clkr,
@@ -3845,10 +3843,9 @@ static struct clk_regmap *gcc_sdm429w_clocks[] = {
 	[GPLL0_OUT_MAIN] = &gpll0_out_main.clkr,
 	[GPLL0_AO_OUT_MAIN] = &gpll0_ao_out_main.clkr,
 	[GPLL0_SLEEP_CLK_SRC] = &gpll0_sleep_clk_src.clkr,
-	[GPLL1_OUT_MAIN] = &gpll1_out_main.clkr,
 	[GPLL3_OUT_MAIN] = &gpll3_out_main.clkr,
 	[GPLL4_OUT_MAIN] = &gpll4_out_main.clkr,
-	[GPLL6] = &gpll6.clkr,
+	[GPLL6_OUT_MAIN] = &gpll6_out_main.clkr,
 	[GPLL6_OUT_AUX] = &gpll6_out_aux,
 	[JPEG0_CLK_SRC] = &jpeg0_clk_src.clkr,
 	[PDM2_CLK_SRC] = &pdm2_clk_src.clkr,
@@ -3968,6 +3965,8 @@ static const struct qcom_cc_desc gcc_sdm429w_desc = {
 	.config = &gcc_sdm429w_regmap_config,
 	.clks = gcc_sdm429w_clocks,
 	.num_clks = ARRAY_SIZE(gcc_sdm429w_clocks),
+	.hwclks = gcc_sdm429w_hws,
+	.num_hwclks = ARRAY_SIZE(gcc_sdm429w_hws),
 	.resets = gcc_sdm429w_resets,
 	.num_resets = ARRAY_SIZE(gcc_sdm429w_resets),
 };
@@ -3996,14 +3995,6 @@ static int gcc_sdm429w_probe(struct platform_device *pdev)
 		if (PTR_ERR(vdd_cx.regulator[0]) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get vdd_cx regulator\n");
 		return PTR_ERR(vdd_cx.regulator[0]);
-	}
-
-	vdd_sr_pll.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_sr_pll");
-	if (IS_ERR(vdd_sr_pll.regulator[0])) {
-		if (!(PTR_ERR(vdd_sr_pll.regulator[0]) == -EPROBE_DEFER))
-			dev_err(&pdev->dev,
-				"Unable to get vdd_sr_pll regulator\n");
-		return PTR_ERR(vdd_sr_pll.regulator[0]);
 	}
 
 	regmap = qcom_cc_map(pdev, &gcc_sdm429w_desc);
