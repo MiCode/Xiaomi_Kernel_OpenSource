@@ -279,70 +279,6 @@ static bool cvp_fence_wait(struct cvp_fence_queue *q,
 	return true;
 }
 
-static int cvp_fence_dme(struct msm_cvp_inst *inst,
-			struct cvp_fence_command *fc,
-			struct cvp_hfi_cmd_session_hdr *pkt)
-{
-	int rc = 0;
-	unsigned long timeout;
-	u64 ktid;
-	int synx_state = SYNX_STATE_SIGNALED_SUCCESS;
-	struct cvp_hfi_device *hdev;
-	struct cvp_session_queue *sq;
-	u32 hfi_err = HFI_ERR_NONE;
-	struct cvp_hfi_msg_session_hdr *hdr;
-
-	dprintk(CVP_SYNX, "%s %s\n", current->comm, __func__);
-
-	hdev = inst->core->device;
-	sq = &inst->session_queue_fence;
-	ktid = pkt->client_data.kdata;
-
-	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state)) {
-		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
-		goto exit;
-	}
-
-	rc = call_hfi_op(hdev, session_send, (void *)inst->session,
-			(struct cvp_kmd_hfi_packet *)pkt);
-	if (rc) {
-		dprintk(CVP_ERR, "%s %s: Failed in call_hfi_op %d, %x\n",
-			current->comm, __func__, pkt->size, pkt->packet_type);
-		synx_state = SYNX_STATE_SIGNALED_ERROR;
-		goto exit;
-	}
-
-	timeout = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
-	rc = cvp_wait_process_message(inst, sq, &ktid, timeout,
-				(struct cvp_kmd_hfi_packet *)pkt);
-	hdr = (struct cvp_hfi_msg_session_hdr *)pkt;
-	hfi_err = hdr->error_type;
-	if (rc) {
-		dprintk(CVP_ERR, "%s %s: cvp_wait_process_message rc %d\n",
-			current->comm, __func__, rc);
-		synx_state = SYNX_STATE_SIGNALED_ERROR;
-		goto exit;
-	}
-	if (hfi_err == HFI_ERR_SESSION_FLUSHED) {
-		dprintk(CVP_SYNX, "%s %s: cvp_wait_process_message flushed\n",
-			current->comm, __func__);
-		synx_state = SYNX_STATE_SIGNALED_CANCEL;
-	} else if (hfi_err == HFI_ERR_SESSION_STREAM_CORRUPT) {
-		dprintk(CVP_ERR, "%s %s: cvp_wait_process_msg non-fatal %d\n",
-		current->comm, __func__, hfi_err);
-		synx_state = SYNX_STATE_SIGNALED_SUCCESS;
-	} else if (hfi_err != HFI_ERR_NONE) {
-		dprintk(CVP_ERR, "%s %s: cvp_wait_process_message hfi err %d\n",
-			current->comm, __func__, hfi_err);
-		synx_state = SYNX_STATE_SIGNALED_CANCEL;
-	}
-
-exit:
-	rc = cvp_synx_ops(inst, CVP_OUTPUT_SYNX, fc, &synx_state);
-
-	return rc;
-}
-
 static int cvp_fence_proc(struct msm_cvp_inst *inst,
 			struct cvp_fence_command *fc,
 			struct cvp_hfi_cmd_session_hdr *pkt)
@@ -466,31 +402,18 @@ wait:
 	synx = (u32 *)f->synx;
 
 	ktid = pkt->client_data.kdata & (FENCE_BIT - 1);
-	dprintk(CVP_SYNX, "%s on frame %llu frameID %llu ktid %llu\n",
-		current->comm, ktid, f->frame_id, ktid);
+	dprintk(CVP_SYNX, "%s pkt type %d on ktid %llu frameID %llu\n",
+		current->comm, pkt->packet_type, ktid, f->frame_id);
 
-	switch (f->type) {
-	case HFI_CMD_SESSION_CVP_DME_FRAME:
-		rc = cvp_fence_dme(inst, f, pkt);
-		break;
-	case HFI_CMD_SESSION_CVP_FD_FRAME:
-		rc = cvp_fence_proc(inst, f, pkt);
-		break;
-	default:
-		dprintk(CVP_ERR, "%s: unknown hfi cmd type 0x%x\n",
-			__func__, f->type);
-		rc = -EINVAL;
-		goto exit;
-		break;
-	}
+	rc = cvp_fence_proc(inst, f, pkt);
 
 	mutex_lock(&q->lock);
 	cvp_release_synx(inst, f);
 	list_del_init(&f->list);
 	mutex_unlock(&q->lock);
 
-	dprintk(CVP_SYNX, "%s is done with frame %llu frameID %llu rc %d\n",
-		current->comm, ktid, f->frame_id, rc);
+	dprintk(CVP_SYNX, "%s done with %d ktid %llu frameID %llu rc %d\n",
+		current->comm, pkt->packet_type, ktid, f->frame_id, rc);
 
 	cvp_free_fence_data(f);
 
@@ -562,7 +485,7 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 
 	if (!is_buf_param_valid(buf_num, offset)) {
 		dprintk(CVP_ERR, "Incorrect buf num and offset in cmd\n");
-		return -EINVAL;
+		goto exit;
 	}
 	rc = msm_cvp_map_frame(inst, (struct cvp_kmd_hfi_packet *)pkt, offset,
 				buf_num);
@@ -578,8 +501,10 @@ static int msm_cvp_session_process_hfi_fence(struct msm_cvp_inst *inst,
 
 	synx_pkt = &arg->data.hfi_synx_pkt;
 	if (synx_pkt->fence_data[0] != 0xFEEDFACE) {
-		fence = (u32 *)&fence_pkt->fence_data;
-		f->frame_id = arg->data.hfi_fence_pkt.frame_id;
+		dprintk(CVP_ERR, "%s deprecated synx path\n", __func__);
+		cvp_free_fence_data(f);
+		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
+		goto exit;
 	} else {
 		kfc = &synx_pkt->fc;
 		fence = (u32 *)&kfc->fences;
