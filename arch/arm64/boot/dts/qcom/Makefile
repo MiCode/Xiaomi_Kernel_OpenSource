@@ -391,6 +391,7 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
         sa515m-v2-ttp-pcie-ep.dtb \
         sa515m-v2-ttp-flashless-usb-ep.dtb \
         sa515m-v2-ttp-flashless-pcie-ep.dtb \
+        sa515m-v2-ttp-emmc.dtb \
 	sa515m-ccard.dtb \
 	sa515m-ccard-pcie-ep.dtb \
 	sa515m-ccard-usb-ep.dtb \
