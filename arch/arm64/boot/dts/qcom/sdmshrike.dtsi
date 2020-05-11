@@ -2471,6 +2471,11 @@
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "aop";
 	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
 };
 
 &emac_gdsc {
