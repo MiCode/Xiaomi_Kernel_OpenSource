@@ -10,6 +10,7 @@
 #include <linux/console.h>
 #include <linux/io.h>
 #include <linux/ipc_logging.h>
+#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -800,8 +801,8 @@ static void msm_geni_serial_poll_tx_done(struct uart_port *uport)
 		 * Failure IPC logs are not added as this API is
 		 * used by early console and it doesn't have log handle.
 		 */
-		geni_write_reg(S_GENI_CMD_CANCEL, uport->membase,
-						SE_GENI_S_CMD_CTRL_REG);
+		geni_write_reg(M_GENI_CMD_CANCEL, uport->membase,
+						SE_GENI_M_CMD_CTRL_REG);
 		done = msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
 						M_CMD_CANCEL_EN, true);
 		if (!done) {
@@ -2020,6 +2021,7 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 	/* Stop the console before stopping the current tx */
 	if (uart_console(uport)) {
 		console_stop(uport->cons);
+		disable_irq(uport->irq);
 	} else {
 		msm_geni_serial_power_on(uport);
 		wait_for_transfers_inflight(uport);
@@ -2177,6 +2179,16 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	 * before returning to the framework.
 	 */
 	mb();
+
+	/* Console usecase requires irq to be in enable state after early
+	 * console switch from probe to handle RX data. Hence enable IRQ
+	 * from starup and disable it form shutdown APIs for cosnole case.
+	 * BT HSUART usecase, IRQ will be enabled from runtime_resume()
+	 * and disabled in runtime_suspend to avoid spurious interrupts
+	 * after suspend.
+	 */
+	if (uart_console(uport))
+		enable_irq(uport->irq);
 
 	if (msm_port->wakeup_irq > 0) {
 		ret = request_irq(msm_port->wakeup_irq, msm_geni_wakeup_isr,
@@ -3152,6 +3164,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	dev_port->name = devm_kasprintf(uport->dev, GFP_KERNEL,
 					"msm_serial_geni%d", uport->line);
+	irq_set_status_flags(uport->irq, IRQ_NOAUTOEN);
 	ret = devm_request_irq(uport->dev, uport->irq, msm_geni_serial_isr,
 				IRQF_TRIGGER_HIGH, dev_port->name, uport);
 	if (ret) {
@@ -3159,12 +3172,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 							__func__, ret);
 		goto exit_geni_serial_probe;
 	}
-	/*
-	 * Console usecase requires irq to be in enable state to handle RX data.
-	 * disable irq only for HSUART case from here.
-	 */
-	if (!is_console)
-		disable_irq(dev_port->uport.irq);
 
 	uport->private_data = (void *)drv;
 	platform_set_drvdata(pdev, dev_port);
@@ -3188,11 +3195,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",
 				line, uport->fifosize, is_console);
-	/*
-	 * We are using this spinlock before the serial layer initialises it.
-	 * Hence, we are initializing it.
-	 */
-	spin_lock_init(&uport->lock);
 
 	device_create_file(uport->dev, &dev_attr_loopback);
 	device_create_file(uport->dev, &dev_attr_xfer_mode);
