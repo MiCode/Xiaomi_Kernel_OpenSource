@@ -3937,6 +3937,12 @@ static inline void walt_adjust_cpus_for_packing(struct task_struct *p,
 	if (prefer_spread_on_idle(*best_idle_cpu))
 		fbt_env->need_idle |= 2;
 
+	if (task_rtg_high_prio(p) && walt_nr_rtg_high_prio(*target_cpu) > 0) {
+		*target_cpu = -1;
+		return;
+	}
+
+
 	if (fbt_env->need_idle || task_placement_boost_enabled(p) ||
 		fbt_env->boosted || shallowest_idle_cstate <= 0) {
 		*target_cpu = -1;
@@ -6549,6 +6555,8 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	int unisolated_candidate = -1;
 	int order_index = fbt_env->order_index, end_index = fbt_env->end_index;
 	int cluster;
+	unsigned int target_nr_rtg_high_prio = UINT_MAX;
+	bool rtg_high_prio_task = task_rtg_high_prio(p);
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
@@ -6696,11 +6704,30 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			if (p->state == TASK_RUNNING)
 				continue;
 
-			/* Favor CPUs with maximum spare capacity */
-			if (spare_cap < target_max_spare_cap)
-				continue;
+			/*
+			 * Try to spread the rtg high prio tasks so that they
+			 * don't preempt each other. This is a optimisitc
+			 * check assuming rtg high prio can actually preempt
+			 * the current running task with the given vruntime
+			 * boost.
+			 */
+			if (rtg_high_prio_task)  {
+				if (walt_nr_rtg_high_prio(i) > target_nr_rtg_high_prio)
+					continue;
+
+				/* Favor CPUs with maximum spare capacity */
+				if (walt_nr_rtg_high_prio(i) == target_nr_rtg_high_prio &&
+						spare_cap < target_max_spare_cap)
+					continue;
+
+			} else {
+				/* Favor CPUs with maximum spare capacity */
+				if (spare_cap < target_max_spare_cap)
+					continue;
+			}
 
 			target_max_spare_cap = spare_cap;
+			target_nr_rtg_high_prio = walt_nr_rtg_high_prio(i);
 			target_cpu = i;
 		}
 
