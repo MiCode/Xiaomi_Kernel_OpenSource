@@ -668,7 +668,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	struct mhi_controller *mhi_cntrl;
 	struct mhi_dev *mhi_dev;
 	struct device_node *of_node = pci_dev->dev.of_node;
-	const struct firmware_info *firmware_info;
+	const struct firmware_info *firmware_info, *debug_info;
 	bool use_bb;
 	u64 addr_win[2];
 	int ret, i, len;
@@ -761,8 +761,11 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	}
 
 	if (debug_mode) {
+		debug_info = firmware_table + (len - 1);
+		mhi_cntrl->fw_image_fallback = debug_info->fw_image;
+
 		if (debug_mode <= MHI_DEBUG_D3)
-			firmware_info = firmware_table + (len - 1);
+			firmware_info = debug_info;
 		MHI_CNTRL_LOG("fw info: debug_mode:%d dev_id:%d image:%s\n",
 			      debug_mode, firmware_info->dev_id,
 			      firmware_info->fw_image);
