@@ -6106,13 +6106,15 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 	return 0;
 }
 
-static void dsi_display_adjust_mode_timing(
-				    struct dsi_dyn_clk_caps *dyn_clk_caps,
+static void dsi_display_adjust_mode_timing(struct dsi_display *display,
 				    struct dsi_display_mode *dsi_mode,
 				    int lanes, int bpp)
 {
 	u64 new_htotal, new_vtotal, htotal, vtotal, old_htotal, div;
+	struct dsi_dyn_clk_caps *dyn_clk_caps;
+	u32 bits_per_symbol = 16, num_of_symbols = 7; /* For Cphy */
 
+	dyn_clk_caps = &(display->panel->dyn_clk_caps);
 	if (!dyn_clk_caps->maintain_const_fps)
 		return;
 
@@ -6128,6 +6130,11 @@ static void dsi_display_adjust_mode_timing(
 		old_htotal = DSI_H_TOTAL_DSC(&dsi_mode->timing);
 		new_htotal = dsi_mode->timing.clk_rate_hz * lanes;
 		div = bpp * vtotal * dsi_mode->timing.refresh_rate;
+		if (display->panel->host_config.phy_type ==
+						DSI_PHY_TYPE_CPHY) {
+			new_htotal = new_htotal * bits_per_symbol;
+			div = div * num_of_symbols;
+		}
 		do_div(new_htotal, div);
 		if (old_htotal > new_htotal)
 			dsi_mode->timing.h_front_porch -=
@@ -6141,6 +6148,11 @@ static void dsi_display_adjust_mode_timing(
 		htotal = DSI_H_TOTAL_DSC(&dsi_mode->timing);
 		new_vtotal = dsi_mode->timing.clk_rate_hz * lanes;
 		div = bpp * htotal * dsi_mode->timing.refresh_rate;
+		if (display->panel->host_config.phy_type ==
+						DSI_PHY_TYPE_CPHY) {
+			new_vtotal = new_vtotal * bits_per_symbol;
+			div = div * num_of_symbols;
+		}
 		do_div(new_vtotal, div);
 		dsi_mode->timing.v_front_porch = new_vtotal -
 			dsi_mode->timing.v_back_porch -
@@ -6192,7 +6204,7 @@ static void _dsi_display_populate_bit_clks(struct dsi_display *display,
 		 * be based on user or device tree preferrence.
 		 */
 		src->timing.clk_rate_hz = dyn_clk_caps->bit_clk_list[0];
-		dsi_display_adjust_mode_timing(dyn_clk_caps, src, lanes, bpp);
+		dsi_display_adjust_mode_timing(display, src, lanes, bpp);
 		src->pixel_clk_khz =
 			div_u64(src->timing.clk_rate_hz * lanes, bpp);
 		src->pixel_clk_khz /= 1000;
@@ -6212,7 +6224,7 @@ static void _dsi_display_populate_bit_clks(struct dsi_display *display,
 			}
 			memcpy(dst, src, sizeof(struct dsi_display_mode));
 			dst->timing.clk_rate_hz = dyn_clk_caps->bit_clk_list[i];
-			dsi_display_adjust_mode_timing(dyn_clk_caps, dst,
+			dsi_display_adjust_mode_timing(display, dst,
 						       lanes, bpp);
 			dst->pixel_clk_khz =
 				div_u64(dst->timing.clk_rate_hz * lanes, bpp);
