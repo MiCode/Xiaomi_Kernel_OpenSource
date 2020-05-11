@@ -250,11 +250,66 @@ err_invalid_core:
 }
 EXPORT_SYMBOL(msm_cvp_open);
 
+static void msm_cvp_clean_sess_queue(struct msm_cvp_inst *inst,
+		struct cvp_session_queue *sq)
+{
+	struct cvp_session_msg *mptr, *dummy;
+	u64 ktid;
+
+	spin_lock(&sq->lock);
+	if (sq->msg_count && sq->state != QUEUE_ACTIVE) {
+		list_for_each_entry_safe(mptr, dummy, &sq->msgs, node) {
+			ktid = mptr->pkt.client_data.kdata;
+			if (ktid) {
+				list_del_init(&mptr->node);
+				sq->msg_count--;
+				msm_cvp_unmap_frame(inst, ktid);
+				kmem_cache_free(cvp_driver->msg_cache, mptr);
+			}
+		}
+	}
+	spin_unlock(&sq->lock);
+}
+
 static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
+	bool empty;
+	int max_retries;
+	struct msm_cvp_frame *frame;
+	struct cvp_session_queue *sq, *sqf;
+
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return;
+	}
+
+	sqf = &inst->session_queue_fence;
+	sq = &inst->session_queue;
+
+	max_retries =  inst->core->resources.msm_cvp_hw_rsp_timeout >> 1;
+
+wait:
+	mutex_lock(&inst->frames.lock);
+	empty = list_empty(&inst->frames.list);
+	if (!empty && max_retries > 0) {
+		mutex_unlock(&inst->frames.lock);
+		usleep_range(1000, 2000);
+		msm_cvp_clean_sess_queue(inst, sqf);
+		msm_cvp_clean_sess_queue(inst, sq);
+		max_retries--;
+		goto wait;
+	}
+	mutex_unlock(&inst->frames.lock);
+
+	if (!empty) {
+		dprintk(CVP_WARN,
+			"Failed to process frames before session close\n");
+		mutex_lock(&inst->frames.lock);
+		list_for_each_entry(frame, &inst->frames.list, list)
+			dprintk(CVP_WARN, "Unprocessed frame %d\n",
+				frame->pkt_type);
+		mutex_unlock(&inst->frames.lock);
+		cvp_dump_fence_queue(inst);
 	}
 
 	if (cvp_release_arp_buffers(inst))
