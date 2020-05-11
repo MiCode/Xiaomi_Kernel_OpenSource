@@ -1487,6 +1487,7 @@
 			<&tlmm 90 2>, <&pdc 0 290 1>, <&pdc 0 291 1>;
 		interrupt-names = "macirq", "eth_lpi",
 			"phy-intr",	"ptp_pps_irq_0", "ptp_pps_irq_1";
+		snps,crc_strip;
 		qcom,msm-bus,name = "emac";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
