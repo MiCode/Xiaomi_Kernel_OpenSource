@@ -525,6 +525,22 @@ static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 	return ret;
 }
 
+static void mhi_qcom_fatal_worker(struct work_struct *work)
+{
+	struct mhi_dev *mhi_dev = container_of(work, struct mhi_dev,
+					       fatal_worker);
+	struct device *dev = &mhi_dev->pci_dev->dev;
+	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
+	int ret;
+
+	mhi_power_down(mhi_cntrl, true);
+
+	ret = mhi_qcom_power_up(mhi_cntrl);
+	if (ret)
+		MHI_ERR("Power up failure after SYS ERROR in PBL, ret:%d\n",
+			ret);
+}
+
 static int mhi_runtime_get(struct mhi_controller *mhi_cntrl, void *priv)
 {
 	struct mhi_dev *mhi_dev = priv;
@@ -568,6 +584,10 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		}
 		pm_runtime_put(dev);
 		mhi_arch_mission_mode_enter(mhi_cntrl);
+		break;
+	case MHI_CB_FATAL_ERROR:
+		MHI_CNTRL_ERR("Perform power cycle due to SYS ERROR in PBL\n");
+		schedule_work(&mhi_dev->fatal_worker);
 		break;
 	default:
 		MHI_CNTRL_LOG("Unhandled cb:0x%x\n", reason);
@@ -782,6 +802,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 		goto error_register;
 
 	INIT_WORK(&mhi_cntrl->reg_write_work, mhi_reg_write_work);
+	INIT_WORK(&mhi_dev->fatal_worker, mhi_qcom_fatal_worker);
 
 	mhi_cntrl->reg_write_q = kcalloc(REG_WRITE_QUEUE_LEN,
 					sizeof(*mhi_cntrl->reg_write_q),
