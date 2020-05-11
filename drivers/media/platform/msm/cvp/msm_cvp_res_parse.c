@@ -701,7 +701,7 @@ int cvp_read_platform_resources_from_drv_data(
 
 	res->sku_version = platform_data->sku_version;
 
-	res->fw_name = "cvpss";
+	res->fw_name = "evass";
 
 	dprintk(CVP_CORE, "Firmware filename: %s\n", res->fw_name);
 

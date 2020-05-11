@@ -4268,7 +4268,7 @@ static int __load_fw(struct iris_hfi_device *device)
 			|| device->res->use_non_secure_pil) {
 		if (!device->resources.fw.cookie)
 			device->resources.fw.cookie =
-				subsystem_get_with_fwname("cvpss",
+				subsystem_get_with_fwname("evass",
 				device->res->fw_name);
 
 		if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
