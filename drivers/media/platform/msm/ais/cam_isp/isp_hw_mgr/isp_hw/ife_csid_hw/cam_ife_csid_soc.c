@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,6 +126,13 @@ int cam_ife_csid_enable_soc_resources(
 
 	soc_private = soc_info->soc_private;
 
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		clk_level, true);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "enable platform failed");
+		goto end;
+	}
+
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
@@ -139,20 +146,14 @@ int cam_ife_csid_enable_soc_resources(
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Error CPAS start failed");
 		rc = -EFAULT;
-		goto end;
+		goto disable_platform_resource;
 	}
+	goto end;
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		clk_level, true);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "enable platform failed");
-		goto stop_cpas;
-	}
+disable_platform_resource:
+	if (cam_soc_util_disable_platform_resource(soc_info, true, true))
+		CAM_ERR(CAM_ISP, "Disable platform resource failed");
 
-	return rc;
-
-stop_cpas:
-	cam_cpas_stop(soc_private->cpas_handle);
 end:
 	return rc;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -302,6 +302,12 @@ int cam_a5_init_hw(void *device_priv,
 		return -EINVAL;
 	}
 
+	rc = cam_a5_enable_soc_resources(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
+		goto end;
+	}
+
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
@@ -312,19 +318,17 @@ int cam_a5_init_hw(void *device_priv,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
-		return rc;
+		goto disable_soc_resources;
 	}
 	core_info->cpas_start = true;
 
-	rc = cam_a5_enable_soc_resources(soc_info);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
-		if (cam_cpas_stop(core_info->cpas_handle))
-			CAM_ERR(CAM_ICP, "cpas stop is failed");
-		else
-			core_info->cpas_start = false;
-	}
+	goto end;
 
+disable_soc_resources:
+	if (cam_a5_disable_soc_resources(soc_info))
+		CAM_ERR(CAM_ICP, "Disable soc resource failed");
+
+end:
 	return rc;
 }
 
