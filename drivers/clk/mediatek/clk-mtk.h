@@ -233,6 +233,8 @@ struct mtk_pll_data {
 	uint32_t pcw_chg_reg;
 	const struct mtk_pll_div_table *div_table;
 	const char *parent_name;
+	uint32_t en_reg;
+	uint8_t base_en_bit;
 };
 
 void mtk_clk_register_plls(struct device_node *node,
