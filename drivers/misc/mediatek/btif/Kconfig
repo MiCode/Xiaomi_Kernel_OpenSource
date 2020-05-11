@@ -1,0 +1,7 @@
+config MTK_BTIF
+	tristate "MediaTek BTIF Driver"
+	help
+	  MTK connectivity BTIF driver for A/D die
+	  and not supported in combo project
+	  It is used to config whether BTIF driver
+	  is supported or not.

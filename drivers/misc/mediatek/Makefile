@@ -24,3 +24,6 @@ obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
 obj-$(CONFIG_MMSTAT_TRACER) += mmstat/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
+obj-$(CONFIG_MTK_COMBO) += connectivity/
+obj-$(CONFIG_MTK_BTIF) += btif/
+obj-$(CONFIG_MTK_CONN_MD) += conn_md/
