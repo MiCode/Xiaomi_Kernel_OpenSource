@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -39,6 +39,7 @@ struct pdc_pin_region {
 	u32 cnt;
 };
 
+DECLARE_BITMAP(pdc_wake_irqs, PDC_MAX_IRQS);
 static DEFINE_RAW_SPINLOCK(pdc_lock);
 static void __iomem *pdc_base, *pdc_cfg_base;
 static struct pdc_pin_region *pdc_region;
@@ -73,13 +74,20 @@ static void pdc_enable_intr(struct irq_data *d, bool on)
 	raw_spin_unlock(&pdc_lock);
 }
 
-static void qcom_pdc_gic_disable(struct irq_data *d)
+static int qcom_pdc_gic_set_wake(struct irq_data *d, unsigned int on)
 {
 	if (d->hwirq == GPIO_NO_WAKE_IRQ)
-		return;
+		return 0;
 
-	pdc_enable_intr(d, false);
-	irq_chip_disable_parent(d);
+	if (on) {
+		pdc_enable_intr(d, true);
+		set_bit(d->hwirq, pdc_wake_irqs);
+		irq_chip_enable_parent(d);
+	} else {
+		clear_bit(d->hwirq, pdc_wake_irqs);
+	}
+
+	return irq_chip_set_wake_parent(d, on);
 }
 
 static int qcom_pdc_gic_get_irqchip_state(struct irq_data *d,
@@ -116,6 +124,10 @@ static void qcom_pdc_gic_mask(struct irq_data *d)
 
 	ipc_log_string(pdc_ipc_log, "PIN=%d mask", d->hwirq);
 	irq_chip_mask_parent(d);
+
+	/* Mask at PDC if not a wake irq */
+	if (!test_bit(d->hwirq, pdc_wake_irqs))
+		pdc_enable_intr(d, false);
 }
 
 static void qcom_pdc_gic_unmask(struct irq_data *d)
@@ -241,15 +253,14 @@ static struct irq_chip qcom_pdc_gic_chip = {
 	.irq_eoi		= irq_chip_eoi_parent,
 	.irq_mask		= qcom_pdc_gic_mask,
 	.irq_unmask		= qcom_pdc_gic_unmask,
-	.irq_disable		= qcom_pdc_gic_disable,
 	.irq_enable		= qcom_pdc_gic_enable,
 	.irq_get_irqchip_state	= qcom_pdc_gic_get_irqchip_state,
 	.irq_set_irqchip_state	= qcom_pdc_gic_set_irqchip_state,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_type		= qcom_pdc_gic_set_type,
+	.irq_set_wake		= qcom_pdc_gic_set_wake,
 	.flags			= IRQCHIP_MASK_ON_SUSPEND |
-				  IRQCHIP_SET_TYPE_MASKED |
-				  IRQCHIP_SKIP_SET_WAKE,
+				  IRQCHIP_SET_TYPE_MASKED,
 	.irq_set_vcpu_affinity	= irq_chip_set_vcpu_affinity_parent,
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 };
