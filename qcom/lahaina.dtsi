@@ -4488,12 +4488,12 @@
 		};
 	};
 
-	qcom,cvpss@abb0000 {
+	qcom,evass@abb0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xabb0000 0x2000>;
 		status = "ok";
 		qcom,pas-id = <26>;
-		qcom,firmware-name = "cvpss";
+		qcom,firmware-name = "evass";
 
 		memory-region = <&pil_cvp_mem>;
 	};
