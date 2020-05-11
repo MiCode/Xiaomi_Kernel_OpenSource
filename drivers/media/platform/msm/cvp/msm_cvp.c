@@ -720,6 +720,7 @@ static int adjust_bw_freqs(void)
 	}
 
 	bw_sum = rt_pwr.bw_sum + nrt_pwr.bw_sum;
+	bw_sum = bw_sum >> 10;
 	bw_sum = (bw_sum > max_bw) ? max_bw : bw_sum;
 	bw_sum = (bw_sum < min_bw) ? min_bw : bw_sum;
 
