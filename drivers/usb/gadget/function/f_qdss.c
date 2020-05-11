@@ -838,8 +838,22 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 		return -EIO;
 	}
 
+	/* If data_write_pool is empty & debug inface is set
+	 * then return -EINVAL instead of -EAGAIN.
+	 * qdss_write is expecting data_write_pool to
+	 * be populated. But data_write_pool is populated only
+	 * when debug_inface_enbled is not set.
+	 */
+	if (list_empty(&qdss->data_write_pool) &&
+	    qdss->debug_inface_enabled) {
+		pr_err("%s:error: Invalid operation.\n", __func__);
+		spin_unlock_irqrestore(&qdss->lock, flags);
+		return -EINVAL;
+	}
+
 	if (list_empty(&qdss->data_write_pool)) {
-		pr_err("error: usb_qdss_data_write list is empty\n");
+		pr_err_ratelimited(
+			"error: usb_qdss_data_write list is empty\n");
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		return -EAGAIN;
 	}
