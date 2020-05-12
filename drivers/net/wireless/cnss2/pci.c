@@ -2179,9 +2179,9 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 		return;
 	}
 
-	if (plat_priv->device_id == QCA6174_DEVICE_ID ||
-	    !(test_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state) ||
-	      test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)))
+	mutex_lock(&plat_priv->driver_ops_lock);
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto skip_wait_power_up;
 
 	timeout = cnss_get_qmi_timeout(plat_priv);
@@ -2210,6 +2210,8 @@ skip_wait_recovery:
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 			       CNSS_EVENT_SYNC_UNKILLABLE, NULL);
+
+	mutex_unlock(&plat_priv->driver_ops_lock);
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
