@@ -469,23 +469,6 @@ error:
 		display->panel->esd_config.esd_enabled = false;
 }
 
-static bool dsi_display_is_te_based_esd(struct dsi_display *display)
-{
-	u32 status_mode = 0;
-
-	if (!display->panel) {
-		pr_err("Invalid panel data\n");
-		return false;
-	}
-
-	status_mode = display->panel->esd_config.status_mode;
-
-	if (status_mode == ESD_MODE_PANEL_TE &&
-			gpio_is_valid(display->disp_te_gpio))
-		return true;
-	return false;
-}
-
 /* Allocate memory for cmd dma tx buffer */
 static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 {
@@ -1107,6 +1090,25 @@ int dsi_display_set_power(struct drm_connector *connector,
 	return rc;
 }
 
+#ifdef CONFIG_DEBUG_FS
+static bool dsi_display_is_te_based_esd(struct dsi_display *display)
+{
+	u32 status_mode = 0;
+
+	if (!display->panel) {
+		pr_err("Invalid panel data\n");
+		return false;
+	}
+
+	status_mode = display->panel->esd_config.status_mode;
+
+	if (status_mode == ESD_MODE_PANEL_TE &&
+				gpio_is_valid(display->disp_te_gpio))
+		return true;
+
+	return false;
+}
+
 static ssize_t debugfs_dump_info_read(struct file *file,
 				      char __user *user_buf,
 				      size_t user_len,
@@ -1654,6 +1656,17 @@ static int dsi_display_debugfs_deinit(struct dsi_display *display)
 
 	return 0;
 }
+
+#else
+static int dsi_display_debugfs_init(struct dsi_display *display)
+{
+	return 0;
+}
+static int dsi_display_debugfs_deinit(struct dsi_display *display)
+{
+	return 0;
+}
+#endif /* CONFIG_DEBUG_FS */
 
 static void adjust_timing_by_ctrl_count(const struct dsi_display *display,
 					struct dsi_display_mode *mode)
