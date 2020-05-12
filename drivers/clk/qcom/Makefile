@@ -67,6 +67,7 @@ obj-$(CONFIG_SDX_DEBUGCC_LEMUR) += debugcc-sdxlemur.o
 obj-$(CONFIG_SDX_GCC_LEMUR) += gcc-sdxlemur.o
 obj-$(CONFIG_SM_CAMCC_8150) += camcc-sm8150.o
 obj-$(CONFIG_SM_CAMCC_SHIMA) += camcc-shima.o
+obj-$(CONFIG_SM_DEBUGCC_8150) += debugcc-sm8150.o
 obj-$(CONFIG_SM_DEBUGCC_HOLI) += debugcc-holi.o
 obj-$(CONFIG_SM_DEBUGCC_SHIMA) += debugcc-shima.o
 obj-$(CONFIG_SM_DISPCC_8150) += dispcc-sm8150.o
