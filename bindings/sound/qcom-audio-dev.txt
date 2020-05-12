@@ -253,6 +253,10 @@ Optional properties:
                                           0 - Unsupported
                                           1 - Supported
 
+- qcom,msm-dai-cdc-dma-dev-id:            Indicate how data is packed within
+                                          codec DMA.
+                                          0 - MSB
+                                          1 - LSB
 * msm-auxpcm
 
 Required properties:
