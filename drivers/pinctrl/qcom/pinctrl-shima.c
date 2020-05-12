@@ -593,7 +593,6 @@ enum shima_functions {
 	msm_mux_ddr_pxi1,
 	msm_mux_dp_hot,
 	msm_mux_dp_lcd,
-	msm_mux_forced_usb,
 	msm_mux_gcc_gp1,
 	msm_mux_gcc_gp2,
 	msm_mux_gcc_gp3,
@@ -881,9 +880,6 @@ static const char * const dp_hot_groups[] = {
 };
 static const char * const dp_lcd_groups[] = {
 	"gpio83",
-};
-static const char * const forced_usb_groups[] = {
-	"gpio203",
 };
 static const char * const gcc_gp1_groups[] = {
 	"gpio115", "gpio129",
@@ -1526,7 +1522,6 @@ static const struct msm_function shima_functions[] = {
 	FUNCTION(host2wlan_sol),
 	FUNCTION(atest_usb00),
 	FUNCTION(atest_usb0),
-	FUNCTION(forced_usb),
 };
 
 /* Every pin is maintained as a single group, and missing or non-existing pin
@@ -1855,7 +1850,7 @@ static const struct msm_pingroup shima_groups[] = {
 			 NA, NA, 0, -1),
 	[202] = PINGROUP(202, atest_usb0, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0xCC004, 12),
-	[203] = PINGROUP(203, forced_usb, NA, NA, NA, NA, NA, NA, NA, NA,
+	[203] = PINGROUP(203, NA, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0, -1),
 	[204] = UFS_RESET(ufs_reset, 0x1db000),
 	[205] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0000, 15, 0),
