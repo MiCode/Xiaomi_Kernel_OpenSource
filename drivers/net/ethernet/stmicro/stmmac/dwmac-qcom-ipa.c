@@ -762,6 +762,41 @@ static void ethqos_wrapper_rx_descriptor_init_single_q(
 	ethqos_ipa_rx_desc_init(ethqos, qinx);
 }
 
+static void ethqos_rx_skb_free_mem(struct qcom_ethqos *ethqos,
+				   unsigned int qinx)
+{
+	struct net_device *ndev;
+	struct stmmac_priv *priv;
+	int i;
+
+	if (!ethqos) {
+		ETHQOSERR("Null parameter");
+		return;
+	}
+
+	ndev = dev_get_drvdata(&ethqos->pdev->dev);
+	priv = netdev_priv(ndev);
+
+	for (i = 0; i < eth_ipa_ctx.rx_queue[qinx].desc_cnt; i++) {
+		dma_free_coherent
+		 (GET_MEM_PDEV_DEV,
+		 ETHQOS_ETH_FRAME_LEN_IPA,
+		 eth_ipa_ctx.rx_queue->ipa_rx_buff_pool_va_addrs_base[i],
+		 eth_ipa_ctx.rx_queue->ipa_rx_buff_pool_pa_addrs_base[i]);
+	}
+}
+
+static void ethqos_free_ipa_queue_mem(struct qcom_ethqos *ethqos)
+{
+	ethqos_rx_desc_free_mem(ethqos, IPA_DMA_RX_CH);
+	ethqos_tx_desc_free_mem(ethqos, IPA_DMA_TX_CH);
+	ethqos_rx_skb_free_mem(ethqos, IPA_DMA_RX_CH);
+	ethqos_rx_buf_free_mem(ethqos, IPA_DMA_RX_CH);
+	ethqos_tx_buf_free_mem(ethqos, IPA_DMA_TX_CH);
+	ethqos_free_ipa_rx_queue_struct(ethqos);
+	ethqos_free_ipa_tx_queue_struct(ethqos);
+}
+
 static int ethqos_set_ul_dl_smmu_ipa_params(struct qcom_ethqos *ethqos,
 					    struct ipa_ntn_setup_info *ul,
 					    struct ipa_ntn_setup_info *dl)
@@ -2254,6 +2289,8 @@ void ethqos_ipa_offload_event_handler(void *data,
 
 			/* reset link down on dev close */
 			eth_ipa_ctx.ipa_offload_link_down = 0;
+			ethqos_free_ipa_queue_mem(eth_ipa_ctx.ethqos);
+
 		}
 		break;
 	case EV_DPM_SUSPEND:
