@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -743,16 +743,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	if (ret)
 		goto fail;
 
-	priv->debug_root = debugfs_create_dir("debug",
-					ddev->primary->debugfs_root);
-	if (IS_ERR_OR_NULL(priv->debug_root)) {
-		pr_err("debugfs_root create_dir fail, error %ld\n",
-		       PTR_ERR(priv->debug_root));
-		priv->debug_root = NULL;
-		goto fail;
-	}
-
-	ret = sde_dbg_debugfs_register(priv->debug_root);
+	ret = sde_dbg_debugfs_register(dev);
 	if (ret) {
 		dev_err(dev, "failed to reg sde dbg debugfs: %d\n", ret);
 		goto fail;
