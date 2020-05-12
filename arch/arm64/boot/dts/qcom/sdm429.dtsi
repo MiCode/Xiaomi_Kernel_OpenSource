@@ -15,6 +15,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/qcom,gcc-sdm429w.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/clock/mdss-12nm-pll-clk.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM429";
@@ -256,6 +257,12 @@
 	gcc_mdss: qcom,gcc-mdss@1800000 {
 		compatible = "qcom,gcc-mdss-sdm429w";
 		reg = <0x1800000 0x80000>;
+		clocks = <&mdss_dsi0_pll PCLK_SRC_MUX_0_CLK>,
+		       <&mdss_dsi0_pll BYTE_CLK_SRC_0_CLK>,
+		       <&mdss_dsi1_pll PCLK_SRC_MUX_1_CLK>,
+		       <&mdss_dsi1_pll BYTE_CLK_SRC_1_CLK>;
+		clock-names = "pclk0_src", "byte0_src", "pclk1_src",
+			"byte1_src";
 		#clock-cells = <1>;
 	};
 
@@ -863,6 +870,10 @@
 };
 
 #include "sdm429-gdsc.dtsi"
+#include "sdm429w-pm660.dtsi"
+#include "sdm429w-regulator.dtsi"
+#include "sdm429-mdss.dtsi"
+#include "sdm429-mdss-pll.dtsi"
 
 &venus_gdsc {
 	clock-names = "bus_clk", "core_clk";
