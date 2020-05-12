@@ -31,6 +31,8 @@ enum mem_buf_mem_type {
 	(MEM_BUF_PERM_FLAG_READ | MEM_BUF_PERM_FLAG_WRITE |\
 	 MEM_BUF_PERM_FLAG_EXEC)
 
+#define MEM_BUF_MAX_NR_ACL_ENTS 16
+
 /**
  * struct acl_entry: Represents the access control permissions for a VMID.
  * @vmid: The mem-buf VMID specifier associated with the VMID that will access
