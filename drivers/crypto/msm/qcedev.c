@@ -2308,7 +2308,7 @@ static int _qcedev_debug_init(void)
 
 	_debug_dent = debugfs_create_dir("qcedev", NULL);
 	if (IS_ERR(_debug_dent)) {
-		pr_err("qcedev debugfs_create_dir fail, error %ld\n",
+		pr_debug("qcedev debugfs_create_dir fail, error %ld\n",
 				PTR_ERR(_debug_dent));
 		return PTR_ERR(_debug_dent);
 	}
@@ -2318,7 +2318,7 @@ static int _qcedev_debug_init(void)
 	dent = debugfs_create_file(name, 0644, _debug_dent,
 			&_debug_qcedev, &_debug_stats_ops);
 	if (dent == NULL) {
-		pr_err("qcedev debugfs_create_file fail, error %ld\n",
+		pr_debug("qcedev debugfs_create_file fail, error %ld\n",
 				PTR_ERR(dent));
 		rc = PTR_ERR(dent);
 		goto err;
