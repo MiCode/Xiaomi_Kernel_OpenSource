@@ -619,7 +619,8 @@ err_retrieve_hdl:
 	if (!xfer_mem->secure_alloc && (mem_buf_unassign_mem(xfer_mem) < 0))
 		return ERR_PTR(ret);
 err_assign_mem:
-	mem_buf_rmt_free_mem(xfer_mem);
+	if (ret != -EADDRNOTAVAIL)
+		mem_buf_rmt_free_mem(xfer_mem);
 err_rmt_alloc:
 	mem_buf_free_xfer_mem(xfer_mem);
 	return ERR_PTR(ret);
