@@ -361,6 +361,7 @@ struct cnss_plat_data {
 	struct completion power_up_complete;
 	struct completion cal_complete;
 	struct mutex dev_lock; /* mutex for register access through debugfs */
+	struct mutex driver_ops_lock; /* mutex for external driver ops */
 	u32 device_freq_hz;
 	u32 diag_reg_read_addr;
 	u32 diag_reg_read_mem_type;
