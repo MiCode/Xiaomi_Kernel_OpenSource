@@ -206,7 +206,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 {
 	int i, peripheral, pid = 0;
 	uint8_t found = 0;
-	unsigned long flags, flags_sec;
+	unsigned long flags, flags_sec = 0;
 	struct diag_md_info *ch = NULL;
 	struct diag_md_session_t *session_info = NULL;
 
