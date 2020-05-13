@@ -1085,7 +1085,7 @@ int hf_client_poll_sensor_timeout(struct hf_client *client,
 			return 0;
 		if (count == 0)
 			break;
-		while (read <= count &&
+		while (read < count &&
 			fetch_next(hf_fifo, &data[read])) {
 			read++;
 		}
