@@ -377,9 +377,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
-#if	SUPPORT_HW_CONTROL_PMIC
-	bool binning_voltage = false;
-#endif
+
 	struct regulator *reg_id = NULL;
 #if VOLTAGE_CHECKER
 	int check_volt = 0;
@@ -415,9 +413,15 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	pmic_cmd = (buck_addr << 16) | volt_code;
 
 	LOG_DBG("%s pmic_cmd = 0x%x\n", __func__, pmic_cmd);
-	DRV_WriteReg32(APU_PCU_PMIC_TAR_BUF, pmic_cmd);
+	/*
+	 * If last setting, snapshotted by PCU_PMIC_CUR_BUF,
+	 * is the same as current value, pmic_cmd, driver will
+	 * not setting again. Since there will be no interrupt
+	 * happen once same value set again.
+	 */
+	if (pmic_cmd != DRV_Reg32(APU_PCU_PMIC_CUR_BUF)) {
+		DRV_WriteReg32(APU_PCU_PMIC_TAR_BUF, pmic_cmd);
 
-	if (binning_voltage == false) {
 		while ((DRV_Reg32(APU_PCU_PMIC_STATUS) & 0x1) == 0) {
 			udelay(50);
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
@@ -426,12 +430,14 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 			break;
 			}
 		}
+
+		DRV_WriteReg32(APU_PCU_PMIC_STATUS, 0x1);
+		LOG_DBG("read back from reg = 0x%x\n",
+					DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
+	} else {
+		LOG_DBG("%s same as last pmic_cmd = 0x%x\n",
+				__func__, DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
 	}
-
-	DRV_WriteReg32(APU_PCU_PMIC_STATUS, 0x1);
-
-	LOG_DBG("read back from reg = 0x%x\n",
-				DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
 #else
 	if (buck == VPU_BUCK) {
 		reg_id = vvpu_reg_id;
