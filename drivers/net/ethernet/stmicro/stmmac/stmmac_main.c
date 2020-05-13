@@ -2908,6 +2908,12 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
 			(last_segment) && (tmp_len <= TSO_MAX_BUFF_SIZE),
 			0, 0);
 
+		if (last_segment && tmp_len <= TSO_MAX_BUFF_SIZE) {
+			priv->tx_count_frames = 0;
+			priv->hw->desc->set_tx_ic(desc);
+			priv->xstats.tx_set_ic_bit++;
+		}
+
 		tmp_len -= TSO_MAX_BUFF_SIZE;
 	}
 }
