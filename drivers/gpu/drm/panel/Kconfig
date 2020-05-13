@@ -337,8 +337,8 @@ config DRM_PANEL_K6873V1_64_ALPHA_VDO_02
 	  24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
-config DRM_PANEL_K6853V1_64_ALPHA_VDO_003
-	tristate "K6853V1 alpha phone vdo mode panel of 60Hz"
+config DRM_PANEL_K6853V1_64_ALPHA_VDO_0020
+	tristate "K6853V1 alpha phone vdo mode panel of 1200Hz with NT"
 	depends on OF
 	depends on DRM_MIPI_DSI
 	depends on BACKLIGHT_CLASS_DEVICE
@@ -348,18 +348,7 @@ config DRM_PANEL_K6853V1_64_ALPHA_VDO_003
 	  24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
-config DRM_PANEL_K6853V1_64_ALPHA_VDO_005
-	tristate "K6853V1 alpha phone vdo mode panel of 120Hz"
-	depends on OF
-	depends on DRM_MIPI_DSI
-	depends on BACKLIGHT_CLASS_DEVICE
-	help
-	  Say Y here if you want to enable support for K6853V1 alpha
-	  phone vdo mode panel. The panel has a 1080x2400 resolution and uses
-	  24-bits RGB per pixel. It provides a MIPI DSI interface
-	  to host.
-
-config DRM_PANEL_K6853V1_64_ALPHA_VDO_002
+config DRM_PANEL_K6853V1_64_ALPHA_VDO_0021
 	tristate "K6853V1 alpha phone vdo mode panel of 60Hz with NT"
 	depends on OF
 	depends on DRM_MIPI_DSI
@@ -370,8 +359,41 @@ config DRM_PANEL_K6853V1_64_ALPHA_VDO_002
 	  24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
-config DRM_PANEL_K6853V1_64_ALPHA_VDO_004
-	tristate "K6853V1 alpha phone vdo mode panel of 120Hz with NT"
+config DRM_PANEL_K6853V1_64_ALPHA_VDO_0022
+	tristate "K6853V1 alpha phone vdo mode panel of 90Hz with NT"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for K6853V1 alpha
+	  phone vdo mode panel. The panel has a 1080x2400 resolution and uses
+	  24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_K6853V1_64_ALPHA_VDO_0030
+	tristate "K6853V1 alpha phone vdo mode panel of 120Hz with HX"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for K6853V1 alpha
+	  phone vdo mode panel. The panel has a 1080x2400 resolution and uses
+	  24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_K6853V1_64_ALPHA_VDO_0031
+	tristate "K6853V1 alpha phone vdo mode panel of 60Hz with HX"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for K6853V1 alpha
+	  phone vdo mode panel. The panel has a 1080x2400 resolution and uses
+	  24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+	  
+config DRM_PANEL_K6853V1_64_ALPHA_VDO_0032
+	tristate "K6853V1 alpha phone vdo mode panel of 90Hz with HX"
 	depends on OF
 	depends on DRM_MIPI_DSI
 	depends on BACKLIGHT_CLASS_DEVICE
