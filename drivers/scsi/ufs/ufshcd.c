@@ -2830,6 +2830,10 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	}
 
 #if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
+	/* Micron version 2.0 not support write buffer id 2 */
+	if (hba->card->wmanufacturerid != UFS_VENDOR_SAMSUNG)
+		goto send_orig_cmd;
+
 	add_tag = ufsf_hpb_prepare_pre_req(&hba->ufsf, cmd, lun);
 	if (add_tag == -EAGAIN) {
 		clear_bit_unlock(tag, &hba->lrb_in_use);
