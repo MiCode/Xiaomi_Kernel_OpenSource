@@ -1310,9 +1310,18 @@ page_owner=on loop.max_part=7";
 	};
 
 	cq_dma@10212000 {
-		compatible = "mediatek,cq_dma";
-		reg = <0 0x10212000 0 0x1000>;
-		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
+		compatible = "mediatek,mt-cqdma-v1";
+		reg = <0 0x10212000 0 0x80>,
+			<0 0x10212100 0 0x80>,
+			<0 0x10212200 0 0x80>,
+			<0 0x10212300 0 0x80>;
+		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
+		nr_channel = <4>;
+		clocks = <&infracfg_ao CLK_IFRAO_CQ_DMA>;
+		clock-names = "cqdma";
 	};
 
 	md2md_md2_ccif0@10213000 {
