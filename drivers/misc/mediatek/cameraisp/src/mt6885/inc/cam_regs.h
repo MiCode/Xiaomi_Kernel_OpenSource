@@ -710,6 +710,13 @@ enum{
 #define CAM_REG_AAHO_XSIZE(module)              (isp_devs[module].regs + 0x443C)
 #define CAM_REG_AAHO_YSIZE(module)              (isp_devs[module].regs + 0x4440)
 
+#define CAM_REG_FLKO_FH_FH_SPARE_9(module)      (isp_devs[module].regs + 0x45CC)
+#define CAM_REG_FLKO_FH_FH_SPARE_10(module)     (isp_devs[module].regs + 0x45D0)
+#define CAM_REG_DMA_SOFT_RSTSTAT1(module)       (isp_devs[module].regs + 0x4000)
+#define CAM_REG_DMA_SOFT_RESET1(module)         (isp_devs[module].regs + 0x4010)
+#define CAM_REG_DMA_ERR_CTRL1(module)           (isp_devs[module].regs + 0x401C)
+
+
 
 /* MRAW */
 /* MRAW WDMA */

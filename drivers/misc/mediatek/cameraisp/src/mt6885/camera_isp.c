@@ -1612,11 +1612,6 @@ static void ISP_DumpRawiR2DebugData(enum ISP_IRQ_TYPE_ENUM module)
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), 0x00000B0B);
 	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 
-	IRQ_LOG_KEEPER(
-		module, m_CurrentPPB, _LOG_INF,
-		"RAWI_R2 checksum=0x%x,lpix_cnt_tmp=0x%x,lpix_cnt=0x%x,data_cnt=0x%x\n",
-		checksum, lpix_cnt_tmp, lpix_cnt, data_cnt);
-
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), 0x00080102);
 	smi_dbg_data_local = ISP_RD32(CAM_REG_DBG_PORT(innerRegModule));
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(innerRegModule), 0x00000102);
@@ -1636,7 +1631,8 @@ static void ISP_DumpRawiR2DebugData(enum ISP_IRQ_TYPE_ENUM module)
 
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_INF,
-		"RAWI_R2 smi_dbg_data_local=0x%x,smi_dbg_data_case0=0x%x,fifo case0=0x%x,case1=0x%x,case2=0x%x,case3=0x%x\n",
+		"RAWI_R2 checksum=0x%x,lpix_cnt_tmp=0x%x,lpix_cnt=0x%x,data_cnt=0x%x,smi_dbg_data_local=0x%x,smi_dbg_data_case0=0x%x,fifo case0=0x%x,case1=0x%x,case2=0x%x,case3=0x%x\n",
+		checksum, lpix_cnt_tmp, lpix_cnt, data_cnt,
 		smi_dbg_data_local, smi_dbg_data_case0,
 		fifo_dbg_data_case0, fifo_dbg_data_case1,
 		fifo_dbg_data_case2, fifo_dbg_data_case3);
@@ -11150,14 +11146,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		if (dma2_en & _RAWI_R2_EN_) {
 			IRQ_LOG_KEEPER(
 			       module, m_CurrentPPB, _LOG_INF,
-			       "module:%d, int_st=0x%x,int2_st=0x%x,int3_st=0x%x,int4_st=0x%x,int5_st=0x%x,DmaEn=0x%x,Dma2En=0x%x\n",
+			       "module:%d, int_st=0x%x,int2_st=0x%x,int3_st=0x%x,int4_st=0x%x,int5_st=0x%x,DmaEn=0x%x,Dma2En=0x%x,int_stx=0x%x,int2_stx=0x%x,int3_stx=0x%x,int4_stx=0x%x,int5_stx=0x%x\n",
 			       module, int_en, DmaStatus, Dma2Status,
-			       DropStatus, WarnStatus, dma_en, dma2_en);
-
-			IRQ_LOG_KEEPER(
-			       module, m_CurrentPPB, _LOG_INF,
-			       "module:%d, int_stx=0x%x,int2_stx=0x%x,int3_stx=0x%x,int4_stx=0x%x,int5_stx=0x%x\n",
-			       module, IrqStatusX, Irq2StatusX,
+			       DropStatus, WarnStatus, dma_en, dma2_en,
+			       IrqStatusX, Irq2StatusX,
 			       Irq3StatusX, Irq4StatusX, Irq5StatusX);
 
 			ISP_DumpRawiR2DebugData(module);
@@ -11166,11 +11158,14 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 	if (IrqStatus & HW_PASS1_DON_ST) {
 		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-		"CAM%c P1_HW_DON_%d dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)\n",
+			/* reduce SMVR case hw p1 done log */
+			if (Irq2StatusX != 0) {
+				IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+					"CAM%c P1_HW_DON_%d_%d dma done(0x%x,0x%x,0x%x)int(0x%x,0x%x,0x%x)FLKBA(0x%x,0x%x,0x%x)SPR(9:0x%x,0x%x,0x%x,10:0x%x,0x%x,0x%x)THR14(0x%x,0x%x,0x%x)FBC(0x%x,0x%x,0x%x)\n",
 		'A' + cardinalNum,
 		(sof_count[module]) ? (sof_count[module] - 1)
 		: (sof_count[module]),
+		HwP1Done_cnt[module],
 		Irq2StatusX,
 		(unsigned int)ISP_RD32(
 		CAM_REG_CTL_RAW_INT2_STATUSX(
@@ -11188,12 +11183,19 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_A_INNER_IDX)),
 		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_B_INNER_IDX)),
 		ISP_RD32(CAM_REG_FLKO_BASE_ADDR(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_9(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_9(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_9(ISP_CAM_C_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_10(ISP_CAM_A_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_10(ISP_CAM_B_INNER_IDX)),
+		ISP_RD32(CAM_REG_FLKO_FH_FH_SPARE_10(ISP_CAM_C_INNER_IDX)),
 		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_A_INNER_IDX)),
 		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_B_INNER_IDX)),
 		ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(ISP_CAM_C_INNER_IDX)),
 		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_A_INNER_IDX)),
 		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_B_INNER_IDX)),
 		ISP_RD32(CAM_REG_FBC_FLKO_CTL2(ISP_CAM_C_INNER_IDX)));
+			}
 		}
 	}
 
