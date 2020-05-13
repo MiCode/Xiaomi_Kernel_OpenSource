@@ -1808,6 +1808,7 @@
   register_netdevice
   register_netdevice_notifier
   register_netevent_notifier
+  register_oom_notifier
   register_pernet_subsys
   register_pm_notifier
   register_reboot_notifier
@@ -2367,6 +2368,7 @@
   unregister_netdevice_notifier
   unregister_netdevice_queue
   unregister_netevent_notifier
+  unregister_oom_notifier
   unregister_pernet_subsys
   unregister_pm_notifier
   unregister_reboot_notifier
