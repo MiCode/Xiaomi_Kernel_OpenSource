@@ -4417,6 +4417,7 @@ EXIT:
 /**************************************************************
  *
  **************************************************************/
+/*
 static signed int DIP_WriteRegToHw(
 	struct DIP_REG_STRUCT *pReg,
 	unsigned int         Count)
@@ -4427,8 +4428,8 @@ static signed int DIP_WriteRegToHw(
 	unsigned int module;
 	void __iomem *regBase;
 
-	/* Use local variable to store IspInfo.DebugMask & */
-	/* DIP_DBG_WRITE_REG for saving lock time*/
+	// Use local variable to store IspInfo.DebugMask &
+	// DIP_DBG_WRITE_REG for saving lock time
 	spin_lock(&(IspInfo.SpinLockIsp));
 	dbgWriteReg = IspInfo.DebugMask & DIP_DBG_WRITE_REG;
 	spin_unlock(&(IspInfo.SpinLockIsp));
@@ -4445,11 +4446,10 @@ static signed int DIP_WriteRegToHw(
 		return -EFAULT;
 	}
 
-	/*  */
 	if (dbgWriteReg)
 		LOG_DBG("- E.\n");
 
-	/*  */
+
 	for (i = 0; i < Count; i++) {
 		if (dbgWriteReg)
 			LOG_DBG("module(%d), base(0x%lx)",
@@ -4467,25 +4467,23 @@ static signed int DIP_WriteRegToHw(
 
 	}
 
-	/*  */
+
 	return Ret;
 }
-
+*/
 
 
 /**************************************************************
  *
  **************************************************************/
+/*
 static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 {
 	signed int Ret = 0;
-	/*    signed int TimeVd = 0;*/
-	/*    signed int TimeExpdone = 0;*/
-	/*    signed int TimeTasklet = 0;*/
-	/* unsigned char* pData = NULL; */
+
 	struct DIP_REG_STRUCT *pData = NULL;
 
-	/*  */
+
 	if (IspInfo.DebugMask & DIP_DBG_WRITE_REG)
 		LOG_DBG("Data(0x%p), Count(%d)\n",
 			(pRegIo->pData),
@@ -4501,7 +4499,7 @@ static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 	}
 	pData = kmalloc((pRegIo->Count) *
 		sizeof(struct DIP_REG_STRUCT),
-		GFP_KERNEL); /* Use GFP_KERNEL instead of GFP_ATOMIC */
+		GFP_KERNEL);
 	if (pData == NULL) {
 		LOG_INF("ERROR: kmalloc failed");
 		LOG_INF("(process, pid, tgid)=(%s, %d, %d)\n",
@@ -4511,7 +4509,7 @@ static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 	Ret = -ENOMEM;
 	goto EXIT;
 	}
-	/*  */
+
 	if (copy_from_user(pData,
 		(void __user *)(pRegIo->pData),
 		pRegIo->Count * sizeof(struct DIP_REG_STRUCT)) != 0) {
@@ -4520,11 +4518,10 @@ static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
 		goto EXIT;
 	}
 
-	/*  */
 	Ret = DIP_WriteRegToHw(
 		      pData,
 		      pRegIo->Count);
-	/*  */
+
 EXIT:
 	if (pData != NULL) {
 		kfree(pData);
@@ -4532,6 +4529,7 @@ EXIT:
 	}
 	return Ret;
 }
+*/
 
 /**************************************************************
  *
@@ -5943,7 +5941,9 @@ static long DIP_ioctl(
 			sizeof(struct DIP_REG_IO_STRUCT)) == 0) {
 /* 2nd layer behavoir of copy from user */
 /*  is implemented in DIP_WriteReg(...) */
-			Ret = DIP_WriteReg(&RegIo);
+			/*Ret = DIP_WriteReg(&RegIo);*/
+			LOG_ERR("Not Support Wrire Reg.\n");
+			Ret = -EFAULT;
 		} else {
 			LOG_ERR("copy_from_user failed\n");
 			Ret = -EFAULT;
@@ -6348,6 +6348,28 @@ static long DIP_ioctl_compat(
 /**************************************************************
  *
  **************************************************************/
+static inline void DIP_Load_InitialSettings(void)
+{
+	unsigned int i = 0;
+
+	LOG_DBG("- E.\n");
+
+	for (i = 0 ; i < DIP_INIT_ARRAY_COUNT ; i++) {
+		//ofset = DIP_A_BASE + DIP_INIT_ARY[i].ofset;
+		DIP_WR32(DIP_A_BASE + DIP_INIT_ARY[i].ofset,
+				DIP_INIT_ARY[i].val);
+#if (MTK_DIP_COUNT == 2)
+		DIP_WR32(DIP_B_BASE + DIP_INIT_ARY[i].ofset,
+				DIP_INIT_ARY[i].val);
+#endif
+	}
+
+}
+
+
+/**************************************************************
+ *
+ **************************************************************/
 static signed int DIP_open(
 	struct inode *pInode, struct file *pFile)
 {
@@ -6556,6 +6578,11 @@ static signed int DIP_open(
 	wake_lock(&dip_wake_lock);
 #endif
 	DIP_EnableClock(MTRUE);
+	/* Initial HW default value */
+	if (G_u4DipEnClkCnt == 1)
+		DIP_Load_InitialSettings();
+
+
 	g_u4DipCnt = 0;
 #ifdef CONFIG_PM_WAKELOCKS
 	__pm_relax(&dip_wake_lock);
@@ -6746,27 +6773,19 @@ EXIT:
 /**************************************************************
  *
  **************************************************************/
+
+/*
 static signed int DIP_mmap(
 	struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
 	unsigned int pfn = 0x0;
 
-	/*LOG_DBG("- E.");*/
+
 	length = (pVma->vm_end - pVma->vm_start);
-	/*  */
+
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
-
-	/*LOG_INF("DIP_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx), */
-		/* vm_start(0x%lx),vm_end(0x%lx),length(0x%lx)\n", */
-		/* pVma->vm_pgoff, */
-		/* pfn, */
-		/* pVma->vm_pgoff << PAGE_SHIFT, */
-		/* pVma->vm_start, */
-		/* pVma->vm_end, */
-		/* ength); */
-
 
 	switch (pfn) {
 	case DIP_A_BASE_HW:
@@ -6802,9 +6821,10 @@ static signed int DIP_mmap(
 		pVma->vm_page_prot))
 		return -EAGAIN;
 
-	/*  */
+
 	return 0;
 }
+*/
 
 /**************************************************************
  *
@@ -6819,7 +6839,7 @@ static const struct file_operations IspFileOper = {
 	.open = DIP_open,
 	.release = DIP_release,
 	/* .flush       = mt_dip_flush, */
-	.mmap = DIP_mmap,
+	/* .mmap = DIP_mmap, */
 	.unlocked_ioctl = DIP_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = DIP_ioctl_compat,
@@ -7246,6 +7266,7 @@ static signed int DIP_suspend(
 		DIP_EnableClock(MFALSE);
 		g_u4DipCnt++;
 	}
+
 	if (g_DIP_PMState == 0) {
 		LOG_INF("DIP suspend G_u4DipEnClkCnt: %d, g_u4DipCnt: %d",
 			G_u4DipEnClkCnt,
@@ -7260,19 +7281,16 @@ static signed int DIP_suspend(
  **************************************************************/
 static signed int DIP_resume(struct platform_device *pDev)
 {
-	unsigned int i = 0;
 	//unsigned int ofset = 0;
 	if (g_u4DipCnt > 0) {
 		DIP_EnableClock(MTRUE);
-		if (G_u4DipEnClkCnt == 1) {
-			for (i = 0 ; i < DIP_INIT_ARRAY_COUNT ; i++) {
-				//ofset = DIP_A_BASE + DIP_INIT_ARY[i].ofset;
-				DIP_WR32(DIP_A_BASE + DIP_INIT_ARY[i].ofset,
-						DIP_INIT_ARY[i].val);
-			}
-		}
+
+		if (G_u4DipEnClkCnt == 1)
+			DIP_Load_InitialSettings();
+
 		g_u4DipCnt--;
 	}
+
 	if (g_DIP_PMState == 1) {
 		LOG_INF("DIP resume G_u4DipEnClkCnt: %d, g_u4DipCnt: %d",
 			G_u4DipEnClkCnt,
