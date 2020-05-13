@@ -189,6 +189,8 @@ int vcu_io_buffer_cache_sync(dma_addr_t dma_addr, size_t size,
 	struct dma_buf_attachment *buf_att;
 	struct sg_table *sgt;
 
+	return 0;   /* temporal disable io buffer cache sync*/
+
 	for (buffer = 0; buffer < q->num_buffers; buffer++) {
 		vb = q->bufs[buffer];
 		if (!vb)
