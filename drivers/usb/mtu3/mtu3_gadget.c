@@ -36,7 +36,6 @@ __acquires(mep->mtu->lock)
 
 	mtu = mreq->mtu;
 	mep->busy = 1;
-	spin_unlock(&mtu->lock);
 
 	/* ep0 makes use of PIO, needn't unmap it */
 	if (mep->epnum)
@@ -44,6 +43,8 @@ __acquires(mep->mtu->lock)
 
 	dev_dbg(mtu->dev, "%s complete req: %p, sts %d, %d/%d\n", mep->name,
 		req, req->status, mreq->request.actual, mreq->request.length);
+
+	spin_unlock(&mtu->lock);
 
 	usb_gadget_giveback_request(&mep->ep, &mreq->request);
 
@@ -340,7 +341,13 @@ struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req)
 {
+	struct mtu3_ep *mep = to_mtu3_ep(ep);
+	struct mtu3 *mtu = mep->mtu;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mtu->lock, flags);
 	kfree(to_mtu3_request(req));
+	spin_unlock_irqrestore(&mtu->lock, flags);
 }
 
 static int mtu3_gadget_queue(struct usb_ep *ep,

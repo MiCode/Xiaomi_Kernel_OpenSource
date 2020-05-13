@@ -439,7 +439,8 @@ static void qmu_done_tx(struct mtu3 *mtu, u8 epnum)
 	dev_dbg(mtu->dev, "%s EP%d, last=%p, current=%p, enq=%p\n",
 		__func__, epnum, gpd, gpd_current, ring->enqueue);
 
-	while (gpd != gpd_current && !(gpd->flag & GPD_FLAGS_HWO)) {
+	while (gpd != NULL && gpd != gpd_current &&
+			!(gpd->flag & GPD_FLAGS_HWO)) {
 
 		mreq = next_request(mep);
 
@@ -476,7 +477,8 @@ static void qmu_done_rx(struct mtu3 *mtu, u8 epnum)
 	dev_dbg(mtu->dev, "%s EP%d, last=%p, current=%p, enq=%p\n",
 		__func__, epnum, gpd, gpd_current, ring->enqueue);
 
-	while (gpd != gpd_current && !(gpd->flag & GPD_FLAGS_HWO)) {
+	while (gpd != NULL && gpd != gpd_current &&
+			!(gpd->flag & GPD_FLAGS_HWO)) {
 
 		mreq = next_request(mep);
 
