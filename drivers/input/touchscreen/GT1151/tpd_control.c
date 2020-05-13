@@ -40,7 +40,6 @@ void tpd_get_dts_info(void)
 {
 	struct device_node *node1 = NULL;
 	int key_dim_local[16], i;
-	int convert_err = -EINVAL;
 
 	node1 = of_find_matching_node(node1, touch_of_match);
 
@@ -50,28 +49,17 @@ void tpd_get_dts_info(void)
 		of_property_read_u32(node1,
 			"tpd-max-touch-num", &tpd_dts_data.touch_max_num);
 
-	of_property_read_u32_array(node1, "tpd-resolution",
-		tpd_dts_data.tpd_resolution,
-		ARRAY_SIZE(tpd_dts_data.tpd_resolution));
-	TPD_DEBUG("[tpd] resulution is %d %d",
-				tpd_dts_data.tpd_resolution[0],
-				tpd_dts_data.tpd_resolution[1]);
+		of_property_read_u32_array(node1, "tpd-resolution",
+			tpd_dts_data.tpd_resolution,
+			ARRAY_SIZE(tpd_dts_data.tpd_resolution));
+		TPD_DEBUG("[tpd] resulution is %d %d",
+					tpd_dts_data.tpd_resolution[0],
+					tpd_dts_data.tpd_resolution[1]);
 
-#if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
-		convert_err = kstrtou32(CONFIG_LCM_WIDTH, 10,
-			&tpd_dts_data.lcm_resolution[0]);
-		if (convert_err)
-			TPD_ERR("GET LCM WIDTH failed!\n");
-		convert_err = kstrtou32(CONFIG_LCM_HEIGHT, 10,
-			&tpd_dts_data.lcm_resolution[1]);
-		if (convert_err)
-			TPD_ERR("GET LCM HEIGHT failed!\n");
-#else
 		TPD_DEBUG("Set Default lcm-resolution!");
 		of_property_read_u32_array(node1, "lcm-resolution",
 			tpd_dts_data.lcm_resolution,
 			ARRAY_SIZE(tpd_dts_data.lcm_resolution));
-#endif
 
 		TPD_DEBUG("[lcm] resulution is %d %d",
 					tpd_dts_data.lcm_resolution[0],
