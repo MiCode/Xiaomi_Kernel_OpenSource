@@ -434,19 +434,19 @@ static int mtk_leds_parse_dt(struct device *dev,
 			s_led->conf.led_bits = 8;
 		}
 		ret = of_property_read_u32(child,
-			"max-brightness", &(s_led->conf.max_level));
+			"max-brightness", &(s_led->info.config.max_brightness));
 		if (ret) {
 			pr_info("No max-brightness, use default value 255");
-			s_led->conf.max_level = (1 << s_led->conf.led_bits) - 1;
+			s_led->info.config.max_brightness =
+				(1 << s_led->conf.led_bits) - 1;
 		}
-		s_led->info.config.max_brightness =
-			(1 << s_led->conf.led_bits) - 1;
 		ret = of_property_read_u32(child,
 			"trans-bits", &(s_led->conf.trans_bits));
 		if (ret) {
 			pr_info("No trans-bits, use default value 10");
 			s_led->conf.trans_bits = 10;
 		}
+		s_led->conf.max_level = (1 << s_led->conf.trans_bits) - 1;
 		ret = of_property_read_string(child, "default-state", &state);
 		if (!ret) {
 			if (!strcmp(state, "half"))
