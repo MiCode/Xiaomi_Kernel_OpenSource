@@ -115,19 +115,6 @@ config MSM_QBT_HANDLER
 	  from the queue. It also creates an input device to send key events such as
 	  KEY_POWER, KEY_HOME.
 
-config QCOM_PROXY_OF_CONSUMER
-	tristate "Qualcomm Technologies, Inc. OF proxy consumer driver"
-	help
-	  A target may contain multiple defconfigs, but only one device-tree
-	  configuration. Such a target may have device-drivers that are
-	  only enabled in a particular defconfig, while disabled in the
-	  others. For the kernel that boots up with disabled configuration,
-	  since the device-tree node exists, the of_devlink logic expects
-	  the driver to be probed, which is not possible. As a result, the
-	  sync-state remains incomplete.
-	  This proxy consumer driver shows a proxy-presence of the main
-	  driver to satisfy the sync-state.
-
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
         depends on ARCH_QCOM || COMPILE_TEST
