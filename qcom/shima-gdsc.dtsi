@@ -1,35 +1,35 @@
 &soc {
 	/* GDSCs in GCC */
 	gcc_pcie_0_gdsc: qcom,gdsc@16b004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x16b004 0x4>;
 		regulator-name = "gcc_pcie_0_gdsc";
 		status = "disabled";
 	};
 
 	gcc_pcie_1_gdsc: qcom,gdsc@18d004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x18d004 0x4>;
 		regulator-name = "gcc_pcie_1_gdsc";
 		status = "disabled";
 	};
 
 	gcc_ufs_phy_gdsc: qcom,gdsc@177004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x177004 0x4>;
 		regulator-name = "gcc_ufs_phy_gdsc";
 		status = "disabled";
 	};
 
 	gcc_usb30_prim_gdsc: qcom,gdsc@10f004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x10f004 0x4>;
 		regulator-name = "gcc_usb30_prim_gdsc";
 		status = "disabled";
 	};
 
 	hlos1_vote_turing_mmu_tbu0_gdsc: qcom,gdsc@17d05c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d05c 0x4>;
 		regulator-name = "hlos1_vote_turing_mmu_tbu0_gdsc";
 		qcom,gds-timeout = <500>;
@@ -38,7 +38,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@17d058 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d058 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
 		qcom,gds-timeout = <500>;
@@ -47,7 +47,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc: qcom,gdsc@17d054 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d054 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc";
 		qcom,gds-timeout = <500>;
@@ -56,7 +56,7 @@
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d050 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d050 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
 		qcom,gds-timeout = <500>;
@@ -65,7 +65,7 @@
 	};
 
 	hlos1_vote_turing_mmu_tbu1_gdsc: qcom,gdsc@17d060 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x17d060 0x4>;
 		regulator-name = "hlos1_vote_turing_mmu_tbu1_gdsc";
 		qcom,gds-timeout = <500>;
