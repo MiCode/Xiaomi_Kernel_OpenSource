@@ -873,6 +873,15 @@ config QCOM_HYP_CORE_CTL
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
 
+config QTI_HW_KEY_MANAGER
+	tristate "Enable QTI Hardware Key Manager for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
+
 source "drivers/soc/qcom/icnss2/Kconfig"
 
 config ICNSS
