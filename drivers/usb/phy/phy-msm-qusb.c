@@ -640,11 +640,22 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 	u32 linestate = 0, intr_mask = 0;
 
 	if (qphy->suspended == suspend) {
+		/*
+		 * PHY_SUS_OVERRIDE is set when there is a cable
+		 * disconnect and the previous suspend call was because
+		 * of EUD spoof disconnect. Override this check and
+		 * ensure that the PHY is properly put in low power
+		 * mode.
+		 */
+		if (qphy->phy.flags & PHY_SUS_OVERRIDE)
+			goto suspend;
+
 		dev_dbg(phy->dev, "%s: USB PHY is already suspended\n",
 			__func__);
 		return 0;
 	}
 
+suspend:
 	if (suspend) {
 		/* Bus suspend case */
 		if (qphy->cable_connected) {
@@ -697,8 +708,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
-			if (!qphy->eud_enable_reg ||
-					!readl_relaxed(qphy->eud_enable_reg)) {
+			if (!(qphy->phy.flags & EUD_SPOOF_DISCONNECT)) {
 				/* Disable PHY */
 				writel_relaxed(POWER_DOWN |
 					readl_relaxed(qphy->base +
@@ -710,10 +720,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				if (qphy->tcsr_clamp_dig_n)
 					writel_relaxed(0x0,
 						qphy->tcsr_clamp_dig_n);
+
+				qusb_phy_enable_clocks(qphy, false);
+				qusb_phy_enable_power(qphy, false);
 			}
 
-			qusb_phy_enable_clocks(qphy, false);
-			qusb_phy_enable_power(qphy, false);
 			mutex_unlock(&qphy->phy_lock);
 
 			/*
@@ -1694,6 +1705,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	qphy->suspended = true;
+
+	/*
+	 * EUD may be enable in boot loader and to keep EUD session alive across
+	 * kernel boot till USB phy driver is initialized based on cable status,
+	 * keep LDOs on here.
+	 */
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg))
+		qusb_phy_enable_power(qphy, true);
 
 	if (of_property_read_bool(dev->of_node, "extcon")) {
 		qphy->id_state = true;
