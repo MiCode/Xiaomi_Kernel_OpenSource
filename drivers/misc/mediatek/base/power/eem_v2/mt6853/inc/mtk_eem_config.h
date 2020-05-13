@@ -124,7 +124,7 @@ enum mt_cpu_dvfs_id {
 
 #if defined(MC50_LOAD)
 
-#if defined(MT6873) //2.0GHz
+#if defined(MT6853) //2.0GHz
 
 #define SPARE1_VAL	0x44535F53
 #define SPARE2_VAL	0x00003839
