@@ -404,10 +404,6 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 
 	atomic64_set(&core->kernel_trans_id, 0);
 
-	rc = cvp_dsp_device_init();
-	if (rc)
-		dprintk(CVP_WARN, "Failed to initialize DSP driver\n");
-
 	return rc;
 
 err_fail_sub_device_probe:
@@ -579,6 +575,10 @@ static int __init msm_cvp_init(void)
 	cvp_driver->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
 	cvp_driver->buf_cache = KMEM_CACHE(cvp_internal_buf, 0);
 	cvp_driver->smem_cache = KMEM_CACHE(msm_cvp_smem, 0);
+
+	rc = cvp_dsp_device_init();
+	if (rc)
+		dprintk(CVP_WARN, "Failed to initialize DSP driver\n");
 
 	return rc;
 }
