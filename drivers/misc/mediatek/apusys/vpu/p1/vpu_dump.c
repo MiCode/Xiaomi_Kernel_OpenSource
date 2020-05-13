@@ -150,6 +150,10 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 #define VPU_DMP_TRACE(a) \
 	trace_vpu_dmp(vd->id, a, vpu_reg_read(vd, DEBUG_INFO05))
 
+	if (vd->dmp && !vd->dmp->read_cnt)
+		return 0;
+
+	VPU_DMP_TRACE("checked read_cnt");
 	ret = vpu_dmp_alloc(vd);
 	if (ret)
 		goto out;
@@ -394,6 +398,7 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 		return;
 	}
 
+	d->read_cnt++;
 	vpu_dmp_seq_bar(s, vd, "exception info");
 	seq_printf(s, "exception reason: %s\n", d->info);
 	seq_puts(s, "exception time: [");
