@@ -70,6 +70,8 @@ static DEFINE_SPINLOCK(cmdq_record_lock);
 static BLOCKING_NOTIFIER_HEAD(cmdq_status_dump_notifier);
 
 static struct cmdq_client *cmdq_clients[CMDQ_MAX_THREAD_COUNT];
+static struct cmdq_client *cmdq_entry;
+
 static struct cmdq_base *cmdq_client_base;
 static atomic_t cmdq_thread_usage;
 
@@ -2204,122 +2206,46 @@ const char *cmdq_core_get_event_name(u32 hw_event)
 	return cmdq_core_get_event_name_enum(event_enum);
 }
 
-#define CMDQ_SYNC_TOKEN_ID_OFF		0x60
-#define CMDQ_SYNC_TOKEN_VAL_OFF		0x64
-#define CMDQ_SYNC_TOKEN_UPD_OFF		0x68
-
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-static unsigned long cmdq_get_gce_by_evt(u16 event)
-{
-	switch (event) {
-	case CMDQ_EVENT_DISP_RDMA0_SOF:
-	case CMDQ_EVENT_DISP_WDMA0_EOF:
-	case CMDQ_EVENT_DISP_RDMA0_EOF:
-		return cmdq_dev_get_va2();
-	default:
-		return cmdq_dev_get_module_base_VA_GCE();
-	}
-}
-#endif
-
 void cmdqCoreClearEvent(enum cmdq_event event)
 {
 	s32 eventValue = cmdq_core_get_event_value(event);
-	unsigned long va;
 
 	if (eventValue < 0)
 		return;
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
-		CMDQ_REG_SET32(cmdq_dev_get_va2() + CMDQ_SYNC_TOKEN_UPD_OFF,
-			eventValue);
-		va = cmdq_dev_get_module_base_VA_GCE();
-	} else
-		va = cmdq_get_gce_by_evt(event);
-#else
-	va = cmdq_dev_get_module_base_VA_GCE();
-#endif
+	if (!cmdq_entry) {
+		CMDQ_ERR("%s no cmdq entry\n", __func__);
+		return;
+	}
 
-	CMDQ_MSG("clear event %d\n", eventValue);
-	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF, eventValue);
+	cmdq_clear_event(cmdq_entry->chan, eventValue);
 }
 
 void cmdqCoreSetEvent(enum cmdq_event event)
 {
 	s32 eventValue = cmdq_core_get_event_value(event);
-	unsigned long va;
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
-	if (event > CMDQ_MAX_HW_EVENT_COUNT) {
-		CMDQ_REG_SET32(cmdq_dev_get_va2() +
-			CMDQ_SYNC_TOKEN_UPD_OFF, (1L << 16) | eventValue);
-		va = cmdq_dev_get_module_base_VA_GCE();
-	} else
-		va = cmdq_get_gce_by_evt(event);
-#else
-	va = cmdq_dev_get_module_base_VA_GCE();
-#endif
+	if (eventValue < 0)
+		return;
 
-	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF, (1L << 16) | eventValue);
+	if (!cmdq_entry) {
+		CMDQ_ERR("%s no cmdq entry\n", __func__);
+		return;
+	}
+
+	cmdq_set_event(cmdq_entry->chan, eventValue);
 }
 
 u32 cmdqCoreGetEvent(enum cmdq_event event)
 {
-	u32 regValue = 0;
 	s32 eventValue = cmdq_core_get_event_value(event);
-	unsigned long va;
 
-	va = cmdq_dev_get_module_base_VA_GCE();
-	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_ID_OFF, (0x3FF & eventValue));
-	regValue = CMDQ_REG_GET32(va + CMDQ_SYNC_TOKEN_VAL_OFF);
-	return regValue;
-}
+	if (!cmdq_entry) {
+		CMDQ_ERR("%s no cmdq entry\n", __func__);
+		return 0;
+	}
 
-#if !IS_ENABLED(CONFIG_MACH_MT6885)
-static void cmdq_core_reset_hw_events_impl(enum cmdq_event event)
-{
-	s32 value = cmdq_core_get_event_value(event);
-	unsigned long va;
-
-	if (value <= 0)
-		return;
-
-	/* Reset GCE event */
-	va = cmdq_dev_get_module_base_VA_GCE();
-	CMDQ_REG_SET32(va + CMDQ_SYNC_TOKEN_UPD_OFF,
-		CMDQ_SYNC_TOKEN_MAX & value);
-}
-#endif
-
-static void cmdq_core_reset_hw_events(void)
-{
-#if !IS_ENABLED(CONFIG_MACH_MT6885)
-	int index;
-	struct cmdq_event_table *events = cmdq_event_get_table();
-	u32 table_size = cmdq_event_get_table_size();
-
-	/* set all defined events to 0 */
-	CMDQ_MSG("%s\n", __func__);
-
-	for (index = 0; index < table_size; index++)
-		cmdq_core_reset_hw_events_impl(events[index].event);
-
-	/* However, GRP_SET are resource flags, */
-	/* by default they should be 1. */
-	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_GPR_SET_0);
-	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_GPR_SET_1);
-	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_GPR_SET_2);
-	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_GPR_SET_3);
-	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_GPR_SET_4);
-
-	/* CMDQ_SYNC_RESOURCE are resource flags, */
-	/* by default they should be 1. */
-	cmdqCoreSetEvent(CMDQ_SYNC_RESOURCE_WROT0);
-	cmdqCoreSetEvent(CMDQ_SYNC_RESOURCE_WROT1);
-	/* TODO: register reset callback from cmdq_mdp_common.c */
-	cmdq_mdp_reset_resource();
-#endif
+	return cmdq_get_event(cmdq_entry->chan, eventValue);
 }
 
 void cmdq_core_reset_gce(void)
@@ -2329,7 +2255,7 @@ void cmdq_core_reset_gce(void)
 	 * 2. reset all events
 	 */
 	cmdq_get_func()->enableGCEClockLocked(true);
-	cmdq_core_reset_hw_events();
+	cmdq_mdp_reset_resource();
 #ifdef CMDQ_ENABLE_BUS_ULTRA
 	CMDQ_LOG("Enable GCE Ultra ability");
 	CMDQ_REG_SET32(CMDQ_BUS_CONTROL_TYPE, 0x3);
@@ -4979,6 +4905,9 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		cmdq_clients[chan_id] = clt;
 		CMDQ_LOG("chan %d 0x%px dev:0x%px\n",
 			chan_id, cmdq_clients[chan_id]->chan, dev);
+
+		if (!cmdq_entry && chan_id >= CMDQ_DYNAMIC_THREAD_ID_START)
+			cmdq_entry = clt;
 	}
 
 	cmdq_client_base = cmdq_register_device(dev);
