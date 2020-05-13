@@ -58,6 +58,9 @@
 #define clk_writel(addr, val)		mt_reg_sync_writel(val, addr)
 #define clk_readl(addr)			__raw_readl(IOMEM(addr))
 
+#define MFG_MISC_CON		INFRACFG_REG(0x0600)
+#define MFG_DFD_TRIGGER (1<<19)
+
 /*
  * MTCMOS
  */
@@ -4272,6 +4275,27 @@ int allow[NR_SYSS] = {
 };
 #endif
 
+static int isNeedMfgFakePowerOn(enum subsys_id id)
+{
+	int isGpuDfdTriggered = 0;
+	unsigned int gpu_dfd_status;
+
+	if (id == SYS_MFG0 || id == SYS_MFG1 || id == SYS_MFG2 ||
+	    id == SYS_MFG3 || id == SYS_MFG5) {
+		gpu_dfd_status = spm_read(MFG_MISC_CON);
+
+		// if gpu dfd is triggered, the power control will be locked
+		// so we need to do fake power on
+		if (gpu_dfd_status & MFG_DFD_TRIGGER) {
+			pr_info("%s:power on, MFG_MISC_CON(0x%x)\n",
+				__func__, gpu_dfd_status);
+			isGpuDfdTriggered = 1;
+		}
+	}
+
+	return isGpuDfdTriggered;
+}
+
 static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 {
 	int r = 0;
@@ -4416,7 +4440,8 @@ int pg_prepare(struct clk_hw *hw)
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
-	if (pg_is_enabled(hw) == SUBSYS_PWR_ON)
+	if (pg_is_enabled(hw) == SUBSYS_PWR_ON &&
+		!isNeedMfgFakePowerOn(pg->pd_id))
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
 
