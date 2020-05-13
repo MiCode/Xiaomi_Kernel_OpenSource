@@ -4278,9 +4278,13 @@ static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
 	if (ret)
 		return ret;
 
+	pci_priv->def_link_speed = link_info->target_link_speed;
+	pci_priv->def_link_width = link_info->target_link_width;
+
 	cnss_pr_dbg("Setting link speed:0x%x, width:0x%x\n",
 		    link_info->target_link_speed,
 		    link_info->target_link_width);
+
 	return 0;
 }
 
