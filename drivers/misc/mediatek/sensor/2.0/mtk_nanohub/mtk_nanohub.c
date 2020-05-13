@@ -1698,59 +1698,73 @@ static void mtk_nanohub_restoring_config(void)
 
 	length = sizeof(device->acc_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->acc_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_ACCELEROMETER, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->acc_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_ACCELEROMETER, data, length);
+		vfree(data);
+	}
 
 	length = sizeof(device->gyro_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->gyro_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_GYROSCOPE, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->gyro_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_GYROSCOPE, data, length);
+		vfree(data);
+	}
 
 	length = sizeof(device->mag_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->mag_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_MAGNETIC_FIELD, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->mag_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_MAGNETIC_FIELD, data, length);
+		vfree(data);
+	}
 
 	length = sizeof(device->light_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->light_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_LIGHT, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->light_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_LIGHT, data, length);
+		vfree(data);
+	}
 
 	length = sizeof(device->proximity_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->proximity_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_PROXIMITY, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->proximity_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_PROXIMITY, data, length);
+		vfree(data);
+	}
 
 	length = sizeof(device->sar_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->sar_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_SAR, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->sar_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_SAR, data, length);
+		vfree(data);
+	}
 
 	length = sizeof(device->ois_config_data);
 	data = vzalloc(length);
-	spin_lock(&config_data_lock);
-	memcpy(data, device->ois_config_data, length);
-	spin_unlock(&config_data_lock);
-	mtk_nanohub_cfg_to_hub(ID_OIS, data, length);
-	vfree(data);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->ois_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_OIS, data, length);
+		vfree(data);
+	}
 }
 
 static void mtk_nanohub_start_timesync(void)

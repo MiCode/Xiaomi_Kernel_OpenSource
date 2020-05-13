@@ -180,6 +180,7 @@ static void nanohub_ipi_comms_init(struct nanohub_ipi_data *ipi_data)
 	comms->read = nanohub_ipi_read;
 /*	comms->tx_buffer = kmalloc(4096, GFP_KERNEL | GFP_DMA); */
 	comms->rx_buffer = kmalloc(4096, GFP_KERNEL | GFP_DMA);
+	WARN_ON(comms->rx_buffer == NULL);
 	nanohub_ipi_rx.buff = comms->rx_buffer;
 	sema_init(&scp_nano_ipi_sem, 1);
 }
