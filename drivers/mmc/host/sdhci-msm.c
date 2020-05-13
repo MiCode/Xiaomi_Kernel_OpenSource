@@ -163,6 +163,8 @@
 
 #define INVALID_TUNING_PHASE	-1
 #define sdhci_is_valid_gpio_wakeup_int(_h) ((_h)->pdata->sdiowakeup_irq >= 0)
+#define sdhci_is_valid_gpio_testbus_trigger_int(_h) \
+	((_h)->pdata->testbus_trigger_irq >= 0)
 
 #define NUM_TUNING_PHASES		16
 #define MAX_DRV_TYPES_SUPPORTED_HS200	4
@@ -1210,7 +1212,115 @@ static void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
 			drv_type);
 }
 
+#define MAX_TESTBUS 127
 #define IPCAT_MINOR_MASK(val) ((val & 0x0fff0000) >> 0x10)
+#define TB_CONF_MASK 0x7f
+#define TB_TRIG_CONF 0xff80ffff
+#define TB_WRITE_STATUS BIT(8)
+
+/*
+ * This function needs to be used when getting mask and
+ * match pattern either from cmdline or sysfs
+ */
+void sdhci_msm_mm_dbg_configure(struct sdhci_host *host, u32 mask,
+			u32 match, u32 bit_shift, u32 testbus)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct platform_device *pdev = msm_host->pdev;
+	u32 val;
+	u32 enable_dbg_feature = 0;
+	int ret = 0;
+
+	if (testbus > MAX_TESTBUS) {
+		dev_err(&pdev->dev, "%s: testbus should be less than 128.\n",
+						__func__);
+		return;
+	}
+
+	/* Enable debug mode */
+	writel_relaxed(ENABLE_DBG,
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+	writel_relaxed(DUMMY,
+			host->ioaddr + SDCC_DEBUG_EN_DIS_REG);
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			SDCC_TESTBUS_CONFIG) | TESTBUS_EN),
+			host->ioaddr + SDCC_TESTBUS_CONFIG);
+
+	/* Enable particular feature */
+	enable_dbg_feature |= MM_TRIGGER_DISABLE;
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			SDCC_DEBUG_FEATURE_CFG_REG) | enable_dbg_feature),
+			host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
+
+	/* Configure Mask & Match pattern*/
+	writel_relaxed((mask << bit_shift),
+			host->ioaddr + SDCC_DEBUG_MASK_PATTERN_REG);
+	writel_relaxed((match << bit_shift),
+			host->ioaddr + SDCC_DEBUG_MATCH_PATTERN_REG);
+
+	/* Configure test bus for above mm */
+	writel_relaxed((testbus & TB_CONF_MASK), host->ioaddr +
+			SDCC_DEBUG_MM_TB_CFG_REG);
+	/* Initiate conf shifting */
+	writel_relaxed(BIT(8),
+			host->ioaddr + SDCC_DEBUG_MM_TB_CFG_REG);
+
+	/* Wait for test bus to be configured */
+	ret = readl_poll_timeout(host->ioaddr + SDCC_DEBUG_MM_TB_CFG_REG,
+			val, !(val & TB_WRITE_STATUS), 50, 1000);
+	if (ret == -ETIMEDOUT)
+		pr_err("%s: Unable to set mask & match\n",
+				mmc_hostname(host->mmc));
+
+	/* Direct test bus to GPIO */
+	writel_relaxed(((readl_relaxed(host->ioaddr +
+				SDCC_TESTBUS_CONFIG) & TB_TRIG_CONF)
+				| (testbus << 16)), host->ioaddr +
+				SDCC_TESTBUS_CONFIG);
+
+	/* Read back to ensure write went through */
+	readl_relaxed(host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
+}
+
+static ssize_t store_mask_and_match(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	unsigned long value;
+	char *token;
+	int i = 0;
+	u32 mask, match, bit_shift, testbus;
+
+	char *temp = (char *)buf;
+
+	if (!host)
+		return -EINVAL;
+
+	while ((token = strsep(&temp, " "))) {
+		kstrtoul(token, 0, &value);
+		if (i == 0)
+			mask = value;
+		else if (i == 1)
+			match = value;
+		else if (i == 2)
+			bit_shift = value;
+		else if (i == 3) {
+			testbus = value;
+			break;
+		}
+		i++;
+	}
+
+	pr_info("%s: M&M parameter passed are: %d %d %d %d\n",
+		mmc_hostname(host->mmc), mask, match, bit_shift, testbus);
+	pm_runtime_get_sync(dev);
+	sdhci_msm_mm_dbg_configure(host, mask, match, bit_shift, testbus);
+	pm_runtime_put_sync(dev);
+
+	pr_debug("%s: M&M debug enabled.\n", mmc_hostname(host->mmc));
+	return count;
+}
 
 /* Enter sdcc debug mode */
 void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
@@ -2859,6 +2969,16 @@ static void sdhci_msm_cfg_sdiowakeup_gpio_irq(struct sdhci_host *host,
 		dev_warn(&msm_host->pdev->dev, "%s: wakeup to config: %d curr: %d\n",
 			__func__, enable, msm_host->is_sdiowakeup_enabled);
 	msm_host->is_sdiowakeup_enabled = enable;
+}
+
+static irqreturn_t sdhci_msm_testbus_trigger_irq(int irq, void *data)
+{
+	struct sdhci_host *host = (struct sdhci_host *)data;
+
+	pr_info("%s: match happened against mask\n",
+				mmc_hostname(host->mmc));
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
@@ -5564,6 +5684,22 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	msm_host->pdata->testbus_trigger_irq = platform_get_irq_byname(pdev,
+							  "tb_trig_irq");
+	if (sdhci_is_valid_gpio_testbus_trigger_int(msm_host)) {
+		dev_info(&pdev->dev, "%s: testbus_trigger_irq = %d\n", __func__,
+				msm_host->pdata->testbus_trigger_irq);
+		ret = request_irq(msm_host->pdata->testbus_trigger_irq,
+				  sdhci_msm_testbus_trigger_irq,
+				  IRQF_SHARED | IRQF_TRIGGER_RISING,
+				  "sdhci-msm tb_trig", host);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: request tb_trig IRQ %d: failed: %d\n",
+				__func__, msm_host->pdata->testbus_trigger_irq,
+				ret);
+		}
+	}
+
 	if (of_device_is_compatible(node, "qcom,sdhci-msm-cqe")) {
 		dev_dbg(&pdev->dev, "node with qcom,sdhci-msm-cqe\n");
 		ret = sdhci_msm_cqe_add_host(host, pdev);
@@ -5620,6 +5756,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		pr_err("%s: %s: failed creating auto-cmd21 attr: %d\n",
 		       mmc_hostname(host->mmc), __func__, ret);
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
+	}
+
+	if (IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
+				SDCC_IP_CATALOG)) >= 2) {
+		msm_host->mask_and_match.store = store_mask_and_match;
+		sysfs_attr_init(&msm_host->mask_and_match.attr);
+		msm_host->mask_and_match.attr.name = "mask_and_match";
+		msm_host->mask_and_match.attr.mode = 0644;
+		ret = device_create_file(&pdev->dev,
+					&msm_host->mask_and_match);
+		if (ret) {
+			pr_err("%s: %s: failed creating M&M attr: %d\n",
+					mmc_hostname(host->mmc), __func__, ret);
+		}
 	}
 
 	if (sdhci_msm_is_bootdevice(&pdev->dev))
