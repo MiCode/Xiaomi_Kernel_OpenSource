@@ -57,7 +57,7 @@
 #define GOODIX_TS_PID_GT9886	"9886"
 #define GOODIX_TS_PID_GT9885	"9885"
 #define GOODIX_BUS_RETRY_TIMES	3
-#define GOODIX_CHIPID_RETRY_TIMES	1
+#define GOODIX_CHIPID_RETRY_TIMES	5
 #define GOODIX_MAX_TOUCH	10
 #define GOODIX_MAX_PEN		1
 #define GOODIX_MAX_KEY		3
@@ -99,42 +99,6 @@ struct tpd_filter_t {
 #define COMPAT_TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, \
 				2, struct tpd_filter_t)
 #endif
-
-/*touch rotate with lcm*/
-#ifndef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
-#define TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
-#endif
-
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-#ifdef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
-#define GTP_WARP_X_ON         1
-#define GTP_WARP_Y_ON         1
-#else   /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#define GTP_WARP_X_ON         0
-#define GTP_WARP_Y_ON         0
-#endif  /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#else   /* CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW */
-#ifdef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
-#define GTP_WARP_X_ON         0
-#define GTP_WARP_Y_ON         0
-#else   /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#define GTP_WARP_X_ON         1
-#define GTP_WARP_Y_ON         1
-#endif  /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#endif  /* CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW */
-
-#if GTP_WARP_X_ON
-#define GTP_WARP_X(x_max, x) (x_max - 1 - x)
-#else
-#define GTP_WARP_X(x_max, x) x
-#endif
-
-#if GTP_WARP_Y_ON
-#define GTP_WARP_Y(y_max, y) (y_max - 1 - y)
-#else
-#define GTP_WARP_Y(y_max, y) y
-#endif
-/* For MTK Internal Touch End */
 
 /*
  * struct goodix_module - external modules container
@@ -203,7 +167,6 @@ struct goodix_ts_board_data {
 	bool pen_enable;
 	unsigned int tp_key_num;
 	/*add end*/
-	unsigned int flag_use_fhdp;
 
 	const char *fw_name;
 	const char *cfg_bin_name;
@@ -794,6 +757,10 @@ extern int i2c_touch_suspend(void);
 extern int goodix_start_cfg_bin(struct goodix_ts_core *ts_core);
 int gt9886_touch_filter_register(void);
 int goodix_ts_core_init(void);
+
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 extern atomic_t gt9886_tui_flag;
+extern struct goodix_ts_core *resume_core_data;
+#endif
 
 #endif

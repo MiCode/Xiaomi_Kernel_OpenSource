@@ -420,10 +420,10 @@ int tpd_get_pinctrl(struct i2c_client *client)
 				"ts_i2c_mode", ret);
 	}
 
-	eint_as_int = pinctrl_lookup_state(pinctrl1, "ts_eint_as_int");
+	eint_as_int = pinctrl_lookup_state(pinctrl1, "ts_int_active");
 	if (IS_ERR(eint_as_int)) {
 		ret = PTR_ERR(eint_as_int);
-		GTP_ERROR("Cannot find pinctrl ts_eint_as_int!\n");
+		GTP_ERROR("Cannot find pinctrl ts_int_active!\n");
 		return ret;
 	}
 	eint_output0 = pinctrl_lookup_state(pinctrl1, "ts_int_suspend");

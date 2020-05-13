@@ -33,6 +33,10 @@
 #define GOOIDX_INPUT_PHYS	"goodix_ts/input0"
 
 struct goodix_ts_core *resume_core_data;
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+EXPORT_SYMBOL(resume_core_data);
+#endif
+
 static struct task_struct *gt9886_polling_thread;
 static int goodix_ts_event_polling(void *arg);
 
@@ -985,11 +989,6 @@ static int goodix_ts_input_report(struct input_dev *dev,
 			input_report_abs(dev, ABS_MT_TRACKING_ID, id);
 			input_report_abs(dev, ABS_MT_TOOL_TYPE, MT_TOOL_FINGER);
 			//input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
-
-			coords->x = GTP_WARP_X(ts_bdata->input_max_x,
-				coords->x);
-			coords->y = GTP_WARP_Y(ts_bdata->input_max_y,
-				coords->y);
 			input_report_abs(dev, ABS_MT_POSITION_X, coords->x);
 			input_report_abs(dev, ABS_MT_POSITION_Y, coords->y);
 			input_report_abs(dev, ABS_MT_TOUCH_MAJOR, coords->w);
@@ -1724,7 +1723,7 @@ static int goodix_ts_power_on_reinit(void)
 	struct goodix_ts_core *core_data = resume_core_data;
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 
-	if (atomic_read(&core_data->suspended) == true)
+	if (atomic_read(&core_data->suspended))
 		return -EINVAL;
 
 	ts_info("%s start!\n", __func__);
@@ -1946,7 +1945,11 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 			int *blank = fb_event->data;
 
 			if (*blank == FB_BLANK_UNBLANK) {
-				if (touch_suspend_flag) {
+				if (touch_suspend_flag
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+				&& !atomic_read(&gt9886_tui_flag)
+#endif
+				) {
 					err = queue_work(touch_resume_workqueue,
 						&touch_resume_work);
 					if (!err) {
@@ -1956,14 +1959,18 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 					touch_suspend_flag = 0;
 				}
 			} else if (*blank == FB_BLANK_POWERDOWN) {
-				if (!touch_suspend_flag) {
+				if (!touch_suspend_flag
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+				&& !atomic_read(&gt9886_tui_flag)
+#endif
+				) {
 					err = cancel_work_sync(
 						&touch_resume_work);
 					if (!err)
 						ts_err("cancel resume_workqueue failed\n");
 					goodix_ts_suspend(core_data);
-					touch_suspend_flag = 1;
 				}
+				touch_suspend_flag = 1;
 			}
 		}
 	}
@@ -2120,9 +2127,9 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	if (!r && core_data->pinctrl) {
 		if (core_data->pin_i2c_mode_default) {
 			r = pinctrl_select_state(core_data->pinctrl,
-				core_data->pin_i2c_mode_default);
+			    core_data->pin_i2c_mode_default);
 			if (r < 0)
-				ts_err("Failed to select default pinstate, r:%d", r);
+				ts_err("Failed to select default, r:%d", r);
 		}
 		r = pinctrl_select_state(core_data->pinctrl,
 				core_data->pin_int_sta_active);

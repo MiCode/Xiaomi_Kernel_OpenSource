@@ -163,7 +163,7 @@ static long tpd_unlocked_ioctl(struct file *file,
 			}
 			break;
 	default:
-		pr_info("tpd: unknown IOCTL: 0x%08x\n", cmd);
+		ts_info("tpd: unknown IOCTL: 0x%08x\n", cmd);
 		err = -ENOIOCTLCMD;
 		break;
 
@@ -205,6 +205,7 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 		struct goodix_ts_board_data *board_data)
 {
 	int r, err;
+	int convert_err = -EINVAL;
 
 	r = of_property_read_u32(node, "goodix,panel-max-id",
 				&board_data->panel_max_id);
@@ -220,19 +221,23 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 	if (r)
 		err = -ENOENT;
 
-	if (board_data->flag_use_fhdp == true) {
-		r = of_property_read_u32(node,
-				"goodix,panel-max-y-fhdp",
+	r = of_property_read_u32(node, "goodix,panel-max-y",
 				&board_data->panel_max_y);
-		if (r)
-			err = -ENOENT;
-	} else {
-		r = of_property_read_u32(node, "goodix,panel-max-y",
-					&board_data->panel_max_y);
-		if (r)
-			err = -ENOENT;
-	}
+	if (r)
+		err = -ENOENT;
+
 	/* For unreal lcm test */
+#if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
+	convert_err = kstrtou32(CONFIG_LCM_WIDTH, 10,
+		&board_data->input_max_x);
+	if (convert_err)
+		ts_err("GET LCM WIDTH failed!\n");
+	convert_err = kstrtou32(CONFIG_LCM_HEIGHT, 10,
+		&board_data->input_max_y);
+	if (convert_err)
+		ts_err("GET LCM HEIGHT failed!\n");
+#else
+	ts_info("Set Default lcm-resolution!");
 	r = of_property_read_u32(node, "goodix,input-max-x",
 				 &board_data->input_max_x);
 	if (r)
@@ -242,7 +247,7 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 				&board_data->input_max_y);
 	if (r)
 		err = -ENOENT;
-
+#endif
 	r = of_property_read_u32(node, "goodix,panel-max-w",
 				&board_data->panel_max_w);
 	if (r)
@@ -270,22 +275,11 @@ static int goodix_parse_dt_resolution(struct device_node *node,
  * @board_data: pointer to board data structure
  * return: 0 - no error, <0 error
  */
-struct tag_videolfb {
-	u64 fb_base;
-	u32 islcmfound;
-	u32 fps;
-	u32 vram;
-	char lcmname[1];
-};
-
 static int goodix_parse_dt(struct device_node *node,
 	struct goodix_ts_board_data *board_data)
 {
 	struct property *prop;
 	int r;
-	struct device_node *lcm_name_node;
-	struct tag_videolfb *videolfb_tag = NULL;
-	unsigned long size = 0;
 
 	if (!board_data) {
 		ts_err("Invalid board data");
@@ -317,50 +311,18 @@ static int goodix_parse_dt(struct device_node *node,
 		return -EINVAL;
 	}
 
-	ts_info("start to parse lcm name");
-	lcm_name_node = of_find_node_by_path("/chosen");
-	if (lcm_name_node) {
-		videolfb_tag = (struct tag_videolfb *)
-			of_get_property(lcm_name_node,
-			"atag,videolfb",
-			(int *)&size);
-		if (!videolfb_tag)
-			ts_err("Invalid lcm name");
-	}
+	r = of_property_read_string(node,
+			"goodix,firmware-version",
+			&gt9886_firmware_buf);
+	if (r < 0)
+		ts_err("Invalid firmware version in dts : %d", r);
 
-	ts_info("read lcm name : %s", videolfb_tag->lcmname);
-	if (strcmp("hx83112b_fhdp_dsi_vdo_fhd_auo_rt4801_drv",
-		videolfb_tag->lcmname) == 0) {
-		r = of_property_read_string(node,
-				"goodix,firmware-version-fhdp",
-				&gt9886_firmware_buf);
-		if (r < 0)
-			ts_err("Invalid firmware version in dts : %d", r);
-
-		r = of_property_read_string(node,
-				"goodix,config-version-fhdp",
-				&gt9886_config_buf);
-		if (r < 0) {
-			ts_err("Invalid config version in dts : %d", r);
-			return -EINVAL;
-		}
-		board_data->flag_use_fhdp = true;
-
-	} else {
-		r = of_property_read_string(node,
-				"goodix,firmware-version",
-				&gt9886_firmware_buf);
-		if (r < 0)
-			ts_err("Invalid firmware version in dts : %d", r);
-
-		r = of_property_read_string(node,
-				"goodix,config-version",
-				&gt9886_config_buf);
-		if (r < 0) {
-			ts_err("Invalid config version in dts : %d", r);
-			return -EINVAL;
-		}
-		board_data->flag_use_fhdp = false;
+	r = of_property_read_string(node,
+			"goodix,config-version",
+			&gt9886_config_buf);
+	if (r < 0) {
+		ts_err("Invalid config version in dts : %d", r);
+		return -EINVAL;
 	}
 
 	board_data->avdd_name = "vtouch";
@@ -914,21 +876,20 @@ static int goodix_read_pid(struct goodix_ts_device *dev,
 		/*read pid*/
 		r = goodix_i2c_read(dev, TS_REG_PID,
 				buffer, pid_read_len);
-		if (!r)
-			break;
+		if (!r) {
+			if (strcmp(buffer, GOODIX_TS_PID_GT9886) == 0) {
+				ts_info("Touch id = GT9886");
+				return 0;
+			} else if (strcmp(buffer, GOODIX_TS_PID_GT9885) == 0) {
+				ts_info("Touch id = GT9885");
+				return 0;
+			}
+		}
+		msleep(30);
 		ts_info("Touch id = %s, retry = %d", buffer, retry);
 	}
 
-	if (strcmp(buffer, GOODIX_TS_PID_GT9886) == 0)
-		ts_info("Touch id = GT9886");
-	else if (strcmp(buffer, GOODIX_TS_PID_GT9885) == 0)
-		ts_info("Touch id = GT9885");
-	else {
-		ts_err("Touch id = %s", buffer);
-		return -EINVAL;
-	}
-
-	return 0;
+	return -EINVAL;
 }
 
 static int goodix_read_version(struct goodix_ts_device *dev,
@@ -2358,10 +2319,8 @@ err_pdriver:
 	platform_device_unregister(goodix_pdev);
 
 err_pdev:
-	if (goodix_pdev) {
-		kfree(goodix_pdev);
-		goodix_pdev = NULL;
-	}
+	kfree(goodix_pdev);
+	goodix_pdev = NULL;
 	return r;
 
 }

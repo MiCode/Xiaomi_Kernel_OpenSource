@@ -18,12 +18,13 @@
   *
   */
 
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 #include "goodix_ts_core.h"
 
-extern struct goodix_ts_core *resume_core_data;
 atomic_t gt9886_tui_flag = ATOMIC_INIT(0);
+EXPORT_SYMBOL(gt9886_tui_flag);
 
-int tpd_enter_tui1(void)
+int tpd_enter_tui(void)
 {
 	int ret = 0;
 
@@ -34,7 +35,7 @@ int tpd_enter_tui1(void)
 	return ret;
 }
 
-int tpd_exit_tui1(void)
+int tpd_exit_tui(void)
 {
 	int ret = 0;
 
@@ -45,7 +46,7 @@ int tpd_exit_tui1(void)
 	goodix_ts_irq_enable(resume_core_data, false);
 	goodix_ts_irq_enable(resume_core_data, true);
 
-	/* whether to control touch suspend or not? */
-	/*  ......   */
 	return ret;
 }
+#endif
+

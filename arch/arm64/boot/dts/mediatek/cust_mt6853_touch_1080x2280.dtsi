@@ -114,8 +114,8 @@
 	ctp_ts_int_active: int_active {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
-			slew-rate = <0>;
-			bias-pull-up = <11>;
+			input-enable;
+			bias-pill-up = <MTK_PUPD_SET_R1R0_11>;
 		};
 	};
 	ctp_ts_reset_active: reset_active {
