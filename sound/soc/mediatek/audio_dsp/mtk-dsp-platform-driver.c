@@ -935,30 +935,6 @@ void mtk_dsp_handler(struct mtk_base_dsp *dsp,
 	}
 }
 
-
-#if 0
-static snd_pcm_uframes_t
-mtk_dsp_pcm_pointer(struct snd_pcm_substream *substream)
-{
-	int pcm_ptr_bytes = 0;
-
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mtk_base_dsp *dsp = snd_soc_platform_get_drvdata(rtd->platform);
-	int id = rtd->cpu_dai->id;
-
-	struct RingBuf *audio_buf = &(dsp->dsp_mem[id].ring_buf);
-
-#ifdef DEBUG_VERBOSE
-	dump_rbuf_s(__func__, &dsp->dsp_mem[id].ring_buf);
-#endif
-
-	pcm_ptr_bytes = audio_buf->pRead - audio_buf->pBufBase;
-	pcm_ptr_bytes = dsp_word_size_align(pcm_ptr_bytes);
-
-	return bytes_to_frames(substream->runtime, pcm_ptr_bytes);
-}
-#endif
-
 static int mtk_dsp_pcm_open(struct snd_pcm_substream *substream)
 {
 	int ret = 0;

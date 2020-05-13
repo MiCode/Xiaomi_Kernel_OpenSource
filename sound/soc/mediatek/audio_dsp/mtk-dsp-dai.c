@@ -101,21 +101,10 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 			},
 	},
 	{
-		.name = "audio_task_A2DP_dai",
+		.name = "audio_task_a2dp_dai",
 		.id = AUDIO_TASK_A2DP_ID,
 		.playback = {
 				.stream_name = "DSP_Playback_A2DP",
-				.channels_min = 1,
-				.channels_max = 2,
-				.rates = MTK_I2S_RATES,
-				.formats = MTK_I2S_FORMATS,
-			},
-	},
-	{
-		.name = "audio_task_dataprovider_dai",
-		.id = AUDIO_TASK_DATAPROVIDER_ID,
-		.playback = {
-				.stream_name = "DSP_Playback_DataProvider",
 				.channels_min = 1,
 				.channels_max = 2,
 				.rates = MTK_I2S_RATES,
