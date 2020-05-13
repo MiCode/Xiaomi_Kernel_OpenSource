@@ -368,8 +368,8 @@ static bool cmdq_core_check_write(const struct cmdq_check *check,
 	case 0:
 		return cmdq_mdp_is_sub_valid(check->sop, check->ai);
 	case 0x2:
-		return check->bi < xpr_total &&
-			xpr[check->bi] != XPR_UNLOCK &&
+		return check->val < xpr_total &&
+			xpr[check->val] != XPR_UNLOCK &&
 			cmdq_mdp_is_sub_valid(check->sop, check->ai);
 	case 0x4:
 		if (unlikely(xpr[check->sop] != XPR_DMA &&
@@ -379,8 +379,8 @@ static bool cmdq_core_check_write(const struct cmdq_check *check,
 	case 0x6:
 		if (unlikely((xpr[check->sop] != XPR_DMA &&
 			xpr[check->sop] != XPR_REG) ||
-			check->bi >= xpr_total ||
-			xpr[check->bi] != XPR_UNKNOWN)) {
+			check->val >= xpr_total ||
+			xpr[check->val] != XPR_UNKNOWN)) {
 			return false;
 		}
 		break;
@@ -396,16 +396,16 @@ static bool cmdq_core_check_read(const struct cmdq_check *check,
 {
 	switch (check->opt) {
 	case 0x2:
-		if (unlikely(check->bi >= xpr_total ||
-			xpr[check->bi] == XPR_UNLOCK) ||
+		if (unlikely(check->val >= xpr_total ||
+			xpr[check->val] == XPR_UNLOCK) ||
 			!cmdq_mdp_is_sub_valid(check->sop, check->ai))
 			return false;
 		break;
 	case 0x6:
-		if (unlikely(check->ai >= xpr_total ||
-			check->bi >= xpr_total ||
-			xpr[check->ai] != XPR_REG ||
-			xpr[check->bi] == XPR_UNLOCK))
+		if (unlikely(check->sop >= xpr_total ||
+			check->val >= xpr_total ||
+			xpr[check->sop] != XPR_REG ||
+			xpr[check->val] == XPR_UNLOCK))
 			return false;
 		break;
 	default:
@@ -413,7 +413,7 @@ static bool cmdq_core_check_read(const struct cmdq_check *check,
 	}
 
 	/* state to unknown */
-	xpr[check->bi] = XPR_UNKNOWN;
+	xpr[check->val] = XPR_UNKNOWN;
 	return true;
 }
 
