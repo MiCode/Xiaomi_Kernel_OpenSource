@@ -591,6 +591,65 @@ static void cmdq_test_mbox_sync_token_flush(unsigned long data)
 	clk_disable_unprepare(gtest->gce.clk);
 }
 
+void cmdq_test_mbox_flush_MTEE(
+	struct cmdq_test *test, const bool secure, const bool threaded)
+{
+	struct cmdq_client		*clt = secure ? test->sec : test->clt;
+	struct cmdq_pkt			*pkt[CMDQ_TEST_CNT] = {0};
+	s32				i, err;
+
+	cmdq_msg("%s sec:%d threaded:%d", __func__, secure, threaded);
+
+	test->tick = true;
+	setup_timer(&test->timer, &cmdq_test_mbox_sync_token_flush,
+		test->token_user0);
+	mod_timer(&test->timer, jiffies + msecs_to_jiffies(10));
+
+	for (i = 0; i < CMDQ_TEST_CNT; i++) {
+		pkt[i] = cmdq_pkt_create(clt);
+#ifdef CMDQ_SECURE_SUPPORT
+		if (secure) {
+			cmdq_sec_pkt_set_data(pkt[i], 0, 0, CMDQ_SEC_DEBUG,
+				CMDQ_METAEX_NONE);
+			cmdq_sec_pkt_set_mtee(pkt[i], 1);
+		}
+#endif
+
+		cmdq_pkt_wfe(pkt[i], test->token_user0);
+		pkt[i]->priority = i;
+
+		if (!threaded)
+			cmdq_pkt_flush_async(pkt[i], NULL, NULL);
+		else
+			cmdq_pkt_flush_threaded(pkt[i],
+				cmdq_test_mbox_cb_destroy, (void *)pkt[i]);
+	}
+
+	for (i = 0; i < CMDQ_TEST_CNT; i++) {
+		if (!pkt[i]) {
+			cmdq_err("NULL pkt:%d", i);
+			continue;
+		}
+		msleep_interruptible(100);
+		if (!threaded)
+			err = cmdq_pkt_wait_complete(pkt[i]);
+		else
+			err = 0;
+		if (err < 0) {
+			cmdq_err("wait complete pkt[%d]:%p err:%d",
+				i, pkt[i], err);
+			continue;
+		}
+		if (!threaded)
+			cmdq_pkt_destroy(pkt[i]);
+	}
+
+	test->tick = false;
+	del_timer(&test->timer);
+
+	cmdq_msg("%s end", __func__);
+}
+
 void cmdq_test_mbox_flush(
 	struct cmdq_test *test, const bool secure, const bool threaded)
 {
@@ -920,6 +979,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	case 16:
 		cmdq_test_show_events(test);
 		break;
+	case 17: // test case for MTEE
+		cmdq_test_mbox_flush_MTEE(test, sec, false);
+		cmdq_test_mbox_flush_MTEE(test, sec, true);
 	default:
 		break;
 	}

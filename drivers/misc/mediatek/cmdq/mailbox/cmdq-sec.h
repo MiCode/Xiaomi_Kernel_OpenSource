@@ -95,6 +95,9 @@ struct cmdq_sec_data {
 	/* response */
 	s32 response;
 	struct iwcCmdqSecStatus_t sec_status;
+
+	/* MTEE */
+	bool mtee;
 };
 
 /* implementation in cmdq-sec-helper.c */
@@ -112,5 +115,8 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt);
 int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt);
 void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
 	u64 **inst, const char **dispatch);
+
+/* MTEE */
+void cmdq_sec_pkt_set_mtee(struct cmdq_pkt *pkt, const bool enable);
 
 #endif

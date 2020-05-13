@@ -18,6 +18,12 @@ ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
 endif
 
+ifeq ($(or $(strip $(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)), $(strip $(CONFIG_MTK_ENABLE_GENIEZONE))),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
+obj-y += cmdq_sec_mtee.o
+endif
+
 ccflags-y += -DCMDQ_SECURE_SUPPORT
 
 obj-y += cmdq-sec-gp.o
