@@ -133,7 +133,7 @@ static struct smi_cmdq_t	smi_cmdq;
 #endif
 
 static struct smi_driver_t	smi_drv;
-static struct smi_record_t	smi_record[SMI_LARB_NUM][2];
+static struct smi_record_t	smi_record[SMI_DEV_NUM][2];
 static struct smi_dram_t	smi_dram;
 
 static struct mtk_smi_dev	*smi_dev[SMI_DEV_NUM];
@@ -152,9 +152,6 @@ static void smi_clk_record(const u32 id, const bool en, const char *user)
 	struct smi_record_t *record;
 	u64 sec;
 	u32 nsec;
-
-	if (id >= SMI_LARB_NUM)
-		return;
 
 	record = &smi_record[id][en ? 1 : 0];
 	sec = sched_clock();
@@ -193,8 +190,8 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u, user=%s\n",
 			id, SMI_DEV_NUM, user);
 		return -EINVAL;
-	} else if (id < SMI_LARB_NUM)
-		smi_clk_record(id, true, user);
+	}
+	smi_clk_record(id, true, user);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	if (id == 6 || id == 10 || id == 12) {
@@ -398,8 +395,8 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u, user=%s\n",
 			id, SMI_DEV_NUM, user);
 		return -EINVAL;
-	} else if (id < SMI_LARB_NUM)
-		smi_clk_record(id, false, user);
+	}
+	smi_clk_record(id, false, user);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	if (id == 6 || id == 10 || id == 12) {
