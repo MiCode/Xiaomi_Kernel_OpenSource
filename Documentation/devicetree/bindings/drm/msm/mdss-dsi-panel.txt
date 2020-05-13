@@ -553,6 +553,7 @@ Optional properties:
 					frequencies in Hz for the given panel.
 - qcom,dsi-dyn-clk-skip-timing-update:	Boolean to specify whether to skip phy timing parameter
 					update during dynamic clock switch.
+- qcom,csi-proxy-enable:		Boolean to config DSI transmission packet DataTypes to simulate the CSI-2 compatible signal
 
 Required properties for sub-nodes:	None
 Optional properties:
