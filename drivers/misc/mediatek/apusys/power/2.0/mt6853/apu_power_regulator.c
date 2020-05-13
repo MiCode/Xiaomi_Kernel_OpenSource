@@ -377,10 +377,34 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
-
+#if VOLTAGE_RAISE_UP
+	unsigned int vpu_efuse_raise = 0;
+#endif
 	struct regulator *reg_id = NULL;
 #if VOLTAGE_CHECKER
 	int check_volt = 0;
+#endif
+
+	/*
+	 * Buck_control will use VVPU_DEFAULT_VOLT instead of opp table
+	 * that is why add raising voltage check here.
+	 */
+#if VOLTAGE_RAISE_UP
+	vpu_efuse_raise =
+		GET_BITS_VAL(1:0, get_devinfo_with_index(EFUSE_RAISE));
+	LOG_DBG("Raise bin: vpu_efuse=%d, efuse: 0x%x\n",
+		vpu_efuse_raise, get_devinfo_with_index(EFUSE_RAISE));
+	/* raising up Vvpu LV from 575mv to 600mv */
+	if (vpu_efuse_raise == 1 &&
+		buck == VPU_BUCK &&
+		voltage_mV == DVFS_VOLT_00_575000_V)
+		voltage_mV += 25000;
+
+	/* raising up Vvpu LV from 575mv to 625mv */
+	if (vpu_efuse_raise == 2 &&
+		buck == VPU_BUCK &&
+		voltage_mV == DVFS_VOLT_00_575000_V)
+		voltage_mV += 50000;
 #endif
 
 	if (buck >= 0) /* bypass the case of SRAM_BUCK = -1 */

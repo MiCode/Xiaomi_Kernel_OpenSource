@@ -589,12 +589,12 @@ static int binning_support_check(void)
 	enum DVFS_VOLTAGE raise_mv = 0;
 
 	vpu_efuse_bin =
-			GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_BIN));
+		GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_BIN));
 	LOG_DBG("Vol bin: vpu_efuse=%d, efuse: 0x%x\n",
 		vpu_efuse_bin, get_devinfo_with_index(EFUSE_BIN));
 
 	vpu_efuse_raise =
-			GET_BITS_VAL(1:0, get_devinfo_with_index(EFUSE_RAISE));
+		GET_BITS_VAL(1:0, get_devinfo_with_index(EFUSE_RAISE));
 	LOG_DBG("Raise bin: vpu_efuse=%d, efuse: 0x%x\n",
 		vpu_efuse_raise, get_devinfo_with_index(EFUSE_RAISE));
 
