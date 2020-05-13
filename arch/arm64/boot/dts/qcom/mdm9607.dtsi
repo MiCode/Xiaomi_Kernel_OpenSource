@@ -1299,7 +1299,7 @@
 			interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
 			label = "rpm";
 
-			rpm_requests: rpm_requests@0 {
+			rpmb: rpmb@0 {
 				compatible = "qcom,rpm-smd";
 				qcom,smd-channels = "rpm_requests";
 				interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;

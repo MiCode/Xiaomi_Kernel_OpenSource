@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-&rpm_requests {
+&rpmb {
 	rpm-regulator-smpa2 {
 		status = "okay";
 		mdm9607_s2: regulator-s2 {
