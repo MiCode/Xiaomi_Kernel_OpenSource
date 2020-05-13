@@ -2178,7 +2178,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10800000 0 0x6000>, /* CFG */
 			<0 0x10840000 0 0x9000>, /* ITCM */
 			<0 0x10820000 0 0x8000>; /* DTCM */
-		system = <0 0x56000000 0 0x700000>;
+		system = <0 0x56000000 0 0x800000>;
 		interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 446 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
