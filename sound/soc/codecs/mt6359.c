@@ -753,8 +753,8 @@ static void headset_volume_ramp(struct mt6359_priv *priv,
 		dev_warn(priv->dev, "%s(), volume index is not valid, from %d, to %d\n",
 			 __func__, from, to);
 
-	dev_info(priv->dev, "%s(), from %d, to %d\n",
-		 __func__, from, to);
+	dev_dbg(priv->dev, "%s(), from %d, to %d\n",
+		__func__, from, to);
 
 	if (to > from)
 		offset = to - from;
@@ -919,8 +919,8 @@ static int mt6359_put_volsw(struct snd_kcontrol *kcontrol,
 		break;
 	}
 
-	dev_info(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
-		 __func__, kcontrol->id.name, mc->reg, reg, index);
+	dev_dbg(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
+		__func__, kcontrol->id.name, mc->reg, reg, index);
 
 	return ret;
 }
