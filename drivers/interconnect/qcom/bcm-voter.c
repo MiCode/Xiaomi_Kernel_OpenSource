@@ -102,7 +102,7 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm, bool init)
 }
 
 static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
-			u32 addr, bool commit, bool wait)
+			u32 addr, bool commit)
 {
 	bool valid = true;
 
@@ -127,7 +127,7 @@ static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
 	 * Set the wait for completion flag on command that need to be completed
 	 * before the next command.
 	 */
-	cmd->wait = wait;
+	cmd->wait = commit;
 }
 
 static void tcs_list_gen(struct bcm_voter *voter, int bucket,
@@ -136,7 +136,7 @@ static void tcs_list_gen(struct bcm_voter *voter, int bucket,
 {
 	struct qcom_icc_bcm *bcm;
 	struct list_head *bcm_list = &voter->commit_list;
-	bool commit, wait;
+	bool commit;
 	size_t idx = 0, batch = 0, cur_vcd_size = 0;
 
 	memset(n, 0, sizeof(int) * MAX_VCD);
@@ -148,13 +148,11 @@ static void tcs_list_gen(struct bcm_voter *voter, int bucket,
 		    bcm->aux_data.vcd !=
 			list_next_entry(bcm, list)->aux_data.vcd) {
 			cur_vcd_size = 0;
-			commit = true;
+			if (voter->tcs_wait & BIT(bucket))
+				commit = true;
 		}
-
-		wait = commit && (voter->tcs_wait & BIT(bucket));
-
 		tcs_cmd_gen(&tcs_list[idx], bcm->vote_x[bucket],
-			    bcm->vote_y[bucket], bcm->addr, commit, wait);
+			    bcm->vote_y[bucket], bcm->addr, commit);
 		idx++;
 		n[batch]++;
 		/*
