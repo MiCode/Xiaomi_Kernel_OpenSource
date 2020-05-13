@@ -484,7 +484,8 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 19200000,
-		},
+			[VDD_LOW] = 50000000,
+			[VDD_NOMINAL] = 100000000},
 	},
 };
 
