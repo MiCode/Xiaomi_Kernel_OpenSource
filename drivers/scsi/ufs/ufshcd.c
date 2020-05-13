@@ -8026,6 +8026,23 @@ out:
 	return ret;
 }
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
+{
+	if (ufshcd_is_link_off(hba) ||
+	    (ufshcd_is_link_hibern8(hba)
+	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
+		ufshcd_setup_hba_vreg(hba, false);
+}
+
+static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
+{
+	if (ufshcd_is_link_off(hba) ||
+	    (ufshcd_is_link_hibern8(hba)
+	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
+		ufshcd_setup_hba_vreg(hba, true);
+}
+#else
 static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
 {
 	if (ufshcd_is_link_off(hba))
@@ -8037,6 +8054,7 @@ static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 	if (ufshcd_is_link_off(hba))
 		ufshcd_setup_hba_vreg(hba, true);
 }
+#endif
 
 /**
  * ufshcd_suspend - helper function for suspend operations
