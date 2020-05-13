@@ -217,6 +217,7 @@ struct mtk_i2c_compatible {
 	unsigned char apdma_sync: 1;
 	unsigned char max_dma_support;
 	unsigned char dma_ver;
+	unsigned int max_dma_support;
 };
 
 struct mtk_i2c_ac_timing {
@@ -418,6 +419,7 @@ static const struct mtk_i2c_compatible mt6873_compat = {
 	.dma_sync = 1,
 	.ltiming_adjust = 1,
 	.dma_ver = 1,
+	.max_dma_support = 36,
 };
 static const struct of_device_id mtk_i2c_of_match[] = {
 	{ .compatible = "mediatek,mt2712-i2c", .data = &mt2712_compat },
@@ -1276,6 +1278,15 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set the speed.\n");
 		return -EINVAL;
+	}
+
+	if (i2c->dev_comp->max_dma_support > 32) {
+		ret = dma_set_mask(&pdev->dev,
+				DMA_BIT_MASK(i2c->dev_comp->max_dma_support));
+		if (ret) {
+			dev_err(&pdev->dev, "dma_set_mask return error.\n");
+			return ret;
+		}
 	}
 
 	if (i2c->dev_comp->max_dma_support > 32) {
