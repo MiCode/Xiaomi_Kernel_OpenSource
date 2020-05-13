@@ -9,6 +9,9 @@
 
 #include <linux/sched.h>
 #include <linux/device.h>
+#if defined(CONFIG_SDC_QTI)
+#include <linux/devfreq.h>
+#endif
 #include <linux/fault-inject.h>
 
 #include <linux/mmc/core.h>
@@ -268,9 +271,76 @@ struct mmc_ctx {
 	struct task_struct *task;
 };
 
+#if defined(CONFIG_SDC_QTI)
+enum dev_state {
+	DEV_SUSPENDING = 1,
+	DEV_SUSPENDED,
+	DEV_RESUMED,
+};
+
+enum mmc_load {
+	MMC_LOAD_HIGH,
+	MMC_LOAD_LOW,
+};
+
+/**
+ * struct mmc_devfeq_clk_scaling - main context for MMC clock scaling logic
+ *
+ * @lock: spinlock to protect statistics
+ * @devfreq: struct that represent mmc-host as a client for devfreq
+ * @devfreq_profile: MMC device profile, mostly polling interval and callbacks
+ * @ondemand_gov_data: struct supplied to ondemmand governor (thresholds)
+ * @state: load state, can be HIGH or LOW. used to notify mmc_host_ops callback
+ * @start_busy: timestamped armed once a data request is started
+ * @measure_interval_start: timestamped armed once a measure interval started
+ * @devfreq_abort: flag to sync between different contexts relevant to devfreq
+ * @skip_clk_scale_freq_update: flag that enable/disable frequency change
+ * @freq_table_sz: table size of frequencies supplied to devfreq
+ * @freq_table: frequencies table supplied to devfreq
+ * @curr_freq: current frequency
+ * @polling_delay_ms: polling interval for status collection used by devfreq
+ * @upthreshold: up-threshold supplied to ondemand governor
+ * @downthreshold: down-threshold supplied to ondemand governor
+ * @need_freq_change: flag indicating if a frequency change is required
+ * @is_busy_started: flag indicating if a request is handled by the HW
+ * @enable: flag indicating if the clock scaling logic is enabled for this host
+ * @is_suspended: to make devfreq request queued when mmc is suspened
+ */
+struct mmc_devfeq_clk_scaling {
+	spinlock_t	lock;
+	struct		devfreq *devfreq;
+	struct		devfreq_dev_profile devfreq_profile;
+	struct		devfreq_simple_ondemand_data ondemand_gov_data;
+	enum mmc_load	state;
+	ktime_t		start_busy;
+	ktime_t		measure_interval_start;
+	atomic_t	devfreq_abort;
+	bool		skip_clk_scale_freq_update;
+	int		freq_table_sz;
+	int		pltfm_freq_table_sz;
+	u32		*freq_table;
+	u32		*pltfm_freq_table;
+	unsigned long	total_busy_time_us;
+	unsigned long	target_freq;
+	unsigned long	curr_freq;
+	unsigned long	polling_delay_ms;
+	unsigned int	upthreshold;
+	unsigned int	downthreshold;
+	unsigned int	lower_bus_speed_mode;
+#define MMC_SCALING_LOWER_DDR52_MODE	1
+	bool		need_freq_change;
+	bool		is_busy_started;
+	bool		enable;
+	bool		is_suspended;
+};
+#endif
+
 struct mmc_host {
 	struct device		*parent;
 	struct device		class_dev;
+#if defined(CONFIG_SDC_QTI)
+	struct mmc_devfeq_clk_scaling	clk_scaling;
+#endif
 	int			index;
 	const struct mmc_host_ops *ops;
 	struct mmc_pwrseq	*pwrseq;
@@ -369,7 +439,9 @@ struct mmc_host {
 #define MMC_CAP2_CQE_DCMD	(1 << 24)	/* CQE can issue a direct command */
 #define MMC_CAP2_AVOID_3_3V	(1 << 25)	/* Host must negotiate down from 3.3V */
 #define MMC_CAP2_MERGE_CAPABLE	(1 << 26)	/* Host can merge a segment over the segment size */
-
+#if defined(CONFIG_SDC_QTI)
+#define MMC_CAP2_CLK_SCALE      (1 << 27)       /* Allow dynamic clk scaling */
+#endif
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
@@ -461,7 +533,9 @@ struct mmc_host {
 	int			cqe_qdepth;
 	bool			cqe_enabled;
 	bool			cqe_on;
-
+#if defined(CONFIG_SDC_QTI)
+	atomic_t active_reqs;
+#endif
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
