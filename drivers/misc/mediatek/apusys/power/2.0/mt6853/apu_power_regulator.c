@@ -377,37 +377,14 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
+#if	SUPPORT_HW_CONTROL_PMIC
 	bool binning_voltage = false;
-
+#endif
 	struct regulator *reg_id = NULL;
 #if VOLTAGE_CHECKER
 	int check_volt = 0;
 #endif
 
-#if BINNING_VOLTAGE_SUPPORT
-	unsigned int vpu_efuse_val = 0;
-#endif
-
-#if BINNING_VOLTAGE_SUPPORT
-	vpu_efuse_val = GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_INDEX));
-	LOG_DBG("Vol bin: vpu_efuse=%d, efuse: 0x%x\n",
-		vpu_efuse_val, get_devinfo_with_index(EFUSE_INDEX));
-
-	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_775000_V
-		&& (vpu_efuse_val >= 2 && vpu_efuse_val <= 4)) {
-		if (vpu_efuse_val == 2)
-			voltage_mV = DVFS_VOLT_00_750000_V;
-		else if (vpu_efuse_val == 3)
-			voltage_mV = DVFS_VOLT_00_737500_V;
-		else if (vpu_efuse_val == 4)
-			voltage_mV = DVFS_VOLT_00_725000_V;
-
-		binning_voltage = true;
-		LOG_WRN("Binning Voltage!!, vpu_efuse=%d, vol=%d\n",
-			vpu_efuse_val, voltage_mV);
-	}
-
-#endif
 	if (buck >= 0) /* bypass the case of SRAM_BUCK = -1 */
 		LOG_DBG("%s try to config buck : %s to %d(max:%d)\n",
 			__func__, buck_str[buck], voltage_mV, voltage_MAX);

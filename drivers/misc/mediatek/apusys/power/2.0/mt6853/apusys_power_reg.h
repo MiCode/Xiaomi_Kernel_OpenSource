@@ -160,8 +160,8 @@ extern void *g_APU_APMIXED_BASE;
 #define NPUPLL_CON1                     (void *)(APU_APMIXED_BASE + 0x03B8)
 
 /**************************************************
- * Vol Binning
+ * Vol Binning and Raising
  **************************************************/
-#define EFUSE_INDEX 209  //(PTPOD26)
-#define EFUSE_POD19 69   //(PTPOD19)
+#define EFUSE_BIN	209   //(PTPOD26)
+#define EFUSE_RAISE	134   //(FAB_INFO4)
 

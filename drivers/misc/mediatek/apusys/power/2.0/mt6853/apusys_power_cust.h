@@ -197,7 +197,7 @@ extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
 
 extern struct apusys_aging_steps aging_tbl[APUSYS_MAX_NUM_OPPS]
-						[V_APU_CONN];
+						[V_VCORE];
 
 #if SUPPORT_VCORE_TO_IPUIF
 extern struct ipuif_opp_table g_ipuif_opp_table[];
