@@ -676,9 +676,7 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		ipuif_freq = mt_get_ckgen_freq(18);
 	}
-#ifndef APUSYS_POWER_BRINGUP
-	check_vpu_clk_sts();
-#endif
+
 	if (info->dump_div > 0)
 		dump_div = info->dump_div;
 

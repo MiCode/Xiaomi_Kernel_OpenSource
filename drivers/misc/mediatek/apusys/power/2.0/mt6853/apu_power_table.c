@@ -14,7 +14,6 @@
 #include <linux/module.h>
 #include "apu_power_table.h"
 
-/* TODO for MOUTON */
 // FIXME: update vpu power table in DVT stage
 /* opp, mW */
 struct apu_opp_info vpu_power_table[APU_OPP_NUM] = {
