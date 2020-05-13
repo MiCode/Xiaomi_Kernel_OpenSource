@@ -503,3 +503,14 @@ config DRM_PANEL_K6853V1_64_ALPHA_VDO_03
 	  phone vdo mode panel. The panel has a 1080x2400 resolution and uses
 	  24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
+
+config DRM_PANEL_NT36672A_RT4801_VDO
+	tristate "NT36672A  FHD+ video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT36672A VDO
+	  mode Full HD Plus panel. The panel has a 1080x2280 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
