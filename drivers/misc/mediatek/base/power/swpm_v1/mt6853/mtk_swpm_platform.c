@@ -108,7 +108,7 @@ static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
 	11274, 3152, 4835, 3687, 2487, 13547,
 };
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
-	575, 600, 650, 725,
+	550, 600, 650, 725,
 };
 static unsigned short ddr_opp_freq[NR_DDR_FREQ] = {
 	400, 600, 800, 933, 1200, 1600, 2133,
