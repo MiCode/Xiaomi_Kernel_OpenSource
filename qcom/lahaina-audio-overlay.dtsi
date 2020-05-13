@@ -146,9 +146,15 @@
 				<1 HPH_R 0x2>, <2 CLSH 0x1>,
 				<3 COMP_L 0x1>, <3 COMP_R 0x2>,
 				<4 LO 0x1>, <5 DSD_L 0x1>,
-				<5 DSD_R 0x2>, <6 PCM_OUT1 0x0F>;
+				<5 DSD_R 0x2>, <6 PCM_OUT1 0x01>;
 			qcom,swr-num-dev = <2>;
 			qcom,swr-clock-stop-mode0 = <1>;
+			swr_haptics: swr_haptics@f0170220 {
+				compatible = "qcom,pm8350b-swr-haptics";
+				reg = <0x01 0xf0170220>;
+				swr-slave-supply = <&hap_swr_slave_reg>;
+				qcom,rx_swr_ch_map = <0 0x01 0x01 0 PCM_OUT1>;
+			};
 			wcd938x_rx_slave: wcd938x-rx-slave {
 				compatible = "qcom,wcd938x-slave";
 				reg = <0x0D 0x01170224>;
@@ -303,6 +309,7 @@
 		"IN1_HPHL", "HPHL_OUT",
 		"IN2_HPHR", "HPHR_OUT",
 		"IN3_AUX", "AUX_OUT",
+		"HAP_IN", "PCM_OUT",
 		"WSA SRC0_INP", "SRC0",
 		"TX SWR_INPUT", "SWR_MIC0 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
@@ -341,13 +348,13 @@
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
 	asoc-codec  = <&stub_codec>, <&bolero>,
-		      <&wcd938x_codec>,
+		      <&wcd938x_codec>, <&swr_haptics>,
 		      <&wsa883x_0221>, <&wsa883x_0222>,
 		      <&swr_dmic_01>, <&swr_dmic_02>,
 		      <&swr_dmic_03>, <&swr_dmic_04>,
 		      <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-			   "wcd938x_codec",
+			   "wcd938x_codec", "swr-haptics",
 			   "wsa-codec1", "wsa-codec2",
 			   "swr-dmic.01", "swr-dmic.02",
 			   "swr-dmic.03", "swr-dmic.04",
