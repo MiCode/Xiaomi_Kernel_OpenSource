@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/seq_file.h>
 #include <linux/platform_device.h>
+#include <linux/vmalloc.h>
 
 #include "apusys_power_ctl.h"
 #include "hal_config_power.h"
@@ -25,25 +26,62 @@
 #include "apu_power_tag.h"
 #endif
 
+/* length of buffer to save freq/volt of each buck_domain */
+#define INFO_LENGTH		15
+
+/**
+ * add_separte() - Add separater when showing freq/volt info
+ * @s: the seq_file
+ *
+ * The out put will be "-----------"
+ */
+static  inline void add_separte(struct seq_file *s, char *separate)
+{
+	seq_puts(s, "\n");
+	seq_printf(s, separate);
+	seq_puts(s, "\n");
+}
+
 void apu_power_dump_opp_table(struct seq_file *s)
 {
 	int opp_num;
-	int buck_domain;
+	int bd;
+	int line_size = 0;
+	char info[INFO_LENGTH];
+	char *separate = NULL;
 
-	seq_printf(s,
-		"|opp| vpu0| vpu1|mdla0| conn|ipuif|\n");
-	seq_printf(s,
-		"|---------------------------------------------------|\n");
-	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
-		seq_printf(s, "| %d |", opp_num);
-		for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
-			buck_domain++) {
-			seq_printf(s, " %d |",
-			apusys_opps.opps[opp_num][buck_domain].freq / 1000);
-		}
-		seq_printf(s,
-			"\n|---------------------------------------------------|\n");
+	memset(info, 0, sizeof(info));
+
+	/* print header and calcuate line size */
+	line_size += snprintf(info, INFO_LENGTH, "|opp|");
+	seq_printf(s, info);
+	for (bd = 0 ; bd < APUSYS_BUCK_DOMAIN_NUM; bd++) {
+		line_size += snprintf(info, INFO_LENGTH,
+			 "%13s|", buck_domain_str[bd]);
+		seq_printf(s, info);
+		memset(info, 0, sizeof(info));
 	}
+
+	/* add separator line */
+	separate = vzalloc(line_size);
+	memset(separate, '-', line_size - 1);
+	add_separte(s, separate);
+
+	/* show opp info, including freq and voltage */
+	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
+		seq_printf(s, "|%3d|", opp_num);
+		for (bd = 0 ; bd < APUSYS_BUCK_DOMAIN_NUM; bd++) {
+			memset(info, 0, sizeof(info));
+			snprintf(info, INFO_LENGTH, "%3dMhz(%3dmv)|",
+				apusys_opps.opps[opp_num][bd].freq / 1000,
+				apusys_opps.opps[opp_num][bd].voltage / 1000);
+				seq_printf(s, info);
+		}
+		add_separte(s, separate);
+	}
+
+	/* release separator line array */
+	vfree(separate);
 }
 
 int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
