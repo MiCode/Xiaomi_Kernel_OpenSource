@@ -380,7 +380,7 @@
 		 };
 	 };
 
-	 qcom,sde-shared-plane {
+	sde_shp: qcom,sde-shared-plane {
 		 compatible = "qcom,sde-shared-plane";
 		 qcom,add-planes {
 			 plane@0 {
@@ -436,5 +436,7 @@
 
 &mdss_mdp {
 	qcom,sde-reg-dma-version = <0>;
-	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb>;
+	connectors = <&sde_rscc &dsi_dp1 &dsi_dp2 &sde_dp &sde_wb
+			&sde_sh0 &sde_sh1 &sde_sh2 &sde_shp
+			&sde_card1 &sde_card2 &sde_card3>;
 };
