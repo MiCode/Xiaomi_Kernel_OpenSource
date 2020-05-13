@@ -17,6 +17,7 @@
 #include <linux/of_address.h>
 #include <helio-dvfsrc-opp.h>
 #include <helio-dvfsrc-qos.h>
+#include <helio-dvfsrc-mt6853.h>
 
 #ifdef CONFIG_MEDIATEK_DRAMC
 #include <dramc.h>
@@ -154,8 +155,8 @@ static int is_rising_need(void)
  *	pr_info("%s: PTPOD: 0x%x\n", __func__, ptpod);
  *
  *	idx = ptpod & 0xF;
- *	if (idx == 1)
- *		return 1;
+ *	if (idx == 1 || idx == 9)
+ *		return idx;
  */
 	return 0;
 }
@@ -201,20 +202,21 @@ static int __init dvfsrc_opp_init(void)
 
 	if (is_vcore_ct) {
 		if (ct_test) {
-			opp_min_bin_opp0 = 2;
-			opp_min_bin_opp3 = 3;
-		} else {
 			opp_min_bin_opp0 = 3;
 			opp_min_bin_opp3 = 4;
+		} else {
+			opp_min_bin_opp0 = 4;
+			opp_min_bin_opp3 = 5;
 		}
 		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
 		if (ct_opp3_en)
 			vcore_opp_3_uv -= get_vb_volt(VCORE_OPP_3);
 	}
 
-	if (is_rising_need())
+	if (is_rising_need() == 1)
 		vcore_opp_3_uv = 575000;
-
+	else if (is_rising_need() == 9)
+		vcore_opp_3_uv = 600000;
 
 	if (dvfs_v_mode == 3) {
 		/* LV */
@@ -230,6 +232,8 @@ static int __init dvfsrc_opp_init(void)
 			vcore_opp_3_uv = 493750;
 		else if (vcore_opp_3_uv == 575000)
 			vcore_opp_3_uv = 543750;
+		else if (vcore_opp_3_uv == 600000)
+			vcore_opp_3_uv = 568750;
 		else
 			vcore_opp_3_uv = 518750;
 	} else if (dvfs_v_mode == 1) {
@@ -246,6 +250,8 @@ static int __init dvfsrc_opp_init(void)
 			vcore_opp_3_uv = 556250;
 		else if (vcore_opp_3_uv == 575000)
 			vcore_opp_3_uv = 606250;
+		else if (vcore_opp_3_uv == 600000)
+			vcore_opp_3_uv = 631250;
 		else
 			vcore_opp_3_uv = 581250;
 	} else if (is_vcore_aging) {
@@ -255,6 +261,8 @@ static int __init dvfsrc_opp_init(void)
 		vcore_opp_3_uv -= AGING_VALUE;
 	}
 
+	if (vcore_opp_3_uv < VCORE_BASE_UV)
+		vcore_opp_3_uv = VCORE_BASE_UV;
 
 	pr_info("%s: CT=%d, VMODE=%d, RSV4=%x\n",
 		__func__,
