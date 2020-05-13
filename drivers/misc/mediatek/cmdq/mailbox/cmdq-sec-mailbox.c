@@ -11,13 +11,16 @@
 #include <linux/timer.h>
 
 #include "cmdq-sec.h"
-#include "cmdq-sec-gp.h"
 #include "cmdq-sec-mailbox.h"
 #include "cmdq-sec-tl-api.h"
 #include "cmdq-util.h"
 
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 #include "cmdq_sec_mtee.h"
+#endif
+
+#ifdef CMDQ_GP_SUPPORT
+#include "cmdq-sec-gp.h"
 #endif
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -49,7 +52,9 @@ struct cmdq_sec_context {
 	void *iwc_ex2;	/* message buffer extra */
 
 #ifdef CMDQ_SECURE_SUPPORT
+#ifdef CMDQ_GP_SUPPORT
 	struct cmdq_sec_tee_context tee;	/* trustzone parameters */
+#endif
 #ifdef CMDQ_SECURE_MTEE_SUPPORT			/* MTEE parameters */
 	void *mtee_iwc_msg;
 	void *mtee_iwc_ex1;
@@ -162,7 +167,10 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 static inline void
 cmdq_sec_setup_tee_context_base(struct cmdq_sec_context *context)
 {
+#ifdef CMDQ_GP_SUPPORT
 	cmdq_sec_setup_tee_context(&context->tee);
+#endif
+
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 	cmdq_sec_mtee_setup_context(&context->mtee);
 #endif
@@ -173,9 +181,11 @@ cmdq_sec_init_context_base(struct cmdq_sec_context *context)
 {
 	s32 status;
 
+#ifdef CMDQ_GP_SUPPORT
 	status = cmdq_sec_init_context(&context->tee);
 	if (status < 0)
 		return status;
+#endif
 
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 	status = cmdq_sec_mtee_open_session(
@@ -672,6 +682,8 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 			err = -EINVAL;
 			break;
 		}
+
+#ifdef CMDQ_GP_SUPPORT
 		err = cmdq_sec_allocate_wsm(&context->tee,
 			&context->iwc_msg, CMDQ_IWC_MSG,
 			sizeof(struct iwcCmdqMessage_t));
@@ -687,6 +699,7 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 			sizeof(struct iwcCmdqMessageEx2_t));
 		if (err)
 			break;
+#endif
 
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 		if (context->mtee_iwc_msg) {
@@ -708,9 +721,11 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 
 		context->state = IWC_WSM_ALLOCATED;
 	case IWC_WSM_ALLOCATED:
+#ifdef CMDQ_GP_SUPPORT
 		err = cmdq_sec_open_session(&context->tee, context->iwc_msg);
 		if (err)
 			break;
+#endif
 		context->state = IWC_SES_OPENED;
 	default:
 		break;
@@ -901,9 +916,12 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 		task ? task->waitCookie : -1);
 
 	/* send message */
-	if (!mtee)
+	if (!mtee) {
+#ifdef CMDQ_GP_SUPPORT
 		err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
 			mem_ex1, mem_ex2);
+#endif
+	}
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 	else
 		err = cmdq_sec_mtee_execute_session(
@@ -1085,8 +1103,10 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 			dump_err = true;
 		} else {
 			if (!mtee) {
+#ifdef CMDQ_GP_SUPPORT
 				err = cmdq_sec_session_reply(iwc_cmd,
 					cmdq->context->iwc_msg, data, task);
+#endif
 			}
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 			else {

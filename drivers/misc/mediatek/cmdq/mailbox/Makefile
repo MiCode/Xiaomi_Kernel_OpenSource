@@ -26,7 +26,10 @@ endif
 
 ccflags-y += -DCMDQ_SECURE_SUPPORT
 
+ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
+ccflags-y += -DCMDQ_GP_SUPPORT
 obj-y += cmdq-sec-gp.o
+endif
 obj-y += cmdq-sec-helper.o
 obj-y += cmdq-sec-mailbox.o
 
