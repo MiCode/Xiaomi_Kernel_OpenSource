@@ -459,6 +459,9 @@ static atomic_t G_u4DevNodeCt;
 
 int pr_detect_count;
 
+/* use to prevent CQ recovery when in-complete frame occurs*/
+static unsigned int pre_magic_num;
+
 /*save ion fd*/
 #define ENABLE_KEEP_ION_HANDLE /* able/disable ION related for EP */
 
@@ -7905,6 +7908,28 @@ static int __init ISP_Init(void)
 			isp_m4u_fault_callback,
 			NULL);
 
+	/* for FLKO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_FLKO_R1_A_MDP,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_FLKO_R1_B_DISP,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L18_CAM_FLKO_R1_C_MDP,
+			isp_m4u_fault_callback,
+			NULL);
+
+	/* for LTMSO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_LTMSO_R1_A_MDP,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_LTMSO_R1_B_DISP,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L18_CAM_LTMSO_R1_C_MDP,
+			isp_m4u_fault_callback,
+			NULL);
+
 	LOG_DBG("- E. Ret: %d.", Ret);
 	return Ret;
 }
@@ -10989,8 +11014,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		(((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
 				0x00040000) >> 18) == 0x1) &&
 			(twinStatus.Bits.TWIN_EN == MTRUE)) {
-		if (CAM_FST_LAST_WORKING_FRAME ==
-				Irq_CAM_FrameStatus(reg_module, module, 0)) {
+		if ((ISP_RD32(CAM_REG_RRZO_FH_SPARE_2(reg_module))
+			!= pre_magic_num) && (CAM_FST_LAST_WORKING_FRAME ==
+				Irq_CAM_FrameStatus(reg_module, module, 0))) {
 			if (g_cq0NextBA[CAM_A][0] != 0 &&
 				twinStatus.Bits.SLAVE_CAM_NUM == 0x1) {
 				if (ISP_RD32(
@@ -11741,7 +11767,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 #else
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x_0x%08x 0x%08x_0x%08x,Don(0x%08x_0x%08x 0x%08x_0x%08x,0x%08x_0x%08x 0x%08x_0x%08x),DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CRZO(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
+				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x/0x%x),int_us:%d,cq:0x%08x_0x%08x 0x%08x_0x%08x,Don(0x%08x_0x%08x 0x%08x_0x%08x,0x%08x_0x%08x 0x%08x_0x%08x),DMA(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),CRZO(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x),YUVO(0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x, 0x%x_0x%x 0x%x_0x%x)\n",
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
 				(unsigned int)(ISP_RD32(
 					CAM_REG_FBC_IMGO_CTL1(reg_module))),
@@ -11753,7 +11779,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					CAM_REG_FBC_RRZO_CTL2(reg_module))),
 				ISP_RD32(CAM_REG_IMGO_BASE_ADDR(reg_module)),
 				ISP_RD32(CAM_REG_RRZO_BASE_ADDR(reg_module)),
-				magic_num,
+				magic_num, pre_magic_num,
 				(unsigned int)((sec * 1000000 + usec) -
 					       (1000000 * m_sec + m_usec)),
 				(unsigned int)ISP_RD32(
@@ -11946,6 +11972,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					module, m_CurrentPPB, _LOG_INF,
 					"SW ISR right on next hw p1_done\n");
 			}
+
+			/*keep previous magic number */
+			pre_magic_num = magic_num;
 		}
 		/* update SOF time stamp for eis user */
 		/* (need match with the time stamp in image header) */
