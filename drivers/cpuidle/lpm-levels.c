@@ -485,8 +485,7 @@ static inline bool lpm_disallowed(s64 sleep_us, int cpu)
 static inline uint32_t get_cpus_qos(const struct cpumask *mask)
 {
 	int cpu;
-	uint32_t n;
-	uint32_t latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
+	uint32_t n, latency;
 
 	for_each_cpu(cpu, mask) {
 		n = cpuidle_governor_latency_req(cpu);
