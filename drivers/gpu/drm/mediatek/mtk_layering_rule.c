@@ -508,6 +508,10 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL,
 			GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
+	if (!tmp) {
+		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
+		return 600;
+	}
 	dvfs_bw /= tmp * 100;
 
 	/* error handling when requested BW is less than 2 layers */
