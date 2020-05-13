@@ -348,6 +348,7 @@ ssize_t port_dev_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 	int ret = 0, read_len = 0, full_req_done = 0;
 	unsigned long flags = 0;
 	int md_id = port->md_id;
+	u64 ts_s, ts_1, ts_e;
 
 READ_START:
 	/* 1. get incoming request */
@@ -416,16 +417,29 @@ READ_START:
 	if (port->flags & PORT_F_CH_TRAFFIC)
 		port_ch_dump(port, 0, skb->data, read_len);
 	/* 3. copy to user */
+
+	ts_s = local_clock();
 	if (copy_to_user(buf, skb->data, read_len)) {
 		CCCI_ERROR_LOG(md_id, CHAR,
 			"read on %s, copy to user failed, %d/%zu\n",
 			port->name, read_len, count);
 		ret = -EFAULT;
 	}
+	ts_1 = local_clock();
+
 	skb_pull(skb, read_len);
 	/* 4. free request */
 	if (full_req_done)
 		ccci_free_skb(skb);
+
+	ts_e = local_clock();
+	if (ts_e - ts_s > 1000000000ULL)
+		CCCI_ERROR_LOG(md_id, CHAR,
+			"ts_s: %u; ts_1: %u; ts_e: %u;",
+			do_div(ts_s, 1000000),
+			do_div(ts_1, 1000000),
+			do_div(ts_e, 1000000));
+
 
  exit:
 	return ret ? ret : read_len;

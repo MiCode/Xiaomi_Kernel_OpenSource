@@ -246,12 +246,14 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 			rxq->pit_base,
 			(int)sizeof(struct dpmaifq_normal_pit),
 			rxq->pit_size_cnt);
+#ifdef DPMAIF_DEBUG_LOG
 		CCCI_MEM_LOG(md_id, TAG,
 			"Current rxq%d pit pos: w/r/rel=%x, %x, %x\n", i,
 		       rxq->pit_wr_idx, rxq->pit_rd_idx, rxq->pit_rel_rd_idx);
 		ccci_util_mem_dump(-1, CCCI_DUMP_MEM_DUMP, rxq->pit_base,
 			(rxq->pit_size_cnt *
 			sizeof(struct dpmaifq_normal_pit)));
+#endif
 		/* BAT mem dump */
 		CCCI_MEM_LOG(md_id, TAG,
 			"dpmaif:bat request base: 0x%p(%d*%d)\n",
@@ -262,6 +264,7 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 			"Current rxq%d bat pos: w/r/rel=%x, %x, %x\n", i,
 			rxq->bat_req.bat_wr_idx, rxq->bat_req.bat_rd_idx,
 		       rxq->bat_req.bat_rel_rd_idx);
+#ifdef DPMAIF_DEBUG_LOG
 		/* BAT SKB mem dump */
 		CCCI_MEM_LOG(md_id, TAG, "dpmaif:bat skb base: 0x%p(%d*%d)\n",
 			rxq->bat_req.bat_skb_ptr,
@@ -271,6 +274,7 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 			rxq->bat_req.bat_skb_ptr,
 			(rxq->bat_req.skb_pkt_cnt *
 			sizeof(struct dpmaif_bat_skb_t)));
+#endif
 #ifdef HW_FRG_FEATURE_ENABLE
 		/* BAT frg mem dump */
 		CCCI_MEM_LOG(md_id, TAG,
@@ -343,6 +347,7 @@ static void dpmaif_dump_txq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 	}
 }
 
+#ifdef DPMAIF_DEBUG_LOG
 static void dpmaif_dump_bat_status(struct hif_dpmaif_ctrl *hif_ctrl)
 {
 	struct dpmaif_rx_queue *rxq = &hif_ctrl->rxq[0];
@@ -355,6 +360,8 @@ static void dpmaif_dump_bat_status(struct hif_dpmaif_ctrl *hif_ctrl)
 			rxq->bat_req.bat_rd_idx, rxq->bat_req.bat_rel_rd_idx,
 			rxq->bat_req.bat_wr_idx);
 }
+#endif
+
 /*actrually, length is dump flag's private argument*/
 static int dpmaif_dump_status(unsigned char hif_id,
 		enum MODEM_DUMP_FLAG flag, int length)
@@ -381,8 +388,9 @@ static int dpmaif_dump_status(unsigned char hif_id,
 		mt_irq_dump_status(hif_ctrl->dpmaif_irq_id);
 #endif
 	}
+#ifdef DPMAIF_DEBUG_LOG
 	dpmaif_dump_bat_status(hif_ctrl);
-
+#endif
 	return 0;
 }
 
