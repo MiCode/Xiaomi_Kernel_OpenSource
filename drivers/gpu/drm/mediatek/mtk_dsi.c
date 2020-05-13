@@ -4175,6 +4175,7 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 					__func__);
 		return;
 	}
+	bpp = bpp > 24 ? 24 : bpp;
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
 	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
@@ -4215,6 +4216,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
 
+	bpp = bpp > 24 ? 24 : bpp;
 	//consider enable dsc case,hact will change
 	htotal = htotal - hact + hact * 100 / compress_rate;
 	hact = hact * 100 / compress_rate;
