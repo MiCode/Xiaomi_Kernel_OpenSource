@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,6 +125,7 @@
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
 				&cam_sensor_rear_active
+				&cam_sensor_eldo4_default
 				&cam_actuator_vaf_active>;
 		pinctrl-1 = <&cam_sensor_mclk0_suspend
 				&cam_sensor_rear_suspend
@@ -169,7 +170,8 @@
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
-				&cam_sensor_rear2_active>;
+				&cam_sensor_rear2_active
+				&cam_sensor_eldo3_default>;
 		pinctrl-1 = <&cam_sensor_mclk2_suspend
 				&cam_sensor_rear2_suspend>;
 		gpios = <&tlmm 34 0>,
@@ -261,7 +263,8 @@
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
-				 &cam_sensor_rear_active>;
+				 &cam_sensor_rear_active
+				&cam_sensor_eldo4_default>;
 		pinctrl-1 = <&cam_sensor_mclk0_suspend
 				 &cam_sensor_rear_suspend>;
 		gpios = <&tlmm 32 0>,
@@ -307,7 +310,8 @@
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
-				 &cam_sensor_rear2_active>;
+				 &cam_sensor_rear2_active
+				 &cam_sensor_eldo3_default>;
 		pinctrl-1 = <&cam_sensor_mclk2_suspend
 				 &cam_sensor_rear2_suspend>;
 		gpios = <&tlmm 34 0>,
@@ -352,7 +356,8 @@
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
-				 &cam_sensor_front_active>;
+				 &cam_sensor_front_active
+				&cam_sensor_eldo3_default>;
 		pinctrl-1 = <&cam_sensor_mclk1_suspend
 				 &cam_sensor_front_suspend>;
 		gpios = <&tlmm 33 0>,
@@ -380,23 +385,20 @@
 };
 
 &pm660l_gpios {
-	gpio@c300 { /* GPIO4 -CAMERA SENSOR 0 VDIG*/
-		qcom,mode = <1>;                /* Output */
-		qcom,pull = <5>;                /* No Pull */
-		qcom,vin-sel = <0>;             /* VIN1 GPIO_LV */
-		qcom,src-sel = <0>;             /* GPIO */
-		qcom,invert = <0>;              /* Invert */
-		qcom,master-en = <1>;           /* Enable GPIO */
-		status = "ok";
+	cam_sensor_eldo3 {
+		cam_sensor_eldo3_default: cam_sensor_eldo3_default {
+			pins = "gpio3";
+			function = "normal";
+			output-enable;
+			bias-disable;
+		};
 	};
-
-	gpio@c200 { /* GPIO3 -CAMERA SENSOR 2 VDIG*/
-		qcom,mode = <1>;                /* Output */
-		qcom,pull = <5>;                /* No Pull */
-		qcom,vin-sel = <0>;             /* VIN1 GPIO_LV */
-		qcom,src-sel = <0>;             /* GPIO */
-		qcom,invert = <0>;              /* Invert */
-		qcom,master-en = <1>;           /* Enable GPIO */
-		status = "ok";
+	cam_sensor_eldo4 {
+		cam_sensor_eldo4_default: cam_sensor_eldo4_default {
+			pins = "gpio4";
+			function = "normal";
+			output-enable;
+			bias-disable;
+		};
 	};
 };
