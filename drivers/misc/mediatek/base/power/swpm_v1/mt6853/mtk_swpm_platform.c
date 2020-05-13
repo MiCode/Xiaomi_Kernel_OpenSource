@@ -920,6 +920,21 @@ static inline void swpm_subsys_data_ref_init(void)
 	swpm_unlock(&swpm_mutex);
 }
 
+static char *_copy_from_user_for_proc(const char __user *buffer, size_t count)
+{
+	static char buf[64];
+	unsigned int len = 0;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, len))
+		return NULL;
+
+	buf[len] = '\0';
+
+	return buf;
+}
+
 static int dram_bw_proc_show(struct seq_file *m, void *v)
 {
 	if (share_idx_ref != NULL)
@@ -930,7 +945,34 @@ static int dram_bw_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static unsigned int pmu_ms_mode;
+static int pmu_ms_mode_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pmu_ms_mode);
+	return 0;
+}
+static ssize_t pmu_ms_mode_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable = 0;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &enable)) {
+		pmu_ms_mode = enable;
+
+		/* TODO: remove this path after qos commander ready */
+		swpm_set_update_cnt(0, (0x1 << 16 | pmu_ms_mode));
+	} else
+		swpm_err("echo <0/1> > /proc/swpm/pmu_ms_mode\n");
+
+	return count;
+}
+
 PROC_FOPS_RO(dram_bw);
+PROC_FOPS_RW(pmu_ms_mode);
 /***************************************************************************
  *  API
  ***************************************************************************/
@@ -1029,8 +1071,10 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 static void swpm_platform_procfs(void)
 {
 	struct swpm_entry dram_bw = PROC_ENTRY(dram_bw);
+	struct swpm_entry pmu_mode = PROC_ENTRY(pmu_ms_mode);
 
 	swpm_append_procfs(&dram_bw);
+	swpm_append_procfs(&pmu_mode);
 }
 
 static int __init swpm_platform_init(void)

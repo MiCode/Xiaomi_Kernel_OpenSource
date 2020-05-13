@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/uaccess.h>
 #include <mt-plat/sync_write.h>
 #include <mtk_swpm_platform.h>
 
