@@ -1159,21 +1159,9 @@ static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
 		}
 
 		*bufs[i].sz = meta->ispBufs[i].size;
-
-		if (user_space) {
-			if (copy_from_user(bufs[i].va,
-				(void *)(unsigned long)
-					(meta->ispBufs[i].va),
-				meta->ispBufs[i].size)) {
-				CMDQ_ERR("Copy ispBufs[%u].va failed\n",
-					i);
-			}
-		} else {
-			memcpy(bufs[i].va,
-				(void *)(unsigned long)
-					(meta->ispBufs[i].va),
-				meta->ispBufs[i].size);
-		}
+		memcpy(bufs[i].va,
+			(void *)(unsigned long)(meta->ispBufs[i].va),
+			meta->ispBufs[i].size);
 	}
 }
 #endif
@@ -1294,23 +1282,8 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		desc->prop_size < CMDQ_MAX_USER_PROP_SIZE) {
 		handle->prop_addr = kzalloc(desc->prop_size, GFP_KERNEL);
 		handle->prop_size = desc->prop_size;
-
-		if (handle->prop_addr && user_space) {
-			if (copy_from_user(handle->prop_addr,
-				(void *)CMDQ_U32_PTR(desc->prop_addr),
-				desc->prop_size)) {
-				kfree(handle->prop_addr);
-				handle->prop_addr = NULL;
-				handle->prop_size = 0;
-			}
-		} else if (handle->prop_addr) {
-			memcpy(handle->prop_addr,
-				(void *)CMDQ_U32_PTR(desc->prop_addr),
-				desc->prop_size);
-		} else {
-			handle->prop_addr = NULL;
-			handle->prop_size = 0;
-		}
+		memcpy(handle->prop_addr, (void *)CMDQ_U32_PTR(desc->prop_addr),
+			desc->prop_size);
 	} else {
 		handle->prop_addr = NULL;
 		handle->prop_size = 0;
