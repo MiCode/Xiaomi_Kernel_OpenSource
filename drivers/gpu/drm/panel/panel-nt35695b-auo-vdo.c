@@ -216,7 +216,6 @@ static void lcm_panel_init(struct lcm *ctx)
 		return;
 	}
 	gpiod_set_value(ctx->reset_gpio, 0);
-	udelay(15 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
 	udelay(1 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 0);
@@ -511,7 +510,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x05, 0x1B);
 	lcm_dcs_write_seq_static(ctx, 0x06, 0x01);
 	lcm_dcs_write_seq_static(ctx, 0x07, 0x48);
-	lcm_dcs_write_seq_static(ctx, 0x08, 0x00);
+	lcm_dcs_write_seq_static(ctx, 0x08, 0x01);
 	lcm_dcs_write_seq_static(ctx, 0x09, 0x6C);
 	lcm_dcs_write_seq_static(ctx, 0x0A, 0x01);
 	lcm_dcs_write_seq_static(ctx, 0x0B, 0xA2);
@@ -781,9 +780,10 @@ static int lcm_unprepare(struct drm_panel *panel)
 		return 0;
 
 	lcm_dcs_write_seq_static(ctx, 0x28);
-	msleep(50);
 	lcm_dcs_write_seq_static(ctx, 0x10);
-	msleep(150);
+	msleep(120);
+	lcm_dcs_write_seq_static(ctx, 0x4F, 0x01);
+	msleep(120);
 
 	ctx->error = 0;
 	ctx->prepared = false;
@@ -1002,6 +1002,13 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x24,
 	},
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
+	.round_corner_en = 1,
+	.corner_pattern_height = ROUND_CORNER_H_TOP,
+	.corner_pattern_height_bot = ROUND_CORNER_H_BOT,
+	.corner_pattern_tp_size = sizeof(top_rc_pattern),
+	.corner_pattern_lt_addr = (void *)top_rc_pattern,
+#endif
 };
 
 static struct mtk_panel_funcs ext_funcs = {
