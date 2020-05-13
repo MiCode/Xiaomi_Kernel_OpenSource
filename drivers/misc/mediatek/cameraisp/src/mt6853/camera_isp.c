@@ -5856,11 +5856,8 @@ static inline void ISP_StopHW(int module)
 	unsigned long long sec = 0, m_sec = 0;
 	unsigned long long usec = 0, m_usec = 0;
 	unsigned long long timeoutMs = 5000; /*5ms */
-
 	//3ms * (CAM_A~C + CAMSV0~7) = 33ms(if all timeout)
-#if 0
 	unsigned long long timeoutMsRst = 3000; /*3ms */
-#endif
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -5941,7 +5938,6 @@ static inline void ISP_StopHW(int module)
 
 RESET:
 	LOG_INF("%s: reset\n", moduleName);
-#if 0
 	/* timer */
 	m_sec = ktime_get(); /* ns */
 	do_div(m_sec, 1000); /* usec */
@@ -5995,7 +5991,7 @@ RESET:
 		if (regTGSt == 0)
 			break;
 	}
-#endif
+
 	ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x4);
 	ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x0);
 	regTGSt = (ISP_RD32(CAM_REG_TG_INTER_ST(module)) & 0x00003F00) >> 8;
