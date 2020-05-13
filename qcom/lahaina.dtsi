@@ -3125,6 +3125,8 @@
 		qcom,dll-hsr-list = <0x0007642C 0xA800 0x10
 					0x2C010800 0x80040868>;
 
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+
 		iommus = <&apps_smmu 0x4a0 0x0>;
 		dma-coherent;
 
