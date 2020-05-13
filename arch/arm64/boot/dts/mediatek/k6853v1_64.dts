@@ -366,15 +366,13 @@
 		};
 	};
 	panel2@0 {
-		compatible = "auo,hx83112b,vdo";
+		compatible = "nt36672a,rt4801,vdo";
 		reg = <1>;
 		pm-enable-gpios = <&pio 41 0>;
 		reset-gpios = <&pio 86 0>;
 		bias-gpios = <&pio 137 0>,
 			<&pio 138 0>;
 		pinctrl-names = "default";
-		fake_heigh = <1920>;
-		fake_width = <1080>;
 		port {
 			panel_in2: endpoint {
 				remote-endpoint = <&dsi_out>;
@@ -382,33 +380,15 @@
 		};
 	};
 	panel3@0 {
-		compatible = "otm1911a,auo,vdo";
+		compatible = "truly,td4330,vdo";
 		reg = <2>;
 		pm-enable-gpios = <&pio 41 0>;
 		reset-gpios = <&pio 86 0>;
 		bias-gpios = <&pio 137 0>,
 			<&pio 138 0>;
 		pinctrl-names = "default";
-		fake_heigh = <1920>;
-		fake_width = <1080>;
 		port {
 			panel_in3: endpoint {
-				remote-endpoint = <&dsi_out>;
-			};
-		};
-	};
-	panel4@0 {
-		compatible = "truly,td4330,vdo";
-		reg = <3>;
-		pm-enable-gpios = <&pio 41 0>;
-		reset-gpios = <&pio 86 0>;
-		bias-gpios = <&pio 137 0>,
-			<&pio 138 0>;
-		pinctrl-names = "default";
-		fake_heigh = <1920>;
-		fake_width = <1080>;
-		port {
-			panel_in4: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
