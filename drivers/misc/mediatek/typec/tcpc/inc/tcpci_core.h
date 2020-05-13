@@ -90,6 +90,8 @@ struct tcpc_desc {
 #ifdef CONFIG_WATER_DETECTION
 	u32 wd_sbu_calib_init;
 	u32 wd_sbu_pl_bound;
+	u32 wd_sbu_pl_lbound_c2c;
+	u32 wd_sbu_pl_ubound_c2c;
 	u32 wd_sbu_ph_auddev;
 	u32 wd_sbu_ph_lbound;
 	u32 wd_sbu_ph_lbound1_c2c;

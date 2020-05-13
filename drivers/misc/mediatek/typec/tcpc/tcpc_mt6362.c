@@ -865,7 +865,9 @@ static int __mt6362_is_water_detected(struct mt6362_tcpc_data *tdata,
 				       ret);
 			goto out;
 		}
-		if (wd_adc <= desc->wd_sbu_pl_bound)
+		if (wd_adc <= desc->wd_sbu_pl_bound ||
+			(wd_adc >= desc->wd_sbu_pl_lbound_c2c &&
+			wd_adc <= desc->wd_sbu_pl_ubound_c2c))
 			break;
 	}
 	if (i == CONFIG_WD_SBU_PL_RETRY) {
@@ -1990,6 +1992,14 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 		desc->wd_sbu_pl_bound = CONFIG_WD_SBU_PL_BOUND;
 	else
 		desc->wd_sbu_pl_bound = val;
+	if (of_property_read_u32(np, "wd,sbu_pl_lbound_c2c", &val) < 0)
+		desc->wd_sbu_pl_lbound_c2c = CONFIG_WD_SBU_PL_LBOUND_C2C;
+	else
+		desc->wd_sbu_pl_lbound_c2c = val;
+	if (of_property_read_u32(np, "wd,sbu_pl_ubound_c2c", &val) < 0)
+		desc->wd_sbu_pl_ubound_c2c = CONFIG_WD_SBU_PL_UBOUND_C2C;
+	else
+		desc->wd_sbu_pl_ubound_c2c = val;
 	if (of_property_read_u32(np, "wd,sbu_ph_auddev", &val) < 0)
 		desc->wd_sbu_ph_auddev = CONFIG_WD_SBU_PH_AUDDEV;
 	else
