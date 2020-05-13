@@ -67,6 +67,8 @@ static struct gpio_item gpio_mapping_table[] = {
 		"GPIO_FDD_BAND_SUPPORT_DETECT_9TH_PIN",},
 	{"GPIO_FDD_Band_Support_Detection_A",
 		"GPIO_FDD_BAND_SUPPORT_DETECT_ATH_PIN",},
+	{"GPIO_RF_PWREN_RST_PIN",
+		"GPIO_RF_PWREN_RST_PIN",},
 };
 
 static int get_md_gpio_val(unsigned int num)
