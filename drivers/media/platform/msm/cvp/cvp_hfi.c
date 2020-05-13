@@ -4144,6 +4144,10 @@ static void power_off_iris2(struct iris_hfi_device *device)
 		dprintk(CVP_WARN,
 			"DBLP Release: lpi_status %x\n", lpi_status);
 	}
+	/* HPG 6.1.2 Step 5 */
+	if (__disable_regulators(device))
+		dprintk(CVP_WARN, "Failed to disable regulators\n");
+
 
 	/* HPG 6.1.2 Step 6 */
 	__disable_unprepare_clks(device);
@@ -4154,10 +4158,6 @@ static void power_off_iris2(struct iris_hfi_device *device)
 
 	if (__unvote_buses(device))
 		dprintk(CVP_WARN, "Failed to unvote for buses\n");
-
-	/* HPG 6.1.2 Step 5 */
-	if (__disable_regulators(device))
-		dprintk(CVP_WARN, "Failed to disable regulators\n");
 
 	/*Do not access registers after this point!*/
 	device->power_enabled = false;
