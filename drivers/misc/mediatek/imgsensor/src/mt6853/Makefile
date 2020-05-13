@@ -68,3 +68,7 @@ endif
 subdir-ccflags-y += -DSENSOR_PARALLEISM
 
 obj-y += seninf/
+
+ifeq ($(ARCH_MTK_PROJECT), k6853v1_64_6360_alpha)
+subdir-ccflags-y += -DNEED_LATE_INITCALL
+endif
