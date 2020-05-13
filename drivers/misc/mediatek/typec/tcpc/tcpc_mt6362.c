@@ -116,6 +116,7 @@
 #define MT6362_MSK_FOD_OV	BIT(1)
 #define MT6362_MSK_FOD_DISCHGF	BIT(7)
 #define MT6362_MSK_RPDET_AUTO	BIT(7)
+#define MT6362_MSK_RPDET_MANUAL	BIT(6)
 #define MT6362_MSK_BMCIOOSC_EN	BIT(0)
 #define MT6362_MSK_VBUSDET_EN	BIT(1)
 #define MT6362_MSK_LPWR_EN	BIT(3)
@@ -518,6 +519,13 @@ static int __maybe_unused mt6362_enable_rpdet_auto(
 {
 	return (en ? mt6362_clr_bits : mt6362_set_bits)
 		(tdata, MT6362_REG_SHIELDCTRL1, MT6362_MSK_RPDET_AUTO);
+}
+
+static int __maybe_unused mt6362_enable_rpdet_manual(
+					struct mt6362_tcpc_data *tdata, bool en)
+{
+	return (en ? mt6362_clr_bits : mt6362_set_bits)
+		(tdata, MT6362_REG_SHIELDCTRL1, MT6362_MSK_RPDET_MANUAL);
 }
 
 static int mt6362_is_vconn_fault(struct mt6362_tcpc_data *tdata, bool *fault)
@@ -1079,6 +1087,9 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	if (ret < 0)
 		return ret;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
+
+	mt6362_enable_rpdet_auto(tdata, true);
+
 	/* Set LDO to 2V */
 	ret = mt6362_write8(tdata, MT6362_REG_LPWRCTRL3, 0xD9);
 	if (ret < 0)
@@ -1184,6 +1195,8 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 		mt6362_write8(tdata, MT6362_REG_WATCHDOGCTRL, 0x07);
 		tcpci_set_watchdog(tcpc, true);
 	}
+
+	mt6362_enable_rpdet_auto(tdata, false);
 
 	/* SHIPPING off, AUTOIDLE on */
 	mt6362_set_bits(tdata, MT6362_REG_SYSCTRL1,
