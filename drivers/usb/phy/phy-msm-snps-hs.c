@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -799,13 +799,6 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 
 	msm_hsphy_create_debugfs(phy);
 
-	/*
-	 * EUD may be enable in boot loader and to keep EUD session alive across
-	 * kernel boot till USB phy driver is initialized based on cable status,
-	 * keep LDOs on here.
-	 */
-	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg))
-		msm_hsphy_enable_power(phy, true);
 	return 0;
 
 err_ret:
