@@ -302,14 +302,12 @@
 				 qcom,plane-name = "plane-4-splash";
 				 qcom,plane-parent = "plane-4";
 				 qcom,plane-init-active;
-				 qcom,plane-seamless-mode = "shared";
 			 };
 			 plane@1 {
 				 qcom,plane-name = "plane-3-splash";
 				 qcom,plane-parent = "plane-3";
 				 qcom,plane-init-active;
 				 qcom,plane-init-handoff;
-				 qcom,plane-seamless-mode = "shared";
 			 };
 		 };
 	 };
@@ -335,10 +333,6 @@
 		   qcom,lease-planes = "plane-3-splash";
 	   };
 
-};
-
-&mdss_dsi_phy0 {
-	qcom,panel-force-clock-lane-hs;
 };
 
 &mdss_mdp {
