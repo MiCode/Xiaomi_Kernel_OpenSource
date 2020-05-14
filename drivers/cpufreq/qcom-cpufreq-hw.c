@@ -400,36 +400,24 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		else
 			freq = cpu_hw_rate / 1000;
 
-		if (freq != prev_freq && core_count == max_cores) {
-			c->table[i].frequency = freq;
-			dev_pm_opp_add(get_cpu_device(cpu), freq * 1000, volt);
-			dev_dbg(dev, "index=%d freq=%d, core_count %d\n",
+		c->table[i].frequency = freq;
+		dev_dbg(dev, "index=%d freq=%d, core_count %d\n",
 				i, c->table[i].frequency, core_count);
-		} else {
-			c->table[i].frequency = CPUFREQ_ENTRY_INVALID;
-		}
+
+		if (core_count != max_cores)
+			c->table[i].flags  = CPUFREQ_BOOST_FREQ;
 
 		/*
 		 * Two of the same frequencies with the same core counts means
 		 * end of table.
 		 */
-		if (i > 0 && prev_freq == freq && prev_cc == core_count) {
-			struct cpufreq_frequency_table *prev = &c->table[i - 1];
-
-			if (prev_cc != max_cores) {
-				prev->frequency = prev_freq;
-				prev->flags = CPUFREQ_BOOST_FREQ;
-				dev_pm_opp_add(get_cpu_device(cpu),
-						prev_freq * 1000, volt);
-			}
-
+		if (i > 0 && prev_freq == freq && prev_cc == core_count)
 			break;
-		}
 
 		prev_cc = core_count;
 		prev_freq = freq;
 
-		freq *= 1000;
+		dev_pm_opp_add(get_cpu_device(cpu), freq * 1000, volt);
 	}
 
 	c->table[i].frequency = CPUFREQ_TABLE_END;
