@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, 2019-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __A3XX_H
 #define __A3XX_H
@@ -22,6 +22,8 @@ struct adreno_a3xx_core {
 	u32 vbif_count;
 };
 
+struct adreno_device;
+
 /**
  * to_a3xx_core - return the a3xx specific GPU core struct
  * @adreno_dev: An Adreno GPU device handle
@@ -41,4 +43,7 @@ unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
 
 void a3xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
+
+extern struct adreno_perfcounters adreno_a3xx_perfcounters;
+
 #endif /*__A3XX_H */
