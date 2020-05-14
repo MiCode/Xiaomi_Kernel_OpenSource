@@ -2071,6 +2071,7 @@
 #include "shima-ion.dtsi"
 #include "shima-usb.dtsi"
 #include "shima-pcie.dtsi"
+#include "shima-coresight.dtsi"
 #include "ipcc-test-shima.dtsi"
 #include "msm-arm-smmu-shima.dtsi"
 #include "shima-vidc.dtsi"
