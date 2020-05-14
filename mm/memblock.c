@@ -1838,8 +1838,8 @@ static int __init early_dyn_memhotplug(char *p)
 	struct memblock_region *rgn;
 	int blk = 0;
 
-	while ((idx++) < memblock.memory.cnt) {
-		rgn = &memblock.memory.regions[idx];
+	while (idx < memblock.memory.cnt) {
+		rgn = &memblock.memory.regions[idx++];
 		addr = ALIGN(rgn->base, MIN_MEMORY_BLOCK_SIZE);
 		rgn_end = rgn->base + rgn->size;
 		while (addr + MIN_MEMORY_BLOCK_SIZE <= rgn_end) {
