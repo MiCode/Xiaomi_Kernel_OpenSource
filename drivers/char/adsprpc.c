@@ -4455,6 +4455,9 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	struct notif_data *notifdata = (struct notif_data *)data;
 	int cid = -1;
 
+	pr_info("adsprpc: INFO: Entering callback %s code is %d\n",
+			__func__, code);
+
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
@@ -4480,6 +4483,9 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			__func__, gcinfo[cid].subsys);
 		ctx->issubsystemup = 1;
 	}
+
+	pr_info("adsprpc: INFO: Exiting callback %s subsystem is %s code is %d\n",
+			__func__, gcinfo[cid].subsys, code);
 	return NOTIFY_DONE;
 }
 
