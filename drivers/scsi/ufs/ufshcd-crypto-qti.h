@@ -34,7 +34,7 @@ int ufshcd_crypto_qti_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op);
 
 int ufshcd_crypto_qti_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op);
 
-#ifdef CONFIG_SCSI_UFS_CRYPTO_QTI
+#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 void ufshcd_crypto_qti_set_vops(struct ufs_hba *hba);
 #else
 static inline void ufshcd_crypto_qti_set_vops(struct ufs_hba *hba)

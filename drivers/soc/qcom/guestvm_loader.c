@@ -10,7 +10,6 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/haven/hh_common.h>
 #include <linux/haven/hh_rm_drv.h>
 
 #include <soc/qcom/subsystem_notif.h>
@@ -31,12 +30,13 @@ static struct kobj_type guestvm_kobj_type = {
 };
 
 struct guestvm_loader_private {
-	struct work_struct vm_loader_work;
+	struct notifier_block guestvm_nb;
 	struct kobject vm_loader_kobj;
 	struct device *dev;
 	char vm_name[MAX_LEN];
 	void *vm_loaded;
 	int vmid;
+	u8 vm_status;
 };
 
 static inline enum hh_vm_names get_hh_vm_name(const char *str)
@@ -50,24 +50,50 @@ static inline enum hh_vm_names get_hh_vm_name(const char *str)
 	return HH_VM_MAX;
 }
 
-static void guestvm_loader_rm_notifier(struct work_struct *vm_loader_work)
+static int guestvm_loader_nb_handler(struct notifier_block *this,
+					unsigned long cmd, void *data)
 {
 	struct guestvm_loader_private *priv;
-	int ret = 0;
+	struct hh_rm_notif_vm_status_payload *vm_status_payload = data;
+	u8 vm_status = vm_status_payload->vm_status;
+	int ret;
 
-	priv = container_of(vm_loader_work, struct guestvm_loader_private,
-				vm_loader_work);
-	priv->vmid = hh_rm_vm_alloc_vmid(get_hh_vm_name(priv->vm_name));
-	if (priv->vmid == HH_VM_MAX) {
-		dev_err(priv->dev, "Couldn't get vmid.\n");
-		return;
+	priv = container_of(this, struct guestvm_loader_private, guestvm_nb);
+
+	if (cmd != HH_RM_NOTIF_VM_STATUS)
+		return NOTIFY_DONE;
+
+	if (priv->vmid != vm_status_payload->vmid)
+		dev_warn(priv->dev, "Expected a notification from vmid = %d, but received one from vmid = %d\n",
+				priv->vmid, vm_status_payload->vmid);
+
+	/*
+	 * Listen to STATUS_READY or STATUS_RUNNING notifications from RM.
+	 * These notifications come from RM after PIL loading the VM images.
+	 * Query GET_HYP_RESOURCES to populate other entities such as MessageQ
+	 * and DBL.
+	 */
+	switch (vm_status) {
+	case HH_RM_VM_STATUS_READY:
+		priv->vm_status = HH_RM_VM_STATUS_READY;
+		ret = hh_rm_populate_hyp_res(vm_status_payload->vmid);
+		if (ret < 0) {
+			dev_err(priv->dev, "Failed to get hyp resources for vmid = %d ret = %d\n",
+				vm_status_payload->vmid, ret);
+			return NOTIFY_DONE;
+		}
+		break;
+	case HH_RM_VM_STATUS_RUNNING:
+		break;
+	default:
+		dev_err(priv->dev, "Unknown notification receieved for vmid = %d vm_status = %d\n",
+				vm_status_payload->vmid, vm_status);
 	}
-	ret = hh_rm_vm_start(priv->vmid);
-	if (ret)
-		dev_err(priv->dev, "VM start has failed with %d.\n", ret);
+
+	return NOTIFY_DONE;
 }
 
-static ssize_t guestvm_load_start(struct kobject *kobj,
+static ssize_t guestvm_loader_start(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	const char *buf,
 	size_t count)
@@ -88,6 +114,13 @@ static ssize_t guestvm_load_start(struct kobject *kobj,
 	}
 
 	if (boot) {
+		priv->vm_status = HH_RM_VM_STATUS_INIT;
+		priv->vmid = hh_rm_vm_alloc_vmid(get_hh_vm_name(priv->vm_name));
+		if (priv->vmid < 0) {
+			dev_err(priv->dev, "Couldn't allocate VMID.\n");
+			return count;
+		}
+
 		priv->vm_loaded = subsystem_get(priv->vm_name);
 		if (IS_ERR(priv->vm_loaded)) {
 			ret = (int)(PTR_ERR(priv->vm_loaded));
@@ -96,13 +129,18 @@ static ssize_t guestvm_load_start(struct kobject *kobj,
 			priv->vm_loaded = NULL;
 			return ret;
 		}
-		schedule_work(&priv->vm_loader_work);
+
+		priv->vm_status = HH_RM_VM_STATUS_RUNNING;
+		ret = hh_rm_vm_start(priv->vmid);
+		if (ret)
+			dev_err(priv->dev, "VM start has failed for vmid = %d ret = %d\n",
+				priv->vmid, ret);
 	}
 
 	return count;
 }
 static struct kobj_attribute guestvm_loader_attribute =
-__ATTR(boot_guestvm, 0220, NULL, guestvm_load_start);
+__ATTR(boot_guestvm, 0220, NULL, guestvm_loader_start);
 
 static struct attribute *attrs[] = {
 	&guestvm_loader_attribute.attr,
@@ -132,8 +170,6 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 		return -EINVAL;
 	strlcpy(priv->vm_name, sub_sys, sizeof(priv->vm_name));
 
-	INIT_WORK(&priv->vm_loader_work, guestvm_loader_rm_notifier);
-
 	ret = kobject_init_and_add(&priv->vm_loader_kobj, &guestvm_kobj_type,
 				   kernel_kobj, "load_guestvm");
 	if (ret) {
@@ -148,6 +184,12 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 		goto error_return;
 	}
 
+	priv->guestvm_nb.notifier_call = guestvm_loader_nb_handler;
+	ret = hh_rm_register_notifier(&priv->guestvm_nb);
+	if (ret)
+		return ret;
+
+	priv->vm_status = HH_RM_VM_STATUS_NO_STATE;
 	return 0;
 
 error_return:

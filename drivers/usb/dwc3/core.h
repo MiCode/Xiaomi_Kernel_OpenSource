@@ -171,6 +171,13 @@
 #define GEN1_U3_EXIT_RSP_RX_CLK_MASK	GEN1_U3_EXIT_RSP_RX_CLK(0xff)
 #define DWC31_LINK_GDBGLTSSM	0xd050
 
+/* DWC 3.1 Tx De-emphasis Registers */
+#define DWC31_LCSR_TX_DEEMPH(n)	(0xd060 + ((n) * 0x80))
+#define DWC31_LCSR_TX_DEEMPH_1(n)	(0xd064 + ((n) * 0x80))
+#define DWC31_LCSR_TX_DEEMPH_2(n)	(0xd068 + ((n) * 0x80))
+#define DWC31_LCSR_TX_DEEMPH_3(n)	(0xd06c + ((n) * 0x80))
+#define DWC31_TX_DEEMPH_MASK	0x3ffff
+
 /* Bit fields */
 
 /* Global SoC Bus Configuration Register 1 */
@@ -750,7 +757,9 @@ struct dwc3_ep {
 #define DWC3_EP_STALL		BIT(1)
 #define DWC3_EP_WEDGE		BIT(2)
 #define DWC3_EP_TRANSFER_STARTED BIT(3)
+#define DWC3_EP_END_TRANSFER_PENDING BIT(4)
 #define DWC3_EP_PENDING_REQUEST	BIT(5)
+#define DWC3_EP_DELAY_START	BIT(6)
 
 	/* This last one is specific to EP0 */
 #define DWC3_EP0_DIR_IN		BIT(31)
@@ -1356,6 +1365,10 @@ struct dwc3 {
 	 */
 	bool			host_poweroff_in_pm_suspend;
 	int			retries_on_error;
+	u32			gen2_tx_de_emph;
+	u32			gen2_tx_de_emph1;
+	u32			gen2_tx_de_emph2;
+	u32			gen2_tx_de_emph3;
 };
 
 #define INCRX_BURST_MODE 0

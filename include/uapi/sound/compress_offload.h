@@ -67,11 +67,7 @@ struct snd_compr_params {
  */
 struct snd_compr_tstamp {
 	__u32 byte_offset;
-#ifdef CONFIG_AUIDO_QGKI
-	__u64 copied_total;
-#else
 	__u32 copied_total;
-#endif
 	__u32 pcm_frames;
 	__u32 pcm_io_frames;
 	__u32 sampling_rate;

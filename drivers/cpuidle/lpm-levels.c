@@ -144,6 +144,24 @@ static int lpm_cpu_qos_notify(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int lpm_offline_cpu(unsigned int cpu)
+{
+	struct device *dev = get_cpu_device(cpu);
+
+	dev_pm_qos_remove_notifier(dev, &dev_pm_qos_nb[cpu],
+				   DEV_PM_QOS_RESUME_LATENCY);
+	return 0;
+}
+
+static int lpm_online_cpu(unsigned int cpu)
+{
+	struct device *dev = get_cpu_device(cpu);
+
+	dev_pm_qos_add_notifier(dev, &dev_pm_qos_nb[cpu],
+				DEV_PM_QOS_RESUME_LATENCY);
+	return 0;
+}
+
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
  *
@@ -194,10 +212,7 @@ static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 static int lpm_dying_cpu(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
-	struct device *dev = get_cpu_device(cpu);
 
-	dev_pm_qos_remove_notifier(dev, &dev_pm_qos_nb[cpu],
-				   DEV_PM_QOS_RESUME_LATENCY);
 	update_debug_pc_event(CPU_HP_DYING, cpu,
 				cluster->num_children_in_sync.bits[0],
 				cluster->child_cpus.bits[0], false);
@@ -208,10 +223,7 @@ static int lpm_dying_cpu(unsigned int cpu)
 static int lpm_starting_cpu(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
-	struct device *dev = get_cpu_device(cpu);
 
-	dev_pm_qos_add_notifier(dev, &dev_pm_qos_nb[cpu],
-				DEV_PM_QOS_RESUME_LATENCY);
 	update_debug_pc_event(CPU_HP_STARTING, cpu,
 				cluster->num_children_in_sync.bits[0],
 				cluster->child_cpus.bits[0], false);
@@ -485,7 +497,8 @@ static inline bool lpm_disallowed(s64 sleep_us, int cpu)
 static inline uint32_t get_cpus_qos(const struct cpumask *mask)
 {
 	int cpu;
-	uint32_t n, latency;
+	uint32_t n;
+	uint32_t latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
 
 	for_each_cpu(cpu, mask) {
 		n = cpuidle_governor_latency_req(cpu);
@@ -1584,6 +1597,12 @@ static int lpm_probe(struct platform_device *pdev)
 	ret = cpuhp_setup_state(CPUHP_AP_QCOM_TIMER_STARTING,
 			"AP_QCOM_SLEEP_STARTING",
 			lpm_starting_cpu, lpm_dying_cpu);
+	if (ret)
+		goto failed;
+
+	ret = cpuhp_setup_state(CPUHP_AP_QCOM_CPU_QOS_ONLINE,
+			"AP_QCOM_CPU_QOS_ONLINE",
+			lpm_online_cpu, lpm_offline_cpu);
 	if (ret)
 		goto failed;
 

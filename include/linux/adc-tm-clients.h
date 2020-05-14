@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_ADC_TM_H_CLIENTS__
 #define __QCOM_ADC_TM_H_CLIENTS__
+
+#include <linux/err.h>
+#include <linux/types.h>
 
 struct adc_tm_chip;
 
@@ -68,6 +71,8 @@ struct adc_tm_param {
 	void	(*threshold_notification)(enum adc_tm_state state,
 						void *ctx);
 };
+
+struct device;
 
 /* Public API */
 #if IS_ENABLED(CONFIG_QTI_ADC_TM)

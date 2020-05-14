@@ -55,6 +55,15 @@ static const unsigned int a6xx_gmu_registers[] = {
 	0x26400, 0x26416, 0x26420, 0x26427,
 };
 
+static const unsigned int a660_gmu_registers[] = {
+	/* GMU CX */
+	0x1F408, 0x1F40D, 0x1F40F, 0x1F40F, 0x1F50B, 0x1F50B, 0x1F860, 0x1F860,
+	0x1F870, 0x1F877, 0x1F8C4, 0x1F8C4, 0x1F8F0, 0x1F8F1, 0x1F948, 0x1F94A,
+	0x1F966, 0x1F96B, 0x1F970, 0x1F970, 0x1F972, 0x1F979, 0x1F9CD, 0x1F9D4,
+	0x1FA02, 0x1FA03, 0x20000, 0x20001, 0x20004, 0x20004, 0x20008, 0x20012,
+	0x20018, 0x20018,
+};
+
 #define RSC_CMD_OFFSET 2
 #define PDC_CMD_OFFSET 4
 
@@ -120,7 +129,27 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	void __iomem *cfg = NULL, *seq = NULL;
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
+	u32 xo_resource_addr = cmd_db_read_addr("xo.lvl");
+	u32 cx_res_addr = cmd_db_read_addr("cx.lvl");
+	u32 mx_res_addr = cmd_db_read_addr("mx.lvl");
 
+	if (!xo_resource_addr) {
+		dev_err(&gmu->pdev->dev,
+				"Failed to get 'xo.lvl' addr from cmd_db\n");
+		return -ENOENT;
+	}
+
+	if (!cx_res_addr) {
+		dev_err(&gmu->pdev->dev,
+				"Failed to get 'cx.lvl' addr from cmd_db\n");
+		return -ENOENT;
+	}
+
+	if (!mx_res_addr) {
+		dev_err(&gmu->pdev->dev,
+				"Failed to get 'mx.lvl' addr from cmd_db\n");
+		return -ENOENT;
+	}
 	/*
 	 * Older A6x platforms specified PDC registers in the DT using a
 	 * single base pointer that encompassed the entire PDC range. Current
@@ -198,15 +227,15 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS1_CMD_WAIT_FOR_CMPL_BANK, 0);
 	_regwrite(cfg, PDC_GPU_TCS1_CONTROL, 0);
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID, 0x10108);
-	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR, 0x30010);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR, mx_res_addr);
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA, 1);
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET, cx_res_addr);
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET, 0x0);
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2,
-			a6xx_core->pdc_address_offset);
+			xo_resource_addr);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 
@@ -223,12 +252,13 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
 	_regwrite(cfg, PDC_GPU_TCS3_CONTROL, 0);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID, 0x10108);
-	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR, 0x30010);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR, mx_res_addr);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA, 2);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET, 0x10108);
-	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, 0x30000);
+	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET, cx_res_addr);
 
-	if (adreno_is_a618(adreno_dev) || adreno_is_a650_family(adreno_dev))
+	if (adreno_is_a618(adreno_dev) || adreno_is_a619(adreno_dev) ||
+			adreno_is_a650_family(adreno_dev))
 		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x2);
 	else
 		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET, 0x3);
@@ -236,7 +266,7 @@ static int a6xx_load_pdc_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2,
-			a6xx_core->pdc_address_offset);
+			xo_resource_addr);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
@@ -1696,6 +1726,11 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
 					ARRAY_SIZE(a6xx_gmu_registers) / 2);
+
+	/* Snapshot A660 specific GMU registers */
+	if (adreno_is_a660(ADRENO_DEVICE(device)))
+		adreno_snapshot_registers(device, snapshot, a660_gmu_registers,
+					ARRAY_SIZE(a660_gmu_registers) / 2);
 
 	if (a6xx_gmu_gx_is_on(device)) {
 		/* Set fence to ALLOW mode so registers can be read */

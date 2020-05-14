@@ -73,7 +73,7 @@ struct hyp_core_ctl_data {
 };
 
 #define CREATE_TRACE_POINTS
-#include <trace/events/hyp_core_ctl.h>
+#include "hyp_core_ctl_trace.h"
 
 static struct hyp_core_ctl_data *the_hcd;
 static struct hyp_core_ctl_cpu_map hh_cpumap[NR_CPUS];

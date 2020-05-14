@@ -500,6 +500,12 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 			break;
 		}
 		if (!ret) {
+			list_for_each_entry(waiter, &flow->waiters, node) {
+				if (waiter->sk == sk) {
+					mutex_unlock(&node->qrtr_tx_lock);
+					return -EAGAIN;
+				}
+			}
 			waiter = kzalloc(sizeof(*waiter), GFP_KERNEL);
 			if (!waiter) {
 				mutex_unlock(&node->qrtr_tx_lock);
@@ -508,6 +514,8 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 			waiter->sk = sk;
 			sock_hold(sk);
 			list_add_tail(&waiter->node, &flow->waiters);
+			QRTR_INFO(node->ilc, "new waiter for [0x%x:0x%x]\n",
+				  to->sq_node, to->sq_port);
 			mutex_unlock(&node->qrtr_tx_lock);
 			return -EAGAIN;
 		}

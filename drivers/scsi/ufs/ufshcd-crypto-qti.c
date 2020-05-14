@@ -228,8 +228,8 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 			hba->crypto_cap_array[cap_idx].sdus_mask * 512;
 	}
 
-	hba->ksm = keyslot_manager_create(ufshcd_num_keyslots(hba), ksm_ops,
-					crypto_modes_supported, hba);
+	hba->ksm = keyslot_manager_create(hba->dev, ufshcd_num_keyslots(hba),
+					ksm_ops, crypto_modes_supported, hba);
 
 	if (!hba->ksm) {
 		err = -ENOMEM;
@@ -284,8 +284,9 @@ int ufshcd_crypto_qti_debug(struct ufs_hba *hba)
 
 void ufshcd_crypto_qti_set_vops(struct ufs_hba *hba)
 {
-	return ufshcd_crypto_set_vops(hba, &ufshcd_crypto_qti_variant_ops);
+	hba->crypto_vops = &ufshcd_crypto_qti_variant_ops;
 }
+EXPORT_SYMBOL(ufshcd_crypto_qti_set_vops);
 
 int ufshcd_crypto_qti_resume(struct ufs_hba *hba,
 			     enum ufs_pm_op pm_op)

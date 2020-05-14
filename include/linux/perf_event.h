@@ -1260,11 +1260,6 @@ static bool is_kernel_event(struct perf_event *event)
 	return READ_ONCE(event->owner) == TASK_TOMBSTONE;
 }
 
-static inline bool perf_paranoid_any(void)
-{
-	return sysctl_perf_event_paranoid > 2;
-}
-
 static inline int perf_is_paranoid(void)
 {
 	return sysctl_perf_event_paranoid > -1;

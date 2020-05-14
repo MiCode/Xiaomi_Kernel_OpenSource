@@ -20,6 +20,8 @@
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
 
+#include "../../regulator/internal.h"
+
 /* GDSCR */
 #define PWR_ON_MASK		BIT(31)
 #define CLK_DIS_WAIT_MASK	(0xF << 12)
@@ -42,6 +44,11 @@
 /* Timeout Delay */
 #define TIMEOUT_US		100
 
+struct collapse_vote {
+	struct regmap	*regmap;
+	u32		vote_bit;
+};
+
 struct gdsc {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
@@ -50,8 +57,8 @@ struct gdsc {
 	struct regmap           *domain_addr;
 	struct regmap           *hw_ctrl;
 	struct regmap           *sw_reset;
+	struct collapse_vote	collapse_vote;
 	struct clk		**clocks;
-	struct regulator	*parent_regulator;
 	struct reset_control	**reset_clocks;
 	bool			toggle_logic;
 	bool			retain_ff_enable;
@@ -60,6 +67,8 @@ struct gdsc {
 	bool			force_root_en;
 	bool			no_status_check_on_disable;
 	bool			is_gdsc_enabled;
+	bool			is_gdsc_hw_ctrl_mode;
+	bool			is_root_clk_voted;
 	bool			reset_aon;
 	int			clock_count;
 	int			reset_count;
@@ -118,47 +127,42 @@ static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 	return -ETIMEDOUT;
 }
 
+static int gdsc_init_is_enabled(struct gdsc *sc)
+{
+	struct regmap *regmap;
+	uint32_t regval, mask;
+	int ret;
+
+	if (!sc->toggle_logic) {
+		sc->is_gdsc_enabled = !sc->resets_asserted;
+		return 0;
+	}
+
+	if (sc->collapse_vote.regmap) {
+		regmap = sc->collapse_vote.regmap;
+		mask = BIT(sc->collapse_vote.vote_bit);
+	} else {
+		regmap = sc->regmap;
+		mask = SW_COLLAPSE_MASK;
+	}
+
+	ret = regmap_read(regmap, REG_OFFSET, &regval);
+	if (ret < 0)
+		return ret;
+
+	sc->is_gdsc_enabled = !(regval & mask);
+
+	return 0;
+}
+
 static int gdsc_is_enabled(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
-	uint32_t regval;
 
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
 
-	if (sc->parent_regulator) {
-		/*
-		 * The parent regulator for the GDSC is required to be on to
-		 * make any register accesses to the GDSC base. Return false
-		 * if the parent supply is disabled.
-		 */
-		if (regulator_is_enabled(sc->parent_regulator) <= 0)
-			return false;
-
-		if (regulator_enable(sc->parent_regulator))
-			return false;
-	}
-
-	regmap_read(sc->regmap, REG_OFFSET, &regval);
-
-	if (regval & PWR_ON_MASK) {
-		/*
-		 * The GDSC might be turned on due to TZ/HYP vote on the
-		 * votable GDS registers. Check the SW_COLLAPSE_MASK to
-		 * determine if HLOS has voted for it.
-		 */
-		if (!(regval & SW_COLLAPSE_MASK)) {
-			if (sc->parent_regulator)
-				regulator_disable(sc->parent_regulator);
-
-			return true;
-		}
-	}
-
-	if (sc->parent_regulator)
-		regulator_disable(sc->parent_regulator);
-
-	return false;
+	return sc->is_gdsc_enabled;
 }
 
 static int gdsc_enable(struct regulator_dev *rdev)
@@ -167,8 +171,10 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
 
-	if (sc->root_en || sc->force_root_en)
+	if (sc->root_en || sc->force_root_en) {
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
+		sc->is_root_clk_voted = true;
+	}
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 	if (regval & HW_CONTROL_MASK) {
@@ -229,9 +235,16 @@ static int gdsc_enable(struct regulator_dev *rdev)
 			gdsc_mb(sc);
 		}
 
-		regmap_read(sc->regmap, REG_OFFSET, &regval);
-		regval &= ~SW_COLLAPSE_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		/* Enable gdsc */
+		if (sc->collapse_vote.regmap) {
+			regmap_update_bits(sc->collapse_vote.regmap, REG_OFFSET,
+					   BIT(sc->collapse_vote.vote_bit),
+					   ~BIT(sc->collapse_vote.vote_bit));
+		} else {
+			regmap_read(sc->regmap, REG_OFFSET, &regval);
+			regval &= ~SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+		}
 
 		/* Wait for 8 XO cycles before polling the status bit. */
 		gdsc_mb(sc);
@@ -294,8 +307,10 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	/* Delay to account for staggered memory powerup. */
 	udelay(1);
 
-	if (sc->force_root_en)
+	if (sc->force_root_en) {
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
+		sc->is_root_clk_voted = false;
+	}
 
 	sc->is_gdsc_enabled = true;
 
@@ -306,18 +321,45 @@ static int gdsc_disable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
-	int i, ret = 0;
+	int i, ret = 0, parent_enabled;
 
-	if (sc->force_root_en)
+	if (rdev->supply) {
+		regulator_lock(rdev->supply->rdev);
+		parent_enabled = regulator_is_enabled(rdev->supply);
+		if (parent_enabled < 0) {
+			ret = parent_enabled;
+			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
+				sc->rdesc.name, ret);
+			goto done;
+		}
+
+		if (!parent_enabled) {
+			dev_err(&rdev->dev, "%s cannot disable GDSC while parent is disabled\n",
+				sc->rdesc.name);
+			ret = -EIO;
+			goto done;
+		}
+	}
+
+	if (sc->force_root_en) {
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
+		sc->is_root_clk_voted = true;
+	}
 
 	/* Delay to account for staggered memory powerdown. */
 	udelay(1);
 
 	if (sc->toggle_logic) {
-		regmap_read(sc->regmap, REG_OFFSET, &regval);
-		regval |= SW_COLLAPSE_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		/* Disable gdsc */
+		if (sc->collapse_vote.regmap) {
+			regmap_update_bits(sc->collapse_vote.regmap, REG_OFFSET,
+					   BIT(sc->collapse_vote.vote_bit),
+					   BIT(sc->collapse_vote.vote_bit));
+		} else {
+			regmap_read(sc->regmap, REG_OFFSET, &regval);
+			regval |= SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+		}
 
 		/* Wait for 8 XO cycles before polling the status bit. */
 		gdsc_mb(sc);
@@ -353,35 +395,40 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	 * Check if gdsc_enable was called for this GDSC. If not, the root
 	 * clock will not have been enabled prior to this.
 	 */
-	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
+	if ((sc->is_root_clk_voted && sc->root_en) || sc->force_root_en) {
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
+		sc->is_root_clk_voted = false;
+	}
 
 	sc->is_gdsc_enabled = false;
 
+done:
+	if (rdev->supply)
+		regulator_unlock(rdev->supply->rdev);
+
 	return ret;
+}
+
+static int gdsc_init_hw_ctrl_mode(struct gdsc *sc)
+{
+	uint32_t regval;
+	int ret;
+
+	ret = regmap_read(sc->regmap, REG_OFFSET, &regval);
+	if (ret < 0)
+		return ret;
+
+	sc->is_gdsc_hw_ctrl_mode = regval & HW_CONTROL_MASK;
+
+	return 0;
 }
 
 static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
-	uint32_t regval;
-	int ret;
 
-	if (sc->parent_regulator) {
-		ret = regulator_enable(sc->parent_regulator);
-		if (ret)
-			return ret;
-	}
-
-	regmap_read(sc->regmap, REG_OFFSET, &regval);
-
-	if (sc->parent_regulator)
-		regulator_disable(sc->parent_regulator);
-
-	if (regval & HW_CONTROL_MASK)
-		return REGULATOR_MODE_FAST;
-
-	return REGULATOR_MODE_NORMAL;
+	return sc->is_gdsc_hw_ctrl_mode ? REGULATOR_MODE_FAST
+					: REGULATOR_MODE_NORMAL;
 }
 
 static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -390,19 +437,41 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	uint32_t regval;
 	int ret = 0;
 
-	if (sc->parent_regulator) {
-		ret = regulator_enable(sc->parent_regulator);
-		if (ret)
-			return ret;
+	if (rdev->supply) {
+		/*
+		 * Ensure that the GDSC parent supply is enabled before
+		 * continuing.  This is needed to avoid an unclocked access
+		 * of the GDSC control register for GDSCs whose register access
+		 * is gated by the parent supply enable state in hardware.
+		 * Explicit parent supply locking ensures that the parent enable
+		 * state cannot change after checking due to a race with another
+		 * consumer.
+		 */
+		regulator_lock(rdev->supply->rdev);
+		ret = regulator_is_enabled(rdev->supply);
+		if (ret < 0) {
+			dev_err(&rdev->dev, "%s unable to check parent enable state, ret=%d\n",
+				sc->rdesc.name, ret);
+			goto done;
+		} else if (WARN(!ret,
+				"%s cannot change GDSC HW/SW control mode while parent is disabled\n",
+				sc->rdesc.name)) {
+			ret = -EIO;
+			goto done;
+		}
 	}
 
-	regmap_read(sc->regmap, REG_OFFSET, &regval);
+	ret = regmap_read(sc->regmap, REG_OFFSET, &regval);
+	if (ret < 0)
+		goto done;
 
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
 		/* Turn on HW trigger mode */
 		regval |= HW_CONTROL_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		ret = regmap_write(sc->regmap, REG_OFFSET, regval);
+		if (ret < 0)
+			goto done;
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
@@ -414,11 +483,14 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 */
 		gdsc_mb(sc);
 		udelay(1);
+		sc->is_gdsc_hw_ctrl_mode = true;
 		break;
 	case REGULATOR_MODE_NORMAL:
 		/* Turn off HW trigger mode */
 		regval &= ~HW_CONTROL_MASK;
-		regmap_write(sc->regmap, REG_OFFSET, regval);
+		ret = regmap_write(sc->regmap, REG_OFFSET, regval);
+		if (ret < 0)
+			goto done;
 		/*
 		 * There may be a race with internal HW trigger signal,
 		 * that will result in GDSC going through a power down and
@@ -427,14 +499,16 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 */
 		gdsc_mb(sc);
 		udelay(1);
+		sc->is_gdsc_hw_ctrl_mode = false;
 		break;
 	default:
 		ret = -EINVAL;
 		break;
 	}
 
-	if (sc->parent_regulator)
-		regulator_disable(sc->parent_regulator);
+done:
+	if (rdev->supply)
+		regulator_unlock(rdev->supply->rdev);
 
 	return ret;
 }
@@ -517,6 +591,28 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 	sc->retain_ff_enable = of_property_read_bool(dev->of_node,
 						"qcom,retain-regs");
 
+	if (of_find_property(dev->of_node, "qcom,collapse-vote", NULL)) {
+		ret = of_property_count_u32_elems(dev->of_node,
+						  "qcom,collapse-vote");
+		if (ret != 2) {
+			dev_err(dev, "qcom,collapse-vote needs two values\n");
+			return -EINVAL;
+		}
+
+		sc->collapse_vote.regmap =
+			syscon_regmap_lookup_by_phandle(dev->of_node,
+							"qcom,collapse-vote");
+		if (IS_ERR(sc->collapse_vote.regmap))
+			return PTR_ERR(sc->collapse_vote.regmap);
+		ret = of_property_read_u32_index(dev->of_node,
+						 "qcom,collapse-vote", 1,
+						 &sc->collapse_vote.vote_bit);
+		if (ret || sc->collapse_vote.vote_bit > 31) {
+			dev_err(dev, "qcom,collapse-vote vote_bit error\n");
+			return ret;
+		}
+	}
+
 	sc->toggle_logic = !of_property_read_bool(dev->of_node,
 						"qcom,skip-logic-collapse");
 	if (!sc->toggle_logic) {
@@ -560,17 +656,6 @@ static int gdsc_get_resources(struct gdsc *sc, struct platform_device *pdev)
 	if (!sc->regmap) {
 		dev_err(dev, "Couldn't get regmap\n");
 		return -EINVAL;
-	}
-
-	if (of_find_property(dev->of_node, "vdd_parent-supply", NULL)) {
-		sc->parent_regulator = devm_regulator_get(dev, "vdd_parent");
-		if (IS_ERR(sc->parent_regulator)) {
-			ret = PTR_ERR(sc->parent_regulator);
-			if (ret != -EPROBE_DEFER)
-				dev_err(dev, "Unable to get vdd_parent regulator, ret=%d\n",
-					ret);
-			return ret;
-		}
 	}
 
 	sc->clocks = devm_kcalloc(dev, sc->clock_count, sizeof(*sc->clocks),
@@ -682,6 +767,20 @@ static int gdsc_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = gdsc_init_is_enabled(sc);
+	if (ret) {
+		dev_err(dev, "%s failed to get initial enable state, ret=%d\n",
+			sc->rdesc.name, ret);
+		return ret;
+	}
+
+	ret = gdsc_init_hw_ctrl_mode(sc);
+	if (ret) {
+		dev_err(dev, "%s failed to get initial hw_ctrl state, ret=%d\n",
+			sc->rdesc.name, ret);
+		return ret;
+	}
+
 	sc->rdesc.id = atomic_inc_return(&gdsc_count);
 	sc->rdesc.ops = &gdsc_ops;
 	sc->rdesc.type = REGULATOR_VOLTAGE;
@@ -708,7 +807,7 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sc);
 
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id gdsc_match_table[] = {

@@ -1388,11 +1388,6 @@ int snd_soc_register_dai(struct snd_soc_component *component,
 struct snd_soc_dai *snd_soc_find_dai(
 	const struct snd_soc_dai_link_component *dlc);
 
-#ifdef CONFIG_AUDIO_QGKI
-struct snd_soc_component *soc_find_component(
-	const struct snd_soc_dai_link_component *dlc);
-#endif
-
 #include <sound/soc-dai.h>
 
 static inline

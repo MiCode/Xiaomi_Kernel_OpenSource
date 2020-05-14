@@ -35,9 +35,8 @@
 #define HH_ERROR_CSPACE_INSUF_RIGHTS	53
 #define HH_ERROR_CSPACE_FULL		54
 
-/* TODO: Get the correct values for the MSGQ error codes */
-#define HH_ERROR_MSGQUEUE_FULL		60
-#define HH_ERROR_MSGQUEUE_EMPTY		61
+#define HH_ERROR_MSGQUEUE_EMPTY		60
+#define HH_ERROR_MSGQUEUE_FULL		61
 
 static inline int hh_remap_error(int hh_error)
 {

@@ -53,6 +53,21 @@ void iommu_dma_compose_msi_msg(struct msi_desc *desc,
 
 void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list);
 
+int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
+			   u64 size);
+
+int iommu_dma_enable_best_fit_algo(struct device *dev);
+
+#ifdef CONFIG_DMA_CONFIGURE_ALIGNMENT
+int iommu_dma_configure_alignment(struct device *dev, bool force_no_align);
+#else /* CONFIG_DMA_CONFIGURE_ALIGNMENT */
+static inline int iommu_dma_configure_alignment(struct device *dev,
+						bool force_no_align)
+{
+	return -ENOTSUPP;
+}
+#endif
+
 #else /* CONFIG_IOMMU_DMA */
 
 struct iommu_domain;
@@ -92,6 +107,23 @@ static inline void iommu_dma_compose_msi_msg(struct msi_desc *desc,
 
 static inline void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list)
 {
+}
+
+static inline int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
+					 u64 size)
+{
+	return -ENODEV;
+}
+
+static inline int iommu_dma_enable_best_fit_algo(struct device *dev)
+{
+	return -ENODEV;
+}
+
+static inline int iommu_dma_configure_alignment(struct device *dev,
+						bool force_no_align)
+{
+	return -ENODEV;
 }
 
 #endif	/* CONFIG_IOMMU_DMA */

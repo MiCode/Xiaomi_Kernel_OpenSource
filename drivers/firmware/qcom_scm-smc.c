@@ -1032,7 +1032,7 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 		return -EINVAL;
 	}
 
-	ret = qcom_scm_call_atomic(dev, &desc);
+	ret = qcom_scm_call(dev, &desc);
 
 	return ret ? : desc.res[0];
 }
@@ -1059,6 +1059,7 @@ int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id, u64 *version)
 
 void __qcom_scm_halt_spmi_pmic_arbiter(struct device *dev)
 {
+	int ret;
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_PWR,
 		.cmd = QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER,
@@ -1068,11 +1069,14 @@ void __qcom_scm_halt_spmi_pmic_arbiter(struct device *dev)
 	desc.args[0] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(1);
 
-	qcom_scm_call_atomic(dev, &desc);
+	ret = qcom_scm_call_atomic(dev, &desc);
+	if (ret)
+		pr_err("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
 }
 
 void __qcom_scm_deassert_ps_hold(struct device *dev)
 {
+	int ret;
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_PWR,
 		.cmd = QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD,
@@ -1082,7 +1086,9 @@ void __qcom_scm_deassert_ps_hold(struct device *dev)
 	desc.args[0] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(1);
 
-	qcom_scm_call_atomic(dev, &desc);
+	ret = qcom_scm_call_atomic(dev, &desc);
+	if (ret)
+		pr_err("Failed to deassert_ps_hold=0x%x\n", ret);
 }
 
 void __qcom_scm_mmu_sync(struct device *dev, bool sync)
@@ -1912,6 +1918,44 @@ int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
 	desc.args[0] = buf;
 	desc.args[1] = len;
 	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_query_encrypted_log_feature(struct device *dev, u64 *enabled)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_QSEELOG,
+		.cmd = QCOM_SCM_QUERY_ENCR_LOG_FEAT_ID,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(0);
+
+	ret = qcom_scm_call(dev, &desc);
+	if (enabled)
+		*enabled = desc.res[0];
+
+	return ret;
+}
+
+int __qcom_scm_request_encrypted_log(struct device *dev, phys_addr_t buf,
+				     size_t len, uint32_t log_id)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_QSEELOG,
+		.cmd = QCOM_SCM_REQUEST_ENCR_LOG_ID,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.args[0] = buf;
+	desc.args[1] = len;
+	desc.args[2] = log_id;
+	desc.arginfo = QCOM_SCM_ARGS(3, QCOM_SCM_RW);
 
 	ret = qcom_scm_call(dev, &desc);
 

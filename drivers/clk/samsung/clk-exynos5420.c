@@ -12,6 +12,7 @@
 #include <linux/clk-provider.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/clk.h>
 
 #include "clk.h"
 #include "clk-cpu.h"
@@ -165,6 +166,8 @@ static const unsigned long exynos5x_clk_regs[] __initconst = {
 	GATE_BUS_CPU,
 	GATE_SCLK_CPU,
 	CLKOUT_CMU_CPU,
+	APLL_CON0,
+	KPLL_CON0,
 	CPLL_CON0,
 	DPLL_CON0,
 	EPLL_CON0,
@@ -1627,6 +1630,13 @@ static void __init exynos5x_clk_init(struct device_node *np,
 		exynos5_subcmus_init(ctx, ARRAY_SIZE(exynos5x_subcmus),
 				     exynos5x_subcmus);
 	}
+
+	/*
+	 * Keep top part of G3D clock path enabled permanently to ensure
+	 * that the internal busses get their clock regardless of the
+	 * main G3D clock enablement status.
+	 */
+	clk_prepare_enable(__clk_lookup("mout_sw_aclk_g3d"));
 
 	samsung_clk_of_add_provider(np, ctx);
 }

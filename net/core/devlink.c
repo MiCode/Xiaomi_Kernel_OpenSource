@@ -3863,6 +3863,12 @@ static int devlink_nl_cmd_region_read_dumpit(struct sk_buff *skb,
 		goto out_unlock;
 	}
 
+	/* return 0 if there is no further data to read */
+	if (start_offset >= region->size) {
+		err = 0;
+		goto out_unlock;
+	}
+
 	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
 			  &devlink_nl_family, NLM_F_ACK | NLM_F_MULTI,
 			  DEVLINK_CMD_REGION_READ);
@@ -6280,7 +6286,7 @@ static bool devlink_port_type_should_warn(struct devlink_port *devlink_port)
 	       devlink_port->attrs.flavour != DEVLINK_PORT_FLAVOUR_DSA;
 }
 
-#define DEVLINK_PORT_TYPE_WARN_TIMEOUT (HZ * 30)
+#define DEVLINK_PORT_TYPE_WARN_TIMEOUT (HZ * 3600)
 
 static void devlink_port_type_warn_schedule(struct devlink_port *devlink_port)
 {

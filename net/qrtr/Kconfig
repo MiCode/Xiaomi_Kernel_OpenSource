@@ -49,4 +49,12 @@ config QRTR_MHI
 	  MHI transport fakes synchronous sends by waiting for the uplink
 	  callback from the MHI framework before returing to qrtr core.
 
+config QRTR_HAVEN
+	tristate "Haven IPC Router channels"
+	help
+	  Say Y here to support a fifo based ipcrouter channel with haven
+	  hypervisor signaling. The haven transport layer enables IPC
+	  Router communication between two virtual machines. The transport
+	  uses dynamically shared memory and haven doorbells.
+
 endif # QRTR

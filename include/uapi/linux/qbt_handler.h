@@ -50,7 +50,7 @@ enum qbt_fw_event {
  * @is_wuhb_connected - if non-zero, WUHB INT line is connected
  */
 struct qbt_wuhb_connected_status {
-	bool is_wuhb_connected;
+	_Bool is_wuhb_connected;
 };
 
 /*
@@ -72,7 +72,7 @@ struct qbt_key_event {
  * @rad_y: movement radius in y direction
  */
 struct qbt_touch_config {
-	bool rad_filter_enable;
+	_Bool rad_filter_enable;
 	int rad_x;
 	int rad_y;
 };

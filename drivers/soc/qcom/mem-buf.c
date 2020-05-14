@@ -423,7 +423,6 @@ static int mem_buf_assign_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	int *dst_vmids, *dst_perms;
 	u32 src_vmid = VMID_HLOS;
-	u32 nr_acl_entries = xfer_mem->acl_desc.n_acl_entries;
 	int ret;
 
 	if (!xfer_mem)
@@ -435,7 +434,7 @@ static int mem_buf_assign_mem(struct mem_buf_xfer_mem *xfer_mem)
 		return ret;
 
 	ret = hyp_assign_table(xfer_mem->mem_sgt, &src_vmid, 1, dst_vmids,
-			       dst_perms, nr_acl_entries);
+			       dst_perms, xfer_mem->acl_desc.n_acl_entries);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
 		       __func__, ret);
@@ -450,15 +449,18 @@ static int mem_buf_unassign_mem(struct mem_buf_xfer_mem *xfer_mem)
 	int dst_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int *src_vmids;
 	int ret;
-	u32 nr_acl_entries = xfer_mem->acl_desc.n_acl_entries;
+
+	if (!xfer_mem)
+		return -EINVAL;
 
 	ret = mem_buf_hh_acl_desc_to_vmid_perm_list(&xfer_mem->acl_desc,
 						    &src_vmids, NULL);
 	if (ret < 0)
 		return ret;
 
-	ret = hyp_assign_table(xfer_mem->mem_sgt, src_vmids, nr_acl_entries,
-			       &dst_vmid, &dst_perms, 1);
+	ret = hyp_assign_table(xfer_mem->mem_sgt, src_vmids,
+			       xfer_mem->acl_desc.n_acl_entries, &dst_vmid,
+			       &dst_perms, 1);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
 		       __func__, ret);
@@ -662,10 +664,16 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 
 	resp_msg->ret = ret;
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, resp_msg, sizeof(*resp_msg), 0);
+
+	/*
+	 * Free the buffer regardless of the return value as the hypervisor
+	 * would have consumed the data in the case of a success.
+	 */
+	kfree(resp_msg);
+
 	if (ret < 0) {
 		pr_err("%s: failed to send memory allocation response rc: %d\n",
 		       __func__, ret);
-		kfree(resp_msg);
 		mutex_lock(&mem_buf_xfer_mem_list_lock);
 		list_del(&xfer_mem->entry);
 		mutex_unlock(&mem_buf_xfer_mem_list_lock);
@@ -780,12 +788,19 @@ static int mem_buf_msgq_recv_fn(void *unused)
 	int ret;
 
 	while (!kthread_should_stop()) {
-		ret = hh_msgq_recv(mem_buf_hh_msgq_hdl, &buf, &size, 0);
-		if (ret < 0)
+		buf = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+		if (!buf)
+			continue;
+
+		ret = hh_msgq_recv(mem_buf_hh_msgq_hdl, buf,
+					HH_MSGQ_MAX_MSG_SIZE_BYTES, &size, 0);
+		if (ret < 0) {
+			kfree(buf);
 			pr_err_ratelimited("%s failed to receive message rc: %d\n",
 					   __func__, ret);
-		else
+		} else {
 			mem_buf_process_msg(buf, size);
+		}
 	}
 
 	return 0;
@@ -868,10 +883,15 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 	}
 
 	ret = mem_buf_msg_send(alloc_req_msg, msg_size);
-	if (ret < 0) {
-		kfree(alloc_req_msg);
+
+	/*
+	 * Free the buffer regardless of the return value as the hypervisor
+	 * would have consumed the data in the case of a success.
+	 */
+	kfree(alloc_req_msg);
+
+	if (ret < 0)
 		goto out;
-	}
 
 	ret = mem_buf_txn_wait(&txn);
 	if (ret < 0)
@@ -897,11 +917,16 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 	msg->hdl = membuf->memparcel_hdl;
 
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, msg, sizeof(*msg), 0);
-	if (ret < 0) {
+
+	/*
+	 * Free the buffer regardless of the return value as the hypervisor
+	 * would have consumed the data in the case of a success.
+	 */
+	kfree(msg);
+
+	if (ret < 0)
 		pr_err("%s failed to send memory relinquish message rc: %d\n",
 		       __func__, ret);
-		kfree(msg);
-	}
 }
 
 static int mem_buf_map_mem_s2(struct mem_buf_desc *membuf)
@@ -1078,8 +1103,8 @@ static int mem_buf_remove_mem(struct mem_buf_desc *membuf)
 
 static bool is_valid_mem_buf_vmid(u32 mem_buf_vmid)
 {
-	if ((mem_buf_vmid == MEM_BUF_VMID_HLOS) ||
-	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_UI))
+	if ((mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM) ||
+	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM))
 		return true;
 
 	return false;
@@ -1092,11 +1117,21 @@ static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 
 static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 {
-	if (mem_buf_vmid == MEM_BUF_VMID_HLOS)
-		return VMID_HLOS;
-	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_UI)
-		return VMID_TRUSTED_UI;
-	return -EINVAL;
+	int ret;
+	hh_vmid_t vmid;
+	enum hh_vm_names vm_name;
+
+	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
+		vm_name = HH_PRIMARY_VM;
+	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM)
+		vm_name = HH_TRUSTED_VM;
+	else
+		return -EINVAL;
+
+	ret = hh_rm_get_vmid(vm_name, &vmid);
+	if (!ret)
+		return vmid;
+	return ret;
 }
 
 static int mem_buf_perms_to_perms(u32 mem_buf_perms)
@@ -1524,8 +1559,10 @@ static int mem_buf_probe(struct platform_device *pdev)
 	mem_buf_hh_msgq_hdl = hh_msgq_register(HH_MSGQ_LABEL_MEMBUF);
 	if (IS_ERR(mem_buf_hh_msgq_hdl)) {
 		ret = PTR_ERR(mem_buf_hh_msgq_hdl);
-		dev_err(&pdev->dev,
-			"Message queue registration failed: rc: %d\n", ret);
+		if (ret != EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"Message queue registration failed: rc: %d\n",
+				ret);
 		goto err_msgq_register;
 	}
 

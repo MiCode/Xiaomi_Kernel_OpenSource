@@ -288,7 +288,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		return -ENOMEM;
 
 	if (ion_heap_is_system_heap_type(buffer->heap->type) &&
-	    is_secure_vmid_valid(vmid)) {
+	    is_secure_allocation(buffer->flags)) {
 		pr_info("%s: System heap doesn't support secure allocations\n",
 			__func__);
 		return -EINVAL;
@@ -426,7 +426,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 
 	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) &&
 	    !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
-		if (vmid < 0)
+		if (hlos_accessible_buffer(buffer))
 			ion_buffer_zero(buffer);
 	} else if (vmid > 0) {
 		if (ion_hyp_unassign_sg(table, &vmid, 1, true))

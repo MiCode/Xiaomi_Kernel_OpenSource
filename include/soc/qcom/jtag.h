@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MACH_JTAG_H
 #define __MACH_JTAG_H
+
+#include <linux/types.h>
+
+struct notifier_block;
 
 #if defined(CONFIG_MSM_JTAG) || defined(CONFIG_MSM_JTAG_MM) || \
 	defined(CONFIG_MSM_JTAGV8)

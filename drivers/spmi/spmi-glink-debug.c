@@ -321,7 +321,7 @@ static int spmi_glink_probe(struct platform_device *pdev)
 
 	client_data.id = MSG_OWNER_REG_DUMP;
 	client_data.name = "spmi_register_debug";
-	client_data.callback = spmi_glink_callback;
+	client_data.msg_cb = spmi_glink_callback;
 	client_data.priv = gd;
 
 	gd->client = pmic_glink_register_client(&pdev->dev, &client_data);

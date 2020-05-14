@@ -89,10 +89,10 @@ int dwc3_host_init(struct dwc3 *dwc)
 	memset(props, 0, sizeof(struct property_entry) * ARRAY_SIZE(props));
 
 	if (dwc->usb3_lpm_capable)
-		props[prop_idx++].name = "usb3-lpm-capable";
+		props[prop_idx++] = PROPERTY_ENTRY_BOOL("usb3-lpm-capable");
 
 	if (dwc->usb2_lpm_disable)
-		props[prop_idx++].name = "usb2-lpm-disable";
+		props[prop_idx++] = PROPERTY_ENTRY_BOOL("usb2-lpm-disable");
 
 	if (dwc->xhci_imod_value) {
 		imod_prop.name  = "imod-interval-ns";
@@ -113,10 +113,11 @@ int dwc3_host_init(struct dwc3 *dwc)
 	 * This following flag tells XHCI to do just that.
 	 */
 	if (dwc->revision <= DWC3_REVISION_300A)
-		props[prop_idx++].name = "quirk-broken-port-ped";
+		props[prop_idx++] = PROPERTY_ENTRY_BOOL("quirk-broken-port-ped");
 
 	if (dwc->host_poweroff_in_pm_suspend)
-		props[prop_idx++].name = "host-poweroff-in-pm-suspend";
+		props[prop_idx++] =
+			PROPERTY_ENTRY_BOOL("host-poweroff-in-pm-suspend");
 
 	if (prop_idx) {
 		ret = platform_device_add_properties(xhci, props);

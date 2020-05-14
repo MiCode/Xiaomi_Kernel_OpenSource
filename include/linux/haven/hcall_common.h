@@ -5,6 +5,8 @@
 #ifndef __HH_HCALL_COMMON_H
 #define __HH_HCALL_COMMON_H
 
+#include <linux/types.h>
+
 struct hh_hcall_args {
 	unsigned long arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
 };

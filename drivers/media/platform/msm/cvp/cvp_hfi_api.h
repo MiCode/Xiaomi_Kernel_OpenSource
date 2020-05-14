@@ -357,7 +357,8 @@ struct cvp_hfi_device {
 
 typedef void (*hfi_cmd_response_callback) (enum hal_command_response cmd,
 			void *data);
-typedef void (*msm_cvp_callback) (u32 response, void *callback);
+typedef void (*msm_cvp_callback) (enum hal_command_response response,
+			void *callback);
 
 struct cvp_hfi_device *cvp_hfi_initialize(enum msm_cvp_hfi_type hfi_type,
 		u32 device_id, struct msm_cvp_platform_resources *res,

@@ -557,29 +557,15 @@ struct ufs_dev_info {
 	bool is_lu_power_on_wp;
 #ifdef CONFIG_SCSI_UFSHCD_QTI
 	u8 b_device_sub_class;
-	u16 w_spec_version;
-	u16 w_manufacturer_id;
 	u8 i_product_name;
 	/* is Unit Attention Condition cleared on UFS Device LUN? */
 	unsigned is_ufs_dev_wlun_ua_cleared:1;
 #endif
+	u16 wmanufacturerid;
+	/*UFS device Product Name */
+	u8 *model;
 	u16 spec_version;
 	u32 clk_gating_wait_us;
-};
-
-#define MAX_MODEL_LEN 16
-/**
- * ufs_dev_desc - ufs device details from the device descriptor
- *
- * @wmanufacturerid: card details
- * @model: card model
- */
-struct ufs_dev_desc {
-	u16 wmanufacturerid;
-	u8 *model;
-#ifdef CONFIG_SCSI_UFSHCD_QTI
-	u16 wspecversion;
-#endif
 };
 
 /**

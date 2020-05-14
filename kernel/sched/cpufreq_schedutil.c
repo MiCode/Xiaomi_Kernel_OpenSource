@@ -333,7 +333,7 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 	 */
 	util = util_cfs + cpu_util_rt(rq);
 	if (type == FREQUENCY_UTIL)
-		util = uclamp_util_with(rq, util, p);
+		util = uclamp_rq_util_with(rq, util, p);
 
 	dl_util = cpu_util_dl(rq);
 
@@ -396,7 +396,7 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 #ifdef CONFIG_SCHED_WALT
 	util = cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
 
-	return uclamp_util(rq, util);
+	return uclamp_rq_util_with(rq, util, NULL);
 #else
 	util = cpu_util_freq(sg_cpu->cpu, NULL) + cpu_util_rt(rq);
 

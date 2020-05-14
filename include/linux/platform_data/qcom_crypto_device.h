@@ -6,6 +6,8 @@
 #ifndef __QCOM_CRYPTO_DEVICE__H
 #define __QCOM_CRYPTO_DEVICE__H
 
+#include <linux/types.h>
+
 struct msm_ce_hw_support {
 	uint32_t ce_shared;
 	uint32_t shared_ce_resource;

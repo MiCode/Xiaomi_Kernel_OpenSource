@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _DMA_BUF_REF_H
 #define _DMA_BUF_REF_H
+
+#include <linux/errno.h>
 
 struct msm_dma_buf;
 struct seq_file;

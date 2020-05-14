@@ -152,23 +152,15 @@ EXPORT_SYMBOL(qcom_scm_spin_cpu);
 void qcom_scm_set_download_mode(enum qcom_download_mode mode,
 				phys_addr_t tcsr_boot_misc)
 {
-	bool avail;
-	int ret = 0;
+	int ret = -EINVAL;
 	struct device *dev = __scm ? __scm->dev : NULL;
 
-	avail = __qcom_scm_is_call_available(dev,
-					     QCOM_SCM_SVC_BOOT,
-					     QCOM_SCM_BOOT_SET_DLOAD_MODE);
-	if (avail) {
-		ret = __qcom_scm_set_dload_mode(dev, mode);
-	} else if (tcsr_boot_misc || (__scm && __scm->dload_mode_addr)) {
+	if (tcsr_boot_misc || (__scm && __scm->dload_mode_addr)) {
 		ret = __qcom_scm_io_writel(dev,
 				tcsr_boot_misc ? : __scm->dload_mode_addr,
 				mode);
-	} else {
-		dev_err(dev,
-			"No available mechanism for setting download mode\n");
-	}
+	} else
+		ret = __qcom_scm_set_dload_mode(dev, mode);
 
 	if (ret)
 		dev_err(dev, "failed to set download mode: %d\n", ret);
@@ -402,15 +394,7 @@ EXPORT_SYMBOL(qcom_scm_get_jtag_etm_feat_id);
  */
 void qcom_scm_halt_spmi_pmic_arbiter(void)
 {
-	bool avail;
 	struct device *dev = __scm ? __scm->dev : NULL;
-
-	avail = __qcom_scm_is_call_available(dev,
-					QCOM_SCM_SVC_PWR,
-					QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER);
-
-	if (!avail)
-		return;
 
 	pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
 	return __qcom_scm_halt_spmi_pmic_arbiter(dev);
@@ -426,15 +410,9 @@ EXPORT_SYMBOL(qcom_scm_halt_spmi_pmic_arbiter);
  */
 void qcom_scm_deassert_ps_hold(void)
 {
-	bool avail;
 	struct device *dev = __scm ? __scm->dev : NULL;
 
-	avail = __qcom_scm_is_call_available(dev,
-					     QCOM_SCM_SVC_PWR,
-					     QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD);
-
-	if (avail)
-		__qcom_scm_deassert_ps_hold(dev);
+	__qcom_scm_deassert_ps_hold(dev);
 }
 EXPORT_SYMBOL(qcom_scm_deassert_ps_hold);
 
@@ -939,6 +917,19 @@ int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
 	return __qcom_scm_register_qsee_log_buf(__scm->dev, buf, len);
 }
 EXPORT_SYMBOL(qcom_scm_register_qsee_log_buf);
+
+int qcom_scm_query_encrypted_log_feature(u64 *enabled)
+{
+	return __qcom_scm_query_encrypted_log_feature(__scm->dev, enabled);
+}
+EXPORT_SYMBOL(qcom_scm_query_encrypted_log_feature);
+
+int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
+						uint32_t log_id)
+{
+	return __qcom_scm_request_encrypted_log(__scm->dev, buf, len, log_id);
+}
+EXPORT_SYMBOL(qcom_scm_request_encrypted_log);
 
 int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
 		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,

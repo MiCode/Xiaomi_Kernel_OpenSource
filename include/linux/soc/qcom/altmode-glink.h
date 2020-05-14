@@ -6,6 +6,8 @@
 #ifndef __ALTMODE_H__
 #define __ALTMODE_H__
 
+#include <linux/types.h>
+
 /**
  * struct altmode_client_data
  *	Uniquely define altmode client while registering with altmode framework.
@@ -35,6 +37,9 @@ struct altmode_pan_ack_msg {
 };
 
 #if IS_ENABLED(CONFIG_QTI_ALTMODE_GLINK)
+
+struct notifier_block;
+struct device;
 
 int altmode_register_notifier(const char *amdev_name,
 			      struct notifier_block *nb);

@@ -79,9 +79,10 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 	struct ion_system_secure_heap *secure_heap =
 		to_system_secure_heap(heap);
 	enum ion_heap_type type = secure_heap->heap.ion_heap.type;
+	unsigned long cp_flags = buffer->flags & ION_FLAGS_CP_MASK;
 
 	if (!ion_heap_is_system_secure_heap_type(type) ||
-	    !is_cp_flag_present(flags)) {
+	    !is_cp_flag_present(flags) || (hweight_long(cp_flags) != 1)) {
 		pr_info("%s: Incorrect heap type or incorrect flags\n",
 			__func__);
 		return -EINVAL;

@@ -24,13 +24,6 @@
 #define CVP_KMD_GET_SESSION_INFO	(CVP_KMD_CMD_START + 1)
 
 /*
- * CVP_KMD_REQUEST_POWER - this argument type is used to
- *          set the power required to driver. it passes
- *          struct cvp_kmd_request_power {}
- */
-#define CVP_KMD_REQUEST_POWER		(CVP_KMD_CMD_START + 2)
-
-/*
  * CVP_KMD_REGISTER_BUFFER - this argument type is used to
  *          register the buffer to driver. it passes
  *          struct cvp_kmd_buffer {}
@@ -80,21 +73,6 @@
 struct cvp_kmd_session_info {
 	__u32 session_id;
 	__u32 reserved[10];
-};
-
-/**
- * struct cvp_kmd_request_power - power / clock data information
- * @clock_cycles_a:  clock cycles per second required for hardware_a
- * @clock_cycles_b:  clock cycles per second required for hardware_b
- * @ddr_bw:        bandwidth required for ddr in bps
- * @sys_cache_bw:  bandwidth required for system cache in bps
- */
-struct cvp_kmd_request_power {
-	__u32 clock_cycles_a;
-	__u32 clock_cycles_b;
-	__u32 ddr_bw;
-	__u32 sys_cache_bw;
-	__u32 reserved[8];
 };
 
 /**
@@ -180,7 +158,7 @@ struct cvp_kmd_sys_property {
 
 struct cvp_kmd_sys_properties {
 	__u32 prop_num;
-	struct cvp_kmd_sys_property prop_data;
+	struct cvp_kmd_sys_property prop_data[8];
 };
 
 #define SESSION_CREATE	1
@@ -202,6 +180,29 @@ struct cvp_kmd_hfi_fence_packet {
 	__u64 frame_id;
 };
 
+struct cvp_kmd_fence {
+	__s32 h_synx;
+	__u32 secure_key;
+};
+
+struct cvp_kmd_fence_ctrl {
+	__u32 magic;
+	__u32 reserved;
+	__u64 frame_id;
+	__u32 num_fences;
+	__u32 output_index;
+	struct cvp_kmd_fence fences[MAX_HFI_FENCE_SIZE/2];
+};
+
+#define MAX_FENCE_DATA_SIZE	(MAX_HFI_FENCE_SIZE + 6)
+
+struct cvp_kmd_hfi_synx_packet {
+	__u32 pkt_data[MAX_HFI_PKT_SIZE];
+	union {
+		__u32 fence_data[MAX_FENCE_DATA_SIZE];
+		struct cvp_kmd_fence_ctrl fc;
+	};
+};
 
 /**
  * struct cvp_kmd_arg
@@ -225,15 +226,19 @@ struct cvp_kmd_arg {
 	__u32 buf_num;
 	union cvp_data_t {
 		struct cvp_kmd_session_info session;
-		struct cvp_kmd_request_power req_power;
 		struct cvp_kmd_buffer regbuf;
 		struct cvp_kmd_buffer unregbuf;
 		struct cvp_kmd_send_cmd send_cmd;
 		struct cvp_kmd_hfi_packet hfi_pkt;
 		struct cvp_kmd_sys_properties sys_properties;
 		struct cvp_kmd_hfi_fence_packet hfi_fence_pkt;
+		struct cvp_kmd_hfi_synx_packet hfi_synx_pkt;
 		struct cvp_kmd_session_control session_ctrl;
 		__u64 frame_id;
 	} data;
+};
+
+struct cvp_kmd_request_power {
+	__u32 deprecated;
 };
 #endif

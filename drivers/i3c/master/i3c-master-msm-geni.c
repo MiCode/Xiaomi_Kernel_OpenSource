@@ -189,9 +189,6 @@ enum geni_i3c_err_code {
 #define PACKING_BYTES_PW	4
 #define XFER_TIMEOUT		HZ
 #define DFS_INDEX_MAX		7
-#define I3C_CORE2X_VOTE		(960)
-#define DEFAULT_BUS_WIDTH	(4)
-#define DEFAULT_SE_CLK		(19200000)
 
 #define I3C_DDR_READ_CMD BIT(7)
 #define I3C_ADDR_MASK	0x7f

@@ -139,7 +139,7 @@ static void _a6xx_preemption_fault(struct adreno_device *adreno_dev)
 	if (kgsl_state_is_awake(device)) {
 		kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &status);
 
-		if (status == 0) {
+		if (!(status & 0x1)) {
 			adreno_set_preempt_state(adreno_dev,
 				ADRENO_PREEMPT_COMPLETE);
 
@@ -149,7 +149,7 @@ static void _a6xx_preemption_fault(struct adreno_device *adreno_dev)
 	}
 
 	dev_err(device->dev,
-		     "Preemption timed out: cur=%d R/W=%X/%X, next=%d R/W=%X/%X\n",
+		     "Preemption Fault: cur=%d R/W=0x%x/0x%x, next=%d R/W=0x%x/0x%x\n",
 		     adreno_dev->cur_rb->id,
 		     adreno_get_rptr(adreno_dev->cur_rb),
 		     adreno_dev->cur_rb->wptr,
@@ -374,10 +374,14 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	return;
 err:
 	/* If fenced write fails, take inline snapshot and trigger recovery */
-	if (!in_interrupt())
+	if (!in_interrupt()) {
 		gmu_core_snapshot(device);
+		adreno_set_gpu_fault(adreno_dev,
+			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+	} else {
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+	}
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
-	adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 	adreno_dispatcher_schedule(device);
 	/* Clear the keep alive */
 	if (gmu_core_isenabled(device))

@@ -6,6 +6,7 @@
 #ifndef __HWKM_H_
 #define __HWKM_H_
 
+#include <linux/types.h>
 #include <stdbool.h>
 #include <stddef.h>
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -321,6 +321,9 @@ static int mhi_fw_load_amss(struct mhi_controller *mhi_cntrl,
 			mhi_buf->len);
 
 	mhi_cntrl->sequence_id = prandom_u32() & BHIE_TXVECSTATUS_SEQNUM_BMSK;
+	if (unlikely(!mhi_cntrl->sequence_id))
+		mhi_cntrl->sequence_id = 1;
+
 	mhi_write_reg_field(mhi_cntrl, base, BHIE_TXVECDB_OFFS,
 			    BHIE_TXVECDB_SEQNUM_BMSK, BHIE_TXVECDB_SEQNUM_SHFT,
 			    mhi_cntrl->sequence_id);
@@ -383,6 +386,9 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 		      lower_32_bits(dma_addr));
 	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
 	mhi_cntrl->session_id = prandom_u32() & BHI_TXDB_SEQNUM_BMSK;
+	if (unlikely(!mhi_cntrl->session_id))
+		mhi_cntrl->session_id = 1;
+
 	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGTXDB,
 			mhi_cntrl->session_id);
 	read_unlock_bh(pm_lock);
@@ -528,10 +534,9 @@ static void mhi_firmware_copy(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-void mhi_fw_load_worker(struct work_struct *work)
+void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	struct mhi_controller *mhi_cntrl;
 	const char *fw_name;
 	const struct firmware *firmware = NULL;
 	struct image_info *image_info;
@@ -539,17 +544,7 @@ void mhi_fw_load_worker(struct work_struct *work)
 	dma_addr_t dma_addr;
 	size_t size;
 
-	mhi_cntrl = container_of(work, struct mhi_controller, fw_worker);
-
-	MHI_LOG("Waiting for device to enter PBL from EE:%s\n",
-		TO_MHI_EXEC_STR(mhi_cntrl->ee));
-
-	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 MHI_IN_PBL(mhi_cntrl->ee) ||
-				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
-				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
-	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("MHI is not in valid state\n");
 		return;
 	}
@@ -571,8 +566,21 @@ void mhi_fw_load_worker(struct work_struct *work)
 
 	ret = request_firmware(&firmware, fw_name, mhi_cntrl->dev);
 	if (ret) {
-		MHI_ERR("Error loading firmware, ret:%d\n", ret);
-		return;
+		if (!mhi_cntrl->fw_image_fallback) {
+			MHI_ERR("Error loading fw, ret:%d\n", ret);
+			return;
+		}
+
+		/* re-try with fall back fw image */
+		ret = request_firmware(&firmware, mhi_cntrl->fw_image_fallback,
+				mhi_cntrl->dev);
+		if (ret) {
+			MHI_ERR("Error loading fw_fb, ret:%d\n", ret);
+			return;
+		}
+
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_FW_FALLBACK_IMG);
 	}
 
 	size = (mhi_cntrl->fbc_download) ? mhi_cntrl->sbl_size : firmware->size;

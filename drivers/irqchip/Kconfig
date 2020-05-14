@@ -145,6 +145,16 @@ config DAVINCI_CP_INTC
 	select GENERIC_IRQ_CHIP
 	select IRQ_DOMAIN
 
+config QCOM_SHOW_RESUME_IRQ
+	tristate "Enable logging of interrupts that could have caused resume"
+	depends on ARM_GIC
+	default n
+	help
+	  This option logs wake up interrupts that have triggered just before
+	  the resume loop unrolls. It helps to debug to know any unnecessary
+	  wake up interrupts that causes system to come out of low power modes.
+	  Say Y if you want to debug why the system resumed.
+
 config DW_APB_ICTL
 	bool
 	select GENERIC_IRQ_CHIP
@@ -483,8 +493,6 @@ config TI_SCI_INTA_IRQCHIP
 	  If you wish to use interrupt aggregator irq resources managed by the
 	  TI System Controller, say Y here. Otherwise, say N.
 
-endmenu
-
 config SIFIVE_PLIC
 	bool "SiFive Platform-Level Interrupt Controller"
 	depends on RISCV
@@ -496,3 +504,5 @@ config SIFIVE_PLIC
 	   interrupt sources are subordinate to the PLIC.
 
 	   If you don't know what to do here, say Y.
+
+endmenu

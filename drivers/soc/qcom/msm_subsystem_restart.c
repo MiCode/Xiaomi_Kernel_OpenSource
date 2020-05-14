@@ -27,7 +27,6 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/sysmon.h>
-#include <linux/soc/qcom/smem_state.h>
 #include <linux/of_irq.h>
 #include <linux/of.h>
 #include <asm/current.h>
@@ -42,9 +41,6 @@
 /* If set to 0x9889deed, call to subsystem_restart_dev() returns immediately */
 static uint disable_restart_work;
 module_param(disable_restart_work, uint, 0644);
-
-static int enable_debug;
-module_param(enable_debug, int, 0644);
 
 /* The maximum shutdown timeout is the product of MAX_LOOPS and DELAY_MS. */
 #define SHUTDOWN_ACK_MAX_LOOPS	100
@@ -176,7 +172,6 @@ struct restart_log {
  * @restart_order: order of other devices this devices restarts with
  * @crash_count: number of times the device has crashed
  * @do_ramdump_on_put: ramdump on subsystem_put() if true
- * @err_ready: completion variable to record error ready from subsystem
  * @crashed: indicates if subsystem has crashed
  * @notif_state: current state of subsystem in terms of subsys notifications
  */
@@ -200,7 +195,6 @@ struct subsys_device {
 	bool do_ramdump_on_put;
 	struct cdev char_dev;
 	dev_t dev_no;
-	struct completion err_ready;
 	enum crash_status crashed;
 	int notif_state;
 	struct list_head list;
@@ -210,12 +204,6 @@ static struct subsys_device *to_subsys(struct device *d)
 {
 	return container_of(d, struct subsys_device, dev);
 }
-
-void complete_err_ready(struct subsys_device *subsys)
-{
-	complete(&subsys->err_ready);
-}
-EXPORT_SYMBOL(complete_err_ready);
 
 static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
 {
@@ -637,62 +625,6 @@ static void notify_each_subsys_device(struct subsys_device **list,
 	}
 }
 
-static void enable_all_irqs(struct subsys_device *dev)
-{
-	if (dev->desc->err_ready_irq)
-		enable_irq(dev->desc->err_ready_irq);
-	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler) {
-		enable_irq(dev->desc->wdog_bite_irq);
-		irq_set_irq_wake(dev->desc->wdog_bite_irq, 1);
-	}
-	if (dev->desc->err_fatal_irq && dev->desc->err_fatal_handler)
-		enable_irq(dev->desc->err_fatal_irq);
-	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
-		enable_irq(dev->desc->stop_ack_irq);
-	if (dev->desc->shutdown_ack_irq && dev->desc->shutdown_ack_handler)
-		enable_irq(dev->desc->shutdown_ack_irq);
-	if (dev->desc->ramdump_disable_irq &&
-			dev->desc->ramdump_disable_handler)
-		enable_irq(dev->desc->ramdump_disable_irq);
-	if (dev->desc->generic_irq && dev->desc->generic_handler) {
-		enable_irq(dev->desc->generic_irq);
-		irq_set_irq_wake(dev->desc->generic_irq, 1);
-	}
-}
-
-static void disable_all_irqs(struct subsys_device *dev)
-{
-	if (dev->desc->err_ready_irq)
-		disable_irq(dev->desc->err_ready_irq);
-	if (dev->desc->wdog_bite_irq && dev->desc->wdog_bite_handler) {
-		disable_irq(dev->desc->wdog_bite_irq);
-		irq_set_irq_wake(dev->desc->wdog_bite_irq, 0);
-	}
-	if (dev->desc->err_fatal_irq && dev->desc->err_fatal_handler)
-		disable_irq(dev->desc->err_fatal_irq);
-	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
-		disable_irq(dev->desc->stop_ack_irq);
-	if (dev->desc->shutdown_ack_irq && dev->desc->shutdown_ack_handler)
-		disable_irq(dev->desc->shutdown_ack_irq);
-	if (dev->desc->generic_irq && dev->desc->generic_handler) {
-		disable_irq(dev->desc->generic_irq);
-		irq_set_irq_wake(dev->desc->generic_irq, 0);
-	}
-}
-
-static int wait_for_err_ready(struct subsys_device *subsys)
-{
-	/*
-	 * If subsys is using generic_irq in which case err_ready_irq will be 0,
-	 * don't return.
-	 */
-	if ((subsys->desc->generic_irq <= 0 && !subsys->desc->err_ready_irq) ||
-				enable_debug == 1)
-		return 0;
-
-	return wait_for_completion_interruptible(&subsys->err_ready);
-}
-
 static int subsystem_shutdown(struct subsys_device *dev, void *data)
 {
 	const char *name = dev->desc->name;
@@ -712,7 +644,6 @@ static int subsystem_shutdown(struct subsys_device *dev, void *data)
 	}
 	dev->crash_count++;
 	subsys_set_state(dev, SUBSYS_OFFLINE);
-	disable_all_irqs(dev);
 
 	return 0;
 }
@@ -742,7 +673,6 @@ static int subsystem_powerup(struct subsys_device *dev, void *data)
 	int ret;
 
 	pr_info("[%s:%d]: Powering up %s\n", current->comm, current->pid, name);
-	reinit_completion(&dev->err_ready);
 
 	ret = dev->desc->powerup(dev->desc);
 	if (ret < 0) {
@@ -759,9 +689,7 @@ static int subsystem_powerup(struct subsys_device *dev, void *data)
 			pr_err("Powerup failure on %s\n", name);
 		return ret;
 	}
-	enable_all_irqs(dev);
 
-	ret = wait_for_err_ready(dev);
 	if (ret) {
 		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
 								NULL);
@@ -803,30 +731,10 @@ static int subsys_start(struct subsys_device *subsys)
 
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_POWERUP,
 								NULL);
-
-	reinit_completion(&subsys->err_ready);
 	ret = subsys->desc->powerup(subsys->desc);
 	if (ret) {
 		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
 									NULL);
-		return ret;
-	}
-	enable_all_irqs(subsys);
-
-	if (subsys->desc->is_not_loadable) {
-		subsys_set_state(subsys, SUBSYS_ONLINE);
-		return 0;
-	}
-
-	ret = wait_for_err_ready(subsys);
-	if (ret) {
-		/* pil-boot succeeded but we need to shutdown
-		 * the device because error ready timed out.
-		 */
-		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
-									NULL);
-		subsys->desc->shutdown(subsys->desc, false);
-		disable_all_irqs(subsys);
 		return ret;
 	}
 	subsys_set_state(subsys, SUBSYS_ONLINE);
@@ -855,7 +763,6 @@ static void subsys_stop(struct subsys_device *subsys)
 
 	subsys->desc->shutdown(subsys->desc, false);
 	subsys_set_state(subsys, SUBSYS_OFFLINE);
-	disable_all_irqs(subsys);
 	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_SHUTDOWN, NULL);
 }
 
@@ -1351,19 +1258,6 @@ static void subsys_device_release(struct device *dev)
 	ida_simple_remove(&subsys_ida, subsys->id);
 	kfree(subsys);
 }
-static irqreturn_t subsys_err_ready_intr_handler(int irq, void *subsys)
-{
-	struct subsys_device *subsys_dev = subsys;
-
-	dev_info(subsys_dev->desc->dev,
-		"Subsystem error monitoring/handling services are up\n");
-
-	if (subsys_dev->desc->is_not_loadable)
-		return IRQ_HANDLED;
-
-	complete(&subsys_dev->err_ready);
-	return IRQ_HANDLED;
-}
 
 static int subsys_char_device_add(struct subsys_device *subsys_dev)
 {
@@ -1511,83 +1405,11 @@ err:
 	return tmp;
 }
 
-static int __get_irq(struct subsys_desc *desc, const char *prop,
-		unsigned int *irq)
-{
-	int irql = 0;
-	struct device_node *dnode = desc->dev->of_node;
-
-	if (of_property_match_string(dnode, "interrupt-names", prop) < 0)
-		return -ENOENT;
-
-	irql = of_irq_get_byname(dnode, prop);
-	if (irql < 0) {
-		pr_err("[%s]: Error getting IRQ \"%s\"\n", desc->name,
-		prop);
-		return irql;
-	}
-	*irq = irql;
-	return 0;
-}
-
-static int __get_smem_state(struct subsys_desc *desc, const char *prop,
-		int *smem_bit)
-{
-	struct device_node *dnode = desc->dev->of_node;
-
-	if (of_find_property(dnode, "qcom,smem-states", NULL)) {
-		desc->state = qcom_smem_state_get(desc->dev, prop, smem_bit);
-		if (IS_ERR_OR_NULL(desc->state)) {
-			pr_err("Could not get smem-states %s\n", prop);
-			return PTR_ERR(desc->state);
-		}
-		return 0;
-	}
-	return -ENOENT;
-}
-
 static int subsys_parse_devicetree(struct subsys_desc *desc)
 {
 	struct subsys_soc_restart_order *order;
-	int ret;
 	struct platform_device *pdev = container_of(desc->dev,
 					struct platform_device, dev);
-
-	ret = __get_irq(desc, "qcom,err-fatal", &desc->err_fatal_irq);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	ret = __get_irq(desc, "qcom,err-ready", &desc->err_ready_irq);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	ret = __get_irq(desc, "qcom,stop-ack", &desc->stop_ack_irq);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	ret = __get_irq(desc, "qcom,ramdump-disabled",
-			&desc->ramdump_disable_irq);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	ret = __get_irq(desc, "qcom,shutdown-ack", &desc->shutdown_ack_irq);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	ret = __get_irq(desc, "qcom,wdog", &desc->wdog_bite_irq);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	ret = __get_smem_state(desc, "qcom,force-stop", &desc->force_stop_bit);
-	if (ret && ret != -ENOENT)
-		return ret;
-
-	if (of_property_read_bool(pdev->dev.of_node,
-					"qcom,pil-generic-irq-handler")) {
-		ret = platform_get_irq(pdev, 0);
-		if (ret > 0)
-			desc->generic_irq = ret;
-	}
 
 	desc->ignore_ssr_failure = of_property_read_bool(pdev->dev.of_node,
 						"qcom,ignore-ssr-failure");
@@ -1608,130 +1430,6 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 		pr_debug("poff-depends-on not set for %s\n", desc->name);
 
 	return 0;
-}
-
-static int subsys_setup_irqs(struct subsys_device *subsys)
-{
-	struct subsys_desc *desc = subsys->desc;
-	int ret;
-
-	if (desc->err_fatal_irq && desc->err_fatal_handler) {
-		ret = devm_request_threaded_irq(desc->dev, desc->err_fatal_irq,
-				NULL,
-				desc->err_fatal_handler,
-				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				desc->name, desc);
-		if (ret < 0) {
-			dev_err(desc->dev, "[%s]: Unable to register error fatal IRQ handler: %d, irq is %d\n",
-				desc->name, ret, desc->err_fatal_irq);
-			return ret;
-		}
-		disable_irq(desc->err_fatal_irq);
-	}
-
-	if (desc->stop_ack_irq && desc->stop_ack_handler) {
-		ret = devm_request_threaded_irq(desc->dev, desc->stop_ack_irq,
-				NULL,
-				desc->stop_ack_handler,
-				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				desc->name, desc);
-		if (ret < 0) {
-			dev_err(desc->dev, "[%s]: Unable to register stop ack handler: %d\n",
-				desc->name, ret);
-			return ret;
-		}
-		disable_irq(desc->stop_ack_irq);
-	}
-
-	if (desc->wdog_bite_irq && desc->wdog_bite_handler) {
-		ret = devm_request_irq(desc->dev, desc->wdog_bite_irq,
-			desc->wdog_bite_handler,
-			IRQF_TRIGGER_RISING, desc->name, desc);
-		if (ret < 0) {
-			dev_err(desc->dev, "[%s]: Unable to register wdog bite handler: %d\n",
-				desc->name, ret);
-			return ret;
-		}
-		disable_irq(desc->wdog_bite_irq);
-	}
-
-	if (desc->shutdown_ack_irq && desc->shutdown_ack_handler) {
-		ret = devm_request_threaded_irq(desc->dev,
-				desc->shutdown_ack_irq,
-				NULL,
-				desc->shutdown_ack_handler,
-				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				desc->name, desc);
-		if (ret < 0) {
-			dev_err(desc->dev, "[%s]: Unable to register shutdown ack handler: %d\n",
-				desc->name, ret);
-			return ret;
-		}
-		disable_irq(desc->shutdown_ack_irq);
-	}
-
-	if (desc->ramdump_disable_irq && desc->ramdump_disable_handler) {
-		ret = devm_request_threaded_irq(desc->dev,
-				desc->ramdump_disable_irq,
-				NULL,
-				desc->ramdump_disable_handler,
-				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				desc->name, desc);
-		if (ret < 0) {
-			dev_err(desc->dev, "[%s]: Unable to register shutdown ack handler: %d\n",
-				desc->name, ret);
-			return ret;
-		}
-		disable_irq(desc->ramdump_disable_irq);
-	}
-
-	if (desc->generic_irq && desc->generic_handler) {
-		ret = devm_request_irq(desc->dev, desc->generic_irq,
-			desc->generic_handler,
-			IRQF_TRIGGER_HIGH, desc->name, desc);
-		if (ret < 0) {
-			dev_err(desc->dev, "[%s]: Unable to register generic irq handler: %d\n",
-				desc->name, ret);
-			return ret;
-		}
-		disable_irq(desc->generic_irq);
-	}
-
-	if (desc->err_ready_irq) {
-		ret = devm_request_threaded_irq(desc->dev,
-					desc->err_ready_irq,
-					NULL,
-					subsys_err_ready_intr_handler,
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-					"error_ready_interrupt", subsys);
-		if (ret < 0) {
-			dev_err(desc->dev,
-				"[%s]: Unable to register err ready handler\n",
-				desc->name);
-			return ret;
-		}
-		disable_irq(desc->err_ready_irq);
-	}
-
-	return 0;
-}
-
-static void subsys_free_irqs(struct subsys_device *subsys)
-{
-	struct subsys_desc *desc = subsys->desc;
-
-	if (desc->err_fatal_irq && desc->err_fatal_handler)
-		devm_free_irq(desc->dev, desc->err_fatal_irq, desc);
-	if (desc->stop_ack_irq && desc->stop_ack_handler)
-		devm_free_irq(desc->dev, desc->stop_ack_irq, desc);
-	if (desc->shutdown_ack_irq && desc->shutdown_ack_handler)
-		devm_free_irq(desc->dev, desc->shutdown_ack_irq, desc);
-	if (desc->ramdump_disable_irq && desc->ramdump_disable_handler)
-		devm_free_irq(desc->dev, desc->ramdump_disable_irq, desc);
-	if (desc->wdog_bite_irq && desc->wdog_bite_handler)
-		devm_free_irq(desc->dev, desc->wdog_bite_irq, desc);
-	if (desc->err_ready_irq)
-		devm_free_irq(desc->dev, desc->err_ready_irq, subsys);
 }
 
 struct subsys_device *subsys_register(struct subsys_desc *desc)
@@ -1775,7 +1473,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	dev_set_name(&subsys->dev, "subsys%d", subsys->id);
 
 	mutex_init(&subsys->track.lock);
-	init_completion(&subsys->err_ready);
 
 	ret = device_register(&subsys->dev);
 	if (ret) {
@@ -1832,16 +1529,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	list_add_tail(&subsys->list, &subsys_list);
 	mutex_unlock(&subsys_list_lock);
 
-	if (ofnode) {
-		ret = subsys_setup_irqs(subsys);
-		if (ret < 0)
-			goto err_setup_irqs;
-	}
-
 	return subsys;
-err_setup_irqs:
-	if (subsys->desc->edge)
-		sysmon_glink_unregister(desc);
 err_sysmon_glink_register:
 	sysmon_notifier_unregister(subsys->desc);
 err_sysmon_notifier:
@@ -1873,7 +1561,6 @@ void subsys_unregister(struct subsys_device *subsys)
 		mutex_unlock(&subsys_list_lock);
 
 		if (device) {
-			subsys_free_irqs(subsys);
 			subsys_remove_restart_order(device);
 		}
 		mutex_lock(&subsys->track.lock);

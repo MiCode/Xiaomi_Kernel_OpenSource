@@ -615,13 +615,23 @@ static inline bool _rev_match(unsigned int id, unsigned int entry)
 	return (entry == ANY_ID || entry == id);
 }
 
-static inline const struct adreno_gpu_core *_get_gpu_core(unsigned int chipid)
+static const struct adreno_gpu_core *
+_get_gpu_core(struct platform_device *pdev, unsigned int chipid)
 {
 	unsigned int core = ADRENO_CHIPID_CORE(chipid);
 	unsigned int major = ADRENO_CHIPID_MAJOR(chipid);
 	unsigned int minor = ADRENO_CHIPID_MINOR(chipid);
 	unsigned int patchid = ADRENO_CHIPID_PATCH(chipid);
 	int i;
+
+	/* Check to see if any of the entries match on a compatible string */
+	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
+		if (adreno_gpulist[i]->compatible &&
+			of_device_is_compatible(pdev->dev.of_node,
+				adreno_gpulist[i]->compatible))
+			return adreno_gpulist[i];
+	}
+
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
 		if (core == adreno_gpulist[i]->core &&
@@ -718,16 +728,16 @@ adreno_update_soc_hw_revision_quirks(struct adreno_device *adreno_dev,
 		of_node_put(node);
 }
 
-static int adreno_identify_gpu(struct adreno_device *adreno_dev)
+static int adreno_identify_gpu(struct platform_device *pdev,
+		struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev;
 	int i;
 
-	adreno_dev->gpucore = _get_gpu_core(adreno_dev->chipid);
+	adreno_dev->gpucore = _get_gpu_core(pdev, adreno_dev->chipid);
 
 	if (adreno_dev->gpucore == NULL) {
-		dev_crit(&device->pdev->dev,
+		dev_crit(&pdev->dev,
 			"Unknown GPU chip ID %8.8X\n", adreno_dev->chipid);
 		return -ENODEV;
 	}
@@ -737,7 +747,7 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 	 * message
 	 */
 	if (adreno_dev->gpucore->features & ADRENO_DEPRECATED) {
-		dev_err(&device->pdev->dev,
+		dev_err(&pdev->dev,
 			"Support for GPU %d.%d.%d.%d has been deprecated\n",
 			adreno_dev->gpucore->core,
 			adreno_dev->gpucore->major,
@@ -764,66 +774,25 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static const struct platform_device_id adreno_id_table[] = {
-	{ "kgsl-3d0", (unsigned long) &device_3d0, },
-	{},
-};
-
-MODULE_DEVICE_TABLE(platform, adreno_id_table);
-
 static const struct of_device_id adreno_match_table[] = {
 	{ .compatible = "qcom,kgsl-3d0", .data = &device_3d0 },
-	{}
+	{ },
 };
+
+MODULE_DEVICE_TABLE(of, adreno_match_table);
 
 /* Dynamically build the OPP table for the GPU device */
 static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
 {
-	struct dev_pm_opp *opp;
-	unsigned long freq = 0;
 	int i;
 
-	/*
-	 * First an annoying step: Some targets have clock drivers that
-	 * "helpfully" builds a OPP table for us but usually it is wrong.
-	 * Go through and filter out unsupported frequencies
-	 */
+	/* Skip if the table has already been populated */
+	if (dev_pm_opp_get_opp_count(dev) > 0)
+		return;
 
-	for (;;) {
-		opp = dev_pm_opp_find_freq_ceil(dev, &freq);
-
-		if (IS_ERR(opp))
-			break;
-
-		dev_pm_opp_put(opp);
-
-		for (i = 0; i < pwr->num_pwrlevels; i++) {
-			if (freq == pwr->pwrlevels[i].gpu_freq)
-				break;
-		}
-
-		if (i == pwr->num_pwrlevels)
-			dev_pm_opp_remove(dev, freq);
-
-		freq++;
-	}
-
-	/* Now add all of our supported frequencies into the tree */
-	for (i = 0; i < pwr->num_pwrlevels; i++) {
-		/*
-		 * When we defer a probe the previous table will still be active
-		 * don't add again to avoid duplicate OPP spam
-		 */
-		opp = dev_pm_opp_find_freq_exact(dev,
-			pwr->pwrlevels[i].gpu_freq, true);
-
-		if (!IS_ERR(opp)) {
-			dev_pm_opp_put(opp);
-			continue;
-		}
-
+	/* Add all the supported frequencies into the tree */
+	for (i = 0; i < pwr->num_pwrlevels; i++)
 		dev_pm_opp_add(dev, pwr->pwrlevels[i].gpu_freq, 0);
-	}
 }
 
 static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
@@ -1344,18 +1313,13 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 static int adreno_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	const struct of_device_id *of_id;
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	int status;
 	unsigned int priv = 0;
 	u32 size, hwrev;
 
-	of_id = of_match_device(adreno_match_table, &pdev->dev);
-	if (!of_id)
-		return -EINVAL;
-
-	adreno_dev = (struct adreno_device *) of_id->data;
+	adreno_dev = (struct adreno_device *) of_device_get_match_data(dev);
 
 	/* Initialize the adreno device structure */
 	adreno_setup_device(adreno_dev);
@@ -1383,7 +1347,7 @@ static int adreno_bind(struct device *dev)
 	device->speed_bin = status;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
-	if (adreno_identify_gpu(adreno_dev))
+	if (adreno_identify_gpu(pdev, adreno_dev))
 		return -ENODEV;
 
 	status = adreno_of_get_power(adreno_dev, pdev);
@@ -1411,6 +1375,15 @@ static int adreno_bind(struct device *dev)
 	 */
 	if (adreno_support_64bit(adreno_dev))
 		kgsl_mmu_set_feature(device, KGSL_MMU_64BIT);
+
+	/*
+	 * Set the SMMU aperture on A6XX targets to use per-process pagetables.
+	 */
+	if (adreno_is_a6xx(adreno_dev))
+		kgsl_mmu_set_feature(device, KGSL_MMU_SMMU_APERTURE);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
+		kgsl_mmu_set_feature(device, KGSL_MMU_IO_COHERENT);
 
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
@@ -1442,9 +1415,6 @@ static int adreno_bind(struct device *dev)
 	adreno_rscc_probe(device);
 
 	adreno_isense_probe(device);
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
-		kgsl_mmu_set_feature(device, KGSL_MMU_IO_COHERENT);
 
 	/* Allocate the memstore for storing timestamps and other useful info */
 
@@ -1526,17 +1496,12 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 
 static void adreno_unbind(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	const struct of_device_id *of_id;
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	struct adreno_gpudev *gpudev;
 
-	of_id = of_match_device(adreno_match_table, &pdev->dev);
-	if (!of_id)
-		return;
+	adreno_dev = (struct adreno_device *) of_device_get_match_data(dev);
 
-	adreno_dev = (struct adreno_device *) of_id->data;
 	device = KGSL_DEVICE(adreno_dev);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
@@ -3808,11 +3773,10 @@ static const struct dev_pm_ops adreno_pm_ops = {
 static struct platform_driver adreno_platform_driver = {
 	.probe = adreno_probe,
 	.remove = adreno_remove,
-	.id_table = adreno_id_table,
 	.driver = {
 		.name = "kgsl-3d",
 		.pm = &adreno_pm_ops,
-		.of_match_table = adreno_match_table,
+		.of_match_table = of_match_ptr(adreno_match_table),
 	}
 };
 

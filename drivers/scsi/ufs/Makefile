@@ -16,5 +16,4 @@ ufshcd-qti-core-y		+= ufshcd-qti.o ufs-sysfs.o
 ufshcd-qti-core-$(CONFIG_SCSI_UFS_BSG)	+= ufs_bsg.o
 ufshcd-core-$(CONFIG_SCSI_UFS_CRYPTO) += ufshcd-crypto.o
 ufshcd-qti-core-$(CONFIG_SCSI_UFS_CRYPTO) += ufshcd-crypto.o
-ufshcd-core-$(CONFIG_SCSI_UFS_CRYPTO_QTI) += ufshcd-crypto-qti.o
-ufshcd-qti-core-$(CONFIG_SCSI_UFS_CRYPTO_QTI) += ufshcd-crypto-qti.o
+obj-$(CONFIG_SCSI_UFS_CRYPTO_QTI) += ufshcd-crypto-qti.o

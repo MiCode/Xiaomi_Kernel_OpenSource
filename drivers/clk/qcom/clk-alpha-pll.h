@@ -21,10 +21,13 @@ enum {
 	CLK_ALPHA_PLL_TYPE_ZONDA,
 	CLK_ALPHA_PLL_TYPE_LUCID_5LPE,
 	CLK_ALPHA_PLL_TYPE_ZONDA_5LPE,
+	CLK_ALPHA_PLL_TYPE_REGERA,
+	CLK_ALPHA_PLL_TYPE_AGERA,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
 enum {
+	PLL_OFF_MODE,
 	PLL_OFF_L_VAL,
 	PLL_OFF_CAL_L_VAL,
 	PLL_OFF_ALPHA_VAL,
@@ -69,6 +72,7 @@ struct clk_alpha_pll {
 #define SUPPORTS_OFFLINE_REQ	BIT(0)
 #define SUPPORTS_FSM_MODE	BIT(2)
 #define SUPPORTS_DYNAMIC_UPDATE	BIT(3)
+#define SUPPORTS_FSM_LEGACY_MODE BIT(4)
 	u8 flags;
 
 	struct clk_regmap clkr;
@@ -150,10 +154,14 @@ extern const struct clk_ops clk_alpha_pll_postdiv_lucid_5lpe_ops;
 
 extern const struct clk_ops clk_trion_fixed_pll_ops;
 extern const struct clk_ops clk_trion_pll_postdiv_ops;
+extern const struct clk_ops clk_trion_pll_ops;
+
+extern const struct clk_ops clk_regera_pll_ops;
+extern const struct clk_ops clk_agera_pll_ops;
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
-void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+int clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
 void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
@@ -165,4 +173,10 @@ int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
 int clk_zonda_5lpe_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
+int clk_trion_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+					const struct alpha_pll_config *config);
 #endif

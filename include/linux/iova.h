@@ -95,6 +95,10 @@ struct iova_domain {
 						   flush-queues */
 	atomic_t fq_timer_on;			/* 1 when timer is active, 0
 						   when not */
+	bool best_fit;
+#ifdef CONFIG_DMA_CONFIGURE_ALIGNMENT
+	bool force_no_align;
+#endif
 };
 
 static inline unsigned long iova_size(struct iova *iova)

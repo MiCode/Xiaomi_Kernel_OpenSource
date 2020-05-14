@@ -478,7 +478,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 						0x00800060);
 		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_1,
 						0x40202016);
-		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000080);
+		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000020);
 	}
 
 	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
@@ -602,12 +602,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
 
 	a6xx_protect_init(adreno_dev);
-
-	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
-		a6xx_patch_pwrup_reglist(adreno_dev);
-		patch_reglist = true;
-	}
-
 	/*
 	 * We start LM here because we want all the following to be up
 	 * 1. GX HS
@@ -633,6 +627,16 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
 
 	a6xx_set_secvid(device);
+
+	/*
+	 * All registers must be written before this point so that we don't
+	 * miss any register programming when we patch the power up register
+	 * list.
+	 */
+	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
+		a6xx_patch_pwrup_reglist(adreno_dev);
+		patch_reglist = true;
+	}
 }
 
 /*
@@ -1303,6 +1307,9 @@ static const char *uche_client[7][3] = {
 	{"SP | VSC | VPC | HLSQ | PC", "TP | VFD", "LRZ"},
 };
 
+static const char *const uche_client_a660[] = { "VFD", "SP", "VSC", "VPC",
+						"HLSQ", "PC", "LRZ", "TP" };
+
 #define SCOOBYDOO 0x5c00bd00
 
 static const char *a6xx_fault_block_uche(struct kgsl_device *device,
@@ -1333,9 +1340,28 @@ static const char *a6xx_fault_block_uche(struct kgsl_device *device,
 	if (uche_client_id == SCOOBYDOO)
 		return "UCHE: unknown";
 
-	uche_client_id &= A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK;
-	snprintf(str, sizeof(str), "UCHE: %s",
+	if (adreno_is_a660(ADRENO_DEVICE(device))) {
+
+		/* Mask is 7 bits for A660 */
+		uche_client_id &= 0x7F;
+		if (uche_client_id >= ARRAY_SIZE(uche_client_a660) ||
+				(mid == 2))
+			return "UCHE: Unknown";
+
+		if (mid == 1)
+			snprintf(str, sizeof(str), "UCHE: Not %s",
+				uche_client_a660[uche_client_id]);
+		else if (mid == 3)
+			snprintf(str, sizeof(str), "UCHE: %s",
+				uche_client_a660[uche_client_id]);
+	} else {
+		uche_client_id &= A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK;
+		if (uche_client_id >= ARRAY_SIZE(uche_client))
+			return "UCHE: Unknown";
+
+		snprintf(str, sizeof(str), "UCHE: %s",
 			uche_client[uche_client_id][mid - 1]);
+	}
 
 	return str;
 }

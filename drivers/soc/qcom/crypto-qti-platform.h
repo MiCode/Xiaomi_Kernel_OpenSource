@@ -11,7 +11,7 @@
 #include <linux/types.h>
 #include <linux/device.h>
 
-#if IS_ENABLED(CONFIG_QTI_CRYPTO_TZ) || IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+#if IS_ENABLED(CONFIG_QTI_CRYPTO_COMMON)
 int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 			   const struct blk_crypto_key *key,
 			   unsigned int slot,

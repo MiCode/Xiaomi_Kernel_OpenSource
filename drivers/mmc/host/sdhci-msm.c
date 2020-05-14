@@ -59,20 +59,21 @@
 #define CORE_FLL_CYCLE_CNT	BIT(18)
 #define CORE_DLL_CLOCK_DISABLE	BIT(21)
 
-#define CORE_VENDOR_SPEC_POR_VAL 0xa1c
+#define CORE_VENDOR_SPEC_POR_VAL 0xa9c
 #define CORE_CLK_PWRSAVE	BIT(1)
+#define CORE_VNDR_SPEC_ADMA_ERR_SIZE_EN	BIT(7)
 #define CORE_HC_MCLK_SEL_DFLT	(2 << 8)
 #define CORE_HC_MCLK_SEL_HS400	(3 << 8)
 #define CORE_HC_MCLK_SEL_MASK	(3 << 8)
-#define CORE_IO_PAD_PWR_SWITCH_EN	(1 << 15)
-#define CORE_IO_PAD_PWR_SWITCH  (1 << 16)
+#define CORE_IO_PAD_PWR_SWITCH_EN	BIT(15)
+#define CORE_IO_PAD_PWR_SWITCH  BIT(16)
 #define CORE_HC_SELECT_IN_EN	BIT(18)
 #define CORE_HC_SELECT_IN_HS400	(6 << 19)
 #define CORE_HC_SELECT_IN_MASK	(7 << 19)
 
-#define CORE_8_BIT_SUPPORT	(1 << 18)
-#define CORE_3_0V_SUPPORT	(1 << 25)
-#define CORE_1_8V_SUPPORT	(1 << 26)
+#define CORE_8_BIT_SUPPORT	BIT(18)
+#define CORE_3_0V_SUPPORT	BIT(25)
+#define CORE_1_8V_SUPPORT	BIT(26)
 #define CORE_VOLT_SUPPORT	(CORE_3_0V_SUPPORT | CORE_1_8V_SUPPORT)
 
 #define CORE_SYS_BUS_SUPPORT_64_BIT     BIT(28)
@@ -713,7 +714,7 @@ static inline void msm_cm_dll_set_freq(struct sdhci_host *host)
 		mclk_freq = 5;
 	else if (host->clock <= 187000000)
 		mclk_freq = 6;
-	else if (host->clock <= 200000000)
+	else if (host->clock <= 208000000)
 		mclk_freq = 7;
 
 	config = readl_relaxed(host->ioaddr + msm_offset->core_dll_config);
@@ -1693,6 +1694,7 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	u32 val = SWITCHABLE_SIGNALING_VOLTAGE;
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
+	struct mmc_host *mmc = host->mmc;
 
 	pr_debug("%s: %s: request %d curr_pwr_state %x curr_io_level %x\n",
 			mmc_hostname(host->mmc), __func__, req_type,
@@ -1729,6 +1731,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 				mmc_hostname(host->mmc), req_type);
 		return;
 	}
+
+	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc)) {
+		pr_debug("%s: card is not present. Do not wait for pwr irq\n",
+				mmc_hostname(host->mmc));
+		return;
+	}
+
 	if ((req_type & msm_host->curr_pwr_state) ||
 			(req_type & msm_host->curr_io_level))
 		done = true;
@@ -2090,11 +2099,12 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 
 	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
-		irq_status & (CORE_PWRCTL_BUS_ON | CORE_PWRCTL_IO_HIGH |
-			CORE_PWRCTL_IO_LOW)) {
+		irq_status & CORE_PWRCTL_BUS_ON) {
+		irq_ack = CORE_PWRCTL_BUS_FAIL;
+		msm_host_writel(msm_host, irq_ack, host,
+				msm_offset->core_pwrctl_ctl);
 		return;
 	}
-
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
 		ret = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
@@ -2206,7 +2216,6 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	sdhci_msm_handle_pwr_irq(host, irq);
 	msm_host->pwr_irq_flag = 1;
 	sdhci_msm_complete_pwr_irq_wait(msm_host);
-
 
 	return IRQ_HANDLED;
 }
@@ -3326,6 +3335,7 @@ static struct platform_driver sdhci_msm_driver = {
 	.remove = sdhci_msm_remove,
 	.driver = {
 		   .name = "sdhci_msm",
+		   .probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		   .of_match_table = sdhci_msm_dt_match,
 		   .pm = &sdhci_msm_pm_ops,
 	},

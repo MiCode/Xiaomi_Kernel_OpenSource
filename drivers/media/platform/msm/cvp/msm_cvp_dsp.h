@@ -17,20 +17,25 @@
 #define HLOS_VM_NUM 1
 #define DSP_VM_NUM 2
 #define CVP_DSP_MAX_RESERVED 5
+#define CVP_DSP2CPU_RESERVED 8
 #define CVP_DSP_RESPONSE_TIMEOUT 1000
+#define CVP_INVALID_RPMSG_TYPE 0xBADDFACE
 
 int cvp_dsp_device_init(void);
 void cvp_dsp_device_exit(void);
 void cvp_dsp_send_hfi_queue(void);
 
-enum DSP_COMMAND {
-	CVP_DSP_SEND_HFI_QUEUE = 0,
-	CVP_DSP_SUSPEND = 1,
-	CVP_DSP_RESUME = 2,
-	CVP_DSP_SHUTDOWN = 3,
-	CVP_DSP_REGISTER_BUFFER = 4,
-	CVP_DSP_DEREGISTER_BUFFER = 5,
-	CVP_DSP_MAX_CMD
+enum CVP_DSP_COMMAND {
+	CPU2DSP_SEND_HFI_QUEUE = 0,
+	CPU2DSP_SUSPEND = 1,
+	CPU2DSP_RESUME = 2,
+	CPU2DSP_SHUTDOWN = 3,
+	CPU2DSP_REGISTER_BUFFER = 4,
+	CPU2DSP_DEREGISTER_BUFFER = 5,
+	CPU2DSP_MAX_CMD = 6,
+	DSP2CPU_POWERON = 6,
+	DSP2CPU_POWEROFF = 7,
+	CVP_DSP_MAX_CMD = 8,
 };
 
 struct cvp_dsp_cmd_msg {
@@ -56,6 +61,27 @@ struct cvp_dsp_rsp_msg {
 	uint32_t reserved[CVP_DSP_MAX_RESERVED];
 };
 
+struct cvp_dsp2cpu_cmd_msg {
+	uint32_t type;
+	uint32_t ver;
+	uint32_t len;
+	uint32_t data[CVP_DSP2CPU_RESERVED];
+};
+
+struct cvp_dsp_apps {
+	struct mutex lock;
+	struct rpmsg_device *chan;
+	uint32_t state;
+	bool hyp_assigned;
+	uint64_t addr;
+	uint32_t size;
+	struct completion completions[CPU2DSP_MAX_CMD + 1];
+	struct cvp_dsp2cpu_cmd_msg pending_dsp2cpu_cmd;
+	struct cvp_dsp_rsp_msg pending_dsp2cpu_rsp;
+	struct task_struct *dsp_thread;
+};
+
+extern struct cvp_dsp_apps gfa_cv;
 /*
  * API for CVP driver to suspend CVP session during
  * power collapse
