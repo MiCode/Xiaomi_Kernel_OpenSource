@@ -723,12 +723,15 @@ int __qcom_scm_sec_wdog_deactivate(struct device *dev)
 
 int __qcom_scm_sec_wdog_trigger(struct device *dev)
 {
+	int ret;
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_BOOT,
 		.cmd = QCOM_SCM_BOOT_SEC_WDOG_TRIGGER,
 		.owner = ARM_SMCCC_OWNER_SIP,
 	};
-	int ret;
+
+	desc.args[0] = 0;
+	desc.arginfo = QCOM_SCM_ARGS(1);
 
 	ret = qcom_scm_call(dev, &desc);
 
