@@ -38,6 +38,8 @@
 
 #define SHMBRIDGE_E_NOT_SUPPORTED 4	/* SHMbridge is not implemented */
 
+#define AC_ERR_SHARED_MEMORY_SINGLE_SOURCE 15
+
 /* ns_vmids */
 #define UPDATE_NS_VMIDS(ns_vmids, id)	\
 				(((uint64_t)(ns_vmids) << VM_BITS) \
@@ -239,7 +241,10 @@ int32_t qtee_shmbridge_register(
 
 	if (ret) {
 		pr_err("create shmbridge failed, ret = %d\n", ret);
-		ret = -EINVAL;
+		if (ret == AC_ERR_SHARED_MEMORY_SINGLE_SOURCE)
+			ret = -EEXIST;
+		else
+			ret = -EINVAL;
 		goto exit;
 	}
 
