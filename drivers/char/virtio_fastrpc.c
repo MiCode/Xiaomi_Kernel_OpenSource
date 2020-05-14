@@ -866,7 +866,6 @@ static int fastrpc_open(struct inode *inode, struct file *filp)
 
 static int fastrpc_file_free(struct fastrpc_file *fl)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_mmap *map = NULL, *lmap = NULL;
 
 	if (!fl)
