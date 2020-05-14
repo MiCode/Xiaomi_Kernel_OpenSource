@@ -5,7 +5,6 @@
 
 #include <linux/slab.h>
 
-#include "a5xx_reg.h"
 #include "adreno.h"
 #include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
@@ -667,60 +666,6 @@ static void _perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 	reg->value = 0;
 }
 
-static void _power_counter_enable_alwayson(struct adreno_device *adreno_dev,
-				struct adreno_perfcounters *counters)
-{
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return;
-
-	kgsl_regwrite(KGSL_DEVICE(adreno_dev),
-		A5XX_GPMU_ALWAYS_ON_COUNTER_RESET, 1);
-	counters->groups[KGSL_PERFCOUNTER_GROUP_ALWAYSON_PWR].regs[0].value = 0;
-}
-
-static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
-		struct adreno_perfcounters *counters, unsigned int group,
-		unsigned int counter, unsigned int countable)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_perfcount_register *reg;
-	unsigned int shift = (counter << 3) % (sizeof(unsigned int) * 8);
-
-	if (adreno_is_a530(adreno_dev)) {
-		if (countable > 43)
-			return;
-	} else if (adreno_is_a540(adreno_dev)) {
-		if (countable > 47)
-			return;
-	} else if (adreno_is_a6xx(adreno_dev)) {
-		if (countable > 34)
-			return;
-	} else
-		/* return on platforms that have no GPMU */
-		return;
-
-	reg = &counters->groups[group].regs[counter];
-	kgsl_regrmw(device, reg->select, 0xff << shift, countable << shift);
-	adreno_writereg(adreno_dev, ADRENO_REG_GPMU_POWER_COUNTER_ENABLE, 1);
-	reg->value = 0;
-}
-
-static void _power_counter_enable_default(struct adreno_device *adreno_dev,
-		struct adreno_perfcounters *counters, unsigned int group,
-		unsigned int counter, unsigned int countable)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_perfcount_register *reg;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return;
-
-	reg = &counters->groups[group].regs[counter];
-	kgsl_regwrite(device, reg->select, countable);
-	adreno_writereg(adreno_dev, ADRENO_REG_GPMU_POWER_COUNTER_ENABLE, 1);
-	reg->value = 0;
-}
-
 static inline bool _perfcounter_inline_update(
 	struct adreno_device *adreno_dev, unsigned int group)
 {
@@ -855,28 +800,6 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 		_perfcounter_enable_vbif_pwr(adreno_dev, counters, counter,
 							countable);
 		break;
-	case KGSL_PERFCOUNTER_GROUP_SP_PWR:
-	case KGSL_PERFCOUNTER_GROUP_TP_PWR:
-	case KGSL_PERFCOUNTER_GROUP_RB_PWR:
-	case KGSL_PERFCOUNTER_GROUP_CCU_PWR:
-	case KGSL_PERFCOUNTER_GROUP_UCHE_PWR:
-	case KGSL_PERFCOUNTER_GROUP_CP_PWR:
-		_power_counter_enable_default(adreno_dev, counters, groupid,
-						counter, countable);
-		break;
-	case KGSL_PERFCOUNTER_GROUP_GPMU_PWR:
-		_power_counter_enable_gpmu(adreno_dev, counters, groupid,
-				counter, countable);
-		break;
-	case KGSL_PERFCOUNTER_GROUP_ALWAYSON_PWR:
-		_power_counter_enable_alwayson(adreno_dev, counters);
-		break;
-	case KGSL_PERFCOUNTER_GROUP_RBBM:
-		/* The following rbbm countable is not reliable on a540 */
-		if (adreno_is_a540(adreno_dev))
-			if (countable == A5XX_RBBM_ALWAYS_COUNT)
-				return -EINVAL;
-		/* Fall through */
 	default:
 		return _perfcounter_enable_default(adreno_dev, counters,
 				groupid, counter, countable);
@@ -919,24 +842,6 @@ static uint64_t _perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 	reg = &group->regs[counter];
 
 	/* freeze counter */
-	kgsl_regread(device, reg->offset, &lo);
-	kgsl_regread(device, reg->offset_hi, &hi);
-
-	return REG_64BIT_VAL(hi, lo, reg->value);
-}
-
-static uint64_t _perfcounter_read_pwrcntr(struct adreno_device *adreno_dev,
-	struct adreno_perfcount_group *group, unsigned int counter)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_perfcount_register *reg;
-	unsigned int lo = 0, hi = 0;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return 0;
-
-	reg = &group->regs[counter];
-
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
 
@@ -996,15 +901,6 @@ uint64_t adreno_perfcounter_read(struct adreno_device *adreno_dev,
 		return _perfcounter_read_vbif_pwr(adreno_dev, group, counter);
 	case KGSL_PERFCOUNTER_GROUP_VBIF:
 		return _perfcounter_read_vbif(adreno_dev, group, counter);
-	case KGSL_PERFCOUNTER_GROUP_SP_PWR:
-	case KGSL_PERFCOUNTER_GROUP_TP_PWR:
-	case KGSL_PERFCOUNTER_GROUP_RB_PWR:
-	case KGSL_PERFCOUNTER_GROUP_CCU_PWR:
-	case KGSL_PERFCOUNTER_GROUP_UCHE_PWR:
-	case KGSL_PERFCOUNTER_GROUP_CP_PWR:
-	case KGSL_PERFCOUNTER_GROUP_GPMU_PWR:
-	case KGSL_PERFCOUNTER_GROUP_ALWAYSON_PWR:
-		return _perfcounter_read_pwrcntr(adreno_dev, group, counter);
 	default:
 		return _perfcounter_read_default(adreno_dev, group, counter);
 	}
