@@ -79,6 +79,7 @@ struct csr_drvdata {
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	uint32_t		*msr;
+	atomic_t		*msr_refcnt;
 	uint32_t		blksize;
 	uint32_t		flushperiod;
 	struct coresight_csr		csr;
@@ -398,9 +399,12 @@ static ssize_t msr_store(struct device *dev,
 	if (offset >= MSR_NUM)
 		return -EINVAL;
 
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		return ret;
+	if (atomic_read(drvdata->msr_refcnt) == 0) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret)
+			return ret;
+		atomic_inc(drvdata->msr_refcnt);
+	}
 
 	spin_lock_irqsave(&drvdata->spin_lock, flags);
 	CSR_UNLOCK(drvdata);
@@ -409,7 +413,6 @@ static ssize_t msr_store(struct device *dev,
 	drvdata->msr[offset] = rval;
 	CSR_LOCK(drvdata);
 	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
-	clk_disable_unprepare(drvdata->clk);
 	return size;
 }
 
@@ -421,7 +424,7 @@ static ssize_t msr_reset_store(struct device *dev,
 				 size_t size)
 {
 	unsigned long flags, val;
-	int i, ret;
+	int i;
 	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
 	if (IS_ERR_OR_NULL(drvdata) || !drvdata->msr_support ||
@@ -431,10 +434,10 @@ static ssize_t msr_reset_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val) || val != 1)
 		return -EINVAL;
 
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		return ret;
+	if (atomic_read(drvdata->msr_refcnt) == 0)
+		return -EINVAL;
 
+	atomic_set(drvdata->msr_refcnt, 0);
 	spin_lock_irqsave(&drvdata->spin_lock, flags);
 	CSR_UNLOCK(drvdata);
 	for (i = 0; i < MSR_NUM; i++) {
@@ -603,6 +606,12 @@ static int csr_probe(struct platform_device *pdev)
 						GFP_KERNEL);
 		if (!drvdata->msr)
 			return -ENOMEM;
+
+		drvdata->msr_refcnt = devm_kzalloc(dev, sizeof(atomic_t),
+				GFP_KERNEL);
+		if (!drvdata->msr_refcnt)
+			return -ENOMEM;
+		atomic_set(drvdata->msr_refcnt, 0);
 		dev_dbg(dev, "msr_support operation supported\n");
 	}
 
