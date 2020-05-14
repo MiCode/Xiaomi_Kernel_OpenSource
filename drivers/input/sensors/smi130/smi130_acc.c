@@ -1529,7 +1529,7 @@ struct bosch_sensor_data {
 };
 
 #ifdef CONFIG_ENABLE_SMI_ACC_GYRO_BUFFERING
-#define SMI_ACC_MAXSAMPLE        4000
+#define SMI_ACC_MAXSAMPLE        5000
 #define G_MAX                    23920640
 struct smi_acc_sample {
 	int xyz[3];
