@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <media/msm_vidc.h>
 #define MAX_BUFFER_TYPES 32
+#define VENUS_SID_MAX 32
 
 struct version_table {
 	u32 version_mask;
@@ -67,6 +68,11 @@ struct addr_set {
 	int count;
 };
 
+struct cma_info {
+	struct addr_range addr_range;
+	bool s1_bypass;
+};
+
 struct context_bank_info {
 	struct list_head list;
 	const char *name;
@@ -75,6 +81,9 @@ struct context_bank_info {
 	struct addr_range addr_range;
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
+	int sids[VENUS_SID_MAX];
+	int num_sids;
+	struct cma_info cma;
 };
 
 struct buffer_usage_table {
@@ -190,6 +199,8 @@ struct msm_vidc_platform_resources {
 	uint32_t pm_qos_latency_us;
 	uint32_t max_inst_count;
 	uint32_t max_secure_inst_count;
+	bool cma_exist;
+	bool cma_status;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
