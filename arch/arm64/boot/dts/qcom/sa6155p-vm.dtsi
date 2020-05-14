@@ -204,6 +204,14 @@
 		};
 	};
 
+	pdc: interrupt-controller@0xb220000{
+		compatible = "qcom,pdc-virt";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		qcom,pdc-pins = <8 520>, <9 521>, <10 522>, <11 523>;
+	};
+
 	apps_smmu: apps-smmu@0x15000000 {
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x15000000 0x80000>,
