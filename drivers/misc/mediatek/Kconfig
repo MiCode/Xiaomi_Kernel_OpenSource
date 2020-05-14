@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0
+
 menu "Storage"
 source "drivers/misc/mediatek/pidmap/Kconfig"
 endmenu # Storage
@@ -5,3 +7,7 @@ endmenu # Storage
 menu "Power, PMIC, Battery & Low Power"
 source "drivers/misc/mediatek/cm_mgr/Kconfig"
 endmenu # Power
+
+menu "SSPM"
+source "drivers/misc/mediatek/sspm/Kconfig"
+endmenu # SSPM
