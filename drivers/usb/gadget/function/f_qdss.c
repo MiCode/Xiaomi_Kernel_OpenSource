@@ -944,6 +944,7 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	usb_qdss_free_req(ch);
 close:
 	ch->priv_usb = NULL;
+	ch->notify = NULL;
 	if (!qdss || !qdss->usb_connected ||
 			!strcmp(qdss->ch.name, USB_QDSS_CH_MDM)) {
 		ch->app_conn = 0;
