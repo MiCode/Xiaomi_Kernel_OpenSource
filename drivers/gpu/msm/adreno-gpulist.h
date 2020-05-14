@@ -894,7 +894,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a615 = {
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
 		.gpudev = &adreno_a630_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -922,7 +922,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a618 = {
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
 		.gpudev = &adreno_a630_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -950,7 +950,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
 		.gpudev = &adreno_a630_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -977,7 +977,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
 		.compatible = "qcom,adreno-gpu-a619-holi",
 		.features =  ADRENO_PREEMPTION | ADRENO_CONTENT_PROTECTION,
 		.gpudev = &adreno_a619_holi_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -1092,7 +1092,12 @@ static const struct a6xx_protected_regs a620_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 30, 0x0be20, 0x0d5ff, 1 },
 	{ A6XX_CP_PROTECT_REG + 31, 0x0f000, 0x0fbff, 1 },
 	{ A6XX_CP_PROTECT_REG + 32, 0x0fc00, 0x11bff, 0 },
-	{ A6XX_CP_PROTECT_REG + 47, 0x11c00, 0x11c00, 1 },
+	{ A6XX_CP_PROTECT_REG + 33, 0x18400, 0x1a3ff, 1 },
+	{ A6XX_CP_PROTECT_REG + 34, 0x1a800, 0x1c7ff, 1 },
+	{ A6XX_CP_PROTECT_REG + 35, 0x1f400, 0x1f843, 1 },
+	{ A6XX_CP_PROTECT_REG + 36, 0x1f844, 0x1f8bf, 0 },
+	{ A6XX_CP_PROTECT_REG + 37, 0x1f887, 0x1f8a2, 1 },
+	{ A6XX_CP_PROTECT_REG + 47, 0x1f8c0, 0x1f8c0, 1 },
 	{ 0 },
 };
 
@@ -1195,7 +1200,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a640 = {
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC | ADRENO_PREEMPTION,
 		.gpudev = &adreno_a6xx_gmu_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_1M, //Verified 1MB
 		.bus_width = 32,
@@ -1333,7 +1338,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a680 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A680, 6, 8, 0, ANY_ID),
 		.features = ADRENO_RPMH | ADRENO_GPMU,
 		.gpudev = &adreno_a6xx_gmu_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_2M,
 		.bus_width = 32,
@@ -1411,7 +1416,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a612 = {
 			ADRENO_IOCOHERENT | ADRENO_PREEMPTION | ADRENO_GPMU |
 			ADRENO_IFPC,
 		.gpudev = &adreno_a6xx_rgmu_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = (SZ_128K + SZ_4K),
 		.bus_width = 32,
@@ -1437,7 +1442,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a616 = {
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
 		.gpudev = &adreno_a630_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
@@ -1464,7 +1469,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a610 = {
 		.features = ADRENO_CONTENT_PROTECTION |
 			ADRENO_PREEMPTION,
 		.gpudev = &adreno_a6xx_gpudev,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.gmem_base = 0x100000,
 		.gmem_size = (SZ_128K + SZ_4K),
 		.bus_width = 32,
@@ -1569,7 +1574,13 @@ static const struct a6xx_protected_regs a660_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 31, 0x0d000, 0x0d5ff, 1 },
 	{ A6XX_CP_PROTECT_REG + 32, 0x0f000, 0x0fbff, 1 },
 	{ A6XX_CP_PROTECT_REG + 33, 0x0fc00, 0x11bff, 0 },
-	{ A6XX_CP_PROTECT_REG + 47, 0x11c00, 0x11c00, 1 },
+	{ A6XX_CP_PROTECT_REG + 34, 0x18400, 0x1a3ff, 1 },
+	{ A6XX_CP_PROTECT_REG + 35, 0x1a400, 0x1c3ff, 1 },
+	{ A6XX_CP_PROTECT_REG + 36, 0x1f400, 0x1f843, 1 },
+	{ A6XX_CP_PROTECT_REG + 37, 0x1f844, 0x1f8bf, 0 },
+	{ A6XX_CP_PROTECT_REG + 38, 0x1f860, 0x1f860, 1 },
+	{ A6XX_CP_PROTECT_REG + 39, 0x1f887, 0x1f8a2, 1 },
+	{ A6XX_CP_PROTECT_REG + 47, 0x1f8c0, 0x1f8c0, 1 },
 	{ 0 },
 };
 

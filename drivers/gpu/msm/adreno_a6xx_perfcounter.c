@@ -269,6 +269,99 @@ static u64 a6xx_counter_alwayson_read(struct adreno_device *adreno_dev,
 	return a6xx_read_alwayson(adreno_dev) + reg->value;
 }
 
+static void a6xx_write_gmu_counter_enable(struct kgsl_device *device,
+		struct adreno_perfcount_register *reg, u32 bit, u32 countable)
+{
+	u32 val;
+
+	kgsl_regread(device, reg->select, &val);
+	val &= ~(0xff << bit);
+	val |= countable << bit;
+	kgsl_regwrite(device, reg->select, val);
+
+}
+
+static int a6xx_counter_gmu_xoclk_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_perfcount_register *reg = &group->regs[counter];
+
+	if (countable > 0xff)
+		return -EINVAL;
+
+	if (counter >= 6 && !adreno_is_a660(adreno_dev))
+		return -EINVAL;
+
+	/*
+	 * Counters [0:3] are in select 1 bit offsets 0, 8, 16 and 24
+	 * Counters [4:5] are in select 2 bit offset 0, 8
+	 * Counters [6:9] are in select 3 bit offset 0, 8, 16 and 24
+	 */
+
+	if (counter == 4 || counter == 5)
+		counter -= 4;
+	else if (counter >= 6)
+		counter -= 6;
+
+	a6xx_write_gmu_counter_enable(device, reg, counter * 8, countable);
+
+	reg->value = 0;
+
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
+
+	return 0;
+}
+
+static int a6xx_counter_gmu_gmuclk_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_perfcount_register *reg = &group->regs[counter];
+
+	if (countable > 0xff)
+		return -EINVAL;
+
+	/*
+	 * The two counters are stuck into GMU_CX_GMU_POWER_COUNTER_SELECT_1
+	 * at bit offset 16 and 24
+	 */
+	a6xx_write_gmu_counter_enable(device, reg,
+		16 + (counter * 8), countable);
+
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
+
+	reg->value = 0;
+	return 0;
+}
+
+static int a6xx_counter_gmu_perf_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_perfcount_register *reg = &group->regs[counter];
+
+	if (countable > 0xff)
+		return -EINVAL;
+
+	/*
+	 * Counters [0:3] are in select 1 bit offsets 0, 8, 16 and 24
+	 * Counters [4:5] are in select 2 bit offset 0, 8
+	 */
+
+	if (counter >= 4)
+		counter -= 4;
+
+	a6xx_write_gmu_counter_enable(device, reg, counter * 8, countable);
+
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_PERF_COUNTER_ENABLE, 1);
+
+	reg->value = 0;
+	return 0;
+}
 
 static struct adreno_perfcount_register a6xx_perfcounters_cp[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_RBBM_PERFCTR_CP_0_LO,
@@ -611,6 +704,73 @@ static struct adreno_perfcount_register a6xx_perfcounters_gbif_pwr[] = {
 		A6XX_GBIF_PWR_CNT_HIGH2, -1, A6XX_GBIF_PERF_PWR_CNT_EN },
 };
 
+#define GMU_COUNTER(lo, hi, sel) \
+	{ .countable = KGSL_PERFCOUNTER_NOT_USED, \
+	  .offset = lo, .offset_hi = hi, .select = sel }
+
+static struct adreno_perfcount_register a6xx_perfcounters_gmu_xoclk[] = {
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_6_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_6_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_2),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_7_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_7_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_2),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_8_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_8_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_2),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_9_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_9_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_2),
+};
+
+static struct adreno_perfcount_register a6xx_perfcounters_gmu_gmuclk[] = {
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_GMUCLK_0_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_GMUCLK_0_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_POWER_COUNTER_GMUCLK_1_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_GMUCLK_1_H,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1),
+};
+
+static struct adreno_perfcount_register a6xx_perfcounters_gmu_perf[] = {
+	GMU_COUNTER(A6XX_GMU_CX_GMU_PERF_COUNTER_0_L,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_0_H,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_PERF_COUNTER_1_L,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_1_H,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_PERF_COUNTER_2_L,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_2_H,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_PERF_COUNTER_3_L,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_3_H,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_SELECT_0),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_PERF_COUNTER_4_L,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_4_H,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_SELECT_1),
+	GMU_COUNTER(A6XX_GMU_CX_GMU_PERF_COUNTER_5_L,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_5_H,
+		A6XX_GMU_CX_GMU_PERF_COUNTER_SELECT_1),
+};
+
 static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_CP_ALWAYS_ON_COUNTER_LO,
 		A6XX_CP_ALWAYS_ON_COUNTER_HI, -1 },
@@ -674,6 +834,50 @@ static const struct adreno_perfcount_group a630_perfcounter_groups
 		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
 };
 
+static const struct adreno_perfcount_group
+a6xx_legacy_perfcounter_groups [KGSL_PERFCOUNTER_GROUP_MAX] = {
+	A6XX_PERFCOUNTER_GROUP(CP, cp,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(RBBM, rbbm, 0,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(PC, pc,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(VFD, vfd,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq,
+		a6xx_counter_inline_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(VPC, vpc,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(CCU, ccu,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(CMP, cmp,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(TSE, tse,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(RAS, ras,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(LRZ, lrz,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(UCHE, uche,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(TP, tp,
+		a6xx_counter_inline_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(SP, sp,
+		a6xx_counter_inline_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(RB, rb,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP(VSC, vsc,
+		a6xx_counter_enable, a6xx_counter_read),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF, gbif, 0,
+		a6xx_counter_gbif_enable, a6xx_counter_read_norestore),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, gbif_pwr,
+		ADRENO_PERFCOUNTER_GROUP_FIXED,
+		a6xx_counter_gbif_pwr_enable, a6xx_counter_read_norestore),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
+		ADRENO_PERFCOUNTER_GROUP_FIXED,
+		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
+};
+
 static const struct adreno_perfcount_group a6xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
 	A6XX_PERFCOUNTER_GROUP(CP, cp,
@@ -716,6 +920,21 @@ static const struct adreno_perfcount_group a6xx_perfcounter_groups
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED,
 		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_XOCLK, gmu_xoclk, 0,
+		a6xx_counter_gmu_xoclk_enable, a6xx_counter_read_norestore),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_GMUCLK, gmu_gmuclk, 0,
+		a6xx_counter_gmu_gmuclk_enable, a6xx_counter_read_norestore),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_PERF, gmu_perf, 0,
+		a6xx_counter_gmu_perf_enable, a6xx_counter_read_norestore),
+};
+
+/* a610, a612, a616, a618 and a619 do not have the GMU registers.
+ * a605, a608, a615, a630, a640 and a680 don't have enough room in the
+ * CP_PROTECT registers so the GMU counters are not accessible
+ */
+const struct adreno_perfcounters adreno_a6xx_legacy_perfcounters = {
+	a6xx_legacy_perfcounter_groups,
+	ARRAY_SIZE(a6xx_legacy_perfcounter_groups),
 };
 
 const struct adreno_perfcounters adreno_a630_perfcounters = {
