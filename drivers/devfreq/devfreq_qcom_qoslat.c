@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-qcom-qoslat: " fmt
@@ -82,6 +82,16 @@ static int dev_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
+static int dev_get_dev_status(struct device *dev,
+			struct devfreq_dev_status *stat)
+{
+	struct qoslat_data *d = dev_get_drvdata(dev);
+
+	stat->current_frequency = d->qos_level;
+
+	return 0;
+}
+
 static int devfreq_qcom_qoslat_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -114,6 +124,7 @@ static int devfreq_qcom_qoslat_probe(struct platform_device *pdev)
 	p = &d->profile;
 	p->target = dev_target;
 	p->get_cur_freq = dev_get_cur_freq;
+	p->get_dev_status = dev_get_dev_status;
 	p->polling_ms = 10;
 
 	ret = dev_pm_opp_of_add_table(dev);
