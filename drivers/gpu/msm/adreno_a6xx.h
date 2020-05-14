@@ -407,4 +407,5 @@ int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 
 extern const struct adreno_perfcounters adreno_a630_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_perfcounters;
+extern const struct adreno_perfcounters adreno_a6xx_legacy_perfcounters;
 #endif
