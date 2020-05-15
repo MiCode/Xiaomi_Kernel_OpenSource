@@ -696,6 +696,7 @@
   drm_dp_bw_code_to_link_rate
   drm_dp_calc_pbn_mode
   drm_dp_channel_eq_ok
+  drm_dp_check_act_status
   drm_dp_clock_recovery_ok
   drm_dp_dpcd_read
   drm_dp_dpcd_read_link_status
