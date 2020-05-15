@@ -6,15 +6,17 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/mfd/syscon.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
+#include "clk-gate.h"
 #include "clk-mtk.h"
 #include "clk-mux.h"
-#include "clk-gate.h"
+
 
 #include <dt-bindings/clock/mt8192-clk.h>
 
@@ -1448,6 +1450,11 @@ static int __init clk_mt8192_init(void)
 	return platform_driver_register(&clk_mt8192_drv);
 }
 
+static void __exit clk_mt8192_exit(void)
+{
+	platform_driver_unregister(&clk_mt8192_drv);
+}
+
 arch_initcall(clk_mt8192_init);
-
-
+module_exit(clk_mt8192_exit);
+MODULE_LICENSE("GPL");
