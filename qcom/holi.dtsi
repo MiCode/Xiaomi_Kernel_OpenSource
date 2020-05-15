@@ -515,8 +515,13 @@
 	};
 
 	gcc: qcom,gcc@1400000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,holi-gcc";
+		reg = <0x1400000 0x1f0000>;
+		reg_names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
