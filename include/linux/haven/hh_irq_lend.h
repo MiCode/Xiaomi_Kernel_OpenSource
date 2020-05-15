@@ -26,7 +26,7 @@ int hh_irq_reclaim(enum hh_irq_label label);
 
 int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
 			 hh_irq_handle_fn on_lend, void *data);
-int hh_irq_accept(enum hh_irq_label label, int hw_irq);
+int hh_irq_accept(enum hh_irq_label label, int irq, int type);
 int hh_irq_release(enum hh_irq_label label);
 
 #endif

@@ -60,6 +60,7 @@ static DEFINE_MUTEX(hh_rm_send_lock);
 
 static DEFINE_IDA(hh_rm_free_virq_ida);
 static struct device_node *hh_rm_intc;
+static struct irq_domain *hh_rm_irq_domain;
 static u32 hh_rm_base_virq;
 
 SRCU_NOTIFIER_HEAD_STATIC(hh_rm_notifier);
@@ -624,19 +625,54 @@ out:
 	return ret;
 }
 
-int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
+/**
+ * hh_rm_virq_to_irq: Get a Linux IRQ from a Haven-compatible vIRQ
+ * @virq: Haven-compatible vIRQ
+ * @type: IRQ trigger type (IRQ_TYPE_EDGE_RISING)
+ *
+ * Returns the mapped Linux IRQ# at Haven's IRQ domain (i.e. GIC SPI)
+ */
+int hh_rm_virq_to_irq(u32 virq, u32 type)
 {
 	struct irq_fwspec fwspec = {};
 
+	if (virq < 32 || virq >= GIC_V3_SPI_MAX) {
+		pr_warn("%s: expecting an SPI from RM, but got GIC IRQ %d\n",
+			__func__, virq);
+	}
+
 	fwspec.fwnode = of_node_to_fwnode(hh_rm_intc);
 	fwspec.param_count = 3;
-	fwspec.param[0] = type;
-	fwspec.param[1] = virq;
-	fwspec.param[2] = trigger;
+	fwspec.param[0] = GIC_SPI;
+	fwspec.param[1] = virq - 32;
+	fwspec.param[2] = type;
 
 	return irq_create_fwspec_mapping(&fwspec);
 }
-EXPORT_SYMBOL(hh_rm_virq_to_linux_irq);
+EXPORT_SYMBOL(hh_rm_virq_to_irq);
+
+/**
+ * hh_rm_irq_to_virq: Get a Haven-compatible vIRQ from a Linux IRQ
+ * @irq: Linux-assigned IRQ#
+ * @virq: out value where Haven-compatible vIRQ is stored
+ *
+ * Returns 0 upon success, -EINVAL if the Linux IRQ could not be mapped to
+ * a Haven vIRQ (i.e., the IRQ does not correspond to any GIC-level IRQ)
+ */
+int hh_rm_irq_to_virq(int irq, u32 *virq)
+{
+	struct irq_data *irq_data;
+
+	irq_data = irq_domain_get_irq_data(hh_rm_irq_domain, irq);
+	if (!irq_data)
+		return -EINVAL;
+
+	if (virq)
+		*virq = irq_data->hwirq;
+
+	return 0;
+}
+EXPORT_SYMBOL(hh_rm_irq_to_virq);
 
 static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 {
@@ -673,8 +709,7 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 		return -EINVAL;
 	}
 
-	return hh_rm_virq_to_linux_irq(virq - 32, GIC_SPI,
-				       IRQ_TYPE_EDGE_RISING);
+	return hh_rm_virq_to_irq(virq, IRQ_TYPE_EDGE_RISING);
 
 err:
 	ida_free(&hh_rm_free_virq_ida, virq - 32);
@@ -836,6 +871,11 @@ static int hh_rm_drv_probe(struct platform_device *pdev)
 	hh_rm_intc = of_irq_find_parent(node);
 	if (!hh_rm_intc) {
 		dev_err(dev, "Failed to get the IRQ parent node\n");
+		return -ENXIO;
+	}
+	hh_rm_irq_domain = irq_find_host(hh_rm_intc);
+	if (!hh_rm_irq_domain) {
+		dev_err(dev, "Failed to get IRQ domain associated with RM\n");
 		return -ENXIO;
 	}
 
