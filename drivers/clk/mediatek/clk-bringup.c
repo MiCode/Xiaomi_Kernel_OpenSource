@@ -58,3 +58,4 @@ static struct platform_driver bring_up = {
 };
 
 module_platform_driver(bring_up);
+MODULE_LICENSE("GPL");
