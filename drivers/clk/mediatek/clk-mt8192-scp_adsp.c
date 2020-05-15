@@ -4,8 +4,8 @@
 // Author: Weiyi Lu <weiyi.lu@mediatek.com>
 
 #include <linux/clk-provider.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
-
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
@@ -52,4 +52,16 @@ static struct platform_driver clk_mt8192_scp_adsp_drv = {
 	},
 };
 
-builtin_platform_driver(clk_mt8192_scp_adsp_drv);
+static int __init clk_mt8192_scp_adsp_init(void)
+{
+	return platform_driver_register(&clk_mt8192_scp_adsp_drv);
+}
+
+static void __exit clk_mt8192_scp_adsp_exit(void)
+{
+	platform_driver_unregister(&clk_mt8192_scp_adsp_drv);
+}
+
+arch_initcall(clk_mt8192_scp_adsp_init);
+module_exit(clk_mt8192_scp_adsp_exit);
+MODULE_LICENSE("GPL");

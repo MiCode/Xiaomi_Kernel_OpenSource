@@ -442,7 +442,7 @@ config COMMON_CLK_MT8183_VENCSYS
 	  This driver supports MediaTek MT8183 vencsys clocks.
 
 config COMMON_CLK_MT8192
-	bool "Clock driver for MediaTek MT8192"
+	tristate "Clock driver for MediaTek MT8192"
 	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
 	default ARCH_MEDIATEK && ARM64
@@ -453,7 +453,7 @@ config COMMON_CLK_MT8192
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_APU0
-	bool "Clock driver for MediaTek MT8192 apu0"
+	tristate "Clock driver for MediaTek MT8192 apu0"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 apu0 clocks.
@@ -462,7 +462,7 @@ config COMMON_CLK_MT8192_APU0
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_APU1
-	bool "Clock driver for MediaTek MT8192 apu1"
+	tristate "Clock driver for MediaTek MT8192 apu1"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 apu1 clocks.
@@ -471,7 +471,7 @@ config COMMON_CLK_MT8192_APU1
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_APU_VCORE
-	bool "Clock driver for MediaTek MT8192 apu_vcore"
+	tristate "Clock driver for MediaTek MT8192 apu_vcore"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 apu_vcore clocks.
@@ -480,7 +480,7 @@ config COMMON_CLK_MT8192_APU_VCORE
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_APU_CONN
-	bool "Clock driver for MediaTek MT8192 apu_conn"
+	tristate "Clock driver for MediaTek MT8192 apu_conn"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 apu_conn clocks.
@@ -489,7 +489,7 @@ config COMMON_CLK_MT8192_APU_CONN
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_APU_MDLA0
-	bool "Clock driver for MediaTek MT8192 apu_mdla0"
+	tristate "Clock driver for MediaTek MT8192 apu_mdla0"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 apu_mdla0 clocks.
@@ -498,7 +498,7 @@ config COMMON_CLK_MT8192_APU_MDLA0
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_AUDSYS
-	bool "Clock driver for MediaTek MT8192 audsys"
+	tristate "Clock driver for MediaTek MT8192 audsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 audsys clocks.
@@ -507,7 +507,7 @@ config COMMON_CLK_MT8192_AUDSYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_CAMSYS
-	bool "Clock driver for MediaTek MT8192 camsys"
+	tristate "Clock driver for MediaTek MT8192 camsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 camsys clocks.
@@ -516,7 +516,7 @@ config COMMON_CLK_MT8192_CAMSYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_CAMSYS_RAWA
-	bool "Clock driver for MediaTek MT8192 camsys_rawa"
+	tristate "Clock driver for MediaTek MT8192 camsys_rawa"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 camsys_rawa clocks.
@@ -525,7 +525,7 @@ config COMMON_CLK_MT8192_CAMSYS_RAWA
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_CAMSYS_RAWB
-	bool "Clock driver for MediaTek MT8192 camsys_rawb"
+	tristate "Clock driver for MediaTek MT8192 camsys_rawb"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 camsys_rawb clocks.
@@ -534,7 +534,7 @@ config COMMON_CLK_MT8192_CAMSYS_RAWB
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_CAMSYS_RAWC
-	bool "Clock driver for MediaTek MT8192 camsys_rawc"
+	tristate "Clock driver for MediaTek MT8192 camsys_rawc"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 camsys_rawc clocks.
@@ -543,7 +543,7 @@ config COMMON_CLK_MT8192_CAMSYS_RAWC
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMGSYS
-	bool "Clock driver for MediaTek MT8192 imgsys"
+	tristate "Clock driver for MediaTek MT8192 imgsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imgsys clocks.
@@ -552,7 +552,7 @@ config COMMON_CLK_MT8192_IMGSYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMGSYS2
-	bool "Clock driver for MediaTek MT8192 imgsys2"
+	tristate "Clock driver for MediaTek MT8192 imgsys2"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imgsys2 clocks.
@@ -561,7 +561,7 @@ config COMMON_CLK_MT8192_IMGSYS2
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMP_IIC_WRAP_C
-	bool "Clock driver for MediaTek MT8192 imp_iic_wrap_c"
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_c"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imp_iic_wrap_c clocks.
@@ -570,7 +570,7 @@ config COMMON_CLK_MT8192_IMP_IIC_WRAP_C
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMP_IIC_WRAP_E
-	bool "Clock driver for MediaTek MT8192 imp_iic_wrap_e"
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_e"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imp_iic_wrap_e clocks.
@@ -579,7 +579,7 @@ config COMMON_CLK_MT8192_IMP_IIC_WRAP_E
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMP_IIC_WRAP_N
-	bool "Clock driver for MediaTek MT8192 imp_iic_wrap_n"
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_n"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imp_iic_wrap_n clocks.
@@ -588,7 +588,7 @@ config COMMON_CLK_MT8192_IMP_IIC_WRAP_N
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMP_IIC_WRAP_S
-	bool "Clock driver for MediaTek MT8192 imp_iic_wrap_s"
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_s"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imp_iic_wrap_s clocks.
@@ -597,7 +597,7 @@ config COMMON_CLK_MT8192_IMP_IIC_WRAP_S
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMP_IIC_WRAP_W
-	bool "Clock driver for MediaTek MT8192 imp_iic_wrap_w"
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_w"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imp_iic_wrap_w clocks.
@@ -606,7 +606,7 @@ config COMMON_CLK_MT8192_IMP_IIC_WRAP_W
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IMP_IIC_WRAP_WS
-	bool "Clock driver for MediaTek MT8192 imp_iic_wrap_ws"
+	tristate "Clock driver for MediaTek MT8192 imp_iic_wrap_ws"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 imp_iic_wrap_ws clocks.
@@ -615,7 +615,7 @@ config COMMON_CLK_MT8192_IMP_IIC_WRAP_WS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_IPESYS
-	bool "Clock driver for MediaTek MT8192 ipesys"
+	tristate "Clock driver for MediaTek MT8192 ipesys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 ipesys clocks.
@@ -624,7 +624,7 @@ config COMMON_CLK_MT8192_IPESYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MDPSYS
-	bool "Clock driver for MediaTek MT8192 mdpsys"
+	tristate "Clock driver for MediaTek MT8192 mdpsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mdpsys clocks.
@@ -633,7 +633,7 @@ config COMMON_CLK_MT8192_MDPSYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MFGCFG
-	bool "Clock driver for MediaTek MT8192 mfgcfg"
+	tristate "Clock driver for MediaTek MT8192 mfgcfg"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mfgcfg clocks.
@@ -642,7 +642,7 @@ config COMMON_CLK_MT8192_MFGCFG
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MMSYS
-	bool "Clock driver for MediaTek MT8192 mmsys"
+	tristate "Clock driver for MediaTek MT8192 mmsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 mmsys clocks.
@@ -651,7 +651,7 @@ config COMMON_CLK_MT8192_MMSYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MSDC_TOP
-	bool "Clock driver for MediaTek MT8192 msdc_top"
+	tristate "Clock driver for MediaTek MT8192 msdc_top"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 msdc_top clocks.
@@ -660,7 +660,7 @@ config COMMON_CLK_MT8192_MSDC_TOP
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_MSDC
-	bool "Clock driver for MediaTek MT8192 msdc"
+	tristate "Clock driver for MediaTek MT8192 msdc"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 msdc clocks.
@@ -669,7 +669,7 @@ config COMMON_CLK_MT8192_MSDC
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_SCP_ADSP
-	bool "Clock driver for MediaTek MT8192 scp_adsp"
+	tristate "Clock driver for MediaTek MT8192 scp_adsp"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 scp_adsp clocks.
@@ -678,7 +678,7 @@ config COMMON_CLK_MT8192_SCP_ADSP
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_VDECSYS
-	bool "Clock driver for MediaTek MT8192 vdecsys"
+	tristate "Clock driver for MediaTek MT8192 vdecsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 vdecsys clocks.
@@ -687,7 +687,7 @@ config COMMON_CLK_MT8192_VDECSYS
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_VDECSYS_SOC
-	bool "Clock driver for MediaTek MT8192 vdecsys_soc"
+	tristate "Clock driver for MediaTek MT8192 vdecsys_soc"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 vdecsys_soc clocks.
@@ -696,7 +696,7 @@ config COMMON_CLK_MT8192_VDECSYS_SOC
           say Y. Otherwise, say N.
 
 config COMMON_CLK_MT8192_VENCSYS
-	bool "Clock driver for MediaTek MT8192 vencsys"
+	tristate "Clock driver for MediaTek MT8192 vencsys"
 	depends on COMMON_CLK_MT8192
 	help
 	  This driver supports MediaTek MT8192 vencsys clocks.

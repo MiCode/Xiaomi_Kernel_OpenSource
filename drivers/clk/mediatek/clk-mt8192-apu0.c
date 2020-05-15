@@ -4,6 +4,7 @@
 // Author: Weiyi Lu <weiyi.lu@mediatek.com>
 
 #include <linux/clk-provider.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 
 #include "clk-mtk.h"
@@ -53,4 +54,16 @@ static struct platform_driver clk_mt8192_apu0_drv = {
 	},
 };
 
-builtin_platform_driver(clk_mt8192_apu0_drv);
+static int __init clk_mt8192_apu0_init(void)
+{
+	return platform_driver_register(&clk_mt8192_apu0_drv);
+}
+
+static void __exit clk_mt8192_apu0_exit(void)
+{
+	platform_driver_unregister(&clk_mt8192_apu0_drv);
+}
+
+arch_initcall(clk_mt8192_apu0_init);
+module_exit(clk_mt8192_apu0_exit);
+MODULE_LICENSE("GPL");
