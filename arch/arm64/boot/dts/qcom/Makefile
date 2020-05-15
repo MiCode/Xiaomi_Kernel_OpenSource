@@ -176,7 +176,7 @@ dtb-$(CONFIG_QTI_GVM) += sa8155-vm-la.dtb \
 	sa8155-vm-lv.dtb \
 	sa8155-vm-lv-mt.dtb \
 	sa8155-vm-la-mt.dtb \
-	sa6155p-vm.dtb \
+	sa6155p-vm-la.dtb \
 	sa8195-vm-la.dtb \
 	sa8195-vm-la-mt.dtb \
 	sa8195-vm-lv.dtb \
