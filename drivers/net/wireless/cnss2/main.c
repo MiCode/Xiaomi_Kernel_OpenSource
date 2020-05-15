@@ -665,7 +665,10 @@ int cnss_idle_restart(struct device *dev)
 		return -ENODEV;
 	}
 
-	mutex_lock(&plat_priv->driver_ops_lock);
+	if (!mutex_trylock(&plat_priv->driver_ops_lock)) {
+		cnss_pr_dbg("Another driver operation is in progress, ignore idle restart\n");
+		return -EBUSY;
+	}
 
 	cnss_pr_dbg("Doing idle restart\n");
 
