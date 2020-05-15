@@ -909,6 +909,16 @@ config LEDS_SGM3140
 	  This option enables support for the SGM3140 500mA Buck/Boost Charge
 	  Pump LED Driver.
 
+config LEDS_REGULATOR_VIBRATOR
+	tristate "LED regulator vibrator support"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for LED regulator vibrator.
+	  say 'y' to enable this
+
+	  To compile this driver as a module, choose 'M' here: the module
+	  will be called regulator-vibrator.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
