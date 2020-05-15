@@ -113,7 +113,7 @@ struct stmmac_priv {
 	/* TX Queue */
 	struct stmmac_tx_queue tx_queue[MTL_MAX_TX_QUEUES];
 
-	bool oldlink;
+	int oldlink;
 	int speed;
 	int oldduplex;
 	unsigned int flow_ctrl;

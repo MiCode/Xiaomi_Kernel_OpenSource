@@ -843,7 +843,7 @@ static void stmmac_adjust_link(struct net_device *dev)
 
 		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
 
-		if (!priv->oldlink) {
+		if (!priv->oldlink || (priv->oldlink == -1)) {
 			new_state = true;
 			priv->oldlink = true;
 		}
@@ -954,7 +954,7 @@ static int stmmac_init_phy(struct net_device *dev)
 	int interface = priv->plat->interface;
 	int max_speed = priv->plat->max_speed;
 	int ret = 0;
-	priv->oldlink = false;
+	priv->oldlink = -1;
 	priv->boot_kpi = false;
 	priv->speed = SPEED_UNKNOWN;
 	priv->oldduplex = DUPLEX_UNKNOWN;
@@ -1000,9 +1000,6 @@ static int stmmac_init_phy(struct net_device *dev)
 			return PTR_ERR(phydev);
 		}
 	}
-
-	pr_info(" qcom-ethqos: %s early eth setting stmmac init\n",
-				 __func__);
 
 	/* Stop Advertising 1000BASE Capability if interface is not GMII */
 	if ((interface == PHY_INTERFACE_MODE_MII) ||
@@ -4640,7 +4637,7 @@ int stmmac_suspend(struct device *dev)
 	}
 	mutex_unlock(&priv->lock);
 
-	priv->oldlink = false;
+	priv->oldlink = -1;
 	priv->speed = SPEED_UNKNOWN;
 	priv->oldduplex = DUPLEX_UNKNOWN;
 	return 0;
