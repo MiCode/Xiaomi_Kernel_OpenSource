@@ -153,9 +153,8 @@ static int cvp_dsp_rpmsg_probe(struct rpmsg_device *rpdev)
 	mutex_lock(&me->lock);
 	me->chan = rpdev;
 	me->state = DSP_PROBED;
+	complete(&me->completions[CPU2DSP_MAX_CMD]);
 	mutex_unlock(&me->lock);
-
-	cvp_dsp_send_hfi_queue();
 
 	return 0;
 }
@@ -490,6 +489,14 @@ wait_dsp:
 	if (me->state == DSP_INVALID)
 		goto exit;
 
+	if (me->state == DSP_UNINIT)
+		goto wait_dsp;
+
+	if (me->state == DSP_PROBED) {
+		cvp_dsp_send_hfi_queue();
+		goto wait_dsp;
+	}
+
 	cmd.type = me->pending_dsp2cpu_cmd.type;
 
 	if (rc == -ERESTARTSYS) {
@@ -569,13 +576,14 @@ int cvp_dsp_device_init(void)
 		goto register_bail;
 	}
 	snprintf(tname, sizeof(tname), "cvp-dsp-thread");
+	me->state = DSP_UNINIT;
 	me->dsp_thread = kthread_run(cvp_dsp_thread, me, tname);
 	if (!me->dsp_thread) {
 		dprintk(CVP_ERR, "%s create %s fail", __func__, tname);
 		rc = -ECHILD;
+		me->state = DSP_INVALID;
 		goto register_bail;
 	}
-	me->state = DSP_UNINIT;
 	return 0;
 
 register_bail:
