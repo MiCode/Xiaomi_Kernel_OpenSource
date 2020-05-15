@@ -137,7 +137,7 @@
 #include "sdm429-blsp.dtsi"
 #include "sdm429-cpu.dtsi"
 #include "sdm429-ion.dtsi"
-
+#include "msm-arm-smmu-sdm429.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
