@@ -132,6 +132,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
+	{ ARM_SMMU_OPT_SPLIT_TABLES, "qcom,split-tables" },
 	{ 0, NULL},
 };
 
@@ -1214,10 +1215,20 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
+	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info[0];
 	phys_addr_t phys_hard_priv = 0;
 	phys_addr_t phys_stimu, phys_stimu_post_tlbiall;
 	unsigned long flags = 0;
+	unsigned int ias = smmu_domain->pgtbl_info[0].pgtbl_cfg.ias;
+
+	/*
+	 * The address in the CB's FAR is not sign-extended, so lets perform the
+	 * sign extension here, as arm_smmu_iova_to_phys_hard() expects the
+	 * IOVA to be sign extended.
+	 */
+	if ((iova & BIT_ULL(ias)) &&
+	    (test_bit(DOMAIN_ATTR_SPLIT_TABLES, smmu_domain->attributes)))
+		iova |= GENMASK_ULL(63, ias + 1);
 
 	/* Get the transaction type */
 	if (fsynr0 & FSYNR0_WNR)
@@ -1438,12 +1449,48 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static u32 arm_smmu_tcr(u64 tcr, bool split_tables)
+{
+	u32 tcr_out, tcr0, tcr1, tg0;
+
+	if (split_tables) {
+		tcr0 = FIELD_GET(TCR_TCR0, tcr);
+		/*
+		 * The TCR configuration for TTBR1 is identical
+		 * to the TCR configuration for TTBR0, except
+		 * for the TG field, so translate the TCR0
+		 * settings to TCR1 settings by shifting them
+		 */
+		tcr1 = FIELD_PREP(TCR_TCR1, tcr0);
+		tcr1 &= ~TCR1_TG1;
+
+		/* Map TG0 -> TG1 */
+		tg0 = FIELD_GET(TCR0_TG0, tcr0);
+		if (tg0 == TCR0_TG0_4K)
+			tcr1 |= FIELD_PREP(TCR1_TG1, TCR1_TG1_4K);
+		else if (tg0 == TCR0_TG0_64K)
+			tcr1 |= FIELD_PREP(TCR1_TG1, TCR1_TG1_64K);
+		else if (tg0 == TCR0_TG0_16K)
+			tcr1 |= FIELD_PREP(TCR1_TG1, TCR1_TG1_16K);
+
+		tcr_out = tcr1 | tcr0;
+	} else {
+		tcr_out = lower_32_bits(tcr);
+	}
+
+	return tcr_out;
+}
+
 static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
-				       struct io_pgtable_cfg *pgtbl_cfg)
+				       struct msm_io_pgtable_info *pgtbl_info)
 {
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_cb *cb = &smmu_domain->smmu->cbs[cfg->cbndx];
+	struct io_pgtable_cfg *pgtbl_cfg = &pgtbl_info[0].pgtbl_cfg;
+	struct io_pgtable_cfg *ttbr1_pgtbl_cfg = &pgtbl_info[1].pgtbl_cfg;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
+	bool split_tables = test_bit(DOMAIN_ATTR_SPLIT_TABLES,
+				     smmu_domain->attributes);
 
 	cb->cfg = cfg;
 
@@ -1452,7 +1499,9 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 		if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
 			cb->tcr[0] = pgtbl_cfg->arm_v7s_cfg.tcr;
 		} else {
-			cb->tcr[0] = pgtbl_cfg->arm_lpae_s1_cfg.tcr;
+			cb->tcr[0] =
+				arm_smmu_tcr(pgtbl_cfg->arm_lpae_s1_cfg.tcr,
+					     split_tables);
 			cb->tcr[1] = pgtbl_cfg->arm_lpae_s1_cfg.tcr >> 32;
 			cb->tcr[1] |= FIELD_PREP(TCR2_SEP, TCR2_SEP_UPSTREAM);
 			if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64)
@@ -1470,8 +1519,15 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 		} else {
 			cb->ttbr[0] = pgtbl_cfg->arm_lpae_s1_cfg.ttbr[0];
 			cb->ttbr[0] |= FIELD_PREP(TTBRn_ASID, cfg->asid);
-			cb->ttbr[1] = pgtbl_cfg->arm_lpae_s1_cfg.ttbr[1];
-			cb->ttbr[1] |= FIELD_PREP(TTBRn_ASID, cfg->asid);
+			if (split_tables) {
+				cb->ttbr[1] =
+				ttbr1_pgtbl_cfg->arm_lpae_s1_cfg.ttbr[0];
+			} else {
+				cb->ttbr[1] =
+					pgtbl_cfg->arm_lpae_s1_cfg.ttbr[1];
+				cb->ttbr[1] |=
+					FIELD_PREP(TTBRn_ASID, cfg->asid);
+			}
 		}
 	} else {
 		cb->ttbr[0] = pgtbl_cfg->arm_lpae_s2_cfg.vttbr;
@@ -1727,7 +1783,7 @@ static int arm_smmu_get_dma_cookie(struct device *dev,
 	bool s1_bypass = test_bit(DOMAIN_ATTR_S1_BYPASS,
 				 smmu_domain->attributes);
 	struct iommu_domain *domain = &smmu_domain->domain.iommu_domain;
-	struct io_pgtable_ops *pgtbl_ops = smmu_domain->pgtbl_ops;
+	struct io_pgtable_ops *pgtbl_ops = smmu_domain->pgtbl_ops[0];
 
 	if (s1_bypass)
 		return 0;
@@ -1768,13 +1824,13 @@ static int arm_smmu_setup_context_bank(struct arm_smmu_domain *smmu_domain,
 {
 	struct iommu_domain *domain = &smmu_domain->domain.iommu_domain;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_info.pgtbl_cfg;
 	bool dynamic = is_dynamic_domain(domain);
 	int irq, ret = 0;
 
 	if (!dynamic) {
 		/* Initialise the context bank with our page table cfg */
-		arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
+		arm_smmu_init_context_bank(smmu_domain,
+					   smmu_domain->pgtbl_info);
 		arm_smmu_write_context_bank(smmu, cfg->cbndx,
 					    smmu_domain->attributes);
 
@@ -1816,11 +1872,15 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	unsigned long ias, oas;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
+	struct msm_io_pgtable_info *ttbr0_pgtbl_info =
+		&smmu_domain->pgtbl_info[0];
+	struct msm_io_pgtable_info *ttbr1_pgtbl_info =
+		&smmu_domain->pgtbl_info[1];
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	unsigned long quirks = 0;
 	struct iommu_group *group;
 	struct io_pgtable *iop;
+	bool split_tables = false;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	if (smmu_domain->smmu)
@@ -1883,9 +1943,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if ((IS_ENABLED(CONFIG_64BIT) || cfg->fmt == ARM_SMMU_CTX_FMT_NONE) &&
 	    (smmu->features & (ARM_SMMU_FEAT_FMT_AARCH64_64K |
 			       ARM_SMMU_FEAT_FMT_AARCH64_16K |
-			       ARM_SMMU_FEAT_FMT_AARCH64_4K)))
+			       ARM_SMMU_FEAT_FMT_AARCH64_4K))) {
 		cfg->fmt = ARM_SMMU_CTX_FMT_AARCH64;
-
+		if (smmu_domain->stage == ARM_SMMU_DOMAIN_S1 &&
+		    smmu->options & ARM_SMMU_OPT_SPLIT_TABLES)
+			split_tables = test_bit(DOMAIN_ATTR_SPLIT_TABLES,
+				smmu_domain->attributes);
+	}
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_NONE) {
 		ret = -EINVAL;
 		goto out_unlock;
@@ -1961,7 +2025,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			goto out_clear_smmu;
 	}
 
-	pgtbl_info->pgtbl_cfg = (struct io_pgtable_cfg) {
+	ttbr0_pgtbl_info->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.quirks		= quirks,
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
@@ -1972,21 +2036,37 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	};
 
 	smmu_domain->dev = dev;
-	smmu_domain->pgtbl_ops = alloc_io_pgtable_ops(fmt,
-						      &pgtbl_info->pgtbl_cfg,
-						      smmu_domain);
-	if (!smmu_domain->pgtbl_ops) {
+	smmu_domain->pgtbl_ops[0] = alloc_io_pgtable_ops(fmt,
+						&ttbr0_pgtbl_info->pgtbl_cfg,
+						smmu_domain);
+	if (!smmu_domain->pgtbl_ops[0]) {
 		ret = -ENOMEM;
 		goto out_clear_smmu;
 	}
+	if (split_tables) {
+		ttbr1_pgtbl_info->pgtbl_cfg = ttbr0_pgtbl_info->pgtbl_cfg;
+		smmu_domain->pgtbl_ops[1] = alloc_io_pgtable_ops(fmt,
+						&ttbr1_pgtbl_info->pgtbl_cfg,
+						smmu_domain);
+		if (!smmu_domain->pgtbl_ops[1]) {
+			ret = -ENOMEM;
+			goto out_clear_smmu;
+		}
+	}
 
 	group = iommu_group_get_for_dev(smmu_domain->dev);
-	iop = container_of(smmu_domain->pgtbl_ops, struct io_pgtable, ops);
+	iop = container_of(smmu_domain->pgtbl_ops[0], struct io_pgtable, ops);
 	ret = iommu_logger_register(&smmu_domain->logger, domain, group, iop);
 	iommu_group_put(group);
 	if (ret)
 		goto out_clear_smmu;
 
+	/*
+	 * Clear the attribute if we didn't actually set up the split tables
+	 * so that domain can query itself later
+	 */
+	if (!split_tables)
+		clear_bit(DOMAIN_ATTR_SPLIT_TABLES, smmu_domain->attributes);
 	/*
 	 * assign any page table memory that might have been allocated
 	 * during alloc_io_pgtable_ops
@@ -2000,7 +2080,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	/* Update the domain's page sizes to reflect the page table format */
-	domain->pgsize_bitmap = pgtbl_info->pgtbl_cfg.pgsize_bitmap;
+	domain->pgsize_bitmap = ttbr0_pgtbl_info->pgtbl_cfg.pgsize_bitmap;
 	domain->geometry.aperture_end = (1UL << ias) - 1;
 	ret = arm_smmu_adjust_domain_geometry(dev, domain);
 	if (ret)
@@ -2074,7 +2154,8 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	dynamic = is_dynamic_domain(domain);
 	if (dynamic) {
 		arm_smmu_free_asid(domain);
-		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+		free_io_pgtable_ops(smmu_domain->pgtbl_ops[1]);
+		free_io_pgtable_ops(smmu_domain->pgtbl_ops[0]);
 		arm_smmu_power_off(smmu, smmu->pwr);
 		arm_smmu_rpm_put(smmu);
 		arm_smmu_secure_domain_lock(smmu_domain);
@@ -2097,13 +2178,13 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		devm_free_irq(smmu->dev, irq, domain);
 	}
 
-	free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+	free_io_pgtable_ops(smmu_domain->pgtbl_ops[1]);
+	free_io_pgtable_ops(smmu_domain->pgtbl_ops[0]);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_secure_pool_destroy(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
-
 	arm_smmu_power_off(smmu, smmu->pwr);
 	arm_smmu_rpm_put(smmu);
 	arm_smmu_domain_reinit(smmu_domain);
@@ -2391,7 +2472,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	int i, idx;
 	const struct iommu_flush_ops *tlb;
 
-	tlb = smmu_domain->pgtbl_info.pgtbl_cfg.tlb;
+	tlb = smmu_domain->pgtbl_info[0].pgtbl_cfg.tlb;
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
@@ -2849,19 +2930,66 @@ out_power_off:
 	return ret;
 }
 
+static struct io_pgtable_ops *arm_smmu_get_pgtable_ops(
+					struct arm_smmu_domain *smmu_domain,
+					unsigned long iova)
+{
+	struct io_pgtable_cfg *cfg = &smmu_domain->pgtbl_info[0].pgtbl_cfg;
+	long iova_ext_bits = (s64)iova >> cfg->ias;
+	unsigned int idx = 0;
+	bool split_tables_domain = test_bit(DOMAIN_ATTR_SPLIT_TABLES,
+					    smmu_domain->attributes);
+
+	if (!split_tables_domain)
+		return smmu_domain->pgtbl_ops[0];
+
+	if (iova_ext_bits) {
+		iova_ext_bits = ~iova_ext_bits;
+		idx = 1;
+	}
+
+	if (WARN_ON(iova_ext_bits))
+		return ERR_PTR(-ERANGE);
+
+	return smmu_domain->pgtbl_ops[idx];
+}
+
+/*
+ * The ARM IO-Page-table code assumes that all mappings are for TTBR0. For
+ * devices that use the upper portion of the IOVA space, this is a problem
+ * as the upper portion of the address space is beyond the TTBR0 space, so the
+ * IOVA code will forbid the mapping. To circumvent this, unconditionally mask
+ * the sign extended bits. This should be okay, as those are the only bits
+ * that are relevant anyway for indexing into the page tables.
+ */
+static unsigned long arm_smmu_mask_iova(struct arm_smmu_domain *smmu_domain,
+					unsigned long iova)
+{
+	unsigned int ias = smmu_domain->pgtbl_info[0].pgtbl_cfg.ias;
+	unsigned long mask = (1UL << ias) - 1;
+
+	if (!test_bit(DOMAIN_ATTR_SPLIT_TABLES, smmu_domain->attributes))
+		return iova;
+
+	return iova & mask;
+}
+
 static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 			phys_addr_t paddr, size_t size, int prot)
 {
 	int ret;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_ops *ops = to_smmu_domain(domain)->pgtbl_ops;
+	struct io_pgtable_ops *ops;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	LIST_HEAD(nonsecure_pool);
 
-	if (!ops)
-		return -ENODEV;
-
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
+	else if (!ops)
+		return -EINVAL;
+	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
@@ -2898,13 +3026,18 @@ static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
 	uint64_t ret;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
+	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info[0];
+	struct io_pgtable_ops *ops;
 
 	if (!pgtbl_info->iova_to_pte)
 		return 0;
 
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	if (IS_ERR_OR_NULL(ops))
+		return 0;
+	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
-	ret = pgtbl_info->iova_to_pte(smmu_domain->pgtbl_ops, iova);
+	ret = pgtbl_info->iova_to_pte(ops, iova);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 	return ret;
 }
@@ -2915,12 +3048,13 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	struct io_pgtable_ops *ops;
 	unsigned long flags;
 
-	if (!ops)
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	if (IS_ERR_OR_NULL(ops))
 		return 0;
-
+	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
 	if (ret)
 		return ret;
@@ -2979,16 +3113,20 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	size_t size, batch_size, size_to_unmap = 0;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
-	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
+	struct io_pgtable_ops *ops;
+	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info[0];
 	unsigned int idx_start, idx_end;
 	struct scatterlist *sg_start, *sg_end;
 	unsigned long __saved_iova_start;
 	LIST_HEAD(nonsecure_pool);
 
 	if (!pgtbl_info->map_sg)
-		return -ENODEV;
+		return 0;
 
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	if (IS_ERR_OR_NULL(ops))
+		return 0;
+	iova = arm_smmu_mask_iova(smmu_domain, iova);
 
 	arm_smmu_secure_domain_lock(smmu_domain);
 
@@ -3063,13 +3201,17 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	struct io_pgtable_ops *ops;
 	struct device *dev = smmu->dev;
 	void __iomem *reg;
 	u32 tmp;
 	u64 phys;
 	unsigned long va;
 	int idx = cfg->cbndx;
+
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	if (IS_ERR_OR_NULL(ops))
+		return 0;
 
 	va = iova & ~0xfffUL;
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH64)
@@ -3105,12 +3247,14 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	phys_addr_t ret;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	struct io_pgtable_ops *ops;
 
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	if (domain->type == IOMMU_DOMAIN_IDENTITY)
 		return iova;
 
-	if (!ops)
+	if (IS_ERR_OR_NULL(ops))
 		return 0;
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
@@ -3350,7 +3494,8 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_cfg *pgtbl_cfg = &smmu_domain->pgtbl_info.pgtbl_cfg;
+	struct io_pgtable_cfg *pgtbl_cfg =
+		&smmu_domain->pgtbl_info[0].pgtbl_cfg;
 	int ret = 0;
 	unsigned long iommu_attr = (unsigned long)attr;
 
@@ -3432,7 +3577,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			ret = -ENODEV;
 			break;
 		}
-		info->ops = smmu_domain->pgtbl_ops;
+		info->ops = smmu_domain->pgtbl_ops[0];
 		ret = 0;
 		break;
 	}
@@ -3482,6 +3627,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		break;
 	case DOMAIN_ATTR_NO_CFRE:
 		*((int *)data) = test_bit(DOMAIN_ATTR_NO_CFRE,
+					  smmu_domain->attributes);
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_SPLIT_TABLES:
+		*((int *)data) = test_bit(DOMAIN_ATTR_SPLIT_TABLES,
 					  smmu_domain->attributes);
 		ret = 0;
 		break;
@@ -3733,6 +3883,22 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		}
 		break;
 	}
+	case DOMAIN_ATTR_SPLIT_TABLES: {
+		int split_tables = *((int *)data);
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+		} else if (split_tables) {
+			set_bit(DOMAIN_ATTR_SPLIT_TABLES,
+				smmu_domain->attributes);
+			ret = 0;
+		} else {
+			clear_bit(DOMAIN_ATTR_SPLIT_TABLES,
+				  smmu_domain->attributes);
+			ret = 0;
+		}
+		break;
+	}
 	default:
 		ret = -ENODEV;
 	}
@@ -3817,12 +3983,17 @@ static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
 	bool ret;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
-	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info;
+	struct io_pgtable_ops *ops;
+	struct msm_io_pgtable_info *pgtbl_info = &smmu_domain->pgtbl_info[0];
 
 	if (!pgtbl_info->is_iova_coherent)
 		return false;
 
+	ops = arm_smmu_get_pgtable_ops(smmu_domain, iova);
+	if (IS_ERR_OR_NULL(ops))
+		return false;
+
+	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = pgtbl_info->is_iova_coherent(ops, iova);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
