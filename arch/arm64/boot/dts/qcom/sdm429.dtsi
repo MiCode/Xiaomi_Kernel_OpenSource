@@ -150,6 +150,7 @@
 };
 
 #include "sdm429-bus.dtsi"
+#include "sdm429-pm.dtsi"
 #include "sdm429-pinctrl.dtsi"
 #include "sdm429-blsp.dtsi"
 #include "sdm429-cpu.dtsi"
