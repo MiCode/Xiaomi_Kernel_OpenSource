@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +86,7 @@ struct cnss_pci_data {
 	struct timer_list dev_rddm_timer;
 	bool disable_pc;
 	struct cnss_pci_debug_reg *debug_reg;
+	u32 iommu_geometry;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)

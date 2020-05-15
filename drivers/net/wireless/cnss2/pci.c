@@ -1407,6 +1407,27 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 			goto release_mapping;
 		}
 
+		if (pci_priv->iommu_geometry) {
+			struct iommu_domain_geometry geometry = {0};
+
+			/* Need revisit if iova and ipa not continuous */
+			CNSS_ASSERT(pci_priv->smmu_iova_start +
+				    pci_priv->smmu_iova_len ==
+				    pci_priv->smmu_iova_ipa_start);
+
+			geometry.aperture_start = pci_priv->smmu_iova_start;
+			geometry.aperture_end = pci_priv->smmu_iova_start +
+						pci_priv->smmu_iova_len +
+						pci_priv->smmu_iova_ipa_len;
+			ret = iommu_domain_set_attr(mapping->domain,
+						    DOMAIN_ATTR_GEOMETRY,
+						    &geometry);
+			/* Not fatal failure, fall-thru */
+			if (ret)
+				cnss_pr_err("Failed to set GEOMETRY, err = %d\n",
+					    ret);
+		}
+
 		ret = iommu_domain_set_attr(mapping->domain,
 					    DOMAIN_ATTR_CB_STALL_DISABLE,
 					    &cb_stall_disable);
@@ -3322,6 +3343,11 @@ static int cnss_pci_get_smmu_cfg(struct cnss_plat_data *plat_priv)
 		    "converged dt" : "single dt"),
 		    &pci_priv->smmu_iova_ipa_start,
 		    pci_priv->smmu_iova_ipa_len);
+
+	pci_priv->iommu_geometry =
+		of_property_read_bool(dev_node, "qcom,iommu-geometry");
+	cnss_pr_dbg("DOMAIN_ATTR_GEOMETRY: %d\n", pci_priv->iommu_geometry);
+
 	return 0;
 
 out:
