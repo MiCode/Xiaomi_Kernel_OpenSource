@@ -135,6 +135,7 @@
   devm_mfd_add_devices
   devm_nvmem_register
   devm_pinctrl_get
+  devm_pinctrl_put
   devm_power_supply_register
   __devm_regmap_init
   __devm_regmap_init_i2c
@@ -401,6 +402,7 @@
   of_alias_get_id
   of_clk_get
   of_clk_get_parent_count
+  of_count_phandle_with_args
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
@@ -1440,6 +1442,7 @@
   sdhci_pltfm_free
   sdhci_pltfm_init
   sdhci_request
+  sdhci_request_atomic
   sdhci_reset
   sdhci_runtime_resume_host
   sdhci_runtime_suspend_host
