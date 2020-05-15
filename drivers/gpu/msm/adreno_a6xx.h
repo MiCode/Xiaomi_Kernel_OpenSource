@@ -405,6 +405,6 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg);
 
-extern struct adreno_perfcounters adreno_a630_perfcounters;
-extern struct adreno_perfcounters adreno_a6xx_perfcounters;
+extern const struct adreno_perfcounters adreno_a630_perfcounters;
+extern const struct adreno_perfcounters adreno_a6xx_perfcounters;
 #endif
