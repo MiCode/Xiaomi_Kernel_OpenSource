@@ -9,6 +9,7 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,split-tables;
 		#global-interrupts = <2>;
 		#size-cells = <1>;
 		#address-cells = <1>;
