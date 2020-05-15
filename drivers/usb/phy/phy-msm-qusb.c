@@ -1706,6 +1706,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->suspended = true;
 
+	/*
+	 * EUD may be enable in boot loader and to keep EUD session alive across
+	 * kernel boot till USB phy driver is initialized based on cable status,
+	 * keep LDOs on here.
+	 */
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg))
+		qusb_phy_enable_power(qphy, true);
+
 	if (of_property_read_bool(dev->of_node, "extcon")) {
 		qphy->id_state = true;
 		qphy->vbus_active = false;
