@@ -2648,7 +2648,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
 	.microcode_read = a5xx_microcode_read,
-	.perfcounters = &adreno_a5xx_perfcounters,
 	.vbif_xin_halt_ctrl0_mask = A5XX_VBIF_XIN_HALT_CTRL0_MASK,
 	.is_sptp_idle = a5xx_is_sptp_idle,
 	.regulator_enable = a5xx_regulator_enable,

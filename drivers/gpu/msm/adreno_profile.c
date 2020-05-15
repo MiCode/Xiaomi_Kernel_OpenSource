@@ -954,9 +954,9 @@ static int profile_groups_print(struct seq_file *s, void *unused)
 {
 	struct kgsl_device *device = (struct kgsl_device *) s->private;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct adreno_perfcounters *counters = gpudev->perfcounters;
-	struct adreno_perfcount_group *group;
+	const struct adreno_perfcounters *counters =
+		ADRENO_PERFCOUNTERS(adreno_dev);
+	const struct adreno_perfcount_group *group;
 	int i, j, used;
 
 	mutex_lock(&device->mutex);

@@ -34,7 +34,7 @@
  * the stored shadow value
  */
 static u64 a6xx_counter_read_norestore(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -48,7 +48,7 @@ static u64 a6xx_counter_read_norestore(struct adreno_device *adreno_dev,
 }
 
 static int a6xx_counter_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -67,7 +67,7 @@ static int a6xx_counter_enable(struct adreno_device *adreno_dev,
 }
 
 static int a6xx_counter_inline_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -130,7 +130,7 @@ static int a6xx_counter_inline_enable(struct adreno_device *adreno_dev,
 }
 
 static u64 a6xx_counter_read(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -145,7 +145,7 @@ static u64 a6xx_counter_read(struct adreno_device *adreno_dev,
 }
 
 static int a6xx_counter_gbif_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -176,7 +176,7 @@ static int a6xx_counter_gbif_enable(struct adreno_device *adreno_dev,
 }
 
 static int a630_counter_vbif_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -206,7 +206,7 @@ static int a630_counter_vbif_enable(struct adreno_device *adreno_dev,
 }
 
 static int a630_counter_vbif_pwr_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -227,7 +227,7 @@ static int a630_counter_vbif_pwr_enable(struct adreno_device *adreno_dev,
 }
 
 static int a6xx_counter_gbif_pwr_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -254,14 +254,14 @@ static int a6xx_counter_gbif_pwr_enable(struct adreno_device *adreno_dev,
 }
 
 static int a6xx_counter_alwayson_enable(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
 	return 0;
 }
 
 static u64 a6xx_counter_alwayson_read(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group,
+		const struct adreno_perfcount_group *group,
 		unsigned int counter)
 {
 	struct adreno_perfcount_register *reg = &group->regs[counter];
@@ -630,7 +630,7 @@ static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
 #define A6XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags, enable, read) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags, enable, read)
 
-static struct adreno_perfcount_group a630_perfcounter_groups
+static const struct adreno_perfcount_group a630_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
 	A6XX_PERFCOUNTER_GROUP(CP, cp,
 		a6xx_counter_enable, a6xx_counter_read),
@@ -674,7 +674,7 @@ static struct adreno_perfcount_group a630_perfcounter_groups
 		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
 };
 
-static struct adreno_perfcount_group a6xx_perfcounter_groups
+static const struct adreno_perfcount_group a6xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
 	A6XX_PERFCOUNTER_GROUP(CP, cp,
 		a6xx_counter_enable, a6xx_counter_read),
@@ -718,12 +718,12 @@ static struct adreno_perfcount_group a6xx_perfcounter_groups
 		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read),
 };
 
-struct adreno_perfcounters adreno_a630_perfcounters = {
+const struct adreno_perfcounters adreno_a630_perfcounters = {
 	a630_perfcounter_groups,
 	ARRAY_SIZE(a630_perfcounter_groups),
 };
 
-struct adreno_perfcounters adreno_a6xx_perfcounters = {
+const struct adreno_perfcounters adreno_a6xx_perfcounters = {
 	a6xx_perfcounter_groups,
 	ARRAY_SIZE(a6xx_perfcounter_groups),
 };

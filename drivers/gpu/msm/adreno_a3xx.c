@@ -1236,7 +1236,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.ft_perf_counters = a3xx_ft_perf_counters,
 	.ft_perf_counters_count = ARRAY_SIZE(a3xx_ft_perf_counters),
-	.perfcounters = &adreno_a3xx_perfcounters,
 	.irq_handler = a3xx_irq_handler,
 	.vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK,
 	.probe = a3xx_probe,

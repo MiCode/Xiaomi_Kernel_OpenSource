@@ -8,8 +8,7 @@
 struct adreno_device;
 
 /* ADRENO_PERFCOUNTERS - Given an adreno device, return the perfcounters list */
-#define ADRENO_PERFCOUNTERS(_a) \
-	(ADRENO_GPU_DEVICE(_a) ? ADRENO_GPU_DEVICE(_a)->perfcounters : NULL)
+#define ADRENO_PERFCOUNTERS(_a) ((_a)->gpucore->perfcounters)
 
 #define PERFCOUNTER_FLAG_NONE 0x0
 #define PERFCOUNTER_FLAG_KERNEL 0x1
@@ -49,10 +48,11 @@ struct adreno_perfcount_group {
 	const char *name;
 	unsigned long flags;
 	int (*enable)(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group, unsigned int counter,
-		unsigned int countable);
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable);
 	u64 (*read)(struct adreno_device *adreno_dev,
-		struct adreno_perfcount_group *group, unsigned int counter);
+		const struct adreno_perfcount_group *group,
+		unsigned int counter);
 };
 
 /*
@@ -78,7 +78,7 @@ struct adreno_perfcount_group {
  * @group_count: total groups for this device
  */
 struct adreno_perfcounters {
-	struct adreno_perfcount_group *groups;
+	const struct adreno_perfcount_group *groups;
 	unsigned int group_count;
 };
 
