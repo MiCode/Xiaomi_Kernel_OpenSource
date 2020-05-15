@@ -1992,7 +1992,11 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 * during alloc_io_pgtable_ops
 	 */
 	arm_smmu_secure_domain_lock(smmu_domain);
-	arm_smmu_assign_table(smmu_domain);
+	ret = arm_smmu_assign_table(smmu_domain);
+	if (ret == -EPROBE_DEFER) {
+		arm_smmu_secure_domain_unlock(smmu_domain);
+		goto out_clear_smmu;
+	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	/* Update the domain's page sizes to reflect the page table format */
@@ -2480,6 +2484,10 @@ static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
 				      PAGE_SIZE, &source_vmid, 1,
 				      dest_vmids, dest_perms, 2);
+
+		if (ret == -EPROBE_DEFER)
+			return ret;
+
 		if (WARN_ON(ret))
 			break;
 	}
@@ -2507,6 +2515,10 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
 				      PAGE_SIZE, source_vmlist, 2,
 				      &dest_vmids, &dest_perms, 1);
+
+		if (ret == -EPROBE_DEFER)
+			return;
+
 		if (WARN_ON(ret))
 			break;
 		free_pages_exact(pte_info->virt_addr, pte_info->size);
