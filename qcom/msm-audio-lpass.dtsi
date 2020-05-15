@@ -209,6 +209,7 @@
 		rx_cdc_dma_6_rx: qcom,msm-dai-rx-cdc-dma-6-rx {
 			compatible = "qcom,msm-dai-cdc-dma-dev";
 			qcom,msm-dai-cdc-dma-dev-id = <45116>;
+			qcom,msm-cdc-dma-data-align = <1>;
 		};
 
 		rx_cdc_dma_7_rx: qcom,msm-dai-rx-cdc-dma-7-rx {
