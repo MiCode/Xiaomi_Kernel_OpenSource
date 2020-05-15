@@ -393,4 +393,18 @@ bool a6xx_hw_isidle(struct adreno_device *adreno_dev);
  */
 void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 	const char *str);
+
+/**
+ * a6xx_perfcounter_update - Update the IFPC perfcounter list
+ * @adreno_dev: An Adreno GPU handle
+ * @reg: Perfcounter reg struct to add/remove to the list
+ * @update_reg: true if the perfcounter needs to be programmed by the CPU
+ *
+ * Return: 0 on success or -EBUSY if the lock couldn't be taken
+ */
+int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
+	struct adreno_perfcount_register *reg, bool update_reg);
+
+extern struct adreno_perfcounters adreno_a630_perfcounters;
+extern struct adreno_perfcounters adreno_a6xx_perfcounters;
 #endif
