@@ -5506,7 +5506,6 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 			break;
 		cfs_rq->h_nr_running--;
 		cfs_rq->idle_h_nr_running -= idle_h_nr_running;
-		walt_dec_cfs_rq_stats(cfs_rq, p);
 
 		/* Don't dequeue parent if it has other entities besides us */
 		if (cfs_rq->load.weight) {
@@ -5527,7 +5526,6 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cfs_rq = cfs_rq_of(se);
 		cfs_rq->h_nr_running--;
 		cfs_rq->idle_h_nr_running -= idle_h_nr_running;
-		walt_dec_cfs_rq_stats(cfs_rq, p);
 
 		if (cfs_rq_throttled(cfs_rq))
 			break;
