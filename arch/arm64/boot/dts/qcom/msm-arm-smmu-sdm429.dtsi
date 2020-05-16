@@ -14,7 +14,7 @@
 
 &soc {
 	kgsl_smmu: arm,smmu-kgsl@1c40000 {
-		status = "ok";
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "GPU";
 		reg = <0x1c40000 0x10000>;
@@ -46,7 +46,7 @@
 	};
 
 	apps_iommu: qcom,iommu@1e00000 {
-		status = "okay";
+		status = "disabled";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1e00000 0x40000>,
 			<0x1ee2000 0x20>;

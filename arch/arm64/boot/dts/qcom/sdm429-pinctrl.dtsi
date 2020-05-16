@@ -15,7 +15,7 @@
 	tlmm: pinctrl@1000000 {
 		compatible = "qcom,sdm429w-pinctrl";
 		reg = <0x1000000 0x300000>;
-		reg-names = "pinctrl_regs";
+		reg-names = "pinctrl";
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
