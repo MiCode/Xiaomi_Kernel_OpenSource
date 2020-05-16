@@ -13,14 +13,14 @@ dtbo-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi-overlay.dtbo \
 
 lahaina-rumi-overlay.dtbo-base := lahaina.dtb
 lahaina-mtp-hsp-overlay.dtbo-base := lahaina.dtb
-lahaina-mtp-overlay.dtbo-base := lahaina.dtb
-lahaina-cdp-overlay.dtbo-base := lahaina.dtb
+lahaina-mtp-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb
+lahaina-cdp-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb
 lahaina-qrd-hsp-overlay.dtbo-base := lahaina.dtb
-lahaina-qrd-overlay.dtbo-base := lahaina.dtb
+lahaina-qrd-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb
 lahaina-qrd-module-overlay.dtbo-base := lahaina.dtb
-lahainap-mtp-overlay.dtbo-base := lahainap.dtb
-lahainap-cdp-overlay.dtbo-base := lahainap.dtb
-lahainap-qrd-overlay.dtbo-base := lahainap.dtb
+lahainap-mtp-overlay.dtbo-base := lahainap.dtb lahainap-v2.dtb
+lahainap-cdp-overlay.dtbo-base := lahainap.dtb lahainap-v2.dtb
+lahainap-qrd-overlay.dtbo-base := lahainap.dtb lahainap-v2.dtb
 else
 dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-mtp-hsp.dtb \
@@ -31,7 +31,13 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-qrd-module.dtb \
 	lahainap-mtp.dtb \
 	lahainap-cdp.dtb \
-	lahainap-qrd.dtb
+	lahainap-qrd.dtb \
+	lahaina-v2-mtp.dtb \
+	lahaina-v2-cdp.dtb \
+	lahaina-v2-qrd.dtb \
+	lahainap-v2-mtp.dtb \
+	lahainap-v2-cdp.dtb \
+	lahainap-v2-qrd.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
