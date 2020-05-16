@@ -2673,11 +2673,16 @@ int dpcm_be_dai_prepare(struct snd_soc_pcm_runtime *fe, int stream)
 		/* is this op for this BE ? */
 		if (!snd_soc_dpcm_be_can_update(fe, be, stream))
 			continue;
-
+#ifdef CONFIG_AUDIO_QGKI
+		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
+		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP) &&
+		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_SUSPEND))
+#else
 		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_SUSPEND) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_PAUSED))
+#endif
 			continue;
 
 		dev_dbg(be->dev, "ASoC: prepare BE %s\n",
