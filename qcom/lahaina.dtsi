@@ -4400,6 +4400,7 @@
 		qcom,use-64-bit-dma-mask;
 		qcom,ipa-endp-delay-wa;
 		qcom,lan-rx-napi;
+		qcom,tx-napi;
 		qcom,wan-use-skb-page;
 		qcom,rmnet-ctl-enable;
 		qcom,ipa-uc-holb-monitor;
