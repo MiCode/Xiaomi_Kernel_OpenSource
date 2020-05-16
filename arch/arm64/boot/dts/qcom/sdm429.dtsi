@@ -463,6 +463,7 @@
 		qcom,boost-sysclk-with-streaming;
 		qcom,axi-prefetch-enable;
 		qcom,hsusb-otg-delay-lpm;
+		qcom,enumeration-check-for-sdp;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <3>;
