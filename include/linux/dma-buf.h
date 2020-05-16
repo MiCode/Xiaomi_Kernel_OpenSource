@@ -445,6 +445,7 @@ struct dma_buf {
 	struct list_head refs;
 	dma_buf_destructor dtor;
 	void *dtor_data;
+	atomic_t dent_count;
 };
 
 /**

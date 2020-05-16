@@ -3938,17 +3938,6 @@ struct find_best_target_env {
 	bool strict_max;
 };
 
-static inline bool prefer_spread_on_idle(int cpu)
-{
-	if (likely(!sysctl_sched_prefer_spread))
-		return false;
-
-	if (is_min_capacity_cpu(cpu))
-		return sysctl_sched_prefer_spread >= 1;
-
-	return sysctl_sched_prefer_spread > 1;
-}
-
 static inline void adjust_cpus_for_packing(struct task_struct *p,
 			int *target_cpu, int *best_idle_cpu,
 			int shallowest_idle_cstate,
@@ -10482,8 +10471,7 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 
 	env.prefer_spread = (prefer_spread_on_idle(this_cpu) &&
 				!((sd->flags & SD_ASYM_CPUCAPACITY) &&
-				 !cpumask_test_cpu(this_cpu,
-						 &asym_cap_sibling_cpus)));
+				 !is_asym_cap_cpu(this_cpu)));
 
 	cpumask_and(cpus, sched_domain_span(sd), cpu_active_mask);
 
@@ -11690,7 +11678,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 
 		if (prefer_spread && !force_lb &&
 			(sd->flags & SD_ASYM_CPUCAPACITY) &&
-			!(cpumask_test_cpu(this_cpu, &asym_cap_sibling_cpus)))
+			!is_asym_cap_cpu(this_cpu))
 			avg_idle = this_rq->avg_idle;
 
 		if (avg_idle < curr_cost + sd->max_newidle_lb_cost) {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, 2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/ipa_uc_offload.h>
 #include <linux/msm_ipa.h>
+#include <linux/if_vlan.h>
 #include "../ipa_common_i.h"
 #include "../ipa_v3/ipa_pm.h"
 
@@ -160,7 +161,7 @@ static int ipa_uc_offload_ntn_reg_intf(
 	struct ipa_ioc_rx_intf_prop rx_prop[2];
 	int ret = 0;
 	u32 len;
-
+	bool is_vlan_mode;
 
 	IPA_UC_OFFLOAD_DBG("register interface for netdev %s\n",
 					 inp->netdev_name);
@@ -180,6 +181,41 @@ static int ipa_uc_offload_ntn_reg_intf(
 	if (hdr == NULL) {
 		ret = -ENOMEM;
 		goto fail_alloc;
+	}
+
+	ret = ipa_is_vlan_mode(IPA_VLAN_IF_ETH, &is_vlan_mode);
+	if (ret) {
+		IPA_UC_OFFLOAD_ERR("get vlan mode failed\n");
+		goto fail;
+	}
+
+	if (is_vlan_mode) {
+		if ((inp->hdr_info[0].hdr_type != IPA_HDR_L2_802_1Q) ||
+			(inp->hdr_info[1].hdr_type != IPA_HDR_L2_802_1Q)) {
+			IPA_UC_OFFLOAD_ERR(
+				"hdr_type mismatch in vlan mode\n");
+			WARN_ON_RATELIMIT_IPA(1);
+			ret = -EFAULT;
+			goto fail;
+		}
+		IPA_UC_OFFLOAD_DBG("vlan HEADER type compatible\n");
+
+		if ((inp->hdr_info[0].hdr_len <
+			(ETH_HLEN + VLAN_HLEN)) ||
+			(inp->hdr_info[1].hdr_len <
+			(ETH_HLEN + VLAN_HLEN))) {
+			IPA_UC_OFFLOAD_ERR(
+				"hdr_len shorter than vlan len (%u) (%u)\n"
+				, inp->hdr_info[0].hdr_len
+				, inp->hdr_info[1].hdr_len);
+			WARN_ON_RATELIMIT_IPA(1);
+			ret = -EFAULT;
+			goto fail;
+		}
+
+		IPA_UC_OFFLOAD_DBG("vlan HEADER len compatible (%u) (%u)\n",
+			inp->hdr_info[0].hdr_len,
+			inp->hdr_info[1].hdr_len);
 	}
 
 	if (ipa_commit_partial_hdr(hdr, ntn_ctx->netdev_name, inp->hdr_info)) {

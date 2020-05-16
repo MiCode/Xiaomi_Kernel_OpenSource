@@ -665,6 +665,8 @@ int cnss_idle_restart(struct device *dev)
 		return -ENODEV;
 	}
 
+	mutex_lock(&plat_priv->driver_ops_lock);
+
 	cnss_pr_dbg("Doing idle restart\n");
 
 	reinit_completion(&plat_priv->power_up_complete);
@@ -703,9 +705,11 @@ int cnss_idle_restart(struct device *dev)
 		goto out;
 	}
 
+	mutex_unlock(&plat_priv->driver_ops_lock);
 	return 0;
 
 out:
+	mutex_unlock(&plat_priv->driver_ops_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cnss_idle_restart);
@@ -1979,6 +1983,7 @@ static ssize_t shutdown_store(struct kobject *kobj,
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 		del_timer(&plat_priv->fw_boot_timer);
 		complete_all(&plat_priv->power_up_complete);
+		complete_all(&plat_priv->cal_complete);
 	}
 
 	cnss_pr_dbg("Received shutdown notification\n");
@@ -2120,6 +2125,7 @@ static int cnss_reboot_notifier(struct notifier_block *nb,
 	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 	del_timer(&plat_priv->fw_boot_timer);
 	complete_all(&plat_priv->power_up_complete);
+	complete_all(&plat_priv->cal_complete);
 	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
 
 	return NOTIFY_DONE;
@@ -2152,6 +2158,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	init_completion(&plat_priv->rddm_complete);
 	init_completion(&plat_priv->recovery_complete);
 	mutex_init(&plat_priv->dev_lock);
+	mutex_init(&plat_priv->driver_ops_lock);
 
 	return 0;
 }

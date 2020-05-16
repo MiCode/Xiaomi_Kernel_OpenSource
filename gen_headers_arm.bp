@@ -638,6 +638,7 @@ gen_headers_out_arm = [
     "linux/xilinx-v4l2-controls.h",
     "linux/zorro.h",
     "linux/zorro_ids.h",
+    "linux/fscrypt.h",
     "media/msm_cvp_private.h",
     "media/msm_cvp_utils.h",
     "media/msm_media_info.h",
@@ -970,6 +971,9 @@ gen_headers_out_arm = [
     "media/cam_req_mgr.h",
     "media/cam_sensor.h",
     "media/cam_sync.h",
+    "media/cam_tfe.h",
+    "media/cam_ope.h",
+    "media/cam_isp_tfe.h",
 ]
 
 genrule {

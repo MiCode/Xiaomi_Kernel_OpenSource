@@ -207,6 +207,9 @@ struct icnss_stats {
 	uint32_t device_info_req;
 	uint32_t device_info_resp;
 	uint32_t device_info_err;
+	u32 exit_power_save_req;
+	u32 exit_power_save_resp;
+	u32 exit_power_save_err;
 };
 
 #define WLFW_MAX_TIMESTAMP_LEN 32
@@ -337,6 +340,8 @@ struct icnss_priv {
 	atomic_t is_shutdown;
 	u32 qdss_mem_seg_len;
 	struct icnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
+	void *get_info_cb_ctx;
+	int (*get_info_cb)(void *ctx, void *event, int event_len);
 };
 
 struct icnss_reg_info {

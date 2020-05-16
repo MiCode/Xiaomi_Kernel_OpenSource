@@ -1624,7 +1624,7 @@ static void smb1398_status_change_work(struct work_struct *work)
 	 * valid due to the battery discharging later, remove
 	 * vote from CUTOFF_SOC_VOTER.
 	 */
-	if (is_cutoff_soc_reached(chip))
+	if (!is_cutoff_soc_reached(chip))
 		vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER, false, 0);
 
 	rc = power_supply_get_property(chip->usb_psy,

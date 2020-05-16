@@ -23,6 +23,8 @@
 #define RECOVERY_TIMEOUT		60000
 #define WLAN_WD_TIMEOUT_MS		60000
 #define TIME_CLOCK_FREQ_HZ		19200000
+#define CNSS_RAMDUMP_MAGIC		0x574C414E
+#define CNSS_RAMDUMP_VERSION		0
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -167,6 +169,21 @@ enum cnss_fw_dump_type {
 	CNSS_FW_IMAGE,
 	CNSS_FW_RDDM,
 	CNSS_FW_REMOTE_HEAP,
+	CNSS_FW_DUMP_TYPE_MAX,
+};
+
+struct cnss_dump_entry {
+	u32 type;
+	u32 entry_start;
+	u32 entry_num;
+};
+
+struct cnss_dump_meta_info {
+	u32 magic;
+	u32 version;
+	u32 chipset;
+	u32 total_entries;
+	struct cnss_dump_entry entry[CNSS_FW_DUMP_TYPE_MAX];
 };
 
 enum cnss_driver_event_type {
@@ -344,6 +361,7 @@ struct cnss_plat_data {
 	struct completion power_up_complete;
 	struct completion cal_complete;
 	struct mutex dev_lock; /* mutex for register access through debugfs */
+	struct mutex driver_ops_lock; /* mutex for external driver ops */
 	u32 device_freq_hz;
 	u32 diag_reg_read_addr;
 	u32 diag_reg_read_mem_type;

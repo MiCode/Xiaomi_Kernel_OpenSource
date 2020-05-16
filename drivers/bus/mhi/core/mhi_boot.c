@@ -565,8 +565,21 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 
 	ret = request_firmware(&firmware, fw_name, mhi_cntrl->dev);
 	if (ret) {
-		MHI_CNTRL_ERR("Error loading firmware, ret:%d\n", ret);
-		return;
+		if (!mhi_cntrl->fw_image_fallback) {
+			MHI_ERR("Error loading fw, ret:%d\n", ret);
+			return;
+		}
+
+		/* re-try with fall back fw image */
+		ret = request_firmware(&firmware, mhi_cntrl->fw_image_fallback,
+				mhi_cntrl->dev);
+		if (ret) {
+			MHI_ERR("Error loading fw_fb, ret:%d\n", ret);
+			return;
+		}
+
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_FW_FALLBACK_IMG);
 	}
 
 	size = (mhi_cntrl->fbc_download) ? mhi_cntrl->sbl_size : firmware->size;

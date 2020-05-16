@@ -125,6 +125,7 @@ struct lt9611 {
 	u8 i2c_wbuf[WRITE_BUF_MAX_SIZE];
 	u8 i2c_rbuf[READ_BUF_MAX_SIZE];
 	bool hdmi_mode;
+	bool hpd_support;
 	enum lt9611_fw_upgrade_status fw_status;
 };
 
@@ -1302,7 +1303,7 @@ lt9611_connector_detect(struct drm_connector *connector, bool force)
 	struct lt9611 *pdata = connector_to_lt9611(connector);
 
 	pdata->status = connector_status_disconnected;
-	if (force) {
+	if (force && pdata->hpd_support) {
 		lt9611_write_byte(pdata, 0xFF, 0x80);
 		lt9611_write_byte(pdata, 0xEE, 0x01);
 		lt9611_write_byte(pdata, 0xFF, 0xB0);
@@ -1668,6 +1669,7 @@ static int lt9611_probe(struct i2c_client *client,
 {
 	struct lt9611 *pdata;
 	int ret = 0;
+	u8 chip_version = 0;
 
 	if (!client || !client->dev.of_node) {
 		pr_err("invalid input\n");
@@ -1730,8 +1732,12 @@ static int lt9611_probe(struct i2c_client *client,
 		goto err_i2c_prog;
 	}
 
-	if (lt9611_get_version(pdata)) {
+	chip_version = lt9611_get_version(pdata);
+	pdata->hpd_support = false;
+	if (chip_version) {
 		pr_info("LT9611 works, no need to upgrade FW\n");
+		if (chip_version >= 0x40)
+			pdata->hpd_support = true;
 	} else {
 		ret = request_firmware_nowait(THIS_MODULE, true,
 			"lt9611_fw.bin", &client->dev, GFP_KERNEL, pdata,

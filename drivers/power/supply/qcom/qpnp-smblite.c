@@ -433,6 +433,9 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblite_lib_get_prop_scope(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		rc = schgm_flashlite_get_vreg_ok(chg, &val->intval);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -526,6 +529,7 @@ static enum power_supply_property smblite_usb_main_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_FLASH_TRIGGER,
 };
 
 static int smblite_usb_main_get_prop(struct power_supply *psy,
@@ -960,22 +964,18 @@ static int smblite_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	rc = smblite_lib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smblite_lib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 					EN_SNK_ONLY_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	/* Enable detection of unoriented debug accessory in source mode */
-	rc = smblite_lib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
-				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
-				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure TYPE_C_DEBUG_ACCESS_SRC_CFG_REG rc=%d\n",
 				rc);
 		return rc;
 	}

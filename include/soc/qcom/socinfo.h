@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ARCH_ARM_MACH_MSM_SOCINFO_H_
@@ -74,6 +74,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxprairie")
 #define early_machine_is_sdmmagpie()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmmagpie")
+#define early_machine_is_sdm660()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -105,6 +107,7 @@
 #define early_machine_is_qcs405()	0
 #define early_machine_is_sdxprairie()	0
 #define early_machine_is_sdmmagpie()	0
+#define early_machine_is_sdm660()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -125,6 +128,7 @@ enum msm_cpu {
 	MSM_CPU_8916,
 	MSM_CPU_8084,
 	MSM_CPU_8996,
+	MSM_CPU_SDM660,
 	MSM_CPU_SM8150,
 	MSM_CPU_SA8150,
 	MSM_CPU_KONA,

@@ -110,9 +110,9 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 1200000000,
-				[VDD_LOWER] = 2400000000,
-				[VDD_LOW] = 3000000000,
-				[VDD_NOMINAL] = 3300000000},
+				[VDD_LOWER] = 2400000000UL,
+				[VDD_LOW] = 3000000000UL,
+				[VDD_NOMINAL] = 3300000000UL},
 		},
 	},
 };

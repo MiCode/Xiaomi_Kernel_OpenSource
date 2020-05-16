@@ -1644,6 +1644,8 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 {
 	unsigned int val;
 
+	dev_err(device->dev, "GMU snapshot started at 0x%llx ticks\n",
+			a6xx_gmu_read_ao_counter(device));
 	a6xx_gmu_snapshot_versions(device, snapshot);
 
 	a6xx_gmu_snapshot_memories(device, snapshot);

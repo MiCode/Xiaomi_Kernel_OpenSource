@@ -824,6 +824,9 @@ void mhi_special_purpose_work(struct work_struct *work)
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state)))
+		return;
+
 	/* check special purpose event rings and process events */
 	list_for_each_entry(mhi_event, &mhi_cntrl->sp_ev_rings, node)
 		mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);

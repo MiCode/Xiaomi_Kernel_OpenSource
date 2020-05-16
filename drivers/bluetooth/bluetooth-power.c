@@ -42,6 +42,7 @@ static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qca,qca6174" },
 	{	.compatible = "qca,wcn3990" },
 	{	.compatible = "qca,qca6390" },
+	{	.compatible = "qca,wcn6750" },
 	{}
 };
 
@@ -272,10 +273,14 @@ static int bt_configure_gpios(int on)
 			return rc;
 		}
 		msleep(50);
-		BT_PWR_ERR("BTON:Turn Bt Off bt-reset-gpio(%d) value(%d)\n",
-			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
-		BT_PWR_ERR("BTON:Turn Bt Off bt-sw-ctrl-gpio(%d) value(%d)\n",
-			bt_sw_ctrl_gpio,  gpio_get_value(bt_sw_ctrl_gpio));
+		BT_PWR_INFO("BTON:Turn Bt Off bt-reset-gpio(%d) value(%d)\n",
+				bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			BT_PWR_INFO("BTON:Turn Bt Off");
+			BT_PWR_INFO("bt-sw-ctrl-gpio(%d) value(%d)",
+					bt_sw_ctrl_gpio,
+					gpio_get_value(bt_sw_ctrl_gpio));
+		}
 
 		rc = gpio_direction_output(bt_reset_gpio, 1);
 		if (rc) {
@@ -306,22 +311,30 @@ static int bt_configure_gpios(int on)
 					BT_PWR_ERR("Prob: Set Debug-Gpio\n");
 			}
 		}
-		BT_PWR_ERR("BTON:Turn Bt On bt-reset-gpio(%d) value(%d)\n",
-			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
-		BT_PWR_ERR("BTON:Turn Bt On bt-sw-ctrl-gpio(%d) value(%d)\n",
-			bt_sw_ctrl_gpio,  gpio_get_value(bt_sw_ctrl_gpio));
+		BT_PWR_INFO("BTON:Turn Bt On bt-reset-gpio(%d) value(%d)\n",
+				bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+		if (bt_sw_ctrl_gpio >= 0) {
+			BT_PWR_INFO("BTON:Turn Bt On");
+			BT_PWR_INFO("bt-sw-ctrl-gpio(%d) value(%d)",
+					bt_sw_ctrl_gpio,
+					gpio_get_value(bt_sw_ctrl_gpio));
+		}
 	} else {
 		gpio_set_value(bt_reset_gpio, 0);
 		if  (bt_debug_gpio  >=  0)
 			gpio_set_value(bt_debug_gpio,  0);
 		msleep(100);
-		BT_PWR_ERR("BT-OFF:bt-reset-gpio(%d) value(%d)\n",
-			bt_reset_gpio, gpio_get_value(bt_reset_gpio));
-		BT_PWR_ERR("BT-OFF:bt-sw-ctrl-gpio(%d) value(%d)\n",
-			bt_sw_ctrl_gpio,  gpio_get_value(bt_sw_ctrl_gpio));
+		BT_PWR_INFO("BT-OFF:bt-reset-gpio(%d) value(%d)\n",
+				bt_reset_gpio, gpio_get_value(bt_reset_gpio));
+
+		if (bt_sw_ctrl_gpio >= 0) {
+			BT_PWR_INFO("BT-OFF:bt-sw-ctrl-gpio(%d) value(%d)",
+					bt_sw_ctrl_gpio,
+					gpio_get_value(bt_sw_ctrl_gpio));
+		}
 	}
 
-	BT_PWR_ERR("bt_gpio= %d on: %d is successful", bt_reset_gpio, on);
+	BT_PWR_INFO("bt_gpio= %d on: %d is successful", bt_reset_gpio, on);
 	return rc;
 }
 
@@ -893,7 +906,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case BT_CMD_CHIPSET_VERS:
 		chipset_version = (int)arg;
-		BT_PWR_ERR("BT_CMD_CHIP_VERS soc_version:%x", chipset_version);
+		BT_PWR_ERR("unified Current SOC Version : %x", chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
 			if (soc_id == QCA_HSP_SOC_ID_0100 ||

@@ -1881,20 +1881,33 @@ static int cnss_qca6290_ramdump(struct cnss_pci_data *pci_priv)
 	struct cnss_dump_data *dump_data = &info_v2->dump_data;
 	struct cnss_dump_seg *dump_seg = info_v2->dump_data_vaddr;
 	struct ramdump_segment *ramdump_segs, *s;
+	struct cnss_dump_meta_info meta_info = {0};
 	int i, ret = 0;
 
 	if (!info_v2->dump_data_valid ||
 	    dump_data->nentries == 0)
 		return 0;
 
-	ramdump_segs = kcalloc(dump_data->nentries,
+	ramdump_segs = kcalloc(dump_data->nentries + 1,
 			       sizeof(*ramdump_segs),
 			       GFP_KERNEL);
 	if (!ramdump_segs)
 		return -ENOMEM;
 
-	s = ramdump_segs;
+	s = ramdump_segs + 1;
 	for (i = 0; i < dump_data->nentries; i++) {
+		if (dump_seg->type >= CNSS_FW_DUMP_TYPE_MAX) {
+			cnss_pr_err("Unsupported dump type: %d",
+				    dump_seg->type);
+			continue;
+		}
+
+		if (meta_info.entry[dump_seg->type].entry_start == 0) {
+			meta_info.entry[dump_seg->type].type = dump_seg->type;
+			meta_info.entry[dump_seg->type].entry_start = i + 1;
+		}
+		meta_info.entry[dump_seg->type].entry_num++;
+
 		s->address = dump_seg->address;
 		s->v_address = dump_seg->v_address;
 		s->size = dump_seg->size;
@@ -1902,8 +1915,16 @@ static int cnss_qca6290_ramdump(struct cnss_pci_data *pci_priv)
 		dump_seg++;
 	}
 
+	meta_info.magic = CNSS_RAMDUMP_MAGIC;
+	meta_info.version = CNSS_RAMDUMP_VERSION;
+	meta_info.chipset = pci_priv->device_id;
+	meta_info.total_entries = CNSS_FW_DUMP_TYPE_MAX;
+
+	ramdump_segs->v_address = &meta_info;
+	ramdump_segs->size = sizeof(meta_info);
+
 	ret = do_elf_ramdump(info_v2->ramdump_dev, ramdump_segs,
-			     dump_data->nentries);
+			     dump_data->nentries + 1);
 	kfree(ramdump_segs);
 
 	cnss_pci_clear_dump_info(pci_priv);
@@ -2065,7 +2086,8 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 					  msecs_to_jiffies(timeout) << 2);
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
-		CNSS_ASSERT(0);
+		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
+			CNSS_ASSERT(0);
 
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 		if (!cal_info)
@@ -2077,17 +2099,17 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 				       0, cal_info);
 	}
 
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Reboot or shutdown is in progress, ignore register driver\n");
+		return -EINVAL;
+	}
+
 register_driver:
 	reinit_completion(&plat_priv->power_up_complete);
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
-				     CNSS_EVENT_SYNC_UNINTERRUPTIBLE,
+				     CNSS_EVENT_SYNC_UNKILLABLE,
 				     driver_ops);
-	if (ret == -EINTR) {
-		cnss_pr_dbg("Register driver work is killed\n");
-		del_timer(&plat_priv->fw_boot_timer);
-		pci_priv->driver_ops = NULL;
-	}
 
 	return ret;
 }
@@ -2104,9 +2126,9 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 		return;
 	}
 
-	if (plat_priv->device_id == QCA6174_DEVICE_ID ||
-	    !(test_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state) ||
-	      test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)))
+	mutex_lock(&plat_priv->driver_ops_lock);
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto skip_wait_power_up;
 
 	timeout = cnss_get_qmi_timeout(plat_priv);
@@ -2134,7 +2156,9 @@ skip_wait_power_up:
 skip_wait_recovery:
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
-			       CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
+			       CNSS_EVENT_SYNC_UNKILLABLE, NULL);
+
+	mutex_unlock(&plat_priv->driver_ops_lock);
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
@@ -3355,7 +3379,14 @@ int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 
 	info->va = pci_priv->bar;
 	info->pa = pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM);
-
+	info->chip_id = plat_priv->chip_info.chip_id;
+	info->chip_family = plat_priv->chip_info.chip_family;
+	info->board_id = plat_priv->board_info.board_id;
+	info->soc_id = plat_priv->soc_info.soc_id;
+	info->fw_version = plat_priv->fw_version_info.fw_version;
+	strlcpy(info->fw_build_timestamp,
+		plat_priv->fw_version_info.fw_build_timestamp,
+		sizeof(info->fw_build_timestamp));
 	memcpy(&info->device_version, &plat_priv->device_version,
 	       sizeof(info->device_version));
 
