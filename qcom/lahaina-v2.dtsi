@@ -21,3 +21,5 @@
 &CPU7 {
 	dynamic-power-coefficient = <760>;
 };
+
+#include "lahaina-v2-gpu.dtsi"
