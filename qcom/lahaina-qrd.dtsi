@@ -148,6 +148,13 @@
 	status = "disabled";
 };
 
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0xe4 0x6c
+		0x0f 0x70
+		0x17 0x74>;
+};
+
 &qupv3_se4_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
