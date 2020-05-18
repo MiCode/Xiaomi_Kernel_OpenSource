@@ -113,15 +113,6 @@ static u64 mem_acc_read_efuse_row(struct mem_acc_regulator *mem_acc_vreg,
 	int rc;
 	u64 efuse_bits;
 	struct scm_desc desc = {0};
-	struct mem_acc_read_req {
-		u32 row_address;
-		int addr_type;
-	} req;
-
-	struct mem_acc_read_rsp {
-		u32 row_data[2];
-		u32 status;
-	} rsp;
 
 	if (!use_tz_api) {
 		efuse_bits = readq_relaxed(mem_acc_vreg->efuse_base
@@ -129,28 +120,16 @@ static u64 mem_acc_read_efuse_row(struct mem_acc_regulator *mem_acc_vreg,
 		return efuse_bits;
 	}
 
-	desc.args[0] = req.row_address = mem_acc_vreg->efuse_addr +
-					row_num * BYTES_PER_FUSE_ROW;
-	desc.args[1] = req.addr_type = 0;
+	desc.args[0] = mem_acc_vreg->efuse_addr + row_num * BYTES_PER_FUSE_ROW;
+	desc.args[1] = 0;
 	desc.arginfo = SCM_ARGS(2);
 	efuse_bits = 0;
 
-	if (!is_scm_armv8()) {
-		rc = scm_call(SCM_SVC_FUSE, SCM_FUSE_READ,
-			&req, sizeof(req), &rsp, sizeof(rsp));
-	} else {
-		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_FUSE_READ),
-				&desc);
-		rsp.row_data[0] = desc.ret[0];
-		rsp.row_data[1] = desc.ret[1];
-		rsp.status = desc.ret[2];
-	}
-
+	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_FUSE, SCM_FUSE_READ), &desc);
 	if (rc) {
 		pr_err("read row %d failed, err code = %d\n", row_num, rc);
 	} else {
-		efuse_bits = ((u64)(rsp.row_data[1]) << 32) +
-				(u64)rsp.row_data[0];
+		efuse_bits = ((u64)(desc.ret[1]) << 32) + (u64)desc.ret[0];
 	}
 
 	return efuse_bits;
