@@ -50,7 +50,7 @@
 		pm8350b_haptics: qcom,hv-haptics@f000 {
 			compatible = "qcom,hv-haptics";
 			reg = <0xf000>, <0xf100>;
-			interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_BOTH>;
+			interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "fifo-empty";
 			qcom,vmax-mv = <3600>;
 			qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
