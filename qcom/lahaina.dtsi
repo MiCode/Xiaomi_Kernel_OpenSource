@@ -4480,6 +4480,7 @@
 			compatible = "qcom,ipa-smmu-wlan-cb";
 			iommus = <&apps_smmu 0x5C1 0x0>;
 			qcom,iommu-dma = "fastmap";
+			dma-coherent;
 		};
 
 		ipa_smmu_uc: ipa_smmu_uc {
