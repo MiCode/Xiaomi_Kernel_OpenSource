@@ -6502,8 +6502,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
 			hba->ufs_stats.clk_rel.ctx = XFR_REQ_COMPL;
-			__ufshcd_release(hba, false);
-			__ufshcd_hibern8_release(hba, false);
 			if (cmd->request) {
 				/*
 				 * As we are accessing the "request" structure,
@@ -6515,6 +6513,17 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			}
 
 			clear_bit_unlock(index, &hba->lrb_in_use);
+			/*
+			 *__ufshcd_release and __ufshcd_hibern8_release is
+			 * called after clear_bit_unlock so that
+			 * these function can be called with updated state of
+			 * lrb_in_use flag so that for last transfer req
+			 * completion, gate and hibernate work function would
+			 * be called to gate the clock and put the link in
+			 * hibern8 state.
+			 */
+			__ufshcd_release(hba, false);
+			__ufshcd_hibern8_release(hba, false);
 
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -6570,7 +6579,6 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
-			ufshcd_release_all(hba);
 			if (cmd->request) {
 				/*
 				 * As we are accessing the "request" structure,
@@ -6581,6 +6589,17 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 					true);
 			}
 			clear_bit_unlock(index, &hba->lrb_in_use);
+
+			/*
+			 * ufshcd_release_all is called after clear_bit_unlock
+			 * so that the function can be called with updated state
+			 * of lrb_in_use flag so that for last abort req
+			 * completion, gate and hibernate work function would
+			 * be called to gate the clock and put the link in
+			 * hibern8 state.
+			 */
+			 ufshcd_release_all(hba);
+
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
