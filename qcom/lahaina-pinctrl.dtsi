@@ -381,6 +381,36 @@
 	};
 
 	nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 87 NFC Read Interrupt */
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 87 NFC Read Interrupt */
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-up;
+				};
+			};
+
 			nfc_enable_active: nfc_enable_active {
 				mux {
 					pins = "gpio62";
