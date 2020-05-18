@@ -696,6 +696,7 @@
   drm_dp_bw_code_to_link_rate
   drm_dp_calc_pbn_mode
   drm_dp_channel_eq_ok
+  drm_dp_check_act_status
   drm_dp_clock_recovery_ok
   drm_dp_dpcd_read
   drm_dp_dpcd_read_link_status
@@ -1700,11 +1701,20 @@
   pwmchip_remove
   qcom_scm_assign_mem_regions
   qcom_scm_camera_protect_phy_lanes
+  qcom_scm_dcvs_ca_available
+  qcom_scm_dcvs_core_available
+  qcom_scm_dcvs_init_ca_v2
+  qcom_scm_dcvs_init_v2
+  qcom_scm_dcvs_reset
+  qcom_scm_dcvs_update
+  qcom_scm_dcvs_update_v2
+  qcom_scm_dcvs_update_ca_v2
   qcom_scm_deassert_ps_hold
   qcom_scm_disable_sdi
   qcom_scm_get_sec_dump_state
   qcom_scm_halt_spmi_pmic_arbiter
   qcom_scm_io_readl
+  qcom_scm_io_reset
   qcom_scm_io_writel
   qcom_scm_kgsl_set_smmu_aperture
   qcom_scm_kgsl_set_smmu_aperture_available
