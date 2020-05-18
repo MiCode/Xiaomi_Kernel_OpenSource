@@ -2179,9 +2179,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		break;
 	case DWC3_CONTROLLER_NOTIFY_CLEAR_DB:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
-		dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
-			BLOCK_GSI_WR_GO_MASK, true);
+		if (mdwc->gsi_reg)
+			dwc3_msm_write_reg_field(mdwc->base,
+			    GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+			    BLOCK_GSI_WR_GO_MASK, true);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
