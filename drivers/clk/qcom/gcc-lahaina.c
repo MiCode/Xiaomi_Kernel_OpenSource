@@ -28,7 +28,11 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH + 1, 1, vdd_corner);
+
+static struct clk_vdd_class *gcc_lahaina_regulators[] = {
+	&vdd_cx,
+};
 
 enum {
 	P_BI_TCXO,
@@ -4368,6 +4372,8 @@ static const struct qcom_cc_desc gcc_lahaina_desc = {
 	.num_resets = ARRAY_SIZE(gcc_lahaina_resets),
 	.clk_hws = gcc_lahaina_hws,
 	.num_clk_hws = ARRAY_SIZE(gcc_lahaina_hws),
+	.clk_regulators = gcc_lahaina_regulators,
+	.num_clk_regulators = ARRAY_SIZE(gcc_lahaina_regulators),
 };
 
 static const struct of_device_id gcc_lahaina_match_table[] = {
@@ -4380,13 +4386,6 @@ static int gcc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret;
-
-	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
-	if (IS_ERR(vdd_cx.regulator[0])) {
-		if (PTR_ERR(vdd_cx.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get vdd_cx regulator\n");
-		return PTR_ERR(vdd_cx.regulator[0]);
-	}
 
 	regmap = qcom_cc_map(pdev, &gcc_lahaina_desc);
 	if (IS_ERR(regmap)) {
