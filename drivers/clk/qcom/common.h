@@ -31,6 +31,8 @@ struct qcom_cc_desc {
 	size_t num_gdscs;
 	struct clk_hw **clk_hws;
 	size_t num_clk_hws;
+	struct clk_vdd_class **clk_regulators;
+	size_t num_clk_regulators;
 };
 
 /**
