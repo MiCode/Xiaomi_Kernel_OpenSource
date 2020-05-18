@@ -628,6 +628,11 @@ int cnss_idle_restart(struct device *dev)
 		return -ENODEV;
 	}
 
+	if (!mutex_trylock(&plat_priv->driver_ops_lock)) {
+		cnss_pr_dbg("Another driver operation is in progress, ignore idle restart\n");
+		return -EBUSY;
+	}
+
 	cnss_pr_dbg("Doing idle restart\n");
 
 	reinit_completion(&plat_priv->power_up_complete);
@@ -666,9 +671,11 @@ int cnss_idle_restart(struct device *dev)
 		goto out;
 	}
 
+	mutex_unlock(&plat_priv->driver_ops_lock);
 	return 0;
 
 out:
+	mutex_unlock(&plat_priv->driver_ops_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cnss_idle_restart);
@@ -2146,6 +2153,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	init_completion(&plat_priv->rddm_complete);
 	init_completion(&plat_priv->recovery_complete);
 	mutex_init(&plat_priv->dev_lock);
+	mutex_init(&plat_priv->driver_ops_lock);
 
 	return 0;
 }
