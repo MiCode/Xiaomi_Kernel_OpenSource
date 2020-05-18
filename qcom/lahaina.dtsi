@@ -2676,6 +2676,7 @@
 
 	qcom-mem-buf {
 		compatible = "qcom,mem-buf";
+		qcom,mem-buf-capabilities = "supplier";
 	};
 
 	qcom,chd {
