@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/of_platform.h>
 #include <linux/clk.h>
 #include <linux/ratelimit.h>
 #include <linux/kthread.h>
@@ -44,7 +45,6 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 
-#include <soc/qcom/smd.h>
 
 #define DEVICE "wcnss_wlan"
 #define CTRL_DEVICE "wcnss_ctrl"
@@ -256,6 +256,16 @@ struct wcnss_version {
 	unsigned char  revision;
 };
 
+struct wcnss_download_nv_resp {
+	struct smd_msg_hdr hdr;
+	u8 status;
+} __packed;
+
+struct wcnss_download_cal_data_resp {
+	struct smd_msg_hdr hdr;
+	u8 status;
+} __packed;
+
 struct wcnss_pmic_dump {
 	char reg_name[10];
 	u16 reg_addr;
@@ -361,6 +371,12 @@ struct vbatt_message {
 	struct vbatt_level vbatt;
 };
 
+struct rpmsg_event {
+	struct list_head list;
+	int len;
+	u8 data[];
+};
+
 static struct {
 	struct platform_device *pdev;
 	void		*pil;
@@ -374,7 +390,12 @@ static struct {
 	u32		wlan_rx_buff_count;
 	int		is_vsys_adc_channel;
 	int		is_a2xb_split_reg;
-	smd_channel_t	*smd_ch;
+	struct rpmsg_device *rpdev;
+	struct rpmsg_endpoint *channel;
+	/* rpmsg event list lock */
+	spinlock_t event_lock;
+	struct list_head event_list;
+	struct workqueue_struct *event_wq;
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
 	unsigned char   fw_minor;
@@ -1293,45 +1314,44 @@ void wcnss_disable_pc_add_req(void)
 	mutex_unlock(&penv->pm_qos_mutex);
 }
 
-static void wcnss_smd_notify_event(void *data, unsigned int event)
+/**
+ * wcnss_open_channel() - open additional SMD channel to WCNSS
+ * @name:	SMD channel name
+ * @cb:		callback to handle incoming data on the channel
+ */
+struct rpmsg_endpoint *wcnss_open_channel(const char *name, rpmsg_rx_cb_t cb,
+					  void *priv)
 {
-	int len = 0;
+	struct rpmsg_channel_info chinfo;
 
-	if (penv != data) {
-		wcnss_log(ERR, "invalid env pointer in smd callback\n");
-		return;
-	}
-	switch (event) {
-	case SMD_EVENT_DATA:
-		len = smd_read_avail(penv->smd_ch);
-		if (len < 0) {
-			wcnss_log(ERR, "failed to read from smd %d\n", len);
-			return;
-		}
-		schedule_work(&penv->wcnssctrl_rx_work);
-		break;
+	strscpy(chinfo.name, name, sizeof(chinfo.name));
+	chinfo.src = RPMSG_ADDR_ANY;
+	chinfo.dst = RPMSG_ADDR_ANY;
 
-	case SMD_EVENT_OPEN:
-		wcnss_log(DBG, "opening WCNSS SMD channel :%s",
-			 WCNSS_CTRL_CHANNEL);
-		schedule_work(&penv->wcnssctrl_version_work);
-		schedule_work(&penv->wcnss_pm_config_work);
-		cancel_delayed_work(&penv->wcnss_pm_qos_del_req);
-		schedule_delayed_work(&penv->wcnss_pm_qos_del_req, 0);
-		if (penv->wlan_config.is_pronto_vadc && (penv->vadc_dev))
-			schedule_work(&penv->wcnss_vadc_work);
-		break;
+	return rpmsg_create_ept(penv->rpdev, cb, priv, chinfo);
+}
+EXPORT_SYMBOL(wcnss_open_channel);
 
-	case SMD_EVENT_CLOSE:
-		wcnss_log(DBG, "closing WCNSS SMD channel :%s",
-			 WCNSS_CTRL_CHANNEL);
-		penv->nv_downloaded = 0;
-		penv->is_cbc_done = 0;
-		break;
+static int wcnss_ctrl_smd_callback(struct rpmsg_device *rpdev,
+				   void *data,
+				   int count,
+				   void *priv,
+				   u32 addr)
+{
+	struct rpmsg_event *event;
 
-	default:
-		break;
-	}
+	event = kzalloc(sizeof(*event) + count, GFP_ATOMIC);
+	if (!event)
+		return -ENOMEM;
+	memcpy(event->data, data, count);
+	event->len = count;
+
+	spin_lock(&penv->event_lock);
+	list_add_tail(&event->list, &penv->event_list);
+	spin_unlock(&penv->event_lock);
+
+	queue_work(penv->event_wq, &penv->wcnssctrl_rx_work);
+	return 0;
 }
 
 static int
@@ -1518,44 +1538,62 @@ static struct platform_driver wcnss_wlan_ctrl_driver = {
 	.remove	= wcnss_wlan_ctrl_remove,
 };
 
-static int
-wcnss_ctrl_remove(struct platform_device *pdev)
+static int wcnss_ctrl_probe(struct rpmsg_device *rpdev)
 {
-	if (penv && penv->smd_ch)
-		smd_close(penv->smd_ch);
-
-	return 0;
-}
-
-static int
-wcnss_ctrl_probe(struct platform_device *pdev)
-{
-	int ret = 0;
-
 	if (!penv || !penv->triggered)
 		return -ENODEV;
 
-	ret = smd_named_open_on_edge(WCNSS_CTRL_CHANNEL, SMD_APPS_WCNSS,
-				     &penv->smd_ch, penv,
-				     wcnss_smd_notify_event);
-	if (ret < 0) {
-		wcnss_log(ERR, "cannot open the smd command channel %s: %d\n",
-		       WCNSS_CTRL_CHANNEL, ret);
-		return -ENODEV;
-	}
-	smd_disable_read_intr(penv->smd_ch);
+	penv->rpdev = rpdev;
+	penv->channel = rpdev->ept;
+	wcnss_log(DBG, "WCNSS SMD channel opened:%s",
+		  WCNSS_CTRL_CHANNEL);
+	schedule_work(&penv->wcnssctrl_version_work);
+	schedule_work(&penv->wcnss_pm_config_work);
+	cancel_delayed_work(&penv->wcnss_pm_qos_del_req);
+	schedule_delayed_work(&penv->wcnss_pm_qos_del_req, 0);
+	if (penv->wlan_config.is_pronto_vadc && penv->vadc_dev)
+		schedule_work(&penv->wcnss_vadc_work);
 
 	return 0;
 }
 
-/* platform device for WCNSS_CTRL SMD channel */
-static struct platform_driver wcnss_ctrl_driver = {
-	.driver = {
-		.name	= "WCNSS_CTRL",
-		.owner	= THIS_MODULE,
+static void wcnss_ctrl_remove(struct rpmsg_device *rpdev)
+{
+	of_platform_depopulate(&rpdev->dev);
+}
+
+static int wcnss_rpmsg_resource_init(void)
+{
+	penv->event_wq = alloc_workqueue("wcnss_rpmsg_event",
+					 WQ_UNBOUND, 1);
+	if (!penv->event_wq) {
+		wcnss_log(ERR, "failed to allocate workqueue");
+		return -EFAULT;
+	}
+	INIT_LIST_HEAD(&penv->event_list);
+	spin_lock_init(&penv->event_lock);
+
+	return 0;
+}
+
+static void wcnss_rpmsg_resource_deinit(void)
+{
+	destroy_workqueue(penv->event_wq);
+}
+
+static const struct rpmsg_device_id wcnss_ctrl_of_match[] = {
+	{ "WCNSS_CTRL" },
+	{}
+};
+
+static struct rpmsg_driver wcnss_rpmsg_client = {
+	.probe = wcnss_ctrl_probe,
+	.remove = wcnss_ctrl_remove,
+	.callback = wcnss_ctrl_smd_callback,
+	.id_table = wcnss_ctrl_of_match,
+	.drv  = {
+		.name  = "WCNSS_CTRL",
 	},
-	.probe	= wcnss_ctrl_probe,
-	.remove	= wcnss_ctrl_remove,
 };
 
 struct device *wcnss_wlan_get_device(void)
@@ -1925,18 +1963,11 @@ EXPORT_SYMBOL(wcnss_get_wlan_unsafe_channel);
 static int wcnss_smd_tx(void *data, int len)
 {
 	int ret = 0;
+	ret = rpmsg_send(penv->channel, data, len);
+	if (ret < 0)
+		return ret;
 
-	ret = smd_write_avail(penv->smd_ch);
-	if (ret < len) {
-		wcnss_log(ERR, "no space available for smd frame\n");
-		return -ENOSPC;
-	}
-	ret = smd_write(penv->smd_ch, data, len);
-	if (ret < len) {
-		wcnss_log(ERR, "failed to write Command %d", len);
-		ret = -ENODEV;
-	}
-	return ret;
+	return 0;
 }
 
 static int wcnss_get_battery_volt(int *result_uv)
@@ -2090,27 +2121,6 @@ static void wcnss_update_vbatt(struct work_struct *work)
 		wcnss_log(ERR, "smd tx failed\n");
 }
 
-static unsigned char wcnss_fw_status(void)
-{
-	int len = 0;
-	int rc = 0;
-
-	unsigned char fw_status = 0xFF;
-
-	len = smd_read_avail(penv->smd_ch);
-	if (len < 1) {
-		wcnss_log(ERR, "%s: invalid firmware status", __func__);
-		return fw_status;
-	}
-
-	rc = smd_read(penv->smd_ch, &fw_status, 1);
-	if (rc < 0) {
-		wcnss_log(ERR, "%s: incomplete data read from smd\n", __func__);
-		return fw_status;
-	}
-	return fw_status;
-}
-
 static void wcnss_send_cal_rsp(unsigned char fw_status)
 {
 	struct smd_msg_hdr *rsphdr;
@@ -2134,10 +2144,9 @@ static void wcnss_send_cal_rsp(unsigned char fw_status)
 }
 
 /* Collect calibrated data from WCNSS */
-void extract_cal_data(int len)
+void extract_cal_data(void *buf, int len)
 {
-	int rc;
-	struct cal_data_params calhdr;
+	struct cal_data_params *calhdr;
 	unsigned char fw_status = WCNSS_RESP_FAIL;
 
 	if (len < sizeof(struct cal_data_params)) {
@@ -2146,29 +2155,22 @@ void extract_cal_data(int len)
 	}
 
 	mutex_lock(&penv->dev_lock);
-	rc = smd_read(penv->smd_ch, (unsigned char *)&calhdr,
-		      sizeof(struct cal_data_params));
-	if (rc < sizeof(struct cal_data_params)) {
-		wcnss_log(ERR, "incomplete cal header read from smd\n");
-		mutex_unlock(&penv->dev_lock);
-		return;
-	}
+	calhdr = buf + sizeof(struct smd_msg_hdr);
 
-	if (penv->fw_cal_exp_frag != calhdr.frag_number) {
+	if (penv->fw_cal_exp_frag != calhdr->frag_number) {
 		wcnss_log(ERR, "Invalid frgament");
 		goto unlock_exit;
 	}
 
-	if (calhdr.frag_size > WCNSS_MAX_FRAME_SIZE) {
+	if (calhdr->frag_size > WCNSS_MAX_FRAME_SIZE) {
 		wcnss_log(ERR, "Invalid fragment size");
 		goto unlock_exit;
 	}
 
 	if (penv->fw_cal_available) {
 		/* ignore cal upload from SSR */
-		smd_read(penv->smd_ch, NULL, calhdr.frag_size);
 		penv->fw_cal_exp_frag++;
-		if (calhdr.msg_flags & LAST_FRAGMENT) {
+		if (calhdr->msg_flags & LAST_FRAGMENT) {
 			penv->fw_cal_exp_frag = 0;
 			goto unlock_exit;
 		}
@@ -2176,41 +2178,39 @@ void extract_cal_data(int len)
 		return;
 	}
 
-	if (calhdr.frag_number == 0) {
-		if (calhdr.total_size > MAX_CALIBRATED_DATA_SIZE) {
+	if (calhdr->frag_number == 0) {
+		if (calhdr->total_size > MAX_CALIBRATED_DATA_SIZE) {
 			wcnss_log(ERR, "Invalid cal data size %d",
-			       calhdr.total_size);
+			       calhdr->total_size);
 			goto unlock_exit;
 		}
 		kfree(penv->fw_cal_data);
 		penv->fw_cal_rcvd = 0;
-		penv->fw_cal_data = kmalloc(calhdr.total_size,
-				GFP_KERNEL);
+		penv->fw_cal_data = kmalloc(calhdr->total_size,
+					    GFP_KERNEL);
 		if (!penv->fw_cal_data) {
-			smd_read(penv->smd_ch, NULL, calhdr.frag_size);
+			wcnss_log(ERR, "cal data alloc failed");
 			goto unlock_exit;
 		}
 	}
 
-	if (penv->fw_cal_rcvd + calhdr.frag_size >
+	if (penv->fw_cal_rcvd + calhdr->frag_size >
 			MAX_CALIBRATED_DATA_SIZE) {
 		wcnss_log(ERR, "calibrated data size is more than expected %d",
-		       penv->fw_cal_rcvd + calhdr.frag_size);
+		       penv->fw_cal_rcvd + calhdr->frag_size);
 		penv->fw_cal_exp_frag = 0;
 		penv->fw_cal_rcvd = 0;
-		smd_read(penv->smd_ch, NULL, calhdr.frag_size);
 		goto unlock_exit;
 	}
-
-	rc = smd_read(penv->smd_ch, penv->fw_cal_data + penv->fw_cal_rcvd,
-		      calhdr.frag_size);
-	if (rc < calhdr.frag_size)
-		goto unlock_exit;
+	/* To Do: cross check if fragmet is getting copied corectly */
+	memcpy(penv->fw_cal_data + penv->fw_cal_rcvd,
+	       (unsigned char *)(buf + sizeof(struct cal_data_msg)),
+	       calhdr->frag_size);
 
 	penv->fw_cal_exp_frag++;
-	penv->fw_cal_rcvd += calhdr.frag_size;
+	penv->fw_cal_rcvd += calhdr->frag_size;
 
-	if (calhdr.msg_flags & LAST_FRAGMENT) {
+	if (calhdr->msg_flags & LAST_FRAGMENT) {
 		penv->fw_cal_exp_frag = 0;
 		penv->fw_cal_available = true;
 		wcnss_log(INFO, "cal data collection completed\n");
@@ -2229,40 +2229,21 @@ unlock_exit:
 	wcnss_send_cal_rsp(fw_status);
 }
 
-static void wcnss_process_smd_msg(int len)
+static void wcnss_process_smd_msg(void *buf, int len)
 {
 	int rc = 0;
-	unsigned char buf[sizeof(struct wcnss_version)];
 	unsigned char build[WCNSS_MAX_BUILD_VER_LEN + 1];
 	struct smd_msg_hdr *phdr;
 	struct smd_msg_hdr smd_msg;
 	struct wcnss_version *pversion;
+	const struct wcnss_download_nv_resp *nvresp;
+	const struct wcnss_download_cal_data_resp *caldata_resp;
 	int hw_type;
-	unsigned char fw_status = 0;
-
-	rc = smd_read(penv->smd_ch, buf, sizeof(struct smd_msg_hdr));
-	if (rc < sizeof(struct smd_msg_hdr)) {
-		wcnss_log(ERR, "incomplete header read from smd\n");
-		return;
-	}
-	len -= sizeof(struct smd_msg_hdr);
 
 	phdr = (struct smd_msg_hdr *)buf;
 
 	switch (phdr->msg_type) {
 	case WCNSS_VERSION_RSP:
-		if (len != sizeof(struct wcnss_version)
-				- sizeof(struct smd_msg_hdr)) {
-			wcnss_log(ERR, "invalid version data from wcnss %d\n",
-			       len);
-			return;
-		}
-		rc = smd_read(penv->smd_ch, buf + sizeof(struct smd_msg_hdr),
-			      len);
-		if (rc < len) {
-			wcnss_log(ERR, "incomplete data read from smd\n");
-			return;
-		}
 		pversion = (struct wcnss_version *)buf;
 		penv->fw_major = pversion->major;
 		penv->fw_minor = pversion->minor;
@@ -2306,35 +2287,33 @@ static void wcnss_process_smd_msg(int len)
 		break;
 
 	case WCNSS_BUILD_VER_RSP:
+		/* ToDo: WCNSS_MAX_BUILD_VER_LEN + sizeof(struct smd_msg_hdr) */
 		if (len > WCNSS_MAX_BUILD_VER_LEN) {
 			wcnss_log(ERR,
-			"invalid build version data from wcnss %d\n", len);
+				  "invalid build version:%d\n", len);
 			return;
 		}
-		rc = smd_read(penv->smd_ch, build, len);
-		if (rc < len) {
-			wcnss_log(ERR, "incomplete data read from smd\n");
-			return;
-		}
+		memcpy(build, buf + sizeof(struct smd_msg_hdr),
+		       len - sizeof(struct smd_msg_hdr));
 		build[len] = 0;
 		wcnss_log(INFO, "build version %s\n", build);
 		break;
 
 	case WCNSS_NVBIN_DNLD_RSP:
 		penv->nv_downloaded = true;
-		fw_status = wcnss_fw_status();
+		nvresp = buf;
 		wcnss_log(DBG, "received WCNSS_NVBIN_DNLD_RSP from ccpu %u\n",
-			 fw_status);
-		if (fw_status != WAIT_FOR_CBC_IND)
+			 nvresp->status);
+		if (nvresp->status != WAIT_FOR_CBC_IND)
 			penv->is_cbc_done = 1;
 		wcnss_setup_vbat_monitoring();
 		break;
 
 	case WCNSS_CALDATA_DNLD_RSP:
 		penv->nv_downloaded = true;
-		fw_status = wcnss_fw_status();
+		caldata_resp = buf;
 		wcnss_log(DBG, "received WCNSS_CALDATA_DNLD_RSP from ccpu %u\n",
-			 fw_status);
+			  caldata_resp->status);
 		break;
 	case WCNSS_CBC_COMPLETE_IND:
 		penv->is_cbc_done = 1;
@@ -2342,7 +2321,7 @@ static void wcnss_process_smd_msg(int len)
 		break;
 
 	case WCNSS_CALDATA_UPLD_REQ:
-		extract_cal_data(len);
+		extract_cal_data(buf, len);
 		break;
 
 	default:
@@ -2350,31 +2329,21 @@ static void wcnss_process_smd_msg(int len)
 	}
 }
 
-static void wcnssctrl_rx_handler(struct work_struct *worker)
+static void wcnssctrl_rx_handler(struct work_struct *work)
 {
-	int len;
+	struct rpmsg_event *event;
 
-	while (1) {
-		len = smd_read_avail(penv->smd_ch);
-		if (len == 0) {
-			pr_debug("wcnss: No more data to be read\n");
-			return;
-		}
-
-		if (len > WCNSS_MAX_FRAME_SIZE) {
-			pr_err("wcnss: frame larger than the allowed size\n");
-			smd_read(penv->smd_ch, NULL, len);
-			return;
-		}
-
-		if (len < sizeof(struct smd_msg_hdr)) {
-			pr_err("wcnss: incomplete header available len = %d\n",
-			       len);
-			return;
+	spin_lock(&penv->event_lock);
+	while (!list_empty(&penv->event_list)) {
+		event = list_first_entry(&penv->event_list,
+					 struct rpmsg_event, list);
+		list_del(&event->list);
+		spin_unlock(&penv->event_lock);
+		wcnss_process_smd_msg(event->data, event->len);
+		kfree(event);
+		spin_lock(&penv->event_lock);
 	}
-
-		wcnss_process_smd_msg(len);
-	}
+	spin_unlock(&penv->event_lock);
 }
 
 static void wcnss_send_version_req(struct work_struct *worker)
@@ -3662,6 +3631,7 @@ static struct platform_driver wcnss_wlan_driver = {
 
 static int __init wcnss_wlan_init(void)
 {
+	int ret;
 
 	wcnss_ipc_log = ipc_log_context_create(IPC_NUM_LOG_PAGES, "wcnss", 0);
 	if (!wcnss_ipc_log)
@@ -3669,10 +3639,30 @@ static int __init wcnss_wlan_init(void)
 
 	platform_driver_register(&wcnss_wlan_driver);
 	platform_driver_register(&wcnss_wlan_ctrl_driver);
-	platform_driver_register(&wcnss_ctrl_driver);
+	ret = wcnss_rpmsg_resource_init();
+	if (ret) {
+		pr_err("%s : register_rpmsg_driver failed with err %d\n",
+		       __func__, ret);
+		goto resource_deinit;
+	}
+	ret = register_rpmsg_driver(&wcnss_rpmsg_client);
+	if (ret) {
+		pr_err("%s : register_rpmsg_driver failed with err %d\n",
+		       __func__, ret);
+		goto register_bail;
+	}
 	register_pm_notifier(&wcnss_pm_notifier);
 
 	return 0;
+
+register_bail:
+	wcnss_rpmsg_resource_deinit();
+resource_deinit:
+	platform_driver_unregister(&wcnss_wlan_ctrl_driver);
+	platform_driver_unregister(&wcnss_wlan_driver);
+	ipc_log_context_destroy(wcnss_ipc_log);
+	wcnss_ipc_log = NULL;
+	return ret;
 }
 
 static void __exit wcnss_wlan_exit(void)
@@ -3684,7 +3674,8 @@ static void __exit wcnss_wlan_exit(void)
 	}
 
 	unregister_pm_notifier(&wcnss_pm_notifier);
-	platform_driver_unregister(&wcnss_ctrl_driver);
+	unregister_rpmsg_driver(&wcnss_rpmsg_client);
+	wcnss_rpmsg_resource_deinit();
 	platform_driver_unregister(&wcnss_wlan_ctrl_driver);
 	platform_driver_unregister(&wcnss_wlan_driver);
 	ipc_log_context_destroy(wcnss_ipc_log);
