@@ -5,6 +5,7 @@
  */
 /dts-v1/;
 #include "mt6873.dtsi"
+#include "mt6359p.dtsi"
 
 / {
 	model = "MediaTek MT6873 evaluation board";
@@ -26,4 +27,29 @@
 
 &uart0 {
 	status = "okay";
+};
+
+&pmic {
+	interrupt-parent = <&pio>;
+	interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
+};
+
+&mt6359p_vgpu11_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vpu_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vrf12_reg {
+	regulator-always-on;
+};
+
+&mt6359p_va09_reg {
+	regulator-always-on;
+};
+
+&mt6359p_vufs_reg {
+	regulator-always-on;
 };
