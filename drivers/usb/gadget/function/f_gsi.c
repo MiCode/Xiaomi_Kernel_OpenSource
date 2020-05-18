@@ -2038,20 +2038,47 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 		struct usb_request *req)
 {
 	struct f_gsi *gsi = req->context;
-	rndis_init_msg_type *buf;
 	int status;
+	u32 MsgType;
+
+	if (!req->buf || !gsi->params)
+		return;
+
+	MsgType = get_unaligned_le32((__le32 *)req->buf);
+
+	/* intercept halt message to perform flow control */
+	if (MsgType == RNDIS_MSG_HALT) {
+		log_event_dbg("RNDIS_MSG_HALT, state:%d\n",
+				gsi->params->state);
+		if (gsi->params->state == RNDIS_DATA_INITIALIZED)
+			gsi_rndis_flow_ctrl_enable(true, gsi->params);
+		gsi->params->state = RNDIS_UNINITIALIZED;
+		return;
+	}
 
 	status = rndis_msg_parser(gsi->params, (u8 *) req->buf);
 	if (status < 0)
 		log_event_err("RNDIS command error %d, %d/%d",
 			status, req->actual, req->length);
 
-	buf = (rndis_init_msg_type *)req->buf;
-	if (le32_to_cpu(buf->MessageType) == RNDIS_MSG_INIT) {
+	if (MsgType == RNDIS_MSG_INIT) {
+		rndis_init_msg_type *buf = (rndis_init_msg_type *)req->buf;
+
+		log_event_dbg("RNDIS host major:%d minor:%d version\n",
+				le32_to_cpu(buf->MajorVersion),
+				le32_to_cpu(buf->MinorVersion));
+
 		/* honor host dl aggr size */
-		gsi->d_port.in_aggr_size = gsi->params->dl_max_xfer_size;
-		log_event_dbg("RNDIS host dl_aggr_size:%d\n",
-				gsi->params->dl_max_xfer_size);
+		gsi->d_port.in_aggr_size = le32_to_cpu(buf->MaxTransferSize);
+		log_event_dbg("RNDIS host DL MaxTransferSize:%d\n",
+				le32_to_cpu(buf->MaxTransferSize));
+	} else if (MsgType == RNDIS_MSG_SET) {
+		rndis_set_msg_type *buf = (rndis_set_msg_type *)req->buf;
+
+		if (le32_to_cpu(buf->OID) ==
+				RNDIS_OID_GEN_CURRENT_PACKET_FILTER)
+			gsi_rndis_flow_ctrl_enable(!(*gsi->params->filter),
+					gsi->params);
 	}
 }
 
@@ -2182,13 +2209,37 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			goto invalid;
 
 		if (gsi->prot_id == IPA_USB_RNDIS) {
+			rndis_init_cmplt_type *res;
+
 			/* return the result */
 			buf = rndis_get_next_response(gsi->params, &n);
-			if (buf) {
-				memcpy(req->buf, buf, n);
-				rndis_free_response(gsi->params, buf);
-				value = n;
+			if (!buf)
+				break;
+
+			res = (rndis_init_cmplt_type *)buf;
+			if (le32_to_cpu(res->MessageType) == RNDIS_MSG_INIT_C) {
+				log_event_dbg("%s: max_pkt_per_xfer : %d",
+					__func__, DEFAULT_MAX_PKT_PER_XFER);
+				res->MaxPacketsPerTransfer =
+					cpu_to_le32(DEFAULT_MAX_PKT_PER_XFER);
+
+				res->MaxTransferSize = cpu_to_le32(
+					le32_to_cpu(res->MaxTransferSize)
+					* DEFAULT_MAX_PKT_PER_XFER);
+
+				/* In case of aggregated packets QC device
+				 * will request aliment to 4 (2^2).
+				 */
+				log_event_dbg("%s: pkt_alignment_factor : %d",
+					__func__, DEFAULT_PKT_ALIGNMENT_FACTOR);
+				res->PacketAlignmentFactor =
+					cpu_to_le32(
+						DEFAULT_PKT_ALIGNMENT_FACTOR);
 			}
+
+			memcpy(req->buf, buf, n);
+			rndis_free_response(gsi->params, buf);
+			value = n;
 			break;
 		}
 
@@ -2545,8 +2596,11 @@ static void gsi_resume(struct usb_function *f)
 	 */
 	if (gsi->prot_id == IPA_USB_RNDIS &&
 			!usb_gsi_remote_wakeup_allowed(f) &&
-			gsi->host_supports_flow_control)
-		rndis_flow_control(gsi->params, false);
+			gsi->host_supports_flow_control && gsi->params) {
+		if (gsi->params->state != RNDIS_DATA_INITIALIZED)
+			gsi_rndis_flow_ctrl_enable(false, gsi->params);
+		gsi->params->state = RNDIS_DATA_INITIALIZED;
+	}
 
 	post_event(&gsi->d_port, EVT_RESUMED);
 	queue_delayed_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w, 0);
@@ -2831,8 +2885,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 
-		params = rndis_register(gsi_rndis_response_available, gsi,
-				gsi_rndis_flow_ctrl_enable);
+		params = rndis_register(gsi_rndis_response_available, gsi);
 		if (IS_ERR(params))
 			goto fail;
 
@@ -2854,18 +2907,6 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 			rndis_set_param_vendor(gsi->params, gsi->vendorID,
 				gsi->manufacturer))
 			goto dereg_rndis;
-
-		log_event_dbg("%s: max_pkt_per_xfer : %d", __func__,
-					DEFAULT_MAX_PKT_PER_XFER);
-		rndis_set_max_pkt_xfer(gsi->params, DEFAULT_MAX_PKT_PER_XFER);
-
-		/* In case of aggregated packets QC device will request
-		 * aliment to 4 (2^2).
-		 */
-		log_event_dbg("%s: pkt_alignment_factor : %d", __func__,
-					DEFAULT_PKT_ALIGNMENT_FACTOR);
-		rndis_set_pkt_alignment_factor(gsi->params,
-					DEFAULT_PKT_ALIGNMENT_FACTOR);
 
 		/* Windows7/Windows10 automatically loads RNDIS drivers for
 		 * class drivers which represents MISC_ACTIVE_SYNC,
