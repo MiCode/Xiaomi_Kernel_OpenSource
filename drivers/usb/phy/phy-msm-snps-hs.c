@@ -275,6 +275,12 @@ put_vdd_lpm:
 	ret = regulator_set_load(phy->vdd, 0);
 	if (ret < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of vdd\n");
+	/* Return from here based on power_enabled. If it is not set
+	 * then return -EINVAL since either set_voltage or
+	 * regulator_enable failed
+	 */
+	if (!phy->power_enabled)
+		return -EINVAL;
 err_vdd:
 	phy->power_enabled = false;
 	dev_dbg(phy->phy.dev, "HSUSB PHY's regulators are turned OFF.\n");
