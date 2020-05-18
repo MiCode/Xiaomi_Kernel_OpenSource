@@ -102,3 +102,8 @@
 &gcc {
 	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
 };
+
+&aopcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "qdss_clocks";
+};
