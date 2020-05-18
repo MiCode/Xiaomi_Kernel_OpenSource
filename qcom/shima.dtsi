@@ -1509,6 +1509,7 @@
 #include "shima-gdsc.dtsi"
 #include "shima-ion.dtsi"
 #include "shima-usb.dtsi"
+#include "shima-pcie.dtsi"
 #include "ipcc-test-shima.dtsi"
 #include "msm-arm-smmu-shima.dtsi"
 #include "shima-vidc.dtsi"
