@@ -124,6 +124,11 @@ vmlinux_link()
 				vmlinux.o 			\
 				--no-whole-archive		\
 				${@}"
+
+			if [ -n "${CONFIG_QCOM_RTIC}" ] &&	\
+				[ -n "${RTIC_MP_O}" ]; then
+				objects=${objects}" "${RTIC_MP_O}
+			fi
 		else
 			objects="--whole-archive		\
 				${KBUILD_VMLINUX_OBJS}		\
@@ -229,6 +234,33 @@ kallsyms_step()
 	kallsyms ${kallsyms_vmlinux} ${kallsymso}
 }
 
+# Generates ${2} .o file with RTIC MP's from the ${1} object file (vmlinux)
+# ${3} the file name where the sizes of the RTIC MP structure are stored
+# just in case, save copy of the RTIC mp to ${4}
+# Note: RTIC_MPGEN has to be set if MPGen is available
+rtic_mp()
+{
+	if [ -n "${CONFIG_QCOM_RTIC}" ]; then
+	# assume that RTIC_MP_O generation may fail
+	RTIC_MP_O=
+
+	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
+		${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
+
+	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+	--binpath='' --vmlinux=${1} --config=${KCONFIG_CONFIG} && \
+	cat rtic_mp.c | ${CC} ${aflags} -c -o ${2} -x c - && \
+	cp rtic_mp.c ${4} && \
+	${NM} --print-size --size-sort ${2} > ${3} && \
+	RTIC_MP_O=${2} || echo “RTIC MP generation has failed”
+	# NM - save generated variable sizes for verification
+	# RTIC_MP_O is our retval - great success if set to generated .o file
+	# Echo statement above prints the error message in case any of the
+	# above RTIC MP generation commands fail and it ensures rtic mp failure
+	# does not cause kernel compilation to fail.
+	fi
+}
+
 # Create map file with all symbols from ${1}
 # See mksymap for additional details
 mksysmap()
@@ -252,6 +284,10 @@ cleanup()
 	rm -f System.map
 	rm -f vmlinux
 	rm -f vmlinux.o
+if [ -n "${CONFIG_QCOM_RTIC}" ]; then
+	rm -f .tmp_rtic_mp_sz*
+	rm -f rtic_mp.*
+fi
 }
 
 on_exit()
@@ -323,6 +359,16 @@ if [ -n "${CONFIG_DEBUG_INFO_BTF}" ]; then
 	fi
 fi
 
+if [ -n "${CONFIG_QCOM_RTIC}" ]; then
+	# Generate RTIC MP placeholder compile unit of the correct size
+	# and add it to the list of link objects
+	# this needs to be done before generating kallsyms
+	if [ ! -z ${RTIC_MPGEN+x} ]; then
+		rtic_mp vmlinux.o rtic_mp.o .tmp_rtic_mp_sz1 .tmp_rtic_mp1.c
+		KBUILD_VMLINUX_LIBS=$KBUILD_VMLINUX_LIBS" "$RTIC_MP_O
+	fi
+fi
+
 kallsymso=""
 kallsymso_prev=""
 kallsyms_vmlinux=""
@@ -363,6 +409,24 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 	fi
 fi
 
+if [ -n "${CONFIG_QCOM_RTIC}" ]; then
+	# Update RTIC MP object by replacing the place holder
+	# with actual MP data of the same size
+	# Also double check that object size did not change
+	# Note: Check initilally if RTIC_MP_O is not empty or uninitialized,
+	# as incase RTIC_MPGEN is set and failure occurs in RTIC_MP_O
+	# generation, below check for comparing object sizes fails
+	# due to an empty RTIC_MP_O object.
+	if [ ! -z ${RTIC_MP_O} ]; then
+		rtic_mp "${kallsyms_vmlinux}" rtic_mp.o .tmp_rtic_mp_sz2 \
+			.tmp_rtic_mp2.c
+		if ! cmp -s .tmp_rtic_mp_sz1 .tmp_rtic_mp_sz2; then
+			echo >&2 'ERROR: RTIC MP object files size mismatch'
+			exit 1
+		fi
+	fi
+fi
+
 vmlinux_link vmlinux "${kallsymso}" ${btf_vmlinux_bin_o}
 
 if [ -n "${CONFIG_BUILDTIME_EXTABLE_SORT}" ]; then
@@ -381,5 +445,22 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 		echo >&2 Inconsistent kallsyms data
 		echo >&2 Try "make KALLSYMS_EXTRA_PASS=1" as a workaround
 		exit 1
+	fi
+fi
+
+if [ -n "${CONFIG_QCOM_RTIC}" ]; then
+	# Starting Android Q, the DTB's are part of dtb.img and not part
+	# of the kernel image. RTIC DTS relies on the kernel environment
+	# and could not build outside of the kernel. Generate RTIC DTS after
+	# successful kernel build if MPGen is enabled. The DTB will be
+	# generated with dtb.img in kernel_definitions.mk.
+	if [ ! -z ${RTIC_MPGEN+x} ]; then
+		${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+		--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
+		--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts \
+		|| echo “RTIC MP DTS generation has failed”
+		# Echo statement above prints the error message in case above
+		# RTIC MP DTS generation command fails and it ensures rtic mp
+		# failure does not cause kernel compilation to fail.
 	fi
 fi

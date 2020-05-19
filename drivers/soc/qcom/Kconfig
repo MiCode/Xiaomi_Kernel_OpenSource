@@ -841,4 +841,12 @@ config QTI_HW_KEY_MANAGER
 	 HWKM hardware to perform key operations from the kernel which will
 	 be used for storage encryption.
 
+config QCOM_RTIC
+	bool "Enable Qualcomm Technologies, Inc. RTIC feature"
+	depends on QGKI
+	default y if QGKI
+	help
+	  This option enables QCOM Real Time Integrity Check feature. This
+	  will trigger RTIC kernel MP.s (measurement parameters) generation
+	  during the kernel build.
 endmenu
