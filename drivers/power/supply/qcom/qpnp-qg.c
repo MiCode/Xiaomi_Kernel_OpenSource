@@ -2415,13 +2415,15 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 		"Parallel status changed Enabled=%d\n", parallel_enabled);
 
 	mutex_lock(&chip->data_lock);
-
 	/*
-	 * Parallel charger uses the same external sense, hence do not
-	 * enable SMB sensing if PMI632 is configured for external sense.
+	 * dt.qg_ext_sense = Uses external rsense, if defined do not
+	 *		     enable SMB sensing (for non-CP parallel charger).
+	 * dt.cp_iin_sns = Uses CP IIN_SNS, enable SMB sensing (for CP charger).
 	 */
-	if (!chip->dt.qg_ext_sense)
-		update_smb = true;
+	if (is_cp_available(chip))
+		update_smb = chip->dt.use_cp_iin_sns ? true : false;
+	else if (is_parallel_available(chip))
+		update_smb = chip->dt.qg_ext_sense ? false : true;
 
 	rc = process_rt_fifo_data(chip, update_smb);
 	if (rc < 0)
@@ -2672,7 +2674,8 @@ static int qg_notifier_cb(struct notifier_block *nb,
 	if ((strcmp(psy->desc->name, "battery") == 0)
 		|| (strcmp(psy->desc->name, "parallel") == 0)
 		|| (strcmp(psy->desc->name, "usb") == 0)
-		|| (strcmp(psy->desc->name, "dc") == 0)) {
+		|| (strcmp(psy->desc->name, "dc") == 0)
+		|| (strcmp(psy->desc->name, "charge_pump_master") == 0)) {
 		/*
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
@@ -4262,6 +4265,9 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		chip->dt.sys_min_volt_mv = temp;
 
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
+
+	chip->dt.use_cp_iin_sns = of_property_read_bool(node,
+							"qcom,use-cp-iin-sns");
 
 	chip->dt.use_s7_ocv = of_property_read_bool(node, "qcom,qg-use-s7-ocv");
 
