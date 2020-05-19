@@ -30,8 +30,6 @@
 #define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
 
 /* vendor specific pre-defined parameters */
-#define UFS_HS_G4	4		/* HS Gear 4 */
-
 #define SLOW 1
 #define FAST 2
 

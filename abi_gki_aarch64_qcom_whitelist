@@ -495,6 +495,7 @@
   dev_remove_pack
   devres_add
   __devres_alloc_node
+  devres_alloc_node
   devres_destroy
   devres_free
   devres_release
@@ -937,6 +938,20 @@
   get_cpu_device
   get_device
   __get_free_pages
+  gether_cleanup
+  gether_connect
+  gether_disconnect
+  gether_get_dev_addr
+  gether_get_host_addr
+  gether_get_host_addr_cdc
+  gether_get_ifname
+  gether_get_qmult
+  gether_register_netdev
+  gether_set_dev_addr
+  gether_set_gadget
+  gether_set_host_addr
+  gether_set_qmult
+  gether_setup_name_default
   get_next_ino
   get_option
   get_random_bytes
@@ -1892,6 +1907,17 @@
   rfkill_init_sw_state
   rfkill_register
   rfkill_unregister
+  rndis_deregister
+  rndis_free_response
+  rndis_get_next_response
+  rndis_msg_parser
+  rndis_register
+  rndis_set_host_mac
+  rndis_set_param_dev
+  rndis_set_param_medium
+  rndis_set_param_vendor
+  rndis_signal_connect
+  rndis_uninit
   round_jiffies
   rpmh_flush
   rpmh_invalidate
@@ -2322,6 +2348,19 @@
   tty_flip_buffer_push
   __tty_insert_flip_char
   tty_insert_flip_string_fixed_flag
+  typec_altmode_get_partner
+  typec_altmode_update_active
+  typec_get_drvdata
+  typec_partner_register_altmode
+  typec_port_register_altmode
+  typec_register_partner
+  typec_register_port
+  typec_set_data_role
+  typec_set_pwr_opmode
+  typec_set_pwr_role
+  typec_unregister_altmode
+  typec_unregister_partner
+  typec_unregister_port
   uart_add_one_port
   uart_console_device
   uart_console_write

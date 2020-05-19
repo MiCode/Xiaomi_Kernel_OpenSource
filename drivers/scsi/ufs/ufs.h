@@ -564,7 +564,7 @@ struct ufs_dev_info {
 	u16 wmanufacturerid;
 	/*UFS device Product Name */
 	u8 *model;
-	u16 spec_version;
+	u16 wspecversion;
 	u32 clk_gating_wait_us;
 };
 

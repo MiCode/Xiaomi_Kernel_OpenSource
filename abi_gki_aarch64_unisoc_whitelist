@@ -92,8 +92,10 @@
   devm_backlight_device_register
   devm_clk_get
   devm_free_irq
+  devm_gpiochip_add_data
   devm_gpiod_get
   devm_gpio_request
+  devm_hwspin_lock_request_specific
   __devm_iio_device_register
   devm_ioremap_nocache
   devm_ioremap_resource
@@ -101,6 +103,7 @@
   devm_kmalloc
   devm_kmemdup
   devm_mfd_add_devices
+  devm_nvmem_register
   devm_pinctrl_get
   devm_power_supply_register
   __devm_regmap_init
@@ -109,6 +112,7 @@
   devm_regulator_get
   devm_regulator_register
   devm_request_threaded_irq
+  devm_spi_register_controller
   dev_queue_xmit
   dev_set_name
   _dev_warn
@@ -162,6 +166,7 @@
   fwnode_property_present
   fwnode_property_read_string
   generic_file_llseek
+  generic_handle_irq
   genl_register_family
   genl_unregister_family
   gen_pool_add_owner
@@ -170,6 +175,7 @@
   gen_pool_free_owner
   __get_free_pages
   get_random_bytes
+  gpiochip_get_data
   gpiod_direction_input
   gpiod_direction_output_raw
   gpiod_get_raw_value
@@ -178,6 +184,9 @@
   gpio_free
   gpio_request
   gpio_to_desc
+  handle_bad_irq
+  handle_edge_irq
+  handle_level_irq
   i2c_del_driver
   i2c_register_driver
   i2c_smbus_read_byte_data
@@ -202,6 +211,7 @@
   __ioremap
   iounmap
   ip_route_output_flow
+  irq_find_mapping
   irq_get_irq_data
   irq_modify_status
   irq_of_parse_and_map
@@ -330,6 +340,8 @@
   pm_runtime_allow
   __pm_runtime_disable
   pm_runtime_enable
+  pm_runtime_force_resume
+  pm_runtime_force_suspend
   pm_runtime_forbid
   __pm_runtime_idle
   __pm_runtime_resume
@@ -449,6 +461,7 @@
   snd_soc_register_component
   snd_soc_unregister_component
   snprintf
+  __spi_alloc_controller
   sprintf
   sscanf
   __stack_chk_fail
@@ -586,6 +599,7 @@
 # required by clk-sprd.ko
   clk_hw_get_num_parents
   clk_hw_get_parent
+  clk_hw_is_enabled
   __clk_mux_determine_rate
   devm_clk_hw_register
   devm_of_clk_add_hw_provider
@@ -650,6 +664,15 @@
   of_property_read_variable_u8_array
   request_firmware_nowait
 
+# required by gpio-eic-sprd.ko
+  gpiochip_find
+
+# required by gpio-pmic-eic-sprd.ko
+  handle_nested_irq
+
+# required by gpio-sprd.ko
+  __platform_driver_probe
+
 # required by hid-generic.ko
   bus_for_each_drv
   hid_bus_type
@@ -658,6 +681,10 @@
   hid_open_report
   __hid_register_driver
   hid_unregister_driver
+
+# required by i2c-sprd.ko
+  i2c_add_numbered_adapter
+  i2c_del_adapter
 
 # required by ims_bridge.ko
   in4_pton
@@ -683,6 +710,9 @@
   skb_checksum_help
   strim
   xfrm_lookup
+
+# required by leds-sc27xx-bltc.ko
+  devm_led_classdev_register_ext
 
 # required by microarray_fp.ko
   cdev_alloc
@@ -831,9 +861,21 @@
   vsscanf
   vzalloc
 
+# required by pwm-sprd.ko
+  pwmchip_add
+  pwmchip_remove
+
 # required by roles.ko
   fwnode_connection_find_match
   fwnode_get_parent
+
+# required by rtc-sc27xx.ko
+  devm_rtc_allocate_device
+  rtc_ktime_to_tm
+  __rtc_register_device
+  rtc_time64_to_tm
+  rtc_tm_to_time64
+  rtc_update_irq
 
 # required by sc2703-bl.ko
   of_pwm_get
@@ -866,8 +908,105 @@
   devm_extcon_register_notifier_all
   devm_regulator_get_optional
 
+# required by sc27xx-vibra.ko
+  input_ff_create_memless
+
 # required by sc9863a-clk.ko
   device_get_match_data
+
+# required by sdcardfs.ko
+  __break_lease
+  clear_inode
+  clear_nlink
+  configfs_register_subsystem
+  configfs_unregister_subsystem
+  config_group_init
+  config_group_init_type_name
+  config_item_init_type_name
+  copy_fs_struct
+  d_drop
+  dentry_open
+  dget_parent
+  d_invalidate
+  d_make_root
+  d_path
+  dput
+  d_rehash
+  d_set_d_op
+  d_splice_alias
+  filemap_write_and_wait
+  filp_close
+  filp_open
+  free_fs_struct
+  fscrypt_register_key_removal_notifier
+  fscrypt_unregister_key_removal_notifier
+  fs_parse
+  fsstack_copy_inode_size
+  generic_delete_inode
+  __generic_file_fsync
+  generic_permission
+  generic_read_dir
+  iget5_locked
+  igrab
+  init_special_inode
+  inode_init_once
+  inode_newsize_ok
+  iput
+  iterate_dir
+  kern_path
+  kill_anon_super
+  lockref_get
+  lock_rename
+  lookup_one_len_unlocked
+  mntget
+  names_cachep
+  notify_change2
+  override_creds
+  path_get
+  path_put
+  prepare_creds
+  __put_cred
+  register_filesystem
+  revert_creds
+  setattr_prepare
+  set_fs_pwd
+  set_nlink
+  shrink_dcache_sb
+  strrchr
+  touch_atime
+  truncate_inode_pages
+  truncate_setsize
+  unlock_new_inode
+  unlock_rename
+  unregister_filesystem
+  vfs_create2
+  vfs_fsync_range
+  vfs_get_super
+  vfs_mkdir2
+  vfs_path_lookup
+  vfs_rename2
+  vfs_rmdir2
+  vfs_statfs
+  vfs_unlink2
+
+# required by sdhci-sprd.ko
+  clk_round_rate
+  mmc_free_host
+  mmc_of_parse
+  mmc_regulator_set_vqmmc
+  mmc_remove_host
+  __sdhci_add_host
+  sdhci_cleanup_host
+  sdhci_enable_clk
+  sdhci_enable_v4_mode
+  sdhci_pltfm_free
+  sdhci_pltfm_init
+  sdhci_request
+  sdhci_reset
+  sdhci_runtime_resume_host
+  sdhci_runtime_suspend_host
+  sdhci_set_bus_width
+  sdhci_setup_host
 
 # required by sdiohal.ko
   mmc_detect_change
@@ -1014,6 +1153,13 @@
   snd_soc_jack_report
   snd_soc_put_enum_double
 
+# required by snd-soc-sprd-platform.ko
+  devm_snd_soc_register_component
+  dma_request_slave_channel
+  of_reserved_mem_device_init_by_idx
+  snd_dma_alloc_pages
+  snd_dma_free_pages
+
 # required by snd-soc-sprd-vbc-r1p0v3.ko
   snd_ctl_boolean_mono_info
   snd_pcm_hw_constraint_list
@@ -1149,6 +1295,26 @@
   try_wait_for_completion
   vfs_write
 
+# required by spi-sprd.ko
+  dma_request_chan
+  spi_controller_suspend
+  spi_finalize_current_transfer
+
+# required by spi-sprd-adi.ko
+  unregister_restart_handler
+
+# required by sprd-dma.ko
+  dma_async_device_register
+  dma_async_device_unregister
+  dma_async_tx_descriptor_init
+  of_dma_controller_free
+  of_dma_controller_register
+  of_dma_simple_xlate
+
+# required by sprd_hwspinlock.ko
+  hwspin_lock_register
+  hwspin_lock_unregister
+
 # required by sprd-saudio.ko
   snd_card_free
 
@@ -1185,6 +1351,10 @@
 
 # required by sprd_sdio_fm.ko
   vfs_llseek
+
+# required by sprd_wdt.ko
+  devm_watchdog_register_device
+  watchdog_init_timeout
 
 # required by sprdbt_sipc_tty.ko
   tty_schedule_flip

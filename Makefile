@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 4
-SUBLEVEL = 24
+SUBLEVEL = 26
 EXTRAVERSION =
 NAME = Kleptomaniac Octopus
 
@@ -901,7 +901,8 @@ endif
 
 ifdef CONFIG_CFI_CLANG
 CC_FLAGS_CFI	:= -fsanitize=cfi \
-		   -fno-sanitize-cfi-canonical-jump-tables
+		   -fno-sanitize-cfi-canonical-jump-tables \
+		   -fno-sanitize-blacklist
 
 ifdef CONFIG_MODULES
 CC_FLAGS_CFI	+= -fsanitize-cfi-cross-dso
@@ -1135,8 +1136,8 @@ endif
 autoksyms_h := $(if $(CONFIG_TRIM_UNUSED_KSYMS), include/generated/autoksyms.h)
 
 quiet_cmd_autoksyms_h = GEN     $@
-      cmd_autoksyms_h = mkdir -p $(dir $@); $(CONFIG_SHELL) \
-			$(srctree)/scripts/gen_autoksyms.sh $@
+      cmd_autoksyms_h = mkdir -p $(dir $@); \
+			$(CONFIG_SHELL) $(srctree)/scripts/gen_autoksyms.sh $@
 
 $(autoksyms_h):
 	$(call cmd,autoksyms_h)

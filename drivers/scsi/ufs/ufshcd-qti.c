@@ -5332,7 +5332,7 @@ static int ufshcd_disable_tx_lcc(struct ufs_hba *hba, bool peer)
 	return err;
 }
 
-static inline int ufshcd_disable_host_tx_lcc(struct ufs_hba *hba)
+static inline int ufshcd_qti_disable_host_tx_lcc(struct ufs_hba *hba)
 {
 	return ufshcd_disable_tx_lcc(hba, false);
 }
@@ -5398,7 +5398,7 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	}
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_BROKEN_LCC) {
-		ret = ufshcd_disable_host_tx_lcc(hba);
+		ret = ufshcd_qti_disable_host_tx_lcc(hba);
 		if (ret)
 			goto out;
 	}
@@ -7683,7 +7683,7 @@ static int ufshcd_set_low_vcc_level(struct ufs_hba *hba)
 	struct ufs_vreg *vreg = hba->vreg_info.vcc;
 
 	/* Check if device supports the low voltage VCC feature */
-	if (hba->dev_info.spec_version < 0x300)
+	if (hba->dev_info.wspecversion < 0x300)
 		return 0;
 
 	/*
@@ -7816,7 +7816,7 @@ static int ufs_get_device_desc(struct ufs_hba *hba)
 	dev_info->wmanufacturerid = desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
 				     desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
 
-	dev_info->spec_version = desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
+	dev_info->wspecversion = desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
 				  desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
 	dev_info->b_device_sub_class =
 		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
@@ -8182,7 +8182,7 @@ static int ufshcd_get_dev_ref_clk_gating_wait(struct ufs_hba *hba)
 	int err = 0;
 	u32 gating_wait = UFSHCD_REF_CLK_GATING_WAIT_US;
 
-	if (hba->dev_info.spec_version >= 0x300) {
+	if (hba->dev_info.wspecversion >= 0x300) {
 		err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 				QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME, 0, 0,
 				&gating_wait);
@@ -8254,7 +8254,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ufshcd_tune_unipro_params(hba);
 
 	ufshcd_apply_pm_quirks(hba);
-	if (hba->dev_info.spec_version < 0x300) {
+	if (hba->dev_info.wspecversion < 0x300) {
 		ret = ufshcd_set_vccq_rail_unused(hba,
 			(hba->dev_quirks & UFS_DEVICE_NO_VCCQ) ?
 			true : false);
@@ -8270,9 +8270,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	 * during system suspend events. This will cause the UFS
 	 * device to re-initialize upon system resume events.
 	 */
-	if ((hba->dev_info.spec_version >= 0x300 && hba->vreg_info.vccq &&
+	if ((hba->dev_info.wspecversion >= 0x300 && hba->vreg_info.vccq &&
 		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
-		(hba->dev_info.spec_version < 0x300 && hba->vreg_info.vccq2 &&
+		(hba->dev_info.wspecversion < 0x300 && hba->vreg_info.vccq2 &&
 		hba->vreg_info.vccq2->sys_suspend_pwr_off))
 		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 				UFS_POWERDOWN_PWR_MODE,
@@ -9104,14 +9104,14 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
 		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
-		if (hba->dev_info.spec_version >= 0x300 &&
+		if (hba->dev_info.wspecversion >= 0x300 &&
 			hba->vreg_info.vccq->sys_suspend_pwr_off)
 			ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq, false);
 		else
 			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
 
-		if (hba->dev_info.spec_version < 0x300 &&
+		if (hba->dev_info.wspecversion < 0x300 &&
 			hba->vreg_info.vccq2->sys_suspend_pwr_off)
 			ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq2, false);
@@ -9132,7 +9132,7 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 		!hba->dev_info.is_lu_power_on_wp) {
-		if (hba->dev_info.spec_version < 0x300 &&
+		if (hba->dev_info.wspecversion < 0x300 &&
 			hba->vreg_info.vccq2->sys_suspend_pwr_off)
 			ret = ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq2, true);
@@ -9141,7 +9141,7 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 		if (ret)
 			goto vcc_disable;
 
-		if (hba->dev_info.spec_version >= 0x300 &&
+		if (hba->dev_info.wspecversion >= 0x300 &&
 			hba->vreg_info.vccq->sys_suspend_pwr_off)
 			ret = ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq, true);
