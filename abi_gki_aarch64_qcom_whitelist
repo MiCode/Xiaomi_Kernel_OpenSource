@@ -1120,6 +1120,7 @@
   ion_heap_map_kernel
   ion_heap_map_user
   ion_heap_unmap_kernel
+  __ioread32_copy
   __ioremap
   iounmap
   __iowrite32_copy
