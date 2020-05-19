@@ -420,7 +420,8 @@ int mhi_dev_mmio_clear_interrupts(struct mhi_dev *dev)
 				MHI_ERDB_INT_CLEAR_A7_n_CLEAR_MASK);
 
 	mhi_dev_mmio_write(dev, MHI_CTRL_INT_CLEAR_A7,
-					MHI_CTRL_INT_CRDB_CLEAR);
+		(MHI_CTRL_INT_MMIO_WR_CLEAR | MHI_CTRL_INT_CRDB_CLEAR |
+		MHI_CTRL_INT_CRDB_MHICTRL_CLEAR));
 
 	return 0;
 }

@@ -185,6 +185,18 @@
 			role = "fe";
 			remote-vmids = <0>;
 		};
+
+		mmidgrp1100: mmidgrp1100 {
+			grp-start-id = <1100>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp1200: mmidgrp1200 {
+			grp-start-id = <1200>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
 	};
 
 	sde_kms_hyp: qcom,sde_kms_hyp@ae00000 {

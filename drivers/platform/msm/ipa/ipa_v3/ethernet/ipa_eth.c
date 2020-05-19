@@ -306,9 +306,11 @@ static void ipa_eth_device_refresh(struct ipa_eth_device *eth_dev)
 			return;
 		}
 
-		if (ipa_eth_net_watch_upper(eth_dev))
+		if (ipa_eth_net_register_upper(eth_dev)) {
 			ipa_eth_dev_err(eth_dev,
-					"Failed to watch upper interfaces");
+				"Failed to register upper interfaces");
+			eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		}
 
 		if (ipa_eth_pm_vote_bw(eth_dev))
 			ipa_eth_dev_err(eth_dev,
@@ -316,9 +318,11 @@ static void ipa_eth_device_refresh(struct ipa_eth_device *eth_dev)
 	} else {
 		ipa_eth_dev_log(eth_dev, "Start is disallowed for the device");
 
-		if (ipa_eth_net_unwatch_upper(eth_dev))
+		if (ipa_eth_net_unregister_upper(eth_dev)) {
 			ipa_eth_dev_err(eth_dev,
-					"Failed to unwatch upper interfaces");
+				"Failed to unregister upper interfaces");
+			eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		}
 
 		if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
 			IPA_ACTIVE_CLIENTS_INC_SIMPLE();
@@ -601,7 +605,6 @@ struct ipa_eth_device *ipa_eth_alloc_device(
 
 	ipa_priv->eth_dev = eth_dev;
 
-	mutex_init(&ipa_priv->upper_mutex);
 	INIT_LIST_HEAD(&ipa_priv->upper_devices);
 
 	ipa_priv->panic_nb.notifier_call = ipa_eth_panic_notifier;

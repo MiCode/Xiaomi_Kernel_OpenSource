@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/serdev.h>
 #include <linux/slab.h>
 
@@ -49,14 +50,32 @@ static const struct device_type serdev_ctrl_type = {
 
 static int serdev_device_match(struct device *dev, struct device_driver *drv)
 {
-	/* TODO: ACPI and platform matching */
-	return of_driver_match_device(dev, drv);
+	/* TODO: ACPI matching */
+
+	if (of_driver_match_device(dev, drv))
+		return 1;
+
+	if (dev->parent->parent->bus == &platform_bus_type &&
+	    dev->parent->parent->bus->match(dev->parent->parent, drv))
+		return 1;
+
+	return 0;
 }
 
 static int serdev_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
-	/* TODO: ACPI and platform modalias */
-	return of_device_uevent_modalias(dev, env);
+	int rc;
+
+	/* TODO: ACPI modalias */
+
+	rc = of_device_uevent_modalias(dev, env);
+	if (rc != -ENODEV)
+		return rc;
+
+	if (dev->parent->parent->bus == &platform_bus_type)
+		rc = dev->parent->parent->bus->uevent(dev->parent->parent, env);
+
+	return rc;
 }
 
 /**
@@ -153,6 +172,7 @@ int serdev_device_write(struct serdev_device *serdev,
 			unsigned long timeout)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
+	int written = 0;
 	int ret;
 
 	if (!ctrl || !ctrl->ops->write_buf ||
@@ -167,14 +187,21 @@ int serdev_device_write(struct serdev_device *serdev,
 		if (ret < 0)
 			break;
 
+		written += ret;
 		buf += ret;
 		count -= ret;
-
 	} while (count &&
 		 (timeout = wait_for_completion_timeout(&serdev->write_comp,
 							timeout)));
 	mutex_unlock(&serdev->write_lock);
-	return ret < 0 ? ret : (count ? -ETIMEDOUT : 0);
+
+	if (ret < 0)
+		return ret;
+
+	if (timeout == 0 && written == 0)
+		return -ETIMEDOUT;
+
+	return written;
 }
 EXPORT_SYMBOL_GPL(serdev_device_write);
 
@@ -398,6 +425,33 @@ static int of_serdev_register_devices(struct serdev_controller *ctrl)
 	return 0;
 }
 
+static int platform_serdev_register_devices(struct serdev_controller *ctrl)
+{
+	struct serdev_device *serdev;
+	int err;
+
+	if (ctrl->dev.parent->bus != &platform_bus_type)
+		return -ENODEV;
+
+	serdev = serdev_device_alloc(ctrl);
+	if (!serdev) {
+		dev_err(&ctrl->dev, "failed to allocate serdev device for %s\n",
+				    dev_name(ctrl->dev.parent));
+		return -ENOMEM;
+	}
+
+	pm_runtime_no_callbacks(&serdev->dev);
+
+	err = serdev_device_add(serdev);
+	if (err) {
+		dev_err(&serdev->dev,
+			"failure adding device. status %d\n", err);
+		serdev_device_put(serdev);
+	}
+
+	return err;
+}
+
 /**
  * serdev_controller_add() - Add an serdev controller
  * @ctrl:	controller to be registered.
@@ -407,7 +461,7 @@ static int of_serdev_register_devices(struct serdev_controller *ctrl)
  */
 int serdev_controller_add(struct serdev_controller *ctrl)
 {
-	int ret;
+	int ret_of, ret_platform, ret;
 
 	/* Can't register until after driver model init */
 	if (WARN_ON(!is_registered))
@@ -417,9 +471,15 @@ int serdev_controller_add(struct serdev_controller *ctrl)
 	if (ret)
 		return ret;
 
-	ret = of_serdev_register_devices(ctrl);
-	if (ret)
+	ret_platform = platform_serdev_register_devices(ctrl);
+	ret_of = of_serdev_register_devices(ctrl);
+	if (ret_of && ret_platform) {
+		dev_dbg(&ctrl->dev, "no devices registered: of:%d "
+				    "platform:%d\n",
+				    ret_of, ret_platform);
+		ret = -ENODEV;
 		goto out_dev_del;
+	}
 
 	dev_dbg(&ctrl->dev, "serdev%d registered: dev:%p\n",
 		ctrl->nr, &ctrl->dev);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,6 +212,8 @@
 
 #define HDLC_CTXT		1
 #define NON_HDLC_CTXT	2
+
+#define PKT_PROCESS_TIMEOUT		200
 
 #define TYPE_DATA		0
 #define TYPE_CNTL		1
@@ -652,6 +654,7 @@ struct diagchar_dev {
 	struct list_head diag_id_list;
 	struct mutex diag_id_mutex;
 	struct mutex cmd_reg_mutex;
+	spinlock_t dci_mempool_lock;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
 	int transport_set;

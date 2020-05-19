@@ -20,6 +20,7 @@
 #include <linux/ipa_mhi.h>
 #include "../ipa_common_i.h"
 #include "../ipa_v3/ipa_pm.h"
+#include "../ipa_v3/ipa_i.h"
 
 #define IPA_MHI_DRV_NAME "ipa_mhi_client"
 
@@ -69,6 +70,15 @@
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_CLIENT_HOST_ADDR_COND(addr) \
 	((ipa_mhi_client_ctx->assert_bit40)?(IPA_MHI_HOST_ADDR(addr)):(addr))
+
+#define IPA_MHI_CLIENT_IP_HW_0_OUT 100
+#define IPA_MHI_CLIENT_IP_HW_0_IN 101
+#define IPA_MHI_CLIENT_ADPL_IN 102
+#define IPA_MHI_CLIENT_IP_HW_QDSS 103
+#define IPA_MHI_CLIENT_IP_HW_1_OUT 105
+#define IPA_MHI_CLIENT_IP_HW_1_IN 106
+#define IPA_MHI_CLIENT_QMAP_FLOW_CTRL_OUT 109
+#define IPA_MHI_CLIENT_QMAP_FLOW_CTRL_IN 110
 
 enum ipa_mhi_rm_state {
 	IPA_MHI_RM_STATE_RELEASED,
@@ -1508,6 +1518,53 @@ static int ipa_mhi_reset_channel(struct ipa_mhi_channel_ctx *channel,
 	return 0;
 }
 
+static enum ipa_client_type ipa3_mhi_get_client_by_chid(u32 chid)
+{
+	enum ipa_client_type client;
+
+	switch (chid) {
+	case IPA_MHI_CLIENT_ADPL_IN:
+		client = IPA_CLIENT_MHI_DPL_CONS;
+		break;
+	case IPA_MHI_CLIENT_IP_HW_QDSS:
+		client = IPA_CLIENT_MHI_QDSS_CONS;
+		break;
+	case IPA_MHI_CLIENT_IP_HW_0_OUT:
+		client = IPA_CLIENT_MHI_PROD;
+		break;
+	case IPA_MHI_CLIENT_IP_HW_0_IN:
+		client = IPA_CLIENT_MHI_CONS;
+		break;
+	case IPA_MHI_CLIENT_IP_HW_1_OUT:
+	/* IPA4.5 non-auto, use mhi ch104 for qmap flow control */
+		if (!ipa3_ctx->ipa_config_is_auto &&
+			ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			client = IPA_CLIENT_MHI_LOW_LAT_PROD;
+		else
+			client = IPA_CLIENT_MHI2_PROD;
+		break;
+	case IPA_MHI_CLIENT_IP_HW_1_IN:
+	/* IPA4.5 non-auto, use mhi ch105 for qmap flow control */
+		if (!ipa3_ctx->ipa_config_is_auto &&
+			ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			client = IPA_CLIENT_MHI_LOW_LAT_CONS;
+		else
+			client = IPA_CLIENT_MHI2_CONS;
+		break;
+	case IPA_MHI_CLIENT_QMAP_FLOW_CTRL_OUT:
+		client = IPA_CLIENT_MHI_LOW_LAT_PROD;
+		break;
+	case IPA_MHI_CLIENT_QMAP_FLOW_CTRL_IN:
+		client = IPA_CLIENT_MHI_LOW_LAT_CONS;
+		break;
+	default:
+		IPA_MHI_ERR("Invalid channel = 0x%X\n", chid);
+		client = IPA_CLIENT_MAX;
+	}
+
+	return client;
+}
+
 /**
  * ipa_mhi_connect_pipe() - Connect pipe to IPA and start corresponding
  * MHI channel
@@ -1533,6 +1590,9 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		return -EINVAL;
 	}
 
+	IPA_MHI_DBG("channel=%d\n", in->channel_id);
+	in->sys.client = ipa3_mhi_get_client_by_chid(in->channel_id);
+
 	if (in->sys.client >= IPA_CLIENT_MAX) {
 		IPA_MHI_ERR("bad param client:%d\n", in->sys.client);
 		return -EINVAL;
@@ -1543,8 +1603,6 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 			"Invalid MHI client, client: %d\n", in->sys.client);
 		return -EINVAL;
 	}
-
-	IPA_MHI_DBG("channel=%d\n", in->channel_id);
 
 	spin_lock_irqsave(&ipa_mhi_client_ctx->state_lock, flags);
 	if (!ipa_mhi_client_ctx ||

@@ -1,0 +1,252 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include "pm660.dtsi"
+#include "pm660-rpm-regulator.dtsi"
+#include "sdm429w-regulator.dtsi"
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&pm660_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-I13Z5P-680mAh.dtsi"
+	};
+};
+
+&pm660_gpios {
+	interrupts  = <0x0 0xc3 0 IRQ_TYPE_NONE>,
+			<0x0 0xc4 0 IRQ_TYPE_NONE>,
+			<0x0 0xcb 0 IRQ_TYPE_NONE>;
+	interrupt-names = "pm660_gpio4", "pm660_gpio5", "pm660_gpio12";
+	qcom,gpios-disallowed = <1 2 3 6 7 8 9 10 11 13>;
+};
+
+&pm660_charger {
+	qcom,use-extcon;
+	qcom,pd-not-supported;
+	qcom,auto-recharge-soc;
+	#cooling-cells = <2>;
+	dpdm-supply = <&usb_otg>;
+
+	smb2_vbus: qcom,smb2-vbus {
+		regulator-name = "smb2-vbus";
+	};
+
+	smb2_vconn: qcom,smb2-vconn {
+		regulator-name = "smb2-vconn";
+	};
+};
+
+&pm660_adc_tm {
+	io-channels = <&pm660_vadc ADC_XO_THERM_PU2>,
+			<&pm660_vadc ADC_AMUX_THM1_PU2>,
+			<&pm660_vadc ADC_AMUX_THM5_PU2>,
+			<&pm660_vadc ADC_VPH_PWR>,
+			<&pm660_vadc ADC_AMUX_THM2_PU2>,
+			<&pm660_vadc ADC_AMUX_THM3_PU2>;
+
+	xo_therm {
+		reg = <ADC_XO_THERM_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	msm_therm {
+		reg = <ADC_AMUX_THM1_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	quiet_therm {
+		reg = <ADC_AMUX_THM5_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	vph_pwr {
+		reg = <ADC_VPH_PWR>;
+		qcom,kernel-client;
+		qcom,pre-scaling = <3>;
+		qcom,scale-type = <0>;
+	};
+
+	emmc_therm {
+		reg = <ADC_AMUX_THM2_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pa_therm0 {
+		reg = <ADC_AMUX_THM3_PU2>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pm660_pon {
+	qcom,use-legacy-hard-reset-offset;
+};
+
+&pm660_rradc {
+	qcom,batt-id-delay-ms = <80>;
+};
+
+&pm660_fg {
+	qcom,fg-esr-timer-shutdown = <2048 2048>;
+	qcom,hold-soc-while-full;
+	qcom,fg-auto-recharge-soc;
+	qcom,fg-recharge-soc-thr = <98>;
+	qcom,fg-rsense-sel = <1>;		/* External rsense */
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-recharge-voltage = <4100>;
+	qcom,fg-esr-pulse-thresh-ma = <40>;
+	qcom,fg-esr-meas-curr-ma = <60>;
+	qcom,fg-use-sw-esr;
+	qcom,fg-cutoff-current = <50>;
+	qcom,fg-sync-sleep-threshold-ma = <30>;
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,fg-bmd-en-delay-ms = <300>;
+	qcom,fg-force-load-profile;
+	qcom,fg-jeita-thresholds = <0 20 45 60>;
+	status = "okay";
+};
+
+&pm660_haptics {
+	/delete-property/ qcom,lra-resonance-sig-shape;
+	/delete-property/ qcom,lra-auto-resonance-mode;
+	/delete-property/ qcom,lra-allow-variable-play;
+	/delete-property/ qcom,lra-allow-variable-play-rate;
+	qcom,actuator-type = "erm";
+	qcom,ilim-ma = <400>;
+	qcom,play-rate-us = <10000>;
+
+	wf_0 {
+		/delete-property/ qcom,wf-play-rate-us;
+		/delete-property/ qcom,lra-auto-resonance-disable;
+	};
+
+	wf_1 {
+		/delete-property/ qcom,wf-play-rate-us;
+		/delete-property/ qcom,lra-auto-resonance-disable;
+	};
+
+	wf_2 {
+		/delete-property/ qcom,wf-play-rate-us;
+		/delete-property/ qcom,lra-auto-resonance-disable;
+	};
+
+	wf_3 {
+		/delete-property/ qcom,wf-play-rate-us;
+		/delete-property/ qcom,lra-auto-resonance-disable;
+	};
+
+	wf_4 {
+		/delete-property/ qcom,wf-play-rate-us;
+		/delete-property/ qcom,lra-auto-resonance-disable;
+	};
+
+	wf_5 {
+		/delete-property/  qcom,wf-brake-pattern;
+		/delete-property/ qcom,lra-auto-resonance-disable;
+	};
+};
+
+&thermal_zones {
+	xo-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4c>;
+		wake-capable-sensor;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	msm-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4d>;
+		wake-capable-sensor;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	emmc-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4e>;
+		wake-capable-sensor;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	pa-therm0-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4f>;
+		wake-capable-sensor;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+
+	quiet-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x51>;
+		wake-capable-sensor;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};
+
+&usb_otg {
+	extcon = &pm660_charger;
+};

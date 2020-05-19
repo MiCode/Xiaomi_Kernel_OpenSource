@@ -301,9 +301,9 @@ void inv_convert_and_push_8bytes(struct inv_mpu_state *st, u16 hdr,
 static void store_acc_boot_sample(struct inv_mpu_state *st, u64 t,
 						s16 x, s16 y, s16 z)
 {
-	mutex_lock(&st->acc_sensor_buff);
 	if (false == st->acc_buffer_inv_samples)
 		return;
+	mutex_lock(&st->acc_sensor_buff);
 	st->timestamp = t;
 	if (ktime_to_timespec(st->timestamp).tv_sec
 			<  st->max_buffer_time) {
@@ -327,10 +327,9 @@ static void store_acc_boot_sample(struct inv_mpu_state *st, u64 t,
 static void store_gyro_boot_sample(struct inv_mpu_state *st, u64 t,
 						s16 x, s16 y, s16 z)
 {
-
-	mutex_lock(&st->gyro_sensor_buff);
 	if (false == st->gyro_buffer_inv_samples)
 		return;
+	mutex_lock(&st->gyro_sensor_buff);
 	st->timestamp = t;
 	if (ktime_to_timespec(st->timestamp).tv_sec
 			<  st->max_buffer_time) {

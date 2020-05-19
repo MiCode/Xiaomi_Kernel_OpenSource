@@ -210,6 +210,7 @@
 				<&mmss_bimc_smmu 0x431>;
 			buffer-types = <0xfff>;
 			virtual-addr-pool = <0x79000000 0x60000000>;
+			cma-addr-pool = <0xD0000000 0x9000000>;
 		};
 
 		secure_bitstream_cb {
@@ -226,6 +227,7 @@
 				<&mmss_bimc_smmu 0x52b>;
 			buffer-types = <0x241>;
 			virtual-addr-pool = <0x51000000 0x28000000>;
+			cma-addr-pool = <0xC0000000 0x10000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -238,6 +240,8 @@
 				<&mmss_bimc_smmu 0x52c>;
 			buffer-types = <0x106>;
 			virtual-addr-pool = <0x29000000 0x28000000>;
+			cma-addr-pool= <0xb6800000 0x9800000>;
+			qcom,cma-s1-bypass;
 			qcom,secure-context-bank;
 		};
 
@@ -255,6 +259,7 @@
 				<&mmss_bimc_smmu 0x540>;
 			buffer-types = <0x480>;
 			virtual-addr-pool = <0x1000000 0x28000000>;
+			cma-addr-pool= <0x1000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 	};

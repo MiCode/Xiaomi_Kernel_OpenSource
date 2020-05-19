@@ -32,6 +32,7 @@
 #define MAX_STRING_LEN 256
 #define BOOT_MARKER_MAX_LEN 50
 #define MSM_ARCH_TIMER_FREQ     19200000
+#define BOOTKPI_BUF_SIZE (2 * PAGE_SIZE)
 
 struct boot_marker {
 	char marker_name[BOOT_MARKER_MAX_LEN];
@@ -93,9 +94,11 @@ static void set_bootloader_stats(bool hibernation_restore)
 		_create_boot_marker("D - APPSBL Kernel Load End - ",
 			readl_relaxed(&boot_stats->load_kernel_done));
 		_create_boot_marker("D - APPSBL Kernel Load Time - ",
-			readl_relaxed(&boot_stats->bootloader_load_kernel));
+			readl_relaxed(&boot_stats->load_kernel_done) -
+			readl_relaxed(&boot_stats->load_kernel_start));
 		_create_boot_marker("D - APPSBL Kernel Auth Time - ",
-			readl_relaxed(&boot_stats->bootloader_chksum_time));
+			readl_relaxed(&boot_stats->bootloader_chksum_done) -
+			readl_relaxed(&boot_stats->bootloader_chksum_start));
 	} else {
 		_create_boot_marker("D - APPSBL Hibernation Image Load Start -",
 			readl_relaxed(&boot_stats->load_kernel_start));
@@ -175,13 +178,14 @@ static ssize_t bootkpi_reader(struct file *fp, char __user *user_buffer,
 	int temp = 0;
 	struct boot_marker *marker;
 
-	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	buf = kmalloc(BOOTKPI_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
 	spin_lock(&boot_marker_list.slock);
 	list_for_each_entry(marker, &boot_marker_list.list, list) {
-		temp += scnprintf(buf + temp, PAGE_SIZE - temp,
+		WARN_ON((BOOTKPI_BUF_SIZE - temp) <= 0);
+		temp += scnprintf(buf + temp, BOOTKPI_BUF_SIZE - temp,
 				"%-41s:%llu.%03llu seconds\n",
 				marker->marker_name,
 				marker->timer_value/TIMER_KHZ,

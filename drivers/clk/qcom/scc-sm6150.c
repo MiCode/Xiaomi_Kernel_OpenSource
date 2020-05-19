@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,66 +67,6 @@ static const char * const scc_parent_names_0[] = {
 	"qdsp6ss_pll_out_aux",
 	"scc_pll",
 	"ssc_bi_pll_test_se",
-};
-
-static struct pll_vco scc_pll_vco[] = {
-	{ 500000000, 1000000000, 2 },
-};
-
-/* 600MHz configuration */
-static struct alpha_pll_config scc_pll_config = {
-	.l = 0x1F,
-	.alpha_u = 0x40,
-	.alpha_en_mask = BIT(24),
-	.vco_val = 0x2 << 20,
-	.vco_mask = 0x3 << 20,
-	.post_div_val = 0x3 << 15,
-	.post_div_mask = 0x7 << 15,
-	.aux_output_mask = BIT(1),
-	.aux2_output_mask = BIT(2),
-	.config_ctl_val = 0x4001055b,
-	.test_ctl_hi_val = 0x1,
-	.test_ctl_hi_mask = 0x1,
-};
-
-static struct clk_alpha_pll scc_pll_out_aux2 = {
-	.offset = 0x0,
-	.vco_table = scc_pll_vco,
-	.num_vco = ARRAY_SIZE(scc_pll_vco),
-	.config = &scc_pll_config,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "scc_pll_out_aux2",
-		.parent_names = (const char *[]){ "bi_tcxo" },
-		.num_parents = 1,
-		.ops = &clk_alpha_pll_ops,
-		.vdd_class = &vdd_scc_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 1000000000,
-			[VDD_NOMINAL] = 2000000000},
-	},
-};
-
-static const struct clk_div_table post_div_table[] = {
-	{ 0x0, 1 },
-	{ 0x3, 3 },
-	{ 0x5, 5 },
-	{ 0x7, 7 },
-	{ }
-};
-
-static struct clk_alpha_pll_postdiv scc_pll_out_aux = {
-	.offset = 0x0,
-	.width = 2,
-	.post_div_table = post_div_table,
-	.num_post_div = ARRAY_SIZE(post_div_table),
-	.postdiv = POSTDIV_ODD,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "scc_pll_out_aux",
-		.parent_names = (const char *[]){ "scc_pll_out_aux2" },
-		.num_parents = 1,
-		.ops = &clk_alpha_pll_postdiv_ops,
-	},
 };
 
 static const struct freq_tbl ftbl_scc_main_rcg_clk_src[] = {
@@ -485,8 +425,6 @@ static struct clk_branch scc_qupv3_se5_clk = {
 };
 
 static struct clk_regmap *scc_sm6150_clocks[] = {
-	[SCC_PLL_OUT_AUX2] = &scc_pll_out_aux2.clkr,
-	[SCC_PLL_OUT_AUX] = &scc_pll_out_aux.clkr,
 	[SCC_MAIN_RCG_CLK_SRC] = &scc_main_rcg_clk_src.clkr,
 	[SCC_QUPV3_2XCORE_CLK] = &scc_qupv3_2xcore_clk.clkr,
 	[SCC_QUPV3_CORE_CLK] = &scc_qupv3_core_clk.clkr,
@@ -541,26 +479,10 @@ static const struct of_device_id scc_sm6150_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, scc_sm6150_match_table);
 
-static int scc_sa6150_resume(struct device *dev)
-{
-	struct regmap *regmap = dev_get_drvdata(dev);
-
-	clk_alpha_pll_configure(&scc_pll_out_aux2, regmap,
-			scc_pll_out_aux2.config);
-
-	return 0;
-}
-
-static const struct dev_pm_ops scc_sa6150_pm_ops = {
-	.restore_early = scc_sa6150_resume,
-};
-
 static void scc_sm6150_fixup_sa6155(struct platform_device *pdev)
 {
 	vdd_scc_cx.num_levels = VDD_NUM_SA6155;
 	vdd_scc_cx.cur_level = VDD_NUM_SA6155;
-
-	pdev->dev.driver->pm =  &scc_sa6150_pm_ops;
 }
 
 static int scc_sm6150_probe(struct platform_device *pdev)
@@ -587,9 +509,6 @@ static int scc_sm6150_probe(struct platform_device *pdev)
 		pr_err("Failed to map the scc registers\n");
 		return PTR_ERR(regmap);
 	}
-
-	clk_alpha_pll_configure(&scc_pll_out_aux2, regmap,
-			scc_pll_out_aux2.config);
 
 	ret = qcom_cc_really_probe(pdev, &scc_sm6150_desc, regmap);
 	if (ret) {

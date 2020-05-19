@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -277,6 +277,19 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 			struct cam_ahb_vote ahb_vote;
 			struct cam_axi_vote axi_vote;
 
+			if (core->id != CAM_CDM_VIRTUAL) {
+				rc = cam_soc_util_enable_platform_resource(
+						&cdm_hw->soc_info, true,
+						CAM_SVS_VOTE, true);
+				if (rc) {
+					CAM_ERR(CAM_CDM,
+						"Enable platform failed");
+					goto end;
+				}
+			}
+
+			CAM_DBG(CAM_CDM, "Enable soc done");
+
 			ahb_vote.type = CAM_VOTE_ABSOLUTE;
 			ahb_vote.vote.level = CAM_SVS_VOTE;
 			axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
@@ -287,7 +300,7 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 				&ahb_vote, &axi_vote);
 			if (rc != 0) {
 				CAM_ERR(CAM_CDM, "CPAS start failed");
-				goto end;
+				goto disable_platform_resource;
 			}
 			CAM_DBG(CAM_CDM, "CDM init first time");
 			if (core->id == CAM_CDM_VIRTUAL) {
@@ -367,6 +380,15 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 			rc = -ENXIO;
 		}
 	}
+	goto end;
+
+disable_platform_resource:
+	if (core->id != CAM_CDM_VIRTUAL) {
+		if (cam_soc_util_disable_platform_resource(&cdm_hw->soc_info,
+				true, true))
+			CAM_ERR(CAM_CDM, "Disable platform resource failed");
+	}
+
 end:
 	cam_cdm_put_client_refcount(client);
 	mutex_unlock(&cdm_hw->hw_mutex);

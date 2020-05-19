@@ -1,0 +1,108 @@
+/*
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs405.dtsi"
+#include "qcs405-wsa-audio-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS405 Turbox C405 DVT IOT";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x010020 5>;
+};
+
+&mdss_rgb {
+	status = "disabled";
+};
+
+&i2c_5 {
+	status = "ok";
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&smp2p_sleepstate {
+	status = "disabled";
+};
+
+&smb1351_otg_supply {
+	status = "disabled";
+};
+
+&soc {
+	gpio_keys {
+		vol_mute {
+			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&tlmm {
+	evb_tlmm_gpio_key{
+		tlmm_gpio_key_active: tlmm_gpio_key_active {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+
+		tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+	};
+};
+
+&usb3 {
+	qcom,charging-disabled;
+	/delete-property/ extcon;
+};
+
+&usb2s {
+	qcom,charging-disabled;
+};
+
+&qcs405_snd {
+	qcom,tasha-codec = <0>;
+	qcom,wcn-btfm = <0>;
+	qcom,model = "qcs404-wsa-rb1-snd-card";
+};
+
+&wcd9335 {
+	status = "disabled";
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pms405_l7: regulator-l7 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			regulator-always-on;
+			status = "okay";
+		};
+	};
+};

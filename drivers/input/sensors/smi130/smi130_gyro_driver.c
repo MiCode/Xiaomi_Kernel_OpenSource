@@ -1741,9 +1741,9 @@ static void smi_gyro_input_destroy(struct smi_gyro_client_data *client_data)
 static void store_gyro_boot_sample(struct smi_gyro_client_data *client_data,
 			int x, int y, int z, struct timespec ts)
 {
-	mutex_lock(&client_data->gyro_sensor_buff);
 	if (false == client_data->gyro_buffer_smi130_samples)
 		return;
+	mutex_lock(&client_data->gyro_sensor_buff);
 	if (ts.tv_sec <  client_data->max_buffer_time) {
 		if (client_data->gyro_bufsample_cnt < SMI_GYRO_MAXSAMPLE) {
 			client_data->smi130_gyro_samplist[client_data
