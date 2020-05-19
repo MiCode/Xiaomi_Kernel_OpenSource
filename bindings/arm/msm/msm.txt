@@ -77,6 +77,9 @@ SoCs:
 - SDXPRAIRIE
   compatible = "qcom,sdxprairie"
 
+- SDXLEMUR
+  compatible = "qcom,sdxlemur"
+
 - SDMMAGPIE
   compatible = "qcom,sdmmagpie"
 
@@ -216,6 +219,9 @@ compatible = "qcom,adp-star"
 compatible = "qcom,sdxprairie-rumi"
 compatible = "qcom,sdxprairie-mtp"
 compatible = "qcom,sdxprairie-cdp"
+compatible = "qcom,sdxlemur-rumi"
+compatible = "qcom,sdxlemur-mtp"
+compatible = "qcom,sdxlemur-cdp"
 compatible = "qcom,sdmmagpie-rumi"
 compatible = "qcom,sdmmagpie-idp"
 compatible = "qcom,sdmmagpie-qrd"
