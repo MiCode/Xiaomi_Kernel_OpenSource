@@ -70,6 +70,7 @@
 			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
 			snps,dis_enblslpm_quirk;
+			snps,ssp-u3-u0-quirk;
 			usb-core-id = <0>;
 			tx-fifo-resize;
 			maximum-speed = "super-speed-plus";
