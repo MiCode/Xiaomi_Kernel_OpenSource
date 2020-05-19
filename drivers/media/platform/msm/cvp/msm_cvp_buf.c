@@ -163,8 +163,10 @@ int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst, struct cvp_kmd_buffer *buf)
 	return rc;
 
 exit:
-	if (smem->device_addr)
+	if (smem->device_addr) {
 		msm_cvp_unmap_smem(inst, smem, "unmap dsp");
+		msm_cvp_smem_put_dma_buf(smem->dma_buf);
+	}
 	kmem_cache_free(cvp_driver->buf_cache, cbuf);
 	cbuf = NULL;
 	kmem_cache_free(cvp_driver->smem_cache, smem);
@@ -216,8 +218,10 @@ int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst, struct cvp_kmd_buffer *buf)
 		}
 	}
 
-	if (cbuf->smem->device_addr)
+	if (cbuf->smem->device_addr) {
 		msm_cvp_unmap_smem(inst, cbuf->smem, "unmap dsp");
+		msm_cvp_smem_put_dma_buf(cbuf->smem->dma_buf);
+	}
 
 	mutex_lock(&inst->cvpdspbufs.lock);
 	list_del(&cbuf->list);
