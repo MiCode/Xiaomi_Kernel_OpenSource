@@ -6,6 +6,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/module.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -1695,4 +1696,17 @@ static struct platform_driver scpsys_drv = {
 		.of_match_table = of_match_ptr(of_scpsys_match_tbl),
 	},
 };
-builtin_platform_driver(scpsys_drv);
+
+static int __init scpsys_init(void)
+{
+	return platform_driver_register(&scpsys_drv);
+}
+
+static void __exit scpsys_exit(void)
+{
+	platform_driver_unregister(&scpsys_drv);
+}
+
+arch_initcall(scpsys_init);
+module_exit(scpsys_exit);
+MODULE_LICENSE("GPL");
