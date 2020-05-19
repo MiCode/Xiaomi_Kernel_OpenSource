@@ -1019,3 +1019,11 @@ config MMC_SDHCI_AM654
 	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
+
+config SDC_QTI
+	tristate "Enable QTI specific code in MMC upstream driver"
+	depends on QGKI && MMC_SDHCI_MSM
+	default n
+	help
+	  This configuration flag allows adding QTI code in
+	  MMC upstream driver.

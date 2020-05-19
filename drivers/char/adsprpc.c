@@ -863,16 +863,22 @@ static int fastrpc_alloc_cma_memory(dma_addr_t *region_phys, void **vaddr,
 	return 0;
 }
 
-static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
+static int fastrpc_mmap_remove(struct fastrpc_file *fl, int fd, uintptr_t va,
 			       size_t len, struct fastrpc_mmap **ppmap)
 {
 	struct fastrpc_mmap *match = NULL, *map;
 	struct hlist_node *n;
 	struct fastrpc_apps *me = &gfa;
 
+	/*
+	 * Search for a mapping by matching fd, remote address and length.
+	 * For backward compatibility, search for a mapping by matching is
+	 * limited to remote address and length when passed fd < 0.
+	 */
+
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
-		if (map->raddr == va &&
+		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
 			map->raddr + map->len == va + len &&
 			map->refs == 1) {
 			match = map;
@@ -886,7 +892,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 		return 0;
 	}
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-		if (map->raddr == va &&
+		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
 			map->raddr + map->len == va + len &&
 			map->refs == 1) {
 			match = map;
@@ -898,7 +904,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 		*ppmap = match;
 		return 0;
 	}
-	return -ENOTTY;
+	return -ETOOMANYREFS;
 }
 
 static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
@@ -3353,6 +3359,106 @@ bail:
 	return err;
 }
 
+static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
+				uint32_t flags, uintptr_t va, uint64_t phys,
+				size_t size, uintptr_t *raddr)
+{
+	struct fastrpc_ioctl_invoke_async ioctl;
+	struct smq_phy_page page;
+	remote_arg_t ra[4];
+	int err = 0;
+	struct {
+		int pid;
+		int fd;
+		int offset;
+		uint32_t flags;
+		uint64_t vaddrin;
+		int num;
+		int data_len;
+	} inargs;
+	struct {
+		uint64_t vaddrout;
+	} routargs;
+
+	inargs.pid = fl->tgid;
+	inargs.fd = fd;
+	inargs.offset = offset;
+	inargs.vaddrin = (uintptr_t)va;
+	inargs.flags = flags;
+	inargs.num = sizeof(page);
+	inargs.data_len = 0;
+	ra[0].buf.pv = (void *)&inargs;
+	ra[0].buf.len = sizeof(inargs);
+	page.addr = phys;
+	page.size = size;
+	ra[1].buf.pv = (void *)&page;
+	ra[1].buf.len = sizeof(page);
+	ra[2].buf.pv = (void *)&page;
+	ra[2].buf.len = 0;
+	ra[3].buf.pv = (void *)&routargs;
+	ra[3].buf.len = sizeof(routargs);
+
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(10, 3, 1);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	ioctl.job = NULL;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err)
+		goto bail;
+	if (raddr)
+		*raddr = (uintptr_t)routargs.vaddrout;
+bail:
+	if (err) {
+		pr_err("adsprpc: %s failed. err 0x%x fd %d len 0x%x\n",
+			__func__, err, fd, size);
+	}
+	return err;
+}
+
+static int fastrpc_mem_unmap_to_dsp(struct fastrpc_file *fl, int fd,
+				uint32_t flags,	uintptr_t va,
+				uint64_t phys, size_t size)
+{
+	struct fastrpc_ioctl_invoke_async ioctl;
+	remote_arg_t ra[1];
+	int err = 0;
+	struct {
+		int pid;
+		int fd;
+		uint64_t vaddrin;
+		uint64_t len;
+	} inargs;
+
+	inargs.pid = fl->tgid;
+	inargs.fd = fd;
+	inargs.vaddrin = (uint64_t)va;
+	inargs.len = (uint64_t)size;
+	ra[0].buf.pv = (void *)&inargs;
+	ra[0].buf.len = sizeof(inargs);
+
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(11, 1, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	ioctl.job = NULL;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err)
+		goto bail;
+bail:
+	if (err) {
+		pr_err("adsprpc: %s failed. err 0x%x fd %d len 0x%x\n",
+			__func__, err, fd, size);
+	}
+	return err;
+}
+
 static int fastrpc_unmap_on_dsp(struct fastrpc_file *fl,
 		uintptr_t raddr, uint64_t phys, size_t size, uint32_t flags)
 {
@@ -3686,7 +3792,7 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 	}
 
 	mutex_lock(&fl->map_mutex);
-	VERIFY(err, !fastrpc_mmap_remove(fl, ud->vaddrout, ud->size, &map));
+	VERIFY(err, !fastrpc_mmap_remove(fl, -1, ud->vaddrout, ud->size, &map));
 	mutex_unlock(&fl->map_mutex);
 	if (err)
 		goto bail;
@@ -3739,6 +3845,106 @@ bail:
 	return err;
 }
 
+static int fastrpc_internal_mem_map(struct fastrpc_file *fl,
+				struct fastrpc_ioctl_mem_map *ud)
+{
+	int err = 0;
+	struct fastrpc_mmap *map = NULL;
+
+	VERIFY(err, fl->dsp_proc_init == 1);
+	if (err) {
+		pr_err("adsprpc: ERROR: %s: user application %s trying to map without initialization\n",
+			__func__, current->comm);
+		err = EBADR;
+		goto bail;
+	}
+
+	/* create SMMU mapping */
+	mutex_lock(&fl->map_mutex);
+	VERIFY(err, !fastrpc_mmap_create(fl, ud->m.fd, ud->m.attrs,
+			ud->m.vaddrin, ud->m.length,
+			 ud->m.flags, &map));
+	mutex_unlock(&fl->map_mutex);
+	if (err)
+		goto bail;
+
+	if (map->raddr) {
+		err = -EEXIST;
+		goto bail;
+	}
+
+	/* create DSP mapping */
+	VERIFY(err, !(err = fastrpc_mem_map_to_dsp(fl, ud->m.fd, ud->m.offset,
+		ud->m.flags, map->va, map->phys, ud->m.length, &map->raddr)));
+	if (err)
+		goto bail;
+	ud->m.vaddrout = map->raddr;
+bail:
+	if (err) {
+		pr_err("adsprpc: %s failed to map fd %d flags %d err %d\n",
+			__func__, ud->m.fd, ud->m.flags, err);
+		if (map) {
+			mutex_lock(&fl->map_mutex);
+			fastrpc_mmap_free(map, 0);
+			mutex_unlock(&fl->map_mutex);
+		}
+	}
+	return err;
+}
+
+static int fastrpc_internal_mem_unmap(struct fastrpc_file *fl,
+				struct fastrpc_ioctl_mem_unmap *ud)
+{
+	int err = 0;
+	struct fastrpc_mmap *map = NULL;
+
+	VERIFY(err, fl->dsp_proc_init == 1);
+	if (err) {
+		pr_err("adsprpc: ERROR: %s: user application %s trying to map without initialization\n",
+			__func__, current->comm);
+		err = EBADR;
+		goto bail;
+	}
+
+	mutex_lock(&fl->map_mutex);
+	VERIFY(err, !fastrpc_mmap_remove(fl, ud->um.fd,
+			(uintptr_t)ud->um.vaddr, ud->um.length, &map));
+	mutex_unlock(&fl->map_mutex);
+	if (err)
+		goto bail;
+
+	VERIFY(err, map->flags == FASTRPC_MAP_FD ||
+		map->flags == FASTRPC_MAP_FD_DELAYED ||
+		map->flags == FASTRPC_MAP_STATIC);
+	if (err) {
+		err = -EBADMSG;
+		goto bail;
+	}
+
+	/* remove mapping on DSP */
+	VERIFY(err, !(err = fastrpc_mem_unmap_to_dsp(fl, map->fd, map->flags,
+				map->raddr, map->phys, map->size)));
+	if (err)
+		goto bail;
+
+	/* remove SMMU mapping */
+	mutex_lock(&fl->map_mutex);
+	fastrpc_mmap_free(map, 0);
+	mutex_unlock(&fl->map_mutex);
+	map = NULL;
+bail:
+	if (err) {
+		pr_err("adsprpc: %s failed to unmap fd %d addr 0x%llx length 0x%x err 0x%x\n",
+			__func__, ud->um.fd, ud->um.vaddr, ud->um.length, err);
+		/* Add back to map list in case of error to unmap on DSP */
+		if (map) {
+			mutex_lock(&fl->map_mutex);
+			fastrpc_mmap_add(map);
+			mutex_unlock(&fl->map_mutex);
+		}
+	}
+	return err;
+}
 
 static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 				 struct fastrpc_ioctl_mmap *ud)
@@ -4735,26 +4941,130 @@ bail:
 	return err;
 }
 
-static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
-				 unsigned long ioctl_param)
+union fastrpc_ioctl_param {
+	struct fastrpc_ioctl_invoke_async inv;
+	struct fastrpc_ioctl_mem_map mem_map;
+	struct fastrpc_ioctl_mem_unmap mem_unmap;
+	struct fastrpc_ioctl_mmap mmap;
+	struct fastrpc_ioctl_mmap_64 mmap64;
+	struct fastrpc_ioctl_munmap munmap;
+	struct fastrpc_ioctl_munmap_64 munmap64;
+	struct fastrpc_ioctl_munmap_fd munmap_fd;
+	struct fastrpc_ioctl_init_attrs init;
+	struct fastrpc_ioctl_perf perf;
+	struct fastrpc_ioctl_control cp;
+	struct fastrpc_ioctl_capability cap;
+	struct fastrpc_ioctl_invoke2 inv2;
+};
+
+static inline int fastrpc_mmap_device_ioctl(struct fastrpc_file *fl,
+		unsigned int ioctl_num,	union fastrpc_ioctl_param *p,
+		void *param)
 {
-	union {
-		struct fastrpc_ioctl_invoke_async inv;
-		struct fastrpc_ioctl_mmap mmap;
-		struct fastrpc_ioctl_mmap_64 mmap64;
-		struct fastrpc_ioctl_munmap munmap;
-		struct fastrpc_ioctl_munmap_64 munmap64;
-		struct fastrpc_ioctl_munmap_fd munmap_fd;
-		struct fastrpc_ioctl_init_attrs init;
-		struct fastrpc_ioctl_perf perf;
-		struct fastrpc_ioctl_control cp;
-		struct fastrpc_ioctl_capability cap;
-		struct fastrpc_ioctl_invoke2 inv2;
-	} p;
 	union {
 		struct fastrpc_ioctl_mmap mmap;
 		struct fastrpc_ioctl_munmap munmap;
 	} i;
+	int err = 0;
+
+	switch (ioctl_num) {
+	case FASTRPC_IOCTL_MEM_MAP:
+		K_COPY_FROM_USER(err, 0, &p->mem_map, param,
+						sizeof(p->mem_map));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_mem_map(fl,
+						&p->mem_map)));
+		if (err)
+			goto bail;
+		K_COPY_TO_USER(err, 0, param, &p->mem_map, sizeof(p->mem_map));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MEM_UNMAP:
+		K_COPY_FROM_USER(err, 0, &p->mem_unmap, param,
+						sizeof(p->mem_unmap));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_mem_unmap(fl,
+						&p->mem_unmap)));
+		if (err)
+			goto bail;
+		K_COPY_TO_USER(err, 0, param, &p->mem_unmap,
+					sizeof(p->mem_unmap));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MMAP:
+		K_COPY_FROM_USER(err, 0, &p->mmap, param,
+						sizeof(p->mmap));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &p->mmap)));
+		if (err)
+			goto bail;
+		K_COPY_TO_USER(err, 0, param, &p->mmap, sizeof(p->mmap));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MUNMAP:
+		K_COPY_FROM_USER(err, 0, &p->munmap, param,
+						sizeof(p->munmap));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
+							&p->munmap)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MMAP_64:
+		K_COPY_FROM_USER(err, 0, &p->mmap64, param,
+						sizeof(p->mmap64));
+		if (err)
+			goto bail;
+		get_fastrpc_ioctl_mmap_64(&p->mmap64, &i.mmap);
+		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &i.mmap)));
+		if (err)
+			goto bail;
+		put_fastrpc_ioctl_mmap_64(&p->mmap64, &i.mmap);
+		K_COPY_TO_USER(err, 0, param, &p->mmap64, sizeof(p->mmap64));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MUNMAP_64:
+		K_COPY_FROM_USER(err, 0, &p->munmap64, param,
+						sizeof(p->munmap64));
+		if (err)
+			goto bail;
+		get_fastrpc_ioctl_munmap_64(&p->munmap64, &i.munmap);
+		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
+							&i.munmap)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MUNMAP_FD:
+		K_COPY_FROM_USER(err, 0, &p->munmap_fd, param,
+			sizeof(p->munmap_fd));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_munmap_fd(fl,
+			&p->munmap_fd)));
+		if (err)
+			goto bail;
+		break;
+	default:
+		err = -ENOTTY;
+		pr_info("bad ioctl: %d\n", ioctl_num);
+		break;
+	}
+bail:
+	return err;
+}
+
+static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
+				 unsigned long ioctl_param)
+{
+	union fastrpc_ioctl_param p;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 	int size = 0, err = 0;
@@ -4811,63 +5121,6 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		if (err)
 			goto bail;
 		break;
-	case FASTRPC_IOCTL_MMAP:
-		K_COPY_FROM_USER(err, 0, &p.mmap, param,
-						sizeof(p.mmap));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &p.mmap)));
-		if (err)
-			goto bail;
-		K_COPY_TO_USER(err, 0, param, &p.mmap, sizeof(p.mmap));
-		if (err)
-			goto bail;
-		break;
-	case FASTRPC_IOCTL_MUNMAP:
-		K_COPY_FROM_USER(err, 0, &p.munmap, param,
-						sizeof(p.munmap));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
-							&p.munmap)));
-		if (err)
-			goto bail;
-		break;
-	case FASTRPC_IOCTL_MMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.mmap64, param,
-						sizeof(p.mmap64));
-		if (err)
-			goto bail;
-		get_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
-		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &i.mmap)));
-		if (err)
-			goto bail;
-		put_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
-		K_COPY_TO_USER(err, 0, param, &p.mmap64, sizeof(p.mmap64));
-		if (err)
-			goto bail;
-		break;
-	case FASTRPC_IOCTL_MUNMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.munmap64, param,
-						sizeof(p.munmap64));
-		if (err)
-			goto bail;
-		get_fastrpc_ioctl_munmap_64(&p.munmap64, &i.munmap);
-		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
-							&i.munmap)));
-		if (err)
-			goto bail;
-		break;
-	case FASTRPC_IOCTL_MUNMAP_FD:
-		K_COPY_FROM_USER(err, 0, &p.munmap_fd, param,
-			sizeof(p.munmap_fd));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_internal_munmap_fd(fl,
-			&p.munmap_fd)));
-		if (err)
-			goto bail;
-		break;
 	case FASTRPC_IOCTL_SETMODE:
 		err = fastrpc_setmode(ioctl_param, fl);
 		break;
@@ -4905,6 +5158,21 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		break;
 	case FASTRPC_IOCTL_GET_DSP_INFO:
 		err = fastrpc_get_dsp_info(&p.cap, param, fl);
+		break;
+	case FASTRPC_IOCTL_MEM_MAP:
+		/* fall through */
+	case FASTRPC_IOCTL_MEM_UNMAP:
+		/* fall through */
+	case FASTRPC_IOCTL_MMAP:
+		/* fall through */
+	case FASTRPC_IOCTL_MUNMAP:
+		/* fall through */
+	case FASTRPC_IOCTL_MMAP_64:
+		/* fall through */
+	case FASTRPC_IOCTL_MUNMAP_64:
+		/* fall through */
+	case FASTRPC_IOCTL_MUNMAP_FD:
+		err = fastrpc_mmap_device_ioctl(fl, ioctl_num, &p, param);
 		break;
 	default:
 		err = -ENOTTY;

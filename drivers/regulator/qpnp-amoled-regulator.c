@@ -34,13 +34,13 @@
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)
 
-#define IBB_DUAL_PHASE_CTL(chip)		(chip->ibb_base + 0x70)
+#define IBB_DUAL_PHASE_CTL(chip)	(chip->ibb_base + 0x70)
 
 /* IBB_DUAL_PHASE_CTL */
 #define IBB_DUAL_PHASE_CTL_MASK		GENMASK(2, 0)
-#define AUTO_DUAL_PHASE_BIT			BIT(2)
-#define FORCE_DUAL_PHASE_BIT			BIT(1)
-#define FORCE_SINGLE_PHASE_BIT			BIT(0)
+#define AUTO_DUAL_PHASE_BIT		BIT(2)
+#define FORCE_DUAL_PHASE_BIT		BIT(1)
+#define FORCE_SINGLE_PHASE_BIT		BIT(0)
 
 struct amoled_regulator {
 	struct regulator_desc	rdesc;
@@ -72,6 +72,7 @@ struct ibb_regulator {
 	/* DT params */
 	bool			swire_control;
 	bool			pd_control;
+	bool			single_phase;
 };
 
 struct qpnp_amoled {
@@ -290,7 +291,7 @@ static unsigned int qpnp_ab_ibb_regulator_get_mode(struct regulator_dev *rdev)
 	return chip->ibb.vreg.mode;
 }
 
-#define SINGLE_PHASE_LIMIT_UA	30000000
+#define SINGLE_PHASE_ILIMIT_UA	30000
 
 static int qpnp_ibb_regulator_set_load(struct regulator_dev *rdev,
 				int load_uA)
@@ -301,10 +302,14 @@ static int qpnp_ibb_regulator_set_load(struct regulator_dev *rdev,
 	if (!is_phase_ctrl_supported(&chip->ibb))
 		return 0;
 
+	/* For IBB single phase, it's configured only once. */
+	if (chip->ibb.single_phase)
+		return 0;
+
 	if (load_uA < 0)
 		return -EINVAL;
-	else if (load_uA <= SINGLE_PHASE_LIMIT_UA)
-		ibb_phase = FORCE_SINGLE_PHASE_BIT;
+	else if (load_uA <= SINGLE_PHASE_ILIMIT_UA)
+		ibb_phase = AUTO_DUAL_PHASE_BIT;
 	else
 		ibb_phase = FORCE_DUAL_PHASE_BIT;
 
@@ -491,6 +496,7 @@ static int qpnp_amoled_regulator_register(struct qpnp_amoled *chip,
 static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 {
 	int rc;
+	u8 val;
 
 	rc = qpnp_amoled_regulator_register(chip, OLEDB);
 	if (rc < 0) {
@@ -511,6 +517,15 @@ static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 		dev_err(chip->dev, "Failed to register IBB regulator rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	if (is_phase_ctrl_supported(&chip->ibb) && chip->ibb.single_phase) {
+		val = FORCE_SINGLE_PHASE_BIT;
+
+		rc = qpnp_amoled_masked_write(chip, IBB_DUAL_PHASE_CTL(chip),
+			IBB_DUAL_PHASE_CTL_MASK, val);
+		if (rc < 0)
+			return rc;
 	}
 
 	return 0;
@@ -555,12 +570,14 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 			break;
 		case IBB_PERIPH_TYPE:
 			chip->ibb_base = base;
+			chip->ibb.subtype = val[1];
 			chip->ibb.vreg.node = temp;
 			chip->ibb.swire_control = of_property_read_bool(temp,
 							"qcom,swire-control");
 			chip->ibb.pd_control = of_property_read_bool(temp,
 							"qcom,aod-pd-control");
-			chip->ibb.subtype = val[1];
+			chip->ibb.single_phase = of_property_read_bool(temp,
+							"qcom,ibb-single-phase");
 			break;
 		default:
 			pr_err("Unknown peripheral type 0x%x\n", val[0]);

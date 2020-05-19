@@ -191,15 +191,23 @@ static int cvp_dsp_rpmsg_callback(struct rpmsg_device *rpdev,
 		return 0;
 	}
 
-	if (me->pending_dsp2cpu_rsp.type != CVP_INVALID_RPMSG_TYPE ||
-		me->pending_dsp2cpu_cmd.type != CVP_INVALID_RPMSG_TYPE)
-		goto exit;
-
 	if (rsp->type < CPU2DSP_MAX_CMD) {
+		if (me->pending_dsp2cpu_rsp.type != CVP_INVALID_RPMSG_TYPE) {
+			dprintk(CVP_ERR, "%s: CPU2DSP resp %d, pending %d\n",
+					__func__, rsp->type,
+					me->pending_dsp2cpu_rsp.type);
+			goto exit;
+		}
 		memcpy(&me->pending_dsp2cpu_rsp, rsp,
 			sizeof(struct cvp_dsp_rsp_msg));
 		complete(&me->completions[rsp->type]);
 	} else if (rsp->type < CVP_DSP_MAX_CMD) {
+		if (me->pending_dsp2cpu_cmd.type != CVP_INVALID_RPMSG_TYPE) {
+			dprintk(CVP_ERR, "%s: DSP2CPU cmd:%d pending %d\n",
+					__func__, rsp->type,
+					me->pending_dsp2cpu_cmd.type);
+			goto exit;
+		}
 		memcpy(&me->pending_dsp2cpu_cmd, rsp,
 			sizeof(struct cvp_dsp2cpu_cmd_msg));
 		complete(&me->completions[CPU2DSP_MAX_CMD]);

@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
+#include <linux/pm.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
@@ -77,6 +78,7 @@ struct pm8008_chip {
 	unsigned int		internal_enable_count;
 	bool			framework_enabled;
 	bool			aggr_enabled;
+	bool			suspended;
 };
 
 struct regulator_data {
@@ -102,6 +104,8 @@ struct pm8008_regulator {
 	int			step_rate;
 	bool			enable_ocp_broadcast;
 	bool			chip_enabled;
+	int			mode;
+	int			uv;
 };
 
 static struct regulator_data reg_data[PM8008_MAX_LDO] = {
@@ -237,6 +241,9 @@ static int pm8008_regulator_get_voltage(struct regulator_dev *rdev)
 	u8 vset_raw[2];
 	int rc;
 
+	if (pm8008_reg->chip->suspended)
+		return pm8008_reg->uv;
+
 	rc = pm8008_read(pm8008_reg->regmap,
 			LDO_VSET_LB_REG(pm8008_reg->base),
 			vset_raw, 2);
@@ -270,6 +277,9 @@ static int pm8008_regulator_is_enabled(struct regulator_dev *rdev)
 {
 	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
 
+	if (pm8008_reg->chip->suspended)
+		return pm8008_reg->chip_enabled;
+
 	return _pm8008_regulator_is_enabled(pm8008_reg);
 }
 
@@ -278,6 +288,12 @@ static int pm8008_regulator_enable(struct regulator_dev *rdev)
 	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
 	int rc, rc2, current_uv, delay_us, delay_ms, retry_count = 10;
 	u8 reg;
+
+	if (pm8008_reg->chip->suspended) {
+		if (pm8008_reg->chip_enabled)
+			return 0;
+		return -EPERM;
+	}
 
 	current_uv = pm8008_regulator_get_voltage(rdev);
 	if (current_uv < 0) {
@@ -350,6 +366,12 @@ static int pm8008_regulator_disable(struct regulator_dev *rdev)
 	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
 	int rc;
 
+	if (pm8008_reg->chip->suspended) {
+		if (!pm8008_reg->chip_enabled)
+			return 0;
+		return -EPERM;
+	}
+
 	rc = pm8008_masked_write(pm8008_reg->regmap,
 				LDO_ENABLE_REG(pm8008_reg->base),
 				ENABLE_BIT, 0);
@@ -400,6 +422,7 @@ static int pm8008_write_voltage(struct pm8008_regulator *pm8008_reg, int min_uv,
 		return rc;
 	}
 
+	pm8008_reg->uv = mv * 1000;
 	pm8008_debug(pm8008_reg, "VSET=[%x][%x]\n", vset_raw[1], vset_raw[0]);
 	return 0;
 }
@@ -417,6 +440,12 @@ static int pm8008_regulator_set_voltage(struct regulator_dev *rdev,
 {
 	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
 	int rc;
+
+	if (pm8008_reg->chip->suspended) {
+		if (min_uv <= pm8008_reg->uv && pm8008_reg->uv <= max_uv)
+			return 0;
+		return -EPERM;
+	}
 
 	rc = pm8008_write_voltage(pm8008_reg, min_uv, max_uv);
 	if (rc < 0)
@@ -436,6 +465,12 @@ static int pm8008_regulator_set_mode(struct regulator_dev *rdev,
 	int rc;
 	u8 val = LDO_MODE_LPM;
 
+	if (pm8008_reg->chip->suspended) {
+		if (mode == pm8008_reg->mode)
+			return 0;
+		return -EPERM;
+	}
+
 	if (mode == REGULATOR_MODE_NORMAL)
 		val = LDO_MODE_NPM;
 	else if (mode == REGULATOR_MODE_IDLE)
@@ -444,8 +479,10 @@ static int pm8008_regulator_set_mode(struct regulator_dev *rdev,
 	rc = pm8008_masked_write(pm8008_reg->regmap,
 				LDO_MODE_CTL1_REG(pm8008_reg->base),
 				MODE_PRIMARY_MASK, val);
-	if (!rc)
+	if (!rc) {
 		pm8008_debug(pm8008_reg, "mode set to %d\n", val);
+		pm8008_reg->mode = mode;
+	}
 
 	return rc;
 }
@@ -455,6 +492,9 @@ static unsigned int pm8008_regulator_get_mode(struct regulator_dev *rdev)
 	struct pm8008_regulator *pm8008_reg = rdev_get_drvdata(rdev);
 	int rc;
 	u8 reg;
+
+	if (pm8008_reg->chip->suspended)
+		return pm8008_reg->mode;
 
 	rc = pm8008_read(pm8008_reg->regmap,
 			LDO_STATUS1_REG(pm8008_reg->base), &reg, 1);
@@ -676,6 +716,9 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		return rc;
 	}
 
+	pm8008_reg->uv = pm8008_regulator_get_voltage(pm8008_reg->rdev);
+	pm8008_reg->mode = pm8008_regulator_get_mode(pm8008_reg->rdev);
+
 	if (pm8008_reg->enable_ocp_broadcast) {
 		pm8008_reg->nb.notifier_call = pm8008_ldo_cb;
 		rc = devm_regulator_register_notifier(pm8008_reg->en_supply,
@@ -772,6 +815,12 @@ static int pm8008_chip_enable(struct regulator_dev *rdev)
 	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
 
+	if (chip->suspended) {
+		if (chip->framework_enabled)
+			return 0;
+		return -EPERM;
+	}
+
 	mutex_lock(&chip->lock);
 	chip->framework_enabled = true;
 	rc = pm8008_chip_aggregate(chip);
@@ -786,6 +835,12 @@ static int pm8008_chip_disable(struct regulator_dev *rdev)
 {
 	struct pm8008_chip *chip = rdev_get_drvdata(rdev);
 	int rc;
+
+	if (chip->suspended) {
+		if (!chip->framework_enabled)
+			return 0;
+		return -EPERM;
+	}
 
 	mutex_lock(&chip->lock);
 	chip->framework_enabled = false;
@@ -917,6 +972,7 @@ static int pm8008_chip_probe(struct platform_device *pdev)
 		}
 	}
 
+	platform_set_drvdata(pdev, chip);
 	pr_debug("PM8008 chip registered\n");
 	return 0;
 }
@@ -933,6 +989,26 @@ static int pm8008_chip_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int pm8008_chip_suspend(struct device *dev)
+{
+	struct pm8008_chip *chip = dev_get_drvdata(dev);
+
+	chip->suspended = true;
+
+	return 0;
+}
+
+static int pm8008_chip_resume(struct device *dev)
+{
+	struct pm8008_chip *chip = dev_get_drvdata(dev);
+
+	chip->suspended = false;
+
+	return 0;
+}
+#endif
 
 static const struct of_device_id pm8008_regulator_match_table[] = {
 	{
@@ -956,9 +1032,14 @@ static const struct of_device_id pm8008_chip_match_table[] = {
 	{ },
 };
 
+static const struct dev_pm_ops pm8008_chip_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(pm8008_chip_suspend, pm8008_chip_resume)
+};
+
 static struct platform_driver pm8008_chip_driver = {
 	.driver	= {
 		.name		= "qcom,pm8008-chip",
+		.pm		= &pm8008_chip_pm_ops,
 		.of_match_table	= pm8008_chip_match_table,
 	},
 	.probe		= pm8008_chip_probe,

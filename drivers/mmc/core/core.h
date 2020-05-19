@@ -14,6 +14,9 @@
 struct mmc_host;
 struct mmc_card;
 struct mmc_request;
+#if defined(CONFIG_SDC_QTI)
+struct mmc_queue;
+#endif
 
 #define MMC_CMD_RETRIES        3
 
@@ -29,6 +32,9 @@ struct mmc_bus_ops {
 	int (*shutdown)(struct mmc_host *);
 	int (*hw_reset)(struct mmc_host *);
 	int (*sw_reset)(struct mmc_host *);
+#if defined(CONFIG_SDC_QTI)
+	int (*change_bus_speed)(struct mmc_host *host, unsigned long *freq);
+#endif
 };
 
 void mmc_attach_bus(struct mmc_host *host, const struct mmc_bus_ops *ops);
@@ -57,7 +63,10 @@ void mmc_power_off(struct mmc_host *host);
 void mmc_power_cycle(struct mmc_host *host, u32 ocr);
 void mmc_set_initial_state(struct mmc_host *host);
 u32 mmc_vddrange_to_ocrmask(int vdd_min, int vdd_max);
-
+#if defined(CONFIG_SDC_QTI)
+int mmc_clk_update_freq(struct mmc_host *host,
+		unsigned long freq, enum mmc_load state);
+#endif
 static inline void mmc_delay(unsigned int ms)
 {
 	if (ms <= 20)
@@ -89,6 +98,15 @@ void mmc_remove_host_debugfs(struct mmc_host *host);
 void mmc_add_card_debugfs(struct mmc_card *card);
 void mmc_remove_card_debugfs(struct mmc_card *card);
 
+#if defined(CONFIG_SDC_QTI)
+extern bool mmc_can_scale_clk(struct mmc_host *host);
+extern int mmc_init_clk_scaling(struct mmc_host *host);
+extern int mmc_suspend_clk_scaling(struct mmc_host *host);
+extern int mmc_resume_clk_scaling(struct mmc_host *host);
+extern int mmc_exit_clk_scaling(struct mmc_host *host);
+extern void mmc_deferred_scaling(struct mmc_host *host);
+extern unsigned long mmc_get_max_frequency(struct mmc_host *host);
+#endif
 int mmc_execute_tuning(struct mmc_card *card);
 int mmc_hs200_to_hs400(struct mmc_card *card);
 int mmc_hs400_to_hs200(struct mmc_card *card);

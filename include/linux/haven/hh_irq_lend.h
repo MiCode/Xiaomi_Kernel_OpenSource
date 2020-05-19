@@ -13,7 +13,7 @@
 #include "hh_rm_drv.h"
 
 enum hh_irq_label {
-	HH_IRQ_LABEL_DUMMY, /* Remove me when you add a label! */
+	HH_IRQ_LABEL_SDE,
 	HH_IRQ_LABEL_MAX
 };
 

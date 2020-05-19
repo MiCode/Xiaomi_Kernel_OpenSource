@@ -132,6 +132,7 @@ struct msm_cvp_frame {
 	struct cvp_internal_buf bufs[MAX_FRAME_BUFFER_NUMS];
 	u32 nr;
 	u64 ktid;
+	u32 pkt_type;
 };
 
 void print_cvp_buffer(u32 tag, const char *str,
@@ -155,8 +156,11 @@ struct context_bank_info *msm_cvp_smem_get_context_bank(bool is_secure,
 				struct msm_cvp_platform_resources *res,
 				unsigned long ion_flags);
 int msm_cvp_map_smem(struct msm_cvp_inst *inst,
-			struct msm_cvp_smem *smem);
-int msm_cvp_unmap_smem(struct msm_cvp_smem *smem);
+			struct msm_cvp_smem *smem,
+			const char *str);
+int msm_cvp_unmap_smem(struct msm_cvp_inst *inst,
+			struct msm_cvp_smem *smem,
+			const char *str);
 struct dma_buf *msm_cvp_smem_get_dma_buf(int fd);
 void msm_cvp_smem_put_dma_buf(void *dma_buf);
 int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,

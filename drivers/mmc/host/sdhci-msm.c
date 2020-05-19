@@ -3217,6 +3217,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	msm_host->pltfm_init_done = true;
 
+#if defined(CONFIG_SDC_QTI)
+	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
+#endif
 	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);

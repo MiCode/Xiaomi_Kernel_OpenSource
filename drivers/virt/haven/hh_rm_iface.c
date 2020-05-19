@@ -194,6 +194,7 @@ out:
 	kfree(resp_payload);
 	return ret;
 }
+EXPORT_SYMBOL(hh_rm_vm_irq_accept);
 
 /**
  * hh_rm_vm_irq_lend: Lend an IRQ to another VM
@@ -333,6 +334,7 @@ int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label,
 	return hh_rm_vm_irq_notify(&vmid, 1, HH_VM_IRQ_NOTIFY_FLAGS_LENT,
 				   *virq_handle);
 }
+EXPORT_SYMBOL(hh_rm_vm_irq_lend_notify);
 
 /**
  * hh_rm_vm_irq_release: Return a lent IRQ
@@ -371,6 +373,7 @@ static int hh_rm_vm_irq_release(hh_virq_handle_t virq_handle)
 
 	return ret;
 }
+EXPORT_SYMBOL(hh_rm_vm_irq_release);
 
 /**
  * hh_rm_vm_irq_release_notify: Release IRQ back to a VM and notify that it has
@@ -389,6 +392,7 @@ int hh_rm_vm_irq_release_notify(hh_vmid_t vmid, hh_virq_handle_t virq_handle)
 	return hh_rm_vm_irq_notify(NULL, 0, HH_VM_IRQ_NOTIFY_FLAGS_RELEASED,
 				   virq_handle);
 }
+EXPORT_SYMBOL(hh_rm_vm_irq_release_notify);
 
 /**
  * hh_rm_vm_irq_reclaim: Return a lent IRQ
@@ -427,6 +431,7 @@ int hh_rm_vm_irq_reclaim(hh_virq_handle_t virq_handle)
 
 	return ret;
 }
+EXPORT_SYMBOL(hh_rm_vm_irq_reclaim);
 
 /**
  * hh_rm_vm_alloc_vmid: Return a vmid associated with the vm loaded into

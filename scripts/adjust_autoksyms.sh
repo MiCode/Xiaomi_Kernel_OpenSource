@@ -40,6 +40,11 @@ esac
 # Generate a new symbol list file
 $CONFIG_SHELL $srctree/scripts/gen_autoksyms.sh "$new_ksyms_file"
 
+if [ -n "$CONFIG_UNUSED_KSYMS_WHITELIST_ONLY" ] && [ -f "vmlinux" ] ; then
+	info "WARNING" "CONFIG_UNUSED_KSYMS_WHITELIST_ONLY is enabled. "\
+"Non-whitelisted symbols will be undefined!"
+fi
+
 # Extract changes between old and new list and touch corresponding
 # dependency files.
 changed=$(

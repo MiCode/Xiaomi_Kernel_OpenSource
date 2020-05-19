@@ -183,6 +183,7 @@ extern int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask);
 extern int qcom_scm_tsens_reinit(int *tsens_ret);
 extern int qcom_scm_ice_restore_cfg(void);
 extern int qcom_scm_get_tz_log_feat_id(u64 *version);
+extern int qcom_scm_get_tz_feat_id_version(u64 feat_id, u64 *version);
 extern int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len);
 extern int qcom_scm_query_encrypted_log_feature(u64 *enabled);
 extern int qcom_scm_request_encrypted_log(phys_addr_t buf, size_t len,
@@ -345,6 +346,8 @@ static inline int qcom_scm_tsens_reinit(int *tsens_ret)
 		{ return -ENODEV; }
 static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }
 static inline int qcom_scm_get_tz_log_feat_id(u64 *version)
+		{ return -ENODEV; }
+static inline int qcom_scm_get_tz_feat_id_version(u64 feat_id, u64 *version)
 		{ return -ENODEV; }
 static inline int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
 		{ return -ENODEV; }

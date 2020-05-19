@@ -159,7 +159,8 @@ void msm_cvp_smem_put_dma_buf(void *dma_buf)
 }
 
 int msm_cvp_map_smem(struct msm_cvp_inst *inst,
-			struct msm_cvp_smem *smem)
+			struct msm_cvp_smem *smem,
+			const char *str)
 {
 	int rc = 0;
 
@@ -204,13 +205,16 @@ int msm_cvp_map_smem(struct msm_cvp_inst *inst,
 	smem->size = dma_buf->size;
 	smem->device_addr = (u32)iova;
 
+	print_smem(CVP_MEM, str, inst, smem);
 	return rc;
 exit:
 	smem->device_addr = 0x0;
 	return rc;
 }
 
-int msm_cvp_unmap_smem(struct msm_cvp_smem *smem)
+int msm_cvp_unmap_smem(struct msm_cvp_inst *inst,
+		struct msm_cvp_smem *smem,
+		const char *str)
 {
 	int rc = 0;
 
@@ -220,6 +224,7 @@ int msm_cvp_unmap_smem(struct msm_cvp_smem *smem)
 		goto exit;
 	}
 
+	print_smem(CVP_MEM, str, inst, smem);
 	rc = msm_dma_put_device_address(smem->flags, &smem->mapping_info);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to put device address: %d\n", rc);

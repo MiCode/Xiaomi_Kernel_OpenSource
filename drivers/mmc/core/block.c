@@ -892,7 +892,9 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 		}
 
 		card->ext_csd.part_config = part_config;
-
+#if defined(CONFIG_SDC_QTI)
+		card->part_curr = part_type;
+#endif
 		ret = mmc_blk_part_switch_post(card, main_md->part_curr);
 	}
 
@@ -1949,13 +1951,18 @@ static void mmc_blk_mq_poll_completion(struct mmc_queue *mq,
 
 static void mmc_blk_mq_dec_in_flight(struct mmc_queue *mq, struct request *req)
 {
+#if defined(CONFIG_SDC_QTI)
+	struct mmc_host *host = mq->card->host;
+#endif
 	unsigned long flags;
 	bool put_card;
 
 	spin_lock_irqsave(&mq->lock, flags);
 
 	mq->in_flight[mmc_issue_type(mq, req)] -= 1;
-
+#if defined(CONFIG_SDC_QTI)
+	atomic_dec(&host->active_reqs);
+#endif
 	put_card = (mmc_tot_in_flight(mq) == 0);
 
 	spin_unlock_irqrestore(&mq->lock, flags);

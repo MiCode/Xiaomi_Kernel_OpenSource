@@ -369,6 +369,7 @@ bool qcom_scm_is_secure_wdog_trigger_available(void)
 	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_BOOT,
 						QCOM_SCM_BOOT_SEC_WDOG_TRIGGER);
 }
+EXPORT_SYMBOL(qcom_scm_is_secure_wdog_trigger_available);
 
 bool qcom_scm_is_mode_switch_available(void)
 {
@@ -911,6 +912,13 @@ int qcom_scm_get_tz_log_feat_id(u64 *version)
 					   version);
 }
 EXPORT_SYMBOL(qcom_scm_get_tz_log_feat_id);
+
+int qcom_scm_get_tz_feat_id_version(u64 feat_id, u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm->dev, feat_id,
+					   version);
+}
+EXPORT_SYMBOL(qcom_scm_get_tz_feat_id_version);
 
 int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
 {

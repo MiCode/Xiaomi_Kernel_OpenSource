@@ -24,6 +24,7 @@
 
 #include <linux/haven/hcall.h>
 #include <linux/haven/hh_errno.h>
+#include <linux/haven/hh_rm_drv.h>
 
 #define MAX_RESERVE_CPUS (num_possible_cpus()/2)
 
@@ -77,7 +78,7 @@ struct hyp_core_ctl_data {
 
 static struct hyp_core_ctl_data *the_hcd;
 static struct hyp_core_ctl_cpu_map hh_cpumap[NR_CPUS];
-static bool populated_vcpu_info;
+static bool is_vcpu_info_populated;
 static bool init_done;
 static int nr_vcpus;
 
@@ -181,7 +182,8 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].sid,
 								orig_cpu);
 			if (err != HH_ERROR_OK) {
-				pr_err("fail to assign pcpu for vcpu#%d\n", i);
+				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d sid=%d cpu=%d\n",
+					i, err, hcd->cpumap[i].sid, orig_cpu);
 				continue;
 			}
 
@@ -225,7 +227,8 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].sid,
 							replacement_cpu);
 		if (err != HH_ERROR_OK) {
-			pr_err("fail to assign pcpu for vcpu#%d\n", i);
+			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d sid=%d cpu=%d\n",
+				i, err, hcd->cpumap[i].sid, replacement_cpu);
 			continue;
 		}
 
@@ -623,9 +626,9 @@ static int hyp_core_ctl_hp_online(unsigned int cpu)
 	return 0;
 }
 
-static int hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
+static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 {
-	int i, ret = 0;
+	int i;
 
 	spin_lock(&hcd->lock);
 	cpumask_clear(&hcd->reserve_cpus);
@@ -643,25 +646,19 @@ static int hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 
 	cpumask_copy(&hcd->final_reserved_cpus, &hcd->reserve_cpus);
 	spin_unlock(&hcd->lock);
-	pr_info("reserve_cpus=%*pbl ret=%d\n",
-		 cpumask_pr_args(&hcd->reserve_cpus), ret);
-
-	return ret;
+	pr_info("reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
 }
 
 int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
 {
-	static struct hyp_core_ctl_cpu_map hh_cpumap[NR_CPUS];
+	if (!init_done) {
+		pr_err("Driver probe failed\n");
+		return -ENXIO;
+	}
 
 	hh_cpumap[nr_vcpus].sid = cap_id;
 	hh_cpumap[nr_vcpus].pcpu = cpu_idx;
 	hh_cpumap[nr_vcpus].curr_pcpu = cpu_idx;
-
-	if (!populated_vcpu_info)
-		populated_vcpu_info = true;
-
-	if (init_done)
-		hyp_core_ctl_init_reserve_cpus(the_hcd);
 
 	nr_vcpus++;
 	pr_debug("cpu_index:%u vcpu_cap_id:%llu nr_vcpus:%d\n",
@@ -669,8 +666,36 @@ int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
 	return 0;
 }
 
+static int hh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
+						unsigned long cmd, void *data)
+{
+	struct hh_rm_notif_vm_status_payload *vm_status_payload = data;
+	u8 vm_status = vm_status_payload->vm_status;
+
+	if (cmd != HH_RM_NOTIF_VM_STATUS ||
+					vm_status != HH_RM_VM_STATUS_RUNNING)
+		goto done;
+
+	mutex_lock(&the_hcd->reservation_mutex);
+	hyp_core_ctl_init_reserve_cpus(the_hcd);
+	is_vcpu_info_populated = true;
+	mutex_unlock(&the_hcd->reservation_mutex);
+done:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block hh_vcpu_nb = {
+	.notifier_call = hh_vcpu_done_populate_affinity_info,
+};
+
 static void hyp_core_ctl_enable(bool enable)
 {
+	mutex_lock(&the_hcd->reservation_mutex);
+	if (!is_vcpu_info_populated) {
+		pr_err("VCPU info isn't populated\n");
+		goto err_out;
+	}
+
 	spin_lock(&the_hcd->lock);
 	if (enable == the_hcd->reservation_enabled)
 		goto out;
@@ -683,6 +708,8 @@ static void hyp_core_ctl_enable(bool enable)
 	wake_up_process(the_hcd->task);
 out:
 	spin_unlock(&the_hcd->lock);
+err_out:
+	mutex_unlock(&the_hcd->reservation_mutex);
 }
 
 static ssize_t enable_store(struct device *dev, struct device_attribute *attr,
@@ -773,6 +800,11 @@ static ssize_t hcc_min_freq_store(struct device *dev,
 	const char *cp = buf;
 
 	mutex_lock(&the_hcd->reservation_mutex);
+	if (!is_vcpu_info_populated) {
+		pr_err("VCPU info isn't populated\n");
+		goto err_out;
+	}
+
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
 
@@ -850,20 +882,28 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 	int ret;
 	cpumask_t temp_mask;
 
+	mutex_lock(&the_hcd->reservation_mutex);
+	if (!is_vcpu_info_populated) {
+		pr_err("VCPU info isn't populated\n");
+		ret = -EPERM;
+		goto err_out;
+	}
+
 	ret = simple_write_to_buffer(kbuf, CPULIST_SZ - 1, ppos, ubuf, count);
 	if (ret < 0)
-		return ret;
+		goto err_out;
 
 	kbuf[ret] = '\0';
 	ret = cpulist_parse(kbuf, &temp_mask);
 	if (ret < 0)
-		return ret;
+		goto err_out;
 
 	if (cpumask_weight(&temp_mask) !=
 			cpumask_weight(&the_hcd->reserve_cpus)) {
 		pr_err("incorrect reserve CPU count. expected=%u\n",
 				cpumask_weight(&the_hcd->reserve_cpus));
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_out;
 	}
 
 	spin_lock(&the_hcd->lock);
@@ -874,8 +914,12 @@ static ssize_t write_reserve_cpus(struct file *file, const char __user *ubuf,
 		cpumask_copy(&the_hcd->reserve_cpus, &temp_mask);
 	}
 	spin_unlock(&the_hcd->lock);
+	mutex_unlock(&the_hcd->reservation_mutex);
 
 	return count;
+err_out:
+	mutex_unlock(&the_hcd->reservation_mutex);
+	return ret;
 }
 
 static const struct file_operations debugfs_reserve_cpus_ops = {
@@ -906,11 +950,9 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	struct cpufreq_policy *policy;
 	struct freq_qos_request *qos_req;
 
-	if (!populated_vcpu_info) {
-		pr_debug("VCPU info isn't populated, retry\n");
-		ret = -EPROBE_DEFER;
-		goto out;
-	}
+	ret = hh_rm_register_notifier(&hh_vcpu_nb);
+	if (ret)
+		return ret;
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
@@ -935,12 +977,6 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	if (!hcd) {
 		ret = -ENOMEM;
 		goto remove_qos_req;
-	}
-
-	ret = hyp_core_ctl_init_reserve_cpus(hcd);
-	if (ret < 0) {
-		pr_err("Fail to get reserve CPUs from Hyp. ret=%d\n", ret);
-		goto free_hcd;
 	}
 
 	spin_lock_init(&hcd->lock);
@@ -987,7 +1023,9 @@ remove_qos_req:
 		if (freq_qos_request_active(qos_req))
 			freq_qos_remove_request(qos_req);
 	}
-out:
+
+	hh_rm_unregister_notifier(&hh_vcpu_nb);
+
 	return ret;
 }
 

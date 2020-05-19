@@ -31,8 +31,9 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	memcpy(shm.vaddr, key->raw, key->size);
 	qtee_shmbridge_flush_shm_buf(&shm);
 
-	err = qcom_scm_config_set_ice_key(slot, shm.paddr, shm.size,
-			ICE_CIPHER_MODE_XTS_256, data_unit_mask, UFS_CE);
+	err = qcom_scm_config_set_ice_key(slot, shm.paddr, key->size,
+					ICE_CIPHER_MODE_XTS_256,
+					data_unit_mask, UFS_CE);
 	if (err)
 		pr_err("%s:SCM call Error: 0x%x slot %d\n",
 				__func__, err, slot);
