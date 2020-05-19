@@ -40,7 +40,7 @@ config MTK_PMIC_WRAP
 	  hardware to connect the PMIC.
 
 config MTK_SCPSYS
-	bool "MediaTek SCPSYS Support"
+	tristate "MediaTek SCPSYS Support"
 	default ARCH_MEDIATEK
 	select REGMAP
 	select PM_GENERIC_DOMAINS if PM
