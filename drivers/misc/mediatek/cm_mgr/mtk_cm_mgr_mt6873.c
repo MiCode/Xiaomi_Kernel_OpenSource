@@ -499,23 +499,6 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 }
 #endif /* USE_CPU_TO_DRAM_MAP */
 
-void cm_mgr_setup_cpu_dvfs_info(void)
-{
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-	int i, j;
-	unsigned int val;
-
-	for (j = 0; j < CM_MGR_CPU_CLUSTER; j++) {
-		for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++) {
-			val = (j*16+i) << 24 | mt_cpufreq_get_freq_by_idx(j, i);
-			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_FREQ_SET, val);
-			val = (j*16+i) << 24 | mt_cpufreq_get_volt_by_idx(j, i);
-			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_VOLT_SET, val);
-		}
-	}
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-}
-
 /*
  * driver initialization entry point
  */
