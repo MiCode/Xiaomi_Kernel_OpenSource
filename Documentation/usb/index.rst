@@ -23,6 +23,7 @@ USB support
     mtouchusb
     ohci
     rio
+    raw-gadget
     usbip_protocol
     usbmon
     usb-serial

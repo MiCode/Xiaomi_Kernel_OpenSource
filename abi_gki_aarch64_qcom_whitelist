@@ -1283,6 +1283,8 @@
   led_trigger_register_simple
   led_trigger_unregister
   led_trigger_unregister_simple
+  __list_add_valid
+  __list_del_entry_valid
   list_sort
   llist_add_batch
   llist_reverse_order
@@ -1839,6 +1841,7 @@
   register_pm_notifier
   register_reboot_notifier
   register_restart_handler
+  __register_rpmsg_driver
   register_shrinker
   register_syscore_ops
   register_sysctl_table
@@ -1925,6 +1928,15 @@
   rpmh_write
   rpmh_write_async
   rpmh_write_batch
+  rpmsg_create_ept
+  rpmsg_destroy_ept
+  rpmsg_get_sigs
+  rpmsg_poll
+  rpmsg_register_device
+  rpmsg_send
+  rpmsg_set_sigs
+  rpmsg_trysend
+  rpmsg_unregister_device
   rtc_class_close
   rtc_class_open
   rtc_read_time
@@ -2422,6 +2434,7 @@
   unregister_pernet_subsys
   unregister_pm_notifier
   unregister_reboot_notifier
+  unregister_rpmsg_driver
   unregister_shrinker
   unregister_syscore_ops
   unregister_sysctl_table
@@ -2509,6 +2522,7 @@
   usb_hcd_pci_probe
   usb_hcd_pci_remove
   usb_hcd_pci_shutdown
+  usb_hcd_platform_shutdown
   usb_hcd_poll_rh_status
   usb_hcd_resume_root_hub
   usb_hcd_start_port_resume
