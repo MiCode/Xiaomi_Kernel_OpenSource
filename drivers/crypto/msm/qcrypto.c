@@ -5523,7 +5523,7 @@ static int _qcrypto_debug_init(void)
 
 	_debug_dent = debugfs_create_dir("qcrypto", NULL);
 	if (IS_ERR(_debug_dent)) {
-		pr_err("qcrypto debugfs_create_dir fail, error %ld\n",
+		pr_debug("qcrypto debugfs_create_dir fail, error %ld\n",
 				PTR_ERR(_debug_dent));
 		return PTR_ERR(_debug_dent);
 	}
@@ -5533,7 +5533,7 @@ static int _qcrypto_debug_init(void)
 	dent = debugfs_create_file(name, 0644, _debug_dent,
 				&_debug_qcrypto, &_debug_stats_ops);
 	if (dent == NULL) {
-		pr_err("qcrypto debugfs_create_file fail, error %ld\n",
+		pr_debug("qcrypto debugfs_create_file fail, error %ld\n",
 				PTR_ERR(dent));
 		rc = PTR_ERR(dent);
 		goto err;
