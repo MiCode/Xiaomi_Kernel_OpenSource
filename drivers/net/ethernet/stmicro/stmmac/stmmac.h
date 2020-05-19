@@ -26,6 +26,10 @@
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 #include <soc/qcom/boot_stats.h>
 #endif
+#include <linux/udp.h>
+#include <linux/if_ether.h>
+#include <linux/if_arp.h>
+#include <linux/icmp.h>
 
 struct stmmac_resources {
 	void __iomem *addr;
@@ -294,6 +298,7 @@ struct stmmac_priv {
 	bool boot_kpi;
 	bool early_eth;
 	bool early_eth_config_set;
+	int current_loopback;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 #endif
@@ -385,6 +390,9 @@ void stmmac_enable_rx_queue(struct stmmac_priv *priv, u32 queue);
 void stmmac_disable_tx_queue(struct stmmac_priv *priv, u32 queue);
 void stmmac_enable_tx_queue(struct stmmac_priv *priv, u32 queue);
 int stmmac_xsk_wakeup(struct net_device *dev, u32 queue, u32 flags);
+u16 icmp_fast_csum(u16 old_csum);
+void swap_ip_port(struct sk_buff *skb, unsigned int eth_type);
+
 struct timespec64 stmmac_calc_tas_basetime(ktime_t old_base_time,
 					   ktime_t current_time,
 					   u64 cycle_time);
