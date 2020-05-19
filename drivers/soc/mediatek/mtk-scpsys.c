@@ -21,6 +21,7 @@
 #include <dt-bindings/power/mt2701-power.h>
 #include <dt-bindings/power/mt2712-power.h>
 #include <dt-bindings/power/mt6797-power.h>
+#include <dt-bindings/power/mt6873-power.h>
 #include <dt-bindings/power/mt7622-power.h>
 #include <dt-bindings/power/mt7623a-power.h>
 #include <dt-bindings/power/mt8173-power.h>
@@ -1571,6 +1572,17 @@ static const struct scp_soc_data mt6797_data = {
 	},
 };
 
+static const struct scp_soc_data mt6873_data = {
+	.domains = scp_domain_data_mt8192,
+	.num_domains = MT6873_POWER_DOMAIN_NR,
+	.subdomains = scp_subdomain_mt8192,
+	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt8192),
+	.regs = {
+		.pwr_sta_offs = 0x016c,
+		.pwr_sta2nd_offs = 0x0170
+	}
+};
+
 static const struct scp_soc_data mt7622_data = {
 	.domains = scp_domain_data_mt7622,
 	.num_domains = ARRAY_SIZE(scp_domain_data_mt7622),
@@ -1625,6 +1637,9 @@ static const struct of_device_id of_scpsys_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6797-scpsys",
 		.data = &mt6797_data,
+	}, {
+		.compatible = "mediatek,mt6873-scpsys",
+		.data = &mt6873_data,
 	}, {
 		.compatible = "mediatek,mt7622-scpsys",
 		.data = &mt7622_data,
