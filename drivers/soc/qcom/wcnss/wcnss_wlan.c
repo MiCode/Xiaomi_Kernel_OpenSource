@@ -34,13 +34,15 @@
 #include <linux/uaccess.h>
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
-#include <linux/qpnp/qpnp-adc.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_qos.h>
 #include <linux/bitops.h>
 #include <linux/cdev.h>
 #include <linux/ipc_logging.h>
 #include <soc/qcom/socinfo.h>
+#include <linux/adc-tm-clients.h>
+#include <linux/iio/consumer.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
@@ -446,9 +448,10 @@ static struct {
 	/* dev control lock */
 	struct mutex ctrl_lock;
 	wait_queue_head_t read_wait;
-	struct qpnp_adc_tm_btm_param vbat_monitor_params;
-	struct qpnp_adc_tm_chip *adc_tm_dev;
-	struct qpnp_vadc_chip *vadc_dev;
+	struct adc_tm_param vbat_monitor_params;
+	struct adc_tm_chip *adc_tm_dev;
+	struct iio_channel *adc_channel;
+	u32 vph_pwr;
 	/* battery monitor lock */
 	struct mutex vbat_monitor_mutex;
 	u16 unsafe_ch_count;
@@ -1551,7 +1554,7 @@ static int wcnss_ctrl_probe(struct rpmsg_device *rpdev)
 	schedule_work(&penv->wcnss_pm_config_work);
 	cancel_delayed_work(&penv->wcnss_pm_qos_del_req);
 	schedule_delayed_work(&penv->wcnss_pm_qos_del_req, 0);
-	if (penv->wlan_config.is_pronto_vadc && penv->vadc_dev)
+	if (penv->wlan_config.is_pronto_vadc && penv->adc_channel)
 		schedule_work(&penv->wcnss_vadc_work);
 
 	return 0;
@@ -1970,37 +1973,38 @@ static int wcnss_smd_tx(void *data, int len)
 	return 0;
 }
 
-static int wcnss_get_battery_volt(int *result_uv)
+static int wcnss_get_battery_volt(u32 *result_uv)
 {
-	int rc = -1;
-	struct qpnp_vadc_result adc_result;
+	int ret = 0;
 
-	if (!penv->vadc_dev) {
-		wcnss_log(ERR, "not setting up vadc\n");
-		return rc;
+	if (!penv->channel) {
+		wcnss_log(ERR, "Channel doesn't exists\n");
+		ret = -EINVAL;
+		goto out;
 	}
 
-	rc = qpnp_vadc_read(penv->vadc_dev, VBAT_SNS, &adc_result);
-	if (rc) {
-		wcnss_log(ERR, "error reading adc channel = %d, rc = %d\n",
-		       VBAT_SNS, rc);
-		return rc;
-	}
+	ret = iio_read_channel_processed(penv->adc_channel, result_uv);
+	if (ret < 0)
+		wcnss_log(ERR, "Error reading channel, ret = %d\n", ret);
 
-	wcnss_log(INFO, "Battery mvolts phy=%lld meas=0x%llx\n",
-		  adc_result.physical, adc_result.measurement);
-	*result_uv = (int)adc_result.physical;
+	wcnss_log(INFO, "Battery uvolts meas=0x%llx\n",
+		  *result_uv);
 
-	return 0;
+out:
+	return ret;
 }
 
-static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
+static void wcnss_notify_vbat(enum adc_tm_state state, void *ctx)
 {
 	int rc = 0;
+	u32 vph_pwr = 0;
+	u32 vph_pwr_prev;
 
 	mutex_lock(&penv->vbat_monitor_mutex);
 	cancel_delayed_work_sync(&penv->vbatt_work);
 
+	vph_pwr_prev = penv->vph_pwr;
+	wcnss_get_battery_volt(&vph_pwr);
 	if (state == ADC_TM_LOW_STATE) {
 		wcnss_log(DBG, "low voltage notification triggered\n");
 		penv->vbat_monitor_params.state_request =
@@ -2025,8 +2029,9 @@ static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
 		 penv->vbat_monitor_params.low_thr,
 		 penv->vbat_monitor_params.high_thr);
 
-	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
-					 &penv->vbat_monitor_params);
+	penv->vph_pwr = vph_pwr;
+	rc = adc_tm5_channel_measure(penv->adc_tm_dev,
+				     &penv->vbat_monitor_params);
 
 	if (rc)
 		wcnss_log(ERR, "%s: tm setup failed: %d\n", __func__, rc);
@@ -2050,19 +2055,18 @@ static int wcnss_setup_vbat_monitoring(void)
 	penv->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
 
 	if (penv->is_vsys_adc_channel)
-		penv->vbat_monitor_params.channel = VSYS;
+		penv->vbat_monitor_params.channel = VADC_VSYS;
 	else
-		penv->vbat_monitor_params.channel = VBAT_SNS;
+		penv->vbat_monitor_params.channel = VADC_VBAT_SNS;
 
 	penv->vbat_monitor_params.btm_ctx = (void *)penv;
-	penv->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
 	penv->vbat_monitor_params.threshold_notification = &wcnss_notify_vbat;
 	wcnss_log(DBG, "set low thr to %d and high to %d\n",
-		 penv->vbat_monitor_params.low_thr,
-		 penv->vbat_monitor_params.high_thr);
+		  penv->vbat_monitor_params.low_thr,
+		  penv->vbat_monitor_params.high_thr);
 
-	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
-					 &penv->vbat_monitor_params);
+	rc = adc_tm5_channel_measure(penv->adc_tm_dev,
+				     &penv->vbat_monitor_params);
 	if (rc)
 		wcnss_log(ERR, "%s: tm setup failed: %d\n", __func__, rc);
 
@@ -3084,7 +3088,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		}
 	}
 
-	penv->adc_tm_dev = qpnp_get_adc_tm(&penv->pdev->dev, "wcnss");
+	penv->adc_tm_dev = get_adc_tm(&penv->pdev->dev, "wcnss");
 	if (IS_ERR(penv->adc_tm_dev)) {
 		wcnss_log(ERR, "%s: adc get failed\n", __func__);
 		penv->adc_tm_dev = NULL;
@@ -3109,11 +3113,11 @@ wcnss_trigger_config(struct platform_device *pdev)
 	}
 
 	if (penv->wlan_config.is_pronto_vadc) {
-		penv->vadc_dev = qpnp_get_vadc(&penv->pdev->dev, "wcnss");
+		penv->adc_channel = iio_channel_get(&penv->pdev->dev, "wcnss");
 
-		if (IS_ERR(penv->vadc_dev)) {
+		if (IS_ERR(penv->adc_channel)) {
 			wcnss_log(DBG, "%s: vadc get failed\n", __func__);
-			penv->vadc_dev = NULL;
+			penv->adc_channel = NULL;
 		} else {
 			rc = wcnss_get_battery_volt(&penv->wlan_config.vbatt);
 			INIT_WORK(&penv->wcnss_vadc_work,
