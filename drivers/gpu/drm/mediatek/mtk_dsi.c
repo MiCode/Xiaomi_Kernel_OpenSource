@@ -2008,9 +2008,15 @@ static void _mtk_dsi_set_mode(struct mtk_ddp_comp *comp, void *handle,
 /* STOP VDO MODE */
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	int need_create_hnd = 0;
 	struct cmdq_pkt *cmdq_handle;
+
+	if (!mtk_crtc) {
+		DDPPR_ERR("%s, mtk_crtc is NULL\n", __func__);
+		return 1;
+	}
 
 	/* Add blocking flush for waiting dsi idle in other gce client */
 	if (handle) {
