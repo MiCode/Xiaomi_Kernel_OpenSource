@@ -6475,7 +6475,7 @@ page_owner=on loop.max_part=7";
 		mediatek,edma-sub = <&edma0>, <&edma1>;
 	};
 
-	vpu_core0@19030000 {
+	vpu_core0: vpu_core0@19030000 {
 		compatible = "mediatek,vpu_core0";
 		reg = <0 0x19030000 0 0x1000>,
 			<0 0x1d100000 0 0x40000>,
@@ -6495,7 +6495,7 @@ page_owner=on loop.max_part=7";
 #endif
 	};
 
-	vpu_core1@19031000 {
+	vpu_core1: vpu_core1@19031000 {
 		compatible = "mediatek,vpu_core1";
 		reg = <0 0x19031000 0 0x1000>,
 			<0 0x1d200000 0 0x40000>,
@@ -6515,7 +6515,7 @@ page_owner=on loop.max_part=7";
 #endif
 	};
 
-	vpu_core2@19032000 {
+	vpu_core2: vpu_core2@19032000 {
 		compatible = "mediatek,vpu_core2";
 		reg = <0 0x19032000 0 0x1000>,
 			<0 0x1d300000 0 0x40000>,
