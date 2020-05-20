@@ -42,7 +42,7 @@ static int buck_already_on;
 static int power_on_counter;
 static int hal_cmd_status[APUSYS_POWER_USER_NUM];
 int conn_mtcmos_on;
-
+static int binning_init;
 struct apu_power_info_record power_fail_record;
 
 void *g_APU_RPCTOP_BASE;
@@ -587,7 +587,12 @@ static int binning_support_check(void)
 	unsigned int vpu_efuse_raise = 0;
 	enum DVFS_VOLTAGE bin_mv = 0;
 	enum DVFS_VOLTAGE raise_mv = 0;
+#endif
+	/* opp table only need to be aging/bining/raise once */
+	if (binning_init)
+		goto out;
 
+#if BINNING_VOLTAGE_SUPPORT || VOLTAGE_RAISE_UP
 	vpu_efuse_bin =
 		GET_BITS_VAL(10:8, get_devinfo_with_index(EFUSE_BIN));
 	LOG_DBG("Vol bin: vpu_efuse=%d, efuse: 0x%x\n",
@@ -620,6 +625,11 @@ static int binning_support_check(void)
 		aging_support_check(opp, V_VPU1);
 		aging_support_check(opp, V_APU_CONN);
 	}
+
+	/* initial done */
+	binning_init = 1;
+
+out:
 	return 0;
 }
 
