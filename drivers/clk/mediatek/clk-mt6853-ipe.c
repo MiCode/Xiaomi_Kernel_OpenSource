@@ -59,7 +59,7 @@ static const struct mtk_gate ipe_clks[] = {
 	GATE_IPE(CLK_IPE_RSC, "ipe_rsc",
 			"ipe_ck"/* parent */, 5),
 	GATE_IPE(CLK_IPE_DPE, "ipe_dpe",
-			"ipe_ck"/* parent */, 6),
+			"dpe_ck"/* parent */, 6),
 	GATE_IPE(CLK_IPE_GALS, "ipe_gals",
 			"img2_ck"/* parent */, 8),
 };

@@ -22,6 +22,9 @@
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/time64.h>
+#include <linux/timekeeping.h>
+#include <linux/sched/clock.h>
 
 #include "clk-mtk-v1.h"
 #include "clk-mt6853-pg.h"
@@ -36,6 +39,11 @@
 
 #define CONN_TIMEOUT_RECOVERY	5
 #define CONN_TIMEOUT_STEP1	4
+
+#define LP_CLK			1
+#define NORMAL_CLK		0
+#define CLK_ENABLE		1
+#define CLK_DISABLE		0
 
 #ifndef GENMASK
 #define GENMASK(h, l)	(((U32_C(1) << ((h) - (l) + 1)) - 1) << (l))
@@ -707,6 +715,8 @@ static int DBG_ID;
 static int DBG_STA;
 static int DBG_STEP;
 
+static unsigned long long block_time;
+static unsigned long long upd_block_time;
 /*
  * ram console data0 define
  * [31:24] : DBG_ID
@@ -717,11 +727,12 @@ static void ram_console_update(void)
 {
 	unsigned long spinlock_save_flags;
 	struct pg_callbacks *pgcb;
+	static u32 pre_data;
+	static s32 loop_cnt = -1;
+	static bool log_over_cnt;
+	static bool log_timeout;
 	u32 data[8] = {0x0};
 	u32 i = 0;
-	static u32 pre_data;
-	static int k;
-	static bool print_once = true;
 
 	data[i] = ((DBG_ID << 24) & ID_MADK)
 		| ((DBG_STA << 20) & STA_MASK)
@@ -735,18 +746,32 @@ static void ram_console_update(void)
 	data[++i] = clk_readl(PWR_STATUS_2ND);
 	data[++i] = clk_readl(CAM_PWR_CON);
 
-
-	if (pre_data == data[0])
-		k++;
-	else if (pre_data != data[0]) {
-		k = 0;
+	if (pre_data == data[0]) {
+		upd_block_time = sched_clock();
+		if (loop_cnt >= 0)
+			loop_cnt++;
+	} else if (pre_data != data[0]) {
 		pre_data = data[0];
-		print_once = true;
+		block_time = sched_clock();
+		loop_cnt = 0;
+		log_over_cnt = false;
 	}
 
-	if (k > 10000 && print_once) {
-		print_once = false;
-		k = 0;
+	if (loop_cnt > 5000) {
+		log_over_cnt = true;
+		loop_cnt = -1;
+	}
+
+	if ((upd_block_time > 0  && block_time > 0)
+			&& (upd_block_time > block_time)
+			&& (upd_block_time - block_time > 5000000000))
+		log_timeout = true;
+
+	if (log_over_cnt || log_timeout) {
+		pr_notice("%s: upd(%llu ns), ori(%llu ns)\n", __func__,
+				upd_block_time, block_time);
+
+		log_over_cnt = false;
 
 		print_enabled_clks_once();
 
@@ -790,14 +815,12 @@ static void ram_console_update(void)
 
 			if (id == SYS_ISP2) {
 				print_subsys_reg(mmsys);
-				print_subsys_reg(mdpsys);
 				print_subsys_reg(img2sys);
 			}
 
 			/* ipe */
 			if (id == SYS_IPE) {
 				print_subsys_reg(mmsys);
-				print_subsys_reg(mdpsys);
 				print_subsys_reg(ipesys);
 			}
 
@@ -816,20 +839,17 @@ static void ram_console_update(void)
 			/* cam */
 			if (id == SYS_CAM) {
 				print_subsys_reg(mmsys);
-				print_subsys_reg(mdpsys);
 				print_subsys_reg(camsys);
 			}
 
 			if (id == SYS_CAM_RAWA) {
 				print_subsys_reg(mmsys);
-				print_subsys_reg(mdpsys);
 				print_subsys_reg(camsys);
 				print_subsys_reg(cam_rawa_sys);
 			}
 
 			if (id == SYS_CAM_RAWB) {
 				print_subsys_reg(mmsys);
-				print_subsys_reg(mdpsys);
 				print_subsys_reg(camsys);
 				print_subsys_reg(cam_rawb_sys);
 			}
@@ -867,6 +887,9 @@ static void ram_console_update(void)
 		aee_rr_rec_clk(i, data[i]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
+
+	if (log_timeout)
+		BUG_ON(1);
 }
 
 #ifdef CONFIG_OF
@@ -4419,7 +4442,52 @@ struct mt_power_gate {
 
 struct cg_list {
 	const char *cg[CLK_NUM];
+	const char *lp_cg[CLK_NUM];
 };
+
+static int pg_pre_clk_ctrl(struct cg_list *list,
+		const char *name, unsigned int enable, unsigned int lp)
+{
+	struct clk *clk;
+	int ret = 0;
+	int i = 0;
+
+	do {
+		if (list == NULL)
+			break;
+
+		if (!lp)
+			clk = list->cg[i] ? __clk_lookup(list->cg[i]) : NULL;
+		else
+			clk = list->lp_cg[i] ?
+					__clk_lookup(list->lp_cg[i]) : NULL;
+
+		if (!clk) {
+			if (list->cg[i] && !lp)
+				pr_notice("[CCF] cannot find pre_clk(%s)\n",
+						list->cg[i]);
+			break;
+		}
+
+		if (enable == CLK_ENABLE) {
+			ret = clk_prepare_enable(clk);
+			if (ret)
+				break;
+		} else if (enable == CLK_DISABLE)
+			clk_disable_unprepare(clk);
+
+#if MT_CCF_DEBUG
+		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n",
+				__func__,
+				name ? name : NULL,
+				lp ? (list->lp_cg[i] ? list->lp_cg[i] : NULL) :
+				(list->cg[i] ? list->cg[i] : NULL));
+#endif				/* MT_CCF_DEBUG */
+		i++;
+	} while (i < CLK_NUM);
+
+	return ret;
+}
 
 static int pg_is_enabled(struct clk_hw *hw)
 {
@@ -4430,13 +4498,11 @@ static int pg_is_enabled(struct clk_hw *hw)
 
 int pg_prepare(struct clk_hw *hw)
 {
-	int ret1 = 0, ret2 = 0, ret3 = 0, ret4 = 0;
-	int i = 0;
+	struct mt_power_gate *pg = to_power_gate(hw);
+	const char *pg_name = __clk_get_name(hw->clk);
 	unsigned long flags;
 	int skip_pg = 0;
-	struct clk *clk;
-	struct mt_power_gate *pg = to_power_gate(hw);
-	struct subsys *sys =  id_to_sys(pg->pd_id);
+	int ret = 0;
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
@@ -4445,152 +4511,80 @@ int pg_prepare(struct clk_hw *hw)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
 
-	do {
-		if (pg->pre_clk1_list == NULL)
-			break;
+	ret = pg_pre_clk_ctrl(pg->pre_clk1_list, pg_name,
+			CLK_ENABLE, NORMAL_CLK);
+	if (ret)
+		goto fail;
 
-		clk = pg->pre_clk1_list->cg[i] ?
-			__clk_lookup(pg->pre_clk1_list->cg[i]) : NULL;
+	ret = pg_pre_clk_ctrl(pg->pre_clk1_list, pg_name,
+			CLK_ENABLE, LP_CLK);
+	if (ret)
+		goto fail;
 
-		if (clk)
-			ret1 = clk_prepare_enable(clk);
-		else {
-			if (pg->pre_clk1_list->cg[i])
-				pr_notice("[CCF] cannot find pre_clk(%s)\n",
-					pg->pre_clk1_list->cg[i]);
-			break;
-		}
-
-		if (ret1)
-			break;
-#if MT_CCF_DEBUG
-		pr_notice("[CCF] %s 1: sys=%s, pre_clk=%s\n", __func__,
-			__clk_get_name(hw->clk),
-			pg->pre_clk1_list->cg[i] ?
-			pg->pre_clk1_list->cg[i]:NULL);
-#endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
-
-	if (!skip_pg)
-		ret2 = enable_subsys(pg->pd_id, MTCMOS_PWR);
-
-	i = 0;
-
-	do {
-		if (pg->pre_clk2_list == NULL)
-			break;
-
-		clk = pg->pre_clk2_list->cg[i] ?
-			__clk_lookup(pg->pre_clk2_list->cg[i]) : NULL;
-		if (clk)
-			ret3 = clk_prepare_enable(clk);
-		else {
-			if (pg->pre_clk2_list->cg[i])
-				pr_notice("[CCF] cannot find pre_clk(%s)\n",
-					pg->pre_clk2_list->cg[i]);
-			break;
-		}
-
-		if (ret3)
-			break;
-#if MT_CCF_DEBUG
-		pr_notice("[CCF] %s 2: sys=%s, pre_clk=%s\n", __func__,
-			__clk_get_name(hw->clk),
-			pg->pre_clk2_list->cg[i] ?
-			pg->pre_clk2_list->cg[i]:NULL);
-#endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
-
-	if (!skip_pg)
-		ret4 = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
-	if (ret2) {
-		mtk_mtcmos_unlock(flags);
-		return ret2;
-	}
-	if (ret3) {
-		mtk_mtcmos_unlock(flags);
-		return ret3;
-	}
-	if (ret4) {
-		mtk_mtcmos_unlock(flags);
-		return ret4;
+	if (!skip_pg) {
+		ret = enable_subsys(pg->pd_id, MTCMOS_PWR);
+		if (ret)
+			goto fail;
 	}
 
+	ret = pg_pre_clk_ctrl(pg->pre_clk2_list, pg_name,
+			CLK_ENABLE, NORMAL_CLK);
+	if (ret)
+		goto fail;
+
+	ret = pg_pre_clk_ctrl(pg->pre_clk2_list, pg_name, CLK_ENABLE, LP_CLK);
+	if (ret)
+		goto fail;
+
+	if (!skip_pg) {
+		ret = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
+		if (ret)
+			goto fail;
+	}
+
+	pg_pre_clk_ctrl(pg->pre_clk2_list, pg_name, CLK_DISABLE, LP_CLK);
+	pg_pre_clk_ctrl(pg->pre_clk1_list, pg_name, CLK_DISABLE, LP_CLK);
+fail:
 	mtk_mtcmos_unlock(flags);
 
-	return ret1;
+	return ret;
 }
 
 void pg_unprepare(struct clk_hw *hw)
 {
-	int i = 0;
+	struct mt_power_gate *pg = to_power_gate(hw);
+	const char *pg_name = __clk_get_name(hw->clk);
 	unsigned long flags;
 	int skip_pg = 0;
-	struct clk *clk;
-	struct mt_power_gate *pg = to_power_gate(hw);
-	struct subsys *sys =  id_to_sys(pg->pd_id);
+	int ret = 0;
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
 	if (pg_is_enabled(hw) == SUBSYS_PWR_DOWN)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
+
+	ret = pg_pre_clk_ctrl(pg->pre_clk1_list, pg_name, CLK_ENABLE, LP_CLK);
+	if (ret)
+		goto fail;
+
+	ret = pg_pre_clk_ctrl(pg->pre_clk2_list, pg_name, CLK_ENABLE, LP_CLK);
+	if (ret)
+		goto fail;
+
 	if (!skip_pg)
 		disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
 
-	do {
-		if (pg->pre_clk2_list == NULL)
-			break;
-
-		clk = pg->pre_clk2_list->cg[i] ?
-			__clk_lookup(pg->pre_clk2_list->cg[i]) : NULL;
-
-		if (clk)
-			clk_disable_unprepare(clk);
-		else {
-			if (pg->pre_clk2_list->cg[i])
-				pr_notice("[CCF] cannot find pre_clk(%s)\n",
-					pg->pre_clk2_list->cg[i]);
-			break;
-		}
-#if MT_CCF_DEBUG
-		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n", __func__,
-			__clk_get_name(hw->clk),
-			pg->pre_clk2_list->cg[i] ?
-			pg->pre_clk2_list->cg[i]:NULL);
-#endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
+	pg_pre_clk_ctrl(pg->pre_clk2_list, pg_name, CLK_DISABLE, NORMAL_CLK);
+	pg_pre_clk_ctrl(pg->pre_clk2_list, pg_name, CLK_DISABLE, LP_CLK);
 
 	if (!skip_pg)
 		disable_subsys(pg->pd_id, MTCMOS_PWR);
 
-	i = 0;
-	do {
-		if (pg->pre_clk1_list == NULL)
-			break;
+	pg_pre_clk_ctrl(pg->pre_clk1_list, pg_name, CLK_DISABLE, NORMAL_CLK);
+	pg_pre_clk_ctrl(pg->pre_clk1_list, pg_name, CLK_DISABLE, LP_CLK);
 
-		clk = pg->pre_clk1_list->cg[i] ?
-			__clk_lookup(pg->pre_clk1_list->cg[i]) : NULL;
-
-		if (clk)
-			clk_disable_unprepare(clk);
-		else {
-			if (pg->pre_clk1_list->cg[i])
-				pr_notice("[CCF] cannot find pre_clk(%s)\n",
-					pg->pre_clk1_list->cg[i]);
-			break;
-		}
-#if MT_CCF_DEBUG
-		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n", __func__,
-			__clk_get_name(hw->clk),
-			pg->pre_clk1_list->cg[i] ?
-			pg->pre_clk1_list->cg[i]:NULL);
-#endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
+fail:
 	mtk_mtcmos_unlock(flags);
 }
 
@@ -4644,16 +4638,19 @@ struct cg_list adsp_cg = {.cg = {"adsp_sel"},};
 
 struct cg_list mfg_cg = {.cg = {"mfg_pll_sel", "mfg_ref_sel"},};
 
-struct cg_list mm_cg1 = {.cg = {"disp_sel", "mdp_sel"},};
+struct cg_list mm_cg1 = {
+	.cg = {"disp_sel"},
+	.lp_cg = {"mdp_sel"},
+};
 
 struct cg_list mm_cg2 = {
 	.cg = {
 		"mm_smi_common",
 		"mm_smi_infra",
 		"mm_smi_iommu",
-		"mm_smi_gals",
-		"mdp_smi0"
+		"mm_smi_gals"
 	},
+	.lp_cg = {"mdp_smi0"},
 };
 
 struct cg_list isp_cg1 = {.cg = {"img1_sel"},};

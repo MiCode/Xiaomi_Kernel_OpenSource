@@ -113,15 +113,41 @@ static int mtk_en_is_enabled(struct clk_hw *hw)
 static void mtk_cg_set_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	int val = 0;
+	int i = 0;
 
 	regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
+#ifdef CONFIG_MACH_MT6853
+	regmap_read(cg->regmap, cg->sta_ofs, &val);
+	while ((val & BIT(cg->bit)) != BIT(cg->bit)) {
+		regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
+		regmap_read(cg->regmap, cg->sta_ofs, &val);
+
+		if (i > 5)
+			break;
+		i++;
+	}
+#endif
 }
 
 static void mtk_cg_clr_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	int val = 0;
+	int i = 0;
 
 	regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+#ifdef CONFIG_MACH_MT6853
+	regmap_read(cg->regmap, cg->sta_ofs, &val);
+	while ((val & BIT(cg->bit)) != 0) {
+		regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+		regmap_read(cg->regmap, cg->sta_ofs, &val);
+
+		if (i > 5)
+			break;
+		i++;
+	}
+#endif
 }
 
 static void mtk_cg_set_bit_unused(struct clk_hw *hw)
