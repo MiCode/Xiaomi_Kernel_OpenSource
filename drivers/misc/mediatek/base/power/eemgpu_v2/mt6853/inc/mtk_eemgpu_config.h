@@ -181,40 +181,23 @@ enum mt_cpu_dvfs_id {
 
 #elif defined(MC50_LOAD)
 /* MC50 Safe EFUSE */
-#define DEVINFO_0 0x0
-/* L_LO */
-#define DEVINFO_1 0x67130025
-/* B_LO + L_LO */
-#define DEVINFO_2 0x7D10002F
-/* B_LO */
-#define DEVINFO_3 0x2716009E
-/* CCI */
-#define DEVINFO_4 0x4B140057
-/* GPU_LO + CCI */
-#define DEVINFO_5 0x0
-/* GPU_LO */
-#define DEVINFO_6 0x0
-/* APU */
-#define DEVINFO_7 0x1B031B03
-/* L_HI + APU */
-#define DEVINFO_8 0x56100076
-/* L_HI */
-#define DEVINFO_9 0x2DEF00A6
-/* B_HI */
-#define DEVINFO_10 0x0919002C
-/* MODEM + B_HI */
-#define DEVINFO_11 0xCB6F0083
-/* MODEM */
-#define DEVINFO_12 0x186A00A5
-/* MODEM */
+#define DEVINFO_0 0x00000002
+#define DEVINFO_1 0x4D142425
+#define DEVINFO_2 0x22042425
+#define DEVINFO_3 0x4613240E
+#define DEVINFO_4 0x70152420
+#define DEVINFO_5 0x6AEB2420
+#define DEVINFO_6 0x2C172436
+#define DEVINFO_7 0x6AEB2420
+#define DEVINFO_8 0x2c172436
+#define DEVINFO_9 0x2D11244E
+#define DEVINFO_10 0x1E1A2433
+#define DEVINFO_11 0x00000000
+#define DEVINFO_12 0x5F01253D
 #define DEVINFO_13 0x1B031B03
-/* MODEM */
 #define DEVINFO_14 0x1B031B03
-/* MODEM */
-#define DEVINFO_15 0x0
-/* L */
+#define DEVINFO_15 0x1B031B03
 #define DEVINFO_16 0x1B031B03
-/* B + L */
 #define DEVINFO_17 0x1B031B03
 
 #else
