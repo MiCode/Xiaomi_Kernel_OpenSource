@@ -682,6 +682,8 @@ int mtk_gem_map_offset_ioctl(struct drm_device *drm, void *data,
 int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv)
 {
+//avoid security issue
+#if 0
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_mtk_gem_create *args = data;
 	int ret;
@@ -713,6 +715,9 @@ int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
 err_handle_create:
 	mtk_drm_gem_free_object(&mtk_gem->base);
 	return ret;
+#endif
+	DDPPR_ERR("not supported!\n");
+	return 0;
 }
 
 static void prepare_output_buffer(struct drm_device *dev,

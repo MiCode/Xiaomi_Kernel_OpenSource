@@ -443,6 +443,10 @@ struct mtk_ddp_comp *mtk_crtc_get_comp(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_ddp_ctx *ddp_ctx = mtk_crtc->ddp_ctx;
 
+	if (mtk_crtc->ddp_mode > DDP_MINOR) {
+		DDPPR_ERR("invalid ddp mode:%d!\n", mtk_crtc->ddp_mode);
+		return NULL;
+	}
 	return ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[path_id][comp_idx];
 }
 
