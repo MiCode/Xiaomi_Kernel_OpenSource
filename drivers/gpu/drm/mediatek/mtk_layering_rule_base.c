@@ -2061,6 +2061,11 @@ static int RPO_rule(struct drm_crtc *crtc,
 		    disp_info->gles_head[disp_idx] <= i)
 			break;
 
+		/* RSZ HW limitation */
+		/* 4x4 < input resolution size */
+		if ((c->src_width <= 4) || (c->src_height <= 4))
+			break;
+
 		if (!is_rsz_valid(c))
 			break;
 
