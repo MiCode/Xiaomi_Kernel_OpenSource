@@ -104,6 +104,7 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 
 	if (g_is_suspend == 1) {
 		mali_pr_info("@%s: discard powering on since GPU is suspended\n", __func__);
+		dump_stack();
 		return 0;
 	}
 
