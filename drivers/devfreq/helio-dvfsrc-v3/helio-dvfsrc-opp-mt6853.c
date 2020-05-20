@@ -137,7 +137,7 @@ static int get_vb_volt(int vcore_opp)
 		break;
 	case VCORE_OPP_3:
 		idx = ptpod & 0xF;
-		if (idx >= opp_min_bin_opp3)
+		if (idx >= opp_min_bin_opp3 && idx < 9)
 			ret = 1;
 		break;
 	default:
