@@ -532,18 +532,20 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	 * msdc src hclk -> msdc hclk cg
 	 */
 
-	host->src_hclk_ctl = devm_clk_get(&pdev->dev,
-			MSDC0_SRC_HCLK_NAME);
-	if (IS_ERR(host->src_hclk_ctl)) {
-		pr_notice("[msdc%d] cannot get clk ctl\n",
-			pdev->id);
-		WARN_ON(1);
-		return 1;
-	}
-	if (clk_prepare(host->src_hclk_ctl)) {
-		pr_notice("[msdc%d] cannot prepare clk ctrl\n",
-			pdev->id);
-		return 1;
+	if  (pdev->id == 0) {
+		host->src_hclk_ctl = devm_clk_get(&pdev->dev,
+				MSDC0_SRC_HCLK_NAME);
+		if (IS_ERR(host->src_hclk_ctl)) {
+			pr_notice("[msdc%d] cannot get src hclk ctl\n",
+				pdev->id);
+			WARN_ON(1);
+			return 1;
+		}
+		if (clk_prepare(host->src_hclk_ctl)) {
+			pr_notice("[msdc%d] cannot prepare src hclk ctrl\n",
+				pdev->id);
+			return 1;
+		}
 	}
 
 	if  (clk_names[pdev->id]) {
