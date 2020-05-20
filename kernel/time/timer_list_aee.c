@@ -83,9 +83,9 @@ static void
 print_active_timers(struct seq_file *m, struct hrtimer_clock_base *base,
 		    u64 now)
 {
-	struct hrtimer *timer, tmp;
+	struct hrtimer *timer = NULL, tmp;
 	unsigned long next = 0, i;
-	struct timerqueue_node *curr;
+	struct timerqueue_node *curr = NULL;
 	unsigned long flags;
 
 next_one:
