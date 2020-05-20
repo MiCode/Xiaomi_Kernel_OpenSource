@@ -50,16 +50,22 @@ static void of_coresight_get_ports(const struct device_node *node,
 {
 	struct device_node *ep = NULL;
 	int in = 0, out = 0;
+	struct of_endpoint endpoint;
 
 	do {
 		ep = of_graph_get_next_endpoint(node, ep);
 		if (!ep)
 			break;
 
+		if (of_graph_parse_endpoint(ep, &endpoint))
+			continue;
+
 		if (of_property_read_bool(ep, "slave-mode"))
-			in++;
+			in = (endpoint.port + 1 > in) ?
+				endpoint.port + 1 : in;
 		else
-			out++;
+			out = (endpoint.port + 1) > out ?
+				endpoint.port + 1 : out;
 
 	} while (ep);
 
