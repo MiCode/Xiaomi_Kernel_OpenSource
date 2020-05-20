@@ -117,6 +117,7 @@
 #define MT6362_MSK_FOD_DISCHGF	BIT(7)
 #define MT6362_MSK_RPDET_AUTO	BIT(7)
 #define MT6362_MSK_RPDET_MANUAL	BIT(6)
+#define MT6362_MSK_CTD_EN	BIT(1)
 #define MT6362_MSK_BMCIOOSC_EN	BIT(0)
 #define MT6362_MSK_VBUSDET_EN	BIT(1)
 #define MT6362_MSK_LPWR_EN	BIT(3)
@@ -425,7 +426,10 @@ static int mt6362_sw_reset(struct mt6362_tcpc_data *tdata)
 	if (ret < 0)
 		return ret;
 	usleep_range(1000, 2000);
-	return 0;
+
+	/* disable ctd_en */
+	return mt6362_clr_bits(tdata, MT6362_REG_SHIELDCTRL1,
+			       MT6362_MSK_CTD_EN);
 }
 
 static int mt6362_init_power_status_mask(struct mt6362_tcpc_data *tdata)
@@ -517,7 +521,7 @@ static int mt6362_enable_vsafe0v_detect(struct mt6362_tcpc_data *tdata, bool en)
 static int __maybe_unused mt6362_enable_rpdet_auto(
 					struct mt6362_tcpc_data *tdata, bool en)
 {
-	return (en ? mt6362_clr_bits : mt6362_set_bits)
+	return (en ? mt6362_set_bits : mt6362_clr_bits)
 		(tdata, MT6362_REG_SHIELDCTRL1, MT6362_MSK_RPDET_AUTO);
 }
 
@@ -1089,9 +1093,6 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	if (ret < 0)
 		return ret;
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
-
-	mt6362_enable_rpdet_auto(tdata, true);
-
 	/* Set LDO to 2V */
 	ret = mt6362_write8(tdata, MT6362_REG_LPWRCTRL3, 0xD9);
 	if (ret < 0)
@@ -1198,7 +1199,8 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 		tcpci_set_watchdog(tcpc, true);
 	}
 
-	mt6362_enable_rpdet_auto(tdata, false);
+	/* enable ctd_en */
+	ret = mt6362_set_bits(tdata, MT6362_REG_SHIELDCTRL1, MT6362_MSK_CTD_EN);
 
 	/* SHIPPING off, AUTOIDLE on */
 	mt6362_set_bits(tdata, MT6362_REG_SYSCTRL1,
@@ -1367,6 +1369,7 @@ static int mt6362_set_cc(struct tcpc_device *tcpc, int pull)
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
+	MT6362_DBGINFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
 	if (pull == TYPEC_CC_DRP) {
 		ret = mt6362_set_cc_toggling(tdata, pull);
@@ -2215,6 +2218,18 @@ static int mt6362_tcpc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void mt6362_shutdown(struct platform_device *pdev)
+{
+	struct mt6362_tcpc_data *tdata = platform_get_drvdata(pdev);
+
+	/* Please reset IC here */
+	if (!tdata)
+		return;
+	if (tdata->irq)
+		disable_irq(tdata->irq);
+	tcpm_shutdown(tdata->tcpc);
+}
+
 static const struct of_device_id __maybe_unused mt6362_tcpc_ofid_tbls[] = {
 	{ .compatible = "mediatek,mt6362-tcpc", },
 	{ },
@@ -2228,6 +2243,7 @@ static struct platform_driver mt6362_tcpc_driver = {
 	},
 	.probe = mt6362_tcpc_probe,
 	.remove = mt6362_tcpc_remove,
+	.shutdown = mt6362_shutdown,
 };
 module_platform_driver(mt6362_tcpc_driver);
 
