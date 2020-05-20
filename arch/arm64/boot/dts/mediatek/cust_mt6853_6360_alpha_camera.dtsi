@@ -302,7 +302,7 @@
 
 	//vcammainaf-supply = <&mt_pmic_vmch_ldo_reg>;
 
-	cam0_enable_sensor = "ov16a10_mipi_raw";
+	cam0_enable_sensor = "ov16a10_mipi_raw ov48b_mipi_raw";
 	cam1_enable_sensor = "s5k3p9sp_mipi_raw";
 	cam2_enable_sensor = "hi846_mipi_raw";
 	cam3_enable_sensor = "gc02m0b_mipi_mono gc02m1b_mipi_mono";
