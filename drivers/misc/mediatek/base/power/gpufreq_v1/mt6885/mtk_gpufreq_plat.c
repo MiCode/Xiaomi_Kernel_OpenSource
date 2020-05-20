@@ -3610,15 +3610,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	//__mt_gpufreq_gpu_dfd_trigger_simulate();
 #endif
 
-#if MT_GPUFREQ_DFD_ENABLE
-	/* if dfd is triggered, power off BUCK to cleare it */
-	if (__mt_gpufreq_is_dfd_triggered()) {
-		//__mt_gpufreq_dfd_debug_exception();
-		gpufreq_pr_info("[GPU_DFD] gpu dfd is triggered, clear it.\n");
-		__mt_gpufreq_gpu_dfd_clear();
-	}
-#endif
-
 	g_probe_done = true;
 	gpufreq_pr_info("@%s: GPU driver init done\n", __func__);
 
