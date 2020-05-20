@@ -177,8 +177,8 @@ EXPORT_SYMBOL(cmdq_register_device);
 
 struct cmdq_client *cmdq_mbox_create(struct device *dev, int index)
 {
-	struct cmdq_client *client;
-	struct client_priv *priv;
+	struct cmdq_client *client = NULL;
+	struct client_priv *priv = NULL;
 
 	client = kzalloc(sizeof(*client), GFP_KERNEL);
 	if (!client)
@@ -255,7 +255,7 @@ EXPORT_SYMBOL(cmdq_mbox_pool_clear);
 static void *cmdq_mbox_pool_alloc_impl(struct dma_pool *pool,
 	dma_addr_t *pa_out, atomic_t *cnt, u32 limit)
 {
-	void *va;
+	void *va = NULL;
 	dma_addr_t pa;
 
 	if (atomic_inc_return(cnt) > limit) {
@@ -428,7 +428,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
-	struct cmdq_pkt_buffer *buf, *tmp;
+	struct cmdq_pkt_buffer *buf = NULL, *tmp = NULL;
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
@@ -438,7 +438,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 					buf->va_base, buf->pa_base,
 					pkt->cur_pool.cnt);
 			else {
-				cmdq_err("free pool:%s dev:%#lx pa:%pa cl:%#lx",
+				cmdq_err("free pool:%s dev:%#lx pa:%pa cl:%p",
 					buf->use_pool ? "true" : "false",
 					(unsigned long)pkt->dev,
 					&buf->pa_base,
@@ -456,8 +456,8 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 s32 cmdq_pkt_add_cmd_buffer(struct cmdq_pkt *pkt)
 {
 	s32 status = 0;
-	struct cmdq_pkt_buffer *buf, *prev;
-	u64 *prev_va;
+	struct cmdq_pkt_buffer *buf = NULL, *prev = NULL;
+	u64 *prev_va = NULL;
 
 	if (list_empty(&pkt->buf))
 		prev = NULL;
@@ -543,7 +543,7 @@ EXPORT_SYMBOL(cmdq_pkt_destroy);
 u64 *cmdq_pkt_get_va_by_offset(struct cmdq_pkt *pkt, size_t offset)
 {
 	size_t offset_remaind = offset;
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (offset_remaind >= CMDQ_CMD_BUFFER_SIZE) {
@@ -560,7 +560,7 @@ EXPORT_SYMBOL(cmdq_pkt_get_va_by_offset);
 dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset)
 {
 	u32 offset_remaind = offset;
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (offset_remaind >= CMDQ_CMD_BUFFER_SIZE) {
@@ -577,7 +577,7 @@ EXPORT_SYMBOL(cmdq_pkt_get_pa_by_offset);
 
 static dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
 {
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 
@@ -586,7 +586,7 @@ static dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
 
 static bool cmdq_pkt_is_finalized(struct cmdq_pkt *pkt)
 {
-	u64 *expect_eoc;
+	u64 *expect_eoc = NULL;
 
 	if (pkt->cmd_buf_size < CMDQ_INST_SIZE * 2)
 		return false;
@@ -619,8 +619,8 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	u16 arg_a, u8 s_op, u8 arg_c_type, u8 arg_b_type, u8 arg_a_type,
 	enum cmdq_code code)
 {
-	struct cmdq_pkt_buffer *buf;
-	void *va;
+	struct cmdq_pkt_buffer *buf = NULL;
+	void *va = NULL;
 
 	if (!pkt)
 		return -EINVAL;
@@ -634,7 +634,7 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	va = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 
 	cmdq_pkt_instr_encoder(va, arg_c, arg_b, arg_a, s_op, arg_c_type,
-		arg_b_type, arg_a_type, code);
+		arg_b_type, arg_a_type, (u8)code);
 	pkt->cmd_buf_size += CMDQ_INST_SIZE;
 	pkt->avail_buf_size -= CMDQ_INST_SIZE;
 
@@ -1116,7 +1116,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	u32 begin_mark, end_addr_mark, cnt_end_addr_mark = 0, shift_pa;
 	dma_addr_t cmd_pa;
 	struct cmdq_operand lop, rop;
-	struct cmdq_instruction *inst;
+	struct cmdq_instruction *inst = NULL;
 	bool absolute = true;
 
 	if (pkt->avail_buf_size > PAGE_SIZE)
@@ -1250,7 +1250,7 @@ EXPORT_SYMBOL(cmdq_pkt_poll_timeout);
 void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt)
 {
 	dma_addr_t pa;
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 
 	if (!pkt->buf_size)
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
@@ -1267,7 +1267,7 @@ EXPORT_SYMBOL(cmdq_pkt_perf_begin);
 void cmdq_pkt_perf_end(struct cmdq_pkt *pkt)
 {
 	dma_addr_t pa;
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 
 	if (!pkt->buf_size)
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
@@ -1283,7 +1283,7 @@ EXPORT_SYMBOL(cmdq_pkt_perf_end);
 
 u32 *cmdq_pkt_get_perf_ret(struct cmdq_pkt *pkt)
 {
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 
 	if (!pkt->cmd_buf_size)
 		return NULL;
@@ -1462,7 +1462,7 @@ EXPORT_SYMBOL(cmdq_pkt_finalize_loop);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 static struct cmdq_flush_item *cmdq_prepare_flush_tiem(struct cmdq_pkt *pkt)
 {
-	struct cmdq_flush_item *item;
+	struct cmdq_flush_item *item = NULL;
 
 	kfree(pkt->flush_item);
 	pkt->flush_item = NULL;
@@ -1484,7 +1484,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	dma_addr_t pc = 0;
 	struct cmdq_instruction *inst = NULL;
 	const char *mod = "CMDQ";
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 	u32 size = pkt->cmd_buf_size, cnt = 0;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 	static u8 err_num;
@@ -1577,7 +1577,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 #define txt_len 128
 	char text[txt_len];
 	char text_gpr[30] = {0};
-	void *base;
+	void *base = NULL;
 	u32 gprid, val;
 
 	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
@@ -2212,7 +2212,7 @@ static void cmdq_buf_print_jump(char *text, u32 txt_sz,
 static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	char *cmd_str;
+	char *cmd_str = NULL;
 
 	switch (cmdq_inst->op) {
 	case CMDQ_CODE_EOC:
@@ -2285,7 +2285,7 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {
-	struct cmdq_pkt_buffer *buf;
+	struct cmdq_pkt_buffer *buf = NULL;
 	u32 size, cnt = 0;
 
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
