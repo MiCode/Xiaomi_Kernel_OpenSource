@@ -375,7 +375,7 @@ static int __maybe_unused mt6362_suspend(struct device *dev)
 	if (device_may_wakeup(dev))
 		enable_irq_wake(data->irq);
 
-	//disable_irq(data->irq);
+	disable_irq(data->irq);
 
 	dev_info(dev, "%s: done\n", __func__);
 	return 0;
@@ -388,7 +388,7 @@ static int __maybe_unused mt6362_resume(struct device *dev)
 	if (device_may_wakeup(dev))
 		disable_irq_wake(data->irq);
 
-	//enable_irq(data->irq);
+	enable_irq(data->irq);
 
 	dev_info(dev, "%s: done\n", __func__);
 	return 0;

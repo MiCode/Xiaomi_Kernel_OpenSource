@@ -6287,6 +6287,8 @@ page_owner=on loop.max_part=7";
 			en_te = <1>;
 			en_wdt = <1>;
 			aicc_oneshot = <1>;
+			post_aicc = <1>;
+			post_aicc_thr = <200000>;
 			shipping_dly_en = <1>;
 			batoc_notify = <0>;
 			otg_vbus: usb-otg-vbus {

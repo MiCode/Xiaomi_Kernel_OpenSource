@@ -232,6 +232,8 @@ struct mt6362_chg_platform_data {
 	u32 en_te;
 	u32 en_wdt;
 	u32 aicc_oneshot;
+	u32 post_aicc;
+	u32 post_aicc_thr;
 	u32 shipping_dly_en;
 	u32 batoc_notify;
 	const char *chg_name;
@@ -250,6 +252,8 @@ static const struct mt6362_chg_platform_data def_platform_data = {
 	.en_te = true,
 	.en_wdt = true,
 	.aicc_oneshot = true,
+	.post_aicc = true,
+	.post_aicc_thr = 200000,
 	.shipping_dly_en = true,
 	.batoc_notify = false,
 	.chg_name = "primary_chg",
@@ -880,12 +884,19 @@ static int mt6362_charger_get_status(struct mt6362_chg_data *data,
 	ret = mt6362_get_charging_status(data, &ic_stat);
 	if (ret < 0)
 		return ret;
+
 	switch (ic_stat) {
+	case MT6362_STAT_HZ:
 	case MT6362_STAT_READY:
+		/* Fall through */
+	case MT6362_STAT_OTG:
 		status = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		break;
 	case MT6362_STAT_TRI_CHG ... MT6362_STAT_BACKGND_CHG:
 		status = POWER_SUPPLY_STATUS_CHARGING;
+		break;
+	case MT6362_STAT_CHG_FAULT:
+		status = POWER_SUPPLY_STATUS_UNKNOWN;
 		break;
 	case MT6362_STAT_CHG_DONE:
 		status = POWER_SUPPLY_STATUS_FULL;
@@ -1638,12 +1649,39 @@ static int mt6362_get_aicc(struct mt6362_chg_data *data, u32 *aicc_val)
 	return 0;
 }
 
+static inline int mt6362_post_aicc_measure(struct charger_device *chg_dev,
+					   u32 start, u32 stop, u32 step,
+					   u32 *measure)
+{
+	struct mt6362_chg_data *data = charger_get_data(chg_dev);
+	int cur, ret;
+	bool mivr_loop;
+
+	mt_dbg(data->dev,
+		"%s: post_aicc = (%d, %d, %d)\n", __func__, start, stop, step);
+	for (cur = start; cur < (stop + step); cur += step) {
+		/* set_aicr to cur */
+		ret = mt6362_set_aicr(chg_dev, cur + step);
+		if (ret < 0)
+			return ret;
+		usleep_range(150, 200);
+		ret = mt6362_get_mivr_state(chg_dev, &mivr_loop);
+		if (ret < 0)
+			return ret;
+		/* read mivr stat */
+		if (mivr_loop)
+			break;
+	}
+	*measure = cur;
+	return 0;
+}
+
 static int mt6362_run_aicc(struct charger_device *chg_dev, u32 *uA)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	struct mt6362_chg_platform_data *pdata = dev_get_platdata(data->dev);
 	int ret;
-	u32 aicc_val;
+	u32 aicc_val, aicr_val;
 	bool mivr_loop;
 	long timeout;
 
@@ -1686,7 +1724,7 @@ static int mt6362_run_aicc(struct charger_device *chg_dev, u32 *uA)
 	/* Clear AICC measurement IRQ */
 	reinit_completion(&data->aicc_done);
 	timeout = wait_for_completion_interruptible_timeout(
-				   &data->aicc_done, msecs_to_jiffies(3000));
+				   &data->aicc_done, msecs_to_jiffies(9000));
 	if (timeout == 0)
 		ret = -ETIMEDOUT;
 	else if (timeout < 0)
@@ -1704,11 +1742,40 @@ static int mt6362_run_aicc(struct charger_device *chg_dev, u32 *uA)
 		dev_err(data->dev, "%s: get aicc result fail\n", __func__);
 		goto out;
 	}
+
+	/* post aicc */
+	if (!pdata->post_aicc)
+		goto skip_post_aicc;
+
+	dev_info(data->dev, "%s: aicc pre val = %d\n", __func__, aicc_val);
+	ret = mt6362_get_aicr(chg_dev, &aicr_val);
+	if (ret < 0) {
+		dev_err(data->dev, "%s: get aicr fail\n", __func__);
+		goto out;
+	}
 	ret = mt6362_set_aicr(chg_dev, aicc_val);
 	if (ret < 0) {
 		dev_err(data->dev, "%s: set aicr fail\n", __func__);
 		goto out;
 	}
+	ret = regmap_update_bits(data->regmap, MT6362_REG_CHG_AICC1,
+				 MT6362_MASK_AICC_EN, 0);
+	if (ret < 0)
+		goto out;
+	/* always start/end aicc_val/aicc_val+post_aicc_thr */
+	ret = mt6362_post_aicc_measure(chg_dev, aicc_val,
+				       aicc_val + pdata->post_aicc_thr,
+				       MT6362_AICR_STEP, &aicc_val);
+	if (ret < 0)
+		goto out;
+
+	ret = mt6362_set_aicr(chg_dev, aicc_val);
+	if (ret < 0) {
+		dev_err(data->dev, "%s: set aicr fail\n", __func__);
+		goto out;
+	}
+	dev_info(data->dev, "%s: aicc post val = %d\n", __func__, aicc_val);
+skip_post_aicc:
 	*uA = aicc_val;
 out:
 	/* Clear EN_AICC */
@@ -2502,10 +2569,6 @@ static irqreturn_t mt6362_fl_bc12_dn_evt_handler(int irq, void *data)
 	case MT6362_CHG_TYPE_NO_INFO:
 		dev_info(cdata->dev, "%s: no information\n", __func__);
 		return IRQ_HANDLED;
-	case MT6362_CHG_TYPE_APPLE_10W:
-	case MT6362_CHG_TYPE_SAMSUNG_10W:
-	case MT6362_CHG_TYPE_APPLE_5W:
-	case MT6362_CHG_TYPE_APPLE_12W:
 	case MT6362_CHG_TYPE_UNKNOWN_TA:
 		cdata->chg_type = NONSTANDARD_CHARGER;
 		break;
@@ -2517,6 +2580,11 @@ static irqreturn_t mt6362_fl_bc12_dn_evt_handler(int irq, void *data)
 		cdata->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
 		cdata->chg_type = CHARGING_HOST;
 		break;
+	case MT6362_CHG_TYPE_APPLE_10W:
+	case MT6362_CHG_TYPE_SAMSUNG_10W:
+	case MT6362_CHG_TYPE_APPLE_5W:
+	case MT6362_CHG_TYPE_APPLE_12W:
+		/* fall through */
 	case MT6362_CHG_TYPE_DCP:
 		cdata->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 		cdata->chg_type = STANDARD_CHARGER;

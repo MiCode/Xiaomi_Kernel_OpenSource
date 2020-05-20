@@ -1061,9 +1061,11 @@ static int mt6362_leds_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_MTK_CHARGER
 	data->chg_dev = get_charger_by_name("primary_chg");
-	if (!data->chg_dev)
+	if (!data->chg_dev) {
 		dev_err(&pdev->dev,
 			"%s: can't find primary charger\n", __func__);
+		return -EINVAL;
+	}
 #endif
 
 	dev_info(&pdev->dev, "mt6362 probe done\n");
