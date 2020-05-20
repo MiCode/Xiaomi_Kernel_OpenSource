@@ -51,6 +51,8 @@
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
+static unsigned int swpm_init_state;
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 /* share sram for average power index */
 static struct share_index *share_idx_ref;
@@ -588,13 +590,12 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 	qos_d.u.swpm_init.dram_ch_num = ch_num;
 	offset = qos_ipi_to_sspm_command(&qos_d, 4);
 
-	if (!offset) {
-		share_idx_ref = NULL;
-		share_idx_ctrl = NULL;
-		idx_ref_uint_ptr = NULL;
-		idx_output_size = 0;
+	if (offset == -1) {
+		swpm_err("qos ipi not ready init fail\n");
+		goto error;
+	} else if (offset == 0) {
 		swpm_err("swpm share sram init fail\n");
-		return;
+		goto error;
 	}
 
 	/* get wrapped sram address */
@@ -623,6 +624,16 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 		 sizeof(struct share_index) / 4);
 #endif
 #endif
+
+	swpm_init_state = 1;
+	return;
+
+error:
+	swpm_init_state = 0;
+	share_idx_ref = NULL;
+	share_idx_ctrl = NULL;
+	idx_ref_uint_ptr = NULL;
+	idx_output_size = 0;
 }
 
 static void swpm_update_lkg_table(void)
@@ -819,6 +830,10 @@ static inline void swpm_subsys_data_ref_init(void)
  ***************************************************************************/
 void swpm_set_enable(unsigned int type, unsigned int enable)
 {
+	if (!swpm_init_state
+	    || (type != ALL_METER_TYPE && type >= NR_POWER_METER))
+		return;
+
 	if (type == ALL_METER_TYPE) {
 		int i;
 
@@ -891,7 +906,8 @@ char *swpm_power_rail_to_string(enum power_rail p)
 
 void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 {
-	if (type != ALL_METER_TYPE && type >= NR_POWER_METER)
+	if (!swpm_init_state
+	    || (type != ALL_METER_TYPE && type >= NR_POWER_METER))
 		return;
 
 	swpm_lock(&swpm_mutex);
