@@ -3138,6 +3138,7 @@
 
 		iommus = <&apps_smmu 0x4a0 0x0>;
 		dma-coherent;
+		qcom,iommu-dma = "atomic";
 
 		status = "disabled";
 	};
