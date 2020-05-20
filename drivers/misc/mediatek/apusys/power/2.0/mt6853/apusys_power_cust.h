@@ -60,7 +60,7 @@
  * CCF_SET_RATE == 0
  * --> program register directly to set (A/N)PUPLL with hopping
  */
-#define CCF_SET_RATE		(1)
+#define CCF_SET_RATE		(0)
 
 /* Raise up lowest voltage */
 #define VOLTAGE_RAISE_UP	(1)
