@@ -15,6 +15,7 @@
 #include <drm/drm_gem.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
+#include <linux/kmemleak.h>
 #include <drm/mediatek_drm.h>
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -406,6 +407,8 @@ void mtk_drm_assert_fb_init(struct drm_device *dev, u32 width, u32 height)
 		DDPINFO("alloc buffer fail\n");
 		return;
 	}
+	/*Avoid kmemleak check false*/
+	kmemleak_no_scan(mtk_gem);
 
 	dal_va = mtk_gem->kvaddr;
 	dal_pa = mtk_gem->dma_addr;
