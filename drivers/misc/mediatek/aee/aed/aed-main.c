@@ -2116,7 +2116,7 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 	unsigned long userstack_end = 0, length = 0;
 	int mapcount = 0;
 	struct file *file;
-	int flags;
+	unsigned long flags;
 	struct mm_struct *mm;
 	int ret = 0;
 	char tpath[512];
