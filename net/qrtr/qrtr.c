@@ -128,7 +128,7 @@ static DECLARE_RWSEM(qrtr_epts_lock);
 
 /* local port allocation management */
 static DEFINE_IDR(qrtr_ports);
-static DEFINE_MUTEX(qrtr_port_lock);
+static DEFINE_SPINLOCK(qrtr_port_lock);
 
 /**
  * struct qrtr_node - endpoint node
@@ -1191,15 +1191,16 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_unregister);
 static struct qrtr_sock *qrtr_port_lookup(int port)
 {
 	struct qrtr_sock *ipc;
+	unsigned long flags;
 
 	if (port == QRTR_PORT_CTRL)
 		port = 0;
 
-	rcu_read_lock();
+	spin_lock_irqsave(&qrtr_port_lock, flags);
 	ipc = idr_find(&qrtr_ports, port);
 	if (ipc)
 		sock_hold(&ipc->sk);
-	rcu_read_unlock();
+	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 
 	return ipc;
 }
@@ -1261,6 +1262,7 @@ exit:
 static void qrtr_port_remove(struct qrtr_sock *ipc)
 {
 	int port = ipc->us.sq_port;
+	unsigned long flags;
 
 	qrtr_send_del_client(ipc);
 	if (port == QRTR_PORT_CTRL)
@@ -1268,13 +1270,9 @@ static void qrtr_port_remove(struct qrtr_sock *ipc)
 
 	__sock_put(&ipc->sk);
 
-	mutex_lock(&qrtr_port_lock);
+	spin_lock_irqsave(&qrtr_port_lock, flags);
 	idr_remove(&qrtr_ports, port);
-	mutex_unlock(&qrtr_port_lock);
-
-	/* Ensure that if qrtr_port_lookup() did enter the RCU read section we
-	 * wait for it to up increment the refcount */
-	synchronize_rcu();
+	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 }
 
 /* Assign port number to socket.
@@ -1348,6 +1346,7 @@ static int __qrtr_bind(struct socket *sock,
 {
 	struct qrtr_sock *ipc = qrtr_sk(sock->sk);
 	struct sock *sk = sock->sk;
+	unsigned long flags;
 	int port;
 	int rc;
 
@@ -1355,17 +1354,18 @@ static int __qrtr_bind(struct socket *sock,
 	if (!zapped && addr->sq_port == ipc->us.sq_port)
 		return 0;
 
-	mutex_lock(&qrtr_port_lock);
+	spin_lock_irqsave(&qrtr_port_lock, flags);
 	port = addr->sq_port;
 	rc = qrtr_port_assign(ipc, &port);
 	if (rc) {
-		mutex_unlock(&qrtr_port_lock);
+		spin_unlock_irqrestore(&qrtr_port_lock, flags);
 		return rc;
 	}
 	/* Notify all open ports about the new controller */
 	if (port == QRTR_PORT_CTRL)
 		qrtr_reset_ports();
-	mutex_unlock(&qrtr_port_lock);
+	spin_unlock_irqrestore(&qrtr_port_lock, flags);
+
 
 	if (port == QRTR_PORT_CTRL) {
 		struct qrtr_node *node;
