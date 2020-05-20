@@ -2664,13 +2664,20 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-	struct drm_crtc *crtc = dsi->encoder.crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
 	bool mod_vfp, mod_vbp, mod_vsa;
 	bool mod_hfp, mod_hbp, mod_hsa;
 	unsigned int data_rate;
 	struct cmdq_pkt *cmdq_handle;
-	int index = drm_crtc_index(crtc);
+	int index = 0;
+
+	if (!crtc) {
+		DDPPR_ERR("%s, crtc is NULL\n", __func__);
+		return;
+	}
+
+	index = drm_crtc_index(crtc);
 
 	dsi->mipi_hopping_sta = en;
 
