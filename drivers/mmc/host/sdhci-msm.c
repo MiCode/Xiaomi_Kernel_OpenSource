@@ -2098,7 +2098,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		udelay(10);
 	}
 
-	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
 		irq_status & CORE_PWRCTL_BUS_ON) {
 		irq_ack = CORE_PWRCTL_BUS_FAIL;
 		msm_host_writel(msm_host, irq_ack, host,
