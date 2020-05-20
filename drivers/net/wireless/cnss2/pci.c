@@ -4235,8 +4235,10 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->fw_image = plat_priv->firmware_name;
 
 	mhi_ctrl->regs = pci_priv->bar;
-	cnss_pr_dbg("BAR starts at %pa\n",
-		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM));
+	mhi_ctrl->len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
+	cnss_pr_dbg("BAR starts at %pa, len-%x\n",
+		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM),
+		    mhi_ctrl->len);
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
