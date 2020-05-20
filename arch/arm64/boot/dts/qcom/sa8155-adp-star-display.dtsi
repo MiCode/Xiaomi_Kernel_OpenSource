@@ -45,10 +45,6 @@
 	qcom,dp-hpd-gpio = <&ioexp 8 0>;
 	qcom,mst-fixed-topology-ports = <1 2>;
 
-	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
-	pinctrl-0 = <&dp_hpd_cfg_pins>;
-	pinctrl-1 = <&dp_hpd_cfg_pins>;
-
 	qcom,core-supply-entries {
 		#address-cells = <1>;
 		#size-cells = <0>;
