@@ -132,16 +132,15 @@ static bool frag_expire_skip_icmp(u32 user)
 /*
  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
  */
-static void ip_expire(struct timer_list *t)
+static void ip_expire(unsigned long arg)
 {
-	struct inet_frag_queue *frag = from_timer(frag, t, timer);
 	const struct iphdr *iph;
 	struct sk_buff *head = NULL;
 	struct net *net;
 	struct ipq *qp;
 	int err;
 
-	qp = container_of(frag, struct ipq, q);
+	qp = container_of((struct inet_frag_queue *)arg, struct ipq, q);
 	net = container_of(qp->q.net, struct net, ipv4.frags);
 
 	rcu_read_lock();

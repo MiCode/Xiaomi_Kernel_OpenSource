@@ -250,7 +250,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
 	f->constructor(q, arg);
 	add_frag_mem_limit(nf, f->qsize);
 
-	timer_setup(&q->timer, f->frag_expire, 0);
+	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
 	spin_lock_init(&q->lock);
 	refcount_set(&q->refcnt, 3);
 
