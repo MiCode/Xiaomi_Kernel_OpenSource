@@ -51,6 +51,12 @@
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
+static unsigned int swpm_init_state;
+
+/* index snapshot */
+static struct mutex swpm_snap_lock;
+static struct mem_swpm_index mem_idx_snap;
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 /* share sram for average power index */
 static struct share_index *share_idx_ref;
@@ -594,13 +600,12 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 	qos_d.u.swpm_init.dram_ch_num = ch_num;
 	offset = qos_ipi_to_sspm_command(&qos_d, 4);
 
-	if (!offset) {
-		share_idx_ref = NULL;
-		share_idx_ctrl = NULL;
-		idx_ref_uint_ptr = NULL;
-		idx_output_size = 0;
+	if (offset == -1) {
+		swpm_err("qos ipi not ready init fail\n");
+		goto error;
+	} else if (offset == 0) {
 		swpm_err("swpm share sram init fail\n");
-		return;
+		goto error;
 	}
 
 	/* get wrapped sram address */
@@ -629,6 +634,15 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 		 sizeof(struct share_index) / 4);
 #endif
 #endif
+	swpm_init_state = 1;
+	return;
+
+error:
+	swpm_init_state = 0;
+	share_idx_ref = NULL;
+	share_idx_ctrl = NULL;
+	idx_ref_uint_ptr = NULL;
+	idx_output_size = 0;
 }
 
 static void swpm_core_thermal_cb(void)
@@ -700,6 +714,16 @@ static void swpm_update_lkg_table(void)
 	swpm_core_thermal_cb();
 }
 
+static void swpm_idx_snap(void)
+{
+	if (share_idx_ref) {
+		swpm_lock(&swpm_snap_lock);
+		memcpy(&mem_idx_snap, &(share_idx_ref->mem_idx),
+		       sizeof(struct mem_swpm_index));
+		swpm_unlock(&swpm_snap_lock);
+	}
+}
+
 static void swpm_log_loop(unsigned long data)
 {
 	char buf[256] = {0};
@@ -744,6 +768,9 @@ static void swpm_log_loop(unsigned long data)
 				    " window_cnt = %d",
 				    share_idx_ref->window_cnt);
 #endif
+
+		/* snapshot the last completed average index data */
+		swpm_idx_snap();
 
 		/* set share sram clear flag and release lock */
 		share_idx_ctrl->clear_flag = 1;
@@ -937,10 +964,11 @@ static char *_copy_from_user_for_proc(const char __user *buffer, size_t count)
 
 static int dram_bw_proc_show(struct seq_file *m, void *v)
 {
-	if (share_idx_ref != NULL)
-		seq_printf(m, "DRAM BW R/W=%d/%d\n",
-			   share_idx_ref->mem_idx.read_bw[0],
-			   share_idx_ref->mem_idx.write_bw[0]);
+	swpm_lock(&swpm_snap_lock);
+	seq_printf(m, "DRAM BW R/W=%d/%d\n",
+		   mem_idx_snap.read_bw[0],
+		   mem_idx_snap.write_bw[0]);
+	swpm_unlock(&swpm_snap_lock);
 
 	return 0;
 }
@@ -978,6 +1006,10 @@ PROC_FOPS_RW(pmu_ms_mode);
  ***************************************************************************/
 void swpm_set_enable(unsigned int type, unsigned int enable)
 {
+	if (!swpm_init_state
+	    || (type != ALL_METER_TYPE && type >= NR_POWER_METER))
+		return;
+
 	if (type == ALL_METER_TYPE) {
 		int i;
 
@@ -1050,7 +1082,8 @@ char *swpm_power_rail_to_string(enum power_rail p)
 
 void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 {
-	if (type != ALL_METER_TYPE && type >= NR_POWER_METER)
+	if (!swpm_init_state
+	    || (type != ALL_METER_TYPE && type >= NR_POWER_METER))
 		return;
 
 	swpm_lock(&swpm_mutex);
