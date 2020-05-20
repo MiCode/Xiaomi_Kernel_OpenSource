@@ -6,6 +6,7 @@
 / {
 	#address-cells = <0x2>;
 	#size-cells = <0x2>;
+	qcom,msm-id = <415 0x10000>;
 	interrupt-parent = <&vgic>;
 
 	qcom-mem-buf {
@@ -321,7 +322,7 @@
 	};
 };
 
-#include "trustedvm-ion.dtsi"
+#include "lahaina-vm-ion.dtsi"
 #include "display/trustedvm-lahaina-sde.dtsi"
 #include "display/trustedvm-lahaina-sde-display.dtsi"
 #include "display/dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"

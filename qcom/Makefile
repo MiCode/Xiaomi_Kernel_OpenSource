@@ -141,7 +141,9 @@ endif
 
 ifeq ($(CONFIG_ARCH_LAHAINA), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
-dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
+dtb-$(CONFIG_ARCH_QTI_VM) += lahaina-vm-mtp.dtb \
+	lahaina-vm-cdp.dtb \
+	lahaina-vm-qrd.dtb
 endif
 endif
 
