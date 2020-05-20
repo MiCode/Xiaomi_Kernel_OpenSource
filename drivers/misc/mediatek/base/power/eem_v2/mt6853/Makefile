@@ -35,6 +35,41 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_6360_alpha_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_6360_alpha_4gb_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/K6853v1_64_6360_alpha_120hz_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_6360_alpha_120hz_turbomcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_turbo_2280x1080_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_2280x1080_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
