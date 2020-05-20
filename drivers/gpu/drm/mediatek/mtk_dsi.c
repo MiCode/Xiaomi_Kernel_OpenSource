@@ -4131,16 +4131,17 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
  * DSC on:  vact x hact x vrefresh x  (vtotal / vact)
  * DSC off: vact x hact x vrefresh x (vtotal x htotal) / (vact x hact)
  ******************************************************************************/
-void mtk_dsi_set_mmclk_by_datarate_refined(struct mtk_dsi *dsi,
+void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
-	unsigned int compress_rate;
 	struct mtk_panel_ext *ext = dsi->ext;
 	unsigned int data_rate;
 	unsigned int pixclk = 0;
+	unsigned int pixclk_min = 0;
 	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
 	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
 	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	unsigned int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
 	unsigned int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
 
 	if (!en) {
@@ -4150,124 +4151,53 @@ void mtk_dsi_set_mmclk_by_datarate_refined(struct mtk_dsi *dsi,
 	}
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
-	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	data_rate = mtk_dsi_default_rate(dsi);
-
-	if (ext->params->dsc_params.enable)
-		pixclk = vrefresh * vtotal * hact;
-
-	else
-		pixclk = vrefresh * vtotal * htotal;
-
-	pixclk = (unsigned int)(pixclk / 1000000);
-	DDPINFO("%s,data_rate =%d,clk=%u comparess_rate=%d\n", __func__,
-			data_rate, pixclk, compress_rate);
-	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
-}
-
-/******************************************************************************
- * PHY Type | DSC | MM Clock (unit: Pixel)
- * CPHY     | OFF | data_rate x (16/7) x lane_num x compress_ratio / bpp
- * CPHY     | ON  | data_ratex(16/7)xlane_numxcompress_ratio/bppx(HACT/HTotal)
- * DPHY     | OFF | data_rate x lane_num x compress_ratio / bpp
- * DPHY     | ON  | data_rate x lane_num x compress_ratio / bpp x (HACT/HTotal)
- ******************************************************************************/
-void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
-	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
-{
-	unsigned int compress_rate;
-	struct mtk_panel_ext *ext = dsi->ext;
-	unsigned int data_rate;
-	unsigned int pixclk = 0;
-	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
-	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
-
-	if (!en) {
-		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
-					__func__);
+	if (!data_rate) {
+		DDPPR_ERR("DSI data_rate is NULL\n");
 		return;
 	}
-	bpp = bpp > 24 ? 24 : bpp;
-	//for FPS change,update dsi->ext
-	dsi->ext = find_panel_ext(dsi->panel);
-	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
-	data_rate = mtk_dsi_default_rate(dsi);
-	//consider enable dsc case,hact will change
-	htotal = htotal - hact + hact * 100 / compress_rate;
-	hact = hact * 100 / compress_rate;
-	// note:for 5G-7 if dsi have FIFO, there need change
-	pixclk = data_rate * dsi->lanes * compress_rate;
-	if (data_rate && ext->params->is_cphy)
-		pixclk = pixclk * 16 / 7;
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-		ext->params->dsc_params.enable)
-		pixclk = pixclk * hact / htotal;
-	pixclk = pixclk / bpp / 100;
-	DDPINFO("%s,data_rate =%d,clk=%u comparess_rate=%d\n", __func__,
-			data_rate, pixclk, compress_rate);
 
+	if (ext->params->is_cphy)
+		pixclk_min = data_rate * dsi->lanes * 2 / 7 / 3;
+	else
+		pixclk_min = data_rate * dsi->lanes / 8 / 3;
+
+	pixclk = vact * hact * vrefresh / 1000;
+
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		if (ext->params->dsc_params.enable)
+			pixclk = pixclk * vtotal / vact;
+		else
+			pixclk = pixclk * (vtotal * htotal * 100 /
+				(vact * hact)) / 100;
+	}
+	pixclk = (unsigned int)(pixclk / 1000);
+
+	pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
+	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d\n", __func__,
+			data_rate, pixclk, pixclk_min);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
 
 /******************************************************************************
- * PHY Type | DSC | HRT_BW (unit: Bytes) one frame ( Overlap * )
- * CPHY     | OFF | data_rate x (16/7) x lane_num x compress_ratio / bpp x 4
- * CPHY     | ON  | data_ratex(16/7)xlane_numxcompress_ratio/bppx4(HACT/HTotal)
- * DPHY     | OFF | data_rate x lane_num x compress_ratio / bpp x 4
- * DPHY     | ON  | data_rate x lane_num x compress_ratio / bpp x4(HACT/HTotal)
+ * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
  ******************************************************************************/
 unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_dsi *dsi)
 {
 	static unsigned long long bw_base;
-	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
-	struct mtk_panel_ext *ext = dsi->ext;
-	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
-	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
-	unsigned int data_rate = mtk_dsi_default_rate(dsi);
-
-	bpp = bpp > 24 ? 24 : bpp;
-	//consider enable dsc case,hact will change
-	htotal = htotal - hact + hact * 100 / compress_rate;
-	hact = hact * 100 / compress_rate;
-	// note:for 5G-7 if dsi have FIFO, there need change
-	bw_base = data_rate * dsi->lanes * compress_rate * 4;
-	if (data_rate && ext->params->is_cphy)
-		bw_base = bw_base * 16 / 7;
-	// Cmd mode have no H blanking, No need muliply hact/hotal
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-		ext->params->dsc_params.enable)
-		bw_base = bw_base * hact / htotal;
-	bw_base = bw_base / bpp / 100;
-
-	DDPDBG("Is_cphy:%d : dsc_en:%d\n", ext->params->is_cphy,
-		ext->params->dsc_params.enable);
-	DDPDBG("Frame Bw:%llu : data_rate:%u lane_num:%d",
-		bw_base, data_rate, dsi->lanes);
-	DDPDBG("compress_ratio:%d bpp:%u htotal:%d hact:%d\n",
-		compress_rate, bpp, htotal, hact);
-	return bw_base;
-}
-
-/******************************************************************************
- * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
- ******************************************************************************/
-unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate_refined(
-		struct mtk_drm_crtc *mtk_crtc,
-		struct mtk_dsi *dsi)
-{
-	static unsigned long long bw_base;
 	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
 	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
 	int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
 
-	bw_base = hact * vrefresh * 4 * vtotal;
-	bw_base = bw_base / 1000000;
-	DDPDBG("Frame Bw:%llu",	bw_base);
+	bw_base = vact * hact * vrefresh * 4 / 1000;
 
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		bw_base = bw_base * vtotal / vact;
+	bw_base = bw_base / 1000;
+	DDPDBG("Frame Bw:%llu",	bw_base);
 	return bw_base;
 }
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
@@ -4602,11 +4532,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
-#if defined(CONFIG_MACH_MT6885)
-	mtk_dsi_set_mmclk_by_datarate_refined(dsi, crtc, *pixclk);
-#else
+
 		mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
-#endif
 #endif
 	}
 		break;
@@ -4615,12 +4542,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned long long *base_bw =
 			(unsigned long long *)params;
-#if defined(CONFIG_MACH_MT6885)
-		*base_bw = mtk_dsi_get_frame_hrt_bw_base_by_datarate_refined
-			(crtc, dsi);
-#else
+
 		*base_bw = mtk_dsi_get_frame_hrt_bw_base_by_datarate(crtc, dsi);
-#endif
 	}
 		break;
 	case DSI_SEND_DDIC_CMD:
