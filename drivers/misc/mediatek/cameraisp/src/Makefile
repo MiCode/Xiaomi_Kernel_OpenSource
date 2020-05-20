@@ -21,8 +21,11 @@ ifeq ($(CONFIG_MACH_MT6739),y)
   obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 
-ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq ($(CONFIG_FPGA_EARLY_PORTING),y)
+else
+    ifeq ($(CONFIG_MACH_MT6885),y)
+      obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+    endif
 endif
 
 ifeq ($(CONFIG_MACH_MT6873),y)
