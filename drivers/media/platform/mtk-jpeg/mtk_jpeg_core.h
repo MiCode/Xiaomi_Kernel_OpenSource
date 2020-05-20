@@ -93,6 +93,16 @@ enum JPEG_ENCODE_QUALITY_ENUM {
 };
 
 /**
+ * mtk_jpeg_variant - mtk jpeg driver variant
+ * @is_encoder:		driver mode is jpeg encoder
+ * @clk_names:		clock names
+ * @num_clocks:		numbers of clock
+ */
+struct mtk_jpeg_variant {
+	unsigned int jpeg_mode;
+};
+
+/**
  * struct mt_jpeg - JPEG IP abstraction
  * @lock:		the mutex protecting this structure
  * @hw_lock:		spinlock protecting the hw device resource
@@ -136,6 +146,7 @@ struct mtk_jpeg_dev {
 	struct mm_qos_request jpeg_c_rdma;
 	struct mm_qos_request jpeg_qtbl;
 	struct mm_qos_request jpeg_bsdma;
+	const struct mtk_jpeg_variant *variant;
 };
 
 /**

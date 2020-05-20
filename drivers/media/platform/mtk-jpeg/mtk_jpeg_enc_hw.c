@@ -28,7 +28,7 @@ u32 mtk_jpeg_enc_get_int_status(void __iomem *base)
 	return ret;
 }
 
-u32 mtk_jpeg_enc_get_file_size(void __iomem *base) //for dst size
+u32 mtk_jpeg_enc_get_file_size(const void __iomem *base) //for dst size
 {
 	return readl(base + JPGENC_DMA_ADDR0) - readl(base + JPGENC_DST_ADDR0);
 }
