@@ -29,4 +29,4 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 						 -I$(srctree)/drivers/staging/android/ion/mtk
 
 
-obj-y += camera_fdvt.o
+obj-$(CONFIG_MTK_CAMERA_ISP_FD_SUPPORT) += camera_fdvt.o
