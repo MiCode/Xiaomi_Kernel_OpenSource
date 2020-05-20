@@ -894,6 +894,33 @@ static bool vow_service_SetModelStatus(bool enable, unsigned long arg)
 	return ret;
 }
 
+static void vow_service_SetSkipSampleCount(unsigned long arg)
+{
+	struct vow_set_skip_sample_count_t m_info;
+
+	if (copy_from_user((void *)&m_info,
+			   (const void __user *)(arg),
+			   sizeof(struct vow_set_skip_sample_count_t)))
+		VOWDRV_DEBUG("[KCS] vow get data fail\n");
+	else {
+		bool ret;
+		unsigned int vow_ipi_buf[2];
+
+		vow_ipi_buf[0] = m_info.skip_sample_count;
+		vow_ipi_buf[1] = m_info.sampling_rate;
+		if (m_info.skip_sample_count != 0)
+			VOWDRV_DEBUG("[KCS] skip %d @ rate %d Hz\n",
+				      m_info.skip_sample_count,
+				      m_info.sampling_rate);
+		ret = vow_ipi_send(IPIMSG_VOW_SET_SKIP_SAMPLE_COUNT,
+				   2,
+				   &vow_ipi_buf[0],
+				   VOW_IPI_BYPASS_ACK);
+	if (ret == false)
+		VOWDRV_DEBUG("[KCS] IPIMSG_VOW_SET_SKIP_SAMPLE_COUNT err\n");
+	}
+}
+
 static bool vow_service_SetVBufAddr(unsigned long arg)
 {
 	vow_service_GetParameter(arg);
@@ -2635,6 +2662,9 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case VOW_MODEL_STOP:
 		vow_service_SetModelStatus(VOW_MODEL_STATUS_STOP, arg);
 		break;
+	case VOW_SET_SKIP_SAMPLE_COUNT:
+		vow_service_SetSkipSampleCount(arg);
+		break;
 	default:
 		VOWDRV_DEBUG("vow WrongParameter(%lu)", arg);
 		break;
@@ -2683,6 +2713,23 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		err |= put_user(l, &data->dsp_inform_addr);
 		err |= get_user(l, &data32->dsp_inform_size_addr);
 		err |= put_user(l, &data->dsp_inform_size_addr);
+
+		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
+	}
+		break;
+	case VOW_SET_SKIP_SAMPLE_COUNT: {
+		struct vow_set_skip_sample_count_kernel_t __user *data32;
+		struct vow_set_skip_sample_count_t __user *data;
+		int err;
+		compat_size_t l;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+
+		err  = get_user(l, &data32->skip_sample_count);
+		err |= put_user(l, &data->skip_sample_count);
+		err |= get_user(l, &data32->sampling_rate);
+		err |= put_user(l, &data->sampling_rate);
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
 	}

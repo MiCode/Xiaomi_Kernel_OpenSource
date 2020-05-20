@@ -93,6 +93,7 @@
 #define VOW_RECOG_DISABLE             _IOW(VOW_IOC_MAGIC, 0x0E, unsigned int)
 #define VOW_MODEL_START               _IOW(VOW_IOC_MAGIC, 0x0F, unsigned int)
 #define VOW_MODEL_STOP                _IOW(VOW_IOC_MAGIC, 0x10, unsigned int)
+#define VOW_SET_SKIP_SAMPLE_COUNT     _IOW(VOW_IOC_MAGIC, 0x11, unsigned int)
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 
@@ -104,7 +105,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.10"
+#define KERNEL_VOW_DRV_VER "2.0.11"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -185,6 +186,7 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_MODEL_START = 18,
 	IPIMSG_VOW_MODEL_STOP = 19,
 	IPIMSG_VOW_RETURN_VALUE = 20,
+	IPIMSG_VOW_SET_SKIP_SAMPLE_COUNT = 21
 };
 
 enum vow_eint_status_t {
@@ -333,6 +335,16 @@ struct vow_model_start_kernel_t {
 	compat_size_t dsp_inform_size_addr;
 };
 
+struct vow_set_skip_sample_count_t {
+	unsigned int skip_sample_count; // Unit: sample
+	unsigned int sampling_rate;     // Unit: Hz (samples per second)
+};
+
+struct vow_set_skip_sample_count_kernel_t {
+	compat_size_t skip_sample_count;
+	compat_size_t sampling_rate;
+};
+
 #else  /* #ifdef CONFIG_COMPAT */
 
 struct vow_speaker_model_t {
@@ -361,6 +373,11 @@ struct vow_model_start_t {
 	long confidence_level;
 	long dsp_inform_addr;
 	long dsp_inform_size_addr;
+};
+
+struct vow_set_skip_sample_count_t {
+	unsigned int skip_sample_count; // Unit: sample
+	unsigned int sampling_rate;     // Unit: Hz (samples per second)
 };
 #endif  /* #ifdef CONFIG_COMPAT */
 
