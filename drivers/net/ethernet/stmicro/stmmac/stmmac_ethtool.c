@@ -402,9 +402,11 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 
 		return 0;
 	}
-
-	rc = phy_ethtool_ksettings_set(phy, cmd);
-
+	/* Half duplex is not supported */
+	if (cmd->base.duplex != DUPLEX_FULL)
+		rc = -EINVAL;
+	else
+		rc = phy_ethtool_ksettings_set(phy, cmd);
 	return rc;
 }
 
