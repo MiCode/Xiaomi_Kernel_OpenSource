@@ -1252,7 +1252,7 @@ static int buck_control(enum DVFS_USER user, int level)
 			 * then adjust vvpu again to real default voltage
 			 */
 			vpu_volt_data.target_buck = VPU_BUCK;
-			vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
+			vpu_volt_data.target_volt = VVPU_DEFAULT_VOLT;
 			ret |= set_power_voltage(user, (void *)&vpu_volt_data);
 
 		} else {
@@ -1273,7 +1273,8 @@ static int buck_control(enum DVFS_USER user, int level)
 
 			/*
 			 * Even done't disable Vvpu, but for power saving,
-			 * here try to set Vvpu as default voltage, 575mv
+			 * here try to set Vvpu as 550mv, align low power
+			 * team request.
 			 */
 			vpu_volt_data.target_buck = VPU_BUCK;
 			vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
