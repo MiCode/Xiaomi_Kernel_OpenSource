@@ -1506,16 +1506,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					mt_gpufreq_get_cur_ceiling_idx())
 					/ 1000;
 
-				/* hint gpu info to EAT*/
-				ged_log_perf_trace_counter("gpu_freq_max",
-					(long long)psKPI->gpu_freq_max,
-					psTimeStamp->pid,
-					psTimeStamp->i32FrameID, ulID);
-				ged_log_perf_trace_counter("gpu_freq",
-					(long long)psKPI->gpu_freq,
-					psTimeStamp->pid,
-					psTimeStamp->i32FrameID, ulID);
-
 				psHead->pre_TimeStamp2 =
 					psHead->last_TimeStamp2;
 				psHead->last_TimeStamp2 = psTimeStamp->ullTimeStamp;
@@ -1531,10 +1521,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					- psHead->pre_TimeStamp2))
 					* psKPI->gpu_loading / 100U;
 #endif
-				ged_log_perf_trace_counter("gpu_loading",
-					(long long)psKPI->gpu_loading,
-					psTimeStamp->pid
-					, psTimeStamp->i32FrameID, ulID);
 				psKPI->cpu_gpu_info.gpu.limit_upper =
 					ged_kpi_get_limit_user(1);
 				psKPI->cpu_gpu_info.gpu.limit_lower =
