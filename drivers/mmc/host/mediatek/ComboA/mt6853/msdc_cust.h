@@ -33,6 +33,7 @@
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
 #define MSDC0_AES_CLK_NAME          "msdc0-aes-clock"
 #endif
+#define MSDC0_SRC_HCLK_NAME	"msdc0-src-hclock"
 #define MSDC0_HCLK_NAME         "msdc0-hclock"
 #define MSDC1_CLK_NAME          "msdc1-clock"
 #define MSDC1_HCLK_NAME         "msdc1-hclock"

@@ -527,6 +527,25 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		MSDC0_HCLK_NAME, MSDC1_HCLK_NAME
 	};
 
+	/* clk enable flow
+	 * First turn on the clock source of the MSDC register
+	 * msdc src hclk -> msdc hclk cg
+	 */
+
+	host->src_hclk_ctl = devm_clk_get(&pdev->dev,
+			MSDC0_SRC_HCLK_NAME);
+	if (IS_ERR(host->src_hclk_ctl)) {
+		pr_notice("[msdc%d] cannot get clk ctl\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
+	if (clk_prepare(host->src_hclk_ctl)) {
+		pr_notice("[msdc%d] cannot prepare clk ctrl\n",
+			pdev->id);
+		return 1;
+	}
+
 	if  (clk_names[pdev->id]) {
 		host->clk_ctl = devm_clk_get(&pdev->dev,
 			clk_names[pdev->id]);
@@ -582,8 +601,9 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	}
 #endif
 
-	pr_info("[msdc%d] hclk:%d, clk_ctl:%p, hclk_ctl:%p\n",
-		pdev->id, host->hclk, host->clk_ctl, host->hclk_ctl);
+	pr_info("[msdc%d] src_hclk_ctl:%d, hclk:%d, clk_ctl:%p, hclk_ctl:%p\n",
+		pdev->id, host->src_hclk_ctl, host->hclk,
+		host->clk_ctl, host->hclk_ctl);
 
 	return 0;
 }
