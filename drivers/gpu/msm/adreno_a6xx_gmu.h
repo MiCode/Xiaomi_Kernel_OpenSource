@@ -201,6 +201,8 @@ struct a6xx_gmu_device {
 	void *itcm_shadow;
 	/** @flags: Internal gmu flags */
 	unsigned long flags;
+	/** @rscc_virt: Pointer where RSCC block is mapped */
+	void __iomem *rscc_virt;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */

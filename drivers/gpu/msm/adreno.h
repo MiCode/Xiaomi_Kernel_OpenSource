@@ -405,9 +405,6 @@ struct adreno_gpu_core {
  * @chipid: Chip ID specific to the GPU
  * @cx_misc_len: Length of the CX MISC register block
  * @cx_misc_virt: Pointer where the CX MISC block is mapped
- * @rscc_base: Base physical address of the RSCC
- * @rscc_len: Length of the RSCC register block
- * @rscc_virt: Pointer where RSCC block is mapped
  * @isense_base: Base physical address of isense block
  * @isense_len: Length of the isense register block
  * @isense_virt: Pointer where isense block is mapped
@@ -487,9 +484,6 @@ struct adreno_device {
 	void __iomem *cx_dbgc_virt;
 	unsigned int cx_misc_len;
 	void __iomem *cx_misc_virt;
-	unsigned long rscc_base;
-	unsigned int rscc_len;
-	void __iomem *rscc_virt;
 	unsigned long isense_base;
 	unsigned int isense_len;
 	void __iomem *isense_virt;
@@ -978,8 +972,6 @@ void adreno_cx_misc_regwrite(struct adreno_device *adreno_dev,
 void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 		unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
-void adreno_rscc_regread(struct adreno_device *adreno_dev,
-		unsigned int offsetwords, unsigned int *value);
 void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
 

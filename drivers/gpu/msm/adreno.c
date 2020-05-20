@@ -1110,25 +1110,6 @@ static void adreno_cx_misc_probe(struct kgsl_device *device)
 					res->start, adreno_dev->cx_misc_len);
 }
 
-static void adreno_rscc_probe(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct resource *res;
-
-	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-						"rscc");
-
-	if (res == NULL)
-		return;
-
-	adreno_dev->rscc_base = res->start - device->reg_phys;
-	adreno_dev->rscc_len = resource_size(res);
-	adreno_dev->rscc_virt = devm_ioremap(&device->pdev->dev, res->start,
-						adreno_dev->rscc_len);
-	if (adreno_dev->rscc_virt == NULL)
-		dev_warn(device->dev, "rscc ioremap failed\n");
-}
-
 static void adreno_isense_probe(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1378,8 +1359,6 @@ int adreno_device_probe(struct platform_device *pdev,
 
 	/* Probe for the optional CX_MISC block */
 	adreno_cx_misc_probe(device);
-
-	adreno_rscc_probe(device);
 
 	adreno_isense_probe(device);
 
@@ -3137,24 +3116,6 @@ void adreno_cx_misc_regread(struct adreno_device *adreno_dev,
 		return;
 
 	*value = __raw_readl(adreno_dev->cx_misc_virt + cx_misc_offset);
-
-	/*
-	 * ensure this read finishes before the next one.
-	 * i.e. act like normal readl()
-	 */
-	rmb();
-}
-void adreno_rscc_regread(struct adreno_device *adreno_dev,
-	unsigned int offsetwords, unsigned int *value)
-{
-	unsigned int rscc_offset;
-
-	rscc_offset = (offsetwords << 2);
-	if (!adreno_dev->rscc_virt ||
-		(rscc_offset >= adreno_dev->rscc_len))
-		return;
-
-	*value =  __raw_readl(adreno_dev->rscc_virt + rscc_offset);
 
 	/*
 	 * ensure this read finishes before the next one.

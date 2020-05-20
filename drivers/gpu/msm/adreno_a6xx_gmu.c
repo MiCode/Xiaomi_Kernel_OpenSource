@@ -102,6 +102,22 @@ static struct gmu_iommu_context a6xx_gmu_ctx[] = {
 	[GMU_CONTEXT_KERNEL] = { .name = "gmu_kernel" }
 };
 
+static int timed_poll_check_rscc(struct kgsl_device *device,
+		unsigned int offset, unsigned int expected_ret,
+		unsigned int timeout, unsigned int mask)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	u32 value;
+
+	if (!adreno_is_a650_family(adreno_dev))
+		return timed_poll_check(device, offset + RSCC_OFFSET_LEGACY,
+				expected_ret, timeout, mask);
+
+	return readl_poll_timeout(gmu->rscc_virt + (offset << 2), value,
+		(value & mask) == expected_ret, 100, timeout * 1000);
+}
+
 void gmu_fault_snapshot(struct kgsl_device *device)
 {
 	device->gmu_fault = true;
@@ -139,10 +155,11 @@ static void _regwrite(void __iomem *regbase,
 static void a6xx_load_rsc_ucode(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	void __iomem *rscc;
 
 	if (adreno_is_a650_family(adreno_dev))
-		rscc = adreno_dev->rscc_virt;
+		rscc = gmu->rscc_virt;
 	else
 		rscc = device->gmu_core.reg_virt + 0x23000;
 
@@ -2062,11 +2079,6 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	int level, ret;
 
-	if (adreno_is_a650_family(adreno_dev) && !adreno_dev->rscc_virt) {
-		dev_err(&gmu->pdev->dev, "RSCC registers not mapped\n");
-		return -EINVAL;
-	}
-
 	ret = a6xx_gmu_aop_send_acd_state(gmu->mailbox.channel,
 			adreno_dev->acd_enabled);
 	if (ret) {
@@ -2552,6 +2564,7 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct a6xx_hfi *hfi = &gmu->hfi;
+	struct resource *res;
 	int ret;
 
 	gmu->pdev = pdev;
@@ -2559,6 +2572,17 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 	dma_set_coherent_mask(&gmu->pdev->dev, DMA_BIT_MASK(64));
 	gmu->pdev->dev.dma_mask = &gmu->pdev->dev.coherent_dma_mask;
 	set_dma_ops(&gmu->pdev->dev, NULL);
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+						"rscc");
+	if (res) {
+		gmu->rscc_virt = devm_ioremap(&device->pdev->dev, res->start,
+						resource_size(res));
+		if (gmu->rscc_virt == NULL) {
+			dev_err(&gmu->pdev->dev, "rscc ioremap failed\n");
+			return -ENOMEM;
+		}
+	}
 
 	/* Set up GMU regulators */
 	ret = a6xx_gmu_regulators_probe(gmu, pdev);
