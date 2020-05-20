@@ -206,7 +206,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 			       (tv_end.tv_usec - tv_start.tv_usec);
 			if (usec > 20000) {
 				mtk_v4l2_err("VDEC HW break timeout");
-				smi_debug_bus_hang_detect(0, "VCODEC");
+				//smi_debug_bus_hang_detect(0, "VCODEC");
 			}
 			cg_status = readl(vdec_misc_addr + 0x0104);
 		}
