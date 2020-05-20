@@ -3877,7 +3877,6 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	struct mtk_ddp_comp *comp;
 	int i, j;
-	char tag_name[40] = {'\0'};
 	int crtc_idx = drm_crtc_index(crtc);
 
 	CRTC_MMP_EVENT_START(index, atomic_begin,
@@ -3903,9 +3902,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		state->base.event = NULL;
 	}
 
-	sprintf(tag_name, "mtk_drm_crtc_atomic:%d-%d",
+	mtk_drm_trace_begin("mtk_drm_crtc_atomic:%d-%d",
 		crtc_idx, state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
-	mtk_drm_trace_begin("%s", tag_name);
 
 	state->cmdq_handle = mtk_crtc_gce_commit_begin(crtc);
 

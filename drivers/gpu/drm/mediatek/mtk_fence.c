@@ -402,7 +402,6 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 	int ion_release_count = 0;
 	struct mtk_fence_info *layer_info = NULL;
 	struct mtk_fence_session_sync_info *session_info = NULL;
-	char tag_name[40] = {'\0'};
 
 	session_info = _get_session_sync_info(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, layer_id);
@@ -419,11 +418,10 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 	current_timeline_idx = layer_info->timeline_idx;
 	num_fence = fence - layer_info->timeline_idx;
 	if (num_fence > 0) {
-		sprintf(tag_name, "%d|layer_fence_release-%s-%d|%d",
+		mtk_drm_trace_c("%d|layer_fence_release-%s-%d|%d",
 			DRM_TRACE_FENCE_ID,
 			mtk_fence_session_mode_spy(session_id),
 			layer_id, fence);
-		mtk_drm_trace_c("%s", tag_name);
 
 		mtk_sync_timeline_inc(layer_info->timeline, num_fence);
 		layer_info->timeline_idx = fence;
@@ -435,11 +433,10 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 				MTK_SESSION_DEV(session_id), layer_id,
 				current_timeline_idx, fence);
 
-		sprintf(tag_name, "%d|layer_fence_release-%s-%d|%d",
+		mtk_drm_trace_c("%d|layer_fence_release-%s-%d|%d",
 			DRM_TRACE_FENCE_ID,
 			mtk_fence_session_mode_spy(session_id),
 			layer_id, 0);
-		mtk_drm_trace_c("%s", tag_name);
 	} else {
 		mutex_unlock(&layer_info->sync_lock);
 		return;
@@ -516,8 +513,6 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	struct mtk_fence_info *layer_info = NULL;
 	unsigned int timeline_id = 0;
 	int fence_increment = 0;
-	char tag_name[30] = {'\0'};
-	int n;
 
 	timeline_id = mtk_fence_get_present_timeline_id(session_id);
 	layer_info = _disp_sync_get_sync_info(session_id, timeline_id);
@@ -528,12 +523,8 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 
 	mutex_lock(&layer_info->sync_lock);
 
-	n = snprintf(tag_name, sizeof(*tag_name), "present_fence_rel:%s-%d",
+	mtk_drm_trace_begin("present_fence_rel:%s-%d",
 		mtk_fence_session_mode_spy(session_id), fence_idx);
-	if (n < 0 || n >= 30)
-		DDPFENCE("Warning, trace fence name too long\n");
-
-	mtk_drm_trace_begin("%s", tag_name);
 
 	fence_increment = fence_idx - layer_info->timeline->value;
 
