@@ -269,6 +269,34 @@ page_owner=on loop.max_part=7";
 				target = <&mddriver>;
 				value = <1 0 0x80000000 0x02000000>;
 			};
+			level_vpu_core0: level_vpu_core0 {
+				target = <&vpu_core0>;
+				value = <0 0 0 0>;
+			};
+			level_vpu_core1: level_vpu_core1 {
+				target = <&vpu_core1>;
+				value = <0 0 0 0>;
+			};
+			level_mali0: level_mali0 {
+				target = <&mali>;
+				value = <0 0 0 0>;
+			};
+			level_mali1: level_mali1 {
+				target = <&mali>;
+				value = <0 1 0 0>;
+			};
+			level_mali2: level_mali2 {
+				target = <&mali>;
+				value = <0 2 0 0>;
+			};
+			level_mali3: level_mali3 {
+				target = <&mali>;
+				value = <0 3 0 0>;
+			};
+			level_mali4: level_mali4 {
+				target = <&mali>;
+				value = <0 4 0 0>;
+			};
 		};
 
 		resource-ctrl-list {
@@ -2951,7 +2979,7 @@ page_owner=on loop.max_part=7";
 		#clock-cells=<1>;
 	};
 
-	mali@13000000 {
+	mali: mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x4000>;
 		interrupts =
