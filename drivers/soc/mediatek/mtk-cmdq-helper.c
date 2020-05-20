@@ -1785,6 +1785,7 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	unsigned long ret;
 	int cnt = 0;
 	u32 timeout_ms = cmdq_mbox_get_thread_timeout((void *)client->chan);
+	bool skip = false;
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	cmdq_mmp_wait(client->chan, pkt);
@@ -1793,7 +1794,19 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	/* make sure gce won't turn off during dump */
 	cmdq_mbox_enable(client->chan);
 
-	while (pkt->task_alloc) {
+	while (!pkt->task_alloc) {
+		ret = wait_for_completion_timeout(&pkt->cmplt,
+			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+		if (ret) {
+			/* task alloc failed then skip predump */
+			skip = true;
+			break;
+		}
+		cmdq_msg("wait before submit pkt:%p, task_alloc: %d",
+			pkt, pkt->task_alloc);
+	}
+
+	while (!skip) {
 		if (timeout_ms == CMDQ_NO_TIMEOUT) {
 			wait_for_completion(&pkt->cmplt);
 			break;
