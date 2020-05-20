@@ -326,12 +326,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		       readl(DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
 
-		if (priv->crtc) {
-			struct mtk_drm_private *drm_priv =
-				priv->crtc->dev->dev_private;
-			if (mtk_drm_helper_get_opt(
-				    drm_priv->helper_opt,
-				    MTK_DRM_OPT_RDMA_UNDERFLOW_AEE))
+		if (rdma->mtk_crtc) {
+			struct mtk_drm_private *drm_priv = NULL;
+
+			if (rdma->mtk_crtc->base.dev)
+				drm_priv =
+					rdma->mtk_crtc->base.dev->dev_private;
+			if (drm_priv && mtk_drm_helper_get_opt(
+				drm_priv->helper_opt,
+				MTK_DRM_OPT_RDMA_UNDERFLOW_AEE))
 				DDPAEE("%s: underflow! cnt=%d\n",
 				       mtk_dump_comp_str(rdma),
 				       priv->underflow_cnt);
