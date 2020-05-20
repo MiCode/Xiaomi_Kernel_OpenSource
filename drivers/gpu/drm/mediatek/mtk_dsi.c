@@ -4067,6 +4067,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			}
 			mtk_crtc_pkt_create(&handle, &(mtk_crtc->base), client);
 
+			cmdq_pkt_clear_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+
+			cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+
 			comp = mtk_ddp_comp_request_output(mtk_crtc);
 			if (dsi->mipi_hopping_sta) {
 				DDPINFO("%s,mipi_clk_change_sta\n", __func__);

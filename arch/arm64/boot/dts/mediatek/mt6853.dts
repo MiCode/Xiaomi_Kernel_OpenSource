@@ -3168,7 +3168,8 @@ page_owner=on loop.max_part=7";
 			"disp_wdma0_eof0",
 			"disp_token_stream_block0",
 			"disp_token_cabc_eof0",
-			"disp_wdma0_eof2";
+			"disp_wdma0_eof2",
+			"disp_dsi0_sof0";
 
 		gce-events =
 			<&gce_mbox CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
@@ -3182,7 +3183,8 @@ page_owner=on loop.max_part=7";
 			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_CABC_EOF>,
-			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>;
+			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
+			<&gce_mbox CMDQ_EVENT_DSI0_SOF>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",

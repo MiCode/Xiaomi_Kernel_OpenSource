@@ -4772,7 +4772,11 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		break;
 	case EVENT_CABC_EOF:
 		len = snprintf(buf, buf_len, "disp_token_cabc_eof%d",
-			drm_crtc_index(&mtk_crtc->base));
+					drm_crtc_index(&mtk_crtc->base));
+		break;
+	case EVENT_DSI0_SOF:
+		len = snprintf(buf, buf_len, "disp_dsi0_sof%d",
+			       drm_crtc_index(&mtk_crtc->base));
 		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);
