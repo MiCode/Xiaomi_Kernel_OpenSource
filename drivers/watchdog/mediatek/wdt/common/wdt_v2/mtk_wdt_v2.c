@@ -437,7 +437,7 @@ int  mtk_wdt_confirm_hwreboot(void)
 void mtk_wdt_restart(enum wd_restart_type type)
 {
 	void *here = __builtin_return_address(0);
-	struct device_node *np_rgu;
+	struct device_node *np_rgu = NULL;
 	int cpuid = 0;
 
 	if (!toprgu_base) {
@@ -582,7 +582,7 @@ void aee_wdt_dump_reg(void)
 void wdt_arch_reset(char mode)
 {
 	unsigned int wdt_mode_val;
-	struct device_node *np_rgu;
+	struct device_node *np_rgu = NULL;
 	enum wdt_rst_modes rst_mode = WDT_RST_MODE_DEFAULT;
 	unsigned int non_rst2 = 0;
 
@@ -908,7 +908,7 @@ int mtk_wdt_request_en_set(int mark_bit, enum wk_req_en en)
 {
 	int res = 0;
 	unsigned int tmp, ext_req_con;
-	struct device_node *np_rgu;
+	struct device_node *np_rgu = NULL;
 
 	if (!toprgu_base) {
 		for_each_matching_node(np_rgu, rgu_of_match) {
@@ -992,7 +992,7 @@ int mtk_wdt_request_mode_set(int mark_bit, enum wk_req_mode mode)
 {
 	int res = 0;
 	unsigned int tmp;
-	struct device_node *np_rgu;
+	struct device_node *np_rgu = NULL;
 
 	if (!toprgu_base) {
 		for_each_matching_node(np_rgu, rgu_of_match) {
@@ -1051,7 +1051,7 @@ int mtk_wdt_request_mode_set(int mark_bit, enum wk_req_mode mode)
  */
 void mtk_wdt_set_c2k_sysrst(unsigned int flag, unsigned int shift)
 {
-	struct device_node *np_rgu;
+	struct device_node *np_rgu = NULL;
 	unsigned int ret;
 
 	if (!toprgu_base) {
@@ -1288,7 +1288,7 @@ int mtk_wdt_dfd_timeout(int value) {return 0; }
 static int mtk_wdt_probe(struct platform_device *dev)
 {
 	int ret = 0;
-	struct device_node *node;
+	struct device_node *node = NULL;
 	u32 ints[2] = { 0, 0 };
 
 	pr_info("mtk wdt driver probe ..\n");
@@ -1532,7 +1532,7 @@ static void __exit mtk_wdt_exit(void)
  */
 static int __init mtk_wdt_get_base_addr(void)
 {
-	struct device_node *np_rgu;
+	struct device_node *np_rgu = NULL;
 
 	for_each_matching_node(np_rgu, rgu_of_match) {
 		pr_info("%s: compatible node found: %s\n",
