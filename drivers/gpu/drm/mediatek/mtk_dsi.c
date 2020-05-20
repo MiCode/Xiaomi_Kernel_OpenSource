@@ -4133,16 +4133,24 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 
 /******************************************************************************
  * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * In Video Mode , Using the Formula below:
  * MM Clock
  * DSC on:  vact x hact x vrefresh x  (vtotal / vact)
  * DSC off: vact x hact x vrefresh x (vtotal x htotal) / (vact x hact)
+
+ * In Command Mode Using the Formula below:
+ * Type     | MM Clock (unit: Pixel)
+ * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
+ * DPHY     | data_rate x lane_num x compress_ratio / bpp
  ******************************************************************************/
 void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
+	unsigned int compress_rate;
 	unsigned int data_rate;
 	unsigned int pixclk = 0;
+	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	unsigned int pixclk_min = 0;
 	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
 	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
@@ -4158,33 +4166,41 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
 	data_rate = mtk_dsi_default_rate(dsi);
+	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
+
 	if (!data_rate) {
 		DDPPR_ERR("DSI data_rate is NULL\n");
 		return;
 	}
-
-	if (ext->params->is_cphy)
-		pixclk_min = data_rate * dsi->lanes * 2 / 7 / 3;
-	else
-		pixclk_min = data_rate * dsi->lanes / 8 / 3;
-
-	pixclk = vact * hact * vrefresh / 1000;
-
+	//If DSI mode is vdo mode
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		if (ext->params->is_cphy)
+			pixclk_min = data_rate * dsi->lanes * 2 / 7 / 3;
+		else
+			pixclk_min = data_rate * dsi->lanes / 8 / 3;
+
+		pixclk = vact * hact * vrefresh / 1000;
+
 		if (ext->params->dsc_params.enable)
 			pixclk = pixclk * vtotal / vact;
 		else
 			pixclk = pixclk * (vtotal * htotal * 100 /
 				(vact * hact)) / 100;
+		pixclk = (unsigned int)(pixclk / 1000);
+		pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
 	}
-	pixclk = (unsigned int)(pixclk / 1000);
 
-	pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
+	else {
+		pixclk = data_rate * dsi->lanes * compress_rate;
+		if (data_rate && ext->params->is_cphy)
+			pixclk = pixclk * 16 / 7;
+		pixclk = pixclk / bpp / 100;
+	}
+
 	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d\n", __func__,
 			data_rate, pixclk, pixclk_min);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
-
 /******************************************************************************
  * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
  ******************************************************************************/
