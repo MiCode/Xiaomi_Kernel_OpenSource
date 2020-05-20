@@ -183,6 +183,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	case CMDQ_EVENT_DISP_COLOR0_SOF:
 	case CMDQ_EVENT_DISP_CCORR0_SOF:
 	case CMDQ_EVENT_DISP_CCORR1_SOF:
+	case CMDQ_EVENT_DISP_AAL0_SOF:
 	case CMDQ_EVENT_DISP_GAMMA0_SOF:
 	case CMDQ_EVENT_DISP_POSTMASK0_SOF:
 	case CMDQ_EVENT_DISP_DITHER0_SOF:
