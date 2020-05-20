@@ -751,9 +751,12 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 				vcu->gce_job_cnt[i][core_id].counter);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
-		if (i == VCU_VENC)
+		if (i == VCU_VENC) {
 			venc_encode_unprepare(vcu->gce_info[j].v4l2_ctx,
 				buff->cmdq_buff.core_id, &vcu->flags[i]);
+			venc_unlock(vcu->gce_info[j].v4l2_ctx,
+				buff->cmdq_buff.core_id);
+		}
 	}
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 
@@ -877,6 +880,21 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 	time_check_start();
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
+
+	if (buff.cmdq_buff.codec_type == VCU_VENC) {
+		int lock = -1;
+
+		while (lock != 0) {
+			lock = venc_lock(vcu->gce_info[j].v4l2_ctx, core_id,
+				(bool)buff.cmdq_buff.secure);
+			if (lock != 0) {
+				mutex_unlock(&vcu->vcu_gce_mutex[i]);
+				usleep_range(1000, 2000);
+				mutex_lock(&vcu->vcu_gce_mutex[i]);
+			}
+		}
+	}
+
 	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
 		if (i == VCU_VENC) {

@@ -120,7 +120,7 @@ void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 		return;
 
 	mtk_venc_pmqos_prelock(ctx, core_id);
-	mtk_venc_lock(ctx, core_id);
+
 	mtk_venc_pmqos_begin_frame(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[0] = ctx;
@@ -128,6 +128,14 @@ void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 	mtk_vcodec_enc_clock_on(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_prepare);
+
+int venc_lock(void *ctx_lock, int core_id, bool sec)
+{
+	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_lock;
+
+	return mtk_venc_lock(ctx, core_id, sec);
+}
+EXPORT_SYMBOL_GPL(venc_lock);
 
 void venc_encode_unprepare(void *ctx_unprepare,
 	int core_id, unsigned long *flags)
@@ -148,9 +156,16 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	ctx->dev->curr_enc_ctx[0] = NULL;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
 	mtk_venc_pmqos_end_frame(ctx, core_id);
-	mtk_venc_unlock(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_unprepare);
+
+void venc_unlock(void *ctx_unlock, int core_id)
+{
+	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unlock;
+
+	mtk_venc_unlock(ctx, core_id);
+}
+EXPORT_SYMBOL_GPL(venc_unlock);
 
 void venc_encode_pmqos_gce_begin(void *ctx_begin, int core_id, int job_cnt)
 {
