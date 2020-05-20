@@ -947,6 +947,12 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		goto error_bhi_offset;
 	}
 
+	if (val >= mhi_cntrl->len) {
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		MHI_ERR("Invalid bhi offset:%x\n", val);
+		goto error_bhi_offset;
+	}
+
 	mhi_cntrl->bhi = mhi_cntrl->regs + val;
 
 	/* setup bhie offset if not set */
@@ -955,6 +961,12 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		if (ret) {
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			MHI_CNTRL_ERR("Error getting bhie offset\n");
+			goto error_bhi_offset;
+		}
+
+		if (val >= mhi_cntrl->len) {
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_ERR("Invalid bhie offset:%x\n", val);
 			goto error_bhi_offset;
 		}
 
