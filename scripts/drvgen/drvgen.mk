@@ -40,21 +40,13 @@ DRVGEN_OUT := $(objtree)/arch/$(SRCARCH)/boot/dts
 endif
 export DRVGEN_OUT
 
-ALL_DRVGEN_FILE := $(MTK_PROJECT)/cust.dtsi
-
-DWS_FILE := $(srctree)/$(DRVGEN_PATH)/$(MTK_PROJECT).dws
-ifneq ($(wildcard $(DWS_FILE)),)
-DRVGEN_FILE_LIST := $(addprefix $(DRVGEN_OUT)/,$(ALL_DRVGEN_FILE))
-DRVGEN_FILE_LIST += $(PROJ_DTB_FILES)
-else
-DRVGEN_FILE_LIST :=
-endif
+DRVGEN_FILE_LIST := $(PROJ_DTB_FILES)
 DRVGEN_TOOL := $(srctree)/tools/dct/DrvGen.py
 DRVGEN_FIG := $(wildcard $(dir $(DRVGEN_TOOL))config/*.fig)
 
 .PHONY: drvgen
 drvgen: $(DRVGEN_FILE_LIST)
-$(DRVGEN_FILE_LIST): $(DRVGEN_TOOL) $(DWS_FILE) $(DRVGEN_FIG) $(PROJ_DTS_FILES)
+$(DRVGEN_FILE_LIST): $(DRVGEN_TOOL) $(DRVGEN_FIG) $(PROJ_DTS_FILES)
 	for i in $(PROJ_DTS_FILES); do \
 		base_prj=`grep -m 1 '#include [<\"].*\/cust\.dtsi[>\"]' $$i | sed 's/#include [<"]//g'\
 	       	| sed 's/\/cust\.dtsi[>"]//g' | sed 's/\/\*//g' | sed 's/\*\///g' | sed 's/ //g'`\
@@ -63,6 +55,9 @@ $(DRVGEN_FILE_LIST): $(DRVGEN_TOOL) $(DWS_FILE) $(DRVGEN_FIG) $(PROJ_DTS_FILES)
 		if [ -f $$dws_path ] ; then \
 			mkdir -p $$prj_path ;\
 			$(python) $(DRVGEN_TOOL) $$dws_path $$prj_path $$prj_path cust_dtsi;\
+		else\
+			echo "Error: Cannot find $$dws_path!!";\
+			exit 1;\
 		fi \
 	done
 
