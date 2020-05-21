@@ -583,7 +583,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-isp {
+	cam_isp_mgr: qcom,cam-isp {
 		compatible = "qcom,cam-isp";
 		arch-compat = "ife";
 		status = "ok";
@@ -959,7 +959,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-jpeg {
+	cam_jpeg_mgr: qcom,cam-jpeg {
 		compatible = "qcom,cam-jpeg";
 		compat-hw-name = "qcom,jpegenc",
 			"qcom,jpegdma";
@@ -1030,7 +1030,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-lrme {
+	cam_lrme_mgr: qcom,cam-lrme {
 		compatible = "qcom,cam-lrme";
 		arch-compat = "lrme";
 		status = "ok";
