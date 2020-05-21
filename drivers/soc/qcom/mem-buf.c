@@ -27,6 +27,8 @@
 #include <soc/qcom/secure_buffer.h>
 #include <uapi/linux/mem-buf.h>
 
+#include "mem-buf-private.h"
+
 #define CREATE_TRACE_POINTS
 #include "trace-mem-buf.h"
 
@@ -1492,6 +1494,11 @@ static int mem_buf_get_export_fd(struct mem_buf_export *export_buf)
 	return _mem_buf_get_fd(export_buf->filp);
 }
 
+static int mem_buf_get_import_fd(struct mem_buf_import *import_buf)
+{
+	return dma_buf_fd(import_buf->dmabuf, O_CLOEXEC);
+}
+
 static void _mem_buf_put(struct file *filp)
 {
 	fput(filp);
@@ -1509,6 +1516,11 @@ EXPORT_SYMBOL(mem_buf_put);
 static void mem_buf_export_put(struct mem_buf_export *export_buf)
 {
 	_mem_buf_put(export_buf->filp);
+}
+
+static void mem_buf_import_put(struct mem_buf_import *import_buf)
+{
+	dma_buf_put(import_buf->dmabuf);
 }
 
 static bool is_mem_buf_file(struct file *filp)
@@ -1619,6 +1631,7 @@ out:
 union mem_buf_ioctl_arg {
 	struct mem_buf_alloc_ioctl_arg allocation;
 	struct mem_buf_export_ioctl_arg export;
+	struct mem_buf_import_ioctl_arg import;
 };
 
 static int validate_ioctl_arg(union mem_buf_ioctl_arg *arg, unsigned int cmd)
@@ -1645,6 +1658,16 @@ static int validate_ioctl_arg(union mem_buf_ioctl_arg *arg, unsigned int cmd)
 		if (!export->nr_acl_entries || !export->acl_list ||
 		    export->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
 		    export->reserved0 || export->reserved1 || export->reserved2)
+			return -EINVAL;
+		break;
+	}
+	case MEM_BUF_IOC_IMPORT:
+	{
+		struct mem_buf_import_ioctl_arg *import = &arg->import;
+
+		if (!import->nr_acl_entries || !import->acl_list ||
+		    import->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+		    import->reserved0 || import->reserved1 || import->reserved2)
 			return -EINVAL;
 		break;
 	}
@@ -1877,6 +1900,98 @@ err_dma_buf_get:
 	return ERR_PTR(ret);
 }
 
+static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
+{
+	size_t size = 0;
+	unsigned int i;
+
+	for (i = 0; i < sgl_desc->n_sgl_entries; i++)
+		size += sgl_desc->sgl_entries[i].size;
+
+	return size;
+}
+
+static struct mem_buf_import *mem_buf_import_dma_buf(
+					hh_memparcel_handle_t memparcel_hdl,
+					unsigned int nr_acl_entries,
+					const void __user *acl_list)
+{
+	int ret;
+	struct mem_buf_import *import;
+	struct hh_acl_desc *acl_desc;
+	struct hh_sgl_desc *sgl_desc;
+	struct acl_entry *k_acl_list;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+
+	if (!nr_acl_entries || !acl_list)
+		return ERR_PTR(-EINVAL);
+
+	import = kzalloc(sizeof(*import), GFP_KERNEL);
+	if (!import)
+		return ERR_PTR(-ENOMEM);
+	import->memparcel_hdl = memparcel_hdl;
+	mutex_init(&import->lock);
+	INIT_LIST_HEAD(&import->attachments);
+
+	k_acl_list = memdup_user(acl_list, sizeof(*k_acl_list) *
+				 nr_acl_entries);
+	if (IS_ERR(k_acl_list)) {
+		ret = PTR_ERR(k_acl_list);
+		goto err_out;
+	}
+
+	acl_desc = mem_buf_acl_to_hh_acl(nr_acl_entries, k_acl_list);
+	kfree(k_acl_list);
+	if (IS_ERR(acl_desc)) {
+		ret = PTR_ERR(acl_desc);
+		goto err_out;
+	}
+
+	sgl_desc = mem_buf_map_mem_s2(memparcel_hdl, acl_desc);
+	kfree(acl_desc);
+	if (IS_ERR(sgl_desc)) {
+		ret = PTR_ERR(sgl_desc);
+		goto err_out;
+	}
+	import->sgl_desc = sgl_desc;
+	import->size = mem_buf_get_sgl_buf_size(sgl_desc);
+
+	ret = mem_buf_map_mem_s1(sgl_desc);
+	if (ret < 0)
+		goto err_map_mem_s1;
+
+	exp_info.ops = &mem_buf_dma_buf_ops;
+	exp_info.size = import->size;
+	exp_info.flags = O_RDWR;
+	exp_info.priv = import;
+
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf))
+		goto err_export_dma_buf;
+	import->dmabuf = dmabuf;
+
+	return import;
+
+err_export_dma_buf:
+	mem_buf_unmap_mem_s1(sgl_desc);
+err_map_mem_s1:
+	kfree(import->sgl_desc);
+	mem_buf_unmap_mem_s2(memparcel_hdl);
+err_out:
+	kfree(import);
+	return ERR_PTR(ret);
+}
+
+void mem_buf_unimport_dma_buf(struct mem_buf_import *import_buf)
+{
+	mem_buf_unmap_mem_s1(import_buf->sgl_desc);
+	kfree(import_buf->sgl_desc);
+	mem_buf_unmap_mem_s2(import_buf->memparcel_hdl);
+	mutex_destroy(&import_buf->lock);
+	kfree(import_buf);
+}
+
 static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 			      unsigned long arg)
 {
@@ -1937,6 +2052,29 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 
 		export->export_fd = fd;
 		export->memparcel_hdl = ret_memparcel_hdl;
+		break;
+	}
+	case MEM_BUF_IOC_IMPORT:
+	{
+		struct mem_buf_import_ioctl_arg *import = &ioctl_arg.import;
+		struct mem_buf_import *import_buf;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
+			return -ENOTSUPP;
+
+		import_buf = mem_buf_import_dma_buf(import->memparcel_hdl,
+						import->nr_acl_entries,
+					(const void __user *)import->acl_list);
+		if (IS_ERR(import_buf))
+			return PTR_ERR(import_buf);
+
+		fd = mem_buf_get_import_fd(import_buf);
+		if (fd < 0) {
+			mem_buf_import_put(import_buf);
+			return fd;
+		}
+
+		import->dma_buf_import_fd = fd;
 		break;
 	}
 	default:
