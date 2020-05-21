@@ -10,4 +10,27 @@
 	wdog {
 		status = "disabled";
 	};
+
+	usb_emu_phy_0: usb_emu_phy@0x04f20000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x04f20000 0x9500>;
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+};
+
+&usb0 {
+	dwc3@4e00000 {
+		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
 };
