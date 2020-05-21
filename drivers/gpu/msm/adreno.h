@@ -357,6 +357,10 @@ struct adreno_power_ops {
 	int (*pm_suspend)(struct adreno_device *adreno_dev);
 	/** @pm_resume: Target specific function to resume the driver */
 	void (*pm_resume)(struct adreno_device *adreno_dev);
+	/**
+	 * @touch_wakeup: Target specific function to start gpu on touch event
+	 */
+	void (*touch_wakeup)(struct adreno_device *adreno_dev);
 };
 
 /**

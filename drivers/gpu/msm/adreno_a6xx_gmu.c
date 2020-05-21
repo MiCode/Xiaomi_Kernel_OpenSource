@@ -3113,6 +3113,44 @@ static void a6xx_gmu_pm_resume(struct adreno_device *adreno_dev)
 	clear_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
 }
 
+static void a6xx_gmu_touch_wakeup(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	int ret;
+
+	/* Do not wake up a suspended device through touch event */
+	if (test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags))
+		return;
+
+	if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		goto done;
+
+	ret = a6xx_gmu_boot(adreno_dev);
+	if (ret)
+		return;
+
+	ret = a6xx_gpu_boot(adreno_dev);
+	if (ret)
+		return;
+
+	kgsl_pwrscale_wake(device);
+
+	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+	device->state = KGSL_STATE_ACTIVE;
+
+done:
+	/*
+	 * When waking up from a touch event we want to stay active long enough
+	 * for the user to send a draw command.  The default idle timer timeout
+	 * is shorter than we want so go ahead and push the idle timer out
+	 * further for this special case
+	 */
+	mod_timer(&device->idle_timer, jiffies +
+			msecs_to_jiffies(adreno_wake_timeout));
+
+}
+
 const struct adreno_power_ops a6xx_gmu_power_ops = {
 	.first_open = a6xx_gmu_first_open,
 	.last_close = a6xx_gmu_last_close,
@@ -3120,6 +3158,7 @@ const struct adreno_power_ops a6xx_gmu_power_ops = {
 	.active_count_put = a6xx_gmu_active_count_put,
 	.pm_suspend = a6xx_gmu_pm_suspend,
 	.pm_resume = a6xx_gmu_pm_resume,
+	.touch_wakeup = a6xx_gmu_touch_wakeup,
 };
 
 int a6xx_gmu_device_probe(struct platform_device *pdev,

@@ -321,22 +321,9 @@ void adreno_fault_detect_stop(struct adreno_device *adreno_dev)
 	adreno_dev->fast_hang_detect = 0;
 }
 
-/*
- * A workqueue callback responsible for actually turning on the GPU after a
- * touch event. kgsl_pwrctrl_change_state(ACTIVE) is used without any
- * active_count protection to avoid the need to maintain state.  Either
- * somebody will start using the GPU or the idle timer will fire and put the
- * GPU back into slumber.
- */
-static void adreno_input_work(struct work_struct *work)
+static void adreno_touch_wakeup(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = container_of(work,
-			struct adreno_device, input_work);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	mutex_lock(&device->mutex);
-
-	device->flags |= KGSL_FLAG_WAKE_ON_TOUCH;
 
 	/*
 	 * Don't schedule adreno_start in a high priority workqueue, we are
@@ -352,6 +339,29 @@ static void adreno_input_work(struct work_struct *work)
 	 */
 	mod_timer(&device->idle_timer,
 		jiffies + msecs_to_jiffies(adreno_wake_timeout));
+
+}
+
+/*
+ * A workqueue callback responsible for actually turning on the GPU after a
+ * touch event. kgsl_pwrctrl_change_state(ACTIVE) is used without any
+ * active_count protection to avoid the need to maintain state.  Either
+ * somebody will start using the GPU or the idle timer will fire and put the
+ * GPU back into slumber.
+ */
+static void adreno_input_work(struct work_struct *work)
+{
+	struct adreno_device *adreno_dev = container_of(work,
+			struct adreno_device, input_work);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	mutex_lock(&device->mutex);
+
+	device->flags |= KGSL_FLAG_WAKE_ON_TOUCH;
+
+	ops->touch_wakeup(adreno_dev);
+
 	mutex_unlock(&device->mutex);
 }
 
@@ -376,6 +386,11 @@ static void adreno_input_event(struct input_handle *handle, unsigned int type,
 
 	if (device->flags & KGSL_FLAG_WAKE_ON_TOUCH)
 		return;
+
+	if (gmu_core_isenabled(device)) {
+		schedule_work(&adreno_dev->input_work);
+		return;
+	}
 
 	/*
 	 * If the device is in nap, kick the idle timer to make sure that we
@@ -3841,6 +3856,7 @@ const struct adreno_power_ops adreno_power_operations = {
 	.active_count_put = adreno_pwrctrl_active_count_put,
 	.pm_suspend = adreno_suspend,
 	.pm_resume = adreno_resume,
+	.touch_wakeup = adreno_touch_wakeup,
 };
 
 static const struct of_device_id adreno_gmu_match[] = {
