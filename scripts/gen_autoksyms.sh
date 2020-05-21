@@ -27,7 +27,7 @@ if [ -n "$CONFIG_UNUSED_KSYMS_WHITELIST" ]; then
 		eval ksym_wl="$UNUSED_KSYMS_WHITELIST_FILE"
 		[ "${ksym_wl}" != "${ksym_wl#/}" ] ||
 		ksym_wl="$abs_srctree/$ksym_wl"
-		if [ ! -f "$ksym_wl" ]; then
+		if [ ! -f "$ksym_wl" ] || [ ! -r "$ksym_wl" ]; then
 			echo "ERROR: '$ksym_wl' whitelist file not found" >&2
 			exit 1
 		fi

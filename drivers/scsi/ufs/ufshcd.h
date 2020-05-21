@@ -55,6 +55,8 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/devfreq.h>
+#include <linux/bitfield.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -129,6 +131,20 @@ enum uic_link_state {
 				    UIC_LINK_ACTIVE_STATE)
 #define ufshcd_set_link_hibern8(hba) ((hba)->uic_link_state = \
 				    UIC_LINK_HIBERN8_STATE)
+
+#define ufshcd_set_ufs_dev_active(h) \
+	((h)->curr_dev_pwr_mode = UFS_ACTIVE_PWR_MODE)
+#define ufshcd_set_ufs_dev_sleep(h) \
+	((h)->curr_dev_pwr_mode = UFS_SLEEP_PWR_MODE)
+#define ufshcd_set_ufs_dev_poweroff(h) \
+	((h)->curr_dev_pwr_mode = UFS_POWERDOWN_PWR_MODE)
+#define ufshcd_is_ufs_dev_active(h) \
+	((h)->curr_dev_pwr_mode == UFS_ACTIVE_PWR_MODE)
+#define ufshcd_is_ufs_dev_sleep(h) \
+	((h)->curr_dev_pwr_mode == UFS_SLEEP_PWR_MODE)
+#define ufshcd_is_ufs_dev_poweroff(h) \
+	((h)->curr_dev_pwr_mode == UFS_POWERDOWN_PWR_MODE)
+
 enum {
 	/* errors which require the host controller reset for recovery */
 	UFS_ERR_HIBERN8_EXIT,
@@ -361,6 +377,9 @@ struct ufs_hba_variant_ops {
 	void	(*device_reset)(struct ufs_hba *hba);
 	int	(*program_key)(struct ufs_hba *hba,
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
+	void	(*config_scaling_param)(struct ufs_hba *hba,
+					struct devfreq_dev_profile *profile,
+					void *data);
 };
 
 struct keyslot_mgmt_ll_ops;
@@ -379,6 +398,7 @@ struct ufs_hba_crypto_variant_ops {
 	int (*prepare_lrbp_crypto)(struct ufs_hba *hba,
 				   struct scsi_cmnd *cmd,
 				   struct ufshcd_lrb *lrbp);
+	int (*map_sg_crypto)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 	int (*complete_lrbp_crypto)(struct ufs_hba *hba,
 				    struct scsi_cmnd *cmd,
 				    struct ufshcd_lrb *lrbp);
@@ -1054,6 +1074,11 @@ static inline bool ufshcd_is_embedded_dev(struct ufs_hba *hba)
 		return true;
 	return false;
 }
+#else
+static inline bool ufshcd_is_auto_hibern8_enabled(struct ufs_hba *hba)
+{
+	return FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK, hba->ahit) ? true : false;
+}
 #endif
 
 #define ufshcd_writel(hba, val, reg)	\
@@ -1188,6 +1213,11 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_rx == FASTAUTO_MODE) &&
 		(pwr_info->pwr_tx == FAST_MODE ||
 		pwr_info->pwr_tx == FASTAUTO_MODE);
+}
+
+static inline int ufshcd_disable_host_tx_lcc(struct ufs_hba *hba)
+{
+	return ufshcd_dme_set(hba, UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE), 0);
 }
 
 /* Expose Query-Request API */
@@ -1380,8 +1410,17 @@ static inline void ufshcd_vops_device_reset(struct ufs_hba *hba)
 {
 	if (hba->vops && hba->vops->device_reset) {
 		hba->vops->device_reset(hba);
+		ufshcd_set_ufs_dev_active(hba);
 		ufshcd_update_reg_hist(&hba->ufs_stats.dev_reset, 0);
 	}
+}
+
+static inline void ufshcd_vops_config_scaling_param(struct ufs_hba *hba,
+						    struct devfreq_dev_profile
+						    *profile, void *data)
+{
+	if (hba->vops && hba->vops->config_scaling_param)
+		hba->vops->config_scaling_param(hba, profile, data);
 }
 
 extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];
