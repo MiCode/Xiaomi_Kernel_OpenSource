@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,7 +81,8 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			cci_master_info = &cci_dev->cci_master_info[MASTER_0];
 			cci_dev->cci_master_info[MASTER_0].reset_pending =
 				FALSE;
-			if (!cci_master_info->status)
+			if (!cci_master_info->status ||
+					cci_master_info->status == -EINVAL)
 				complete(&cci_master_info->reset_complete);
 			cci_master_info->status = 0;
 		}
@@ -89,7 +90,8 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			cci_master_info = &cci_dev->cci_master_info[MASTER_1];
 			cci_dev->cci_master_info[MASTER_1].reset_pending =
 				FALSE;
-			if (!cci_master_info->status)
+			if (!cci_master_info->status ||
+					cci_master_info->status == -EINVAL)
 				complete(&cci_master_info->reset_complete);
 			cci_master_info->status = 0;
 		}

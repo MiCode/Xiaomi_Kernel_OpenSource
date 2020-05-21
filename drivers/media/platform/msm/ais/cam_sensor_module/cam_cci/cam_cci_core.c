@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1511,7 +1511,17 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 		cam_cci_flush_queue(cci_dev, master);
 		goto rel_mutex_q;
 	} else {
-		rc = 0;
+		//If rd_done is complete with NACK wait until RESET_ACK
+		//is received.
+		if (cci_dev->cci_master_info[master].status == -EINVAL) {
+			rc = wait_for_completion_timeout(
+			&cci_dev->cci_master_info[master].reset_complete,
+			CCI_TIMEOUT);
+		}
+		if (rc <= 0) {
+			CAM_ERR(CAM_CCI,
+				"wait_for_completion_timeout rc = %d, rc");
+		}
 	}
 
 	read_words = cam_io_r_mb(base +
@@ -1857,6 +1867,7 @@ static int32_t cam_cci_read_bytes(struct v4l2_subdev *sd,
 	 * we load the burst read cmd.
 	 */
 	reinit_completion(&cci_dev->cci_master_info[master].th_complete);
+	reinit_completion(&cci_dev->cci_master_info[master].reset_complete);
 
 	CAM_DBG(CAM_CCI, "Bytes to read %u", read_bytes);
 	do {
