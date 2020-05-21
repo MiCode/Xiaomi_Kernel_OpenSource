@@ -2670,6 +2670,10 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
 
+	if (pci_priv->disable_pc && !pci_dev->state_saved &&
+	    !pci_priv->plat_priv->use_pm_domain)
+		pci_save_state(pci_dev);
+
 out:
 	return ret;
 }
@@ -4617,6 +4621,22 @@ static void cnss_pci_config_regs(struct cnss_pci_data *pci_priv)
 	}
 }
 
+/* Setting to use this cnss_pm_domain ops will let PM framework override the
+ * ops from dev->bus->pm which is pci_dev_pm_ops from pci-driver.c. This ops
+ * has to take care everything device driver needed which is currently done
+ * from pci_dev_pm_ops.
+ */
+static struct dev_pm_domain cnss_pm_domain = {
+	.ops = {
+		SET_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend, cnss_pci_resume)
+		SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(cnss_pci_suspend_noirq,
+					      cnss_pci_resume_noirq)
+		SET_RUNTIME_PM_OPS(cnss_pci_runtime_suspend,
+				   cnss_pci_runtime_resume,
+				   cnss_pci_runtime_idle)
+	}
+};
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
@@ -4646,6 +4666,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	plat_priv->device_id = pci_dev->device;
 	plat_priv->bus_priv = pci_priv;
 	mutex_init(&pci_priv->bus_lock);
+	if (plat_priv->use_pm_domain)
+		dev->pm_domain = &cnss_pm_domain;
 
 	ret = of_reserved_mem_device_init(dev);
 	if (ret)
