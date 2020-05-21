@@ -380,22 +380,9 @@ struct ethqos_emac_por {
 	unsigned int value;
 };
 
-static const struct ethqos_emac_por emac_v2_3_0_por[] = {
-	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x00C01343 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x2004642C },
-	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x00000000 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x00200000 },
-	{ .offset = SDCC_USR_CTL,		.value = 0x00010800 },
-	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x00002060 },
-};
-
-static const struct ethqos_emac_por emac_v2_3_2_por[] = {
-	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x00C01343 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x2004642C },
-	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x80040800 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x00200000 },
-	{ .offset = SDCC_USR_CTL,		.value = 0x00010800 },
-	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x00002060 },
+struct ethqos_emac_driver_data {
+	struct ethqos_emac_por *por;
+	unsigned int num_por;
 };
 
 struct qcom_ethqos {
@@ -415,7 +402,7 @@ struct qcom_ethqos {
 	/* Work struct for handling phy interrupt */
 	struct work_struct emac_phy_work;
 
-	const struct ethqos_emac_por *por;
+	struct ethqos_emac_por *por;
 	unsigned int num_por;
 	unsigned int emac_ver;
 
