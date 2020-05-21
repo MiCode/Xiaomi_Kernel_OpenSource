@@ -6,3 +6,18 @@
 	qcom,msm-id = <415 0x20000>;
 };
 
+&CPU4 {
+	dynamic-power-coefficient = <499>;
+};
+
+&CPU5 {
+	dynamic-power-coefficient = <499>;
+};
+
+&CPU6 {
+	dynamic-power-coefficient = <499>;
+};
+
+&CPU7 {
+	dynamic-power-coefficient = <760>;
+};
