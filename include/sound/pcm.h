@@ -1432,6 +1432,8 @@ static inline u64 pcm_format_to_bits(snd_pcm_format_t pcm_format)
 }
 
 #ifdef CONFIG_AUDIO_QGKI
+#define SND_PCM_ADD_VOLUME_CTL 1
+#define SND_PCM_ADD_USR_CTL 1
 /*
  * PCM Volume control API
  */
