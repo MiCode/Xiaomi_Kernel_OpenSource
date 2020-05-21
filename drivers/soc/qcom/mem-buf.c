@@ -1560,6 +1560,8 @@ static int mem_buf_probe(struct platform_device *pdev)
 	int ret;
 	struct device *dev = &pdev->dev;
 	struct device *class_dev;
+	u64 dma_mask = IS_ENABLED(CONFIG_ARM64) ? DMA_BIT_MASK(64) :
+		DMA_BIT_MASK(32);
 
 	if (of_property_match_string(dev->of_node, "qcom,mem-buf-capabilities",
 				     "supplier") >= 0) {
@@ -1575,6 +1577,12 @@ static int mem_buf_probe(struct platform_device *pdev)
 	} else {
 		dev_err(dev, "Transfer direction property not present or not valid\n");
 		return -EINVAL;
+	}
+
+	ret = dma_set_mask_and_coherent(dev, dma_mask);
+	if (ret) {
+		dev_err(dev, "Unable to set dma mask: %d\n", ret);
+		return ret;
 	}
 
 	mem_buf_msgq_recv_thr = kthread_create(mem_buf_msgq_recv_fn, NULL,
