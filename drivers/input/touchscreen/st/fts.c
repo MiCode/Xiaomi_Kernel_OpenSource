@@ -2458,10 +2458,10 @@ END:
 	memset(all_strbuff, 0, size);
 
 	snprintf(buff, sizeof(buff), "%02X", 0xAA);
-	strlcat(all_strbuff, buff, 2);
+	strlcat(all_strbuff, buff, size);
 
 	snprintf(buff, sizeof(buff), "%08X", res);
-	strlcat(all_strbuff, buff, 8);
+	strlcat(all_strbuff, buff, size);
 
 	if (res >= OK) {
 		/*all the other cases are already fine printing only the res.*/
@@ -2469,16 +2469,16 @@ END:
 		case 0x13:
 			snprintf(buff, sizeof(buff), "%02X",
 				(u8) frameMS.header.force_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X",
 				(u8) frameMS.header.sense_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			for (j = 0; j < frameMS.node_data_size; j++) {
 				snprintf(buff, sizeof(buff), "%04X",
 					frameMS.node_data[j]);
-				strlcat(all_strbuff, buff, 4);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			kfree(frameMS.node_data);
@@ -2487,24 +2487,24 @@ END:
 		case 0x15:
 			snprintf(buff, sizeof(buff), "%02X",
 				(u8) frameSS.header.force_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X",
 				(u8) frameSS.header.sense_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			/* Copying self raw data Force */
 			for (j = 0; j < frameSS.header.force_node; j++) {
 				snprintf(buff, sizeof(buff), "%04X",
 					frameSS.force_data[j]);
-				strlcat(all_strbuff, buff, 4);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			/* Copying self raw data Sense */
 			for (j = 0; j < frameSS.header.sense_node; j++) {
 				snprintf(buff, sizeof(buff), "%04X",
 					frameSS.sense_data[j]);
-				strlcat(all_strbuff, buff, 4);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			kfree(frameSS.force_data);
@@ -2514,21 +2514,21 @@ END:
 		case 0x14:
 			snprintf(buff, sizeof(buff), "%02X",
 					(u8) compData.header.force_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X",
 					(u8) compData.header.sense_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			/* Cpying CX1 value */
 			snprintf(buff, sizeof(buff), "%02X", compData.cx1);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			/* Copying CX2 values */
 			for (j = 0; j < compData.node_data_size; j++) {
 				snprintf(buff, sizeof(buff), "%02X",
 						*(compData.node_data + j));
-				strlcat(all_strbuff, buff, 2);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			kfree(compData.node_data);
@@ -2537,23 +2537,23 @@ END:
 		case 0x16:
 			snprintf(buff, sizeof(buff), "%02X",
 				comData.header.force_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X",
 				comData.header.sense_node);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X", comData.f_ix1);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X", comData.s_ix1);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X", comData.f_cx1);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			snprintf(buff, sizeof(buff), "%02X", comData.s_cx1);
-			strlcat(all_strbuff, buff, 2);
+			strlcat(all_strbuff, buff, size);
 
 			/* Copying IX2 Force */
 			for (j = 0; j < comData.header.force_node; j++) {
@@ -2566,21 +2566,21 @@ END:
 			for (j = 0; j < comData.header.sense_node; j++) {
 				snprintf(buff, sizeof(buff), "%02X",
 					comData.ix2_sn[j]);
-				strlcat(all_strbuff, buff, 2);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			/* Copying CX2 Force */
 			for (j = 0; j < comData.header.force_node; j++) {
 				snprintf(buff, sizeof(buff), "%02X",
 					comData.cx2_fm[j]);
-				strlcat(all_strbuff, buff, 2);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			/* Copying CX2 Sense */
 			for (j = 0; j < comData.header.sense_node; j++) {
 				snprintf(buff, sizeof(buff), "%02X",
 					comData.cx2_sn[j]);
-				strlcat(all_strbuff, buff, 2);
+				strlcat(all_strbuff, buff, size);
 			}
 
 			kfree(comData.ix2_fm);
@@ -2595,7 +2595,7 @@ END:
 	}
 
 	snprintf(buff, sizeof(buff), "%02X", 0xBB);
-	strlcat(all_strbuff, buff, 2);
+	strlcat(all_strbuff, buff, size);
 
 	count = snprintf(buf, TSP_BUF_SIZE, "%s\n", all_strbuff);
 	/**
