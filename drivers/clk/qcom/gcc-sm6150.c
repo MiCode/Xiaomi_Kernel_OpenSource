@@ -3652,7 +3652,6 @@ static int gcc_sa6150_resume(struct device *dev)
 
 static const struct dev_pm_ops gcc_sa6150_pm_ops = {
 	.restore_early = gcc_sa6150_resume,
-	.thaw_early = gcc_sa6150_resume,
 };
 
 static void gcc_sm6150_fixup_sa6155(struct platform_device *pdev)

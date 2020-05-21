@@ -66,6 +66,10 @@ obj-$(CONFIG_MSM_ADSPRPC)	+= adsprpc.o
 ifdef CONFIG_COMPAT
   obj-$(CONFIG_MSM_ADSPRPC)	+= adsprpc_compat.o
 endif
+obj-$(CONFIG_VIRTIO_FASTRPC)	+= virtio_fastrpc.o
+ifdef CONFIG_COMPAT
+  obj-$(CONFIG_VIRTIO_FASTRPC)	+= adsprpc_compat.o
+endif
 obj-$(CONFIG_MSM_FASTCVPD)	+= fastcvpd.o
 obj-$(CONFIG_MSM_RDBG)		+= rdbg.o
 obj-$(CONFIG_OKL4_PIPE)		+= okl4_pipe.o

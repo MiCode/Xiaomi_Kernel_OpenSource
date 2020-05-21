@@ -1,0 +1,14 @@
+Qualcomm Technologies, Inc. Veth IPA device
+
+This specifies the bindings for QTI VETH_IPA that provides backhaul
+connectivity.
+
+Required properties:
+- compatible: Must be "qcom,veth-ipa"
+
+
+Example:
+	qcom,veth-ipa {
+		compatible = "qcom,veth-ipa";
+	};
+

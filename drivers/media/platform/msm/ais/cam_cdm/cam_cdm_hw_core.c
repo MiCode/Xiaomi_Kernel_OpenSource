@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -794,15 +794,6 @@ int cam_hw_cdm_init(void *hw_priv,
 	soc_info = &cdm_hw->soc_info;
 	cdm_core = (struct cam_cdm *)cdm_hw->core_info;
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		CAM_SVS_VOTE, true);
-	if (rc) {
-		CAM_ERR(CAM_CDM, "Enable platform failed");
-		goto end;
-	}
-
-	CAM_DBG(CAM_CDM, "Enable soc done");
-
 /* Before triggering the reset to HW, clear the reset complete */
 	atomic_set(&cdm_core->error, 0);
 	atomic_set(&cdm_core->bl_done, 0);
@@ -982,6 +973,15 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 		cpas_parms.client_handle);
 	cdm_core->cpas_handle = cpas_parms.client_handle;
 
+	rc = cam_soc_util_enable_platform_resource(&cdm_hw->soc_info, true,
+			CAM_SVS_VOTE, true);
+	if (rc) {
+		CAM_ERR(CAM_CDM, "Enable platform failed");
+		goto cpas_unregister;
+	}
+
+	CAM_DBG(CAM_CDM, "Enable soc done");
+
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
@@ -990,7 +990,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	rc = cam_cpas_start(cdm_core->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_CDM, "CPAS start failed");
-		goto cpas_unregister;
+		goto disable_platform_resource;
 	}
 
 	rc = cam_hw_cdm_init(cdm_hw, NULL, 0);
@@ -1038,7 +1038,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	if (rc) {
 		CAM_ERR(CAM_CDM, "CPAS stop failed");
 		cdm_hw->open_count--;
-		goto cpas_unregister;
+		goto disable_platform_resource;
 	}
 
 	rc = cam_cdm_intf_register_hw_cdm(cdm_hw_intf,
@@ -1046,7 +1046,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	if (rc) {
 		CAM_ERR(CAM_CDM, "HW CDM Interface registration failed");
 		cdm_hw->open_count--;
-		goto cpas_unregister;
+		goto disable_platform_resource;
 	}
 	cdm_hw->open_count--;
 	mutex_unlock(&cdm_hw->hw_mutex);
@@ -1063,6 +1063,10 @@ deinit:
 cpas_stop:
 	if (cam_cpas_stop(cdm_core->cpas_handle))
 		CAM_ERR(CAM_CDM, "CPAS stop failed");
+disable_platform_resource:
+	if (cam_soc_util_disable_platform_resource(&cdm_hw->soc_info,
+			true, true))
+		CAM_ERR(CAM_CDM, "Disable platform resource failed");
 cpas_unregister:
 	if (cam_cpas_unregister_client(cdm_core->cpas_handle))
 		CAM_ERR(CAM_CDM, "CPAS unregister failed");

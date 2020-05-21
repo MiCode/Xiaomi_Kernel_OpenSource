@@ -24,20 +24,20 @@
 	qcom,msm-name = "SA8195P";
 	qcom,msm-id = <405 0x20000>;
 
-	reserved_memory: reserved-memory {
-
-		pmem_shared: pmem_shared_region@a0000000 {
-			reg = <0x0 0xa0000000 0x0 0x20000000>;
-			label = "pmem_shared_mem";
-		};
-	};
-
 	aliases {
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
 	};
 };
 
 &soc {
+	pdc: interrupt-controller@0xb220000{
+		compatible = "qcom,pdc-virt";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		qcom,pdc-pins = <7 519>, <8 520>, <9 521>, <10 522>, <11 523>;
+	};
+
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;
@@ -68,6 +68,18 @@
 
 		pcie_0_gdsc: pcie_0_gdsc {
 			regulator-name = "pcie_0_gdsc";
+		};
+
+		pcie_1_gdsc: pcie_1_gdsc {
+			regulator-name = "pcie_1_gdsc";
+		};
+
+		pcie_2_gdsc: pcie_2_gdsc {
+			regulator-name = "pcie_2_gdsc";
+		};
+
+		pcie_3_gdsc: pcie_3_gdsc {
+			regulator-name = "pcie_3_gdsc";
 		};
 
 		L2A: pm8195_1_l2: regulator-pm8195-1-l2 {

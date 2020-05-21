@@ -1,10 +1,12 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #ifndef _ATL_HW_H_
@@ -80,6 +82,8 @@ struct atl_nic;
 #define ATL2_RPF_TAG_BASE_UNTAG (1 << ATL2_RPF_TAG_UNTAG_OFFSET)
 #define ATL2_RPF_TAG_BASE_VLAN  (1 << ATL2_RPF_TAG_VLAN_OFFSET)
 
+#define ATL2_FW_HOSTLOAD_REQ_LEN_MAX 0x1000
+
 #define busy_wait(tries, wait, lvalue, fetch, cond)	\
 ({							\
 	uint32_t _dummy = 0;				\
@@ -131,6 +135,7 @@ struct atl_hw {
 	enum atl_chip chip_id;
 	bool new_rpf;
 	struct atl_link_state link_state;
+	uint32_t lpi_timer;
 	unsigned wol_mode;
 	struct atl_mcp mcp;
 	uint32_t non_ring_intr_mask;
@@ -140,8 +145,6 @@ struct atl_hw {
 #define ATL_RSS_TBL_SIZE (1 << 6)
 	uint8_t rss_tbl[ATL_RSS_TBL_SIZE];
 	struct atl_thermal thermal;
-#define ATL_FW_CFG_DUMP_SIZE 2
-	uint32_t fw_cfg_dump[ATL_FW_CFG_DUMP_SIZE];
 #if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	struct atl_macsec_cfg macsec_cfg;
 #endif

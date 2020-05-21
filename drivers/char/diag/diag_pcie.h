@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 #include "diag_mux.h"
 #include <linux/msm_mhi_dev.h>
 
-#define NUM_DIAG_PCIE_DEV	2
+#define NUM_DIAG_PCIE_DEV	1
 #define DIAG_PCIE_LOCAL	0
 #define DIAG_PCIE_NAME_SZ	24
 #define DIAG_PCIE_STRING_SZ	30

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -921,6 +921,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+		rc = cam_csiphy_enable_hw(csiphy_dev);
+		if (rc != 0) {
+			CAM_ERR(CAM_CSIPHY, "cam_csiphy_enable_hw failed");
+			goto release_mutex;
+		}
+
 		ahb_vote.type = CAM_VOTE_ABSOLUTE;
 		ahb_vote.vote.level = CAM_SVS_VOTE;
 		axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
@@ -931,6 +937,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			&ahb_vote, &axi_vote);
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d", rc);
+			cam_csiphy_disable_hw(csiphy_dev);
 			goto release_mutex;
 		}
 
@@ -945,18 +952,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				if (rc < 0)
 					CAM_ERR(CAM_CSIPHY,
 						"de-voting CPAS: %d", rc);
+				cam_csiphy_disable_hw(csiphy_dev);
 				goto release_mutex;
 			}
 		}
 
-		rc = cam_csiphy_enable_hw(csiphy_dev);
-		if (rc != 0) {
-			CAM_ERR(CAM_CSIPHY, "cam_csiphy_enable_hw failed");
-			rc = cam_cpas_stop(csiphy_dev->cpas_handle);
-			if (rc < 0)
-				CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
-			goto release_mutex;
-		}
 		rc = cam_csiphy_config_dev(csiphy_dev);
 		if (csiphy_dump == 1)
 			cam_csiphy_mem_dmp(&csiphy_dev->soc_info);

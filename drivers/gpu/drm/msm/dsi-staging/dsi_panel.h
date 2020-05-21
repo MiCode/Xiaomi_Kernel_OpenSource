@@ -91,6 +91,8 @@ struct dsi_dyn_clk_caps {
 	u32 *bit_clk_list;
 	u32 bit_clk_list_len;
 	bool skip_phy_timing_update;
+	enum dsi_dyn_clk_feature_type type;
+	bool maintain_const_fps;
 };
 
 struct dsi_pinctrl_info {
@@ -188,6 +190,7 @@ struct dsi_panel {
 
 	struct dsi_display_mode *cur_mode;
 	u32 num_timing_nodes;
+	u32 num_display_modes;
 
 	struct dsi_regulator_info power_info;
 	struct dsi_backlight_config bl_config;

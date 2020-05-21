@@ -1487,6 +1487,7 @@
 			<&tlmm 90 2>, <&pdc 0 290 1>, <&pdc 0 291 1>;
 		interrupt-names = "macirq", "eth_lpi",
 			"phy-intr",	"ptp_pps_irq_0", "ptp_pps_irq_1";
+		snps,crc_strip;
 		qcom,msm-bus,name = "emac";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
@@ -1567,7 +1568,7 @@
 			"eth_rgmii_clk", "eth_slave_ahb_clk";
 		qcom,phy-intr-redirect = <&tlmm 90 GPIO_ACTIVE_LOW>;
 		qcom,phy-reset = <&tlmm 91 GPIO_ACTIVE_LOW>;
-		qcom,phy-reset-delay-msecs = <10 50>;
+		qcom,phy-reset-delay-msecs = <11 70>;
 		qcom,emac-pps0-test-intr = <&tlmm 31 GPIO_ACTIVE_LOW>;
 		vreg_rgmii-supply = <&pmxprairie_vref_rgmii>;
 		vreg_emac_phy-supply =  <&vreg_emac_phy>;

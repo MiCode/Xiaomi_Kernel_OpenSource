@@ -84,6 +84,14 @@ config USB_BAM
 	  USB BAM driver was added to supports SPS Peripheral-to-Peripheral
 	  transfers between the USB and other peripheral.
 
+config VETH_IPA
+        tristate "VETH_IPA Network Interface Driver Support"
+        help
+          Enables EMAC Ethernet Front end driver.
+          Register net device and configure VETH0 iface. This driver will
+          configure EMAC IPA offload channels with help of a backend driver
+          running on GVM Host.
+
 config GSI
 	bool "GSI support"
 	help

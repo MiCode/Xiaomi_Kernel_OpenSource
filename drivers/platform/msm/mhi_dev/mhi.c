@@ -323,6 +323,11 @@ static int mhi_trigger_msi_edma(struct mhi_dev_ring *ring, u32 idx)
 				msi_buf->dma_addr,
 				sizeof(u32),
 				DMA_PREP_INTERRUPT);
+	if (!descriptor) {
+		pr_err("%s(): desc is null, MSI to Host failed\n", __func__);
+		spin_unlock_irqrestore(&mhi_ctx->msi_lock, flags);
+		return -EFAULT;
+	}
 
 	descriptor->callback_param = msi_buf;
 	descriptor->callback = msi_trigger_completion_cb;

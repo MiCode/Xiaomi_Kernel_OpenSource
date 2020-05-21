@@ -31,4 +31,5 @@ int msm_vidc_load_u32_table(struct platform_device *pdev,
 		struct device_node *of_node, char *table_name, int struct_size,
 		u32 **table, u32 *num_elements);
 
+int msm_vidc_enable_cma(struct msm_vidc_platform_resources *res, bool enable);
 #endif

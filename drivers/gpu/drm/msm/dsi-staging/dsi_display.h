@@ -374,7 +374,7 @@ int dsi_display_get_mode_count(struct dsi_display *display, u32 *count);
  * dsi_display_get_modes() - get modes supported by display
  * @display:            Handle to display.
  * @modes;              Output param, list of DSI modes. Number of modes matches
- *                      count returned by dsi_display_get_mode_count
+ *                      count got from display->panel->num_display_modes;
  *
  * Return: error code.
  */

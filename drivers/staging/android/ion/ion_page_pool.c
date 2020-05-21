@@ -26,6 +26,13 @@
 
 #include "ion.h"
 
+/*
+ * We avoid atomic_long_t to minimize cache flushes at the cost of possible
+ * race which would result in a small accounting inaccuracy that we can
+ * tolerate.
+ */
+static long nr_total_pages;
+
 static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
 	struct page *page = alloc_pages(pool->gfp_mask, pool->order);
@@ -50,8 +57,9 @@ static int ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
 		pool->low_count++;
 	}
 
-	mod_node_page_state(page_pgdat(page), NR_INDIRECTLY_RECLAIMABLE_BYTES,
-			    (1 << (PAGE_SHIFT + pool->order)));
+	nr_total_pages += 1 << pool->order;
+	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
+							1 << pool->order);
 	mutex_unlock(&pool->mutex);
 	return 0;
 }
@@ -71,8 +79,9 @@ static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
 	}
 
 	list_del(&page->lru);
-	mod_node_page_state(page_pgdat(page), NR_INDIRECTLY_RECLAIMABLE_BYTES,
-			    -(1 << (PAGE_SHIFT + pool->order)));
+	nr_total_pages -= 1 << pool->order;
+	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
+							-(1 << pool->order));
 	return page;
 }
 
@@ -148,6 +157,16 @@ int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 
 	return count << pool->order;
 }
+
+#ifdef CONFIG_ION_SYSTEM_HEAP
+long ion_page_pool_nr_pages(void)
+{
+	/* Correct possible overflow caused by racing writes */
+	if (nr_total_pages < 0)
+		nr_total_pages = 0;
+	return nr_total_pages;
+}
+#endif
 
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 			 int nr_to_scan)

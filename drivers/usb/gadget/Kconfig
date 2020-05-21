@@ -190,6 +190,9 @@ config USB_RNDIS
 config USB_F_RNDIS
 	tristate
 
+config USB_F_QCRNDIS
+	tristate
+
 config USB_F_MASS_STORAGE
 	tristate
 
@@ -254,7 +257,7 @@ config USB_F_MDM_DATA
 	tristate
 
 config USB_F_RMNET_BAM
-        tristate
+	tristate
 
 config USB_F_MBIM_BAM
         tristate
@@ -335,6 +338,15 @@ config USB_CONFIGFS_ECM_SUBSET
 	  On hardware that can't implement the full protocol,
 	  a simple CDC subset is used, placing fewer demands on USB.
 
+config USB_CONFIGFS_QCRNDIS
+	bool "QCRNDIS"
+	depends on USB_CONFIGFS
+	depends on NET
+	depends on RNDIS_IPA
+	select USB_U_ETHER
+	select USB_RNDIS
+	select USB_F_QCRNDIS
+
 config USB_CONFIGFS_RNDIS
 	bool "RNDIS"
 	depends on USB_CONFIGFS
@@ -353,9 +365,9 @@ config USB_CONFIGFS_RNDIS
 	   is given in comments found in that info file.
 
 config USB_CONFIGFS_RMNET_BAM
-        bool "RMNET_BAM"
-        depends on USB_CONFIGFS
-        select USB_F_RMNET_BAM
+	bool "RMNET_BAM"
+	depends on USB_CONFIGFS
+	select USB_F_RMNET_BAM
 	help
 	   RmNet interface is a new logical device in QMI framework for data
 	   services. RmNet in accordance with QMI architecture uses Data I/O

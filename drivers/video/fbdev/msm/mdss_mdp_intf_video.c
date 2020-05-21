@@ -376,11 +376,11 @@ static int mdss_mdp_video_intf_recovery(void *data, int event)
 	}
 
 	/*
-	 * Currently, only intf_fifo_overflow is
+	 * Currently, intf_fifo_underflow is not
 	 * supported for recovery sequence for video
 	 * mode DSI interface
 	 */
-	if (event != MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW) {
+	if (event == MDP_INTF_DSI_CMD_FIFO_UNDERFLOW) {
 		pr_warn("%s: unsupported recovery event:%d\n",
 					__func__, event);
 		return -EPERM;
@@ -389,6 +389,11 @@ static int mdss_mdp_video_intf_recovery(void *data, int event)
 	ctx = ctl->intf_ctx[MASTER_CTX];
 	pr_debug("%s: ctl num = %d, event = %d\n",
 				__func__, ctl->num, event);
+
+	if (event == MDP_INTF_DSI_PANEL_DEAD) {
+		mdss_fb_report_panel_dead(ctx->ctl->mfd);
+		return 0;
+	}
 
 	pinfo = &ctl->panel_data->panel_info;
 	clk_rate = ((ctl->intf_type == MDSS_INTF_DSI) ?

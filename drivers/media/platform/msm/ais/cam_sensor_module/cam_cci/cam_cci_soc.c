@@ -79,12 +79,6 @@ int cam_cci_init(struct v4l2_subdev *sd,
 		return 0;
 	}
 
-	ahb_vote.type = CAM_VOTE_ABSOLUTE;
-	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-
 	/* Enable Regulators and IRQ*/
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_LOWSVS_VOTE, true);
@@ -92,6 +86,12 @@ int cam_cci_init(struct v4l2_subdev *sd,
 		CAM_ERR(CAM_CCI, "request platform resources failed");
 		goto platform_enable_failed;
 	}
+
+	ahb_vote.type = CAM_VOTE_ABSOLUTE;
+	ahb_vote.vote.level = CAM_SVS_VOTE;
+	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(cci_dev->cpas_handle,
 		&ahb_vote, &axi_vote);
@@ -176,11 +176,11 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	return 0;
 
 reset_complete_failed:
+	cam_cpas_stop(cci_dev->cpas_handle);
 	cam_soc_util_disable_platform_resource(soc_info, 1, 1);
 
 platform_enable_failed:
 	cci_dev->ref_count--;
-	cam_cpas_stop(cci_dev->cpas_handle);
 
 	return rc;
 }

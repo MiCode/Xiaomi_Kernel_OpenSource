@@ -716,6 +716,7 @@ gen_headers_out_arm64 = [
     "xen/gntdev.h",
     "xen/privcmd.h",
     "linux/android/binder.h",
+    "linux/android/binder_ctl.h",
     "linux/byteorder/big_endian.h",
     "linux/byteorder/little_endian.h",
     "linux/caif/caif_socket.h",

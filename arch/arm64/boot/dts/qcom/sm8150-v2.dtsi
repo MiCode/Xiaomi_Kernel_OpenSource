@@ -86,10 +86,6 @@
 	compatible = "qcom,npucc-sm8150-v2", "syscon";
 };
 
-&scc_pll {
-	clock-frequency = <576000000>;
-};
-
 &clock_scc {
 	compatible = "qcom,scc-sm8150-v2";
 };

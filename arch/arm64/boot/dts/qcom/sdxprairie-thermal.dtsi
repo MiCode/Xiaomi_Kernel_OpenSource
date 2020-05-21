@@ -154,6 +154,50 @@
 		};
 	};
 
+	mdm-core-0-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens0 6>;
+		thermal-governor = "step_wise";
+		wake-capable-sensor;
+		trips {
+			tj_config0: active-config0 {
+				temperature = <85000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+
+			tj_config1: active-config1 {
+				temperature = <90000>;
+				hysteresis = <7000>;
+				type = "passive";
+			};
+
+			tj_config2: active-config2 {
+				temperature = <95000>;
+				hysteresis = <7000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			modem_tj0_cdev {
+				trip = <&tj_config0>;
+				cooling-device = <&modem_tj 1 1>;
+			};
+
+			modem_tj1_cdev {
+				trip = <&tj_config1>;
+				cooling-device = <&modem_tj 2 2>;
+			};
+
+			modem_tj2_cdev {
+				trip = <&tj_config2>;
+				cooling-device = <&modem_tj 3 3>;
+			};
+		};
+	};
+
 	aoss0-lowf {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;

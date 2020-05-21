@@ -1,11 +1,14 @@
-/*
- * Marvell Semiconductor Altantic Network Driver
- * Copyright (C) 2019 Marvell Semiconductor. All rights reserved
+// SPDX-License-Identifier: GPL-2.0-only
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2019 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
+
 #include <linux/etherdevice.h>
 
 #include "atl_common.h"
@@ -49,6 +52,15 @@ static void atl2_mif_shared_buf_get(struct atl_hw *hw, int offset,
 
 	for (i = 0; i < len; i++)
 		data[i] = atl_read(hw, ATL2_MIF_SHARED_BUFFER_IN(offset + i));
+}
+
+static void atl2_mif_shared_boot_buf_write(struct atl_hw *hw, int offset,
+					   u32 *data, int len)
+{
+	int i;
+
+	for (i = 0; i < len / sizeof(u32); i++)
+		atl_write(hw, ATL2_MIF_SHARED_BUFFER_BOOT(i), data[i]);
 }
 
 static void atl2_mif_shared_buf_write(struct atl_hw *hw, int offset,
@@ -522,6 +534,7 @@ static int __atl2_fw_get_link_caps(struct atl_hw *hw)
 
 	hw->link_state.supported = supported;
 	hw->link_state.lp_lowest = fls(supported) - 1;
+	mcp->caps_low = atl_fw2_wake_on_link_force;
 
 	return ret;
 }
@@ -614,7 +627,7 @@ static int atl2_fw_set_phy_loopback(struct atl_nic *nic, u32 mode)
 	switch (mode) {
 	case ATL_PF_LPB_INT_PHY:
 		if (!device_link_caps.internal_loopback) {
-			ret = -ENOTSUPP;
+			ret = -EOPNOTSUPP;
 			goto unlock;
 		}
 
@@ -622,7 +635,7 @@ static int atl2_fw_set_phy_loopback(struct atl_nic *nic, u32 mode)
 		break;
 	case ATL_PF_LPB_EXT_PHY:
 		if (!device_link_caps.external_loopback) {
-			ret = -ENOTSUPP;
+			ret = -EOPNOTSUPP;
 			goto unlock;
 		}
 		link_options.external_loopback = on;
@@ -640,6 +653,8 @@ unlock:
 
 static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 {
+	struct link_options_s link_options;
+	struct link_control_s link_control;
 	struct wake_on_lan_s wake_on_lan;
 	struct mac_address_s mac_address;
 	int ret = 0;
@@ -650,23 +665,32 @@ static int atl2_fw_enable_wol(struct atl_hw *hw, unsigned int wol_mode)
 
 	if (wol_mode & atl_fw_wake_on_link) {
 		wake_on_lan.wake_on_link_up = 1;
-		/* TODO: add wol_ex_wake_on_link_keep_rate */
+		if (test_bit(ATL_ST_UP, &hw->state))
+			wake_on_lan.restore_link_before_wake = 1;
 	}
 
 	if (wol_mode & atl_fw_wake_on_link_rtpm) {
-		/* TODO: add wake_on_link_force - wake alive host on link up */
+		wake_on_lan.wake_on_link_up = 1;
 	}
 
 	if (wol_mode & atl_fw_wake_on_magic) {
-		/* TODO: add wol_ex_wake_on_link_keep_rate */
 		wake_on_lan.wake_on_magic_packet = 1;
+		if (test_bit(ATL_ST_UP, &hw->state))
+			wake_on_lan.restore_link_before_wake = 1;
 	}
 
 	ether_addr_copy(mac_address.mac_address, hw->mac_addr);
 
 	atl2_shared_buffer_write(hw, mac_address, mac_address);
 	atl2_shared_buffer_write(hw, sleep_proxy, wake_on_lan);
-	atl2_mif_host_finished_write_set(hw, 1);
+	atl2_shared_buffer_get(hw, link_control, link_control);
+	link_control.mode = ATL2_HOST_MODE_SLEEP_PROXY;
+	atl2_shared_buffer_write(hw, link_control, link_control);
+
+	atl2_shared_buffer_get(hw, link_options, link_options);
+	link_options.link_up = 1;
+	atl2_shared_buffer_write(hw, link_options, link_options);
+
 	ret = atl2_shared_buffer_finish_ack(hw);
 
 	atl_unlock_fw(hw);
@@ -717,9 +741,88 @@ static int atl2_fw_set_pad_stripping(struct atl_hw *hw, bool on)
 	return err;
 }
 
+#define ATL2_FW_CFG_DUMP_SIZE (4 + (sizeof(struct link_options_s) * 3) + \
+			      (sizeof(struct link_control_s) * 3))
+static int atl2_fw_dump_cfg(struct atl_hw *hw)
+{
+	if (!hw->mcp.fw_cfg_dump)
+		hw->mcp.fw_cfg_dump = devm_kzalloc(&hw->pdev->dev,
+						   ATL2_FW_CFG_DUMP_SIZE,
+						   GFP_KERNEL);
+	if (!hw->mcp.fw_cfg_dump)
+		return -ENOMEM;
+
+	/* save link configuration */
+	hw->mcp.fw_cfg_dump[0] = ((2 * 3 * 4) << 16) | 3;
+	hw->mcp.fw_cfg_dump[1] = offsetof(struct fw_interface_in, link_control);
+	atl2_shared_buffer_get(hw, link_control, hw->mcp.fw_cfg_dump[2]);
+	hw->mcp.fw_cfg_dump[3] = ~0;
+
+	hw->mcp.fw_cfg_dump[4] = offsetof(struct fw_interface_in, link_options);
+	atl2_shared_buffer_get(hw, link_options, hw->mcp.fw_cfg_dump[5]);
+	hw->mcp.fw_cfg_dump[6] = ~0;
+
+	return 0;
+}
+
+static void atl2_confirm_buffer_write(struct atl_hw *hw,
+				      uint32_t offset, uint32_t len)
+{
+	struct data_buffer_status_s buffer_status;
+
+	buffer_status.data_offset = offset;
+	buffer_status.data_length = len;
+	atl2_shared_buffer_write(hw, data_buffer_status, buffer_status);
+}
+
+static int atl2_fw_restore_cfg(struct atl_hw *hw)
+{
+	uint32_t req_adr = atl_read(hw, ATL2_MIF_BOOT_READ_REQ_ADR);
+	uint32_t req_len = atl_read(hw, ATL2_MIF_BOOT_READ_REQ_LEN);
+
+	if (req_adr == ATL2_ITI_ADDRESS_START) {
+		struct fw_iti_hdr iti_header;
+
+		memset(&iti_header, 0, sizeof(iti_header));
+		iti_header.instuction_bitmask = BIT(2);
+		iti_header.iti[0].type = 2;
+		iti_header.iti[0].length = ATL2_FW_CFG_DUMP_SIZE;
+		atl2_mif_shared_boot_buf_write(hw, 0, (void *)&iti_header,
+					       sizeof(iti_header));
+		atl2_confirm_buffer_write(hw, req_adr, req_len);
+
+		atl2_mif_host_finished_write_set(hw, 1U);
+
+		return 0;
+	} else if (req_adr == ATL2_ITI_ADDRESS_BLOCK_1) {
+		atl2_confirm_buffer_write(hw, req_adr, req_len);
+		atl2_mif_shared_boot_buf_write(hw, 0,
+			(void *)hw->mcp.fw_cfg_dump, ATL2_FW_CFG_DUMP_SIZE);
+		atl2_mif_host_finished_write_set(hw, 1U);
+		return 0;
+	}
+
+	atl_dev_err("FW requests invalid address %#x", req_adr);
+
+	return -EFAULT;
+}
+
+static int atl2_fw_set_mediadetect(struct atl_hw *hw, bool on)
+{
+	struct link_options_s link_options;
+
+	atl2_shared_buffer_get(hw, link_options, link_options);
+
+	link_options.low_power_autoneg = on;
+
+	atl2_shared_buffer_write(hw, link_options, link_options);
+
+	return  atl2_shared_buffer_finish_ack(hw);
+}
+
 static int atl2_fw_unsupported(struct atl_hw *hw)
 {
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 
 int atl2_get_fw_version(struct atl_hw *hw, u32 *fw_version)
@@ -742,15 +845,15 @@ static struct atl_fw_ops atl2_fw_ops = {
 		.restart_aneg = atl2_fw_restart_aneg,
 		.set_default_link = atl2_fw_set_default_link,
 		.get_phy_temperature = atl2_fw_get_phy_temperature,
-		.set_mediadetect = (void *)atl2_fw_unsupported,
+		.set_mediadetect = atl2_fw_set_mediadetect,
 		.send_macsec_req = (void *)atl2_fw_unsupported,
 		.set_pad_stripping = atl2_fw_set_pad_stripping,
 		.get_mac_addr = atl2_fw_get_mac_addr,
 		.__get_hbeat = __atl2_fw_get_hbeat,
 		.set_phy_loopback = atl2_fw_set_phy_loopback,
 		.enable_wol = atl2_fw_enable_wol,
-		.dump_cfg = (void *)atl2_fw_unsupported,
-		.restore_cfg = (void *)atl2_fw_unsupported,
+		.dump_cfg = (void *)atl2_fw_dump_cfg,
+		.restore_cfg = atl2_fw_restore_cfg,
 		.update_thermal = atl2_fw_update_thermal,
 	};
 

@@ -94,6 +94,18 @@ SoCs:
 - SDA660
   compatible = "qcom,sda660"
 
+- SDM429
+  compatible = "qcom,sdm429"
+
+- SDA429
+  compatible = "qcom,sda429"
+
+- SDM429W
+  compatible = "qcom,sdm429w"
+
+- SDA429W
+  compatible = "qcom,sda429w"
+
 Generic board variants:
 
 - CDP device:
@@ -266,3 +278,23 @@ compatible = "qcom,sda660-mtp"
 compatible = "qcom,sda660-cdp"
 compatible = "qcom,sda660-qrd"
 compatible = "qcom,mdm9607-cdp"
+compatible = "qcom,sdm429-cdp"
+compatible = "qcom,sdm429w-cdp"
+compatible = "qcom,sdm429-mtp"
+compatible = "qcom,sdm429w-mtp"
+compatible = "qcom,sdm429-qrd"
+compatible = "qcom,sdm429w-qrd"
+compatible = "qcom,sda429-cdp"
+compatible = "qcom,sda429w-cdp"
+compatible = "qcom,sda429-mtp"
+compatible = "qcom,sda429w-mtp"
+compatible = "qcom,sda429w-qrd"
+compatible = "qcom,sda429-qrd"
+compatible = "qcom,sdm429w-wtp"
+compatible = "qcom,sdm429-wtp"
+compatible = "qcom,sda429w-wtp"
+compatible = "qcom,sda429-wtp"
+compatible = "qcom,sda429w-wdp"
+compatible = "qcom,sda429-wdp"
+compatible = "qcom,sdm429w-wdp"
+compatible = "qcom,sdm429-wdp"
