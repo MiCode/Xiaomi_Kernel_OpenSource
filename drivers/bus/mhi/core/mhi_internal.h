@@ -727,8 +727,10 @@ struct mhi_timesync {
 	void __iomem *time_reg;
 	u32 int_sequence;
 	u64 local_time;
+	u64 remote_time;
 	bool db_support;
 	bool db_response_pending;
+	struct completion db_completion;
 	spinlock_t lock; /* list protection */
 	struct list_head head;
 };
