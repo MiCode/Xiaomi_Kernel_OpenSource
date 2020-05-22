@@ -1220,7 +1220,9 @@ static int mt6873_mt6359_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	for (i = 0; i < card->num_links; i++) {
-		if (mt6873_mt6359_dai_links[i].codec_name)
+		if (mt6873_mt6359_dai_links[i].codec_name ||
+		    i == spk_out_dai_link_idx ||
+		    i == spk_iv_dai_link_idx)
 			continue;
 		mt6873_mt6359_dai_links[i].codec_of_node = codec_node;
 	}
