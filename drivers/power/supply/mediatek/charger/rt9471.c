@@ -37,7 +37,7 @@
 
 #include "mtk_charger_intf.h"
 #include "rt9471.h"
-#define RT9471_DRV_VERSION	"1.0.12_MTK"
+#define RT9471_DRV_VERSION	"1.0.13_MTK"
 
 enum rt9471_stat_idx {
 	RT9471_STATIDX_STAT0 = 0,
@@ -1098,8 +1098,6 @@ out:
 	__pm_relax(&chip->buck_dwork_ws);
 }
 
-#ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-#ifndef CONFIG_TCPC_CLASS
 static bool rt9471_is_vbusgd(struct rt9471_chip *chip)
 {
 	int ret = 0;
@@ -1114,8 +1112,8 @@ static bool rt9471_is_vbusgd(struct rt9471_chip *chip)
 
 	return vbus_gd;
 }
-#endif /* CONFIG_TCPC_CLASS */
 
+#ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 static void rt9471_set_usbsw_state(struct rt9471_chip *chip, int state)
 {
 	dev_info(chip->dev, "%s state = %d\n", __func__, state);
@@ -1175,6 +1173,10 @@ wait:
 			dev_notice(chip->dev, "%s CDP timeout\n", __func__);
 		else
 			dev_info(chip->dev, "%s CDP free\n", __func__);
+		ret = __rt9471_enable_hz(chip, false);
+		if (ret < 0)
+			dev_notice(chip->dev, "%s dis hz fail(%d)\n",
+					      __func__, ret);
 	}
 	rt9471_set_usbsw_state(chip, en ? RT9471_USBSW_CHG : RT9471_USBSW_USB);
 	ret = __rt9471_enable_bc12(chip, en);
@@ -1333,6 +1335,8 @@ static int rt9471_detach_irq_handler(struct rt9471_chip *chip)
 	mutex_unlock(&chip->bc12_lock);
 #endif /* CONFIG_TCPC_CLASS */
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
+	complete(&chip->aicc_done);
+	complete(&chip->pe_done);
 	return 0;
 }
 
@@ -2529,18 +2533,33 @@ static int rt9471_run_aicc(struct charger_device *chg_dev, u32 *uA)
 	if (ret < 0)
 		return ret;
 
+	disable_irq(chip->irq);
+
 	/* Start aicc */
 	ret = rt9471_set_bit(chip, RT9471_REG_IBUS, RT9471_AICC_EN_MASK);
 	if (ret < 0) {
+		enable_irq(chip->irq);
 		dev_notice(chip->dev, "%s aicc en fail(%d)\n", __func__, ret);
 		goto out;
 	}
+	if (!rt9471_is_vbusgd(chip)) {
+		enable_irq(chip->irq);
+		ret = -EPERM;
+		goto out;
+	}
 	reinit_completion(&chip->aicc_done);
+
+	enable_irq(chip->irq);
+
 	ret = wait_for_completion_timeout(&chip->aicc_done,
 					  msecs_to_jiffies(1000));
 	if (ret == 0) {
 		dev_notice(chip->dev, "%s wait aicc timeout\n", __func__);
 		ret = -ETIMEDOUT;
+		goto out;
+	}
+	if (!rt9471_is_vbusgd(chip)) {
+		ret = -EPERM;
 		goto out;
 	}
 
@@ -2579,17 +2598,32 @@ static int rt9471_enable_pump_express(struct rt9471_chip *chip, bool pe20)
 	if (ret < 0)
 		return ret;
 
+	disable_irq(chip->irq);
+
 	/* Start pump express */
 	ret = rt9471_set_bit(chip, RT9471_REG_PUMPEXP, RT9471_PE_EN_MASK);
 	if (ret < 0) {
+		enable_irq(chip->irq);
 		dev_notice(chip->dev, "%s pe en fail(%d)\n", __func__, ret);
 		goto out;
 	}
+	if (!rt9471_is_vbusgd(chip)) {
+		enable_irq(chip->irq);
+		ret = -EPERM;
+		goto out;
+	}
 	reinit_completion(&chip->pe_done);
+
+	enable_irq(chip->irq);
+
 	ret = wait_for_completion_timeout(&chip->pe_done, msecs_to_jiffies(ms));
 	if (ret == 0) {
 		dev_notice(chip->dev, "%s wait pe timeout\n", __func__);
 		ret = -ETIMEDOUT;
+		goto out;
+	}
+	if (!rt9471_is_vbusgd(chip)) {
+		ret = -EPERM;
 		goto out;
 	}
 	ret = 0;
@@ -3102,6 +3136,9 @@ MODULE_VERSION(RT9471_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.0.13
+ * (1) Do not wait for irqs of aicc_done and pe_done when detach
+ *
  * 1.0.12
  * (1) Disable Auto AICR and WDT after register reset
  * (2) Fix PE20 chg_ops
