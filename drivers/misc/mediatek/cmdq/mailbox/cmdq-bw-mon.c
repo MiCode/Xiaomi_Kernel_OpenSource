@@ -110,7 +110,7 @@ static void cmdq_bwmon_read(struct cmdq_pkt *pkt, u8 id, dma_addr_t pa)
 
 static void cmdq_bwmon_clk_enable(void)
 {
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) && IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	smi_bus_prepare_enable(SMI_LARB4, "BWMon");
 	smi_bus_prepare_enable(SMI_LARB5, "BWMon");
 	smi_bus_prepare_enable(SMI_LARB7, "BWMon");
@@ -122,7 +122,7 @@ static void cmdq_bwmon_clk_enable(void)
 
 static void cmdq_bwmon_clk_disable(void)
 {
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) && IS_ENABLED(CONFIG_MTK_SMI_EXT)
 	smi_bus_disable_unprepare(SMI_LARB4, "BWMon");
 	smi_bus_disable_unprepare(SMI_LARB5, "BWMon");
 	smi_bus_disable_unprepare(SMI_LARB7, "BWMon");
