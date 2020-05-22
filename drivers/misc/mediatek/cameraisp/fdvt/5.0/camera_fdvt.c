@@ -109,10 +109,8 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 /*  #include "smi_common.h" */
 
 //#include <linux/wakelock.h>
-#ifdef CONFIG_PM_WAKELOCKS // modified by gasper for build pass
+#ifdef CONFIG_PM_SLEEP // modified by gasper for build pass
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 /* FDVT Command Queue */
@@ -273,10 +271,8 @@ static struct Tasklet_table FDVT_tasklet[FDVT_IRQ_TYPE_AMOUNT] = {
 };
 
 //struct wake_lock FDVT_wake_lock;
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source FDVT_wake_lock;
-#else
-struct wake_lock FDVT_wake_lock;
 #endif
 
 static DEFINE_MUTEX(gFdvtMutex);
@@ -4176,12 +4172,8 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		INIT_WORK(&FDVTInfo.ScheduleFdvtWork, FDVT_ScheduleWork);
 
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		wakeup_source_init(&FDVT_wake_lock, "fdvt_lock_wakelock");
-#else
-		wake_lock_init(&FDVT_wake_lock,
-			WAKE_LOCK_SUSPEND,
-			"fdvt_lock_wakelock");
 #endif
 
 		// wake_lock_init(

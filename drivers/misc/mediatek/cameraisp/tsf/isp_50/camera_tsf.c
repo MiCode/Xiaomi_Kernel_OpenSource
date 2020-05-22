@@ -93,16 +93,12 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 
 /*  #include "smi_common.h" */
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source tsf_wake_lock;
-#else
-struct wake_lock tsf_wake_lock;
 #endif
 
 /*  */
@@ -1597,17 +1593,13 @@ static signed int TSF_open(struct inode *pInode, struct file *pFile)
 
 	/* do wait queue head init when re-enter in camera */
 	/* Enable clock */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&tsf_wake_lock);
-#else
-	wake_lock(&tsf_wake_lock);
 #endif
 	TSF_EnableClock(MTRUE);
 	g_u4TsfCnt = 0;
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&tsf_wake_lock);
-#else
-	wake_unlock(&tsf_wake_lock);
 #endif
 	LOG_INF("TSF open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
@@ -1672,16 +1664,12 @@ static signed int TSF_release(struct inode *pInode, struct file *pFile)
 
 
 	/* Disable clock. */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&tsf_wake_lock);
-#else
-	wake_lock(&tsf_wake_lock);
 #endif
 	TSF_EnableClock(MFALSE);
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&tsf_wake_lock);
-#else
-	wake_unlock(&tsf_wake_lock);
 #endif
 
 	LOG_INF("TSF release g_u4EnableClockCount: %d", g_u4EnableClockCount);
@@ -1982,13 +1970,8 @@ static signed int TSF_probe(struct platform_device *pDev)
 		for (n = 0; n < TSF_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(TSFInfo.SpinLockIrq[n]));
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		wakeup_source_init(&tsf_wake_lock, "tsf_lock_wakelock");
-#else
-		wake_lock_init(
-			&tsf_wake_lock,
-			WAKE_LOCK_SUSPEND,
-			"tsf_lock_wakelock");
 #endif
 		/*  */
 		init_waitqueue_head(&TSFInfo.WaitQueueHead);

@@ -90,17 +90,13 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 
 /*  #include "smi_common.h" */
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source dpe_wake_lock;
-#else
-struct wake_lock dpe_wake_lock;
 #endif
 
 
@@ -3779,17 +3775,13 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	gDveCnt = 0;
 	gWfmeCnt = 0;
 	/* Enable clock */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&dpe_wake_lock);
-#else
-	wake_lock(&dpe_wake_lock);
 #endif
 	DPE_EnableClock(MTRUE);
 	g_u4DpeCnt = 0;
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&dpe_wake_lock);
-#else
-	wake_unlock(&dpe_wake_lock);
 #endif
 
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
@@ -3859,16 +3851,12 @@ log_dbg("Curr UserCount(%d),(process, pid, tgid)=(%s, %d, %d), last user",
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
 
 	/* Disable clock. */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&dpe_wake_lock);
-#else
-	wake_lock(&dpe_wake_lock);
 #endif
 	DPE_EnableClock(MFALSE);
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&dpe_wake_lock);
-#else
-	wake_unlock(&dpe_wake_lock);
 #endif
 	LOG_INF("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
@@ -4140,11 +4128,8 @@ static signed int DPE_probe(struct platform_device *pDev)
 		for (n = 0; n < DPE_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(DPEInfo.SpinLockIrq[n]));
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		wakeup_source_init(&dpe_wake_lock, "dpe_lock_wakelock");
-#else
-		wake_lock_init
-		(&dpe_wake_lock, WAKE_LOCK_SUSPEND, "dpe_lock_wakelock");
 #endif
 		/*  */
 		init_waitqueue_head(&DPEInfo.WaitQueueHead);
