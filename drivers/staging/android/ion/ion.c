@@ -1409,32 +1409,6 @@ retry:
 		mutex_unlock(&buffer->lock);
 	}
 
-{ /* for debug sg_table not continue */
-	dma_addr_t expected, dma_addr;
-	struct scatterlist *s;
-	unsigned long long ts_start, ts_end; /* for performance */
-	int i;
-
-	ts_start = sched_clock();
-	dma_addr = sg_dma_address(table->sgl);
-	expected = sg_dma_address(table->sgl);
-	for_each_sg(table->sgl, s, table->nents, i) {
-		if (sg_dma_address(s) != expected) {
-			IONMSG(
-			       "%s warning, i:%d--%u, dma_addr:0x%pa -- 0x%pa, sg_table:0x%p -- 0x%p\n",
-			       __func__, i, table->nents,
-			       &dma_addr, &expected, table, table->sgl);
-			break;
-		}
-		expected = sg_dma_address(s) + sg_dma_len(s);
-	}
-
-	ts_end = sched_clock();
-	if (ts_end - ts_start > 1000000) //1ms
-		pr_info("%s check sg_table time:%llu, nents:%u\n",
-			__func__, (ts_end - ts_start), table->nents);
-}
-
 	return table;
 }
 #else
