@@ -31,6 +31,8 @@
 #include <backend/gpu/mali_kbase_jm_internal.h>
 #include <backend/gpu/mali_kbase_js_internal.h>
 
+#include <mtk_gpufreq.h>
+
 /*
  * Hold the runpool_mutex for this
  */
@@ -193,6 +195,10 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					int ms =
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
+
+					/* MTK add for gpu_freq information */
+					mt_gpufreq_dump_infra_status();
+
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
@@ -231,6 +237,10 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					int ms =
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
+
+					/* MTK add for gpu_freq information */
+					mt_gpufreq_dump_infra_status();
+
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
