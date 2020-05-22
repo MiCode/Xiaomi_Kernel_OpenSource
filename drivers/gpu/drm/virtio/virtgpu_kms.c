@@ -23,6 +23,7 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <linux/pci.h>
 #include <linux/virtio.h>
 #include <linux/virtio_config.h>
 #include <drm/drmP.h>
@@ -127,7 +128,7 @@ static void virtio_gpu_get_capsets(struct virtio_gpu_device *vgdev,
 	vgdev->num_capsets = num_capsets;
 }
 
-int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
+int virtio_gpu_init(struct drm_device *dev)
 {
 	static vq_callback_t *callbacks[] = {
 		virtio_gpu_ctrl_ack, virtio_gpu_cursor_ack
@@ -157,6 +158,8 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 	idr_init(&vgdev->ctx_id_idr);
 	spin_lock_init(&vgdev->resource_idr_lock);
 	idr_init(&vgdev->resource_idr);
+	spin_lock_init(&vgdev->request_idr_lock);
+	idr_init(&vgdev->request_idr);
 	init_waitqueue_head(&vgdev->resp_wq);
 	virtio_gpu_init_vq(&vgdev->ctrlq, virtio_gpu_dequeue_ctrl_func);
 	virtio_gpu_init_vq(&vgdev->cursorq, virtio_gpu_dequeue_cursor_func);
@@ -179,6 +182,32 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 	if (virtio_has_feature(vgdev->vdev, VIRTIO_GPU_F_EDID)) {
 		vgdev->has_edid = true;
 		DRM_INFO("EDID support available.\n");
+	}
+
+	if (virtio_has_feature(vgdev->vdev, VIRTIO_GPU_F_RESOURCE_BLOB)) {
+		vgdev->cbar = 4;
+		vgdev->caddr = pci_resource_start(dev->pdev, vgdev->cbar);
+		vgdev->csize = pci_resource_len(dev->pdev, vgdev->cbar);
+		ret = pci_request_region(
+			dev->pdev,
+			vgdev->cbar,
+			"virtio-gpu-coherent");
+		if (ret != 0) {
+			DRM_WARN("Cannot request coherent memory bar\n");
+		} else {
+			DRM_INFO("coherent host resources enabled\n");
+			DRM_INFO(
+				"using %s bar %d, at 0x%lx, size %ld MB\n",
+				dev_name(&dev->pdev->dev),
+				vgdev->cbar,
+				vgdev->caddr,
+				vgdev->csize >> 20);
+			vgdev->has_host_visible = true;
+		}
+
+		vgdev->has_resource_blob = true;
+		DRM_INFO("resource_v2: %u, host visible %u\n",
+			  vgdev->has_resource_blob, vgdev->has_host_visible);
 	}
 
 	ret = virtio_find_vqs(vgdev->vdev, 2, vqs, callbacks, names, NULL);
@@ -216,9 +245,7 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 		     num_capsets, &num_capsets);
 	DRM_INFO("number of cap sets: %d\n", num_capsets);
 
-	ret = virtio_gpu_modeset_init(vgdev);
-	if (ret)
-		goto err_modeset;
+	virtio_gpu_modeset_init(vgdev);
 
 	virtio_device_ready(vgdev->vdev);
 	vgdev->vqs_ready = true;
@@ -235,7 +262,6 @@ int virtio_gpu_driver_load(struct drm_device *dev, unsigned long flags)
 
 	return 0;
 
-err_modeset:
 err_scanouts:
 	virtio_gpu_ttm_fini(vgdev);
 err_ttm:
@@ -257,7 +283,7 @@ static void virtio_gpu_cleanup_cap_cache(struct virtio_gpu_device *vgdev)
 	}
 }
 
-void virtio_gpu_driver_unload(struct drm_device *dev)
+void virtio_gpu_deinit(struct drm_device *dev)
 {
 	struct virtio_gpu_device *vgdev = dev->dev_private;
 

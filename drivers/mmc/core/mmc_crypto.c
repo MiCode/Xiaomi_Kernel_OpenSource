@@ -306,7 +306,8 @@ int mmc_init_crypto_spec(struct mmc_host *host,
 	crypto_modes_supported[1] = 4096;
 
 	host->ksm = keyslot_manager_create(host->parent, NUM_KEYSLOTS(host),
-		ksm_ops, crypto_modes_supported, host);
+		ksm_ops, BLK_CRYPTO_FEATURE_STANDARD_KEYS,
+		crypto_modes_supported, host);
 
 	if (!host->ksm) {
 		err = -ENOMEM;

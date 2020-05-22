@@ -370,11 +370,7 @@ static void update_topology_flags_workfn(struct work_struct *work)
 static u32 capacity_scale;
 static u32 *raw_capacity;
 
-#if defined(CONFIG_MACH_MT6739)
 static int free_raw_capacity(void)
-#else
-static int __init free_raw_capacity(void)
-#endif
 {
 	kfree(raw_capacity);
 	raw_capacity = NULL;

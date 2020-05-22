@@ -310,7 +310,7 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag
 		NULL, 0);
 #endif
 #endif
-	log_wakeup_reason(mtk_spm_get_irq_0());
+	log_irq_wakeup_reason(mtk_spm_get_irq_0());
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		if (spm_wakesrc_irqs[i].name == NULL ||
@@ -319,7 +319,7 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag
 		if (spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
 			irq_no = spm_wakesrc_irqs[i].irq_no;
 			if (mt_irq_get_pending(irq_no))
-				log_wakeup_reason(irq_no);
+				log_irq_wakeup_reason(irq_no);
 		}
 	}
 

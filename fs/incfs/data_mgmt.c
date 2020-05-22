@@ -27,34 +27,66 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 		return ERR_PTR(-ENOMEM);
 
 	mi->mi_sb = sb;
-	mi->mi_options = *options;
 	mi->mi_backing_dir_path = *backing_dir_path;
 	mi->mi_owner = get_current_cred();
 	path_get(&mi->mi_backing_dir_path);
 	mutex_init(&mi->mi_dir_struct_mutex);
 	mutex_init(&mi->mi_pending_reads_mutex);
 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
+	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
+	spin_lock_init(&mi->mi_log.rl_lock);
 	INIT_LIST_HEAD(&mi->mi_reads_list_head);
 
-	if (options->read_log_pages != 0) {
-		size_t buf_size = PAGE_SIZE * options->read_log_pages;
-
-		spin_lock_init(&mi->mi_log.rl_writer_lock);
-		init_waitqueue_head(&mi->mi_log.ml_notif_wq);
-
-		mi->mi_log.rl_size = buf_size / sizeof(*mi->mi_log.rl_ring_buf);
-		mi->mi_log.rl_ring_buf = kzalloc(buf_size, GFP_NOFS);
-		if (!mi->mi_log.rl_ring_buf) {
-			error = -ENOMEM;
-			goto err;
-		}
-	}
+	error = incfs_realloc_mount_info(mi, options);
+	if (error)
+		goto err;
 
 	return mi;
 
 err:
 	incfs_free_mount_info(mi);
 	return ERR_PTR(error);
+}
+
+int incfs_realloc_mount_info(struct mount_info *mi,
+			     struct mount_options *options)
+{
+	void *new_buffer = NULL;
+	void *old_buffer;
+	size_t new_buffer_size = 0;
+
+	if (options->read_log_pages != mi->mi_options.read_log_pages) {
+		struct read_log_state log_state;
+		/*
+		 * Even though having two buffers allocated at once isn't
+		 * usually good, allocating a multipage buffer under a spinlock
+		 * is even worse, so let's optimize for the shorter lock
+		 * duration. It's not end of the world if we fail to increase
+		 * the buffer size anyway.
+		 */
+		if (options->read_log_pages > 0) {
+			new_buffer_size = PAGE_SIZE * options->read_log_pages;
+			new_buffer = kzalloc(new_buffer_size, GFP_NOFS);
+			if (!new_buffer)
+				return -ENOMEM;
+		}
+
+		spin_lock(&mi->mi_log.rl_lock);
+		old_buffer = mi->mi_log.rl_ring_buf;
+		mi->mi_log.rl_ring_buf = new_buffer;
+		mi->mi_log.rl_size = new_buffer_size;
+		log_state = (struct read_log_state){
+			.generation_id = mi->mi_log.rl_head.generation_id + 1,
+		};
+		mi->mi_log.rl_head = log_state;
+		mi->mi_log.rl_tail = log_state;
+		spin_unlock(&mi->mi_log.rl_lock);
+
+		kfree(old_buffer);
+	}
+
+	mi->mi_options = *options;
+	return 0;
 }
 
 void incfs_free_mount_info(struct mount_info *mi)
@@ -87,11 +119,11 @@ static void data_file_segment_destroy(struct data_file_segment *segment)
 
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 {
-	struct data_file *df;
-	struct backing_file_context *bfc;
+	struct data_file *df = NULL;
+	struct backing_file_context *bfc = NULL;
 	int md_records;
 	u64 size;
-	int error;
+	int error = 0;
 	int i;
 
 	if (!bf || !mi)
@@ -118,8 +150,8 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 	error = mutex_lock_interruptible(&bfc->bc_mutex);
 	if (error)
 		goto out;
-	error = incfs_read_file_header(bfc, &df->df_metadata_off,
-					&df->df_id, &size);
+	error = incfs_read_file_header(bfc, &df->df_metadata_off, &df->df_id,
+				       &size, &df->df_header_flags);
 	mutex_unlock(&bfc->bc_mutex);
 
 	if (error)
@@ -127,7 +159,7 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
 
 	df->df_size = size;
 	if (size > 0)
-		df->df_block_count = get_blocks_count_for_size(size);
+		df->df_data_block_count = get_blocks_count_for_size(size);
 
 	md_records = incfs_scan_metadata_chain(df);
 	if (md_records < 0)
@@ -162,7 +194,7 @@ int make_inode_ready_for_data_ops(struct mount_info *mi,
 				struct file *backing_file)
 {
 	struct inode_info *node = get_incfs_node(inode);
-	struct data_file *df;
+	struct data_file *df = NULL;
 	int err = 0;
 
 	inode_lock(inode);
@@ -183,7 +215,7 @@ int make_inode_ready_for_data_ops(struct mount_info *mi,
 
 struct dir_file *incfs_open_dir_file(struct mount_info *mi, struct file *bf)
 {
-	struct dir_file *dir;
+	struct dir_file *dir = NULL;
 
 	if (!S_ISDIR(bf->f_inode->i_mode))
 		return ERR_PTR(-EBADF);
@@ -216,33 +248,120 @@ static ssize_t decompress(struct mem_range src, struct mem_range dst)
 	return result;
 }
 
+static void log_read_one_record(struct read_log *rl, struct read_log_state *rs)
+{
+	union log_record *record =
+		(union log_record *)((u8 *)rl->rl_ring_buf + rs->next_offset);
+	size_t record_size;
+
+	switch (record->full_record.type) {
+	case FULL:
+		rs->base_record = record->full_record;
+		record_size = sizeof(record->full_record);
+		break;
+
+	case SAME_FILE:
+		rs->base_record.block_index =
+			record->same_file_record.block_index;
+		rs->base_record.absolute_ts_us +=
+			record->same_file_record.relative_ts_us;
+		record_size = sizeof(record->same_file_record);
+		break;
+
+	case SAME_FILE_NEXT_BLOCK:
+		++rs->base_record.block_index;
+		rs->base_record.absolute_ts_us +=
+			record->same_file_next_block.relative_ts_us;
+		record_size = sizeof(record->same_file_next_block);
+		break;
+
+	case SAME_FILE_NEXT_BLOCK_SHORT:
+		++rs->base_record.block_index;
+		rs->base_record.absolute_ts_us +=
+			record->same_file_next_block_short.relative_ts_us;
+		record_size = sizeof(record->same_file_next_block_short);
+		break;
+	}
+
+	rs->next_offset += record_size;
+	if (rs->next_offset > rl->rl_size - sizeof(*record)) {
+		rs->next_offset = 0;
+		++rs->current_pass_no;
+	}
+	++rs->current_record_no;
+}
+
 static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
-			int block_index, bool timed_out)
+			   int block_index)
 {
 	struct read_log *log = &mi->mi_log;
-	struct read_log_state state;
+	struct read_log_state *head, *tail;
 	s64 now_us = ktime_to_us(ktime_get());
-	struct read_log_record record = {
-		.file_id = *id,
-		.timestamp_us = now_us
-	};
+	s64 relative_us;
+	union log_record record;
+	size_t record_size;
 
-	set_block_index(&record, block_index);
-	set_timed_out(&record, timed_out);
-
-	if (log->rl_size == 0)
+	spin_lock(&log->rl_lock);
+	if (log->rl_size == 0) {
+		spin_unlock(&log->rl_lock);
 		return;
-
-	spin_lock(&log->rl_writer_lock);
-	state = READ_ONCE(log->rl_state);
-	log->rl_ring_buf[state.next_index] = record;
-	if (++state.next_index == log->rl_size) {
-		state.next_index = 0;
-		++state.current_pass_no;
 	}
-	WRITE_ONCE(log->rl_state, state);
-	spin_unlock(&log->rl_writer_lock);
 
+	head = &log->rl_head;
+	tail = &log->rl_tail;
+	relative_us = now_us - head->base_record.absolute_ts_us;
+
+	if (memcmp(id, &head->base_record.file_id, sizeof(incfs_uuid_t)) ||
+	    relative_us >= 1ll << 32) {
+		record.full_record = (struct full_record){
+			.type = FULL,
+			.block_index = block_index,
+			.file_id = *id,
+			.absolute_ts_us = now_us,
+		};
+		record_size = sizeof(struct full_record);
+	} else if (block_index != head->base_record.block_index + 1 ||
+		   relative_us >= 1 << 30) {
+		record.same_file_record = (struct same_file_record){
+			.type = SAME_FILE,
+			.block_index = block_index,
+			.relative_ts_us = relative_us,
+		};
+		record_size = sizeof(struct same_file_record);
+	} else if (relative_us >= 1 << 14) {
+		record.same_file_next_block = (struct same_file_next_block){
+			.type = SAME_FILE_NEXT_BLOCK,
+			.relative_ts_us = relative_us,
+		};
+		record_size = sizeof(struct same_file_next_block);
+	} else {
+		record.same_file_next_block_short =
+			(struct same_file_next_block_short){
+				.type = SAME_FILE_NEXT_BLOCK_SHORT,
+				.relative_ts_us = relative_us,
+			};
+		record_size = sizeof(struct same_file_next_block_short);
+	}
+
+	head->base_record.file_id = *id;
+	head->base_record.block_index = block_index;
+	head->base_record.absolute_ts_us = now_us;
+
+	/* Advance tail beyond area we are going to overwrite */
+	while (tail->current_pass_no < head->current_pass_no &&
+	       tail->next_offset < head->next_offset + record_size)
+		log_read_one_record(log, tail);
+
+	memcpy(((u8 *)log->rl_ring_buf) + head->next_offset, &record,
+	       record_size);
+	head->next_offset += record_size;
+	if (head->next_offset > log->rl_size - sizeof(record)) {
+		head->next_offset = 0;
+		++head->current_pass_no;
+	}
+	++head->current_record_no;
+
+	spin_unlock(&log->rl_lock);
 	wake_up_all(&log->ml_notif_wq);
 }
 
@@ -337,13 +456,28 @@ static bool is_data_block_present(struct data_file_block *block)
 	       (block->db_stored_size != 0);
 }
 
+static void convert_data_file_block(struct incfs_blockmap_entry *bme,
+				    struct data_file_block *res_block)
+{
+	u16 flags = le16_to_cpu(bme->me_flags);
+
+	res_block->db_backing_file_data_offset =
+		le16_to_cpu(bme->me_data_offset_hi);
+	res_block->db_backing_file_data_offset <<= 32;
+	res_block->db_backing_file_data_offset |=
+		le32_to_cpu(bme->me_data_offset_lo);
+	res_block->db_stored_size = le16_to_cpu(bme->me_data_size);
+	res_block->db_comp_alg = (flags & INCFS_BLOCK_COMPRESSED_LZ4) ?
+					 COMPRESSION_LZ4 :
+					 COMPRESSION_NONE;
+}
+
 static int get_data_file_block(struct data_file *df, int index,
 			       struct data_file_block *res_block)
 {
 	struct incfs_blockmap_entry bme = {};
 	struct backing_file_context *bfc = NULL;
 	loff_t blockmap_off = 0;
-	u16 flags = 0;
 	int error = 0;
 
 	if (!df || !res_block)
@@ -352,24 +486,182 @@ static int get_data_file_block(struct data_file *df, int index,
 	blockmap_off = df->df_blockmap_off;
 	bfc = df->df_backing_file_context;
 
-	if (index < 0 || index >= df->df_block_count || blockmap_off == 0)
+	if (index < 0 || blockmap_off == 0)
 		return -EINVAL;
 
 	error = incfs_read_blockmap_entry(bfc, index, blockmap_off, &bme);
 	if (error)
 		return error;
 
-	flags = le16_to_cpu(bme.me_flags);
-	res_block->db_backing_file_data_offset =
-		le16_to_cpu(bme.me_data_offset_hi);
-	res_block->db_backing_file_data_offset <<= 32;
-	res_block->db_backing_file_data_offset |=
-		le32_to_cpu(bme.me_data_offset_lo);
-	res_block->db_stored_size = le16_to_cpu(bme.me_data_size);
-	res_block->db_comp_alg = (flags & INCFS_BLOCK_COMPRESSED_LZ4) ?
-					 COMPRESSION_LZ4 :
-					 COMPRESSION_NONE;
+	convert_data_file_block(&bme, res_block);
 	return 0;
+}
+
+static int check_room_for_one_range(u32 size, u32 size_out)
+{
+	if (size_out + sizeof(struct incfs_filled_range) > size)
+		return -ERANGE;
+	return 0;
+}
+
+static int copy_one_range(struct incfs_filled_range *range, void __user *buffer,
+			  u32 size, u32 *size_out)
+{
+	int error = check_room_for_one_range(size, *size_out);
+	if (error)
+		return error;
+
+	if (copy_to_user(((char __user *)buffer) + *size_out, range,
+				sizeof(*range)))
+		return -EFAULT;
+
+	*size_out += sizeof(*range);
+	return 0;
+}
+
+static int update_file_header_flags(struct data_file *df, u32 bits_to_reset,
+				    u32 bits_to_set)
+{
+	int result;
+	u32 new_flags;
+	struct backing_file_context *bfc;
+
+	if (!df)
+		return -EFAULT;
+	bfc = df->df_backing_file_context;
+	if (!bfc)
+		return -EFAULT;
+
+	result = mutex_lock_interruptible(&bfc->bc_mutex);
+	if (result)
+		return result;
+
+	new_flags = (df->df_header_flags & ~bits_to_reset) | bits_to_set;
+	if (new_flags != df->df_header_flags) {
+		df->df_header_flags = new_flags;
+		result = incfs_write_file_header_flags(bfc, new_flags);
+	}
+
+	mutex_unlock(&bfc->bc_mutex);
+
+	return result;
+}
+
+#define READ_BLOCKMAP_ENTRIES 512
+int incfs_get_filled_blocks(struct data_file *df,
+			    struct incfs_get_filled_blocks_args *arg)
+{
+	int error = 0;
+	bool in_range = false;
+	struct incfs_filled_range range;
+	void __user *buffer = u64_to_user_ptr(arg->range_buffer);
+	u32 size = arg->range_buffer_size;
+	u32 end_index =
+		arg->end_index ? arg->end_index : df->df_total_block_count;
+	u32 *size_out = &arg->range_buffer_size_out;
+	int i = READ_BLOCKMAP_ENTRIES - 1;
+	int entries_read = 0;
+	struct incfs_blockmap_entry *bme;
+
+	*size_out = 0;
+	if (end_index > df->df_total_block_count)
+		end_index = df->df_total_block_count;
+	arg->total_blocks_out = df->df_total_block_count;
+	arg->data_blocks_out = df->df_data_block_count;
+
+	if (df->df_header_flags & INCFS_FILE_COMPLETE) {
+		pr_debug("File marked full, fast get_filled_blocks");
+		if (arg->start_index > end_index) {
+			arg->index_out = arg->start_index;
+			return 0;
+		}
+		arg->index_out = arg->start_index;
+
+		error = check_room_for_one_range(size, *size_out);
+		if (error)
+			return error;
+
+		range = (struct incfs_filled_range){
+			.begin = arg->start_index,
+			.end = end_index,
+		};
+
+		error = copy_one_range(&range, buffer, size, size_out);
+		if (error)
+			return error;
+		arg->index_out = end_index;
+		return 0;
+	}
+
+	bme = kzalloc(sizeof(*bme) * READ_BLOCKMAP_ENTRIES,
+		      GFP_NOFS | __GFP_COMP);
+	if (!bme)
+		return -ENOMEM;
+
+	for (arg->index_out = arg->start_index; arg->index_out < end_index;
+	     ++arg->index_out) {
+		struct data_file_block dfb;
+
+		if (++i == READ_BLOCKMAP_ENTRIES) {
+			entries_read = incfs_read_blockmap_entries(
+				df->df_backing_file_context, bme,
+				arg->index_out, READ_BLOCKMAP_ENTRIES,
+				df->df_blockmap_off);
+			if (entries_read < 0) {
+				error = entries_read;
+				break;
+			}
+
+			i = 0;
+		}
+
+		if (i >= entries_read) {
+			error = -EIO;
+			break;
+		}
+
+		convert_data_file_block(bme + i, &dfb);
+
+		if (is_data_block_present(&dfb) == in_range)
+			continue;
+
+		if (!in_range) {
+			error = check_room_for_one_range(size, *size_out);
+			if (error)
+				break;
+			in_range = true;
+			range.begin = arg->index_out;
+		} else {
+			range.end = arg->index_out;
+			error = copy_one_range(&range, buffer, size, size_out);
+			if (error) {
+				/* there will be another try out of the loop,
+				 * it will reset the index_out if it fails too
+				 */
+				break;
+			}
+			in_range = false;
+		}
+	}
+
+	if (in_range) {
+		range.end = arg->index_out;
+		error = copy_one_range(&range, buffer, size, size_out);
+		if (error)
+			arg->index_out = range.begin;
+	}
+
+	if (!error && in_range && arg->start_index == 0 &&
+	    end_index == df->df_total_block_count &&
+	    *size_out == sizeof(struct incfs_filled_range)) {
+		int result =
+			update_file_header_flags(df, 0, INCFS_FILE_COMPLETE);
+		/* Log failure only, since it's just a failed optimization */
+		pr_debug("Marked file full with result %d", result);
+	}
+
+	kfree(bme);
+	return error;
 }
 
 static bool is_read_done(struct pending_read *read)
@@ -471,7 +763,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 	if (!df || !res_block)
 		return -EFAULT;
 
-	if (block_index < 0 || block_index >= df->df_block_count)
+	if (block_index < 0 || block_index >= df->df_data_block_count)
 		return -EINVAL;
 
 	if (df->df_blockmap_off <= 0)
@@ -502,8 +794,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 	mi = df->df_mount_info;
 
 	if (timeout_ms == 0) {
-		log_block_read(mi, &df->df_id, block_index,
-			       true /*timed out*/);
+		log_block_read(mi, &df->df_id, block_index);
 		return -ETIME;
 	}
 
@@ -522,8 +813,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 
 	if (wait_res == 0) {
 		/* Wait has timed out */
-		log_block_read(mi, &df->df_id, block_index,
-			       true /*timed out*/);
+		log_block_read(mi, &df->df_id, block_index);
 		return -ETIME;
 	}
 	if (wait_res < 0) {
@@ -619,7 +909,7 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
 	}
 
 	if (result >= 0)
-		log_block_read(mi, &df->df_id, index, false /*timed out*/);
+		log_block_read(mi, &df->df_id, index);
 
 out:
 	return result;
@@ -641,7 +931,7 @@ int incfs_process_new_data_block(struct data_file *df,
 	bfc = df->df_backing_file_context;
 	mi = df->df_mount_info;
 
-	if (block->block_index >= df->df_block_count)
+	if (block->block_index >= df->df_data_block_count)
 		return -ERANGE;
 
 	segment = get_file_segment(df, block->block_index);
@@ -747,7 +1037,7 @@ int incfs_process_new_hash_block(struct data_file *df,
 	if (!error)
 		error = incfs_write_hash_block_to_backing_file(
 			bfc, range(data, block->data_len), block->block_index,
-			hash_area_base);
+			hash_area_base, df->df_blockmap_off, df->df_size);
 	mutex_unlock(&bfc->bc_mutex);
 	return error;
 }
@@ -763,9 +1053,10 @@ static int process_blockmap_md(struct incfs_blockmap *bm,
 	if (!df)
 		return -EFAULT;
 
-	if (df->df_block_count != block_count)
+	if (df->df_data_block_count > block_count)
 		return -EBADMSG;
 
+	df->df_total_block_count = block_count;
 	df->df_blockmap_off = base_off;
 	return error;
 }
@@ -797,7 +1088,7 @@ static int process_file_signature_md(struct incfs_file_signature *sg,
 	int error = 0;
 	struct incfs_df_signature *signature =
 		kzalloc(sizeof(*signature), GFP_NOFS);
-	void *buf = 0;
+	void *buf = NULL;
 	ssize_t read;
 
 	if (!df || !df->df_backing_file_context ||
@@ -830,7 +1121,7 @@ static int process_file_signature_md(struct incfs_file_signature *sg,
 	}
 
 	hash_tree = incfs_alloc_mtree(range(buf, signature->sig_size),
-				      df->df_block_count);
+				      df->df_data_block_count);
 	if (IS_ERR(hash_tree)) {
 		error = PTR_ERR(hash_tree);
 		hash_tree = NULL;
@@ -912,6 +1203,17 @@ int incfs_scan_metadata_chain(struct data_file *df)
 		result = records_count;
 	}
 	mutex_unlock(&bfc->bc_mutex);
+
+	if (df->df_hash_tree) {
+		int hash_block_count = get_blocks_count_for_size(
+			df->df_hash_tree->hash_tree_area_size);
+
+		if (df->df_data_block_count + hash_block_count !=
+		    df->df_total_block_count)
+			result = -EINVAL;
+	} else if (df->df_data_block_count != df->df_total_block_count)
+		result = -EINVAL;
+
 out:
 	kfree(handler);
 	return result;
@@ -977,36 +1279,29 @@ struct read_log_state incfs_get_log_state(struct mount_info *mi)
 	struct read_log *log = &mi->mi_log;
 	struct read_log_state result;
 
-	spin_lock(&log->rl_writer_lock);
-	result = READ_ONCE(log->rl_state);
-	spin_unlock(&log->rl_writer_lock);
+	spin_lock(&log->rl_lock);
+	result = log->rl_head;
+	spin_unlock(&log->rl_lock);
 	return result;
 }
 
-static u64 calc_record_count(const struct read_log_state *state, int rl_size)
-{
-	return state->current_pass_no * (u64)rl_size + state->next_index;
-}
-
 int incfs_get_uncollected_logs_count(struct mount_info *mi,
-				     struct read_log_state state)
+				     const struct read_log_state *state)
 {
 	struct read_log *log = &mi->mi_log;
+	u32 generation;
+	u64 head_no, tail_no;
 
-	u64 count = calc_record_count(&log->rl_state, log->rl_size) -
-		    calc_record_count(&state, log->rl_size);
-	return min_t(int, count, log->rl_size);
-}
+	spin_lock(&log->rl_lock);
+	tail_no = log->rl_tail.current_record_no;
+	head_no = log->rl_head.current_record_no;
+	generation = log->rl_head.generation_id;
+	spin_unlock(&log->rl_lock);
 
-static void fill_pending_read_from_log_record(
-	struct incfs_pending_read_info *dest, const struct read_log_record *src,
-	struct read_log_state *state, u64 log_size)
-{
-	dest->file_id = src->file_id;
-	dest->block_index = get_block_index(src);
-	dest->serial_number =
-		state->current_pass_no * log_size + state->next_index;
-	dest->timestamp_us = src->timestamp_us;
+	if (generation != state->generation_id)
+		return head_no - tail_no;
+	else
+		return head_no - max_t(u64, tail_no, state->current_record_no);
 }
 
 int incfs_collect_logged_reads(struct mount_info *mi,
@@ -1014,58 +1309,47 @@ int incfs_collect_logged_reads(struct mount_info *mi,
 			       struct incfs_pending_read_info *reads,
 			       int reads_size)
 {
-	struct read_log *log = &mi->mi_log;
-	struct read_log_state live_state = incfs_get_log_state(mi);
-	u64 read_count = calc_record_count(reader_state, log->rl_size);
-	u64 written_count = calc_record_count(&live_state, log->rl_size);
 	int dst_idx;
+	struct read_log *log = &mi->mi_log;
+	struct read_log_state *head, *tail;
 
-	if (reader_state->next_index >= log->rl_size ||
-	    read_count > written_count)
-		return -ERANGE;
+	spin_lock(&log->rl_lock);
+	head = &log->rl_head;
+	tail = &log->rl_tail;
 
-	if (read_count == written_count)
-		return 0;
-
-	if (read_count > written_count) {
-		/* This reader is somehow ahead of the writer. */
-		pr_debug("incfs: Log reader is ahead of writer\n");
-		*reader_state = live_state;
-	}
-
-	if (written_count - read_count > log->rl_size) {
-		/*
-		 * Reading pointer is too far behind,
-		 * start from the record following the write pointer.
-		 */
-		pr_debug("incfs: read pointer is behind, moving: %u/%u -> %u/%u / %u\n",
-			(u32)reader_state->next_index,
-			(u32)reader_state->current_pass_no,
-			(u32)live_state.next_index,
-			(u32)live_state.current_pass_no - 1, (u32)log->rl_size);
+	if (reader_state->generation_id != head->generation_id) {
+		pr_debug("read ptr is wrong generation: %u/%u",
+			 reader_state->generation_id, head->generation_id);
 
 		*reader_state = (struct read_log_state){
-			.next_index = live_state.next_index,
-			.current_pass_no = live_state.current_pass_no - 1,
+			.generation_id = head->generation_id,
 		};
 	}
 
+	if (reader_state->current_record_no < tail->current_record_no) {
+		pr_debug("read ptr is behind, moving: %u/%u -> %u/%u\n",
+			 (u32)reader_state->next_offset,
+			 (u32)reader_state->current_pass_no,
+			 (u32)tail->next_offset, (u32)tail->current_pass_no);
+
+		*reader_state = *tail;
+	}
+
 	for (dst_idx = 0; dst_idx < reads_size; dst_idx++) {
-		if (reader_state->next_index == live_state.next_index &&
-		    reader_state->current_pass_no == live_state.current_pass_no)
+		if (reader_state->current_record_no == head->current_record_no)
 			break;
 
-		fill_pending_read_from_log_record(
-			&reads[dst_idx],
-			&log->rl_ring_buf[reader_state->next_index],
-			reader_state, log->rl_size);
+		log_read_one_record(log, reader_state);
 
-		reader_state->next_index++;
-		if (reader_state->next_index == log->rl_size) {
-			reader_state->next_index = 0;
-			reader_state->current_pass_no++;
-		}
+		reads[dst_idx] = (struct incfs_pending_read_info){
+			.file_id = reader_state->base_record.file_id,
+			.block_index = reader_state->base_record.block_index,
+			.serial_number = reader_state->current_record_no,
+			.timestamp_us = reader_state->base_record.absolute_ts_us
+		};
 	}
+
+	spin_unlock(&log->rl_lock);
 	return dst_idx;
 }
 
