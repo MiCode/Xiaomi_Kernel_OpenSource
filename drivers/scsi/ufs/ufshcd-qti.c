@@ -9999,6 +9999,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	async_schedule(ufshcd_async_scan, hba);
 
+	ufs_sysfs_add_nodes(hba->dev);
 
 	return 0;
 
