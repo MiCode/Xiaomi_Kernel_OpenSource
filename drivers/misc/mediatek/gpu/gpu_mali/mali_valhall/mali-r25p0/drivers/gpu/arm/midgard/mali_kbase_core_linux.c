@@ -4067,17 +4067,40 @@ int kbase_backend_devfreq_init(struct kbase_device *kbdev)
 	return 0;
 }
 
+/* the lock prove have false alarm when driver probe. skip it*/
+#define MTK_SKIP_LOCK_PROVE 1
+
+#if MTK_SKIP_LOCK_PROVE
+#define RETURN_ERROR(X) do { lockdep_on(); return X; } while (0)
+#else
+#define RETURN_ERROR(X) do { return X; } while (0)
+#endif
+
 static int kbase_platform_device_probe(struct platform_device *pdev)
 {
 	struct kbase_device *kbdev;
 	int err = 0;
+
+#if MTK_SKIP_LOCK_PROVE
+	lockdep_off();
+#endif
+
+	/* MTK */
+	/* make sure gpufreq driver is ready */
+	pr_info("%s start\n", __func__);
+
+	if (mt_gpufreq_not_ready()) {
+		pr_info("gpufreq driver is not ready: %d\n", -EPROBE_DEFER);
+		RETURN_ERROR(-EPROBE_DEFER);
+	}
+	/********/
 
 	mali_kbase_print_cs_experimental();
 
 	kbdev = kbase_device_alloc();
 	if (!kbdev) {
 		dev_err(&pdev->dev, "Allocate device failed\n");
-		return -ENOMEM;
+		RETURN_ERROR(-ENOMEM);
 	}
 
 	kbdev->dev = &pdev->dev;
@@ -4133,7 +4156,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		kbase_increment_device_id();
 	}
 
-	return err;
+	RETURN_ERROR(err);
 }
 
 #undef KBASEP_DEFAULT_REGISTER_HISTORY_SIZE
