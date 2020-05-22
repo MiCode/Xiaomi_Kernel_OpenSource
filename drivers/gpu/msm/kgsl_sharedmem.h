@@ -223,6 +223,17 @@ kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
 	return (memdesc->priv & KGSL_MEMDESC_GUARD_PAGE) != 0;
 }
 
+/**
+ * kgsl_memdesc_is_reclaimed - check if a buffer is reclaimed
+ * @memdesc: the memdesc
+ *
+ * Return: true if the memdesc pages were reclaimed, false otherwise
+ */
+static inline bool kgsl_memdesc_is_reclaimed(const struct kgsl_memdesc *memdesc)
+{
+	return memdesc && (memdesc->priv & KGSL_MEMDESC_RECLAIMED);
+}
+
 /*
  * kgsl_memdesc_guard_page_size - returns guard page size
  * @memdesc - the memdesc
@@ -397,5 +408,32 @@ unsigned int kgsl_gfp_mask(unsigned int page_order);
  * Map a page into kernel and zero it out
  */
 void kgsl_zero_page(struct page *page, unsigned int order);
+
+/**
+ * kgsl_flush_page - flush a page
+ * @page: pointer to the struct page
+ *
+ * Map a page into kernel and flush it
+ */
+void kgsl_flush_page(struct page *page);
+
+/**
+ * struct kgsl_process_attribute - basic attribute for a process
+ * @attr: Underlying struct attribute
+ * @show: Attribute show function
+ * @store: Attribute store function
+ */
+struct kgsl_process_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *kobj,
+			struct kgsl_process_attribute *attr, char *buf);
+	ssize_t (*store)(struct kobject *kobj,
+		struct kgsl_process_attribute *attr, const char *buf,
+		ssize_t count);
+};
+
+#define PROCESS_ATTR(_name, _mode, _show, _store) \
+	static struct kgsl_process_attribute attr_##_name = \
+			__ATTR(_name, _mode, _show, _store)
 
 #endif /* __KGSL_SHAREDMEM_H */
