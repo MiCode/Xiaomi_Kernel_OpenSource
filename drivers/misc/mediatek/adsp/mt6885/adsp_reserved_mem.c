@@ -10,40 +10,38 @@
 #endif
 #include <memory/mediatek/emi.h>
 #include "adsp_reserved_mem.h"
+#include "adsp_feature_define.h"
 #include "adsp_platform.h"
 #include "adsp_core.h"
 
-#define ADSP_RESERVE_MEMORY_BLOCK(xsize) {.phys_addr = 0x0, .virt_addr = NULL, \
-					  .size = xsize}
+#define ADSP_RESERVE_MEMORY_BLOCK(xname) \
+		{.phys_addr = 0x0, .virt_addr = NULL, \
+		 .size = 0, .name = xname}
 
 static struct adsp_reserve_mblock adsp_reserve_mem = {0};
 
 static struct adsp_reserve_mblock adsp_reserve_mblocks[] = {
-#ifdef CONFIG_FPGA_EARLY_PORTING
-	[ADSP_A_IPI_DMA_MEM_ID]     = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_B_IPI_DMA_MEM_ID]     = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_B_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_C2C_MEM_ID]           = ADSP_RESERVE_MEMORY_BLOCK(0x40000),
-	[ADSP_A_DEBUG_DUMP_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_B_DEBUG_DUMP_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_CORE_DUMP_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x400),
-	[ADSP_B_CORE_DUMP_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x400),
-#else
-	[ADSP_A_IPI_DMA_MEM_ID]     = ADSP_RESERVE_MEMORY_BLOCK(0x100000),
-	[ADSP_B_IPI_DMA_MEM_ID]     = ADSP_RESERVE_MEMORY_BLOCK(0x100000),
-	[ADSP_A_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_B_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_C2C_MEM_ID]           = ADSP_RESERVE_MEMORY_BLOCK(0x40000),
-	[ADSP_AUDIO_COMMON_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x5C0000),
-//	[ADSP_OFFLOAD_MEM_ID]       = ADSP_RESERVE_MEMORY_BLOCK(0x400000),
-	[ADSP_CALL_FINAL_MEM_ID]    = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_PHONE_CALL_MEM_ID]    = ADSP_RESERVE_MEMORY_BLOCK(0),
-	[ADSP_A_DEBUG_DUMP_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_B_DEBUG_DUMP_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_CORE_DUMP_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x400),
-	[ADSP_B_CORE_DUMP_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x400),
-
+	[ADSP_A_IPI_DMA_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-ipidma-a"),
+	[ADSP_B_IPI_DMA_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-ipidma-b"),
+	[ADSP_A_LOGGER_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-logger-a"),
+	[ADSP_B_LOGGER_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-logger-b"),
+	[ADSP_C2C_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-c2c"),
+	[ADSP_A_DEBUG_DUMP_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-dbg-dump-a"),
+	[ADSP_B_DEBUG_DUMP_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-dbg-dump-b"),
+	[ADSP_A_CORE_DUMP_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-a"),
+	[ADSP_B_CORE_DUMP_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-b"),
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	[ADSP_AUDIO_COMMON_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-audio"),
 #endif
 };
 
@@ -87,6 +85,7 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 
 void adsp_set_emimpu_shared_region(void)
 {
+#if ADSP_EMI_PROTECTION_ENABLE
 	struct emimpu_region_t adsp_region;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	int ret = 0;
@@ -105,7 +104,25 @@ void adsp_set_emimpu_shared_region(void)
 	if (ret < 0)
 		pr_info("%s fail to set emimpu protection\n", __func__);
 	mtk_emimpu_free_region(&adsp_region);
+#endif
 }
+
+int adsp_mem_device_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	int i;
+	uint32_t size;
+	struct device *dev = &pdev->dev;
+
+	for (i = 0; i < ADSP_NUMS_MEM_ID; i++) {
+		ret = of_property_read_u32(dev->of_node,
+		      adsp_reserve_mblocks[i].name, &size);
+		if (!ret)
+			adsp_reserve_mblocks[i].size = (size_t)size;
+	}
+	return 0;
+}
+
 void adsp_init_reserve_memory(void)
 {
 	enum adsp_reserve_mem_id_t id;
@@ -113,13 +130,12 @@ void adsp_init_reserve_memory(void)
 	size_t acc_size = 0;
 
 	if (!mem->phys_addr || !mem->size) {
-		pr_info("%s() reserve memory illegal addr:%llu, size:%zu\n",
+		pr_info("%s() reserve memory illegal addr:%llx, size:%zx\n",
 			__func__, mem->phys_addr, mem->size);
 		return;
 	}
 
 	mem->virt_addr = ioremap_wc(mem->phys_addr, mem->size);
-
 	if (!mem->virt_addr) {
 		pr_info("%s() ioremap fail\n", __func__);
 		return;
@@ -130,8 +146,13 @@ void adsp_init_reserve_memory(void)
 		adsp_reserve_mblocks[id].phys_addr = mem->phys_addr + acc_size;
 		adsp_reserve_mblocks[id].virt_addr = mem->virt_addr + acc_size;
 		acc_size += adsp_reserve_mblocks[id].size;
+#ifdef MEM_DEBUG
+		pr_info("adsp_reserve_mblocks[%d] phys_addr:%llx, size:0x%zx\n",
+			id,
+			adsp_reserve_mblocks[id].phys_addr,
+			adsp_reserve_mblocks[id].size);
+#endif
 	}
-
 	WARN_ON(acc_size > mem->size);
 }
 
