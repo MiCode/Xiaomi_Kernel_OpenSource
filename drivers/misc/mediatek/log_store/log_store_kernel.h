@@ -1,14 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #ifndef __LOG_STORE_H__
@@ -62,15 +54,15 @@ struct pl_lk_log {
 struct dram_buf_header {
 	u32 sig;
 	u32 flag;
-	u32 buf_addr;
+	u64 buf_addr;
 	u32 buf_size;
 	u32 buf_offsize;
 	u32 buf_point;
-	u32 klog_addr;
+	u64 klog_addr;
 	u32 klog_size;
-	u32 atf_log_addr;
+	u64 atf_log_addr;
 	u32 atf_log_len;
-};
+} __packed;
 
 /* total 256 bytes */
 struct sram_log_header {
@@ -79,10 +71,10 @@ struct sram_log_header {
 	u32 save_to_emmc;
 	struct dram_buf_header dram_buf;        // 40 bytes
 	struct pl_lk_log dram_curlog_header;    // 32 bytes
-	u32 gz_log_addr;
+	u64 gz_log_addr;
 	u32 gz_log_len;
-	u32 reserve[41];                        // reserve 41 * 4 char size
-};
+	u32 reserve[37];                        // reserve 37 * 4 char size
+} __packed;
 
 enum EMMC_STORE_TYPE {
 	UART_LOG = 0,
@@ -100,12 +92,24 @@ struct log_emmc_header {
 	u32 reserve[10];
 };
 
-#ifdef CONFIG_MTK_DRAM_LOG_STORE
+#if IS_ENABLED(CONFIG_MTK_DRAM_LOG_STORE)
 void log_store_bootup(void);
 void store_log_to_emmc_enable(bool value);
 void disable_early_log(void);
+#ifdef MODULE
+static inline int set_emmc_config(int type, int value)
+{
+	return 0;
+}
+
+static inline int read_emmc_config(struct log_emmc_header *log_header)
+{
+	return 0;
+}
+#else
 int set_emmc_config(int type, int value);
 int read_emmc_config(struct log_emmc_header *log_header);
+#endif
 #else
 
 static inline void  log_store_bootup(void)

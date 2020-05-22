@@ -1,6 +1,5 @@
 config MTK_DRAM_LOG_STORE
-	bool "mtk DRAM log store"
-	default n
+	tristate "mtk DRAM log store"
 	help
 	  DRAM log store featuer is used to store log(preload, lk) in DRAM,
 	  which can be readed in kernel phase.
