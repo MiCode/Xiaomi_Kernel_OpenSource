@@ -61,6 +61,10 @@
 #include "mtk_static_power_mt6873.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6853)
+#include "mtk_static_power_mt6853.h"
+#endif
+
 /*
  * bit operation
  */
