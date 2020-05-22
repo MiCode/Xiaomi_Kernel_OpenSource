@@ -15,7 +15,7 @@
 #include "mtk_power_gs_array.h"
 #include "mt-plat/mtk_rtc.h"
 
-xtern void dump_pmic(int pmic_num, const char *scenario,
+extern void dump_pmic(int pmic_num, const char *scenario,
 const unsigned int *pmic_gs, unsigned int pmic_gs_len);
 
 void mt_power_gs_table_init(void)
