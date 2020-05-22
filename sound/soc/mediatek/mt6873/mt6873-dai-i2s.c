@@ -1916,7 +1916,7 @@ static struct snd_soc_dai_driver mtk_dai_i2s_driver[] = {
 	{
 		.name = "I2S6",
 		.id = MT6873_DAI_I2S_6,
-		.playback = {
+		.capture = {
 			.stream_name = "I2S6",
 			.channels_min = 1,
 			.channels_max = 2,
@@ -1940,7 +1940,7 @@ static struct snd_soc_dai_driver mtk_dai_i2s_driver[] = {
 	{
 		.name = "I2S8",
 		.id = MT6873_DAI_I2S_8,
-		.playback = {
+		.capture = {
 			.stream_name = "I2S8",
 			.channels_min = 1,
 			.channels_max = 2,
