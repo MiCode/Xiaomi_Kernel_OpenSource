@@ -97,7 +97,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 		return -EMFILE;
 	}
 
-	if (vcu_get_sig_lock(flags) <= 0) {
+	if (vcu_get_sig_lock(&flags) <= 0) {
 		pr_info("%s() Failed to try lock...VPUD may die", __func__);
 		vcu_put_file_lock();
 		return -EMFILE;
@@ -160,7 +160,7 @@ inline void close_mapped_fd(unsigned int target_fd)
 		return;
 	}
 
-	if (vcu_get_sig_lock(flags) <= 0) {
+	if (vcu_get_sig_lock(&flags) <= 0) {
 		pr_info("%s() Failed to try lock...VPUD may die", __func__);
 		vcu_put_file_lock();
 		return;
