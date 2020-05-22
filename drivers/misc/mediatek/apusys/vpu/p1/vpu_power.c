@@ -300,8 +300,6 @@ static void vpu_pwr_wake_lock(struct vpu_device *vd)
 {
 #ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&vd->pw_wake_lock);
-#else
-	wake_lock(&vd->pw_wake_lock);
 #endif
 }
 
@@ -309,8 +307,6 @@ static void vpu_pwr_wake_unlock(struct vpu_device *vd)
 {
 #ifdef CONFIG_PM_SLEEP
 	__pm_relax(&vd->pw_wake_lock);
-#else
-	wake_unlock(&vd->pw_wake_lock);
 #endif
 }
 
@@ -318,8 +314,6 @@ static void vpu_pwr_wake_init(struct vpu_device *vd)
 {
 #ifdef CONFIG_PM_SLEEP
 	wakeup_source_init(&vd->pw_wake_lock, vd->name);
-#else
-	wake_lock_init(&vd->pw_wake_lock, WAKE_LOCK_SUSPEND, vd->name);
 #endif
 }
 

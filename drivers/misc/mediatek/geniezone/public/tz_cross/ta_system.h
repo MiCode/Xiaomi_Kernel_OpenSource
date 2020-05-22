@@ -53,8 +53,6 @@ extern struct platform_driver tz_system_driver;
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 /*for kernel-4.14*/
 extern struct wakeup_source TeeServiceCall_wake_lock;
-#else
-extern struct wake_lock TeeServiceCall_wake_lock;
 #endif
 
 #endif /* __TRUSTZONE_TA_SYSTEM__ */
