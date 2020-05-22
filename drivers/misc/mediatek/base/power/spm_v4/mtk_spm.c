@@ -62,7 +62,6 @@
 
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
-#include <linux/debugfs.h>
 #include <mtk_spm_misc.h>
 #include <mtk_spm_resource_req_internal.h>
 /* TODO: fix */
@@ -72,10 +71,12 @@
 
 #include <trace/events/mtk_events.h>
 
+#include <mtk_lp_sysfs.h>
+#include <mtk_lp_kernfs.h>
+#include "mtk_idle_sysfs.h"
+
 int __spmfw_idx = -1;
 int spm_for_gps_flag;
-static struct dentry *spm_dir;
-static struct dentry *spm_file;
 
 void __iomem *spm_base;
 void __iomem *sleep_reg_md_base;
@@ -155,17 +156,13 @@ char *__attribute__((weak)) spm_vcorefs_dump_dvfs_regs(char *p)
 	return NULL;
 }
 
-int __attribute__((weak))
-get_spm_last_wakeup_src(struct seq_file *s, void *unused)
-{
-	return 0;
-}
+ssize_t __attribute__((weak))
+get_spm_last_wakeup_src(char *ToUserBuf, size_t sz, void *priv) { return 0; }
 
-int __attribute__((weak))
-get_spm_sleep_count(struct seq_file *s, void *unused)
-{
-	return 0;
-}
+ssize_t __attribute__((weak))
+get_spm_sleep_count(char *ToUserBuf, size_t sz, void *priv) { return 0; }
+
+
 
 /**************************************
  * Init and IRQ Function
@@ -410,28 +407,12 @@ int spm_load_firmware_status(void)
 	return local_spm_load_firmware_status;
 }
 
-static int spm_sleep_count_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, get_spm_sleep_count, &inode->i_private);
-}
-
-static const struct file_operations spm_sleep_count_fops = {
-	.open = spm_sleep_count_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op spm_sleep_count_fops = {
+	.fs_read = get_spm_sleep_count,
 };
 
-static int spm_last_wakeup_src_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, get_spm_last_wakeup_src, &inode->i_private);
-}
-
-static const struct file_operations spm_last_wakeup_src_fops = {
-	.open = spm_last_wakeup_src_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op spm_last_wakeup_src_fops = {
+	.fs_read = get_spm_last_wakeup_src,
 };
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -618,6 +599,9 @@ int __init spm_module_init(void)
 	int i;
 	unsigned int irq_type;
 
+	struct mtk_lp_sysfs_handle *pParent = NULL;
+	struct mtk_lp_sysfs_handle entry_spm;
+
 #if defined(CONFIG_MACH_MT6739)
 #if defined(CONFIG_MTK_PMIC) || defined(CONFIG_MTK_PMIC_NEW_ARCH)
 	spm_crit2("pmic_ver %d\n", PMIC_LP_CHIP_VER());
@@ -686,27 +670,23 @@ int __init spm_module_init(void)
 		return -EINVAL;
 	}
 
-	spm_dir = debugfs_create_dir("spm", NULL);
-	if (spm_dir == NULL) {
-		printk_deferred("[name:spm&]Failed to create spm dir in debugfs.\n");
-		return -EINVAL;
-	}
+	mtk_idle_sysfs_root_entry_create();
 
-	spm_file = debugfs_create_file("spm_sleep_count",
-				       0444, spm_dir,
-				       NULL,
-				       &spm_sleep_count_fops);
-	spm_file = debugfs_create_file("spm_last_wakeup_src",
-				       0444,
-				       spm_dir,
-				       NULL,
-				       &spm_last_wakeup_src_fops);
+	if (mtk_idle_sysfs_entry_root_get(&pParent) == 0) {
+		mtk_lp_sysfs_entry_func_create("spm", 0444,
+			pParent, &entry_spm);
+		mtk_lp_sysfs_entry_func_node_add("spm_sleep_count", 0444,
+			&spm_sleep_count_fops, &entry_spm, NULL);
+		mtk_lp_sysfs_entry_func_node_add("spm_last_wakeup_src", 0444,
+			&spm_last_wakeup_src_fops, &entry_spm, NULL);
+	}
 
 	/* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-	spm_resource_req_debugfs_init(spm_dir);
+	spm_resource_req_debugfs_init(&entry_spm);
 #endif
-	spm_suspend_debugfs_init(spm_dir);
+	spm_suspend_debugfs_init(&entry_spm);
+
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 #ifdef CONFIG_PM

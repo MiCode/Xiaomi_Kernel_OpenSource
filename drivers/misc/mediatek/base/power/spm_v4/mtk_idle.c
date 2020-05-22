@@ -24,7 +24,6 @@
 #include <linux/cpumask.h>
 #include <linux/tick.h>
 
-#include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -70,8 +69,11 @@
 
 #include <mt-plat/mtk_boot.h>
 
+#include <mtk_lp_sysfs.h>
+#include <mtk_lp_kernfs.h>
+#include "mtk_idle_sysfs.h"
+
 #define IDLE_GPT GPT4
-#define NR_CMD_BUF		128
 
 #define IDLE_TAG     "[name:spm&]Power/swap "
 #define idle_err(fmt, args...)		printk_deferred(IDLE_TAG fmt, ##args)
@@ -1374,31 +1376,23 @@ EXPORT_SYMBOL(rgidle_enter);
 /*
  * debugfs
  */
-static char dbg_buf[4096] = { 0 };
-static char cmd_buf[512] = { 0 };
-
-#undef mt_idle_log
-#define mt_idle_log(fmt, args...)	log2buf(p, dbg_buf, fmt, ##args)
+#define SYSFS_ENTRY "/sys/kernel/mtk_lpm/cpuidle"
 
 /* idle_state */
-static int _idle_state_open(struct seq_file *s, void *data)
+static ssize_t idle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 {
-	return 0;
-}
+	int i;
+	char *p = ToUserBuf;
+	size_t sz = sz_t;
 
-static int idle_state_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _idle_state_open, inode->i_private);
-}
+	#undef mt_idle_log
+	#define mt_idle_log(fmt, args...) \
+	do { \
+		int l = scnprintf(p, sz, fmt, ##args); \
+		p += l; \
+		sz -= l; \
+	} while (0)
 
-static ssize_t idle_state_read(struct file *filp,
-			       char __user *userbuf,
-			       size_t count, loff_t *f_pos)
-{
-	int i, len = 0;
-	char *p = dbg_buf;
-
-	p[0] = '\0';
 	mt_idle_log("********** idle state dump **********\n");
 
 	for (i = 0; i < nr_cpu_ids; i++) {
@@ -1428,47 +1422,27 @@ static ssize_t idle_state_read(struct file *filp,
 	mt_idle_log("force VCORE lp mode = %u\n", idle_force_vcore_lp_mode);
 
 	mt_idle_log("\n********** idle command help **********\n");
-	mt_idle_log(
-"status help:   cat /sys/kernel/debug/cpuidle/idle_state\n");
-	mt_idle_log(
-"switch on/off: echo switch mask > /sys/kernel/debug/cpuidle/idle_state\n");
+	mt_idle_log("status help:   cat %s/idle_state\n", SYSFS_ENTRY);
+	mt_idle_log("switch on/off: echo switch mask > %s/idle_state\n",
+		SYSFS_ENTRY);
 	mt_idle_log("idle ratio profile: ");
-	mt_idle_log(
-"echo ratio 1/0 > /sys/kernel/debug/cpuidle/idle_state\n");
+	mt_idle_log("echo ratio 1/0 > %s/idle_state\n", SYSFS_ENTRY);
 	mt_idle_log("idle latency profile: ");
-	mt_idle_log(
-"echo latency 1/0 > /sys/kernel/debug/cpuidle/idle_state\n");
+	mt_idle_log("echo latency 1/0 > %s/idle_state\n", SYSFS_ENTRY);
+	mt_idle_log("soidle3 help:  cat %s/soidle3_state\n", SYSFS_ENTRY);
+	mt_idle_log("soidle help:   cat %s/soidle_state\n", SYSFS_ENTRY);
+	mt_idle_log("dpidle help:   cat %s/dpidle_state\n", SYSFS_ENTRY);
+	mt_idle_log("rgidle help:   cat %s/rgidle_state\n", SYSFS_ENTRY);
 
-	mt_idle_log(
-"soidle3 help:  cat /sys/kernel/debug/cpuidle/soidle3_state\n");
-	mt_idle_log(
-"soidle help:   cat /sys/kernel/debug/cpuidle/soidle_state\n");
-	mt_idle_log(
-"dpidle help:   cat /sys/kernel/debug/cpuidle/dpidle_state\n");
-	mt_idle_log(
-"rgidle help:   cat /sys/kernel/debug/cpuidle/rgidle_state\n");
-
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
+	return p - ToUserBuf;
 }
 
-static ssize_t idle_state_write(struct file *filp,
-				const char __user *userbuf,
-				size_t count, loff_t *f_pos)
+static ssize_t idle_state_write(char *FromUserBuf, size_t sz, void *priv)
 {
-	char cmd[NR_CMD_BUF];
-	int idx;
-	int param;
+	char cmd[128];
+	int param, idx;
 
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	if (copy_from_user(cmd_buf, userbuf, count))
-		return -EFAULT;
-
-	cmd_buf[count] = '\0';
-
-	if (sscanf(cmd_buf, "%127s %x", cmd, &param) == 2) {
+	if (sscanf(FromUserBuf, "%127s %x", cmd, &param) == 2) {
 		if (!strcmp(cmd, "switch")) {
 			for (idx = 0; idx < NR_TYPES; idx++)
 				idle_switch[idx] =
@@ -1497,39 +1471,34 @@ static ssize_t idle_state_write(struct file *filp,
 		} else if (!strcmp(cmd, "force_vcore_lp_mode")) {
 			idle_force_vcore_lp_mode = param;
 		}
-		return count;
+		return sz;
+	} else if ((!kstrtoint(FromUserBuf, 10, &param)) == 1) {
+		return sz;
 	}
 
 	return -EINVAL;
 }
 
-static const struct file_operations idle_state_fops = {
-	.open = idle_state_open,
-	.read = idle_state_read,
-	.write = idle_state_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op idle_state_fops = {
+	.fs_read = idle_state_read,
+	.fs_write = idle_state_write,
 };
 
 /* dpidle_state */
-static int _dpidle_state_open(struct seq_file *s, void *data)
+static ssize_t dpidle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 {
-	return 0;
-}
+	int i, k;
+	char *p = ToUserBuf;
+	size_t sz = sz_t;
 
-static int dpidle_state_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _dpidle_state_open, inode->i_private);
-}
+	#undef mt_idle_log
+	#define mt_idle_log(fmt, args...) \
+	do { \
+		int l = scnprintf(p, sz, fmt, ##args); \
+		p += l; \
+		sz -= l; \
+	} while (0)
 
-static ssize_t dpidle_state_read(struct file *filp,
-				 char __user *userbuf,
-				 size_t count, loff_t *f_pos)
-{
-	int i, k, len = 0;
-	char *p = dbg_buf;
-
-	p[0] = '\0';
 	mt_idle_log("*********** deep idle state ************\n");
 	mt_idle_log("dpidle_time_criteria=%u\n", dpidle_time_criteria);
 
@@ -1577,48 +1546,29 @@ static ssize_t dpidle_state_read(struct file *filp,
 	mt_idle_log("([0]: Reduced, [1]: Full, [2]: resource_usage\n");
 
 	mt_idle_log("\n*********** dpidle command help  ************\n");
-	mt_idle_log(
-"dpidle help:   cat /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("dpidle help:   cat %s/dpidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("switch on/off: ");
-	mt_idle_log(
-"echo [dpidle] 1/0 > /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("echo [dpidle] 1/0 > %s/dpidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("cpupdn on/off: ");
-	mt_idle_log(
-"echo cpupdn 1/0 > /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("echo cpupdn 1/0 > %s/dpidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("en_dp_by_bit:  ");
-	mt_idle_log(
-"echo enable id > /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("echo enable id > %s/dpidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("dis_dp_by_bit: ");
-	mt_idle_log(
-"echo disable id > /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("echo disable id > %s/dpidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("modify tm_cri: ");
-	mt_idle_log(
-"echo time value(dec) > /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("echo time value(dec) > %s/dpidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("bypass cg:     ");
-	mt_idle_log(
-"echo bypass 1/0 > /sys/kernel/debug/cpuidle/dpidle_state\n");
+	mt_idle_log("echo bypass 1/0 > %s/dpidle_state\n", SYSFS_ENTRY);
 
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
+	return p - ToUserBuf;
 }
 
-static ssize_t dpidle_state_write(struct file *filp,
-				  const char __user *userbuf,
-				  size_t count,
-				  loff_t *f_pos)
+static ssize_t dpidle_state_write(char *FromUserBuf, size_t sz, void *priv)
 {
-	char cmd[NR_CMD_BUF];
+	char cmd[128];
 	int param;
 
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	if (copy_from_user(cmd_buf, userbuf, count))
-		return -EFAULT;
-
-	cmd_buf[count] = '\0';
-
-	if (sscanf(cmd_buf, "%127s %d", cmd, &param) == 2) {
+	if (sscanf(FromUserBuf, "%127s %d", cmd, &param) == 2) {
 		if (!strcmp(cmd, "dpidle"))
 			idle_switch[IDLE_TYPE_DP] = param;
 		else if (!strcmp(cmd, "enable"))
@@ -1649,43 +1599,37 @@ static ssize_t dpidle_state_write(struct file *filp,
 		else if (!strcmp(cmd, "log"))
 			dpidle_dump_log = param;
 
-		return count;
-	} else if ((!kstrtoint(cmd_buf, 10, &param)) == 1) {
+		return sz;
+	} else if ((!kstrtoint(FromUserBuf, 10, &param)) == 1) {
 		idle_switch[IDLE_TYPE_DP] = param;
 
-		return count;
+		return sz;
 	}
 
 	return -EINVAL;
 }
 
-static const struct file_operations dpidle_state_fops = {
-	.open = dpidle_state_open,
-	.read = dpidle_state_read,
-	.write = dpidle_state_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op dpidle_state_fops = {
+	.fs_read = dpidle_state_read,
+	.fs_write = dpidle_state_write,
 };
 
 /* soidle3_state */
-static int _soidle3_state_open(struct seq_file *s, void *data)
+static ssize_t soidle3_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 {
-	return 0;
-}
+	int i;
+	char *p = ToUserBuf;
+	size_t sz = sz_t;
 
-static int soidle3_state_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _soidle3_state_open, inode->i_private);
-}
+	#undef mt_idle_log
+	#define mt_idle_log(fmt, args...) \
+	do { \
+		int l = scnprintf(p, sz, fmt, ##args); \
+		p += l; \
+		sz -= l; \
+	} while (0)
 
-static ssize_t soidle3_state_read(struct file *filp,
-				  char __user *userbuf,
-				  size_t count, loff_t *f_pos)
-{
-	int i, len = 0;
-	char *p = dbg_buf;
 
-	p[0] = '\0';
 	mt_idle_log("*********** soidle3 state ************\n");
 
 	for (i = 0; i < NR_REASONS; i++)
@@ -1730,53 +1674,32 @@ static ssize_t soidle3_state_read(struct file *filp,
 	mt_idle_log("sodi3_flags=0x%x\n", sodi3_flags);
 
 	mt_idle_log("\n*********** soidle3 command help  ************\n");
-	mt_idle_log(
-"soidle3 help:  cat /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("soidle3 help:  cat %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("switch on/off: ");
-	mt_idle_log(
-"echo [soidle3] 1/0 > /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("echo [soidle3] 1/0 > %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("en_dp_by_bit:  ");
-	mt_idle_log(
-"echo enable id > /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("echo enable id > %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("dis_dp_by_bit: ");
-	mt_idle_log(
-"echo disable id > /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("echo disable id > %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("bypass pll:    ");
-	mt_idle_log(
-"echo bypass_pll 1/0 > /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("echo bypass_pll 1/0 > %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("bypass cg:     ");
-	mt_idle_log(
-"echo bypass 1/0 > /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("echo bypass 1/0 > %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("bypass en:     ");
-	mt_idle_log(
-"echo bypass_en 1/0 > /sys/kernel/debug/cpuidle/soidle3_state\n");
+	mt_idle_log("echo bypass_en 1/0 > %s/soidle3_state\n", SYSFS_ENTRY);
 	mt_idle_log("sodi3 flags:   ");
-	mt_idle_log(
-"echo sodi3_flags value > /sys/kernel/debug/cpuidle/soidle3_state\n");
-	mt_idle_log(
-"\t[0] reduce log, [1] residency, [2] resource usage\n");
+	mt_idle_log("echo sodi3_flags value > %s/soidle3_state\n", SYSFS_ENTRY);
+	mt_idle_log("\t[0] reduce log, [1] residency, [2] resource usage\n");
 
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
+	return p - ToUserBuf;
 }
 
-static ssize_t soidle3_state_write(struct file *filp,
-				   const char __user *userbuf,
-				   size_t count,
-				   loff_t *f_pos)
+static ssize_t soidle3_state_write(char *FromUserBuf, size_t sz, void *priv)
 {
-	char cmd[NR_CMD_BUF];
+	char cmd[128];
 	int param;
 
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	if (copy_from_user(cmd_buf, userbuf, count))
-		return -EFAULT;
-
-	cmd_buf[count] = '\0';
-
-	if (sscanf(cmd_buf, "%127s %d", cmd, &param) == 2) {
+	if (sscanf(FromUserBuf, "%127s %d", cmd, &param) == 2) {
 		if (!strcmp(cmd, "soidle3"))
 			idle_switch[IDLE_TYPE_SO3] = param;
 		else if (!strcmp(cmd, "enable"))
@@ -1799,44 +1722,37 @@ static ssize_t soidle3_state_write(struct file *filp,
 			sodi3_flags = param;
 			idle_dbg("sodi3_flags = 0x%x\n", sodi3_flags);
 		}
-		return count;
-	} else if ((!kstrtoint(cmd_buf, 10, &param)) == 1) {
+		return sz;
+	} else if ((!kstrtoint(FromUserBuf, 10, &param)) == 1) {
 		idle_switch[IDLE_TYPE_SO3] = param;
-		return count;
+		return sz;
 	}
 
 	return -EINVAL;
 }
 
-static const struct file_operations soidle3_state_fops = {
-	.open = soidle3_state_open,
-	.read = soidle3_state_read,
-	.write = soidle3_state_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op soidle3_state_fops = {
+	.fs_read = soidle3_state_read,
+	.fs_write = soidle3_state_write,
 };
 
+
 /* soidle_state */
-static int _soidle_state_open(struct seq_file *s, void *data)
+static ssize_t soidle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 {
-	return 0;
-}
+	int i;
+	char *p = ToUserBuf;
+	size_t sz  = sz_t;
 
-static int soidle_state_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _soidle_state_open, inode->i_private);
-}
+	#undef mt_idle_log
+	#define mt_idle_log(fmt, args...) \
+	do { \
+		int l = scnprintf(p, sz, fmt, ##args); \
+		p += l; \
+		sz -= l; \
+	} while (0)
 
-static ssize_t soidle_state_read(struct file *filp,
-				 char __user *userbuf,
-				 size_t count, loff_t *f_pos)
-{
-	int i, len = 0;
-	char *p = dbg_buf;
-
-	p[0] = '\0';
 	mt_idle_log("*********** soidle state ************\n");
-
 	for (i = 0; i < NR_REASONS; i++)
 		mt_idle_log("[%d]soidle_block_cnt[%s]=%lu\n",
 			    i, mtk_get_reason_name(i),
@@ -1862,48 +1778,31 @@ static ssize_t soidle_state_read(struct file *filp,
 
 	mt_idle_log("\n*********** soidle command help  ************\n");
 	mt_idle_log("soidle help:   ");
-	mt_idle_log("cat /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("cat %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("switch on/off: ");
-	mt_idle_log(
-"echo [soidle] 1/0 > /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("echo [soidle] 1/0 > %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("en_dp_by_bit:  ");
-	mt_idle_log(
-"echo enable id > /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("echo enable id > %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("dis_dp_by_bit: ");
-	mt_idle_log(
-"echo disable id > /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("echo disable id > %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("bypass cg:     ");
-	mt_idle_log(
-"echo bypass 1/0 > /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("echo bypass 1/0 > %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("bypass en:     ");
-	mt_idle_log(
-"echo bypass_en 1/0 > /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("echo bypass_en 1/0 > %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("sodi flags:    ");
-	mt_idle_log(
-"echo sodi_flags value > /sys/kernel/debug/cpuidle/soidle_state\n");
+	mt_idle_log("echo sodi_flags value > %s/soidle_state\n", SYSFS_ENTRY);
 	mt_idle_log("\t[0] reduce log, [1] residency, [2] resource usage\n");
 
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
+	return p - ToUserBuf;
 }
 
-static ssize_t soidle_state_write(struct file *filp,
-				  const char __user *userbuf,
-				  size_t count,
-				  loff_t *f_pos)
+
+static ssize_t soidle_state_write(char *FromUserBuf, size_t sz, void *priv)
 {
-	char cmd[NR_CMD_BUF];
+	char cmd[128];
 	int param;
 
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	if (copy_from_user(cmd_buf, userbuf, count))
-		return -EFAULT;
-
-	cmd_buf[count] = '\0';
-
-	if (sscanf(cmd_buf, "%127s %d", cmd, &param) == 2) {
+	if (sscanf(FromUserBuf, "%127s %d", cmd, &param) == 2) {
 		if (!strcmp(cmd, "soidle"))
 			idle_switch[IDLE_TYPE_SO] = param;
 		else if (!strcmp(cmd, "enable"))
@@ -1923,89 +1822,41 @@ static ssize_t soidle_state_write(struct file *filp,
 			sodi_flags = param;
 			idle_dbg("sodi_flags = 0x%x\n", sodi_flags);
 		}
-		return count;
-	} else if ((!kstrtoint(cmd_buf, 10, &param)) == 1) {
+		return sz;
+	} else if ((!kstrtoint(FromUserBuf, 10, &param)) == 1) {
 		idle_switch[IDLE_TYPE_SO] = param;
-		return count;
+		return sz;
 	}
 
 	return -EINVAL;
 }
 
-static const struct file_operations soidle_state_fops = {
-	.open = soidle_state_open,
-	.read = soidle_state_read,
-	.write = soidle_state_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op soidle_state_fops = {
+	.fs_read = soidle_state_read,
+	.fs_write = soidle_state_write,
 };
-
-/* CG/PLL/MTCMOS register dump */
-static int _reg_dump_open(struct seq_file *s, void *data)
-{
-	return 0;
-}
-
-static int reg_dump_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _reg_dump_open, inode->i_private);
-}
-
-static ssize_t reg_dump_read(struct file *filp,
-			     char __user *userbuf,
-			     size_t count, loff_t *f_pos)
-{
-	int len = 0;
-	char *p = dbg_buf;
-
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
-}
-
-static ssize_t reg_dump_write(struct file *filp,
-			      const char __user *userbuf,
-			      size_t count,
-			      loff_t *f_pos)
-{
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	return count;
-}
-
-static const struct file_operations reg_dump_fops = {
-	.open = reg_dump_open,
-	.read = reg_dump_read,
-	.write = reg_dump_write,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-/* debugfs entry */
-static struct dentry *root_entry;
 
 static int mtk_cpuidle_debugfs_init(void)
 {
-	/* TODO: check if debugfs_create_file() failed */
-	/* Initialize debugfs */
-	root_entry = debugfs_create_dir("cpuidle", NULL);
-	if (!root_entry) {
-		#if !defined(CONFIG_MACH_MT6739)
-		idle_err("Can not create debugfs `dpidle_state`\n");
-		#endif
-		return 1;
-	}
+	struct mtk_lp_sysfs_handle *pParent = NULL;
+	struct mtk_lp_sysfs_handle entry_cpuidle;
 
-	debugfs_create_file("idle_state", 0644,
-			    root_entry, NULL, &idle_state_fops);
-	debugfs_create_file("dpidle_state", 0644,
-			    root_entry, NULL, &dpidle_state_fops);
-	debugfs_create_file("soidle3_state", 0644,
-			    root_entry, NULL, &soidle3_state_fops);
-	debugfs_create_file("soidle_state", 0644,
-			    root_entry, NULL, &soidle_state_fops);
-	debugfs_create_file("reg_dump", 0644,
-			    root_entry, NULL, &reg_dump_fops);
+	/* create /sys/kernel/mtk_lpm as root */
+	mtk_idle_sysfs_root_entry_create();
+
+	/* create /sys/kernel/mtk_lpm/cpuidle */
+	if (mtk_idle_sysfs_entry_root_get(&pParent) == 0) {
+		mtk_lp_sysfs_entry_func_create("cpuidle",
+			0444, pParent, &entry_cpuidle);
+		mtk_lp_sysfs_entry_func_node_add("idle_state",
+			0644, &idle_state_fops, &entry_cpuidle, NULL);
+		mtk_lp_sysfs_entry_func_node_add("soidle_state",
+			0644, &soidle_state_fops, &entry_cpuidle, NULL);
+		mtk_lp_sysfs_entry_func_node_add("dpidle_state",
+			0644, &dpidle_state_fops, &entry_cpuidle, NULL);
+		mtk_lp_sysfs_entry_func_node_add("soidle3_state",
+			0644, &soidle3_state_fops, &entry_cpuidle, NULL);
+	}
 
 	return 0;
 }

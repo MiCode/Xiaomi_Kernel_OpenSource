@@ -11,10 +11,13 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
+
+#include <mtk_lp_sysfs.h>
+#include <mtk_lp_kernfs.h>
+#include "mtk_idle_sysfs.h"
 
 #include "mtk_spm_resource_req.h"
 
@@ -40,8 +43,6 @@ static const char * const spm_resource_name[] = {
 	"axi_bus",
 	"cpu    "
 };
-
-static struct dentry *spm_resource_req_file;
 
 static int spm_resource_in_use(int resource)
 {
@@ -127,76 +128,46 @@ static void spm_update_curr_resource_usage(void)
 /*
  * debugfs
  */
-#define NF_CMD_BUF		128
-#define DBG_BUF_LEN		4096
-
-static char dbg_buf[4096] = { 0 };
-static char cmd_buf[512] = { 0 };
-
-static int _resource_req_open(struct seq_file *s, void *data)
+static ssize_t resource_req_read(char *ToUserBuf, size_t sz_t, void *priv)
 {
-	return 0;
-}
+	int i;
+	char *p = ToUserBuf;
+	size_t sz  = sz_t;
 
-static int resource_req_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _resource_req_open, inode->i_private);
-}
-
-static ssize_t resource_req_read(struct file *filp,
-			       char __user *userbuf,
-			       size_t count, loff_t *f_pos)
-{
-	int i, len = 0;
-	char *p = dbg_buf;
-
-	p[0] = '\0';
+	#undef log
+	#define log(fmt, args...) \
+	do { \
+		int l = scnprintf(p, sz, fmt, ##args); \
+		p += l; \
+		sz -= l; \
+	} while (0)
 
 	for (i = 0; i < NF_SPM_RESOURCE; i++) {
-		p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf),
-			       "resource_req_bypass_stat[%s] = %x %x, usage %x %x\n",
+		log("resource_req_bypass_stat[%s] = %x %x, usage %x %x\n",
 				spm_resource_name[i],
 				~resc_desc[i].user_usage_mask[1],
 				~resc_desc[i].user_usage_mask[0],
 				resc_desc[i].user_usage[0],
 				resc_desc[i].user_usage[1]);
 	}
+	log("enable:\n");
+	log("echo enable [bit] > /d/spm/resource_req\n");
+	log("echo bypass [bit] > /d/spm/resource_req\n");
+	log("[1] UFS, [2] SSUSB, [3] AUDIO, ");
+	log("[4] UART, [5] CONN, [6] MSDC, [7] SCP\n");
 
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf), "enable:\n");
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf),
-		       "echo enable [bit] > /d/spm/resource_req\n");
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf), "bypass:\n");
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf),
-		       "echo bypass [bit] > /d/spm/resource_req\n");
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf), "\n");
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf),
-		       "[1] UFS, [2] SSUSB, [3] AUDIO, [4] UART, ");
-	p += scnprintf(p, DBG_BUF_LEN - strlen(dbg_buf),
-		       "[5] CONN, [6] MSDC [7] SCP\n");
-
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
+	return p - ToUserBuf;
 }
 
-static ssize_t resource_req_write(struct file *filp,
-				const char __user *userbuf,
-				size_t count, loff_t *f_pos)
+static ssize_t resource_req_write(char *FromUserBuf, size_t sz, void *priv)
 {
-	char cmd[NF_CMD_BUF];
 	int i;
+	char cmd[128];
 	int param;
 	unsigned int field = 0;
 	unsigned int offset = 0;
 
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	if (copy_from_user(cmd_buf, userbuf, count))
-		return -EFAULT;
-
-	cmd_buf[count] = '\0';
-
-	if (sscanf(cmd_buf, "%127s %x", cmd, &param) == 2) {
+	if (sscanf(FromUserBuf, "%127s %x", cmd, &param) == 2) {
 		if (!strcmp(cmd, "enable")) {
 
 			field = param / 32;
@@ -216,28 +187,21 @@ static ssize_t resource_req_write(struct file *filp,
 					~(1 << offset);
 			spm_update_curr_resource_usage();
 		}
-		return count;
+		return sz;
 	}
 
 	return -EINVAL;
 }
 
-static const struct file_operations resource_req_fops = {
-	.open = resource_req_open,
-	.read = resource_req_read,
-	.write = resource_req_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op resource_req_fops = {
+	.fs_read = resource_req_read,
+	.fs_write = resource_req_write,
 };
 
-void spm_resource_req_debugfs_init(struct dentry *spm_dir)
+void spm_resource_req_debugfs_init(void *entry)
 {
-	spm_resource_req_file =
-			debugfs_create_file("resource_req",
-					    0444,
-					    spm_dir,
-					    NULL,
-					    &resource_req_fops);
+	mtk_lp_sysfs_entry_func_node_add("resource_req", 0444,
+		&resource_req_fops, (struct mtk_lp_sysfs_handle *)entry, NULL);
 }
 
 bool spm_resource_req_init(void)

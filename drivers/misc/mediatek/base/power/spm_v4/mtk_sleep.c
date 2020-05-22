@@ -47,6 +47,11 @@
 #include <mtk_mcdi_api.h>
 #endif
 
+#include <mtk_lp_sysfs.h>
+#include <mtk_lp_kernfs.h>
+#include "mtk_idle_sysfs.h"
+
+
 /**************************************
  * only for internal debug
  **************************************/
@@ -540,61 +545,35 @@ void slp_module_init(void)
 /*
  * debugfs
  */
-#define NR_CMD_BUF	128
-static char dbg_buf[4096] = { 0 };
-static char cmd_buf[512] = { 0 };
-static struct dentry *spm_suspend_debugfs_file;
-
-#undef mt_suspend_log
-#define log2buf(p, s, fmt, args...) \
-	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
-#define mt_suspend_log(fmt, args...)	log2buf(p, dbg_buf, fmt, ##args)
-
-static int _suspend_state_open(struct seq_file *s, void *data)
+static ssize_t suspend_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 {
-	return 0;
-}
+	char *p = ToUserBuf;
+	size_t sz  = sz_t;
 
-static int suspend_state_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, _suspend_state_open, inode->i_private);
-}
+	#undef mt_suspend_log
+	#define mt_suspend_log(fmt, args...) \
+	do { \
+		int l = scnprintf(p, sz, fmt, ##args); \
+		p += l; \
+		sz -= l; \
+	} while (0)
 
-static ssize_t suspend_state_read(struct file *filp,
-				  char __user *userbuf,
-				  size_t count, loff_t *f_pos)
-{
-	int len = 0;
-	char *p = dbg_buf;
-
-	p[0] = '\0';
 	mt_suspend_log("*********** suspend state ************\n");
 	mt_suspend_log("suspend valid status = %d\n",
 		       slp_suspend_ops_valid_on);
 	mt_suspend_log("*********** suspend command ************\n");
 	mt_suspend_log(
-		"echo suspend 1/0 > /sys/kernel/debug/spm/suspend_state\n");
+		"echo suspend 1/0 > /sys/kernel/mtk_lpm/spm/suspend_state\n");
 
-	len = p - dbg_buf;
-
-	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
+	return p - ToUserBuf;
 }
 
-static ssize_t suspend_state_write(struct file *filp,
-				   const char __user *userbuf,
-				   size_t count, loff_t *f_pos)
+static ssize_t suspend_state_write(char *FromUserBuf, size_t sz, void *priv)
 {
-	char cmd[NR_CMD_BUF];
+	char cmd[128];
 	int param;
 
-	count = min(count, sizeof(cmd_buf) - 1);
-
-	if (copy_from_user(cmd_buf, userbuf, count))
-		return -EFAULT;
-
-	cmd_buf[count] = '\0';
-
-	if (sscanf(cmd_buf, "%127s %d", cmd, &param) == 2) {
+	if (sscanf(FromUserBuf, "%127s %d", cmd, &param) == 2) {
 		if (!strcmp(cmd, "suspend")) {
 			/* update suspend valid status */
 			slp_suspend_ops_valid_on = param;
@@ -602,28 +581,21 @@ static ssize_t suspend_state_write(struct file *filp,
 			/* suspend reinit ops */
 			suspend_set_ops(&slp_suspend_ops);
 		}
-		return count;
+		return sz;
 	}
 
 	return -EINVAL;
 }
 
-static const struct file_operations suspend_state_fops = {
-	.open = suspend_state_open,
-	.read = suspend_state_read,
-	.write = suspend_state_write,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct mtk_lp_sysfs_op suspend_state_fops = {
+	.fs_read = suspend_state_read,
+	.fs_write = suspend_state_write,
 };
 
-void spm_suspend_debugfs_init(struct dentry *spm_dir)
+void spm_suspend_debugfs_init(void *entry)
 {
-	spm_suspend_debugfs_file =
-		debugfs_create_file("suspend_state",
-				    0444,
-				    spm_dir,
-				    NULL,
-				    &suspend_state_fops);
+	mtk_lp_sysfs_entry_func_node_add("suspend_state", 0444,
+		&suspend_state_fops, (struct mtk_lp_sysfs_handle *)entry, NULL);
 }
 
 module_param(slp_ck26m_on, bool, 0644);
