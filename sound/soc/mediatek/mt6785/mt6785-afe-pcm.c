@@ -46,7 +46,7 @@ static const struct snd_pcm_hardware mt6785_afe_hardware = {
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
 		    SNDRV_PCM_FMTBIT_S24_LE |
 		    SNDRV_PCM_FMTBIT_S32_LE),
-	.period_bytes_min = 256,
+	.period_bytes_min = 96,
 	.period_bytes_max = 4 * 48 * 1024,
 	.periods_min = 2,
 	.periods_max = 256,
