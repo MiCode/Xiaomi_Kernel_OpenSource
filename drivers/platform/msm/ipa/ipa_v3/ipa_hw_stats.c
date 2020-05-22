@@ -2235,6 +2235,81 @@ static ssize_t ipa_debugfs_print_drop_stats(struct file *file,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
+static ssize_t ipa_debugfs_enable_disable_drop_stats(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	unsigned int pipe_num = 0;
+	bool enable_pipe = true;
+	u32 pipe_bitmask = ipa3_ctx->hw_stats.drop.init.enabled_bitmask;
+	char seprator = ',';
+	int i, j;
+	bool is_pipe = false;
+	ssize_t ret;
+
+	mutex_lock(&ipa3_ctx->lock);
+	if (sizeof(dbg_buff) < count + 1) {
+		ret = -EFAULT;
+		goto bail;
+	}
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing) {
+		ret = -EFAULT;
+		goto bail;
+	}
+	dbg_buff[count] = '\0';
+	IPADBG("data is %s", dbg_buff);
+
+	i = 0;
+	while (dbg_buff[i] != ' ' && i < count)
+		i++;
+	j = i;
+	i++;
+	if (i < count) {
+		if (dbg_buff[i] == '0') {
+			enable_pipe = false;
+			IPADBG("Drop stats will be disabled for pipes:");
+		}
+	}
+
+	for (i = 0; i < j; i++) {
+		if (dbg_buff[i] >= '0' && dbg_buff[i] <= '9') {
+			pipe_num = (pipe_num * 10) + (dbg_buff[i] - '0');
+			is_pipe = true;
+		}
+		if (dbg_buff[i] == seprator) {
+			if (pipe_num >= 0 && pipe_num < ipa3_ctx->ipa_num_pipes
+				&& ipa3_get_client_by_pipe(pipe_num) <
+				IPA_CLIENT_MAX) {
+				IPADBG("pipe number %u\n", pipe_num);
+				if (enable_pipe)
+					pipe_bitmask = pipe_bitmask |
+							(1 << pipe_num);
+				else
+					pipe_bitmask = pipe_bitmask &
+							(~(1 << pipe_num));
+			}
+			pipe_num = 0;
+			is_pipe = false;
+		}
+	}
+	if (is_pipe && pipe_num >= 0 && pipe_num < ipa3_ctx->ipa_num_pipes &&
+		ipa3_get_client_by_pipe(pipe_num) < IPA_CLIENT_MAX) {
+		IPADBG("pipe number %u\n", pipe_num);
+		if (enable_pipe)
+			pipe_bitmask = pipe_bitmask | (1 << pipe_num);
+		else
+			pipe_bitmask = pipe_bitmask & (~(1 << pipe_num));
+	}
+
+	ipa_init_drop_stats(pipe_bitmask);
+	ret = count;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
+}
+
 static const struct file_operations ipa3_quota_ops = {
 	.read = ipa_debugfs_print_quota_stats,
 	.write = ipa_debugfs_reset_quota_stats,
@@ -2255,10 +2330,14 @@ static const struct file_operations ipa3_drop_ops = {
 	.write = ipa_debugfs_reset_drop_stats,
 };
 
+static const struct file_operations ipa3_enable_drop_ops = {
+	.write = ipa_debugfs_enable_disable_drop_stats,
+};
 
 int ipa_debugfs_init_stats(struct dentry *parent)
 {
 	const mode_t read_write_mode = 0664;
+	const mode_t write_mode = 0220;
 	struct dentry *file;
 	struct dentry *dent;
 
@@ -2282,6 +2361,13 @@ int ipa_debugfs_init_stats(struct dentry *parent)
 		&ipa3_drop_ops);
 	if (IS_ERR_OR_NULL(file)) {
 		IPAERR("fail to create file %s\n", "drop");
+		goto fail;
+	}
+
+	file = debugfs_create_file("enable_drop_stats", write_mode, dent, NULL,
+		&ipa3_enable_drop_ops);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file %s\n", "enable_drop_stats");
 		goto fail;
 	}
 
