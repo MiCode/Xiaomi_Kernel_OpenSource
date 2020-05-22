@@ -2012,6 +2012,11 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_request *req;
 	int i;
 
+	if (dev->wq) {
+		flush_workqueue(dev->wq);
+		pr_debug("[USB]: %s flush workqueue\n", __func__);
+	}
+
 	mtp_string_defs[INTERFACE_STRING_INDEX].id = 0;
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
 		mtp_request_free(req, dev->ep_in);
