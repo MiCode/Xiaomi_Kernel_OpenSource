@@ -2290,7 +2290,11 @@ int mt_accdet_probe(struct platform_device *dev)
 
 	/* wake lock */
 	accdet_irq_lock = wakeup_source_register(NULL, "accdet_irq_lock");
+	if (!accdet_irq_lock)
+		return -ENOMEM;
 	accdet_timer_lock = wakeup_source_register(NULL, "accdet_timer_lock");
+	if (!accdet_timer_lock)
+		return -ENOMEM;
 
 	/* Create workqueue */
 	accdet_workqueue = create_singlethread_workqueue("accdet");
