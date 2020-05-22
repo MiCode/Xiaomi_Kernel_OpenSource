@@ -542,7 +542,7 @@ static int android_init_functions(struct android_usb_function **functions,
 	struct android_usb_function *f;
 	struct device_attribute **attrs;
 	struct device_attribute *attr;
-	int err;
+	int err = 0;
 	int index = 0;
 
 	for (; (f = *functions++); index++) {
