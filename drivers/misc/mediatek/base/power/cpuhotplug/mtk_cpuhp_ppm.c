@@ -65,6 +65,8 @@ static int ppm_thread_fn(void *data)
 
 		/* process the request of up each CPUs from PPM */
 		for_each_possible_cpu(i) {
+			struct device *cpu_dev;
+
 			request_cpu_up = cpumask_test_cpu(i, &ppm_cpus_req);
 
 			if (request_cpu_up && cpu_is_offline(i)) {
@@ -73,7 +75,13 @@ static int ppm_thread_fn(void *data)
 				pr_debug_ratelimited("CPU%d: ppm-request=%d, offline->powerup\n",
 					 i, request_cpu_up);
 Retry_ON:
-				rc = device_online(get_cpu_device(i));
+				cpu_dev = get_cpu_device(i);
+				if (!cpu_dev) {
+					pr_info("get cpu%d fail!\n", i);
+					continue;
+				}
+
+				rc = device_online(cpu_dev);
 				if (rc)	{
 					if (retry > HPS_RETRY) {
 						pr_debug_ratelimited(
@@ -91,6 +99,8 @@ Retry_ON:
 
 		/* process the request of down each CPUs from PPM */
 		for_each_possible_cpu(i) {
+			struct device *cpu_dev;
+
 			request_cpu_up = cpumask_test_cpu(i, &ppm_cpus_req);
 
 			if (!request_cpu_up && cpu_online(i)) {
@@ -99,7 +109,13 @@ Retry_ON:
 				pr_debug_ratelimited("CPU%d: ppm-request=%d, online->powerdown\n",
 					 i, request_cpu_up);
 Retry_OFF:
-				rc = device_offline(get_cpu_device(i));
+				cpu_dev = get_cpu_device(i);
+				if (!cpu_dev) {
+					pr_info("get cpu%d fail!\n", i);
+					continue;
+				}
+
+				rc = device_offline(cpu_dev);
 				if (rc) {
 					if (retry > HPS_RETRY) {
 						pr_debug_ratelimited(
