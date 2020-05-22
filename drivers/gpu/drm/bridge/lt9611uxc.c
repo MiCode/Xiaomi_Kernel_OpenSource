@@ -893,7 +893,7 @@ static void lt9611_reset(struct lt9611 *pdata, bool on_off)
 		gpio_set_value(pdata->reset_gpio, 0);
 		msleep(20);
 		gpio_set_value(pdata->reset_gpio, 1);
-		msleep(300);
+		msleep(180);
 	} else {
 		gpio_set_value(pdata->reset_gpio, 0);
 	}
