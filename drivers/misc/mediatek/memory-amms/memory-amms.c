@@ -495,9 +495,9 @@ static irqreturn_t amms_irq_handler(int irq, void *dev_id)
 static inline void check_amms_timeout_warn(void)
 {
 	char msg[128];
+	int ret;
 #ifdef CONFIG_MTK_SCHED_CPULOAD
 	int cpu;
-	int ret;
 #endif
 	const char msg2[] = "AMMS timeout %lld us .\nCRDISPATCH_KEY:AMMS\n";
 
@@ -515,8 +515,6 @@ static inline void check_amms_timeout_warn(void)
 */
 #ifdef CONFIG_MTK_SCHED_CPULOAD
 		for_each_online_cpu(cpu) {
-			if (cpu >= num_online_cpus())
-				break;
 			pr_info("cpu %d, loading %d\n", cpu,
 				sched_get_cpu_load(cpu));
 		}
