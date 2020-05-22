@@ -45,6 +45,9 @@ struct etr_perf_buffer {
 /* Lower limit for ETR hardware buffer */
 #define TMC_ETR_PERF_MIN_BUF_SIZE	SZ_1M
 
+/* SW USB reserved memory size */
+#define TMC_ETR_SW_USB_BUF_SIZE SZ_32M
+
 /*
  * The TMC ETR SG has a page size of 4K. The SG table contains pointers
  * to 4KB buffers. However, the OS may use a PAGE_SIZE different from
@@ -1082,7 +1085,11 @@ ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 static struct etr_buf *
 tmc_etr_setup_sysfs_buf(struct tmc_drvdata *drvdata)
 {
-	return tmc_alloc_etr_buf(drvdata, drvdata->size,
+	if (drvdata->byte_cntr->sw_usb)
+		return tmc_alloc_etr_buf(drvdata, TMC_ETR_SW_USB_BUF_SIZE,
+				 0, cpu_to_node(0), NULL);
+	else
+		return tmc_alloc_etr_buf(drvdata, drvdata->size,
 				 0, cpu_to_node(0), NULL);
 }
 
