@@ -390,6 +390,11 @@ static int mhi_force_suspend(struct mhi_controller *mhi_cntrl)
 
 	MHI_CNTRL_LOG("Entered\n");
 
+	if (debug_mode == MHI_DEBUG_NO_D3 || debug_mode == MHI_FWIMAGE_NO_D3) {
+		MHI_CNTRL_LOG("Exited due to debug mode:%d\n", debug_mode);
+		return ret;
+	}
+
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
 	for (; itr; itr--) {
@@ -666,7 +671,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	const struct firmware_info *firmware_info;
 	bool use_bb;
 	u64 addr_win[2];
-	int ret, i;
+	int ret, i, len;
 
 	if (!of_node)
 		return ERR_PTR(-ENODEV);
@@ -747,12 +752,20 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	if (ret)
 		goto error_register;
 
-	for (i = 0; i < ARRAY_SIZE(firmware_table); i++) {
+	len = ARRAY_SIZE(firmware_table);
+	for (i = 0; i < len; i++) {
 		firmware_info = firmware_table + i;
 
-		/* debug mode always use default */
-		if (!debug_mode && mhi_cntrl->dev_id == firmware_info->dev_id)
+		if (mhi_cntrl->dev_id == firmware_info->dev_id)
 			break;
+	}
+
+	if (debug_mode) {
+		if (debug_mode <= MHI_DEBUG_D3)
+			firmware_info = firmware_table + (len - 1);
+		MHI_CNTRL_LOG("fw info: debug_mode:%d dev_id:%d image:%s\n",
+			      debug_mode, firmware_info->dev_id,
+			      firmware_info->fw_image);
 	}
 
 	mhi_cntrl->fw_image = firmware_info->fw_image;
