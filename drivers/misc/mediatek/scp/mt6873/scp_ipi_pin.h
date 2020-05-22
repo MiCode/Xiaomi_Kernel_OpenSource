@@ -40,8 +40,8 @@ enum {
 /* core0 */
 	/* the following will use mbox1 */
 	IPI_OUT_APCCCI_0          =  3,
-	IPI_OUT_DVFS_SLEEP_0	  =  4,
-	IPI_OUT_DVFS_SET_FREQ_0	  =  5,
+	IPI_OUT_DVFS_SET_FREQ_0	  =  4,
+	IPI_OUT_C_SLEEP_0         =  5,
 	IPI_OUT_TEST_0            =  6,
 	IPI_IN_APCCCI_0           =  7,
 	IPI_IN_SCP_ERROR_INFO_0   =  8,
@@ -55,8 +55,8 @@ enum {
 /* core1 */
 	/* the following will use mbox3 */
 	IPI_OUT_AUDIO_ULTRA_SND_1 = 13,
-	IPI_OUT_DVFS_SLEEP_1      = 14,
-	IPI_OUT_DVFS_SET_FREQ_1   = 15,
+	IPI_OUT_DVFS_SET_FREQ_1   = 14,
+	IPI_OUT_C_SLEEP_1         = 15,
 	IPI_OUT_TEST_1            = 16,
 	IPI_OUT_LOGGER_ENABLE_1   = 17,
 	IPI_OUT_LOGGER_WAKEUP_1   = 18,

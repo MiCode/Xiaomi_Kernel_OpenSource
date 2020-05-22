@@ -44,6 +44,7 @@ enum clk_opp_enum {
 	CLK_OPP2 = 280,
 	CLK_OPP3 = 360,
 	CLK_OPP4 = 416,
+	CLK_UNINIT = 0xffff,
 };
 
 enum scp_req_r {
@@ -52,6 +53,23 @@ enum scp_req_r {
 	SCP_REQ_IFR = 1 << 1,
 	SCP_REQ_SYSPLL1 = 1 << 2,
 	SCP_REQ_MAX = 0xffff,
+};
+
+enum {
+	SCP_SLEEP_OFF = 0,
+	SCP_SLEEP_ON,
+	SCP_SLEEP_NO_WAKEUP,
+	SCP_SLEEP_NO_CONDITION
+};
+
+enum {
+	SLP_DBG_CMD_SET_OFF = SCP_SLEEP_OFF,
+	SLP_DBG_CMD_SET_ON = SCP_SLEEP_ON,
+	SLP_DBG_CMD_SET_NO_WAKEUP = SCP_SLEEP_NO_WAKEUP,
+	SLP_DBG_CMD_SET_NO_CONDITION = SCP_SLEEP_NO_CONDITION,
+	SLP_DBG_CMD_GET_FLAG,
+	SLP_DBG_CMD_GET_CNT,
+	SLP_DBG_CMD_RESET,
 };
 
 struct mt_scp_pll_t {
@@ -76,10 +94,13 @@ extern void wait_scp_dvfs_init_done(void);
 extern int __init scp_dvfs_init(void);
 extern void __exit scp_dvfs_exit(void);
 extern int scp_resource_req(unsigned int req_type);
+extern void scp_slp_ipi_init(void);
+extern void scp_vcore_request(unsigned int clk_opp);
 
 /* scp dvfs variable*/
 extern unsigned int scp_expected_freq;
 extern unsigned int scp_current_freq;
 extern spinlock_t scp_awake_spinlock;
+extern int scp_dvfs_flag;
 
 #endif  /* __SCP_DVFS_H__ */
