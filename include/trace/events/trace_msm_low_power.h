@@ -105,23 +105,23 @@ TRACE_EVENT(cpu_idle_enter,
 
 TRACE_EVENT(cpu_idle_exit,
 
-	TP_PROTO(int index, int success),
+	TP_PROTO(int index, int ret),
 
-	TP_ARGS(index, success),
+	TP_ARGS(index, ret),
 
 	TP_STRUCT__entry(
 		__field(int, index)
-		__field(int, success)
+		__field(int, ret)
 	),
 
 	TP_fast_assign(
 		__entry->index = index;
-		__entry->success = success;
+		__entry->ret = ret;
 	),
 
-	TP_printk("idx:%d success:%d",
+	TP_printk("idx:%d ret:%d",
 		__entry->index,
-		__entry->success)
+		__entry->ret)
 );
 
 TRACE_EVENT(cluster_enter,
