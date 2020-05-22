@@ -45,9 +45,6 @@
 	qcom,ext-disp = <&ext_disp>;
 	qcom,dp-hpd-gpio = <&ioexp 8 0>;
 	qcom,mst-fixed-topology-ports = <1 2>;
-	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
-	pinctrl-0 = <&dp_hpd_cfg_pins>;
-	pinctrl-1 = <&dp_hpd_cfg_pins>;
 
 	vdda-1p2-supply = <&pm6155_1_l11>;
 	vdda-0p9-supply = <&pm6155_1_l5>;
