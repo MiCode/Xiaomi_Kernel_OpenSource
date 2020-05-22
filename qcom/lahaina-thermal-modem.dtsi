@@ -2,6 +2,41 @@
 	modem {
 		qcom,instance-id = <QMI_MODEM_INST_ID>;
 
+		modem_pa: modem_pa {
+			qcom,qmi-dev-name = "pa";
+			#cooling-cells = <2>;
+		};
+
+		modem_pa_fr1: modem_pa_fr1 {
+			qcom,qmi-dev-name = "pa_fr1";
+			#cooling-cells = <2>;
+		};
+
+		modem_skin: modem_skin {
+			qcom,qmi-dev-name = "modem_skin";
+			#cooling-cells = <2>;
+		};
+
+		modem_mmw_skin0: modem_mmw_skin0 {
+			qcom,qmi-dev-name = "mmw_skin0";
+			#cooling-cells = <2>;
+		};
+
+		modem_mmw_skin1: modem_mmw_skin1 {
+			qcom,qmi-dev-name = "mmw_skin1";
+			#cooling-cells = <2>;
+		};
+
+		modem_mmw_skin2: modem_mmw_skin2 {
+			qcom,qmi-dev-name = "mmw_skin2";
+			#cooling-cells = <2>;
+		};
+
+		modem_mmw_skin3: modem_mmw_skin3 {
+			qcom,qmi-dev-name = "mmw_skin3";
+			#cooling-cells = <2>;
+		};
+
 		modem_pa_dsc: modem_pa_dsc {
 			qcom,qmi-dev-name = "pa_dsc";
 			#cooling-cells = <2>;
