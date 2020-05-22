@@ -1293,7 +1293,7 @@ static int st21nfc_probe(struct i2c_client *client,
 		st21nfc_dev->gpiod_irq ?
 			desc_to_gpio(st21nfc_dev->gpiod_irq) : -1,
 		client->irq,
-		st21nfc_dev->gpiod_pidle å
+		st21nfc_dev->gpiod_pidle ?
 			desc_to_gpio(st21nfc_dev->gpiod_pidle) : -1);
 	st21nfc_dev->st21nfc_device.minor = MISC_DYNAMIC_MINOR;
 	st21nfc_dev->st21nfc_device.name = "st21nfc";
