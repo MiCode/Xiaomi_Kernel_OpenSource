@@ -58,7 +58,6 @@
 #define fpsgo_systrace_c_fstb_man(pid, val, fmt...) \
 	fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, pid, val, fmt)
 
-#define API_READY 0
 
 static struct kobject *fstb_kobj;
 static int max_fps_limit = DEFAULT_DFPS;
@@ -839,10 +838,6 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 
 	/* parse cpu time of each frame to ged_kpi */
 	iter->cpu_time = cpu_time_ns;
-#if API_READY
-	ged_kpi_set_target_FPS_margin(iter->bufid,
-		iter->target_fps, iter->target_fps_margin, iter->cpu_time);
-#endif
 
 	fpsgo_systrace_c_fstb_man(pid, (int)cpu_time_ns, "t_cpu");
 	fpsgo_systrace_c_fstb(pid, (int)max_current_cap, "cur_cpu_cap");
@@ -1496,8 +1491,8 @@ static void fstb_fps_stats(struct work_struct *work)
 				iter->target_fps_margin_dbnc_b,
 				"target_fps_margin_dbnc_b");
 
-			// ged_kpi_set_target_FPS_margin(iter->bufid,
-			// iter->target_fps, iter->target_fps_margin);
+			ged_kpi_set_target_FPS_margin(iter->bufid,
+			iter->target_fps, iter->target_fps_margin);
 
 			mtk_fstb_dprintk(
 			"%s pid:%d target_fps:%d\n",
