@@ -1283,6 +1283,20 @@ void sdhci_msm_mm_dbg_configure(struct sdhci_host *host, u32 mask,
 	readl_relaxed(host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
 }
 
+/* Dummy func for Mask and Match show */
+static ssize_t show_mask_and_match(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (!host)
+		return -EINVAL;
+
+	pr_info("%s: M&M show func\n", mmc_hostname(host->mmc));
+
+	return 0;
+}
+
 static ssize_t store_mask_and_match(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -5760,6 +5774,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	if (IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
 				SDCC_IP_CATALOG)) >= 2) {
+		msm_host->mask_and_match.show = show_mask_and_match;
 		msm_host->mask_and_match.store = store_mask_and_match;
 		sysfs_attr_init(&msm_host->mask_and_match.attr);
 		msm_host->mask_and_match.attr.name = "mask_and_match";
