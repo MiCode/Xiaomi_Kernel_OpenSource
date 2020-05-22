@@ -1221,11 +1221,23 @@ page_owner=on loop.max_part=7";
 		clocks = <&scpsys SCP_SYS_ADSP>, /* add ck cg later */
 			<&topckgen TOP_MUX_ADSP>,
 			<&clk26m>,
-			<&topckgen TOP_ADSPPLL_CK>;
+			<&topckgen TOP_ADSPPLL_CK>,
+			<&topckgen TOP_MUX_SCP>;
 		clock-names = "scp_sys_adsp", /* add ck cg later */
 			"clk_top_adsp_sel",
 			"clk_top_clk26m",
-			"clk_top_adsppll";
+			"clk_top_adsppll",
+			"clk_top_scp_sel";
+		adsp-rsv-ipidma-a = <0x100000>;
+		adsp-rsv-ipidma-b = <0x100000>;
+		adsp-rsv-logger-a = <0x80000>;
+		adsp-rsv-logger-b = <0x80000>;
+		adsp-rsv-c2c = <0x40000>;
+		adsp-rsv-dbg-dump-a = <0x80000>;
+		adsp-rsv-dbg-dump-b = <0x80000>;
+		adsp-rsv-core-dump-a = <0x400>;
+		adsp-rsv-core-dump-b = <0x400>;
+		adsp-rsv-audio = <0x5c0000>;
 	};
 
 	adsp_core0: adsp_core0@10820000 {
@@ -1233,6 +1245,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10800000 0 0x6000>, /* CFG */
 			<0 0x10840000 0 0x9000>, /* ITCM */
 			<0 0x10820000 0 0x8000>; /* DTCM */
+		system = <0 0x56000000 0 0x700000>;
 		interrupts = <GIC_SPI 444 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 446 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
@@ -1246,6 +1259,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10800000 0 0x6000>, /* CFG */
 			<0 0x10870000 0 0x9000>, /* ITCM */
 			<0 0x10850000 0 0x8000>; /* DTCM */
+		system = <0 0x56700000 0 0x700000>;
 		interrupts = <GIC_SPI 445 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 447 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 449 IRQ_TYPE_LEVEL_HIGH>;
@@ -7090,23 +7104,24 @@ page_owner=on loop.max_part=7";
 		};
 	};
 
-	/* feature : $enable $dl_mem $ul_mem $ref_mem */
+	/* feature : $enable $dl_mem $ul_mem $ref_mem $size */
 	snd_audio_dsp: snd_audio_dsp {
 		compatible = "mediatek,snd_audio_dsp";
-		mtk_dsp_voip = <0x1f 0x1 0xffffffff 0xffffffff>;
-		mtk_dsp_primary = <0x1f 0x0 0xffffffff 0xffffffff>;
-		mtk_dsp_offload = <0x1d 0x6 0xffffffff 0xffffffff>;
-		mtk_dsp_deep = <0x5 0x3 0xffffffff 0xffffffff>;
-		mtk_dsp_playback = <0x1 0x4 0x10 0x14>;
-		mtk_dsp_music = <0x1 0xffffffff 0xffffffff 0xffffffff>;
-		mtk_dsp_capture1 = <0x1 0xffffffff 0xd 0x13>;
-		mtk_dsp_a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff>;
-		mtk_dsp_dataprovider = <0x1 0xffffffff 0xf 0xffffffff>;
-		mtk_dsp_call_final = <0x1 0x4 0x10 0x14>;
-		mtk_dsp_fast = <0x5 0x2 0xffffffff 0xffffffff>;
-		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff>;
+		mtk_dsp_voip = <0x1f 0x1 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_primary = <0x1f 0x0 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_offload = <0x1d 0x6 0xffffffff 0xffffffff 0x400000>;
+		mtk_dsp_deep = <0x5 0x3 0xffffffff 0xffffffff 0x30000>;
+		mtk_dsp_playback = <0x1 0x4 0x10 0x14 0x30000>;
+		mtk_dsp_music = <0x1 0xffffffff 0xffffffff 0xffffffff 0x0>;
+		mtk_dsp_capture1 = <0x1 0xffffffff 0xd 0x13 0x20000>;
+		mtk_dsp_a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff 0x40000>;
+		mtk_dsp_dataprovider = <0x0 0xffffffff 0xf 0xffffffff 0x30000>;
+		mtk_dsp_call_final = <0x1 0x4 0x10 0x14 0x18000>;
+		mtk_dsp_fast = <0x5 0x2 0xffffffff 0xffffffff 0x5000>;
+		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
 		mtk_dsp_ver = <0x1>;
 		swdsp_smartpa_process_enable = <0x1>;
+		mtk_dsp_mem_afe = <0x1 0x40000>; /* always enable */
 	};
 
 	audio_sram@11212000 {
