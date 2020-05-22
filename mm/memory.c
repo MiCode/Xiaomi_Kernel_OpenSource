@@ -4495,6 +4495,9 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 	    || READ_ONCE(vma->vm_end) <= address)
 		goto out_put;
 
+	/* do counter updates before entering really critical section. */
+	check_sync_rss_stat(current);
+
 	if (!arch_vma_access_permitted(vma, flags & FAULT_FLAG_WRITE,
 				       flags & FAULT_FLAG_INSTRUCTION,
 				       flags & FAULT_FLAG_REMOTE)) {
