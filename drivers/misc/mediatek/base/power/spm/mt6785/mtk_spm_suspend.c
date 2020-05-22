@@ -250,7 +250,7 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag,
 		PCM_TICK_TO_SEC((wakesta->timer_out % PCM_32K_TICKS_PER_SEC)
 		* 1000));
 
-	log_wakeup_reason(mtk_spm_get_irq_0());
+	log_irq_wakeup_reason(mtk_spm_get_irq_0());
 
 #ifdef CONFIG_MTK_CCCI_DEVICES
 		exec_ccci_kern_func_by_md_id(0, ID_DUMP_MD_SLEEP_MODE,
