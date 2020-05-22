@@ -1212,18 +1212,37 @@ SYSCALL_DEFINE3(madvise, unsigned long, start, size_t, len_in, int, behavior)
 	return do_madvise(current, current->mm, start, len_in, behavior);
 }
 
-SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid, unsigned long, start,
-		size_t, len_in, int, behavior, unsigned long, flags)
+static int do_process_madvise(struct task_struct *target_task,
+		struct mm_struct *mm, struct iov_iter *iter, int behavior)
 {
-	int ret;
+	struct iovec iovec;
+	int ret = 0;
+
+	while (iov_iter_count(iter)) {
+		iovec = iov_iter_iovec(iter);
+		ret = do_madvise(target_task, mm, (unsigned long)iovec.iov_base,
+					iovec.iov_len, behavior);
+		if (ret < 0)
+			break;
+		iov_iter_advance(iter, iovec.iov_len);
+	}
+
+	return ret;
+}
+
+SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid,
+		const struct iovec __user *, vec, unsigned long, vlen,
+		int, behavior, unsigned long, flags)
+{
+	ssize_t ret;
 	struct pid *pid;
 	struct task_struct *task;
 	struct mm_struct *mm;
+	struct iovec iovstack[UIO_FASTIOV];
+	struct iovec *iov = iovstack;
+	struct iov_iter iter;
 
 	if (flags != 0)
-		return -EINVAL;
-
-	if (!process_madvise_behavior_valid(behavior))
 		return -EINVAL;
 
 	switch (which) {
@@ -1253,13 +1272,27 @@ SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid, unsigned long, start,
 		goto put_pid;
 	}
 
+	if (task->mm != current->mm &&
+			!process_madvise_behavior_valid(behavior)) {
+		ret = -EINVAL;
+		goto release_task;
+	}
+
 	mm = mm_access(task, PTRACE_MODE_ATTACH_FSCREDS);
 	if (IS_ERR_OR_NULL(mm)) {
 		ret = IS_ERR(mm) ? PTR_ERR(mm) : -ESRCH;
 		goto release_task;
 	}
 
-	ret = do_madvise(task, mm, start, len_in, behavior);
+	ret = import_iovec(READ, vec, vlen, ARRAY_SIZE(iovstack), &iov, &iter);
+	if (ret >= 0) {
+		size_t total_len = iov_iter_count(&iter);
+
+		ret = do_process_madvise(task, mm, &iter, behavior);
+		if (ret >= 0)
+			ret = total_len - iov_iter_count(&iter);
+		kfree(iov);
+	}
 	mmput(mm);
 release_task:
 	put_task_struct(task);
