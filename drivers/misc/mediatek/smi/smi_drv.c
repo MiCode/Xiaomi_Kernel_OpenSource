@@ -68,7 +68,16 @@ static bool smi_sspm_ipi_register;
 
 #define SMIDBG(string, args...) pr_debug(string, ##args)
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ)
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include <cmdq-util.h>
+#define SMIWRN(cmdq, string, args...) \
+	do { \
+		if (cmdq != 0) \
+			cmdq_util_msg(string, ##args); \
+		else \
+			pr_info(string, ##args); \
+	} while (0)
+#elif IS_ENABLED(CONFIG_MTK_CMDQ)
 #include <cmdq_helper_ext.h>
 #define SMIWRN(cmdq, string, args...) \
 	do { \
@@ -1270,7 +1279,7 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 		ipi_data.cmd = SMI_IPI_ENABLE;
 		ipi_data.u.logger.enable =
 			(smi_dram.dump << 31) | smi_subsys_on;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_SSPM)
 		mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_WAIT,
 			&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
 #else
