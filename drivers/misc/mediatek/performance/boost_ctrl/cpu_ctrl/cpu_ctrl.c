@@ -174,8 +174,6 @@ ret_update:
 	kfree(final_freq);
 	mutex_unlock(&boost_freq);
 	return retval;
-
-	return 0;
 }
 EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
