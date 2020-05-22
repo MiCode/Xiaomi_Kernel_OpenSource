@@ -386,11 +386,16 @@ static const char *get_timestamp_string(char *buf, int bufsize)
 {
 	u64 ts;
 	unsigned long rem_nsec;
+	int n;
 
 	ts = local_clock();
 	rem_nsec = do_div(ts, 1000000000);
-	snprintf(buf, bufsize, "[%5lu.%06lu]",
+	n = snprintf(buf, bufsize, "[%5lu.%06lu]",
 		       (unsigned long)ts, rem_nsec / 1000);
+	if (n < 0 || n >= bufsize) {
+		pr_info("print time failed\n");
+		*buf = '\0';
+	}
 	return buf;
 }
 
