@@ -260,6 +260,7 @@ struct mhi_controller {
 
 	/* mmio base */
 	phys_addr_t base_addr;
+	unsigned int len;
 	void __iomem *regs;
 	void __iomem *bhi;
 	void __iomem *bhie;
