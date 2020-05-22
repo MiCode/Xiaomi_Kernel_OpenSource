@@ -30,10 +30,8 @@
 #include <linux/irqchip/mt-gic.h>
 #endif
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 #include <mt-plat/mtk_io.h>
@@ -51,10 +49,8 @@ struct cqdma_env_info {
 static struct cqdma_env_info *env_info;
 static u32 keep_clock_ao;
 static u32 nr_cqdma_channel;
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source *wk_lock;
-#else
-struct wake_lock *wk_lock;
 #endif
 
 /*
@@ -204,10 +200,8 @@ int mt_req_gdma(int chan)
 				continue;
 			else {
 				dma_ctrl[i].in_use = 1;
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 				__pm_stay_awake(&wk_lock[i]);
-#else
-				wake_lock(&wk_lock[i]);
 #endif
 				break;
 			}
@@ -218,10 +212,8 @@ int mt_req_gdma(int chan)
 		else {
 			i = chan;
 			dma_ctrl[chan].in_use = 1;
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 			__pm_stay_awake(&wk_lock[chan]);
-#else
-			wake_lock(&wk_lock[chan]);
 #endif
 		}
 	}
@@ -511,10 +503,8 @@ int mt_free_gdma(int channel)
 	if (clk_cqdma && !keep_clock_ao)
 		clk_disable_unprepare(clk_cqdma);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&wk_lock[channel]);
-#else
-	wake_unlock(&wk_lock[channel]);
 #endif
 
 	dma_ctrl[channel].isr_cb = NULL;
@@ -700,11 +690,8 @@ static int cqdma_probe(struct platform_device *pdev)
 	if (!env_info)
 		return -ENOMEM;
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	wk_lock = kmalloc(sizeof(struct wakeup_source)*(nr_cqdma_channel),
-			GFP_KERNEL);
-#else
-	wk_lock = kmalloc(sizeof(struct wake_lock)*(nr_cqdma_channel),
 			GFP_KERNEL);
 #endif
 	if (!wk_lock)
@@ -733,11 +720,8 @@ static int cqdma_probe(struct platform_device *pdev)
 			pr_info("GDMA%d IRQ LINE NOT AVAILABLE,ret 0x%x!!\n",
 					i, ret);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		wakeup_source_init(&wk_lock[i], "cqdma_wakelock");
-#else
-		wake_lock_init(&wk_lock[i],
-				WAKE_LOCK_SUSPEND, "cqdma_wakelock");
 #endif
 	}
 
