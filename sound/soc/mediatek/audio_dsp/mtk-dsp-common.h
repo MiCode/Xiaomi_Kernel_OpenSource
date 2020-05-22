@@ -15,6 +15,8 @@
 #ifndef AUDIO_DSP_COMMON_H
 #define AUDIO_DSP_COMMON_H
 
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <sound/pcm.h>
@@ -115,4 +117,5 @@ int mtk_dsp_deregister_feature(int id);
 
 int mtk_audio_register_notify(void);
 
+#endif
 #endif
