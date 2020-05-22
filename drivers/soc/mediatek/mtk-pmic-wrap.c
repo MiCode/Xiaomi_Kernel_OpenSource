@@ -106,9 +106,8 @@
 #define PWRAP_CAP_ARB_V1	BIT(7)
 #define PWRAP_CAP_ARB_V2	BIT(8)
 #define PWRAP_CAP_ARB_V3	BIT(9)
-
 #define PWRAP_CAP_MPU_V1	BIT(10)
-#define PWRAP_CAP_ULPOSC_CLK	BIT(10)
+#define PWRAP_CAP_ULPOSC_CLK	BIT(11)
 #define PWRAP_CAP_SYS_CLK	BIT(12)
 /* Marco and Struct for kernel thread */
 #define pwrap_init_wake_lock(lock, name)	wakeup_source_init(lock, name)
@@ -2996,53 +2995,6 @@ static int pwrap_mt8168_init_soc_specific(struct pmic_wrapper *wrp)
 	return 0;
 }
 
-void wake_up_pwrap(void)
-{
-	dev_notice(wrp->dev, "[PWRAP] %s\n", __func__);
-	if (pwrap_thread_handle != NULL) {
-		pwrap_wake_lock(&pwrapThread_lock);
-		wake_up_process(pwrap_thread_handle);
-	} else {
-		dev_notice(wrp->dev,
-		"[PWRAP] pwrap_thread_handle not ready\n");
-		return;
-	}
-}
-
-int pwrap_thread_kthread(void *x)
-{
-	dev_notice(wrp->dev, "[PWRAP] enter kernel thread\n");
-
-	/* Run on a process content */
-	while (1) {
-		pwrap_reenable_pmic_logging();
-		pwrap_monitor_info();
-		pwrap_sw_monitor_clr();
-		aee_kernel_warning("PWRAP:HW Monitor match",
-				   "PWRAP:HW Monitor match");
-		pwrap_wake_unlock(&pwrapThread_lock);
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule();
-	}
-	dev_notice(wrp->dev, "[PWRAP] kernel thread error\n");
-	return 0;
-}
-
-static void pwrap_irq_thread_init(void)
-{
-	pwrap_init_wake_lock(&pwrapThread_lock, "pwrapThread_lock wakelock");
-
-	/* create pwrap irq thread handler*/
-	pwrap_thread_handle = kthread_create(pwrap_thread_kthread,
-					    (void *)NULL, "pwrap_thread");
-	if (IS_ERR(pwrap_thread_handle)) {
-		pwrap_thread_handle = NULL;
-		dev_notice(wrp->dev, "[PWRAP] kthread_create fails\n");
-	} else {
-		dev_notice(wrp->dev, "[PWRAP] kthread_create done\n");
-	}
-}
-
 static int pwrap_init(struct pmic_wrapper *wrp)
 {
 	int ret = 0;
@@ -3235,65 +3187,6 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 		if ((int3_flg & 0xffffffff) != 0) {
 			dev_notice(wrp->dev,
 				   "[PWRAP] INT3 error:0x%x\n", int3_flg);
-#if defined(CONFIG_MACH_MT6853)
-			if ((int3_flg & (0x1 << 17)) != 0) {
-				dev_dbg(wrp->dev, "[PWRAP] CRC Error\n");
-				pwrap_reenable_pmic_logging();
-				pwrap_swinf_info();
-				pwrap_monitor_info();
-				pwrap_sw_monitor_clr();
-
-				pwrap_writel(wrp, wrp->master->int_en_all,
-						PMIF_SPI_PMIF_IRQ_EVENT_EN_3);
-
-				/* Clear spislv CRC state */
-				ret = pwrap_write(wrp,
-				      slv->dew_regs[PWRAP_DEW_CRC_SWRST], 0x1);
-				if (ret != 0)
-					dev_dbg(wrp->dev,
-						"clr fail, ret=%x\n", ret);
-				ret = pwrap_write(wrp,
-				      slv->dew_regs[PWRAP_DEW_CRC_SWRST], 0x0);
-				if (ret != 0)
-					dev_dbg(wrp->dev,
-						"clr fail, ret=%x\n", ret);
-				pwrap_write(wrp,
-					  slv->dew_regs[PWRAP_DEW_CRC_EN], 0x0);
-				pwrap_writel(wrp, 0x0, PMIF_SPI_PMIF_CRC_CTRL);
-				pwrap_writel(wrp, pwrap_readl(wrp,
-						  PMIF_SPI_PMIF_STAUPD_CTRL) &
-						  0x1fe,
-						  PMIF_SPI_PMIF_STAUPD_CTRL);
-			} else if ((int3_flg & (0x3 << 19)) != 0) {
-				dev_notice(wrp->dev,
-					   "[PWRAP] MPU Access Violation\n");
-				pwrap_mpu_info();
-
-				rdata = pwrap_readl(wrp,
-					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
-				if (rdata & 0x80000000)
-					pwrap_writel(wrp, rdata | 0x80000000,
-					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
-
-				rdata = pwrap_readl(wrp,
-					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
-				if (rdata & 0x80000000)
-					pwrap_writel(wrp, rdata | 0x80000000,
-					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
-
-				rdata = pwrap_readl(wrp,
-					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
-				if (rdata & 0x80000000)
-					pwrap_writel(wrp, rdata | 0x80000000,
-					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
-
-				aee_kernel_warning("PWRAP:MPU Violation",
-						   "PWRAP:MPU Violation");
-
-			}
-
-			pwrap_writel(wrp, int3_flg, PMIF_SPI_PMIF_IRQ_CLR_3);
-#else
 			if ((int3_flg & (0x1 << 2)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] CRC Error\n");
 				pwrap_reenable_pmic_logging();
@@ -3326,36 +3219,18 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 				dev_notice(wrp->dev,
 					   "[PWRAP] MPU Access Violation\n");
 				pwrap_mpu_info();
-
-				rdata = pwrap_readl(wrp,
-					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
-				if (rdata & 0x80000000)
-					pwrap_writel(wrp, rdata | 0x80000000,
-					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
-
-				rdata = pwrap_readl(wrp,
-					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
-				if (rdata & 0x80000000)
-					pwrap_writel(wrp, rdata | 0x80000000,
-					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
-
-				rdata = pwrap_readl(wrp,
-					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
-				if (rdata & 0x80000000)
-					pwrap_writel(wrp, rdata | 0x80000000,
-					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
-
+				pwrap_reenable_pmic_logging();
+				pwrap_swinf_info();
+				pwrap_sw_monitor_clr();
 				aee_kernel_warning("PWRAP:MPU Violation",
 						   "PWRAP:MPU Violation");
 			} else if ((int3_flg & (0x1 << 27)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] HW Monitor match\n");
-				wake_up_pwrap();
 			} else if ((int3_flg & (0x1 << 28)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] WDT Timeout\n");
 			}
 
 			pwrap_writel(wrp, int3_flg, PMIF_SPI_PMIF_IRQ_CLR_3);
-#endif
 		}
 #if defined(CONFIG_MACH_MT6853)
 		int4_flg = pwrap_readl(wrp, PMIF_SPI_PMIF_IRQ_FLAG_4);
@@ -3603,7 +3478,7 @@ static struct pmic_wrapper_type pwrap_mt6885 = {
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
 	.has_bridge = 0,
-	.caps = PWRAP_CAP_ARB_V3 | PWRAP_CAP_ULPOSC_CLK,
+	.caps = PWRAP_CAP_ARB_V3,
 	.init_done = PWRAP_STATE_INIT_DONE0_V3,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
