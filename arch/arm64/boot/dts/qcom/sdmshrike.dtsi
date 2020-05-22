@@ -1230,6 +1230,11 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	tcsr_mutex_block: syscon@1f40000 {
 		compatible = "syscon";
 		reg = <0x1f40000 0x20000>;
