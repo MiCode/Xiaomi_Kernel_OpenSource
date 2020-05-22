@@ -44,7 +44,7 @@ obj-$(CONFIG_MTK_CMDQ_MBOX)    += mtk-cmdq-mailbox.o
 obj-$(CONFIG_MTK_RPMSG_MBOX)    += mtk-rpmsg-mailbox.o
 
 ifeq ($(CONFIG_MMPROFILE), y)
-ifeq ($(CONFIG_MACH_MT6885), y)
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6873) $(CONFIG_MACH_MT6853)))
 ccflags-y += -DCMDQ_MMPROFILE_SUPPORT
 endif
 endif
