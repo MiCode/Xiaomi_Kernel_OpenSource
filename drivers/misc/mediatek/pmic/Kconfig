@@ -92,6 +92,16 @@ config MTK_PMIC_CHIP_MT6359P
 	  Set y to support this driver.
 	  Set n and choose other chip.
 
+config MTK_PMIC_CHIP_MT6390
+	tristate "MediaTek PMIC MT6390 Driver"
+	default n
+	---help---
+	  This selects for MediaTek(R) PMIC MT6390 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.
+
 config MTK_PMIC_CHIP_MT6335
 	tristate "MediaTek Power MT6335 Driver"
 	default n

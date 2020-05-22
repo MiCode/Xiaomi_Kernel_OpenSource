@@ -32,6 +32,8 @@
 #include <linux/mfd/mt6359/registers.h>
 #elif defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 #include <linux/mfd/mt6359p/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6390)
+#include <linux/mfd/mt6390/registers.h>
 #endif
 
 
@@ -1016,6 +1018,7 @@ static int mt6358_misc_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id mt6358_misc_of_match[] = {
+	{ .compatible = "mediatek,mt6357-misc", },
 	{ .compatible = "mediatek,mt6358-misc", },
 	{ .compatible = "mediatek,mt6359-misc", },
 	{ .compatible = "mediatek,mt6359p-misc", .data = &mt6359p_cdata},
