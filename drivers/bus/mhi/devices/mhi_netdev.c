@@ -924,7 +924,7 @@ static void mhi_netdev_create_debugfs_dir(void)
 
 #else
 
-static void mhi_netdev_create_debugfs(struct mhi_netdev_private *mhi_netdev)
+static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 }
 
