@@ -104,6 +104,7 @@ extern void get_thermal_slope_intercept(
 #if CFG_THERM_LVTS
 extern void get_lvts_slope_intercept(
 		struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
+extern void lvts_ipi_send_efuse_data(void);
 #endif
 
 extern void set_taklking_flag(bool flag);
