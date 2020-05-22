@@ -108,11 +108,14 @@ static void dvfsrc_set_vcore_request(int data, int mask, int shift)
 
 static void dvfsrc_get_timestamp(char *p)
 {
+	int ret = 0;
 	u64 sec = local_clock();
 	u64 usec = do_div(sec, 1000000000);
 
 	do_div(usec, 1000000);
-	sprintf(p, "%llu.%llu", sec, usec);
+	ret = sprintf(p, "%llu.%llu", sec, usec);
+	if (ret < 0)
+		pr_info("sprintf fail\n");
 }
 
 static void dvfsrc_set_force_start(int data)
@@ -391,6 +394,7 @@ static void dvfsrc_restore(void)
 
 void helio_dvfsrc_enable(int dvfsrc_en)
 {
+	int ret = 0;
 	if (dvfsrc_en > 1 || dvfsrc_en < 0)
 		return;
 
@@ -409,8 +413,12 @@ void helio_dvfsrc_enable(int dvfsrc_en)
 	dvfsrc->qos_enabled = 1;
 	dvfsrc->dvfsrc_enabled = dvfsrc_en;
 	dvfsrc->opp_forced = 0;
-	sprintf(dvfsrc->force_start, "0");
-	sprintf(dvfsrc->force_end, "0");
+	ret = sprintf(dvfsrc->force_start, "0");
+	if (ret < 0)
+		pr_info("sprintf fail\n");
+	ret = sprintf(dvfsrc->force_end, "0");
+	if (ret < 0)
+		pr_info("sprintf fail\n");
 
 	dvfsrc_restore();
 	if (dvfsrc_en)
