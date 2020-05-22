@@ -636,7 +636,7 @@ static int swpm_get_spower_devid(enum cpu_lkg_type type)
 }
 #endif
 
-static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
+void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 			      unsigned int ch_num)
 {
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
@@ -716,7 +716,7 @@ static void swpm_core_thermal_cb(void)
 #endif
 }
 
-static void swpm_update_lkg_table(void)
+void swpm_update_lkg_table(void)
 {
 	int temp, dev_id, volt, i, j;
 	unsigned int lkg = 0;
@@ -1078,7 +1078,7 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 	swpm_unlock(&swpm_mutex);
 }
 
-static int __init swpm_platform_init(void)
+int __init swpm_platform_init(void)
 {
 	int ret = 0;
 
