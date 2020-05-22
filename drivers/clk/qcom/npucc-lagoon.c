@@ -110,6 +110,7 @@ static struct pll_vco fabia_vco[] = {
 /* 537.60MHz Configuration */
 static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x1C,
+	.cal_l = 0x3F,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
@@ -147,6 +148,7 @@ static struct clk_alpha_pll npu_cc_pll0 = {
 /* 300MHz Configuration */
 static struct alpha_pll_config npu_cc_pll1_config = {
 	.l = 0xF,
+	.cal_l = 0x33,
 	.alpha = 0xA000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
@@ -182,6 +184,7 @@ static struct clk_alpha_pll npu_cc_pll1 = {
 /* 250MHz Configuration */
 static struct alpha_pll_config npu_q6ss_pll_config = {
 	.l = 0xD,
+	.cal_l = 0x1E,
 	.alpha = 0x555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
