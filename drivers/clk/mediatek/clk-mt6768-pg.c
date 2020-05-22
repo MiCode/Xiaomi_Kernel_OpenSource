@@ -3617,6 +3617,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 		kfree(clk_data);
 	}
 
+	spin_lock_init(&pgcb_lock);
+
 	if (mtk_is_mtcmos_enable()) {
 		/* subsys init: per modem owner request,
 		 *disable modem power first
@@ -3657,7 +3659,6 @@ static void __init mt_scpsys_init(struct device_node *node)
 			__func__);
 #endif
 	}
-	spin_lock_init(&pgcb_lock);
 }
 
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
