@@ -22,6 +22,7 @@ FBT_TOP = $(FPSGO_TOP)/fbt/
 
 obj-y += \
 	src/fpsgo_base.o \
+	src/fpsgo_sysfs.o \
 
 ccflags-y += \
 	-I$(srctree)/include/ \
