@@ -56,7 +56,7 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
 	int64_t id);
 static int network_get(struct npu_network *network);
 static int network_put(struct npu_network *network);
-static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg);
+static int app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg);
 static void log_msg_proc(struct npu_device *npu_dev, uint32_t *msg);
 static void host_session_msg_hdlr(struct npu_device *npu_dev);
 static void host_session_log_hdlr(struct npu_device *npu_dev);
@@ -1633,7 +1633,7 @@ int npu_process_kevent(struct npu_client *client, struct npu_kevent *kevt)
 	return ret;
 }
 
-static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
+static int app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 {
 	uint32_t msg_id;
 	struct npu_network *network = NULL;
@@ -1641,6 +1641,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 	struct npu_device *npu_dev = host_ctx->npu_dev;
 	struct npu_network_cmd *network_cmd = NULL;
 	struct npu_misc_cmd *misc_cmd = NULL;
+	int need_ctx_switch = 0;
 
 	msg_id = msg[1];
 	switch (msg_id) {
@@ -1685,7 +1686,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 				NPU_ERR("queue npu event failed\n");
 		}
 		network_put(network);
-
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_EXECUTE_V2_DONE:
@@ -1745,6 +1746,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			complete(&network_cmd->cmd_done);
 		}
 		network_put(network);
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_LOAD_DONE:
@@ -1783,6 +1785,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		complete(&network_cmd->cmd_done);
 		network_put(network);
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_UNLOAD_DONE:
@@ -1815,6 +1818,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		complete(&network_cmd->cmd_done);
 		network_put(network);
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_LOOPBACK_DONE:
@@ -1835,6 +1839,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		misc_cmd->ret_status = lb_rsp_pkt->header.status;
 		complete_all(&misc_cmd->cmd_done);
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_SET_PROPERTY_DONE:
@@ -1858,6 +1863,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		misc_cmd->ret_status = prop_rsp_pkt->header.status;
 		complete(&misc_cmd->cmd_done);
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_GET_PROPERTY_DONE:
@@ -1896,6 +1902,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		}
 
 		complete_all(&misc_cmd->cmd_done);
+		need_ctx_switch = 1;
 		break;
 	}
 	case NPU_IPC_MSG_GENERAL_NOTIFY:
@@ -1926,12 +1933,15 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			msg_id);
 		break;
 	}
+
+	return need_ctx_switch;
 }
 
 static void host_session_msg_hdlr(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
+retry:
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state != FW_ENABLED) {
 		NPU_WARN("handle npu session msg when FW is disabled\n");
@@ -1941,7 +1951,15 @@ static void host_session_msg_hdlr(struct npu_device *npu_dev)
 	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_APPS_RSP,
 		host_ctx->ipc_msg_buf) == 0) {
 		NPU_DBG("received from msg queue\n");
-		app_msg_proc(host_ctx, host_ctx->ipc_msg_buf);
+		if (app_msg_proc(host_ctx, host_ctx->ipc_msg_buf)) {
+			/*
+			 * force context switch to let user
+			 * process have chance to run
+			 */
+			mutex_unlock(&host_ctx->lock);
+			usleep_range(500, 501);
+			goto retry;
+		}
 	}
 
 skip_read_msg:
@@ -2859,6 +2877,8 @@ retry:
 		exec_ioctl->stats_buf_size = 0;
 	}
 
+
+	NPU_DBG("Execute done %x\n", ret);
 free_exec_cmd:
 	npu_dequeue_network_cmd(network, exec_cmd);
 	npu_free_network_cmd(host_ctx, exec_cmd);
