@@ -17,7 +17,9 @@ DP Controller: Required properties:
 - clock-names:          Names of the clocks corresponding to handles. Following clocks are required:
 			"core_aux_clk", "core_usb_ref_clk_src","core_usb_ref_clk", "core_usb_cfg_ahb_clk",
 			"core_usb_pipe_clk", "ctrl_link_clk", "ctrl_link_iface_clk", "ctrl_crypto_clk",
-			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent".
+			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent", "bond_pixel_parent".
+			Only under multiple DPs pixel clock bonding mode, i.e. triple DPs bonding, bond_pixel_parent
+			is used, replacing the pixel_parent for single DP mode.
 - gdsc-supply:		phandle to gdsc regulator node.
 - vdda-1p2-supply:		phandle to vdda 1.2V regulator node.
 - vdda-0p9-supply:		phandle to vdda 0.9V regulator node.
