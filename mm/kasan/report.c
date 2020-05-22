@@ -279,6 +279,8 @@ void kasan_report_invalid_free(void *object, unsigned long ip)
 	pr_err("\n");
 	print_shadow_for_address(object);
 	end_report(&flags);
+	/* trigger KE to get the KAsan corruption message */
+	BUG();
 }
 
 void __kasan_report(unsigned long addr, size_t size, bool is_write, unsigned long ip)
@@ -321,4 +323,6 @@ void __kasan_report(unsigned long addr, size_t size, bool is_write, unsigned lon
 	}
 
 	end_report(&flags);
+	/* trigger KE to get the KAsan corruption message */
+	BUG();
 }
