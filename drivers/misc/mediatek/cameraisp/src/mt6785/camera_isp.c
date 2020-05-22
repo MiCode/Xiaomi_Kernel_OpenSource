@@ -64,10 +64,8 @@
 #include <linux/compat.h>
 #endif
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 #ifdef CONFIG_OF
@@ -337,10 +335,8 @@ static struct isp_sec_dapc_reg lock_reg;
 static unsigned int sec_on;
 static unsigned int log_on;
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source isp_wake_lock;
-#else
-struct wake_lock isp_wake_lock;
 #endif
 static int g_WaitLockCt;
 
@@ -3136,10 +3132,8 @@ static long ISP_ioctl(struct file *pFile,
 					LOG_DBG("add wakelock cnt(%d)\n",
 						g_WaitLockCt);
 				} else {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 					__pm_stay_awake(&isp_wake_lock);
-#else
-					wake_lock(&isp_wake_lock);
 #endif
 					g_WaitLockCt++;
 					LOG_DBG("wakelock enable!! cnt(%d)\n",
@@ -3153,10 +3147,8 @@ static long ISP_ioctl(struct file *pFile,
 					LOG_DBG("subtract wakelock cnt(%d)\n",
 						g_WaitLockCt);
 				else {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 					__pm_relax(&isp_wake_lock);
-#else
-					wake_unlock(&isp_wake_lock);
 #endif
 					LOG_DBG("wakelock disable!! cnt(%d)\n",
 						g_WaitLockCt);
@@ -5270,10 +5262,8 @@ static int ISP_release(
 	/* the power-saving mode */
 	if (g_WaitLockCt) {
 		LOG_INF("wakelock disable!! cnt(%d)\n",	g_WaitLockCt);
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		__pm_relax(&isp_wake_lock);
-#else
-		wake_unlock(&isp_wake_lock);
 #endif
 		g_WaitLockCt = 0;
 	}
@@ -5723,7 +5713,7 @@ static int ISP_probe(struct platform_device *pDev)
 					&IspInfo.WaitQHeadCamsv[i][j]);
 			}
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		wakeup_source_init(&isp_wake_lock, "isp_lock_wakelock");
 #else
 		wake_lock_init(&
