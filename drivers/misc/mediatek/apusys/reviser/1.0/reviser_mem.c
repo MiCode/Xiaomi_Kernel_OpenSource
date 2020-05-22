@@ -154,7 +154,7 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	 * The pointer is using for debugging,
 	 * but it will be used by other apusys HW
 	 */
-	kmemleak_not_leak(kva);
+	kmemleak_no_scan(kva);
 
 	mem->kva = (uint64_t)kva;
 	mem->iova = (uint32_t)iova;
