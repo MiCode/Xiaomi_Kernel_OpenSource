@@ -9,6 +9,7 @@ subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6358)+= -I$(srctree)/drivers/misc/mediat
 subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6323)+= -I$(srctree)/drivers/misc/mediatek/accdet/mt6323
 subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6359)+= -I$(srctree)/drivers/misc/mediatek/accdet/mt6359
 subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6359P)+= -I$(srctree)/drivers/misc/mediatek/accdet/mt6359
+subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6390)+= -I$(srctree)/drivers/misc/mediatek/accdet/mt6357
 
 obj-$(CONFIG_MTK_ACCDET) := accdet_drv.o
 
@@ -20,4 +21,5 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6358) += mt6358/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6323) += mt6323/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6359) += mt6359/
 obj-$(CONFIG_MTK_PMIC_CHIP_MT6359P) += mt6359/
+obj-$(CONFIG_MTK_PMIC_CHIP_MT6390) += mt6357/
 obj-$(CONFIG_MACH_MT8167) += mt8167/
