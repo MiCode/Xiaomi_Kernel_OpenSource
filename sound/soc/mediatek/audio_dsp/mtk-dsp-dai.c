@@ -22,7 +22,6 @@ static const struct snd_soc_component_driver mtk_dai_dsp_component = {
 	.name = "mtk_audio_dsp",
 };
 
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 
 static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 {
@@ -31,7 +30,7 @@ static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 #endif
 	return 0;
 }
-#endif
+
 
 static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 	{
@@ -56,7 +55,6 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 				.formats = MTK_I2S_FORMATS,
 			},
 	},
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 	{
 		.name = "audio_task_offload_dai",
 		.id = AUDIO_TASK_OFFLOAD_ID,
@@ -69,7 +67,6 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 		},
 		.compress_new = mtk_dai_stub_compress_new,
 	},
-#endif
 	{
 		.name = "audio_task_deepbuf_dai",
 		.id = AUDIO_TASK_DEEPBUFFER_ID,
@@ -104,21 +101,10 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 			},
 	},
 	{
-		.name = "audio_task_A2DP_dai",
+		.name = "audio_task_a2dp_dai",
 		.id = AUDIO_TASK_A2DP_ID,
 		.playback = {
 				.stream_name = "DSP_Playback_A2DP",
-				.channels_min = 1,
-				.channels_max = 2,
-				.rates = MTK_I2S_RATES,
-				.formats = MTK_I2S_FORMATS,
-			},
-	},
-	{
-		.name = "audio_task_dataprovider_dai",
-		.id = AUDIO_TASK_DATAPROVIDER_ID,
-		.playback = {
-				.stream_name = "DSP_Playback_DataProvider",
 				.channels_min = 1,
 				.channels_max = 2,
 				.rates = MTK_I2S_RATES,
@@ -130,6 +116,17 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 		.id = AUDIO_TASK_CALL_FINAL_ID,
 		.playback = {
 				.stream_name = "DSP_Call_Final",
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
+	{
+		.name = "audio_task_fast_dai",
+		.id = AUDIO_TASK_FAST_ID,
+		.playback = {
+				.stream_name = "DSP_Playback_Fast",
 				.channels_min = 1,
 				.channels_max = 2,
 				.rates = MTK_I2S_RATES,
