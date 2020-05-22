@@ -48,18 +48,26 @@ static ssize_t flashlight_show_type(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
 	struct flashlight_device *flashlight_dev = to_flashlight_device(dev);
+	int type = flashlight_dev->props.type;
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-		       flashlight_type_string[flashlight_dev->props.type]);
+	if (type >= FLASHLIGHT_TYPE_MAX || type < 0)
+		return -ERANGE;
+	else
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				flashlight_type_string[type]);
 }
 
 static ssize_t flashlight_show_mode(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
 	struct flashlight_device *flashlight_dev = to_flashlight_device(dev);
+	int mode = flashlight_dev->props.mode;
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-		       flashlight_mode_string[flashlight_dev->props.mode]);
+	if (mode >= FLASHLIGHT_MODE_MAX || mode < 0)
+		return -ERANGE;
+	else
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				flashlight_mode_string[mode]);
 }
 
 static ssize_t flashlight_show_torch_max_brightness(struct device *dev,
