@@ -1,0 +1,41 @@
+Policy Engine(PE) recommendation as sensor.
+
+The QTI Policy Engine sensor device will register the policy engine
+recommendation with thermal framework as a sensor. This will enable
+to provide configuration to mitigate cooling devices when a recommendation
+is sent from Policy Engine hardware. The recommendations are mitigation
+levels based on CX operating level.
+
+There can be multiple Policy Engine hardwares for different rails.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: should be "qcom,policy-engine"
+
+- reg:
+    Usage: required
+    Value type: <u32>
+    Definition: RDPM_PE base address.
+
+- #thermal-sensor-cells:
+	Usage: required
+	Value type: <integer>
+	Definition: Must be 0. See thermal.txt for description.
+
+- interrupts:
+    Usage: required
+    Value type: <prop-encoded-array>
+    Definition: Policy Engine master interrupt.
+
+
+Example:
+
+cx_rdpm_pe@0x00635000 {
+	compatible = "qcom,policy-engine";
+	#thermal-sensor-cells = <0>;
+	reg = <0x00635000 0x1000>;
+	interrupts = <GIC_SPI 243 IRQ_TYPE_EDGE_RISING>;
+};
