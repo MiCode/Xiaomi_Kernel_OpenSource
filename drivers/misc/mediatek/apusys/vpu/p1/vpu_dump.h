@@ -23,6 +23,7 @@ struct vpu_device;
 
 struct vpu_dmp {
 	// general info
+	int read_cnt; // counter of AEE reads the dump from debugfs.
 	char info[VPU_DMP_INFO_SZ];
 	uint64_t time;
 	struct vpu_request req;
