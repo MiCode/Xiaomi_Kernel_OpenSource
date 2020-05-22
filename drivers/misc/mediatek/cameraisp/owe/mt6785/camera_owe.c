@@ -3076,13 +3076,13 @@ EXIT:
 /******************************************************************************
  *
  ******************************************************************************/
+/*
 static signed int OWE_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
 	unsigned int pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
-	/*  */
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
@@ -3112,10 +3112,10 @@ static signed int OWE_mmap(struct file *pFile, struct vm_area_struct *pVma)
 		pVma->vm_page_prot)) {
 		return -EAGAIN;
 	}
-	/*  */
+
 	return 0;
 }
-
+*/
 /******************************************************************************
  *
  ******************************************************************************/
@@ -3129,7 +3129,7 @@ static const struct file_operations OWEFileOper = {
 	.open = OWE_open,
 	.release = OWE_release,
 	/* .flush   = mt_OWE_flush, */
-	.mmap = OWE_mmap,
+	/* .mmap = OWE_mmap, */
 	.unlocked_ioctl = OWE_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = OWE_ioctl_compat,
