@@ -563,5 +563,5 @@
 };
 /* AUDIO end */
 #include <k39tv1_64_bsp/cust.dtsi>
-#include "cust_mt6739_camera.dtsi"
+#include "mediatek/cust_mt6739_camera.dtsi"
 

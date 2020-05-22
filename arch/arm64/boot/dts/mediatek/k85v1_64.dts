@@ -578,5 +578,5 @@
 }; /* IRTX GPIO Settings -End */
 
 #include <k85v1_64/cust.dtsi>
-#include "cust_mt6785_camera.dtsi"
+#include "mediatek/cust_mt6785_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

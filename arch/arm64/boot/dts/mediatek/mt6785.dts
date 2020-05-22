@@ -4320,7 +4320,7 @@ page_owner=on loop.max_part=7";
 	};
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
-	#include "bat_setting/mt6785_battery_prop.dtsi"
+	#include "mediatek/bat_setting/mt6785_battery_prop.dtsi"
 #endif
 
 	mtkfb: mtkfb {
@@ -5534,10 +5534,10 @@ page_owner=on loop.max_part=7";
 	};
 };
 
-#include "mt6359.dtsi"
-#include "cust_mt6785_msdc.dtsi"
-#include "mt6360.dtsi"
-#include "mt6360_pd.dtsi"
+#include "mediatek/mt6359.dtsi"
+#include "mediatek/cust_mt6785_msdc.dtsi"
+#include "mediatek/mt6360.dtsi"
+#include "mediatek/mt6360_pd.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
-#include "trusty.dtsi"
+#include "mediatek/trusty.dtsi"
 #endif

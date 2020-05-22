@@ -499,7 +499,7 @@
 };
 /* CONSYS end */
 
-#include "cust_mt6873_camera.dtsi"
-#include "cust_mt6873_touch_1080x2280.dtsi"
+#include "mediatek/cust_mt6873_camera.dtsi"
+#include "mediatek/cust_mt6873_touch_1080x2280.dtsi"
 #include <k6873v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/

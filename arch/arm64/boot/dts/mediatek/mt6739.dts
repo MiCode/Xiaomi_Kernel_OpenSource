@@ -2203,9 +2203,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	#if (CONFIG_MTK_ADDITIONAL_BATTERY_TABLE == 1)
-		#include "bat_setting/mt6739_battery_prop_ext.dtsi"
+		#include "mediatek/bat_setting/mt6739_battery_prop_ext.dtsi"
 	#else
-		#include "bat_setting/mt6739_battery_prop.dtsi"
+		#include "mediatek/bat_setting/mt6739_battery_prop.dtsi"
 	#endif
 #endif
 
@@ -2424,19 +2424,19 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 };
 
-#include "cust_mt6739_msdc.dtsi"
-#include "trusty.dtsi"
+#include "mediatek/cust_mt6739_msdc.dtsi"
+#include "mediatek/trusty.dtsi"
 
 #ifdef CONFIG_MTK_PMIC_CHIP_MT6357
-#include "mt6357.dtsi"
+#include "mediatek/mt6357.dtsi"
 #else
-#include "mt6356.dtsi"
+#include "mediatek/mt6356.dtsi"
 #endif
 
 #ifdef CONFIG_CHARGER_RT9458
-#include "rt9458.dtsi"
+#include "mediatek/rt9458.dtsi"
 #endif
 
 #ifdef CONFIG_CHARGER_RT9466
-#include "rt9466.dtsi"
+#include "mediatek/rt9466.dtsi"
 #endif
