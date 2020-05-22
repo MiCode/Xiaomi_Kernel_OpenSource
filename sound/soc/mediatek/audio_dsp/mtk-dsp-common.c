@@ -459,7 +459,7 @@ static struct notifier_block mtk_audio_dsp_notifier = {
 
 int mtk_audio_register_notify(void)
 {
-#ifdef CFG_RECOVERY_SUPPORT
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT) && defined(CFG_RECOVERY_SUPPORT)
 	adsp_A_register_notify(&mtk_audio_dsp_notifier);
 #endif
 	return 0;
