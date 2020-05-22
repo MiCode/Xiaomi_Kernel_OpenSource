@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2014, 2017-2019, The Linux Foundation.
+ * Copyright (c) 2013-2014, 2017-2020, The Linux Foundation.
  * All rights reserved.
  */
 
@@ -267,6 +267,14 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 	reset->regmap = regmap;
 	reset->reset_map = desc->resets;
 
+	ret = clk_regulator_init(&pdev->dev, desc);
+	if (ret)
+		return ret;
+
+	ret = clk_vdd_proxy_vote(&pdev->dev, desc);
+	if (ret)
+		return ret;
+
 	if (desc->num_resets) {
 		ret = devm_reset_controller_register(dev, &reset->rcdev);
 		if (ret)
@@ -358,6 +366,8 @@ void qcom_cc_sync_state(struct device *dev, const struct qcom_cc_desc *desc)
 {
 	dev_info(dev, "sync-state\n");
 	clk_sync_state(dev);
+
+	clk_vdd_proxy_unvote(dev, desc);
 }
 EXPORT_SYMBOL(qcom_cc_sync_state);
 

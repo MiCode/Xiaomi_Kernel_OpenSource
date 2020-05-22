@@ -233,10 +233,8 @@ void msm_cvp_cache_operations(struct msm_cvp_smem *smem, u32 type,
 {
 	enum smem_cache_ops cache_op;
 
-	if (!msm_cvp_cacheop_enabled) {
-		dprintk(CVP_MEM, "%s: cache operation not enabled\n", __func__);
+	if (msm_cvp_cacheop_disabled)
 		return;
-	}
 
 	if (!smem) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -254,6 +252,9 @@ void msm_cvp_cache_operations(struct msm_cvp_smem *smem, u32 type,
 		cache_op = SMEM_CACHE_CLEAN_INVALIDATE;
 	}
 
+	dprintk(CVP_MEM,
+		"%s: cache operation enabled for dma_buf: %llx, cache_op: %d, offset: %d, size: %d\n",
+		__func__, smem->dma_buf, cache_op, offset, size);
 	msm_cvp_smem_cache_operations(smem->dma_buf, cache_op, offset, size);
 }
 

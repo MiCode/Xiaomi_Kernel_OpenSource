@@ -495,6 +495,7 @@
   dev_remove_pack
   devres_add
   __devres_alloc_node
+  devres_alloc_node
   devres_destroy
   devres_free
   devres_release
@@ -696,6 +697,7 @@
   drm_dp_bw_code_to_link_rate
   drm_dp_calc_pbn_mode
   drm_dp_channel_eq_ok
+  drm_dp_check_act_status
   drm_dp_clock_recovery_ok
   drm_dp_dpcd_read
   drm_dp_dpcd_read_link_status
@@ -936,6 +938,20 @@
   get_cpu_device
   get_device
   __get_free_pages
+  gether_cleanup
+  gether_connect
+  gether_disconnect
+  gether_get_dev_addr
+  gether_get_host_addr
+  gether_get_host_addr_cdc
+  gether_get_ifname
+  gether_get_qmult
+  gether_register_netdev
+  gether_set_dev_addr
+  gether_set_gadget
+  gether_set_host_addr
+  gether_set_qmult
+  gether_setup_name_default
   get_next_ino
   get_option
   get_random_bytes
@@ -1119,6 +1135,7 @@
   ion_heap_map_kernel
   ion_heap_map_user
   ion_heap_unmap_kernel
+  __ioread32_copy
   __ioremap
   iounmap
   __iowrite32_copy
@@ -1266,6 +1283,8 @@
   led_trigger_register_simple
   led_trigger_unregister
   led_trigger_unregister_simple
+  __list_add_valid
+  __list_del_entry_valid
   list_sort
   llist_add_batch
   llist_reverse_order
@@ -1700,11 +1719,20 @@
   pwmchip_remove
   qcom_scm_assign_mem_regions
   qcom_scm_camera_protect_phy_lanes
+  qcom_scm_dcvs_ca_available
+  qcom_scm_dcvs_core_available
+  qcom_scm_dcvs_init_ca_v2
+  qcom_scm_dcvs_init_v2
+  qcom_scm_dcvs_reset
+  qcom_scm_dcvs_update
+  qcom_scm_dcvs_update_v2
+  qcom_scm_dcvs_update_ca_v2
   qcom_scm_deassert_ps_hold
   qcom_scm_disable_sdi
   qcom_scm_get_sec_dump_state
   qcom_scm_halt_spmi_pmic_arbiter
   qcom_scm_io_readl
+  qcom_scm_io_reset
   qcom_scm_io_writel
   qcom_scm_kgsl_set_smmu_aperture
   qcom_scm_kgsl_set_smmu_aperture_available
@@ -1813,6 +1841,7 @@
   register_pm_notifier
   register_reboot_notifier
   register_restart_handler
+  __register_rpmsg_driver
   register_shrinker
   register_syscore_ops
   register_sysctl_table
@@ -1881,6 +1910,17 @@
   rfkill_init_sw_state
   rfkill_register
   rfkill_unregister
+  rndis_deregister
+  rndis_free_response
+  rndis_get_next_response
+  rndis_msg_parser
+  rndis_register
+  rndis_set_host_mac
+  rndis_set_param_dev
+  rndis_set_param_medium
+  rndis_set_param_vendor
+  rndis_signal_connect
+  rndis_uninit
   round_jiffies
   rpmh_flush
   rpmh_invalidate
@@ -1888,6 +1928,15 @@
   rpmh_write
   rpmh_write_async
   rpmh_write_batch
+  rpmsg_create_ept
+  rpmsg_destroy_ept
+  rpmsg_get_sigs
+  rpmsg_poll
+  rpmsg_register_device
+  rpmsg_send
+  rpmsg_set_sigs
+  rpmsg_trysend
+  rpmsg_unregister_device
   rtc_class_close
   rtc_class_open
   rtc_read_time
@@ -2311,6 +2360,19 @@
   tty_flip_buffer_push
   __tty_insert_flip_char
   tty_insert_flip_string_fixed_flag
+  typec_altmode_get_partner
+  typec_altmode_update_active
+  typec_get_drvdata
+  typec_partner_register_altmode
+  typec_port_register_altmode
+  typec_register_partner
+  typec_register_port
+  typec_set_data_role
+  typec_set_pwr_opmode
+  typec_set_pwr_role
+  typec_unregister_altmode
+  typec_unregister_partner
+  typec_unregister_port
   uart_add_one_port
   uart_console_device
   uart_console_write
@@ -2372,6 +2434,7 @@
   unregister_pernet_subsys
   unregister_pm_notifier
   unregister_reboot_notifier
+  unregister_rpmsg_driver
   unregister_shrinker
   unregister_syscore_ops
   unregister_sysctl_table
@@ -2459,6 +2522,7 @@
   usb_hcd_pci_probe
   usb_hcd_pci_remove
   usb_hcd_pci_shutdown
+  usb_hcd_platform_shutdown
   usb_hcd_poll_rh_status
   usb_hcd_resume_root_hub
   usb_hcd_start_port_resume

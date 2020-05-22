@@ -617,11 +617,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_llc_enable_overrides(adreno_dev);
 
-	if (adreno_is_a660(adreno_dev))
+	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
-
-	if (adreno_is_a660v1(adreno_dev))
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
+	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);

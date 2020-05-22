@@ -1163,20 +1163,6 @@ static void socinfo_print(void)
 	}
 }
 
-uint32_t socinfo_get_id(void)
-{
-	return (socinfo) ? le32_to_cpu(socinfo->id) : 0;
-}
-EXPORT_SYMBOL(socinfo_get_id);
-
-const char *socinfo_get_id_string(void)
-{
-	uint32_t id = socinfo_get_id();
-
-	return (socinfo) ? soc_id[id].name : NULL;
-}
-EXPORT_SYMBOL(socinfo_get_id_string);
-
 static const char *socinfo_machine(unsigned int id)
 {
 	int idx;
@@ -1188,6 +1174,20 @@ static const char *socinfo_machine(unsigned int id)
 
 	return NULL;
 }
+
+uint32_t socinfo_get_id(void)
+{
+	return (socinfo) ? le32_to_cpu(socinfo->id) : 0;
+}
+EXPORT_SYMBOL(socinfo_get_id);
+
+const char *socinfo_get_id_string(void)
+{
+	uint32_t id = socinfo_get_id();
+
+	return socinfo_machine(id);
+}
+EXPORT_SYMBOL(socinfo_get_id_string);
 
 static int qcom_socinfo_probe(struct platform_device *pdev)
 {

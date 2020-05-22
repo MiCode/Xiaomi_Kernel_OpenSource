@@ -3273,28 +3273,6 @@ struct sched_avg_stats {
 };
 extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);
 
-#if defined(CONFIG_SCHED_WALT) && defined(CONFIG_CFS_BANDWIDTH)
-
-extern void walt_init_cfs_rq_stats(struct cfs_rq *cfs_rq);
-extern void walt_inc_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p);
-extern void walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p);
-extern void walt_inc_throttled_cfs_rq_stats(struct walt_sched_stats *stats,
-							struct cfs_rq *cfs_rq);
-extern void walt_dec_throttled_cfs_rq_stats(struct walt_sched_stats *stats,
-							struct cfs_rq *cfs_rq);
-#else
-static inline void walt_init_cfs_rq_stats(struct cfs_rq *cfs_rq) {}
-static inline void
-walt_inc_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
-static inline void
-walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
-
-#define walt_inc_throttled_cfs_rq_stats(...)
-#define walt_dec_throttled_cfs_rq_stats(...)
-
-#endif
-
-
 #ifdef CONFIG_SMP
 #ifdef CONFIG_SCHED_WALT
 extern int group_balance_cpu_not_isolated(struct sched_group *sg);

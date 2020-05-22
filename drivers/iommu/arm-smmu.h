@@ -180,6 +180,17 @@ enum arm_smmu_cbar_type {
 #define TTBRn_ASID			GENMASK_ULL(63, 48)
 
 #define ARM_SMMU_CB_TCR			0x30
+#define TCR_TCR1			GENMASK(31, 16)
+#define TCR1_TG1			GENMASK(31, 30)
+#define TCR1_TG1_16K			0x1
+#define TCR1_TG1_4K			0x2
+#define TCR1_TG1_64K			0x3
+#define TCR1_EPD1			BIT(23)
+#define TCR_TCR0			GENMASK(15, 0)
+#define TCR0_TG0			GENMASK(15, 14)
+#define TCR0_TG0_4K			0x0
+#define TCR0_TG0_64K			0x1
+#define TCR0_TG0_16K			0x2
 #define ARM_SMMU_CB_CONTEXTIDR		0x34
 #define ARM_SMMU_CB_S1_MAIR0		0x38
 #define ARM_SMMU_CB_S1_MAIR1		0x3c
@@ -352,6 +363,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 2)
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 3)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 4)
+#define ARM_SMMU_OPT_SPLIT_TABLES	(1 << 5)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -467,7 +479,7 @@ struct arm_smmu_flush_ops {
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct device			*dev;
-	struct io_pgtable_ops		*pgtbl_ops;
+	struct io_pgtable_ops		*pgtbl_ops[2];
 	const struct arm_smmu_flush_ops	*flush_ops;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
@@ -475,7 +487,7 @@ struct arm_smmu_domain {
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
-	struct msm_io_pgtable_info	pgtbl_info;
+	struct msm_io_pgtable_info	pgtbl_info[2];
 	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	u32				secure_vmid;
 	struct list_head		pte_info_list;

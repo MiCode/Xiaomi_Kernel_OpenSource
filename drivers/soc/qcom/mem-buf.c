@@ -31,6 +31,10 @@
 #define MEM_BUF_TIMEOUT_MS 2000
 #define to_rmt_msg(_work) container_of(_work, struct mem_buf_rmt_msg, work)
 
+#define MEM_BUF_CAP_SUPPLIER	BIT(0)
+#define MEM_BUF_CAP_CONSUMER	BIT(1)
+#define MEM_BUF_CAP_DUAL (MEM_BUF_CAP_SUPPLIER | MEM_BUF_CAP_CONSUMER)
+
 /* Data structures for requesting/maintaining memory from other VMs */
 static dev_t mem_buf_dev_no;
 static struct class *mem_buf_class;
@@ -48,6 +52,7 @@ static DEFINE_MUTEX(mem_buf_idr_mutex);
 static DEFINE_IDR(mem_buf_txn_idr);
 static struct task_struct *mem_buf_msgq_recv_thr;
 static void *mem_buf_hh_msgq_hdl;
+static unsigned char mem_buf_capability;
 
 /**
  * enum mem_buf_msg_type: Message types used by the membuf driver for
@@ -747,7 +752,8 @@ static void mem_buf_process_msg(void *buf, size_t size)
 		return;
 	}
 
-	if (hdr->msg_type == MEM_BUF_ALLOC_RESP) {
+	if ((hdr->msg_type == MEM_BUF_ALLOC_RESP) &&
+	    (mem_buf_capability & MEM_BUF_CAP_CONSUMER)) {
 		mutex_lock(&mem_buf_idr_mutex);
 		txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
 		if (!txn) {
@@ -760,8 +766,9 @@ static void mem_buf_process_msg(void *buf, size_t size)
 		}
 		mutex_unlock(&mem_buf_idr_mutex);
 		kfree(buf);
-	} else if (hdr->msg_type == MEM_BUF_ALLOC_REQ ||
-		   hdr->msg_type == MEM_BUF_ALLOC_RELINQUISH) {
+	} else if ((hdr->msg_type == MEM_BUF_ALLOC_REQ ||
+		    hdr->msg_type == MEM_BUF_ALLOC_RELINQUISH) &&
+		   (mem_buf_capability & MEM_BUF_CAP_SUPPLIER)) {
 		rmt_msg = kmalloc(sizeof(*rmt_msg), GFP_KERNEL);
 		if (!rmt_msg) {
 			kfree(buf);
@@ -1265,6 +1272,9 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	struct file *filp;
 	struct mem_buf_desc *membuf;
 
+	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
+		return ERR_PTR(-ENOTSUPP);
+
 	if (!alloc_data)
 		return ERR_PTR(-EINVAL);
 
@@ -1517,6 +1527,9 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 	switch (cmd) {
 	case MEM_BUF_IOC_ALLOC:
 	{
+		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
+			return -ENOTSUPP;
+
 		fd = mem_buf_alloc_fd(&allocation);
 
 		if (fd < 0)
@@ -1545,13 +1558,29 @@ static const struct file_operations mem_buf_dev_fops = {
 static int mem_buf_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device *dev = &pdev->dev;
 	struct device *class_dev;
+
+	if (of_property_match_string(dev->of_node, "qcom,mem-buf-capabilities",
+				     "supplier") >= 0) {
+		mem_buf_capability = MEM_BUF_CAP_SUPPLIER;
+	} else if (of_property_match_string(dev->of_node,
+					    "qcom,mem-buf-capabilities",
+					    "consumer") >= 0) {
+		mem_buf_capability = MEM_BUF_CAP_CONSUMER;
+	} else if (of_property_match_string(dev->of_node,
+					    "qcom,mem-buf-capabilities",
+					    "dual") >= 0) {
+		mem_buf_capability = MEM_BUF_CAP_DUAL;
+	} else {
+		dev_err(dev, "Transfer direction property not present or not valid\n");
+		return -EINVAL;
+	}
 
 	mem_buf_msgq_recv_thr = kthread_create(mem_buf_msgq_recv_fn, NULL,
 					       "mem_buf_rcvr");
 	if (IS_ERR(mem_buf_msgq_recv_thr)) {
-		dev_err(&pdev->dev,
-			"Failed to create msgq receiver thread rc: %d\n",
+		dev_err(dev, "Failed to create msgq receiver thread rc: %d\n",
 			PTR_ERR(mem_buf_msgq_recv_thr));
 		return PTR_ERR(mem_buf_msgq_recv_thr);
 	}
@@ -1560,7 +1589,7 @@ static int mem_buf_probe(struct platform_device *pdev)
 	if (IS_ERR(mem_buf_hh_msgq_hdl)) {
 		ret = PTR_ERR(mem_buf_hh_msgq_hdl);
 		if (ret != EPROBE_DEFER)
-			dev_err(&pdev->dev,
+			dev_err(dev,
 				"Message queue registration failed: rc: %d\n",
 				ret);
 		goto err_msgq_register;
@@ -1571,7 +1600,7 @@ static int mem_buf_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_cdev_add;
 
-	mem_buf_dev = &pdev->dev;
+	mem_buf_dev = dev;
 	class_dev = device_create(mem_buf_class, NULL, mem_buf_dev_no, NULL,
 				  "membuf");
 	if (IS_ERR(class_dev)) {

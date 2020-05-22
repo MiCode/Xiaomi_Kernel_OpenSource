@@ -2,6 +2,14 @@
 /*
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
+
+/* Uncomment this block to log an error on every VERIFY failure */
+/*
+ * #ifndef VERIFY_PRINT_ERROR
+ * #define VERIFY_PRINT_ERROR
+ * #endif
+ */
+
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -137,8 +137,6 @@ static int sdam_probe(struct platform_device *pdev)
 	sdam->size = val * 32;
 
 	sdam_config->dev = &pdev->dev;
-	sdam_config->name = "spmi_sdam";
-	sdam_config->id = pdev->id;
 	sdam_config->owner = THIS_MODULE,
 	sdam_config->stride = 1;
 	sdam_config->word_size = 1;
