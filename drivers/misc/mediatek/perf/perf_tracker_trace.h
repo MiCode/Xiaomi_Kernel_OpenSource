@@ -21,6 +21,29 @@
 #define TRACE_SYSTEM perf_tracker
 #define TRACE_INCLUDE_FILE perf_tracker_trace
 
+TRACE_EVENT(fuel_gauge,
+	TP_PROTO(
+		int cur,
+		int volt
+	),
+
+	TP_ARGS(cur, volt),
+
+	TP_STRUCT__entry(
+		__field(int, cur)
+		__field(int, volt)
+	),
+
+	TP_fast_assign(
+		__entry->cur = cur;
+		__entry->volt = volt;
+	),
+
+	TP_printk("cur=%d, vol=%d",
+		__entry->cur,
+		__entry->volt
+	)
+);
 
 TRACE_EVENT(perf_index_gpu,
 	TP_PROTO(u32 *gpu_data, u32 lens),
