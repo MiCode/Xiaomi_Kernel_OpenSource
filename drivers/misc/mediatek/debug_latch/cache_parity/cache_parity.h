@@ -14,6 +14,14 @@
 #ifndef __CACHE_PARITY_H__
 #define __CACHE_PARITY_H__
 
+#define ECC_UE_BIT		(0x1 << 29)
+#define ECC_CE_BIT		(0x3 << 24)
+#define ECC_DE_BIT		(0x1 << 23)
+
+#define FAULTIRQ_START			32
+#define ECC_IRQ_TRIGGER_THRESHOLD	1
+#define ERROR_TYPE_BUF_LENGTH		3
+
 struct parity_record_t {
 	unsigned int check_offset;
 	unsigned int check_mask;
