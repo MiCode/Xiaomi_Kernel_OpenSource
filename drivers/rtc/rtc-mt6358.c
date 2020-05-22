@@ -739,9 +739,20 @@ static irqreturn_t mtk_rtc_irq_handler(int irq, void *data)
 		now_time =
 		    mktime(nowtm.tm_year, nowtm.tm_mon, nowtm.tm_mday,
 			   nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
+
+		if (now_time == -1) {
+			spin_unlock_irqrestore(&mt_rtc->lock, flags);
+			goto out;
+		}
+
 		time =
 		    mktime(tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour,
 			   tm.tm_min, tm.tm_sec);
+
+		if (time == -1) {
+			spin_unlock_irqrestore(&mt_rtc->lock, flags);
+			goto out;
+		}
 
 		/* power on */
 		if (now_time >= time - 1 && now_time <= time + 4) {
