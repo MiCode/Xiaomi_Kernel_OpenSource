@@ -414,8 +414,10 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 			i, c->table[i].frequency, core_count);
 
 		if (core_count != c->max_cores) {
-			cur_freq = CPUFREQ_ENTRY_INVALID;
-			c->table[i].flags = CPUFREQ_BOOST_FREQ;
+			if (core_count < (c->max_cores - 1)) {
+				cur_freq = CPUFREQ_ENTRY_INVALID;
+				c->table[i].flags = CPUFREQ_BOOST_FREQ;
+			}
 		}
 
 		/*
