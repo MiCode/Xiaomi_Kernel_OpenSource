@@ -206,8 +206,8 @@ static int __init dvfsrc_opp_init(void)
 			opp_min_bin_opp0 = 3;
 			opp_min_bin_opp3 = 3;
 		} else {
-			opp_min_bin_opp0 = 3;
-			opp_min_bin_opp3 = 3;
+			opp_min_bin_opp0 = 4;
+			opp_min_bin_opp3 = 4;
 		}
 		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
 		if (ct_opp3_en)
