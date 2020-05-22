@@ -1942,8 +1942,8 @@ static int mt_pwm_probe(struct platform_device *pdev)
 		pr_debug(T "PWM get irqnr failed\n");
 		return -ENODEV;
 	}
-	pr_debug(T "pwm base: 0x%p = 0x%x pwm irq: %d\n",
-			pwm_base, (*((int *)pwm_base)), pwm_irqnr);
+	pr_debug(T "pwm base: 0x%p pwm irq: %d\n",
+			pwm_base, pwm_irqnr);
 
 	pwm_irqnr = platform_get_irq(pdev, 0);
 	if (pwm_irqnr <= 0) {
@@ -1952,10 +1952,10 @@ static int mt_pwm_probe(struct platform_device *pdev)
 	}
 #if PWM_LDVT_FLAG
 	ret = devm_request_irq(&pdev->dev, pwm_irqnr, mt_pwm_irq,
-		IRQF_TRIGGER_LOW, PWM_DEVICE, (void *) intr_pwm_nu);
+		IRQF_TRIGGER_NONE, PWM_DEVICE, (void *) intr_pwm_nu);
 #else
 	ret = devm_request_irq(&pdev->dev, pwm_irqnr, mt_pwm_irq,
-		IRQF_TRIGGER_LOW, PWM_DEVICE, NULL);
+		IRQF_TRIGGER_NONE, PWM_DEVICE, NULL);
 #endif
 	if (ret < 0) {
 		pr_err(T "[PWM]Request IRQ %d failed-------\n", pwm_irqnr);
