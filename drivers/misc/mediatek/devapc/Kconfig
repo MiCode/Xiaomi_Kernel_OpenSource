@@ -110,7 +110,7 @@ config DEVAPC_MT6853
 	select DEVAPC_ARCH_V2
 	select MTK_DEVAPC
 	select DEVAPC_MMAP_DEBUG
-	select DEVAPC_SWP_SUPPORT
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
 	help
 	  Say yes here to enable support Mediatek MT6853
 	  Device APC driver.
