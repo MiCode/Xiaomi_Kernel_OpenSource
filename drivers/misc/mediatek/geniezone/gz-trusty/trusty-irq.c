@@ -219,7 +219,8 @@ void handle_trusty_ipi(int ipinr)
 	/*for kernel-4.14*/
 
 	irq_enter();
-	trusty_irq_handler(ipinr, this_cpu_ptr(trusty_ipi_data[ipinr]));
+	if (ipinr >= 0 && ipinr < 16)
+		trusty_irq_handler(ipinr, this_cpu_ptr(trusty_ipi_data[ipinr]));
 	irq_exit();
 }
 
@@ -451,7 +452,7 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 		trusty_irq->percpu_ptr = trusty_irq_handler_data;
 	}
 
-	if (irq < 16) {		/* IPI (SGI) */
+	if (irq >= 0 && irq < 16) {		/* IPI (SGI) */
 		trusty_ipi_data[irq] = trusty_irq_handler_data;
 		trusty_ipi_init[irq] = 1;
 		return 0;

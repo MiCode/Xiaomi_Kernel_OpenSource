@@ -510,7 +510,7 @@ struct tipc_chan *tipc_create_channel(struct device *dev,
 				      const struct tipc_chan_ops *ops,
 				      void *ops_arg)
 {
-	struct virtio_device *vd;
+	struct virtio_device *vd = NULL;
 	struct tipc_chan *chan;
 	struct tipc_virtio_dev *vds;
 	struct tipc_dn_chan *dn = ops_arg;
@@ -519,7 +519,8 @@ struct tipc_chan *tipc_create_channel(struct device *dev,
 	if (dev) {
 		vd = container_of(dev, struct virtio_device, dev);
 	} else {
-		vd = vdev_array[dn->tee_id];
+		if (is_tee_id(dn->tee_id))
+			vd = vdev_array[dn->tee_id];
 		if (!vd) {
 			mutex_unlock(&tipc_devices_lock);
 			return ERR_PTR(-ENOENT);
@@ -1259,12 +1260,15 @@ static struct tipc_virtio_dev *port_lookup_vds(const char *port)
 			__func__, tee_id, ret);
 	}
 
-	if (vdev_array[tee_id]) {
-		vds = vdev_array[tee_id]->priv;
-		kref_get(&vds->refcount);
-		return vds;
-	} else
-		return ERR_PTR(-ENODEV);
+	if (likely(is_tee_id(tee_id))) {
+		if (likely(vdev_array[tee_id])) {
+			vds = vdev_array[tee_id]->priv;
+			kref_get(&vds->refcount);
+			return vds;
+		}
+	}
+
+	return ERR_PTR(-ENODEV);
 }
 
 static int tipc_open_channel(struct tipc_dn_chan **o_dn, const char *port)
@@ -1531,9 +1535,11 @@ static void create_cdev_node(struct tipc_virtio_dev *vds,
 
 	mutex_lock(&tipc_devices_lock);
 
-	if (!vdev_array[vds->tee_id]) {
-		kref_get(&vds->refcount);
-		vdev_array[vds->tee_id] = vds->vdev;
+	if (is_tee_id(vds->tee_id)) {
+		if (!vdev_array[vds->tee_id]) {
+			kref_get(&vds->refcount);
+			vdev_array[vds->tee_id] = vds->vdev;
+		}
 	}
 
 	if (vds->cdev_name[0] && !cdn->dev) {
@@ -1561,9 +1567,11 @@ static void destroy_cdev_node(struct tipc_virtio_dev *vds,
 		kref_put(&vds->refcount, _free_vds);
 	}
 
-	if (vdev_array[vds->tee_id] == vds->vdev) {
-		vdev_array[vds->tee_id] = NULL;
-		kref_put(&vds->refcount, _free_vds);
+	if (is_tee_id(vds->tee_id)) {
+		if (vdev_array[vds->tee_id] == vds->vdev) {
+			vdev_array[vds->tee_id] = NULL;
+			kref_put(&vds->refcount, _free_vds);
+		}
 	}
 
 	mutex_unlock(&tipc_devices_lock);
