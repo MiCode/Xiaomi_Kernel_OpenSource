@@ -297,12 +297,13 @@ static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
 				     int channel);
 
 /* Exported function for chip init */
-void auxadc_set_convert_fn(int channel, void (*convert_fn)(unsigned char))
+void auxadc_set_convert_fn(unsigned int channel,
+			   void (*convert_fn)(unsigned char))
 {
 	auxadc_chans[channel].convert_fn = convert_fn;
 }
 
-void auxadc_set_cali_fn(int channel, int (*cali_fn)(int, int))
+void auxadc_set_cali_fn(unsigned int channel, int (*cali_fn)(int, int))
 {
 	auxadc_chans[channel].cali_fn = cali_fn;
 }
@@ -375,7 +376,7 @@ static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
 static void auxadc_timeout_handler(struct mt635x_auxadc_device *adc_dev,
 			    bool is_timeout, unsigned char ch_num)
 {
-	int i;
+	int i, ret;
 	unsigned char reg_log[631] = "", reg_str[21] = "";
 	unsigned int reg_val = 0;
 	static unsigned short timeout_times;
@@ -388,8 +389,8 @@ static void auxadc_timeout_handler(struct mt635x_auxadc_device *adc_dev,
 	for (i = 0; i < adc_dev->num_dbg_regs; i++) {
 		regmap_read(adc_dev->regmap,
 			    adc_dev->dbg_regs[i], &reg_val);
-		snprintf(reg_str, 20, "Reg[0x%x]=0x%x,",
-			adc_dev->dbg_regs[i], reg_val);
+		ret = snprintf(reg_str, 20, "Reg[0x%x]=0x%x,",
+			       adc_dev->dbg_regs[i], reg_val);
 		strncat(reg_log, reg_str, ARRAY_SIZE(reg_log) - 1);
 	}
 	dev_notice(adc_dev->dev,
