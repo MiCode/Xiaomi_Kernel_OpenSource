@@ -178,10 +178,4 @@ typedef void (*gpufreq_input_boost_notify)(unsigned int);
 extern void mt_gpufreq_input_boost_notify_registerCB(
 		gpufreq_input_boost_notify pCB);
 
-/**
- * notify to ged
- */
-extern unsigned int (*ged_kpi_get_limit_user_fp)(
-		unsigned int limit_user);
-
 #endif /* ___MT_GPUFREQ_PLAT_H___ */
