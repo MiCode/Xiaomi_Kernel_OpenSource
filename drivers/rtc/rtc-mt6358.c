@@ -1165,6 +1165,7 @@ static void mtk_rtc_pdrv_shutdown(struct platform_device *pdev)
 }
 
 static const struct of_device_id mt6358_rtc_of_match[] = {
+	{ .compatible = "mediatek,mt6357-rtc", },
 	{ .compatible = "mediatek,mt6358-rtc", },
 	{ .compatible = "mediatek,mt6359-rtc", },
 	{ }
