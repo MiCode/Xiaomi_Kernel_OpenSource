@@ -154,7 +154,7 @@ extern void adsp_A_irq_init(void);
 extern void adsp_A_ipi_init(void);
 
 /* adsp helper */
-extern void adsp_A_register_notify(struct notifier_block *nb);
+extern void adsp_register_notify(struct notifier_block *nb);
 extern void adsp_A_unregister_notify(struct notifier_block *nb);
 extern struct workqueue_struct *adsp_workqueue;
 
