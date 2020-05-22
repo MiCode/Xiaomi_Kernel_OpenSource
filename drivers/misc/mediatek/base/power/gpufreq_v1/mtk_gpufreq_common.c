@@ -48,7 +48,7 @@ static void dump_except(enum g_exception_enum except_type, char *except_str)
 		 * we will call kernel api later
 		 */
 		g_pending_info.exception_type = except_type;
-		strncpy(g_pending_info.exception_string, except_str, 1024);
+		strncpy(g_pending_info.exception_string, except_str, 1023);
 		g_have_pending_info = 1;
 	}
 #else
