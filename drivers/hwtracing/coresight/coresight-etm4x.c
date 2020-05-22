@@ -1141,8 +1141,10 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 		ret = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
 							   "arm/coresight4:online",
 							   etm4_online_cpu, NULL);
-		if (ret < 0)
+		if (ret < 0) {
+			cpus_read_unlock();
 			goto err_arch_supported;
+		}
 		hp_online = ret;
 	}
 
