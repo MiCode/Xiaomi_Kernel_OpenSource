@@ -5326,6 +5326,7 @@
 		qcom,wlan-cbc-enabled;
 		/* RPMH_PDC_WLAN_RF_TCS<6>_CMD<2> offset */
 		qcom,tcs_offset_int_pow_amp_vreg = <0x4D0>;
+		use-pm-domain;
 
 		vdd-wlan-aon-supply = <&S2E>;
 		qcom,vdd-wlan-aon-config = <950000 952000 0 0 1>;

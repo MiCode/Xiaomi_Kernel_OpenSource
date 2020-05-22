@@ -69,6 +69,14 @@ Optional properties:
   - qcom,mhi: phandle to indicate the device which needs MHI support.
   - qcom,cap-tsf-gpio: WLAN_TSF_CAPTURED GPIO signal specified by the chip
                        specifications, should be drived depending on products
+  - cnss-daemon-support: Boolean property to decide whether cnss_daemon
+                         userspace QMI client is supported.
+  - use-nv-mac: Boolean property to indicate whether NV MAC is used or not.
+  - qcom,set-wlaon-pwr-ctrl: Boolean property to indicate if set
+                             WLAON_QFPROM_PWR_CTRL_REG register during power on
+                             and off sequences.
+  - use-pm-domain: Boolean property to indicate if driver needs to use PM
+                   domain or not.
   - qcom,wlan-cbc-enabled: boolean property to control cold boot calibration
   - interconnects: Interconnect framework setup for bus configuration
   - qcom,bus-bw-cfg-num: Number of bus bandwidth voting cases
