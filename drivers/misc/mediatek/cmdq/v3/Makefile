@@ -92,10 +92,13 @@ obj-y += cmdq_device.o
 obj-y += cmdq_driver.o
 obj-y += cmdq_mdp_common.o
 #obj-y += cmdq_prof.o
-obj-y += cmdq_test.o
 obj-y += cmdq_event_common.o
 obj-y += cmdq_subsys_common.o
 obj-y += cmdq_helper_ext.o
+
+ifneq ($(strip $(CONFIG_KASAN)),y)
+obj-y += cmdq_test.o
+endif
 
 ifeq ($(strip $(CONFIG_MMPROFILE)),y)
 obj-y += cmdq_mmp.o

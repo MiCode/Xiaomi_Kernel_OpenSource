@@ -1087,6 +1087,7 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 
 void testcase_clkmgr_mdp(void)
 {
+#if 0
 #if defined(CMDQ_PWR_AWARE)
 	/* RDMA clk test with src buffer addr */
 	testcase_clkmgr_impl(CMDQ_ENG_MDP_RDMA0, "CMDQ_TEST_MDP_RDMA0",
@@ -1132,6 +1133,7 @@ void testcase_clkmgr_mdp(void)
 		MDP_CCORR_BASE + 0x30, 0x1FFF1FFF, MDP_CCORR_BASE + 0x30,
 		true);
 
+#endif
 #endif
 }
 
