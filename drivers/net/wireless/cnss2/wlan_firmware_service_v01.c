@@ -2730,6 +2730,24 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.ei_array      = wlfw_host_ddr_range_s_v01_ei,
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x20,
+		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
+					   host_build_type_valid),
+	},
+	{
+		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
+		.elem_len       = 1,
+		.elem_size      = sizeof(enum wlfw_host_build_type_v01),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x20,
+		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
+					   host_build_type),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -3545,6 +3563,26 @@ struct qmi_elem_info wlfw_qdss_trace_mode_req_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 					   wlfw_qdss_trace_mode_req_msg_v01,
 					   option),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x12,
+		.offset         = offsetof(struct
+					   wlfw_qdss_trace_mode_req_msg_v01,
+					   hw_trc_disable_override_valid),
+	},
+	{
+		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
+		.elem_len       = 1,
+		.elem_size      = sizeof(enum wlfw_qmi_param_value_v01),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x12,
+		.offset         = offsetof(struct
+					   wlfw_qdss_trace_mode_req_msg_v01,
+					   hw_trc_disable_override),
 	},
 	{
 		.data_type      = QMI_EOTI,

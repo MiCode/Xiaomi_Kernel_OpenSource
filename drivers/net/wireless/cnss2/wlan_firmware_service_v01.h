@@ -181,6 +181,22 @@ enum wlfw_soc_wake_enum_v01 {
 	WLFW_SOC_WAKE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
+enum wlfw_host_build_type_v01 {
+	WLFW_HOST_BUILD_TYPE_MIN_VAL_V01 = INT_MIN,
+	QMI_HOST_BUILD_TYPE_UNSPECIFIED_V01 = 0,
+	QMI_HOST_BUILD_TYPE_PRIMARY_V01 = 1,
+	QMI_HOST_BUILD_TYPE_SECONDARY_V01 = 2,
+	WLFW_HOST_BUILD_TYPE_MAX_VAL_V01 = INT_MAX,
+};
+
+enum wlfw_qmi_param_value_v01 {
+	WLFW_QMI_PARAM_VALUE_MIN_VAL_V01 = INT_MIN,
+	QMI_PARAM_INVALID_V01 = 0,
+	QMI_PARAM_ENABLE_V01 = 1,
+	QMI_PARAM_DISABLE_V01 = 2,
+	WLFW_QMI_PARAM_VALUE_MAX_VAL_V01 = INT_MAX,
+};
+
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
 #define QMI_WLFW_CE_ATTR_NO_SNOOP_V01 ((u32)0x01)
 #define QMI_WLFW_CE_ATTR_BYTE_SWAP_DATA_V01 ((u32)0x02)
@@ -711,9 +727,11 @@ struct wlfw_host_cap_req_msg_v01 {
 	u8 ddr_range_valid;
 	struct wlfw_host_ddr_range_s_v01
 		ddr_range[QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01];
+	u8 host_build_type_valid;
+	enum wlfw_host_build_type_v01 host_build_type;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 312
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 319
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
@@ -922,9 +940,11 @@ struct wlfw_qdss_trace_mode_req_msg_v01 {
 	enum wlfw_qdss_trace_mode_enum_v01 mode;
 	u8 option_valid;
 	u64 option;
+	u8 hw_trc_disable_override_valid;
+	enum wlfw_qmi_param_value_v01 hw_trc_disable_override;
 };
 
-#define WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN 18
+#define WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN 25
 extern struct qmi_elem_info wlfw_qdss_trace_mode_req_msg_v01_ei[];
 
 struct wlfw_qdss_trace_mode_resp_msg_v01 {
