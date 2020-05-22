@@ -151,7 +151,7 @@ static ssize_t mtk_lp_kernfs_idio_write(struct kernfs_open_file *of,
 {
 	const struct mtk_lp_sysfs_op *ops =
 			(const struct mtk_lp_sysfs_op *)of->kn->priv;
-	if (!ops && !ops->fs_write)
+	if (!ops || !ops->fs_write)
 		return 0;
 	return ops->fs_write(buf, count, ops->priv);
 }
