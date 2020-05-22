@@ -1732,6 +1732,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 	if (r)
 		pr_info("[CCF] %s:could not register clock provide\n", __func__);
 
+	spin_lock_init(&pgcb_lock);
+
 	/*MM Bus*/
 	iomap_mm();
 
@@ -1749,7 +1751,6 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_vcodec(STA_POWER_ON);
 #endif
 #endif				/* !MT_CCF_BRINGUP */
-	spin_lock_init(&pgcb_lock);
 }
 
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
