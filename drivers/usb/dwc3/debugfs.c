@@ -57,7 +57,7 @@
 
 
 #define ep_event_rate(ev, c, p, dt)	\
-	((dt) ? ((c.ev - p.ev) * (MSEC_PER_SEC)) / (dt) : 0)
+	((dt) ? (calc_evt_rate(c.ev, p.ev, dt)) : 0)
 
 static const struct debugfs_reg32 dwc3_regs[] = {
 	dump_register(GSBUSCFG0),
@@ -1042,6 +1042,15 @@ static ssize_t dwc3_gadget_int_events_store(struct file *file,
 	memset(&dwc->dbg_gadget_events, 0, sizeof(dwc->dbg_gadget_events));
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	return count;
+}
+
+static inline u64 calc_evt_rate(unsigned int c, unsigned int p, s64 dt)
+{
+	u64 ev_val;
+
+	ev_val = (u64)((c-p)*(MSEC_PER_SEC));
+	do_div(ev_val, (u64)dt);
+	return ev_val;
 }
 
 static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
