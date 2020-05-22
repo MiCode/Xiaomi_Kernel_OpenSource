@@ -138,16 +138,6 @@ config MTK_SPMTWAM
 	  Select "y" if you want to use.
 	  Select "n" if you are not sure.
 
-config MTK_MEMORY_LOWPOWER
-	bool "Support Mediatek memory lowpower technology"
-	depends on CMA && ZONE_MOVABLE_CMA
-	default n
-	help
-	  Mediatek DRAM low power technology.
-	  It tries to safe DRAM power by switching
-	  different DRAM mode dynamically. It's a
-	  platform-dependent feature.
-
 config MTK_LOW_POWER_MODULE
         bool "Meditaek Low Power Module"
         depends on MTK_LPM
@@ -383,7 +373,7 @@ config MTK_AMMS
 
 config DMAUSER_PAGES
 	bool "allocate highuser movable pages from dma zone"
-	depends on MTK_LM_MODE && !MTK_MEMORY_LOWPOWER
+	depends on MTK_LM_MODE
 	help
 	  An internal debug kernel config for testing large memory mode.
 	  To test if kernel drivers are fully compatible to large
@@ -394,7 +384,7 @@ config DMAUSER_PAGES
 config NORMALKERNEL_PAGES
 	bool "allocate kernel pages from normal zone"
 	default n
-	depends on MTK_LM_MODE && !MTK_MEMORY_LOWPOWER && DMAUSER_PAGES
+	depends on MTK_LM_MODE && DMAUSER_PAGES
 	help
 	  An internal debug kernel config for testing large memory mode.
 	  To test if kernel drivers are fully compatible to large

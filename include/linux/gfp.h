@@ -442,11 +442,7 @@ static inline bool gfpflags_normal_context(const gfp_t gfp_flags)
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_DMA | ___GFP_HIGHMEM)  \
 )
 
-#ifdef CONFIG_MTK_MEMORY_LOWPOWER
-#define OPT_ZONE_MOVABLE_CMA	ZONE_NORMAL
-#else
 #define OPT_ZONE_MOVABLE_CMA	ZONE_MOVABLE
-#endif
 
 #ifdef CONFIG_ZONE_MOVABLE_CMA
 #define IS_ZONE_MOVABLE_CMA_ZONE_IDX(z)		(z >= OPT_ZONE_MOVABLE_CMA)
