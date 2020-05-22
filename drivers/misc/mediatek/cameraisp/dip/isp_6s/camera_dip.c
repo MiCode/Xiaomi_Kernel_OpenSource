@@ -238,8 +238,8 @@ static const struct of_device_id dip_of_ids[] = {
 	{ .compatible = "mediatek,dip1", },
 	{ .compatible = "mediatek,mssdl", },
 	{ .compatible = "mediatek,msfdl", },
-#ifdef DIP_COUNT_IS_2
 	{ .compatible = "mediatek,imgsys2", },
+#ifdef DIP_COUNT_IS_2
 	{ .compatible = "mediatek,dip2", },
 #endif
 	{}
@@ -509,8 +509,8 @@ static unsigned int g_dip1sterr = DIP_GCE_EVENT_NONE;
 #define DIP_A_ADDR                  0x15022000
 #define MSS_BASE                    (dip_devs[DIP_MSS_IDX].regs)
 #define MSF_BASE                    (dip_devs[DIP_MSF_IDX].regs)
-#if (MTK_DIP_COUNT == 2)
 #define DIP_IMGSYS2_CONFIG_BASE     (dip_devs[DIP_IMGSYS2_CONFIG_IDX].regs)
+#if (MTK_DIP_COUNT == 2)
 #define DIP_B_BASE                  (dip_devs[DIP_DIP_B_IDX].regs)
 #endif
 
@@ -522,9 +522,8 @@ static unsigned int g_dip1sterr = DIP_GCE_EVENT_NONE;
 #define DIP_GPIO_ADDR                   GPIO_BASE
 #if (MTK_DIP_COUNT == 2)
 #define DIP_B_ADDR                       (IMGSYS2_BASE + 0x4000)
-#define DIP_IMGSYS2_BASE                 IMGSYS2_BASE
 #endif
-
+#define DIP_IMGSYS2_BASE                 IMGSYS2_BASE
 #endif
 /* TODO: Remove end, Jessy */
 
@@ -973,7 +972,6 @@ static inline unsigned int DIP_JiffiesToMs(unsigned int Jiffies)
 	return ((Jiffies * 1000) / HZ);
 }
 
-
 static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 {
 	signed int Ret = 0;
@@ -985,62 +983,20 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 	unsigned int fifodmacmd = 0;
 	unsigned int cmdqdebugcmd = 0, cmdqdebugidx = 0;
 	unsigned int d1a_cq_en = 0;
-	void __iomem *dipRegBasAddr, *imgsysBasAddr;
-
-	static struct DIP_DEV_NODE_MAPPING ImgsysDumpTL[MTK_DIP_COUNT + 1]
-	= {		{DIP_IMGSYS_CONFIG_IDX, 0x1502},
-		#if (MTK_DIP_COUNT == 2)
-			{DIP_IMGSYS2_CONFIG_IDX, 0x1582},
-		#endif
-			{DIP_DEV_NODE_NUM, 0xFFFF} };
+	void __iomem *dipRegBasAddr;
 
 	static struct DIP_DEV_NODE_MAPPING DipDumpTL[MTK_DIP_COUNT + 1]
 	= {		{DIP_DIP_A_IDX, 0x1502},
-		#if (MTK_DIP_COUNT == 2)
+	#ifdef DIP_COUNT_IS_2
 			{DIP_DIP_B_IDX, 0x1582},
-		#endif
+	#endif
 			{DIP_DEV_NODE_NUM, 0xFFFF} };
 
 	for (DIPNo = 0; DIPNo < MTK_DIP_COUNT; DIPNo++) {
-		/* IMGSYS_CONFIG_BASE */
-		imgsysBasAddr = dip_devs[ImgsysDumpTL[DIPNo].idx].regs;
 		/* DIP REG_CONFIG_BASE */
 		dipRegBasAddr = dip_devs[DipDumpTL[DIPNo].idx].regs;
-
-		cmdq_util_err("***** Imgsys %d *****", DIPNo);
-		/* HUNG-WEN */
-		cmdq_util_err("imgsys:0x%x0000(0x%x)",
-			ImgsysDumpTL[DIPNo].region, DIP_RD32(imgsysBasAddr));
-		cmdq_util_err("imgsys: 0x%x004C(0x%x)",
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x4C));
-		cmdq_util_err("0x%x0200(0x%x)-0x%x0204(0x%x)",
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x200),
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x204));
-		cmdq_util_err("0x%x0208(0x%x)-0x%x020C(0x%x)",
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x208),
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x20C));
-		cmdq_util_err("0x%x0220(0x%x)-0x%x0224(0x%x)",
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x220),
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x224));
-		cmdq_util_err("0x%x0228(0x%x)-0x%x0230(0x%x)",
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x228),
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x230));
-		cmdq_util_err("0x%x0234(0x%x)-0x%x0238(0x%x)",
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x234),
-			ImgsysDumpTL[DIPNo].region,
-			DIP_RD32(imgsysBasAddr + 0x238));
-
 		cmdq_util_err("***** DIP %d *****", DIPNo);
+
 		/*top control*/
 		cmdq_util_err("dip: 0x%x2000(0x%x)-0x%x2004(0x%x)",
 			DipDumpTL[DIPNo].region,
@@ -3399,6 +3355,68 @@ static signed int DIP_DumpDIPReg(void)
 	cmdq_util_err("g_pPhyMFBBuffer:(0x%p), g_pPhyMSSBuffer:(0x%p)",
 		g_pPhyMFBBuffer, g_pPhyMSSBuffer);
 	cmdq_util_err("g_bIonBuf:(0x%x)", g_bIonBufferAllocated);
+
+	cmdq_util_err("imgsys: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS_BASE_HW),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE),
+		(DIP_IMGSYS_BASE_HW + 0x4C),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x4C));
+	cmdq_util_err("imgsys: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS_BASE_HW + 0x200),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x200),
+		(DIP_IMGSYS_BASE_HW + 0x204),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x204));
+	cmdq_util_err("imgsys: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS_BASE_HW + 0x208),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x208),
+		(DIP_IMGSYS_BASE_HW + 0x20C),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x20C));
+	cmdq_util_err("imgsys: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS_BASE_HW + 0x220),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x220),
+		(DIP_IMGSYS_BASE_HW + 0x224),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x224));
+	cmdq_util_err("imgsys: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS_BASE_HW + 0x228),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x228),
+		(DIP_IMGSYS_BASE_HW + 0x230),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x230));
+	cmdq_util_err("imgsys: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS_BASE_HW + 0x234),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x234),
+		(DIP_IMGSYS_BASE_HW + 0x238),
+		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x238));
+
+	cmdq_util_err("imgsys2: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS2_BASE_HW),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE),
+		(DIP_IMGSYS2_BASE_HW + 0x4C),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x4C));
+	cmdq_util_err("imgsys2: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS2_BASE_HW + 0x200),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x200),
+		(DIP_IMGSYS2_BASE_HW + 0x204),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x204));
+	cmdq_util_err("imgsys2: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS2_BASE_HW + 0x208),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x208),
+		(DIP_IMGSYS2_BASE_HW + 0x20C),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x20C));
+	cmdq_util_err("imgsys2: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS2_BASE_HW + 0x220),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x220),
+		(DIP_IMGSYS2_BASE_HW + 0x224),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x224));
+	cmdq_util_err("imgsys2: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS2_BASE_HW + 0x228),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x228),
+		(DIP_IMGSYS2_BASE_HW + 0x230),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x230));
+	cmdq_util_err("imgsys2: 0x%x(0x%x)-0x%x(0x%x)",
+		(DIP_IMGSYS2_BASE_HW + 0x234),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x234),
+		(DIP_IMGSYS2_BASE_HW + 0x238),
+		DIP_RD32(DIP_IMGSYS2_CONFIG_BASE + 0x238));
 
 	DIP_Dump_IMGSYS_DIP_Reg();
 

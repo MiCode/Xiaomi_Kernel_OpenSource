@@ -53,8 +53,8 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 #endif
 
 
+#define DIP_IMGSYS2_BASE_HW   0x15820000
 #if (MTK_DIP_COUNT == 2)
-#define DIP_IMGSYS2_BASE_HW   0x15080000
 #define DIP_B_BASE_HW   0x15821000
 #endif
 
@@ -89,8 +89,8 @@ enum DIP_DEV_NODE_ENUM {
 	DIP_DIP_A_IDX, /* Remider: Add this device node manually in .dtsi */
 	DIP_MSS_IDX,
 	DIP_MSF_IDX,
-#if (MTK_DIP_COUNT == 2)
 	DIP_IMGSYS2_CONFIG_IDX,
+#if (MTK_DIP_COUNT == 2)
 	DIP_DIP_B_IDX,
 #endif
 	DIP_DEV_NODE_NUM

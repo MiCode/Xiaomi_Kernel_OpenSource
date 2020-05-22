@@ -3340,12 +3340,6 @@ page_owner=on loop.max_part=7";
 				"DIP_CG_IMG_MFB_DIP";
 	};
 
-	imgsys2_config: imgsys2_config@15820000 {
-		compatible = "mediatek,imgsys2", "syscon";
-		reg = <0 0x15820000 0 0x1000>;
-		#clock-cells = <1>;
-	};
-
 	ipesys_config: ipesys_config@1b000000 {
 		compatible = "mediatek,ipesys_config", "syscon";
 		reg = <0 0x1b000000 0 0x1000>;
@@ -4730,6 +4724,24 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1502c000 0 0x1000>;
 	};
 
+	mssdl@15812000 {
+		compatible = "mediatek,mssdl";
+		reg = <0 0x15812000 0 0x1000>;
+		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	msfdl@15810000 {
+		compatible = "mediatek,msfdl";
+		reg = <0 0x15810000 0 0x1000>;
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	imgsys2_config: imgsys2_config@15820000 {
+		compatible = "mediatek,imgsys2", "syscon";
+		reg = <0 0x15820000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	camera_af_hw_node: camera_af_hw_node {
 		compatible = "mediatek, camera_af_lens";
 	};
@@ -4863,18 +4875,6 @@ page_owner=on loop.max_part=7";
 	wpe_b@15811000 {
 		compatible = "mediatek,wpe_b";
 		reg = <0 0x15811000 0 0x1000>;
-	};
-
-	mssdl@15812000 {
-		compatible = "mediatek,mssdl";
-		reg = <0 0x15812000 0 0x1000>;
-		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	msfdl@15810000 {
-		compatible = "mediatek,msfdl";
-		reg = <0 15810000 0 0x1000>;
-		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	mss_b@15812000 {
