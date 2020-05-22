@@ -70,7 +70,7 @@ enum semaphore_3way_flag {
 	SEMA_3WAY_NUM =   7,
 };
 
-#define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)
+#define ADSP_A_OSTIMER_BUFFER    (adsp_timesync_ptr)
 
 extern void *adsp_timesync_ptr;
 
@@ -104,4 +104,5 @@ extern int get_adsp_semaphore(unsigned int flags);
 extern int release_adsp_semaphore(unsigned int flags);
 
 extern void adsp_A_register_notify(struct notifier_block *nb);
+extern void adsp_enable_dsp_clk(bool enable);
 #endif
