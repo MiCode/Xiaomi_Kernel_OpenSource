@@ -32,23 +32,23 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 	timeout_jiff = msecs_to_jiffies(timeout_ms);
 
 	ret = wait_event_interruptible_timeout(*waitqueue,
-		ctx->int_cond,
+		ctx->int_cond[core_id],
 		timeout_jiff);
 
 	if (!ret) {
 		status = -1;    /* timeout */
 		mtk_v4l2_err("[%d] cmd=%d, ctx->type=%d, wait_event_interruptible_timeout time=%ums out %d %d!",
 			ctx->id, ctx->type, command, timeout_ms,
-			ctx->int_cond, ctx->int_type);
+			ctx->int_cond[core_id], ctx->int_type);
 		smi_debug_bus_hang_detect(0, "VCODEC");
 	} else if (-ERESTARTSYS == ret) {
 		mtk_v4l2_err("[%d] cmd=%d, ctx->type=%d, wait_event_interruptible_timeout interrupted by a signal %d %d",
-			ctx->id, ctx->type, command, ctx->int_cond,
+			ctx->id, ctx->type, command, ctx->int_cond[core_id],
 			ctx->int_type);
 		status = -1;
 	}
 
-	ctx->int_cond = 0;
+	ctx->int_cond[core_id] = 0;
 	ctx->int_type = 0;
 #endif
 	return status;
@@ -58,7 +58,7 @@ EXPORT_SYMBOL(mtk_vcodec_wait_for_done_ctx);
 /* Wake up context wait_queue */
 void wake_up_dec_ctx(struct mtk_vcodec_ctx *ctx)
 {
-	ctx->int_cond = 1;
+	ctx->int_cond[0] = 1;
 	wake_up_interruptible(&ctx->queue[0]);
 }
 
@@ -72,7 +72,7 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC] +
 		MTK_VDEC_IRQ_CFG_REG;
 
-	ctx = mtk_vcodec_get_curr_ctx(dev);
+	ctx = mtk_vcodec_get_curr_ctx(dev, 0);
 
 	/* check if HW active or not */
 	cg_status = readl(dev->dec_reg_base[0]);
@@ -132,7 +132,7 @@ void clean_irq_status(unsigned int irq_status, void __iomem *addr)
 /* Wake up context wait_queue */
 void wake_up_enc_ctx(struct mtk_vcodec_ctx *ctx, unsigned int reason)
 {
-	ctx->int_cond = 1;
+	ctx->int_cond[0] = 1;
 	ctx->int_type = reason;
 	wake_up_interruptible(&ctx->queue[0]);
 }
@@ -146,7 +146,7 @@ irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
 	void __iomem *addr;
 
 	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
+	ctx = dev->curr_enc_ctx[0];
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	if (!ctx)
@@ -175,7 +175,7 @@ irqreturn_t mtk_vcodec_enc_lt_irq_handler(int irq, void *priv)
 	void __iomem *addr;
 
 	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
+	ctx = dev->curr_enc_ctx[0];
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	if (!ctx)
@@ -243,3 +243,8 @@ int mtk_vcodec_enc_irq_setup(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(mtk_vcodec_enc_irq_setup);
 
+
+void mtk_vcodec_gce_timeout_dump(void *ctx)
+{
+}
+EXPORT_SYMBOL(mtk_vcodec_gce_timeout_dump);
