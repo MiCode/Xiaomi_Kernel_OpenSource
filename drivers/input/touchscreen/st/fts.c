@@ -1596,7 +1596,7 @@ static ssize_t fts_gesture_mask_show(struct device *dev,
 	if (mask[0] == 0) {
 		res = ERROR_OP_NOT_ALLOW;
 		logError(1, "%s %s:Call before echo enable/disable xx xx >",
-			tag), __func__;
+			tag, __func__);
 		logError(1, "%s %s: gesture_mask with a correct number of ",
 			tag, __func__);
 		logError(1, "parameters! ERROR %08X\n", res);
@@ -3263,7 +3263,7 @@ static void fts_event_handler(struct work_struct *work)
 	 * read all the FIFO and parsing events
 	 */
 
-	__pm_wakeup_event(&info->wakeup_source, HZ);
+	__pm_wakeup_event(info->wakeup_source, HZ);
 	regAdd = FIFO_CMD_READONE;
 
 	for (count = 0; count < FIFO_DEPTH; count++) {
@@ -4115,7 +4115,7 @@ static void fts_resume_work(struct work_struct *work)
 
 	info = container_of(work, struct fts_ts_info, resume_work);
 
-	__pm_wakeup_event(&info->wakeup_source, HZ);
+	__pm_wakeup_event(info->wakeup_source, HZ);
 
 	fts_chip_power_switch(info, true);
 
@@ -4145,7 +4145,7 @@ static void fts_suspend_work(struct work_struct *work)
 
 	info = container_of(work, struct fts_ts_info, suspend_work);
 
-	__pm_wakeup_event(&info->wakeup_source, HZ);
+	__pm_wakeup_event(info->wakeup_source, HZ);
 
 	info->resume_bit = 0;
 
@@ -4238,7 +4238,7 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 
 			if (info->aoi_wake_on_suspend) {
 				info->sensor_sleep = true;
-				__pm_stay_awake(&info->wakeup_source);
+				__pm_stay_awake(info->wakeup_source);
 			} else {
 				queue_work(info->event_wq, &info->suspend_work);
 			}
@@ -4246,7 +4246,7 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 
 		case DRM_PANEL_BLANK_UNBLANK:
 			if (info->aoi_wake_on_suspend)
-				__pm_relax(&info->wakeup_source);
+				__pm_relax(info->wakeup_source);
 
 			if (!info->sensor_sleep)
 				break;
@@ -4710,7 +4710,8 @@ static int fts_probe_internal(struct i2c_client *client,
 	INIT_DELAYED_WORK(&info->fwu_work, fts_fw_update_auto);
 
 	logError(0, "%s SET Event Handler:\n", tag);
-	wakeup_source_init(&info->wakeup_source, "fts_tp");
+	info->wakeup_source = wakeup_source_register(&client->dev,
+						     dev_name(&client->dev));
 	info->event_wq = alloc_workqueue("fts-event-queue",
 				WQ_UNBOUND|WQ_HIGHPRI|WQ_CPU_INTENSIVE, 1);
 	if (!info->event_wq) {
@@ -4963,7 +4964,7 @@ ProbeErrorExit_5:
 
 ProbeErrorExit_4:
 	destroy_workqueue(info->fwu_workqueue);
-	wakeup_source_trash(&info->wakeup_source);
+	wakeup_source_unregister(info->wakeup_source);
 
 ProbeErrorExit_3:
 	if (info->ts_pinctrl) {
@@ -5056,7 +5057,7 @@ static int fts_remove(struct i2c_client *client)
 	/* Remove the work thread */
 	destroy_workqueue(info->event_wq);
 	/* wake_lock_destroy(&info->wakelock); */
-	wakeup_source_trash(&info->wakeup_source);
+	wakeup_source_unregister(info->wakeup_source);
 	destroy_workqueue(info->fwu_workqueue);
 
 	if (info->ts_pinctrl) {

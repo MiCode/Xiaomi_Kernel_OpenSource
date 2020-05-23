@@ -34,7 +34,6 @@
 #include <linux/iommu.h>
 #include <linux/sort.h>
 #include <linux/msm_dma_iommu_mapping.h>
-#include <asm/dma-iommu.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
@@ -74,6 +73,9 @@
 #define SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
 #define SENSORS_PDR_SLPI_SERVICE_NAME            SENSORS_PDR_ADSP_SERVICE_NAME
 #define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
+
+#define FASTRPC_SECURE_WAKE_SOURCE_CLIENT_NAME		"adsprpc-secure"
+#define FASTRPC_NON_SECURE_WAKE_SOURCE_CLIENT_NAME	"adsprpc-non_secure"
 
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
@@ -148,10 +150,10 @@
 
 #define PERF(enb, cnt, ff) \
 	{\
-		struct timespec startT = {0};\
+		struct timespec64 startT = {0};\
 		int64_t *counter = cnt;\
 		if (enb && counter) {\
-			getnstimeofday(&startT);\
+			ktime_get_real_ts64(&startT);\
 		} \
 		ff ;\
 		if (enb && counter) {\
@@ -382,6 +384,11 @@ struct fastrpc_apps {
 	bool legacy_remote_heap;
 	/* Unique job id for each message */
 	uint64_t jobid[NUM_CHANNELS];
+	struct device *secure_dev;
+	struct device *non_secure_dev;
+	/* Secure subsystems like ADSP/SLPI will use secure client */
+	struct wakeup_source *wake_source_secure;
+	/* Non-secure subsystem like CDSP will use regular client */
 	struct wakeup_source *wake_source;
 	struct qos_cores silvercores;
 	uint32_t max_size_limit;
@@ -468,7 +475,6 @@ struct fastrpc_file {
 	char *debug_buf;
 	/* Flag to enable PM wake/relax voting for every remote invoke */
 	int wake_enable;
-	struct wakeup_source *wake_source;
 	uint32_t ws_timeout;
 };
 
@@ -542,16 +548,16 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 static int hlosvm[1] = {VMID_HLOS};
 static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-static void fastrpc_pm_awake(struct fastrpc_file *fl);
+static void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
 
-static inline int64_t getnstimediff(struct timespec *start)
+static inline int64_t getnstimediff(struct timespec64 *start)
 {
 	int64_t ns;
-	struct timespec ts, b;
+	struct timespec64 ts, b;
 
-	getnstimeofday(&ts);
-	b = timespec_sub(ts, *start);
-	ns = timespec_to_ns(&b);
+	ktime_get_real_ts64(&ts);
+	b = timespec64_sub(ts, *start);
+	ns = timespec64_to_ns(&b);
 	return ns;
 }
 
@@ -1480,7 +1486,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rspFlags, uint32_t earlyWakeTime)
 {
-	fastrpc_pm_awake(ctx->fl);
+	fastrpc_pm_awake(ctx->fl, gcinfo[ctx->fl->cid].secure);
 	ctx->retval = retval;
 	switch (rspFlags) {
 	case NORMAL_RESPONSE:
@@ -1934,10 +1940,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					ctx->overps[oix]->mstart,
 					rpra[i].buf.len, map->size);
 				}
-			} else
-				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
-					uint64_to_ptr(rpra[i].buf.pv
-						+ rpra[i].buf.len));
+			}
 		}
 	}
 	PERF_END);
@@ -2094,11 +2097,8 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 					offset, ctx->overps[i]->mend,
 					ctx->overps[i]->mstart,
 					rpra[over].buf.len, map->size);
+				}
 			}
-		} else
-			dmac_inv_range((char *)uint64_to_ptr(rpra[over].buf.pv),
-				(char *)uint64_to_ptr(rpra[over].buf.pv
-						 + rpra[over].buf.len));
 		}
 	}
 bail:
@@ -2174,15 +2174,22 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
 }
 
-static inline void fastrpc_pm_awake(struct fastrpc_file *fl)
+static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type)
 {
-	if (!fl->wake_enable || !fl->wake_source)
-		return;
+	struct fastrpc_apps *me = &gfa;
+	struct wakeup_source *wake_source = NULL;
+
 	/*
 	 * Vote with PM to abort any suspend in progress and
 	 * keep system awake for specified timeout
 	 */
-	pm_wakeup_ws_event(fl->wake_source, fl->ws_timeout, true);
+	if (channel_type == SECURE_CHANNEL)
+		wake_source = me->wake_source_secure;
+	else if (channel_type == NON_SECURE_CHANNEL)
+		wake_source = me->wake_source;
+
+	if (wake_source)
+		pm_wakeup_ws_event(wake_source, fl->ws_timeout, true);
 }
 
 static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
@@ -2278,7 +2285,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 }
 
 static void fastrpc_update_invoke_count(uint32_t handle, int64_t *perf_counter,
-					struct timespec *invoket)
+					struct timespec64 *invoket)
 {
 	/* update invoke count for dynamic handles */
 	if (handle != FASTRPC_STATIC_HANDLE_LISTENER) {
@@ -2302,12 +2309,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ioctl_invoke *invoke = &inv->inv;
 	int err = 0, interrupted = 0, cid = fl->cid;
-	struct timespec invoket = {0};
+	struct timespec64 invoket = {0};
 	int64_t *perf_counter = NULL;
 
 	if (fl->profile) {
 		perf_counter = getperfcounter(fl, PERF_COUNT);
-		getnstimeofday(&invoket);
+		ktime_get_real_ts64(&invoket);
 	}
 
 	if (!kernel) {
@@ -3612,8 +3619,6 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
-	if (fl->wake_source)
-		wakeup_source_unregister(fl->wake_source);
 	kfree(fl->debug_buf);
 
 	if (!fl->sctx) {
@@ -3963,6 +3968,21 @@ bail:
 	return err;
 }
 
+static inline void fastrpc_register_wakeup_source(struct device *dev,
+	const char *client_name, struct wakeup_source **device_wake_source)
+{
+	struct wakeup_source *wake_source = NULL;
+
+	wake_source = wakeup_source_register(dev, client_name);
+	if (IS_ERR_OR_NULL(wake_source)) {
+		pr_err("adsprpc: Error: %s: %s: wakeup_source_register failed for dev %s, client %s with err %ld\n",
+		       __func__, current->comm, dev_name(dev),
+		       client_name, PTR_ERR(wake_source));
+		return;
+	}
+	*device_wake_source = wake_source;
+}
+
 static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int err = 0;
@@ -3986,11 +4006,6 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	if (err)
 		return err;
 
-	fl->wake_source = wakeup_source_register(fl->debug_buf);
-	if (IS_ERR_OR_NULL(fl->wake_source)) {
-		pr_err("adsprpc: Error: %s: %s: wakeup_source_register failed with err %ld\n",
-			current->comm, __func__, PTR_ERR(fl->wake_source));
-	}
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	INIT_HLIST_HEAD(&fl->maps);
@@ -4155,7 +4170,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->ws_timeout = MAX_PM_TIMEOUT_MS;
 		else
 			fl->ws_timeout = cp->pm.timeout;
-		fastrpc_pm_awake(fl);
+		fastrpc_pm_awake(fl, gcinfo[fl->cid].secure);
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
 		(void)fastrpc_release_current_dsp_process(fl);
@@ -5112,13 +5127,13 @@ static int __init fastrpc_device_init(void)
 	}
 	me->rpmsg_register = 1;
 
-	me->wake_source = wakeup_source_register("adsprpc");
-	VERIFY(err, !IS_ERR_OR_NULL(me->wake_source));
-	if (err) {
-		pr_err("adsprpc: Error: %s: wakeup_source_register failed with err %d\n",
-					__func__, PTR_ERR(me->wake_source));
-		goto device_create_bail;
-	}
+	fastrpc_register_wakeup_source(me->non_secure_dev,
+				       FASTRPC_NON_SECURE_WAKE_SOURCE_CLIENT_NAME,
+				       &me->wake_source);
+	fastrpc_register_wakeup_source(me->secure_dev,
+				       FASTRPC_SECURE_WAKE_SOURCE_CLIENT_NAME,
+				       &me->wake_source_secure);
+
 	return 0;
 device_create_bail:
 	for (i = 0; i < NUM_CHANNELS; i++) {
@@ -5171,6 +5186,8 @@ static void __exit fastrpc_device_exit(void)
 		unregister_rpmsg_driver(&fastrpc_rpmsg_client);
 	if (me->wake_source)
 		wakeup_source_unregister(me->wake_source);
+	if (me->wake_source_secure)
+		wakeup_source_unregister(me->wake_source_secure);
 	debugfs_remove_recursive(debugfs_root);
 }
 

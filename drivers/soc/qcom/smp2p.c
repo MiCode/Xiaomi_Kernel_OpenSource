@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
- * Copyright (c) 2012-2013, 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2018-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,7 +161,7 @@ struct qcom_smp2p {
 	struct regmap *ipc_regmap;
 	int ipc_offset;
 	int ipc_bit;
-	struct wakeup_source ws;
+	struct wakeup_source *ws;
 
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox_chan;
@@ -303,7 +303,7 @@ static irqreturn_t qcom_smp2p_isr(int irq, void *data)
 {
 	struct qcom_smp2p *smp2p = data;
 
-	__pm_stay_awake(&smp2p->ws);
+	__pm_stay_awake(smp2p->ws);
 	return IRQ_WAKE_THREAD;
 }
 
@@ -351,7 +351,7 @@ static irqreturn_t qcom_smp2p_intr(int irq, void *data)
 	}
 
 out:
-	__pm_relax(&smp2p->ws);
+	__pm_relax(smp2p->ws);
 	return IRQ_HANDLED;
 }
 
@@ -648,7 +648,12 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 			list_add(&entry->node, &smp2p->outbound);
 		}
 	}
-	wakeup_source_init(&smp2p->ws, "smp2p");
+
+	smp2p->ws = wakeup_source_register(&pdev->dev, "smp2p");
+	if (!smp2p->ws) {
+		ret = -ENOMEM;
+		goto unwind_interfaces;
+	}
 
 	/* Kick the outgoing edge after allocating entries */
 	qcom_smp2p_kick(smp2p);
@@ -659,11 +664,14 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 					"smp2p", (void *)smp2p);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to request interrupt\n");
-		goto unwind_interfaces;
+		goto unreg_ws;
 	}
 	enable_irq_wake(smp2p->irq);
 
 	return 0;
+
+unreg_ws:
+	wakeup_source_unregister(smp2p->ws);
 
 unwind_interfaces:
 	list_for_each_entry(entry, &smp2p->inbound, node)
@@ -688,6 +696,8 @@ static int qcom_smp2p_remove(struct platform_device *pdev)
 {
 	struct qcom_smp2p *smp2p = platform_get_drvdata(pdev);
 	struct smp2p_entry *entry;
+
+	wakeup_source_unregister(smp2p->ws);
 
 	list_for_each_entry(entry, &smp2p->inbound, node)
 		irq_domain_remove(entry->domain);

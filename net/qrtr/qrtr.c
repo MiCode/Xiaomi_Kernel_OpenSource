@@ -649,7 +649,7 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 	 * cause APPS suspend problems and power drain issue.
 	 */
 	if (!node->ws && (nid == 0 || nid == 3 || nid == 7))
-		node->ws = wakeup_source_register(name);
+		node->ws = wakeup_source_register(NULL, name);
 }
 
 /**

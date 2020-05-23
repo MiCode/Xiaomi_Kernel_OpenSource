@@ -1986,7 +1986,7 @@ struct ipa3_context {
 	bool gsi_ch20_wa;
 	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	u32 wdi_map_cnt;
-	struct wakeup_source w_lock;
+	struct wakeup_source *w_lock;
 	struct ipa3_wakelock_ref_cnt wakelock_ref_cnt;
 	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
 	bool ipa_client_apps_wan_cons_agg_gro;

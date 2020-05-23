@@ -273,7 +273,7 @@ struct geni_i3c_dev {
 	struct geni_ibi ibi;
 	struct workqueue_struct *hj_wq;
 	struct work_struct hj_wd;
-	struct wakeup_source hj_wl;
+	struct wakeup_source *hj_wl;
 	struct pinctrl_state *i3c_gpio_disable;
 };
 
@@ -1960,7 +1960,14 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	geni_se_init(gi3c->se.base, gi3c->tx_wm, tx_depth);
 	se_config_packing(gi3c->se.base, BITS_PER_BYTE, PACKING_BYTES_PW, true);
 
-	wakeup_source_init(&gi3c->hj_wl, dev_name(gi3c->se.dev));
+	gi3c->hj_wl = wakeup_source_register(gi3c->se.dev,
+					     dev_name(gi3c->se.dev));
+	if (!gi3c->hj_wl) {
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev, "wakeup source registration failed\n");
+		se_geni_resources_off(&gi3c->se.i3c_rsc);
+		return -ENOMEM;
+	}
+
 	INIT_WORK(&gi3c->hj_wd, geni_i3c_hotjoin);
 	gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
 
@@ -2007,7 +2014,7 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	if (gi3c->ibi.is_init)
 		qcom_geni_i3c_ibi_unconf(gi3c);
 	destroy_workqueue(gi3c->hj_wq);
-	wakeup_source_trash(&gi3c->hj_wl);
+	wakeup_source_unregister(gi3c->hj_wl);
 	/*force suspend to avoid the auto suspend caused by driver removal*/
 	pm_runtime_force_suspend(gi3c->se.dev);
 	ret = pinctrl_select_state(gi3c->se.i3c_rsc.geni_pinctrl,

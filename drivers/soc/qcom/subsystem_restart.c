@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "subsys-restart: %s(): " fmt, __func__
@@ -181,7 +181,7 @@ struct restart_log {
 struct subsys_device {
 	struct subsys_desc *desc;
 	struct work_struct work;
-	struct wakeup_source ssr_wlock;
+	struct wakeup_source *ssr_wlock;
 	char wlname[64];
 	struct work_struct device_restart_work;
 	struct subsys_tracking track;
@@ -1159,7 +1159,7 @@ err:
 
 	spin_lock_irqsave(&track->s_lock, flags);
 	track->p_state = SUBSYS_NORMAL;
-	__pm_relax(&dev->ssr_wlock);
+	__pm_relax(dev->ssr_wlock);
 	spin_unlock_irqrestore(&track->s_lock, flags);
 }
 
@@ -1183,7 +1183,7 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 					dev->track.state == SUBSYS_ONLINE) {
 		if (track->p_state != SUBSYS_RESTARTING) {
 			track->p_state = SUBSYS_CRASHED;
-			__pm_stay_awake(&dev->ssr_wlock);
+			__pm_stay_awake(dev->ssr_wlock);
 			queue_work(ssr_wq, &dev->work);
 		} else {
 			panic("Subsystem %s crashed during SSR!", name);
@@ -1251,7 +1251,7 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
-		__pm_stay_awake(&dev->ssr_wlock);
+		__pm_stay_awake(dev->ssr_wlock);
 		schedule_work(&dev->device_restart_work);
 		return 0;
 	default:
@@ -1415,7 +1415,7 @@ static void subsys_device_release(struct device *dev)
 {
 	struct subsys_device *subsys = to_subsys(dev);
 
-	wakeup_source_trash(&subsys->ssr_wlock);
+	wakeup_source_unregister(subsys->ssr_wlock);
 	mutex_destroy(&subsys->track.lock);
 	ida_simple_remove(&subsys_ida, subsys->id);
 	kfree(subsys);
@@ -1830,7 +1830,14 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->early_notify = subsys_get_early_notif_info(desc->name);
 
 	snprintf(subsys->wlname, sizeof(subsys->wlname), "ssr(%s)", desc->name);
-	wakeup_source_init(&subsys->ssr_wlock, subsys->wlname);
+
+	subsys->ssr_wlock =
+		wakeup_source_register(&subsys->dev, subsys->wlname);
+	if (!subsys->ssr_wlock) {
+		kfree(subsys);
+		return ERR_PTR(-ENOMEM);
+	}
+
 	INIT_WORK(&subsys->work, subsystem_restart_wq_func);
 	INIT_WORK(&subsys->device_restart_work, device_restart_work_hdlr);
 	spin_lock_init(&subsys->track.s_lock);
@@ -1838,7 +1845,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	subsys->id = ida_simple_get(&subsys_ida, 0, 0, GFP_KERNEL);
 	if (subsys->id < 0) {
-		wakeup_source_trash(&subsys->ssr_wlock);
+		wakeup_source_unregister(subsys->ssr_wlock);
 		ret = subsys->id;
 		kfree(subsys);
 		return ERR_PTR(ret);
