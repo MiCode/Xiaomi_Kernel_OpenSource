@@ -236,8 +236,8 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 			hba->crypto_cap_array[cap_idx].sdus_mask * 512;
 	}
 
-	hba->ksm = keyslot_manager_create(ufshcd_num_keyslots(hba), ksm_ops,
-					crypto_modes_supported, hba);
+	hba->ksm = keyslot_manager_create(hba->dev, ufshcd_num_keyslots(hba),
+					  ksm_ops, crypto_modes_supported, hba);
 
 	if (!hba->ksm) {
 		err = -ENOMEM;

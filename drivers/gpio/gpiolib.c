@@ -1909,7 +1909,9 @@ static int gpiochip_add_irqchip(struct gpio_chip *gpiochip,
 		type = IRQ_TYPE_NONE;
 	}
 
+#ifdef CONFIG_IRQ_DOMAIN_HIERARCHY
 	if (!gpiochip->to_irq)
+#endif
 		gpiochip->to_irq = gpiochip_to_irq;
 
 	gpiochip->irq.default_type = type;
@@ -1921,11 +1923,13 @@ static int gpiochip_add_irqchip(struct gpio_chip *gpiochip,
 	else
 		ops = &gpiochip_domain_ops;
 
+#ifdef CONFIG_IRQ_DOMAIN_HIERARCHY
 	if (gpiochip->irq.parent_domain)
 		gpiochip->irq.domain = irq_domain_add_hierarchy(gpiochip->irq.parent_domain,
 								0, gpiochip->ngpio,
 								np, ops, gpiochip);
 	else
+#endif
 		gpiochip->irq.domain = irq_domain_add_simple(np, gpiochip->ngpio,
 							     gpiochip->irq.first,
 							     ops, gpiochip);
@@ -3764,8 +3768,9 @@ static struct gpio_desc *gpiod_find(struct device *dev, const char *con_id,
 
 		if (chip->ngpio <= p->chip_hwnum) {
 			dev_err(dev,
-				"requested GPIO %d is out of range [0..%d] for chip %s\n",
-				idx, chip->ngpio, chip->label);
+				"requested GPIO %u (%u) is out of range [0..%u] for chip %s\n",
+				idx, p->chip_hwnum, chip->ngpio - 1,
+				chip->label);
 			return ERR_PTR(-EINVAL);
 		}
 
