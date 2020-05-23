@@ -19,13 +19,15 @@
 #define __LINUX_RAYDIUM_H
 #define RAYDIUM_NAME "raydium_ts"
 #define COORDS_ARR_SIZE    4
-#define I2C_VTG_MIN_UV    1800000
-#define I2C_VTG_MAX_UV    1800000
+#define I2C_VTG_MIN_UV		1650000
+#define I2C_VTG_MAX_UV		1950000
+#define VDD_VTG_MIN_UV		1650000
+#define VDD_VTG_MAX_UV		1950000
 #define RAD_MAIN_VERSION	0x01
 #define RAD_MINOR_VERSION	0x07
 #define RAD_CUSTOMER_VERSION	0x0100
 
-#if defined(CONFIG_TOUCHSCREEN_RM_TS)
+#if defined(CONFIG_TOUCHSCREEN_RAYDIUM_CHIPSET)
 /* IC timing control arguments */
 #define RAYDIUM_POWERON_DELAY_USEC    500
 #define RAYDIUM_RESET_INTERVAL_MSEC   5
@@ -164,6 +166,8 @@
 #define AMBIENT_MODE    0x01
 #define SLEEP_MODE      0x02
 
+#define RAD_20 0x2209
+
 /* Enable sysfs */
 #define CONFIG_RM_SYSFS_DEBUG
 
@@ -233,7 +237,7 @@ struct raydium_ts_data {
 	struct early_suspend early_suspend;
 #endif /*end of CONFIG_FB*/
 
-	/*struct regulator *vdd;*/
+	struct regulator *vdd;
 	struct regulator *vcc_i2c;
 	unsigned int fw_version;
 	unsigned short id;
@@ -348,7 +352,6 @@ extern int raydium_do_selftest(void);
 int raydium_esd_check(void);
 
 extern struct attribute *raydium_attributes[];
-extern const struct attribute_group raydium_attr_group;
 
 extern unsigned char g_u8_raydium_flag;
 extern unsigned char g_u8_addr;
