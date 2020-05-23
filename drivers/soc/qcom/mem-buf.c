@@ -1128,6 +1128,9 @@ static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 	hh_vmid_t vmid;
 	enum hh_vm_names vm_name;
 
+	if (!is_valid_mem_buf_vmid(mem_buf_vmid))
+		return -EINVAL;
+
 	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
 		vm_name = HH_PRIMARY_VM;
 	else if (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM)
@@ -1144,6 +1147,9 @@ static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 static int mem_buf_perms_to_perms(u32 mem_buf_perms)
 {
 	int perms = 0;
+
+	if (!is_valid_mem_buf_perms(mem_buf_perms))
+		return -EINVAL;
 
 	if (mem_buf_perms & MEM_BUF_PERM_FLAG_READ)
 		perms |= PERM_READ;
@@ -1173,13 +1179,12 @@ static struct hh_acl_desc *mem_buf_acl_to_hh_acl(unsigned int nr_acl_entries,
 	for (i = 0; i < nr_acl_entries; i++) {
 		mem_buf_vmid = entries[i].vmid;
 		mem_buf_perms = entries[i].perms;
-		if (!is_valid_mem_buf_vmid(mem_buf_vmid) ||
-		    !is_valid_mem_buf_perms(mem_buf_perms)) {
+		vmid = mem_buf_vmid_to_vmid(mem_buf_vmid);
+		perms = mem_buf_perms_to_perms(mem_buf_perms);
+		if (vmid < 0 || perms < 0) {
 			ret = -EINVAL;
 			goto err_inv_vmid_perms;
 		}
-		vmid = mem_buf_vmid_to_vmid(mem_buf_vmid);
-		perms = mem_buf_perms_to_perms(mem_buf_perms);
 		acl_desc->acl_entries[i].vmid = vmid;
 		acl_desc->acl_entries[i].perms = perms;
 	}
@@ -1266,6 +1271,12 @@ static const struct file_operations mem_buf_fops = {
 	.release = mem_buf_buffer_release,
 };
 
+static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
+{
+	return mem_type >= MEM_BUF_ION_MEM_TYPE &&
+		mem_type < MEM_BUF_MAX_MEM_TYPE;
+}
+
 void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 {
 	int ret;
@@ -1275,7 +1286,11 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 		return ERR_PTR(-ENOTSUPP);
 
-	if (!alloc_data)
+	if (!alloc_data || !alloc_data->size || !alloc_data->nr_acl_entries ||
+	    !alloc_data->acl_list ||
+	    (alloc_data->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
+	    !is_valid_mem_type(alloc_data->src_mem_type) ||
+	    !is_valid_mem_type(alloc_data->dst_mem_type))
 		return ERR_PTR(-EINVAL);
 
 	membuf = kzalloc(sizeof(*membuf), GFP_KERNEL);
@@ -1362,6 +1377,9 @@ int mem_buf_get_fd(void *membuf_desc)
 {
 	int fd;
 	struct mem_buf_desc *membuf = membuf_desc;
+
+	if (!membuf_desc)
+		return -EINVAL;
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0)
@@ -1486,16 +1504,11 @@ out:
 	return ret;
 }
 
-static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
-{
-	return mem_type >= MEM_BUF_ION_MEM_TYPE &&
-		mem_type < MEM_BUF_MAX_MEM_TYPE;
-}
-
 static int validate_ioctl_arg(struct mem_buf_alloc_ioctl_arg *allocation)
 {
 	if (!allocation->size || !allocation->nr_acl_entries ||
 	    !allocation->acl_list ||
+	    (allocation->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
 	    !is_valid_mem_type(allocation->src_mem_type) ||
 	    !is_valid_mem_type(allocation->dst_mem_type) ||
 	    allocation->reserved0 || allocation->reserved1 ||
@@ -1560,6 +1573,8 @@ static int mem_buf_probe(struct platform_device *pdev)
 	int ret;
 	struct device *dev = &pdev->dev;
 	struct device *class_dev;
+	u64 dma_mask = IS_ENABLED(CONFIG_ARM64) ? DMA_BIT_MASK(64) :
+		DMA_BIT_MASK(32);
 
 	if (of_property_match_string(dev->of_node, "qcom,mem-buf-capabilities",
 				     "supplier") >= 0) {
@@ -1577,6 +1592,12 @@ static int mem_buf_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	ret = dma_set_mask_and_coherent(dev, dma_mask);
+	if (ret) {
+		dev_err(dev, "Unable to set dma mask: %d\n", ret);
+		return ret;
+	}
+
 	mem_buf_msgq_recv_thr = kthread_create(mem_buf_msgq_recv_fn, NULL,
 					       "mem_buf_rcvr");
 	if (IS_ERR(mem_buf_msgq_recv_thr)) {
@@ -1588,7 +1609,7 @@ static int mem_buf_probe(struct platform_device *pdev)
 	mem_buf_hh_msgq_hdl = hh_msgq_register(HH_MSGQ_LABEL_MEMBUF);
 	if (IS_ERR(mem_buf_hh_msgq_hdl)) {
 		ret = PTR_ERR(mem_buf_hh_msgq_hdl);
-		if (ret != EPROBE_DEFER)
+		if (ret != -EPROBE_DEFER)
 			dev_err(dev,
 				"Message queue registration failed: rc: %d\n",
 				ret);
