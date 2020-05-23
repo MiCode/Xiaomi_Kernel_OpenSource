@@ -163,7 +163,7 @@ static void __exit hh_dbgfs_unregister(void)
 }
 #else /* !defined (CONFIG_DEBUG_FS) */
 static inline int hh_dbgfs_register(void) { return 0; }
-static inline void hh_dbgfs_unregister(void) { return 0; }
+static inline void hh_dbgfs_unregister(void) { return; }
 #endif
 
 static int __init hh_ctrl_init(void)
