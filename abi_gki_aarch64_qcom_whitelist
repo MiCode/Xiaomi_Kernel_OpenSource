@@ -1184,6 +1184,7 @@
   jiffies_to_msecs
   jiffies_to_usecs
   kasprintf
+  kernel_bind
   kernel_connect
   kernel_getsockname
   kernel_kobj
