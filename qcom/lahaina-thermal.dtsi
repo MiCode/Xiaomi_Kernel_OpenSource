@@ -983,7 +983,7 @@
 		trips {
 			gpuss_config: active-config0 {
 				temperature = <95000>;
-				hysteresis = <0>;
+				hysteresis = <20000>;
 				type = "passive";
 			};
 		};
@@ -992,7 +992,7 @@
 			gpu_cdev {
 				trip = <&gpuss_config>;
 				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
-							THERMAL_NO_LIMIT>;
+							THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
