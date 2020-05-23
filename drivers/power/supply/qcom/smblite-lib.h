@@ -148,6 +148,7 @@ enum smb_irq_index {
 	TORCH_REQ_IRQ,
 	FLASH_EN_IRQ,
 	/* END */
+	SMB_IRQ_MAX,
 };
 
 enum chg_term_config_src {
