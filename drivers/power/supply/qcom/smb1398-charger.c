@@ -209,9 +209,8 @@
 #define TAPER_MAIN_ICL_LIMIT_VOTER	"TAPER_MAIN_ICL_LIMIT_VOTER"
 
 /* Constant definitions */
-/* Need to define max ILIM for smb1398 */
-#define DIV2_MAX_ILIM_UA		3200000
-#define DIV2_MAX_ILIM_DUAL_CP_UA	6400000
+#define DIV2_MAX_ILIM_UA		5000000
+#define DIV2_MAX_ILIM_DUAL_CP_UA	10000000
 #define DIV2_ILIM_CFG_PCT		105
 
 #define TAPER_STEPPER_UA_DEFAULT	100000
@@ -1587,7 +1586,7 @@ static void smb1398_status_change_work(struct work_struct *work)
 	 * valid due to the battery discharging later, remove
 	 * vote from CUTOFF_SOC_VOTER.
 	 */
-	if (is_cutoff_soc_reached(chip))
+	if (!is_cutoff_soc_reached(chip))
 		vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER, false, 0);
 
 	rc = power_supply_get_property(chip->usb_psy,
@@ -1909,7 +1908,7 @@ static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 		return rc;
 	}
 
-	chip->div2_cp_min_ilim_ua = 1000000;
+	chip->div2_cp_min_ilim_ua = 750000;
 	of_property_read_u32(chip->dev->of_node, "qcom,div2-cp-min-ilim-ua",
 			&chip->div2_cp_min_ilim_ua);
 

@@ -43,6 +43,15 @@
 extern const char * const mhi_ee_str[MHI_EE_MAX];
 #define TO_MHI_EXEC_STR(ee) (ee >= MHI_EE_MAX ? "INVALID_EE" : mhi_ee_str[ee])
 
+enum mhi_debug_mode {
+	MHI_DEBUG_MODE_OFF,
+	MHI_DEBUG_NO_D3, /* use debug.mbn as fw image and skip first M3/D3 */
+	MHI_DEBUG_D3, /* use debug.mbn as fw image and allow first M3/D3 */
+	MHI_FWIMAGE_NO_D3, /* use fw image if found and skip first M3/D3 */
+	MHI_FWIMAGE_D3, /* use fw image if found and allow first M3/D3 */
+	MHI_DEBUG_MODE_MAX = MHI_FWIMAGE_D3,
+};
+
 enum mhi_suspend_mode {
 	MHI_ACTIVE_STATE,
 	MHI_DEFAULT_SUSPEND,
@@ -67,6 +76,7 @@ struct mhi_dev {
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	enum mhi_suspend_mode suspend_mode;
+	struct work_struct fatal_worker;
 
 	/* hardware info */
 	u32 serial_num;

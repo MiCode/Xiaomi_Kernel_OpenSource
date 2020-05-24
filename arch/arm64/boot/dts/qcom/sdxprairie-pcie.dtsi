@@ -183,6 +183,8 @@
 
 		msi-parent = <&pcie0_msi>;
 
+		qcom,target-link-speed = <0x3>;
+
 		qcom,no-l0s-supported;
 
 		qcom,ep-latency = <10>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,4 +67,7 @@ int cnss_get_msi_assignment(struct cnss_plat_data *plat_priv,
 			    int *num_vectors,
 			    u32 *user_base_data,
 			    u32 *base_vector);
+int cnss_bus_get_iova(struct cnss_plat_data *plat_priv, u64 *addr, u64 *size);
+int cnss_bus_get_iova_ipa(struct cnss_plat_data *plat_priv, u64 *addr,
+			  u64 *size);
 #endif /* _CNSS_BUS_H */

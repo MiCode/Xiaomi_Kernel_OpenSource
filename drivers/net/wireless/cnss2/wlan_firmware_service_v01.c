@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,6 +433,32 @@ static struct qmi_elem_info wlfw_fw_version_info_s_v01_ei[] = {
 		.tlv_type       = 0,
 		.offset         = offsetof(struct wlfw_fw_version_info_s_v01,
 					   fw_build_timestamp),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct qmi_elem_info wlfw_host_ddr_range_s_v01_ei[] = {
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_host_ddr_range_s_v01,
+					   start),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_8_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u64),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0,
+		.offset         = offsetof(struct wlfw_host_ddr_range_s_v01,
+					   size),
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -2532,6 +2558,21 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.tlv_type       = 0x1D,
 		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
 					   cal_duration),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01,
+		.elem_size      = sizeof(struct wlfw_host_ddr_range_s_v01),
+		.is_array       = STATIC_ARRAY,
+		.tlv_type       = 0x1E,
+		.offset         = offsetof(struct wlfw_host_cap_req_msg_v01,
+					   ddr_range),
+		.ei_array      = wlfw_host_ddr_range_s_v01_ei,
 	},
 	{
 		.data_type      = QMI_EOTI,
