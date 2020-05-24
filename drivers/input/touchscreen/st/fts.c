@@ -134,7 +134,9 @@ static int fts_command(struct fts_ts_info *info, unsigned char cmd);
 static int fts_chip_initialization(struct fts_ts_info *info);
 static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
+#if !defined(CONFIG_FB_MSM)
 static struct drm_panel *active_panel;
+#endif
 
 void touch_callback(unsigned int status)
 {
@@ -4167,7 +4169,7 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 	struct fb_event *evdata = data;
 	unsigned int blank;
 
-	if (!evdata || (evdata->id != 0))
+	if (!evdata)
 		return 0;
 
 	if (val != FB_EVENT_BLANK)
@@ -4556,6 +4558,7 @@ static int parse_dt(struct device *dev,
 
 static int check_dt(struct device_node *np)
 {
+#if !defined(CONFIG_FB_MSM)
 	int i;
 	int count;
 	struct device_node *node;
@@ -4575,6 +4578,7 @@ static int check_dt(struct device_node *np)
 		}
 	}
 
+#endif
 	return -ENODEV;
 }
 
