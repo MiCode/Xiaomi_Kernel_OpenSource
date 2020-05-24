@@ -389,10 +389,14 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	return;
 err:
 	/* If fenced write fails, take inline snapshot and trigger recovery */
-	if (!in_interrupt())
+	if (!in_interrupt()) {
 		gmu_core_snapshot(device);
+		adreno_set_gpu_fault(adreno_dev,
+			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+	} else {
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+	}
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
-	adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 	adreno_dispatcher_schedule(device);
 	/* Clear the keep alive */
 	if (gmu_core_isenabled(device))

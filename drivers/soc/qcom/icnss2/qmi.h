@@ -133,6 +133,12 @@ int wlfw_exit_power_save_send_msg(struct icnss_priv *priv)
 {
 	return 0;
 }
+
+int icnss_wlfw_get_info_send_sync(struct icnss_priv *priv, int type,
+				  void *cmd, int cmd_len)
+{
+	return 0;
+}
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
 int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data);
@@ -169,6 +175,8 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type);
 int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv);
 int wlfw_exit_power_save_send_msg(struct icnss_priv *priv);
+int icnss_wlfw_get_info_send_sync(struct icnss_priv *priv, int type,
+				  void *cmd, int cmd_len);
 #endif
 
 #endif /* __ICNSS_QMI_H__*/

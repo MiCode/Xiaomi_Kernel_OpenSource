@@ -449,8 +449,12 @@ static void usb_notifier(void *priv, unsigned int event,
 {
 	struct qdss_bridge_drvdata *drvdata = priv;
 
-	if (!drvdata)
+	if (!drvdata || drvdata->mode != MHI_TRANSFER_TYPE_USB
+			|| drvdata->opened == DISABLE) {
+		pr_err_ratelimited("%s can't be called in invalid status.\n",
+				__func__);
 		return;
+	}
 
 	switch (event) {
 	case USB_QDSS_CONNECT:

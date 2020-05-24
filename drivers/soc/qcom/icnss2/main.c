@@ -1613,6 +1613,32 @@ enable_pdr:
 	return 0;
 }
 
+int icnss_qmi_send(struct device *dev, int type, void *cmd,
+		  int cmd_len, void *cb_ctx,
+		  int (*cb)(void *ctx, void *event, int event_len))
+{
+	struct icnss_priv *priv = icnss_get_plat_priv();
+	int ret;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (!test_bit(ICNSS_WLFW_CONNECTED, &priv->state))
+		return -EINVAL;
+
+	priv->get_info_cb = cb;
+	priv->get_info_cb_ctx = cb_ctx;
+
+	ret = icnss_wlfw_get_info_send_sync(priv, type, cmd, cmd_len);
+	if (ret) {
+		priv->get_info_cb = NULL;
+		priv->get_info_cb_ctx = NULL;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(icnss_qmi_send);
+
 int __icnss_register_driver(struct icnss_driver_ops *ops,
 			    struct module *owner, const char *mod_name)
 {

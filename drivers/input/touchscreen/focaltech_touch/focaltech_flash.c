@@ -1850,7 +1850,7 @@ static int fts_fwupg_get_fw_file(struct fts_upgrade *upg)
 	upg->lic = upg->fw;
 	upg->lic_length = upg->fw_length;
 
-	FTS_INFO("upgrade fw file len:%d", upg->fw_length);
+	FTS_DEBUG("upgrade fw file len:%d", upg->fw_length);
 	if ((upg->fw_length < FTS_MIN_LEN)
 		|| (upg->fw_length > FTS_MAX_LEN_FILE)) {
 		FTS_ERROR("fw file len(%d) fail", upg->fw_length);
@@ -1886,7 +1886,7 @@ static void fts_fwupg_work(struct work_struct *work)
 	return ;
 #endif
 
-	FTS_INFO("fw upgrade work function");
+	FTS_DEBUG("fw upgrade work function");
 	if (!upg || !upg->ts_data) {
 		FTS_ERROR("upg/ts_data is null");
 		return ;

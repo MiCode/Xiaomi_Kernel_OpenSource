@@ -1070,7 +1070,9 @@ static int parse_rsc_event(struct mhi_controller *mhi_cntrl,
 
 	result.transaction_status = (ev_code == MHI_EV_CC_OVERFLOW) ?
 		-EOVERFLOW : 0;
-	result.bytes_xferd = xfer_len;
+
+	/* truncate to buf len if xfer_len is larger */
+	result.bytes_xferd = min_t(u16, xfer_len, buf_info->len);
 	result.buf_addr = buf_info->cb_buf;
 	result.dir = mhi_chan->dir;
 
@@ -1320,7 +1322,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 		chan = MHI_TRE_GET_EV_CHID(local_rp);
 		if (chan >= mhi_cntrl->max_chan) {
 			MHI_ERR("invalid channel id %u\n", chan);
-			continue;
+			goto next_er_element;
 		}
 		mhi_chan = &mhi_cntrl->mhi_chan[chan];
 
@@ -1332,6 +1334,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 			event_quota--;
 		}
 
+next_er_element:
 		mhi_recycle_ev_ring_element(mhi_cntrl, ev_ring);
 		local_rp = ev_ring->rp;
 		dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
@@ -1443,35 +1446,25 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	struct mhi_link_info link_info, *cur_info = &mhi_cntrl->mhi_link_info;
 	int result, ret = 0;
 
-	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
-		MHI_LOG("No EV access, PM_STATE:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state));
-		ret = -EIO;
-		goto exit_no_lock;
-	}
-
-	ret = __mhi_device_get_sync(mhi_cntrl);
-	if (ret)
-		goto exit_no_lock;
-
-	mutex_lock(&mhi_cntrl->pm_mutex);
-
 	spin_lock_bh(&mhi_event->lock);
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 
 	if (ev_ring->rp == dev_rp) {
 		spin_unlock_bh(&mhi_event->lock);
-		read_lock_bh(&mhi_cntrl->pm_lock);
-		mhi_cntrl->wake_put(mhi_cntrl, false);
-		read_unlock_bh(&mhi_cntrl->pm_lock);
-		MHI_VERB("no pending event found\n");
-		goto exit_bw_process;
+		goto exit_bw_scale_process;
 	}
 
 	/* if rp points to base, we need to wrap it around */
 	if (dev_rp == ev_ring->base)
 		dev_rp = ev_ring->base + ev_ring->len;
 	dev_rp--;
+
+	/* fast forward to currently processed element and recycle er */
+	ev_ring->rp = dev_rp;
+	ev_ring->wp = dev_rp - 1;
+	if (ev_ring->wp < ev_ring->base)
+		ev_ring->wp = ev_ring->base + ev_ring->len - ev_ring->el_size;
+	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
 
 	MHI_ASSERT(MHI_TRE_GET_EV_TYPE(dev_rp) != MHI_PKT_TYPE_BW_REQ_EVENT,
 		   "!BW SCALE REQ event");
@@ -1485,18 +1478,21 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 		 link_info.target_link_speed,
 		 link_info.target_link_width);
 
-	/* fast forward to currently processed element and recycle er */
-	ev_ring->rp = dev_rp;
-	ev_ring->wp = dev_rp - 1;
-	if (ev_ring->wp < ev_ring->base)
-		ev_ring->wp = ev_ring->base + ev_ring->len - ev_ring->el_size;
-	mhi_recycle_fwd_ev_ring_element(mhi_cntrl, ev_ring);
-
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_ring_er_db(mhi_event);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	spin_unlock_bh(&mhi_event->lock);
+
+	atomic_inc(&mhi_cntrl->pending_pkts);
+	ret = mhi_device_get_sync(mhi_cntrl->mhi_dev,
+				  MHI_VOTE_DEVICE | MHI_VOTE_BUS);
+	if (ret) {
+		atomic_dec(&mhi_cntrl->pending_pkts);
+		goto exit_bw_scale_process;
+	}
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
 
 	ret = mhi_cntrl->bw_scale(mhi_cntrl, &link_info);
 	if (!ret)
@@ -1507,17 +1503,17 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bw_scale_db, 0,
-			      MHI_BW_SCALE_RESULT(result,
-						  link_info.sequence_num));
-
-	mhi_cntrl->wake_put(mhi_cntrl, false);
+				     MHI_BW_SCALE_RESULT(result,
+				     link_info.sequence_num));
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-exit_bw_process:
+	mhi_device_put(mhi_cntrl->mhi_dev, MHI_VOTE_DEVICE | MHI_VOTE_BUS);
+	atomic_dec(&mhi_cntrl->pending_pkts);
+
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
-exit_no_lock:
-	MHI_VERB("exit er_index:%u\n", mhi_event->er_index);
+exit_bw_scale_process:
+	MHI_VERB("exit er_index:%u ret:%d\n", mhi_event->er_index, ret);
 
 	return ret;
 }
