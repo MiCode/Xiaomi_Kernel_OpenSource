@@ -68,6 +68,9 @@ int *debounce_times_up_adb;
 int light_load_cps = 1000;
 int *vcore_power_ratio_down;
 int *vcore_power_ratio_up;
+#ifdef USE_CPU_TO_DRAM_MAP
+int cm_mgr_cpu_map_dram_enable = 1;
+#endif /* USE_CPU_TO_DRAM_MAP */
 
 int debounce_times_perf_down_local = -1;
 int debounce_times_perf_down_force_local = -1;
@@ -221,6 +224,10 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			cm_mgr_perf_enable);
 	len += cm_mgr_print("cm_mgr_perf_force_enable %d\n",
 			cm_mgr_perf_force_enable);
+#ifdef USE_CPU_TO_DRAM_MAP
+	len += cm_mgr_print("cm_mgr_cpu_map_dram_enable %d\n",
+			cm_mgr_cpu_map_dram_enable);
+#endif /* USE_CPU_TO_DRAM_MAP */
 	len += cm_mgr_print("cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	len += cm_mgr_print("light_load_cps %d\n", light_load_cps);
 	len += cm_mgr_print("total_bw_value %d\n", total_bw_value);
@@ -399,6 +406,10 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+#ifdef USE_CPU_TO_DRAM_MAP
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
+		cm_mgr_cpu_map_dram_enable = !!val_1;
+#endif /* USE_CPU_TO_DRAM_MAP */
 	}
 
 out:

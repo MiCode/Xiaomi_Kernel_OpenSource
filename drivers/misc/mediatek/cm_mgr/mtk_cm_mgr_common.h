@@ -70,6 +70,9 @@ extern int *debounce_times_up_adb;
 extern int light_load_cps;
 extern int *vcore_power_ratio_down;
 extern int *vcore_power_ratio_up;
+#ifdef USE_CPU_TO_DRAM_MAP
+extern int cm_mgr_cpu_map_dram_enable;
+#endif /* USE_CPU_TO_DRAM_MAP */
 
 extern int debounce_times_perf_down_local;
 extern int debounce_times_perf_down_force_local;
