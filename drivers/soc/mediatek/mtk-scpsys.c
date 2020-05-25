@@ -34,6 +34,8 @@
 #define MTK_SCPD_ACTIVE_WAKEUP		BIT(0)
 #define MTK_SCPD_FWAIT_SRAM		BIT(1)
 #define MTK_SCPD_SRAM_ISO		BIT(2)
+#define MTK_SCPD_MD_OPS			BIT(3)
+
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
 #define SPM_VDE_PWR_CON			0x0210
@@ -111,6 +113,8 @@ struct scp_domain_data {
 	int ctl_offs;
 	u32 sram_pdn_bits;
 	u32 sram_pdn_ack_bits;
+	int extb_iso_offs;
+	u32 extb_iso_bits;
 	const char *basic_clk_name[MAX_CLKS];
 	const char *subsys_clk_prefix;
 	u8 caps;
@@ -190,6 +194,20 @@ static int scpsys_domain_is_on(struct scp_domain *scpd)
 		return false;
 
 	return -EINVAL;
+}
+
+static int scpsys_md_domain_is_on(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+
+	u32 status = readl(scp->base + scp->ctrl_reg.pwr_sta_offs) &
+						scpd->data->sta_mask;
+	/*
+	 * A domain is on when the status bit is set.
+	 */
+	if (status)
+		return true;
+	return false;
 }
 
 static int scpsys_regulator_enable(struct scp_domain *scpd)
@@ -404,6 +422,36 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 	return 0;
 }
 
+static void scpsys_extb_iso_down(struct scp_domain *scpd)
+{
+	u32 val;
+	struct scp *scp;
+	void __iomem *ctl_addr;
+
+	if (!scpd->data->extb_iso_offs)
+		return;
+
+	scp = scpd->scp;
+	ctl_addr = scp->base + scpd->data->extb_iso_offs;
+	val = readl(ctl_addr) & ~scpd->data->extb_iso_bits;
+	writel(val, ctl_addr);
+}
+
+static void scpsys_extb_iso_up(struct scp_domain *scpd)
+{
+	u32 val;
+	struct scp *scp;
+	void __iomem *ctl_addr;
+
+	if (!scpd->data->extb_iso_offs)
+		return;
+
+	scp = scpd->scp;
+	ctl_addr = scp->base + scpd->data->extb_iso_offs;
+	val = readl(ctl_addr) | scpd->data->extb_iso_bits;
+	writel(val, ctl_addr);
+}
+
 static int scpsys_power_on(struct generic_pm_domain *genpd)
 {
 	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
@@ -519,6 +567,114 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 
 out:
 	dev_err(scp->dev, "Failed to power off domain %s\n", genpd->name);
+
+	return ret;
+}
+
+static int scpsys_md_power_on(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
+	u32 val;
+	int ret, tmp;
+
+	ret = scpsys_regulator_enable(scpd);
+	if (ret < 0)
+		return ret;
+
+	scpsys_extb_iso_down(scpd);
+
+	ret = scpsys_clk_enable(scpd->clk, MAX_CLKS);
+	if (ret)
+		goto err_clk;
+
+	/* for md subsys, reset_b is prior to power_on bit */
+	val = readl(ctl_addr);
+	val |= PWR_RST_B_BIT;
+	writel(val, ctl_addr);
+
+	/* subsys power on */
+	val |= PWR_ON_BIT;
+	writel(val, ctl_addr);
+
+	/* wait until PWR_ACK = 1 */
+	ret = readx_poll_timeout(scpsys_md_domain_is_on, scpd, tmp, tmp > 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto err_pwr_ack;
+
+	ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+	if (ret < 0)
+		goto err_pwr_ack;
+
+	ret = scpsys_sram_enable(scpd, ctl_addr);
+	if (ret < 0)
+		goto err_sram;
+
+	ret = scpsys_bus_protect_disable(scpd);
+	if (ret < 0)
+		goto err_sram;
+
+	return 0;
+
+err_sram:
+	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+err_pwr_ack:
+	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+err_clk:
+	scpsys_extb_iso_up(scpd);
+	scpsys_regulator_disable(scpd);
+
+	dev_notice(scp->dev, "Failed to power on domain %s\n", genpd->name);
+
+	return ret;
+}
+
+static int scpsys_md_power_off(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
+	u32 val;
+	int ret, tmp;
+
+	ret = scpsys_bus_protect_enable(scpd);
+	if (ret < 0)
+		goto out;
+
+	ret = scpsys_sram_disable(scpd, ctl_addr);
+	if (ret < 0)
+		goto out;
+
+	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+
+	/* subsys power off */
+	val = readl(ctl_addr) & ~PWR_ON_BIT;
+	writel(val, ctl_addr);
+
+	/* wait until PWR_ACK = 0 */
+	ret = readx_poll_timeout(scpsys_md_domain_is_on, scpd, tmp, tmp == 0,
+				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto out;
+
+	/* for md subsys, the isolation is prior to RST_B operation */
+	scpsys_extb_iso_up(scpd);
+
+	val &= ~PWR_RST_B_BIT;
+	writel(val, ctl_addr);
+
+	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+
+	ret = scpsys_regulator_disable(scpd);
+	if (ret < 0)
+		goto out;
+
+	return 0;
+
+out:
+	dev_notice(scp->dev, "Failed to power off domain %s\n", genpd->name);
 
 	return ret;
 }
@@ -715,8 +871,13 @@ static struct scp *init_scp(struct platform_device *pdev,
 		}
 
 		genpd->name = data->name;
-		genpd->power_off = scpsys_power_off;
-		genpd->power_on = scpsys_power_on;
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_MD_OPS)) {
+			genpd->power_off = scpsys_md_power_off;
+			genpd->power_on = scpsys_md_power_on;
+		} else {
+			genpd->power_off = scpsys_power_off;
+			genpd->power_on = scpsys_power_on;
+		}
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ACTIVE_WAKEUP))
 			genpd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 
@@ -1518,6 +1679,24 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 		.bp_table = {
 			BUS_PROT(IFR_TYPE, 0xb84, 0xb88, 0xb80, 0xb90,
 				MT8192_TOP_AXI_PROT_EN_VDNR_MSDC),
+		},
+	},
+	/*
+	 * MT6873 shares most of MT8192's HW IP except modem.
+	 * So 6873 modem append to 8192's power domains.
+	 */
+	[MT6873_POWER_DOMAIN_MD] = {
+		.name = "md",
+		.sta_mask = BIT(0),
+		.ctl_offs = 0x0300,
+		.caps = MTK_SCPD_MD_OPS,
+		.extb_iso_offs = 0x398,
+		.extb_iso_bits = BIT(0) | BIT(1),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x2a0, 0x2a4, 0x220, 0x228,
+				MT6873_TOP_AXI_PROT_EN_MD),
+			BUS_PROT(IFR_TYPE, 0xb84, 0xb88, 0xb80, 0xb90,
+				MT6873_TOP_AXI_PROT_EN_VDNR_MD),
 		},
 	},
 };
