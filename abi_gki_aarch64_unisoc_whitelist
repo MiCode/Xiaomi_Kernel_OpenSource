@@ -2613,3 +2613,38 @@
   ufshcd_shutdown
   ufshcd_system_resume
   ufshcd_system_suspend
+
+# required by erofs.ko
+  add_to_page_cache_lru
+  bio_add_page
+  bio_alloc_bioset
+  bio_associate_blkg
+  bio_put
+  bit_wait
+  flush_dcache_page
+  fs_bio_set
+  fs_ftype_to_dtype
+  generic_ro_fops
+  iget_failed
+  init_user_ns
+  inode_nohighmem
+  __lock_page
+  LZ4_decompress_safe_partial
+  out_of_line_wait_on_bit_lock
+  pagecache_get_page
+  page_get_link
+  posix_acl_access_xattr_handler
+  posix_acl_default_xattr_handler
+  posix_acl_from_xattr
+  put_pages_list
+  radix_tree_gang_lookup
+  radix_tree_preload
+  read_cache_page
+  read_cache_page_gfp
+  simple_get_link
+  submit_bio
+  trace_print_flags_seq
+  unlock_page
+  vm_unmap_aliases
+  wake_up_bit
+  __wake_up_locked
