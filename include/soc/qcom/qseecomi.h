@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QSEECOMI_H_
@@ -22,6 +22,8 @@
 #define QSEOS_RESULT_FAIL_INCORRECT_PSWD      -71
 #define QSEOS_RESULT_FAIL_MAX_ATTEMPT         -72
 #define QSEOS_RESULT_FAIL_PENDING_OPERATION   -73
+
+#define SMCINVOKE_RESULT_INBOUND_REQ_NEEDED	3
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
@@ -77,6 +79,7 @@ enum qseecom_qceos_cmd_status {
 	QSEOS_RESULT_SUCCESS = 0,
 	QSEOS_RESULT_INCOMPLETE,
 	QSEOS_RESULT_BLOCKED_ON_LISTENER,
+	QSEOS_RESULT_CBACK_REQUEST,
 	QSEOS_RESULT_FAILURE  = 0xFFFFFFFF
 };
 

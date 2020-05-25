@@ -274,6 +274,22 @@ config QCOM_SMD_RPM
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
 
+config MSM_SPM
+        bool "Driver support for SPM and AVS wrapper hardware"
+        help
+          Enables the support for SPM and AVS wrapper hardware on MSMs. SPM
+          hardware is used to manage the processor power during sleep. The
+          driver allows configuring SPM to allow different low power modes for
+          both core and L2.
+
+config MSM_L2_SPM
+        bool "SPM support for L2 cache"
+        help
+          Enable SPM driver support for L2 cache. Some MSM chipsets allow
+          control of L2 cache low power mode with a Subsystem Power manager.
+          Enabling this driver allows configuring L2 SPM for low power modes
+          on supported chipsets.
+
 config QCOM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
@@ -872,6 +888,15 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+
+config QTI_HW_KEY_MANAGER
+	tristate "Enable QTI Hardware Key Manager for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 

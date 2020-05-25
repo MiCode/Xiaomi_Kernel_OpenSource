@@ -13,6 +13,7 @@ struct charger_param {
 	u32 hvdcp2_max_icl_ua;
 	u32 hvdcp3_max_icl_ua;
 	u32 forced_main_fcc;
+	u32 qc4_max_icl_ua;
 };
 
 int qcom_batt_init(struct charger_param *param);

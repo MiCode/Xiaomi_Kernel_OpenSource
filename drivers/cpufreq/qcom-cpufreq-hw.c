@@ -413,8 +413,10 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		dev_dbg(dev, "index=%d freq=%d, core_count %d\n",
 			i, c->table[i].frequency, core_count);
 
-		if (core_count != c->max_cores)
+		if (core_count != c->max_cores) {
 			cur_freq = CPUFREQ_ENTRY_INVALID;
+			c->table[i].flags = CPUFREQ_BOOST_FREQ;
+		}
 
 		/*
 		 * Two of the same frequencies with the same core counts means
@@ -431,12 +433,12 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		prev_cc = core_count;
 		prev_freq = cur_freq;
 
-		cur_freq *= 1000;
 		for_each_cpu(cpu, &c->related_cpus) {
 			cpu_dev = get_cpu_device(cpu);
 			if (!cpu_dev)
 				continue;
-			dev_pm_opp_add(cpu_dev, cur_freq, volt);
+			dev_pm_opp_add(cpu_dev, c->table[i].frequency * 1000,
+							volt);
 		}
 	}
 

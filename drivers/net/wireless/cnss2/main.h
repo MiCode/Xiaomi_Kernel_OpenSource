@@ -25,6 +25,7 @@
 #define TIME_CLOCK_FREQ_HZ		19200000
 #define CNSS_RAMDUMP_MAGIC		0x574C414E
 #define CNSS_RAMDUMP_VERSION		0
+#define MAX_FIRMWARE_NAME_LEN		20
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -369,7 +370,9 @@ struct cnss_plat_data {
 	u8 *diag_reg_read_buf;
 	u8 cal_done;
 	u8 powered_on;
-	char firmware_name[13];
+	u8 use_fw_path_with_prefix;
+	char firmware_name[MAX_FIRMWARE_NAME_LEN];
+	char fw_fallback_name[MAX_FIRMWARE_NAME_LEN];
 	struct completion rddm_complete;
 	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;

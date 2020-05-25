@@ -665,7 +665,10 @@ int cnss_idle_restart(struct device *dev)
 		return -ENODEV;
 	}
 
-	mutex_lock(&plat_priv->driver_ops_lock);
+	if (!mutex_trylock(&plat_priv->driver_ops_lock)) {
+		cnss_pr_dbg("Another driver operation is in progress, ignore idle restart\n");
+		return -EBUSY;
+	}
 
 	cnss_pr_dbg("Doing idle restart\n");
 
@@ -1087,6 +1090,7 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pr_err("Recovery is already in progress\n");
+		CNSS_ASSERT(0);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1139,7 +1143,8 @@ void cnss_schedule_recovery(struct device *dev,
 	struct cnss_recovery_data *data;
 	int gfp = GFP_KERNEL;
 
-	cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
+	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
 
 	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
 	    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) {
@@ -2200,6 +2205,12 @@ static void cnss_get_wlaon_pwr_ctrl_info(struct cnss_plat_data *plat_priv)
 		    plat_priv->set_wlaon_pwr_ctrl);
 }
 
+static bool cnss_use_fw_path_with_prefix(struct cnss_plat_data *plat_priv)
+{
+	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				     "qcom,converged-dt");
+}
+
 static const struct platform_device_id cnss_platform_id_table[] = {
 	{ .name = "qca6174", .driver_data = QCA6174_DEVICE_ID, },
 	{ .name = "qca6290", .driver_data = QCA6290_DEVICE_ID, },
@@ -2265,6 +2276,8 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
 	plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
+	plat_priv->use_fw_path_with_prefix =
+		cnss_use_fw_path_with_prefix(plat_priv);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
@@ -2308,9 +2321,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_event_work;
 
-	ret = cnss_debugfs_create(plat_priv);
-	if (ret)
-		goto deinit_qmi;
+	cnss_debugfs_create(plat_priv);
 
 	ret = cnss_misc_init(plat_priv);
 	if (ret)
@@ -2329,7 +2340,6 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 destroy_debugfs:
 	cnss_debugfs_destroy(plat_priv);
-deinit_qmi:
 	cnss_qmi_deinit(plat_priv);
 deinit_event_work:
 	cnss_event_work_deinit(plat_priv);

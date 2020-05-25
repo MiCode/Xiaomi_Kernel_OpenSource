@@ -2645,7 +2645,7 @@ update:
 static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	if (!adreno_is_a610(adreno_dev))
+	if (!adreno_is_a610(adreno_dev) && !adreno_is_a702(adreno_dev))
 		return;
 
 	/* Handle clock settings for GFX PSCBCs */

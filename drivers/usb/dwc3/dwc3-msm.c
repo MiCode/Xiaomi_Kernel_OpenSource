@@ -2924,10 +2924,12 @@ static void dwc3_resume_work(struct work_struct *w)
 	union extcon_property_value val;
 	unsigned int extcon_id;
 	struct extcon_dev *edev = NULL;
+	const char *edev_name;
+	char *eud_str;
+	bool eud_connected = false;
 	int ret = 0;
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
-
 	if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
 		extcon_id = EXTCON_USB;
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
@@ -2936,8 +2938,17 @@ static void dwc3_resume_work(struct work_struct *w)
 		edev = mdwc->extcon[mdwc->ext_idx].edev;
 	}
 
+	if (edev) {
+		edev_name = extcon_get_edev_name(edev);
+		dbg_log_string("edev:%s\n", edev_name);
+		/* Skip querying speed and cc_state for EUD edev */
+		eud_str = strnstr(edev_name, "eud", strlen(edev_name));
+		if (eud_str)
+			eud_connected = true;
+	}
+
 	/* Check speed and Type-C polarity values in order to configure PHY */
-	if (edev && extcon_get_state(edev, extcon_id)) {
+	if (!eud_connected && edev && extcon_get_state(edev, extcon_id)) {
 		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
 		ret = extcon_get_property(edev, extcon_id,

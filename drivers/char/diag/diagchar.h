@@ -797,6 +797,7 @@ struct diagchar_dev {
 	struct mutex diag_id_mutex;
 	struct mutex diagid_v2_mutex;
 	struct mutex cmd_reg_mutex;
+	spinlock_t dci_mempool_lock;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
 	/* Sizes that reflect memory pool sizes */

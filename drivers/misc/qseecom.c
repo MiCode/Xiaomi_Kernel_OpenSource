@@ -2616,6 +2616,11 @@ err_resp:
 		case QSEOS_RESULT_SUCCESS:
 		case QSEOS_RESULT_INCOMPLETE:
 			break;
+		case QSEOS_RESULT_CBACK_REQUEST:
+			pr_warn("get cback req app_id = %d, resp->data = %d\n",
+				data->client.app_id, resp->data);
+			resp->resp_type = SMCINVOKE_RESULT_INBOUND_REQ_NEEDED;
+			break;
 		default:
 			pr_err("fail:resp res= %d,app_id = %d,lstr = %d\n",
 				resp->result, data->client.app_id, lstnr);

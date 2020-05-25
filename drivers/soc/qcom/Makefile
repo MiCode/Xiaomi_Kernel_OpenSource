@@ -16,6 +16,7 @@ qcom_rpmh-y			+= rpmh-rsc.o
 qcom_rpmh-y			+= rpmh.o
 obj-$(CONFIG_QCOM_SMD_RPM)	+= smd-rpm.o
 obj-$(CONFIG_QCOM_SMEM) +=	smem.o
+obj-$(CONFIG_MSM_SPM) += msm-spm.o spm_devices.o
 obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
 obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
 obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
@@ -94,11 +95,14 @@ ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
-obj-$(CONFIG_ICNSS) += icnss.o
-obj-$(CONFIG_ICNSS_QMI) += icnss_qmi.o wlan_firmware_service_v01.o
+obj-$(CONFIG_ICNSS) += msm_icnss.o
+msm_icnss-y := icnss.o
+msm_icnss-$(CONFIG_ICNSS_QMI) += icnss_qmi.o wlan_firmware_service_v01.o
 obj-$(CONFIG_RMNET_CTL) += rmnet_ctl/
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_QTI_L2_REUSE) += l2_reuse.o
 obj-$(CONFIG_ICNSS2) += icnss2/
 obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
 obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
+obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm_qti.o
+hwkm_qti-y += hwkm.o

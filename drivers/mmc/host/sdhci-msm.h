@@ -207,6 +207,7 @@ struct sdhci_msm_pltfm_data {
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
 	int sdiowakeup_irq;
+	int testbus_trigger_irq;
 	struct sdhci_msm_pm_qos_data pm_qos_data;
 	u32 *bus_clk_table;
 	unsigned char bus_clk_cnt;
@@ -288,6 +289,7 @@ struct sdhci_msm_host {
 	struct completion pwr_irq_completion;
 	struct sdhci_msm_bus_vote msm_bus_vote;
 	struct device_attribute	polling;
+	struct device_attribute mask_and_match;
 	u32 clk_rate; /* Keeps track of current clock rate that is set */
 	bool tuning_done;
 	bool calibration_done;
