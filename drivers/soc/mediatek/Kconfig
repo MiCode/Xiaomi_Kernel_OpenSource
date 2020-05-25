@@ -17,7 +17,7 @@ config MTK_CMDQ
 	  vblank.
 
 config MTK_DVFSRC
-	bool "MediaTek DVFSRC Support"
+	tristate "MediaTek DVFSRC Support"
 	depends on ARCH_MEDIATEK
 	select PM_GENERIC_DOMAINS if PM
 	depends on MTK_SCPSYS
