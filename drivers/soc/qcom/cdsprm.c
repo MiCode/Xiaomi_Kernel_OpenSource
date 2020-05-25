@@ -45,6 +45,7 @@
 #define SYSMON_CDSP_FEATURE_THERMAL_LIMIT_TX	10
 #define SYSMON_CDSP_FEATURE_CAMERA_ACTIVITY_TX	11
 #define SYSMON_CDSP_FEATURE_VERSION_RX		12
+#define SYSMON_CDSP_FEATURE_VTCM_CONFIG		13
 
 #define SYSMON_CDSP_QOS_FLAG_IGNORE	0
 #define SYSMON_CDSP_QOS_FLAG_ENABLE	1
@@ -54,6 +55,33 @@
 #define CDSPRM_MSG_QUEUE_DEPTH		50
 #define CDSP_THERMAL_MAX_STATE		10
 #define HVX_THERMAL_MAX_STATE		10
+#define NUM_VTCM_PARTITIONS_MAX		16
+#define NUM_VTCM_APPID_MAPS_MAX		32
+#define SYSMON_CDSP_GLINK_VERSION	0x2
+
+enum {
+	VTCM_PARTITION_SET = 1,
+	VTCM_PARTITION_REMOVE = 0,
+};
+
+struct vtcm_partition_info_t {
+	unsigned char partition_id;
+	unsigned int size;
+	unsigned int flags;
+};
+
+struct vtcm_appid_map_t {
+	unsigned char app_id;
+	unsigned char partition_id;
+};
+
+struct vtcm_partition_interface {
+	unsigned int command;
+	unsigned char num_partitions;
+	unsigned char num_app_id_maps;
+	struct vtcm_partition_info_t partitions[NUM_VTCM_PARTITIONS_MAX];
+	struct vtcm_appid_map_t app2partition[NUM_VTCM_APPID_MAPS_MAX];
+};
 
 struct sysmon_l3_msg {
 	unsigned int l3_clock_khz;
@@ -124,6 +152,15 @@ struct sysmon_msg_tx {
 	unsigned int size;
 };
 
+struct sysmon_msg_tx_v2 {
+	unsigned int size;
+	unsigned int cdsp_ver_info;
+	unsigned int feature_id;
+	union {
+		struct vtcm_partition_interface vtcm_partition;
+	} fs;
+};
+
 enum delay_state {
 	CDSP_DELAY_THREAD_NOT_STARTED = 0,
 	CDSP_DELAY_THREAD_STARTED = 1,
@@ -141,8 +178,11 @@ struct cdsprm_request {
 struct cdsprm {
 	unsigned int			cdsp_version;
 	unsigned int			event;
+	unsigned int			b_vtcm_partitioning;
+	unsigned int			b_vtcm_partition_en;
 	struct completion		msg_avail;
 	struct cdsprm_request		msg_queue[CDSPRM_MSG_QUEUE_DEPTH];
+	struct vtcm_partition_interface		vtcm_partition;
 	unsigned int			msg_queue_idx;
 	struct task_struct		*cdsprm_wq_task;
 	struct workqueue_struct		*delay_work_queue;
@@ -183,7 +223,8 @@ struct cdsprm {
 	int					b_cdsprm_devinit;
 	int					b_hvxrm_devinit;
 	struct dentry			*debugfs_dir;
-	struct dentry			*debugfs_file;
+	struct dentry			*debugfs_file_priority;
+	struct dentry			*debugfs_file_vtcm;
 	int (*set_l3_freq)(unsigned int freq_khz);
 	int (*set_l3_freq_cached)(unsigned int freq_khz);
 	int (*set_corner_limit)(enum cdsprm_npu_corner);
@@ -261,6 +302,56 @@ int cdsprm_compute_core_set_priority(unsigned int priority_idx)
 }
 EXPORT_SYMBOL(cdsprm_compute_core_set_priority);
 
+int cdsprm_compute_vtcm_set_partition_map(unsigned int b_vtcm_partitioning)
+{
+	int i, j, result = -EINVAL;
+	struct sysmon_msg_tx_v2 rpmsg_v2;
+
+	if (gcdsprm.rpmsgdev && gcdsprm.cdsp_version > 1) {
+
+		rpmsg_v2.cdsp_ver_info = SYSMON_CDSP_GLINK_VERSION;
+		rpmsg_v2.feature_id = SYSMON_CDSP_FEATURE_VTCM_CONFIG;
+		rpmsg_v2.fs.vtcm_partition.command = b_vtcm_partitioning;
+		rpmsg_v2.fs.vtcm_partition.num_partitions =
+				gcdsprm.vtcm_partition.num_partitions;
+		rpmsg_v2.fs.vtcm_partition.num_app_id_maps =
+				gcdsprm.vtcm_partition.num_app_id_maps;
+
+		for (i = 0; i < gcdsprm.vtcm_partition.num_partitions; i++) {
+			rpmsg_v2.fs.vtcm_partition.partitions[i].partition_id
+			= gcdsprm.vtcm_partition.partitions[i].partition_id;
+			rpmsg_v2.fs.vtcm_partition.partitions[i].size =
+			gcdsprm.vtcm_partition.partitions[i].size;
+			rpmsg_v2.fs.vtcm_partition.partitions[i].flags =
+			gcdsprm.vtcm_partition.partitions[i].flags;
+		}
+
+		for (j = 0; j < gcdsprm.vtcm_partition.num_app_id_maps; j++) {
+			rpmsg_v2.fs.vtcm_partition.app2partition[j].app_id
+			= gcdsprm.vtcm_partition.app2partition[j].app_id;
+			rpmsg_v2.fs.vtcm_partition.app2partition[j].partition_id
+			= gcdsprm.vtcm_partition.app2partition[j].partition_id;
+		}
+
+		rpmsg_v2.size = sizeof(rpmsg_v2);
+		result = rpmsg_send(gcdsprm.rpmsgdev->ept,
+				&rpmsg_v2,
+				sizeof(rpmsg_v2));
+		gcdsprm.b_vtcm_partitioning =
+				rpmsg_v2.fs.vtcm_partition.command;
+
+		if (result)
+			pr_info("VTCM partition and map failed\n");
+		else {
+			pr_info("VTCM partition and map info set to %d\n",
+					gcdsprm.b_vtcm_partitioning);
+		}
+	}
+
+	return result;
+}
+EXPORT_SYMBOL(cdsprm_compute_vtcm_set_partition_map);
+
 int cdsprm_cxlimit_npu_activity_notify(unsigned int b_enabled)
 {
 	int result = -EINVAL;
@@ -308,6 +399,7 @@ int cdsprm_cxlimit_npu_activity_notify(unsigned int b_enabled)
 	}
 
 	mutex_unlock(&gcdsprm.npu_activity_lock);
+
 	return result;
 }
 EXPORT_SYMBOL(cdsprm_cxlimit_npu_activity_notify);
@@ -357,6 +449,7 @@ enum cdsprm_npu_corner cdsprm_cxlimit_npu_corner_notify(
 	}
 
 	mutex_unlock(&gcdsprm.npu_activity_lock);
+
 	return return_npu_corner;
 }
 EXPORT_SYMBOL(cdsprm_cxlimit_npu_corner_notify);
@@ -565,6 +658,10 @@ static void cdsprm_rpmsg_send_details(void)
 
 	if (!gcdsprm.cdsp_version)
 		return;
+
+	if (gcdsprm.cdsp_version > 1 && gcdsprm.b_vtcm_partition_en) {
+		cdsprm_compute_vtcm_set_partition_map(VTCM_PARTITION_SET);
+	}
 
 	if (gcdsprm.b_cx_limit_en) {
 		reinit_completion(&gcdsprm.npu_activity_complete);
@@ -897,6 +994,25 @@ static int hvx_set_cur_state(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
+static int cdsprm_vtcm_partition_state_read(void *data, u64 *val)
+{
+	*val = gcdsprm.b_vtcm_partitioning;
+
+	return 0;
+}
+
+static int cdsprm_vtcm_partition_state_write(void *data, u64 val)
+{
+
+	cdsprm_compute_vtcm_set_partition_map((unsigned int)val);
+
+	if (gcdsprm.b_vtcm_partitioning != val)
+
+		return -EINVAL;
+
+	return 0;
+}
+
 static int cdsprm_compute_prio_read(void *data, u64 *val)
 {
 	*val = gcdsprm.compute_prio_idx;
@@ -916,6 +1032,11 @@ DEFINE_DEBUGFS_ATTRIBUTE(cdsprm_debugfs_fops,
 			cdsprm_compute_prio_write,
 			"%llu\n");
 
+DEFINE_DEBUGFS_ATTRIBUTE(cdsprmvtcm_debugfs_fops,
+			cdsprm_vtcm_partition_state_read,
+			cdsprm_vtcm_partition_state_write,
+			"%llu\n");
+
 static const struct thermal_cooling_device_ops hvx_cooling_ops = {
 	.get_max_state = hvx_get_max_state,
 	.get_cur_state = hvx_get_cur_state,
@@ -924,6 +1045,8 @@ static const struct thermal_cooling_device_ops hvx_cooling_ops = {
 
 static int cdsp_rm_driver_probe(struct platform_device *pdev)
 {
+	int n, m, i, ret;
+	u32 p;
 	struct device *dev = &pdev->dev;
 	struct thermal_cooling_device *tcdev = 0;
 	unsigned int cooling_cells = 0;
@@ -953,10 +1076,11 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 			dev_err(dev,
 			"Failed to create debugfs directory for cdsprm\n");
 		} else {
-			gcdsprm.debugfs_file = debugfs_create_file("priority",
+			gcdsprm.debugfs_file_priority =
+						debugfs_create_file("priority",
 						0644, gcdsprm.debugfs_dir,
 						NULL, &cdsprm_debugfs_fops);
-			if (!gcdsprm.debugfs_file) {
+			if (!gcdsprm.debugfs_file_priority) {
 				debugfs_remove_recursive(gcdsprm.debugfs_dir);
 				dev_err(dev,
 					"Failed to create debugfs file\n");
@@ -972,16 +1096,141 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 		tcdev = thermal_of_cooling_device_register(dev->of_node,
 							"cdsp", NULL,
 							&cdsp_cooling_ops);
+
 		if (IS_ERR(tcdev)) {
 			dev_err(dev,
 				"CDSP thermal driver reg failed\n");
 		}
+
 		gcdsprm.cdsp_tcdev = tcdev;
 		thermal_cdev_update(tcdev);
 	}
 
-	dev_dbg(dev, "CDSP request manager driver probe called\n");
 	gcdsprm.b_qosinitdone = true;
+	gcdsprm.b_vtcm_partition_en = of_property_read_bool(dev->of_node,
+				"qcom,vtcm-partition-info");
+
+	if (gcdsprm.b_vtcm_partition_en) {
+		n = of_property_count_u32_elems(dev->of_node,
+			"qcom,vtcm-partition-info");
+
+		gcdsprm.vtcm_partition.num_partitions = (n / 3);
+
+		if ((n % 3) != 0) {
+			dev_err(dev,
+			"Maps are expected to have %d elements each entry\n",
+			 n/3);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < gcdsprm.vtcm_partition.num_partitions; i++) {
+			ret = of_property_read_u32_index(dev->of_node,
+				"qcom,vtcm-partition-info", i * 3, &p);
+
+			if (ret) {
+				dev_err(dev,
+				"Error reading partition element %d :%d\n",
+				 i, p);
+				return ret;
+			}
+
+			gcdsprm.vtcm_partition.partitions[i].partition_id
+			 = (unsigned char)p;
+
+			if (gcdsprm.vtcm_partition.partitions[i].partition_id
+			 >= (n/3)) {
+				dev_err(dev,
+				"partition id is invalid: %d\n", n/3);
+				return -EINVAL;
+			}
+
+			ret = of_property_read_u32_index(dev->of_node,
+				"qcom,vtcm-partition-info", i * 3 + 1, &p);
+
+			if (ret) {
+				dev_err(dev,
+						"Error reading partition element %d :%d\n"
+						, i, p);
+				return ret;
+			}
+
+			gcdsprm.vtcm_partition.partitions[i].size
+			 = (unsigned int)p;
+
+			ret = of_property_read_u32_index(dev->of_node,
+				"qcom,vtcm-partition-info", i * 3 + 2, &p);
+
+			if (ret) {
+				dev_err(dev,
+						"Error reading partition element %d :%d\n",
+						 i, p);
+				return ret;
+			}
+
+			gcdsprm.vtcm_partition.partitions[i].flags
+			= (unsigned int)p;
+		}
+
+		m = of_property_count_u32_elems(dev->of_node,
+			"qcom,vtcm-partition-map");
+
+		gcdsprm.vtcm_partition.num_app_id_maps = (m / 2);
+
+		if ((m % 2) != 0) {
+			dev_err(dev,
+			"Maps to have %d elements each entry\n", m / 2);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < gcdsprm.vtcm_partition.num_app_id_maps; i++) {
+			ret = of_property_read_u32_index(dev->of_node,
+				"qcom,vtcm-partition-map", i * 2, &p);
+
+			if (ret) {
+				dev_err(dev,
+				"Error reading map element %d :%d\n", i, p);
+				return ret;
+			}
+
+			gcdsprm.vtcm_partition.app2partition[i].app_id
+			 = (unsigned char)p;
+
+			ret = of_property_read_u32_index(dev->of_node,
+				"qcom,vtcm-partition-map", i * 2 + 1, &p);
+
+			if (ret) {
+				dev_err(dev,
+				"Error reading map element %d :%d\n", i, p);
+				return ret;
+			}
+
+			gcdsprm.vtcm_partition.app2partition[i].partition_id
+			 = (unsigned char)p;
+		}
+
+		if (!gcdsprm.b_cx_limit_en || !gcdsprm.debugfs_dir)
+			gcdsprm.debugfs_dir
+			 = debugfs_create_dir("compute", NULL);
+
+		if (!gcdsprm.debugfs_dir)
+			dev_err(dev,
+			"Failed to find debugfs directory for cdsprm\n");
+		else {
+			gcdsprm.debugfs_file_vtcm =
+				debugfs_create_file("vtcm_partition_state",
+				0644, gcdsprm.debugfs_dir,
+				NULL, &cdsprmvtcm_debugfs_fops);
+		}
+
+		if (!gcdsprm.debugfs_file_vtcm
+			&& !gcdsprm.debugfs_file_priority) {
+			debugfs_remove_recursive(gcdsprm.debugfs_dir);
+					dev_err(dev,
+					"Failed to create debugfs file\n");
+		}
+	}
+
+	dev_dbg(dev, "CDSP request manager driver probe called\n");
 
 	return 0;
 }
@@ -1231,7 +1480,8 @@ static void __exit cdsprm_exit(void)
 	gcdsprm.b_hvxrm_devinit = false;
 	gcdsprm.b_cdsprm_devinit = false;
 	gcdsprm.debugfs_dir = NULL;
-	gcdsprm.debugfs_file = NULL;
+	gcdsprm.debugfs_file_priority = NULL;
+	gcdsprm.debugfs_file_vtcm = NULL;
 	gcdsprm.hvx_tcdev = NULL;
 	gcdsprm.cdsp_tcdev = NULL;
 
