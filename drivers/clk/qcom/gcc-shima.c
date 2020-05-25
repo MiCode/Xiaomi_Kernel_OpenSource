@@ -1833,6 +1833,19 @@ static struct clk_branch gcc_gpu_gpll0_div_clk_src = {
 	},
 };
 
+static struct clk_branch gcc_gpu_iref_en = {
+	.halt_reg = 0x8c014,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c014,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_gpu_iref_en",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 	.halt_reg = 0x7100c,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -2797,6 +2810,19 @@ static struct clk_branch gcc_titan_rt_throttle_core_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_1_clkref_en = {
+	.halt_reg = 0x8c000,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c000,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_1_clkref_en",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_phy_ahb_clk = {
 	.halt_reg = 0x77018,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -3258,6 +3284,7 @@ static struct clk_regmap *gcc_shima_clocks[] = {
 	[GCC_GPU_CFG_AHB_CLK] = &gcc_gpu_cfg_ahb_clk.clkr,
 	[GCC_GPU_GPLL0_CLK_SRC] = &gcc_gpu_gpll0_clk_src.clkr,
 	[GCC_GPU_GPLL0_DIV_CLK_SRC] = &gcc_gpu_gpll0_div_clk_src.clkr,
+	[GCC_GPU_IREF_EN] = &gcc_gpu_iref_en.clkr,
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_PCIE0_PHY_RCHNG_CLK] = &gcc_pcie0_phy_rchng_clk.clkr,
@@ -3346,6 +3373,7 @@ static struct clk_regmap *gcc_shima_clocks[] = {
 	[GCC_TITAN_NRT_THROTTLE_CORE_CLK] =
 		&gcc_titan_nrt_throttle_core_clk.clkr,
 	[GCC_TITAN_RT_THROTTLE_CORE_CLK] = &gcc_titan_rt_throttle_core_clk.clkr,
+	[GCC_UFS_1_CLKREF_EN] = &gcc_ufs_1_clkref_en.clkr,
 	[GCC_UFS_PHY_AHB_CLK] = &gcc_ufs_phy_ahb_clk.clkr,
 	[GCC_UFS_PHY_AXI_CLK] = &gcc_ufs_phy_axi_clk.clkr,
 	[GCC_UFS_PHY_AXI_CLK_SRC] = &gcc_ufs_phy_axi_clk_src.clkr,
