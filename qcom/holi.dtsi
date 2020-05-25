@@ -870,6 +870,13 @@
 		qcom,config-arr = <0x0F800060 0x0F810060 0x0F820060 0x0F830060
 			0x0F840060 0x0F850060 0x0F860060 0x0F870060>;
 	};
+
+	kryo-erp {
+		compatible = "arm,arm64-kryo-cpu-erp";
+		interrupts = <GIC_PPI 6 IRQ_TYPE_LEVEL_LOW>,
+			<GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "l1-l2-faultirq","l3-scu-faultirq";
+	};
 };
 
 #define PMK8350_SID	6
