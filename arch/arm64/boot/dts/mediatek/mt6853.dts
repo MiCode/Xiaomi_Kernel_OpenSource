@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/mt6853-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6315-irq.h>
 #include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/pinctrl/mt6853-pinfunc.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -840,6 +841,15 @@ page_owner=on loop.max_part=7";
 			interrupt-parent = <&pio>;
 			interrupts = <118 IRQ_TYPE_LEVEL_HIGH 118 0>;
 			status = "okay";
+
+#ifdef CONFIG_REGULATOR_MT6315
+			mt635x_ot_debug: mt635x-ot-debug {
+				compatible = "mediatek,mt635x-ot-debug";
+				interrupts-extended =
+					<&mt6315_3_regulator
+					INT_TEMP_H IRQ_TYPE_EDGE_RISING>;
+			};
+#endif
 
 			pmic_oc_debug: pmic-oc-debug {
 				compatible = "mediatek,pmic-oc-debug";
