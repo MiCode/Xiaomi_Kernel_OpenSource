@@ -68,6 +68,7 @@ static long long ADJUST_INTERVAL_US = 1000000;
 static int margin_mode;
 static int margin_mode_dbnc_a = 9;
 static int margin_mode_dbnc_b = 1;
+static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -278,6 +279,19 @@ int switch_margin_mode_dbnc_b(int val)
 	mutex_lock(&fstb_lock);
 	if (val != margin_mode_dbnc_b)
 		margin_mode_dbnc_b = val;
+	mutex_unlock(&fstb_lock);
+
+	return 0;
+}
+
+int switch_jump_check_num(int val)
+{
+	if (val < 0)
+		return -EINVAL;
+
+	mutex_lock(&fstb_lock);
+	if (val != JUMP_CHECK_NUM)
+		JUMP_CHECK_NUM = val;
 	mutex_unlock(&fstb_lock);
 
 	return 0;
@@ -985,6 +999,26 @@ static void fstb_check_cam_status(void)
 	mutex_unlock(&fstb_cam_active_time);
 }
 
+static int fstb_get_queue_fps2(struct FSTB_FRAME_INFO *iter)
+{
+	unsigned long long retval = 0;
+	unsigned long long duration = 0;
+
+
+	duration =
+		iter->queue_time_ts[iter->queue_time_end - 1] -
+		iter->queue_time_ts[iter->queue_time_end - JUMP_CHECK_NUM];
+	do_div(duration, JUMP_CHECK_NUM - 1);
+
+	retval = 1000000000ULL;
+	do_div(retval, duration);
+
+	return (int)retval;
+}
+
+
+static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps);
+
 void fpsgo_comp2fstb_queue_time_update(int pid,
 	int frame_type, unsigned long long ts,
 	unsigned long long bufferid, int api)
@@ -1045,6 +1079,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid,
 		new_frame_info->m_m_cap = 0;
 		new_frame_info->gblock_b = 0ULL;
 		new_frame_info->gblock_time = 0ULL;
+		new_frame_info->fps_raise_flag = 0;
 
 		rcu_read_lock();
 		tsk = find_task_by_vpid(pid);
@@ -1113,6 +1148,26 @@ void fpsgo_comp2fstb_queue_time_update(int pid,
 	iter->queue_time_ts[iter->queue_time_end] = ts;
 	iter->queue_time_end++;
 
+	if (!JUMP_CHECK_NUM)
+		goto out;
+
+	if (iter->queue_time_end - iter->queue_time_begin >= JUMP_CHECK_NUM) {
+		int tmp_q_fps = fstb_get_queue_fps2(iter);
+		int tmp_target_fps;
+
+		fpsgo_systrace_c_fstb_man(iter->pid, tmp_q_fps, "tmp_q_fps");
+
+		if (tmp_q_fps >= iter->target_fps +
+			iter->target_fps_margin2) {
+			tmp_target_fps =
+				calculate_fps_limit(iter, tmp_q_fps);
+			if (tmp_target_fps > iter->target_fps)
+				iter->fps_raise_flag = 1;
+
+			iter->target_fps = tmp_target_fps;
+		}
+	}
+
 out:
 	mutex_unlock(&fstb_lock);
 
@@ -1122,7 +1177,7 @@ out:
 	mutex_unlock(&fstb_fps_active_time);
 }
 
-static int fstb_get_queue_fps(struct FSTB_FRAME_INFO *iter,
+static int fstb_get_queue_fps1(struct FSTB_FRAME_INFO *iter,
 		long long interval)
 {
 	int i = iter->queue_time_begin, j;
@@ -1171,7 +1226,7 @@ static int fstb_get_queue_fps(struct FSTB_FRAME_INFO *iter,
 static int fps_update(struct FSTB_FRAME_INFO *iter)
 {
 	iter->queue_fps =
-		fstb_get_queue_fps(iter, FRAME_TIME_WINDOW_SIZE_US);
+		fstb_get_queue_fps1(iter, FRAME_TIME_WINDOW_SIZE_US);
 
 	return iter->queue_fps;
 }
@@ -1253,9 +1308,13 @@ static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 			iter->target_fps_margin = 0;
 		break;
 	case 2:
-		if (ret_fps >= max_fps_limit)
+		if (ret_fps >= max_fps_limit) {
 			iter->target_fps_margin = 0;
-		else if (asfc_turn) {
+			iter->target_fps_margin_dbnc_a =
+				margin_mode_dbnc_a;
+			iter->target_fps_margin_dbnc_b =
+				margin_mode_dbnc_b;
+		} else if (asfc_turn) {
 			if (iter->target_fps_margin_dbnc_a > 0) {
 				iter->target_fps_margin = 0;
 				iter->target_fps_margin_dbnc_a--;
@@ -1310,7 +1369,7 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 	cur_cpu_time = get_cpu_frame_time(iter);
 	cur_gpu_time = get_gpu_frame_time(iter);
 
-	if (iter->new_info == 0) {
+	if (1) {
 		struct pob_fpsgo_fpsstats_info pffi = {0};
 
 		pffi.quantile_weighted_cpu_time = cur_cpu_time;
@@ -1319,67 +1378,95 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 		pob_fpsgo_fstb_stats_update(POB_FPSGO_FSTB_STATS_UPDATE, &pffi);
 	}
 
-	if (iter->new_info == 1) {
-		iter->new_info = 0;
-		target_limit = max_fps_limit;
-		/*decrease*/
-	} else if (iter->target_fps - iter->queue_fps >
-			iter->target_fps * fps_error_threshold / 100) {
-		fpsgo_fstb2eara_notify_fps_bound();
-
-		if (iter->queue_fps < iter->target_fps)
-			target_limit = iter->queue_fps;
-		else
+	if (JUMP_CHECK_NUM) {
+		if (iter->fps_raise_flag == 1) {
 			target_limit = iter->target_fps;
-		fpsgo_systrace_c_fstb(iter->pid,
-				(int)target_limit, "tmp_target_limit");
-		/*increase*/
-	} else if (iter->queue_fps >=
-		iter->target_fps + iter->target_fps_margin2) {
-
-		tmp_target_limit = 1000000000LL;
-		cur_pipe_time = (long long)max(cur_cpu_time, cur_gpu_time);
-
-		if (cur_pipe_time > 0)
-			do_div(tmp_target_limit, cur_pipe_time);
-		else
-			tmp_target_limit = max_fps_limit;
-
-		fpsgo_systrace_c_fstb(iter->pid,
-				(int)tmp_target_limit, "tmp_target_limit");
-
-		if ((int)tmp_target_limit - iter->target_fps >
+			/*decrease*/
+		} else if (iter->target_fps - iter->queue_fps >
 				iter->target_fps * fps_error_threshold / 100) {
-			if (iter->target_fps >= 48)
-				target_limit = clamp((int)tmp_target_limit,
-						48, CFG_MAX_FPS_LIMIT);
-			else if (iter->target_fps >= 45)
-				target_limit = clamp((int)tmp_target_limit,
-						45, 48);
-			else if (iter->target_fps >= 36)
-				target_limit = clamp((int)tmp_target_limit,
-						36, 45);
-			else if (iter->target_fps > 30)
-				target_limit = clamp((int)tmp_target_limit,
-						30, 36);
-			else if (iter->target_fps == 30)
-				target_limit = 60;
-			else if (iter->target_fps >= 27)
-				target_limit = clamp((int)tmp_target_limit,
-						27, 30);
-			else if (iter->target_fps >= 24)
-				target_limit = clamp((int)tmp_target_limit,
-						24, 27);
-			else
-				target_limit = clamp((int)tmp_target_limit,
-						CFG_MIN_FPS_LIMIT, 24);
+			fpsgo_fstb2eara_notify_fps_bound();
 
-		} else
+			target_limit = iter->queue_fps;
+
+			fpsgo_systrace_c_fstb(iter->pid,
+					(int)target_limit, "tmp_target_limit");
+		} else {
 			target_limit = iter->target_fps;
+		}
 
-		/*stable state*/
+		iter->fps_raise_flag = 0;
 	} else {
-		target_limit = iter->target_fps;
+		if (iter->new_info == 1) {
+			iter->new_info = 0;
+			target_limit = max_fps_limit;
+			/*decrease*/
+		} else if (iter->target_fps - iter->queue_fps >
+				iter->target_fps * fps_error_threshold / 100) {
+			fpsgo_fstb2eara_notify_fps_bound();
+
+			if (iter->queue_fps < iter->target_fps)
+				target_limit = iter->queue_fps;
+			else
+				target_limit = iter->target_fps;
+			fpsgo_systrace_c_fstb(iter->pid,
+					(int)target_limit, "tmp_target_limit");
+			/*increase*/
+		} else if (iter->queue_fps >=
+				iter->target_fps + iter->target_fps_margin2) {
+
+			tmp_target_limit = 1000000000LL;
+			cur_pipe_time =
+				(long long)max(cur_cpu_time, cur_gpu_time);
+
+			if (cur_pipe_time > 0)
+				do_div(tmp_target_limit, cur_pipe_time);
+			else
+				tmp_target_limit = max_fps_limit;
+
+			fpsgo_systrace_c_fstb(iter->pid,
+					(int)tmp_target_limit,
+					"tmp_target_limit");
+
+			if ((int)tmp_target_limit - iter->target_fps >
+				iter->target_fps * fps_error_threshold / 100) {
+				if (iter->target_fps >= 48)
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							48, CFG_MAX_FPS_LIMIT);
+				else if (iter->target_fps >= 45)
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							45, 48);
+				else if (iter->target_fps >= 36)
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							36, 45);
+				else if (iter->target_fps > 30)
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							30, 36);
+				else if (iter->target_fps == 30)
+					target_limit = 60;
+				else if (iter->target_fps >= 27)
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							27, 30);
+				else if (iter->target_fps >= 24)
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							24, 27);
+				else
+					target_limit = clamp(
+							(int)tmp_target_limit,
+							CFG_MIN_FPS_LIMIT, 24);
+
+			} else
+				target_limit = iter->target_fps;
+
+			/*stable state*/
+		} else {
+			target_limit = iter->target_fps;
+		}
 	}
 
 	return target_limit;
@@ -2001,6 +2088,42 @@ static const struct file_operations fstb_margin_mode_dbnc_b_fops = {
 	.release = single_release,
 };
 
+static int fstb_jump_check_num_read(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", JUMP_CHECK_NUM);
+	return 0;
+}
+
+static ssize_t fstb_jump_check_num_write(struct file *file,
+		const char __user *buffer,
+		size_t count, loff_t *data)
+{
+	int ret;
+	int arg;
+
+	if (!kstrtoint_from_user(buffer, count, 0, &arg))
+		ret = switch_jump_check_num(arg);
+	else
+		ret = -EINVAL;
+
+	return (ret < 0) ? ret : count;
+}
+
+static int fstb_jump_check_num_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, fstb_jump_check_num_read, NULL);
+}
+
+static const struct file_operations fstb_jump_check_num_fops = {
+	.owner = THIS_MODULE,
+	.open = fstb_jump_check_num_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = fstb_jump_check_num_write,
+	.release = single_release,
+};
+
 static int fstb_tune_quantile_read(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d ", QUANTILE);
@@ -2297,6 +2420,12 @@ int mtk_fstb_init(void)
 			fstb_debugfs_dir,
 			NULL,
 			&fstb_margin_mode_dbnc_b_fops);
+
+	debugfs_create_file("jump_check_num",
+			0664,
+			fstb_debugfs_dir,
+			NULL,
+			&fstb_jump_check_num_fops);
 
 	reset_fps_level();
 
