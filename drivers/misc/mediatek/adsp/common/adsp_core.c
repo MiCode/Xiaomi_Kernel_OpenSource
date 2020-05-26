@@ -69,7 +69,7 @@ bool is_adsp_system_running(void)
 	return false;
 }
 
-int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, void *src,
+int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 			   int count)
 {
 	void __iomem *dst = NULL;

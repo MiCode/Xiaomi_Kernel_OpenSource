@@ -22,7 +22,7 @@
 static char adsp_ke_buffer[ADSP_KE_DUMP_LEN];
 static struct adsp_exception_control excep_ctrl;
 
-static u32 copy_from_buffer(void *dest, size_t destsize, void *src,
+static u32 copy_from_buffer(void *dest, size_t destsize, const void *src,
 			    size_t srcsize, u32 offset, size_t request)
 {
 	/* if request == -1, offset == 0, copy full srcsize */
