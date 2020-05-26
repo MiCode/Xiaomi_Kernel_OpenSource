@@ -39,6 +39,10 @@ static int start(struct bus_tracer_plt *plt)
 		return -1;
 	}
 
+	if (of_property_read_u32(node, "mediatek,err_flag",
+				&plt->err_flag) != 0)
+		plt->err_flag = 0xFFF8FFFF;
+
 	if (of_property_read_u32(node, "mediatek,num_tracer",
 				&num_tracer) != 0) {
 		pr_notice("can't find property \"mediatek,num_tracer\"\n");
@@ -313,7 +317,7 @@ static int enable(struct bus_tracer_plt *plt, unsigned char force_enable,
 	/* timestamp per 8us; 1: 76.923ns */
 	writel(0x6501, plt->dem_base + INSERT_TS0);
 
-	writel(0xFFF8FFFF, plt->dbgao_base + DBG_ERR_FLAG_IRQ_POLARITY);
+	writel(plt->err_flag, plt->dbgao_base + DBG_ERR_FLAG_IRQ_POLARITY);
 	dsb(sy);
 
 	writel(0x0, plt->dbgao_base + DBG_ERR_FLAG_CON);

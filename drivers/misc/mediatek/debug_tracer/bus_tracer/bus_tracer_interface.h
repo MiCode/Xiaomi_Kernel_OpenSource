@@ -99,6 +99,7 @@ struct tracer {
 struct bus_tracer_plt {
 	unsigned int min_buf_len;
 	unsigned int num_tracer;
+	unsigned int err_flag;
 	struct bus_tracer_plt_operations *ops;
 	struct tracer *tracer;
 	void __iomem *dem_base;
