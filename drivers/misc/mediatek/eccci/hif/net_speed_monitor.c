@@ -88,7 +88,7 @@ void __weak mtk_ccci_affinity_rta(u32 irq_cpus, u32 task_cpus, int cpu_nr)
 
 
 /* CPU frequency adjust */
-static void cpu_freq_rta_action(int update, int tbl[], int cnum)
+static void cpu_freq_rta_action(int update, const int tbl[], int cnum)
 {
 	int i, num, same;
 
@@ -212,7 +212,10 @@ static u64 speed_caculate(u64 delta, struct speed_mon *mon)
 	u64 curr_byte, speed;
 
 	curr_byte = mon->curr_bytes;
-	speed = (curr_byte - mon->ref_bytes) * 8000000000LL / delta;
+	if (delta == 0)
+		speed = 0;
+	else
+		speed = (curr_byte - mon->ref_bytes) * 8000000000LL / delta;
 	mon->ref_bytes = curr_byte;
 
 	return speed;
