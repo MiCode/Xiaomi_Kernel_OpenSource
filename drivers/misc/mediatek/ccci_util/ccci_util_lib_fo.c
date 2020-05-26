@@ -302,7 +302,7 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 	unsigned int next_tag_offset;
 	unsigned int tmp_buf;
 	int cpy_size;
-	char *curr;
+	char *curr = NULL;
 	union u_tag {
 		struct _ccci_tag v1;
 		struct _ccci_tag_v2 v2;
@@ -430,7 +430,7 @@ int ccci_get_opt_val(char *opt_name)
 }
 
 /* ccci option relate private function for option */
-static int ccci_update_opt_tbl(char *opt_name, int val)
+static int ccci_update_opt_tbl(const char *opt_name, int val)
 {
 	int i;
 
@@ -457,7 +457,7 @@ static char *ccci_get_opt_name_by_idx(int idx)
 
 static void ccci_dump_opt_tbl(void)
 {
-	char *ccci_name;
+	char *ccci_name = NULL;
 	int ccci_value;
 	int i;
 
@@ -472,7 +472,7 @@ static void parse_option_setting_from_lk(void)
 {
 	int i = 0;
 	int val;
-	char *name;
+	char *name = NULL;
 	int using_default = 1;
 	int using_lk_setting;
 	int opt_list_size = ccci_get_opt_tbl_item_num();
@@ -542,7 +542,7 @@ struct lk_tag_header {
 
 static int parse_meta_boot_arguments(unsigned int *raw_ptr)
 {
-	unsigned char *p;
+	unsigned char *p = NULL;
 	int i;
 	int active_id = -1;
 	unsigned char md_info_tag_array[4];
@@ -953,7 +953,7 @@ static void share_memory_info_parsing(void)
 static void md_mem_info_parsing(void)
 {
 	struct _modem_info md_inf[4];
-	struct _modem_info *curr;
+	struct _modem_info *curr = NULL;
 	int md_num;
 	int md_id;
 
@@ -1154,7 +1154,6 @@ static int lk_info_parsing_v2(unsigned int *raw_ptr)
 	int i;
 
 	memcpy((void *)&lk_inf, raw_ptr, sizeof(struct _ccci_lk_info_v2));
-
 	CCCI_UTIL_INF_MSG("lk info.lk_info_base_addr: 0x%llX\n",
 		lk_inf.lk_info_base_addr);
 	CCCI_UTIL_INF_MSG("lk info.lk_info_size:      0x%x\n",
@@ -1325,7 +1324,7 @@ static int __init collect_lk_boot_arguments(void)
 {
 	/* Device tree method */
 	int ret;
-	unsigned int *raw_ptr;
+	unsigned int *raw_ptr = NULL;
 
 	/* This function will initialize s_g_dt_chosen_node */
 	ret = of_scan_flat_dt(early_init_dt_get_chosen, NULL);
@@ -1399,6 +1398,7 @@ int get_lk_load_md_info(char buf[], int size)
 {
 	int i;
 	int has_write;
+	int count;
 
 	if (s_g_lk_load_img_status & LK_LOAD_MD_EN)
 		has_write = snprintf(buf, size,
@@ -1448,9 +1448,16 @@ int get_lk_load_md_info(char buf[], int size)
 	for (i = 0; i < MAX_MD_NUM_AT_LK; i++) {
 		if (lk_load_img_err_no[i] == 0)
 			continue;
-		has_write += snprintf(&buf[has_write], size - has_write,
+		count = snprintf(&buf[has_write], size - has_write,
 			"hint for MD%d: %s\n",
 			i+1, ld_md_errno_to_str(lk_load_img_err_no[i]));
+		if (count <= 0 || count >= size - has_write) {
+			CCCI_UTIL_INF_MSG("%s: snprintf hint for MD fail\n",
+				__func__);
+			buf[has_write] = 0;
+		} else {
+			has_write += count;
+		}
 	}
 
 	return has_write;
@@ -1505,7 +1512,7 @@ int get_raw_check_hdr(int md_id, char buf[], int size)
 
 int modem_run_env_ready(int md_id)
 {
-	return s_g_md_env_rdy_flag & (1<<md_id);
+	return s_g_md_env_rdy_flag & (1 << md_id);
 }
 
 int get_md_resv_ccb_info(int md_id, phys_addr_t *ccb_data_base,
@@ -1734,7 +1741,7 @@ int __init ccci_parse_meta_md_setting(void)
 {
 	/* Device tree method */
 	int ret;
-	unsigned int *raw_ptr;
+	unsigned int *raw_ptr = NULL;
 
 	/* This function will initialize s_g_dt_chosen_node */
 	ret = of_scan_flat_dt(early_init_dt_get_chosen, NULL);
@@ -1879,7 +1886,7 @@ static void cal_md_settings(int md_id)
 static void cal_md_settings_v2(struct device_node *node)
 {
 	int val;
-	unsigned int tmp;
+	unsigned int tmp = 0;
 	char tmp_buf[30];
 	int i;
 
@@ -2138,7 +2145,7 @@ int ccci_reserve_mem_of_init(struct reserved_mem *rmem)
 			&rptr, rsize);
 	md_resv_mem_list[md_id] = rptr;
 	md_resv_size_list[md_id] = rsize;
-	s_g_md_usage_case |= (1 << md_id);
+	s_g_md_usage_case |= (1U << md_id);
 	return 0;
 }
 
