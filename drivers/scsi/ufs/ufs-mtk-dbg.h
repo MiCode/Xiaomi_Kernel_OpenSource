@@ -138,5 +138,7 @@ void ufs_mtk_dbg_hang_detect_dump(void);
 void ufs_mtk_dbg_proc_dump(struct seq_file *m);
 void ufs_mtk_dme_cmd_log(struct ufs_hba *hba, struct uic_command *ucmd,
 	enum ufs_trace_event event);
+void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
+	u32 latest_cnt, struct seq_file *m);
 
 #endif

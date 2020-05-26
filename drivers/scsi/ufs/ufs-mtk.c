@@ -1388,7 +1388,8 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 		else
 			ah_ms = 10;
 		hba->clk_gating.delay_ms = ah_ms + 5;
-	}
+	} else
+		hba->clk_gating.delay_ms = 0;
 
 	return ret;
 
@@ -1451,7 +1452,7 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 				0), 0);
 			ret = -EAGAIN;
 
-			return ret;
+			goto out;
 		}
 
 		host->unipro_lpm = true;
@@ -1472,6 +1473,13 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 * in ufshcd_suspend().
 		 */
 		ufs_mtk_vreg_lpm(hba, true);
+	}
+out:
+	if (ret) {
+		ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
+		ufshcd_print_host_state(hba, 0, NULL, NULL, NULL);
+		ufs_mtk_dbg_dump_trace(NULL, NULL,
+			50, NULL);
 	}
 
 	return ret;
@@ -1520,7 +1528,7 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (ret) {
 			dev_err(hba->dev, "%s: hba_enable failed. ret = %d\n",
 				__func__, ret);
-			return ret;
+			goto out;
 		}
 
 		/* Leave vendor-specific power down mode to resume
@@ -1531,7 +1539,7 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (ret) {
 			dev_err(hba->dev, "%s: UniProPowerDownControl failed. ret = %d\n",
 				__func__, ret);
-			return ret;
+			goto out;
 		}
 
 		host->unipro_lpm = false;
@@ -1557,12 +1565,19 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (ret) {
 			dev_err(hba->dev, "%s: make_hba_operational failed. ret = %d\n",
 				__func__, ret);
-			return ret;
+			goto out;
 		}
 
 		/* vendor-specific crypto resume */
 		mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2),
 			0, 0, 0);
+	}
+out:
+	if (ret) {
+		ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
+		ufshcd_print_host_state(hba, 0, NULL, NULL, NULL);
+		ufs_mtk_dbg_dump_trace(NULL, NULL,
+			50, NULL);
 	}
 
 	return ret;
@@ -2389,10 +2404,10 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
 			    unsigned long retry_ms)
 {
-	unsigned long timeout;
+	u64 timeout;
 	u32 val;
 
-	timeout = jiffies + msecs_to_jiffies(retry_ms);
+	timeout = sched_clock() + retry_ms * 1000000UL;
 	do {
 		ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
 		val = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
@@ -2403,7 +2418,7 @@ int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
 
 		/* sleep for max. 200us */
 		usleep_range(100, 200);
-	} while (time_before(jiffies, timeout));
+	} while (sched_clock() < timeout);
 
 	if (val == *state)
 		return 0;

@@ -318,6 +318,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			udelay(1);
 			break;
 		default:
+			udelay(30);
 			break;
 		}
 	}
@@ -372,6 +373,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			udelay(32);
 			break;
 		default:
+			udelay(30);
 			break;
 		}
 	}
@@ -448,7 +450,8 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 		}
 
 		val = VENDOR_POWERSTATE_HIBERNATE;
-		ufs_mtk_wait_link_state(hba, &val, 100);
+		ufs_mtk_wait_link_state(hba, &val,
+			hba->clk_gating.delay_ms);
 
 		if (val == VENDOR_POWERSTATE_HIBERNATE) {
 			/* Host need turn off clock by itself */

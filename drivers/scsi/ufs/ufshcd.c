@@ -6800,6 +6800,8 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		ufshcd_update_reg_hist(&hba->ufs_stats.task_abort, 0);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_host_state(hba, 1, NULL, NULL, NULL);
+		ufs_mtk_dbg_dump_trace(NULL, NULL,
+			100, NULL);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_trs(hba, 1 << tag, true);
 		/* MTK PATCH */
