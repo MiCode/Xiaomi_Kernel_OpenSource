@@ -26,6 +26,7 @@
 #include <linux/of_gpio.h>
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 #include "bgcom.h"
 #include "bgrsb.h"
 #include "bgcom_interface.h"
@@ -160,6 +161,10 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 {
 	struct bg_spi_priv *bg_spi = container_of(bg_com_drv,
 						struct bg_spi_priv, lhandle);
+	struct device spi_dev = bg_spi->spi->master->dev;
+	ktime_t time_start, delta;
+	s64 time_elapsed;
+
 	if (state < 0 || state > 1)
 		return -EINVAL;
 
@@ -167,6 +172,15 @@ int bgcom_set_spi_state(enum bgcom_spi_state state)
 		return 0;
 
 	mutex_lock(&bg_spi->xfer_mutex);
+	if (state == BGCOM_SPI_BUSY) {
+		time_start = ktime_get();
+		while (!pm_runtime_status_suspended(spi_dev.parent)) {
+			delta = ktime_sub(ktime_get(), time_start);
+			time_elapsed = ktime_to_ms(delta);
+			BUG_ON(time_elapsed > 5 * MSEC_PER_SEC);
+			msleep(100);
+		}
+	}
 	spi_state = state;
 	mutex_unlock(&bg_spi->xfer_mutex);
 	return 0;
