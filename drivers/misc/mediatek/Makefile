@@ -70,7 +70,11 @@ obj-$(CONFIG_MTK_GPU_SUPPORT) += gpu/
 obj-y += cameraisp/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
 obj-$(CONFIG_MTK_CAM_CAL) += cam_cal/src/
+ifdef CONFIG_MTK_V4L2_LENS
+obj-$(CONFIG_MTK_V4L2_LENS) += lens/
+else
 obj-$(CONFIG_MTK_LENS)   += lens/
+endif
 obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_MTK_VPU_SUPPORT) += vpu/
