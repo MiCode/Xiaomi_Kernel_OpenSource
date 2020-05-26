@@ -45,6 +45,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 				"CCCI_IOC_GET_MD_PROTOCOL_TYPE: copy buffer fail\n");
 			return -EFAULT;
 		}
+		ret = 0;
 		if (copy_to_user((void __user *)arg, MD_PLATFORM_INFO,
 				sizeof(MD_PLATFORM_INFO))) {
 			CCCI_ERROR_LOG(md_id, FSM,
