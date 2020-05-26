@@ -30,16 +30,18 @@
 #include <asm/traps.h>
 #include <linux/firmware.h>
 #include "raydium_driver.h"
-#include "rad_fw_image_20.h"
 #if defined(FW_MAPPING_EN)
 #include "rad_fw_image_21.h"
 #endif
+
+#ifdef FW_UPDATE_EN
 
 #ifdef ENABLE_FLASHLOG_BACKUP
 unsigned char raydium_turn_on_flash_2X(struct i2c_client *client)
 {
 	unsigned int u32_read = 0;
 	unsigned char u8_buf[4];
+
 	/*Turn on Flash*/
 	memset(u8_buf, 0,  sizeof(u8_buf));
 	if (raydium_i2c_pda_write(client, 0x50000624, u8_buf, 4) == ERROR)
@@ -58,7 +60,7 @@ unsigned char  raydium_read_fpc_flash(struct i2c_client *client,
 	unsigned int u32_read;
 	unsigned char u8_buf[4];
 
-	pr_info("[touch]raydium_read_fpc_flash\n");
+	pr_debug("[touch]%s\n", __func__);
 
 	if (raydium_i2c_pda_read(client, 0x40000000, u8_buf, 4) == ERROR)
 		return ERROR;
@@ -103,24 +105,25 @@ unsigned char raydium_read_flash_log(void)
 	unsigned char u8_i = 0, u8_j = 0;
 
 	raydium_i2c_pda2_set_page(g_raydium_ts->client,
-		g_raydium_ts->is_suspend , RAYDIUM_PDA2_2_PDA);
+		g_raydium_ts->is_suspend, RAYDIUM_PDA2_2_PDA);
 	g_u8_i2c_mode = PDA_MODE;
-	pr_info("[touch]Disable PDA2_MODE\n");
+	pr_debug("[touch]Disable PDA2_MODE\n");
 
-	 if ((g_raydium_ts->id  & 0x2000) != 0)
+	if ((g_raydium_ts->id  & 0x2000) != 0)
 		raydium_turn_on_flash_2X(g_raydium_ts->client);
 
 	for (u8_i = 0; u8_i < 4; u8_i++) {
 		u32_temp = (0x9000 +  (u8_i*4));
-		raydium_read_fpc_flash(g_raydium_ts->client, u32_temp,  &u32_readbuf);
+		raydium_read_fpc_flash(g_raydium_ts->client, u32_temp,
+						&u32_readbuf);
 		if (u8_i == 0 && u32_readbuf == 0xFFFFFFFF) {
-			pr_info("[touch]Raydium flash no log\n");
+			pr_err("[touch]Raydium flash no log\n");
 			return FAIL;
 		}
-		pr_info("[touch]Raydium flash 0x%x = 0x%x\n",
+		pr_debug("[touch]Raydium flash 0x%x = 0x%x\n",
 			u32_temp, u32_readbuf);
 		u32_readbuf = u32_readbuf & (~u32_readbuf + 1);
-		pr_info("[touch]Raydium flash reverse = 0x%x\n",
+		pr_debug("[touch]Raydium flash reverse = 0x%x\n",
 			u32_readbuf);
 		u32_temp = 1;
 		u8_j = 0;
@@ -133,15 +136,15 @@ unsigned char raydium_read_flash_log(void)
 		if (u8_i == 0) {
 			if ((u8_j > 0) && (u8_j < 32)) {
 				u8_logcount = u8_i*32 + u8_j;
-				pr_info("[touch]logcount = Log%d\n",
-					(u8_logcount-1));
+				pr_debug("[touch]logcount = Log%d\n",
+						(u8_logcount - 1));
 				break;
 			}
 		} else {
 			if (u8_j < 32) {
 				u8_logcount = u8_i*32 + u8_j;
-				pr_info("[touch]logcount = Log%d\n",
-					(u8_logcount-1));
+				pr_debug("[touch]logcount = Log%d\n",
+						(u8_logcount - 1));
 				break;
 			}
 		}
@@ -151,9 +154,10 @@ unsigned char raydium_read_flash_log(void)
 		u32_temp = (0x9014 + (u8_logcount-1) * 48);
 		raydium_read_fpc_flash(g_raydium_ts->client, u32_temp, u8_buf);
 		pr_info("[touch]Rad log fw version 0x%x.0x%x.0x%x.0x%x\n",
-			u8_buf[0], u8_buf[1], u8_buf[2], u8_buf[3]);
+				u8_buf[0], u8_buf[1], u8_buf[2], u8_buf[3]);
 		if ((g_raydium_ts->id  & 0x2000) != 0)
-			g_raydium_ts->id = 0x2000 | ((u8_buf[0] & 0xF) << 8) | u8_buf[1];
+			g_raydium_ts->id = 0x2000 | ((u8_buf[0] & 0xF) << 8)
+						| u8_buf[1];
 
 		return SUCCESS;
 	}
@@ -166,7 +170,7 @@ unsigned char raydium_mem_table_init(unsigned short u16_id)
 
 	pr_info("[touch]Raydium table init 0x%x\n", u16_id);
 
-	 if ((u16_id & 0x2000) != 0) {
+	if ((u16_id & 0x2000) != 0) {
 		g_rad_boot_image = kzalloc(RAD_BOOT_2X_SIZE, GFP_KERNEL);
 		g_rad_init_image = kzalloc(RAD_INIT_2X_SIZE, GFP_KERNEL);
 		g_rad_fw_image = kzalloc(RAD_FW_2X_SIZE, GFP_KERNEL);
@@ -190,7 +194,6 @@ unsigned char raydium_mem_table_setting(void)
 #endif
 
 	pr_info("[touch]Raydium ID is 0x%x\n", g_raydium_ts->id);
-
 	switch (g_raydium_ts->id) {
 	case RAD_20:
 		memcpy(g_rad_boot_image, u8_rad_boot_20, RAD_BOOT_2X_SIZE);
@@ -260,7 +263,7 @@ unsigned char raydium_mem_table_setting(void)
 			raydium_i2c_pda_set_address(0x50000628, DISABLE);
 
 			g_u8_i2c_mode = PDA2_MODE;
-			pr_info("[touch]Enable PDA2_MODE\n");
+			pr_debug("[touch]Enable PDA2_MODE\n");
 			raydium_mem_table_setting();
 		} else {
 			if ((g_raydium_ts->id & 0x2000) != 0) {
@@ -344,9 +347,7 @@ unsigned char raydium_mem_table_setting(void)
 
 unsigned char raydium_id_init(unsigned char u8_type)
 {
-	unsigned int u8_ret = SUCCESS;
-	u8_ret = 0;
-
+	unsigned int u8_ret = 0;
 
 	switch (u8_type) {
 	case 0:
@@ -420,32 +421,6 @@ int wait_fw_state(struct i2c_client *client, unsigned int u32_addr,
 	}
 
 	return SUCCESS;
-}
-
-int wait_irq_state(struct i2c_client *client, unsigned int retry_time,
-				unsigned int u32_delay_us)
-{
-	int i32_ret = SUCCESS;
-	unsigned int u32_retry;
-	unsigned int u32_irq_value;
-	unsigned int u32_min_delay_us = u32_delay_us - 500;
-	unsigned int u32_max_delay_us = u32_delay_us + 500;
-
-	u32_retry = retry_time;
-	u32_irq_value = 0;
-	while (u32_retry != 0 && u32_irq_value != 1) {
-		u32_irq_value = gpio_get_value(g_raydium_ts->irq_gpio);
-		usleep_range(u32_min_delay_us, u32_max_delay_us);
-		u32_retry--;
-	}
-	pr_info("[touch]irq_value is %d\n", u32_irq_value);
-
-	if (u32_retry == 0) {
-		pr_err("[touch]%s, FW not ready, retry error!\n", __func__);
-		i32_ret = ERROR;
-	}
-
-	return i32_ret;
 }
 
 int raydium_do_software_reset(struct i2c_client *client)
@@ -705,16 +680,14 @@ static int raydium_fw_upgrade_with_image(struct i2c_client *client,
 		break;
 	}
 
-#if 1
-	pr_info("[touch]CRC 0x%08X\n",
+	pr_debug("[touch]CRC 0x%08X\n",
 		*(unsigned int *)(p_u8_firmware_data + u32_fw_size));
 
 	u32_checksum = rc_crc32(p_u8_firmware_data,
 		u32_fw_size, u32_checksum);
 	u32_checksum = bits_reverse(u32_checksum, 32);
 	memcpy((p_u8_firmware_data + u32_fw_size), &u32_checksum, 4);
-	pr_info("[touch]CRC result 0x%08X\n", u32_checksum);
-#endif	
+	pr_debug("[touch]CRC result 0x%08X\n", u32_checksum);
 	u32_fw_size += 4;
 
 	u32_write_offset = 0;
@@ -795,14 +768,14 @@ static int raydium_fw_upgrade_2X(struct i2c_client *client,
 	int i32_ret = 0;
 	unsigned char u8_buf[4];
 	unsigned short u16_retry = 1000;
-	
+
 	/*##### wait for boot-loader start #####*/
-	pr_info("[touch]Type is %x\n", u8_type);
+	pr_debug("[touch]Type is %x\n", u8_type);
 
 	/*read Boot version*/
 	if (raydium_i2c_pda_read(client, 0x80, u8_buf, 4) == ERROR)
 		return ERROR;
-	pr_info("[touch]Boot version is %x\n", u8_buf[2]);
+	pr_debug("[touch]Boot version is %x\n", u8_buf[2]);
 
 	if (u8_buf[2] >= 4) {
 		if (u8_type != RAYDIUM_COMP) {
@@ -1033,7 +1006,7 @@ static int raydium_fw_upgrade_2X(struct i2c_client *client,
 		if (i32_ret < 0)
 			goto exit_upgrade;
 
-		/*pr_info("[touch]ready burn flash\n");*/
+		/*pr_debug("[touch]ready burn flash\n");*/
 
 		/*#clr sync_data(0x20000200) = 0 as finish*/
 		memset(u8_buf, 0, sizeof(u8_buf));
@@ -1147,9 +1120,10 @@ static int raydium_fw_upgrade_2X(struct i2c_client *client,
 		if (i32_ret < 0)
 			goto exit_upgrade;
 
-		/*#write PRAM relative data*/
-		/*#set PRAM type (at 0x50000904), wrt param code*/
-		/* #init_code:0x01,
+		/*
+		 * #set PRAM type (at 0x50000904), wrt param code
+		 * #write PRAM relative data
+		 * #init_code:0x01,
 		 * baseline:0x02
 		 * COMP:0x04
 		 * param:0x08
@@ -1162,15 +1136,17 @@ static int raydium_fw_upgrade_2X(struct i2c_client *client,
 		if (i32_ret < 0)
 			goto exit_upgrade;
 
-		/*#set PRAM addr (at 'h5000_0908)*/
-		/* #init_code:0x800
+		/*
+		 * #set PRAM addr (at 'h5000_0908)
+		 * #init_code:0x800
 		 * Baseline:0xA00
 		 * COMP:0xCD4
 		 * para:0xF1C
 		 * FW:0x1000
 		 * BOOT:0x5000
-		*/
-		/*#set PRAM length (at 'h5000_090C)*/
+		 *
+		 * #set PRAM length (at 'h5000_090C)
+		 */
 		if (u8_type == RAYDIUM_INIT) {
 			memset(u8_buf, 0, sizeof(u8_buf));
 			u8_buf[0] = 0x00;
@@ -1551,7 +1527,7 @@ int raydium_burn_fw(struct i2c_client *client)
 
 	g_u8_resetflag = true;
 	if ((g_raydium_ts->id & 0x2000) != 0) {
-		pr_info("[touch]start burn function!\n");
+		pr_debug("[touch]start burn function!\n");
 		i32_ret = raydium_boot_upgrade_2X(client);
 		if (i32_ret < 0)
 			goto exit_upgrade;
@@ -1574,13 +1550,10 @@ int raydium_fw_update_check(unsigned short u16_i2c_data)
 {
 
 	unsigned char u8_rbuffer[4];
-
 	unsigned int u32_fw_version, u32_image_version;
 	int i32_ret = ERROR;
-
-#ifdef FW_UPDATE_EN
 	unsigned char u8_mode_change;
-#endif
+
 	mutex_lock(&g_raydium_ts->lock);
 	i32_ret = raydium_i2c_pda2_set_page(g_raydium_ts->client,
 				g_raydium_ts->is_suspend,
@@ -1616,11 +1589,10 @@ int raydium_fw_update_check(unsigned short u16_i2c_data)
 
 		pr_info("[touch]RAD Image FW ver : 0x%x\n", u32_image_version);
 	} else {
-		pr_info("[touch]Mem setting failed, Stop fw upgrade!\n");
+		pr_err("[touch]Mem setting failed, Stop fw upgrade!\n");
 		return FAIL;
 	}
 
-#ifdef FW_UPDATE_EN
 	if (u32_fw_version != u32_image_version) {
 		pr_info("[touch]FW need update.\n");
 		raydium_irq_control(DISABLE);
@@ -1661,8 +1633,6 @@ int raydium_fw_update_check(unsigned short u16_i2c_data)
 		g_raydium_ts->fw_version = u32_fw_version;
 	} else
 		pr_info("[touch]FW is the latest version.\n");
-#endif
-
 
 	return i32_ret;
 
@@ -1678,13 +1648,13 @@ int raydium_burn_comp(struct i2c_client *client)
 	if (i32_ret < 0)
 		goto exit_upgrade;
 
-
 	if ((g_raydium_ts->id & 0x2000) != 0) {
 		i32_ret = raydium_fw_upgrade_2X(client, RAYDIUM_COMP, 1);
 		if (i32_ret < 0)
 			goto exit_upgrade;
 
 	}
+
 	i32_ret = SUCCESS;
 
 exit_upgrade:
@@ -1706,7 +1676,6 @@ int raydium_load_test_fw(struct i2c_client *client)
 	raydium_i2c_pda_write(client, 0x40000004, u8_buf, 4);
 	msleep(25);
 
-
 	i32_ret = raydium_i2c_pda_read(client, 0x40000000, u8_buf, 4);
 	if (i32_ret < 0)
 		goto exit_upgrade;
@@ -1727,7 +1696,7 @@ int raydium_load_test_fw(struct i2c_client *client)
 		goto exit_upgrade;
 
 	memset(u8_buf, 0, sizeof(u8_buf));
-	pr_info("[touch]Raydium WRT test_fw to PRAM\n");
+	pr_debug("[touch]Raydium WRT test_fw to PRAM\n");
 
 	i32_ret = raydium_i2c_pda_write(client, 0x50000900, u8_buf, 4);
 	if (i32_ret < 0)
@@ -1765,8 +1734,8 @@ int raydium_load_test_fw(struct i2c_client *client)
 			goto exit_upgrade;
 		memcpy(&u32_read_data, u8_buf, 4);
 		if (u32_read_data != u32_crc_result) {
-			pr_err("[touch]check pram fw crc fail!!\n");
-			pr_err("[touch]u32_crc_result 0x%x\n", u32_crc_result);
+			pr_err("[touch]check pram fw crc fail, result=0x%x\n",
+					u32_crc_result);
 			i32_ret = ERROR;
 			goto exit_upgrade;
 		}
@@ -1794,8 +1763,8 @@ int raydium_load_test_fw(struct i2c_client *client)
 			goto exit_upgrade;
 		memcpy(&u32_read_data, u8_buf, 4);
 		if (u32_read_data != u32_crc_result) {
-			pr_err("[touch]check pram CB crc fail!!\n");
-			pr_err("[touch]u32_crc_result 0x%x\n", u32_crc_result);
+			pr_err("[touch]check pram CB crc fail, result=0x%x\n",
+					u32_crc_result);
 			i32_ret = ERROR;
 			goto exit_upgrade;
 		}
@@ -1831,13 +1800,15 @@ int raydium_load_test_fw(struct i2c_client *client)
 	i32_ret = raydium_i2c_pda_read(client, 0x50000918, u8_buf, 4);
 	if (i32_ret < 0)
 		goto exit_upgrade;
-	pr_info("[touch]0x5000918 = 0x%x, 0x%x, 0x%x, 0x%x\n",
+	pr_debug("[touch]0x5000918 = 0x%x, 0x%x, 0x%x, 0x%x\n",
 		u8_buf[0], u8_buf[1], u8_buf[2], u8_buf[3]);
 	i32_ret = raydium_check_fw_ready(client);
 
 exit_upgrade:
 	return i32_ret;
 }
+
+#endif /* FW_UPDATE_EN */
 
 MODULE_AUTHOR("Raydium");
 MODULE_DESCRIPTION("Raydium TouchScreen driver");
