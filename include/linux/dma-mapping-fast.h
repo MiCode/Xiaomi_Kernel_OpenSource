@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/io-pgtable-fast.h>
 
 struct dma_iommu_mapping;
+struct io_pgtable_ops;
 
 struct dma_fast_smmu_mapping {
 	struct device		*dev;
@@ -35,12 +36,10 @@ struct dma_fast_smmu_mapping {
 	bool		have_stale_tlbs;
 
 	dma_addr_t	pgtbl_dma_handle;
-	av8l_fast_iopte	*pgtbl_pmds;
+	struct io_pgtable_ops *pgtbl_ops;
 
 	spinlock_t	lock;
 	struct notifier_block notifier;
-
-	int		is_smmu_pt_coherent;
 };
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
