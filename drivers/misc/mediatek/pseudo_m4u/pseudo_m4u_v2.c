@@ -1253,6 +1253,10 @@ static struct sg_table *pseudo_add_sgtable(struct mva_sglist *mva_sg)
 	table = pseudo_find_sgtable(mva_sg->mva);
 	if (table) {
 		spin_unlock_irqrestore(&pseudo_list_lock, flags);
+		#ifdef MTK_WARN_PSEDUO_FIND_SG
+			mmu_aee_print("%s, find sg_table mva 0x%lx\n",
+				      __func__, mva_sg->mva);
+		#endif
 		return table;
 	}
 	table = mva_sg->table;
