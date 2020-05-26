@@ -472,6 +472,7 @@ int msdc_clk_stable(struct msdc_host *host, u32 mode, u32 div,
 			host->prev_cmd_cause_dump = 0;
 		}
 		retry = 3;
+		cnt = 1000;
 		MSDC_SET_FIELD(MSDC_CFG, MSDC_CFG_CKDIV, div);
 		msdc_retry(!(MSDC_READ32(MSDC_CFG) & MSDC_CFG_CKSTB), retry,
 			cnt, host->id);
