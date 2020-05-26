@@ -12,7 +12,6 @@
 
 #include <sound/soc.h>
 #include <mt-plat/mtk_wcn_cmb_stub.h>
-#include <linux/kthread.h>
 
 #define BT_CVSD_TX_NREADY	BIT(21)
 #define BT_CVSD_RX_READY	BIT(22)
@@ -191,11 +190,6 @@ static const u8 table_msbc_silence[SCO_PACKET_180] = {
 	0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6c, 0x00
 };
 
-static struct task_struct *g_kthread;
-static bool g_is_btcvsd_bus_dump;
-static bool g_btcvsd_bus_dump_thread_enable;
-static DEFINE_MUTEX(mutex_dump_thread_enable);
-
 static void mtk_btcvsd_snd_irq_enable(struct mtk_btcvsd_snd *bt)
 {
 	regmap_update_bits(bt->infra, bt->infra_misc_offset,
@@ -357,7 +351,6 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	if (!is_readable) {
 		dev_info(bt->dev, "%s(), is_readable = %d\n",
 			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
 		return -EIO;
 	}
 
@@ -431,7 +424,6 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 	if (!is_readable) {
 		dev_info(bt->dev, "%s(), is_readable = %d\n",
 			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
 		return -EIO;
 	}
 
@@ -474,26 +466,6 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 	return 0;
 }
 
-static int btcvsd_bus_dump_thread(void *arg)
-{
-	int ret_conninfra_bus;
-	struct mtk_btcvsd_snd *bt = (struct mtk_btcvsd_snd *) arg;
-
-	while (g_btcvsd_bus_dump_thread_enable) {
-		if (g_is_btcvsd_bus_dump) {
-			g_is_btcvsd_bus_dump = false;
-			dev_info(bt->dev, "+%s(), dump conninfra start...\n",
-				 __func__);
-			ret_conninfra_bus = mtk_wcn_conninfra_is_bus_hang();
-			dev_info(bt->dev, "-%s(), ret_conninfra_bus = %d\n",
-				 __func__, ret_conninfra_bus);
-		}
-		mdelay(10);
-	}
-	do_exit(0);
-	return 0;
-}
-
 int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 			   enum bt_sco_packet_len packet_type,
 			   unsigned int packet_length,
@@ -514,7 +486,6 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	if (!is_readable) {
 		dev_info(bt->dev, "%s(), is_readable = %d\n",
 			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
 		return -EIO;
 	}
 
@@ -594,9 +565,8 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	is_readable = mtk_wcn_conninfra_reg_readable();
 
 	if (!is_readable) {
-		dev_info(bt->dev, "%s(), is_readable = %d, dump conn infra\n",
+		dev_info(bt->dev, "%s(), is_readable = %d\n",
 			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
 		goto irq_handler_exit;
 	}
 
@@ -1009,15 +979,6 @@ static int mtk_pcm_btcvsd_open(struct snd_pcm_substream *substream)
 		ret = mtk_btcvsd_snd_rx_init(bt);
 		bt->rx->substream = substream;
 	}
-	mutex_lock(&mutex_dump_thread_enable);
-	if (!g_btcvsd_bus_dump_thread_enable) {
-		g_btcvsd_bus_dump_thread_enable = true;
-		g_is_btcvsd_bus_dump = false;
-		g_kthread = kthread_run(btcvsd_bus_dump_thread,
-					 bt,
-					 "btcvsd_bus_dump_thread");
-	}
-	mutex_unlock(&mutex_dump_thread_enable);
 
 	return ret;
 }
@@ -1029,11 +990,6 @@ static int mtk_pcm_btcvsd_close(struct snd_pcm_substream *substream)
 	struct mtk_btcvsd_snd_stream *bt_stream = get_bt_stream(bt, substream);
 
 	dev_dbg(bt->dev, "%s(), stream %d\n", __func__, substream->stream);
-
-	mutex_lock(&mutex_dump_thread_enable);
-	if (g_btcvsd_bus_dump_thread_enable)
-		g_btcvsd_bus_dump_thread_enable = false;
-	mutex_unlock(&mutex_dump_thread_enable);
 
 	mtk_btcvsd_snd_set_state(bt, bt_stream, BT_SCO_STATE_IDLE);
 	bt_stream->substream = NULL;
@@ -1470,9 +1426,6 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 
 	mtk_btcvsd_snd_tx_init(btcvsd);
 	mtk_btcvsd_snd_rx_init(btcvsd);
-	g_is_btcvsd_bus_dump = false;
-	g_kthread = NULL;
-	g_btcvsd_bus_dump_thread_enable = false;
 
 	/* irq */
 	irq_id = platform_get_irq(pdev, 0);
