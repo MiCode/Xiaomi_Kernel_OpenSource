@@ -1121,6 +1121,26 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 	return -1;
 }
 
+void mtk_drm_idlemgr_kick_ext(const char *source)
+{
+	struct drm_crtc *crtc;
+
+	DDPINFO("%s +\n", __func__);
+
+	/* This cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+
+	mtk_drm_idlemgr_kick(source, crtc, 1);
+
+	DDPINFO("%s -\n", __func__);
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -1498,6 +1518,8 @@ static void process_dbg_opt(const char *opt)
 			gCapturePriLayerDownX = downSampleX;
 		if (!downSampleY)
 			gCapturePriLayerDownY = downSampleY;
+	} else if (strncmp(opt, "idlemgr_kick", 12) == 0) {
+		mtk_drm_idlemgr_kick_ext(__func__);
 	}
 }
 
