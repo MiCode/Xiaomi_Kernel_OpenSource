@@ -1105,15 +1105,24 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 			      struct cmdq_pkt *handle, unsigned int reg,
 			      unsigned int val, unsigned int mask)
 {
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+
 	if (handle == NULL)
 		DDPPR_ERR("%s no cmdq handle\n", __func__);
 
 #if 0
 	cmdq_pkt_poll_reg(handle, val, comp->cmdq_subsys, reg & 0xFFFF, mask);
 #else
-	cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
-				  reg, mask, 0xFFFF,
-				  CMDQ_GPR_R07);
+	if (handle->cl == (void *)client) {
+		cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
+					  reg, mask, 0xFFFF,
+					  CMDQ_GPR_R14);
+	} else {
+		cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
+					  reg, mask, 0xFFFF,
+					  CMDQ_GPR_R07);
+	}
 #endif
 }
 
