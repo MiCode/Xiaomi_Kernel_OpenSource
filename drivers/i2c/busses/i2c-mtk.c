@@ -165,7 +165,7 @@ s32 map_dma_regs(void)
 
 void dump_dma_regs(void)
 {
-	int status;
+	unsigned int status;
 	int i;
 
 	if (!dma_base) {
