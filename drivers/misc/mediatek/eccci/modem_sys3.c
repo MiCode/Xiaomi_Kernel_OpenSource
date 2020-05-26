@@ -422,7 +422,7 @@ static int md_ccif_op_force_assert(struct ccci_modem *md,
 
 static inline void clear_md1_md3_smem(struct ccci_modem *md)
 {
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 
 	CCCI_NORMAL_LOG(md->index, TAG, "%s start\n", __func__);
 	region = ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_MD2MD);
@@ -502,7 +502,7 @@ static void md_ccif_hw_init(struct ccci_modem *md)
 
 static int md_ccif_probe(struct platform_device *dev)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 	int md_id, ret;
 	struct ccci_dev_cfg dev_cfg;
 	struct md_hw_info *md_hw;
