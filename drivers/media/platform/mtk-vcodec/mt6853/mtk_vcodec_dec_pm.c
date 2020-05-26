@@ -347,7 +347,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	if (vdec_freq_step_size > 1)
 		b_freq_idx = vdec_freq_step_size - 1;
 
-	emi_bw = 8L * 1920 * 1080 * 2 * 10 * vdec_freq;
+	emi_bw = 2 * 8L * 1920 * 1080 * 2 * 10 * vdec_freq;
 	emi_bw_input = 8 * vdec_freq / STD_VDEC_FREQ;
 	emi_bw_output = 1920 * 1088 * 3 * 20 * 10 * vdec_freq /
 			2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
@@ -415,7 +415,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_vld, emi_bw_input, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_vld2, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_avc_mv, emi_bw_input * 2, 0, BW_COMP_NONE);
+	mm_qos_set_request(&vdec_avc_mv, emi_bw_input * 6, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
 	mm_qos_update_all_request(&vdec_rlist);
 #endif
