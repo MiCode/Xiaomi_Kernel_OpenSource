@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -453,7 +453,7 @@ void cam_smmu_set_client_page_fault_handler(int handle,
 	if (handler_cb) {
 		if (iommu_cb_set.cb_info[idx].cb_count == CAM_SMMU_CB_MAX) {
 			CAM_ERR(CAM_SMMU,
-				"%s Should not regiester more handlers",
+				"%s Should not register more handlers",
 				iommu_cb_set.cb_info[idx].name);
 			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 			return;
@@ -718,11 +718,12 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 					return 0;
 				}
 
-				CAM_ERR(CAM_SMMU,
-					"Error: %s already got handle 0x%x",
+				CAM_DBG(CAM_SMMU,
+					"%s already got handle 0x%x",
 					name, iommu_cb_set.cb_info[i].handle);
 
-				return -EINVAL;
+				*hdl = iommu_cb_set.cb_info[i].handle;
+				return 0;
 			}
 
 			/* make sure handle is unique */

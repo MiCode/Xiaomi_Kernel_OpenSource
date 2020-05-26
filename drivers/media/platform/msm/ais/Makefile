@@ -6,6 +6,7 @@ obj-$(CONFIG_MSM_AIS) += cam_sync/
 obj-$(CONFIG_MSM_AIS) += cam_smmu/
 obj-$(CONFIG_MSM_AIS) += cam_cpas/
 obj-$(CONFIG_MSM_AIS) += cam_cdm/
+obj-$(CONFIG_MSM_AIS) += ais_isp/
 obj-$(CONFIG_MSM_AIS) += cam_isp/
 obj-$(CONFIG_MSM_AIS) += cam_sensor_module/
 obj-$(CONFIG_MSM_AIS) += cam_icp/
