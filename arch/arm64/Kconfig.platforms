@@ -573,6 +573,7 @@ config MACH_MT6853
 	select HW_RANDOM_MT67XX
 	select MTK_DFD_INTERNAL_DUMP
 	select MTK_UNIFIED_DEBUG_INTERFACE
+	select MTK_DRAMC_WA
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
