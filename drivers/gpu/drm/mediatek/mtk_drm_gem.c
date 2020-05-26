@@ -43,7 +43,8 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 	mtk_gem_obj = kzalloc(sizeof(*mtk_gem_obj), GFP_KERNEL);
 	if (!mtk_gem_obj)
 		return ERR_PTR(-ENOMEM);
-
+	/*Avoid kmemleak tool scan*/
+	kmemleak_no_scan(mtk_gem_obj);
 	ret = drm_gem_object_init(dev, &mtk_gem_obj->base, size);
 	if (ret < 0) {
 		DDPPR_ERR("failed to initialize gem object\n");
