@@ -246,7 +246,8 @@ page_owner=on loop.max_part=7";
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 			     <&level_vpu_core0 &level_vpu_core1>,
 			     <&level_mali0 &level_mali1>,
-			     <&level_mali2 &level_mali3 &level_mali4>;
+			     <&level_mali2 &level_mali3 &level_mali4>,
+			     <&level_mtk_mdla &level_edma0>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -293,6 +294,14 @@ page_owner=on loop.max_part=7";
 			level_mali4: level_mali4 {
 				target = <&mali>;
 				value = <0 4 0 0>;
+			};
+			level_mtk_mdla: level_mtk_mdla {
+				target = <&mtk_mdla>;
+				value = <0 0 0 0>;
+			};
+			level_edma0: level_edma0 {
+				target = <&edma0>;
+				value = <0 0 0 0>;
 			};
 		};
 		resource-ctrl-list {
