@@ -2275,4 +2275,4 @@ EXPORT_SYMBOL(cmdq_mmp_wait_done);
 
 #endif
 
-arch_initcall(cmdq_drv_init);
+arch_initcall_sync(cmdq_drv_init);
