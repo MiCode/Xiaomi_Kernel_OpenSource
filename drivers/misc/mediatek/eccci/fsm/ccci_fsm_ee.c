@@ -18,14 +18,22 @@
 #endif
 
 void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
-	unsigned int type, char *str)
+	const unsigned int type, const char *str)
 {
 	u64 ts_nsec;
 	unsigned long rem_nsec;
+	int ret = 0;
 
-	if (type == MD_FORCE_ASSERT_BY_AP_MPU)
-		snprintf(ee_ctl->ex_mpu_string, MD_EX_MPU_STR_LEN,
+	if (type == MD_FORCE_ASSERT_BY_AP_MPU) {
+		ret = snprintf(ee_ctl->ex_mpu_string, MD_EX_MPU_STR_LEN,
 			"EMI MPU VIOLATION: %s", str);
+		if (ret <= 0 || ret >= MD_EX_MPU_STR_LEN) {
+			CCCI_ERROR_LOG(ee_ctl->md_id, FSM,
+				"%s:snprintf ee_ctl->ex_mpu_string fail\n",
+				__func__);
+			ee_ctl->ex_mpu_string[0] = 0;
+		}
+	}
 	ts_nsec = local_clock();
 	rem_nsec = do_div(ts_nsec, 1000000000);
 	snprintf(ee_ctl->ex_start_time, MD_EX_START_TIME_LEN,

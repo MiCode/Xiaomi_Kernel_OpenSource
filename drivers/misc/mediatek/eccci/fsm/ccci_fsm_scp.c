@@ -32,7 +32,7 @@ static unsigned int init_work_done;
 static struct ccci_ipi_msg scp_ipi_rx_msg;
 #endif
 
-static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
+static int ccci_scp_ipi_send(int md_id, const int op_id, void *data)
 {
 	int ret = 0;
 	int ipi_status = 0;
@@ -47,6 +47,7 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 
 	mutex_lock(&scp_ipi_tx_mutex);
 	memset(&scp_ipi_tx_msg, 0, sizeof(scp_ipi_tx_msg));
+
 	scp_ipi_tx_msg.md_id = md_id;
 	scp_ipi_tx_msg.op_id = op_id;
 	scp_ipi_tx_msg.data[0] = *((u32 *)data);
@@ -137,13 +138,16 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 
 static void ccci_scp_ipi_rx_work(struct work_struct *work)
 {
-	struct ccci_ipi_msg *ipi_msg_ptr;
+	struct ccci_ipi_msg *ipi_msg_ptr = NULL;
 	struct sk_buff *skb = NULL;
 	int data;
 
 	while (!skb_queue_empty(&scp_ipi_rx_skb_list.skb_list)) {
 		skb = ccci_skb_dequeue(&scp_ipi_rx_skb_list);
+		if (!skb)
+			return;
 		ipi_msg_ptr = (struct ccci_ipi_msg *)skb->data;
+
 		if (!get_modem_is_enabled(ipi_msg_ptr->md_id)) {
 			CCCI_ERROR_LOG(ipi_msg_ptr->md_id,
 				CORE, "MD not exist\n");

@@ -131,7 +131,7 @@ static const struct file_operations char_dev_fops = {
 int fsm_monitor_send_message(int md_id, enum CCCI_MD_MSG msg, u32 resv)
 {
 	struct sk_buff *skb = NULL;
-	struct ccci_header *ccci_h;
+	struct ccci_header *ccci_h = NULL;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
 	struct ccci_fsm_monitor *monitor_ctl = &ctl->monitor_ctl;
 
@@ -146,6 +146,12 @@ int fsm_monitor_send_message(int md_id, enum CCCI_MD_MSG msg, u32 resv)
 	}
 
 	skb = ccci_alloc_skb(sizeof(struct ccci_header), 1, 1);
+	if (!skb) {
+		CCCI_ERROR_LOG(monitor_ctl->md_id, FSM,
+			"%s ccci_h skb put fail\n",
+			__func__);
+		return -1;
+	}
 	ccci_h =
 	(struct ccci_header *)skb_put(skb, sizeof(struct ccci_header));
 	ccci_h->data[0] = CCCI_MAGIC_NUM;

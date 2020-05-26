@@ -18,7 +18,7 @@
 
 struct mdee_info_collect mdee_collect;
 
-void fsm_sys_mdee_info_notify(char *buf)
+void fsm_sys_mdee_info_notify(const char *buf)
 {
 	spin_lock(&mdee_collect.mdee_info_lock);
 	memset(mdee_collect.mdee_info, 0x0, AED_STR_LEN);
