@@ -21,35 +21,6 @@ static const struct of_device_id pmic_spmi_id_table[] = {
 	{ }
 };
 
-static int pmic_spmi_rw_test(struct regmap *map, struct device *dev)
-{
-	unsigned int rdata = 0;
-	u8 wdata = 0;
-	int ret;
-
-	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret)
-		return -EIO;
-
-	wdata = 0xab;
-	ret = regmap_write(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, wdata);
-	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret || (rdata != 0xab)) {
-		pr_notice("%s r/w fail, 0xab!=0x%x\n", __func__, rdata);
-		return -EIO;
-	}
-
-	wdata = 0xcd;
-	ret = regmap_write(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, wdata);
-	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret || (rdata != 0xcd)) {
-		pr_notice("%s r/w fail, 0xcd!=0x%x\n", __func__, rdata);
-		return -EIO;
-	}
-
-	return 0;
-}
-
 static const struct regmap_config spmi_regmap_config = {
 	.reg_bits	= 16,
 	.val_bits	= 8,
@@ -67,8 +38,6 @@ static const struct regmap_config spmi_regmap_config_V2 = {
 static int pmic_spmi_probe(struct spmi_device *sdev)
 {
 	struct regmap *regmap;
-	int ret;
-	unsigned int rdata = 0;
 
 	/* Only the first slave id for a PMIC contains this information */
 	switch (sdev->usid) {
@@ -80,9 +49,6 @@ static int pmic_spmi_probe(struct spmi_device *sdev)
 				&spmi_regmap_config);
 		if (IS_ERR(regmap))
 			return PTR_ERR(regmap);
-		ret = pmic_spmi_rw_test(regmap, &sdev->dev);
-		if (ret)
-			return ret;
 		break;
 	case 9:
 		pr_notice("%s MT6362 usid:%d\n", __func__, sdev->usid);
@@ -90,18 +56,6 @@ static int pmic_spmi_probe(struct spmi_device *sdev)
 				&spmi_regmap_config_V2);
 		if (IS_ERR(regmap))
 			return PTR_ERR(regmap);
-
-		ret = regmap_read(regmap, 0x0000, &rdata);
-		if (ret) {
-			pr_notice("%s MT6362 regmap read fail\n",
-				__func__);
-			return -EIO;
-		}
-		if ((rdata & 0x70) != 0x70) {
-			pr_notice("%s MT6362 read id=0x%x fail\n",
-				__func__, rdata);
-			return -EIO;
-		}
 		break;
 	case 8:
 	default:

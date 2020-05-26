@@ -316,10 +316,11 @@ enum {
 	IRQ_HW_MONITOR = 7,
 	IRQ_WDT = 8,
 	/* MT6853 series */
-	IRQ_PMIF_ACC_VIO_V2 = 19,
-	IRQ_PMIC_ACC_VIO_V2 = 20,
-	IRQ_HW_MONITOR_V2 = 10,
-	IRQ_WDT_V2 = 11,
+	IRQ_PMIF_ACC_VIO_V2 = 31,
+	IRQ_PMIC_ACC_VIO_V2 = 0,
+	IRQ_HW_MONITOR_V2 = 18,
+	IRQ_WDT_V2 = 19,
+	IRQ_ALL_PMIC_MPU_VIO_V2 = 20,
 };
 struct pmif_irq_desc {
 	const char *name;
@@ -1113,6 +1114,7 @@ static irqreturn_t pmif_event_2_irq_handler(int irq, void *data)
 				pmif_cmd_err_parity_err_irq_handler(irq, data);
 			break;
 			case IRQ_PMIF_ACC_VIO:
+			case IRQ_PMIF_ACC_VIO_V2:
 				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			case IRQ_PMIC_ACC_VIO:
@@ -1155,16 +1157,18 @@ static irqreturn_t pmif_event_3_irq_handler(int irq, void *data)
 				pmif_lat_limit_reached_irq_handler(irq, data);
 			break;
 			case IRQ_HW_MONITOR:
+			case IRQ_HW_MONITOR_V2:
 				pmif_hw_monitor_irq_handler(irq, data);
 			break;
 			case IRQ_WDT:
+			case IRQ_WDT_V2:
 				pmif_wdt_irq_handler(irq, data);
-			break;
-			case IRQ_PMIF_ACC_VIO_V2:
-				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			case IRQ_PMIC_ACC_VIO_V2:
 				pmif_pmic_acc_vio_irq_handler(irq, data);
+			break;
+			case IRQ_ALL_PMIC_MPU_VIO_V2:
+				pmif_pmif_acc_vio_irq_handler(irq, data);
 			break;
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
@@ -1199,12 +1203,6 @@ static irqreturn_t pmif_event_4_irq_handler(int irq, void *data)
 	for (idx = 0; idx < 31; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
-			case IRQ_HW_MONITOR_V2:
-				pmif_hw_monitor_irq_handler(irq, data);
-			break;
-			case IRQ_WDT_V2:
-				pmif_wdt_irq_handler(irq, data);
-			break;
 			default:
 				pr_notice("%s IRQ[%d] triggered\n",
 					__func__, idx);

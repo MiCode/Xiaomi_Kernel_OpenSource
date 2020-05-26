@@ -1138,7 +1138,7 @@ void spmi_dump_pmif_acc_vio_reg(void)
 				    offset, tmp_dat);
 	}
 	log_size += sprintf(wp + log_size, "\n");
-	pr_info("[PMIF] %s", wp);
+	pr_info("[PMIF] %s %s", __func__, wp);
 }
 
 void spmi_dump_pmic_acc_vio_reg(void)
@@ -1157,7 +1157,7 @@ void spmi_dump_pmic_acc_vio_reg(void)
 				    offset, tmp_dat);
 	}
 	log_size += sprintf(wp + log_size, "\n");
-	pr_info("[PMIF] %s", wp);
+	pr_info("[PMIF] %s %s", __func__, wp);
 }
 
 static char *get_pmif_busy_reg_dump(void)
