@@ -126,7 +126,7 @@ struct hal_dma_queue_t {
 	uint32_t idx_r;
 	uint32_t idx_w;
 
-	spinlock_t queue_lock;
+	struct mutex queue_lock;
 	wait_queue_head_t queue_wq;
 
 	struct audio_ringbuf_t dma_data;
@@ -149,7 +149,6 @@ static bool g_dsp_init_flag[NUM_OPENDSP_TYPE];
 static bool g_region_reg_flag[TASK_SCENE_SIZE];
 
 static struct hal_dma_queue_t g_hal_dma_queue;
-DEFINE_SPINLOCK(hal_dma_rb_lock);
 
 /* audio dsp cache limitation:*/
 /* byte align alignment: scp cm4_a(32), cm4_b(32), audio dsp(128) */
@@ -1365,7 +1364,6 @@ static int hal_dma_push(
 #if 0
 	uint32_t i = 0;
 #endif
-	unsigned long spin_flags = 0;
 
 
 	if (msg_queue == NULL || p_ipi_msg == NULL || p_idx_msg == NULL) {
@@ -1422,12 +1420,17 @@ static int hal_dma_push(
 	memcpy((void *)&msg_queue->msg[*p_idx_msg],
 	       p_ipi_msg,
 	       sizeof(struct ipi_msg_t));
-	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
+
+	if (p_ipi_msg->dma_info.data_size >
+	    audio_ringbuf_free_space(&msg_queue->dma_data)) {
+		dynamic_change_ring_buf_size(
+			&msg_queue->dma_data,
+			p_ipi_msg->dma_info.data_size);
+	}
 	audio_ringbuf_copy_from_linear_impl(
 		&msg_queue->dma_data,
 		msg_queue->tmp_buf_d2k,
 		p_ipi_msg->dma_info.data_size);
-	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 
 	ipi_dbg("task: %d, msg_id: 0x%x, idx_r: %u, idx_w: %u, queue(%u/%u), *p_idx_msg: %u",
@@ -1485,7 +1488,6 @@ static int hal_dma_front(
 	uint32_t *p_idx_msg)
 {
 	uint32_t data_size = 0;
-	unsigned long spin_flags = 0;
 
 	if (msg_queue == NULL || pp_ipi_msg == NULL || p_idx_msg == NULL) {
 		pr_info("NULL!! msg_queue: %p, pp_ipi_msg: %p, p_idx_msg: %p",
@@ -1524,12 +1526,10 @@ static int hal_dma_front(
 
 	memcpy(msg_queue->tmp_buf_k2h, *pp_ipi_msg, sizeof(struct ipi_msg_t));
 
-	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	audio_ringbuf_copy_to_linear(
 		msg_queue->tmp_buf_k2h + sizeof(struct ipi_msg_t),
 		&msg_queue->dma_data,
 		data_size);
-	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 	return 0;
 }
@@ -1538,15 +1538,14 @@ static int hal_dma_front(
 static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 				  const uint32_t size)
 {
-	unsigned long spin_flags = 0;
 	int i = 0;
+	uint32_t dma_rb_sz = size / 2; /* tmp push-pop ring buffer */
 
 	if (msg_queue == NULL) {
 		pr_info("NULL!! msg_queue: %p", msg_queue);
 		return -EFAULT;
 	}
 
-	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	if (msg_queue->dma_data.base ||
 	    msg_queue->tmp_buf_d2k ||
 	    msg_queue->tmp_buf_k2h) {
@@ -1556,15 +1555,14 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 			msg_queue->tmp_buf_k2h,
 			msg_queue->dma_data.size,
 			size);
-		if (size > msg_queue->dma_data.size) {
+		if (dma_rb_sz > msg_queue->dma_data.size) {
 			vfree(msg_queue->dma_data.base);
 
-			msg_queue->dma_data.size = size;
-			msg_queue->dma_data.base = vmalloc(size);
+			msg_queue->dma_data.size = dma_rb_sz;
+			msg_queue->dma_data.base = vmalloc(dma_rb_sz);
 			msg_queue->dma_data.read = msg_queue->dma_data.base;
 			msg_queue->dma_data.write = msg_queue->dma_data.base;
 		}
-		spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 		return 0;
 	}
 
@@ -1577,14 +1575,13 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 	msg_queue->idx_r = 0;
 	msg_queue->idx_w = 0;
 
-	spin_lock_init(&msg_queue->queue_lock);
+	mutex_init(&msg_queue->queue_lock);
 	init_waitqueue_head(&msg_queue->queue_wq);
 
-	msg_queue->dma_data.size = size;
+	msg_queue->dma_data.size = dma_rb_sz;
 	msg_queue->dma_data.base = vmalloc(msg_queue->dma_data.size);
 	msg_queue->dma_data.read = msg_queue->dma_data.base;
 	msg_queue->dma_data.write = msg_queue->dma_data.base;
-	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 	msg_queue->tmp_buf_d2k = vmalloc(MAX_DSP_DMA_WRITE_SIZE);
 	msg_queue->tmp_buf_k2h = vmalloc(MAX_DSP_DMA_WRITE_SIZE);
@@ -1596,19 +1593,15 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 
 static int hal_dma_deinit_msg_queue(struct hal_dma_queue_t *msg_queue)
 {
-	unsigned long spin_flags = 0;
-
 	if (msg_queue == NULL) {
 		pr_info("NULL!! msg_queue: %p", msg_queue);
 		return -EFAULT;
 	}
 
-	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	if (msg_queue->dma_data.base != NULL) {
 		vfree(msg_queue->dma_data.base);
 		msg_queue->dma_data.base = NULL;
 	}
-	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 	if (msg_queue->tmp_buf_d2k != NULL) {
 		vfree(msg_queue->tmp_buf_d2k);
@@ -1631,12 +1624,11 @@ static int hal_dma_get_queue_msg(
 {
 	bool is_empty = true;
 
-	unsigned long flags = 0;
 	int retval = 0;
 
-	spin_lock_irqsave(&msg_queue->queue_lock, flags);
+	mutex_lock(&msg_queue->queue_lock);
 	is_empty = hal_dma_check_queue_empty(msg_queue);
-	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
+	mutex_unlock(&msg_queue->queue_lock);
 
 	/* wait until message is pushed to queue */
 	if (is_empty == true) {
@@ -1650,9 +1642,9 @@ static int hal_dma_get_queue_msg(
 	}
 
 	if (hal_dma_check_queue_empty(msg_queue) == false) {
-		spin_lock_irqsave(&msg_queue->queue_lock, flags);
+		mutex_lock(&msg_queue->queue_lock);
 		retval = hal_dma_front(msg_queue, pp_ipi_msg, p_idx_msg);
-		spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
+		mutex_unlock(&msg_queue->queue_lock);
 	}
 
 	return retval;
@@ -1666,7 +1658,6 @@ int audio_ipi_dma_msg_to_hal(struct ipi_msg_t *p_ipi_msg)
 	uint32_t idx_msg = 0;
 
 	int retval = 0;
-	unsigned long flags = 0;
 
 	if (p_ipi_msg == NULL || msg_queue == NULL) {
 		pr_info("p_ipi_msg(%p) or msg_queue(%p) is NULL!! return",
@@ -1686,11 +1677,11 @@ int audio_ipi_dma_msg_to_hal(struct ipi_msg_t *p_ipi_msg)
 #endif
 
 	/* push message to queue */
-	spin_lock_irqsave(&msg_queue->queue_lock, flags);
+	mutex_lock(&msg_queue->queue_lock);
 	retval = hal_dma_push(msg_queue,
 			      p_ipi_msg,
 			      &idx_msg);
-	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
+	mutex_unlock(&msg_queue->queue_lock);
 	if (retval != 0) {
 		pr_info("push fail!!");
 		return retval;
@@ -1712,7 +1703,6 @@ size_t audio_ipi_dma_msg_read(void __user *buf, size_t count)
 
 	size_t copy_size = 0;
 
-	unsigned long flags = 0;
 	int retval = 0;
 
 	if (buf == NULL || count == 0 || msg_queue == NULL) {
@@ -1753,9 +1743,9 @@ size_t audio_ipi_dma_msg_read(void __user *buf, size_t count)
 
 
 	/* pop message from queue */
-	spin_lock_irqsave(&msg_queue->queue_lock, flags);
+	mutex_lock(&msg_queue->queue_lock);
 	hal_dma_pop(msg_queue);
-	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
+	mutex_unlock(&msg_queue->queue_lock);
 
 	return copy_size;
 }
