@@ -988,7 +988,12 @@ static void __exit MAINAF_i2C_exit(void)
 {
 	platform_driver_unregister(&g_stAF_Driver);
 }
+
+#ifdef NEED_LATE_INITCALL_AF
+late_initcall(MAINAF_i2C_init);
+#else
 module_init(MAINAF_i2C_init);
+#endif
 module_exit(MAINAF_i2C_exit);
 
 MODULE_DESCRIPTION("MAINAF lens module driver");

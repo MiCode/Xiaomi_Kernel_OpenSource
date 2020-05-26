@@ -113,4 +113,8 @@ else
 endif
 obj-y  += common/bu64253gwzaf/
 
+ifeq ($(ARCH_MTK_PROJECT), k6853v1_64_6360_alpha)
+subdir-ccflags-y += -DNEED_LATE_INITCALL_AF
+endif
+
 endif
