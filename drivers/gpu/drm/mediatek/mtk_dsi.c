@@ -2712,16 +2712,15 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 
 	dsi->data_rate = data_rate;
 	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
-
-	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		mtk_dsi_phy_timconfig(dsi);
-		mtk_dsi_calc_vdo_timing(dsi);
-	}
-
 	/* implicit way for display power state */
 	if (dsi->clk_refcnt == 0) {
 		CRTC_MMP_MARK(index, clk_change, 0, 1);
 		goto done;
+	}
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		mtk_dsi_phy_timconfig(dsi);
+		mtk_dsi_calc_vdo_timing(dsi);
 	}
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
