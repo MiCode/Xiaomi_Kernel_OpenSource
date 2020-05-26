@@ -98,7 +98,7 @@ static ssize_t store_pmic_access(struct device *dev,
 				 size_t size)
 {
 	int ret = 0;
-	char *pvalue = NULL, *addr, *val;
+	char *pvalue = NULL, *addr = NULL, *val = NULL;
 	unsigned int reg_value = 0;
 	unsigned int reg_address = 0;
 

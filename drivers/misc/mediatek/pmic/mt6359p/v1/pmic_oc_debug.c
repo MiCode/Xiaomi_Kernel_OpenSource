@@ -166,8 +166,8 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 
 static int register_all_oc_notifier(struct platform_device *pdev)
 {
-	int i, ret;
-	struct regulator *reg;
+	int i = 0, ret = 0;
+	struct regulator *reg = NULL;
 
 	for (i = 0; i < ARRAY_SIZE(reg_oc_debug); i++) {
 		reg = devm_regulator_get_optional(&pdev->dev,
@@ -192,8 +192,8 @@ static int register_all_oc_notifier(struct platform_device *pdev)
 
 static int pmic_oc_debug_probe(struct platform_device *pdev)
 {
-	int ret;
-	struct mt6358_chip *chip;
+	int ret = 0;
+	struct mt6358_chip *chip = NULL;
 
 	if (!of_device_is_available(pdev->dev.of_node)) {
 		dev_info(&pdev->dev,
