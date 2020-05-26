@@ -46,8 +46,8 @@ static GED_HASHTABLE *__ged_hashtable_verify(GED_HASHTABLE_HANDLE hHashTable)
 
 static void *__ged_hashtable_find(struct list_head *psList, unsigned long ulID)
 {
-	GED_HASHNODE *psHN;
-	struct list_head *psListEntry, *psListEntryTemp;
+	GED_HASHNODE *psHN = NULL;
+	struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 
 	list_for_each_safe(psListEntry, psListEntryTemp, psList) {
 		psHN = list_entry(psListEntry, GED_HASHNODE, sList);
@@ -64,7 +64,7 @@ static unsigned long ged_hash(GED_HASHTABLE *psHT, unsigned long ulID)
 
 GED_HASHTABLE_HANDLE ged_hashtable_create(unsigned int ui32Bits)
 {
-	GED_HASHTABLE *psHT;
+	GED_HASHTABLE *psHT = NULL;
 	unsigned long i;
 
 	if (ui32Bits > 20) {
@@ -98,7 +98,7 @@ void ged_hashtable_destroy(GED_HASHTABLE_HANDLE hHashTable)
 
 	if (psHT) {
 		unsigned long i = 0;
-		struct list_head *psListEntry, *psListEntryTemp;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 
 		for (; i < psHT->ulLength; i++) {
 			struct list_head *psList = &psHT->psHashTable[i];
@@ -233,9 +233,9 @@ void ged_hashtable_iterator(GED_HASHTABLE_HANDLE hHashTable, ged_hashtable_itera
 	GED_HASHTABLE *psHT = __ged_hashtable_verify(hHashTable);
 
 	if (psHT) {
-		GED_HASHNODE *psHN;
+		GED_HASHNODE *psHN = NULL;
 		unsigned long i;
-		struct list_head *psListEntry, *psListEntryTemp;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 
 		for (i = 0; i < psHT->ulLength; ++i) {
 			struct list_head *psList = &psHT->psHashTable[i];
@@ -257,9 +257,9 @@ void *ged_hashtable_search(GED_HASHTABLE_HANDLE hHashTable, ged_hashtable_search
 	void *pResult = NULL;
 
 	if (psHT) {
-		GED_HASHNODE *psHN;
+		GED_HASHNODE *psHN = NULL;
 		unsigned long i;
-		struct list_head *psListEntry, *psListEntryTemp;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 
 		for (i = 0; i < psHT->ulLength; ++i) {
 			struct list_head *psList = &psHT->psHashTable[i];
@@ -282,9 +282,9 @@ void ged_hashtable_iterator_delete(GED_HASHTABLE_HANDLE hHashTable, ged_hashtabl
 	GED_HASHTABLE *psHT = __ged_hashtable_verify(hHashTable);
 
 	if (psHT) {
-		GED_HASHNODE *psHN;
+		GED_HASHNODE *psHN = NULL;
 		unsigned long i;
-		struct list_head *psListEntry, *psListEntryTemp;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 
 		for (i = 0; i < psHT->ulLength; ++i) {
 			struct list_head *psList = &psHT->psHashTable[i];

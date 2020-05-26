@@ -118,7 +118,7 @@ static GED_LOG_BUF *ged_log_buf_from_handle(GED_LOG_BUF_HANDLE hLogBuf)
 
 static GED_ERROR __ged_log_buf_vprint(GED_LOG_BUF *psGEDLogBuf, const char *fmt, va_list args, int attrs)
 {
-	GED_LOG_BUF_LINE *curline;
+	GED_LOG_BUF_LINE *curline = NULL;
 	int buf_n;
 	int len;
 
@@ -267,7 +267,9 @@ static int __ged_log_buf_write(GED_LOG_BUF *psGEDLogBuf, const char __user *pszB
 
 static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf, const char *pszName)
 {
-	struct list_head *psListEntry, *psListEntryTemp, *psList;
+	struct list_head *psListEntry = NULL;
+	struct list_head *psListEntryTemp = NULL;
+	struct list_head *psList = NULL;
 	GED_LOG_LISTEN *psFound = NULL, *psLogListen = NULL;
 
 	read_lock_bh(&gsGEDLogBufList.sLock);
@@ -419,7 +421,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		const char *pszName,
 		const char *pszNodeName)
 {
-	GED_LOG_BUF *psGEDLogBuf;
+	GED_LOG_BUF *psGEDLogBuf = NULL;
 	GED_ERROR error;
 
 	if (((!pszName) && (!pszNodeName)) || (i32MaxLineCount <= 0) || (i32MaxBufferSizeByte <= 0)) {
@@ -525,9 +527,9 @@ GED_ERROR ged_log_buf_resize(
 	int i;
 	GED_LOG_BUF *psGEDLogBuf = ged_log_buf_from_handle(hLogBuf);
 	int i32NewMemorySize, i32OldMemorySize;
-	void *pNewMemory, *pOldMemory;
-	GED_LOG_BUF_LINE *pi32NewLine;
-	char *pcNewBuffer;
+	void *pNewMemory = NULL, *pOldMemory = NULL;
+	GED_LOG_BUF_LINE *pi32NewLine = NULL;
+	char *pcNewBuffer = NULL;
 
 	if ((NULL == psGEDLogBuf) || (i32NewMaxLineCount <= 0) || (i32NewMaxBufferSizeByte <= 0)) {
 		return GED_ERROR_INVALID_PARAMS;
@@ -611,8 +613,10 @@ GED_ERROR ged_log_buf_ignore_lines(GED_LOG_BUF_HANDLE hLogBuf, int n)
 
 GED_LOG_BUF_HANDLE ged_log_buf_get(const char *pszName)
 {
-	struct list_head *psListEntry, *psListEntryTemp, *psList;
-	GED_LOG_BUF *psFound = NULL, *psLogBuf;
+	struct list_head *psListEntry = NULL;
+	struct list_head *psListEntryTemp = NULL;
+	struct list_head *psList = NULL;
+	GED_LOG_BUF *psFound = NULL, *psLogBuf = NULL;
 
 	if (!pszName) {
 		return (GED_LOG_BUF_HANDLE)0;
@@ -649,7 +653,7 @@ int ged_log_buf_get_early(const char *pszName, GED_LOG_BUF_HANDLE *callback_set_
 	*callback_set_handle = ged_log_buf_get(pszName);
 
 	if (0 == *callback_set_handle) {
-		GED_LOG_LISTEN *psGEDLogListen;
+		GED_LOG_LISTEN *psGEDLogListen = NULL;
 
 		write_lock_bh(&gsGEDLogBufList.sLock);
 
@@ -780,7 +784,9 @@ static ssize_t ged_log_write_entry(const char __user *pszBuffer, size_t uiCount,
 		if (0 == ged_copy_from_user(acBuffer, pszBuffer, uiCount)) {
 			acBuffer[uiCount - 1] = '\0';
 			if (strcmp(acBuffer, "reset") == 0) {
-				struct list_head *psListEntry, *psListEntryTemp, *psList;
+				struct list_head *psListEntry = NULL;
+				struct list_head *psListEntryTemp = NULL;
+				struct list_head *psList = NULL;
 				write_lock_bh(&gsGEDLogBufList.sLock);
 				psList = &gsGEDLogBufList.sList_buf;
 				list_for_each_safe(psListEntry, psListEntryTemp, psList) {
@@ -807,7 +813,9 @@ static ssize_t ged_log_write_entry(const char __user *pszBuffer, size_t uiCount,
 //-----------------------------------------------------------------------------
 static void *ged_log_seq_start(struct seq_file *psSeqFile, loff_t *puiPosition)
 {
-	struct list_head *psListEntry, *psListEntryTemp, *psList;
+	struct list_head *psListEntry = NULL;
+	struct list_head *psListEntryTemp = NULL;
+	struct list_head *psList = NULL;
 	loff_t uiCurrentPosition = 0;
 
 	read_lock_bh(&gsGEDLogBufList.sLock);
@@ -833,7 +841,9 @@ static void ged_log_seq_stop(struct seq_file *psSeqFile, void *pvData)
 //-----------------------------------------------------------------------------
 static void *ged_log_seq_next(struct seq_file *psSeqFile, void *pvData, loff_t *puiPosition)
 {
-	struct list_head *psListEntry, *psListEntryTemp, *psList;
+	struct list_head *psListEntry = NULL;
+	struct list_head *psListEntryTemp = NULL;
+	struct list_head *psList = NULL;
 	loff_t uiCurrentPosition = 0;
 
 	(*puiPosition)++;

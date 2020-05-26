@@ -931,7 +931,7 @@ static GED_BOOL ged_kpi_tag_type_s(u64 ulID, GED_KPI_HEAD *psHead
 	GED_BOOL ret = GED_FALSE;
 
 	if (psHead) {
-		struct list_head *psListEntry, *psListEntryTemp;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 		struct list_head *psList = &psHead->sList;
 
 		list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
@@ -978,7 +978,7 @@ static GED_BOOL ged_kpi_h_iterator_func(unsigned long ulID, void *pvoid, void *p
 	GED_KPI *psKPI_prev = NULL;
 
 	if (psHead) {
-		struct list_head *psListEntry, *psListEntryTemp;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 		struct list_head *psList = &psHead->sList;
 
 		list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
@@ -1101,7 +1101,7 @@ static int gs_miss_tag_idx;
 static void ged_kpi_record_miss_tag(u64 ulID, int i32FrameID
 	, GED_TIMESTAMP_TYPE eTimeStampType)
 {
-	GED_KPI_MISS_TAG *psMiss_tag;
+	GED_KPI_MISS_TAG *psMiss_tag = NULL;
 
 	if (unlikely(miss_tag_head == NULL)) {
 		miss_tag_head = (GED_KPI_MISS_TAG *)ged_alloc_atomic(sizeof(GED_KPI_MISS_TAG));
@@ -1145,8 +1145,8 @@ static GED_BOOL ged_kpi_find_and_delete_miss_tag(u64 ulID, int i32FrameID
 	GED_BOOL ret = GED_FALSE;
 
 	if (miss_tag_head) {
-		GED_KPI_MISS_TAG *psMiss_tag;
-		struct list_head *psListEntry, *psListEntryTemp;
+		GED_KPI_MISS_TAG *psMiss_tag = NULL;
+		struct list_head *psListEntry = NULL, *psListEntryTemp = NULL;
 		struct list_head *psList = &miss_tag_head->sList;
 
 		list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
@@ -1169,7 +1169,7 @@ static GED_BOOL ged_kpi_find_and_delete_miss_tag(u64 ulID, int i32FrameID
 static void ged_kpi_work_cb(struct work_struct *psWork)
 {
 	GED_TIMESTAMP *psTimeStamp = GED_CONTAINER_OF(psWork, GED_TIMESTAMP, sWork);
-	GED_KPI_HEAD *psHead;
+	GED_KPI_HEAD *psHead = NULL;
 	GED_KPI *psKPI = NULL;
 	u64 ulID;
 	unsigned long long phead_last1;
@@ -1275,7 +1275,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 #ifdef GED_KPI_DFRC
 			int d_target_fps, mode, client;
 #endif
-			struct list_head *psListEntry, *psListEntryTemp;
+			struct list_head *psListEntry = NULL;
+			struct list_head *psListEntryTemp = NULL;
 			struct list_head *psList = &psHead->sList;
 
 			list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
@@ -2031,7 +2032,7 @@ GED_ERROR ged_kpi_queue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 {
 #ifdef MTK_GED_KPI
 	int ret;
-	GED_KPI_GPU_TS *psMonitor;
+	GED_KPI_GPU_TS *psMonitor = NULL;
 	struct dma_fence *psSyncFence;
 
 	psSyncFence = sync_file_get_fence(fence_fd);

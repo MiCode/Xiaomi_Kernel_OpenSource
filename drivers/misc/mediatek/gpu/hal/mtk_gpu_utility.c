@@ -714,7 +714,8 @@ EXPORT_SYMBOL(mtk_register_gpu_power_change);
 
 bool mtk_unregister_gpu_power_change(const char *name)
 {
-	struct list_head *pos, *head;
+	struct list_head *pos  = NULL;
+	struct list_head *head = NULL;
 	gpu_power_change_entry_t *entry = NULL;
 
 	mutex_lock(&g_power_change.lock);
@@ -740,7 +741,8 @@ EXPORT_SYMBOL(mtk_unregister_gpu_power_change);
 
 void mtk_notify_gpu_power_change(int power_on)
 {
-	struct list_head *pos, *head;
+	struct list_head *pos  = NULL;
+	struct list_head *head = NULL;
 	gpu_power_change_entry_t *entry = NULL;
 	if (!gpu_pmu_flag) {
 		mutex_lock(&g_power_change.lock);

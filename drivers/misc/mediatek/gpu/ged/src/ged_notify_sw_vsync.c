@@ -384,7 +384,7 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 {
 	unsigned long long temp;
 	long long llDiff;
-	GED_NOTIFY_SW_SYNC *psNotify;
+	GED_NOTIFY_SW_SYNC *psNotify = NULL;
 	/* bool bDebug; */
 
 	temp = cpu_clock(smp_processor_id()); // interrupt contex no need to set non-preempt

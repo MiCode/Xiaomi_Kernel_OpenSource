@@ -50,7 +50,7 @@ typedef struct GED_MONITOR_3D_FENCE_TAG {
 
 static void ged_sync_cb(struct dma_fence *sFence, struct dma_fence_cb *waiter)
 {
-	GED_MONITOR_3D_FENCE *psMonitor;
+	GED_MONITOR_3D_FENCE *psMonitor = NULL;
 	unsigned long long t;
 
 	t = ged_get_time();
@@ -68,7 +68,7 @@ static void ged_sync_cb(struct dma_fence *sFence, struct dma_fence_cb *waiter)
 
 static void ged_monitor_3D_fence_work_cb(struct work_struct *psWork)
 {
-	GED_MONITOR_3D_FENCE *psMonitor;
+	GED_MONITOR_3D_FENCE *psMonitor = NULL;
 
 #ifdef GED_DEBUG_MONITOR_3D_FENCE
 	ged_log_buf_print(ghLogBuf_GED, "ged_monitor_3D_fence_work_cb");
@@ -115,8 +115,8 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 {
 	int err;
 	unsigned long long t;
-	GED_MONITOR_3D_FENCE *psMonitor;
-	struct dma_fence *psDebugAddress;
+	GED_MONITOR_3D_FENCE *psMonitor  = NULL;
+	struct dma_fence *psDebugAddress = NULL;
 
 	if (ged_monitor_3D_fence_disable)
 		return GED_OK;

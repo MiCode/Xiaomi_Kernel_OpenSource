@@ -53,7 +53,7 @@ unsigned long ged_copy_from_user(void *pvTo, const void __user *pvFrom, unsigned
 
 void *ged_alloc(int i32Size)
 {
-	void *pvBuf;
+	void *pvBuf = NULL;
 
 	if (i32Size <= PAGE_SIZE) {
 		pvBuf = kmalloc(i32Size, GFP_KERNEL);
@@ -66,7 +66,7 @@ void *ged_alloc(int i32Size)
 
 void *ged_alloc_atomic(int i32Size)
 {
-	void *pvBuf;
+	void *pvBuf = NULL;
 
 	if (i32Size <= PAGE_SIZE) {
 		pvBuf = kmalloc(i32Size, GFP_ATOMIC);

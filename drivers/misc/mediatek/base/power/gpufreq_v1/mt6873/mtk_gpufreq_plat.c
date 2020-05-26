@@ -3486,7 +3486,7 @@ static void __mt_gpufreq_gpu_dfd_clear(void)
  */
 static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 {
-	struct device_node *node;
+	struct device_node *node = NULL;
 	int ret;
 
 	gpufreq_pr_info("@%s start\n", __func__);

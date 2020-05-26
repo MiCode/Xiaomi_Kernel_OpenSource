@@ -78,7 +78,7 @@ GED_ERROR ged_debugFS_create_entry(
 		struct dentry         **ppsEntry)
 {
 	GED_DEBUGFS_PRIV_DATA *psPrivData;
-	struct dentry *psEntry;
+	struct dentry *psEntry = NULL;
 	umode_t uiMode;
 
 	//assert(gpkDebugFSEntryDir != NULL);
@@ -131,7 +131,7 @@ GED_ERROR ged_debugFS_create_entry_dir(
 		struct dentry  *psParentDir,
 		struct dentry **ppsDir)
 {
-	struct dentry *psDir;
+	struct dentry *psDir = NULL;
 
 	if (pszName == NULL || ppsDir == NULL) {
 		return GED_ERROR_INVALID_PARAMS;

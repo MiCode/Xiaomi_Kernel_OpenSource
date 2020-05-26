@@ -340,8 +340,8 @@ static ssize_t ged_vsync_offset_enable_write_entry(const char __user *pszBuffer,
 
 	char acBuffer[GED_HAL_DEBUGFS_SIZE];
 	int aint32Indx[NUM_TOKEN];
-	char *pcCMD;
-	char *pcValue;
+	char *pcCMD = NULL;
+	char *pcValue = NULL;
 	int value;
 	int i;
 
@@ -480,8 +480,8 @@ static ssize_t ged_vsync_offset_level_write_entry(
 
 	char acBuffer[GED_HAL_DEBUGFS_SIZE];
 	int aint32Indx[NUM_TOKEN];
-	char *pcCMD;
-	char *pcValue;
+	char *pcCMD = NULL;
+	char *pcValue = NULL;
 	int i;
 	int i32VsyncOffsetLevel;
 	int ret;
@@ -628,8 +628,8 @@ static ssize_t ged_gpu_info_write_entry(
 
 	char acBuffer[GED_HAL_DEBUGFS_SIZE];
 	int aint32Indx[NUM_TOKEN];
-	char *pcCMD;
-	char *pcValue;
+	char *pcCMD = NULL;
+	char *pcValue = NULL;
 	int value = 0;
 	int i;
 
@@ -1446,7 +1446,7 @@ bool mtk_register_ged_event_change(const char *name, ged_event_change_fp callbac
 
 bool mtk_unregister_ged_event_change(const char *name)
 {
-	struct list_head *pos, *head;
+	struct list_head *pos = NULL, *head = NULL;
 	ged_event_change_entry_t *entry = NULL;
 
 	mutex_lock(&g_ged_event_change.lock);
@@ -1471,7 +1471,7 @@ bool mtk_unregister_ged_event_change(const char *name)
 
 void mtk_ged_event_notify(int events)
 {
-	struct list_head *pos, *head;
+	struct list_head *pos = NULL, *head = NULL;
 	ged_event_change_entry_t *entry = NULL;
 
 	mutex_lock(&g_ged_event_change.lock);

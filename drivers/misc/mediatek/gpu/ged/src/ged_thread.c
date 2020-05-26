@@ -40,7 +40,7 @@ static int ged_thread_run(void *pvData)
 
 GED_ERROR ged_thread_create(GED_THREAD_HANDLE *phThread, const char *szThreadName, GED_THREAD_FUNC pFunc, void *pvData)
 {
-	GED_THREAD_DATA *psThreadData;
+	GED_THREAD_DATA *psThreadData = NULL;
 	if (phThread == NULL) {
 		return GED_ERROR_INVALID_PARAMS;
 	}

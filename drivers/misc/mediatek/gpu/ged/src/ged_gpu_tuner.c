@@ -109,8 +109,8 @@ int _tokenizer(
 
 static void _update_all_with_global_status(void)
 {
-	struct list_head *listentry;
-	struct GED_GPU_TUNER_ITEM *item;
+	struct list_head *listentry = NULL;
+	struct GED_GPU_TUNER_ITEM *item = NULL;
 
 	list_for_each(listentry, &gItemList) {
 		item = list_entry(listentry, struct GED_GPU_TUNER_ITEM, List);
@@ -129,8 +129,8 @@ static void _update_all_with_global_status(void)
 static struct GED_GPU_TUNER_ITEM *_ged_gpu_tuner_find_item_by_package_name(
 		char *packagename)
 {
-		struct list_head *listentry;
-		struct GED_GPU_TUNER_ITEM *item;
+		struct list_head *listentry = NULL;
+		struct GED_GPU_TUNER_ITEM *item = NULL;
 		char *p = packagename;
 
 		if (!packagename)
@@ -180,8 +180,8 @@ static int _ged_gpu_tuner_dump_status_seq_show(
 		struct seq_file *psSeqFile,
 		void *pvData)
 {
-		struct list_head *listentry;
-		struct GED_GPU_TUNER_ITEM *item;
+		struct list_head *listentry = NULL;
+		struct GED_GPU_TUNER_ITEM *item = NULL;
 		char buf[BUF_LEN];
 		int cnt = 0;
 
@@ -233,7 +233,7 @@ static ssize_t _ged_custom_hint_set_write_entry(
 
 	char acBuffer[BUF_LEN];
 	int index[NUM_TOKEN], i;
-	char *packagename, *cmd, *val;
+	char *packagename = NULL, *cmd = NULL, *val = NULL;
 	int value, feature, len;
 	GED_ERROR ret;
 
@@ -357,7 +357,7 @@ static ssize_t _ged_debug_write_entry(
 #undef NUM_TOKEN
 #define NUM_TOKEN 1
 	char acBuffer[BUF_LEN];
-	char *val;
+	char *val = NULL;
 	int index[NUM_TOKEN], value;
 	GED_ERROR ret;
 
@@ -656,8 +656,8 @@ ERROR:
 
 GED_ERROR ged_gpu_tuner_exit(void)
 {
-	struct list_head *listentry, *listentryTmp;
-	struct GED_GPU_TUNER_ITEM *item;
+	struct list_head *listentry = NULL, *listentryTmp = NULL;
+	struct GED_GPU_TUNER_ITEM *item = NULL;
 
 	GPU_TUNER_DEBUG("[%s] In\n", __func__);
 
