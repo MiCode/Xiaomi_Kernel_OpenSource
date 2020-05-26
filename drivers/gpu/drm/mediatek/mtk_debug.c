@@ -57,6 +57,7 @@ bool g_irq_log;
 bool g_detail_log;
 bool g_trace_log;
 unsigned int mipi_volt;
+unsigned int disp_met_en;
 
 int gCaptureOVLEn;
 int gCapturePriLayerDownX = 20;
@@ -1611,6 +1612,24 @@ static int idletime_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(idletime_fops, idletime_get, idletime_set, "%llu\n");
 
+int disp_met_set(void *data, u64 val)
+{
+	/*1 enable  ; 0 disable*/
+	disp_met_en = val;
+
+	return 0;
+}
+
+static int disp_met_get(void *data, u64 *val)
+{
+	*val = disp_met_en;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(disp_met_fops, disp_met_get, disp_met_set, "%llu\n");
+
+
 void disp_dbg_probe(void)
 {
 	struct dentry *d_folder;
@@ -1623,6 +1642,12 @@ void disp_dbg_probe(void)
 	if (d_folder) {
 		d_file = debugfs_create_file("idletime", S_IFREG | 0644,
 					     d_folder, NULL, &idletime_fops);
+	}
+
+	d_folder = debugfs_create_dir("mtkfb_debug", NULL);
+	if (d_folder) {
+		d_file = debugfs_create_file("disp_met", S_IFREG | 0644,
+					     d_folder, NULL, &disp_met_fops);
 	}
 
 	init_log_buffer();

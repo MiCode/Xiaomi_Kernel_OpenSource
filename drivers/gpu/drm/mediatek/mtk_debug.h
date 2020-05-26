@@ -37,6 +37,7 @@ void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *drm_dev);
 void disp_dbg_deinit(void);
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
+int disp_met_set(void *data, u64 val);
 
 #endif
 
