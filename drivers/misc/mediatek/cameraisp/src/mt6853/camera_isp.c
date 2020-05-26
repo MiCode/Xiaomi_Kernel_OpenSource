@@ -1826,25 +1826,6 @@ static inline int m4u_control_iommu_port(void)
 		}
 	}
 
-	/* LARB18 config all ports */
-	count_of_ports = M4U_PORT_L18_CAM_LSCI_R1_C -
-		M4U_PORT_L18_CAM_IMGO_R1_C + 1;
-	for (i = 0; i < count_of_ports; i++) {
-		sPort.ePortID = M4U_PORT_L18_CAM_IMGO_R1_C+i;
-		sPort.Virtuality = camP1mem_use_m4u;
-		sPort.Security = 0;
-		sPort.domain = 2;
-		sPort.Distance = 1;
-		sPort.Direction = 0;
-		ret = m4u_config_port(&sPort);
-		if (ret == 0) {
-		} else {
-			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L18_CAM_IMGO_R1_C+i),
-			camP1mem_use_m4u ? "virtual" : "physical", ret);
-			ret = -1;
-		}
-	}
 #undef LARB13PORTSIZE
 #undef LARB14PORTSIZE
 	return ret;
@@ -1858,7 +1839,6 @@ static inline void smi_control_clock_mtcmos(bool en)
 #define LARB14PORTSIZE 6
 #define LARB16PORTSIZE 17
 #define LARB17PORTSIZE 17
-#define LARB18PORTSIZE 17
 
 #ifndef EP_MARK_SMI
 	s32 inx = 0;
@@ -1899,13 +1879,6 @@ static inline void smi_control_clock_mtcmos(bool en)
 		"aao_r1_b",   "afo_r1_b",   "flko_r1_b", "lceso_r1_b",
 		"crzo_r1_b",  "ltmso_r1_b", "rsso_r1_b", "aaho_r1_b",
 		"lsci_r1_b"};
-
-	static const char *larb18_port_Name[LARB18PORTSIZE] = {
-		"imgo_r1_c",  "rrzo_r1_c",	"cqi_r1_c",  "bpci_r1_c",
-		"yuvo_r1_c",  "ufdi_r2_c",	"rawi_r2_c", "rawi_r3_c",
-		"aao_r1_c",   "afo_r1_c",	"flko_r1_c", "lceso_r1_c",
-		"crzo_r1_c",  "ltmso_r1_c", "rsso_r1_c", "aaho_r1_c",
-		"lsci_r1_c"};
 
 #endif
 
@@ -1999,21 +1972,6 @@ static inline void smi_control_clock_mtcmos(bool en)
 #endif
 		}
 
-		for (inx = 0; inx < LARB18PORTSIZE; inx++) {
-#ifndef CONFIG_MTK_SMI_EXT
-			smi_bus_prepare_enable(SMI_LARB18,
-							 larb18_port_Name[inx]);
-#else
-			ret = smi_bus_prepare_enable(SMI_LARB18,
-							 larb18_port_Name[inx]);
-			if (ret != 0) {
-				LOG_NOTICE(
-					"LARB18_%s:smi_bus_prepare_enable fail",
-					larb18_port_Name[inx]);
-			}
-#endif
-		}
-
 	} else {
 		LOG_INF("disable CG/MTCMOS through SMI CLK API\n");
 		for (inx = 0; inx < LARB13PORTSIZE; inx++) {
@@ -2079,29 +2037,12 @@ static inline void smi_control_clock_mtcmos(bool en)
 			}
 #endif
 		}
-
-		for (inx = 0; inx < LARB18PORTSIZE; inx++) {
-#ifndef CONFIG_MTK_SMI_EXT
-			smi_bus_disable_unprepare(SMI_LARB18,
-					larb18_port_Name[inx]);
-#else
-			ret = smi_bus_disable_unprepare(SMI_LARB18,
-					larb18_port_Name[inx]);
-			if (ret != 0) {
-				LOG_NOTICE(
-					"LARB18_%s:smi_bus_prepare_disable fail",
-					larb18_port_Name[inx]);
-			}
-#endif
-		}
-
 	}
 #endif
 #undef LARB13PORTSIZE
 #undef LARB14PORTSIZE
 #undef LARB16PORTSIZE
 #undef LARB17PORTSIZE
-#undef LARB18PORTSIZE
 }
 
 static inline void Prepare_Enable_ccf_clock(void)
