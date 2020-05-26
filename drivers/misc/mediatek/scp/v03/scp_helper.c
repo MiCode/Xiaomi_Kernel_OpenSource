@@ -63,7 +63,7 @@
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
 /* scp ready timeout definition */
-#define SCP_READY_TIMEOUT (8 * HZ) /* 30 seconds*/
+#define SCP_READY_TIMEOUT (3 * HZ) /* 30 seconds*/
 #define SCP_A_TIMER 0
 
 /* scp ipi message buffer */

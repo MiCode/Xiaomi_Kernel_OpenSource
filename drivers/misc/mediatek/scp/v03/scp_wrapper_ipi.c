@@ -203,6 +203,8 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 
 		if (ret == IPI_ACTION_DONE)
 			return SCP_IPI_DONE;
+		if (ret == IPI_PIN_BUSY)
+			return SCP_IPI_BUSY;
 	}
 
 	if (scp_ipi_legacy_id[tmp_id].out_id_1 != IPI_NO_USE
@@ -214,6 +216,8 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 
 		if (ret == IPI_ACTION_DONE)
 			return SCP_IPI_DONE;
+		if (ret == IPI_PIN_BUSY)
+			return SCP_IPI_BUSY;
 	}
 
 	return SCP_IPI_ERROR;
