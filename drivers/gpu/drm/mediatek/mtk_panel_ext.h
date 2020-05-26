@@ -232,6 +232,7 @@ struct mtk_panel_params {
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
 	unsigned int lcm_index;
+	unsigned int wait_sof_before_dec_vfp;
 };
 
 struct mtk_panel_ext {

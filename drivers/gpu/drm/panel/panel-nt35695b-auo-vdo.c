@@ -1002,6 +1002,7 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x24,
 	},
+	.wait_sof_before_dec_vfp = 1,
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	.round_corner_en = 1,
 	.corner_pattern_height = ROUND_CORNER_H_TOP,

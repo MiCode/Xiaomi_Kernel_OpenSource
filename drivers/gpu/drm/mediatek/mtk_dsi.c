@@ -4299,7 +4299,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case DSI_VFP_DEFAULT_MODE:
 	{
 		unsigned int vfront_porch = 0;
-
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
 		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
@@ -4309,6 +4309,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			vfront_porch = dsi->vm.vfront_porch;
 
 		DDPINFO("vfront_porch=%d\n", vfront_porch);
+
+		if (panel_ext->params->wait_sof_before_dec_vfp) {
+			cmdq_pkt_clear_event(handle,
+				crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			cmdq_pkt_wait_no_clear(handle,
+				crtc->gce_obj.event[EVENT_DSI0_SOF]);
+		}
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
 					vfront_porch);
 	}
