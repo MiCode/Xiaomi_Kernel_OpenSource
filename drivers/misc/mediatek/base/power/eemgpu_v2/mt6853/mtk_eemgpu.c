@@ -1057,9 +1057,6 @@ static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
 		ndet->volt_tbl_pmic[0],
 		ndet->volt_tbl_pmic[gpu_vb_turn_pt],
 		ndet->freq_tbl[i]));
-
-		eemg_error("ndet->volt_tbl_pmic[%d]:0x%x\n",
-			i, ndet->volt_tbl_pmic[i]);
 	}
 }
 
