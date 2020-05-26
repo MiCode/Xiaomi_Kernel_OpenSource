@@ -190,6 +190,7 @@ struct ufs_mtk_host {
 	bool perf_en;
 	bool spm_sw_mode;
 	bool unipro_lpm;
+	bool vreg_lpm_supported;
 	int crypto_vcore_opp;
 	struct clk *crypto_clk_mux;
 	struct clk *crypto_parent_clk_normal;
