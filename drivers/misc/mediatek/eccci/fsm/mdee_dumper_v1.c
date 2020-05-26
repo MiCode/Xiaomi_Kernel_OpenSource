@@ -28,7 +28,7 @@
 #endif
 
 static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
-	char *aed_str, int db_opt)
+	const char *aed_str, int db_opt)
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
@@ -39,7 +39,7 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 #if defined(CONFIG_MTK_AEE_FEATURE)
 	char buf_fail[] = "Fail alloc mem for exception\n";
 #endif
-	char *img_inf;
+	char *img_inf = NULL;
 	int md_id = mdee->md_id;
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
 	struct ccci_smem_region *mdss_dbg =
@@ -91,7 +91,7 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	}
 	if (buff == NULL) {
 #if defined(CONFIG_MTK_AEE_FEATURE)
-		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
+		if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
 				md_img_addr, md_img_len, buf_fail, db_opt);
 		else
@@ -114,7 +114,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 {
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
-	char *ex_info;/* [EE_BUF_LEN] = ""; */
+	char *ex_info = NULL;/* [EE_BUF_LEN] = ""; */
 	char *ex_info_temp = NULL;
 	/* [EE_BUF_LEN] = "\n[Others] May I-Bit dis too long\n"; */
 	char *i_bit_ex_info = NULL;
@@ -307,9 +307,10 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		/* use strcpy, otherwise if this happens after a MD EE,
 		 * the former EE info will be printed out
 		 */
-		strncpy(ex_info, "\n[Others] MD long time no response\n",
-			EE_BUF_LEN);
-		db_opt |= DB_OPT_FTRACE;
+		if (snprintf(ex_info, EE_BUF_LEN,
+			"\n[Others] MD long time no response\n") < 0)
+			ex_info[0] = 0;
+		db_opt |= (unsigned int)DB_OPT_FTRACE;
 		break;
 	case MD_EE_CASE_WDT:
 		strncpy(ex_info, "\n[Others] MD watchdog timeout interrupt\n",
@@ -396,7 +397,7 @@ err_exit:
  */
 static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 {
-	struct ex_log_t *ex_info;
+	struct ex_log_t *ex_info = NULL;
 	int ee_type, ee_case;
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
@@ -423,7 +424,7 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 	}
 	ee_case = dumper->more_info;
 
-	memset(debug_info, 0, sizeof(struct debug_info_t));
+	memset(debug_info, 0, sizeof(struct debug_info_t));/* need review */
 	ee_type = ex_info->header.ex_type;
 	debug_info->type = ee_type;
 	mdee->ex_type = ee_type;
@@ -431,7 +432,7 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 	if (*((char *)ex_info + CCCI_EXREC_OFFSET_OFFENDER) != 0xCC) {
 		memcpy(debug_info->fatal_error.offender,
 		(char *)ex_info + CCCI_EXREC_OFFSET_OFFENDER,
-		sizeof(debug_info->fatal_error.offender) - 1);
+		sizeof(debug_info->fatal_error.offender) - 1); /*need review */
 		debug_info->fatal_error.offender[
 			sizeof(debug_info->fatal_error.offender) - 1] = '\0';
 	} else {
@@ -660,7 +661,7 @@ static void mdee_dumper_v1_dump_ee_info(struct ccci_fsm_ee *mdee,
 				"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 2);
 			/* Handshake 2 fail */
 			CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD EX log\n");
-			if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
+			if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM)) {
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 					mdccci_dbg->base_ap_view_vir,
 					mdccci_dbg->size);

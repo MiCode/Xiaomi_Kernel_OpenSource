@@ -32,7 +32,7 @@
 #endif
 
 static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
-	char *aed_str, int db_opt)
+	const char *aed_str, int db_opt)
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
@@ -43,7 +43,7 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 #if defined(CONFIG_MTK_AEE_FEATURE)
 	char buf_fail[] = "Fail alloc mem for exception\n";
 #endif
-	char *img_inf;
+	char *img_inf = NULL;
 	struct mdee_dumper_v2 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
 	struct ccci_smem_region *mdss_dbg =
@@ -69,8 +69,9 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		/* Cut string length to AED_STR_LEN */
 		buff[AED_STR_LEN - 1] = '\0';
 
-	snprintf(buff, AED_STR_LEN, "md%d:%s%s",
-		md_id + 1, aed_str, img_inf);
+	if (snprintf(buff, AED_STR_LEN, "md%d:%s%s",
+		md_id + 1, aed_str, img_inf) < 0)
+		buff[0] = 0;
 	/* MD ID must sync with aee_dump_ccci_debug_info() */
  err_exit1:
 	if (dump_flag & CCCI_AED_DUMP_CCIF_REG) {
@@ -95,7 +96,7 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	}
 	if (buff == NULL) {
 #if defined(CONFIG_MTK_AEE_FEATURE)
-		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
+		if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
 				md_img_addr, md_img_len, buf_fail, db_opt);
 		else
@@ -118,9 +119,15 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 	struct debug_info_t *debug_info, char *ex_info)
 {
-	int md_id = mdee->md_id;
-	struct ccci_mem_layout *mem_layout;
+	int md_id;
+	struct ccci_mem_layout *mem_layout = NULL;
 	char *ex_info_temp = NULL;
+
+	if (mdee == NULL) {
+		CCCI_ERROR_LOG(0, FSM, "mdee is NULL");
+		return;
+	}
+	md_id = mdee->md_id;
 
 	switch (debug_info->type) {
 	case MD_EX_DUMP_ASSERT:
@@ -325,7 +332,7 @@ static void mdee_info_dump_v2(struct ccci_fsm_ee *mdee)
 		 */
 		strncpy(ex_info, "\n[Others] MD long time no response\n",
 			EE_BUF_LEN_UMOLY);
-		db_opt |= DB_OPT_FTRACE;
+		db_opt |= (unsigned int)DB_OPT_FTRACE;
 		break;
 	case MD_EE_CASE_WDT:
 		strncpy(ex_info, "\n[Others] MD watchdog timeout interrupt\n",
@@ -435,7 +442,8 @@ static char mdee_plstr[MD_EX_PL_FATALE_TOTAL + MD_EX_OTHER_CORE_EXCEPTIN -
 	"Fatal error (CC spc)"
 };
 
-static void strmncopy(char *src, char *dst, int src_len, int dst_len)
+static void strmncopy(char *src, char *dst, const int src_len,
+	const int dst_len)
 {
 	int temp_m, temp_n, temp_i;
 
@@ -699,7 +707,7 @@ static int mdee_md32_core_parse(int md_id, struct debug_info_t *debug_info,
 	return ee_case;
 }
 
-static void mdee_set_core_name(int md_id, struct debug_info_t *debug_info,
+static void mdee_set_core_name(const int md_id, struct debug_info_t *debug_info,
 	char *core_name)
 {
 	unsigned int temp_i;
@@ -718,7 +726,7 @@ static void mdee_set_core_name(int md_id, struct debug_info_t *debug_info,
 
 static void mdee_info_prepare_v2(struct ccci_fsm_ee *mdee)
 {
-	struct ex_overview_t *ex_overview;
+	struct ex_overview_t *ex_overview = NULL;
 	int ee_case = 0;
 	struct mdee_dumper_v2 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;
@@ -728,9 +736,9 @@ static void mdee_info_prepare_v2(struct ccci_fsm_ee *mdee)
 	unsigned char off_core_num = 0;
 
 	struct ex_PL_log *ex_pl_info = (struct ex_PL_log *)dumper->ex_pl_info;
-	struct ex_PL_log *ex_PLloginfo;
-	struct ex_cs_log *ex_csLogInfo;
-	struct ex_md32_log *ex_md32LogInfo;
+	struct ex_PL_log *ex_PLloginfo = NULL;
+	struct ex_cs_log *ex_csLogInfo = NULL;
+	struct ex_md32_log *ex_md32LogInfo = NULL;
 	struct ccci_smem_region *mdss_dbg =
 	ccci_md_get_smem_by_user_id(mdee->md_id, SMEM_USER_RAW_MDSS_DBG);
 
@@ -883,7 +891,7 @@ static void mdee_dumper_v2_dump_ee_info(struct ccci_fsm_ee *mdee,
 				"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 2);
 			/* Handshake 2 fail */
 			CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD EX log\n");
-			if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
+			if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM)) {
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
 					mdccci_dbg->base_ap_view_vir,
 					mdccci_dbg->size);
