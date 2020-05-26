@@ -1,0 +1,33 @@
+/*
+ * Copyright:
+ * ----------------------------------------------------------------------------
+ * This confidential and proprietary software may be used only as authorized
+ * by a licensing agreement from ARM Limited.
+ *      (C) COPYRIGHT 2018-2019 ARM Limited, ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorized copies and
+ * copies may only be made to the extent permitted by a licensing agreement
+ * from ARM Limited.
+ * ----------------------------------------------------------------------------
+ */
+
+bob_kernel_module {
+    name: "kutf",
+    defaults: [
+        "kernel_defaults",
+        "kutf_includes",
+    ],
+    srcs: [
+        "Kbuild",
+        "kutf_helpers.c",
+        "kutf_helpers_user.c",
+        "kutf_mem.c",
+        "kutf_resultset.c",
+        "kutf_suite.c",
+        "kutf_utils.c",
+    ],
+    kbuild_options: ["CONFIG_MALI_KUTF=m"],
+    enabled: false,
+    base_build_kutf: {
+        enabled: true,
+    },
+}
