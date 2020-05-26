@@ -829,7 +829,7 @@ void mtu3_gadget_resume(struct mtu3 *mtu)
 /* called when SOF packets stop for 3+ msec or enters U3 */
 void mtu3_gadget_suspend(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "gadget SUSPEND\n");
+	dev_info(mtu->dev, "gadget SUSPEND\n");
 	if (mtu->gadget_driver && mtu->gadget_driver->suspend) {
 		spin_unlock(&mtu->lock);
 		mtu->gadget_driver->suspend(&mtu->g);
@@ -840,7 +840,7 @@ void mtu3_gadget_suspend(struct mtu3 *mtu)
 /* called when VBUS drops below session threshold, and in other cases */
 void mtu3_gadget_disconnect(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "gadget DISCONNECT\n");
+	dev_info(mtu->dev, "gadget DISCONNECT\n");
 	if (mtu->gadget_driver && mtu->gadget_driver->disconnect) {
 		spin_unlock(&mtu->lock);
 		mtu->gadget_driver->disconnect(&mtu->g);
