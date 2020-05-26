@@ -530,6 +530,7 @@ static void qdss_bridge_open_work_fn(struct work_struct *work)
 
 	return;
 err:
+	drvdata->opened = DISABLE;
 	mhi_unprepare_from_transfer(drvdata->mhi_dev);
 	mhi_ch_close(drvdata);
 err_open:
