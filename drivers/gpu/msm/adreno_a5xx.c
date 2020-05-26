@@ -353,12 +353,15 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
 	/*
 	 * For a530 and a540 the SMMU region is 0x20000 bytes long and 0x10000
 	 * bytes on all other targets. The base offset for both is 0x40000.
-	 * Write it to the next available slot
+	 * Write it to the next available slot. The base offset and length of a
+	 * block must be specified as power of 2 values.
 	 */
 	if (adreno_is_a530(adreno_dev) || adreno_is_a540(adreno_dev))
-		_setprotectreg(device, reg + 1, 0x40000, ilog2(0x20000));
+		_setprotectreg(device, reg + 1, (0x40000 >> 2),
+			ilog2(0x20000 >> 2));
 	else
-		_setprotectreg(device, reg + 1, 0x40000, ilog2(0x10000));
+		_setprotectreg(device, reg + 1, (0x40000 >> 2),
+			ilog2(0x10000 >> 2));
 }
 
 /*
