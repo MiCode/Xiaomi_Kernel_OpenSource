@@ -58,7 +58,7 @@ enum mbim_peripheral_ep_type {
 };
 
 struct mbim_peripheral_ep_info {
-	enum peripheral_ep_type	ep_type;
+	enum mbim_peripheral_ep_type	ep_type;
 	u32  peripheral_iface_id;
 };
 
@@ -1161,7 +1161,6 @@ static int mbim_set_alt(struct usb_function *f, unsigned int intf,
 		pr_info("Set mbim port out_desc = 0x%pK\n",
 				mbim->bam_port.out->desc);
 
-		mbim->bam_port.cdev = mbim->cdev;
 		pr_debug("Activate mbim\n");
 		switch (mbim->xport) {
 		case USB_GADGET_XPORT_BAM_DMUX:
@@ -1222,6 +1221,7 @@ static void mbim_disable(struct usb_function *f)
 
 	 /* Disable Control Path */
 	if (mbim->not_port.notify->driver_data) {
+		usb_ep_fifo_flush(mbim->not_port.notify);
 		usb_ep_disable(mbim->not_port.notify);
 		mbim->not_port.notify->driver_data = NULL;
 	}
@@ -1948,6 +1948,7 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 			!dev->function.func_wakeup_allowed) {
 		dev->cpkt_drop_cnt++;
 		pr_err("drop ctrl pkt of len %zu\n", count);
+		mbim_unlock(&dev->write_excl);
 		return -ENOTSUPP;
 	}
 
@@ -2080,6 +2081,7 @@ static long mbim_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case MBIM_EP_LOOKUP:
 		if (!atomic_read(&mbim->online)) {
 			pr_warn("usb cable is not connected\n");
+			mbim_unlock(&mbim->ioctl_excl);
 			return -ENOTCONN;
 		}
 
@@ -2090,7 +2092,7 @@ static long mbim_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			 * This channel number 8 should be in sync with
 			 * the one defined in u_bam.c.
 			 */
-			//info.ph_ep_info.ep_type = MBIM_DATA_EP_TYPE_BAM_DMUX;
+			info.ph_ep_info.ep_type = MBIM_DATA_EP_TYPE_BAM_DMUX;
 			info.ph_ep_info.peripheral_iface_id =
 						BAM_DMUX_CHANNEL_ID;
 			info.ipa_ep_pair.cons_pipe_num = 0;
