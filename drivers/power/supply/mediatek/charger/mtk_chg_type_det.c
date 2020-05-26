@@ -183,7 +183,7 @@ static int mt_charger_set_property(struct power_supply *psy,
 	enum power_supply_property psp, const union power_supply_propval *val)
 {
 	struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
-	struct chg_type_info *cti;
+	struct chg_type_info *cti = NULL;
 
 	pr_info("%s\n", __func__);
 
@@ -566,6 +566,11 @@ static int mt_charger_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mt_charger *mt_charger = platform_get_drvdata(pdev);
 
+	if (!mt_charger) {
+		pr_info("%s: get mt_charger failed\n", __func__);
+		return -ENODEV;
+	}
+
 	power_supply_changed(mt_charger->chg_psy);
 	power_supply_changed(mt_charger->ac_psy);
 	power_supply_changed(mt_charger->usb_psy);
@@ -595,7 +600,7 @@ static struct platform_driver mt_charger_driver = {
 /* Legacy api to prevent build error */
 bool upmu_is_chr_det(void)
 {
-	struct mt_charger *mtk_chg;
+	struct mt_charger *mtk_chg = NULL;
 	struct power_supply *psy = power_supply_get_by_name("charger");
 
 	if (!psy) {
@@ -618,7 +623,7 @@ bool pmic_chrdet_status(void)
 
 enum charger_type mt_get_charger_type(void)
 {
-	struct mt_charger *mtk_chg;
+	struct mt_charger *mtk_chg = NULL;
 	struct power_supply *psy = power_supply_get_by_name("charger");
 
 	if (!psy) {
@@ -631,9 +636,9 @@ enum charger_type mt_get_charger_type(void)
 
 bool mt_charger_plugin(void)
 {
-	struct mt_charger *mtk_chg;
+	struct mt_charger *mtk_chg = NULL;
 	struct power_supply *psy = power_supply_get_by_name("charger");
-	struct chg_type_info *cti;
+	struct chg_type_info *cti = NULL;
 
 	if (!psy) {
 		pr_info("%s: get power supply failed\n", __func__);

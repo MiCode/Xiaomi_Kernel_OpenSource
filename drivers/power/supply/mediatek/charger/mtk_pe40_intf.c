@@ -116,7 +116,7 @@ int mtk_pe40_pd_request(struct charger_manager *pinfo,
 	int ret;
 	int mivr;
 	int adapter_mv, adapter_ma;
-	struct mtk_pe40 *pe40;
+	struct mtk_pe40 *pe40 = NULL;
 	bool chg2_enable = false;
 
 	if (is_dual_charger_supported(pinfo))
@@ -529,8 +529,8 @@ int pe40_get_output(struct charger_manager *pinfo,
 int mtk_pe40_get_init_watt(struct charger_manager *pinfo)
 {
 	int ret;
-	struct mtk_pe40 *pe40;
-	struct charger_data *pdata;
+	struct mtk_pe40 *pe40 = NULL;
+	struct charger_data *pdata = NULL;
 	int vbus1, ibus1;
 	int vbus2, ibus2;
 	int vbat1, vbat2;
@@ -606,7 +606,7 @@ int mtk_pe40_init_state(struct charger_manager *pinfo)
 {
 	struct switch_charging_alg_data *swchgalg = pinfo->algorithm_data;
 	int ret = 0;
-	struct mtk_pe40 *pe40;
+	struct mtk_pe40 *pe40 = NULL;
 	int vbus1, vbat1, ibus1;
 	int vbus2, vbat2, ibus2;
 	struct pe4_pps_status cap, cap1, cap2;
@@ -616,7 +616,7 @@ int mtk_pe40_init_state(struct charger_manager *pinfo)
 	int input_current = 0;
 	bool chg2_chip_enabled = false;
 
-	struct charger_data *pdata2;
+	struct charger_data *pdata2 = NULL;
 
 	if (pinfo->enable_hv_charging == false)
 		goto retry;
@@ -805,6 +805,8 @@ int mtk_pe40_init_state(struct charger_manager *pinfo)
 	voltage = 0;
 	mtk_pe40_get_setting_by_watt(pinfo, &voltage, &adapter_ibus,
 				&actual_current, watt, &input_current);
+	if (voltage <= 0)
+		chr_err("abnormal voltage: %d\n", voltage);
 	pe40->avbus = voltage / 10 * 10;
 	ret = mtk_pe40_pd_request(pinfo, &pe40->avbus, &adapter_ibus,
 				input_current);
@@ -816,7 +818,10 @@ int mtk_pe40_init_state(struct charger_manager *pinfo)
 	}
 
 	pe40->avbus = voltage;
-	pe40->ibus = watt / voltage;
+	if (voltage > 0)
+		pe40->ibus = watt / voltage;
+	else
+		pe40->ibus = 0;
 	pe40->watt = watt;
 
 	swchgalg->state = CHR_PE40_CC;
@@ -946,13 +951,13 @@ int mtk_pe40_cc_state(struct charger_manager *pinfo)
 {
 	int ibus = 0, vbat, ibat, vbus, compare_ibus = 0;
 	int icl, ccl, ccl2, cv, max_icl;
-	struct mtk_pe40 *pe40;
+	struct mtk_pe40 *pe40 = NULL;
 	int ret;
 	int oldavbus = 0;
 	int oldibus = 0;
 	int watt;
 	int max_watt;
-	struct charger_data *pdata;
+	struct charger_data *pdata = NULL;
 	int actual_current;
 	int new_watt = 0;
 	int adapter_ibus = 0;

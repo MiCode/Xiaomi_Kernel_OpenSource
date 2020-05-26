@@ -406,7 +406,6 @@ static int mtk_linear_charging_current(struct charger_manager *info)
 static int mtk_linear_charging_run(struct charger_manager *info)
 {
 	struct linear_charging_alg_data *algo_data = info->algorithm_data;
-	int ret = 0;
 
 	pr_info("%s [%d], timer=%d %d %d\n", __func__, algo_data->state,
 		algo_data->cc_charging_time, algo_data->topoff_charging_time,
@@ -416,19 +415,19 @@ static int mtk_linear_charging_run(struct charger_manager *info)
 
 	switch (algo_data->state) {
 	case CHR_CC:
-		ret = mtk_linear_chr_cc(info);
+		mtk_linear_chr_cc(info);
 		break;
 
 	case CHR_TOPOFF:
-		ret = mtk_linear_chr_topoff(info);
+		mtk_linear_chr_topoff(info);
 		break;
 
 	case CHR_BATFULL:
-		ret = mtk_linear_chr_full(info);
+		mtk_linear_chr_full(info);
 		break;
 
 	case CHR_ERROR:
-		ret = mtk_linear_chr_err(info);
+		mtk_linear_chr_err(info);
 		break;
 	}
 

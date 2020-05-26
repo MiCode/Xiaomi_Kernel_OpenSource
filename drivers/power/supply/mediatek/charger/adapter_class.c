@@ -167,9 +167,9 @@ struct adapter_device *adapter_device_register(const char *name,
 		const struct adapter_ops *ops,
 		const struct adapter_properties *props)
 {
-	struct adapter_device *adapter_dev;
+	struct adapter_device *adapter_dev = NULL;
 	static struct lock_class_key key;
-	struct srcu_notifier_head *head;
+	struct srcu_notifier_head *head = NULL;
 	int rc;
 
 	pr_notice("%s: name=%s\n", __func__, name);
@@ -234,7 +234,7 @@ static int adapter_match_device_by_name(struct device *dev,
 
 struct adapter_device *get_adapter_by_name(const char *name)
 {
-	struct device *dev;
+	struct device *dev = NULL;
 
 	if (!name)
 		return (struct adapter_device *)NULL;

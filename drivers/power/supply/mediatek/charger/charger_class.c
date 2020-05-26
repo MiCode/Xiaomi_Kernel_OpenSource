@@ -820,9 +820,9 @@ struct charger_device *charger_device_register(const char *name,
 		const struct charger_ops *ops,
 		const struct charger_properties *props)
 {
-	struct charger_device *chg_dev;
+	struct charger_device *chg_dev = NULL;
 	static struct lock_class_key key;
-	struct srcu_notifier_head *head;
+	struct srcu_notifier_head *head = NULL;
 	int rc;
 
 	pr_debug("%s: name=%s\n", __func__, name);
@@ -887,7 +887,7 @@ static int charger_match_device_by_name(struct device *dev,
 
 struct charger_device *get_charger_by_name(const char *name)
 {
-	struct device *dev;
+	struct device *dev = NULL;
 
 	if (!name)
 		return (struct charger_device *)NULL;

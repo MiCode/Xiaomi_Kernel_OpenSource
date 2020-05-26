@@ -102,7 +102,7 @@ static void _disable_all_charging(struct charger_manager *info)
 
 static void swchg_select_charging_current_limit(struct charger_manager *info)
 {
-	struct charger_data *pdata;
+	struct charger_data *pdata = NULL;
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret = 0;
@@ -554,13 +554,17 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 {
 	struct charger_custom_data *pdata = &info->data;
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
-	struct pe40_data *data;
+	struct pe40_data *data = NULL;
 	int ret = 0;
 
 	charger_dev_enable(info->chg1_dev, true);
 	select_pe40_charging_current_limit(info);
 
 	data = pe40_get_data();
+	if (!data) {
+		chr_err("%s: data is NULL\n", __func__);
+		goto stop;
+	}
 
 	data->input_current_limit = info->chg1_data.input_current_limit;
 	data->charging_current_limit = info->chg1_data.input_current_limit;
@@ -674,7 +678,7 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 {
 	struct charger_custom_data *pdata = &info->data;
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
-	struct pdc_data *data;
+	struct pdc_data *data = NULL;
 	int ret = 0;
 
 	charger_dev_enable(info->chg1_dev, true);

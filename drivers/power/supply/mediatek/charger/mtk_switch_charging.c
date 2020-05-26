@@ -106,7 +106,7 @@ static void _disable_all_charging(struct charger_manager *info)
 
 static void swchg_select_charging_current_limit(struct charger_manager *info)
 {
-	struct charger_data *pdata;
+	struct charger_data *pdata = NULL;
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret = 0;
