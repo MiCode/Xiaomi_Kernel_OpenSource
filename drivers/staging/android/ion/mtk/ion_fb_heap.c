@@ -179,7 +179,10 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 	/*create fb buffer info for it */
 	buffer_info = kzalloc(sizeof(*buffer_info), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(buffer_info)) {
+		struct ion_fb_heap
+		*fb_heap = container_of(heap, struct ion_fb_heap, heap);
 		IONMSG(" %s: Error. Alloc ion_buffer failed.\n", __func__);
+		gen_pool_free(fb_heap->pool, paddr, size);
 		return -EFAULT;
 	}
 
@@ -253,7 +256,7 @@ do {\
 static void ion_fb_chunk_show(struct gen_pool *pool,
 			      struct gen_pool_chunk *chunk, void *data)
 {
-	int order, nlongs, nbits, i;
+	unsigned int order, nlongs, nbits, i;
 	struct seq_file *s = (struct seq_file *)data;
 
 	order = pool->min_alloc_order;

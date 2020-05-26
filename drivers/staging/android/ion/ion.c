@@ -1410,47 +1410,6 @@ retry:
 		}
 		mutex_unlock(&buffer->lock);
 	}
-
-/* ion: debug sg_table not continue for mm_heap */
-#if defined(ION_NOT_SUPPORT_RETRY)
-{
-	dma_addr_t expected, dma_addr;
-	unsigned long s_pa = 0;
-	struct scatterlist *s;
-	unsigned long long ts_start, ts_end; /* for performance */
-	int i, flag = 0;
-
-	if (buffer->heap->type != ION_HEAP_TYPE_MULTIMEDIA)
-		return table;
-
-	ts_start = sched_clock();
-	dma_addr = sg_dma_address(table->sgl);
-	expected = sg_dma_address(table->sgl);
-	s_pa = (unsigned long)sg_phys(table->sgl);
-	for_each_sg(table->sgl, s, table->nents, i) {
-		if (sg_dma_address(s) != expected) {
-			flag = 1;
-			IONMSG(
-			       "warning, nents:%u, addr:0x%pa--0x%pa, 0x%lx+0x%lx(%d), pa:0x%lx(0x%lx)\n",
-				table->nents,
-				&dma_addr, &expected,
-				(unsigned long)sg_dma_address(s),
-				(unsigned long)sg_dma_len(s), i,
-				(unsigned long)sg_phys(s),
-				s_pa);
-		}
-		if (flag && i > 10)
-			break;
-
-		expected = sg_dma_address(s) + sg_dma_len(s);
-	}
-
-	ts_end = sched_clock();
-	if (ts_end - ts_start > 1000000) //1ms
-		pr_info("%s check sg_table time:%llu, nents:%u\n",
-			__func__, (ts_end - ts_start), table->nents);
-}
-#endif
 	return table;
 }
 #else

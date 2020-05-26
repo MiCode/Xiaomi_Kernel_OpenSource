@@ -769,29 +769,6 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
 				__func__, s_iova_len,
 				s_length, s_iova_off, count);
 	}
-{ /* iommu: debug sg_table not continue */
-	dma_addr_t dma_addr;
-	struct scatterlist *s;
-	unsigned long long ts_start, ts_end;
-	int j;
-
-	ts_start = sched_clock();
-	dma_addr = sg_dma_address(sg);
-	for_each_sg(sg, s, nents, j) {
-		if (j > 0 && sg_dma_len(s) != 0)
-			pr_info("%s warning, j:%d--%d(%d), dma_addr:0x%pa, 0x%lx+0x%lx, pa:0x%lx, count:%d\n",
-				__func__, j, nents, i, &dma_addr,
-				(unsigned long)sg_dma_address(s),
-				(unsigned long)sg_dma_len(s),
-				(unsigned long)sg_phys(s),
-				count);
-	}
-	ts_end = sched_clock();
-	if (ts_end - ts_start > 1000000) //1ms
-		pr_info("%s check sg_table time:%llu, nents:%u\n",
-			__func__, (ts_end - ts_start), nents);
-}
-
 	return count;
 }
 

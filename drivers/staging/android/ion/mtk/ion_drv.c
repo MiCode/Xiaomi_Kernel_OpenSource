@@ -590,7 +590,7 @@ out:
 	return 0;
 }
 
-void ion_dma_map_area_va(void *start, size_t size, enum ION_DMA_DIR dir)
+void ion_dma_map_area_va(const void *start, size_t size, enum ION_DMA_DIR dir)
 {
 	if (dir == ION_DMA_FROM_DEVICE)
 		dmac_map_area(start, size, DMA_FROM_DEVICE);
@@ -600,7 +600,7 @@ void ion_dma_map_area_va(void *start, size_t size, enum ION_DMA_DIR dir)
 		dmac_map_area(start, size, DMA_BIDIRECTIONAL);
 }
 
-void ion_dma_unmap_area_va(void *start, size_t size, enum ION_DMA_DIR dir)
+void ion_dma_unmap_area_va(const void *start, size_t size, enum ION_DMA_DIR dir)
 {
 	if (dir == ION_DMA_FROM_DEVICE)
 		dmac_unmap_area(start, size, DMA_FROM_DEVICE);
@@ -983,6 +983,8 @@ static int ion_drv_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 	pdata = (struct ion_platform_data *)of_device_get_match_data(dev);
+	if (!pdata)
+		IONMSG("get match data fail\n");
 #else
 
 	pdata = pdev->dev.platform_data;
