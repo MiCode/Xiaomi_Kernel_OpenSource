@@ -2810,8 +2810,11 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 
 	/* Filter out initial no cable */
 	if (cable_type == TCPC_CABLE_TYPE_C2C) {
-		/* wait TCPC filter debounce 250us */
-		usleep_range(250, 300);
+		/*
+		 * wait 3ms for exit low power mode and
+		 * TCPC filter debounce
+		 */
+		mdelay(3);
 		ret = tcpci_get_cc(tcpc_dev);
 		if (ret >= 0) {
 			if (typec_is_cc_no_res() &&
