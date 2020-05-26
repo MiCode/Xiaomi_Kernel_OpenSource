@@ -23,7 +23,8 @@ Properties:
 - reg:
   Usage:	required
   Value type:	<prop-encoded-array>
-  Definition:	Register base for HAPTICS_CFG and HAPTICS_PATTERN modules.
+  Definition:	Register base for following haptics modules: HAPTICS_CFG,
+		HAPTICS_PATTERN, HAPTICS_BOOST.
 
 - interrupts:
   Usage:	required
@@ -242,7 +243,7 @@ different vibration effects:
 Example:
 	qcom,hv-haptics@f000 {
 		compatible = "qcom,hv-haptics";
-		reg = <0xf000>, <0xf100>;
+		reg = <0xf000>, <0xf100>, <0xf200>;
 		interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_BOTH>;
 		interrupt-names = "fifo-empty";
 		nvmem-cell-names = "hap_cl_brake";
