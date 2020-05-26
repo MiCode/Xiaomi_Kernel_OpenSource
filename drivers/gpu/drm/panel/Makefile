@@ -17,6 +17,7 @@ obj-$(CONFIG_DRM_PANEL_LG_0565G40108) += panel-lg-0565g40108.o
 obj-$(CONFIG_DRM_PANEL_LG_0565G40108_CMD) += panel-lg-0565g40108-cmd.o
 obj-$(CONFIG_DRM_PANEL_SAMSUNG_AMS601NN04_CMD) += panel-samsung-ams601nn04-cmd.o
 obj-$(CONFIG_DRM_PANEL_NT35695B_AUO_VDO) += panel-nt35695b-auo-vdo.o
+obj-$(CONFIG_DRM_PANEL_NT35695B_AUO_CMD) += panel-nt35695b-auo-cmd.o
 obj-$(CONFIG_DRM_PANEL_AUO_HX83112B_VDO) += panel-auo-hx83112b-vdo.o
 obj-$(CONFIG_DRM_PANEL_OTM1911A_AUO_VDO) += panel-otm1911a-auo-vdo.o
 obj-$(CONFIG_DRM_PANEL_TRULY_TD4330_VDO) += panel-truly-td4330-vdo.o

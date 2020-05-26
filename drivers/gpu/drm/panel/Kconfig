@@ -178,10 +178,22 @@ config DRM_PANEL_NT35695B_AUO_VDO
 	depends on DRM_MIPI_DSI
 	depends on BACKLIGHT_CLASS_DEVICE
 	help
-	  Say Y here if you want to enable support for HX83112B DPHY
+	  Say Y here if you want to enable support for NT35695B DPHY
 	  vdo mode Full HD panel. The panel has a 1080x1920
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT35695B_AUO_CMD
+	tristate "NT35695B AUO cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT35695B DPHY
+	  vdo mode Full HD panel. The panel has a 1080x1920
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 
 config DRM_PANEL_NT36672A_RT4801_VDO
 	tristate "NT36672A  FHD+ video mode panel"
