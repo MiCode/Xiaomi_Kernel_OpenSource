@@ -3731,7 +3731,8 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 	case MMSYS_MT6885:
 		value = mtk_ddp_mout_en_MT6885(reg_data, cur, next, &addr);
 		if (value >= 0) {
-			reg = readl_relaxed(config_regs + addr) | value;
+			reg = readl_relaxed(config_regs + addr) |
+					(unsigned int)value;
 			writel_relaxed(reg, config_regs + addr);
 		}
 
@@ -3924,7 +3925,7 @@ void mtk_ddp_remove_comp_from_path(void __iomem *config_regs,
 #if defined(CONFIG_MACH_MT6885)
 	value = mtk_ddp_mout_en_MT6885(reg_data, cur, next, &addr);
 	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~value;
+		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
 		writel_relaxed(reg, config_regs + addr);
 	}
 #endif
@@ -3932,13 +3933,13 @@ void mtk_ddp_remove_comp_from_path(void __iomem *config_regs,
 #if defined(CONFIG_MACH_MT6873)
 	value = mtk_ddp_mout_en_MT6873(reg_data, cur, next, &addr);
 	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~value;
+		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
 		writel_relaxed(reg, config_regs + addr);
 	}
 
 	value = mtk_ddp_ovl_bg_blend_en_MT6873(reg_data, cur, next, &addr);
 	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~value;
+		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
 		writel_relaxed(reg, config_regs + addr);
 	}
 #endif
@@ -3972,7 +3973,8 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				cur, next, &addr);
 	if (value >= 0)
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr, ~value, value);
+			       mtk_crtc->config_regs_pa + addr,
+			       ~(unsigned int)value, value);
 #endif
 
 #if defined(CONFIG_MACH_MT6873)
@@ -3980,13 +3982,15 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				cur, next, &addr);
 	if (value >= 0)
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr, ~value, value);
+			       mtk_crtc->config_regs_pa + addr,
+			       ~(unsigned int)value, value);
 
 	value = mtk_ddp_ovl_bg_blend_en_MT6873(mtk_crtc->mmsys_reg_data,
 				cur, next, &addr);
 	if (value >= 0)
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr, ~value, value);
+			       mtk_crtc->config_regs_pa + addr,
+			       ~(unsigned int)value, value);
 #endif
 
 #if defined(CONFIG_MACH_MT6853)
@@ -4275,7 +4279,7 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	int i, j, id, type;
 	unsigned int val = DDP_MUTEX_SOF_SINGLE_MODE;
-	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *comp = NULL;
 
 	if (&ddp->mutex[mutex->id] != mutex)
 		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
@@ -4319,8 +4323,8 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				       struct cmdq_pkt *handle,
 				       unsigned int mutex_id)
 {
-	struct mtk_disp_mutex *mutex;
-	struct mtk_ddp *ddp;
+	struct mtk_disp_mutex *mutex = NULL;
+	struct mtk_ddp *ddp = NULL;
 	unsigned int reg;
 
 	if (mutex_id >= DDP_PATH_NR) {
@@ -4433,8 +4437,8 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					  struct cmdq_pkt *handle,
 					  unsigned int mutex_id)
 {
-	struct mtk_disp_mutex *mutex;
-	struct mtk_ddp *ddp;
+	struct mtk_disp_mutex *mutex = NULL;
+	struct mtk_ddp *ddp = NULL;
 
 	if (mutex_id >= DDP_PATH_NR) {
 		DDPPR_ERR("mutex id is out of bound:%d\n", mutex_id);
@@ -4494,8 +4498,8 @@ void mtk_disp_mutex_inten_enable(struct mtk_disp_mutex *mutex)
 	unsigned int val;
 
 	val = readl_relaxed(ddp->regs + DISP_REG_MUTEX_INTEN);
-	val |= (0x1 << mutex->id);
-	val |= (0x1 << (mutex->id + DISP_MUTEX_TOTAL));
+	val |= (0x1 << (unsigned int)mutex->id);
+	val |= (0x1 << (unsigned int)(mutex->id + DISP_MUTEX_TOTAL));
 	writel_relaxed(val, ddp->regs + DISP_REG_MUTEX_INTEN);
 }
 
@@ -4506,8 +4510,8 @@ void mtk_disp_mutex_inten_enable_cmdq(struct mtk_disp_mutex *mutex,
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int val = 0;
 
-	val |= (0x1 << mutex->id);
-	val |= (0x1 << (mutex->id + DISP_MUTEX_TOTAL));
+	val |= (0x1 << (unsigned int)mutex->id);
+	val |= (0x1 << (unsigned int)(mutex->id + DISP_MUTEX_TOTAL));
 	cmdq_pkt_write(handle, ddp->cmdq_base,
 		       ddp->regs_pa + DISP_REG_MUTEX_INTEN, val, val);
 }
@@ -4519,8 +4523,8 @@ void mtk_disp_mutex_inten_disable_cmdq(struct mtk_disp_mutex *mutex,
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int mask = 0;
 
-	mask |= (0x1 << mutex->id);
-	mask |= (0x1 << (mutex->id + DISP_MUTEX_TOTAL));
+	mask |= (0x1 << (unsigned int)mutex->id);
+	mask |= (0x1 << (unsigned int)(mutex->id + DISP_MUTEX_TOTAL));
 	cmdq_pkt_write(handle, ddp->cmdq_base,
 		       ddp->regs_pa + DISP_REG_MUTEX_INTEN, 0, mask);
 }
@@ -4812,8 +4816,8 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
-	int i = 0;
-	int j = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
 	char mutex_module[512] = {'\0'};
 	char *p = NULL;
 	int len = 0;
@@ -4867,8 +4871,8 @@ void mutex_dump_analysis_mt6873(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
-	int i = 0;
-	int j = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
 	char mutex_module[512] = {'\0'};
 	char *p = NULL;
 	int len = 0;
@@ -4956,8 +4960,8 @@ void mutex_dump_analysis(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
-	int i = 0;
-	int j = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
 	char mutex_module[512] = {'\0'};
 	char *p = NULL;
 	int len = 0;
@@ -5313,7 +5317,7 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
-	char *name;
+	char *name = NULL;
 
 	unsigned int valid0 =
 		readl_relaxed(config_regs + MT6885_DISP_REG_CONFIG_DL_VALID_0);
@@ -5530,7 +5534,7 @@ void mmsys_config_dump_analysis_mt6873(void __iomem *config_regs)
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
-	char *name;
+	char *name = NULL;
 
 	unsigned int valid0 =
 		readl_relaxed(config_regs + MT6873_DISP_REG_CONFIG_DL_VALID_0);
@@ -5866,7 +5870,7 @@ void mmsys_config_dump_analysis(void __iomem *config_regs)
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
-	char *name;
+	char *name = NULL;
 
 	unsigned int valid0 =
 		readl_relaxed(config_regs + DISP_REG_CONFIG_DISP_DL_VALID_0);
@@ -6007,8 +6011,8 @@ void mmsys_config_dump_analysis(void __iomem *config_regs)
 static int mtk_ddp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mtk_ddp *ddp;
-	struct resource *regs;
+	struct mtk_ddp *ddp = NULL;
+	struct resource *regs = NULL;
 	int irq;
 	int i;
 	int ret;

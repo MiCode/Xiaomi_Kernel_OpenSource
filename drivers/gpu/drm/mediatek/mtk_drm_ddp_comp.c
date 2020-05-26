@@ -354,8 +354,6 @@ bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 
 void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 {
-	int len;
-
 	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX) {
 		DDPPR_ERR("%s(), invalid id %d, set buf to 0\n",
 			  __func__, comp->id);
@@ -363,9 +361,12 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 		return;
 	}
 
-	len = snprintf(buf, buf_len, "%s%d",
-		       mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
-		       mtk_ddp_matches[comp->id].alias_id);
+	if (buf_len > sizeof(buf))
+		buf_len = sizeof(buf);
+
+	snprintf(buf, buf_len, "%s%d",
+		  mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
+		  mtk_ddp_matches[comp->id].alias_id);
 }
 
 int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id)
@@ -380,7 +381,7 @@ static bool mtk_drm_find_comp_in_ddp(struct mtk_ddp_comp ddp_comp,
 				     const struct mtk_crtc_path_data *path_data)
 {
 	unsigned int i, j, ddp_mode;
-	const enum mtk_ddp_comp_id *path;
+	const enum mtk_ddp_comp_id *path = NULL;
 
 	if (path_data == NULL)
 		return false;
@@ -415,7 +416,7 @@ enum mtk_ddp_comp_id mtk_ddp_comp_get_id(struct device_node *node,
 struct mtk_ddp_comp *mtk_ddp_comp_find_by_id(struct drm_crtc *crtc,
 					     enum mtk_ddp_comp_id comp_id)
 {
-	unsigned int i, j, ddp_mode;
+	unsigned int i = 0, j = 0, ddp_mode = 0;
 	struct mtk_drm_crtc *mtk_crtc =
 		container_of(crtc, struct mtk_drm_crtc, base);
 	struct mtk_ddp_comp *comp;
@@ -432,8 +433,8 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 				  struct mtk_ddp_comp *comp)
 {
 	int ret;
-	struct device_node *larb_node;
-	struct platform_device *larb_pdev;
+	struct device_node *larb_node = NULL;
+	struct platform_device *larb_pdev = NULL;
 	enum mtk_ddp_comp_type type = mtk_ddp_comp_get_type(comp->id);
 	unsigned int larb_id;
 
@@ -498,7 +499,7 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 		      const struct mtk_ddp_comp_funcs *funcs)
 {
 	enum mtk_ddp_comp_type type;
-	struct platform_device *comp_pdev;
+	struct platform_device *comp_pdev = NULL;
 	struct resource res;
 
 	DDPINFO("%s+\n", __func__);
@@ -661,7 +662,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			comp);
 #endif
 
-		port &= GET_M4U_PORT;
+		port &= (unsigned int)GET_M4U_PORT;
 		if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) !=
 		    0) {
 			dev_err(comp->dev, "Missing reg in %s node\n",
@@ -689,10 +690,10 @@ void mt6779_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		mask = 0xFFFFFFFF;
 	} else if (id == DDP_COMPONENT_RDMA0) {
 		mask |= (BIT(9) + BIT(16));
-		val |= (((!en) << 9) + ((en) << 16));
+		val |= (((!(unsigned int)en) << 9) + ((en) << 16));
 	} else if (id == DDP_COMPONENT_RDMA1) {
 		mask |= (BIT(11) + BIT(17));
-		val |= (((!en) << 11) + ((en) << 17));
+		val |= (((!(unsigned int)en) << 11) + ((en) << 17));
 	} else if (id == DDP_COMPONENT_WDMA0) {
 		mask |= BIT(18);
 		val |= ((en) << 18);
@@ -833,20 +834,20 @@ void mt6873_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0, DVFS_HALT_MASK_SEL_WDMA0);
 	} else if (id == DDP_COMPONENT_RDMA0) {
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
 					SODI_REQ_SEL_RDMA0_CG_MODE);
 
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 				HRT_URGENT_CTL_SEL_RDMA0);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 				DVFS_HALT_MASK_SEL_RDMA0);
 	} else if (id == DDP_COMPONENT_RDMA4) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_RDMA4);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (unsigned int)en,
 					DVFS_HALT_MASK_SEL_RDMA4);
 	} else if (id == DDP_COMPONENT_WDMA0) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_WDMA0);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_WDMA0);
@@ -905,38 +906,38 @@ void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0, DVFS_HALT_MASK_SEL_ALL);
 	} else if (id == DDP_COMPONENT_RDMA0) {
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
 					SODI_REQ_SEL_RDMA0_CG_MODE);
 
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 				HRT_URGENT_CTL_SEL_RDMA0);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 				DVFS_HALT_MASK_SEL_RDMA0);
 	} else if (id == DDP_COMPONENT_RDMA1) {
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
 					SODI_REQ_SEL_RDMA1_CG_MODE);
 
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_RDMA1);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_RDMA1);
 	} else if (id == DDP_COMPONENT_RDMA4) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_RDMA4);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_RDMA4);
 	} else if (id == DDP_COMPONENT_RDMA5) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_RDMA5);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_RDMA5);
 	} else if (id == DDP_COMPONENT_WDMA0) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_WDMA0);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_WDMA0);
 	} else if (id == DDP_COMPONENT_WDMA1) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					HRT_URGENT_CTL_SEL_WDMA1);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_WDMA1);
@@ -967,8 +968,8 @@ int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option)
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	struct mtk_drm_private *priv;
-	struct mtk_drm_helper *helper_opt;
+	struct mtk_drm_private *priv = NULL;
+	struct mtk_drm_helper *helper_opt = NULL;
 
 	if (!mtk_crtc) {
 		DDPINFO("%s: crtc is empty\n", __func__);
