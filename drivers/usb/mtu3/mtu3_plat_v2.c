@@ -530,6 +530,11 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ippc");
+	if (IS_ERR_OR_NULL(res)) {
+		dev_info(dev, "failed to get resource for ippc\n");
+		return -ENOMEM;
+	}
+
 	ssusb->ippc_base = devm_ioremap(dev, res->start, resource_size(res));
 	if (IS_ERR(ssusb->ippc_base)) {
 		dev_info(dev, "failed to map memory for ippc\n");

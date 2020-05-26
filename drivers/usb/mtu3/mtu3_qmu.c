@@ -388,7 +388,7 @@ static void qmu_tx_zlp_error_handler(struct mtu3 *mtu, u8 epnum)
 
 	gpd_current = gpd_dma_to_virt(ring, gpd_dma);
 
-	if (le16_to_cpu(gpd_current->buf_len) != 0) {
+	if (!gpd_current || le16_to_cpu(gpd_current->buf_len) != 0) {
 		dev_err(mtu->dev, "TX EP%d buffer length error(!=0)\n", epnum);
 		return;
 	}
