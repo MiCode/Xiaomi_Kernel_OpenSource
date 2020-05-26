@@ -709,7 +709,7 @@ enum dbg_id {
 #define STEP_MASK 0x000000FF
 
 #define INCREASE_STEPS \
-	do { DBG_STEP++; } while (0)
+	do { DBG_STEP++; hang_release = true; } while (0)
 
 static int DBG_ID;
 static int DBG_STA;
@@ -717,6 +717,7 @@ static int DBG_STEP;
 
 static unsigned long long block_time;
 static unsigned long long upd_block_time;
+static bool hang_release;
 /*
  * ram console data0 define
  * [31:24] : DBG_ID
@@ -750,7 +751,10 @@ static void ram_console_update(void)
 		upd_block_time = sched_clock();
 		if (loop_cnt >= 0)
 			loop_cnt++;
-	} else if (pre_data != data[0]) {
+	}
+
+	if (pre_data != data[0] || hang_release) {
+		hang_release = false;
 		pre_data = data[0];
 		block_time = sched_clock();
 		loop_cnt = 0;
