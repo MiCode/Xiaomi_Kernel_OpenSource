@@ -6,7 +6,7 @@
 #ifndef __SOC_COM_CX_IPEAK_H
 #define __SOC_COM_CX_IPEAK_H
 
-typedef void (*cx_ipeak_victim_fn)(void *data, u32 freq_limit);
+typedef int (*cx_ipeak_victim_fn)(void *data, u32 freq_limit);
 
 struct device_node;
 struct cx_ipeak_client;
