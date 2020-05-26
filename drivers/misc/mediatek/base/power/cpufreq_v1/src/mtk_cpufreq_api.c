@@ -238,7 +238,7 @@ unsigned int mt_cpufreq_get_cur_volt(enum mt_cpu_dvfs_id id)
 }
 EXPORT_SYMBOL(mt_cpufreq_get_cur_volt);
 
-unsigned int mt_cpufreq_get_cur_freq(enum mt_cpu_dvfs_id id)
+unsigned int mt_cpufreq_get_cur_freq(unsigned int id)
 {
 #ifdef CPU_DVFS_NOT_READY
 	return 0;
@@ -250,7 +250,7 @@ unsigned int mt_cpufreq_get_cur_freq(enum mt_cpu_dvfs_id id)
 		return 0;
 #endif
 
-	freq_idx = cpuhvfs_get_cur_dvfs_freq_idx(id);
+	freq_idx = cpuhvfs_get_cur_dvfs_freq_idx((enum mt_cpu_dvfs_id)id);
 
 	if (freq_idx < 0)
 		freq_idx = 0;
@@ -258,9 +258,9 @@ unsigned int mt_cpufreq_get_cur_freq(enum mt_cpu_dvfs_id id)
 	if (freq_idx > 15)
 		freq_idx = 15;
 
-	return mt_cpufreq_get_freq_by_idx(id, freq_idx);
+	return mt_cpufreq_get_freq_by_idx((enum mt_cpu_dvfs_id)id, freq_idx);
 #else
-	struct mt_cpu_dvfs *p = id_to_cpu_dvfs(id);
+	struct mt_cpu_dvfs *p = id_to_cpu_dvfs((enum mt_cpu_dvfs_id)id);
 
 #ifdef ENABLE_DOE
 	if (!dvfs_doe.state)
