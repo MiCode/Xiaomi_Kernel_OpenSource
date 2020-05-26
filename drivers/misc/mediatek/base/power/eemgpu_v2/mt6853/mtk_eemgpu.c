@@ -233,7 +233,7 @@ static int get_devinfo(void)
 #endif
 
 	efuse_val = (get_devinfo_with_index(209)
-		>> 11) & 0x3;
+		>> 11) & 0x7;
 	if (efuse_val && efuse_val <= 4)
 		gpu_vb_volt =
 			gpu_opp0_t_volt[efuse_val - 1];
