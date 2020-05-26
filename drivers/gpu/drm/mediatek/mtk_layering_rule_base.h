@@ -181,6 +181,12 @@ struct layering_rule_ops {
 #define HRT_GET_WROT_SRAM_FLAG(hrt_num) ((hrt_num & 0x600) >> 9)
 #define HRT_SET_WROT_SRAM_FLAG(hrt_num, value)                                 \
 	(hrt_num = ((hrt_num & ~(0x600)) | ((value & 0x3) << 9)))
+
+#define HRT_GET_NO_COMPRESS_FLAG(hrt_num) ((hrt_num & 0x7800) >> 11)
+#define HRT_SET_NO_COMPRESS_FLAG(hrt_num, value)                               \
+	(hrt_num = ((hrt_num & ~(0x7800)) | ((value & 0xf) << 11)))
+
+
 #define HRT_GET_PATH_ID(hrt_path) (hrt_path & 0x1F)
 
 // int layering_rule_start(struct drm_mtk_layering_info *disp_info, int

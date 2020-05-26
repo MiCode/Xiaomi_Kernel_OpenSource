@@ -51,8 +51,10 @@
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
 #include "mtk_disp_ccorr.h"
+
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
+#include "mtk_layering_rule_base.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -1316,12 +1318,80 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 			       bw, ~0);
 	}
 
+	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+		       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_IDX,
+		       crtc_state->prop_val[CRTC_PROP_LYE_IDX], ~0);
+}
+
+#if defined(CONFIG_MACH_MT6853)
+static void mtk_crtc_update_hrt_state_ex(struct drm_crtc *crtc,
+				      struct mtk_drm_lyeblob_ids *lyeblob_ids,
+				      struct cmdq_pkt *cmdq_handle)
+
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	unsigned int bw = overlap_to_bw(crtc, lyeblob_ids->frame_weight);
+	int crtc_idx = drm_crtc_index(crtc);
+	unsigned int  ovl0_2l_no_compress_num =
+		HRT_GET_NO_COMPRESS_FLAG(lyeblob_ids->hrt_num);
+	struct mtk_ddp_comp *output_comp;
+	struct drm_display_mode *mode = NULL;
+	unsigned int max_fps = 0;
+
+	DDPINFO("%s bw=%d, last_hrt_req=%d\n",
+			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req);
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
+					(output_comp->id == DDP_COMPONENT_DSI1))
+					&& !(mtk_dsi_is_cmd_mode(output_comp)))
+		mtk_ddp_comp_io_cmd(output_comp, NULL,
+			DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
+	max_fps = mode->vrefresh;
+
+	DDPINFO("%s CRTC%u bw:%d, no_compress_num:%d max_fps:%d\n",
+		__func__, crtc_idx, bw, ovl0_2l_no_compress_num, max_fps);
+
+	/* Workaround for 120hz SMI larb BW limitation */
+	if (crtc_idx == 0 && max_fps == 120) {
+		if (ovl0_2l_no_compress_num == 1 &&
+			bw < 2944) {
+			bw = 2944;
+			DDPINFO("%s CRTC%u dram freq to 1600hz\n",
+				__func__, crtc_idx);
+		} else if (ovl0_2l_no_compress_num == 2 &&
+			bw < 3433) {
+			bw = 3433;
+			DDPINFO("%s CRTC%u dram freq to 2400hz\n",
+				__func__, crtc_idx);
+		}
+	}
+
+	/* Only update HRT information on path with HRT comp */
+	if (bw > mtk_crtc->qos_ctx->last_hrt_req) {
+#ifdef MTK_FB_MMDVFS_SUPPORT
+		mtk_disp_set_hrt_bw(mtk_crtc, bw);
+#endif
+		mtk_crtc->qos_ctx->last_hrt_req = bw;
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
+			       NO_PENDING_HRT, ~0);
+	} else if (bw < mtk_crtc->qos_ctx->last_hrt_req) {
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
+			       bw, ~0);
+	}
+
 	mtk_crtc->qos_ctx->last_hrt_req = bw;
 
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_IDX,
 		       crtc_state->prop_val[CRTC_PROP_LYE_IDX], ~0);
 }
+#endif
 
 static void copy_drm_disp_mode(struct drm_display_mode *src,
 	struct drm_display_mode *dst)
@@ -1528,10 +1598,17 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				mtk_crtc_disp_mode_switch_begin(crtc,
 					old_crtc_state, crtc_state,
 					cmdq_handle);
-			if (index == 0)
+			if (index == 0) {
+#if defined(CONFIG_MACH_MT6853)
+				mtk_crtc_update_hrt_state_ex(
+					crtc, lyeblob_ids,
+					cmdq_handle);
+#else
 				mtk_crtc_update_hrt_state(
 					crtc, lyeblob_ids->frame_weight,
 					cmdq_handle);
+#endif
+			}
 			mtk_crtc_get_plane_comp_state(crtc, cmdq_handle);
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);

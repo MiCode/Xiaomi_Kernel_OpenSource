@@ -1573,6 +1573,9 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 	struct mtk_plane_comp_state comp_state;
 	int prev_comp_id = -1;
 	int i;
+#if defined(CONFIG_MACH_MT6853)
+	int no_compress_layer_num = 0;
+#endif
 
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 
@@ -1602,7 +1605,17 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 				ext_cnt = 0;
 			comp_state.ext_lye_id = LYE_NORMAL;
 		}
+#if defined(CONFIG_MACH_MT6853)
+		if (disp_idx == 0 &&
+			(comp_state.comp_id == DDP_COMPONENT_OVL0_2L) &&
+			!is_extended_layer(layer_info) &&
+			layer_info->compress != 1) {
 
+			DDPINFO("%s layer_id %d no compress phy layer\n",
+				__func__, i);
+			no_compress_layer_num++;
+		}
+#endif
 		lye_add_lye_priv_blob(&comp_state, lyeblob_ids, plane_idx,
 				      disp_idx, drm_dev);
 
@@ -1610,6 +1623,15 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 		plane_idx++;
 		prev_comp_id = comp_state.comp_id;
 	}
+#if defined(CONFIG_MACH_MT6853)
+	if (disp_idx == 0) {
+		HRT_SET_NO_COMPRESS_FLAG(disp_info->hrt_num,
+				no_compress_layer_num);
+		DDPINFO("%s disp_info->hrt_num=0x%x,no_comp_layer_num=%d\n",
+				__func__, disp_info->hrt_num,
+				no_compress_layer_num);
+	}
+#endif
 	return 0;
 }
 
@@ -1939,6 +1961,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 
 	lyeblob_ids->lye_idx = l_rule_info->hrt_idx;
 	lyeblob_ids->frame_weight = l_info->hrt_weight;
+	lyeblob_ids->hrt_num = l_info->hrt_num;
 	lyeblob_ids->ddp_blob_id = blob->base.id;
 	lyeblob_ids->ref_cnt = crtc_num;
 	lyeblob_ids->ref_cnt_mask = crtc_mask;
