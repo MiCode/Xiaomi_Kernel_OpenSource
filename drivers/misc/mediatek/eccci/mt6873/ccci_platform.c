@@ -114,7 +114,7 @@ static int ccci_md_low_power_notify(
 static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -126,7 +126,7 @@ static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 static void ccci_md_over_current_cb(BATTERY_OC_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -146,7 +146,7 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 			int ccif_id, void __iomem *baseA, void __iomem *baseB)
 {
 	int i;
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 
 	{
 		int ccif0_reset_bit = 8;

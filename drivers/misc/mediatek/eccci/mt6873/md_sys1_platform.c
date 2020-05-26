@@ -76,7 +76,7 @@ void md_cldma_hw_reset(unsigned char md_id)
 
 void md1_subsys_debug_dump(enum subsys_id sys)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	if (sys != SYS_MD1)
 		return;
@@ -101,7 +101,7 @@ struct pg_callbacks md1_subsys_handle = {
 
 void ccci_md_debug_dump(char *user_info)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_NORMAL_LOG(0, TAG, "%s called by %s\n", __func__, user_info);
 	md = ccci_md_get_modem_by_id(0);
@@ -276,7 +276,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 {
 	struct md_hw_info *hw_info = md->hw_info;
-	int idx = 0;
+	unsigned int idx = 0;
 	int ret = 0;
 
 	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
@@ -472,7 +472,7 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 	/* copy from HS1 timeout */
 	if ((reg_value[0] == 0) && (ccif_sram[1] == 0))
 		return;
-	else if (!((reg_value[0] == 0x5443000C) || (reg_value[0] == 0) ||
+	else if (!((reg_value[0] == 0x5443000CU) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF)))
 		return;
 	if (unlikely(in_interrupt())) {
@@ -645,7 +645,7 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
 		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
-		val |= 0x1<<21;
+		val |= 0x1U<<21;
 		ccci_write32(hw_info->spm_sleep_base, 8, val);
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
 		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
@@ -878,7 +878,7 @@ void ccci_modem_restore_reg(struct ccci_modem *md)
 
 int ccci_modem_syssuspend(void)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
@@ -889,7 +889,7 @@ int ccci_modem_syssuspend(void)
 
 void ccci_modem_sysresume(void)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
