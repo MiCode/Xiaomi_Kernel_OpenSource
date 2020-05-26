@@ -714,7 +714,7 @@ int get_md_cache_region_info(int region_id, unsigned int *buf_base,
 void __iomem *ccci_map_phy_addr(phys_addr_t phy_addr, unsigned int size);
 unsigned int get_mtee_is_enabled(void);
 int mtk_ccci_request_port(char *name);
-int mtk_ccci_send_data(int index, char *buf, int size);
+int mtk_ccci_send_data(int index, const char *buf, int size);
 int mtk_ccci_read_data(int index, char *buf, size_t count);
 int mtk_ccci_open_port(int index);
 int mtk_ccci_release_port(int index);

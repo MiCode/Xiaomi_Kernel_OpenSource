@@ -359,7 +359,7 @@ int register_udc_functions(unsigned int id, void *f)
 		return register_udc_func_udc_GetCmpLen(func);
 	}
 	default:
-		pr_notice("udc func id %d not found\n", id);
+		pr_notice("udc func id %u not found\n", id);
 		return -1;
 	}
 }
@@ -380,7 +380,7 @@ void my_free(void *my_param, void *ptr)
 void *my_malloc(void *my_param, unsigned int size, unsigned int count)
 {
 	struct udc_private_data *p = (struct udc_private_data *)my_param;
-	unsigned char *ptr;
+	unsigned char *ptr = NULL;
 
 	if (p == NULL)
 		return NULL;
@@ -400,6 +400,10 @@ int udc_init(struct z_stream_s *zcpr, struct udc_private_data *my_param)
 	my_param->used = 0;
 	ret = udc_QueryPara_cb(NULL, UDC_QUERY_WORKSPACE_SIZE, &my_param->size);
 	my_param->mem = vmalloc(my_param->size);
+	if (my_param->mem == NULL) {
+		pr_debug("%s:my_param->mem malloc fail\n", __func__);
+		return -1;
+	}
 
 	pr_debug("%s:alloc memory:%p\n",  __func__, my_param->mem);
 
