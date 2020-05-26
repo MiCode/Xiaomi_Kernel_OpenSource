@@ -65,7 +65,7 @@ int m4u_log_to_uart = 2;
 
 LIST_HEAD(pseudo_sglist);
 /* this is the mutex lock to protect mva_sglist->list*/
-static DEFINE_MUTEX(pseudo_list_mutex);
+static spinlock_t pseudo_list_lock;
 
 static const struct of_device_id mtk_pseudo_of_ids[] = {
 	{ .compatible = "mediatek,mt-pseudo_m4u",},
@@ -1230,37 +1230,33 @@ err_free:
 	return NULL;
 }
 
-struct sg_table *pseudo_find_sgtable(unsigned long mva)
+static struct sg_table *pseudo_find_sgtable(unsigned long mva)
 {
 	struct mva_sglist *entry;
 
-	mutex_lock(&pseudo_list_mutex);
-
 	list_for_each_entry(entry, &pseudo_sglist, list) {
 		if (entry->mva == mva) {
-			mutex_unlock(&pseudo_list_mutex);
-			M4U_DBG(" entry= 0x%lx, target=0x%lx\n",
-				entry->mva, mva);
 			return entry->table;
 		}
 	}
 
-	mutex_unlock(&pseudo_list_mutex);
 	return NULL;
 }
 
-struct sg_table *pseudo_add_sgtable(struct mva_sglist *mva_sg)
+static struct sg_table *pseudo_add_sgtable(struct mva_sglist *mva_sg)
 {
 	struct sg_table *table;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&pseudo_list_lock, flags);
 	table = pseudo_find_sgtable(mva_sg->mva);
-	if (table)
+	if (table) {
+		spin_unlock_irqrestore(&pseudo_list_lock, flags);
 		return table;
-
+	}
 	table = mva_sg->table;
-	mutex_lock(&pseudo_list_mutex);
 	list_add(&mva_sg->list, &pseudo_sglist);
-	mutex_unlock(&pseudo_list_mutex);
+	spin_unlock_irqrestore(&pseudo_list_lock, flags);
 
 	M4U_DBG("adding pseudo_sglist, mva = 0x%lx\n", mva_sg->mva);
 	return table;
@@ -1870,16 +1866,17 @@ int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 	return 0;
 }
 
-struct sg_table *pseudo_del_sgtable(unsigned long mva)
+static struct sg_table *pseudo_del_sgtable(unsigned long mva)
 {
 	struct mva_sglist *entry, *tmp;
 	struct sg_table *table = NULL;
+	unsigned long flags = 0;
 
-	mutex_lock(&pseudo_list_mutex);
+	spin_lock_irqsave(&pseudo_list_lock, flags);
 	list_for_each_entry_safe(entry, tmp, &pseudo_sglist, list) {
 		if (entry->mva == mva) {
 			list_del(&entry->list);
-			mutex_unlock(&pseudo_list_mutex);
+			spin_unlock_irqrestore(&pseudo_list_lock, flags);
 			table = entry->table;
 			M4U_DBG("mva is 0x%lx, entry->mva is 0x%lx\n",
 				mva, entry->mva);
@@ -1887,7 +1884,7 @@ struct sg_table *pseudo_del_sgtable(unsigned long mva)
 			return table;
 		}
 	}
-	mutex_unlock(&pseudo_list_mutex);
+	spin_unlock_irqrestore(&pseudo_list_lock, flags);
 
 	return NULL;
 }
@@ -3388,6 +3385,7 @@ static int pseudo_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	spin_lock_init(&pseudo_list_lock);
 	M4U_MSG("%s done\n", __func__);
 	return 0;
 }
