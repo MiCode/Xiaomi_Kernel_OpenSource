@@ -1933,7 +1933,7 @@ page_owner=on loop.max_part=7";
 		reg-names = "pmif", "pmifmpu", "spmimst";
 		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pmif_irq";
-		irq_event_en = <0x0 0x00180000 0x0 0x0 0x0>;
+		irq_event_en = <0x0 0x0 0x80000000 0x00180000 0x0>;
 #ifdef CONFIG_FPGA_EARLY_PORTING
 		clocks = <&clk26m>,
 			<&clk26m>,
