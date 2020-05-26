@@ -237,7 +237,7 @@ void MTKCalGpuUtilization(unsigned int *pui32Loading,
 	int utilisation, util_gl_share;
 	int util_cl_share[2];
 	int busy;
-	struct kbasep_pm_metrics *diff;
+	struct kbasep_pm_metrics *diff = NULL;
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 	struct GpuUtilization_Ex *util_ex =
 			(struct GpuUtilization_Ex *) Util_Ex;

@@ -3985,7 +3985,7 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 {
 	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
 	const struct list_head *dev_list;
-	struct kbase_context *wa_ctx;
+	struct kbase_context *wa_ctx = NULL;
 
 	if (!kbdev)
 		return -ENODEV;
@@ -4214,14 +4214,14 @@ static bool in_range(const u8 *base, const u8 *end, off_t off, size_t sz)
 
 static int load_workaround(struct kbase_device *kbdev)
 {
-	const struct firmware *firmware;
+	const struct firmware *firmware = NULL;
 	static const char wa_name[] = "valhall-1691526.wa";
 	const u32 signature = 0x4157;
 	const u32 version = 2;
-	const u8 *fw_end;
-	const u8 *fw;
-	const struct wa_header *header;
-	const struct wa_v2_info *v2_info;
+	const u8 *fw_end = NULL;
+	const u8 *fw = NULL;
+	const struct wa_header *header = NULL;
+	const struct wa_v2_info *v2_info = NULL;
 	u32 blob_offset;
 	int err;
 	struct kbase_context *kctx;
@@ -4287,11 +4287,11 @@ static int load_workaround(struct kbase_device *kbdev)
 	blob_offset = v2_info->blob_offset;
 
 	while (blob_offset) {
-		const struct wa_blob *blob;
+		const struct wa_blob *blob = NULL;
 		size_t nr_pages;
 		u64 flags;
 		u64 gpu_va;
-		struct kbase_va_region *va_region;
+		struct kbase_va_region *va_region = NULL;
 
 		if (!in_range(fw, fw_end, blob_offset, sizeof(*blob))) {
 			dev_err(kbdev->dev, "Blob offset out-of-range: 0x%lx\n",
@@ -4526,7 +4526,7 @@ int kbase_wa_execute(struct kbase_device *kbdev, u64 cores)
 
 static int kbase_platform_device_probe(struct platform_device *pdev)
 {
-	struct kbase_device *kbdev;
+	struct kbase_device *kbdev = NULL;
 	struct mali_base_gpu_core_props *core_props;
 	u32 gpu_id;
 	unsigned prod_id;

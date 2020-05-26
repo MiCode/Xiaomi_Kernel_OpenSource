@@ -43,7 +43,7 @@
 static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 {
 	struct list_head *entry;
-	const struct list_head *kbdev_list;
+	const struct list_head *kbdev_list = NULL;
 
 #ifdef ENABLE_MTK_MEMINFO
 	ssize_t mtk_kbase_gpu_meminfo_index;

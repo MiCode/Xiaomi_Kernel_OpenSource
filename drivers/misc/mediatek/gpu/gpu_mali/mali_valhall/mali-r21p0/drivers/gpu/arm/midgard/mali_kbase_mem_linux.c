@@ -1172,7 +1172,7 @@ int kbase_mem_umm_map(struct kbase_context *kctx,
 		struct kbase_va_region *reg)
 {
 	int err;
-	struct kbase_mem_phy_alloc *alloc;
+	struct kbase_mem_phy_alloc *alloc = NULL;
 	unsigned long gwt_mask = ~0;
 
 	lockdep_assert_held(&kctx->reg_lock);
@@ -2281,7 +2281,7 @@ static vm_fault_t kbase_cpu_vm_fault(struct vm_fault *vmf)
 	size_t nents;
 	struct tagged_addr *pages;
 	vm_fault_t ret = VM_FAULT_SIGBUS;
-	struct memory_group_manager_device *mgm_dev;
+	struct memory_group_manager_device *mgm_dev = NULL;
 
 	KBASE_DEBUG_ASSERT(map);
 	KBASE_DEBUG_ASSERT(map->count > 0);

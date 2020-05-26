@@ -131,8 +131,8 @@ KBASE_EXPORT_SYMBOL(kbase_gator_hwcnt_term_names);
 struct kbase_gator_hwcnt_handles *kbase_gator_hwcnt_init(struct kbase_gator_hwcnt_info *in_out_info)
 {
 	int errcode;
-	struct kbase_gator_hwcnt_handles *hand;
-	const struct kbase_hwcnt_metadata *metadata;
+	struct kbase_gator_hwcnt_handles *hand = NULL;
+	const struct kbase_hwcnt_metadata *metadata = NULL;
 	struct kbase_hwcnt_physical_enable_map phys_map;
 	uint32_t dump_size = 0, i = 0;
 	uint32_t nr_l2, nr_sc_bits, j;

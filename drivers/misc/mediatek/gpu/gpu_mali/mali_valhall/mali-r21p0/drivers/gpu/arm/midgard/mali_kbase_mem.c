@@ -1180,7 +1180,7 @@ int kbase_gpu_mmap(struct kbase_context *kctx, struct kbase_va_region *reg, u64 
 	unsigned long mask = ~KBASE_REG_MEMATTR_MASK;
 	unsigned long gwt_mask = ~0;
 	int group_id;
-	struct kbase_mem_phy_alloc *alloc;
+	struct kbase_mem_phy_alloc *alloc = NULL;
 
 #ifdef CONFIG_MALI_CINSTR_GWT
 	if (kctx->gwt_enabled)
@@ -3050,7 +3050,7 @@ static int kbase_jit_grow(struct kbase_context *kctx,
 	size_t delta;
 	size_t pages_required;
 	size_t old_size;
-	struct kbase_mem_pool *pool;
+	struct kbase_mem_pool *pool = NULL;
 	int ret = -ENOMEM;
 	struct tagged_addr *gpu_pages;
 	struct kbase_sub_alloc *prealloc_sas[2] = { NULL, NULL };
@@ -3852,7 +3852,7 @@ failed:
 static struct kbase_ctx_ext_res_meta *
 find_sticky_resource_meta(struct kbase_context *kctx, u64 gpu_addr)
 {
-	struct kbase_ctx_ext_res_meta *walker;
+	struct kbase_ctx_ext_res_meta *walker = NULL;
 
 	lockdep_assert_held(&kctx->reg_lock);
 
