@@ -2105,20 +2105,6 @@
   skb_tstamp_tx
   sk_free
   skip_spaces
-  slim_add_device
-  slim_change_val_element
-  slim_connect_sink
-  slim_connect_src
-  slim_control_ch
-  slim_define_ch
-  slim_disconnect_ports
-  slim_driver_register
-  slim_driver_unregister
-  slim_get_logical_addr
-  slim_get_slaveport
-  slim_query_ch
-  slim_remove_device
-  slim_request_val_element
   smp_call_function
   smp_call_function_single
   snd_ctl_add
