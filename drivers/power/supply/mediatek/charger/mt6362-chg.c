@@ -2802,7 +2802,7 @@ static int mt6362_chg_apply_pdata(struct mt6362_chg_data *data,
 		ret |= regmap_update_bits(data->regmap,
 					  sel_props[i].reg,
 					  sel_props[i].mask,
-					  *sel_props[i].val_ptr <<
+					  *(u8 *)sel_props[i].val_ptr <<
 							   sel_props[i].shift);
 	return ret;
 }
