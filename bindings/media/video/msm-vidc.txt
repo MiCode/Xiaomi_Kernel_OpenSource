@@ -7,6 +7,7 @@ Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
 	- "qcom,lahaina-vidc" : Invokes driver-specific data for LAHAINA.
+	- "qcom,shima-vidc" : Invokes driver-specific data for SHIMA.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
