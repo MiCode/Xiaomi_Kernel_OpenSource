@@ -1087,7 +1087,7 @@ static int ccu_release(struct inode *inode, struct file *flip)
 static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 {
 	unsigned long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	length = (vma->vm_end - vma->vm_start);
 	/*  */
@@ -1095,7 +1095,7 @@ static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 	pfn = vma->vm_pgoff << PAGE_SHIFT;
 
 	LOG_DBG
-	("CCU_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx)\n",
+	("CCU_mmap: vm_pgoff(0x%lx),pfn(0x%lx),phy(0x%lx)\n",
 	vma->vm_pgoff, pfn, vma->vm_pgoff << PAGE_SHIFT);
 	LOG_DBG
 	("vm_start(0x%lx),vm_end(0x%lx),length(0x%lx)\n",
@@ -1107,7 +1107,7 @@ static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 		if (length > PAGE_SIZE) {
 			LOG_ERR("mmap range error :");
 			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_HW_BASE(0x%x)!\n",
+		    ("module(0x%lx),length(0x%lx),CCU_HW_BASE(0x%x)!\n",
 		     pfn, length, 0x4000);
 			return -EAGAIN;
 		}
@@ -1115,7 +1115,7 @@ static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 		if (length > CCU_CAMSYS_SIZE) {
 			LOG_ERR("mmap range error :");
 			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_CAMSYS_BASE_HW(0x%x)!\n",
+		    ("module(0x%lx),length(0x%lx),CCU_CAMSYS_BASE_HW(0x%x)!\n",
 		     pfn, length, 0x4000);
 			return -EAGAIN;
 		}
@@ -1123,7 +1123,7 @@ static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 		if (length > CCU_PMEM_SIZE) {
 			LOG_ERR("mmap range error :");
 			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_PMEM_BASE_HW(0x%x)!\n",
+		    ("module(0x%lx),length(0x%lx),CCU_PMEM_BASE_HW(0x%x)!\n",
 		     pfn, length, 0x4000);
 			return -EAGAIN;
 		}
@@ -1131,7 +1131,7 @@ static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
 		if (length > CCU_DMEM_SIZE) {
 			LOG_ERR("mmap range error :");
 			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_PMEM_BASE_HW(0x%x)!\n",
+		    ("module(0x%lx),length(0x%lx),CCU_PMEM_BASE_HW(0x%x)!\n",
 		     pfn, length, 0x4000);
 			return -EAGAIN;
 		}
