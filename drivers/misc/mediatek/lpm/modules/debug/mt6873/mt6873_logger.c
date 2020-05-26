@@ -86,32 +86,14 @@ struct spm_wakesrc_irq_list mt6873_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_KP_IRQ_B, "mediatek,kp", 0, 0},
 	/* mt_wdt */
 	{ WAKE_SRC_STA1_APWDT_EVENT_B, "mediatek,toprgu", 0, 0},
-	/* BTCVSD_ISR_Handle */
+	/* btcvsd_int */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mtk-btcvsd-snd", 0, 0},
-	/* BTIF_WAKEUP_IRQ */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 0, 0},
-	/* BGF_SW_IRQ */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 1, 0},
-	/* wlan0 */
+	/* wf_hif_int */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
-	/* wlan0 */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 1, 0},
-	/* fm */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,fm", 0, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 0, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 1, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 2, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 3, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 4, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 5, 0},
-	/* gps */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-gps", 6, 0},
+	/* conn2ap_btif_wakeup_out */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-consys", 0, 0},
+	/* conn2ap_sw_irq */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-consys", 2, 0},
 	/* mt6358-irq */
 	{ WAKE_SRC_STA1_EINT_EVENT_B, "mediatek,apirq", 0, 0},
 	/* CCIF_AP_DATA */
