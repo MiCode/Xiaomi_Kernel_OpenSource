@@ -900,7 +900,7 @@ static int lcm_enable(struct drm_panel *panel)
 #define HFP (40)
 #define HSA (10)
 #define HBP (20)
-#define VFP (20)
+#define VFP (75)
 #define VSA (2)
 #define VBP (8)
 #define VAC (1920)
@@ -910,7 +910,7 @@ static u32 fake_width = 1080;
 static bool need_fake_resolution;
 
 static struct drm_display_mode default_mode = {
-	.clock = 163406,
+	.clock = 138345,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -994,7 +994,7 @@ static int lcm_get_virtual_width(void)
 
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 440,
-	.vfp_low_power = 620,
+	.vfp_low_power = 743,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
