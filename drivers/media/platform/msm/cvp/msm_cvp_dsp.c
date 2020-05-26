@@ -47,6 +47,7 @@ static int cvp_dsp_send_cmd_sync(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
 
 	dprintk(CVP_DSP, "%s: cmd = %d\n", __func__, cmd->type);
 
+	me->pending_dsp2cpu_rsp.type = cmd->type;
 	rc = cvp_dsp_send_cmd(cmd, len);
 	if (rc) {
 		dprintk(CVP_ERR, "%s: cvp_dsp_send_cmd failed rc=%d\n",
@@ -61,9 +62,8 @@ static int cvp_dsp_send_cmd_sync(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
 		goto exit;
 	}
 
-	me->pending_dsp2cpu_rsp.type = CVP_INVALID_RPMSG_TYPE;
-
 exit:
+	me->pending_dsp2cpu_rsp.type = CVP_INVALID_RPMSG_TYPE;
 	return rc;
 }
 
@@ -181,26 +181,22 @@ static int cvp_dsp_rpmsg_callback(struct rpmsg_device *rpdev,
 	struct cvp_dsp_rsp_msg *rsp = (struct cvp_dsp_rsp_msg *)data;
 	struct cvp_dsp_apps *me = &gfa_cv;
 
-	dprintk(CVP_DSP, "%s: type = 0x%x ret = 0x%x\n",
-		__func__, rsp->type, rsp->ret);
+	dprintk(CVP_DSP, "%s: type = 0x%x ret = 0x%x len = 0x%x\n",
+		__func__, rsp->type, rsp->ret, len);
 
-	if (rsp->type == CPU2DSP_SUSPEND ||
-		rsp->type == CPU2DSP_RESUME) {
-		me->pending_dsp2cpu_rsp.type = CVP_INVALID_RPMSG_TYPE;
-		return 0;
-	}
-
-	if (rsp->type < CPU2DSP_MAX_CMD) {
-		if (me->pending_dsp2cpu_rsp.type != CVP_INVALID_RPMSG_TYPE) {
+	if (rsp->type < CPU2DSP_MAX_CMD && len == sizeof(*rsp)) {
+		if (me->pending_dsp2cpu_rsp.type == rsp->type) {
+			memcpy(&me->pending_dsp2cpu_rsp, rsp,
+				sizeof(struct cvp_dsp_rsp_msg));
+			complete(&me->completions[rsp->type]);
+		} else {
 			dprintk(CVP_ERR, "%s: CPU2DSP resp %d, pending %d\n",
 					__func__, rsp->type,
 					me->pending_dsp2cpu_rsp.type);
 			goto exit;
 		}
-		memcpy(&me->pending_dsp2cpu_rsp, rsp,
-			sizeof(struct cvp_dsp_rsp_msg));
-		complete(&me->completions[rsp->type]);
-	} else if (rsp->type < CVP_DSP_MAX_CMD) {
+	} else if (rsp->type < CVP_DSP_MAX_CMD &&
+			len == sizeof(struct cvp_dsp2cpu_cmd_msg)) {
 		if (me->pending_dsp2cpu_cmd.type != CVP_INVALID_RPMSG_TYPE) {
 			dprintk(CVP_ERR, "%s: DSP2CPU cmd:%d pending %d\n",
 					__func__, rsp->type,
@@ -236,12 +232,11 @@ int cvp_dsp_suspend(uint32_t session_flag)
 		goto exit;
 
 	/* Use cvp_dsp_send_cmd_sync after dsp driver is ready */
-	rc = cvp_dsp_send_cmd(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed rc = %d\n",
 			__func__, rc);
-		me->state = DSP_UNINIT;
 		goto exit;
 	}
 
@@ -265,12 +260,11 @@ int cvp_dsp_resume(uint32_t session_flag)
 		goto exit;
 
 	/* Use cvp_dsp_send_cmd_sync after dsp driver is ready */
-	rc = cvp_dsp_send_cmd(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed rc = %d\n",
 			__func__, rc);
-		me->state = DSP_UNINIT;
 		goto exit;
 	}
 
@@ -338,7 +332,6 @@ int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
 	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
 	if (rc) {
 		dprintk(CVP_ERR, "%s send failed rc = %d\n", __func__, rc);
-		me->state = DSP_UNINIT;
 		goto exit;
 	}
 
@@ -376,7 +369,6 @@ int cvp_dsp_deregister_buffer(uint32_t session_id, uint32_t buff_fd,
 	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
 	if (rc) {
 		dprintk(CVP_ERR, "%s send failed rc = %d\n", __func__, rc);
-		me->state = DSP_UNINIT;
 		goto exit;
 	}
 
