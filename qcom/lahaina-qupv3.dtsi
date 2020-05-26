@@ -57,11 +57,13 @@
 			<GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,max-num-gpii = <12>;
-		qcom,gpii-mask = <0x7f>;
+		qcom,static-gpii-mask = <0x1>;
+		qcom,gpii-mask = <0x7e>;
 		qcom,ev-factor = <2>;
 		iommus = <&apps_smmu 0x5b6 0x0>;
 		qcom,gpi-ee-offset = <0x10000>;
 		qcom,iommu-dma-addr-pool = <0x100000 0x100000>;
+		qcom,le-vm;
 		status = "ok";
 	};
 
@@ -343,8 +345,8 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S4_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
-		dmas = <&gpi_dma0 0 4 3 64 0>,
-			<&gpi_dma0 1 4 3 64 0>;
+		dmas = <&gpi_dma0 0 4 3 64 2>,
+			<&gpi_dma0 1 4 3 64 2>;
 		dma-names = "tx", "rx";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se4_i2c_active>;
