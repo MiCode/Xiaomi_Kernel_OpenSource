@@ -607,7 +607,7 @@ int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
 int get_modem_support_cap(int md_id); /* Export by ccci util */
 int set_modem_support_cap(int md_id, int new_val);
 char *ccci_get_md_info_str(int md_id);
-void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[]);
+void get_md_postfix(int md_id, const char k[], char buf[], char buf_ex[]);
 void update_ccci_port_ver(unsigned int new_ver);
 int ccci_load_firmware(int md_id, void *img_inf, char img_err_str[],
 	char post_fix[], struct device *dev);
