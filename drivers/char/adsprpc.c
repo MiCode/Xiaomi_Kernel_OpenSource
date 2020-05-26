@@ -1657,9 +1657,6 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	if (i < FASTRPC_CTX_MAX && chan->ctxtable[i] == ctx) {
 		chan->ctxtable[i] = NULL;
 	} else {
-		ADSPRPC_WARN(
-			"encoded table ID %u is invalid (handle 0x%x, sc 0x%x)\n",
-			i, ctx->handle, ctx->sc);
 		for (i = 0; i < FASTRPC_CTX_MAX; i++) {
 			if (chan->ctxtable[i] == ctx) {
 				chan->ctxtable[i] = NULL;
