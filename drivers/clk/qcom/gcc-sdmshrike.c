@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1872,6 +1872,26 @@ static struct clk_branch gcc_aggre_noc_pcie_tbu_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_aggre_noc_pcie_tbu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_aggre_ufs_card_2_axi_clk = {
+	.halt_reg = 0xa20c0,
+	.halt_check = BRANCH_HALT,
+	.hwcg_reg = 0xa20c0,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0xa20c0,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_ufs_card_2_axi_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_card_2_axi_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3921,7 +3941,7 @@ static struct clk_branch gcc_ufs_card_2_phy_aux_clk = {
 
 static struct clk_branch gcc_ufs_card_2_rx_symbol_0_clk = {
 	.halt_reg = 0xa201c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xa201c,
 		.enable_mask = BIT(0),
@@ -3934,7 +3954,7 @@ static struct clk_branch gcc_ufs_card_2_rx_symbol_0_clk = {
 
 static struct clk_branch gcc_ufs_card_2_rx_symbol_1_clk = {
 	.halt_reg = 0xa20ac,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xa20ac,
 		.enable_mask = BIT(0),
@@ -3947,7 +3967,7 @@ static struct clk_branch gcc_ufs_card_2_rx_symbol_1_clk = {
 
 static struct clk_branch gcc_ufs_card_2_tx_symbol_0_clk = {
 	.halt_reg = 0xa2018,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0xa2018,
 		.enable_mask = BIT(0),
@@ -5079,6 +5099,7 @@ static struct clk_regmap *gcc_sdmshrike_clocks[] = {
 	[GPLL1] = &gpll1.clkr,
 	[GPLL4] = &gpll4.clkr,
 	[GPLL7] = &gpll7.clkr,
+	[GCC_AGGRE_UFS_CARD_2_AXI_CLK] = &gcc_aggre_ufs_card_2_axi_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_sdmshrike_resets[] = {

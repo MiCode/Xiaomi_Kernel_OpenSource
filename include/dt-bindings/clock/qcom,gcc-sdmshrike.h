@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,7 @@
 #define GCC_PCIE_3_CLKREF_CLK					246
 #define GCC_USB3_PRIM_CLKREF_CLK				247
 #define GCC_USB3_SEC_CLKREF_CLK					248
+#define GCC_AGGRE_UFS_CARD_2_AXI_CLK			249
 
 #define GCC_EMAC_BCR						0
 #define GCC_GPU_BCR							1
