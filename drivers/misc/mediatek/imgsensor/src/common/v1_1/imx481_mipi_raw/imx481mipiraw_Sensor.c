@@ -246,7 +246,7 @@ static struct imgsensor_struct imgsensor = {
 
 
 /* Sensor output window information */
-static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
+static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
 	{4656, 3496, 0, 0, 4656, 3496, 2328, 1748,
 	0000, 0000, 2328, 1748, 0, 0, 2328, 1746},	/*Preview*/
 	{4656, 3496, 0, 0, 4656, 3496, 4656, 3496,
@@ -259,6 +259,24 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*slim video*/
 };
 
+static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
+	/* Preview mode setting */
+	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x0918, 0x06d4, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
+	/* Capture mode setting */
+	{0x03, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x1230, 0x0da4, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
+	/* Video mode setting */
+	{0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x1230, 0x0a30, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
+	/* hs-video mode setting */
+	{0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,
+	 0x00, 0x2b, 0x0780, 0x0438, 0x00, 0x00, 0x0000, 0x0000,
+	 0x00, 0x00, 0x0000, 0x0000, 0x00, 0x00, 0x0000, 0x0000},
+};
 
 static kal_uint16 read_cmos_sensor(kal_uint32 addr)
 {
@@ -2122,7 +2140,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT32 *feature_data_32 = (UINT32 *) feature_para;
 	INT32 *feature_return_para_i32 = (INT32 *) feature_para;
 	unsigned long long *feature_data = (unsigned long long *)feature_para;
-
+	struct SENSOR_VC_INFO_STRUCT *pvcinfo;
 	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
 	struct SET_SENSOR_AWB_GAIN *pSetSensorAWB =
 		(struct SET_SENSOR_AWB_GAIN *) feature_para;
@@ -2396,6 +2414,38 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		/* margin info by scenario */
 		*(feature_data + 2) = imgsensor_info.margin;
 		break;
+	case SENSOR_FEATURE_GET_VC_INFO:
+	{
+		pr_debug("SENSOR_FEATURE_GET_VC_INFO %d\n",
+			(UINT16)*feature_data);
+		pvcinfo =
+		 (struct SENSOR_VC_INFO_STRUCT *)(uintptr_t)(*(feature_data+1));
+		switch (*feature_data_32) {
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[1],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[2],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[0],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[3],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		case MSDK_SCENARIO_ID_SLIM_VIDEO:
+			memcpy((void *)pvcinfo, (void *)&SENSOR_VC_INFO[3],
+				sizeof(struct SENSOR_VC_INFO_STRUCT));
+			break;
+		default:
+			break;
+		}
+		break;
+	}
 
 	default:
 		break;
