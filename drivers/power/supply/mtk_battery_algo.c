@@ -707,8 +707,7 @@ void fgr_construct_vboot(struct mtk_battery *gm, int table_idx)
 	algo = &gm->algo;
 	ptable = &gm->fg_table_cust_data;
 	pdata = &gm->fg_cust_data;
-	/* TODO */
-	/*ptim_i = get_ptim_i(gm); */
+	ptim_i = get_ptim_i(gm);
 	ptim_vbat = gauge_get_int_property(GAUGE_PROP_PTIM_BATTERY_VOLTAGE)
 		* 10;
 

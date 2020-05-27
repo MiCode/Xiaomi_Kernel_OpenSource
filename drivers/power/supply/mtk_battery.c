@@ -14,16 +14,19 @@
 #include <linux/kthread.h>	/* For Kthread_run */
 #include <linux/math64.h>
 #include <linux/module.h>	/* For MODULE_ marcros  */
+#include <linux/netlink.h>	/* netlink */
 #include <linux/of_fdt.h>	/*of_dt API*/
 #include <linux/of.h>
 #include <linux/platform_device.h>	/* platform device */
 #include <linux/proc_fs.h>
 #include <linux/reboot.h>	/*kernel_power_off*/
 #include <linux/sched.h>	/* For wait queue*/
-#include <linux/skbuff.h>
+#include <linux/skbuff.h>	/* netlink */
+#include <linux/socket.h>	/* netlink */
 #include <linux/time.h>
 #include <linux/vmalloc.h>
 #include <linux/wait.h>		/* For wait queue*/
+#include <net/sock.h>		/* netlink */
 #include "mtk_battery.h"
 #include "mtk_battery_table.h"
 
@@ -35,7 +38,8 @@ struct tag_bootmode {
 	u32 boottype;
 };
 
-int mtk_battery_daemon_init(struct platform_device *pdev)
+int __attribute__ ((weak))
+	mtk_battery_daemon_init(struct platform_device *pdev)
 {
 	struct mtk_battery *gm;
 	struct mtk_gauge *gauge;
@@ -44,7 +48,84 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	gm = gauge->gm;
 
 	gm->algo.active = true;
+	bm_err("[%s]: weak function,kernel algo=%d\n", __func__,
+		gm->algo.active);
 	return -EIO;
+}
+
+int __attribute__ ((weak))
+	wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
+{
+	return 0;
+}
+
+void __attribute__ ((weak))
+	fg_sw_bat_cycle_accu(struct mtk_battery *gm)
+{
+}
+
+void __attribute__ ((weak))
+	notify_fg_chr_full(struct mtk_battery *gm)
+{
+}
+
+void __attribute__ ((weak))
+	fg_drv_update_daemon(struct mtk_battery *gm)
+{
+}
+
+void enable_gauge_irq(struct mtk_gauge *gauge,
+	enum gauge_irq irq)
+{
+	struct irq_desc *desc;
+
+	if (irq >= GAUGE_IRQ_MAX)
+		return;
+
+	desc = irq_to_desc(gauge->irq_no[irq]);
+	bm_err("%s irq_no:%d:%d depth:%d\n",
+		__func__, irq, gauge->irq_no[irq],
+		desc->depth);
+	if (desc->depth == 1)
+		enable_irq(gauge->irq_no[irq]);
+}
+
+void disable_gauge_irq(struct mtk_gauge *gauge,
+	enum gauge_irq irq)
+{
+	struct irq_desc *desc;
+
+	if (irq >= GAUGE_IRQ_MAX)
+		return;
+
+	if (gauge->irq_no[irq] == 0)
+		return;
+
+	desc = irq_to_desc(gauge->irq_no[irq]);
+	bm_err("%s irq_no:%d:%d depth:%d\n",
+		__func__, irq, gauge->irq_no[irq],
+		desc->depth);
+	if (desc->depth == 0)
+		disable_irq_nosync(gauge->irq_no[irq]);
+}
+
+struct mtk_battery *get_mtk_battery(void)
+{
+	struct mtk_gauge *gauge;
+	struct power_supply *psy;
+
+	psy = power_supply_get_by_name("mtk-gauge");
+	if (psy == NULL) {
+		bm_err("[%s]psy is not rdy\n", __func__);
+		return NULL;
+	}
+
+	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
+	if (gauge == NULL) {
+		bm_err("[%s]mtk_gauge is not rdy\n", __func__);
+		return NULL;
+	}
+	return gauge->gm;
 }
 
 int bat_get_debug_level(void)
@@ -65,6 +146,16 @@ int bat_get_debug_level(void)
 	return gm->log_level;
 }
 
+bool is_algo_active(struct mtk_battery *gm)
+{
+	return gm->algo.active;
+}
+
+int fgauge_get_profile_id(void)
+{
+	return 0;
+}
+
 int wakeup_fg_algo_cmd(
 	struct mtk_battery *gm, unsigned int flow_state, int cmd, int para1)
 {
@@ -74,8 +165,10 @@ int wakeup_fg_algo_cmd(
 		bm_err("FG daemon is disabled\n");
 		return -1;
 	}
-	if (gm->algo.active == true)
+	if (is_algo_active(gm) == true)
 		do_fg_algo(gm, flow_state);
+	else
+		wakeup_fg_daemon(flow_state, cmd, para1);
 
 	return 0;
 }
@@ -83,6 +176,34 @@ int wakeup_fg_algo_cmd(
 int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state)
 {
 	return wakeup_fg_algo_cmd(gm, flow_state, 0, 0);
+}
+
+bool is_recovery_mode(void)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_debug("%s, bootmdoe = %d\n", gm->bootmode);
+
+	/* RECOVERY_BOOT */
+	if (gm->bootmode == 2)
+		return true;
+
+	return false;
+}
+
+bool is_kernel_power_off_charging(void)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_debug("%s, bootmdoe = %d\n", gm->bootmode);
+
+	/* KERNEL_POWER_OFF_CHARGING_BOOT */
+	if (gm->bootmode == 8)
+		return true;
+
+	return false;
 }
 
 /* ============================================================ */
@@ -603,6 +724,8 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data = &gm->fg_cust_data;
 	fg_table_cust_data = &gm->fg_table_cust_data;
 
+	fgauge_get_profile_id();
+
 	fg_cust_data->versionID1 = FG_DAEMON_CMD_FROM_USER_NUMBER;
 	fg_cust_data->versionID2 = sizeof(gm->fg_cust_data);
 	fg_cust_data->versionID3 = FG_KERNEL_CMD_FROM_USER_NUMBER;
@@ -1043,7 +1166,7 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 	struct fuel_gauge_custom_data *fg_cust_data;
 	struct fuel_gauge_table_custom_data *fg_table_cust_data;
 
-	gm->battery_id = 0;
+	gm->battery_id = fgauge_get_profile_id();
 	bat_id = gm->battery_id;
 	fg_cust_data = &gm->fg_cust_data;
 	fg_table_cust_data = &gm->fg_table_cust_data;
@@ -1629,6 +1752,7 @@ int fg_coulomb_int_l_handler(struct mtk_battery *gm,
 
 	fg_coulomb = gauge_get_int_property(GAUGE_PROP_COULOMB);
 
+	fg_sw_bat_cycle_accu(gm);
 	gm->coulomb_int_ht = fg_coulomb + gm->coulomb_int_gap;
 	gm->coulomb_int_lt = fg_coulomb - gm->coulomb_int_gap;
 
@@ -1653,6 +1777,7 @@ int fg_bat_int2_h_handler(struct mtk_battery *gm,
 	bm_debug("[%s] car:%d ht:%d\n",
 		__func__,
 		fg_coulomb, gm->uisoc_int_ht_en);
+	fg_sw_bat_cycle_accu(gm);
 	wakeup_fg_algo(gm, FG_INTR_BAT_INT2_HT);
 	return 0;
 }
@@ -1666,6 +1791,7 @@ int fg_bat_int2_l_handler(struct mtk_battery *gm,
 	bm_debug("[%s] car:%d ht:%d\n",
 		__func__,
 		fg_coulomb, gm->uisoc_int_lt_gap);
+	fg_sw_bat_cycle_accu(gm);
 	wakeup_fg_algo(gm, FG_INTR_BAT_INT2_LT);
 	return 0;
 }
@@ -1886,6 +2012,8 @@ static int reset_set(struct mtk_battery *gm,
 	if (gm->disableGM30)
 		return 0;
 
+	/* must handle sw_ncar before reset car */
+	fg_sw_bat_cycle_accu(gm);
 	gm->bat_cycle_car = 0;
 	car = gauge_get_int_property(GAUGE_PROP_COULOMB);
 	gm->log.car_diff += car;
@@ -2110,6 +2238,8 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 		gm->ntc_disable_nafg, gm->cmd_disable_nafg,
 		gm->bootmode);
 
+	fg_drv_update_daemon(gm);
+
 	/* kernel mode need regular update info */
 	if (gm->algo.active == true)
 		battery_update(gm);
@@ -2299,6 +2429,7 @@ int disable_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 
 	sdc = &gm->sdc;
 	now_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+	now_is_kpoc = is_kernel_power_off_charging();
 
 /* todo: can not get charger status now */
 /*	if (mt_get_charger_type() != CHARGER_UNKNOWN)*/
@@ -2345,6 +2476,7 @@ int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 #endif
 
 	now_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+	now_is_kpoc = is_kernel_power_off_charging();
 	vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
 	sdc = &gm->sdc;
 	sds = &gm->sdc.shutdown_status;
@@ -2771,7 +2903,6 @@ int battery_psy_init(struct platform_device *pdev)
 		return ret;
 	}
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
-
 	return 0;
 }
 
@@ -2853,6 +2984,7 @@ int battery_init(struct platform_device *pdev)
 	mtk_power_misc_init(gm);
 
 	ret = mtk_battery_daemon_init(pdev);
+	b_recovery_mode = is_recovery_mode();
 
 	if (ret == 0 && b_recovery_mode == 0)
 		bm_err("[%s]: daemon mode DONE\n", __func__);

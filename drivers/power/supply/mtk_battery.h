@@ -946,6 +946,10 @@ extern void gauge_coulomb_after_reset(struct mtk_battery *gm);
 /* coulomb sub system end */
 
 /*mtk_battery.c */
+extern void enable_gauge_irq(struct mtk_gauge *gauge,
+	enum gauge_irq irq);
+extern void disable_gauge_irq(struct mtk_gauge *gauge,
+	enum gauge_irq irq);
 extern int bat_get_debug_level(void);
 extern int force_get_tbat(struct mtk_battery *gm, bool update);
 extern int force_get_tbat_internal(struct mtk_battery *gm, bool update);
@@ -960,17 +964,22 @@ extern int gauge_set_property(enum gauge_property gp,
 			    int val);
 extern int battery_init(struct platform_device *pdev);
 extern int battery_psy_init(struct platform_device *pdev);
+extern struct mtk_battery *get_mtk_battery(void);
 extern int battery_get_property(enum battery_property bp, int *val);
 extern int battery_get_int_property(enum battery_property bp);
 extern int battery_set_property(enum battery_property bp, int val);
 extern void battery_update(struct mtk_battery *gm);
 extern bool fg_interrupt_check(struct mtk_battery *gm);
 extern void fg_nafg_monitor(struct mtk_battery *gm);
+extern bool is_algo_active(struct mtk_battery *gm);
 extern int disable_shutdown_cond(struct mtk_battery *gm, int shutdown_cond);
 extern int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond);
 extern bool is_kernel_power_off_charging(void);
 extern void set_shutdown_vbat_lt(struct mtk_battery *gm,
 	int vbat_lt, int vbat_lt_lv1);
+extern void fg_sw_bat_cycle_accu(struct mtk_battery *gm);
+extern void notify_fg_chr_full(struct mtk_battery *gm);
+extern int fgauge_get_profile_id(void);
 extern void disable_fg(struct mtk_battery *gm);
 extern int get_shutdown_cond(struct mtk_battery *gm);
 extern int get_shutdown_cond_flag(struct mtk_battery *gm);

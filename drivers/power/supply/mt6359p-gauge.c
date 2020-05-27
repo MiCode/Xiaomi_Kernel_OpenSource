@@ -9,12 +9,16 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqdesc.h>
-#include <linux/mfd/mt6397/core.h>/* PMIC MFD core header */
+#include <linux/mfd/mt6397/core.h>
 #include <linux/mfd/mt6359p/registers.h>
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
+#include <linux/socket.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <net/sock.h>
 #include "mtk_battery.h"
 #include "mtk_gauge.h"
 
@@ -32,96 +36,76 @@
 #define R_VAL_TEMP_3			(35)
 
 #define UNIT_TIME			(50)
-/* IAVG LSB: 305.176 uA */
 #define UNIT_FG_IAVG			(305176)
-/* 5mm ohm */
+/* IAVG LSB: 305.176 uA */
 #define DEFAULT_R_FG			(50)
-/* CHARGE_LSB = 0.085 uAh */
+/* 5mm ohm */
 #define UNIT_FGCAR_ZCV			(85)
+/* CHARGE_LSB = 0.085 uAh */
 
 #define VOLTAGE_FULL_RANGES		1800
-#define ADC_PRECISE			32768	/* 15 bits */
+#define ADC_PRECISE				32768	/* 15 bits */
 
-/*coulomb interrupt lsb might be different with coulomb lsb */
 #define CAR_TO_REG_SHIFT		(5)
+/*coulomb interrupt lsb might be different with coulomb lsb */
 #define CAR_TO_REG_FACTOR		(0x2E14)
+/* 1000 * 1000 / CHARGE_LSB */
+#define UNIT_FGCAR				(174080)
 /* CHARGE_LSB 0.085 * 2^11 */
-#define UNIT_FGCAR			(174080)
 
-static signed int reg_to_mv_value(signed int reg)
+void __attribute__ ((weak))
+	mtk_battery_netlink_handler(struct sk_buff *skb)
 {
-	long long reg64 = reg;
+}
+
+static signed int reg_to_mv_value(signed int _reg)
+{
+	long long _reg64 = _reg;
 	int ret;
 
-	reg64 = div_s64(reg64 * VOLTAGE_FULL_RANGES
+#if defined(__LP64__) || defined(_LP64)
+	_reg64 = (_reg64 * VOLTAGE_FULL_RANGES
+		* R_VAL_TEMP_3) / ADC_PRECISE;
+#else
+	_reg64 = div_s64(_reg64 * VOLTAGE_FULL_RANGES
 		* R_VAL_TEMP_3, ADC_PRECISE);
-
-	ret = reg64;
-
+#endif
+	ret = _reg64;
+	bm_debug("[%s] %lld => %d\n",
+		__func__, _reg64, ret);
 	return ret;
 }
 
-static signed int mv_to_reg_value(signed int mv)
+static signed int mv_to_reg_value(signed int _mv)
 {
 	int ret;
-	long long reg64 = mv;
-
-	reg64 = div_s64((reg64 * ADC_PRECISE), (VOLTAGE_FULL_RANGES
+	long long _reg64 = _mv;
+#if defined(__LP64__) || defined(_LP64)
+	_reg64 = (_reg64 * ADC_PRECISE) / (VOLTAGE_FULL_RANGES
+		* R_VAL_TEMP_3);
+#else
+	_reg64 = div_s64((_reg64 * ADC_PRECISE), (VOLTAGE_FULL_RANGES
 		* R_VAL_TEMP_3));
-	ret = reg64;
+#endif
+	ret = _reg64;
 
 	if (ret <= 0) {
 		bm_err(
 			"[fg_bat_nafg][%s] mv=%d,%lld => %d,\n",
-			__func__, mv, reg64, ret);
+			__func__, _mv, _reg64, ret);
 		return ret;
 	}
 
-	bm_debug("[%s] mv=%d,%lld => %d,\n", __func__, mv, reg64, ret);
+	bm_debug("[%s] mv=%d,%lld => %d,\n", __func__, _mv, _reg64, ret);
 	return ret;
 }
 
-static int mv_to_reg_12_temp_value(signed int reg)
+static int mv_to_reg_12_temp_value(signed int _reg)
 {
-	int ret = (reg * 4096) / (VOLTAGE_FULL_RANGES * R_VAL_TEMP_2);
+	int ret = (_reg * 4096) / (VOLTAGE_FULL_RANGES * R_VAL_TEMP_2);
 
-	bm_debug("[%s] %d => %d\n", __func__, reg, ret);
+	bm_debug("[%s] %d => %d\n", __func__, _reg, ret);
 	return ret;
-}
-
-static void enable_gauge_irq(struct mtk_gauge *gauge,
-	enum gauge_irq irq)
-{
-	struct irq_desc *desc;
-
-	if (irq >= GAUGE_IRQ_MAX)
-		return;
-
-	desc = irq_to_desc(gauge->irq_no[irq]);
-	bm_err("%s irq_no:%d:%d depth:%d\n",
-		__func__, irq, gauge->irq_no[irq],
-		desc->depth);
-	if (desc->depth == 1)
-		enable_irq(gauge->irq_no[irq]);
-}
-
-static void disable_gauge_irq(struct mtk_gauge *gauge,
-	enum gauge_irq irq)
-{
-	struct irq_desc *desc;
-
-	if (irq >= GAUGE_IRQ_MAX)
-		return;
-
-	if (gauge->irq_no[irq] == 0)
-		return;
-
-	desc = irq_to_desc(gauge->irq_no[irq]);
-	bm_err("%s irq_no:%d:%d depth:%d\n",
-		__func__, irq, gauge->irq_no[irq],
-		desc->depth);
-	if (desc->depth == 0)
-		disable_irq_nosync(gauge->irq_no[irq]);
 }
 
 static void pre_gauge_update(struct mtk_gauge *gauge)
@@ -3247,6 +3231,32 @@ static int mt6359_gauge_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtk_gauge_netlink_handler(struct sk_buff *skb)
+{
+	mtk_battery_netlink_handler(skb);
+}
+
+int bat_create_netlink(struct platform_device *pdev)
+{
+	struct mtk_gauge *gauge;
+	struct netlink_kernel_cfg cfg = {
+		.input = mtk_gauge_netlink_handler,
+	};
+
+	gauge = dev_get_drvdata(&pdev->dev);
+	gauge->gm->mtk_battery_sk =
+		netlink_kernel_create(&init_net, NETLINK_FGD, &cfg);
+
+	if (gauge->gm->mtk_battery_sk == NULL) {
+		bm_err("netlink_kernel_create error\n");
+		return -EIO;
+	}
+
+	bm_err("[%s]netlink_kernel_create protol= %d\n",
+		__func__, NETLINK_FGD);
+
+	return 0;
+}
 
 static int mt6359_gauge_probe(struct platform_device *pdev)
 {
@@ -3350,6 +3360,7 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 			&gauge->psy_cfg);
 	gauge_sysfs_create_group(gauge);
 
+	bat_create_netlink(pdev);
 	battery_init(pdev);
 
 	bm_err("%s: done\n", __func__);
