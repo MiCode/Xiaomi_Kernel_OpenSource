@@ -73,4 +73,10 @@ config MTK_MBOX
 	  or 256 bytes SRAM and 32 bit irq. The driver does read/write
 	  SRAM and IRQ handling.
 
+menu "Security"
+
+source "drivers/soc/mediatek/devapc/Kconfig"
+
+endmenu # Security
+
 endmenu
