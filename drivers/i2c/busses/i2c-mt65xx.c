@@ -215,10 +215,9 @@ struct mtk_i2c_compatible {
 	unsigned char timing_adjust: 1;
 	unsigned char dma_sync: 1;
 	unsigned char ltiming_adjust: 1;
+	unsigned char dma_ver;
 	unsigned char apdma_sync: 1;
 	unsigned char max_dma_support;
-	unsigned char dma_ver;
-	unsigned int max_dma_support;
 };
 
 struct mtk_i2c_ac_timing {
@@ -422,6 +421,7 @@ static const struct mtk_i2c_compatible mt6873_compat = {
 	.dma_ver = 1,
 	.max_dma_support = 36,
 };
+
 static const struct of_device_id mtk_i2c_of_match[] = {
 	{ .compatible = "mediatek,mt2712-i2c", .data = &mt2712_compat },
 	{ .compatible = "mediatek,mt6577-i2c", .data = &mt6577_compat },
@@ -863,6 +863,10 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	if (i2c->op == I2C_MASTER_WRRD)
 		control_reg |= I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS;
 
+	control_reg |= I2C_CONTROL_DMA_EN;
+	if (i2c->dev_comp->dma_sync)
+		control_reg |= I2C_CONTROL_DMAACK_EN | I2C_CONTROL_ASYNC_MODE;
+
 	mtk_i2c_writew(i2c, control_reg, OFFSET_CONTROL);
 
 	addr_reg = i2c_8bit_addr_from_msg(msgs);
@@ -977,8 +981,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			return -ENOMEM;
 		}
 
-		if ((i2c->dev_comp->support_33bits) ||
-				(i2c->dev_comp->max_dma_support > 32)) {
+		if (i2c->dev_comp->max_dma_support > 32) {
 			reg_4g_mode = upper_32_bits(wpaddr);
 			writel(reg_4g_mode, i2c->pdmabase + OFFSET_TX_4G_MODE);
 		}
