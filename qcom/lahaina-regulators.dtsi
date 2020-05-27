@@ -624,13 +624,16 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l6>;
 		L6C: pm8350c_l6: regulator-pm8350c-l6 {
 			regulator-name = "pm8350c_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2960000>;
-			qcom,init-voltage = <1800000>;
+			qcom,init-voltage = <2960000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <22000>;
 		};
 	};
 
@@ -678,6 +681,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l9>;
 		L9C: pm8350c_l9: regulator-pm8350c-l9 {
 			regulator-name = "pm8350c_l9";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -685,6 +689,8 @@
 			regulator-max-microvolt = <3008000>;
 			qcom,init-voltage = <2960000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <800000>;
 		};
 	};
 
