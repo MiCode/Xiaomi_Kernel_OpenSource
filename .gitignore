@@ -153,4 +153,5 @@ arch/*/configs/vendor/*-qgki_defconfig
 arch/*/configs/vendor/*-qgki-debug_defconfig
 
 # vendor device tree directories
-arch/arm64/boot/dts/vendor/
+arch/arm64/boot/dts/vendor
+arch/arm/boot/dts/vendor
