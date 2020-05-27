@@ -280,7 +280,7 @@ static void __cam_isp_ctx_dump_list(struct list_head *p_list)
 	list_for_each_entry_safe(req, req_temp,
 			p_list, list){
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-		CAM_WARN(CAM_ISP, "= req %d sts %d sync %d (bbl %d %d %d)",
+		CAM_DBG(CAM_ISP, "= req %d sts %d sync %d (bbl %d %d %d)",
 				req->request_id, req->status,
 				req_isp->fence_map_out[0].sync_id,
 				req_isp->bubble_detected,
@@ -291,16 +291,16 @@ static void __cam_isp_ctx_dump_list(struct list_head *p_list)
 
 static void __cam_isp_ctx_dump_lists(struct cam_context *ctx)
 {
-	CAM_WARN(CAM_ISP, "== DUMP ACTIVE LIST ==");
+	CAM_DBG(CAM_ISP, "== DUMP ACTIVE LIST ==");
 	__cam_isp_ctx_dump_list(&ctx->active_req_list);
 
-	CAM_WARN(CAM_ISP, "== DUMP PENDING LIST ==");
+	CAM_DBG(CAM_ISP, "== DUMP PENDING LIST ==");
 	__cam_isp_ctx_dump_list(&ctx->pending_req_list);
 
-	CAM_WARN(CAM_ISP, "== DUMP WAIT LIST ==");
+	CAM_DBG(CAM_ISP, "== DUMP WAIT LIST ==");
 	__cam_isp_ctx_dump_list(&ctx->wait_req_list);
 
-	CAM_WARN(CAM_ISP, "== DUMP FREE LIST ==");
+	CAM_DBG(CAM_ISP, "== DUMP FREE LIST ==");
 	__cam_isp_ctx_dump_list(&ctx->free_req_list);
 }
 
@@ -756,7 +756,7 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 
 		for (j = 0; j < req_isp->num_fence_map_out; j++) {
-			CAM_ERR(CAM_ISP,
+			CAM_DBG(CAM_ISP,
 				"Sync with failure: req %lld res 0x%x fd 0x%x, ctx %u",
 				req->request_id,
 				req_isp->fence_map_out[j].resource_handle,
@@ -1565,7 +1565,7 @@ end:
 
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 
-			CAM_ERR(CAM_ISP,
+			CAM_DBG(CAM_ISP,
 				"Sync with failure: req %lld res 0x%x fd 0x%x, ctx %u",
 				req->request_id,
 				req_isp->fence_map_out[i].resource_handle,
@@ -2365,7 +2365,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
-				CAM_INFO(CAM_ISP, "Flush req 0x%llx, fence %d",
+				CAM_DBG(CAM_ISP, "Flush req 0x%llx, fence %d",
 					 req->request_id,
 					req_isp->fence_map_out[i].sync_id);
 				rc = cam_sync_signal(
@@ -2817,7 +2817,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 		CAM_DBG(CAM_ISP, "signal fence in active list. req %lld",
 				req->request_id);
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
-			CAM_ERR(CAM_ISP,
+			CAM_DBG(CAM_ISP,
 				"Sync with failure: req %lld res 0x%x fd 0x%x, ctx %u",
 				req->request_id,
 				req_isp->fence_map_out[i].resource_handle,
