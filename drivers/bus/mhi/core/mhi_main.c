@@ -1484,13 +1484,10 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	spin_unlock_bh(&mhi_event->lock);
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
 	ret = mhi_device_get_sync(mhi_cntrl->mhi_dev,
 				  MHI_VOTE_DEVICE | MHI_VOTE_BUS);
-	if (ret) {
-		atomic_dec(&mhi_cntrl->pending_pkts);
+	if (ret)
 		goto exit_bw_scale_process;
-	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -1508,7 +1505,6 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	mhi_device_put(mhi_cntrl->mhi_dev, MHI_VOTE_DEVICE | MHI_VOTE_BUS);
-	atomic_dec(&mhi_cntrl->pending_pkts);
 
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
