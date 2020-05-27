@@ -11,7 +11,7 @@
 #include "kgsl_trace.h"
 
 static const struct of_device_id gmu_match_table[] = {
-	{ .compatible = "qcom,gpu-gmu", .data = &kgsl_gmu_driver },
+	{ .compatible = "qcom,gpu-gmu", .data = &a6xx_gmu_driver },
 	{ .compatible = "qcom,gpu-rgmu", .data = &kgsl_rgmu_driver },
 	{},
 };

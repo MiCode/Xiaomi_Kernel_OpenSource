@@ -9,7 +9,6 @@ msm_kgsl-y = \
 	kgsl_drawobj.o \
 	kgsl_events.o \
 	kgsl_ioctl.o \
-	kgsl_gmu.o \
 	kgsl_gmu_core.o \
 	kgsl_hfi.o \
 	kgsl_mmu.o \

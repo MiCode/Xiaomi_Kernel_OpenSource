@@ -127,7 +127,7 @@ u32 *kgsl_bus_get_table(struct platform_device *pdev,
 	if (num <= 0)
 		return ERR_PTR(-EINVAL);
 
-	levels = devm_kcalloc(&pdev->dev, num, sizeof(*levels), GFP_KERNEL);
+	levels = kcalloc(num, sizeof(*levels), GFP_KERNEL);
 	if (!levels)
 		return ERR_PTR(-ENOMEM);
 
@@ -171,6 +171,8 @@ done:
 	pwr->icc_path = of_icc_get(&pdev->dev, NULL);
 	if (IS_ERR(pwr->icc_path) && !gmu_core_scales_bandwidth(device)) {
 		WARN(1, "The CPU has no way to set the GPU bus levels\n");
+
+		kfree(pwr->ddr_table);
 		return PTR_ERR(pwr->icc_path);
 	}
 
@@ -181,5 +183,6 @@ done:
 
 void kgsl_bus_close(struct kgsl_device *device)
 {
+	kfree(device->pwrctrl.ddr_table);
 	icc_put(device->pwrctrl.icc_path);
 }

@@ -81,7 +81,6 @@ struct gmu_block_header {
 /* GMU memdesc entries */
 #define GMU_KERNEL_ENTRIES		16
 
-extern struct gmu_dev_ops adreno_a6xx_gmudev;
 #define KGSL_GMU_DEVICE(_a)  ((struct gmu_device *)((_a)->gmu_core.ptr))
 
 enum gmu_mem_type {
@@ -96,7 +95,7 @@ enum gmu_mem_type {
 };
 
 enum gmu_context_index {
-	GMU_CONTEXT_USER = 0,
+	GMU_CONTEXT_USER,
 	GMU_CONTEXT_KERNEL,
 };
 
@@ -207,13 +206,5 @@ struct gmu_device {
 	/** @cm3_fault: whether gmu received a cm3 fault interrupt */
 	atomic_t cm3_fault;
 };
-
-struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,
-		unsigned int addr, unsigned int size);
-unsigned int gmu_get_memtype_base(struct gmu_device *gmu,
-		enum gmu_mem_type type);
-
-int gmu_prealloc_req(struct kgsl_device *device, struct gmu_block_header *blk);
-int gmu_cache_finalize(struct kgsl_device *device);
 
 #endif /* __KGSL_GMU_H */
