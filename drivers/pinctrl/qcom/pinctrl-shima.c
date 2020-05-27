@@ -1861,6 +1861,11 @@ static const struct msm_pingroup shima_groups[] = {
 	[210] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d1000, 11, 3),
 	[211] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d1000, 9, 0),
 };
+
+static const int shima_reserved_gpios[] = {
+	24, 25, 26, 27, 40, 41, 42, 43, -1
+};
+
 static struct pinctrl_qup shima_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
 	QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
@@ -1892,6 +1897,7 @@ static const struct msm_pinctrl_soc_data shima_pinctrl = {
 	.nfunctions = ARRAY_SIZE(shima_functions),
 	.groups = shima_groups,
 	.ngroups = ARRAY_SIZE(shima_groups),
+	.reserved_gpios = shima_reserved_gpios,
 	.ngpios = 205,
 	.qup_regs = shima_qup_regs,
 	.nqup_regs = ARRAY_SIZE(shima_qup_regs),
