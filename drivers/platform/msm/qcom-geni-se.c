@@ -421,11 +421,7 @@ static int geni_se_ssr_notify_block(struct notifier_block *n,
 				"SSR notification before power down\n");
 		break;
 	case SUBSYS_AFTER_POWERUP:
-		if (dev->ssr.probe_completed)
-			geni_se_ssc_qup_up(dev);
-		else
-			dev->ssr.probe_completed = true;
-
+		geni_se_ssc_qup_up(dev);
 		GENI_SE_DBG(dev->log_ctx, false, NULL,
 				"SSR notification after power up\n");
 		break;
@@ -1196,7 +1192,7 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 
 	INIT_LIST_HEAD(&rsc->ab_list);
 	INIT_LIST_HEAD(&rsc->ib_list);
-	if (geni_se_dev->ssr.subsys_name && rsc->rsc_ssr.ssr_enable) {
+	if (geni_se_dev->ssr.subsys_name) {
 		INIT_LIST_HEAD(&rsc->rsc_ssr.active_list);
 		list_add(&rsc->rsc_ssr.active_list,
 				&geni_se_dev->ssr.active_list_head);
@@ -1979,7 +1975,6 @@ static int geni_se_probe(struct platform_device *pdev)
 			"qcom,subsys-name", &geni_se_dev->ssr.subsys_name);
 	if (!ret) {
 		INIT_LIST_HEAD(&geni_se_dev->ssr.active_list_head);
-		geni_se_dev->ssr.probe_completed = false;
 		ret = geni_se_ssc_qup_ssr_reg(geni_se_dev);
 		if (ret) {
 			dev_err(dev, "Unable to register SSR notification\n");

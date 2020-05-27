@@ -215,8 +215,8 @@ static int uart_line_id;
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
 static void msm_geni_serial_set_manual_flow(bool enable,
 				struct msm_geni_serial_port *port);
-static int msm_geni_serial_ssr_down(struct device *dev);
-static int msm_geni_serial_ssr_up(struct device *dev);
+static void msm_geni_serial_ssr_down(struct device *dev);
+static void msm_geni_serial_ssr_up(struct device *dev);
 
 #define GET_DEV_PORT(uport) \
 	container_of(uport, struct msm_geni_serial_port, uport)
@@ -3048,8 +3048,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	 * SSR functionalities are required for SSC QUP in
 	 * Automotive platform only
 	 */
-	dev_port->serial_rsc.rsc_ssr.ssr_enable = of_property_read_bool(
-			pdev->dev.of_node, "ssr-enable");
 	dev_port->serial_rsc.rsc_ssr.force_suspend =
 			msm_geni_serial_ssr_down;
 	dev_port->serial_rsc.rsc_ssr.force_resume =
@@ -3287,7 +3285,7 @@ static const struct dev_pm_ops msm_geni_serial_pm_ops = {
 	.thaw = msm_geni_serial_sys_hib_resume_noirq,
 };
 
-static int msm_geni_serial_ssr_down(struct device *dev)
+static void msm_geni_serial_ssr_down(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
@@ -3309,10 +3307,9 @@ static int msm_geni_serial_ssr_down(struct device *dev)
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Force suspend done\n", __func__);
 exit:
 	mutex_unlock(&port->uart_ssr.ssr_lock);
-	return ret;
 }
 
-static int msm_geni_serial_ssr_up(struct device *dev)
+static void msm_geni_serial_ssr_up(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
@@ -3322,7 +3319,6 @@ static int msm_geni_serial_ssr_up(struct device *dev)
 	port->port_setup = false;
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Force resume done\n", __func__);
 	mutex_unlock(&port->uart_ssr.ssr_lock);
-	return 0;
 }
 
 static struct platform_driver msm_geni_serial_platform_driver = {
