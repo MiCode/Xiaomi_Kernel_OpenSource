@@ -962,6 +962,7 @@
   get_unused_fd_flags
   get_user_pages
   get_vaddr_frames
+  get_vm_area
   get_zeroed_page
   gnss_allocate_device
   gnss_deregister_device
@@ -1137,6 +1138,7 @@
   ion_heap_unmap_kernel
   __ioread32_copy
   __ioremap
+  ioremap_page_range
   iounmap
   __iowrite32_copy
   ip_compute_csum
@@ -2403,6 +2405,7 @@
   unlock_new_inode
   unlock_page
   unlock_rename
+  unmap_kernel_range
   unmap_mapping_range
   unregister_binfmt
   unregister_blkdev
