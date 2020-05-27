@@ -179,6 +179,11 @@ enum msm_gpi_tre_type {
 #define MSM_GPI_RING_PHYS_ADDR_UPPER(ptr) 0
 #endif
 
+/* Static GPII */
+#define STATIC_GPII_BMSK (0x2)
+#define STATIC_GPII_SHFT (0x1)
+#define GPI_EV_PRIORITY_BMSK (0x1)
+
 /* cmds to perform by using dmaengine_slave_config() */
 enum msm_gpi_ctrl_cmd {
 	MSM_GPI_INIT,

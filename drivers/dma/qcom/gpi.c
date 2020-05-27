@@ -441,6 +441,7 @@ struct gpi_dev {
 	void *ee_base; /*ee register base address*/
 	u32 max_gpii; /* maximum # of gpii instances available per gpi block */
 	u32 gpii_mask; /* gpii instances available for apps */
+	u32 static_gpii_mask; /* gpii instances assigned statically */
 	u32 ev_factor; /* ev ring length factor */
 	u32 smmu_cfg;
 	dma_addr_t iova_base;
@@ -2777,14 +2778,17 @@ xfer_alloc_err:
 	return ret;
 }
 
-static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid)
+static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid,
+		bool static_gpii)
 {
 	int gpii;
 	struct gpii_chan *tx_chan, *rx_chan;
+	u32 gpii_mask =
+		static_gpii ? gpi_dev->static_gpii_mask : gpi_dev->gpii_mask;
 
 	/* check if same seid is already configured for another chid */
 	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
-		if (!((1 << gpii) & gpi_dev->gpii_mask))
+		if (!((1 << gpii) & gpii_mask))
 			continue;
 
 		tx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_TX_CHAN];
@@ -2798,7 +2802,7 @@ static int gpi_find_avail_gpii(struct gpi_dev *gpi_dev, u32 seid)
 
 	/* no channels configured with same seid, return next avail gpii */
 	for (gpii = 0; gpii < gpi_dev->max_gpii; gpii++) {
-		if (!((1 << gpii) & gpi_dev->gpii_mask))
+		if (!((1 << gpii) & gpii_mask))
 			continue;
 
 		tx_chan = &gpi_dev->gpiis[gpii].gpii_chan[GPI_TX_CHAN];
@@ -2823,8 +2827,9 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 {
 	struct gpi_dev *gpi_dev = (struct gpi_dev *)of_dma->of_dma_data;
 	u32 seid, chid;
-	int gpii;
+	int gpii, val;
 	struct gpii_chan *gpii_chan;
+	bool static_gpii;
 
 	if (args->args_count < REQ_OF_DMA_ARGS) {
 		GPI_ERR(gpi_dev,
@@ -2840,9 +2845,11 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	}
 
 	seid = args->args[1];
+	val = (args->args[4] & STATIC_GPII_BMSK) >> STATIC_GPII_SHFT;
+	static_gpii = (val == 1) ? true : false;
 
 	/* find next available gpii to use */
-	gpii = gpi_find_avail_gpii(gpi_dev, seid);
+	gpii = gpi_find_avail_gpii(gpi_dev, seid, static_gpii);
 	if (gpii < 0) {
 		GPI_ERR(gpi_dev, "no available gpii instances\n");
 		return NULL;
@@ -2859,7 +2866,7 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	gpii_chan->seid = seid;
 	gpii_chan->protocol = args->args[2];
 	gpii_chan->req_tres = args->args[3];
-	gpii_chan->priority = args->args[4];
+	gpii_chan->priority = args->args[4] & GPI_EV_PRIORITY_BMSK;
 
 	GPI_LOG(gpi_dev,
 		"client req. gpii:%u chid:%u #_tre:%u priority:%u protocol:%u\n",
@@ -2897,7 +2904,8 @@ static void gpi_setup_debug(struct gpi_dev *gpi_dev)
 	for (i = 0; i < gpi_dev->max_gpii; i++) {
 		struct gpii *gpii;
 
-		if (!((1 << i) & gpi_dev->gpii_mask))
+		if (!(((1 << i) & gpi_dev->gpii_mask)  ||
+				((1 << i) & gpi_dev->static_gpii_mask)))
 			continue;
 
 		gpii = &gpi_dev->gpiis[i];
@@ -2970,6 +2978,11 @@ static int gpi_probe(struct platform_device *pdev)
 	}
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node,
+		"qcom,static-gpii-mask", &gpi_dev->static_gpii_mask);
+	if (!ret)
+		GPI_LOG(gpi_dev, "static GPII usecase\n");
+
+	ret = of_property_read_u32(gpi_dev->dev->of_node,
 					"qcom,gpi-ee-offset", &gpi_ee_offset);
 	if (ret)
 		GPI_LOG(gpi_dev, "No variable ee offset present\n");
@@ -3011,7 +3024,8 @@ static int gpi_probe(struct platform_device *pdev)
 		struct gpii *gpii = &gpi_dev->gpiis[i];
 		int chan;
 
-		if (!((1 << i) & gpi_dev->gpii_mask))
+		if (!(((1 << i) & gpi_dev->gpii_mask)  ||
+				((1 << i) & gpi_dev->static_gpii_mask)))
 			continue;
 
 		/* set up ev cntxt register map */
@@ -3139,7 +3153,8 @@ static int gpi_remove(struct platform_device *pdev)
 		struct gpii *gpii = &gpi_dev->gpiis[i];
 		int chan;
 
-		if (!((1 << i) & gpi_dev->gpii_mask))
+		if (!(((1 << i) & gpi_dev->gpii_mask)  ||
+				((1 << i) & gpi_dev->static_gpii_mask)))
 			continue;
 
 		for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
