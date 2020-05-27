@@ -370,6 +370,19 @@
 			#clock-cells = <1>;
 		};
 
+		devapc: devapc@10207000 {
+			compatible = "mediatek,mt6873-devapc";
+			reg = <0 0x10207000 0 0x1000>,
+			      <0 0x10274000 0 0x1000>,
+			      <0 0x10275000 0 0x1000>,
+			      <0 0x11020000 0 0x1000>,
+			      <0 0x10030000 0 0x1000>,
+			      <0 0x1020e000 0 0x1000>;
+			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg CLK_INFRA_DEVICE_APC>;
+			clock-names = "devapc-infra-clock";
+		};
+
 		apdma: dma-controller@10217a80 {
 			compatible = "mediatek,mt6577-uart-dma";
 			reg =   <0 0x10217a80 0 0x80>,
