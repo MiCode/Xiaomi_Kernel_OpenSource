@@ -685,3 +685,10 @@ error_read:
 error_alloc_fw_table:
 	release_firmware(firmware);
 }
+
+void mhi_perform_soc_reset(struct mhi_controller *mhi_cntrl)
+{
+	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs,
+			     MHI_SOC_RESET_REQ_OFFSET,
+			     MHI_SOC_RESET_REQ);
+}
