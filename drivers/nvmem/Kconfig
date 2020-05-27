@@ -118,6 +118,16 @@ config MTK_DEVINFO
 	  This driver can also be built as a module. If so, the module
 	  will be called devinfo-mtk.
 
+config MT635X_EFUSE
+	tristate "Mediatek MT635x PMIC EFUSE Support"
+	depends on MFD_MT6397 || COMPILE_TEST
+	help
+	  This is a simple driver to dump specified values of Mediatek
+	  MT635X PMIC from EFUSE.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called nvmem-mt635x-efuse.
+
 config QCOM_QFPROM
 	tristate "QCOM QFPROM Support"
 	depends on ARCH_QCOM || COMPILE_TEST

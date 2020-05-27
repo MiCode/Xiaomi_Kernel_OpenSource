@@ -9,9 +9,12 @@
 /* PMIC Registers */
 #define MT6359P_SWCID                         0xa
 #define MT6359P_TOP_TRAP                      0x50
+#define MT6359P_TOP_CKPDN_CON0                0x10c
+#define MT6359P_TOP_CKHWEN_CON0               0x12a
 #define MT6359P_MISC_TOP_INT_CON0             0x188
 #define MT6359P_MISC_TOP_INT_STATUS0          0x194
 #define MT6359P_TOP_INT_STATUS0               0x19e
+#define MT6359P_OTP_CON0                      0x38a
 #define MT6359P_TOP_TMA_KEY                   0x3a8
 #define MT6359P_SCK_TOP_INT_CON0              0x528
 #define MT6359P_SCK_TOP_INT_STATUS0           0x534
