@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,7 +101,11 @@ static struct dp_pll_vco_clk dp_vco_clk = {
 };
 
 static struct clk_fixed_factor dp_phy_pll_link_clk = {
+#ifdef CONFIG_FB_MSM_MDSS
+	.div = 5,
+#else
 	.div = 10,
+#endif
 	.mult = 1,
 
 	.hw.init = &(struct clk_init_data){
@@ -416,10 +420,17 @@ int dp_config_vco_rate_14nm(struct dp_pll_vco_clk *vco,
 	MDSS_PLL_REG_W(dp_res->phy_base,
 		QSERDES_TX1_OFFSET + TXn_LANE_MODE_1, pdb->lane_mode_1);
 
-	if (pdb->orientation == ORIENTATION_CC2)
-		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc9);
-	else
-		MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd9);
+	if (pdb->orientation == ORIENTATION_CC2) {
+		if (dp_res->target_id == MDSS_PLL_TARGET_SDM660)
+			MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc8);
+		else
+			MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xc9);
+	} else {
+		if (dp_res->target_id == MDSS_PLL_TARGET_SDM660)
+			MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd8);
+		else
+			MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_MODE, 0xd9);
+	}
 	wmb(); /* make sure write happens */
 
 	/* TX Lane configuration */
