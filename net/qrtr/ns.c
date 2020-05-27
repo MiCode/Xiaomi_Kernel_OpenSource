@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2020, Linaro Ltd.
  */
+
+#define pr_fmt(fmt) "qrtr: %s(): " fmt, __func__
 
 #include <linux/module.h>
 #include <linux/qrtr.h>
@@ -149,8 +151,8 @@ static int service_announce_del(struct sockaddr_qrtr *dest,
 	msg.msg_namelen = sizeof(*dest);
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-	if (ret < 0)
-		pr_err("failed to announce del service\n");
+	if (ret < 0 && ret != -ENODEV)
+		pr_err("failed to announce del service %d\n", ret);
 
 	return ret;
 }
@@ -180,8 +182,8 @@ static void lookup_notify(struct sockaddr_qrtr *to, struct qrtr_server *srv,
 	msg.msg_namelen = sizeof(*to);
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-	if (ret < 0)
-		pr_err("failed to send lookup notification\n");
+	if (ret < 0 && ret != -ENODEV)
+		pr_err("failed to send lookup notification %d\n", ret);
 }
 
 static int announce_servers(struct sockaddr_qrtr *sq)
@@ -202,7 +204,10 @@ static int announce_servers(struct sockaddr_qrtr *sq)
 
 		ret = service_announce_new(sq, srv);
 		if (ret < 0) {
-			pr_err("failed to announce new service\n");
+			if (ret == -ENODEV)
+				continue;
+
+			pr_err("failed to announce new service %d\n", ret);
 			return ret;
 		}
 	}
@@ -286,9 +291,38 @@ static int server_del(struct qrtr_node *node, unsigned int port)
 	return 0;
 }
 
+static int say_hello(struct sockaddr_qrtr *dest)
+{
+	struct qrtr_ctrl_pkt pkt;
+	struct msghdr msg = { };
+	struct kvec iv;
+	int ret;
+
+	iv.iov_base = &pkt;
+	iv.iov_len = sizeof(pkt);
+
+	memset(&pkt, 0, sizeof(pkt));
+	pkt.cmd = cpu_to_le32(QRTR_TYPE_HELLO);
+
+	msg.msg_name = (struct sockaddr *)dest;
+	msg.msg_namelen = sizeof(*dest);
+
+	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
+	if (ret < 0)
+		pr_err("failed to send hello msg %d\n", ret);
+
+	return ret;
+}
+
 /* Announce the list of servers registered on the local node */
 static int ctrl_cmd_hello(struct sockaddr_qrtr *sq)
 {
+	int ret;
+
+	ret = say_hello(sq);
+	if (ret < 0)
+		return ret;
+
 	return announce_servers(sq);
 }
 
@@ -338,8 +372,8 @@ static int ctrl_cmd_bye(struct sockaddr_qrtr *from)
 		msg.msg_namelen = sizeof(sq);
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-		if (ret < 0) {
-			pr_err("failed to send bye cmd\n");
+		if (ret < 0 && ret != -ENODEV) {
+			pr_err("failed to send bye cmd %d\n", ret);
 			return ret;
 		}
 	}
@@ -413,8 +447,8 @@ static int ctrl_cmd_del_client(struct sockaddr_qrtr *from,
 		msg.msg_namelen = sizeof(sq);
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-		if (ret < 0) {
-			pr_err("failed to send del client cmd\n");
+		if (ret < 0 && ret != -ENODEV) {
+			pr_err("failed to send del client cmd %d\n", ret);
 			return ret;
 		}
 	}
@@ -448,7 +482,7 @@ static int ctrl_cmd_new_server(struct sockaddr_qrtr *from,
 	if (srv->node == qrtr_ns.local_node) {
 		ret = service_announce_new(&qrtr_ns.bcast_sq, srv);
 		if (ret < 0) {
-			pr_err("failed to announce new service\n");
+			pr_err("failed to announce new service %d\n", ret);
 			return ret;
 		}
 	}
@@ -566,29 +600,6 @@ static void ctrl_cmd_del_lookup(struct sockaddr_qrtr *from,
 	}
 }
 
-static int say_hello(void)
-{
-	struct qrtr_ctrl_pkt pkt;
-	struct msghdr msg = { };
-	struct kvec iv;
-	int ret;
-
-	iv.iov_base = &pkt;
-	iv.iov_len = sizeof(pkt);
-
-	memset(&pkt, 0, sizeof(pkt));
-	pkt.cmd = cpu_to_le32(QRTR_TYPE_HELLO);
-
-	msg.msg_name = (struct sockaddr *)&qrtr_ns.bcast_sq;
-	msg.msg_namelen = sizeof(qrtr_ns.bcast_sq);
-
-	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-	if (ret < 0)
-		pr_err("failed to send hello msg\n");
-
-	return ret;
-}
-
 static void qrtr_ns_worker(struct work_struct *work)
 {
 	const struct qrtr_ctrl_pkt *pkt;
@@ -687,7 +698,7 @@ static void qrtr_ns_data_ready(struct sock *sk)
 	queue_work(qrtr_ns.workqueue, &qrtr_ns.work);
 }
 
-void qrtr_ns_init(struct work_struct *work)
+void qrtr_ns_init(void)
 {
 	struct sockaddr_qrtr sq;
 	int ret;
@@ -725,7 +736,7 @@ void qrtr_ns_init(struct work_struct *work)
 	if (!qrtr_ns.workqueue)
 		goto err_sock;
 
-	ret = say_hello();
+	ret = say_hello(&qrtr_ns.bcast_sq);
 	if (ret < 0)
 		goto err_wq;
 
