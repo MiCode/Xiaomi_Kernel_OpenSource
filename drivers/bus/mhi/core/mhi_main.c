@@ -1211,7 +1211,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				 * event instead of sys error state change event
 				 */
 				if (mhi_cntrl->ee == MHI_EE_RDDM ||
-				    mhi_cntrl->rddm_image)
+				    mhi_cntrl->rddm_supported)
 					break;
 
 				MHI_ERR("MHI system error detected\n");

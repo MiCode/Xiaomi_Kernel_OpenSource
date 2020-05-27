@@ -856,7 +856,7 @@ void mhi_process_sys_err(struct mhi_controller *mhi_cntrl)
 	 * if controller supports rddm, we do not process sys error state,
 	 * instead we will jump directly to rddm state
 	 */
-	if (mhi_cntrl->rddm_image) {
+	if (mhi_cntrl->rddm_supported) {
 		MHI_CNTRL_LOG(
 			"Controller supports RDDM, skipping SYS_ERR_PROCESS\n");
 		return;
@@ -1719,6 +1719,10 @@ int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl)
 	MHI_CNTRL_LOG("Enter with pm_state:%s ee:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state),
 			TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	/* device does not support RDDM */
+	if (!mhi_cntrl->rddm_supported)
+		return -EINVAL;
 
 	/* device already in rddm */
 	if (mhi_cntrl->ee == MHI_EE_RDDM)
