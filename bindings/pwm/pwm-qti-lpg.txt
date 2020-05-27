@@ -125,6 +125,12 @@ parameters needs to be configured for that channel.
 		      1 - 511 when LUT module is used, and 8 - 2000 when SDAM
 		      is used.
 
+- qcom,tick-duration-us:
+	Usage: optional
+	Value type: <u32>
+	Definition: The tick duration in microseconds for PPG. If this property
+		      is not specified, a default value of 7800 will be used.
+
 - qcom,ramp-high-index:
 	Usage: required
 	Value type: <u32>
