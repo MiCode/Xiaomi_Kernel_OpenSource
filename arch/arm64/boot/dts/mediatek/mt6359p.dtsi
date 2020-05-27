@@ -341,5 +341,11 @@
 		mt6359prtc: mt6359prtc {
 			compatible = "mediatek,mt6359p-rtc";
 		};
+
+		pmic_efuse: pmic_efuse {
+			compatible = "mediatek,mt6359p-efuse";
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
 	};
 };
