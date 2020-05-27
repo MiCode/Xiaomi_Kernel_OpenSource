@@ -1154,16 +1154,22 @@ build_sched_groups(struct sched_domain *sd, int cpu)
 void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
 {
 	struct sched_group *sg = sd->groups;
+#ifdef CONFIG_SCHED_WALT
 	cpumask_t avail_mask;
+#endif
 
 	WARN_ON(!sg);
 
 	do {
 		int cpu, max_cpu = -1;
 
+#ifdef CONFIG_SCHED_WALT
 		cpumask_andnot(&avail_mask, sched_group_span(sg),
 							cpu_isolated_mask);
 		sg->group_weight = cpumask_weight(&avail_mask);
+#else
+		sg->group_weight = cpumask_weight(sched_group_span(sg));
+#endif
 
 		if (!(sd->flags & SD_ASYM_PACKING))
 			goto next;
