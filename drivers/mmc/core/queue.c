@@ -402,7 +402,7 @@ static void mmc_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 
 	init_waitqueue_head(&mq->wait);
 
-	if (host->cqe_ops->cqe_crypto_update_queue)
+	if (host->cqe_ops && host->cqe_ops->cqe_crypto_update_queue)
 		host->cqe_ops->cqe_crypto_update_queue(host, mq->queue);
 }
 
