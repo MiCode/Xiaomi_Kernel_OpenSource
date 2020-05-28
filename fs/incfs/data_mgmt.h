@@ -183,14 +183,7 @@ struct data_file {
 	/* File size in bytes */
 	loff_t df_size;
 
-	/* File header flags */
-	u32 df_header_flags;
-
-	/* File size in DATA_FILE_BLOCK_SIZE blocks */
-	int df_data_block_count;
-
-	/* Total number of blocks, data + hash */
-	int df_total_block_count;
+	int df_block_count; /* File size in DATA_FILE_BLOCK_SIZE blocks */
 
 	struct file_attr n_attr;
 
@@ -236,9 +229,6 @@ void incfs_free_dir_file(struct dir_file *dir);
 ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
 				   int index, int timeout_ms,
 				   struct mem_range tmp);
-
-int incfs_get_filled_blocks(struct data_file *df,
-			    struct incfs_get_filled_blocks_args *arg);
 
 int incfs_read_file_signature(struct data_file *df, struct mem_range dst);
 

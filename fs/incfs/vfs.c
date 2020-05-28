@@ -346,8 +346,8 @@ static int inode_test(struct inode *inode, void *opaque)
 
 		return (node->n_backing_inode == backing_inode) &&
 			inode->i_ino == search->ino;
-	} else
-		return inode->i_ino == search->ino;
+	}
+	return 1;
 }
 
 static int inode_set(struct inode *inode, void *opaque)
@@ -893,7 +893,6 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
 	}
 
 	bfc = incfs_alloc_bfc(new_file);
-	fput(new_file);
 	if (IS_ERR(bfc)) {
 		error = PTR_ERR(bfc);
 		bfc = NULL;
@@ -905,14 +904,25 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
 	if (error)
 		goto out;
 
+	block_count = (u32)get_blocks_count_for_size(size);
+	error = incfs_write_blockmap_to_backing_file(bfc, block_count, NULL);
+	if (error)
+		goto out;
+
+	/* This fill has data, reserve space for the block map. */
+	if (block_count > 0) {
+		error = incfs_write_blockmap_to_backing_file(
+			bfc, block_count, NULL);
+		if (error)
+			goto out;
+	}
+
 	if (attr.data && attr.len) {
 		error = incfs_write_file_attr_to_backing_file(bfc,
 							attr, NULL);
 		if (error)
 			goto out;
 	}
-
-	block_count = (u32)get_blocks_count_for_size(size);
 
 	if (user_signature_info) {
 		raw_signature = incfs_copy_signature_info_from_user(
@@ -935,16 +945,8 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
 			bfc, raw_signature, hash_tree->hash_tree_area_size);
 		if (error)
 			goto out;
-
-		block_count += get_blocks_count_for_size(
-			hash_tree->hash_tree_area_size);
 	}
 
-	if (block_count)
-		error = incfs_write_blockmap_to_backing_file(bfc, block_count);
-
-	if (error)
-		goto out;
 out:
 	if (bfc) {
 		mutex_unlock(&bfc->bc_mutex);
@@ -1434,27 +1436,6 @@ out:
 	return error;
 }
 
-static long ioctl_get_filled_blocks(struct file *f, void __user *arg)
-{
-	struct incfs_get_filled_blocks_args __user *args_usr_ptr = arg;
-	struct incfs_get_filled_blocks_args args = {};
-	struct data_file *df = get_incfs_data_file(f);
-	int error;
-
-	if (!df)
-		return -EINVAL;
-
-	if (copy_from_user(&args, args_usr_ptr, sizeof(args)) > 0)
-		return -EINVAL;
-
-	error = incfs_get_filled_blocks(df, &args);
-
-	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
-		return -EFAULT;
-
-	return error;
-}
-
 static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 {
 	struct mount_info *mi = get_mount_info(file_superblock(f));
@@ -1468,8 +1449,6 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
 		return ioctl_permit_fill(f, (void __user *)arg);
 	case INCFS_IOC_READ_FILE_SIGNATURE:
 		return ioctl_read_file_signature(f, (void __user *)arg);
-	case INCFS_IOC_GET_FILLED_BLOCKS:
-		return ioctl_get_filled_blocks(f, (void __user *)arg);
 	default:
 		return -EINVAL;
 	}
@@ -1676,7 +1655,6 @@ static int final_file_delete(struct mount_info *mi,
 	if (d_really_is_positive(index_file_dentry))
 		error = incfs_unlink(index_file_dentry);
 out:
-	dput(index_file_dentry);
 	if (error)
 		pr_debug("incfs: delete_file_from_index err:%d\n", error);
 	return error;
@@ -1979,7 +1957,6 @@ static void dentry_release(struct dentry *d)
 
 	if (di)
 		path_put(&di->backing_path);
-	kfree(d->d_fsdata);
 	d->d_fsdata = NULL;
 }
 
@@ -2191,7 +2168,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	path_put(&backing_dir_path);
 	sb->s_flags |= SB_ACTIVE;
 
-	pr_debug("incfs: mount\n");
+	pr_debug("infs: mount\n");
 	return dget(sb->s_root);
 err:
 	sb->s_fs_info = NULL;
@@ -2217,7 +2194,7 @@ static int incfs_remount_fs(struct super_block *sb, int *flags, char *data)
 		pr_debug("incfs: new timeout_ms=%d", options.read_timeout_ms);
 	}
 
-	pr_debug("incfs: remount\n");
+	pr_debug("infs: remount\n");
 	return 0;
 }
 
@@ -2225,7 +2202,7 @@ void incfs_kill_sb(struct super_block *sb)
 {
 	struct mount_info *mi = sb->s_fs_info;
 
-	pr_debug("incfs: unmount\n");
+	pr_debug("infs: unmount\n");
 	incfs_free_mount_info(mi);
 	generic_shutdown_super(sb);
 }

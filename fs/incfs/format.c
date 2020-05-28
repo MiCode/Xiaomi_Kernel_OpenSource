@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 
 #include "format.h"
-#include "data_mgmt.h"
 
 struct backing_file_context *incfs_alloc_bfc(struct file *backing_file)
 {
@@ -215,23 +214,12 @@ static int append_md_to_backing_file(struct backing_file_context *bfc,
 	return result;
 }
 
-int incfs_update_file_header_flags(struct backing_file_context *bfc, u32 flags)
-{
-	if (!bfc)
-		return -EFAULT;
-
-	return write_to_bf(bfc, &flags, sizeof(flags),
-			   offsetof(struct incfs_file_header,
-				    fh_file_header_flags),
-			   false);
-}
-
 /*
  * Reserve 0-filled space for the blockmap body, and append
  * incfs_blockmap metadata record pointing to it.
  */
 int incfs_write_blockmap_to_backing_file(struct backing_file_context *bfc,
-					 u32 block_count)
+				u32 block_count, loff_t *map_base_off)
 {
 	struct incfs_blockmap blockmap = {};
 	int result = 0;
@@ -257,9 +245,12 @@ int incfs_write_blockmap_to_backing_file(struct backing_file_context *bfc,
 	/* Write blockmap metadata record pointing to the body written above. */
 	blockmap.m_base_offset = cpu_to_le64(file_end);
 	result = append_md_to_backing_file(bfc, &blockmap.m_header);
-	if (result)
+	if (result) {
 		/* Error, rollback file changes */
 		truncate_backing_file(bfc, file_end);
+	} else if (map_base_off) {
+		*map_base_off = file_end;
+	}
 
 	return result;
 }
@@ -447,19 +438,12 @@ int incfs_write_data_block_to_backing_file(struct backing_file_context *bfc,
 }
 
 int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
-					   struct mem_range block,
-					   int block_index,
-					   loff_t hash_area_off,
-					   loff_t bm_base_off, int file_size)
+					struct mem_range block,
+					int block_index, loff_t hash_area_off)
 {
-	struct incfs_blockmap_entry bm_entry = {};
-	int result;
 	loff_t data_offset = 0;
 	loff_t file_end = 0;
-	loff_t bm_entry_off =
-		bm_base_off +
-		sizeof(struct incfs_blockmap_entry) *
-			(block_index + get_blocks_count_for_size(file_size));
+
 
 	if (!bfc)
 		return -EFAULT;
@@ -473,17 +457,7 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
 		return -EINVAL;
 	}
 
-	result = write_to_bf(bfc, block.data, block.len, data_offset, false);
-	if (result)
-		return result;
-
-	bm_entry.me_data_offset_lo = cpu_to_le32((u32)data_offset);
-	bm_entry.me_data_offset_hi = cpu_to_le16((u16)(data_offset >> 32));
-	bm_entry.me_data_size = cpu_to_le16(INCFS_DATA_FILE_BLOCK_SIZE);
-	bm_entry.me_flags = cpu_to_le16(INCFS_BLOCK_HASH);
-
-	return write_to_bf(bfc, &bm_entry, sizeof(bm_entry), bm_entry_off,
-			   false);
+	return write_to_bf(bfc, block.data, block.len, data_offset, false);
 }
 
 /* Initialize a new image in a given backing file. */
@@ -543,9 +517,10 @@ int incfs_read_blockmap_entries(struct backing_file_context *bfc,
 	return 0;
 }
 
+
 int incfs_read_file_header(struct backing_file_context *bfc,
 			   loff_t *first_md_off, incfs_uuid_t *uuid,
-			   u64 *file_size, u32 *flags)
+			   u64 *file_size)
 {
 	ssize_t bytes_read = 0;
 	struct incfs_file_header fh = {};
@@ -579,8 +554,6 @@ int incfs_read_file_header(struct backing_file_context *bfc,
 		*uuid = fh.fh_uuid;
 	if (file_size)
 		*file_size = le64_to_cpu(fh.fh_file_size);
-	if (flags)
-		*flags = le32_to_cpu(fh.fh_file_header_flags);
 	return 0;
 }
 
