@@ -1,0 +1,7 @@
+config MTK_CAMERA_ISP_DIP_SUPPORT
+	tristate "[DIP] Digital Image Process"
+	depends on MTK_CAMERA_ISP_SUPPORT
+	help
+	  Digital Image Process.
+	  digital computer process digital images
+	  through an algorithm.
