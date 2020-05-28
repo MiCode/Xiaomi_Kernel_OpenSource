@@ -3617,10 +3617,16 @@ static int gpiolib_seq_show(struct seq_file *s, void *v)
 		   dev_name(&gdev->dev),
 		   gdev->base, gdev->base + gdev->ngpio - 1);
 	parent = chip->parent;
-	if (parent)
+	if (parent) {
 		seq_printf(s, ", parent: %s/%s",
 			   parent->bus ? parent->bus->name : "no-bus",
 			   dev_name(parent));
+		if (strnstr(dev_name(parent), "lpi-pinctrl", strlen(dev_name(parent))) ||
+			   strnstr(dev_name(parent), "lpi_pinctrl", strlen(dev_name(parent)))) {
+			   seq_printf(s, ", chip->parent %s\n", dev_name(parent));
+			   return 0;
+		}
+	}
 	if (chip->label)
 		seq_printf(s, ", %s", chip->label);
 	if (chip->can_sleep)

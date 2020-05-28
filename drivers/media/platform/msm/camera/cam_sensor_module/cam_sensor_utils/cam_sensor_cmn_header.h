@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,8 +27,7 @@
 #define MAX_REGULATOR 5
 #define MAX_POWER_CONFIG 12
 
-#define MAX_PER_FRAME_ARRAY 32
-#define BATCH_SIZE_MAX      16
+#define MAX_PER_FRAME_ARRAY 33
 
 #define CAM_SENSOR_NAME    "cam-sensor"
 #define CAM_ACTUATOR_NAME  "cam-actuator"
@@ -132,7 +132,6 @@ enum sensor_sub_module {
 	SUB_MODULE_CSID,
 	SUB_MODULE_CSIPHY,
 	SUB_MODULE_OIS,
-	SUB_MODULE_IR_LED,
 	SUB_MODULE_EXT,
 	SUB_MODULE_MAX,
 };
@@ -320,9 +319,6 @@ enum msm_sensor_camera_id_t {
 	CAMERA_1,
 	CAMERA_2,
 	CAMERA_3,
-	CAMERA_4,
-	CAMERA_5,
-	CAMERA_6,
 	MAX_CAMERAS,
 };
 

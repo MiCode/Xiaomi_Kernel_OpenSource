@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,20 +51,21 @@
 		pm660l_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xc00>;
-			interrupts = <0x2 0xc2 0 IRQ_TYPE_NONE>,
+			interrupts = <0x2 0xc1 0 IRQ_TYPE_NONE>,
+					<0x2 0xc2 0 IRQ_TYPE_NONE>,
 					<0x2 0xc3 0 IRQ_TYPE_NONE>,
 					<0x2 0xc4 0 IRQ_TYPE_NONE>,
 					<0x2 0xc5 0 IRQ_TYPE_NONE>,
 					<0x2 0xc6 0 IRQ_TYPE_NONE>,
 					<0x2 0xc7 0 IRQ_TYPE_NONE>,
 					<0x2 0xc8 0 IRQ_TYPE_NONE>;
-			interrupt-names = "pm660l_gpio3", "pm660l_gpio4",
+			interrupt-names = "pm660l_gpio2","pm660l_gpio3", "pm660l_gpio4",
 					"pm660l_gpio5", "pm660l_gpio6",
 					"pm660l_gpio7", "pm660l_gpio8",
 					"pm660l_gpio9";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <1 2 10 11 12>;
+			qcom,gpios-disallowed = <1 10 11 12>;
 		};
 	};
 
@@ -230,10 +232,10 @@
 			pm660l_flash2: qcom,flash_2 {
 				label = "flash";
 				qcom,led-name = "led:flash_2";
-				qcom,max-current = <750>;
+				qcom,max-current = <1500>;
 				qcom,default-led-trigger = "flash2_trigger";
 				qcom,id = <2>;
-				qcom,current-ma = <500>;
+				qcom,current-ma = <1000>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
@@ -243,10 +245,10 @@
 			pm660l_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";
-				qcom,max-current = <500>;
+				qcom,max-current = <100>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -255,10 +257,10 @@
 			pm660l_torch1: qcom,torch_1 {
 				label = "torch";
 				qcom,led-name = "led:torch_1";
-				qcom,max-current = <500>;
+				qcom,max-current = <100>;
 				qcom,default-led-trigger = "torch1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -267,10 +269,10 @@
 			pm660l_torch2: qcom,torch_2 {
 				label = "torch";
 				qcom,led-name = "led:torch_2";
-				qcom,max-current = <500>;
+				qcom,max-current = <100>;
 				qcom,default-led-trigger = "torch2_trigger";
 				qcom,id = <2>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <100>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -288,6 +290,19 @@
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
+			};
+
+			pm660l_flashlight: qcom,flashlight {
+				label = "flash";
+				qcom,led-name = "flashlight";
+				qcom,max-current = <750>;
+				qcom,default-led-trigger = "flashlight_trigger";
+				qcom,id = <3>;
+				qcom,current-ma = <500>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 		};
 	};

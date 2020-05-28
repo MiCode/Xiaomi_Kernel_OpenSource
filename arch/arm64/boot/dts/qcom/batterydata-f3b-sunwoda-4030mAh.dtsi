@@ -1,0 +1,86 @@
+qcom,f3b_sunwoda_4030mAh {
+	qcom, = <24>;
+	/* #3905333_Xiaomi_F3B_SWD_3940mAH_PM670_FG_averaged_MasterSlave_Mar4th2019*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <3000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <4030>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <4250>;
+	qcom,battery-type = "f3b_sunwoda";
+	qcom,jeita-fcc-ranges = <0	50	375000
+				51	100	1150000
+				101	150	1950000
+				151	450	3000000
+				451	550	1950000>;
+	qcom,jeita-fv-ranges = <0	50	4400000
+				51	100	4400000
+				101	150	4400000
+				151	450	4400000
+				451	550	4100000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+				101  200  4380000
+				201  300  4360000
+				301  400  4340000
+				401  500  4340000>;
+	qcom,checksum = <0x6B47>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 19 1F 22 06
+		 20 0A 3B FD
+		 E3 1C ED FB
+		 B6 0D B4 0A
+		 5B 17 23 2A
+		 EB 4D C5 5A
+		 6F 00 00 00
+		 10 00 00 00
+		 00 00 B6 CC
+		 7E BD E1 CB
+		 17 00 08 00
+		 97 DA C5 E5
+		 A9 FC 28 01
+		 C3 02 0A 1A
+		 B1 06 6A 32
+		 1C 06 09 20
+		 27 00 14 00
+		 09 20 39 05
+		 CE 0A F1 05
+		 D9 1C BD 02
+		 72 0C DC 0B
+		 8E 18 B9 23
+		 0E 44 E4 5A
+		 6F 00 00 00
+		 0E 00 00 00
+		 00 00 75 CC
+		 34 C3 AA AA
+		 13 00 00 00
+		 2C E3 C5 E5
+		 D9 FD D5 F2
+		 23 07 0B 03
+		 F3 FD 11 1B
+		 B1 33 CC FF
+		 07 10 00 00
+		 D8 0F 66 46
+		 13 00 40 00
+		 B3 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

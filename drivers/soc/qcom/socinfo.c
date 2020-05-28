@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +68,10 @@ enum {
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
 	HW_PLATFORM_HDK = 31,
+	HW_PLATFORM_E2 = 32,
+	HW_PLATFORM_F2 = 34,
+	HW_PLATFORM_F3B = 35,
+	HW_PLATFORM_F3M = 38,
 	HW_PLATFORM_INVALID
 };
 
@@ -88,6 +93,10 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
 	[HW_PLATFORM_HDK] = "HDK",
+	[HW_PLATFORM_E2] = "SIRIUS",
+	[HW_PLATFORM_F2] = "GRUS",
+	[HW_PLATFORM_F3B] = "PYXIS",
+	[HW_PLATFORM_F3M] = "VELA",
 };
 
 enum {
@@ -1990,6 +1999,37 @@ static void socinfo_select_format(void)
 		socinfo_format = socinfo->v0_1.format;
 	}
 }
+
+uint32_t get_hw_version_platform(void)
+{
+	uint32_t hw_type = socinfo_get_platform_type();
+	if (hw_type == HW_PLATFORM_E2)
+		return HARDWARE_PLATFORM_SIRIUS;
+	else if (hw_type == HW_PLATFORM_F2)
+		return HARDWARE_PLATFORM_GRUS;
+	else if (hw_type == HW_PLATFORM_F3B)
+		return HARDWARE_PLATFORM_PYXIS;
+	else if (hw_type == HW_PLATFORM_F3M)
+		return HARDWARE_PLATFORM_VELA;
+	else
+		return HARDWARE_PLATFORM_UNKNOWN;
+}
+EXPORT_SYMBOL(get_hw_version_platform);
+
+uint32_t get_hw_version_major(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MAJOR_VERSION_MASK) >> HW_MAJOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_major);
+
+uint32_t get_hw_version_minor(void)
+{
+	uint32_t version = socinfo_get_platform_version();
+	return (version & HW_MINOR_VERSION_MASK) >> HW_MINOR_VERSION_SHIFT;
+}
+EXPORT_SYMBOL(get_hw_version_minor);
+
 
 int __init socinfo_init(void)
 {

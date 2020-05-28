@@ -12,6 +12,9 @@ menuconfig SPECTRA_CAMERA
       Qualcomm Technologies, Inc. Spectra camera and video capture.
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
+config USE_BU64748
+    bool "use BU64748 acculator"
+    default n
 
 menuconfig MSM_CAMERA
     bool "QTI MSM camera and video capture support"

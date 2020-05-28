@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +28,7 @@
 #include <linux/spi/spi-geni-qcom.h>
 
 #define SPI_NUM_CHIPSELECT	(4)
-#define SPI_XFER_TIMEOUT_MS	(250)
+#define SPI_XFER_TIMEOUT_MS	(1500)
 #define SPI_AUTO_SUSPEND_DELAY	(250)
 /* SPI SE specific registers */
 #define SE_SPI_CPHA		(0x224)
@@ -60,7 +61,7 @@
 #define CS_DEMUX_OUTPUT_SEL	(GENMASK(3, 0))
 
 /* SE_SPI_TX_TRANS_CFG register fields */
-#define CS_TOGGLE		(BIT(0))
+#define CS_TOGGLE		(BIT(1))
 
 /* SE_SPI_WORD_LEN register fields */
 #define WORD_LEN_MSK		(GENMASK(9, 0))
@@ -156,7 +157,6 @@ struct spi_geni_master {
 	void *ipc;
 	bool shared_se;
 	bool dis_autosuspend;
-	bool cmd_done;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -171,32 +171,27 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 			int *clk_idx, int *clk_div)
 {
 	unsigned long sclk_freq;
-	unsigned long res_freq;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
 	int ret = 0;
 
 	ret = geni_se_clk_freq_match(&mas->spi_rsc,
 				(speed_hz * mas->oversampling), clk_idx,
-				&sclk_freq, false);
+				&sclk_freq, true);
 	if (ret) {
 		dev_err(mas->dev, "%s: Failed(%d) to find src clk for 0x%x\n",
 						__func__, ret, speed_hz);
 		return ret;
 	}
 
-	*clk_div = DIV_ROUND_UP(sclk_freq,  (mas->oversampling*speed_hz));
-
+	*clk_div = ((sclk_freq / mas->oversampling) / speed_hz);
 	if (!(*clk_div)) {
 		dev_err(mas->dev, "%s:Err:sclk:%lu oversampling:%d speed:%u\n",
 			__func__, sclk_freq, mas->oversampling, speed_hz);
 		return -EINVAL;
 	}
 
-	res_freq = (sclk_freq / (*clk_div));
-
-	dev_dbg(mas->dev, "%s: req %u resultant %lu sclk %lu, idx %d, div %d\n",
-		__func__, speed_hz, res_freq, sclk_freq, *clk_idx, *clk_div);
-
+	dev_dbg(mas->dev, "%s: req %u sclk %lu, idx %d, div %d\n", __func__,
+				speed_hz, sclk_freq, *clk_idx, *clk_div);
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);
 	if (ret)
 		dev_err(mas->dev, "%s: clk_set_rate failed %d\n",
@@ -919,7 +914,7 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 	u32 m_cmd = 0;
 	u32 m_param = 0;
 	u32 spi_tx_cfg = geni_read_reg(mas->base, SE_SPI_TRANS_CFG);
-	u32 trans_len = 0, fifo_size = 0;
+	u32 trans_len = 0;
 
 	if (xfer->bits_per_word != mas->cur_word_len) {
 		spi_setup_word_len(mas, mode, xfer->bits_per_word);
@@ -983,9 +978,7 @@ static void setup_fifo_xfer(struct spi_transfer *xfer,
 		mas->rx_rem_bytes = xfer->len;
 	}
 
-	fifo_size =
-		(mas->tx_fifo_depth * mas->tx_fifo_width / mas->cur_word_len);
-	if (trans_len > fifo_size) {
+	if (trans_len > (mas->tx_fifo_depth * mas->tx_fifo_width)) {
 		if (mas->cur_xfer_mode != SE_DMA) {
 			mas->cur_xfer_mode = SE_DMA;
 			geni_se_select_mode(mas->base, mas->cur_xfer_mode);
@@ -1280,7 +1273,7 @@ static irqreturn_t geni_spi_irq(int irq, void *data)
 
 		if ((m_irq & M_CMD_DONE_EN) || (m_irq & M_CMD_CANCEL_EN) ||
 			(m_irq & M_CMD_ABORT_EN)) {
-			mas->cmd_done = true;
+			complete(&mas->xfer_done);
 			/*
 			 * If this happens, then a CMD_DONE came before all the
 			 * buffer bytes were sent out. This is unusual, log this
@@ -1320,16 +1313,12 @@ static irqreturn_t geni_spi_irq(int irq, void *data)
 		if (dma_rx_status & RX_DMA_DONE)
 			mas->rx_rem_bytes = 0;
 		if (!mas->tx_rem_bytes && !mas->rx_rem_bytes)
-			mas->cmd_done = true;
+			complete(&mas->xfer_done);
 		if ((m_irq & M_CMD_CANCEL_EN) || (m_irq & M_CMD_ABORT_EN))
-			mas->cmd_done = true;
+			complete(&mas->xfer_done);
 	}
 exit_geni_spi_irq:
 	geni_write_reg(m_irq, mas->base, SE_GENI_M_IRQ_CLEAR);
-	if (mas->cmd_done) {
-		mas->cmd_done = false;
-		complete(&mas->xfer_done);
-	}
 	return IRQ_HANDLED;
 }
 

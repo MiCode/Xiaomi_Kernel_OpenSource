@@ -1,0 +1,357 @@
+/* gpio resource override for pyxis(sdm710) */
+
+&tlmm {
+	sdc2_cd_on: cd_on {
+		mux {
+			pins = "gpio126";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio126";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	sdc2_cd_off: cd_off {
+		mux {
+			pins = "gpio126";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio126";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	pyxis_cam_mclk0_active: pyxis_cam_mclk0_active {
+		/* MCLK0 */
+		mux {
+			pins = "gpio13";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio13";
+			bias-disable; /* No PULL */
+			drive-strength = <4>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk0_suspend: pyxis_cam_mclk0_suspend {
+		/* MCLK0 */
+		mux {
+			pins = "gpio13";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio13";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <4>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk1_active: pyxis_cam_mclk1_active {
+		/* MCLK1 */
+		mux {
+			pins = "gpio14";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio14";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk1_suspend: pyxis_cam_mclk1_suspend {
+		/* MCLK1 */
+		mux {
+			pins = "gpio14";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio14";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk2_active: pyxis_cam_mclk2_active {
+		/* MCLK2 */
+		mux {
+			pins = "gpio15";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio15";
+			bias-disable; /* No PULL */
+			drive-strength = <4>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk2_suspend: pyxis_cam_mclk2_suspend {
+		/* MCLK2 */
+		mux {
+			pins = "gpio15";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio15";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <4>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk3_active: pyxis_cam_mclk3_active {
+		/* MCLK3 */
+		mux {
+			pins = "gpio16";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio16";
+			bias-disable; /* No PULL */
+			drive-strength = <4>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_mclk3_suspend: pyxis_cam_mclk3_suspend {
+		/* MCLK3 */
+		mux {
+			pins = "gpio16";
+			function = "cam_mclk";
+		};
+
+		config {
+			pins = "gpio16";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <4>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_rear_active: pyxis_cam_rear_active {
+		/* RESET */
+		mux {
+			pins = "gpio30";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio30";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_rear_suspend: pyxis_cam_rear_suspend {
+		/* RESET */
+		mux {
+			pins = "gpio30";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio30";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	pyxis_cam_rear_aux_active: pyxis_cam_rear_aux_active {
+		/* RESET */
+		mux {
+			pins = "gpio23";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio23";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_rear_aux_suspend: pyxis_cam_rear_aux_suspend {
+		/* RESET */
+		mux {
+			pins = "gpio23";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio23";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	pyxis_cam_front_active: pyxis_cam_front_active {
+		/* RESET, AVDD/DVDD ENABLE */
+		mux {
+			pins = "gpio9","gpio8";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio9","gpio8";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_front_suspend: pyxis_cam_front_suspend {
+		/* RESET, AVDD/DVDD DISABLE */
+		mux {
+			pins = "gpio9","gpio8";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio9","gpio8";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	pyxis_cam_rear_ultra_active: pyxis_cam_rear_ultra_active {
+		/* RESET, DVDD ENABLE, AVDD ENABLE */
+		mux {
+			pins = "gpio24", "gpio27", "gpio8";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio24", "gpio27", "gpio8";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	pyxis_cam_rear_ultra_suspend: pyxis_cam_rear_ultra_suspend {
+		/* RESET, DVDD DISABLE, AVDD DISABLE */
+		mux {
+			pins = "gpio24", "gpio27", "gpio8";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio24", "gpio27", "gpio8";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	pyxis_cam_rear_ultra_mipi_sel_active: pyxis_cam_rear_ultra_mipi_sel_active {
+		/* MIPI SEL */
+		mux {
+			pins = "gpio25";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio25";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+			output-high;
+		};
+	};
+
+	pyxis_cam_rear_ultra_mipi_sel_suspend: pyxis_cam_rear_ultra_mipi_sel_suspend {
+		/* MIPI SEL */
+		mux {
+			pins = "gpio25";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio25";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	pyxis_cam_front_mipi_sel_active: pyxis_cam_front_mipi_sel_active {
+		/* MIPI SEL */
+		mux {
+			pins = "gpio25";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio25";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	pyxis_cam_front_mipi_sel_suspend: pyxis_cam_front_mipi_sel_suspend {
+		/* MIPI SEL */
+		mux {
+			pins = "gpio25";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio25";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+			output-high;
+		};
+	};
+};
+
+&pm660l_gpios {
+	pyxis_cam_rear_ldo_en {
+		pyxis_cam_rear_ldo_en: pyxis_cam_rear_ldo_en {
+			pins = "gpio2";
+			function = "normal";
+			power-source = <0>;
+			qcom,drive-strength = <2>;
+			output-high;
+		};
+	};
+
+	pyxis_cam_rear_ldo_disable {
+		pyxis_cam_rear_ldo_disable: pyxis_cam_rear_ldo_disable {
+			pins = "gpio2";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+
+	pyxis_cam_rear_aux_ldo_en {
+		pyxis_cam_rear_aux_ldo_en: pyxis_cam_rear_aux_ldo_en {
+			pins = "gpio3";
+			function = "normal";
+			power-source = <0>;
+			output-high;
+		};
+	};
+
+	pyxis_cam_rear_aux_ldo_disable {
+		pyxis_cam_rear_aux_ldo_disable: pyxis_cam_rear_aux_ldo_disable {
+			pins = "gpio3";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+};
+

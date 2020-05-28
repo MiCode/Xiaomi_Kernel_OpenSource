@@ -349,5 +349,5 @@ bool sde_plane_is_sec_ui_allowed(struct drm_plane *plane);
  */
 void sde_plane_secure_ctrl_xin_client(struct drm_plane *plane,
 		struct drm_crtc *crtc);
-
+int sde_plane_check_fod_layer(const struct drm_plane_state *drm_state);
 #endif /* _SDE_PLANE_H_ */

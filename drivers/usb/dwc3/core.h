@@ -2,6 +2,7 @@
  * core.h - DesignWare USB3 DRD Core Header
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -224,7 +225,7 @@
 #define DWC3_GUCTL1_DEV_L1_EXIT_BY_HW	(1 << 24)
 
 /* Global User Control 2 Register */
-#define DWC3_GUCTL2_ENABLE_EP_CACHE_EVICT	(1 << 12)
+#define DWC3_GUCTL2_ENABLE_EP_CACHE_EVICT (1 << 12)
 
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)

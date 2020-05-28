@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,10 +22,20 @@
 #include <linux/string.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
+#include "dsi_panel.h"
 #include "sde_crtc.h"
 #include "sde_rm.h"
+#include "sde_trace.h"
+#include <drm/drm_notifier.h>
 
 #define BL_NODE_NAME_SIZE 32
+
+enum bkl_dimming_state {
+	STATE_NONE,
+	STATE_DIM_BLOCK,
+	STATE_DIM_RESTORE,
+	STATE_ALL
+};
 
 /* Autorefresh will occur after FRAME_CNT frames. Large values are unlikely */
 #define AUTOREFRESH_MAX_FRAME_CNT 6
@@ -604,6 +615,196 @@ static int _sde_connector_update_dirty_properties(
 	return 0;
 }
 
+static int dsi_display_write_panel(struct dsi_display *display,
+				struct dsi_panel_cmd_set *cmd_sets)
+{
+	int rc = 0, i = 0;
+	ssize_t len;
+	u32 count;
+	struct dsi_cmd_desc *cmds;
+	enum dsi_cmd_set_state state;
+	struct dsi_display_mode *mode;
+	struct dsi_panel *panel = display->panel;
+	const struct mipi_dsi_host_ops *ops = panel->host->ops;
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	mode = panel->cur_mode;
+
+	cmds = cmd_sets->cmds;
+	count = cmd_sets->count;
+	state = cmd_sets->state;
+
+	if (count == 0) {
+		pr_debug("[%s] No commands to be sent for state\n",
+			 panel->name);
+		goto error;
+	}
+
+	for (i = 0; i < count; i++) {
+		if (state == DSI_CMD_SET_STATE_LP)
+			cmds->msg.flags |= MIPI_DSI_MSG_USE_LPM;
+
+		if (cmds->last_command)
+			cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+
+		len = ops->transfer(panel->host, &cmds->msg);//dsi_host_transfer,
+		if (len < 0) {
+			rc = len;
+			pr_err("failed to set cmds, rc=%d\n", rc);
+			goto error;
+		}
+		if (cmds->post_wait_ms)
+			usleep_range(cmds->post_wait_ms*1000,
+					((cmds->post_wait_ms*1000)+10));
+		cmds++;
+	}
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+	if (rc) {
+		pr_err("[%s] failed to disable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+error:
+	return rc;
+}
+
+extern bool sde_crtc_get_dim_layer_status(struct drm_crtc_state *crtc_state);
+int sde_connector_update_hbm(struct sde_connector *c_conn)
+{
+	struct drm_connector *connector;
+	struct dsi_display *dsi_display;
+	struct sde_connector_state *c_state;
+	int rc = 0;
+	static bool dim_layer_status;
+
+	if (!c_conn) {
+		SDE_ERROR("Invalid params sde_connector null\n");
+		return -EINVAL;
+	}
+
+	connector = &c_conn->base;
+
+	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
+		SDE_ERROR("Invalid params sde_connector null\n");
+		return 0;
+	}
+	c_state = to_sde_connector_state(connector->state);
+
+	dsi_display = c_conn->display;
+	if (!dsi_display || !dsi_display->panel || !dsi_display->drm_dev) {
+		SDE_ERROR("Invalid params(s) dsi_display %pK, panel %pK, drm_dev %pK\n",
+			dsi_display,
+			((dsi_display) ? dsi_display->panel : NULL), ((dsi_display) ? dsi_display->drm_dev : NULL));
+		return -EINVAL;
+	}
+
+	if (!dsi_display->panel->fod_dimlayer_enabled) {
+		return 0;
+	}
+	if (!c_conn->encoder || !c_conn->encoder->crtc ||
+	    !c_conn->encoder->crtc->state) {
+		SDE_ERROR("Invalid params sde_encoder null\n");
+		return 0;
+	}
+
+	dim_layer_status = sde_crtc_get_dim_layer_status(c_conn->encoder->crtc->state);
+	pr_debug("the dim_layer_status is [%d]\n", dim_layer_status);
+	if (!dim_layer_status) {
+		pr_debug("fod_dimlayer_hbm_enabled_1:%d\n", dsi_display->panel->fod_dimlayer_hbm_enabled);
+		if (dsi_display->panel->fod_dimlayer_hbm_enabled) {
+			mutex_lock(&dsi_display->panel->panel_lock);
+			sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
+			if ((dsi_display->drm_dev && dsi_display->drm_dev->state == DRM_BLANK_LP1) ||
+				(dsi_display->drm_dev && dsi_display->drm_dev->state == DRM_BLANK_LP2)) {
+				if (dsi_display->panel->last_bl_lvl > dsi_display->panel->doze_backlight_threshold) {
+					dsi_display->panel->fod_dimlayer_hbm_enabled = false;
+					pr_info("set fod_dimlayer_hbm_enabled state at hbm fod off doze hbm on is [%d]", dsi_display->panel->fod_dimlayer_hbm_enabled);
+					dsi_display_write_panel(dsi_display, &dsi_display->panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_DISP_HBM_FOD_OFF_DOZE_HBM_ON]);
+					dsi_display->drm_dev->doze_brightness = DOZE_BRIGHTNESS_HBM;
+				} else if (dsi_display->panel->last_bl_lvl < dsi_display->panel->doze_backlight_threshold
+							&& dsi_display->panel->last_bl_lvl > 0) {
+					dsi_display->panel->fod_dimlayer_hbm_enabled = false;
+					pr_info("set fod_dimlayer_hbm_enabled state at hbm fod off doze lbm on is [%d]", dsi_display->panel->fod_dimlayer_hbm_enabled);
+					dsi_display_write_panel(dsi_display, &dsi_display->panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_DISP_HBM_FOD_OFF_DOZE_LBM_ON]);
+					dsi_display->drm_dev->doze_brightness = DOZE_BRIGHTNESS_LBM;
+				}
+				dsi_display->panel->in_aod = true;
+				dsi_display->panel->skip_dimmingon = STATE_DIM_BLOCK;
+			} else {
+				dsi_display->panel->fod_dimlayer_hbm_enabled = false;
+				pr_info("set fod_dimlayer_hbm_enabled state_1 is [%d]", dsi_display->panel->fod_dimlayer_hbm_enabled);
+				SDE_ATRACE_BEGIN("set_hbm_off");
+				rc = dsi_display_write_panel(dsi_display, &dsi_display->panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_DISP_HBM_FOD_OFF]);
+				dsi_display->panel->skip_dimmingon = STATE_DIM_RESTORE;
+				pr_info("HBM fod off\n");
+				sysfs_notify(&dsi_display->drm_conn->kdev->kobj, NULL, "dimlayer_hbm_enabled");
+				pr_info("notify hbm off to displayfeature\n");
+				SDE_ATRACE_END("set_hbm_off");
+				if (dsi_display->panel->dim_layer_replace_dc) {
+					SDE_ATRACE_BEGIN("restore_crc");
+					dsi_panel_set_backlight(dsi_display->panel, c_conn->bl_device->props.brightness);
+					dsi_display->panel->dim_layer_replace_dc = false;
+					dsi_display->panel->dc_enable = true;
+					pr_info("fod restore DC\n");
+					sysfs_notify(&c_conn->bl_device->dev.kobj, NULL, "brightness_clone");
+					SDE_ATRACE_END("restore_crc");
+				}
+			}
+			mutex_unlock(&dsi_display->panel->panel_lock);
+			if (rc) {
+				pr_err("failed to send DSI_CMD_HBM_OFF cmds, rc=%d\n", rc);
+				return rc;
+			}
+		}
+	} else {
+		pr_debug("fod_dimlayer_hbm_enabled_2:%d\n", dsi_display->panel->fod_dimlayer_hbm_enabled);
+		if (!dsi_display->panel->fod_dimlayer_hbm_enabled) {
+			mutex_lock(&dsi_display->panel->panel_lock);
+			sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
+			pr_info("wait one frame for hbm on\n");
+			if (dsi_display->panel->last_bl_lvl || dsi_display->drm_dev->state == DRM_BLANK_LP1 || dsi_display->drm_dev->state == DRM_BLANK_LP2) {
+				SDE_ATRACE_BEGIN("set_hbm_on");
+				dsi_display->panel->fod_dimlayer_hbm_enabled = true;
+                                dsi_display->panel->skip_dimmingon = STATE_DIM_BLOCK;
+				rc = dsi_display_write_panel(dsi_display, &dsi_display->panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_DISP_HBM_FOD_ON]);
+				pr_info("HBM fod on\n");
+                                sysfs_notify(&dsi_display->drm_conn->kdev->kobj, NULL, "dimlayer_hbm_enabled");
+				pr_info("notify hbm on to displayfeature\n");
+                        	SDE_ATRACE_END("set_hbm_on");
+			}
+			if (dsi_display->panel->fod_dimlayer_bl_block) {
+				dsi_display->panel->fod_dimlayer_bl_block = false;
+				pr_info("the fod_dimlayer_bl_block state is [%d]\n", dsi_display->panel->fod_dimlayer_bl_block);
+				dsi_panel_set_backlight(dsi_display->panel, dsi_display->panel->last_bl_lvl);
+			}
+			if (dsi_display->panel->dc_enable) {
+				SDE_ATRACE_BEGIN("set_crc_off");
+				dsi_display->panel->dim_layer_replace_dc = true;
+				dsi_display->panel->dc_enable = false;
+				pr_info("fod set CRC OFF\n");
+				dsi_display_write_panel(dsi_display, &dsi_display->panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_DISP_CRC_OFF]);
+				SDE_ATRACE_END("set_crc_off");
+			}
+			mutex_unlock(&dsi_display->panel->panel_lock);
+			if (rc) {
+				pr_err("failed to send DSI_GAMMA_CMD_SET_HBM_ON cmds, rc=%d\n", rc);
+				return rc;
+			}
+		}
+	}
+	pr_debug("dim_layer_status:%d hbm_enabled:%d\n", dim_layer_status, dsi_display->panel->fod_dimlayer_hbm_enabled);
+	return 0;
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -694,12 +895,13 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 				MSM_ENC_TX_COMPLETE);
 	c_conn->allow_bl_update = true;
 
-	if (c_conn->bl_device) {
+	if (!display->is_first_boot && c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
 		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
 	}
 	c_conn->panel_dead = false;
+	display->is_first_boot = false;
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
@@ -1115,6 +1317,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	case CONNECTOR_PROP_LP:
+		if (connector->dev)
+			connector->dev->state = val;
+		break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -1563,6 +1769,13 @@ static ssize_t _sde_debugfs_conn_cmd_tx_write(struct file *file,
 	if (*ppos || !connector) {
 		SDE_ERROR("invalid argument(s), conn %d\n", connector != NULL);
 		return 0;
+	}
+
+	if (count == 0)
+		return rc;
+	if (count > MAX_CMD_PAYLOAD_SIZE * 3) {
+		SDE_ERROR("expected <%d bytes into command packet\n", MAX_CMD_PAYLOAD_SIZE * 3);
+		return -E2BIG;
 	}
 
 	c_conn = to_sde_connector(connector);
@@ -2069,6 +2282,43 @@ exit:
 	return rc;
 }
 
+static irqreturn_t esd_err_irq_handle(int irq, void *data)
+{
+	struct sde_connector *c_conn = data;
+	struct drm_event event;
+	struct dsi_display *dsi_display;
+	bool panel_dead = false;
+
+	if (!c_conn && !c_conn->display) {
+		SDE_ERROR("not able to get connector object\n");
+		return IRQ_HANDLED;
+	}
+
+	dsi_display = (struct dsi_display *)(c_conn->display);
+	if (!dsi_display->panel->panel_initialized) {
+		pr_info("%s: Panel is not initialized, skip it!\n", __func__);
+		return IRQ_HANDLED;
+	}
+
+	if (atomic_read(&dsi_display->panel->esd_recovery_pending)) {
+		pr_info("%s: esd recovery underway\n", __func__);
+		return IRQ_HANDLED;
+	}
+
+	atomic_set(&dsi_display->panel->esd_recovery_pending, 1);
+
+	SDE_ERROR("esd check irq report PANEL_DEAD conn_id: %d enc_id: %d\n",
+		c_conn->base.base.id, c_conn->encoder->base.id);
+
+	panel_dead = true;
+	event.type = DRM_EVENT_PANEL_DEAD;
+	event.length = sizeof(bool);
+	msm_mode_object_event_notify(&c_conn->base.base,
+		c_conn->base.dev, &event, (u8 *)&panel_dead);
+	sde_encoder_display_failure_notification(c_conn->encoder);
+	return IRQ_HANDLED;
+}
+
 struct drm_connector *sde_connector_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_panel *panel,
@@ -2216,6 +2466,22 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 				&dsi_display->panel->hdr_props,
 				sizeof(dsi_display->panel->hdr_props),
 				CONNECTOR_PROP_HDR_INFO);
+		}
+
+		/* register esd irq and enable it after panel enabled */
+		if (dsi_display && dsi_display->panel &&
+			dsi_display->panel->esd_config.esd_err_irq > 0 &&
+			dsi_display->panel->esd_config.esd_interrupt_flags >= 0) {
+			rc = request_threaded_irq(dsi_display->panel->esd_config.esd_err_irq,
+							NULL, esd_err_irq_handle,
+							dsi_display->panel->esd_config.esd_interrupt_flags,
+							"esd_err_irq", c_conn);
+			if (rc < 0) {
+				pr_err("%s: request irq %d failed\n", __func__, dsi_display->panel->esd_config.esd_err_irq);
+				dsi_display->panel->esd_config.esd_err_irq = 0;
+			} else {
+				pr_info("%s: Request esd irq %d succeed!\n", __func__, dsi_display->panel->esd_config.esd_err_irq);
+			}
 		}
 	}
 

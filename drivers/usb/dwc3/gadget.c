@@ -2,6 +2,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -3160,7 +3161,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	 * and restart if EP0 is not in setup phase.
 	 */
 	if (dwc->ep0state != EP0_SETUP_PHASE) {
-		unsigned int	dir;
+		unsigned int    dir;
 
 		dbg_event(0xFF, "CONTRPEND", dwc->ep0state);
 		dir = !!dwc->ep0_expect_in;

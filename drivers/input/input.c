@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -47,7 +48,6 @@ static LIST_HEAD(input_handler_list);
  * input handlers.
  */
 static DEFINE_MUTEX(input_mutex);
-
 static const struct input_value input_value_sync = { EV_SYN, SYN_REPORT, 1 };
 
 static inline int is_event_supported(unsigned int code,

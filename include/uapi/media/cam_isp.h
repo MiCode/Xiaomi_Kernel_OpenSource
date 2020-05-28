@@ -4,7 +4,7 @@
 #include "cam_defs.h"
 #include "cam_isp_vfe.h"
 #include "cam_isp_ife.h"
-#include "cam_cpas.h"
+
 
 /* ISP driver name */
 #define CAM_ISP_DEV_NAME                        "cam-isp"
@@ -84,22 +84,13 @@
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
 /* ISP Generic Cmd Buffer Blob types */
-#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG                0
-#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG              1
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG                 2
-#define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG               3
-#define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG         4
-#define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG                 5
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2              6
-#define CAM_ISP_GENERIC_BLOB_TYPE_INIT_FRAME_DROP           10
-#define CAM_ISP_GENERIC_BLOB_TYPE_SENSOR_DIMENSION_CONFIG   11
-#define CAM_ISP_GENERIC_BLOB_TYPE_FPS_CONFIG                12
-
-/* Per Path Usage Data */
-#define CAM_ISP_USAGE_INVALID     0
-#define CAM_ISP_USAGE_LEFT_PX     1
-#define CAM_ISP_USAGE_RIGHT_PX    2
-#define CAM_ISP_USAGE_RDI         3
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG          0
+#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG        1
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG           2
+#define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG         3
+#define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
+#define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        6
 
 /* Query devices */
 /**
@@ -371,6 +362,7 @@ struct cam_isp_csid_clock_config {
  * @cam_bw_bps:                 Bandwidth vote for CAMNOC
  * @ext_bw_bps:                 Bandwidth vote for path-to-DDR after CAMNOC
  */
+
 struct cam_isp_bw_vote {
 	uint32_t                       resource_id;
 	uint32_t                       reserved;
@@ -387,6 +379,7 @@ struct cam_isp_bw_vote {
  * @right_pix_vote:             Bandwidth vote for right ISP
  * @rdi_vote:                   RDI bandwidth requirements
  */
+
 struct cam_isp_bw_config {
 	uint32_t                       usage_type;
 	uint32_t                       num_rdi;
@@ -412,19 +405,6 @@ struct cam_isp_bw_config_ab {
 	uint64_t    left_pix_vote_ab;
 	uint64_t    right_pix_vote_ab;
 	uint64_t    rdi_vote_ab[1];
-} __attribute__((packed));
-
-/**
- * struct cam_isp_bw_config_v2 - Bandwidth configuration
- *
- * @usage_type:                 Usage type (Single/Dual)
- * @num_paths:                  Number of axi data paths
- * @axi_path                    Per path vote info
- */
-struct cam_isp_bw_config_v2 {
-	uint32_t                             usage_type;
-	uint32_t                             num_paths;
-	struct cam_axi_per_path_bw_vote      axi_path[1];
 } __attribute__((packed));
 
 /**
@@ -466,36 +446,6 @@ struct cam_fe_config {
 	uint32_t    latency_buf_size;
 } __attribute__((packed));
 
-/**
- * struct cam_isp_sensor_path_dimension
- *
- * @width             expected width
- * @height            expected height
- * @measure_enabled   flag to indicate if pixel measurement is to be enabled
- */
-struct cam_isp_sensor_dimension {
-	uint32_t width;
-	uint32_t height;
-	uint32_t measure_enabled;
-} __attribute__((packed));
-
-/**
- * struct cam_isp_sensor_config - Sensor Dimension configuration
- *
- * @pix_path:                   expected ppp path configuration
- * @pix_path:                   expected ipp path configuration
- * @rdi_path:                   expected rdi path configuration
- * @hbi:                        HBI value
- * @vbi:                        VBI value
- */
-struct cam_isp_sensor_config {
-	struct cam_isp_sensor_dimension  ppp_path;
-	struct cam_isp_sensor_dimension  ipp_path;
-	struct cam_isp_sensor_dimension  rdi_path[4];
-	uint32_t                   hbi;
-	uint32_t                   vbi;
-} __attribute__((packed));
-
 /* Acquire Device/HW v2 */
 
 /**
@@ -521,31 +471,16 @@ struct cam_isp_acquire_hw_info {
 	uint64_t                data;
 };
 
-/**
- * struct cam_fps_config - FPS blob support
- *
- * @fps:    FPS value
- */
-struct cam_fps_config {
-	uint32_t        fps;
-} __attribute__((packed));
-
 #define CAM_ISP_ACQUIRE_COMMON_VER0         0x1000
 
 #define CAM_ISP_ACQUIRE_COMMON_SIZE_VER0    0x0
 
 #define CAM_ISP_ACQUIRE_INPUT_VER0          0x2000
 
+#define CAM_ISP_ACQUIRE_INPUT_SIZE_VER0     sizeof(struct cam_isp_in_port_info)
+
 #define CAM_ISP_ACQUIRE_OUT_VER0            0x3000
 
-/**
- * struct cam_isp_init_frame_drop_config - init frame drop configuration
- *
- * @init_frame_drop:            Initial number of frames needs to drop
- */
-
-struct cam_isp_init_frame_drop_config {
-	uint32_t                       init_frame_drop;
-} __attribute__((packed));
+#define CAM_ISP_ACQUIRE_OUT_SIZE_VER0       sizeof(struct cam_isp_out_port_info)
 
 #endif /* __UAPI_CAM_ISP_H__ */

@@ -1,0 +1,63 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "pyxis-cosmos-sdm710-common.dtsi"
+
+&firmware {
+	android {
+		compatible = "android,firmware";
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+		};
+
+		fstab {
+			compatible = "android,fstab";
+			system {
+				status = "disabled";
+			};
+		};
+	};
+};
+
+&qupv3_se9_i2c {
+	status = "ok";
+	focaltech@38 {
+		compatible = "focaltech,focal";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2002>;
+		vddio-supply = <&pm660_l13>;
+		avdd-supply = <&pm660l_l8>;
+		focaltech,avdd-load = <300000>;
+		focaltech,reset-gpio = <&tlmm 5 0x01>;
+		focaltech,irq-gpio = <&tlmm 125 0x02>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords = <0 0 1080 2340>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		/* focaltech,have-key; */
+	};
+
+};
+
+&qupv3_se4_spi {
+	status = "ok";
+	irled@1 {
+		compatible = "ir-spi";
+		reg = <0x1>;
+		status = "ok";
+		spi-max-frequency = <19200000>;
+	};
+};
+

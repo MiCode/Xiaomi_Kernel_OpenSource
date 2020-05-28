@@ -8,6 +8,7 @@
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
 #define CAM_FLASH_MAX_LED_TRIGGERS 3
 #define MAX_OIS_NAME_SIZE 32
+#define MAX_ACTUATOR_NAME_SIZE 32
 #define CAM_CSIPHY_SECURE_MODE_ENABLED 1
 #define CAM_IR_LED_SUPPORTED
 /**
@@ -136,6 +137,30 @@ struct cam_cmd_ois_info {
 	uint8_t               is_ois_calib;
 	char                  ois_name[MAX_OIS_NAME_SIZE];
 	struct cam_ois_opcode opcode;
+} __attribute__((packed));
+
+/**
+ * struct cam_actuator_opcode - Contains ACTUATOR opcode
+ *
+ * @prog            :    ACTUATOR FW prog register address
+ * @coeff           :    ACTUATOR FW coeff register address
+ * @pheripheral     :    ACTUATOR pheripheral
+ * @memory          :    ACTUATOR memory
+ */
+struct cam_actuator_opcode {
+	uint32_t prog;
+	uint32_t coeff;
+	uint32_t pheripheral;
+	uint32_t memory;
+} __attribute__((packed));
+
+struct cam_cmd_actuator_info {
+	uint16_t              slave_addr;
+	uint8_t               i2c_freq_mode;
+//	uint8_t               actuator_fw_flag;
+	char                  actuator_name[MAX_ACTUATOR_NAME_SIZE];
+	struct cam_actuator_opcode opcode;
+	uint8_t               cmd_type;
 } __attribute__((packed));
 
 /**
@@ -370,6 +395,7 @@ struct cam_sensor_acquire_dev {
 	uint32_t    handle_type;
 	uint32_t    reserved;
 	uint64_t    info_handle;
+	uint32_t    operation_mode;
 } __attribute__((packed));
 
 /**
@@ -387,6 +413,7 @@ struct cam_sensor_streamon_dev {
 	uint32_t    handle_type;
 	uint32_t    reserved;
 	uint64_t    info_handle;
+    uint32_t    operation_mode;
 } __attribute__((packed));
 
 /**

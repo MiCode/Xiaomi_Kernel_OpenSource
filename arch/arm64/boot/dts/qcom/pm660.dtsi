@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +14,7 @@
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/msm/power-on.h>
 
 &spmi_bus {
 	pm660_0: qcom,pm660@0 {
@@ -41,7 +43,7 @@
 				     <0x0 0x8 0x5 IRQ_TYPE_NONE>;
 			interrupt-names = "kpdpwr", "resin",
 					"resin-bark", "kpdpwr-resin-bark";
-			qcom,pon-dbc-delay = <15625>;
+			qcom,pon-dbc-delay = <62500>;
 			qcom,kpdpwr-sw-debounce;
 			qcom,system-reset;
 			qcom,store-hard-reset-reason;
@@ -49,7 +51,11 @@
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
 				linux,code = <116>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_HARD_RESET>;
 			};
 
 			qcom,pon_2 {
@@ -57,6 +63,17 @@
 				qcom,pull-up = <1>;
 				linux,code = <114>;
 			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
+				qcom,s1-timer = <1352>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_WARM_RESET>;
+				qcom,use-bark;
+			};
+
 		};
 
 		pm660_tz: qcom,temp-alarm@2400 {
@@ -75,17 +92,18 @@
 			interrupts = <0x0 0xc1 0 IRQ_TYPE_NONE>,
 					<0x0 0xc2 0 IRQ_TYPE_NONE>,
 					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
 					<0x0 0xc8 0 IRQ_TYPE_NONE>,
 					<0x0 0xca 0 IRQ_TYPE_NONE>,
 					<0x0 0xcb 0 IRQ_TYPE_NONE>,
 					<0x0 0xcc 0 IRQ_TYPE_NONE>;
 			interrupt-names = "pm660_gpio2", "pm660_gpio3",
-					"pm660_gpio4", "pm660_gpio9",
-					"pm660_gpio11", "pm660_gpio12",
-					"pm660_gpio13";
+					"pm660_gpio4", "pm660_gpio6",
+					"pm660_gpio9", "pm660_gpio11",
+					"pm660_gpio12", "pm660_gpio13";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <1 5 6 7 8 10>;
+			qcom,gpios-disallowed = <1 5 7 8 10>;
 		};
 
 		pm660_coincell: qcom,coincell@2800 {
@@ -98,7 +116,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,qpnp-rtc-write = <0>;
-			qcom,qpnp-rtc-alarm-pwrup = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <1>;
 
 			qcom,pm660_rtc_rw@6000 {
 				reg = <0x6000 0x100>;

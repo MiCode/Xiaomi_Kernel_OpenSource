@@ -25,6 +25,7 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_flip_work.h>
+#include <drm/drm_notifier.h>
 
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
@@ -39,8 +40,33 @@
 #include "sde_core_perf.h"
 #include "sde_trace.h"
 
+#include <linux/err.h>
+#include <linux/list.h>
+#include <linux/of.h>
+#include <linux/err.h>
+#include "msm_drv.h"
+#include "sde_connector.h"
+#include "msm_mmu.h"
+#include "dsi_display.h"
+#include "dsi_panel.h"
+#include "dsi_ctrl.h"
+#include "dsi_ctrl_hw.h"
+#include "dsi_drm.h"
+#include "dsi_clk.h"
+#include "dsi_pwr.h"
+#include "sde_dbg.h"
+#include <linux/kobject.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <drm/drm_mipi_dsi.h>
+
 #define SDE_PSTATES_MAX (SDE_STAGE_MAX * 4)
 #define SDE_MULTIRECT_PLANE_MAX (SDE_STAGE_MAX * 2)
+
+#define to_drm_connector(d) dev_get_drvdata(d)
+#define to_dsi_bridge(x)  container_of((x), struct dsi_bridge, base)
 
 struct sde_crtc_custom_events {
 	u32 event;
@@ -84,6 +110,8 @@ static struct sde_crtc_custom_events custom_events[] = {
  * Default value is set to 1 sec.
  */
 #define CRTC_TIME_PERIOD_CALC_FPS_US	1000000
+
+int dim_layer_alpha;
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -1649,6 +1677,12 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		for (i = 0; i < cstate->num_dim_layers; i++)
 			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
 					mixer, &cstate->dim_layer[i]);
+		if (cstate->fingerprint_dim_layer) {
+			SDE_ATRACE_BEGIN("dim layer blend setup mixer");
+			_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
+					mixer, cstate->fingerprint_dim_layer);
+			SDE_ATRACE_END("dim layer blend setup mixer");
+		}
 	}
 
 	_sde_crtc_program_lm_output_roi(crtc);
@@ -1679,7 +1713,6 @@ static void _sde_crtc_swap_mixers_for_right_partial_update(
 			break;
 		}
 	}
-
 	/**
 	 * For right-only partial update with DSC merge, we swap LM0 & LM1.
 	 * This is due to two reasons:
@@ -2497,6 +2530,120 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	sde_core_perf_crtc_update(crtc, 0, false);
 }
 
+bool set_fod_dimlayer_status(struct drm_connector *connector, bool enable)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return false;
+	}
+
+	dsi_display->panel->fod_dimlayer_enabled = enable;
+	return true;
+}
+EXPORT_SYMBOL(set_fod_dimlayer_status);
+
+bool get_fod_dimlayer_status(struct drm_connector *connector)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return false;
+	}
+
+	return dsi_display->panel->fod_dimlayer_enabled;
+}
+EXPORT_SYMBOL(get_fod_dimlayer_status);
+
+bool get_fod_dimlayer_hbm_enabled_status(struct drm_connector *connector)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return false;
+	}
+
+	return dsi_display->panel->fod_dimlayer_hbm_enabled;
+}
+EXPORT_SYMBOL(get_fod_dimlayer_hbm_enabled_status);
+
+
+bool get_fod_ui_status(struct drm_connector *connector)
+{
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (!connector || !dsi_display || !dsi_display->panel) {
+		SDE_ERROR("invalid param\n");
+		return false;
+	}
+
+	return dsi_display->panel->fod_ui_ready;
+}
+EXPORT_SYMBOL(get_fod_ui_status);
+
+void sde_crtc_fod_ui_ready(struct drm_crtc *crtc,
+		struct drm_crtc_state *old_state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *old_cstate;
+	struct sde_crtc_state *cstate;
+	struct drm_notify_data notify_data;
+	struct dsi_display *dsi_display = get_primary_display();
+	int finger_down;
+	static bool fod_status_changed;
+
+	if (!crtc || !crtc->state) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+
+	if (dsi_display == NULL || dsi_display->panel == NULL) {
+		SDE_ERROR("dsi display panel is null\n");
+		return;
+	}
+
+	if (!dsi_display->panel->fod_dimlayer_enabled) {
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	SDE_EVT32_VERBOSE(DRMID(crtc));
+
+	if (!old_state) {
+		SDE_ERROR("failed to find old cstate");
+		return;
+	}
+
+	old_cstate = to_sde_crtc_state(old_state);
+	cstate = to_sde_crtc_state(crtc->state);
+
+	if (fod_status_changed) {
+		finger_down = cstate->finger_down;
+		notify_data.data = &finger_down;
+		notify_data.is_primary = true;
+		pr_err("fingerprint status: %s",
+			      finger_down ? "pressed" : "up");
+		dsi_display->panel->fod_ui_ready = finger_down;
+		SDE_ATRACE_BEGIN("fod_event_notify");
+		sysfs_notify(&dsi_display->drm_conn->kdev->kobj, NULL, "fod_ui_ready");
+		SDE_ATRACE_END("fod_event_notify");
+#if 0
+		SDE_ATRACE_BEGIN("fod_event_notify");
+		drm_notifier_call_chain(DRM_FOD_EVENT,
+				&notify_data);
+		SDE_ATRACE_END("fod_event_notify");
+#endif
+		fod_status_changed = false;
+	}
+	if (old_cstate->finger_down != cstate->finger_down) {
+		fod_status_changed = true;
+	}
+}
+
+
 /**
  * _sde_crtc_set_input_fence_timeout - update ns version of in fence timeout
  * @cstate: Pointer to sde crtc state
@@ -2510,6 +2657,67 @@ static void _sde_crtc_set_input_fence_timeout(struct sde_crtc_state *cstate)
 	cstate->input_fence_timeout_ns =
 		sde_crtc_get_property(cstate, CRTC_PROP_INPUT_FENCE_TIMEOUT);
 	cstate->input_fence_timeout_ns *= NSEC_PER_MSEC;
+}
+
+ssize_t xm_fod_dim_layer_alpha_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int rc;
+	unsigned long alpha;
+
+	rc = kstrtoul(buf, 0, &alpha);
+	dim_layer_alpha = alpha;
+	return rc ? rc : count;
+}
+
+static int sde_crtc_config_fingerprint_dim_layer(struct drm_crtc_state *crtc_state, int stage)
+{
+	struct sde_crtc_state *cstate;
+	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
+	struct sde_hw_dim_layer *fingerprint_dim_layer;
+	int alpha = dim_layer_alpha;
+	struct sde_kms *kms;
+
+	kms = _sde_crtc_get_kms(crtc_state->crtc);
+	if (!kms || !kms->catalog) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	cstate = to_sde_crtc_state(crtc_state);
+
+	if (cstate->num_dim_layers == SDE_MAX_DIM_LAYERS - 1) {
+		pr_err("failed to get available dim layer for custom\n");
+		return -EINVAL;
+	}
+
+	if (!alpha) {
+		cstate->fingerprint_dim_layer = NULL;
+		return 0;
+	}
+
+	if ((stage + SDE_STAGE_0) >= kms->catalog->mixer[0].sblk->maxblendstages) {
+		pr_debug("stage too large! stage + SDE_STAGE_0:%d maxblendstages:%d\n",
+			stage + SDE_STAGE_0, kms->catalog->mixer[0].sblk->maxblendstages);
+		return -EINVAL;
+	}
+
+	SDE_ATRACE_BEGIN("set_dim_layer");
+	fingerprint_dim_layer = &cstate->dim_layer[cstate->num_dim_layers];
+	fingerprint_dim_layer->flags = SDE_DRM_DIM_LAYER_INCLUSIVE;
+	fingerprint_dim_layer->stage = stage + SDE_STAGE_0;
+
+	fingerprint_dim_layer->rect.x = 0;
+	fingerprint_dim_layer->rect.y = 0;
+	fingerprint_dim_layer->rect.w = mode->hdisplay;
+	fingerprint_dim_layer->rect.h = mode->vdisplay;
+	fingerprint_dim_layer->color_fill = (struct sde_mdss_color) {0, 0, 0, alpha};
+	pr_debug("the alpha of dim_layer is:%d\n", alpha);
+	cstate->fingerprint_dim_layer = fingerprint_dim_layer;
+	SDE_ATRACE_END("set_dim_layer");
+
+	return 0;
 }
 
 /**
@@ -4624,6 +4832,73 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	return 0;
 }
 
+bool sde_crtc_get_dim_layer_status(struct drm_crtc_state *crtc_state)
+{
+	struct sde_crtc_state *cstate;
+
+	if (!crtc_state)
+		return false;
+
+	cstate = to_sde_crtc_state(crtc_state);
+	return !!cstate->dim_layer_status;
+}
+
+static int sde_crtc_fod_atomic_check(struct sde_crtc_state *cstate,
+		struct plane_state *pstates, int cnt)
+{
+	int fod_property_value;
+	int fod_icon_plane_idx = -1;
+	int fod_press_plane_idx = -1;
+	int plane_idx = 0;
+	int rc = 0;
+	int dim_layer_zpos = INT_MAX;
+	struct dsi_display *dsi_display = get_primary_display();
+
+	if (dsi_display == NULL || dsi_display->panel == NULL) {
+		SDE_ERROR("dsi display panel is null\n");
+		return 0;
+	}
+
+	if (!dsi_display->panel->fod_dimlayer_enabled) {
+		return 0;
+	}
+
+	for (plane_idx = 0; plane_idx < cnt; plane_idx++) {
+		fod_property_value = sde_plane_check_fod_layer(pstates[plane_idx].drm_pstate);
+		if (fod_property_value == 1) {
+			fod_icon_plane_idx = plane_idx;
+		} else if (fod_property_value == 2) {
+			fod_press_plane_idx = plane_idx;
+		}
+	}
+
+	if (fod_icon_plane_idx >= 0 || fod_press_plane_idx >= 0) {
+		cstate->dim_layer_status = true;
+		if (dim_layer_zpos > pstates[fod_icon_plane_idx].stage + 1)
+			dim_layer_zpos = pstates[fod_icon_plane_idx].stage + 1;
+
+		for (plane_idx = 0; plane_idx < cnt; plane_idx++) {
+			if (pstates[plane_idx].stage >= dim_layer_zpos)
+				pstates[plane_idx].stage++;
+		}
+		rc = sde_crtc_config_fingerprint_dim_layer(&cstate->base, dim_layer_zpos);
+		if (rc) {
+			SDE_ERROR("Failed to config fod dim layer");
+			return -EINVAL;
+		}
+		if (fod_press_plane_idx >= 0)
+			cstate->finger_down = true;
+		else {
+			cstate->finger_down = false;
+		}
+	} else {
+		cstate->dim_layer_status = false;
+		cstate->fingerprint_dim_layer = NULL;
+		cstate->finger_down = false;
+	}
+	return 0;
+}
+
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -4773,6 +5048,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 			sde_plane_clear_multirect(pipe_staged[i]);
 		}
 	}
+
+	rc = sde_crtc_fod_atomic_check(cstate, pstates, cnt);
+	if (rc)
+		goto end;
 
 	/* assign mixer stages based on sorted zpos property */
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);

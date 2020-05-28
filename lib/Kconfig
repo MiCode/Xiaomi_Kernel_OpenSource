@@ -577,4 +577,9 @@ config QMI_ENCDEC_DEBUG
 	  library. This will log the information regarding the element
 	  and message being encoded & decoded.
 
+config CJSON
+	bool "Lightweight JSON in ANSI C"
+	help
+	  Kernel config option to enable cJSON library.
+
 endmenu

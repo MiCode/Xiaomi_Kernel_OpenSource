@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1648,7 +1649,7 @@ static struct msm_dir_conn sdm670_dir_conn[] = {
 	{121, 611},
 	{122, 612},
 	{123, 613},
-	{124, 614},
+	//{124, 614},
 	{125, 615},
 	{126, 616},
 	{127, 617},

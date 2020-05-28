@@ -2,6 +2,7 @@
  *  thermal_core.h
  *
  *  Copyright (C) 2012  Intel Corp
+ *  Copyright (C) 2020 XiaoMi, Inc.
  *  Author: Durgadoss R <durgadoss.r@intel.com>
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,6 +59,14 @@ struct thermal_instance {
 	unsigned int weight; /* The weight of the cooling device */
 };
 
+struct thermal_message {
+	bool message_ok;
+	const char *batt_array_size;
+	const char *batt_level_screen_on;
+	const char *batt_level_screen_off;
+};
+
+extern struct thermal_message *tm;
 int thermal_register_governor(struct thermal_governor *);
 void thermal_unregister_governor(struct thermal_governor *);
 
@@ -123,6 +132,8 @@ int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
 void of_thermal_handle_trip(struct thermal_zone_device *tz);
 void of_thermal_handle_trip_temp(struct thermal_zone_device *tz,
 					int trip_temp);
+int of_parse_thermal_message(void);
+void free_thermal_message(void);
 #else
 static inline int of_parse_thermal_zones(void) { return 0; }
 static inline void of_thermal_destroy_zones(void) { }

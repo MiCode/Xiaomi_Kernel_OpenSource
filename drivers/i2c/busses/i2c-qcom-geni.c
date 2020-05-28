@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +81,9 @@
 #define I2C_TIMEOUT_SAFETY_COEFFICIENT	10
 
 #define I2C_TIMEOUT_MIN_USEC	500000
-
+#ifdef CONFIG_I2C_STATUS_FOR_TOUCH
+extern void i2c_status_for_touch(bool on);
+#endif
 enum i2c_se_mode {
 	UNINITIALIZED,
 	FIFO_SE_DMA,
@@ -951,6 +954,20 @@ static int geni_i2c_remove(struct platform_device *pdev)
 		ipc_log_context_destroy(gi2c->ipcl);
 	return 0;
 }
+#ifdef CONFIG_I2C_STATUS_FOR_TOUCH
+static int geni_i2c_suspend(struct device *device)
+{
+	i2c_status_for_touch(true);
+	pr_debug("FTS: i2c PM suspend set system_i2c_suspended TRUE\n");
+	return 0;
+}
+static int geni_i2c_resume(struct device *device)
+{
+	i2c_status_for_touch(false);
+	pr_debug("FTS: i2c PM resume set system_i2c_suspended FALSE\n");
+	return 0;
+}
+#endif
 
 static int geni_i2c_resume_noirq(struct device *device)
 {
@@ -1027,7 +1044,6 @@ static int geni_i2c_runtime_resume(struct device *dev)
 	}
 	if (gi2c->se_mode == FIFO_SE_DMA)
 		enable_irq(gi2c->irq);
-
 	return 0;
 }
 
@@ -1070,6 +1086,10 @@ static int geni_i2c_suspend_noirq(struct device *device)
 #endif
 
 static const struct dev_pm_ops geni_i2c_pm_ops = {
+#ifdef CONFIG_I2C_STATUS_FOR_TOUCH
+	.suspend = geni_i2c_suspend,
+	.resume = geni_i2c_resume,
+#endif
 	.suspend_noirq		= geni_i2c_suspend_noirq,
 	.resume_noirq		= geni_i2c_resume_noirq,
 	.runtime_suspend	= geni_i2c_runtime_suspend,
