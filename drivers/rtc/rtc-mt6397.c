@@ -70,14 +70,15 @@ static int __mtk_rtc_read_time(struct mt6397_rtc *rtc,
 	if (ret < 0)
 		goto exit;
 
-	tm->tm_sec = data[RTC_OFFSET_SEC];
-	tm->tm_min = data[RTC_OFFSET_MIN];
-	tm->tm_hour = data[RTC_OFFSET_HOUR];
-	tm->tm_mday = data[RTC_OFFSET_DOM];
-	tm->tm_mon = data[RTC_OFFSET_MTH];
-	tm->tm_year = data[RTC_OFFSET_YEAR];
+	tm->tm_sec = data[RTC_OFFSET_SEC] & RTC_TC_SEC_MASK;
+	tm->tm_min = data[RTC_OFFSET_MIN] & RTC_TC_MIN_MASK;
+	tm->tm_hour = data[RTC_OFFSET_HOUR] & RTC_TC_HOU_MASK;
+	tm->tm_mday = data[RTC_OFFSET_DOM] & RTC_TC_DOM_MASK;
+	tm->tm_mon = data[RTC_OFFSET_MTH] & RTC_TC_MTH_MASK;
+	tm->tm_year = data[RTC_OFFSET_YEAR] & RTC_TC_YEA_MASK;
 
 	ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_TC_SEC, sec);
+	*sec &= RTC_TC_SEC_MASK;
 exit:
 	mutex_unlock(&rtc->lock);
 	return ret;
@@ -339,6 +340,7 @@ static const struct mtk_rtc_data mt6397_rtc_data = {
 static const struct of_device_id mt6397_rtc_of_match[] = {
 	{ .compatible = "mediatek,mt6323-rtc", .data = &mt6397_rtc_data },
 	{ .compatible = "mediatek,mt6358-rtc", .data = &mt6358_rtc_data },
+	{ .compatible = "mediatek,mt6359p-rtc", .data = &mt6358_rtc_data },
 	{ .compatible = "mediatek,mt6397-rtc", .data = &mt6397_rtc_data },
 	{ }
 };
