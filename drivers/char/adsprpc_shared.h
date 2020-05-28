@@ -146,6 +146,8 @@ do {\
 	pr_debug("Debug: adsprpc (%d): %s: %s: " fmt, __LINE__,\
 	current->comm, __func__, ##args)
 
+#define DEBUG_PRINT_SIZE_LIMIT (512*1024)
+
 #define remote_arg64_t    union remote_arg64
 
 struct remote_buf64 {

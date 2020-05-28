@@ -66,6 +66,7 @@
 #define ADSP_MMAP_ADD_PAGES_LLC  0x3000
 #define FASTRPC_DMAHANDLE_NOMAP (16)
 
+#define FASTRPC_ENOSUCH 39
 #define DEBUGFS_SIZE 3072
 #define UL_SIZE 25
 #define PID_SIZE 10
@@ -2132,12 +2133,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 				goto bail;
 			}
 		}
-		ADSPRPC_DEBUG(
-			"copied non ion buffer sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu size %zu\n",
-			sc, rpra[i].buf.pv,
-			ctx->overps[oix]->mend,
-			ctx->overps[oix]->mstart,
-			rpra[i].buf.len, map->size);
+		if (len > DEBUG_PRINT_SIZE_LIMIT)
+			ADSPRPC_DEBUG(
+				"copied non ion buffer sc 0x%x pv 0x%llx, mend 0x%llx mstart 0x%llx, len %zu\n",
+				sc, rpra[i].buf.pv,
+				ctx->overps[oix]->mend,
+				ctx->overps[oix]->mstart, len);
 		args = args + mlen;
 		rlen -= mlen;
 	}
@@ -2647,7 +2648,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (err)
 			goto bail;
 		if (fl->sctx->smmu.faults)
-			err = -EDESTADDRREQ;
+			err = -FASTRPC_ENOSUCH;
 		if (err)
 			goto bail;
 		if (ctx) {
@@ -5321,7 +5322,7 @@ static inline int fastrpc_mmap_device_ioctl(struct fastrpc_file *fl,
 			goto bail;
 		break;
 	default:
-		err = -EINVAL;
+		err = -ENOTTY;
 		pr_info("bad ioctl: %d\n", ioctl_num);
 		break;
 	}
@@ -5453,7 +5454,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		err = fastrpc_mmap_device_ioctl(fl, ioctl_num, &p, param);
 		break;
 	default:
-		err = -EINVAL;
+		err = -ENOTTY;
 		pr_info("bad ioctl: %d\n", ioctl_num);
 		break;
 	}

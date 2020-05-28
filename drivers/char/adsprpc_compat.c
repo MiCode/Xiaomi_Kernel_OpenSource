@@ -384,7 +384,7 @@ static int compat_get_fastrpc_ioctl_invoke2(
 		break;
 	}
 	default:
-		err = -EBADRQC;
+		err = -ENOTTY;
 		break;
 	}
 	*inva = inv2_user;
@@ -983,6 +983,6 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case COMPAT_FASTRPC_IOCTL_MUNMAP:
 		return compat_fastrpc_mmap_device_ioctl(filp, cmd, arg);
 	default:
-		return -ENOIOCTLCMD;
+		return -ENOTTY;
 	}
 }
