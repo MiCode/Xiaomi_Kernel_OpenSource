@@ -2859,6 +2859,12 @@ enum sched_boost_policy {
 
 #ifdef CONFIG_SCHED_WALT
 
+#define WALT_MANY_WAKEUP_DEFAULT 1000
+static inline bool walt_want_remote_wakeup(void)
+{
+	return sysctl_sched_many_wakeup_threshold < WALT_MANY_WAKEUP_DEFAULT;
+}
+
 static inline int cluster_first_cpu(struct walt_sched_cluster *cluster)
 {
 	return cpumask_first(&cluster->cpus);
@@ -3268,6 +3274,10 @@ static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
 }
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
+static inline bool walt_want_remote_wakeup(void)
+{
+	return false;
+}
 #endif  /* CONFIG_SCHED_WALT */
 
 struct sched_avg_stats {
