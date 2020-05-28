@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -896,6 +897,7 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 	char trash[FIFO_ALIGNMENT];
 	struct deferred_cmd *d_cmd;
 	void *cmd_data;
+	bool ret = false;
 
 	rcu_id = srcu_read_lock(&einfo->use_ref);
 
@@ -903,6 +905,19 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return;
 	}
+
+	spin_lock_irqsave(&einfo->rx_lock, flags);
+	if (!einfo->rx_fifo) {
+		ret = get_rx_fifo(einfo);
+		if (!ret) {
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
+			srcu_read_unlock(&einfo->use_ref, rcu_id);
+			return;
+		}
+	}
+	spin_unlock_irqrestore(&einfo->rx_lock, flags);
+	if (ret)
+		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
 
 	if ((atomic_ctx) && ((einfo->tx_resume_needed) ||
 		(waitqueue_active(&einfo->tx_blocked_queue)))) /* tx waiting ?*/
@@ -1498,14 +1513,22 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 static void subsys_up(struct glink_transport_if *if_ptr)
 {
 	struct edge_info *einfo;
+	unsigned long flags;
+	bool ret = false;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	einfo->in_ssr = false;
+	spin_lock_irqsave(&einfo->rx_lock, flags);
 	if (!einfo->rx_fifo) {
-		if (!get_rx_fifo(einfo))
+		ret = get_rx_fifo(einfo);
+		if (!ret) {
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			return;
-		einfo->in_ssr = false;
-		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
+		}
 	}
+	spin_unlock_irqrestore(&einfo->rx_lock, flags);
+	if (ret)
+		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
 }
 
 /**
@@ -1518,6 +1541,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 {
 	struct edge_info *einfo;
 	struct deferred_cmd *cmd;
+	unsigned long flags;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -1528,6 +1552,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 
 	synchronize_srcu(&einfo->use_ref);
 
+	spin_lock_irqsave(&einfo->rx_lock, flags);
 	while (!list_empty(&einfo->deferred_cmds)) {
 		cmd = list_first_entry(&einfo->deferred_cmds,
 						struct deferred_cmd, list_node);
@@ -1535,6 +1560,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 		kfree(cmd->data);
 		kfree(cmd);
 	}
+	spin_unlock_irqrestore(&einfo->rx_lock, flags);
 
 	einfo->tx_resume_needed = false;
 	einfo->tx_blocked_signal_sent = false;

@@ -369,17 +369,15 @@ put_name:
 	/* See if the low-level filesystem might want
 	 * to use its own hash
 	 */
-	lower_dentry = d_hash_and_lookup(lower_dir_dentry, &dname);
+	mutex_lock(&lower_dir_dentry->d_inode->i_mutex);
+	lower_dentry = lookup_one_len(dname.name, lower_dir_dentry,
+						dname.len);
+	mutex_unlock(&lower_dir_dentry->d_inode->i_mutex);
 	if (IS_ERR(lower_dentry))
 		return lower_dentry;
-	if (!lower_dentry) {
-		/* We called vfs_path_lookup earlier, and did not get a negative
-		 * dentry then. Don't confuse the lower filesystem by forcing
-		 * one on it now...
-		 */
+
+	if (lower_dentry->d_inode == NULL)
 		err = -ENOENT;
-		goto out;
-	}
 
 	lower_path.dentry = lower_dentry;
 	lower_path.mnt = mntget(lower_dir_mnt);

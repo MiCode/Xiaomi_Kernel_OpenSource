@@ -1,0 +1,82 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,e4_coslight_5500mah {
+	/* #3326681_Xiaomi_E4cos_5500mAh_averaged_MasterSlave_Mar2nd2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <5500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "e4_coslight";
+	qcom,checksum = <0xD654>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		C3 1E A3 06
+		2C 03 15 F5
+		D6 1C 16 02
+		7C 0D E5 0A
+		47 17 38 2A
+		C6 4D 10 5B
+		6B 00 00 00
+		0F 00 00 00
+		00 00 D4 B4
+		FC 07 EC BA
+		20 00 08 00
+		79 CB 91 DD
+		2C 05 D6 01
+		33 14 BD FA
+		3D FD 9F 32
+		25 06 09 20
+		27 00 14 00
+		50 1F 36 06
+		C7 03 EB FD
+		CA 1C FE 02
+		EF 15 46 12
+		89 18 F8 23
+		BF 4D 8C 5B
+		65 00 00 00
+		0D 00 00 00
+		00 00 4B D5
+		B7 C3 C8 CA
+		1A 00 00 00
+		02 E2 91 DD
+		E4 05 37 01
+		97 FC DB FB
+		5E F3 3D 22
+		C5 33 CC FF
+		07 10 00 00
+		1F 16 66 46
+		1A 00 40 00
+		6B 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+	];
+};

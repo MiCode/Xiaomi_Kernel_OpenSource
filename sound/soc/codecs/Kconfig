@@ -114,6 +114,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TAS571X if I2C
 	select SND_SOC_TFA9879 if I2C
+	select SND_SOC_TFA9894 if I2C
+	select SND_SOC_TAS2559 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
 	select SND_SOC_TLV320AIC26 if SPI_MASTER
@@ -664,6 +666,13 @@ config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
 	depends on I2C
 
+config SND_SOC_TFA9894
+	tristate "NXP Semiconductors TFA9894 amplifier"
+	depends on I2C
+
+config SND_SOC_TAS2559
+	tristate
+
 config SND_SOC_TLV320AIC23
 	tristate
 
@@ -766,6 +775,9 @@ config SND_SOC_WCD_CPE
 config AUDIO_EXT_CLK
 	tristate
 	default y if SND_SOC_WCD9335=y || SND_SOC_WCD9330=y || SND_SOC_SDM660_CDC=y
+
+config SND_SOC_USB_HEADSET
+	tristate
 
 config SND_SOC_WCD_MBHC
 	tristate
@@ -996,5 +1008,6 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 
 source "sound/soc/codecs/sdm660_cdc/Kconfig"
 source "sound/soc/codecs/msm_sdw/Kconfig"
+source "sound/soc/codecs/dbmdx/Kconfig"
 
 endmenu

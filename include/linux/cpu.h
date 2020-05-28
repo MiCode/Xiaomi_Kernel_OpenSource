@@ -190,6 +190,7 @@ void smpboot_thread_init(void);
 int cpu_up(unsigned int cpu);
 void notify_cpu_starting(unsigned int cpu);
 extern void cpu_maps_update_begin(void);
+extern int cpu_maps_update_trybegin(void);
 extern void cpu_maps_update_done(void);
 
 #define cpu_notifier_register_begin	cpu_maps_update_begin
@@ -220,6 +221,11 @@ static inline void __unregister_cpu_notifier(struct notifier_block *nb)
 
 static inline void cpu_maps_update_begin(void)
 {
+}
+
+static inline int cpu_maps_update_trybegin(void)
+{
+	return 1;
 }
 
 static inline void cpu_maps_update_done(void)

@@ -1,0 +1,465 @@
+#include "xiaomi-sdm660-common.dtsi"
+#include "platina-camera-sensor.dtsi"
+#include "smb1355.dtsi"
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+				0xaf 0x84
+				0x83 0x88
+				0xc7 0x8c
+				0x00 0x90
+				0x30 0x08
+				0x79 0x0c
+				0x21 0x10
+				0x14 0x9c
+				0x9f 0x1c
+				0x00 0x18>;
+};
+
+&tlmm {
+	/* d2t don't support reverse boost, set gpio20 to in/down */
+	boost_en_disable: boost_en_disable {
+		/* diable state */
+		mux {
+			pins = "gpio20";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio20";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			input-enable;
+		};
+	};
+};
+
+&pm660_charger {
+	qcom,usb-icl-ua = <2750000>;
+	qcom,fcc-max-ua = <3000000>;
+	qcom,fv-max-uv = <4400000>;
+	qcom,sw-jeita-enable;
+	qcom,cool-fcc-ua = <975000>;
+	qcom,critical-low-fcc-ua = <325000>;
+	qcom,normal-cool-fcc-ua = <2275000>;
+	qcom,warm-fcc-ua = <1625000>;
+	qcom,supprot-5v-2a;
+	qcom,use-usbmid;
+	pinctrl-names = "default";
+	pinctrl-0 = <&boost_en_disable>;
+	qcom,thermal-mitigation
+				= <2000000 1800000 1600000 1400000 1200000 1000000 1000000>;
+	qcom,thermal-mitigation-dcp
+				= <2000000 2000000 2000000 2000000 2000000 2000000 2000000
+				   2000000 1800000 1700000 1600000 1400000 1200000 1000000
+				   1000000 1000000>;
+	qcom,thermal-mitigation-qc3
+				= <2750000 2450000 2200000 2150000 2100000 1950000 1825000
+				   1725000 1550000 1250000 1150000 1000000 900000 800000
+				   750000 525000>;
+	qcom,thermal-mitigation-qc2
+				= <1500000 1500000 1500000 1500000 1425000 1325000 1275000
+				   1225000 1175000 1125000 1025000 925000 825000 725000
+				   625000 525000>;
+	qcom,thermal-mitigation-pd-base
+				= <3000000 2800000 2600000 2400000 2200000 2000000 1800000
+				   1600000 1600000 1400000 1200000 1100000 1000000 900000
+				   752500 525000>;
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-D2T-coslight-3350mAh.dtsi"
+		#include "batterydata-D2T-desay-3350mAh.dtsi"
+		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
+	};
+};
+
+&pm660_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,fg-force-load-profile;
+	qcom,fg-sys-term-current = <(-300)>;
+	qcom,fg-chg-term-current = <200>;
+	qcom,fg-recharge-soc-thr = <99>;
+	qcom,fg-cutoff-voltage = <3400>;
+	qcom,fg-empty-voltage = <3100>;
+	qcom,fg-jeita-hyst-temp = <0>;
+	qcom,fg-jeita-thresholds = <0 15 45 58>;
+	qcom,fg-batt-temp-delta = <6>;
+	qcom,fg-esr-clamp-mohms = <60>;
+	qcom,fg-cutoff-current = <200>;
+	qcom,slope-limit-temp-threshold = <100>;
+	qcom,slope-limit-coeffs = <10 11 12 13>;
+};
+
+&tlmm {
+	smb_int_default: smb_int_default {
+		mux {
+			pins = "gpio21";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio21";
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};
+
+&i2c_2 {
+	status = "ok";
+};
+
+&smb1355_0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
+	smb1355_charger_0: qcom,smb1355-charger@1000 {
+		io-channels = <&pm660_rradc 2>,
+				<&pm660_rradc 12>;
+		io-channel-names = "charger_temp",
+				"charger_temp_max";
+		status ="ok";
+	};
+};
+
+&smb1355_1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default>;
+	interrupt-parent = <&tlmm>;
+	interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
+	smb1355_charger_1: qcom,smb1355-charger@1000 {
+		io-channels = <&pm660_rradc 2>,
+				<&pm660_rradc 12>;
+		io-channel-names = "charger_temp",
+				"charger_temp_max";
+		status ="ok";
+	};
+};
+
+&i2c_4 { /* BLSP1 QUP3 (TP) */
+	status = "okay";
+	/* Novatek device tree node */
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		status = "ok";
+
+		vddio-supply = <&pm660_l11>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		novatek,vddio-reg-name = "vddio";
+		novatek,lab-reg-name = "lab";
+		novatek,ibb-reg-name = "ibb";
+
+		novatek,reset-tddi = <&tlmm 53 0x00>;
+		novatek,reset-gpio = <&tlmm 66 0x00>;
+		novatek,irq-gpio = <&tlmm 67 0x2001>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_nvt_int_suspend &ts_reset_suspend>;
+		novatek,config-array-size = <1>;
+		novatek,display-coords = <1080 2280>;
+		novatek,dump-click-count;
+		novatek,tddi-tp-hw-reset;
+		novatek,cfg_0 {
+			novatek,tp-vendor = <0x46>;
+			novatek,fw-name = "novatek_nt36672_d2t.fw";
+			novatek,clicknum-file-name = "nvt+tianma";
+		};
+		/* MP */
+		/*novatek,mp-support-dt;*/
+	};
+	/*Synatics device tree node*/
+	synaptics_tcm@20 {
+		compatible = "synaptics,tcm-i2c";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		vdd-supply = <&pm660_l11>;
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		i2c-supply = <&pm660_l14>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		synaptics,bus-reg-name = "vdd";
+		synaptics,lab-reg-name = "lab";
+		synaptics,ibb-reg-name = "ibb";
+		synaptics,i2c-reg-name = "i2c";
+		synaptics,irq-gpio = <&tlmm 67 0x2008>; /* IRQF_ONESHOT | IRQF_TRIGGER_LOW */
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-gpio = <&tlmm 66 0x0000>;
+		synaptics,mdss-reset = <&tlmm 53 0x0000>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,ubl-i2c-addr = <0x2c>;
+	};
+	focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <67 0>;
+		vddio-supply = <&pm660_l11>;
+		i2c-supply = <&pm660_l14>;
+		/*avdd-supply = <&pm8994_l22>;*/
+		lab-supply = <&lcdb_ldo_vreg>;
+		ibb-supply = <&lcdb_ncp_vreg>;
+		/*
+		focaltech,vddio-reg-name = "vddio";
+		focaltech,lab-reg-name = "lab";
+		focaltech,ibb-reg-name = "ibb";
+		*/
+		focaltech,i2c-reg-name = "i2c";
+		focaltech,reset-gpio = <&tlmm 66 0x01>;
+		focaltech,lcd-reset-gpio = <&tlmm 53 0x00>;
+		focaltech,irq-gpio = <&tlmm 67 0x02>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords = <0 0 1080 2280>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_nvt_int_suspend &ts_reset_suspend>;
+		/* focaltech,have-key; */
+	};
+};
+
+&pm660_coincell {
+	qcom,vset-millivolts = <3200>;
+	qcom,charge-enable = <1>;
+};
+
+&pm660_haptics {
+	status = "okay";
+	qcom,wave-play-rate-us = <4878>;
+	qcom,vmax-mv = <3100>;
+	qcom,wave-shape = "sine";
+	qcom,lra-auto-res-mode = "qwd";
+	qcom,lra-res-cal-period = <4>;
+	qcom,lra-qwd-drive-duration = <1>;
+	qcom,brake-pattern = [03 02 00 00];
+	qcom,disable_force_back_emf_delay;
+	qcom,vmax-overbrake-mv = <3596>;
+	qcom,brake-pattern-count = <4>;
+	qcom,brake-pattern-arry = [01 01 00 00
+		02 01 01 00
+		02 01 01 00
+		02 02 01 00];
+};
+
+
+&soc {
+	thermal-message {
+		thermal,batt-array-size = "13";
+		thermal,batt-level-screen-on = "0 2 4 6 8 8 9 10 11 12 14 14 16";
+		thermal,batt-level-screen-off = "0 1 1 1 1 3 4 5 6 7 8 14 16";
+	};
+};
+
+&soc {
+	sound {
+		qcom,msm-mi2s-master = <0>, <1>, <0>, <0>;
+		qcom,msm-mi2s-ext-mclk = <1>,<0>,<0>,<0>;
+		qcom,wsa-max-devs = <0>;
+		qcom,msm-micbias1-ext-cap;
+		qcom,msm-micbias2-ext-cap;
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,msm-mbhc-usbc-audio-supported = <1>;
+		qcom,usbc-analog-en1-gpio = <&pm660_gpios 13 0>;
+		qcom,us-euro-gpios = <&us_euro_gpio>;
+	};
+
+	qcom,msm-dai-mi2s {
+		compatible = "qcom,msm-dai-mi2s";
+		dai_mi2s1: qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&sec_mi2s_active
+					&sec_mi2s_sd0_active
+					&sec_mi2s_sd1_active>;
+			pinctrl-1 = <&sec_mi2s_sleep
+					&sec_mi2s_sd0_sleep
+					&sec_mi2s_sd1_sleep>;
+		};
+	};
+	cdc_sdw_gpios: sdw_clk_data_pinctrl {
+		status = "disabled";
+	};
+
+	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+		status = "disabled";
+	};
+
+	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+		status = "disabled";
+	};
+
+	spk_id_pin: spk-id-pin@113{
+		compatible = "audio,speaker-id";
+		audio,speaker-id-gpio = <&tlmm 113 0>;
+		pinctrl-names = "pull_down", "pull_up", "no_pull";
+		pinctrl-0 = <&spk_id_pull_down>;
+		pinctrl-1 = <&spk_id_pull_up>;
+		pinctrl-2 = <&spk_id_no_pull>;
+	};
+};
+
+&pm660_gpios {
+		/* GPIO 13 (AUDIO_SEL) */
+		gpio@cc00 {
+			status = "okay";
+			qcom,mode = <1>;/* Digital out */
+			qcom,pull = <5>;/* No pull */
+		};
+	/* disable pmic gpio_4 as adc for backlight therm */
+	gpio@c300 {
+		reg = <0xc300 0x100>;
+		qcom,pin-num = <4>;
+		status = "ok";
+		qcom,master-en = <0>;
+	};
+};
+
+&i2c_2 { /* smart PA device. */
+		status = "okay";
+		tfa98xx@34 {
+		compatible = "nxp,tfa98xx";
+		reset-gpio = <&tlmm 43 0>;
+		irq-gpio = <&tlmm 48 0>;
+		nxp,spk-id-pin = <&spk_id_pin>;
+		reg = <0x34>;
+		status = "ok";
+		};
+};
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_tianma_fhd_nt36672a_video>;
+};
+
+&tlmm {
+	ts_nvt_int_suspend: ts_nvt_int_suspend {
+		mux {
+			pins = "gpio67";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio67";
+			drive-strength = <16>;
+			bias-pull-down;
+		};
+	};
+};
+
+/* white led was used for powersupply of White led */
+&red_led {
+	linux,name = "white";
+	qcom,duty-pcts =
+		[00 04 08 0C 0F 12 14 15 16
+		16 15 14 12 0F 0C 08 04 00];
+};
+
+
+/* white led was used for powersupply of White led */
+&red_led {
+	linux,name = "white";
+	qcom,duty-pcts =
+		[01 05 09 0D 10 13 15 16 17
+		17 16 15 13 10 0D 09 05 01];
+};
+&soc {
+	fingerprint_fpc {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <72 0x0>;
+		fpc,gpio_rst = <&tlmm 55 0x0>;
+		fpc,gpio_irq = <&tlmm 72 0x0>;
+		vdd_ana-supply = <&fp_vdd_vreg>;
+		/* fpc,enable-on-boot; */
+		/* fpc,enable-wakeup; */
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_55>;
+		pinctrl-1 = <&msm_gpio_55_output_high>;
+		pinctrl-2 = <&msm_gpio_72>;
+
+	};
+
+	fingerprint_goodix {
+		compatible = "goodix,fingerprint";
+		gooidx,gpio-reset = <&tlmm 55 0x0>;
+		goodix,gpio-irq = <&tlmm 72 0x0>;
+		status = "ok";
+	};
+
+	fp_vdd_vreg: fp_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 64 0>;
+	};
+};
+
+&tlmm {
+	/* GPIO_55 : FP_RESET_N */
+	msm_gpio_55: msm_gpio_55 {
+		mux {
+			pins = "gpio55";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio55";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	/* GPIO_55 : FP_RESET_N, state device active*/
+	msm_gpio_55_output_high: msm_gpio_55_output_high {
+		mux {
+			pins = "gpio55";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio55";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+
+	/* GPIO_72 : FP_INT_N */
+	msm_gpio_72: msm_gpio_72 {
+		mux {
+			pins = "gpio72";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio72";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};
+
+&fp_vdd_vreg {
+	regulator-always-on;
+};
+&qcom_qbt1000 {
+	status = "disabled";
+};

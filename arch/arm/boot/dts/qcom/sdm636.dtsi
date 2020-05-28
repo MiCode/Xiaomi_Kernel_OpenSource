@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,12 +19,12 @@
 	qcom,msm-id = <345 0x0>;
 
 	reserved-memory {
-		/delete-node/ cdsp_fw_region@94a00000;
+		/delete-node/ cdsp_fw_region@94e00000;
 
-		buffer_mem: buffer_region@94a00000 {
+		buffer_mem: buffer_region@94e00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x94a00000 0x0 0x100000>;
+			reg = <0x0 0x94e00000 0x0 0x100000>;
 		};
 	};
 };

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,7 @@
 #include <linux/spmi.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
+#include <linux/wakeup_reason.h>
 
 /* RTC/ALARM Register offsets */
 #define REG_OFFSET_ALARM_RW	0x40
@@ -688,6 +690,33 @@ fail_alarm_disable:
 	}
 }
 
+#ifdef CONFIG_PM
+extern bool alarm_fired;
+static int qpnp_rtc_resume(struct device *dev)
+{
+	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
+
+	if (alarm_fired == true) {
+		pr_info("Alarm event generated during suspend\n");
+		log_wakeup_reason(rtc_dd->rtc_alarm_irq);
+	}
+
+	return 0;
+}
+
+static int qpnp_rtc_suspend(struct device *dev)
+{
+	alarm_fired = false;
+
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_rtc_pm_ops = {
+	.suspend = qpnp_rtc_suspend,
+	.resume = qpnp_rtc_resume,
+};
+#endif
+
 static const struct of_device_id spmi_match_table[] = {
 	{
 		.compatible = "qcom,qpnp-rtc",
@@ -703,6 +732,9 @@ static struct platform_driver qpnp_rtc_driver = {
 		.name		= "qcom,qpnp-rtc",
 		.owner		= THIS_MODULE,
 		.of_match_table	= spmi_match_table,
+#ifdef CONFIG_PM
+		.pm     = &qpnp_rtc_pm_ops,
+#endif
 	},
 };
 

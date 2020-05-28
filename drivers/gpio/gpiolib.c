@@ -52,6 +52,7 @@ static DEFINE_MUTEX(gpio_lookup_lock);
 static LIST_HEAD(gpio_lookup_list);
 LIST_HEAD(gpio_chips);
 
+static u32 gpio_debug_suspend;
 
 static void gpiochip_free_hogs(struct gpio_chip *chip);
 static void gpiochip_irqchip_remove(struct gpio_chip *gpiochip);
@@ -2520,6 +2521,64 @@ static const struct seq_operations gpiolib_seq_ops = {
 	.show = gpiolib_seq_show,
 };
 
+static void gpiolib_chip_print(struct gpio_chip *chip)
+{
+	unsigned		i;
+	unsigned		gpio = chip->base;
+	struct gpio_desc	*gdesc = &chip->desc[0];
+	int			is_out;
+	int			is_irq;
+
+	if (chip->print_stats)
+		chip->print_stats(chip);
+	else {
+		for (i = 0; i < chip->ngpio; i++, gpio++, gdesc++) {
+			if (!test_bit(FLAG_REQUESTED, &gdesc->flags)) {
+				if (gdesc->name) {
+					pr_info(" gpio-%-3d (%-20.20s)\n",
+						   gpio, gdesc->name);
+				}
+				continue;
+			}
+
+			gpiod_get_direction(gdesc);
+			is_out = test_bit(FLAG_IS_OUT, &gdesc->flags);
+			is_irq = test_bit(FLAG_USED_AS_IRQ, &gdesc->flags);
+			pr_info(" gpio-%-3d (%-20.20s|%-20.20s) %s %s %s\n",
+				gpio, gdesc->name ? gdesc->name : "",
+				gdesc->label, is_out ? "out" : "in ",
+				chip->get
+					? (chip->get(chip, i) ? "hi" : "lo")
+					: "?  ",
+				is_irq ? "IRQ" : "   ");
+		}
+	}
+}
+
+void gpiolib_print(void)
+{
+	unsigned long flags;
+	struct gpio_chip *chip;
+	struct device *dev;
+
+	if (likely(!gpio_debug_suspend))
+		return;
+	spin_lock_irqsave(&gpio_lock, flags);
+	list_for_each_entry(chip, &gpio_chips, list) {
+		dev = chip->dev;
+		pr_info("GPIOs %d-%d", chip->base,
+				chip->base + chip->ngpio - 1);
+		if (dev)
+			pr_info("%s/%s", dev->bus ? dev->bus->name : "no-bus",
+				dev_name(dev));
+		if (chip->label)
+			pr_info("%s", chip->label);
+		if (chip->can_sleep)
+			pr_info("can sleep");
+		gpiolib_chip_print(chip);
+	}
+	spin_unlock_irqrestore(&gpio_lock, flags);
+}
 static int gpiolib_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &gpiolib_seq_ops);
@@ -2538,6 +2597,10 @@ static int __init gpiolib_debugfs_init(void)
 	/* /sys/kernel/debug/gpio */
 	(void) debugfs_create_file("gpio", S_IFREG | S_IRUGO,
 				NULL, NULL, &gpiolib_operations);
+
+	if (!debugfs_create_u32("gpio_debug_suspend", 0660,
+				NULL, &gpio_debug_suspend))
+		pr_warn("gpio: Failed to create gpio_debug_suspend\n");
 	return 0;
 }
 subsys_initcall(gpiolib_debugfs_init);

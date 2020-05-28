@@ -190,6 +190,7 @@ obj-$(CONFIG_MFD_HI6421_PMIC)	+= hi6421-pmic-core.o
 obj-$(CONFIG_MFD_DLN2)		+= dln2.o
 obj-$(CONFIG_MFD_RT5033)	+= rt5033.o
 obj-$(CONFIG_MFD_SKY81452)	+= sky81452.o
+obj-y                		+= spk-id.o
 obj-$(CONFIG_MSM_CDC_PINCTRL)	+= msm-cdc-pinctrl.o
 obj-$(CONFIG_MSM_CDC_SUPPLY) += msm-cdc-supply.o
 obj-$(CONFIG_WCD9XXX_CODEC_UTIL) += wcd9xxx-utils.o

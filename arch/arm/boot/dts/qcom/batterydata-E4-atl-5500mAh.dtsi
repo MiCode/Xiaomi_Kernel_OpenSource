@@ -1,0 +1,82 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,e4_atl_5500mah {
+	/* #3326715_Xiaomi_E4atl_5500mAh_averaged_MasterSlave_Mar2nd2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <5500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "e4_atl";
+	qcom,checksum = <0x6830>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		37 1F FD 05
+		3A 0A 87 06
+		DA 1C 0F 02
+		8E 0D D7 0A
+		C4 17 F2 23
+		2B 44 8C 5A
+		6F 00 00 00
+		10 00 00 00
+		00 00 51 A4
+		A9 CD 2E C2
+		17 00 08 00
+		1E 00 2F E5
+		35 FC 38 01
+		A3 05 DB 13
+		81 F5 61 32
+		1E 06 09 20
+		27 00 14 00
+		D1 1F 7A 05
+		9A 0A 49 FC
+		C9 1C 05 03
+		EC 15 49 12
+		8A 18 F7 23
+		C0 4D 8B 5B
+		69 00 00 00
+		0D 00 00 00
+		00 00 D2 D5
+		0A CA BE C2
+		14 00 00 00
+		C3 E3 2F E5
+		98 06 46 F3
+		C3 06 7F 03
+		FD 06 CC 1B
+		B6 33 CC FF
+		07 10 00 00
+		CB 15 66 46
+		14 00 40 00
+		85 01 0A FA
+		FF 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+	];
+};

@@ -371,6 +371,8 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Enable_cpus;
 	}
 
+	gpiolib_print();
+	regulator_print_stats();
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 

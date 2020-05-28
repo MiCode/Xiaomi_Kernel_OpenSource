@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -203,6 +204,24 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			sensor_i2c_client);
 		if (rc < 0)
 			return rc;
+
+		if (!s_ctrl->is_probe_succeed) {
+			rc = msm_sensor_match_vendor_id(s_ctrl);
+			if (rc < 0) {
+				msm_camera_power_down(power_info,
+					s_ctrl->sensor_device_type, sensor_i2c_client);
+				msleep(20);
+				continue;
+			}
+			rc = msm_sensor_match_vcm_id(s_ctrl);
+			if (rc < 0) {
+				msm_camera_power_down(power_info,
+					s_ctrl->sensor_device_type, sensor_i2c_client);
+				msleep(20);
+				continue;
+			}
+		}
+
 		rc = msm_sensor_check_id(s_ctrl);
 		if (rc < 0) {
 			msm_camera_power_down(power_info,
@@ -274,6 +293,258 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_err("%s chip id %x does not match %x\n",
 				__func__, chipid, slave_info->sensor_id);
 		return -ENODEV;
+	}
+	return rc;
+}
+
+int msm_sensor_match_vendor_id(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+	uint16_t vendorid = 0;
+	uint16_t moduleflag = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	struct msm_camera_slave_info *slave_info;
+	const char *sensor_name;
+	uint16_t temp_sid = 0;
+	enum cci_i2c_master_t temp_master = MASTER_0;
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %pK\n",
+			__func__, __LINE__, s_ctrl);
+		return -EINVAL;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !slave_info || !sensor_name) {
+		pr_err("%s:%d failed: %pK %pK %pK\n",
+			__func__, __LINE__, sensor_i2c_client, slave_info,
+			sensor_name);
+		return -EINVAL;
+	}
+	if (s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr == 0) {
+		pr_err("slave_addr =0\n");
+		return rc;
+	}
+
+	temp_master = sensor_i2c_client->cci_client->cci_i2c_master;
+	switch (s_ctrl->sensordata->vendor_id_info->cci_i2c_master) {
+	case MSM_MASTER_0:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
+		break;
+	case MSM_MASTER_1:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_1;
+		break;
+	default:
+		break;
+	}
+	temp_sid = sensor_i2c_client->cci_client->sid;
+	sensor_i2c_client->cci_client->sid =
+		s_ctrl->sensordata->vendor_id_info->eeprom_slave_addr >> 1;
+	if (strnstr(sensor_name, "s5k5e8", strlen(sensor_name))) {
+		/* make initial state */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A00,
+			0x04,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* set page14 of otp */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A02,
+			0x0E,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* set read mode of NVM controller Interface1 */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A00,
+			0x01,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* the time to transfer 1page data from otp to buffer */
+		msleep(100);
+		rc = msm_camera_cci_i2c_read(
+			sensor_i2c_client,
+			0x0A04,
+			&moduleflag,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* flag of Group 1 0x55 valid */
+		if (moduleflag != 0x55) {
+			rc = msm_camera_cci_i2c_read(
+				sensor_i2c_client,
+				0x0A1E,
+				&moduleflag,
+				MSM_CAMERA_I2C_BYTE_DATA);
+			/* flag of Group 2 0x55 valid */
+			if (moduleflag != 0x55) {
+				/* vendor id in Group3 */
+				rc = msm_camera_cci_i2c_read(
+					sensor_i2c_client,
+					0x0A3A,
+					&vendorid,
+					MSM_CAMERA_I2C_BYTE_DATA);
+			} else
+				/* vendor id in Group2 */
+				rc = msm_camera_cci_i2c_read(
+					sensor_i2c_client,
+					0x0A20,
+					&vendorid,
+					MSM_CAMERA_I2C_BYTE_DATA);
+		} else {
+			/* vendor id in Group1 */
+			rc = msm_camera_cci_i2c_read(
+				sensor_i2c_client,
+				0x0A06,
+				&vendorid,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		/* disable NVM controller */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A00,
+			0x00,
+			MSM_CAMERA_I2C_BYTE_DATA);
+	} else if (strnstr(sensor_name, "s5k4h7", strlen(sensor_name))) {
+		/* make initial state */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0100,
+			0x01,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		msleep(50);
+		/* set page21 of otp */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A02,
+			0x15,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* set read mode of NVM controller Interface1 */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A00,
+			0x01,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* the time to transfer 1page data from otp to buffer */
+		msleep(1);
+		rc = msm_camera_cci_i2c_read(
+			sensor_i2c_client,
+			0x0A04,
+			&moduleflag,
+			MSM_CAMERA_I2C_BYTE_DATA);
+		/* flag of Group 1 0x55 valid */
+		if (moduleflag != 0x55) {
+			rc = msm_camera_cci_i2c_read(
+				sensor_i2c_client,
+				0x0A1E,
+				&moduleflag,
+				MSM_CAMERA_I2C_BYTE_DATA);
+			/* flag of Group 2 0x55 valid */
+			if (moduleflag != 0x55) {
+				/* vendor id in Group3 */
+				rc = msm_camera_cci_i2c_read(
+					sensor_i2c_client,
+					0x0A3A,
+					&vendorid,
+					MSM_CAMERA_I2C_BYTE_DATA);
+			} else
+				/* vendor id in Group2 */
+				rc = msm_camera_cci_i2c_read(
+					sensor_i2c_client,
+					0x0A20,
+					&vendorid,
+					MSM_CAMERA_I2C_BYTE_DATA);
+		} else {
+			/* vendor id in Group1 */
+			rc = msm_camera_cci_i2c_read(
+				sensor_i2c_client,
+				0x0A06,
+				&vendorid,
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		/* disable NVM controller */
+		rc = msm_camera_cci_i2c_write(
+			sensor_i2c_client,
+			0x0A00,
+			0x00,
+			MSM_CAMERA_I2C_BYTE_DATA);
+	} else {
+		rc = msm_camera_cci_i2c_read(
+			sensor_i2c_client,
+			s_ctrl->sensordata->vendor_id_info->vendor_id_addr,
+			&vendorid,
+			s_ctrl->sensordata->vendor_id_info->data_type);
+	}
+	sensor_i2c_client->cci_client->sid = temp_sid;
+	sensor_i2c_client->cci_client->cci_i2c_master = temp_master;
+	if (rc < 0) {
+		pr_err("%s: %s: read vendor id failed\n", __func__, sensor_name);
+		return rc;
+	}
+	if (s_ctrl->sensordata->vendor_id_info->vendor_id != vendorid) {
+		rc = -1;
+		pr_err("%s: read vendor id: 0x%x expected id 0x%x:\n",
+			__func__, vendorid, s_ctrl->sensordata->vendor_id_info->vendor_id);
+	}
+	return rc;
+}
+
+int msm_sensor_match_vcm_id(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+	uint16_t vcmid = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	struct msm_camera_slave_info *slave_info;
+	const char *sensor_name;
+	uint16_t temp_sid = 0;
+	enum cci_i2c_master_t temp_master = MASTER_0;
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %pK\n",
+			__func__, __LINE__, s_ctrl);
+		return -EINVAL;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !slave_info || !sensor_name) {
+		pr_err("%s:%d failed: %pK %pK %pK\n",
+			__func__, __LINE__, sensor_i2c_client, slave_info,
+			sensor_name);
+		return -EINVAL;
+	}
+	if (s_ctrl->sensordata->vcm_id_info->eeprom_slave_addr == 0) {
+		pr_err("slave_addr =0\n");
+		return rc;
+	}
+
+	temp_master = sensor_i2c_client->cci_client->cci_i2c_master;
+	switch (s_ctrl->sensordata->vcm_id_info->cci_i2c_master) {
+	case MSM_MASTER_0:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
+		break;
+	case MSM_MASTER_1:
+		sensor_i2c_client->cci_client->cci_i2c_master = MASTER_1;
+		break;
+	default:
+		break;
+	}
+	temp_sid = sensor_i2c_client->cci_client->sid;
+	sensor_i2c_client->cci_client->sid =
+		s_ctrl->sensordata->vcm_id_info->eeprom_slave_addr >> 1;
+	rc = msm_camera_cci_i2c_read(
+		sensor_i2c_client,
+		s_ctrl->sensordata->vcm_id_info->vcm_id_addr,
+		&vcmid,
+		s_ctrl->sensordata->vcm_id_info->data_type);
+	sensor_i2c_client->cci_client->sid = temp_sid;
+	sensor_i2c_client->cci_client->cci_i2c_master = temp_master;
+	if (rc < 0) {
+		pr_err("%s: %s: read vcm id failed\n", __func__, sensor_name);
+		return rc;
+	}
+	if (s_ctrl->sensordata->vcm_id_info->vcm_id != vcmid) {
+		rc = -1;
+		pr_err("%s: read vcm id: 0x%x expected id 0x%x:\n",
+			__func__, vcmid, s_ctrl->sensordata->vcm_id_info->vcm_id);
 	}
 	return rc;
 }

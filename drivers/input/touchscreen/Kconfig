@@ -12,6 +12,10 @@ menuconfig INPUT_TOUCHSCREEN
 if INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
+source "drivers/input/touchscreen/ft5x46/Kconfig"
+source "drivers/input/touchscreen/gt9xx/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 config OF_TOUCHSCREEN
 	def_tristate INPUT
@@ -1217,6 +1221,14 @@ config TOUCHSCREEN_IT7260_I2C
 
 config TOUCHSCREEN_ST
 	bool "STMicroelectronics Touchscreen Driver"
+	depends on I2C
+	help
+	  Say Y here if you have a STMicroelectronics Touchscreen.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_NT36XXX
+	bool "Novatech Touchscreen Driver"
 	depends on I2C
 	help
 	  Say Y here if you have a STMicroelectronics Touchscreen.

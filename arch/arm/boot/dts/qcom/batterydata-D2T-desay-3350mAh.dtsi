@@ -1,0 +1,83 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,d2t_desay_3350mah {
+	qcom, = <24>;
+	/* #3475364_Xiaomi_D2Tdesay_3350mAh_averaged_MasterSlave_Jun11th2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3350>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,battery-type = "d2t_desay";
+	qcom,checksum = <0x32F3>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 74 1F D8 05
+		 3A 0A 9B 06
+		 E6 1C 71 FB
+		 9B 04 E6 03
+		 68 17 FC 23
+		 57 44 4B 5A
+		 7E 00 00 00
+		 11 00 00 00
+		 00 00 9D BA
+		 F8 CC 51 A4
+		 22 00 08 00
+		 F3 E2 73 ED
+		 5D 06 95 F3
+		 43 E5 D1 12
+		 A9 07 8E 2B
+		 22 06 09 20
+		 27 00 14 00
+		 C4 1F 94 05
+		 78 0A A1 FC
+		 BD 1C F7 02
+		 17 0C 1A 12
+		 78 18 9A 23
+		 54 44 99 5A
+		 6C 00 00 00
+		 0F 00 00 00
+		 00 00 7D D5
+		 8D CA 0C C3
+		 1C 00 00 00
+		 A2 EB 73 ED
+		 F2 06 70 00
+		 D9 FD AF 01
+		 3E 06 97 1A
+		 9C 33 CC FF
+		 07 10 00 00
+		 04 0D 66 46
+		 1C 00 40 00
+		 74 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};
