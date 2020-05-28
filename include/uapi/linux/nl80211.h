@@ -2351,6 +2351,9 @@ enum nl80211_commands {
  *	%NL80211_ATTR_AKM_SUITES are default capabilities if AKM suites not
  *	advertised for a specific interface type.
  *
+ * @NL80211_ATTR_HE_6GHZ_CAPABILITY: HE 6 GHz Band Capability element (from
+ *	association request when used with NL80211_CMD_NEW_STATION).
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -2818,6 +2821,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_HE_BSS_COLOR,
 
 	NL80211_ATTR_IFTYPE_AKM_SUITES,
+	NL80211_ATTR_HE_6GHZ_CAPABILITY =
+	NL80211_ATTR_WIPHY_EDMG_BW_CONFIG + 12,
 
 	/* add attributes here, update the policy in nl80211.c */
 
