@@ -4109,6 +4109,7 @@ static int clk_add_and_print_opp(struct clk_hw *hw,
 				unsigned long rate, int uv, int n)
 {
 	struct clk_core *core = hw->core;
+	unsigned long rrate;
 	int j, ret = 0;
 
 	for (j = 0; j < count; j++) {
@@ -4119,8 +4120,11 @@ static int clk_add_and_print_opp(struct clk_hw *hw,
 			return ret;
 		}
 
-		if (n == 0 || n == core->num_rate_max - 1 ||
-					rate == clk_hw_round_rate(hw, INT_MAX))
+		clk_prepare_lock();
+		rrate = clk_hw_round_rate(hw, INT_MAX);
+		clk_prepare_unlock();
+
+		if (n == 0 || n == core->num_rate_max - 1 || rate == rrate)
 			pr_info("%s: set OPP pair(%lu Hz: %u uV) on %s\n",
 						core->name, rate, uv,
 						dev_name(device_list[j]));
@@ -4175,7 +4179,9 @@ static void clk_populate_clock_opp_table(struct device_node *np,
 	}
 
 	for (n = 0; ; n++) {
+		clk_prepare_lock();
 		rrate = clk_hw_round_rate(hw, rate + 1);
+		clk_prepare_unlock();
 		if (!rrate) {
 			pr_err("clk_round_rate failed for %s\n",
 							core->name);
