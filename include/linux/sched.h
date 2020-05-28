@@ -550,7 +550,7 @@ static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
 #endif /* CONFIG_QCOM_HYP_CORE_CTL */
 
 #ifdef CONFIG_SCHED_WALT
-extern void sched_exit(struct task_struct *p);
+extern void walt_task_dead(struct task_struct *p);
 extern int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 extern void
@@ -626,7 +626,7 @@ struct walt_task_struct {
 };
 
 #else
-static inline void sched_exit(struct task_struct *p) { }
+static inline void walt_task_dead(struct task_struct *p) { }
 
 static inline int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)

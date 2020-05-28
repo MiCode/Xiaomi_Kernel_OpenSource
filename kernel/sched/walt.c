@@ -61,8 +61,6 @@ int __weak sched_unisolate_cpu(int cpu) { return 0; }
 
 int __weak sched_unisolate_cpu_unlocked(int cpu) { return 0; }
 
-void __weak sched_exit(struct task_struct *p) { }
-
 int __weak register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
 {
 	return 0;
@@ -211,6 +209,8 @@ void __weak init_clusters(void) { }
 void __weak walt_sched_init_rq(struct rq *rq) { }
 
 void __weak walt_update_cluster_topology(void) { }
+
+void __weak walt_task_dead(struct task_struct *p) { }
 
 #if defined(CONFIG_UCLAMP_TASK_GROUP)
 void __weak walt_init_sched_boost(struct task_group *tg) { }
