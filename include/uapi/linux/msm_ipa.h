@@ -2301,7 +2301,7 @@ enum ipa_l2tp_tunnel_type {
 struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_ip_type iptype;
 	char l2tp_iface_name[IPA_RESOURCE_NAME_MAX];
-	uint8_t l2tp_session_id;
+	uint32_t l2tp_session_id;
 	char vlan_iface_name[IPA_RESOURCE_NAME_MAX];
 	enum ipa_l2tp_tunnel_type tunnel_type;
 	uint16_t src_port;
