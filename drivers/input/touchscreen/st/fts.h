@@ -25,6 +25,7 @@
 /*#include <linux/wakelock.h>*/
 #include <linux/pm_wakeup.h>
 #include <linux/timekeeping.h>
+#include <linux/haven/hh_irq_lend.h>
 
 #include "fts_lib/ftsSoftware.h"
 #include "fts_lib/ftsHardware.h"
@@ -211,6 +212,33 @@ struct event_dispatch_handler_t {
 	void (*handler)(struct fts_ts_info *info, unsigned char *data);
 };
 
+enum trusted_touch_mode_config {
+	TRUSTED_TOUCH_VM_MODE,
+	TRUSTED_TOUCH_MODE_NONE
+};
+
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#define TRUSTED_TOUCH_MEM_LABEL 0x7
+
+struct trusted_touch_vm_info {
+	enum hh_irq_label irq_label;
+	enum hh_vm_names vm_name;
+	u32 hw_irq;
+	hh_memparcel_handle_t vm_mem_handle;
+	u32 *iomem_bases;
+	u32 *iomem_sizes;
+	u32 iomem_list_size;
+	void *mem_cookie;
+#ifdef CONFIG_ARCH_QTI_VM
+	atomic_t tvm_owns_iomem;
+	atomic_t tvm_owns_irq;
+#else
+	atomic_t pvm_owns_iomem;
+	atomic_t pvm_owns_irq;
+#endif
+};
+#endif
+
 /*
  * struct fts_ts_info - FTS capacitive touch screen device information
  * @dev:                  Pointer to the structure device
@@ -325,12 +353,27 @@ struct fts_ts_info {
 	int aoi_top;
 	int aoi_bottom;
 	int aoi_right;
+
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	struct trusted_touch_vm_info *vm_info;
+	struct mutex fts_clk_io_ctrl_mutex;
+	const char *touch_environment;
+	struct completion trusted_touch_powerdown;
+	struct completion resource_checkpoint;
+	struct clk *core_clk;
+	struct clk *iface_clk;
+	atomic_t trusted_touch_initialized;
+	atomic_t trusted_touch_enabled;
+	atomic_t delayed_vm_probe_pending;
+	atomic_t trusted_touch_mode;
+#endif
 };
 
 extern struct chipInfo ftsInfo;
 
 int fts_chip_powercycle(struct fts_ts_info *info);
 int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep);
+void release_all_touches(struct fts_ts_info *info);
 /*int fts_get_fw_version(struct fts_ts_info *info);*/
 /*extern unsigned int le_to_uint(const unsigned char *ptr);*/
 /*extern unsigned int be_to_uint(const unsigned char *ptr);*/
