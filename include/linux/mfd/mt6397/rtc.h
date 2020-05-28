@@ -46,6 +46,14 @@
 #define RTC_OFFSET_YEAR                6
 #define RTC_OFFSET_COUNT       7
 
+#define RTC_TC_SEC_MASK        0x003f
+#define RTC_TC_MIN_MASK        0x003f
+#define RTC_TC_HOU_MASK        0x001f
+#define RTC_TC_DOM_MASK        0x001f
+#define RTC_TC_DOW_MASK        0x0007
+#define RTC_TC_MTH_MASK        0x000f
+#define RTC_TC_YEA_MASK        0x007f
+
 #define RTC_AL_SEC             0x0018
 
 #define RTC_AL_SEC_MASK        0x003f
