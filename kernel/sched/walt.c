@@ -123,6 +123,12 @@ int __weak sched_boost_handler(struct ctl_table *table, int write,
 	return -ENOSYS;
 }
 
+int __weak sched_busy_hyst_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	return -ENOSYS;
+}
+
 u64 __weak sched_ktime_clock(void) { return 0; }
 
 unsigned long __weak
