@@ -1,0 +1,7 @@
+config MTK_TINYSYS_MCUPM_SUPPORT
+	tristate "Specify Interface Support MCUPM"
+	help
+	  MCUPM is a MediaTek in-house hardware for APMCU
+	  power management
+	  Set Y to enable this feature.
+	  If unsure, set N to stay with legancy feature.

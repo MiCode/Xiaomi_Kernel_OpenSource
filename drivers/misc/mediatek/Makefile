@@ -7,6 +7,7 @@ obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MTK_PID_MAP) += pidmap/
 obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm/
+obj-$(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) += mcupm/
 obj-$(CONFIG_MMPROFILE) += mmp/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
