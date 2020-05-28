@@ -10,9 +10,10 @@
 
 
 int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
-		 uint8_t interface)
+		 struct platform_ldo *ldo, uint8_t interface)
 {
 	struct device_node *np = dev->of_node;
+	int ret;
 
 	if (!np) {
 		pr_err("nfc of_node NULL\n");
@@ -49,7 +50,137 @@ int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 	pr_info("%s: ven %d, dwl req %d, clkreq %d\n", __func__,
 		nfc_gpio->ven, nfc_gpio->dwl_req, nfc_gpio->clkreq);
 
+	// optional property
+	ret = of_property_read_u32_array(np, NFC_LDO_VOL_DT_NAME,
+			(u32 *) ldo->vdd_levels,
+			ARRAY_SIZE(ldo->vdd_levels));
+	if (ret) {
+		dev_err(dev, "error reading NFC VDDIO min and max value\n");
+		// set default as per datasheet
+		ldo->vdd_levels[0] = NFC_VDDIO_MIN;
+		ldo->vdd_levels[1] = NFC_VDDIO_MAX;
+	}
+
+	// optional property
+	ret = of_property_read_u32(np, NFC_LDO_CUR_DT_NAME, &ldo->max_current);
+	if (ret) {
+		dev_err(dev, "error reading NFC current value\n");
+		// set default as per datasheet
+		ldo->max_current = NFC_CURRENT_MAX;
+	}
+
 	return 0;
+}
+
+/**
+ * nfc_ldo_vote()
+ * @nfc_dev: NFC device containing regulator handle
+ *
+ * LDO voting based on voltage and current entries in DT
+ *
+ * Return: 0 on success and -ve on failure
+ */
+int nfc_ldo_vote(struct nfc_dev *nfc_dev)
+{
+	int ret;
+
+	ret =  regulator_set_voltage(nfc_dev->reg,
+			nfc_dev->ldo.vdd_levels[0],
+			nfc_dev->ldo.vdd_levels[1]);
+	if (ret < 0) {
+		pr_err("%s: set voltage failed\n", __func__);
+		return ret;
+	}
+
+	/* pass expected current from NFC in uA */
+	ret = regulator_set_load(nfc_dev->reg, nfc_dev->ldo.max_current);
+	if (ret < 0) {
+		pr_err("%s: set load failed\n", __func__);
+		return ret;
+	}
+
+	ret = regulator_enable(nfc_dev->reg);
+	if (ret < 0)
+		pr_err("%s: regulator_enable failed\n", __func__);
+	else
+		nfc_dev->is_vreg_enabled = true;
+	return ret;
+}
+
+/**
+ * nfc_ldo_config()
+ * @dev: device instance to read DT entry
+ * @nfc_dev: NFC device containing regulator handle
+ *
+ * Configure LDO if entry is present in DT file otherwise
+ * return with success as it's optional
+ *
+ * Return: 0 on success and -ve on failure
+ */
+int nfc_ldo_config(struct device *dev, struct nfc_dev *nfc_dev)
+{
+	int ret;
+
+	if (of_get_property(dev->of_node, NFC_LDO_SUPPLY_NAME, NULL)) {
+		// Get the regulator handle
+		nfc_dev->reg = regulator_get(dev, NFC_LDO_SUPPLY_DT_NAME);
+		if (IS_ERR(nfc_dev->reg)) {
+			ret = PTR_ERR(nfc_dev->reg);
+			nfc_dev->reg = NULL;
+			pr_err("%s: regulator_get failed, ret = %d\n",
+				__func__, ret);
+			return ret;
+		}
+	} else {
+		nfc_dev->reg = NULL;
+		pr_err("%s: regulator entry not present\n", __func__);
+		// return success as it's optional to configure LDO
+		return 0;
+	}
+
+	// LDO config supported by platform DT
+	ret = nfc_ldo_vote(nfc_dev);
+	if (ret < 0) {
+		pr_err("%s: LDO voting failed, ret = %d\n", __func__, ret);
+		regulator_put(nfc_dev->reg);
+	}
+	return ret;
+}
+
+/**
+ * nfc_ldo_unvote()
+ * @nfc_dev: NFC device containing regulator handle
+ *
+ * set voltage and load to zero and disable regulator
+ *
+ * Return: 0 on success and -ve on failure
+ */
+int nfc_ldo_unvote(struct nfc_dev *nfc_dev)
+{
+	int ret;
+
+	if (!nfc_dev->is_vreg_enabled) {
+		pr_err("%s: regulator already disabled\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = regulator_disable(nfc_dev->reg);
+	if (ret < 0) {
+		pr_err("%s: regulator_disable failed\n", __func__);
+		return ret;
+	}
+	nfc_dev->is_vreg_enabled = false;
+
+	ret =  regulator_set_voltage(nfc_dev->reg, 0, NFC_VDDIO_MAX);
+	if (ret < 0) {
+		pr_err("%s: set voltage failed\n", __func__);
+		return ret;
+	}
+
+	ret = regulator_set_load(nfc_dev->reg, 0);
+	if (ret < 0)
+		pr_err("%s: set load failed\n", __func__);
+	return ret;
 }
 
 void gpio_set_ven(struct nfc_dev *nfc_dev, int value)
@@ -295,6 +426,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 		} else {
 			pr_debug("ven already HIGH\n");
 		}
+		nfc_dev->is_ese_session_active = true;
 	} else if (arg == ESE_POWER_OFF) {
 		if (!nfc_dev->nfc_ven_enabled) {
 			pr_debug("NFC not enabled, disabling ven\n");
@@ -302,6 +434,7 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 		} else {
 			pr_debug("keep ven high as NFC is enabled\n");
 		}
+		nfc_dev->is_ese_session_active = false;
 	} else if (arg == ESE_COLD_RESET) {
 
 		// set default value for status as failure
