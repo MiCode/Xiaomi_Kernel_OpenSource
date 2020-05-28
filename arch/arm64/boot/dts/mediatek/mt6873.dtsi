@@ -8,6 +8,7 @@
 #include <dt-bindings/clock/mt8192-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/memory/mt6873-larb-port.h>
 #include <dt-bindings/pinctrl/mt6873-pinfunc.h>
 #include <dt-bindings/power/mt6873-power.h>
 
@@ -702,6 +703,20 @@
 			clock-names = "apb", "smi", "gals0";
 		};
 
+		iommu0: iommu@1401d000 {
+			compatible = "mediatek,mt6873-m4u";
+			reg = <0 0x1401d000 0 0x1000>;
+			interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,larbs = <&larb0 &larb1 &larb2
+					  &larb4 &larb5 &larb7
+					  &larb9 &larb11 &larb13
+					  &larb14 &larb16 &larb17
+					  &larb18 &larb19 &larb20>;
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_DISP>;
+			clocks = <&mmsys CLK_MM_SMI_IOMMU>;
+			clock-names = "bclk";
+			#iommu-cells = <1>;
+		};
 
 		disp_smi_2x1_sub_common_u0@14022000 {
 			compatible = "mediatek,disp_smi_2x1_sub_common_u0",
