@@ -171,6 +171,13 @@ static struct mtk_icc_desc mt6873_icc = {
 	.num_nodes = ARRAY_SIZE(mt6873_icc_nodes),
 };
 
+static const struct of_device_id emi_icc_of_match[] = {
+	{ .compatible = "mediatek,mt8183-dvfsrc", .data = &mt8183_icc },
+	{ .compatible = "mediatek,mt6873-dvfsrc", .data = &mt6873_icc },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, emi_icc_of_match);
+
 static int emi_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 			     u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
 {
@@ -195,11 +202,11 @@ static int emi_icc_set(struct icc_node *src, struct icc_node *dst)
 	node = dst->data;
 
 	if (node->ep == 1) {
-		mtk_dvfsrc_send_request(src->provider->dev->parent,
+		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_BW_REQUEST,
 					node->sum_avg);
 	} else if (node->ep == 2) {
-		mtk_dvfsrc_send_request(src->provider->dev->parent,
+		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_HRTBW_REQUEST,
 					node->sum_avg);
 	}
@@ -210,31 +217,38 @@ static int emi_icc_set(struct icc_node *src, struct icc_node *dst)
 static int emi_icc_remove(struct platform_device *pdev);
 static int emi_icc_probe(struct platform_device *pdev)
 {
-	int ret;
+	const struct of_device_id *match;
 	const struct mtk_icc_desc *desc;
+	struct device *dev = &pdev->dev;
 	struct icc_node *node;
 	struct icc_onecell_data *data;
 	struct icc_provider *provider;
 	struct mtk_icc_node **mnodes;
 	struct icc_node *tmp;
 	size_t num_nodes, i, j;
+	int ret;
 
-	desc = of_device_get_match_data(&pdev->dev);
-	if (!desc)
-		return -EINVAL;
+	match = of_match_node(emi_icc_of_match, dev->parent->of_node);
 
+	if (!match) {
+		dev_err(dev, "invalid compatible string\n");
+		return -ENODEV;
+	}
+
+	desc = match->data;
 	mnodes = desc->nodes;
 	num_nodes = desc->num_nodes;
 
-	provider = devm_kzalloc(&pdev->dev, sizeof(*provider), GFP_KERNEL);
+	provider = devm_kzalloc(dev, sizeof(*provider), GFP_KERNEL);
 	if (!provider)
 		return -ENOMEM;
 
-	data = devm_kcalloc(&pdev->dev, num_nodes, sizeof(*node), GFP_KERNEL);
+	data = devm_kzalloc(dev, struct_size(data, nodes, num_nodes),
+			GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
-	provider->dev = &pdev->dev;
+	provider->dev = pdev->dev.parent;
 	provider->set = emi_icc_set;
 	provider->aggregate = emi_icc_aggregate;
 	provider->xlate = of_icc_xlate_onecell;
@@ -243,7 +257,7 @@ static int emi_icc_probe(struct platform_device *pdev)
 
 	ret = icc_provider_add(provider);
 	if (ret) {
-		dev_err(&pdev->dev, "error adding interconnect provider\n");
+		dev_err(dev, "error adding interconnect provider\n");
 		return ret;
 	}
 
@@ -292,19 +306,11 @@ static int emi_icc_remove(struct platform_device *pdev)
 	return icc_provider_del(provider);
 }
 
-static const struct of_device_id emi_icc_of_match[] = {
-	{ .compatible = "mediatek,mt8183-emi", .data = &mt8183_icc },
-	{ .compatible = "mediatek,mt6873-emi", .data = &mt6873_icc },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, emi_icc_of_match);
-
 static struct platform_driver emi_icc_driver = {
 	.probe = emi_icc_probe,
 	.remove = emi_icc_remove,
 	.driver = {
 		.name = "mediatek-emi-icc",
-		.of_match_table = emi_icc_of_match,
 	},
 };
 
