@@ -248,6 +248,19 @@
 		#reset-cells = <1>;
 	};
 
+	serial_uart: serial@831000 {
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
+		reg = <0x831000 0x200>;
+		interrupts = <0 26 0>;
+		clocks = <&gcc GCC_BLSP1_UART3_APPS_CLK>,
+			 <&gcc GCC_BLSP1_AHB_CLK>;
+		clock-names = "core", "iface";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&uart3_console_active>;
+		pinctrl-1 = <&uart3_console_sleep>;
+		status = "ok";
+	};
+
 	apsscc: clock-controller@17808000 {
 		compatible = "qcom,dummycc";
 		clock-output-names = "apsscc_clocks";
