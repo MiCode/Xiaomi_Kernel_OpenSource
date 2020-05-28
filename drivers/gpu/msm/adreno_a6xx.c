@@ -109,6 +109,7 @@ static u32 a650_pwrup_reglist[] = {
 	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_2,
 	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_3,
 	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_4,
+	A6XX_UCHE_CMDQ_CONFIG,
 };
 
 static u32 a615_pwrup_reglist[] = {
@@ -633,6 +634,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
+		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x90);
 	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
