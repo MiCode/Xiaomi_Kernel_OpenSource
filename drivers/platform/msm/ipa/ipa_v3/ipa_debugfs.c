@@ -1502,9 +1502,9 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 #define TX_STATS(y) \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->tx_ch_stats[0].y
+	stats.tx_ch_stats[0].y
 #define RX_STATS(y) \
-	ipa3_ctx->uc_ntn_ctx.ntn_uc_stats_mmio->rx_ch_stats[0].y
+	stats.rx_ch_stats[0].y
 
 	struct Ipa3HwStatsNTNInfoData_t stats;
 	int nbytes;
