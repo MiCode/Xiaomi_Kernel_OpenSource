@@ -75,7 +75,8 @@ struct dvfsrc_soc_data {
 
 struct mtk_dvfsrc {
 	struct device *dev;
-	struct clk *clk_dvfsrc;
+	struct platform_device *regulator;
+	struct platform_device *icc;
 	const struct dvfsrc_soc_data *dvd;
 	int dram_type;
 	const struct dvfsrc_opp_desc *curr_opps;
@@ -453,14 +454,14 @@ static u32 mt6873_get_vcp_level(struct mtk_dvfsrc *dvfsrc)
 static void mt6873_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
 	bw = div_u64(kbps_to_mbps(bw), 100);
-	bw = min(bw, 0xFF);
+	bw = min_t(u64, bw, 0xFF);
 	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, bw);
 }
 
 static void mt6873_set_dram_hrtbw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
 	bw = div_u64((kbps_to_mbps(bw) + 29), 30);
-	bw = min(bw, 0x3FF);
+	bw = min_t(u64, bw, 0x3FF);
 	dvfsrc_write(dvfsrc, DVFSRC_SW_HRT_BW, bw);
 }
 
@@ -660,18 +661,6 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	if (IS_ERR(dvfsrc->regs))
 		return PTR_ERR(dvfsrc->regs);
 
-	dvfsrc->clk_dvfsrc = devm_clk_get(dvfsrc->dev, "dvfsrc");
-
-	if (IS_ERR(dvfsrc->clk_dvfsrc)) {
-		dev_err(dvfsrc->dev, "failed to get clock: %ld\n",
-			PTR_ERR(dvfsrc->clk_dvfsrc));
-		return PTR_ERR(dvfsrc->clk_dvfsrc);
-	}
-
-	ret = clk_prepare_enable(dvfsrc->clk_dvfsrc);
-	if (ret)
-		return ret;
-
 	mutex_init(&dvfsrc->req_lock);
 	mutex_init(&dvfsrc->pstate_lock);
 
@@ -687,9 +676,37 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 
 	dvfsrc->curr_opps = &dvfsrc->dvd->opps_desc[dvfsrc->dram_type];
 	platform_set_drvdata(pdev, dvfsrc);
-	pstate_notifier_register(dvfsrc);
+	if (dvfsrc->dvd->num_domains)
+		pstate_notifier_register(dvfsrc);
 
-	return devm_of_platform_populate(&pdev->dev);
+	dvfsrc->regulator = platform_device_register_data(dvfsrc->dev,
+			"mtk-dvfsrc-regulator", -1, NULL, 0);
+	if (IS_ERR(dvfsrc->regulator)) {
+		dev_err(dvfsrc->dev, "Failed create regulator device\n");
+		ret = PTR_ERR(dvfsrc->regulator);
+		goto err;
+	}
+
+	dvfsrc->icc = platform_device_register_data(dvfsrc->dev,
+			"mediatek-emi-icc", -1, NULL, 0);
+	if (IS_ERR(dvfsrc->icc)) {
+		dev_err(dvfsrc->dev, "Failed create icc device\n");
+		ret = PTR_ERR(dvfsrc->icc);
+		goto unregister_regulator;
+	}
+
+	ret = devm_of_platform_populate(dvfsrc->dev);
+	if (ret < 0)
+		goto unregister_icc;
+
+	return 0;
+
+unregister_icc:
+	platform_device_unregister(dvfsrc->icc);
+unregister_regulator:
+	platform_device_unregister(dvfsrc->regulator);
+err:
+	return ret;
 }
 
 static const struct dvfsrc_opp dvfsrc_opp_mt8183_lp4[] = {
@@ -851,7 +868,8 @@ static int mtk_dvfsrc_remove(struct platform_device *pdev)
 {
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
 
-	clk_disable_unprepare(dvfsrc->clk_dvfsrc);
+	platform_device_unregister(dvfsrc->regulator);
+	platform_device_unregister(dvfsrc->icc);
 
 	return 0;
 }
