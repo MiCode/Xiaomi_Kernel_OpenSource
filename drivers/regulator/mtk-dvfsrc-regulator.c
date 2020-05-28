@@ -55,7 +55,7 @@ struct dvfsrc_regulator_init_data {
 
 static inline struct device *to_dvfsrc_dev(struct regulator_dev *rdev)
 {
-	return rdev_get_dev(rdev)->parent->parent;
+	return rdev_get_dev(rdev)->parent;
 }
 
 static int dvfsrc_set_voltage_sel(struct regulator_dev *rdev,
@@ -147,26 +147,46 @@ static const struct dvfsrc_regulator_init_data regulator_mt6873_data = {
 	.regulator_info = &mt6873_regulators[0],
 };
 
+static const struct of_device_id mtk_dvfsrc_regulator_match[] = {
+	{
+		.compatible = "mediatek,mt8183-dvfsrc",
+		.data = &regulator_mt8183_data,
+	}, {
+		.compatible = "mediatek,mt6873-dvfsrc",
+		.data = &regulator_mt6873_data,
+	}, {
+		/* sentinel */
+	},
+};
+MODULE_DEVICE_TABLE(of, mtk_dvfsrc_regulator_match);
+
 static int dvfsrc_vcore_regulator_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *match;
+	struct device *dev = &pdev->dev;
 	struct regulator_config config = { };
 	struct regulator_dev *rdev;
 	const struct dvfsrc_regulator_init_data *regulator_init_data;
 	struct dvfsrc_regulator *mt_regulators;
 	int i;
 
-	regulator_init_data = of_device_get_match_data(&pdev->dev);
-	if (!regulator_init_data)
-		return -EINVAL;
+	match = of_match_node(mtk_dvfsrc_regulator_match, dev->parent->of_node);
+
+	if (!match) {
+		dev_err(dev, "invalid compatible string\n");
+		return -ENODEV;
+	}
+
+	regulator_init_data = match->data;
 
 	mt_regulators = regulator_init_data->regulator_info;
 	for (i = 0; i < regulator_init_data->size; i++) {
-		config.dev = &pdev->dev;
+		config.dev = dev->parent;
 		config.driver_data = (mt_regulators + i);
-		rdev = devm_regulator_register(&pdev->dev,
+		rdev = devm_regulator_register(dev->parent,
 				&(mt_regulators + i)->desc, &config);
 		if (IS_ERR(rdev)) {
-			dev_err(&pdev->dev, "failed to register %s\n",
+			dev_err(dev, "failed to register %s\n",
 				(mt_regulators + i)->desc.name);
 			return PTR_ERR(rdev);
 		}
@@ -175,22 +195,9 @@ static int dvfsrc_vcore_regulator_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mtk_dvfsrc_regulator_match[] = {
-	{
-		.compatible = "mediatek,mt8183-dvfsrc-regulator",
-		.data = &regulator_mt8183_data,
-	}, {
-		.compatible = "mediatek,mt6873-dvfsrc-regulator",
-		.data = &regulator_mt6873_data,
-	}, {
-		/* sentinel */
-	},
-};
-
 static struct platform_driver mtk_dvfsrc_regulator_driver = {
 	.driver = {
 		.name  = "mtk-dvfsrc-regulator",
-		.of_match_table = mtk_dvfsrc_regulator_match,
 	},
 	.probe = dvfsrc_vcore_regulator_probe,
 };
