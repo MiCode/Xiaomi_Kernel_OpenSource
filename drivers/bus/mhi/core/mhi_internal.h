@@ -754,11 +754,13 @@ extern struct mhi_bus mhi_bus;
 struct mhi_controller *find_mhi_controller_by_name(const char *name);
 
 /* debug fs related functions */
+int mhi_debugfs_mhi_regdump_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d);
 int mhi_debugfs_trigger_reset(void *data, u64 val);
+int mhi_debugfs_trigger_soc_reset(void *data, u64 val);
 
 void mhi_deinit_debugfs(struct mhi_controller *mhi_cntrl);
 void mhi_init_debugfs(struct mhi_controller *mhi_cntrl);
@@ -965,6 +967,7 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 			struct mhi_chan *mhi_chan);
 void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl);
 void mhi_force_reg_write(struct mhi_controller *mhi_cntrl);
+void mhi_perform_soc_reset(struct mhi_controller *mhi_cntrl);
 
 /* isr handlers */
 irqreturn_t mhi_msi_handlr(int irq_number, void *dev);
