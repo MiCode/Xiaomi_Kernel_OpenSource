@@ -106,6 +106,12 @@ SoCs:
 - SDA429W
   compatible = "qcom,sda429w"
 
+- QCM6125
+  compatible = "qcom,qcm6125"
+
+- QCS6125
+  compatible = "qcom,qcs6125"
+
 Generic board variants:
 
 - CDP device:
@@ -299,3 +305,5 @@ compatible = "qcom,sda429w-wdp"
 compatible = "qcom,sda429-wdp"
 compatible = "qcom,sdm429w-wdp"
 compatible = "qcom,sdm429-wdp"
+compatible = "qcom,qcm6125"
+compatible = "qcom,qcs6125"
