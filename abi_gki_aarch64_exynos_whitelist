@@ -49,7 +49,6 @@
   bpf_trace_run3
   bpf_trace_run4
   bpf_trace_run9
-  __break_lease
   build_skb
   bus_register
   bus_register_notifier
@@ -57,7 +56,6 @@
   bus_unregister
   bus_unregister_notifier
   cache_line_size
-  call_rcu
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
@@ -73,8 +71,6 @@
   class_find_device
   __class_register
   class_unregister
-  clear_inode
-  clear_nlink
   clear_page
   clk_bulk_disable
   clk_bulk_enable
@@ -117,17 +113,11 @@
   complete_and_exit
   completion_done
   config_ep_by_speed
-  configfs_register_subsystem
-  configfs_unregister_subsystem
-  config_group_init
-  config_group_init_type_name
-  config_item_init_type_name
   console_lock
   console_trylock
   console_unlock
   __const_udelay
   consume_skb
-  copy_fs_struct
   __cpu_active_mask
   cpu_all_bits
   cpu_bit_bitmap
@@ -163,15 +153,12 @@
   crypto_destroy_tfm
   crypto_shash_final
   crypto_shash_update
-  _ctype
   dapm_pinctrl_event
   dapm_regulator_event
-  d_drop
   default_llseek
   delayed_work_timer_fn
   del_timer
   del_timer_sync
-  dentry_open
   destroy_workqueue
   _dev_crit
   dev_driver_string
@@ -273,8 +260,6 @@
   dev_set_mac_address
   dev_set_name
   _dev_warn
-  dget_parent
-  d_invalidate
   disable_irq
   disable_irq_nosync
   dma_alloc_attrs
@@ -319,7 +304,6 @@
   dma_free_attrs
   dma_get_slave_caps
   dma_get_slave_channel
-  d_make_root
   dmam_alloc_attrs
   dma_mmap_attrs
   dma_release_channel
@@ -333,15 +317,10 @@
   down_read
   down_trylock
   down_write
-  d_path
-  dput
-  d_rehash
   driver_find
   driver_find_device
   driver_register
   driver_unregister
-  d_set_d_op
-  d_splice_alias
   dump_stack
   dw_pcie_host_init
   dw_pcie_msi_init
@@ -360,9 +339,6 @@
   fb_mode_option
   fd_install
   fget
-  filemap_write_and_wait
-  filp_close
-  filp_open
   find_next_bit
   find_next_zero_bit
   find_vma
@@ -376,7 +352,6 @@
   frame_vector_create
   frame_vector_destroy
   frame_vector_to_pages
-  free_fs_struct
   free_irq
   free_netdev
   __free_pages
@@ -384,18 +359,9 @@
   freezing_slow_path
   freq_qos_add_request
   freq_qos_update_request
-  fscrypt_register_key_removal_notifier
-  fscrypt_unregister_key_removal_notifier
-  fs_parse
-  fsstack_copy_inode_size
   fwnode_property_present
   fwnode_property_read_u16_array
-  generic_delete_inode
-  __generic_file_fsync
-  generic_file_llseek
   generic_handle_irq
-  generic_permission
-  generic_read_dir
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_create
@@ -474,9 +440,7 @@
   ida_alloc_range
   ida_destroy
   ida_free
-  iget5_locked
   ignore_console_lock_warning
-  igrab
   iio_channel_get
   iio_channel_release
   __iio_device_register
@@ -486,13 +450,10 @@
   in6_pton
   init_dummy_netdev
   __init_rwsem
-  init_special_inode
   init_task
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
-  inode_init_once
-  inode_newsize_ok
   input_allocate_device
   input_event
   input_free_device
@@ -544,7 +505,6 @@
   __ioremap
   iounmap
   __iowrite32_copy
-  iput
   __irq_alloc_descs
   irq_create_mapping
   __irq_domain_add
@@ -562,7 +522,6 @@
   irq_set_irq_wake
   irq_to_desc
   is_console_locked
-  iterate_dir
   jiffies
   jiffies_64
   jiffies_64_to_clock_t
@@ -571,7 +530,6 @@
   kasprintf
   kernel_kobj
   kernel_write
-  kern_path
   keyslot_manager_create_passthrough
   keyslot_manager_private
   __kfifo_alloc
@@ -581,7 +539,6 @@
   kfree
   kfree_call_rcu
   kfree_const
-  kill_anon_super
   kimage_vaddr
   kimage_voffset
   __kmalloc
@@ -606,7 +563,6 @@
   kstrtoint
   kstrtoint_from_user
   kstrtou8
-  kstrtouint
   kstrtoull
   kthread_bind
   kthread_cancel_work_sync
@@ -631,9 +587,6 @@
   __list_add_valid
   __list_del_entry_valid
   __lock_buffer
-  lockref_get
-  lock_rename
-  lookup_one_len_unlocked
   loops_per_jiffy
   match_string
   media_create_intf_link
@@ -673,7 +626,6 @@
   __mmdrop
   mmput
   mm_trace_rss_stat
-  mntget
   mod_delayed_work_on
   mod_timer
   __module_get
@@ -686,7 +638,6 @@
   mutex_lock_interruptible
   mutex_trylock
   mutex_unlock
-  names_cachep
   __napi_alloc_skb
   napi_complete_done
   napi_gro_flush
@@ -702,7 +653,6 @@
   netif_tx_wake_queue
   no_llseek
   noop_llseek
-  notify_change2
   nr_cpu_ids
   nr_irqs
   nsecs_to_jiffies
@@ -765,7 +715,6 @@
   of_root
   of_usb_get_phy_mode
   oops_in_progress
-  override_creds
   panic
   panic_notifier_list
   param_ops_bool
@@ -774,8 +723,6 @@
   param_ops_long
   param_ops_uint
   param_ops_ulong
-  path_get
-  path_put
   pci_find_bus
   pci_get_device
   pci_load_saved_state
@@ -870,7 +817,6 @@
   power_supply_unregister
   preempt_schedule
   preempt_schedule_notrace
-  prepare_creds
   prepare_to_wait_event
   print_hex_dump
   printk
@@ -888,7 +834,6 @@
   pwm_set_chip_data
   queue_delayed_work_on
   queue_work_on
-  ___ratelimit
   __raw_notifier_call_chain
   raw_notifier_call_chain
   raw_notifier_chain_register
@@ -931,7 +876,6 @@
   register_chrdev_region
   register_console
   register_die_notifier
-  register_filesystem
   register_netdev
   register_pm_notifier
   register_reboot_notifier
@@ -976,7 +920,6 @@
   reset_control_put
   reset_control_reset
   return_address
-  revert_creds
   rps_needed
   rtc_class_close
   rtc_class_open
@@ -1003,12 +946,8 @@
   sdio_signal_irq
   seq_lseek
   seq_printf
-  seq_puts
   seq_read
-  setattr_prepare
   set_cpus_allowed_ptr
-  set_fs_pwd
-  set_nlink
   set_normalized_timespec64
   set_page_dirty_lock
   sg_alloc_table
@@ -1022,7 +961,6 @@
   sg_miter_stop
   sg_nents_for_len
   sg_next
-  shrink_dcache_sb
   simple_open
   simple_read_from_buffer
   simple_strtol
@@ -1150,7 +1088,6 @@
   static_key_initialized
   static_key_slow_dec
   static_key_slow_inc
-  strcasecmp
   strcat
   strchr
   strchrnul
@@ -1161,13 +1098,11 @@
   strlcat
   strlcpy
   strlen
-  strncasecmp
   strncat
   strncmp
   strncpy
   strnlen
   strpbrk
-  strrchr
   strsep
   strstr
   submit_bh
@@ -1203,7 +1138,6 @@
   __tasklet_schedule
   time64_to_tm
   _totalram_pages
-  touch_atime
   touch_softlockup_watchdog
   trace_define_field
   trace_event_buffer_commit
@@ -1215,8 +1149,6 @@
   __trace_puts
   trace_raw_output_prep
   trace_seq_printf
-  truncate_inode_pages
-  truncate_setsize
   try_module_get
   __tty_alloc_driver
   tty_flip_buffer_push
@@ -1260,12 +1192,9 @@
   ufshcd_shutdown
   ufshcd_system_resume
   ufshcd_system_suspend
-  unlock_new_inode
-  unlock_rename
   unmap_mapping_range
   __unregister_chrdev
   unregister_chrdev_region
-  unregister_filesystem
   unregister_netdev
   unregister_pm_notifier
   unregister_reboot_notifier
@@ -1356,19 +1285,6 @@
   vb2_streamon
   vb2_wait_for_all_buffers
   vfree
-  vfs_create2
-  vfs_fsync
-  vfs_fsync_range
-  vfs_getattr
-  vfs_get_super
-  vfs_mkdir2
-  vfs_path_lookup
-  vfs_read
-  vfs_rename2
-  vfs_rmdir2
-  vfs_statfs
-  vfs_unlink2
-  vfs_write
   video_devdata
   video_device_alloc
   video_device_release

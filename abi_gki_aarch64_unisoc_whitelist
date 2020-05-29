@@ -1353,81 +1353,6 @@
 # required by sc9863a-clk.ko
   device_get_match_data
 
-# required by sdcardfs.ko
-  __break_lease
-  clear_inode
-  clear_nlink
-  configfs_register_subsystem
-  configfs_unregister_subsystem
-  config_group_init
-  config_group_init_type_name
-  config_item_init_type_name
-  copy_fs_struct
-  d_drop
-  dentry_open
-  dget_parent
-  d_invalidate
-  d_make_root
-  d_path
-  dput
-  d_rehash
-  d_set_d_op
-  d_splice_alias
-  filemap_write_and_wait
-  filp_close
-  filp_open
-  free_fs_struct
-  fscrypt_register_key_removal_notifier
-  fscrypt_unregister_key_removal_notifier
-  fs_parse
-  fsstack_copy_inode_size
-  generic_delete_inode
-  __generic_file_fsync
-  generic_permission
-  generic_read_dir
-  iget5_locked
-  igrab
-  init_special_inode
-  inode_init_once
-  inode_newsize_ok
-  iput
-  iterate_dir
-  kern_path
-  kill_anon_super
-  lockref_get
-  lock_rename
-  lookup_one_len_unlocked
-  mntget
-  names_cachep
-  notify_change2
-  override_creds
-  path_get
-  path_put
-  prepare_creds
-  __put_cred
-  register_filesystem
-  revert_creds
-  setattr_prepare
-  set_fs_pwd
-  set_nlink
-  shrink_dcache_sb
-  strrchr
-  touch_atime
-  truncate_inode_pages
-  truncate_setsize
-  unlock_new_inode
-  unlock_rename
-  unregister_filesystem
-  vfs_create2
-  vfs_fsync_range
-  vfs_get_super
-  vfs_mkdir2
-  vfs_path_lookup
-  vfs_rename2
-  vfs_rmdir2
-  vfs_statfs
-  vfs_unlink2
-
 # required by sdhci-sprd.ko
   clk_round_rate
   mmc_free_host
@@ -1829,7 +1754,6 @@
   regmap_get_reg_stride
   regmap_get_val_bytes
   try_wait_for_completion
-  vfs_write
 
 # required by spi-sprd.ko
   dma_request_chan
@@ -2019,7 +1943,6 @@
   unregister_inet6addr_notifier
   unregister_inetaddr_notifier
   unregister_netdevice_queue
-  vfs_read
   wiphy_free
   wiphy_new_nm
   wiphy_register

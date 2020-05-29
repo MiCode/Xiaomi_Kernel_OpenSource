@@ -118,7 +118,6 @@
   bus_set_iommu
   bus_unregister
   call_netdevice_notifiers
-  call_rcu
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
@@ -167,7 +166,6 @@
   __class_register
   class_unregister
   cleanup_srcu_struct
-  clear_inode
   clear_page
   clk_bulk_disable
   clk_bulk_enable
@@ -294,17 +292,14 @@
   csum_ipv6_magic
   csum_partial
   csum_tcpudp_nofold
-  _ctype
   current_time
   datagram_poll
-  d_drop
   default_llseek
   default_wake_function
   delayed_work_timer_fn
   del_gendisk
   del_timer
   del_timer_sync
-  dentry_open
   dequeue_signal
   desc_to_gpio
   destroy_workqueue
@@ -552,7 +547,6 @@
   down
   down_read
   down_write
-  dput
   drain_workqueue
   driver_find_device
   driver_register
@@ -828,8 +822,6 @@
   fasync_helper
   fd_install
   file_path
-  filp_close
-  filp_open
   find_last_bit
   find_next_bit
   find_next_zero_bit
@@ -869,7 +861,6 @@
   fwnode_property_read_u32_array
   gcd
   generic_device_group
-  generic_file_llseek
   generic_handle_irq
   genlmsg_put
   genl_register_family
@@ -1064,7 +1055,6 @@
   iounmap
   __iowrite32_copy
   ip_compute_csum
-  iput
   __ipv6_addr_type
   ipv6_ext_hdr
   ipv6_skip_exthdr
@@ -1102,7 +1092,6 @@
   irq_set_irq_wake
   irq_set_parent
   irq_to_desc
-  iterate_fd
   jiffies
   jiffies_to_msecs
   jiffies_to_usecs
@@ -1159,7 +1148,6 @@
   kstrtou16_from_user
   kstrtou8
   kstrtou8_from_user
-  kstrtouint
   kstrtouint_from_user
   kstrtoul_from_user
   kstrtoull
@@ -1200,7 +1188,6 @@
   list_sort
   llist_add_batch
   __local_bh_enable_ip
-  lockref_get
   lock_sock_nested
   lookup_one_len
   mac_pton
@@ -1624,7 +1611,6 @@
   radix_tree_lookup
   radix_tree_maybe_preload
   radix_tree_next_chunk
-  ___ratelimit
   rational_best_approximation
   raw_notifier_call_chain
   raw_notifier_chain_register
@@ -1680,7 +1666,6 @@
   register_blkdev
   __register_chrdev
   register_chrdev_region
-  register_filesystem
   register_inet6addr_notifier
   register_inetaddr_notifier
   register_netdev
@@ -1831,7 +1816,6 @@
   seq_open
   seq_printf
   seq_putc
-  seq_puts
   seq_read
   seq_release
   seq_vprintf
@@ -2061,7 +2045,6 @@
   __stack_chk_fail
   __stack_chk_guard
   stack_trace_print
-  strcasecmp
   strchr
   strchrnul
   strcmp
@@ -2073,14 +2056,12 @@
   strlcat
   strlcpy
   strlen
-  strncasecmp
   strnchr
   strncmp
   strncpy
   strnlen
   strnstr
   strpbrk
-  strrchr
   strreplace
   strscpy
   strsep
@@ -2412,9 +2393,6 @@
   vb2_streamoff
   vb2_streamon
   vfree
-  vfs_fsync
-  vfs_read
-  vfs_statx
   video_devdata
   video_device_alloc
   video_device_release
