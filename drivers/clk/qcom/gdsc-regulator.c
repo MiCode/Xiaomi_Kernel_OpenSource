@@ -146,6 +146,9 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
 
+	if (sc->skip_disable_before_enable)
+		return false;
+
 	if (sc->parent_regulator) {
 		/*
 		 * The parent regulator for the GDSC is required to be on to
@@ -208,6 +211,9 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
+
+	if (sc->skip_disable_before_enable)
+		return 0;
 
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
@@ -367,7 +373,6 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	sc->is_gdsc_enabled = true;
-	sc->skip_disable_before_enable = false;
 end:
 	if (ret && sc->bus_handle) {
 		msm_bus_scale_client_update_request(sc->bus_handle, 0);
@@ -385,16 +390,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
-
-	/*
-	 * Protect GDSC against late_init disabling when the GDSC is enabled
-	 * by an entity outside external to HLOS.
-	 */
-	if (sc->skip_disable_before_enable) {
-		dev_dbg(&rdev->dev, "Skip Disabling: %s\n", sc->rdesc.name);
-		sc->skip_disable_before_enable = false;
-		return 0;
-	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
