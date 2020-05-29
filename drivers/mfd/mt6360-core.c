@@ -16,6 +16,7 @@
 #include <linux/version.h>
 
 #include <linux/mfd/mt6360.h>
+#include <linux/mfd/mt6360-private.h>
 
 /* reg 0 -> 0 ~ 7 */
 #define MT6360_CHG_TREG_EVT		(4)
@@ -386,7 +387,6 @@ static int __maybe_unused mt6360_pmu_suspend(struct device *dev)
 
 	if (device_may_wakeup(dev))
 		enable_irq_wake(i2c->irq);
-
 	return 0;
 }
 
