@@ -366,6 +366,14 @@
 
 			lt,supply-entry@0 {
 				reg = <0>;
+				lt,supply-name = "vdd";
+				lt,supply-min-voltage = <1800000>;
+				lt,supply-max-voltage = <1800000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+			lt,supply-entry@1 {
+				reg = <1>;
 				lt,supply-name = "vcc";
 				lt,supply-min-voltage = <3304000>;
 				lt,supply-max-voltage = <3304000>;
@@ -373,14 +381,7 @@
 				lt,supply-post-on-sleep = <50>;
 			};
 
-			lt,supply-entry@1 {
-				reg = <1>;
-				lt,supply-name = "vdd";
-				lt,supply-min-voltage = <1800000>;
-				lt,supply-max-voltage = <1800000>;
-				lt,supply-enable-load = <200000>;
-				lt,supply-post-on-sleep = <50>;
-			};
+
 		};
 
 		lt,customize-modes {
