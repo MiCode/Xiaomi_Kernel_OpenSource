@@ -80,3 +80,4 @@ ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QCOM_KRYO_L2_ACCESSORS) +=	kryo-l2-accessors.o
+obj-$(CONFIG_QTI_SYS_PM_VX) += sys_pm_vx.o
