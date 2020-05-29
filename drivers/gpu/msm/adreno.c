@@ -3050,7 +3050,7 @@ void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int rptr, wptr;
 	unsigned int status, status3, intstatus;
-	unsigned int hwfault;
+	unsigned int hwfault, cx_status;
 
 	dev_err(device->dev, str);
 
@@ -3062,21 +3062,31 @@ void adreno_spin_idle_debug(struct adreno_device *adreno_dev,
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &intstatus);
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_HW_FAULT, &hwfault);
 
-	dev_err(device->dev,
-		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
-		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
-
-	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
 	/*
 	 * If CP is stuck, gmu may not perform as expected. So force a gmu
 	 * snapshot which captures entire state as well as sets the gmu fault
 	 * because things need to be reset anyway.
 	 */
-	if (gmu_core_isenabled(device))
+	if (gmu_core_isenabled(device)) {
+		gmu_core_regread(device,
+				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &cx_status);
+		dev_err(device->dev,
+				"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X cx_busy_status:%8.8X\n",
+				adreno_dev->cur_rb->id, rptr, wptr, status,
+				status3, intstatus, cx_status);
+
+		dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 		gmu_core_snapshot(device);
-	else
+	} else {
+		dev_err(device->dev,
+				"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
+				adreno_dev->cur_rb->id, rptr, wptr, status,
+				status3, intstatus);
+
+		dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 		kgsl_device_snapshot(device, NULL, false);
+	}
 }
 
 /**
