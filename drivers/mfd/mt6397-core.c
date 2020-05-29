@@ -42,6 +42,11 @@ static const struct resource mt6358_rtc_resources[] = {
 	DEFINE_RES_IRQ(MT6358_IRQ_RTC),
 };
 
+static const struct resource mt6359p_rtc_resources[] = {
+	DEFINE_RES_MEM(MT6358_RTC_BASE, MT6358_RTC_SIZE),
+	DEFINE_RES_IRQ(MT6359P_IRQ_RTC),
+};
+
 static const struct resource mt6397_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6397_RTC_BASE, MT6397_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6397_IRQ_RTC),
@@ -105,6 +110,11 @@ static const struct mfd_cell mt6359p_devs[] = {
 	{
 		.name = "mt6359p-regulator",
 		.of_compatible = "mediatek,mt6359p-regulator"
+	}, {
+		.name = "mt6359p-rtc",
+		.num_resources = ARRAY_SIZE(mt6359p_rtc_resources),
+		.resources = mt6359p_rtc_resources,
+		.of_compatible = "mediatek,mt6359p-rtc",
 	},
 };
 
