@@ -25,6 +25,17 @@
 	qcom,msm-id = <405 0x20000>;
 };
 
+&mdss_mdp {
+	/* roi misr related hw block */
+	qcom,sde-roi-misr-off = <0x82820 0x82880 0x828e0
+				0x82940 0x829a0 0x82a00>;
+	qcom,sde-roi-misr-size = <0x60>;
+
+	qcom,sde-dspp-blocks {
+		qcom,sde-dspp-roi-misr = <0x1200 0x00010000>;
+	};
+};
+
 &soc {
 	hsi2s: qcom,hsi2s {
 		compatible = "qcom,sa8195-hsi2s", "qcom,hsi2s";
