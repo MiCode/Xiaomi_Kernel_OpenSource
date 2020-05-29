@@ -10,17 +10,16 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _CAM_VFE175_H_
-#define _CAM_VFE175_H_
+#ifndef _AIS_VFE175_H_
+#define _AIS_VFE175_H_
 
-#include "cam_vfe_camif_ver2.h"
-#include "cam_vfe_camif_lite_ver2.h"
-#include "cam_vfe_bus_ver2.h"
-#include "cam_irq_controller.h"
-#include "cam_vfe_top_ver2.h"
-#include "cam_vfe_core.h"
+#include "ais_vfe_camif_ver2.h"
+#include "ais_vfe_camif_lite_ver2.h"
+#include "ais_vfe_bus_ver2.h"
+#include "ais_vfe_top_ver2.h"
+#include "ais_vfe_core.h"
 
-static struct cam_irq_register_set vfe175_top_irq_reg_set[2] = {
+static struct ais_irq_register_set vfe175_top_irq_reg_set[2] = {
 	{
 		.mask_reg_offset   = 0x0000005C,
 		.clear_reg_offset  = 0x00000064,
@@ -33,14 +32,14 @@ static struct cam_irq_register_set vfe175_top_irq_reg_set[2] = {
 	},
 };
 
-static struct cam_irq_controller_reg_info vfe175_top_irq_reg_info = {
+static struct ais_irq_controller_reg_info vfe175_top_irq_reg_info = {
 	.num_registers = 2,
 	.irq_reg_set = vfe175_top_irq_reg_set,
 	.global_clear_offset  = 0x00000058,
 	.global_clear_bitmask = 0x00000001,
 };
 
-static struct cam_vfe_camif_ver2_reg vfe175_camif_reg = {
+static struct ais_vfe_camif_ver2_reg vfe175_camif_reg = {
 	.camif_cmd                = 0x00000478,
 	.camif_config             = 0x0000047C,
 	.line_skip_pattern        = 0x00000488,
@@ -55,7 +54,7 @@ static struct cam_vfe_camif_ver2_reg vfe175_camif_reg = {
 	.vfe_diag_sensor_status   = 0x00000C4C,
 };
 
-static struct cam_vfe_camif_reg_data vfe_175_camif_reg_data = {
+static struct ais_vfe_camif_reg_data vfe_175_camif_reg_data = {
 	.raw_crop_first_pixel_shift      = 16,
 	.raw_crop_first_pixel_mask       = 0xFFFF,
 	.raw_crop_last_pixel_shift       = 0x0,
@@ -85,7 +84,7 @@ static struct cam_vfe_camif_reg_data vfe_175_camif_reg_data = {
 	.enable_diagnostic_hw            = 0x1,
 };
 
-static struct cam_vfe_camif_lite_ver2_reg vfe175_camif_lite_reg = {
+static struct ais_vfe_camif_lite_ver2_reg vfe175_camif_lite_reg = {
 	.camif_lite_cmd                = 0x00000FC0,
 	.camif_lite_config             = 0x00000FC4,
 	.lite_skip_period              = 0x00000FC8,
@@ -94,7 +93,7 @@ static struct cam_vfe_camif_lite_ver2_reg vfe175_camif_lite_reg = {
 	.reg_update_cmd                = 0x000004AC,
 };
 
-static struct cam_vfe_camif_lite_ver2_reg_data vfe175_camif_lite_reg_data = {
+static struct ais_vfe_camif_lite_ver2_reg_data vfe175_camif_lite_reg_data = {
 	.dual_pd_reg_update_cmd_data     = 0x20,
 	.lite_epoch_line_cfg             = 0x00140014,
 	.lite_sof_irq_mask               = 0x00040000,
@@ -107,32 +106,32 @@ static struct cam_vfe_camif_lite_ver2_reg_data vfe175_camif_lite_reg_data = {
 	.dual_pd_path_sel_shift          = 24,
 };
 
-static struct cam_vfe_top_ver2_reg_offset_module_ctrl lens_175_reg = {
+static struct ais_vfe_top_ver2_reg_offset_module_ctrl vfe175_lens_reg = {
 	.reset    = 0x0000001C,
 	.cgc_ovd  = 0x0000002C,
 	.enable   = 0x00000040,
 };
 
-static struct cam_vfe_top_ver2_reg_offset_module_ctrl stats_175_reg = {
+static struct ais_vfe_top_ver2_reg_offset_module_ctrl vfe175_stats_reg = {
 	.reset    = 0x00000020,
 	.cgc_ovd  = 0x00000030,
 	.enable   = 0x00000044,
 };
 
-static struct cam_vfe_top_ver2_reg_offset_module_ctrl color_175_reg = {
+static struct ais_vfe_top_ver2_reg_offset_module_ctrl vfe175_color_reg = {
 	.reset    = 0x00000024,
 	.cgc_ovd  = 0x00000034,
 	.enable   = 0x00000048,
 };
 
-static struct cam_vfe_top_ver2_reg_offset_module_ctrl zoom_175_reg = {
+static struct ais_vfe_top_ver2_reg_offset_module_ctrl vfe175_zoom_reg = {
 	.reset    = 0x00000028,
 	.cgc_ovd  = 0x00000038,
 	.enable   = 0x0000004C,
 };
 
 
-static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
+static struct ais_vfe_bus_ver2_stats_cfg_info vfe175_stats_info  = {
 	.dmi_offset_info = {
 		.auto_increment = 0x00000100,
 		.cfg_offset     = 0x00000C24,
@@ -141,39 +140,39 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 		.data_lo_offset = 0x00000C30,
 	},
 	.stats_cfg_offset = {
-		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI0 */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_RDI0 */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI1 */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_RDI1 */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI2 */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_RDI2 */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI3 */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_RDI3 */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_FULL */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_FULL */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_DS4 */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_DS4 */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_DS16 */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_DS16 */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_RAW_DUMP */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_RAW_DUMP */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_FD */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_FD */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_PDAF */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_PDAF */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE,
 			.cfg_offset     = 0x00000AB8,
 			.num_cfg        = 0x00000ABC,
 			.cfg_size       = 0x00000AC0,
@@ -184,10 +183,10 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = -1,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST */
 		{
 			.res_index      =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST,
 			.cfg_offset     = 0x00000AD4,
 			.num_cfg        = 0x00000AD8,
 			.cfg_size       = 0x00000000,
@@ -198,12 +197,12 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = 0x37,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_BF */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_BF,
 			.cfg_offset     = 0x00000AE4,
 			.num_cfg        = 0x00000000,
 			.cfg_size       = 0x00000000,
@@ -214,9 +213,9 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = 0x41,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG,
 			.cfg_offset     = 0x00000BC8,
 			.num_cfg        = 0x00000BCC,
 			.cfg_size       = 0x00000BD0,
@@ -227,9 +226,9 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = -1,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_BHIST */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_BHIST,
 			.cfg_offset     = 0x00000BE4,
 			.num_cfg        = 0x00000BE8,
 			.cfg_size       = 0x00000000,
@@ -240,9 +239,9 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = -1,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_RS */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_RS,
 			.cfg_offset     = 0x00000BEC,
 			.num_cfg        = 0x00000BF0,
 			.cfg_size       = 0x00000BF4,
@@ -253,9 +252,9 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = -1,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_CS */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_CS,
 			.cfg_offset     = 0x00000BF8,
 			.num_cfg        = 0x00000BFC,
 			.cfg_size       = 0x00000C00,
@@ -266,9 +265,9 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = -1,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_STATS_IHIST */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_STATS_IHIST,
 			.cfg_offset     = 0x00000C04,
 			.num_cfg        = 0x00000C08,
 			.cfg_size       = 0x00000000,
@@ -279,18 +278,18 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 				.bank_1         = 0x3C,
 			},
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_FULL_DISP */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_DS4_DISP */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_DS16_DISP */
 		{
 		},
-		/* CAM_VFE_BUS_VER2_VFE_OUT_2PD */
+		/* AIS_VFE_BUS_VER2_VFE_OUT_2PD */
 		{
-			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_2PD,
+			.res_index      = AIS_VFE_BUS_VER2_VFE_OUT_2PD,
 			.cfg_offset     = 0x00000FF0,
 			.num_cfg        = 0x00000FF4,
 			.cfg_size       = 0x00000FF8,
@@ -304,7 +303,7 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_info  = {
 	},
 };
 
-static struct cam_vfe_top_ver2_reg_offset_common vfe175_top_common_reg = {
+static struct ais_vfe_top_ver2_reg_offset_common vfe175_top_common_reg = {
 	.hw_version               = 0x00000000,
 	.hw_capability            = 0x00000004,
 	.lens_feature             = 0x00000008,
@@ -313,10 +312,10 @@ static struct cam_vfe_top_ver2_reg_offset_common vfe175_top_common_reg = {
 	.zoom_feature             = 0x00000014,
 	.global_reset_cmd         = 0x00000018,
 	.module_ctrl              = {
-		&lens_175_reg,
-		&stats_175_reg,
-		&color_175_reg,
-		&zoom_175_reg,
+		&vfe175_lens_reg,
+		&vfe175_stats_reg,
+		&vfe175_color_reg,
+		&vfe175_zoom_reg,
 	},
 	.bus_cgc_ovd              = 0x0000003C,
 	.core_cfg                 = 0x00000050,
@@ -325,29 +324,29 @@ static struct cam_vfe_top_ver2_reg_offset_common vfe175_top_common_reg = {
 	.reg_update_cmd           = 0x000004AC,
 };
 
-static struct cam_vfe_rdi_ver2_reg vfe175_rdi_reg = {
+static struct ais_vfe_rdi_ver2_reg vfe175_rdi_reg = {
 	.reg_update_cmd           = 0x000004AC,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe_175_rdi_0_data = {
+static struct ais_vfe_rdi_reg_data  vfe_175_rdi_0_data = {
 	.reg_update_cmd_data      = 0x2,
 	.sof_irq_mask             = 0x8000000,
 	.reg_update_irq_mask      = 0x20,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe_175_rdi_1_data = {
+static struct ais_vfe_rdi_reg_data  vfe_175_rdi_1_data = {
 	.reg_update_cmd_data      = 0x4,
 	.sof_irq_mask             = 0x10000000,
 	.reg_update_irq_mask      = 0x40,
 };
 
-static struct cam_vfe_rdi_reg_data  vfe_175_rdi_2_data = {
+static struct ais_vfe_rdi_reg_data  vfe_175_rdi_2_data = {
 	.reg_update_cmd_data      = 0x8,
 	.sof_irq_mask             = 0x20000000,
 	.reg_update_irq_mask      = 0x80,
 };
 
-static struct cam_vfe_top_ver2_hw_info vfe175_top_hw_info = {
+static struct ais_vfe_top_ver2_hw_info vfe175_top_hw_info = {
 	.common_reg = &vfe175_top_common_reg,
 	.camif_hw_info = {
 		.common_reg     = &vfe175_top_common_reg,
@@ -395,15 +394,15 @@ static struct cam_vfe_top_ver2_hw_info vfe175_top_hw_info = {
 		},
 	},
 	.mux_type = {
-		CAM_VFE_CAMIF_VER_2_0,
-		CAM_VFE_RDI_VER_1_0,
-		CAM_VFE_RDI_VER_1_0,
-		CAM_VFE_RDI_VER_1_0,
-		CAM_VFE_CAMIF_LITE_VER_2_0,
+		AIS_VFE_CAMIF_VER_2_0,
+		AIS_VFE_RDI_VER_1_0,
+		AIS_VFE_RDI_VER_1_0,
+		AIS_VFE_RDI_VER_1_0,
+		AIS_VFE_CAMIF_LITE_VER_2_0,
 	},
 };
 
-static struct cam_irq_register_set vfe175_bus_irq_reg[3] = {
+static struct ais_irq_register_set vfe175_bus_irq_reg[3] = {
 		{
 			.mask_reg_offset   = 0x00002044,
 			.clear_reg_offset  = 0x00002050,
@@ -421,7 +420,7 @@ static struct cam_irq_register_set vfe175_bus_irq_reg[3] = {
 		},
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
+static struct ais_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_3 = {
 	.tile_cfg          = 0x0000252C,
 	.h_init            = 0x00002530,
@@ -437,7 +436,7 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
+static struct ais_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_4 = {
 	.tile_cfg          = 0x0000262C,
 	.h_init            = 0x00002630,
@@ -452,7 +451,7 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	.threshlod_lossy_1 = 0x000026AC,
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
+static struct ais_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_20 = {
 	.tile_cfg          = 0x0000362C,
 	.h_init            = 0x00003630,
@@ -467,7 +466,7 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	.threshlod_lossy_1 = 0x000036AC,
 };
 
-static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
+static struct ais_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_ubwc_regs_client_21 = {
 	.tile_cfg          = 0x0000372C,
 	.h_init            = 0x00003730,
@@ -482,7 +481,7 @@ static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	.threshlod_lossy_1 = 0x000037AC,
 };
 
-static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
+static struct ais_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 	.common_reg = {
 		.hw_version                   = 0x00002000,
 		.hw_capability                = 0x00002004,
@@ -1015,58 +1014,58 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 		},
 	},
 	.comp_grp_reg = {
-		/* CAM_VFE_BUS_VER2_COMP_GRP_0 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_0 */
 		{
 			.comp_mask                    = 0x00002010,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_1 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_1 */
 		{
 			.comp_mask                    = 0x00002014,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_2 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_2 */
 		{
 			.comp_mask                    = 0x00002018,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_3 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_3 */
 		{
 			.comp_mask                    = 0x0000201C,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_4 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_4 */
 		{
 			.comp_mask                    = 0x00002020,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_5 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_5 */
 		{
 			.comp_mask                    = 0x00002024,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_DUAL_0 */
 		{
 			.comp_mask                    = 0x0000202C,
 			.addr_sync_mask               = 0x00002088,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_1 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_DUAL_1 */
 		{
 			.comp_mask                    = 0x00002030,
 			.addr_sync_mask               = 0x0000208C,
 
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_2 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_DUAL_2 */
 		{
 			.comp_mask                    = 0x00002034,
 			.addr_sync_mask               = 0x00002090,
 
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_3 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_DUAL_3 */
 		{
 			.comp_mask                    = 0x00002038,
 			.addr_sync_mask               = 0x00002094,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_4 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_DUAL_4 */
 		{
 			.comp_mask                    = 0x0000203C,
 			.addr_sync_mask               = 0x00002098,
 		},
-		/* CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5 */
+		/* AIS_VFE_BUS_VER2_COMP_GRP_DUAL_5 */
 		{
 			.comp_mask                    = 0x00002040,
 			.addr_sync_mask               = 0x0000209C,
@@ -1075,121 +1074,121 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 	.num_out = 22,
 	.vfe_out_hw_info = {
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI0,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_RDI0,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI1,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_RDI1,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RDI2,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_RDI2,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_FULL,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_FULL,
 			.max_width     = 4096,
 			.max_height    = 4096,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_DS4,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_DS4,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_DS16,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_DS16,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_RAW_DUMP,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_RAW_DUMP,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_FD,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_FD,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_PDAF,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_PDAF,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_BF,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_BHIST,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_RS,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_CS,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
 			.vfe_out_type  =
-				CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST,
+				AIS_VFE_BUS_VER2_VFE_OUT_STATS_IHIST,
 			.max_width     = -1,
 			.max_height    = -1,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_FULL_DISP,
 			.max_width     = 4096,
 			.max_height    = 4096,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_DS4_DISP,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_DS16_DISP,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
 		{
-			.vfe_out_type  = CAM_VFE_BUS_VER2_VFE_OUT_2PD,
+			.vfe_out_type  = AIS_VFE_BUS_VER2_VFE_OUT_2PD,
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
@@ -1200,24 +1199,24 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 		.ubwc_8bit_threshold_lossy_0 = 0x6210022,
 		.ubwc_8bit_threshold_lossy_1 = 0xE0E,
 	},
-	.stats_data = &stats_175_info,
+	.stats_data = &vfe175_stats_info,
 };
 
-struct cam_vfe_hw_info cam_vfe175_hw_info = {
+static struct ais_vfe_hw_info ais_vfe175_hw_info = {
 	.irq_reg_info                  = &vfe175_top_irq_reg_info,
 
-	.bus_version                   = CAM_VFE_BUS_VER_2_0,
+	.bus_version                   = AIS_VFE_BUS_VER_2_0,
 	.bus_hw_info                   = &vfe175_bus_hw_info,
 
-	.top_version                   = CAM_VFE_TOP_VER_2_0,
+	.top_version                   = AIS_VFE_TOP_VER_2_0,
 	.top_hw_info                   = &vfe175_top_hw_info,
 
-	.camif_version                 = CAM_VFE_CAMIF_VER_2_0,
+	.camif_version                 = AIS_VFE_CAMIF_VER_2_0,
 	.camif_reg                     = &vfe175_camif_reg,
 
-	.camif_lite_version            = CAM_VFE_CAMIF_LITE_VER_2_0,
+	.camif_lite_version            = AIS_VFE_CAMIF_LITE_VER_2_0,
 	.camif_lite_reg                = &vfe175_camif_lite_reg,
 
 };
 
-#endif /* _CAM_VFE175_H_ */
+#endif /* _AIS_VFE175_H_ */

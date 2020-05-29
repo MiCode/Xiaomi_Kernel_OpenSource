@@ -14,24 +14,26 @@
 #include <linux/slab.h>
 #include <linux/mod_devicetable.h>
 #include <linux/of_device.h>
-#include "cam_vfe_dev.h"
-#include "cam_vfe_core.h"
-#include "cam_vfe_soc.h"
+#include "ais_vfe_dev.h"
+#include "ais_vfe_core.h"
+#include "ais_vfe_soc.h"
 #include "cam_debug_util.h"
 
-static struct cam_hw_intf *cam_vfe_hw_list[CAM_VFE_HW_NUM_MAX] = {
+static struct cam_hw_intf *ais_vfe_hw_list[AIS_VFE_HW_NUM_MAX] = {
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 static char vfe_dev_name[8];
 
-int cam_vfe_probe(struct platform_device *pdev)
+int ais_vfe_probe(struct platform_device *pdev)
 {
 	struct cam_hw_info                *vfe_hw = NULL;
 	struct cam_hw_intf                *vfe_hw_intf = NULL;
 	const struct of_device_id         *match_dev = NULL;
-	struct cam_vfe_hw_core_info       *core_info = NULL;
-	struct cam_vfe_hw_info            *hw_info = NULL;
+	struct ais_vfe_hw_core_info       *core_info = NULL;
+	struct ais_vfe_hw_info            *hw_info = NULL;
 	int                                rc = 0;
+
+	CAM_INFO(CAM_ISP, "Probe called");
 
 	vfe_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!vfe_hw_intf) {
@@ -56,32 +58,31 @@ int cam_vfe_probe(struct platform_device *pdev)
 	vfe_hw->soc_info.dev = &pdev->dev;
 	vfe_hw->soc_info.dev_name = vfe_dev_name;
 	vfe_hw_intf->hw_priv = vfe_hw;
-	vfe_hw_intf->hw_ops.get_hw_caps = cam_vfe_get_hw_caps;
-	vfe_hw_intf->hw_ops.init = cam_vfe_init_hw;
-	vfe_hw_intf->hw_ops.deinit = cam_vfe_deinit_hw;
-	vfe_hw_intf->hw_ops.reset = cam_vfe_reset;
-	vfe_hw_intf->hw_ops.reserve = cam_vfe_reserve;
-	vfe_hw_intf->hw_ops.release = cam_vfe_release;
-	vfe_hw_intf->hw_ops.start = cam_vfe_start;
-	vfe_hw_intf->hw_ops.stop = cam_vfe_stop;
-	vfe_hw_intf->hw_ops.read = cam_vfe_read;
-	vfe_hw_intf->hw_ops.write = cam_vfe_write;
-	vfe_hw_intf->hw_ops.process_cmd = cam_vfe_process_cmd;
-	vfe_hw_intf->hw_type = CAM_ISP_HW_TYPE_VFE;
+	vfe_hw_intf->hw_ops.get_hw_caps = ais_vfe_get_hw_caps;
+	vfe_hw_intf->hw_ops.init = ais_vfe_init_hw;
+	vfe_hw_intf->hw_ops.deinit = ais_vfe_deinit_hw;
+	vfe_hw_intf->hw_ops.reset = ais_vfe_force_reset;
+	vfe_hw_intf->hw_ops.reserve = ais_vfe_reserve;
+	vfe_hw_intf->hw_ops.release = ais_vfe_release;
+	vfe_hw_intf->hw_ops.start = ais_vfe_start;
+	vfe_hw_intf->hw_ops.stop = ais_vfe_stop;
+	vfe_hw_intf->hw_ops.read = ais_vfe_read;
+	vfe_hw_intf->hw_ops.write = ais_vfe_write;
+	vfe_hw_intf->hw_ops.process_cmd = ais_vfe_process_cmd;
+	vfe_hw_intf->hw_type = AIS_ISP_HW_TYPE_VFE;
 
-	CAM_INFO(CAM_ISP, "type %d index %d",
-		vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
+	CAM_INFO(CAM_ISP, "Probe called for VFE%d", vfe_hw_intf->hw_idx);
 
 	platform_set_drvdata(pdev, vfe_hw_intf);
 
-	vfe_hw->core_info = kzalloc(sizeof(struct cam_vfe_hw_core_info),
+	vfe_hw->core_info = kzalloc(sizeof(struct ais_vfe_hw_core_info),
 		GFP_KERNEL);
 	if (!vfe_hw->core_info) {
 		CAM_DBG(CAM_ISP, "Failed to alloc for core");
 		rc = -ENOMEM;
 		goto free_vfe_hw;
 	}
-	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
 
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
@@ -90,17 +91,17 @@ int cam_vfe_probe(struct platform_device *pdev)
 		rc = -EINVAL;
 		goto free_core_info;
 	}
-	hw_info = (struct cam_vfe_hw_info *)match_dev->data;
+	hw_info = (struct ais_vfe_hw_info *)match_dev->data;
 	core_info->vfe_hw_info = hw_info;
 
-	rc = cam_vfe_init_soc_resources(&vfe_hw->soc_info, cam_vfe_irq,
+	rc = ais_vfe_init_soc_resources(&vfe_hw->soc_info, ais_vfe_irq,
 		vfe_hw);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP, "Failed to init soc rc=%d", rc);
 		goto free_core_info;
 	}
 
-	rc = cam_vfe_core_init(core_info, &vfe_hw->soc_info,
+	rc = ais_vfe_core_init(core_info, &vfe_hw->soc_info,
 		vfe_hw_intf, hw_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP, "Failed to init core rc=%d", rc);
@@ -112,18 +113,19 @@ int cam_vfe_probe(struct platform_device *pdev)
 	spin_lock_init(&vfe_hw->hw_lock);
 	init_completion(&vfe_hw->hw_complete);
 
-	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
-		cam_vfe_hw_list[vfe_hw_intf->hw_idx] = vfe_hw_intf;
+	if (vfe_hw_intf->hw_idx < AIS_VFE_HW_NUM_MAX)
+		ais_vfe_hw_list[vfe_hw_intf->hw_idx] = vfe_hw_intf;
 
-	cam_vfe_init_hw(vfe_hw, NULL, 0);
-	cam_vfe_deinit_hw(vfe_hw, NULL, 0);
+	/*@TODO: why do we need this if not checking for errors*/
+	ais_vfe_init_hw(vfe_hw, NULL, 0);
+	ais_vfe_deinit_hw(vfe_hw, NULL, 0);
 
 	CAM_DBG(CAM_ISP, "VFE%d probe successful", vfe_hw_intf->hw_idx);
 
 	return rc;
 
 deinit_soc:
-	if (cam_vfe_deinit_soc_resources(&vfe_hw->soc_info))
+	if (ais_vfe_deinit_soc_resources(&vfe_hw->soc_info))
 		CAM_ERR(CAM_ISP, "Failed to deinit soc");
 free_core_info:
 	kfree(vfe_hw->core_info);
@@ -135,11 +137,11 @@ end:
 	return rc;
 }
 
-int cam_vfe_remove(struct platform_device *pdev)
+int ais_vfe_remove(struct platform_device *pdev)
 {
 	struct cam_hw_info                *vfe_hw = NULL;
 	struct cam_hw_intf                *vfe_hw_intf = NULL;
-	struct cam_vfe_hw_core_info       *core_info = NULL;
+	struct ais_vfe_hw_core_info       *core_info = NULL;
 	int                                rc = 0;
 
 	vfe_hw_intf = platform_get_drvdata(pdev);
@@ -151,8 +153,8 @@ int cam_vfe_remove(struct platform_device *pdev)
 	CAM_DBG(CAM_ISP, "type %d index %d",
 		vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
 
-	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
-		cam_vfe_hw_list[vfe_hw_intf->hw_idx] = NULL;
+	if (vfe_hw_intf->hw_idx < AIS_VFE_HW_NUM_MAX)
+		ais_vfe_hw_list[vfe_hw_intf->hw_idx] = NULL;
 
 	vfe_hw = vfe_hw_intf->hw_priv;
 	if (!vfe_hw) {
@@ -161,21 +163,21 @@ int cam_vfe_remove(struct platform_device *pdev)
 		goto free_vfe_hw_intf;
 	}
 
-	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
 	if (!core_info) {
 		CAM_ERR(CAM_ISP, "Error! core data NULL");
 		rc = -EINVAL;
 		goto deinit_soc;
 	}
 
-	rc = cam_vfe_core_deinit(core_info, core_info->vfe_hw_info);
+	rc = ais_vfe_core_deinit(core_info, core_info->vfe_hw_info);
 	if (rc < 0)
 		CAM_ERR(CAM_ISP, "Failed to deinit core rc=%d", rc);
 
 	kfree(vfe_hw->core_info);
 
 deinit_soc:
-	rc = cam_vfe_deinit_soc_resources(&vfe_hw->soc_info);
+	rc = ais_vfe_deinit_soc_resources(&vfe_hw->soc_info);
 	if (rc < 0)
 		CAM_ERR(CAM_ISP, "Failed to deinit soc rc=%d", rc);
 
@@ -190,12 +192,28 @@ free_vfe_hw_intf:
 	return rc;
 }
 
-int cam_vfe_hw_init(struct cam_hw_intf **vfe_hw, uint32_t hw_idx)
+int ais_vfe_hw_init(struct cam_hw_intf **vfe_hw,
+	struct ais_isp_hw_init_args *init,
+	struct cam_hw_intf *csid_hw)
 {
 	int rc = 0;
 
-	if (cam_vfe_hw_list[hw_idx]) {
-		*vfe_hw = cam_vfe_hw_list[hw_idx];
+	if (ais_vfe_hw_list[init->hw_idx]) {
+		struct cam_hw_info          *vfe_hw_info = NULL;
+		struct ais_vfe_hw_core_info *core_info = NULL;
+
+		vfe_hw_info = ais_vfe_hw_list[init->hw_idx]->hw_priv;
+		core_info =
+			(struct ais_vfe_hw_core_info *)vfe_hw_info->core_info;
+
+		core_info->csid_hw = csid_hw;
+
+		core_info->event_cb = init->event_cb;
+		core_info->event_cb_priv = init->event_cb_priv;
+		core_info->iommu_hdl = init->iommu_hdl;
+		core_info->iommu_hdl_secure = init->iommu_hdl_secure;
+
+		*vfe_hw = ais_vfe_hw_list[init->hw_idx];
 		rc = 0;
 	} else {
 		*vfe_hw = NULL;

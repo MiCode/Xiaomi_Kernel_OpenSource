@@ -1,0 +1,36 @@
+* Qualcomm Technologies, Inc. MSM Camera ISP
+
+The MSM AIS IFE driver provides the definitions for enabling
+the Camera IFE hadware for Automotive usecase. It provides the
+functions for the Client to control the IFE hardware.
+
+=======================
+Required Node Structure
+=======================
+The Camera AIS IFE device is described in one level of device node.
+
+==================================
+First Level Node - AIS IFE device
+==================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,ais-ife".
+
+- arch-compat
+  Usage: required
+  Value type: <string>
+  Definition: Should be "ife".
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+Example:
+
+	qcom,ais-ife0 {
+		compatible = "qcom,ais-ife";
+		cell-index = <0>;
+		status = "ok";
+	};
