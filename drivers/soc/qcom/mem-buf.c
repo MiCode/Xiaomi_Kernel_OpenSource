@@ -964,6 +964,7 @@ static void mem_buf_unmap_mem_s2(struct mem_buf_desc *membuf)
 	kfree(membuf->sgl_desc);
 }
 
+#ifdef CONFIG_MEMORY_HOTPLUG
 static int mem_buf_map_mem_s1(struct mem_buf_desc *membuf)
 {
 	int i, ret;
@@ -1001,7 +1002,14 @@ err_add_mem:
 	mem_hotplug_done();
 	return ret;
 }
+#else /* CONFIG_MEMORY_HOTPLUG */
+static inline int mem_buf_map_mem_s1(struct mem_buf_desc *membuf)
+{
+	return -EINVAL;
+}
+#endif /* CONFIG_MEMORY_HOTPLUG */
 
+#ifdef CONFIG_MEMORY_HOTREMOVE
 static void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
 {
 	unsigned int i, nid;
@@ -1019,6 +1027,11 @@ static void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
 
 	mem_hotplug_done();
 }
+#else /* CONFIG_MEMORY_HOTREMOVE */
+static inline void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
+{
+}
+#endif /* CONFIG_MEMORY_HOTREMOVE */
 
 static int mem_buf_add_ion_mem(struct sg_table *sgt, void *dst_data)
 {
