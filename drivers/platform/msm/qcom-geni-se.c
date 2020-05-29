@@ -50,6 +50,12 @@ static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
 #define TZ_PIL_AUTH_GSI_QUP_PROC	0x13
 #define SSR_SCM_CMD	0x2
 
+enum ssc_core_clocks {
+	SSC_CORE_CLK,
+	SSC_CORE2X_CLK,
+	SSC_NUM_CLKS
+};
+
 struct bus_vectors {
 	int src;
 	int dst;
@@ -133,6 +139,7 @@ struct geni_se_device {
 	int update;
 	bool vote_for_bw;
 	struct ssc_qup_ssr ssr;
+	struct clk_bulk_data *ssc_clks;
 };
 
 #define HW_VER_MAJOR_MASK GENMASK(31, 28)
@@ -375,10 +382,17 @@ static void geni_se_ssc_qup_down(struct geni_se_device *dev)
 	struct se_geni_rsc *rsc = NULL;
 
 	dev->ssr.is_ssr_down = true;
+	if (list_empty(&dev->ssr.active_list_head)) {
+		GENI_SE_ERR(dev->log_ctx, false, NULL,
+			"%s: No Active usecase\n", __func__);
+		return;
+	}
+
 	list_for_each_entry(rsc, &dev->ssr.active_list_head,
 					rsc_ssr.active_list) {
 		rsc->rsc_ssr.force_suspend(rsc->ctrl_dev);
 	}
+	clk_bulk_disable_unprepare(SSC_NUM_CLKS, dev->ssc_clks);
 }
 
 static void geni_se_ssc_qup_up(struct geni_se_device *dev)
@@ -391,16 +405,39 @@ static void geni_se_ssc_qup_up(struct geni_se_device *dev)
 	desc.args[1] = TZ_SCM_CALL_FROM_HLOS;
 	desc.arginfo = SCM_ARGS(2, SCM_VAL);
 
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP, SSR_SCM_CMD), &desc);
+	if (list_empty(&dev->ssr.active_list_head)) {
+		GENI_SE_ERR(dev->log_ctx, false, NULL,
+			"%s: No Active usecase\n", __func__);
+		return;
+	}
+	/* Enable core/2x clk before TZ SCM call */
+	ret = clk_bulk_prepare_enable(SSC_NUM_CLKS, dev->ssc_clks);
 	if (ret) {
-		dev_err(dev->dev, "Unable to load firmware after SSR\n");
+		GENI_SE_ERR(dev->log_ctx, false, NULL,
+			"%s: corex/2x clk enable failed ret:%d\n",
+							__func__, ret);
 		return;
 	}
 
 	list_for_each_entry(rsc, &dev->ssr.active_list_head,
-					rsc_ssr.active_list) {
-		rsc->rsc_ssr.force_resume(rsc->ctrl_dev);
+						rsc_ssr.active_list)
+		se_geni_clks_on(rsc);
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP, SSR_SCM_CMD), &desc);
+	if (ret) {
+		GENI_SE_ERR(dev->log_ctx, false, NULL,
+			"%s: Unable to load firmware after SSR ret:%d\n",
+								__func__, ret);
+		return;
 	}
+
+	list_for_each_entry(rsc, &dev->ssr.active_list_head,
+						rsc_ssr.active_list)
+		se_geni_clks_off(rsc);
+
+	list_for_each_entry(rsc, &dev->ssr.active_list_head,
+						rsc_ssr.active_list)
+		rsc->rsc_ssr.force_resume(rsc->ctrl_dev);
 
 	dev->ssr.is_ssr_down = false;
 }
@@ -1974,6 +2011,25 @@ static int geni_se_probe(struct platform_device *pdev)
 	ret = of_property_read_string(geni_se_dev->dev->of_node,
 			"qcom,subsys-name", &geni_se_dev->ssr.subsys_name);
 	if (!ret) {
+
+		geni_se_dev->ssc_clks = devm_kcalloc(dev, SSC_NUM_CLKS,
+				sizeof(*geni_se_dev->ssc_clks), GFP_KERNEL);
+		if (!geni_se_dev->ssc_clks) {
+			ret = -ENOMEM;
+			dev_err(dev, "%s: Unable to allocate memmory ret:%d\n",
+					__func__, ret);
+			return ret;
+		}
+
+		geni_se_dev->ssc_clks[SSC_CORE_CLK].id = "corex";
+		geni_se_dev->ssc_clks[SSC_CORE2X_CLK].id = "core2x";
+		ret = devm_clk_bulk_get(dev, SSC_NUM_CLKS,
+						geni_se_dev->ssc_clks);
+		if (ret) {
+			dev_err(dev, "%s: Err getting core/2x clk:%d\n", ret);
+			return ret;
+		}
+
 		INIT_LIST_HEAD(&geni_se_dev->ssr.active_list_head);
 		ret = geni_se_ssc_qup_ssr_reg(geni_se_dev);
 		if (ret) {
