@@ -187,6 +187,9 @@
 
 		qcom,no-l0s-supported;
 
+		qcom,l1-2-th-scale = <2>; /* 1us */
+		qcom,l1-2-th-value = <70>;
+
 		qcom,ep-latency = <10>;
 
 		qcom,slv-addr-space-size = <0x40000000>;
