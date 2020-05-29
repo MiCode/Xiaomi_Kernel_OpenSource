@@ -781,6 +781,8 @@ int ais_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
 	hw_info = core_info->vfe_hw_info;
 
+	mutex_lock(&vfe_hw->hw_mutex);
+
 	switch (cmd_type) {
 	case AIS_VFE_CMD_ENQ_BUFFER: {
 		struct ais_ife_enqueue_buffer_args *enq_buf =
@@ -796,6 +798,8 @@ int ais_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 		rc = -EINVAL;
 		break;
 	}
+
+	mutex_unlock(&vfe_hw->hw_mutex);
 
 	return rc;
 }
