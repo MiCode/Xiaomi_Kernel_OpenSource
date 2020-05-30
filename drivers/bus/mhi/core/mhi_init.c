@@ -346,6 +346,9 @@ void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl)
 		}
 		spin_unlock(&mhi_tsync->lock);
 
+		if (mhi_tsync->db_response_pending)
+			complete(&mhi_tsync->db_completion);
+
 		kfree(mhi_cntrl->mhi_tsync);
 		mhi_cntrl->mhi_tsync = NULL;
 		mutex_unlock(&mhi_cntrl->tsync_mutex);
