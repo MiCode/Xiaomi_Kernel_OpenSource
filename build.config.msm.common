@@ -1,0 +1,46 @@
+################################################################################
+## DTB general support
+DTB_DIR=vendor/qcom
+
+function clean_dtbs() {
+	rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts
+}
+append_cmd POST_DEFCONFIG_CMDS 'clean_dtbs'
+
+FILES+="
+arch/${ARCH}/boot/dts/${DTB_DIR}/*.dtb*
+"
+
+################################################################################
+## DT Overlay
+function add_dt_overlay_defconfig() {
+	${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+	  -e BUILD_ARM64_DT_OVERLAY
+	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} olddefconfig)
+}
+if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
+	append_cmd POST_DEFCONFIG_CMDS 'add_dt_overlay_defconfig'
+fi
+
+################################################################################
+## Variant Selection
+if [ -z "${VARIANT}" ] || [ "${VARIANT}" == "default" ]; then
+	VARIANT="${VARIANTS[0]}"
+fi
+
+if [ ! -z $MSM_ARCH ]; then
+	BRANCH+=-${MSM_ARCH}
+fi
+
+if [ ! -z $VARIANT ]; then
+	BRANCH+=-${VARIANT}
+fi
+
+################################################################################
+## menuconfig
+function menuconfig() {
+	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
+	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
+	mv ${OUT_DIR}/defconfig ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+}
+export -f menuconfig

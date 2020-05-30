@@ -1,0 +1,43 @@
+################################################################################
+## Defaulting required variables
+[ -z "${VARIANT}" ] && VARIANT=default
+[ -z "${CONFIG_TARGET}" ] && CONFIG_TARGET=msm.lahaina
+
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/common/build.config.common
+. ${ROOT_DIR}/common/build.config.aarch64
+
+CC="${ROOT_DIR}/common/scripts/gcc-wrapper.py ${CC}"
+
+################################################################################
+## Variant setup
+MSM_ARCH=lahaina
+BRANCH=msm-waipio
+VARIANTS=(gki gki-ack)
+
+DT_OVERLAY_SUPPORT=1
+
+BOOT_IMAGE_HEADER_VERSION=3
+BASE_ADDRESS=0x80000000
+PAGE_SIZE=4096
+
+ABI_DEFINITION=abi_gki_aarch64.xml
+KMI_WHITELIST=abi_gki_qcom_whitelist
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+
+case "${VARIANT}" in
+gki)
+	. ${KERNEL_DIR}/build.config.msm.gki
+	;;
+gki-ack)
+	# In gki-only, then using ACK's GKI config directly
+	. ${KERNEL_DIR}/build.config.gki
+	;;
+*)
+	echo "Unsupported variant '${VARIANT}'"
+	;;
+esac
