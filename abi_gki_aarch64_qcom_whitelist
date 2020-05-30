@@ -309,25 +309,6 @@
   current_time
   datagram_poll
   d_drop
-  debugfs_attr_read
-  debugfs_attr_write
-  debugfs_create_atomic_t
-  debugfs_create_blob
-  debugfs_create_bool
-  debugfs_create_dir
-  debugfs_create_file
-  debugfs_create_file_unsafe
-  debugfs_create_regset32
-  debugfs_create_u16
-  debugfs_create_u32
-  debugfs_create_u64
-  debugfs_create_u8
-  debugfs_create_x32
-  debugfs_create_x8
-  debugfs_lookup
-  debugfs_print_regs32
-  debugfs_remove
-  debugfs_remove_recursive
   debug_smp_processor_id
   default_llseek
   default_wake_function
@@ -680,7 +661,6 @@
   drm_cvt_mode
   drm_dbg
   drm_debug
-  drm_debugfs_create_files
   drm_detect_hdmi_monitor
   drm_detect_monitor_audio
   drm_dev_alloc
