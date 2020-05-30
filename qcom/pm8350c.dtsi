@@ -35,6 +35,39 @@
 			reg-names = "lpg-base";
 			#pwm-cells = <2>;
 			qcom,num-lpg-channels = <3>;
+			nvmem = <&pmk8350_sdam_21 &pmk8350_sdam_22>;
+			nvmem-names = "lpg_chan_sdam", "lut_sdam";
+			qcom,lut-sdam-base = <0x45>;
+			qcom,lut-patterns = <0 10 20 30 40 50 60 70 80 90 100
+					     90 80 70 60 50 40 30 20 10 0>;
+			qcom,tick-duration-us = <8000>;
+
+			lpg@1 {
+				qcom,lpg-chan-id = <1>;
+				qcom,ramp-step-ms = <200>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <19>;
+				qcom,ramp-pattern-repeat;
+				qcom,lpg-sdam-base = <0x48>;
+			};
+
+			lpg@2 {
+				qcom,lpg-chan-id = <2>;
+				qcom,ramp-step-ms = <200>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <19>;
+				qcom,ramp-pattern-repeat;
+				qcom,lpg-sdam-base = <0x56>;
+			};
+
+			lpg@3 {
+				qcom,lpg-chan-id = <3>;
+				qcom,ramp-step-ms = <200>;
+				qcom,ramp-low-index = <0>;
+				qcom,ramp-high-index = <19>;
+				qcom,ramp-pattern-repeat;
+				qcom,lpg-sdam-base = <0x64>;
+			};
 		};
 
 		pm8350c_pwm_2: pwms@eb00 {
