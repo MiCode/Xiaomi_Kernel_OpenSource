@@ -2626,6 +2626,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 		}
 	}
 	priv->hw->crc_strip_en = priv->plat->crc_strip_en;
+	priv->hw->acs_strip_en = 0;
 
 	/* Initialize the MAC Core */
 	priv->hw->mac->core_init(priv->hw, dev);
@@ -3608,8 +3609,13 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
 			 * feature is always disabled and packets need to be
 			 * stripped manually.
 			 */
-			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00) ||
-			    unlikely(status != llc_snap))
+			if ((likely(priv->synopsys_id >= DWMAC_CORE_4_00) &&
+			     ((unlikely(!priv->hw->crc_strip_en) &&
+			       status != llc_snap) ||
+			      (unlikely(!priv->hw->acs_strip_en) &&
+			       status == llc_snap))) ||
+			    (unlikely(priv->synopsys_id < DWMAC_CORE_4_00) &&
+			     unlikely(status != llc_snap)))
 				frame_len -= ETH_FCS_LEN;
 
 			if (netif_msg_rx_status(priv)) {

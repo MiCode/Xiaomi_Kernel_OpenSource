@@ -93,6 +93,11 @@ static int dwmac4_wrback_get_rx_status(void *data, struct stmmac_extra_stats *x,
 	if (likely(!(rdes3 & RDES3_LAST_DESCRIPTOR)))
 		return discard_frame;
 
+	if (unlikely(!(rdes3 & RDES3_PACKET_LEN_TYPE_MASK))) {
+		pr_info("rdes3 = 0xX\n", rdes3);
+		ret = llc_snap;
+	}
+
 	if (unlikely(rdes3 & RDES3_ERROR_SUMMARY)) {
 		if (unlikely(rdes3 & RDES3_GIANT_PACKET))
 			stats->rx_length_errors++;
