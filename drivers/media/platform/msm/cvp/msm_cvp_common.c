@@ -1397,6 +1397,7 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 		return;
 	}
 
+send_again:
 	mutex_lock(&core->lock);
 	if (core->state == CVP_CORE_INIT_DONE) {
 		dprintk(CVP_WARN, "%s: ssr type %d\n", __func__,
@@ -1411,6 +1412,13 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 		rc = call_hfi_op(hdev, core_trigger_ssr,
 				hdev->hfi_device_data, core->ssr_type);
 		if (rc) {
+			if (rc == -EAGAIN) {
+				core->trigger_ssr = false;
+				mutex_unlock(&core->lock);
+				usleep_range(500, 1000);
+				dprintk(CVP_WARN, "Retry ssr\n");
+				goto send_again;
+			}
 			dprintk(CVP_ERR, "%s: trigger_ssr failed\n",
 				__func__);
 			core->trigger_ssr = false;
