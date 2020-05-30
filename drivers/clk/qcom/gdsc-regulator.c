@@ -374,9 +374,11 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			udelay(TIMEOUT_US);
 		} else {
 			ret = poll_gdsc_status(sc, DISABLED);
-			if (ret)
+			if (ret) {
+				regmap_read(sc->regmap, REG_OFFSET, &regval);
 				dev_err(&rdev->dev, "%s disable timed out: 0x%x\n",
 					sc->rdesc.name, regval);
+			}
 		}
 
 		if (sc->domain_addr) {
