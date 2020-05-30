@@ -2649,12 +2649,7 @@ static union __packed gsi_channel_scratch __gsi_update_mhi_channel_scratch(
 			gsi_ctx->per.ee));
 
 	/* UPDATE */
-	scr.mhi.mhi_host_wp_addr = mscr.mhi_host_wp_addr;
-	scr.mhi.assert_bit40 = mscr.assert_bit40;
-	scr.mhi.polling_configuration = mscr.polling_configuration;
-	scr.mhi.burst_mode_enabled = mscr.burst_mode_enabled;
 	scr.mhi.polling_mode = mscr.polling_mode;
-	scr.mhi.oob_mod_threshold = mscr.oob_mod_threshold;
 
 	if (gsi_ctx->per.ver < GSI_VER_2_5) {
 		scr.mhi.max_outstanding_tre = mscr.max_outstanding_tre;
