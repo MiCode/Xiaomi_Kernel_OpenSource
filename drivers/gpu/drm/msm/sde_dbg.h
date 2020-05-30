@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,7 +252,7 @@ int sde_dbg_init(struct device *dev, struct sde_dbg_power_ctrl *power_ctrl);
  * @debugfs_root:	debugfs root in which to create sde debug entries
  * Returns:	0 or -ERROR
  */
-int sde_dbg_debugfs_register(struct dentry *debugfs_root);
+int sde_dbg_debugfs_register(struct device *dev);
 
 /**
  * sde_dbg_destroy - destroy the global sde debug facilities
@@ -368,6 +368,15 @@ void sde_rsc_debug_dump(u32 mux_sel);
 void dsi_ctrl_debug_dump(u32 *entries, u32 size);
 
 #else
+static inline
+int sde_dbg_reg_register_cb(const char *name, void (*cb)(void *), void *ptr)
+{
+	return 0;
+}
+static inline
+void sde_dbg_reg_unregister_cb(const char *name, void (*cb)(void *), void *ptr)
+{
+}
 static inline struct sde_dbg_evtlog *sde_evtlog_init(void)
 {
 	return NULL;
@@ -409,7 +418,7 @@ static inline int sde_dbg_init(struct device *dev,
 	return 0;
 }
 
-static inline int sde_dbg_debugfs_register(struct dentry *debugfs_root)
+static inline int sde_dbg_debugfs_register(struct device *dev)
 {
 	return 0;
 }
@@ -418,7 +427,7 @@ static inline void sde_dbg_destroy(void)
 {
 }
 
-static inline void sde_dbg_dump(enum sde_dbg_dump_context,
+static inline void sde_dbg_dump(enum sde_dbg_dump_context mode,
 	const char *name, ...)
 {
 }
@@ -439,7 +448,7 @@ static inline void sde_dbg_reg_register_dump_range(const char *base_name,
 {
 }
 
-void sde_dbg_set_sde_top_offset(u32 blk_off)
+static inline void sde_dbg_set_sde_top_offset(u32 blk_off)
 {
 }
 
@@ -458,7 +467,7 @@ static inline void sde_rsc_debug_dump(u32 mux_sel)
 {
 }
 
-static inline void dsi_ctrl_debug_dump(u32 entries, u32 size)
+static inline void dsi_ctrl_debug_dump(u32 *entries, u32 size)
 {
 }
 

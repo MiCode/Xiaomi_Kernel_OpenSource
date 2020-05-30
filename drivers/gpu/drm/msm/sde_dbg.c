@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 
 #include "sde_dbg.h"
 #include "sde/sde_hw_catalog.h"
+#include "msm_drv.h"
 
 #define SDE_DBG_BASE_MAX		10
 
@@ -5046,14 +5047,37 @@ static const struct file_operations sde_reg_fops = {
 	.write = sde_dbg_reg_base_reg_write,
 };
 
-int sde_dbg_debugfs_register(struct dentry *debugfs_root)
+int sde_dbg_debugfs_register(struct device *dev)
 {
 	static struct sde_dbg_base *dbg = &sde_dbg_base;
 	struct sde_dbg_reg_base *blk_base;
 	char debug_name[80] = "";
+	struct dentry *debugfs_root = NULL;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct msm_drm_private *priv = NULL;
 
-	if (!debugfs_root)
+	if (!ddev) {
+		pr_err("Invalid drm device node\n");
 		return -EINVAL;
+	}
+
+	priv = ddev->dev_private;
+	if (!priv) {
+		pr_err("Invalid msm drm private node\n");
+		return -EINVAL;
+	}
+
+	debugfs_root = debugfs_create_dir("debug",
+				ddev->primary->debugfs_root);
+	if (IS_ERR_OR_NULL(debugfs_root)) {
+		pr_err("debugfs_root create_dir fail, error %ld\n",
+			PTR_ERR(debugfs_root));
+		priv->debug_root = NULL;
+		return -EINVAL;
+	}
+
+	priv->debug_root = debugfs_root;
 
 	debugfs_create_file("dbg_ctrl", 0600, debugfs_root, NULL,
 			&sde_dbg_ctrl_fops);
