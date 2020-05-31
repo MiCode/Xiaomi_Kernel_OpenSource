@@ -4174,7 +4174,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 static inline int __resume(struct iris_hfi_device *device)
 {
 	int rc = 0;
-	u32 flags = 0;
+	u32 flags = 0, reg_gdsc, reg_cbcr;
 
 	if (!device) {
 		dprintk(CVP_ERR, "Invalid params: %pK\n", device);
@@ -4192,6 +4192,14 @@ static inline int __resume(struct iris_hfi_device *device)
 		dprintk(CVP_ERR, "Failed to power on cvp\n");
 		goto err_iris_power_on;
 	}
+
+
+
+	reg_gdsc = __read_register(device, CVP_CC_MVS1C_GDSCR);
+	reg_cbcr = __read_register(device, CVP_CC_MVS1C_CBCR);
+	if (!(reg_gdsc & 0x80000000) || (reg_cbcr & 0x80000000))
+		dprintk(CVP_ERR, "CVP power on failed gdsc %x cbcr %x\n",
+			reg_gdsc, reg_cbcr);
 
 	/* Reboot the firmware */
 	rc = __tzbsp_set_cvp_state(TZ_SUBSYS_STATE_RESUME);

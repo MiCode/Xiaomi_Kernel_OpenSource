@@ -1019,6 +1019,30 @@ static int msm_cvp_session_stop(struct msm_cvp_inst *inst,
 	return cvp_fence_thread_stop(inst);
 }
 
+int msm_cvp_session_queue_stop(struct msm_cvp_inst *inst)
+{
+	struct cvp_session_queue *sq;
+
+	sq = &inst->session_queue;
+
+	spin_lock(&sq->lock);
+
+	if (sq->state == QUEUE_STOP) {
+		spin_unlock(&sq->lock);
+		return 0;
+	}
+
+	sq->state = QUEUE_STOP;
+
+	dprintk(CVP_SESS, "Stop session queue: %pK session_id = %d\n",
+			inst, hash32_ptr(inst->session));
+	spin_unlock(&sq->lock);
+
+	wake_up_all(&inst->session_queue.wq);
+
+	return cvp_fence_thread_stop(inst);
+}
+
 static int msm_cvp_session_ctrl(struct msm_cvp_inst *inst,
 		struct cvp_kmd_arg *arg)
 {
