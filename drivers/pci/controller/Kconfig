@@ -303,5 +303,16 @@ config PCI_MSM
 
 	  If unsure, say N.
 
+config PCI_QTI
+	tristate "Enable QTI specific code in PCI upstream driver"
+	depends on QGKI
+	default n
+	help
+	  This configuration flag allows adding QTI specific code
+	  in PCI upstream driver. This macro guards the code against
+	  ABI breakage in PCI upstream driver. When this flag is
+	  enabled, it is safe to assume that the build is a Non GKI
+	  build.
+
 source "drivers/pci/controller/dwc/Kconfig"
 endmenu
