@@ -1349,6 +1349,8 @@ void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
 				SDCC_IP_CATALOG));
 	if (minor < 2 || msm_host->debug_mode_enabled)
 		return;
+	if (!(host->quirks2 & SDHCI_QUIRK2_USE_DBG_FEATURE))
+		return;
 
 	/* Enable debug mode */
 	writel_relaxed(ENABLE_DBG,
@@ -1391,6 +1393,8 @@ void sdhci_msm_exit_dbg_mode(struct sdhci_host *host)
 	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
 				SDCC_IP_CATALOG));
 	if (minor < 2 || !msm_host->debug_mode_enabled)
+		return;
+	if (!(host->quirks2 & SDHCI_QUIRK2_USE_DBG_FEATURE))
 		return;
 
 	/* Exit debug mode */
