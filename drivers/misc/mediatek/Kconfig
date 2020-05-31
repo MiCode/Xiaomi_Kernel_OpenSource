@@ -15,3 +15,7 @@ endmenu # SSPM
 menu "MultiMedia, Display, Camera"
 source "drivers/misc/mediatek/mmp/Kconfig"
 endmenu # MultiMedia, Display, Camera
+
+menu "APU"
+source "drivers/misc/mediatek/apusys/Kconfig"
+endmenu # APU
