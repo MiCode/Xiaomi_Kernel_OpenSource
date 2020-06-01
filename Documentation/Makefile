@@ -2,7 +2,7 @@
 # Makefile for Sphinx documentation
 #
 
-subdir-y := devicetree/bindings/
+subdir-y :=
 
 # Check for broken documentation file references
 ifeq ($(CONFIG_WARN_MISSING_DOCUMENTS),y)

@@ -197,6 +197,7 @@ extern void clocksource_mark_unstable(struct clocksource *cs);
 extern void
 clocksource_start_suspend_timing(struct clocksource *cs, u64 start_cycles);
 extern u64 clocksource_stop_suspend_timing(struct clocksource *cs, u64 now);
+extern void clocksource_select_force(void);
 
 extern u64
 clocks_calc_max_nsecs(u32 mult, u32 shift, u32 maxadj, u64 mask, u64 *max_cycles);

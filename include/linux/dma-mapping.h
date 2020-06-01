@@ -11,6 +11,7 @@
 #include <linux/scatterlist.h>
 #include <linux/bug.h>
 #include <linux/mem_encrypt.h>
+#include <linux/genalloc.h>
 
 /**
  * List of possible attributes associated with a DMA mapping. The semantics
@@ -66,6 +67,52 @@
  * at least read-only at lesser-privileged levels).
  */
 #define DMA_ATTR_PRIVILEGED		(1UL << 9)
+
+/*
+ * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
+ */
+#define DMA_ATTR_SKIP_ZEROING		(1UL << 10)
+/*
+ * DMA_ATTR_NO_DELAYED_UNMAP: Used by msm specific lazy mapping to indicate
+ * that the mapping can be freed on unmap, rather than when the ion_buffer
+ * is freed.
+ */
+#define DMA_ATTR_NO_DELAYED_UNMAP	(1UL << 11)
+/*
+ * DMA_ATTR_EXEC_MAPPING: The mapping has executable permissions.
+ */
+#define DMA_ATTR_EXEC_MAPPING		(1UL << 12)
+/*
+ * DMA_ATTR_IOMMU_USE_UPSTREAM_HINT: Normally an smmu will override any bus
+ * attributes (i.e cacheablilty) provided by the client device. Some hardware
+ * may be designed to use the original attributes instead.
+ */
+#define DMA_ATTR_IOMMU_USE_UPSTREAM_HINT	(1UL << 13)
+/*
+ * When passed to a DMA map call the DMA_ATTR_FORCE_COHERENT DMA
+ * attribute can be used to force a buffer to be mapped as IO coherent.
+ */
+#define DMA_ATTR_FORCE_COHERENT			(1UL << 14)
+/*
+ * When passed to a DMA map call the DMA_ATTR_FORCE_NON_COHERENT DMA
+ * attribute can be used to force a buffer to not be mapped as IO
+ * coherent.
+ */
+#define DMA_ATTR_FORCE_NON_COHERENT		(1UL << 15)
+/*
+ * DMA_ATTR_DELAYED_UNMAP: Used by ION, it will ensure that mappings are not
+ * removed on unmap but instead are removed when the ion_buffer is freed.
+ */
+#define DMA_ATTR_DELAYED_UNMAP		(1UL << 16)
+
+/*
+ * DMA_ATTR_IOMMU_USE_LLC_NWA: Overrides the bus attributes to use the System
+ * Cache(LLC) with allocation policy as Inner Non-Cacheable, Outer Cacheable:
+ * Write-Back, Read-Allocate, No Write-Allocate policy.
+ */
+#define DMA_ATTR_IOMMU_USE_LLC_NWA	(1UL << 17)
+
+#define DMA_ERROR_CODE       (~(dma_addr_t)0)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
@@ -630,8 +677,12 @@ void *dma_common_pages_remap(struct page **pages, size_t size,
 			pgprot_t prot, const void *caller);
 void dma_common_free_remap(void *cpu_addr, size_t size);
 
+struct gen_pool *__init __dma_atomic_pool_init(void);
 bool dma_in_atomic_pool(void *start, size_t size);
+void *__dma_alloc_from_pool(struct gen_pool *pool, size_t size,
+			    struct page **ret_page, gfp_t flags);
 void *dma_alloc_from_pool(size_t size, struct page **ret_page, gfp_t flags);
+bool __dma_free_from_pool(struct gen_pool *pool, void *start, size_t size);
 bool dma_free_from_pool(void *start, size_t size);
 
 int

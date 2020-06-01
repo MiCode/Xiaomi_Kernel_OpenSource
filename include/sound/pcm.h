@@ -55,6 +55,10 @@ struct snd_pcm_ops {
 	int (*close)(struct snd_pcm_substream *substream);
 	int (*ioctl)(struct snd_pcm_substream * substream,
 		     unsigned int cmd, void *arg);
+#ifdef CONFIG_AUDIO_QGKI
+	int (*compat_ioctl)(struct snd_pcm_substream *substream,
+		     unsigned int cmd, void __user *arg);
+#endif
 	int (*hw_params)(struct snd_pcm_substream *substream,
 			 struct snd_pcm_hw_params *params);
 	int (*hw_free)(struct snd_pcm_substream *substream);
@@ -66,6 +70,11 @@ struct snd_pcm_ops {
 			struct timespec64 *system_ts, struct timespec64 *audio_ts,
 			struct snd_pcm_audio_tstamp_config *audio_tstamp_config,
 			struct snd_pcm_audio_tstamp_report *audio_tstamp_report);
+#ifdef CONFIG_AUDIO_QGKI
+	int (*delay_blk)(struct snd_pcm_substream *substream);
+	int (*wall_clock)(struct snd_pcm_substream *substream,
+			struct timespec *audio_ts);
+#endif
 	int (*fill_silence)(struct snd_pcm_substream *substream, int channel,
 			    unsigned long pos, unsigned long bytes);
 	int (*copy_user)(struct snd_pcm_substream *substream, int channel,
@@ -480,6 +489,9 @@ struct snd_pcm_substream {
 	/* misc flags */
 	unsigned int hw_opened: 1;
 	unsigned int managed_buffer_alloc:1;
+#ifdef CONFIG_AUDIO_QGKI
+	spinlock_t runtime_lock;
+#endif
 	unsigned int hw_no_buffer: 1; /* substream may not have a buffer */
 };
 
@@ -504,6 +516,10 @@ struct snd_pcm_str {
 #endif
 #endif
 	struct snd_kcontrol *chmap_kctl; /* channel-mapping controls */
+#ifdef CONFIG_AUDIO_QGKI
+	struct snd_kcontrol *vol_kctl; /* volume controls */
+	struct snd_kcontrol *usr_kctl; /* user controls */
+#endif
 	struct device dev;
 };
 
@@ -1416,6 +1432,55 @@ static inline u64 pcm_format_to_bits(snd_pcm_format_t pcm_format)
 	return 1ULL << (__force int) pcm_format;
 }
 
+#ifdef CONFIG_AUDIO_QGKI
+/*
+ * PCM Volume control API
+ */
+/* array element of volume */
+struct snd_pcm_volume_elem {
+	int volume;
+};
+
+/* pp information; retrieved via snd_kcontrol_chip() */
+struct snd_pcm_volume {
+	struct snd_pcm *pcm;	/* assigned PCM instance */
+	int stream;		/* PLAYBACK or CAPTURE */
+	struct snd_kcontrol *kctl;
+	const struct snd_pcm_volume_elem *volume;
+	int max_length;
+	void *private_data;	/* optional: private data pointer */
+};
+
+int snd_pcm_add_volume_ctls(struct snd_pcm *pcm, int stream,
+			   const struct snd_pcm_volume_elem *volume,
+			   int max_length,
+			   unsigned long private_value,
+			   struct snd_pcm_volume **info_ret);
+
+/*
+ * PCM User control API
+ */
+/* array element of usr elem */
+struct snd_pcm_usr_elem {
+	int val[128];
+};
+
+/* pp information; retrieved via snd_kcontrol_chip() */
+struct snd_pcm_usr {
+	struct snd_pcm *pcm;	/* assigned PCM instance */
+	int stream;		/* PLAYBACK or CAPTURE */
+	struct snd_kcontrol *kctl;
+	const struct snd_pcm_usr_elem *usr;
+	int max_length;
+	void *private_data;	/* optional: private data pointer */
+};
+
+int snd_pcm_add_usr_ctls(struct snd_pcm *pcm, int stream,
+			 const struct snd_pcm_usr_elem *usr,
+			 int max_length, int max_control_str_len,
+			 unsigned long private_value,
+			 struct snd_pcm_usr **info_ret);
+#endif
 /* printk helpers */
 #define pcm_err(pcm, fmt, args...) \
 	dev_err((pcm)->card->dev, fmt, ##args)

@@ -1,7 +1,8 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 obj-$(CONFIG_COMMON_CLK_QCOM) += clk-qcom.o
 
 clk-qcom-y += common.o
+clk-qcom-y += vdd-class.o
 clk-qcom-y += clk-regmap.o
 clk-qcom-y += clk-alpha-pll.o
 clk-qcom-y += clk-pll.o
@@ -14,7 +15,10 @@ clk-qcom-y += clk-regmap-mux-div.o
 clk-qcom-$(CONFIG_KRAIT_CLOCKS) += clk-krait.o
 clk-qcom-y += clk-hfpll.o
 clk-qcom-y += reset.o
+clk-qcom-y += clk-debug.o
+clk-qcom-y += gdsc-regulator.o
 clk-qcom-$(CONFIG_QCOM_GDSC) += gdsc.o
+obj-$(CONFIG_COMMON_CLK_QCOM) += clk-dummy.o
 
 # Keep alphabetically sorted by config
 obj-$(CONFIG_APQ_GCC_8084) += gcc-apq8084.o
@@ -26,6 +30,9 @@ obj-$(CONFIG_IPQ_GCC_8074) += gcc-ipq8074.o
 obj-$(CONFIG_IPQ_LCC_806X) += lcc-ipq806x.o
 obj-$(CONFIG_MDM_GCC_9615) += gcc-mdm9615.o
 obj-$(CONFIG_MDM_LCC_9615) += lcc-mdm9615.o
+obj-$(CONFIG_MSM_CLK_AOP_QMP) += clk-aop-qmp.o
+obj-$(CONFIG_MSM_DEBUGCC_LAHAINA) += debugcc-lahaina.o
+obj-$(CONFIG_MSM_DISPCC_LAHAINA) += dispcc-lahaina.o
 obj-$(CONFIG_MSM_GCC_8660) += gcc-msm8660.o
 obj-$(CONFIG_MSM_GCC_8916) += gcc-msm8916.o
 obj-$(CONFIG_MSM_GCC_8960) += gcc-msm8960.o
@@ -39,6 +46,10 @@ obj-$(CONFIG_MSM_MMCC_8960) += mmcc-msm8960.o
 obj-$(CONFIG_MSM_MMCC_8974) += mmcc-msm8974.o
 obj-$(CONFIG_MSM_MMCC_8996) += mmcc-msm8996.o
 obj-$(CONFIG_MSM_MMCC_8998) += mmcc-msm8998.o
+obj-$(CONFIG_MSM_GCC_LAHAINA) += gcc-lahaina.o
+obj-$(CONFIG_MSM_GPUCC_LAHAINA) += gpucc-lahaina.o
+obj-$(CONFIG_MSM_CAMCC_LAHAINA) += camcc-lahaina.o
+obj-$(CONFIG_MSM_VIDEOCC_LAHAINA) += videocc-lahaina.o
 obj-$(CONFIG_QCOM_A53PLL) += a53-pll.o
 obj-$(CONFIG_QCOM_CLK_APCS_MSM8916) += apcs-msm8916.o
 obj-$(CONFIG_QCOM_CLK_RPM) += clk-rpm.o

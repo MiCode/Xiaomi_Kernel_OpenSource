@@ -1053,6 +1053,10 @@ static int ov6650_probe(struct i2c_client *client,
 	priv->tpf.numerator   = GET_CLKRC_DIV(DEF_CLKRC);
 	priv->tpf.denominator = FRAME_RATE_MAX;
 
+	/* Hardware default frame interval */
+	priv->tpf.numerator   = GET_CLKRC_DIV(DEF_CLKRC);
+	priv->tpf.denominator = FRAME_RATE_MAX;
+
 	priv->subdev.internal_ops = &ov6650_internal_ops;
 
 	ret = v4l2_async_register_subdev(&priv->subdev);

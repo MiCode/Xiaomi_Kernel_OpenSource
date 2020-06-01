@@ -3,12 +3,12 @@
 # SLIMbus driver configuration
 #
 menuconfig SLIMBUS
-	tristate "SLIMbus support"
+	bool "SLIMbus support"
+	depends on HAS_IOMEM
 	help
-	  SLIMbus is standard interface between System-on-Chip and audio codec,
-	  and other peripheral components in typical embedded systems.
-
-	  If unsure, choose N.
+	  Slimbus is standard interface between baseband and
+	  application processors and peripheral components in mobile
+	  terminals.
 
 if SLIMBUS
 
@@ -32,4 +32,22 @@ config SLIM_QCOM_NGD_CTRL
 	  communicating with slave HW directly over the bus using messaging
 	  interface, and communicating with master component residing on ADSP
 	  for bandwidth and data-channel management.
+
+config SLIMBUS_MSM_CTRL
+	tristate "QTI SLIMbus Master Component"
+	help
+	  Select driver for Qualcomm Technologies, Inc. (QTI) Slimbus
+	  Master Component. This driver is responsible for configuring
+	  SLIMbus and performing bus administration, administration of
+	  components on the bus and dynamic channel allocation.
+
+config SLIMBUS_MSM_NGD
+	tristate "QTI Slimbus Satellite Component"
+	help
+	  Select driver for Qualcomm Technologies, Inc. (QTI) Slimbus
+	  Satellite Component. This is light-weight slimbus controller
+	  driver responsible for communicating with slave HW directly over
+	  the bus using messaging interface, and communicating with master
+	  component residing on ADSP for bandwidth and data-channel
+	  management.
 endif

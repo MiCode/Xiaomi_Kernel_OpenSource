@@ -1,5 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2015, 2018, The Linux Foundation. All rights reserved. */
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2015-2016, 2018-2019, The Linux Foundation.
+ * All rights reserved.
+ */
 
 #ifndef __QCOM_CLK_ALPHA_PLL_H__
 #define __QCOM_CLK_ALPHA_PLL_H__
@@ -14,6 +17,10 @@ enum {
 	CLK_ALPHA_PLL_TYPE_BRAMMO,
 	CLK_ALPHA_PLL_TYPE_FABIA,
 	CLK_ALPHA_PLL_TYPE_TRION,
+	CLK_ALPHA_PLL_TYPE_LUCID,
+	CLK_ALPHA_PLL_TYPE_ZONDA,
+	CLK_ALPHA_PLL_TYPE_LUCID_5LPE,
+	CLK_ALPHA_PLL_TYPE_ZONDA_5LPE,
 	CLK_ALPHA_PLL_TYPE_MAX,
 };
 
@@ -30,6 +37,7 @@ enum {
 	PLL_OFF_CONFIG_CTL_U1,
 	PLL_OFF_TEST_CTL,
 	PLL_OFF_TEST_CTL_U,
+	PLL_OFF_TEST_CTL_U1,
 	PLL_OFF_STATUS,
 	PLL_OFF_OPMODE,
 	PLL_OFF_FRAC,
@@ -55,7 +63,7 @@ struct pll_vco {
 struct clk_alpha_pll {
 	u32 offset;
 	const u8 *regs;
-
+	struct alpha_pll_config *config;
 	const struct pll_vco *vco_table;
 	size_t num_vco;
 #define SUPPORTS_OFFLINE_REQ	BIT(0)
@@ -81,7 +89,6 @@ struct clk_alpha_pll_postdiv {
 	u32 offset;
 	u8 width;
 	const u8 *regs;
-
 	struct clk_regmap clkr;
 	int post_div_shift;
 	const struct clk_div_table *post_div_table;
@@ -90,14 +97,18 @@ struct clk_alpha_pll_postdiv {
 
 struct alpha_pll_config {
 	u32 l;
+	u32 cal_l;
 	u32 alpha;
 	u32 alpha_hi;
+	u32 user_ctl_hi1_val;
 	u32 config_ctl_val;
 	u32 config_ctl_hi_val;
 	u32 user_ctl_val;
 	u32 user_ctl_hi_val;
 	u32 test_ctl_val;
 	u32 test_ctl_hi_val;
+	u32 config_ctl_hi1_val;
+	u32 test_ctl_hi1_val;
 	u32 main_output_mask;
 	u32 aux_output_mask;
 	u32 aux2_output_mask;
@@ -110,6 +121,9 @@ struct alpha_pll_config {
 	u32 post_div_mask;
 	u32 vco_val;
 	u32 vco_mask;
+	const u32 *custom_reg_offset;
+	const u32 *custom_reg_val;
+	size_t num_custom_reg;
 };
 
 extern const struct clk_ops clk_alpha_pll_ops;
@@ -123,11 +137,33 @@ extern const struct clk_ops clk_alpha_pll_fabia_ops;
 extern const struct clk_ops clk_alpha_pll_fixed_fabia_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_fabia_ops;
 
+extern const struct clk_ops clk_alpha_pll_lucid_ops;
+extern const struct clk_ops clk_alpha_pll_fixed_lucid_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_lucid_ops;
+
+extern const struct clk_ops clk_alpha_pll_zonda_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_zonda_ops;
+extern const struct clk_ops clk_alpha_pll_zonda_5lpe_ops;
+
+extern const struct clk_ops clk_alpha_pll_lucid_5lpe_ops;
+extern const struct clk_ops clk_alpha_pll_fixed_lucid_5lpe_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_lucid_5lpe_ops;
+
+extern const struct clk_ops clk_trion_fixed_pll_ops;
+extern const struct clk_ops clk_trion_pll_postdiv_ops;
+
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
 void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config);
-extern const struct clk_ops clk_trion_fixed_pll_ops;
-extern const struct clk_ops clk_trion_pll_postdiv_ops;
-
+void clk_lucid_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_zonda_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
+				struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_zonda_5lpe_pll_configure(struct clk_alpha_pll *pll,
+				struct regmap *regmap,
+				const struct alpha_pll_config *config);
 #endif

@@ -20,3 +20,63 @@ config QCOM_SPMI_TEMP_ALARM
 	  trip points. The temperature reported by the thermal sensor reflects the
 	  real time die temperature if an ADC is present or an estimate of the
 	  temperature based upon the over temperature stage value.
+
+config QTI_ADC_TM
+	tristate "Qualcomm Technologies Inc. Thermal Monitor ADC Driver"
+	depends on SPMI && THERMAL && QTI_THERMAL
+	depends on QCOM_SPMI_ADC5
+	help
+	  This enables the thermal Sysfs driver for the ADC thermal monitoring
+	  device. It shows up in Sysfs as a thermal zone with multiple trip points.
+	  Thermal client sets threshold temperature for both warm and cool
+	  and gets updated when a threshold is reached.
+
+config QTI_QMI_SENSOR
+	tristate "QTI QMI sensor driver"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF && QTI_THERMAL
+	help
+	   This enables to list the QTI remote subsystem temperature sensors.
+	   This driver can read the temperature of the remote sensor.
+	   These sensors can take thresholds and notify the thermal
+	   framework when the threshold is reached.
+
+config QTI_BCL_PMIC5
+	tristate "BCL driver for BCL peripherals in PMIC5"
+	depends on SPMI && THERMAL_OF && QTI_THERMAL
+	help
+	  This driver provides routines to configure and monitor the BCL
+	  PMIC peripheral. This driver registers the battery current and
+	  voltage sensors with the thermal core framework and can take
+	  threshold input and notify the thermal core when the threshold is
+	  reached.
+
+config QTI_BCL_SOC_DRIVER
+	tristate "QTI Battery state of charge sensor driver"
+	depends on THERMAL_OF && POWER_SUPPLY && QTI_THERMAL
+	help
+	  This driver registers battery state of charge as a sensor with
+	  thermal framework. This sensor can monitor for state of charge
+	  thresholds and notify the thermal framework when the thresholds
+	  are reached and cleared. This will help to monitor and apply any
+	  mitigation when state of charge goes below a certain threshold.
+
+config QTI_QMI_COOLING_DEVICE
+	tristate "QTI QMI cooling devices"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF && QTI_THERMAL
+	help
+	   This enables the QTI remote subsystem cooling devices. These cooling
+	   devices will be used by QTI chipset to place various remote
+	   subsystem mitigations like remote processor passive mitigation,
+	   remote subsystem voltage restriction at low temperatures etc.
+	   The QMI cooling device will interface with remote subsystem
+	   using QTI QMI interface.
+
+config QTI_CPU_ISOLATE_COOLING_DEVICE
+	tristate "QTI CPU Isolate cooling devices"
+	depends on THERMAL_OF && QTI_THERMAL
+	help
+	   This enables the QTI CPU Isolation cooling devices. These cooling
+	   devices will be used by QTI chipset to isolate a CPU from being
+	   scheduled and hence will let the CPU to power collapse. Isolating
+	   a CPU will be used when the CPU frequency mitigation
+	   is not good enough to achieve the necessary cooling.

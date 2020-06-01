@@ -425,4 +425,30 @@ config BT_HCIRSI
 	  Say Y here to compile support for HCI over Redpine into the
 	  kernel or say M to compile as a module.
 
+config MSM_BT_POWER
+	tristate "MSM Bluetooth Power Control"
+	depends on ARCH_QCOM
+	help
+		MSM Bluetooth Power control driver.
+		This provides a parameter to switch on/off power from PMIC
+		to Bluetooth device. This will control LDOs/Clock/GPIOs to
+		control Bluetooth Chipset based on power on/off sequence.
+
+		Say Y here to compile support for Bluetooth Power driver
+		into the kernel or say M to compile as a module.
+
+config BTFM_SLIM
+	tristate "MSM Bluetooth/FM Slimbus Device"
+	depends on MSM_BT_POWER
+	select SLIMBUS
+	help
+		This enables BT/FM slimbus driver to get multiple audio channel.
+		This will make use of slimbus platform driver and slimbus
+		codec driver to communicate with slimbus machine driver and LPSS which
+		is Slimbus master.Slimbus slave initialization and configuration
+		will be done through this driver.
+
+		Say Y here to compile support for Bluetooth slimbus driver
+		into the kernel or say M to compile as a module.
+
 endmenu

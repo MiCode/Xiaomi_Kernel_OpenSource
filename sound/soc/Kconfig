@@ -40,6 +40,10 @@ config SND_SOC_TOPOLOGY
 config SND_SOC_ACPI
 	tristate
 
+config AUDIO_QGKI
+	bool "Audio QGKI support"
+	depends on QGKI
+
 # All the supported SoCs
 source "sound/soc/adi/Kconfig"
 source "sound/soc/amd/Kconfig"

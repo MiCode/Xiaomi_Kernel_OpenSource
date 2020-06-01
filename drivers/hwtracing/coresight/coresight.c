@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2017-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -14,10 +14,12 @@
 #include <linux/stringhash.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <linux/coresight.h>
 #include <linux/of_platform.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "coresight-etm-perf.h"
 #include "coresight-priv.h"
@@ -35,18 +37,18 @@ struct coresight_node {
 };
 
 /*
- * When operating Coresight drivers from the sysFS interface, only a single
- * path can exist from a tracer (associated to a CPU) to a sink.
+ * struct coresight_path - path from source to sink
+ * @path:	Address of path list.
+ * @link:	hook to the list.
  */
-static DEFINE_PER_CPU(struct list_head *, tracer_path);
+struct coresight_path {
+	struct list_head *path;
+	struct list_head link;
+};
 
-/*
- * As of this writing only a single STM can be found in CS topologies.  Since
- * there is no way to know if we'll ever see more and what kind of
- * configuration they will enact, for the time being only define a single path
- * for STM.
- */
-static struct list_head *stm_path;
+static LIST_HEAD(cs_active_paths);
+
+static struct coresight_device *activated_sink;
 
 /*
  * When losing synchronisation a new barrier packet needs to be inserted at the
@@ -54,6 +56,8 @@ static struct list_head *stm_path;
  * it needs to look for another sync sequence.
  */
 const u32 barrier_pkt[4] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+
+static struct coresight_device *coresight_get_source(struct list_head *path);
 
 static int coresight_id_match(struct device *dev, void *data)
 {
@@ -94,14 +98,121 @@ static int coresight_source_is_unique(struct coresight_device *csdev)
 				 csdev, coresight_id_match);
 }
 
+/**
+ * coresight_source_filter - checks whether the connection matches the source
+ * of path if connection is binded to specific source.
+ * @path:	The list of devices
+ * @conn:	The connection of one outport
+ *
+ * Return zero if the connection doesn't have a source binded or source of the
+ * path matches the source binds to connection.
+ */
+#ifdef CONFIG_CORESIGHT_QGKI
+static int coresight_source_filter(struct list_head *path,
+			struct coresight_connection *conn)
+{
+	int ret = 0;
+	struct coresight_device *source = NULL;
+
+	if (conn->source_name == NULL)
+		return ret;
+
+	source = coresight_get_source(path);
+	if (source == NULL)
+		return ret;
+
+	return strcmp(conn->source_name, dev_name(&source->dev));
+}
+#else
+static int coresight_source_filter(struct list_head *path,
+			struct coresight_connection *conn)
+{
+	return 0;
+}
+#endif
+
+static int coresight_reset_sink(struct device *dev, void *data)
+{
+	struct coresight_device *csdev = to_coresight_device(dev);
+
+	if ((csdev->type == CORESIGHT_DEV_TYPE_SINK ||
+	     csdev->type == CORESIGHT_DEV_TYPE_LINKSINK) &&
+	     csdev->activated)
+		csdev->activated = false;
+
+	return 0;
+}
+
+static void coresight_reset_all_sink(void)
+{
+	bus_for_each_dev(&coresight_bustype, NULL, NULL, coresight_reset_sink);
+}
+
+#ifdef CONFIG_CORESIGHT_QGKI
+int coresight_enable_reg_clk(struct coresight_device *csdev)
+{
+	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
+	int ret;
+	int i, j;
+
+	if (IS_ERR_OR_NULL(reg_clk))
+		return -EINVAL;
+
+	for (i = 0; i < reg_clk->nr_reg; i++) {
+		ret = regulator_enable(reg_clk->reg[i]);
+		if (ret)
+			goto err_regs;
+	}
+
+	for (j = 0; j < reg_clk->nr_clk; j++) {
+		ret = clk_prepare_enable(reg_clk->clk[j]);
+		if (ret)
+			goto err_clks;
+	}
+
+	return 0;
+err_clks:
+	for (j--; j >= 0; j--)
+		clk_disable_unprepare(reg_clk->clk[j]);
+err_regs:
+	for (i--; i >= 0; i--)
+		regulator_disable(reg_clk->reg[i]);
+
+	return ret;
+}
+EXPORT_SYMBOL(coresight_enable_reg_clk);
+
+void coresight_disable_reg_clk(struct coresight_device *csdev)
+{
+	struct coresight_reg_clk *reg_clk = csdev->reg_clk;
+	int i;
+
+	if (IS_ERR_OR_NULL(reg_clk))
+		return;
+
+	for (i = reg_clk->nr_clk - 1; i >= 0; i--)
+		clk_disable_unprepare(reg_clk->clk[i]);
+	for (i = reg_clk->nr_reg - 1; i >= 0; i--)
+		regulator_disable(reg_clk->reg[i]);
+}
+EXPORT_SYMBOL(coresight_disable_reg_clk);
+#else
+int coresight_enable_reg_clk(struct coresight_device *csdev)
+{ return 0; }
+void coresight_disable_reg_clk(struct coresight_device *csdev) { }
+#endif
+
 static int coresight_find_link_inport(struct coresight_device *csdev,
-				      struct coresight_device *parent)
+				      struct coresight_device *parent,
+				      struct list_head *path)
 {
 	int i;
 	struct coresight_connection *conn;
 
 	for (i = 0; i < parent->pdata->nr_outport; i++) {
 		conn = &parent->pdata->conns[i];
+		if (coresight_source_filter(path, conn))
+			continue;
 		if (conn->child_dev == csdev)
 			return conn->child_port;
 	}
@@ -113,13 +224,16 @@ static int coresight_find_link_inport(struct coresight_device *csdev,
 }
 
 static int coresight_find_link_outport(struct coresight_device *csdev,
-				       struct coresight_device *child)
+				       struct coresight_device *child,
+				       struct list_head *path)
 {
 	int i;
 	struct coresight_connection *conn;
 
 	for (i = 0; i < csdev->pdata->nr_outport; i++) {
 		conn = &csdev->pdata->conns[i];
+		if (coresight_source_filter(path, conn))
+			continue;
 		if (conn->child_dev == child)
 			return conn->outport;
 	}
@@ -228,9 +342,12 @@ static int coresight_enable_sink(struct coresight_device *csdev,
 	if (!sink_ops(csdev)->enable)
 		return -EINVAL;
 
+	coresight_enable_reg_clk(csdev);
 	ret = sink_ops(csdev)->enable(csdev, mode, data);
-	if (ret)
+	if (ret) {
+		coresight_disable_reg_clk(csdev);
 		return ret;
+	}
 	csdev->enable = true;
 
 	return 0;
@@ -246,12 +363,15 @@ static void coresight_disable_sink(struct coresight_device *csdev)
 	ret = sink_ops(csdev)->disable(csdev);
 	if (ret)
 		return;
+	coresight_disable_reg_clk(csdev);
+	csdev->activated = false;
 	csdev->enable = false;
 }
 
 static int coresight_enable_link(struct coresight_device *csdev,
 				 struct coresight_device *parent,
-				 struct coresight_device *child)
+				 struct coresight_device *child,
+				 struct list_head *path)
 {
 	int ret = 0;
 	int link_subtype;
@@ -260,8 +380,8 @@ static int coresight_enable_link(struct coresight_device *csdev,
 	if (!parent || !child)
 		return -EINVAL;
 
-	inport = coresight_find_link_inport(csdev, parent);
-	outport = coresight_find_link_outport(csdev, child);
+	inport = coresight_find_link_inport(csdev, parent, path);
+	outport = coresight_find_link_outport(csdev, child, path);
 	link_subtype = csdev->subtype.link_subtype;
 
 	if (link_subtype == CORESIGHT_DEV_SUBTYPE_LINK_MERG && inport < 0)
@@ -269,17 +389,22 @@ static int coresight_enable_link(struct coresight_device *csdev,
 	if (link_subtype == CORESIGHT_DEV_SUBTYPE_LINK_SPLIT && outport < 0)
 		return outport;
 
-	if (link_ops(csdev)->enable)
+	if (link_ops(csdev)->enable) {
+		coresight_enable_reg_clk(csdev);
 		ret = link_ops(csdev)->enable(csdev, inport, outport);
+	}
 	if (!ret)
 		csdev->enable = true;
+	else
+		coresight_disable_reg_clk(csdev);
 
 	return ret;
 }
 
 static void coresight_disable_link(struct coresight_device *csdev,
 				   struct coresight_device *parent,
-				   struct coresight_device *child)
+				   struct coresight_device *child,
+				   struct list_head *path)
 {
 	int i, nr_conns;
 	int link_subtype;
@@ -288,8 +413,8 @@ static void coresight_disable_link(struct coresight_device *csdev,
 	if (!parent || !child)
 		return;
 
-	inport = coresight_find_link_inport(csdev, parent);
-	outport = coresight_find_link_outport(csdev, child);
+	inport = coresight_find_link_inport(csdev, parent, path);
+	outport = coresight_find_link_outport(csdev, child, path);
 	link_subtype = csdev->subtype.link_subtype;
 
 	if (link_subtype == CORESIGHT_DEV_SUBTYPE_LINK_MERG) {
@@ -300,8 +425,10 @@ static void coresight_disable_link(struct coresight_device *csdev,
 		nr_conns = 1;
 	}
 
-	if (link_ops(csdev)->disable)
+	if (link_ops(csdev)->disable) {
 		link_ops(csdev)->disable(csdev, inport, outport);
+		coresight_disable_reg_clk(csdev);
+	}
 
 	for (i = 0; i < nr_conns; i++)
 		if (atomic_read(&csdev->refcnt[i]) != 0)
@@ -322,9 +449,12 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 
 	if (!csdev->enable) {
 		if (source_ops(csdev)->enable) {
+			coresight_enable_reg_clk(csdev);
 			ret = source_ops(csdev)->enable(csdev, NULL, mode);
-			if (ret)
+			if (ret) {
+				coresight_disable_reg_clk(csdev);
 				return ret;
+			}
 		}
 		csdev->enable = true;
 	}
@@ -345,8 +475,10 @@ static int coresight_enable_source(struct coresight_device *csdev, u32 mode)
 static bool coresight_disable_source(struct coresight_device *csdev)
 {
 	if (atomic_dec_return(csdev->refcnt) == 0) {
-		if (source_ops(csdev)->disable)
+		if (source_ops(csdev)->disable) {
 			source_ops(csdev)->disable(csdev, NULL);
+			coresight_disable_reg_clk(csdev);
+		}
 		csdev->enable = false;
 	}
 	return !csdev->enable;
@@ -396,7 +528,7 @@ static void coresight_disable_path_from(struct list_head *path,
 		case CORESIGHT_DEV_TYPE_LINK:
 			parent = list_prev_entry(nd, link)->csdev;
 			child = list_next_entry(nd, link)->csdev;
-			coresight_disable_link(csdev, parent, child);
+			coresight_disable_link(csdev, parent, child, path);
 			break;
 		default:
 			break;
@@ -450,7 +582,7 @@ int coresight_enable_path(struct list_head *path, u32 mode, void *sink_data)
 		case CORESIGHT_DEV_TYPE_LINK:
 			parent = list_prev_entry(nd, link)->csdev;
 			child = list_next_entry(nd, link)->csdev;
-			ret = coresight_enable_link(csdev, parent, child);
+			ret = coresight_enable_link(csdev, parent, child, path);
 			if (ret)
 				goto err;
 			break;
@@ -464,6 +596,20 @@ out:
 err:
 	coresight_disable_path_from(path, nd);
 	goto out;
+}
+
+static struct coresight_device *coresight_get_source(struct list_head *path)
+{
+	struct coresight_device *csdev;
+
+	if (!path)
+		return NULL;
+
+	csdev = list_first_entry(path, struct coresight_node, link)->csdev;
+	if (csdev->type != CORESIGHT_DEV_TYPE_SOURCE)
+		return NULL;
+
+	return csdev;
 }
 
 struct coresight_device *coresight_get_sink(struct list_head *path)
@@ -619,7 +765,8 @@ static void coresight_drop_device(struct coresight_device *csdev)
  */
 static int _coresight_build_path(struct coresight_device *csdev,
 				 struct coresight_device *sink,
-				 struct list_head *path)
+				 struct list_head *path,
+				 struct coresight_device *source)
 {
 	int i;
 	bool found = false;
@@ -634,8 +781,14 @@ static int _coresight_build_path(struct coresight_device *csdev,
 		struct coresight_device *child_dev;
 
 		child_dev = csdev->pdata->conns[i].child_dev;
+#ifdef CONFIG_CORESIGHT_QGKI
+		if (csdev->pdata->conns[i].source_name &&
+		    strcmp(csdev->pdata->conns[i].source_name,
+				dev_name(&source->dev)))
+			continue;
+#endif
 		if (child_dev &&
-		    _coresight_build_path(child_dev, sink, path) == 0) {
+		    _coresight_build_path(child_dev, sink, path, source) == 0) {
 			found = true;
 			break;
 		}
@@ -677,7 +830,7 @@ struct list_head *coresight_build_path(struct coresight_device *source,
 
 	INIT_LIST_HEAD(path);
 
-	rc = _coresight_build_path(source, sink, path);
+	rc = _coresight_build_path(source, sink, path, source);
 	if (rc) {
 		kfree(path);
 		return ERR_PTR(rc);
@@ -738,9 +891,146 @@ static int coresight_validate_source(struct coresight_device *csdev,
 	return 0;
 }
 
+static int coresight_store_path(struct list_head *path)
+{
+	struct coresight_path *node;
+
+	node = kzalloc(sizeof(struct coresight_path), GFP_KERNEL);
+	if (!node)
+		return -ENOMEM;
+
+	node->path = path;
+	list_add(&node->link, &cs_active_paths);
+
+	return 0;
+}
+
+static void coresight_enable_source_link(struct list_head *path)
+{
+	u32 type;
+	int ret;
+	struct coresight_node *nd;
+	struct coresight_device *csdev, *parent, *child;
+
+	list_for_each_entry_reverse(nd, path, link) {
+		csdev = nd->csdev;
+		type = csdev->type;
+
+		if (type == CORESIGHT_DEV_TYPE_LINKSINK)
+			type = (csdev == coresight_get_sink(path)) ?
+						CORESIGHT_DEV_TYPE_SINK :
+						CORESIGHT_DEV_TYPE_LINK;
+
+		switch (type) {
+		case CORESIGHT_DEV_TYPE_SINK:
+			break;
+		case CORESIGHT_DEV_TYPE_SOURCE:
+			if (source_ops(csdev)->enable) {
+				ret = coresight_enable_reg_clk(csdev);
+				if (ret)
+					goto err;
+
+				ret = source_ops(csdev)->enable(csdev,
+					NULL, CS_MODE_SYSFS);
+				if (ret) {
+					coresight_disable_reg_clk(csdev);
+					goto err;
+				}
+			}
+			csdev->enable = true;
+			break;
+		case CORESIGHT_DEV_TYPE_LINK:
+			parent = list_prev_entry(nd, link)->csdev;
+			child = list_next_entry(nd, link)->csdev;
+			ret = coresight_enable_link(csdev, parent, child, path);
+			if (ret)
+				goto err;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return;
+err:
+	coresight_disable_path_from(path, nd);
+	coresight_release_path(path);
+}
+
+static void coresight_disable_source_link(struct list_head *path)
+{
+	u32 type;
+	struct coresight_node *nd;
+	struct coresight_device *csdev, *parent, *child;
+
+	list_for_each_entry(nd, path, link) {
+		csdev = nd->csdev;
+		type = csdev->type;
+
+		if (type == CORESIGHT_DEV_TYPE_LINKSINK)
+			type = (csdev == coresight_get_sink(path)) ?
+						CORESIGHT_DEV_TYPE_SINK :
+						CORESIGHT_DEV_TYPE_LINK;
+
+		switch (type) {
+		case CORESIGHT_DEV_TYPE_SINK:
+			break;
+		case CORESIGHT_DEV_TYPE_SOURCE:
+			if (source_ops(csdev)->disable) {
+				source_ops(csdev)->disable(csdev, NULL);
+				coresight_disable_reg_clk(csdev);
+			}
+			csdev->enable = false;
+			break;
+		case CORESIGHT_DEV_TYPE_LINK:
+			parent = list_prev_entry(nd, link)->csdev;
+			child = list_next_entry(nd, link)->csdev;
+			coresight_disable_link(csdev, parent, child, path);
+			break;
+		default:
+			break;
+		}
+	}
+}
+void coresight_disable_all_source_link(void)
+{
+	struct coresight_path *cspath = NULL;
+	struct coresight_path *cspath_next = NULL;
+
+	mutex_lock(&coresight_mutex);
+
+	list_for_each_entry_safe(cspath, cspath_next, &cs_active_paths, link) {
+		coresight_disable_source_link(cspath->path);
+	}
+
+	activated_sink = coresight_get_enabled_sink(false);
+	if (activated_sink)
+		activated_sink->activated = false;
+
+	mutex_unlock(&coresight_mutex);
+}
+
+void coresight_enable_all_source_link(void)
+{
+	struct coresight_path *cspath = NULL;
+	struct coresight_path *cspath_next = NULL;
+
+	mutex_lock(&coresight_mutex);
+
+	list_for_each_entry_safe(cspath, cspath_next, &cs_active_paths, link) {
+		coresight_enable_source_link(cspath->path);
+	}
+
+	if (activated_sink && activated_sink->enable)
+		activated_sink->activated = true;
+
+	activated_sink = NULL;
+	mutex_unlock(&coresight_mutex);
+}
+
 int coresight_enable(struct coresight_device *csdev)
 {
-	int cpu, ret = 0;
+	int ret = 0;
 	struct coresight_device *sink;
 	struct list_head *path;
 	enum coresight_dev_subtype_source subtype;
@@ -789,25 +1079,9 @@ int coresight_enable(struct coresight_device *csdev)
 	if (ret)
 		goto err_source;
 
-	switch (subtype) {
-	case CORESIGHT_DEV_SUBTYPE_SOURCE_PROC:
-		/*
-		 * When working from sysFS it is important to keep track
-		 * of the paths that were created so that they can be
-		 * undone in 'coresight_disable()'.  Since there can only
-		 * be a single session per tracer (when working from sysFS)
-		 * a per-cpu variable will do just fine.
-		 */
-		cpu = source_ops(csdev)->cpu_id(csdev);
-		per_cpu(tracer_path, cpu) = path;
-		break;
-	case CORESIGHT_DEV_SUBTYPE_SOURCE_SOFTWARE:
-		stm_path = path;
-		break;
-	default:
-		/* We can't be here */
-		break;
-	}
+	ret = coresight_store_path(path);
+	if (ret)
+		goto err_source;
 
 out:
 	mutex_unlock(&coresight_mutex);
@@ -822,39 +1096,42 @@ err_path:
 }
 EXPORT_SYMBOL_GPL(coresight_enable);
 
-void coresight_disable(struct coresight_device *csdev)
+static void __coresight_disable(struct coresight_device *csdev)
 {
-	int cpu, ret;
+	int  ret;
 	struct list_head *path = NULL;
-
-	mutex_lock(&coresight_mutex);
+	struct coresight_path *cspath = NULL;
+	struct coresight_path *cspath_next = NULL;
+	struct coresight_device *src_csdev = NULL;
 
 	ret = coresight_validate_source(csdev, __func__);
 	if (ret)
-		goto out;
+		return;
 
 	if (!csdev->enable || !coresight_disable_source(csdev))
-		goto out;
+		return;
 
-	switch (csdev->subtype.source_subtype) {
-	case CORESIGHT_DEV_SUBTYPE_SOURCE_PROC:
-		cpu = source_ops(csdev)->cpu_id(csdev);
-		path = per_cpu(tracer_path, cpu);
-		per_cpu(tracer_path, cpu) = NULL;
-		break;
-	case CORESIGHT_DEV_SUBTYPE_SOURCE_SOFTWARE:
-		path = stm_path;
-		stm_path = NULL;
-		break;
-	default:
-		/* We can't be here */
-		break;
+	list_for_each_entry_safe(cspath, cspath_next, &cs_active_paths, link) {
+		src_csdev = coresight_get_source(cspath->path);
+		if (!src_csdev)
+			continue;
+		if (src_csdev == csdev) {
+			path = cspath->path;
+			list_del(&cspath->link);
+			kfree(cspath);
+		}
 	}
+	if (path == NULL)
+		return;
 
 	coresight_disable_path(path);
 	coresight_release_path(path);
+}
 
-out:
+void coresight_disable(struct coresight_device *csdev)
+{
+	mutex_lock(&coresight_mutex);
+	__coresight_disable(csdev);
 	mutex_unlock(&coresight_mutex);
 }
 EXPORT_SYMBOL_GPL(coresight_disable);
@@ -874,18 +1151,32 @@ static ssize_t enable_sink_store(struct device *dev,
 	int ret;
 	unsigned long val;
 	struct coresight_device *csdev = to_coresight_device(dev);
+	struct coresight_device *sink = NULL;
 
 	ret = kstrtoul(buf, 10, &val);
 	if (ret)
 		return ret;
+	mutex_lock(&coresight_mutex);
 
-	if (val)
+	if (val) {
+		sink = activated_sink ? activated_sink :
+			coresight_get_enabled_sink(false);
+		if (sink && strcmp(dev_name(&sink->dev),
+				dev_name(&csdev->dev)))
+			goto err;
 		csdev->activated = true;
-	else
+	} else {
+		if (csdev->enable)
+			goto err;
 		csdev->activated = false;
+	}
+	mutex_unlock(&coresight_mutex);
 
 	return size;
 
+err:
+	mutex_unlock(&coresight_mutex);
+	return -EINVAL;
 }
 static DEVICE_ATTR_RW(enable_sink);
 
@@ -914,6 +1205,7 @@ static ssize_t enable_source_store(struct device *dev,
 		if (ret)
 			return ret;
 	} else {
+		atomic_set(csdev->refcnt, 1);
 		coresight_disable(csdev);
 	}
 
@@ -1142,8 +1434,46 @@ int coresight_timeout(void __iomem *addr, u32 offset, int position, int value)
 	return -EAGAIN;
 }
 
+static ssize_t reset_source_sink_store(struct bus_type *bus,
+				       const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long val;
+	struct coresight_path *cspath = NULL;
+	struct coresight_path *cspath_next = NULL;
+	struct coresight_device *csdev;
+
+	ret = kstrtoul(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&coresight_mutex);
+
+	list_for_each_entry_safe(cspath, cspath_next, &cs_active_paths, link) {
+		csdev = coresight_get_source(cspath->path);
+		if (!csdev)
+			continue;
+		atomic_set(csdev->refcnt, 1);
+		__coresight_disable(csdev);
+	}
+
+	/* Reset all activated sinks */
+	coresight_reset_all_sink();
+
+	mutex_unlock(&coresight_mutex);
+	return size;
+}
+static BUS_ATTR_WO(reset_source_sink);
+
+static struct attribute *coresight_reset_source_sink_attrs[] = {
+	&bus_attr_reset_source_sink.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(coresight_reset_source_sink);
+
 struct bus_type coresight_bustype = {
-	.name	= "coresight",
+	.name		= "coresight",
+	.bus_groups	= coresight_reset_source_sink_groups,
 };
 
 static int __init coresight_init(void)
@@ -1175,6 +1505,14 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	int nr_refcnts = 1;
 	atomic_t *refcnts = NULL;
 	struct coresight_device *csdev;
+	struct clk *pclk;
+
+	pclk = clk_get(desc->dev, "apb_pclk");
+	if (!IS_ERR(pclk)) {
+		ret = clk_set_rate(pclk, QDSS_CLK_LEVEL_DYNAMIC);
+		if (ret)
+			dev_err(desc->dev, "clk set rate failed\n");
+	}
 
 	csdev = kzalloc(sizeof(*csdev), GFP_KERNEL);
 	if (!csdev) {
@@ -1206,6 +1544,9 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	csdev->subtype = desc->subtype;
 	csdev->ops = desc->ops;
 	csdev->orphan = false;
+#ifdef CONFIG_CORESIGHT_QGKI
+	csdev->reg_clk = desc->pdata->reg_clk;
+#endif
 
 	csdev->dev.type = &coresight_dev_type[desc->type];
 	csdev->dev.groups = desc->groups;
@@ -1304,12 +1645,16 @@ bool coresight_loses_context_with_cpu(struct device *dev)
  * duplicate indices for the same device (e.g, if we defer probing of
  * a device due to dependencies), in case the index is requested again.
  */
-char *coresight_alloc_device_name(struct coresight_dev_list *dict,
+const char *coresight_alloc_device_name(struct coresight_dev_list *dict,
 				  struct device *dev)
 {
 	int idx;
-	char *name = NULL;
+	const char *name = NULL;
 	struct fwnode_handle **list;
+	struct device_node *node = dev->of_node;
+
+	if (!of_property_read_string(node, "coresight-name", &name))
+		return name;
 
 	mutex_lock(&coresight_mutex);
 

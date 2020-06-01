@@ -193,6 +193,14 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!sysdev)
 		sysdev = &pdev->dev;
 
+	/*
+	 * If sysdev dev is having parent i.e. "linux,sysdev_is_parent" is true,
+	 * then use sysdev->parent device.
+	 */
+	if (sysdev->parent && sysdev->parent->of_node &&
+		device_property_read_bool(sysdev, "linux,sysdev_is_parent"))
+		sysdev = sysdev->parent;
+
 	/* Try to set 64-bit DMA first */
 	if (WARN_ON(!sysdev->dma_mask))
 		/* Platform did not initialize dma_mask */
@@ -208,16 +216,10 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_noresume(&pdev->dev);
-
 	hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			       dev_name(&pdev->dev), NULL);
-	if (!hcd) {
-		ret = -ENOMEM;
-		goto disable_runtime;
-	}
+	if (!hcd)
+		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hcd->regs = devm_ioremap_resource(&pdev->dev, res);
@@ -254,6 +256,15 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(xhci->clk);
 	if (ret)
 		goto disable_reg_clk;
+
+	if (pdev->dev.parent)
+		pm_runtime_resume(pdev->dev.parent);
+
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	priv_match = of_device_get_match_data(&pdev->dev);
 	if (priv_match) {
@@ -319,13 +330,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		goto dealloc_usb2_hcd;
 
 	device_enable_async_suspend(&pdev->dev);
-	pm_runtime_put_noidle(&pdev->dev);
 
-	/*
-	 * Prevent runtime pm from being on as default, users should enable
-	 * runtime pm using power/control in sysfs.
-	 */
-	pm_runtime_forbid(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return 0;
 
@@ -340,6 +347,8 @@ put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
 
 disable_clk:
+	pm_runtime_put_noidle(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	clk_disable_unprepare(xhci->clk);
 
 disable_reg_clk:
@@ -347,10 +356,6 @@ disable_reg_clk:
 
 put_hcd:
 	usb_put_hcd(hcd);
-
-disable_runtime:
-	pm_runtime_put_noidle(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
 
 	return ret;
 }
@@ -382,39 +387,32 @@ static int xhci_plat_remove(struct platform_device *dev)
 	return 0;
 }
 
-static int __maybe_unused xhci_plat_suspend(struct device *dev)
+static int __maybe_unused xhci_plat_runtime_idle(struct device *dev)
 {
-	struct usb_hcd	*hcd = dev_get_drvdata(dev);
-	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
-
 	/*
-	 * xhci_suspend() needs `do_wakeup` to know whether host is allowed
-	 * to do wakeup during suspend. Since xhci_plat_suspend is currently
-	 * only designed for system suspend, device_may_wakeup() is enough
-	 * to dertermine whether host is allowed to do wakeup. Need to
-	 * reconsider this when xhci_plat_suspend enlarges its scope, e.g.,
-	 * also applies to runtime suspend.
+	 * When pm_runtime_put_autosuspend() is called on this device,
+	 * after this idle callback returns the PM core will schedule the
+	 * autosuspend if there is any remaining time until expiry. However,
+	 * when reaching this point because the child_count becomes 0, the
+	 * core does not honor autosuspend in that case and results in
+	 * idle/suspend happening immediately. In order to have a delay
+	 * before suspend we have to call pm_runtime_autosuspend() manually.
 	 */
-	return xhci_suspend(xhci, device_may_wakeup(dev));
-}
 
-static int __maybe_unused xhci_plat_resume(struct device *dev)
-{
-	struct usb_hcd	*hcd = dev_get_drvdata(dev);
-	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
-	int ret;
-
-	ret = xhci_priv_resume_quirk(hcd);
-	if (ret)
-		return ret;
-
-	return xhci_resume(xhci, 0);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_autosuspend(dev);
+	return -EBUSY;
 }
 
 static int __maybe_unused xhci_plat_runtime_suspend(struct device *dev)
 {
 	struct usb_hcd  *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	if (!xhci)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat runtime suspend\n");
 
 	return xhci_suspend(xhci, true);
 }
@@ -423,24 +421,39 @@ static int __maybe_unused xhci_plat_runtime_resume(struct device *dev)
 {
 	struct usb_hcd  *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	int ret;
 
-	return xhci_resume(xhci, 0);
+	if (!xhci)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat runtime resume\n");
+
+	ret = xhci_priv_resume_quirk(hcd);
+	if (ret)
+		return ret;
+
+	ret = xhci_resume(xhci, false);
+	pm_runtime_mark_last_busy(dev);
+
+	return ret;
 }
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(xhci_plat_suspend, xhci_plat_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, NULL)
 
 	SET_RUNTIME_PM_OPS(xhci_plat_runtime_suspend,
 			   xhci_plat_runtime_resume,
-			   NULL)
+			   xhci_plat_runtime_idle)
 };
 
+#ifdef CONFIG_ACPI
 static const struct acpi_device_id usb_xhci_acpi_match[] = {
 	/* XHCI-compliant USB Controller */
 	{ "PNP0D10", },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, usb_xhci_acpi_match);
+#endif
 
 static struct platform_driver usb_xhci_driver = {
 	.probe	= xhci_plat_probe,

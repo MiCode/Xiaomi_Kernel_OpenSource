@@ -4,6 +4,7 @@
  *
  *  Copyright (C) 2012 Intel Corp
  *  Copyright (C) 2012 Durgadoss R <durgadoss.r@intel.com>
+ *  Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -34,6 +35,83 @@
  *       if the cooling state already equals lower limit,
  *       deactivate the thermal instance
  */
+#ifdef CONFIG_QTI_THERMAL
+static unsigned long get_target_state(struct thermal_instance *instance,
+				enum thermal_trend trend, bool throttle)
+{
+	struct thermal_cooling_device *cdev = instance->cdev;
+	unsigned long cur_state;
+	unsigned long next_target;
+
+	/*
+	 * If the throttle condition is not reached and there is no
+	 * previous mitigaiton request, then there is nothing to compute.
+	 */
+	if (!throttle && instance->target == THERMAL_NO_TARGET)
+		return THERMAL_NO_TARGET;
+	/*
+	 * We keep this instance the way it is by default.
+	 * Otherwise, we use the current state of the
+	 * cdev in use to determine the next_target.
+	 */
+	cdev->ops->get_cur_state(cdev, &cur_state);
+	next_target = instance->target;
+	dev_dbg(&cdev->device, "cur_state=%ld\n", cur_state);
+
+	if (!instance->initialized) {
+		if (throttle) {
+			next_target = (cur_state + 1) >= instance->upper ?
+					instance->upper :
+					((cur_state + 1) < instance->lower ?
+					instance->lower : (cur_state + 1));
+		} else {
+			next_target = THERMAL_NO_TARGET;
+		}
+
+		return next_target;
+	}
+
+	switch (trend) {
+	case THERMAL_TREND_RAISING:
+		if (throttle) {
+			next_target = cur_state < instance->upper ?
+				    (cur_state + 1) : instance->upper;
+			if (next_target < instance->lower)
+				next_target = instance->lower;
+		}
+		break;
+	case THERMAL_TREND_RAISE_FULL:
+		if (throttle)
+			next_target = instance->upper;
+		break;
+	case THERMAL_TREND_DROPPING:
+	case THERMAL_TREND_STABLE:
+		if (cur_state <= instance->lower ||
+			instance->target <= instance->lower) {
+			if (!throttle)
+				next_target = THERMAL_NO_TARGET;
+		} else {
+			if (!throttle) {
+				next_target = cur_state - 1;
+				if (next_target > instance->upper)
+					next_target = instance->upper;
+			}
+		}
+		break;
+	case THERMAL_TREND_DROP_FULL:
+		if (cur_state == instance->lower) {
+			if (!throttle)
+				next_target = THERMAL_NO_TARGET;
+		} else
+			next_target = instance->lower;
+		break;
+	default:
+		break;
+	}
+
+	return next_target;
+}
+#else
 static unsigned long get_target_state(struct thermal_instance *instance,
 				enum thermal_trend trend, bool throttle)
 {
@@ -101,6 +179,7 @@ static unsigned long get_target_state(struct thermal_instance *instance,
 
 	return next_target;
 }
+#endif
 
 static void update_passive_instance(struct thermal_zone_device *tz,
 				enum thermal_trip_type type, int value)
@@ -113,6 +192,94 @@ static void update_passive_instance(struct thermal_zone_device *tz,
 		tz->passive += value;
 }
 
+#ifdef CONFIG_QTI_THERMAL
+static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
+{
+	int trip_temp, hyst_temp;
+	enum thermal_trip_type trip_type;
+	enum thermal_trend trend;
+	struct thermal_instance *instance;
+	bool throttle = false;
+	int old_target;
+
+	if (trip == THERMAL_TRIPS_NONE) {
+		hyst_temp = trip_temp = tz->forced_passive;
+		trip_type = THERMAL_TRIPS_NONE;
+	} else {
+		tz->ops->get_trip_temp(tz, trip, &trip_temp);
+		if (tz->ops->get_trip_hyst) {
+			tz->ops->get_trip_hyst(tz, trip, &hyst_temp);
+			hyst_temp = trip_temp - hyst_temp;
+		} else {
+			hyst_temp = trip_temp;
+		}
+		tz->ops->get_trip_type(tz, trip, &trip_type);
+	}
+
+	trend = get_tz_trend(tz, trip);
+
+	dev_dbg(&tz->device, "Trip%d[type=%d,temp=%d]:trend=%d,throttle=%d\n",
+				trip, trip_type, trip_temp, trend, throttle);
+
+	mutex_lock(&tz->lock);
+
+	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+		if (instance->trip != trip)
+			continue;
+
+		old_target = instance->target;
+		/*
+		 * Step wise has to lower the mitigation only if the
+		 * temperature goes below the hysteresis temperature.
+		 * Atleast, it has to hold on to mitigation device lower
+		 * limit if the temperature is above the hysteresis
+		 * temperature.
+		 */
+		if (tz->temperature >= trip_temp ||
+			(tz->temperature > hyst_temp &&
+			 old_target != THERMAL_NO_TARGET))
+			throttle = true;
+		else
+			throttle = false;
+
+		instance->target = get_target_state(instance, trend, throttle);
+		dev_dbg(&instance->cdev->device, "old_target=%d, target=%d\n",
+					old_target, (int)instance->target);
+
+		if (instance->initialized && old_target == instance->target)
+			continue;
+
+		if (!instance->initialized) {
+			if (instance->target != THERMAL_NO_TARGET) {
+				trace_thermal_zone_trip(tz, trip, trip_type,
+							true);
+				update_passive_instance(tz, trip_type, 1);
+			}
+		} else {
+			/* Activate a passive thermal instance */
+			if (old_target == THERMAL_NO_TARGET &&
+				instance->target != THERMAL_NO_TARGET) {
+				trace_thermal_zone_trip(tz, trip, trip_type,
+							true);
+				update_passive_instance(tz, trip_type, 1);
+			/* Deactivate a passive thermal instance */
+			} else if (old_target != THERMAL_NO_TARGET &&
+				instance->target == THERMAL_NO_TARGET) {
+				trace_thermal_zone_trip(tz, trip, trip_type,
+							false);
+				update_passive_instance(tz, trip_type, -1);
+			}
+		}
+
+		instance->initialized = true;
+		mutex_lock(&instance->cdev->lock);
+		instance->cdev->updated = false; /* cdev needs update */
+		mutex_unlock(&instance->cdev->lock);
+	}
+
+	mutex_unlock(&tz->lock);
+}
+#else
 static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 {
 	int trip_temp;
@@ -171,6 +338,7 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 
 	mutex_unlock(&tz->lock);
 }
+#endif
 
 /**
  * step_wise_throttle - throttles devices associated with the given zone

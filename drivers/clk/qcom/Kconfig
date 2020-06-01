@@ -17,6 +17,7 @@ menuconfig COMMON_CLK_QCOM
 	select RATIONAL
 	select REGMAP_MMIO
 	select RESET_CONTROLLER
+	select REGULATOR
 
 if COMMON_CLK_QCOM
 
@@ -396,5 +397,69 @@ config KRAITCC
 	help
 	  Support for the Krait CPU clocks on Qualcomm devices.
 	  Say Y if you want to support CPU frequency scaling.
+
+config MSM_CLK_AOP_QMP
+	tristate "AOP QMP Clock Driver"
+	depends on COMMON_CLK_QCOM && MSM_QMP
+	help
+	  The Always On Processor (AOP) manages a few of the shared clocks on
+	  some Qualcomm Technologies, Inc. SoCs. It accepts requests from other
+	  hardware subsystems via QMP mailboxes.
+	  Say Y to support the clocks managed by AOP on platforms such as
+	  sdm845.
+
+config MSM_GCC_LAHAINA
+	tristate "LAHAINA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  LAHAINA devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config MSM_VIDEOCC_LAHAINA
+	tristate "LAHAINA Video Clock Controller"
+	select MSM_GCC_LAHAINA
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  LAHAINA devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config MSM_DISPCC_LAHAINA
+	tristate "LAHAINA Display Clock Controller"
+	select MSM_GCC_LAHAINA
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  Lahaina devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config MSM_GPUCC_LAHAINA
+	tristate "Lahaina Graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  LAHAINA devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config MSM_CAMCC_LAHAINA
+	tristate "Lahaina Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  LAHAINA devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config MSM_DEBUGCC_LAHAINA
+	tristate "LAHAINA Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  Lahaina devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
 
 endif

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+
+header-y += radio-iris.h
+header-y += radio-iris-commands.h
+header-y += synx.h

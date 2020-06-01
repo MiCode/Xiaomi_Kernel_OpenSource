@@ -60,3 +60,30 @@ source "drivers/nfc/nxp-nci/Kconfig"
 source "drivers/nfc/s3fwrn5/Kconfig"
 source "drivers/nfc/st95hf/Kconfig"
 endmenu
+
+config NFC_QTI_I2C
+	tristate "QTI NCI based NFC I2C Slave Driver for SNxxx"
+	depends on I2C
+	help
+	  This enables the NFC driver for SNxxx based devices.
+	  This is for I2C connected version. NCI protocol logic
+	  resides in the usermode and it has no other NFC dependencies.
+
+	  If unsure, say N.
+
+config NFC_QTI_I3C_GPIO
+	tristate "QTI Driver to configure NFC GPIOs for SNxxx I3C modules"
+	help
+	  This enables the QTI driver for SNxxx I3C based devices.
+	  NFC Enable GPIO(NFC_EN) should toggle before I3C enumeration so that NFC
+	  controller gets recognized.
+
+	  If unsure, say N.
+
+config NFC_QTI_I3C
+	tristate "QTI NCI based NFC I3C Slave Driver for SNxxx"
+	depends on I3C && NFC_QTI_I3C_GPIO
+	help
+	  This enables the NFC driver for SNxxx based devices.
+	  This is for I3C connected version. NCI protocol logic
+	  resides in the usermode and it has no other NFC dependencies.

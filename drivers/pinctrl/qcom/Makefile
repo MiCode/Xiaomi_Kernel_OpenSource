@@ -25,3 +25,5 @@ obj-$(CONFIG_PINCTRL_SC7180)	+= pinctrl-sc7180.o
 obj-$(CONFIG_PINCTRL_SDM660)   += pinctrl-sdm660.o
 obj-$(CONFIG_PINCTRL_SDM845) += pinctrl-sdm845.o
 obj-$(CONFIG_PINCTRL_SM8150) += pinctrl-sm8150.o
+obj-$(CONFIG_PINCTRL_LAHAINA) += pinctrl-lahaina.o
+obj-$(CONFIG_PINCTRL_SHIMA) += pinctrl-shima.o

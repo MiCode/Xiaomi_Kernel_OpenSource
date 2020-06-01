@@ -278,14 +278,31 @@ config ZONE_DMA
 	default y
 
 config ZONE_DMA32
-	bool "Support DMA32 zone" if EXPERT
+	bool "Enable or Disable Zone DMA"
 	default y
+	help
+	  This option enables/disables the DMA zone.
 
 config ARCH_ENABLE_MEMORY_HOTPLUG
+    depends on !NUMA
+	def_bool y
+
+config ARCH_ENABLE_MEMORY_HOTREMOVE
 	def_bool y
 
 config SMP
 	def_bool y
+
+config HOTPLUG_SIZE_BITS
+	int "Memory hotplug block size(29 => 512MB 30 => 1GB)"
+	depends on SPARSEMEM
+	depends on MEMORY_HOTPLUG
+	default 30
+	help
+	 Selects granularity of hotplug memory. Block
+	 size for memory hotplug is represent as a power
+	 of 2.
+	 If unsure, stick with default value.
 
 config KERNEL_MODE_NEON
 	def_bool y
@@ -1022,8 +1039,33 @@ config ARCH_WANT_HUGE_PMD_SHARE
 config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
+if ARM64 && IOMMU_DMA
+
+config ARM64_DMA_IOMMU_ALIGNMENT
+	int "Maximum PAGE_SIZE order of alignment for DMA IOMMU buffers"
+	range 4 9
+	default 9
+	help
+	  DMA mapping framework by default aligns all buffers to the smallest
+	  PAGE_SIZE order which is greater than or equal to the requested buffer
+	  size. This works well for buffers up to a few hundreds kilobytes, but
+	  for larger buffers it just a waste of address space. Drivers which has
+	  relatively small addressing window (like 64Mib) might run out of
+	  virtual space with just a few allocations.
+
+	  With this parameter you can specify the maximum PAGE_SIZE order for
+	  DMA IOMMU buffers. Larger buffers will be aligned only to this
+	  specified order. The order is expressed as a power of two multiplied
+	  by the PAGE_SIZE.
+
+endif
+
 config ARCH_ENABLE_SPLIT_PMD_PTLOCK
 	def_bool y if PGTABLE_LEVELS > 2
+
+config ARCH_MEMORY_PROBE
+	def_bool y
+	depends on MEMORY_HOTPLUG
 
 # Supported by clang >= 7.0
 config CC_HAVE_SHADOW_CALL_STACK
@@ -1766,6 +1808,40 @@ config DMI
 	  continue to boot on existing non-UEFI platforms.
 
 endmenu
+
+choice
+	prompt "Kernel compression method"
+	default BUILD_ARM64_KERNEL_COMPRESSION_GZIP
+	help
+	  Allows choice between gzip compressed or uncompressed
+	  kernel image. Decision is based on whether the bootloader
+	  can handle (un)compressed kernel images. Most BLs are capable
+	  of decomprssing kernel images and this is the default choice.
+
+config BUILD_ARM64_KERNEL_COMPRESSION_GZIP
+	bool "Build compressed kernel image"
+	help
+	  Build a kernel image using gzip
+	  compression. gzip is based on the DEFLATE
+	  algorithm. Check if your bootloader is
+	  capable of decompressing images.
+
+config BUILD_ARM64_UNCOMPRESSED_KERNEL
+	bool "Build uncompressed kernel image"
+	help
+	  Build a kernel image without
+	  compression. An uncompressed kernel
+	  image may improve performance in
+	  certain situations.
+endchoice
+
+config BUILD_ARM64_DT_OVERLAY
+	bool "enable DT overlay compilation support"
+	depends on OF
+	help
+	  This option enables support for DT overlay compilation.
+	  Enabling this option sets required flags to add DT
+	  overlay in the compilation.
 
 config SYSVIPC_COMPAT
 	def_bool y

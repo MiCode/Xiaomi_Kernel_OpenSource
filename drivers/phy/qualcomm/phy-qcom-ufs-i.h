@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2019-2020, Linux Foundation. All rights reserved.
  */
 
 #ifndef UFS_QCOM_PHY_I_H_
@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
+#include <linux/phy/phy-qcom-ufs.h>
 
 #define UFS_QCOM_PHY_CAL_ENTRY(reg, val)	\
 	{				\
@@ -65,11 +66,16 @@ struct ufs_qcom_phy {
 	struct clk *ref_clk_src;
 	struct clk *ref_clk_parent;
 	struct clk *ref_clk;
+	struct clk *ref_aux_clk;
 	bool is_ref_clk_enabled;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_qcom_phy_vreg vdda_pll;
 	struct ufs_qcom_phy_vreg vdda_phy;
 	struct ufs_qcom_phy_vreg vddp_ref_clk;
+
+	/* Number of lanes available (1 or 2) for Rx/Tx */
+	u32 lanes_per_direction;
+
 	unsigned int quirks;
 
 	/*
@@ -91,6 +97,7 @@ struct ufs_qcom_phy {
 	struct ufs_qcom_phy_specific_ops *phy_spec_ops;
 
 	enum phy_mode mode;
+	int submode;
 	struct reset_control *ufs_reset;
 };
 
@@ -104,13 +111,19 @@ struct ufs_qcom_phy {
  * @set_tx_lane_enable: pointer to a function that enable tx lanes
  * @power_control: pointer to a function that controls analog rail of phy
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
+ * @ctrl_rx_linecfg: pointer to a function that controls the enable/disable of
+ * Rx line config
+ * @dbg_register_dump: pointer to a function that dumps phy registers for debug.
  */
 struct ufs_qcom_phy_specific_ops {
-	int (*calibrate)(struct ufs_qcom_phy *ufs_qcom_phy, bool is_rate_B);
+	int (*calibrate)(struct ufs_qcom_phy *ufs_qcom_phy, bool is_rate_B,
+			 bool is_g4);
 	void (*start_serdes)(struct ufs_qcom_phy *phy);
 	int (*is_physical_coding_sublayer_ready)(struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
+	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
+	void (*dbg_register_dump)(struct ufs_qcom_phy *phy);
 };
 
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
@@ -124,8 +137,14 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 			struct ufs_qcom_phy *common_cfg,
 			const struct phy_ops *ufs_qcom_phy_gen_ops,
 			struct ufs_qcom_phy_specific_ops *phy_spec_ops);
+int ufs_qcom_phy_get_reset(struct ufs_qcom_phy *phy_common);
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			struct ufs_qcom_phy_calibration *tbl_A, int tbl_size_A,
 			struct ufs_qcom_phy_calibration *tbl_B, int tbl_size_B,
 			bool is_rate_B);
+void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
+			struct ufs_qcom_phy_calibration *tbl,
+			int tbl_size);
+int ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy,
+			    int offset, int len, char *prefix);
 #endif

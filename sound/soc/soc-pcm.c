@@ -20,6 +20,7 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/of_device.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -780,6 +781,11 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 
 	mutex_lock_nested(&rtd->card->pcm_mutex, rtd->card->pcm_subclass);
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_START);
+
 	ret = soc_rtd_prepare(rtd, substream);
 	if (ret < 0) {
 		dev_err(rtd->card->dev,
@@ -820,8 +826,15 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 		cancel_delayed_work(&rtd->delayed_work);
 	}
 
-	snd_soc_dapm_stream_event(rtd, substream->stream,
-			SND_SOC_DAPM_STREAM_START);
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		for (i = 0; i < rtd->num_codecs; i++) {
+			codec_dai = rtd->codec_dais[i];
+			if (codec_dai->capture_active == 1)
+				snd_soc_dapm_stream_event(rtd,
+				SNDRV_PCM_STREAM_CAPTURE,
+				SND_SOC_DAPM_STREAM_START);
+		}
+	}
 
 	for_each_rtd_codec_dai(rtd, i, codec_dai)
 		snd_soc_dai_digital_mute(codec_dai, 0,
@@ -829,7 +842,15 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 	snd_soc_dai_digital_mute(cpu_dai, 0, substream->stream);
 
 out:
+	if (ret < 0 && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_err("%s: Issue stop stream for codec_dai due to op failure %d = ret\n",
+		__func__, ret);
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_STOP);
+	}
 	mutex_unlock(&rtd->card->pcm_mutex);
+
 	return ret;
 }
 
@@ -985,8 +1006,7 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 					DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 		substream->dma_buffer.private_data = NULL;
 
-		arch_setup_dma_ops(substream->dma_buffer.dev.dev,
-				   0, 0, NULL, 0);
+		of_dma_configure(substream->dma_buffer.dev.dev, NULL, true);
 		ret = snd_pcm_lib_malloc_pages(substream, PAGE_SIZE);
 		if (ret < 0)
 			goto component_err;
@@ -1191,6 +1211,9 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai;
+#ifdef CONFIG_AUDIO_QGKI
+	struct snd_soc_component *component;
+#endif
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	snd_pcm_uframes_t offset = 0;
 	snd_pcm_sframes_t delay = 0;
@@ -1201,7 +1224,16 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	runtime->delay = 0;
 
 	offset = snd_soc_pcm_component_pointer(substream);
+#ifdef CONFIG_AUDIO_QGKI
+	for_each_rtd_components(rtd, i, component) {
+		if (!component->driver->ops ||
+			!component->driver->ops->pointer)
+			continue;
 
+		if (component->driver->delay_blk)
+			return offset;
+	}
+#endif
 	/* base delay if assigned in pointer callback */
 	delay = runtime->delay;
 
@@ -1217,6 +1249,26 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 
 	return offset;
 }
+
+#ifdef CONFIG_AUDIO_QGKI
+static int soc_pcm_delay_blk(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	snd_pcm_sframes_t delay = 0;
+	int i;
+
+	for_each_rtd_components(rtd, i, component) {
+		if (component->driver->delay_blk)
+			delay = component->driver->delay_blk(substream,
+						rtd->codec_dais[0]);
+	}
+	runtime->delay = delay;
+
+	return 0;
+}
+#endif
 
 /* connect a FE and BE */
 static int dpcm_be_connect(struct snd_soc_pcm_runtime *fe,
@@ -1345,7 +1397,12 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 				be->cpu_dai->playback_widget ?
 				be->cpu_dai->playback_widget->name : "(not set)");
 
-			if (be->cpu_dai->playback_widget == widget)
+			if ((be->cpu_dai->playback_widget &&
+				be->cpu_dai->playback_widget == widget &&
+				(be->dai_link->stream_name &&
+				!strcmp(be->dai_link->stream_name,
+				   be->cpu_dai->playback_widget->sname))) ||
+				be->codec_dai->playback_widget == widget)
 				return be;
 
 			for_each_rtd_codec_dai(be, i, dai) {
@@ -1364,7 +1421,12 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 				be->cpu_dai->capture_widget ?
 				be->cpu_dai->capture_widget->name : "(not set)");
 
-			if (be->cpu_dai->capture_widget == widget)
+			if ((be->cpu_dai->capture_widget &&
+				be->cpu_dai->capture_widget == widget &&
+				(be->dai_link->stream_name &&
+				!strcmp(be->dai_link->stream_name,
+				   be->cpu_dai->capture_widget->sname))) ||
+				be->codec_dai->capture_widget == widget)
 				return be;
 
 			for_each_rtd_codec_dai(be, i, dai) {
@@ -2145,6 +2207,83 @@ static int dpcm_fe_dai_hw_free(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+#ifdef CONFIG_AUDIO_QGKI
+int dpcm_fe_dai_hw_params_be(struct snd_soc_pcm_runtime *fe,
+	struct snd_soc_pcm_runtime *be,
+	struct snd_pcm_hw_params *params, int stream)
+{
+	int ret;
+	struct snd_soc_dpcm *dpcm;
+	struct snd_pcm_substream *be_substream =
+		snd_soc_dpcm_get_substream(be, stream);
+
+	/* is this op for this BE ? */
+	if (!snd_soc_dpcm_be_can_update(fe, be, stream))
+		return 0;
+
+	/* only allow hw_params() if no connected FEs are running */
+	if (!snd_soc_dpcm_can_be_params(fe, be, stream))
+		return 0;
+
+	if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_OPEN) &&
+			(be->dpcm[stream].state !=
+				SND_SOC_DPCM_STATE_HW_PARAMS) &&
+			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_FREE))
+		return 0;
+
+	dev_dbg(be->dev, "ASoC: hw_params BE %s\n",
+			fe->dai_link->name);
+
+	/* perform any hw_params fixups */
+	if (be->dai_link->be_hw_params_fixup) {
+		ret = be->dai_link->be_hw_params_fixup(be,
+				params);
+		if (ret < 0) {
+			dev_err(be->dev,
+					"ASoC: hw_params BE fixup failed %d\n",
+					ret);
+			goto unwind;
+		}
+	}
+
+	ret = soc_pcm_hw_params(be_substream, params);
+	if (ret < 0) {
+		dev_err(be->dev, "ASoC: hw_params BE failed %d\n", ret);
+		goto unwind;
+	}
+
+	be->dpcm[stream].state = SND_SOC_DPCM_STATE_HW_PARAMS;
+	return 0;
+
+unwind:
+	/* disable any enabled and non active backends */
+	list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be) {
+		struct snd_soc_pcm_runtime *be = dpcm->be;
+		struct snd_pcm_substream *be_substream =
+			snd_soc_dpcm_get_substream(be, stream);
+
+		if (!snd_soc_dpcm_be_can_update(fe, be, stream))
+			continue;
+
+		/* only allow hw_free() if no connected FEs are running */
+		if (!snd_soc_dpcm_can_be_free_stop(fe, be, stream))
+			continue;
+
+		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_OPEN) &&
+			(be->dpcm[stream].state
+				!= SND_SOC_DPCM_STATE_HW_PARAMS) &&
+			(be->dpcm[stream].state
+				!= SND_SOC_DPCM_STATE_HW_FREE) &&
+			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP))
+			continue;
+
+		soc_pcm_hw_free(be_substream);
+	}
+
+	return ret;
+}
+#endif
+
 int dpcm_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int stream)
 {
 	struct snd_soc_dpcm *dpcm;
@@ -2490,6 +2629,37 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_AUDIO_QGKI
+int dpcm_fe_dai_prepare_be(struct snd_soc_pcm_runtime *fe,
+		struct snd_soc_pcm_runtime *be, int stream)
+{
+	struct snd_pcm_substream *be_substream =
+		snd_soc_dpcm_get_substream(be, stream);
+	int ret = 0;
+
+	/* is this op for this BE ? */
+	if (!snd_soc_dpcm_be_can_update(fe, be, stream))
+		return 0;
+
+	if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
+			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP))
+		return 0;
+
+	dev_dbg(be->dev, "ASoC: prepare BE %s\n",
+			fe->dai_link->name);
+
+	ret = soc_pcm_prepare(be_substream);
+	if (ret < 0) {
+		dev_err(be->dev, "ASoC: backend prepare failed %d\n",
+				ret);
+		return ret;
+	}
+
+	be->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
+	return ret;
+}
+#endif
+
 static int dpcm_fe_dai_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
@@ -2543,12 +2713,95 @@ int dpcm_be_dai_prepare(struct snd_soc_pcm_runtime *fe, int stream)
 	return ret;
 }
 
+#ifdef CONFIG_AUDIO_QGKI
+static void dpcm_be_async_prepare(void *data, async_cookie_t cookie)
+{
+	struct snd_soc_dpcm *dpcm = data;
+	struct snd_soc_pcm_runtime *be = dpcm->be;
+	int stream = dpcm->stream;
+	struct snd_pcm_substream *be_substream =
+		snd_soc_dpcm_get_substream(be, stream);
+	int ret;
+
+	dev_dbg(be->dev, "%s ASoC: prepare BE %s\n", __func__,
+					dpcm->fe->dai_link->name);
+	ret = soc_pcm_prepare(be_substream);
+	if (ret < 0) {
+		be->err_ops = ret;
+		dev_err(be->dev, "ASoC: backend prepare failed %d\n",
+				ret);
+		return;
+	}
+	be->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
+}
+
+void dpcm_be_dai_prepare_async(struct snd_soc_pcm_runtime *fe, int stream,
+					    struct async_domain *domain)
+{
+	struct snd_soc_dpcm *dpcm;
+	struct snd_soc_dpcm *dpcm_async[DPCM_MAX_BE_USERS];
+	int i = 0, j;
+
+	list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be) {
+		struct snd_soc_pcm_runtime *be = dpcm->be;
+
+		be->err_ops = 0;
+		/* is this op for this BE ? */
+		if (!snd_soc_dpcm_be_can_update(fe, be, stream))
+			continue;
+
+		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
+			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP))
+			continue;
+
+		/* does this BE support async op ?*/
+		if ((fe->dai_link->async_ops & ASYNC_DPCM_SND_SOC_PREPARE) &&
+		    (be->dai_link->async_ops & ASYNC_DPCM_SND_SOC_PREPARE)) {
+			dpcm->stream = stream;
+			async_schedule_domain(dpcm_be_async_prepare,
+							    dpcm, domain);
+		} else {
+			dpcm_async[i++] = dpcm;
+		}
+	}
+
+	for (j = 0; j < i; j++) {
+		struct snd_soc_dpcm *dpcm = dpcm_async[j];
+		struct snd_soc_pcm_runtime *be = dpcm->be;
+		struct snd_pcm_substream *be_substream =
+			snd_soc_dpcm_get_substream(be, stream);
+		int ret;
+
+		dev_dbg(be->dev, "ASoC: prepare BE %s\n",
+				dpcm->fe->dai_link->name);
+
+		ret = soc_pcm_prepare(be_substream);
+		if (ret < 0) {
+			dev_err(be->dev, "ASoC: backend prepare failed %d\n",
+					ret);
+			be->err_ops = ret;
+			return;
+		}
+
+		be->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
+	}
+}
+#endif
+
 static int dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *fe = substream->private_data;
 	int stream = substream->stream, ret = 0;
+#ifdef CONFIG_AUDIO_QGKI
+	struct snd_soc_dpcm *dpcm;
+
+	ASYNC_DOMAIN_EXCLUSIVE(async_domain);
+#endif
 
 	mutex_lock_nested(&fe->card->mutex, SND_SOC_CARD_CLASS_RUNTIME);
+#ifdef CONFIG_AUDIO_QGKI
+	fe->err_ops = 0;
+#endif
 
 	dev_dbg(fe->dev, "ASoC: prepare FE %s\n", fe->dai_link->name);
 
@@ -2561,7 +2814,50 @@ static int dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 		ret = -EINVAL;
 		goto out;
 	}
+#ifdef CONFIG_AUDIO_QGKI
+	if (!(fe->dai_link->async_ops & ASYNC_DPCM_SND_SOC_PREPARE)) {
+		ret = dpcm_be_dai_prepare(fe, substream->stream);
+		if (ret < 0)
+			goto out;
+		/* call prepare on the frontend */
+		ret = soc_pcm_prepare(substream);
+		if (ret < 0) {
+			dev_err(fe->dev, "ASoC: prepare FE %s failed\n",
+					fe->dai_link->name);
+			goto out;
+		}
+	} else {
+		dpcm_be_dai_prepare_async(fe, substream->stream,
+							&async_domain);
 
+		/* call prepare on the frontend */
+		ret = soc_pcm_prepare(substream);
+		if (ret < 0) {
+			fe->err_ops = ret;
+			dev_err(fe->dev, "ASoC: prepare FE %s failed\n",
+					fe->dai_link->name);
+		}
+
+		async_synchronize_full_domain(&async_domain);
+
+		/* check if any BE failed */
+		list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients,
+							    list_be) {
+			struct snd_soc_pcm_runtime *be = dpcm->be;
+
+			if (be->err_ops < 0) {
+				ret = be->err_ops;
+				goto out;
+			}
+		}
+
+		/* check if FE failed */
+		if (fe->err_ops < 0) {
+			ret = fe->err_ops;
+			goto out;
+		}
+	}
+#else
 	ret = dpcm_be_dai_prepare(fe, substream->stream);
 	if (ret < 0)
 		goto out;
@@ -2573,7 +2869,7 @@ static int dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 			fe->dai_link->name);
 		goto out;
 	}
-
+#endif
 	/* run the stream event for each BE */
 	dpcm_dapm_stream_event(fe, stream, SND_SOC_DAPM_STREAM_START);
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
@@ -2584,6 +2880,28 @@ out:
 
 	return ret;
 }
+
+#ifdef CONFIG_AUDIO_QGKI
+static int soc_pcm_compat_ioctl(struct snd_pcm_substream *substream,
+		     unsigned int cmd, void *arg)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component;
+	int i;
+
+	for_each_rtd_components(rtd, i, component) {
+		if (!component->driver->ops ||
+			!component->driver->ops->compat_ioctl)
+			continue;
+
+		/* FIXME: use 1st ioctl */
+		return component->driver->ops->compat_ioctl(
+				substream, cmd, arg);
+	}
+
+	return snd_pcm_lib_ioctl(substream, cmd, arg);
+}
+#endif
 
 static int dpcm_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 {
@@ -3027,6 +3345,20 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 			pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream->private_data = rtd;
 		if (capture)
 			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream->private_data = rtd;
+#ifdef CONFIG_AUDIO_QGKI
+		for_each_rtd_components(rtd, i, component) {
+			if (!component->driver->pcm_construct)
+				continue;
+
+			ret = component->driver->pcm_construct(component, rtd);
+			if (ret < 0) {
+				dev_err(component->dev,
+					"ASoC: pcm constructor failed: %d\n",
+					ret);
+				return ret;
+			}
+		}
+#endif
 		goto out;
 	}
 
@@ -3055,6 +3387,11 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.hw_free	= dpcm_fe_dai_hw_free;
 		rtd->ops.close		= dpcm_fe_dai_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
+		rtd->ops.ioctl		= snd_soc_pcm_component_ioctl;
+#ifdef CONFIG_AUDIO_QGKI
+		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
+		rtd->ops.delay_blk	= soc_pcm_delay_blk;
+#endif
 	} else {
 		rtd->ops.open		= soc_pcm_open;
 		rtd->ops.hw_params	= soc_pcm_hw_params;
@@ -3063,6 +3400,11 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.hw_free	= soc_pcm_hw_free;
 		rtd->ops.close		= soc_pcm_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
+		rtd->ops.ioctl		= snd_soc_pcm_component_ioctl;
+#ifdef CONFIG_AUDIO_QGKI
+		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
+		rtd->ops.delay_blk	= soc_pcm_delay_blk;
+#endif
 	}
 
 	for_each_rtd_components(rtd, i, component) {
@@ -3094,9 +3436,15 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 
 	pcm->no_device_suspend = true;
 out:
-	dev_info(rtd->card->dev, "%s <-> %s mapping ok\n",
+#ifdef CONFIG_AUDIO_QGKI
+	dev_dbg(rtd->card->dev, "%s <-> %s mapping ok\n",
 		 (rtd->num_codecs > 1) ? "multicodec" : rtd->codec_dai->name,
 		 cpu_dai->name);
+#else
+	dev_info(rtd->card->dev, "%s <-> %s mapping ok\n",
+		(rtd->num_codecs > 1) ? "multicodec" : rtd->codec_dai->name,
+		cpu_dai->name);
+#endif
 	return ret;
 }
 

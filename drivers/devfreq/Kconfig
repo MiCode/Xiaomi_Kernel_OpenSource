@@ -74,6 +74,53 @@ config DEVFREQ_GOV_PASSIVE
 	  through sysfs entries. The passive governor recommends that
 	  devfreq device uses the OPP table to get the frequency/voltage.
 
+config QCOM_BIMC_BWMON
+	tristate "QCOM BIMC Bandwidth monitor hardware"
+	depends on ARCH_QCOM
+	help
+	  The BIMC Bandwidth monitor hardware allows for monitoring the
+	  traffic coming from each master port connected to the BIMC. It also
+	  has the capability to raise an IRQ when the count exceeds a
+	  programmable limit.
+
+config ARM_MEMLAT_MON
+	tristate "ARM CPU Memory Latency monitor hardware"
+	depends on ARCH_QCOM
+	help
+	  The PMU present on these ARM cores allow for the use of counters to
+	  monitor the memory latency characteristics of an ARM CPU workload.
+	  This driver uses these counters to implement the APIs needed by
+	  the mem_latency devfreq governor.
+
+config DEVFREQ_GOV_QCOM_BW_HWMON
+	tristate "HW monitor based governor for device BW"
+	depends on QCOM_BIMC_BWMON
+	help
+	  HW monitor based governor for device to DDR bandwidth voting.
+	  This governor sets the CPU BW vote by using BIMC counters to monitor
+	  the CPU's use of DDR. Since this uses target specific counters it
+	  can conflict with existing profiling tools.  This governor is unlikely
+	  to be useful for non-QCOM devices.
+
+config DEVFREQ_GOV_QCOM_CACHE_HWMON
+	tristate "HW monitor based governor for cache frequency"
+	help
+	  HW monitor based governor for cache frequency scaling. This
+	  governor sets the cache frequency by using PM counters to monitor the
+	  CPU's use of cache. Since this governor uses some of the PM counters
+	  it can conflict with existing profiling tools. This governor is
+	  unlikely to be useful for other devices.
+
+config DEVFREQ_GOV_MEMLAT
+	tristate "HW monitor based governor for device BW"
+	depends on ARM_MEMLAT_MON
+	help
+	  HW monitor based governor for device to DDR bandwidth voting.
+	  This governor sets the CPU BW vote based on stats obtained from memalat
+	  monitor if it determines that a workload is memory latency bound. Since
+	  this uses target specific counters it can conflict with existing profiling
+	  tools.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS_BUS_DEVFREQ
@@ -134,6 +181,42 @@ config ARM_RK3399_DMC_DEVFREQ
 	  This adds the DEVFREQ driver for the RK3399 DMC(Dynamic Memory Controller).
 	  It sets the frequency for the memory controller and reads the usage counts
 	  from hardware.
+
+config DEVFREQ_SIMPLE_DEV
+	tristate "Device driver for simple clock device with no status info"
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	help
+	  Device driver for simple devices that control their frequency using
+	  clock APIs and don't have any form of status reporting.
+
+config QCOM_DEVFREQ_ICC
+	bool "Qualcomm Technologies Inc. DEVFREQ device for device master <-> slave IB/AB BW voting"
+	depends on ARCH_QCOM
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	select INTERCONNECT
+	default n
+	help
+	  Different devfreq governors use this devfreq device to make CPU to
+	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
+	  agnostic interface to so that some of the devfreq governors can be
+	  shared across SoCs.
+
+config ARM_QCOM_DEVFREQ_QOSLAT
+	bool "Qualcomm Technologies Inc. DEVFREQ QOSLAT device driver"
+	depends on ARCH_QCOM
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	default n
+	help
+	  Some Qualcomm Technologies, Inc. (QTI) chipsets have an
+	  interface to vote for a memory latency QoS level. This
+	  driver votes on this interface to request a particular
+	  memory latency QoS level.
 
 source "drivers/devfreq/event/Kconfig"
 

@@ -454,6 +454,15 @@ config HAVE_SCHED_AVG_IRQ
 	depends on IRQ_TIME_ACCOUNTING || PARAVIRT_TIME_ACCOUNTING
 	depends on SMP
 
+config SCHED_WALT
+	bool "Support window based load tracking"
+	depends on SMP
+	help
+	This feature will allow the scheduler to maintain a tunable window
+	based set of metrics for tasks and runqueues. These metrics can be
+	used to guide task placement as well as task frequency requirements
+	for cpufreq governors.
+
 config BSD_PROCESS_ACCT
 	bool "BSD Process Accounting"
 	depends on MULTIUSER
@@ -563,6 +572,16 @@ config PSI_DEFAULT_DISABLED
 
 	  Say N if unsure.
 
+config PSI_FTRACE
+	bool "Insert debug hooks for PSI ftrace events"
+	default n
+	depends on PSI
+	help
+	  If not set, PSI ftrace events will be disabled and
+	  will not incur any performance penalty.
+	  If set, PSI ftrace events may be
+	  enabled.
+
 endmenu # "CPU/Task time and stats accounting"
 
 config CPU_ISOLATION
@@ -629,6 +648,16 @@ config LOG_BUF_SHIFT
 		     14 => 16 KB
 		     13 =>  8 KB
 		     12 =>  4 KB
+
+config CONSOLE_FLUSH_ON_HOTPLUG
+	bool "Enable console flush configurable in hot plug code path"
+	depends on HOTPLUG_CPU
+	def_bool n
+	help
+	In cpu hot plug path console lock acquire and release causes the
+	console to flush. If console lock is not free hot plug latency
+	increases. So make console flush configurable in hot plug path
+	and default disabled to help in cpu hot plug latencies.
 
 config LOG_CPU_MAX_BUF_SHIFT
 	int "CPU kernel log buffer size contribution (13 => 8 KB, 17 => 128KB)"
@@ -1759,6 +1788,18 @@ config VM_EVENT_COUNTERS
 	  This option allows the disabling of the VM event counters
 	  on EXPERT systems.  /proc/vmstat will only show page counts
 	  if VM event counters are disabled.
+
+config VM_EVENT_COUNT_CLEAN_PAGE_RECLAIM
+	bool "Track the number of clean pages reclaimed from the page cache"
+	depends on VM_EVENT_COUNTERS
+	help
+	  VM event counters currently maintain a count of the pages that
+	  get dropped from the page cache as a part of memory reclaim.
+	  However, this count only tracks the number of dirty pages that
+	  get dropped, and does not account for the clean pages that get
+	  dropped as well. Enable this to also account for the clean pages
+	  that get dropped as part of memory reclaim to get a more holistic
+	  view of what is happening during memory reclaim.
 
 config SLUB_DEBUG
 	default y

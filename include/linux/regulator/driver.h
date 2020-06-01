@@ -448,6 +448,9 @@ struct regulator_dev {
 	int exclusive;
 	u32 use_count;
 	u32 open_count;
+#ifdef CONFIG_REGULATOR_QTI_DEBUG
+	u32 open_offset;
+#endif
 	u32 bypass_count;
 
 	/* lists we belong to */
@@ -482,6 +485,9 @@ struct regulator_dev {
 
 	/* time when this regulator was disabled last time */
 	unsigned long last_off_jiffy;
+#ifdef CONFIG_REGULATOR_QTI_DEBUG
+	struct regulator *debug_consumer;
+#endif
 };
 
 struct regulator_dev *

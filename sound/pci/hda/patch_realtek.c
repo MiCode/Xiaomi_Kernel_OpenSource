@@ -5920,7 +5920,6 @@ enum {
 	ALC289_FIXUP_DUAL_SPK,
 	ALC294_FIXUP_SPK2_TO_DAC1,
 	ALC294_FIXUP_ASUS_DUAL_SPK,
-
 };
 
 static const struct hda_fixup alc269_fixups[] = {

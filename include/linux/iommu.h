@@ -37,6 +37,11 @@
  * the last-level or system cache.
  */
 #define IOMMU_SYS_CACHE_ONLY	(1 << 6)
+/* Use upstream device's bus attribute */
+#define IOMMU_USE_UPSTREAM_HINT	(1 << 7)
+
+/* Use upstream device's bus attribute with no write-allocate cache policy */
+#define IOMMU_USE_LLC_NWA	(1 << 8)
 
 struct iommu_ops;
 struct iommu_group;
@@ -48,8 +53,12 @@ struct iommu_sva;
 struct iommu_fault_event;
 
 /* iommu fault flags */
-#define IOMMU_FAULT_READ	0x0
-#define IOMMU_FAULT_WRITE	0x1
+#define IOMMU_FAULT_READ                (1 << 0)
+#define IOMMU_FAULT_WRITE               (1 << 1)
+#define IOMMU_FAULT_TRANSLATION         (1 << 2)
+#define IOMMU_FAULT_PERMISSION          (1 << 3)
+#define IOMMU_FAULT_EXTERNAL            (1 << 4)
+#define IOMMU_FAULT_TRANSACTION_STALLED (1 << 5)
 
 typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
 			struct device *, unsigned long, int, void *);
@@ -61,6 +70,19 @@ struct iommu_domain_geometry {
 	dma_addr_t aperture_start; /* First address that can be mapped    */
 	dma_addr_t aperture_end;   /* Last address that can be mapped     */
 	bool force_aperture;       /* DMA only allowed in mappable range? */
+};
+
+/* iommu transaction flags */
+#define IOMMU_TRANS_WRITE	BIT(0)	/* 1 Write, 0 Read */
+#define IOMMU_TRANS_PRIV	BIT(1)	/* 1 Privileged, 0 Unprivileged */
+#define IOMMU_TRANS_INST	BIT(2)	/* 1 Instruction fetch, 0 Data access */
+#define IOMMU_TRANS_SEC	BIT(3)	/* 1 Secure, 0 Non-secure access*/
+
+/* Non secure unprivileged Data read operation */
+#define IOMMU_TRANS_DEFAULT	(0U)
+
+struct iommu_pgtbl_info {
+	void *ops;
 };
 
 /* Domain feature flags */
@@ -115,6 +137,11 @@ enum iommu_cap {
  * DOMAIN_ATTR_FSL_PAMUV1 corresponds to the above mentioned contraints.
  * The caller can invoke iommu_domain_get_attr to check if the underlying
  * iommu implementation supports these constraints.
+ *
+ * DOMAIN_ATTR_NO_CFRE
+ * Some bus implementations may enter a bad state if iommu reports an error
+ * on context fault. As context faults are not always fatal, this must be
+ * avoided.
  */
 
 enum iommu_attr {
@@ -128,6 +155,29 @@ enum iommu_attr {
 	DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE,
 	DOMAIN_ATTR_MAX,
 };
+
+#define EXTENDED_ATTR_BASE			(DOMAIN_ATTR_MAX + 16)
+
+#define DOMAIN_ATTR_PT_BASE_ADDR		(EXTENDED_ATTR_BASE + 0)
+#define DOMAIN_ATTR_CONTEXT_BANK		(EXTENDED_ATTR_BASE + 1)
+#define DOMAIN_ATTR_DYNAMIC			(EXTENDED_ATTR_BASE + 2)
+#define DOMAIN_ATTR_TTBR0			(EXTENDED_ATTR_BASE + 3)
+#define DOMAIN_ATTR_CONTEXTIDR			(EXTENDED_ATTR_BASE + 4)
+#define DOMAIN_ATTR_PROCID			(EXTENDED_ATTR_BASE + 5)
+#define DOMAIN_ATTR_NON_FATAL_FAULTS		(EXTENDED_ATTR_BASE + 6)
+#define DOMAIN_ATTR_S1_BYPASS			(EXTENDED_ATTR_BASE + 7)
+#define DOMAIN_ATTR_ATOMIC			(EXTENDED_ATTR_BASE + 8)
+#define DOMAIN_ATTR_SECURE_VMID			(EXTENDED_ATTR_BASE + 9)
+#define DOMAIN_ATTR_FAST			(EXTENDED_ATTR_BASE + 10)
+#define DOMAIN_ATTR_PGTBL_INFO			(EXTENDED_ATTR_BASE + 11)
+#define DOMAIN_ATTR_USE_UPSTREAM_HINT		(EXTENDED_ATTR_BASE + 12)
+#define DOMAIN_ATTR_EARLY_MAP			(EXTENDED_ATTR_BASE + 13)
+#define DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT	(EXTENDED_ATTR_BASE + 14)
+#define DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT	(EXTENDED_ATTR_BASE + 15)
+#define DOMAIN_ATTR_CB_STALL_DISABLE		(EXTENDED_ATTR_BASE + 16)
+#define DOMAIN_ATTR_USE_LLC_NWA			(EXTENDED_ATTR_BASE + 17)
+#define DOMAIN_ATTR_NO_CFRE			(EXTENDED_ATTR_BASE + 18)
+#define DOMAIN_ATTR_EXTENDED_MAX		(EXTENDED_ATTR_BASE + 19)
 
 /* These are the possible reserved region types */
 enum iommu_resv_type {

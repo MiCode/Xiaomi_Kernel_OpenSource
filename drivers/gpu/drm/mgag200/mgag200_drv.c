@@ -137,6 +137,35 @@ int mgag200_driver_dumb_create(struct drm_file *file,
 	return drm_gem_vram_fill_create_dumb(file, dev, pg_align, 0, args);
 }
 
+static bool mgag200_pin_bo_at_0(const struct mga_device *mdev)
+{
+	return mdev->flags & MGAG200_FLAG_HW_BUG_NO_STARTADD;
+}
+
+int mgag200_driver_dumb_create(struct drm_file *file,
+			       struct drm_device *dev,
+			       struct drm_mode_create_dumb *args)
+{
+	struct mga_device *mdev = dev->dev_private;
+	unsigned long pg_align;
+
+	if (WARN_ONCE(!dev->vram_mm, "VRAM MM not initialized"))
+		return -EINVAL;
+
+	pg_align = 0ul;
+
+	/*
+	 * Aligning scanout buffers to the size of the video ram forces
+	 * placement at offset 0. Works around a bug where HW does not
+	 * respect 'startadd' field.
+	 */
+	if (mgag200_pin_bo_at_0(mdev))
+		pg_align = PFN_UP(mdev->mc.vram_size);
+
+	return drm_gem_vram_fill_create_dumb(file, dev, &dev->vram_mm->bdev,
+					     pg_align, false, args);
+}
+
 static struct drm_driver driver = {
 	.driver_features = DRIVER_GEM | DRIVER_MODESET,
 	.fops = &mgag200_driver_fops,

@@ -15,6 +15,17 @@ config QRTR
 
 if QRTR
 
+config QRTR_NODE_ID
+	int "QRTR Local Node ID"
+	default 1
+	help
+	  This option is used to configure the QRTR Node ID for the local
+	  processor. The node ID published to other nodes within the system.
+	  This value can be overridden by the name service application. This
+	  option is for configurations where Node ID needs to be customized
+	  but the name service application is not priveleged enough to use
+	  netlink sockets.
+
 config QRTR_SMD
 	tristate "SMD IPC Router channels"
 	depends on RPMSG || (COMPILE_TEST && RPMSG=n)
@@ -28,5 +39,14 @@ config QRTR_TUN
 	  Say Y here to expose a character device that allows user space to
 	  implement endpoints of QRTR, for purpose of tunneling data to other
 	  hosts or testing purposes.
+
+config QRTR_MHI
+	tristate "MHI IPC Router channels"
+	depends on MHI_BUS || (COMPILE_TEST && MHI_BUS=n)
+	help
+	  Say Y here to support MHI based ipcrouter channels.  MHI is the
+	  transport used for external modem connections for IPC Router. The
+	  MHI transport fakes synchronous sends by waiting for the uplink
+	  callback from the MHI framework before returing to qrtr core.
 
 endif # QRTR

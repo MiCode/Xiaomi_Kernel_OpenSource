@@ -43,7 +43,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/asoc.h>
 
+#ifdef CONFIG_AUDIO_QGKI
+#define NAME_SIZE	64
+#else
 #define NAME_SIZE	32
+#endif
 
 static DEFINE_MUTEX(client_mutex);
 static LIST_HEAD(component_list);
@@ -774,6 +778,39 @@ static int snd_soc_is_matching_component(
 	return 1;
 }
 
+#ifdef CONFIG_AUDIO_QGKI
+/**
+ * soc_find_component: find a component from component_list in ASoC core
+ *
+ * @dlc: dlc of the component to query.
+ *
+ * function to find out if a component is already registered with ASoC core.
+ *
+ * Returns component handle for success, else NULL error.
+ */
+struct snd_soc_component *soc_find_component(
+	const struct snd_soc_dai_link_component *dlc)
+{
+	struct snd_soc_component *component;
+
+	lockdep_assert_held(&client_mutex);
+
+	/*
+	 * NOTE
+	 *
+	 * It returns *1st* found component, but some driver
+	 * has few components by same of_node/name
+	 * ex)
+	 *	CPU component and generic DMAEngine component
+	 */
+	for_each_component(component)
+		if (snd_soc_is_matching_component(dlc, component))
+			return component;
+
+	return NULL;
+}
+EXPORT_SYMBOL(soc_find_component);
+#else
 static struct snd_soc_component *soc_find_component(
 	const struct snd_soc_dai_link_component *dlc)
 {
@@ -795,6 +832,7 @@ static struct snd_soc_component *soc_find_component(
 
 	return NULL;
 }
+#endif
 
 /**
  * snd_soc_find_dai - Find a registered DAI
@@ -994,8 +1032,17 @@ int snd_soc_add_pcm_runtime(struct snd_soc_card *card,
 	/* FIXME: we need multi CPU support in the future */
 	rtd->cpu_dai = snd_soc_find_dai(dai_link->cpus);
 	if (!rtd->cpu_dai) {
+#ifdef CONFIG_AUDIO_QGKI
+		if (dai_link->cpus->dai_name)
+			dev_info(card->dev, "ASoC: CPU DAI %s not registered\n",
+				dai_link->cpus->dai_name);
+		else if (dai_link->cpus->of_node)
+			dev_info(card->dev,  "ASoC: CPU DAI %s not registered\n",
+				dai_link->cpus->of_node->full_name);
+#else
 		dev_info(card->dev, "ASoC: CPU DAI %s not registered\n",
-			 dai_link->cpus->dai_name);
+			dai_link->cpus->dai_name);
+#endif
 		goto _err_defer;
 	}
 	snd_soc_rtd_add_component(rtd, rtd->cpu_dai->component);
@@ -2661,6 +2708,20 @@ void snd_soc_unregister_component(struct device *dev)
 	mutex_unlock(&client_mutex);
 }
 EXPORT_SYMBOL_GPL(snd_soc_unregister_component);
+
+#ifdef CONFIG_AUDIO_QGKI
+/**
+ * snd_soc_card_change_online_state - Mark if soc card is online/offline
+ *
+ * @soc_card: soc_card to mark
+ */
+void snd_soc_card_change_online_state(struct snd_soc_card *soc_card, int online)
+{
+	if (soc_card && soc_card->snd_card)
+		snd_card_change_online_state(soc_card->snd_card, online);
+}
+EXPORT_SYMBOL(snd_soc_card_change_online_state);
+#endif
 
 /* Retrieve a card's name from device tree */
 int snd_soc_of_parse_card_name(struct snd_soc_card *card,

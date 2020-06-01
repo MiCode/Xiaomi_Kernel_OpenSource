@@ -78,7 +78,6 @@ config GKI_HIDDEN_QCOM_CONFIGS
 
 config GKI_QCOM_CLKS_CONFIGS
 	bool "QCOM clk drivers needed for GKI due to powerdomain restrictions"
-	select QCOM_RPMHPD	if (ARCH_QCOM)
 	help
 	  This config option selects various QCOM clk drivers that
 	  cannot be built as a module currently due to power-domain

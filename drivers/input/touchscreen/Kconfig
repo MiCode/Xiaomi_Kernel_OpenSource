@@ -278,7 +278,6 @@ config TOUCHSCREEN_CYTTSP4_SPI
 config TOUCHSCREEN_DA9034
 	tristate "Touchscreen support for Dialog Semiconductor DA9034"
 	depends on PMIC_DA903X
-	default y
 	help
 	  Say Y here to enable the support for the touchscreen found
 	  on Dialog Semiconductor DA9034 PMIC.
@@ -823,7 +822,6 @@ config TOUCHSCREEN_WM97XX
 config TOUCHSCREEN_WM9705
 	bool "WM9705 Touchscreen interface support"
 	depends on TOUCHSCREEN_WM97XX
-	default y
 	help
 	  Say Y here to enable support for the Wolfson Microelectronics
 	  WM9705 touchscreen controller.
@@ -831,7 +829,6 @@ config TOUCHSCREEN_WM9705
 config TOUCHSCREEN_WM9712
 	bool "WM9712 Touchscreen interface support"
 	depends on TOUCHSCREEN_WM97XX
-	default y
 	help
 	  Say Y here to enable support for the Wolfson Microelectronics
 	  WM9712 touchscreen controller.
@@ -839,7 +836,6 @@ config TOUCHSCREEN_WM9712
 config TOUCHSCREEN_WM9713
 	bool "WM9713 Touchscreen interface support"
 	depends on TOUCHSCREEN_WM97XX
-	default y
 	help
 	  Say Y here to enable support for the Wolfson Microelectronics
 	  WM9713 touchscreen controller.
@@ -1309,5 +1305,9 @@ config TOUCHSCREEN_IQS5XX
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called iqs5xx.
+
+source "drivers/input/touchscreen/st/Kconfig"
+
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 endif

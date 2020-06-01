@@ -216,11 +216,38 @@ config USB_F_PRINTER
 config USB_F_TCM
 	tristate
 
+config USB_F_DIAG
+	tristate
+
 config USB_F_ACC
 	tristate
 
 config USB_F_AUDIO_SRC
 	tristate
+
+config USB_F_QDSS
+	tristate
+
+config USB_F_CCID
+	tristate
+
+config USB_F_CDEV
+	tristate
+
+config USB_F_GSI
+	tristate
+
+config USB_F_FS_IPC_LOGGING
+	bool "Enable IPC logging for FunctionFS"
+	depends on QGKI
+	default IPC_LOGGING
+	help
+	  Enables additional debug messages in FunctionFS driver to be
+	  output via IPC Logging mechanism. This can be useful when
+	  troubleshooting transfer stalls or other general failures and
+	  determine if the issue is in the kernel gadget or the userspace
+	  client. Separate IPC log contexts are created for each function
+	  instance at mount time.
 
 # this first set of drivers all depend on bulk-capable hardware.
 
@@ -274,7 +301,7 @@ config USB_CONFIGFS_OBEX
 	  since the kernel itself doesn't implement the OBEX protocol.
 
 config USB_CONFIGFS_NCM
-	bool "Network Control Model (CDC NCM)"
+	tristate "Network Control Model (CDC NCM)"
 	depends on USB_CONFIGFS
 	depends on NET
 	select USB_U_ETHER
@@ -348,7 +375,7 @@ config USB_CONFIGFS_PHONET
 	  The Phonet protocol implementation for USB device.
 
 config USB_CONFIGFS_MASS_STORAGE
-	bool "Mass storage"
+	tristate "Mass storage"
 	depends on USB_CONFIGFS
 	depends on BLOCK
 	select USB_F_MASS_STORAGE
@@ -513,6 +540,71 @@ config USB_CONFIGFS_F_TCM
 	  interface 0 (primary) and UAS is on alternative interface 1.
 	  Both protocols can work on USB2.0 and USB3.0.
 	  UAS utilizes the USB 3.0 feature called streams support.
+
+config USB_CONFIGFS_F_DIAG
+	tristate "USB Diag function"
+	select USB_F_DIAG
+	depends on USB_CONFIGFS
+	help
+	  Diag function driver enables support for diagnostics service over USB.
+	  Diagnostics application running on Host receives  stream of log data
+	  over USB. Applications can also send commands to diagnostics client
+	  running on device.
+
+config USB_CONFIGFS_F_QDSS
+	tristate "USB QDSS function"
+	select USB_F_QDSS
+	depends on USB_CONFIGFS
+	help
+	  USB QDSS function driver to get hwtracing related data over
+	  USB. USB QDSS function driver which allows communication
+	  between USB BAM and QDSS BAM for QDSS debug functionality
+	  over USB.
+
+config USB_CONFIGFS_F_CCID
+	tristate "USB CCID function"
+	select USB_F_CCID
+	depends on USB_CONFIGFS
+	help
+	  The Chip Card Interface Device (CCID) function implements a USB
+	  interface that exposes a standard CSCID class that consists of a
+	  pair of bulk IN and OUT endpoints and a single interrupt IN
+	  endpoint. This driver provides a character device interface
+	  allowing a userspace component to be able to provide the
+	  implementation necessary to interface with the smartcard.
+
+config USB_CONFIGFS_F_CDEV
+	tristate "USB Serial Character function"
+	select USB_F_CDEV
+	depends on USB_CONFIGFS
+	help
+	  The serial character function is a generic function driver that
+	  exposes a pair of bulk IN and OUT endpoints which are backed by
+	  a character device and mapped to its read/write routines. The
+	  function also supports a single interrupt IN endpoint for
+	  asynchronous notification to the host. This driver is typically
+	  used to support DUN/NMEA functions.
+
+config USB_CONFIGFS_F_GSI
+	tristate "USB GSI function"
+	select USB_F_GSI
+	depends on USB_CONFIGFS
+	help
+	  Generic function driver to support h/w acceleration to IPA
+	  over GSI. This driver provides USB RMNET/RNDIS/ECM/MBIM/DPL
+	  related functionalities using GSI hardware accelerated data
+	  path and control path.
+
+config USB_FUNC_WAKEUP_SUPPORTED
+	bool "USB Function Remote Wakeup support"
+	depends on QGKI
+	help
+	  USB 3.x allows functions to be independently suspended for better
+	  power management on a per-interface basis. Additionally a function
+	  can also be a remote wake source. Enable this option to add
+	  support for allowing a function to issue a remote wakeup to the
+	  composite driver, which in turn will issue a device notification
+	  packet request to the device controller driver.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 

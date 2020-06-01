@@ -74,9 +74,8 @@ static int dapm_up_seq[] = {
 	[snd_soc_dapm_dai_link] = 3,
 	[snd_soc_dapm_dai_in] = 5,
 	[snd_soc_dapm_dai_out] = 5,
-	[snd_soc_dapm_aif_in] = 5,
-	[snd_soc_dapm_aif_out] = 5,
-	[snd_soc_dapm_mic] = 6,
+	[snd_soc_dapm_mic] = 5,
+	[snd_soc_dapm_adc] = 6,
 	[snd_soc_dapm_siggen] = 6,
 	[snd_soc_dapm_input] = 6,
 	[snd_soc_dapm_output] = 6,
@@ -87,6 +86,8 @@ static int dapm_up_seq[] = {
 	[snd_soc_dapm_mixer] = 9,
 	[snd_soc_dapm_mixer_named_ctl] = 9,
 	[snd_soc_dapm_pga] = 10,
+	[snd_soc_dapm_aif_in] = 10,
+	[snd_soc_dapm_aif_out] = 10,
 	[snd_soc_dapm_buffer] = 10,
 	[snd_soc_dapm_scheduler] = 10,
 	[snd_soc_dapm_effect] = 10,
@@ -94,7 +95,6 @@ static int dapm_up_seq[] = {
 	[snd_soc_dapm_asrc] = 10,
 	[snd_soc_dapm_encoder] = 10,
 	[snd_soc_dapm_decoder] = 10,
-	[snd_soc_dapm_adc] = 11,
 	[snd_soc_dapm_out_drv] = 12,
 	[snd_soc_dapm_hp] = 12,
 	[snd_soc_dapm_spk] = 12,
@@ -107,7 +107,9 @@ static int dapm_up_seq[] = {
 static int dapm_down_seq[] = {
 	[snd_soc_dapm_pre] = 1,
 	[snd_soc_dapm_kcontrol] = 2,
-	[snd_soc_dapm_adc] = 3,
+	[snd_soc_dapm_aif_in] = 3,
+	[snd_soc_dapm_aif_out] = 3,
+	[snd_soc_dapm_adc] = 6,
 	[snd_soc_dapm_hp] = 4,
 	[snd_soc_dapm_spk] = 4,
 	[snd_soc_dapm_line] = 4,
@@ -133,8 +135,6 @@ static int dapm_down_seq[] = {
 	[snd_soc_dapm_vmid] = 9,
 	[snd_soc_dapm_mux] = 10,
 	[snd_soc_dapm_demux] = 10,
-	[snd_soc_dapm_aif_in] = 11,
-	[snd_soc_dapm_aif_out] = 11,
 	[snd_soc_dapm_dai_in] = 11,
 	[snd_soc_dapm_dai_out] = 11,
 	[snd_soc_dapm_dai_link] = 12,
@@ -1689,6 +1689,14 @@ static void dapm_seq_run(struct snd_soc_card *card,
 			list_move(&w->power_list, &pending);
 			break;
 		}
+#ifdef CONFIG_AUDIO_QGKI
+		/*
+		 * Add this debug log to keep track of widgets being
+		 * powered-up and powered-down.
+		 */
+		dev_dbg(w->dapm->dev, "dapm: powering %s widget %s\n",
+			power_up ? "up" : "down", w->name);
+#endif
 
 		if (ret < 0)
 			dev_err(w->dapm->dev,
@@ -4403,7 +4411,11 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 		 * dynamic FE links have no fixed DAI mapping.
 		 * CODEC<->CODEC links have no direct connection.
 		 */
+#ifdef CONFIG_AUDIO_QGKI
+		if (rtd->dai_link->dynamic || rtd->dai_link->dynamic_be)
+#else
 		if (rtd->dai_link->dynamic)
+#endif
 			continue;
 
 		dapm_connect_dai_link_widgets(card, rtd);

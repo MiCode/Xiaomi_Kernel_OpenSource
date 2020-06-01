@@ -546,11 +546,51 @@ err_clear_bit:
 	return ret;
 }
 
+static int ucsi_ccg_read(struct ucsi *ucsi, unsigned int offset,
+			 void *val, size_t val_len)
+{
+	u16 reg = CCGX_RAB_UCSI_DATA_BLOCK(offset);
+
+	return ccg_read(ucsi_get_drvdata(ucsi), reg, val, val_len);
+}
+
+static int ucsi_ccg_async_write(struct ucsi *ucsi, unsigned int offset,
+				const void *val, size_t val_len)
+{
+	u16 reg = CCGX_RAB_UCSI_DATA_BLOCK(offset);
+
+	return ccg_write(ucsi_get_drvdata(ucsi), reg, val, val_len);
+}
+
+static int ucsi_ccg_sync_write(struct ucsi *ucsi, unsigned int offset,
+			       const void *val, size_t val_len)
+{
+	struct ucsi_ccg *uc = ucsi_get_drvdata(ucsi);
+	int ret;
+
+	mutex_lock(&uc->lock);
+	pm_runtime_get_sync(uc->dev);
+	set_bit(DEV_CMD_PENDING, &uc->flags);
+
+	ret = ucsi_ccg_async_write(ucsi, offset, val, val_len);
+	if (ret)
+		goto err_clear_bit;
+
+	if (!wait_for_completion_timeout(&uc->complete, msecs_to_jiffies(5000)))
+		ret = -ETIMEDOUT;
+
+err_clear_bit:
+	clear_bit(DEV_CMD_PENDING, &uc->flags);
+	pm_runtime_put_sync(uc->dev);
+	mutex_unlock(&uc->lock);
+
+	return ret;
+}
+
 static const struct ucsi_operations ucsi_ccg_ops = {
 	.read = ucsi_ccg_read,
 	.sync_write = ucsi_ccg_sync_write,
-	.async_write = ucsi_ccg_async_write,
-	.update_altmodes = ucsi_ccg_update_altmodes
+	.async_write = ucsi_ccg_async_write
 };
 
 static irqreturn_t ccg_irq_handler(int irq, void *data)

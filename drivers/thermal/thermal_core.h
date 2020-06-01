@@ -4,6 +4,7 @@
  *
  *  Copyright (C) 2012  Intel Corp
  *  Author: Durgadoss R <durgadoss.r@intel.com>
+ *  Copyright (c) 2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __THERMAL_CORE_H__
@@ -112,6 +113,40 @@ of_thermal_get_trip_points(struct thermal_zone_device *tz)
 {
 	return NULL;
 }
+#endif
+#if (defined(CONFIG_QTI_THERMAL) && defined(CONFIG_THERMAL_OF))
+int of_thermal_aggregate_trip(struct device *dev,
+			      struct thermal_zone_device *tz,
+			      enum thermal_trip_type type,
+			      int *low, int *high);
+void of_thermal_handle_trip(struct device *dev,
+			    struct thermal_zone_device *tz);
+void of_thermal_handle_trip_temp(struct device *dev,
+				struct thermal_zone_device *tz,
+				int trip_temp);
+int thermal_debug_init(void);
+void thermal_debug_exit(void);
+#else
+static inline int of_thermal_aggregate_trip(struct device *dev,
+					    struct thermal_zone_device *tz,
+					    enum thermal_trip_type type,
+					    int *low, int *high)
+{
+	return -ENODEV;
+}
+static inline
+void of_thermal_handle_trip(struct device *dev, struct thermal_zone_device *tz)
+{ }
+static inline
+void of_thermal_handle_trip_temp(struct device *dev,
+				 struct thermal_zone_device *tz, int trip_temp)
+{ }
+static inline int thermal_debug_init(void)
+{
+	return -ENODEV;
+}
+static inline void thermal_debug_exit(void)
+{ }
 #endif
 
 #endif /* __THERMAL_CORE_H__ */

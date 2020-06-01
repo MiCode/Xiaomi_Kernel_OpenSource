@@ -24,4 +24,8 @@ config SND_SOC_SOF_IMX8
 	def_tristate SND_SOC_SOF_OF
 	depends on SND_SOC_SOF_IMX8_SUPPORT
 
+config SND_SOC_SOF_IMX8
+	def_tristate SND_SOC_SOF_OF
+	depends on SND_SOC_SOF_IMX8_SUPPORT
+
 endif ## SND_SOC_SOF_IMX_IMX_TOPLEVEL

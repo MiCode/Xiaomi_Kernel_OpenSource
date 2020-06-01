@@ -185,6 +185,7 @@ struct clk_hw *clk_hw_register_fractional_divider(struct device *dev,
 
 	hw = &fd->hw;
 	ret = clk_hw_register(dev, hw);
+	hw->init = NULL;
 	if (ret) {
 		kfree(fd);
 		hw = ERR_PTR(ret);

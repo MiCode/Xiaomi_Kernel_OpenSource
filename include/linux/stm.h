@@ -80,6 +80,12 @@ struct stm_data {
 	unsigned int		sw_nchannels;
 	unsigned int		sw_mmiosz;
 	unsigned int		hw_override;
+#ifdef CONFIG_CORESIGHT_QGKI
+	bool                    (*ost_configured)(void);
+	ssize_t			(*ost_packet)(struct stm_data *stm_data,
+					  unsigned int size,
+					  const unsigned char *buf);
+#endif
 	ssize_t			(*packet)(struct stm_data *, unsigned int,
 					  unsigned int, unsigned int,
 					  unsigned int, unsigned int,

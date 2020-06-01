@@ -388,9 +388,15 @@ static void edac_device_workq_setup(struct edac_device_ctl_info *edac_dev,
 	 */
 	edac_dev->poll_msec = msec;
 	edac_dev->delay = msecs_to_jiffies(msec);
-
+#ifdef CONFIG_EDAC_QGKI
+	if (edac_dev->defer_work)
+		INIT_DEFERRABLE_WORK(&edac_dev->work,
+					edac_device_workq_function);
+	else
+		INIT_DELAYED_WORK(&edac_dev->work, edac_device_workq_function);
+#else
 	INIT_DELAYED_WORK(&edac_dev->work, edac_device_workq_function);
-
+#endif
 	/* optimize here for the 1 second case, which will be normal value, to
 	 * fire ON the 1 second time event. This helps reduce all sorts of
 	 * timers firing on sub-second basis, while they are happy
@@ -549,6 +555,14 @@ static inline int edac_device_get_log_ue(struct edac_device_ctl_info *edac_dev)
 	return edac_dev->log_ue;
 }
 
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+static inline int edac_device_get_panic_on_ce(struct edac_device_ctl_info
+					*edac_dev)
+{
+	return edac_dev->panic_on_ce;
+}
+#endif
+
 static inline int edac_device_get_panic_on_ue(struct edac_device_ctl_info
 					*edac_dev)
 {
@@ -598,6 +612,13 @@ void edac_device_handle_ce_count(struct edac_device_ctl_info *edac_dev,
 				   "CE: %s instance: %s block: %s count: %d '%s'\n",
 				   edac_dev->ctl_name, instance->name,
 				   block ? block->name : "N/A", count, msg);
+
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+	if (edac_device_get_panic_on_ce(edac_dev))
+		panic("EDAC %s: CE instance: %s block %s '%s'\n",
+			edac_dev->ctl_name, instance->name,
+			block ? block->name : "N/A", msg);
+#endif
 }
 EXPORT_SYMBOL_GPL(edac_device_handle_ce_count);
 

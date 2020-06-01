@@ -552,15 +552,21 @@ static void ucsi_unregister_partner(struct ucsi_connector *con)
 static void ucsi_partner_change(struct ucsi_connector *con)
 {
 	int ret;
+	struct ucsi *ucsi = con->ucsi;
+	enum usb_role u_role = USB_ROLE_NONE;
 
 	if (!con->partner)
 		return;
 
 	switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 	case UCSI_CONSTAT_PARTNER_TYPE_UFP:
+	case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
+	case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+		u_role = USB_ROLE_HOST;
 		typec_set_data_role(con->port, TYPEC_HOST);
 		break;
 	case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+		u_role = USB_ROLE_DEVICE;
 		typec_set_data_role(con->port, TYPEC_DEVICE);
 		break;
 	default:
@@ -570,6 +576,11 @@ static void ucsi_partner_change(struct ucsi_connector *con)
 	/* Complete pending data role swap */
 	if (!completion_done(&con->complete))
 		complete(&con->complete);
+
+	ret = usb_role_switch_set_role(ucsi->usb_role_sw, u_role);
+	if (ret)
+		dev_err(ucsi->dev, "%s(): failed to set role(%d):%d\n",
+						__func__, u_role, ret);
 
 	/* Can't rely on Partner Flags field. Always checking the alt modes. */
 	ret = ucsi_register_altmodes(con, UCSI_RECIPIENT_SOP);
@@ -589,6 +600,7 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 	enum typec_role role;
 	u64 command;
 	int ret;
+	enum usb_role u_role = USB_ROLE_NONE;
 
 	mutex_lock(&con->lock);
 
@@ -619,9 +631,13 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 
 		switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
+		case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
+		case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+			u_role = USB_ROLE_HOST;
 			typec_set_data_role(con->port, TYPEC_HOST);
 			break;
 		case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+			u_role = USB_ROLE_DEVICE;
 			typec_set_data_role(con->port, TYPEC_DEVICE);
 			break;
 		default:
@@ -632,6 +648,11 @@ static void ucsi_handle_connector_change(struct work_struct *work)
 			ucsi_register_partner(con);
 		else
 			ucsi_unregister_partner(con);
+
+		ret = usb_role_switch_set_role(ucsi->usb_role_sw, u_role);
+		if (ret)
+			dev_err(ucsi->dev, "%s(): failed to set role(%d):%d\n",
+							__func__, u_role, ret);
 	}
 
 	if (con->status.change & UCSI_CONSTAT_CAM_CHANGE) {
@@ -855,6 +876,7 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 	enum typec_accessory *accessory = cap->accessory;
 	u64 command;
 	int ret;
+	enum usb_role role = USB_ROLE_NONE;
 
 	INIT_WORK(&con->work, ucsi_handle_connector_change);
 	init_completion(&con->complete);
@@ -919,9 +941,13 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 
 	switch (UCSI_CONSTAT_PARTNER_TYPE(con->status.flags)) {
 	case UCSI_CONSTAT_PARTNER_TYPE_UFP:
+	case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
+	case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+		role = USB_ROLE_HOST;
 		typec_set_data_role(con->port, TYPEC_HOST);
 		break;
 	case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+		role = USB_ROLE_DEVICE;
 		typec_set_data_role(con->port, TYPEC_DEVICE);
 		break;
 	default:
@@ -935,6 +961,11 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
 		ucsi_pwr_opmode_change(con);
 		ucsi_register_partner(con);
 	}
+
+	ret = usb_role_switch_set_role(ucsi->usb_role_sw, role);
+	if (ret)
+		dev_err(ucsi->dev, "%s(): failed to set role(%d):%d\n",
+						__func__, role, ret);
 
 	if (con->partner) {
 		ret = ucsi_register_altmodes(con, UCSI_RECIPIENT_SOP);
@@ -997,6 +1028,13 @@ int ucsi_init(struct ucsi *ucsi)
 	if (!ucsi->connector) {
 		ret = -ENOMEM;
 		goto err_reset;
+	}
+
+	ucsi->usb_role_sw = fwnode_usb_role_switch_get(dev_fwnode(ucsi->dev));
+	if (IS_ERR_OR_NULL(ucsi->usb_role_sw)) {
+		dev_err(ucsi->dev, "%s(): Unable to find usb role switch\n",
+								__func__);
+		ucsi->usb_role_sw = NULL;
 	}
 
 	/* Register all connectors */

@@ -10,6 +10,10 @@
 #ifndef __VIRT_WIFI_H
 #define __VIRT_WIFI_H
 
+struct net_device;
+struct wiphy;
+struct cfg80211_scan_request;
+
 struct virt_wifi_network_simulation {
 	void (*notify_device_open)(struct net_device *dev);
 	void (*notify_device_stop)(struct net_device *dev);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2019 The Linux Foundation. All rights reserved.
  * Copyright (c) 2017, Linaro Ltd.
  */
 #ifndef __QMI_HELPERS_H__
@@ -87,7 +87,9 @@ struct qmi_elem_info {
 #define QMI_ERR_INTERNAL_V01			3
 #define QMI_ERR_CLIENT_IDS_EXHAUSTED_V01	5
 #define QMI_ERR_INVALID_ID_V01			41
+#define QMI_ERR_NETWORK_NOT_READY_V01		53
 #define QMI_ERR_ENCODING_V01			58
+#define QMI_ERR_DISABLED_V01			69
 #define QMI_ERR_INCOMPATIBLE_STATE_V01		90
 #define QMI_ERR_NOT_SUPPORTED_V01		94
 
@@ -157,7 +159,6 @@ struct qmi_ops {
  * struct qmi_txn - transaction context
  * @qmi:	QMI handle this transaction is associated with
  * @id:		transaction id
- * @lock:	for synchronization between handler and waiter of messages
  * @completion:	completion object as the transaction receives a response
  * @result:	result code for the completed transaction
  * @ei:		description of the QMI encoded response (optional)
@@ -168,7 +169,6 @@ struct qmi_txn {
 
 	u16 id;
 
-	struct mutex lock;
 	struct completion completion;
 	int result;
 
@@ -267,5 +267,6 @@ int qmi_txn_init(struct qmi_handle *qmi, struct qmi_txn *txn,
 		 struct qmi_elem_info *ei, void *c_struct);
 int qmi_txn_wait(struct qmi_txn *txn, unsigned long timeout);
 void qmi_txn_cancel(struct qmi_txn *txn);
+void qmi_set_sndtimeo(struct qmi_handle *qmi, long timeo);
 
 #endif

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config INTERCONNECT_QCOM
-	bool "Qualcomm Network-on-Chip interconnect drivers"
+	tristate "Qualcomm Technologies, Inc. Network-on-Chip interconnect drivers"
 	depends on ARCH_QCOM
 	help
 	  Support for Qualcomm's Network-on-Chip interconnect hardware.
@@ -40,5 +40,26 @@ config INTERCONNECT_QCOM_SDM845
 	  This is a driver for the Qualcomm Network-on-Chip on sdm845-based
 	  platforms.
 
+config INTERCONNECT_QCOM_LAHAINA
+	tristate "LAHAINA interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
+	select INTERCONNECT_QCOM_BCM_VOTER
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on lahaina-based platforms.
+
+config INTERCONNECT_QCOM_EPSS_L3
+	tristate "LAHAINA EPSS L3 driver"
+	depends on INTERCONNECT_QCOM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. EPSS
+	  L3 control found on lahaina-based platforms. The EPSS L3 provider
+	  collects and aggregates consumer requests to satisfy constraints
+	  placed on L3 performance states.
+
 config INTERCONNECT_QCOM_SMD_RPM
+	tristate
+
+config INTERCONNECT_QCOM_BCM_VOTER
 	tristate

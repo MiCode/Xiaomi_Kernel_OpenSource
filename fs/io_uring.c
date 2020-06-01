@@ -6886,6 +6886,12 @@ static int io_uring_create(unsigned entries, struct io_uring_params *p)
 	ctx->user = user;
 	ctx->creds = get_current_cred();
 
+	ctx->creds = prepare_creds();
+	if (!ctx->creds) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	ret = io_allocate_scq_urings(ctx, p);
 	if (ret)
 		goto err;

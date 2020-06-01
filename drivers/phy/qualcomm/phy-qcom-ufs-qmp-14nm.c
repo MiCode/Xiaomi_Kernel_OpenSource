@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2019-2020, Linux Foundation. All rights reserved.
  */
 
 #include "phy-qcom-ufs-qmp-14nm.h"
@@ -9,12 +9,15 @@
 #define UFS_PHY_VDDA_PHY_UV	(925000)
 
 static
-int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct phy *generic_phy)
 {
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 	int tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
 	int tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
+	bool is_rate_B;
 	int err;
+
+	is_rate_B = (ufs_qcom_phy->mode == PHY_MODE_UFS_HS_B) ? true : false;
 
 	err = ufs_qcom_phy_calibrate(ufs_qcom_phy, phy_cal_table_rate_A,
 		tbl_size_A, phy_cal_table_rate_B, tbl_size_B, is_rate_B);
@@ -43,6 +46,8 @@ int ufs_qcom_phy_qmp_14nm_set_mode(struct phy *generic_phy,
 
 	if (mode > 0)
 		phy_common->mode = mode;
+
+	phy_common->submode = submode;
 
 	return 0;
 }
@@ -96,11 +101,11 @@ static const struct phy_ops ufs_qcom_phy_qmp_14nm_phy_ops = {
 	.power_on	= ufs_qcom_phy_power_on,
 	.power_off	= ufs_qcom_phy_power_off,
 	.set_mode	= ufs_qcom_phy_qmp_14nm_set_mode,
+	.calibrate	= ufs_qcom_phy_qmp_14nm_phy_calibrate,
 	.owner		= THIS_MODULE,
 };
 
 static struct ufs_qcom_phy_specific_ops phy_14nm_ops = {
-	.calibrate		= ufs_qcom_phy_qmp_14nm_phy_calibrate,
 	.start_serdes		= ufs_qcom_phy_qmp_14nm_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_14nm_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_14nm_set_tx_lane_enable,

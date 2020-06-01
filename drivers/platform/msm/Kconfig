@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "Qualcomm technologies inc. MSM specific device drivers"
+	depends on ARCH_QCOM
+
+config MSM_EXT_DISPLAY
+	bool "MSM External Display Driver"
+	depends on DRM && QGKI
+	help
+	  Enabling this option adds MSM External Display Driver.
+	  External Display driver was added to support the communication
+	  between external display driver and its counterparts.
+	  This should be enabled to support audio & video over HDMI or
+	  DP for hot pluggable sink devices.
+
+config SPS
+	tristate "SPS support"
+	select GENERIC_ALLOCATOR
+	help
+	  The SPS (Smart Peripheral Switch) is a DMA engine.
+	  It can move data in the following modes:
+		1. Peripheral-to-Peripheral.
+		2. Peripheral-to-Memory.
+		3. Memory-to-Memory.
+
+config SPS_SUPPORT_BAMDMA
+	bool "SPS supports BAM DMA"
+	depends on SPS
+	help
+	  The BAM-DMA is used for Memory-to-Memory transfers.
+	  The main use cases is RPC between processors.
+	  The BAM-DMA hardware has 2 registers sets:
+		1. A BAM HW like all the peripherals.
+		2. A DMA channel configuration (i.e. channel priority).
+
+config SPS_SUPPORT_NDP_BAM
+	bool "SPS supports NDP BAM"
+	depends on SPS
+	help
+	  No-Data-Path BAM is used to improve BAM performance.
+	  NDP BAMs enables peripherals with fast fabric connectivity
+	  to do the actual data transfer themselves, instead of the
+	  BAM.
+
+config IPA3
+	tristate "IPA3 support"
+	depends on NET
+	help
+	  This framework supports the Internet Packet Accelerator (IPA3) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
+config IPA_WDI_UNIFIED_API
+	bool "IPA WDI unified API support"
+	depends on IPA3
+	help
+	  This driver supports IPA WDI unified API.
+	  WDI is the interface between IPA micro controller and WLAN chipset.
+	  It is designed to support IPA HW accelerating path for WLAN use case.
+	  The IPA WDI unified API supports all WDI versions through a unified
+	  interface.
+
+config USB_BAM
+	tristate "USB BAM Driver"
+	depends on SPS && USB_GADGET
+	help
+	  Enabling this option adds USB BAM Driver.
+	  USB BAM driver was added to supports Smart Peripheral Subsystem
+	  Peripheral-to-Peripheral transfers between the USB and other
+	  peripheral.
+
+config MSM_GENI_SE
+	tristate "QCOM GENI Serial Engine Driver"
+	help
+	  This module is used to interact with GENI based Serial Engines on
+	  Qualcomm Technologies, Inc. Universal Peripheral(QUPv3). This
+	  module is used to configure and read the configuration from the
+	  Serial Engines.
+
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP REVID peripheral. REVID prints out the PMIC type and revision
+	  numbers in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a QTI chip part number and logged as well.
+
+endmenu

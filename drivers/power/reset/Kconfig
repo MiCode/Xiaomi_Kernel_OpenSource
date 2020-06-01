@@ -100,7 +100,7 @@ config POWER_RESET_HISI
 	  Reboot support for Hisilicon boards.
 
 config POWER_RESET_MSM
-	bool "Qualcomm MSM power-off driver"
+	tristate "Qualcomm MSM power-off driver"
 	depends on ARCH_QCOM
 	help
 	  Power off and restart support for Qualcomm boards.

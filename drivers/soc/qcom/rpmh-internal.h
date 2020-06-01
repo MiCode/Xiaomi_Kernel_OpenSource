@@ -1,8 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
- */
-
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef __RPM_INTERNAL_H__
 #define __RPM_INTERNAL_H__
@@ -72,12 +69,14 @@ struct rpmh_request {
  * @cache_lock: synchronize access to the cache data
  * @dirty: was the cache updated since flush
  * @batch_cache: Cache sleep and wake requests sent as batch
+ * @in_solver_mode: Controller is busy in solver mode
  */
 struct rpmh_ctrlr {
 	struct list_head cache;
 	spinlock_t cache_lock;
 	bool dirty;
 	struct list_head batch_cache;
+	bool in_solver_mode;
 };
 
 /**
@@ -85,30 +84,44 @@ struct rpmh_ctrlr {
  * Resource State Coordinator controller (RSC)
  *
  * @name:       controller identifier
+ * @base:       start address of the RSC's DRV registers
  * @tcs_base:   start address of the TCS registers in this controller
  * @id:         instance id in the controller (Direct Resource Voter)
+ * @in_solver_mode: Controller is in solver mode
  * @num_tcs:    number of TCSes in this DRV
  * @tcs:        TCS groups
  * @tcs_in_use: s/w state of the TCS
  * @lock:       synchronize state of the controller
  * @client:     handle to the DRV's client.
+ * @irq:        IRQ at gic
+ * @ipc_log_ctx IPC logger handle
  */
 struct rsc_drv {
 	const char *name;
+	void __iomem *base;
 	void __iomem *tcs_base;
 	int id;
+	bool in_solver_mode;
 	int num_tcs;
 	struct tcs_group tcs[TCS_TYPE_NR];
 	DECLARE_BITMAP(tcs_in_use, MAX_TCS_NR);
 	spinlock_t lock;
 	struct rpmh_ctrlr client;
+	int irq;
+	void *ipc_log_ctx;
 };
+
+extern bool rpmh_standalone;
 
 int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg);
 int rpmh_rsc_write_ctrl_data(struct rsc_drv *drv,
 			     const struct tcs_request *msg);
 int rpmh_rsc_invalidate(struct rsc_drv *drv);
+void rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
+bool rpmh_rsc_ctrlr_is_idle(struct rsc_drv *drv);
+int rpmh_rsc_write_pdc_data(struct rsc_drv *drv, const struct tcs_request *msg);
 
 void rpmh_tx_done(const struct tcs_request *msg, int r);
 
+void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl);
 #endif /* __RPM_INTERNAL_H__ */

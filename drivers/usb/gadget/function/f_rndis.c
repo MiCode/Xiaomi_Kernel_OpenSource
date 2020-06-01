@@ -66,6 +66,8 @@
  *   - MS-Windows drivers sometimes emit undocumented requests.
  */
 
+#define RNDIS_UL_MAX_PKT_PER_XFER	3
+
 struct f_rndis {
 	struct gether			port;
 	u8				ctrl_id, data_id;
@@ -671,6 +673,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_string	*us;
 	int			status;
 	struct usb_ep		*ep;
+	unsigned int		max;
 
 	struct f_rndis_opts *rndis_opts;
 
@@ -796,6 +799,11 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 
 	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3, 0);
 	rndis_set_host_mac(rndis->params, rndis->ethaddr);
+	max = gether_get_ul_max_pkts_per_xfer(rndis_opts->net);
+	if (!max)
+		max = RNDIS_UL_MAX_PKT_PER_XFER;
+
+	rndis_set_max_pkt_xfer(rndis->params, max);
 
 	if (rndis->manufacturer && rndis->vendorID &&
 			rndis_set_param_vendor(rndis->params, rndis->vendorID,
@@ -876,6 +884,10 @@ USB_ETHER_CONFIGFS_ITEM_ATTR_U8_RW(rndis, subclass);
 /* f_rndis_opts_protocol */
 USB_ETHER_CONFIGFS_ITEM_ATTR_U8_RW(rndis, protocol);
 
+/* f_rndis_opts_ul_max_pkt_per_xfer */
+USB_ETHER_CONFIGFS_ITEM_ATTR_UL_MAX_PKT_PER_XFER(rndis);
+
+
 static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_dev_addr,
 	&rndis_opts_attr_host_addr,
@@ -884,6 +896,7 @@ static struct configfs_attribute *rndis_attrs[] = {
 	&rndis_opts_attr_class,
 	&rndis_opts_attr_subclass,
 	&rndis_opts_attr_protocol,
+	&rndis_opts_attr_ul_max_pkt_per_xfer,
 	NULL,
 };
 
@@ -1005,6 +1018,8 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.header_len = sizeof(struct rndis_packet_msg_type);
 	rndis->port.wrap = rndis_add_header;
 	rndis->port.unwrap = rndis_rm_hdr;
+	if (!gether_get_ul_max_pkts_per_xfer(opts->net))
+		rndis->port.ul_max_pkts_per_xfer = RNDIS_UL_MAX_PKT_PER_XFER;
 
 	rndis->port.func.name = "rndis";
 	/* descriptors are per-instance copies */
@@ -1015,7 +1030,7 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.func.disable = rndis_disable;
 	rndis->port.func.free_func = rndis_free;
 
-	params = rndis_register(rndis_response_available, rndis);
+	params = rndis_register(rndis_response_available, rndis, NULL);
 	if (IS_ERR(params)) {
 		kfree(rndis);
 		return ERR_CAST(params);

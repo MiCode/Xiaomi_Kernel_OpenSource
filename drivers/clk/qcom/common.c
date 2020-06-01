@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2017-2019, The Linux Foundation.
+ * All rights reserved.
  */
 
 #include <linux/export.h>
@@ -21,6 +22,8 @@ struct qcom_cc {
 	struct qcom_reset_controller reset;
 	struct clk_regmap **rclks;
 	size_t num_rclks;
+	struct clk_hw **clk_hws;
+	size_t num_clk_hws;
 };
 
 const
@@ -68,6 +71,18 @@ int qcom_find_src_index(struct clk_hw *hw, const struct parent_map *map, u8 src)
 	return -ENOENT;
 }
 EXPORT_SYMBOL_GPL(qcom_find_src_index);
+
+int qcom_find_cfg_index(struct clk_hw *hw, const struct parent_map *map, u8 cfg)
+{
+	int i, num_parents = clk_hw_get_num_parents(hw);
+
+	for (i = 0; i < num_parents; i++)
+		if (cfg == map[i].cfg)
+			return i;
+
+	return -ENOENT;
+}
+EXPORT_SYMBOL(qcom_find_cfg_index);
 
 struct regmap *
 qcom_cc_map(struct platform_device *pdev, const struct qcom_cc_desc *desc)
@@ -216,6 +231,9 @@ static struct clk_hw *qcom_cc_clk_hw_get(struct of_phandle_args *clkspec,
 	struct qcom_cc *cc = data;
 	unsigned int idx = clkspec->args[0];
 
+	if (idx < cc->num_clk_hws && cc->clk_hws[idx])
+		return cc->clk_hws[idx];
+
 	if (idx >= cc->num_rclks) {
 		pr_err("%s: invalid index %u\n", __func__, idx);
 		return ERR_PTR(-EINVAL);
@@ -249,9 +267,11 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 	reset->regmap = regmap;
 	reset->reset_map = desc->resets;
 
-	ret = devm_reset_controller_register(dev, &reset->rcdev);
-	if (ret)
-		return ret;
+	if (desc->num_resets) {
+		ret = devm_reset_controller_register(dev, &reset->rcdev);
+		if (ret)
+			return ret;
+	}
 
 	if (desc->gdscs && desc->num_gdscs) {
 		scd = devm_kzalloc(dev, sizeof(*scd), GFP_KERNEL);
@@ -271,10 +291,15 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 
 	cc->rclks = rclks;
 	cc->num_rclks = num_clks;
+	cc->clk_hws = clk_hws;
+	cc->num_clk_hws = num_clk_hws;
 
 	qcom_cc_drop_protected(dev, cc);
 
 	for (i = 0; i < num_clk_hws; i++) {
+		if (!clk_hws[i])
+			continue;
+
 		ret = devm_clk_hw_register(dev, clk_hws[i]);
 		if (ret)
 			return ret;

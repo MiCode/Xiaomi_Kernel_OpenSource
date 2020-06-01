@@ -119,6 +119,29 @@ static const struct llcc_slice_config sdm845_data[] =  {
 	{ LLCC_AUDHW,    22, 1024, 1, 1, 0xffc, 0x2,   0, 0, 1, 1, 0 },
 };
 
+static const struct llcc_slice_config lahaina_data[] =  {
+	{ LLCC_CPUSS,    1,  3072, 1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 1 },
+	{LLCC_VIDSC0,    2,  512,  3, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_AUDIO,     6, 1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 0, 0 },
+	{LLCC_MDMHPGRW,  7, 1024,  3, 0, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDM,       8, 3072,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDMHW,     9, 1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CMPT,     10, 3072,  1, 1, 0xFFF, 0x0,   0, 0, 0, 0, 0 },
+	{LLCC_GPUHTW,   11, 1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_GPU,      12, 1024,  1, 0, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MMUHWT,   13, 1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 0, 1 },
+	{LLCC_CMPTDMA,  15, 1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_DISP,     16, 3072,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDMPNG,   21, 1024,  0, 1, 0xF,   0x0,   0, 0, 0, 1, 0 },
+	{LLCC_AUDHW,    22, 1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CVP,      28, 512,   3, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDMVPE,   29, 256,   1, 1, 0xF,   0x0,   0, 0, 0, 1, 0 },
+	{LLCC_APTCM,    30, 1024,  3, 1, 0x0,   0x1,   1, 0, 0, 1, 0 },
+	{LLCC_WRTCH,    31, 512,   1, 1, 0xFFF, 0x0,   0, 0, 0, 0, 1 },
+	{LLCC_CVPFW,    17, 512,   1, 0, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CPUSS1,   3,  1024,  1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0 },
+};
+
 static const struct qcom_llcc_config sc7180_cfg = {
 	.sct_data	= sc7180_data,
 	.size		= ARRAY_SIZE(sc7180_data),
@@ -127,6 +150,11 @@ static const struct qcom_llcc_config sc7180_cfg = {
 static const struct qcom_llcc_config sdm845_cfg = {
 	.sct_data	= sdm845_data,
 	.size		= ARRAY_SIZE(sdm845_data),
+};
+
+static const struct qcom_llcc_config lahaina_cfg = {
+	.sct_data	= lahaina_data,
+	.size		= ARRAY_SIZE(lahaina_data),
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -499,6 +527,7 @@ err:
 static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,sc7180-llcc", .data = &sc7180_cfg },
 	{ .compatible = "qcom,sdm845-llcc", .data = &sdm845_cfg },
+	{ .compatible = "qcom,lahaina-llcc", .data = &lahaina_cfg },
 	{ }
 };
 

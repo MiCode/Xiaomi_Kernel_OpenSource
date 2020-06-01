@@ -1,0 +1,45 @@
+cc_binary_host {
+    name: "unifdef",
+    srcs: ["scripts/unifdef.c"],
+    sanitize: {
+        never: true,
+    },
+}
+
+genrule {
+    name: "gen-headers_install.sh",
+    srcs: ["scripts/headers_install.sh"],
+    tools: ["unifdef"],
+    out: ["headers_install.sh"],
+    cmd: "sed 's+scripts/unifdef+$(location unifdef)+g' $(in) > $(out)",
+}
+
+cc_prebuilt_binary {
+    name: "headers_install.sh",
+    device_supported: false,
+    host_supported: true,
+    srcs: [":gen-headers_install.sh"],
+}
+
+// Use the following for verbose output from kernel_headers.py.
+// kernel_headers_verbose = "--verbose "
+// Use the following for minimal output from kernel_headers.py.
+kernel_headers_verbose = ""
+
+build = ["gen_headers_arm.bp", "gen_headers_arm64.bp"]
+
+cc_library_headers {
+    name: "qti_kernel_headers",
+    arch: {
+        arm: {
+            generated_headers: ["qti_generate_kernel_headers_arm"],
+            export_generated_headers: ["qti_generate_kernel_headers_arm"],
+        },
+        arm64: {
+            generated_headers: ["qti_generate_kernel_headers_arm64"],
+            export_generated_headers: ["qti_generate_kernel_headers_arm64"],
+        },
+    },
+    vendor: true,
+    recovery_available: true,
+}

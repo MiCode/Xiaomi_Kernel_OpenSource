@@ -691,6 +691,9 @@ int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count)
 			}
 		}
 		substream->group = &substream->self_group;
+#ifdef CONFIG_AUDIO_QGKI
+		spin_lock_init(&substream->runtime_lock);
+#endif
 		snd_pcm_group_init(&substream->self_group);
 		list_add_tail(&substream->link_list, &substream->self_group.substreams);
 		atomic_set(&substream->mmap_count, 0);
@@ -813,6 +816,16 @@ static void free_chmap(struct snd_pcm_str *pstr)
 		snd_ctl_remove(pstr->pcm->card, pstr->chmap_kctl);
 		pstr->chmap_kctl = NULL;
 	}
+#ifdef CONFIG_AUDIO_QGKI
+	if (pstr->vol_kctl) {
+		snd_ctl_remove(pstr->pcm->card, pstr->vol_kctl);
+		pstr->vol_kctl = NULL;
+	}
+	if (pstr->usr_kctl) {
+		snd_ctl_remove(pstr->pcm->card, pstr->usr_kctl);
+		pstr->usr_kctl = NULL;
+	}
+#endif
 }
 
 static void snd_pcm_free_stream(struct snd_pcm_str * pstr)
@@ -979,9 +992,15 @@ int snd_pcm_attach_substream(struct snd_pcm *pcm, int stream,
 void snd_pcm_detach_substream(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime;
+#ifdef CONFIG_AUDIO_QGKI
+	unsigned long flags = 0;
+#endif
 
 	if (PCM_RUNTIME_CHECK(substream))
 		return;
+#ifdef CONFIG_AUDIO_QGKI
+	spin_lock_irqsave(&substream->runtime_lock, flags);
+#endif
 	runtime = substream->runtime;
 	if (runtime->private_free != NULL)
 		runtime->private_free(runtime);
@@ -1000,6 +1019,9 @@ void snd_pcm_detach_substream(struct snd_pcm_substream *substream)
 	put_pid(substream->pid);
 	substream->pid = NULL;
 	substream->pstr->substream_opened--;
+#ifdef CONFIG_AUDIO_QGKI
+	spin_unlock_irqrestore(&substream->runtime_lock, flags);
+#endif
 }
 
 static ssize_t show_pcm_class(struct device *dev,

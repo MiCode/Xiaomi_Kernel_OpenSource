@@ -19,6 +19,9 @@
 #include <linux/kernel.h>
 #include <linux/regmap.h>
 #include <linux/log2.h>
+#ifdef CONFIG_AUDIO_QGKI
+#include <linux/async.h>
+#endif
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/compress_driver.h>
@@ -550,6 +553,11 @@ static inline void snd_soc_jack_free_gpios(struct snd_soc_jack *jack, int count,
 }
 #endif
 
+#ifdef CONFIG_AUDIO_QGKI
+void snd_soc_card_change_online_state(struct snd_soc_card *soc_card,
+				int online);
+#endif
+
 struct snd_ac97 *snd_soc_alloc_ac97_component(struct snd_soc_component *component);
 struct snd_ac97 *snd_soc_new_ac97_component(struct snd_soc_component *component,
 	unsigned int id, unsigned int id_mask);
@@ -761,6 +769,16 @@ struct snd_soc_dai_link_component {
 	const char *dai_name;
 };
 
+#ifdef CONFIG_AUDIO_QGKI
+enum snd_soc_async_ops {
+	ASYNC_DPCM_SND_SOC_OPEN = 1 << 0,
+	ASYNC_DPCM_SND_SOC_CLOSE = 1 << 1,
+	ASYNC_DPCM_SND_SOC_PREPARE = 1 << 2,
+	ASYNC_DPCM_SND_SOC_HW_PARAMS = 1 << 3,
+	ASYNC_DPCM_SND_SOC_FREE = 1 << 4,
+};
+#endif
+
 struct snd_soc_dai_link {
 	/* config - must be set by machine driver */
 	const char *name;			/* Codec name */
@@ -838,6 +856,11 @@ struct snd_soc_dai_link {
 	/* This DAI link can route to other DAI links at runtime (Frontend)*/
 	unsigned int dynamic:1;
 
+#ifdef CONFIG_AUDIO_QGKI
+	/* This DAI link can be reconfigured at runtime (Backend) */
+	unsigned int dynamic_be:1;
+#endif
+
 	/*
 	 * This DAI can support no host IO (no pcm data is
 	 * copied to from host)
@@ -863,6 +886,11 @@ struct snd_soc_dai_link {
 
 #ifdef CONFIG_SND_SOC_TOPOLOGY
 	struct snd_soc_dobj dobj; /* For topology */
+#endif
+
+#ifdef CONFIG_AUDIO_QGKI
+	/* this value determines what all ops can be started asynchronously */
+	enum snd_soc_async_ops async_ops;
 #endif
 };
 #define for_each_link_codecs(link, i, codec)				\
@@ -1143,7 +1171,10 @@ struct snd_soc_pcm_runtime {
 	struct snd_soc_dpcm_runtime dpcm[2];
 
 	long pmdown_time;
-
+#ifdef CONFIG_AUDIO_QGKI
+	/* err in case of ops failed */
+	int err_ops;
+#endif
 	/* runtime devices */
 	struct snd_pcm *pcm;
 	struct snd_compr *compr;
@@ -1361,6 +1392,11 @@ void snd_soc_unregister_dai(struct snd_soc_dai *dai);
 
 struct snd_soc_dai *snd_soc_find_dai(
 	const struct snd_soc_dai_link_component *dlc);
+
+#ifdef CONFIG_AUDIO_QGKI
+struct snd_soc_component *soc_find_component(
+	const struct snd_soc_dai_link_component *dlc);
+#endif
 
 #include <sound/soc-dai.h>
 

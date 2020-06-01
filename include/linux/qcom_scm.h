@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015, 2018-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, 2018-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 #ifndef __QCOM_SCM_H
@@ -14,14 +14,11 @@
 #define QCOM_SCM_CPU_PWR_DOWN_L2_OFF	0x1
 #define QCOM_SCM_HDCP_MAX_REQ_CNT	5
 
-struct qcom_scm_hdcp_req {
-	u32 addr;
-	u32 val;
-};
-
-struct qcom_scm_vmperm {
-	int vmid;
-	int perm;
+enum qcom_download_mode {
+	QCOM_DOWNLOAD_NODUMP	= 0x00,
+	QCOM_DOWNLOAD_EDL	= 0x01,
+	QCOM_DOWNLOAD_FULLDUMP	= 0x10,
+	QCOM_DOWNLOAD_MINIDUMP	= 0x20,
 };
 
 enum qcom_scm_ocmem_client {
@@ -34,14 +31,27 @@ enum qcom_scm_ocmem_client {
 	QCOM_SCM_OCMEM_DEBUG_ID,
 };
 
-enum qcom_scm_sec_dev_id {
-	QCOM_SCM_MDSS_DEV_ID    = 1,
-	QCOM_SCM_OCMEM_DEV_ID   = 5,
-	QCOM_SCM_PCIE0_DEV_ID   = 11,
-	QCOM_SCM_PCIE1_DEV_ID   = 12,
-	QCOM_SCM_GFX_DEV_ID     = 18,
-	QCOM_SCM_UFS_DEV_ID     = 19,
-	QCOM_SCM_ICE_DEV_ID     = 20,
+struct qcom_scm_hdcp_req {
+	u32 addr;
+	u32 val;
+};
+
+struct qcom_scm_vmperm {
+	int vmid;
+	int perm;
+};
+
+struct qcom_scm_current_perm_info {
+	__le32 vmid;
+	__le32 perm;
+	__le64 ctx;
+	__le32 ctx_size;
+	__le32 unused;
+};
+
+struct qcom_scm_mem_map_info {
+	__le64 mem_addr;
+	__le64 mem_size;
 };
 
 #define QCOM_SCM_VMID_HLOS       0x3
@@ -53,6 +63,107 @@ enum qcom_scm_sec_dev_id {
 #define QCOM_SCM_PERM_EXEC       0x1
 #define QCOM_SCM_PERM_RW (QCOM_SCM_PERM_READ | QCOM_SCM_PERM_WRITE)
 #define QCOM_SCM_PERM_RWX (QCOM_SCM_PERM_RW | QCOM_SCM_PERM_EXEC)
+
+static inline void qcom_scm_populate_vmperm_info(
+		struct qcom_scm_current_perm_info *destvm, int vmid, int perm)
+{
+	if (!destvm)
+		return;
+
+	destvm->vmid = cpu_to_le32(vmid);
+	destvm->perm = cpu_to_le32(perm);
+	destvm->ctx = 0;
+	destvm->ctx_size = 0;
+}
+
+static inline void qcom_scm_populate_mem_map_info(
+				struct qcom_scm_mem_map_info *mem_to_map,
+				phys_addr_t mem_addr, size_t mem_size)
+{
+	if (!mem_to_map)
+		return;
+
+	mem_to_map->mem_addr = cpu_to_le64(mem_addr);
+	mem_to_map->mem_size = cpu_to_le64(mem_size);
+}
+
+static inline int qcom_scm_sec_wdog_deactivate(void) { return 0; }
+static inline int qcom_scm_sec_wdog_trigger(void) { return 0; }
+static inline void qcom_scm_disable_sdi(void) { }
+static inline int qcom_scm_spin_cpu(void) { return 0; }
+static inline int qcom_scm_config_cpu_errata(void) { return 0; }
+static inline int qcom_scm_get_sec_dump_state(u32 *dump_state) { return 0; }
+static inline int qcom_scm_tz_blsp_modify_owner(int food, u64 subsystem,
+	int *out) { return 0; }
+static inline int qcom_scm_io_reset(void) { return 0; }
+static inline bool qcom_scm_is_secure_wdog_trigger_available(void)
+	{ return false; }
+static inline bool qcom_scm_is_mode_switch_available(void) { return false; }
+static inline int qcom_scm_get_jtag_etm_feat_id(u64 *version) { return 0; }
+static inline void qcom_scm_halt_spmi_pmic_arbiter(void) { }
+static inline void qcom_scm_deassert_ps_hold(void) { }
+static inline void qcom_scm_mmu_sync(bool sync) { }
+static inline int qcom_scm_mem_protect_video(u32 cp_start, u32 cp_size,
+	u32 cp_nonpixel_start, u32 cp_nonpixel_size) { return 0; }
+static inline int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
+	{ return 0; }
+static inline int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,
+	size_t list_size, size_t chunk_size, size_t memory_usage, int lock)
+	{ return 0; }
+static inline int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr,
+	size_t num_sg, size_t sg_block_size, u64 sec_id, int cbndx,
+	unsigned long iova, size_t total_len) { return 0; }
+static inline int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
+	unsigned long iova, size_t total_len) { return 0; }
+static inline int
+qcom_scm_assign_mem_regions(struct qcom_scm_mem_map_info *mem_regions,
+	size_t mem_regions_sz, u32 *srcvms, size_t src_sz,
+	struct qcom_scm_current_perm_info *newvms, size_t newvms_sz)
+	{ return 0; }
+static inline int qcom_scm_enable_shm_bridge(void) { return 0; }
+static inline int qcom_scm_delete_shm_bridge(u64 handle) { return 0; }
+static inline int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
+	u64 ipfn_and_s_perm_flags, u64 size_and_flags, u64 ns_vmids,
+	u64 *handle) { return 0; }
+static inline bool qcom_scm_is_lmh_debug_set_available(void) { return false; }
+static inline bool qcom_scm_is_lmh_debug_read_buf_size_available(void)
+	{ return false; }
+static inline bool qcom_scm_is_lmh_debug_read_buf_available(void)
+	{ return false; }
+static inline bool qcom_scm_is_lmh_debug_get_type_available(void)
+	{ return false; }
+static inline int qcom_scm_lmh_read_buf_size(int *size) { return 0; }
+static inline int qcom_scm_lmh_limit_dcvsh(phys_addr_t payload,
+	uint32_t payload_size, u64 limit_node, uint32_t node_id, u64 version)
+	{ return 0; }
+static inline int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size)
+	{ return 0; }
+static inline int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,
+	int payload_size, uint32_t *buf, int buf_size) { return 0; }
+static inline int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
+	u64 debug_type, uint32_t get_from, uint32_t *size) { return 0; }
+static inline int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
+	{ return 0; }
+//static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en) { return 0; }
+static inline int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure)
+	{ return 0; }
+static inline int qcom_scm_qdss_invoke(phys_addr_t addr, size_t size, u64 *out)
+	{ return 0; }
+static inline int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param)
+	{ return 0; }
+static inline int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
+	{ return 0; }
+static inline int qcom_scm_tsens_reinit(int *tsens_ret) { return 0; }
+static inline int qcom_scm_ice_restore_cfg(void) { return 0; }
+static inline int qcom_scm_get_tz_log_feat_id(u64 *version) { return 0; }
+static inline int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
+	{ return 0; }
+static inline int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
+	phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+	u64 *response_type, unsigned int *data) { return 0; }
+static inline int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
+	size_t out_buf_size, int32_t *result, u64 *response_type,
+	unsigned int *data) { return 0; }
 
 #if IS_ENABLED(CONFIG_QCOM_SCM)
 extern bool qcom_scm_is_available(void);

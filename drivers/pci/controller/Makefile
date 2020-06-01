@@ -32,6 +32,8 @@ obj-$(CONFIG_PCIE_BRCMSTB) += pcie-brcmstb.o
 # pcie-hisi.o quirks are needed even without CONFIG_PCIE_DW
 obj-y				+= dwc/
 
+obj-$(CONFIG_PCI_MSM) += pci-msm-drv.o
+pci-msm-drv-y := pci-msm.o pci-msm-msi.o
 
 # The following drivers are for devices that use the generic ACPI
 # pci_root.c driver but don't support standard ECAM config access.

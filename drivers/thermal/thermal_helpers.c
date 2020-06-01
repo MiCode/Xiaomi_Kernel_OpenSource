@@ -8,6 +8,7 @@
  *  Copyright (C) 2008 Intel Corp
  *  Copyright (C) 2008 Zhang Rui <rui.zhang@intel.com>
  *  Copyright (C) 2008 Sujith Thomas <sujith.thomas@intel.com>
+ *  Copyright (c) 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -106,7 +107,9 @@ int thermal_zone_get_temp(struct thermal_zone_device *tz, int *temp)
 		if (!ret && *temp < crit_temp)
 			*temp = tz->emul_temperature;
 	}
-
+#ifdef CONFIG_QTI_THERMAL
+	trace_thermal_query_temp(tz, *temp);
+#endif
 	mutex_unlock(&tz->lock);
 exit:
 	return ret;
@@ -140,10 +143,11 @@ void thermal_zone_set_trips(struct thermal_zone_device *tz)
 			high = trip_temp;
 	}
 
+#ifndef CONFIG_QTI_THERMAL
 	/* No need to change trip points */
 	if (tz->prev_low_trip == low && tz->prev_high_trip == high)
 		goto exit;
-
+#endif
 	tz->prev_low_trip = low;
 	tz->prev_high_trip = high;
 
@@ -157,6 +161,9 @@ void thermal_zone_set_trips(struct thermal_zone_device *tz)
 	ret = tz->ops->set_trips(tz, low, high);
 	if (ret)
 		dev_err(&tz->device, "Failed to set trips: %d\n", ret);
+#ifdef CONFIG_QTI_THERMAL
+	trace_thermal_set_trip(tz);
+#endif
 
 exit:
 	mutex_unlock(&tz->lock);
@@ -177,8 +184,18 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 
 	/* Make sure cdev enters the deepest cooling state */
 	list_for_each_entry(instance, &cdev->thermal_instances, cdev_node) {
+#ifdef CONFIG_QTI_THERMAL
+		if (list_is_first(&instance->cdev_node,
+					&cdev->thermal_instances))
+			dev_dbg(&cdev->device, "userspace->target=%lu\n",
+				instance->target);
+		else
+			dev_dbg(&cdev->device, "zone%d->target=%lu\n",
+				instance->tz->id, instance->target);
+#else
 		dev_dbg(&cdev->device, "zone%d->target=%lu\n",
 			instance->tz->id, instance->target);
+#endif
 		if (instance->target == THERMAL_NO_TARGET)
 			continue;
 		if (instance->target > target)
