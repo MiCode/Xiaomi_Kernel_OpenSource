@@ -391,7 +391,12 @@ struct se_geni_rsc {
 #define RX_RESET_DONE		(BIT(3))
 #define RX_FLUSH_DONE		(BIT(4))
 #define RX_GENI_GP_IRQ		(GENMASK(10, 5))
-#define RX_GENI_CANCEL_IRQ	(BIT(14))
+/*
+ * QUPs which have HW version <=1.2 11th bit of
+ * DMA_RX_IRQ_STAT register denotes RX_GENI_CANCEL_IRQ bit.
+ */
+#define RX_GENI_CANCEL_IRQ(n)	(((n.hw_major_ver <= 1) &&\
+				(n.hw_minor_ver <= 2)) ? BIT(11) : BIT(14))
 #define RX_GENI_GP_IRQ_EXT	(GENMASK(13, 12))
 
 /* DMA DEBUG Register fields */
