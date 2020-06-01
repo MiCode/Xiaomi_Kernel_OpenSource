@@ -6,6 +6,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,videocc-shima.h>
 #include <dt-bindings/interconnect/qcom,epss-l3.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interconnect/qcom,shima.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
@@ -1156,6 +1157,10 @@
 			#clock-cells = <1>;
 		};
 
+		apps_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+		};
+
 		system_pm {
 			compatible = "qcom,system-pm";
 		};
@@ -1173,6 +1178,11 @@
 				  <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
+
+		disp_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
+		};
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
@@ -1340,66 +1350,104 @@
 	clk_virt: interconnect {
 		compatible = "qcom,shima-clk_virt";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	config_noc: interconnect@1500000 {
+		reg = <0x1500000 0x14080>;
 		compatible = "qcom,shima-config_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	mc_virt: interconnect@1580000 {
+		reg = <0x1580000 0x4>;
 		compatible = "qcom,shima-mc_virt";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	system_noc: interconnect@1680000 {
+		reg = <0x1680000 0x13480>;
 		compatible = "qcom,shima-system_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	aggre1_noc: interconnect@16e0000 {
 		compatible = "qcom,shima-aggre1_noc";
+		reg = <0x016e0000 0x1f080>;
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+		clocks = <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
 	};
 
 	aggre2_noc: interconnect@1700000 {
+		reg = <0x1700000 0x2c080>;
 		compatible = "qcom,shima-aggre2_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
+		clocks = <&gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
+			<&gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>,
+			<&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&rpmhcc RPMH_IPA_CLK>;
 	};
 
 	mmss_noc: interconnect@1740000 {
+		reg = <0x1740000 0x1e100>;
 		compatible = "qcom,shima-mmss_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	lpass_ag_noc: interconnect@3c40000 {
+		reg = <0x03c40000 0xf080>;
 		compatible = "qcom,shima-lpass_ag_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	dc_noc: interconnect@90e0000 {
+		reg = <0x90e0000 0x5080>;
 		compatible = "qcom,shima-dc_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	gem_noc: interconnect@9100000 {
+		reg = <0x9100000 0xb4000>;
 		compatible = "qcom,shima-gem_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 	};
 
 	nsp_noc: interconnect@a0c0000 {
+		reg = <0x0a0c0000 0x10000>;
 		compatible = "qcom,shima-nsp_noc";
 		#interconnect-cells = <1>;
+		qcom,bcm-voter-names = "hlos";
+		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	epss_l3_cpu: l3_cpu@18590000 {
+		reg = <0x18590000 0x4000>;
 		compatible = "qcom,shima-epss-l3-cpu";
 		#interconnect-cells = <1>;
-	};
-
-	epss_l3_shared: l3_shared@18590000 {
-		compatible = "qcom,shima-epss-l3-shared";
-		#interconnect-cells = <1>;
+		clock-names = "xo", "alternate";
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&gcc GCC_GPLL0>;
+		status = "disabled";
 	};
 
 	qcom,sps {
