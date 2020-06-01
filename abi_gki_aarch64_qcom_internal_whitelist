@@ -95,6 +95,23 @@
   socinfo_get_id
   socinfo_get_id_string
   subsys_bus_type
+  synx_addrefcount
+  synx_bind
+  synx_create
+  synx_deregister_callback
+  synx_deregister_ops
+  synx_export
+  synx_get_fence
+  synx_get_status
+  synx_import
+  synx_initialize
+  synx_merge
+  synx_register_callback
+  synx_register_ops
+  synx_release
+  synx_signal
+  synx_uninitialize
+  synx_wait
   __tracepoint_rmnet_freq_boost
   __tracepoint_rmnet_freq_reset
   __tracepoint_rmnet_perf_low
