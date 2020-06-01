@@ -4132,6 +4132,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		proc_mali_register();
 #endif /* CONFIG_PROC_FS */
 
+#ifdef ENABLE_COMMON_DVFS
 		g_malidev = kbdev;
 
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
@@ -4140,6 +4141,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
 #endif
 		ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
+#endif
 
 #if defined(MTK_GPU_BM_2)
 		mtk_bandwith_resource_init(kbdev);
@@ -4159,6 +4161,8 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #endif /* MALI_KBASE_BUILD */
 		kbase_increment_device_id();
 	}
+
+	pr_info("%s finish with %d\n", __func__, err);
 
 	RETURN_ERROR(err);
 }
