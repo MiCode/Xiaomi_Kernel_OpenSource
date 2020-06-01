@@ -5460,3 +5460,4 @@
 };
 
 #include "camera/lahaina-camera.dtsi"
+#include "msm-rdbg.dtsi"
