@@ -3763,8 +3763,8 @@
 				config {
 					pins = "gpio0", "gpio1", "gpio2",
 								"gpio3";
-					drive-strength = <6>;
-					bias-disable;
+					drive-strength = <2>;
+					bias-pull-down;
 				};
 			};
 		};
