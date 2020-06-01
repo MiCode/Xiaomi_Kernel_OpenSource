@@ -32,6 +32,18 @@ config INTERCONNECT_QCOM_LAHAINA
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on lahaina-based platforms.
 
+config INTERCONNECT_QCOM_SHIMA
+	tristate "SHIMA interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
+	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on shima-based platforms. The interconnect provider collects and
+	  aggreagates the cosumer bandwidth requests to satisfy constraints
+	  placed on Network-on-Chip performance states.
+
 config INTERCONNECT_QCOM_EPSS_L3
 	tristate "LAHAINA EPSS L3 driver"
 	depends on INTERCONNECT_QCOM

@@ -4,6 +4,7 @@ qnoc-qcs404-objs			:= qcs404.o
 qnoc-sdm845-objs			:= sdm845.o
 qnoc-lahaina-objs			:= lahaina.o qnoc-qos.o
 qnoc-sdxlemur-objs			:= sdxlemur.o qnoc-qos.o
+qnoc-shima-objs			:= shima.o
 icc-smd-rpm-objs			:= smd-rpm.o
 icc-bcm-voter-objs			:= bcm-voter.o
 icc-rpmh-obj				:= icc-rpmh.o
