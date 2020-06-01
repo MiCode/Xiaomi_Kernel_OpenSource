@@ -122,7 +122,7 @@
 	qcom,fg-bmd-en-delay-ms = <300>;
 	qcom,fg-force-load-profile;
 	qcom,fg-jeita-thresholds = <0 20 45 60>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pm660_haptics {

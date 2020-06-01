@@ -153,7 +153,7 @@
 #include "sdm429-blsp.dtsi"
 #include "sdm429-cpu.dtsi"
 #include "sdm429-ion.dtsi"
-
+#include "msm-arm-smmu-sdm429.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -163,6 +163,7 @@
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-parent = <&intc>;
+		interrupt-controller;
 		#interrupt-cells = <3>;
 		reg = <0x0b000000 0x1000>,
 		      <0x0b002000 0x1000>;
@@ -290,6 +291,10 @@
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
+		clocks = <&gcc GCC_BLSP1_UART2_APPS_CLK>,
+			<&gcc GCC_BLSP1_AHB_CLK>;
+		clock-names = "core", "iface";
+		status = "okay";
 	};
 
 	qcom,wdt@b017000 {
