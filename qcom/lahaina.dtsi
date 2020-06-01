@@ -5144,6 +5144,8 @@
 		wlan-ant-switch-supply = <&L7E>;
 		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 0>;
 
+		cnss-daemon-support;
+
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
 		mhi,buffer-len = <0x8000>;
