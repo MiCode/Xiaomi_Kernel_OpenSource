@@ -1,0 +1,11 @@
+&chosen {
+	bootargs = "console=hvc0 earlycon=hvc0 nokaslr maxcpus=1 root=/dev/ram rw rootwait";
+};
+
+&arch_timer {
+	clock-frequency = <500000>;
+};
+
+&memtimer {
+	clock-frequency = <500000>;
+};

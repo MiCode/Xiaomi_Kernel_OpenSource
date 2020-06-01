@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x90000000 0x00000100;
+
+#include "waipio.dtsi"
+#include "waipio-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio RUMI";
+	compatible = "qcom,waipio-rumi", "qcom,waipio", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};

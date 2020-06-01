@@ -24,6 +24,11 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-qrd-module.dtb
 endif
 
+dtb-$(CONFIG_ARCH_WAIPIO) += waipio-rumi.dtb \
+	waipio-mtp.dtb \
+	waipio-cdp.dtb \
+	waipio-qrd.dtb
+
 dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
