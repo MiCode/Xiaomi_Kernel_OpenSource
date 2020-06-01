@@ -221,6 +221,13 @@
 		clock-frequency = <13000000>;
 	};
 
+	hwrng: hwrng {
+		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
+	};
+
 	pwrap: pwrap@10026000 {
 		compatible = "mediatek,mt6873-pwrap";
 		reg = <0 0x10026000 0 0x1000>;
