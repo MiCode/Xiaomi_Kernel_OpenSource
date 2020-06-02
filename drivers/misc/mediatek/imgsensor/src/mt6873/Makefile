@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2020 MediaTek Inc.
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_IMGSENSOR_PLATFORM))
+
 IMGSENSOR_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek/imgsensor/src
 COMMON_VERSION := v1_1
 subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
@@ -65,7 +65,7 @@ endif
 
 $(eval $(call add_subdrv,seninf))
 
-subdir-ccflags-y += -DNO_I2C_MTK -DNO_CLK_METER -DSENINF_USE_RPM #-DDFS_CTRL_BY_OPP
+subdir-ccflags-y += -DNO_I2C_MTK -DNO_CLK_METER -DSENINF_USE_RPM -DDFS_CTRL_BY_OPP
 
 $(info imgsensor-objs : $(imgsensor-objs))
 $(info subdir-ccflags-y : $(subdir-ccflags-y))

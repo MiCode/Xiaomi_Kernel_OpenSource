@@ -1,0 +1,26 @@
+config MTK_IMGSENSOR
+	tristate "MediaTek image sensor support"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor.
+
+config CUSTOM_KERNEL_IMGSENSOR
+	string "Custom image sensor driver"
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+config MTK_IMGSENSOR_PLATFORM
+	string "set imgsensor platform name"
+	default MTK_PLATFORM if MTK_PLATFORM != ""
+	help
+	  This config is set as platform name
+	  which imgsenor driver used for.
+	  When MTK_PLATFORM is not set, imgsensor
+	  will use the config.
+
+source "drivers/misc/mediatek/imgsensor/src/Kconfig"

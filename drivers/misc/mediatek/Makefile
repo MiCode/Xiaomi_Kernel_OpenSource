@@ -22,3 +22,4 @@ obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
 obj-$(CONFIG_MMSTAT_TRACER) += mmstat/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
+obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/

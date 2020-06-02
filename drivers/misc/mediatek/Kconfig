@@ -23,6 +23,7 @@ source "drivers/misc/mediatek/cmdq/Kconfig"
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/lens/Kconfig"
 source "drivers/misc/mediatek/flashlight/Kconfig"
+source "drivers/misc/mediatek/imgsensor/Kconfig"
 endmenu # MultiMedia, Display, Camera
 
 menu "Security"
