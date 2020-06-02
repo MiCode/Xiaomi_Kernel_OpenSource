@@ -181,7 +181,8 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 
 	if (idlemgr_ctx->is_idle) {
 		DDPINFO("[LP] kick idle from [%s]\n", source);
-		atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
+		if (mtk_crtc->esd_ctx)
+			atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
 		mtk_drm_idlemgr_leave_idle_nolock(crtc);
 		idlemgr_ctx->is_idle = 0;
 
@@ -381,9 +382,11 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			/* enter idle state */
 			mtk_drm_idlemgr_enter_idle_nolock(crtc);
 			idlemgr_ctx->is_idle = 1;
-			atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
-			wake_up_interruptible(
-				&mtk_crtc->esd_ctx->check_task_wq);
+			if (mtk_crtc->esd_ctx) {
+				atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+				wake_up_interruptible(
+					&mtk_crtc->esd_ctx->check_task_wq);
+			}
 		}
 
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
