@@ -140,6 +140,8 @@ void disp_aal_debug(const char *opt);
 /* Provide for LED */
 void disp_aal_notify_backlight_changed(int bl_1024);
 
+void disp_aal_on_start_of_frame(void);
+
 /* AAL Control API in Kernel */
 void disp_aal_set_lcm_type(unsigned int panel_type);
 void disp_aal_set_ess_level(int level);
