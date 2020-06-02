@@ -2404,11 +2404,12 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
 			    unsigned long retry_ms)
 {
-	u64 timeout;
+	u64 timeout, time_checked;
 	u32 val;
 
 	timeout = sched_clock() + retry_ms * 1000000UL;
 	do {
+		time_checked = sched_clock();
 		ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
 		val = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
 		val = val >> 28;
@@ -2418,7 +2419,7 @@ int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
 
 		/* sleep for max. 200us */
 		usleep_range(100, 200);
-	} while (sched_clock() < timeout);
+	} while (time_checked < timeout);
 
 	if (val == *state)
 		return 0;
