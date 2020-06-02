@@ -381,6 +381,7 @@ int pe40_init_state(void)
 	enable_vbus_ovp(false);
 
 	adapter_get_pps_cap(&pe4->cap);
+	pe4->max_vbus = pe4->data.pe40_max_vbus;
 	pe4->is_connect = true;
 
 	voltage = 0;
