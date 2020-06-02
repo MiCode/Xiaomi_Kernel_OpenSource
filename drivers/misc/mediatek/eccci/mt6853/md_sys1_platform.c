@@ -66,7 +66,7 @@ static struct ccci_clk_node clk_table[] = {
 };
 
 unsigned int devapc_callback_flag;
-unsigned int devapc_check_flag = 1;
+unsigned int devapc_check_flag;
 #define TAG "mcd"
 
 #define ROr2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)|c))
@@ -491,12 +491,12 @@ void md_cd_get_md_bootup_status(
 		return;
 	}
 
-	ccci_write32(md_reg->md_boot_stats_select, 0, 0);
+	ccci_write32(md_reg->md_boot_stats_select, 0, 2);
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	buff[0] = ccci_read32(md_reg->md_boot_stats, 0);
 
-	ccci_write32(md_reg->md_boot_stats_select, 0, 1);
+	ccci_write32(md_reg->md_boot_stats_select, 0, 3);
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	buff[1] = ccci_read32(md_reg->md_boot_stats, 0);
