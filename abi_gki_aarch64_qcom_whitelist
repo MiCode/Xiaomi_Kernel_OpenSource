@@ -160,7 +160,7 @@
   cfg80211_tdls_oper_request
   cfg80211_unlink_bss
   cfg80211_vendor_cmd_reply
-  __cfi_slowpath_diag
+  __cfi_slowpath
   check_disk_change
   __check_object_size
   __class_create
