@@ -2404,9 +2404,17 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
+		if (g_cur_opp_freq < freq_new)
+			gpufreq_pr_info("Clock switch failing: %d -> %d (target: %d)\n",
+				freq_old, g_cur_opp_freq, freq_new);
+
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+
+		if (g_cur_opp_freq > freq_new)
+			gpufreq_pr_info("Clock switch failing: %d -> %d (target: %d)\n",
+				freq_old, g_cur_opp_freq, freq_new);
 
 		while (g_cur_opp_vgpu != vgpu_new) {
 			sb_idx = g_opp_sb_idx_down[g_cur_opp_idx] > idx_new ?
@@ -2529,6 +2537,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	enum g_posdiv_power_enum real_posdiv_power;
 	unsigned int dds, pll;
 	bool parking = false;
+	int hopping = -1;
 
 	real_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
 	posdiv_power = __mt_gpufreq_get_posdiv_power(freq_new);
@@ -2561,7 +2570,9 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
-		mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
+		hopping = mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
+		if (hopping != 0)
+			gpufreq_pr_info("hopping failing: %d\n", hopping);
 #endif
 	}
 
@@ -2668,19 +2679,21 @@ static void __mt_gpufreq_vgpu_set_mode(unsigned int mode)
  */
 static void __mt_gpufreq_set_fixed_freq(int fixed_freq)
 {
+	int get_cur_freq = 0;
+
 	gpufreq_pr_debug("before, g_fixed_freq = %d, g_fixed_vgpu = %d\n",
 			g_fixed_freq, g_fixed_vgpu);
 
 	g_fixed_freq = fixed_freq;
 	g_fixed_vgpu = g_cur_opp_vgpu;
 
-	gpufreq_pr_debug("@%s: now, g_fixed_freq = %d, g_fixed_vgpu = %d\n",
-			__func__,
-			g_fixed_freq, g_fixed_vgpu);
-
 	__mt_gpufreq_clock_switch(g_fixed_freq);
 
-	g_cur_opp_freq = g_fixed_freq;
+	get_cur_freq = __mt_gpufreq_get_cur_freq();
+	gpufreq_pr_logbuf("before: %d, after: %d, target: %d, vgpu = %d\n",
+	g_cur_opp_freq, get_cur_freq, g_fixed_freq, g_fixed_vgpu);
+
+	g_cur_opp_freq = get_cur_freq;
 }
 
 /*
