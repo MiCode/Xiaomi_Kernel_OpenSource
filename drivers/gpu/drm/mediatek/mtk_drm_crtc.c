@@ -1350,7 +1350,8 @@ static void mtk_crtc_update_hrt_state_ex(struct drm_crtc *crtc,
 					&& !(mtk_dsi_is_cmd_mode(output_comp)))
 		mtk_ddp_comp_io_cmd(output_comp, NULL,
 			DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
-	max_fps = mode->vrefresh;
+	if (mode)
+		max_fps = mode->vrefresh;
 
 	DDPINFO("%s CRTC%u bw:%d, no_compress_num:%d max_fps:%d\n",
 		__func__, crtc_idx, bw, ovl0_2l_no_compress_num, max_fps);
