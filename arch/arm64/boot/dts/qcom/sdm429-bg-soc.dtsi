@@ -1,0 +1,27 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	qcom,blackghost {
+		compatible = "qcom,pil-blackghost";
+		qcom,pil-force-shutdown;
+		qcom,firmware-name = "bg-wear";
+		/* GPIO inputs from blackghost */
+		qcom,bg2ap-status-gpio = <&tlmm 44 0>;
+		qcom,bg2ap-errfatal-gpio = <&tlmm 72 0>;
+		/* GPIO output to blackghost */
+		qcom,ap2bg-status-gpio = <&tlmm 61 0>;
+		qcom,ap2bg-errfatal-gpio = <&tlmm 62 0>;
+	};
+
+};
