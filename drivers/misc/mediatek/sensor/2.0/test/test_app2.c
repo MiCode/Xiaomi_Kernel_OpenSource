@@ -47,7 +47,7 @@ static int test_app_kthread(void *arg)
 		if (size < 0)
 			continue;
 		for (i = 0; i < size; ++i) {
-			pr_info("[%d,%d,%lld,%d,%d,%d]\n",
+			pr_info_ratelimited("[%d,%d,%lld,%d,%d,%d]\n",
 				data[i].sensor_type,
 				data[i].action,
 				data[i].timestamp,

@@ -75,6 +75,45 @@ out:
 	return ret;
 }
 
+static ssize_t test_app1_cust(char *buf, int sensor_type,
+		int action)
+{
+	ssize_t ret = 0;
+	struct hf_client *client = NULL;
+	struct custom_cmd cmd;
+
+	client = hf_client_create();
+	if (!client) {
+		pr_err("hf_client_create fail\n");
+		return -ENOMEM;
+	}
+	ret = hf_client_find_sensor(client, sensor_type);
+	if (ret < 0) {
+		pr_err("hf_client_find_sensor %u fail\n", sensor_type);
+		goto out;
+	}
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.data[0] = action;
+	ret = hf_client_custom_cmd(client, sensor_type, &cmd);
+	if (ret >= 0)
+		ret = sprintf(buf, "[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]\n",
+				cmd.data[0],
+				cmd.data[1],
+				cmd.data[2],
+				cmd.data[3],
+				cmd.data[4],
+				cmd.data[5],
+				cmd.data[6],
+				cmd.data[7],
+				cmd.data[8],
+				cmd.data[9],
+				cmd.data[10],
+				cmd.data[11]);
+out:
+	hf_client_destroy(client);
+	return ret;
+}
+
 static ssize_t acc_cali_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -83,6 +122,15 @@ static ssize_t acc_cali_show(struct kobject *kobj,
 			HF_MANAGER_SENSOR_ENABLE_CALI,
 			HF_MANAGER_REQUEST_CALI_DATA);
 }
+
+static ssize_t acc_cust_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return test_app1_cust(buf, SENSOR_TYPE_ACCELEROMETER,
+			CUST_CMD_CALI);
+}
+
 
 static ssize_t acc_seltest_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -102,6 +150,14 @@ static ssize_t gyro_cali_show(struct kobject *kobj,
 			HF_MANAGER_REQUEST_CALI_DATA);
 }
 
+static ssize_t gyro_cust_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return test_app1_cust(buf, SENSOR_TYPE_GYROSCOPE,
+			CUST_CMD_CALI);
+}
+
 static ssize_t gyro_selftest_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -112,14 +168,18 @@ static ssize_t gyro_selftest_show(struct kobject *kobj,
 }
 
 test_app_attr(acc_cali);
+test_app_attr(acc_cust);
 test_app_attr(acc_seltest);
 test_app_attr(gyro_cali);
+test_app_attr(gyro_cust);
 test_app_attr(gyro_selftest);
 
 static struct attribute *attr[] = {
 	&acc_cali_attr.attr,
+	&acc_cust_attr.attr,
 	&acc_seltest_attr.attr,
 	&gyro_cali_attr.attr,
+	&gyro_cust_attr.attr,
 	&gyro_selftest_attr.attr,
 	NULL,
 };

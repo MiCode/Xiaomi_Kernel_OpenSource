@@ -1992,7 +1992,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
 	enum custom_action cust_action = cust_cmd->data[0];
-	int ret;
+	int ret = 0;
 
 	/* User can use the cust_action to distinguish their own operations
 	 * the default value(0) means the action to get sensors calibrated
@@ -2068,7 +2068,6 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 				sensor_type);
 			break;
 		}
-		ret = 0;
 	} else {
 		pr_notice("CUSTOM_CMD(%d) need implementation\n", cust_action);
 		ret = -1;
