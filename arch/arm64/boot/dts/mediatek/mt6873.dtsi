@@ -458,6 +458,16 @@
 			#clock-cells = <1>;
 		};
 
+		disp_pwm: pwm@1100e000 {
+			compatible = "mediatek,mt6873-disp-pwm";
+			reg = <0 0x1100e000 0 0x1000>;
+			interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH 0>;
+			#pwm-cells = <2>;
+			clocks = <&infracfg  CLK_INFRA_DISP_PWM>,
+				<&topckgen CLK_TOP_DISP_PWM_SEL>;
+			clock-names = "main", "mm";
+		};
+
 		i2c10: i2c@11015000 {
 			compatible = "mediatek,mt6873-i2c";
 			reg = <0 0x11015000 0 0x1000>;
