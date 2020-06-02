@@ -345,7 +345,7 @@ struct eemsn_log_det {
 	unsigned char num_freq_tbl;
 	unsigned char lock;
 	unsigned char features;
-	unsigned char volt_clamp;
+	int8_t volt_clamp;
 	int8_t volt_offset;
 	unsigned char turn_pt;
 	enum eemsn_det_id det_id;
@@ -406,7 +406,7 @@ struct sn_param {
 
 	/* Formula for CPE_Vmin (Vmin prediction) */
 	unsigned char CPE_GB;
-	unsigned char MSSV_GB;
+	int8_t MSSV_GB;
 
 };
 
