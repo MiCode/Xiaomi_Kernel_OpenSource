@@ -855,9 +855,11 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 			cm_mgr_perf_timer_enable);
 	seq_printf(m, "cm_mgr_perf_force_enable %d\n",
 			cm_mgr_perf_force_enable);
-#ifdef USE_CPU_TO_DRAM_MAP_NEW
+#ifdef USE_CPU_TO_DRAM_MAP
 	seq_printf(m, "cm_mgr_cpu_map_dram_enable %d\n",
 			cm_mgr_cpu_map_dram_enable);
+#endif /* USE_CPU_TO_DRAM_MAP */
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
 	seq_printf(m, "cm_mgr_cpu_map_emi_opp %d\n",
 			cm_mgr_cpu_map_emi_opp);
 	seq_printf(m, "cm_mgr_cpu_map_skip_cpu_opp %d\n",
@@ -1301,9 +1303,11 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
-#ifdef USE_CPU_TO_DRAM_MAP_NEW
+#ifdef USE_CPU_TO_DRAM_MAP
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
 		cm_mgr_cpu_map_dram_enable = !!val_1;
+#endif /* USE_CPU_TO_DRAM_MAP */
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_skip_cpu_opp")) {
 		cm_mgr_cpu_map_skip_cpu_opp = val_1;
 		cm_mgr_cpu_map_update_table();

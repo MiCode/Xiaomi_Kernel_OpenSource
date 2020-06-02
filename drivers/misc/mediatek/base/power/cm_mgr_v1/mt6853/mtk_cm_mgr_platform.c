@@ -1054,13 +1054,16 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	int ret = 0;
 	int dram_opp = 0;
 
-#ifdef USE_CPU_TO_DRAM_MAP_NEW
-	if (!cm_mgr_cpu_map_dram_enable)
-		return;
-#endif /* USE_CPU_TO_DRAM_MAP_NEW */
-
 	if (!is_dvfsrc_enabled())
 		return;
+
+	if (!cm_mgr_cpu_map_dram_enable) {
+		if (cm_mgr_cpu_to_dram_opp != PM_QOS_DDR_OPP_DEFAULT_VALUE) {
+			cm_mgr_cpu_to_dram_opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
+			ret = schedule_delayed_work(&cm_mgr_work, 1);
+		}
+		return;
+	}
 
 	if ((cpu_opp >= 0) && (cpu_opp < CM_MGR_CPU_OPP_SIZE))
 		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];

@@ -86,8 +86,10 @@ int cm_mgr_perf_force_enable;
 int cm_mgr_loading_level = 1000;
 int cm_mgr_loading_enable;
 int cm_mgr_emi_demand_check = 1;
-#ifdef USE_CPU_TO_DRAM_MAP_NEW
+#ifdef USE_CPU_TO_DRAM_MAP
 int cm_mgr_cpu_map_dram_enable = 1;
+#endif /* USE_CPU_TO_DRAM_MAP */
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
 #endif /* USE_CPU_TO_DRAM_MAP_NEW */
