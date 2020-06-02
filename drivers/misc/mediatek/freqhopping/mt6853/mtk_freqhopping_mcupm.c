@@ -32,6 +32,7 @@
 #include "mtk_cpufreq_hybrid.h"
 #endif
 #include <mt-plat/mtk_tinysys_ipi.h>
+#include <mt-plat/aee.h>
 #include "mcupm_ipi_id.h"
 #include <linux/seq_file.h>
 #include <linux/of_address.h>
@@ -273,11 +274,23 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 	case FH_DCTL_CMD_GET_PLL_STRUCT:
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
+
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
 		IPI_SEND_POLLING, ipi_data, FHCTL_D_LEN, 10);
 		if (ret != 0) {
 			FH_MSG(F2M_CMD_ERR_MSG, cmd, ret, ack_data);
-			BUG();
+			FH_MSG("[FH]FHCTL check uart status: %d",
+				mt_get_uartlog_status());
+#ifdef IPI_FHCTL_MONITOR
+			if (mt_get_uartlog_status()) {
+				aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+				"[FH] freqhopping IPI to CPUEB\n",
+				"IPI timeout trigger Kernel warning");
+			} else {
+				BUG();
+			}
+#endif
 		} else if (ack_data < 0)
 			FH_MSG(F2M_ACK_ERR_MSG,
 					cmd, ack_data);
