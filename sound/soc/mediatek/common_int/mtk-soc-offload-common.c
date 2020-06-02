@@ -114,7 +114,7 @@ static unsigned long long ringbufbridge_writebk;
 static DEFINE_SPINLOCK(offload_lock);
 struct wakeup_source Offload_suspend_lock;
 #endif
-struct mtk_base_dsp *dsp;
+static struct mtk_base_dsp *dsp;
 
 /*
  * Function  Declaration
@@ -279,6 +279,7 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 
 static int mtk_compr_offload_open(struct snd_compr_stream *stream)
 {
+	int ret = 0;
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
 #endif
@@ -291,8 +292,37 @@ static int mtk_compr_offload_open(struct snd_compr_stream *stream)
 			 0,
 			 NULL);
 	offload_stream = stream;
-	pr_debug("%s OFFLOAD_TYPE = %d\n", __func__, OFFLOAD_TYPE);
 
+	if (dsp == NULL) {
+		dsp = (struct mtk_base_dsp *)get_dsp_base();
+		pr_debug("get_dsp_base again\n");
+	}
+	/* gen pool related */
+	dsp->dsp_mem[ID].gen_pool_buffer =
+			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
+	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			gen_pool_avail(
+				dsp->dsp_mem[ID].gen_pool_buffer),
+			gen_pool_size(
+				dsp->dsp_mem[ID].gen_pool_buffer));
+
+		/* allocate ring buffer wioth share memory*/
+		ret = mtk_adsp_genpool_allocate_sharemem_ring(
+			      &dsp->dsp_mem[ID],
+			      OFFLOAD_SIZE_BYTES,
+			      ID);
+
+		if (ret < 0) {
+			pr_debug("%s err\n", __func__);
+			return -1;
+		}
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			 gen_pool_avail(
+			 dsp->dsp_mem[ID].gen_pool_buffer),
+			 gen_pool_size(
+			 dsp->dsp_mem[ID].gen_pool_buffer));
+	}
 	return 0;
 }
 
@@ -307,9 +337,9 @@ static int mtk_compr_offload_free(struct snd_compr_stream *stream)
 {
 	pr_debug("%s()\n", __func__);
 	offloadservice_setwriteblocked(false);
-	mtk_adsp_genpool_free_sharemem_ring(&dsp->dsp_mem[ID], ID);
+	if (dsp)
+		mtk_adsp_genpool_free_sharemem_ring(&dsp->dsp_mem[ID], ID);
 	afe_offload_block.state = OFFLOAD_STATE_INIT;
-	//SetOffloadEnableFlag(false);
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
@@ -334,39 +364,9 @@ static int mtk_compr_offload_set_params(struct snd_compr_stream *stream,
 	afe_offload_block.samplerate = codec.sample_rate;
 
 	//set shared Dram meme
-	dsp = (struct mtk_base_dsp *)get_dsp_base();
 	audio_hwbuf = &dsp->dsp_mem[ID].adsp_buf;
 	audio_dsp_mem = &dsp->dsp_mem[ID];
-
-	/* gen pool related */
-	dsp->dsp_mem[ID].gen_pool_buffer =
-			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
-	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			gen_pool_avail(
-				dsp->dsp_mem[ID].gen_pool_buffer),
-			gen_pool_size(
-				dsp->dsp_mem[ID].gen_pool_buffer));
-
-		/* allocate ring buffer wioth share memory*/
-		ret = mtk_adsp_genpool_allocate_sharemem_ring(
-			      &dsp->dsp_mem[ID],
-			      OFFLOAD_SIZE_BYTES,
-			      ID);
-
-		if (ret < 0) {
-			pr_debug("%s err\n", __func__);
-			return -1;
-		}
-
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			 gen_pool_avail(
-			 dsp->dsp_mem[ID].gen_pool_buffer),
-			 gen_pool_size(
-			 dsp->dsp_mem[ID].gen_pool_buffer));
-	}
 	dump_audio_dsp_dram(&dsp->dsp_mem[ID].dsp_ring_share_buf);
-	// set_audiobuffer_attribute
 	//set codec info
 	afe_offload_codec_info.codec_samplerate = codec.sample_rate;
 	afe_offload_codec_info.codec_bitrate = codec.bit_rate;
@@ -903,7 +903,7 @@ static int mtk_dloffload_probe(struct platform_device *dev)
 	pr_info("%s: dev name %s\n", __func__, dev_name(&dev->dev));
 
 	offload_dev = &dev->dev;
-
+	dsp = (struct mtk_base_dsp *)get_dsp_base();
 	return snd_soc_register_platform(&dev->dev,
 					 &mtk_dloffload_soc_platform);
 
