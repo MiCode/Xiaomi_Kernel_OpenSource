@@ -5252,6 +5252,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	if (drm_crtc_index(&mtk_crtc->base) == 0) {
 		mtk_disp_hrt_cond_init(&mtk_crtc->base);
 		atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, 0);
+		mtk_crtc->qos_ctx->last_hrt_req = 0;
 		init_waitqueue_head(&mtk_crtc->qos_ctx->hrt_cond_wq);
 	}
 
