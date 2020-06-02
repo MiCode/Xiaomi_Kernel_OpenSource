@@ -734,7 +734,8 @@ static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 	DDPINFO("%s:set LCM hbm en:%d\n", __func__, en);
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
-	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_handle =
+		cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 
 	if (is_frame_mode) {
 		cmdq_pkt_wfe(cmdq_handle,
