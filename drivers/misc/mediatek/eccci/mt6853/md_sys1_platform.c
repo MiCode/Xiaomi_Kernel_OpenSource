@@ -194,6 +194,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 {
 	struct device_node *node = NULL;
 	int idx = 0;
+	int retval;
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -256,6 +257,19 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 				clk_table[idx].clk_ref = NULL;
 			}
 		}
+
+		if (clk_table[0].clk_ref) {
+			CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+				"dummy md sys clk\n");
+			retval = clk_prepare_enable(clk_table[0].clk_ref);
+			if (retval)
+				CCCI_ERROR_LOG(dev_cfg->index, TAG,
+					"error: enable mtcmos: ret: %d\n",
+					retval);
+			CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+				"dummy md sys clk done\n");
+		}
+
 		node = of_find_compatible_node(NULL, NULL,
 			"mediatek,md_ccif4");
 		if (node) {
@@ -711,7 +725,6 @@ int md_start_platform(struct ccci_modem *md)
 	struct arm_smccc_res res;
 	int timeout = 100; /* 100 * 20ms = 2s */
 	int ret = -1;
-	int retval = 0;
 
 	s_md_start_completed = 1;
 
@@ -733,17 +746,11 @@ int md_start_platform(struct ccci_modem *md)
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"flag_1=%lu, flag_2=%lu, flag_3=%lu, flag_4=%lu\n",
 		res.a0, res.a1, res.a2, res.a3);
-	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
-	retval = clk_prepare_enable(clk_table[0].clk_ref); /* match lk on */
-	if (retval)
-		CCCI_ERROR_LOG(md->index, TAG,
-			"dummy md sys clk fail: ret = %d\n", retval);
-	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk done\n");
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
 	CCCI_BOOTUP_LOG(md->index, TAG,
-		"AP: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
+		"AP: boot_ret=%lu, boot_status_0=%lX, boot_status_1=%lX\n",
 		res.a0, res.a1, res.a2);
 
 	if (ret != 0) {

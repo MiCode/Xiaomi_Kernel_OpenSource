@@ -17,6 +17,8 @@
 
 #include "ccci_fsm_internal.h"
 #include <memory/mediatek/emi.h>
+#include <mt-plat/mtk_ccci_common.h>
+#include "modem_secure_base.h"
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -262,6 +264,19 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		fsm_finish_command(ctl, cmd, 1);
 }
 
+static void fsm_dump_boot_status(int md_id)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL,
+		MD_POWER_CONFIG, MD_BOOT_STATUS,
+		0, 0, 0, 0, 0, &res);
+
+	CCCI_NORMAL_LOG(md_id, FSM,
+		"[%s] AP: boot_ret=%lu, boot_status_0=%lX, boot_status_1=%lX\n",
+		__func__, res.a0, res.a1, res.a2);
+}
+
 static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
@@ -324,6 +339,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 						struct ccci_fsm_event, entry);
 			if (event->event_id == CCCI_EVENT_HS1) {
 				hs1_got = 1;
+				fsm_dump_boot_status(ctl->md_id);
 				fsm_broadcast_state(ctl, BOOT_WAITING_FOR_HS2);
 
 				if (event->length

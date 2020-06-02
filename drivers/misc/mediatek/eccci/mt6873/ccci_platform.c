@@ -26,6 +26,7 @@
 #include "ccci_modem.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
+#include "modem_secure_base.h"
 
 #ifdef FEATURE_USING_4G_MEMORY_API
 #include <mt-plat/mtk_lpae.h>
@@ -48,6 +49,19 @@ int Is_MD_EMI_voilation(void)
 unsigned long pericfg_base;
 unsigned long infra_ao_base;
 unsigned long infra_ao_mem_base;
+
+
+size_t mt_secure_call(
+		size_t arg0, size_t arg1, size_t arg2,
+		size_t arg3, size_t r1, size_t r2, size_t r3)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, arg0, arg1,
+			arg2, arg3, r1, r2, r3, &res);
+
+	return res.a0;
+}
 
 /*
  * when MD attached its codeviser for debuging, this bit will be set.
