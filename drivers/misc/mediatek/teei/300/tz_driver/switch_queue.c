@@ -35,9 +35,6 @@
 #include "irq_register.h"
 #include "teei_smc_call.h"
 #include "teei_cancel_cmd.h"
-#ifdef TUI_SUPPORT
-#include "utr_tui_cmd.h"
-#endif
 
 #include <teei_secure_api.h>
 
@@ -126,9 +123,6 @@ static int check_work_type(int work_type)
 	case SWITCH_CORE:
 	case MOVE_CORE:
 	case NT_DUMP_T:
-#ifdef TUI_SUPPORT
-	case POWER_DOWN_CALL:
-#endif
 		return 0;
 	default:
 		return -EINVAL;
@@ -257,15 +251,6 @@ int handle_fdrv_call(void *buff)
 	case CANCEL_SYS_NO:
 		cd->retVal = __send_cancel_command(cd->fdrv_call_buff_size);
 		break;
-#ifdef TUI_SUPPORT
-	case TUI_DISPLAY_SYS_NO:
-		cd->retVal = __send_tui_display_command(
-						cd->fdrv_call_buff_size);
-		break;
-	case TUI_NOTICE_SYS_NO:
-		cd->retVal = __send_tui_notice_command(cd->fdrv_call_buff_size);
-		break;
-#endif
 	default:
 		cd->retVal = __call_fdrv(cd);
 	}
@@ -320,19 +305,6 @@ int handle_switch_call(void *buff)
 
 	return 0;
 }
-
-#ifdef TUI_SUPPORT
-int handler_power_down_call(void *buff)
-{
-	unsigned long smc_type = 5;
-
-	smc_type = teei_secure_call(NT_CANCEL_T_TUI, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-
-	return 0;
-}
-#endif
 
 static void switch_fn(struct kthread_work *work)
 {
@@ -404,15 +376,6 @@ static void switch_fn(struct kthread_work *work)
 	case UNLOCK_PM_MUTEX:
 		handle_unlock_pm_mutex((struct mutex *)(switch_ent->buff_addr));
 		break;
-#ifdef TUI_SUPPORT
-	case POWER_DOWN_CALL:
-		retVal = handler_power_down_call(
-				(void *)(switch_ent->buff_addr));
-		if (retVal < 0)
-			IMSG_ERROR("[%s][%d] fail to handle power_down-Call!\n",
-							__func__, __LINE__);
-		break;
-#endif
 	case SWITCH_CORE:
 		handle_switch_core((int)(switch_ent->buff_addr));
 		break;

@@ -217,12 +217,6 @@ static irqreturn_t nt_switch_irq_handler(void)
 				forward_call_flag = GLSCH_NONE;
 				notify_smc_completed();
 				up(&smc_lock);
-#ifdef TUI_SUPPORT
-			} else if (msg_head->child_type == TUI_NOTICE_SYS_NO) {
-				forward_call_flag = GLSCH_NONE;
-				up(&(tui_notify_sema));
-				up(&(smc_lock));
-#endif
 			} else {
 				IMSG_ERROR("[%s][%d] Unknown child_type!\n",
 							__func__, __LINE__);

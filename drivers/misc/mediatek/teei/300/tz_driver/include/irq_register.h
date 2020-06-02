@@ -21,9 +21,6 @@ extern struct service_handler reetime;
 extern struct service_handler socket;
 extern struct service_handler vfs_handler;
 extern struct service_handler printer_driver;
-#ifdef TUI_SUPPORT
-extern struct semaphore tui_notify_sema;
-#endif
 
 struct work_entry {
 	int call_no;
