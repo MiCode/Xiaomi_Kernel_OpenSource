@@ -213,12 +213,19 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 
+#ifdef FORCE_HARD_STOP_BUG_ON
+				{
+					pr_info("gpu dfd force dump\n");
+					BUG_ON(1);
+				}
+#else
 				if (mt_gpufreq_is_dfd_force_dump() == 1 ||
 					mt_gpufreq_is_dfd_force_dump() == 2) {
 					pr_info("gpu dfd force dump\n");
 					mt_gpufreq_software_trigger_dfd();
 					BUG_ON(1);
 				}
+#endif
 #endif
 				} else if (ticks == gpu_reset_ticks) {
 					/* Job has been scheduled for at least
@@ -268,12 +275,19 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 
+#ifdef FORCE_HARD_STOP_BUG_ON
+				{
+					pr_info("gpu dfd force dump\n");
+					BUG_ON(1);
+				}
+#else
 				if (mt_gpufreq_is_dfd_force_dump() == 1 ||
 					mt_gpufreq_is_dfd_force_dump() == 2) {
 					pr_info("gpu dfd force dump\n");
 					mt_gpufreq_software_trigger_dfd();
 					BUG_ON(1);
 				}
+#endif
 #endif
 				} else if (ticks ==
 					js_devdata->gpu_reset_ticks_dumping) {

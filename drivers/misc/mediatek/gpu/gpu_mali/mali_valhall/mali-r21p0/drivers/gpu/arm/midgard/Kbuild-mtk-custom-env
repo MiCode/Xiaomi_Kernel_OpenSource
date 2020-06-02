@@ -46,6 +46,7 @@ ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6853"))
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+ccflags-y += -DFORCE_HARD_STOP_BUG_ON
 endif
 
 
