@@ -12,6 +12,7 @@
  */
 
 #include <linux/gfp.h>
+#include <linux/kmemleak.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
@@ -360,6 +361,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 		mtk_gem = mtk_drm_fb_gem_insert(dev, size, fb_base, vramsize);
 		if (IS_ERR(mtk_gem))
 			return PTR_ERR(mtk_gem);
+		kmemleak_ignore(mtk_gem);
 	}
 
 	private->fbdev_bo = &mtk_gem->base;
@@ -399,10 +401,12 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	mtk_drm_assert_fb_init(dev,
 			       sizes->surface_width, sizes->surface_height);
 #endif
+
 	DRM_DEBUG_KMS("FB [%ux%u]-%u size=%zd\n", fb->width,
 		      fb->height, fb->format->depth, size);
 
 	info->skip_vt_switch = true;
+
 	DDPMSG("%s-\n", __func__);
 	return 0;
 

@@ -17,6 +17,7 @@
 #include <linux/dma-mapping.h>
 #include <drm/mediatek_drm.h>
 #include <linux/iommu.h>
+#include <linux/kmemleak.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_gem.h"
@@ -46,7 +47,7 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 	/*Avoid kmemleak tool scan*/
 	kmemleak_no_scan(mtk_gem_obj);
 	ret = drm_gem_object_init(dev, &mtk_gem_obj->base, size);
-	if (ret < 0) {
+	if (ret != 0) {
 		DDPPR_ERR("failed to initialize gem object\n");
 		kfree(mtk_gem_obj);
 		return ERR_PTR(ret);
@@ -99,6 +100,8 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 
 	mtk_gem->cookie = va_align;
 
+	kfree(pages);
+	kmemleak_ignore(sgt);
 	return sgt;
 }
 #if 0
@@ -193,6 +196,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 
 	mtk_gem->size = size;
 	mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
+
 	sgt = mtk_gem_vmap_pa(mtk_gem, fb_base, 0, dev->dev, &fb_pa);
 
 	mtk_gem->sec = false;
@@ -202,6 +206,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 
 	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,
 		mtk_gem->cookie, &mtk_gem->dma_addr, size);
+	sg_free_table(mtk_gem->sg);
 	return mtk_gem;
 }
 
