@@ -707,7 +707,6 @@
   usb_gadget_udc_reset
   usb_get_dr_mode
   usb_get_intf
-  usb_hcd_is_primary_hcd
   usb_interface_id
   usb_kill_urb
   usb_phy_get_charger_current
