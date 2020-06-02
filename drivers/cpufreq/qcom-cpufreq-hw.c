@@ -317,6 +317,8 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 		}
 
 		c->is_irq_requested = true;
+		writel_relaxed(GT_IRQ_STATUS, c->base + offsets[REG_INTR_EN]);
+		writel_relaxed(0x0, c->base + offsets[REG_INTR_CLR]);
 		c->is_irq_enabled = true;
 		c->freq_limit_attr.attr.name = "dcvsh_freq_limit";
 		c->freq_limit_attr.show = dcvsh_freq_limit_show;
