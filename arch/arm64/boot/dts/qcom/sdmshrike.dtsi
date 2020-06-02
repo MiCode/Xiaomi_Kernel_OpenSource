@@ -2181,7 +2181,7 @@
 	};
 
 	ufs2phy_mem: ufsphy2_mem@1d67000 {
-		reg = <0x1d67000 0xda8>; /* PHY regs */
+		reg = <0x1d67000 0xe00>; /* PHY regs */
 		reg-names = "phy_mem";
 		#phy-cells = <0>;
 		ufs-qcom-crypto = <&ufs2_ice>;
@@ -2198,7 +2198,7 @@
 
 	ufshc2_mem: ufshc2@1d64000 {
 		compatible = "qcom,ufshc";
-		reg = <0x1d64000 0x2500>;
+		reg = <0x1d64000 0x3000>;
 		interrupts = <0 649 0>;
 		phys = <&ufs2phy_mem>;
 		phy-names = "ufsphy";

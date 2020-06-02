@@ -348,7 +348,7 @@
 	vdda-phy-max-microamp = <138000>;
 	vdda-pll-max-microamp = <65100>;
 
-	status = "ok";
+	status = "disabled";
 };
 
 &ufshc2_mem {
@@ -363,7 +363,7 @@
 	vccq-max-microamp = <750000>;
 	vccq2-max-microamp = <750000>;
 
-	status= "ok";
+	status= "disabled";
 };
 
 &usb2_phy0 {
