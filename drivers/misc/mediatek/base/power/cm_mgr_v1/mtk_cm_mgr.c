@@ -714,6 +714,8 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
 	case IPI_CM_MGR_OPP_FREQ_SET:
 	case IPI_CM_MGR_OPP_VOLT_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
@@ -762,6 +764,8 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_LOADING_ENABLE:
 	case IPI_CM_MGR_LOADING_LEVEL:
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
+	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = sspm_ipi_send_sync(IPI_ID_CM, IPI_OPT_POLLING,
@@ -908,6 +912,11 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
 		seq_printf(m, " %d", vcore_power_ratio_down[i]);
 	seq_puts(m, "\n");
+
+	seq_printf(m, "cpu_power_bcpu_weight_max %d\n",
+			cpu_power_bcpu_weight_max);
+	seq_printf(m, "cpu_power_bcpu_weight_min %d\n",
+			cpu_power_bcpu_weight_min);
 
 	seq_puts(m, "debounce_times_up_adb");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
@@ -1287,6 +1296,26 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 				debounce_times_reset_adb);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "cpu_power_bcpu_weight_max")) {
+		if (cpu_power_bcpu_weight_max < cpu_power_bcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bcpu_weight_max = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MAX_SET,
+					val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
+	} else if (!strcmp(cmd, "cpu_power_bcpu_weight_min")) {
+		if (cpu_power_bcpu_weight_max < cpu_power_bcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bcpu_weight_min = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
+					val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
 	} else if (!strcmp(cmd, "debounce_times_perf_down")) {
 		debounce_times_perf_down = val_1;
 	} else if (!strcmp(cmd, "debounce_times_perf_force_down")) {
@@ -1443,6 +1472,13 @@ int __init cm_mgr_module_init(void)
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 			debounce_times_reset_adb);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MAX_SET,
+			cpu_power_bcpu_weight_max);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
+			cpu_power_bcpu_weight_min);
+
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 	return 0;

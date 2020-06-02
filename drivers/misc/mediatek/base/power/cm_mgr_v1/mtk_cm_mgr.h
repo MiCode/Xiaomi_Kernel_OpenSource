@@ -49,6 +49,8 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_EMI_DEMAND_CHECK 21
 #define IPI_CM_MGR_OPP_FREQ_SET 22
 #define IPI_CM_MGR_OPP_VOLT_SET 23
+#define IPI_CM_MGR_BCPU_WEIGHT_MAX_SET 24
+#define IPI_CM_MGR_BCPU_WEIGHT_MIN_SET 25
 
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;

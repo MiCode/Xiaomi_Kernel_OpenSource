@@ -58,6 +58,8 @@ static int cm_mgr_loop_count;
 static int cm_mgr_dram_level;
 static int cm_mgr_loop;
 static int total_bw_value;
+int cpu_power_bcpu_weight_max = 100;
+int cpu_power_bcpu_weight_min = 100;
 int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {140, 100, 140, 100, 140};
 int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
 int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
