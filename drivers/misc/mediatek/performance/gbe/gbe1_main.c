@@ -436,7 +436,7 @@ static ssize_t gbe_boost_list_write(struct file *flip,
 	}
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%16s %16s %llu",
+	if (sscanf(buf, "%15s %15s %llu",
 			proc_name,
 			thrd_name,
 			&runtime_thrs) != 3) {
