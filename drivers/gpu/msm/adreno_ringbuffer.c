@@ -3,6 +3,7 @@
  * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/interconnect.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 
@@ -753,9 +754,9 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
 			(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
 
-		if (device->l3_clk == NULL) {
+		if (IS_ERR(device->l3_icc)) {
 			dev_err_once(device->dev,
-				"l3_vote clk not available\n");
+				"l3_icc path not available\n");
 			return;
 		}
 
@@ -776,15 +777,21 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			new_l3 = min_t(unsigned int, new_l3,
 					device->num_l3_pwrlevels - 1);
 
-			ret = clk_set_rate(device->l3_clk,
+			if (device->cur_l3_pwrlevel == new_l3)
+				return;
+
+			ret = icc_set_bw(device->l3_icc, 0,
 					device->l3_freq[new_l3]);
 
-			if (!ret)
+			if (!ret) {
+				trace_kgsl_constraint(device,
+					KGSL_CONSTRAINT_L3_PWRLEVEL, new_l3, 1);
 				device->cur_l3_pwrlevel = new_l3;
-			else
+			} else {
 				dev_err_ratelimited(device->dev,
 						       "Could not set l3_vote: %d\n",
 						       ret);
+			}
 			break;
 			}
 		}

@@ -288,7 +288,8 @@ struct kgsl_device {
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
 	struct kobject gpu_sysfs_kobj;
-	struct clk *l3_clk;
+	/** @icc_path: Interconnect path for scaling l3 frequency */
+	struct icc_path *l3_icc;
 	unsigned int l3_freq[MAX_L3_LEVELS];
 	unsigned int num_l3_pwrlevels;
 	/* store current L3 vote to determine if we should change our vote */

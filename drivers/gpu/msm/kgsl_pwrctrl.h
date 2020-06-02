@@ -253,4 +253,11 @@ void kgsl_idle_check(struct work_struct *work);
  *
  */
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
+/**
+ * kgsl_pwrctrl_clear_l3_vote - Relinquish l3 vote
+ * @device: Handle to the kgsl device
+ *
+ * Clear the l3 vote when going into slumber
+ */
+void kgsl_pwrctrl_clear_l3_vote(struct kgsl_device *device);
 #endif /* __KGSL_PWRCTRL_H */
