@@ -179,26 +179,51 @@ static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 	unsigned int val, val2, val3;
 	void __iomem *addr_ptr;
 #if 1
-	unsigned int i, cnt, sig;
+	//unsigned int i, cnt, sig;
+	unsigned int sig;
 
 	if ((void __iomem *)picachu_mem_base_virt != NULL) {
 		/* 0x60000 was reserved for eem efuse using */
 		addr_ptr = (void __iomem *)(picachu_mem_base_virt+0x60000);
+		if (picachu_read(addr_ptr)&0x1) {
+			if (picachu_read(addr_ptr)&0x2)
+				seq_puts(m, "\nAging load (slt)\n");
+			else
+				seq_puts(m, "\nAging load\n");
+		}
 
 		/* Get signature */
 		sig = (picachu_read(addr_ptr) >> PICACHU_SIGNATURE_SHIFT_BIT);
 		sig = sig & 0xff;
 		if (sig == PICACHU_SIG) {
-			cnt = picachu_read(addr_ptr) & 0xff;
-			seq_printf(m, "0x%X\n", cnt);
-			addr_ptr += 4;
-			for (i = 0; i < cnt; i++, addr_ptr += 4) {
-				val = picachu_read(addr_ptr);
-				seq_printf(m, "%d:0x%X\n", i, val);
+			#define NR_FREQ 6
+			#define NR_EEMSN_DET 3
+			struct dvfs_vf_tbl {
+				unsigned short pi_freq_tbl[NR_FREQ];
+				unsigned char pi_volt_tbl[NR_FREQ];
+				unsigned char pi_vf_num;
+			};
+			struct dvfs_vf_tbl (*vf_tbl_det)[NR_EEMSN_DET];
+			int x, y;
+
+			vf_tbl_det = addr_ptr+0x4;
+			for (x = 0; x < NR_EEMSN_DET; x++) {
+				seq_printf(m, "%u\n",
+					(*vf_tbl_det)[x].pi_vf_num);
+				for (y = 0; y < NR_FREQ; y++)
+					seq_printf(m, "%u ",
+					    (*vf_tbl_det)[x].pi_volt_tbl[y]);
+				seq_puts(m, "\n");
+				for (y = 0; y < NR_FREQ; y++)
+					seq_printf(m, "%u ",
+					    (*vf_tbl_det)[x].pi_freq_tbl[y]);
+				seq_puts(m, "\n");
 			}
 		}
+
 	}
 #endif
+return;
 	addr_ptr = ioremap(MCUCFG_SPARE_REG, 0);
 	val = picachu_read(addr_ptr);
 	seq_printf(m, "\nAging counter value: 0x%08x\n", val);
