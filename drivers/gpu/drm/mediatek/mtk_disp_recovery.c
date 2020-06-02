@@ -33,6 +33,7 @@
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_fbdev.h"
+#include "mtk_drm_trace.h"
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
@@ -226,6 +227,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	}
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
+
 	cmdq_pkt_flush(cmdq_handle);
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
@@ -472,7 +474,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 		msleep(ESD_CHECK_PERIOD);
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
-			atomic_read(&esd_ctx->check_wakeup));
+			atomic_read(&esd_ctx->check_wakeup) &&
+			atomic_read(&mtk_crtc->esd_ctx->target_time));
 		if (ret < 0) {
 			DDPINFO("[ESD]check thread waked up accidently\n");
 			continue;
@@ -480,6 +483,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 		mutex_lock(&private->commit.lock);
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mtk_drm_trace_begin("esd");
+		if (!mtk_drm_is_idle(crtc))
+			atomic_set(&esd_ctx->target_time, 0);
 
 		/* 1. esd check & recovery */
 		if (!esd_ctx->chk_active) {
@@ -514,7 +520,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			DDPINFO("[ESD] esd recovery success\n");
 			recovery_flg = 0;
 		}
-
+		mtk_drm_trace_end();
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		mutex_unlock(&private->commit.lock);
 
@@ -596,6 +602,7 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	init_waitqueue_head(&esd_ctx->ext_te_wq);
 	atomic_set(&esd_ctx->check_wakeup, 0);
 	atomic_set(&esd_ctx->ext_te_event, 0);
+	atomic_set(&esd_ctx->target_time, 0);
 	esd_ctx->chk_mode = READ_EINT;
 	mtk_drm_request_eint(crtc);
 

@@ -295,6 +295,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	if (val & (1 << 2)) {
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
+		atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 0);
 		if (rdma->id == DDP_COMPONENT_RDMA0) {
 			unsigned long long rdma_end_time = sched_clock();
 
@@ -344,8 +345,14 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 		priv->underflow_cnt++;
 	}
-	if (val & (1 << 5))
+	if (val & (1 << 5)) {
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
+		if (rdma->mtk_crtc && (!(val & (1 << 2)))) {
+			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 1);
+			wake_up_interruptible(
+				&rdma->mtk_crtc->esd_ctx->check_task_wq);
+		}
+	}
 
 	/* TODO: check if this is not necessary */
 	/* mtk_crtc_ddp_irq(priv->crtc, rdma); */
@@ -392,15 +399,10 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
 	bool en = 1;
-	unsigned int inten;
 
 	ret = pm_runtime_get_sync(comp->dev);
 	if (ret < 0)
 		DRM_ERROR("Failed to enable power domain: %d\n", ret);
-
-	inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
-		RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT;
-	mtk_ddp_write(comp, inten, DISP_REG_RDMA_INT_ENABLE, handle);
 
 	mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 			   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
@@ -697,6 +699,9 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 		       comp->regs_pa + DISP_REG_RDMA_GREQ_URG_NUM_SEL, val,
 		       REG_FLD_MASK(FLD_RG_LAYER_SMI_ID_EN));
 
+	/*esd will wait this target line irq*/
+	mtk_ddp_write(comp, (cfg->h << 3)/10,
+		DISP_REG_RDMA_TARGET_LINE, handle);
 #if 0
 	val = gs[GS_RDMA_SELF_FIFO_SIZE] + (gs[GS_RDMA_RSZ_FIFO_SIZE] << 16);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -794,7 +799,8 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		unsigned int inten;
 
 		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
-			RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT;
+			RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
+			RDMA_TARGET_LINE_INT;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
 			       inten);
