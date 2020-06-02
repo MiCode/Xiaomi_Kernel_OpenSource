@@ -78,16 +78,15 @@ static int data_debug_show(struct seq_file *s, void *data)
 
 static int data_debug_open(struct inode *inode, struct file *file)
 {
-	if (file->f_mode & FMODE_READ)
-		return single_open(file, data_debug_show, inode->i_private);
-	return simple_open(inode, file);
+	return single_open(file, data_debug_show, inode->i_private);
 }
 
 static ssize_t data_debug_write(struct file *file,
 				const char __user *user_buf,
 				size_t cnt, loff_t *loff)
 {
-	struct dbg_info *di = file->private_data;
+	struct seq_file *seq = file->private_data;
+	struct dbg_info *di = seq->private;
 	struct dbg_internal *d = &di->internal;
 	void *buffer;
 	u8 *pdata;
@@ -128,19 +127,12 @@ static ssize_t data_debug_write(struct file *file,
 	return (ret < 0) ? ret : cnt;
 }
 
-static int data_debug_release(struct inode *inode, struct file *file)
-{
-	if (file->f_mode & FMODE_READ)
-		return single_release(inode, file);
-	return 0;
-}
-
 static const struct file_operations data_debug_fops = {
 	.open = data_debug_open,
 	.read = seq_read,
 	.write = data_debug_write,
 	.llseek = seq_lseek,
-	.release = data_debug_release,
+	.release = single_release,
 };
 
 static int type_debug_show(struct seq_file *s, void *data)
