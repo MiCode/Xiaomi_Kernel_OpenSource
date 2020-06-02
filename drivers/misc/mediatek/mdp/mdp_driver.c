@@ -425,8 +425,11 @@ static s32 cmdq_driver_copy_meta(void *src, void **dest, size_t copy_size,
 #endif
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
+#if  (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 #include <linux/atomic.h>
 static atomic_t m4u_init = ATOMIC_INIT(0);
+#endif
 #endif
 
 static long cmdq_driver_create_secure_medadata(
@@ -524,11 +527,13 @@ static long cmdq_driver_create_secure_medadata(
 			pCommand->secData.ispMeta.ispBufs[i].size = 0;
 		}
 	}
-
+#if  (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 	/* do m4u sec init */
 	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0)
 		m4u_sec_init();
-#endif
+#endif //TRUSTONIC_TEE and MICROTRUST_TEE
+#endif //SECURE_PATH_SUPPORT
 	return 0;
 }
 
