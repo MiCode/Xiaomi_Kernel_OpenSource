@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,6 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 {
 	ssize_t length;
 	int i = 0;
-	size_t size = 0;
 	struct msm_rpmh_master_stats *record = NULL;
 
 	mutex_lock(&rpmh_stats_mutex);
@@ -148,7 +147,7 @@ static ssize_t msm_rpmh_master_stats_show(struct kobject *kobj,
 	for (i = 0; i < ARRAY_SIZE(rpmh_masters); i++) {
 		record = (struct msm_rpmh_master_stats *) qcom_smem_get(
 					rpmh_masters[i].pid,
-					rpmh_masters[i].smem_id, &size);
+					rpmh_masters[i].smem_id, NULL);
 		if (!IS_ERR_OR_NULL(record) && (PAGE_SIZE - length > 0))
 			length += msm_rpmh_master_stats_print_data(
 					buf + length, PAGE_SIZE - length,
