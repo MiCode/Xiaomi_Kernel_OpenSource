@@ -6496,7 +6496,7 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 					struct find_best_target_env *fbt_env)
 {
 	unsigned long min_util = uclamp_task_util(p);
-	unsigned long target_max_spare_cap = 0;
+	long target_max_spare_cap = 0;
 	unsigned long best_idle_cuml_util = ULONG_MAX;
 	/* Initialise with deepest possible cstate (INT_MAX) */
 	int shallowest_idle_cstate = INT_MAX;
