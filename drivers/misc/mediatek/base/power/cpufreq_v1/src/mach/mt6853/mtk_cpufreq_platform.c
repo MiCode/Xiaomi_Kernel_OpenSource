@@ -629,36 +629,45 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 #ifndef CONFIG_MT6360_PMIC
-	unsigned int lv = CPU_LEVEL_1;
+	unsigned int lv = CPU_LEVEL_3;
 #else
-	unsigned int lv = CPU_LEVEL_2;
+	unsigned int lv = CPU_LEVEL_4;
 #endif
-	int val = (get_devinfo_with_index(62) & 0x300);
+	int val = get_devinfo_with_index(7);
+	int cpulv = (get_devinfo_with_index(62) & 0x300);
+	int seg = val & 0x3;
+
+	if (!val) {
+		if (!cpulv) {
+#ifndef CONFIG_MT6360_PMIC
+			lv = CPU_LEVEL_1;
+#else
+			lv = CPU_LEVEL_2;
+#endif
+		} else
+			lv = CPU_LEVEL_0;
+	} else {
+		if (seg) {
+#ifndef CONFIG_MT6360_PMIC
+			lv = CPU_LEVEL_1;
+#else
+			lv = CPU_LEVEL_2;
+#endif
+		}
+	}
 #if defined(CONFIG_ARM64) && \
-	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+		defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(
 		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
 			"_turbo")){
 		lv = CPU_LEVEL_0;
 		tag_pr_info("turbo project over\n");
 	}
-#if 0
-	val = val >> 8;
-	switch (val) {
-	case 0:
-		break;
-	case 1:
-		lv += 2;
-		break;
-	default:
-		break;
-	}
-	turbo_flag = 0;
-#endif
 #endif
 
-	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
-		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
+
+	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x 0x%x\n",
+		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val, cpulv);
 	return lv;
 }
 #ifdef DFD_WORKAROUND
