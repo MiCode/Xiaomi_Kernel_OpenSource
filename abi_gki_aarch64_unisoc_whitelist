@@ -234,16 +234,6 @@
   handle_bad_irq
   handle_edge_irq
   handle_level_irq
-  hid_compare_device_paths
-  hid_debug
-  hid_field_extract
-  hid_hw_close
-  hid_hw_open
-  hid_hw_stop
-  hid_input_report
-  hid_report_raw_event
-  __hid_request
-  hid_validate_values
   i2c_del_driver
   i2c_register_driver
   i2c_smbus_read_byte_data
@@ -718,7 +708,6 @@
   usb_get_dr_mode
   usb_get_intf
   usb_hcd_is_primary_hcd
-  usb_hid_driver
   usb_interface_id
   usb_kill_urb
   usb_phy_get_charger_current
@@ -950,55 +939,6 @@
 
 # required by gpio-sprd.ko
   __platform_driver_probe
-
-# required by hid-generic.ko
-  bus_for_each_drv
-  hid_bus_type
-  hid_hw_start
-  hid_match_device
-  hid_open_report
-  __hid_register_driver
-  hid_unregister_driver
-
-# required by hid-logitech-dj.ko
-  hid_add_device
-  hid_allocate_device
-  hid_destroy_device
-  hid_parse_report
-  strlcat
-
-# required by hid-logitech-hidpp.ko
-  hid_snto32
-  input_ff_create
-  strnstr
-
-# required by hid-picolcd.ko
-  hid_set_field
-
-# required by hid-prodikeys.ko
-  snd_card_disconnect
-  snd_card_free_when_closed
-  snd_card_new
-  snd_card_register
-  snd_device_new
-  snd_rawmidi_new
-  snd_rawmidi_receive
-  snd_rawmidi_set_ops
-
-# required by hid-roccat.ko
-  noop_llseek
-
-# required by hid-roccat-lua.ko
-  sysfs_create_bin_file
-  sysfs_remove_bin_file
-
-# required by hid-uclogic.ko
-  usb_string
-
-# required by hid-wiimote.ko
-  kasprintf
-  led_classdev_register_ext
-  led_classdev_unregister
 
 # required by i2c-sprd.ko
   i2c_add_numbered_adapter
@@ -2077,22 +2017,6 @@
   scatterwalk_map_and_copy
   sg_init_one
   sg_nents_for_len
-
-# required by wacom.ko
-  devm_led_trigger_register
-  devres_close_group
-  devres_open_group
-  devres_release_group
-  hid_alloc_report_buf
-  hidinput_calc_abs_res
-  int_sqrt
-  __kfifo_in_r
-  __kfifo_max_r
-  __kfifo_out_r
-  __kfifo_skip_r
-  led_trigger_event
-  memmove
-  sysfs_create_files
 
 # required by wcn_bsp.ko
   memdup_user
