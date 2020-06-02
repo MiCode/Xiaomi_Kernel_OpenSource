@@ -6,3 +6,11 @@ config MTK_CAM_SECURITY_SUPPORT
 	  It provides hardware-based security that guarantees the data integrity
 	  form image sensor, ISP DMA port access to secure memory.
 	  If you are not sure about this, do not set it to y.
+
+config MTK_CAM_GENIEZONE_SUPPORT
+	bool "Secure Camera Geniezone Support"
+	default n
+	help
+	  This is an option for MTK secure camera support geniezone.
+	  It provides Geniezone-based secure camera.
+	  If you are not sure about this, do not set it to y.
