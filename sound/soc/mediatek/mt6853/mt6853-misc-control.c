@@ -2023,6 +2023,8 @@ static void *get_sph_property_by_name(struct mt6853_afe_private *afe_priv,
 		return &afe_priv->speech_md_version;
 	else if (strcmp(name, "Speech_Cust_Param_Init") == 0)
 		return &afe_priv->speech_cust_param_init;
+	else if (strcmp(name, "Speech_Dynamic_DL_Mute") == 0)
+		return &afe_priv->speech_dynamic_dl_mute;
 	else
 		return NULL;
 }
@@ -2121,6 +2123,9 @@ static const struct snd_kcontrol_new mt6853_afe_speech_controls[] = {
 		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
 		       speech_property_get, speech_property_set),
 	SOC_SINGLE_EXT("Speech_Cust_Param_Init",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Dynamic_DL_Mute",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
 };

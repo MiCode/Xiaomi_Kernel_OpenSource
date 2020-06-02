@@ -229,6 +229,7 @@ struct mt6853_afe_private {
 	int speech_md_headversion;
 	int speech_md_version;
 	int speech_cust_param_init;
+	int speech_dynamic_dl_mute;
 };
 
 int mt6853_dai_adda_register(struct mtk_base_afe *afe);
