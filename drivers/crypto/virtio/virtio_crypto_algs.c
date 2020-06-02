@@ -569,10 +569,11 @@ static void virtio_crypto_ablkcipher_finalize_req(
 	struct ablkcipher_request *req,
 	int err)
 {
-	crypto_finalize_cipher_request(vc_sym_req->base.dataq->engine,
-					req, err);
 	kzfree(vc_sym_req->iv);
 	virtcrypto_clear_request(&vc_sym_req->base);
+
+	crypto_finalize_cipher_request(vc_sym_req->base.dataq->engine,
+					   req, err);
 }
 
 static struct crypto_alg virtio_crypto_algs[] = { {
