@@ -37,7 +37,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+	     -I$(srctree)/drivers/iommu/ \
+	     -I$(srctree)/drivers/staging/android/ion \
+	     -I$(srctree)/drivers/staging/android/ion/mtk
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
@@ -83,6 +86,8 @@ obj-y += mdp_common.o
 obj-y += mdp_event_common.o
 obj-y += cmdq_subsys_common.o
 obj-y += cmdq_helper_ext.o
+obj-y += mdp_ioctl_ex.o
+obj-y += mdp_m4u.o
 
 ifeq ($(strip $(CONFIG_MMPROFILE)),y)
 obj-y += cmdq_mmp.o

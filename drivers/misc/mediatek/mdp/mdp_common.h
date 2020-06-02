@@ -203,6 +203,10 @@ void cmdq_mdp_resume(void);
 void cmdq_mdp_release_task_by_file_node(void *file_node);
 void cmdq_mdp_init(void);
 void cmdq_mdp_deinit_pmqos(void);
+s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out);
+s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle);
+s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
+			struct cmdqRecStruct *handle);
 
 /* Platform dependent function */
 
@@ -256,6 +260,9 @@ u32 cmdq_mdp_wrot_get_reg_offset_dst_addr(void);
 u32 cmdq_mdp_wdma_get_reg_offset_dst_addr(void);
 
 void testcase_clkmgr_mdp(void);
+
+u32 cmdq_mdp_get_hw_reg(enum MDP_ENG_BASE base, u16 offset);
+u32 cmdq_mdp_get_hw_port(enum MDP_ENG_BASE base);
 
 /* Platform virtual function setting */
 void cmdq_mdp_platform_function_setting(void);

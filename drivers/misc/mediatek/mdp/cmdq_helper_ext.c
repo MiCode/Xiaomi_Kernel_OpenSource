@@ -135,7 +135,8 @@ enum xpr_id {
 	xpr_total = 32,
 };
 
-#include "mdp_base.h"
+static u32 mdp_base[1] = {0};
+static u32 mdp_sub_base[1] = {0};
 
 static bool cmdq_mdp_is_reg_valid(const unsigned long pa)
 {
@@ -2382,7 +2383,7 @@ const char *cmdq_core_parse_subsys_from_reg_addr(u32 reg_addr)
 s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 {
 	s32 msb;
-	s32 subsysID = -1;
+	s32 subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
 	u32 i;
 
 	for (i = 0; i < CMDQ_SUBSYS_MAX_COUNT; i++) {
@@ -2396,23 +2397,6 @@ s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 		}
 	}
 
-	if (subsysID == -1 && cmdq_adds_subsys.subsysID > 0) {
-		msb = physAddr & cmdq_adds_subsys.mask;
-		if (msb == cmdq_adds_subsys.msb)
-			subsysID = cmdq_adds_subsys.subsysID;
-	}
-
-	if (subsysID == -1) {
-		/* if not supported physAddr is GCE base address,
-		 * then tread as special address
-		 */
-		msb = physAddr & GCE_BASE_PA;
-		if (msb == GCE_BASE_PA)
-			subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
-		else
-			CMDQ_ERR("unrecognized subsys, physAddr:0x%08x\n",
-				physAddr);
-	}
 	return subsysID;
 }
 
