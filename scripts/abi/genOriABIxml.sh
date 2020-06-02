@@ -102,8 +102,9 @@ if [ "$mode" == "m" ] || [ "$mode" == "p" ]
 then
 	#Check Terminal server support "mosesq" or "dockerq"
 	echo "Start to test sever queue..."
-	mosesq ls -al
-	if [ $? -eq 0 ];
+	test_queue=$(mosesq ls 2>&1)
+	if [[ "$test_queue" != \
+		*"Host or host group is not used by the queue."* ]];
 	then
 		SERVER_QUEUE=mosesq
 	else
