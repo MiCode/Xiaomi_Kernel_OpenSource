@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1849,6 +1849,12 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	struct dp_debug_private *debug = container_of(dp_debug,
 		struct dp_debug_private, dp_debug);
 	struct dentry *dir, *file;
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+		pr_err("Not creating debug root dir\n");
+		debug->root = NULL;
+		return 0;
+	}
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
