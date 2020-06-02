@@ -1962,7 +1962,7 @@ static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 	return 0;
 }
 
-static void dwc3_stop_active_transfers(struct dwc3 *dwc)
+static void dwc3_stop_active_transfers(struct dwc3 *dwc, bool block_db)
 {
 	u32 epnum;
 
@@ -1976,9 +1976,11 @@ static void dwc3_stop_active_transfers(struct dwc3 *dwc)
 		if (!(dep->flags & DWC3_EP_ENABLED))
 			continue;
 
-		if (dep->gsi && dep->direction)
+		if (dep->gsi && dep->direction && block_db) {
+			dbg_log_string("block_db with dep:%s", dep->name);
 			dwc3_notify_event(dwc,
 				DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
+		}
 
 		dwc3_remove_requests(dwc, dep);
 	}
@@ -2064,9 +2066,10 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * According to dwc3 databook, it is must to remove any active
 		 * transfers before trying to stop USB device controller. Hence
 		 * call dwc3_stop_active_transfers() API before stopping USB
-		 * device controller.
+		 * device controller. Also don't block ringing of doorbell until
+		 * controller is halted (i.e. second param as false).
 		 */
-		dwc3_stop_active_transfers(dwc);
+		dwc3_stop_active_transfers(dwc, false);
 
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
@@ -3258,7 +3261,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 		dwc3_ep0_stall_and_restart(dwc);
 	}
 
-	dwc3_stop_active_transfers(dwc);
+	dwc3_stop_active_transfers(dwc, true);
 	dwc3_clear_stall_all_ep(dwc);
 
 	/* Reset device address to zero */
