@@ -1207,6 +1207,15 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 		desc->secData.addrMetadataCount,
 		CMDQ_U32_PTR(desc->secData.addrMetadatas));
 
+#ifdef CMDQ_ENG_MTEE_GROUP_BITS
+	if (desc->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS)
+		cmdq_sec_pkt_set_mtee(handle->pkt, true);
+	else
+		cmdq_sec_pkt_set_mtee(handle->pkt, false);
+	CMDQ_LOG("handle:%p mtee:%d\n", handle,
+		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee);
+#endif
+
 	if (handle->pkt->cmd_buf_size) {
 		u32 cnt = handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
 		struct cmdq_sec_data *data = handle->pkt->sec_data;
