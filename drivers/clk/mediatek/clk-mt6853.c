@@ -2061,7 +2061,7 @@ static const struct mtk_gate ifrao_clks[] = {
 	GATE_IFRAO3(CLK_IFRAO_MSDC1_SRC, "ifrao_msdc1_clk",
 			"msdc30_1_ck"/* parent */, 16),
 	GATE_IFRAO3(CLK_IFRAO_MSDC0_AES, "ifrao_msdc0_aes_clk",
-			"msdc50_0_ck"/* parent */, 17),
+			"aes_msdcfde_ck"/* parent */, 17),
 	GATE_IFRAO3(CLK_IFRAO_PCIE_TL_96M, "ifrao_pcie_tl_96m",
 			"axi_ck"/* parent */, 18),
 	GATE_IFRAO3(CLK_IFRAO_PCIE_PL_PCLK_250M, "ifrao_pcie_pl_p_250m",

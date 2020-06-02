@@ -88,6 +88,7 @@ static struct regbase rb[] = {
 	{ .base = &rb[_base], .ofs = _ofs, .name = #_name }
 
 static struct regname rn[] = {
+	REGNAME(topckgen,  0x000, CLK_MODE),
 	REGNAME(topckgen,  0x010, CLK_CFG_0),
 	REGNAME(topckgen,  0x020, CLK_CFG_1),
 	REGNAME(topckgen,  0x030, CLK_CFG_2),
@@ -294,6 +295,7 @@ static struct regname rn[] = {
 	REGNAME(vdecsys, 0x0008, VDEC_LARB1_CKEN_SET),
 
 	REGNAME(vencsys, 0x0000, VENC_CG_CON),
+	{},
 };
 
 static const struct regname *get_all_regnames(void)
