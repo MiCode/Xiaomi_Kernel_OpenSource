@@ -252,10 +252,49 @@ static unsigned long g_reg_pll_con1[FH_PLL_NUM];
 
 #define FHCTL_D_LEN (9)
 
+
+static int fhctl_to_mcupm_ack_data(unsigned int cmd,
+		struct fhctl_ipi_data *ipi_data, int *retVal)
+{
+
+	FH_MSG_DEBUG("send ipi command %x", cmd);
+
+	switch (cmd) {
+	case FH_DCTL_CMD_GET_PLL_STRUCT:
+		ipi_data->cmd = cmd;
+
+		*retVal = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
+				IPI_SEND_POLLING, ipi_data, FHCTL_D_LEN, 10);
+
+		if (*retVal != 0) {
+			FH_MSG(F2M_CMD_ERR_MSG, cmd, *retVal, ack_data);
+			FH_MSG("[FH] check uart status: %d",
+				mt_get_uartlog_status());
+
+			/*timeout when uart enable may be false alarm*/
+			if (!mt_get_uartlog_status())
+				aee_kernel_warning_api(__FILE__, __LINE__,
+					DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+					"[FH] IPI to CPUEB\n",
+					"IPI timeout");
+		} else if (ack_data < 0)
+			FH_MSG(F2M_ACK_ERR_MSG, cmd, ack_data);
+		break;
+	default:
+		FH_MSG("[Error]Undefined IPI command");
+		break;
+	}
+
+	FH_MSG_DEBUG("send ipi command %x, response: ack_data: %d",
+			cmd, ack_data);
+	return ack_data;
+}
+
+
 static int fhctl_to_mcupm_command(unsigned int cmd,
 		struct fhctl_ipi_data *ipi_data)
 {
-	int ret = 0;
+	int retVal = 0;
 
 	FH_MSG_DEBUG("send ipi command %x", cmd);
 
@@ -271,26 +310,24 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 	case FH_DCTL_CMD_FH_CONFIG:
 	case FH_DCTL_CMD_SSC_TBL_CONFIG:
 	case FH_DCTL_CMD_SET_PLL_STRUCT:
-	case FH_DCTL_CMD_GET_PLL_STRUCT:
+//	case FH_DCTL_CMD_GET_PLL_STRUCT:
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
 
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
-		IPI_SEND_POLLING, ipi_data, FHCTL_D_LEN, 10);
-		if (ret != 0) {
-			FH_MSG(F2M_CMD_ERR_MSG, cmd, ret, ack_data);
-			FH_MSG("[FH]FHCTL check uart status: %d",
+		retVal = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
+				IPI_SEND_POLLING, ipi_data, FHCTL_D_LEN, 10);
+
+		if (retVal != 0) {
+			FH_MSG(F2M_CMD_ERR_MSG, cmd, retVal, ack_data);
+			FH_MSG("[FH] check uart status: %d",
 				mt_get_uartlog_status());
-#ifdef IPI_FHCTL_MONITOR
-			if (mt_get_uartlog_status()) {
+
+			/*timeout when uart enable may be false alarm*/
+			if (!mt_get_uartlog_status())
 				aee_kernel_warning_api(__FILE__, __LINE__,
-				DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-				"[FH] freqhopping IPI to CPUEB\n",
-				"IPI timeout trigger Kernel warning");
-			} else {
-				BUG();
-			}
-#endif
+					DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+					"[FH] IPI to CPUEB\n",
+					"IPI timeout");
 		} else if (ack_data < 0)
 			FH_MSG(F2M_ACK_ERR_MSG,
 					cmd, ack_data);
@@ -302,7 +339,7 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 
 	FH_MSG_DEBUG("send ipi command %x, response: ack_data: %d",
 			cmd, ack_data);
-	return ack_data;
+	return retVal;
 }
 
 static void mt_fh_pll_struct_set(int pll_id, int field, int value)
@@ -313,16 +350,24 @@ static void mt_fh_pll_struct_set(int pll_id, int field, int value)
 	ipi_data.u.args[1] = field;
 	ipi_data.u.args[2] = value;
 	fhctl_to_mcupm_command(FH_DCTL_CMD_SET_PLL_STRUCT, &ipi_data);
-
 }
 
 static int mt_fh_pll_struct_get(int pll_id, int field)
 {
 	struct fhctl_ipi_data ipi_data;
+	int retval = 0;
+	int ack_data = 0;
 
 	ipi_data.u.args[0] = pll_id;
 	ipi_data.u.args[1] = field;
-	return fhctl_to_mcupm_command(FH_DCTL_CMD_GET_PLL_STRUCT, &ipi_data);
+
+	ack_data = fhctl_to_mcupm_ack_data(FH_DCTL_CMD_GET_PLL_STRUCT,
+				&ipi_data, &retval);
+
+	if (retval == 0)
+		return ack_data;
+	else
+		return -1;
 }
 
 /* Just to use special index pattern to find right setting. */
@@ -379,7 +424,7 @@ static int __freqhopping_ctrl(struct freqhopping_ioctl *fh_ctl, bool enable)
 				mt_fh_pll_struct_get(fh_ctl->pll_id,
 						SETTING_IDX_PATTERN);
 
-			if (fh_pll.setting_idx_pattern != 0) {
+			if (fh_pll.setting_idx_pattern >= 0) {
 				ssc_id =
 					__freq_to_index(fh_ctl->pll_id,
 						fh_pll.setting_idx_pattern);
@@ -449,6 +494,7 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 		unsigned int target_dds)
 {
 	struct fhctl_ipi_data ipi_data;
+	int retVal = 0;
 
 	if (g_initialize == 0) {
 		FH_MSG("(Warning) %s FHCTL isn't ready. ", __func__);
@@ -490,9 +536,9 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	ipi_data.u.args[0] = pll_id;
 	ipi_data.u.args[1] = target_dds;
-	fhctl_to_mcupm_command(FH_DCTL_CMD_GENERAL_DFS, &ipi_data);
+	retVal = fhctl_to_mcupm_command(FH_DCTL_CMD_GENERAL_DFS, &ipi_data);
 
-	return 0;
+	return retVal;
 
 }
 #undef HOPPING_FORBIDDEN_PLL_MSG
@@ -503,12 +549,12 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 static int mt_fh_hal_dfs_armpll(unsigned int coreid, unsigned int dds)
 {
 	struct fhctl_ipi_data ipi_data;
-
+	int retVal = 0;
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	ipi_data.u.args[0] = coreid;
 	ipi_data.u.args[1] = dds;
-	fhctl_to_mcupm_command(FH_DCTL_CMD_ARM_DFS, &ipi_data);
-	return 0;
+	retVal = fhctl_to_mcupm_command(FH_DCTL_CMD_ARM_DFS, &ipi_data);
+	return retVal;
 }
 
 
@@ -913,6 +959,7 @@ int mt_pause_armpll(unsigned int pll, unsigned int pause)
 	/* unsigned long flags = 0; */
 	unsigned long reg_cfg = 0;
 	struct fhctl_ipi_data ipi_data;
+	int retVal = 0;
 
 	if (g_initialize == 0) {
 		FH_MSG("(Warning) %s FHCTL isn't ready.", __func__);
@@ -943,6 +990,6 @@ int mt_pause_armpll(unsigned int pll, unsigned int pause)
 	};
 	ipi_data.u.args[0] = pll;
 	ipi_data.u.args[1] = (pause & 0x00000001) ? 1 : 0;
-	fhctl_to_mcupm_command(FH_DCTL_CMD_PLL_PAUSE, &ipi_data);
-	return 0;
+	retVal = fhctl_to_mcupm_command(FH_DCTL_CMD_PLL_PAUSE, &ipi_data);
+	return retVal;
 }
