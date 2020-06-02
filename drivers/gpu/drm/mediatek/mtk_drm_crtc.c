@@ -6477,7 +6477,7 @@ skip:
 	/* 3. stop trig loop  */
 	if (mtk_crtc_with_trigger_loop(crtc)) {
 		mtk_crtc_stop_trig_loop(crtc);
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 				(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_stop_sodi_loop(crtc);
