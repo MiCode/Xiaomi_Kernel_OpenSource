@@ -5456,6 +5456,7 @@ done:
 void Panel_Master_primary_display_config_dsi(struct mtk_dsi *dsi,
 	const char *name, uint32_t config_value)
 {
+	unsigned long mipi_tx_rate;
 
 	if (!strcmp(name, "PM_CLK")) {
 		pr_debug("Pmaster_config_dsi: PM_CLK:%d\n", config_value);
@@ -5466,17 +5467,17 @@ void Panel_Master_primary_display_config_dsi(struct mtk_dsi *dsi,
 		return;
 	}
 
-	dsi->data_rate = dsi->ext->params->pll_clk * 2000000;
-
-	/* Store DSI data rate in MHz */
-	dsi->data_rate /= 1000000;
+	dsi->data_rate = dsi->ext->params->pll_clk * 2;
+	mipi_tx_rate = dsi->data_rate * 1000000;
 
 	mtk_dsi_set_interrupt_enable(dsi);
 	/* config dsi clk */
 
+	clk_set_rate(dsi->hs_clk, mipi_tx_rate);
+	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
+
 	mtk_dsi_phy_timconfig(dsi);
-	mtk_dsi_rxtx_control(dsi);
-	mtk_dsi_ps_control_vact(dsi);
+
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_set_vm_cmd(dsi);
 		mtk_dsi_calc_vdo_timing(dsi);
@@ -5534,11 +5535,6 @@ int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
 	int ret = 0;
 	struct mtk_dsi *dsi = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt *cmdq_handle_for_pm = NULL;
-	struct mtk_drm_private *private = crtc->dev->dev_private;
-
-	mutex_lock(&private->commit.lock);
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	dsi = pm_get_mtk_dsi(crtc);
 	if (!dsi) {
@@ -5547,26 +5543,10 @@ int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
 	}
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
-	/* the following code is to
-	 * 1: stop path
-	 * 2: config dsi
-	 * 3: start path
-	 * 4: unlock path
-	 */
-
-	/* 0 disable esd check */
+	/*  disable esd check */
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, false);
-	/* 1.stop crtc ddp */
-	mtk_crtc_stop_for_pm(mtk_crtc, true);
-	/* 2. stop dsi */
-	mtk_dsi_clk_hs_mode(dsi, 0);
-	mtk_dsi_stop(dsi);
 
-	mtk_dsi_reset_engine(dsi);
-	mtk_dsi_set_interrupt_enable(dsi);
-
-	/* 3. config dsi */
 	if ((!strcmp(name, "PM_CLK")) || (!strcmp(name, "PM_SSC"))) {
 		Panel_Master_primary_display_config_dsi(dsi,
 			name, config_value);
@@ -5576,45 +5556,13 @@ int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
 				DDPPR_ERR("failed to enable the panel\n");
 		}
 	}
-
-	/* 4.start path */
-	mtk_crtc_start_for_pm(crtc);
-	mtk_dsi_clk_hs_mode(dsi, 1);
-	mtk_dsi_start(dsi);
-
-
-	mtk_crtc_hw_block_ready(crtc);
-	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
-
-		struct cmdq_pkt *cmdq_handle;
-
-		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-				mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
-		cmdq_pkt_set_event(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-		cmdq_pkt_set_event(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_set_event(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
-
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-	}
-
-
-	mtk_crtc_pkt_create(&cmdq_handle_for_pm, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	cmdq_pkt_set_event(cmdq_handle_for_pm,
-			mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
-	cmdq_pkt_flush(cmdq_handle_for_pm);
-	cmdq_pkt_destroy(cmdq_handle_for_pm);
+	/* enable esd check */
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, true);
-	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
+
+
 done:
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-	mutex_unlock(&private->commit.lock);
+
 	return ret;
 }
 
