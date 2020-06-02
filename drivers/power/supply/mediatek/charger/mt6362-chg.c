@@ -285,6 +285,7 @@ struct mt6362_chg_data {
 	u32 zcv;
 	u32 ichg;
 	u32 ichg_dis_chg;
+	u32 bd_mivr;
 	struct task_struct *bc12_task;
 	bool bc12_update;
 	bool attach;
@@ -1417,6 +1418,12 @@ static int mt6362_set_mivr(struct charger_device *chg_dev, u32 uV)
 	u8 sel;
 
 	mt_dbg(data->dev, "%s: mivr = %d\n", __func__, uV);
+	if (data->bd_flag) {
+		dev_info(data->dev,
+			 "%s: ignore until disable flash\n", __func__);
+		data->bd_mivr = uV;
+		return 0;
+	}
 	sel = mt6362_map_reg_sel(uV, MT6362_MIVR_MIN, MT6362_MIVR_MAX,
 				 MT6362_MIVR_STEP);
 	return regmap_update_bits(data->regmap,
@@ -2207,12 +2214,25 @@ static int mt6362_enable_bleed_discharge(struct charger_device *chg_dev,
 	int ret;
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	mutex_lock(&data->bd_lock);
+	if (en) {
+		ret = mt6362_get_mivr(chg_dev, &data->bd_mivr);
+		if (ret < 0)
+			goto out;
+		ret = mt6362_set_mivr(chg_dev, MT6362_MIVR_MAX);
+		if (ret < 0)
+			goto out;
+	}
+	data->bd_flag = en;
 	ret = mt6362_enable_otg_parameter(data, en);
 	if (ret < 0)
-		return ret;
-	mutex_lock(&data->bd_lock);
-	data->bd_flag = en;
+		goto out;
 	ret = mt6362_handle_bleed_discharge(data);
+	if (ret < 0)
+		goto out;
+	if (!en)
+		ret = mt6362_set_mivr(chg_dev, data->bd_mivr);
+out:
 	mutex_unlock(&data->bd_lock);
 	return ret;
 }
@@ -2887,6 +2907,7 @@ static int mt6362_chg_probe(struct platform_device *pdev)
 	data->zcv = 0;
 	data->ichg = 2000000;
 	data->ichg_dis_chg = 2000000;
+	data->bd_mivr = 4400000;
 	data->bc12_update = false;
 	data->attach = false;
 	atomic_set(&data->mivr_cnt, 0);
