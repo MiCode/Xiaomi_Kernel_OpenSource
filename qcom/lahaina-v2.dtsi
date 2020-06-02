@@ -22,6 +22,10 @@
 	dynamic-power-coefficient = <760>;
 };
 
+&sde_dp {
+	/delete-node/ qcom,pll-supply-entries;
+};
+
 &pcie0 {
 	qcom,pcie-phy-ver = <20099>;
 	qcom,phy-sequence = <0x0240 0x03 0x0
