@@ -3074,6 +3074,21 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: phy-status-reg:0x%x\n",
 			ep_pcie_dev.rev, ep_pcie_dev.phy_status_reg);
 
+	ep_pcie_dev.phy_status_bit_mask_bit = BIT(6);
+
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,phy-status-reg2",
+				&ep_pcie_dev.phy_status_reg);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: phy-status-reg2 does not exist\n",
+			ep_pcie_dev.rev);
+	} else {
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: phy-status-reg2:0x%x\n",
+			ep_pcie_dev.rev, ep_pcie_dev.phy_status_reg);
+		ep_pcie_dev.phy_status_bit_mask_bit = BIT(7);
+	}
+
 	ep_pcie_dev.phy_rev = 1;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,pcie-phy-ver",
