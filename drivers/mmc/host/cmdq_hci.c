@@ -784,37 +784,6 @@ _err:
 #endif
 		cmdq_writel(cq_host, status, CQIS);
 
-		if (!err_info) {
-			/*
-			 * It may so happen sometimes for few errors(like QSR)
-			 * that HW cannot give CQTERRI info.
-			 * Thus below is a HW WA for recovering from such
-			 * scenario.
-			 * - To halt/disable CQE and do reset_all.
-			 *   Since there is no way to know which tag would
-			 *   have caused such error, so check for any first
-			 *   bit set in doorbell and proceed with an error.
-			 */
-			task_mask = cmdq_readl(cq_host, CQTDBR);
-			if (!task_mask) {
-				pr_notice("%s: spurious/force error interrupt\n",
-						mmc_hostname(mmc));
-				cmdq_halt_poll(mmc, false);
-				mmc_host_clr_halt(mmc);
-				return IRQ_HANDLED;
-			}
-
-			tag = uffs(task_mask) - 1;
-			pr_notice("%s: error tag selected: tag = %lu\n",
-					mmc_hostname(mmc), tag);
-			mrq = get_req_by_tag(cq_host, tag);
-			if (mrq->data)
-				mrq->data->error = err;
-			else
-				mrq->cmd->error = err;
-			goto skip_cqterri;
-		}
-
 		if (err_info & CQ_RMEFV) {
 			cmd_idx = GET_CMD_ERR_CMDIDX(err_info);
 			if (cmd_idx == MMC_SEND_STATUS) {
@@ -847,9 +816,35 @@ _err:
 
 			mrq = get_req_by_tag(cq_host, tag);
 			mrq->data->error = err;
+		} else {
+			/*
+			 * It may so happen sometimes for few errors(like QSR)
+			 * Thus below is a HW WA for recovering from such
+			 * scenario.
+			 * - To halt/disable CQE and do reset_all.
+			 *   Since there is no way to know which tag would
+			 *   have caused such error, so check for any first
+			 *   bit set in doorbell and proceed with an error.
+			 */
+			task_mask = cmdq_readl(cq_host, CQTDBR);
+			if (!task_mask) {
+				pr_notice("%s: spurious/force error interrupt\n",
+						mmc_hostname(mmc));
+				cmdq_halt_poll(mmc, false);
+				mmc_host_clr_halt(mmc);
+				return IRQ_HANDLED;
+			}
+
+			tag = uffs(task_mask) - 1;
+			pr_notice("%s: error tag selected: tag = %lu\n",
+					mmc_hostname(mmc), tag);
+			mrq = get_req_by_tag(cq_host, tag);
+			if (mrq->data)
+				mrq->data->error = err;
+			else
+				mrq->cmd->error = err;
 		}
 
-skip_cqterri:
 		/*
 		 * CQE detected a response error from device
 		 * In most cases, this would require a reset.
