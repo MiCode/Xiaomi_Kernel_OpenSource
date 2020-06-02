@@ -295,7 +295,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	if (val & (1 << 2)) {
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
-		atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 0);
+		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx)
+			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 0);
 		if (rdma->id == DDP_COMPONENT_RDMA0) {
 			unsigned long long rdma_end_time = sched_clock();
 
@@ -347,7 +348,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 	if (val & (1 << 5)) {
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
-		if (rdma->mtk_crtc && (!(val & (1 << 2)))) {
+		if (rdma->mtk_crtc && rdma->mtk_crtc->esd_ctx &&
+			(!(val & (1 << 2)))) {
 			atomic_set(&rdma->mtk_crtc->esd_ctx->target_time, 1);
 			wake_up_interruptible(
 				&rdma->mtk_crtc->esd_ctx->check_task_wq);
