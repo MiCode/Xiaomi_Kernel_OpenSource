@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,7 @@
 #define LOG_MSG_TOTAL_SIZE_INDEX 0
 #define LOG_MSG_MSG_ID_INDEX     1
 
-#define NPU_FW_TIMEOUT_POLL_INTERVAL_MS  20
+#define NPU_FW_TIMEOUT_POLL_INTERVAL_MS  10
 #define NPU_FW_TIMEOUT_MS                1000
 
 /* -------------------------------------------------------------------------
@@ -43,7 +43,7 @@ static void host_irq_wq(struct work_struct *work);
 static void fw_deinit_wq(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
-	uint32_t status_reg, uint32_t status_bits);
+	uint32_t status_reg, uint32_t status_bits, bool poll);
 static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 	struct npu_client *client);
 static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
@@ -158,7 +158,7 @@ retry:
 	pr_debug("waiting for status ready from fw\n");
 
 	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
-		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL)) {
+		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, true)) {
 		ret = -EPERM;
 		need_retry = true;
 		goto wait_fw_ready_fail;
@@ -255,7 +255,7 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 			pr_debug("waiting for shutdown status from fw\n");
 			if (wait_for_status_ready(npu_dev,
 				REG_NPU_FW_CTRL_STATUS,
-				FW_CTRL_STATUS_SHUTDOWN_DONE_VAL)) {
+				FW_CTRL_STATUS_SHUTDOWN_DONE_VAL, true)) {
 				pr_err("wait for fw shutdown timedout\n");
 				ret = -ETIMEDOUT;
 			}
@@ -468,7 +468,7 @@ static void turn_off_fw_logging(struct npu_device *npu_dev)
 }
 
 static int wait_for_status_ready(struct npu_device *npu_dev,
-	uint32_t status_reg, uint32_t status_bits)
+	uint32_t status_reg, uint32_t status_bits, bool poll)
 {
 	uint32_t ctrl_sts = 0;
 	uint32_t wait_cnt = 0, max_wait_ms;
@@ -476,20 +476,36 @@ static int wait_for_status_ready(struct npu_device *npu_dev,
 
 	max_wait_ms = (host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT_MS : NPU_FW_TIMEOUT_MS;
+	if (poll)
+		wait_cnt = max_wait_ms * 10;
+	else
+		wait_cnt = max_wait_ms / NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
 
 	/* keep reading status register until bits are set */
-	while ((ctrl_sts & status_bits) != status_bits) {
+	do {
 		ctrl_sts = REGR(npu_dev, status_reg);
-		msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
-		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
-		if (wait_cnt >= max_wait_ms) {
+		if ((ctrl_sts & status_bits) == status_bits) {
+			pr_debug("status %x[reg %x] ready received\n",
+				status_bits, status_reg);
+			break;
+		}
+
+		if (!wait_cnt) {
 			pr_err("timeout wait for status %x[%x] in reg %x\n",
 				status_bits, ctrl_sts, status_reg);
-			return -EPERM;
+			return -ETIMEDOUT;
 		}
-	}
-	pr_debug("status %x[reg %x] ready received\n", status_bits, status_reg);
+
+		if (poll)
+			udelay(100);
+		else
+			msleep(NPU_FW_TIMEOUT_POLL_INTERVAL_MS);
+
+		wait_cnt--;
+	} while (1);
+
 	return 0;
+
 }
 
 static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up)
@@ -513,7 +529,7 @@ static int npu_notify_dsp(struct npu_device *npu_dev, bool pwr_up)
 	INTERRUPT_RAISE_DSP(npu_dev);
 
 	ret = wait_for_status_ready(npu_dev, REG_HOST_DSP_CTRL_STATUS,
-		ack_val);
+		ack_val, true);
 	if (ret)
 		pr_warn("No response from dsp\n");
 
