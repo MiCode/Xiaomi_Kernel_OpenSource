@@ -66,6 +66,12 @@ static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
 
+static const struct resource mt6359p_accdet_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_ACCDET, "ACCDET_IRQ"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
+};
+
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-rtc",
@@ -108,6 +114,11 @@ static const struct mfd_cell mt6358_devs[] = {
 
 static const struct mfd_cell mt6359p_devs[] = {
 	{
+		.name = "mt6359p-accdet",
+		.of_compatible = "mediatek,mt6359p-accdet",
+		.num_resources = ARRAY_SIZE(mt6359p_accdet_resources),
+		.resources = mt6359p_accdet_resources,
+	}, {
 		.name = "mt6359p-regulator",
 		.of_compatible = "mediatek,mt6359p-regulator"
 	}, {
