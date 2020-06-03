@@ -1296,6 +1296,8 @@ int wlfw_athdiag_write_send_sync_msg(struct icnss_priv *priv,
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
+	} else {
+		ret = 0;
 	}
 
 out:
