@@ -262,6 +262,7 @@ static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 
 			gi2c->tx_wm = gi2c_tx_depth - 1;
 			geni_se_init(gi2c->base, gi2c->tx_wm, gi2c_tx_depth);
+			qcom_geni_i2c_conf(gi2c, 0);
 			se_config_packing(gi2c->base, 8, 4, true);
 			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
 					"i2c fifo/se-dma mode. fifo depth:%d\n",
@@ -911,7 +912,6 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 
 		if (gi2c->err) {
 			reinit_completion(&gi2c->xfer);
-			gi2c->cur = NULL;
 			geni_cancel_m_cmd(gi2c->base);
 			timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 			if (!timeout) {
