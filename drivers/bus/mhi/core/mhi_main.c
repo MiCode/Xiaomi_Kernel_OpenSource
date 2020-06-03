@@ -2777,6 +2777,8 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		TO_MHI_STATE_STR(state));
 
 	for (i = 0; debug_reg[i].name; i++) {
+		if (!debug_reg[i].base)
+			continue;
 		ret = mhi_read_reg(mhi_cntrl, debug_reg[i].base,
 				   debug_reg[i].offset, &val);
 		MHI_LOG("reg:%s val:0x%x, ret:%d\n", debug_reg[i].name, val,
