@@ -13,81 +13,65 @@
 
 extern void synx_external_callback(s32 sync_obj, int status, void *data);
 
-bool synx_util_is_valid_bind_type(u32 type)
-{
-	if (type < SYNX_MAX_BIND_TYPES)
-		return true;
-
-	return false;
-}
-
-u32 synx_util_get_object_type(struct synx_coredata *synx_obj)
-{
-	if (!synx_obj)
-		return 0;
-
-	return synx_obj->type;
-}
-
-bool synx_util_is_merged_object(struct synx_coredata *synx_obj)
-{
-	if (synx_util_get_object_type(synx_obj)
-		& SYNX_OBJ_TYPE_MERGED)
-		return true;
-	return false;
-}
-
-struct dma_fence *synx_util_get_fence(struct synx_coredata *synx_obj)
-{
-	if (!synx_obj)
-		return NULL;
-
-	if (synx_util_is_merged_object(synx_obj))
-		return synx_obj->merged_fence;
-
-	return &synx_obj->fence;
-}
-
-void synx_util_get_object(struct synx_coredata *synx_obj)
-{
-	struct dma_fence *fence;
-
-	if (!synx_obj)
-		return;
-
-	fence = synx_util_get_fence(synx_obj);
-	dma_fence_get(fence);
-}
-
-void synx_util_put_object(struct synx_coredata *synx_obj)
-{
-	struct dma_fence *fence;
-
-	if (!synx_obj)
-		return;
-
-	fence = synx_util_get_fence(synx_obj);
-	dma_fence_put(fence);
-}
-
 int synx_util_init_coredata(struct synx_coredata *synx_obj,
 	struct synx_create_params *params,
 	struct dma_fence_ops *ops)
 {
-	if (!synx_obj || !params || !ops) {
-		pr_err("invalid arguments\n");
+	spinlock_t *fence_lock;
+	struct dma_fence *fence;
+
+	if (!synx_obj || !params || !ops ||
+		params->type >= SYNX_FLAG_MAX) {
+		pr_err("%s: invalid arguments\n", __func__);
 		return -EINVAL;
 	}
 
-	spin_lock_init(&synx_obj->lock);
-	dma_fence_init(&synx_obj->fence, ops,
-		&synx_obj->lock, synx_dev->dma_context, 1);
-
-	synx_obj->type = SYNX_OBJ_TYPE_LOCAL;
+	synx_obj->type = params->type;
+	synx_obj->num_bound_synxs = 0;
+	kref_init(&synx_obj->refcount);
+	mutex_init(&synx_obj->obj_lock);
 	INIT_LIST_HEAD(&synx_obj->reg_cbs_list);
 	if (params->name)
 		strlcpy(synx_obj->name, params->name, sizeof(synx_obj->name));
 
+	if (!synx_util_is_external_object(synx_obj)) {
+		/*
+		 * lock and fence memory will be released in fence
+		 * release function
+		 */
+		fence_lock = kzalloc(sizeof(*fence_lock), GFP_KERNEL);
+		if (!fence_lock)
+			return -ENOMEM;
+
+		fence = kzalloc(sizeof(*fence), GFP_KERNEL);
+		if (!fence) {
+			kfree(fence_lock);
+			return -ENOMEM;
+		}
+
+		spin_lock_init(fence_lock);
+		dma_fence_init(fence, ops, fence_lock,
+			synx_dev->dma_context, 1);
+
+		/*
+		 * adding callback enables the fence to be
+		 * shared with clients, who can signal fence
+		 * through dma signaling functions, and still
+		 * get notified to update the synx coredata.
+		 */
+		if (dma_fence_add_callback(fence,
+			&synx_obj->fence_cb, synx_fence_callback)) {
+			pr_err("error adding fence callback for %pK\n",
+				fence);
+			dma_fence_put(fence);
+			return -EINVAL;
+		}
+
+		synx_obj->fence = fence;
+		pr_debug("allocated synx backing fence %pK\n", fence);
+	}
+
+	synx_util_activate(synx_obj);
 	return 0;
 }
 
@@ -105,11 +89,45 @@ int synx_util_init_group_coredata(struct synx_coredata *synx_obj,
 	if (!array)
 		return -EINVAL;
 
-	synx_obj->merged_fence = &array->base;
-	synx_obj->type = SYNX_OBJ_TYPE_LOCAL | SYNX_OBJ_TYPE_MERGED;
+	synx_obj->fence = &array->base;
+	synx_obj->type = SYNX_FLAG_MERGED_FENCE;
+	synx_obj->num_bound_synxs = 0;
+	kref_init(&synx_obj->refcount);
+	mutex_init(&synx_obj->obj_lock);
 	INIT_LIST_HEAD(&synx_obj->reg_cbs_list);
 
+	synx_util_activate(synx_obj);
 	return 0;
+}
+
+static void synx_util_destroy_coredata(struct kref *kref)
+{
+	struct synx_coredata *synx_obj =
+		container_of(kref, struct synx_coredata, refcount);
+
+	if (synx_obj->fence) {
+		/* need to release callback if unsignaled */
+		if (synx_util_get_object_status(synx_obj) ==
+			SYNX_STATE_ACTIVE)
+			if (!dma_fence_remove_callback(synx_obj->fence,
+				&synx_obj->fence_cb))
+				/* nothing much but logging the error */
+				pr_err("synx callback could not be removed %pK\n",
+					synx_obj->fence);
+		dma_fence_put(synx_obj->fence);
+	}
+
+	synx_util_object_destroy(synx_obj);
+}
+
+void synx_util_get_object(struct synx_coredata *synx_obj)
+{
+	kref_get(&synx_obj->refcount);
+}
+
+void synx_util_put_object(struct synx_coredata *synx_obj)
+{
+	kref_put(&synx_obj->refcount, synx_util_destroy_coredata);
 }
 
 void synx_util_object_destroy(struct synx_coredata *synx_obj)
@@ -138,6 +156,12 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj)
 		type = bind_desc->external_desc.type;
 		data = bind_desc->external_data;
 		bind_ops = synx_util_get_bind_ops(type);
+		if (!bind_ops) {
+			pr_err("bind ops fail id: %d, type: %u, err: %d\n",
+				sync_id, type, rc);
+			continue;
+		}
+
 		rc = bind_ops->deregister_callback(
 				synx_external_callback, data, sync_id);
 		if (rc < 0) {
@@ -154,51 +178,75 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj)
 		kfree(data);
 	}
 
+	mutex_destroy(&synx_obj->obj_lock);
 	kfree(synx_obj);
-	pr_debug("cleaned up synx object fence\n");
+	pr_debug("released synx object %pK\n", synx_obj);
+}
+
+long synx_util_get_free_handle(unsigned long *bitmap, unsigned int size)
+{
+	bool bit;
+	long idx;
+
+	do {
+		idx = find_first_zero_bit(bitmap, size);
+		if (idx >= size)
+			break;
+		bit = test_and_set_bit(idx, bitmap);
+	} while (bit);
+
+	return idx;
 }
 
 int synx_util_init_handle(struct synx_client *client,
 	struct synx_coredata *synx_obj,
-	long *h_synx)
+	long *new_synx)
 {
-	bool bit;
-	long idx;
+	long idx = 0;
+	s32 h_synx = 0;
+	u16 unique_id;
 	struct synx_handle_coredata *synx_data;
 
 	if (!client || !synx_obj)
 		return -EINVAL;
 
-	do {
-		idx = find_first_zero_bit(client->bitmap, SYNX_MAX_OBJS);
-		if (idx >= SYNX_MAX_OBJS) {
-			pr_err("[sess: %u] free index not available\n",
-				client->id);
+	if (!synx_util_is_global_object(synx_obj)) {
+		idx = synx_util_get_free_handle(client->bitmap, SYNX_MAX_OBJS);
+		if (idx >= SYNX_MAX_OBJS)
 			return -ENOMEM;
-		}
-		bit = test_and_set_bit(idx, client->bitmap);
-	} while (bit);
+		do {
+			get_random_bytes(&unique_id, sizeof(unique_id));
+		} while (!unique_id);
+		h_synx = unique_id;
+		h_synx <<= SYNX_OBJ_HANDLE_SHIFT;
+	}
 
+	h_synx |= (idx & SYNX_OBJ_HANDLE_MASK);
+
+	mutex_lock(&client->synx_table_lock[idx]);
 	synx_data = &client->synx_table[idx];
+	memset(synx_data, 0, sizeof(*synx_data));
 	synx_data->client = client;
-	synx_data->id = idx;
+	synx_data->handle = h_synx;
 	synx_data->synx_obj = synx_obj;
 	kref_init(&synx_data->internal_refcount);
+	mutex_unlock(&client->synx_table_lock[idx]);
 
-	*h_synx = idx;
+	*new_synx = h_synx;
 	return 0;
 }
 
 int synx_util_activate(struct synx_coredata *synx_obj)
 {
-	struct dma_fence *fence;
-
 	if (!synx_obj)
 		return -EINVAL;
 
-	fence = synx_util_get_fence(synx_obj);
+	/* external fence activation is managed by client */
+	if (synx_util_is_external_object(synx_obj))
+		return 0;
+
 	/* move synx to ACTIVE state and register cb for merged object */
-	dma_fence_enable_sw_signaling(fence);
+	dma_fence_enable_sw_signaling(synx_obj->fence);
 	return 0;
 }
 
@@ -206,22 +254,19 @@ static u32 synx_util_get_references(struct synx_coredata *synx_obj)
 {
 	u32 count = 0;
 	u32 i = 0;
-	struct dma_fence *fence;
 	struct dma_fence_array *array = NULL;
 
-	fence = synx_util_get_fence(synx_obj);
 	/* obtain dma fence reference */
-	if (dma_fence_is_array(fence)) {
-		array = to_dma_fence_array(fence);
+	if (dma_fence_is_array(synx_obj->fence)) {
+		array = to_dma_fence_array(synx_obj->fence);
 		if (!array)
 			return 0;
 
 		for (i = 0; i < array->num_fences; i++)
 			dma_fence_get(array->fences[i]);
-
 		count = array->num_fences;
 	} else {
-		dma_fence_get(fence);
+		dma_fence_get(synx_obj->fence);
 		count = 1;
 	}
 
@@ -231,19 +276,17 @@ static u32 synx_util_get_references(struct synx_coredata *synx_obj)
 static void synx_util_put_references(struct synx_coredata *synx_obj)
 {
 	u32 i = 0;
-	struct dma_fence *fence;
 	struct dma_fence_array *array = NULL;
 
-	fence = synx_util_get_fence(synx_obj);
-	if (dma_fence_is_array(fence)) {
-		array = to_dma_fence_array(fence);
+	if (dma_fence_is_array(synx_obj->fence)) {
+		array = to_dma_fence_array(synx_obj->fence);
 		if (!array)
 			return;
 
 		for (i = 0; i < array->num_fences; i++)
 			dma_fence_put(array->fences[i]);
 	} else {
-		dma_fence_put(fence);
+		dma_fence_put(synx_obj->fence);
 	}
 }
 
@@ -251,13 +294,11 @@ static u32 synx_util_add_fence(struct synx_coredata *synx_obj,
 	struct dma_fence **fences,
 	u32 idx)
 {
-	struct dma_fence *fence;
 	struct dma_fence_array *array = NULL;
 	u32 i = 0;
 
-	fence = synx_util_get_fence(synx_obj);
-	if (dma_fence_is_array(fence)) {
-		array = to_dma_fence_array(fence);
+	if (dma_fence_is_array(synx_obj->fence)) {
+		array = to_dma_fence_array(synx_obj->fence);
 		if (!array)
 			return 0;
 
@@ -267,7 +308,7 @@ static u32 synx_util_add_fence(struct synx_coredata *synx_obj,
 		return array->num_fences;
 	}
 
-	fences[idx] = fence;
+	fences[idx] = synx_obj->fence;
 	return 1;
 }
 
@@ -302,21 +343,23 @@ s32 synx_util_merge_error(struct synx_client *client,
 	u32 num_objs)
 {
 	u32 i = 0;
+	struct synx_handle_coredata *synx_data;
 	struct synx_coredata *synx_obj;
 
 	if (!client || !h_synxs)
 		return -EINVAL;
 
 	for (i = 0; i < num_objs; i++) {
-		synx_obj = synx_util_acquire_object(client, h_synxs[i]);
-		if (!synx_obj) {
+		synx_data = synx_util_acquire_handle(client, h_synxs[i]);
+		synx_obj = synx_util_obtain_object(synx_data);
+		if (!synx_obj || !synx_obj->fence) {
 			pr_err("[sess: %u] invalid handle %d in merge cleanup\n",
 				client->id, h_synxs[i]);
 			continue;
 		}
 		/* release all references obtained during merge validatation */
 		synx_util_put_references(synx_obj);
-		synx_util_release_object(client, h_synxs[i]);
+		synx_util_release_handle(synx_data);
 	}
 
 	return 0;
@@ -330,7 +373,8 @@ int synx_util_validate_merge(struct synx_client *client,
 {
 	u32 count = 0;
 	u32 i = 0;
-	struct synx_coredata **synx_objs = NULL;
+	struct synx_handle_coredata **synx_datas;
+	struct synx_coredata **synx_objs;
 	struct dma_fence **fences = NULL;
 
 	if (num_objs <= 1) {
@@ -338,17 +382,22 @@ int synx_util_validate_merge(struct synx_client *client,
 		return -EINVAL;
 	}
 
+	synx_datas = kcalloc(num_objs, sizeof(*synx_datas), GFP_KERNEL);
+	if (!synx_datas)
+		return -ENOMEM;
+
 	synx_objs = kcalloc(num_objs, sizeof(*synx_objs), GFP_KERNEL);
 	if (!synx_objs)
 		return -ENOMEM;
 
 	for (i = 0; i < num_objs; i++) {
-		synx_objs[i] = synx_util_acquire_object(client, h_synxs[i]);
-		if (!synx_objs) {
+		synx_datas[i] = synx_util_acquire_handle(client, h_synxs[i]);
+		synx_objs[i] = synx_util_obtain_object(synx_datas[i]);
+		if (!synx_objs[i] || !synx_objs[i]->fence) {
 			pr_err("[sess: %u] invalid handle %d in merge list\n",
 				client->id, h_synxs[i]);
 			*fence_cnt = i;
-			return -EINVAL;
+			goto error;
 		}
 		count += synx_util_get_references(synx_objs[i]);
 	}
@@ -356,7 +405,7 @@ int synx_util_validate_merge(struct synx_client *client,
 	fences = kcalloc(count, sizeof(*fences), GFP_KERNEL);
 	if (!fences) {
 		*fence_cnt = num_objs;
-		return -ENOMEM;
+		goto error;
 	}
 
 	/* memory will be released later in the invoking function */
@@ -366,12 +415,24 @@ int synx_util_validate_merge(struct synx_client *client,
 	for (i = 0; i < num_objs; i++) {
 		count += synx_util_add_fence(synx_objs[i], fences, count);
 		/* release the reference obtained earlier in the function */
-		synx_util_release_object(client, h_synxs[i]);
+		synx_util_release_handle(synx_datas[i]);
 	}
 
 	*fence_cnt = synx_util_remove_duplicates(fences, count);
 	kfree(synx_objs);
+	kfree(synx_datas);
 	return 0;
+
+error:
+	/* release the reference/s obtained earlier in the function */
+	for (i = 0; i < *fence_cnt; i++) {
+		synx_util_put_references(synx_objs[i]);
+		synx_util_release_handle(synx_datas[i]);
+	}
+	*fence_cnt = 0;
+	kfree(synx_objs);
+	kfree(synx_datas);
+	return -EINVAL;
 }
 
 static u32 __fence_state(struct dma_fence *fence, bool locked)
@@ -400,8 +461,8 @@ static u32 __fence_state(struct dma_fence *fence, bool locked)
 	case -SYNX_STATE_SIGNALED_CANCEL:
 		state = SYNX_STATE_SIGNALED_CANCEL;
 		break;
-	case -SYNX_STATE_FORCED_RELEASE:
-		state = SYNX_STATE_FORCED_RELEASE;
+	case -SYNX_STATE_SIGNALED_EXTERNAL:
+		state = SYNX_STATE_SIGNALED_EXTERNAL;
 		break;
 	case -SYNX_STATE_SIGNALED_ERROR:
 	default:
@@ -456,22 +517,20 @@ static u32 __fence_group_state(struct dma_fence *fence, bool locked)
 }
 
 /*
- * WARN: Should not hold the synx spinlock when invoking
+ * WARN: Should not hold the fence spinlock when invoking
  * this function. Use synx_fence_state_locked instead
  */
 u32 synx_util_get_object_status(struct synx_coredata *synx_obj)
 {
 	u32 state;
-	struct dma_fence *fence;
 
 	if (!synx_obj)
 		return SYNX_STATE_INVALID;
 
-	fence = synx_util_get_fence(synx_obj);
 	if (synx_util_is_merged_object(synx_obj))
-		state = __fence_group_state(fence, false);
+		state = __fence_group_state(synx_obj->fence, false);
 	else
-		state = __fence_state(fence, false);
+		state = __fence_state(synx_obj->fence, false);
 
 	return state;
 }
@@ -480,75 +539,59 @@ u32 synx_util_get_object_status(struct synx_coredata *synx_obj)
 u32 synx_util_get_object_status_locked(struct synx_coredata *synx_obj)
 {
 	u32 state;
-	struct dma_fence *fence;
 
 	if (!synx_obj)
 		return SYNX_STATE_INVALID;
 
-	fence = synx_util_get_fence(synx_obj);
 	if (synx_util_is_merged_object(synx_obj))
-		state = __fence_group_state(fence, true);
+		state = __fence_group_state(synx_obj->fence, true);
 	else
-		state = __fence_state(fence, true);
+		state = __fence_state(synx_obj->fence, true);
 
 	return state;
 }
 
-struct synx_handle_coredata *synx_util_obtain_handle(
-	struct synx_client *client,
-	s32 h_synx)
-{
-	if (!client) {
-		pr_err("invalid session argument\n");
-		return NULL;
-	}
-
-	if (h_synx < 0 || h_synx >= SYNX_MAX_OBJS) {
-		pr_err("[sess: %u] invalid handle %d access\n",
-			client->id, h_synx);
-		return NULL;
-	}
-
-	return &client->synx_table[h_synx];
-}
-
-struct synx_coredata *synx_util_acquire_object(
+struct synx_handle_coredata *synx_util_acquire_handle(
 	struct synx_client *client, s32 h_synx)
 {
-	struct synx_coredata *synx_obj = NULL;
-	struct synx_handle_coredata *synx_data =
-		synx_util_obtain_handle(client, h_synx);
+	u32 idx = synx_util_handle_index(h_synx);
+	struct synx_handle_coredata *synx_data = NULL;
+	struct synx_handle_coredata *synx_handle = NULL;
 
-	if (!synx_data)
+	if (!client)
 		return NULL;
 
-	mutex_lock(&client->synx_table_lock[h_synx]);
-	synx_obj = synx_data->synx_obj;
-	if (synx_obj) {
-		synx_util_get_object(synx_obj);
-		kref_get(&synx_data->internal_refcount);
-		pr_debug("[sess: %u] acquired synx object for handle %d\n",
+	mutex_lock(&client->synx_table_lock[idx]);
+	synx_data = &client->synx_table[idx];
+	if (!synx_data->synx_obj) {
+		pr_err("[sess: %u] invalid object handle %d\n",
 			client->id, h_synx);
+	} else if (synx_data->handle != h_synx) {
+		pr_err("[sess: %u] stale object handle %d\n",
+			client->id, h_synx);
+	} else if (!kref_read(&synx_data->internal_refcount)) {
+		pr_err("[sess: %u] destroyed object handle %d\n",
+			client->id, h_synx);
+	} else {
+		kref_get(&synx_data->internal_refcount);
+		synx_handle = synx_data;
 	}
-	mutex_unlock(&client->synx_table_lock[h_synx]);
+	mutex_unlock(&client->synx_table_lock[idx]);
 
-	return synx_obj;
+	return synx_handle;
 }
 
 static void synx_util_destroy_handle(struct synx_handle_coredata *synx_data)
 {
-	long idx = synx_data->id;
+	long idx = synx_util_handle_index(synx_data->handle);
 	struct synx_client *client = synx_data->client;
-
-	if (synx_util_is_merged_object(synx_data->synx_obj)) {
-		pr_debug("cleaned up synx object fence\n");
-		kfree(synx_data->synx_obj);
-	}
+	struct synx_coredata *synx_obj = synx_data->synx_obj;
 
 	memset(synx_data, 0, sizeof(*synx_data));
 	clear_bit(idx, client->bitmap);
-	pr_debug("[sess: %u] handle %d destroyed\n",
-		client->id, idx);
+	synx_util_put_object(synx_obj);
+	pr_debug("[sess: %u] handle %d destroyed %pK\n",
+		client->id, idx, synx_obj);
 }
 
 void synx_util_destroy_import_handle(struct kref *kref)
@@ -558,7 +601,7 @@ void synx_util_destroy_import_handle(struct kref *kref)
 		import_refcount);
 
 	pr_debug("[sess: %u] import handle cleanup for %d\n",
-		synx_data->client->id, synx_data->id);
+		synx_data->client->id, synx_data->handle);
 
 	/* in case of pending internal references, abort clean up */
 	if (kref_read(&synx_data->internal_refcount))
@@ -574,7 +617,7 @@ void synx_util_destroy_internal_handle(struct kref *kref)
 		internal_refcount);
 
 	pr_debug("[sess: %u] internal handle cleanup for %d\n",
-		synx_data->client->id, synx_data->id);
+		synx_data->client->id, synx_data->handle);
 
 	/* in case of pending imports, abort clean up */
 	if (kref_read(&synx_data->import_refcount))
@@ -583,25 +626,24 @@ void synx_util_destroy_internal_handle(struct kref *kref)
 	synx_util_destroy_handle(synx_data);
 }
 
-void synx_util_release_object(struct synx_client *client, s32 h_synx)
+void synx_util_release_handle(struct synx_handle_coredata *synx_data)
 {
-	struct synx_handle_coredata *synx_data =
-		synx_util_obtain_handle(client, h_synx);
-	struct synx_coredata *synx_obj;
-	struct dma_fence *fence;
+	u32 idx;
+	struct synx_client *client;
 
 	if (!synx_data)
 		return;
 
-	mutex_lock(&client->synx_table_lock[h_synx]);
-	synx_obj = synx_data->synx_obj;
-	if (synx_obj) {
-		fence = synx_util_get_fence(synx_obj);
+	idx = synx_util_handle_index(synx_data->handle);
+	client = synx_data->client;
+	mutex_lock(&client->synx_table_lock[idx]);
+	if (synx_data->synx_obj)
 		kref_put(&synx_data->internal_refcount,
 			synx_util_destroy_internal_handle);
-		dma_fence_put(fence);
-	}
-	mutex_unlock(&client->synx_table_lock[h_synx]);
+	else
+		pr_err("%s: invalid handle %d\n",
+			__func__, synx_data->handle);
+	mutex_unlock(&client->synx_table_lock[idx]);
 }
 
 struct bind_operations *synx_util_get_bind_ops(u32 type)
@@ -626,22 +668,18 @@ int synx_util_alloc_cb_entry(struct synx_client *client,
 	struct synx_kernel_payload *data,
 	u32 *cb_idx)
 {
-	bool bit;
 	long idx;
 	struct synx_client_cb *cb;
 
 	if (!client || !data || !cb_idx)
 		return -EINVAL;
 
-	do {
-		idx = find_first_zero_bit(client->cb_bitmap, SYNX_MAX_OBJS);
-		if (idx >= SYNX_MAX_OBJS) {
-			pr_err("[sess: %u] free cb index not available\n",
-				client->id);
-			return -ENOMEM;
-		}
-		bit = test_and_set_bit(idx, client->cb_bitmap);
-	} while (bit);
+	idx = synx_util_get_free_handle(client->cb_bitmap, SYNX_MAX_OBJS);
+	if (idx >= SYNX_MAX_OBJS) {
+		pr_err("[sess: %u] free cb index not available\n",
+			client->id);
+		return -ENOMEM;
+	}
 
 	cb = &client->cb_table[idx];
 	memset(cb, 0, sizeof(*cb));
@@ -773,15 +811,12 @@ void synx_util_cb_dispatch(struct work_struct *cb_dispatch)
 fail:
 	synx_put_client(client);
 free:
-	pr_debug("released synx_cb_data memory\n");
 	kfree(synx_cb);
 }
 
 struct synx_coredata *synx_util_import_object(struct synx_import_params *params)
 {
-	u16 key;
-	s32 h_synx;
-	u32 secure_key;
+	u32 idx;
 	struct synx_session ex_session_id;
 	struct synx_client *ex_client;
 	struct synx_handle_coredata *synx_data;
@@ -790,119 +825,157 @@ struct synx_coredata *synx_util_import_object(struct synx_import_params *params)
 	if (!params)
 		return NULL;
 
-	h_synx = params->h_synx;
-	secure_key = params->secure_key;
-
-	ex_session_id.client_id = secure_key & SYNX_CLIENT_HANDLE_MASK;
-	key = (secure_key >> SYNX_CLIENT_HANDLE_SHIFT) & SYNX_SECURE_KEY_MASK;
+	ex_session_id.client_id = params->secure_key;
 
 	/* get the client exporting the synx handle */
 	ex_client = synx_get_client(ex_session_id);
 	if (!ex_client) {
-		pr_err("sess: %u invalid import handle %d and/or key %u\n",
-			ex_session_id.client_id, h_synx, secure_key);
+		pr_err("sess: %u invalid import handle %d\n",
+			ex_session_id.client_id, params->h_synx);
 		return NULL;
 	}
 
-	synx_data = synx_util_obtain_handle(ex_client, h_synx);
-	if (!synx_data) {
+	idx = synx_util_handle_index(params->h_synx);
+	/*
+	 * need to access directly instead of acquire_handle
+	 * as internal refcount might be released completely.
+	 */
+	mutex_lock(&ex_client->synx_table_lock[idx]);
+	synx_data = &ex_client->synx_table[idx];
+	synx_obj = synx_util_obtain_object(synx_data);
+	if (!synx_obj) {
 		pr_err("[sess: %u] invalid import handle %d\n",
-			ex_client->id, h_synx);
+			ex_client->id, params->h_synx);
 		goto fail;
 	}
 
-	mutex_lock(&ex_client->synx_table_lock[h_synx]);
+	if (synx_data->handle != params->h_synx) {
+		pr_err("[sess: %u] stale import handle %d\n",
+			ex_client->id, params->h_synx);
+		goto fail;
+	}
+
 	/* need to check whether import is accounted for in import_refcount */
-	if (synx_data->synx_obj &&
-		key && (key == synx_data->key) &&
-		kref_read(&synx_data->import_refcount)) {
-		if (synx_util_is_merged_object(synx_data->synx_obj)) {
-			/*
-			 * need to copy the synx coredata for merged object
-			 * as we need to clean up the coredata on release
-			 * since fence array cannot be registered with
-			 * synx_fence_release function.
-			 */
-			synx_obj = kzalloc(sizeof(*synx_obj), GFP_KERNEL);
-			if (synx_obj)
-				memcpy(synx_obj, synx_data->synx_obj,
-					sizeof(*synx_obj));
-		} else {
-			synx_obj = synx_data->synx_obj;
-		}
+	if (kref_read(&synx_data->import_refcount)) {
+		/* get additional reference for client */
+		synx_util_get_object(synx_obj);
 		/* release the reference obtained during export */
 		kref_put(&synx_data->import_refcount,
 			synx_util_destroy_import_handle);
 		pr_debug("sess: %u handle %d import successful\n",
-			ex_client->id, h_synx);
+			ex_client->id, params->h_synx);
+	} else {
+		synx_obj = NULL;
 	}
-	mutex_unlock(&ex_client->synx_table_lock[h_synx]);
 
 fail:
+	mutex_unlock(&ex_client->synx_table_lock[idx]);
 	synx_put_client(ex_client);
 	return synx_obj;
+}
+
+static int synx_util_export_internal(struct synx_coredata *synx_obj,
+	struct synx_export_params *params)
+{
+	if (!synx_obj || !synx_obj->fence)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int synx_util_export_external(struct synx_coredata *synx_obj,
+	struct synx_export_params *params)
+{
+	int rc;
+
+	if (!synx_obj || !params || !params->fence)
+		return -EINVAL;
+
+	if (synx_obj->fence) {
+		/*
+		 * remove the previous dma fence (if any).
+		 * should not call synx_util_put_object here,
+		 * as we will reuse the synx obj memory. so,
+		 * release just the fence reference.
+		 * note: before releasing the reference, need
+		 * to ensure registered callback is removed
+		 * for unsignaled object.
+		 */
+		if (synx_util_get_object_status(synx_obj) ==
+			SYNX_STATE_ACTIVE)
+			if (!dma_fence_remove_callback(synx_obj->fence,
+				&synx_obj->fence_cb))
+				/* continue after logging the error */
+				pr_err("synx callback could not be removed %pK\n",
+					synx_obj->fence);
+		dma_fence_put(synx_obj->fence);
+		pr_info("%s: released fence reference %pK, new fence %pK\n",
+			__func__, synx_obj->fence, params->fence);
+	}
+
+	synx_obj->fence = params->fence;
+	/* get lone synx framework reference on the fence */
+	dma_fence_get(synx_obj->fence);
+	rc = dma_fence_add_callback(synx_obj->fence,
+		&synx_obj->fence_cb, synx_fence_callback);
+	if (rc && rc != -ENOENT) {
+		pr_err("error registering fence callback on handle %d\n",
+			params->h_synx);
+		return rc;
+	}
+
+	/* if fence is not active, invoke synx signaling */
+	if (rc == -ENOENT)
+		synx_signal_core(synx_obj, SYNX_STATE_SIGNALED_EXTERNAL,
+			false, 0);
+	return 0;
 }
 
 int synx_util_export_object(struct synx_client *client,
 	struct synx_export_params *params)
 {
 	int rc = 0;
-	u16 key = 0;
-	s32 h_synx;
+	u32 idx;
 	struct synx_handle_coredata *synx_data;
+	struct synx_coredata *synx_obj;
 
 	if (!params || !params->secure_key)
 		return -EINVAL;
 
-	h_synx = params->h_synx;
-	synx_data = synx_util_obtain_handle(client, h_synx);
-	if (!synx_data) {
+	synx_data = synx_util_acquire_handle(client, params->h_synx);
+	synx_obj = synx_util_obtain_object(synx_data);
+	if (!synx_obj) {
 		pr_err("[sess: %u] invalid export handle %d\n",
-			client->id, h_synx);
+			client->id, params->h_synx);
 		rc = -EINVAL;
 		goto fail;
 	}
 
-	mutex_lock(&client->synx_table_lock[h_synx]);
-	/* need to check whether import is accounted for in import_refcount */
-	if (synx_data->synx_obj) {
-		/* generate the key on the first export of the handle */
-		if (!synx_data->key) {
-			kref_init(&synx_data->import_refcount);
-			while (!key)
-				get_random_bytes(&key, sizeof(key));
-			synx_data->key = key;
-			pr_debug("[sess: %u] import refcount initialized\n",
-				client->id);
-		} else {
-			kref_get(&synx_data->import_refcount);
-			key = synx_data->key;
-		}
-		/*
-		 * to make sure the synx is not lost if the process
-		 * dies or synx is released before any other process
-		 * gets a chance to import it.
-		 * The assumption is that an import will match this
-		 * and account for the extra reference. Otherwise,
-		 * this will be released upon client uninit.
-		 */
-		synx_util_get_object(synx_data->synx_obj);
+	idx = synx_util_handle_index(params->h_synx);
+	mutex_lock(&client->synx_table_lock[idx]);
+	if (!kref_read(&synx_data->import_refcount))
+		kref_init(&synx_data->import_refcount);
+	else
+		kref_get(&synx_data->import_refcount);
 
-		/* encode the key and the client id to user provided variable */
-		*params->secure_key = key;
-		*params->secure_key <<= SYNX_CLIENT_HANDLE_SHIFT;
-		*params->secure_key |= client->id;
+	*params->secure_key = client->id;
 
-		pr_debug("[sess: %u] handle %d export successful with key %u\n",
-			client->id, params->h_synx, *params->secure_key);
-	} else {
-		pr_err("[sess: %u] invalid export object %d\n",
-			client->id, h_synx);
-		rc = -EINVAL;
-	}
-	mutex_unlock(&client->synx_table_lock[h_synx]);
+	if (synx_util_is_external_object(synx_data->synx_obj))
+		rc = synx_util_export_external(synx_data->synx_obj, params);
+	else
+		rc = synx_util_export_internal(synx_data->synx_obj, params);
+
+	/* release the import reference acquired above on failure */
+	if (rc)
+		kref_put(&synx_data->import_refcount,
+			synx_util_destroy_import_handle);
+	else
+		pr_debug("[sess: %u] handle %d export successful\n",
+			client->id, params->h_synx);
+	mutex_unlock(&client->synx_table_lock[idx]);
 
 fail:
+	synx_util_release_handle(synx_data);
 	return rc;
 }
 
@@ -910,7 +983,7 @@ struct synx_client *synx_get_client(struct synx_session session_id)
 {
 	struct synx_client_metadata *client_metadata;
 	struct synx_client *client;
-	u32 id = session_id.client_id;
+	u32 id = synx_util_client_index(session_id.client_id);
 
 	if (id >= SYNX_MAX_CLIENTS) {
 		pr_err("%s: invalid session handle %u from pid: %d\n",
@@ -921,11 +994,18 @@ struct synx_client *synx_get_client(struct synx_session session_id)
 	mutex_lock(&synx_dev->dev_table_lock);
 	client_metadata = &synx_dev->client_table[id];
 	client = client_metadata->client;
-	if (client)
-		kref_get(&client_metadata->refcount);
-	else
+	if (client) {
+		if (client->id == session_id.client_id) {
+			kref_get(&client_metadata->refcount);
+		} else {
+			pr_err("session %u mismatch pid: %d\n",
+				session_id.client_id, current->pid);
+			client = NULL;
+		}
+	} else {
 		pr_err("session %u not available, pid: %d\n",
-			id, current->pid);
+			session_id.client_id, current->pid);
+	}
 	mutex_unlock(&synx_dev->dev_table_lock);
 
 	return client;
@@ -938,15 +1018,10 @@ static void synx_client_destroy(struct kref *kref)
 		container_of(kref, struct synx_client_metadata, refcount);
 	struct synx_client *client = client_metadata->client;
 	struct synx_handle_coredata *synx_data;
-	struct synx_coredata *synx_obj;
-	struct dma_fence *fence;
-
-	/* TODO:can create a thread and handle it */
 
 	/* go over all the remaining synx obj handles and clear them */
 	for (i = 0; i < SYNX_MAX_OBJS; i++) {
 		synx_data = &client->synx_table[i];
-		synx_obj = synx_data->synx_obj;
 		/*
 		 * cleanup unreleased references by the client
 		 * Note: it is only safe to access synx_obj if
@@ -954,27 +1029,22 @@ static void synx_client_destroy(struct kref *kref)
 		 * remaining in the current handle, as it
 		 * gurantees corresponding reference to fence.
 		 */
-		if (synx_obj) {
-			fence = synx_util_get_fence(synx_obj);
-			while (kref_read(&synx_data->internal_refcount)) {
+		if (synx_data->synx_obj) {
+			while (kref_read(&synx_data->internal_refcount))
 				kref_put(&synx_data->internal_refcount,
 					synx_util_destroy_internal_handle);
-				dma_fence_put(fence);
-			}
-			while (kref_read(&synx_data->import_refcount)) {
+			while (kref_read(&synx_data->import_refcount))
 				kref_put(&synx_data->import_refcount,
 					synx_util_destroy_import_handle);
-				dma_fence_put(fence);
-			}
 		}
 		mutex_destroy(&client->synx_table_lock[i]);
 	}
 	mutex_destroy(&client->event_q_lock);
 	memset(client_metadata, 0, sizeof(*client_metadata));
-	clear_bit(client->id, synx_dev->bitmap);
+	clear_bit(synx_util_client_index(client->id), synx_dev->bitmap);
 
-	pr_info("[sess: %u] session destroyed %s\n",
-		client->id, client->name);
+	pr_info("[sess: %u] session destroyed %s, uid: %u\n",
+		client->id, client->name, client->id);
 	vfree(client);
 }
 
@@ -987,14 +1057,15 @@ void synx_put_client(struct synx_client *client)
 		return;
 	}
 
-	if (client->id >= SYNX_MAX_CLIENTS) {
+	if (synx_util_client_index(client->id) >= SYNX_MAX_CLIENTS) {
 		pr_err("%s: session id %u invalid from pid: %d\n",
 			__func__, client->id, current->pid);
 		return;
 	}
 
 	mutex_lock(&synx_dev->dev_table_lock);
-	client_metadata = &synx_dev->client_table[client->id];
+	client_metadata =
+		&synx_dev->client_table[synx_util_client_index(client->id)];
 	if (client_metadata->client == client)
 		/* should not reference client after this call */
 		kref_put(&client_metadata->refcount, synx_client_destroy);
