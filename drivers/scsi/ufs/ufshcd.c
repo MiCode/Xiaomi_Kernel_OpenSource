@@ -2062,6 +2062,8 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	/* Write UIC Cmd */
 	ufshcd_writel(hba, uic_cmd->command & COMMAND_OPCODE_MASK,
 		      REG_UIC_COMMAND);
+	/* Ensure that the command is written */
+	wmb();
 }
 
 /**
@@ -7153,11 +7155,8 @@ static int ufshcd_device_params_init(struct ufs_hba *hba)
 			__func__, ret);
 		goto out;
 	}
-
 	ufs_fixup_device_setup(hba);
 
-	/* Clear any previous UFS device information */
-	memset(&hba->dev_info, 0, sizeof(hba->dev_info));
 	if (!ufshcd_query_flag_retry(hba, UPIU_QUERY_OPCODE_READ_FLAG,
 			QUERY_FLAG_IDN_PWR_ON_WPE, &flag))
 		hba->dev_info.f_power_on_wp_en = flag;
@@ -7219,6 +7218,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async)
 	int ret;
 	ktime_t start = ktime_get();
 
+	dev_err(hba->dev, "*** This is %s ***\n", __FILE__);
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -8026,6 +8026,23 @@ out:
 	return ret;
 }
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
+{
+	if (ufshcd_is_link_off(hba) ||
+	    (ufshcd_is_link_hibern8(hba)
+	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
+		ufshcd_setup_hba_vreg(hba, false);
+}
+
+static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
+{
+	if (ufshcd_is_link_off(hba) ||
+	    (ufshcd_is_link_hibern8(hba)
+	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
+		ufshcd_setup_hba_vreg(hba, true);
+}
+#else
 static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
 {
 	if (ufshcd_is_link_off(hba))
@@ -8037,6 +8054,7 @@ static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 	if (ufshcd_is_link_off(hba))
 		ufshcd_setup_hba_vreg(hba, true);
 }
+#endif
 
 /**
  * ufshcd_suspend - helper function for suspend operations
