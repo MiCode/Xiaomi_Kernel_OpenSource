@@ -22,10 +22,17 @@
 #include <linux/semaphore.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+
 /* TODO: porting*/
 /* #include <mt-plat/aee.h> */
 
+#ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
+#endif
+#include "ged_sysfs.h"
 #include "ged_log.h"
 #include "ged_hal.h"
 #include "ged_bridge.h"
@@ -33,33 +40,89 @@
 #include "ged_notify_sw_vsync.h"
 #include "ged_dvfs.h"
 #include "ged_kpi.h"
-#include "ged_frr.h"
-
 #include "ged_ge.h"
 #include "ged_gpu_tuner.h"
 
+/**
+ * ===============================================
+ * SECTION : Local functions declaration
+ * ===============================================
+ */
+static int ged_open(struct inode *inode, struct file *filp);
+static int ged_release(struct inode *inode, struct file *filp);
+static unsigned int ged_poll(struct file *file,
+	struct poll_table_struct *ptable);
+static ssize_t ged_read(struct file *filp,
+	char __user *buf, size_t count, loff_t *f_pos);
+static ssize_t ged_write(struct file *filp,
+	const char __user *buf, size_t count, loff_t *f_pos);
+static long ged_dispatch(struct file *pFile,
+	struct GED_BRIDGE_PACKAGE *psBridgePackageKM);
+static long ged_ioctl(struct file *pFile,
+	unsigned int ioctlCmd, unsigned long arg);
+#ifdef CONFIG_COMPAT
+static long ged_ioctl_compat(struct file *pFile,
+	unsigned int ioctlCmd, unsigned long arg);
+#endif
+static int ged_pdrv_probe(struct platform_device *pdev);
+static void ged_exit(void);
+static int ged_init(void);
+
+/**
+ * ===============================================
+ * SECTION : Local variables definition
+ * ===============================================
+ */
 #define GED_DRIVER_DEVICE_NAME "ged"
-#ifndef GED_BUFFER_LOG_DISABLE
+
+static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
+
 #ifdef GED_DEBUG
 #define GED_LOG_BUF_COMMON_GLES "GLES"
 static GED_LOG_BUF_HANDLE ghLogBuf_GLES;
 GED_LOG_BUF_HANDLE ghLogBuf_GED;
-#endif
+#endif /* GED_DEBUG */
 
-static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
-#define GED_LOG_BUF_COMMON_HWC "HWC"
-static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 #define GED_LOG_BUF_COMMON_HWC_ERR "HWC_err"
 static GED_LOG_BUF_HANDLE ghLogBuf_HWC_ERR;
+#define GED_LOG_BUF_COMMON_HWC "HWC"
+static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 #define GED_LOG_BUF_COMMON_FENCE "FENCE"
 static GED_LOG_BUF_HANDLE ghLogBuf_FENCE;
-// fence_trace is IMG gpu only
-//static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
-#endif
+static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
 
+#ifdef GED_DVFS_DEBUG_BUF
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
+#endif /* GED_DVFS_DEBUG_BUF */
 
 GED_LOG_BUF_HANDLE gpufreq_ged_log;
+
+static const struct of_device_id g_ged_of_match[] = {
+	{ .compatible = "mediatek,ged" },
+	{ /* sentinel */ }
+};
+static struct platform_driver g_ged_pdrv = {
+	.probe = ged_pdrv_probe,
+	.remove = NULL,
+	.driver = {
+		.name = "ged",
+		.owner = THIS_MODULE,
+		.of_match_table = g_ged_of_match,
+	},
+};
+
+static const struct file_operations ged_fops = {
+	.owner = THIS_MODULE,
+	.open = ged_open,
+	.release = ged_release,
+	.poll = ged_poll,
+	.read = ged_read,
+	.write = ged_write,
+	.unlocked_ioctl = ged_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = ged_ioctl_compat,
+#endif
+};
 
 /******************************************************************************
  * GED File operations
@@ -67,44 +130,53 @@ GED_LOG_BUF_HANDLE gpufreq_ged_log;
 static int ged_open(struct inode *inode, struct file *filp)
 {
 	filp->private_data = NULL;
-	GED_LOGE("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev), MINOR(inode->i_rdev));
+	GED_LOGD("@%s: %d:%d\n", __func__, MAJOR(inode->i_rdev),
+		MINOR(inode->i_rdev));
 	return 0;
 }
 
 static int ged_release(struct inode *inode, struct file *filp)
 {
 	if (filp->private_data) {
-		void (*free_func)(void *) = ((GED_FILE_PRIVATE_BASE *)filp->private_data)->free_func;
+		void (*free_func)(void *f) =
+			((struct GED_FILE_PRIVATE_BASE *)
+			filp->private_data)->free_func;
 
 		free_func(filp->private_data);
 	}
-	GED_LOGE("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev), MINOR(inode->i_rdev));
+	GED_LOGD("@%s: %d:%d\n", __func__, MAJOR(inode->i_rdev),
+		MINOR(inode->i_rdev));
 	return 0;
 }
 
-static unsigned int ged_poll(struct file *file, struct poll_table_struct *ptable)
+static unsigned int
+ged_poll(struct file *file, struct poll_table_struct *ptable)
 {
 	return 0;
 }
 
-static ssize_t ged_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+static ssize_t
+ged_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
 	return 0;
 }
 
-static ssize_t ged_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+static ssize_t ged_write(struct file *filp,
+	const char __user *buf, size_t count, loff_t *f_pos)
 {
 	return 0;
 }
 
-static long ged_dispatch(struct file *pFile, GED_BRIDGE_PACKAGE *psBridgePackageKM)
+static long ged_dispatch(struct file *pFile,
+	struct GED_BRIDGE_PACKAGE *psBridgePackageKM)
 {
 	int ret = -EFAULT;
 	void *pvIn = NULL, *pvOut = NULL;
 
 	/* We make sure the both size are GE 0 integer.
 	 */
-	if (psBridgePackageKM->i32InBufferSize >= 0 && psBridgePackageKM->i32OutBufferSize >= 0) {
+	if (psBridgePackageKM->i32InBufferSize >= 0
+		&& psBridgePackageKM->i32OutBufferSize >= 0) {
 
 		if (psBridgePackageKM->i32InBufferSize > 0) {
 			int32_t inputBufferSize =
@@ -123,15 +195,16 @@ static long ged_dispatch(struct file *pFile, GED_BRIDGE_PACKAGE *psBridgePackage
 				goto dispatch_exit;
 
 			if (ged_copy_from_user(pvIn,
-						psBridgePackageKM->pvParamIn,
-						inputBufferSize) != 0) {
-				GED_LOGE("ged_copy_from_user fail\n");
+				psBridgePackageKM->pvParamIn,
+				psBridgePackageKM->i32InBufferSize) != 0) {
+				GED_LOGE("Failed to ged_copy_from_user\n");
 				goto dispatch_exit;
 			}
 		}
 
 		if (psBridgePackageKM->i32OutBufferSize > 0) {
-			pvOut = kzalloc(psBridgePackageKM->i32OutBufferSize, GFP_KERNEL);
+			pvOut = kzalloc(psBridgePackageKM->i32OutBufferSize,
+				GFP_KERNEL);
 
 			if (pvOut == NULL)
 				goto dispatch_exit;
@@ -141,18 +214,22 @@ static long ged_dispatch(struct file *pFile, GED_BRIDGE_PACKAGE *psBridgePackage
 		 * Check IO size are both matched the size of IO sturct.
 		 */
 #define VALIDATE_ARG(struct_name) do { \
-		if (sizeof(struct GED_BRIDGE_IN_##struct_name) \
-			> psBridgePackageKM->i32InBufferSize || \
-			sizeof(struct GED_BRIDGE_OUT_##struct_name) \
-			> psBridgePackageKM->i32OutBufferSize) { \
-			GED_LOGE("GED_BRIDGE_COMMAND_##cmd fail io_size:%d/%d, expected: %zu/%zu", \
-				psBridgePackageKM->i32InBufferSize, psBridgePackageKM->i32OutBufferSize, \
-				sizeof(struct GED_BRIDGE_IN_##struct_name), \
-				sizeof(struct GED_BRIDGE_OUT_##struct_name)); \
-			goto dispatch_exit; \
-		} } while (0)
+	if (sizeof(struct GED_BRIDGE_IN_##struct_name)\
+		> psBridgePackageKM->i32InBufferSize ||\
+		sizeof(struct GED_BRIDGE_OUT_##struct_name)\
+		> psBridgePackageKM->i32OutBufferSize) {\
+		GED_LOGE("GED_BRIDGE_COMMAND_##cmd failed io_size:",\
+		"%d/%d, expected: %zu/%zu",\
+		psBridgePackageKM->i32InBufferSize,\
+		psBridgePackageKM->i32OutBufferSize,\
+		sizeof(struct GED_BRIDGE_IN_##struct_name),\
+		sizeof(struct GED_BRIDGE_OUT_##struct_name));\
+		goto dispatch_exit;\
+	} } while (0)
 
-		/* we will change the below switch into a function pointer mapping table in the future */
+		/* we will change the below switch into
+		 * a function pointer mapping table in the future
+		 */
 		switch (GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID)) {
 		case GED_BRIDGE_COMMAND_LOG_BUF_GET:
 			VALIDATE_ARG(LOGBUFGET);
@@ -227,12 +304,14 @@ static long ged_dispatch(struct file *pFile, GED_BRIDGE_PACKAGE *psBridgePackage
 			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
 		default:
-			GED_LOGE("Unknown Bridge ID: %u\n", GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
+			GED_LOGE("Unknown Bridge ID: %u\n",
+			GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
 			break;
 		}
 
 		if (psBridgePackageKM->i32OutBufferSize > 0) {
-			if (0 != ged_copy_to_user(psBridgePackageKM->pvParamOut, pvOut, psBridgePackageKM->i32OutBufferSize)) {
+			if (ged_copy_to_user(psBridgePackageKM->pvParamOut,
+			pvOut, psBridgePackageKM->i32OutBufferSize) != 0) {
 				goto dispatch_exit;
 			}
 		}
@@ -245,15 +324,19 @@ dispatch_exit:
 	return ret;
 }
 
-static long ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
+static long
+ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 {
 	int ret = -EFAULT;
-	GED_BRIDGE_PACKAGE *psBridgePackageKM, *psBridgePackageUM = (GED_BRIDGE_PACKAGE *)arg;
-	GED_BRIDGE_PACKAGE sBridgePackageKM;
+	struct GED_BRIDGE_PACKAGE *psBridgePackageKM;
+	struct GED_BRIDGE_PACKAGE *psBridgePackageUM =
+		(struct GED_BRIDGE_PACKAGE *)arg;
+	struct GED_BRIDGE_PACKAGE sBridgePackageKM;
 
 	psBridgePackageKM = &sBridgePackageKM;
-	if (0 != ged_copy_from_user(psBridgePackageKM, psBridgePackageUM, sizeof(GED_BRIDGE_PACKAGE))) {
-		GED_LOGE("Fail to ged_copy_from_user\n");
+	if (ged_copy_from_user(psBridgePackageKM, psBridgePackageUM,
+		sizeof(struct GED_BRIDGE_PACKAGE)) != 0) {
+		GED_LOGE("Failed to ged_copy_from_user\n");
 		goto unlock_and_return;
 	}
 
@@ -265,34 +348,43 @@ unlock_and_return:
 }
 
 #ifdef CONFIG_COMPAT
-static long ged_ioctl_compat(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
+static long
+ged_ioctl_compat(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 {
-	typedef struct GED_BRIDGE_PACKAGE_32_TAG {
+	struct GED_BRIDGE_PACKAGE_32 {
 		unsigned int    ui32FunctionID;
 		int             i32Size;
 		unsigned int    ui32ParamIn;
 		int             i32InBufferSize;
 		unsigned int    ui32ParamOut;
 		int             i32OutBufferSize;
-	} GED_BRIDGE_PACKAGE_32;
+	};
 
 	int ret = -EFAULT;
-	GED_BRIDGE_PACKAGE sBridgePackageKM64;
-	GED_BRIDGE_PACKAGE_32 sBridgePackageKM32;
-	GED_BRIDGE_PACKAGE_32 *psBridgePackageKM32 = &sBridgePackageKM32;
-	GED_BRIDGE_PACKAGE_32 *psBridgePackageUM32 = (GED_BRIDGE_PACKAGE_32 *)arg;
+	struct GED_BRIDGE_PACKAGE sBridgePackageKM64;
+	struct GED_BRIDGE_PACKAGE_32 sBridgePackageKM32;
+	struct GED_BRIDGE_PACKAGE_32 *psBridgePackageKM32 =
+		&sBridgePackageKM32;
+	struct GED_BRIDGE_PACKAGE_32 *psBridgePackageUM32 =
+		(struct GED_BRIDGE_PACKAGE_32 *)arg;
 
-	if (0 != ged_copy_from_user(psBridgePackageKM32, psBridgePackageUM32, sizeof(GED_BRIDGE_PACKAGE_32))) {
-		GED_LOGE("Fail to ged_copy_from_user\n");
+	if (ged_copy_from_user(psBridgePackageKM32,
+		psBridgePackageUM32,
+		sizeof(struct GED_BRIDGE_PACKAGE_32)) != 0) {
+		GED_LOGE("Failed to ged_copy_from_user\n");
 		goto unlock_and_return;
 	}
 
 	sBridgePackageKM64.ui32FunctionID = psBridgePackageKM32->ui32FunctionID;
-	sBridgePackageKM64.i32Size = sizeof(GED_BRIDGE_PACKAGE);
-	sBridgePackageKM64.pvParamIn = (void *) ((size_t) psBridgePackageKM32->ui32ParamIn);
-	sBridgePackageKM64.pvParamOut = (void *) ((size_t) psBridgePackageKM32->ui32ParamOut);
-	sBridgePackageKM64.i32InBufferSize = psBridgePackageKM32->i32InBufferSize;
-	sBridgePackageKM64.i32OutBufferSize = psBridgePackageKM32->i32OutBufferSize;
+	sBridgePackageKM64.i32Size = sizeof(struct GED_BRIDGE_PACKAGE);
+	sBridgePackageKM64.pvParamIn =
+		(void *) ((size_t) psBridgePackageKM32->ui32ParamIn);
+	sBridgePackageKM64.pvParamOut =
+		(void *) ((size_t) psBridgePackageKM32->ui32ParamOut);
+	sBridgePackageKM64.i32InBufferSize =
+		psBridgePackageKM32->i32InBufferSize;
+	sBridgePackageKM64.i32OutBufferSize =
+		psBridgePackageKM32->i32OutBufferSize;
 
 	ret = ged_dispatch(pFile, &sBridgePackageKM64);
 
@@ -305,58 +397,57 @@ unlock_and_return:
 /******************************************************************************
  * Module related
  *****************************************************************************/
+/*
+ * ged driver probe
+ */
+static int ged_pdrv_probe(struct platform_device *pdev)
+{
+	GED_LOGI("@%s: ged driver probe\n", __func__);
 
-static const struct file_operations ged_fops = {
-	.owner = THIS_MODULE,
-	.open = ged_open,
-	.release = ged_release,
-	.poll = ged_poll,
-	.read = ged_read,
-	.write = ged_write,
-	.unlocked_ioctl = ged_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = ged_ioctl_compat,
-#endif
-};
+	return 0;
+}
 
-#if 0
-static struct miscdevice ged_dev = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "ged",
-	.fops = &ged_fops,
-};
-#endif
-
+/*
+ * unregister the gpufreq driver, remove fs node
+ */
 static void ged_exit(void)
 {
 #ifndef GED_BUFFER_LOG_DISABLE
+	ged_log_buf_free(gpufreq_ged_log);
+	gpufreq_ged_log = 0;
+
 #ifdef GED_DVFS_DEBUG_BUF
 	ged_log_buf_free(ghLogBuf_DVFS);
 	ghLogBuf_DVFS = 0;
 #endif
+
+	ged_log_buf_free(ghLogBuf_ftrace);
+	ghLogBuf_ftrace = 0;
+	ged_log_buf_free(ghLogBuf_FENCE);
+	ghLogBuf_FENCE = 0;
+	ged_log_buf_free(ghLogBuf_HWC);
+	ghLogBuf_HWC = 0;
+	ged_log_buf_free(ghLogBuf_HWC_ERR);
+	ghLogBuf_HWC_ERR = 0;
+
 #ifdef GED_DEBUG
 	ged_log_buf_free(ghLogBuf_GED);
 	ghLogBuf_GED = 0;
 	ged_log_buf_free(ghLogBuf_GLES);
 	ghLogBuf_GLES = 0;
 #endif
+
 	ged_log_buf_free(ghLogBuf_GPU);
 	ghLogBuf_GPU = 0;
-	ged_log_buf_free(ghLogBuf_FENCE);
-	ghLogBuf_FENCE = 0;
-	ged_log_buf_free(ghLogBuf_HWC);
-	ghLogBuf_HWC = 0;
-#endif
+#endif /* GED_BUFFER_LOG_DISABLE */
 
-#ifdef MTK_FRR20
-	ged_frr_system_exit();
-#endif
+	ged_gpu_tuner_exit();
 
 	ged_kpi_system_exit();
 
-	ged_dvfs_system_exit();
+	ged_ge_exit();
 
-	//ged_notify_vsync_system_exit();
+	ged_dvfs_system_exit();
 
 	ged_notify_sw_vsync_system_exit();
 
@@ -364,106 +455,142 @@ static void ged_exit(void)
 
 	ged_log_system_exit();
 
+#ifdef GED_DEBUG_FS
 	ged_debugFS_exit();
+#endif
 
-	ged_ge_exit();
-
-	ged_gpu_tuner_exit();
+	ged_sysfs_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
 
+	platform_driver_unregister(&g_ged_pdrv);
 }
 
+/*
+ * register the ged driver, create fs node
+ */
 static int ged_init(void)
 {
 	GED_ERROR err = GED_ERROR_FAIL;
 
-	if (NULL == proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_fops)) {
+	GED_LOGI("@%s: start to initialize ged driver\n", __func__);
+	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_fops)
+		== NULL) {
 		err = GED_ERROR_FAIL;
-		GED_LOGE("ged: failed to register ged proc entry!\n");
+		GED_LOGE("Failed to register ged proc entry!\n");
 		goto ERROR;
 	}
 
-	err = ged_debugFS_init();
+	err = ged_sysfs_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init debug FS!\n");
+		GED_LOGE("Failed to init sys FS!\n");
 		goto ERROR;
 	}
+
+#ifdef GED_DEBUG_FS
+	err = ged_debugFS_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init debug FS!\n");
+		goto ERROR;
+	}
+#endif
 
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gedlog entry!\n");
+		GED_LOGE("Failed to create gedlog entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_hal_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create hal entry!\n");
+		GED_LOGE("Failed to create hal entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init notify sw vsync!\n");
+		GED_LOGE("Failed to init notify sw vsync!\n");
 		goto ERROR;
 	}
 
 	err = ged_dvfs_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init common dvfs!\n");
+		GED_LOGE("Failed to init common dvfs!\n");
 		goto ERROR;
 	}
 
 	err = ged_ge_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init gralloc_extra!\n");
+		GED_LOGE("Failed to init gralloc_extra!\n");
 		goto ERROR;
 	}
 
 	err = ged_kpi_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init KPI!\n");
+		GED_LOGE("Failed to init KPI!\n");
 		goto ERROR;
 	}
 
-#ifdef MTK_FRR20
-	err = ged_frr_system_init();
+	err = ged_gpu_tuner_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init FRR Table!\n");
+		GED_LOGE("Failed to init GPU Tuner!\n");
 		goto ERROR;
 	}
-#endif
 
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
-				GED_LOG_BUF_TYPE_RINGBUFFER, "GPU_FENCE", NULL);
+		GED_LOG_BUF_TYPE_RINGBUFFER, "GPU_FENCE", NULL);
 
 #ifdef GED_DEBUG
-	ghLogBuf_GLES = ged_log_buf_alloc(160, 128 * 160, GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_GLES, NULL);
-	ghLogBuf_GED = ged_log_buf_alloc(32, 64 * 32, GED_LOG_BUF_TYPE_RINGBUFFER, "GED internal", NULL);
+	ghLogBuf_GLES = ged_log_buf_alloc(160, 128 * 160,
+		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_GLES, NULL);
+	ghLogBuf_GED = ged_log_buf_alloc(32, 64 * 32,
+		GED_LOG_BUF_TYPE_RINGBUFFER, "GED internal", NULL);
 #endif
+
 	ghLogBuf_HWC_ERR = ged_log_buf_alloc(2048, 2048 * 128,
-			GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC_ERR, NULL);
+		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC_ERR, NULL);
 	ghLogBuf_HWC = ged_log_buf_alloc(4096, 128 * 4096,
-			GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC, NULL);
-	ghLogBuf_FENCE = ged_log_buf_alloc(256, 128 * 256, GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_FENCE, NULL);
-	// fence_trace is IMG gpu only
-	//ghLogBuf_ftrace = ged_log_buf_alloc(1024*32, 1024*1024,
-	//	GED_LOG_BUF_TYPE_RINGBUFFER, "fence_trace", "fence_trace");
+		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC, NULL);
+	ghLogBuf_FENCE = ged_log_buf_alloc(256, 128 * 256,
+		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_FENCE, NULL);
+	ghLogBuf_ftrace = ged_log_buf_alloc(1024*32, 1024*1024,
+		GED_LOG_BUF_TYPE_RINGBUFFER,
+		"fence_trace", "fence_trace");
 
 #ifdef GED_DVFS_DEBUG_BUF
 	ghLogBuf_DVFS =  ged_log_buf_alloc(20*60, 20*60*100
 		, GED_LOG_BUF_TYPE_RINGBUFFER
 		, "DVFS_Log", "ged_dvfs_debug");
 #endif
-#endif
 
 	gpufreq_ged_log = ged_log_buf_alloc(1024, 64 * 1024,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
+#else
+	ghLogBuf_GPU = 0;
 
-	err = ged_gpu_tuner_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init GPU Tuner!\n");
+#ifdef GED_DEBUG
+	ghLogBuf_GLES = 0;
+	ghLogBuf_GED = 0;
+#endif
+
+	ghLogBuf_HWC_ERR = 0;
+	ghLogBuf_HWC = 0;
+	ghLogBuf_FENCE = 0;
+	ghLogBuf_ftrace = 0;
+
+#ifdef GED_DVFS_DEBUG_BUF
+	ghLogBuf_DVFS = 0;
+#endif
+
+	gpufreq_ged_log = 0;
+#endif /* GED_BUFFER_LOG_DISABLE */
+
+	/* register platform driver */
+	err = platform_driver_register(&g_ged_pdrv);
+	if (err) {
+		GED_LOGE("@%s: failed to register ged driver\n",
+		__func__);
 		goto ERROR;
 	}
 
@@ -478,6 +605,7 @@ ERROR:
 module_init(ged_init);
 module_exit(ged_exit);
 
+MODULE_DEVICE_TABLE(of, g_ged_of_match);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek GED Driver");
 MODULE_AUTHOR("MediaTek Inc.");

@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+
 #ifndef __GED_GPU_TUNER_H__
 
 #define __GED_GPU_TUNER_H__
@@ -10,7 +11,7 @@
 #include <linux/kernel.h>
 #include <ged_bridge.h>
 #include "ged_type.h"
-#include "mtk_gpu_utility.h"
+#include <mt-plat/mtk_gpu_utility.h>
 
 #if defined(__cplusplus)
 extern "C" {

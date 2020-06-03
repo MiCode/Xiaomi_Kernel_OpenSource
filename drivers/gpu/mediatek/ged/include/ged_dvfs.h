@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -31,38 +31,40 @@
 
 #define GED_DVFS_TIMER_BACKUP          0x5566dead
 
-typedef enum GED_DVFS_COMMIT_TAG {
-	GED_DVFS_DEFAULT_COMMIT,
-	GED_DVFS_CUSTOM_CEIL_COMMIT,
-	GED_DVFS_CUSTOM_BOOST_COMMIT,
-	GED_DVFS_SET_BOTTOM_COMMIT,
-	GED_DVFS_SET_LIMIT_COMMIT,
-	GED_DVFS_INPUT_BOOST_COMMIT
-} GED_DVFS_COMMIT_TYPE;
 
-typedef enum GED_DVFS_TUNING_MODE_TAG {
-	GED_DVFS_DEFAULT,
-	GED_DVFS_LP,
-	GED_DVFS_JUST_MAKE,
-	GED_DVFS_PERFORMANCE
-} GED_DVFS_TUNING_MODE;
+#define GED_DVFS_DEFAULT_COMMIT         0
+#define GED_DVFS_CUSTOM_CEIL_COMMIT     1
+#define GED_DVFS_CUSTOM_BOOST_COMMIT    2
+#define GED_DVFS_SET_BOTTOM_COMMIT      3
+#define GED_DVFS_SET_LIMIT_COMMIT       4
+#define GED_DVFS_INPUT_BOOST_COMMIT     5
+#define GED_DVFS_COMMIT_TYPE            int
 
-#define GED_EVENT_TOUCH          (1 << 0)
-#define GED_EVENT_THERMAL        (1 << 1)
-#define GED_EVENT_WFD            (1 << 2)
-#define GED_EVENT_MHL            (1 << 3)
-#define GED_EVENT_GAS            (1 << 4)
-#define GED_EVENT_LOW_POWER_MODE (1 << 5)
-#define GED_EVENT_MHL4K_VID      (1 << 6)
-#define GED_EVENT_BOOST_HOST     (1 << 7)
-#define GED_EVENT_VR             (1 << 8)
-#define GED_EVENT_VILTE_VID      (1 << 9)
-#define GED_EVENT_LCD            (1 << 10)
+#define GED_DVFS_DEFAULT                0
+#define GED_DVFS_LP                     1
+#define GED_DVFS_JUST_MAKE              2
+#define GED_DVFS_PERFORMANCE            3
+#define GED_DVFS_TUNING_MODE            int
+
+#define GED_EVENT_TOUCH            (1 << 0)
+#define GED_EVENT_THERMAL          (1 << 1)
+#define GED_EVENT_WFD              (1 << 2)
+#define GED_EVENT_MHL              (1 << 3)
+#define GED_EVENT_GAS              (1 << 4)
+#define GED_EVENT_LOW_POWER_MODE   (1 << 5)
+#define GED_EVENT_MHL4K_VID        (1 << 6)
+#define GED_EVENT_BOOST_HOST       (1 << 7)
+#define GED_EVENT_VR               (1 << 8)
+#define GED_EVENT_VILTE_VID        (1 << 9)
+#define GED_EVENT_LCD              (1 << 10)
 #define GED_EVENT_LOW_LATENCY_MODE (1 << 13)
+#define GED_EVENT_DHWC             (1 << 14)
 
 typedef void (*ged_event_change_fp)(void *private_data, int events);
 
-bool mtk_register_ged_event_change(const char *name, ged_event_change_fp callback, void *private_data);
+bool mtk_register_ged_event_change(
+	const char *name, void (*pfn_callback)(void *private_data, int events),
+	void *private_data);
 bool mtk_unregister_ged_event_change(const char *name);
 void mtk_ged_event_notify(int events);
 
@@ -73,10 +75,10 @@ void mtk_ged_event_notify(int events);
 #define GED_VSYNC_OFFSET_NOT_SYNC -2
 #define GED_VSYNC_OFFSET_SYNC     -3
 
-typedef struct GED_DVFS_FREQ_DATA_TAG {
+struct GED_DVFS_FREQ_DATA {
 	unsigned int ui32Idx;
 	unsigned long ulFreq;
-} GED_DVFS_FREQ_DATA;
+};
 
 struct GED_DVFS_BW_DATA {
 	unsigned int ui32MaxBW;
@@ -108,7 +110,8 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime);
 void ged_dvfs_set_tuning_mode(GED_DVFS_TUNING_MODE eMode);
 GED_DVFS_TUNING_MODE ged_dvfs_get_tuning_mode(void);
 
-GED_ERROR ged_dvfs_vsync_offset_event_switch(GED_DVFS_VSYNC_OFFSET_SWITCH_CMD eEvent, bool bSwitch);
+GED_ERROR ged_dvfs_vsync_offset_event_switch(
+	GED_DVFS_VSYNC_OFFSET_SWITCH_CMD eEvent, bool bSwitch);
 void ged_dvfs_vsync_offset_level_set(int i32level);
 int ged_dvfs_vsync_offset_level_get(void);
 
@@ -118,10 +121,10 @@ unsigned int ged_dvfs_get_gpu_idle(void);
 
 unsigned long ged_query_info(GED_INFO eType);
 
-void ged_dvfs_get_gpu_cur_freq(GED_DVFS_FREQ_DATA *psData);
-void ged_dvfs_get_gpu_pre_freq(GED_DVFS_FREQ_DATA *psData);
+void ged_dvfs_get_gpu_cur_freq(struct GED_DVFS_FREQ_DATA *psData);
+void ged_dvfs_get_gpu_pre_freq(struct GED_DVFS_FREQ_DATA *psData);
 
-void ged_dvfs_sw_vsync_query_data(GED_DVFS_UM_QUERY_PACK *psQueryData);
+void ged_dvfs_sw_vsync_query_data(struct GED_DVFS_UM_QUERY_PACK *psQueryData);
 
 void ged_dvfs_boost_gpu_freq(void);
 
@@ -136,7 +139,8 @@ GED_ERROR ged_dvfs_system_init(void);
 void ged_dvfs_system_exit(void);
 unsigned long ged_dvfs_get_last_commit_idx(void);
 
-extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target, int boost_accum_gpu);
+extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
+	int boost_accum_gpu);
 
 #ifdef GED_ENABLE_FB_DVFS
 extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target,
@@ -145,13 +149,11 @@ extern void (*ged_kpi_trigger_fb_dvfs_fp)(void);
 extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
 #endif
 
-extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq, int *pmode);
+extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq,
+	int *pmode);
 
-extern void mtk_gpu_ged_hint(int, int);
+extern void mtk_gpu_ged_hint(int a, int b);
 int ged_dvfs_boost_value(void);
-
-extern unsigned int mt_gpufreq_get_power_by_idx(int idx);
-extern int mt_gpufreq_get_opp_idx_by_freq(unsigned int freq);
 
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);
@@ -185,4 +187,6 @@ extern int (*mtk_get_dvfs_loading_mode_fp)(void);
 extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
 #endif
+
+extern unsigned int ged_log_perf_trace_enable;
 #endif

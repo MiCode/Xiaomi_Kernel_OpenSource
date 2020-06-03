@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -8,10 +8,9 @@
 
 #include "ged_type.h"
 
-typedef enum GED_NOTIFICATION_TYPE_TAG {
-	GED_NOTIFICATION_TYPE_SW_VSYNC,
-	GED_NOTIFICATION_TYPE_HW_VSYNC_PRIMARY_DISPLAY,
-} GED_NOTIFICATION_TYPE;
+#define GED_NOTIFICATION_TYPE                          int
+#define GED_NOTIFICATION_TYPE_SW_VSYNC                 0
+#define GED_NOTIFICATION_TYPE_HW_VSYNC_PRIMARY_DISPLAY 1
 
 void ged_notification(GED_NOTIFICATION_TYPE eType);
 int ged_set_target_fps(unsigned int target_fps, int mode);

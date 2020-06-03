@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -9,30 +9,25 @@
 #include <linux/seq_file.h>
 #include "ged_type.h"
 
-typedef ssize_t (GED_ENTRY_WRITE_FUNC)(
-    const char __user *pszBuffer,
-	size_t uiCount,
-	loff_t uiPosition,
-	void *pvData);
-
 GED_ERROR ged_debugFS_create_entry(
-    const char             *pszName,
+	const char             *pszName,
 	void                   *pvDir,
 	const struct seq_operations *psReadOps,
-    GED_ENTRY_WRITE_FUNC   *pfnWrite,
+	ssize_t (*pfnWrite)(const char __user *pszBuffer, size_t uiCount,
+		loff_t uiPosition, void *pvData),
 	void                   *pvData,
 	struct dentry         **ppsEntry);
 
 void ged_debugFS_remove_entry(
-    struct dentry *psEntry);
+	struct dentry *psEntry);
 
 GED_ERROR ged_debugFS_create_entry_dir(
-    const char     *pszName,
-    struct dentry  *psParentDir,
-    struct dentry **ppsDir);
+	const char     *pszName,
+	struct dentry  *psParentDir,
+	struct dentry **ppsDir);
 
 void ged_debugFS_remove_entry_dir(
-    struct dentry *psDir);
+	struct dentry *psDir);
 
 GED_ERROR ged_debugFS_init(void);
 

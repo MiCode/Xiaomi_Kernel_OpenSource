@@ -117,8 +117,6 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 #endif
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_5);
-#else
-	mali_pr_info("@%s: GPUFREQ doesn't support\n", __func__);
 #endif
 
 	return 1;
@@ -165,8 +163,6 @@ static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 	mt_gpufreq_power_control(POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF);
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_B);
-#else
-	mali_pr_info("@%s: GPUFREQ doesn't support\n", __func__);
 #endif
 }
 

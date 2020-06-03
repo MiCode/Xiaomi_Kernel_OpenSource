@@ -6,8 +6,9 @@
 #include <linux/kernel.h>
 #include <mt-plat/mtk_gpu_utility.h>
 
-/* TODO: porting*/
-/* #include <mt-plat/fpsgo_common.h> */
+#ifdef CONFIG_MTK_FPSGO_V3
+#include <mt-plat/fpsgo_common.h>
+#endif
 
 #include "ged_base.h"
 #include "ged_bridge.h"
@@ -18,7 +19,6 @@
 #include <linux/module.h>
 #include "ged_kpi.h"
 #include "ged.h"
-#include "ged_frr.h"
 
 static unsigned int ged_boost_enable = 1;
 //-----------------------------------------------------------------------------
@@ -27,7 +27,8 @@ int ged_bridge_log_buf_get(
 	struct GED_BRIDGE_OUT_LOGBUFGET *psLogBufGetOUT)
 {
 	psLogBufGetOUT->hLogBuf = ged_log_buf_get(psLogBufGetIN->acName);
-	psLogBufGetOUT->eError = psLogBufGetOUT->hLogBuf ? GED_OK : GED_ERROR_FAIL;
+	psLogBufGetOUT->eError =
+		psLogBufGetOUT->hLogBuf ? GED_OK : GED_ERROR_FAIL;
 	return 0;
 }
 //-----------------------------------------------------------------------------
@@ -36,7 +37,8 @@ int ged_bridge_log_buf_write(
 	struct GED_BRIDGE_OUT_LOGBUFWRITE *psLogBufWriteOUT)
 {
 	psLogBufWriteOUT->eError =
-		ged_log_buf_print2(psLogBufWriteIN->hLogBuf, psLogBufWriteIN->attrs, "%s", psLogBufWriteIN->acLogBuf);
+		ged_log_buf_print2(psLogBufWriteIN->hLogBuf,
+		psLogBufWriteIN->attrs, "%s", psLogBufWriteIN->acLogBuf);
 	return 0;
 }
 //-----------------------------------------------------------------------------
@@ -52,20 +54,9 @@ int ged_bridge_boost_gpu_freq(
 	struct GED_BRIDGE_IN_BOOSTGPUFREQ *psBoostGpuFreqIN,
 	struct GED_BRIDGE_OUT_BOOSTGPUFREQ *psBoostGpuFreqOUT)
 {
-#if 1
 	psBoostGpuFreqOUT->eError = (mtk_set_bottom_gpu_freq(
 		psBoostGpuFreqIN->eGPUFreqLevel) == true) ?
 		GED_OK : GED_ERROR_FAIL;
-#else
-	unsigned int ui32Count;
-	if (mtk_custom_get_gpu_freq_level_count(&ui32Count)) {
-		int i32Level = (ui32Count - 1) - GED_BOOST_GPU_FREQ_LEVEL_MAX - psBoostGpuFreqIN->eGPUFreqLevel;
-		mtk_boost_gpu_freq(i32Level);
-		psBoostGpuFreqOUT->eError = GED_OK;
-	} else {
-		psBoostGpuFreqOUT->eError = GED_ERROR_FAIL;
-	}
-#endif
 	return 0;
 }
 //-----------------------------------------------------------------------------
@@ -91,8 +82,8 @@ int ged_bridge_notify_vsync(
 	struct GED_BRIDGE_OUT_NOTIFY_VSYNC *psNotifyVsyncOUT)
 {
 	psNotifyVsyncOUT->eError =
-		//ged_notify_vsync(psNotifyVsyncINT->eType, &psNotifyVsyncOUT->t);
-		ged_notify_sw_vsync(psNotifyVsyncINT->eType, &psNotifyVsyncOUT->sQueryData);
+		ged_notify_sw_vsync(psNotifyVsyncINT->eType,
+			&psNotifyVsyncOUT->sQueryData);
 
 	return 0;
 }
@@ -111,7 +102,8 @@ int ged_bridge_dvfs_um_retrun(
 	struct GED_BRIDGE_OUT_DVFS_UM_RETURN *psDVFS_UM_returnOUT)
 {
 	psDVFS_UM_returnOUT->eError =
-		ged_dvfs_um_commit(psDVFS_UM_returnINT->gpu_tar_freq, psDVFS_UM_returnINT->bFallback);
+		ged_dvfs_um_commit(psDVFS_UM_returnINT->gpu_tar_freq,
+			psDVFS_UM_returnINT->bFallback);
 	return 0;
 }
 
@@ -122,7 +114,8 @@ int ged_bridge_event_notify(
 {
 	if (ged_boost_enable) {
 		psEVENT_NOTIFYOUT->eError =
-			ged_dvfs_vsync_offset_event_switch(psEVENT_NOTIFYINT->eEvent, psEVENT_NOTIFYINT->bSwitch);
+			ged_dvfs_vsync_offset_event_switch(
+			psEVENT_NOTIFYINT->eEvent, psEVENT_NOTIFYINT->bSwitch);
 	} else {
 		psEVENT_NOTIFYOUT->eError = GED_OK;
 	}
@@ -130,7 +123,7 @@ int ged_bridge_event_notify(
 	return 0;
 }
 
-/* ----------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int ged_bridge_gpu_timestamp(
 	struct GED_BRIDGE_IN_GPU_TIMESTAMP *psGpuBeginINT,
 	struct GED_BRIDGE_OUT_GPU_TIMESTAMP *psGpuBeginOUT)
@@ -139,22 +132,22 @@ int ged_bridge_gpu_timestamp(
 		if (psGpuBeginINT->QedBuffer_length == -2) {
 			psGpuBeginOUT->eError =
 				ged_kpi_dequeue_buffer_ts(psGpuBeginINT->pid,
-									psGpuBeginINT->ullWnd,
-									psGpuBeginINT->i32FrameID,
-									psGpuBeginINT->fence_fd,
-									psGpuBeginINT->isSF);
+					psGpuBeginINT->ullWnd,
+					psGpuBeginINT->i32FrameID,
+					psGpuBeginINT->fence_fd,
+					psGpuBeginINT->isSF);
 		} else if (psGpuBeginINT->QedBuffer_length != -1) {
 			psGpuBeginOUT->eError =
 				ged_kpi_queue_buffer_ts(psGpuBeginINT->pid,
-										psGpuBeginINT->ullWnd,
-										psGpuBeginINT->i32FrameID,
-										psGpuBeginINT->fence_fd,
-										psGpuBeginINT->QedBuffer_length);
+					psGpuBeginINT->ullWnd,
+					psGpuBeginINT->i32FrameID,
+					psGpuBeginINT->fence_fd,
+					psGpuBeginINT->QedBuffer_length);
 		} else {
 			psGpuBeginOUT->eError =
 				ged_kpi_acquire_buffer_ts(psGpuBeginINT->pid,
-										psGpuBeginINT->ullWnd,
-										psGpuBeginINT->i32FrameID);
+					psGpuBeginINT->ullWnd,
+					psGpuBeginINT->i32FrameID);
 		}
 		psGpuBeginOUT->is_ged_kpi_enabled = 1;
 	} else {
@@ -164,40 +157,22 @@ int ged_bridge_gpu_timestamp(
 	return 0;
 }
 
-/* ----------------------------------------------------------------------------- */
-#ifdef MTK_FRR20
-int ged_bridge_wait_hw_vsync(void)
-{
-	ged_frr_wait_hw_vsync();
-	return 0;
-}
-
-/* ----------------------------------------------------------------------------- */
-int ged_bridge_query_target_fps(
-	struct GED_BRIDGE_IN_QUERY_TARGET_FPS *in,
-	struct GED_BRIDGE_OUT_QUERY_TARGET_FPS *out)
-{
-	ged_frr_fence2context_table_update(in->pid, in->cid, in->fenceFd);
-	out->fps = ged_frr_get_fps(in->pid, in->cid);
-	return 0;
-}
-#endif
-
 //-----------------------------------------------------------------------------
 int ged_bridge_gpu_hint_to_cpu(
 		struct GED_BRIDGE_IN_GPU_HINT_TO_CPU *in,
 		struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU *out)
 {
 	int ret = 0;
-
-	/* TODO: porting*/
-	/* ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint); */
-
+#ifdef CONFIG_MTK_FPSGO_V3
+	ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);
+#endif
 	out->eError = GED_OK;
 	out->boost_flag = ret;
 	out->boost_value = ged_dvfs_boost_value();
+
 	return 0;
 }
+
 //-----------------------------------------------------------------------------
 static int ged_force_mdp_enable;
 int ged_bridge_hint_force_mdp(
@@ -222,5 +197,6 @@ int ged_bridge_hint_force_mdp(
 	return 0;
 }
 //-----------------------------------------------------------------------------
+
 module_param(ged_boost_enable, uint, 0644);
 module_param(ged_force_mdp_enable, int, 0644);
