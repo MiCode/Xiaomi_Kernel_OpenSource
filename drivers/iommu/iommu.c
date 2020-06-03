@@ -102,6 +102,29 @@ int iommu_device_register(struct iommu_device *iommu)
 	return 0;
 }
 
+#ifdef CONFIG_ARM_SMMU_SELFTEST
+struct iommu_device *get_iommu_by_fwnode(struct fwnode_handle *fwnode)
+{
+	struct iommu_device *iommu;
+
+	spin_lock(&iommu_device_lock);
+	list_for_each_entry(iommu, &iommu_device_list, list) {
+		if (iommu->fwnode == fwnode) {
+			spin_unlock(&iommu_device_lock);
+			return iommu;
+		}
+	}
+	spin_unlock(&iommu_device_lock);
+
+	return NULL;
+}
+#else
+struct iommu_device *get_iommu_by_fwnode(struct fwnode_handle *fwnode)
+{
+	return NULL;
+}
+#endif
+
 void iommu_device_unregister(struct iommu_device *iommu)
 {
 	spin_lock(&iommu_device_lock);
@@ -318,7 +341,7 @@ static ssize_t iommu_group_show_type(struct iommu_group *group,
 			type = "unmanaged\n";
 			break;
 		case IOMMU_DOMAIN_DMA:
-			type = "DMA";
+			type = "DMA\n";
 			break;
 		}
 	}
@@ -652,6 +675,7 @@ err_put_group:
 	mutex_unlock(&group->mutex);
 	dev->iommu_group = NULL;
 	kobject_put(group->devices_kobj);
+	sysfs_remove_link(group->devices_kobj, device->name);
 err_free_name:
 	kfree(device->name);
 err_remove_link:
@@ -1955,9 +1979,9 @@ int iommu_request_dm_for_dev(struct device *dev)
 	int ret;
 
 	/* Device must already be in a group before calling this function */
-	group = iommu_group_get_for_dev(dev);
-	if (IS_ERR(group))
-		return PTR_ERR(group);
+	group = iommu_group_get(dev);
+	if (!group)
+		return -EINVAL;
 
 	mutex_lock(&group->mutex);
 

@@ -167,6 +167,8 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_pci_init(struct cnss_plat_data *plat_priv);
 void cnss_pci_deinit(struct cnss_plat_data *plat_priv);
+void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
+				 char *prefix_name, char *name);
 int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv);
 int cnss_pci_alloc_qdss_mem(struct cnss_pci_data *pci_priv);
 void cnss_pci_free_qdss_mem(struct cnss_pci_data *pci_priv);
@@ -200,6 +202,8 @@ void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv);
 void cnss_pci_pm_runtime_mark_last_busy(struct cnss_pci_data *pci_priv);
 int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 			   enum cnss_driver_status status);
+int cnss_call_driver_uevent(struct cnss_pci_data *pci_priv,
+			    enum cnss_driver_status status, void *data);
 int cnss_pcie_is_device_down(struct cnss_pci_data *pci_priv);
 int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv);
 int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv);

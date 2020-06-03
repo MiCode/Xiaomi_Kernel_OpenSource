@@ -303,6 +303,9 @@ extern key_ref_t key_create_or_update(key_ref_t keyring,
 				      key_perm_t perm,
 				      unsigned long flags);
 
+extern key_ref_t lookup_user_key(key_serial_t id, unsigned long flags,
+				 key_perm_t perm);
+
 extern int key_update(key_ref_t key,
 		      const void *payload,
 		      size_t plen);
@@ -345,6 +348,9 @@ static inline key_serial_t key_serial(const struct key *key)
 }
 
 extern void key_set_timeout(struct key *, unsigned);
+
+extern key_ref_t lookup_user_key(key_serial_t id, unsigned long flags,
+				 key_perm_t perm);
 
 /*
  * The permissions required on a key that we're looking up.

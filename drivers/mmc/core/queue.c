@@ -114,7 +114,6 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 				mmc_cqe_recovery_notifier(mrq);
 			return BLK_EH_RESET_TIMER;
 		}
-		/* No timeout (XXX: huh? comment doesn't make much sense) */
 
 		pr_info("%s: %s: Timeout even before req reaching LDD, completing the req. Active reqs: %d Req: %p Tag: %d\n",
 				mmc_hostname(host), __func__,
@@ -122,7 +121,7 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 		mmc_log_string(host,
 				"Timeout even before req reaching LDD,completing the req. Active reqs: %d Req: %p Tag: %d\n",
 				mmc_cqe_qcnt(mq), req, req->tag);
-		blk_mq_complete_request(req);
+		/* The request has gone already */
 		return BLK_EH_DONE;
 	default:
 		/* Timeout is handled by mmc core */
@@ -385,8 +384,6 @@ static void mmc_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 	blk_queue_max_hw_sectors(mq->queue,
 		min(host->max_blk_count, host->max_req_size / 512));
 	blk_queue_max_segments(mq->queue, host->max_segs);
-	if (host->inlinecrypt_support)
-		queue_flag_set_unlocked(QUEUE_FLAG_INLINECRYPT, mq->queue);
 
 	if (host->ops->init)
 		host->ops->init(host);
@@ -404,6 +401,9 @@ static void mmc_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 	mutex_init(&mq->complete_lock);
 
 	init_waitqueue_head(&mq->wait);
+
+	if (host->cqe_ops && host->cqe_ops->cqe_crypto_update_queue)
+		host->cqe_ops->cqe_crypto_update_queue(host, mq->queue);
 }
 
 static int mmc_mq_init_queue(struct mmc_queue *mq, int q_depth,

@@ -108,7 +108,6 @@ static int qdss_create_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 
 		buf = kzalloc(drvdata->mtu, GFP_KERNEL);
 		usb_req = kzalloc(sizeof(*usb_req), GFP_KERNEL);
-		init_completion(&usb_req->write_done);
 
 		entry->buf = buf;
 		entry->usb_req = usb_req;
@@ -450,12 +449,16 @@ static void usb_notifier(void *priv, unsigned int event,
 {
 	struct qdss_bridge_drvdata *drvdata = priv;
 
-	if (!drvdata)
+	if (!drvdata || drvdata->mode != MHI_TRANSFER_TYPE_USB
+			|| drvdata->opened == DISABLE) {
+		pr_err_ratelimited("%s can't be called in invalid status.\n",
+				__func__);
 		return;
+	}
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
-		usb_qdss_alloc_req(ch, drvdata->nr_trbs, 0);
+		usb_qdss_alloc_req(ch, drvdata->nr_trbs);
 		mhi_queue_read(drvdata);
 		break;
 

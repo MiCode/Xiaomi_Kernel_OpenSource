@@ -824,6 +824,9 @@ void mhi_special_purpose_work(struct work_struct *work)
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state)))
+		return;
+
 	/* check special purpose event rings and process events */
 	list_for_each_entry(mhi_event, &mhi_cntrl->sp_ev_rings, node)
 		mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
@@ -944,6 +947,12 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		goto error_bhi_offset;
 	}
 
+	if (val >= mhi_cntrl->len) {
+		write_unlock_irq(&mhi_cntrl->pm_lock);
+		MHI_ERR("Invalid bhi offset:%x\n", val);
+		goto error_bhi_offset;
+	}
+
 	mhi_cntrl->bhi = mhi_cntrl->regs + val;
 
 	/* setup bhie offset if not set */
@@ -952,6 +961,12 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		if (ret) {
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			MHI_CNTRL_ERR("Error getting bhie offset\n");
+			goto error_bhi_offset;
+		}
+
+		if (val >= mhi_cntrl->len) {
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_ERR("Invalid bhie offset:%x\n", val);
 			goto error_bhi_offset;
 		}
 

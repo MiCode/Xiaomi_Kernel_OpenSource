@@ -244,6 +244,7 @@ void regulator_bulk_free(int num_consumers,
 
 int regulator_count_voltages(struct regulator *regulator);
 int regulator_list_voltage(struct regulator *regulator, unsigned selector);
+int regulator_list_corner_voltage(struct regulator *regulator, int corner);
 int regulator_is_supported_voltage(struct regulator *regulator,
 				   int min_uV, int max_uV);
 unsigned int regulator_get_linear_step(struct regulator *regulator);
@@ -579,6 +580,11 @@ static inline int regulator_list_voltage(struct regulator *regulator, unsigned s
 	return -EINVAL;
 }
 
+static inline int regulator_list_corner_voltage(struct regulator *regulator,
+	int corner)
+{
+	return -EINVAL;
+}
 #endif
 
 static inline int regulator_set_voltage_triplet(struct regulator *regulator,

@@ -11,6 +11,7 @@
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/log2.h>
 #include <linux/qpnp/qpnp-revid.h>
@@ -525,6 +526,8 @@ static enum power_supply_property smblite_usb_main_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_FLASH_TRIGGER,
+	POWER_SUPPLY_PROP_FLASH_ACTIVE,
 };
 
 static int smblite_usb_main_get_prop(struct power_supply *psy,
@@ -559,6 +562,12 @@ static int smblite_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblite_lib_get_icl_current(chg, &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		rc = schgm_flashlite_get_vreg_ok(chg, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		val->intval = chg->flash_active;
+		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -577,6 +586,7 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 	struct smblite *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
+	union power_supply_propval pval = {0, };
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
@@ -589,6 +599,21 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblite_lib_set_icl_current(chg, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		if (chg->flash_active != val->intval) {
+			chg->flash_active = val->intval;
+
+			rc = smblite_lib_get_prop_usb_present(chg, &pval);
+			if (rc < 0)
+				pr_err("Failed to get USB present status rc=%d\n",
+						rc);
+			if (!pval.intval) {
+				/* vote 100ma when usb is not present*/
+				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
+							true, USBIN_100UA);
+			}
+		}
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -959,22 +984,18 @@ static int smblite_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	rc = smblite_lib_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure Type-C interrupts rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smblite_lib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 					EN_SNK_ONLY_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	/* Enable detection of unoriented debug accessory in source mode */
-	rc = smblite_lib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
-				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
-				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure TYPE_C_DEBUG_ACCESS_SRC_CFG_REG rc=%d\n",
 				rc);
 		return rc;
 	}
@@ -1156,6 +1177,28 @@ static int smblite_init_connector_type(struct smb_charger *chg)
 	return 0;
 }
 
+static int smblite_init_otg(struct smblite *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+
+	chg->usb_id_gpio = chg->usb_id_irq = -EINVAL;
+
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC)
+		return 0;
+
+	if (of_find_property(chg->dev->of_node, "qcom,usb-id-gpio", NULL))
+		chg->usb_id_gpio = of_get_named_gpio(chg->dev->of_node,
+					"qcom,usb-id-gpio", 0);
+
+	chg->usb_id_irq = of_irq_get_byname(chg->dev->of_node,
+						"usb_id_irq");
+	if (chg->usb_id_irq < 0 || chg->usb_id_gpio < 0)
+		pr_err("OTG irq (%d) / gpio (%d) not defined\n",
+				chg->usb_id_irq, chg->usb_id_gpio);
+
+	return 0;
+}
+
 static int smblite_init_hw(struct smblite *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -1182,6 +1225,12 @@ static int smblite_init_hw(struct smblite *chip)
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't configure connector type rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	rc = smblite_init_otg(chip);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't init otg rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1392,6 +1441,10 @@ static int smblite_determine_initial_status(struct smblite *chip)
 	smblite_batt_temp_changed_irq_handler(0, &irq_data);
 	smblite_wdog_bark_irq_handler(0, &irq_data);
 	smblite_typec_or_rid_detection_change_irq_handler(0, &irq_data);
+
+	if (chg->usb_id_gpio > 0 &&
+		chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		smblite_usb_id_irq_handler(0, chg);
 
 	return 0;
 }
@@ -1644,6 +1697,22 @@ static int smblite_request_interrupts(struct smblite *chip)
 		}
 	}
 
+	/* register the USB-id irq */
+	if (chg->usb_id_irq > 0 && chg->usb_id_gpio > 0) {
+		rc = devm_request_threaded_irq(chg->dev,
+				chg->usb_id_irq, NULL,
+				smblite_usb_id_irq_handler,
+				IRQF_ONESHOT
+				| IRQF_TRIGGER_FALLING
+				| IRQF_TRIGGER_RISING,
+				"smblite_id_irq", chg);
+		if (rc < 0) {
+			pr_err("Failed to register id-irq rc=%d\n", rc);
+			return rc;
+		}
+		enable_irq_wake(chg->usb_id_irq);
+	}
+
 	return rc;
 }
 
@@ -1657,6 +1726,11 @@ static void smblite_disable_interrupts(struct smb_charger *chg)
 				disable_irq_wake(smblite_irqs[i].irq);
 			disable_irq(smblite_irqs[i].irq);
 		}
+	}
+
+	if (chg->usb_id_irq > 0 && chg->usb_id_gpio > 0) {
+		disable_irq_wake(chg->usb_id_irq);
+		disable_irq(chg->usb_id_irq);
 	}
 }
 

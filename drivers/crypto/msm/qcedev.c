@@ -259,8 +259,6 @@ static int qcedev_open(struct inode *inode, struct file *file)
 
 	handle->cntl = podev;
 	file->private_data = handle;
-	if (podev->platform_support.bus_scale_table != NULL)
-		qcedev_ce_high_bw_req(podev, true);
 
 	mutex_init(&handle->registeredbufs.lock);
 	INIT_LIST_HEAD(&handle->registeredbufs.list);
@@ -284,8 +282,6 @@ static int qcedev_release(struct inode *inode, struct file *file)
 
 	kzfree(handle);
 	file->private_data = NULL;
-	if (podev != NULL && podev->platform_support.bus_scale_table != NULL)
-		qcedev_ce_high_bw_req(podev, false);
 	return 0;
 }
 
@@ -1711,6 +1707,11 @@ static inline long qcedev_ioctl(struct file *file,
 	init_completion(&qcedev_areq->complete);
 	pstat = &_qcedev_stat;
 
+	if (podev->platform_support.bus_scale_table != NULL &&
+		cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
+		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
+		qcedev_ce_high_bw_req(podev, true);
+
 	switch (cmd) {
 	case QCEDEV_IOCTL_ENC_REQ:
 	case QCEDEV_IOCTL_DEC_REQ:
@@ -1996,6 +1997,10 @@ static inline long qcedev_ioctl(struct file *file,
 	}
 
 exit_free_qcedev_areq:
+	if (podev->platform_support.bus_scale_table != NULL &&
+		cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
+		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
+		qcedev_ce_high_bw_req(podev, false);
 	kfree(qcedev_areq);
 	return err;
 }
@@ -2303,7 +2308,7 @@ static int _qcedev_debug_init(void)
 
 	_debug_dent = debugfs_create_dir("qcedev", NULL);
 	if (IS_ERR(_debug_dent)) {
-		pr_err("qcedev debugfs_create_dir fail, error %ld\n",
+		pr_debug("qcedev debugfs_create_dir fail, error %ld\n",
 				PTR_ERR(_debug_dent));
 		return PTR_ERR(_debug_dent);
 	}
@@ -2313,7 +2318,7 @@ static int _qcedev_debug_init(void)
 	dent = debugfs_create_file(name, 0644, _debug_dent,
 			&_debug_qcedev, &_debug_stats_ops);
 	if (dent == NULL) {
-		pr_err("qcedev debugfs_create_file fail, error %ld\n",
+		pr_debug("qcedev debugfs_create_file fail, error %ld\n",
 				PTR_ERR(dent));
 		rc = PTR_ERR(dent);
 		goto err;
@@ -2326,11 +2331,8 @@ err:
 
 static int qcedev_init(void)
 {
-	int rc;
+	_qcedev_debug_init();
 
-	rc = _qcedev_debug_init();
-	if (rc)
-		return rc;
 	return platform_driver_register(&qcedev_plat_driver);
 }
 

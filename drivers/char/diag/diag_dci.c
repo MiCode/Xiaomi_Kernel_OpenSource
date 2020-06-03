@@ -1668,10 +1668,13 @@ unsigned char *dci_get_buffer_from_bridge(int token)
 {
 	uint8_t retries = 0, max_retries = 50;
 	unsigned char *buf = NULL;
+	unsigned long flags;
 
 	do {
+		spin_lock_irqsave(&driver->dci_mempool_lock, flags);
 		buf = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE,
 				    dci_ops_tbl[token].mempool);
+		spin_unlock_irqrestore(&driver->dci_mempool_lock, flags);
 		if (!buf) {
 			usleep_range(5000, 5100);
 			retries++;
@@ -1689,13 +1692,16 @@ int diag_dci_write_bridge(int token, unsigned char *buf, int len)
 
 int diag_dci_write_done_bridge(int index, unsigned char *buf, int len)
 {
+	unsigned long flags;
 	int token = BRIDGE_TO_TOKEN(index);
 
 	if (!VALID_DCI_TOKEN(token)) {
 		pr_err("diag: Invalid DCI token %d in %s\n", token, __func__);
 		return -EINVAL;
 	}
+	spin_lock_irqsave(&driver->dci_mempool_lock, flags);
 	diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+	spin_unlock_irqrestore(&driver->dci_mempool_lock, flags);
 	return 0;
 }
 #endif
@@ -1709,6 +1715,7 @@ static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
 	int dci_header_size = sizeof(struct diag_dci_header_t);
 	int ret = DIAG_DCI_NO_ERROR;
 	uint32_t write_len = 0;
+	unsigned long flags;
 
 	if (!data)
 		return -EIO;
@@ -1742,7 +1749,9 @@ static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
 	if (ret) {
 		pr_err("diag: error writing dci pkt to remote proc, token: %d, err: %d\n",
 			token, ret);
+		spin_lock_irqsave(&driver->dci_mempool_lock, flags);
 		diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+		spin_unlock_irqrestore(&driver->dci_mempool_lock, flags);
 	} else {
 		ret = DIAG_DCI_NO_ERROR;
 	}
@@ -1766,6 +1775,7 @@ int diag_dci_send_handshake_pkt(int index)
 	struct diag_ctrl_dci_handshake_pkt ctrl_pkt;
 	unsigned char *buf = NULL;
 	struct diag_dci_header_t dci_header;
+	unsigned long flags;
 
 	if (!VALID_DCI_TOKEN(token)) {
 		pr_err("diag: In %s, invalid DCI token %d\n", __func__, token);
@@ -1805,7 +1815,9 @@ int diag_dci_send_handshake_pkt(int index)
 	if (err) {
 		pr_err("diag: error writing ack packet to remote proc, token: %d, err: %d\n",
 		       token, err);
+		spin_lock_irqsave(&driver->dci_mempool_lock, flags);
 		diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+		spin_unlock_irqrestore(&driver->dci_mempool_lock, flags);
 		return err;
 	}
 
@@ -2469,6 +2481,7 @@ int diag_send_dci_event_mask_remote(int token)
 	int i, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
 	unsigned char *event_mask_ptr = NULL;
 	uint32_t write_len = 0;
+	unsigned long flags;
 
 	mutex_lock(&dci_event_mask_mutex);
 	event_mask_ptr = dci_ops_tbl[token].event_mask_composite;
@@ -2514,7 +2527,9 @@ int diag_send_dci_event_mask_remote(int token)
 	if (err) {
 		pr_err("diag: error writing event mask to remote proc, token: %d, err: %d\n",
 		       token, err);
+		spin_lock_irqsave(&driver->dci_mempool_lock, flags);
 		diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+		spin_unlock_irqrestore(&driver->dci_mempool_lock, flags);
 		ret = err;
 	} else {
 		ret = DIAG_DCI_NO_ERROR;
@@ -2671,6 +2686,7 @@ int diag_send_dci_log_mask_remote(int token)
 	int i, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
 	int updated;
 	uint32_t write_len = 0;
+	unsigned long flags;
 
 	mutex_lock(&dci_log_mask_mutex);
 	log_mask_ptr = dci_ops_tbl[token].log_mask_composite;
@@ -2710,7 +2726,10 @@ int diag_send_dci_log_mask_remote(int token)
 		if (err) {
 			pr_err("diag: error writing log mask to remote processor, equip_id: %d, token: %d, err: %d\n",
 			       i, token, err);
+			spin_lock_irqsave(&driver->dci_mempool_lock, flags);
 			diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+			spin_unlock_irqrestore(&driver->dci_mempool_lock,
+				flags);
 			updated = 0;
 		}
 		if (updated)
@@ -2850,6 +2869,7 @@ int diag_dci_init(void)
 	mutex_init(&dci_log_mask_mutex);
 	mutex_init(&dci_event_mask_mutex);
 	spin_lock_init(&ws_lock);
+	spin_lock_init(&driver->dci_mempool_lock);
 
 	ret = diag_dci_init_ops_tbl();
 	if (ret)
@@ -2996,6 +3016,8 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	int i, err = 0;
 	struct diag_dci_client_tbl *new_entry = NULL;
 	struct diag_dci_buf_peripheral_t *proc_buf = NULL;
+	struct pid *pid_struct = NULL;
+	struct task_struct *task_s = NULL;
 
 	if (!reg_entry)
 		return DIAG_DCI_NO_REG;
@@ -3011,14 +3033,25 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	if (driver->num_dci_client >= MAX_DCI_CLIENTS)
 		return DIAG_DCI_NO_REG;
 
-	new_entry = kzalloc(sizeof(struct diag_dci_client_tbl), GFP_KERNEL);
-	if (!new_entry)
+	pid_struct = find_get_pid(current->tgid);
+	if (!pid_struct)
 		return DIAG_DCI_NO_REG;
+	task_s = get_pid_task(pid_struct, PIDTYPE_PID);
+	if (!task_s) {
+		put_pid(pid_struct);
+		return DIAG_DCI_NO_REG;
+	}
+	new_entry = kzalloc(sizeof(struct diag_dci_client_tbl), GFP_KERNEL);
+	if (!new_entry) {
+		put_pid(pid_struct);
+		put_task_struct(task_s);
+		return DIAG_DCI_NO_REG;
+	}
+
+	get_task_struct(task_s);
 
 	mutex_lock(&driver->dci_mutex);
-
-	get_task_struct(current);
-	new_entry->client = current;
+	new_entry->client = task_s;
 	new_entry->tgid = current->tgid;
 	new_entry->client_info.notification_list =
 				reg_entry->notification_list;
@@ -3108,7 +3141,8 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_UP, reg_entry->token);
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
 	mutex_unlock(&driver->dci_mutex);
-
+	put_pid(pid_struct);
+	put_task_struct(task_s);
 	return reg_entry->client_id;
 
 fail_alloc:
@@ -3145,8 +3179,10 @@ fail_alloc:
 		kfree(new_entry);
 		new_entry = NULL;
 	}
-	put_task_struct(current);
 	mutex_unlock(&driver->dci_mutex);
+	put_task_struct(task_s);
+	put_task_struct(task_s);
+	put_pid(pid_struct);
 	return DIAG_DCI_NO_REG;
 }
 

@@ -36,7 +36,7 @@ static const struct regmap_config apcs_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = 0x1000,
+	.max_register = 0xFFC,
 	.fast_io = true,
 };
 
@@ -138,6 +138,7 @@ static const struct of_device_id qcom_apcs_ipc_of_match[] = {
 	{ .compatible = "qcom,kona-spcs-global", .data = (void *)0 },
 	{ .compatible = "qcom,bengal-apcs-hmss-global", .data = (void *)8 },
 	{ .compatible = "qcom,scuba-apcs-hmss-global", .data = (void *)8 },
+	{ .compatible = "qcom,sdm660-apcs-hmss-global", .data = (void *)8 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qcom_apcs_ipc_of_match);

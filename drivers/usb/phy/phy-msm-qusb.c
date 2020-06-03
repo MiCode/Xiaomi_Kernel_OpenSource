@@ -640,11 +640,22 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 	u32 linestate = 0, intr_mask = 0;
 
 	if (qphy->suspended == suspend) {
+		/*
+		 * PHY_SUS_OVERRIDE is set when there is a cable
+		 * disconnect and the previous suspend call was because
+		 * of EUD spoof disconnect. Override this check and
+		 * ensure that the PHY is properly put in low power
+		 * mode.
+		 */
+		if (qphy->phy.flags & PHY_SUS_OVERRIDE)
+			goto suspend;
+
 		dev_dbg(phy->dev, "%s: USB PHY is already suspended\n",
 			__func__);
 		return 0;
 	}
 
+suspend:
 	if (suspend) {
 		/* Bus suspend case */
 		if (qphy->cable_connected) {
@@ -697,8 +708,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
-			if (!qphy->eud_enable_reg ||
-					!readl_relaxed(qphy->eud_enable_reg)) {
+			if (!(qphy->phy.flags & EUD_SPOOF_DISCONNECT)) {
 				/* Disable PHY */
 				writel_relaxed(POWER_DOWN |
 					readl_relaxed(qphy->base +
@@ -710,10 +720,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				if (qphy->tcsr_clamp_dig_n)
 					writel_relaxed(0x0,
 						qphy->tcsr_clamp_dig_n);
+
+				qusb_phy_enable_clocks(qphy, false);
+				qusb_phy_enable_power(qphy, false);
 			}
 
-			qusb_phy_enable_clocks(qphy, false);
-			qusb_phy_enable_power(qphy, false);
 			mutex_unlock(&qphy->phy_lock);
 
 			/*
@@ -1194,10 +1205,18 @@ static void qusb_phy_chg_det_enable_seq(struct qusb_phy *qphy, int state)
 #define CHG_PRIMARY_DET_TIME_MSEC	100
 #define CHG_SECONDARY_DET_TIME_MSEC	100
 
-static int qusb_phy_enable_phy(struct qusb_phy *qphy)
+static int qusb_phy_prepare_chg_det(struct qusb_phy *qphy)
 {
 	int ret;
 
+	/*
+	 * Set dpdm_enable to indicate charger detection
+	 * is in progress. This also prevents the core
+	 * driver from doing the set_suspend and init
+	 * calls of the PHY which inteferes with the charger
+	 * detection during bootup.
+	 */
+	qphy->dpdm_enable = true;
 	ret = qusb_phy_enable_power(qphy, true);
 	if (ret)
 		return ret;
@@ -1209,7 +1228,7 @@ static int qusb_phy_enable_phy(struct qusb_phy *qphy)
 	return 0;
 }
 
-static void qusb_phy_disable_phy(struct qusb_phy *qphy)
+static void qusb_phy_unprepare_chg_det(struct qusb_phy *qphy)
 {
 	int ret;
 
@@ -1227,6 +1246,10 @@ static void qusb_phy_disable_phy(struct qusb_phy *qphy)
 	if (qphy->tcsr_clamp_dig_n)
 		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
 	qusb_phy_enable_power(qphy, false);
+
+	qphy->dpdm_enable = false;
+	regulator_notifier_call_chain(qphy->dpdm_rdev,
+					REGULATOR_EVENT_DISABLE, NULL);
 }
 
 static void qusb_phy_port_state_work(struct work_struct *w)
@@ -1248,7 +1271,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 
 		if (qphy->vbus_active) {
 			/* Enable DCD sequence */
-			ret = qusb_phy_enable_phy(qphy);
+			ret = qusb_phy_prepare_chg_det(qphy);
 			if (ret)
 				return;
 
@@ -1260,7 +1283,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		}
 		return;
 	case PORT_DISCONNECTED:
-		qusb_phy_disable_phy(qphy);
+		qusb_phy_unprepare_chg_det(qphy);
 		qphy->port_state = PORT_UNKNOWN;
 		break;
 	case PORT_DCD_IN_PROGRESS:
@@ -1281,7 +1304,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		} else if (qphy->dcd_timeout >= CHG_DCD_TIMEOUT_MSEC) {
 			qusb_phy_notify_charger(qphy,
 						POWER_SUPPLY_TYPE_USB_DCP);
-			qusb_phy_disable_phy(qphy);
+			qusb_phy_unprepare_chg_det(qphy);
 			qphy->port_state = PORT_CHG_DET_DONE;
 		}
 		break;
@@ -1298,7 +1321,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 			delay = CHG_SECONDARY_DET_TIME_MSEC;
 
 		} else {
-			qusb_phy_disable_phy(qphy);
+			qusb_phy_unprepare_chg_det(qphy);
 			qusb_phy_notify_charger(qphy, POWER_SUPPLY_TYPE_USB);
 			qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
 			qphy->port_state = PORT_CHG_DET_DONE;
@@ -1320,7 +1343,7 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 			qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
 		}
 
-		qusb_phy_disable_phy(qphy);
+		qusb_phy_unprepare_chg_det(qphy);
 		qphy->port_state = PORT_CHG_DET_DONE;
 		/*
 		 * Fall through to check if cable got disconnected
@@ -1682,6 +1705,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	qphy->suspended = true;
+
+	/*
+	 * EUD may be enable in boot loader and to keep EUD session alive across
+	 * kernel boot till USB phy driver is initialized based on cable status,
+	 * keep LDOs on here.
+	 */
+	if (qphy->eud_enable_reg && readl_relaxed(qphy->eud_enable_reg))
+		qusb_phy_enable_power(qphy, true);
 
 	if (of_property_read_bool(dev->of_node, "extcon")) {
 		qphy->id_state = true;

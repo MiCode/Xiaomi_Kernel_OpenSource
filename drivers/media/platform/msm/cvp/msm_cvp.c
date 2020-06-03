@@ -1329,6 +1329,7 @@ static int msm_cvp_session_process_hfi_fence(
 	struct cvp_kmd_hfi_packet *in_pkt;
 	unsigned int signal, offset, buf_num, in_offset, in_buf_num;
 	struct msm_cvp_inst *s;
+	unsigned int max_buf_num;
 	struct msm_cvp_fence_thread_data *fence_thread_data;
 
 	dprintk(CVP_DBG, "%s: Enter inst = %#x", __func__, inst);
@@ -1373,6 +1374,16 @@ static int msm_cvp_session_process_hfi_fence(
 		offset = in_offset;
 		buf_num = in_buf_num;
 	}
+
+	max_buf_num = sizeof(struct cvp_kmd_hfi_packet)
+						/ sizeof(struct cvp_buf_type);
+
+	if (buf_num > max_buf_num)
+		return -EINVAL;
+
+	if ((offset + buf_num * sizeof(struct cvp_buf_type)) >
+					sizeof(struct cvp_kmd_hfi_packet))
+		return -EINVAL;
 
 	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
 	if (rc)

@@ -8,6 +8,7 @@
 #include <linux/delay.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
@@ -15,10 +16,9 @@
 #include <linux/ktime.h>
 #include "smblite-lib.h"
 #include "smblite-reg.h"
-#include "schgm-flash.h"
 #include "step-chg-jeita.h"
 #include "storm-watch.h"
-#include "schgm-flash.h"
+#include "schgm-flashlite.h"
 
 #define smblite_lib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
@@ -432,7 +432,7 @@ static void smblite_lib_uusb_removal(struct smb_charger *chg)
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-			is_flash_active(chg) ? USBIN_500UA : USBIN_100UA);
+			is_flashlite_active(chg) ? USBIN_500UA : USBIN_100UA);
 
 	/* Remove SW thermal regulation votes */
 	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
@@ -521,7 +521,7 @@ int smblite_lib_set_icl_current(struct smb_charger *chg, int icl_ua)
 	/* suspend if 25mA or less is requested */
 	bool suspend = (icl_ua <= USBIN_25UA);
 
-	schgm_flash_torch_priority(chg, suspend ? TORCH_BOOST_MODE :
+	schgm_flashlite_torch_priority(chg, suspend ? TORCH_BOOST_MODE :
 							TORCH_BUCK_MODE);
 	/* Do not configure ICL from SW for DAM */
 	if (smblite_lib_get_prop_typec_mode(chg) ==
@@ -720,13 +720,14 @@ static bool is_charging_paused(struct smb_charger *chg)
 	return val & CHARGING_PAUSE_CMD_BIT;
 }
 
+#define CUTOFF_COUNT		3
 int smblite_lib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
 	bool usb_online;
 	u8 stat;
-	int rc;
+	int rc, input_present = 0;
 
 	if (chg->fake_chg_status_on_debug_batt) {
 		rc = smblite_lib_get_prop_from_bms(chg,
@@ -738,6 +739,29 @@ int smblite_lib_get_prop_batt_status(struct smb_charger *chg,
 			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 			return 0;
 		}
+	}
+
+	/*
+	 * If SOC = 0 and we are discharging with input connected, report
+	 * the battery status as DISCHARGING.
+	 */
+	smblite_lib_is_input_present(chg, &input_present);
+	rc = smblite_lib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (!rc && pval.intval == 0 && input_present) {
+		rc = smblite_lib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
+		if (!rc && pval.intval > 0) {
+			if (chg->cutoff_count > CUTOFF_COUNT) {
+				val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+				return 0;
+			}
+			chg->cutoff_count++;
+		} else {
+			chg->cutoff_count = 0;
+		}
+	} else {
+		chg->cutoff_count = 0;
 	}
 
 	rc = smblite_lib_get_prop_usb_online(chg, &pval);
@@ -1992,7 +2016,7 @@ irqreturn_t smblite_usbin_uv_irq_handler(int irq, void *data)
 
 unsuspend_input:
 		/* Force torch in boost mode to ensure it works with low ICL */
-		schgm_flash_torch_priority(chg, TORCH_BOOST_MODE);
+		schgm_flashlite_torch_priority(chg, TORCH_BOOST_MODE);
 
 		if (chg->aicl_max_reached) {
 			smblite_lib_dbg(chg, PR_MISC,
@@ -2185,7 +2209,7 @@ static void update_sw_icl_max(struct smb_charger *chg,
 						USB_PSY_VOTER)) {
 			/* if flash is active force 500mA */
 			vote(chg->usb_icl_votable, USB_PSY_VOTER, true,
-					is_flash_active(chg) ?
+					is_flashlite_active(chg) ?
 					USBIN_500UA : USBIN_100UA);
 		}
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
@@ -2491,7 +2515,7 @@ static void typec_src_removal(struct smb_charger *chg)
 
 	/* reset input current limit voters */
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-			is_flash_active(chg) ? USBIN_500UA : USBIN_100UA);
+			is_flashlite_active(chg) ? USBIN_500UA : USBIN_100UA);
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 
 	/* reset parallel voters */
@@ -2772,6 +2796,21 @@ irqreturn_t smblite_usbin_ov_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smblite_usb_id_irq_handler(int irq, void *data)
+{
+	struct smb_charger *chg = data;
+	bool id_state;
+
+	id_state = gpio_get_value(chg->usb_id_gpio);
+
+	smblite_lib_dbg(chg, PR_INTERRUPT, "IRQ: %s, id_state=%d\n",
+					"usb-id-irq", id_state);
+
+	smblite_lib_notify_usb_host(chg, !id_state);
+
+	return IRQ_HANDLED;
+}
+
 /***************
  * Work Queues *
  ***************/
@@ -2853,23 +2892,23 @@ static void smblite_lib_thermal_regulation_work(struct work_struct *work)
 	}
 
 	if (stat & DIE_TEMP_UB_BIT) {
-		icl_ua = get_effective_result(chg->usb_icl_votable)
-				- THERM_REGULATION_STEP_UA;
-
-		/* Decrement ICL by one step */
-		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
-				true, icl_ua - THERM_REGULATION_STEP_UA);
-
 		/* Check if we reached minimum ICL limit */
 		if (icl_ua < USBIN_500UA + THERM_REGULATION_STEP_UA)
 			goto exit;
 
+		/* Decrement ICL by one step */
+		icl_ua -= THERM_REGULATION_STEP_UA;
+		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
+				true, icl_ua);
+
 		goto reschedule;
 	}
 
-	if (stat & DIE_TEMP_LB_BIT) {
+	/* check if DIE_TEMP is below LB */
+	if (!(stat & DIE_TEMP_MASK)) {
+		icl_ua += THERM_REGULATION_STEP_UA;
 		vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER,
-				true, icl_ua + THERM_REGULATION_STEP_UA);
+				true, icl_ua);
 
 		/*
 		 * Check if we need further increments:

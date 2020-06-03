@@ -93,7 +93,7 @@ int get_chipset_version(void);
 #define BT_CMD_SLIM_TEST            0xbfac
 #define BT_CMD_PWR_CTRL             0xbfad
 #define BT_CMD_CHIPSET_VERS         0xbfae
-#define BT_CMD_GETVAL_RESET_GPIO    0xbfaf
+#define BT_CMD_GETVAL_RESET_GPIO    0xbfb5
 #define BT_CMD_GETVAL_SW_CTRL_GPIO  0xbfb0
 #define BT_CMD_GETVAL_VDD_AON_LDO   0xbfb1
 #define BT_CMD_GETVAL_VDD_DIG_LDO   0xbfb2

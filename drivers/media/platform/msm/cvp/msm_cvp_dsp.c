@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/rpmsg.h>
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
 #include <soc/qcom/secure_buffer.h>
+#include "cvp_core_hfi.h"
 #include "msm_cvp_dsp.h"
 
 #define VMID_CDSP_Q6 (30)
@@ -90,25 +91,81 @@ bail:
 	return err;
 }
 
+static void __reset_queue_hdr_defaults(struct cvp_hfi_queue_header *q_hdr)
+{
+	q_hdr->qhdr_status = 0x1;
+	q_hdr->qhdr_type = CVP_IFACEQ_DFLT_QHDR;
+	q_hdr->qhdr_q_size = CVP_IFACEQ_QUEUE_SIZE / 4;
+	q_hdr->qhdr_pkt_size = 0;
+	q_hdr->qhdr_rx_wm = 0x1;
+	q_hdr->qhdr_tx_wm = 0x1;
+	q_hdr->qhdr_rx_req = 0x1;
+	q_hdr->qhdr_tx_req = 0x0;
+	q_hdr->qhdr_rx_irq_status = 0x0;
+	q_hdr->qhdr_tx_irq_status = 0x0;
+	q_hdr->qhdr_read_idx = 0x0;
+	q_hdr->qhdr_write_idx = 0x0;
+}
+
 void msm_cvp_cdsp_ssr_handler(struct work_struct *work)
 {
 	struct cvp_dsp_apps *me;
 	uint64_t msg_ptr;
 	uint32_t msg_ptr_len;
 	int err;
+	u32 i;
+	struct iris_hfi_device *dev;
+	struct cvp_hfi_queue_table_header *q_tbl_hdr;
+	struct cvp_hfi_queue_header *q_hdr;
+	struct cvp_iface_q_info *iface_q;
 
+	dprintk(CVP_WARN, "%s: Entering CDSP-SSR handler\n", __func__);
 	me = container_of(work, struct cvp_dsp_apps, ssr_work);
 	if (!me) {
 		dprintk(CVP_ERR, "%s: Invalid params\n", __func__);
 		return;
 	}
 
+	dev = me->device;
+	for (i = 0; i < CVP_IFACEQ_NUMQ; i++) {
+		iface_q = &dev->dsp_iface_queues[i];
+		iface_q->q_hdr = CVP_IFACEQ_GET_QHDR_START_ADDR(
+			dev->dsp_iface_q_table.align_virtual_addr, i);
+		__reset_queue_hdr_defaults(iface_q->q_hdr);
+	}
+
+	q_tbl_hdr = (struct cvp_hfi_queue_table_header *)
+			dev->dsp_iface_q_table.align_virtual_addr;
+	q_tbl_hdr->qtbl_version = 0;
+	q_tbl_hdr->device_addr = (void *)dev;
+	strlcpy(q_tbl_hdr->name, "msm_v4l2_cvp", sizeof(q_tbl_hdr->name));
+	q_tbl_hdr->qtbl_size = CVP_IFACEQ_TABLE_SIZE;
+	q_tbl_hdr->qtbl_qhdr0_offset =
+				sizeof(struct cvp_hfi_queue_table_header);
+	q_tbl_hdr->qtbl_qhdr_size = sizeof(struct cvp_hfi_queue_header);
+	q_tbl_hdr->qtbl_num_q = CVP_IFACEQ_NUMQ;
+	q_tbl_hdr->qtbl_num_active_q = CVP_IFACEQ_NUMQ;
+
+	iface_q = &dev->dsp_iface_queues[CVP_IFACEQ_CMDQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_type |= HFI_Q_ID_HOST_TO_CTRL_CMD_Q;
+
+	iface_q = &dev->dsp_iface_queues[CVP_IFACEQ_MSGQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_MSG_Q;
+
+	iface_q = &dev->dsp_iface_queues[CVP_IFACEQ_DBGQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q;
+	q_hdr->qhdr_rx_req = 0;
+
 	msg_ptr = cmd_msg.msg_ptr;
 	msg_ptr_len =  cmd_msg.msg_ptr_len;
 
+	dprintk(CVP_WARN, "%s: HFI queue cmd after CDSP-SSR\n", __func__);
 	err = cvp_dsp_send_cmd_hfi_queue((phys_addr_t *)msg_ptr,
 					msg_ptr_len,
-					(void *)NULL);
+					(struct iris_hfi_device *)(me->device));
 	if (err) {
 		dprintk(CVP_ERR,
 			"%s: Failed to send HFI Queue address. err=%d\n",

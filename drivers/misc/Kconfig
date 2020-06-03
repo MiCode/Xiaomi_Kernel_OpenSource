@@ -604,6 +604,15 @@ config QTI_XR_SMRTVWR_MISC
 	  driver initializes gpios, enables/disables LDOs that are part of
 	  XR standalone reference device.
 
+config QTI_MAXIM_FAN_CONTROLLER
+	tristate "QTI MAXIM fan controller  driver support"
+	help
+	  This driver supports the Maxim(MAX31760) fan controller.
+	  This driver exposes i2c control to control registers for
+	  setting different PWM, different temperature settings etc.
+	  Also, this driver initializes the power for the fan controller
+	  and exposes sysfs node to control different speeds of fan.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

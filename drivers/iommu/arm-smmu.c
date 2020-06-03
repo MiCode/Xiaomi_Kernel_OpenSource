@@ -417,7 +417,6 @@ struct qsmmuv500_archdata {
 	u32				actlr_tbl_size;
 	u32				testbus_version;
 };
-
 #define get_qsmmuv500_archdata(smmu)				\
 	((struct qsmmuv500_archdata *)(smmu->archdata))
 
@@ -491,6 +490,7 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
 static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
+struct iommu_device *get_iommu_by_fwnode(struct fwnode_handle *fwnode);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -585,11 +585,36 @@ static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 		mutex_unlock(&smmu_domain->assign_lock);
 }
 
+
+static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
+	struct arm_smmu_device *smmu, u32 sid)
+{
+	struct qsmmuv500_tbu_device *tbu = NULL;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+
+	list_for_each_entry(tbu, &data->tbus, list) {
+		if (tbu->sid_start <= sid &&
+		    sid < tbu->sid_start + tbu->num_sids)
+			return tbu;
+	}
+	return NULL;
+}
+
+static bool selftest_running;
 #ifdef CONFIG_ARM_SMMU_SELFTEST
+struct sme_pair {
+	u32 num_smrs;
+	struct arm_smmu_smr *smrs;
+};
 
 static int selftest;
 module_param_named(selftest, selftest, int, 0644);
 static int irq_count;
+
+#define MAXLEN 1000
+static char selftestsids[MAXLEN];
+module_param_string(selftestsids, selftestsids, sizeof(selftestsids), 0644);
+
 
 static DECLARE_WAIT_QUEUE_HEAD(wait_int);
 static irqreturn_t arm_smmu_cf_selftest(int irq, void *cb_base)
@@ -681,8 +706,271 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 	WARN_ON(cb_count != irq_count);
 	irq_count = 0;
 }
+
+static int arm_smmu_find_sme(struct arm_smmu_smr *, u32, u16, u16);
+
+static int arm_smmu_run_atos(struct device *dev)
+{
+	dma_addr_t iova;
+	phys_addr_t phys, output, phys_soft;
+	struct page *page = NULL;
+	struct iommu_domain *domain;
+	int ret = 0;
+
+	page = alloc_page(GFP_KERNEL);
+	if (!page) {
+		dev_err(dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+	phys = page_to_phys(page);
+
+	domain = iommu_get_domain_for_dev(dev);
+	domain->is_debug_domain = true;
+
+	iova = 0x1000;
+	if (iommu_map(domain, iova, phys, SZ_4K,
+		      IOMMU_READ | IOMMU_WRITE)) {
+		dev_err(dev, "Mapping failed\n");
+		goto out_detach;
+	}
+
+	output = iommu_iova_to_phys_hard(domain, iova, IOMMU_TRANS_DEFAULT);
+	if (!output || output != phys) {
+		phys_soft = arm_smmu_iova_to_phys(domain, iova);
+		dev_err(dev, "atos is failed, output : %pa\n", &output);
+		dev_err(dev, "soft iova-to-phys : %pa\n", &phys_soft);
+	} else
+		dev_err(dev, "atos succeeded, output : %pa\n", &output);
+
+	iommu_unmap(domain, iova, SZ_4K);
+out_detach:
+	__free_pages(page, 0);
+	return ret;
+}
+
+static int of_iommu_do_atos(struct device *dev, struct sme_pair *sme,
+			    struct of_phandle_args *iommu_spec)
+{
+	u16 i;
+	int err = 0;
+	bool set_iommu_ops = false;
+	const struct iommu_ops *ops = NULL;
+
+	for (i = 0; i < sme->num_smrs; ++i) {
+		struct arm_smmu_smr *smr;
+
+		smr = &sme->smrs[i];
+		if (!smr->valid) {
+			dev_info(dev, "Can't run atos smr idx %d\n", i);
+			continue;
+		}
+
+		iommu_spec->args[0] = smr->id;
+		iommu_spec->args[1] = smr->mask;
+
+		dev_dbg(dev, "ATOS for : SID 0x%x, MASK 0x%x\n",
+			iommu_spec->args[0], iommu_spec->args[1]);
+
+		err = of_iommu_fill_fwspec(dev, iommu_spec);
+		if (err) {
+			dev_err(dev, "Failed to do the of_iommu_xlate\n");
+			break;
+		}
+
+		ops = dev->iommu_fwspec->ops;
+		if (!platform_bus_type.iommu_ops) {
+			platform_bus_type.iommu_ops = ops;
+			set_iommu_ops = true;
+		}
+
+		if (ops && ops->add_device && dev->bus && !dev->iommu_group)
+			err = ops->add_device(dev);
+		if (err)  {
+			dev_err(dev, "Adding to IOMMU failed: %d\n", err);
+			return err;
+		}
+
+		/* Now we have every thing. Run ATOS. */
+		arm_smmu_run_atos(dev);
+
+		if (ops->remove_device && dev->iommu_group)
+			ops->remove_device(dev);
+
+		if (set_iommu_ops)
+			platform_bus_type.iommu_ops = NULL;
+	}
+
+	return err;
+}
+
+static bool arm_smmu_valid_smr(struct arm_smmu_device *smmu, u32 idx,
+			       u32 sid, u32 mask)
+{
+	u32 smr1, smr2;
+	void __iomem *gr0_smr = ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx);
+
+
+	smr1 = SMR_VALID | sid << SMR_ID_SHIFT | mask << SMR_MASK_SHIFT;
+	writel_relaxed(smr1, gr0_smr);
+	smr2 = readl_relaxed(gr0_smr);
+	writel_relaxed(0, gr0_smr);
+
+	return smr1 == smr2;
+}
+
+static int get_atos_selftest_sids(struct arm_smmu_device *smmu,
+				struct sme_pair *sme)
+{
+	struct device *dev = smmu->dev;
+	struct arm_smmu_smr *smrs = smmu->smrs;
+	struct arm_smmu_smr *selftest_smrs;
+	enum arm_smmu_implementation model;
+	struct qsmmuv500_tbu_device *tbu;
+	int i, idx, sid_count, ret = 0;
+	char *name, *buf, *split, *sid, *buf_start;
+
+	buf = kstrdup(selftestsids, GFP_KERNEL);
+	buf_start = buf;
+
+	while (buf) {
+		name = strsep(&buf, ",");
+
+		if (strnstr(dev_name(dev), name, strlen(dev_name(dev)))) {
+			kstrtoint(strsep(&buf, ","), 0, &sid_count);
+
+			if (sid_count <= 0) {
+				dev_err(smmu->dev, "Invalid sid_count : %d\n",
+					sid_count);
+				goto out;
+			}
+
+			sme->smrs = kcalloc(sid_count, sizeof(*smmu->smrs),
+					    GFP_KERNEL);
+			if (!sme->smrs) {
+				ret = -ENOMEM;
+				goto out;
+			}
+
+			selftest_smrs = sme->smrs;
+			for (i = 0; i < sid_count; i++) {
+				split = strsep(&buf, ",");
+				sid = strsep(&split, ":");
+				if (!split) {
+					ret = -EINVAL;
+					goto invalid_format;
+				}
+				kstrtou16(sid, 0,
+						&selftest_smrs[i].id);
+				kstrtou16(split, 0, &selftest_smrs[i].mask);
+			}
+
+			sme->num_smrs = sid_count;
+			for (i = 0; i < sid_count; i++) {
+				mutex_lock(&smmu->stream_map_mutex);
+				idx = arm_smmu_find_sme(smrs,
+						smmu->num_mapping_groups,
+						selftest_smrs[i].id,
+						selftest_smrs[i].mask);
+				mutex_unlock(&smmu->stream_map_mutex);
+
+				if (idx < 0) {
+					selftest_smrs[i].valid = false;
+				} else if ((idx >= 0) && smrs &&
+						(smrs[idx].valid)) {
+					dev_err(dev,
+						"sid : 0x%x is already present at idx = %d choose a different sid\n",
+						selftest_smrs[i].id, idx);
+					selftest_smrs[i].valid = false;
+				} else {
+					if (!arm_smmu_valid_smr(smmu, idx,
+							selftest_smrs[i].id,
+							selftest_smrs[i].mask))
+						selftest_smrs[i].valid = false;
+					else
+						selftest_smrs[i].valid = true;
+				}
+				model = smmu->model;
+				switch (model) {
+				case QCOM_SMMUV500:
+					tbu = qsmmuv500_find_tbu(smmu,
+							selftest_smrs[i].id);
+					dev_info(tbu->dev, "idx = %d valid: %d, sid : 0x%x, mask: 0x%x\n",
+							idx,
+							selftest_smrs[i].valid,
+							selftest_smrs[i].id,
+							selftest_smrs[i].mask);
+					break;
+				case QCOM_SMMUV2:
+					dev_info(smmu->dev, "idx = %d valid: %d, sid : 0x%x, mask: 0x%x\n",
+							idx,
+							selftest_smrs[i].valid,
+							selftest_smrs[i].id,
+							selftest_smrs[i].mask);
+					break;
+				default:
+					ret = -EINVAL;
+					goto out;
+				}
+			}
+		}
+	}
+	ret = sid_count;
+	goto out;
+
+invalid_format:
+	dev_err(smmu->dev, "Invalid Format : <%s> Expected Format : <smmu_name,sid_count,sid:mask>\n",
+		selftestsids);
+	kfree(sme->smrs);
+out:
+	kfree(buf_start);
+	return ret;
+}
+static void arm_smmu_atos_selftest(struct arm_smmu_device *smmu)
+{
+	struct platform_device *pdev;
+	struct device *smmu_dev = smmu->dev;
+	struct device *atos_dev;
+	struct of_phandle_args iommu_spec = {0};
+	struct sme_pair sme = {0};
+	int ret;
+
+	if (!selftest)
+		return;
+
+	dev_notice(smmu_dev, "ATOS Self test started\n");
+	ret = get_atos_selftest_sids(smmu, &sme);
+	if (ret <= 0) {
+		dev_err(smmu_dev, "ATOS Self test failed ret %d!!\n", ret);
+		return;
+	}
+
+	pdev = platform_device_register_simple("atos_test_device",
+					       -1, NULL, 0);
+	if (!pdev) {
+		dev_err(smmu_dev, "Unable to create a atos test device\n");
+		return;
+	}
+
+	atos_dev = &pdev->dev;
+
+	/* try to fill the iommu_fwspec to use. */
+	iommu_spec.np = of_node_get(smmu_dev->of_node);
+	iommu_spec.args_count = (smmu->model == QCOM_SMMUV2) ? 1 : 2;
+
+	selftest_running = true;
+	of_iommu_do_atos(atos_dev, &sme, &iommu_spec);
+	selftest_running = false;
+	dev_notice(smmu_dev, "ATOS Self test complete\n");
+	kfree(sme.smrs);
+	of_node_put(iommu_spec.np);
+	platform_device_unregister(pdev);
+}
 #else
 static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
+{
+}
+
+static void arm_smmu_atos_selftest(struct arm_smmu_device *smmu)
 {
 }
 #endif
@@ -1154,20 +1442,6 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 	}
 
 	arm_smmu_power_off(smmu->pwr);
-}
-
-static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
-	struct arm_smmu_device *smmu, u32 sid)
-{
-	struct qsmmuv500_tbu_device *tbu = NULL;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		if (tbu->sid_start <= sid &&
-		    sid < tbu->sid_start + tbu->num_sids)
-			return tbu;
-	}
-	return NULL;
 }
 
 static void arm_smmu_testbus_dump(struct arm_smmu_device *smmu, u16 sid)
@@ -2616,9 +2890,9 @@ static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 	smmu->smr_mask_mask = smr >> SMR_MASK_SHIFT;
 }
 
-static int arm_smmu_find_sme(struct arm_smmu_device *smmu, u16 id, u16 mask)
+static int arm_smmu_find_sme(struct arm_smmu_smr *smrs, u32 count, u16 id,
+			     u16 mask)
 {
-	struct arm_smmu_smr *smrs = smmu->smrs;
 	int i, free_idx = -ENOSPC;
 
 	/* Stream indexing is blissfully easy */
@@ -2626,7 +2900,7 @@ static int arm_smmu_find_sme(struct arm_smmu_device *smmu, u16 id, u16 mask)
 		return id;
 
 	/* Validating SMRs is... less so */
-	for (i = 0; i < smmu->num_mapping_groups; ++i) {
+	for (i = 0; i < count; ++i) {
 		if (!smrs[i].valid) {
 			/*
 			 * Note the first free entry we come across, which
@@ -2691,7 +2965,8 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 			goto sme_err;
 		}
 
-		ret = arm_smmu_find_sme(smmu, sid, mask);
+		ret = arm_smmu_find_sme(smrs, smmu->num_mapping_groups, sid,
+					mask);
 		if (ret < 0)
 			goto sme_err;
 
@@ -3486,7 +3761,8 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
 	if (smmu->options & ARM_SMMU_OPT_DISABLE_ATOS)
-		return 0;
+		if (!selftest_running)
+			return 0;
 
 	if (arm_smmu_power_on(smmu_domain->smmu->pwr))
 		return 0;
@@ -3613,13 +3889,28 @@ static int arm_smmu_add_device(struct device *dev)
 		if (ret)
 			goto out_free;
 	} else if (fwspec && fwspec->ops == &arm_smmu_ops) {
+		struct fwnode_handle    *iommu_fwnode = fwspec->iommu_fwnode;
+
 		smmu = arm_smmu_get_by_fwnode(fwspec->iommu_fwnode);
-		if (!smmu)
+		if (!smmu) {
+			if (IS_ENABLED(CONFIG_ARM_SMMU_SELFTEST)) {
+				struct iommu_device *iommu = NULL;
+
+				iommu = get_iommu_by_fwnode(iommu_fwnode);
+				smmu = iommu ? container_of(iommu, struct
+							    arm_smmu_device,
+							    iommu) : NULL;
+				if (smmu)
+					goto cont;
+			}
 			return -ENODEV;
+
+		}
 	} else {
 		return -ENODEV;
 	}
 
+cont:
 	ret = arm_smmu_power_on(smmu->pwr);
 	if (ret)
 		goto out_free;
@@ -5377,6 +5668,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	arm_smmu_device_reset(smmu);
 	arm_smmu_test_smr_masks(smmu);
 	arm_smmu_interrupt_selftest(smmu);
+	arm_smmu_atos_selftest(smmu);
 	arm_smmu_power_off(smmu->pwr);
 
 	/*
@@ -5656,7 +5948,6 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	tbu->halt_count = 0;
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 }
-
 
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 				struct qsmmuv500_tbu_device *tbu,

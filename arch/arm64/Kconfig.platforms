@@ -190,6 +190,16 @@ config ARCH_SCUBA
 	  This enables support for the SCUBA chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_SDM660
+	bool "Enable Support for Qualcomm Technologies, Inc. SDM660"
+	depends on ARCH_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  This enables support for the SDM660 chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help

@@ -9,6 +9,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/shmem_fs.h>
+#include <linux/bitfield.h>
 
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
@@ -847,6 +848,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 {
 	struct kgsl_mmu *mmu = &device->mmu;
 	unsigned int align;
+	u32 cachemode;
 
 	memset(memdesc, 0, sizeof(*memdesc));
 	/* Turn off SVM if the system doesn't support it */
@@ -860,6 +862,17 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	/* Disable IO coherence if it is not supported on the chip */
 	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_IOCOHERENT);
+
+	/*
+	 * We can't enable I/O coherency on uncached surfaces because of
+	 * situations where hardware might snoop the cpu caches which can
+	 * have stale data. This happens primarily due to the limitations
+	 * of dma caching APIs available on arm64
+	 */
+	cachemode = FIELD_GET(KGSL_CACHEMODE_MASK, flags);
+	if ((cachemode == KGSL_CACHEMODE_WRITECOMBINE ||
+		cachemode == KGSL_CACHEMODE_UNCACHED))
+		flags &= ~((u64) KGSL_MEMFLAGS_IOCOHERENT);
 
 	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
 		memdesc->priv |= KGSL_MEMDESC_GUARD_PAGE;

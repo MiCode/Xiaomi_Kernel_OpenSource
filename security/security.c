@@ -283,16 +283,12 @@ int security_capset(struct cred *new, const struct cred *old,
 				effective, inheritable, permitted);
 }
 
-int security_capable(const struct cred *cred, struct user_namespace *ns,
-		     int cap)
+int security_capable(const struct cred *cred,
+		     struct user_namespace *ns,
+		     int cap,
+		     unsigned int opts)
 {
-	return call_int_hook(capable, 0, cred, ns, cap, SECURITY_CAP_AUDIT);
-}
-
-int security_capable_noaudit(const struct cred *cred, struct user_namespace *ns,
-			     int cap)
-{
-	return call_int_hook(capable, 0, cred, ns, cap, SECURITY_CAP_NOAUDIT);
+	return call_int_hook(capable, 0, cred, ns, cap, opts);
 }
 
 int security_quotactl(int cmds, int type, int id, struct super_block *sb)
@@ -622,14 +618,6 @@ int security_inode_create(struct inode *dir, struct dentry *dentry, umode_t mode
 	return call_int_hook(inode_create, 0, dir, dentry, mode);
 }
 EXPORT_SYMBOL_GPL(security_inode_create);
-
-int security_inode_post_create(struct inode *dir, struct dentry *dentry,
-				umode_t mode)
-{
-	if (unlikely(IS_PRIVATE(dir)))
-		return 0;
-	return call_int_hook(inode_post_create, 0, dir, dentry, mode);
-}
 
 int security_inode_link(struct dentry *old_dentry, struct inode *dir,
 			 struct dentry *new_dentry)

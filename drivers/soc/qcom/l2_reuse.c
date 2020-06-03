@@ -13,7 +13,7 @@
 
 #define L2_REUSE_SMC_ID 0x00200090C
 
-static bool l2_reuse_enable = true;
+static bool l2_reuse_enable;
 static struct kobject *l2_reuse_kobj;
 
 static ssize_t sysfs_show(struct kobject *kobj,
@@ -38,12 +38,12 @@ static ssize_t sysfs_store(struct kobject *kobj,
 	return count;
 }
 
-struct kobj_attribute l2_reuse_attr = __ATTR(l2_reuse_enable, 0660,
+struct kobj_attribute l2_reuse_attr = __ATTR(extended_cache_enable, 0660,
 		sysfs_show, sysfs_store);
 
 static int __init l2_reuse_driver_init(void)
 {
-	l2_reuse_kobj = kobject_create_and_add("l2_reuse_enable", power_kobj);
+	l2_reuse_kobj = kobject_create_and_add("l2_reuse", power_kobj);
 
 	if (!l2_reuse_kobj) {
 		pr_info("kobj creation for l2_reuse failed\n");

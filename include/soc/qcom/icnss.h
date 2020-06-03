@@ -18,12 +18,16 @@
 enum icnss_uevent {
 	ICNSS_UEVENT_FW_CRASHED,
 	ICNSS_UEVENT_FW_DOWN,
+	ICNSS_UEVENT_HANG_DATA,
+};
+
+struct icnss_uevent_hang_data {
+	void *hang_event_data;
+	uint16_t hang_event_data_len;
 };
 
 struct icnss_uevent_fw_down_data {
 	bool crashed;
-	void *hang_event_data;
-	uint16_t hang_event_data_len;
 };
 
 struct icnss_uevent_data {

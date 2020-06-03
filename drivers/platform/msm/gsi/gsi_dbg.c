@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -19,7 +19,9 @@
 #define PRT_STAT(fmt, args...) \
 		pr_err(fmt, ## args)
 
+#ifdef CONFIG_DEBUG_FS
 static struct dentry *dent;
+#endif
 static char dbg_buff[4096];
 static void *gsi_ipc_logbuf_low;
 
@@ -670,6 +672,7 @@ const struct file_operations gsi_ipc_low_ops = {
 	.write = gsi_enable_ipc_low,
 };
 
+#ifdef CONFIG_DEBUG_FS
 void gsi_debugfs_init(void)
 {
 	static struct dentry *dfile;
@@ -741,4 +744,5 @@ void gsi_debugfs_init(void)
 fail:
 	debugfs_remove_recursive(dent);
 }
+#endif
 

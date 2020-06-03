@@ -1034,6 +1034,12 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	if (xhci_handshake(&xhci->op_regs->status,
 		      STS_HALT, STS_HALT, delay)) {
 		xhci_warn(xhci, "WARN: xHC CMD_RUN timeout\n");
+		/* Set the HW_ACCESSIBLE so that any pending interrupts are
+		 * served.
+		 */
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags);
+		xhci_hc_died(xhci);
 		spin_unlock_irq(&xhci->lock);
 		return -ETIMEDOUT;
 	}

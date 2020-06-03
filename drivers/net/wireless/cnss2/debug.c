@@ -879,12 +879,6 @@ static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 
 	return 0;
 }
-#else
-static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
-{
-	return 0;
-}
-#endif
 
 int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 {
@@ -910,6 +904,12 @@ int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 out:
 	return ret;
 }
+#else
+int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+#endif
 
 void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 {

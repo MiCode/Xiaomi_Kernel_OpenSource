@@ -4,7 +4,7 @@
 #
 menu "Qualcomm SoC drivers"
 config QCOM_COMMAND_DB
-	bool "Qualcomm Command DB"
+	tristate "Qualcomm Command DB"
 	depends on ARCH_QCOM || COMPILE_TEST
 	depends on OF_RESERVED_MEM
 	help
@@ -241,7 +241,7 @@ config QCOM_RMTFS_MEM
 	  Say y here if you intend to boot the modem remoteproc.
 
 config QCOM_RPMH
-	bool "Qualcomm RPM-Hardened (RPMH) Communication"
+	tristate "Qualcomm RPM-Hardened (RPMH) Communication"
 	depends on ARCH_QCOM && ARM64 && OF || COMPILE_TEST
 	help
 	  Support for communication with the hardened-RPM blocks in
@@ -273,6 +273,22 @@ config QCOM_SMD_RPM
 
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
+
+config MSM_SPM
+        bool "Driver support for SPM and AVS wrapper hardware"
+        help
+          Enables the support for SPM and AVS wrapper hardware on MSMs. SPM
+          hardware is used to manage the processor power during sleep. The
+          driver allows configuring SPM to allow different low power modes for
+          both core and L2.
+
+config MSM_L2_SPM
+        bool "SPM support for L2 cache"
+        help
+          Enable SPM driver support for L2 cache. Some MSM chipsets allow
+          control of L2 cache low power mode with a Subsystem Power manager.
+          Enabling this driver allows configuring L2 SPM for low power modes
+          on supported chipsets.
 
 config QCOM_SCM
 	bool "Secure Channel Manager (SCM) support"
@@ -326,6 +342,15 @@ config QCOM_WCNSS_CTRL
 	help
 	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
 	  firmware to a newly booted WCNSS chip.
+
+config MSM_PIL_MSS_QDSP6V5
+	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	 Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	 in modem subsystems. If you would like to make or receive phone
+	 calls then say Y here.
+	 If unsure, say N.
 
 config SETUP_SSR_NOTIF_TIMEOUTS
 	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
@@ -844,6 +869,24 @@ config QCOM_CX_IPEAK
 	  bit in tcsr register if it is going to cross its own threshold.
 	  If all clients are going to cross their thresholds then Cx ipeak
 	  hw module will raise an interrupt to cDSP block to throttle cDSP fmax.
+
+config QTI_CRYPTO_COMMON
+	tristate "Enable common crypto functionality used for FBE"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	 Say 'Y' to enable the common crypto implementation to be used by
+	 different storage layers such as UFS and EMMC for file based hardware
+	 encryption. This library implements API to program and evict
+	 keys using Trustzone or Hardware Key Manager.
+
+config QTI_CRYPTO_TZ
+	tristate "Enable Trustzone to be used for FBE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable routing crypto requests to Trustzone while
+	 performing hardware based file encryption. This means keys are
+	 programmed and managed through SCM calls to TZ where ICE driver
+	 will configure keys.
 endmenu
 
 config QCOM_HYP_CORE_CTL
@@ -854,6 +897,15 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+
+config QTI_HW_KEY_MANAGER
+	tristate "Enable QTI Hardware Key Manager for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 

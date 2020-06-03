@@ -582,7 +582,7 @@ struct gpii {
 	struct gpi_reg_table dbg_reg_table;
 	bool reg_table_dump;
 	u32 dbg_gpi_irq_cnt;
-	bool ieob_set;
+	bool unlock_tre_set;
 };
 
 struct gpi_desc {
@@ -1449,6 +1449,22 @@ static void gpi_process_qup_notif_event(struct gpii_chan *gpii_chan,
 			      client_info->cb_param);
 }
 
+/* free gpi_desc for the specified channel */
+static void gpi_free_chan_desc(struct gpii_chan *gpii_chan)
+{
+	struct virt_dma_desc *vd;
+	struct gpi_desc *gpi_desc;
+	unsigned long flags;
+
+	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
+	vd = vchan_next_desc(&gpii_chan->vc);
+	gpi_desc = to_gpi_desc(vd);
+	list_del(&vd->node);
+	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
+	kfree(gpi_desc);
+	gpi_desc = NULL;
+}
+
 /* process DMA Immediate completion data events */
 static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 					struct immediate_data_event *imed_event)
@@ -1462,6 +1478,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb_param;
 	unsigned long flags;
 	u32 chid;
+	struct gpii_chan *gpii_tx_chan = &gpii->gpii_chan[GPI_TX_CHAN];
 
 	/*
 	 * If channel not active don't process event but let
@@ -1514,12 +1531,33 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	/* make sure rp updates are immediately visible to all cores */
 	smp_wmb();
 
+	/*
+	 * If unlock tre is present, don't send transfer callback on
+	 * on IEOT, wait for unlock IEOB. Free the respective channel
+	 * descriptors.
+	 * If unlock is not present, IEOB indicates freeing the descriptor
+	 * and IEOT indicates channel transfer completion.
+	 */
 	chid = imed_event->chid;
-	if (imed_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set) {
-		if (chid == GPI_RX_CHAN)
-			goto gpi_free_desc;
-		else
+	if (gpii->unlock_tre_set) {
+		if (chid == GPI_RX_CHAN) {
+			if (imed_event->code == MSM_GPI_TCE_EOT)
+				goto gpi_free_desc;
+			else if (imed_event->code == MSM_GPI_TCE_UNEXP_ERR)
+				/*
+				 * In case of an error in a read transfer on a
+				 * shared se, unlock tre will not be processed
+				 * as channels go to bad state so tx desc should
+				 * be freed manually.
+				 */
+				gpi_free_chan_desc(gpii_tx_chan);
+			else
+				return;
+		} else if (imed_event->code == MSM_GPI_TCE_EOT) {
 			return;
+		}
+	} else if (imed_event->code == MSM_GPI_TCE_EOB) {
+		goto gpi_free_desc;
 	}
 
 	tx_cb_param = vd->tx.callback_param;
@@ -1539,11 +1577,7 @@ static void gpi_process_imed_data_event(struct gpii_chan *gpii_chan,
 	}
 
 gpi_free_desc:
-	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
-	list_del(&vd->node);
-	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
-	kfree(gpi_desc);
-	gpi_desc = NULL;
+	gpi_free_chan_desc(gpii_chan);
 }
 
 /* processing transfer completion events */
@@ -1558,6 +1592,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	struct gpi_desc *gpi_desc;
 	unsigned long flags;
 	u32 chid;
+	struct gpii_chan *gpii_tx_chan = &gpii->gpii_chan[GPI_TX_CHAN];
 
 	/* only process events on active channel */
 	if (unlikely(gpii_chan->pm_state != ACTIVE_STATE)) {
@@ -1602,12 +1637,33 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	/* update must be visible to other cores */
 	smp_wmb();
 
+	/*
+	 * If unlock tre is present, don't send transfer callback on
+	 * on IEOT, wait for unlock IEOB. Free the respective channel
+	 * descriptors.
+	 * If unlock is not present, IEOB indicates freeing the descriptor
+	 * and IEOT indicates channel transfer completion.
+	 */
 	chid = compl_event->chid;
-	if (compl_event->code == MSM_GPI_TCE_EOT && gpii->ieob_set) {
-		if (chid == GPI_RX_CHAN)
-			goto gpi_free_desc;
-		else
+	if (gpii->unlock_tre_set) {
+		if (chid == GPI_RX_CHAN) {
+			if (compl_event->code == MSM_GPI_TCE_EOT)
+				goto gpi_free_desc;
+			else if (compl_event->code == MSM_GPI_TCE_UNEXP_ERR)
+				/*
+				 * In case of an error in a read transfer on a
+				 * shared se, unlock tre will not be processed
+				 * as channels go to bad state so tx desc should
+				 * be freed manually.
+				 */
+				gpi_free_chan_desc(gpii_tx_chan);
+			else
+				return;
+		} else if (compl_event->code == MSM_GPI_TCE_EOT) {
 			return;
+		}
+	} else if (compl_event->code == MSM_GPI_TCE_EOB) {
+		goto gpi_free_desc;
 	}
 
 	tx_cb_param = vd->tx.callback_param;
@@ -1623,11 +1679,7 @@ static void gpi_process_xfer_compl_event(struct gpii_chan *gpii_chan,
 	}
 
 gpi_free_desc:
-	spin_lock_irqsave(&gpii_chan->vc.lock, flags);
-	list_del(&vd->node);
-	spin_unlock_irqrestore(&gpii_chan->vc.lock, flags);
-	kfree(gpi_desc);
-	gpi_desc = NULL;
+	gpi_free_chan_desc(gpii_chan);
 
 }
 
@@ -2325,7 +2377,7 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	void *tre, *wp = NULL;
 	const gfp_t gfp = GFP_ATOMIC;
 	struct gpi_desc *gpi_desc;
-	gpii->ieob_set = false;
+	u32 tre_type;
 
 	GPII_VERB(gpii, gpii_chan->chid, "enter\n");
 
@@ -2362,13 +2414,12 @@ struct dma_async_tx_descriptor *gpi_prep_slave_sg(struct dma_chan *chan,
 	for_each_sg(sgl, sg, sg_len, i) {
 		tre = sg_virt(sg);
 
-		/* Check if last tre has ieob set */
+		/* Check if last tre is an unlock tre */
 		if (i == sg_len - 1) {
-			if ((((struct msm_gpi_tre *)tre)->dword[3] &
-					GPI_IEOB_BMSK) >> GPI_IEOB_BMSK_SHIFT)
-				gpii->ieob_set = true;
-			else
-				gpii->ieob_set = false;
+			tre_type =
+			MSM_GPI_TRE_TYPE(((struct msm_gpi_tre *)tre));
+			gpii->unlock_tre_set =
+			tre_type == MSM_GPI_TRE_UNLOCK ? true : false;
 		}
 
 		for (j = 0; j < sg->length;

@@ -1488,7 +1488,7 @@ static const struct freq_tbl ftbl_gcc_sdcc1_apps_clk_src[] = {
 	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_AUX2, 3, 0, 0),
 	F(192000000, P_GPLL6_OUT_MAIN, 2, 0, 0),
-	F(200000000, P_GPLL0_OUT_EARLY, 3, 0, 0),
+	F(384000000, P_GPLL6_OUT_MAIN, 1, 0, 0),
 	{ }
 };
 
@@ -1508,7 +1508,7 @@ static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 100000000,
-			[VDD_LOW_L1] = 200000000},
+			[VDD_LOW_L1] = 384000000},
 	},
 };
 
@@ -2423,7 +2423,7 @@ static struct clk_branch gcc_gpu_iref_clk = {
 
 static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 	.halt_reg = 0x3600c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_VOTED,
 	.hwcg_reg = 0x3600c,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -2460,19 +2460,6 @@ static struct clk_branch gcc_gpu_throttle_core_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_throttle_core_clk",
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_gpu_throttle_xo_clk = {
-	.halt_reg = 0x36044,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x36044,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_gpu_throttle_xo_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3192,7 +3179,6 @@ static struct clk_regmap *gcc_scuba_clocks[] = {
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_GPU_THROTTLE_CORE_CLK] = &gcc_gpu_throttle_core_clk.clkr,
-	[GCC_GPU_THROTTLE_XO_CLK] = &gcc_gpu_throttle_xo_clk.clkr,
 	[GCC_PDM2_CLK] = &gcc_pdm2_clk.clkr,
 	[GCC_PDM2_CLK_SRC] = &gcc_pdm2_clk_src.clkr,
 	[GCC_PDM_AHB_CLK] = &gcc_pdm_ahb_clk.clkr,

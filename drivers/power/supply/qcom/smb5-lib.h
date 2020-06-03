@@ -385,6 +385,7 @@ struct smb_charger {
 	struct smb_chg_freq	chg_freq;
 	int			otg_delay_ms;
 	int			weak_chg_icl_ua;
+	u32			sdam_base;
 	bool			pd_not_supported;
 
 	/* locks */
@@ -574,6 +575,7 @@ struct smb_charger {
 	int			init_thermal_ua;
 	u32			comp_clamp_level;
 	int			wls_icl_ua;
+	int			cutoff_count;
 	bool			dcin_aicl_done;
 	bool			hvdcp3_standalone_config;
 	bool			dcin_icl_user_set;

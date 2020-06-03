@@ -6,10 +6,6 @@ menu "Security options"
 
 source security/keys/Kconfig
 
-if ARCH_QCOM
-source security/pfe/Kconfig
-endif
-
 config SECURITY_DMESG_RESTRICT
 	bool "Restrict unprivileged access to the kernel syslog"
 	default n
@@ -21,15 +17,6 @@ config SECURITY_DMESG_RESTRICT
 	  unless the dmesg_restrict sysctl is explicitly set to (1).
 
 	  If you are unsure how to answer this question, answer N.
-
-config SECURITY_PERF_EVENTS_RESTRICT
-	bool "Restrict unprivileged use of performance events"
-	depends on PERF_EVENTS
-	help
-	  If you say Y here, the kernel.perf_event_paranoid sysctl
-	  will be set to 3 by default, and no unprivileged use of the
-	  perf_event_open syscall will be permitted unless it is
-	  changed.
 
 config SECURITY
 	bool "Enable different security models"

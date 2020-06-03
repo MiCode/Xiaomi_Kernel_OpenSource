@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "Minidump: " fmt
@@ -355,6 +355,7 @@ static int msm_minidump_add_header(void)
 	struct elf_phdr *phdr;
 	unsigned int strtbl_off, elfh_size, phdr_off;
 	char *banner;
+	size_t linux_banner_len = strlen(linux_banner);
 
 	/* Header buffer contains:
 	 * elf header, MAX_NUM_ENTRIES+4 of section and program elf headers,
@@ -425,7 +426,7 @@ static int msm_minidump_add_header(void)
 
 	/* 4th section is linux banner */
 	banner = (char *)ehdr + strtbl_off + MAX_STRTBL_SIZE;
-	strlcpy(banner, linux_banner, strlen(linux_banner) + 1);
+	strlcpy(banner, linux_banner, linux_banner_len + 1);
 
 	shdr->sh_type = SHT_PROGBITS;
 	shdr->sh_offset = (elf_addr_t)(strtbl_off + MAX_STRTBL_SIZE);

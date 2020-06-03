@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __MSM_BUS_IDS_H
@@ -699,6 +699,8 @@
 #define	MSM_BUS_SLAVE_ANOC_SNOC 834
 #define	MSM_BUS_SLAVE_GPU_CDSP_BIMC 835
 #define	MSM_BUS_SLAVE_AHB2PHY_2 836
+#define	MSM_BUS_SLAVE_HWKM 837
+#define	MSM_BUS_SLAVE_PKA_WRAPPER 838
 
 #define	MSM_BUS_SLAVE_EBI_CH0_DISPLAY 20512
 #define	MSM_BUS_SLAVE_LLCC_DISPLAY 20513
@@ -1175,4 +1177,6 @@
 #define	ICBID_SLAVE_MAPSS 277
 #define	ICBID_SLAVE_MDSP_MPU_CFG 278
 #define	ICBID_SLAVE_CAMERA_RT_THROTTLE_CFG 279
+#define	ICBID_SLAVE_HWKM 280
+#define	ICBID_SLAVE_PKA_WRAPPER 281
 #endif

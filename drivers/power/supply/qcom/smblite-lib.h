@@ -144,12 +144,9 @@ enum smb_irq_index {
 	VREG_OK_IRQ,
 	ILIM_S2_IRQ,
 	ILIM_S1_IRQ,
-	VOUT_DOWN_IRQ,
-	VOUT_UP_IRQ,
 	FLASH_STATE_CHANGE_IRQ,
 	TORCH_REQ_IRQ,
 	FLASH_EN_IRQ,
-	SDAM_STS_IRQ,
 	/* END */
 	SMB_IRQ_MAX,
 };
@@ -310,9 +307,12 @@ struct smb_charger {
 	int			jeita_soft_fv[2];
 	int			aicl_5v_threshold_mv;
 	int			default_aicl_5v_threshold_mv;
+	int			cutoff_count;
 	bool			aicl_max_reached;
 	bool			pr_swap_in_progress;
 	bool			ldo_mode;
+	int			usb_id_gpio;
+	int			usb_id_irq;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -365,6 +365,7 @@ irqreturn_t smblite_typec_or_rid_detection_change_irq_handler(int irq,
 				void *data);
 irqreturn_t smblite_temp_change_irq_handler(int irq, void *data);
 irqreturn_t smblite_usbin_ov_irq_handler(int irq, void *data);
+irqreturn_t smblite_usb_id_irq_handler(int irq, void *data);
 
 int smblite_lib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);

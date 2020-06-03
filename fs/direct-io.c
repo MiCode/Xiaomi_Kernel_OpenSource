@@ -23,6 +23,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/fs.h>
+#include <linux/fscrypt.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/highmem.h>
@@ -37,7 +38,6 @@
 #include <linux/uio.h>
 #include <linux/atomic.h>
 #include <linux/prefetch.h>
-#include <linux/fscrypt.h>
 
 /*
  * How many user pages to map in one call to get_user_pages().  This determines
@@ -431,6 +431,7 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
 	      sector_t first_sector, int nr_vecs)
 {
 	struct bio *bio;
+	struct inode *inode = dio->inode;
 
 	/*
 	 * bio_alloc() is guaranteed to return a bio when allowed to sleep and
@@ -438,6 +439,9 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
 	 */
 	bio = bio_alloc(GFP_KERNEL, nr_vecs);
 
+	fscrypt_set_bio_crypt_ctx(bio, inode,
+				  sdio->cur_page_fs_offset >> inode->i_blkbits,
+				  GFP_KERNEL);
 	bio_set_dev(bio, bdev);
 	bio->bi_iter.bi_sector = first_sector;
 	bio_set_op_attrs(bio, dio->op, dio->op_flags);
@@ -451,23 +455,6 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
 	sdio->bio = bio;
 	sdio->logical_offset_in_bio = sdio->cur_page_fs_offset;
 }
-
-#ifdef CONFIG_PFK
-static bool is_inode_filesystem_type(const struct inode *inode,
-					const char *fs_type)
-{
-	if (!inode || !fs_type)
-		return false;
-
-	if (!inode->i_sb)
-		return false;
-
-	if (!inode->i_sb->s_type)
-		return false;
-
-	return (strcmp(inode->i_sb->s_type->name, fs_type) == 0);
-}
-#endif
 
 /*
  * In the AIO read case we speculatively dirty the pages before starting IO.
@@ -491,17 +478,7 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 		bio_set_pages_dirty(bio);
 
 	dio->bio_disk = bio->bi_disk;
-#ifdef CONFIG_PFK
-	bio->bi_dio_inode = dio->inode;
 
-/* iv sector for security/pfe/pfk_fscrypt.c and f2fs in fs/f2fs/f2fs.h */
-#define PG_DUN_NEW(i, p)                                            \
-	(((((u64)(i)->i_ino) & 0xffffffff) << 32) | ((p) & 0xffffffff))
-
-	if (is_inode_filesystem_type(dio->inode, "f2fs"))
-		fscrypt_set_ice_dun(dio->inode, bio, PG_DUN_NEW(dio->inode,
-			(sdio->logical_offset_in_bio >> PAGE_SHIFT)));
-#endif
 	if (sdio->submit_io) {
 		sdio->submit_io(bio, dio->inode, sdio->logical_offset_in_bio);
 		dio->bio_cookie = BLK_QC_T_NONE;
@@ -511,18 +488,6 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	sdio->bio = NULL;
 	sdio->boundary = 0;
 	sdio->logical_offset_in_bio = 0;
-}
-
-struct inode *dio_bio_get_inode(struct bio *bio)
-{
-	struct inode *inode = NULL;
-
-	if (bio == NULL)
-		return NULL;
-#ifdef CONFIG_PFK
-	inode = bio->bi_dio_inode;
-#endif
-	return inode;
 }
 
 /*

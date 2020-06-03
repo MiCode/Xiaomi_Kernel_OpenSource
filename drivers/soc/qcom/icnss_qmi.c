@@ -1255,11 +1255,21 @@ out:
 
 int icnss_clear_server(struct icnss_priv *priv)
 {
+	int ret;
+
 	if (!priv)
 		return -ENODEV;
 
 	icnss_pr_info("QMI Service Disconnected: 0x%lx\n", priv->state);
 	clear_bit(ICNSS_WLFW_CONNECTED, &priv->state);
+
+	icnss_unregister_fw_service(priv);
+
+	ret =  icnss_register_fw_service(priv);
+	if (ret < 0) {
+		icnss_pr_err("WLFW server registration failed\n");
+		ICNSS_ASSERT(0);
+	}
 
 	return 0;
 }

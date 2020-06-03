@@ -85,13 +85,6 @@ static void schgm_flashlite_parse_dt(struct smb_charger *chg)
 		if (IS_BETWEEN(0, 100, val))
 			chg->flash_disable_soc = (val * 255) / 100;
 	}
-
-	chg->headroom_mode = -EINVAL;
-	rc = of_property_read_u32(node, "qcom,headroom-mode", &val);
-	if (!rc) {
-		if (IS_BETWEEN(FIXED_MODE, ADAPTIVE_MODE, val))
-			chg->headroom_mode = val;
-	}
 }
 
 bool is_flashlite_active(struct smb_charger *chg)
@@ -151,13 +144,6 @@ void schgm_flashlite_torch_priority(struct smb_charger *chg,
 	int rc;
 	u8 reg;
 
-	/*
-	 * If torch is configured in default BOOST mode, skip any update in the
-	 * mode configuration.
-	 */
-	if (chg->headroom_mode == FIXED_MODE)
-		return;
-
 	if ((mode != TORCH_BOOST_MODE) && (mode != TORCH_BUCK_MODE))
 		return;
 
@@ -204,31 +190,6 @@ int schgm_flashlite_init(struct smb_charger *chg)
 				chg->flash_disable_soc);
 		if (rc < 0) {
 			pr_err("Couldn't configure SOC for flash disable rc=%d\n",
-					rc);
-			return rc;
-		}
-	}
-
-	if (chg->headroom_mode != -EINVAL) {
-		/*
-		 * configure headroom management policy for
-		 * flash and torch mode.
-		 */
-		reg = (chg->headroom_mode == FIXED_MODE)
-					? FORCE_FLASH_BOOST_5V_BIT : 0;
-		rc = smblite_lib_write(chg, SCHGM_FORCE_BOOST_CONTROL, reg);
-		if (rc < 0) {
-			pr_err("Couldn't write force boost control reg rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		reg = (chg->headroom_mode == FIXED_MODE)
-					? TORCH_PRIORITY_CONTROL_BIT : 0;
-		rc = smblite_lib_write(chg,
-					SCHGM_TORCH_PRIORITY_CONTROL_REG, reg);
-		if (rc < 0) {
-			pr_err("Couldn't force 5V boost in torch mode rc=%d\n",
 					rc);
 			return rc;
 		}

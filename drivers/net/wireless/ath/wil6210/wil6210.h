@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: ISC */
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WIL6210_H__
@@ -1415,6 +1415,11 @@ void wil6210_debugfs_remove(struct wil6210_priv *wil);
 #else
 static inline int wil6210_debugfs_init(struct wil6210_priv *wil) { return 0; }
 static inline void wil6210_debugfs_remove(struct wil6210_priv *wil) {}
+static inline int wil_led_blink_set(struct wil6210_priv *wil,
+				    const char *buf)
+{
+	return 0;
+}
 #endif
 
 int wil6210_sysfs_init(struct wil6210_priv *wil);

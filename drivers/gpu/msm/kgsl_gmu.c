@@ -282,6 +282,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 	struct platform_device *pdev = of_find_device_by_node(node);
 	struct device *dev;
 	int ret;
+	int no_stall = 1;
 
 	dev = &pdev->dev;
 	of_dma_configure(dev, node, true);
@@ -293,6 +294,14 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 			ctx->name);
 		return -ENODEV;
 	}
+
+	/*
+	 * Disable stall on fault for the GMU context bank.
+	 * This sets SCTLR.CFCFG = 0.
+	 * Also note that, the smmu driver sets SCTLR.HUPCF = 0 by default.
+	 */
+	iommu_domain_set_attr(ctx->domain,
+		DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &no_stall);
 
 	ret = iommu_attach_device(ctx->domain, dev);
 	if (ret) {
@@ -927,8 +936,6 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
 	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
@@ -1471,8 +1478,9 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 }
 
 #define CX_GDSC_TIMEOUT	5000	/* ms */
-static int gmu_disable_gdsc(struct gmu_device *gmu)
+static int gmu_disable_gdsc(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int ret;
 	unsigned long t;
 
@@ -1494,13 +1502,13 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	 */
 	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
 	do {
-		if (!regulator_is_enabled(gmu->cx_gdsc))
+		if (!gmu_core_dev_cx_is_on(device))
 			return 0;
 		usleep_range(10, 100);
 
 	} while (!(time_after(jiffies, t)));
 
-	if (!regulator_is_enabled(gmu->cx_gdsc))
+	if (!gmu_core_dev_cx_is_on(device))
 		return 0;
 
 	dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
@@ -1528,12 +1536,15 @@ static int gmu_suspend(struct kgsl_device *device)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_IDLE);
 
-	gmu_disable_gdsc(gmu);
+	gmu_disable_gdsc(device);
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(gmu->cx_gdsc, REGULATOR_MODE_NORMAL);
 
 	dev_err(&gmu->pdev->dev, "Suspended GMU\n");
+
+	clear_bit(GMU_FAULT, &device->gmu_core.flags);
+
 	return 0;
 }
 
@@ -1542,6 +1553,10 @@ static void gmu_snapshot(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	/* Abstain from sending another nmi or over-writing snapshot */
+	if (test_and_set_bit(GMU_FAULT, &device->gmu_core.flags))
+		return;
 
 	adreno_gmu_send_nmi(adreno_dev);
 	/* Wait for the NMI to be handled */
@@ -1684,6 +1699,12 @@ static void gmu_stop(struct kgsl_device *device)
 	if (!test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return;
 
+	/* Force suspend if gmu is already in fault */
+	if (test_bit(GMU_FAULT, &device->gmu_core.flags)) {
+		gmu_core_suspend(device);
+		return;
+	}
+
 	/* Wait for the lowest idle level we requested */
 	if (gmu_core_dev_wait_for_lowest_idle(device))
 		goto error;
@@ -1703,20 +1724,19 @@ static void gmu_stop(struct kgsl_device *device)
 
 	gmu_dev_ops->rpmh_gpu_pwrctrl(device, GMU_FW_STOP, 0, 0);
 	gmu_disable_clks(device);
-	gmu_disable_gdsc(gmu);
+	gmu_disable_gdsc(device);
 
 	msm_bus_scale_client_update_request(gmu->pcl, 0);
 	return;
 
 error:
-	/*
-	 * The power controller will change state to SLUMBER anyway
-	 * Set GMU_FAULT flag to indicate to power contrller
-	 * that hang recovery is needed to power on GPU
-	 */
-	set_bit(GMU_FAULT, &device->gmu_core.flags);
 	dev_err(&gmu->pdev->dev, "Failed to stop GMU\n");
 	gmu_core_snapshot(device);
+	/*
+	 * We failed to stop the gmu successfully. Force a suspend
+	 * to set things up for a fresh start.
+	 */
+	gmu_core_suspend(device);
 }
 
 static void gmu_remove(struct kgsl_device *device)

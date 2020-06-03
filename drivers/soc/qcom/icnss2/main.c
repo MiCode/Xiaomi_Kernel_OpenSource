@@ -43,6 +43,7 @@
 #include "qmi.h"
 #include "debug.h"
 #include "power.h"
+#include "genl.h"
 
 #define MAX_PROP_SIZE			32
 #define NUM_LOG_PAGES			10
@@ -163,8 +164,28 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "IDLE_RESTART";
 	case ICNSS_DRIVER_EVENT_FW_INIT_DONE_IND:
 		return "FW_INIT_DONE";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
+		return "QDSS_TRACE_REQ_MEM";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
+		return "QDSS_TRACE_SAVE";
+	case ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
+		return "QDSS_TRACE_FREE";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
+	}
+
+	return "UNKNOWN";
+};
+
+char *icnss_soc_wake_event_to_str(enum icnss_soc_wake_event_type type)
+{
+	switch (type) {
+	case ICNSS_SOC_WAKE_REQUEST_EVENT:
+		return "SOC_WAKE_REQUEST";
+	case ICNSS_SOC_WAKE_RELEASE_EVENT:
+		return "SOC_WAKE_RELEASE";
+	case ICNSS_SOC_WAKE_EVENT_MAX:
+		return "SOC_EVENT_MAX";
 	}
 
 	return "UNKNOWN";
@@ -233,6 +254,78 @@ int icnss_driver_event_post(struct icnss_priv *priv,
 		goto out;
 	}
 	spin_unlock_irqrestore(&priv->event_lock, irq_flags);
+
+	ret = event->ret;
+	kfree(event);
+
+out:
+	icnss_pm_relax(priv);
+	return ret;
+}
+
+int icnss_soc_wake_event_post(struct icnss_priv *priv,
+			      enum icnss_soc_wake_event_type type,
+			      u32 flags, void *data)
+{
+	struct icnss_soc_wake_event *event;
+	unsigned long irq_flags;
+	int gfp = GFP_KERNEL;
+	int ret = 0;
+
+	if (!priv)
+		return -ENODEV;
+
+	icnss_pr_dbg("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
+		     icnss_soc_wake_event_to_str(type), type, current->comm,
+		     flags, priv->state);
+
+	if (type >= ICNSS_SOC_WAKE_EVENT_MAX) {
+		icnss_pr_err("Invalid Event type: %d, can't post", type);
+		return -EINVAL;
+	}
+
+	if (in_interrupt() || irqs_disabled())
+		gfp = GFP_ATOMIC;
+
+	event = kzalloc(sizeof(*event), gfp);
+	if (!event)
+		return -ENOMEM;
+
+	icnss_pm_stay_awake(priv);
+
+	event->type = type;
+	event->data = data;
+	init_completion(&event->complete);
+	event->ret = ICNSS_EVENT_PENDING;
+	event->sync = !!(flags & ICNSS_EVENT_SYNC);
+
+	spin_lock_irqsave(&priv->soc_wake_msg_lock, irq_flags);
+	list_add_tail(&event->list, &priv->soc_wake_msg_list);
+	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, irq_flags);
+
+	priv->stats.soc_wake_events[type].posted++;
+	queue_work(priv->soc_wake_wq, &priv->soc_wake_msg_work);
+
+	if (!(flags & ICNSS_EVENT_SYNC))
+		goto out;
+
+	if (flags & ICNSS_EVENT_UNINTERRUPTIBLE)
+		wait_for_completion(&event->complete);
+	else
+		ret = wait_for_completion_interruptible(&event->complete);
+
+	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
+		     icnss_soc_wake_event_to_str(type), type, priv->state, ret,
+		     event->ret);
+
+	spin_lock_irqsave(&priv->soc_wake_msg_lock, irq_flags);
+	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
+		event->sync = false;
+		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, irq_flags);
+		ret = -EINTR;
+		goto out;
+	}
+	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, irq_flags);
 
 	ret = event->ret;
 	kfree(event);
@@ -441,6 +534,8 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 	set_bit(ICNSS_WLFW_EXISTS, &priv->state);
 	clear_bit(ICNSS_FW_DOWN, &priv->state);
+	clear_bit(ICNSS_FW_READY, &priv->state);
+
 	icnss_ignore_fw_timeout(false);
 
 	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state)) {
@@ -728,6 +823,194 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 	return ret;
 }
 
+int icnss_alloc_qdss_mem(struct icnss_priv *priv)
+{
+	struct platform_device *pdev = priv->pdev;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int i, j;
+
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		if (!qdss_mem[i].va && qdss_mem[i].size) {
+			qdss_mem[i].va =
+				dma_alloc_coherent(&pdev->dev,
+						   qdss_mem[i].size,
+						   &qdss_mem[i].pa,
+						   GFP_KERNEL);
+			if (!qdss_mem[i].va) {
+				icnss_pr_err("Failed to allocate QDSS memory for FW, size: 0x%zx, type: %u, chuck-ID: %d\n",
+					     qdss_mem[i].size,
+					     qdss_mem[i].type, i);
+				break;
+			}
+		}
+	}
+
+	/* Best-effort allocation for QDSS trace */
+	if (i < priv->qdss_mem_seg_len) {
+		for (j = i; j < priv->qdss_mem_seg_len; j++) {
+			qdss_mem[j].type = 0;
+			qdss_mem[j].size = 0;
+		}
+		priv->qdss_mem_seg_len = i;
+	}
+
+	return 0;
+}
+
+void icnss_free_qdss_mem(struct icnss_priv *priv)
+{
+	struct platform_device *pdev = priv->pdev;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int i;
+
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		if (qdss_mem[i].va && qdss_mem[i].size) {
+			icnss_pr_dbg("Freeing memory for QDSS: pa: %pa, size: 0x%zx, type: %u\n",
+				     &qdss_mem[i].pa, qdss_mem[i].size,
+				     qdss_mem[i].type);
+			dma_free_coherent(&pdev->dev,
+					  qdss_mem[i].size, qdss_mem[i].va,
+					  qdss_mem[i].pa);
+			qdss_mem[i].va = NULL;
+			qdss_mem[i].pa = 0;
+			qdss_mem[i].size = 0;
+			qdss_mem[i].type = 0;
+		}
+	}
+	priv->qdss_mem_seg_len = 0;
+}
+
+static int icnss_qdss_trace_req_mem_hdlr(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = icnss_alloc_qdss_mem(priv);
+	if (ret < 0)
+		return ret;
+
+	return wlfw_qdss_trace_mem_info_send_sync(priv);
+}
+
+static void *icnss_qdss_trace_pa_to_va(struct icnss_priv *priv,
+				       u64 pa, u32 size, int *seg_id)
+{
+	int i = 0;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	u64 offset = 0;
+	void *va = NULL;
+	u64 local_pa;
+	u32 local_size;
+
+	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+		local_pa = (u64)qdss_mem[i].pa;
+		local_size = (u32)qdss_mem[i].size;
+		if (pa == local_pa && size <= local_size) {
+			va = qdss_mem[i].va;
+			break;
+		}
+		if (pa > local_pa &&
+		    pa < local_pa + local_size &&
+		    pa + size <= local_pa + local_size) {
+			offset = pa - local_pa;
+			va = qdss_mem[i].va + offset;
+			break;
+		}
+	}
+
+	*seg_id = i;
+	return va;
+}
+
+static int icnss_qdss_trace_save_hdlr(struct icnss_priv *priv,
+				      void *data)
+{
+	struct icnss_qmi_event_qdss_trace_save_data *event_data = data;
+	struct icnss_fw_mem *qdss_mem = priv->qdss_mem;
+	int ret = 0;
+	int i;
+	void *va = NULL;
+	u64 pa;
+	u32 size;
+	int seg_id = 0;
+
+	if (!priv->qdss_mem_seg_len) {
+		icnss_pr_err("Memory for QDSS trace is not available\n");
+		return -ENOMEM;
+	}
+
+	if (event_data->mem_seg_len == 0) {
+		for (i = 0; i < priv->qdss_mem_seg_len; i++) {
+			ret = icnss_genl_send_msg(qdss_mem[i].va,
+						  ICNSS_GENL_MSG_TYPE_QDSS,
+						  event_data->file_name,
+						  qdss_mem[i].size);
+			if (ret < 0) {
+				icnss_pr_err("Fail to save QDSS data: %d\n",
+					     ret);
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < event_data->mem_seg_len; i++) {
+			pa = event_data->mem_seg[i].addr;
+			size = event_data->mem_seg[i].size;
+			va = icnss_qdss_trace_pa_to_va(priv, pa,
+						       size, &seg_id);
+			if (!va) {
+				icnss_pr_err("Fail to find matching va for pa %pa\n",
+					     &pa);
+				ret = -EINVAL;
+				break;
+			}
+			ret = icnss_genl_send_msg(va, ICNSS_GENL_MSG_TYPE_QDSS,
+						  event_data->file_name, size);
+			if (ret < 0) {
+				icnss_pr_err("Fail to save QDSS data: %d\n",
+					     ret);
+				break;
+			}
+		}
+	}
+
+	kfree(data);
+	return ret;
+}
+
+static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
+{
+	int ret = 0;
+
+	if (!priv)
+		return -ENODEV;
+
+	ret = wlfw_send_soc_wake_msg(priv, QMI_WLFW_WAKE_REQUEST_V01);
+	if (!ret)
+		atomic_inc(&priv->soc_wake_ref_count);
+
+	return ret;
+}
+
+static int icnss_event_soc_wake_release(struct icnss_priv *priv, void *data)
+{
+	int ret = 0;
+	int count = 0;
+
+	if (!priv)
+		return -ENODEV;
+
+	count = atomic_dec_return(&priv->soc_wake_ref_count);
+
+	if (count) {
+		icnss_pr_dbg("Wake release not called. Ref count: %d",
+			     count);
+		return 0;
+	}
+
+	ret = wlfw_send_soc_wake_msg(priv, QMI_WLFW_WAKE_RELEASE_V01);
+
+	return ret;
+}
+
 static int icnss_driver_event_register_driver(struct icnss_priv *priv,
 							 void *data)
 {
@@ -955,6 +1238,13 @@ static int icnss_driver_event_idle_restart(struct icnss_priv *priv,
 	return ret;
 }
 
+static int icnss_qdss_trace_free_hdlr(struct icnss_priv *priv)
+{
+	icnss_free_qdss_mem(priv);
+
+	return 0;
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_priv *priv =
@@ -1018,6 +1308,16 @@ static void icnss_driver_event_work(struct work_struct *work)
 			ret = icnss_driver_event_fw_init_done(priv,
 							      event->data);
 			break;
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
+			ret = icnss_qdss_trace_req_mem_hdlr(priv);
+			break;
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
+			ret = icnss_qdss_trace_save_hdlr(priv,
+							 event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
+			ret = icnss_qdss_trace_free_hdlr(priv);
+			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
 			kfree(event);
@@ -1044,6 +1344,68 @@ static void icnss_driver_event_work(struct work_struct *work)
 		spin_lock_irqsave(&priv->event_lock, flags);
 	}
 	spin_unlock_irqrestore(&priv->event_lock, flags);
+
+	icnss_pm_relax(priv);
+}
+
+static void icnss_soc_wake_msg_work(struct work_struct *work)
+{
+	struct icnss_priv *priv =
+		container_of(work, struct icnss_priv, soc_wake_msg_work);
+	struct icnss_soc_wake_event *event;
+	unsigned long flags;
+	int ret;
+
+	icnss_pm_stay_awake(priv);
+
+	spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
+
+	while (!list_empty(&priv->soc_wake_msg_list)) {
+		event = list_first_entry(&priv->soc_wake_msg_list,
+					 struct icnss_soc_wake_event, list);
+		list_del(&event->list);
+		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
+
+		icnss_pr_dbg("Processing event: %s%s(%d), state: 0x%lx\n",
+			     icnss_soc_wake_event_to_str(event->type),
+			     event->sync ? "-sync" : "", event->type,
+			     priv->state);
+
+		switch (event->type) {
+		case ICNSS_SOC_WAKE_REQUEST_EVENT:
+			ret = icnss_event_soc_wake_request(priv,
+							   event->data);
+			break;
+		case ICNSS_SOC_WAKE_RELEASE_EVENT:
+			ret = icnss_event_soc_wake_release(priv,
+							   event->data);
+			break;
+		default:
+			icnss_pr_err("Invalid Event type: %d", event->type);
+			kfree(event);
+			continue;
+		}
+
+		priv->stats.soc_wake_events[event->type].processed++;
+
+		icnss_pr_dbg("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
+			     icnss_soc_wake_event_to_str(event->type),
+			     event->sync ? "-sync" : "", event->type, ret,
+			     priv->state);
+
+		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
+		if (event->sync) {
+			event->ret = ret;
+			complete(&event->complete);
+			continue;
+		}
+		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
+
+		kfree(event);
+
+		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
+	}
+	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
 
 	icnss_pm_relax(priv);
 }
@@ -1436,6 +1798,32 @@ enable_pdr:
 	return 0;
 }
 
+int icnss_qmi_send(struct device *dev, int type, void *cmd,
+		  int cmd_len, void *cb_ctx,
+		  int (*cb)(void *ctx, void *event, int event_len))
+{
+	struct icnss_priv *priv = icnss_get_plat_priv();
+	int ret;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (!test_bit(ICNSS_WLFW_CONNECTED, &priv->state))
+		return -EINVAL;
+
+	priv->get_info_cb = cb;
+	priv->get_info_cb_ctx = cb_ctx;
+
+	ret = icnss_wlfw_get_info_send_sync(priv, type, cmd, cmd_len);
+	if (ret) {
+		priv->get_info_cb = NULL;
+		priv->get_info_cb_ctx = NULL;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(icnss_qmi_send);
+
 int __icnss_register_driver(struct icnss_driver_ops *ops,
 			    struct module *owner, const char *mod_name)
 {
@@ -1759,6 +2147,71 @@ int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 	return ret;
 }
 EXPORT_SYMBOL(icnss_set_fw_log_mode);
+
+int icnss_force_wake_request(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int count = 0;
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("Calling SOC Wake request");
+
+	if (atomic_read(&priv->soc_wake_ref_count)) {
+		count = atomic_inc_return(&priv->soc_wake_ref_count);
+		icnss_pr_dbg("SOC already awake, Ref count: %d", count);
+		return 0;
+	}
+
+	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_REQUEST_EVENT,
+				  0, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL(icnss_force_wake_request);
+
+int icnss_force_wake_release(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("Calling SOC Wake response");
+
+	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_RELEASE_EVENT,
+				  0, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL(icnss_force_wake_release);
+
+int icnss_is_device_awake(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	return atomic_read(&priv->soc_wake_ref_count);
+}
+EXPORT_SYMBOL(icnss_is_device_awake);
 
 int icnss_athdiag_read(struct device *dev, uint32_t offset,
 		       uint32_t mem_type, uint32_t data_len,
@@ -2453,6 +2906,7 @@ static int icnss_probe(struct platform_device *pdev)
 
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
+	spin_lock_init(&priv->soc_wake_msg_lock);
 	mutex_init(&priv->dev_lock);
 
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
@@ -2465,10 +2919,21 @@ static int icnss_probe(struct platform_device *pdev)
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
 	INIT_LIST_HEAD(&priv->event_list);
 
+	priv->soc_wake_wq = alloc_workqueue("icnss_soc_wake_event",
+					    WQ_UNBOUND, 1);
+	if (!priv->soc_wake_wq) {
+		icnss_pr_err("Soc wake Workqueue creation failed\n");
+		ret = -EFAULT;
+		goto out_destroy_wq;
+	}
+
+	INIT_WORK(&priv->soc_wake_msg_work, icnss_soc_wake_msg_work);
+	INIT_LIST_HEAD(&priv->soc_wake_msg_list);
+
 	ret = icnss_register_fw_service(priv);
 	if (ret < 0) {
 		icnss_pr_err("fw service registration failed: %d\n", ret);
-		goto out_destroy_wq;
+		goto out_destroy_soc_wq;
 	}
 
 	icnss_enable_recovery(priv);
@@ -2486,10 +2951,16 @@ static int icnss_probe(struct platform_device *pdev)
 
 	init_completion(&priv->unblock_shutdown);
 
+	ret = icnss_genl_init();
+	if (ret < 0)
+		icnss_pr_err("ICNSS genl init failed %d\n", ret);
+
 	icnss_pr_info("Platform driver probed successfully\n");
 
 	return 0;
 
+out_destroy_soc_wq:
+	destroy_workqueue(priv->soc_wake_wq);
 out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
 smmu_cleanup:
@@ -2505,6 +2976,8 @@ static int icnss_remove(struct platform_device *pdev)
 	struct icnss_priv *priv = dev_get_drvdata(&pdev->dev);
 
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
+
+	icnss_genl_exit();
 
 	device_init_wakeup(&priv->pdev->dev, false);
 
@@ -2523,6 +2996,9 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_unregister_fw_service(priv);
 	if (priv->event_wq)
 		destroy_workqueue(priv->event_wq);
+
+	if (priv->soc_wake_wq)
+		destroy_workqueue(priv->soc_wake_wq);
 
 	priv->iommu_domain = NULL;
 
@@ -2579,6 +3055,14 @@ static int icnss_pm_resume(struct device *dev)
 	if (!priv->ops || !priv->ops->pm_resume ||
 	    !test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		goto out;
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = wlfw_exit_power_save_send_msg(priv);
+		if (ret) {
+			priv->stats.pm_resume_err++;
+			return ret;
+		}
+	}
 
 	ret = priv->ops->pm_resume(dev);
 
