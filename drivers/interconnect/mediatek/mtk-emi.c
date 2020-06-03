@@ -33,6 +33,9 @@ enum mtk_icc_name {
 	MASTER_UFS,
 	MASTER_PCIE,
 	MASTER_USB,
+	MASTER_WIFI,
+	MASTER_BT,
+	MASTER_NETSYS,
 	MASTER_DBGIF,
 
 	SLAVE_HRT_DDR_EMI,
@@ -102,6 +105,9 @@ DEFINE_MNODE(mdla_port_0, MASTER_MDLA_PORT_0, 0, MASTER_MDLASYS);
 DEFINE_MNODE(ufs, MASTER_UFS, 0, SLAVE_DDR_EMI);
 DEFINE_MNODE(pcie, MASTER_PCIE, 0, SLAVE_DDR_EMI);
 DEFINE_MNODE(usb, MASTER_USB, 0, SLAVE_DDR_EMI);
+DEFINE_MNODE(wifi, MASTER_WIFI, 0, SLAVE_DDR_EMI);
+DEFINE_MNODE(bt, MASTER_BT, 0, SLAVE_DDR_EMI);
+DEFINE_MNODE(netsys, MASTER_NETSYS, 0, SLAVE_DDR_EMI);
 DEFINE_MNODE(dbgif, MASTER_DBGIF, 0, SLAVE_DDR_EMI);
 
 DEFINE_MNODE(hrt_ddr_emi, SLAVE_HRT_DDR_EMI, 2);
@@ -153,6 +159,9 @@ static struct mtk_icc_node *mt6873_icc_nodes[] = {
 	[MT6873_MASTER_UFS] = &ufs,
 	[MT6873_MASTER_PCIE] = &pcie,
 	[MT6873_MASTER_USB] = &usb,
+	[MT6873_MASTER_WIFI] = &wifi,
+	[MT6873_MASTER_BT] = &bt,
+	[MT6873_MASTER_NETSYS] = &netsys,
 	[MT6873_MASTER_DBGIF] = &dbgif,
 
 	[MT6873_SLAVE_HRT_DDR_EMI] = &hrt_ddr_emi,
@@ -202,6 +211,9 @@ static int emi_icc_set(struct icc_node *src, struct icc_node *dst)
 	node = dst->data;
 
 	if (node->ep == 1) {
+		mtk_dvfsrc_send_request(src->provider->dev,
+					MTK_DVFSRC_CMD_PEAK_BW_REQUEST,
+					node->max_peak);
 		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_BW_REQUEST,
 					node->sum_avg);
