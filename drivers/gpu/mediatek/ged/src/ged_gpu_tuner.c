@@ -6,7 +6,7 @@
 #include "ged_gpu_tuner.h"
 #include "ged_base.h"
 #include "ged_log.h"
-#include "ged_debugFS.h"
+#include "ged_sysfs.h"
 
 #define DEBUG_ON	1
 #define DEBUG_OFF	0
@@ -16,10 +16,7 @@ static struct mutex gsGPUTunerLock;
 static struct GED_GPU_TUNER_ITEM gpu_tuner_status;
 static struct GED_GPU_TUNER_HINT gpu_tuner_last_custom_hint;
 static struct list_head gItemList;
-static struct dentry *gsGEDGPUTunerDir;
-static struct dentry *gsGPUTunerDumpStatusEntry;
-static struct dentry *gpsCustomHintSetEntry;
-static struct dentry *gpsDebugEntry;
+static struct kobject *gpu_tuner_kobj;
 static int debug = DEBUG_OFF;
 
 #define GPU_TUNER_TAG "[GT]"
@@ -147,97 +144,73 @@ static struct GED_GPU_TUNER_ITEM *_ged_gpu_tuner_find_item_by_package_name(
 		return NULL;
 }
 
-static void *_ged_gpu_tuner_dump_status_seq_start(
-		struct seq_file *psSeqFile,
-		loff_t *puiPosition)
+//-----------------------------------------------------------------------------
+static ssize_t dump_status_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return (*puiPosition == 0) ? SEQ_START_TOKEN : NULL;
-}
+	struct list_head *listentry;
+	struct GED_GPU_TUNER_ITEM *item;
+	int cnt = 0;
+	char temp[GED_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
 
-static void _ged_gpu_tuner_dump_status_seq_stop(
-		struct seq_file *psSeqFile,
-		void *pvData)
-{
-}
-
-static void *_ged_gpu_tuner_dump_status_seq_next(
-		struct seq_file *psSeqFile,
-		void *pvData,
-		loff_t *puiPosition)
-{
-	return NULL;
-}
-
-static int _ged_gpu_tuner_dump_status_seq_show(
-		struct seq_file *psSeqFile,
-		void *pvData)
-{
-		struct list_head *listentry;
-		struct GED_GPU_TUNER_ITEM *item;
-		char buf[BUF_LEN];
-		int cnt = 0;
-
-		seq_puts(psSeqFile, "========================================\n");
-		seq_puts(psSeqFile, "[Global Status]\n");
-		snprintf(buf, sizeof(buf), "feature(%08x)\n",
+	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+			"========================================\n"
+			"[Global Status]\n"
+			"feature(%08x)\n"
+			"========================================\n",
 			gpu_tuner_status.status.feature);
-		seq_puts(psSeqFile, buf);
-		seq_puts(psSeqFile, "========================================\n");
-		list_for_each(listentry, &gItemList) {
-			item =
-			list_entry(listentry, struct GED_GPU_TUNER_ITEM, List);
-			if (item) {
-				snprintf(buf, sizeof(buf), " [%d]\n", cnt++);
-				seq_puts(psSeqFile, buf);
-				snprintf(buf, sizeof(buf),
-				" pkgname(%s) cmd(%s) feature(%08x)\n",
-				item->status.packagename,
-				(*item->status.cmd) ? item->status.cmd : "N/A",
-				item->status.feature);
-				seq_puts(psSeqFile, buf);
-				seq_puts(psSeqFile, "========================================\n");
-			}
+	pos += length;
+	list_for_each(listentry, &gItemList) {
+		item = list_entry(listentry, struct GED_GPU_TUNER_ITEM, List);
+		if (item) {
+			length = scnprintf(temp + pos,
+					GED_SYSFS_MAX_BUFF_SIZE - pos,
+					" [%d]\n"
+					" pkgname(%s) cmd(%s) feature(%08x)\n"
+					"========================================\n",
+					cnt++,
+					item->status.packagename,
+					(*item->status.cmd) ?
+					item->status.cmd : "N/A",
+					item->status.feature);
+			pos += length;
 		}
+	}
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-const struct seq_operations gsGPUTunerDumpStatusReadOps = {
-	.start = _ged_gpu_tuner_dump_status_seq_start,
-	.stop = _ged_gpu_tuner_dump_status_seq_stop,
-	.next = _ged_gpu_tuner_dump_status_seq_next,
-	.show = _ged_gpu_tuner_dump_status_seq_show,
-};
-
-static ssize_t _ged_custom_hint_set_write_entry(
-		const char __user *pszBuffer,
-		size_t uiCount,
-		loff_t uiPosition,
-		void *pvData)
+static KOBJ_ATTR_RO(dump_status);
+//-----------------------------------------------------------------------------
+static ssize_t custom_hint_set_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
 #define NUM_TOKEN 3
-
 	/*
 	 *  This proc node accept only: [PACKAGE NAME][CMD][VALUE]
 	 *  for ex: "packagename anisotropic_disable 1"
 	 *
 	 */
 
-	char acBuffer[BUF_LEN];
-	int index[NUM_TOKEN], i;
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE] = {0};
+	int index[NUM_TOKEN] = {0};
+	int i;
 	char *packagename, *cmd, *val;
-	int value, feature, len;
+	int value = 0;
+	int feature, len;
 	GED_ERROR ret;
 
-	if (!((uiCount > 0) && (uiCount < BUF_LEN - 1)))
+	if (!((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)))
 		return GED_ERROR_INVALID_PARAMS;
 
-	memset(acBuffer, 0, BUF_LEN);
-	if (ged_copy_from_user(acBuffer, pszBuffer, uiCount))
+	if (!scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf))
 		return GED_ERROR_FAIL;
 
-	acBuffer[uiCount] = '\0';
-	ret = _tokenizer(acBuffer, uiCount, index, NUM_TOKEN);
+	ret = _tokenizer(acBuffer, count, index, NUM_TOKEN);
 
 	GPU_TUNER_DEBUG("retOfTokenizer(%d) acBuffer(%s)n", ret, acBuffer);
 	if (ret == NUM_TOKEN) {
@@ -276,91 +249,65 @@ static ssize_t _ged_custom_hint_set_write_entry(
 		gpu_tuner_last_custom_hint.cmd,
 		gpu_tuner_last_custom_hint.feature,
 		gpu_tuner_last_custom_hint.value);
-
 	} else {
 		GPU_TUNER_ERROR("[%s]invalid input\n", __func__);
 		return GED_ERROR_FAIL;
 	}
 
-	return uiCount;
+	return count;
+#undef NUM_TOKEN
 }
 
-static void *_ged_gpu_tuner_custom_hint_set_seq_start(
-		struct seq_file *psSeqFile,
-		loff_t *puiPosition)
+static ssize_t custom_hint_set_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return (*puiPosition == 0) ? SEQ_START_TOKEN : NULL;
-}
+	char temp[GED_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
 
-static void _ged_gpu_tuner_custom_hint_set_seq_stop(
-		struct seq_file *psSeqFile,
-		void *pvData)
-{
-}
-
-static void *_ged_gpu_tuner_custom_hint_set_seq_next(
-		struct seq_file *psSeqFile,
-		void *pvData,
-		loff_t *puiPosition)
-{
-	return NULL;
-}
-
-static int _ged_gpu_tuner_custom_hint_set_seq_show(
-		struct seq_file *psSeqFile,
-		void *pvData)
-{
-
-	char buf[BUF_LEN];
-
-	seq_puts(psSeqFile, "support cmd list\n");
-	seq_puts(psSeqFile, "anisotropic_disable => MTK_GPU_TUNER_ANISOTROPIC_DISABLE\n");
-	seq_puts(psSeqFile, "trilinear_disable => MTK_GPU_TUNER_TRILINEAR_DISABLE\n");
-	seq_puts(psSeqFile, "========================================\n");
+	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+			"support cmd list\n"
+			"anisotropic_disable => MTK_GPU_TUNER_ANISOTROPIC_DISABLE\n"
+			"trilinear_disable => MTK_GPU_TUNER_TRILINEAR_DISABLE\n"
+			"========================================\n");
+	pos += length;
 	if (gpu_tuner_last_custom_hint.packagename[0]) {
-
-		snprintf(buf, sizeof(buf),
-		" name(%s) cmd(%s) feature(%d) value(%d)\n",
+		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+				" name(%s) cmd(%s) feature(%d) value(%d)\n",
 				gpu_tuner_last_custom_hint.packagename,
 				gpu_tuner_last_custom_hint.cmd,
 				gpu_tuner_last_custom_hint.feature,
 				gpu_tuner_last_custom_hint.value);
-		seq_puts(psSeqFile, buf);
-	} else
-		seq_puts(psSeqFile, "no custom hint is set\n");
+		pos += length;
+	} else {
+		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+				"no custom hint is set\n");
+		pos += length;
+	}
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-const struct seq_operations gsGPUTunerCustomHintSetReadOps = {
-	.start = _ged_gpu_tuner_custom_hint_set_seq_start,
-	.stop = _ged_gpu_tuner_custom_hint_set_seq_stop,
-	.next = _ged_gpu_tuner_custom_hint_set_seq_next,
-	.show = _ged_gpu_tuner_custom_hint_set_seq_show,
-};
-
-static ssize_t _ged_debug_write_entry(
-		const char __user *pszBuffer,
-		size_t uiCount,
-		loff_t uiPosition,
-		void *pvData)
+static KOBJ_ATTR_RW(custom_hint_set);
+//-----------------------------------------------------------------------------
+static ssize_t debug_store(struct kobject *kobj, struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-
-#undef NUM_TOKEN
 #define NUM_TOKEN 1
-	char acBuffer[BUF_LEN];
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE] = {0};
 	char *val;
-	int index[NUM_TOKEN], value;
+	int index[NUM_TOKEN] = {0};
+	int value = 0;
 	GED_ERROR ret;
 
-	if (!((uiCount > 0) && (uiCount < BUF_LEN - 1)))
+	if (!((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)))
 		return GED_ERROR_INVALID_PARAMS;
 
-	if (ged_copy_from_user(acBuffer, pszBuffer, uiCount))
+	if (!scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf))
 		return GED_ERROR_FAIL;
 
-	acBuffer[uiCount] = '\0';
-	ret = _tokenizer(acBuffer, uiCount, index, NUM_TOKEN);
+	ret = _tokenizer(acBuffer, count, index, NUM_TOKEN);
 	if (ret == NUM_TOKEN) {
 		val = acBuffer + index[0];
 		ret = kstrtoint(val, 0, &value);
@@ -371,48 +318,18 @@ static ssize_t _ged_debug_write_entry(
 		return GED_ERROR_FAIL;
 	}
 
-	return uiCount;
+	return count;
+#undef NUM_TOKEN
 }
 
-static void *_ged_gpu_tuner_debug_seq_start(
-		struct seq_file *psSeqFile,
-		loff_t *puiPosition)
+static ssize_t debug_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
 {
-	return (*puiPosition == 0) ? SEQ_START_TOKEN : NULL;
+	return scnprintf(buf, PAGE_SIZE, "debug(%d)\n", debug);
 }
 
-static void _ged_gpu_tuner_debug_seq_stop(
-		struct seq_file *psSeqFile,
-		void *pvData)
-{
-}
-
-static void *_ged_gpu_tuner_debug_seq_next(
-		struct seq_file *psSeqFile,
-		void *pvData,
-		loff_t *puiPosition)
-{
-	return NULL;
-}
-
-static int _ged_gpu_tuner_debug_seq_show(
-		struct seq_file *psSeqFile,
-		void *pvData)
-{
-	char buf[BUF_LEN];
-
-	snprintf(buf, sizeof(buf), "debug(%d)\n", debug);
-	seq_puts(psSeqFile, buf);
-
-	return 0;
-}
-
-const struct seq_operations gsGPUDebugReadOps = {
-	.start = _ged_gpu_tuner_debug_seq_start,
-	.stop = _ged_gpu_tuner_debug_seq_stop,
-	.next = _ged_gpu_tuner_debug_seq_next,
-	.show = _ged_gpu_tuner_debug_seq_show,
-};
+static KOBJ_ATTR_RW(debug);
+//-----------------------------------------------------------------------------
 
 GED_ERROR ged_gpu_get_stauts_by_packagename(
 		char *packagename,
@@ -591,51 +508,32 @@ GED_ERROR ged_gpu_tuner_init(void)
 	gpu_tuner_status.status.feature = gpu_tuner_status.status.value = 0;
 	debug = false;
 
-	err = ged_debugFS_create_entry_dir(
-			"gpu_tuner",
-			NULL,
-			&gsGEDGPUTunerDir);
+	err = ged_sysfs_create_dir(NULL, "gpu_tuner", &gpu_tuner_kobj);
+	if (unlikely(err != GED_OK)) {
+		GPU_TUNER_ERROR("[%s] failed to create gpu_tuner dir!\n",
+				__func__);
+		goto ERROR;
+	}
 
-	err = ged_debugFS_create_entry(
-			"dump_status",
-			gsGEDGPUTunerDir,
-			&gsGPUTunerDumpStatusReadOps,
-			NULL,
-			NULL,
-			&gsGPUTunerDumpStatusEntry);
+	err = ged_sysfs_create_file(gpu_tuner_kobj, &kobj_attr_dump_status);
 	if (unlikely(err != GED_OK)) {
 		GPU_TUNER_ERROR("[%s] failed to create dump_status entry!\n",
-		__func__);
+				__func__);
 		goto ERROR;
 	}
 
-	err = ged_debugFS_create_entry(
-			"custom_hint_set",
-			gsGEDGPUTunerDir,
-			&gsGPUTunerCustomHintSetReadOps,
-			_ged_custom_hint_set_write_entry,
-			NULL,
-			&gpsCustomHintSetEntry);
+	err = ged_sysfs_create_file(gpu_tuner_kobj, &kobj_attr_custom_hint_set);
 	if (unlikely(err != GED_OK)) {
 		GPU_TUNER_ERROR(
-		"[%s] failed to create custom hint set entry!\n",
-		__func__);
-
+			"[%s] failed to create custom_hint_set entry!\n",
+			__func__);
 		goto ERROR;
 	}
 
-	err = ged_debugFS_create_entry(
-			"debug",
-			gsGEDGPUTunerDir,
-			&gsGPUDebugReadOps,
-			_ged_debug_write_entry,
-			NULL,
-			&gpsDebugEntry);
+	err = ged_sysfs_create_file(gpu_tuner_kobj, &kobj_attr_debug);
 	if (unlikely(err != GED_OK)) {
-		GPU_TUNER_ERROR(
-		"[%s] failed to create custom hint set entry!\n",
-		__func__);
-
+		GPU_TUNER_ERROR("[%s] failed to create debug entry!\n",
+				__func__);
 		goto ERROR;
 	}
 
@@ -662,6 +560,11 @@ GED_ERROR ged_gpu_tuner_exit(void)
 			ged_free(item, sizeof(struct GED_GPU_TUNER_ITEM));
 		}
 	}
+
+	ged_sysfs_remove_file(gpu_tuner_kobj, &kobj_attr_debug);
+	ged_sysfs_remove_file(gpu_tuner_kobj, &kobj_attr_custom_hint_set);
+	ged_sysfs_remove_file(gpu_tuner_kobj, &kobj_attr_dump_status);
+	ged_sysfs_remove_dir(&gpu_tuner_kobj);
 
 	GPU_TUNER_DEBUG("[%s] Out\n", __func__);
 

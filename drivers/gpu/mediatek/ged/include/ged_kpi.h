@@ -1,31 +1,28 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-
 
 #ifndef __GED_KPI_H__
 #define __GED_KPI_H__
 
 #include "ged_type.h"
-
-/* TODO: porting*/
-/* #include "eas_ctrl.h" */
-
+/* To-Do: EAS*/
+/*#include "eas_ctrl.h"*/
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
 #include <linux/topology.h>
 
 GED_ERROR ged_kpi_dequeue_buffer_ts(int pid,
-						u64 ullWdnd,
-						int i32FrameID,
-						int fence_fd,
-						int isSF);
+		u64 ullWdnd,
+		int i32FrameID,
+		int fence_fd,
+		int isSF);
 GED_ERROR ged_kpi_queue_buffer_ts(int pid,
-						u64 ullWdnd,
-						int i32FrameID,
-						int fence,
-						int QedBuffer_length);
+		u64 ullWdnd,
+		int i32FrameID,
+		int fence,
+		int QedBuffer_length);
 GED_ERROR ged_kpi_acquire_buffer_ts(int pid, u64 ullWdnd, int i32FrameID);
 GED_ERROR ged_kpi_sw_vsync(void);
 GED_ERROR ged_kpi_hw_vsync(void);
@@ -39,19 +36,20 @@ unsigned int ged_kpi_get_cur_avg_gpu_remained_time(void);
 unsigned int ged_kpi_get_cur_avg_cpu_remained_time(void);
 unsigned int ged_kpi_get_cur_avg_gpu_freq(void);
 void ged_kpi_get_latest_perf_state(long long *t_cpu_remained,
-									long long *t_gpu_remained,
-									long *t_cpu_target,
-									long *t_gpu_target);
+		long long *t_gpu_remained,
+		long *t_cpu_target,
+		long *t_gpu_target);
 
 GED_ERROR ged_kpi_system_init(void);
 void ged_kpi_system_exit(void);
-bool ged_kpi_set_cpu_remained_time(long long t_cpu_remained, int QedBuffer_length);
+bool ged_kpi_set_cpu_remained_time(long long t_cpu_remained,
+		int QedBuffer_length);
 bool ged_kpi_set_gpu_dvfs_hint(int t_gpu_target, int t_gpu_cur);
 void ged_kpi_set_game_hint(int mode);
 unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
-	int target_FPS_margin, int cpu_time);
+		int target_FPS_margin);
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	int *pT_gpu_target, unsigned long long *pullWnd);

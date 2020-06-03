@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #ifndef __MTK_GPU_UTILITY_H__
@@ -19,11 +19,13 @@ MTK_GPU_DVFS_TYPE_ITEM(TOUCHBOOST) \
 MTK_GPU_DVFS_TYPE_ITEM(THERMAL) \
 MTK_GPU_DVFS_TYPE_ITEM(CUSTOMIZATION)}
 
-typedef enum MTK_GPU_DVFS_TYPE_TAG
+enum MTK_GPU_DVFS_TYPE
 #define MTK_GPU_DVFS_TYPE_ITEM(type) MTK_GPU_DVFS_TYPE_##type,
 MTK_GPU_DVFS_TYPE_LIST
 #undef MTK_GPU_DVFS_TYPE_ITEM
-MTK_GPU_DVFS_TYPE;
+;
+
+
 
 #define GT_MAKE_BIT(start_bit, index) ((index##u) << (start_bit))
 enum GPU_TUNER_FEATURE {
@@ -67,7 +69,8 @@ bool mtk_get_custom_upbound_gpu_freq(unsigned int *pui32FreqLevel);
 
 bool mtk_dump_gpu_memory_usage(void);
 
-bool mtk_get_gpu_dvfs_from(MTK_GPU_DVFS_TYPE *peType, unsigned long *pulFreq);
+bool mtk_get_gpu_dvfs_from(enum MTK_GPU_DVFS_TYPE *peType,
+	unsigned long *pulFreq);
 bool mtk_get_3D_fences_count(int *pi32Count);
 bool mtk_get_vsync_based_target_freq(unsigned long *pulFreq);
 bool mtk_get_gpu_sub_loading(unsigned int *pLoading);
@@ -78,35 +81,40 @@ bool mtk_get_vsync_offset_event_status(unsigned int *pui32EventStatus);
 bool mtk_get_vsync_offset_debug_status(unsigned int *pui32DebugStatus);
 bool mtk_dvfs_margin_value(int i32MarginValue);
 bool mtk_get_dvfs_margin_value(int *pi32MarginValue);
-bool mtk_loading_base_dvfs_step(int i32MarginValue);
-bool mtk_get_loading_base_dvfs_step(int *pi32MarginValue);
+bool mtk_loading_base_dvfs_step(int i32StepValue);
+bool mtk_get_loading_base_dvfs_step(int *pi32StepValue);
 bool mtk_timer_base_dvfs_margin(int i32MarginValue);
 bool mtk_get_timer_base_dvfs_margin(int *pi32MaginValue);
 bool mtk_dvfs_loading_mode(int i32LoadingMode);
 bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode);
 
+/* CAP */
+bool mtk_get_gpu_dvfs_cal_freq(unsigned long *pulGpu_tar_freq);
+
 /* MET */
 bool mtk_enable_gpu_perf_monitor(bool enable);
 
 /* GPU PMU should be implemented by GPU IP-dep code */
-typedef struct {
+struct GPU_PMU {
 	int id;
 	const char *name;
 	unsigned int value;
 	int overflow;
-} GPU_PMU;
-bool mtk_get_gpu_pmu_init(GPU_PMU *pmus, int pmu_size, int *ret_size);
-bool mtk_get_gpu_pmu_swapnreset(GPU_PMU *pmus, int pmu_size);
+};
+bool mtk_get_gpu_pmu_init(struct GPU_PMU *pmus, int pmu_size, int *ret_size);
+bool mtk_get_gpu_pmu_swapnreset(struct GPU_PMU *pmus, int pmu_size);
 bool mtk_get_gpu_pmu_deinit(void);
 bool mtk_get_gpu_pmu_swapnreset_stop(void);
 
-typedef void (*gpu_power_change_notify_fp)(int power_on);
 
-bool mtk_register_gpu_power_change(const char *name, gpu_power_change_notify_fp callback);
+bool mtk_register_gpu_power_change(const char *name,
+	void (*callback)(int power_on));
 bool mtk_unregister_gpu_power_change(const char *name);
 
 /* GPU POWER NOTIFY should be called by GPU only */
 void mtk_notify_gpu_power_change(int power_on);
+
+#ifdef CONFIG_MTK_GED_SUPPORT
 
 /* Quality Tuner */
 bool mtk_gpu_tuner_hint_set(char *packagename,
@@ -115,6 +123,7 @@ bool mtk_gpu_tuner_hint_restore(char *packagename,
 	enum GPU_TUNER_FEATURE eFeature);
 bool mtk_gpu_tuner_get_stauts_by_packagename(char *packagename, int *feature);
 
+#endif
 
 #ifdef __cplusplus
 }

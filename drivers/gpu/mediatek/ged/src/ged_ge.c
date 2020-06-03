@@ -16,9 +16,11 @@
 #include <linux/seq_file.h>
 #include <linux/anon_inodes.h>
 
+#ifdef GED_DEBUG_FS
 #include <ged_debugFS.h>
+#endif
 
-typedef struct {
+struct GEEntry {
 	uint64_t unique_id;
 
 	struct file *file;
@@ -30,16 +32,18 @@ typedef struct {
 	uint32_t **region_data; /* sub data */
 
 	struct list_head ge_entry_list;
-} GEEntry;
+};
 
 #define GED_PDEBUG(fmt, ...)\
 	pr_debug("[GRALLOC_EXTRA,%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 static struct kmem_cache *gPoolCache;
+#ifdef GED_DEBUG_FS
 static struct dentry *gDFSEntry;
+static int num_entry;
+#endif
 static LIST_HEAD(ge_entry_list_head);
 static DEFINE_SPINLOCK(ge_entry_list_lock);
-static int num_entry;
 
 /* region alloc and free lock */
 static DEFINE_SPINLOCK(ge_raf_lock);
@@ -61,36 +65,45 @@ static uint64_t gen_unique_id(void)
 	return ret;
 }
 
+//-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static void *_ge_debugfs_seq_start(struct seq_file *m, loff_t *pos)
 {
 	if (*pos == 0) {
-		seq_puts(m, "================================================\n");
+		seq_puts(m,
+			"================================================\n");
 		num_entry = (int)*pos;
-		return list_first_entry(&ge_entry_list_head, GEEntry, ge_entry_list);
+		return list_first_entry(&ge_entry_list_head,
+			struct GEEntry, ge_entry_list);
 	}
 	return NULL;
 }
+
 void _ge_debugfs_seq_stop(struct seq_file *m, void *v)
 {
 	seq_puts(m, "================================================\n");
 	seq_printf(m, "Total entries: %d\n", num_entry);
 	/* do nothing */
 }
+
 void *_ge_debugfs_seq_next(struct seq_file *m, void *v, loff_t *pos)
 {
-	struct list_head *next = ((GEEntry *)v)->ge_entry_list.next;
+	struct list_head *next = ((struct GEEntry *)v)->ge_entry_list.next;
 
 	num_entry = (int)++*pos;
-	return (next != &ge_entry_list_head) ? list_entry(next, GEEntry, ge_entry_list) : NULL;
+	return (next != &ge_entry_list_head) ?
+		list_entry(next, struct GEEntry, ge_entry_list) : NULL;
 }
+
 int _ge_debugfs_seq_show(struct seq_file *m, void *v)
 {
-	const GEEntry *entry = v;
+	const struct GEEntry *entry = v;
 	int memory_size = 0;
 	int memory_ksize = 0;
 	int i;
 
-	memory_size += (sizeof(uint32_t) + sizeof(uint32_t *)) * entry->region_num;
+	memory_size +=
+		(sizeof(uint32_t) + sizeof(uint32_t *)) * entry->region_num;
 	memory_ksize += ksize(entry->data);
 	for (i = 0; i < entry->region_num; ++i) {
 		if (entry->region_data[i]) {
@@ -98,26 +111,32 @@ int _ge_debugfs_seq_show(struct seq_file *m, void *v)
 			memory_ksize += ksize(entry->region_data[i]);
 		}
 	}
-	seq_printf(m, "GEEntry id:0x%llx memory size: %d bytes, ksize: %3d bytes\n",
+	seq_printf(m,
+		"GEEntry id:0x%llx memory size: %d bytes, ksize: %3d bytes\n",
 			entry->unique_id, memory_size, memory_ksize);
 	return 0;
 }
+
 static const struct seq_operations gDEFEntryOps = {
 	.start = _ge_debugfs_seq_start,
 	.stop = _ge_debugfs_seq_stop,
 	.next = _ge_debugfs_seq_next,
 	.show = _ge_debugfs_seq_show,
 };
-static ssize_t _ge_debugfs_write_entry(const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
+
+static ssize_t _ge_debugfs_write_entry(const char __user *pszBuffer,
+	size_t uiCount, loff_t uiPosition, void *pvData)
 {
 	return uiCount;
 }
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 
 static int ge_entry_release(struct inode *inode, struct file *file)
 {
 	unsigned long flags;
 	int i;
-	GEEntry *entry = file->private_data;
+	struct GEEntry *entry = file->private_data;
 
 	spin_lock_irqsave(&ge_entry_list_lock, flags);
 	list_del(&entry->ge_entry_list);
@@ -135,26 +154,36 @@ static const struct file_operations GEEntry_fops = {
 	.release = ge_entry_release,
 };
 
-int ged_ge_init(void)
+GED_ERROR ged_ge_init(void)
 {
 	int flags = 0;
+	GED_ERROR err = GED_OK;
 
-	gPoolCache = kmem_cache_create("gralloc_extra", sizeof(GEEntry), 0, flags, NULL);
+	gPoolCache = kmem_cache_create("gralloc_extra",
+		sizeof(struct GEEntry), 0, flags, NULL);
 
-	ged_debugFS_create_entry(
+#ifdef GED_DEBUG_FS
+	err = ged_debugFS_create_entry(
 			"ge",
 			NULL,
 			&gDEFEntryOps,
 			_ge_debugfs_write_entry,
 			NULL,
 			&gDFSEntry);
+	if (unlikely(err != GED_OK)) {
+		GED_PDEBUG("failed to create ge entry!\n");
+		return err;
+	}
+#endif
 
-	return 0;
+	return err;
 }
 
 int ged_ge_exit(void)
 {
+#ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gDFSEntry);
+#endif
 
 	/* TODO : free all memory */
 	kmem_cache_destroy(gPoolCache);
@@ -166,10 +195,12 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 {
 	unsigned long flags;
 	int i;
-	GEEntry *entry = (GEEntry *)kmem_cache_zalloc(gPoolCache, GFP_KERNEL);
+	struct GEEntry *entry =
+		(struct GEEntry *)kmem_cache_zalloc(gPoolCache, GFP_KERNEL);
 
 	if (!entry) {
-		GED_PDEBUG("alloc entry fail, size:%zu\n", sizeof(GEEntry));
+		GED_PDEBUG("alloc entry fail, size:%zu\n",
+			sizeof(struct GEEntry));
 		goto err_entry;
 	}
 
@@ -181,7 +212,8 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 		goto err_fd;
 	}
 
-	entry->file = anon_inode_getfile("gralloc_extra", &GEEntry_fops, entry, 0);
+	entry->file = anon_inode_getfile("gralloc_extra",
+		&GEEntry_fops, entry, 0);
 
 	if (IS_ERR(entry->file)) {
 		GED_PDEBUG("anon_inode_getfile() fail\n");
@@ -192,7 +224,9 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 	region_num = GE_ALLOC_STRUCT_NUM;
 
 	entry->region_num = region_num;
-	entry->data = kzalloc((sizeof(uint32_t) + sizeof(uint32_t *)) * region_num, GFP_KERNEL);
+	entry->data =
+		kzalloc((sizeof(uint32_t) + sizeof(uint32_t *)) * region_num,
+			GFP_KERNEL);
 	if (!entry->data) {
 		GED_PDEBUG("alloc data fail, size:%zu\n",
 			sizeof(void *) * region_num);
@@ -223,7 +257,7 @@ err_entry:
 	return -1;
 }
 
-static void dump_ge_regions(GEEntry *entry)
+static void dump_ge_regions(struct GEEntry *entry)
 {
 	int i;
 
@@ -233,13 +267,15 @@ static void dump_ge_regions(GEEntry *entry)
 	}
 }
 
-static int valid_parameters(GEEntry *entry, int region_id, int u32_offset, int u32_size)
+static int valid_parameters(struct GEEntry *entry, int region_id,
+	int u32_offset, int u32_size)
 {
 	if (region_id < 0 || region_id >= entry->region_num ||
-		u32_offset < 0 || u32_size < 0 ||
-		u32_offset * sizeof(uint32_t) > entry->region_sizes[region_id] ||
-		(u32_offset + u32_size) * sizeof(uint32_t) > entry->region_sizes[region_id]
-		) {
+	u32_offset < 0 || u32_size < 0 ||
+	u32_offset * sizeof(uint32_t) > entry->region_sizes[region_id] ||
+	(u32_offset + u32_size) * sizeof(uint32_t) >
+		entry->region_sizes[region_id]
+	) {
 
 		GED_PDEBUG("fail, invalid r_id %d, o %d, s %d\n",
 				region_id, u32_offset, u32_size);
@@ -252,12 +288,13 @@ static int valid_parameters(GEEntry *entry, int region_id, int u32_offset, int u
 	return 0;
 }
 
-int ged_ge_get(int ge_fd, int region_id, int u32_offset, int u32_size, uint32_t *output_data)
+int ged_ge_get(int ge_fd, int region_id, int u32_offset,
+	int u32_size, uint32_t *output_data)
 {
 	unsigned long flags;
 	int err = 0;
 	uint32_t i;
-	GEEntry *entry = NULL;
+	struct GEEntry *entry = NULL;
 	uint32_t *pregion_data = NULL;
 	struct file *file = fget(ge_fd);
 
@@ -291,12 +328,13 @@ err_parameter:
 	return err;
 }
 
-int ged_ge_set(int ge_fd, int region_id, int u32_offset, int u32_size, uint32_t *input_data)
+int ged_ge_set(int ge_fd, int region_id, int u32_offset,
+	int u32_size, uint32_t *input_data)
 {
 	unsigned long flags;
 	int err = 0;
 	uint32_t i;
-	GEEntry *entry = NULL;
+	struct GEEntry *entry = NULL;
 	uint32_t *pregion_data = NULL;
 	struct file *file = fget(ge_fd);
 
@@ -327,7 +365,8 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset, int u32_size, uint32_t 
 		spin_lock_irqsave(&ge_raf_lock, flags);
 
 		/* Check again.
-		 * Assign data to entry->region_data[region_id] if it still is NULL.
+		 * Assign data to entry->region_data[region_id]
+		 * if it still is NULL.
 		 */
 		if (entry->region_data[region_id]) {
 			spin_unlock_irqrestore(&ge_raf_lock, flags);
@@ -355,7 +394,8 @@ int ged_bridge_ge_alloc(
 	struct GED_BRIDGE_IN_GE_ALLOC *psALLOC_IN,
 	struct GED_BRIDGE_OUT_GE_ALLOC *psALLOC_OUT)
 {
-	psALLOC_OUT->ge_fd = ged_ge_alloc(psALLOC_IN->region_num, psALLOC_IN->region_sizes);
+	psALLOC_OUT->ge_fd =
+		ged_ge_alloc(psALLOC_IN->region_num, psALLOC_IN->region_sizes);
 	psALLOC_OUT->eError = !!(psALLOC_OUT->ge_fd) ? GED_OK : GED_ERROR_OOM;
 	return 0;
 }
@@ -397,11 +437,11 @@ int ged_bridge_ge_info(
 		return -EFAULT;
 	}
 
-	psINFO_OUT->unique_id = ((GEEntry *)(file->private_data))->unique_id;
+	psINFO_OUT->unique_id =
+		((struct GEEntry *)(file->private_data))->unique_id;
 	psINFO_OUT->eError = GED_OK;
 
 	fput(file);
 
 	return 0;
 }
-
