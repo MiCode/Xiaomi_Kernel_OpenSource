@@ -1293,7 +1293,6 @@
   netlink_unicast
   net_ratelimit
   new_inode
-  nf_conntrack_destroy
   nla_memcpy
   __nla_parse
   nla_put_64bit

@@ -365,25 +365,6 @@
   netif_carrier_on
   netif_rx_ni
   netif_tx_wake_queue
-  nf_conntrack_expect_lock
-  nf_ct_expect_related_report
-  nf_ct_helper_log
-  nf_ct_netns_get
-  nf_ct_netns_put
-  nf_ct_unexpect_related
-  nf_ct_zone_dflt
-  __nf_ip6_route
-  nf_log_buf_add
-  nf_log_buf_close
-  nf_log_buf_open
-  nf_log_packet
-  nf_log_register
-  nf_log_set
-  nf_log_unregister
-  nf_log_unset
-  nf_register_net_hooks
-  nf_skb_duplicated
-  nf_unregister_net_hooks
   nr_cpu_ids
   nvmem_cell_get
   nvmem_cell_put
@@ -624,7 +605,6 @@
   sync_filesystem
   syscon_regmap_lookup_by_phandle
   syscon_regmap_lookup_by_phandle_args
-  sysctl_nf_log_all_netns
   sysfs_create_file_ns
   sysfs_create_group
   sysfs_create_groups
@@ -967,8 +947,6 @@
   mempool_destroy
   mempool_free
   mempool_free_slab
-  nf_ct_get_tuplepr
-  nf_ct_invert_tuple
   param_ops_int
   prandom_u32
   proc_create_net_data
@@ -1354,8 +1332,6 @@
   ipv6_find_hdr
   kstrtouint_from_user
   __local_bh_enable_ip
-  nf_conntrack_destroy
-  nf_conntrack_find_get
   of_dma_configure
   proc_dointvec
   register_netdevice_notifier
@@ -2083,9 +2059,6 @@
   __module_get
   nsecs_to_jiffies
 
-# required by ip6t_SYNPROXY.ko
-  nf_ip6_checksum
-
 # required by spi-bitbang.ko
   spi_register_controller
   spi_unregister_controller
@@ -2102,10 +2075,6 @@
   put_disk
   register_blkdev
   unregister_blkdev
-
-# required by xt_LOG.ko
-  nf_logger_find_get
-  nf_logger_put
 
 # required by ppp_async.ko
   crc_ccitt_table
@@ -2125,20 +2094,6 @@
   tty_register_ldisc
   tty_unregister_ldisc
   tty_unthrottle
-
-# required by ip6table_nat.ko
-  nf_nat_ipv6_register_fn
-  nf_nat_ipv6_unregister_fn
-
-# required by nf_synproxy_core.ko
-  ip_route_me_harder
-  ipv6_skip_exthdr
-  nf_ct_ext_add
-  nf_ct_extend_register
-  nf_ct_extend_unregister
-  nf_ct_seqadj_init
-  nf_ct_tmpl_alloc
-  nf_ct_tmpl_free
 
 # required by cls_fw.ko
   __dev_get_by_index
@@ -2177,29 +2132,8 @@
   shash_free_instance
   shash_register_instance
 
-# required by nf_conntrack_sip.ko
-  mod_timer_pending
-  nf_conntrack_helpers_register
-  nf_conntrack_helpers_unregister
-  nf_ct_expect_alloc
-  __nf_ct_expect_find
-  nf_ct_expect_init
-  nf_ct_expect_put
-  nf_ct_helper_init
-  __nf_ct_refresh_acct
-  nf_ct_remove_expect
-  nf_ip_route
-
-# required by ipt_SYNPROXY.ko
-  nf_ip_checksum
-
 # required by aes-ce-ccm.ko
   ce_aes_expandkey
-
-# required by ipt_rpfilter.ko
-  fib_info_nh_uses_dev
-  __fib_lookup
-  fib_table_lookup
 
 # required by i2c-dev.ko
   bus_register_notifier
@@ -2226,16 +2160,6 @@
   led_set_brightness
   led_trigger_register
   led_trigger_unregister
-
-# required by nf_nat_sip.ko
-  nf_ct_helper_expectfn_register
-  nf_ct_helper_expectfn_unregister
-  nf_ct_seqadj_set
-  nf_nat_helper_register
-  nf_nat_helper_unregister
-  __nf_nat_mangle_tcp_packet
-  nf_nat_mangle_udp_packet
-  nf_nat_setup_info
 
 # required by virtio_crypto.ko
   virtio_break_device

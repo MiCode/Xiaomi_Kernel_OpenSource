@@ -129,7 +129,6 @@
   netif_device_detach
   netif_tx_stop_all_queues
   netif_tx_wake_queue
-  nf_conntrack_destroy
   nr_cpu_ids
   param_ops_bool
   param_ops_int

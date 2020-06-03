@@ -658,7 +658,6 @@
   netif_set_real_num_tx_queues
   __netif_set_xps_queue
   net_ratelimit
-  nf_conntrack_destroy
   __num_online_cpus
   __put_page
   _raw_spin_trylock
