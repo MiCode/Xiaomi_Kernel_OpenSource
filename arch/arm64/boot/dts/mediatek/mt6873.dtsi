@@ -681,6 +681,46 @@
 			clock-names = "unipro", "mp";
 		};
 
+		mali: mali@13000000 {
+		compatible = "mediatek,mali", "arm,mali-valhall";
+		reg = <0 0x13000000 0 0x4000>;
+		interrupts =
+			<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names =
+			"GPU",
+			"MMU",
+			"JOB",
+			"EVENT",
+			"PWR";
+		};
+
+		mali_dvfs_hint@13fbb000 {
+			compatible = "mediatek,mali_dvfs_hint", "syscon";
+			reg = <0 0x13fbb000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		g3d_secure_reg@13fbc000 {
+			compatible = "mediatek,g3d_secure_reg";
+			reg = <0 0x13fbc000 0 0x1000>;
+		};
+
+		g3d_testbench@13fbd000 {
+			compatible = "mediatek,g3d_testbench", "syscon";
+			reg = <0 0x13fbd000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		g3d_config: g3d_config@13fbf000 {
+			compatible = "mediatek,g3d_config", "syscon";
+			reg = <0 0x13fbf000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
 		mfgcfg: mfgcfg@13fbf000 {
 			compatible = "mediatek,mt8192-mfgcfg", "syscon";
 			reg = <0 0x13fbf000 0 0x1000>;
