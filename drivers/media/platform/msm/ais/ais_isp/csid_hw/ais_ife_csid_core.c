@@ -214,10 +214,8 @@ static int ais_ife_csid_path_reset(struct ais_ife_csid_hw *csid_hw,
 		return -EINVAL;
 	}
 
-	reset_strb_addr =
-			csid_reg->rdi_reg[id]->csid_rdi_rst_strobes_addr;
-	complete =
-			&csid_hw->csid_rdi_complete[id];
+	reset_strb_addr = csid_reg->rdi_reg[id]->csid_rdi_rst_strobes_addr;
+	complete = &csid_hw->csid_rdi_complete[id];
 
 	/* Enable path reset done interrupt */
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
@@ -226,7 +224,7 @@ static int ais_ife_csid_path_reset(struct ais_ife_csid_hw *csid_hw,
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
 
-	init_completion(complete);
+	reinit_completion(complete);
 	reset_strb_val = csid_reg->cmn_reg->path_rst_stb_all;
 
 	/* Reset the corresponding ife csid path */
@@ -235,12 +233,12 @@ static int ais_ife_csid_path_reset(struct ais_ife_csid_hw *csid_hw,
 
 	rc = wait_for_completion_timeout(complete,
 		msecs_to_jiffies(IFE_CSID_TIMEOUT));
-	if (rc <= 0) {
-		CAM_ERR(CAM_ISP, "CSID:%d Res id %d fail rc = %d",
-			 csid_hw->hw_intf->hw_idx,
-			reset_path,  rc);
-		if (rc == 0)
-			rc = -ETIMEDOUT;
+	if (rc) {
+		rc = 0;
+	} else {
+		CAM_ERR(CAM_ISP, "CSID:%d RDI%d reset fail",
+			 csid_hw->hw_intf->hw_idx, reset_path, rc);
+		rc = -ETIMEDOUT;
 	}
 
 end:
@@ -815,6 +813,7 @@ static int ais_ife_csid_enable_rdi_path(
 	soc_info = &csid_hw->hw_info->soc_info;
 	path_data = &csid_hw->rdi_cfg[id];
 
+	path_data->init_frame_drop = 1;
 	path_data->sof_cnt = 0;
 
 	/* Enable the required RDI interrupts */
@@ -1326,7 +1325,7 @@ static int ais_ife_csid_start(void *hw_priv, void *start_args,
 
 	if (start_cmd->path >= csid_reg->cmn_reg->num_rdis ||
 		!csid_reg->rdi_reg[start_cmd->path]) {
-		CAM_DBG(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
+		CAM_ERR(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
 			csid_hw->hw_intf->hw_idx, start_cmd->path);
 		rc = -EINVAL;
 		goto end;
@@ -1367,7 +1366,7 @@ static int ais_ife_csid_stop(void *hw_priv,
 
 	if (stop_cmd->path >= csid_reg->cmn_reg->num_rdis ||
 		!csid_reg->rdi_reg[stop_cmd->path]) {
-		CAM_DBG(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
+		CAM_ERR(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
 			csid_hw->hw_intf->hw_idx, stop_cmd->path);
 		rc = -EINVAL;
 		goto end;
@@ -1677,6 +1676,7 @@ static irqreturn_t ais_ife_csid_irq(int irq_num, void *data)
 	const struct ais_ife_csid_rdi_reg_offset       *rdi_reg;
 	uint32_t i;
 	uint32_t val, val2;
+	uint32_t warn_cnt = 0;
 	bool fatal_err_detected = false;
 	uint32_t sof_irq_debug_en = 0;
 	unsigned long flags;
@@ -1778,27 +1778,29 @@ static irqreturn_t ais_ife_csid_irq(int irq_num, void *data)
 		}
 		if (irq_status[CSID_IRQ_STATUS_RX] &
 			CSID_CSI2_RX_ERROR_CPHY_EOT_RECEPTION) {
-			csid_hw->error_irq_count++;
+			warn_cnt++;
 		}
 		if (irq_status[CSID_IRQ_STATUS_RX] &
 			CSID_CSI2_RX_ERROR_CPHY_SOT_RECEPTION) {
-			csid_hw->error_irq_count++;
+			warn_cnt++;
 		}
 		if (irq_status[CSID_IRQ_STATUS_RX] &
 			CSID_CSI2_RX_ERROR_STREAM_UNDERFLOW) {
-			csid_hw->error_irq_count++;
+			warn_cnt++;
 		}
 		if (irq_status[CSID_IRQ_STATUS_RX] &
 			CSID_CSI2_RX_ERROR_UNBOUNDED_FRAME) {
-			csid_hw->error_irq_count++;
+			warn_cnt++;
 		}
 	}
+
+	csid_hw->error_irq_count += warn_cnt;
 
 	if (csid_hw->error_irq_count >
 		AIS_IFE_CSID_MAX_IRQ_ERROR_COUNT) {
 		fatal_err_detected = true;
 		csid_hw->error_irq_count = 0;
-	} else if (csid_hw->error_irq_count) {
+	} else if (warn_cnt) {
 		uint64_t timestamp;
 
 		timestamp = (uint64_t)((ts.tv_sec * 1000000000) + ts.tv_nsec);
@@ -1951,17 +1953,19 @@ handle_fatal_error:
 			(path_data->init_frame_drop) &&
 			(path_data->state ==
 			AIS_ISP_RESOURCE_STATE_STREAMING)) {
-			path_data[i].sof_cnt++;
+			path_data->sof_cnt++;
 			CAM_DBG(CAM_ISP,
 				"CSID:%d RDI:%d SOF cnt:%d init_frame_drop:%d",
 				csid_hw->hw_intf->hw_idx, i,
-				path_data[i].sof_cnt,
+				path_data->sof_cnt,
 				path_data->init_frame_drop);
-			if (path_data[i].sof_cnt ==
+			if (path_data->sof_cnt ==
 				path_data->init_frame_drop) {
 				cam_io_w_mb(AIS_CSID_RESUME_AT_FRAME_BOUNDARY,
 					soc_info->reg_map[0].mem_base +
 					rdi_reg->csid_rdi_ctrl_addr);
+
+				path_data->init_frame_drop = 0;
 
 				if (!(csid_hw->csid_debug &
 					CSID_DEBUG_ENABLE_SOF_IRQ)) {

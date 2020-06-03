@@ -40,6 +40,8 @@ struct ais_vfe_hw_work_data {
 	enum ais_vfe_hw_irq_event evt_type;
 	uint32_t           path;
 	uint64_t           ts;
+	uint32_t           bus_wr_status[3];
+	uint32_t           last_addr[AIS_IFE_PATH_MAX];
 	struct ais_ife_rdi_timestamps ts_hw[AIS_IFE_PATH_MAX];
 };
 
@@ -93,7 +95,6 @@ struct ais_vfe_rdi_output {
 	struct list_head                 buffer_hw_q;
 	struct list_head                 free_buffer_list;
 
-	uint32_t                         last_addr;
 	uint64_t                         frame_cnt;
 	uint64_t                         sof_ts;
 	uint64_t                         sof_hw_ts;

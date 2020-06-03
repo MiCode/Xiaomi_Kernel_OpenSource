@@ -99,7 +99,7 @@ static int ais_vfe_bus_hw_init(struct ais_vfe_hw_core_info *core_info)
 	cam_io_w_mb(core_info->irq_mask0,
 		core_info->mem_base + AIS_VFE_IRQ_MASK0);
 
-	cam_io_w_mb(0x7800,
+	cam_io_w_mb(0x7801,
 		core_info->mem_base + bus_hw_irq_regs[0].mask_reg_offset);
 	cam_io_w_mb(0x0,
 		core_info->mem_base + bus_hw_irq_regs[1].mask_reg_offset);
@@ -220,7 +220,8 @@ static int ais_vfe_reset(void *hw_priv,
 	CAM_DBG(CAM_ISP, "waiting for vfe reset complete");
 
 	/* Wait for Completion or Timeout of 500ms */
-	rc = wait_for_completion_timeout(&vfe_hw->hw_complete, 500);
+	rc = wait_for_completion_timeout(&vfe_hw->hw_complete,
+					msecs_to_jiffies(500));
 	if (rc) {
 		rc = 0;
 	} else {
@@ -622,17 +623,28 @@ int ais_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 
 	rdi_path->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
 
+	core_info->bus_wr_mask1 &= ~(1 << stop_cmd->path);
+	cam_io_w_mb(core_info->bus_wr_mask1,
+		core_info->mem_base + bus_hw_irq_regs[1].mask_reg_offset);
+
 	/* Disable WM and reg-update */
 	cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
 	cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
 			top_hw_info->common_reg->reg_update_cmd);
 
+	/* issue bus wr reset and wait for reset ack */
+	reinit_completion(&vfe_hw->hw_complete);
+
 	cam_io_w_mb((1 << stop_cmd->path), core_info->mem_base +
 			bus_hw_info->common_reg.sw_reset);
 
-	core_info->bus_wr_mask1 &= ~(1 << stop_cmd->path);
-	cam_io_w_mb(core_info->bus_wr_mask1,
-		core_info->mem_base + bus_hw_irq_regs[1].mask_reg_offset);
+	/* Wait for completion or timeout of 50ms */
+	rc = wait_for_completion_timeout(&vfe_hw->hw_complete,
+					msecs_to_jiffies(50));
+	if (rc)
+		rc = 0;
+	else
+		CAM_WARN(CAM_ISP, "Reset Bus WR timeout");
 
 	ais_clear_rdi_path(rdi_path);
 
@@ -892,7 +904,8 @@ static int ais_vfe_handle_error(
 
 static void ais_vfe_bus_handle_client_frame_done(
 	struct ais_vfe_hw_core_info *core_info,
-	enum ais_ife_output_path_id path)
+	enum ais_ife_output_path_id path,
+	uint32_t last_addr)
 {
 	struct ais_vfe_rdi_output         *rdi_path = NULL;
 	struct ais_vfe_buffer_t           *vfe_buf = NULL;
@@ -921,7 +934,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 		CAM_DBG(CAM_ISP, "IFE%d BUF| RDI%d DQ %d (0x%x) FIFO:%d|0x%x",
 			core_info->vfe_idx, path,
 			vfe_buf->bufIdx, vfe_buf->iova_addr,
-			rdi_path->num_buffer_hw_q, rdi_path->last_addr);
+			rdi_path->num_buffer_hw_q, last_addr);
 
 		core_info->event.type = AIS_IFE_MSG_FRAME_DONE;
 		core_info->event.path = path;
@@ -933,15 +946,18 @@ static void ais_vfe_bus_handle_client_frame_done(
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
 
-		if (rdi_path->last_addr == vfe_buf->iova_addr)
+		if (last_addr == vfe_buf->iova_addr)
 			last_addr_match = true;
+		else
+			CAM_WARN(CAM_ISP, "IFE%d buf %d did not match addr",
+				core_info->vfe_idx, vfe_buf->bufIdx);
 
 		list_add_tail(&vfe_buf->list, &rdi_path->free_buffer_list);
 	}
 
 	if (!last_addr_match)
 		CAM_ERR(CAM_ISP, "IFE%d BUF| RDI%d NO MATCH addr 0x%x",
-			core_info->vfe_idx, path, rdi_path->last_addr);
+			core_info->vfe_idx, path, last_addr);
 
 	ais_vfe_queue_to_hw(core_info, path);
 
@@ -950,9 +966,10 @@ static void ais_vfe_bus_handle_client_frame_done(
 
 static int ais_vfe_bus_handle_frame_done(
 	struct ais_vfe_hw_core_info *core_info,
-	uint32_t client_mask)
+	struct ais_vfe_hw_work_data *work_data)
 {
 	struct ais_vfe_rdi_output *p_rdi = &core_info->rdi_out[0];
+	uint32_t client_mask = work_data->bus_wr_status[1];
 	uint32_t client;
 	int rc = 0;
 
@@ -967,19 +984,18 @@ static int ais_vfe_bus_handle_frame_done(
 
 		if (client_mask & (0x1 << client)) {
 			//process frame done
-			ais_vfe_bus_handle_client_frame_done(core_info, client);
+			ais_vfe_bus_handle_client_frame_done(core_info,
+				client, work_data->last_addr[client]);
 		}
 	}
 
 	return rc;
 }
 
-static int ais_vfe_handle_bus_wr_irq(struct cam_hw_info *vfe_hw,
-	struct ais_vfe_hw_core_info  *core_info,
+static void ais_vfe_irq_fill_bus_wr_status(
+	struct ais_vfe_hw_core_info *core_info,
 	struct ais_vfe_hw_work_data *work_data)
 {
-	int rc = 0;
-	uint32_t vfe_bus_status[3] = {};
 	struct ais_vfe_bus_ver2_hw_info   *bus_hw_info = NULL;
 	struct ais_irq_register_set       *bus_hw_irq_regs = NULL;
 	struct ais_vfe_bus_ver2_reg_offset_bus_client  *client_regs = NULL;
@@ -989,53 +1005,72 @@ static int ais_vfe_handle_bus_wr_irq(struct cam_hw_info *vfe_hw,
 	bus_hw_irq_regs = bus_hw_info->common_reg.irq_reg_info.irq_reg_set;
 	client_regs = &bus_hw_info->bus_client_reg[client];
 
-	vfe_bus_status[0] = cam_io_r_mb(core_info->mem_base +
+	work_data->bus_wr_status[0] = cam_io_r_mb(core_info->mem_base +
 		bus_hw_irq_regs[0].status_reg_offset);
-	vfe_bus_status[1] = cam_io_r_mb(core_info->mem_base +
+	work_data->bus_wr_status[1] = cam_io_r_mb(core_info->mem_base +
 		bus_hw_irq_regs[1].status_reg_offset);
-	vfe_bus_status[2] = cam_io_r_mb(core_info->mem_base +
+	work_data->bus_wr_status[2] = cam_io_r_mb(core_info->mem_base +
 		bus_hw_irq_regs[2].status_reg_offset);
 
-	if (vfe_bus_status[1]) {
+	if (work_data->bus_wr_status[1]) {
 		struct ais_vfe_rdi_output *p_rdi;
 
 		for (client = 0 ; client < AIS_IFE_PATH_MAX; client++) {
-			if (vfe_bus_status[1] & (0x1 << client)) {
+			if (work_data->bus_wr_status[1] & (0x1 << client)) {
 				p_rdi = &core_info->rdi_out[client];
 				client_regs =
 					&bus_hw_info->bus_client_reg[client];
-				p_rdi->last_addr = cam_io_r(
+				work_data->last_addr[client] = cam_io_r(
 					core_info->mem_base +
 					client_regs->status0);
 			}
 		}
 	}
 
-	cam_io_w(vfe_bus_status[0], core_info->mem_base +
+	cam_io_w(work_data->bus_wr_status[0], core_info->mem_base +
 		bus_hw_irq_regs[0].clear_reg_offset);
-	cam_io_w(vfe_bus_status[1], core_info->mem_base +
+	cam_io_w(work_data->bus_wr_status[1], core_info->mem_base +
 		bus_hw_irq_regs[1].clear_reg_offset);
-	cam_io_w(vfe_bus_status[2], core_info->mem_base +
+	cam_io_w(work_data->bus_wr_status[2], core_info->mem_base +
 		bus_hw_irq_regs[2].clear_reg_offset);
 	cam_io_w_mb(0x1, core_info->mem_base +
 		bus_hw_info->common_reg.irq_reg_info.global_clear_offset);
+}
+
+static int ais_vfe_handle_bus_wr_irq(struct cam_hw_info *vfe_hw,
+	struct ais_vfe_hw_core_info *core_info,
+	struct ais_vfe_hw_work_data *work_data)
+{
+	int rc = 0;
+	struct ais_vfe_bus_ver2_hw_info   *bus_hw_info = NULL;
+	struct ais_irq_register_set       *bus_hw_irq_regs = NULL;
+	struct ais_vfe_bus_ver2_reg_offset_bus_client  *client_regs = NULL;
+	uint32_t client = 0;
+
+	bus_hw_info = core_info->vfe_hw_info->bus_hw_info;
+	bus_hw_irq_regs = bus_hw_info->common_reg.irq_reg_info.irq_reg_set;
+	client_regs = &bus_hw_info->bus_client_reg[client];
+
 
 	CAM_DBG(CAM_ISP, "VFE%d BUS status 0x%x 0x%x 0x%x", core_info->vfe_idx,
-		vfe_bus_status[0], vfe_bus_status[1], vfe_bus_status[2]);
+		work_data->bus_wr_status[0],
+		work_data->bus_wr_status[1],
+		work_data->bus_wr_status[2]);
 
-	if (vfe_bus_status[1])
-		ais_vfe_bus_handle_frame_done(core_info, vfe_bus_status[1]);
+	if (work_data->bus_wr_status[1])
+		ais_vfe_bus_handle_frame_done(core_info, work_data);
 
-	if (vfe_bus_status[0] & 0x7800)	{
+	if (work_data->bus_wr_status[0] & 0x7800) {
 		CAM_ERR(CAM_ISP, "VFE%d: WR BUS error occurred status = 0x%x",
-			core_info->vfe_idx, vfe_bus_status[0]);
-		work_data->path = (vfe_bus_status[0] >> 11) & 0xF;
+			core_info->vfe_idx, work_data->bus_wr_status[0]);
+		work_data->path = (work_data->bus_wr_status[0] >> 11) & 0xF;
 		rc = ais_vfe_handle_error(core_info, work_data);
 	}
 
-	if (vfe_bus_status[0] & 0x1) {
+	if (work_data->bus_wr_status[0] & 0x1) {
 		CAM_INFO(CAM_ISP, "VFE%d: WR BUS reset completed",
 			core_info->vfe_idx);
+		complete(&vfe_hw->hw_complete);
 	}
 
 	return rc;
@@ -1190,6 +1225,7 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 			//BUS_WR IRQ
 			CAM_DBG(CAM_ISP, "IFE%d BUS_WR", core_info->vfe_idx);
 			work_data.evt_type = AIS_VFE_HW_IRQ_EVENT_BUS_WR;
+			ais_vfe_irq_fill_bus_wr_status(core_info, &work_data);
 			ais_vfe_dispatch_irq(vfe_hw, &work_data);
 		}
 		if (ife_status[1]) {
