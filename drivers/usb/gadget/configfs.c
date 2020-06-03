@@ -5,6 +5,7 @@
 #include <linux/nls.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget_configfs.h>
+#include <soc/qcom/boot_stats.h>
 #include "configfs.h"
 #include "u_f.h"
 #include "u_os_desc.h"
@@ -1460,6 +1461,7 @@ static void android_work(struct work_struct *data)
 		kobject_uevent_env(&gi->dev->kobj,
 					KOBJ_CHANGE, configured);
 		pr_info("%s: sent uevent %s\n", __func__, configured[0]);
+		place_marker("M - USB enumeration complete");
 		uevent_sent = true;
 	}
 
