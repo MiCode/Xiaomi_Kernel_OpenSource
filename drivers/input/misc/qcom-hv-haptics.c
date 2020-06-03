@@ -29,7 +29,7 @@
 #define AUTO_RES_CAL_DONE_BIT			BIT(5)
 #define CAL_TLRA_CL_STS_MSB_MASK		GENMASK(4, 0)
 /* STATUS_DATA_MSB definition in V2 while MOD_STATUS_SEL is 3 */
-#define LAST_GOOD_TLRA_CL_MASK		GENMASK(4, 0)
+#define LAST_GOOD_TLRA_CL_MASK			GENMASK(4, 0)
 /* STATUS_DATA_MSB definition in V1 while MOD_STATUS_SEL is 5 */
 #define FIFO_REAL_TIME_FILL_STATUS_MASK_V1	GENMASK(6, 0)
 /* STATUS DATA_MSB definition in V2 while MOD_STATUS_SEL is 5 */
@@ -104,6 +104,14 @@
 
 #define HAP_CFG_AUTORES_CFG_REG			0x63
 #define AUTORES_EN_BIT				BIT(7)
+#define AUTORES_EN_DLY_MASK			GENMASK(5, 2)
+#define AUTORES_EN_DLY_1_CYCLE			0x2
+#define AUTORES_EN_DLY_SHIFT			2
+#define AUTORES_ERR_WINDOW_MASK			GENMASK(1, 0)
+#define AUTORES_ERR_WINDOW_12P5_PERCENT		0x0
+#define AUTORES_ERR_WINDOW_25_PERCENT		0x1
+#define AUTORES_ERR_WINDOW_50_PERCENT		0x2
+#define AUTORES_ERR_WINDOW_100_PERCENT		0x3
 
 #define HAP_CFG_AUTORES_ERR_RECOVERY_REG	0x64
 #define EN_HW_RECOVERY_BIT			BIT(1)
@@ -117,6 +125,7 @@
 #define HAP_CFG_VMAX_HDRM_REG			0x67
 #define VMAX_HDRM_MASK				GENMASK(6, 0)
 #define VMAX_HDRM_STEP_MV			50
+#define VMAX_HDRM_MAX_MV			6350
 
 #define HAP_CFG_MOD_STATUS_SEL_REG		0x70
 #define MOD_STATUS_SEL_CAL_TLRA_CL_STS_VAL	0
@@ -128,9 +137,10 @@
 #define MOD_STATUS_XT_V2_FIFO_FILL_STATUS_VAL	0x80
 #define MOD_STATUS_XT_SEL_LAST_GOOD_TLRA_VAL	0
 
-#define HAP_CFG_CAL_EN_REG		0x72
-#define CAL_RC_CLK_MASK			GENMASK(3, 2)
+#define HAP_CFG_CAL_EN_REG			0x72
+#define CAL_RC_CLK_MASK				GENMASK(3, 2)
 #define CAL_RC_CLK_SHIFT			2
+#define CAL_RC_CLK_AUTO_VAL			1
 #define CAL_RC_CLK_MANUAL_VAL			2
 
 /* version register definitions for HAPTICS_PATTERN module */
@@ -172,6 +182,7 @@
 
 /* shared registers between V1 and V2 chips */
 #define HAP_PTN_DIRECT_PLAY_REG			0x26
+#define DIRECT_PLAY_MAX_AMPLITUDE		0xFF
 
 #define HAP_PTN_AUTORES_CAL_CFG_REG		0x28
 
@@ -364,9 +375,11 @@ struct haptics_play_info {
 	struct haptics_effect	*effect;
 	struct brake_cfg	*brake;
 	struct fifo_play_status	fifo_status;
+	struct mutex		lock;
 	u32			vmax_mv;
 	u32			length_us;
 	enum pattern_src	pattern_src;
+	bool			in_calibration;
 };
 
 struct haptics_hw_config {
@@ -399,6 +412,7 @@ struct haptics_chip {
 	struct regulator_dev		*swr_slave_rdev;
 	struct mutex			irq_lock;
 	struct nvmem_cell		*cl_brake_nvmem;
+	struct class			hap_class;
 	int				fifo_empty_irq;
 	u32				effects_count;
 	u32				cfg_addr_base;
@@ -489,8 +503,8 @@ static void __dump_effects(struct haptics_chip *chip)
 			pos = 0;
 			pos += scnprintf(str, size, "%s", "FIFO data: ");
 			for (j = 0; j < effect->fifo->num_s; j++)
-				pos += scnprintf(str + pos, size - pos, "%#x ",
-						effect->fifo->samples[j]);
+				pos += scnprintf(str + pos, size - pos, "%d ",
+						(s8)effect->fifo->samples[j]);
 
 			dev_dbg(chip->dev, "%s\n", str);
 			kfree(str);
@@ -661,8 +675,28 @@ static int get_brake_play_length_us(struct brake_cfg *brake, u32 t_lra_us)
 	return t_lra_us * (i + 1);
 }
 
-#define V1_CL_TLRA_STEP_NS_AUTO_RES_CAL_NOT_DONE	5000
-#define V1_CL_TLRA_STEP_NS_AUTO_RES_CAL_DONE	3333
+#define V1_CL_TLRA_STEP_AUTO_RES_CAL_NOT_DONE_NS	5000
+#define V1_CL_TLRA_STEP_AUTO_RES_CAL_DONE_NS		3333
+#define AUTO_CAL_CLK_SCALE_DEN				1000
+#define AUTO_CAL_CLK_SCALE_NUM				1024
+static int haptics_adjust_lra_period(struct haptics_chip *chip, u32 *t_lra_us)
+{
+	int rc;
+	u8 val;
+
+	rc = haptics_read(chip, chip->cfg_addr_base,
+			HAP_CFG_CAL_EN_REG, &val, 1);
+	if (rc < 0)
+		return rc;
+
+	if ((val & CAL_RC_CLK_MASK) ==
+			(CAL_RC_CLK_AUTO_VAL << CAL_RC_CLK_SHIFT))
+		*t_lra_us = div_u64((u64)(*t_lra_us) * AUTO_CAL_CLK_SCALE_NUM,
+				AUTO_CAL_CLK_SCALE_DEN);
+
+	return 0;
+}
+
 static int haptics_get_closeloop_lra_period_v1(
 		struct haptics_chip *chip)
 {
@@ -694,15 +728,14 @@ static int haptics_get_closeloop_lra_period_v1(
 	 */
 	auto_res_cal_done = !!(val[0] & AUTO_RES_CAL_DONE_BIT);
 	if (auto_res_cal_done)
-		step_ns = V1_CL_TLRA_STEP_NS_AUTO_RES_CAL_DONE;
+		step_ns = V1_CL_TLRA_STEP_AUTO_RES_CAL_DONE_NS;
 	else
-		step_ns = V1_CL_TLRA_STEP_NS_AUTO_RES_CAL_NOT_DONE;
+		step_ns = V1_CL_TLRA_STEP_AUTO_RES_CAL_NOT_DONE_NS;
 
 	tmp = ((val[0] & CAL_TLRA_CL_STS_MSB_MASK) << 8) | val[1];
 	config->cl_t_lra_us = (tmp * step_ns) / 1000;
 
 	return 0;
-
 }
 
 #define CL_TLRA_STEP_NS				1666
@@ -752,6 +785,10 @@ static int haptics_get_closeloop_lra_period(struct haptics_chip *chip)
 		return rc;
 	}
 
+	rc = haptics_adjust_lra_period(chip, &chip->config.cl_t_lra_us);
+	if (rc < 0)
+		return rc;
+
 	dev_dbg(chip->dev, "OL_TLRA %u us, CL_TLRA %u us\n",
 		chip->config.t_lra_us, chip->config.cl_t_lra_us);
 
@@ -778,6 +815,26 @@ static int haptics_set_vmax_mv(struct haptics_chip *chip, u32 vmax_mv)
 	return rc;
 }
 
+static int haptics_set_vmax_headroom_mv(struct haptics_chip *chip, u32 hdrm_mv)
+{
+	int rc = 0;
+	u8 val;
+
+	if (hdrm_mv > VMAX_HDRM_MAX_MV) {
+		dev_err(chip->dev, "headroom (%d) exceed the max value: %d\n",
+					hdrm_mv, VMAX_HDRM_MAX_MV);
+		return -EINVAL;
+	}
+
+	val = hdrm_mv / VMAX_HDRM_STEP_MV;
+	rc = haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_VMAX_HDRM_REG, &val, 1);
+	if (rc < 0)
+		dev_err(chip->dev, "config VMAX_HDRM failed, rc=%d\n", rc);
+
+	return rc;
+}
+
 static int haptics_enable_autores(struct haptics_chip *chip, bool en)
 {
 	int rc;
@@ -788,6 +845,18 @@ static int haptics_enable_autores(struct haptics_chip *chip, bool en)
 	if (rc < 0)
 		dev_err(chip->dev, "%s auto resonance failed, rc=%d\n",
 				en ? "enable" : "disable", rc);
+
+	return rc;
+}
+
+static int haptics_set_direct_play(struct haptics_chip *chip, u8 amplitude)
+{
+	int rc;
+
+	rc = haptics_write(chip, chip->ptn_addr_base,
+			HAP_PTN_DIRECT_PLAY_REG, &amplitude, 1);
+	if (rc < 0)
+		dev_err(chip->dev, "config DIRECT_PLAY failed, rc=%d\n", rc);
 
 	return rc;
 }
@@ -850,6 +919,7 @@ static int haptics_set_pattern(struct haptics_chip *chip,
 	u8 values[SAMPLES_PER_PATTERN * 3] = { 0 };
 	u8 ptn_tlra_addr, ptn_cfg_addr;
 	int i, rc, tmp;
+	u32 play_rate_us;
 
 	if (src != PATTERN1 && src != PATTERN2) {
 		dev_err(chip->dev, "no pattern src specified!\n");
@@ -863,8 +933,14 @@ static int haptics_set_pattern(struct haptics_chip *chip,
 		ptn_cfg_addr = HAP_PTN_PTRN2_CFG_REG;
 	}
 
+	/* Adjust T_LRA before programming it into HW */
+	play_rate_us = pattern->play_rate_us;
+	rc = haptics_adjust_lra_period(chip, &play_rate_us);
+	if (rc < 0)
+		return rc;
+
 	/* Configure T_LRA for this pattern */
-	tmp = pattern->play_rate_us / TLRA_STEP_US;
+	tmp = play_rate_us / TLRA_STEP_US;
 	values[0] = (tmp >> 8) & TLRA_OL_MSB_MASK;
 	values[1] = tmp & TLRA_OL_LSB_MASK;
 	rc = haptics_write(chip, chip->ptn_addr_base, ptn_tlra_addr,
@@ -1010,8 +1086,7 @@ static int haptics_get_available_fifo_memory(struct haptics_chip *chip)
 
 static int haptics_adjust_rc_clk(struct haptics_chip *chip)
 {
-	int rc;
-	int freq_diff, cal_count, f_lra, cl_f_lra;
+	int rc, freq_diff, cal_count, f_lra, cl_f_lra;
 	u8 val[2];
 
 	if (!chip->config.t_lra_us || !chip->config.cl_t_lra_us)
@@ -1182,51 +1257,56 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 	return haptics_set_fifo_empty_threshold(chip, fifo_thresh);
 }
 
-static int haptics_set_direct_play(struct haptics_chip *chip)
+static int haptics_load_constant_effect(struct haptics_chip *chip, u8 amplitude)
 {
 	struct haptics_play_info *play = &chip->play;
 	int rc = 0;
-	u8 val;
+
+	mutex_lock(&chip->play.lock);
+	if (chip->play.in_calibration) {
+		dev_err(chip->dev, "calibration in progress, ignore playing constant effect\n");
+		rc = -EBUSY;
+		goto unlock;
+	}
 
 	/* configure VMAX in case it was changed in previous effect playing */
 	rc = haptics_set_vmax_mv(chip, chip->config.vmax_mv);
 	if (rc < 0)
-		return rc;
-
-	/* Set DIRECT_PLAY amplitude */
-	val = play->vmax_mv / VMAX_STEP_MV;
-	rc = haptics_write(chip, chip->ptn_addr_base,
-			HAP_PTN_DIRECT_PLAY_REG, &val, 1);
-	if (rc < 0)
-		return rc;
+		goto unlock;
 
 	/* Config brake settings if it's necessary */
 	play->brake = &chip->config.brake;
 	if (play->brake) {
 		rc = haptics_set_brake(chip, play->brake);
 		if (rc < 0)
-			return rc;
+			goto unlock;
 	}
+
+	rc = haptics_set_direct_play(chip, amplitude);
+	if (rc < 0)
+		goto unlock;
 
 	/* Always enable LRA auto resonance for DIRECT_PLAY */
 	rc = haptics_enable_autores(chip, !chip->config.is_erm);
 	if (rc < 0)
-		return rc;
+		goto unlock;
 
 	play->pattern_src = DIRECT_PLAY;
-	return 0;
+unlock:
+	mutex_unlock(&chip->play.lock);
+	return rc;
 }
 
 static int haptics_load_predefined_effect(struct haptics_chip *chip,
-					int effect_idx)
+					struct haptics_effect *effect)
 {
 	struct haptics_play_info *play = &chip->play;
 	int rc;
 
-	if (effect_idx >= chip->effects_count)
+	if (effect == NULL)
 		return -EINVAL;
 
-	play->effect = &chip->effects[effect_idx];
+	play->effect = effect;
 	/* Clamp VMAX for different vibration strength */
 	rc = haptics_set_vmax_mv(chip, play->vmax_mv);
 	if (rc < 0)
@@ -1393,12 +1473,19 @@ static int haptics_load_custom_effect(struct haptics_chip *chip,
 	fifo->play_length_us = get_fifo_play_length_us(fifo,
 			chip->custom_effect->t_lra_us);
 
+	mutex_lock(&chip->play.lock);
+	if (chip->play.in_calibration) {
+		dev_err(chip->dev, "calibration in progress, ignore playing custom effect\n");
+		rc = -EBUSY;
+		goto unlock;
+	}
+
 	play->effect = chip->custom_effect;
 	play->brake = NULL;
 	play->vmax_mv = (magnitude * chip->custom_effect->vmax_mv) / 0x7fff;
 	rc = haptics_set_vmax_mv(chip, play->vmax_mv);
 	if (rc < 0)
-		goto cleanup;
+		goto unlock;
 
 	rc = haptics_enable_autores(chip, !play->effect->auto_res_disable);
 	if (rc < 0)
@@ -1407,9 +1494,12 @@ static int haptics_load_custom_effect(struct haptics_chip *chip,
 	play->pattern_src = FIFO;
 	rc = haptics_set_fifo(chip, play->effect->fifo);
 	if (rc < 0)
-		goto cleanup;
+		goto unlock;
 
+	mutex_unlock(&chip->play.lock);
 	return 0;
+unlock:
+	mutex_unlock(&chip->play.lock);
 cleanup:
 	kfree(fifo->samples);
 	fifo->samples = NULL;
@@ -1456,16 +1546,25 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
+	mutex_lock(&chip->play.lock);
 	play->vmax_mv = (magnitude * chip->effects[i].vmax_mv) / 0x7fff;
 
 	dev_dbg(chip->dev, "upload effect %d, vmax_mv=%d\n",
 			chip->effects[i].id, play->vmax_mv);
-	rc = haptics_load_predefined_effect(chip, i);
+
+	if (chip->play.in_calibration) {
+		dev_err(chip->dev, "calibration in progress, ignore playing predefined effect\n");
+		rc = -EBUSY;
+		goto unlock;
+	}
+
+	rc = haptics_load_predefined_effect(chip, &chip->effects[i]);
 	if (rc < 0) {
 		dev_err(chip->dev, "Play predefined effect%d failed, rc=%d\n",
 				chip->effects[i].id, rc);
-		return rc;
+		goto unlock;
 	}
+	mutex_unlock(&chip->play.lock);
 
 	play->length_us = get_play_length_us(play);
 	custom_data[CUSTOM_DATA_TIMEOUT_SEC_IDX] =
@@ -1477,25 +1576,29 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 		return -EFAULT;
 
 	return 0;
+unlock:
+	mutex_unlock(&chip->play.lock);
+	return rc;
 }
 
 static int haptics_upload_effect(struct input_dev *dev,
 		struct ff_effect *effect, struct ff_effect *old)
 {
 	struct haptics_chip *chip = input_get_drvdata(dev);
-	struct haptics_hw_config *config = &chip->config;
-	struct haptics_play_info *play = &chip->play;
+	u32 length_us, tmp;
 	s16 level;
+	u8 amplitude;
 	int rc = 0;
 
 	switch (effect->type) {
 	case FF_CONSTANT:
-		play->length_us = effect->replay.length * USEC_PER_MSEC;
+		length_us = effect->replay.length * USEC_PER_MSEC;
 		level = effect->u.constant.level;
-		play->vmax_mv = (level * config->vmax_mv) / 0x7fff;
-		dev_dbg(chip->dev, "upload constant effect, length = %dus, vmax_mv = %d\n",
-				play->length_us, play->vmax_mv);
-		haptics_set_direct_play(chip);
+		tmp = level * DIRECT_PLAY_MAX_AMPLITUDE;
+		amplitude = tmp / 0x7fff;
+		dev_dbg(chip->dev, "upload constant effect, length = %dus, amplitude = %d\n",
+				length_us, amplitude);
+		haptics_load_constant_effect(chip, amplitude);
 		if (rc < 0) {
 			dev_err(chip->dev, "set direct play failed, rc=%d\n",
 					rc);
@@ -1557,6 +1660,33 @@ static void haptics_fifo_empty_irq_config(struct haptics_chip *chip,
 	mutex_unlock(&chip->irq_lock);
 }
 
+static int haptics_stop_fifo_play(struct haptics_chip *chip)
+{
+	int rc;
+
+	if (atomic_read(&chip->play.fifo_status.is_busy) == 0) {
+		dev_dbg(chip->dev, "FIFO playing is not in progress\n");
+		return 0;
+	}
+
+	rc = haptics_enable_play(chip, false);
+	if (rc < 0)
+		return rc;
+
+	/* restore FIFO play rate back to T_LRA */
+	rc = haptics_set_fifo_playrate(chip, T_LRA);
+	if (rc < 0)
+		return rc;
+
+	haptics_fifo_empty_irq_config(chip, false);
+	kfree(chip->custom_effect->fifo->samples);
+	chip->custom_effect->fifo->samples = NULL;
+
+	atomic_set(&chip->play.fifo_status.is_busy, 0);
+	dev_dbg(chip->dev, "stopped FIFO playing successfully\n");
+	return 0;
+}
+
 static int haptics_playback(struct input_dev *dev, int effect_id, int val)
 {
 	struct haptics_chip *chip = input_get_drvdata(dev);
@@ -1572,7 +1702,8 @@ static int haptics_playback(struct input_dev *dev, int effect_id, int val)
 		if (play->pattern_src == FIFO)
 			haptics_fifo_empty_irq_config(chip, true);
 	} else {
-		if (atomic_read(&play->fifo_status.is_busy)) {
+		if (play->pattern_src == FIFO &&
+				atomic_read(&play->fifo_status.is_busy)) {
 			dev_dbg(chip->dev, "FIFO playing is not done yet, defer stopping in erase\n");
 			return 0;
 		}
@@ -1591,25 +1722,16 @@ static int haptics_erase(struct input_dev *dev, int effect_id)
 
 	if ((play->pattern_src == FIFO) &&
 			atomic_read(&play->fifo_status.is_busy)) {
-		dev_dbg(chip->dev, "cancelling FIFO playing\n");
-		atomic_set(&play->fifo_status.cancelled, 1);
+		if (atomic_read(&play->fifo_status.written_done) == 0) {
+			dev_dbg(chip->dev, "cancelling FIFO playing\n");
+			atomic_set(&play->fifo_status.cancelled, 1);
+		}
 
-		rc = haptics_enable_play(chip, false);
-		if (rc < 0)
+		rc = haptics_stop_fifo_play(chip);
+		if (rc < 0) {
+			dev_err(chip->dev, "stop FIFO playing failed, rc=%d\n");
 			return rc;
-
-		atomic_set(&play->fifo_status.is_busy, 0);
-
-		/* free custom_effect FIFO samples buffer after stopping play */
-		kfree(chip->custom_effect->fifo->samples);
-		chip->custom_effect->fifo->samples = NULL;
-
-		/* restore FIFO play rate back to T_LRA */
-		rc = haptics_set_fifo_playrate(chip, T_LRA);
-		if (rc < 0)
-			return rc;
-
-		haptics_fifo_empty_irq_config(chip, false);
+		}
 	}
 
 	return 0;
@@ -1657,12 +1779,31 @@ static int haptics_store_cl_brake_settings(struct haptics_chip *chip)
 	return rc;
 }
 
+static int haptics_config_openloop_lra_period(struct haptics_chip *chip,
+							u32 t_lra_us)
+{
+	u32 tmp;
+	u8 val[2];
+	int rc;
+
+	rc = haptics_adjust_lra_period(chip, &t_lra_us);
+	if (rc < 0)
+		return rc;
+
+	tmp = t_lra_us / TLRA_STEP_US;
+	val[0] = (tmp >> 8) & TLRA_OL_MSB_MASK;
+	val[1] = tmp & TLRA_OL_LSB_MASK;
+
+	return haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_TLRA_OL_HIGH_REG, val, 2);
+}
+
 static int haptics_hw_init(struct haptics_chip *chip)
 {
 	struct haptics_hw_config *config = &chip->config;
 	struct haptics_effect *effect;
-	int rc = 0, tmp, i;
-	u8 val[2];
+	int rc = 0, i;
+	u8 val;
 
 	/* Store CL brake settings */
 	rc = haptics_store_cl_brake_settings(chip);
@@ -1682,13 +1823,13 @@ static int haptics_hw_init(struct haptics_chip *chip)
 		return rc;
 
 	/* Config brake mode and waveform shape */
-	val[0] = (config->brake.mode << BRAKE_MODE_SHIFT)
+	val = (config->brake.mode << BRAKE_MODE_SHIFT)
 		| config->brake.sine_gain << BRAKE_SINE_GAIN_SHIFT
 		| config->brake.brake_wf;
 	rc = haptics_masked_write(chip, chip->cfg_addr_base,
 			HAP_CFG_BRAKE_MODE_CFG_REG,
 			BRAKE_MODE_MASK | BRAKE_SINE_GAIN_MASK
-			| BRAKE_WF_SEL_MASK, val[0]);
+			| BRAKE_WF_SEL_MASK, val);
 	if (rc < 0)
 		return rc;
 
@@ -1700,11 +1841,7 @@ static int haptics_hw_init(struct haptics_chip *chip)
 		return rc;
 
 	/* Config T_LRA */
-	tmp = config->t_lra_us / TLRA_STEP_US;
-	val[0] = (tmp >> 8) & TLRA_OL_MSB_MASK;
-	val[1] = tmp & TLRA_OL_LSB_MASK;
-	rc = haptics_write(chip, chip->cfg_addr_base,
-			HAP_CFG_TLRA_OL_HIGH_REG, val, 2);
+	rc = haptics_config_openloop_lra_period(chip, chip->config.cl_t_lra_us);
 	if (rc < 0)
 		return rc;
 
@@ -1743,24 +1880,24 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 	int rc, num;
 
 	if (atomic_read(&chip->play.fifo_status.written_done) == 1) {
-		dev_dbg(chip->dev, "FIFO data is done playing\n");
-		rc = haptics_enable_play(chip, false);
+		/*
+		 * Check the FIFO real time fill status before stopping
+		 * play to make sure that all FIFO samples can be played
+		 * successfully. If there are still samples left in FIFO
+		 * memory, defer the stop into erase() function.
+		 */
+		num = haptics_get_available_fifo_memory(chip);
+		if (num != MAX_FIFO_SAMPLES(chip)) {
+			dev_dbg(chip->dev, "%d FIFO samples still in playing\n",
+					MAX_FIFO_SAMPLES(chip) - num);
+			return IRQ_HANDLED;
+		}
+
+		rc = haptics_stop_fifo_play(chip);
 		if (rc < 0)
 			return IRQ_HANDLED;
 
-		/* restore FIFO play rate back to T_LRA */
-		rc = haptics_set_fifo_playrate(chip, T_LRA);
-		if (rc < 0)
-			return IRQ_HANDLED;
-
-		haptics_fifo_empty_irq_config(chip, false);
-
-		/* free custom_effect FIFO samples after playing is done */
-		kfree(chip->custom_effect->fifo->samples);
-		chip->custom_effect->fifo->samples = NULL;
-
-		atomic_set(&chip->play.fifo_status.written_done, 0);
-		atomic_set(&chip->play.fifo_status.is_busy, 0);
+		dev_dbg(chip->dev, "FIFO playing is done\n");
 	} else {
 		if (atomic_read(&status->cancelled) == 1) {
 			dev_dbg(chip->dev, "FIFO programming got cancelled\n");
@@ -1976,7 +2113,7 @@ static int pattern_play_rate_us_dbgfs_write(void *data, u64 val)
 }
 DEFINE_DEBUGFS_ATTRIBUTE(pattern_play_rate_dbgfs_ops,
 		pattern_play_rate_us_dbgfs_read,
-		pattern_play_rate_us_dbgfs_write, "%lld\n");
+		pattern_play_rate_us_dbgfs_write, "%llu\n");
 
 static ssize_t fifo_s_dbgfs_read(struct file *fp,
 		char __user *buf, size_t count, loff_t *ppos)
@@ -1994,7 +2131,7 @@ static ssize_t fifo_s_dbgfs_read(struct file *fp,
 
 	for (i = 0; i < fifo->num_s; i++)
 		pos += scnprintf(kbuf + pos, size - pos,
-				"0x%03x ", fifo->samples[i]);
+				"%d ", (s8)fifo->samples[i]);
 
 	pos += scnprintf(kbuf + pos, size - pos, "%s", "\n");
 	rc = simple_read_from_buffer(buf, count, ppos, kbuf, pos);
@@ -2010,7 +2147,7 @@ static ssize_t fifo_s_dbgfs_write(struct file *fp,
 	struct fifo_cfg *fifo = effect->fifo;
 	char *kbuf, *token;
 	int rc, i = 0;
-	u32 val;
+	int val;
 	u8 *samples;
 
 	kbuf = kzalloc(count + 1, GFP_KERNEL);
@@ -2033,7 +2170,7 @@ static ssize_t fifo_s_dbgfs_write(struct file *fp,
 	}
 
 	while ((token = strsep(&kbuf, " ")) != NULL) {
-		rc = kstrtouint(token, 0, &val);
+		rc = kstrtoint(token, 0, &val);
 		if (rc < 0) {
 			rc = -EINVAL;
 			goto exit2;
@@ -2042,7 +2179,7 @@ static ssize_t fifo_s_dbgfs_write(struct file *fp,
 		if (val > 0xff)
 			val = 0xff;
 
-		samples[i++] = val;
+		samples[i++] = (u8)val;
 		/* only support fifo pattern no longer than before */
 		if (i >= fifo->num_s)
 			break;
@@ -2100,7 +2237,7 @@ static int fifo_period_dbgfs_write(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(fifo_period_dbgfs_ops,
 		fifo_period_dbgfs_read,
-		fifo_period_dbgfs_write, "%lld\n");
+		fifo_period_dbgfs_write, "%llu\n");
 
 static ssize_t brake_s_dbgfs_read(struct file *fp,
 		char __user *buf, size_t count, loff_t *ppos)
@@ -2245,6 +2382,50 @@ static const struct file_operations brake_mode_dbgfs_ops = {
 	.open = simple_open,
 };
 
+static int brake_en_dbgfs_read(void *data, u64 *val)
+{
+	struct haptics_effect *effect = data;
+
+	*val = !effect->brake->disabled;
+
+	return 0;
+}
+
+static int brake_en_dbgfs_write(void *data, u64 val)
+{
+	struct haptics_effect *effect = data;
+
+	effect->brake->disabled = !val;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(brake_en_dbgfs_ops,  brake_en_dbgfs_read,
+		brake_en_dbgfs_write, "%llu\n");
+
+static int brake_sine_gain_dbgfs_read(void *data, u64 *val)
+{
+	struct haptics_effect *effect = data;
+
+	*val = effect->brake->sine_gain;
+
+	return 0;
+}
+
+static int brake_sine_gain_dbgfs_write(void *data, u64 val)
+{
+	struct haptics_effect *effect = data;
+
+	if (val > BRAKE_SINE_GAIN_X8)
+		return -EINVAL;
+
+	effect->brake->sine_gain = val;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(brake_sine_gain_dbgfs_ops,
+		brake_sine_gain_dbgfs_read,
+		brake_sine_gain_dbgfs_write, "%llu\n");
+
 static int preload_effect_idx_dbgfs_read(void *data, u64 *val)
 {
 	struct haptics_chip *chip = data;
@@ -2291,7 +2472,7 @@ static int preload_effect_idx_dbgfs_write(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(preload_effect_idx_dbgfs_ops,
 		preload_effect_idx_dbgfs_read,
-		preload_effect_idx_dbgfs_write, "%lld\n");
+		preload_effect_idx_dbgfs_write, "%llu\n");
 
 static int haptics_add_effects_debugfs(struct haptics_effect *effect,
 		struct dentry *dir)
@@ -2352,6 +2533,16 @@ static int haptics_add_effects_debugfs(struct haptics_effect *effect,
 
 		file = debugfs_create_file("mode", 0644, brake_dir,
 				effect, &brake_mode_dbgfs_ops);
+		if (IS_ERR(file))
+			return PTR_ERR(file);
+
+		file = debugfs_create_file_unsafe("enable", 0644, brake_dir,
+				effect, &brake_en_dbgfs_ops);
+		if (IS_ERR(file))
+			return PTR_ERR(file);
+
+		file = debugfs_create_file_unsafe("sine_gain", 0644, brake_dir,
+				effect, &brake_sine_gain_dbgfs_ops);
 		if (IS_ERR(file))
 			return PTR_ERR(file);
 	}
@@ -2971,6 +3162,136 @@ static int haptics_init_swr_slave_regulator(struct haptics_chip *chip)
 	return rc;
 }
 
+#define LRA_CALIBRATION_VMAX_HDRM_MV	500
+static int haptics_start_lra_calibration(struct haptics_chip *chip)
+{
+	int rc;
+	u8 autores_cfg;
+
+	mutex_lock(&chip->play.lock);
+	/*
+	 * Ignore calibration if it's in FIFO playing to avoid
+	 * messing up the FIFO playing status
+	 */
+	if ((chip->play.pattern_src == FIFO) &&
+			atomic_read(&chip->play.fifo_status.is_busy)) {
+		dev_err(chip->dev, "In FIFO playing, ignore calibration\n");
+		rc = -EBUSY;
+		goto unlock;
+	}
+
+	/* Stop other mode playing if there is any */
+	rc = haptics_enable_play(chip, false);
+	if (rc < 0) {
+		dev_err(chip->dev, "Stop playing failed, rc=%d\n", rc);
+		goto unlock;
+	}
+
+	chip->play.in_calibration = true;
+
+	rc = haptics_read(chip, chip->cfg_addr_base,
+			HAP_CFG_AUTORES_CFG_REG, &autores_cfg, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read AUTORES_CFG failed, rc=%d\n", rc);
+		goto unlock;
+	}
+
+	rc = haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_AUTORES_CFG_REG, AUTORES_EN_BIT |
+			AUTORES_EN_DLY_MASK | AUTORES_ERR_WINDOW_MASK,
+			AUTORES_EN_DLY_1_CYCLE << AUTORES_EN_DLY_SHIFT
+			| AUTORES_ERR_WINDOW_25_PERCENT | AUTORES_EN_BIT);
+	if (rc < 0)
+		goto unlock;
+
+	rc = haptics_config_openloop_lra_period(chip, chip->config.t_lra_us);
+	if (rc < 0)
+		goto restore;
+
+	rc = haptics_set_vmax_mv(chip, chip->config.vmax_mv);
+	if (rc < 0)
+		goto restore;
+
+	rc = haptics_set_vmax_headroom_mv(chip, LRA_CALIBRATION_VMAX_HDRM_MV);
+	if (rc < 0)
+		goto restore;
+
+	rc = haptics_set_direct_play(chip, DIRECT_PLAY_MAX_AMPLITUDE);
+	if (rc < 0)
+		goto restore;
+
+	chip->play.pattern_src = DIRECT_PLAY;
+	rc = haptics_enable_play(chip, true);
+	if (rc < 0) {
+		dev_err(chip->dev, "Start calibration failed, rc=%d\n", rc);
+		goto restore;
+	}
+
+	/* wait for ~60ms to get the LRA calibration result */
+	usleep_range(60000, 65000);
+
+	rc = haptics_get_closeloop_lra_period(chip);
+	if (rc < 0)
+		goto restore;
+
+	rc = haptics_enable_play(chip, false);
+	if (rc < 0)
+		goto restore;
+
+	haptics_config_openloop_lra_period(chip, chip->config.cl_t_lra_us);
+
+restore:
+	rc = haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_AUTORES_CFG_REG, &autores_cfg, 1);
+unlock:
+	chip->play.in_calibration = false;
+	mutex_unlock(&chip->play.lock);
+	return rc;
+}
+
+static ssize_t lra_calibration_store(struct class *c,
+		struct class_attribute *attr, const char *buf, size_t count)
+{
+	struct haptics_chip *chip = container_of(c,
+			struct haptics_chip, hap_class);
+	bool val;
+	int rc;
+
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+
+	if (val) {
+		rc = haptics_start_lra_calibration(chip);
+		if (rc < 0)
+			return rc;
+	}
+
+	return count;
+}
+static CLASS_ATTR_WO(lra_calibration);
+
+static ssize_t lra_frequency_hz_show(struct class *c,
+		struct class_attribute *attr, char *buf)
+{
+	struct haptics_chip *chip = container_of(c,
+			struct haptics_chip, hap_class);
+	u32 cl_f_lra;
+
+	if (chip->config.cl_t_lra_us == 0)
+		return -EINVAL;
+
+	cl_f_lra = USEC_PER_SEC / chip->config.cl_t_lra_us;
+	return scnprintf(buf, PAGE_SIZE, "%d Hz\n", cl_f_lra);
+}
+static CLASS_ATTR_RO(lra_frequency_hz);
+
+static struct attribute *hap_class_attrs[] = {
+	&class_attr_lra_calibration.attr,
+	&class_attr_lra_frequency_hz.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(hap_class);
+
 static int haptics_probe(struct platform_device *pdev)
 {
 	struct haptics_chip *chip;
@@ -3028,6 +3349,7 @@ static int haptics_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&chip->irq_lock);
+	mutex_init(&chip->play.lock);
 	disable_irq_nosync(chip->fifo_empty_irq);
 	chip->fifo_empty_irq_en = false;
 
@@ -3070,6 +3392,14 @@ static int haptics_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(chip->dev, chip);
+	chip->hap_class.name = "qcom-haptics";
+	chip->hap_class.class_groups = hap_class_groups;
+	rc = class_register(&chip->hap_class);
+	if (rc < 0) {
+		dev_err(chip->dev, "register hap_class failed, rc=%d\n");
+		goto destroy_ff;
+	}
+
 #ifdef CONFIG_DEBUG_FS
 	rc = haptics_create_debugfs(chip);
 	if (rc < 0)
@@ -3085,6 +3415,7 @@ static int haptics_remove(struct platform_device *pdev)
 {
 	struct haptics_chip *chip = dev_get_drvdata(&pdev->dev);
 
+	class_unregister(&chip->hap_class);
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(chip->debugfs_dir);
 #endif
