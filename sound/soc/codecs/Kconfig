@@ -1733,6 +1733,14 @@ config SND_SOC_MT6660
 	  Select N if you don't have MT6660 on board.
 	  Select M to build this as module.
 
+config SND_SOC_MT6359P_ACCDET
+	tristate "MediaTek MT6359 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
 config SND_SOC_NAU8540
        tristate "Nuvoton Technology Corporation NAU85L40 CODEC"
        depends on I2C
