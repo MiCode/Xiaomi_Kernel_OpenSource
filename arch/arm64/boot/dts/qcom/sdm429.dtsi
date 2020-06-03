@@ -259,6 +259,14 @@
 		};
 	};
 
+
+	restart@4ab000 {
+		compatible = "qcom,pshold";
+		reg = <0x4ab000 0x4>,
+			<0x193d100 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
 	clocks {
 		xo_board {
 			compatible = "fixed-clock";
@@ -335,7 +343,6 @@
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		qcom,scandump-size = <0x40000>;
-		status = "disabled";
 	};
 
 	rpm_bus: qcom,rpm-smd {
