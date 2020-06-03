@@ -481,6 +481,7 @@ struct dwc3_msm {
 	dma_addr_t		dummy_gsi_db_dma;
 
 	struct usb_role_switch *role_switch;
+	bool			ss_release_called;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3702,6 +3703,15 @@ static int dwc3_msm_usb_set_role(struct device *dev, enum usb_role role)
 		return 0;
 	}
 
+	if (mdwc->ss_release_called) {
+		flush_delayed_work(&mdwc->sm_work);
+		dwc->maximum_speed = USB_SPEED_HIGH;
+		if (role == USB_ROLE_NONE) {
+			dwc->maximum_speed = USB_SPEED_UNKNOWN;
+			mdwc->ss_release_called = false;
+		}
+	}
+
 	dwc3_ext_event_notify(mdwc);
 	return 0;
 }
@@ -3926,6 +3936,30 @@ static void dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 		dbg_log_string("stop_host_mode completed");
 }
 
+static void dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
+{
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (start) {
+		dbg_log_string("start device mode");
+		mdwc->id_state = DWC3_ID_FLOAT;
+		mdwc->vbus_active = true;
+	} else {
+		dbg_log_string("stop device mode");
+		mdwc->id_state = DWC3_ID_FLOAT;
+		mdwc->vbus_active = false;
+	}
+
+	dwc3_ext_event_notify(mdwc);
+	dbg_event(0xFF, "flush_work", 0);
+	flush_work(&mdwc->resume_work);
+	drain_workqueue(mdwc->sm_usb_wq);
+	if (start)
+		dbg_log_string("device mode restarted");
+	else
+		dbg_log_string("stop_device_mode completed");
+}
+
 int dwc3_msm_release_ss_lane(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
@@ -3943,17 +3977,27 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 	}
 
 	dbg_event(0xFF, "ss_lane_release", 0);
-	if (mdwc->id_state != DWC3_ID_GROUND) {
-		dbg_log_string("USB host mode is not active");
-		return 0;
+	/* flush any pending work */
+	flush_work(&mdwc->resume_work);
+	drain_workqueue(mdwc->sm_usb_wq);
+
+	mdwc->ss_release_called = true;
+	if (mdwc->id_state == DWC3_ID_GROUND) {
+		/* stop USB host mode */
+		dwc3_start_stop_host(mdwc, false);
+		/* restart USB host mode into high speed */
+		dwc->maximum_speed = USB_SPEED_HIGH;
+		dwc3_start_stop_host(mdwc, true);
+	} else if (mdwc->vbus_active) {
+		/* stop USB device mode */
+		dwc3_start_stop_device(mdwc, false);
+		/* restart USB device mode into high speed */
+		dwc->maximum_speed = USB_SPEED_HIGH;
+		dwc3_start_stop_device(mdwc, true);
+	} else {
+		dbg_log_string("USB is not active.\n");
+		dwc->maximum_speed = USB_SPEED_HIGH;
 	}
-
-	/* stop USB host mode */
-	dwc3_start_stop_host(mdwc, false);
-
-	/* restart USB host mode into high speed */
-	dwc->maximum_speed = USB_SPEED_HIGH;
-	dwc3_start_stop_host(mdwc, true);
 
 	return 0;
 }
