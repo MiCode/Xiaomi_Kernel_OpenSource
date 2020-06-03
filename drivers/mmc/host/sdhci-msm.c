@@ -405,6 +405,8 @@ struct sdhci_msm_host {
 	struct sdhci_msm_regs_restore regs_restore;
 };
 
+static struct sdhci_msm_host *sdhci_slot[2];
+
 static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
 
 static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
@@ -3018,6 +3020,14 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	ret = mmc_of_parse(host->mmc);
 	if (ret)
 		goto pltfm_free;
+
+	if (pdev->dev.of_node) {
+		ret = of_alias_get_id(pdev->dev.of_node, "sdhc");
+		if (ret <= 0)
+			dev_err(&pdev->dev, "get slot index failed %d\n", ret);
+		else if (ret <= 2)
+			sdhci_slot[ret-1] = msm_host;
+	}
 
 	/*
 	 * Based on the compatible string, load the required msm host info from
