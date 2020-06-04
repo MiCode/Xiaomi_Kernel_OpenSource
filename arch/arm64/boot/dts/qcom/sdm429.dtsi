@@ -480,7 +480,6 @@
 		HSUSB_1p8-supply = <&L12A>;
 		HSUSB_3p3-supply = <&L16A>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
-		vbus_otg-supply = <&smb2_vbus>;
 
 		qcom,hsusb-otg-phy-init-seq = <0x43 0x80 0x06 0x82 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
