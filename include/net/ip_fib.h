@@ -244,7 +244,6 @@ struct fib_dump_filter {
 	u32			table_id;
 	/* filter_set is an optimization that an entry is set */
 	bool			filter_set;
-	bool			dump_all_families;
 	bool			dump_routes;
 	bool			dump_exceptions;
 	unsigned char		protocol;
@@ -422,6 +421,16 @@ static inline int fib_num_tclassid_users(struct net *net)
 }
 #endif
 int fib_unmerge(struct net *net);
+
+static inline bool nhc_l3mdev_matches_dev(const struct fib_nh_common *nhc,
+const struct net_device *dev)
+{
+	if (nhc->nhc_dev == dev ||
+	    l3mdev_master_ifindex_rcu(nhc->nhc_dev) == dev->ifindex)
+		return true;
+
+	return false;
+}
 
 /* Exported by fib_semantics.c */
 int ip_fib_check_default(__be32 gw, struct net_device *dev);
