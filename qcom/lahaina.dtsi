@@ -5154,6 +5154,7 @@
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x420000>;
+		qcom,wlan-cbc-enabled;
 
 		vdd-wlan-aon-supply = <&S2E>;
 		qcom,vdd-wlan-aon-config = <950000 952000 0 0 1>;
@@ -5167,6 +5168,8 @@
 		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
 		wlan-ant-switch-supply = <&L7E>;
 		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 0>;
+
+		cnss-daemon-support;
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
