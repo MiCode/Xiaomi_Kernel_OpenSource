@@ -6496,7 +6496,7 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 					struct find_best_target_env *fbt_env)
 {
 	unsigned long min_util = uclamp_task_util(p);
-	unsigned long target_max_spare_cap = 0;
+	long target_max_spare_cap = 0;
 	unsigned long best_idle_cuml_util = ULONG_MAX;
 	/* Initialise with deepest possible cstate (INT_MAX) */
 	int shallowest_idle_cstate = INT_MAX;
@@ -6577,8 +6577,9 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 				most_spare_cap_cpu = i;
 			}
 
-			if (per_task_boost(cpu_rq(i)->curr) ==
-					TASK_BOOST_STRICT_MAX)
+			if ((per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX) &&
+					!fbt_env->strict_max)
 				continue;
 			/*
 			 * Cumulative demand may already be accounting for the
