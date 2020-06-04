@@ -358,6 +358,18 @@ int qcom_iommu_sid_switch(struct device *dev, enum sid_switch_direction dir)
 }
 EXPORT_SYMBOL(qcom_iommu_sid_switch);
 
+int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
+			     struct qcom_iommu_fault_ids *f_ids)
+{
+	struct qcom_iommu_ops *ops = to_qcom_iommu_ops(domain->ops);
+
+	if (unlikely(ops->get_fault_ids == NULL))
+		return -EINVAL;
+
+	return ops->get_fault_ids(domain, f_ids);
+}
+EXPORT_SYMBOL(qcom_iommu_get_fault_ids);
+
 struct io_pgtable_ops *qcom_alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 				struct qcom_io_pgtable_info *pgtbl_info,
 				void *cookie)

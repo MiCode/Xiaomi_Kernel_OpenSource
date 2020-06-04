@@ -892,6 +892,42 @@ static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
 	return IRQ_NONE;
 }
 
+static int arm_smmu_get_fault_ids(struct iommu_domain *domain,
+			struct qcom_iommu_fault_ids *f_ids)
+{
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_device *smmu;
+	u32 fsr, fsynr1;
+	int idx, ret;
+
+	if (!domain || !f_ids)
+		return -EINVAL;
+
+	smmu_domain = to_smmu_domain(domain);
+	smmu = smmu_domain->smmu;
+	idx = smmu_domain->cfg.cbndx;
+
+	ret = arm_smmu_rpm_get(smmu);
+	if (ret < 0)
+		return ret;
+
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+
+	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
+		arm_smmu_power_off(smmu, smmu->pwr);
+		return -EINVAL;
+	}
+
+	fsynr1 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR1);
+	arm_smmu_rpm_put(smmu);
+
+	f_ids->bid = FIELD_GET(ARM_SMMU_FSYNR1_BID, fsynr1);
+	f_ids->pid = FIELD_GET(ARM_SMMU_FSYNR1_PID, fsynr1);
+	f_ids->mid = FIELD_GET(ARM_SMMU_FSYNR1_MID, fsynr1);
+
+	return 0;
+}
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	u32 fsr;
@@ -3171,6 +3207,7 @@ static int arm_smmu_sid_switch(struct device *dev,
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
 	.sid_switch		= arm_smmu_sid_switch,
+	.get_fault_ids		= arm_smmu_get_fault_ids,
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,

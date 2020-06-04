@@ -31,6 +31,12 @@ enum sid_switch_direction {
 	SID_SWITCH_SECURE_TO_HLOS,
 };
 
+struct qcom_iommu_fault_ids {
+	u32 bid;
+	u32 pid;
+	u32 mid;
+};
+
 /*
  * @sid_switch: add/remove all SIDS in the iommu domain containing dev from
  *              iommu registers.
@@ -39,6 +45,8 @@ struct qcom_iommu_ops {
 	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
 					struct qcom_iommu_atos_txn *txn);
 	int (*sid_switch)(struct device *dev, enum sid_switch_direction dir);
+	int (*get_fault_ids)(struct iommu_domain *domain,
+			struct qcom_iommu_fault_ids *ids);
 	struct iommu_ops iommu_ops;
 };
 #define to_qcom_iommu_ops(x) (container_of(x, struct qcom_iommu_ops, iommu_ops))
@@ -58,6 +66,11 @@ void qcom_iommu_put_resv_regions(struct device *dev, struct list_head *list);
 
 phys_addr_t qcom_iommu_iova_to_phys_hard(struct iommu_domain *domain,
 				    struct qcom_iommu_atos_txn *txn);
+
+
+extern int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
+				struct qcom_iommu_fault_ids *f_ids);
+
 
 extern int __init qcom_dma_iommu_generic_driver_init(void);
 extern void qcom_dma_iommu_generic_driver_exit(void);
