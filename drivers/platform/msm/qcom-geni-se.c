@@ -1597,8 +1597,8 @@ void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 	se_dma_tx_len_in = geni_read_reg(base, SE_DMA_TX_LEN_IN);
 
 	GENI_SE_DBG(ipc, false, NULL,
-	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
-	__func__, m_cmd0, m_irq_status, geni_status, geni_ios);
+	"%s: m_cmd0:0x%x, m_irq_status:0x%x, s_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
+	__func__, m_cmd0, m_irq_status, s_irq_status, geni_status, geni_ios);
 	GENI_SE_DBG(ipc, false, NULL,
 	"dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n"
 	, dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);

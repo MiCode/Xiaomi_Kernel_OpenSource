@@ -518,6 +518,7 @@ static int vote_clock_on(struct uart_port *uport)
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	int usage_count;
 	int ret = 0;
+	u32 geni_ios;
 
 	ret = msm_geni_serial_power_on(uport);
 	if (ret) {
@@ -526,10 +527,11 @@ static int vote_clock_on(struct uart_port *uport)
 	}
 	port->ioctl_count++;
 	usage_count = atomic_read(&uport->dev->power.usage_count);
+	geni_ios = geni_read_reg_nolog(uport->membase, SE_GENI_IOS);
 	IPC_LOG_MSG(port->ipc_log_pwr,
-		"%s :%s ioctl:%d usage_count:%d edge-Count:%d\n",
+		"%s :%s ioctl:%d usage_count:%d edge-Count:%d geni_ios:0x%x\n",
 		__func__, current->comm, port->ioctl_count,
-		usage_count, port->edge_count);
+		usage_count, port->edge_count, geni_ios);
 	return 0;
 }
 
