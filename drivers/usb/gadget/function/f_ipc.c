@@ -794,10 +794,6 @@ static int ipc_set_inst_name(struct usb_function_instance *fi,
 	if (name_len > MAX_INST_NAME_LEN)
 		return -ENAMETOOLONG;
 
-	ipc_dev = kzalloc(sizeof(*ipc_dev), GFP_KERNEL);
-	if (!ipc_dev)
-		return -ENOMEM;
-
 	spin_lock_init(&ipc_dev->lock);
 	init_waitqueue_head(&ipc_dev->state_wq);
 	init_completion(&ipc_dev->read_done);
@@ -813,7 +809,6 @@ static void ipc_free_inst(struct usb_function_instance *f)
 {
 	struct ipc_opts *opts = container_of(f, struct ipc_opts, func_inst);
 
-	kfree(opts->ctxt);
 	kfree(opts);
 }
 
@@ -844,9 +839,17 @@ static int __init ipc_init(void)
 {
 	int ret;
 
+	ipc_dev = kzalloc(sizeof(*ipc_dev), GFP_KERNEL);
+	if (!ipc_dev)
+		return -ENOMEM;
+
 	ret = usb_function_register(&ipcusb_func);
-	if (ret)
+	if (ret) {
+		kfree(ipc_dev);
+		ipc_dev = NULL;
 		pr_err("%s: failed to register ipc %d\n", __func__, ret);
+		return ret;
+	}
 
 	fipc_debugfs_init();
 
@@ -857,6 +860,8 @@ static void __exit ipc_exit(void)
 {
 	fipc_debugfs_remove();
 	usb_function_unregister(&ipcusb_func);
+	kfree(ipc_dev);
+	ipc_dev = NULL;
 }
 
 module_init(ipc_init);
