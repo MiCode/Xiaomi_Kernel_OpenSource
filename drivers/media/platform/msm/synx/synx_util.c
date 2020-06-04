@@ -719,14 +719,17 @@ void synx_util_default_user_callback(s32 h_synx,
 	int status, void *data)
 {
 	struct synx_client_cb *cb = data;
+	struct synx_client *client = NULL;
 
 	if (cb && cb->client) {
-		pr_debug("user cb queued for handle %d\n", h_synx);
+		client = cb->client;
+		pr_debug("[sess: %u] user cb queued for handle %d\n",
+			client->id, h_synx);
 		cb->kernel_cb.status = status;
-		mutex_lock(&cb->client->event_q_lock);
-		list_add_tail(&cb->node, &cb->client->event_q);
-		mutex_unlock(&cb->client->event_q_lock);
-		wake_up_all(&cb->client->event_wq);
+		mutex_lock(&client->event_q_lock);
+		list_add_tail(&cb->node, &client->event_q);
+		mutex_unlock(&client->event_q_lock);
+		wake_up_all(&client->event_wq);
 	} else {
 		pr_err("%s: invalid params\n", __func__);
 	}
