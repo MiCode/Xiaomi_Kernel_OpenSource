@@ -27,15 +27,17 @@
 #include <linux/of_gpio.h>
 #include <linux/kfifo.h>
 #include <linux/poll.h>
+#include <linux/input.h>
 #include <uapi/linux/qbt_handler.h>
-#include <linux/input/touch_event_notify.h>
 
 #define QBT_DEV "qbt"
 #define MAX_FW_EVENTS 128
+#define MT_MAX_FINGERS 10
 #define MINOR_NUM_FD 0
 #define MINOR_NUM_IPC 1
 #define QBT_INPUT_DEV_NAME "qbt_key_input"
 #define QBT_INPUT_DEV_VERSION 0x0100
+#define QBT_TOUCH_FD_VERSION 2
 
 struct finger_detect_gpio {
 	int gpio;
@@ -58,6 +60,23 @@ struct fd_event {
 	int id;
 	int state;
 	bool touch_valid;
+};
+
+struct touch_event {
+	int X;
+	int Y;
+	int id;
+	bool updated;
+};
+
+struct finger_detect_touch {
+	struct qbt_touch_config_v2 config;
+	struct work_struct work;
+	struct touch_event current_events[MT_MAX_FINGERS];
+	struct touch_event last_events[MT_MAX_FINGERS];
+	int delta_X[MT_MAX_FINGERS];
+	int delta_Y[MT_MAX_FINGERS];
+	int current_slot;
 };
 
 struct fd_userspace_buf {
@@ -86,127 +105,246 @@ struct qbt_drvdata {
 	struct mutex	ipc_events_mutex;
 	struct fw_ipc_info	fw_ipc;
 	struct finger_detect_gpio fd_gpio;
+	struct finger_detect_touch fd_touch;
 	DECLARE_KFIFO(fd_events, struct fd_event, MAX_FW_EVENTS);
 	DECLARE_KFIFO(ipc_events, struct ipc_event, MAX_FW_EVENTS);
 	wait_queue_head_t read_wait_queue_fd;
 	wait_queue_head_t read_wait_queue_ipc;
 	bool is_wuhb_connected;
-	struct qbt_touch_config touch_config;
 	struct fd_userspace_buf scrath_buf;
 	atomic_t wakelock_acquired;
 };
 
-static struct qbt_drvdata *drvdata_g;
-
-static void qbt_add_touch_event(struct touch_event *evt)
+static void qbt_fd_report_event(struct qbt_drvdata *drvdata,
+		struct fd_event *event)
 {
-	struct qbt_drvdata *drvdata = drvdata_g;
-	struct fd_event event;
-
-	memset(&event, 0, sizeof(event));
-	memcpy(&event.timestamp, &evt->time, sizeof(struct timeval));
-	event.X = evt->x;
-	event.Y = evt->y;
-	event.id = evt->fid;
-	event.touch_valid = true;
-	switch (evt->type) {
-	case 'D':
-		event.state = QBT_EVENT_FINGER_DOWN;
-		break;
-	case 'U':
-		event.state = QBT_EVENT_FINGER_UP;
-		break;
-	case 'M':
-		event.state = QBT_EVENT_FINGER_MOVE;
-		break;
-	default:
-		pr_err("Invalid touch event type\n");
-	}
-	pr_debug("Adding event id: %d state: %d x: %d y: %d\n",
-			event.id, event.state, event.X, event.Y);
-	pr_debug("timestamp: %ld.%06ld\n", event.timestamp.tv_sec,
-			event.timestamp.tv_usec);
-	if (!kfifo_put(&drvdata->fd_events, event))
-		pr_err("FD events fifo: error adding item\n");
-}
-
-static void qbt_radius_filter(struct touch_event *evt)
-{
-	struct qbt_drvdata *drvdata = drvdata_g;
-	struct fd_event event;
-	int fifo_len = 0, last_x = 0, last_y = 0,
-			last_state = QBT_EVENT_FINGER_UP,
-			delta_x = 0, delta_y = 0, i = 0;
-
-	fifo_len = kfifo_len(&drvdata->fd_events);
-	for (i = 0; i < fifo_len; i++) {
-		if (!kfifo_get(&drvdata->fd_events, &event))
-			pr_err("FD events fifo: error removing item\n");
-		else {
-			if (event.id == evt->fid) {
-				last_state = event.state;
-				last_x = event.X;
-				last_y = event.Y;
-			}
-			kfifo_put(&drvdata->fd_events, event);
-		}
-	}
-	if (last_state == QBT_EVENT_FINGER_DOWN ||
-			last_state == QBT_EVENT_FINGER_MOVE) {
-		delta_x = abs(last_x - evt->x);
-		delta_y = abs(last_y - evt->y);
-		if (delta_x > drvdata->touch_config.rad_x ||
-				delta_y > drvdata->touch_config.rad_y)
-			qbt_add_touch_event(evt);
-	} else
-		qbt_add_touch_event(evt);
-}
-
-static void qbt_filter_touch_event(struct touch_event *evt)
-{
-	struct qbt_drvdata *drvdata = drvdata_g;
-
-	pr_debug("Received event id: %d type: %c x: %d y: %d\n",
-			evt->fid, evt->type, evt->x, evt->y);
-	pr_debug("timestamp: %ld.%06ld\n", evt->time.tv_sec,
-			evt->time.tv_usec);
-
 	mutex_lock(&drvdata->fd_events_mutex);
-	switch (evt->type) {
-	case 'D':
-	case 'U':
-		qbt_add_touch_event(evt);
-		break;
-	case 'M':
-		if (drvdata->touch_config.rad_filter_enable)
-			qbt_radius_filter(evt);
-		else
-			qbt_add_touch_event(evt);
-		break;
-	default:
-		pr_err("Invalid touch event type\n");
+
+	if (!kfifo_put(&drvdata->fd_events, *event)) {
+		pr_err("FD events fifo: error adding item\n");
+	} else {
+		pr_debug("FD event %d at slot %d queued at time %lu uS\n",
+				event->state, event->id,
+				(unsigned long)ktime_to_us(ktime_get()));
 	}
 	mutex_unlock(&drvdata->fd_events_mutex);
 	wake_up_interruptible(&drvdata->read_wait_queue_fd);
 }
-static int qfp_touch_event_notify(struct notifier_block *self,
-			unsigned long action, void *data)
-{
-	int i = 0;
-	struct touch_event *event = (struct touch_event *)data;
 
-	while (action > 0 && i < sizeof(action)) {
-		if (__test_and_clear_bit(i, &action))
-			qbt_filter_touch_event(event);
-		i++;
-		event++;
+static int qbt_touch_connect(struct input_handler *handler,
+	struct input_dev *dev, const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int ret;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "qbt_touch";
+
+	ret = input_register_handle(handle);
+	if (ret) {
+		pr_err("Failed to register to input handle: %d\n", ret);
+		kfree(handle);
+		return ret;
 	}
-	return NOTIFY_OK;
+
+	ret = input_open_device(handle);
+	if (ret) {
+		pr_err("Failed to open to input handle: %d\n", ret);
+		input_unregister_handle(handle);
+		kfree(handle);
+		return ret;
+	}
+
+	pr_info("Connected device: %s\n", dev_name(&dev->dev));
+
+	return ret;
 }
 
-static struct notifier_block _input_event_notifier = {
-	.notifier_call = qfp_touch_event_notify,
+static void qbt_touch_disconnect(struct input_handle *handle)
+{
+	pr_info("Disconnected device: %s\n", dev_name(&handle->dev->dev));
+
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static void qbt_touch_report_event(struct input_handle *handle,
+	unsigned int type, unsigned int code, int value)
+{
+	struct qbt_drvdata *drvdata = handle->handler->private;
+	struct finger_detect_touch *fd_touch = &drvdata->fd_touch;
+	struct touch_event *event =
+		&fd_touch->current_events[fd_touch->current_slot];
+	static bool report_event = true;
+
+	if (!fd_touch->config.touch_fd_enable || !drvdata->fd_gpio.irq_enabled)
+		return;
+
+	if (type != EV_SYN && type != EV_ABS)
+		return;
+
+	switch (code) {
+	case ABS_MT_SLOT:
+		fd_touch->current_slot = value;
+		if (!report_event)
+			event->updated = true;
+		report_event = false;
+		break;
+	case ABS_MT_TRACKING_ID:
+		event->id = value;
+		report_event = false;
+		break;
+	case ABS_MT_POSITION_X:
+		event->X = abs(value);
+		report_event = false;
+		break;
+	case ABS_MT_POSITION_Y:
+		event->Y = abs(value);
+		report_event = false;
+		break;
+	case SYN_REPORT:
+		event->updated = true;
+		report_event = true;
+		break;
+	default:
+		break;
+	}
+
+	if (report_event) {
+		pm_stay_awake(drvdata->dev);
+		schedule_work(&drvdata->fd_touch.work);
+	}
+}
+
+static const struct input_device_id qbt_touch_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
+		.evbit = {BIT_MASK(EV_ABS)},
+	},
+	{},
 };
+MODULE_DEVICE_TABLE(input, qbt_touch_ids);
+static struct input_handler qbt_touch_handler = {
+	.event = qbt_touch_report_event,
+	.connect = qbt_touch_connect,
+	.disconnect = qbt_touch_disconnect,
+	.name =	"qbt_touch",
+	.id_table = qbt_touch_ids
+};
+
+static bool qbt_touch_filter_aoi_region(struct touch_event *event,
+		struct qbt_touch_config_v2 *config)
+{
+	if (event->X < config->left ||
+			event->X > config->right ||
+			event->Y < config->top ||
+			event->Y > config->bottom)
+		return false;
+	else
+		return true;
+}
+
+static bool qbt_touch_filter_by_radius(
+		struct qbt_drvdata *drvdata,
+		struct touch_event *current_event,
+		struct touch_event *last_event,
+		int slot)
+{
+	unsigned int del_X = 0, del_Y = 0;
+	struct qbt_touch_config_v2 *config = &drvdata->fd_touch.config;
+
+	drvdata->fd_touch.delta_X[slot] +=
+			current_event->X - last_event->X;
+	drvdata->fd_touch.delta_Y[slot] +=
+			current_event->Y - last_event->Y;
+
+	del_X = abs(drvdata->fd_touch.delta_X[slot]);
+	del_Y = abs(drvdata->fd_touch.delta_Y[slot]);
+	if (!config->rad_filter_enable ||
+			del_X > config->rad_x ||
+			del_Y > config->rad_y) {
+		drvdata->fd_touch.delta_X[slot] = 0;
+		drvdata->fd_touch.delta_Y[slot] = 0;
+		return true;
+	} else
+		return false;
+}
+
+static void qbt_touch_work_func(struct work_struct *work)
+{
+	struct qbt_drvdata *drvdata = NULL;
+	struct qbt_touch_config_v2 *config;
+	struct finger_detect_touch *fd_touch = NULL;
+	struct touch_event current_event, last_event;
+	struct fd_event finger_event;
+	struct timespec timestamp;
+	int slot = 0;
+
+	if (!work) {
+		pr_err("NULL pointer passed\n");
+		return;
+	}
+
+	drvdata = container_of(work, struct qbt_drvdata, fd_touch.work);
+	fd_touch = &drvdata->fd_touch;
+	config = &fd_touch->config;
+	finger_event.touch_valid = true;
+	for (slot = 0; slot < MT_MAX_FINGERS; slot++) {
+		memcpy(&current_event, &fd_touch->current_events[slot],
+				sizeof(current_event));
+		fd_touch->current_events[slot].updated = false;
+
+		if (!current_event.updated)
+			continue;
+
+		memcpy(&last_event, &fd_touch->last_events[slot],
+				sizeof(last_event));
+		memcpy(&fd_touch->last_events[slot], &current_event,
+				sizeof(current_event));
+
+		if (current_event.id < 0)
+			finger_event.state = QBT_EVENT_FINGER_UP;
+		else if (last_event.id < 0)
+			finger_event.state = QBT_EVENT_FINGER_DOWN;
+		else if (last_event.id == current_event.id)
+			finger_event.state = QBT_EVENT_FINGER_MOVE;
+		else {
+			pr_warn("finger up got missed, reporting finger down\n");
+			finger_event.state = QBT_EVENT_FINGER_DOWN;
+		}
+
+		if (!qbt_touch_filter_aoi_region(&current_event, config))
+			if (qbt_touch_filter_aoi_region(&last_event, config) &&
+					last_event.id >= 0)
+				finger_event.state = QBT_EVENT_FINGER_UP;
+			else
+				continue;
+		else if (!qbt_touch_filter_aoi_region(&last_event, config))
+			finger_event.state = QBT_EVENT_FINGER_DOWN;
+
+		if (finger_event.state == QBT_EVENT_FINGER_MOVE &&
+				!qbt_touch_filter_by_radius(drvdata,
+				&current_event,	&last_event, slot))
+			continue;
+
+		getnstimeofday(&timestamp);
+		finger_event.timestamp.tv_sec = timestamp.tv_sec;
+		finger_event.timestamp.tv_usec = timestamp.tv_nsec / 1000;
+
+		finger_event.id = slot;
+		finger_event.X = current_event.X;
+		finger_event.Y = current_event.Y;
+
+		qbt_fd_report_event(drvdata, &finger_event);
+	}
+	pm_relax(drvdata->dev);
+}
 
 /**
  * qbt_open() - Function called when user space opens device.
@@ -407,18 +545,8 @@ static long qbt_ioctl(
 	}
 	case QBT_CONFIGURE_TOUCH_FD:
 	{
-		if (copy_from_user(&drvdata->touch_config, priv_arg,
-			sizeof(drvdata->touch_config))
-				!= 0) {
-			rc = -EFAULT;
-			pr_err("failed copy from user space %d\n", rc);
-			goto end;
-		}
-		pr_debug("Touch FD Radius Filter enable: %d\n",
-			drvdata->touch_config.rad_filter_enable);
-		pr_debug("rad_x: %d rad_y: %d\n",
-			drvdata->touch_config.rad_x,
-			drvdata->touch_config.rad_y);
+		pr_debug("unsupported version\n");
+		rc = -EINVAL;
 		break;
 	}
 	case QBT_ACQUIRE_WAKELOCK:
@@ -438,6 +566,60 @@ static long qbt_ioctl(
 			pr_debug("Releasing wakelock\n");
 			pm_relax(drvdata->dev);
 		}
+		break;
+	}
+	case QBT_GET_TOUCH_FD_VERSION:
+	{
+		struct qbt_touch_fd_version version;
+
+		version.version = QBT_TOUCH_FD_VERSION;
+		rc = copy_to_user((void __user *)priv_arg,
+				&version, sizeof(version));
+
+		if (rc != 0) {
+			pr_err("Failed to copy touch FD version: %d\n", rc);
+			rc = -EFAULT;
+			goto end;
+		}
+
+		break;
+	}
+	case QBT_CONFIGURE_TOUCH_FD_V2:
+	{
+		if (copy_from_user(&drvdata->fd_touch.config.version,
+				priv_arg,
+				sizeof(drvdata->fd_touch.config.version))
+				!= 0) {
+			rc = -EFAULT;
+			pr_err("failed copy from user space %d\n", rc);
+			goto end;
+		}
+		if (drvdata->fd_touch.config.version.version
+				!= QBT_TOUCH_FD_VERSION) {
+			rc = -EINVAL;
+			pr_err("unsupported version %d\n",
+					drvdata->fd_touch.config.version);
+			goto end;
+		}
+		if (copy_from_user(&drvdata->fd_touch.config,
+				priv_arg,
+				sizeof(drvdata->fd_touch.config)) != 0) {
+			rc = -EFAULT;
+			pr_err("failed copy from user space %d\n", rc);
+			goto end;
+		}
+		pr_debug("Touch FD enable: %d\n",
+			drvdata->fd_touch.config.touch_fd_enable);
+		pr_debug("left: %d right: %d top: %d bottom: %d\n",
+			drvdata->fd_touch.config.left,
+			drvdata->fd_touch.config.right,
+			drvdata->fd_touch.config.top,
+			drvdata->fd_touch.config.bottom);
+		pr_debug("Radius Filter enable: %d\n",
+			drvdata->fd_touch.config.rad_filter_enable);
+		pr_debug("rad_x: %d rad_y: %d\n",
+			drvdata->fd_touch.config.rad_x,
+			drvdata->fd_touch.config.rad_y);
 		break;
 	}
 	default:
@@ -692,7 +874,7 @@ err_alloc:
 }
 
 /**
- * qbt1000_create_input_device() - Function allocates an input
+ * qbt_create_input_device() - Function allocates an input
  * device, configures it for key events and registers it
  *
  * @drvdata:	ptr to driver data
@@ -750,7 +932,7 @@ end:
 	return rc;
 }
 
-static void qbt_fd_report_event(struct qbt_drvdata *drvdata, int state)
+static void qbt_gpio_report_event(struct qbt_drvdata *drvdata, int state)
 {
 	struct fd_event event;
 	struct timespec timestamp;
@@ -778,17 +960,7 @@ static void qbt_fd_report_event(struct qbt_drvdata *drvdata, int state)
 	getnstimeofday(&timestamp);
 	event.timestamp.tv_sec = timestamp.tv_sec;
 	event.timestamp.tv_usec = timestamp.tv_nsec / 1000;
-
-	mutex_lock(&drvdata->fd_events_mutex);
-
-	if (!kfifo_put(&drvdata->fd_events, event)) {
-		pr_err("FD events fifo: error adding item\n");
-	} else {
-		pr_debug("FD event %d queued at time %lu uS\n", event.id,
-				(unsigned long)ktime_to_us(ktime_get()));
-	}
-	mutex_unlock(&drvdata->fd_events_mutex);
-	wake_up_interruptible(&drvdata->read_wait_queue_fd);
+	qbt_fd_report_event(drvdata, &event);
 }
 
 static void qbt_gpio_work_func(struct work_struct *work)
@@ -807,7 +979,7 @@ static void qbt_gpio_work_func(struct work_struct *work)
 			QBT_EVENT_FINGER_DOWN : QBT_EVENT_FINGER_UP)
 			^ drvdata->fd_gpio.active_low;
 
-	qbt_fd_report_event(drvdata, state);
+	qbt_gpio_report_event(drvdata, state);
 	pm_relax(drvdata->dev);
 }
 
@@ -1036,6 +1208,7 @@ static int qbt_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct qbt_drvdata *drvdata;
 	int rc = 0;
+	int slot = 0;
 
 	pr_debug("entry\n");
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
@@ -1084,10 +1257,15 @@ static int qbt_probe(struct platform_device *pdev)
 	if (rc < 0)
 		goto end;
 
-	rc = touch_event_register_notifier(&_input_event_notifier);
+	qbt_touch_handler.private = drvdata;
+	INIT_WORK(&drvdata->fd_touch.work, qbt_touch_work_func);
+	for (slot = 0; slot < MT_MAX_FINGERS; slot++) {
+		drvdata->fd_touch.current_events[slot].id = -1;
+		drvdata->fd_touch.last_events[slot].id = -1;
+	}
+	rc = input_register_handler(&qbt_touch_handler);
 	if (rc < 0)
-		pr_err("Touch Event Registration failed: %d\n", rc);
-	drvdata_g = drvdata;
+		pr_err("Failed to register input handler: %d\n", rc);
 
 end:
 	pr_debug("exit : %d\n", rc);
@@ -1112,8 +1290,7 @@ static int qbt_remove(struct platform_device *pdev)
 	unregister_chrdev_region(drvdata->qbt_ipc_cdev.dev, 1);
 
 	device_init_wakeup(&pdev->dev, 0);
-	touch_event_unregister_notifier(&_input_event_notifier);
-	drvdata_g = NULL;
+	input_unregister_handler(&qbt_touch_handler);
 
 	return 0;
 }
