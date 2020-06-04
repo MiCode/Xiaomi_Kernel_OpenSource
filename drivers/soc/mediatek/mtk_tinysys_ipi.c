@@ -5,6 +5,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
@@ -12,8 +13,8 @@
 #include <linux/sched/clock.h>
 #include <linux/rpmsg.h>
 #include <linux/rpmsg/mtk_rpmsg.h>
-#include <mt-plat/mtk-mbox.h>
-#include <mt-plat/mtk_tinysys_ipi.h>
+#include <linux/soc/mediatek/mtk-mbox.h>
+#include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 
 #define IPI_POLLING_INTERVAL_US    10
 #define MS_TO_US(x) ((x)*1000)
@@ -163,11 +164,6 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		return IPI_RPMSG_ERR;
 	}
 
-	if (!rpmsg_create_ept(&(mtk_rpdev->rpdev), NULL, mtk_rpchan,
-		mtk_rpchan->info)) {
-		return -EINVAL;
-	}
-
 	for (index = 0; index < ipi_chan_count; index++) {
 		snprintf(chan_name, RPMSG_NAME_SIZE, "%s_ipi#%d",
 			ipidev->name, index);
@@ -177,6 +173,8 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		ipi_chan_table[index].ept =
 			rpmsg_create_ept(&(mtk_rpdev->rpdev),
 					NULL, mtk_rpchan, mtk_rpchan->info);
+		if (!ipi_chan_table[index].ept)
+			return -EINVAL;
 		ipi_chan_table[index].ipi_stage = UNUSED;
 		ipi_chan_table[index].ipi_seqno = 0;
 		atomic_set(&ipi_chan_table[index].holder, 0);
@@ -246,6 +244,7 @@ int mtk_ipi_device_reset(struct mtk_ipi_device *ipidev)
 
 	return IPI_ACTION_DONE;
 }
+EXPORT_SYMBOL(mtk_ipi_device_reset);
 
 int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
 		mbox_pin_cb_t cb, void *prdata, void *msg)
@@ -612,3 +611,6 @@ static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
 	}
 
 }
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek Tinysys IPI driver");
