@@ -21,19 +21,10 @@
 
 #include "st_asm330lhh.h"
 
-#define ST_ASM330LHH_REG_FIFO_THL_ADDR		0x07
-#define ST_ASM330LHH_REG_FIFO_LEN_MASK		GENMASK(8, 0)
-#define ST_ASM330LHH_REG_FIFO_STATUS_DIFF	GENMASK(9, 0)
-#define ST_ASM330LHH_REG_FIFO_MODE_MASK		GENMASK(2, 0)
-#define ST_ASM330LHH_REG_DEC_TS_MASK		GENMASK(7, 6)
-#define ST_ASM330LHH_REG_HLACTIVE_ADDR		0x12
-#define ST_ASM330LHH_REG_HLACTIVE_MASK		BIT(5)
-#define ST_ASM330LHH_REG_PP_OD_ADDR		0x12
-#define ST_ASM330LHH_REG_PP_OD_MASK		BIT(4)
 #define ST_ASM330LHH_REG_FIFO_STATUS1_ADDR	0x3a
-#define ST_ASM330LHH_REG_TS0_ADDR		0x40
-#define ST_ASM330LHH_REG_TS2_ADDR		0x42
-#define ST_ASM330LHH_REG_FIFO_OUT_TAG_ADDR	0x78
+#define ST_ASM330LHH_REG_TIMESTAMP0_ADDR	0x40
+#define ST_ASM330LHH_REG_TIMESTAMP2_ADDR	0x42
+#define ST_ASM330LHH_REG_FIFO_DATA_OUT_TAG_ADDR	0x78
 
 #define ST_ASM330LHH_SAMPLE_DISCHARD           0x7ffd
 
@@ -70,8 +61,17 @@ static inline s64 st_asm330lhh_get_time_ns(void)
 enum {
 	ST_ASM330LHH_GYRO_TAG = 0x01,
 	ST_ASM330LHH_ACC_TAG = 0x02,
+#ifdef CONFIG_IIO_ST_ASM330LHH_EN_TEMPERATURE_FIFO
+	ST_ASM330LHH_TEMP_TAG = 0x03,
+#endif /* CONFIG_IIO_ST_ASM330LHH_EN_TEMPERATURE_FIFO */
 	ST_ASM330LHH_TS_TAG = 0x04,
 };
+
+/* Default timeout before to re-enable gyro */
+int delay_gyro = 10;
+module_param(delay_gyro, int, 0644);
+MODULE_PARM_DESC(delay_gyro, "Delay for Gyro arming");
+static bool delayed_enable_gyro;
 
 static inline s64 st_asm330lhh_ewma(s64 old, s64 new, int weight)
 {
@@ -84,7 +84,7 @@ static inline s64 st_asm330lhh_ewma(s64 old, s64 new, int weight)
 	return old + incr;
 }
 
-static inline int st_asm330lhh_reset_hwts(struct st_asm330lhh_hw *hw)
+inline int st_asm330lhh_reset_hwts(struct st_asm330lhh_hw *hw)
 {
 	u8 data = 0xaa;
 
@@ -97,8 +97,8 @@ static inline int st_asm330lhh_reset_hwts(struct st_asm330lhh_hw *hw)
 	if (hw->asm330_hrtimer)
 		st_asm330lhh_set_cpu_idle_state(true);
 
-	return hw->tf->write(hw->dev, ST_ASM330LHH_REG_TS2_ADDR, sizeof(data),
-			     &data);
+	return st_asm330lhh_write_atomic(hw, ST_ASM330LHH_REG_TIMESTAMP2_ADDR,
+					 sizeof(data), &data);
 }
 
 int st_asm330lhh_set_fifo_mode(struct st_asm330lhh_hw *hw,
@@ -122,26 +122,42 @@ int st_asm330lhh_set_fifo_mode(struct st_asm330lhh_hw *hw,
 	return 0;
 }
 
-static int st_asm330lhh_set_sensor_batching_odr(struct st_asm330lhh_sensor *sensor,
-						bool enable)
+int __st_asm330lhh_set_sensor_batching_odr(struct st_asm330lhh_sensor *s,
+					   bool enable)
 {
-	struct st_asm330lhh_hw *hw = sensor->hw;
+	enum st_asm330lhh_sensor_id id = s->id;
+	struct st_asm330lhh_hw *hw = s->hw;
 	u8 data = 0;
 	int err;
 
 	if (enable) {
-		err = st_asm330lhh_get_odr_val(sensor->id, sensor->odr, &data);
+		err = st_asm330lhh_get_batch_val(s, s->odr, s->uodr, &data);
 		if (err < 0)
 			return err;
 	}
 
-	return st_asm330lhh_write_with_mask(hw,
-					    sensor->batch_addr,
-					    sensor->batch_mask, data);
+	return __st_asm330lhh_write_with_mask(hw,
+				hw->odr_table_entry[id].batching_reg.addr,
+				hw->odr_table_entry[id].batching_reg.mask,
+				data);
+}
+
+static inline int
+st_asm330lhh_set_sensor_batching_odr(struct st_asm330lhh_sensor *sensor,
+				   bool enable)
+{
+	struct st_asm330lhh_hw *hw = sensor->hw;
+	int err;
+
+	mutex_lock(&hw->page_lock);
+	err = __st_asm330lhh_set_sensor_batching_odr(sensor, enable);
+	mutex_unlock(&hw->page_lock);
+
+	return err;
 }
 
 int st_asm330lhh_update_watermark(struct st_asm330lhh_sensor *sensor,
-					 u16 watermark)
+				  u16 watermark)
 {
 	u16 fifo_watermark = ST_ASM330LHH_MAX_FIFO_DEPTH, cur_watermark = 0;
 	struct st_asm330lhh_hw *hw = sensor->hw;
@@ -150,7 +166,7 @@ int st_asm330lhh_update_watermark(struct st_asm330lhh_sensor *sensor,
 	int i, err;
 	u8 data;
 
-	for (i = 0; i < ST_ASM330LHH_ID_MAX; i++) {
+	for (i = ST_ASM330LHH_ID_GYRO; i < ST_ASM330LHH_ID_MAX; i++) {
 		if (!hw->iio_devs[i])
 			continue;
 
@@ -169,16 +185,16 @@ int st_asm330lhh_update_watermark(struct st_asm330lhh_sensor *sensor,
 
 	mutex_lock(&hw->lock);
 
-	err = hw->tf->read(hw->dev, ST_ASM330LHH_REG_FIFO_THL_ADDR + 1,
-			   sizeof(data), &data);
+	err = st_asm330lhh_read_atomic(hw, ST_ASM330LHH_REG_FIFO_CTRL1_ADDR + 1,
+				     sizeof(data), &data);
 	if (err < 0)
 		goto out;
 
-	fifo_watermark = ((data << 8) & ~ST_ASM330LHH_REG_FIFO_LEN_MASK) |
-			 (fifo_watermark & ST_ASM330LHH_REG_FIFO_LEN_MASK);
+	fifo_watermark = ((data << 8) & ~ST_ASM330LHH_REG_FIFO_WTM_MASK) |
+			 (fifo_watermark & ST_ASM330LHH_REG_FIFO_WTM_MASK);
 	wdata = cpu_to_le16(fifo_watermark);
-	err = hw->tf->write(hw->dev, ST_ASM330LHH_REG_FIFO_THL_ADDR,
-			    sizeof(wdata), (u8 *)&wdata);
+	err = st_asm330lhh_write_atomic(hw, ST_ASM330LHH_REG_FIFO_CTRL1_ADDR,
+				      sizeof(wdata), (u8 *)&wdata);
 
 out:
 	mutex_unlock(&hw->lock);
@@ -186,8 +202,8 @@ out:
 	return err < 0 ? err : 0;
 }
 
-static struct iio_dev *st_asm330lhh_get_iiodev_from_tag(struct st_asm330lhh_hw *hw,
-							u8 tag)
+static struct
+iio_dev *st_asm330lhh_get_iiodev_from_tag(struct st_asm330lhh_hw *hw, u8 tag)
 {
 	struct iio_dev *iio_dev;
 
@@ -198,6 +214,11 @@ static struct iio_dev *st_asm330lhh_get_iiodev_from_tag(struct st_asm330lhh_hw *
 	case ST_ASM330LHH_ACC_TAG:
 		iio_dev = hw->iio_devs[ST_ASM330LHH_ID_ACC];
 		break;
+#ifdef CONFIG_IIO_ST_ASM330LHH_EN_TEMPERATURE_FIFO
+	case ST_ASM330LHH_TEMP_TAG:
+		iio_dev = hw->iio_devs[ST_ASM330LHH_ID_TEMP];
+		break;
+#endif /* CONFIG_IIO_ST_ASM330LHH_EN_TEMPERATURE_FIFO */
 	default:
 		iio_dev = NULL;
 		break;
@@ -277,11 +298,11 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 	u8 buf[30 * ST_ASM330LHH_FIFO_SAMPLE_SIZE], tag, *ptr;
 	int i, err, word_len, fifo_len, read_len;
 	struct iio_dev *iio_dev;
-	struct st_asm330lhh_sensor *sensor;
 	s64 ts_irq, hw_ts_old;
 	__le16 fifo_status;
 	u16 fifo_depth;
 	s16 drdymask;
+	s64 delta;
 	u32 val;
 
 	/* return if FIFO is already disabled */
@@ -305,17 +326,21 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 
 	fifo_len = fifo_depth * ST_ASM330LHH_FIFO_SAMPLE_SIZE;
 	read_len = 0;
+
+	delta = div_s64(hw->delta_ts, fifo_depth);
+
 	while (read_len < fifo_len) {
 		word_len = min_t(int, fifo_len - read_len, sizeof(buf));
 		err = st_asm330lhh_read_atomic(hw,
-					     ST_ASM330LHH_REG_FIFO_OUT_TAG_ADDR,
-					     word_len, buf);
+				ST_ASM330LHH_REG_FIFO_DATA_OUT_TAG_ADDR,
+				word_len, buf);
 		if (err < 0)
 			return err;
+
 		for (i = 0; i < word_len; i += ST_ASM330LHH_FIFO_SAMPLE_SIZE) {
 			ptr = &buf[i + ST_ASM330LHH_TAG_SIZE];
 			tag = buf[i] >> 3;
-
+			ts_irq += delta;
 			if (tag == ST_ASM330LHH_TS_TAG) {
 				val = get_unaligned_le32(ptr);
 
@@ -326,49 +351,41 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 
 				/* check hw rollover */
 				hw->val_ts_old = val;
-				hw->hw_ts = (val + ((s64)hw->hw_ts_high <<
-							32)) * hw->ts_delta_ns;
-				hw->ts_offset = st_asm330lhh_ewma(hw->ts_offset,
-						ts_irq - hw->hw_ts,
-						ST_ASM330LHH_EWMA_LEVEL);
+				hw->hw_ts = (val +
+					     ((s64)hw->hw_ts_high << 32)) *
+					     hw->ts_delta_ns;
 
 				if (!test_bit(ST_ASM330LHH_HW_FLUSH,
 							&hw->state))
 					/* sync ap timestamp and sensor one */
 					st_asm330lhh_sync_hw_ts(hw, ts_irq);
-
-				ts_irq += hw->hw_ts;
-
-				if (!hw->tsample)
-					hw->tsample = hw->ts_offset + hw->hw_ts;
-				else
-					hw->tsample = hw->tsample +
-						hw->hw_ts - hw_ts_old;
 			} else {
+				s64 ts;
+				struct st_asm330lhh_sensor *sensor;
+
 				iio_dev = st_asm330lhh_get_iiodev_from_tag(hw,
 						tag);
 				if (!iio_dev)
 					continue;
-				sensor = iio_priv(iio_dev);
 
 				/* skip samples if not ready */
-				drdymask = (s16)le16_to_cpu(
-						get_unaligned_le16(ptr));
+				drdymask = (s16)le16_to_cpu(get_unaligned_le16(
+							ptr));
 				if (unlikely(drdymask
 					>= ST_ASM330LHH_SAMPLE_DISCHARD)) {
 					continue;
 				}
+
+				sensor = iio_priv(iio_dev);
 				memcpy(iio_buf, ptr, ST_ASM330LHH_SAMPLE_SIZE);
 
-				hw->tsample = min_t(s64,
-						    hw->ts,
-						    hw->tsample);
-
+				ts = hw->hw_ts + hw->ts_offset;
 				iio_push_to_buffers_with_timestamp(iio_dev,
 								   iio_buf,
-								   hw->tsample);
+								   ts);
 				store_acc_gyro_boot_sample(sensor,
-						iio_buf, hw->tsample);
+						iio_buf, ts);
+				sensor->last_fifo_timestamp = ts;
 			}
 		}
 		read_len += word_len;
@@ -380,14 +397,15 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 ssize_t st_asm330lhh_get_max_watermark(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", ST_ASM330LHH_MAX_FIFO_DEPTH);
+	struct st_asm330lhh_sensor *sensor = iio_priv(dev_get_drvdata(dev));
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", sensor->max_watermark);
 }
 
 ssize_t st_asm330lhh_get_watermark(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct iio_dev *iio_dev = dev_get_drvdata(dev);
-	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
+	struct st_asm330lhh_sensor *sensor = iio_priv(dev_get_drvdata(dev));
 
 	return sprintf(buf, "%d\n", sensor->watermark);
 }
@@ -403,11 +421,9 @@ ssize_t st_asm330lhh_set_watermark(struct device *dev,
 	if (asm330_check_acc_gyro_early_buff_enable_flag(sensor))
 		return -EBUSY;
 
-	mutex_lock(&iio_dev->mlock);
-	if (iio_buffer_enabled(iio_dev)) {
-		err = -EBUSY;
-		goto out;
-	}
+	err = iio_device_claim_direct_mode(iio_dev);
+	if (err)
+		return err;
 
 	err = kstrtoint(buf, 10, &val);
 	if (err < 0)
@@ -420,7 +436,7 @@ ssize_t st_asm330lhh_set_watermark(struct device *dev,
 	sensor->watermark = val;
 
 out:
-	mutex_unlock(&iio_dev->mlock);
+	iio_device_release_direct_mode(iio_dev);
 
 	return err < 0 ? err : size;
 }
@@ -435,6 +451,7 @@ ssize_t st_asm330lhh_flush_fifo(struct device *dev,
 	s64 event;
 	int count;
 	s64 type;
+	s64 fts;
 	s64 ts;
 
 	mutex_lock(&hw->fifo_lock);
@@ -444,11 +461,16 @@ ssize_t st_asm330lhh_flush_fifo(struct device *dev,
 	set_bit(ST_ASM330LHH_HW_FLUSH, &hw->state);
 	count = st_asm330lhh_read_fifo(hw);
 	mutex_unlock(&hw->fifo_lock);
+	if (count > 0)
+		fts = sensor->last_fifo_timestamp;
+	else
+		fts = ts;
 
-	type = count > 0 ? CUSTOM_IIO_EV_DIR_FIFO_DATA : CUSTOM_IIO_EV_DIR_FIFO_EMPTY;
+	type = count > 0 ? CUSTOM_IIO_EV_DIR_FIFO_DATA :
+		CUSTOM_IIO_EV_DIR_FIFO_EMPTY;
 	event = IIO_UNMOD_EVENT_CODE(iio_dev->channels[0].type, -1,
 				     CUSTOM_IIO_EV_TYPE_FIFO_FLUSH, type);
-	iio_push_event(iio_dev, event, st_asm330lhh_get_time_ns());
+	iio_push_event(iio_dev, event, fts);
 
 	return size;
 }
@@ -465,13 +487,35 @@ int st_asm330lhh_suspend_fifo(struct st_asm330lhh_hw *hw)
 	return err;
 }
 
+int st_asm330lhh_update_batching(struct iio_dev *iio_dev, bool enable)
+{
+	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
+	struct st_asm330lhh_hw *hw = sensor->hw;
+	int err;
+
+	disable_irq(hw->irq);
+	err = st_asm330lhh_set_sensor_batching_odr(sensor, enable);
+	enable_irq(hw->irq);
+
+	return err;
+}
+
 int st_asm330lhh_update_fifo(struct iio_dev *iio_dev, bool enable)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
 	struct st_asm330lhh_hw *hw = sensor->hw;
 	int err;
 
-	mutex_lock(&hw->fifo_lock);
+	if (sensor->id == ST_ASM330LHH_ID_GYRO && !enable)
+		delayed_enable_gyro = true;
+
+	if (sensor->id == ST_ASM330LHH_ID_GYRO &&
+	    enable && delayed_enable_gyro) {
+		delayed_enable_gyro = false;
+		msleep(delay_gyro);
+	}
+
+	disable_irq(hw->irq);
 
 	err = st_asm330lhh_sensor_set_enable(sensor, enable);
 	if (err < 0)
@@ -480,6 +524,39 @@ int st_asm330lhh_update_fifo(struct iio_dev *iio_dev, bool enable)
 	err = st_asm330lhh_set_sensor_batching_odr(sensor, enable);
 	if (err < 0)
 		goto out;
+
+#ifdef CONFIG_IIO_ST_ASM330LHH_EN_TEMPERATURE_FIFO
+	/*
+	 * This is an auxiliary sensor, it need to get batched
+	 * toghether at least with a primary sensor (Acc/Gyro).
+	 */
+	if (sensor->id == ST_ASM330LHH_ID_TEMP) {
+		if (!(hw->enable_mask & (BIT(ST_ASM330LHH_ID_ACC) |
+					 BIT(ST_ASM330LHH_ID_GYRO)))) {
+			struct st_asm330lhh_sensor *acc_sensor;
+			u8 data = 0;
+
+			acc_sensor = iio_priv(hw->
+					iio_devs[ST_ASM330LHH_ID_ACC]);
+			if (enable) {
+				err = st_asm330lhh_get_batch_val(acc_sensor,
+						sensor->odr, sensor->uodr,
+						&data);
+				if (err < 0)
+					goto out;
+			}
+
+			err = st_asm330lhh_write_with_mask(hw,
+					hw->odr_table_entry[
+					ST_ASM330LHH_ID_ACC].batching_reg.addr,
+					hw->odr_table_entry[
+					ST_ASM330LHH_ID_ACC].batching_reg.mask,
+					data);
+			if (err < 0)
+				goto out;
+		}
+	}
+#endif /* CONFIG_IIO_ST_ASM330LHH_EN_TEMPERATURE_FIFO */
 
 	err = st_asm330lhh_update_watermark(sensor, sensor->watermark);
 	if (err < 0)
@@ -493,7 +570,7 @@ int st_asm330lhh_update_fifo(struct iio_dev *iio_dev, bool enable)
 	}
 
 out:
-	mutex_unlock(&hw->fifo_lock);
+	enable_irq(hw->irq);
 
 	return err;
 }
@@ -527,7 +604,7 @@ static irqreturn_t st_asm330lhh_handler_thread(int irq, void *private)
 	return IRQ_HANDLED;
 }
 
-static int st_asm330lhh_buffer_preenable(struct iio_dev *iio_dev)
+static int st_asm330lhh_fifo_preenable(struct iio_dev *iio_dev)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
 
@@ -537,7 +614,7 @@ static int st_asm330lhh_buffer_preenable(struct iio_dev *iio_dev)
 		return st_asm330lhh_update_fifo(iio_dev, true);
 }
 
-static int st_asm330lhh_buffer_postdisable(struct iio_dev *iio_dev)
+static int st_asm330lhh_fifo_postdisable(struct iio_dev *iio_dev)
 {
 	struct st_asm330lhh_sensor *sensor = iio_priv(iio_dev);
 
@@ -547,18 +624,26 @@ static int st_asm330lhh_buffer_postdisable(struct iio_dev *iio_dev)
 		return st_asm330lhh_update_fifo(iio_dev, false);
 }
 
-static const struct iio_buffer_setup_ops st_asm330lhh_buffer_ops = {
-	.preenable = st_asm330lhh_buffer_preenable,
-	.postdisable = st_asm330lhh_buffer_postdisable,
+static const struct iio_buffer_setup_ops st_asm330lhh_fifo_ops = {
+	.preenable = st_asm330lhh_fifo_preenable,
+	.postdisable = st_asm330lhh_fifo_postdisable,
 };
+
+static int st_asm330lhh_enable_timestamp(struct st_asm330lhh_hw *hw,
+					 bool enable)
+{
+	return st_asm330lhh_write_with_mask(hw,
+					    ST_ASM330LHH_REG_FIFO_CTRL4_ADDR,
+					    ST_ASM330LHH_REG_DEC_TS_MASK,
+					    enable == true ? 1 : 0);
+}
 
 static int st_asm330lhh_fifo_init(struct st_asm330lhh_hw *hw)
 {
-	return st_asm330lhh_write_with_mask(hw, ST_ASM330LHH_REG_FIFO_CTRL4_ADDR,
-					    ST_ASM330LHH_REG_DEC_TS_MASK, 1);
+	return st_asm330lhh_enable_timestamp(hw, true);
 }
 
-int st_asm330lhh_fifo_setup(struct st_asm330lhh_hw *hw)
+int st_asm330lhh_buffers_setup(struct st_asm330lhh_hw *hw)
 {
 	struct device_node *np = hw->dev->of_node;
 	struct iio_buffer *buffer;
@@ -584,16 +669,17 @@ int st_asm330lhh_fifo_setup(struct st_asm330lhh_hw *hw)
 		return -EINVAL;
 	}
 
-	err = st_asm330lhh_write_with_mask(hw, ST_ASM330LHH_REG_HLACTIVE_ADDR,
-					   ST_ASM330LHH_REG_HLACTIVE_MASK,
-					   irq_active_low);
+	err = st_asm330lhh_write_with_mask(hw, ST_ASM330LHH_REG_CTRL3_C_ADDR,
+					 ST_ASM330LHH_REG_H_LACTIVE_MASK,
+					 irq_active_low);
 	if (err < 0)
 		return err;
 
-	if (np && of_property_read_bool(np, "drive-open-drain")) {
+	if (device_property_read_bool(hw->dev, "drive-open-drain")) {
 		err = st_asm330lhh_write_with_mask(hw,
-					ST_ASM330LHH_REG_PP_OD_ADDR,
-					ST_ASM330LHH_REG_PP_OD_MASK, 1);
+					ST_ASM330LHH_REG_CTRL3_C_ADDR,
+					ST_ASM330LHH_REG_PP_OD_MASK,
+					1);
 		if (err < 0)
 			return err;
 
@@ -615,7 +701,7 @@ int st_asm330lhh_fifo_setup(struct st_asm330lhh_hw *hw)
 		return err;
 	}
 
-	for (i = ST_ASM330LHH_ID_ACC; i < ST_ASM330LHH_ID_MAX; i++) {
+	for (i = 0; i < ST_ASM330LHH_ID_MAX; i++) {
 		if (!hw->iio_devs[i])
 			continue;
 
@@ -625,7 +711,7 @@ int st_asm330lhh_fifo_setup(struct st_asm330lhh_hw *hw)
 
 		iio_device_attach_buffer(hw->iio_devs[i], buffer);
 		hw->iio_devs[i]->modes |= INDIO_BUFFER_SOFTWARE;
-		hw->iio_devs[i]->setup_ops = &st_asm330lhh_buffer_ops;
+		hw->iio_devs[i]->setup_ops = &st_asm330lhh_fifo_ops;
 	}
 
 	return st_asm330lhh_fifo_init(hw);
