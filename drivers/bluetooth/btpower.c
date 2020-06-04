@@ -43,7 +43,7 @@ static struct bt_power_vreg_data bt_power_vreg_info[] = {
 	{NULL, "qcom,bt-vdd-dig", 950000, 952000, 0, false, true},
 	{NULL, "qcom,bt-vdd-rfa1", 1900000, 1900000, 0, false, true},
 	{NULL, "qcom,bt-vdd-rfa2", 1900000, 1900000, 0, false, true},
-	{NULL, "qcom,bt-vdd-asd", 0, 0, 0, false, false},
+	{NULL, "qcom,bt-vdd-asd", 2800000, 2800000, 0, false, true},
 };
 
 #define BT_VREG_INFO_SIZE ARRAY_SIZE(bt_power_vreg_info)
