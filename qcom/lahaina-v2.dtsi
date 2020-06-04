@@ -26,6 +26,22 @@
 	/delete-node/ qcom,pll-supply-entries;
 };
 
+&c400_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&c500_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&c600_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
+&c700_scandump {
+	qcom,dump-size = <0x22800>;
+};
+
 &pcie0 {
 	qcom,pcie-phy-ver = <20099>;
 	qcom,phy-sequence = <0x0240 0x03 0x0

@@ -4611,22 +4611,22 @@
 			qcom,dump-id = <0x133>;
 		};
 
-		c400_scandump {
+		c400_scandump: c400_scandump {
 			qcom,dump-size = <0x1a4c0>;
 			qcom,dump-id = <0x134>;
 		};
 
-		c500_scandump {
+		c500_scandump: c500_scandump {
 			qcom,dump-size = <0x1a4c0>;
 			qcom,dump-id = <0x135>;
 		};
 
-		c600_scandump {
+		c600_scandump: c600_scandump {
 			qcom,dump-size = <0x1a4c0>;
 			qcom,dump-id = <0x136>;
 		};
 
-		c700_scandump {
+		c700_scandump: c700_scandump {
 			qcom,dump-size = <0x1a4c0>;
 			qcom,dump-id = <0x137>;
 		};
