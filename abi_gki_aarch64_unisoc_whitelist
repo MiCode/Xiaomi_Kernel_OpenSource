@@ -2135,17 +2135,6 @@
 # required by aes-ce-ccm.ko
   ce_aes_expandkey
 
-# required by i2c-dev.ko
-  bus_register_notifier
-  bus_unregister_notifier
-  i2c_adapter_type
-  i2c_bus_type
-  i2c_for_each_dev
-  i2c_get_adapter
-  i2c_put_adapter
-  i2c_smbus_xfer
-  i2c_verify_client
-
 # required by xt_TEE.ko
   static_key_slow_dec
   static_key_slow_inc

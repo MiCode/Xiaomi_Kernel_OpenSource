@@ -719,22 +719,6 @@
   i2c_del_adapter
   i2c_parse_fw_timings
 
-# required by i2c-dev.ko
-  bus_register_notifier
-  bus_unregister_notifier
-  cdev_add
-  cdev_del
-  device_for_each_child
-  i2c_adapter_type
-  i2c_bus_type
-  i2c_for_each_dev
-  i2c_get_adapter
-  i2c_put_adapter
-  i2c_smbus_xfer
-  i2c_transfer_buffer_flags
-  i2c_verify_client
-  register_chrdev_region
-
 # required by hisi_powerkey.ko
   devm_input_allocate_device
   devm_request_any_context_irq
