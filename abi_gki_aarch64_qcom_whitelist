@@ -139,6 +139,7 @@
   cfg80211_connect_done
   cfg80211_del_sta_sinfo
   cfg80211_disconnected
+  cfg80211_external_auth_request
   cfg80211_ft_event
   cfg80211_get_bss
   cfg80211_gtk_rekey_notify
@@ -1386,6 +1387,7 @@
   netif_napi_add
   netif_napi_del
   netif_receive_skb
+  netif_receive_skb_list
   netif_rx
   netif_rx_ni
   netif_schedule_queue
