@@ -568,7 +568,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler   = proc_dointvec_minmax,
 		.extra1		= &zero,
-		.extra2		= &two,
+		.extra2		= &four,
 	},
 	{
 		.procname	= "walt_rtg_cfs_boost_prio",
