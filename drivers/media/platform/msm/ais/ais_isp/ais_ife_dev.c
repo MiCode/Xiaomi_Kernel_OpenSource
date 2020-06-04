@@ -139,26 +139,23 @@ static int ais_ife_cmd_reserve(struct ais_ife_dev *p_ife_dev,
 
 	rc = csid_drv->hw_ops.init(
 		csid_drv->hw_priv, rdi_init, cmd_size);
-	if (!rc) {
-		rc = vfe_drv->hw_ops.init(
-			vfe_drv->hw_priv, rdi_init, cmd_size);
-		if (rc)
-			goto fail_vfe_init;
-	}
+	if (rc)
+		goto fail_csid_init;
 
-	if (!rc) {
-		rc = csid_drv->hw_ops.reserve(
+	rc = vfe_drv->hw_ops.init(
+			vfe_drv->hw_priv, rdi_init, cmd_size);
+	if (rc)
+		goto fail_vfe_init;
+
+	rc = csid_drv->hw_ops.reserve(
 			csid_drv->hw_priv, rdi_init, cmd_size);
-		if (rc)
-			goto fail_csid_reserve;
-	}
+	if (rc)
+		goto fail_csid_reserve;
 
-	if (!rc) {
-		rc = vfe_drv->hw_ops.reserve(
+	rc = vfe_drv->hw_ops.reserve(
 			vfe_drv->hw_priv, rdi_init, cmd_size);
-		if (rc)
-			goto fail_vfe_reserve;
-	}
+	if (rc)
+		goto fail_vfe_reserve;
 
 	return rc;
 
@@ -171,7 +168,7 @@ fail_csid_reserve:
 fail_vfe_init:
 	csid_drv->hw_ops.deinit(
 		csid_drv->hw_priv, &rdi_deinit, sizeof(rdi_deinit));
-
+fail_csid_init:
 	return rc;
 }
 
@@ -189,6 +186,7 @@ static int ais_ife_cmd_release(struct ais_ife_dev *p_ife_dev,
 
 	rc = csid_drv->hw_ops.release(
 		csid_drv->hw_priv, rdi_deinit, cmd_size);
+
 	tmp = vfe_drv->hw_ops.release(
 		vfe_drv->hw_priv, rdi_deinit, cmd_size);
 	if (!rc)
@@ -313,17 +311,19 @@ static int ais_ife_driver_cmd(struct ais_ife_dev *p_ife_dev, void *arg)
 				cmd->size)) {
 			rc = -EFAULT;
 		} else {
-			rc = csid_drv->hw_ops.start(
-				csid_drv->hw_priv, &rdi_start, cmd->size);
+			rc = vfe_drv->hw_ops.start(vfe_drv->hw_priv,
+				&rdi_start, cmd->size);
 			if (!rc) {
-				struct ais_ife_rdi_stop_args rdi_stop;
+				rc = csid_drv->hw_ops.start(
+					csid_drv->hw_priv, &rdi_start,
+					cmd->size);
+				if (rc) {
+					struct ais_ife_rdi_stop_args rdi_stop;
 
-				rdi_stop.path = rdi_start.path;
-				rc = vfe_drv->hw_ops.start(vfe_drv->hw_priv,
-					&rdi_start, cmd->size);
-				if (rc)
-					csid_drv->hw_ops.stop(csid_drv->hw_priv,
+					rdi_stop.path = rdi_start.path;
+					vfe_drv->hw_ops.stop(vfe_drv->hw_priv,
 						&rdi_stop, sizeof(rdi_stop));
+				}
 			}
 		}
 	}
@@ -341,10 +341,10 @@ static int ais_ife_driver_cmd(struct ais_ife_dev *p_ife_dev, void *arg)
 		} else {
 			int tmp;
 
-			rc = vfe_drv->hw_ops.stop(
-				vfe_drv->hw_priv, &rdi_stop, cmd->size);
-			tmp = csid_drv->hw_ops.stop(
+			rc = csid_drv->hw_ops.stop(
 				csid_drv->hw_priv, &rdi_stop, cmd->size);
+			tmp = vfe_drv->hw_ops.stop(
+				vfe_drv->hw_priv, &rdi_stop, cmd->size);
 			if (!rc)
 				rc = tmp;
 		}
