@@ -14,6 +14,7 @@
 
 enum hh_irq_label {
 	HH_IRQ_LABEL_SDE,
+	HH_IRQ_LABEL_TRUSTED_TOUCH,
 	HH_IRQ_LABEL_MAX
 };
 
