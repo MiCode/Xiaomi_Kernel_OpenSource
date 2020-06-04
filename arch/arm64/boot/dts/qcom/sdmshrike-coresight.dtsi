@@ -1085,4 +1085,26 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 	};
+
+	hwevent: hwevent@91866f0 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0x091866f0 0x4>,
+			<0x91966f0 0x4>,
+			<0x9186038 0x4>,
+			<0x9196038 0x4>,
+			<0x17e00034 0x4>,
+			<0x18200050 0x80>,
+			<0x02c8d050 0x80>,
+			<0x0af20050 0x80>;
+		reg-names = "ddr-ch0-cfg", "ddr-ch23-cfg", "ddr-ch0-ctrl",
+			    "ddr-ch23-ctrl", "apss-testbus-mux-cfg",
+			    "apss-rsc-hwevent-mux0-select",
+			    "gpu-rsc-hwevent-mux0-select",
+			    "sde-rsc-hwevent-mux0-select";
+
+		coresight-name = "coresight-hwevent";
+		coresight-csr = <&csr>;
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
 };
