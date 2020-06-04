@@ -1497,7 +1497,7 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 
 	plat_priv = pci_priv->plat_priv;
 
-	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
+	if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state) ||
 	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
 	    test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state)) {
 		cnss_pr_dbg("Skip driver remove\n");
@@ -1843,10 +1843,12 @@ retry:
 		if (ret)
 			goto stop_mhi;
 	} else if (timeout) {
-		if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
-			timeout = timeout << 1;
+		if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state))
+			timeout += WLAN_COLD_BOOT_CAL_TIMEOUT;
+		else
+			timeout += WLAN_DRIVER_LOAD_TIMEOUT;
 		mod_timer(&plat_priv->fw_boot_timer,
-			  jiffies + msecs_to_jiffies(timeout << 1));
+			  jiffies + msecs_to_jiffies(timeout));
 	}
 
 	return 0;
@@ -2133,14 +2135,26 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 		return -EEXIST;
 	}
 
-	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+	if (!plat_priv->cbc_enabled ||
+	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
 		goto register_driver;
 
-	cnss_pr_dbg("Start to wait for calibration to complete\n");
+	/* If enabled Cold Boot Calibration is the 1st step in init sequence.
+	 * CBC is done on file system_ready trigger. Qcacld should be loaded
+	 * from init.target.rc after that. Reject qcacld load from
+	 * vendor_modprobe.sh at early boot to satisfy this requirement.
+	 */
+	if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Start to wait for calibration to complete\n");
+	} else {
+		cnss_pr_err("Reject WLAN Driver insmod before CBC\n");
+		return -EPERM;
+	}
 
 	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
 	ret = wait_for_completion_timeout(&plat_priv->cal_complete,
-					  msecs_to_jiffies(timeout) << 2);
+					  WLAN_COLD_BOOT_CAL_TIMEOUT +
+					  msecs_to_jiffies(timeout));
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
 		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
@@ -2156,12 +2170,11 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 				       0, cal_info);
 	}
 
+register_driver:
 	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
 		cnss_pr_dbg("Reboot or shutdown is in progress, ignore register driver\n");
 		return -EINVAL;
 	}
-
-register_driver:
 	reinit_completion(&plat_priv->power_up_complete);
 	ret = cnss_driver_event_post(plat_priv,
 				     CNSS_DRIVER_EVENT_REGISTER_DRIVER,
@@ -3222,7 +3235,7 @@ void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return;
 
-	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state)) {
 		cnss_pr_dbg("Ignore FW ready timeout for calibration mode\n");
 		return;
 	}
