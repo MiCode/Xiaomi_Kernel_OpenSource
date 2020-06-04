@@ -13,12 +13,15 @@
 #include <linux/if_vlan.h>
 
 #include "ipa_eth_i.h"
+#include "ipa_eth_trace.h"
 
 static void handle_ipa_receive(struct ipa_eth_channel *ch,
 			       unsigned long data)
 {
 	bool success = false;
 	struct sk_buff *skb = (struct sk_buff *) data;
+
+	trace_lan_rx_skb(ch, skb);
 
 	ch->exception_total++;
 

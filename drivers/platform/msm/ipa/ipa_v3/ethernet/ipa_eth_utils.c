@@ -59,6 +59,27 @@ const char *ipa_eth_net_device_event_name(unsigned long event)
 	return name;
 }
 
+static const char * const
+		ipa_eth_pm_notifier_events[IPA_ETH_PM_NOTIFIER_MAX_EVENTS] = {
+	[PM_HIBERNATION_PREPARE] = "HIBERNATION_PREPARE",
+	[PM_POST_HIBERNATION] = "POST_HIBERNATION",
+	[PM_SUSPEND_PREPARE] = "SUSPEND_PREPARE",
+	[PM_POST_SUSPEND] = "POST_SUSPEND",
+	[PM_RESTORE_PREPARE] = "RESTORE_PREPARE",
+	[PM_POST_RESTORE] = "POST_RESTORE",
+};
+
+const char *ipa_eth_pm_notifier_event_name(unsigned long event)
+{
+	const char *name = "<unknown>";
+
+	if (event < IPA_ETH_PM_NOTIFIER_MAX_EVENTS &&
+			ipa_eth_pm_notifier_events[event])
+		name = ipa_eth_pm_notifier_events[event];
+
+	return name;
+}
+
 static void __ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
 
 static int ipa_eth_send_ecm_msg(struct net_device *net_dev,
