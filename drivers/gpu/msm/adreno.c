@@ -1783,11 +1783,11 @@ static bool regulators_left_on(struct kgsl_device *device)
 	if (gmu_core_gpmu_isenabled(device))
 		return false;
 
-	if (!IS_ERR(pwr->cx_gdsc))
+	if (!IS_ERR_OR_NULL(pwr->cx_gdsc))
 		if (regulator_is_enabled(pwr->cx_gdsc))
 			return true;
 
-	if (!IS_ERR(pwr->gx_gdsc))
+	if (!IS_ERR_OR_NULL(pwr->gx_gdsc))
 		return regulator_is_enabled(pwr->gx_gdsc);
 
 	return false;

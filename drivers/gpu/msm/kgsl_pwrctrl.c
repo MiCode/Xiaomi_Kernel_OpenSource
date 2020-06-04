@@ -1305,7 +1305,7 @@ static int enable_regulator(struct device *dev, struct regulator *regulator,
 {
 	int ret;
 
-	if (IS_ERR(regulator))
+	if (IS_ERR_OR_NULL(regulator))
 		return 0;
 
 	ret = regulator_enable(regulator);
@@ -1547,8 +1547,11 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
-	pwr->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
-	pwr->gx_gdsc = devm_regulator_get(&pdev->dev, "vdd");
+	if (of_property_read_bool(pdev->dev.of_node, "vddcx-supply"))
+		pwr->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
+
+	if (of_property_read_bool(pdev->dev.of_node, "vdd-supply"))
+		pwr->gx_gdsc = devm_regulator_get(&pdev->dev, "vdd");
 
 	pwr->power_flags = 0;
 
