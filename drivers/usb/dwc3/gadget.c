@@ -1558,6 +1558,7 @@ static void __dwc3_gadget_start_isoc(struct dwc3_ep *dep)
 static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 {
 	struct dwc3		*dwc = dep->dwc;
+	int ret = 0;
 
 	if (!dep->endpoint.desc || !dwc->pullups_connected) {
 		dev_err_ratelimited(dwc->dev, "%s: can't queue to disabled endpoint\n",
@@ -1604,7 +1605,11 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		}
 	}
 
-	return __dwc3_gadget_kick_transfer(dep);
+	ret = __dwc3_gadget_kick_transfer(dep);
+	if (ret < 0)
+		list_del_init(&req->list);
+
+	return ret;
 }
 
 static int dwc3_gadget_wakeup(struct usb_gadget *g)
