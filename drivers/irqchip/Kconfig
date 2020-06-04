@@ -572,4 +572,16 @@ config LOONGSON_PCH_MSI
 	help
 	  Support for the Loongson PCH MSI Controller.
 
+config MTK_SYSIRQ
+	tristate "Mediatek interrupt polarity controller"
+	help
+	  Interrupt polarity controller driver to swap polarity for
+	  interrupts for Mediatek mobile chips.
+
+config MTK_CIRQ
+	bool "Mediatek low-power interrupt controller"
+	help
+	  Low-power interrupt controller driver to monitor IRQS
+	  in the sleep mode for Mediatek mobile chips.
+
 endmenu
