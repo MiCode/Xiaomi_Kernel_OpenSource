@@ -6,9 +6,10 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
-#include <mt-plat/mtk-mbox.h>
+#include <linux/soc/mediatek/mtk-mbox.h>
 
 /*
  * memory copy to tiny
@@ -97,6 +98,7 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_write_hd);
 
 /*
  * read data from mbox with ipi msg header
@@ -144,6 +146,7 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_read_hd);
 
 /*
  * write data to mbox, function must in critical context
@@ -225,6 +228,7 @@ int mtk_mbox_read(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_read);
 
 /*
  * clear mbox irq,
@@ -246,6 +250,7 @@ int mtk_mbox_clr_irq(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_clr_irq);
 
 /*
  * trigger mbox irq,
@@ -336,6 +341,7 @@ unsigned int mtk_mbox_read_recv_irq(struct mtk_mbox_device *mbdev,
 
 	return reg;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_read_recv_irq);
 
 /*
  * set mbox base address to init register
@@ -358,6 +364,7 @@ int mtk_mbox_set_base_reg(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_set_base_reg);
 
 /*
  * set mbox base address, task context
@@ -391,6 +398,7 @@ int mtk_mbox_set_base_addr(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_set_base_addr);
 
 /*
  * mtk_mbox_cb_register, register callback function
@@ -410,6 +418,7 @@ int mtk_mbox_cb_register(struct mtk_mbox_device *mbdev, unsigned int pin_offset,
 
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_cb_register);
 
 /*
  * mbox polling, context is protected by mbox_lock
@@ -480,7 +489,6 @@ static void mtk_mbox_set_lock(struct mtk_mbox_device *mbdev, unsigned int lock)
 		pin_recv->lock = lock;
 	}
 }
-
 
 /*
  * mbox driver isr, in isr context
@@ -662,6 +670,7 @@ int mtk_smem_init(struct platform_device *pdev, struct mtk_mbox_device *mbdev,
 smem_fail:
 	return MBOX_CONFIG_ERR;
 }
+EXPORT_SYMBOL_GPL(mtk_smem_init);
 
 /*
  * mtk_mbox_probe , porbe and initial mbox
@@ -780,6 +789,7 @@ void mtk_mbox_print_recv(struct mtk_mbox_device *mbdev,
 		, pin_recv->recv_record.pre_timestamp
 		, pin_recv->recv_record.post_timestamp);
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_print_recv);
 
 /*
  *mbox print send pin function
@@ -796,6 +806,7 @@ void mtk_mbox_print_send(struct mtk_mbox_device *mbdev,
 		, pin_send->pin_index
 		, pin_send->chan_id);
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_print_send);
 
 /*
  *mbox print mbox function
@@ -821,7 +832,7 @@ void mtk_mbox_print_minfo(struct mtk_mbox_device *mbdev,
 		, minfo->record.busy_count
 		, minfo->record.trig_irq_count);
 }
-
+EXPORT_SYMBOL_GPL(mtk_mbox_print_minfo);
 
 /*
  *mbox information dump
@@ -854,7 +865,7 @@ void mtk_mbox_dump_all(struct mtk_mbox_device *mbdev)
 		mtk_mbox_print_minfo(mbdev, minfo);
 	}
 }
-
+EXPORT_SYMBOL_GPL(mtk_mbox_dump_all);
 
 /*
  *mbox single receive pin information dump
@@ -870,6 +881,7 @@ void mtk_mbox_dump_recv(struct mtk_mbox_device *mbdev, unsigned int pin)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_dump_recv);
 
 /*
  *mbox single receive pin information dump
@@ -902,6 +914,7 @@ void mtk_mbox_dump_send(struct mtk_mbox_device *mbdev, unsigned int pin)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_dump_send);
 
 /*
  *mbox single mbox information dump
@@ -917,6 +930,7 @@ void mtk_mbox_dump(struct mtk_mbox_device *mbdev, unsigned int mbox)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_dump);
 
 /*
  *mbox log enable function
@@ -929,6 +943,7 @@ int mtk_mbox_log_enable(struct mtk_mbox_device *mbdev, bool enable)
 	mbdev->log_enable = enable;
 	return MBOX_DONE;
 }
+EXPORT_SYMBOL_GPL(mtk_mbox_log_enable);
 
 /*
  *mbox reset record
@@ -961,3 +976,6 @@ void mtk_mbox_reset_record(struct mtk_mbox_device *mbdev)
 
 }
 EXPORT_SYMBOL_GPL(mtk_mbox_reset_record);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek Tinysys Mbox driver");

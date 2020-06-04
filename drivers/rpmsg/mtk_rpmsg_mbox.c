@@ -9,9 +9,10 @@
  */
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 #include "rpmsg_internal.h"
-#include <mt-plat/mtk-mbox.h>
+#include <linux/soc/mediatek/mtk-mbox.h>
 #include <linux/rpmsg/mtk_rpmsg.h>
 
 #define to_mtk_rpmsg_device(r) container_of(r, struct mtk_rpmsg_device, rpdev)
@@ -248,5 +249,5 @@ mtk_rpmsg_create_device(struct platform_device *pdev,
 EXPORT_SYMBOL_GPL(mtk_rpmsg_create_device);
 
 
-//MODULE_LICENSE("GPL v2");
-//MODULE_DESCRIPTION("MediaTek rpmsg driver");
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek rpmsg driver");

@@ -7,7 +7,7 @@
 #define __MTK_TINYSYS_IPI_H__
 
 #include <linux/platform_device.h>
-#include <mt-plat/mtk-mbox.h>
+#include <linux/soc/mediatek/mtk-mbox.h>
 
 
 #define IPI_SEND_WAIT       0
