@@ -114,9 +114,9 @@
 #define WAIT_XFER_MAX_ITER	(2)
 #define WAIT_XFER_MAX_TIMEOUT_US	(10000)
 #define WAIT_XFER_MIN_TIMEOUT_US	(9000)
-#define IPC_LOG_PWR_PAGES	(6)
-#define IPC_LOG_MISC_PAGES	(10)
-#define IPC_LOG_TX_RX_PAGES	(10)
+#define IPC_LOG_PWR_PAGES	(10)
+#define IPC_LOG_MISC_PAGES	(30)
+#define IPC_LOG_TX_RX_PAGES	(30)
 #define DATA_BYTES_PER_LINE	(32)
 
 #define M_IRQ_BITS		(M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN |\
@@ -189,6 +189,7 @@ struct msm_geni_serial_port {
 	void *ipc_log_misc;
 	void *console_log;
 	void *ipc_log_single;
+	void *ipc_log_irqstatus;
 	unsigned int cur_baud;
 	int ioctl_count;
 	int edge_count;
@@ -1944,6 +1945,12 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 		dma_rx_status = geni_read_reg_nolog(uport->membase,
 							SE_DMA_RX_IRQ_STAT);
 
+		if (m_irq_status || s_irq_status ||
+				dma_tx_status || dma_rx_status)
+			IPC_LOG_MSG(msm_port->ipc_log_irqstatus,
+				    "%s: sirq:0x%x mirq:0x%x dma_txirq:0x%x dma_rxirq:0x%x\n",
+				    __func__, s_irq_status, m_irq_status,
+				    dma_tx_status, dma_rx_status);
 		if (dma_tx_status) {
 
 			geni_write_reg_nolog(dma_tx_status, uport->membase,
@@ -2895,7 +2902,7 @@ static void console_unregister(struct uart_driver *drv)
 static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	char name[30];
+	char name[35];
 
 	msm_port->dbg = debugfs_create_dir(dev_name(uport->dev), NULL);
 	if (IS_ERR_OR_NULL(msm_port->dbg))
@@ -2947,6 +2954,15 @@ static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 					IPC_LOG_MISC_PAGES, name, 0);
 			if (!msm_port->ipc_log_single)
 				dev_info(uport->dev, "Err in single IPC Log\n");
+		}
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_irqstatus) {
+			scnprintf(name, sizeof(name), "%s%s",
+					dev_name(uport->dev), "_irqstatus");
+			msm_port->ipc_log_irqstatus = ipc_log_context_create(
+					IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_irqstatus)
+				dev_info(uport->dev, "Err in irqstatus IPC Log\n");
 		}
 	} else {
 		memset(name, 0, sizeof(name));
