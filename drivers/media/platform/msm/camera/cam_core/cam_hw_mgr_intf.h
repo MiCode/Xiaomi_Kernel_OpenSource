@@ -235,6 +235,8 @@ struct cam_hw_config_args {
  * @num_req_active:        Num request to flush, valid when flush type is REQ
  * @flush_req_active:      Request active pointers to flush
  * @flush_type:            The flush type
+ * @last_flush_req:        last flush req_id notified to hw_mgr for the
+ *                         given stream
  *
  */
 struct cam_hw_flush_args {
@@ -244,6 +246,7 @@ struct cam_hw_flush_args {
 	uint32_t                        num_req_active;
 	void                           *flush_req_active[20];
 	enum flush_type_t               flush_type;
+	uint32_t                        last_flush_req;
 };
 
 /**
