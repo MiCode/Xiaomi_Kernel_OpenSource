@@ -209,6 +209,14 @@
 						<&funnel_qatb_out_funnel_in0>;
 				};
 			};
+
+			port@2 {
+				reg = <7>;
+				funnel_in0_in_stm: endpoint {
+					slave-mode;
+					remote-endpoint = <&stm_out_funnel_in0>;
+				};
+			};
 		};
 	};
 
@@ -1289,6 +1297,27 @@
 		port {
 			tpdm_ddr_out_funnel_ddr_0: endpoint {
 				remote-endpoint = <&funnel_ddr_0_in_tpdm_ddr>;
+			};
+		};
+	};
+
+	stm: stm@6002000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b962>;
+
+		reg = <0x6002000 0x1000>,
+		      <0x16280000 0x180000>,
+		      <0x7820f0 0x4>;
+		reg-names = "stm-base", "stm-stimulus-base", "stm-debug-status";
+
+		coresight-name = "coresight-stm";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+
+		port {
+			stm_out_funnel_in0: endpoint {
+				remote-endpoint = <&funnel_in0_in_stm>;
 			};
 		};
 	};
