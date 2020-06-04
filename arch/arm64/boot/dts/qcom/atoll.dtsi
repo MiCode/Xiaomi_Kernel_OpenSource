@@ -3595,7 +3595,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			qcom,speed-bin = <172>;
+			qcom,speed-bin = <174>;
 
 			qcom,initial-pwrlevel = <6>;
 			qcom,ca-target-pwrlevel = <5>;
