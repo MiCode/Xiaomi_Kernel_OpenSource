@@ -370,4 +370,5 @@
 	status = "okay";
 };
 
+#include "mediatek/cust_mt6873_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
