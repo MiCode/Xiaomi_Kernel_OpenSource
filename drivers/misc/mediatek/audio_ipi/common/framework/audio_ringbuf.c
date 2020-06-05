@@ -565,9 +565,18 @@ void dynamic_change_ring_buf_size(
 		data_count = audio_ringbuf_count(rb);
 		free_space = audio_ringbuf_free_space(rb);
 
-		if ((free_space  <       write_size) ||
-		    (free_space  > (8 * (data_count + write_size)))) {
-			change_size  = (2 * (data_count + write_size));
+		if (free_space < write_size) {
+			change_size = data_count + free_space;
+			while ((change_size - data_count) < write_size)
+				change_size *= 2;
+		} else if (free_space > (8 * (data_count + write_size))) {
+			change_size = data_count + free_space;
+			while ((change_size - data_count) >
+			       (8 * (data_count + write_size)))
+				change_size /= 2;
+		}
+
+		if (change_size) {
 			change_size += MAX_SIZE_OF_ONE_FRAME;
 
 			pr_info("%s(), %p: %u -> %u, data_count %u, write_size %u, free_space %u\n",
