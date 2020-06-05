@@ -743,7 +743,7 @@ static int compat_fastrpc_get_dsp_info(struct file *filp,
 		unsigned long arg)
 {
 	struct compat_fastrpc_ioctl_capability __user *info32;
-	struct fastrpc_ioctl_capability *info;
+	struct fastrpc_ioctl_capability __user *info;
 	compat_uint_t u;
 	long ret;
 	int err = 0;
@@ -756,6 +756,10 @@ static int compat_fastrpc_get_dsp_info(struct file *filp,
 
 	err = get_user(u, &info32->domain);
 	err |= put_user(u, &info->domain);
+
+	err = get_user(u, &info32->attribute_ID);
+	err |= put_user(u, &info->attribute_ID);
+
 	if (err)
 		return err;
 

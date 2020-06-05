@@ -3591,7 +3591,7 @@ static int fastrpc_get_info_from_kernel(
 	 * kernel
 	 */
 	if (cap->attribute_ID >= FASTRPC_MAX_ATTRIBUTES) {
-		err = EOVERFLOW;
+		err = -EOVERFLOW;
 		cap->capability = 0;
 		goto bail;
 	}
