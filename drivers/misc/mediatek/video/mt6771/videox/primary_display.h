@@ -183,7 +183,11 @@ struct disp_mem_output_config {
 	struct disp_ccorr_config m_ccorr_config;
 };
 
+#if IS_ENABLED(CONFIG_MTK_GMO_RAM_OPTIMIZE)
+#define DISP_INTERNAL_BUFFER_COUNT 1
+#else
 #define DISP_INTERNAL_BUFFER_COUNT 3
+#endif
 
 struct disp_internal_buffer_info {
 	struct list_head list;
