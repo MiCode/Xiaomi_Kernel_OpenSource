@@ -30,7 +30,6 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_rect.o \
 		  mtk_drm_mmp.o \
 		  mtk_drm_trace.o \
-		  mtk_panel_ext.o \
 		  mtk_drm_helper.o \
 		  mtk_drm_lowpower.o \
 		  mtk_disp_postmask.o \
@@ -50,6 +49,8 @@ endif
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
 
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
+
+obj-$(CONFIG_DRM_MEDIATEK) += mtk_panel_ext.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\

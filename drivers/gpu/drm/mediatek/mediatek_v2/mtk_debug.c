@@ -44,6 +44,7 @@
 static struct dentry *mtkfb_dbgfs;
 static struct drm_device *drm_dev;
 bool g_mobile_log;
+EXPORT_SYMBOL(g_mobile_log);
 bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
@@ -280,6 +281,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...)
 
 	return n;
 }
+EXPORT_SYMBOL(mtk_dprec_logger_pr);
 
 int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 			     int len)

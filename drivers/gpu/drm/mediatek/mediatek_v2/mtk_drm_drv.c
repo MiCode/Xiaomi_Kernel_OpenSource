@@ -2307,7 +2307,7 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	mtk_fbdev_fini(drm);
 	drm_kms_helper_poll_fini(drm);
 
-	drm_vblank_cleanup(drm);
+	//drm_vblank_cleanup(drm);
 	component_unbind_all(drm->dev, drm);
 	drm_mode_config_cleanup(drm);
 
@@ -2986,8 +2986,8 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_rdma_driver,
 	&mtk_disp_wdma_driver,
 	&mtk_disp_rsz_driver,
-	&mtk_dsi_driver,
 	&mtk_mipi_tx_driver,
+	&mtk_dsi_driver,
 #ifdef CONFIG_DRM_MEDIATEK_HDMI
 	&mtk_dpi_driver,
 	&mtk_lvds_driver,

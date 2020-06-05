@@ -42,6 +42,7 @@ void mtk_panel_remove(struct mtk_panel_ctx *ctx)
 	list_del_init(&ctx->list);
 	mutex_unlock(&panel_ext_lock);
 }
+EXPORT_SYMBOL(mtk_panel_remove);
 
 int mtk_panel_attach(struct mtk_panel_ctx *ctx, struct drm_panel *panel)
 {
@@ -65,6 +66,7 @@ int mtk_panel_tch_handle_reg(struct drm_panel *panel)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_panel_tch_handle_reg);
 
 void **mtk_panel_tch_handle_init(void)
 {
@@ -84,6 +86,7 @@ int mtk_panel_tch_rst(struct drm_panel *panel)
 
 	return ret;
 }
+EXPORT_SYMBOL(mtk_panel_tch_rst);
 
 int mtk_panel_detach(struct mtk_panel_ctx *ctx)
 {
@@ -91,6 +94,7 @@ int mtk_panel_detach(struct mtk_panel_ctx *ctx)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_panel_detach);
 
 int mtk_panel_ext_create(struct device *dev,
 			 struct mtk_panel_params *ext_params,
@@ -118,10 +122,10 @@ int mtk_panel_ext_create(struct device *dev,
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_panel_ext_create);
 
-struct mtk_panel_ext *find_panel_ext(struct drm_panel *panel)
+struct mtk_panel_ctx *find_panel_ctx(struct drm_panel *panel)
 {
-	//	struct mtk_panel_ext *ext;
 	struct mtk_panel_ctx *ctx;
 
 	mutex_lock(&panel_ext_lock);
@@ -129,10 +133,26 @@ struct mtk_panel_ext *find_panel_ext(struct drm_panel *panel)
 	list_for_each_entry(ctx, &panel_ext_list, list) {
 		if (ctx->panel == panel) {
 			mutex_unlock(&panel_ext_lock);
-			return ctx->ext;
+			return ctx;
 		}
 	}
 
 	mutex_unlock(&panel_ext_lock);
 	return NULL;
 }
+EXPORT_SYMBOL(find_panel_ctx);
+
+struct mtk_panel_ext *find_panel_ext(struct drm_panel *panel)
+{
+	struct mtk_panel_ctx *ctx = find_panel_ctx(panel);
+
+	if (ctx)
+		return ctx->ext;
+
+	return NULL;
+}
+EXPORT_SYMBOL(find_panel_ext);
+
+MODULE_AUTHOR("Tai-Hua Tseng <tai-hua.tseng@mediatek.com>");
+MODULE_DESCRIPTION("MTK DRM panel infrastructure");
+MODULE_LICENSE("GPL v2");

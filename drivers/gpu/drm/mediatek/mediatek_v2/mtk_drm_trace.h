@@ -19,8 +19,8 @@ extern bool g_trace_log;
 #define mtk_drm_trace_begin(fmt, args...) do { \
 	if (g_trace_log) { \
 		preempt_disable(); \
-		event_trace_printk(mtk_drm_get_tracing_mark(), \
-			"B|%d|"fmt"\n", current->tgid, ##args); \
+		/* event_trace_printk(mtk_drm_get_tracing_mark(), */ \
+			/* "B|%d|"fmt"\n", current->tgid, ##args); */ \
 		preempt_enable();\
 	} \
 } while (0)
@@ -28,7 +28,7 @@ extern bool g_trace_log;
 #define mtk_drm_trace_end() do { \
 	if (g_trace_log) { \
 		preempt_disable(); \
-		event_trace_printk(mtk_drm_get_tracing_mark(), "E\n"); \
+		/* event_trace_printk(mtk_drm_get_tracing_mark(), "E\n"); */ \
 		preempt_enable(); \
 	} \
 } while (0)
@@ -36,8 +36,8 @@ extern bool g_trace_log;
 #define mtk_drm_trace_c(fmt, args...) do { \
 	if (g_trace_log) { \
 		preempt_disable(); \
-		event_trace_printk(mtk_drm_get_tracing_mark(), \
-			"C|"fmt"\n", ##args); \
+		/* event_trace_printk(mtk_drm_get_tracing_mark(), */ \
+			/* "C|"fmt"\n", ##args); */ \
 		preempt_enable();\
 	} \
 } while (0)

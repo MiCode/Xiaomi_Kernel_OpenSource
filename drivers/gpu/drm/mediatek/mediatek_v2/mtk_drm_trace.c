@@ -13,7 +13,7 @@
 #include "mtk_drm_drv.h"
 
 #ifdef DRM_MMPATH
-#include "mmpath.h"
+//#include "mmpath.h"
 #endif
 
 unsigned long mtk_drm_get_tracing_mark(void)
@@ -29,8 +29,8 @@ unsigned long mtk_drm_get_tracing_mark(void)
 static void drm_print_trace(const char *tag, int value)
 {
 	preempt_disable();
-	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-		DRM_TRACE_ID, tag, value);
+	//event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+	//	DRM_TRACE_ID, tag, value);
 	preempt_enable();
 }
 
@@ -47,10 +47,10 @@ void drm_trace_tag_end(const char *tag)
 void drm_trace_tag_mark(const char *tag)
 {
 	preempt_disable();
-	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-		DRM_TRACE_ID, tag, 1);
-	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-		DRM_TRACE_ID, tag, 0);
+	// event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+	//	DRM_TRACE_ID, tag, 1);
+	//event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+	//	DRM_TRACE_ID, tag, 0);
 	preempt_enable();
 }
 
@@ -88,8 +88,9 @@ void mtk_drm_refresh_tag_start(struct mtk_ddp_comp *ddp_comp)
 		sprintf(tag_name,
 			crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
 		preempt_disable();
-		event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-				   DRM_TRACE_FPS_ID, tag_name, 1);
+		//  event_trace_printk(mtk_drm_get_tracing_mark(),
+		//		"C|%d|%s|%d\n", DRM_TRACE_FPS_ID,
+		//		tag_name, 1);
 		preempt_enable();
 	}
 }
@@ -111,8 +112,8 @@ void mtk_drm_refresh_tag_end(struct mtk_ddp_comp *ddp_comp)
 	crtc_idx = drm_crtc_index(&mtk_crtc->base);
 	sprintf(tag_name, crtc_idx ? "ExtDispRefresh" : "PrimDispRefresh");
 	preempt_disable();
-	event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
-				DRM_TRACE_FPS_ID, tag_name, 0);
+	// event_trace_printk(mtk_drm_get_tracing_mark(), "C|%d|%s|%d\n",
+	//			DRM_TRACE_FPS_ID, tag_name, 0);
 	preempt_enable();
 }
 
@@ -137,7 +138,7 @@ void MMPathTraceOVL2DSI(struct mtk_ddp_comp *ddp_comp)
 
 	n += scnprintf(str + n, strlen - n, "out=DISP_DSI");
 
-	trace_MMPath(str);
+	//trace_MMPath(str);
 }
 
 void MMPathTraceRDMA2DSI(struct mtk_ddp_comp *ddp_comp)
@@ -152,7 +153,7 @@ void MMPathTraceRDMA2DSI(struct mtk_ddp_comp *ddp_comp)
 
 	n += scnprintf(str + n, strlen - n, "out=DISP_DSI");
 
-	trace_MMPath(str);
+	//trace_MMPath(str);
 }
 
 void MMPathTraceOVL2WDMA(struct mtk_ddp_comp *ddp_comp)
@@ -171,7 +172,7 @@ void MMPathTraceOVL2WDMA(struct mtk_ddp_comp *ddp_comp)
 
 	n = MMPathTraceWDMA(ddp_comp, str, strlen, n);
 
-	trace_MMPath(str);
+	//trace_MMPath(str);
 }
 
 void MMPathTraceDRM(struct mtk_ddp_comp *ddp_comp)
