@@ -1173,6 +1173,9 @@ static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (ret) {
 
 		buf_size = min(count - 1, (sizeof(buf) - 1));
+		if (buf_size < 0)
+			return -EINVAL;
+
 		buf[buf_size] = 0;
 
 		pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
