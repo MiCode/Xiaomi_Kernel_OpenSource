@@ -32,7 +32,16 @@ int qseecom_shutdown_app(struct qseecom_handle **handle);
 int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 			uint32_t sbuf_len, void *resp_buf, uint32_t rbuf_len);
 int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high);
+#if IS_ENABLED(CONFIG_QSEECOM)
 int qseecom_process_listener_from_smcinvoke(uint32_t *result,
 					u64 *response_type, unsigned int *data);
+#else
+int qseecom_process_listener_from_smcinvoke(uint32_t *result,
+					u64 *response_type, unsigned int *data)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+
 
 #endif /* __QSEECOM_KERNEL_H_ */
