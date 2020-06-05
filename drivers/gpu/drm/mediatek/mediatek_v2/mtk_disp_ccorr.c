@@ -504,6 +504,7 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 		DDPINFO("%s: trigger refresh when backlight ON/Off", __func__);
 	}
 }
+EXPORT_SYMBOL(disp_pq_notify_backlight_changed);
 
 static int disp_ccorr_set_coef(
 	const struct DRM_DISP_CCORR_COEF_T *user_color_corr,

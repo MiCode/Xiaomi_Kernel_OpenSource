@@ -319,6 +319,7 @@ void mtk_panel_remove(struct mtk_panel_ctx *ctx);
 int mtk_panel_attach(struct mtk_panel_ctx *ctx, struct drm_panel *panel);
 int mtk_panel_detach(struct mtk_panel_ctx *ctx);
 struct mtk_panel_ext *find_panel_ext(struct drm_panel *panel);
+struct mtk_panel_ctx *find_panel_ctx(struct drm_panel *panel);
 int mtk_panel_ext_create(struct device *dev,
 			 struct mtk_panel_params *ext_params,
 			 struct mtk_panel_funcs *ext_funcs,
