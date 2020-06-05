@@ -14,6 +14,10 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
 
+ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/fhctl_ipidebug_enable),)
+ccflags-y += -DIPI_FHCTL_MONITOR
+endif
+
 ifeq ($(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
