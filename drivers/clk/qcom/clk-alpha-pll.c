@@ -136,6 +136,9 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_STATUS] = 0x30,
 		[PLL_OFF_OPMODE] = 0x38,
 		[PLL_OFF_ALPHA_VAL] = 0x40,
+		[PLL_OFF_SSC_DELTA_ALPHA] = 0x48,
+		[PLL_OFF_SSC_NUM_STEPS] = 0x4C,
+		[PLL_OFF_SSC_UPDATE_RATE] = 0x50,
 	},
 	[CLK_ALPHA_PLL_TYPE_ZONDA] =  {
 		[PLL_OFF_L_VAL] = 0x04,
@@ -148,6 +151,8 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_TEST_CTL_U] = 0x20,
 		[PLL_OFF_TEST_CTL_U1] = 0x24,
 		[PLL_OFF_OPMODE] = 0x28,
+		[PLL_OFF_SSC_DELTA_ALPHA] = 0x2C,
+		[PLL_OFF_SSC_UPDATE_RATE] =  0x30,
 		[PLL_OFF_STATUS] = 0x38,
 	},
 	[CLK_ALPHA_PLL_TYPE_LUCID_5LPE] = {
@@ -165,6 +170,9 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_STATUS] = 0x30,
 		[PLL_OFF_OPMODE] = 0x38,
 		[PLL_OFF_ALPHA_VAL] = 0x40,
+		[PLL_OFF_SSC_DELTA_ALPHA] = 0x48,
+		[PLL_OFF_SSC_NUM_STEPS] = 0x4C,
+		[PLL_OFF_SSC_UPDATE_RATE] = 0x50,
 	},
 	[CLK_ALPHA_PLL_TYPE_ZONDA_5LPE] = {
 		[PLL_OFF_L_VAL] = 0x04,
@@ -177,6 +185,8 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_TEST_CTL_U] = 0x20,
 		[PLL_OFF_TEST_CTL_U1] = 0x24,
 		[PLL_OFF_OPMODE] = 0x28,
+		[PLL_OFF_SSC_DELTA_ALPHA] = 0x2C,
+		[PLL_OFF_SSC_UPDATE_RATE] =  0x30,
 		[PLL_OFF_STATUS] = 0x38,
 	},
 	[CLK_ALPHA_PLL_TYPE_REGERA] =  {
@@ -1800,6 +1810,8 @@ static void clk_alpha_pll_zonda_list_registers(struct seq_file *f,
 		{"PLL_TEST_CTL_U1", PLL_OFF_TEST_CTL_U1},
 		{"PLL_OPMODE", PLL_OFF_OPMODE},
 		{"PLL_STATUS", PLL_OFF_STATUS},
+		{"PLL_SSC_DELTA_ALPHA", PLL_OFF_SSC_DELTA_ALPHA},
+		{"PLL_SSC_UPDATE_RATE", PLL_OFF_SSC_UPDATE_RATE},
 	};
 
 	static struct clk_register_data data1[] = {
@@ -3067,6 +3079,9 @@ static void lucid_pll_list_registers(struct seq_file *f,
 		{"PLL_STATUS", PLL_OFF_STATUS},
 		{"PLL_OPMODE", PLL_OFF_OPMODE},
 		{"PLL_ALPHA_VAL", PLL_OFF_ALPHA_VAL},
+		{"PLL_SSC_DELTA_ALPHA", PLL_OFF_SSC_DELTA_ALPHA},
+		{"PLL_SSC_NUM_STEPS", PLL_OFF_SSC_NUM_STEPS},
+		{"PLL_SSC_UPDATE_RATE", PLL_OFF_SSC_UPDATE_RATE},
 	};
 
 	static struct clk_register_data data1[] = {
