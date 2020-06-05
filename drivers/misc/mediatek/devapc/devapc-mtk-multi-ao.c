@@ -819,21 +819,19 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	if (dbg_stat->enable_ut)
 		id = DEVAPC_SUBSYS_TEST;
 
-	if (id != DEVAPC_SUBSYS_RESERVED) {
-		list_for_each_entry(viocb, &viocb_list, list) {
-			if (viocb->id == id && viocb->debug_dump)
-				viocb->debug_dump();
+	list_for_each_entry(viocb, &viocb_list, list) {
+		if (viocb->id == id && viocb->debug_dump)
+			viocb->debug_dump();
 
-			/* call MD cb_adv if it's registered */
-			if (viocb->id == id && id == INFRA_SUBSYS_MD &&
-					viocb->debug_dump_adv)
-				ret_cb = viocb->debug_dump_adv(vio_addr);
+		/* call MD cb_adv if it's registered */
+		if (viocb->id == id && id == INFRA_SUBSYS_MD &&
+				viocb->debug_dump_adv)
+			ret_cb = viocb->debug_dump_adv(vio_addr);
 
-			/* always call clkmgr cb if it's registered */
-			if (viocb->id == DEVAPC_SUBSYS_CLKMGR &&
-					viocb->debug_dump)
-				viocb->debug_dump();
-		}
+		/* always call clkmgr cb if it's registered */
+		if (viocb->id == DEVAPC_SUBSYS_CLKMGR &&
+				viocb->debug_dump)
+			viocb->debug_dump();
 	}
 
 	/* Severity level */
