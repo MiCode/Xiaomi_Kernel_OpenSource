@@ -143,6 +143,15 @@ config EXTCON_SM5502
 	  Silicon Mitus SM5502. The SM5502 is a USB port accessory
 	  detector and switch.
 
+config EXTCON_USB_CHG
+	tristate "USB Charger extcon support"
+	depends on GPIOLIB || COMPILE_TEST
+	help
+	  Say Y here to enable charger detection extcon support
+	  But the driver do not send VBUS event, MTK charger
+	  would do the Job
+	  Used typically if GPIO is used for USB ID pin detection
+
 config EXTCON_USB_GPIO
 	tristate "USB GPIO extcon support"
 	depends on GPIOLIB || COMPILE_TEST
