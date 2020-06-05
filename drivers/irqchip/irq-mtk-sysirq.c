@@ -260,13 +260,7 @@ static int __init mtk_sysirq_module_init(void)
 	return mtk_sysirq_of_init(node, gic_node);
 }
 
-static void __exit mtk_sysirq_module_exit(void)
-{
-	pr_warn("sysirq should not be unloaded\n");
-}
-
 module_init(mtk_sysirq_module_init);
-module_exit(mtk_sysirq_module_exit);
 
 MODULE_LICENSE("GPL v2");
 #endif
