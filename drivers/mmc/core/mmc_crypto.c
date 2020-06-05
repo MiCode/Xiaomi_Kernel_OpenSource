@@ -256,7 +256,7 @@ static const struct keyslot_mgmt_ll_ops mmc_ksm_ops = {
 int mmc_init_crypto_spec(struct mmc_host *host,
 				const struct keyslot_mgmt_ll_ops *ksm_ops)
 {
-	int err;
+	int err = 0;
 	u32 count;
 	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX];
 
