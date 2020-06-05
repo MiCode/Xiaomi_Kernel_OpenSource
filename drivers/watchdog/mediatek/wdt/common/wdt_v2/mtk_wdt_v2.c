@@ -656,10 +656,18 @@ void wdt_arch_reset(char mode)
 	 *	MTK_WDT_LATCH_CTL);
 	 */
 
+	/*
+	 * case1: status is cleared in ATF, this step is redundent
+	 * case2: status is not cleared in ATF, this step can backup
+	 *	   its value
+	 */
+	mt_reg_sync_writel(__raw_readl(MTK_WDT_STATUS) |
+		__raw_readl(MTK_WDT_NONRST_REG), MTK_WDT_NONRST_REG);
+
+	/* dump RGU registers */
+	wdt_dump_reg();
+
 	mt_reg_sync_writel(wdt_mode_val, MTK_WDT_MODE);
-	mt_reg_sync_writel(__raw_readl(MTK_WDT_STATUS), MTK_WDT_NONRST_REG);
-	pr_info("wdt_status before %s %x\n", __func__,
-		 __raw_readl(MTK_WDT_STATUS));
 
 	if (__raw_readl(MTK_WDT_STATUS) == 0) {
 		pr_info("Normal boot disable koro\n");
@@ -684,11 +692,7 @@ void wdt_arch_reset(char mode)
 		mtk_dbgtop_dram_reserved(0);
 	} else {
 		mtk_rgu_pause_dvfsrc(1);
-		mt_reg_sync_writel(__raw_readl(MTK_WDT_NONRST_REG2) |
-			MTK_WDT_NONRST2_VPROC_BEFORE, MTK_WDT_NONRST_REG2);
 		dfd_workaround();
-		mt_reg_sync_writel(__raw_readl(MTK_WDT_NONRST_REG2) |
-			MTK_WDT_NONRST2_VPROC_AFTER, MTK_WDT_NONRST_REG2);
 	}
 
 	udelay(100);
@@ -697,17 +701,8 @@ void wdt_arch_reset(char mode)
 
 	__inner_flush_dcache_all();
 
-	mt_reg_sync_writel(__raw_readl(MTK_WDT_NONRST_REG2) |
-		MTK_WDT_NONRST2_FLUSH_AFTER, MTK_WDT_NONRST_REG2);
-
-	/* dump RGU registers */
-	wdt_dump_reg();
-
 	/* delay awhile to make above dump as complete as possible */
 	udelay(100);
-
-	mt_reg_sync_writel(__raw_readl(MTK_WDT_NONRST_REG2) |
-		MTK_WDT_NONRST2_RST_LAST, MTK_WDT_NONRST_REG2);
 
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
 	if (rst_mode == WDT_RST_MODE_PMIC &&
