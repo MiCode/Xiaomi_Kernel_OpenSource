@@ -10,7 +10,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/module.h>
 
@@ -2265,7 +2264,7 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(dev, "devm_request_irq fail: %d\n", ret);
 
-	pm_runtime_enable(dev);
+	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
 	do {
@@ -2309,7 +2308,7 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	ret = component_add(dev, &mtk_disp_aal_component_ops);
 	if (ret) {
 		dev_err(dev, "Failed to add component: %d\n", ret);
-		pm_runtime_disable(dev);
+		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -2325,10 +2324,7 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 	struct mtk_disp_aal *priv = dev_get_drvdata(&pdev->dev);
 
 	component_del(&pdev->dev, &mtk_disp_aal_component_ops);
-	pm_runtime_disable(&pdev->dev);
-
-	if (priv->dre3_hw.dev)
-		pm_runtime_disable(priv->dre3_hw.dev);
+	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	mtk_leds_unregister_notifier(&leds_init_notifier);

@@ -9,7 +9,6 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk_drm_crtc.h"
@@ -426,12 +425,12 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	pm_runtime_enable(dev);
+	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
 	ret = component_add(dev, &mtk_disp_dither_component_ops);
 	if (ret != 0) {
 		dev_err(dev, "Failed to add component: %d\n", ret);
-		pm_runtime_disable(dev);
+		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 	DDPINFO("%s-\n", __func__);
 
@@ -440,9 +439,11 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 
 static int mtk_disp_dither_remove(struct platform_device *pdev)
 {
-	component_del(&pdev->dev, &mtk_disp_dither_component_ops);
+	struct mtk_disp_dither *priv = dev_get_drvdata(&pdev->dev);
 
-	pm_runtime_disable(&pdev->dev);
+	component_del(&pdev->dev, &mtk_disp_dither_component_ops);
+	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
+
 	return 0;
 }
 

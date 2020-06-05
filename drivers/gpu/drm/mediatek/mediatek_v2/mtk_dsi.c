@@ -694,6 +694,9 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		else
 			mtk_mipi_tx_dphy_lane_config(dsi->phy, dsi->ext);
 		}
+
+	pm_runtime_get_sync(dsi->host.dev);
+
 	phy_power_on(dsi->phy);
 
 	ret = clk_prepare_enable(dsi->engine_clk);
@@ -734,6 +737,7 @@ err_disable_engine_clk:
 	clk_disable_unprepare(dsi->engine_clk);
 err_phy_power_off:
 	phy_power_off(dsi->phy);
+	pm_runtime_put_sync(dsi->host.dev);
 err_refcount:
 	dsi->clk_refcnt--;
 	return ret;
@@ -1362,6 +1366,7 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 	clk_disable_unprepare(dsi->engine_clk);
 	clk_disable_unprepare(dsi->digital_clk);
 	phy_power_off(dsi->phy);
+	pm_runtime_put_sync(dsi->host.dev);
 	DDPDBG("%s -\n", __func__);
 }
 
@@ -4866,8 +4871,13 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	}
 
 	init_waitqueue_head(&dsi->irq_wait_queue);
+
+	pm_runtime_enable(dev);
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* set ccf reference cnt = 1 */
+	pm_runtime_get_sync(dev);
+
 	phy_power_on(dsi->phy);
 	ret = clk_prepare_enable(dsi->engine_clk);
 	if (ret < 0)
@@ -4883,9 +4893,17 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	dsi->clk_refcnt = 1;
 
 	platform_set_drvdata(pdev, dsi);
-	DDPINFO("%s-\n", __func__);
 
-	return component_add(&pdev->dev, &mtk_dsi_component_ops);
+	ret = component_add(&pdev->dev, &mtk_dsi_component_ops);
+	if (ret != 0) {
+		dev_err(dev, "Failed to add component: %d\n", ret);
+		pm_runtime_disable(dev);
+
+		goto error;
+	}
+
+	DDPINFO("%s-\n", __func__);
+	return ret;
 
 error:
 	mipi_dsi_host_unregister(&dsi->host);
@@ -4898,6 +4916,8 @@ static int mtk_dsi_remove(struct platform_device *pdev)
 
 	mtk_output_dsi_disable(dsi, false);
 	component_del(&pdev->dev, &mtk_dsi_component_ops);
+
+	mtk_ddp_comp_pm_disable(&dsi->ddp_comp);
 
 	return 0;
 }
