@@ -182,7 +182,7 @@ static ssize_t rawbulk_attr_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	int n;
-	int idx;
+	int idx = 0;
 	int enab;
 	struct rawbulk_function *fn;
 	ssize_t count = 0;
