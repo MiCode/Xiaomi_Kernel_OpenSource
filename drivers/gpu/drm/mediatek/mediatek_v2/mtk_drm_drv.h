@@ -88,9 +88,6 @@ struct mtk_drm_private {
 	struct drm_device *drm;
 	struct device *dma_dev;
 	struct device *mmsys_dev;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct ion_client *client;
-#endif
 
 	struct drm_crtc *crtc[MAX_CRTC];
 	unsigned int num_pipes;

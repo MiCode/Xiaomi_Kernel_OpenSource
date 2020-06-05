@@ -341,10 +341,7 @@ struct mtk_fence_buf_info *mtk_init_buf_info(struct mtk_fence_buf_info *buf)
 {
 	INIT_LIST_HEAD(&buf->list);
 	buf->fence = MTK_INVALID_FENCE_FD;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	buf->client = NULL;
-	buf->hnd = NULL;
-#endif
+	buf->buf_hnd = NULL;
 	buf->idx = 0;
 	buf->mva = 0;
 	buf->layer_type = 0;
@@ -442,11 +439,11 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		layer_info->fence_fd = buf->fence;
 
 		list_del_init(&buf->list);
-#ifdef CONFIG_MTK_IOMMU_V2
-		if (buf->hnd)
-			mtk_drm_gem_ion_free_handle(buf->client, buf->hnd,
+
+		if (buf->buf_hnd)
+			mtk_drm_gem_ion_free_handle(buf->buf_hnd,
 					__func__, __LINE__);
-#endif
+
 		ion_release_count++;
 
 		/* we must use another mutex for buffer list*/
@@ -466,7 +463,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 			 mtk_fence_session_mode_spy(session_id),
 			 MTK_SESSION_DEV(session_id), layer_id, fence,
 			 current_timeline_idx, layer_info->fence_idx,
-			 buf->idx, buf->hnd);
+			 buf->idx, buf->buf_hnd);
 
 		/* print mmp log for primary display */
 		if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
@@ -687,9 +684,6 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	struct fence_data data;
 	struct mtk_fence_info *layer_info = NULL;
 	struct mtk_fence_session_sync_info *session_info = NULL;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct mtk_drm_private *priv = dev->dev_private;
-#endif
 
 	if (buf == NULL) {
 		DDPPR_ERR("Prepare Buffer, buf is NULL!!\n");
@@ -731,12 +725,8 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	buf_info->fence = data.fence;
 	buf_info->idx = data.value;
 
-#if defined(CONFIG_MTK_IOMMU_V2)
-	buf_info->client = priv->client;
 	if (buf->ion_fd >= 0)
-		buf_info->hnd = mtk_drm_gem_ion_import_handle(buf_info->client,
-				buf->ion_fd);
-#endif
+		buf_info->buf_hnd = mtk_drm_gem_ion_import_handle(buf->ion_fd);
 
 	buf_info->mva_offset = 0;
 	buf_info->trigger_ticket = 0;
@@ -748,7 +738,7 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-		 buf_info->fence, buf_info->hnd);
+		 buf_info->fence, buf_info->buf_hnd);
 
 	return buf_info;
 }

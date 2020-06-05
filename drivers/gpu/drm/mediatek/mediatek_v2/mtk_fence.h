@@ -13,8 +13,6 @@
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_plane.h"
 #if defined(CONFIG_MTK_IOMMU_V2)
-#include "ion_drv.h"
-#include "ion_priv.h"
 #include <soc/mediatek/smi.h>
 #include "mtk_iommu_ext.h"
 #include "pseudo_m4u.h"
@@ -52,10 +50,7 @@ struct mtk_fence_buf_info {
 	struct list_head list;
 	unsigned int idx;
 	int fence;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct ion_client *client;
-	struct ion_handle *hnd;
-#endif
+	struct dma_buf *buf_hnd;
 	unsigned long mva;
 	unsigned int size;
 	unsigned int mva_offset;
