@@ -159,6 +159,7 @@
 #define ADC_GPIO6_PU1				0x37
 #define ADC_GPIO7_PU1				0x38
 #define ADC_SBUx_PU1				0x39
+#define ANA_IN					0x1d
 
 /* 100k pull-up2 */
 #define ADC_BAT_THERM_PU2			0x4a
