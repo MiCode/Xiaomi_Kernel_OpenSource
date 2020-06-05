@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
-/*
- * @file    mtk_udi.c
- * @brief   Driver for UDI interface
- *
- */
+
 #define __MTK_UDI_C__
 
 /* system includes */
@@ -39,46 +27,51 @@
 #include <common.h>
 #endif
 /* local includes */
-#include <mt-plat/sync_write.h>
 #include "mtk_udi_internal.h"
+#include <mt-plat/mtk_cpufreq_common_api.h>
+#include <linux/sched/debug.h>
 
 #ifdef CONFIG_OF
-#define DEVICE_GPIO "mediatek,gpio"
-/* 0x10005000 0x1000, UDI pinmux reg */
-static void __iomem  *udipin_base;
+static unsigned long __iomem *udipin_base;
+static unsigned long __iomem *udipin_mux1;
+static unsigned int udipin_value1;
+static unsigned long __iomem *udipin_mux2;
+static unsigned int udipin_value2;
+static unsigned int udi_offset1;
+static unsigned int udi_value1;
+static unsigned int udi_offset2;
+static unsigned int udi_value2;
+static unsigned int ecc_debug;
 #endif
 
+static unsigned int ecc_debug_enable;
+static unsigned int func_lv_trig_ecc;
 static unsigned int func_lv_mask_udi;
 
 /*-----------------------------------------*/
 /* Reused code start                       */
 /*-----------------------------------------*/
-
-#ifdef __KERNEL__
-#define udi_read(addr)			readl(addr)
-#define udi_write(addr, val)	mt_reg_sync_writel((val), ((void *)addr))
-#endif
+#define udi_read(addr)			readl((void *)addr)
+#define udi_write(addr, val) \
+	do { writel(val, (void *)addr); wmb(); } while (0) /* sync write */
 
 /*
  * LOG
  */
 #define	UDI_TAG	  "[mt_udi] "
 #ifdef __KERNEL__
-#define udi_error(fmt, args...)		pr_err(UDI_TAG fmt,	##args)
-#define udi_info(fmt, args...)		pr_info(UDI_TAG	fmt, ##args)
+#define udi_info(fmt, args...)		pr_notice(UDI_TAG	fmt, ##args)
 #define udi_ver(fmt, args...)	\
 	do {	\
 		if (func_lv_mask_udi)	\
-			pr_info(UDI_TAG	fmt, ##args);	\
+			pr_notice(UDI_TAG	fmt, ##args);	\
 	} while (0)
 
 #else
-#define udi_error(fmt, args...)		printf(UDI_TAG fmt, ##args)
 #define udi_info(fmt, args...)		printf(UDI_TAG fmt, ##args)
 #define udi_ver(fmt, args...)		printf(UDI_TAG fmt, ##args)
 #endif
 
-static unsigned int func_lv_mask_udi;
 unsigned char IR_byte[UDI_FIFOSIZE], DR_byte[UDI_FIFOSIZE];
 unsigned int IR_bit_count, IR_pause_count;
 unsigned int DR_bit_count, DR_pause_count;
@@ -234,7 +227,7 @@ if (IR_bit_count) {
 	/* Return the state machine to run-test-idle */
 	udi_jtag_clock(jtag_sw_tck, 1, 0, 0, 1);
 } else
-	udi_error("SCAN command with #IR=0 and #DR=0. Doing nothing!\n");
+	udi_info("SCAN command with #IR=0 and #DR=0. Doing nothing!\n");
 
 #ifndef __KERNEL__
 	/* Print the IR/DR readback values to STDOUT */
@@ -257,45 +250,98 @@ if (IR_bit_count) {
 	return 0;
 }
 
-#ifdef __KERNEL__ /* __KERNEL__ */
-/* Device infrastructure */
-static int udi_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static int udi_probe(struct platform_device *pdev)
-{
-	udi_ver("UDI Initial.\n");
-
-	return 0;
-}
-
-static int udi_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	udi_ver("UDI suspend\n");
-	return 0;
-}
-
-static int udi_resume(struct platform_device *pdev)
-{
-	udi_ver("UDI resume\n");
-	return 0;
-}
-
 struct platform_device udi_pdev = {
 	.name   = "mt_udi",
 	.id     = -1,
 };
 
+
+#ifdef CONFIG_OF
+static const struct of_device_id mt_udi_of_match[] = {
+	{ .compatible = "mediatek,udi", },
+	{},
+};
+#endif
+
+
+#ifdef __KERNEL__ /* __KERNEL__ */
+
+static int udi_probe(struct platform_device *pdev)
+{
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	struct device_node *node = NULL;
+	int rc = 0;
+
+	node = of_find_matching_node(NULL, mt_udi_of_match);
+	if (!node) {
+		udi_info("error: cannot find node UDI!\n");
+		return 0;
+	}
+
+	/* Setup IO addresses and printf */
+	udipin_base = of_iomap(node, 0); /* UDI pinmux reg */
+	udi_info("udipin_base = 0x%lx.\n", (unsigned long)udipin_base);
+	if (!udipin_base) {
+		udi_info("udi pinmux get some base NULL.\n");
+		return 0;
+	}
+
+	rc = of_property_read_u32(node, "udi_offset1", &udi_offset1);
+	if (!rc) {
+		udi_info("get udi_offset1(0x%x)\n", udi_offset1);
+		if (udi_offset1 != 0)
+			udipin_mux1 = (unsigned long *)(
+					(unsigned long)udipin_base
+					+ (unsigned long)udi_offset1);
+	}
+
+	rc = of_property_read_u32(node, "udi_value1", &udi_value1);
+	if (!rc) {
+		udi_info("get udi_value1(0x%x)\n", udi_value1);
+		if (udi_value1 != 0)
+			udipin_value1 = udi_value1;
+	}
+
+	rc = of_property_read_u32(node, "udi_offset2", &udi_offset2);
+	if (!rc) {
+		udi_info("get udi_offset2(0x%x)\n", udi_offset2);
+		if (udi_offset2 != 0)
+			udipin_mux2 = (unsigned long *)(
+						(unsigned long)udipin_base
+						+ (unsigned long)udi_offset2);
+	}
+
+	rc = of_property_read_u32(node, "udi_value2", &udi_value2);
+	if (!rc) {
+		udi_info("get udi_value2(0x%x)\n", udi_value2);
+		if (udi_value2 != 0)
+			udipin_value2 = udi_value2;
+	}
+
+	rc = of_property_read_u32(node, "ecc_debug", &ecc_debug);
+	if (!rc) {
+		udi_info("get ecc_debug(0x%x)\n", ecc_debug);
+		if (ecc_debug == 1)
+			ecc_debug_enable = ecc_debug;
+	}
+
+
+#endif
+
+	return 0;
+}
+
 static struct platform_driver udi_pdrv = {
-	.remove     = udi_remove,
+	.remove     = NULL,
 	.shutdown   = NULL,
 	.probe      = udi_probe,
-	.suspend    = udi_suspend,
-	.resume     = udi_resume,
+	.suspend    = NULL,
+	.resume     = NULL,
 	.driver     = {
 		.name   = "mt_udi",
+#ifdef CONFIG_OF
+	.of_match_table = mt_udi_of_match,
+#endif
 	},
 };
 
@@ -374,10 +420,10 @@ static ssize_t udi_reg_proc_write(struct file *file,
 /* udi_pinmux_switch */
 static int udi_pinmux_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "CPU UDI pinmux reg[0x%p] = 0x%x.\n",
-		UDIPIN_UDI_MUX1, udi_read(UDIPIN_UDI_MUX1));
-	seq_printf(m, "CPU UDI pinmux reg[0x%p] = 0x%x.\n",
-		UDIPIN_UDI_MUX2, udi_read(UDIPIN_UDI_MUX2));
+	seq_printf(m, "CPU UDI pinmux reg[0x%lx] = 0x%x.\n",
+		(unsigned long)udipin_mux1, udi_read(udipin_mux1));
+	seq_printf(m, "CPU UDI pinmux reg[0x%lx] = 0x%x.\n",
+		(unsigned long)udipin_mux2, udi_read(udipin_mux2));
 	return 0;
 }
 
@@ -392,8 +438,8 @@ static ssize_t udi_pinmux_proc_write(struct file *file,
 
 	if (kstrtoint(buf, 10, &pin_switch) == 0) {
 		if (pin_switch == 1U) {
-			udi_write(UDIPIN_UDI_MUX1, UDIPIN_UDI_MUX1_VALUE);
-			udi_write(UDIPIN_UDI_MUX2, UDIPIN_UDI_MUX2_VALUE);
+			udi_write(udipin_mux1, udipin_value1);
+			udi_write(udipin_mux2, udipin_value2);
 		}
 	} else
 		udi_info("echo dbg_lv (dec) > /proc/udi/udi_pinmux\n");
@@ -421,7 +467,7 @@ static ssize_t udi_debug_proc_write(struct file *file,
 	if (!kstrtoint(buf, 10, &dbg_lv))
 		func_lv_mask_udi = dbg_lv;
 	else
-		udi_error("echo dbg_lv (dec) > /proc/udi/udi_debug\n");
+		udi_info("echo dbg_lv (dec) > /proc/udi/udi_debug\n");
 
 	free_page((unsigned long)buf);
 	return count;
@@ -499,7 +545,7 @@ static ssize_t udi_jtag_clock_proc_write(struct file *file,
 			goto out1;
 			}
 	} else {
-		udi_error("echo wrong format > /proc/udi/udi_jtag_clock\n");
+		udi_info("echo wrong format > /proc/udi/udi_jtag_clock\n");
 		goto out1;
 	}
 
@@ -514,13 +560,13 @@ static ssize_t udi_jtag_clock_proc_write(struct file *file,
 
 	/* chekc first key word equ "SCAN" */
 	if (strcmp(recv_key_word, "SCAN")) {
-		udi_error("echo wrong format > /proc/udi/udi_jtag_clock\n");
+		udi_info("echo wrong format > /proc/udi/udi_jtag_clock\n");
 		goto out1;
 	}
 
 	/* check channel 0~3: gwtap0, 4~7: gwtap1 */
 	if ((recv_buf[0] < 0) || (recv_buf[0] > 7)) {
-		udi_error("ERROR: Sub-Chains out 1~7\n");
+		udi_info("ERROR: Sub-Chains out 1~7\n");
 		goto out1;
 	} else {
 		jtag_sw_tck = recv_buf[0];
@@ -528,7 +574,7 @@ static ssize_t udi_jtag_clock_proc_write(struct file *file,
 
 	/* chek IR/DR bit counter */
 	if ((recv_buf[1] == 0) && (recv_buf[2] == 0)) {
-		udi_error("ERROR: IR and DR bit all zero\n");
+		udi_info("ERROR: IR and DR bit all zero\n");
 		goto out1;
 	}
 
@@ -539,7 +585,7 @@ static ssize_t udi_jtag_clock_proc_write(struct file *file,
 		udi_ver("WARNING: DR-Only JTAG Command\n");
 	else if ((recv_buf[1] > (strlen(recv_char[0]) * 4)) ||
 			(recv_buf[1] < ((strlen(recv_char[0]) * 4) - 3))) {
-		udi_error("ERROR: IR %u not match with %u bits\n",
+		udi_info("ERROR: IR %u not match with %u bits\n",
 			(unsigned int)strlen(recv_char[0]), recv_buf[1]);
 		goto out1;
 	} else {
@@ -567,7 +613,7 @@ static ssize_t udi_jtag_clock_proc_write(struct file *file,
 		udi_ver("WARNING: IR-Only JTAG Command\n");
 	else if ((recv_buf[2] > (strlen(recv_char[1]) * 4))
 			|| (recv_buf[2] < ((strlen(recv_char[1]) * 4) - 3))) {
-		udi_error("ERROR: DR %u not match with %u bits)\n",
+		udi_info("ERROR: DR %u not match with %u bits)\n",
 			(unsigned int)strlen(recv_char[1]), recv_buf[2]);
 		goto out1;
 	} else {
@@ -635,6 +681,120 @@ static ssize_t udi_bit_ctrl_proc_write(struct file *file,
 
 }
 
+/* ECC debug */
+void ecc_dump_debug_info(void)
+{
+	if (ecc_debug_enable) {
+		show_stack(current, NULL);
+		pr_notice("%s: LCPU %d khz, BCPU %d khz\n",
+				__func__,
+				mt_cpufreq_get_cur_freq(0),
+				mt_cpufreq_get_cur_freq(1));
+	} else
+		pr_notice("ecc backtrace off.");
+}
+
+#define ECC_UE_TRIGGER		(0x80000002)
+#define ECC_CE_TRIGGER		(0x80000040)
+#define ECC_DE_TRIGGER		(0x80000020)
+#define ECC_ENABE			(0x0000010D)
+#define ECC_PFG_COUNTER		(0x00000001)
+
+static void write_ERXSELR_EL1(u32 v)
+{
+	__asm__ volatile ("msr s3_0_c5_c3_1, %0" : : "r" (v));
+}
+
+static u64 read_ERR0CTLR_EL1(void)
+{
+	u64 v;
+
+	__asm__ volatile ("mrs %0, s3_0_c5_c4_1" : "=r" (v));
+
+	return v;
+}
+
+static void write_ERR0CTLR_EL1(u64 v)
+{
+	__asm__ volatile ("msr s3_0_c5_c4_1, %0" : : "r" (v));
+}
+
+static void write_ERXPFGCDNR_EL1(u64 v)
+{
+	__asm__ volatile ("msr s3_0_c15_c2_2, %0" : : "r" (v));
+}
+
+
+static u64 read_ERXPFGCTLR_EL1(void)
+{
+	u64 v;
+
+	__asm__ volatile ("mrs %0, s3_0_c15_c2_1" : "=r" (v));
+
+	return v;
+}
+
+static void write_ERXPFGCTLR_EL1(u64 v)
+{
+	__asm__ volatile ("msr s3_0_c15_c2_1, %0" : : "r" (v));
+}
+
+static int ecc_test_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "ECC UE(1)/DE(2)/CE(3)= %d (0x%lx)\n",
+			func_lv_trig_ecc,
+			(unsigned long)read_ERXPFGCTLR_EL1());
+
+	return 0;
+}
+
+static ssize_t ecc_test_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *pos)
+{
+	char *buf = _copy_from_user_for_proc(buffer, count);
+	unsigned int dbg_lv = 0;
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtoint(buf, 10, &dbg_lv)) {
+		func_lv_trig_ecc = dbg_lv;
+
+		write_ERXSELR_EL1(0x0);
+		write_ERR0CTLR_EL1(read_ERR0CTLR_EL1() | ECC_ENABE);
+		udi_info("ecc read_ERR0CTLR_EL1: 0x%lx\n",
+				(unsigned long)read_ERR0CTLR_EL1());
+		write_ERXPFGCDNR_EL1(ECC_PFG_COUNTER);
+		udi_info("ecc write_ERXPFGCDNR_EL1: 0x%x\n",
+				ECC_PFG_COUNTER);
+
+		if (dbg_lv == 1) {
+			write_ERXPFGCTLR_EL1(read_ERXPFGCTLR_EL1() |
+								ECC_UE_TRIGGER);
+			udi_info("ecc read_ERXPFGCTLR_EL1 UE: 0x%lx\n",
+					(unsigned long)read_ERXPFGCTLR_EL1());
+		} else if (dbg_lv == 2) {
+			write_ERXPFGCTLR_EL1(read_ERXPFGCTLR_EL1() |
+								ECC_DE_TRIGGER);
+			udi_info("ecc read_ERXPFGCTLR_EL1 DE: 0x%lx\n",
+					(unsigned long)read_ERXPFGCTLR_EL1());
+		} else if (dbg_lv == 3) {
+			write_ERXPFGCTLR_EL1(read_ERXPFGCTLR_EL1() |
+								ECC_CE_TRIGGER);
+			udi_info("ecc read_ERXPFGCTLR_EL1 CE: 0x%lx\n",
+					(unsigned long)read_ERXPFGCTLR_EL1());
+		}
+	} else
+		udi_info("echo dbg_lv (dec) > /proc/ecc/ecc_test\n");
+
+	free_page((unsigned long)buf);
+	return count;
+}
+
+
+
+
+
 
 #define PROC_FOPS_RW(name)          \
 static int name ## _proc_open(struct inode *inode, struct file *file)   \
@@ -670,7 +830,7 @@ PROC_FOPS_RW(udi_pinmux);		/* for udi pinmux switch */
 PROC_FOPS_RW(udi_debug);		/* for debug information */
 PROC_FOPS_RW(udi_jtag_clock);	/* for udi jtag interface */
 PROC_FOPS_RW(udi_bit_ctrl);		/* for udi bit ctrl */
-
+PROC_FOPS_RW(ecc_test);			/* for udi bit ctrl */
 
 static int _create_procfs(void)
 {
@@ -688,19 +848,20 @@ static int _create_procfs(void)
 		PROC_ENTRY(udi_debug),
 		PROC_ENTRY(udi_jtag_clock),
 		PROC_ENTRY(udi_bit_ctrl),
+		PROC_ENTRY(ecc_test),
 	};
 
 	dir = proc_mkdir("udi", NULL);
 
 	if (!dir) {
-		udi_error("fail to create /proc/udi @ %s()\n", __func__);
+		udi_info("fail to create /proc/udi @ %s()\n", __func__);
 		return -ENOMEM;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
 		if (!proc_create(entries[i].name,
 			0664, dir, entries[i].fops))
-			udi_error("%s(), create /proc/udi/%s failed\n",
+			udi_info("%s(), create /proc/udi/%s failed\n",
 				__func__, entries[i].name);
 	}
 
@@ -715,40 +876,16 @@ static int _create_procfs(void)
 static int __init udi_init(void)
 {
 	int err = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, DEVICE_GPIO);
-	if (!node) {
-		udi_error("error: cannot find node UDI_NODE!\n");
-		WARN_ON(1);
-	}
-
-	/* Setup IO addresses and printf */
-	udipin_base = of_iomap(node, 0); /* UDI pinmux reg */
-	udi_ver("udipin_base = 0x%lx.\n", (unsigned long)udipin_base);
-	if (!udipin_base) {
-		udi_error("udi pinmux get some base NULL.\n");
-		WARN_ON(1);
-	}
-
-	/* register platform device/driver */
-	err = platform_device_register(&udi_pdev);
 
 	/* initial value */
 	func_lv_mask_udi = 0;
 	IR_bit_count = 0;
 	DR_bit_count = 0;
-	jtag_sw_tck = 1;    /* default debug channel = 1 */
-
-
-	if (err) {
-		udi_error("fail to register UDI device @ %s()\n", __func__);
-		goto out2;
-	}
+	jtag_sw_tck = 1;
 
 	err = platform_driver_register(&udi_pdrv);
 	if (err) {
-		udi_error("%s(), UDI driver callback register failed..\n",
+		udi_info("%s(), UDI driver callback register failed..\n",
 				__func__);
 		return err;
 	}
@@ -757,25 +894,23 @@ static int __init udi_init(void)
 	/* init proc */
 	if (_create_procfs()) {
 		err = -ENOMEM;
-		goto out2;
+		return err;
 	}
-#endif /* CONFIG_PROC_FS */
+#endif
 
-out2:
-	return err;
+	return 0;
 }
 
 static void __exit udi_exit(void)
 {
 	udi_info("UDI de-initialization\n");
 	platform_driver_unregister(&udi_pdrv);
-	platform_device_unregister(&udi_pdev);
 }
 
 module_init(udi_init);
 module_exit(udi_exit);
 
-MODULE_DESCRIPTION("MediaTek UDI Driver v2");
+MODULE_DESCRIPTION("MediaTek UDI Driver v3");
 MODULE_LICENSE("GPL");
 #endif /* __KERNEL__ */
 #undef __MTK_UDI_C__
