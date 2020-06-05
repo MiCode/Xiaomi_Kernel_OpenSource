@@ -2204,11 +2204,6 @@
                 <speed_kbps>3400</speed_kbps>
                 <pullPushEn>false</pullPushEn>
             </i2c_bus9>
-            <device0>
-                <varName>CAP_TOUCH</varName>
-                <channel>I2C_CHANNEL_0</channel>
-                <address>0x14</address>
-            </device0>
             <device4>
                 <varName>CAMERA_MAIN</varName>
                 <channel>I2C_CHANNEL_2</channel>
