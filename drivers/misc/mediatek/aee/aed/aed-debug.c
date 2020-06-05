@@ -160,6 +160,7 @@ static ssize_t proc_generate_wdt_write(struct file *file,
 	unsigned int i = 0;
 	char msg[4];
 	unsigned char name[20] = { 0 };
+	int n;
 
 	if ((size < 2) || (size > sizeof(msg))) {
 		pr_notice("\n size = %zx\n", size);
@@ -206,7 +207,9 @@ static ssize_t proc_generate_wdt_write(struct file *file,
 
 	/* create kernel threads and bind on every cpu */
 	for (i = 0; i < nr_cpu_ids; i++) {
-		sprintf(name, "wd-test-%d", i);
+		n = sprintf(name, "wd-test-%d", i);
+		if (n < 0 || n >= sizeof(name))
+			strcpy(name, "unknown error");
 		pr_notice("[WDK]thread name: %s\n", name);
 		wk_tsk[i] = kthread_create(kwdt_thread_test, NULL, name);
 		if (IS_ERR(wk_tsk[i])) {
@@ -619,6 +622,7 @@ static ssize_t proc_generate_adsp_read(struct file *file,
 	char buffer[BUFSIZE];
 	int i;
 	char *ptr;
+	int n;
 
 	if ((*ppos)++)
 		return 0;
@@ -628,7 +632,9 @@ static ssize_t proc_generate_adsp_read(struct file *file,
 	for (i = 0; i < TEST_ADSP_PHY_SIZE; i++)
 		ptr[i] = (i % 26) + 'a';
 
-	sprintf(buffer, "ADSP EE log here\n");
+	n = sprintf(buffer, "ADSP EE log here\n");
+	if (n < 0 || n >= sizeof(buffer))
+		strcpy(buffer, "unknown error");
 	aed_common_exception("adsp", (int *)buffer, (int)sizeof(buffer),
 				(int *)ptr, TEST_ADSP_PHY_SIZE, __FILE__);
 	kfree(ptr);
@@ -724,6 +730,8 @@ static ssize_t proc_generate_dal_read(struct file *file,
 		return 0;
 	aee_kernel_dal_show("Test for DAL\n");
 	len = sprintf(buffer, "DAL Generated\n");
+	if (len < 0 || len >= sizeof(buffer))
+		strcpy(buffer, "unknown error");
 
 	return len;
 }
