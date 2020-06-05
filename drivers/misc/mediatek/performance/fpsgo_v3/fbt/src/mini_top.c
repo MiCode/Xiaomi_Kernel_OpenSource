@@ -846,7 +846,7 @@ static ssize_t name##_store(struct kobject *kobj, \
 		struct kobj_attribute *attr, \
 		const char *buf, size_t count) \
 { \
-	int val; \
+	int val = -1; \
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE]; \
 	int arg; \
 \
@@ -1012,7 +1012,7 @@ static ssize_t enable_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 

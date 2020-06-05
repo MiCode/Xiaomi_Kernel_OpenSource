@@ -2792,7 +2792,7 @@ static ssize_t light_loading_policy_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -2819,7 +2819,7 @@ static ssize_t enable_fteh_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	int val;
+	int val = -1;
 
 	mutex_lock(&fbt_mlock);
 	val = fbt_fteh_enable;
@@ -2832,7 +2832,7 @@ static ssize_t enable_fteh_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -2856,7 +2856,7 @@ static ssize_t switch_idleprefer_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	int val;
+	int val = -1;
 
 	mutex_lock(&fbt_mlock);
 	val = fbt_idleprefer_enable;
@@ -2869,7 +2869,7 @@ static ssize_t switch_idleprefer_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -2998,7 +2998,7 @@ static ssize_t enable_uclamp_boost_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -3022,7 +3022,7 @@ static ssize_t boost_ta_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	int val;
+	int val = -1;
 
 	mutex_lock(&fbt_mlock);
 	val = boost_ta;
@@ -3035,7 +3035,7 @@ static ssize_t boost_ta_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -3084,7 +3084,7 @@ static ssize_t enable_switch_down_throttle_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -3143,7 +3143,7 @@ static ssize_t enable_switch_sync_flag_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -3208,7 +3208,7 @@ static ssize_t enable_switch_cap_margin_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -3243,7 +3243,7 @@ static ssize_t ultra_rescue_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	int val;
+	int val = -1;
 
 	mutex_lock(&fbt_mlock);
 	val = ultra_rescue;
@@ -3256,7 +3256,7 @@ static ssize_t ultra_rescue_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -3289,7 +3289,7 @@ static ssize_t llf_task_policy_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	int val;
+	int val = -1;
 
 	mutex_lock(&fbt_mlock);
 	val = llf_task_policy;
