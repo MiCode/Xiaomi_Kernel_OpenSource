@@ -2785,11 +2785,6 @@ int mtk_drm_ioctl_pq_set_window(struct drm_device *dev, void *data,
 static void mtk_color_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	//struct mtk_disp_color *color = comp_to_color(comp);
-	int ret;
-
-	ret = pm_runtime_get_sync(comp->dev);
-	if (ret < 0)
-		DRM_ERROR("Failed to enable power domain: %d\n", ret);
 
 	DpEngine_COLORonInit(comp, handle);
 
@@ -2812,11 +2807,7 @@ static void mtk_color_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	int ret;
 
-	ret = pm_runtime_put(comp->dev);
-	if (ret < 0)
-		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 }
 
 static void mtk_color_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -3032,12 +3023,12 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	pm_runtime_enable(dev);
+	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
 	ret = component_add(dev, &mtk_disp_color_component_ops);
 	if (ret != 0) {
 		dev_err(dev, "Failed to add component: %d\n", ret);
-		pm_runtime_disable(dev);
+		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 	DDPINFO("%s-\n", __func__);
 
@@ -3046,9 +3037,11 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 
 static int mtk_disp_color_remove(struct platform_device *pdev)
 {
-	component_del(&pdev->dev, &mtk_disp_color_component_ops);
+	struct mtk_disp_color *priv = dev_get_drvdata(&pdev->dev);
 
-	pm_runtime_disable(&pdev->dev);
+	component_del(&pdev->dev, &mtk_disp_color_component_ops);
+	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
+
 	return 0;
 }
 

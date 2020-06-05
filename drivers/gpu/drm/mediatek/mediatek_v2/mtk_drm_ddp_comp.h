@@ -12,6 +12,7 @@
 #include "mtk_rect.h"
 #include "mtk_disp_pmqos.h"
 #include "mtk_drm_ddp_addon.h"
+#include <linux/pm_runtime.h>
 
 struct device;
 struct device_node;
@@ -515,4 +516,8 @@ void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
+
+void mtk_ddp_comp_pm_enable(struct mtk_ddp_comp *comp);
+void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp);
+
 #endif /* MTK_DRM_DDP_COMP_H */

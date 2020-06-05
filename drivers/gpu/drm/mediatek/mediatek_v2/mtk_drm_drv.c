@@ -1658,6 +1658,7 @@ static void mtk_drm_get_top_clk(struct mtk_drm_private *priv)
 	priv->top_clk = devm_kmalloc_array(dev, priv->top_clk_num,
 					   sizeof(*priv->top_clk), GFP_KERNEL);
 
+	pm_runtime_get_sync(dev);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		clk = of_clk_get(node, i);
 
@@ -1698,6 +1699,7 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 	if (priv->top_clk_num <= 0)
 		return;
 
+	pm_runtime_get_sync(priv->mmsys_dev);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -1749,6 +1751,8 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		}
 		clk_disable_unprepare(priv->top_clk[i]);
 	}
+
+	pm_runtime_put_sync(priv->mmsys_dev);
 }
 
 bool mtk_drm_top_clk_isr_get(char *master)
@@ -2744,6 +2748,8 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	private->config_regs_pa = mem->start;
 	private->mmsys_dev = dev;
 
+	pm_runtime_enable(dev);
+
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
 
@@ -2835,8 +2841,6 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_node;
 	}
-
-	pm_runtime_enable(dev);
 
 	platform_set_drvdata(pdev, private);
 

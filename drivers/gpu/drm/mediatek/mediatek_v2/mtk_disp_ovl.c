@@ -10,7 +10,6 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk_drm_drv.h"
@@ -652,17 +651,12 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	int ret;
 	unsigned int val;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	const struct compress_info *compr_info = ovl->data->compr_info;
 	unsigned int value = 0, mask = 0;
 
 	DDPDBG("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
-
-	ret = pm_runtime_get_sync(comp->dev);
-	if (ret < 0)
-		DRM_ERROR("Failed to enable power domain: %d\n", ret);
 
 	mtk_ovl_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
 
@@ -711,13 +705,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	int ret;
-
 	DDPDBG("%s+\n", __func__);
-
-	ret = pm_runtime_put(comp->dev);
-	if (ret < 0)
-		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_INTEN, 0, ~0);
@@ -3412,12 +3400,12 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	pm_runtime_enable(dev);
+	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
 	ret = component_add(dev, &mtk_disp_ovl_component_ops);
 	if (ret != 0) {
 		dev_err(dev, "Failed to add component: %d\n", ret);
-		pm_runtime_disable(dev);
+		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 
 	DDPINFO("%s-\n", __func__);
@@ -3426,9 +3414,11 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 
 static int mtk_disp_ovl_remove(struct platform_device *pdev)
 {
-	component_del(&pdev->dev, &mtk_disp_ovl_component_ops);
+	struct mtk_disp_ovl *priv = dev_get_drvdata(&pdev->dev);
 
-	pm_runtime_disable(&pdev->dev);
+	component_del(&pdev->dev, &mtk_disp_ovl_component_ops);
+	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
+
 	return 0;
 }
 

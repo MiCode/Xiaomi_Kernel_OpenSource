@@ -576,6 +576,18 @@ void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 	private->ddp_comp[comp->id] = NULL;
 }
 
+void mtk_ddp_comp_pm_enable(struct mtk_ddp_comp *comp)
+{
+	if (comp->larb_dev)
+		pm_runtime_enable(comp->dev);
+}
+
+void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp)
+{
+	if (comp->larb_dev)
+		pm_runtime_disable(comp->dev);
+}
+
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 {
 	int ret;
@@ -583,9 +595,11 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 	if (comp == NULL)
 		return;
 
-#ifdef CONFIG_MTK_SMI_EXT
 	if (comp->larb_dev)
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(comp->larb_id, MTK_DDP_COMP_USER);
+#else
+		pm_runtime_get_sync(comp->dev);
 #endif
 
 	if (comp->clk) {
@@ -604,9 +618,12 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 	if (comp->clk)
 		clk_disable_unprepare(comp->clk);
 
-#ifdef CONFIG_MTK_SMI_EXT
+
 	if (comp->larb_dev)
+#ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_disable_unprepare(comp->larb_id, MTK_DDP_COMP_USER);
+#else
+		pm_runtime_put_sync(comp->dev);
 #endif
 }
 
