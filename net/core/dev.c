@@ -4119,6 +4119,63 @@ int netif_rx_ni(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(netif_rx_ni);
 
+static int netif_rx_list_internal(struct list_head *head)
+{
+	int ret = 0;
+	struct sk_buff *skb, *next;
+	struct list_head sublist;
+
+	INIT_LIST_HEAD(&sublist);
+	list_for_each_entry_safe(skb, next, head, list) {
+		net_timestamp_check(netdev_tstamp_prequeue, skb);
+		skb_list_del_init(skb);
+		if (!skb_defer_rx_timestamp(skb))
+			list_add_tail(&skb->list, &sublist);
+	}
+	list_splice_init(&sublist, head);
+
+	rcu_read_lock();
+	if (IS_ENABLED(CONFIG_RPS) && static_key_false(&rps_needed)) {
+		list_for_each_entry_safe(skb, next, head, list) {
+			struct rps_dev_flow voidflow, *rflow = &voidflow;
+			int cpu = get_rps_cpu(skb->dev, skb, &rflow);
+
+			if (cpu < 0)
+				cpu = smp_processor_id();
+			skb_list_del_init(skb);
+			ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
+		}
+	} else {
+		list_for_each_entry_safe(skb, next, head, list) {
+			unsigned int qtail;
+
+			skb_list_del_init(skb);
+			ret = enqueue_to_backlog(skb, get_cpu(), &qtail);
+		}
+		put_cpu();
+	}
+	rcu_read_unlock();
+
+	return ret;
+}
+
+int netif_rx_list_ni(struct list_head *head)
+{
+	int err = 0;
+
+	if (list_empty(head))
+		return err;
+
+	preempt_disable();
+	err = netif_rx_list_internal(head);
+	if (local_softirq_pending())
+		do_softirq();
+	preempt_enable();
+
+	return err;
+}
+EXPORT_SYMBOL(netif_rx_list_ni);
+
 static __latent_entropy void net_tx_action(struct softirq_action *h)
 {
 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
@@ -5364,6 +5421,10 @@ static int process_backlog(struct napi_struct *napi, int quota)
 	bool again = true;
 	int work = 0;
 
+#if defined(NET_RX_BATCH_SOLUTION)
+	INIT_LIST_HEAD(&sd->skb_rx_list);
+#endif
+
 	/* Check if we have pending ipi, its better to send them now,
 	 * not waiting net_rx_action() end.
 	 */
@@ -5376,6 +5437,26 @@ static int process_backlog(struct napi_struct *napi, int quota)
 	while (again) {
 		struct sk_buff *skb;
 
+#if defined(NET_RX_BATCH_SOLUTION)
+		while ((skb = __skb_dequeue(&sd->process_queue))) {
+			input_queue_head_incr(sd);
+			list_add_tail(&skb->list, &sd->skb_rx_list);
+			if (++work >= quota) {
+				rcu_read_lock();
+				__netif_receive_skb_list(&sd->skb_rx_list);
+				rcu_read_unlock();
+				INIT_LIST_HEAD(&sd->skb_rx_list);
+				return work;
+			}
+		}
+
+		if (!list_empty(&sd->skb_rx_list)) {
+			rcu_read_lock();
+			__netif_receive_skb_list(&sd->skb_rx_list);
+			rcu_read_unlock();
+			INIT_LIST_HEAD(&sd->skb_rx_list);
+		}
+#else
 		while ((skb = __skb_dequeue(&sd->process_queue))) {
 			rcu_read_lock();
 			__netif_receive_skb(skb);
@@ -5385,7 +5466,7 @@ static int process_backlog(struct napi_struct *napi, int quota)
 				return work;
 
 		}
-
+#endif
 		local_irq_disable();
 		rps_lock(sd);
 		if (skb_queue_empty(&sd->input_pkt_queue)) {
