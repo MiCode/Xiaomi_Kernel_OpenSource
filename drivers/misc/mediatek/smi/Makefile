@@ -57,20 +57,13 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
-ccflags-y += -DSMI_5G
-endif
-
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885" "mt6853"))
 ccflags-y += -DSMI_SSPM
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
+ccflags-y += -DSMI_5G
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-endif
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6771"))
-ccflags-y += -DSMI_CCF_NO_DUMP
 endif
 
 obj-y += smi_drv.o
