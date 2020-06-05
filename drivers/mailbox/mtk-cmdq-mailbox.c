@@ -1608,6 +1608,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	int err, i;
 	struct gce_plat *plat_data;
 
+
 	cmdq = devm_kzalloc(dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
 		return -ENOMEM;
@@ -1680,6 +1681,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->mbox.txdone_irq = false;
 	cmdq->mbox.txdone_poll = false;
 
+
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].base = cmdq->base + CMDQ_THR_BASE +
 				CMDQ_THR_SIZE * i;
@@ -1692,6 +1694,7 @@ static int cmdq_probe(struct platform_device *pdev)
 		INIT_WORK(&cmdq->thread[i].timeout_work,
 			cmdq_thread_handle_timeout_work);
 	}
+
 
 	err = mbox_controller_register(&cmdq->mbox);
 	if (err < 0) {
@@ -1736,6 +1739,7 @@ static const struct gce_plat gce_plat_v4 = {.thread_nr = 24, .shift = 3};
 
 static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt8173-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt8168-gce", .data = (void *)&gce_plat_v2},
 	{.compatible = "mediatek,mt6739-gce", .data = (void *)&gce_plat_v2},
 	{.compatible = "mediatek,mt6761-gce", .data = (void *)&gce_plat_v2},
 	{.compatible = "mediatek,mt6765-gce", .data = (void *)&gce_plat_v2},
