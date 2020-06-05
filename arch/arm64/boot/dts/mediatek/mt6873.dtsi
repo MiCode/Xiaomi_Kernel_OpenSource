@@ -52,6 +52,12 @@
 			clock-frequency = <26000000>;
 		};
 
+		clk13m: clk13m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <13000000>;
+		};
+
 		clk12m: clk12m {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -376,6 +382,14 @@
 			compatible = "mediatek,mt8192-apmixedsys", "syscon";
 			reg = <0 0x1000c000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		systimer: systimer@10017000 {
+			compatible = "mediatek,mt6873-timer",
+				     "mediatek,mt6765-timer";
+			reg = <0 0x10017000 0 0x1000>;
+			interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&clk13m>;
 		};
 
 		devapc: devapc@10207000 {
