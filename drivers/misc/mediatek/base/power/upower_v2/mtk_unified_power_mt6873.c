@@ -217,6 +217,18 @@ static void upower_scale_l_cap(void)
 	}
 }
 
+int cpu_cluster_mapping(unsigned int cpu)
+{
+	enum upower_bank bank = UPOWER_BANK_LL;
+
+	if (cpu < 4) /* cpu 0-3 */
+		bank = UPOWER_BANK_LL;
+	else if (cpu < 8) /* cpu 4-7 */
+		bank = UPOWER_BANK_L;
+
+	return bank;
+}
+
 /****************************************************
  * According to chip version get the raw upower tbl *
  * and let upower_tbl_infos points to it.           *

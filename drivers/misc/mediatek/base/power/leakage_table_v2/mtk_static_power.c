@@ -42,6 +42,10 @@
 static struct sptab_s sptab[MTK_SPOWER_MAX];
 static char static_power_buf[128];
 
+#if defined(PRECISE_NODE)
+static char static_power_buf_precise[128];
+#endif
+
 int interpolate(int x1, int x2, int x3, int y1, int y2)
 {
 	if (x1 == x2)
@@ -268,6 +272,13 @@ int mtk_spower_make_table(struct sptab_s *spt, int voltage, int degree,
 			    i);
 	}
 
+	if (wat == 0) {
+		/* force mc50 */
+		tab1 = tab2 = tab[1];
+		tspt = tab1;
+		SPOWER_INFO("@@~ force mc50\n");
+	}
+
 	/** sptab needs to interpolate 2 tables. **/
 	if (tab1 != tab2)
 		interpolate_table(tspt, c[i - 1], c[i], wat, tab1, tab2);
@@ -412,6 +423,26 @@ static const struct file_operations static_power_operations = {
 	.release = single_release,
 };
 
+#if defined(PRECISE_NODE)
+static int static_power_precise_show(struct seq_file *s, void *unused)
+{
+	seq_printf(s, "%s", static_power_buf_precise);
+	return 0;
+}
+
+static int static_power_precise_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, static_power_precise_show, NULL);
+}
+
+static const struct file_operations static_power_precise_operations = {
+	.open = static_power_precise_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
+
 #endif
 #define PROC_FOPS_RO(name)					\
 	static int name ## _proc_open(struct inode *inode,	\
@@ -479,6 +510,9 @@ int mt_spower_init(void)
 	int t_of_fuse;
 	unsigned int idx = 0;
 	char *p_buf = static_power_buf;
+#if defined(PRECISE_NODE)
+	char *p_buf_precise = static_power_buf_precise;
+#endif
 
 	/* Group FF,TT,SS tables of all the banks together */
 	struct sptab_list *tab[MTK_SPOWER_MAX];
@@ -498,6 +532,9 @@ int mt_spower_init(void)
 	if (tab_validate(&sptab[0]))
 		return 0;
 
+	for (i = 0; i < MTK_SPOWER_MAX; i++)
+		tab[i] = kmalloc(sizeof(struct sptab_list), GFP_KERNEL);
+
 #ifndef WITHOUT_LKG_EFUSE
 	for (i = 0; i < MTK_LEAKAGE_MAX; i++) {
 		devinfo = (int)get_devinfo_with_index(
@@ -514,13 +551,13 @@ int mt_spower_init(void)
 		if (temp_lkg != 0) {
 			temp_lkg = (int)devinfo_table[temp_lkg];
 			spower_lkg_info[i].value =
-				(int)(temp_lkg * spower_lkg_info[i].v_of_fuse /
-				      1000);
+				(int)(temp_lkg * spower_lkg_info[i].v_of_fuse);
 		}
 		SPOWER_INFO("[Efuse Leakage] %s => 0x%x\n",
 			    spower_lkg_info[i].name, temp_lkg);
 		SPOWER_INFO("[Final Leakage] %s => %d\n",
-			    spower_lkg_info[i].name, spower_lkg_info[i].value);
+			    spower_lkg_info[i].name, spower_lkg_info[i].value /
+			    1000);
 	}
 #endif
 	SPOWER_INFO("spower table construct\n");
@@ -537,12 +574,26 @@ int mt_spower_init(void)
 		t_of_fuse = spower_lkg_info[idx].t_of_fuse;
 		mtk_spower_make_table(&sptab[i], v_of_fuse, t_of_fuse,
 				      (unsigned int)i, tab);
-		if (tab[i]->tab_raw[0].print_leakage == true)
+		if (tab[i]->tab_raw[0].print_leakage == true) {
 			p_buf += sprintf(p_buf, "%d/",
-					 (spower_lkg_info[idx].value /
+					 (spower_lkg_info[idx].value / 1000 /
 					  tab[i]->tab_raw[0].instance));
+#if defined(PRECISE_NODE)
+			p_buf_precise += sprintf(p_buf_precise, "%d.%d/",
+				DIV_ROUND_CLOSEST(spower_lkg_info[idx].value,
+						tab[i]->tab_raw[0].instance *
+						100) / 10,
+				DIV_ROUND_CLOSEST(spower_lkg_info[idx].value,
+						tab[i]->tab_raw[0].instance *
+						100) % 10
+			);
+#endif
+		}
 	}
 	p_buf += sprintf(p_buf, "\n");
+#if defined(PRECISE_NODE)
+	p_buf_precise += sprintf(p_buf_precise, "\n");
+#endif
 
 #if defined(MTK_SPOWER_UT)
 	SPOWER_INFO("Start SPOWER UT!\n");
@@ -552,10 +603,21 @@ int mt_spower_init(void)
 
 	/* print static_power_buf and generate debugfs node */
 	SPOWER_ERR("%s", static_power_buf);
+
 #ifdef CONFIG_DEBUG_FS
 	debugfs_create_file("static_power", S_IFREG | 0400, NULL, NULL,
 			    &static_power_operations);
+#endif
 
+#if defined(PRECISE_NODE)
+	SPOWER_ERR("%s", static_power_buf_precise);
+#endif
+
+#ifdef CONFIG_DEBUG_FS
+#if defined(PRECISE_NODE)
+	debugfs_create_file("static_power_precise", S_IFREG | 0400, NULL, NULL,
+			    &static_power_precise_operations);
+#endif
 #endif
 
 	spower_procfs_init();
@@ -594,6 +656,31 @@ int mt_spower_get_leakage(int dev, unsigned int vol, int deg)
 }
 EXPORT_SYMBOL(mt_spower_get_leakage);
 
+int mt_spower_get_leakage_uW(int dev, unsigned int vol, int deg)
+{
+	int ret;
+
+	if (!tab_validate(&sptab[dev]))
+		return 0;
+
+	if (vol > mV(&sptab[dev], VSIZE - 1))
+		vol = mV(&sptab[dev], VSIZE - 1);
+	else if (vol < mV(&sptab[dev], 0))
+		vol = mV(&sptab[dev], 0);
+
+	if (deg > deg(&sptab[dev], TSIZE - 1))
+		deg = deg(&sptab[dev], TSIZE - 1);
+	else if (deg < deg(&sptab[dev], 0))
+		deg = deg(&sptab[dev], 0);
+
+	ret = sptab_lookup(&sptab[dev], (int)vol, deg);
+
+	SPOWER_INFO("%s-dev=%d,volt=%d, deg=%d, lkg=%d\n", __func__,
+		    dev, vol, deg, ret);
+	return ret;
+}
+EXPORT_SYMBOL(mt_spower_get_leakage_uW);
+
 int mt_spower_get_efuse_lkg(int dev)
 {
 	int id = 0;
@@ -613,6 +700,6 @@ int mt_spower_get_efuse_lkg(int dev)
 
 	return efuse_lkg_mw;
 #endif
-	return spower_lkg_info[id].value;
+	return spower_lkg_info[id].value / 1000;
 }
 EXPORT_SYMBOL(mt_spower_get_efuse_lkg);
