@@ -293,6 +293,7 @@ static int ccci_ch_to_c2k_ch(int md_state, int ccci_ch, int direction)
 	u16 channel_map;
 	int i = 0;
 
+	/* mp1 1, mp2 0, ro 1 */
 	if (md_state == INVALID)
 		goto md_state_invalid;
 
@@ -310,6 +311,7 @@ static int ccci_ch_to_c2k_ch(int md_state, int ccci_ch, int direction)
 		}
 	}
 
+/* mp1 1, mp2 0, ro 1 */
 md_state_invalid:
 
 	CCCI_ERROR_LOG(MD_SYS3, TAG,
@@ -1119,6 +1121,7 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 	int md_cap = ccci_md_get_cap_by_id(md_ctrl->md_id);
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md_ctrl->md_id);
+	int md_state;
 
 	if (qno == 0xFF)
 		return -CCCI_ERR_INVALID_QUEUE_INDEX;
@@ -1246,6 +1249,21 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 				queue->wakeup = 0;
 				if (ret == -ERESTARTSYS)
 					return -EINTR;
+			}
+			md_state = ccci_fsm_get_md_state(md_ctrl->md_id);
+			if (md_state == EXCEPTION
+					&& ccci_h->channel != CCCI_MD_LOG_TX
+					&& ccci_h->channel != CCCI_UART1_TX
+					&& ccci_h->channel != CCCI_FS_TX) {
+				CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
+					"tx retry break for EE for Q%d, ch %d\n",
+					queue->index, ccci_h->channel);
+				return -ETXTBSY;
+			} else if (md_state == GATED) {
+				CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
+					"tx retry break for Gated for Q%d, ch %d\n",
+					queue->index, ccci_h->channel);
+				return -ETXTBSY;
 			}
 			CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
 				"tx retry for Q%d, ch %d\n",
@@ -1515,7 +1533,7 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->ccif_irq_id, ccif_irq_flags);
 
 	ret = request_irq(md_ctrl->ccif_irq_id, md_ccif_isr,
-			ccif_irq_flags, "CCIF_AP_DATA", md_ctrl);
+		ccif_irq_flags | IRQF_NO_SUSPEND, "CCIF_AP_DATA", md_ctrl);
 	if (ret) {
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"request CCIF_AP_DATA IRQ(%d) error %d\n",
@@ -1523,6 +1541,11 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 		return;
 	}
 
+	ret = irq_set_irq_wake(md_ctrl->ccif_irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+			"irq_set_irq_wake ccif irq0(%d) error %d\n",
+			md_ctrl->ccif_irq_id, ret);
 }
 
 int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)
@@ -1561,6 +1584,25 @@ int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)
 	ccif_hif_hw_init(md_ctrl);
 
 	return 0;
+}
+
+void dump_ctrl_path_hif_status(void)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(CCIF_HIF_ID);
+	unsigned long rem_nsec;
+	u64 ts_nsec;
+
+	ts_nsec = sched_clock();
+	rem_nsec = do_div(ts_nsec, 1000000000);
+	if (md_ctrl != NULL) {
+		CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "[%5lu.%06lu]%s\n",
+			(unsigned long)ts_nsec, rem_nsec / 1000, __func__);
+	}
+	if (md_ctrl && md_ctrl->ccif_ap_base) {
+		CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "AP_RCHNUM:0x%08x\n",
+			ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM));
+	}
 }
 
 /*return ap_rt_data pointer after filling header*/

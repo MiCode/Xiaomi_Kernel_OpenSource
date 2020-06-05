@@ -31,6 +31,7 @@ ccci_fsm_all-y += ccci_fsm_sys.o
 ccci_fsm_all-y += mdee_dumper_v1.o
 ccci_fsm_all-y += mdee_dumper_v2.o
 ccci_fsm_all-y += mdee_dumper_v3.o
+ccci_fsm_all-y += mdee_dumper_v5.o
 
 else
 obj-  := dummy.o # avoid build error

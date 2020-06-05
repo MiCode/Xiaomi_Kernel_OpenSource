@@ -27,6 +27,7 @@ static struct mutex scp_ipi_tx_mutex;
 static struct work_struct scp_ipi_rx_work;
 static wait_queue_head_t scp_ipi_rx_wq;
 static struct ccci_skb_queue scp_ipi_rx_skb_list;
+static unsigned int init_work_done;
 #if (MD_GENERATION >= 6297)
 static struct ccci_ipi_msg scp_ipi_rx_msg;
 #endif
@@ -34,7 +35,10 @@ static struct ccci_ipi_msg scp_ipi_rx_msg;
 static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 {
 	int ret = 0;
-
+#if (MD_GENERATION >= 6297)
+	int ipi_status = 0;
+	unsigned int cnt = 0;
+#endif
 	if (atomic_read(&scp_state) == SCP_CCCI_STATE_INVALID) {
 		CCCI_ERROR_LOG(md_id, FSM,
 			"ignore IPI %d, SCP state %d!\n",
@@ -52,9 +56,19 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
 		(int)sizeof(struct ccci_ipi_msg));
 #if (MD_GENERATION >= 6297)
-	if (mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0, 0,
-		&scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4),
-				1) != IPI_ACTION_DONE) {
+	while (1) {
+		ipi_status = mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0,
+		0, &scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4), 1);
+		if (ipi_status != IPI_PIN_BUSY)
+			break;
+		cnt++;
+		if (cnt > 10) {
+			CCCI_ERROR_LOG(md_id, FSM, "IPI send 10 times!\n");
+			/* aee_kernel_warning("ccci", "ipi:tx busy");*/
+			break;
+		}
+	}
+	if (ipi_status != IPI_ACTION_DONE) {
 		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
@@ -84,7 +98,9 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 		case MD_SYS1:
 			while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
 				if (atomic_read(&scp_state) ==
-					SCP_CCCI_STATE_BOOTING)
+					SCP_CCCI_STATE_BOOTING
+					|| atomic_read(&scp_state)
+					== SCP_CCCI_STATE_RBREADY)
 					break;
 				count++;
 				msleep(EVENT_POLL_INTEVAL);
@@ -194,11 +210,35 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
  * @param data:  IPI data
  * @param len: IPI data length
  */
-static void ccci_scp_ipi_handler(int id, void *prdata, void *data,
+static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 			unsigned int len)
+{
+	struct ccci_ipi_msg *ipi_msg_ptr = (struct ccci_ipi_msg *)data;
+	struct sk_buff *skb = NULL;
+
+	if (len != sizeof(struct ccci_ipi_msg)) {
+		CCCI_ERROR_LOG(-1, CORE,
+		"IPI handler, data length wrong %d vs. %d\n",
+		len, (int)sizeof(struct ccci_ipi_msg));
+		return -1;
+	}
+	CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, CORE,
+		"IPI handler %d/0x%x, %d\n",
+		ipi_msg_ptr->op_id,
+		ipi_msg_ptr->data[0], len);
+
+	skb = ccci_alloc_skb(len, 0, 0);
+	if (!skb)
+		return -1;
+	memcpy(skb_put(skb, len), data, len);
+	ccci_skb_enqueue(&scp_ipi_rx_skb_list, skb);
+	/* ipi_send use mutex, can not be called from ISR context */
+	schedule_work(&scp_ipi_rx_work);
+
+	return 0;
+}
 #else
 static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
-#endif
 {
 	struct ccci_ipi_msg *ipi_msg_ptr = (struct ccci_ipi_msg *)data;
 	struct sk_buff *skb = NULL;
@@ -223,6 +263,7 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 	schedule_work(&scp_ipi_rx_work);
 }
 #endif
+#endif
 
 int fsm_ccism_init_ack_handler(int md_id, int data)
 {
@@ -236,15 +277,16 @@ int fsm_ccism_init_ack_handler(int md_id, int data)
 #endif
 	return 0;
 }
-
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-static int fsm_sim_lock_handler(int md_id, int data)
-{
-	fsm_monitor_send_message(md_id, CCCI_MD_MSG_RANDOM_PATTERN, 0);
-	return 0;
-}
-#endif
-
+/* phase out:architecture design adjustment */
+/*
+ *#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
+ *static int fsm_sim_lock_handler(int md_id, int data)
+ *{
+ *	fsm_monitor_send_message(md_id, CCCI_MD_MSG_RANDOM_PATTERN, 0);
+ *	return 0;
+ *}
+ *#endif
+ */
 static int fsm_sim_type_handler(int md_id, int data)
 {
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
@@ -269,7 +311,10 @@ void fsm_scp_init0(void)
 		"AP CCCI") != SCP_IPI_DONE)
 		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
 #endif
-	INIT_WORK(&scp_ipi_rx_work, ccci_scp_ipi_rx_work);
+	if (!init_work_done) {
+		INIT_WORK(&scp_ipi_rx_work, ccci_scp_ipi_rx_work);
+		init_work_done = 1;
+	}
 	init_waitqueue_head(&scp_ipi_rx_wq);
 	ccci_skb_queue_init(&scp_ipi_rx_skb_list, 16, 16, 0);
 	atomic_set(&scp_state, SCP_CCCI_STATE_BOOTING);
@@ -289,10 +334,13 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl)
 	register_ccci_sys_call_back(scp_ctl->md_id, CCISM_SHM_INIT_ACK,
 		fsm_ccism_init_ack_handler);
 #endif
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-	register_ccci_sys_call_back(scp_ctl->md_id, SIM_LOCK_RANDOM_PATTERN,
-		fsm_sim_lock_handler);
-#endif
+/* phase out:architecture design adjustment */
+/*
+ *#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
+ *	register_ccci_sys_call_back(scp_ctl->md_id, SIM_LOCK_RANDOM_PATTERN,
+ *		fsm_sim_lock_handler);
+ *#endif
+ */
 	register_ccci_sys_call_back(scp_ctl->md_id, MD_SIM_TYPE,
 		fsm_sim_type_handler);
 

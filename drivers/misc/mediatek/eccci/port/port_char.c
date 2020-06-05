@@ -71,6 +71,7 @@ static const struct file_operations char_dev_fops = {
 	.compat_ioctl = &port_dev_compat_ioctl,/*use default API*/
 #endif
 	.poll = &port_char_dev_poll,/*use port char self API*/
+	.mmap = &port_dev_mmap,
 };
 static int port_char_init(struct port_t *port)
 {

@@ -57,4 +57,5 @@ void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage);
 int ccci_hif_state_notification(int md_id, unsigned char state);
 void ccci_hif_resume(unsigned char md_id, unsigned int hif_flag);
 void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag);
+void dump_ctrl_path_hif_status(void);
 #endif

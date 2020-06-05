@@ -271,5 +271,6 @@ extern u32 mt_irq_get_pending(unsigned int irq);
 extern int gf_port_list_reg[GF_PORT_LIST_MAX];
 extern int gf_port_list_unreg[GF_PORT_LIST_MAX];
 extern int ccci_ipc_set_garbage_filter(struct ccci_modem *md, int reg);
+/* mp1 1, mp2 0, ro 1 */
 extern void spm_ap_mdsrc_req(u8 lock);
 #endif	/* __CCCI_MODEM_H__ */

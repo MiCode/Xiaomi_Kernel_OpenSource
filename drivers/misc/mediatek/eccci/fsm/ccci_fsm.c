@@ -16,6 +16,7 @@
  */
 
 #include "ccci_fsm_internal.h"
+#include <memory/mediatek/emi.h>
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -26,6 +27,8 @@ static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 
 static int needforcestop;
 
+static int s_is_normal_mdee;
+static int s_devapc_dump_counter;
 
 int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 {
@@ -131,6 +134,16 @@ static void fsm_routine_zombie(struct ccci_fsm_ctl *ctl)
 #endif
 }
 
+int ccci_fsm_is_normal_mdee(void)
+{
+	return s_is_normal_mdee;
+}
+
+int ccci_fsm_increase_devapc_dump_counter(void)
+{
+	return (++ s_devapc_dump_counter);
+}
+
 /* cmd is not NULL only when reason is ordinary EE */
 static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd, enum CCCI_EE_REASON reason)
@@ -191,6 +204,9 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 */
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
+#if (MD_GENERATION >= 6297)
+		mtk_clear_md_violation();
+#endif
 		count = 0;
 		while (count < MD_EX_REC_OK_TIMEOUT/EVENT_POLL_INTEVAL) {
 			spin_lock_irqsave(&ctl->event_lock, flags);
@@ -231,8 +247,6 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 			msleep(EVENT_POLL_INTEVAL);
 		}
 		fsm_md_exception_stage(&ctl->ee_ctl, 2);
-		/*wait until modem memory dump done*/
-		fsm_check_ee_done(&ctl->ee_ctl, EE_DONE_TIMEOUT);
 		break;
 	default:
 		break;
@@ -521,6 +535,10 @@ static int fsm_main_thread(void *data)
 
 		CCCI_NORMAL_LOG(ctl->md_id, FSM,
 			"command %d process\n", cmd->cmd_id);
+
+		s_is_normal_mdee = 0;
+		s_devapc_dump_counter = 0;
+
 		switch (cmd->cmd_id) {
 		case CCCI_COMMAND_START:
 			fsm_routine_start(ctl, cmd);
@@ -532,6 +550,7 @@ static int fsm_main_thread(void *data)
 			fsm_routine_wdt(ctl, cmd);
 			break;
 		case CCCI_COMMAND_EE:
+			s_is_normal_mdee = 1;
 			fsm_routine_exception(ctl, cmd, EXCEPTION_EE);
 			break;
 		case CCCI_COMMAND_MD_HANG:

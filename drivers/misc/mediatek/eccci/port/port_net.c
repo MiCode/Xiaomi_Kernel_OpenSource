@@ -67,7 +67,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI3_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI3_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 3:
 		channel->rx = CCCI_CCMNI4_RX;
@@ -75,7 +75,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI4_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI4_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 4:
 		channel->rx = CCCI_CCMNI5_RX;
@@ -83,7 +83,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI5_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI5_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 5:
 		channel->rx = CCCI_CCMNI6_RX;
@@ -91,7 +91,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI6_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI6_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 6:
 		channel->rx = CCCI_CCMNI7_RX;
@@ -99,7 +99,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI7_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI7_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 7:
 		channel->rx = CCCI_CCMNI8_RX;
@@ -123,7 +123,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI10_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI10_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 10:
 		channel->rx = CCCI_CCMNI11_RX;
@@ -131,7 +131,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI11_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI11_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 11:
 		channel->rx = CCCI_CCMNI12_RX;
@@ -139,7 +139,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI12_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI12_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 12:
 		channel->rx = CCCI_CCMNI13_RX;
@@ -147,7 +147,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI13_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI13_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 13:
 		channel->rx = CCCI_CCMNI14_RX;
@@ -155,7 +155,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI14_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI14_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 14:
 		channel->rx = CCCI_CCMNI15_RX;
@@ -163,7 +163,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI15_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI15_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 15:
 		channel->rx = CCCI_CCMNI16_RX;
@@ -171,7 +171,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI16_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI16_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 16:
 		channel->rx = CCCI_CCMNI17_RX;
@@ -179,7 +179,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI17_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI17_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 17:
 		channel->rx = CCCI_CCMNI18_RX;
@@ -187,7 +187,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI18_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI18_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 18:
 		channel->rx = CCCI_CCMNI19_RX;
@@ -195,7 +195,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI19_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI19_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 19:
 		channel->rx = CCCI_CCMNI20_RX;
@@ -203,7 +203,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI20_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI20_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 20:
 		channel->rx = CCCI_CCMNI21_RX;
@@ -211,7 +211,7 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->tx = CCCI_CCMNI21_TX;
 		channel->tx_ack = 0xFF;
 		channel->dl_ack = CCCI_CCMNI21_TX;
-		channel->multiq = 0;
+		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
 	case 21: /* CCMIN-LAN should always be the last one*/
 		channel->rx = CCCI_CCMNILAN_RX;
@@ -395,6 +395,69 @@ static int port_net_init(struct port_t *port)
 	return 0;
 }
 
+static void recv_from_port_list(struct port_t *port)
+{
+	unsigned long flags;
+	struct sk_buff *skb;
+
+	spin_lock_irqsave(&port->port_rx_list.lock, flags);
+	skb = __skb_dequeue(&port->port_rx_list);
+	if (skb == NULL) {
+		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+	port_ch_dump(port, 0, skb, skb->len);
+	ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port), skb, NULL);
+}
+
+int mtk_ccci_handle_port_list(int status, char *name)
+{
+	int ret = 0, channel;
+	unsigned long flags;
+	struct port_t *port;
+	struct sk_buff *skb;
+
+	channel = mtk_ccci_request_port(name);
+	ret = find_port_by_channel(channel, &port);
+	if (ret)
+		return -1;
+	if (status)
+		atomic_set(&port->is_up, 1);
+	else {
+		atomic_set(&port->is_up, 0);
+		spin_lock_irqsave(&port->port_rx_list.lock, flags);
+		while ((skb = __skb_dequeue(&port->port_rx_list))
+			!= NULL)
+			dev_kfree_skb_any(skb);
+		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+		return ret;
+	}
+	while (!skb_queue_empty(&port->port_rx_list))
+		recv_from_port_list(port);
+	return ret;
+}
+
+static void ccmni_queue_recv_skb(struct port_t *port, struct sk_buff *skb)
+{
+	unsigned long flags;
+
+	if (atomic_read(&port->is_up)) {
+		while (!skb_queue_empty(&port->port_rx_list))
+			recv_from_port_list(port);
+
+		/*The packet may be out of order when ccmni is up at the*/
+		/* same time, it will be correctly handled by TCP stack.*/
+		ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port),
+					skb, NULL);
+	} else {
+		port_ch_dump(port, 1, skb, skb->len);
+		spin_lock_irqsave(&port->port_rx_list.lock, flags);
+			__skb_queue_tail(&port->port_rx_list, skb);
+		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+	}
+}
+
 static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
 #if MD_GENERATION >= (6293)
@@ -444,7 +507,8 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 	skb->tstamp = 0;
 	netif_time = sched_clock();
 #endif
-	ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port), skb, NULL);
+
+	ccmni_queue_recv_skb(port, skb);
 
 #ifdef CCCI_SKB_TRACE
 	netif_rx_profile[3] = sched_clock() - netif_time;
@@ -463,7 +527,10 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 	int qno, unsigned int state)
 {
 	int is_ack = 0;
+	unsigned long flags = 0;
 
+	if (dir == OUT)
+		spin_lock_irqsave(&port->flag_lock, flags);
 	if (dir == OUT && qno == NET_ACK_TXQ_INDEX(port)
 		&& port->txq_index != qno)
 		is_ack = 1;
@@ -473,8 +540,16 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 			((!is_ack && ((port->flags &
 			PORT_F_TX_DATA_FULLED) == 0)) ||
 			(is_ack && ((port->flags &
-			PORT_F_TX_ACK_FULLED) == 0)))))
+			PORT_F_TX_ACK_FULLED) == 0))))) {
+			if (dir == OUT)
+				spin_unlock_irqrestore(&port->flag_lock, flags);
 			return;
+		}
+	}
+	if (state == TX_FULL && hif_empty_query(qno)) {
+		if (dir == OUT)
+			spin_unlock_irqrestore(&port->flag_lock, flags);
+		return;
 	}
 	ccmni_ops.queue_state_callback(port->md_id,
 		GET_CCMNI_IDX(port), state, is_ack);
@@ -491,6 +566,8 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 	default:
 		break;
 	};
+	if (dir == OUT)
+		spin_unlock_irqrestore(&port->flag_lock, flags);
 }
 
 static void port_net_md_state_notify(struct port_t *port, unsigned int state)
@@ -510,6 +587,27 @@ void port_net_md_dump_info(struct port_t *port, unsigned int flag)
 		return;
 	}
 	ccmni_ops.dump(port->md_id, GET_CCMNI_IDX(port), 0);
+}
+
+void mtk_ccci_net_port_init(char *name)
+{
+	int ret = 0, channel;
+	struct port_t *port;
+
+	channel = mtk_ccci_request_port(name);
+	if (channel < 0) {
+		CCCI_ERROR_LOG(-1, NET,
+		"Fail to init net port %s for channel %d\n", name, channel);
+		return;
+	}
+	ret = find_port_by_channel(channel, &port);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, NET,
+		"Cannot find channel %d for net port %s\n", channel, name);
+		return;
+	}
+	port->flags |= PORT_F_NET_DUMP;
+	skb_queue_head_init(&port->port_rx_list);
 }
 
 struct port_ops net_port_ops = {

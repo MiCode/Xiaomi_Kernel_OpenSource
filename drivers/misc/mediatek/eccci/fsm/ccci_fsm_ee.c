@@ -131,7 +131,7 @@ void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage)
 				MDEE_DUMP_LEVEL_STAGE1, ee_case);
 
 		/* Dump MD register*/
-		md_dump_flag = DUMP_FLAG_REG;
+		md_dump_flag = DUMP_FLAG_REG | DUMP_FLAG_MD_WDT;
 		if (ee_case == MD_EE_CASE_ONLY_SWINT)
 			md_dump_flag |= (DUMP_FLAG_QUEUE_0
 							| DUMP_FLAG_CCIF
@@ -183,7 +183,7 @@ _dump_done:
 		/* Dump MD register, only NO response case dump */
 		if (md_id == MD_SYS1
 			|| ee_ctl->ee_case == MD_EE_CASE_NO_RESPONSE)
-			md_dump_flag = DUMP_FLAG_REG;
+			md_dump_flag = DUMP_FLAG_REG | DUMP_FLAG_MD_WDT;
 		if (ee_ctl->ee_case == MD_EE_CASE_ONLY_SWINT)
 			md_dump_flag |= (DUMP_FLAG_QUEUE_0
 			| DUMP_FLAG_CCIF | DUMP_FLAG_CCIF_REG);
@@ -205,7 +205,8 @@ _dump_done:
 		if (ccci_fsm_get_md_state(GET_OTHER_MD_ID(md_id))
 				== BOOT_WAITING_FOR_HS2)
 			ccci_md_dump_info(GET_OTHER_MD_ID(md_id),
-				DUMP_FLAG_CCIF, NULL, 0);
+				DUMP_FLAG_CCIF,
+				NULL, 0);
 
 		spin_lock_irqsave(&ee_ctl->ctrl_lock, flags);
 		/* this flag should be the last action of
@@ -370,7 +371,9 @@ int fsm_ee_init(struct ccci_fsm_ee *ee_ctl)
 	ee_ctl->md_id = ctl->md_id;
 	spin_lock_init(&ee_ctl->ctrl_lock);
 	if (ee_ctl->md_id == MD_SYS1) {
-#if (MD_GENERATION >= 6292)
+#if (MD_GENERATION >= 6297)
+		ret = mdee_dumper_v5_alloc(ee_ctl);
+#elif (MD_GENERATION >= 6292)
 		ret = mdee_dumper_v3_alloc(ee_ctl);
 #elif (MD_GENERATION == 6291)
 		ret = mdee_dumper_v2_alloc(ee_ctl);

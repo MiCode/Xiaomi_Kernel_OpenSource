@@ -39,6 +39,7 @@
 #define    MD_MOD_UFPM    10
 #define    MD_MOD_USBCLASS 11
 #define    MD_MOD_WAAL     12
+/* mp1 1, mp2 0, ro 1 */
 #define    MD_MOD_GMMGR    13
 
 #define    AP_IPC_AGPS   0
@@ -76,6 +77,7 @@ X_IPC_MODULE_CONF(1, MD_MOD_IPCORE, MD_UNIFY_ID_FLAG | MD_MOD_IPCORE, 1)
 X_IPC_MODULE_CONF(1, MD_MOD_MDT, MD_UNIFY_ID_FLAG | MD_MOD_MDT, 1)
 X_IPC_MODULE_CONF(1, MD_MOD_UFPM, MD_UNIFY_ID_FLAG | MD_MOD_UFPM, 1)
 X_IPC_MODULE_CONF(1, MD_MOD_WAAL, MD_UNIFY_ID_FLAG | MD_MOD_WAAL, 1)
+/* mp1 1, mp2 0, ro 1 */
 X_IPC_MODULE_CONF(1, MD_MOD_GMMGR, MD_UNIFY_ID_FLAG | MD_MOD_GMMGR, 1)
 
 /* -------------------------------------------------------------------------- */

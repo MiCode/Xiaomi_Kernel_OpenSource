@@ -560,8 +560,7 @@ static int md_ccif_probe(struct platform_device *dev)
 		md, md->private_data);
 
 	/*register modem */
-	if (ccci_md_register(md) < 0)
-		return -1;
+	ccci_md_register(md);
 
 	/* init modem private data */
 	md_ccif_hw_init(md);

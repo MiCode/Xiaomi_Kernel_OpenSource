@@ -351,7 +351,7 @@ static struct dvfs_ref s_dvfs_tbl[] = {
 	/* inc ll freq */
 	{450000000LL, 1200000, 1406000, -1, 0x02, 0xF0, 0xF0},
 	/* inc ll freq */
-	{230000000LL, 900000, -1, -1, 0xFF, 0xFF, 0x0D},
+	{230000000LL, 1181000, -1, -1, 0xFF, 0xFF, 0x0D},
 	/* normal */
 	{0LL, -1, -1, -1, 0xFF, 0xFF, 0x0D},
 };

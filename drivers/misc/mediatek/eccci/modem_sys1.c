@@ -329,24 +329,34 @@ static inline int md_sys1_sw_init(struct ccci_modem *md)
 		"%s, MD_WDT IRQ(%d) CCIF_IRQ %d\n", __func__,
 		md->md_wdt_irq_id, md_info->ap_ccif_irq_id);
 	ret = request_irq(md->md_wdt_irq_id, md_cd_wdt_isr,
-			md->md_wdt_irq_flags, "MD_WDT", md);
+			md->md_wdt_irq_flags | IRQF_NO_SUSPEND, "MD_WDT", md);
 	if (ret) {
 		CCCI_ERROR_LOG(md->index, TAG,
 			"request MD_WDT IRQ(%d) error %d\n",
 			md->md_wdt_irq_id, ret);
 		return ret;
 	}
+	ret = irq_set_irq_wake(md->md_wdt_irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(md->index, TAG,
+			"irq_set_irq_wake MD_WDT IRQ(%d) error %d\n",
+			md->md_wdt_irq_id, ret);
 	/* IRQ is enabled after requested, so call enable_irq after
 	 * request_irq will get a unbalance warning
 	 */
 	ret = request_irq(md_info->ap_ccif_irq_id, md_cd_ccif_isr,
-			md_info->ap_ccif_irq_flags, "CCIF0_AP", md);
+		md_info->ap_ccif_irq_flags | IRQF_NO_SUSPEND, "CCIF0_AP", md);
 	if (ret) {
 		CCCI_ERROR_LOG(md->index, TAG,
 			"request CCIF0_AP IRQ(%d) error %d\n",
 			md_info->ap_ccif_irq_id, ret);
 		return ret;
 	}
+	ret = irq_set_irq_wake(md_info->ap_ccif_irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(md->index, TAG,
+			"irq_set_irq_wake ccif irq1(%d) error %d\n",
+			md_info->ap_ccif_irq_id, ret);
 	return 0;
 }
 
@@ -756,6 +766,7 @@ static void dump_runtime_data_v2_1(struct ccci_modem *md,
 
 static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 {
+#if (MD_GENERATION < 6297)
 	int __iomem *addr;
 	int i;
 	struct ccci_smem_region *dbm =
@@ -774,6 +785,7 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 #endif
 	addr[i++] = 0x44444444; /* Guard pattern 1 tail */
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
+#endif
 
 	/* Notify PBM */
 #ifndef DISABLE_PBM_FEATURE
@@ -1428,8 +1440,7 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		md, md->private_data);
 
 	/* register modem */
-	if (ccci_md_register(md) < 0)
-		return -1;
+	ccci_md_register(md);
 
 	/* init modem private data */
 	md_info = (struct md_sys1_info *)md->private_data;

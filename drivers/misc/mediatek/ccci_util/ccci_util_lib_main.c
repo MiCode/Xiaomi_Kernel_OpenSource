@@ -43,6 +43,7 @@ static int __init ccci_util_init(void)
 	ccci_common_sysfs_init();
 	ccci_timer_for_md_init();
 	ccci_util_broadcast_init();
+	ccci_sib_init();
 
 	return 0;
 }
