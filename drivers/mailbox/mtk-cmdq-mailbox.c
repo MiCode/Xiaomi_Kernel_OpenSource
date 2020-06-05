@@ -103,7 +103,7 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 
 	if (readl_poll_timeout_atomic(thread->base + CMDQ_THR_CURR_STATUS,
 			status, status & CMDQ_THR_STATUS_SUSPENDED, 0, 10)) {
-		dev_err(cmdq->mbox.dev, "suspend GCE thread 0x%x failed\n",
+		pr_notice("[cmdq][err] suspend GCE thread 0x%x failed\n",
 			(u32)(thread->base - cmdq->base));
 		return -EFAULT;
 	}
@@ -135,7 +135,7 @@ static int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
 	if (readl_poll_timeout_atomic(thread->base + CMDQ_THR_WARM_RESET,
 			warm_reset, !(warm_reset & CMDQ_THR_DO_WARM_RESET),
 			0, 10)) {
-		dev_err(cmdq->mbox.dev, "reset GCE thread 0x%x failed\n",
+		pr_notice("[cmdq][err] reset GCE thread 0x%x failed\n",
 			(u32)(thread->base - cmdq->base));
 		return -EFAULT;
 	}
@@ -520,13 +520,19 @@ static int cmdq_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	cmdq->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(cmdq->base)) {
-		dev_err(dev, "failed to ioremap gce\n");
+		pr_notice("[cmdq][err] failed to ioremap gce\n");
 		return PTR_ERR(cmdq->base);
 	}
 
 	cmdq->irq = platform_get_irq(pdev, 0);
 	if (!cmdq->irq) {
-		dev_err(dev, "failed to get irq\n");
+		pr_notice("[cmdq][err] failed to get irq\n");
+		return -EINVAL;
+	}
+
+	plat_data = (struct gce_plat *)of_device_get_match_data(dev);
+	if (!plat_data) {
+		pr_notice("[cmdq][err] failed to get match data\n");
 		return -EINVAL;
 	}
 
@@ -542,7 +548,8 @@ static int cmdq_probe(struct platform_device *pdev)
 	err = devm_request_irq(dev, cmdq->irq, cmdq_irq_handler, IRQF_SHARED,
 			       "mtk_cmdq", cmdq);
 	if (err < 0) {
-		dev_err(dev, "failed to register ISR (%d)\n", err);
+		pr_notice("[cmdq][err] failed to register ISR (%d)\n",
+			err);
 		return err;
 	}
 
@@ -551,9 +558,11 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq->clock = devm_clk_get(dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
-		dev_err(dev, "failed to get gce clk\n");
+		pr_notice("[cmdq][err] failed to get gce clk\n");
 		return PTR_ERR(cmdq->clock);
 	}
+
+	*dev->dma_mask = 0x7ffffffff;
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, cmdq->thread_nr,
@@ -583,7 +592,8 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	err = devm_mbox_controller_register(dev, &cmdq->mbox);
 	if (err < 0) {
-		dev_err(dev, "failed to register mailbox: %d\n", err);
+		pr_notice("[cmdq][err] failed to register mailbox: %d\n",
+			err);
 		return err;
 	}
 
@@ -608,6 +618,7 @@ static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt8173-gce", .data = (void *)&gce_plat_v2},
 	{.compatible = "mediatek,mt8183-gce", .data = (void *)&gce_plat_v3},
 	{.compatible = "mediatek,mt6779-gce", .data = (void *)&gce_plat_v4},
+	{.compatible = "mediatek,mt6873-gce", .data = (void *)&gce_plat_v4},
 	{}
 };
 
