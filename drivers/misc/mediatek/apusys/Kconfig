@@ -45,7 +45,6 @@ config MTK_APUSYS_VPU
 config MTK_APUSYS_VPU_DEBUG
 	bool "VPU Debug"
 	depends on MTK_APUSYS_VPU
-	depends on DEBUG_FS
 	help
 	  Enable debug facilities of VPU, such as
 	  kernel logs, register dumps, device logs,
