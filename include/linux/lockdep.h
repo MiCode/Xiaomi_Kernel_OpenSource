@@ -278,11 +278,12 @@ struct held_lock {
 #endif
 
 	/* MTK_LOCK_DEBUG_HELD_LOCK */
-#define HELD_LOCK_STACK_TRACE_DEPTH 24
+#define HELD_LOCK_STACK_TRACE_DEPTH 20
 	struct stack_trace trace;
 	unsigned long entries[HELD_LOCK_STACK_TRACE_DEPTH];
 	/* MTK_LOCK_MONITOR */
 	unsigned long long timestamp;
+	bool acquired;
 };
 
 #ifdef CONFIG_LOCKDEP_CROSSRELEASE
@@ -608,7 +609,7 @@ static inline void lockdep_init_task(struct task_struct *task) {}
 static inline void lockdep_free_task(struct task_struct *task) {}
 #endif /* CROSSRELEASE */
 
-#ifdef CONFIG_LOCK_STAT
+#if defined(CONFIG_LOCK_STAT) || defined(CONFIG_DEBUG_LOCK_ALLOC)
 
 extern void lock_contended(struct lockdep_map *lock, unsigned long ip);
 extern void lock_acquired(struct lockdep_map *lock, unsigned long ip);

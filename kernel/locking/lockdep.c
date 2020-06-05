@@ -124,6 +124,7 @@ module_param(lock_stat, int, 0644);
 #endif
 
 #define MAX_LOCK_NAME  128
+#ifdef CONFIG_PROVE_LOCKING
 static noinline int trace_circular_bug(
 	struct lock_list *this,
 	struct lock_list *target,
@@ -154,6 +155,19 @@ static bool is_log_lock_held(struct task_struct *curr)
 	return false;
 }
 
+static void lock_dbg(const char *msg, ...)
+{
+	char buf[256];
+	va_list args;
+
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+
+	trace_lock_dbg(buf);
+}
+#endif
+
 #ifdef MTK_LOCK_MONITOR
 static char buf_lock[256];
 static unsigned int lock_mon_enable = 1;
@@ -163,6 +177,9 @@ static unsigned int lock_mon_3rd_th_ms = 15000; /* trigger Kernel API dump */
 static unsigned int lock_mon_period_ms = 2500; /* check held locks */
 static unsigned int lock_mon_period_cnt = 4; /* show more information */
 static unsigned int lock_mon_door;
+
+#define MAX_WARN_LOCKS 100
+static unsigned int warn_locks;
 
 static const char * const held_lock_white_list[] = {
 	"&tty->ldisc_sem",
@@ -224,22 +241,8 @@ static unsigned long sec_low(unsigned long long nsec)
 #define TO_BOTH_SAVE  (TO_DEFERRED | TO_FTRACE)
 #endif
 
-static void lock_dbg(const char *msg, ...)
-{
-	char buf[256];
-	va_list args;
-
-	va_start(args, msg);
-	vsnprintf(buf, sizeof(buf), msg, args);
-	va_end(args);
-
-	trace_lock_dbg(buf);
-}
-
 #define add_suffix(out)	(out == TO_SRAM) ? "\n" : ""
-#define MAX_WARN_LOCKS 100
 #define MAX_WARN_MSG 120
-static unsigned int warn_locks;
 static unsigned int warn_msgs;
 
 static void lock_mon_msg(char *buf, int out)
@@ -3759,6 +3762,7 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 
 	/* MTK_LOCK_MONITOR */
 	hlock->timestamp = sched_clock();
+	hlock->acquired = true;
 
 	if (check && !mark_irqflags(curr, hlock))
 		return 0;
@@ -4487,6 +4491,9 @@ __lock_contended(struct lockdep_map *lock, unsigned long ip)
 	if (lock->cpu != smp_processor_id())
 		stats->bounces[bounce_contended + !!hlock->read]++;
 	put_lock_stats(stats);
+#ifdef MTK_LOCK_MONITOR
+	hlock->acquired = false;
+#endif
 }
 
 static void
@@ -4538,13 +4545,16 @@ __lock_acquired(struct lockdep_map *lock, unsigned long ip)
 
 	lock->cpu = cpu;
 	lock->ip = ip;
+#ifdef MTK_LOCK_MONITOR
+	hlock->acquired = true;
+#endif
 }
 
 void lock_contended(struct lockdep_map *lock, unsigned long ip)
 {
 	unsigned long flags;
 
-	if (unlikely(!lock_stat || !debug_locks))
+	if (unlikely(!lock_stat || !debug_locks) && !lock_mon_enabled())
 		return;
 
 	if (unlikely(current->lockdep_recursion))
@@ -4564,7 +4574,7 @@ void lock_acquired(struct lockdep_map *lock, unsigned long ip)
 {
 	unsigned long flags;
 
-	if (unlikely(!lock_stat || !debug_locks))
+	if (unlikely(!lock_stat || !debug_locks) && !lock_mon_enabled())
 		return;
 
 	if (unlikely(current->lockdep_recursion))
@@ -4578,6 +4588,53 @@ void lock_acquired(struct lockdep_map *lock, unsigned long ip)
 	raw_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(lock_acquired);
+#elif defined(MTK_LOCK_MONITOR)
+static void
+set_acquired(struct lockdep_map *lock, unsigned long ip, bool acquired)
+{
+	struct task_struct *curr = current;
+	struct held_lock *hlock;
+	unsigned int depth = curr->lockdep_depth;
+	int i;
+
+	if (DEBUG_LOCKS_WARN_ON(!depth))
+		return;
+
+	hlock = find_held_lock(curr, lock, depth, &i);
+	if (!hlock)
+		return;
+
+	if (hlock->instance != lock)
+		return;
+
+	hlock->acquired = acquired;
+}
+
+static void
+set_lock_acquired(struct lockdep_map *lock, unsigned long ip, bool acquired)
+{
+	unsigned long flags;
+
+	if (unlikely(current->lockdep_recursion))
+		return;
+
+	raw_local_irq_save(flags);
+	check_flags(flags);
+	current->lockdep_recursion = 1;
+	set_acquired(lock, ip, acquired);
+	current->lockdep_recursion = 0;
+	raw_local_irq_restore(flags);
+}
+
+void lock_contended(struct lockdep_map *lock, unsigned long ip)
+{
+	set_lock_acquired(lock, ip, false);
+}
+
+void lock_acquired(struct lockdep_map *lock, unsigned long ip)
+{
+	set_lock_acquired(lock, ip, true);
+}
 #endif
 
 /*
@@ -5491,6 +5548,7 @@ void lockdep_free_task(struct task_struct *task)
 }
 #endif
 
+#if defined(CONFIG_PROVE_LOCKING) || defined(MTK_LOCK_MONITOR)
 static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
 {
 	char str[KSYM_NAME_LEN];
@@ -5511,6 +5569,7 @@ static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
 			lock_name, name_version, subclass);
 	}
 }
+#endif
 
 #ifdef CONFIG_PROVE_LOCKING
 /*
@@ -6021,8 +6080,25 @@ static void dump_task_stack(struct task_struct *tsk, int output) {}
 #endif
 #endif
 
-static void lock_monitor_aee(void);
 static bool lock_mon_aee = 1;
+#ifdef CONFIG_PROVE_LOCKING
+static bool is_critical_lock_held(void);
+static void lock_monitor_aee(void)
+{
+	char aee_str[40];
+
+	if (!is_critical_lock_held()) {
+		snprintf(aee_str, 40, "[%s]held locks too much", current->comm);
+#ifdef CONFIG_MTK_AEE_FEATURE
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+			aee_str, "Lock Monitor Warning\n");
+#endif
+	}
+}
+#else
+static void lock_monitor_aee(void) {};
+#endif
 
 static void lockdep_check_held_locks(
 	struct task_struct *curr, bool en, bool aee)
@@ -6090,8 +6166,10 @@ static void lockdep_check_held_locks(
 
 			warn_locks++;
 			snprintf(buf_lock, sizeof(buf_lock),
-				 "[%p] (%s) held/waited by %s/%d[%c] on CPU#%d from [%lld.%06lu]%s",
-				 hlock->instance, name, curr->comm, curr->pid,
+				 "[%p] (%s) %s by %s/%d[%c] on CPU#%d from [%lld.%06lu]%s",
+				 hlock->instance, name,
+				 hlock->acquired ? "held" : "needed",
+				 curr->comm, curr->pid,
 				 task_state_to_char(curr), task_cpu(curr),
 				 sec_high(hlock->timestamp),
 				 sec_low(hlock->timestamp),
@@ -6499,21 +6577,6 @@ static void lockdep_aee(void)
 #endif
 	}
 }
-
-static void lock_monitor_aee(void)
-{
-	char aee_str[40];
-
-	if (!is_critical_lock_held()) {
-		snprintf(aee_str, 40, "[%s]held locks too much", current->comm);
-#ifdef CONFIG_MTK_AEE_FEATURE
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-			aee_str, "Lock Monitor Warning\n");
-#endif
-	}
-}
 #else
 static void lockdep_aee(void) {};
-static void lock_monitor_aee(void) {};
 #endif

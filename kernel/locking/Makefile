@@ -18,10 +18,13 @@ ifeq ($(CONFIG_PROVE_LOCKING),y)
 ccflags-y += -DMTK_LOCK_DEBUG_NEW_DEPENDENCY
 endif
 
-ifeq ($(CONFIG_LOCKDEP),y)
+ifeq ($(CONFIG_DEBUG_LOCK_ALLOC),y)
 ifneq (y, $(filter y, $(CONFIG_KASAN) $(CONFIG_UBSAN)))
 ccflags-y += -DMTK_LOCK_MONITOR
 endif
+endif
+
+ifeq ($(CONFIG_LOCKDEP),y)
 ccflags-y += -DMTK_ENHANCE_LOCKDEP_PROC
 endif
 
