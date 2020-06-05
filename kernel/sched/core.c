@@ -4260,6 +4260,8 @@ static inline void prefetch_curr_exec_start(struct task_struct *p)
 #else
 	struct sched_entity *curr = (&task_rq(p)->cfs)->curr;
 #endif
+	if (curr == NULL)
+		return;
 	prefetch(curr);
 	prefetch(&curr->exec_start);
 }
