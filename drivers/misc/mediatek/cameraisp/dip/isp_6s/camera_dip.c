@@ -969,7 +969,7 @@ static inline unsigned int DIP_JiffiesToMs(unsigned int Jiffies)
 	return ((Jiffies * 1000) / HZ);
 }
 
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 GKI Modify
 static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 {
@@ -3994,7 +3994,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 #ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
 	smi_bus_prepare_enable(SMI_LARB9, DIP_DEV_NAME);
 #endif
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB9);
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_LARB9 clock\n");
@@ -4032,7 +4032,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	clk_disable_unprepare(dip_clk.DIP_IMG_MFB_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP_MSS);
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
@@ -4041,7 +4041,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 #ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
 	smi_bus_disable_unprepare(SMI_LARB9, DIP_DEV_NAME);
 #endif
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 #if (MTK_DIP_COUNT == 2)
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP2);
 #endif
@@ -7186,7 +7186,7 @@ static signed int DIP_remove(struct platform_device *pDev)
 	for (i = 0; i < DIP_IRQ_TYPE_AMOUNT; i++)
 		tasklet_kill(dip_tasklet[i].pIsp_tkt);
 
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	/* free all registered irq(child nodes) */
 	DIP_UnRegister_AllregIrq();
 	/* free father nodes of irq user list */
@@ -7644,7 +7644,7 @@ static const struct file_operations dip_p2_dump_proc_fops = {
 static int dip_dump_read(struct seq_file *m, void *v)
 {
 /* fix unexpected close clock issue */
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	int i;
 
 	if (G_u4DipEnClkCnt <= 0)
@@ -7736,7 +7736,7 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 	pr_info("[ISP_M4U]fault call port=%d, mva=0x%lx", port, mva);
 
 	switch (port) {
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	case M4U_PORT_IMGI_D1:
 	case M4U_PORT_IMGBI_D1:
 	case M4U_PORT_DMGI_D1:
@@ -8179,7 +8179,7 @@ static signed int __init DIP_Init(void)
 {
 	signed int Ret = 0, j;
 	void *tmp;
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	struct device_node *node = NULL;
 #endif
 	struct proc_dir_entry *proc_entry;
@@ -8196,7 +8196,7 @@ static signed int __init DIP_Init(void)
 	}
 	/*  */
 
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mmsys_config");
 	if (!node) {
 		LOG_ERR("find mmsys_config node failed!!!\n");
@@ -8275,7 +8275,7 @@ static signed int __init DIP_Init(void)
 	}
 
 #ifndef EP_CODE_MARK_CMDQ
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	/* Register DIP callback */
 	LOG_DBG("register dip callback for MDP");
 	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
@@ -8470,7 +8470,7 @@ static void __exit DIP_Exit(void)
 	platform_driver_unregister(&DipDriver);
 	/*  */
 #ifndef EP_CODE_MARK_CMDQ
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 	/* Unregister DIP callback */
 	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
 			   NULL,
@@ -8524,7 +8524,7 @@ int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 	const char *pCmdq1stErrCmd;
 
 	LOG_DBG("DIP_MDPDumpCallback");
-#if !define(GKI_MODIFY_WORKAROUND)
+#if !defined(GKI_MODIFY_WORKAROUND)
 
 	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
 	if (pCmdq1stErrCmd != NULL) {
