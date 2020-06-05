@@ -32,7 +32,7 @@ struct spmtwam_channel {
 
 struct spmtwam_cfg {
 	struct spmtwam_channel ch[4];   /* channel 0~3 config */
-	bool spmtwam_speed_mode;        /* 0: normal, 1: high speed */
+	u32 spmtwam_speed_mode;         /* 0: normal, 1: high speed */
 	u32 spmtwam_window_len;
 	/* spmtwam_window_len
 	 *	0: will be automatically updated for current speed mode
