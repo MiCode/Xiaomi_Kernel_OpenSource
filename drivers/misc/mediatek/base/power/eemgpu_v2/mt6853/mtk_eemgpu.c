@@ -137,6 +137,11 @@ static DEFINE_SPINLOCK(eemg_spinlock);
 static int eemg_log_en;
 static unsigned int eemg_checkEfuse = 1;
 static unsigned int informEEMisReady;
+unsigned int gpu_vb_volt;
+unsigned int gpu_vb_turn_pt;
+unsigned int gpu_opp0_t_volt[4] = {
+	80000, 77500, 75000, 72500
+};
 
 
 #ifdef CONFIG_OF
@@ -169,6 +174,7 @@ static int get_devinfo(void)
 {
 	int ret = 0, i = 0;
 	int *val;
+	int efuse_val;
 	unsigned int safeEfuse = 0;
 
 	FUNC_ENTER(FUNC_LV_HELP);
@@ -225,6 +231,17 @@ static int get_devinfo(void)
 #else
 	gpu_2line = 0;
 #endif
+
+	efuse_val = (get_devinfo_with_index(209)
+		>> 11) & 0x3;
+	if (efuse_val && efuse_val <= 4)
+		gpu_vb_volt =
+			gpu_opp0_t_volt[efuse_val - 1];
+	else
+		gpu_vb_volt =
+			gpu_opp0_t_volt[0];
+	eemg_error("gpu_vb_volt:%d, efuse_val:%d\n",
+			gpu_vb_volt, efuse_val);
 
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if ((i == 5) || (i == 6) ||
@@ -1028,6 +1045,24 @@ static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 #endif
 }
 
+static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
+{
+	int i;
+
+	for (i = 1; i < gpu_vb_turn_pt; i++) {
+		ndet->volt_tbl_pmic[i] =
+		(unsigned int)(interpolate(
+		ndet->freq_tbl[0],
+		ndet->freq_tbl[gpu_vb_turn_pt],
+		ndet->volt_tbl_pmic[0],
+		ndet->volt_tbl_pmic[gpu_vb_turn_pt],
+		ndet->freq_tbl[i]));
+
+		eemg_error("ndet->volt_tbl_pmic[%d]:0x%x\n",
+			i, ndet->volt_tbl_pmic[i]);
+	}
+}
+
 static void get_volt_table_in_thread(struct eemg_det *det)
 {
 #if ENABLE_LOO
@@ -1231,17 +1266,28 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 		switch (ndet->ctrl_id) {
 		case EEMG_CTRL_GPU:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-			ndet->ops->eemg_2_pmic(ndet,
-			(ndet->volt_tbl[i] + ndet->volt_offset +
-			ndet->volt_aging[i]) +
-			rm_dvtfix_offset),
-			ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
-			ndet->ops->eemg_2_pmic(ndet, VMAX_VAL_GPU)) +
-			low_temp_offset),
-			ndet->volt_tbl_orig[i] + ndet->volt_clamp +
-			t_clamp);
+			if ((i == 0) && (gpu_vb_turn_pt != 0))
+				ndet->volt_tbl_pmic[i] = min(
+				(unsigned int)(clamp(
+				ndet->ops->eemg_2_pmic(ndet,
+				(ndet->ops->volt_2_eemg(ndet, gpu_vb_volt))),
+				ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
+				ndet->ops->eemg_2_pmic(ndet, VMAX_VAL_GPU)) +
+				low_temp_offset),
+				ndet->volt_tbl_orig[i] + ndet->volt_clamp +
+				t_clamp);
+			else
+				ndet->volt_tbl_pmic[i] = min(
+				(unsigned int)(clamp(
+				ndet->ops->eemg_2_pmic(ndet,
+				(ndet->volt_tbl[i] + ndet->volt_offset +
+				ndet->volt_aging[i]) +
+				rm_dvtfix_offset),
+				ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
+				ndet->ops->eemg_2_pmic(ndet, VMAX_VAL_GPU)) +
+				low_temp_offset),
+				ndet->volt_tbl_orig[i] + ndet->volt_clamp +
+				t_clamp);
 			break;
 #if ENABLE_VPU
 		case EEMG_CTRL_VPU:
@@ -1306,6 +1352,9 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	}
 
+	if ((ndet->ctrl_id == EEMG_CTRL_GPU) &&
+		(gpu_vb_turn_pt != 0))
+		eemg_interpolate_mid_opp(ndet);
 	eemg_save_final_volt_aee(ndet);
 
 #if ENABLE_LOO_G
@@ -1457,6 +1506,13 @@ static void eemg_init_ctrl(struct eemg_ctrl *ctrl)
 	FUNC_EXIT(FUNC_LV_HELP);
 }
 
+static unsigned int eemg_vmin_init(void)
+{
+	int vmin_idx = (get_devinfo_with_index(134) >> 2) & 3;
+
+	return vmin_idx == 1 ? 0x20 : vmin_idx == 2 ? 0x24 : 0x1C;
+}
+
 static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 {
 	enum eemg_det_id det_id = det_to_id(det);
@@ -1498,6 +1554,7 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 		}
 #endif
 		det->VMAX += det->DVTFIXED;
+		det->VMIN = eemg_vmin_init();
 		break;
 #if ENABLE_VPU
 	case EEMG_DET_VPU:
@@ -1536,12 +1593,14 @@ static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)
 			det->features = 0;
 			det->loo_role = NO_LOO_BANK;
 		}
+		det->VMIN = eemg_vmin_init();
 		break;
 #endif
 	default:
 		eemg_debug("[%s]: Unknown det_id %d\n", __func__, det_id);
 		break;
 	}
+	eemg_error("det[%d]->vmin = %d\n", det_id, det->VMIN);
 #if 0
 #if DVT
 	det->VBOOT = 0x30;

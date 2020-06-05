@@ -15,9 +15,7 @@
 
 
 /* CONFIG (SW related) */
-#ifdef CONFIG_MT6360_PMIC
-#define EEM_NOT_READY		(1)
-#endif
+/* #define EEM_NOT_READY		(1) */
 
 #define CONFIG_EEM_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
@@ -126,7 +124,7 @@ enum mt_cpu_dvfs_id {
 
 #if defined(MC50_LOAD)
 
-#if defined(MT6873) //2.0GHz
+#if defined(MT6853) //2.0GHz
 
 #define SPARE1_VAL	0x44535F53
 #define SPARE2_VAL	0x00003839

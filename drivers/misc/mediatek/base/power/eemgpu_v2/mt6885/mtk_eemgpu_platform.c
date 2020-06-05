@@ -50,23 +50,6 @@ struct eemg_det_ops gpu_det_ops = {
 	.get_freq_table_gpu		= get_freq_table_gpu,
 	.get_orig_volt_table_gpu	= get_orig_volt_table_gpu,
 };
-#if ENABLE_CPU
-struct eemg_det_ops cpu_det_ops_g = {
-	.get_volt_gpu		= get_volt_cpu1,
-	.set_volt_gpu		= set_volt_cpu1,
-	.restore_default_volt_gpu	= restore_default_volt_cpu1,
-	.get_freq_table_gpu		= get_freq_table_cpu1,
-	.get_orig_volt_table_gpu = get_orig_volt_table_cpu1,
-};
-
-struct eemg_det_ops cci_det_ops_g = {
-	.get_volt_gpu		= get_volt_cpu1,
-	.set_volt_gpu		= set_volt_cpu1,
-	.restore_default_volt_gpu	= restore_default_volt_cpu1,
-	.get_freq_table_gpu		= get_freq_table_cpu1,
-	.get_orig_volt_table_gpu = get_orig_volt_table_cpu1,
-};
-#endif
 
 #if ENABLE_VPU
 struct eemg_det_ops vpu_det_ops = {
@@ -80,222 +63,6 @@ struct eemg_det_ops mdla_det_ops = {
 };
 #endif
 
-#if ENABLE_CPU
-static unsigned int detid_to_dvfsid1(struct eemg_det *det)
-{
-	unsigned int cpudvfsindex;
-	enum eemg_det_id detid = det_to_id(det);
-
-	if (detid == EEMG_DET_L)
-		cpudvfsindex = MT_CPU_DVFS_LL;
-	else if (detid == EEMG_DET_B)
-		cpudvfsindex = MT_CPU_DVFS_L;
-#if ENABLE_LOO_B
-	else if (detid == EEMG_DET_B_HI)
-		cpudvfsindex = MT_CPU_DVFS_L;
-#endif
-	else
-		cpudvfsindex = MT_CPU_DVFS_CCI;
-
-#if 1
-	eemg_debug("[%s] id:%d, cpudvfsindex:%d\n", __func__,
-		det->ctrl_id, cpudvfsindex);
-#endif
-
-	return cpudvfsindex;
-}
-
-/* Will return 10uV */
-int get_volt_cpu1(struct eemg_det *det)
-{
-	unsigned int value = 0;
-	enum eemg_det_id cpudvfsindex;
-
-	FUNC_ENTER(FUNC_LV_HELP);
-	/* unit mv * 100 = 10uv */
-	cpudvfsindex = detid_to_dvfsid1(det);
-	value = mt_cpufreq_get_cur_volt(cpudvfsindex);
-
-	FUNC_EXIT(FUNC_LV_HELP);
-	eemg_debug("proc voltage = %d~~~\n", value);
-	return value;
-}
-
-/* volt_tbl_pmic is convert from 10uV */
-int set_volt_cpu1(struct eemg_det *det)
-{
-	int value = 0;
-	int errcheck = 0;
-	enum eemg_det_id cpudvfsindex;
-
-	FUNC_ENTER(FUNC_LV_HELP);
-
-	mutex_lock(&gpu_record_mutex);
-
-	for (value = 0; value < det->num_freq_tbl; value++) {
-		record_tbl_locked[value] =
-			det->volt_tbl_pmic[value];
-	}
-
-	if (record_tbl_locked[0] < det->volt_tbl_orig[15])
-		errcheck = 1;
-
-	if (errcheck == 0) {
-		cpudvfsindex = detid_to_dvfsid1(det);
-		value = mt_cpufreq_update_volt(cpudvfsindex,
-				record_tbl_locked, det->num_freq_tbl);
-	} else
-		WARN_ON(errcheck);
-#if 0
-	cpudvfsindex = detid_to_dvfsid1(det);
-	value = mt_cpufreq_update_volt(cpudvfsindex,
-			record_tbl_locked, det->num_freq_tbl);
-#endif
-#if 0
-	/*
-	 *eemg_debug("[set_volt_cpu %s].volt_tbl[0] = 0x%X
-	 *		----- Ori[0x%x] volt_tbl_pmic[0] = 0x%X (%d)\n",
-	 *	det->name,
-	 *	det->volt_tbl[0], det->volt_tbl_orig[0],
-	 *	det->volt_tbl_pmic[0], det->ops->pmic_2_volt(det,
-	 *		det->volt_tbl_pmic[0]));
-	 * eemg_debug("[set_volt_cpu %s].volt_tbl[7] = 0x%X
-	 *	----- Ori[0x%x] volt_tbl_pmic[7] = 0x%X (%d)\n",
-	 *	det->name,
-	 *	det->volt_tbl[7], det->volt_tbl_orig[7],
-	 *	det->volt_tbl_pmic[7], det->ops->pmic_2_volt(det,
-	 *		det->volt_tbl_pmic[7]));
-	 *eemg_debug("[set_volt_cpu %s].volt_tbl[8] = 0x%X
-	 *		----- Ori[0x%x] volt_tbl_pmic[8] = 0x%X (%d)\n",
-	 *	det->name,
-	 *	det->volt_tbl[8], det->volt_tbl_orig[8],
-	 *	det->volt_tbl_pmic[8], det->ops->pmic_2_volt(det,
-	 *		det->volt_tbl_pmic[8]));
-	 */
-#endif
-
-	mutex_unlock(&gpu_record_mutex);
-
-	FUNC_EXIT(FUNC_LV_HELP);
-
-	return value;
-
-}
-
-void restore_default_volt_cpu1(struct eemg_det *det)
-{
-#if SET_PMIC_VOLT_TO_DVFS
-	int value = 0;
-
-	FUNC_ENTER(FUNC_LV_HELP);
-
-	switch (det_to_id(det)) {
-	case EEMG_DET_L:
-		value = mt_cpufreq_update_volt(MT_CPU_DVFS_LL,
-				det->volt_tbl_orig, det->num_freq_tbl);
-		break;
-
-	case EEMG_DET_B:
-		value = mt_cpufreq_update_volt(MT_CPU_DVFS_L,
-				det->volt_tbl_orig, det->num_freq_tbl);
-		break;
-
-	case EEMG_DET_CCI:
-		value = mt_cpufreq_update_volt(MT_CPU_DVFS_CCI,
-				det->volt_tbl_orig, det->num_freq_tbl);
-		break;
-	}
-
-	FUNC_EXIT(FUNC_LV_HELP);
-#endif /*if SET_PMIC_VOLT_TO_DVFS*/
-}
-
-void get_freq_table_cpu1(struct eemg_det *det)
-{
-	int i = 0, curfreq = 0;
-	enum mt_cpu_dvfs_id cpudvfsindex;
-
-
-	FUNC_ENTER(FUNC_LV_HELP);
-
-	cpudvfsindex = detid_to_dvfsid1(det);
-
-	for (i = 0; i < NR_FREQ_CPU; i++) {
-
-#if DVT
-		det->freq_tbl[i] = dvtfreq[i];
-#else
-		curfreq = mt_cpufreq_get_freq_by_idx
-			(cpudvfsindex, i);
-
-		det->freq_tbl[i] = PERCENT(curfreq, det->max_freq_khz);
-#endif
-#if 1
-		eemg_debug("@@ %s freq_tbl[%d]=%d 0x%0x\n", det->name, i,
-			det->freq_tbl[i], det->freq_tbl[i]);
-#endif
-		if (det->freq_tbl[i] == 0)
-			break;
-	}
-
-	det->num_freq_tbl = i;
-
-#if ENABLE_LOO_B
-	/* Find 2line turn point */
-	if (cpudvfsindex == MT_CPU_DVFS_L) {
-		for (i = 0; i < det->num_freq_tbl; i++) {
-			curfreq = mt_cpufreq_get_freq_by_idx
-			(cpudvfsindex, i);
-			if (curfreq <= B_M_FREQ_BASE) {
-				det->turn_pt = i;
-				break;
-			}
-		}
-	}
-#endif
-	eemg_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
-			det->name+8, det->num_freq_tbl, det->max_freq_khz,
-			det->turn_pt);
-
-	FUNC_EXIT(FUNC_LV_HELP);
-}
-
-
-/* get original volt from cpu dvfs, and apply this table to dvfs
- *   when ptp need to restore volt
- */
-void get_orig_volt_table_cpu1(struct eemg_det *det)
-{
-#if SET_PMIC_VOLT_TO_DVFS
-	int i = 0, volt = 0;
-	enum mt_cpu_dvfs_id cpudvfsindex;
-
-	FUNC_ENTER(FUNC_LV_HELP);
-	cpudvfsindex = detid_to_dvfsid1(det);
-
-	for (i = 0; i < det->num_freq_tbl; i++) {
-		volt = mt_cpufreq_get_volt_by_idx(cpudvfsindex, i);
-
-		det->volt_tbl_orig[i] = det->ops->volt_2_pmic_gpu(det, volt);
-
-#if 0
-		eemg_debug("[%s]@@volt_tbl_orig[%d] = %d(0x%x)\n",
-			det->name+8,
-			i,
-			volt,
-			det->volt_tbl_orig[i]);
-#endif
-	}
-
-#if ENABLE_LOO
-	/* Use signoff volt */
-	memcpy(det->volt_tbl, det->volt_tbl_orig, sizeof(det->volt_tbl));
-	memcpy(det->volt_tbl_init2, det->volt_tbl_orig, sizeof(det->volt_tbl));
-#endif
-	FUNC_EXIT(FUNC_LV_HELP);
-#endif
-}
-#endif
 int get_volt_gpu(struct eemg_det *det)
 {
 	FUNC_ENTER(FUNC_LV_HELP);
@@ -356,7 +123,7 @@ void get_freq_table_gpu(struct eemg_det *det)
 
 	for (i = 0; i < NR_FREQ_GPU; i++) {
 #if DVT
-		det->freq_tbl[i] = dvtfreq[i];
+		det->freq_tbl[i] = dvtgpufreq[i];
 #else
 		curfreq = mt_gpufreq_get_freq_by_real_idx
 				(mt_gpufreq_get_ori_opp_idx(i));
@@ -371,6 +138,7 @@ void get_freq_table_gpu(struct eemg_det *det)
 		mt_gpufreq_get_ori_opp_idx(i),
 		mt_gpufreq_get_freq_by_real_idx(mt_gpufreq_get_ori_opp_idx(i)));
 #endif
+
 		if (det->freq_tbl[i] == 0)
 			break;
 	}
@@ -386,6 +154,9 @@ void get_freq_table_gpu(struct eemg_det *det)
 			break;
 		}
 	}
+#if DVT
+	det->turn_pt = 6;
+#endif
 #endif
 
 	eemg_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",

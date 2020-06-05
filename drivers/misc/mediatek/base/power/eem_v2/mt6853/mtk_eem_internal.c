@@ -195,17 +195,17 @@ struct dvfs_vf_tbl mc50_tbl[NR_EEMSN_DET] = {
 	[0] = {
 		.pi_vf_num			= 3,
 		.pi_freq_tbl		= {2000, 1500, 650},
-		.pi_volt_tbl	  = {0x54, 0x38, 0x20},
+		.pi_volt_tbl	  = {0x43, 0x2D, 0x18},
 	},
 	[1] = {
 		.pi_vf_num			= 3,
 		.pi_freq_tbl		= {2210, 1650, 725},
-		.pi_volt_tbl	  = {0x5F, 0x44, 0x20},
+		.pi_volt_tbl	  = {0x40, 0x2C, 0x18},
 	},
 	[2] = {
 		.pi_vf_num			= 3,
 		.pi_freq_tbl		= {1400, 1050, 450},
-		.pi_volt_tbl	  = {0x54, 0x39, 0x20},
+		.pi_volt_tbl	  = {0x43, 0x2D, 0x18},
 	},
 };
 #elif defined(MT6875) //2.2GHz

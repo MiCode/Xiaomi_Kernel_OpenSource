@@ -135,7 +135,9 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DVTFIXED	= DVTFIXED_VAL,
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_L,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.low_temp_off	= LOW_TEMP_OFF_L,
+		.high_temp_off	= HIGH_TEMP_OFF_L,
+		.volt_policy	= 1,
 	},
 
 	[EEM_DET_B] = {
@@ -145,7 +147,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEM_CTRL_B,
-		.features	= FEA_INIT01 | FEA_INIT02 | FEA_MON,
+		.features	= FEA_INIT01 | FEA_INIT02,
 		.max_freq_khz	= B_FREQ_BASE,
 		.VBOOT		= VBOOT_VAL, /* 10uV */
 		.eem_v_base	= EEM_V_BASE,
@@ -170,7 +172,9 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.DVTFIXED	= DVTFIXED_VAL_B,
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_B,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.low_temp_off	= LOW_TEMP_OFF_B,
+		.high_temp_off	= HIGH_TEMP_OFF_B,
+		.volt_policy	= 1,
 	},
 
 	[EEM_DET_CCI] = {
@@ -199,7 +203,9 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.VCO		= VCO_VAL_CCI,
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_CCI,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.low_temp_off	= LOW_TEMP_OFF_L,
+		.high_temp_off	= HIGH_TEMP_OFF_L,
+		.volt_policy	= 1,
 	},
 #if ENABLE_GPU
 	[EEM_DET_GPU] = {
@@ -236,7 +242,9 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.VCO		= VCO_VAL_GL,
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_GPU,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.low_temp_off	= LOW_TEMP_OFF_GPU,
+		.high_temp_off	= HIGH_TEMP_OFF_GPU,
+		.volt_policy	= 1,
 	},
 #endif
 #if ENABLE_MDLA
@@ -332,7 +340,9 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.VCO		= VCO_VAL_GH,
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_GPU,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.low_temp_off	= LOW_TEMP_OFF_GPU,
+		.high_temp_off	= HIGH_TEMP_OFF_GPU,
+		.volt_policy	= 1,
 	},
 #endif
 #endif
@@ -344,7 +354,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEM_CTRL_B_HI,
-		.features	= FEA_INIT02,
+		.features	= FEA_INIT02 | FEA_MON,
 		.max_freq_khz	= B_FREQ_BASE,
 		.VBOOT		= VBOOT_VAL, /* 10uV */
 		.VMAX		= VMAX_VAL_BH,
@@ -367,7 +377,9 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.VCO		= VCO_VAL_BH,
 		.DCCONFIG	= DCCONFIG_VAL,
 		.EEMCTL0	= EEM_CTL0_B,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
+		.low_temp_off	= LOW_TEMP_OFF_B,
+		.high_temp_off	= HIGH_TEMP_OFF_B,
+		.volt_policy	= 1,
 	},
 #endif
 

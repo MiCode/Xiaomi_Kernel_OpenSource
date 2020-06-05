@@ -22,11 +22,6 @@
 
 /* have 5 banks */
 enum eemg_ctrl_id {
-#if ENABLE_CPU
-	EEMG_CTRL_L,
-	EEMG_CTRL_B,
-	EEMG_CTRL_CCI,
-#endif
 	EEMG_CTRL_GPU,
 #if ENABLE_MDLA
 	EEMG_CTRL_MDLA,
@@ -37,18 +32,11 @@ enum eemg_ctrl_id {
 #if ENABLE_LOO_G
 	EEMG_CTRL_GPU_HI,
 #endif
-#if ENABLE_LOO_B
-	EEMG_CTRL_B_HI,
-#endif
+
 	NR_EEMG_CTRL,
 };
 
 enum eemg_det_id {
-#if ENABLE_CPU
-	EEMG_DET_L	=	EEMG_CTRL_L,
-	EEMG_DET_B	=	EEMG_CTRL_B,
-	EEMG_DET_CCI	=	EEMG_CTRL_CCI,
-#endif
 	EEMG_DET_GPU     =       EEMG_CTRL_GPU,
 #if ENABLE_MDLA
 	EEMG_DET_MDLA	=	EEMG_CTRL_MDLA,
@@ -59,19 +47,10 @@ enum eemg_det_id {
 #if ENABLE_LOO_G
 	EEMG_DET_GPU_HI  =       EEMG_CTRL_GPU_HI,
 #endif
-#if ENABLE_LOO_B
-	EEMG_DET_B_HI	=	EEMG_CTRL_B_HI,
-#endif
+
 	NR_EEMG_DET,
 };
 
-enum mt_eemg_cpu_id {
-	MT_EEMG_CPU_LL,
-	MT_EEMG_CPU_L,
-	MT_EEMG_CPU_CCI,
-
-	NR_MT_EEMG_CPU,
-};
 
 enum mt_eemg_add_extra_mode {
 	NO_EXTRA,
@@ -109,6 +88,13 @@ enum {
 	EEMG_VOLT_RESTORE = BIT(1),
 };
 
+enum {
+	EEM_NORMAL_T	= 0,
+	EEM_LOW_T,
+	EEM_EXTRALOW_T,
+	EEM_HIGH_T
+};
+
 #if ENABLE_LOO
 enum eemg_loo_role {
 	NO_LOO_BANK	=	0,
@@ -129,11 +115,6 @@ extern const unsigned int reg_gpu_addr_off[DUMP_LEN];
 
 #ifdef CONFIG_EEMG_AEE_RR_REC
 enum eemg_state {
-#if ENABLE_CPU
-	EEMG_CPU_2_LITTLE_IS_SET_VOLT = 0,	/* 2L */
-	EEMG_CPU_LITTLE_IS_SET_VOLT = 1,		/* L */
-	EEMG_CPU_CCI_IS_SET_VOLT = 2,		/* CCI */
-#endif
 	EEMG_GPU_IS_SET_VOLT = 3,		/* G */
 #if ENABLE_LOO
 	EEMG_GPU_HI_IS_SET_VOLT = 4,
