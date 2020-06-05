@@ -8,8 +8,6 @@
 
 #include <drm/drm_gem.h>
 #if defined(CONFIG_MTK_IOMMU_V2)
-#include "ion_drv.h"
-#include "ion_priv.h"
 #include <soc/mediatek/smi.h>
 #include "mtk_iommu_ext.h"
 #include "pseudo_m4u.h"
@@ -37,9 +35,6 @@ struct mtk_drm_gem_obj {
 	size_t size;
 	unsigned long dma_attrs;
 	struct sg_table *sg;
-#if defined(CONFIG_MTK_IOMMU_V2)
-	struct ion_handle *handle;
-#endif
 	bool sec;
 	bool is_dumb;
 };
@@ -57,14 +52,9 @@ int mtk_drm_gem_dumb_map_offset(struct drm_file *file_priv,
 int mtk_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int mtk_drm_gem_mmap_buf(struct drm_gem_object *obj,
 			 struct vm_area_struct *vma);
-#if defined(CONFIG_MTK_IOMMU_V2)
-struct ion_client *mtk_drm_gem_ion_create_client(const char *name);
-void mtk_drm_gem_ion_destroy_client(struct ion_client *client);
-void mtk_drm_gem_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle, const char *name, int line);
-struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
-	int fd);
-#endif
+void mtk_drm_gem_ion_free_handle(struct dma_buf *buf_hnd, const char *name,
+				int line);
+struct dma_buf *mtk_drm_gem_ion_import_handle(int fd);
 struct drm_gem_object *
 mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf);
 struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj);
