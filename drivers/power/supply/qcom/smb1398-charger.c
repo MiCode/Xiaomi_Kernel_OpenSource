@@ -19,6 +19,8 @@
 #include <linux/iio/consumer.h>
 
 /* Status register definition */
+#define PERPH0_REVISION4		0x2603
+
 #define INPUT_STATUS_REG		0x2609
 #define INPUT_USB_IN			BIT(1)
 #define INPUT_WLS_IN			BIT(0)
@@ -173,6 +175,10 @@
 #define PERPH0_CFG_SDCDC_REG		0x267A
 #define EN_WIN_UV_BIT			BIT(7)
 
+#define PERPH0_SSUPPLY_CFG0_REG		0x2682
+#define EN_HV_OV_OPTION2_BIT		BIT(7)
+#define EN_MV_OV_OPTION2_BIT		BIT(5)
+
 #define SSUPLY_TEMP_CTRL_REG		0x2683
 #define SEL_OUT_TEMP_MAX_MASK		GENMASK(7, 5)
 #define SEL_OUT_TEMP_MAX_SHFT		5
@@ -186,6 +192,10 @@
 #define DIV2_WIN_UV_STS			BIT(6)
 #define DIV2_ILIM_STS			BIT(5)
 #define DIV2_CFLY_SS_DONE_STS		BIT(1)
+
+#define PERPH1_LOCK_SPARE_REG		0x27C3
+#define CFG_LOCK_SPARE1_MASK		GENMASK(7, 6)
+#define CFG_LOCK_SPARE1_SHIFT		6
 
 /* available voters */
 #define ILIM_VOTER			"ILIM_VOTER"
@@ -226,6 +236,13 @@ enum isns_mode {
 	ISNS_MODE_OFF = 0,
 	ISNS_MODE_ACTIVE,
 	ISNS_MODE_STANDBY,
+};
+
+enum ovp {
+	OVP_17P7V = 0,
+	OVP_14V,
+	OVP_22P2V,
+	OVP_7P3,
 };
 
 enum {
@@ -1882,9 +1899,52 @@ out:
 	chip->taper_work_running = false;
 }
 
+static int smb1398_update_ovp(struct smb1398_chip *chip)
+{
+	int rc = 0;
+	u8 reg = 0;
+
+	rc = smb1398_read(chip, PERPH0_REVISION4, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read PERPH0_REVISION4 rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Ignore for REV2 and below */
+	if (reg <= 2)
+		return 0;
+
+	rc = smb1398_masked_write(chip, PERPH0_SSUPPLY_CFG0_REG,
+			EN_HV_OV_OPTION2_BIT | EN_MV_OV_OPTION2_BIT,
+			EN_HV_OV_OPTION2_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set PERPH0_SSUPPLY_CFG0_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smb1398_masked_write(chip, PERPH1_LOCK_SPARE_REG,
+				CFG_LOCK_SPARE1_MASK,
+				OVP_14V << CFG_LOCK_SPARE1_SHIFT);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set PERPH1_LOCK_SPARE_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 {
 	int rc = 0;
+
+	rc = smb1398_update_ovp(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't update OVP threshold rc=%d\n", rc);
+		return rc;
+	}
 
 	/* Configure window (Vin/2 - Vout) OV level to 500mV */
 	rc = smb1398_masked_write(chip, DIV2_PROTECTION_REG,
@@ -2205,6 +2265,12 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 {
 	int rc;
 	u8 status;
+
+	rc = smb1398_update_ovp(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't update OVP threshold rc=%d\n", rc);
+		return rc;
+	}
 
 	rc = smb1398_read(chip, MODE_STATUS_REG, &status);
 	if (rc < 0) {
