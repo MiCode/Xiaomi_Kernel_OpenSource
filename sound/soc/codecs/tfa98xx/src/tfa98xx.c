@@ -189,15 +189,16 @@ static enum tfa_error tfa98xx_tfa_start(struct tfa98xx *tfa98xx,
 	int next_profile, int vstep)
 {
 	enum tfa_error err;
-	ktime_t start_time, stop_time;
+	ktime_t start_time = 0, stop_time;
 	u64 delta_time;
 
-	pr_debug("next_profile=%d  vstep=%d\n", next_profile, vstep);
+	//pr_debug("next_profile=%d  vstep=%d\n", next_profile, vstep);
 	if (trace_level & 8)
 		start_time = ktime_get_boottime();
 
 	err = tfa_dev_start(tfa98xx->tfa, next_profile, vstep);
-	pr_debug("after performed tfa_dev_start return (%d)\n", err);
+	pr_debug("next_profile=%d, vstep=%d, after performed tfa_dev_start return (%d)\n",
+		 next_profile, vstep, err);
 
 	if (trace_level & 8) {
 		stop_time = ktime_get_boottime();
@@ -768,8 +769,13 @@ static ssize_t tfa98xx_dbgfs_rpc_read(struct file *file,
 	if (tfa98xx->tfa->is_probus_device) {
 		uint32_t DataLength = 0;
 
-		error = tfa98xx_receive_data_from_dsp(
-			buffer, count, &DataLength);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
+			error = tfa98xx_receive_data_from_dsp(
+				buffer, count, &DataLength);
+		} else {
+			error = -ENODEV;
+			pr_info("receive data fail as DSP NOT work\n");
+		}
 	} else {
 		error = dsp_msg_read(tfa98xx->tfa, count, buffer);
 	}
@@ -819,8 +825,12 @@ static ssize_t tfa98xx_dbgfs_rpc_send(struct file *file,
 
 	if (tfa98xx->tfa->is_probus_device) {
 		mutex_lock(&tfa98xx->dsp_lock);
-		error = tfa98xx_send_data_to_dsp(msg_file->data,
-			msg_file->size);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
+			error = tfa98xx_send_data_to_dsp(msg_file->data,
+				msg_file->size);
+		} else {
+			error = -ENODEV;
+		}
 		if (error != Tfa98xx_Error_Ok) {
 			pr_debug("[0x%x] dsp_msg error: %d\n",
 				tfa98xx->i2c->addr, error);
@@ -2215,7 +2225,7 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 
 	tfa98xx->dsp_init = TFA98XX_DSP_INIT_PENDING;
 
-	pr_debug("init_count=%d\n", tfa98xx->init_count);
+	//pr_debug("init_count=%d\n", tfa98xx->init_count);
 	if (tfa98xx->init_count < TF98XX_MAX_DSP_START_TRY_COUNT) {
 		/* directly try to start DSP */
 		ret = tfa98xx_tfa_start(tfa98xx,
@@ -2361,30 +2371,29 @@ static int tfa98xx_startup(struct snd_pcm_substream *substream,
 	int len, prof, nprof, idx = 0;
 	char *basename;
 
-	pr_info("entry\n");
+	//pr_info("entry\n");
 
 	/*
 	 * Support CODEC to CODEC links,
 	 * these are called with a NULL runtime pointer.
 	 */
 	if (!substream->runtime) {
-		pr_err("return 0 - !substream->runtime\n");
+		pr_info("%s(), return 0 - !substream->runtime\n", __func__);
 		return 0;
 	}
 
 	if (pcm_no_constraint != 0) {
-		pr_err("return 0 - pcm_no_constraint != 0\n");
+		pr_info("%s(), return 0 - pcm_no_constraint != 0\n", __func__);
 		return 0;
 	}
 
 	if (no_start != 0) {
-		pr_err("return 0 - no_start != 0\n");
+		pr_info("%s(), return 0 - no_start != 0\n", __func__);
 		return 0;
 	}
 
 	if (tfa98xx->dsp_fw_state != TFA98XX_DSP_FW_OK) {
-		dev_info(codec->dev, "Container file not loaded\n");
-		pr_err("Container file not loaded\n");
+		pr_info("%s(), Container file not loaded\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2576,7 +2585,13 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(void)
 		bytes[1] = 0x00;
 		bytes[2] = 0x81;
 		bytes[3] = 0x05;
-		ret = tfa98xx_send_data_to_dsp(&bytes[1], sizeof(bytes) - 1);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE)
+			ret = tfa98xx_send_data_to_dsp(&bytes[1],
+			      sizeof(bytes) - 1);
+		else {
+			ret = -1;
+			pr_info(" send data fail as DSP NOT work\n");
+		}
 		usleep_range(10000, 10500);
 
 		/* for mono case, we should clear flag here. */
@@ -2595,7 +2610,7 @@ static int tfa98xx_send_mute_cmd(void)
 {
 	uint8_t cmd[9] = {0x04, 0x81, 0x04, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff};
 
-	pr_info("send mute command to host DSP.\n");
+	//pr_info("send mute command to host DSP.\n");
 	return tfa98xx_send_data_to_dsp(&cmd[0], sizeof(cmd));
 }
 #endif
@@ -2605,7 +2620,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute)
 	struct snd_soc_codec *codec = dai->codec;
 	struct tfa98xx *tfa98xx = snd_soc_codec_get_drvdata(codec);
 
-	pr_info(" mute=%d\n", mute);
+	pr_info("mute:%d, dsp_init:%d\n", mute, tfa98xx->dsp_init);
 
 	if (tfa98xx_container == NULL) {
 		pr_err("The firmware have not yet loaded!!!\n");
@@ -2636,10 +2651,14 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute)
 
 		mutex_lock(&tfa98xx->dsp_lock);
 #ifdef TFA_NON_DSP_SOLUTION
-		tfa98xx_send_mute_cmd();
-		msleep(60);
+		if (tfa98xx->dsp_init == TFA98XX_DSP_INIT_DONE) {
+			tfa98xx_send_mute_cmd();
+			msleep(60);
+		} else {
+			pr_info(" Mute Fail as DSP NOT work\n");
+		}
 #endif
-		pr_info(" will execute tfa_dev_stop()\n");
+		//pr_info("will execute tfa_dev_stop()\n");
 		tfa_dev_stop(tfa98xx->tfa);
 		tfa98xx->dsp_init = TFA98XX_DSP_INIT_STOPPED;
 		mutex_unlock(&tfa98xx->dsp_lock);
@@ -2650,7 +2669,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute)
 #endif
 
 		/* Start DSP with sync mode.*/
-		pr_info("dsp_init=%d\n", tfa98xx->dsp_init);
+		//pr_info("dsp_init=%d\n", tfa98xx->dsp_init);
 		if (tfa98xx->dsp_init != TFA98XX_DSP_INIT_PENDING)
 			tfa98xx_dsp_init(tfa98xx);
 	}
