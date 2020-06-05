@@ -960,8 +960,11 @@
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x14022000 0 0x1000>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_DISP>;
-			clocks = <&mmsys CLK_MM_SMI_IOMMU>;
-			clock-names = "apb";
+			clocks = <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&mmsys CLK_MM_SMI_IOMMU>;
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		disp_smi_2x1_sub_common_u1@14023000 {
@@ -969,8 +972,11 @@
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x14023000 0 0x1000>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_DISP>;
-			clocks = <&mmsys CLK_MM_SMI_IOMMU>;
-			clock-names = "apb";
+			clocks = <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&mmsys CLK_MM_SMI_IOMMU>,
+				 <&mmsys CLK_MM_SMI_IOMMU>;
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		img0_smi_2x1_sub_common@14024000 {
@@ -980,8 +986,9 @@
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_DISP>;
 			clocks = <&mmsys CLK_MM_SMI_INFRA>,
 				 <&mmsys CLK_MM_SMI_COMMON>,
+				 <&mmsys CLK_MM_SMI_GALS>,
 				 <&mmsys CLK_MM_SMI_GALS>;
-			clock-names = "apb", "smi", "gals0";
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		img1_smi_2x1_sub_common@14025000 {
@@ -991,8 +998,9 @@
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_DISP>;
 			clocks = <&mmsys CLK_MM_SMI_INFRA>,
 				 <&mmsys CLK_MM_SMI_COMMON>,
+				 <&mmsys CLK_MM_SMI_GALS>,
 				 <&mmsys CLK_MM_SMI_GALS>;
-			clock-names = "apb", "smi", "gals0";
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		imgsys: imgsys@15020000 {
@@ -1012,14 +1020,6 @@
 			clock-names = "apb", "smi";
 		};
 
-		larb10: larb@1502f000 {
-			compatible = "mediatek,mt6873-smi-larb";
-			mediatek,smi = <&smi_common>;
-			reg = <0 0x1502f000 0 0x1000>;
-			mediatek,larb-id = <10>;
-			power-domains = <&scpsys MT6873_POWER_DOMAIN_ISP>;
-		};
-
 		imgsys2: imgsys2@15820000 {
 			compatible = "mediatek,mt8192-imgsys2", "syscon";
 			reg = <0 0x15820000 0 0x1000>;
@@ -1037,19 +1037,16 @@
 			clock-names = "apb", "smi";
 		};
 
-		larb12: larb@1582f000 {
-			compatible = "mediatek,mt6873-smi-larb";
-			mediatek,smi = <&smi_common>;
-			reg = <0 0x1582f000 0 0x1000>;
-			mediatek,larb-id = <12>;
-			power-domains = <&scpsys MT6873_POWER_DOMAIN_ISP2>;
-		};
-
 		vdec_smi_subcom@1600a000 {
 			compatible = "mediatek,vdec_smi_subcom",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1600a000 0 0x1000>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_VDEC>;
+			clocks = <&vdecsys_soc CLK_VDEC_SOC_LARB1>,
+				 <&vdecsys_soc CLK_VDEC_SOC_LARB1>,
+				 <&vdecsys_soc CLK_VDEC_SOC_LARB1>,
+				 <&vdecsys_soc CLK_VDEC_SOC_LARB1>;
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		larb5: larb@1600d000 {
@@ -1058,14 +1055,9 @@
 			reg = <0 0x1600d000 0 0x1000>;
 			mediatek,larb-id = <5>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_VDEC>;
-		};
-
-		larb6: larb@1600e000 {
-			compatible = "mediatek,mt6873-smi-larb";
-			mediatek,smi = <&smi_common>;
-			reg = <0 0x1600e000 0 0x1000>;
-			mediatek,larb-id = <6>;
-			power-domains = <&scpsys MT6873_POWER_DOMAIN_VDEC>;
+			clocks = <&vdecsys_soc CLK_VDEC_SOC_LARB1>,
+				 <&vdecsys_soc CLK_VDEC_SOC_LARB1>;
+			clock-names = "apb", "smi";
 		};
 
 		vdecsys_soc: vdecsys_soc@1600f000 {
@@ -1086,6 +1078,9 @@
 			reg = <0 0x1602e000 0 0x1000>;
 			mediatek,larb-id = <4>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_VDEC2>;
+			clocks = <&vdecsys CLK_VDEC_LARB1>,
+				 <&vdecsys CLK_VDEC_LARB1>;
+			clock-names = "apb", "smi";
 		};
 
 		vencsys: vencsys@17000000 {
@@ -1103,14 +1098,6 @@
 			clocks = <&vencsys CLK_VENC_SET0_LARB>,
 				 <&vencsys CLK_VENC_SET1_VENC>;
 			clock-names = "apb", "smi";
-		};
-
-		larb8: larb@17011000 {
-			compatible = "mediatek,mt6873-smi-larb";
-			mediatek,smi = <&smi_common>;
-			reg = <0 0x17011000 0 0x1000>;
-			mediatek,larb-id = <8>;
-			power-domains = <&scpsys MT6873_POWER_DOMAIN_VENC>;
 		};
 
 		apu_conn: apu_conn@19020000 {
@@ -1182,21 +1169,16 @@
 			clock-names = "apb", "smi";
 		};
 
-		larb15: larb@1a003000 {
-			compatible = "mediatek,mt6873-smi-larb";
-			mediatek,smi = <&smi_common>;
-			reg = <0 0x1a003000 0 0x1000>;
-			mediatek,larb-id = <15>;
-			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM>;
-		};
-
 		cam_smi_subcom@1a00c000 {
 			compatible = "mediatek,cam_smi_subcom",
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1a00c000 0 0x1000>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM>;
-			clocks = <&camsys CLK_CAM_CAM>;
-			clock-names = "apb";
+			clocks = <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAM>;
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		cam_smi_subcom@1a00d000 {
@@ -1204,8 +1186,11 @@
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1a00d000 0 0x1000>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM>;
-			clocks = <&camsys CLK_CAM_CAM>;
-			clock-names = "apb";
+			clocks = <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAM>;
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		larb16: larb@1a00f000 {
@@ -1270,8 +1255,11 @@
 				     "mediatek,mt6873-smi-common";
 			reg = <0 0x1b00e000 0 0x1000>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_IPE>;
-			clocks = <&ipesys CLK_IPE_SMI_SUBCOM>;
-			clock-names = "apb";
+			clocks = <&ipesys CLK_IPE_SMI_SUBCOM>,
+				 <&ipesys CLK_IPE_SMI_SUBCOM>,
+				 <&ipesys CLK_IPE_SMI_SUBCOM>,
+				 <&ipesys CLK_IPE_SMI_SUBCOM>;
+			clock-names = "apb", "smi", "gals0", "gals1";
 		};
 
 		larb20: larb@1b00f000 {
