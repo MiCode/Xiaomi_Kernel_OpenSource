@@ -817,7 +817,7 @@ config QCOM_GUESTVM
 
 config QCOM_HYP_CORE_CTL
 	bool "CPU reservation scheme for Hypervisor"
-	depends on QCOM_GUESTVM
+	depends on QCOM_GUESTVM && SCHED_WALT
 	help
 	  This driver reserve the specified CPUS by isolating them. The reserved
 	  CPUs can be assigned to the other guest OS by the hypervisor.
