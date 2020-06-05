@@ -391,6 +391,8 @@ static void auxadc_timeout_handler(struct mt635x_auxadc_device *adc_dev,
 			    adc_dev->dbg_regs[i], &reg_val);
 		ret = snprintf(reg_str, 20, "Reg[0x%x]=0x%x,",
 			       adc_dev->dbg_regs[i], reg_val);
+		if (ret < 0)
+			break;
 		strncat(reg_log, reg_str, ARRAY_SIZE(reg_log) - 1);
 	}
 	dev_notice(adc_dev->dev,
