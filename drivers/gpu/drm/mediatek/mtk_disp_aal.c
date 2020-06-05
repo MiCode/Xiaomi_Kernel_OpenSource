@@ -941,7 +941,7 @@ static int disp_aal_write_dre3_to_reg(struct mtk_ddp_comp *comp,
 
 	return 0;
 }
-#else
+#endif /* CONFIG_MTK_DRE30_SUPPORT */
 static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
 {
@@ -987,10 +987,9 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(11),
 	    DRE_REG_2(gain[27], 0, gain[28], 9), ~0);
 #endif
-
 	return 0;
 }
-#endif /* CONFIG_MTK_DRE30_SUPPORT */
+
 #if defined(CONFIG_MTK_DRE30_SUPPORT) || !defined(NOT_SUPPORT_CABC_HW)
 static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
@@ -1021,11 +1020,14 @@ static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 static int disp_aal_write_param_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
 {
+// From mt6885, on DRE3.5+ESS mode, ESS function was
+// controlled by DREGainFltStatus, not cabc_gainlmt, so need to
+// set DREGainFltStatus to hw whether DRE3.5 or 2.5
+	disp_aal_write_dre_to_reg(comp, handle, param);
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
 	disp_aal_write_dre3_to_reg(comp, handle, param);
 	disp_aal_write_cabc_to_reg(comp, handle, param);
 #else
-	disp_aal_write_dre_to_reg(comp, handle, param);
 #ifndef NOT_SUPPORT_CABC_HW
 	disp_aal_write_cabc_to_reg(comp, handle, param);
 #endif

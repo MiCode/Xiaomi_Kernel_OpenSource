@@ -318,13 +318,20 @@ void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
 	unsigned int intsta;
 	unsigned long flags;
-
+	int index = index_of_ccorr(comp->id);
 	DDPDBG("%s @ %d......... [IRQ] spin_trylock_irqsave ++ ",
 		  __func__, __LINE__);
 	if (spin_trylock_irqsave(&g_ccorr_clock_lock, flags)) {
 		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
 			__func__, __LINE__);
+		if (atomic_read(&g_ccorr_is_clock_on[index]) != 1) {
+			DDPINFO("%s: clock is off. enabled:%d\n", __func__, 0);
 
+			spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
+			DDPDBG("%s @ %d......... spin_unlock_irqrestore -- ",
+				__func__, __LINE__);
+			return;
+		}
 	    intsta = readl(comp->regs + DISP_REG_CCORR_INTSTA);
 	    DDPINFO("%s: intsta: 0x%x", __func__, intsta);
 
@@ -370,7 +377,14 @@ static void disp_ccorr_clear_irq_only(struct mtk_ddp_comp *comp)
 	if (spin_trylock_irqsave(&g_ccorr_clock_lock, flags)) {
 		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
 			__func__, __LINE__);
+		if (atomic_read(&g_ccorr_is_clock_on[index]) != 1) {
+			DDPINFO("%s: clock is off. enabled:%d\n", __func__, 0);
 
+			spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
+			DDPDBG("%s @ %d......... spin_unlock_irqrestore -- ",
+				__func__, __LINE__);
+			return;
+		}
 		intsta = readl(comp->regs + DISP_REG_CCORR_INTSTA);
 
 		DDPINFO("%s: intsta: 0x%x\n", __func__, intsta);
