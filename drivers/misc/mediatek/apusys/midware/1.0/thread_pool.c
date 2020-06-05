@@ -16,6 +16,8 @@
 #include <linux/slab.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <linux/uaccess.h>
+#include <linux/atomic.h>
 
 #include "mdw_cmn.h"
 #include "thread_pool.h"
@@ -58,6 +60,41 @@ struct thread_pool_mgr {
 };
 
 static struct thread_pool_mgr g_pool_mgr;
+
+void thread_pool_set_group(void)
+{
+	struct file *fd;
+	char buf[8];
+	mm_segment_t oldfs;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct thread_pool_inst *inst = NULL;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+
+	fd = filp_open(APUSYS_THD_TASK_FILE_PATH, O_WRONLY, 0);
+	if (IS_ERR(fd)) {
+		mdw_drv_debug("don't support low latency group\n");
+		goto out;
+	}
+
+	mutex_lock(&g_pool_mgr.mtx);
+	/* query all thread inst to mark stop */
+	list_for_each_safe(list_ptr, tmp, &g_pool_mgr.thread_list) {
+		inst = list_entry(list_ptr, struct thread_pool_inst, list);
+		memset(buf, 0, sizeof(buf));
+		snprintf(buf, sizeof(buf)-1, "%d", inst->task->pid);
+		vfs_write(fd, (__force const char __user *)buf,
+			sizeof(buf), &fd->f_pos);
+		mdw_drv_debug("setup worker(%d/%s) to group\n",
+			inst->task->pid, buf);
+	}
+	mutex_unlock(&g_pool_mgr.mtx);
+
+	filp_close(fd, NULL);
+out:
+	set_fs(oldfs);
+}
 
 static int tp_service_routine(void *arg)
 {
