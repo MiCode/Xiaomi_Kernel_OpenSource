@@ -3241,25 +3241,14 @@ static void dwc3_resume_work(struct work_struct *w)
 			goto skip_update;
 	}
 
+	dwc->maximum_speed = dwc->max_hw_supp_speed;
 	/* Check speed and Type-C polarity values in order to configure PHY */
 	if (edev && extcon_get_state(edev, extcon_id)) {
-		dwc->maximum_speed = dwc->max_hw_supp_speed;
-
 		ret = extcon_get_property(edev, extcon_id,
 				EXTCON_PROP_USB_SS, &val);
 
 		if (!ret && val.intval == 0)
 			dwc->maximum_speed = USB_SPEED_HIGH;
-
-		if (mdwc->override_usb_speed &&
-			mdwc->override_usb_speed <= dwc->maximum_speed) {
-			dwc->maximum_speed = mdwc->override_usb_speed;
-			dwc->gadget.max_speed = dwc->maximum_speed;
-			dbg_event(0xFF, "override_speed",
-					mdwc->override_usb_speed);
-		}
-
-		dbg_event(0xFF, "speed", dwc->maximum_speed);
 
 		ret = extcon_get_property(edev, extcon_id,
 				EXTCON_PROP_USB_TYPEC_POLARITY, &val);
@@ -3273,6 +3262,17 @@ static void dwc3_resume_work(struct work_struct *w)
 	}
 
 skip_update:
+	dbg_log_string("max_speed:%d hw_supp_speed:%d override_speed:%d",
+		dwc->maximum_speed, dwc->max_hw_supp_speed,
+		mdwc->override_usb_speed);
+	if (mdwc->override_usb_speed &&
+			mdwc->override_usb_speed <= dwc->maximum_speed) {
+		dwc->maximum_speed = mdwc->override_usb_speed;
+		dwc->gadget.max_speed = dwc->maximum_speed;
+	}
+
+	dbg_event(0xFF, "speed", dwc->maximum_speed);
+
 	/*
 	 * Skip scheduling sm work if no work is pending. When boot-up
 	 * with USB cable connected, usb state m/c is skipped to avoid
