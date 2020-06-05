@@ -374,6 +374,7 @@
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
 		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
 		qcom,lpi-gpios;
+		qcom,tlmm-pins = <179>;
 		#gpio-cells = <0>;
 	};
 
