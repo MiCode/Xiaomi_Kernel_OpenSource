@@ -14,4 +14,7 @@ struct mpm_pin {
 	irq_hw_number_t hwirq;
 };
 
+void msm_mpm_timer_write(uint32_t *expiry);
+void msm_mpm_enter_sleep(struct cpumask *cpumask);
+extern const struct mpm_pin mpm_holi_gic_chip_data[];
 #endif /* __QCOM_MPM_H__ */

@@ -494,7 +494,7 @@ config TI_SCI_INTA_IRQCHIP
 	  TI System Controller, say Y here. Otherwise, say N.
 
 config QCOM_MPM
-	bool "QCOM MPM"
+	tristate "QCOM MPM"
 	depends on ARCH_QCOM
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_HIERARCHY

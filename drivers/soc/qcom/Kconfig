@@ -646,8 +646,19 @@ config MSM_PM
 	bool
 	select MSM_IDLE_STATS if DEBUG_FS
 	select QTI_SYSTEM_PM if QCOM_RPMH
+	select QTI_SYSTEM_PM_RPM if MSM_RPM_SMD && QGKI && QCOM_MPM
+	bool "Qualcomm Technologies, Inc. (QTI) Power Management Drivers"
+	help
+	  Platform specific power driver to manage cores and l2 low power
+	  modes. It interface with various system driver and put the cores
+	  into low power modes. It implements OS initiated scheme and
+	  determines last CPU to call into PSCI for cluster Low power
+	  modes.
 
 config QTI_SYSTEM_PM
+	bool
+
+config QTI_SYSTEM_PM_RPM
 	bool
 
 if MSM_PM
