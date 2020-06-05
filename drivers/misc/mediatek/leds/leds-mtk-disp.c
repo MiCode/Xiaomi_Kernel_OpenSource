@@ -214,7 +214,7 @@ int setMaxbrightness(char *name, int percent, bool enable)
 	return 0;
 
 }
-EXPORT_SYMBOL(setMaxBrightness);
+EXPORT_SYMBOL(setMaxbrightness);
 
 
 int mt_leds_brightness_set(char *name, int level)
