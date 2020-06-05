@@ -1,0 +1,18 @@
+config MTPROF
+	tristate "Enable MTK profiler/debugger tool"
+	default n
+	help
+	  CONFIG_MTPROF define if mtk profiling/debugger tools should be
+	  built-in, module or not. It includes bootprof logger which is for
+	  boot time profiling. If you are not sure about whether to
+	  enable it or not, please set n.
+
+config BOOTPROF_THRESHOLD_MS
+	int "Threshold of driver init duration(ms)"
+	depends on MTPROF
+	default 15
+	help
+	  CONFIG_BOOTPROF_THRESHOLD_MS define the threshold of driver init
+	  duration.If init duration is larger than threshold, bootprof will
+	  record the driver info and init time for boot time profiling.
+	  (Unit: millisecond)

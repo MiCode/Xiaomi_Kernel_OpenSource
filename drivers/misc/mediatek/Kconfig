@@ -19,3 +19,7 @@ endmenu # MultiMedia, Display, Camera
 menu "APU"
 source "drivers/misc/mediatek/apusys/Kconfig"
 endmenu # APU
+
+menu "Debug, log, trace"
+source "drivers/misc/mediatek/mtprof/Kconfig"
+endmenu # Debug
