@@ -6,7 +6,7 @@ menu "Clock driver for MediaTek SoC"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 
 config COMMON_CLK_MEDIATEK
-	bool
+	tristate
 	select RESET_CONTROLLER
 	help
 	  MediaTek SoCs' clock support.
@@ -443,9 +443,8 @@ config COMMON_CLK_MT8183_VENCSYS
 
 config COMMON_CLK_MT8192
 	tristate "Clock driver for MediaTek MT8192"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
+	depends on ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM64
 	help
 	  This driver supports MediaTek MT8192 basic clocks.
           required on MediaTek MT8192 SoC.
