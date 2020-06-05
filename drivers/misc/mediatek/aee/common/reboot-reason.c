@@ -80,7 +80,7 @@ static const struct file_operations aee_rr_reboot_reason_proc_fops = {
 
 void aee_rr_proc_init(struct proc_dir_entry *aed_proc_dir)
 {
-	aee_rr_file = proc_create(RR_PROC_NAME, 0444, aed_proc_dir,
+	aee_rr_file = proc_create(RR_PROC_NAME, 0440, aed_proc_dir,
 			&aee_rr_reboot_reason_proc_fops);
 	if (aee_rr_file == NULL)
 		pr_notice("%s: Can't create rr proc entry\n", __func__);
