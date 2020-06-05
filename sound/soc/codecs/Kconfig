@@ -1180,6 +1180,14 @@ config SND_SOC_TFA9874
 	  multi-band DRC, equalizer function. It would
 	  be set to yes if device with TFA9874 on it.
 
+config SND_SOC_AW87339
+	tristate "AWINIC AW8773 speaker amplifier"
+	help
+	  Config of AWINIC AW87339 speaker amplifier.
+	  It is a speaker amp which connect with MTK
+	  PMIC device which has no speaker protection
+	  function.
+
 config SND_SOC_LM4857
 	tristate
 
