@@ -213,14 +213,16 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 
 void handle_trusty_ipi(int ipinr)
 {
+	if (ipinr < 0 || ipinr >= 16)
+		return;
+
 	if (trusty_ipi_init[ipinr] == 0)
 		return;
 
 	/*for kernel-4.14*/
 
 	irq_enter();
-	if (ipinr >= 0 && ipinr < 16)
-		trusty_irq_handler(ipinr, this_cpu_ptr(trusty_ipi_data[ipinr]));
+	trusty_irq_handler(ipinr, this_cpu_ptr(trusty_ipi_data[ipinr]));
 	irq_exit();
 }
 
