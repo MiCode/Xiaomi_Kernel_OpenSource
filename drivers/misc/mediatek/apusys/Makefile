@@ -30,6 +30,7 @@ apusys-objs += core/apusys_core.o
 # middleware makefile
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/$(UTIL_DIR)/
@@ -45,11 +46,18 @@ apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/apusys_dbg.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/memory_mgt.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/thread_pool.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_dummy.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_tag.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/sched_deadline.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/sched_normal.o
+
 ifeq ($(CONFIG_MTK_ION), y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
 endif
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/sched_deadline.o
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/sched_normal.o
+
+ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
+apusys-objs += debug/apu_tags.o
+apusys-objs += debug/apu_tp.o
+endif
 
 # sample makefile
 apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_drv.o
