@@ -39,6 +39,9 @@
 #include <linux/uaccess.h>
 #include <linux/reboot.h>
 
+#include <linux/of.h>
+#include <linux/extcon.h>
+
 #include <mt-plat/upmu_common.h>
 #include <mach/upmu_sw.h>
 #include <mach/upmu_hw.h>
@@ -49,6 +52,22 @@
 
 #include "mtk_charger_intf.h"
 
+#ifdef CONFIG_EXTCON_USB_CHG
+struct usb_extcon_info {
+	struct device *dev;
+	struct extcon_dev *edev;
+
+	unsigned int vbus_state;
+	unsigned long debounce_jiffies;
+	struct delayed_work wq_detcable;
+};
+
+static const unsigned int usb_extcon_cable[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_NONE,
+};
+#endif
 
 void __attribute__((weak)) fg_charger_in_handler(void)
 {
@@ -131,6 +150,10 @@ struct mt_charger {
 	struct power_supply_config usb_cfg;
 	struct power_supply *usb_psy;
 	struct chg_type_info *cti;
+	#ifdef CONFIG_EXTCON_USB_CHG
+	struct usb_extcon_info *extcon_info;
+	struct delayed_work extcon_work;
+	#endif
 	bool chg_online; /* Has charger in or not */
 	enum charger_type chg_type;
 };
@@ -178,12 +201,29 @@ static int mt_charger_get_property(struct power_supply *psy,
 	return 0;
 }
 
+#ifdef CONFIG_EXTCON_USB_CHG
+static void usb_extcon_detect_cable(struct work_struct *work)
+{
+	struct usb_extcon_info *info = container_of(to_delayed_work(work),
+						struct usb_extcon_info,
+						wq_detcable);
+
+	/* check and update cable state */
+	if (info->vbus_state)
+		extcon_set_state_sync(info->edev, EXTCON_USB, true);
+	else
+		extcon_set_state_sync(info->edev, EXTCON_USB, false);
+}
+#endif
 
 static int mt_charger_set_property(struct power_supply *psy,
 	enum power_supply_property psp, const union power_supply_propval *val)
 {
 	struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
 	struct chg_type_info *cti;
+	#ifdef CONFIG_EXTCON_USB_CHG
+	struct usb_extcon_info *info;
+	#endif
 
 	pr_info("%s\n", __func__);
 
@@ -191,6 +231,10 @@ static int mt_charger_set_property(struct power_supply *psy,
 		pr_notice("%s: no mtk chg data\n", __func__);
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_EXTCON_USB_CHG
+	info = mtk_chg->extcon_info;
+#endif
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -211,13 +255,25 @@ static int mt_charger_set_property(struct power_supply *psy,
 		/* usb */
 		if ((mtk_chg->chg_type == STANDARD_HOST) ||
 			(mtk_chg->chg_type == CHARGING_HOST) ||
-			(mtk_chg->chg_type == NONSTANDARD_CHARGER))
+			(mtk_chg->chg_type == NONSTANDARD_CHARGER)) {
 			mt_usb_connect();
-		else
+			#ifdef CONFIG_EXTCON_USB_CHG
+			info->vbus_state = 1;
+			#endif
+		} else {
 			mt_usb_disconnect();
+			#ifdef CONFIG_EXTCON_USB_CHG
+			info->vbus_state = 0;
+			#endif
+		}
 	}
 
 	queue_work(cti->chg_in_wq, &cti->chg_in_work);
+	#ifdef CONFIG_EXTCON_USB_CHG
+	if (!IS_ERR(info->edev))
+		queue_delayed_work(system_power_efficient_wq,
+			&info->wq_detcable, info->debounce_jiffies);
+	#endif
 
 	power_supply_changed(mtk_chg->ac_psy);
 	power_supply_changed(mtk_chg->usb_psy);
@@ -394,11 +450,40 @@ static int chgdet_task_threadfn(void *data)
 	return 0;
 }
 
+#ifdef CONFIG_EXTCON_USB_CHG
+static void init_extcon_work(struct work_struct *work)
+{
+	struct delayed_work *dw = to_delayed_work(work);
+	struct mt_charger *mt_chg =
+		container_of(dw, struct mt_charger, extcon_work);
+	struct device_node *node = mt_chg->dev->of_node;
+	struct usb_extcon_info *info;
+
+	info = mt_chg->extcon_info;
+	if (!info)
+		return;
+
+	if (of_property_read_bool(node, "extcon")) {
+		info->edev = extcon_get_edev_by_phandle(mt_chg->dev, 0);
+		if (IS_ERR(info->edev)) {
+			schedule_delayed_work(&mt_chg->extcon_work,
+				msecs_to_jiffies(50));
+			return;
+		}
+	}
+
+	INIT_DELAYED_WORK(&info->wq_detcable, usb_extcon_detect_cable);
+}
+#endif
+
 static int mt_charger_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct chg_type_info *cti = NULL;
 	struct mt_charger *mt_chg = NULL;
+	#ifdef CONFIG_EXTCON_USB_CHG
+	struct usb_extcon_info *info;
+	#endif
 
 	pr_info("%s\n", __func__);
 
@@ -503,6 +588,18 @@ static int mt_charger_probe(struct platform_device *pdev)
 	mt_chg->cti = cti;
 	platform_set_drvdata(pdev, mt_chg);
 	device_init_wakeup(&pdev->dev, true);
+
+	#ifdef CONFIG_EXTCON_USB_CHG
+	info = devm_kzalloc(mt_chg->dev, sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
+
+	info->dev = mt_chg->dev;
+	mt_chg->extcon_info = info;
+
+	INIT_DELAYED_WORK(&mt_chg->extcon_work, init_extcon_work);
+	schedule_delayed_work(&mt_chg->extcon_work, 0);
+	#endif
 
 	pr_info("%s done\n", __func__);
 	return 0;
