@@ -86,6 +86,7 @@ config DEVAPC_MT6885
 	select DEVAPC_ARCH_V2
 	select MTK_DEVAPC
 	select DEVAPC_MMAP_DEBUG
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
 	help
 	  Say yes here to enable support Mediatek MT6885
 	  Device APC driver.
@@ -98,6 +99,7 @@ config DEVAPC_MT6873
 	select DEVAPC_ARCH_V2
 	select MTK_DEVAPC
 	select DEVAPC_MMAP_DEBUG
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
 	help
 	  Say yes here to enable support Mediatek MT6873
 	  Device APC driver.
