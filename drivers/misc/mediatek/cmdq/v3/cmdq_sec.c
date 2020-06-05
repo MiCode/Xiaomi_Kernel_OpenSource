@@ -138,8 +138,8 @@ const u32 isp_iwc_buf_size[] = {
 
 #define CMDQ_ISP_BUFS(name) \
 { \
-	.va = iwc->command.name, \
-	.sz = &(iwc->command.name##_size), \
+	.va = iwc_ex2->isp.name, \
+	.sz = &(iwc_ex2->isp.name##_size), \
 }
 
 #define CMDQ_ISP_BUFS_EX(name) \
@@ -196,7 +196,9 @@ int32_t cmdq_sec_init_session_unlocked(struct cmdqSecContextStruct *handle)
 				&handle->iwcMessage,
 				sizeof(struct iwcCmdqMessage_t),
 				&handle->iwcMessageEx,
-				sizeof(struct iwcCmdqMessageEx_t));
+				sizeof(struct iwcCmdqMessageEx_t),
+				&handle->iwcMessageEx2,
+				sizeof(struct iwcCmdqMessageEx2_t));
 			if (status < 0)
 				break;
 			handle->state = IWC_WSM_ALLOCATED;
@@ -250,7 +252,7 @@ void cmdq_sec_deinit_session_unlocked(struct cmdqSecContextStruct *handle)
 
 int32_t cmdq_sec_fill_iwc_command_basic_unlocked(
 	int32_t iwcCommand, void *_pTask, int32_t thread, void *_pIwc,
-	void *_iwcex)
+	void *_iwcex, void *_iwcex2)
 {
 	struct iwcCmdqMessage_t *pIwc;
 
@@ -303,17 +305,18 @@ static void cmdq_sec_fill_client_meta(struct cmdqRecStruct *task,
 	struct iwcCmdqMessage_t *iwc, struct iwcCmdqMessageEx_t *iwc_ex)
 {
 	/* send iwc ex with isp meta */
-	iwc->iwcMegExAvailable = true;
+	iwc->iwcex_available = true;
 	iwc->metaex_type = task->sec_meta_type;
-	iwc_ex->meta.size = task->sec_meta_size;
+	iwc_ex->size = task->sec_meta_size;
 
 	/* copy client meta */
-	memcpy((void *)iwc_ex->meta.data, task->sec_client_meta,
+	memcpy((void *)iwc_ex->data, task->sec_client_meta,
 		task->sec_meta_size);
 }
 
 static void cmdq_sec_fill_isp_cq_meta(struct cmdqRecStruct *task,
-	struct iwcCmdqMessage_t *iwc, struct iwcCmdqMessageEx_t *iwc_ex)
+	struct iwcCmdqMessage_t *iwc, struct iwcCmdqMessageEx_t *iwc_ex,
+	struct iwcCmdqMessageEx2_t *iwc_ex2)
 {
 	u32 i;
 	struct iwc_meta_buf {
@@ -333,30 +336,29 @@ static void cmdq_sec_fill_isp_cq_meta(struct cmdqRecStruct *task,
 	if (!task->secData.ispMeta.ispBufs[0].size ||
 		!task->secData.ispMeta.ispBufs[1].size ||
 		!task->secData.ispMeta.ispBufs[2].size) {
-		memset(&iwc->command.isp_metadata, 0,
-			sizeof(iwc->command.isp_metadata));
+		memset(&iwc_ex2->isp.handles, 0, sizeof(iwc_ex2->isp.handles));
 		for (i = 0; i < ARRAY_SIZE(bufs); i++)
 			*bufs[i].sz = 0;
-		iwc->iwcMegExAvailable = false;
+		iwc->iwcex_available = false;
 		return;
 	}
 
 	/* send iwc ex with isp meta */
-	iwc->iwcMegExAvailable = true;
+	iwc->iwcex_available = true;
 	iwc->metaex_type = CMDQ_METAEX_CQ;
 
-	if (sizeof(iwc->command.isp_metadata) !=
+	if (sizeof(iwc_ex2->isp.handles) !=
 		sizeof(task->secData.ispMeta)) {
 		CMDQ_AEE("CMDQ",
 			"isp meta struct not match %zu to %zu\n",
-			sizeof(iwc->command.isp_metadata),
+			sizeof(iwc_ex2->isp.handles),
 			sizeof(task->secData.ispMeta));
 		return;
 	}
 
 	/* copy isp meta */
-	memcpy(&iwc->command.isp_metadata, &task->secData.ispMeta,
-		sizeof(iwc->command.isp_metadata));
+	memcpy(&iwc_ex2->isp.handles, &task->secData.ispMeta,
+		sizeof(iwc_ex2->isp.handles));
 
 	for (i = 0; i < ARRAY_SIZE(task->secData.ispMeta.ispBufs); i++) {
 		if (!task->secData.ispMeta.ispBufs[i].va ||
@@ -380,12 +382,14 @@ static void cmdq_sec_fill_isp_cq_meta(struct cmdqRecStruct *task,
 
 s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 	s32 iwc_cmd, void *task_ptr, s32 thread, void *iwc_ptr,
-	void *iwcex_ptr)
+	void *iwcex_ptr, void *iwcex2_ptr)
 {
 	struct cmdqRecStruct *task = (struct cmdqRecStruct *)task_ptr;
 	struct iwcCmdqMessage_t *iwc = (struct iwcCmdqMessage_t *)iwc_ptr;
 	struct iwcCmdqMessageEx_t *iwcex =
 		(struct iwcCmdqMessageEx_t *)iwcex_ptr;
+	struct iwcCmdqMessageEx2_t *iwcex2 =
+		(struct iwcCmdqMessageEx2_t *)iwcex2_ptr;
 	/* cmdqSecDr will insert some instr */
 	const u32 reserve_cmd_size = 4 * CMDQ_INST_SIZE;
 	s32 status = 0;
@@ -425,6 +429,7 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 		task->secData.enginesNeedPortSecurity);
 
 	memset(iwcex, 0x0, sizeof(*iwcex));
+	memset(iwcex2, 0x0, sizeof(*iwcex2));
 
 	/* try general secure client meta available
 	 * if not, try if cq meta available
@@ -432,7 +437,7 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 	if (task->sec_client_meta && task->sec_meta_size)
 		cmdq_sec_fill_client_meta(task, iwc, iwcex);
 	else
-		cmdq_sec_fill_isp_cq_meta(task, iwc, iwcex);
+		cmdq_sec_fill_isp_cq_meta(task, iwc, iwcex, iwcex2);
 
 	if (thread == CMDQ_INVALID_THREAD) {
 		/* relase resource, or debug function will go here */
@@ -529,7 +534,7 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 /* TODO: when do release secure command buffer */
 int32_t cmdq_sec_fill_iwc_resource_msg_unlocked(
 	int32_t iwcCommand, void *_pTask, int32_t thread, void *_pIwc,
-	void *_iwcex)
+	void *_iwcex, void *_iwcex2)
 {
 	struct iwcCmdqMessage_t *pIwc;
 	struct cmdqSecSharedMemoryStruct *pSharedMem;
@@ -566,7 +571,7 @@ int32_t cmdq_sec_fill_iwc_resource_msg_unlocked(
 
 int32_t cmdq_sec_fill_iwc_cancel_msg_unlocked(
 	int32_t iwcCommand, void *_pTask, int32_t thread, void *_pIwc,
-	void *_iwcex)
+	void *_iwcex, void *_iwcex2)
 {
 	const struct cmdqRecStruct *pTask = (struct cmdqRecStruct *) _pTask;
 	struct iwcCmdqMessage_t *pIwc;
@@ -824,7 +829,8 @@ static s32 cmdq_sec_send_context_session_message(
 		/* fill message bufer */
 		status = fill_iwc_cb(iwc_command, task, thread,
 			(void *)(handle->iwcMessage),
-			(void *)(handle->iwcMessageEx));
+			(void *)(handle->iwcMessageEx),
+			(void *)(handle->iwcMessageEx2));
 
 		if (status) {
 			CMDQ_ERR(
@@ -839,7 +845,8 @@ static s32 cmdq_sec_send_context_session_message(
 
 		/* send message */
 		status = cmdq_sec_execute_session(&handle->tee, iwc_command,
-			timeout_ms, iwc->iwcMegExAvailable);
+			timeout_ms, iwc->iwcex_available & (1 << CMDQ_IWC_MSG1),
+			iwc->iwcex_available & (1 << CMDQ_IWC_MSG2));
 		if (status) {
 			CMDQ_ERR(
 				"[SEC]cmdq_sec_execute_session_unlocked failed[%d], pid[%d:%d]\n",

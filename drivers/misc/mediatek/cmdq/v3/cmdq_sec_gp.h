@@ -25,6 +25,7 @@ struct cmdq_sec_tee_context {
 	struct TEEC_Session session; /* session handle */
 	struct TEEC_SharedMemory shared_mem; /* shared memory */
 	struct TEEC_SharedMemory shared_mem_ex; /* shared memory */
+	struct TEEC_SharedMemory shared_mem_ex2; /* shared memory */
 };
 
 #endif	/* __CMDQ_SEC_GP_H__ */

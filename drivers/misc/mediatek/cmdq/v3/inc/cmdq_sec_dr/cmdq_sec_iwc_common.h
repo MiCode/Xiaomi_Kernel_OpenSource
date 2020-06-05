@@ -9,10 +9,12 @@
 /* shared DRAM
  * bit x = 1 means thread x raise IRQ
  */
-#define CMDQ_SEC_SHARED_IRQ_RAISED_OFFSET (0x0)
-#define CMDQ_SEC_SHARED_THR_CNT_OFFSET (0x100)
-#define CMDQ_SEC_SHARED_TASK_VA_OFFSET (0x200)
-#define CMDQ_SEC_SHARED_OP_OFFSET (0x300)
+#define CMDQ_SEC_SHARED_IRQ_RAISED_OFFSET	0
+#define CMDQ_SEC_SHARED_THR_CNT_OFFSET		0x100
+#define CMDQ_SEC_SHARED_TASK_VA_OFFSET		0x200
+#define CMDQ_SEC_SHARED_OP_OFFSET		0x300
+#define CMDQ_SEC_SHARED_SUSPEND_CNT		0x304
+#define CMDQ_SEC_SHARED_RESET_CNT		0x308
 
 /* commanad buffer & metadata */
 #define CMDQ_TZ_CMD_BLOCK_SIZE	 (16 * 1024)
@@ -32,10 +34,13 @@
 #define CMDQ_SEC_ISP_BPCI_SIZE	(64)		/* 64 byte */
 #define CMDQ_SEC_ISP_LSCI_SIZE	(24576)		/* 24576 byte */
 #define CMDQ_SEC_ISP_LCEI_SIZE	(520200)	/* MAX: 510x510x2 byte */
-#define CMDQ_SEC_ISP_DEPI_SIZE	(520200)	/* MAX: 510x510x2 byte */
+#define CMDQ_SEC_ISP_DEPI_SIZE	(924800)	/* MAX: 680x680x2 byte */
 #define CMDQ_SEC_ISP_DMGI_SIZE	(130560)	/* MAX: 480x272 byte */
 #define CMDQ_IWC_ISP_META_CNT	8
 #define CMDQ_SEC_ISP_META_MAX	(0x1000)	/* 4k */
+
+#define CMDQ_SEC_DATA_SIZE_1	(0x2000)	/* 8k */
+#define CMDQ_SEC_DATA_SIZE_2	(0x2000)	/* 8k */
 
 enum CMDQ_IWC_ADDR_METADATA_TYPE {
 	CMDQ_IWC_H_2_PA = 0, /* sec handle to sec PA */
@@ -81,6 +86,13 @@ enum CMDQ_SEC_ENG_ENUM {
 	CMDQ_SEC_WPEI2,		/* 28 */
 	CMDQ_SEC_WPEO2,		/* 29 */
 	CMDQ_SEC_FDVT,		/* 30 */
+	CMDQ_SEC_ISP_UFBCI,	/* 31 */
+	CMDQ_SEC_ISP_UFBCO,	/* 32 */
+
+	CMDQ_SEC_MDP_WROT2,	/* 33 */
+	CMDQ_SEC_MDP_WROT3,	/* 34 */
+	CMDQ_SEC_MDP_RDMA2,	/* 35 */
+	CMDQ_SEC_MDP_RDMA3,	/* 36 */
 
 	CMDQ_SEC_MAX_ENG_COUNT	/* ALWAYS keep at the end */
 };
@@ -133,22 +145,12 @@ struct iwcCmdqSecStatus_t {
 	char dispatch[CMDQ_SEC_DISPATCH_LEN];
 };
 
-struct iwcCmdqSystraceLog_t {
-	uint64_t startTime;	/* start timestamp */
-	uint64_t endTime;	/* end timestamp */
-};
-
 struct iwcCmdqMetadata_t {
 	uint32_t addrListLength;
 	struct iwcCmdqAddrMetadata_t addrList[CMDQ_IWC_MAX_ADDR_LIST_LENGTH];
 
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
-};
-
-struct iwcCmdqSectraceBuffer_t {
-	uint32_t addr; /* pass VA for TCI cases, and pass PA for DCI case */
-	uint32_t size;
 };
 
 struct iwcCmdqPathResource_t {
@@ -195,6 +197,11 @@ struct iwcCmdqSecIspMeta {
 	uint64_t DmgiHandle;
 };
 
+struct iwcIspMeta {
+	uint32_t size;
+	uint32_t data[CMDQ_SEC_ISP_META_MAX / sizeof(uint32_t)];
+};
+
 /* extension flag for secure driver, must sync with def */
 enum sec_extension_iwc {
 	IWC_MDP_AAL = 0,
@@ -222,15 +229,10 @@ struct iwcCmdqCommand_t {
 
 	/* metadata */
 	struct iwcCmdqMetadata_t metadata;
-	struct iwcCmdqSecIspMeta isp_metadata;
 
 	/* client extension bits */
 	uint64_t extension;
 	uint64_t readback_pa;
-
-	/* ISP share memory buffer */
-	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
-	uint32_t isp_lcei_size;
 
 	/* debug */
 	uint64_t hNormalTask; /* handle to reference task in normal world*/
@@ -242,7 +244,7 @@ enum cmdq_sec_meta_type {
 	CMDQ_METAEX_CQ,
 };
 
-struct iwcIspMessage {
+struct iwc_cq_meta {
 	uint32_t isp_cq_desc[CMDQ_SEC_ISP_CQ_SIZE / sizeof(uint32_t)];
 	uint32_t isp_cq_desc_size;
 	uint32_t isp_cq_virt[CMDQ_SEC_ISP_VIRT_SIZE / sizeof(uint32_t)];
@@ -259,9 +261,16 @@ struct iwcIspMessage {
 	uint32_t isp_dmgi_size;
 };
 
-struct iwcIspMeta {
-	uint32_t size;
-	uint32_t data[CMDQ_SEC_ISP_META_MAX / sizeof(uint32_t)];
+struct iwc_cq_meta2 {
+	struct iwcCmdqSecIspMeta handles;
+	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
+	uint32_t isp_lcei_size;
+};
+
+enum cmdq_iwc_meta_idx {
+	CMDQ_IWC_MSG = 0,
+	CMDQ_IWC_MSG1 = 1,
+	CMDQ_IWC_MSG2 = 2,
 };
 
 /* linex kernel and mobicore has their own MMU tables,
@@ -284,20 +293,29 @@ struct iwcCmdqMessage_t {
 		struct iwcCmdqCommand_t command;
 		struct iwcCmdqCancelTask_t cancelTask;
 		struct iwcCmdqPathResource_t pathResource;
-		struct iwcCmdqSectraceBuffer_t sectracBuffer;
 	};
 
 	struct iwcCmdqDebugConfig_t debug;
 	struct iwcCmdqSecStatus_t secStatus;
 
-	bool iwcMegExAvailable;
+	uint8_t cmdq_id;
+	uint8_t iwcex_available;
 	uint32_t metaex_type;
 };
 
 struct iwcCmdqMessageEx_t {
+	uint32_t size;
 	union {
-		struct iwcIspMessage isp;
-		struct iwcIspMeta meta;
+		uint32_t data[CMDQ_SEC_DATA_SIZE_1 / sizeof(uint32_t)];
+		struct iwc_cq_meta isp;
+	};
+};
+
+struct iwcCmdqMessageEx2_t {
+	uint32_t size;
+	union {
+		uint32_t data[CMDQ_SEC_DATA_SIZE_2 / sizeof(uint32_t)];
+		struct iwc_cq_meta2 isp;
 	};
 };
 
@@ -326,9 +344,7 @@ struct iwcCmdqMessageEx_t {
 #define CMDQ_ERR_INVALID_SECURITY_THREAD (1505)
 #define CMDQ_ERR_PATH_RESOURCE_NOT_READY (1506)
 #define CMDQ_ERR_NULL_TASK (1507)
-#define CMDQ_ERR_HDCP_NOT_ALLOW_ENGINE (1508)
-#define CMDQ_ERR_HDCP_NOT_ALLOW_PATH (1509)
-#define CMDQ_ERR_HDCP_NOT_DISP_REG_PATH (1510)
+#define CMDQ_ERR_SECURITY_INVALID_SOP (1508)
 #define CMDQ_ERR_SECURITY_INVALID_SEC_PORT_FALG (1511)
 
 /* msee error */
