@@ -589,6 +589,14 @@ config QCOM_WATCHDOG_V2
 	  deadlocks. It does not run during the bootup process, so it will
 	  not catch any early lockups.
 
+config QCOM_INITIAL_LOGBUF
+	bool "QCOM save initial log_buf"
+	depends on QCOM_WATCHDOG_V2
+	help
+	  This enables to keep copy of initial log_buf at 100 second from
+	  bootup.It can help in debugging issues which are manifestation of
+	  failure during initial bootup.
+
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite"
 	depends on QCOM_WATCHDOG_V2
