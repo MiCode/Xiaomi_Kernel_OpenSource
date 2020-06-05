@@ -47,7 +47,7 @@ struct mdw_tag {
 	} d;
 };
 
-#ifdef CONFIG_MTK_APUSYS_DEBUG
+#if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
 int mdw_tags_init(void);
 void mdw_tags_destroy(void);
 void mdw_tags_show(struct seq_file *s);
