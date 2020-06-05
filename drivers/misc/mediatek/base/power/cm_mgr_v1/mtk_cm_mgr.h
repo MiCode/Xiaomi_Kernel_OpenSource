@@ -70,6 +70,9 @@ extern int light_load_cps;
 extern int cm_mgr_loading_level;
 extern int cm_mgr_loading_enable;
 extern int cm_mgr_emi_demand_check;
+#ifdef USE_CPU_TO_DRAM_MAP
+extern int cm_mgr_cpu_map_dram_enable;
+#endif /* USE_CPU_TO_DRAM_MAP */
 
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);

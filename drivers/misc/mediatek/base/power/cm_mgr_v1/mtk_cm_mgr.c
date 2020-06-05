@@ -841,6 +841,10 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 			cm_mgr_perf_timer_enable);
 	seq_printf(m, "cm_mgr_perf_force_enable %d\n",
 			cm_mgr_perf_force_enable);
+#ifdef USE_CPU_TO_DRAM_MAP
+	seq_printf(m, "cm_mgr_cpu_map_dram_enable %d\n",
+			cm_mgr_cpu_map_dram_enable);
+#endif /* USE_CPU_TO_DRAM_MAP */
 	seq_printf(m, "cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	seq_printf(m, "light_load_cps %d\n", light_load_cps);
 	seq_printf(m, "total_bw_value %d\n", total_bw_value);
@@ -1274,6 +1278,10 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+#ifdef USE_CPU_TO_DRAM_MAP
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
+		cm_mgr_cpu_map_dram_enable = !!val_1;
+#endif /* USE_CPU_TO_DRAM_MAP */
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
