@@ -100,3 +100,5 @@ obj-$(CONFIG_RMNET_CTL) += rmnet_ctl/
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_QTI_L2_REUSE) += l2_reuse.o
 obj-$(CONFIG_ICNSS2) += icnss2/
+obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm_qti.o
+hwkm_qti-y += hwkm.o

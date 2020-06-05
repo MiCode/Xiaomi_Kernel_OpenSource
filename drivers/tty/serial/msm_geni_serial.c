@@ -202,7 +202,6 @@ struct msm_geni_serial_port {
 	bool s_cmd_done;
 	bool m_cmd;
 	bool s_cmd;
-	atomic_t interrupt_disabled;
 	struct completion m_cmd_timeout;
 	struct completion s_cmd_timeout;
 };
@@ -298,11 +297,10 @@ static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 		geni_write_reg_nolog(dma_s_irq_en, uport->membase,
 							SE_DMA_RX_IRQ_EN);
 	}
-	atomic_set(&port->interrupt_disabled, 0);
 }
 
-/* Disable the interrupts in order to do polling in an atomic contexts. */
-static void msm_serial_try_disable_interrupts(struct uart_port *uport)
+/* Try disabling interrupts in order to do polling in an atomic contexts. */
+static bool msm_serial_try_disable_interrupts(struct uart_port *uport)
 {
 	unsigned int geni_m_irq_en, geni_s_irq_en;
 	unsigned int dma_m_irq_en, dma_s_irq_en;
@@ -313,7 +311,7 @@ static void msm_serial_try_disable_interrupts(struct uart_port *uport)
 	 * by framework as we can rely on ISR.
 	 */
 	if (!msm_geni_serial_spinlocked(uport))
-		return;
+		return false;
 
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 	geni_s_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_S_IRQ_EN);
@@ -339,7 +337,8 @@ static void msm_serial_try_disable_interrupts(struct uart_port *uport)
 		geni_write_reg_nolog(dma_s_irq_en, uport->membase,
 							SE_DMA_RX_IRQ_EN);
 	}
-	atomic_set(&port->interrupt_disabled, 1);
+
+	return true;
 }
 
 /*
@@ -348,7 +347,7 @@ static void msm_serial_try_disable_interrupts(struct uart_port *uport)
  * in a non-atomic context. This API decides wheather to poll for
  * interrupt or depend on the isr based on in_atomic() call.
  */
-bool geni_wait_for_cmd_done(struct uart_port *uport)
+bool geni_wait_for_cmd_done(struct uart_port *uport, bool is_irq_masked)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	unsigned long timeout = POLL_ITERATIONS;
@@ -359,7 +358,7 @@ bool geni_wait_for_cmd_done(struct uart_port *uport)
 	 * We need to do polling if spinlock is taken
 	 * by framework as we cannot rely on ISR.
 	 */
-	if (atomic_read(&msm_port->interrupt_disabled)) {
+	if (is_irq_masked) {
 		/*
 		 * Polling is done for 1000 iterrations with
 		 * 10 usecs interval which in total accumulates
@@ -953,6 +952,7 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 	unsigned long flags;
 	unsigned int geni_status;
 	bool timeout;
+	bool is_irq_masked;
 	int irq_en;
 
 	/* Max 1 port supported as of now */
@@ -971,14 +971,19 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 	geni_status = readl_relaxed(uport->membase + SE_GENI_STATUS);
 
 	/* Cancel the current write to log the fault */
-	if (!locked) {
+	if ((geni_status & M_GENI_CMD_ACTIVE) && !locked) {
 		port->m_cmd_done = false;
 		port->m_cmd = true;
 		reinit_completion(&port->m_cmd_timeout);
-		msm_serial_try_disable_interrupts(uport);
+		is_irq_masked = msm_serial_try_disable_interrupts(uport);
 		geni_cancel_m_cmd(uport->membase);
 
-		timeout = geni_wait_for_cmd_done(uport);
+		/*
+		 * console should be in polling mode. Hence directly pass true
+		 * as argument for wait_for_cmd_done here to handle cancel tx
+		 * in polling mode.
+		 */
+		timeout = geni_wait_for_cmd_done(uport, true);
 		if (timeout) {
 			IPC_LOG_MSG(port->console_log,
 				"%s: tx_cancel failed 0x%x\n",
@@ -987,7 +992,7 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 
 			reinit_completion(&port->m_cmd_timeout);
 			geni_abort_m_cmd(uport->membase);
-			timeout = geni_wait_for_cmd_done(uport);
+			timeout = geni_wait_for_cmd_done(uport, true);
 			if (timeout)
 				IPC_LOG_MSG(port->console_log,
 				"%s: tx abort failed 0x%x\n", __func__,
@@ -1034,6 +1039,7 @@ static int handle_rx_console(struct uart_port *uport,
 	unsigned char *rx_char;
 	struct tty_port *tport;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	bool locked;
 
 	tport = &uport->state->port;
 	for (i = 0; i < rx_fifo_wc; i++) {
@@ -1067,9 +1073,14 @@ static int handle_rx_console(struct uart_port *uport,
 		 * release the port lock before calling tty_flip_buffer_push()
 		 * to avoid deadlock scenarios.
 		 */
-		spin_unlock_irqrestore(&uport->lock, *flags);
-		tty_flip_buffer_push(tport);
-		spin_lock_irqsave(&uport->lock, *flags);
+		locked = msm_geni_serial_spinlocked(uport);
+		if (locked) {
+			spin_unlock_irqrestore(&uport->lock, *flags);
+			tty_flip_buffer_push(tport);
+			spin_lock_irqsave(&uport->lock, *flags);
+		} else {
+			tty_flip_buffer_push(tport);
+		}
 	}
 	return 0;
 }
@@ -1091,7 +1102,7 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 	struct circ_buf *xmit = &uport->state->xmit;
 	unsigned int xmit_size;
 	unsigned int dma_dbg;
-	bool timeout;
+	bool timeout, is_irq_masked;
 	int ret = 0;
 
 	xmit_size = uart_circ_chars_pending(xmit);
@@ -1122,13 +1133,13 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 		reinit_completion(&msm_port->m_cmd_timeout);
 
 		/*
-		 * Disabling the interrupts before giving the
+		 * Try disabling interrupts before giving the
 		 * cancel command as this might be in an atomic context.
 		 */
-		msm_serial_try_disable_interrupts(uport);
+		is_irq_masked = msm_serial_try_disable_interrupts(uport);
 		geni_cancel_m_cmd(uport->membase);
 
-		timeout = geni_wait_for_cmd_done(uport);
+		timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
 		if (timeout) {
 			IPC_LOG_MSG(msm_port->console_log,
 			"%s: tx_cancel fail 0x%x\n", __func__,
@@ -1143,7 +1154,8 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 			/* Give abort command as cancel command failed */
 			geni_abort_m_cmd(uport->membase);
 
-			timeout = geni_wait_for_cmd_done(uport);
+			timeout = geni_wait_for_cmd_done(uport,
+							 is_irq_masked);
 			if (timeout) {
 				IPC_LOG_MSG(msm_port->console_log,
 				"%s: tx abort failed 0x%x\n", __func__,
@@ -1165,7 +1177,8 @@ static int msm_geni_serial_prep_dma_tx(struct uart_port *uport)
 				geni_write_reg_nolog(1, uport->membase,
 						SE_DMA_TX_FSM_RST);
 
-				timeout = geni_wait_for_cmd_done(uport);
+				timeout = geni_wait_for_cmd_done(uport,
+							is_irq_masked);
 				if (timeout)
 					IPC_LOG_MSG(msm_port->ipc_log_misc,
 					"%s: tx fsm reset failed\n", __func__);
@@ -1248,7 +1261,7 @@ exit_start_tx:
 static void stop_tx_sequencer(struct uart_port *uport)
 {
 	unsigned int geni_status;
-	bool timeout;
+	bool timeout, is_irq_masked;
 	unsigned int dma_dbg;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
@@ -1268,10 +1281,10 @@ static void stop_tx_sequencer(struct uart_port *uport)
 	 * cancel command as this might be in an atomic context
 	 * from framework driver.
 	 */
-	msm_serial_try_disable_interrupts(uport);
+	is_irq_masked = msm_serial_try_disable_interrupts(uport);
 	geni_cancel_m_cmd(uport->membase);
 
-	timeout = geni_wait_for_cmd_done(uport);
+	timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
 	if (timeout) {
 		IPC_LOG_MSG(port->console_log, "%s: tx_cancel failed 0x%x\n",
 		__func__, geni_read_reg_nolog(uport->membase, SE_GENI_STATUS));
@@ -1282,7 +1295,7 @@ static void stop_tx_sequencer(struct uart_port *uport)
 		reinit_completion(&port->m_cmd_timeout);
 		geni_abort_m_cmd(uport->membase);
 
-		timeout = geni_wait_for_cmd_done(uport);
+		timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
 		if (timeout) {
 			IPC_LOG_MSG(port->console_log,
 				"%s: tx abort failed 0x%x\n", __func__,
@@ -1301,7 +1314,8 @@ static void stop_tx_sequencer(struct uart_port *uport)
 			geni_write_reg_nolog(1, uport->membase,
 						SE_DMA_TX_FSM_RST);
 
-			timeout = geni_wait_for_cmd_done(uport);
+			timeout = geni_wait_for_cmd_done(uport,
+							 is_irq_masked);
 			if (timeout)
 				IPC_LOG_MSG(port->ipc_log_misc,
 				"%s: tx fsm reset failed\n", __func__);
@@ -1454,7 +1468,7 @@ static void msm_geni_serial_set_manual_flow(bool enable,
 static void stop_rx_sequencer(struct uart_port *uport)
 {
 	unsigned int geni_status;
-	bool timeout;
+	bool timeout, is_irq_masked;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long flags = 0;
 
@@ -1476,10 +1490,10 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: Start 0x%x\n",
 		    __func__, geni_status);
 	/*
-	 * Disabling the interrupts before giving the
+	 * Try disabling interrupts before giving the
 	 * cancel command as this might be in an atomic context.
 	 */
-	msm_serial_try_disable_interrupts(uport);
+	is_irq_masked = msm_serial_try_disable_interrupts(uport);
 	geni_cancel_s_cmd(uport->membase);
 
 	/*
@@ -1487,7 +1501,7 @@ static void stop_rx_sequencer(struct uart_port *uport)
 	 * cancel control bit.
 	 */
 	mb();
-	timeout = geni_wait_for_cmd_done(uport);
+	timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
 	if (timeout) {
 		bool is_rx_active;
 		geni_status = geni_read_reg_nolog(uport->membase,
@@ -1515,7 +1529,7 @@ static void stop_rx_sequencer(struct uart_port *uport)
 		/* Ensure this goes through before polling. */
 		mb();
 
-		timeout = geni_wait_for_cmd_done(uport);
+		timeout = geni_wait_for_cmd_done(uport, is_irq_masked);
 		if (timeout) {
 			geni_status = geni_read_reg_nolog(uport->membase,
 							SE_GENI_STATUS);

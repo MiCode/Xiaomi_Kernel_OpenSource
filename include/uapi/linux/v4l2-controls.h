@@ -1004,6 +1004,8 @@ enum v4l2_mpeg_vidc_video_roi_type {
 
 #define V4L2_CID_MPEG_VIDC_VENC_CHROMA_QP_OFFSET \
 	(V4L2_CID_MPEG_MSM_VIDC_BASE + 132)
+#define V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_HINT \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 133)
 
 /*  Camera class control IDs */
 
