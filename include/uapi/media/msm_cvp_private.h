@@ -148,9 +148,13 @@ struct cvp_kmd_hfi_packet {
 #define CVP_KMD_PROP_PWR_FW_OP	0x1B
 #define CVP_KMD_PROP_PWR_DDR_OP	0x1C
 #define CVP_KMD_PROP_PWR_SYSCACHE_OP	0x1D
+#define CVP_KMD_PROP_PWR_FPS_FDU	0x1E
+#define CVP_KMD_PROP_PWR_FPS_MPU	0x1F
+#define CVP_KMD_PROP_PWR_FPS_OD	0x20
+#define CVP_KMD_PROP_PWR_FPS_ICA	0x21
 
 #define MAX_KMD_PROP_NUM_PER_PACKET		8
-#define MAX_KMD_PROP_TYPE	(CVP_KMD_PROP_PWR_SYSCACHE_OP + 1)
+#define MAX_KMD_PROP_TYPE	(CVP_KMD_PROP_PWR_FPS_ICA + 1)
 
 struct cvp_kmd_sys_property {
 	__u32 prop_type;
@@ -159,7 +163,7 @@ struct cvp_kmd_sys_property {
 
 struct cvp_kmd_sys_properties {
 	__u32 prop_num;
-	struct cvp_kmd_sys_property prop_data[8];
+	struct cvp_kmd_sys_property prop_data[MAX_KMD_PROP_NUM_PER_PACKET];
 };
 
 #define SESSION_CREATE	1

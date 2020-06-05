@@ -364,9 +364,34 @@ int get_hfi_version(void)
 	return hfi->version;
 }
 
-unsigned int get_msg_size(void)
+unsigned int get_msg_size(struct cvp_hfi_msg_session_hdr *hdr)
 {
-	return sizeof(struct cvp_hfi_msg_session_hdr);
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *device;
+	u32 minor_ver;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core)
+		device = core->device->hfi_device_data;
+	else
+		return 0;
+
+	if (!device) {
+		dprintk(CVP_ERR, "%s: NULL device\n", __func__);
+		return 0;
+	}
+
+	minor_ver = (device->version & HFI_VERSION_MINOR_MASK) >>
+				HFI_VERSION_MINOR_SHIFT;
+
+	if (minor_ver < 2)
+		return sizeof(struct cvp_hfi_msg_session_hdr);
+
+	if (hdr->packet_type == HFI_MSG_SESSION_CVP_FD)
+		return sizeof(struct cvp_hfi_msg_session_hdr_ext);
+	else
+		return sizeof(struct cvp_hfi_msg_session_hdr);
+
 }
 
 unsigned int get_msg_session_id(void *msg)
