@@ -111,8 +111,6 @@ enum scp_reserve_mem_id_t {
 	MP3_MEM_ID,
 #endif
 	FLP_MEM_ID,
-	RTOS_MEM_ID,
-	SENS_MEM_DIRECT_ID,
 	SCP_A_LOGGER_MEM_ID,
 	AUDIO_IPI_MEM_ID,
 #ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
