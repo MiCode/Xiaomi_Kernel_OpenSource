@@ -136,3 +136,13 @@ config MTK_MMC_PWR_WP
 
 	  E.g.  Kernel hard-code a partition named "system", User space use
 	  ioctl(fd, MMC_IOC_WP_CMD , &buf ) will set power-on write protect on it.
+
+config MMC_CRYPTO
+	bool "MMC Crypto Engine Support"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	  Enable Crypto Engine Support in MMC.
+	  Enabling this makes it possible for the kernel to use the crypto
+	  capabilities of the MMC device (if present) to perform crypto
+	  operations on data being transferred to/from the device.
+

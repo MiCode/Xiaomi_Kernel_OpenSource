@@ -8,12 +8,21 @@
 #include <linux/file.h>
 #include <linux/ktime.h>
 #include <linux/mm.h>
+#include <linux/workqueue.h>
+#include <linux/pagemap.h>
 #include <linux/lz4.h>
 #include <linux/crc32.h>
 
 #include "data_mgmt.h"
 #include "format.h"
 #include "integrity.h"
+
+static void log_wake_up_all(struct work_struct *work)
+{
+	struct delayed_work *dw = container_of(work, struct delayed_work, work);
+	struct read_log *rl = container_of(dw, struct read_log, ml_wakeup_work);
+	wake_up_all(&rl->ml_notif_wq);
+}
 
 struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 					  struct mount_options *options,
@@ -34,6 +43,7 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 	mutex_init(&mi->mi_pending_reads_mutex);
 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
 	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
+	INIT_DELAYED_WORK(&mi->mi_log.ml_wakeup_work, log_wake_up_all);
 	spin_lock_init(&mi->mi_log.rl_lock);
 	INIT_LIST_HEAD(&mi->mi_reads_list_head);
 
@@ -93,6 +103,8 @@ void incfs_free_mount_info(struct mount_info *mi)
 {
 	if (!mi)
 		return;
+
+	flush_delayed_work(&mi->mi_log.ml_wakeup_work);
 
 	dput(mi->mi_index_dir);
 	path_put(&mi->mi_backing_dir_path);
@@ -296,10 +308,19 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 {
 	struct read_log *log = &mi->mi_log;
 	struct read_log_state *head, *tail;
-	s64 now_us = ktime_to_us(ktime_get());
+	s64 now_us;
 	s64 relative_us;
 	union log_record record;
 	size_t record_size;
+
+	/*
+	 * This may read the old value, but it's OK to delay the logging start
+	 * right after the configuration update.
+	 */
+	if (READ_ONCE(log->rl_size) == 0)
+		return;
+
+	now_us = ktime_to_us(ktime_get());
 
 	spin_lock(&log->rl_lock);
 	if (log->rl_size == 0) {
@@ -319,6 +340,7 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 			.file_id = *id,
 			.absolute_ts_us = now_us,
 		};
+		head->base_record.file_id = *id;
 		record_size = sizeof(struct full_record);
 	} else if (block_index != head->base_record.block_index + 1 ||
 		   relative_us >= 1 << 30) {
@@ -343,7 +365,6 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 		record_size = sizeof(struct same_file_next_block_short);
 	}
 
-	head->base_record.file_id = *id;
 	head->base_record.block_index = block_index;
 	head->base_record.absolute_ts_us = now_us;
 
@@ -362,11 +383,13 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
 	++head->current_record_no;
 
 	spin_unlock(&log->rl_lock);
-	wake_up_all(&log->ml_notif_wq);
+	if (schedule_delayed_work(&log->ml_wakeup_work, msecs_to_jiffies(16)))
+		pr_debug("incfs: scheduled a log pollers wakeup");
 }
 
 static int validate_hash_tree(struct file *bf, struct data_file *df,
-			      int block_index, struct mem_range data, u8 *buf)
+			      int block_index, struct mem_range data,
+			      u8 *tmp_buf)
 {
 	u8 digest[INCFS_MAX_HASH_SIZE] = {};
 	struct mtree *tree = NULL;
@@ -379,6 +402,7 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 	int hash_per_block;
 	int lvl = 0;
 	int res;
+	struct page *saved_page = NULL;
 
 	tree = df->df_hash_tree;
 	sig = df->df_signature;
@@ -400,17 +424,39 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 				INCFS_DATA_FILE_BLOCK_SIZE);
 		size_t hash_off_in_block = hash_block_index * digest_size
 			% INCFS_DATA_FILE_BLOCK_SIZE;
-		struct mem_range buf_range = range(buf,
-					INCFS_DATA_FILE_BLOCK_SIZE);
-		ssize_t read_res = incfs_kread(bf, buf,
-				INCFS_DATA_FILE_BLOCK_SIZE, hash_block_off);
+		struct mem_range buf_range;
+		struct page *page = NULL;
+		bool aligned = (hash_block_off &
+				(INCFS_DATA_FILE_BLOCK_SIZE - 1)) == 0;
+		u8 *actual_buf;
 
-		if (read_res < 0)
-			return read_res;
-		if (read_res != INCFS_DATA_FILE_BLOCK_SIZE)
-			return -EIO;
+		if (aligned) {
+			page = read_mapping_page(
+				bf->f_inode->i_mapping,
+				hash_block_off / INCFS_DATA_FILE_BLOCK_SIZE,
+				NULL);
 
-		saved_digest_rng = range(buf + hash_off_in_block, digest_size);
+			if (IS_ERR(page))
+				return PTR_ERR(page);
+
+			actual_buf = page_address(page);
+		} else {
+			size_t read_res =
+				incfs_kread(bf, tmp_buf,
+					    INCFS_DATA_FILE_BLOCK_SIZE,
+					    hash_block_off);
+
+			if (read_res < 0)
+				return read_res;
+			if (read_res != INCFS_DATA_FILE_BLOCK_SIZE)
+				return -EIO;
+
+			actual_buf = tmp_buf;
+		}
+
+		buf_range = range(actual_buf, INCFS_DATA_FILE_BLOCK_SIZE);
+		saved_digest_rng =
+			range(actual_buf + hash_off_in_block, digest_size);
 		if (!incfs_equal_ranges(calc_digest_rng, saved_digest_rng)) {
 			int i;
 			bool zero = true;
@@ -425,8 +471,36 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 
 			if (zero)
 				pr_debug("incfs: Note saved_digest all zero - did you forget to load the hashes?\n");
+
+			if (saved_page)
+				put_page(saved_page);
+			if (page)
+				put_page(page);
 			return -EBADMSG;
 		}
+
+		if (saved_page) {
+			/*
+			 * This is something of a kludge. The PageChecked flag
+			 * is reserved for the file system, but we are setting
+			 * this on the pages belonging to the underlying file
+			 * system. incfs is only going to be used on f2fs and
+			 * ext4 which only use this flag when fs-verity is being
+			 * used, so this is safe for now, however a better
+			 * mechanism needs to be found.
+			 */
+			SetPageChecked(saved_page);
+			put_page(saved_page);
+			saved_page = NULL;
+		}
+
+		if (page && PageChecked(page)) {
+			put_page(page);
+			return 0;
+		}
+
+		saved_page = page;
+		page = NULL;
 
 		res = incfs_calc_digest(tree->alg, buf_range, calc_digest_rng);
 		if (res)
@@ -437,7 +511,14 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 	root_hash_rng = range(tree->root_hash, digest_size);
 	if (!incfs_equal_ranges(calc_digest_rng, root_hash_rng)) {
 		pr_debug("incfs: Root hash mismatch blk:%d\n", block_index);
+		if (saved_page)
+			put_page(saved_page);
 		return -EBADMSG;
+	}
+
+	if (saved_page) {
+		SetPageChecked(saved_page);
+		put_page(saved_page);
 	}
 	return 0;
 }

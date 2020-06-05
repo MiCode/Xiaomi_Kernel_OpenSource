@@ -530,13 +530,8 @@ struct mmc_host {
 #define MMC_CAP2_NO_MMC		(1 << 22)	/* Do not send (e)MMC commands during initialization */
 #define MMC_CAP2_CQE		(1 << 23)	/* Has eMMC command queue engine */
 #define MMC_CAP2_CQE_DCMD	(1 << 24)	/* CQE can issue a direct command */
-#define MMC_CAP2_INLINECRYPT	(1 << 25)	/* Support inline encryption */
 #define MMC_CAP2_NMCARD		(1 << 26)
-/*
- * This capability allows the host controller driver to use the
- * inline crypto engine, if it is present
- */
-#define MMC_CAP2_CRYPTO      (1 << 27)
+#define MMC_CAP2_CRYPTO		(1 << 27)	/* Host supports inline encryption */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
@@ -673,6 +668,7 @@ struct mmc_host {
 	int			cqe_qdepth;
 	bool			cqe_enabled;
 	bool			cqe_on;
+
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	const struct mmc_cmdq_host_ops *cmdq_ops;
 	struct mmc_cmdq_context_info	cmdq_ctx;
@@ -689,6 +685,17 @@ struct mmc_host {
 	struct mmc_request	*err_mrq;
 #endif
 
+#ifdef CONFIG_MMC_CRYPTO
+	const struct mmc_crypto_variant_ops *crypto_vops;
+	union mmc_crypto_capabilities crypto_capabilities;
+	union mmc_crypto_cap_entry *crypto_cap_array;
+	u8 crypto_cfg_register;
+	union mmc_crypto_cfg_entry *crypto_cfgs;
+	struct keyslot_manager *ksm;
+	void *crypto_DO_NOT_USE[7];
+#endif /* CONFIG_MMC_CRYPTO */
+
+
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	struct {
 		struct sdio_cis			*cis;
@@ -697,16 +704,6 @@ struct mmc_host {
 		int				num_funcs;
 	} embedded_sdio_data;
 #endif
-#ifdef CONFIG_MMC_CRYPTO
-	/* crypto */
-	const struct mmc_crypto_variant_ops *crypto_vops;
-	union mmc_crypto_capabilities crypto_capabilities;
-	union mmc_crypto_cap_entry *crypto_cap_array;
-	u8 crypto_cfg_register;
-	union mmc_crypto_cfg_entry *crypto_cfgs;
-	struct keyslot_manager *ksm;
-#endif /* CONFIG_MMC_CRYPTO */
-
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
