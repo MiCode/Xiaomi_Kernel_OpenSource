@@ -349,7 +349,7 @@ page_owner=on loop.max_part=7";
 		consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
-			size = <0 0x1370000>;
+			size = <0 0x450000>;
 			alignment = <0 0x100000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
