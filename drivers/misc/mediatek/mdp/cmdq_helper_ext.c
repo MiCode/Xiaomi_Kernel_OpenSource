@@ -3300,8 +3300,10 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 	CMDQ_MSG("[CLOCK]enable usage:%d scenario:%d\n",
 		clock_count, handle->scenario);
 
-	if (clock_count == 1)
+	if (clock_count == 1) {
 		cmdq_core_reset_gce();
+		cmdq_mbox_enable(((struct cmdq_client *)handle->pkt->cl)->chan);
+	}
 
 	cmdq_core_group_clk_cb(true, handle->engineFlag, handle->engine_clk);
 }
@@ -3317,6 +3319,8 @@ static void cmdq_core_clk_disable(struct cmdqRecStruct *handle)
 	CMDQ_MSG("[CLOCK]disable usage:%d\n", clock_count);
 
 	if (clock_count == 0) {
+		cmdq_mbox_disable(((struct cmdq_client *)
+			handle->pkt->cl)->chan);
 		/* Backup event */
 		cmdq_get_func()->eventBackup();
 		/* clock-off */
