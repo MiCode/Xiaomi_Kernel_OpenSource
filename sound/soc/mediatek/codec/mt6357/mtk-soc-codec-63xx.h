@@ -40,6 +40,7 @@
 
 #ifndef _AUDIO_CODEC_63xx_H
 #define _AUDIO_CODEC_63xx_H
+#include <linux/types.h>
 
 struct mtk_codec_ops {
 	int (*enable_dc_compensation)(bool enable);

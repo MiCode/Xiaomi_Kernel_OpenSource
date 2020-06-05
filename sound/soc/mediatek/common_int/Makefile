@@ -19,6 +19,15 @@ subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 obj-y += mtk-auddrv-devtree-parser.o
 #obj-y += mtk-auddrv-underflow-mach.o
 
+ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH),)
+# MTK Codec Chip Support
+MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))
+# PMIC include path
+ifneq  ($(MTK_CODEC),)
+obj-y += mtk-auddrv-gpio.o
+endif
+endif
+
 obj-$(CONFIG_MTK_HDMI_TDM) += mtk-soc-pcm-hdmi.o
 
 # Feature support
