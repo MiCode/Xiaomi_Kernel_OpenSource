@@ -1021,7 +1021,7 @@ static int apu_dvfs_probe(struct platform_device *pdev)
 
 	dvfs->devfreq = devm_devfreq_add_device(&pdev->dev,
 						 &apu_devfreq_profile,
-						 "simple_ondemand",
+						 "apu_dvfs",
 						 NULL);
 	dvfs->dvfs_node = of_find_compatible_node(
 		NULL, NULL, "mediatek,apu_dvfs");
