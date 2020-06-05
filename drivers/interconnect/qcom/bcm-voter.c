@@ -61,7 +61,9 @@ static u64 bcm_div(u64 num, u64 base)
 	if (num && num < base)
 		return 1;
 
-	return num / base;
+	do_div(num, base);
+
+	return num;
 }
 
 static void bcm_aggregate(struct qcom_icc_bcm *bcm, bool init)
