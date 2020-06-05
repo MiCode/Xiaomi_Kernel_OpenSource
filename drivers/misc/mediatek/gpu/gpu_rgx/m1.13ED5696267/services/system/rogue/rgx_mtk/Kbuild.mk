@@ -42,10 +42,20 @@ ccflags-y += \
 	-I$(TOP)/kernel/drivers/staging/imgtec \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/staging/android/ion \
-	-I$(srctree)/drivers/staging/android/ion/mtk \
+	-I$(srctree)/drivers/staging/android/ion/mtk
+
+ifeq ($(kernel_ver),kernel-4.19)
+ccflags-y += \
 	-I$(srctree)/drivers/gpu/mediatek \
 	-I$(srctree)/drivers/gpu/mediatek/ged/include \
 	-I$(srctree)/drivers/gpu/mediatek/mt-plat \
 	-I$(srctree)/drivers/gpu/mediatek/gpu_bm \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include \
-	-I$(srctree)/drivers/gpu/mediatek/gpufreq/$(MTK_PLATFORM) \
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/$(MTK_PLATFORM)
+else
+ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/gpu/ged/include \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
+	-I$(srctree)/drivers/misc/mediatek/gpu/gpu_bm \
+	-I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+endif
