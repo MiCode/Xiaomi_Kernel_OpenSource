@@ -408,13 +408,14 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		return -EINVAL;
 	}
 #endif
-
+#if !IS_ENABLED(CONFIG_MACH_MT6739)
 	if (ATOMR_CLK(id) == 1 &&
 		readl(smi_dev[id]->base + SMI_LARB_STAT) == 1) {
 		smi_debug_bus_hang_detect(false, user);
 		aee_kernel_exception(user,
 			"larb%u disable by %s but still busy\n", id, user);
 	}
+#endif
 	smi_unit_disable_unprepare(id);
 #if IS_ENABLED(SMI_5G)
 	if (id == 4)
