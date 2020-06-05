@@ -2618,12 +2618,10 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 				__func__, larb_index, m4u_port);
 		} else {
 			larb_base = gLarbBaseAddr[larb_index];
-			M4UMSG("larb%d, port%s, Nsec:0x%x, sec:0x%x\n",
+			M4UMSG("larb%d, port%s, Nsec:0x%x\n",
 				     larb_index, m4u_get_port_name(m4u_port),
 				     M4U_ReadReg32(larb_base,
-				     SMI_LARB_NON_SEC_CONx(larb_port)),
-				     M4U_ReadReg32(larb_base,
-				     SMI_LARB_SEC_CONx(larb_port))
+				     SMI_LARB_NON_SEC_CONx(larb_port))
 				);
 		}
 		/* dump something quickly */
