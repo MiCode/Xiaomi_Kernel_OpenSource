@@ -84,7 +84,7 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 	struct qcom_icc_provider *qp;
 	struct qcom_icc_node *qn;
 	struct icc_node *node;
-	int i;
+	int i, ret = 0;
 
 	if (!src)
 		node = dst;
@@ -100,13 +100,19 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 	/* Defer setting QoS until the first non-zero bandwidth request. */
 	if (qn && qn->qosbox && !qn->qosbox->initialized &&
 	    (node->avg_bw || node->peak_bw)) {
-		clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+		ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+		if (ret) {
+			pr_err("%s: Clock enable failed for node %s\n",
+				__func__, node->name);
+			return ret;
+		}
+
 		qn->noc_ops->set_qos(qn);
 		clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 		qn->qosbox->initialized = true;
 	}
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(qcom_icc_set);
 
