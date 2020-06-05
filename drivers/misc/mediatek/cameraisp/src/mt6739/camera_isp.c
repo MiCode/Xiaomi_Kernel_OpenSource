@@ -11699,7 +11699,7 @@ static signed int mmap_kmem(struct file *filp, struct vm_area_struct *vma)
 static signed int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	LOG_DBG("- E.");
 	length = (pVma->vm_end - pVma->vm_start);
