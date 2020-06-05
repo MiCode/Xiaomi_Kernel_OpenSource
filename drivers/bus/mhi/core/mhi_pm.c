@@ -785,7 +785,7 @@ int mhi_queue_disable_transition(struct mhi_controller *mhi_cntrl,
 	list_add_tail(&item->node, &mhi_cntrl->transition_list);
 	spin_unlock_irqrestore(&mhi_cntrl->transition_lock, flags);
 
-	schedule_work(&mhi_cntrl->st_worker);
+	queue_work(mhi_cntrl->wq, &mhi_cntrl->st_worker);
 
 	return 0;
 }
@@ -805,7 +805,7 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 	list_add_tail(&item->node, &mhi_cntrl->transition_list);
 	spin_unlock_irqrestore(&mhi_cntrl->transition_lock, flags);
 
-	schedule_work(&mhi_cntrl->st_worker);
+	queue_work(mhi_cntrl->wq, &mhi_cntrl->st_worker);
 
 	return 0;
 }
@@ -821,8 +821,7 @@ static void mhi_special_events_pending(struct mhi_controller *mhi_cntrl)
 
 		spin_lock_bh(&mhi_event->lock);
 		if (ev_ring->rp != mhi_to_virtual(ev_ring, er_ctxt->rp)) {
-			queue_work(mhi_cntrl->special_wq,
-				   &mhi_cntrl->special_work);
+			queue_work(mhi_cntrl->wq, &mhi_cntrl->special_work);
 			spin_unlock_bh(&mhi_event->lock);
 			break;
 		}
