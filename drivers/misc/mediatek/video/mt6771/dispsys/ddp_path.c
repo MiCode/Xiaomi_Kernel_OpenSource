@@ -26,7 +26,9 @@
 #include "ddp_hal.h"
 #include "disp_helper.h"
 #include "ddp_path.h"
-
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
+#include "smi_public.h"
+#endif
 
 /* #pragma GCC optimize("O0") */
 
@@ -1010,12 +1012,16 @@ int ddp_path_top_clock_on(void)
 	if (disp_helper_get_option(DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK))
 		; /* ddp_clk_prepare_enable(MM_VENCPLL); */
 	ddp_clk_prepare_enable(DISP_MTCMOS_CLK);
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
+	smi_bus_prepare_enable(SMI_LARB0, "DISP");
+#else
 	/*ddp_clk_prepare_enable(TOP_26M);*/
 	ddp_clk_prepare_enable(DISP0_SMI_COMMON);
 	ddp_clk_prepare_enable(DISP0_SMI_LARB0);
 	/*ddp_clk_prepare_enable(DISP0_SMI_LARB1);*/
 	ddp_clk_prepare_enable(CLK_MM_GALS_COMM0);
 	ddp_clk_prepare_enable(CLK_MM_GALS_COMM1);
+#endif
 	ddp_clk_prepare_enable(DISP0_DISP_26M);
 
 	/* hw workaround : begin */
@@ -1030,18 +1036,21 @@ int ddp_path_top_clock_on(void)
 	DDPDBG("ddp CG0:%x, CG1:%x\n",
 	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
 	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
-
 	return 0;
 }
 
 int ddp_path_top_clock_off(void)
 {
 	ddp_clk_disable_unprepare(DISP0_DISP_26M);
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
+	smi_bus_disable_unprepare(SMI_LARB0, "DISP");
+#else
 	ddp_clk_disable_unprepare(CLK_MM_GALS_COMM1);
 	ddp_clk_disable_unprepare(CLK_MM_GALS_COMM0);
 	/*ddp_clk_disable_unprepare(DISP0_SMI_LARB1);*/
 	ddp_clk_disable_unprepare(DISP0_SMI_LARB0);
 	ddp_clk_disable_unprepare(DISP0_SMI_COMMON);
+#endif
 	/*ddp_clk_disable_unprepare(TOP_26M);*/
 	ddp_clk_disable_unprepare(DISP_MTCMOS_CLK);
 
