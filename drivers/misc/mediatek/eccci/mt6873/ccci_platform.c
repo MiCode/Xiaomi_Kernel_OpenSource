@@ -26,6 +26,7 @@
 #include "ccci_modem.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
+#include "modem_secure_base.h"
 
 #ifdef FEATURE_USING_4G_MEMORY_API
 #include <mt-plat/mtk_lpae.h>
@@ -48,6 +49,19 @@ int Is_MD_EMI_voilation(void)
 unsigned long pericfg_base;
 unsigned long infra_ao_base;
 unsigned long infra_ao_mem_base;
+
+
+size_t mt_secure_call(
+		size_t arg0, size_t arg1, size_t arg2,
+		size_t arg3, size_t r1, size_t r2, size_t r3)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, arg0, arg1,
+			arg2, arg3, r1, r2, r3, &res);
+
+	return res.a0;
+}
 
 /*
  * when MD attached its codeviser for debuging, this bit will be set.
@@ -114,7 +128,7 @@ static int ccci_md_low_power_notify(
 static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -126,7 +140,7 @@ static void ccci_md_low_battery_cb(LOW_BATTERY_LEVEL level)
 static void ccci_md_over_current_cb(BATTERY_OC_LEVEL level)
 {
 	int idx = 0;
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	for (idx = 0; idx < MAX_MD_NUM; idx++) {
 		md = ccci_md_get_modem_by_id(idx);
@@ -146,7 +160,7 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 			int ccif_id, void __iomem *baseA, void __iomem *baseB)
 {
 	int i;
-	struct ccci_smem_region *region;
+	struct ccci_smem_region *region = NULL;
 
 	{
 		int ccif0_reset_bit = 8;
