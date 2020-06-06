@@ -248,7 +248,7 @@ static void *usbpd_ipc_log;
 #define PD_MAX_DATA_OBJ		7
 
 #define PD_SRC_CAP_EXT_DB_LEN	24
-#define PD_STATUS_DB_LEN	5
+#define PD_STATUS_DB_LEN	6
 #define PD_BATTERY_CAP_DB_LEN	9
 
 #define PD_MAX_EXT_MSG_LEN		260
@@ -2984,13 +2984,15 @@ static bool handle_ext_snk_ready(struct usbpd *pd, struct rx_msg *rx_msg)
 		complete(&pd->is_ready);
 		break;
 	case MSG_STATUS:
-		if (rx_msg->data_len != PD_STATUS_DB_LEN) {
-			usbpd_err(&pd->dev, "Invalid status db\n");
-			break;
-		}
+		if (rx_msg->data_len > PD_STATUS_DB_LEN)
+			usbpd_err(&pd->dev, "Invalid status db length:%d\n",
+					rx_msg->data_len);
+
+		memset(&pd->status_db, 0, sizeof(pd->status_db));
 		memcpy(&pd->status_db, rx_msg->payload,
-			sizeof(pd->status_db));
+			min((size_t)rx_msg->data_len, sizeof(pd->status_db)));
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+		complete(&pd->is_ready);
 		break;
 	case MSG_BATTERY_CAPABILITIES:
 		if (rx_msg->data_len != PD_BATTERY_CAP_DB_LEN) {
@@ -3985,9 +3987,9 @@ static int usbpd_uevent(struct device *dev, struct kobj_uevent_env *env)
 				"explicit" : "implicit");
 	add_uevent_var(env, "ALT_MODE=%d", pd->vdm_state == MODE_ENTERED);
 
-	add_uevent_var(env, "SDB=%02x %02x %02x %02x %02x", pd->status_db[0],
-			pd->status_db[1], pd->status_db[2], pd->status_db[3],
-			pd->status_db[4]);
+	add_uevent_var(env, "SDB=%02x %02x %02x %02x %02x %02x",
+			pd->status_db[0], pd->status_db[1], pd->status_db[2],
+			pd->status_db[3], pd->status_db[4], pd->status_db[5]);
 
 	return 0;
 }
