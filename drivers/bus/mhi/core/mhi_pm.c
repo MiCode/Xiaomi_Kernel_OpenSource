@@ -1110,10 +1110,9 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 
 	if (!mhi_cntrl->pre_init) {
 		/* free all allocated resources */
-		if (mhi_cntrl->fbc_image) {
-			mhi_free_bhie_table(mhi_cntrl, mhi_cntrl->fbc_image);
-			mhi_cntrl->fbc_image = NULL;
-		}
+		if (mhi_cntrl->fbc_image)
+			mhi_free_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image);
+
 		mhi_deinit_dev_ctxt(mhi_cntrl);
 	}
 }
