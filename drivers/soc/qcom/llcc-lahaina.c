@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -53,15 +53,13 @@
 static struct llcc_slice_config lahaina_data[] =  {
 	SCT_ENTRY(LLCC_CPUSS,    1, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
 	SCT_ENTRY(LLCC_VIDSC0,   2, 512, 3, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0),
+	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_MDMHPGRW, 7, 1024, 3, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDM,      8, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_MDMHW,    9, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_CMPT,     10, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0),
+	SCT_ENTRY(LLCC_CMPT,     10, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_GPUHTW,   11, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_GPU,      12, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1, 0),
 	SCT_ENTRY(LLCC_MMUHWT,   13, 1024, 1, 1, 0xFFF,  0x0, 0, 0, 0, 0, 0, 1),
-	SCT_ENTRY(LLCC_CMPTDMA,  15, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_DISP,     16, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_MDMPNG,   21, 1024, 0, 1, 0xF,  0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_AUDHW,    22, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
