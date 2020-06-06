@@ -156,6 +156,28 @@
 		gpios = <&tlmm 96 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+
+	qmi-tmd-devices {
+		adsp {
+			qcom,instance-id = <0x1>;
+
+			adsp_vdd: adsp-vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	aoss-lowf {
+		cooling-maps {
+			adsp_vdd_cdev {
+				trip = <&aoss_lowf>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+		};
+	};
 };
 
 &usb3 {
