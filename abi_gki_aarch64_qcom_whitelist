@@ -21,6 +21,7 @@
   alloc_skb_with_frags
   alloc_workqueue
   amba_bustype
+  anon_inode_getfile
   arch_bpf_jit_check_func
   __arch_clear_user
   __arch_copy_from_user
@@ -58,6 +59,7 @@
   blk_mq_init_queue
   blk_mq_quiesce_queue
   blk_mq_requeue_request
+  blk_mq_rq_cpu
   blk_mq_run_hw_queues
   blk_mq_start_request
   blk_mq_start_stopped_hw_queues
@@ -160,6 +162,7 @@
   __cfg80211_send_event_skb
   cfg80211_tdls_oper_request
   cfg80211_unlink_bss
+  cfg80211_update_owe_info_event
   cfg80211_vendor_cmd_reply
   __cfi_slowpath
   check_disk_change
@@ -345,6 +348,7 @@
   device_add_disk
   device_connection_find_match
   device_create
+  device_create_bin_file
   device_create_file
   device_create_with_groups
   device_del
@@ -850,6 +854,7 @@
   extcon_unregister_notifier
   fasync_helper
   fd_install
+  fget
   filemap_write_and_wait
   file_path
   filp_close
@@ -1302,10 +1307,12 @@
   __memcpy_toio
   memdup_user
   memmove
+  memory_read_from_buffer
   memparse
   memremap
   memset
   __memset_io
+  memunmap
   memweight
   mipi_dsi_create_packet
   mipi_dsi_dcs_set_display_brightness
@@ -1716,6 +1723,8 @@
   qcom_scm_disable_sdi
   qcom_scm_get_sec_dump_state
   qcom_scm_halt_spmi_pmic_arbiter
+  qcom_scm_invoke_callback_response
+  qcom_scm_invoke_smc
   qcom_scm_io_readl
   qcom_scm_io_reset
   qcom_scm_io_writel
@@ -1742,6 +1751,7 @@
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
   qdisc_reset
+  qseecom_process_listener_from_smcinvoke
   qtee_shmbridge_allocate_shm
   qtee_shmbridge_deregister
   qtee_shmbridge_flush_shm_buf
