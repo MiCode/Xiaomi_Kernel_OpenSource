@@ -1199,7 +1199,6 @@ static ssize_t enable_sink_store(struct device *dev,
 	int ret;
 	unsigned long val;
 	struct coresight_device *csdev = to_coresight_device(dev);
-	struct coresight_device *sink = NULL;
 
 	ret = kstrtoul(buf, 10, &val);
 	if (ret)
@@ -1207,10 +1206,7 @@ static ssize_t enable_sink_store(struct device *dev,
 	mutex_lock(&coresight_mutex);
 
 	if (val) {
-		sink = activated_sink ? activated_sink :
-			coresight_get_enabled_sink(false);
-		if (sink && strcmp(dev_name(&sink->dev),
-				dev_name(&csdev->dev)))
+		if (activated_sink)
 			goto err;
 		csdev->activated = true;
 	} else {
