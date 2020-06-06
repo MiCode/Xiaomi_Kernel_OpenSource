@@ -1623,7 +1623,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 
 		evt_payload.type = AIS_IFE_MSG_CSID_ERROR;
 
-		rc = csid_hw->event_cb(csid_hw->ctx, &evt_payload);
+		rc = csid_hw->event_cb(csid_hw->event_cb_priv, &evt_payload);
 		break;
 
 	case AIS_IFE_MSG_CSID_WARNING:
