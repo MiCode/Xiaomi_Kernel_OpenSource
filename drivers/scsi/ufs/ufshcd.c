@@ -10278,10 +10278,18 @@ static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
 
 static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 {
+	int ret;
+	struct ufs_vreg_info *info = &hba->vreg_info;
+
 	if (ufshcd_is_link_off(hba) ||
 	    (ufshcd_is_link_hibern8(hba)
 	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
-		ufshcd_setup_hba_vreg(hba, true);
+		ret = ufshcd_setup_hba_vreg(hba, true);
+
+	if (ret && (info->vdd_hba->enabled == false)) {
+		dev_err(hba->dev, "vdd_hba is not enabled\n");
+		BUG_ON(1);
+	}
 }
 
 /**
