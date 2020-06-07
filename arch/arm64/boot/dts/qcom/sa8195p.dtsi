@@ -452,7 +452,7 @@
 	quad-gpuss-max-step {
 		trips {
 			gpu-trip0 {
-				temperature = <100000>;
+				temperature = <105000>;
 			};
 		};
 	};
