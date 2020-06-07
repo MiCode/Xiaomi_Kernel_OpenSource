@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1139,4 +1139,12 @@ const struct adc_tm_data data_adc_tm5 = {
 	.decimation = (unsigned int []) {250, 420, 840},
 	.hw_settle = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					1, 2, 4, 8, 16, 32, 64, 128},
+};
+
+const struct adc_tm_data data_adc_tm_rev2 = {
+	.ops			= &ops_adc_tm5,
+	.full_scale_code_volt	= 0x4000,
+	.decimation = (unsigned int []) {256, 512, 1024},
+	.hw_settle = (unsigned int []) {0, 100, 200, 300, 400, 500, 600, 700,
+					800, 900, 1, 2, 4, 6, 8, 10},
 };
