@@ -138,6 +138,7 @@ struct msm_pinctrl_soc_data {
 	bool pull_no_keeper;
 	struct pinctrl_qup *qup_regs;
 	unsigned int nqup_regs;
+	const int *reserved_gpios;
 };
 
 int msm_pinctrl_probe(struct platform_device *pdev,

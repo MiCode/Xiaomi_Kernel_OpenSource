@@ -1614,6 +1614,10 @@ static const struct msm_pingroup lagoon_groups[] = {
 	[163] = UFS_RESET(ufs_reset, 0x1ae000),
 };
 
+static const int lagoon_reserved_gpios[] = {
+	13, 14, 15, 16, 45, 46, 56, 57, -1
+};
+
 static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
 	.pins = lagoon_pins,
 	.npins = ARRAY_SIZE(lagoon_pins),
@@ -1621,6 +1625,7 @@ static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
 	.nfunctions = ARRAY_SIZE(lagoon_functions),
 	.groups = lagoon_groups,
 	.ngroups = ARRAY_SIZE(lagoon_groups),
+	.reserved_gpios = lagoon_reserved_gpios,
 	.ngpios = 156,
 };
 
