@@ -1248,6 +1248,10 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		}
 		trace_fastrpc_dma_map(fl->cid, fd, map->phys, map->size,
 			len, mflags, map->attach->dma_map_attrs);
+		if (map->size < len) {
+			err = -EFAULT;
+			goto bail;
+		}
 
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
