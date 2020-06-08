@@ -135,6 +135,16 @@
 			<0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
+
+	watchdog: qcom,wdt@17817000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17817000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <1 3 0>, <1 2 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,wakeup-enable;
+	};
 };
 
 #include "sdxlemur-pinctrl.dtsi"
