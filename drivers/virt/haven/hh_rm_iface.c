@@ -373,7 +373,6 @@ static int hh_rm_vm_irq_release(hh_virq_handle_t virq_handle)
 
 	return ret;
 }
-EXPORT_SYMBOL(hh_rm_vm_irq_release);
 
 /**
  * hh_rm_vm_irq_release_notify: Release IRQ back to a VM and notify that it has

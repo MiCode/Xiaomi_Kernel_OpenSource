@@ -183,6 +183,9 @@ int hh_rm_register_notifier(struct notifier_block *nb);
 int hh_rm_unregister_notifier(struct notifier_block *nb);
 
 /* Client APIs for IRQ management */
+int hh_rm_virq_to_irq(u32 virq, u32 type);
+int hh_rm_irq_to_virq(int irq, u32 *virq);
+
 int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq);
 int hh_rm_vm_irq_lend_notify(hh_vmid_t vmid, int virq, int label,
 			     hh_virq_handle_t *virq_handle);
@@ -227,6 +230,7 @@ int hh_rm_mem_lend(u8 mem_type, u8 flags, hh_label_t label,
 int hh_rm_mem_notify(hh_memparcel_handle_t handle, u8 flags,
 		     hh_label_t mem_info_tag,
 		     struct hh_notify_vmid_desc *vmid_desc);
+
 #else
 /* RM client register notifications APIs */
 static inline int hh_rm_register_notifier(struct notifier_block *nb)
@@ -240,6 +244,16 @@ static inline int hh_rm_unregister_notifier(struct notifier_block *nb)
 }
 
 /* Client APIs for IRQ management */
+static inline int hh_rm_virq_to_irq(u32 virq)
+{
+	return -EINVAL;
+}
+
+static inline int hh_rm_irq_to_virq(int irq, u32 *virq)
+{
+	return -EINVAL;
+}
+
 static inline int hh_rm_vm_irq_accept(hh_virq_handle_t virq_handle, int virq)
 {
 	return -EINVAL;
