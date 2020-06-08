@@ -12,6 +12,7 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/mt6873-pinfunc.h>
 #include <dt-bindings/power/mt6873-power.h>
+#include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 
 / {
 	compatible = "mediatek,mt6873";
@@ -384,6 +385,48 @@
 			compatible = "mediatek,mt8192-apmixedsys", "syscon";
 			reg = <0 0x1000c000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		dvfsrc: dvfsrc@10012000 {
+			compatible = "mediatek,mt6873-dvfsrc";
+			reg = <0 0x10012000 0 0x1000>;
+			reg-names = "dvfsrc";
+			#interconnect-cells = <1>;
+
+			dvfsrc_vcore: dvfsrc-vcore {
+				regulator-name = "dvfsrc-vcore";
+				regulator-min-microvolt = <575000>;
+				regulator-max-microvolt = <725000>;
+				regulator-always-on;
+			};
+			dvfsrc_vscp: dvfsrc-vscp {
+				regulator-name = "dvfsrc-vscp";
+				regulator-min-microvolt = <575000>;
+				regulator-max-microvolt = <725000>;
+				regulator-always-on;
+			};
+
+			dvfsrc_freq_opp6: opp6 {
+				opp-peak-KBps = <0>;
+			};
+			dvfsrc_freq_opp5: opp5 {
+				opp-peak-KBps = <3200000>;
+			};
+			dvfsrc_freq_opp4: opp4 {
+				opp-peak-KBps = <4800000>;
+			};
+			dvfsrc_freq_opp3: opp3 {
+				opp-peak-KBps = <6400000>;
+			};
+			dvfsrc_freq_opp2: opp2 {
+				opp-peak-KBps = <7464000>;
+			};
+			dvfsrc_freq_opp1: opp1 {
+				opp-peak-KBps = <9600000>;
+			};
+			dvfsrc_freq_opp0: opp0 {
+				opp-peak-KBps = <12800000>;
+			};
 		};
 
 		systimer: systimer@10017000 {
