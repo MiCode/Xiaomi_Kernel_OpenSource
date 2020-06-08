@@ -9301,3 +9301,18 @@ error:
 	mutex_unlock(&ipa3_ctx->act_tbl_lock);
 	return res;
 }
+
+/**
+ * ipa3_get_max_pdn() - get max PDN number based on hardware version
+ *
+ * Returns:     IPA_MAX_PDN_NUM of IPAv4_5 and IPA_MAX_PDN_NUM_v4_2 for others
+ *
+ */
+
+int ipa3_get_max_pdn(void)
+{
+	if (ipa3_get_hw_type_index() == IPA_4_5_AUTO)
+		return IPA_MAX_PDN_NUM;
+	else
+		return IPA_MAX_PDN_NUM_v4;
+}
