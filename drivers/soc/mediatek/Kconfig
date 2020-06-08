@@ -76,6 +76,7 @@ config MTK_MBOX
 menu "Security"
 
 source "drivers/soc/mediatek/devapc/Kconfig"
+source "drivers/soc/mediatek/devmpu/Kconfig"
 
 endmenu # Security
 
