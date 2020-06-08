@@ -1510,6 +1510,8 @@
 		memory-region = <&pil_cdsp_mem>;
 		qcom,complete-ramdump;
 
+		interconnects = <&nsp_noc MASTER_CDSP_PROC &mc_virt SLAVE_EBI1>;
+
 		/* Inputs from turing */
 		interrupts-extended = <&intc GIC_SPI 578 IRQ_TYPE_LEVEL_HIGH>,
 				<&cdsp_smp2p_in 0 0>,
