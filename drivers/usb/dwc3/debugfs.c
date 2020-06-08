@@ -921,6 +921,11 @@ static int dwc3_ep_info_register_show(struct seq_file *s, void *unused)
 	u32			upper_32_bits;
 	u32			reg;
 
+	if (atomic_read(&dwc->in_lpm)) {
+		seq_puts(s, "USB device is powered off\n");
+		return 0;
+	}
+
 	spin_lock_irqsave(&dwc->lock, flags);
 	reg = DWC3_GDBGLSPMUX_EPSELECT(dep->number);
 	dwc3_writel(dwc->regs, DWC3_GDBGLSPMUX, reg);
