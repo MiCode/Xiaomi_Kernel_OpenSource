@@ -205,4 +205,4 @@ static int __init msm_minidump_log_init(void)
 	register_log_buf();
 	return 0;
 }
-late_initcall(msm_minidump_log_init);
+subsys_initcall(msm_minidump_log_init);
