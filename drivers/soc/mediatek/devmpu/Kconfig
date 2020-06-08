@@ -1,0 +1,10 @@
+config MTK_DEVMPU
+	tristate "Enable MTK Device MPU driver"
+	help
+	  Device MPU is a kernel driver providing
+	  non-continuous memory protection in the
+	  2MB granularity.
+	  This driver is combined with SUB, ACP of
+	  Device MPU in the platfom.
+
+
