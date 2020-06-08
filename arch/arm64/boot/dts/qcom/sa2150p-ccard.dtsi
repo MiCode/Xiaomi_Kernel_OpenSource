@@ -226,3 +226,34 @@
 &kgsl_msm_iommu {
 	status = "disabled";
 };
+
+&rpm_bus {
+	rpm-regulator-ldoa1 {
+		status = "disabled";
+		pms405_l1: regulator-l1 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "disabled";
+		pms405_l2: regulator-l2 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "disabled";
+		pms405_l7: regulator-l7 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "disabled";
+		pms405_l10: regulator-l10 {
+			status = "disabled";
+		};
+	};
+};
+
