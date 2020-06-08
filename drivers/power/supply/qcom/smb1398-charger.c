@@ -917,6 +917,24 @@ static int div2_cp_master_get_prop_suspended(struct smb1398_chip *chip,
 	return 0;
 }
 
+#define DEFAULT_HVDCP3_MIN_ICL_UA 1000000
+static int smb1398_div2_cp_get_min_icl(struct smb1398_chip *chip)
+{
+	union power_supply_propval pval;
+	int rc;
+
+	/* Use max(dt_min_icl, 1A) for HVDCP3 */
+	if (chip->usb_psy) {
+		rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+		if (rc >= 0 && (pval.intval == POWER_SUPPLY_TYPE_USB_HVDCP_3))
+			return max(chip->div2_cp_min_ilim_ua,
+				DEFAULT_HVDCP3_MIN_ICL_UA);
+	}
+
+	return chip->div2_cp_min_ilim_ua;
+}
+
 static int div2_cp_master_get_prop(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
@@ -1017,7 +1035,7 @@ static int div2_cp_master_get_prop(struct power_supply *psy,
 		val->intval = chip->pl_output_mode;
 		break;
 	case POWER_SUPPLY_PROP_MIN_ICL:
-		val->intval = chip->div2_cp_min_ilim_ua;
+		val->intval = smb1398_div2_cp_get_min_icl(chip);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1316,7 +1334,7 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 {
 	struct smb1398_chip *chip = (struct smb1398_chip *)data;
 	union power_supply_propval pval = {0};
-	int rc = 0, max_ilim_ua;
+	int rc = 0, max_ilim_ua, min_ilim_ua;
 	bool slave_dis, split_ilim = false;
 
 	if (!is_psy_voter_available(chip) || chip->in_suspend)
@@ -1325,19 +1343,21 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 	if (!client)
 		return -EINVAL;
 
+	min_ilim_ua = smb1398_div2_cp_get_min_icl(chip);
+
 	ilim_ua = (ilim_ua * DIV2_ILIM_CFG_PCT) / 100;
 
 	max_ilim_ua = is_cps_available(chip) ?
 		DIV2_MAX_ILIM_DUAL_CP_UA : DIV2_MAX_ILIM_UA;
 	ilim_ua = min(ilim_ua, max_ilim_ua);
-	if (ilim_ua < chip->div2_cp_min_ilim_ua) {
+	if (ilim_ua < min_ilim_ua) {
 		dev_dbg(chip->dev, "ilim %duA is too low to config CP charging\n",
 				ilim_ua);
 		vote(chip->div2_cp_disable_votable, ILIM_VOTER, true, 0);
 	} else {
 		if (is_cps_available(chip)) {
 			split_ilim = true;
-			slave_dis = ilim_ua < (2 * chip->div2_cp_min_ilim_ua);
+			slave_dis = ilim_ua < (2 * min_ilim_ua);
 			vote(chip->div2_cp_slave_disable_votable, ILIM_VOTER,
 					slave_dis, 0);
 			slave_dis = !!get_effective_result(
@@ -1764,7 +1784,7 @@ static void smb1398_taper_work(struct work_struct *work)
 	struct smb1398_chip *chip = container_of(work,
 			struct smb1398_chip, taper_work);
 	union power_supply_propval pval = {0};
-	int rc, fcc_ua, fv_uv, stepper_ua, main_fcc_ua;
+	int rc, fcc_ua, fv_uv, stepper_ua, main_fcc_ua, min_ilim_ua;
 	bool slave_en;
 
 	if (!is_psy_voter_available(chip))
@@ -1775,6 +1795,8 @@ static void smb1398_taper_work(struct work_struct *work)
 
 	if (chip->fcc_main_votable)
 		main_fcc_ua = get_effective_result(chip->fcc_main_votable);
+
+	min_ilim_ua = smb1398_div2_cp_get_min_icl(chip);
 
 	chip->taper_entry_fv = get_effective_result(chip->fv_votable);
 	while (true) {
@@ -1811,7 +1833,7 @@ static void smb1398_taper_work(struct work_struct *work)
 			 * If total FCC is less than the minimum ILIM to
 			 * keep CP master and slave online, disable CP.
 			 */
-			if (fcc_ua < (chip->div2_cp_min_ilim_ua * 2)) {
+			if (fcc_ua < (min_ilim_ua * 2)) {
 				vote(chip->div2_cp_disable_votable,
 						TAPER_VOTER, true, 0);
 				/*
