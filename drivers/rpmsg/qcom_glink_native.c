@@ -974,6 +974,14 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 		/* Drop the message */
 		goto advance_rx;
 	}
+
+	if (!channel->ept.cb) {
+		dev_err(glink->dev,
+			"Callback not available on channel %s\n",
+			channel->name);
+		return -EAGAIN;
+	}
+
 	CH_INFO(channel, "chunk_size:%d left_size:%d\n", chunk_size, left_size);
 
 	if (glink->intentless) {
