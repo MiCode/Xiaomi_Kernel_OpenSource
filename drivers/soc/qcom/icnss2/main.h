@@ -109,6 +109,7 @@ enum icnss_driver_state {
 	ICNSS_MODE_ON,
 	ICNSS_BLOCK_SHUTDOWN,
 	ICNSS_PDR,
+	ICNSS_DEL_SERVER,
 };
 
 struct ce_irq_list {
