@@ -145,6 +145,11 @@
 		qcom,pet-time = <10000>;
 		qcom,wakeup-enable;
 	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
 };
 
 #include "sdxlemur-pinctrl.dtsi"
