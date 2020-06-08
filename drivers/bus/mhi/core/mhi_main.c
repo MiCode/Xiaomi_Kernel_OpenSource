@@ -1659,12 +1659,13 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 
 		MHI_ERR("RDDM event occurred!\n");
-		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
-				     MHI_CB_EE_RDDM);
-		wake_up_all(&mhi_cntrl->state_event);
 
 		/* notify critical clients with early notifications */
 		mhi_control_error(mhi_cntrl);
+
+		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+				     MHI_CB_EE_RDDM);
+		wake_up_all(&mhi_cntrl->state_event);
 
 		goto exit_intvec;
 	}
