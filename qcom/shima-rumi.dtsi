@@ -107,3 +107,7 @@
 	compatible = "qcom,dummycc";
 	clock-output-names = "qdss_clocks";
 };
+
+&cpufreq_hw {
+	clocks = <&bi_tcxo>, <&gcc 0>;
+};
