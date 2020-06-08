@@ -103,7 +103,11 @@
 #include "audit.h"
 #include "avc_ss.h"
 
+#ifdef CONFIG_QCOM_RTIC
+struct selinux_state selinux_state __rticdata;
+#else
 struct selinux_state selinux_state;
+#endif
 
 /* SECMARK reference count */
 static atomic_t selinux_secmark_refcount = ATOMIC_INIT(0);
