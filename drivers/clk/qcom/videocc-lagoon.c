@@ -127,7 +127,6 @@ static struct clk_alpha_pll_postdiv video_pll0_out_even = {
 };
 
 static const struct freq_tbl ftbl_video_cc_iris_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(133250000, P_VIDEO_PLL0_OUT_EVEN, 2, 0, 0),
 	F(240000000, P_VIDEO_PLL0_OUT_EVEN, 1.5, 0, 0),
 	F(300000000, P_VIDEO_PLL0_OUT_EVEN, 1, 0, 0),

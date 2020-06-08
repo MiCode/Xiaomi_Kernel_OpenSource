@@ -413,6 +413,82 @@ out:
 	return ret;
 }
 
+int wlfw_send_soc_wake_msg(struct icnss_priv *priv,
+			   enum wlfw_soc_wake_enum_v01 type)
+{
+	int ret;
+	struct wlfw_soc_wake_req_msg_v01 *req;
+	struct wlfw_soc_wake_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
+	icnss_pr_dbg("Sending soc wake msg, type: 0x%x\n",
+		     type);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+	req->wake_valid = 1;
+	req->wake = type;
+
+	priv->stats.soc_wake_req++;
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_soc_wake_resp_msg_v01_ei, resp);
+
+	if (ret < 0) {
+		icnss_pr_err("Fail to init txn for wake msg resp %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_SOC_WAKE_REQ_V01,
+			       WLFW_SOC_WAKE_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_soc_wake_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send soc wake msg %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_qmi_fatal_err("SOC wake timed out with ret %d\n",
+				    ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_qmi_fatal_err(
+			"SOC wake request rejected,result:%d error:%d\n",
+			resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	priv->stats.soc_wake_resp++;
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	priv->stats.soc_wake_err++;
+	return ret;
+}
+
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 {
 	int ret;
@@ -1220,6 +1296,8 @@ int wlfw_athdiag_write_send_sync_msg(struct icnss_priv *priv,
 			resp->resp.result, resp->resp.error);
 		ret = -resp->resp.result;
 		goto out;
+	} else {
+		ret = 0;
 	}
 
 out:
@@ -2103,6 +2181,18 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_ICNSS2_DEBUG
+static inline u32 icnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
+}
+#else
+static inline u32 icnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
+}
+#endif
+
 int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -2137,6 +2227,9 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	req->cal_done_valid = 1;
 	req->cal_done = priv->cal_done;
 	icnss_pr_dbg("Calibration done is %d\n", priv->cal_done);
+
+	req->host_build_type_valid = 1;
+	req->host_build_type = icnss_get_host_build_type();
 
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
@@ -2196,7 +2289,7 @@ int icnss_wlfw_get_info_send_sync(struct icnss_priv *plat_priv, int type,
 	if (cmd_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;
 
-	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+	if (test_bit(ICNSS_FW_DOWN, &plat_priv->state))
 		return -EINVAL;
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);

@@ -24,11 +24,16 @@
 #define LUT_ROW_SIZE			32
 #define CLK_HW_DIV			2
 #define GT_IRQ_STATUS			BIT(2)
-#define MAX_FN_SIZE			12
+#define MAX_FN_SIZE			20
 #define LIMITS_POLLING_DELAY_MS		10
 
 #define CYCLE_CNTR_OFFSET(c, m, acc_count)				\
 			(acc_count ? ((c - cpumask_first(m) + 1) * 4) : 0)
+
+enum {
+	CPUFREQ_HW_LOW_TEMP_LEVEL,
+	CPUFREQ_HW_HIGH_TEMP_LEVEL,
+};
 
 enum {
 	REG_ENABLE,
@@ -48,17 +53,29 @@ static unsigned int lut_row_size = LUT_ROW_SIZE;
 static unsigned int lut_max_entries = LUT_MAX_ENTRIES;
 static bool accumulative_counter;
 
+struct skipped_freq {
+	bool skip;
+	u32 freq;
+	u32 cc;
+	u32 high_temp_index;
+	u32 low_temp_index;
+	u32 final_index;
+	spinlock_t lock;
+};
+
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
 	void __iomem *reg_bases[REG_ARRAY_SIZE];
 	cpumask_t related_cpus;
 	unsigned int max_cores;
+	unsigned int lut_max_entries;
 	unsigned long xo_rate;
 	unsigned long cpu_hw_rate;
 	unsigned long dcvsh_freq_limit;
 	struct delayed_work freq_poll_work;
 	struct mutex dcvsh_lock;
 	struct device_attribute freq_limit_attr;
+	struct skipped_freq skip_data;
 	int dcvsh_irq;
 	char dcvsh_irq_name[MAX_FN_SIZE];
 	bool is_irq_enabled;
@@ -69,6 +86,13 @@ struct cpufreq_counter {
 	u64 total_cycle_counter;
 	u32 prev_cycle_counter;
 	spinlock_t lock;
+};
+
+struct cpufreq_cooling_cdev {
+	int cpu_id;
+	bool cpu_cooling_state;
+	struct thermal_cooling_device *cdev;
+	struct device_node *np;
 };
 
 static const u16 cpufreq_qcom_std_offsets[REG_ARRAY_SIZE] = {
@@ -228,8 +252,17 @@ qcom_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 			     unsigned int index)
 {
 	struct cpufreq_qcom *c = policy->driver_data;
+	unsigned long flags;
 
-	writel_relaxed(index, c->reg_bases[REG_PERF_STATE]);
+	if (c->skip_data.skip && index == c->skip_data.high_temp_index) {
+		spin_lock_irqsave(&c->skip_data.lock, flags);
+		writel_relaxed(c->skip_data.final_index,
+				c->reg_bases[REG_PERF_STATE]);
+		spin_unlock_irqrestore(&c->skip_data.lock, flags);
+	} else {
+		writel_relaxed(index, c->reg_bases[REG_PERF_STATE]);
+	}
+
 	arch_set_freq_scale(policy->related_cpus,
 			    policy->freq_table[index].frequency,
 			    policy->cpuinfo.max_freq);
@@ -250,7 +283,7 @@ static unsigned int qcom_cpufreq_hw_get(unsigned int cpu)
 	c = policy->driver_data;
 
 	index = readl_relaxed(c->reg_bases[REG_PERF_STATE]);
-	index = min(index, lut_max_entries - 1);
+	index = min(index, c->lut_max_entries - 1);
 
 	return policy->freq_table[index].frequency;
 }
@@ -390,6 +423,7 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	if (!c->table)
 		return -ENOMEM;
 
+	spin_lock_init(&c->skip_data.lock);
 	base_freq = c->reg_bases[REG_FREQ_LUT_TABLE];
 	base_volt = c->reg_bases[REG_VOLT_LUT_TABLE];
 
@@ -414,8 +448,17 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 			i, c->table[i].frequency, core_count);
 
 		if (core_count != c->max_cores) {
-			cur_freq = CPUFREQ_ENTRY_INVALID;
-			c->table[i].flags = CPUFREQ_BOOST_FREQ;
+			if (core_count == (c->max_cores - 1)) {
+				c->skip_data.skip = true;
+				c->skip_data.high_temp_index = i;
+				c->skip_data.freq = cur_freq;
+				c->skip_data.cc = core_count;
+				c->skip_data.final_index = i + 1;
+				c->skip_data.low_temp_index = i + 1;
+			} else {
+				cur_freq = CPUFREQ_ENTRY_INVALID;
+				c->table[i].flags = CPUFREQ_BOOST_FREQ;
+			}
 		}
 
 		/*
@@ -423,13 +466,17 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		 * end of table.
 		 */
 		if (i > 0 && c->table[i - 1].frequency ==
-		   c->table[i].frequency && prev_cc == core_count) {
-			struct cpufreq_frequency_table *prev = &c->table[i - 1];
+				c->table[i].frequency) {
+			if (prev_cc == core_count) {
+				struct cpufreq_frequency_table *prev =
+							&c->table[i - 1];
 
-			if (prev_freq == CPUFREQ_ENTRY_INVALID)
-				prev->flags = CPUFREQ_BOOST_FREQ;
+				if (prev_freq == CPUFREQ_ENTRY_INVALID)
+					prev->flags = CPUFREQ_BOOST_FREQ;
+			}
 			break;
 		}
+
 		prev_cc = core_count;
 		prev_freq = cur_freq;
 
@@ -442,7 +489,16 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		}
 	}
 
+	c->lut_max_entries = i;
 	c->table[i].frequency = CPUFREQ_TABLE_END;
+
+	if (c->skip_data.skip) {
+		pr_debug("%s Skip: Index[%u], Frequency[%u], Core Count %u, Final Index %u Actual Index %u\n",
+				__func__, c->skip_data.high_temp_index,
+				c->skip_data.freq, c->skip_data.cc,
+				c->skip_data.final_index,
+				c->skip_data.low_temp_index);
+	}
 
 	return 0;
 }
@@ -603,6 +659,128 @@ static int qcom_resources_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int cpufreq_hw_set_cur_state(struct thermal_cooling_device *cdev,
+					unsigned long state)
+{
+	struct cpufreq_cooling_cdev *cpu_cdev = cdev->devdata;
+	struct cpufreq_policy *policy;
+	struct cpufreq_qcom *c;
+	unsigned long flags;
+
+
+	if (cpu_cdev->cpu_id == -1)
+		return -ENODEV;
+
+	if (state > CPUFREQ_HW_HIGH_TEMP_LEVEL)
+		return -EINVAL;
+
+	if (cpu_cdev->cpu_cooling_state == state)
+		return 0;
+
+	policy = cpufreq_cpu_get_raw(cpu_cdev->cpu_id);
+	if (!policy)
+		return 0;
+
+	c = policy->driver_data;
+	cpu_cdev->cpu_cooling_state = state;
+
+	if (state == CPUFREQ_HW_HIGH_TEMP_LEVEL) {
+		spin_lock_irqsave(&c->skip_data.lock, flags);
+		c->skip_data.final_index = c->skip_data.high_temp_index;
+		spin_unlock_irqrestore(&c->skip_data.lock, flags);
+	} else {
+		spin_lock_irqsave(&c->skip_data.lock, flags);
+		c->skip_data.final_index = c->skip_data.low_temp_index;
+		spin_unlock_irqrestore(&c->skip_data.lock, flags);
+	}
+
+	if (policy->cur != c->skip_data.freq)
+		return 0;
+
+	return qcom_cpufreq_hw_target_index(policy,
+					c->skip_data.high_temp_index);
+}
+
+static int cpufreq_hw_get_cur_state(struct thermal_cooling_device *cdev,
+					unsigned long *state)
+{
+	struct cpufreq_cooling_cdev *cpu_cdev = cdev->devdata;
+
+	*state = (cpu_cdev->cpu_cooling_state) ?
+			CPUFREQ_HW_HIGH_TEMP_LEVEL : CPUFREQ_HW_LOW_TEMP_LEVEL;
+
+	return 0;
+}
+
+static int cpufreq_hw_get_max_state(struct thermal_cooling_device *cdev,
+					unsigned long *state)
+{
+	*state = CPUFREQ_HW_HIGH_TEMP_LEVEL;
+	return 0;
+}
+
+static struct thermal_cooling_device_ops cpufreq_hw_cooling_ops = {
+	.get_max_state = cpufreq_hw_get_max_state,
+	.get_cur_state = cpufreq_hw_get_cur_state,
+	.set_cur_state = cpufreq_hw_set_cur_state,
+};
+
+static int cpufreq_hw_register_cooling_device(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node, *cpu_np, *phandle;
+	struct cpufreq_cooling_cdev *cpu_cdev = NULL;
+	struct device *cpu_dev;
+	struct cpufreq_policy *policy;
+	struct cpufreq_qcom *c;
+	char cdev_name[MAX_FN_SIZE] = "";
+	int cpu;
+
+	for_each_available_child_of_node(np, cpu_np) {
+		cpu_cdev = devm_kzalloc(&pdev->dev, sizeof(*cpu_cdev),
+				GFP_KERNEL);
+		if (!cpu_cdev)
+			return -ENOMEM;
+		cpu_cdev->cpu_id = -1;
+		cpu_cdev->cpu_cooling_state = false;
+		cpu_cdev->cdev = NULL;
+		cpu_cdev->np = cpu_np;
+
+		phandle = of_parse_phandle(cpu_np, "qcom,cooling-cpu", 0);
+		for_each_possible_cpu(cpu) {
+			policy = cpufreq_cpu_get_raw(cpu);
+			if (!policy)
+				continue;
+			c = policy->driver_data;
+			if (!c->skip_data.skip)
+				continue;
+			cpu_dev = get_cpu_device(cpu);
+			if (cpu_dev && cpu_dev->of_node == phandle) {
+				cpu_cdev->cpu_id = cpu;
+				snprintf(cdev_name, sizeof(cdev_name),
+						"cpufreq-hw-%d", cpu);
+				cpu_cdev->cdev =
+					thermal_of_cooling_device_register(
+						cpu_cdev->np, cdev_name,
+						cpu_cdev,
+						&cpufreq_hw_cooling_ops);
+				if (IS_ERR(cpu_cdev->cdev)) {
+					pr_err("Cooling register failed for %s, ret: %d\n",
+						cdev_name,
+						PTR_ERR(cpu_cdev->cdev));
+					c->skip_data.final_index =
+						c->skip_data.high_temp_index;
+					break;
+				}
+				pr_info("CPUFREQ-HW cooling device %d %s\n",
+						cpu, cdev_name);
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 {
 	struct cpu_cycle_counter_cb cycle_counter_cb = {
@@ -634,6 +812,8 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "QCOM CPUFreq HW driver initialized\n");
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	cpufreq_hw_register_cooling_device(pdev);
 
 	return 0;
 }

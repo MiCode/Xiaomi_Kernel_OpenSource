@@ -1580,7 +1580,8 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 	if (drvdata->ram_size <= *ppos)
 		return 0;
 
-	if ((*ppos + len) > drvdata->ram_size)
+	if ((*ppos + len) < len
+		|| (*ppos + len) > drvdata->ram_size)
 		len = (drvdata->ram_size - *ppos);
 
 	buf = kzalloc(len, GFP_KERNEL);

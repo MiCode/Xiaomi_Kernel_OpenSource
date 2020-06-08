@@ -282,6 +282,7 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 	struct platform_device *pdev = of_find_device_by_node(node);
 	struct device *dev;
 	int ret;
+	int no_stall = 1;
 
 	dev = &pdev->dev;
 	of_dma_configure(dev, node, true);
@@ -293,6 +294,14 @@ static int gmu_iommu_cb_probe(struct gmu_device *gmu,
 			ctx->name);
 		return -ENODEV;
 	}
+
+	/*
+	 * Disable stall on fault for the GMU context bank.
+	 * This sets SCTLR.CFCFG = 0.
+	 * Also note that, the smmu driver sets SCTLR.HUPCF = 0 by default.
+	 */
+	iommu_domain_set_attr(ctx->domain,
+		DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &no_stall);
 
 	ret = iommu_attach_device(ctx->domain, dev);
 	if (ret) {
@@ -1338,14 +1347,17 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	device->gmu_core.reg_len = gmu->reg_len;
 
 	/* Initialize HFI and GMU interrupts */
-	hfi->hfi_interrupt_num = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
-		hfi_irq_handler, device);
-
-	gmu->gmu_interrupt_num = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
-		gmu_irq_handler, device);
-
-	if (hfi->hfi_interrupt_num < 0 || gmu->gmu_interrupt_num < 0)
+	ret = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
+			hfi_irq_handler, device);
+	if (ret < 0)
 		goto error;
+	hfi->hfi_interrupt_num = ret;
+
+	ret = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
+			gmu_irq_handler, device);
+	if (ret < 0)
+		goto error;
+	gmu->gmu_interrupt_num = ret;
 
 	/* Don't enable GMU interrupts until GMU started */
 	/* We cannot use irq_disable because it writes registers */

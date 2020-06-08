@@ -587,12 +587,17 @@ static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
 	if (cur_link_info->target_link_speed != PCI_EXP_LNKSTA_CLS_2_5GB) {
 		link_info.target_link_speed = PCI_EXP_LNKSTA_CLS_2_5GB;
 		link_info.target_link_width = cur_link_info->target_link_width;
-		ret = mhi_arch_pcie_scale_bw(mhi_cntrl, pci_dev, &link_info);
+
+		ret = msm_pcie_set_link_bandwidth(pci_dev,
+						  link_info.target_link_speed,
+						  link_info.target_link_width);
 		if (ret) {
 			MHI_CNTRL_ERR("Failed to switch Gen1 speed\n");
 			return -EBUSY;
 		}
 
+		/* no DDR votes when doing a drv suspend */
+		mhi_arch_set_bus_request(mhi_cntrl, 0);
 		bw_switched = true;
 	}
 
@@ -601,9 +606,7 @@ static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
 				  pci_dev, NULL, mhi_cntrl->wake_set ?
 				  MSM_PCIE_CONFIG_NO_L1SS_TO : 0);
 
-	/*
-	 * we failed to suspend and scaled down pcie bw.. need to scale up again
-	 */
+	/* failed to suspend and scaled down pcie bw, need to scale up again */
 	if (ret && bw_switched) {
 		mhi_arch_pcie_scale_bw(mhi_cntrl, pci_dev, cur_link_info);
 		return ret;
@@ -723,9 +726,14 @@ int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 	case MHI_FAST_LINK_OFF:
 		ret = msm_pcie_pm_control(MSM_PCIE_RESUME, mhi_cntrl->bus,
 					  pci_dev, NULL, 0);
-		if (ret ||
-		    cur_info->target_link_speed == PCI_EXP_LNKSTA_CLS_2_5GB)
+		if (ret)
 			break;
+
+		if (cur_info->target_link_speed == PCI_EXP_LNKSTA_CLS_2_5GB) {
+			mhi_arch_set_bus_request(mhi_cntrl,
+						 cur_info->target_link_speed);
+			break;
+		}
 
 		/*
 		 * BW request from device isn't for gen 1 link speed, we can

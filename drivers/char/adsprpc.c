@@ -2861,6 +2861,41 @@ bail:
 	return err;
 }
 
+static int fastrpc_unmap_on_dsp(struct fastrpc_file *fl,
+		uintptr_t raddr, uint64_t phys, size_t size, uint32_t flags)
+{
+	struct fastrpc_ioctl_invoke_crc ioctl;
+	remote_arg_t ra[1] = {};
+	int err = 0;
+	struct {
+		int pid;
+		uintptr_t vaddrout;
+		size_t size;
+	} inargs;
+
+	inargs.pid = fl->tgid;
+	inargs.size = size;
+	inargs.vaddrout = raddr;
+	ra[0].buf.pv = (void *)&inargs;
+	ra[0].buf.len = sizeof(inargs);
+
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	if (fl->apps->compat)
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(5, 1, 0);
+	else
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err)
+		goto bail;
+bail:
+	return err;
+}
+
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 					uintptr_t va, uint64_t phys,
 					size_t size, uintptr_t *raddr)
@@ -2919,6 +2954,13 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 			pr_err("adsprpc: %s: %s: rh hyp assign failed with %d for phys 0x%llx, size %zd\n",
 					__func__, current->comm,
 					err, phys, size);
+			err = fastrpc_unmap_on_dsp(fl,
+				*raddr, phys, size, flags);
+			if (err) {
+				pr_err("adsprpc: %s: %s: failed to unmap %d for phys 0x%llx, size %zd\n",
+					__func__, current->comm,
+					err, phys, size);
+			}
 			goto bail;
 		}
 	}
@@ -2986,32 +3028,10 @@ bail:
 static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl, uintptr_t raddr,
 				uint64_t phys, size_t size, uint32_t flags)
 {
-	struct fastrpc_ioctl_invoke_crc ioctl;
-	remote_arg_t ra[1];
 	int err = 0;
-	struct {
-		int pid;
-		uintptr_t vaddrout;
-		size_t size;
-	} inargs;
 
-	inargs.pid = fl->tgid;
-	inargs.size = size;
-	inargs.vaddrout = raddr;
-	ra[0].buf.pv = (void *)&inargs;
-	ra[0].buf.len = sizeof(inargs);
-
-	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-	if (fl->apps->compat)
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(5, 1, 0);
-	else
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
-	ioctl.inv.pra = ra;
-	ioctl.fds = NULL;
-	ioctl.attrs = NULL;
-	ioctl.crc = NULL;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	VERIFY(err, 0 == (err = fastrpc_unmap_on_dsp(fl, raddr, phys,
+						size, flags)));
 	if (err)
 		goto bail;
 	if (flags == ADSP_MMAP_HEAP_ADDR ||
@@ -3143,7 +3163,7 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		pr_err("adsprpc: ERROR: %s: user application %s trying to unmap without initialization\n",
 			 __func__, current->comm);
 		err = EBADR;
-		goto bail;
+		return err;
 	}
 	mutex_lock(&fl->internal_map_mutex);
 
@@ -3192,6 +3212,11 @@ bail:
 	return err;
 }
 
+/*
+ *	fastrpc_internal_munmap_fd can only be used for buffers
+ *	mapped with persist attributes. This can only be called
+ *	once for any persist buffer
+ */
 static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_munmap_fd *ud)
 {
@@ -3200,14 +3225,15 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 
 	VERIFY(err, (fl && ud));
 	if (err)
-		goto bail;
+		return err;
 	VERIFY(err, fl->dsp_proc_init == 1);
 	if (err) {
 		pr_err("adsprpc: ERROR: %s: user application %s trying to unmap without initialization\n",
 			__func__, current->comm);
 		err = EBADR;
-		goto bail;
+		return err;
 	}
+	mutex_lock(&fl->internal_map_mutex);
 	mutex_lock(&fl->map_mutex);
 	if (fastrpc_mmap_find(fl, ud->fd, ud->va, ud->len, 0, 0, &map)) {
 		pr_err("adsprpc: mapping not found to unmap fd 0x%x, va 0x%llx, len 0x%x\n",
@@ -3217,10 +3243,13 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 		mutex_unlock(&fl->map_mutex);
 		goto bail;
 	}
-	if (map)
+	if (map && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
+		map->attr = map->attr & (~FASTRPC_ATTR_KEEP_MAP);
 		fastrpc_mmap_free(map, 0);
+	}
 	mutex_unlock(&fl->map_mutex);
 bail:
+	mutex_unlock(&fl->internal_map_mutex);
 	return err;
 }
 
@@ -3239,7 +3268,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		pr_err("adsprpc: ERROR: %s: user application %s trying to map without initialization\n",
 			__func__, current->comm);
 		err = EBADR;
-		goto bail;
+		return err;
 	}
 	mutex_lock(&fl->internal_map_mutex);
 	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||

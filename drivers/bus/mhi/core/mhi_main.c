@@ -1402,6 +1402,10 @@ int mhi_process_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	if (unlikely(mhi_tsync->int_sequence != sequence)) {
 		MHI_ASSERT(1, "Unexpected response:0x%llx Expected:0x%llx\n",
 			   sequence, mhi_tsync->int_sequence);
+
+		mhi_device_put(mhi_cntrl->mhi_dev,
+			       MHI_VOTE_DEVICE | MHI_VOTE_BUS);
+
 		mutex_unlock(&mhi_cntrl->tsync_mutex);
 		goto exit_tsync_process;
 	}
@@ -1427,6 +1431,11 @@ int mhi_process_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	} while (true);
 
 	mhi_tsync->db_response_pending = false;
+	mhi_tsync->remote_time = remote_time;
+	complete(&mhi_tsync->db_completion);
+
+	mhi_device_put(mhi_cntrl->mhi_dev, MHI_VOTE_DEVICE | MHI_VOTE_BUS);
+
 	mutex_unlock(&mhi_cntrl->tsync_mutex);
 
 exit_tsync_process:
@@ -1484,13 +1493,10 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	spin_unlock_bh(&mhi_event->lock);
 
-	atomic_inc(&mhi_cntrl->pending_pkts);
 	ret = mhi_device_get_sync(mhi_cntrl->mhi_dev,
 				  MHI_VOTE_DEVICE | MHI_VOTE_BUS);
-	if (ret) {
-		atomic_dec(&mhi_cntrl->pending_pkts);
+	if (ret)
 		goto exit_bw_scale_process;
-	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -1508,7 +1514,6 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	mhi_device_put(mhi_cntrl->mhi_dev, MHI_VOTE_DEVICE | MHI_VOTE_BUS);
-	atomic_dec(&mhi_cntrl->pending_pkts);
 
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
@@ -2050,19 +2055,22 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 {
 	int ret;
 	bool in_mission_mode = false;
+	bool notify = false;
 
 	MHI_LOG("Entered: unprepare channel:%d\n", mhi_chan->chan);
 
 	/* no more processing events for this channel */
 	mutex_lock(&mhi_chan->mutex);
 	write_lock_irq(&mhi_chan->lock);
-	if (mhi_chan->ch_state != MHI_CH_STATE_ENABLED) {
+	if (mhi_chan->ch_state != MHI_CH_STATE_ENABLED &&
+	    mhi_chan->ch_state != MHI_CH_STATE_SUSPENDED) {
 		MHI_LOG("chan:%d is already disabled\n", mhi_chan->chan);
 		write_unlock_irq(&mhi_chan->lock);
 		mutex_unlock(&mhi_chan->mutex);
 		return;
 	}
-
+	if (mhi_chan->ch_state == MHI_CH_STATE_SUSPENDED)
+		notify = true;
 	mhi_chan->ch_state = MHI_CH_STATE_DISABLED;
 	write_unlock_irq(&mhi_chan->lock);
 
@@ -2103,9 +2111,71 @@ error_invalid_state:
 	if (!mhi_chan->offload_ch) {
 		mhi_reset_chan(mhi_cntrl, mhi_chan);
 		mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
+
+		/* notify waiters to proceed with unbinding channel */
+		if (notify)
+			wake_up_all(&mhi_cntrl->state_event);
 	}
 	MHI_LOG("chan:%d successfully resetted\n", mhi_chan->chan);
 	mutex_unlock(&mhi_chan->mutex);
+}
+
+int mhi_debugfs_mhi_regdump_show(struct seq_file *m, void *d)
+{
+	struct mhi_controller *mhi_cntrl = m->private;
+	enum mhi_dev_state state;
+	enum mhi_ee ee;
+	int i, ret;
+	u32 val;
+	void __iomem *mhi_base = mhi_cntrl->regs;
+	void __iomem *bhi_base = mhi_cntrl->bhi;
+	void __iomem *bhie_base = mhi_cntrl->bhie;
+	void __iomem *wake_db = mhi_cntrl->wake_db;
+	struct {
+		const char *name;
+		int offset;
+		void __iomem *base;
+	} debug_reg[] = {
+		{ "MHI_CNTRL", MHICTRL, mhi_base},
+		{ "MHI_STATUS", MHISTATUS, mhi_base},
+		{ "MHI_WAKE_DB", 0, wake_db},
+		{ "BHI_EXECENV", BHI_EXECENV, bhi_base},
+		{ "BHI_STATUS", BHI_STATUS, bhi_base},
+		{ "BHI_ERRCODE", BHI_ERRCODE, bhi_base},
+		{ "BHI_ERRDBG1", BHI_ERRDBG1, bhi_base},
+		{ "BHI_ERRDBG2", BHI_ERRDBG2, bhi_base},
+		{ "BHI_ERRDBG3", BHI_ERRDBG3, bhi_base},
+		{ "BHIE_TXVEC_DB", BHIE_TXVECDB_OFFS, bhie_base},
+		{ "BHIE_TXVEC_STATUS", BHIE_TXVECSTATUS_OFFS, bhie_base},
+		{ "BHIE_RXVEC_DB", BHIE_RXVECDB_OFFS, bhie_base},
+		{ "BHIE_RXVEC_STATUS", BHIE_RXVECSTATUS_OFFS, bhie_base},
+		{ NULL },
+	};
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		return -EIO;
+
+	seq_printf(m, "host pm_state:%s dev_state:%s ee:%s\n",
+		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+		   TO_MHI_EXEC_STR(mhi_cntrl->ee));
+
+	state = mhi_get_mhi_state(mhi_cntrl);
+	ee = mhi_get_exec_env(mhi_cntrl);
+
+	seq_printf(m, "device ee:%s dev_state:%s\n", TO_MHI_EXEC_STR(ee),
+		   TO_MHI_STATE_STR(state));
+
+	for (i = 0; debug_reg[i].name; i++) {
+		if (!debug_reg[i].base)
+			continue;
+		ret = mhi_read_reg(mhi_cntrl, debug_reg[i].base,
+				   debug_reg[i].offset, &val);
+		seq_printf(m, "reg:%s val:0x%x, ret:%d\n", debug_reg[i].name,
+			   val, ret);
+	}
+
+	return 0;
 }
 
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
@@ -2319,7 +2389,8 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		 mhi_chan->chan, cmd == MHI_CMD_START_CHAN ? "START" : "STOP");
 
 	/* if channel is not active state state do not allow to state change */
-	if (mhi_chan->ch_state != MHI_CH_STATE_ENABLED) {
+	if (mhi_chan->ch_state != MHI_CH_STATE_ENABLED &&
+	    mhi_chan->ch_state != MHI_CH_STATE_SUSPENDED) {
 		ret = -EINVAL;
 		MHI_LOG("channel:%d is not in active state, ch_state%d\n",
 			mhi_chan->chan, mhi_chan->ch_state);
@@ -2502,13 +2573,37 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+	u64 local_time;
 	int ret;
 
-	mutex_lock(&mhi_cntrl->tsync_mutex);
 	/* not all devices support time features */
-	if (!mhi_tsync) {
-		ret = -EIO;
-		goto err_unlock;
+	if (!mhi_tsync)
+		return -EINVAL;
+
+	if (unlikely(MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))) {
+		MHI_ERR("MHI is not in active state, pm_state:%s\n",
+			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		return -EIO;
+	}
+
+	mutex_lock(&mhi_cntrl->tsync_mutex);
+
+	/* return times from last async request completion */
+	if (mhi_tsync->db_response_pending) {
+		local_time = mhi_tsync->local_time;
+		mutex_unlock(&mhi_cntrl->tsync_mutex);
+
+		ret = wait_for_completion_timeout(&mhi_tsync->db_completion,
+				       msecs_to_jiffies(mhi_cntrl->timeout_ms));
+		if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) || !ret) {
+			MHI_ERR("Pending DB request did not complete, abort\n");
+			return -EAGAIN;
+		}
+
+		*t_host = local_time;
+		*t_dev = mhi_tsync->remote_time;
+
+		return 0;
 	}
 
 	/* bring to M0 state */
@@ -2581,14 +2676,13 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	int ret = 0;
 
 	/* not all devices support all time features */
-	mutex_lock(&mhi_cntrl->tsync_mutex);
-	if (!mhi_tsync || !mhi_tsync->db_support) {
-		ret = -EIO;
-		goto error_unlock;
-	}
+	if (!mhi_tsync || !mhi_tsync->db_support)
+		return -EINVAL;
 
-	/* tsync db can only be rung in M0 state */
-	ret = __mhi_device_get_sync(mhi_cntrl);
+	mutex_lock(&mhi_cntrl->tsync_mutex);
+
+	ret = mhi_device_get_sync(mhi_cntrl->mhi_dev,
+				  MHI_VOTE_DEVICE | MHI_VOTE_BUS);
 	if (ret)
 		goto error_unlock;
 
@@ -2656,21 +2750,21 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	MHI_VERB("time DB request with seq:0x%llx\n", mhi_tsync->int_sequence);
 
 	mhi_tsync->db_response_pending = true;
+	init_completion(&mhi_tsync->db_completion);
 
 skip_tsync_db:
 	spin_lock(&mhi_tsync->lock);
 	list_add_tail(&tsync_node->node, &mhi_tsync->head);
 	spin_unlock(&mhi_tsync->lock);
 
-	ret = 0;
+	mutex_unlock(&mhi_cntrl->tsync_mutex);
+
+	return 0;
 
 error_invalid_state:
-	if (ret)
-		kfree(tsync_node);
+	kfree(tsync_node);
 error_no_mem:
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
+	mhi_device_put(mhi_cntrl->mhi_dev, MHI_VOTE_DEVICE | MHI_VOTE_BUS);
 error_unlock:
 	mutex_unlock(&mhi_cntrl->tsync_mutex);
 	return ret;
@@ -2690,7 +2784,7 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 	struct {
 		const char *name;
 		int offset;
-		void *base;
+		void __iomem *base;
 	} debug_reg[] = {
 		{ "MHI_CNTRL", MHICTRL, mhi_base},
 		{ "MHI_STATUS", MHISTATUS, mhi_base},
@@ -2720,6 +2814,8 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		TO_MHI_STATE_STR(state));
 
 	for (i = 0; debug_reg[i].name; i++) {
+		if (!debug_reg[i].base)
+			continue;
 		ret = mhi_read_reg(mhi_cntrl, debug_reg[i].base,
 				   debug_reg[i].offset, &val);
 		MHI_LOG("reg:%s val:0x%x, ret:%d\n", debug_reg[i].name, val,

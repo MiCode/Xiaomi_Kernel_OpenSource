@@ -846,6 +846,11 @@ static int icnss_driver_event_server_arrive(void *data)
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
 	icnss_ignore_fw_timeout(false);
 
+	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state)) {
+		icnss_pr_err("QMI Server already in Connected State\n");
+		ICNSS_ASSERT(0);
+	}
+
 	ret = icnss_connect_to_fw_server(penv, data);
 	if (ret)
 		goto fail;
@@ -2744,6 +2749,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_PDR:
 			seq_puts(s, "PDR TRIGGERED");
+			continue;
+		case ICNSS_DEL_SERVER:
+			seq_puts(s, "DEL SERVER");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

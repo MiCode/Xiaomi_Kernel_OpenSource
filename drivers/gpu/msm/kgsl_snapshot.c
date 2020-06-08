@@ -1331,7 +1331,7 @@ done:
 				snapshot->ib2base);
 
 gmu_only:
-	complete_all(&snapshot->dump_gate);
 	BUG_ON(!snapshot->device->skip_ib_capture &
 				snapshot->device->force_panic);
+	complete_all(&snapshot->dump_gate);
 }

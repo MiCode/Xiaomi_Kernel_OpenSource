@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"ALG: %s: " fmt, __func__
@@ -714,7 +714,7 @@ void cap_learning_abort(struct cap_learning *cl)
 	pr_debug("Aborting cap_learning\n");
 	cl->active = false;
 	cl->init_cap_uah = 0;
-	mutex_lock(&cl->lock);
+	mutex_unlock(&cl->lock);
 }
 
 /**

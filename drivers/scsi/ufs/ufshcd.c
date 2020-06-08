@@ -8501,8 +8501,9 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	model_index = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
 
 
-	/* Enable WB only for UFS-3.1 OR if desc len >= 0x59 */
+	/* Enable WB only for UFS-3.1 or UFS-2.2 OR if desc len >= 0x59 */
 	if ((dev_desc->wspecversion >= 0x310) ||
+	    (dev_desc->wspecversion == 0x220) ||
 	    (dev_desc->wmanufacturerid == UFS_VENDOR_TOSHIBA &&
 	     dev_desc->wspecversion >= 0x300 &&
 	     hba->desc_size.dev_desc >= 0x59)) {
@@ -10273,10 +10274,18 @@ static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
 
 static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 {
+	int ret;
+	struct ufs_vreg_info *info = &hba->vreg_info;
+
 	if (ufshcd_is_link_off(hba) ||
 	    (ufshcd_is_link_hibern8(hba)
 	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
-		ufshcd_setup_hba_vreg(hba, true);
+		ret = ufshcd_setup_hba_vreg(hba, true);
+
+	if (ret && (info->vdd_hba->enabled == false)) {
+		dev_err(hba->dev, "vdd_hba is not enabled\n");
+		BUG_ON(1);
+	}
 }
 
 /**
