@@ -424,6 +424,15 @@
 			#dma-cells = <1>;
 		};
 
+		device_mpu_low@1021a000 {
+			compatible = "mediatek,device_mpu_low";
+			reg = <0 0x1021a000 0 0x1000>;
+			prot-base = <0x0 0x40000000>;
+			prot-size = <0x4 0x00000000>;
+			page-size = <0x200000>;
+			interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		gce: mailbox@10228000 {
 			compatible = "mediatek,mt6873-gce";
 			reg = <0 0x10228000 0 0x4000>;
@@ -431,6 +440,15 @@
 			#mbox-cells = <3>;
 			clocks = <&infracfg CLK_INFRA_GCE>;
 			clock-names = "gce";
+		};
+
+		device_mpu_acp@1030d000 {
+			compatible = "mediatek,device_mpu_acp";
+			reg = <0 0x1030d000 0 0x1000>;
+			prot-base = <0x0 0x40000000>;
+			prot-size = <0x4 0x00000000>;
+			page-size = <0x200000>;
+			interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		scp_adsp: scp_adsp@10720000 {
