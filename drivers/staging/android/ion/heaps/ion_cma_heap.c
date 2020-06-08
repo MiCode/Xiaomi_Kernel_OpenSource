@@ -94,8 +94,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		goto free_mem;
 
 	sg_set_page(table->sgl, pages, size, 0);
-
-	buffer->priv_virt = pages;
+;
 	buffer->sg_table = table;
 	ion_prepare_sgl_for_force_dma_sync(buffer->sg_table);
 	return 0;
@@ -110,7 +109,7 @@ err:
 static void ion_cma_free(struct ion_buffer *buffer)
 {
 	struct ion_cma_heap *cma_heap = to_cma_heap(buffer->heap);
-	struct page *pages = buffer->priv_virt;
+	struct page *pages = sg_page(buffer->sg_table->sgl);
 	unsigned long nr_pages = PAGE_ALIGN(buffer->size) >> PAGE_SHIFT;
 
 	/* release memory */
