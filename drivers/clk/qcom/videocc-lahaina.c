@@ -41,7 +41,7 @@ enum {
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 1750000000, 0 },
 };
 
 static const struct alpha_pll_config video_pll0_config = {
@@ -80,8 +80,8 @@ static struct clk_alpha_pll video_pll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -122,8 +122,8 @@ static struct clk_alpha_pll video_pll1 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };

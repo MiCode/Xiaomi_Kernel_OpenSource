@@ -54,14 +54,8 @@ enum {
 	P_USB3_UNI_PHY_SEC_GCC_USB30_PIPE_CLK,
 };
 
-static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
-};
-
 static struct clk_alpha_pll gcc_gpll0 = {
 	.offset = 0x0,
-	.vco_table = lucid_5lpe_vco,
-	.num_vco = ARRAY_SIZE(lucid_5lpe_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_5LPE],
 	.clkr = {
 		.enable_reg = 0x52018,
@@ -81,8 +75,8 @@ static struct clk_alpha_pll gcc_gpll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -111,8 +105,6 @@ static struct clk_alpha_pll_postdiv gcc_gpll0_out_even = {
 
 static struct clk_alpha_pll gcc_gpll4 = {
 	.offset = 0x76000,
-	.vco_table = lucid_5lpe_vco,
-	.num_vco = ARRAY_SIZE(lucid_5lpe_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_5LPE],
 	.clkr = {
 		.enable_reg = 0x52018,
@@ -132,16 +124,14 @@ static struct clk_alpha_pll gcc_gpll4 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
 
 static struct clk_alpha_pll gcc_gpll9 = {
 	.offset = 0x1c000,
-	.vco_table = lucid_5lpe_vco,
-	.num_vco = ARRAY_SIZE(lucid_5lpe_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_5LPE],
 	.clkr = {
 		.enable_reg = 0x52018,
@@ -161,8 +151,8 @@ static struct clk_alpha_pll gcc_gpll9 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
