@@ -193,6 +193,34 @@
 		};
 	};
 
+	/* Temporary node until RM dynamic overlay support present */
+	hypervisor {
+		#address-cells = <2>;
+		#size-cells = <0>;
+		compatible = "qcom,haven-hypervisor-1.0", "qcom,haven-hypervisor", "simple-bus";
+		name = "hypervisor";
+
+		qcom,haven-vm {
+			compatible = "qcom,haven-vm-id-1.0", "qcom,haven-vm-id";
+			qcom,vendor = "Qualcomm Technologies, Inc.";
+			qcom,vmid = <45>;
+			qcom,owner-vmid = <3>;
+		};
+
+		qcom,resource-manager-rpc@0000000000000001 {
+			compatible = "qcom,resource-manager-1-0", "qcom,resource-manager", "qcom,haven-message-queue", "qcom,haven-capability";
+			interrupts = <GIC_SPI 3 IRQ_TYPE_EDGE_RISING>, /* TX full IRQ */
+					<GIC_SPI 4 IRQ_TYPE_EDGE_RISING>; /* RX empty IRQ */
+			reg = <0x00000000 0x00000000>, <0x00000000 0x00000001>; /* TX, RX cap ids */
+			qcom,is-full-duplex;
+			qcom,free-irq-start = <0>;
+			qcom,tx-queue-depth = <8>;
+			qcom,tx-message-size = <0xf0>;
+			qcom,rx-queue-depth = <8>;
+			qcom,rx-message-size = <0xf0>;
+		};
+	};
+
 	soc: soc { };
 };
 
