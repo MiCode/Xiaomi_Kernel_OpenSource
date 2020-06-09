@@ -4140,7 +4140,6 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 	return compress_rate;
 }
 
-
 /******************************************************************************
  * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
  * In Video Mode , Using the Formula below:
@@ -4206,13 +4205,16 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 			pixclk = pixclk * 16 / 7;
 		pixclk = pixclk / bpp / 100;
 	}
-
 	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d\n", __func__,
 			data_rate, pixclk, pixclk_min);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
+
 /******************************************************************************
- * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * DSI Type | PHY TYPE | HRT_BW (unit: Bytes) one frame ( Overlap * )
+ * VDO MODE | CPHY/DPHY| Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * CMD MODE | CPHY     | (16/7) x data_rate x lane_num x compress_ratio/ bpp x4
+ * CMD MODE | DPHY     | data_rate x lane_num x compress_ratio / bpp x 4
  ******************************************************************************/
 unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		struct mtk_drm_crtc *mtk_crtc,
@@ -4224,11 +4226,19 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
 	int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
 
-	bw_base = vact * hact * vrefresh * 4 / 1000;
+	//For CMD mode to calculate HRT BW
+	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
+	unsigned int data_rate = mtk_dsi_default_rate(dsi);
+	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+	bw_base = vact * hact * vrefresh * 4 / 1000;
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		bw_base = bw_base * vtotal / vact;
-	bw_base = bw_base / 1000;
+		bw_base = bw_base / 1000;
+	} else {
+		bw_base = data_rate * dsi->lanes * compress_rate * 4;
+		bw_base = bw_base / bpp / 100;
+	}
 	DDPDBG("Frame Bw:%llu",	bw_base);
 	return bw_base;
 }
