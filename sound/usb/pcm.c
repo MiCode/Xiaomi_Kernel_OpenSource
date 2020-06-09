@@ -1274,16 +1274,6 @@ static int setup_hw_info(struct snd_pcm_runtime *runtime, struct snd_usb_substre
 	if (err < 0)
 		return err;
 
-	/* avoid incorrect power state when executing IOCTL */
-	if (IS_ENABLED(CONFIG_PM) &&
-		snd_power_get_state(subs->stream->chip->card)
-			== SNDRV_CTL_POWER_D3hot) {
-		dev_info(&subs->dev->dev,
-			"change power state from D3hot to D0\n");
-		snd_power_change_state(subs->stream->chip->card,
-					SNDRV_CTL_POWER_D0);
-	}
-
 	param_period_time_if_needed = SNDRV_PCM_HW_PARAM_PERIOD_TIME;
 	if (subs->speed == USB_SPEED_FULL)
 		/* full speed devices have fixed data packet interval */
