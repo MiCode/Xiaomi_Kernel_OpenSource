@@ -830,7 +830,6 @@
   finish_wait
   firmware_request_nowarn
   flow_keys_basic_dissector
-  flush_dcache_page
   flush_delayed_work
   flush_work
   flush_workqueue
