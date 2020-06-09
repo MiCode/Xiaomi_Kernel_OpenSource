@@ -11,6 +11,10 @@ if [ -z "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
 	GKI_RAMDISK_PREBUILT_BINARY=prebuilts/boot-artifacts/${ARCH}/gki-ramdisk.cpio.gz
 fi
 
+if [ "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
+	VENDOR_RAMDISK_BINARY="${GKI_RAMDISK_PREBUILT_BINARY} ${VENDOR_RAMDISK_BINARY}"
+fi
+
 ################################################################################
 ## menuconfig
 function menuconfig() {

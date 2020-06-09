@@ -1,22 +1,20 @@
 ################################################################################
 ## Defaulting required variables
 [ -z "${VARIANT}" ] && VARIANT=default
-[ -z "${CONFIG_TARGET}" ] && CONFIG_TARGET=msm.lahaina
+[ -z "${CONFIG_TARGET}" ] && CONFIG_TARGET=msm.waipio
 
 ################################################################################
 ## Inheriting configs from ACK
-. ${ROOT_DIR}/common/build.config.common
-. ${ROOT_DIR}/common/build.config.aarch64
+. ${KERNEL_DIR}/build.config.common
+. ${KERNEL_DIR}/build.config.aarch64
 
 ################################################################################
 ## Variant setup
-MSM_ARCH=lahaina
+MSM_ARCH=waipio
 BRANCH=msm-waipio
 VARIANTS=(gki gki-ack)
 
-DT_OVERLAY_SUPPORT=1
-
-BOOT_IMAGE_HEADER_VERSION=3
+BOOT_IMAGE_HEADER_VERSION=2
 BASE_ADDRESS=0x80000000
 PAGE_SIZE=4096
 
