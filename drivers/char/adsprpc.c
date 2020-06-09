@@ -447,6 +447,7 @@ struct fastrpc_apps {
 	struct wakeup_source *wake_source_secure;
 	/* Non-secure subsystem like CDSP will use regular client */
 	struct wakeup_source *wake_source;
+	uint32_t duplicate_rsp_err_cnt;
 };
 
 struct fastrpc_mmap {
@@ -4521,7 +4522,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rsp_flags = 0, early_wake_time = 0;
-	int err = 0, cid = -1;
+	int err = 0, cid = -1, ignore_rpmsg_err = 0;
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 
@@ -4554,14 +4555,18 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	ctx = chan->ctxtable[index];
-	VERIFY(err, !IS_ERR_OR_NULL(ctx));
-	if (err)
+	VERIFY(err, !IS_ERR_OR_NULL(ctx) &&
+		(ctx->ctxid == (rsp->ctx & ~CONTEXT_PD_CHECK)) &&
+		ctx->magic == FASTRPC_CTX_MAGIC);
+	if (err) {
+		/*
+		 * Received an anticipatory COMPLETE_SIGNAL from DSP for a
+		 * context after CPU successfully polling on memory and
+		 * completed processing of context. Ignore the message.
+		 */
+		ignore_rpmsg_err = (rsp_flags == COMPLETE_SIGNAL) ? 1 : 0;
 		goto bail_unlock;
-
-	VERIFY(err, ((ctx->ctxid == (rsp->ctx & ~CONTEXT_PD_CHECK)) &&
-			ctx->magic == FASTRPC_CTX_MAGIC));
-	if (err)
-		goto bail_unlock;
+	}
 
 	if (rspv2) {
 		VERIFY(err, rspv2->version == FASTRPC_RSP_VERSION2);
@@ -4573,11 +4578,15 @@ bail_unlock:
 	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 bail:
 	if (err) {
-		ADSPRPC_ERR(
-			"invalid response data %pK, len %d from remote subsystem err %d\n",
-			data, len, err);
 		err = -ENOKEY;
+		if (!ignore_rpmsg_err)
+			ADSPRPC_ERR(
+				"invalid response data %pK, len %d from remote subsystem err %d\n",
+				data, len, err);
+		else
+			me->duplicate_rsp_err_cnt++;
 	}
+
 	return err;
 }
 
