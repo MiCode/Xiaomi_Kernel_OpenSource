@@ -141,7 +141,7 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if defined(CONFIG_MTK_AUDIODSP_SUPPORT) ||\
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
 	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		/* with dsp enable, not to set when stop_threshold = ~(0U) */
 		if (runtime->stop_threshold == ~(0U))
@@ -3467,16 +3467,13 @@ static bool mt6885_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_DOMAIN_SIDEBAND3_MON:
 	case AFE_APLL1_TUNER_CFG:	/* [20:31] is monitor */
 	case AFE_APLL2_TUNER_CFG:	/* [20:31] is monitor */
-		return true;
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* these control in dsp */
+	/* these reg would change in scp/adsp */
 	case AFE_DAC_CON0:
 	case AFE_IRQ_MCU_CON0:
 	case AFE_IRQ_MCU_EN:
 	case AFE_IRQ_MCU_DSP_EN:
 	case AFE_IRQ_MCU_SCP_EN:
 		return true;
-#endif
 	default:
 		return false;
 	};
