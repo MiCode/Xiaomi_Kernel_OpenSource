@@ -313,14 +313,14 @@ static s32 translate_meta(struct op_meta *meta,
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr || !mva)
 			return -EINVAL;
-		status = cmdq_op_write_reg(handle, reg_addr, mva, ~0);
+		status = cmdq_op_write_reg_ex(handle, reg_addr, mva, ~0);
 		break;
 	}
 	case CMDQ_MOP_WRITE:
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
-		status = cmdq_op_write_reg(handle, reg_addr,
+		status = cmdq_op_write_reg_ex(handle, reg_addr,
 					meta->value, meta->mask);
 		break;
 	case CMDQ_MOP_READ:
@@ -377,6 +377,18 @@ static s32 translate_meta(struct op_meta *meta,
 		status = cmdq_op_write_from_reg(handle, reg_addr, from_reg);
 		break;
 	}
+	case CMDQ_MOP_WRITE_SEC:
+	{
+		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
+		if (!reg_addr)
+			return -EINVAL;
+		status = cmdq_op_write_reg_ex(handle, reg_addr,
+					meta->value, meta->mask);
+		if (!status)
+			status = cmdq_mdp_update_sec_addr_index(handle,
+				meta->sec_handle, meta->sec_index,
+				cmdq_mdp_handle_get_instr_count(handle));
+	}
 	case CMDQ_MOP_NOP:
 		break;
 	default:
@@ -420,6 +432,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
 	CMDQ_MSG("[log]%s copy from user cost:%lluus\n", __func__, exec_cost);
 
+	cmdq_mdp_meta_replace_sec_addr(metas, user_job, handle);
 #ifdef TRACK_PERF_MON
 	memset(trans_perf_mon_cost, 0, sizeof(u64)*CMDQ_MOP_NOP);
 	memset(trans_perf_mon_count, 0, sizeof(u32)*CMDQ_MOP_NOP);
@@ -615,6 +628,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		return status;
 	}
 
+	/* cmdq_pkt_dump_command(handle); */
 	/* flush */
 	status = cmdq_mdp_handle_flush(handle);
 

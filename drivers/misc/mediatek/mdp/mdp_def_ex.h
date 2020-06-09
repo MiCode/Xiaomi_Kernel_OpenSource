@@ -29,6 +29,7 @@ enum CMDQ_META_OP {
 	CMDQ_MOP_ACQUIRE,
 	CMDQ_MOP_WRITE_FD,
 	CMDQ_MOP_WRITE_FROM_REG,
+	CMDQ_MOP_WRITE_SEC,
 	CMDQ_MOP_NOP,
 };
 
@@ -56,6 +57,8 @@ struct op_meta {
 		uint32_t readback_id;
 		/* write FD */
 		uint32_t fd;
+		/* write sec */
+		uint32_t sec_handle;
 		/* write from register */
 		struct {
 			uint16_t from_offset;
@@ -67,6 +70,8 @@ struct op_meta {
 		uint32_t mask;
 		/* Offset for fd */
 		uint32_t fd_offset;
+		/* index in cmdqSecDataStruct.addrMetadatas */
+		uint32_t sec_index;
 	};
 };
 

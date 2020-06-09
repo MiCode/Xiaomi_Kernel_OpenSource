@@ -276,6 +276,8 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 s32 cmdqRecWriteFromDataRegister(struct cmdqRecStruct *handle,
 	enum cmdq_gpr_reg src_data_reg, u32 hw_addr);
 
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
+	CMDQ_VARIABLE argument, u32 mask);
 s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event);
 s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
 	u32 write_reg, u32 from_reg);

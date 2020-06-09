@@ -1501,6 +1501,12 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 #endif				/* CMDQ_GPR_SUPPORT */
 }
 
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
+	CMDQ_VARIABLE argument, u32 mask)
+{
+	return cmdq_pkt_write_value_addr(handle->pkt, addr, argument, mask);
+}
+
 s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event)
 {
 	s32 arg_a = cmdq_get_event_op_id(event);
