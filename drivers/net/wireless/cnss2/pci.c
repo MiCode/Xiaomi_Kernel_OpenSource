@@ -1049,6 +1049,11 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
+		/* Only set img_pre_alloc when power up succeeds */
+		if (!ret && !pci_priv->mhi_ctrl->img_pre_alloc) {
+			cnss_pr_dbg("Notify MHI to use already allocated images\n");
+			pci_priv->mhi_ctrl->img_pre_alloc = true;
+		}
 		/* -ETIMEDOUT means MHI power up has succeeded but timed out
 		 * for firmware mission mode event, so handle it properly.
 		 */
