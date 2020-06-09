@@ -259,6 +259,9 @@ enum node_stat_item {
 	NR_DIRTIED,		/* page dirtyings since bootup */
 	NR_WRITTEN,		/* page writings since bootup */
 	NR_KERNEL_MISC_RECLAIMABLE,	/* reclaimable non-slab kernel pages */
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	NR_UNRECLAIMABLE_PAGES,
+#endif
 	NR_VM_NODE_STAT_ITEMS
 };
 
