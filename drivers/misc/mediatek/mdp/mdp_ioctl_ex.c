@@ -115,7 +115,7 @@ struct mdp_job_mapping {
 };
 static DEFINE_MUTEX(mdp_job_mapping_list_mutex);
 
-#define SLOT_GROUP_NUM 12
+#define SLOT_GROUP_NUM 64
 #define MAX_RB_SLOT_NUM (SLOT_GROUP_NUM*64)
 #define MAX_COUNT_IN_RB_SLOT 0x1000 /* 4KB */
 #define SLOT_ID_SHIFT 16
@@ -824,12 +824,13 @@ s32 mdp_ioctl_free_readback_slots(unsigned long param)
 	}
 	if (!(alloc_slot[free_slot_group] & (1LL << free_slot))) {
 		mutex_unlock(&rb_slot_list_mutex);
-		CMDQ_ERR("%s group[%d]:%llx\n", __func__,
-			free_slot_group, alloc_slot[free_slot_group]);
+		CMDQ_ERR("%s %d not in group[%d]:%llx\n", __func__,
+			free_req.start_id, free_slot_group,
+			alloc_slot[free_slot_group]);
 		return -EINVAL;
 	}
 	alloc_slot[free_slot_group] &= ~(1LL << free_slot);
-	if (!ffz(alloc_slot[free_slot_group]))
+	if (ffz(alloc_slot[free_slot_group]) != 64)
 		alloc_slot_group &= ~(1LL << free_slot_group);
 
 	paStart = rb_slot[free_slot_index].pa_start;
