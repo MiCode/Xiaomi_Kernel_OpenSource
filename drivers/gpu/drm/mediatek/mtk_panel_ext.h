@@ -294,7 +294,8 @@ struct mtk_panel_funcs {
 	 * After LCM switch to the new mode stable, system call
 	 * @doze_post_disp_on to turn on panel.
 	 */
-	int (*doze_post_disp_on)(struct drm_panel *panel);
+	int (*doze_post_disp_on)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
 
 	/**
 	 * @doze_area:

@@ -1564,7 +1564,8 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 			mipi_dsi_dcs_write_gce2, NULL);
 
 	if (panel_funcs->doze_post_disp_on)
-		panel_funcs->doze_post_disp_on(dsi->panel);
+		panel_funcs->doze_post_disp_on(dsi->panel,
+			dsi, mipi_dsi_dcs_write_gce2, NULL);
 
 	dsi->doze_enabled = doze_enabled;
 }
@@ -1679,7 +1680,8 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			if (ext && ext->funcs
 				&& ext->funcs->doze_post_disp_on
 				&& ext->funcs->doze_get_mode_flags)
-				ext->funcs->doze_post_disp_on(dsi->panel);
+				ext->funcs->doze_post_disp_on(dsi->panel,
+					dsi, mipi_dsi_dcs_write_gce2, NULL);
 		}
 	}
 
