@@ -2165,6 +2165,19 @@ static kal_uint16 set_gain(kal_uint16 gain)
  *
  *************************************************************************/
 #if 1
+static void check_streamon(void)
+{
+	unsigned int i = 0, framecnt = 0;
+
+	for (i = 0; i < 30; i++) {
+		framecnt = read_cmos_sensor_8(0x0005);
+		LOG_INF("Stream on framecnt = %d\n", framecnt);
+		if (framecnt != 0xFF)
+			return;
+		mdelay(1);
+	}
+}
+
 static void check_streamoff(void)
 {
 	unsigned int i = 0, framecnt = 0;
@@ -2172,6 +2185,7 @@ static void check_streamoff(void)
 
 	for (i = 0; i < timeout; i++) {
 		framecnt = read_cmos_sensor_8(0x0005);
+		LOG_INF("Stream off framecnt = %d\n", framecnt);
 		if (framecnt == 0xFF)
 			return;
 		mdelay(1);
@@ -2185,9 +2199,11 @@ static kal_uint32 streaming_control(kal_bool enable)
 	unsigned int tmp;
 
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
-	if (enable)
+	if (enable) {
 		write_cmos_sensor_8(0x0100, 0X01);
-	else {
+		/* Make sure streaming is ongoing */
+		check_streamon();
+	} else {
 		tmp = read_cmos_sensor_8(0x0100);
 		if (tmp)
 			write_cmos_sensor_8(0x0100, 0x00);
