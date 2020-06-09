@@ -95,11 +95,11 @@ GED_ERROR ged_debugFS_create_entry(
 	uiMode = S_IFREG;
 
 	if (psReadOps != NULL) {
-		uiMode |= S_IRUGO;
+		uiMode |= 0440;
 	}
 
 	if (pfnWrite != NULL) {
-		uiMode |= S_IWUSR | S_IWGRP | S_IWOTH;
+		uiMode |= 0220;
 	}
 
 	psEntry = debugfs_create_file(pszName,

@@ -2355,7 +2355,7 @@ static int __mt_gpufreq_create_procfs(void)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!proc_create(entries[i].name, 0664, dir, entries[i].fops))
+		if (!proc_create(entries[i].name, 0660, dir, entries[i].fops))
 			gpufreq_pr_info("create /proc/gpufreq/%s failed\n",
 					entries[i].name);
 	}
