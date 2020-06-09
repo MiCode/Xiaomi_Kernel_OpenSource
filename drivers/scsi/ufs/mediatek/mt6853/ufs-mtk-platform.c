@@ -663,7 +663,8 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 
 	/* get ufs_mtk_mmio_base_apmixed */
 	node_apmixed =
-		of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+		of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6853-apmixedsys");
 	if (node_apmixed) {
 		ufs_mtk_mmio_base_apmixed = of_iomap(node_apmixed, 0);
 
