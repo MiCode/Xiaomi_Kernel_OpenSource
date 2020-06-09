@@ -3511,21 +3511,21 @@ EXIT:
 static signed int FDVT_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
 	/*  */
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
-	log_inf("[%s] mmap:vm_pgoff(0x%lx) pfn(0x%x) phy(0x%lx) vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
+	log_inf("[%s] mmap:vm_pgoff(0x%lx) pfn(0x%lx) phy(0x%lx) vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
 		__func__, pVma->vm_pgoff, pfn, pVma->vm_pgoff << PAGE_SHIFT,
 		pVma->vm_start, pVma->vm_end, length);
 
 	switch (pfn) {
 	case FDVT_BASE_HW:
 		if (length > FDVT_REG_RANGE) {
-			log_err("mmap range error :module:0x%x length(0x%lx),FDVT_REG_RANGE(0x%x)!",
+			log_err("mmap range error :module:0x%lx length(0x%lx),FDVT_REG_RANGE(0x%x)!",
 				pfn, length, FDVT_REG_RANGE);
 			return -EAGAIN;
 		}
