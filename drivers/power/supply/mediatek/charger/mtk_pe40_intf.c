@@ -972,6 +972,11 @@ int mtk_pe40_cc_state(struct charger_manager *pinfo)
 
 	if (pinfo->enable_hv_charging == false)
 		goto disable_hv;
+	if (pinfo->pd_reset == true) {
+		chr_err("encounter hard reset, stop pe4.0\n");
+		pinfo->pd_reset = false;
+		goto retry;
+	}
 
 	pdata = &pinfo->chg1_data;
 	pe40 = &pinfo->pe4;
@@ -1116,6 +1121,7 @@ int mtk_pe40_cc_state(struct charger_manager *pinfo)
 
 	return 0;
 
+retry:
 disable_hv:
 	mtk_pe40_end(pinfo, 0, true);
 	return 0;

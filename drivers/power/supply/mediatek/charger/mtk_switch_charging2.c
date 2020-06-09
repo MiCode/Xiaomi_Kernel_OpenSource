@@ -585,6 +585,11 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 
 	if (info->enable_hv_charging == false)
 		goto stop;
+	if (info->pd_reset == true) {
+		chr_err("encounter hard reset, stop pe4.0\n");
+		info->pd_reset = false;
+		goto stop;
+	}
 
 	ret = pe40_run();
 

@@ -1296,6 +1296,7 @@ static int mtk_charger_plug_out(struct charger_manager *info)
 	chr_err("%s\n", __func__);
 	info->chr_type = CHARGER_UNKNOWN;
 	info->charger_thread_polling = false;
+	info->pd_reset = false;
 
 	pdata1->disable_charging_count = 0;
 	pdata1->input_current_limit_by_aicl = -1;
@@ -1823,11 +1824,6 @@ static int charger_routine_thread(void *arg)
 			mt_get_charger_type(), info->chr_type,
 			info->enable_hv_charging, info->pd_type,
 			info->pd_reset);
-
-		if (info->pd_reset == true) {
-			mtk_pe40_plugout_reset(info);
-			info->pd_reset = false;
-		}
 
 		is_charger_on = mtk_is_charger_on(info);
 
