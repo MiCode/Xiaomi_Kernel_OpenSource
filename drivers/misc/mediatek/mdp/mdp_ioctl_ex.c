@@ -383,7 +383,7 @@ static s32 translate_meta(struct op_meta *meta,
 		if (!reg_addr)
 			return -EINVAL;
 		status = cmdq_op_write_reg_ex(handle, reg_addr,
-					meta->value, meta->mask);
+					meta->value, ~0);
 		if (!status)
 			status = cmdq_mdp_update_sec_addr_index(handle,
 				meta->sec_handle, meta->sec_index,
