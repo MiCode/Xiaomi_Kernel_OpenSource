@@ -74,6 +74,7 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 	phys_addr_t paddr;
 	int ret;
 	struct ion_carveout_heap *carveout_heap = to_carveout_heap(heap);
+	struct msm_ion_buf_lock_state *lock_state;
 	struct device *dev = carveout_heap->heap.dev;
 
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
@@ -83,10 +84,17 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 	if (ret)
 		goto err_free;
 
+	lock_state = kzalloc(sizeof(*lock_state), GFP_KERNEL);
+	if (!lock_state) {
+		ret = -ENOMEM;
+		goto err_free_table;
+	}
+	buffer->priv_virt = lock_state;
+
 	paddr = ion_carveout_allocate(heap, size);
 	if (paddr == ION_CARVEOUT_ALLOCATE_FAIL) {
 		ret = -ENOMEM;
-		goto err_free_table;
+		goto err_free_umap;
 	}
 
 	sg_set_page(table->sgl, pfn_to_page(PFN_DOWN(paddr)), size, 0);
@@ -99,6 +107,8 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 
 	return 0;
 
+err_free_umap:
+	kfree(lock_state);
 err_free_table:
 	sg_free_table(table);
 err_free:
@@ -110,18 +120,26 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
 	struct ion_carveout_heap *carveout_heap = to_carveout_heap(heap);
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
 	struct sg_table *table = buffer->sg_table;
 	struct page *page = sg_page(table->sgl);
 	phys_addr_t paddr = page_to_phys(page);
 	struct device *dev = carveout_heap->heap.dev;
 
-	ion_buffer_zero(buffer);
+	mutex_lock(&buffer->lock);
+	if (hlos_accessible_buffer(buffer))
+		ion_buffer_zero(buffer);
+
+	if (lock_state && lock_state->locked)
+		pr_warn("%s: buffer is locked while being freed\n", __func__);
+	mutex_unlock(&buffer->lock);
 
 	if (ion_buffer_cached(buffer))
 		ion_pages_sync_for_device(dev, page, buffer->size,
 					  DMA_BIDIRECTIONAL);
 
 	ion_carveout_free(heap, paddr, buffer->size);
+	kfree(buffer->priv_virt);
 	sg_free_table(table);
 	kfree(table);
 }
@@ -370,6 +388,7 @@ static void ion_sc_heap_free(struct ion_buffer *buffer)
 {
 	struct ion_heap *child;
 	struct sg_table *table = buffer->sg_table;
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
 	struct page *page = sg_page(table->sgl);
 	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
 
@@ -379,9 +398,16 @@ static void ion_sc_heap_free(struct ion_buffer *buffer)
 		return;
 	}
 
+	mutex_lock(&buffer->lock);
 	if (hlos_accessible_buffer(buffer))
 		ion_buffer_zero(buffer);
+
+	if (lock_state && lock_state->locked)
+		pr_warn("%s: buffer is locked while being freed\n", __func__);
+	mutex_unlock(&buffer->lock);
+
 	ion_carveout_free(child, paddr, buffer->size);
+	kfree(buffer->priv_virt);
 	sg_free_table(table);
 	kfree(table);
 }

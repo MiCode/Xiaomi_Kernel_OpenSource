@@ -160,6 +160,7 @@ static struct sg_table
 	table = a->table;
 
 	map_attrs = attachment->dma_map_attrs;
+	mutex_lock(&buffer->lock);
 	if (!(buffer->flags & ION_FLAG_CACHED) ||
 	    !hlos_accessible_buffer(buffer))
 		map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
@@ -175,10 +176,10 @@ static struct sg_table
 	    !(buffer->flags & ION_FLAG_CACHED)) {
 		pr_warn_ratelimited("dev:%s Cannot DMA map uncached buffer as IO-coherent attrs:0x%lx\n",
 				    dev_name(attachment->dev), map_attrs);
+		mutex_unlock(&buffer->lock);
 		return ERR_PTR(-EINVAL);
 	}
 
-	mutex_lock(&buffer->lock);
 	if (map_attrs & DMA_ATTR_SKIP_CPU_SYNC)
 		trace_ion_dma_map_cmo_skip(attachment->dev,
 					   ino,
@@ -243,6 +244,7 @@ static void msm_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	unsigned long ino = file_inode(attachment->dmabuf->file)->i_ino;
 
+	mutex_lock(&buffer->lock);
 	map_attrs = attachment->dma_map_attrs;
 	if (!(buffer->flags & ION_FLAG_CACHED) ||
 	    !hlos_accessible_buffer(buffer))
@@ -253,7 +255,6 @@ static void msm_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	    dev_is_dma_coherent_hint_cached(attachment->dev))
 		map_attrs |= DMA_ATTR_FORCE_COHERENT;
 
-	mutex_lock(&buffer->lock);
 	if (map_attrs & DMA_ATTR_SKIP_CPU_SYNC)
 		trace_ion_dma_unmap_cmo_skip(attachment->dev,
 					     ino,
@@ -297,31 +298,134 @@ void ion_pages_sync_for_device(struct device *dev, struct page *page,
 	dma_sync_sg_for_device(dev, &sg, 1, dir);
 }
 
+static void __msm_ion_vm_open(struct ion_buffer *buffer)
+{
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
+
+	lock_state->vma_count++;
+}
+
+static void msm_ion_vm_open(struct vm_area_struct *vma)
+{
+	struct ion_buffer *buffer = vma->vm_private_data;
+
+	mutex_lock(&buffer->lock);
+	__msm_ion_vm_open(buffer);
+	mutex_unlock(&buffer->lock);
+}
+
+static void msm_ion_vm_close(struct vm_area_struct *vma)
+{
+	struct ion_buffer *buffer = vma->vm_private_data;
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
+
+	mutex_lock(&buffer->lock);
+	lock_state->vma_count--;
+	mutex_unlock(&buffer->lock);
+}
+
+static const struct vm_operations_struct msm_ion_vma_ops = {
+	.open = msm_ion_vm_open,
+	.close = msm_ion_vm_close,
+};
+
 static int msm_ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
 	int ret = 0;
 
+	mutex_lock(&buffer->lock);
 	if (!hlos_accessible_buffer(buffer)) {
 		pr_err_ratelimited("%s: this buffer cannot be mapped to userspace\n",
 				   __func__);
+		mutex_unlock(&buffer->lock);
 		return -EINVAL;
 	}
 
 	if (!(buffer->flags & ION_FLAG_CACHED))
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-	mutex_lock(&buffer->lock);
 	/* now map it to userspace */
 	ret = ion_heap_map_user(buffer->heap, buffer, vma);
-	mutex_unlock(&buffer->lock);
 
-	if (ret)
+	if (ret) {
 		pr_err("%s: failure mapping buffer to userspace\n",
 		       __func__);
+	} else if (lock_state) {
+		vma->vm_private_data = buffer;
+		vma->vm_ops = &msm_ion_vma_ops;
+		__msm_ion_vm_open(buffer);
+	}
+
+	mutex_unlock(&buffer->lock);
+	return ret;
+}
+
+static bool is_msm_ion_dma_buf(struct ion_buffer *buffer)
+{
+	return buffer->heap->buf_ops.attach == msm_ion_dma_buf_attach;
+}
+
+int msm_ion_dma_buf_lock(struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer;
+	struct msm_ion_buf_lock_state *lock_state;
+	int ret;
+
+	if (!dmabuf)
+		return -EINVAL;
+
+	buffer = dmabuf->priv;
+	lock_state = buffer->priv_virt;
+
+	if ((!lock_state) || !is_msm_ion_dma_buf(buffer)) {
+		pr_err("%s: userspace map locking is not supported for this dma-buf\n",
+		       __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&buffer->lock);
+	if (lock_state->locked) {
+		ret = -EINVAL;
+		pr_err("%s: buffer is already locked\n", __func__);
+	} else if (lock_state->vma_count) {
+		ret = -EBUSY;
+	} else {
+		ret = 0;
+		lock_state->locked = true;
+	}
+	mutex_unlock(&buffer->lock);
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_ion_dma_buf_lock);
+
+void msm_ion_dma_buf_unlock(struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer;
+	struct msm_ion_buf_lock_state *lock_state;
+
+	if (!dmabuf)
+		return;
+
+	buffer = dmabuf->priv;
+	lock_state = buffer->priv_virt;
+
+	if (!lock_state || !is_msm_ion_dma_buf(buffer)) {
+		pr_err("%s: userspace map unlocking is not supported for this dma-buf\n",
+		       __func__);
+		return;
+	}
+
+	mutex_lock(&buffer->lock);
+	if (!lock_state->locked)
+		pr_warn("%s: buffer is already unlocked\n", __func__);
+	else
+		lock_state->locked = false;
+	mutex_unlock(&buffer->lock);
+}
+EXPORT_SYMBOL(msm_ion_dma_buf_unlock);
 
 static void msm_ion_dma_buf_release(struct dma_buf *dmabuf)
 {
@@ -336,14 +440,13 @@ static void *msm_ion_dma_buf_vmap(struct dma_buf *dmabuf)
 	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr = ERR_PTR(-EINVAL);
 
-	if (hlos_accessible_buffer(buffer)) {
-		mutex_lock(&buffer->lock);
+	mutex_lock(&buffer->lock);
+	if (hlos_accessible_buffer(buffer))
 		vaddr = msm_ion_buffer_kmap_get(buffer);
-		mutex_unlock(&buffer->lock);
-	} else {
+	else
 		pr_warn_ratelimited("heap %s doesn't support map_kernel\n",
 				    buffer->heap->name);
-	}
+	mutex_unlock(&buffer->lock);
 
 	return vaddr;
 }
@@ -352,11 +455,10 @@ static void msm_ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 
-	if (hlos_accessible_buffer(buffer)) {
-		mutex_lock(&buffer->lock);
+	mutex_lock(&buffer->lock);
+	if (hlos_accessible_buffer(buffer))
 		msm_ion_buffer_kmap_put(buffer);
-		mutex_unlock(&buffer->lock);
-	}
+	mutex_unlock(&buffer->lock);
 }
 
 static void *msm_ion_dma_buf_kmap(struct dma_buf *dmabuf, unsigned long offset)
@@ -447,6 +549,7 @@ static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 	int ret = 0;
 
+	mutex_lock(&buffer->lock);
 	if (!hlos_accessible_buffer(buffer)) {
 		trace_ion_begin_cpu_access_cmo_skip(NULL, ino,
 						    ion_buffer_cached(buffer),
@@ -461,7 +564,6 @@ static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		goto out;
 	}
 
-	mutex_lock(&buffer->lock);
 
 	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
 		struct device *dev = msm_ion_heap_device(buffer->heap);
@@ -471,8 +573,6 @@ static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 
 		trace_ion_begin_cpu_access_cmo_apply(dev, ino, true, true,
 						     direction);
-
-		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
@@ -491,8 +591,8 @@ static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		trace_ion_begin_cpu_access_cmo_apply(a->dev, ino, true,
 						     true, direction);
 	}
-	mutex_unlock(&buffer->lock);
 out:
+	mutex_unlock(&buffer->lock);
 	return ret;
 }
 
@@ -504,6 +604,7 @@ static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 	int ret = 0;
 
+	mutex_lock(&buffer->lock);
 	if (!hlos_accessible_buffer(buffer)) {
 		trace_ion_end_cpu_access_cmo_skip(NULL, ino,
 						  ion_buffer_cached(buffer),
@@ -518,7 +619,6 @@ static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		goto out;
 	}
 
-	mutex_lock(&buffer->lock);
 	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
 		struct device *dev = msm_ion_heap_device(buffer->heap);
 		struct sg_table *table = buffer->sg_table;
@@ -528,7 +628,6 @@ static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 
 		trace_ion_end_cpu_access_cmo_apply(dev, ino, true,
 						   true, direction);
-		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
@@ -547,9 +646,9 @@ static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		trace_ion_end_cpu_access_cmo_apply(a->dev, ino, true,
 						   true, direction);
 	}
-	mutex_unlock(&buffer->lock);
 
 out:
+	mutex_unlock(&buffer->lock);
 	return ret;
 }
 
@@ -563,6 +662,7 @@ static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 	int ret = 0;
 
+	mutex_lock(&buffer->lock);
 	if (!hlos_accessible_buffer(buffer)) {
 		trace_ion_begin_cpu_access_cmo_skip(NULL, ino,
 						    ion_buffer_cached(buffer),
@@ -577,7 +677,6 @@ static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		goto out;
 	}
 
-	mutex_lock(&buffer->lock);
 	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
 		struct device *dev = msm_ion_heap_device(buffer->heap);
 		struct sg_table *table = buffer->sg_table;
@@ -591,7 +690,6 @@ static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		else
 			trace_ion_begin_cpu_access_cmo_skip(dev, ino,
 							    true, true, dir);
-		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
@@ -618,9 +716,9 @@ static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 			ret = tmp;
 		}
 	}
-	mutex_unlock(&buffer->lock);
 
 out:
+	mutex_unlock(&buffer->lock);
 	return ret;
 }
 
@@ -635,6 +733,7 @@ static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 
 	int ret = 0;
 
+	mutex_lock(&buffer->lock);
 	if (!hlos_accessible_buffer(buffer)) {
 		trace_ion_end_cpu_access_cmo_skip(NULL, ino,
 						  ion_buffer_cached(buffer),
@@ -649,7 +748,6 @@ static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 		goto out;
 	}
 
-	mutex_lock(&buffer->lock);
 	if (IS_ENABLED(CONFIG_ION_FORCE_DMA_SYNC)) {
 		struct device *dev = msm_ion_heap_device(buffer->heap);
 		struct sg_table *table = buffer->sg_table;
@@ -665,8 +763,6 @@ static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 			trace_ion_end_cpu_access_cmo_skip(dev, ino,
 							  true, true,
 							  direction);
-
-		mutex_unlock(&buffer->lock);
 		goto out;
 	}
 
@@ -695,9 +791,9 @@ static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 			ret = tmp;
 		}
 	}
-	mutex_unlock(&buffer->lock);
 
 out:
+	mutex_unlock(&buffer->lock);
 	return ret;
 }
 

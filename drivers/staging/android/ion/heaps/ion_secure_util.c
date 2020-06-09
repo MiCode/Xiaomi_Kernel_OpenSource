@@ -279,6 +279,8 @@ out:
 
 bool hlos_accessible_buffer(struct ion_buffer *buffer)
 {
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
+
 	if ((buffer->flags & ION_FLAG_SECURE) &&
 	    !(buffer->flags & ION_FLAG_CP_HLOS) &&
 	    !(buffer->flags & ION_FLAG_CP_SPSS_HLOS_SHARED))
@@ -286,6 +288,8 @@ bool hlos_accessible_buffer(struct ion_buffer *buffer)
 	else if ((get_secure_vmid(buffer->flags) > 0) &&
 		 !(buffer->flags & ION_FLAG_CP_HLOS) &&
 		 !(buffer->flags & ION_FLAG_CP_SPSS_HLOS_SHARED))
+		return false;
+	else if (lock_state && lock_state->locked)
 		return false;
 
 	return true;

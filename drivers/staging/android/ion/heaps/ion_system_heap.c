@@ -269,6 +269,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 				    unsigned long flags)
 {
 	struct ion_system_heap *sys_heap = to_system_heap(heap);
+	struct msm_ion_buf_lock_state *lock_state;
 	struct sg_table *table;
 	struct sg_table table_sync = {0};
 	struct scatterlist *sg;
@@ -382,6 +383,14 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	buffer->sg_table = table;
 	if (nents_sync)
 		sg_free_table(&table_sync);
+
+	lock_state = kzalloc(sizeof(*lock_state), GFP_KERNEL);
+	if (!lock_state) {
+		ret = -ENOMEM;
+		goto err_free_sg2;
+	}
+	buffer->priv_virt = lock_state;
+
 	ion_prepare_sgl_for_force_dma_sync(buffer->sg_table);
 	return 0;
 
@@ -415,10 +424,11 @@ err:
 	return ret;
 }
 
-void ion_system_heap_free(struct ion_buffer *buffer)
+static void ion_system_heap_free(struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
 	struct ion_system_heap *sys_heap = to_system_heap(heap);
+	struct msm_ion_buf_lock_state *lock_state = buffer->priv_virt;
 	struct sg_table *table = buffer->sg_table;
 	struct scatterlist *sg;
 	int i;
@@ -426,8 +436,14 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 
 	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) &&
 	    !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
+		mutex_lock(&buffer->lock);
 		if (hlos_accessible_buffer(buffer))
 			ion_buffer_zero(buffer);
+
+		if (lock_state && lock_state->locked)
+			pr_warn("%s: buffer is locked while being freed\n",
+				__func__);
+		mutex_unlock(&buffer->lock);
 	} else if (vmid > 0) {
 		if (ion_hyp_unassign_sg(table, &vmid, 1, true))
 			return;
@@ -438,6 +454,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 				 get_order(sg->length));
 	sg_free_table(table);
 	kfree(table);
+	kfree(buffer->priv_virt);
 }
 
 static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
