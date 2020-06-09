@@ -1421,8 +1421,6 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	u32 pid = current_pid();
 	int i = 0;
 
-	spcom_pr_dbg("open file [%s]\n", name);
-
 	if (atomic_read(&spcom_dev->remove_in_progress)) {
 		spcom_pr_err("module remove in progress\n");
 		return -ENODEV;
@@ -1434,7 +1432,6 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	}
 
 	if (strcmp(name, DEVICE_NAME) == 0) {
-		spcom_pr_dbg("root dir skipped\n");
 		return 0;
 	}
 
@@ -1535,7 +1532,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	}
 
 	if (strcmp(name, DEVICE_NAME) == 0) {
-		spcom_pr_dbg("root dir skipped\n");
 		return 0;
 	}
 
@@ -1655,7 +1651,6 @@ static ssize_t spcom_device_write(struct file *filp,
 			spcom_pr_err("NULL ch, command not allowed\n");
 			return -EINVAL;
 		}
-		spcom_pr_dbg("control device - no channel context\n");
 	}
 	buf_size = size; /* explicit casting size_t to int */
 	buf = kzalloc(size, GFP_KERNEL);
@@ -1826,7 +1821,6 @@ static inline int handle_poll(struct file *file,
 			name, op->cmd_id);
 		ret = -EINVAL;
 	}
-	spcom_pr_dbg("name=%s, retval=%d\n", name, op->retval);
 	if (ready < 0) { /* wait was interrupted */
 		spcom_pr_info("interrupted wait retval=%d\n", op->retval);
 		ret = -EINTR;
