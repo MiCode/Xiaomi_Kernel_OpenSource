@@ -47,6 +47,9 @@
 # define SCHED_WARN_ON(x)	({ (void)(x), 0; })
 #endif
 
+#ifdef CONFIG_MTK_ENG_BUILD
+#include <linux/ftrace.h>
+#endif
 struct rq;
 struct cpuidle_state;
 
@@ -927,6 +930,10 @@ struct rq {
 	int idle_state_idx;
 #endif
 	unsigned long rotate_flags;
+#ifdef CONFIG_MTK_ENG_BUILD
+	unsigned long rf_bt[10];
+	unsigned long last_flags_from_rf;
+#endif
 };
 
 static inline int cpu_of(struct rq *rq)
@@ -994,6 +1001,30 @@ static inline u64 __rq_clock_broken(struct rq *rq)
 #define RQCF_ACT_SKIP	0x02
 #define RQCF_UPDATED	0x04
 
+#ifdef CONFIG_MTK_ENG_BUILD
+static inline void record_rf_bt(unsigned long *bt)
+{
+	int i = 0;
+
+	for (i = 0; i < 10; i++)
+		bt[i] = (unsigned long)ftrace_return_address(i);
+}
+
+static inline void print_rf_bt(unsigned long *bt)
+{
+	int i = 0;
+
+	for (i = 0; i < 10; i++)
+		print_ip_sym(bt[i]);
+}
+
+static inline void check_rf_info(struct rq *rq)
+{
+	if (rq->clock_update_flags >= RQCF_ACT_SKIP)
+		return;
+	print_rf_bt(rq->rf_bt);
+}
+#endif
 static inline void assert_clock_updated(struct rq *rq)
 {
 	/*
@@ -1001,6 +1032,7 @@ static inline void assert_clock_updated(struct rq *rq)
 	 * last rq_pin_lock() is if we're currently skipping updates.
 	 */
 #ifdef CONFIG_MTK_ENG_BUILD
+	check_rf_info(rq);
 	BUG_ON(rq->clock_update_flags < RQCF_ACT_SKIP);
 #else
 	SCHED_WARN_ON(rq->clock_update_flags < RQCF_ACT_SKIP);
@@ -1052,6 +1084,9 @@ static inline void rq_pin_lock(struct rq *rq, struct rq_flags *rf)
 #ifdef CONFIG_SCHED_DEBUG
 	rq->clock_update_flags &= (RQCF_REQ_SKIP|RQCF_ACT_SKIP);
 	rf->clock_update_flags = 0;
+#ifdef CONFIG_MTK_ENG_BUILD
+	record_rf_bt(rq->rf_bt);
+#endif
 #endif
 }
 
@@ -1074,6 +1109,9 @@ static inline void rq_repin_lock(struct rq *rq, struct rq_flags *rf)
 	 * Restore the value we stashed in @rf for this pin context.
 	 */
 	rq->clock_update_flags |= rf->clock_update_flags;
+#ifdef CONFIG_MTK_ENG_BUILD
+	rq->last_flags_from_rf = rf->clock_update_flags;
+#endif
 #endif
 }
 
