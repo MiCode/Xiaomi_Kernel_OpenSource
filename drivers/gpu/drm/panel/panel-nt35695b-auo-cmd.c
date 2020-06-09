@@ -945,7 +945,7 @@ static int panel_ata_check(struct drm_panel *panel)
 	struct lcm *ctx = panel_to_lcm(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	unsigned char data[3] = {0x00, 0x00, 0x00};
-	unsigned char id[3] = {0x00, 0x00, 0x00};
+	unsigned char id[3] = {0x0, 0x81, 0x0};
 	ssize_t ret;
 
 	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
@@ -1119,8 +1119,8 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->dev = dev;
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE
-			 | MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET
+	dsi->mode_flags =
+			 MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET
 			 | MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
