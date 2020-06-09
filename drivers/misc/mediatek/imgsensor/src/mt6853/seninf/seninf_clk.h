@@ -16,6 +16,8 @@
 
 #include <linux/device.h>
 
+#define PREVENT_SUSPEND
+
 #ifdef PREVENT_SUSPEND
 #ifdef CONFIG_PM_WAKELOCKS
 #include <linux/pm_wakeup.h>
