@@ -416,7 +416,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 	u64 exec_cost;
 
 	exec_cost = sched_clock();
-	metas = kmalloc(copy_size, GFP_KERNEL);
+	metas = vmalloc(copy_size);
 	if (!metas) {
 		CMDQ_ERR("allocate metas fail size:%u\n", copy_size);
 		return -ENOMEM;
@@ -426,7 +426,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 	exec_cost = sched_clock();
 	if (copy_from_user(metas, CMDQ_U32_PTR(user_job->metas), copy_size)) {
 		CMDQ_ERR("copy metas from user fail size:%u\n", copy_size);
-		kfree(metas);
+		vfree(metas);
 		return -EINVAL;
 	}
 	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
@@ -455,7 +455,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 				div_s64(trans_perf_mon_cost[i], 1000));
 	}
 #endif
-	kfree(metas);
+	vfree(metas);
 	return status;
 }
 
