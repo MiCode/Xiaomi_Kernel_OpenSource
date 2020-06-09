@@ -2996,11 +2996,17 @@ static void __mt_gpufreq_init_table(void)
 	else
 		g_segment_max_opp_idx = 18;
 
-/* Turbo Testing */
+/* Special SW setting */
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
 						"turbo") != NULL) {
 		gpufreq_pr_info("@%s: turbo flavor name: %s\n",
+			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+		g_segment_max_opp_idx = 0;
+	}
+	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+						"k6853tv1") != NULL) {
+		gpufreq_pr_info("@%s: k6853tv1 flavor name: %s\n",
 			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 		g_segment_max_opp_idx = 0;
 	}
