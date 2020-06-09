@@ -1351,7 +1351,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	s32 status;
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
-	CMDQ_LOG("%s %llx\n", __func__, handle->engineFlag);
+	CMDQ_MSG("%s %llx\n", __func__, handle->engineFlag);
 	if (handle->profile_exec)
 		cmdq_pkt_perf_end(handle->pkt);
 
@@ -1364,7 +1364,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 #endif
 
 	/* finalize it */
-	CMDQ_LOG("%s finalize\n", __func__);
+	CMDQ_MSG("%s finalize\n", __func__);
 	handle->finalized = true;
 	cmdq_pkt_finalize(handle->pkt);
 
@@ -1372,7 +1372,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	 * Task may flush directly if no engine conflict and no waiting task
 	 * holds same engines.
 	 */
-	CMDQ_LOG("%s flush impl\n", __func__);
+	CMDQ_MSG("%s flush impl\n", __func__);
 	status = cmdq_mdp_flush_async_impl(handle);
 	CMDQ_TRACE_FORCE_END();
 	return status;
@@ -1482,7 +1482,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	struct list_head *insert_pos = &mdp_ctx.tasks_wait;
 	struct cmdqRecStruct *entry;
 
-	CMDQ_LOG("dispatch handle:0x%p\n", handle);
+	CMDQ_MSG("dispatch handle:0x%p\n", handle);
 
 	/* set handle life cycle callback */
 	handle->prepare = cmdq_mdp_handle_prepare;
@@ -1498,7 +1498,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	handle->state = TASK_STATE_WAITING;
 
 	/* assign handle into waiting list by priority */
-	CMDQ_LOG("assign handle into waiting list:0x%p\n", handle);
+	CMDQ_MSG("assign handle into waiting list:0x%p\n", handle);
 	mutex_lock(&mdp_task_mutex);
 	list_for_each_entry(entry, &mdp_ctx.tasks_wait, list_entry) {
 		if (entry->pkt->priority < handle->pkt->priority)
@@ -1509,7 +1509,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	mutex_unlock(&mdp_task_mutex);
 
 	/* run consume to run task in thread */
-	CMDQ_LOG("cmdq_mdp_consume_handle:0x%p\n", handle);
+	CMDQ_MSG("cmdq_mdp_consume_handle:0x%p\n", handle);
 	cmdq_mdp_consume_handle();
 
 	return 0;

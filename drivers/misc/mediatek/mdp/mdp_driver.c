@@ -1156,23 +1156,23 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		status = cmdq_driver_ioctl_notify_engine(param);
 		break;
 	case CMDQ_IOCTL_ASYNC_EXEC:
-		CMDQ_LOG("ioctl CMDQ_IOCTL_ASYNC_EXEC\n");
+		CMDQ_MSG("ioctl CMDQ_IOCTL_ASYNC_EXEC\n");
 		status = mdp_ioctl_async_exec(pf, param);
 		break;
 	case CMDQ_IOCTL_ASYNC_WAIT:
-		CMDQ_LOG("ioctl CMDQ_IOCTL_ASYNC_WAIT\n");
+		CMDQ_MSG("ioctl CMDQ_IOCTL_ASYNC_WAIT\n");
 		status = mdp_ioctl_async_wait(param);
 		break;
 	case CMDQ_IOCTL_ALLOC_READBACK_SLOTS:
-		CMDQ_LOG("ioctl CMDQ_IOCTL_ALLOC_READBACK_SLOTS\n");
+		CMDQ_MSG("ioctl CMDQ_IOCTL_ALLOC_READBACK_SLOTS\n");
 		status = mdp_ioctl_alloc_readback_slots(pf, param);
 		break;
 	case CMDQ_IOCTL_FREE_READBACK_SLOTS:
-		CMDQ_LOG("ioctl CMDQ_IOCTL_FREE_READBACK_SLOTS\n");
+		CMDQ_MSG("ioctl CMDQ_IOCTL_FREE_READBACK_SLOTS\n");
 		status = mdp_ioctl_free_readback_slots(param);
 		break;
 	case CMDQ_IOCTL_READ_READBACK_SLOTS:
-		CMDQ_LOG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");
+		CMDQ_MSG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");
 		status = mdp_ioctl_read_readback_slots(param);
 		break;
 	default:
