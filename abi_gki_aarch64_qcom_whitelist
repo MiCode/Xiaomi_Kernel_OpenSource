@@ -398,6 +398,7 @@
   devm_fwnode_get_index_gpiod_from_child
   devm_gpiod_get_index
   devm_gpiod_get_optional
+  devm_gpio_request
   devm_gpio_request_one
   devm_iio_channel_get
   devm_iio_device_alloc
@@ -551,6 +552,7 @@
   dma_get_slave_channel
   d_make_root
   dmam_alloc_attrs
+  dmam_free_coherent
   dma_max_mapping_size
   dma_mmap_attrs
   dma_pool_alloc
@@ -587,6 +589,7 @@
   drm_atomic_get_connector_state
   drm_atomic_get_crtc_state
   drm_atomic_get_plane_state
+  drm_atomic_get_private_obj_state
   drm_atomic_helper_check
   drm_atomic_helper_cleanup_planes
   drm_atomic_helper_commit
@@ -615,6 +618,7 @@
   drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_plane_reset
   drm_atomic_helper_prepare_planes
+  __drm_atomic_helper_private_obj_duplicate_state
   drm_atomic_helper_set_config
   drm_atomic_helper_shutdown
   drm_atomic_helper_swap_state
@@ -622,6 +626,7 @@
   drm_atomic_helper_update_plane
   drm_atomic_helper_wait_for_fences
   drm_atomic_helper_wait_for_vblanks
+  drm_atomic_private_obj_init
   drm_atomic_set_crtc_for_connector
   drm_atomic_set_fence_for_plane
   drm_atomic_set_mode_for_crtc
@@ -701,7 +706,9 @@
   drm_dp_mst_deallocate_vcpi
   drm_dp_mst_detect_port
   drm_dp_mst_get_edid
+  drm_dp_mst_get_port_malloc
   drm_dp_mst_hpd_irq
+  drm_dp_mst_put_port_malloc
   drm_dp_mst_reset_vcpi_slots
   drm_dp_mst_topology_mgr_destroy
   drm_dp_mst_topology_mgr_init
@@ -997,6 +1004,7 @@
   hrtimer_forward
   __hrtimer_get_remaining
   hrtimer_init
+  hrtimer_init_sleeper
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
   hvc_alloc
@@ -1321,6 +1329,7 @@
   mipi_dsi_host_unregister
   misc_deregister
   misc_register
+  mmc_cqe_request_done
   mmc_of_parse
   mmc_send_tuning
   mntget
@@ -1983,7 +1992,13 @@
   scsi_scan_host
   scsi_sense_desc_find
   sdev_prefix_printk
+  __sdhci_add_host
   sdhci_add_host
+  sdhci_cqe_disable
+  sdhci_cqe_enable
+  sdhci_cqe_irq
+  sdhci_cleanup_host
+  sdhci_dumpregs
   sdhci_enable_clk
   sdhci_get_property
   sdhci_pltfm_free
@@ -1991,6 +2006,7 @@
   sdhci_remove_host
   sdhci_reset
   sdhci_set_bus_width
+  sdhci_setup_host
   search_binary_handler
   security_sock_graft
   send_sig_info
