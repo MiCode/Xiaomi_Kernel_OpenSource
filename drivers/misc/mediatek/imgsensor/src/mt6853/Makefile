@@ -66,7 +66,6 @@ endif
 
 # Enable parallelism
 subdir-ccflags-y += -DSENSOR_PARALLEISM
-
 obj-y += seninf/
 
 ifeq ($(ARCH_MTK_PROJECT), k6853v1_64_6360_alpha)

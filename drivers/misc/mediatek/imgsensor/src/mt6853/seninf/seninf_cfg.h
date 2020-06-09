@@ -13,6 +13,7 @@
 
 #ifndef __SENINF_CFG_H__
 #define __SENINF_CFG_H__
+#define SENINF_IRQ
 
 #define SENINF_MAX_NUM 6
 
