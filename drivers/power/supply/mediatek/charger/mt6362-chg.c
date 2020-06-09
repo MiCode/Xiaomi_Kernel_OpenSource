@@ -823,7 +823,7 @@ static int mt6362_enable_otg_parameter(struct mt6362_chg_data *data, bool en)
 {
 	int ret = 0;
 
-	dev_info(data->dev, "%s: en = %d\n", __func__, en);
+	mt_dbg(data->dev, "%s: en = %d\n", __func__, en);
 	mutex_lock(&data->otg_lock);
 	if (en) {
 		if (data->otg_mode_cnt == 0) {
@@ -2211,7 +2211,7 @@ static int mt6362_enable_bleed_discharge(struct charger_device *chg_dev,
 					 bool en)
 {
 	struct mt6362_chg_data *data = charger_get_data(chg_dev);
-	int ret;
+	int ret = 0;
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
 	mutex_lock(&data->bd_lock);

@@ -19,9 +19,16 @@
 #include "inc/tcpci_core.h"
 #include "inc/std_tcpci_v10.h"
 
-#define MT6362_DBGINFO_EN	1
+#define MT6362_INFO_EN	1
+#define MT6362_DBGINFO_EN	0
 #define MT6362_WD1_EN	1
 #define MT6362_WD2_EN	1
+
+#define MT6362_INFO(fmt, ...) \
+	do { \
+		if (MT6362_INFO_EN) \
+			pd_dbg_info("%s " fmt, __func__, ##__VA_ARGS__); \
+	} while (0)
 
 #define MT6362_DBGINFO(fmt, ...) \
 	do { \
@@ -1369,7 +1376,7 @@ static int mt6362_set_cc(struct tcpc_device *tcpc, int pull)
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
-	MT6362_DBGINFO("%s %d\n", __func__, pull);
+	MT6362_INFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
 	if (pull == TYPEC_CC_DRP) {
 		ret = mt6362_set_cc_toggling(tdata, pull);
