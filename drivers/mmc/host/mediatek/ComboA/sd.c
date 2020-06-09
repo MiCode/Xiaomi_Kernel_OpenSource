@@ -4389,7 +4389,8 @@ void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		&& ios->timing != MMC_TIMING_LEGACY) {
 			msdc_restore_timing_setting(host);
 			pr_notice("[AUTOK]eMMC restored timing setting\n");
-		} else if (ios->timing == MMC_TIMING_MMC_HS400) {
+		} else if (ios->timing == MMC_TIMING_MMC_HS400 &&
+			ios->clock > 52000000) {
 			msdc_execute_tuning(host->mmc,
 				MMC_SEND_TUNING_BLOCK_HS200);
 			mmc_retune_disable(host->mmc);
