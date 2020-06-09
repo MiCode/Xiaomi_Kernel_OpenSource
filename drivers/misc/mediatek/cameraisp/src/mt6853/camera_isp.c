@@ -1578,6 +1578,11 @@ static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
 		addr_dbg_sel_5 = 0x00000405;
 		addr_dbg_sel_6 = 0x00000305;
 		break;
+	case _aaho_:
+		off_set = 0x2800;
+		addr_dbg_sel_5 = 0x0000010C;
+		addr_dbg_sel_6 = 0x0000020C;
+		break;
 	case _afo_:
 		off_set = 0x1800;
 		addr_dbg_sel_5 = 0x00000406;
@@ -1818,6 +1823,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 		ISP_DumpDmaDbgPort(inner_regModule, _ltmso_);
 	if (dma_en & _AAO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _aao_);
+	if (dma_en & _AAHO_R1_EN_)
+		ISP_DumpDmaDbgPort(inner_regModule, _aaho_);
 	if (dma_en & _AFO_R1_EN_)
 		ISP_DumpDmaDbgPort(inner_regModule, _afo_);
 
@@ -2671,7 +2678,6 @@ static inline void ISP_Reset(int module)
 	unsigned long long timeoutMs = 5000; /*5ms */
 	bool bDumped = MFALSE;
 #endif
-	LOG_DBG(" Reset module(%d)\n", module);
 
 	switch (module) {
 	case ISP_CAM_A_IDX:
@@ -2680,6 +2686,7 @@ static inline void ISP_Reset(int module)
 		ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x0);
 		ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x1);
 #if 1
+		LOG_INF(" Reset module(%d)\n", module);
 		/* timer */
 		m_sec = ktime_get(); /* ns */
 		do_div(m_sec, 1000); /* usec */
@@ -2727,6 +2734,7 @@ static inline void ISP_Reset(int module)
 				break;
 			}
 		}
+		LOG_INF(" Reset module done(%d)\n", module);
 #else
 		mdelay(1);
 #endif
@@ -7553,60 +7561,33 @@ void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
 enum mtk_iommu_callback_ret_t isp_m4u_fault_callback(int port,
 		unsigned long mva, void *data)
 {
-	union CAMCTL_TWIN_STATUS_ twin_status;
-	enum ISP_DEV_NODE_ENUM module = ISP_CAM_A_INNER_IDX;
-	int i;
-
 	//mva use %lu type to avoid kasan project build problem
 	LOG_INF("[m4u cb] fault callback: port=%d, mva=%lu\n", port, mva);
 
-	twin_status.Raw =
-		ISP_RD32(CAM_REG_CTL_TWIN_STATUS(ISP_CAM_A_INNER_IDX));
-	LOG_INF("[m4u cb] twin status en:%d, master:%d\n",
-		twin_status.Bits.TWIN_EN, twin_status.Bits.MASTER_MODULE);
-
-	if (twin_status.Bits.TWIN_EN == MTRUE) {
-		switch (twin_status.Bits.MASTER_MODULE) {
-		case CAM_A:
-			module = ISP_CAM_A_INNER_IDX;
-			break;
-		case CAM_B:
-			module = ISP_CAM_B_INNER_IDX;
-			break;
-		default:
-			LOG_INF("[m4u cb] master err!");
-			return MTK_IOMMU_CALLBACK_HANDLED;
-		}
+	switch (port) {
+	/* CAMA port*/
+	case M4U_PORT_L16_CAM_AAHO_R1_A:
+		ISP_DumpDmaDbgPort(ISP_CAM_A_INNER_IDX, _aaho_);
+		dumpAllRegs(ISP_CAM_A_INNER_IDX);
+		break;
+	case M4U_PORT_L16_CAM_LTMSO_R1_A:
+		ISP_DumpDmaDbgPort(ISP_CAM_A_INNER_IDX, _ltmso_);
+		dumpAllRegs(ISP_CAM_A_INNER_IDX);
+		break;
+	/* CAMB port*/
+	case M4U_PORT_L17_CAM_AAHO_R1_B:
+		ISP_DumpDmaDbgPort(ISP_CAM_B_INNER_IDX, _aaho_);
+		dumpAllRegs(ISP_CAM_B_INNER_IDX);
+		break;
+	case M4U_PORT_L17_CAM_LTMSO_R1_B:
+		ISP_DumpDmaDbgPort(ISP_CAM_B_INNER_IDX, _ltmso_);
+		dumpAllRegs(ISP_CAM_B_INNER_IDX);
+		break;
+	default:
+		LOG_INF("[m4u cb]unexpected port\n");
+		break;
 	}
 
-	/* single/master case*/
-	dumpAllRegs(module);
-
-	/* twin case*/
-	if (twin_status.Bits.TWIN_EN == MTRUE) {
-		for (i = 0 ; i < twin_status.Bits.SLAVE_CAM_NUM ; i++) {
-			switch (i) {
-			case 0:
-				LOG_INF("[m4u cb]1st slave%d cam:%d\n",
-					i, twin_status.Bits.TWIN_MODULE);
-				if (twin_status.Bits.TWIN_MODULE == CAM_B)
-					module = ISP_CAM_B_INNER_IDX;
-				else if (twin_status.Bits.TWIN_MODULE == CAM_C)
-					module = ISP_CAM_C_INNER_IDX;
-				dumpAllRegs(module);
-				break;
-			case 1:
-				LOG_INF("[m4u cb]2nd slave%d cam:%d\n",
-					i, twin_status.Bits.TRIPLE_MODULE);
-				module = ISP_CAM_C_INNER_IDX;
-				dumpAllRegs(module);
-				break;
-			default:
-				LOG_INF("[m4u cb]unexpected slave cam\n");
-				break;
-			}
-		}
-	}
 	return MTK_IOMMU_CALLBACK_HANDLED;
 }
 
@@ -7820,14 +7801,19 @@ static int __init ISP_Init(void)
 
 	SV_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAMSV_START_ST, NULL);
 
-	/* for CRZO debug usage */
-	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_CRZO_R1_A,
+	/* for AAHO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_AAHO_R1_A,
 			isp_m4u_fault_callback,
 			NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_CRZO_R1_B,
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_AAHO_R1_B,
 			isp_m4u_fault_callback,
 			NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_L18_CAM_CRZO_R1_C,
+
+	/* for LTMSO debug usage */
+	mtk_iommu_register_fault_callback(M4U_PORT_L16_CAM_LTMSO_R1_A,
+			isp_m4u_fault_callback,
+			NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L17_CAM_LTMSO_R1_B,
 			isp_m4u_fault_callback,
 			NULL);
 
