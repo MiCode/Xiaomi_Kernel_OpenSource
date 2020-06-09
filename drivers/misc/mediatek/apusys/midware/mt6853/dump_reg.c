@@ -22,6 +22,7 @@
 #define APUSYS_BASE (0x19000000)
 #define APUSYS_TO_INFRA_BASE (0x10000000)
 #define NA	(-1)
+#define FORCE_REG_DUMP_ENABLE (0)
 
 char *reg_all_mem;
 bool apusys_dump_force;
@@ -30,6 +31,7 @@ static void *apu_top;
 static void *apu_to_infra_top;
 static struct dentry *debug_node;
 static struct mutex dbg_lock;
+static struct mutex dump_lock;
 
 #define DBG_MUX_SEL_COUNT (11)
 #define TOTAL_DBG_MUX_COUNT (28)
@@ -230,7 +232,7 @@ void apusys_dump_reg_skip_gals(int onoff)
 void apusys_reg_dump(void)
 {
 	int i, offset, size;
-	mutex_lock(&dbg_lock);
+	mutex_lock(&dump_lock);
 
 	if (reg_all_mem == NULL)
 		reg_all_mem = vzalloc(APUSYS_REG_SIZE);
@@ -245,24 +247,7 @@ void apusys_reg_dump(void)
 		memcpy_fromio(reg_all_mem + offset, apu_top + offset, size);
 	}
 
-	mutex_unlock(&dbg_lock);
-}
-
-static void *dump_start(struct seq_file *sfile, loff_t *pos)
-{
-	mutex_lock(&dbg_lock);
-	return pos + (*pos == 0);
-}
-
-static void *dump_next(struct seq_file *sfile, void *v, loff_t *pos)
-{
-	++(*pos);
-	return NULL;
-}
-
-static void dump_stop(struct seq_file *sfile, void *v)
-{
-	mutex_unlock(&dbg_lock);
+	mutex_unlock(&dump_lock);
 }
 
 int dump_show(struct seq_file *sfile, void *v)
@@ -271,14 +256,14 @@ int dump_show(struct seq_file *sfile, void *v)
 	u64 nanosec_rem;
 	int i;
 
+	mutex_lock(&dbg_lock);
+
 	if (apusys_dump_force)
 		apusys_reg_dump();
 
 
 	if (reg_all_mem == NULL)
 		goto out;
-
-	mutex_lock(&dbg_lock);
 
 	t = sched_clock();
 		nanosec_rem = do_div(t, 1000000000);
@@ -306,14 +291,6 @@ out:
 	return 0;
 }
 
-
-static const struct seq_operations dump_ops = {
-	.start = dump_start,
-	.next = dump_next,
-	.stop = dump_stop,
-	.show = dump_show
-};
-
 static int dump_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, dump_show, NULL);
@@ -330,12 +307,14 @@ static const struct file_operations apu_dump_debug_fops = {
 void apusys_dump_init(void)
 {
 	mutex_init(&dbg_lock);
+	mutex_init(&dump_lock);
 	debug_node = debugfs_create_dir("debug", apusys_dbg_root);
 	debugfs_create_file("apusys_reg_all", 0444,
 			debug_node, NULL, &apu_dump_debug_fops);
-
+#if FORCE_REG_DUMP_ENABLE
 	debugfs_create_bool("force_dump", 0644,
 			debug_node, &apusys_dump_force);
+#endif
 	apu_top = ioremap_nocache(APUSYS_BASE, APUSYS_REG_SIZE);
 	apu_to_infra_top = ioremap_nocache(APUSYS_TO_INFRA_BASE, 0x10000);
 
