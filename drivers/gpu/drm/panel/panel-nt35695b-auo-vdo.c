@@ -897,7 +897,7 @@ static int lcm_enable(struct drm_panel *panel)
 	return 0;
 }
 
-#define HFP (40)
+#define HFP (50)
 #define HSA (10)
 #define HBP (20)
 #define VFP (75)
@@ -993,7 +993,7 @@ static int lcm_get_virtual_width(void)
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 440,
+	.pll_clk = 443,
 	.vfp_low_power = 743,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
