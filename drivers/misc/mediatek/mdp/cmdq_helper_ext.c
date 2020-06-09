@@ -2182,7 +2182,7 @@ int cmdqCoreFreeWriteAddressByNode(void *fp, enum CMDQ_CLT_ENUM clt)
 			list_node);
 		if (pid != write_addr->user) {
 			pid = write_addr->user;
-			CMDQ_LOG("free write buf by node:%p clt:%d pid:%u",
+			CMDQ_LOG("free write buf by node:%p clt:%d pid:%u\n",
 				fp, clt, pid);
 		}
 

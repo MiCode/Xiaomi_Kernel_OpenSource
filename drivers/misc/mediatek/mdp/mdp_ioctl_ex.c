@@ -124,6 +124,7 @@ static DEFINE_MUTEX(mdp_job_mapping_list_mutex);
 struct mdp_readback_slot {
 	u32 count;
 	dma_addr_t pa_start;
+	void *fp;
 };
 
 static struct mdp_readback_slot rb_slot[MAX_RB_SLOT_NUM];
@@ -792,7 +793,9 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 	alloc_slot_index = free_slot + free_slot_group * 64;
 	rb_slot[alloc_slot_index].count = rb_req.count;
 	rb_slot[alloc_slot_index].pa_start = paStart;
-	CMDQ_MSG("%s get 0x%pa in %d\n", __func__, &paStart, alloc_slot_index);
+	rb_slot[alloc_slot_index].fp = fp;
+	CMDQ_MSG("%s get 0x%pa in %d, fp:%p\n", __func__,
+		&paStart, alloc_slot_index, fp);
 	CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__, free_slot_group,
 		alloc_slot[free_slot_group], alloc_slot_group);
 	mutex_unlock(&rb_slot_list_mutex);
@@ -850,7 +853,9 @@ s32 mdp_ioctl_free_readback_slots(unsigned long param)
 	paStart = rb_slot[free_slot_index].pa_start;
 	rb_slot[free_slot_index].count = 0;
 	rb_slot[free_slot_index].pa_start = 0;
-	CMDQ_MSG("%s free 0x%pa in %d\n", __func__, &paStart, free_slot_index);
+	CMDQ_MSG("%s free 0x%pa in %d, fp:%p\n", __func__,
+		&paStart, free_slot_index, rb_slot[free_slot_index].fp);
+	rb_slot[free_slot_index].fp = NULL;
 	CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__, free_slot_group,
 		alloc_slot[free_slot_group], alloc_slot_group);
 	mutex_unlock(&rb_slot_list_mutex);
@@ -869,6 +874,36 @@ s32 mdp_ioctl_read_readback_slots(unsigned long param)
 	}
 
 	return mdp_process_read_request(&read_req);
+}
+
+void mdp_ioctl_free_readback_slots_by_node(void *fp)
+{
+	u32 i, free_slot_group, free_slot;
+	dma_addr_t paStart = 0;
+
+	CMDQ_MSG("%s, node:%p\n", __func__, fp);
+
+	mutex_lock(&rb_slot_list_mutex);
+	for (i = 0; i < ARRAY_SIZE(rb_slot); i++) {
+		if (rb_slot[i].fp != fp)
+			continue;
+
+		free_slot_group = i >> 6;
+		free_slot = i & 0x3f;
+		alloc_slot[free_slot_group] &= ~(1LL << free_slot);
+		if (ffz(alloc_slot[free_slot_group]) != 64)
+			alloc_slot_group &= ~(1LL << free_slot_group);
+		paStart = rb_slot[i].pa_start;
+		rb_slot[i].count = 0;
+		rb_slot[i].pa_start = 0;
+		rb_slot[i].fp = NULL;
+		CMDQ_MSG("%s free 0x%pa in %d\n", __func__, &paStart, i);
+		CMDQ_MSG("%s alloc slot[%d] %#llx, %#llx\n", __func__,
+			free_slot_group,
+			alloc_slot[free_slot_group], alloc_slot_group);
+		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
+	}
+	mutex_unlock(&rb_slot_list_mutex);
 }
 
 static long mdp_limit_ioctl(struct file *pf, unsigned int code,

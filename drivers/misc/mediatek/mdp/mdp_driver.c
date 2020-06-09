@@ -191,6 +191,7 @@ static int cmdq_release(struct inode *pInode, struct file *pFile)
 	kfree(pFile->private_data);
 	pFile->private_data = NULL;
 
+	mdp_ioctl_free_readback_slots_by_node(pFile);
 	cmdqCoreFreeWriteAddressByNode(pFile, CMDQ_CLT_MDP);
 
 	CMDQ_VERBOSE("CMDQ driver release end\n");
