@@ -18,6 +18,10 @@ source "drivers/misc/mediatek/cmdq/Kconfig"
 source "drivers/misc/mediatek/mmp/Kconfig"
 endmenu # MultiMedia, Display, Camera
 
+menu "Security"
+source "drivers/misc/mediatek/trusted_mem/Kconfig"
+endmenu # Security
+
 menu "APU"
 source "drivers/misc/mediatek/apusys/Kconfig"
 endmenu # APU
