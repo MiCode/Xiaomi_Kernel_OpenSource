@@ -175,8 +175,10 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	case MTU3_VBUS_OFF:
 		mtu3_stop(mtu);
 		pm_relax(ssusb->dev);
+		ssusb_set_force_vbus(ssusb, false);
 		break;
 	case MTU3_VBUS_VALID:
+		ssusb_set_force_vbus(ssusb, true);
 		/* avoid suspend when works as device */
 		pm_stay_awake(ssusb->dev);
 		mtu3_start(mtu);

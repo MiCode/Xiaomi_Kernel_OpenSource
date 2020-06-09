@@ -620,6 +620,10 @@ static void mtu3_regs_init(struct mtu3 *mtu)
 	mtu3_writel(mbase, U3D_DEVICE_CONF, 0);
 	/* vbus detected by HW */
 	mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
+	/* enable automatical HWRW from L1 */
+	mtu3_setbits(mbase, U3D_POWER_MANAGEMENT, LPM_HRWE);
+
+	ssusb_set_force_vbus(mtu->ssusb, true);
 	/* use new QMU format when HW version >= 0x1003 */
 	if (mtu->gen2cp)
 		mtu3_writel(mbase, U3D_QFCR, ~0x0);
