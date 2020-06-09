@@ -6006,12 +6006,6 @@ page_owner=on loop.max_part=7";
 	buck2 {
 		/delete-property/ regulator-always-on;
 	};
-	ldo6 {
-		/delete-property/ regulator-always-on;
-	};
-	ldo7 {
-		/delete-property/ regulator-always-on;
-	};
 };
 #endif
 
