@@ -6,7 +6,7 @@
 	interrupt-parent = <&vgic>;
 
 	chosen {
-		bootargs = "root=/dev/ram rw init=/init console=hvc0 loglevel=8";
+		bootargs = "nokaslr root=/dev/ram rw init=/init console=hvc0 loglevel=8";
 		linux,initrd-start = <0x2a900000>;
 		linux,initrd-end = <0x2b100000>; /* 8 MB */
 		kaslr-seed = <0xfeedbeef 0xc0def00d>;
