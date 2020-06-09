@@ -475,7 +475,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
 			atomic_read(&esd_ctx->check_wakeup) &&
-			atomic_read(&mtk_crtc->esd_ctx->target_time));
+			(atomic_read(&esd_ctx->target_time) ||
+				esd_ctx->chk_mode == READ_EINT));
 		if (ret < 0) {
 			DDPINFO("[ESD]check thread waked up accidently\n");
 			continue;
