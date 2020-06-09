@@ -1107,7 +1107,7 @@ void print_subsys_reg(enum dbg_sys_id id)
 
 	rb_dump = &rb[id];
 
-	for (i = 0; i < ARRAY_SIZE(rn); i++, rns++) {
+	for (i = 0; i < ARRAY_SIZE(rn) - 1; i++, rns++) {
 		if (!is_valid_reg(ADDR(rns)))
 			return;
 
