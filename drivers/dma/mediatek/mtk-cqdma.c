@@ -898,6 +898,12 @@ static int mtk_cqdma_remove(struct platform_device *pdev)
 	unsigned long flags;
 	int i;
 
+	dma_async_device_unregister(&cqdma->ddev);
+	of_dma_controller_free(pdev->dev.of_node);
+
+	/* disable hardware */
+	mtk_cqdma_hw_deinit(cqdma);
+
 	/* kill VC task */
 	for (i = 0; i < cqdma->dma_requests; i++) {
 		vc = &cqdma->vc[i];
@@ -919,11 +925,11 @@ static int mtk_cqdma_remove(struct platform_device *pdev)
 		tasklet_kill(&cqdma->pc[i]->tasklet);
 	}
 
-	/* disable hardware */
-	mtk_cqdma_hw_deinit(cqdma);
-
-	dma_async_device_unregister(&cqdma->ddev);
-	of_dma_controller_free(pdev->dev.of_node);
+	devm_kfree(&pdev->dev, cqdma->vc);
+	for (i = 0; i < cqdma->dma_channels; ++i)
+		devm_kfree(&pdev->dev, cqdma->pc[i]);
+	devm_kfree(&pdev->dev, cqdma->pc);
+	devm_kfree(&pdev->dev, cqdma);
 
 	return 0;
 }
