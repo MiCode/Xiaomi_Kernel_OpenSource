@@ -1874,6 +1874,7 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	unsigned char status;
 	unsigned long flags;
 	struct uart_8250_port *up = up_to_u8250p(port);
+	bool uartlog_status, uartlog_status_changed;
 
 	if (iir & UART_IIR_NO_INT)
 		return 0;
@@ -1883,8 +1884,16 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	status = serial_port_in(port, UART_LSR);
 
 	if (status & (UART_LSR_DR | UART_LSR_BI)) {
-		if (!up->dma || handle_rx_dma(up, iir))
+		if (!up->dma || handle_rx_dma(up, iir)) {
+			uartlog_status = mt_get_uartlog_status();
+			if (uartlog_status)
+				mt_disable_uart();
 			status = serial8250_rx_chars(up, status);
+			uartlog_status_changed =
+				uartlog_status != mt_get_uartlog_status();
+			if (uartlog_status && uartlog_status_changed)
+				mt_enable_uart();
+		}
 	}
 	serial8250_modem_status(up);
 	if ((!up->dma || up->dma->tx_err) && (status & UART_LSR_THRE) &&
