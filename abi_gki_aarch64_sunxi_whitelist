@@ -206,17 +206,3 @@
   __wait_on_buffer
   io_schedule
   is_bad_inode
-
-# required by squashfs.ko
-  generic_ro_fops
-  get_tree_bdev
-  iget_failed
-  iget_locked
-  inode_nohighmem
-  ll_rw_block
-  logfc
-  page_get_link
-  zlib_inflate
-  zlib_inflateEnd
-  zlib_inflateInit2
-  zlib_inflate_workspacesize
