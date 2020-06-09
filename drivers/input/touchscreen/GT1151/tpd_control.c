@@ -588,7 +588,6 @@ static void __exit tpd_device_exit(void)
 {
 	tpd_log_exit();
 	gt1x_generic_exit();
-	gt1x_tool_exit();
 	misc_deregister(&tpd_misc_device);
 	fb_unregister_client(&tpd_fb_notifier);
 	gt1x_driver_exit();
