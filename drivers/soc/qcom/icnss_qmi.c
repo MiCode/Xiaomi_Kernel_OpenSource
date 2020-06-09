@@ -1265,6 +1265,8 @@ int icnss_clear_server(struct icnss_priv *priv)
 
 	icnss_unregister_fw_service(priv);
 
+	clear_bit(ICNSS_DEL_SERVER, &priv->state);
+
 	ret =  icnss_register_fw_service(priv);
 	if (ret < 0) {
 		icnss_pr_err("WLFW server registration failed\n");
@@ -1277,7 +1279,14 @@ int icnss_clear_server(struct icnss_priv *priv)
 static int wlfw_new_server(struct qmi_handle *qmi,
 			   struct qmi_service *service)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 	struct icnss_event_server_arrive_data *event_data;
+
+	if (priv && test_bit(ICNSS_DEL_SERVER, &priv->state)) {
+		icnss_pr_info("WLFW server delete in progress, Ignore server arrive: 0x%lx\n",
+			      priv->state);
+		return 0;
+	}
 
 	icnss_pr_dbg("WLFW server arrive: node %u port %u\n",
 		     service->node, service->port);
@@ -1300,9 +1309,16 @@ static void wlfw_del_server(struct qmi_handle *qmi,
 {
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 
+	if (priv && test_bit(ICNSS_DEL_SERVER, &priv->state)) {
+		icnss_pr_info("WLFW server delete in progress, Ignore server delete:  0x%lx\n",
+			      priv->state);
+		return;
+	}
+
 	icnss_pr_dbg("WLFW server delete\n");
 
 	if (priv) {
+		set_bit(ICNSS_DEL_SERVER, &priv->state);
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
 	}
