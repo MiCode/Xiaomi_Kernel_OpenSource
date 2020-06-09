@@ -626,12 +626,16 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	u64 engine_flag = handle->engineFlag;
 	s32 thread = handle->thread;
 
+	/* assign client since mdp acquire thread after create pkt */
+	handle->pkt->cl = cmdq_helper_mbox_client(thread);
+
 	/* engine clocks enable flag decide here but call clock on before flush
 	 * common clock enable here to avoid disable when mdp engines still
 	 * need use for later tasks
 	 */
 	CMDQ_MSG("%s handle:0x%p pkt:0x%p engine:0x%016llx\n",
 		__func__, handle, handle->pkt, handle->engineFlag);
+	cmdq_mbox_enable(((struct cmdq_client *)handle->pkt->cl)->chan);
 	cmdq_mdp_common_clock_enable();
 
 	CMDQ_PROF_START(current->pid, __func__);
@@ -642,9 +646,6 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	/* make this thread can be dispath again */
 	mdp_ctx.thread[thread].allow_dispatch = true;
 	mdp_ctx.thread[thread].task_count++;
-
-	/* assign client since mdp acquire thread after create pkt */
-	handle->pkt->cl = cmdq_helper_mbox_client(thread);
 
 	CMDQ_PROF_END(current->pid, __func__);
 }
@@ -739,6 +740,7 @@ static void cmdq_mdp_handle_stop(struct cmdqRecStruct *handle)
 	/* make sure smi clock off at last */
 	mutex_lock(&mdp_thread_mutex);
 	cmdq_mdp_common_clock_disable();
+	cmdq_mbox_disable(((struct cmdq_client *)handle->pkt->cl)->chan);
 	mutex_unlock(&mdp_thread_mutex);
 }
 
