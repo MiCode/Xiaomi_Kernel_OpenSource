@@ -20,8 +20,8 @@
 #define BT_CVSD_INTERRUPT	BIT(31)
 
 #define BT_CVSD_CLEAR \
-	(BT_CVSD_TX_NREADY | BT_CVSD_RX_READY | BT_CVSD_TX_UNDERFLOW |\
-	 BT_CVSD_RX_OVERFLOW | BT_CVSD_INTERRUPT)
+	(BT_CVSD_TX_NREADY | BT_CVSD_RX_READY | BT_CVSD_RX_OVERFLOW |\
+	 BT_CVSD_INTERRUPT)
 
 /* TX */
 #define SCO_TX_ENCODE_SIZE (60)
@@ -206,10 +206,8 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 				     struct mtk_btcvsd_snd_stream *bt_stream,
 				     int state)
 {
-	dev_dbg(bt->dev, "%s(), stream %d, state %d, tx->state %d, rx->state %d, irq_disabled %d\n",
-		__func__,
-		bt_stream->stream, state,
-		bt->tx->state, bt->rx->state, bt->irq_disabled);
+	int pre_state = bt_stream->state;
+	int pre_irq_disabled = bt->irq_disabled;
 
 	bt_stream->state = state;
 
@@ -227,6 +225,11 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 			bt->irq_disabled = 0;
 		}
 	}
+	dev_dbg(bt->dev,
+		"%s(), stream %d, state %d->%d, tx->state %d, rx->state %d, irq_disabled %d->%d\n"
+		, __func__,
+		bt_stream->stream, pre_state, state, bt->tx->state,
+		bt->rx->state, pre_irq_disabled, bt->irq_disabled);
 }
 
 static int mtk_btcvsd_snd_tx_init(struct mtk_btcvsd_snd *bt)
@@ -700,6 +703,8 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	}
 
 	*bt->bt_reg_ctl &= ~BT_CVSD_CLEAR;
+	if (bt->tx->state == BT_SCO_STATE_IDLE)
+		*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
 
 	if (bt->rx->state == BT_SCO_STATE_RUNNING ||
 	    bt->rx->state == BT_SCO_STATE_ENDING) {
@@ -894,7 +899,7 @@ ssize_t mtk_btcvsd_snd_write(struct mtk_btcvsd_snd *bt,
 		spin_unlock_irqrestore(&bt->tx_lock, flags);
 
 		if (!avail) {
-			int ret = wait_for_bt_irq(bt, bt->rx);
+			int ret = wait_for_bt_irq(bt, bt->tx);
 
 			if (ret)
 				return written_size;
