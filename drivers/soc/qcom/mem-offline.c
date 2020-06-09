@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/memory.h>
 #include <linux/module.h>
 #include <linux/memblock.h>
+#include <linux/mmu_context.h>
 #include <linux/mmzone.h>
 #include <linux/ktime.h>
 #include <linux/of.h>
@@ -91,6 +92,22 @@ static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
 
 	virt = (unsigned long)phys_to_virt(start);
 	flush_tlb_kernel_range(virt, addr_end);
+}
+
+static void init_pgtable_mapping(phys_addr_t start, phys_addr_t end)
+{
+	unsigned long size = end - start;
+
+	/*
+	 * When rodata_full is enabled, memory is mapped at a page size
+	 * granule, as opposed to a block mapping, so restore the attribute
+	 * of each PTE when rodata_full is enabled.
+	 */
+	if (rodata_full)
+		set_memory_valid((unsigned long)phys_to_virt(start),
+				 size >> PAGE_SHIFT, (int)true);
+	else
+		create_pgtable_mapping(start, end);
 }
 
 static void record_stat(unsigned long sec, ktime_t delay, int mode)
@@ -324,7 +341,7 @@ static int mem_event_callback(struct notifier_block *self,
 
 		if (!debug_pagealloc_enabled()) {
 			/* Create kernel page-tables */
-			create_pgtable_mapping(start_addr, end_addr);
+			init_pgtable_mapping(start_addr, end_addr);
 		}
 
 		break;
