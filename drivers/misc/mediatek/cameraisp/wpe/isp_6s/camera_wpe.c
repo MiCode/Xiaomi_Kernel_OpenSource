@@ -4903,14 +4903,14 @@ static signed int WPE_mmap(
 	struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
 	/*  */
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
-	LOG_INF("mmap:pVma->vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx)\n",
+	LOG_INF("mmap:pVma->vm_pgoff(0x%lx),pfn(0x%lx),phy(0x%lx)\n",
 		pVma->vm_pgoff, pfn, pVma->vm_pgoff << PAGE_SHIFT);
 	LOG_INF(
 		"mmap:pVmapVma->vm_start(0x%lx),pVma->vm_end(0x%lx),length(0x%lx)\n",
@@ -4920,7 +4920,7 @@ static signed int WPE_mmap(
 	case WPE_BASE_HW:
 		if (length > WPE_REG_RANGE) {
 			LOG_ERR(
-				"mmap range error :module:0x%x length(0x%lx),WPE_REG_RANGE(0x%x)!",
+				"mmap range error :module:0x%lx length(0x%lx),WPE_REG_RANGE(0x%x)!",
 				pfn, length, WPE_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -4929,7 +4929,7 @@ static signed int WPE_mmap(
 	case WPE_B_BASE_HW:
 		if (length > WPE_REG_RANGE) {
 			LOG_ERR(
-				"mmap range error :module:0x%x length(0x%lx),WPE_REG_RANGE(0x%x)!",
+				"mmap range error :module:0x%lx length(0x%lx),WPE_REG_RANGE(0x%x)!",
 				pfn, length, WPE_REG_RANGE);
 			return -EAGAIN;
 		}
