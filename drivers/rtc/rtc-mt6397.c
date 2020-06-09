@@ -15,6 +15,13 @@
 #include <linux/rtc.h>
 #include <linux/mfd/mt6397/rtc.h>
 #include <linux/mod_devicetable.h>
+#include <linux/nvmem-provider.h>
+
+static const struct reg_field mtk_rtc_spare_reg_fields[SPARE_RG_MAX] = {
+	[SPARE_AL_HOU] = REG_FIELD(RTC_AL_HOU, 8, 15),
+	[SPARE_AL_MTH] = REG_FIELD(RTC_AL_MTH, 8, 15),
+	[SPARE_SPAR0] = REG_FIELD(RTC_SPAR0, 0, 7),
+};
 
 static int mtk_rtc_write_trigger(struct mt6397_rtc *rtc)
 {
@@ -33,6 +40,49 @@ static int mtk_rtc_write_trigger(struct mt6397_rtc *rtc)
 	if (ret < 0)
 		dev_err(rtc->dev, "failed to write WRTGE: %d\n", ret);
 
+	return ret;
+}
+
+static int rtc_nvram_read(void *priv, unsigned int offset, void *val,
+							size_t bytes)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(priv);
+	unsigned int ival;
+	int ret;
+	u8 *buf = val;
+
+	mutex_lock(&rtc->lock);
+
+	for (; bytes; bytes--) {
+		ret = regmap_field_read(rtc->spare[offset++], &ival);
+		if (ret)
+			goto out;
+		*buf++ = (u8)ival;
+	}
+out:
+	mutex_unlock(&rtc->lock);
+	return ret;
+}
+
+static int rtc_nvram_write(void *priv, unsigned int offset, void *val,
+							size_t bytes)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(priv);
+	unsigned int ival;
+	int ret;
+	u8 *buf = val;
+
+	mutex_lock(&rtc->lock);
+
+	for (; bytes; bytes--) {
+		ival = *buf++;
+		ret = regmap_field_write(rtc->spare[offset++], ival);
+		if (ret)
+			goto out;
+	}
+	mtk_rtc_write_trigger(rtc);
+out:
+	mutex_unlock(&rtc->lock);
 	return ret;
 }
 
@@ -257,6 +307,42 @@ static const struct rtc_class_ops mtk_rtc_ops = {
 	.set_alarm  = mtk_rtc_set_alarm,
 };
 
+static int mtk_rtc_set_spare(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	struct reg_field tmp[SPARE_RG_MAX];
+	int i, ret;
+	struct nvmem_config nvmem_cfg = {
+		.name = "mtk_rtc_nvmem",
+		.word_size = SPARE_REG_WIDTH,
+		.stride = 1,
+		.size = SPARE_RG_MAX * SPARE_REG_WIDTH,
+		.reg_read = rtc_nvram_read,
+		.reg_write = rtc_nvram_write,
+		.priv = dev,
+	};
+
+	memcpy(tmp, rtc->data->spare_reg_fields, sizeof(tmp));
+
+	for (i = 0; i < SPARE_RG_MAX; i++) {
+		tmp[i].reg += rtc->addr_base;
+		rtc->spare[i] = devm_regmap_field_alloc(rtc->dev,
+							rtc->regmap,
+							tmp[i]);
+		if (IS_ERR(rtc->spare[i])) {
+			dev_err(rtc->dev, "spare regmap field[%d] err= %ld\n",
+						i, PTR_ERR(rtc->spare[i]));
+			return PTR_ERR(rtc->spare[i]);
+		}
+	}
+
+	ret = rtc_nvmem_register(rtc->rtc_dev, &nvmem_cfg);
+	if (ret)
+		dev_err(rtc->dev, "nvmem register failed\n");
+
+	return ret;
+}
+
 static int mtk_rtc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -269,6 +355,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	rtc->dev = &pdev->dev;
 	rtc->addr_base = res->start;
 
 	rtc->data = of_device_get_match_data(&pdev->dev);
@@ -301,6 +388,10 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 
 	rtc->rtc_dev->ops = &mtk_rtc_ops;
 
+	if (rtc->data->spare_reg_fields)
+		if (mtk_rtc_set_spare(&pdev->dev))
+			dev_err(&pdev->dev, "spare is not supported\n");
+
 	return rtc_register_device(rtc->rtc_dev);
 }
 
@@ -331,6 +422,7 @@ static SIMPLE_DEV_PM_OPS(mt6397_pm_ops, mt6397_rtc_suspend,
 
 static const struct mtk_rtc_data mt6358_rtc_data = {
 	.wrtgr = RTC_WRTGR_MT6358,
+	.spare_reg_fields = mtk_rtc_spare_reg_fields,
 };
 
 static const struct mtk_rtc_data mt6397_rtc_data = {
