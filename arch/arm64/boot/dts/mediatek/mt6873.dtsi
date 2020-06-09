@@ -466,6 +466,22 @@
 			clock-names = "devapc-infra-clock";
 		};
 
+		cqdma: cq_dma@10212000 {
+			compatible = "mediatek,mt6765-cqdma";
+			reg = <0 0x10212000 0 0x80>,
+			      <0 0x10212100 0 0x80>,
+			      <0 0x10212200 0 0x80>,
+			      <0 0x10212300 0 0x80>;
+			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH 0>,
+			      <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH 0>,
+			      <GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH 0>,
+			      <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH 0>;
+			dma-channels = <4>;
+			dma-channel-mask = <63>;
+			clocks = <&infracfg CLK_INFRA_CQ_DMA>;
+			clock-names = "cqdma";
+		};
+
 		apdma: dma-controller@10217a80 {
 			compatible = "mediatek,mt6577-uart-dma";
 			reg =   <0 0x10217a80 0 0x80>,
