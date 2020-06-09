@@ -275,6 +275,7 @@ struct smb_charger {
 	struct delayed_work	bb_removal_work;
 	struct delayed_work	thermal_regulation_work;
 	struct delayed_work	role_reversal_check;
+	struct delayed_work	pr_swap_detach_work;
 
 	struct charger_param	chg_param;
 
@@ -313,6 +314,7 @@ struct smb_charger {
 	bool			ldo_mode;
 	int			usb_id_gpio;
 	int			usb_id_irq;
+	bool			typec_role_swap_failed;
 
 	/* workaround flag */
 	u32			wa_flags;
