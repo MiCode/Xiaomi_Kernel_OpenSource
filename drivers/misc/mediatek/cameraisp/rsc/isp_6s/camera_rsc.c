@@ -2819,7 +2819,7 @@ EXIT:
 static signed int RSC_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
 	/*  */
@@ -2827,14 +2827,14 @@ static signed int RSC_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
 	LOG_INF(
-		"mmap:vm_pgoff(0x%lx) pfn(0x%x) phy(0x%lx) vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
+		"mmap:vm_pgoff(0x%lx) pfn(0x%lx) phy(0x%lx) vm_start(0x%lx) vm_end(0x%lx) length(0x%lx)",
 		pVma->vm_pgoff, pfn, pVma->vm_pgoff << PAGE_SHIFT,
 			pVma->vm_start, pVma->vm_end, length);
 
 	switch (pfn) {
 	case RSC_BASE_HW:
 		if (length > RSC_REG_RANGE) {
-			LOG_ERR("mmap err:mod:0x%x len(0x%lx),REG_RANGE(0x%x)!",
+			LOG_ERR("mmap err:mod:0x%lx len:0x%lx,REG_RANGE:0x%x",
 				pfn, length, RSC_REG_RANGE);
 			return -EAGAIN;
 		}
