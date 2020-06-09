@@ -251,7 +251,7 @@ static int MFC_GetScale(unsigned int fb_width, unsigned int fb_height,
 enum MFC_STATUS MFC_Open(MFC_HANDLE *handle, void *fb_addr,
 			 unsigned int fb_width, unsigned int fb_height,
 			 unsigned int fb_bpp, unsigned int fg_color,
-			 unsigned int bg_color)
+			 unsigned int bg_color, struct file *filp)
 {
 	struct MFC_CONTEXT *ctxt = NULL;
 
@@ -280,6 +280,7 @@ enum MFC_STATUS MFC_Open(MFC_HANDLE *handle, void *fb_addr,
 	ctxt->cols = fb_width / (MFC_FONT_WIDTH * ctxt->scale);
 	ctxt->font_width = MFC_FONT_WIDTH;
 	ctxt->font_height = MFC_FONT_HEIGHT;
+	ctxt->filp = filp;
 
 	*handle = ctxt;
 
@@ -289,7 +290,8 @@ enum MFC_STATUS MFC_Open(MFC_HANDLE *handle, void *fb_addr,
 enum MFC_STATUS MFC_Open_Ex(MFC_HANDLE *handle, void *fb_addr,
 			    unsigned int fb_width, unsigned int fb_height,
 			    unsigned int fb_pitch, unsigned int fb_bpp,
-			    unsigned int fg_color, unsigned int bg_color)
+			    unsigned int fg_color, unsigned int bg_color,
+			    struct file *filp)
 {
 	struct MFC_CONTEXT *ctxt = NULL;
 
@@ -318,6 +320,7 @@ enum MFC_STATUS MFC_Open_Ex(MFC_HANDLE *handle, void *fb_addr,
 	ctxt->cols = fb_width / (MFC_FONT_WIDTH * ctxt->scale);
 	ctxt->font_width = MFC_FONT_WIDTH;
 	ctxt->font_height = MFC_FONT_HEIGHT;
+	ctxt->filp = filp;
 
 	*handle = ctxt;
 

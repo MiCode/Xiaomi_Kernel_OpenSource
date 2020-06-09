@@ -44,8 +44,7 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 	mtk_gem_obj = kzalloc(sizeof(*mtk_gem_obj), GFP_KERNEL);
 	if (!mtk_gem_obj)
 		return ERR_PTR(-ENOMEM);
-	/*Avoid kmemleak tool scan*/
-	kmemleak_no_scan(mtk_gem_obj);
+
 	ret = drm_gem_object_init(dev, &mtk_gem_obj->base, size);
 	if (ret != 0) {
 		DDPPR_ERR("failed to initialize gem object\n");
@@ -101,7 +100,7 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 	mtk_gem->cookie = va_align;
 
 	kfree(pages);
-	kmemleak_ignore(sgt);
+
 	return sgt;
 }
 #if 0
@@ -206,8 +205,20 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 
 	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,
 		mtk_gem->cookie, &mtk_gem->dma_addr, size);
-	sg_free_table(mtk_gem->sg);
+
 	return mtk_gem;
+}
+
+void mtk_drm_fb_gem_release(struct drm_device *dev)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
+
+	sg_free_table(mtk_gem->sg);
+	drm_gem_object_release(&mtk_gem->base);
+
+	kfree(mtk_gem->sg);
+	kfree(mtk_gem);
 }
 
 struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,

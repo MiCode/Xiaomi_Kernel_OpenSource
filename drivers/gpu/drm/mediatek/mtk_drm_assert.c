@@ -408,15 +408,15 @@ void mtk_drm_assert_fb_init(struct drm_device *dev, u32 width, u32 height)
 		drm_gem_object_release(&mtk_gem->base);
 		return;
 	}
+	//Avoid kmemleak to scan
+	kmemleak_ignore(mtk_gem);
 
 	dal_va = mtk_gem->kvaddr;
 	dal_pa = mtk_gem->dma_addr;
 
 	MFC_Open(&mfc_handle, mtk_gem->kvaddr, width, height, DAL_BPP,
 		 RGB888_To_RGB565(DAL_COLOR_WHITE),
-		 RGB888_To_RGB565(DAL_COLOR_RED));
-	/*Avoid kmemleak scan,because this buffer always reserved*/
-	kmemleak_ignore(mtk_gem);
+		 RGB888_To_RGB565(DAL_COLOR_RED), mtk_gem->base.filp);
 }
 
 int mtk_drm_assert_layer_init(struct drm_crtc *crtc)

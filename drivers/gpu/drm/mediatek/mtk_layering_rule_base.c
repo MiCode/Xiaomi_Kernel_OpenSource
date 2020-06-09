@@ -42,6 +42,7 @@
 #include "mtk_drm_fbdev.h"
 #define CREATE_TRACE_POINTS
 #include "mtk_layer_layout_trace.h"
+#include "mtk_drm_gem.h"
 
 static struct drm_mtk_layering_info layering_info;
 #ifdef HRT_UT_DEBUG
@@ -2915,6 +2916,7 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 
 	/*free fb buf in second query valid*/
 	if (second_query && !already_free) {
+		mtk_drm_fb_gem_release(dev);
 		free_fb_buf();
 		already_free = true;
 	}
