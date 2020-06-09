@@ -84,14 +84,17 @@
 
 &pm8350c_switch0 {
 	qcom,led-mask = <9>; /* Channels 1 & 4 */
+	qcom,symmetry-en;
 };
 
 &pm8350c_switch1 {
 	qcom,led-mask = <6>; /* Channels 2 & 3 */
+	qcom,symmetry-en;
 };
 
 &pm8350c_switch2 {
 	qcom,led-mask = <15>; /* All Channels */
+	qcom,symmetry-en;
 };
 
 &pm8350c_flash {
