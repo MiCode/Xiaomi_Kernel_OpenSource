@@ -167,6 +167,14 @@ static const struct mtk_iommu_iova_region single_domain[] = {
 	{.iova_base = 0, .size = SZ_4G},
 };
 
+static const struct mtk_iommu_iova_region mt6873_multi_dom[] = {
+	{ .iova_base = 0x0, .size = SZ_4G},	      /* disp : 0 ~ 4G */
+	{ .iova_base = SZ_4G, .size = SZ_4G},     /* vdec : 4G ~ 8G */
+	{ .iova_base = SZ_4G * 2, .size = SZ_4G}, /* CAM/MDP: 8G ~ 12G */
+	{ .iova_base = 0x240000000ULL, .size = 0x4000000}, /* CCU0 */
+	{ .iova_base = 0x244000000ULL, .size = 0x4000000}, /* CCU1 */
+};
+
 /*
  * There may be 1 or 2 M4U HWs, But we always expect they are in the same domain
  * for the performance.
@@ -946,8 +954,8 @@ static const struct mtk_iommu_plat_data mt6873_data_mm = {
 	.has_misc_ctrl = true,
 	.has_bclk     = true,
 	.inv_sel_reg = REG_MMU_INV_SEL_GEN2,
-	.iova_region  = single_domain,
-	.iova_region_cnt = ARRAY_SIZE(single_domain),
+	.iova_region  = mt6873_multi_dom,
+	.iova_region_cnt = ARRAY_SIZE(mt6873_multi_dom),
 };
 
 static const struct mtk_iommu_plat_data mt8173_data = {
