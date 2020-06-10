@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * RMNET Data virtual network driver
  *
@@ -373,7 +373,7 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
 		rmnet_dev->rtnl_link_ops = &rmnet_link_ops;
 
 		priv->mux_id = id;
-		priv->qos_info = qmi_rmnet_qos_init(real_dev, id);
+		priv->qos_info = qmi_rmnet_qos_init(real_dev, rmnet_dev, id);
 
 		netdev_dbg(rmnet_dev, "rmnet dev created\n");
 	}
