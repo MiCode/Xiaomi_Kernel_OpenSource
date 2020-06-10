@@ -476,6 +476,8 @@ static struct {
 	dev_t dev_ctrl, dev_node;
 	struct class *node_class;
 	struct cdev ctrl_dev, node_dev;
+	unsigned long state;
+	struct wcnss_driver_ops *ops;
 } *penv = NULL;
 
 static void *wcnss_ipc_log;
@@ -1564,6 +1566,8 @@ static int wcnss_ctrl_probe(struct rpmsg_device *rpdev)
 	if (penv->wlan_config.is_pronto_vadc && penv->adc_channel)
 		schedule_work(&penv->wcnss_vadc_work);
 
+	penv->state = WCNSS_SMD_OPEN;
+
 	return 0;
 }
 
@@ -1582,6 +1586,8 @@ static int wcnss_rpmsg_resource_init(void)
 	}
 	INIT_LIST_HEAD(&penv->event_list);
 	spin_lock_init(&penv->event_lock);
+
+	penv->state = WCNSS_SMD_CLOSE;
 
 	return 0;
 }
@@ -1697,6 +1703,58 @@ int wcnss_wlan_get_dxe_rx_irq(struct device *dev)
 	return WCNSS_WLAN_IRQ_INVALID;
 }
 EXPORT_SYMBOL(wcnss_wlan_get_dxe_rx_irq);
+
+int wcnss_register_driver(struct wcnss_driver_ops *ops, void *priv)
+{
+	int ret = 0;
+
+	if (!penv || !penv->pdev) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	wcnss_log(ERR, "Registering driver, state: 0x%lx\n", penv->state);
+
+	if (penv->ops) {
+		wcnss_log(ERR, "Driver already registered\n");
+		ret = -EEXIST;
+		goto out;
+	}
+
+	penv->ops = ops;
+	penv->ops->priv_data = priv;
+
+	if (penv->state == WCNSS_SMD_OPEN)
+		ops->driver_state(ops->priv_data, WCNSS_SMD_OPEN);
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(wcnss_register_driver);
+
+int wcnss_unregister_driver(struct wcnss_driver_ops *ops)
+{
+	int ret;
+
+	if (!penv || !penv->pdev) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	wcnss_log(ERR, "Unregistering driver, state: 0x%lx\n", penv->state);
+
+	if (!penv->ops) {
+		wcnss_log(ERR, "Driver not registered\n");
+		ret = -ENOENT;
+		goto out;
+	}
+
+	penv->ops = NULL;
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(wcnss_unregister_driver);
 
 void wcnss_wlan_register_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops)
@@ -2319,6 +2377,11 @@ static void wcnss_process_smd_msg(void *buf, int len)
 			 nvresp->status);
 		if (nvresp->status != WAIT_FOR_CBC_IND)
 			penv->is_cbc_done = 1;
+
+		if (penv->ops)
+			penv->ops->driver_state(penv->ops->priv_data,
+						WCNSS_SMD_OPEN);
+
 		wcnss_setup_vbat_monitoring();
 		break;
 
@@ -3407,6 +3470,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	struct notif_data *data = (struct notif_data *)ss_handle;
 	int ret, xo_mode;
+	void *priv;
 
 	if (!(code >= SUBSYS_NOTIF_MIN_INDEX) &&
 	    (code <= SUBSYS_NOTIF_MAX_INDEX)) {
@@ -3442,6 +3506,12 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 		schedule_delayed_work(&penv->wcnss_pm_qos_del_req,
 				      msecs_to_jiffies(WCNSS_PM_QOS_TIMEOUT));
 		penv->is_shutdown = 1;
+
+		if (penv->ops) {
+			priv = penv->ops->priv_data;
+			penv->ops->driver_state(priv, WCNSS_SMD_CLOSE);
+		}
+
 		wcnss_log_debug_regs_on_bite();
 	} else if (code == SUBSYS_POWERUP_FAILURE) {
 		if (pdev && pwlanconfig)
