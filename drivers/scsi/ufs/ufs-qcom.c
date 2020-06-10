@@ -2311,7 +2311,6 @@ out_disable_vddp:
 out_phy_exit:
 	phy_exit(host->generic_phy);
 out_variant_clear:
-	devm_kfree(dev, host);
 	ufshcd_set_variant(hba, NULL);
 out:
 	return err;
