@@ -592,6 +592,7 @@
   strchr
   strcmp
   strcpy
+  strlcat
   strlcpy
   strlen
   strncasecmp
@@ -687,6 +688,7 @@
   usb_gadget_udc_reset
   usb_get_dr_mode
   usb_get_intf
+  usb_hcd_is_primary_hcd
   usb_interface_id
   usb_kill_urb
   usb_phy_get_charger_current
@@ -1763,6 +1765,7 @@
 
 # required by sprd_powerdebug.ko
   cpu_pm_register_notifier
+  cpu_pm_unregister_notifier
   pm_print_active_wakeup_sources
   syscon_node_to_regmap
 
@@ -2372,3 +2375,16 @@
   ufshcd_shutdown
   ufshcd_system_resume
   ufshcd_system_suspend
+
+# required by sprd_cpp.ko
+  clk_get_parent
+  of_iomap
+
+# required by sprd_camera.ko
+  ion_alloc
+  ion_free
+  ktime_get_ts64
+  ns_to_timeval
+  of_irq_to_resource
+  _raw_spin_trylock
+  regulator_get_linear_step
