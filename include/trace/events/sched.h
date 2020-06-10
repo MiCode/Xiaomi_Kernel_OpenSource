@@ -990,7 +990,7 @@ TRACE_EVENT(sched_compute_energy,
 		__entry->best_energy            = best_energy;
 	),
 
-	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%llu eval_cpu=%d eval_energy=%llu best_energy_cpu=%d best_energy=%llu",
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%lu eval_cpu=%d eval_energy=%lu best_energy_cpu=%d best_energy=%lu",
 		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
 		__entry->prev_energy, __entry->eval_cpu, __entry->eval_energy,
 		__entry->best_energy_cpu, __entry->best_energy)
