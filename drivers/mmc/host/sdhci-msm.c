@@ -3724,6 +3724,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto pm_runtime_disable;
 
+	/*
+	 * Ensure larger discard size by setting max_busy_timeout.
+	 * This has to set only after sdhci_add_host so that our
+	 * value won't be over-written.
+	 */
+	host->mmc->max_busy_timeout = 0;
+
+	/*
+	 * Set platfm_init_done only after sdhci_add_host().
+	 * So that we don't turn off vqmmc while we reset sdhc as
+	 * part of sdhci_add_host().
+	 */
+	msm_host->pltfm_init_done = true;
+
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
