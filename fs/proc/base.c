@@ -2913,7 +2913,7 @@ static ssize_t proc_sched_task_boost_read(struct file *file,
 
 	if (!task)
 		return -ESRCH;
-	sched_boost = task->boost;
+	sched_boost = task->wts.boost;
 	put_task_struct(task);
 	len = scnprintf(buffer, sizeof(buffer), "%d\n", sched_boost);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
@@ -2945,9 +2945,9 @@ static ssize_t proc_sched_task_boost_write(struct file *file,
 		goto out;
 	}
 
-	task->boost = sched_boost;
+	task->wts.boost = sched_boost;
 	if (sched_boost == 0)
-		task->boost_period = 0;
+		task->wts.boost_period = 0;
 out:
 	put_task_struct(task);
 	return err < 0 ? err : count;
@@ -2963,7 +2963,7 @@ static ssize_t proc_sched_task_boost_period_read(struct file *file,
 
 	if (!task)
 		return -ESRCH;
-	sched_boost_period_ms = div64_ul(task->boost_period, 1000000UL);
+	sched_boost_period_ms = div64_ul(task->wts.boost_period, 1000000UL);
 	put_task_struct(task);
 	len = snprintf(buffer, sizeof(buffer), "%llu\n", sched_boost_period_ms);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
@@ -2991,14 +2991,14 @@ static ssize_t proc_sched_task_boost_period_write(struct file *file,
 	err = kstrtouint(strstrip(buffer), 0, &sched_boost_period);
 	if (err)
 		goto out;
-	if (task->boost == 0 && sched_boost_period) {
+	if (task->wts.boost == 0 && sched_boost_period) {
 		/* setting boost period without boost is invalid */
 		err = -EINVAL;
 		goto out;
 	}
 
-	task->boost_period = (u64)sched_boost_period * 1000 * 1000;
-	task->boost_expires = sched_clock() + task->boost_period;
+	task->wts.boost_period = (u64)sched_boost_period * 1000 * 1000;
+	task->wts.boost_expires = sched_clock() + task->wts.boost_period;
 out:
 	put_task_struct(task);
 	return err < 0 ? err : count;

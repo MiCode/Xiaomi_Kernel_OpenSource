@@ -475,11 +475,11 @@ TRACE_EVENT(sched_load_balance_skip_tasks,
 	TP_fast_assign(
 		__entry->scpu           = scpu;
 		__entry->src_util_cum   =
-					cpu_rq(scpu)->cum_window_demand_scaled;
+				cpu_rq(scpu)->wrq.cum_window_demand_scaled;
 		__entry->grp_type       = grp_type;
 		__entry->dcpu           = dcpu;
 		__entry->dst_util_cum   =
-					cpu_rq(dcpu)->cum_window_demand_scaled;
+				cpu_rq(dcpu)->wrq.cum_window_demand_scaled;
 		__entry->pid            = pid;
 		__entry->affinity       = affinity;
 		__entry->task_util      = task_util;
@@ -1044,7 +1044,7 @@ TRACE_EVENT(sched_task_util,
 		__entry->rtg_skip_min           = rtg_skip_min;
 		__entry->start_cpu              = start_cpu;
 #ifdef CONFIG_SCHED_WALT
-		__entry->unfilter               = p->unfilter;
+		__entry->unfilter               = p->wts.unfilter;
 #else
 		__entry->unfilter               = 0;
 #endif
