@@ -2870,7 +2870,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!of_id || !of_id->data) {
 		icnss_pr_err("Failed to find of match device!\n");
 		ret = -ENODEV;
-		goto out;
+		goto out_reset_drvdata;
 	}
 
 	device_id = of_id->data;
@@ -2894,15 +2894,15 @@ static int icnss_probe(struct platform_device *pdev)
 
 	ret = icnss_resource_parse(priv);
 	if (ret)
-		goto out;
+		goto out_reset_drvdata;
 
 	ret = icnss_msa_dt_parse(priv);
 	if (ret)
-		goto out;
+		goto out_free_resources;
 
 	ret = icnss_smmu_dt_parse(priv);
 	if (ret)
-		goto out;
+		goto out_free_resources;
 
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
@@ -2965,9 +2965,10 @@ out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
 smmu_cleanup:
 	priv->iommu_domain = NULL;
-out:
+out_free_resources:
+	icnss_put_resources(priv);
+out_reset_drvdata:
 	dev_set_drvdata(dev, NULL);
-
 	return ret;
 }
 
@@ -3003,6 +3004,8 @@ static int icnss_remove(struct platform_device *pdev)
 	priv->iommu_domain = NULL;
 
 	icnss_hw_power_off(priv);
+
+	icnss_put_resources(priv);
 
 	dev_set_drvdata(&pdev->dev, NULL);
 
