@@ -24,4 +24,25 @@
 		qcom,ap2bg-errfatal-gpio = <&tlmm 62 0>;
 	};
 
+	spi_3: spi@78b7000 {  /* BLSP1 QUP3*/
+		status = "ok";
+		qcom,bg-spi {
+			compatible = "qcom,bg-spi";
+			reg = <0>;
+			spi-max-frequency = <16000000>;
+			interrupt-parent = <&tlmm>;
+			qcom,irq-gpio = <&tlmm 43 1>;
+		};
+	};
+
+	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
+		status = "disabled";
+	};
+
+	qcom,bg-daemon {
+		compatible = "qcom,bg-daemon";
+		qcom,bg-reset-gpio = <&pm660_gpios 5 0>;
+		ssr-reg1-supply = <&pm660_l3>;
+		ssr-reg2-supply = <&pm660_l9>;
+	};
 };
