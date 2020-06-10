@@ -49,13 +49,13 @@ apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_queue_norm.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_queue_deadline.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_pack.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_dmy.o
+apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_aosp.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_import.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_fence.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_tag.o
 ifeq ($(CONFIG_MTK_ION), y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
-else
-apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_dmy.o
 endif
 
 # debug makefile

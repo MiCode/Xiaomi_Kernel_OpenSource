@@ -11,9 +11,7 @@
 #include "mdw_mem.h"
 #include "mdw_mem_cmn.h"
 
-#define APUSYS_OPTIONS_MEM_ION
-#define APUSYS_OPTIONS_MEM_VLM
-
+// TODO: get VLM config from DTS
 #define APUSYS_VLM_START 0x1D800000
 #define APUSYS_VLM_SIZE 0x100000
 
@@ -63,11 +61,28 @@ static void mdw_mem_list_del(struct mdw_mem *mmem)
 	mutex_unlock(&m_mgr.mtx);
 }
 
+/**
+ * Allocate memory with mapping to kva and iova.<br>
+ * <b>Inputs</b><br>
+ *   mem->size: memory size.<br>
+ *   mem->align: memory alignment, 4KB by default.<br>
+ * <b>Outputs</b><br>
+ *   mem->kva: mapped kernel virtual address.<br>
+ *   mem->iova: mapped iova address.<br>
+ *   mem->khandle: [ION] kernel handle.<br>
+ *   mem->attach: [AOSP] DMA buffer attachment.<br>
+ *   mem->sgt: [AOSP] scatter list table.<br>
+ * @param[in,out] mem The apusys memory
+ * @return 0: Success.<br>
+ *   ENODEV: memory operations doesn't exist.<br>
+ *   ENOMEM: out of memory.<br>
+ * @remark mem->property is set to APUSYS_MEM_PROP_ALLOC
+ */
 int mdw_mem_alloc(struct mdw_mem *m)
 {
 	int ret = 0;
 
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->alloc)
 		return -ENODEV;
 
 	ret = m_mgr.dops->alloc(&m->kmem);
@@ -80,11 +95,18 @@ int mdw_mem_alloc(struct mdw_mem *m)
 	return ret;
 }
 
+/**
+ * Free memory with mapped kva or iova.<br>
+ * The counter function to apusys_mem_alloc().<br>
+ * @param[in] mem The allocated apusys memory
+ * @return 0: Success.<br>
+ *   ENODEV: memory operations doesn't exist.<br>
+ */
 int mdw_mem_free(struct mdw_mem *m)
 {
 	int ret = 0;
 
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->free)
 		return -ENODEV;
 
 	ret = m_mgr.dops->free(&m->kmem);
@@ -93,11 +115,27 @@ int mdw_mem_free(struct mdw_mem *m)
 	return ret;
 }
 
+/**
+ * Import memory from given fd, and map to kva, iova.<br>
+ * <b>Inputs</b><br>
+ *   mem->fd: file descriptor shared from ION or DMA buffer.<br>
+ * <b>Outputs</b><br>
+ *   mem->kva: mapped kernel virtual address.<br>
+ *   mem->iova: mapped iova address.<br>
+ *   mem->khandle: [ION] kernel handle.<br>
+ *   mem->attach: [AOSP] DMA buffer attachment.<br>
+ *   mem->sgt: [AOSP] scatter list table.<br>
+ * @param[in,out] mem The apusys memory
+ * @return 0: Success.<br>
+ *   ENODEV: memory operations doesn't exist.<br>
+ *   ENOMEM: out of memory.<br>
+ * @remark mem->property is set to APUSYS_MEM_PROP_IMPORT.<br>
+ */
 int mdw_mem_import(struct mdw_mem *m)
 {
 	int ret = 0;
 
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->map_iova)
 		return -ENODEV;
 
 	ret = m_mgr.dops->map_iova(&m->kmem);
@@ -110,11 +148,18 @@ int mdw_mem_import(struct mdw_mem *m)
 	return ret;
 }
 
+/**
+ * Unimport memory with mapped kva, iova.<br>
+ * The counter function to apusys_mem_import().<br>
+ * @param[in] mem The allocated apusys memory
+ * @return 0: Success.<br>
+ *   ENODEV: memory operations doesn't exist.<br>
+ */
 int mdw_mem_unimport(struct mdw_mem *m)
 {
 	int ret = 0;
 
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->unmap_iova)
 		return -ENODEV;
 
 	ret = m_mgr.dops->unmap_iova(&m->kmem);
@@ -127,7 +172,7 @@ int mdw_mem_map(struct mdw_mem *m)
 {
 	int ret = 0;
 
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->map_kva || !m_mgr.dops->map_iova)
 		return -ENODEV;
 
 	ret = m_mgr.dops->map_kva(&m->kmem);
@@ -151,7 +196,7 @@ fail_map_kva:
 
 int mdw_mem_unmap(struct mdw_mem *m)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->unmap_iova || !m_mgr.dops->unmap_kva)
 		return -ENODEV;
 
 	m_mgr.dops->unmap_iova(&m->kmem);
@@ -163,7 +208,7 @@ int mdw_mem_unmap(struct mdw_mem *m)
 
 int mdw_mem_flush(struct apusys_kmem *km)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->flush)
 		return -ENODEV;
 
 	return m_mgr.dops->flush(km);
@@ -171,39 +216,61 @@ int mdw_mem_flush(struct apusys_kmem *km)
 
 int mdw_mem_invalidate(struct apusys_kmem *km)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->invalidate)
 		return -ENODEV;
 
 	return m_mgr.dops->invalidate(km);
 }
 
+/**
+ * Map fd (mem->fd) to iova (mem->iova).
+ * mem->fd is is given by "ION shared fd" or "DMA buffer descriptor".
+ * @param[in,out] mem The apusys memory
+ * @return 0: Success
+ */
 int mdw_mem_map_iova(struct apusys_kmem *km)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->map_iova)
 		return -ENODEV;
 
 	return m_mgr.dops->map_iova(km);
 }
 
+/**
+ * Unmap the iova of the apusys memory (mem->iova)
+ * @param[in] mem The apusys memory
+ * @return 0: Success
+ */
 int mdw_mem_unmap_iova(struct apusys_kmem *km)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->unmap_iova)
 		return -ENODEV;
 
 	return m_mgr.dops->unmap_iova(km);
 }
 
+/**
+ * Map fd (mem->fd) to kernel virtual address (mem->kva).
+ * mem->fd is is given by "ION shared fd" or "DMA buffer descriptor".
+ * @param[in,out] mem The apusys memory
+ * @return 0: Success
+ */
 int mdw_mem_map_kva(struct apusys_kmem *km)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->map_kva)
 		return -ENODEV;
 
 	return m_mgr.dops->map_kva(km);
 }
 
+/**
+ * Unmap the kernel virtual address of the apusys memory (mem->kva)
+ * @param[in] mem The apusys memory
+ * @return 0: Success
+ */
 int mdw_mem_unmap_kva(struct apusys_kmem *km)
 {
-	if (!m_mgr.dops)
+	if (!m_mgr.dops || !m_mgr.dops->unmap_kva)
 		return -ENODEV;
 
 	return m_mgr.dops->unmap_kva(km);
@@ -213,17 +280,11 @@ unsigned int mdw_mem_get_support(void)
 {
 	unsigned int mem_support = 0;
 
-#ifdef APUSYS_OPTIONS_MEM_ION
+#ifdef CONFIG_MTK_ION
 	mem_support |= (1UL << APUSYS_MEM_DRAM_ION);
 #endif
-
-#ifdef APUSYS_OPTIONS_MEM_DMA
-	mem_support |= (1UL << APUSYS_MEM_DRAM_DMA);
-#endif
-
-#ifdef APUSYS_OPTIONS_MEM_VLM
+	mem_support |= (1UL << APUSYS_MEM_DRAM_ION_AOSP);
 	mem_support |= (1UL << APUSYS_MEM_VLM);
-#endif
 
 	return mem_support;
 }
@@ -237,25 +298,24 @@ void mdw_mem_get_vlm(unsigned int *start, unsigned int *size)
 int mdw_mem_init(void)
 {
 	memset(&m_mgr, 0, sizeof(m_mgr));
-
 	mutex_init(&m_mgr.mtx);
 	INIT_LIST_HEAD(&m_mgr.list);
 
-#ifdef CONFIG_MTK_M4U
-		m_mgr.dops = mdw_mem_ion_init();
+#ifdef CONFIG_MTK_ION
+	m_mgr.dops = mdw_mops_ion();
 #else
-		m_mgr.dops = mdw_mem_dmy_init();
+	m_mgr.dops = mdw_mops_aosp();
 #endif
-	if (IS_ERR_OR_NULL(m_mgr.dops))
+	if (IS_ERR_OR_NULL(m_mgr.dops) || !m_mgr.dops->init)
 		return -ENODEV;
 
-	return 0;
+	return m_mgr.dops->init();
 }
 
 void mdw_mem_exit(void)
 {
 	if (m_mgr.dops)
-		m_mgr.dops->destroy();
+		m_mgr.dops->exit();
 }
 
 uint64_t apusys_mem_query_kva(uint32_t iova)
@@ -311,3 +371,4 @@ int apusys_mem_invalidate(struct apusys_kmem *km)
 {
 	return mdw_mem_invalidate(km);
 }
+

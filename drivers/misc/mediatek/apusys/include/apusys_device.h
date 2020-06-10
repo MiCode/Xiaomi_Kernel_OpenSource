@@ -6,6 +6,8 @@
 #ifndef __APUSYS_DEVICE_H__
 #define __APUSYS_DEVICE_H__
 
+#include <linux/dma-buf.h>
+
 /* device type */
 enum {
 	APUSYS_DEVICE_NONE,
@@ -65,20 +67,34 @@ struct apusys_power_hnd {
 	uint32_t timeout;
 };
 
+/**< apusys kernel memory */
 struct apusys_kmem {
-	unsigned long long uva;
-	unsigned long long kva;
-	unsigned int iova;
-	unsigned int size;
-	unsigned int iova_size;
+	unsigned long long uva; /**< user space virtual address (for debug) */
+	unsigned long long kva; /**< mapped kernel space virtual address */
+	unsigned int iova; /**< mapped kernel space virtual address */
+	unsigned int size; /**< mapped kernel space virtual address */
+	unsigned int iova_size; /**< iova size get from shared fd */
 
-	unsigned int align;
-	unsigned int cache;
+	unsigned int align; /**< memory alignment */
+	unsigned int cache; /**< non-cached(0), cached(1) */
 
 	int mem_type;
-	int fd;
-	unsigned long long khandle;
+	/**< memory types:
+	 *  APUSYS_MEM_DRAM_ION, APUSYS_MEM_DRAM_DMA, APUSYS_MEM_VLM
+	 */
+
+	int fd; /**< file descriptor shared from ION or DMA buffer */
 	int property;
+	/**< source of the memory:
+	 *  APUSYS_MEM_PROP_ALLOC, APUSYS_MEM_PROP_IMPORT
+	 */
+
+	unsigned long long khandle; /**< [ION] kernel handle imported from fd */
+
+	struct dma_buf *d; /**< [AOSP] DMA buffer */
+	struct dma_buf_attachment *attach;
+	/**< [AOSP] DMA buffer attachment used to get scatter list table */
+	struct sg_table *sgt; /**< [AOSP] scatter list table used to map iova */
 };
 
 struct apusys_mdla_data {

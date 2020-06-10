@@ -7,64 +7,35 @@
 #include "mdw_cmn.h"
 #include "mdw_mem_cmn.h"
 
-
-static int mdw_mem_dmy_map_kva(struct apusys_kmem *mem)
+static int mdw_mem_dmy_op(struct apusys_kmem *mem)
 {
 	return -ENOMEM;
 }
 
-static int mdw_mem_dmy_map_iova(struct apusys_kmem *mem)
+static int mdw_mem_dmy_init(void)
 {
-	return -ENOMEM;
+	return 0;
 }
 
-static int mdw_mem_dmy_unmap_iova(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static int mdw_mem_dmy_unmap_kva(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static int mdw_mem_dmy_alloc(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static int mdw_mem_dmy_free(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static int mdw_mem_dmy_flush(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static int mdw_mem_dmy_invalidate(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static void mdw_mem_dmy_destroy(void)
+static void mdw_mem_dmy_exit(void)
 {
 }
 
-struct mdw_mem_ops dmy_ops = {
-	.alloc = mdw_mem_dmy_alloc,
-	.free = mdw_mem_dmy_free,
-	.flush = mdw_mem_dmy_flush,
-	.invalidate = mdw_mem_dmy_invalidate,
-	.map_kva = mdw_mem_dmy_map_kva,
-	.unmap_kva = mdw_mem_dmy_unmap_kva,
-	.map_iova = mdw_mem_dmy_map_iova,
-	.unmap_iova = mdw_mem_dmy_unmap_iova,
-	.destroy = mdw_mem_dmy_destroy,
+static struct mdw_mem_ops dmy_ops = {
+	.init = mdw_mem_dmy_init,
+	.exit = mdw_mem_dmy_exit,
+	.alloc = mdw_mem_dmy_op,
+	.free = mdw_mem_dmy_op,
+	.flush = mdw_mem_dmy_op,
+	.invalidate = mdw_mem_dmy_op,
+	.map_kva = mdw_mem_dmy_op,
+	.unmap_kva = mdw_mem_dmy_op,
+	.map_iova = mdw_mem_dmy_op,
+	.unmap_iova = mdw_mem_dmy_op,
 };
 
-struct mdw_mem_ops *mdw_mem_dmy_init(void)
+struct mdw_mem_ops *mdw_mops_dmy(void)
 {
 	return &dmy_ops;
 }
+
