@@ -386,6 +386,7 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp-v1.1-cpe.dtb \
 	sdxprairie-cdp-256.dtb \
 	sdxprairie-dsda-cdp.dtb \
+	sdxprairie-v2-dsda-cdp.dtb \
 	sdxprairie-v2-cdp.dtb \
 	sdxprairie-mtp.dtb \
 	sdxprairie-mtp-aqc.dtb \
