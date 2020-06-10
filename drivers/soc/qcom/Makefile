@@ -95,6 +95,8 @@ ifdef CONFIG_MSM_RPM_SMD
 	obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_master_stat.o
 endif
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
+obj-$(CONFIG_MSM_BGCOM) += bgcom_spi.o
+obj-$(CONFIG_MSM_BGCOM_INTERFACE) += bgcom_interface.o
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 obj-$(CONFIG_MSM_DRM_NOTIFY) += msm_drm_notify.o
 ifdef CONFIG_DEBUG_FS
