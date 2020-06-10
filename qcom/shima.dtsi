@@ -2471,3 +2471,4 @@
 
 
 #include "msm-rdbg.dtsi"
+#include "camera/shima-camera.dtsi"
