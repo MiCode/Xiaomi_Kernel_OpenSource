@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2017-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +57,13 @@ static void of_coresight_get_ports(const struct device_node *node,
 {
 	struct device_node *ep = NULL;
 	int in = 0, out = 0;
+	struct device_node *ports = NULL, *port = NULL;
+
+	ports = of_get_child_by_name(node, "ports");
+	port = of_get_child_by_name(node, "port");
+
+	if (!ports && !port)
+		return;
 
 	do {
 		ep = of_graph_get_next_endpoint(node, ep);
