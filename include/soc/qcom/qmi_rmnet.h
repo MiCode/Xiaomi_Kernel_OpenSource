@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,8 @@ qmi_rmnet_all_flows_enabled(struct net_device *dev)
 #endif
 
 #ifdef CONFIG_QCOM_QMI_DFC
-void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id);
+void *qmi_rmnet_qos_init(struct net_device *real_dev,
+			 struct net_device *vnd_dev, u8 mux_id);
 void qmi_rmnet_qos_exit_pre(void *qos);
 void qmi_rmnet_qos_exit_post(void);
 void qmi_rmnet_burst_fc_check(struct net_device *dev,
@@ -60,7 +61,8 @@ void qmi_rmnet_burst_fc_check(struct net_device *dev,
 int qmi_rmnet_get_queue(struct net_device *dev, struct sk_buff *skb);
 #else
 static inline void *
-qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
+qmi_rmnet_qos_init(struct net_device *real_dev,
+		   struct net_device *vnd_dev, u8 mux_id)
 {
 	return NULL;
 }
