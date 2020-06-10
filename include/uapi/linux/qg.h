@@ -6,6 +6,8 @@
 #ifndef __QG_H__
 #define __QG_H__
 
+#include <linux/types.h>
+
 #define MAX_FIFO_LENGTH		16
 
 enum qg {
@@ -50,7 +52,7 @@ struct fifo_data {
 
 struct qg_param {
 	unsigned int			data;
-	bool				valid;
+	_Bool				valid;
 };
 
 struct qg_kernel_data {
