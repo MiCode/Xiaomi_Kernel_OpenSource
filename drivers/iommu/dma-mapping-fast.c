@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-contiguous.h>
@@ -117,195 +117,67 @@ static struct dma_fast_smmu_mapping *dev_get_mapping(struct device *dev)
 	return domain->iova_cookie;
 }
 
-/*
- * Checks if the allocated range (ending at @end) covered the upcoming
- * stale bit.  We don't need to know exactly where the range starts since
- * we already know where the candidate search range started.  If, starting
- * from the beginning of the candidate search range, we had to step over
- * (or landed directly on top of) the upcoming stale bit, then we return
- * true.
- *
- * Due to wrapping, there are two scenarios we'll need to check: (1) if the
- * range [search_start, upcoming_stale] spans 0 (i.e. search_start >
- * upcoming_stale), and, (2) if the range: [search_start, upcoming_stale]
- * does *not* span 0 (i.e. search_start <= upcoming_stale).  And for each
- * of those two scenarios we need to handle three cases: (1) the bit was
- * found before wrapping or
- */
-static bool __bit_covered_stale(unsigned long upcoming_stale,
-				unsigned long search_start,
-				unsigned long end)
-{
-	if (search_start > upcoming_stale) {
-		if (end >= search_start) {
-			/*
-			 * We started searching above upcoming_stale and we
-			 * didn't wrap, so we couldn't have crossed
-			 * upcoming_stale.
-			 */
-			return false;
-		}
-		/*
-		 * We wrapped. Did we cross (or land on top of)
-		 * upcoming_stale?
-		 */
-		return end >= upcoming_stale;
-	}
-
-	if (search_start <= upcoming_stale) {
-		if (end >= search_start) {
-			/*
-			 * We didn't wrap.  Did we cross (or land on top
-			 * of) upcoming_stale?
-			 */
-			return end >= upcoming_stale;
-		}
-		/*
-		 * We wrapped. So we must have crossed upcoming_stale
-		 * (since we started searching below it).
-		 */
-		return true;
-	}
-
-	/* we should have covered all logical combinations... */
-	WARN_ON(1);
-	return true;
-}
-
 static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 					 unsigned long attrs,
 					 size_t size)
 {
-	unsigned long bit, prev_search_start, nbits = size >> FAST_PAGE_SHIFT;
+	unsigned long bit, nbits = size >> FAST_PAGE_SHIFT;
 	unsigned long align = (1 << get_order(size)) - 1;
 
-	bit = bitmap_find_next_zero_area(
-		mapping->bitmap, mapping->num_4k_pages, mapping->next_start,
-		nbits, align);
+	bit = bitmap_find_next_zero_area(mapping->clean_bitmap,
+					  mapping->num_4k_pages,
+					  mapping->next_start, nbits, align);
 	if (unlikely(bit > mapping->num_4k_pages)) {
 		/* try wrapping */
 		bit = bitmap_find_next_zero_area(
-			mapping->bitmap, mapping->num_4k_pages, 0, nbits,
+			mapping->clean_bitmap, mapping->num_4k_pages, 0, nbits,
 			align);
-		if (unlikely(bit > mapping->num_4k_pages))
-			return DMA_ERROR_CODE;
+		if (unlikely(bit > mapping->num_4k_pages)) {
+			/*
+			 * If we just re-allocated a VA whose TLB hasn't been
+			 * invalidated since it was last used and unmapped, we
+			 * need to invalidate it here.  We actually invalidate
+			 * the entire TLB so that we don't have to invalidate
+			 * the TLB again until we wrap back around.
+			 */
+			if (mapping->have_stale_tlbs) {
+				bool skip_sync = (attrs &
+						  DMA_ATTR_SKIP_CPU_SYNC);
+				struct iommu_domain_geometry *geometry =
+					&(mapping->domain->geometry);
+
+				iommu_tlbiall(mapping->domain);
+				bitmap_copy(mapping->clean_bitmap,
+					    mapping->bitmap,
+					    mapping->num_4k_pages);
+				mapping->have_stale_tlbs = false;
+				av8l_fast_clear_stale_ptes(mapping->pgtbl_ops,
+						geometry->aperture_start,
+						mapping->base,
+						mapping->base +
+						mapping->size - 1,
+						skip_sync);
+				bit = bitmap_find_next_zero_area(
+							mapping->clean_bitmap,
+							mapping->num_4k_pages,
+								 0, nbits,
+								 align);
+				if (unlikely(bit > mapping->num_4k_pages))
+					return DMA_ERROR_CODE;
+
+			} else {
+				return DMA_ERROR_CODE;
+			}
+		}
 	}
 
 	bitmap_set(mapping->bitmap, bit, nbits);
-	prev_search_start = mapping->next_start;
+	bitmap_set(mapping->clean_bitmap, bit, nbits);
 	mapping->next_start = bit + nbits;
 	if (unlikely(mapping->next_start >= mapping->num_4k_pages))
 		mapping->next_start = 0;
 
-	/*
-	 * If we just re-allocated a VA whose TLB hasn't been invalidated
-	 * since it was last used and unmapped, we need to invalidate it
-	 * here.  We actually invalidate the entire TLB so that we don't
-	 * have to invalidate the TLB again until we wrap back around.
-	 */
-	if (mapping->have_stale_tlbs &&
-	    __bit_covered_stale(mapping->upcoming_stale_bit,
-				prev_search_start,
-				bit + nbits - 1)) {
-		bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
-
-		iommu_tlbiall(mapping->domain);
-		mapping->have_stale_tlbs = false;
-		av8l_fast_clear_stale_ptes(mapping->pgtbl_ops,
-				mapping->domain->geometry.aperture_start,
-				mapping->base,
-				mapping->base + mapping->size - 1,
-				skip_sync);
-	}
-
 	return (bit << FAST_PAGE_SHIFT) + mapping->base;
-}
-
-/*
- * Checks whether the candidate bit will be allocated sooner than the
- * current upcoming stale bit.  We can say candidate will be upcoming
- * sooner than the current upcoming stale bit if it lies between the
- * starting bit of the next search range and the upcoming stale bit
- * (allowing for wrap-around).
- *
- * Stated differently, we're checking the relative ordering of three
- * unsigned numbers.  So we need to check all 6 (i.e. 3!) permutations,
- * namely:
- *
- *     0 |---A---B---C---| TOP (Case 1)
- *     0 |---A---C---B---| TOP (Case 2)
- *     0 |---B---A---C---| TOP (Case 3)
- *     0 |---B---C---A---| TOP (Case 4)
- *     0 |---C---A---B---| TOP (Case 5)
- *     0 |---C---B---A---| TOP (Case 6)
- *
- * Note that since we're allowing numbers to wrap, the following three
- * scenarios are all equivalent for Case 1:
- *
- *     0 |---A---B---C---| TOP
- *     0 |---C---A---B---| TOP (C has wrapped. This is Case 5.)
- *     0 |---B---C---A---| TOP (C and B have wrapped. This is Case 4.)
- *
- * In any of these cases, if we start searching from A, we will find B
- * before we find C.
- *
- * We can also find two equivalent cases for Case 2:
- *
- *     0 |---A---C---B---| TOP
- *     0 |---B---A---C---| TOP (B has wrapped. This is Case 3.)
- *     0 |---C---B---A---| TOP (B and C have wrapped. This is Case 6.)
- *
- * In any of these cases, if we start searching from A, we will find C
- * before we find B.
- */
-static bool __bit_is_sooner(unsigned long candidate,
-			    struct dma_fast_smmu_mapping *mapping)
-{
-	unsigned long A = mapping->next_start;
-	unsigned long B = candidate;
-	unsigned long C = mapping->upcoming_stale_bit;
-
-	if ((A < B && B < C) ||	/* Case 1 */
-	    (C < A && A < B) ||	/* Case 5 */
-	    (B < C && C < A))	/* Case 4 */
-		return true;
-
-	if ((A < C && C < B) ||	/* Case 2 */
-	    (B < A && A < C) ||	/* Case 3 */
-	    (C < B && B < A))	/* Case 6 */
-		return false;
-
-	/*
-	 * For simplicity, we've been ignoring the possibility of any of
-	 * our three numbers being equal.  Handle those cases here (they
-	 * shouldn't happen very often, (I think?)).
-	 */
-
-	/*
-	 * If candidate is the next bit to be searched then it's definitely
-	 * sooner.
-	 */
-	if (A == B)
-		return true;
-
-	/*
-	 * If candidate is the next upcoming stale bit we'll return false
-	 * to avoid doing `upcoming = candidate' in the caller (which would
-	 * be useless since they're already equal)
-	 */
-	if (B == C)
-		return false;
-
-	/*
-	 * If next start is the upcoming stale bit then candidate can't
-	 * possibly be sooner.  The "soonest" bit is already selected.
-	 */
-	if (A == C)
-		return false;
-
-	/* We should have covered all logical combinations. */
-	WARN(1, "Well, that's awkward. A=%ld, B=%ld, C=%ld\n", A, B, C);
-	return true;
 }
 
 #ifdef CONFIG_ARM64
@@ -381,12 +253,8 @@ static void __fast_smmu_free_iova(struct dma_fast_smmu_mapping *mapping,
 	/*
 	 * We don't invalidate TLBs on unmap.  We invalidate TLBs on map
 	 * when we're about to re-allocate a VA that was previously
-	 * unmapped but hasn't yet been invalidated.  So we need to keep
-	 * track of which bit is the closest to being re-allocated here.
+	 * unmapped but hasn't yet been invalidated.
 	 */
-	if (__bit_is_sooner(start_bit, mapping))
-		mapping->upcoming_stale_bit = start_bit;
-
 	bitmap_clear(mapping->bitmap, start_bit, nbits);
 	mapping->have_stale_tlbs = true;
 }
@@ -1107,6 +975,14 @@ static struct dma_fast_smmu_mapping *__fast_smmu_create_mapping_sized(
 	if (!fast->bitmap)
 		goto err2;
 
+	fast->clean_bitmap = kzalloc(fast->bitmap_size, GFP_KERNEL |
+				     __GFP_NOWARN | __GFP_NORETRY);
+	if (!fast->clean_bitmap)
+		fast->clean_bitmap = vzalloc(fast->bitmap_size);
+
+	if (!fast->clean_bitmap)
+		goto err3;
+
 	spin_lock_init(&fast->lock);
 
 	fast->iovad = kzalloc(sizeof(*fast->iovad), GFP_KERNEL);
@@ -1118,6 +994,8 @@ static struct dma_fast_smmu_mapping *__fast_smmu_create_mapping_sized(
 	return fast;
 
 err_free_bitmap:
+	kvfree(fast->clean_bitmap);
+err3:
 	kvfree(fast->bitmap);
 err2:
 	kfree(fast);
@@ -1183,6 +1061,9 @@ void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 
 	if (fast->bitmap)
 		kvfree(fast->bitmap);
+
+	if (fast->clean_bitmap)
+		kvfree(fast->clean_bitmap);
 
 	kfree(fast);
 	domain->iova_cookie = NULL;
