@@ -8,7 +8,10 @@
 
 #include "mdw_mem.h"
 
+/* memory operations */
 struct mdw_mem_ops {
+	int (*init)(void);
+	void (*exit)(void);
 	int (*alloc)(struct apusys_kmem *mem);
 	int (*free)(struct apusys_kmem *mem);
 	int (*flush)(struct apusys_kmem *mem);
@@ -17,11 +20,10 @@ struct mdw_mem_ops {
 	int (*unmap_kva)(struct apusys_kmem *mem);
 	int (*map_iova)(struct apusys_kmem *mem);
 	int (*unmap_iova)(struct apusys_kmem *mem);
-	void (*destroy)(void);
 };
 
-/* ion allocator */
-struct mdw_mem_ops *mdw_mem_ion_init(void);
-struct mdw_mem_ops *mdw_mem_dmy_init(void);
+struct mdw_mem_ops *mdw_mops_dmy(void);
+struct mdw_mem_ops *mdw_mops_aosp(void);
+struct mdw_mem_ops *mdw_mops_ion(void);
 
 #endif
