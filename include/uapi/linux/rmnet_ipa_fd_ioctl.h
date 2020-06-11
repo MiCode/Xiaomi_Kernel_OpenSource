@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RMNET_IPA_FD_IOCTL_H
@@ -130,6 +130,9 @@ struct wan_ioctl_query_dl_filter_stats {
 
 struct wan_ioctl_notify_wan_state {
 	uint8_t up;
+	/* Name of the upstream interface */
+	char upstreamIface[IFNAMSIZ];
+#define WAN_IOCTL_NOTIFY_WAN_INTF_NAME WAN_IOCTL_NOTIFY_WAN_INTF_NAME
 };
 struct wan_ioctl_send_lan_client_msg {
 	/* Lan client info. */
