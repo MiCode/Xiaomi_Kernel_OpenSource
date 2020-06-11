@@ -1,0 +1,14 @@
+config MTK_NET_CCMNI
+	tristate "MediaTek CCMNI driver"
+	depends on MTK_CCCI_DEVICES
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	help
+	  Cross Core Multi Network Interface:
+	  This option enables CCMNI driver, if yes,
+	  then CCMNI driver is used
+	  to communicate with CCCI
+	  driver by Kernel network, if no,
+	  Kernel network uses ccci port_net
+	  to send and recevie data.
+	  The option default depends on MTK_CCCI_DEVICES.
