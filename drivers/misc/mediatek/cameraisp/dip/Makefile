@@ -36,7 +36,7 @@ ifeq ($(CONFIG_MACH_MT6883),y)
   MTK_DIP_COUNT := 2
 endif
 
-ifeq ($(CONFIG_MTK_CAMERA_ISPVER),"isp6s")
+ifeq ($(CONFIG_MTK_CAMERA_ISP_VER),"isp6s")
 obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += isp_6s/
 MTK_MSF_OFFSET := 1
 endif
