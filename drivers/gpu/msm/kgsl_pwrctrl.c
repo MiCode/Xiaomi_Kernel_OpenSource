@@ -446,7 +446,7 @@ static int kgsl_pwrctrl_cx_ipeak_init(struct kgsl_device *device)
 	if (IS_ERR_OR_NULL(pwr->cx_ipeak_pwr_limit)) {
 		dev_err(device->dev,
 				"Failed to get cx_ipeak power limit\n");
-		of_node_put(child);
+		ret = -EINVAL;
 		goto error;
 	}
 
@@ -456,11 +456,12 @@ static int kgsl_pwrctrl_cx_ipeak_init(struct kgsl_device *device)
 				kgsl_pwr_cx_ipeak_freq_limit,
 				pwr->cx_ipeak_pwr_limit);
 		if (ret) {
-			dev_err(device->dev,
-					"Failed to register GPU-CX-Ipeak victim\n");
 			kgsl_pwr_limits_del(pwr->cx_ipeak_pwr_limit);
-			of_node_put(child);
-			goto error;
+			if (ret != -ENOENT) {
+				dev_err(device->dev,
+					"Failed to register GPU-CX-Ipeak victim\n");
+				goto error;
+			}
 		}
 	}
 
