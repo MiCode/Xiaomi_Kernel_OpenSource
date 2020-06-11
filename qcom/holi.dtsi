@@ -907,6 +907,28 @@
 		qcom,pipe-attr-ee;
 	};
 
+	qcom,venus@5ab0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x5ab0000 0x20000>;
+
+		vdd-supply = <&gcc_venus_gdsc>;
+		qcom,proxy-reg-names = "vdd";
+
+		clocks = <&gcc GCC_VIDEO_VENUS_CTL_CLK>,
+			<&gcc GCC_VENUS_CTL_AXI_CLK>,
+			<&gcc GCC_VIDEO_AHB_CLK>,
+			<&gcc GCC_VIDEO_THROTTLE_CORE_CLK>;
+		clock-names = "core_clk", "bus_clk", "iface_clk", "throttle_clk";
+		qcom,proxy-clock-names = "core_clk", "bus_clk", "iface_clk", "throttle_clk";
+
+		qcom,core-freq = <240000000>;
+		qcom,ahb-freq = <240000000>;
+
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <100>;
+		qcom,firmware-name = "venus";
+		memory-region = <&pil_video_mem>;
+	};
 };
 
 #define PMK8350_SID	6
