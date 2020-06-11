@@ -58,8 +58,13 @@
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
 				 UFSHCD_ERROR_MASK)
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+/* UIC command timeout, unit: ms */
+#define UIC_CMD_TIMEOUT	999
+#else
 /* UIC command timeout, unit: ms */
 #define UIC_CMD_TIMEOUT	500
+#endif
 
 /* NOP OUT retries waiting for NOP IN response */
 #define NOP_OUT_RETRIES    10
@@ -5849,6 +5854,10 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 
 	/* PHY layer lane error */
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER);
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	if (reg & UIC_PHY_ADAPTER_LAYER_GENERIC_ERROR)
+		dev_err(hba->dev, "line-reset: 0x%08x\n", reg);
+#endif
 	/* Ignore LINERESET indication, as this is not an error */
 	if ((reg & UIC_PHY_ADAPTER_LAYER_ERROR) &&
 	    (reg & UIC_PHY_ADAPTER_LAYER_LANE_ERR_MASK)) {
@@ -6096,6 +6105,10 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 		if (enabled_intr_status)
 			retval |= ufshcd_sl_intr(hba, enabled_intr_status);
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+		if (enabled_intr_status)
+			retval = IRQ_HANDLED;
+#endif
 		intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
 	} while (intr_status && --retries);
 

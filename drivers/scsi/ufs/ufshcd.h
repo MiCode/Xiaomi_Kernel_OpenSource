@@ -941,9 +941,9 @@ struct ufs_hba {
 #endif
 
 #ifdef CONFIG_SCSI_UFSHCD_QTI
-#define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 7)
+#define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 8)
 	/* Allow standalone Hibern8 enter on idle */
-#define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 5)
+#define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 9)
 	struct rw_semaphore lock;
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
