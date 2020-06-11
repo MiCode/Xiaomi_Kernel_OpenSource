@@ -349,6 +349,7 @@
 	audio_apr: qcom,msm-audio-apr {
 		compatible = "qcom,msm-audio-apr";
 		qcom,subsys-name = "apr_adsp";
+		status = "nok";
 
 		msm_audio_ion: qcom,msm-audio-ion {
 			compatible = "qcom,msm-audio-ion";
