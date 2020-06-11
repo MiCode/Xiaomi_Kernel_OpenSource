@@ -3637,9 +3637,6 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 			goto parse_fail;
 		}
 
-		if (panel->panel_mode == DSI_OP_VIDEO_MODE)
-			mode->priv_info->mdp_transfer_time_us = 0;
-
 		rc = dsi_panel_parse_dsc_params(mode, utils);
 		if (rc) {
 			pr_err("failed to parse dsc params, rc=%d\n", rc);
@@ -3692,6 +3689,9 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 		} else {
 			mode->panel_mode = panel->panel_mode;
 		}
+
+		if (mode->panel_mode == DSI_OP_VIDEO_MODE)
+			mode->priv_info->mdp_transfer_time_us = 0;
 	}
 	goto done;
 
