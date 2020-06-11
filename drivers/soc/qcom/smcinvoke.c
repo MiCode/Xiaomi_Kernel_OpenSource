@@ -1162,7 +1162,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 			break;
 
 		if (response_type == SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
-			pr_err("%s: looks like inbnd req reqd\n", __func__);
+			pr_debug("looks like inbnd req reqd\n");
 			process_tzcb_req(out_buf, out_buf_len, arr_filp);
 			cmd = SMCINVOKE_CB_RSP_CMD;
 		}
