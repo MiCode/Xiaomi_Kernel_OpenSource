@@ -385,7 +385,7 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
 		cnss_pr_dbg("PCIe link is suspended\n");
-		return -EIO;
+		return -EACCES;
 	}
 
 	if (pci_priv->pci_link_down_ind) {
@@ -3973,8 +3973,24 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 		return;
 	}
 
-	if (cnss_pci_check_link_status(pci_priv))
-		return;
+	if (!in_panic) {
+		mutex_lock(&pci_priv->bus_lock);
+		ret = cnss_pci_check_link_status(pci_priv);
+		if (ret) {
+			if (ret != -EACCES) {
+				mutex_unlock(&pci_priv->bus_lock);
+				return;
+			}
+			if (cnss_pci_resume_bus(pci_priv)) {
+				mutex_unlock(&pci_priv->bus_lock);
+				return;
+			}
+		}
+		mutex_unlock(&pci_priv->bus_lock);
+	} else {
+		if (cnss_pci_check_link_status(pci_priv))
+			return;
+	}
 
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_qdss_reg(pci_priv);
