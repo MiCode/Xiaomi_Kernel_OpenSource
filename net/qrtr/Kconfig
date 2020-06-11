@@ -67,4 +67,11 @@ config QRTR_USB_DEV
 	  Say Y here to support USB device based ipcrouter channels.
 	  This driver enables QRTR to run on the modem device.
 
+config QRTR_ETHERNET
+	tristate "Ethernet IPC Router channel"
+	help
+	  Say Y here to support Ethernet based ipcrouter channels. Ethernet
+	  is the transport used for external auto connections for IPC router.
+	  This has an out-of-tree dependency on ethernet adaption layer.
+
 endif # QRTR
