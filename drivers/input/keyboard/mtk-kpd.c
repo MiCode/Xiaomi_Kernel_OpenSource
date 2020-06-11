@@ -154,26 +154,6 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 	return 0;
 }
 
-static int kpd_gpio_init(struct device *dev)
-{
-	struct pinctrl *keypad_pinctrl;
-	struct pinctrl_state *kpd_default;
-
-	keypad_pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(keypad_pinctrl)) {
-		pr_debug("Cannot find keypad_pinctrl!\n");
-
-		return (int)PTR_ERR(keypad_pinctrl);
-	}
-
-	kpd_default = pinctrl_lookup_state(keypad_pinctrl, "default");
-	if (IS_ERR(kpd_default))
-		return (int)PTR_ERR(kpd_default);
-
-	return pinctrl_select_state(keypad_pinctrl,
-				kpd_default);
-}
-
 static int kpd_pdrv_probe(struct platform_device *pdev)
 {
 	struct mtk_keypad *keypad;
@@ -213,12 +193,6 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	if (!keypad->irqnr) {
 		pr_debug("KP get irqnr failed\n");
 		ret = -ENODEV;
-		goto err_unprepare_clk;
-	}
-
-	ret = kpd_gpio_init(&pdev->dev);
-	if (ret) {
-		pr_debug("gpio init failed\n");
 		goto err_unprepare_clk;
 	}
 
