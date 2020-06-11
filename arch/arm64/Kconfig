@@ -1112,6 +1112,14 @@ config XEN
 	help
 	  Say Y if you want to run Linux in a Virtual Machine on Xen on ARM64.
 
+config QTI_QUIN_GVM
+	bool "Enable Support for QTI QUIN Virtual Machine"
+	help
+	  This enables support for Qualcomm Technologies, Inc.'s
+	  virtual machine on Quin platform. If you do not wish to
+	  build a kernel that runs on this platform or if you are
+	  unsure, say 'N' here.
+
 config FORCE_MAX_ZONEORDER
 	int
 	default "14" if (ARM64_64K_PAGES && TRANSPARENT_HUGEPAGE)
