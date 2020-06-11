@@ -629,7 +629,7 @@ unsigned int sysctl_irqsoff_crash_threshold_ns = 10000000UL;
 
 struct irqsoff_store {
 	u64 ts;
-	unsigned long caddr[4];
+	unsigned long caddr[5];
 };
 
 static DEFINE_PER_CPU(struct irqsoff_store, the_irqsoff);
@@ -652,7 +652,8 @@ void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 	if (!is_idle_task(current) &&
 			delta > sysctl_irqsoff_tracing_threshold_ns) {
 		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
-						is->caddr[2], is->caddr[3]);
+					is->caddr[2], is->caddr[3],
+					is->caddr[4]);
 		if (sysctl_irqsoff_dmesg_output_enabled == IRQSOFF_SENTINEL)
 			printk_deferred(KERN_ERR "D=%llu C:(%ps<-%ps<-%ps<-%ps)\n",
 				delta, is->caddr[0], is->caddr[1],
@@ -666,6 +667,7 @@ void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 			BUG_ON(1);
 		}
 	}
+
 	is->ts = 0;
 	lockdep_on();
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
@@ -684,10 +686,11 @@ void tracer_hardirqs_off(unsigned long a0, unsigned long a1)
 	lockdep_off();
 	is = &per_cpu(the_irqsoff, raw_smp_processor_id());
 	is->ts = sched_clock();
-	is->caddr[0] = CALLER_ADDR0;
-	is->caddr[1] = CALLER_ADDR1;
-	is->caddr[2] = CALLER_ADDR2;
-	is->caddr[3] = CALLER_ADDR3;
+	is->caddr[0] = CALLER_ADDR1;
+	is->caddr[1] = CALLER_ADDR2;
+	is->caddr[2] = CALLER_ADDR3;
+	is->caddr[3] = CALLER_ADDR4;
+	is->caddr[4] = CALLER_ADDR5;
 	lockdep_on();
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
 
@@ -739,7 +742,7 @@ unsigned int sysctl_preemptoff_tracing_threshold_ns = 1000000UL;
 
 struct preempt_store {
 	u64 ts;
-	unsigned long caddr[4];
+	unsigned long caddr[5];
 	bool irqs_disabled;
 	int pid;
 	unsigned long ncsw;
@@ -777,7 +780,7 @@ void tracer_preempt_on(unsigned long a0, unsigned long a1)
 	if (delta > sysctl_preemptoff_tracing_threshold_ns)
 		trace_sched_preempt_disable(delta, ps->irqs_disabled,
 				ps->caddr[0], ps->caddr[1],
-				ps->caddr[2], ps->caddr[3]);
+				ps->caddr[2], ps->caddr[3], ps->caddr[4]);
 	ps->ts = 0;
 	lockdep_on();
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */
@@ -795,10 +798,11 @@ void tracer_preempt_off(unsigned long a0, unsigned long a1)
 	lockdep_off();
 	ps = &per_cpu(the_ps, raw_smp_processor_id());
 	ps->ts = sched_clock();
-	ps->caddr[0] = CALLER_ADDR0;
-	ps->caddr[1] = CALLER_ADDR1;
-	ps->caddr[2] = CALLER_ADDR2;
-	ps->caddr[3] = CALLER_ADDR3;
+	ps->caddr[0] = CALLER_ADDR1;
+	ps->caddr[1] = CALLER_ADDR2;
+	ps->caddr[2] = CALLER_ADDR3;
+	ps->caddr[3] = CALLER_ADDR4;
+	ps->caddr[4] = CALLER_ADDR5;
 	ps->irqs_disabled = irqs_disabled();
 	ps->pid = current->pid;
 	ps->ncsw = current->nvcsw + current->nivcsw;
