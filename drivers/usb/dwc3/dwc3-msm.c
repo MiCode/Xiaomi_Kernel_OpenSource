@@ -1838,6 +1838,21 @@ int usb_gsi_ep_op(struct usb_ep *ep, void *op_data, enum gsi_ep_op op)
 }
 EXPORT_SYMBOL(usb_gsi_ep_op);
 
+/* Return true if host is supporting remote wakeup functionality. */
+bool usb_get_remote_wakeup_status(struct usb_gadget *gadget)
+{
+	struct dwc3 *dwc = gadget_to_dwc(gadget);
+	unsigned long flags;
+	bool rw = false;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	rw = dwc->is_remote_wakeup_enabled ? true : false;
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return rw;
+}
+EXPORT_SYMBOL(usb_get_remote_wakeup_status);
+
 /**
  * Configure a USB DBM ep to work in BAM mode.
  *
