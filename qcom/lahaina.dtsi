@@ -2117,6 +2117,7 @@
 			shared-buffer = <&chan0_shbuf>;
 			qcom,primary;
 			haven-label = <1>;
+			peer-name = <2>;
 		};
 
 		channel@1 {
@@ -2128,6 +2129,7 @@
 			shared-buffer = <&chan1_shbuf>;
 			qcom,primary;
 			haven-label = <2>;
+			peer-name = <2>;
 		};
 	};
 
