@@ -286,8 +286,11 @@ static int mem_buf_txn_wait(struct mem_buf_txn *txn)
 
 	ret = wait_for_completion_timeout(&txn->txn_done,
 					  msecs_to_jiffies(MEM_BUF_TIMEOUT_MS));
-	if (ret == 0)
+	if (ret == 0) {
+		pr_err("%s: timed out waiting for allocation response\n",
+		       __func__);
 		return -ETIMEDOUT;
+	}
 
 	return txn->txn_ret;
 }
@@ -498,7 +501,8 @@ static int mem_buf_retrieve_memparcel_hdl(struct mem_buf_xfer_mem *xfer_mem)
 					&xfer_mem->acl_desc, sgl_desc, NULL,
 					&xfer_mem->hdl);
 	if (ret < 0)
-		pr_err("%s: hh_rm_mem_qcom_lookup_sgl failure rc: %d\n", ret);
+		pr_err("%s: hh_rm_mem_qcom_lookup_sgl failure rc: %d\n",
+		       __func__, ret);
 
 	kfree(sgl_desc);
 	return ret;
@@ -619,7 +623,8 @@ err_retrieve_hdl:
 	if (!xfer_mem->secure_alloc && (mem_buf_unassign_mem(xfer_mem) < 0))
 		return ERR_PTR(ret);
 err_assign_mem:
-	mem_buf_rmt_free_mem(xfer_mem);
+	if (ret != -EADDRNOTAVAIL)
+		mem_buf_rmt_free_mem(xfer_mem);
 err_rmt_alloc:
 	mem_buf_free_xfer_mem(xfer_mem);
 	return ERR_PTR(ret);
@@ -959,10 +964,15 @@ static int mem_buf_map_mem_s2(struct mem_buf_desc *membuf)
 	return ret;
 }
 
-static void mem_buf_unmap_mem_s2(struct mem_buf_desc *membuf)
+static int mem_buf_unmap_mem_s2(struct mem_buf_desc *membuf)
 {
-	hh_rm_mem_release(membuf->memparcel_hdl, HH_RM_MEM_RELEASE_CLEAR);
-	kfree(membuf->sgl_desc);
+	int ret = hh_rm_mem_release(membuf->memparcel_hdl,
+				    HH_RM_MEM_RELEASE_CLEAR);
+
+	if (ret < 0)
+		pr_err("%s: Failed to release memparcel hdl: 0x%lx rc: %d\n",
+		       __func__, membuf->memparcel_hdl, ret);
+	return ret;
 }
 
 #ifdef CONFIG_MEMORY_HOTPLUG
@@ -1018,8 +1028,9 @@ static inline int mem_buf_map_mem_s1(struct mem_buf_desc *membuf)
 #endif /* CONFIG_MEMORY_HOTPLUG */
 
 #ifdef CONFIG_MEMORY_HOTREMOVE
-static void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
+static int mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
 {
+	int ret;
 	unsigned int i, nid;
 	u64 base, size;
 
@@ -1030,14 +1041,22 @@ static void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
 		size = membuf->sgl_desc->sgl_entries[i].size;
 		nid = memory_add_physaddr_to_nid(base);
 		arch_remove_memory(nid, base, size, NULL);
-		memblock_remove(base, size);
+		ret = memblock_remove(base, size);
+		if (ret) {
+			pr_err("%s: memblock_remove failed rc: %d\n", __func__,
+			       ret);
+			goto out;
+		}
 	}
 
+out:
 	mem_hotplug_done();
+	return ret;
 }
 #else /* CONFIG_MEMORY_HOTREMOVE */
-static inline void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
+static inline int mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
 {
+	return -EINVAL;
 }
 #endif /* CONFIG_MEMORY_HOTREMOVE */
 
@@ -1135,12 +1154,19 @@ static bool is_valid_mem_buf_vmid(u32 mem_buf_vmid)
 	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM))
 		return true;
 
+	pr_err_ratelimited("%s: Invalid mem-buf VMID detected\n",
+			   __func__);
 	return false;
 }
 
 static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 {
-	return !(mem_buf_perms & ~MEM_BUF_PERM_VALID_FLAGS);
+	if (mem_buf_perms & ~MEM_BUF_PERM_VALID_FLAGS) {
+		pr_err_ratelimited("%s: Invalid mem-buf permissions detected\n",
+				   __func__);
+		return false;
+	}
+	return true;
 }
 
 static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
@@ -1276,16 +1302,25 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 
 	ret = mem_buf_remove_mem(membuf);
 	if (ret < 0)
-		return ret;
+		goto out_free_mem;
 
-	mem_buf_unmap_mem_s1(membuf);
-	mem_buf_unmap_mem_s2(membuf);
+	ret = mem_buf_unmap_mem_s1(membuf);
+	if (ret < 0)
+		goto out_free_mem;
+
+	ret = mem_buf_unmap_mem_s2(membuf);
+	if (ret < 0)
+		goto out_free_mem;
+
 	mem_buf_relinquish_mem(membuf);
+
+out_free_mem:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
+	kfree(membuf->sgl_desc);
 	kfree(membuf->acl_desc);
 	kfree(membuf);
-	return 0;
+	return ret;
 }
 
 static const struct file_operations mem_buf_fops = {
@@ -1375,11 +1410,13 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 
 err_get_file:
 	if (mem_buf_remove_mem(membuf) < 0)
-		return ERR_PTR(ret);
+		goto err_mem_req;
 err_add_mem:
-	mem_buf_unmap_mem_s1(membuf);
+	if (mem_buf_unmap_mem_s1(membuf) < 0)
+		goto err_mem_req;
 err_map_mem_s1:
-	mem_buf_unmap_mem_s2(membuf);
+	if (mem_buf_unmap_mem_s2(membuf) < 0)
+		goto err_mem_req;
 err_map_mem_s2:
 	mem_buf_relinquish_mem(membuf);
 err_mem_req:
