@@ -931,6 +931,14 @@ struct ufs_hba {
 	 * inline crypto engine, if it is present
 	 */
 #define UFSHCD_CAP_CRYPTO (1 << 7)
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	/*
+	 * This capability allows the host controller driver to turn-on
+	 * WriteBooster, if the underlying device supports it and is
+	 * provisioned to be used. This would increase the write performance.
+	 */
+#define	UFSHCD_CAP_WB_EN (1 << 8)
+#endif
 
 #ifdef CONFIG_SCSI_UFSHCD_QTI
 #define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 7)
@@ -970,6 +978,10 @@ struct ufs_hba {
 	struct device		bsg_dev;
 	struct request_queue	*bsg_queue;
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	bool wb_buf_flush_enabled;
+	bool wb_enabled;
+#endif
 #ifdef CONFIG_SCSI_UFS_CRYPTO
 	/* crypto */
 	union ufs_crypto_capabilities crypto_capabilities;
@@ -1058,6 +1070,13 @@ static inline bool ufshcd_is_embedded_dev(struct ufs_hba *hba)
 static inline bool ufshcd_is_auto_hibern8_enabled(struct ufs_hba *hba)
 {
 	return FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK, hba->ahit) ? true : false;
+}
+#endif
+
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static inline bool ufshcd_is_wb_allowed(struct ufs_hba *hba)
+{
+	return hba->caps & UFSHCD_CAP_WB_EN;
 }
 #endif
 
