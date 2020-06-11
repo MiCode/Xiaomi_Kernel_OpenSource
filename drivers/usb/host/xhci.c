@@ -5390,7 +5390,7 @@ int xhci_stop_endpoint(struct usb_device *udev, struct usb_host_endpoint *ep)
 	unsigned long flags;
 	int ret = 0;
 
-	if (udev->state == USB_STATE_NOTATTACHED || !HCD_RH_RUNNING(hcd))
+	if (!HCD_RH_RUNNING(hcd))
 		return 0;
 
 	cmd = xhci_alloc_command(xhci, true, GFP_NOIO);
