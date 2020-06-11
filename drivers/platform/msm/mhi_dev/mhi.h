@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.*/
 
 #ifndef __MHI_H
 #define __MHI_H
@@ -965,6 +965,12 @@ int mhi_dev_mmio_get_cmd_db(struct mhi_dev_ring *ring, uint64_t *wr_offset);
  * @value:	Value of the EXEC EVN.
  */
 int mhi_dev_mmio_set_env(struct mhi_dev *dev, uint32_t value);
+
+/**
+ * mhi_dev_mmio_clear_reset() - Clear the reset bit
+ * @dev:	MHI device structure.
+ */
+int mhi_dev_mmio_clear_reset(struct mhi_dev *dev);
 
 /**
  * mhi_dev_mmio_reset() - Reset the MMIO done as part of initialization.

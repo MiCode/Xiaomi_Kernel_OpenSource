@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015,2017-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2015,2017-2021, The Linux Foundation. All rights reserved.*/
 
 #include <linux/kernel.h>
 #include <linux/of.h>
@@ -573,6 +573,18 @@ int mhi_dev_mmio_set_env(struct mhi_dev *dev, uint32_t value)
 	return 0;
 }
 EXPORT_SYMBOL(mhi_dev_mmio_set_env);
+
+int mhi_dev_mmio_clear_reset(struct mhi_dev *dev)
+{
+	if (WARN_ON(!dev))
+		return -EINVAL;
+
+	mhi_dev_mmio_masked_write(dev, MHICTRL,
+		MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, 0);
+
+	return 0;
+}
+EXPORT_SYMBOL(mhi_dev_mmio_clear_reset);
 
 int mhi_dev_mmio_reset(struct mhi_dev *dev)
 {
