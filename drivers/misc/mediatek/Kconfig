@@ -13,6 +13,7 @@ source "drivers/misc/mediatek/sspm/Kconfig"
 endmenu # SSPM
 
 menu "MultiMedia, Display, Camera"
+source "drivers/misc/mediatek/cameraisp/Kconfig"
 source "drivers/misc/mediatek/mmp/Kconfig"
 endmenu # MultiMedia, Display, Camera
 

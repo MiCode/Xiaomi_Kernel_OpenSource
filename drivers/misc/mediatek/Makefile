@@ -6,3 +6,4 @@ obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm/
 obj-$(CONFIG_MMPROFILE) += mmp/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys/
 obj-$(CONFIG_MTPROF) += mtprof/
+obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += cameraisp/
