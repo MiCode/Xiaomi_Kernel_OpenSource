@@ -76,6 +76,8 @@ struct neuron_mq_data_priv {
 	atomic64_t virq_payload;
 	/* A counter to calculate the interrupt received. */
 	u32 interrupt_counter;
+	/* name of peer vm */
+	u32 peer_name;
 	/* haven tx doorbell descriptor */
 	void *tx_dbl;
 	/* haven rx doorbell descriptor */
