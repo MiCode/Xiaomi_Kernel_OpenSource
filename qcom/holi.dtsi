@@ -316,10 +316,15 @@
 
 	soc: soc { };
 
+	firmware: firmware {
+		scm {
+			compatible = "qcom,scm";
+		};
+	};
+
 	chosen {
 		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7";
 	};
-
 };
 
 &soc {
