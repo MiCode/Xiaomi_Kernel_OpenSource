@@ -6,6 +6,20 @@
 /dts-v1/;
 /plugin/;
 
+&gpio_usage_mapping {
+	GPIO_SIM1_HOT_PLUG = <&pio 43 0>;
+	GPIO_SIM2_SCLK = <&pio 45 0>;
+	GPIO_SIM2_SRST = <&pio 46 0>;
+	GPIO_SIM2_SIO = <&pio 47 0>;
+	GPIO_SIM1_SIO = <&pio 48 0>;
+	GPIO_SIM1_SRST = <&pio 49 0>;
+	GPIO_SIM1_SCLK = <&pio 50 0>;
+	GPIO_FDD_BAND_SUPPORT_DETECT_1ST_PIN = <&pio 63 0>;
+	GPIO_FDD_BAND_SUPPORT_DETECT_2ND_PIN = <&pio 64 0>;
+	GPIO_FDD_BAND_SUPPORT_DETECT_3RD_PIN = <&pio 65 0>;
+	GPIO_FDD_BAND_SUPPORT_DETECT_4TH_PIN = <&pio 66 0>;
+};
+
 &gpio{
 	gpio_init_default = <0 0 0 0 1 1 1>,
 		<1 0 0 0 1 0 1>,
