@@ -1258,6 +1258,22 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				st = MHI_ST_TRANSITION_MISSION_MODE;
 				break;
 			case MHI_EE_RDDM:
+				if (mhi_cntrl->ee == MHI_EE_RDDM ||
+				    mhi_cntrl->power_down)
+					break;
+
+				MHI_ERR("RDDM event occurred!\n");
+				write_lock_irq(&mhi_cntrl->pm_lock);
+				mhi_cntrl->ee = MHI_EE_RDDM;
+				write_unlock_irq(&mhi_cntrl->pm_lock);
+
+				/* notify critical clients */
+				mhi_control_error(mhi_cntrl);
+
+				mhi_cntrl->status_cb(mhi_cntrl,
+						     mhi_cntrl->priv_data,
+						     MHI_CB_EE_RDDM);
+				wake_up_all(&mhi_cntrl->state_event);
 				break;
 			default:
 				MHI_ERR("Unhandled EE event:%s\n",
