@@ -444,13 +444,16 @@ static int _sde_encoder_wait_timeout(int32_t drm_id, int32_t hw_id,
 
 	do {
 		rc = wait_event_timeout(*(info->wq),
-			atomic_read(info->atomic_cnt) == 0, wait_time_jiffies);
+			atomic_read(info->atomic_cnt) == info->count_check,
+				wait_time_jiffies);
 		cur_ktime = ktime_get();
 
 		SDE_EVT32(drm_id, hw_id, rc, ktime_to_ms(cur_ktime),
-			timeout_ms, atomic_read(info->atomic_cnt));
+			timeout_ms, atomic_read(info->atomic_cnt),
+			info->count_check);
 	/* If we timed out, counter is valid and time is less, wait again */
-	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
+	} while ((atomic_read(info->atomic_cnt) != info->count_check) &&
+			(rc == 0) &&
 			(ktime_compare_safe(exp_ktime, cur_ktime) > 0));
 
 	return rc;

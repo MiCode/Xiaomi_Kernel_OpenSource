@@ -472,11 +472,13 @@ struct sde_enc_phys_init_params {
  * sde_encoder_wait_info - container for passing arguments to irq wait functions
  * @wq: wait queue structure
  * @atomic_cnt: wait until atomic_cnt equals zero
+ * @count_check: wait for specific atomic_cnt instead of zero.
  * @timeout_ms: timeout value in milliseconds
  */
 struct sde_encoder_wait_info {
 	wait_queue_head_t *wq;
 	atomic_t *atomic_cnt;
+	u32 count_check;
 	s64 timeout_ms;
 };
 

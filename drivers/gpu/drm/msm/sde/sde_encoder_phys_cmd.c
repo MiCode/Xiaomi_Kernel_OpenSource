@@ -672,6 +672,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	bool recovery_events;
 	int ret;
 	struct sde_hw_ctl *ctl;
+	bool wr_ptr_wait_success = true;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -679,7 +680,11 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	}
 
 	ctl = phys_enc->hw_ctl;
-	if (cmd_enc->wr_ptr_wait_success &&
+
+	if (sde_encoder_phys_cmd_is_master(phys_enc))
+		wr_ptr_wait_success = cmd_enc->wr_ptr_wait_success;
+
+	if (wr_ptr_wait_success &&
 	  (phys_enc->frame_trigger_mode == FRAME_DONE_WAIT_POSTED_START) &&
 	  ctl->ops.get_scheduler_status &&
 	  (ctl->ops.get_scheduler_status(ctl) & BIT(0)) &&
@@ -691,6 +696,9 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 			SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE);
 		return 0;
 	}
+
+	if (atomic_read(&phys_enc->pending_kickoff_cnt) > 1)
+		wait_info.count_check = 1;
 
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
 	wait_info.atomic_cnt = &phys_enc->pending_kickoff_cnt;
@@ -727,7 +735,7 @@ static int _sde_encoder_phys_cmd_wait_for_autorefresh_done(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_encoder_wait_info wait_info;
+	struct sde_encoder_wait_info wait_info = {NULL};
 	int ret = 0;
 
 	if (!phys_enc) {
@@ -1351,7 +1359,7 @@ static int _sde_encoder_phys_cmd_wait_for_wr_ptr(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_encoder_wait_info wait_info;
+	struct sde_encoder_wait_info wait_info = {NULL};
 	int ret;
 	bool frame_pending = true;
 	struct sde_hw_ctl *ctl;
@@ -1478,7 +1486,7 @@ static int sde_encoder_phys_cmd_wait_for_vblank(
 {
 	int rc = 0;
 	struct sde_encoder_phys_cmd *cmd_enc;
-	struct sde_encoder_wait_info wait_info;
+	struct sde_encoder_wait_info wait_info = {NULL};
 
 	if (!phys_enc)
 		return -EINVAL;
