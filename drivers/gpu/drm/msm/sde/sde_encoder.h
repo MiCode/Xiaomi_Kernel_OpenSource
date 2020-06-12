@@ -171,11 +171,11 @@ void sde_encoder_kickoff(struct drm_encoder *encoder, bool is_error);
  * @encoder:	encoder pointer
  * @event:      event to wait for
  * MSM_ENC_COMMIT_DONE -  Wait for hardware to have flushed the current pending
- *                        frames to hardware at a vblank or ctl_start
+ *                        frames to hardware at a vblank or wr_ptr_start
  *                        Encoders will map this differently depending on the
  *                        panel type.
  *	                  vid mode -> vsync_irq
- *                        cmd mode -> ctl_start
+ *                        cmd mode -> wr_ptr_start_irq
  * MSM_ENC_TX_COMPLETE -  Wait for the hardware to transfer all the pixels to
  *                        the panel. Encoders will map this differently
  *                        depending on the panel type.
@@ -344,12 +344,5 @@ void sde_encoder_control_idle_pc(struct drm_encoder *enc, bool enable);
  * @Return:     true if display in continuous splash
  */
 int sde_encoder_in_cont_splash(struct drm_encoder *enc);
-
-/**
- * sde_encoder_get_ctlstart_timeout_state - checks if ctl start timeout happened
- * @drm_enc:    Pointer to drm encoder structure
- * @Return:     non zero value if ctl start timeout occurred
- */
-int sde_encoder_get_ctlstart_timeout_state(struct drm_encoder *enc);
 
 #endif /* __SDE_ENCODER_H__ */
