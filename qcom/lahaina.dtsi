@@ -2150,6 +2150,7 @@
 		compatible = "qcom,qrtr-haven";
 		qcom,master;
 		haven-label = <3>;
+		peer-name = <2>;
 		shared-buffer = <&qrtr_shbuf>;
 	};
 
