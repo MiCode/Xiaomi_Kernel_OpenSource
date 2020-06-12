@@ -1746,7 +1746,7 @@ static int dsi_enable_io_clamp(struct dsi_ctrl *dsi_ctrl,
 static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 				  struct device_node *of_node)
 {
-	u32 index = 0;
+	u32 index = 0, frame_threshold_time_us = 0;
 	int rc = 0;
 
 	if (!dsi_ctrl || !of_node) {
@@ -1774,6 +1774,15 @@ static int dsi_ctrl_dts_parse(struct dsi_ctrl *dsi_ctrl,
 
 	dsi_ctrl->split_link_supported = of_property_read_bool(of_node,
 					"qcom,split-link-supported");
+
+	rc = of_property_read_u32(of_node, "frame-threshold-time-us",
+			&frame_threshold_time_us);
+	if (rc) {
+		pr_debug("frame-threshold-time not specified, defaulting\n");
+		frame_threshold_time_us = 2666;
+	}
+
+	dsi_ctrl->frame_threshold_time_us = frame_threshold_time_us;
 
 	return 0;
 }
