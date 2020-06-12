@@ -159,10 +159,9 @@ struct walt_rq {
 	u32			prev_window_size;
 	unsigned long		walt_flags;
 
-	u64			cur_irqload;
 	u64			avg_irqload;
-	u64			irqload_ts;
-	bool			high_irqload;
+	u64			last_irq_window;
+	u64			prev_irq_time;
 	struct task_struct	*ed_task;
 	u64			task_exec_scale;
 	u64			old_busy_time;
@@ -181,6 +180,7 @@ struct walt_rq {
 	int			prev_top;
 	int			curr_top;
 	bool			notif_pending;
+	bool			high_irqload;
 	u64			last_cc_update;
 	u64			cycles;
 };

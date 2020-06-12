@@ -34,7 +34,6 @@ extern unsigned int __weak sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_user_hint;
 extern const int __weak sched_user_hint_max;
-extern unsigned int __weak sysctl_sched_cpu_high_irqload;
 extern unsigned int __weak sysctl_sched_boost;
 extern unsigned int __weak sysctl_sched_group_upmigrate_pct;
 extern unsigned int __weak sysctl_sched_group_downmigrate_pct;

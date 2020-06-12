@@ -107,14 +107,7 @@ static inline u64 sched_irqload(int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	s64 delta;
 
-	delta = get_jiffies_64() - rq->wrq.irqload_ts;
-	/*
-	 * Current context can be preempted by irq and rq->wrq.irqload_ts can be
-	 * updated by irq context so that delta can be negative.
-	 * But this is okay and we can safely return as this means there
-	 * was recent irq occurrence.
-	 */
-
+	delta = rq->wrq.window_start - rq->wrq.last_irq_window;
 	if (delta < SCHED_HIGH_IRQ_TIMEOUT)
 		return rq->wrq.avg_irqload;
 	else
@@ -132,8 +125,9 @@ scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
 	return div64_u64(load * (u64)src_freq, (u64)dst_freq);
 }
 
-extern void sched_account_irqstart(int cpu, struct task_struct *curr,
-				   u64 wallclock);
+extern void walt_sched_account_irqstart(int cpu, struct task_struct *curr);
+extern void walt_sched_account_irqend(int cpu, struct task_struct *curr,
+				      u64 delta);
 
 static inline unsigned int max_task_load(void)
 {
@@ -141,9 +135,6 @@ static inline unsigned int max_task_load(void)
 }
 
 extern void init_clusters(void);
-
-extern void sched_account_irqtime(int cpu, struct task_struct *curr,
-				 u64 delta, u64 wallclock);
 
 static inline int same_cluster(int src_cpu, int dst_cpu)
 {
@@ -232,8 +223,13 @@ static inline void sched_account_irqstart(int cpu, struct task_struct *curr,
 }
 
 static inline void init_clusters(void) {}
-static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
-				 u64 delta, u64 wallclock)
+
+static inline void walt_sched_account_irqstart(int cpu,
+					       struct task_struct *curr)
+{
+}
+static inline void walt_sched_account_irqend(int cpu, struct task_struct *curr,
+					     u64 delta)
 {
 }
 
