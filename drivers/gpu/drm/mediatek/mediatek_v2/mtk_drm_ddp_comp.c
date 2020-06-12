@@ -13,7 +13,7 @@
 #include <drm/drmP.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef IF_ZERO
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #endif
@@ -627,7 +627,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #endif
 }
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef IF_ZERO
 static enum mtk_iommu_callback_ret_t
 	mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 {
@@ -662,7 +662,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 		if (ret < 0)
 			break;
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef IF_ZERO
 		mtk_iommu_register_fault_callback(
 			port, (mtk_iommu_fault_callback_t)mtk_ddp_m4u_callback,
 			comp);

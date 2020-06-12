@@ -15,6 +15,7 @@
 #include <linux/workqueue.h>
 #include <linux/sched/clock.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/pinctrl/consumer.h>
 #include <drm/drmP.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 

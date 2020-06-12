@@ -18,7 +18,7 @@
 #include <linux/file.h>
 #include <linux/string.h>
 #include <linux/mm.h>
-#include <mt-plat/mtk_chip.h>
+//#include <mt-plat/mtk_chip.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_property.h>
 #ifdef CONFIG_MTK_DCS

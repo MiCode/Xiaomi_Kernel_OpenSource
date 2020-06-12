@@ -17,7 +17,7 @@
 #include "mtk_drm_session.h"
 #include "mtk_drm_mmp.h"
 #include <soc/mediatek/smi.h>
-#if defined(CONFIG_MTK_IOMMU_V2)
+#ifdef IF_ZERO
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
 #endif

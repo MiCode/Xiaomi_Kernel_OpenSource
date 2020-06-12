@@ -2655,7 +2655,7 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DMDP_AAL},
 	{} };
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
 static struct disp_iommu_device disp_iommu;
 static struct platform_device mydev;
 

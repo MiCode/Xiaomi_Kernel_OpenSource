@@ -1241,10 +1241,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) {
 				if (dsi_underrun_trigger == 1) {
 					DDPAEE(
-						"[IRQ] %s:buffer underrun,sys_time=%u\n",
+						"[IRQ] %s:buffer underrun\n",
 						mtk_dump_comp_str(
-							&dsi->ddp_comp),
-						(u32)arch_counter_get_cntvct());
+							&dsi->ddp_comp));
 					if (dsi->encoder.crtc) {
 						mtk_drm_crtc_analysis(
 							dsi->encoder.crtc);
@@ -4576,8 +4575,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case SET_MMCLK_BY_DATARATE:
 	{
-#ifndef CONFIG_FPGA_EARLY_PORTING
-
+#ifdef MTK_FB_MMDVFS_SUPPORT
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
 

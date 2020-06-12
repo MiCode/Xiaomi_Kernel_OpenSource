@@ -9,6 +9,10 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_drv.h"
 
+#ifndef MTK_FB_MMDVFS_SUPPORT
+#define	MAX_FREQ_STEP 6
+#endif
+
 static struct drm_crtc *dev_crtc;
 
 /* add for mm qos */

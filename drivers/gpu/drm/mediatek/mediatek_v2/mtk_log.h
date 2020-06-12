@@ -7,6 +7,7 @@
 #define __MTKFB_LOG_H
 
 #include <linux/kernel.h>
+#include <linux/sched/clock.h>
 
 extern unsigned long long mutex_time_start;
 extern unsigned long long mutex_time_end;

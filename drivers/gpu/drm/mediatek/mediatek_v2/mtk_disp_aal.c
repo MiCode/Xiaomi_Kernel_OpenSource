@@ -46,7 +46,7 @@
 static struct mtk_ddp_comp *default_comp;
 
 //For 120Hz rotation issue
-struct timeval start, end;
+struct timespec64 start, end;
 
 /* To enable debug log: */
 /* # echo aal_dbg:1 > /sys/kernel/debug/dispsys */
@@ -276,7 +276,7 @@ static int disp_aal_get_cust_led(void)
 #define LOG_BUFFER_SIZE 4
 static char g_aal_log_buffer[256] = "";
 static int g_aal_log_index;
-struct timeval g_aal_log_prevtime = {0};
+struct timespec64 g_aal_log_prevtime = {0};
 
 bool disp_aal_is_support(void)
 {
@@ -321,27 +321,27 @@ static void disp_aal_set_interrupt(struct mtk_ddp_comp *comp, int enable)
 	}
 }
 
-static unsigned long timevaldiff(struct timeval *starttime,
-	struct timeval *finishtime)
+static unsigned long timevaldiff(struct timespec64 *starttime,
+	struct timespec64 *finishtime)
 {
 	unsigned long msec;
 
 	msec = (finishtime->tv_sec-starttime->tv_sec)*1000;
-	msec += (finishtime->tv_usec-starttime->tv_usec)/1000;
+	msec += (finishtime->tv_nsec-starttime->tv_nsec) / NSEC_PER_USEC / 1000;
 
 	return msec;
 }
 
 static void disp_aal_notify_backlight_log(int bl_1024)
 {
-	struct timeval aal_time;
+	struct timespec64 aal_time;
 	unsigned long diff_mesc = 0;
 	unsigned long tsec;
 	unsigned long tusec;
 
-	do_gettimeofday(&aal_time);
+	ktime_get_ts64(&aal_time);
 	tsec = (unsigned long)aal_time.tv_sec % 100;
-	tusec = (unsigned long)aal_time.tv_usec / 1000;
+	tusec = (unsigned long)aal_time.tv_nsec / NSEC_PER_USEC / 1000;
 
 	diff_mesc = timevaldiff(&g_aal_log_prevtime, &aal_time);
 	if (!debug_api_log)
@@ -1141,9 +1141,9 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	if (debug_dump_input_param)
 		dump_param(&g_aal_param);
 	//For 120Hz rotation issue
-	do_gettimeofday(&end);
+	ktime_get_ts64(&end);
 	time_use = (end.tv_sec-start.tv_sec) * 1000000
-		+ (end.tv_usec-start.tv_usec);
+		+ (end.tv_nsec-start.tv_nsec) / NSEC_PER_USEC;
 	//pr_notice("set_param time_use is %lu us\n",time_use);
 	// tbd. to be fixd
 	if (time_use < 260) {
@@ -2155,7 +2155,7 @@ void mtk_aal_dump(struct mtk_ddp_comp *comp)
 void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
 	//For 120Hz rotation issue
-	do_gettimeofday(&start);
+	ktime_get_ts64(&start);
 
 	if (atomic_read(&g_aal_force_relay) == 1) {
 		disp_aal_clear_irq(comp, true);

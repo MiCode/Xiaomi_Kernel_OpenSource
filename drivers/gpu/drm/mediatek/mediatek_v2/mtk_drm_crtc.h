@@ -48,6 +48,10 @@
 #define IF_ONE
 #endif
 
+#ifndef CONFIG_MACH_MT6873
+#define CONFIG_MACH_MT6873
+#endif
+
 /* TODO: BW report module should not hardcode */
 enum DISP_PMQOS_SLOT {
 	DISP_PMQOS_OVL0_BW = 0,
@@ -553,7 +557,7 @@ struct mtk_drm_crtc {
 	atomic_t vblank_enable_task_active;
 
 	char *wk_lock_name;
-	struct wakeup_source wk_lock;
+	struct wakeup_source *wk_lock;
 
 	struct mtk_drm_fake_vsync *fake_vsync;
 	struct mtk_drm_fake_layer fake_layer;

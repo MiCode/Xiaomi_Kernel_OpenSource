@@ -12,8 +12,8 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_plane.h"
-#if defined(CONFIG_MTK_IOMMU_V2)
 #include <soc/mediatek/smi.h>
+#ifdef IF_ZERO
 #include "mtk_iommu_ext.h"
 #include "pseudo_m4u.h"
 #endif
