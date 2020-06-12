@@ -483,6 +483,8 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_typec_select_rp(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_pd_allowed(struct smb_charger *chg,
@@ -514,6 +516,8 @@ int smblib_set_prop_pd_voltage_min(struct smb_charger *chg,
 int smblib_set_prop_boost_current(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_typec_power_role(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_typec_select_rp(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_pd_active(struct smb_charger *chg,
 				const union power_supply_propval *val);
