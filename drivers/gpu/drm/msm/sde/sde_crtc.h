@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -227,6 +227,7 @@ struct sde_crtc_fps_info {
  * @rp_lock       : serialization lock for resource pool
  * @rp_head       : list of active resource pool
  * @plane_mask_old: keeps track of the planes used in the previous commit
+ * @frame_trigger_mode: frame trigger mode
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -305,6 +306,7 @@ struct sde_crtc {
 
 	/* blob for histogram data */
 	struct drm_property_blob *hist_blob;
+	enum frame_trigger_mode_type frame_trigger_mode;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -540,6 +542,30 @@ static inline int sde_crtc_frame_pending(struct drm_crtc *crtc)
 
 	sde_crtc = to_sde_crtc(crtc);
 	return atomic_read(&sde_crtc->frame_pending);
+}
+
+/**
+ * sde_crtc_reset_hw - attempt hardware reset on errors
+ * @crtc: Pointer to DRM crtc instance
+ * @old_state: Pointer to crtc state for previous commit
+ * @recovery_events: Whether or not recovery events are enabled
+ * Returns: Zero if current commit should still be attempted
+ */
+int sde_crtc_reset_hw(struct drm_crtc *crtc, struct drm_crtc_state *old_state,
+	bool recovery_events);
+
+/**
+ * sde_crtc_request_frame_reset - requests for next frame reset
+ * @crtc: Pointer to drm crtc object
+ */
+static inline int sde_crtc_request_frame_reset(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	if (sde_crtc->frame_trigger_mode == FRAME_DONE_WAIT_POSTED_START)
+		sde_crtc_reset_hw(crtc, crtc->state, false);
+
+	return 0;
 }
 
 /**
