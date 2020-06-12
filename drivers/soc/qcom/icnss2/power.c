@@ -138,16 +138,6 @@ out:
 	return ret;
 }
 
-static void icnss_put_vreg_single(struct icnss_priv *priv,
-				  struct icnss_vreg_info *vreg)
-{
-	struct device *dev = &priv->pdev->dev;
-
-	icnss_pr_dbg("Put regulator: %s\n", vreg->cfg.name);
-	devm_regulator_put(vreg->reg);
-	devm_kfree(dev, vreg);
-}
-
 static int icnss_vreg_on_single(struct icnss_vreg_info *vreg)
 {
 	int ret = 0;
@@ -309,13 +299,10 @@ int icnss_get_vreg(struct icnss_priv *priv)
 		memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
 		ret = icnss_get_vreg_single(priv, vreg);
 		if (ret != 0) {
-			if (ret == -ENODEV) {
-				devm_kfree(dev, vreg);
+			if (ret == -ENODEV)
 				continue;
-			} else {
-				devm_kfree(dev, vreg);
+			else
 				return ret;
-			}
 		}
 		list_add_tail(&vreg->list, vreg_list);
 	}
@@ -332,9 +319,6 @@ void icnss_put_vreg(struct icnss_priv *priv)
 		vreg = list_first_entry(vreg_list,
 					struct icnss_vreg_info, list);
 		list_del(&vreg->list);
-		if (IS_ERR_OR_NULL(vreg->reg))
-			continue;
-		icnss_put_vreg_single(priv, vreg);
 	}
 }
 
@@ -420,15 +404,6 @@ int icnss_get_clk_single(struct icnss_priv *priv,
 		     clk_info->cfg.name, clk_info->cfg.freq);
 
 	return 0;
-}
-
-static void icnss_put_clk_single(struct icnss_priv *priv,
-				 struct icnss_clk_info *clk_info)
-{
-	struct device *dev = &priv->pdev->dev;
-
-	icnss_pr_dbg("Put clock: %s\n", clk_info->cfg.name);
-	devm_clk_put(dev, clk_info->clk);
 }
 
 static int icnss_clk_on_single(struct icnss_clk_info *clk_info)
@@ -520,13 +495,10 @@ int icnss_get_clk(struct icnss_priv *priv)
 		       sizeof(clk_info->cfg));
 		ret = icnss_get_clk_single(priv, clk_info);
 		if (ret != 0) {
-			if (clk_info->cfg.required) {
-				devm_kfree(dev, clk_info);
+			if (clk_info->cfg.required)
 				goto cleanup;
-			} else {
-				devm_kfree(dev, clk_info);
+			else
 				continue;
-			}
 		}
 		list_add_tail(&clk_info->list, clk_list);
 	}
@@ -538,10 +510,6 @@ cleanup:
 		clk_info = list_first_entry(clk_list, struct icnss_clk_info,
 					    list);
 		list_del(&clk_info->list);
-		if (IS_ERR_OR_NULL(clk_info->clk))
-			continue;
-		icnss_put_clk_single(priv, clk_info);
-		devm_kfree(dev, clk_info);
 	}
 
 	return ret;
@@ -563,10 +531,6 @@ void icnss_put_clk(struct icnss_priv *priv)
 		clk_info = list_first_entry(clk_list, struct icnss_clk_info,
 					    list);
 		list_del(&clk_info->list);
-		if (IS_ERR_OR_NULL(clk_info->clk))
-			continue;
-		icnss_put_clk_single(priv, clk_info);
-		devm_kfree(dev, clk_info);
 	}
 }
 
