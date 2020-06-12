@@ -469,7 +469,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(comp_clamp_level),
 	POWER_SUPPLY_ATTR(adapter_cc_mode),
 	POWER_SUPPLY_ATTR(skin_health),
-	POWER_SUPPLY_ATTR(charge_disable),
 	POWER_SUPPLY_ATTR(adapter_details),
 	POWER_SUPPLY_ATTR(dead_battery),
 	POWER_SUPPLY_ATTR(voltage_fifo),
@@ -477,7 +476,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(operating_freq),
 	POWER_SUPPLY_ATTR(aicl_delay),
 	POWER_SUPPLY_ATTR(aicl_icl),
-	POWER_SUPPLY_ATTR(rtx),
 	POWER_SUPPLY_ATTR(cutoff_soc),
 	POWER_SUPPLY_ATTR(sys_soc),
 	POWER_SUPPLY_ATTR(batt_soc),
@@ -506,8 +504,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(irq_status),
 	POWER_SUPPLY_ATTR(parallel_output_mode),
 	POWER_SUPPLY_ATTR(alignment),
-	POWER_SUPPLY_ATTR(moisture_detection_enabled),
-	POWER_SUPPLY_ATTR(fg_type),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	POWER_SUPPLY_ATTR(charge_charger_state),
@@ -612,12 +608,6 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 		char *line;
 
 		attr = &power_supply_attrs[psy->desc->properties[j]];
-
-		if (!attr->attr.name) {
-			dev_info(dev, "%s:%d FAKE attr.name=NULL skip\n",
-				__FILE__, __LINE__);
-			continue;
-		}
 
 		ret = power_supply_show_property(dev, attr, prop_buf);
 		if (ret == -ENODEV || ret == -ENODATA) {
