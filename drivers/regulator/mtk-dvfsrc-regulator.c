@@ -68,12 +68,12 @@ static int dvfsrc_set_voltage_sel(struct regulator_dev *rdev,
 	case DVFSRC_ID_VCORE:
 		mtk_dvfsrc_send_request(dvfsrc_dev,
 					MTK_DVFSRC_CMD_VCORE_REQUEST,
-				selector);
+					selector);
 	break;
 	case DVFSRC_ID_VSCP:
 		mtk_dvfsrc_send_request(dvfsrc_dev,
-					MTK_DVFSRC_CMD_VSCP_REQUEST,
-					selector);
+				MTK_DVFSRC_CMD_VSCP_REQUEST,
+				selector);
 	break;
 	default:
 		return -EINVAL;
@@ -91,11 +91,13 @@ static int dvfsrc_get_voltage_sel(struct regulator_dev *rdev)
 	switch (id) {
 	case DVFSRC_ID_VCORE:
 		ret = mtk_dvfsrc_query_info(dvfsrc_dev,
-				MTK_DVFSRC_CMD_VCORE_QUERY, &val);
+					    MTK_DVFSRC_CMD_VCORE_LEVEL_QUERY,
+					    &val);
 	break;
 	case DVFSRC_ID_VSCP:
 		ret = mtk_dvfsrc_query_info(dvfsrc_dev,
-				MTK_DVFSRC_CMD_VCP_QUERY, &val);
+					    MTK_DVFSRC_CMD_VSCP_LEVEL_QUERY,
+					    &val);
 	break;
 	default:
 		return -EINVAL;
