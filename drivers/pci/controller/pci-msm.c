@@ -2274,6 +2274,19 @@ static int msm_pcie_is_link_up(struct msm_pcie_dev_t *dev)
 			PCIE20_CAP_LINKCTRLSTATUS) & BIT(29);
 }
 
+static bool msm_pcie_check_ltssm_state(struct msm_pcie_dev_t *dev, u32 state)
+{
+	u32 ltssm;
+
+	ltssm = readl_relaxed(dev->parf + PCIE20_PARF_LTSSM) &
+		MSM_PCIE_LTSSM_MASK;
+
+	if (ltssm == state)
+		return true;
+
+	return false;
+}
+
 /**
  * msm_pcie_iatu_config - configure outbound address translation region
  * @dev: root commpex
@@ -5768,9 +5781,9 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 				PCI_EXP_LNKCTL_ASPM_L1, 0);
 	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, 0, BIT(5));
 
-	/* confirm link is in L0 */
-	while (((readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM) &
-		MSM_PCIE_LTSSM_MASK)) != MSM_PCIE_LTSSM_L0) {
+	/* confirm link is in L0/L0s */
+	while (!msm_pcie_check_ltssm_state(pcie_dev, MSM_PCIE_LTSSM_L0) &&
+		!msm_pcie_check_ltssm_state(pcie_dev, MSM_PCIE_LTSSM_L0S)) {
 		if (unlikely(cnt++ >= cnt_max)) {
 			PCIE_ERR(pcie_dev,
 				"PCIe: RC%d: %02x:%02x.%01x: failed to transition to L0\n",
