@@ -438,6 +438,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_NO_LINK_OFF),
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_NO_LINK_OFF),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9C8KBADG",
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9D8KBADG",
@@ -9080,21 +9082,27 @@ reinit:
 			goto out;
 	}
 
-	/**
-	 * UFS3.0 and newer devices use Vcc and Vccq(1.2V)
-	 * while UFS2.1 devices use Vcc and Vccq2(1.8V) power
-	 * supplies. If the system allows turning off the regulators
-	 * during power collapse event, turn off the regulators
-	 * during system suspend events. This will cause the UFS
-	 * device to re-initialize upon system resume events.
+	/*
+	 * On 4.19 kernel, the controlling of Vccq requlator got changed.
+	 * Its relying on sys_suspend_pwr_off regulator dt flag instead of spm
+	 * level.
+	 * Updated logic is not honoring spm level specified and the device
+	 * specific quirks for the desired link state.
+	 * Below change is to fix above listed issue without distrubing the
+	 * present logic.
 	 */
-	if ((hba->dev_info.w_spec_version >= 0x300 && hba->vreg_info.vccq &&
-		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
-		(hba->dev_info.w_spec_version < 0x300 &&
-		hba->vreg_info.vccq2->sys_suspend_pwr_off))
-		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+	if (hba->spm_lvl == ufs_get_desired_pm_lvl_for_dev_link_state(
 				UFS_POWERDOWN_PWR_MODE,
-				UIC_LINK_OFF_STATE);
+				UIC_LINK_OFF_STATE)) {
+		if ((hba->dev_info.w_spec_version >= 0x300 &&
+		     hba->vreg_info.vccq &&
+		     !hba->vreg_info.vccq->sys_suspend_pwr_off))
+			hba->vreg_info.vccq->sys_suspend_pwr_off = true;
+
+		if ((hba->dev_info.w_spec_version < 0x300 &&
+		     !hba->vreg_info.vccq2->sys_suspend_pwr_off))
+			hba->vreg_info.vccq2->sys_suspend_pwr_off = true;
+	}
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
