@@ -5811,6 +5811,24 @@ err:
 }
 EXPORT_SYMBOL(msm_pcie_prevent_l1);
 
+static int msm_pcie_read_devid_all(struct pci_dev *pdev, void *dev)
+{
+	u16 device_id;
+
+	pci_read_config_word(pdev, PCI_DEVICE_ID, &device_id);
+
+	return 0;
+}
+
+static void msm_pcie_poll_for_l0_from_l0s(struct msm_pcie_dev_t *dev)
+{
+	if (!dev->l0s_supported)
+		return;
+
+	while (!msm_pcie_check_ltssm_state(dev, MSM_PCIE_LTSSM_L0))
+		pci_walk_bus(dev->dev->bus, msm_pcie_read_devid_all, dev);
+}
+
 int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 				u16 target_link_width)
 {
@@ -5884,6 +5902,11 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	if (ret)
 		return ret;
 
+	msm_pcie_config_l0s_disable_all(pcie_dev, root_pci_dev->bus);
+
+	/* in case link is already in L0s bring link back to L0 */
+	msm_pcie_poll_for_l0_from_l0s(pcie_dev);
+
 	if (target_link_speed > current_link_speed)
 		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
 
@@ -5908,6 +5931,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: successfully switched link bandwidth\n",
 		pcie_dev->rc_idx);
 out:
+	msm_pcie_config_l0s_enable_all(pcie_dev);
 	msm_pcie_allow_l1(root_pci_dev);
 
 	return ret;
