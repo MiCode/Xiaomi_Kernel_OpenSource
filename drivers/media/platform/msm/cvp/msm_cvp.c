@@ -111,9 +111,12 @@ static int cvp_wait_process_message(struct msm_cvp_inst *inst,
 		goto exit;
 	}
 
-	if (out)
-		memcpy(out, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
+	if (!out) {
+		kmem_cache_free(cvp_driver->msg_cache, msg);
+		goto exit;
+	}
 
+	memcpy(out, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
 	kmem_cache_free(cvp_driver->msg_cache, msg);
 	hdr = (struct cvp_hfi_msg_session_hdr *)out;
 	msm_cvp_unmap_frame(inst, hdr->client_data.kdata);
