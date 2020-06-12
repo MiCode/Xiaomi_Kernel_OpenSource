@@ -200,7 +200,8 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 	SDE_ATRACE_BEGIN("pp_done_irq");
 
 	/* notify all synchronous clients first, then asynchronous clients */
-	if (phys_enc->parent_ops.handle_frame_done)
+	if (phys_enc->parent_ops.handle_frame_done &&
+		atomic_read(&phys_enc->pending_kickoff_cnt))
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
 				phys_enc, event);
 
