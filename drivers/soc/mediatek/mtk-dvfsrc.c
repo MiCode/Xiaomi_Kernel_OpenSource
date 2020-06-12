@@ -67,6 +67,7 @@ struct dvfsrc_soc_data {
 	int (*get_current_level)(struct mtk_dvfsrc *dvfsrc);
 	u32 (*get_vcore_level)(struct mtk_dvfsrc *dvfsrc);
 	u32 (*get_vcp_level)(struct mtk_dvfsrc *dvfsrc);
+	u32 (*get_dram_level)(struct mtk_dvfsrc *dvfsrc);
 	void (*set_dram_bw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
 	void (*set_dram_peak_bw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
 	void (*set_dram_hrtbw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
@@ -84,6 +85,7 @@ struct dvfsrc_soc_data {
 
 struct mtk_dvfsrc {
 	struct device *dev;
+	struct platform_device *devfreq;
 	struct platform_device *regulator;
 	struct platform_device *icc;
 	const struct dvfsrc_soc_data *dvd;
@@ -258,7 +260,7 @@ static const int mt6873_regs[] = {
 	[DVFSRC_BASIC_CONTROL] =	0x0,
 	[DVFSRC_SW_REQ] =		0xC,
 	[DVFSRC_LEVEL] =		0xD44,
-	[DVFSRC_SW_PEAK_BW] =		0x260,
+	[DVFSRC_SW_PEAK_BW] =		0x278,
 	[DVFSRC_SW_BW] =		0x26C,
 	[DVFSRC_SW_HRT_BW] =		0x290,
 	[DVFSRC_TARGET_LEVEL] =		0xD48,
@@ -493,6 +495,11 @@ static u32 mt6873_get_vcore_level(struct mtk_dvfsrc *dvfsrc)
 	return (dvfsrc_read(dvfsrc, DVFSRC_SW_REQ) >> 4) & 0x7;
 }
 
+static u32 mt6873_get_dram_level(struct mtk_dvfsrc *dvfsrc)
+{
+	return (dvfsrc_read(dvfsrc, DVFSRC_SW_REQ) >> 12) & 0x7;
+}
+
 static u32 mt6873_get_vcp_level(struct mtk_dvfsrc *dvfsrc)
 {
 	return (dvfsrc_read(dvfsrc, DVFSRC_VCORE_REQUEST) >> 12) & 0x7;
@@ -649,9 +656,6 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	case MTK_DVFSRC_CMD_VSCP_REQUEST:
 		ret = dvfsrc->dvd->wait_for_vcore_level(dvfsrc, data);
 		break;
-	case MTK_DVFSRC_CMD_HRTBW_REQUEST:
-		ret = dvfsrc_wait_for_idle(dvfsrc);
-		break;
 	case MTK_DVFSRC_CMD_DRAM_REQUEST:
 		ret = dvfsrc->dvd->wait_for_dram_level(dvfsrc, data);
 		break;
@@ -672,11 +676,14 @@ int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd, int *data)
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 
 	switch (cmd) {
-	case MTK_DVFSRC_CMD_VCORE_QUERY:
+	case MTK_DVFSRC_CMD_VCORE_LEVEL_QUERY:
 		*data = dvfsrc->dvd->get_vcore_level(dvfsrc);
 		break;
-	case MTK_DVFSRC_CMD_VCP_QUERY:
+	case MTK_DVFSRC_CMD_VSCP_LEVEL_QUERY:
 		*data = dvfsrc->dvd->get_vcp_level(dvfsrc);
+		break;
+	case MTK_DVFSRC_CMD_DRAM_LEVEL_QUERY:
+		*data = dvfsrc->dvd->get_dram_level(dvfsrc);
 		break;
 	case MTK_DVFSRC_CMD_CURR_LEVEL_QUERY:
 		*data = dvfsrc->dvd->get_current_level(dvfsrc);
@@ -801,12 +808,22 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 		goto unregister_regulator;
 	}
 
+	dvfsrc->devfreq = platform_device_register_data(dvfsrc->dev,
+			"mtk-dvfsrc-devfreq", -1, NULL, 0);
+	if (IS_ERR(dvfsrc->devfreq)) {
+		dev_err(dvfsrc->dev, "Failed create devfreq device\n");
+		ret = PTR_ERR(dvfsrc->devfreq);
+		goto unregister_icc;
+	}
+
 	ret = devm_of_platform_populate(dvfsrc->dev);
 	if (ret < 0)
-		goto unregister_icc;
+		goto unregister_devfreq;
 
 	return 0;
 
+unregister_devfreq:
+	platform_device_unregister(dvfsrc->devfreq);
 unregister_icc:
 	platform_device_unregister(dvfsrc->icc);
 unregister_regulator:
@@ -874,7 +891,7 @@ static void dvfsrc_init_mt6873(struct mtk_dvfsrc *dvfsrc)
 	dvfsrc_write(dvfsrc, DVFSRC_HRT_LOW, 0x070704AF);
 	dvfsrc_write(dvfsrc, DVFSRC_HRT_REQUEST, 0x66654321);
 	/* Setup up SRT QOS policy */
-	dvfsrc_write(dvfsrc, DVFSRC_QOS_EN, 0x00010278);
+	dvfsrc_write(dvfsrc, DVFSRC_QOS_EN, 0x0011007C);
 	dvfsrc_write(dvfsrc, DVFSRC_DDR_QOS0, 0x00000019);
 	dvfsrc_write(dvfsrc, DVFSRC_DDR_QOS1, 0x00000026);
 	dvfsrc_write(dvfsrc, DVFSRC_DDR_QOS2, 0x00000033);
@@ -960,9 +977,11 @@ static const struct dvfsrc_soc_data mt6873_data = {
 	.get_current_level = mt6873_get_current_level,
 	.get_vcore_level = mt6873_get_vcore_level,
 	.get_vcp_level = mt6873_get_vcp_level,
+	.get_dram_level = mt6873_get_dram_level,
 	.set_dram_bw = mt6873_set_dram_bw,
 	.set_dram_peak_bw = mt6873_set_dram_peak_bw,
 	.set_opp_level = mt6873_set_opp_level,
+	.set_dram_level = mt6873_set_dram_level,
 	.set_dram_hrtbw = mt6873_set_dram_hrtbw,
 	.set_vcore_level = mt6873_set_vcore_level,
 	.set_vscp_level = mt6873_set_vscp_level,
