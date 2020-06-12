@@ -1427,11 +1427,13 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 	struct sde_encoder_wait_info wait_info;
 	int ret;
 	bool frame_pending = true;
+	struct sde_hw_ctl *ctl;
 
 	if (!phys_enc || !phys_enc->hw_ctl) {
 		SDE_ERROR("invalid argument(s)\n");
 		return -EINVAL;
 	}
+	ctl = phys_enc->hw_ctl;
 
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
 	wait_info.atomic_cnt = &phys_enc->pending_ctlstart_cnt;
@@ -1474,6 +1476,18 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 			atomic_inc_return(&phys_enc->ctlstart_timeout);
 		}
 
+	} else if ((ret == 0) &&
+	  (phys_enc->frame_trigger_mode == FRAME_DONE_WAIT_POSTED_START) &&
+	  atomic_read(&phys_enc->pending_kickoff_cnt) &&
+	  ctl->ops.get_scheduler_status &&
+	  (ctl->ops.get_scheduler_status(ctl) & BIT(0)) &&
+	  phys_enc->parent_ops.handle_frame_done) {
+		atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+
+		phys_enc->parent_ops.handle_frame_done(
+				phys_enc->parent, phys_enc,
+				SDE_ENCODER_FRAME_EVENT_DONE |
+				SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE);
 	}
 
 	return ret;
