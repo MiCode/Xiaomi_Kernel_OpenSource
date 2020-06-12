@@ -3,7 +3,7 @@
 # MediaTek Clock Drivers
 #
 menu "Clock driver for MediaTek SoC"
-	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on ARM || ARM64 || COMPILE_TEST
 
 config COMMON_CLK_MEDIATEK
 	tristate
@@ -13,9 +13,8 @@ config COMMON_CLK_MEDIATEK
 
 config COMMON_CLK_MT2701
 	bool "Clock driver for MediaTek MT2701"
-	depends on (ARCH_MEDIATEK && ARM) || COMPILE_TEST
+	depends on ARM || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM
 	help
 	  This driver supports MediaTek MT2701 basic clocks.
 
@@ -69,9 +68,8 @@ config COMMON_CLK_MT2701_G3DSYS
 
 config COMMON_CLK_MT2712
 	bool "Clock driver for MediaTek MT2712"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
+	depends on ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM64
 	help
 	  This driver supports MediaTek MT2712 basic clocks.
 
@@ -205,9 +203,8 @@ config COMMON_CLK_MT6765_MIPI2BSYS
 
 config COMMON_CLK_MT6779
 	bool "Clock driver for MediaTek MT6779"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
+	depends on ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM64
 	help
 	  This driver supports MediaTek MT6779 basic clocks.
 
@@ -260,12 +257,11 @@ config COMMON_CLK_MT6779_AUDSYS
 	  This driver supports Mediatek MT6779 audsys clocks.
 
 config COMMON_CLK_MT6797
-	bool "Clock driver for MediaTek MT6797"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM64
-	help
-	  This driver supports MediaTek MT6797 basic clocks.
+       bool "Clock driver for MediaTek MT6797"
+       depends on ARM64 || COMPILE_TEST
+       select COMMON_CLK_MEDIATEK
+       help
+         This driver supports MediaTek MT6797 basic clocks.
 
 config COMMON_CLK_MT6797_MMSYS
 	bool "Clock driver for MediaTek MT6797 mmsys"
@@ -293,9 +289,8 @@ config COMMON_CLK_MT6797_VENCSYS
 
 config COMMON_CLK_MT7622
 	bool "Clock driver for MediaTek MT7622"
-	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on ARM || ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK
 	help
 	  This driver supports MediaTek MT7622 basic clocks and clocks
 	  required for various periperals found on MediaTek.
@@ -323,9 +318,8 @@ config COMMON_CLK_MT7622_AUDSYS
 
 config COMMON_CLK_MT7629
 	bool "Clock driver for MediaTek MT7629"
-	depends on (ARCH_MEDIATEK && ARM) || COMPILE_TEST
+	depends on ARM || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM
 	help
 	  This driver supports MediaTek MT7629 basic clocks and clocks
 	  required for various periperals found on MediaTek.
@@ -346,17 +340,15 @@ config COMMON_CLK_MT7629_HIFSYS
 
 config COMMON_CLK_MT8135
 	bool "Clock driver for MediaTek MT8135"
-	depends on (ARCH_MEDIATEK && ARM) || COMPILE_TEST
+	depends on ARM || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM
 	help
 	  This driver supports MediaTek MT8135 clocks.
 
 config COMMON_CLK_MT8173
 	bool "Clock driver for MediaTek MT8173"
-	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on ARM || ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK
 	help
 	  This driver supports MediaTek MT8173 clocks.
 
@@ -369,9 +361,8 @@ config COMMON_CLK_MT8173_MMSYS
 
 config COMMON_CLK_MT8183
 	bool "Clock driver for MediaTek MT8183"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
+	depends on ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM64
 	help
 	  This driver supports MediaTek MT8183 basic clocks.
 
@@ -705,9 +696,8 @@ config COMMON_CLK_MT8192_VENCSYS
 
 config COMMON_CLK_MT8516
 	bool "Clock driver for MediaTek MT8516"
-	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on ARM || ARM64 || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK
 	help
 	  This driver supports MediaTek MT8516 clocks.
 
