@@ -576,25 +576,8 @@
 		};
 	};
 
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
 	rpmcc: qcom,rpmcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmcc_clocks";
+		compatible = "qcom,rpmcc-holi";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -605,7 +588,9 @@
 		reg_names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
-		clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
+			 <&rpmcc RPM_SMD_XO_A_CLK_SRC>,
+			 <&sleep_clk>;
 		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
