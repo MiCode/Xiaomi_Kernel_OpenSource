@@ -1341,10 +1341,11 @@ static int sde_encoder_phys_cmd_prepare_for_kickoff(
 	}
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
+	phys_enc->frame_trigger_mode = params->frame_trigger_mode;
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			atomic_read(&phys_enc->pending_kickoff_cnt),
-			atomic_read(&cmd_enc->autorefresh.kickoff_cnt));
-	phys_enc->frame_trigger_mode = params->frame_trigger_mode;
+			atomic_read(&cmd_enc->autorefresh.kickoff_cnt),
+			phys_enc->frame_trigger_mode);
 
 	if (phys_enc->frame_trigger_mode == FRAME_DONE_WAIT_DEFAULT) {
 		/*
@@ -1466,6 +1467,8 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 {
 	int rc = 0, i, pending_cnt;
 	struct sde_encoder_phys_cmd *cmd_enc;
+	u32 scheduler_status = INVALID_CTL_STATUS;
+	struct sde_hw_ctl *ctl;
 
 	if (!phys_enc)
 		return -EINVAL;
@@ -1481,13 +1484,21 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 		if (cmd_enc->autorefresh.cfg.enable)
 			rc = _sde_encoder_phys_cmd_wait_for_autorefresh_done(
 						phys_enc);
+
+		ctl = phys_enc->hw_ctl;
+		if (ctl && ctl->ops.get_scheduler_status)
+			scheduler_status = ctl->ops.get_scheduler_status(ctl);
 	}
 
 	/* wait for posted start or serialize trigger */
-	if ((atomic_read(&phys_enc->pending_kickoff_cnt) > 1) ||
+	pending_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
+	if ((pending_cnt > 1) ||
+		(pending_cnt && (scheduler_status & BIT(0))) ||
 		(!rc && phys_enc->frame_trigger_mode ==
-				FRAME_DONE_WAIT_SERIALIZE))
+			FRAME_DONE_WAIT_SERIALIZE))
 		goto wait_for_idle;
+
+	return rc;
 
 wait_for_idle:
 	pending_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
@@ -1499,7 +1510,8 @@ wait_for_idle:
 			phys_enc->hw_pp->idx - PINGPONG_0,
 			phys_enc->frame_trigger_mode,
 			atomic_read(&phys_enc->pending_kickoff_cnt),
-			phys_enc->enable_state, rc);
+			phys_enc->enable_state,
+			cmd_enc->wr_ptr_wait_success, scheduler_status, rc);
 		SDE_ERROR("pp:%d failed wait_for_idle: %d\n",
 			phys_enc->hw_pp->idx - PINGPONG_0, rc);
 		if (phys_enc->enable_state == SDE_ENC_ERR_NEEDS_HW_RESET)

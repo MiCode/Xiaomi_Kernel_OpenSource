@@ -19,6 +19,8 @@
 #include "sde_hw_sspp.h"
 #include "sde_hw_blk.h"
 
+#define INVALID_CTL_STATUS 0xfffff88e
+
 /**
  * sde_ctl_mode_sel: Interface mode selection
  * SDE_CTL_MODE_SEL_VID:    Video mode interface
