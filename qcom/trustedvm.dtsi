@@ -5,7 +5,7 @@
 	#size-cells = <0x2>;
 	interrupt-parent = <&vgic>;
 
-	memory@28000000 {
+	memory@28800000 {
 		device_type = "memory";
 		reg = <0x0 0x28800000 0x0 0x76f7000>; /* Temp S2 mapping */
 	};
@@ -168,7 +168,7 @@
 			#address-cells = <0x2>;
 			#size-cells = <0x0>;
 			base-address = <0x0 0xD0800000>;
-			size-min = <0x0 0x7800000>;    /* 120 MB */
+			size-min = <0x0 0x76f7000>;    /* 118 MB */
 		};
 
 		segments {
@@ -218,6 +218,12 @@
 			qcom,tx-message-size = <0xf0>;
 			qcom,rx-queue-depth = <8>;
 			qcom,rx-message-size = <0xf0>;
+		};
+	};
+
+	firmware: firmware {
+		scm {
+			compatible = "qcom,scm";
 		};
 	};
 
