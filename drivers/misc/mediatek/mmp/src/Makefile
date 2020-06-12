@@ -12,6 +12,7 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 
 obj-$(CONFIG_MMPROFILE) += mmprofile.o
 
