@@ -221,6 +221,8 @@ enum sde_enc_rc_states {
  * @topology:                   topology of the display
  * @vblank_enabled:		boolean to track userspace vblank vote
  * @idle_pc_restore:		flag to indicate idle_pc_restore happened
+ * @frame_trigger_mode:		frame trigger mode indication for command
+ *				mode display
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
@@ -283,6 +285,7 @@ struct sde_encoder_virt {
 	struct msm_display_topology topology;
 	bool vblank_enabled;
 	bool idle_pc_restore;
+	enum frame_trigger_mode_type frame_trigger_mode;
 
 	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
@@ -3316,6 +3319,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		phys->comp_type = comp_info->comp_type;
 		phys->comp_ratio = comp_info->comp_ratio;
 		phys->wide_bus_en = mode_info.wide_bus_en;
+		phys->frame_trigger_mode = sde_enc->frame_trigger_mode;
 
 		if (phys->comp_type == MSM_DISPLAY_COMPRESSION_DSC) {
 			phys->dsc_extra_pclk_cycle_cnt =
@@ -5151,6 +5155,9 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 
 	debugfs_create_bool("idle_power_collapse", 0600, sde_enc->debugfs_root,
 			&sde_enc->idle_pc_enabled);
+
+	debugfs_create_u32("frame_trigger_mode", 0600, sde_enc->debugfs_root,
+			&sde_enc->frame_trigger_mode);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
 		if (sde_enc->phys_encs[i] &&

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -23,6 +23,7 @@
 
 #include "msm_prop.h"
 #include "sde_hw_mdss.h"
+#include "sde_kms.h"
 
 #define SDE_ENCODER_FRAME_EVENT_DONE			BIT(0)
 #define SDE_ENCODER_FRAME_EVENT_ERROR			BIT(1)
