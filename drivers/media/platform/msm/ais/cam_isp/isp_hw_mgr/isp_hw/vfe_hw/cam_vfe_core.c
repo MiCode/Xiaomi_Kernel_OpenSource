@@ -417,7 +417,8 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 		reset_core_args, arg_size);
 	CAM_DBG(CAM_ISP, "waiting for vfe reset complete");
 	/* Wait for Completion or Timeout of 500ms */
-	rc = wait_for_completion_timeout(&vfe_hw->hw_complete, 500);
+	rc = wait_for_completion_timeout(&vfe_hw->hw_complete,
+					msecs_to_jiffies(500));
 	if (!rc)
 		CAM_ERR(CAM_ISP, "Error! Reset Timeout");
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -321,6 +321,7 @@ static const struct pinctrl_pin_desc sdmshrike_pins[] = {
 	PINCTRL_PIN(191, "SDC2_CMD"),
 	PINCTRL_PIN(192, "SDC2_DATA"),
 	PINCTRL_PIN(193, "UFS_RESET"),
+	PINCTRL_PIN(194, "UFS0_RESET"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -520,6 +521,7 @@ static const unsigned int sdc2_clk_pins[] = { 190 };
 static const unsigned int sdc2_cmd_pins[] = { 191 };
 static const unsigned int sdc2_data_pins[] = { 192 };
 static const unsigned int ufs_reset_pins[] = { 193 };
+static const unsigned int ufs0_reset_pins[] = { 194 };
 
 enum sdmshrike_functions {
 	msm_mux_GRFC2,
@@ -2244,6 +2246,7 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
 	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
 	[193] = UFS_RESET(ufs_reset, 0xdb6004),
+	[194] = UFS_RESET(ufs0_reset, 0xdc7004),
 };
 
 static struct msm_dir_conn sdmshrike_dir_conn[] = {

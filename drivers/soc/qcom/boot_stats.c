@@ -74,7 +74,8 @@ static void print_boot_stats(void)
 	pr_info("KPI: Bootloader end count = %u\n",
 			readl_relaxed(&boot_stats->bootloader_end));
 	pr_info("KPI: Bootloader load kernel count = %u\n",
-			readl_relaxed(&boot_stats->bootloader_load_kernel));
+			readl_relaxed(&boot_stats->load_kernel_done) -
+			readl_relaxed(&boot_stats->load_kernel_start));
 	pr_info("KPI: Kernel MPM timestamp = %u\n",
 			readl_relaxed(mpm_counter_base));
 	pr_info("KPI: Kernel MPM Clock frequency = %u\n",

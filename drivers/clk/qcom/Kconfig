@@ -683,7 +683,7 @@ config SDM_GCC_429W
 
 config SDM_DEBUGCC_429W
 	tristate "SDM429W Debug Clock Controller"
-	select SDM_GCC_429W
+	depends on SDM_GCC_429W
 	help
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  SDM429W devices.

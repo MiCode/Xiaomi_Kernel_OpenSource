@@ -1025,3 +1025,5 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+
+source "drivers/soc/qcom/wcnss/Kconfig"

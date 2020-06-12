@@ -50,14 +50,12 @@ struct ssc_qup_nb {
 
 /**
  * struct ssc_qup_ssr	GENI Serial Engine SSC qup SSR Structure.
- * @probe_completed	To ignore up notification during probe.
  * @is_ssr_down	To check SE status.
  * @subsys_name	Subsystem name for ssr registration.
  * @active_list_head	List Head of all client in SSC QUPv3.
  */
 struct ssc_qup_ssr {
 	struct ssc_qup_nb ssc_qup_nb;
-	bool probe_completed;
 	bool is_ssr_down;
 	const char *subsys_name;
 	struct list_head active_list_head;
@@ -68,13 +66,11 @@ struct ssc_qup_ssr {
  * @active_list	List of SSC qup SE clients.
  * @force_suspend	Function pointer for Subsystem shutdown case.
  * @force_resume	Function pointer for Subsystem restart case.
- * @ssr_enable		To check SSC Qup SSR enable status.
  */
 struct se_rsc_ssr {
 	struct list_head active_list;
-	int (*force_suspend)(struct device *ctrl_dev);
-	int (*force_resume)(struct device *ctrl_dev);
-	bool ssr_enable;
+	void (*force_suspend)(struct device *ctrl_dev);
+	void (*force_resume)(struct device *ctrl_dev);
 };
 
 /**

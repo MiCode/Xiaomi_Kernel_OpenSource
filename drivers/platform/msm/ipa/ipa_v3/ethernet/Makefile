@@ -11,6 +11,7 @@ ipa-eth-y := \
 	ipa_eth_offload.o \
 	ipa_eth_pci.o \
 	ipa_eth_pm.o \
+	ipa_eth_trace.o \
 	ipa_eth_uc.o \
 	ipa_eth_utils.o
 

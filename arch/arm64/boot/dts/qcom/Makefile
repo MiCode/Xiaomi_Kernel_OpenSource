@@ -5,58 +5,73 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sm8150-cdp-overlay.dtbo \
 		sa8155-adp-star-overlay.dtbo \
 		sa8155p-adp-star-overlay.dtbo \
+		sa8155p-adp-star-lpass-overlay.dtbo \
 		sa8155-v2-adp-air-overlay.dtbo \
-                sa8155p-v2-adp-air-overlay.dtbo
+                sa8155p-v2-adp-air-overlay.dtbo \
+		sa8155p-v2-adp-air-lpass-overlay.dts
 
 sm8150-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sa8155-adp-star-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
 sa8155p-adp-star-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
+sa8155p-adp-star-lpass-overlay.dtbo := sa8155p.dtb sa8155p-v2.dtb
 sa8155-v2-adp-air-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
 sa8155p-v2-adp-air-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
+sa8155p-v2-adp-air-lpass-overlay.dtbo-base := sa8155p.dtb sa8155p-v2.dtb
 else
 dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-cdp.dtb \
 	sa8155-adp-star.dtb \
 	sa8155p-adp-star.dtb \
+	sa8155p-adp-star-lpass \
 	sa8155-v2-adp-star.dtb \
 	sa8155p-v2-adp-star.dtb \
 	sa8155-v2-adp-air.dtb \
-	sa8155p-v2-adp-air.dtb
+	sa8155p-v2-adp-air.dtb \
+	sa8155p-v2-adp-air-lpass.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMSHRIKE) += \
 		sdmshrike-cdp-overlay.dtbo \
-		sa8195p-adp-star-overlay.dtbo
+		sa8195p-adp-star-overlay.dtbo \
+		sa8195p-v2-adp-air-overlay.dtbo
 
 sdmshrike-cdp-overlay.dtbo-base := sdmshrike.dtb sdmshrike-v2.dtb
 sa8195p-adp-star-overlay.dtbo-base := sa8195p.dtb
+sa8195p-v2-adp-air-overlay.dtbo-base := sa8195p.dtb
 else
 dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-cdp.dtb \
 	sa8195p-adp-star.dtb
+	sa8195p-v2-adp-air.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM6150) += \
 		sa6155-adp-star-overlay.dtbo \
 		sa6155p-adp-star-overlay.dtbo \
+		sa6155p-adp-star-lpass-overlay.dts \
 		sa6155-adp-air-overlay.dtbo \
 		sa6155p-adp-air-overlay.dtbo \
 		sa6155p-v2-adp-star-overlay.dtbo \
-		sa6155p-v2-adp-air-overlay.dtbo
+		sa6155p-v2-adp-air-overlay.dtbo \
+		sa6155p-v2-adp-air-lpass-overlay.dts
 
 sa6155-adp-star-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-star-overlay.dtbo-base := sa6155p.dtb
+sa6155p-adp-star-lpass-overlay.dtbo-base :=sa6155p.dtb
 sa6155p-v2-adp-star-overlay.dtbo-base := sa6155p.dtb
 sa6155-adp-air-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-air-overlay.dtbo-base := sa6155p.dtb
 sa6155p-v2-adp-air-overlay.dtbo-base := sa6155p.dtb
+sa6155p-v2-adp-air-lpass-overlay.dtbo-base := sa6155p.dtb
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sa6155-adp-star.dtb \
 	sa6155p-adp-star.dtb \
+	sa6155p-adp-star-lpass.dtb \
 	sa6155-adp-air.dtb \
 	sa6155p-adp-air.dtb \
 	sa6155p-v2-adp-star.dtb \
-	sa6155p-v2-adp-air.dtb
+	sa6155p-v2-adp-air.dtb \
+	sa6155p-v2-adp-air-lpass.dtb
 
 endif
 else
@@ -176,8 +191,9 @@ dtb-$(CONFIG_QTI_GVM) += sa8155-vm-la.dtb \
 	sa8155-vm-lv.dtb \
 	sa8155-vm-lv-mt.dtb \
 	sa8155-vm-la-mt.dtb \
-	sa6155p-vm.dtb \
-	sa8195-vm.dtb \
+	sa6155p-vm-la.dtb \
+	sa8195-vm-la.dtb \
+	sa8195-vm-la-mt.dtb \
 	sa8195-vm-lv.dtb \
 	sa8195-vm-lv-mt.dtb
 
@@ -393,6 +409,7 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
         sa515m-v2-ttp-pcie-ep.dtb \
         sa515m-v2-ttp-flashless-usb-ep.dtb \
         sa515m-v2-ttp-flashless-pcie-ep.dtb \
+        sa515m-v2-ttp-emmc.dtb \
 	sa515m-ccard.dtb \
 	sa515m-ccard-pcie-ep.dtb \
 	sa515m-ccard-usb-ep.dtb \
@@ -473,18 +490,24 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
         dtbo-$(CONFIG_ARCH_SDM429W) += sdm429-wtp-overlay.dtbo\
 		sdm429-wdp-overlay.dtbo\
+		sdm429-bg-dvt2-wtp-overlay.dtbo\
 		sda429-wdp-overlay.dtbo\
-		sda429-wtp-overlay.dtbo
+		sda429-wtp-overlay.dtbo\
+		sda429-bg-dvt2-wtp-overlay.dtbo
 
 sdm429-wtp-overlay.dtbo-base := sdm429.dtb
 sdm429-wdp-overlay.dtbo-base := sdm429.dtb
+sdm429-bg-dvt2-wtp-overlay.dtbo-base := sdm429.dtb
 sda429-wtp-overlay.dtbo-base := sda429.dtb
 sda429-wdp-overlay.dtbo-base := sda429.dtb
+sda429-bg-dvt2-wtp-overlay.dtbo-base := sda429.dtb
 else
 dtb-$(CONFIG_ARCH_SDM429W) += sdm429-wtp.dtb\
 	sdm429-wdp.dtb\
+	sdm429-bg-dvt2-wtp.dtb\
 	sda429-wtp.dtb\
-	sda429-wdp.dtb
+	sda429-wdp.dtb\
+	sda429-bg-dvt2-wtp.dtb
 endif
 
 

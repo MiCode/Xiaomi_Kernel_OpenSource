@@ -48,7 +48,6 @@ struct pdc_type_info {
 	bool set;
 };
 static struct pdc_type_info pdc_type_config[MAX_IRQS];
-static u32 pdc_enabled[MAX_ENABLE_REGS];
 static u32 max_enable_regs;
 static DEFINE_SPINLOCK(pdc_lock);
 static void __iomem *pdc_base;
@@ -289,6 +288,9 @@ static const struct irq_domain_ops qcom_pdc_ops = {
 	.free		= irq_domain_free_irqs_common,
 };
 
+#ifdef CONFIG_QTI_PDC_SAVE_RESTORE
+static u32 pdc_enabled[MAX_ENABLE_REGS];
+
 static int pdc_suspend(void)
 {
 	int i;
@@ -336,6 +338,7 @@ static int __init pdc_init_syscore(void)
 	return 0;
 }
 arch_initcall(pdc_init_syscore);
+#endif
 
 int qcom_pdc_init(struct device_node *node,
 		struct device_node *parent, void *data)

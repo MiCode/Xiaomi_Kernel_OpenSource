@@ -654,6 +654,7 @@ struct diagchar_dev {
 	struct list_head diag_id_list;
 	struct mutex diag_id_mutex;
 	struct mutex cmd_reg_mutex;
+	spinlock_t dci_mempool_lock;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
 	int transport_set;

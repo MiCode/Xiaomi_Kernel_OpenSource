@@ -165,6 +165,7 @@
 		clock-names = "eth_axi_clk", "eth_ptp_clk",
 				"eth_rgmii_clk", "eth_slave_ahb_clk";
 		qcom,phy-reset = <&tlmm 104 GPIO_ACTIVE_HIGH>;
+		qcom,phy-reset-delay-msecs = <10 50>;
 		qcom,phy-intr-redirect = <&tlmm 121 GPIO_ACTIVE_LOW>;
 		gdsc_emac-supply = <&emac_gdsc>;
 		pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",

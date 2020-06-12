@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -551,7 +551,12 @@ void diag_pcie_connect_all(void)
 	struct diag_pcie_info *pcie_info = NULL;
 
 	for (i = 0; i < NUM_DIAG_PCIE_DEV; i++) {
+		if (i != DIAG_PCIE_LOCAL)
+			return;
 		pcie_info = &diag_pcie[i];
+		if (!pcie_info)
+			return;
+
 		if (!atomic_read(&pcie_info->enabled))
 			continue;
 		atomic_set(&pcie_info->diag_state, 1);
@@ -563,9 +568,16 @@ void diag_pcie_connect_device(int id)
 {
 	struct diag_pcie_info *pcie_info = NULL;
 
+	if (id != DIAG_PCIE_LOCAL)
+		return;
+
 	pcie_info = &diag_pcie[id];
+	if (!pcie_info)
+		return;
+
 	if (!atomic_read(&pcie_info->enabled))
 		return;
+
 	atomic_set(&pcie_info->diag_state, 1);
 	diag_pcie_connect(pcie_info);
 }
@@ -594,7 +606,15 @@ void diag_pcie_disconnect_all(void)
 	struct diag_pcie_info *pcie_info = NULL;
 
 	for (i = 0; i < NUM_DIAG_PCIE_DEV; i++) {
+
+		if (i != DIAG_PCIE_LOCAL)
+			return;
+
 		pcie_info = &diag_pcie[i];
+
+		if (!pcie_info)
+			return;
+
 		if (!atomic_read(&pcie_info->enabled))
 			continue;
 		atomic_set(&pcie_info->diag_state, 0);
@@ -606,9 +626,17 @@ void diag_pcie_disconnect_device(int id)
 {
 	struct diag_pcie_info *pcie_info = NULL;
 
+	if (id != DIAG_PCIE_LOCAL)
+		return;
+
 	pcie_info = &diag_pcie[id];
+
+	if (!pcie_info)
+		return;
+
 	if (!atomic_read(&pcie_info->enabled))
 		return;
+
 	atomic_set(&pcie_info->diag_state, 0);
 	diag_pcie_disconnect(pcie_info);
 }

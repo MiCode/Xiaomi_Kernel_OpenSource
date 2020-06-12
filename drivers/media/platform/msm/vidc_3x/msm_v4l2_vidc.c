@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -584,6 +584,32 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 	if (rc) {
 		dprintk(VIDC_ERR,
 				"Failed to create link name sysfs for encoder");
+		goto err_enc_attr_link_name;
+	}
+	/* setup the encoder device with cma */
+	core->vdev[MSM_VIDC_ENCODER_CMA].vdev.release =
+		msm_vidc_release_video_device;
+	core->vdev[MSM_VIDC_ENCODER_CMA].vdev.fops = &msm_v4l2_vidc_fops;
+	core->vdev[MSM_VIDC_ENCODER_CMA].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
+	core->vdev[MSM_VIDC_ENCODER_CMA].vdev.vfl_dir = VFL_DIR_M2M;
+	core->vdev[MSM_VIDC_ENCODER_CMA].type = MSM_VIDC_ENCODER_CMA;
+	core->vdev[MSM_VIDC_ENCODER_CMA].vdev.v4l2_dev = &core->v4l2_dev;
+	rc = video_register_device(&core->vdev[MSM_VIDC_ENCODER_CMA].vdev,
+				VFL_TYPE_GRABBER, nr + 3);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to register video cma encoder device");
+
+		goto err_enc_register;
+	}
+
+	video_set_drvdata(&core->vdev[MSM_VIDC_ENCODER_CMA].vdev, core);
+	dev = &core->vdev[MSM_VIDC_ENCODER_CMA].vdev.dev;
+	rc = device_create_file(dev, &dev_attr_link_name);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to create link name sysfs for encoder cma");
+
 		goto err_enc_attr_link_name;
 	}
 

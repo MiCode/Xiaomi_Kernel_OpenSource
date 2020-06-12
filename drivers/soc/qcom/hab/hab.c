@@ -49,6 +49,9 @@ static struct hab_device hab_devices[] = {
 	HAB_DEVICE_CNSTR(DEVICE_CLK2_NAME, MM_CLK_VM2, 17),
 	HAB_DEVICE_CNSTR(DEVICE_FDE1_NAME, MM_FDE_1, 18),
 	HAB_DEVICE_CNSTR(DEVICE_BUFFERQ1_NAME, MM_BUFFERQ_1, 19),
+	HAB_DEVICE_CNSTR(DEVICE_DATA1_NAME, MM_DATA_NETWORK_1, 20),
+	HAB_DEVICE_CNSTR(DEVICE_DATA2_NAME, MM_DATA_NETWORK_2, 21),
+	HAB_DEVICE_CNSTR(DEVICE_HSI2S1_NAME, MM_HSI2S_1, 22),
 };
 
 struct hab_driver hab_driver = {
@@ -910,6 +913,24 @@ static int hab_generate_pchan(struct local_vmid *settings, int i, int j)
 		break;
 	case MM_BUFFERQ_START/100:
 		for (k = MM_BUFFERQ_START + 1; k < MM_BUFFERQ_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+	case MM_DATA_START/100:
+		for (k = MM_DATA_START + 1; k < MM_DATA_END; k++) {
+			ret += hab_initialize_pchan_entry(
+					find_hab_device(k),
+					settings->self,
+					HABCFG_GET_VMID(settings, i),
+					HABCFG_GET_BE(settings, i, j));
+		}
+		break;
+	case MM_HSI2S_START/100:
+		for (k = MM_HSI2S_START + 1; k < MM_HSI2S_END; k++) {
 			ret += hab_initialize_pchan_entry(
 					find_hab_device(k),
 					settings->self,

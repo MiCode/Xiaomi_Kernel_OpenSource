@@ -94,6 +94,8 @@ struct stmmac_extra_stats {
 	unsigned long threshold;
 	unsigned long tx_pkt_n;
 	unsigned long rx_pkt_n;
+	unsigned long q_tx_pkt_n[MTL_MAX_TX_QUEUES];
+	unsigned long q_rx_pkt_n[MTL_MAX_RX_QUEUES];
 	unsigned long normal_irq_n;
 	unsigned long rx_normal_irq_n;
 	unsigned long napi_poll;
@@ -600,6 +602,8 @@ struct mac_device_info {
 	unsigned int pcs;
 	unsigned int pmt;
 	unsigned int ps;
+	unsigned int crc_strip_en;
+	unsigned int acs_strip_en;
 };
 
 struct stmmac_rx_routing {

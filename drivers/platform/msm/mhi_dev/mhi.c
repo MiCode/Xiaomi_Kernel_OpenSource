@@ -323,6 +323,11 @@ static int mhi_trigger_msi_edma(struct mhi_dev_ring *ring, u32 idx)
 				msi_buf->dma_addr,
 				sizeof(u32),
 				DMA_PREP_INTERRUPT);
+	if (!descriptor) {
+		pr_err("%s(): desc is null, MSI to Host failed\n", __func__);
+		spin_unlock_irqrestore(&mhi_ctx->msi_lock, flags);
+		return -EFAULT;
+	}
 
 	descriptor->callback_param = msi_buf;
 	descriptor->callback = msi_trigger_completion_cb;
@@ -1298,36 +1303,6 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
-
-		switch (chid) {
-		case MHI_CLIENT_ADPL_IN:
-			connect_params.sys.client = IPA_CLIENT_MHI_DPL_CONS;
-			break;
-		case MHI_CLIENT_IP_HW_QDSS:
-			connect_params.sys.client = IPA_CLIENT_MHI_QDSS_CONS;
-			break;
-		case MHI_CLIENT_IP_HW_0_OUT:
-			connect_params.sys.client = IPA_CLIENT_MHI_PROD;
-			break;
-		case MHI_CLIENT_IP_HW_0_IN:
-			connect_params.sys.client = IPA_CLIENT_MHI_CONS;
-			break;
-		case MHI_CLIENT_IP_HW_1_OUT:
-			connect_params.sys.client = IPA_CLIENT_MHI2_PROD;
-			break;
-		case MHI_CLIENT_IP_HW_1_IN:
-			connect_params.sys.client = IPA_CLIENT_MHI2_CONS;
-			break;
-		case MHI_CLIENT_QMAP_FLOW_CTRL_OUT:
-			connect_params.sys.client = IPA_CLIENT_MHI_LOW_LAT_PROD;
-			break;
-		case MHI_CLIENT_QMAP_FLOW_CTRL_IN:
-			connect_params.sys.client = IPA_CLIENT_MHI_LOW_LAT_CONS;
-			break;
-		default:
-			pr_err("Invalid channel = 0x%X\n", chid);
-			return -EINVAL;
-		}
 
 		rc = ipa_mhi_connect_pipe(&connect_params,
 			&mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);

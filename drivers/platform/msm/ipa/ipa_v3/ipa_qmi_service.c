@@ -21,6 +21,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/ipa.h>
 #include <linux/vmalloc.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "ipa_qmi_service.h"
 #include "ipa_mhi_proxy.h"
@@ -683,6 +684,9 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	}
 
 	pr_info("QMI_IPA_INIT_MODEM_DRIVER_REQ_V01 response received\n");
+
+	place_marker("M - QMI ready for commands");
+
 	return ipa3_check_qmi_response(rc,
 		QMI_IPA_INIT_MODEM_DRIVER_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_init_modem_driver_resp_msg_v01");
@@ -2330,7 +2334,7 @@ int ipa3_qmi_send_mhi_cleanup_request(struct ipa_mhi_cleanup_req_msg_v01 *req)
 		resp.resp.error, "ipa_mhi_cleanup_req_msg");
 }
 
-int ipa3_qmi_send_rsc_pipe_indication(
+int ipa3_qmi_send_endp_desc_indication(
 	struct ipa_endp_desc_indication_msg_v01 *req)
 {
 	IPAWANDBG("Sending QMI_IPA_ENDP_DESC_INDICATION_V01\n");

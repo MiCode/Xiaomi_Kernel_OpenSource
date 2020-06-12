@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@ static struct shmem_irq_config pchan_factory_settings[] = {
 	{0x1b013000, 26},
 	{0x1b014000, 27},
 	{0x1b015000, 28},
+	{0x1b016000, 29},
+	{0x1b017000, 30},
 };
 
 struct qvm_plugin_info qvm_priv_info = {

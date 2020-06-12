@@ -219,10 +219,9 @@ struct fastrpc_mmap {
 struct fastrpc_buf {
 	struct hlist_node hn_rem;
 	struct fastrpc_file *fl;
-	void *virt;
-	uint64_t phys;
 	size_t size;
-	unsigned long dma_attr;
+	struct sg_table sgt;
+	struct page **pages;
 	uintptr_t raddr;
 	uint32_t flags;
 	int remote;
@@ -719,9 +718,98 @@ static const struct file_operations debugfs_fops = {
 	.read = fastrpc_debugfs_read,
 };
 
+static inline void fastprc_free_pages(struct page **pages, int count)
+{
+	while (count--)
+		__free_page(pages[count]);
+	kvfree(pages);
+}
+
+static struct page **fastrpc_alloc_pages(unsigned int count, gfp_t gfp)
+{
+	struct page **pages;
+	unsigned long order_mask = (2U << MAX_ORDER) - 1;
+	unsigned int i = 0, array_size = count * sizeof(*pages);
+
+	if (array_size <= PAGE_SIZE)
+		pages = kzalloc(array_size, GFP_KERNEL);
+	else
+		pages = vzalloc(array_size);
+	if (!pages)
+		return NULL;
+
+	/* IOMMU can map any pages, so himem can also be used here */
+	gfp |= __GFP_NOWARN | __GFP_HIGHMEM;
+
+	while (count) {
+		struct page *page = NULL;
+		unsigned int order_size;
+
+		/*
+		 * Higher-order allocations are a convenience rather
+		 * than a necessity, hence using __GFP_NORETRY until
+		 * falling back to minimum-order allocations.
+		 */
+		for (order_mask &= (2U << __fls(count)) - 1;
+		     order_mask; order_mask &= ~order_size) {
+			unsigned int order = __fls(order_mask);
+
+			order_size = 1U << order;
+			page = alloc_pages(order ?
+					   (gfp | __GFP_NORETRY) &
+						~__GFP_RECLAIM : gfp, order);
+			if (!page)
+				continue;
+			if (!order)
+				break;
+			if (!PageCompound(page)) {
+				split_page(page, order);
+				break;
+			} else if (!split_huge_page(page)) {
+				break;
+			}
+			__free_pages(page, order);
+		}
+		if (!page) {
+			fastprc_free_pages(pages, i);
+			return NULL;
+		}
+		count -= order_size;
+		while (order_size--)
+			pages[i++] = page++;
+	}
+	return pages;
+}
+
+static struct page **fastrpc_alloc_buffer(struct fastrpc_buf *buf, gfp_t gfp)
+{
+	struct page **pages;
+	unsigned int count = PAGE_ALIGN(buf->size) >> PAGE_SHIFT;
+
+	pages = fastrpc_alloc_pages(count, gfp);
+	if (!pages)
+		return NULL;
+
+	if (sg_alloc_table_from_pages(&buf->sgt, pages, count, 0,
+				buf->size, GFP_KERNEL))
+		goto out_free_pages;
+	return pages;
+
+out_free_pages:
+	fastprc_free_pages(pages, count);
+	return NULL;
+}
+
+static inline void fastrpc_free_buffer(struct fastrpc_buf *buf)
+{
+	unsigned int count = PAGE_ALIGN(buf->size) >> PAGE_SHIFT;
+
+	sg_free_table(&buf->sgt);
+	fastprc_free_pages(buf->pages, count);
+}
+
 static void fastrpc_buf_free(struct fastrpc_buf *buf)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_file *fl = buf == NULL ? NULL : buf->fl;
 
 	if (!fl)
@@ -735,15 +823,14 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf)
 		buf->raddr = 0;
 	}
 
-	if (!IS_ERR_OR_NULL(buf->virt))
-		dma_free_attrs(me->dev, buf->size, buf->virt,
-					buf->phys, buf->dma_attr);
+	if (!IS_ERR_OR_NULL(buf->pages))
+		fastrpc_free_buffer(buf);
 	kfree(buf);
 }
 
 static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
-				unsigned long dma_attr, uint32_t rflags,
-				int remote, struct fastrpc_buf **obuf)
+				uint32_t rflags, int remote,
+				struct fastrpc_buf **obuf)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_buf *buf = NULL;
@@ -757,21 +844,16 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	if (err)
 		goto bail;
 	buf->fl = fl;
-	buf->virt = NULL;
-	buf->phys = 0;
 	buf->size = size;
-	buf->dma_attr = 0;
 	buf->flags = rflags;
 	buf->raddr = 0;
 	buf->remote = 0;
-	buf->virt = dma_alloc_attrs(me->dev, buf->size,
-					(dma_addr_t *)&buf->phys,
-					GFP_KERNEL, buf->dma_attr);
-	if (IS_ERR_OR_NULL(buf->virt)) {
+	buf->pages = fastrpc_alloc_buffer(buf, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(buf->pages)) {
 		err = -ENOMEM;
 		dev_err(me->dev,
-			"%s: %s: dma_alloc_attrs failed for size 0x%zx, returned %ld\n",
-			current->comm, __func__, size, PTR_ERR(buf->virt));
+			"%s: %s: fastrpc_alloc_buffer failed for size 0x%zx, returned %ld\n",
+			current->comm, __func__, size, PTR_ERR(buf->pages));
 		goto bail;
 	}
 
@@ -866,7 +948,6 @@ static int fastrpc_open(struct inode *inode, struct file *filp)
 
 static int fastrpc_file_free(struct fastrpc_file *fl)
 {
-	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_mmap *map = NULL, *lmap = NULL;
 
 	if (!fl)
@@ -1122,8 +1203,13 @@ static int virt_fastrpc_mmap(struct fastrpc_file *fl, uint32_t flags,
 	sgbuf = vmsg->sgl;
 
 	for_each_sg(table, sgl, nents, sgl_index) {
-		sgbuf[sgl_index].pv = sg_dma_address(sgl);
-		sgbuf[sgl_index].len = sg_dma_len(sgl);
+		if (sg_dma_len(sgl)) {
+			sgbuf[sgl_index].pv = sg_dma_address(sgl);
+			sgbuf[sgl_index].len = sg_dma_len(sgl);
+		} else {
+			sgbuf[sgl_index].pv = page_to_phys(sg_page(sgl));
+			sgbuf[sgl_index].len = sgl->length;
+		}
 	}
 
 	sg_init_one(sg, vmsg, total_size);
@@ -1167,7 +1253,6 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	struct fastrpc_apps *me = fl->apps;
 	struct fastrpc_mmap *map = NULL;
 	struct fastrpc_buf *rbuf = NULL;
-	unsigned long dma_attr = 0;
 	uintptr_t raddr = 0;
 	int err = 0;
 
@@ -1179,27 +1264,17 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		goto bail;
 	}
 	if (ud->flags == ADSP_MMAP_ADD_PAGES) {
-		struct scatterlist sg[1];
-
 		if (ud->vaddrin) {
 			err = -EINVAL;
 			dev_err(me->dev, "%s: %s: ERROR: adding user allocated pages is not supported\n",
 					current->comm, __func__);
 			goto bail;
 		}
-		dma_attr = DMA_ATTR_EXEC_MAPPING |
-				DMA_ATTR_DELAYED_UNMAP |
-				DMA_ATTR_NO_KERNEL_MAPPING |
-				DMA_ATTR_FORCE_NON_COHERENT;
-		err = fastrpc_buf_alloc(fl, ud->size, dma_attr, ud->flags,
-					1, &rbuf);
+		err = fastrpc_buf_alloc(fl, ud->size, ud->flags, 1, &rbuf);
 		if (err)
 			goto bail;
-		sg_init_table(sg, 1);
-		sg_dma_address(sg) = rbuf->phys;
-		sg_dma_len(sg) = rbuf->size;
-		err = virt_fastrpc_mmap(fl, ud->flags, 0, sg,
-					1, rbuf->size, &raddr);
+		err = virt_fastrpc_mmap(fl, ud->flags, 0, rbuf->sgt.sgl,
+					rbuf->sgt.nents, rbuf->size, &raddr);
 		if (err)
 			goto bail;
 		rbuf->raddr = raddr;

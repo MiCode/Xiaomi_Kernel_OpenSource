@@ -862,6 +862,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 			dll_lock = rgmii_readl(ethqos, SDC4_STATUS);
 			if (dll_lock & SDC4_STATUS_DLL_LOCK)
 				break;
+			retry--;
 		} while (retry > 0);
 		if (!retry)
 			dev_err(&ethqos->pdev->dev,
@@ -1463,6 +1464,8 @@ err_out:
 
 static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 {
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
 	ETHQOSINFO("Enter\n");
 
 	if (phy_intr_en)
@@ -1471,6 +1474,18 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 	ethqos->clks_suspended = 1;
 
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
+
+	if (priv->plat->stmmac_clk)
+		clk_disable_unprepare(priv->plat->stmmac_clk);
+
+	if (priv->plat->pclk)
+		clk_disable_unprepare(priv->plat->pclk);
+
+	if (priv->plat->clk_ptp_ref)
+		clk_disable_unprepare(priv->plat->clk_ptp_ref);
+
+	if (ethqos->rgmii_clk)
+		clk_disable_unprepare(ethqos->rgmii_clk);
 
 	ETHQOSINFO("Exit\n");
 }
@@ -1497,7 +1512,21 @@ inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
 
 static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 {
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
 	ETHQOSINFO("Enter\n");
+
+	if (priv->plat->stmmac_clk)
+		clk_prepare_enable(priv->plat->stmmac_clk);
+
+	if (priv->plat->pclk)
+		clk_prepare_enable(priv->plat->pclk);
+
+	if (priv->plat->clk_ptp_ref)
+		clk_prepare_enable(priv->plat->clk_ptp_ref);
+
+	if (ethqos->rgmii_clk)
+		clk_prepare_enable(ethqos->rgmii_clk);
 
 	if (qcom_ethqos_is_phy_link_up(ethqos))
 		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, ethqos->speed);

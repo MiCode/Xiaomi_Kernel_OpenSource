@@ -48,7 +48,6 @@ static char saved_early_userspace[64] __initdata;
 static char init_prog[128] = "/early_services/init_early";
 static char *init_prog_argv[2] = { init_prog, NULL };
 #define EARLY_SERVICES_MOUNT_POINT "/early_services"
-#define FIRMWARE_MOUNT_PATH "/early_services/vendor/firmware_mnt"
 #endif
 dev_t ROOT_DEV;
 
@@ -622,8 +621,6 @@ void __init launch_early_services(void)
 	rc = mount_partition(saved_early_userspace, EARLY_SERVICES_MOUNT_POINT);
 	if (!rc) {
 		place_marker("Early Services Partition ready");
-		if (!mount_partition(saved_modem_name, FIRMWARE_MOUNT_PATH))
-			place_marker("firmwares Partition ready");
 		rc = call_usermodehelper(init_prog, init_prog_argv, NULL, 0);
 		if (!rc)
 			pr_info("early_init launched\n");

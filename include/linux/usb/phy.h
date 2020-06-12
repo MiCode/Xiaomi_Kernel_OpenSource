@@ -27,6 +27,7 @@
 #define PHY_LS_MODE		BIT(9)
 #define PHY_USB_DP_CONCURRENT_MODE	BIT(10)
 #define PHY_WAKEUP_WA_EN	BIT(11)
+#define PHY_SOFT_CONNECT	BIT(12)
 
 enum usb_phy_interface {
 	USBPHY_INTERFACE_MODE_UNKNOWN,

@@ -1908,6 +1908,10 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 		}
 		in_q->wr_idx = 0;
 		in_q->rd_idx = 0;
+		complete(&link->workq_comp);
+		mutex_unlock(&link->req.lock);
+
+		return rc;
 	} else if (flush_info->flush_type ==
 		CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
 		idx = __cam_req_mgr_find_slot_for_req(in_q, flush_info->req_id);
@@ -2263,7 +2267,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 			trigger_data->req_id);
 		if (idx >= 0) {
 			if (idx == in_q->last_applied_idx) {
-				CAM_INFO(CAM_REQ,
+				CAM_DBG(CAM_REQ,
 				"Reset last applied idx (%d) from req_id %llu",
 				in_q->last_applied_idx, trigger_data->req_id);
 				in_q->last_applied_idx = -1;
@@ -2294,7 +2298,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 					}
 				}
 #endif
-				CAM_INFO(CAM_REQ,
+				CAM_DBG(CAM_REQ,
 				"Increment rd_idx %d from req_id %llu",
 				in_q->rd_idx,
 				trigger_data->req_id);
@@ -3430,10 +3434,21 @@ int cam_req_mgr_flush_requests(
 	init_completion(&link->workq_comp);
 	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
 
+	if (rc < 0) {
+		CAM_ERR(CAM_CRM, "Enqueue workq task failed for flush slotq");
+		goto end;
+	}
+
 	/* Blocking call */
 	rc = wait_for_completion_timeout(
 		&link->workq_comp,
 		msecs_to_jiffies(CAM_REQ_MGR_SCHED_REQ_TIMEOUT));
+	if (rc <= 0) {
+		CAM_ERR(CAM_CRM, "Flushing CRM slot queue timedout rc=%d", rc);
+		rc = -ETIMEDOUT;
+	} else {
+		rc = 0;
+	}
 end:
 	mutex_unlock(&g_crm_core_dev->crm_lock);
 	return rc;

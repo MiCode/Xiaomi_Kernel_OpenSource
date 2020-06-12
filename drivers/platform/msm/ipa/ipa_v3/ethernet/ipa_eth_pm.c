@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,8 +54,11 @@ int ipa_eth_pm_register(struct ipa_eth_device *eth_dev)
 	pm_params.skip_clk_vote = false;
 
 	rc = ipa_pm_register(&pm_params, &eth_dev->pm_handle);
-	if (rc)
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to register with IPA PM");
+
 		eth_dev->pm_handle = IPA_PM_MAX_CLIENTS;
+	}
 
 	return rc;
 }
@@ -74,7 +77,9 @@ int ipa_eth_pm_unregister(struct ipa_eth_device *eth_dev)
 		return 0;
 
 	rc = ipa_pm_deregister(eth_dev->pm_handle);
-	if (!rc)
+	if (rc)
+		ipa_eth_dev_err(eth_dev, "Failed to deregister from IPA PM");
+	else
 		eth_dev->pm_handle = IPA_PM_MAX_CLIENTS;
 
 	return rc;

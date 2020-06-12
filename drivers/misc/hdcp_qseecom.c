@@ -1022,6 +1022,7 @@ static int hdcp2_app_start_auth(struct hdcp2_handle *handle)
 	handle->app_data.response.data = rsp_buf->message;
 	handle->app_data.response.length = rsp_buf->msglen;
 	handle->app_data.timeout = rsp_buf->timeout;
+	handle->app_data.repeater_flag = false;
 
 	handle->tz_ctxhandle = rsp_buf->ctxhandle;
 
@@ -1097,8 +1098,6 @@ static int hdcp2_app_process_msg(struct hdcp2_handle *handle)
 	/* check if it's a repeater */
 	if (rsp_buf->flag == HDCP_TXMTR_SUBSTATE_WAITING_FOR_RECIEVERID_LIST)
 		handle->app_data.repeater_flag = true;
-	else
-		handle->app_data.repeater_flag = false;
 
 	handle->app_data.response.data = rsp_buf->msg;
 	handle->app_data.response.length = rsp_buf->msglen;

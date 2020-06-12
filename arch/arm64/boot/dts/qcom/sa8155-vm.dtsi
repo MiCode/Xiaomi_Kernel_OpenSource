@@ -127,6 +127,14 @@
 		reg = <0xeb600000 0x1000>;
 	};
 
+	pdc: interrupt-controller@0xb220000{
+		compatible = "qcom,pdc-virt";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		qcom,pdc-pins = <7 519>, <8 520>, <9 521>, <10 522>, <11 523>;
+	};
+
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;

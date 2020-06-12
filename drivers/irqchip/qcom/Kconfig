@@ -10,6 +10,7 @@ config QTI_PDC
 config QTI_PDC_SM8150
         bool "QTI PDC SM8150"
         select QTI_PDC
+        select QTI_PDC_SAVE_RESTORE
         default y if ARCH_SM8150
         help
           QTI Power Domain Controller for SM8150
@@ -17,6 +18,7 @@ config QTI_PDC_SM8150
 config QTI_PDC_SM6150
         bool "QTI PDC SM6150"
         select QTI_PDC
+        select QTI_PDC_SAVE_RESTORE
         default y if ARCH_SM6150
         help
           QTI Power Domain Controller for SM6150
@@ -58,3 +60,18 @@ config QTI_MPM
 	help
 	  QTI MSM Power Manager driver to manage and configure wakeup
 	  IRQs.
+
+config QTI_PDC_VIRT
+        bool "QTI PDC VIRT"
+        select QTI_PDC
+        help
+          QTI Power Domain Controller for Virtual platforms
+	  This is used for managing and configuring
+	  the wakeup interrupts on virtual platforms.
+
+config QTI_PDC_SAVE_RESTORE
+        bool "QTI PDC SAVE RESTORE"
+        depends on QTI_PDC
+        help
+          Enables the QTI PDC feature to save/restore pin configurations
+          during suspend/resume.

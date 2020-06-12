@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,6 +228,8 @@ static void iommu_debug_destroy_phoney_sg_table(struct device *dev,
 
 static const char * const _size_to_string(unsigned long size)
 {
+	static const char str[] =
+		"\"unknown size, please add to %s function\", __func__";
 	switch (size) {
 	case SZ_4K:
 		return "4K";
@@ -250,7 +252,7 @@ static const char * const _size_to_string(unsigned long size)
 	case SZ_1M * 32:
 		return "32M";
 	}
-	return "unknown size, please add to %s function", __func__;
+	return str;
 }
 
 static int nr_iters_set(void *data, u64 val)

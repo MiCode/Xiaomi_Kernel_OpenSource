@@ -1777,7 +1777,8 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 			ATRACE_BEGIN("dsi_panel_off");
 			ret = ctrl_pdata->off(pdata);
 			if (ret) {
-				pr_err("%s: Panel OFF failed\n", __func__);
+				pr_err("%s: Panel OFF failed\n",
+					__func__);
 				goto error;
 			}
 			ATRACE_END("dsi_panel_off");
@@ -3340,10 +3341,10 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 	info.core_clks.mmss_misc_ahb_clk =
 		ctrl_pdata->shared_data->mmss_misc_ahb_clk;
 
-	info.link_clks.esc_clk = ctrl_pdata->esc_clk;
-	info.link_clks.byte_clk = ctrl_pdata->byte_clk;
-	info.link_clks.pixel_clk = ctrl_pdata->pixel_clk;
-	info.link_clks.byte_intf_clk = ctrl_pdata->byte_intf_clk;
+	info.link_lp_clks.esc_clk = ctrl_pdata->esc_clk;
+	info.link_hs_clks.byte_clk = ctrl_pdata->byte_clk;
+	info.link_hs_clks.pixel_clk = ctrl_pdata->pixel_clk;
+	info.link_hs_clks.byte_intf_clk = ctrl_pdata->byte_intf_clk;
 
 	info.pre_clkoff_cb = mdss_dsi_pre_clkoff_cb;
 	info.post_clkon_cb = mdss_dsi_post_clkon_cb;
@@ -4426,7 +4427,6 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	if (!data) {
 		pr_err("%s:%d, Unable to read Phy Strength ctrl settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
 	} else {
 		pinfo->mipi.dsi_phy_db.strength_len = len;
 		for (i = 0; i < len; i++)
@@ -4462,7 +4462,6 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	if (!data) {
 		pr_err("%s:%d, Unable to read Phy lane configure settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
 	} else {
 		pinfo->mipi.dsi_phy_db.lanecfg_len = len;
 		for (i = 0; i < len; i++)

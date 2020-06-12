@@ -190,6 +190,7 @@ struct mdss_panel_cfg {
 
 #define MDP_INTF_DSI_CMD_FIFO_UNDERFLOW		0x0001
 #define MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW	0x0002
+#define MDP_INTF_DSI_PANEL_DEAD			0x0003
 
 
 enum {
@@ -429,6 +430,7 @@ struct mdss_dsi_phy_ctrl {
 	bool reg_ldo_mode;
 
 	char timing_8996[40];/* 8996, 8 * 5 */
+	char timing_12nm[14]; /* 12nm PHY */
 	char regulator_len;
 	char strength_len;
 	char lanecfg_len;

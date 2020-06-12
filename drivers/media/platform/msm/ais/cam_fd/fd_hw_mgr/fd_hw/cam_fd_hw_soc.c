@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,6 +148,13 @@ int cam_fd_soc_enable_resources(struct cam_hw_soc_info *soc_info)
 	struct cam_axi_vote axi_vote;
 	int rc;
 
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+			CAM_SVS_VOTE, true);
+	if (rc) {
+		CAM_ERR(CAM_FD, "Error enable platform failed, rc=%d", rc);
+		goto end;
+	}
+
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = 7200000;
@@ -156,22 +163,16 @@ int cam_fd_soc_enable_resources(struct cam_hw_soc_info *soc_info)
 	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Error in CPAS START, rc=%d", rc);
-		return -EFAULT;
+		rc = -EFAULT;
+		goto disable_platform_resource;
 	}
+	goto end;
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true, CAM_SVS_VOTE,
-		true);
-	if (rc) {
-		CAM_ERR(CAM_FD, "Error enable platform failed, rc=%d", rc);
-		goto stop_cpas;
-	}
+disable_platform_resource:
+	if (cam_soc_util_disable_platform_resource(soc_info, true, true))
+		CAM_ERR(CAM_FD, "Disable platform resource failed");
 
-	return rc;
-
-stop_cpas:
-	if (cam_cpas_stop(soc_private->cpas_handle))
-		CAM_ERR(CAM_FD, "Error in CPAS STOP");
-
+end:
 	return rc;
 }
 

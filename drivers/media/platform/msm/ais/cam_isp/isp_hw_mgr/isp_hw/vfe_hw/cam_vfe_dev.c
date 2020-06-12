@@ -69,7 +69,7 @@ int cam_vfe_probe(struct platform_device *pdev)
 	vfe_hw_intf->hw_ops.process_cmd = cam_vfe_process_cmd;
 	vfe_hw_intf->hw_type = CAM_ISP_HW_TYPE_VFE;
 
-	CAM_DBG(CAM_ISP, "type %d index %d",
+	CAM_INFO(CAM_ISP, "type %d index %d",
 		vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
 
 	platform_set_drvdata(pdev, vfe_hw_intf);

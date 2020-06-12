@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -516,7 +516,7 @@ net_dev_alloc_fail:
 	return -ENOMEM;
 }
 
-static int mhi_dev_net_open_channels(struct mhi_dev_net_client *client)
+static int mhi_dev_net_open_chan_create_netif(struct mhi_dev_net_client *client)
 {
 	int rc = 0;
 	int ret = 0;
@@ -626,17 +626,86 @@ static int mhi_dev_net_rgstr_client(struct mhi_dev_net_client *client, int idx)
 	spin_lock_init(&client->rd_lock);
 	mhi_dev_net_log(MHI_INFO, "Registering out %d, In %d channels\n",
 			client->out_chan, client->in_chan);
-
-	/* Open IN and OUT channels for Network client*/
-	mhi_dev_net_open_channels(client);
 	return 0;
+}
+
+static int mhi_dev_net_dergstr_client
+				(struct mhi_dev_net_client *client)
+{
+	mutex_destroy(&client->in_chan_lock);
+	mutex_destroy(&client->out_chan_lock);
+
+	return 0;
+}
+
+static void mhi_dev_net_state_cb(struct mhi_dev_client_cb_data *cb_data)
+{
+	struct mhi_dev_net_client *mhi_client;
+	uint32_t info_in_ch = 0, info_out_ch = 0;
+	int ret;
+
+	if (!cb_data || !cb_data->user_data) {
+		mhi_dev_net_log(MHI_ERROR, "invalid input received\n");
+		return;
+	}
+	mhi_client = cb_data->user_data;
+
+	ret = mhi_ctrl_state_info(mhi_client->in_chan, &info_in_ch);
+	if (ret) {
+		mhi_dev_net_log(MHI_ERROR,
+			"Failed to obtain in_channel %d state\n",
+			mhi_client->in_chan);
+		return;
+	}
+	ret = mhi_ctrl_state_info(mhi_client->out_chan, &info_out_ch);
+	if (ret) {
+		mhi_dev_net_log(MHI_ERROR,
+			"Failed to obtain out_channel %d state\n",
+			mhi_client->out_chan);
+		return;
+	}
+	mhi_dev_net_log(MHI_MSG_VERBOSE, "in_channel :%d, state :%d\n",
+			mhi_client->in_chan, info_in_ch);
+	mhi_dev_net_log(MHI_MSG_VERBOSE, "out_channel :%d, state :%d\n",
+			mhi_client->out_chan, info_out_ch);
+	if (info_in_ch == MHI_STATE_CONNECTED &&
+		info_out_ch == MHI_STATE_CONNECTED) {
+		/**
+		 * Open IN and OUT channels for Network client
+		 * and create Network Interface.
+		 */
+		ret = mhi_dev_net_open_chan_create_netif(mhi_client);
+		if (ret) {
+			mhi_dev_net_log(MHI_ERROR,
+				"Failed to open channels\n");
+			return;
+		}
+	} else if (info_in_ch == MHI_STATE_DISCONNECTED ||
+				info_out_ch == MHI_STATE_DISCONNECTED) {
+		if (mhi_client->dev != NULL) {
+			netif_stop_queue(mhi_client->dev);
+			unregister_netdev(mhi_client->dev);
+			mhi_dev_close_channel(mhi_client->out_handle);
+			mhi_dev_close_channel(mhi_client->in_handle);
+			atomic_set(&mhi_client->tx_enabled, 0);
+			atomic_set(&mhi_client->rx_enabled, 0);
+			free_netdev(mhi_client->dev);
+			mhi_client->dev = NULL;
+		}
+	}
 }
 
 int mhi_dev_net_interface_init(void)
 {
-	int ret_val = 0;
-	int index = 0;
+	int ret_val = 0, index = 0;
+	bool out_channel_started = false;
 	struct mhi_dev_net_client *mhi_net_client = NULL;
+
+	if (mhi_net_ctxt.client_handle) {
+		mhi_dev_net_log(MHI_INFO,
+			"MHI Netdev interface already initialized\n");
+		return ret_val;
+	}
 
 	mhi_net_client = kzalloc(sizeof(struct mhi_dev_net_client), GFP_KERNEL);
 	if (!mhi_net_client)
@@ -644,9 +713,12 @@ int mhi_dev_net_interface_init(void)
 
 	mhi_net_ipc_log = ipc_log_context_create(MHI_NET_IPC_PAGES,
 						"mhi-net", 0);
-	if (mhi_net_ipc_log == NULL)
+	if (!mhi_net_ipc_log) {
 		mhi_dev_net_log(MHI_DBG,
 				"Failed to create IPC logging for mhi_dev_net\n");
+		kfree(mhi_net_client);
+		return -ENOMEM;
+	}
 	mhi_net_ctxt.client_handle = mhi_net_client;
 
 	if (mhi_net_ctxt.pdev)
@@ -679,13 +751,49 @@ int mhi_dev_net_interface_init(void)
 				"Failed to reg client %d ret 0\n", ret_val);
 		goto client_register_fail;
 	}
+	ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
+				mhi_net_client, MHI_CLIENT_IP_SW_4_OUT);
+	/* -EEXIST indicates success and channel is already open */
+	if (ret_val == -EEXIST)
+		out_channel_started = true;
+	else if (ret_val < 0)
+		goto register_state_cb_fail;
+
+	ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
+				mhi_net_client, MHI_CLIENT_IP_SW_4_IN);
+	/* -EEXIST indicates success and channel is already open */
+	if (ret_val == -EEXIST) {
+		/**
+		 * If both in and out channels were opened by host at the
+		 * time of registration proceed with opening channels and
+		 * create network interface from device side.
+		 * if the channels are not opened at the time of registration
+		 * we will get a call back notification mhi_dev_net_state_cb()
+		 * and proceed to open channels and create network interface
+		 * with mhi_dev_net_open_chan_create_netif().
+		 */
+		ret_val = 0;
+		if (out_channel_started) {
+			ret_val = mhi_dev_net_open_chan_create_netif
+							(mhi_net_client);
+			if (ret_val < 0) {
+				mhi_dev_net_log(MHI_ERROR,
+					"Failed to open channels\n");
+				goto channel_open_fail;
+			}
+		}
+	} else if (ret_val < 0) {
+		goto register_state_cb_fail;
+	}
+
 	return ret_val;
 
-channel_init_fail:
-	kfree(mhi_net_client);
-	kfree(mhi_net_ipc_log);
-	return ret_val;
+channel_open_fail:
+register_state_cb_fail:
+	mhi_dev_net_dergstr_client(mhi_net_client);
 client_register_fail:
+channel_init_fail:
+	destroy_workqueue(mhi_net_client->pending_pckt_wq);
 	kfree(mhi_net_client);
 	kfree(mhi_net_ipc_log);
 	return ret_val;
