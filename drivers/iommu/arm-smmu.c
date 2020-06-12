@@ -68,9 +68,6 @@
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
 #define TLB_LOOP_INC_MAX		1000      /*1ms*/
 
-#define ARM_SMMU_IMPL_DEF1(smmu) \
-	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
-
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
 
@@ -4264,53 +4261,6 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 	return 0;
 }
 
-static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
-{
-	struct device *dev = smmu->dev;
-	int i, ntuples, ret;
-	u32 *tuples;
-	struct arm_smmu_impl_def_reg *regs, *regit;
-
-	if (!of_find_property(dev->of_node, "attach-impl-defs", &ntuples))
-		return 0;
-
-	ntuples /= sizeof(u32);
-	if (ntuples % 2) {
-		dev_err(dev,
-			"Invalid number of attach-impl-defs registers: %d\n",
-			ntuples);
-		return -EINVAL;
-	}
-
-	regs = devm_kmalloc(
-		dev, sizeof(*smmu->impl_def_attach_registers) * ntuples,
-		GFP_KERNEL);
-	if (!regs)
-		return -ENOMEM;
-
-	tuples = devm_kmalloc(dev, sizeof(u32) * ntuples * 2, GFP_KERNEL);
-	if (!tuples)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_array(dev->of_node, "attach-impl-defs",
-					tuples, ntuples);
-	if (ret)
-		return ret;
-
-	for (i = 0, regit = regs; i < ntuples; i += 2, ++regit) {
-		regit->offset = tuples[i];
-		regit->value = tuples[i + 1];
-	}
-
-	devm_kfree(dev, tuples);
-
-	smmu->impl_def_attach_registers = regs;
-	smmu->num_impl_def_attach_registers = ntuples / 2;
-
-	return 0;
-}
-
-
 static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
 {
 	const char *cname;
@@ -4905,10 +4855,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		goto out_power_off;
 
 	err = arm_smmu_handoff_cbs(smmu);
-	if (err)
-		goto out_power_off;
-
-	err = arm_smmu_parse_impl_def_registers(smmu);
 	if (err)
 		goto out_power_off;
 
