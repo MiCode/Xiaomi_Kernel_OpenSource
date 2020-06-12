@@ -74,6 +74,16 @@ Optional property:
   Value type: tuple of <address size>.
   Definition: Indicates the range of addresses that the dma layer will use.
 
+- qcom,le-vm
+  Usage: optional
+  Value type: boolean
+  Definition: flag to support I2C functionality in trusted VM.
+
+- qcom,static-gpii-mask
+  Usage: optional
+  Value type: boolean
+  Definition: GPII number statically assigned to TUI LA touch se.
+
 ========
 Example:
 ========
