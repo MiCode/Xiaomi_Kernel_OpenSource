@@ -2696,7 +2696,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 					SDE_EVTLOG_ERROR);
 			mutex_unlock(&sde_enc->rc_lock);
 			return 0;
-		} else if (sde_crtc_frame_pending(sde_enc->crtc) > 1) {
+		} else if (sde_crtc_frame_pending(sde_enc->crtc)) {
 			SDE_DEBUG_ENC(sde_enc, "skip idle entry");
 			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 					sde_crtc_frame_pending(sde_enc->crtc),
