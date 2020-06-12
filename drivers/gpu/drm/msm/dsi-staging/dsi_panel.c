@@ -2555,9 +2555,6 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 	u32 len, i;
 	int rc = 0;
 	struct dsi_display_mode_priv_info *priv_info;
-	u64 h_period, v_period;
-	u64 refresh_rate = TICKS_IN_MICRO_SECOND;
-	struct dsi_mode_info *timing = NULL;
 	u64 pixel_clk_khz;
 
 	if (!mode || !mode->priv_info)
@@ -2581,21 +2578,18 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 		priv_info->phy_timing_len = len;
 	};
 
-	timing = &mode->timing;
-
-	if (panel_mode == DSI_OP_CMD_MODE) {
-		h_period = DSI_H_ACTIVE_DSC(timing);
-		v_period = timing->v_active;
-		do_div(refresh_rate, priv_info->mdp_transfer_time_us);
-	} else {
-		h_period = DSI_H_TOTAL_DSC(timing);
-		v_period = DSI_V_TOTAL(timing);
-		refresh_rate = timing->refresh_rate;
+	if (panel_mode == DSI_OP_VIDEO_MODE) {
+		/*
+		 *  For command mode we update the pclk as part of
+		 *  function dsi_panel_calc_dsi_transfer_time( )
+		 *  as we set it based on dsi clock or mdp transfer time.
+		 */
+		pixel_clk_khz = (DSI_H_TOTAL_DSC(&mode->timing) *
+				DSI_V_TOTAL(&mode->timing) *
+				mode->timing.refresh_rate);
+		do_div(pixel_clk_khz, 1000);
+		mode->pixel_clk_khz = pixel_clk_khz;
 	}
-
-	pixel_clk_khz = h_period * v_period * refresh_rate;
-	do_div(pixel_clk_khz, 1000);
-	mode->pixel_clk_khz = pixel_clk_khz;
 
 	return rc;
 }
@@ -3632,15 +3626,18 @@ void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 			struct dsi_display_mode *mode, u32 frame_threshold_us)
 {
 	u32 frame_time_us, nslices;
-	u64 min_bitclk, total_active_pixels, bits_per_line,
-		dsi_transfer_time_us;
+	u64 min_bitclk_hz, total_active_pixels, bits_per_line, pclk_rate_hz,
+		dsi_transfer_time_us, pixel_clk_khz;
 	struct msm_display_dsc_info *dsc = mode->timing.dsc;
 	struct dsi_mode_info *timing = &mode->timing;
+	struct dsi_display_mode *display_mode;
 
 	/* Packet overlead in bits,2 bytes header + 2 bytes checksum
 	 * + 1 byte dcs data command.
 	 */
 	const u32 packet_overhead = 56;
+
+	display_mode = container_of(timing, struct dsi_display_mode, timing);
 
 	frame_time_us = mult_frac(1000, 1000, (timing->refresh_rate));
 
@@ -3653,22 +3650,22 @@ void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 				packet_overhead) * nslices;
 		bits_per_line = bits_per_line / (config->num_data_lanes);
 
-		min_bitclk = (bits_per_line * timing->v_active *
+		min_bitclk_hz = (bits_per_line * timing->v_active *
 					timing->refresh_rate);
 	} else {
 		total_active_pixels = ((DSI_H_ACTIVE_DSC(timing)
 					* timing->v_active));
 		/* calculate the actual bitclk needed to transfer the frame */
-		min_bitclk = (total_active_pixels * (timing->refresh_rate) *
+		min_bitclk_hz = (total_active_pixels * (timing->refresh_rate) *
 				(config->bpp));
-		do_div(min_bitclk, config->num_data_lanes);
+		do_div(min_bitclk_hz, config->num_data_lanes);
 	}
 
-	timing->min_dsi_clk_hz = min_bitclk;
+	timing->min_dsi_clk_hz = min_bitclk_hz;
 
 	if (timing->clk_rate_hz) {
 		/* adjust the transfer time proportionately for bit clk*/
-		dsi_transfer_time_us = frame_time_us * min_bitclk;
+		dsi_transfer_time_us = frame_time_us * min_bitclk_hz;
 		do_div(dsi_transfer_time_us, timing->clk_rate_hz);
 		timing->dsi_transfer_time_us = dsi_transfer_time_us;
 	} else if (mode->priv_info->mdp_transfer_time_us) {
@@ -3678,6 +3675,16 @@ void dsi_panel_calc_dsi_transfer_time(struct dsi_host_common_cfg *config,
 		timing->dsi_transfer_time_us = frame_time_us -
 				frame_threshold_us;
 	}
+
+	/* Calculate pclk_khz to update modeinfo */
+	pclk_rate_hz =  min_bitclk_hz * frame_time_us;
+	do_div(pclk_rate_hz, timing->dsi_transfer_time_us);
+
+	pixel_clk_khz = pclk_rate_hz * config->num_data_lanes;
+	do_div(pixel_clk_khz, config->bpp);
+	display_mode->pixel_clk_khz = pixel_clk_khz;
+
+	display_mode->pixel_clk_khz = display_mode->pixel_clk_khz / 1000;
 }
 
 int dsi_panel_get_mode(struct dsi_panel *panel,
