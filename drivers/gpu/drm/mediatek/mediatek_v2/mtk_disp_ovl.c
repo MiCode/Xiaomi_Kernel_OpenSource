@@ -23,7 +23,7 @@
 #include "mtk_drm_helper.h"
 #include "mtk_drm_drv.h"
 #include "mtk_disp_pmqos.h"
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef IF_ZERO
 #include "mtk_iommu_ext.h"
 #endif
 #include "cmdq-sec.h"

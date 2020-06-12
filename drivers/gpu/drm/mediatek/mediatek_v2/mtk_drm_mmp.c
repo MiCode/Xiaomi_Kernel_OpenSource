@@ -231,7 +231,7 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id)
 	return &g_CRTC_MMP_Events[id];
 }
 
-#include <mtk_iommu_ext.h>
+//#include <mtk_iommu_ext.h>
 #include <mtk_drm_drv.h>
 
 #define DISP_PAGE_MASK 0xfffL
@@ -239,7 +239,7 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id)
 int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 			unsigned long *map_va, unsigned int *map_size)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef IF_ZERO
 	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
 
 	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL))
@@ -255,7 +255,7 @@ int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
 			  unsigned long map_va)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
 	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
 #endif
 	return 0;

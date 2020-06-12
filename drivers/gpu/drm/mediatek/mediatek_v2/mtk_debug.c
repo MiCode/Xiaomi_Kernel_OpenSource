@@ -20,8 +20,10 @@
 #include "mtk_drm_helper.h"
 #include "mtk_layering_rule.h"
 #include "mtk_drm_lowpower.h"
+#ifdef IF_ZERO
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
+#endif
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_disp_aal.h"
@@ -139,13 +141,13 @@ static int prepare_fake_layer_buffer(struct drm_crtc *crtc)
 static unsigned long long get_current_time_us(void)
 {
 	unsigned long long time = sched_clock();
-	struct timeval t;
+	struct timespec64 t;
 
 	/* return do_div(time,1000); */
 	return time;
 
-	do_gettimeofday(&t);
-	return (t.tv_sec & 0xFFF) * 1000000 + t.tv_usec;
+	ktime_get_ts64(&t);
+	return (t.tv_sec & 0xFFF) * 1000000 + t.tv_nsec / NSEC_PER_USEC;
 }
 
 static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)

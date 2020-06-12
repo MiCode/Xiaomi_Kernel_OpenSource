@@ -6,7 +6,9 @@
 #ifndef _MTK_DRM_PMQOS_H_
 #define _MTK_DRM_PMQOS_H_
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 #include "mmdvfs_pmqos.h"
+#endif
 #if defined(CONFIG_MACH_MT6779)
 #include "helio-dvfsrc-opp-mt6779.h"
 #elif defined(CONFIG_MACH_MT6885)
@@ -41,6 +43,7 @@ struct mtk_drm_qos_ctx {
 	wait_queue_head_t hrt_cond_wq;
 };
 
+#ifdef MTK_FB_MMDVFS_SUPPORT
 int __mtk_disp_set_module_bw(struct mm_qos_request *request, int comp_id,
 			     unsigned int bandwidth, unsigned int mode);
 void __mtk_disp_set_module_hrt(struct mm_qos_request *request,
@@ -50,6 +53,7 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc,
 void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller);
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode);
 int __mtk_disp_pmqos_port_look_up(int comp_id);
+#endif
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc);
 void mtk_drm_mmdvfs_init(void);
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc, unsigned int pixclk,

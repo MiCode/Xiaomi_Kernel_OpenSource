@@ -2908,7 +2908,7 @@ static void mtk_crtc_disable_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
-		struct mtk_plane_state *plane_state;
+		struct mtk_plane_state *plane_state = NULL;
 
 		if (i < OVL_PHY_LAYER_NR || plane_state->comp_state.comp_id) {
 			plane_state = to_mtk_plane_state(plane->state);
@@ -3422,9 +3422,9 @@ static void mtk_drm_crtc_wk_lock(struct drm_crtc *crtc, bool get,
 		func, line);
 
 	if (get)
-		__pm_stay_awake(&mtk_crtc->wk_lock);
+		__pm_stay_awake(mtk_crtc->wk_lock);
 	else
-		__pm_relax(&mtk_crtc->wk_lock);
+		__pm_relax(mtk_crtc->wk_lock);
 }
 
 unsigned int mtk_drm_dump_wk_lock(
@@ -3446,7 +3446,7 @@ unsigned int mtk_drm_dump_wk_lock(
 
 		len += scnprintf(stringbuf + len, buf_len - len,
 			 "CRTC%d wk active:%d;  ", i,
-			 mtk_crtc->wk_lock.active);
+			 mtk_crtc->wk_lock->active);
 	}
 
 	len += scnprintf(stringbuf + len, buf_len - len, "\n\n");
@@ -5283,7 +5283,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			 "disp_crtc%u_wakelock",
 			 drm_crtc_index(&mtk_crtc->base));
 
-		wakeup_source_init(&mtk_crtc->wk_lock, mtk_crtc->wk_lock_name);
+		mtk_crtc->wk_lock =
+			wakeup_source_create(mtk_crtc->wk_lock_name);
+		wakeup_source_add(mtk_crtc->wk_lock);
 	}
 
 	DDPMSG("%s-CRTC%d create successfully\n", __func__,

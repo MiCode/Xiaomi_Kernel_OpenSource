@@ -28,9 +28,9 @@
  *	- this handle will be set by gem module of kernel side.
  */
 struct drm_mtk_gem_create {
-	uint64_t size;
-	uint32_t flags;
-	uint32_t handle;
+	__u64 size;
+	__u32 flags;
+	__u32 handle;
 };
 
 /**
@@ -42,9 +42,9 @@ struct drm_mtk_gem_create {
  *     - this value should be set by user.
  */
 struct drm_mtk_gem_map_off {
-	uint32_t handle;
-	uint32_t pad;
-	uint64_t offset;
+	__u32 handle;
+	__u32 pad;
+	__u64 offset;
 };
 
 /**
@@ -61,20 +61,20 @@ struct drm_mtk_gem_map_off {
  * @interface_fence_fd:
  */
 struct drm_mtk_gem_submit {
-	uint32_t type;
+	__u32 type;
 	/* session */
-	uint32_t session_id;
+	__u32 session_id;
 	/* layer */
-	uint32_t layer_id;
-	uint32_t layer_en;
+	__u32 layer_id;
+	__u32 layer_en;
 	/* buffer */
-	uint32_t fb_id;
+	__u32 fb_id;
 	/* output */
-	uint32_t index;
-	int32_t fence_fd;
-	uint32_t interface_index;
-	int32_t interface_fence_fd;
-	int32_t ion_fd;
+	__u32 index;
+	__s32 fence_fd;
+	__u32 interface_index;
+	__s32 interface_fence_fd;
+	__s32 ion_fd;
 };
 
 /**
@@ -84,8 +84,8 @@ struct drm_mtk_gem_submit {
  * @gem_hnd: handle of gem
  */
 struct drm_mtk_sec_gem_hnd {
-	uint32_t sec_hnd;
-	uint32_t gem_hnd;
+	__u32 sec_hnd;
+	__u32 gem_hnd;
 };
 
 /**
@@ -97,13 +97,13 @@ struct drm_mtk_sec_gem_hnd {
  * @session_id:
  */
 struct drm_mtk_session {
-	uint32_t type;
+	__u32 type;
 	/* device */
-	uint32_t device_id;
+	__u32 device_id;
 	/* mode */
-	uint32_t mode;
+	__u32 mode;
 	/* output */
-	uint32_t session_id;
+	__u32 session_id;
 };
 
 /* PQ */
@@ -451,16 +451,16 @@ enum MTK_LAYERING_CAPS {
 };
 
 struct drm_mtk_layer_config {
-	uint32_t ovl_id;
-	uint32_t src_fmt;
+	__u32 ovl_id;
+	__u32 src_fmt;
 	int dataspace;
-	uint32_t dst_offset_x, dst_offset_y;
-	uint32_t dst_width, dst_height;
+	__u32 dst_offset_x, dst_offset_y;
+	__u32 dst_width, dst_height;
 	int ext_sel_layer;
-	uint32_t src_offset_x, src_offset_y;
-	uint32_t src_width, src_height;
-	uint32_t layer_caps;
-	uint32_t clip; /* drv internal use */
+	__u32 src_offset_x, src_offset_y;
+	__u32 src_width, src_height;
+	__u32 layer_caps;
+	__u32 clip; /* drv internal use */
 	__u8 compress;
 	__u8 secure;
 };
@@ -476,8 +476,8 @@ struct drm_mtk_layering_info {
 	int hrt_num;
 	/* res_idx: SF/HWC selects which resolution to use */
 	int res_idx;
-	uint32_t hrt_weight;
-	uint32_t hrt_idx;
+	__u32 hrt_weight;
+	__u32 hrt_idx;
 };
 
 /**
@@ -489,12 +489,12 @@ struct drm_mtk_layering_info {
  */
 struct drm_mtk_fence {
 	/* input */
-	uint32_t crtc_id; /**< Id */
+	__u32 crtc_id; /**< Id */
 
 	/* output */
-	int32_t fence_fd;
+	__s32 fence_fd;
 	/* device */
-	uint32_t fence_idx;
+	__u32 fence_idx;
 };
 
 enum DRM_REPAINT_TYPE {

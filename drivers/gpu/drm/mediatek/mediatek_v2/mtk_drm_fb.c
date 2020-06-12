@@ -8,7 +8,6 @@
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem.h>
 #include <linux/dma-buf.h>
-#include <linux/reservation.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
@@ -153,7 +152,7 @@ mtk_drm_framebuffer_create(struct drm_device *dev,
 int mtk_fb_wait(struct drm_framebuffer *fb)
 {
 	struct drm_gem_object *gem;
-	struct reservation_object *resv;
+	struct dma_resv *resv;
 	long ret;
 
 	if (!fb)
@@ -164,8 +163,8 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 		return 0;
 
 	resv = gem->dma_buf->resv;
-	ret = reservation_object_wait_timeout_rcu(resv, false, true,
-						  MAX_SCHEDULE_TIMEOUT);
+	ret = dma_resv_wait_timeout_rcu(resv, false, true,
+					MAX_SCHEDULE_TIMEOUT);
 	/* MAX_SCHEDULE_TIMEOUT on success, -ERESTARTSYS if interrupted */
 	if (ret < 0) {
 		DDPAEE("%s:%d, invalid ret:%ld\n",

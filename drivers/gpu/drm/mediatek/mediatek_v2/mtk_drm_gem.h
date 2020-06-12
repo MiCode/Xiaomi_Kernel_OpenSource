@@ -7,8 +7,8 @@
 #define _MTK_DRM_GEM_H_
 
 #include <drm/drm_gem.h>
-#if defined(CONFIG_MTK_IOMMU_V2)
 #include <soc/mediatek/smi.h>
+#ifdef IF_ZERO
 #include "mtk_iommu_ext.h"
 #include "pseudo_m4u.h"
 #endif

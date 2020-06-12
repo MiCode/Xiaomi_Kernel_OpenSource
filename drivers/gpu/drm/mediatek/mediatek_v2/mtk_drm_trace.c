@@ -20,8 +20,10 @@ unsigned long mtk_drm_get_tracing_mark(void)
 {
 	static unsigned long addr;
 
+#ifdef IF_ZERO
 	if (unlikely(addr == 0))
 		addr = kallsyms_lookup_name("tracing_mark_write");
+#endif
 
 	return addr;
 }

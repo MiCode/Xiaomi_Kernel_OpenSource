@@ -126,19 +126,20 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+#define SERIAL_REG_MAX 54
 void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 			 unsigned int num)
 {
-	unsigned int max_size = 54, i = 0, s = 0, l = 0;
-	char buf[max_size];
+	unsigned int i = 0, s = 0, l = 0;
+	char buf[SERIAL_REG_MAX];
 
 	if (num > 4)
 		num = 4;
 
-	l = snprintf(buf, max_size, "0x%03x:", offset);
+	l = snprintf(buf, SERIAL_REG_MAX, "0x%03x:", offset);
 
 	for (i = 0; i < num; i++) {
-		s = snprintf(buf + l, max_size, "0x%08x ",
+		s = snprintf(buf + l, SERIAL_REG_MAX, "0x%08x ",
 			     readl(base + offset + i * 0x4));
 		l += s;
 	}
@@ -146,17 +147,18 @@ void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 	DDPDUMP("%s\n", buf);
 }
 
+#define CUST_REG_MAX 84
 void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
 		       int off4)
 {
-	unsigned int max_size = 84, i = 0, s = 0, l = 0;
+	unsigned int i = 0, s = 0, l = 0;
 	int off[] = {off1, off2, off3, off4};
-	char buf[max_size];
+	char buf[CUST_REG_MAX];
 
 	for (i = 0; i < 4; i++) {
 		if (off[i] < 0)
 			break;
-		s = snprintf(buf + l, max_size, "0x%03x:0x%08x ", off[i],
+		s = snprintf(buf + l, CUST_REG_MAX, "0x%03x:0x%08x ", off[i],
 			     readl(base + off[i]));
 		l += s;
 	}
