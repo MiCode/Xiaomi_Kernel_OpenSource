@@ -6926,7 +6926,6 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int weight, cpu = smp_processor_id(), best_energy_cpu = prev_cpu;
-	struct sched_domain *sd;
 	struct perf_domain *pd;
 	unsigned long cur_energy;
 	cpumask_t *candidates;
@@ -6980,20 +6979,6 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	pd = rcu_dereference(rd->pd);
 	if (!pd)
 		goto fail;
-
-	/*
-	 * Energy-aware wake-up happens on the lowest sched_domain starting
-	 * from sd_asym_cpucapacity spanning over this_cpu and prev_cpu.
-	 */
-	sd = rcu_dereference(*this_cpu_ptr(&sd_asym_cpucapacity));
-	while (sd && !cpumask_test_cpu(prev_cpu, sched_domain_span(sd)))
-		sd = sd->parent;
-	if (!sd)
-		goto fail;
-
-	sync_entity_load_avg(&p->se);
-	if (!task_util_est(p))
-		goto unlock;
 
 	fbt_env.is_rtg = is_rtg;
 	fbt_env.start_cpu = start_cpu;
