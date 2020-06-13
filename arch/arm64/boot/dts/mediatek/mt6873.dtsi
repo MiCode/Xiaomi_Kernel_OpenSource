@@ -13,6 +13,7 @@
 #include <dt-bindings/pinctrl/mt6873-pinfunc.h>
 #include <dt-bindings/power/mt6873-power.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
+#include <dt-bindings/gce/mt6873-gce.h>
 
 / {
 	compatible = "mediatek,mt6873";
@@ -518,8 +519,18 @@
 			reg = <0 0x10228000 0 0x4000>;
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
 			#mbox-cells = <3>;
-			clocks = <&infracfg CLK_INFRA_GCE>;
-			clock-names = "gce";
+			#gce-event-cells = <1>;
+			#gce-subsys-cells = <2>;
+			default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+				/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+				/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+				/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+			clocks = <&infracfg CLK_INFRA_GCE>,
+				 <&infracfg CLK_INFRA_GCE_26M>;
+			clock-names = "gce", "gce-timer";
 		};
 
 		device_mpu_acp@1030d000 {
