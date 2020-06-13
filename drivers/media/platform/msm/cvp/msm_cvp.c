@@ -1125,7 +1125,7 @@ static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (props->prop_num >= MAX_KMD_PROP_NUM) {
+	if (props->prop_num >= MAX_KMD_PROP_NUM_PER_PACKET) {
 		dprintk(CVP_ERR, "Too many properties %d to set\n",
 			props->prop_num);
 		return -E2BIG;
