@@ -2138,6 +2138,25 @@
   tty_flip_buffer_push
   __tty_insert_flip_char
   tty_insert_flip_string_fixed_flag
+  typec_altmode_attention
+  typec_altmode_get_partner
+  typec_altmode_notify
+  typec_altmode_update_active
+  typec_altmode_vdm
+  typec_get_drvdata
+  typec_partner_register_altmode
+  typec_port_register_altmode
+  typec_register_partner
+  typec_register_port
+  typec_set_data_role
+  typec_set_mode
+  typec_set_orientation
+  typec_set_pwr_opmode
+  typec_set_pwr_role
+  typec_set_vconn_role
+  typec_unregister_altmode
+  typec_unregister_partner
+  typec_unregister_port
   uart_add_one_port
   uart_console_device
   uart_console_write
