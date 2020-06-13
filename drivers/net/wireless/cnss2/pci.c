@@ -3789,18 +3789,21 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 		goto release_region;
 	}
 
-	pci_set_master(pci_dev);
-
 	pci_priv->bar = pci_iomap(pci_dev, PCI_BAR_NUM, 0);
 	if (!pci_priv->bar) {
 		cnss_pr_err("Failed to do PCI IO map!\n");
 		ret = -EIO;
-		goto clear_master;
+		goto release_region;
 	}
+
+	/* Save default config space without BME enabled */
+	pci_save_state(pci_dev);
+	pci_priv->default_state = pci_store_saved_state(pci_dev);
+
+	pci_set_master(pci_dev);
+
 	return 0;
 
-clear_master:
-	pci_clear_master(pci_dev);
 release_region:
 	pci_release_region(pci_dev, PCI_BAR_NUM);
 disable_device:
@@ -3813,12 +3816,14 @@ static void cnss_pci_disable_bus(struct cnss_pci_data *pci_priv)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 
+	pci_clear_master(pci_dev);
+	pci_load_and_free_saved_state(pci_dev, &pci_priv->saved_state);
+
 	if (pci_priv->bar) {
 		pci_iounmap(pci_dev, pci_priv->bar);
 		pci_priv->bar = NULL;
 	}
 
-	pci_clear_master(pci_dev);
 	pci_release_region(pci_dev, PCI_BAR_NUM);
 	if (pci_is_enabled(pci_dev))
 		pci_disable_device(pci_dev);
@@ -4620,9 +4625,6 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto dereg_pci_event;
 
-	pci_save_state(pci_dev);
-	pci_priv->default_state = pci_store_saved_state(pci_dev);
-
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:
 		pci_read_config_word(pci_dev, QCA6174_REV_ID_OFFSET,
@@ -4707,8 +4709,6 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	default:
 		break;
 	}
-
-	pci_load_and_free_saved_state(pci_dev, &pci_priv->saved_state);
 
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
