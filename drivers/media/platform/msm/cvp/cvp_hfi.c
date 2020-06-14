@@ -2138,16 +2138,19 @@ static int iris_hfi_core_trigger_ssr(void *device,
 	}
 
 	dev = device;
-	mutex_lock(&dev->lock);
+	if (mutex_trylock(&dev->lock)) {
+		rc = call_hfi_pkt_op(dev, ssr_cmd, type, &pkt);
+		if (rc) {
+			dprintk(CVP_ERR, "%s: failed to create packet\n",
+					__func__);
+			goto err_create_pkt;
+		}
 
-	rc = call_hfi_pkt_op(dev, ssr_cmd, type, &pkt);
-	if (rc) {
-		dprintk(CVP_ERR, "%s: failed to create packet\n", __func__);
-		goto err_create_pkt;
+		if (__iface_cmdq_write(dev, &pkt))
+			rc = -ENOTEMPTY;
+	} else {
+		return -EAGAIN;
 	}
-
-	if (__iface_cmdq_write(dev, &pkt))
-		rc = -ENOTEMPTY;
 
 err_create_pkt:
 	mutex_unlock(&dev->lock);
