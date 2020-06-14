@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,8 +116,14 @@
 						<0>, <0>, <0>, <0>;
 
 		clock-output-names = "pcie_0_pipe_clk";
-		resets = <&clock_gcc GCC_PCIEPHY_0_PHY_BCR>;
-		reset-names = "pcie_0_phy_reset";
+
+		resets = <&clock_gcc GCC_PCIEPHY_0_PHY_BCR>,
+			<&clock_gcc GCC_PCIE_0_BCR>,
+			<&clock_gcc GCC_PCIE_0_PHY_BCR>;
+
+		reset-names = "pcie_0_phy_reset",
+				"pcie_0_core_reset",
+				"pcie_phy_reset";
 
 		pcie_rc0: pcie_rc0 {
 			#address-cells = <5>;
