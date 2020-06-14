@@ -128,6 +128,9 @@ struct geni_i2c_dev {
 	u32 dbg_num;
 	struct dbg_buf_ctxt *dbg_buf_ptr;
 	bool is_le_vm;
+	bool req_chan;
+	bool first_resume;
+	bool gpi_reset;
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -457,29 +460,16 @@ static void gi2c_gsi_rx_cb(void *ptr)
 	}
 }
 
-static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
-			     int num)
+static int geni_i2c_gsi_request_channel(struct geni_i2c_dev *gi2c)
 {
-	struct geni_i2c_dev *gi2c = i2c_get_adapdata(adap);
-	int i, ret = 0, timeout = 0;
+	int ret = 0;
 
 	if (!gi2c->tx_c) {
 		gi2c->tx_c = dma_request_slave_channel(gi2c->dev, "tx");
 		if (!gi2c->tx_c) {
 			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
 				    "tx dma req slv chan ret :%d\n", ret);
-			ret = -EIO;
-			goto geni_i2c_gsi_xfer_out;
-		}
-		gi2c->tx_ev.init.callback = gi2c_ev_cb;
-		gi2c->tx_ev.init.cb_param = gi2c;
-		gi2c->tx_ev.cmd = MSM_GPI_INIT;
-		gi2c->tx_c->private = &gi2c->tx_ev;
-		ret = dmaengine_slave_config(gi2c->tx_c, NULL);
-		if (ret) {
-			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-				    "tx dma slave config ret :%d\n", ret);
-			goto geni_i2c_gsi_xfer_out;
+			return -EIO;
 		}
 	}
 
@@ -488,65 +478,320 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		if (!gi2c->rx_c) {
 			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
 				    "rx dma req slv chan ret :%d\n", ret);
-			ret = -EIO;
-			goto geni_i2c_gsi_xfer_out;
+			dma_release_channel(gi2c->tx_c);
+			return -EIO;
 		}
-		gi2c->rx_ev.init.cb_param = gi2c;
-		gi2c->rx_ev.init.callback = gi2c_ev_cb;
-		gi2c->rx_ev.cmd = MSM_GPI_INIT;
-		gi2c->rx_c->private = &gi2c->rx_ev;
-		ret = dmaengine_slave_config(gi2c->rx_c, NULL);
-		if (ret) {
+	}
+
+	gi2c->tx_ev.init.callback = gi2c_ev_cb;
+	gi2c->tx_ev.init.cb_param = gi2c;
+	gi2c->tx_ev.cmd = MSM_GPI_INIT;
+	gi2c->tx_c->private = &gi2c->tx_ev;
+	ret = dmaengine_slave_config(gi2c->tx_c, NULL);
+	if (ret) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"tx dma slave config ret :%d\n", ret);
+		goto dmaengine_slave_config_fail;
+	}
+
+	gi2c->rx_ev.init.cb_param = gi2c;
+	gi2c->rx_ev.init.callback = gi2c_ev_cb;
+	gi2c->rx_ev.cmd = MSM_GPI_INIT;
+	gi2c->rx_c->private = &gi2c->rx_ev;
+	ret = dmaengine_slave_config(gi2c->rx_c, NULL);
+	if (ret) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"rx dma slave config ret :%d\n", ret);
+		goto dmaengine_slave_config_fail;
+	}
+
+	gi2c->tx_cb.userdata = gi2c;
+	gi2c->rx_cb.userdata = gi2c;
+	gi2c->req_chan = true;
+
+	return ret;
+
+dmaengine_slave_config_fail:
+	dma_release_channel(gi2c->tx_c);
+	dma_release_channel(gi2c->rx_c);
+	gi2c->tx_c = NULL;
+	gi2c->rx_c = NULL;
+	return ret;
+}
+
+static struct msm_gpi_tre *setup_lock_tre(struct geni_i2c_dev *gi2c)
+{
+	struct msm_gpi_tre *lock_t = &gi2c->lock_t;
+
+	/* lock: chain bit set */
+	lock_t->dword[0] = MSM_GPI_LOCK_TRE_DWORD0;
+	lock_t->dword[1] = MSM_GPI_LOCK_TRE_DWORD1;
+	lock_t->dword[2] = MSM_GPI_LOCK_TRE_DWORD2;
+	/* ieob for le-vm and chain for shared se */
+	if (gi2c->is_shared)
+		lock_t->dword[3] = MSM_GPI_LOCK_TRE_DWORD3(0, 0, 0, 0, 1);
+	else if (gi2c->is_le_vm)
+		lock_t->dword[3] = MSM_GPI_LOCK_TRE_DWORD3(0, 0, 0, 1, 0);
+
+	return lock_t;
+}
+
+static struct msm_gpi_tre *setup_cfg0_tre(struct geni_i2c_dev *gi2c)
+{
+	struct geni_i2c_clk_fld *itr = geni_i2c_clk_map +
+							gi2c->clk_fld_idx;
+	struct msm_gpi_tre *cfg0_t = &gi2c->cfg0_t;
+
+	/* config0 */
+	cfg0_t->dword[0] = MSM_GPI_I2C_CONFIG0_TRE_DWORD0(I2C_PACK_EN,
+				itr->t_cycle, itr->t_high, itr->t_low);
+	cfg0_t->dword[1] = MSM_GPI_I2C_CONFIG0_TRE_DWORD1(0, 0);
+	cfg0_t->dword[2] = MSM_GPI_I2C_CONFIG0_TRE_DWORD2(0,
+							itr->clk_div);
+	cfg0_t->dword[3] = MSM_GPI_I2C_CONFIG0_TRE_DWORD3(0, 0, 0, 0, 1);
+
+	return cfg0_t;
+}
+
+static struct msm_gpi_tre *setup_go_tre(struct geni_i2c_dev *gi2c,
+				struct i2c_msg msgs[], int i, int num)
+{
+	struct msm_gpi_tre *go_t = &gi2c->go_t;
+	u8 op = (msgs[i].flags & I2C_M_RD) ? 2 : 1;
+	int stretch = (i < (num - 1));
+
+	go_t->dword[0] = MSM_GPI_I2C_GO_TRE_DWORD0((stretch << 2),
+							   msgs[i].addr, op);
+	go_t->dword[1] = MSM_GPI_I2C_GO_TRE_DWORD1;
+
+	if (msgs[i].flags & I2C_M_RD) {
+		go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(msgs[i].len);
+		/*
+		 * For Rx Go tre: Set ieob for non-shared se and for all
+		 * but last transfer in shared se
+		 */
+		if (!gi2c->is_shared || (gi2c->is_shared && i != num-1))
+			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1, 0,
+							0, 1, 0);
+		else
+			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1, 0,
+							0, 0, 0);
+	} else {
+		/* For Tx Go tre: ieob is not set, chain bit is set */
+		go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(0);
+		go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 0,
+								1);
+	}
+
+	return go_t;
+}
+
+static struct msm_gpi_tre *setup_rx_tre(struct geni_i2c_dev *gi2c,
+				struct i2c_msg msgs[], int i, int num)
+{
+	struct msm_gpi_tre *rx_t = &gi2c->rx_t;
+
+	rx_t->dword[0] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(gi2c->rx_ph);
+	rx_t->dword[1] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(gi2c->rx_ph);
+	rx_t->dword[2] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(msgs[i].len);
+	/* Set ieot for all Rx/Tx DMA tres */
+	rx_t->dword[3] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
+
+	return rx_t;
+}
+
+static struct msm_gpi_tre *setup_tx_tre(struct geni_i2c_dev *gi2c,
+				struct i2c_msg msgs[], int i, int num)
+{
+	struct msm_gpi_tre *tx_t = &gi2c->tx_t;
+
+	tx_t->dword[0] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(gi2c->tx_ph);
+	tx_t->dword[1] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(gi2c->tx_ph);
+	tx_t->dword[2] = MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(msgs[i].len);
+	if (gi2c->is_shared && i == num-1)
+		/*
+		 * For Tx: unlock tre is send for last transfer
+		 * so set chain bit for last transfer DMA tre.
+		 */
+		tx_t->dword[3] =
+		MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 1);
+	else
+		tx_t->dword[3] =
+		MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
+
+	return tx_t;
+}
+
+static struct msm_gpi_tre *setup_unlock_tre(struct geni_i2c_dev *gi2c)
+{
+	struct msm_gpi_tre *unlock_t = &gi2c->unlock_t;
+
+	/* unlock tre: ieob set */
+	unlock_t->dword[0] = MSM_GPI_UNLOCK_TRE_DWORD0;
+	unlock_t->dword[1] = MSM_GPI_UNLOCK_TRE_DWORD1;
+	unlock_t->dword[2] = MSM_GPI_UNLOCK_TRE_DWORD2;
+	unlock_t->dword[3] = MSM_GPI_UNLOCK_TRE_DWORD3(0, 0, 0, 1, 0);
+
+	return unlock_t;
+}
+
+static struct dma_async_tx_descriptor *geni_i2c_prep_desc
+	(struct geni_i2c_dev *gi2c, struct dma_chan *chan, int segs)
+{
+	struct dma_async_tx_descriptor *geni_desc = NULL;
+
+	if (chan->chan_id == 0) {
+		geni_desc = dmaengine_prep_slave_sg(gi2c->tx_c, gi2c->tx_sg,
+					segs, DMA_MEM_TO_DEV,
+					(DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
+		if (!geni_desc) {
 			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-				    "rx dma slave config ret :%d\n", ret);
-			goto geni_i2c_gsi_xfer_out;
+					"prep_slave_sg for tx failed\n");
+			gi2c->err = -ENOMEM;
+			return NULL;
 		}
+		geni_desc->callback = gi2c_gsi_tx_cb;
+		geni_desc->callback_param = &gi2c->tx_cb;
+	} else {
+		geni_desc = dmaengine_prep_slave_sg(gi2c->rx_c,
+					&gi2c->rx_sg, 1, DMA_DEV_TO_MEM,
+					(DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
+		if (!geni_desc) {
+			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+					"prep_slave_sg for rx failed\n");
+			gi2c->err = -ENOMEM;
+			return NULL;
+		}
+		geni_desc->callback = gi2c_gsi_rx_cb;
+		geni_desc->callback_param = &gi2c->rx_cb;
+	}
+
+	return geni_desc;
+}
+
+static int geni_i2c_lock_bus(struct geni_i2c_dev *gi2c)
+{
+	struct msm_gpi_tre *lock_t = NULL;
+	int ret = 0, timeout = 0;
+	dma_cookie_t tx_cookie;
+
+	if (!gi2c->req_chan) {
+		ret = geni_i2c_gsi_request_channel(gi2c);
+		if (ret)
+			return ret;
+	}
+
+	lock_t = setup_lock_tre(gi2c);
+	sg_init_table(gi2c->tx_sg, 1);
+	sg_set_buf(&gi2c->tx_sg[0], lock_t,
+					sizeof(gi2c->lock_t));
+
+	gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, 1);
+	if (!gi2c->tx_desc) {
+		gi2c->err = -ENOMEM;
+		goto geni_i2c_err_lock_bus;
+	}
+
+	/* Issue TX */
+	tx_cookie = dmaengine_submit(gi2c->tx_desc);
+	dma_async_issue_pending(gi2c->tx_c);
+
+	reinit_completion(&gi2c->xfer);
+	timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
+	if (!timeout) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"%s timedout\n", __func__);
+		geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base,
+					gi2c->ipcl);
+		gi2c->err = -ETIMEDOUT;
+		goto geni_i2c_err_lock_bus;
+	}
+	return 0;
+
+geni_i2c_err_lock_bus:
+	if (gi2c->err) {
+		dmaengine_terminate_all(gi2c->tx_c);
+		gi2c->cfg_sent = 0;
+	}
+	return gi2c->err;
+}
+
+static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
+{
+	struct msm_gpi_tre *unlock_t = NULL;
+	int timeout = 0;
+	dma_cookie_t tx_cookie;
+
+	if (gi2c->gpi_reset)
+		goto geni_i2c_err_unlock_bus;
+
+	unlock_t = setup_unlock_tre(gi2c);
+	sg_init_table(gi2c->tx_sg, 1);
+	sg_set_buf(&gi2c->tx_sg[0], unlock_t,
+					sizeof(gi2c->unlock_t));
+
+	gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, 1);
+	if (!gi2c->tx_desc) {
+		gi2c->err = -ENOMEM;
+		goto geni_i2c_err_unlock_bus;
+	}
+
+	/* Issue TX */
+	tx_cookie = dmaengine_submit(gi2c->tx_desc);
+	dma_async_issue_pending(gi2c->tx_c);
+
+	reinit_completion(&gi2c->xfer);
+	timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
+	if (!timeout) {
+		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"%s failed\n", __func__);
+		geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base,
+					gi2c->ipcl);
+		gi2c->err = -ETIMEDOUT;
+		goto geni_i2c_err_unlock_bus;
+	}
+
+geni_i2c_err_unlock_bus:
+	if (gi2c->gpi_reset || gi2c->err) {
+		dmaengine_terminate_all(gi2c->tx_c);
+		gi2c->cfg_sent = 0;
+		gi2c->err = 0;
+		gi2c->gpi_reset = false;
+	}
+}
+
+static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
+			     int num)
+{
+	struct geni_i2c_dev *gi2c = i2c_get_adapdata(adap);
+	int i, ret = 0, timeout = 0;
+	struct msm_gpi_tre *lock_t = NULL;
+	struct msm_gpi_tre *unlock_t = NULL;
+	struct msm_gpi_tre *cfg0_t = NULL;
+
+	if (!gi2c->req_chan) {
+		ret = geni_i2c_gsi_request_channel(gi2c);
+		if (ret)
+			return ret;
 	}
 
 	if (gi2c->is_shared) {
-		struct msm_gpi_tre *lock_t = &gi2c->lock_t;
-		struct msm_gpi_tre *unlock_t = &gi2c->unlock_t;
-
-		/* lock */
-		lock_t->dword[0] = MSM_GPI_LOCK_TRE_DWORD0;
-		lock_t->dword[1] = MSM_GPI_LOCK_TRE_DWORD1;
-		lock_t->dword[2] = MSM_GPI_LOCK_TRE_DWORD2;
-		lock_t->dword[3] = MSM_GPI_LOCK_TRE_DWORD3(0, 0, 0, 0, 1);
-
-		/* unlock tre: ieob set */
-		unlock_t->dword[0] = MSM_GPI_UNLOCK_TRE_DWORD0;
-		unlock_t->dword[1] = MSM_GPI_UNLOCK_TRE_DWORD1;
-		unlock_t->dword[2] = MSM_GPI_UNLOCK_TRE_DWORD2;
-		unlock_t->dword[3] = MSM_GPI_UNLOCK_TRE_DWORD3(0, 0, 0, 1, 0);
+		lock_t = setup_lock_tre(gi2c);
+		unlock_t = setup_unlock_tre(gi2c);
 	}
 
-	if (!gi2c->cfg_sent) {
-		struct geni_i2c_clk_fld *itr = geni_i2c_clk_map +
-							gi2c->clk_fld_idx;
-		struct msm_gpi_tre *cfg0 = &gi2c->cfg0_t;
-
-		/* config0 */
-		cfg0->dword[0] = MSM_GPI_I2C_CONFIG0_TRE_DWORD0(I2C_PACK_EN,
-								itr->t_cycle,
-								itr->t_high,
-								itr->t_low);
-		cfg0->dword[1] = MSM_GPI_I2C_CONFIG0_TRE_DWORD1(0, 0);
-		cfg0->dword[2] = MSM_GPI_I2C_CONFIG0_TRE_DWORD2(0,
-								itr->clk_div);
-		cfg0->dword[3] = MSM_GPI_I2C_CONFIG0_TRE_DWORD3(0, 0, 0, 0, 1);
-
-		gi2c->tx_cb.userdata = gi2c;
-		gi2c->rx_cb.userdata = gi2c;
-	}
+	if (!gi2c->cfg_sent)
+		cfg0_t = setup_cfg0_tre(gi2c);
 
 	for (i = 0; i < num; i++) {
 		u8 op = (msgs[i].flags & I2C_M_RD) ? 2 : 1;
 		int segs = 3 - op;
 		int index = 0;
 		u8 *dma_buf = NULL;
-		int stretch = (i < (num - 1));
 		dma_cookie_t tx_cookie, rx_cookie;
-		struct msm_gpi_tre *go_t = &gi2c->go_t;
+		struct msm_gpi_tre *go_t = NULL;
+		struct msm_gpi_tre *rx_t = NULL;
+		struct msm_gpi_tre *tx_t = NULL;
 		struct device *rx_dev = gi2c->wrapper_dev;
 		struct device *tx_dev = gi2c->wrapper_dev;
 
@@ -569,7 +814,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			sg_init_table(gi2c->tx_sg, segs);
 			if (i == 0)
 				/* Send lock tre for first transfer in a msg */
-				sg_set_buf(&gi2c->tx_sg[index++], &gi2c->lock_t,
+				sg_set_buf(&gi2c->tx_sg[index++], lock_t,
 					sizeof(gi2c->lock_t));
 		} else {
 			sg_init_table(gi2c->tx_sg, segs);
@@ -577,35 +822,13 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		/* Send cfg tre when cfg not sent already */
 		if (!gi2c->cfg_sent) {
-			sg_set_buf(&gi2c->tx_sg[index++], &gi2c->cfg0_t,
+			sg_set_buf(&gi2c->tx_sg[index++], cfg0_t,
 						sizeof(gi2c->cfg0_t));
 			gi2c->cfg_sent = 1;
 		}
 
-		go_t->dword[0] = MSM_GPI_I2C_GO_TRE_DWORD0((stretch << 2),
-							   msgs[i].addr, op);
-		go_t->dword[1] = MSM_GPI_I2C_GO_TRE_DWORD1;
-
-		if (msgs[i].flags & I2C_M_RD) {
-			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(msgs[i].len);
-			/*
-			 * For Rx Go tre: Set ieob for non-shared se and for all
-			 * but last transfer in shared se
-			 */
-			if (!gi2c->is_shared || (gi2c->is_shared && i != num-1))
-				go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1, 0,
-								0, 1, 0);
-			else
-				go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(1, 0,
-								0, 0, 0);
-		} else {
-			/* For Tx Go tre: ieob is not set, chain bit is set */
-			go_t->dword[2] = MSM_GPI_I2C_GO_TRE_DWORD2(0);
-			go_t->dword[3] = MSM_GPI_I2C_GO_TRE_DWORD3(0, 0, 0, 0,
-									1);
-		}
-
-		sg_set_buf(&gi2c->tx_sg[index++], &gi2c->go_t,
+		go_t = setup_go_tre(gi2c, msgs, i, num);
+		sg_set_buf(&gi2c->tx_sg[index++], go_t,
 						  sizeof(gi2c->go_t));
 
 		if (msgs[i].flags & I2C_M_RD) {
@@ -629,31 +852,17 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 				gi2c->dbg_buf_ptr[i].map_buf =
 							(void *)&gi2c->rx_ph;
 			}
-			gi2c->rx_t.dword[0] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(gi2c->rx_ph);
-			gi2c->rx_t.dword[1] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(gi2c->rx_ph);
-			gi2c->rx_t.dword[2] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(msgs[i].len);
-			/* Set ieot for all Rx/Tx DMA tres */
-			gi2c->rx_t.dword[3] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
 
-			sg_set_buf(&gi2c->rx_sg, &gi2c->rx_t,
+			rx_t = setup_rx_tre(gi2c, msgs, i, num);
+			sg_set_buf(&gi2c->rx_sg, rx_t,
 						 sizeof(gi2c->rx_t));
-			gi2c->rx_desc = dmaengine_prep_slave_sg(gi2c->rx_c,
-							&gi2c->rx_sg, 1,
-							DMA_DEV_TO_MEM,
-							(DMA_PREP_INTERRUPT |
-							 DMA_CTRL_ACK));
+
+			gi2c->rx_desc =
+				geni_i2c_prep_desc(gi2c, gi2c->rx_c, segs);
 			if (!gi2c->rx_desc) {
-				GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-					    "prep_slave_sg for rx failed\n");
 				gi2c->err = -ENOMEM;
 				goto geni_i2c_err_prep_sg;
 			}
-			gi2c->rx_desc->callback = gi2c_gsi_rx_cb;
-			gi2c->rx_desc->callback_param = &gi2c->rx_cb;
 
 			/* Issue RX */
 			rx_cookie = dmaengine_submit(gi2c->rx_desc);
@@ -679,45 +888,22 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 							(void *)&gi2c->tx_ph;
 			}
 
-			gi2c->tx_t.dword[0] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(gi2c->tx_ph);
-			gi2c->tx_t.dword[1] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD1(gi2c->tx_ph);
-			gi2c->tx_t.dword[2] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD2(msgs[i].len);
-			if (gi2c->is_shared && i == num-1)
-				/*
-				 * For Tx: unlock tre is send for last transfer
-				 * so set chain bit for last transfer DMA tre.
-				 */
-				gi2c->tx_t.dword[3] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 1);
-			else
-				gi2c->tx_t.dword[3] =
-				MSM_GPI_DMA_W_BUFFER_TRE_DWORD3(0, 0, 1, 0, 0);
-
-			sg_set_buf(&gi2c->tx_sg[index++], &gi2c->tx_t,
+			tx_t = setup_tx_tre(gi2c, msgs, i, num);
+			sg_set_buf(&gi2c->tx_sg[index++], tx_t,
 							  sizeof(gi2c->tx_t));
 		}
 
 		if (gi2c->is_shared && i == num-1) {
 			/* Send unlock tre at the end of last transfer */
 			sg_set_buf(&gi2c->tx_sg[index++],
-				&gi2c->unlock_t, sizeof(gi2c->unlock_t));
+				unlock_t, sizeof(gi2c->unlock_t));
 		}
 
-		gi2c->tx_desc = dmaengine_prep_slave_sg(gi2c->tx_c, gi2c->tx_sg,
-						segs, DMA_MEM_TO_DEV,
-						(DMA_PREP_INTERRUPT |
-						 DMA_CTRL_ACK));
+		gi2c->tx_desc = geni_i2c_prep_desc(gi2c, gi2c->tx_c, segs);
 		if (!gi2c->tx_desc) {
-			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-				    "prep_slave_sg for tx failed\n");
 			gi2c->err = -ENOMEM;
 			goto geni_i2c_err_prep_sg;
 		}
-		gi2c->tx_desc->callback = gi2c_gsi_tx_cb;
-		gi2c->tx_desc->callback_param = &gi2c->tx_cb;
 
 		/* Issue TX */
 		tx_cookie = dmaengine_submit(gi2c->tx_desc);
@@ -736,8 +922,20 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		}
 geni_i2c_err_prep_sg:
 		if (gi2c->err) {
-			dmaengine_terminate_all(gi2c->tx_c);
-			gi2c->cfg_sent = 0;
+			if (!gi2c->is_le_vm) {
+				dmaengine_terminate_all(gi2c->tx_c);
+				gi2c->cfg_sent = 0;
+			} else {
+				/* Stop channel in case of error in LE-VM */
+				ret = dmaengine_pause(gi2c->tx_c);
+				if (ret) {
+					gi2c->gpi_reset = true;
+					gi2c->err = ret;
+					GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+						"Channel cancel failed\n");
+					goto geni_i2c_gsi_xfer_out;
+				}
+			}
 		}
 		if (gi2c->is_shared)
 			/* Resend cfg tre for every new message on shared se */
@@ -777,21 +975,14 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		return -EACCES;
 	}
 
-	ret = pm_runtime_get_sync(gi2c->dev);
-	if (ret < 0) {
-		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-			    "error turning SE resources:%d\n", ret);
-		pm_runtime_put_noidle(gi2c->dev);
-		/* Set device in suspended since resume failed */
-		pm_runtime_set_suspended(gi2c->dev);
-		return ret;
-	}
-
-	if (gi2c->is_le_vm) {
-		ret = geni_i2c_prepare(gi2c);
-		if (ret) {
-			dev_err(gi2c->dev, "I2C prepare failed\n");
-			pm_runtime_put_sync_suspend(gi2c->dev);
+	if (!gi2c->is_le_vm) {
+		ret = pm_runtime_get_sync(gi2c->dev);
+		if (ret < 0) {
+			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+					"error turning SE resources:%d\n", ret);
+			pm_runtime_put_noidle(gi2c->dev);
+			/* Set device in suspended since resume failed */
+			pm_runtime_set_suspended(gi2c->dev);
 			return ret;
 		}
 	}
@@ -950,8 +1141,10 @@ geni_i2c_txn_ret:
 	if (ret == 0)
 		ret = num;
 
-	pm_runtime_mark_last_busy(gi2c->dev);
-	pm_runtime_put_autosuspend(gi2c->dev);
+	if (!gi2c->is_le_vm) {
+		pm_runtime_mark_last_busy(gi2c->dev);
+		pm_runtime_put_autosuspend(gi2c->dev);
+	}
 	gi2c->cur = NULL;
 	gi2c->err = 0;
 	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
@@ -1013,6 +1206,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,le-vm")) {
 		gi2c->is_le_vm = true;
+		gi2c->first_resume = true;
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
@@ -1168,6 +1362,10 @@ static int geni_i2c_resume_noirq(struct device *device)
 	return 0;
 }
 
+/*
+ * get sync/put sync in LA-VM -> do resources on/off
+ * get sync/put sync in LE-VM -> do lock/unlock gpii
+ */
 #if IS_ENABLED(CONFIG_PM)
 static int geni_i2c_runtime_suspend(struct device *dev)
 {
@@ -1177,8 +1375,10 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 		disable_irq(gi2c->irq);
 
 	if (gi2c->is_le_vm) {
-		/* Do not control clk/gpio/icb for LE-VM */
-		return 0;
+		if (!gi2c->first_resume)
+			geni_i2c_unlock_bus(gi2c);
+		else
+			gi2c->first_resume = false;
 	} else if (gi2c->is_shared) {
 		/* Do not unconfigure GPIOs if shared se */
 		se_geni_clks_off(&gi2c->i2c_rsc);
@@ -1207,13 +1407,7 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 		if (ret)
 			return ret;
-		/*
-		 * resume is called from probe so for LE,
-		 * geni_i2c_prepare can not be called inside
-		 * resume as clocks are not on during LE probe.
-		 * LA will provide clocks to LE so deferring
-		 * the below api call to first transfer in LE.
-		 */
+
 		ret = geni_i2c_prepare(gi2c);
 		if (ret) {
 			dev_err(gi2c->dev, "I2C prepare failed\n");
@@ -1222,7 +1416,28 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 		if (gi2c->se_mode == FIFO_SE_DMA)
 			enable_irq(gi2c->irq);
+
+	} else if (!gi2c->first_resume) {
+		/*
+		 * For first resume call in le, do nothing, and in
+		 * corresponding first suspend, set the first_resume
+		 * flag to false, to enable lock/unlock per resume/suspend
+		 * session.
+		 */
+		ret = geni_i2c_prepare(gi2c);
+		if (ret) {
+			dev_err(gi2c->dev, "I2C prepare failed\n");
+			return ret;
+		}
+
+		ret = geni_i2c_lock_bus(gi2c);
+		if (ret) {
+			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"%s failed: %d\n", __func__, ret);
+			return ret;
+		}
 	}
+
 	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n", __func__);
 
 	return 0;
