@@ -122,19 +122,6 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 	return prot;
 }
 
-static bool is_dma_coherent(struct device *dev, unsigned long attrs,
-			    bool is_coherent)
-{
-	if (attrs & DMA_ATTR_FORCE_COHERENT)
-		is_coherent = true;
-	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
-		is_coherent = false;
-	else if (dev->archdata.dma_coherent)
-		is_coherent = true;
-
-	return is_coherent;
-}
-
 /**
  * arm_dma_map_page - map a portion of a page for streaming DMA
  * @dev: valid struct device pointer, or NULL for ISA and EISA-like devices
@@ -1145,6 +1132,19 @@ static const struct dma_map_ops *arm_get_dma_map_ops(bool coherent)
 }
 
 #ifdef CONFIG_ARM_DMA_USE_IOMMU
+
+static bool is_dma_coherent(struct device *dev, unsigned long attrs,
+			    bool is_coherent)
+{
+	if (attrs & DMA_ATTR_FORCE_COHERENT)
+		is_coherent = true;
+	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
+		is_coherent = false;
+	else if (dev->archdata.dma_coherent)
+		is_coherent = true;
+
+	return is_coherent;
+}
 
 static int __dma_info_to_prot(enum dma_data_direction dir, unsigned long attrs)
 {
