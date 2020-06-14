@@ -78,6 +78,7 @@ enum dsp_state {
 	DSP_PROBED,
 	DSP_READY,
 	DSP_SUSPEND,
+	DSP_INACTIVE,
 };
 
 struct msm_cvp_common_data {

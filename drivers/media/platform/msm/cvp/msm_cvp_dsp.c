@@ -287,12 +287,13 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 	if (me->state == DSP_INVALID)
 		goto exit;
 
-	me->state = DSP_UNINIT;
+	me->state = DSP_INACTIVE;
 	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed with rc = %d\n",
 			__func__, rc);
+		cvp_hyp_assign_from_dsp();
 		goto exit;
 	}
 
@@ -425,7 +426,7 @@ void cvp_dsp_send_hfi_queue(void)
 		goto exit;
 	}
 
-	if (me->state != DSP_PROBED)
+	if (me->state != DSP_PROBED && me->state != DSP_INACTIVE)
 		goto exit;
 
 	rc = cvp_hyp_assign_to_dsp(addr, size);
@@ -440,7 +441,6 @@ void cvp_dsp_send_hfi_queue(void)
 		dprintk(CVP_WARN, "%s: Send HFI Queue failed rc = %d\n",
 			__func__, rc);
 
-		rc = cvp_hyp_assign_from_dsp();
 		goto exit;
 	}
 
