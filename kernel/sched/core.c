@@ -2800,10 +2800,11 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.vruntime			= 0;
 #ifdef CONFIG_SCHED_WALT
 	p->wts.last_sleep_ts		= 0;
-	p->wts.wake_up_idle			= false;
+	p->wts.wake_up_idle		= false;
 	p->wts.boost			= 0;
 	p->wts.boost_expires		= 0;
-	p->wts.boost_period			= 0;
+	p->wts.boost_period		= 0;
+	p->wts.low_latency		= 0;
 #endif
 	INIT_LIST_HEAD(&p->se.group_node);
 
