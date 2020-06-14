@@ -54,10 +54,7 @@
   qmi_rmnet_ps_ind_deregister
   qmi_rmnet_ps_ind_register
   qmi_rmnet_work_maybe_restart
-  rmnet_ctl_log
-  rmnet_ctl_register_client
-  rmnet_ctl_send_client
-  rmnet_ctl_unregister_client
+  rmnet_ctl_if
   rmnet_deliver_skb
   rmnet_frag_deliver
   rmnet_frag_ipv6_skip_exthdr
