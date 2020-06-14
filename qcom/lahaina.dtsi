@@ -2670,6 +2670,8 @@
 		reg = <0x9200000 0x1d0000> , <0x9600000 0x50000>;
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		cap-based-alloc-and-pwr-collapse;
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "qdss_clk";
 	};
 
 	qcom_scm {
