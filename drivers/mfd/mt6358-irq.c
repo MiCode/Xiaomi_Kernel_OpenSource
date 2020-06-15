@@ -150,6 +150,10 @@ static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 			virq = irq_find_mapping(chip->irq_domain, hwirq);
 			if (virq)
 				handle_nested_irq(virq);
+			dev_info(chip->dev,
+				"Reg[0x%x]=0x%x,hwirq=%d,type=%d\n",
+				sta_reg, irq_status, hwirq,
+				irq_get_trigger_type(virq));
 
 			status &= ~BIT(j);
 		} while (status);
