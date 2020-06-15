@@ -234,6 +234,7 @@ static int dsi_link_hs_clk_unprepare(
 {
 	if (link_hs_clks->byte_intf_clk)
 		clk_unprepare(link_hs_clks->byte_intf_clk);
+	clk_unprepare(link_hs_clks->pixel_clk);
 	clk_unprepare(link_hs_clks->byte_clk);
 
 	return 0;
