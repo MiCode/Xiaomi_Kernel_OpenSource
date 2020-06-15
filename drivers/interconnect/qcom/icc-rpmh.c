@@ -9,6 +9,7 @@
 #include <linux/clk.h>
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
+#include <linux/module.h>
 
 #include "icc-rpmh.h"
 #include "bcm-voter.h"
@@ -171,3 +172,5 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(qcom_icc_bcm_init);
+
+MODULE_LICENSE("GPL v2");
