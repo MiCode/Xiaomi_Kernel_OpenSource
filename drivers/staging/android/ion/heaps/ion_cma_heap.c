@@ -40,6 +40,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
 	struct sg_table *table;
+	struct msm_ion_buf_lock_state *lock_state;
 	struct page *pages;
 	unsigned long size = PAGE_ALIGN(len);
 	unsigned long nr_pages = size >> PAGE_SHIFT;
@@ -96,6 +97,12 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	sg_set_page(table->sgl, pages, size, 0);
 ;
 	buffer->sg_table = table;
+
+	lock_state = kzalloc(sizeof(*lock_state), GFP_KERNEL);
+	if (!lock_state)
+		goto free_mem;
+	buffer->priv_virt = lock_state;
+
 	ion_prepare_sgl_for_force_dma_sync(buffer->sg_table);
 	return 0;
 
@@ -117,6 +124,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	/* release sg table */
 	sg_free_table(buffer->sg_table);
 	kfree(buffer->sg_table);
+	kfree(buffer->priv_virt);
 }
 
 static struct ion_heap_ops ion_cma_ops = {
