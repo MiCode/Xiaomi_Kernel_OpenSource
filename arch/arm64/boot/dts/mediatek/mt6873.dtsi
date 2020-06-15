@@ -1463,14 +1463,14 @@
 		};
 
 		mtk_mdla: mdla@19036000 {
-			compatible = "mtk,mdla";
+			compatible = "mediatek, mt6873-mdla";
 			core_num = <1>;
 			reg = <0 0x19034000 0 0x1000>,   /* dla0 config  */
 			      <0 0x19036000 0 0x1000>,   /* dla0 command */
 			      <0 0x19035000 0 0x1000>,   /* dla0 biu     */
 			      <0 0x1d000000 0 0x100000>, /* GSM,TODO     */
 			      <0 0x19020000 0 0x40000>;  /* APU CONN     */
-			interrupts = <GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		camsys: camsys@1a000000 {
