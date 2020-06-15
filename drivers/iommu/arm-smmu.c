@@ -1640,13 +1640,15 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		reg |= FIELD_PREP(SCTLR_SHCFG, SCTLR_SHCFG_NSH);
 	}
 
-	if (attributes && test_bit(DOMAIN_ATTR_CB_STALL_DISABLE, attributes)) {
-		reg &= ~SCTLR_CFCFG;
-		reg |= SCTLR_HUPCF;
-	}
-
-	if (attributes && test_bit(DOMAIN_ATTR_NO_CFRE, attributes))
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes))
 		reg &= ~SCTLR_CFRE;
+
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
+				   attributes))
+		reg &= ~SCTLR_CFCFG;
+
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes))
+		reg |= SCTLR_HUPCF;
 
 	if (!attributes || (!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
 	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
@@ -2744,15 +2746,19 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (of_property_match_string(np, "qcom,iommu-faults",
 				     "stall-disable") >= 0)
 		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_CB_STALL_DISABLE, &attr);
+			DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "HUPCF") >= 0)
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAULT_MODEL_HUPCF, &attr);
 
 	if (of_property_match_string(np, "qcom,iommu-faults", "non-fatal") >= 0)
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_NON_FATAL_FAULTS, &attr);
-
-	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_NO_CFRE, &attr);
 
 	/* Default value: disabled */
 	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
@@ -3617,14 +3623,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				 smmu_domain->attributes);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_CB_STALL_DISABLE:
-		*((int *)data) = test_bit(DOMAIN_ATTR_CB_STALL_DISABLE,
-					  smmu_domain->attributes);
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_NO_CFRE:
-		*((int *)data) = test_bit(DOMAIN_ATTR_NO_CFRE,
-					  smmu_domain->attributes);
+	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
+	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
+		*((int *)data) = test_bit(attr, smmu_domain->attributes);
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_SPLIT_TABLES:
@@ -3838,8 +3840,9 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		}
 		break;
 	}
-	case DOMAIN_ATTR_CB_STALL_DISABLE:
-	case DOMAIN_ATTR_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
+	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
 		if (*((int *)data))
 			set_bit(attr, smmu_domain->attributes);
 		ret = 0;
