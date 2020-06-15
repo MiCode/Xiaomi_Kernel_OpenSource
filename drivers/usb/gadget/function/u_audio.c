@@ -89,7 +89,12 @@ static void u_audio_iso_complete(struct usb_ep *ep, struct usb_request *req)
 	struct snd_uac_chip *uac = prm->uac;
 
 	/* i/f shutting down */
-	if (!prm->ep_enabled || req->status == -ESHUTDOWN)
+	if (!prm->ep_enabled) {
+		usb_ep_free_request(ep, req);
+		return;
+	}
+
+	if (req->status == -ESHUTDOWN)
 		return;
 
 	/*
@@ -352,7 +357,6 @@ static inline void free_ep(struct uac_rtd_params *prm, struct usb_ep *ep)
 	for (i = 0; i < params->req_number; i++) {
 		if (prm->ureq[i].req) {
 			usb_ep_dequeue(ep, prm->ureq[i].req);
-			usb_ep_free_request(ep, prm->ureq[i].req);
 			prm->ureq[i].req = NULL;
 		}
 	}
