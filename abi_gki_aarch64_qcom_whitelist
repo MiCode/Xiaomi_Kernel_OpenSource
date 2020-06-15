@@ -1760,7 +1760,6 @@
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
   qdisc_reset
-  qseecom_process_listener_from_smcinvoke
   qtee_shmbridge_allocate_shm
   qtee_shmbridge_deregister
   qtee_shmbridge_flush_shm_buf
