@@ -19,14 +19,21 @@ enum hh_irq_label {
 };
 
 typedef void (*hh_irq_handle_fn)(void *req, enum hh_irq_label label);
-
+typedef void (*hh_irq_handle_fn_v2)(void *req, unsigned long notif_type,
+						enum hh_irq_label label);
 int hh_irq_lend(enum hh_irq_label label, enum hh_vm_names name,
-		int hw_irq, hh_irq_handle_fn on_release, void *data);
+		int hw_irq, hh_irq_handle_fn cb_handle, void *data);
+int hh_irq_lend_v2(enum hh_irq_label label, enum hh_vm_names name,
+		int hw_irq, hh_irq_handle_fn_v2 cb_handle, void *data);
+int hh_irq_lend_notify(enum hh_irq_label label);
 int hh_irq_reclaim(enum hh_irq_label label);
-
 int hh_irq_wait_for_lend(enum hh_irq_label label, enum hh_vm_names name,
 			 hh_irq_handle_fn on_lend, void *data);
+int hh_irq_wait_for_lend_v2(enum hh_irq_label label, enum hh_vm_names name,
+			 hh_irq_handle_fn_v2 on_lend, void *data);
 int hh_irq_accept(enum hh_irq_label label, int irq, int type);
+int hh_irq_accept_notify(enum hh_irq_label label);
 int hh_irq_release(enum hh_irq_label label);
+int hh_irq_release_notify(enum hh_irq_label label);
 
 #endif
