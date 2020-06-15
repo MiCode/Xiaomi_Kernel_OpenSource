@@ -1614,10 +1614,8 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport, bool done,
 					SE_GENI_TX_FIFO_STATUS);
 
 	/* Complete the current tx command before taking newly added data */
-	if (active)
-		pending = msm_port->cur_tx_remaining;
-	else
-		pending = uart_circ_chars_pending(xmit);
+	pending = active ? msm_port->cur_tx_remaining :
+				uart_circ_chars_pending(xmit);
 
 	/* All data has been transmitted and acknowledged as received */
 	if (!pending && !tx_fifo_status && done)
@@ -1679,13 +1677,11 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport, bool done,
 						SE_GENI_M_IRQ_CLEAR);
 
 exit_handle_tx:
-	if (!msm_port->cur_tx_remaining) {
-		irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
+	irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
+	if (!msm_port->cur_tx_remaining)
 		/* Clear WM interrupt post each transfer completion */
-		if (irq_en & M_TX_FIFO_WATERMARK_EN)
-			geni_write_reg_nolog(irq_en & ~M_TX_FIFO_WATERMARK_EN,
+		geni_write_reg_nolog(irq_en & ~M_TX_FIFO_WATERMARK_EN,
 					uport->membase, SE_GENI_M_IRQ_EN);
-	}
 
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(uport);
@@ -1769,6 +1765,152 @@ static int msm_geni_serial_handle_dma_tx(struct uart_port *uport)
 	return 0;
 }
 
+static bool handle_tx_fifo_xfer(u32 m_irq_status, struct uart_port *uport)
+{
+	bool ret = false;
+	u32 geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
+	u32 m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
+
+	if ((m_irq_status & m_irq_en) &
+	    (M_TX_FIFO_WATERMARK_EN | M_CMD_DONE_EN))
+		msm_geni_serial_handle_tx(uport,
+				m_irq_status & M_CMD_DONE_EN,
+				geni_status & M_GENI_CMD_ACTIVE);
+
+	if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
+		ret = true;
+
+	return ret;
+}
+
+static bool handle_rx_fifo_xfer(u32 s_irq_status, struct uart_port *uport,
+				unsigned long *flags, bool is_irq_masked)
+{
+	bool ret = false;
+	bool drop_rx = false;
+	struct tty_port *tport = &uport->state->port;
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
+	if (s_irq_status & (S_GP_IRQ_0_EN | S_GP_IRQ_1_EN)) {
+		if (s_irq_status & S_GP_IRQ_0_EN)
+			uport->icount.parity++;
+		IPC_LOG_MSG(msm_port->ipc_log_misc,
+			"%s.sirq 0x%x parity:%d\n",
+			__func__, s_irq_status, uport->icount.parity);
+		drop_rx = true;
+	} else if (s_irq_status & (S_GP_IRQ_2_EN | S_GP_IRQ_3_EN)) {
+		uport->icount.brk++;
+		IPC_LOG_MSG(msm_port->ipc_log_misc,
+			"%s.sirq 0x%x break:%d\n",
+			__func__, s_irq_status, uport->icount.brk);
+	}
+	/*
+	 * In case of stop_rx handling there is a chance
+	 * for RX data can come in parallel. set drop_rx to
+	 * avoid data push to framework from handle_rx_console()
+	 * API for stop_rx case.
+	 */
+	if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN)) {
+		ret = true;
+		drop_rx = true;
+	}
+	if (s_irq_status & (S_RX_FIFO_WATERMARK_EN |
+						S_RX_FIFO_LAST_EN)) {
+		msm_geni_serial_handle_rx(uport, drop_rx);
+		if (!drop_rx && !is_irq_masked) {
+			spin_unlock_irqrestore(&uport->lock, *flags);
+			tty_flip_buffer_push(tport);
+			spin_lock_irqsave(&uport->lock, *flags);
+		} else if (!drop_rx) {
+			tty_flip_buffer_push(tport);
+		}
+	}
+
+	return ret;
+}
+
+static bool handle_tx_dma_xfer(u32 m_irq_status, struct uart_port *uport)
+{
+	bool ret = false;
+	u32 dma_tx_status = geni_read_reg_nolog(uport->membase,
+							SE_DMA_TX_IRQ_STAT);
+
+	if (dma_tx_status) {
+		geni_write_reg_nolog(dma_tx_status, uport->membase,
+					SE_DMA_TX_IRQ_CLR);
+
+		if (dma_tx_status & TX_DMA_DONE)
+			msm_geni_serial_handle_dma_tx(uport);
+
+		if (dma_tx_status & (TX_RESET_DONE | TX_GENI_CANCEL_IRQ))
+			ret = true;
+
+		if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
+			ret = true;
+	}
+
+	return ret;
+}
+
+static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
+{
+	bool ret = false;
+	bool drop_rx = false;
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	u32 dma_rx_status = geni_read_reg_nolog(uport->membase,
+						SE_DMA_RX_IRQ_STAT);
+
+	if (dma_rx_status) {
+		geni_write_reg_nolog(dma_rx_status, uport->membase,
+					SE_DMA_RX_IRQ_CLR);
+
+		if (dma_rx_status & RX_RESET_DONE) {
+			IPC_LOG_MSG(msm_port->ipc_log_misc,
+			"%s.Reset done.  0x%x.\n", __func__, dma_rx_status);
+			return ret;
+		}
+
+		if (dma_rx_status & UART_DMA_RX_ERRS) {
+			if (dma_rx_status & UART_DMA_RX_PARITY_ERR)
+				uport->icount.parity++;
+			IPC_LOG_MSG(msm_port->ipc_log_misc,
+				"%s.Rx Errors.  0x%x parity:%d\n",
+					__func__, dma_rx_status,
+					uport->icount.parity);
+			drop_rx = true;
+		} else if (dma_rx_status & UART_DMA_RX_BREAK) {
+			uport->icount.brk++;
+			IPC_LOG_MSG(msm_port->ipc_log_misc,
+				"%s.Rx Errors.  0x%x break:%d\n",
+				__func__, dma_rx_status,
+				uport->icount.brk);
+		}
+
+		if (dma_rx_status & RX_EOT || dma_rx_status & RX_DMA_DONE) {
+			msm_geni_serial_handle_dma_rx(uport, drop_rx);
+			if (!(dma_rx_status & RX_GENI_CANCEL_IRQ)) {
+				geni_se_rx_dma_start(uport->membase,
+					DMA_RX_BUF_SIZE, &msm_port->rx_dma);
+			}
+		}
+
+		if (dma_rx_status & RX_SBE) {
+			IPC_LOG_MSG(msm_port->ipc_log_misc,
+				"%s.Rx Errors.  0x%x\n",
+				__func__, dma_rx_status);
+			WARN_ON(1);
+		}
+
+		if (dma_rx_status & (RX_EOT | RX_GENI_CANCEL_IRQ | RX_DMA_DONE))
+			ret = true;
+
+		if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
+			ret = true;
+	}
+
+	return ret;
+}
+
 static void msm_geni_serial_handle_isr(struct uart_port *uport,
 				       unsigned long *flags,
 				       bool is_irq_masked)
@@ -1776,13 +1918,8 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 	unsigned int m_irq_status;
 	unsigned int s_irq_status;
 	unsigned int dma;
-	unsigned int dma_tx_status;
-	unsigned int dma_rx_status;
-	unsigned int m_irq_en;
-	unsigned int geni_status;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	struct tty_port *tport = &uport->state->port;
-	bool drop_rx = false;
 	bool s_cmd_done = false;
 	bool m_cmd_done = false;
 
@@ -1805,7 +1942,6 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 						SE_GENI_M_IRQ_CLEAR);
 	geni_write_reg_nolog(s_irq_status, uport->membase,
 						SE_GENI_S_IRQ_CLEAR);
-	m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 	if ((m_irq_status & M_ILLEGAL_CMD_EN)) {
 		WARN_ON(1);
 		goto exit_geni_serial_isr;
@@ -1821,126 +1957,12 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 
 	dma = geni_read_reg_nolog(uport->membase, SE_GENI_DMA_MODE_EN);
 	if (!dma) {
-		geni_status = geni_read_reg_nolog(uport->membase,
-						SE_GENI_STATUS);
-
-		if ((m_irq_status & m_irq_en) &
-		    (M_TX_FIFO_WATERMARK_EN | M_CMD_DONE_EN))
-			msm_geni_serial_handle_tx(uport,
-					m_irq_status & M_CMD_DONE_EN,
-					geni_status & M_GENI_CMD_ACTIVE);
-
-		if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
-			m_cmd_done = true;
-
-		if (s_irq_status & (S_GP_IRQ_0_EN | S_GP_IRQ_1_EN)) {
-			if (s_irq_status & S_GP_IRQ_0_EN)
-				uport->icount.parity++;
-			IPC_LOG_MSG(msm_port->ipc_log_misc,
-				"%s.sirq 0x%x parity:%d\n",
-				__func__, s_irq_status, uport->icount.parity);
-			drop_rx = true;
-		} else if (s_irq_status & (S_GP_IRQ_2_EN | S_GP_IRQ_3_EN)) {
-			uport->icount.brk++;
-			IPC_LOG_MSG(msm_port->ipc_log_misc,
-				"%s.sirq 0x%x break:%d\n",
-				__func__, s_irq_status, uport->icount.brk);
-		}
-		/*
-		 * In case of stop_rx handling there is a chance
-		 * for RX data can come in parallel. set drop_rx to
-		 * avoid data push to framework from handle_rx_console()
-		 * API for stop_rx case.
-		 */
-		if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN)) {
-			s_cmd_done = true;
-			drop_rx = true;
-		}
-
-		if (s_irq_status & (S_RX_FIFO_WATERMARK_EN |
-							S_RX_FIFO_LAST_EN)) {
-			msm_geni_serial_handle_rx(uport, drop_rx);
-			if (!drop_rx && !is_irq_masked) {
-				spin_unlock_irqrestore(&uport->lock, *flags);
-				tty_flip_buffer_push(tport);
-				spin_lock_irqsave(&uport->lock, *flags);
-			} else if (!drop_rx) {
-				tty_flip_buffer_push(tport);
-			}
-		}
+		m_cmd_done = handle_tx_fifo_xfer(m_irq_status, uport);
+		s_cmd_done = handle_rx_fifo_xfer(s_irq_status, uport, flags,
+							is_irq_masked);
 	} else {
-		dma_tx_status = geni_read_reg_nolog(uport->membase,
-							SE_DMA_TX_IRQ_STAT);
-		dma_rx_status = geni_read_reg_nolog(uport->membase,
-							SE_DMA_RX_IRQ_STAT);
-
-		if (dma_tx_status) {
-
-			geni_write_reg_nolog(dma_tx_status, uport->membase,
-						SE_DMA_TX_IRQ_CLR);
-
-			if (dma_tx_status & TX_DMA_DONE)
-				msm_geni_serial_handle_dma_tx(uport);
-
-			if (dma_tx_status & (TX_RESET_DONE |
-						TX_GENI_CANCEL_IRQ))
-				m_cmd_done = true;
-
-			if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
-				m_cmd_done = true;
-		}
-
-		if (dma_rx_status) {
-			geni_write_reg_nolog(dma_rx_status, uport->membase,
-						SE_DMA_RX_IRQ_CLR);
-
-			if (dma_rx_status & RX_RESET_DONE) {
-				IPC_LOG_MSG(msm_port->ipc_log_misc,
-					"%s.Reset done.  0x%x.\n",
-						__func__, dma_rx_status);
-				goto exit_geni_serial_isr;
-			}
-
-			if (dma_rx_status & UART_DMA_RX_ERRS) {
-				if (dma_rx_status & UART_DMA_RX_PARITY_ERR)
-					uport->icount.parity++;
-				IPC_LOG_MSG(msm_port->ipc_log_misc,
-					"%s.Rx Errors.  0x%x parity:%d\n",
-					__func__, dma_rx_status,
-					uport->icount.parity);
-				drop_rx = true;
-			} else if (dma_rx_status & UART_DMA_RX_BREAK) {
-				uport->icount.brk++;
-				IPC_LOG_MSG(msm_port->ipc_log_misc,
-					"%s.Rx Errors.  0x%x break:%d\n",
-					__func__, dma_rx_status,
-					uport->icount.brk);
-			}
-
-			if (dma_rx_status & RX_EOT ||
-					dma_rx_status & RX_DMA_DONE) {
-				msm_geni_serial_handle_dma_rx(uport,
-							drop_rx);
-				if (!(dma_rx_status & RX_GENI_CANCEL_IRQ)) {
-					geni_se_rx_dma_start(uport->membase,
-					DMA_RX_BUF_SIZE, &msm_port->rx_dma);
-				}
-			}
-
-			if (dma_rx_status & RX_SBE) {
-				IPC_LOG_MSG(msm_port->ipc_log_misc,
-					"%s.Rx Errors.  0x%x\n",
-					__func__, dma_rx_status);
-				WARN_ON(1);
-			}
-
-			if (dma_rx_status & (RX_EOT | RX_GENI_CANCEL_IRQ |
-								RX_DMA_DONE))
-				s_cmd_done = true;
-
-			if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
-				s_cmd_done = true;
-		}
+		m_cmd_done = handle_tx_dma_xfer(m_irq_status, uport);
+		s_cmd_done = handle_rx_dma_xfer(s_irq_status, uport);
 	}
 
 exit_geni_serial_isr:
@@ -2246,8 +2268,7 @@ exit_startup:
 
 static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 		u32 tx_trans_cfg, u32 tx_parity_cfg, u32 rx_trans_cfg,
-		u32 rx_parity_cfg, u32 bits_per_char, u32 stop_bit_len,
-		u32 s_clk_cfg)
+		u32 rx_parity_cfg, u32 bits_per_char, u32 stop_bit_len)
 {
 	geni_write_reg_nolog(loopback, uport->membase, SE_UART_LOOPBACK_CFG);
 	geni_write_reg_nolog(tx_trans_cfg, uport->membase,
@@ -2264,22 +2285,101 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 							SE_UART_RX_WORD_LEN);
 	geni_write_reg_nolog(stop_bit_len, uport->membase,
 						SE_UART_TX_STOP_BIT_LEN);
-	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
-	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+}
 
-	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+static void msm_geni_serial_termios_cfg(struct uart_port *uport,
+					struct ktermios *termios)
+{
+
+	u32 bits_per_char = 0;
+	u32 stop_bit_len;
+	u32 tx_trans_cfg = geni_read_reg_nolog(uport->membase,
+						SE_UART_TX_TRANS_CFG);
+	u32 tx_parity_cfg = geni_read_reg_nolog(uport->membase,
+						SE_UART_TX_PARITY_CFG);
+	u32 rx_trans_cfg = geni_read_reg_nolog(uport->membase,
+						SE_UART_RX_TRANS_CFG);
+	u32 rx_parity_cfg = geni_read_reg_nolog(uport->membase,
+						SE_UART_RX_PARITY_CFG);
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+
+	if (termios->c_cflag & PARENB) {
+		tx_trans_cfg |= UART_TX_PAR_EN;
+		rx_trans_cfg |= UART_RX_PAR_EN;
+		tx_parity_cfg |= PAR_CALC_EN;
+		rx_parity_cfg |= PAR_CALC_EN;
+		if (termios->c_cflag & PARODD) {
+			tx_parity_cfg |= PAR_ODD;
+			rx_parity_cfg |= PAR_ODD;
+		} else if (termios->c_cflag & CMSPAR) {
+			tx_parity_cfg |= PAR_SPACE;
+			rx_parity_cfg |= PAR_SPACE;
+		} else {
+			tx_parity_cfg |= PAR_EVEN;
+			rx_parity_cfg |= PAR_EVEN;
+		}
+	} else {
+		tx_trans_cfg &= ~UART_TX_PAR_EN;
+		rx_trans_cfg &= ~UART_RX_PAR_EN;
+		tx_parity_cfg &= ~PAR_CALC_EN;
+		rx_parity_cfg &= ~PAR_CALC_EN;
+	}
+
+	/* bits per char */
+	switch (termios->c_cflag & CSIZE) {
+	case CS5:
+		bits_per_char = 5;
+		break;
+	case CS6:
+		bits_per_char = 6;
+		break;
+	case CS7:
+		bits_per_char = 7;
+		break;
+	case CS8:
+	default:
+		bits_per_char = 8;
+		break;
+	}
+
+	uport->status  &= ~(UPSTAT_AUTOCTS);
+	/* stop bits */
+	if (termios->c_cflag & CSTOPB)
+		stop_bit_len = TX_STOP_BIT_LEN_2;
+	else
+		stop_bit_len = TX_STOP_BIT_LEN_1;
+
+	/* flow control, clear the CTS_MASK bit if using flow control. */
+	if (termios->c_cflag & CRTSCTS) {
+		tx_trans_cfg &= ~UART_CTS_MASK;
+		uport->status |= UPSTAT_AUTOCTS;
+	} else {
+		tx_trans_cfg |= UART_CTS_MASK;
+	/* status bits to ignore */
+	}
+
+	geni_serial_write_term_regs(uport, port->loopback, tx_trans_cfg,
+		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
+		stop_bit_len);
+
+	if (termios->c_cflag & CRTSCTS) {
+		geni_write_reg_nolog(0x0, uport->membase, SE_UART_MANUAL_RFR);
+		IPC_LOG_MSG(port->ipc_log_misc,
+			"%s: Manual flow Disabled, HW Flow ON\n", __func__);
+	}
+
+	IPC_LOG_MSG(port->ipc_log_misc, "Tx: trans_cfg%d parity %d\n",
+						tx_trans_cfg, tx_parity_cfg);
+	IPC_LOG_MSG(port->ipc_log_misc, "Rx: trans_cfg%d parity %d",
+						rx_trans_cfg, rx_parity_cfg);
+	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
+				bits_per_char, stop_bit_len);
 }
 
 static void msm_geni_serial_set_termios(struct uart_port *uport,
 				struct ktermios *termios, struct ktermios *old)
 {
 	unsigned int baud;
-	unsigned int bits_per_char = 0;
-	unsigned int tx_trans_cfg;
-	unsigned int tx_parity_cfg;
-	unsigned int rx_trans_cfg;
-	unsigned int rx_parity_cfg;
-	unsigned int stop_bit_len;
 	int clk_div, ret;
 	unsigned long ser_clk_cfg = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
@@ -2343,90 +2443,15 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	ser_clk_cfg |= SER_CLK_EN;
 	ser_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
-	/* parity */
-	tx_trans_cfg = geni_read_reg_nolog(uport->membase,
-							SE_UART_TX_TRANS_CFG);
-	tx_parity_cfg = geni_read_reg_nolog(uport->membase,
-							SE_UART_TX_PARITY_CFG);
-	rx_trans_cfg = geni_read_reg_nolog(uport->membase,
-							SE_UART_RX_TRANS_CFG);
-	rx_parity_cfg = geni_read_reg_nolog(uport->membase,
-							SE_UART_RX_PARITY_CFG);
-	if (termios->c_cflag & PARENB) {
-		tx_trans_cfg |= UART_TX_PAR_EN;
-		rx_trans_cfg |= UART_RX_PAR_EN;
-		tx_parity_cfg |= PAR_CALC_EN;
-		rx_parity_cfg |= PAR_CALC_EN;
-		if (termios->c_cflag & PARODD) {
-			tx_parity_cfg |= PAR_ODD;
-			rx_parity_cfg |= PAR_ODD;
-		} else if (termios->c_cflag & CMSPAR) {
-			tx_parity_cfg |= PAR_SPACE;
-			rx_parity_cfg |= PAR_SPACE;
-		} else {
-			tx_parity_cfg |= PAR_EVEN;
-			rx_parity_cfg |= PAR_EVEN;
-		}
-	} else {
-		tx_trans_cfg &= ~UART_TX_PAR_EN;
-		rx_trans_cfg &= ~UART_RX_PAR_EN;
-		tx_parity_cfg &= ~PAR_CALC_EN;
-		rx_parity_cfg &= ~PAR_CALC_EN;
-	}
-
-	/* bits per char */
-	switch (termios->c_cflag & CSIZE) {
-	case CS5:
-		bits_per_char = 5;
-		break;
-	case CS6:
-		bits_per_char = 6;
-		break;
-	case CS7:
-		bits_per_char = 7;
-		break;
-	case CS8:
-	default:
-		bits_per_char = 8;
-		break;
-	}
-
-	uport->status  &= ~(UPSTAT_AUTOCTS);
-	/* stop bits */
-	if (termios->c_cflag & CSTOPB)
-		stop_bit_len = TX_STOP_BIT_LEN_2;
-	else
-		stop_bit_len = TX_STOP_BIT_LEN_1;
-
-	/* flow control, clear the CTS_MASK bit if using flow control. */
-	if (termios->c_cflag & CRTSCTS) {
-		tx_trans_cfg &= ~UART_CTS_MASK;
-		uport->status |= UPSTAT_AUTOCTS;
-	} else {
-		tx_trans_cfg |= UART_CTS_MASK;
-	/* status bits to ignore */
-	}
-
 	if (likely(baud))
 		uart_update_timeout(uport, termios->c_cflag, baud);
 
-	geni_serial_write_term_regs(uport, port->loopback, tx_trans_cfg,
-		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
-		stop_bit_len, ser_clk_cfg);
+	geni_write_reg_nolog(ser_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
+	geni_write_reg_nolog(ser_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 
-	if (termios->c_cflag & CRTSCTS) {
-		geni_write_reg_nolog(0x0, uport->membase, SE_UART_MANUAL_RFR);
-		IPC_LOG_MSG(port->ipc_log_misc,
-			"%s: Manual flow Disabled, HW Flow ON\n", __func__);
-	}
-
+	msm_geni_serial_termios_cfg(uport, termios);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: baud %d\n", __func__, baud);
-	IPC_LOG_MSG(port->ipc_log_misc, "Tx: trans_cfg%d parity %d\n",
-						tx_trans_cfg, tx_parity_cfg);
-	IPC_LOG_MSG(port->ipc_log_misc, "Rx: trans_cfg%d parity %d",
-						rx_trans_cfg, rx_parity_cfg);
-	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
-				bits_per_char, stop_bit_len);
 exit_set_termios:
 	if (!uart_console(uport))
 		msm_geni_serial_set_manual_flow(true, port);
@@ -2777,29 +2802,209 @@ exit_ver_info:
 	return ret;
 }
 
+static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
+					struct msm_geni_serial_port *dev_port)
+{
+	int ret  = 0;
+	struct uart_port *uport = &dev_port->uport;
+
+	/* Optional to use the Rx pin as wakeup irq */
+	dev_port->wakeup_irq = platform_get_irq(pdev, 1);
+	if ((dev_port->wakeup_irq < 0 && !dev_port->is_console))
+		dev_info(&pdev->dev, "No wakeup IRQ configured\n");
+
+	dev_port->serial_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_pinctrl)) {
+		dev_err(&pdev->dev, "No pinctrl config specified!\n");
+		return PTR_ERR(dev_port->serial_rsc.geni_pinctrl);
+	}
+	dev_port->serial_rsc.geni_gpio_active =
+		pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
+							PINCTRL_ACTIVE);
+
+	if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_active)) {
+		/*
+		 * Backward compatible : In case few chips doesn't have ACTIVE
+		 * state defined.
+		 */
+		dev_port->serial_rsc.geni_gpio_active =
+		pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
+							PINCTRL_DEFAULT);
+		if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_active)) {
+			dev_err(&pdev->dev, "No default config specified!\n");
+			return PTR_ERR(dev_port->serial_rsc.geni_gpio_active);
+		}
+	}
+	/*
+	 * For clients who setup an Inband wakeup, leave the GPIO pins
+	 * always connected to the core, else move the pins to their
+	 * defined "sleep" state.
+	 */
+	if (dev_port->wakeup_irq > 0) {
+		dev_port->serial_rsc.geni_gpio_sleep =
+			dev_port->serial_rsc.geni_gpio_active;
+	} else {
+		dev_port->serial_rsc.geni_gpio_sleep =
+			pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
+							PINCTRL_SLEEP);
+		if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_sleep)) {
+			dev_err(&pdev->dev, "No sleep config specified!\n");
+			return PTR_ERR(dev_port->serial_rsc.geni_gpio_sleep);
+		}
+	}
+
+	uport->irq = platform_get_irq(pdev, 0);
+	if (uport->irq < 0) {
+		ret = uport->irq;
+		dev_err(&pdev->dev, "Failed to get IRQ %d\n", ret);
+		return ret;
+	}
+
+	dev_port->name = devm_kasprintf(uport->dev, GFP_KERNEL,
+					"msm_serial_geni%d", uport->line);
+	irq_set_status_flags(uport->irq, IRQ_NOAUTOEN);
+	ret = devm_request_irq(uport->dev, uport->irq, msm_geni_serial_isr,
+				IRQF_TRIGGER_HIGH, dev_port->name, uport);
+	if (ret) {
+		dev_err(uport->dev, "%s: Failed to get IRQ ret %d\n",
+							__func__, ret);
+		return ret;
+	}
+
+	return ret;
+}
+static int msm_geni_serial_get_clk(struct platform_device *pdev,
+					struct msm_geni_serial_port *dev_port)
+{
+	int ret = 0;
+
+	dev_port->serial_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
+	if (IS_ERR(dev_port->serial_rsc.se_clk)) {
+		ret = PTR_ERR(dev_port->serial_rsc.se_clk);
+		dev_err(&pdev->dev, "Err getting SE Core clk %d\n", ret);
+		return ret;
+	}
+
+	dev_port->serial_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
+	if (IS_ERR(dev_port->serial_rsc.m_ahb_clk)) {
+		ret = PTR_ERR(dev_port->serial_rsc.m_ahb_clk);
+		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
+		return ret;
+	}
+
+	dev_port->serial_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
+	if (IS_ERR(dev_port->serial_rsc.s_ahb_clk)) {
+		ret = PTR_ERR(dev_port->serial_rsc.s_ahb_clk);
+		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
+					struct msm_geni_serial_port *dev_port)
+{
+	int ret = 0;
+	struct uart_port *uport = &dev_port->uport;
+	struct resource *res;
+	bool is_console = dev_port->is_console;
+	struct platform_device *wrapper_pdev;
+	struct device_node *wrapper_ph_node;
+	u32 wake_char = 0;
+
+	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
+					"qcom,wrapper-core", 0);
+	if (IS_ERR_OR_NULL(wrapper_ph_node))
+		return PTR_ERR(wrapper_ph_node);
+
+	wrapper_pdev = of_find_device_by_node(wrapper_ph_node);
+	of_node_put(wrapper_ph_node);
+	if (IS_ERR_OR_NULL(wrapper_pdev))
+		return PTR_ERR(wrapper_pdev);
+
+	dev_port->wrapper_dev = &wrapper_pdev->dev;
+	dev_port->serial_rsc.wrapper_dev = &wrapper_pdev->dev;
+
+	if (is_console)
+		ret = geni_se_resources_init(&dev_port->serial_rsc,
+			UART_CONSOLE_CORE2X_VOTE,
+			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	else
+		ret = geni_se_resources_init(&dev_port->serial_rsc,
+			UART_CORE2X_VOTE,
+			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+
+	if (ret)
+		return ret;
+
+	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
+
+	/* RUMI specific */
+	dev_port->rumi_platform = of_property_read_bool(pdev->dev.of_node,
+				"qcom,rumi_platform");
+
+	if (of_property_read_u32(pdev->dev.of_node, "qcom,wakeup-byte",
+					&wake_char)) {
+		dev_dbg(&pdev->dev, "No Wakeup byte specified\n");
+	} else {
+		dev_port->wakeup_byte = (u8)wake_char;
+		dev_info(&pdev->dev, "Wakeup byte 0x%x\n",
+					dev_port->wakeup_byte);
+	}
+
+	ret = msm_geni_serial_get_clk(pdev, dev_port);
+	if (ret)
+		return ret;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "se_phys");
+	if (!res) {
+		dev_err(&pdev->dev, "Err getting IO region\n");
+		return -ENXIO;
+	}
+
+	uport->mapbase = res->start;
+	uport->membase = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+	if (!uport->membase) {
+		dev_err(&pdev->dev, "Err IO mapping serial iomem\n");
+		return -ENOMEM;
+	}
+
+	ret = msm_geni_serial_get_irq_pinctrl(pdev, dev_port);
+	if (ret)
+		return ret;
+
+	if (!is_console) {
+		dev_port->geni_wake = wakeup_source_register(uport->dev,
+						dev_name(&pdev->dev));
+		if (!dev_port->geni_wake) {
+			dev_err(&pdev->dev,
+				"Failed to register wakeup_source\n");
+			return -ENOMEM;
+		}
+	}
+
+	return ret;
+}
+
 static int msm_geni_serial_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int line;
 	struct msm_geni_serial_port *dev_port;
 	struct uart_port *uport;
-	struct resource *res;
 	struct uart_driver *drv;
 	const struct of_device_id *id;
 	bool is_console = false;
-	struct platform_device *wrapper_pdev;
-	struct device_node *wrapper_ph_node;
-	u32 wake_char = 0;
 
 	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
-	if (id) {
-		dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
-		drv = (struct uart_driver *)id->data;
-	} else {
+	if (!id) {
 		dev_err(&pdev->dev, "%s: No matching device found\n",
-								__func__);
+				__func__);
 		return -ENODEV;
 	}
+	dev_dbg(&pdev->dev, "%s: %s\n", __func__, id->compatible);
+	drv = (struct uart_driver *)id->data;
 
 	if (pdev->dev.of_node) {
 		if (drv->cons) {
@@ -2835,146 +3040,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 
 	uport->dev = &pdev->dev;
-
-	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
-					"qcom,wrapper-core", 0);
-	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
-		ret = PTR_ERR(wrapper_ph_node);
-		goto exit_geni_serial_probe;
-	}
-	wrapper_pdev = of_find_device_by_node(wrapper_ph_node);
-	of_node_put(wrapper_ph_node);
-	if (IS_ERR_OR_NULL(wrapper_pdev)) {
-		ret = PTR_ERR(wrapper_pdev);
-		goto exit_geni_serial_probe;
-	}
-	dev_port->wrapper_dev = &wrapper_pdev->dev;
-	dev_port->serial_rsc.wrapper_dev = &wrapper_pdev->dev;
-
-	if (is_console)
-		ret = geni_se_resources_init(&dev_port->serial_rsc,
-			UART_CONSOLE_CORE2X_VOTE,
-			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-	else
-		ret = geni_se_resources_init(&dev_port->serial_rsc,
-			UART_CORE2X_VOTE,
-			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-
-	if (ret)
-		goto exit_geni_serial_probe;
-
-	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
 	dev_port->is_console = is_console;
 
-	/* RUMI specific */
-	dev_port->rumi_platform = of_property_read_bool(pdev->dev.of_node,
-				"qcom,rumi_platform");
-
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,wakeup-byte",
-					&wake_char)) {
-		dev_dbg(&pdev->dev, "No Wakeup byte specified\n");
-	} else {
-		dev_port->wakeup_byte = (u8)wake_char;
-		dev_info(&pdev->dev, "Wakeup byte 0x%x\n",
-					dev_port->wakeup_byte);
-	}
-
-	dev_port->serial_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
-	if (IS_ERR(dev_port->serial_rsc.se_clk)) {
-		ret = PTR_ERR(dev_port->serial_rsc.se_clk);
-		dev_err(&pdev->dev, "Err getting SE Core clk %d\n", ret);
+	ret = msm_geni_serial_read_dtsi(pdev, dev_port);
+	if (ret)
 		goto exit_geni_serial_probe;
-	}
-
-	dev_port->serial_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
-	if (IS_ERR(dev_port->serial_rsc.m_ahb_clk)) {
-		ret = PTR_ERR(dev_port->serial_rsc.m_ahb_clk);
-		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
-		goto exit_geni_serial_probe;
-	}
-
-	dev_port->serial_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
-	if (IS_ERR(dev_port->serial_rsc.s_ahb_clk)) {
-		ret = PTR_ERR(dev_port->serial_rsc.s_ahb_clk);
-		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
-		goto exit_geni_serial_probe;
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "se_phys");
-	if (!res) {
-		ret = -ENXIO;
-		dev_err(&pdev->dev, "Err getting IO region\n");
-		goto exit_geni_serial_probe;
-	}
-
-	uport->mapbase = res->start;
-	uport->membase = devm_ioremap(&pdev->dev, res->start,
-						resource_size(res));
-	if (!uport->membase) {
-		ret = -ENOMEM;
-		dev_err(&pdev->dev, "Err IO mapping serial iomem\n");
-
-		goto exit_geni_serial_probe;
-	}
-
-	/* Optional to use the Rx pin as wakeup irq */
-	dev_port->wakeup_irq = platform_get_irq(pdev, 1);
-	if ((dev_port->wakeup_irq < 0 && !is_console))
-		dev_info(&pdev->dev, "No wakeup IRQ configured\n");
-
-	dev_port->serial_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_pinctrl)) {
-		dev_err(&pdev->dev, "No pinctrl config specified!\n");
-		ret = PTR_ERR(dev_port->serial_rsc.geni_pinctrl);
-		goto exit_geni_serial_probe;
-	}
-	dev_port->serial_rsc.geni_gpio_active =
-		pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
-							PINCTRL_ACTIVE);
-
-	if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_active)) {
-		/*
-		 * Backward compatible : In case few chips doesn't have ACTIVE
-		 * state defined.
-		 */
-		dev_port->serial_rsc.geni_gpio_active =
-		pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
-							PINCTRL_DEFAULT);
-		if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_active)) {
-			dev_err(&pdev->dev, "No default config specified!\n");
-			ret = PTR_ERR(dev_port->serial_rsc.geni_gpio_active);
-			goto exit_geni_serial_probe;
-		}
-	}
-	/*
-	 * For clients who setup an Inband wakeup, leave the GPIO pins
-	 * always connected to the core, else move the pins to their
-	 * defined "sleep" state.
-	 */
-	if (dev_port->wakeup_irq > 0) {
-		dev_port->serial_rsc.geni_gpio_sleep =
-			dev_port->serial_rsc.geni_gpio_active;
-	} else {
-		dev_port->serial_rsc.geni_gpio_sleep =
-			pinctrl_lookup_state(dev_port->serial_rsc.geni_pinctrl,
-							PINCTRL_SLEEP);
-		if (IS_ERR_OR_NULL(dev_port->serial_rsc.geni_gpio_sleep)) {
-			dev_err(&pdev->dev, "No sleep config specified!\n");
-			ret = PTR_ERR(dev_port->serial_rsc.geni_gpio_sleep);
-			goto exit_geni_serial_probe;
-		}
-	}
-
-	if (!is_console) {
-		dev_port->geni_wake = wakeup_source_register(uport->dev,
-						dev_name(&pdev->dev));
-		if (!dev_port->geni_wake) {
-			dev_err(&pdev->dev,
-				"Failed to register wakeup_source\n");
-			ret = -ENOMEM;
-			goto exit_geni_serial_probe;
-		}
-	}
 
 	dev_port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	dev_port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
@@ -2984,24 +3054,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	/* Complete signals to handle cancel cmd completion */
 	init_completion(&dev_port->m_cmd_timeout);
 	init_completion(&dev_port->s_cmd_timeout);
-
-	uport->irq = platform_get_irq(pdev, 0);
-	if (uport->irq < 0) {
-		ret = uport->irq;
-		dev_err(&pdev->dev, "Failed to get IRQ %d\n", ret);
-		goto exit_geni_serial_probe;
-	}
-
-	dev_port->name = devm_kasprintf(uport->dev, GFP_KERNEL,
-					"msm_serial_geni%d", uport->line);
-	irq_set_status_flags(uport->irq, IRQ_NOAUTOEN);
-	ret = devm_request_irq(uport->dev, uport->irq, msm_geni_serial_isr,
-				IRQF_TRIGGER_HIGH, dev_port->name, uport);
-	if (ret) {
-		dev_err(uport->dev, "%s: Failed to get IRQ ret %d\n",
-							__func__, ret);
-		goto exit_geni_serial_probe;
-	}
 
 	uport->private_data = (void *)drv;
 	platform_set_drvdata(pdev, dev_port);
