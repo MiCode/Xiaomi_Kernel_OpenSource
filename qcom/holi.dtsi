@@ -363,6 +363,8 @@
 		cell-index = <0>;
 	};
 
+	thermal_zones: thermal-zones {};
+
 	arch_timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 1 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
@@ -1010,6 +1012,7 @@
 #include "holi-usb.dtsi"
 #include "holi-pm.dtsi"
 #include "holi-vidc.dtsi"
+#include "holi-thermal.dtsi"
 
 &pmk8350 {
 	reg = <6 SPMI_USID>;
@@ -1025,6 +1028,13 @@
 
 &pmk8350_adc_tm {
 	interrupts = <0x6 0x34 0x0 IRQ_TYPE_EDGE_RISING>;
+	io-channels = <&pmk8350_vadc PMK8350_ADC7_AMUX_THM1_100K_PU>;
+
+	xo_therm {
+		reg = <PMK8350_ADC7_AMUX_THM1_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
 };
 
 &pmk8350_rtc {
@@ -1052,6 +1062,179 @@
 	/delete-node/ pmr735b_ref_gnd;
 	/delete-node/ pmr735b_vref_1p25;
 	/delete-node/ pmr735b_die_temp;
+};
+
+&pm7250b_vadc {
+	charger_skin_therm {
+		reg = <ADC5_AMUX_THM1_100K_PU>;
+		label = "charger_skin_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	conn_therm {
+		reg = <ADC5_AMUX_THM3_100K_PU>;
+		label = "conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm7250b_adc_tm {
+	io-channels = <&pm7250b_vadc ADC5_AMUX_THM1_100K_PU>,
+			<&pm7250b_vadc ADC5_AMUX_THM3_100K_PU>;
+
+	/* Channel nodes */
+	charger_skin_therm {
+		reg = <ADC5_AMUX_THM1_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	conn_therm {
+		reg = <ADC5_AMUX_THM3_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&pm6150l_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+			&rfc_cam_therm_default
+			&rear_cam_flash_therm_default
+			&quiet_therm_default>;
+
+	pa_therm2 {
+		reg = <ADC5_AMUX_THM1_100K_PU>;
+		label = "pa_therm2";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	msm_therm {
+		reg = <ADC5_AMUX_THM2_100K_PU>;
+		label = "msm_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pa_therm1 {
+		reg = <ADC5_AMUX_THM3_100K_PU>;
+		label = "pa_therm1";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rfc_cam_therm {
+		reg = <ADC5_GPIO2_100K_PU>;
+		label = "rfc_cam_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	rear_cam_flash_therm {
+		reg = <ADC5_GPIO3_100K_PU>;
+		label = "rear_cam_flash_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+
+	quiet_therm {
+		reg = <ADC5_GPIO4_100K_PU>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&pm6150l_gpios {
+	rfc_cam_therm {
+		rfc_cam_therm_default: rfc_cam_therm_default {
+			pins = "gpio6";
+			bias-high-impedance;
+		};
+	};
+
+	rear_cam_flash_therm {
+		rear_cam_flash_therm_default: rear_cam_flash_therm_default {
+			pins = "gpio7";
+			bias-high-impedance;
+		};
+	};
+
+	quiet_therm {
+		quiet_therm_default: quiet_therm_default {
+			pins = "gpio10";
+			bias-high-impedance;
+		};
+	};
+};
+
+&pm6150l_adc_tm {
+	io-channels = <&pm6150l_vadc ADC5_AMUX_THM1_100K_PU>,
+			<&pm6150l_vadc ADC5_AMUX_THM3_100K_PU>,
+			<&pm6150l_vadc ADC5_GPIO3_100K_PU>,
+			<&pm6150l_vadc ADC5_GPIO4_100K_PU>;
+
+	/* Channel nodes */
+	pa_therm1 {
+		reg = <ADC5_AMUX_THM1_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	pa_therm0 {
+		reg = <ADC5_AMUX_THM3_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	rear_cam_flash_therm {
+		reg = <ADC5_GPIO3_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+
+	quiet_therm {
+		reg = <ADC5_GPIO4_100K_PU>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+	};
+};
+
+&spmi_bus {
+	qcom,pm6150l@4 {
+		pm6150l_adc_tm_iio: adc_tm@3400 {
+			compatible = "qcom,adc-tm5-iio";
+			reg = <0x3400>;
+			#thermal-sensor-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			io-channels = <&pm6150l_vadc ADC5_AMUX_THM2_100K_PU>,
+					<&pm6150l_vadc ADC5_GPIO2_100K_PU>;
+
+			msm_therm {
+				reg = <ADC5_AMUX_THM2_100K_PU>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
+			rfc_cam_therm {
+				reg = <ADC5_GPIO2_100K_PU>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+		};
+	};
 };
 
 &gcc_camss_top_gdsc {
