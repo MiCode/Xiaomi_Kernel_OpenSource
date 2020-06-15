@@ -151,6 +151,15 @@ dtb-$(CONFIG_ARCH_SDXLEMUR) += sdxlemur-rumi.dtb \
 	sdxlemur-cdp.dtb \
 	sdxlemur-mtp.dtb
 
+ifeq ($(CONFIG_ARCH_SHIMA), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_QTI_VM) += shima-vm-rumi.dtb \
+	shima-vm-atp.dtb \
+	shima-vm-idp.dtb \
+	shima-vm-qrd.dtb
+endif
+endif
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo
