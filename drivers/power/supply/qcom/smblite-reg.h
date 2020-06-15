@@ -101,6 +101,9 @@ enum {
 #define DCDC_CMD_OTG_REG			(DCDC_BASE + 0x50)
 #define OTG_EN_BIT				BIT(0)
 
+#define DCDC_BST_VREG_SEL			(DCDC_BASE + 0x52)
+#define VBOOST_MASK				GENMASK(1, 0)
+
 #define DCDC_OTG_CFG_REG			(DCDC_BASE + 0x56)
 #define OTG_EN_SRC_CFG_BIT			BIT(0)
 
