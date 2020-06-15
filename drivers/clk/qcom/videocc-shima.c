@@ -180,8 +180,10 @@ static struct clk_rcg2 video_cc_ahb_clk_src = {
 };
 
 static const struct freq_tbl ftbl_video_cc_mvs0_clk_src[] = {
+	F(604800000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(720000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1014000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(1094400000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1098000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1332000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	{ }
