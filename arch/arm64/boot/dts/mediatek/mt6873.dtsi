@@ -514,6 +514,17 @@
 			interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
+		cmdq-test {
+			compatible = "mediatek,cmdq-test";
+			mediatek,gce = <&gce>;
+			mmsys_config = <&mmsys>;
+			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+			mboxes = <&gce 21 0 CMDQ_THR_PRIO_1>,
+				 <&gce 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+		};
+
 		gce: mailbox@10228000 {
 			compatible = "mediatek,mt6873-gce";
 			reg = <0 0x10228000 0 0x4000>;
