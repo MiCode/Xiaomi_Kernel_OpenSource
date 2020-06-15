@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 obj-$(CONFIG_MTK_CMDQ) += mtk-cmdq-helper.o
 obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o
 obj-$(CONFIG_MTK_IPI) += mtk_tinysys_ipi.o

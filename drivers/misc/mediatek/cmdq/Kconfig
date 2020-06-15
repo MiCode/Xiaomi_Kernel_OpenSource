@@ -1,0 +1,8 @@
+config MTK_CMDQ_MBOX_EXT
+	tristate "enable CMDQ mailbox driver extension"
+	help
+	  This extension enable debug feature, such as cmdq-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling. Also enable secure path with
+	  new sec controller which decuple with v3 driver.
