@@ -753,6 +753,7 @@ static const struct file_operations cnss_dynamic_feature_fops = {
 	.llseek = seq_lseek,
 };
 
+#ifdef CONFIG_DEBUG_FS
 #ifdef CONFIG_CNSS2_DEBUG
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
@@ -809,6 +810,17 @@ void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 {
 	debugfs_remove_recursive(plat_priv->root_dentry);
 }
+#else
+int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
+{
+	plat_priv->root_dentry = NULL;
+	return 0;
+}
+
+void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
+{
+}
+#endif
 
 int cnss_debug_init(void)
 {
