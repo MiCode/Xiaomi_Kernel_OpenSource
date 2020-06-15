@@ -17,7 +17,7 @@
 #define CAP                     75
 #define WAIT_THRESHOLD          10
 /* AB vote is in multiple of BW_STEP Mega bytes */
-#define BW_STEP                 160
+#define BW_STEP                 50
 
 static void _update_cutoff(struct devfreq_msm_adreno_tz_data *priv,
 					unsigned int norm_max)
