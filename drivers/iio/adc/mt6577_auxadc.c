@@ -6,6 +6,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -109,11 +110,14 @@ struct adc_cali_info {
 
 static struct adc_cali_info adc_cali;
 
-static void mt_auxadc_update_cali(struct device *dev)
+static int mt_auxadc_update_cali(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 	struct nvmem_device *nvmem_dev;
+	struct device_node *efuse_node;
+	struct platform_device *efuse_pdev;
+	struct device_link  *link;
 #endif
 	u32 reg;
 	int ret = 0;
@@ -135,6 +139,32 @@ static void mt_auxadc_update_cali(struct device *dev)
 			goto err;
 
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
+		efuse_node = of_find_compatible_node(NULL, NULL,
+						     "mediatek,devinfo");
+		if (!efuse_node) {
+			dev_notice(dev, "find mediatek,devinfo fail\n");
+			ret = -ENODEV;
+			goto err;
+		}
+		efuse_pdev = of_find_device_by_node(efuse_node);
+		if (!efuse_pdev) {
+			dev_notice(dev, "find efuse_pdev fail\n");
+			ret = -ENODEV;
+			goto err;
+		}
+		link = device_link_add(dev, &efuse_pdev->dev,
+			DL_FLAG_AUTOPROBE_CONSUMER);
+		if (!link) {
+			dev_notice(dev, "add efuse device_link fail\n");
+			ret = -ENODEV;
+			goto err;
+		}
+		/* supplier is not probed */
+		if (link->status == DL_STATE_DORMANT) {
+			ret = -EPROBE_DEFER;
+			goto err;
+		}
+
 		ret = of_property_read_u32(np, "mediatek,cali-efuse-reg-offset",
 			&adc_cali.efuse_reg_offset);
 		if (ret)
@@ -142,6 +172,7 @@ static void mt_auxadc_update_cali(struct device *dev)
 		nvmem_dev = nvmem_device_get(dev, "mtk_efuse");
 		if (IS_ERR(nvmem_dev)) {
 			dev_notice(dev, "failed to get mtk_efuse device\n");
+			ret = -ENODEV;
 			goto err;
 		}
 		ret = nvmem_device_read(nvmem_dev,
@@ -149,6 +180,7 @@ static void mt_auxadc_update_cali(struct device *dev)
 		if (ret != 4) {
 			dev_notice(dev, "error efuse read size: %d\n", ret);
 			nvmem_device_put(nvmem_dev);
+			ret = -ENODEV;
 			goto err;
 		}
 		nvmem_device_put(nvmem_dev);
@@ -180,10 +212,11 @@ static void mt_auxadc_update_cali(struct device *dev)
 			adc_cali.cali_oe = adc_cali.efuse_oe - 512;
 		}
 
-		return;
+		return 0;
 	}
 err:
-	dev_notice(dev, "fail to get some dt info!\n");
+	dev_notice(dev, "fail to get some dt info! ret=%d\n", ret);
+	return ret;
 }
 
 static int mt_auxadc_get_cali_data(int rawdata, bool enable_cali)
@@ -408,8 +441,11 @@ static int mt6577_auxadc_probe(struct platform_device *pdev)
 
 	adc_dev->dev_comp = of_device_get_match_data(&pdev->dev);
 
-	if (adc_dev->dev_comp->sample_data_cali)
-		mt_auxadc_update_cali(&pdev->dev);
+	if (adc_dev->dev_comp->sample_data_cali) {
+		ret = mt_auxadc_update_cali(&pdev->dev);
+		if (ret)
+			goto err_disable_clk;
+	}
 
 	mutex_init(&adc_dev->lock);
 
