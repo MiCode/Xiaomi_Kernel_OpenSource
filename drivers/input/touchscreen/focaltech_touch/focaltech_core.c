@@ -296,7 +296,9 @@ static int fts_ts_vm_handle_vm_hardware(struct fts_ts_data *fts_data)
 	return rc;
 }
 
-static void fts_ts_vm_irq_on_lend_callback(void *data, enum hh_irq_label label)
+static void fts_ts_vm_irq_on_lend_callback(void *data,
+					unsigned long notif_type,
+					enum hh_irq_label label)
 {
 	struct fts_ts_data *fts_data = data;
 	struct irq_data *irq_data;
@@ -472,6 +474,10 @@ static void fts_ts_trusted_touch_vm_mode_disable(struct fts_ts_data *fts_data)
 			pr_err("Failed to release irq rc:%d\n", rc);
 		else
 			atomic_set(&fts_data->vm_info->tvm_owns_irq, 0);
+
+		rc = hh_irq_release_notify(fts_data->vm_info->irq_label);
+		if (rc)
+			pr_err("Failed to notify release irq rc:%d\n", rc);
 	}
 	atomic_set(&fts_data->trusted_touch_enabled, 0);
 	reinit_completion(&fts_data->resource_checkpoint);
@@ -600,6 +606,7 @@ static void fts_ts_trusted_touch_complete(struct fts_ts_data *fts_data)
 }
 
 static void fts_ts_vm_irq_on_release_callback(void *data,
+					unsigned long notif_type,
 					enum hh_irq_label label)
 {
 	struct fts_ts_data *fts_data = data;
@@ -730,13 +737,19 @@ static int fts_ts_trusted_touch_vm_mode_enable(struct fts_ts_data *fts_data)
 	}
 	atomic_set(&vm_info->pvm_owns_iomem, 0);
 
-	rc = hh_irq_lend(vm_info->irq_label, vm_info->vm_name,
+	rc = hh_irq_lend_v2(vm_info->irq_label, vm_info->vm_name,
 		fts_data->irq, &fts_ts_vm_irq_on_release_callback, fts_data);
 	if (rc) {
 		pr_err("Failed to lend irq\n");
 		return -EINVAL;
 	}
 	atomic_set(&vm_info->pvm_owns_irq, 0);
+
+	rc = hh_irq_lend_notify(vm_info->irq_label);
+	if (rc) {
+		pr_err("Failed to notify irq\n");
+		return -EINVAL;
+	}
 
 	reinit_completion(&fts_data->trusted_touch_powerdown);
 	atomic_set(&fts_data->trusted_touch_enabled, 1);
@@ -809,7 +822,7 @@ static int fts_ts_vm_init(struct fts_ts_data *fts_data)
 		goto init_fail;
 	}
 	vm_info->mem_cookie = mem_cookie;
-	rc = hh_irq_wait_for_lend(vm_info->irq_label, HH_PRIMARY_VM,
+	rc = hh_irq_wait_for_lend_v2(vm_info->irq_label, HH_PRIMARY_VM,
 			&fts_ts_vm_irq_on_lend_callback, fts_data);
 	atomic_set(&vm_info->tvm_owns_irq, 0);
 	atomic_set(&vm_info->tvm_owns_iomem, 0);

@@ -181,6 +181,7 @@ struct hh_vm_irq_lend_resp_payload {
 /* Call: VM_IRQ_NOTIFY */
 #define HH_VM_IRQ_NOTIFY_FLAGS_LENT	BIT(0)
 #define HH_VM_IRQ_NOTIFY_FLAGS_RELEASED	BIT(1)
+#define HH_VM_IRQ_NOTIFY_FLAGS_ACCEPTED	BIT(2)
 
 /* Call: VM_IRQ_RELEASE */
 struct hh_vm_irq_release_req_payload {
