@@ -143,6 +143,17 @@ config ARM_RK3399_DMC_DEVFREQ
 	  It sets the frequency for the memory controller and reads the usage counts
 	  from hardware.
 
+config MTK_DVFSRC_DEVFREQ
+	tristate "MediaTek DVFSRC DEVFREQ Driver"
+	depends on (MTK_DVFSRC && HAVE_ARM_SMCCC) || \
+		(COMPILE_TEST && MTK_DVFSRC && HAVE_ARM_SMCCC)
+	select DEVFREQ_GOV_USERSPACE
+	help
+	  This adds the DEVFREQ driver for the MediaTek DVFSRC
+	  (dynamic voltage and frequency scaling resource collector).
+	  The driver support to request dram frequency by DVFSRC and
+	  user can adjust dram frequency on userspace.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
