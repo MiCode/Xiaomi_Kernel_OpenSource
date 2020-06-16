@@ -16,6 +16,7 @@
 
 #include <mtk_gpu_swpm_plat.h>
 #include <mtk_isp_swpm_plat.h>
+#include <mtk_me_swpm_plat.h>
 
 #define SWPM_TEST (0)
 
@@ -54,6 +55,7 @@ enum power_meter_type {
 	CORE_POWER_METER,
 	MEM_POWER_METER,
 	ISP_POWER_METER,
+	ME_POWER_METER,
 
 	NR_POWER_METER
 };
@@ -376,7 +378,9 @@ struct swpm_rec_data {
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 988 bytes */
+	/* 4(int) * 11 = 44 bytes */
+	unsigned int me_reserved[ME_SWPM_RESERVED_SIZE];
+	/* remaining size = 944 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;

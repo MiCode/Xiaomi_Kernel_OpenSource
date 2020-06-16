@@ -29,6 +29,7 @@ enum swpm_type {
 	CORE_SWPM_TYPE,
 	MEM_SWPM_TYPE,
 	ISP_SWPM_TYPE,
+	ME_SWPM_TYPE,
 
 	NR_SWPM_TYPE,
 };

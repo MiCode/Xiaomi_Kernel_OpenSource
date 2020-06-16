@@ -76,6 +76,7 @@ __weak int mt_spower_get_leakage_uW(int dev, int voltage, int deg)
 }
 static struct core_swpm_rec_data *core_ptr;
 static struct mem_swpm_rec_data *mem_ptr;
+static struct me_swpm_rec_data *me_ptr;
 
 static DEFINE_PER_CPU(struct perf_event *, l3dc_events);
 static DEFINE_PER_CPU(struct perf_event *, inst_spec_events);
@@ -418,6 +419,7 @@ static struct swpm_mem_ref_tbl mem_ref_tbl[NR_POWER_METER] = {
 	[CORE_POWER_METER] = {0, NULL},
 	[MEM_POWER_METER] = {0, NULL},
 	[ISP_POWER_METER] = {0, NULL},
+	[ME_POWER_METER] = {0, NULL},
 };
 
 static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
@@ -878,6 +880,24 @@ static void swpm_mem_pwr_data_init(void)
 		(unsigned short)sizeof(ddr_opp_freq));
 }
 
+static void swpm_me_pwr_data_init(void)
+{
+	if (!me_ptr)
+		return;
+
+	me_ptr->disp_resolution = 0;
+	me_ptr->disp_fps = 0;
+	me_ptr->disp_active = 1;
+	me_ptr->venc_freq = 0;
+	me_ptr->venc_active = 0;
+	me_ptr->vdec_freq = 0;
+	me_ptr->vdec_active = 0;
+
+
+	swpm_info("ME disp_resolution=%d disp_fps=%d\n",
+		me_ptr->disp_resolution, me_ptr->disp_fps);
+}
+
 static inline void swpm_pass_to_sspm(void)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
@@ -905,9 +925,14 @@ static void swpm_init_pwr_data(void)
 	if (!ret)
 		mem_ptr = (struct mem_swpm_rec_data *)ptr;
 
+	ret = swpm_mem_addr_request(ME_SWPM_TYPE, &ptr);
+	if (!ret)
+		me_ptr = (struct me_swpm_rec_data *)ptr;
+
 	swpm_core_static_data_init();
 	swpm_core_pwr_data_init();
 	swpm_mem_pwr_data_init();
+	swpm_me_pwr_data_init();
 }
 
 #if SWPM_TEST
@@ -955,6 +980,9 @@ static inline void swpm_subsys_data_ref_init(void)
 	mem_ref_tbl[ISP_POWER_METER].valid = true;
 	mem_ref_tbl[ISP_POWER_METER].virt =
 		(phys_addr_t *)&swpm_info_ref->isp_reserved;
+	mem_ref_tbl[ME_POWER_METER].valid = true;
+	mem_ref_tbl[ME_POWER_METER].virt =
+		(phys_addr_t *)&swpm_info_ref->me_reserved;
 
 	swpm_unlock(&swpm_mutex);
 }
