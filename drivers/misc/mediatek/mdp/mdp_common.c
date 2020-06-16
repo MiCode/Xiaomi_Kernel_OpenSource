@@ -1312,7 +1312,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 		sizeof(struct cmdqSecAddrMetadataStruct);
 	addr_meta = kmalloc(addr_meta_size, GFP_KERNEL);
 	if (!addr_meta) {
-		CMDQ_ERR("%s: allocate size fail:%zu\n",
+		CMDQ_ERR("%s: allocate size fail:%u\n",
 			__func__, addr_meta_size);
 		return -ENOMEM;
 	}
