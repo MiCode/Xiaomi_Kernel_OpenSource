@@ -635,11 +635,12 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 #endif
 	int val = get_devinfo_with_index(7) & 0xFF; /* segment code */
 	int cpulv = get_devinfo_with_index(62); /* cpu level code */
-	int cpulv1 = (cpulv & 0xFF); /* cpu level code [7:0]*/
-	int cpulv2 = (cpulv & 0x300); /* cpu level code [9:8]*/
+	/* int cpulv1 = (cpulv & 0xFF); */ /* cpu level code [7:0]*/
+	/* int cpulv2 = (cpulv & 0x300); */ /* cpu level code [9:8]*/
 	int seg = val & 0x3; /* segment cod[1:0] */
 
 	if (!val) {
+#if 0
 		if (cpulv1 <= 1 && !cpulv2) {
 #ifndef CONFIG_MT6360_PMIC
 			lv = CPU_LEVEL_1;
@@ -647,6 +648,14 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 			lv = CPU_LEVEL_2;
 #endif
 		}
+#else
+#ifndef CONFIG_MT6360_PMIC
+		lv = CPU_LEVEL_1;
+#else
+		lv = CPU_LEVEL_2;
+#endif
+
+#endif
 	} else {
 		if (seg) {
 #ifndef CONFIG_MT6360_PMIC
