@@ -182,6 +182,7 @@ platform_name := $(shell echo $(CONFIG_MALI_PLATFORM_NAME))
 MALI_PLATFORM_DIR := platform/$(platform_name)
 ccflags-y += -I$(src)/$(MALI_PLATFORM_DIR)
 include $(src)/$(MALI_PLATFORM_DIR)/Kbuild
+include $(src)/platform/mtk_platform_common/Kbuild
 
 ifeq ($(CONFIG_MALI_DEVFREQ),y)
   ifeq ($(CONFIG_DEVFREQ_THERMAL),y)
