@@ -3110,11 +3110,11 @@ static int __m4u_gz_sec_init(int mtk_iommu_sec_id)
 	if (mtk_iommu_get_pgtable_base_addr((void *)&pt_pa_nonsec))
 		return -EFAULT;
 
-	ctx->m4u_msg->cmd = CMD_M4UTY_INIT;
-	ctx->m4u_msg->iommu_sec_id = mtk_iommu_sec_id;
-	ctx->m4u_msg->init_param.nonsec_pt_pa = pt_pa_nonsec;
-	ctx->m4u_msg->init_param.l2_en = M4U_L2_ENABLE;
-	ctx->m4u_msg->init_param.sec_pt_pa = 0;
+	ctx->gz_m4u_msg->cmd = CMD_M4UTY_INIT;
+	ctx->gz_m4u_msg->iommu_sec_id = mtk_iommu_sec_id;
+	ctx->gz_m4u_msg->init_param.nonsec_pt_pa = pt_pa_nonsec;
+	ctx->gz_m4u_msg->init_param.l2_en = M4U_L2_ENABLE;
+	ctx->gz_m4u_msg->init_param.sec_pt_pa = 0;
 
 	M4ULOG_HIGH("[MTEE]%s: mtk_iommu_sec_id:%d, nonsec_pt_pa: 0x%lx\n",
 				__func__, mtk_iommu_sec_id, pt_pa_nonsec);
@@ -3124,7 +3124,6 @@ static int __m4u_gz_sec_init(int mtk_iommu_sec_id)
 		goto out;
 	}
 
-	/*ret = ctx->m4u_msg->rsp;*/
 out:
 	if (count) {
 		for (i = 0; i < count; i++)
@@ -3190,11 +3189,11 @@ int m4u_map_gz_nonsec_buf(int iommu_sec_id, int port,
 	if (!ctx)
 		return -EFAULT;
 
-	ctx->m4u_msg->cmd = CMD_M4UTY_MAP_NONSEC_BUFFER;
-	ctx->m4u_msg->iommu_sec_id = iommu_sec_id;
-	ctx->m4u_msg->buf_param.mva = mva;
-	ctx->m4u_msg->buf_param.size = size;
-	ctx->m4u_msg->buf_param.port = port;
+	ctx->gz_m4u_msg->cmd = CMD_M4UTY_MAP_NONSEC_BUFFER;
+	ctx->gz_m4u_msg->iommu_sec_id = iommu_sec_id;
+	ctx->gz_m4u_msg->buf_param.mva = mva;
+	ctx->gz_m4u_msg->buf_param.size = size;
+	ctx->gz_m4u_msg->buf_param.port = port;
 
 	ret = m4u_gz_exec_cmd(ctx);
 	if (ret) {
@@ -3202,7 +3201,7 @@ int m4u_map_gz_nonsec_buf(int iommu_sec_id, int port,
 		ret = -1;
 		goto out;
 	}
-	ret = ctx->m4u_msg->rsp;
+	ret = ctx->gz_m4u_msg->rsp;
 
 out:
 	m4u_gz_sec_ctx_put(ctx);
@@ -3227,10 +3226,10 @@ int m4u_unmap_gz_nonsec_buffer(int iommu_sec_id, unsigned long mva,
 	if (!ctx)
 		return -EFAULT;
 
-	ctx->m4u_msg->cmd = CMD_M4UTY_UNMAP_NONSEC_BUFFER;
-	ctx->m4u_msg->iommu_sec_id = iommu_sec_id;
-	ctx->m4u_msg->buf_param.mva = mva;
-	ctx->m4u_msg->buf_param.size = size;
+	ctx->gz_m4u_msg->cmd = CMD_M4UTY_UNMAP_NONSEC_BUFFER;
+	ctx->gz_m4u_msg->iommu_sec_id = iommu_sec_id;
+	ctx->gz_m4u_msg->buf_param.mva = mva;
+	ctx->gz_m4u_msg->buf_param.size = size;
 
 	ret = m4u_gz_exec_cmd(ctx);
 	if (ret) {
@@ -3238,7 +3237,7 @@ int m4u_unmap_gz_nonsec_buffer(int iommu_sec_id, unsigned long mva,
 		ret = -1;
 		goto out;
 	}
-	ret = ctx->m4u_msg->rsp;
+	ret = ctx->gz_m4u_msg->rsp;
 
 out:
 	m4u_gz_sec_ctx_put(ctx);
