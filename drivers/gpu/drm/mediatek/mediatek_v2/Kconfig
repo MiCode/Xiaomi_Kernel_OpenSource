@@ -1,0 +1,29 @@
+config DRM_MEDIATEK_V2
+	bool "Version 2 of DRM Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a phone Mediatek
+	  SoCs. The module will be called mediatek-drm v2
+	  This driver provides kernel mode setting and
+	  buffer management to userspace.
+
+config DRM_MTK_SHADOW_REGISTER_SUPPORT
+	bool "DRM shadow register Support for Mediatek SoCs"
+	depends on DRM_MEDIATEK
+	help
+	  DRM shadow register Support for Mediatek SoCs.
+	  define CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT to
+	  enable Shadow Register on display.
+	  This feature will de-risk configuration time shortage.
+	  If you want to use Shadow Register on display,
+	  please make sure it is Y in xxx_defconfig.
+	  This feature depends on Mediatek SoCs HW spec.
+	  If unsure, set N.
+
+config DRM_MTK_DISABLE_AEE_LAYER
+	bool "Disable AEE Layer for the customer who don't want to produce AEE"
+	help
+	  Disable AEE Layer if you do not want to produce AEE.
+	  Default Mediatek SoCs will produce AEE when exception occurred.
+	  If this value is y, will not produce AEE.
+	  If this value is n, will produce AEE.
+	  If you do not produce AEE, please set it to Y in xxx_defconfig.
