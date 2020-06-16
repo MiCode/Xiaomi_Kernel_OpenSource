@@ -54,6 +54,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
       CLANG_PATH=$(KERNEL_ROOT_DIR)/prebuilts/clang/host/linux-x86/clang-r353983c
       TARGET_KERNEL_CLANG_COMPILE := CLANG_TRIPLE=aarch64-linux-gnu-
       CC := $(CLANG_PATH)/bin/clang
+      LD := $(CLANG_PATH)/bin/ld.lld
     endif
   else
     TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-
@@ -71,6 +72,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     TARGET_KERNEL_CLANG_COMPILE += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) $(CC)'
   else
     TARGET_KERNEL_CLANG_COMPILE += CC=$(CC)
+    TARGET_KERNEL_CLANG_COMPILE += LD=$(LD)
   endif
 
   KERNEL_HOST_GCC_PREFIX := $(patsubst %strip,%,$(HOST_STRIP))
