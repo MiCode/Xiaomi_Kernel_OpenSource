@@ -412,42 +412,55 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 {
 	struct op_meta *metas;
 	s32 status = 0;
-	u32 copy_size = user_job->meta_count * sizeof(struct op_meta);
-	u32 i;
+	u32 i, copy_size, copy_count, remain_count;
 	u64 exec_cost;
+	void *cur_src = CMDQ_U32_PTR(user_job->metas);
+	const u32 meta_count_in_page = PAGE_SIZE / sizeof(struct op_meta);
 
 	exec_cost = sched_clock();
-	metas = vmalloc(copy_size);
+	metas = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!metas) {
-		CMDQ_ERR("allocate metas fail size:%u\n", copy_size);
+		CMDQ_ERR("allocate metas fail\n");
 		return -ENOMEM;
 	}
 	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
-	CMDQ_MSG("[log]%s kmalloc cost:%lluus\n", __func__, exec_cost);
-	exec_cost = sched_clock();
-	if (copy_from_user(metas, CMDQ_U32_PTR(user_job->metas), copy_size)) {
-		CMDQ_ERR("copy metas from user fail size:%u\n", copy_size);
-		vfree(metas);
-		return -EINVAL;
-	}
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
-	CMDQ_MSG("[log]%s copy from user cost:%lluus\n", __func__, exec_cost);
+	CMDQ_MSG("[log]%s kmalloc cost:%lluus\n",
+		__func__, exec_cost);
 
-	cmdq_mdp_meta_replace_sec_addr(metas, user_job, handle);
 #ifdef TRACK_PERF_MON
 	memset(trans_perf_mon_cost, 0, sizeof(u64)*CMDQ_MOP_NOP);
 	memset(trans_perf_mon_count, 0, sizeof(u32)*CMDQ_MOP_NOP);
 #endif
-	for (i = 0; i < user_job->meta_count; i++) {
-		CMDQ_MSG("translate meta[%u] (%u, %u, %#x, %#x, %#x)\n", i,
-			metas[i].op, metas[i].engine, metas[i].offset,
-			metas[i].value, metas[i].mask);
-		status = translate_meta(&metas[i], mapping_job, handle);
-		if (unlikely(status < 0)) {
-			CMDQ_ERR("translate metas[%u] fail: %d\n", i, status);
-			break;
+
+	remain_count = user_job->meta_count;
+	while (remain_count > 0) {
+		copy_count = min_t(u32, remain_count, meta_count_in_page);
+		copy_size = copy_count * sizeof(struct op_meta);
+		exec_cost = sched_clock();
+		if (copy_from_user(metas, cur_src, copy_size)) {
+			CMDQ_ERR("copy metas from user fail:%u\n", copy_size);
+			kfree(metas);
+			return -EINVAL;
 		}
+		exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+		CMDQ_MSG("[log]%s copy from user cost:%lluus\n",
+			__func__, exec_cost);
+
+		cmdq_mdp_meta_replace_sec_addr(metas, user_job, handle);
+		for (i = 0; i < copy_count; i++) {
+			CMDQ_MSG("translate meta[%u] (%u,%u,%#x,%#x,%#x)\n", i,
+				metas[i].op, metas[i].engine, metas[i].offset,
+				metas[i].value, metas[i].mask);
+			status = translate_meta(&metas[i], mapping_job, handle);
+			if (unlikely(status < 0)) {
+				CMDQ_ERR("translate[%u] fail: %d\n", i, status);
+				break;
+			}
+		}
+		remain_count -= copy_count;
+		cur_src += copy_size;
 	}
+
 #ifdef TRACK_PERF_MON
 	for (i = 0; i < ARRAY_SIZE(trans_perf_mon_count); i++) {
 		if (trans_perf_mon_count[i] > 0)
@@ -456,7 +469,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 				div_s64(trans_perf_mon_cost[i], 1000));
 	}
 #endif
-	vfree(metas);
+	kfree(metas);
 	return status;
 }
 
