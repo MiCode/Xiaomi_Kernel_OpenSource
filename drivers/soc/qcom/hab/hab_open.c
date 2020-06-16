@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -240,6 +240,8 @@ int hab_open_receive_cancel(struct physical_channel *pchan,
 		request->xdata.vchan_id = data.vchan_id;
 		request->xdata.sub_id   = data.sub_id;
 		request->xdata.open_id  = data.open_id;
+		request->xdata.ver_fe  = data.ver_fe;
+		request->xdata.ver_be  = data.ver_be;
 
 		do_gettimeofday(&tv);
 		node->age = tv.tv_sec + HAB_OPEN_REQ_EXPIRE_TIME_S +
