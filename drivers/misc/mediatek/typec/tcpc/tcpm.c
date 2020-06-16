@@ -486,7 +486,7 @@ int tcpm_inquire_pd_partner_modes(
 {
 #ifdef CONFIG_USB_PD_ALT_MODE
 	int ret = TCPM_SUCCESS;
-	struct svdm_svid_data *svid_data;
+	struct svdm_svid_data *svid_data = NULL;
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	mutex_lock(&pd_port->pd_lock);
