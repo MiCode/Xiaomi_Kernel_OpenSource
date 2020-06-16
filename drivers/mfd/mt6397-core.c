@@ -76,6 +76,21 @@ static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
 
+static const struct resource mt6359p_gauge_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_BAT_H, "COULOMB_H"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_BAT_L, "COULOMB_L"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT2_H, "VBAT_H"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT2_L, "VBAT_L"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_NAG_C_DLTV, "NAFG"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BATON_BAT_OU, "BAT_OUT"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_ZCV, "ZCV"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_N_CHARGE_L, "FG_N_CHARGE_L"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_IAVG_H, "FG_IAVG_H"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_IAVG_L, "FG_IAVG_L"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT_TEMP_H, "BAT_TMP_H"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT_TEMP_L, "BAT_TMP_L"),
+};
+
 static const struct resource mt6359p_accdet_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_ACCDET, "ACCDET_IRQ"),
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
@@ -147,6 +162,11 @@ static const struct mfd_cell mt6359p_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359p_rtc_resources),
 		.resources = mt6359p_rtc_resources,
 		.of_compatible = "mediatek,mt6359p-rtc",
+	}, {
+		.name = "mt6359p-gauge",
+		.num_resources = ARRAY_SIZE(mt6359p_gauge_resources),
+		.resources = mt6359p_gauge_resources,
+		.of_compatible = "mediatek,mt6359p-gauge",
 	}, {
 		.name = "mtk-pmic-keys",
 		.num_resources = ARRAY_SIZE(mt6359p_keys_resources),
