@@ -986,7 +986,7 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
-#define MAX_INTR_STATS				10
+#define MAX_INTR_STATS				25
 
 /**
  * struct dwc3 - representation of our controller
@@ -1355,8 +1355,10 @@ struct dwc3 {
 	/* IRQ timing statistics */
 	int			irq;
 	unsigned long		irq_cnt;
+	ktime_t			bh_start_time[MAX_INTR_STATS];
 	unsigned int		bh_completion_time[MAX_INTR_STATS];
 	unsigned int		bh_handled_evt_cnt[MAX_INTR_STATS];
+	unsigned int		bh_dbg_index;
 	ktime_t			irq_start_time[MAX_INTR_STATS];
 	ktime_t			t_pwr_evt_irq;
 	unsigned int		irq_completion_time[MAX_INTR_STATS];

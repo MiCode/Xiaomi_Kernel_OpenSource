@@ -1387,6 +1387,7 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep)
 		if (ret == -EAGAIN)
 			return ret;
 
+		dbg_log_string("dep:%s cmd failed ret:%d", dep->name, ret);
 		dwc3_stop_active_transfer(dep, true, true);
 
 		list_for_each_entry_safe(req, tmp, &dep->started_list, list)
@@ -1662,11 +1663,18 @@ static void dwc3_gadget_ep_cleanup_cancelled_requests(struct dwc3_ep *dep)
 {
 	struct dwc3_request		*req;
 	struct dwc3_request		*tmp;
+	struct dwc3			*dwc = dep->dwc;
+	int				request_count = 0;
 
 	list_for_each_entry_safe(req, tmp, &dep->cancelled_list, list) {
 		dwc3_gadget_ep_skip_trbs(dep, req);
 		dwc3_gadget_giveback(dep, req, -ECONNRESET);
+		request_count++;
 	}
+
+	if (request_count)
+		dbg_log_string("dep:%s request_count:%d", dep->name,
+							request_count);
 }
 
 static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
@@ -3708,7 +3716,7 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3_event_buffer *evt)
 		left -= 4;
 	}
 
-	dwc->bh_handled_evt_cnt[dwc->irq_dbg_index] += (evt->count / 4);
+	dwc->bh_handled_evt_cnt[dwc->bh_dbg_index] += (evt->count / 4);
 	evt->count = 0;
 	evt->flags &= ~DWC3_EVENT_PENDING;
 	ret = IRQ_HANDLED;
@@ -3750,9 +3758,10 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 	ret = dwc3_process_event_buf(evt);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	dwc->bh_completion_time[dwc->irq_dbg_index] =
+	dwc->bh_start_time[dwc->bh_dbg_index] = start_time;
+	dwc->bh_completion_time[dwc->bh_dbg_index] =
 		ktime_to_us(ktime_sub(ktime_get(), start_time));
-	dwc->irq_dbg_index = (dwc->irq_dbg_index + 1) % MAX_INTR_STATS;
+	dwc->bh_dbg_index = (dwc->bh_dbg_index + 1) % MAX_INTR_STATS;
 
 	return ret;
 }
