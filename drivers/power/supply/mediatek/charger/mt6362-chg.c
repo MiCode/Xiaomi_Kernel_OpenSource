@@ -1412,24 +1412,35 @@ static int mt6362_set_ieoc(struct charger_device *chg_dev, u32 uA)
 	return mt6362_charger_set_ieoc(data, &val);
 }
 
-static int mt6362_set_mivr(struct charger_device *chg_dev, u32 uV)
+static int __mt6362_set_mivr(struct mt6362_chg_data *data, u32 uV)
 {
-	struct mt6362_chg_data *data = charger_get_data(chg_dev);
 	u8 sel;
 
 	mt_dbg(data->dev, "%s: mivr = %d\n", __func__, uV);
-	if (data->bd_flag) {
-		dev_info(data->dev,
-			 "%s: ignore until disable flash\n", __func__);
-		data->bd_mivr = uV;
-		return 0;
-	}
 	sel = mt6362_map_reg_sel(uV, MT6362_MIVR_MIN, MT6362_MIVR_MAX,
 				 MT6362_MIVR_STEP);
 	return regmap_update_bits(data->regmap,
 				  MT6362_REG_CHG_MIVR,
 				  MT6362_MASK_MIVR,
 				  sel << MT6362_SHFT_MIVR);
+}
+
+static int mt6362_set_mivr(struct charger_device *chg_dev, u32 uV)
+{
+	struct mt6362_chg_data *data = charger_get_data(chg_dev);
+	int ret;
+
+	mutex_lock(&data->bd_lock);
+	if (data->bd_flag) {
+		dev_info(data->dev,
+			 "%s: ignore until disable flash\n", __func__);
+		data->bd_mivr = uV;
+		mutex_unlock(&data->bd_lock);
+		return 0;
+	}
+	ret = __mt6362_set_mivr(data, uV);
+	mutex_unlock(&data->bd_lock);
+	return ret;
 }
 
 static inline int mt6362_get_mivr(struct charger_device *chg_dev, u32 *uV)
@@ -2215,23 +2226,29 @@ static int mt6362_enable_bleed_discharge(struct charger_device *chg_dev,
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
 	mutex_lock(&data->bd_lock);
+	if (en == data->bd_flag)
+		goto out;
 	if (en) {
 		ret = mt6362_get_mivr(chg_dev, &data->bd_mivr);
 		if (ret < 0)
 			goto out;
-		ret = mt6362_set_mivr(chg_dev, MT6362_MIVR_MAX);
+		ret = __mt6362_set_mivr(data, MT6362_MIVR_MAX);
 		if (ret < 0)
 			goto out;
 	}
-	data->bd_flag = en;
+
 	ret = mt6362_enable_otg_parameter(data, en);
 	if (ret < 0)
 		goto out;
 	ret = mt6362_handle_bleed_discharge(data);
 	if (ret < 0)
 		goto out;
-	if (!en)
-		ret = mt6362_set_mivr(chg_dev, data->bd_mivr);
+	if (!en) {
+		ret = __mt6362_set_mivr(data, data->bd_mivr);
+		if (ret < 0)
+			goto out;
+	}
+	data->bd_flag = en;
 out:
 	mutex_unlock(&data->bd_lock);
 	return ret;
