@@ -168,6 +168,16 @@ config BATTERY_LEGO_EV3
 	help
 	  Say Y here to enable support for the LEGO MINDSTORMS EV3 battery.
 
+config BATTERY_MT6359P
+	tristate "MT6359P fuel gauge support"
+	depends on MFD_MT6397
+	default m
+	help
+	  Say Y to enable support for MT6359P battery driver.
+	  it measure battery current and temperature to provide
+	  battery information , It issues interrupt when trigger
+	  threshold is met.
+
 config BATTERY_PMU
 	tristate "Apple PMU battery"
 	depends on PPC32 && ADB_PMU
