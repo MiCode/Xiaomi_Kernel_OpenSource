@@ -428,6 +428,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
+	mhi_process_sleeping_events(mhi_cntrl);
+
 	/*
 	 * The MHI devices are only created when the client device switches its
 	 * Execution Environment (EE) to either SBL or AMSS states
@@ -493,7 +495,10 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl)
 		if (mhi_event->offload_ev)
 			continue;
 		free_irq(mhi_cntrl->irq[mhi_event->irq], mhi_event);
-		tasklet_kill(&mhi_event->task);
+		if (mhi_event->priority == MHI_ER_PRIORITY_HI_SLEEP)
+			cancel_work_sync(&mhi_event->work);
+		else
+			tasklet_kill(&mhi_event->task);
 	}
 
 	/* Release lock and wait for all pending threads to complete */
@@ -626,7 +631,10 @@ static void mhi_pm_sys_error_transition(struct mhi_controller *mhi_cntrl)
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
 		if (mhi_event->offload_ev)
 			continue;
-		tasklet_kill(&mhi_event->task);
+		if (mhi_event->priority == MHI_ER_PRIORITY_HI_SLEEP)
+			cancel_work_sync(&mhi_event->work);
+		else
+			tasklet_kill(&mhi_event->task);
 	}
 
 	/* Release lock and wait for all pending threads to complete */
@@ -748,6 +756,9 @@ void mhi_pm_st_worker(struct work_struct *work)
 			write_lock_irq(&mhi_cntrl->pm_lock);
 			mhi_cntrl->ee = MHI_EE_SBL;
 			write_unlock_irq(&mhi_cntrl->pm_lock);
+
+			mhi_process_sleeping_events(mhi_cntrl);
+
 			/*
 			 * The MHI devices are only created when the client
 			 * device switches its Execution Environment (EE) to
