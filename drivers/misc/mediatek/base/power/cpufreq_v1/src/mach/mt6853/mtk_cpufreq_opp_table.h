@@ -254,7 +254,7 @@
 /* for DVFS OPP table B */
 #define CPU_DVFS_FREQ0_L_B24G		2400000		/* KHz */
 #define CPU_DVFS_FREQ1_L_B24G		2306000		/* KHz */
-#define CPU_DVFS_FREQ2_L_B24G		2212000		/* KHz */
+#define CPU_DVFS_FREQ2_L_B24G		2210000		/* KHz */
 #define CPU_DVFS_FREQ3_L_B24G		2118000		/* KHz */
 #define CPU_DVFS_FREQ4_L_B24G		1993000		/* KHz */
 #define CPU_DVFS_FREQ5_L_B24G		1837000		/* KHz */
