@@ -17,9 +17,9 @@
 #if defined(CONFIG_MACH_MT6853)
 #include "subsys/mtk_me_swpm_mt6853.h"
 #else
-/* Use mt6853 header for other projects */
+/* Use a default header for other projects */
 /* Todo: Should refine in the future */
-#include "subsys/mtk_me_swpm_mt6853.h"
+#include "subsys/mtk_me_swpm_default.h"
 #endif
 
 #endif
