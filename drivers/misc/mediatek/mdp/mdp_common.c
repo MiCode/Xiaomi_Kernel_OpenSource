@@ -635,7 +635,8 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	 */
 	CMDQ_MSG("%s handle:0x%p pkt:0x%p engine:0x%016llx\n",
 		__func__, handle, handle->pkt, handle->engineFlag);
-	cmdq_mbox_enable(((struct cmdq_client *)handle->pkt->cl)->chan);
+	if (!handle->secData.is_secure)
+		cmdq_mbox_enable(((struct cmdq_client *)handle->pkt->cl)->chan);
 	cmdq_mdp_common_clock_enable();
 
 	CMDQ_PROF_START(current->pid, __func__);
@@ -740,7 +741,10 @@ static void cmdq_mdp_handle_stop(struct cmdqRecStruct *handle)
 	/* make sure smi clock off at last */
 	mutex_lock(&mdp_thread_mutex);
 	cmdq_mdp_common_clock_disable();
-	cmdq_mbox_disable(((struct cmdq_client *)handle->pkt->cl)->chan);
+	if (!handle->secData.is_secure) {
+		cmdq_mbox_disable(
+			((struct cmdq_client *)handle->pkt->cl)->chan);
+	}
 	mutex_unlock(&mdp_thread_mutex);
 }
 
