@@ -146,6 +146,10 @@ struct ccmni_instance {
 #endif
 	struct timespec    flush_time;
 	void               *priv_data;
+
+	/* For queue packet before ready */
+	struct workqueue_struct *worker;
+	struct delayed_work pkt_queue_work;
 };
 
 struct ccmni_ccci_ops {
