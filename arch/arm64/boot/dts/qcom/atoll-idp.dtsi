@@ -284,6 +284,12 @@
 	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
 };
 
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+};
+
 &dsi_nt36672c_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
