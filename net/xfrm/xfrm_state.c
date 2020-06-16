@@ -815,6 +815,89 @@ xfrm_init_tempstate(struct xfrm_state *x, const struct flowi *fl,
 	afinfo->init_temprop(x, tmpl, daddr, saddr);
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
+static int trace1;
+static int trace2;
+static int trace3;
+static int trace4;
+static int count;
+
+static ktime_t xfrm_state_t1;
+static ktime_t xfrm_state_t2;
+static u32 spi_dump[32];
+
+static void xfrm_state_print_btrace(unsigned long data)
+{
+	ktime_t xfrm_state_deltatime;
+	ktime_t  xfrm_state_duration;
+	int i;
+
+	data = data;
+
+	xfrm_state_deltatime = ktime_sub(xfrm_state_t2, xfrm_state_t1);
+	xfrm_state_duration = //micro-second
+	(unsigned long long)ktime_to_ns(xfrm_state_deltatime) >> 10;
+
+	if (xfrm_state_duration > 2000000) { //2 second
+		pr_err("[mtk_net][xfrm_state] trace:[%d][%d][%d][%d]\n",
+		       trace1, trace2, trace3, trace4);
+		pr_err("[mtk_net][xfrm_state] dutation [%d]\n",
+		       xfrm_state_duration);
+		for (i = 0; i < 32; i++)
+			pr_err("[mtk_net][xfrm_state] spi_dump[%d] : 0x%x\n",
+			       i, spi_dump[i]);
+	}
+}
+
+static void xfrm_state_clear_btrace(void)
+{
+	trace1 = 0;
+	trace2 = 0;
+	trace3 = 0;
+	trace4 = 0;
+}
+
+static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
+					      const xfrm_address_t *daddr,
+					      __be32 spi, u8 proto,
+					      unsigned short family)
+{
+	unsigned int h = xfrm_spi_hash(net, daddr, spi, proto, family);
+	struct xfrm_state *x;
+	bool hold_rcu;
+
+	count++;
+	xfrm_state_t1 = ktime_get();
+	hlist_for_each_entry_rcu(x, net->xfrm.state_byspi + h, byspi) {
+		trace1++;
+		xfrm_state_t2 = ktime_get();
+		xfrm_state_print_btrace(1);
+		if (trace1 < 32)
+			spi_dump[trace1] = x->id.spi;
+		if (x->props.family != family ||
+		    x->id.spi       != spi ||
+		    x->id.proto     != proto ||
+		    !xfrm_addr_equal(&x->id.daddr, daddr, family))
+			continue;
+		trace2++;
+		if ((mark & x->mark.m) != x->mark.v)
+			continue;
+		trace3++;
+		hold_rcu = xfrm_state_hold_rcu(x);
+		if (!hold_rcu) {
+			trace4++;
+			continue;
+		}
+
+		xfrm_state_clear_btrace();
+		return x;
+	}
+	xfrm_state_clear_btrace();
+	return NULL;
+}
+
+#else
+
 static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
 					      const xfrm_address_t *daddr,
 					      __be32 spi, u8 proto,
@@ -839,6 +922,8 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
 
 	return NULL;
 }
+
+#endif //#ifdef CONFIG_MTK_ENG_BUILD
 
 static struct xfrm_state *__xfrm_state_lookup_byaddr(struct net *net, u32 mark,
 						     const xfrm_address_t *daddr,
