@@ -259,5 +259,7 @@ struct compat_FDVT_Request {
 
 #endif
 
+int m4u_gz_sec_init(int);
+
 /*  */
 #endif

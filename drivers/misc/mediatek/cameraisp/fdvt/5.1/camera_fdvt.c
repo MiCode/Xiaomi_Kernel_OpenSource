@@ -81,6 +81,13 @@
 #include <linux/mtk_ftrace.h>
 #endif /* __FDVT_KERNEL_PERFORMANCE_MEASURE__ */
 
+#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_MTEE
+#include <linux/atomic.h>
+static atomic_t m4u_gz_init = ATOMIC_INIT(0);
+#endif
+#endif
+
 #if 0
 /* Another Performance Measure Usage */
 #include <linux/kallsyms.h>
@@ -1660,8 +1667,14 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
 	if (basic_config->FDVT_IS_SECURE != 0)
 		cmdq_sec_pkt_set_data(pkt, 1LL << CMDQ_SEC_FDVT, 1LL << CMDQ_SEC_FDVT, CMDQ_SEC_ISP_FDVT, CMDQ_METAEX_FD);
 #else
-	if (basic_config->FDVT_IS_SECURE != 0)
+	if (basic_config->FDVT_IS_SECURE != 0) {
 		cmdq_sec_pkt_set_data(pkt, 1LL << CMDQ_SEC_FDVT, 1LL << CMDQ_SEC_FDVT, CMDQ_SEC_KERNEL_CONFIG_GENERAL, CMDQ_METAEX_FD);
+#ifdef CMDQ_MTEE
+		cmdq_sec_pkt_set_mtee(pkt, true);
+		if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0)
+			m4u_gz_sec_init(0);
+#endif
+	}
 #endif
 
 #if 0

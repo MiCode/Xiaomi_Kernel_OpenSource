@@ -28,5 +28,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 						 -I$(srctree)/drivers/staging/android/ion/mtk
 
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6853")
+ccflags-y += -DCMDQ_MTEE
+endif
 
 obj-$(CONFIG_MTK_CAMERA_ISP_FD_SUPPORT) += camera_fdvt.o
