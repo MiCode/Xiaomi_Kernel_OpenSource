@@ -6071,8 +6071,12 @@ int dsi_display_get_info(struct drm_connector *connector,
 	case DSI_OP_VIDEO_MODE:
 		info->curr_panel_mode = MSM_DISPLAY_VIDEO_MODE;
 		info->capabilities |= MSM_DISPLAY_CAP_VID_MODE;
-		if (display->panel->panel_mode_switch_enabled)
+		if (display->panel->panel_mode_switch_enabled) {
 			info->capabilities |= MSM_DISPLAY_CAP_CMD_MODE;
+			info->is_te_using_watchdog_timer =
+				display->panel->te_using_watchdog_timer |
+				display->sw_te_using_wd;
+		}
 		break;
 	case DSI_OP_CMD_MODE:
 		info->curr_panel_mode = MSM_DISPLAY_CMD_MODE;
