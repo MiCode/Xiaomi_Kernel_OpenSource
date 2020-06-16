@@ -1558,7 +1558,7 @@ static ssize_t mmprofile_dbgfs_global_read(struct file *file, char __user *buf,
 		MMPROFILE_GLOBALS_SIZE);
 }
 
-#if MMP_USE
+#ifdef MMP_USE
 static ssize_t mmprofile_dbgfs_global_write(struct file *file,
 	const char __user *buf, size_t size, loff_t *ppos)
 {
@@ -1591,7 +1591,7 @@ static const struct file_operations mmprofile_dbgfs_buffer_fops = {
 
 static const struct file_operations mmprofile_dbgfs_global_fops = {
 	.read = mmprofile_dbgfs_global_read,
-#if MMP_USE
+#ifdef MMP_USE
 	.write = mmprofile_dbgfs_global_write,
 #endif
 	.llseek = generic_file_llseek,
@@ -1628,7 +1628,7 @@ static void process_dbg_cmd(char *cmd)
 }
 
 /* Driver specific begin */
-#if MMP_USE
+#ifdef MMP_USE
 static dev_t mmprofile_devno;
 static struct cdev *mmprofile_cdev;
 static struct class *mmprofile_class;
