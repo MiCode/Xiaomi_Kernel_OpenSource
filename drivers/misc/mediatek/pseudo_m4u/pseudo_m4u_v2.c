@@ -552,6 +552,17 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 
 	old_value = pseudo_readreg32(larb_base,
 					  SMI_LARB_NON_SEC_CONx(larb_port));
+
+	/* debug use */
+#if defined(CONFIG_MACH_MT6853)
+	if ((larb == 2) && (old_value & 0x4))
+		M4U_ERR("%s, l%d-p%d, userspace:%d, value: 0x%x\n",
+			m4u_get_module_name(pM4uPort->ePortID),
+			larb, larb_port, is_user,
+			pseudo_readreg32(larb_base,
+					SMI_LARB_NON_SEC_CONx(larb_port)));
+#endif
+
 	if (pM4uPort->Virtuality) {
 		value = (old_value & ~F_SMI_ADDR_BIT32) |
 			(bit32 << 8) | (bit32 << 10) |
@@ -568,6 +579,17 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	pseudo_writereg32(larb_base,
 			   SMI_LARB_NON_SEC_CONx(larb_port),
 			   value);
+
+	/* debug use */
+#if defined(CONFIG_MACH_MT6853)
+	if ((larb == 2) && (value & 0x4))
+		M4U_ERR("%s, l%d-p%d, userspace:%d, value: 0x%x\n",
+			m4u_get_module_name(pM4uPort->ePortID),
+			larb, larb_port, is_user,
+			pseudo_readreg32(larb_base,
+					SMI_LARB_NON_SEC_CONx(larb_port)));
+#endif
+
 
 	/* debug use */
 	if (value != pseudo_readreg32(larb_base,
