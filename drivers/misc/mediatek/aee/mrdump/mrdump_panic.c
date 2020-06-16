@@ -143,6 +143,11 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 }
 EXPORT_SYMBOL(ipanic_recursive_ke);
 
+__weak void aee_wdt_zap_locks(void)
+{
+	pr_notice("%s:weak function\n", __func__);
+}
+
 int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
@@ -186,14 +191,10 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 
 	mrdump_mini_ke_cpu_regs(regs);
 	dis_D_inner_flush_all();
+	aee_wdt_zap_locks();
 	console_unlock();
 	aee_exception_reboot();
 	return NOTIFY_DONE;
-}
-
-__weak void aee_wdt_zap_locks(void)
-{
-	pr_notice("%s:weak function\n", __func__);
 }
 
 int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
@@ -205,7 +206,6 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
 #endif
 	crash_setup_regs(&saved_regs, NULL);
-	aee_wdt_zap_locks();
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_PANIC,
 				 "Kernel Panic", &saved_regs);
@@ -219,7 +219,6 @@ static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
 #endif
-	aee_wdt_zap_locks();
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_OOPS,
 				 "Kernel Oops", dargs->regs);
