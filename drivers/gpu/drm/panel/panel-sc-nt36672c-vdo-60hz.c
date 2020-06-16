@@ -449,11 +449,11 @@ static int lcm_enable(struct drm_panel *panel)
 
 #define VAC (2400)
 #define HAC (1080)
-#define HFP (40)
-#define HSA (10)
-#define HBP (20)
+#define HFP (165)
+#define HSA (22)
+#define HBP (22)
 #define VFP (54)
-#define VSA (2)
+#define VSA (10)
 #define VBP (10)
 
 static u32 fake_heigh = 2400;
@@ -481,7 +481,7 @@ static struct mtk_panel_params ext_params = {
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
-	.data_rate = 412,
+	.data_rate = 548,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,

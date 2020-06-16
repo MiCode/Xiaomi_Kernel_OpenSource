@@ -452,46 +452,46 @@ static bool need_fake_resolution;
 static struct drm_display_mode default_mode = {
 	.clock = 382678,
 	.hdisplay = HAC,
-	.hsync_start = HAC + 40,//HFP
-	.hsync_end = HAC + 40 + 12,//HSA
-	.htotal = HAC + 40 + 12 + 40,//HBP
+	.hsync_start = HAC + 165,//HFP
+	.hsync_end = HAC + 165 + 22,//HSA
+	.htotal = HAC + 165 + 22 + 22,//HBP1289
 	.vdisplay = 2400,
-	.vsync_start = VAC + 2496,//VFP
-	.vsync_end = VAC + 2496 + 2,//VSA
-	.vtotal = VAC + 2496 + 2 + 30,//VBP4948
+	.vsync_start = VAC + 2528,//VFP
+	.vsync_end = VAC + 2528 + 10,//VSA
+	.vtotal = VAC + 2528 + 10 + 10,//VBP4948
 	.vrefresh = 60,
 };
 
 static struct drm_display_mode performance_mode = {
 	.clock = 382716,
 	.hdisplay = HAC,
-	.hsync_start = HAC + 40,//HFP
-	.hsync_end = HAC + 40 + 12,//HSA
-	.htotal = HAC + 40 + 12 + 40,//HBP
+	.hsync_start = HAC + 165,//HFP
+	.hsync_end = HAC + 165 + 22,//HSA
+	.htotal = HAC + 165 + 22 + 22,//HBP
 	.vdisplay = VAC,
-	.vsync_start = VAC + 854,//VFP
-	.vsync_end = VAC + 854 + 2,//VSA
-	.vtotal = VAC + 854 + 2 + 30,//VBP3299
+	.vsync_start = VAC + 879,//VFP
+	.vsync_end = VAC + 879 + 10,//VSA
+	.vtotal = VAC + 879 + 10 + 10,//VBP3299
 	.vrefresh = 90,
 };
 
 static struct drm_display_mode performance_mode1 = {
 	.clock = 382678,
 	.hdisplay = HAC,
-	.hsync_start = HAC + 40,//HFP
-	.hsync_end = HAC + 40 + 12,//HSA
-	.htotal = HAC + 40 + 12 + 40,//HBP
+	.hsync_start = HAC + 165,//HFP
+	.hsync_end = HAC + 165 + 22,//HSA
+	.htotal = HAC + 165 + 22 + 22,//HBP
 	.vdisplay = VAC,
-	.vsync_start = VAC + 32,//VFP
-	.vsync_end = VAC + 32 + 2,//VSA
-	.vtotal = VAC + 32 + 2 + 30,//VBP2474
+	.vsync_start = VAC + 54,//VFP
+	.vsync_end = VAC + 54 + 10,//VSA
+	.vtotal = VAC + 54 + 10 + 10,//VBP2474
 	.vrefresh = 120,
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 465,
-	.vfp_low_power = 4124,//45hz
+	.pll_clk = 588,
+	.vfp_low_power = 4178,//45hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -533,22 +533,22 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 930,
+	.data_rate = 1176,
 	.dyn_fps = {
 		.switch_en = 1, .vact_timing_fps = 120,
 	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 428,
+		.pll_clk = 581,
 		.vfp_lp_dyn = 4178,
-		.hfp = 396,
+		.hfp = 161,
 		.vfp = 2528,
 	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 465,
-	.vfp_low_power = 2496,//60hz
+	.pll_clk = 588,
+	.vfp_low_power = 2528,//60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -591,22 +591,22 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 930,
+	.data_rate = 1176,
 	.dyn_fps = {
 		.switch_en = 1, .vact_timing_fps = 120,
 	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 428,
+		.pll_clk = 581,
 		.vfp_lp_dyn = 2528,
-		.hfp = 396,
+		.hfp = 161,
 		.vfp = 879,
 	},
 };
 
 static struct mtk_panel_params ext_params_120hz = {
-	.pll_clk = 465,
-	.vfp_low_power = 2496,//idle 60hz
+	.pll_clk = 588,
+	.vfp_low_power = 2528,//idle 60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -648,15 +648,15 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 930,
+	.data_rate = 1176,
 	.dyn_fps = {
 		.switch_en = 1, .vact_timing_fps = 120,
 	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 428,
+		.pll_clk = 581,
 		.vfp_lp_dyn = 2528,
-		.hfp = 396,
+		.hfp = 161,
 		.vfp = 54,
 	},
 };

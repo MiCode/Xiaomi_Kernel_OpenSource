@@ -454,35 +454,35 @@ static u32 fake_width = 1080;
 static bool need_fake_resolution;
 
 static struct drm_display_mode default_mode = {
-	.clock = 259902,
+	.clock = 287240,
 	.hdisplay = HAC,
-	.hsync_start = HAC + 40,//HFP
-	.hsync_end = HAC + 40 + 12,//HSA
-	.htotal = HAC + 40 + 12 + 40,//HBP1172
+	.hsync_start = HAC + 165,//HFP
+	.hsync_end = HAC + 165 + 22,//HSA
+	.htotal = HAC + 165 + 22 + 22,//HBP1289
 	.vdisplay = 2400,
-	.vsync_start = VAC + 1264,//VFP
-	.vsync_end = VAC + 1264 + 2,//VSA
-	.vtotal = VAC + 1264 + 2 + 30,//VBP3696
+	.vsync_start = VAC + 1294,//VFP
+	.vsync_end = VAC + 1294 + 10,//VSA
+	.vtotal = VAC + 1294 + 10 + 10,//VBP3714
 	.vrefresh = 60,
 };
 
 static struct drm_display_mode performance_mode = {
-	.clock = 260957,
+	.clock = 287008,
 	.hdisplay = HAC,
-	.hsync_start = HAC + 40,//HFP
-	.hsync_end = HAC + 40 + 12,//HSA
-	.htotal = HAC + 40 + 12 + 40,//HBP
+	.hsync_start = HAC + 165,//HFP
+	.hsync_end = HAC + 165 + 22,//HSA
+	.htotal = HAC + 165 + 22 + 22,//HBP
 	.vdisplay = VAC,
-	.vsync_start = VAC + 32,//VFP
-	.vsync_end = VAC + 32 + 2,//VSA
-	.vtotal = VAC + 32 + 2 + 30,//VBP2474
+	.vsync_start = VAC + 54,//VFP
+	.vsync_end = VAC + 54 + 10,//VSA
+	.vtotal = VAC + 54 + 10 + 10,//VBP2474
 	.vrefresh = 90,
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 338,
-	.vfp_low_power = 2496,//45hz
+	.pll_clk = 424,
+	.vfp_low_power = 2533,//45hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -524,15 +524,15 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 676,
+	.data_rate = 847,
 	.dyn_fps = {
 		.switch_en = 1, .vact_timing_fps = 90,
 	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 338,
-	.vfp_low_power = 1264,//60hz
+	.pll_clk = 424,
+	.vfp_low_power = 1294,//60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -575,7 +575,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 676,
+	.data_rate = 847,
 	.dyn_fps = {
 		.switch_en = 1, .vact_timing_fps = 90,
 	},
