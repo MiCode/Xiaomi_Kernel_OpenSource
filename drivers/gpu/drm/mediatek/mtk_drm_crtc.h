@@ -334,6 +334,7 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_HBM_ENABLE,
 	CRTC_PROP_COLOR_TRANSFORM,
 	CRTC_PROP_USER_SCEN,
+	CRTC_PROP_HDR_ENABLE,
 	CRTC_PROP_MAX,
 };
 
@@ -721,6 +722,7 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 	char *stringbuf, int buf_len);
 char *mtk_crtc_index_spy(int crtc_index);
+bool mtk_drm_get_hdr_property(void);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);

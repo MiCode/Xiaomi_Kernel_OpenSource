@@ -73,8 +73,10 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "HBM_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "COLOR_TRANSFORM", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "USER_SCEN", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "HDR_ENABLE", 0, UINT_MAX, 0},
 };
 
+bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
 
@@ -4573,6 +4575,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		mtk_drm_crtc_hbm_wait(crtc, hbm_en);
 	}
 
+	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
+
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		if (crtc->state->color_mgmt_changed)
 			mtk_ddp_gamma_set(comp, crtc->state, cmdq_handle);
@@ -6488,3 +6492,9 @@ skip:
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
 /* ***********  Panel Master end ************** */
+
+bool mtk_drm_get_hdr_property(void)
+{
+	return hdr_en;
+}
+
