@@ -134,7 +134,7 @@ u32 before_ap_slp_duration;
 static void mt6853_get_spm_wakesrc_irq(void)
 {
 	int i;
-	struct device_node *node;
+	struct device_node *node = NULL;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		if (mt6853_spm_wakesrc_irqs[i].name == NULL)
@@ -421,7 +421,7 @@ static int mt6853_show_message(struct mt6853_spm_wake_status *wakesrc, int type,
 	unsigned int spm_26M_off_pct = 0;
 	char buf[LOG_BUF_SIZE] = { 0 };
 	char log_buf[LOG_BUF_OUT_SZ] = { 0 };
-	char *local_ptr;
+	char *local_ptr = NULL;
 	int log_size = 0;
 	unsigned int wr = WR_UNKNOWN;
 	const char *scenario = prefix ?: "UNKNOWN";
@@ -759,8 +759,8 @@ int mt6853_logger_timer_debugfs_init(void)
 int __init mt6853_logger_init(void)
 {
 	struct device_node *node = NULL;
-	struct cpuidle_driver *drv;
-	struct cpuidle_device *dev;
+	struct cpuidle_driver *drv = NULL;
+	struct cpuidle_device *dev = NULL;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
