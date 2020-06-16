@@ -436,6 +436,7 @@ config MACH_MT6885
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select ARM64_ERRATUM_1542418
+	select ARM64_ERRATUM_1800710
         help
 	  This enables support for MediaTek MT6885
 	  Support for aarch64 Architecture
