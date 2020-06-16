@@ -471,6 +471,16 @@ config ARM64_ERRATUM_1542418
 	  fetch a stale instructions from the L0 Macro-op cache which violates
 	  the ordefing of instruction fetches.
 
+config ARM64_ERRATUM_1800710
+	bool "Cortex-A77: Cortex-A76: 1800710: The core might fetch stale translation from the L2 TLB"
+	default n
+	help
+	   This option adds alarm message for Arm Cortex-A77/A76 Erratum 1800710.
+
+	   Affected Cortex-A77/A76 cores could cause the MMU might return a stale
+	   translation when a transient single-bit ECC error in the MMU TC RAM.
+	   Enable this option to log additional info.
+
 config CAVIUM_ERRATUM_22375
 	bool "Cavium erratum 22375, 24313"
 	default y
