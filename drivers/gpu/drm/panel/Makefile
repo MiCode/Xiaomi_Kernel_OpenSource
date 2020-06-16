@@ -52,4 +52,5 @@ obj-$(CONFIG_DRM_PANEL_K6853V1_64_ALPHA_AOD_VDO_01) += k6853v1_64_alpha/panel-k6
 obj-$(CONFIG_DRM_PANEL_NT36672A_RT4801_VDO) += panel-nt36672a-rt4801-vdo.o
 obj-$(CONFIG_DRM_PANEL_SC_NT36672C_VDO_120HZ) += panel-sc-nt36672c-vdo-120hz.o
 obj-$(CONFIG_DRM_PANEL_SC_NT36672C_VDO_90HZ) += panel-sc-nt36672c-vdo-90hz.o
+obj-$(CONFIG_DRM_PANEL_SC_NT36672C_VDO_60HZ) += panel-sc-nt36672c-vdo-60hz.o
 
