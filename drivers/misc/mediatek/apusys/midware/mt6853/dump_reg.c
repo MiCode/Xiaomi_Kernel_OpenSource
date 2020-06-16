@@ -284,10 +284,8 @@ int dump_show(struct seq_file *sfile, void *v)
 
 	vfree(reg_all_mem);
 	reg_all_mem = NULL;
-
-	mutex_unlock(&dbg_lock);
-
 out:
+	mutex_unlock(&dbg_lock);
 	return 0;
 }
 
