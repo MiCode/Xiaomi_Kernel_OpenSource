@@ -22,9 +22,10 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 
+#define CONFIG_MTK_PANEL_EXT
 #if defined(CONFIG_MTK_PANEL_EXT)
-#include "../mediatek/mtk_panel_ext.h"
-#include "../mediatek/mtk_drm_graphics_base.h"
+#include "../mediatek/mediatek_v2/mtk_panel_ext.h"
+#include "../mediatek/mediatek_v2/mtk_drm_graphics_base.h"
 #endif
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
