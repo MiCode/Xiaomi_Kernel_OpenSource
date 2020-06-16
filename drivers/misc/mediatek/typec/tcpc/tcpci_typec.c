@@ -540,7 +540,8 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc_dev)
 	}
 #endif	/* CONFIG_TYPEC_CAP_ROLE_SWAP */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
-	if (tcpc_dev->typec_state == typec_attached_snk)
+	if (tcpc_dev->typec_state == typec_attached_snk ||
+	    tcpc_dev->typec_state == typec_unattachwait_pe)
 		tcpc_typec_handle_ctd(tcpc_dev, TCPC_CABLE_TYPE_NONE);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
@@ -2753,7 +2754,7 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd)
 {
 	int ret = 0;
 
-	pr_info("%s: [wtf] water, wd = %d\n", __func__, wd);
+	pr_info("%s: wd = %d\n", __func__, wd);
 	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_WATER_DETECTION))
 		return 0;
 
@@ -2805,16 +2806,12 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 {
 	int ret;
 
+	TCPC_INFO("%s: cable_type = %d\n", __func__, cable_type);
 	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION))
 		return 0;
 
 	/* Filter out initial no cable */
 	if (cable_type == TCPC_CABLE_TYPE_C2C) {
-		/*
-		 * wait 3ms for exit low power mode and
-		 * TCPC filter debounce
-		 */
-		mdelay(3);
 		ret = tcpci_get_cc(tcpc_dev);
 		if (ret >= 0) {
 			if (typec_is_cc_no_res() &&

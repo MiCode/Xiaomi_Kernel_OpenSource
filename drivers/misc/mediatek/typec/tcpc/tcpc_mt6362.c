@@ -162,6 +162,8 @@
 #define MT6362_SFT_WDIPULL_SEL	(4)
 #define MT6362_MSK_WDRPULL_SEL	(0x0E)
 #define MT6362_SFT_WDRPULL_SEL	(1)
+#define MT6362_MSK_WD12_VOLCOML	(0x0F)
+#define MT6362_SFT_WD12_VOLCOML	(0)
 #define MT6362_MSK_WDSBU1_EN	BIT(0)
 #define MT6362_MSK_WDSBU2_EN	BIT(1)
 #define MT6362_MSK_WDCC1_EN	BIT(2)
@@ -184,9 +186,13 @@
 /* for Rust Protect DPDM */
 #define MT6362_REG_DPDM_CTRL1	(0x53)
 #define MT6362_MSK_MANUAL_MODE	BIT(7)
+#define MT6362_MSK_DPDM_DET_EN	BIT(6)
 
 #define MT6362_WD_TDET_10MS	(0x04)
 #define MT6362_WD_TDET_1MS	(0x01)
+
+#define MT6362_WD_VOL_CMPL_1_44V	(0x0A)
+#define MT6362_WD_VOL_CMPL_1_54V	(0x0B)
 
 enum mt6362_vend_int {
 	MT6362_VEND_INT1 = 0,
@@ -296,9 +302,11 @@ static const u8 mt6362_wd_polling_path[MT6362_WD_CHAN_NUM] = {
 
 static const u8 mt6362_wd_protection_path[MT6362_WD_CHAN_NUM] = {
 	MT6362_MSK_WDSBU1_EN | MT6362_MSK_WDSBU2_EN |
-	MT6362_MSK_WDCC1_EN | MT6362_MSK_WDCC2_EN,
+	MT6362_MSK_WDCC1_EN | MT6362_MSK_WDCC2_EN |
+	MT6362_MSK_WDDP_EN | MT6362_MSK_WDDM_EN,
 	MT6362_MSK_WDSBU1_EN | MT6362_MSK_WDSBU2_EN |
-	MT6362_MSK_WDCC1_EN | MT6362_MSK_WDCC2_EN,
+	MT6362_MSK_WDCC1_EN | MT6362_MSK_WDCC2_EN |
+	MT6362_MSK_WDDP_EN | MT6362_MSK_WDDM_EN,
 };
 
 struct mt6362_tcpc_data {
@@ -704,6 +712,13 @@ static int mt6362_set_wd_polling_parameter(struct mt6362_tcpc_data *tdata,
 			    MT6362_MSK_WDRPULL_EN | MT6362_MSK_WDDISCHG_EN);
 	if (ret < 0)
 		return ret;
+	ret = mt6362_update_bits_rt2(tdata,
+				     mt6362_wd_volcmp_reg[chan],
+				     MT6362_MSK_WD12_VOLCOML,
+				     MT6362_WD_VOL_CMPL_1_44V <<
+						MT6362_SFT_WD12_VOLCOML);
+	if (ret < 0)
+		return ret;
 	return mt6362_set_wd_polling_path(tdata, chan);
 }
 
@@ -715,8 +730,11 @@ static int mt6362_set_wd_protection_parameter(struct mt6362_tcpc_data *tdata,
 	ret = mt6362_set_wd_rpull(tdata, chan, MT6362_WD_RPULL_75K);
 	if (ret < 0)
 		return ret;
-	/* set wd protection threshold 1.44V to 1.54V */
-	ret = mt6362_write8(tdata, mt6362_wd_volcmp_reg[chan], 0xCA);
+	ret = mt6362_update_bits_rt2(tdata,
+				     mt6362_wd_volcmp_reg[chan],
+				     MT6362_MSK_WD12_VOLCOML,
+				     MT6362_WD_VOL_CMPL_1_54V <<
+						MT6362_SFT_WD12_VOLCOML);
 	if (ret < 0)
 		return ret;
 	ret = mt6362_write8(tdata, mt6362_wd_miscctrl_reg[chan],
@@ -961,11 +979,6 @@ static int mt6362_enable_wd_polling(struct mt6362_tcpc_data *tdata, bool en)
 			ret = mt6362_set_wd_polling_parameter(tdata, i);
 			if (ret < 0)
 				return ret;
-			/* set wd detect threshold 1.44V */
-			ret = mt6362_write8(tdata, mt6362_wd_volcmp_reg[i],
-					    0xCB);
-			if (ret < 0)
-				return ret;
 		}
 	}
 	return mt6362_write8(tdata, MT6362_REG_WD12MODECTRL,
@@ -992,9 +1005,9 @@ static int mt6362_enable_wd_protection(struct mt6362_tcpc_data *tdata, bool en)
 			mt6362_set_wd_protection_parameter(tdata, i);
 		}
 	}
-	/* set DPDM manual/auto mode */
+	/* set DPDM manual mode and DPDM_DET_EN = 1 */
 	ret = regmap_update_bits(tdata->regmap, MT6362_REG_DPDM_CTRL1,
-				 MT6362_MSK_MANUAL_MODE, en ? 0xff : 0);
+		MT6362_MSK_MANUAL_MODE | MT6362_MSK_DPDM_DET_EN, en ? 0xff : 0);
 	if (ret < 0)
 		return ret;
 	return mt6362_write8(tdata, MT6362_REG_WD12MODECTRL,
@@ -1228,6 +1241,11 @@ static int mt6362_init_mask(struct tcpc_device *tcpc)
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	/* Init cable type must be done after fod */
 	if (tdata->handle_init_ctd) {
+		/*
+		 * wait 3ms for exit low power mode and
+		 * TCPC filter debounce
+		 */
+		mdelay(3);
 		tdata->handle_init_ctd = false;
 		tcpc_typec_handle_ctd(tcpc, tdata->init_cable_type);
 	}
