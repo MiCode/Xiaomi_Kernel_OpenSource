@@ -371,6 +371,9 @@ struct icnss_priv {
 	void *get_info_cb_ctx;
 	int (*get_info_cb)(void *ctx, void *event, int event_len);
 	atomic_t soc_wake_ref_count;
+	struct thermal_cooling_device *tcdev;
+	unsigned long curr_thermal_state;
+	unsigned long max_thermal_state;
 };
 
 struct icnss_reg_info {
