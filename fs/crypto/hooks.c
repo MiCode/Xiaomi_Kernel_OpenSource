@@ -94,22 +94,21 @@ int __fscrypt_prepare_rename(struct inode *old_dir, struct dentry *old_dentry,
 }
 EXPORT_SYMBOL_GPL(__fscrypt_prepare_rename);
 
-int __fscrypt_prepare_lookup(struct inode *dir, struct dentry *dentry,
-			     struct fscrypt_name *fname)
+int __fscrypt_prepare_lookup(struct inode *dir, struct dentry *dentry)
 {
-	int err = fscrypt_setup_filename(dir, &dentry->d_name, 1, fname);
+	int err = fscrypt_get_encryption_info(dir);
 
-	if (err && err != -ENOENT)
+	if (err)
 		return err;
 
-	if (fname->is_ciphertext_name) {
+	if (fscrypt_has_encryption_key(dir)) {
 		spin_lock(&dentry->d_lock);
 		dentry->d_flags |= DCACHE_ENCRYPTED_WITH_KEY;
 		spin_unlock(&dentry->d_lock);
-		d_set_d_op(dentry, &fscrypt_d_ops);
 	}
 
-	return err;
+	d_set_d_op(dentry, &fscrypt_d_ops);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(__fscrypt_prepare_lookup);
 

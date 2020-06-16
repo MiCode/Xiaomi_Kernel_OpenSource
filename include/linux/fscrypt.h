@@ -32,7 +32,6 @@ struct fscrypt_name {
 	u32 hash;
 	u32 minor_hash;
 	struct fscrypt_str crypto_buf;
-	bool is_ciphertext_name;
 };
 
 #define FSTR_INIT(n, l)		{ .name = n, .len = l }
@@ -139,11 +138,10 @@ static inline int fscrypt_prepare_rename(struct inode *old_dir,
  * fscrypt_prepare_lookup - prepare to lookup a name in a possibly-encrypted directory
  * @dir: directory being searched
  * @dentry: filename being looked up
- * @fname: (output) the name to use to search the on-disk directory
+ * @flags: lookup flags
  *
- * Prepare for ->lookup() in a directory which may be encrypted by determining
- * the name that will actually be used to search the directory on-disk.  Lookups
- * can be done with or without the directory's encryption key; without the key,
+ * Prepare for ->lookup() in a directory which may be encrypted.  Lookups can be
+ * done with or without the directory's encryption key; without the key,
  * filenames are presented in encrypted form.  Therefore, we'll try to set up
  * the directory's encryption key, but even without it the lookup can continue.
  *
@@ -152,21 +150,15 @@ static inline int fscrypt_prepare_rename(struct inode *old_dir,
  * DCACHE_ENCRYPTED_WITH_KEY flag to indicate whether a given dentry is a
  * plaintext name (flag set) or a ciphertext name (flag cleared).
  *
- * Return: 0 on success; -ENOENT if key is unavailable but the filename isn't a
- * correctly formed encoded ciphertext name, so a negative dentry should be
- * created; or another -errno code.
+ * Return: 0 on success, -errno if a problem occurred while setting up the
+ * encryption key
  */
 static inline int fscrypt_prepare_lookup(struct inode *dir,
 					 struct dentry *dentry,
-					 struct fscrypt_name *fname)
+					 unsigned int flags)
 {
 	if (IS_ENCRYPTED(dir))
-		return __fscrypt_prepare_lookup(dir, dentry, fname);
-
-	memset(fname, 0, sizeof(*fname));
-	fname->usr_fname = &dentry->d_name;
-	fname->disk_name.name = (unsigned char *)dentry->d_name.name;
-	fname->disk_name.len = dentry->d_name.len;
+		return __fscrypt_prepare_lookup(dir, dentry);
 	return 0;
 }
 
