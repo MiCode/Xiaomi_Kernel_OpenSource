@@ -1326,6 +1326,15 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 		secData->addrMetadataCount,
 		addr_meta);
 
+#ifdef CMDQ_ENG_MTEE_GROUP_BITS
+	if (handle->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS)
+		cmdq_sec_pkt_set_mtee(handle->pkt, true);
+	else
+		cmdq_sec_pkt_set_mtee(handle->pkt, false);
+	CMDQ_LOG("handle:%p mtee:%d\n", handle,
+		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee);
+#endif
+
 	kfree(addr_meta);
 	return 0;
 #else
