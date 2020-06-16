@@ -55,6 +55,7 @@
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
+#include "swpm_me.h"
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -1703,6 +1704,7 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 	if (priv->top_clk_num <= 0)
 		return;
 
+	set_swpm_disp_active(true);
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -1732,6 +1734,7 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 	if (priv->top_clk_num <= 0)
 		return;
 
+	set_swpm_disp_active(false);
 	spin_lock_irqsave(&top_clk_lock, flags);
 	atomic_dec(&top_clk_ref);
 	if (atomic_read(&top_clk_ref) == 0) {
