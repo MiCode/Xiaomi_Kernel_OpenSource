@@ -7528,13 +7528,16 @@ void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
 
 	switch (module) {
 	case ISP_CAM_A_INNER_IDX:
-		log_ba = CAM_A_BASE_HW;
+		log_ba = CAM_A_INNER_BASE_HW;
 		break;
 	case ISP_CAM_B_INNER_IDX:
-		log_ba = CAM_B_BASE_HW;
+		log_ba = CAM_B_INNER_BASE_HW;
 		break;
-	case ISP_CAM_C_INNER_IDX:
-		log_ba = CAM_C_BASE_HW;
+	case ISP_CAM_A_IDX:
+		log_ba = CAM_A_BASE_HW;
+		break;
+	case ISP_CAM_B_IDX:
+		log_ba = CAM_B_BASE_HW;
 		break;
 	default:
 		break;
@@ -7568,19 +7571,23 @@ enum mtk_iommu_callback_ret_t isp_m4u_fault_callback(int port,
 	/* CAMA port*/
 	case M4U_PORT_L16_CAM_AAHO_R1_A:
 		ISP_DumpDmaDbgPort(ISP_CAM_A_INNER_IDX, _aaho_);
+		dumpAllRegs(ISP_CAM_A_IDX);
 		dumpAllRegs(ISP_CAM_A_INNER_IDX);
 		break;
 	case M4U_PORT_L16_CAM_LTMSO_R1_A:
 		ISP_DumpDmaDbgPort(ISP_CAM_A_INNER_IDX, _ltmso_);
+		dumpAllRegs(ISP_CAM_A_IDX);
 		dumpAllRegs(ISP_CAM_A_INNER_IDX);
 		break;
 	/* CAMB port*/
 	case M4U_PORT_L17_CAM_AAHO_R1_B:
 		ISP_DumpDmaDbgPort(ISP_CAM_B_INNER_IDX, _aaho_);
+		dumpAllRegs(ISP_CAM_B_IDX);
 		dumpAllRegs(ISP_CAM_B_INNER_IDX);
 		break;
 	case M4U_PORT_L17_CAM_LTMSO_R1_B:
 		ISP_DumpDmaDbgPort(ISP_CAM_B_INNER_IDX, _ltmso_);
+		dumpAllRegs(ISP_CAM_B_IDX);
 		dumpAllRegs(ISP_CAM_B_INNER_IDX);
 		break;
 	default:
