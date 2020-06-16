@@ -6127,6 +6127,10 @@ static void dsi_display_adjust_mode_timing(struct dsi_display *display,
 	struct dsi_dyn_clk_caps *dyn_clk_caps;
 	u32 bits_per_symbol = 16, num_of_symbols = 7; /* For Cphy */
 
+	/* Constant FPS is not supported on command mode */
+	if (dsi_mode->panel_mode == DSI_OP_CMD_MODE)
+		return;
+
 	dyn_clk_caps = &(display->panel->dyn_clk_caps);
 	if (!dyn_clk_caps->maintain_const_fps)
 		return;
