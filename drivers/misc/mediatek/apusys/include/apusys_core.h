@@ -12,7 +12,8 @@ int apusys_mdw_init(struct apusys_core_info *info);
 void apusys_mdw_exit(void);
 int sample_init(struct apusys_core_info *info);
 void sample_exit(void);
-
+int edma_init(struct apusys_core_info *info);
+void edma_exit(void);
 /*
  * init function at other modulses
  * call init function in order at apusys.ko init stage
@@ -20,6 +21,7 @@ void sample_exit(void);
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	apusys_mdw_init,
 	sample_init,
+	edma_init,
 };
 
 /*
@@ -29,5 +31,6 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 static void (*apusys_exit_func[])(void) = {
 	sample_exit,
 	apusys_mdw_exit,
+	edma_exit,
 };
 #endif
