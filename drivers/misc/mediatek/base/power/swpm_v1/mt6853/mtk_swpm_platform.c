@@ -107,8 +107,10 @@ static struct perf_event_attr cycle_event_attr = {
 
 /* rt => /100000, uA => *1000, res => 100 */
 #define CORE_DEFAULT_DEG (30)
-#define CORE_DEFAULT_LKG (63)
+#define CORE_DEFAULT_LKG (64)
 #define CORE_LKG_RT_RES (100)
+static unsigned int core_lkg;
+static unsigned int core_lkg_replaced;
 static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
 	6764, 562, 1629, 1213, 7155, 17155,
 	11274, 3152, 4835, 3687, 2487, 13547,
@@ -264,7 +266,7 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 		},
 		[DDR_1200] = {
 			.read_coef = {230, 310, 480, 600, 800,
-	930, 820, 1030, 1100, 1150, 1200},
+	930, 950, 1030, 1100, 1150, 1200},
 			.write_coef = {480, 610, 920, 1410, 1760,
 	2030, 2220, 2720, 3070, 3450, 3870},
 		},
@@ -322,10 +324,10 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 	1075, 1075, 1295, 1475, 1665, 1795},
 		},
 		[DDR_2133] = {
-			.read_coef = {996, 946, 1426, 1646, 1866,
-	2056, 2186, 2556, 2866, 3176, 0},
-			.write_coef = {946, 906, 1246, 1386, 1526,
-	1656, 1716, 1946, 2176, 2396, 0},
+			.read_coef = {996, 1103, 1426, 1646, 1866,
+	2056, 2186, 2556, 2866, 3176, 3456},
+			.write_coef = {946, 1021, 1246, 1386, 1526,
+	1656, 1716, 1946, 2176, 2396, 2616},
 		},
 	},
 	.coef_idle = {40, 40, 40, 40, 40, 45, 54},
@@ -370,7 +372,7 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 		},
 		[DDR_2133] = {
 			.read_coef = {180, 210, 390, 560, 720,
-	860, 870, 1150, 1320, 1360, 1330},
+	860, 870, 1150, 1320, 1360, 1587},
 			.write_coef = {30, 30, 30, 30, 30,
 	30, 30, 30, 30, 30, 30},
 		},
@@ -381,12 +383,12 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 
 static struct dram_pwr_conf dram_def_pwr_conf[] = {
 	[DRAM_VDD1_1P8V] = {
-		.i_dd0 = 13000,
-		.i_dd2p = 1000,
+		.i_dd0 = 7020,
+		.i_dd2p = 720,
 		.i_dd2n = 3000,
-		.i_dd4r = 9000,
-		.i_dd4w = 10000,
-		.i_dd5 = 5000,
+		.i_dd4r = 5946,
+		.i_dd4w = 1620,
+		.i_dd5 = 5600,
 		.i_dd6 = 475,
 	},
 	[DRAM_VDD2_1P1V] = {
@@ -394,7 +396,7 @@ static struct dram_pwr_conf dram_def_pwr_conf[] = {
 		.i_dd2p = 8000,
 		.i_dd2n = 13500,
 		.i_dd4r = 147000,
-		.i_dd4w = 151000,
+		.i_dd4w = 180000,
 		.i_dd5 = 25000,
 		.i_dd6 = 625,
 	},
@@ -796,24 +798,31 @@ static void swpm_log_loop(unsigned long data)
 	swpm_update_periodic_timer();
 }
 
-static void swpm_core_pwr_data_init(void)
+static void swpm_core_static_data_init(void)
 {
 #ifdef CONFIG_MTK_STATIC_POWER
-	int lkg, lkg_scaled;
+	unsigned int lkg, lkg_scaled;
 #endif
-	int i, j;
+	unsigned int i, j;
 
 	if (!core_ptr)
 		return;
 
 #ifdef CONFIG_MTK_STATIC_POWER
-	/* init core lkg data once */
+	/* init core static power once */
 	lkg = mt_spower_get_efuse_lkg(MTK_SPOWER_VCORE);
-	/* default 64 mA, efuse default mW to mA */
-	lkg = (lkg <= 0) ? CORE_DEFAULT_LKG
-			: (lkg * 1000 / V_OF_FUSE_VCORE);
+#else
+	lkg = 0;
+#endif
 
-	/* efuse lkg unit mW with voltage scaling */
+	/* default 64 mA, efuse default mW to mA */
+	lkg = (!lkg) ? CORE_DEFAULT_LKG
+			: (lkg * 1000 / V_OF_FUSE_VCORE);
+	/* recording default lkg data, and check replacement data */
+	core_lkg = lkg;
+	lkg = (!core_lkg_replaced) ? lkg : core_lkg_replaced;
+
+	/* efuse static power unit mW with voltage scaling */
 	for (i = 0; i < NR_CORE_VOLT; i++) {
 		lkg_scaled = lkg * core_volt_tbl[i] / V_OF_FUSE_VCORE;
 		for (j = 0; j < NR_CORE_LKG_TYPE; j++) {
@@ -822,11 +831,13 @@ static void swpm_core_pwr_data_init(void)
 				lkg_scaled * core_lkg_rt[j] / CORE_LKG_RT_RES;
 		}
 	}
-#else
-	for (i = 0; i < NR_CORE_VOLT; i++)
-		for (j = 0; j < NR_CORE_LKG_TYPE; j++)
-			core_ptr->core_lkg_pwr[i][j] = 0;
-#endif
+}
+
+static void swpm_core_pwr_data_init(void)
+{
+	if (!core_ptr)
+		return;
+
 	/* default degree setting */
 	core_ptr->thermal = CORE_DEFAULT_DEG;
 	/* copy core volt data */
@@ -894,6 +905,7 @@ static void swpm_init_pwr_data(void)
 	if (!ret)
 		mem_ptr = (struct mem_swpm_rec_data *)ptr;
 
+	swpm_core_static_data_init();
 	swpm_core_pwr_data_init();
 	swpm_mem_pwr_data_init();
 }
@@ -999,8 +1011,37 @@ static ssize_t pmu_ms_mode_proc_write(struct file *file,
 	return count;
 }
 
+static int core_static_replace_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "default: %d, replaced %d (valid:0~99)\n",
+		   core_lkg,
+		   core_lkg_replaced);
+	return 0;
+}
+static ssize_t core_static_replace_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int val = 0;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &val)) {
+		core_lkg_replaced = (val < 100) ? val : core_lkg_replaced;
+
+		/* reset core static power data */
+		swpm_core_static_data_init();
+	} else
+		swpm_err("echo <val> > /proc/swpm/core_static_replace\n");
+
+	return count;
+}
+
+
 PROC_FOPS_RO(dram_bw);
 PROC_FOPS_RW(pmu_ms_mode);
+PROC_FOPS_RW(core_static_replace);
 /***************************************************************************
  *  API
  ***************************************************************************/
@@ -1105,9 +1146,11 @@ static void swpm_platform_procfs(void)
 {
 	struct swpm_entry dram_bw = PROC_ENTRY(dram_bw);
 	struct swpm_entry pmu_mode = PROC_ENTRY(pmu_ms_mode);
+	struct swpm_entry core_lkg_rp = PROC_ENTRY(core_static_replace);
 
 	swpm_append_procfs(&dram_bw);
 	swpm_append_procfs(&pmu_mode);
+	swpm_append_procfs(&core_lkg_rp);
 }
 
 static int __init swpm_platform_init(void)
