@@ -72,6 +72,9 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     TARGET_KERNEL_CLANG_COMPILE += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) $(CC)'
   else
     TARGET_KERNEL_CLANG_COMPILE += CC=$(CC)
+  endif
+
+  ifdef LD
     TARGET_KERNEL_CLANG_COMPILE += LD=$(LD)
   endif
 
