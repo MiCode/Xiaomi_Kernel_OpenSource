@@ -678,14 +678,14 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 			remote_node = of_graph_get_remote_port_parent(endpoint);
 			if (!remote_node) {
 				pr_info("No panel connected,skip probe lcm\n");
-				return 0;
+				return -ENODEV;
 			}
 			pr_info("device node name:%s\n", remote_node->name);
 		}
 	}
 	if (remote_node != dev->of_node) {
 		pr_info("%s+ skip probe due to not current lcm\n", __func__);
-		return 0;
+		return -ENODEV;
 	}
 
 	ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
