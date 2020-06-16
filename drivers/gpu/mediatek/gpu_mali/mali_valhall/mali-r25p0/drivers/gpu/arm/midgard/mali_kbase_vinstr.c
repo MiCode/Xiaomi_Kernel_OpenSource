@@ -1174,7 +1174,7 @@ void MTK_update_gpu_swpm(void)
 	phys_addr_t *ptr = NULL;
 	struct gpu_swpm_rec_data *gpu_ptr;
 
-	mtk_get_gpu_loading(&pm_gpu_loading);
+	//mtk_get_gpu_loading(&pm_gpu_loading);
 	swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
 	gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
 	gpu_ptr->gpu_counter[gfreq] = mt_gpufreq_get_cur_freq();
@@ -1220,7 +1220,7 @@ void MTK_update_gpu_LTR(void)
 	unsigned int pm_gpu_loading;
 	struct mtk_gpu_perf gpu_perf_counter;
 	unsigned int stall_counter[4] = {0};
-	mtk_get_gpu_loading(&pm_gpu_loading);
+	//mtk_get_gpu_loading(&pm_gpu_loading);
 #ifdef GPUFREQ_SUPPORT
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
@@ -1281,7 +1281,9 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
 	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
 #endif
+#ifdef CONFIG_MFG_COUNTER
 	mtk_GPU_STALL_RAW(stall_counter, 4);
+#endif
 	gpu_perf_counter.counter[VINSTR_STALL0] = stall_counter[0];
 	gpu_perf_counter.counter[VINSTR_STALL1] = stall_counter[1];
 	gpu_perf_counter.counter[VINSTR_STALL2] = stall_counter[2];

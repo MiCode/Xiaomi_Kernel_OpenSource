@@ -22,6 +22,7 @@ ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
 	#obj-y += gpu_bm/
 
 #ccflags-y += -DGPUFREQ_SUPPORT
+#ccflags-y += -DGED_SUPPORT
 
 # GPU R5P0
 ifeq ($(CONFIG_MTK_GPU_R5P0),y)

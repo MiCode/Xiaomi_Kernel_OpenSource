@@ -31,14 +31,14 @@ static struct mtk_gpu_meminfo_type g_mtk_gpu_meminfo[MTK_MEMINFO_SIZE];
 
 void mtk_kbase_gpu_memory_debug_init(void)
 {
-	mtk_dump_gpu_memory_usage_fp = mtk_kbase_dump_gpu_memory_usage;
-	mtk_get_gpu_memory_usage_fp = mtk_kbase_report_gpu_memory_usage;
+	//mtk_dump_gpu_memory_usage_fp = mtk_kbase_dump_gpu_memory_usage;
+	//mtk_get_gpu_memory_usage_fp = mtk_kbase_report_gpu_memory_usage;
 }
 
 void mtk_kbase_gpu_memory_debug_remove(void)
 {
-	mtk_dump_gpu_memory_usage_fp = NULL;
-	mtk_get_gpu_memory_usage_fp = NULL;
+	//mtk_dump_gpu_memory_usage_fp = NULL;
+	//mtk_get_gpu_memory_usage_fp = NULL;
 }
 
 void mtk_kbase_reset_gpu_meminfo(void)
@@ -499,20 +499,26 @@ int mtk_set_mt_gpufreq_target(int freq_id)
 
 unsigned long mtk_get_ged_dvfs_last_commit_idx(void)
 {
+#ifdef GED_SUPPORT
 	return ged_dvfs_get_last_commit_idx();
+#endif
 }
 
 int mtk_common_init(struct kbase_device *kbdev)
 {
 	int ret = 0;
 
+#ifdef MFG_COUNTER
 	mtk_mfg_counter_init();
+#endif
 
 	return ret;
 }
 
 void mtk_common_deinit(struct kbase_device *kbdev)
 {
+#ifdef MFG_COUNTER
 	mtk_mfg_counter_destroy();
+#endif
 }
 
