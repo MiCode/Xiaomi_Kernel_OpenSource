@@ -115,7 +115,7 @@ EXPORT_SYMBOL(mmprofile_log_meta_yuv_bitmap);
 /* Exposed APIs end */
 
 /* Driver specific begin */
-#if MMP_USE
+#ifdef MMP_USE
 static dev_t mmprofile_devno;
 static struct cdev *mmprofile_cdev;
 static struct class *mmprofile_class;
