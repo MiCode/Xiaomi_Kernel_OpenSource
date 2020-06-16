@@ -346,9 +346,11 @@
 
 	};
 
-	soc: soc { };
+	chosen {
+		bootargs = "earlycon=msm_geni_serial,0x994000";
+	};
 
-	chosen { };
+	soc: soc { };
 
 	firmware: firmware {
 		scm {

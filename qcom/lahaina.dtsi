@@ -511,7 +511,7 @@
 	};
 
 	chosen {
-		bootargs = "log_buf_len=256K";
+		bootargs = "log_buf_len=256K earlycon=msm_geni_serial,0x98c000";
 	};
 };
 
