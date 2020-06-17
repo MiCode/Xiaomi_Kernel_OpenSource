@@ -6,10 +6,6 @@
 	qcom,msm-id = <439 0x20000>;
 };
 
-&pil_modem {
-	status = "disabled";
-};
-
 &ipa_hw {
 	status = "disabled";
 };
