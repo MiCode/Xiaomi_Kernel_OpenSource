@@ -92,6 +92,7 @@
 /* features supported by driver */
 #define MSM_NPU_FEATURE_MULTI_EXECUTE  0x1
 #define MSM_NPU_FEATURE_ASYNC_EXECUTE  0x2
+#define MSM_NPU_FEATURE_DSP_SID_MAPPED 0x8
 
 #define PROP_PARAM_MAX_SIZE 8
 
