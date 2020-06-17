@@ -63,7 +63,6 @@ static u32 a6xx_pwrup_reglist[] = {
 
 /* IFPC only static powerup restore list */
 static u32 a6xx_ifpc_pwrup_reglist[] = {
-	A6XX_RBBM_VBIF_CLIENT_QOS_CNTL,
 	A6XX_CP_CHICKEN_DBG,
 	A6XX_CP_DBG_ECO_CNTL,
 	A6XX_CP_PROTECT_CNTL,
@@ -102,20 +101,19 @@ static u32 a6xx_ifpc_pwrup_reglist[] = {
 	A6XX_CP_AHB_CNTL,
 };
 
-/*
- * a620, a650 and a660 need to program A6XX_CP_PROTECT_REG_47
- * for the infinite span
- */
+/* Applicable to a620, a650 and a660 */
 static u32 a650_pwrup_reglist[] = {
-	A6XX_CP_PROTECT_REG + 47,
+	A6XX_CP_PROTECT_REG + 47,          /* Programmed for infinite span */
+	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_0,
+	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_1,
+	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_2,
+	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_3,
+	A6XX_TPL1_BICUBIC_WEIGHTS_TABLE_4,
+	A6XX_UCHE_CMDQ_CONFIG,
 };
 
 static u32 a615_pwrup_reglist[] = {
 	A6XX_UCHE_GBIF_GX_CONFIG,
-};
-
-static u32 a612_pwrup_reglist[] = {
-	A6XX_RBBM_PERFCTR_CNTL,
 };
 
 static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
@@ -313,9 +311,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	reglist[items++] = REGLIST(a6xx_pwrup_reglist);
 
 	/* Add target specific registers */
-	if (adreno_is_a612(adreno_dev))
-		reglist[items++] = REGLIST(a612_pwrup_reglist);
-	else if (adreno_is_a615_family(adreno_dev))
+	if (adreno_is_a615_family(adreno_dev))
 		reglist[items++] = REGLIST(a615_pwrup_reglist);
 	else if (adreno_is_a650_family(adreno_dev))
 		reglist[items++] = REGLIST(a650_pwrup_reglist);
@@ -334,6 +330,22 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 
 		lock->list_length += reglist[i].count * 2;
 	}
+
+	if (adreno_is_a630(adreno_dev)) {
+		*dest++ = A6XX_RBBM_VBIF_CLIENT_QOS_CNTL;
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
+			A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, dest++);
+	} else {
+		*dest++ = A6XX_RBBM_GBIF_CLIENT_QOS_CNTL;
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
+			A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, dest++);
+	}
+
+	lock->list_length += 2;
+
+	*dest++ = A6XX_RBBM_PERFCTR_CNTL;
+	*dest++ = 1;
+	lock->list_length += 2;
 
 	/*
 	 * The overall register list is composed of
@@ -473,13 +485,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_ROQ_THRESHOLDS_1, 0x8040362C);
 	}
 
-	if (adreno_is_a660(adreno_dev)) {
-		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_2,
-						0x00800060);
-		kgsl_regwrite(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_1,
-						0x40202016);
+	if (adreno_is_a660(adreno_dev))
 		kgsl_regwrite(device, A6XX_CP_LPAC_PROG_FIFO_SIZE, 0x00000020);
-	}
 
 	if (adreno_is_a612(adreno_dev) || adreno_is_a610(adreno_dev)) {
 		/* For A612 and A610 Mem pool size is reduced to 48 */
@@ -620,6 +627,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
+		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x90);
 	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
@@ -2564,24 +2572,22 @@ static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 			goto update;
 		}
 
+		if (data[offset] == A6XX_RBBM_PERFCTR_CNTL)
+			break;
+
 		offset += 2;
 	}
 
 	/*
-	 * For a612 targets A6XX_RBBM_PERFCTR_CNTL needs to be the last entry,
+	 * For all targets A6XX_RBBM_PERFCTR_CNTL needs to be the last entry,
 	 * so overwrite the existing A6XX_RBBM_PERFCNTL_CTRL and add it back to
-	 * the end. All other targets just append the new counter to the end.
+	 * the end.
 	 */
-	if (adreno_is_a612(adreno_dev)) {
-		data[offset - 2] = reg->select;
-		data[offset - 1] = reg->countable;
 
-		data[offset] = A6XX_RBBM_PERFCTR_CNTL,
-		data[offset + 1] = 1;
-	} else {
-		data[offset] = reg->select;
-		data[offset + 1] = reg->countable;
-	}
+	data[offset] = reg->select;
+	data[offset + 1] = reg->countable;
+	data[offset + 2] = A6XX_RBBM_PERFCTR_CNTL,
+	data[offset + 3] = 1;
 
 	lock->list_length += 2;
 

@@ -1947,7 +1947,7 @@ int xhci_sec_event_ring_cleanup(struct usb_device *udev, unsigned int intr_num)
 {
 	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
 
-	if (udev->state == USB_STATE_NOTATTACHED || !HCD_RH_RUNNING(hcd))
+	if (!HCD_RH_RUNNING(hcd))
 		return 0;
 
 	return sec_event_ring_cleanup(hcd_to_xhci(hcd), intr_num);

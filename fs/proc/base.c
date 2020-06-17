@@ -1488,6 +1488,58 @@ static const struct file_operations proc_pid_sched_group_id_operations = {
 	.release	= single_release,
 };
 
+static int sched_low_latency_show(struct seq_file *m, void *v)
+{
+	struct inode *inode = m->private;
+	struct task_struct *p;
+	bool low_latency;
+
+	p = get_proc_task(inode);
+	if (!p)
+		return -ESRCH;
+
+	low_latency = p->wts.low_latency;
+	seq_printf(m, "%d\n", low_latency);
+
+	put_task_struct(p);
+
+	return 0;
+}
+
+static ssize_t
+sched_low_latency_write(struct file *file, const char __user *buf,
+	    size_t count, loff_t *offset)
+{
+	struct task_struct *p = get_proc_task(file_inode(file));
+	bool low_latency;
+	int err;
+
+	if (!p)
+		return -ESRCH;
+
+	err =  kstrtobool_from_user(buf, count, &low_latency);
+	if (err)
+		goto out;
+
+	p->wts.low_latency = low_latency;
+out:
+	put_task_struct(p);
+	return err < 0 ? err : count;
+}
+
+static int sched_low_latency_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, sched_low_latency_show, inode);
+}
+
+static const struct file_operations proc_pid_sched_low_latency_operations = {
+	.open		= sched_low_latency_open,
+	.read		= seq_read,
+	.write		= sched_low_latency_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_AUTOGROUP
@@ -2913,7 +2965,7 @@ static ssize_t proc_sched_task_boost_read(struct file *file,
 
 	if (!task)
 		return -ESRCH;
-	sched_boost = task->boost;
+	sched_boost = task->wts.boost;
 	put_task_struct(task);
 	len = scnprintf(buffer, sizeof(buffer), "%d\n", sched_boost);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
@@ -2945,9 +2997,9 @@ static ssize_t proc_sched_task_boost_write(struct file *file,
 		goto out;
 	}
 
-	task->boost = sched_boost;
+	task->wts.boost = sched_boost;
 	if (sched_boost == 0)
-		task->boost_period = 0;
+		task->wts.boost_period = 0;
 out:
 	put_task_struct(task);
 	return err < 0 ? err : count;
@@ -2963,7 +3015,7 @@ static ssize_t proc_sched_task_boost_period_read(struct file *file,
 
 	if (!task)
 		return -ESRCH;
-	sched_boost_period_ms = div64_ul(task->boost_period, 1000000UL);
+	sched_boost_period_ms = div64_ul(task->wts.boost_period, 1000000UL);
 	put_task_struct(task);
 	len = snprintf(buffer, sizeof(buffer), "%llu\n", sched_boost_period_ms);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
@@ -2991,14 +3043,14 @@ static ssize_t proc_sched_task_boost_period_write(struct file *file,
 	err = kstrtouint(strstrip(buffer), 0, &sched_boost_period);
 	if (err)
 		goto out;
-	if (task->boost == 0 && sched_boost_period) {
+	if (task->wts.boost == 0 && sched_boost_period) {
 		/* setting boost period without boost is invalid */
 		err = -EINVAL;
 		goto out;
 	}
 
-	task->boost_period = (u64)sched_boost_period * 1000 * 1000;
-	task->boost_expires = sched_clock() + task->boost_period;
+	task->wts.boost_period = (u64)sched_boost_period * 1000 * 1000;
+	task->wts.boost_expires = sched_clock() + task->wts.boost_period;
 out:
 	put_task_struct(task);
 	return err < 0 ? err : count;
@@ -3212,6 +3264,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("sched_group_id", 00666, proc_pid_sched_group_id_operations),
 	REG("sched_boost", 0666,  proc_task_boost_enabled_operations),
 	REG("sched_boost_period_ms", 0666, proc_task_boost_period_operations),
+	REG("sched_low_latency", 00666, proc_pid_sched_low_latency_operations),
 #endif
 #ifdef CONFIG_SCHED_DEBUG
 	REG("sched",      S_IRUGO|S_IWUSR, proc_pid_sched_operations),
@@ -3237,6 +3290,9 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("mounts",     S_IRUGO, proc_mounts_operations),
 	REG("mountinfo",  S_IRUGO, proc_mountinfo_operations),
 	REG("mountstats", S_IRUSR, proc_mountstats_operations),
+#ifdef CONFIG_PROCESS_RECLAIM
+	REG("reclaim", 0222, proc_reclaim_operations),
+#endif
 #ifdef CONFIG_PROC_PAGE_MONITOR
 	REG("clear_refs", S_IWUSR, proc_clear_refs_operations),
 	REG("smaps",      S_IRUGO, proc_pid_smaps_operations),

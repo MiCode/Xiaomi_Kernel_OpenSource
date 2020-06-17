@@ -149,6 +149,9 @@ int clk_find_vdd_level(struct clk_hw *hw,
 {
 	int level;
 
+	if (!vdd_data->num_rate_max)
+		return -ENODATA;
+
 	/*
 	 * For certain PLLs, due to the limitation in the bits allocated for
 	 * programming the fractional divider, the actual rate of the PLL will

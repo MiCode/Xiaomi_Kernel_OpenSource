@@ -133,6 +133,21 @@ do {\
 } while (0)
 #endif
 
+#define ADSPRPC_ERR(fmt, args...)\
+	pr_err("Error: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+#define ADSPRPC_INFO(fmt, args...)\
+	pr_info("Info: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+#define ADSPRPC_WARN(fmt, args...)\
+	pr_warn("Warning: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+#define ADSPRPC_DEBUG(fmt, args...)\
+	pr_debug("Debug: adsprpc (%d): %s: %s: " fmt, __LINE__,\
+	current->comm, __func__, ##args)
+
+#define DEBUG_PRINT_SIZE_LIMIT (512*1024)
+
 #define remote_arg64_t    union remote_arg64
 
 struct remote_buf64 {
@@ -216,6 +231,7 @@ struct fastrpc_ioctl_async_response {
 enum fastrpc_invoke2_type {
 	FASTRPC_INVOKE2_ASYNC		   = 1,
 	FASTRPC_INVOKE2_ASYNC_RESPONSE = 2,
+	FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS,
 };
 
 struct fastrpc_ioctl_invoke2 {
@@ -343,6 +359,27 @@ struct fastrpc_ioctl_mem_unmap {
 		struct fastrpc_mem_unmap um;
 		int reserved[UNMAP_RESERVED_NUM];
 	};
+};
+
+/*
+ * This enum is shared with DSP. So, existing values should NOT
+ * be modified. Only new members can be added.
+ */
+enum dsp_map_flags {
+	/* Add memory to static PD pool, protection thru XPU */
+	ADSP_MMAP_HEAP_ADDR = 4,
+
+	/* Add memory to static PD pool, protection thru hypervisor */
+	ADSP_MMAP_REMOTE_HEAP_ADDR = 8,
+
+	/* Add memory to userPD pool, for user heap */
+	ADSP_MMAP_ADD_PAGES = 0x1000,
+
+	/* Add memory to userPD pool, for LLC heap */
+	ADSP_MMAP_ADD_PAGES_LLC = 0x3000,
+
+	/* Map persistent header buffer on DSP */
+	ADSP_MMAP_PERSIST_HDR = 0x4000,
 };
 
 struct fastrpc_ioctl_perf {			/* kernel performance data */

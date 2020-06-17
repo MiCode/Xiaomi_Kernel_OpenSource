@@ -70,6 +70,12 @@ config_show(struct device *dev, struct device_attribute *attr, char *buf)
 	buf_temp = kzalloc(buf_size, GFP_KERNEL);
 	buf_hyst = kzalloc(buf_size, GFP_KERNEL);
 	buf_trip = kzalloc(buf_size, GFP_KERNEL);
+	if (!buf_trip || !buf_hyst || !buf_temp) {
+		kfree(buf_temp);
+		kfree(buf_hyst);
+		kfree(buf_trip);
+		return -ENOMEM;
+	}
 	for (i = 0; i < tz->trips; i++) {
 		buf_offset = scnprintf(buf_trip + buf_offset,
 				buf_size - buf_offset, "%d ", i);

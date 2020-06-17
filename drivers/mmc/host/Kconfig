@@ -1022,7 +1022,7 @@ config MMC_SDHCI_AM654
 
 config SDC_QTI
 	tristate "Enable QTI specific code in MMC upstream driver"
-	depends on QGKI && MMC_SDHCI_MSM
+	depends on QGKI
 	default n
 	help
 	  This configuration flag allows adding QTI code in

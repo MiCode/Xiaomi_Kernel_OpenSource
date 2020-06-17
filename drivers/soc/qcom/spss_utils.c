@@ -383,6 +383,7 @@ remove_firmware_name:
 static void spss_destroy_sysfs(struct device *dev)
 {
 
+	device_remove_file(dev, &dev_attr_apps_cmac);
 	device_remove_file(dev, &dev_attr_pbl_cmac);
 	device_remove_file(dev, &dev_attr_iar_enabled);
 	device_remove_file(dev, &dev_attr_iar_state);

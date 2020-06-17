@@ -1170,6 +1170,9 @@ const char * const vmstat_text[] = {
 	"nr_dirtied",
 	"nr_written",
 	"nr_kernel_misc_reclaimable",
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	"nr_unreclaimable_pages",
+#endif
 
 	/* enum writeback_stat_item counters */
 	"nr_dirty_threshold",

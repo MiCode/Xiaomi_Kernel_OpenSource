@@ -1462,7 +1462,7 @@ static int smd_mask_receive_interrupt(bool mask,
 	if (mask) {
 		irq_chip->irq_mask(irq_data);
 		if (cpumask)
-			irq_set_affinity(rpm->irq, cpumask);
+			irq_chip->irq_set_affinity(irq_data, cpumask, true);
 	} else {
 		irq_chip->irq_unmask(irq_data);
 	}
@@ -1481,6 +1481,8 @@ int msm_rpm_enter_sleep(bool print, const struct cpumask *cpumask)
 	if (standalone)
 		return 0;
 
+	if (probe_status)
+		return 0;
 
 	ret = smd_mask_receive_interrupt(true, cpumask);
 	if (!ret) {
@@ -1500,6 +1502,9 @@ void msm_rpm_exit_sleep(void)
 {
 
 	if (standalone)
+		return;
+
+	if (probe_status)
 		return;
 
 	smd_mask_receive_interrupt(false, NULL);
@@ -1611,11 +1616,6 @@ fail:
 	return probe_status;
 }
 
-static void qcom_smd_rpm_remove(struct rpmsg_device *rpdev)
-{
-	of_platform_depopulate(&rpdev->dev);
-}
-
 static struct rpmsg_device_id rpmsg_driver_rpm_id_table[] = {
 	{ .name	= "rpm_requests" },
 	{ },
@@ -1623,7 +1623,6 @@ static struct rpmsg_device_id rpmsg_driver_rpm_id_table[] = {
 
 static struct rpmsg_driver qcom_smd_rpm_driver = {
 	.probe = qcom_smd_rpm_probe,
-	.remove = qcom_smd_rpm_remove,
 	.callback = qcom_smd_rpm_callback,
 	.id_table = rpmsg_driver_rpm_id_table,
 	.drv  = {
@@ -1642,4 +1641,11 @@ int __init msm_rpm_driver_init(void)
 
 	return ret;
 }
+
+#ifdef MODULE
+module_init(msm_rpm_driver_init);
+#else
 postcore_initcall_sync(msm_rpm_driver_init);
+#endif
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. RPM-SMD Driver");
+MODULE_LICENSE("GPL v2");

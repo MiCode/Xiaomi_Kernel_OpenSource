@@ -327,6 +327,10 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 		dprintk(CVP_SYNX, "%s %s: cvp_wait_process_message flushed\n",
 			current->comm, __func__);
 		synx_state = SYNX_STATE_SIGNALED_CANCEL;
+	} else if (hfi_err == HFI_ERR_SESSION_STREAM_CORRUPT) {
+		dprintk(CVP_WARN, "%s %s: cvp_wait_process_msg non-fatal %d\n",
+		current->comm, __func__, hfi_err);
+		synx_state = SYNX_STATE_SIGNALED_SUCCESS;
 	} else if (hfi_err != HFI_ERR_NONE) {
 		dprintk(CVP_ERR, "%s %s: cvp_wait_process_message hfi err %d\n",
 			current->comm, __func__, hfi_err);
@@ -1008,6 +1012,30 @@ static int msm_cvp_session_stop(struct msm_cvp_inst *inst,
 
 	pr_info(CVP_DBG_TAG "Stop session: %pK session_id = %d\n",
 		"sess", inst, hash32_ptr(inst->session));
+	spin_unlock(&sq->lock);
+
+	wake_up_all(&inst->session_queue.wq);
+
+	return cvp_fence_thread_stop(inst);
+}
+
+int msm_cvp_session_queue_stop(struct msm_cvp_inst *inst)
+{
+	struct cvp_session_queue *sq;
+
+	sq = &inst->session_queue;
+
+	spin_lock(&sq->lock);
+
+	if (sq->state == QUEUE_STOP) {
+		spin_unlock(&sq->lock);
+		return 0;
+	}
+
+	sq->state = QUEUE_STOP;
+
+	dprintk(CVP_SESS, "Stop session queue: %pK session_id = %d\n",
+			inst, hash32_ptr(inst->session));
 	spin_unlock(&sq->lock);
 
 	wake_up_all(&inst->session_queue.wq);

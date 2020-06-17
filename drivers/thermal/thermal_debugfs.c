@@ -150,6 +150,8 @@ static int parse_threshold(struct thermal_zone_device *tz, char *buf_ptr,
 	int ret;
 
 	trip_buf = strnstr(buf, "trip", count);
+	if (!trip_buf)
+		return -EINVAL;
 	trip_buf_end = strnchr(trip_buf, buf_ptr + count - trip_buf, '\n');
 	if (!trip_buf_end)
 		return -EINVAL;

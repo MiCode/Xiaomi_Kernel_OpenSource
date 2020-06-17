@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/nfcinfo.h>
+#include <linux/regulator/consumer.h>
 
 #include "nfc_i2c_drv.h"
 #include "nfc_i3c_drv.h"
@@ -86,6 +87,15 @@
 #define DTS_FWDN_GPIO_STR	"qcom,sn-firm"
 #define DTS_CLKREQ_GPIO_STR	"qcom,sn-clkreq"
 #define DTS_CLKSRC_GPIO_STR	"qcom,clk-src"
+#define NFC_LDO_SUPPLY_DT_NAME	"qcom,nq-vdd-1p8"
+#define NFC_LDO_SUPPLY_NAME	"qcom,nq-vdd-1p8-supply"
+#define NFC_LDO_VOL_DT_NAME	"qcom,nq-vdd-1p8-voltage"
+#define NFC_LDO_CUR_DT_NAME	"qcom,nq-vdd-1p8-current"
+
+//as per SN1x0 datasheet
+#define NFC_VDDIO_MIN		1650000 //in uV
+#define NFC_VDDIO_MAX		1950000 //in uV
+#define NFC_CURRENT_MAX		157000 //in uA
 
 enum ese_ioctl_request {
 	/* eSE POWER ON */
@@ -163,6 +173,12 @@ struct platform_gpio {
 	unsigned int dwl_req;
 };
 
+// NFC LDO entries from DT
+struct platform_ldo {
+	int vdd_levels[2];
+	int max_current;
+};
+
 //Features specific Parameters
 struct cold_reset {
 	wait_queue_head_t read_wq;
@@ -186,12 +202,16 @@ struct nfc_dev {
 	uint8_t interface;
 	/* NFC VEN pin state */
 	bool nfc_ven_enabled;
+	bool is_vreg_enabled;
+	bool is_ese_session_active;
 	union {
 		struct i2c_dev i2c_dev;
 		struct i3c_dev i3c_dev;
 	};
 	struct platform_gpio gpio;
+	struct platform_ldo ldo;
 	struct cold_reset cold_reset;
+	struct regulator *reg;
 
 	/* read buffer*/
 	size_t kbuflen;
@@ -211,7 +231,7 @@ int nfc_dev_open(struct inode *inode, struct file *filp);
 int nfc_dev_close(struct inode *inode, struct file *filp);
 long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg);
 int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
-		 uint8_t interface);
+		 struct platform_ldo *ldo, uint8_t interface);
 int nfc_misc_probe(struct nfc_dev *nfc_dev,
 		      const struct file_operations *nfc_fops, int count,
 		      char *devname, char *classname);
@@ -220,5 +240,8 @@ int configure_gpio(unsigned int gpio, int flag);
 void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header);
 void gpio_set_ven(struct nfc_dev *nfc_dev, int value);
 int nfcc_hw_check(struct nfc_dev *nfc_dev);
+int nfc_ldo_config(struct device *dev, struct nfc_dev *nfc_dev);
+int nfc_ldo_vote(struct nfc_dev *nfc_dev);
+int nfc_ldo_unvote(struct nfc_dev *nfc_dev);
 
 #endif //_NFC_COMMON_H_

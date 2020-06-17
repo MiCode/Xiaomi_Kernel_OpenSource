@@ -78,12 +78,11 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 
 	req->client_id_valid = 1;
 	req->client_id = WLFW_CLIENT_ID;
-	req->fw_ready_enable_valid = 1;
-	req->fw_ready_enable = 1;
 	req->request_mem_enable_valid = 1;
 	req->request_mem_enable = 1;
 	req->fw_mem_ready_enable_valid = 1;
 	req->fw_mem_ready_enable = 1;
+	/* fw_ready indication is replaced by fw_init_done in HST/HSP */
 	req->fw_init_done_enable_valid = 1;
 	req->fw_init_done_enable = 1;
 	req->pin_connect_result_enable_valid = 1;
@@ -154,6 +153,18 @@ qmi_registered:
 	return ret;
 }
 
+#ifdef CONFIG_CNSS2_DEBUG
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
+}
+#else
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
+}
+#endif
+
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -212,6 +223,9 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("Sending iova starting 0x%llx with size 0x%llx\n",
 			    req->ddr_range[0].start, req->ddr_range[0].size);
 	}
+
+	req->host_build_type_valid = 1;
+	req->host_build_type = cnss_get_host_build_type();
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
@@ -1761,6 +1775,12 @@ static void cnss_wlfw_fw_mem_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 			       0, NULL);
 }
 
+/**
+ * cnss_wlfw_fw_ready_ind_cb: FW ready indication handler (Helium arch)
+ *
+ * This event is not required for HST/ HSP as FW calibration done is
+ * provided in QMI_WLFW_CAL_DONE_IND_V01
+ */
 static void cnss_wlfw_fw_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 				      struct sockaddr_qrtr *sq,
 				      struct qmi_txn *txn, const void *data)
@@ -1769,13 +1789,18 @@ static void cnss_wlfw_fw_ready_ind_cb(struct qmi_handle *qmi_wlfw,
 		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
 	struct cnss_cal_info *cal_info;
 
-	cnss_pr_dbg("Received QMI WLFW FW ready indication\n");
-
 	if (!txn) {
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
 
+	if (plat_priv->device_id == QCA6390_DEVICE_ID ||
+	    plat_priv->device_id == QCA6490_DEVICE_ID) {
+		cnss_pr_dbg("Ignore FW Ready Indication for HST/HSP");
+		return;
+	}
+
+	cnss_pr_dbg("Received QMI WLFW FW ready indication.\n");
 	cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 	if (!cal_info)
 		return;
@@ -2228,6 +2253,12 @@ int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data)
 
 	if (!plat_priv)
 		return -ENODEV;
+
+	if (test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state)) {
+		cnss_pr_err("Unexpected WLFW server arrive\n");
+		CNSS_ASSERT(0);
+		return -EINVAL;
+	}
 
 	ret = cnss_wlfw_connect_to_server(plat_priv, data);
 	if (ret < 0)

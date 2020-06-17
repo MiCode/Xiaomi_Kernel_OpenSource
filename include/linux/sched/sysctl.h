@@ -34,7 +34,6 @@ extern unsigned int __weak sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS];
 extern unsigned int __weak sysctl_sched_user_hint;
 extern const int __weak sched_user_hint_max;
-extern unsigned int __weak sysctl_sched_cpu_high_irqload;
 extern unsigned int __weak sysctl_sched_boost;
 extern unsigned int __weak sysctl_sched_group_upmigrate_pct;
 extern unsigned int __weak sysctl_sched_group_downmigrate_pct;
@@ -48,8 +47,9 @@ extern unsigned int __weak sysctl_sched_task_unfilter_period;
 extern unsigned int __weak sysctl_sched_busy_hyst_enable_cpus;
 extern unsigned int __weak sysctl_sched_busy_hyst;
 extern unsigned int __weak sysctl_sched_coloc_busy_hyst_enable_cpus;
-extern unsigned int __weak sysctl_sched_coloc_busy_hyst;
+extern unsigned int __weak sysctl_sched_coloc_busy_hyst_cpu[NR_CPUS];
 extern unsigned int __weak sysctl_sched_coloc_busy_hyst_max_ms;
+extern unsigned int __weak sysctl_sched_coloc_busy_hyst_cpu_busy_pct[NR_CPUS];
 extern unsigned int __weak sysctl_sched_window_stats_policy;
 extern unsigned int __weak sysctl_sched_ravg_window_nr_ticks;
 extern unsigned int __weak sysctl_sched_many_wakeup_threshold;
@@ -76,6 +76,9 @@ sched_ravg_window_handler(struct ctl_table *table, int write,
 			loff_t *ppos);
 
 extern int sched_boost_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *lenp, loff_t *ppos);
+
+extern int sched_busy_hyst_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 #endif
 

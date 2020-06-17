@@ -25,9 +25,11 @@
 #include "vdd-level.h"
 
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NOMINAL + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NOMINAL + 1, 1, vdd_corner);
 
 static struct clk_vdd_class *gpu_cc_lahaina_regulators[] = {
 	&vdd_mx,
+	&vdd_cx,
 };
 
 enum {
@@ -49,7 +51,7 @@ static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.alpha = 0x6000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x01800000,
@@ -91,7 +93,7 @@ static const struct alpha_pll_config gpu_cc_pll1_config = {
 	.alpha = 0xAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
 	.test_ctl_val = 0x00000000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x01800000,
@@ -136,8 +138,8 @@ static const struct parent_map gpu_cc_parent_map_0[] = {
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
-static const struct clk_parent_data gpu_cc_parent_data_0_ao[] = {
-	{ .fw_name = "bi_tcxo_ao", .name = "bi_tcxo_ao" },
+static const struct clk_parent_data gpu_cc_parent_data_0[] = {
+	{ .fw_name = "bi_tcxo", .name = "bi_tcxo" },
 	{ .hw = &gpu_cc_pll0.clkr.hw },
 	{ .hw = &gpu_cc_pll1.clkr.hw },
 	{ .fw_name = "gcc_gpu_gpll0_clk_src", .name = "gcc_gpu_gpll0_clk_src" },
@@ -154,8 +156,8 @@ static const struct parent_map gpu_cc_parent_map_1[] = {
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
-static const struct clk_parent_data gpu_cc_parent_data_1_ao[] = {
-	{ .fw_name = "bi_tcxo_ao", .name = "bi_tcxo_ao" },
+static const struct clk_parent_data gpu_cc_parent_data_1[] = {
+	{ .fw_name = "bi_tcxo", .name = "bi_tcxo" },
 	{ .hw = &gpu_cc_pll1.clkr.hw },
 	{ .fw_name = "gcc_gpu_gpll0_clk_src", .name = "gcc_gpu_gpll0_clk_src" },
 	{ .fw_name = "gcc_gpu_gpll0_div_clk_src", .name =
@@ -180,10 +182,17 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_gmu_clk_src",
-		.parent_data = gpu_cc_parent_data_0_ao,
+		.parent_data = gpu_cc_parent_data_0,
 		.num_parents = 6,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
+	},
+	.clkr.vdd_data = {
+		.vdd_class = &vdd_cx,
+		.num_rate_max = VDD_NUM,
+		.rate_max = (unsigned long[VDD_NUM]) {
+			[VDD_MIN] = 200000000,
+			[VDD_LOW] = 500000000},
 	},
 };
 
@@ -204,10 +213,18 @@ static struct clk_rcg2 gpu_cc_hub_clk_src = {
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_hub_clk_src",
-		.parent_data = gpu_cc_parent_data_1_ao,
+		.parent_data = gpu_cc_parent_data_1,
 		.num_parents = 5,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
+	},
+	.clkr.vdd_data = {
+		.vdd_class = &vdd_cx,
+		.num_rate_max = VDD_NUM,
+		.rate_max = (unsigned long[VDD_NUM]) {
+			[VDD_MIN] = 150000000,
+			[VDD_LOW] = 240000000,
+			[VDD_NOMINAL] = 300000000},
 	},
 };
 
@@ -261,7 +278,7 @@ static struct clk_branch gpu_cc_ahb_clk = {
 
 static struct clk_branch gpu_cc_cb_clk = {
 	.halt_reg = 0x1170,
-	.halt_check = BRANCH_HALT_SKIP,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x1170,
 		.enable_mask = BIT(0),
@@ -305,7 +322,7 @@ static struct clk_branch gpu_cc_cx_apb_clk = {
 
 static struct clk_branch gpu_cc_cx_gmu_clk = {
 	.halt_reg = 0x1098,
-	.halt_check = BRANCH_HALT_SKIP,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x1098,
 		.enable_mask = BIT(0),

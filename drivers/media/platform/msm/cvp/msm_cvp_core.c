@@ -287,6 +287,7 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 	sq = &inst->session_queue;
 
 	max_retries =  inst->core->resources.msm_cvp_hw_rsp_timeout >> 1;
+	msm_cvp_session_queue_stop(inst);
 
 wait:
 	mutex_lock(&inst->frames.lock);

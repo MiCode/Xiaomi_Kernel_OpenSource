@@ -5045,9 +5045,8 @@ DEFINE_DEBUGFS_ATTRIBUTE(reg_set_load_fops, reg_debug_mode_get,
 static void rdev_free_qti_debugfs(struct regulator_dev *rdev)
 {
 	if (!IS_ERR_OR_NULL(rdev)) {
-		if (rdev->debug_consumer)
-			rdev->debug_consumer->debugfs = NULL;
 		regulator_put(rdev->debug_consumer);
+		rdev->debug_consumer = NULL;
 	}
 }
 
@@ -5658,11 +5657,11 @@ void regulator_unregister(struct regulator_dev *rdev)
 	}
 
 	flush_work(&rdev->disable_work.work);
+	rdev_free_qti_debugfs(rdev);
 
 	mutex_lock(&regulator_list_mutex);
 
 	debugfs_remove_recursive(rdev->debugfs);
-	rdev_free_qti_debugfs(rdev);
 	WARN_ON(rdev->open_count);
 	regulator_remove_coupling(rdev);
 	unset_regulator_supplies(rdev);

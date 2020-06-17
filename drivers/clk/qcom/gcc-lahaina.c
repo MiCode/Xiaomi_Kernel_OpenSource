@@ -3795,6 +3795,19 @@ static struct clk_branch gcc_usb30_prim_master_clk = {
 	},
 };
 
+static struct clk_branch gcc_usb30_prim_master_clk__force_mem_core_on = {
+	.halt_reg = 0xf010,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0xf010,
+		.enable_mask = BIT(14),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb30_prim_master_clk__force_mem_core_on",
+			.ops = &clk_branch_simple_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_usb30_prim_mock_utmi_clk = {
 	.halt_reg = 0xf01c,
 	.halt_check = BRANCH_HALT,
@@ -3841,6 +3854,19 @@ static struct clk_branch gcc_usb30_sec_master_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_usb30_sec_master_clk__force_mem_core_on = {
+	.halt_reg = 0x10010,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x10010,
+		.enable_mask = BIT(14),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb30_sec_master_clk__force_mem_core_on",
+			.ops = &clk_branch_simple_ops,
 		},
 	},
 };
@@ -4244,6 +4270,8 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK] =
 		&gcc_ufs_phy_unipro_core_hw_ctl_clk.clkr,
 	[GCC_USB30_PRIM_MASTER_CLK] = &gcc_usb30_prim_master_clk.clkr,
+	[GCC_USB30_PRIM_MASTER_CLK__FORCE_MEM_CORE_ON] =
+		&gcc_usb30_prim_master_clk__force_mem_core_on.clkr,
 	[GCC_USB30_PRIM_MASTER_CLK_SRC] = &gcc_usb30_prim_master_clk_src.clkr,
 	[GCC_USB30_PRIM_MOCK_UTMI_CLK] = &gcc_usb30_prim_mock_utmi_clk.clkr,
 	[GCC_USB30_PRIM_MOCK_UTMI_CLK_SRC] =
@@ -4252,6 +4280,8 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 		&gcc_usb30_prim_mock_utmi_postdiv_clk_src.clkr,
 	[GCC_USB30_PRIM_SLEEP_CLK] = &gcc_usb30_prim_sleep_clk.clkr,
 	[GCC_USB30_SEC_MASTER_CLK] = &gcc_usb30_sec_master_clk.clkr,
+	[GCC_USB30_SEC_MASTER_CLK__FORCE_MEM_CORE_ON] =
+		&gcc_usb30_sec_master_clk__force_mem_core_on.clkr,
 	[GCC_USB30_SEC_MASTER_CLK_SRC] = &gcc_usb30_sec_master_clk_src.clkr,
 	[GCC_USB30_SEC_MOCK_UTMI_CLK] = &gcc_usb30_sec_mock_utmi_clk.clkr,
 	[GCC_USB30_SEC_MOCK_UTMI_CLK_SRC] =

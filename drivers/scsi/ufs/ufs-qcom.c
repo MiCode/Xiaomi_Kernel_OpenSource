@@ -1604,6 +1604,9 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
 			UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 			UFSHCD_CAP_RPM_AUTOSUSPEND;
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+			hba->caps |= UFSHCD_CAP_WB_EN;
+#endif
 	}
 
 	if (host->hw_ver.major >= 0x2) {
@@ -2311,7 +2314,6 @@ out_disable_vddp:
 out_phy_exit:
 	phy_exit(host->generic_phy);
 out_variant_clear:
-	devm_kfree(dev, host);
 	ufshcd_set_variant(hba, NULL);
 out:
 	return err;
@@ -2778,14 +2780,17 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 
 	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
-	usleep_range(1000, 1100);
-	ufs_qcom_testbus_read(hba);
-	usleep_range(1000, 1100);
-	ufs_qcom_print_unipro_testbus(hba);
-	usleep_range(1000, 1100);
-	ufs_qcom_print_utp_hci_testbus(hba);
-	usleep_range(1000, 1100);
-	ufs_qcom_phy_dbg_register_dump(phy);
+
+	if (in_task()) {
+		usleep_range(1000, 1100);
+		ufs_qcom_testbus_read(hba);
+		usleep_range(1000, 1100);
+		ufs_qcom_print_unipro_testbus(hba);
+		usleep_range(1000, 1100);
+		ufs_qcom_print_utp_hci_testbus(hba);
+		usleep_range(1000, 1100);
+		ufs_qcom_phy_dbg_register_dump(phy);
+	}
 }
 
 /*

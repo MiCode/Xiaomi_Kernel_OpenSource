@@ -9,6 +9,18 @@
 #include <linux/list.h>
 #include <uapi/media/synx.h>
 
+/**
+ * SYNX_FLAG_GLOBAL_FENCE   : Creates a global synx object
+ *                            If flag not set, creates local synx object
+ * SYNX_FLAG_EXTERNAL_FENCE : Creates an synx object with external fence
+ */
+enum synx_flags {
+	SYNX_FLAG_GLOBAL_FENCE = 0x1,
+	SYNX_FLAG_MERGED_FENCE = 0x2,
+	SYNX_FLAG_EXTERNAL_FENCE = 0x4,
+	SYNX_FLAG_MAX = 0x8,
+};
+
 typedef void (*synx_callback)(s32 sync_obj, int status, void *data);
 
 /**
@@ -67,6 +79,7 @@ struct synx_initialization_params {
  * struct synx_create_params - Synx creation parameters
  *
  * @h_synx : Pointer to synx object handle (filled by function)
+ * @type   : Synx flags for customization
  * @name   : Optional parameter associating a name with the synx
  *           object for debug purposes
  *           Only first 64 bytes are accepted,
@@ -74,6 +87,7 @@ struct synx_initialization_params {
  */
 struct synx_create_params {
 	s32 *h_synx;
+	u32 type;
 	const char *name;
 };
 
@@ -83,10 +97,12 @@ struct synx_create_params {
  * @h_synx     : Synx object handle to export
  * @secure_key : Pointer to Key generated for authentication
  *               (filled by the function)
+ * @fence      : Pointer to dma fence for external synx object
  */
 struct synx_export_params {
 	s32 h_synx;
 	u32 *secure_key;
+	struct dma_fence *fence;
 };
 
 /**
@@ -327,6 +343,21 @@ int synx_import(struct synx_session session_id,
  */
 int synx_export(struct synx_session session_id,
 	struct synx_export_params *params);
+
+/**
+ * @brief: Get the dma fence backing the synx object
+ *
+ * Function obtains an additional reference to the fence.
+ * This reference needs to be released by the client
+ * through dma_fence_put explicitly.
+ *
+ * @param session_id : Client session id
+ * @param h_synx     : Synx object handle
+ *
+ * @return Dma fence pointer for a valid synx handle. NULL otherwise.
+ */
+struct dma_fence *synx_get_fence(struct synx_session session_id,
+	s32 h_synx);
 
 /**
  * @brief: Release the synx object

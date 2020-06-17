@@ -65,7 +65,7 @@ struct sugov_cpu {
 	unsigned int		iowait_boost;
 	u64			last_update;
 
-	struct sched_walt_cpu_load walt_load;
+	struct walt_cpu_load	walt_load;
 
 	unsigned long util;
 	unsigned int flags;
@@ -394,11 +394,11 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
 #ifdef CONFIG_SCHED_WALT
-	util = cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
+	util = cpu_util_freq_walt(sg_cpu->cpu, &sg_cpu->walt_load);
 
 	return uclamp_rq_util_with(rq, util, NULL);
 #else
-	util = cpu_util_freq(sg_cpu->cpu, NULL) + cpu_util_rt(rq);
+	util = cpu_util_cfs(rq);
 
 	return schedutil_cpu_util(sg_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
 #endif

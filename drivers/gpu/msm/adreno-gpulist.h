@@ -953,6 +953,26 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 	.protected_regs = a630_protected_regs,
 };
 
+static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_A619, 6, 1, 9, ANY_ID),
+		.compatible = "qcom,adreno-gpu-a619-holi",
+		.features =  ADRENO_PREEMPTION | ADRENO_CONTENT_PROTECTION,
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_size = SZ_512K,
+		.bus_width = 32,
+	},
+	.prim_fifo_threshold = 0x0018000,
+	.sqefw_name = "a630_sqe.fw",
+	.zap_name = "a615_zap",
+	.hwcg = a615_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a615_hwcg_regs),
+	.vbif = a615_gbif_regs,
+	.vbif_count = ARRAY_SIZE(a615_gbif_regs),
+	.hang_detect_cycles = 0x3fffff,
+	.protected_regs = a630_protected_regs,
+};
+
 static const struct adreno_reglist a620_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
@@ -1225,7 +1245,7 @@ static const struct adreno_reglist a650_hwcg_regs[] = {
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
-	{
+	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A650, 6, 5, 0, 0),
 		.features = ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
@@ -1253,7 +1273,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a650v2 = {
-	{
+	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A650, 6, 5, 0, ANY_ID),
 		.features = ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
@@ -1357,7 +1377,7 @@ static const struct adreno_reglist a612_hwcg_regs[] = {
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a612 = {
-	{
+	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A612, 6, 1, 2, ANY_ID),
 		.features = ADRENO_CONTENT_PROTECTION |
 			ADRENO_IOCOHERENT | ADRENO_PREEMPTION | ADRENO_GPMU |
@@ -1382,7 +1402,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a612 = {
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a616 = {
-	{
+	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A616, 6, 1, 6, ANY_ID),
 		.features = ADRENO_RPMH | ADRENO_PREEMPTION |
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
@@ -1409,7 +1429,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a616 = {
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a610 = {
-	{
+	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A610, 6, 1, 0, ANY_ID),
 		.features = ADRENO_CONTENT_PROTECTION |
 			ADRENO_PREEMPTION,
@@ -1523,10 +1543,11 @@ static const struct a6xx_protected_regs a660_protected_regs[] = {
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
-	{
+	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, ANY_ID),
 		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
-				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION,
+				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
+				ADRENO_IFPC,
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_base = 0,
 		.gmem_size = SZ_1M + SZ_512K,
@@ -1574,6 +1595,7 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a615.base,
 	&adreno_gpu_core_a618.base,
 	&adreno_gpu_core_a619.base,
+	&adreno_gpu_core_a619_variant.base,
 	&adreno_gpu_core_a620.base,
 	&adreno_gpu_core_a640.base,
 	&adreno_gpu_core_a650.base,

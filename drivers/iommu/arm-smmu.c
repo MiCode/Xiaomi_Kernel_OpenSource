@@ -68,9 +68,6 @@
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
 #define TLB_LOOP_INC_MAX		1000      /*1ms*/
 
-#define ARM_SMMU_IMPL_DEF1(smmu) \
-	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
-
 #define MSI_IOVA_BASE			0x8000000
 #define MSI_IOVA_LENGTH			0x100000
 
@@ -1643,13 +1640,15 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		reg |= FIELD_PREP(SCTLR_SHCFG, SCTLR_SHCFG_NSH);
 	}
 
-	if (attributes && test_bit(DOMAIN_ATTR_CB_STALL_DISABLE, attributes)) {
-		reg &= ~SCTLR_CFCFG;
-		reg |= SCTLR_HUPCF;
-	}
-
-	if (attributes && test_bit(DOMAIN_ATTR_NO_CFRE, attributes))
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, attributes))
 		reg &= ~SCTLR_CFRE;
+
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
+				   attributes))
+		reg &= ~SCTLR_CFCFG;
+
+	if (attributes && test_bit(DOMAIN_ATTR_FAULT_MODEL_HUPCF, attributes))
+		reg |= SCTLR_HUPCF;
 
 	if (!attributes || (!test_bit(DOMAIN_ATTR_S1_BYPASS, attributes) &&
 	     !test_bit(DOMAIN_ATTR_EARLY_MAP, attributes)) || !stage1)
@@ -2747,15 +2746,19 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (of_property_match_string(np, "qcom,iommu-faults",
 				     "stall-disable") >= 0)
 		__arm_smmu_domain_set_attr(domain,
-			DOMAIN_ATTR_CB_STALL_DISABLE, &attr);
+			DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAULT_MODEL_NO_CFRE, &attr);
+
+	if (of_property_match_string(np, "qcom,iommu-faults", "HUPCF") >= 0)
+		__arm_smmu_domain_set_attr(
+			domain, DOMAIN_ATTR_FAULT_MODEL_HUPCF, &attr);
 
 	if (of_property_match_string(np, "qcom,iommu-faults", "non-fatal") >= 0)
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_NON_FATAL_FAULTS, &attr);
-
-	if (of_property_match_string(np, "qcom,iommu-faults", "no-CFRE") >= 0)
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_NO_CFRE, &attr);
 
 	/* Default value: disabled */
 	ret = of_property_read_u32(np, "qcom,iommu-vmid", &val);
@@ -3620,14 +3623,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				 smmu_domain->attributes);
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_CB_STALL_DISABLE:
-		*((int *)data) = test_bit(DOMAIN_ATTR_CB_STALL_DISABLE,
-					  smmu_domain->attributes);
-		ret = 0;
-		break;
-	case DOMAIN_ATTR_NO_CFRE:
-		*((int *)data) = test_bit(DOMAIN_ATTR_NO_CFRE,
-					  smmu_domain->attributes);
+	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
+	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
+		*((int *)data) = test_bit(attr, smmu_domain->attributes);
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_SPLIT_TABLES:
@@ -3841,8 +3840,9 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		}
 		break;
 	}
-	case DOMAIN_ATTR_CB_STALL_DISABLE:
-	case DOMAIN_ATTR_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_CFRE:
+	case DOMAIN_ATTR_FAULT_MODEL_NO_STALL:
+	case DOMAIN_ATTR_FAULT_MODEL_HUPCF:
 		if (*((int *)data))
 			set_bit(attr, smmu_domain->attributes);
 		ret = 0;
@@ -4263,53 +4263,6 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 	return 0;
 }
-
-static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
-{
-	struct device *dev = smmu->dev;
-	int i, ntuples, ret;
-	u32 *tuples;
-	struct arm_smmu_impl_def_reg *regs, *regit;
-
-	if (!of_find_property(dev->of_node, "attach-impl-defs", &ntuples))
-		return 0;
-
-	ntuples /= sizeof(u32);
-	if (ntuples % 2) {
-		dev_err(dev,
-			"Invalid number of attach-impl-defs registers: %d\n",
-			ntuples);
-		return -EINVAL;
-	}
-
-	regs = devm_kmalloc(
-		dev, sizeof(*smmu->impl_def_attach_registers) * ntuples,
-		GFP_KERNEL);
-	if (!regs)
-		return -ENOMEM;
-
-	tuples = devm_kmalloc(dev, sizeof(u32) * ntuples * 2, GFP_KERNEL);
-	if (!tuples)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_array(dev->of_node, "attach-impl-defs",
-					tuples, ntuples);
-	if (ret)
-		return ret;
-
-	for (i = 0, regit = regs; i < ntuples; i += 2, ++regit) {
-		regit->offset = tuples[i];
-		regit->value = tuples[i + 1];
-	}
-
-	devm_kfree(dev, tuples);
-
-	smmu->impl_def_attach_registers = regs;
-	smmu->num_impl_def_attach_registers = ntuples / 2;
-
-	return 0;
-}
-
 
 static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)
 {
@@ -4905,10 +4858,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		goto out_power_off;
 
 	err = arm_smmu_handoff_cbs(smmu);
-	if (err)
-		goto out_power_off;
-
-	err = arm_smmu_parse_impl_def_registers(smmu);
 	if (err)
 		goto out_power_off;
 

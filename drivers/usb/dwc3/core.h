@@ -325,6 +325,7 @@
 #define DWC3_GUSB3PIPECTL_DEP1P2P3_EN	DWC3_GUSB3PIPECTL_DEP1P2P3(1)
 #define DWC3_GUSB3PIPECTL_DEPOCHANGE	BIT(18)
 #define DWC3_GUSB3PIPECTL_SUSPHY	BIT(17)
+#define DWC3_GUSB3PIPECTL_P3EXSIGP2	BIT(10)
 #define DWC3_GUSB3PIPECTL_LFPSFILT	BIT(9)
 #define DWC3_GUSB3PIPECTL_RX_DETOPOLL	BIT(8)
 #define DWC3_GUSB3PIPECTL_TX_DEEPH_MASK	DWC3_GUSB3PIPECTL_TX_DEEPH(3)
@@ -1116,6 +1117,7 @@ struct dwc3_scratchpad_array {
  * 	2	- No de-emphasis
  * 	3	- Reserved
  * @dis_metastability_quirk: set to disable metastability quirk.
+ * @ssp_u3_u0_quirk: set to enable ss specific u3 to u0 quirk.
  * @err_evt_seen: previous event in queue was erratic error
  * @in_lpm: indicates if controller is in low power mode (no clocks)
  * @irq: irq number
@@ -1333,6 +1335,7 @@ struct dwc3 {
 	unsigned int		vbus_draw;
 
 	unsigned		dis_metastability_quirk:1;
+	unsigned		ssp_u3_u0_quirk:1;
 
 	u16			imod_interval;
 	u32			xhci_imod_value;

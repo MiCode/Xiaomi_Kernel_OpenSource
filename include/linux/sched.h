@@ -556,7 +556,7 @@ static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
 #endif /* CONFIG_QCOM_HYP_CORE_CTL */
 
 #ifdef CONFIG_SCHED_WALT
-extern void sched_exit(struct task_struct *p);
+extern void walt_task_dead(struct task_struct *p);
 extern int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 extern void
@@ -569,8 +569,7 @@ extern void walt_update_cluster_topology(void);
 #define RAVG_HIST_SIZE_MAX  5
 #define NUM_BUSY_BUCKETS 10
 
-/* ravg represents frequency scaled cpu-demand of tasks */
-struct ravg {
+struct walt_task_struct {
 	/*
 	 * 'mark_start' marks the beginning of an event (task waking up, task
 	 * starting to execute, task being preempted) within a window
@@ -604,21 +603,37 @@ struct ravg {
 	 *
 	 * 'demand_scaled' represents task's demand scaled to 1024
 	 */
-	u64 mark_start;
-	u32 sum, demand;
-	u32 coloc_demand;
-	u32 sum_history[RAVG_HIST_SIZE_MAX];
-	u32 *curr_window_cpu, *prev_window_cpu;
-	u32 curr_window, prev_window;
-	u32 pred_demand;
-	u8 busy_buckets[NUM_BUSY_BUCKETS];
-	u16 demand_scaled;
-	u16 pred_demand_scaled;
-	u64 active_time;
-	u64 last_win_size;
+	u64				mark_start;
+	u32				sum, demand;
+	u32				coloc_demand;
+	u32				sum_history[RAVG_HIST_SIZE_MAX];
+	u32				*curr_window_cpu, *prev_window_cpu;
+	u32				curr_window, prev_window;
+	u32				pred_demand;
+	u8				busy_buckets[NUM_BUSY_BUCKETS];
+	u16				demand_scaled;
+	u16				pred_demand_scaled;
+	u64				active_time;
+	u64				last_win_size;
+	int				boost;
+	bool				wake_up_idle;
+	bool				misfit;
+	bool				low_latency;
+	u64				boost_period;
+	u64				boost_expires;
+	u64				last_sleep_ts;
+	u32				init_load_pct;
+	u32				unfilter;
+	u64				last_wake_ts;
+	u64				last_enqueued_ts;
+	struct walt_related_thread_group __rcu	*grp;
+	struct list_head		grp_list;
+	u64				cpu_cycles;
+	cpumask_t			cpus_requested;
 };
+
 #else
-static inline void sched_exit(struct task_struct *p) { }
+static inline void walt_task_dead(struct task_struct *p) { }
 
 static inline int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
@@ -841,20 +856,7 @@ struct task_struct {
 	struct sched_rt_entity		rt;
 
 #ifdef CONFIG_SCHED_WALT
-	int boost;
-	u64 boost_period;
-	u64 boost_expires;
-	u64 last_sleep_ts;
-	bool wake_up_idle;
-	struct ravg ravg;
-	u32 init_load_pct;
-	u64 last_wake_ts;
-	u64 last_enqueued_ts;
-	struct related_thread_group *grp;
-	struct list_head grp_list;
-	u64 cpu_cycles;
-	bool misfit;
-	u32 unfilter;
+	struct walt_task_struct		wts;
 #endif
 
 #ifdef CONFIG_CGROUP_SCHED
@@ -882,9 +884,6 @@ struct task_struct {
 	int				nr_cpus_allowed;
 	const cpumask_t			*cpus_ptr;
 	cpumask_t			cpus_mask;
-#ifdef CONFIG_SCHED_WALT
-	cpumask_t			cpus_requested;
-#endif
 
 #ifdef CONFIG_PREEMPT_RCU
 	int				rcu_read_lock_nesting;
@@ -2214,19 +2213,19 @@ const struct cpumask *sched_trace_rd_span(struct root_domain *rd);
 #define PF_WAKE_UP_IDLE	1
 static inline u32 sched_get_wake_up_idle(struct task_struct *p)
 {
-	return p->wake_up_idle;
+	return p->wts.wake_up_idle;
 }
 
 static inline int sched_set_wake_up_idle(struct task_struct *p,
 						int wake_up_idle)
 {
-	p->wake_up_idle = !!wake_up_idle;
+	p->wts.wake_up_idle = !!wake_up_idle;
 	return 0;
 }
 
 static inline void set_wake_up_idle(bool enabled)
 {
-	current->wake_up_idle = enabled;
+	current->wts.wake_up_idle = enabled;
 }
 #else
 static inline u32 sched_get_wake_up_idle(struct task_struct *p)

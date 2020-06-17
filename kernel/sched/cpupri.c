@@ -127,8 +127,10 @@ retry:
 			int cpu;
 
 			cpumask_and(lowest_mask, p->cpus_ptr, vec->mask);
+#ifdef CONFIG_SCHED_WALT
 			cpumask_andnot(lowest_mask, lowest_mask,
 				       cpu_isolated_mask);
+#endif
 			if (drop_nopreempts)
 				drop_nopreempt_cpus(lowest_mask);
 			/*

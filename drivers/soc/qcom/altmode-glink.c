@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt)	"altmode-glink: %s: " fmt, __func__
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/ktime.h>
@@ -54,6 +55,10 @@ struct usbc_write_buffer_req_msg {
  * @client_list:	Linked list head keeping track of this device's clients
  * @pan_en_sent:	Flag to ensure PAN Enable msg is sent only once
  * @send_pan_en_work:	To schedule the sending of the PAN Enable message
+ * @send_pan_ack_work:	To schedule the sending of the PAN Ack message
+ * @debugfs_dir:	Dentry for debugfs directory "altmode"
+ * @response_received:	To detect remote subsystem response failures
+ * @ack_port_index:	Port index to ack for a nonexistent client
  */
 struct altmode_dev {
 	struct device			*dev;
@@ -64,6 +69,10 @@ struct altmode_dev {
 	struct list_head		client_list;
 	atomic_t			pan_en_sent;
 	struct delayed_work		send_pan_en_work;
+	struct delayed_work		send_pan_ack_work;
+	struct dentry			*debugfs_dir;
+	struct completion		response_received;
+	u8				ack_port_index;
 };
 
 /**
@@ -107,6 +116,8 @@ struct probe_notify_node {
 static LIST_HEAD(probe_notify_list);
 static DEFINE_MUTEX(notify_lock);
 
+static void altmode_send_pan_ack(struct work_struct *work);
+
 static struct altmode_dev *to_altmode_device(struct device_node *amdev_node)
 {
 	struct platform_device *altmode_pdev;
@@ -118,10 +129,28 @@ static struct altmode_dev *to_altmode_device(struct device_node *amdev_node)
 	return NULL;
 }
 
+#define ALTMODE_WAIT_MS	1000
+static int altmode_write(struct altmode_dev *amdev, void *data, size_t len)
+{
+	int rc;
+
+	reinit_completion(&amdev->response_received);
+	rc = pmic_glink_write(amdev->pgclient, data, len);
+	if (!rc) {
+		rc = wait_for_completion_timeout(&amdev->response_received,
+				msecs_to_jiffies(ALTMODE_WAIT_MS));
+		rc = rc ? 0 : -ETIMEDOUT;
+	}
+
+	if (rc)
+		pr_err("Error in sending message: %d\n", rc);
+
+	return rc;
+}
+
 static int __altmode_send_data(struct altmode_dev *amdev, void *data,
 			       size_t len)
 {
-	int rc;
 	struct usbc_write_buffer_req_msg msg = { { 0 } };
 
 	if (len > sizeof(msg.buf)) {
@@ -136,11 +165,7 @@ static int __altmode_send_data(struct altmode_dev *amdev, void *data,
 
 	memcpy(msg.buf, data, len);
 
-	rc = pmic_glink_write(amdev->pgclient, &msg, sizeof(msg));
-	if (rc < 0)
-		pr_err("Error in sending message: %d\n", rc);
-
-	return rc;
+	return altmode_write(amdev, &msg, sizeof(msg));
 }
 
 /**
@@ -430,11 +455,11 @@ static int altmode_send_ack(struct altmode_dev *amdev, u8 port_index)
 
 	rc = __altmode_send_data(amdev, &ack, sizeof(ack));
 	if (rc < 0) {
-		pr_err("port %u: Failed to send PAN ACK\n", port_index);
+		pr_err("port %u: Failed to send PAN ACK: %d\n", port_index, rc);
 		return rc;
 	}
 
-	pr_debug("port %d: Sent PAN ACK\n", port_index);
+	pr_debug("port %u: Sent PAN ACK\n", port_index);
 
 	return rc;
 }
@@ -459,6 +484,14 @@ static void altmode_state_cb(void *priv, enum pmic_glink_state state)
 	default:
 		return;
 	}
+}
+
+static void altmode_send_pan_ack(struct work_struct *work)
+{
+	struct altmode_dev *amdev = container_of(work, struct altmode_dev,
+			send_pan_ack_work.work);
+
+	altmode_send_ack(amdev, amdev->ack_port_index);
 }
 
 #define USBC_NOTIFY_IND_MASK	GENMASK(7, 0)
@@ -490,11 +523,17 @@ static int altmode_callback(void *priv, void *data, size_t len)
 	amclient = idr_find(&amdev->client_idr, IDR_KEY_GEN(svid, port_index));
 	mutex_unlock(&amdev->client_lock);
 
-	if (op == USBC_NOTIFY_IND) {
+	switch (op) {
+	case USBC_CMD_WRITE_REQ:
+		complete(&amdev->response_received);
+		break;
+	case USBC_NOTIFY_IND:
 		if (!amclient) {
 			pr_debug("No client associated with SVID %#x port %u\n",
 					svid, port_index);
-			altmode_send_ack(amdev, port_index);
+			amdev->ack_port_index = port_index;
+			schedule_delayed_work(&amdev->send_pan_ack_work,
+					msecs_to_jiffies(20));
 			return 0;
 		}
 
@@ -502,6 +541,9 @@ static int altmode_callback(void *priv, void *data, size_t len)
 				notify_msg->payload);
 		amclient->data.callback(amclient->data.priv,
 					notify_msg->payload, len);
+		break;
+	default:
+		break;
 	}
 
 	return 0;
@@ -528,6 +570,86 @@ static void altmode_notify_clients(struct altmode_dev *amdev)
 	mutex_unlock(&notify_lock);
 }
 
+#ifdef CONFIG_QTI_PMIC_GLINK_CLIENT_DEBUG
+static int pan_en_write(void *data, u64 val)
+{
+	struct altmode_dev *amdev = data;
+
+	schedule_delayed_work(&amdev->send_pan_en_work,
+				msecs_to_jiffies(20));
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(pan_en_fops, NULL, pan_en_write, "%llu\n");
+
+static int send_ack_write(void *data, u64 val)
+{
+	int rc;
+	struct altmode_dev *amdev = data;
+	struct altmode_pan_ack_msg ack;
+
+	if (val >= MAX_NUM_PORTS)
+		return -EINVAL;
+
+	ack.cmd_type = ALTMODE_PAN_ACK;
+	ack.port_index = val;
+
+	rc = __altmode_send_data(amdev, &ack, sizeof(ack));
+	if (rc < 0) {
+		dev_err(amdev->dev, "port %d: Failed sending PAN ACK: %llu\n",
+				val, rc);
+		return rc;
+	}
+
+	dev_dbg(amdev->dev, "port %llu: Sent PAN ACK via debugfs\n", val);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(send_ack_fops, NULL, send_ack_write, "%llu\n");
+
+static int altmode_setup_debugfs(struct altmode_dev *amdev)
+{
+	int rc;
+	struct dentry *am_dir, *file;
+
+	am_dir = debugfs_create_dir("altmode", NULL);
+	if (IS_ERR(am_dir)) {
+		rc = PTR_ERR(am_dir);
+		dev_err(amdev->dev, "Failed to create altmode directory: %d\n",
+				rc);
+		return rc;
+	}
+
+	file = debugfs_create_file_unsafe("send_pan_en", 0200, am_dir, amdev,
+					  &pan_en_fops);
+	if (IS_ERR(file)) {
+		rc = PTR_ERR(file);
+		dev_err(amdev->dev, "Failed to create send_pan_en: %d\n", rc);
+		goto error;
+	}
+
+	file = debugfs_create_file_unsafe("send_pan_ack", 0200, am_dir,
+					  amdev, &send_ack_fops);
+	if (IS_ERR(file)) {
+		rc = PTR_ERR(file);
+		dev_err(amdev->dev, "Failed to create send_pan_ack: %d\n", rc);
+		goto error;
+	}
+
+	amdev->debugfs_dir = am_dir;
+
+	return 0;
+
+error:
+	debugfs_remove_recursive(am_dir);
+	return rc;
+}
+#else
+static int altmode_setup_debugfs(struct altmode_dev *amdev)
+{
+	return 0;
+}
+#endif
+
 static int altmode_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -543,7 +665,9 @@ static int altmode_probe(struct platform_device *pdev)
 
 	mutex_init(&amdev->client_lock);
 	idr_init(&amdev->client_idr);
+	init_completion(&amdev->response_received);
 	INIT_DELAYED_WORK(&amdev->send_pan_en_work, altmode_send_pan_en);
+	INIT_DELAYED_WORK(&amdev->send_pan_ack_work, altmode_send_pan_ack);
 	INIT_LIST_HEAD(&amdev->d_node);
 	INIT_LIST_HEAD(&amdev->client_list);
 
@@ -565,10 +689,18 @@ static int altmode_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, amdev);
 
+	rc = altmode_setup_debugfs(amdev);
+	if (rc < 0) {
+		dev_err(amdev->dev, "Failed to create debugfs: %d\n", rc);
+		goto unreg_pmic_glink;
+	}
+
 	altmode_notify_clients(amdev);
 
 	return 0;
 
+unreg_pmic_glink:
+	pmic_glink_unregister_client(amdev->pgclient);
 error_register:
 	idr_destroy(&amdev->client_idr);
 	return rc;
@@ -581,7 +713,10 @@ static int altmode_remove(struct platform_device *pdev)
 	struct altmode_client *client, *tmp;
 	struct probe_notify_node *npos, *ntmp;
 
+	debugfs_remove_recursive(amdev->debugfs_dir);
+
 	cancel_delayed_work_sync(&amdev->send_pan_en_work);
+	cancel_delayed_work_sync(&amdev->send_pan_ack_work);
 	idr_destroy(&amdev->client_idr);
 	atomic_set(&amdev->pan_en_sent, 0);
 

@@ -35,9 +35,12 @@ static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 	if (!ib)
 		return 0;
 
-	/* In the absence of any other settings, make ab 25% of ib */
+	/*
+	 * In the absence of any other settings, make ab 25% of ib
+	 * where the ib vote is in kbps
+	 */
 	if ((!pwr->bus_percent_ab) && (!pwr->bus_ab_mbytes))
-		return 25 * ib / 100;
+		return 25 * ib / 100000;
 
 	if (pwr->bus_width)
 		return pwr->bus_ab_mbytes;

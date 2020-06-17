@@ -119,12 +119,4 @@
 #define CAM_CC_SLOW_AHB_CLK_SRC					109
 #define CAM_CC_XO_CLK_SRC					110
 
-/* CAM_CC resets */
-#define CAM_CC_BPS_BCR						0
-#define CAM_CC_ICP_BCR						1
-#define CAM_CC_IFE_0_BCR					2
-#define CAM_CC_IFE_1_BCR					3
-#define CAM_CC_IFE_2_BCR					4
-#define CAM_CC_IPE_0_BCR					5
-
 #endif

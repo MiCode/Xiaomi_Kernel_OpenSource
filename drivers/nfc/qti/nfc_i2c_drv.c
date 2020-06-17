@@ -256,12 +256,13 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct nfc_dev *nfc_dev = NULL;
 	struct i2c_dev *i2c_dev = NULL;
 	struct platform_gpio nfc_gpio;
+	struct platform_ldo nfc_ldo;
 
 	pr_debug("%s: enter\n", __func__);
 
 	//retrieve details of gpios from dt
 
-	ret = nfc_parse_dt(&client->dev, &nfc_gpio, PLATFORM_IF_I2C);
+	ret = nfc_parse_dt(&client->dev, &nfc_gpio, &nfc_ldo, PLATFORM_IF_I2C);
 	if (ret) {
 		pr_err("%s : failed to parse dt\n", __func__);
 		goto err;
@@ -341,6 +342,12 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	i2c_disable_irq(nfc_dev);
 	i2c_set_clientdata(client, nfc_dev);
 
+	ret = nfc_ldo_config(&client->dev, nfc_dev);
+	if (ret) {
+		pr_err("LDO config failed\n");
+		goto err_ldo_config_failed;
+	}
+
 	ret = nfcc_hw_check(nfc_dev);
 	if (ret) {
 		pr_err("nfc hw check failed ret %d\n", ret);
@@ -349,11 +356,17 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	device_init_wakeup(&client->dev, true);
 	i2c_dev->irq_wake_up = false;
+	nfc_dev->is_ese_session_active = false;
 
 	pr_info("%s success\n", __func__);
 	return 0;
 
 err_nfcc_hw_check:
+	if (nfc_dev->reg) {
+		nfc_ldo_unvote(nfc_dev);
+		regulator_put(nfc_dev->reg);
+	}
+err_ldo_config_failed:
 	free_irq(client->irq, nfc_dev);
 err_nfc_misc_remove:
 	nfc_misc_remove(nfc_dev, DEV_COUNT);
@@ -386,6 +399,15 @@ int nfc_i2c_dev_remove(struct i2c_client *client)
 		ret = -ENODEV;
 		return ret;
 	}
+
+	gpio_set_value(nfc_dev->gpio.ven, 0);
+	// HW dependent delay before LDO goes into LPM mode
+	usleep_range(10000, 10100);
+	if (nfc_dev->reg) {
+		nfc_ldo_unvote(nfc_dev);
+		regulator_put(nfc_dev->reg);
+	}
+
 	device_init_wakeup(&client->dev, false);
 	free_irq(client->irq, nfc_dev);
 	nfc_misc_remove(nfc_dev, DEV_COUNT);

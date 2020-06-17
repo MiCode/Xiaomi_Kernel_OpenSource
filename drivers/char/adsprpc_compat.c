@@ -313,7 +313,7 @@ static int compat_get_fastrpc_ioctl_invoke2(
 {
 	int err = 0;
 	compat_uptr_t pparam;
-	compat_uint_t req, size;
+	compat_uint_t req, size, ref_size = 0;
 	struct fastrpc_ioctl_invoke2 __user *inv2_user = NULL;
 	struct fastrpc_ioctl_invoke_async __user *asyncinv_user;
 
@@ -362,9 +362,13 @@ static int compat_get_fastrpc_ioctl_invoke2(
 		break;
 	}
 	case FASTRPC_INVOKE2_ASYNC_RESPONSE:
+		ref_size = sizeof(struct fastrpc_ioctl_async_response);
+		/* intentional fall through */
+	case FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS:
 	{
-		VERIFY(err,
-			size == sizeof(struct fastrpc_ioctl_async_response));
+		if (!ref_size)
+			ref_size = sizeof(uint32_t);
+		VERIFY(err, size == ref_size);
 		if (err) {
 			err = -EBADE;
 			goto bail;
@@ -384,7 +388,7 @@ static int compat_get_fastrpc_ioctl_invoke2(
 		break;
 	}
 	default:
-		err = -EBADRQC;
+		err = -ENOTTY;
 		break;
 	}
 	*inva = inv2_user;
@@ -739,7 +743,7 @@ static int compat_fastrpc_get_dsp_info(struct file *filp,
 		unsigned long arg)
 {
 	struct compat_fastrpc_ioctl_capability __user *info32;
-	struct fastrpc_ioctl_capability *info;
+	struct fastrpc_ioctl_capability __user *info;
 	compat_uint_t u;
 	long ret;
 	int err = 0;
@@ -752,6 +756,10 @@ static int compat_fastrpc_get_dsp_info(struct file *filp,
 
 	err = get_user(u, &info32->domain);
 	err |= put_user(u, &info->domain);
+
+	err = get_user(u, &info32->attribute_ID);
+	err |= put_user(u, &info->attribute_ID);
+
 	if (err)
 		return err;
 
@@ -983,6 +991,6 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	case COMPAT_FASTRPC_IOCTL_MUNMAP:
 		return compat_fastrpc_mmap_device_ioctl(filp, cmd, arg);
 	default:
-		return -ENOIOCTLCMD;
+		return -ENOTTY;
 	}
 }

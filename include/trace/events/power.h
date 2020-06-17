@@ -585,6 +585,44 @@ TRACE_EVENT(bw_hwmon_update,
 		__entry->down_thres)
 );
 
+TRACE_EVENT(bw_hwmon_debug,
+
+	TP_PROTO(const char *name, unsigned long mbps, unsigned long zone,
+		 unsigned long hist_max, unsigned long hist_mem,
+		 unsigned long hyst_mbps, unsigned long hyst_len),
+
+	TP_ARGS(name, mbps, zone, hist_max, hist_mem, hyst_mbps, hyst_len),
+
+	TP_STRUCT__entry(
+		__string(name,			name)
+		__field(unsigned long,		mbps)
+		__field(unsigned long,		zone)
+		__field(unsigned long,		hist_max)
+		__field(unsigned long,		hist_mem)
+		__field(unsigned long,		hyst_mbps)
+		__field(unsigned long,		hyst_len)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->mbps = mbps;
+		__entry->zone = zone;
+		__entry->hist_max = hist_max;
+		__entry->hist_mem = hist_mem;
+		__entry->hyst_mbps = hyst_mbps;
+		__entry->hyst_len = hyst_len;
+	),
+
+	TP_printk("dev=%s mbps=%lu zone=%lu hist_max=%lu hist_mem=%lu hyst_mbps=%lu hyst_len=%lu",
+		__get_str(name),
+		__entry->mbps,
+		__entry->zone,
+		__entry->hist_max,
+		__entry->hist_mem,
+		__entry->hyst_mbps,
+		__entry->hyst_len)
+);
+
 TRACE_EVENT(cache_hwmon_meas,
 	TP_PROTO(const char *name, unsigned long high_mrps,
 		 unsigned long med_mrps, unsigned long low_mrps,

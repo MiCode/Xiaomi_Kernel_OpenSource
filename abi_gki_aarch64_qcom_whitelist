@@ -21,6 +21,7 @@
   alloc_skb_with_frags
   alloc_workqueue
   amba_bustype
+  anon_inode_getfile
   arch_bpf_jit_check_func
   __arch_clear_user
   __arch_copy_from_user
@@ -58,6 +59,7 @@
   blk_mq_init_queue
   blk_mq_quiesce_queue
   blk_mq_requeue_request
+  blk_mq_rq_cpu
   blk_mq_run_hw_queues
   blk_mq_start_request
   blk_mq_start_stopped_hw_queues
@@ -139,6 +141,7 @@
   cfg80211_connect_done
   cfg80211_del_sta_sinfo
   cfg80211_disconnected
+  cfg80211_external_auth_request
   cfg80211_ft_event
   cfg80211_get_bss
   cfg80211_gtk_rekey_notify
@@ -159,8 +162,9 @@
   __cfg80211_send_event_skb
   cfg80211_tdls_oper_request
   cfg80211_unlink_bss
+  cfg80211_update_owe_info_event
   cfg80211_vendor_cmd_reply
-  __cfi_slowpath_diag
+  __cfi_slowpath
   check_disk_change
   __check_object_size
   __class_create
@@ -308,25 +312,6 @@
   current_time
   datagram_poll
   d_drop
-  debugfs_attr_read
-  debugfs_attr_write
-  debugfs_create_atomic_t
-  debugfs_create_blob
-  debugfs_create_bool
-  debugfs_create_dir
-  debugfs_create_file
-  debugfs_create_file_unsafe
-  debugfs_create_regset32
-  debugfs_create_u16
-  debugfs_create_u32
-  debugfs_create_u64
-  debugfs_create_u8
-  debugfs_create_x32
-  debugfs_create_x8
-  debugfs_lookup
-  debugfs_print_regs32
-  debugfs_remove
-  debugfs_remove_recursive
   debug_smp_processor_id
   default_llseek
   default_wake_function
@@ -363,6 +348,7 @@
   device_add_disk
   device_connection_find_match
   device_create
+  device_create_bin_file
   device_create_file
   device_create_with_groups
   device_del
@@ -412,6 +398,7 @@
   devm_fwnode_get_index_gpiod_from_child
   devm_gpiod_get_index
   devm_gpiod_get_optional
+  devm_gpio_request
   devm_gpio_request_one
   devm_iio_channel_get
   devm_iio_device_alloc
@@ -565,6 +552,7 @@
   dma_get_slave_channel
   d_make_root
   dmam_alloc_attrs
+  dmam_free_coherent
   dma_max_mapping_size
   dma_mmap_attrs
   dma_pool_alloc
@@ -601,6 +589,7 @@
   drm_atomic_get_connector_state
   drm_atomic_get_crtc_state
   drm_atomic_get_plane_state
+  drm_atomic_get_private_obj_state
   drm_atomic_helper_check
   drm_atomic_helper_cleanup_planes
   drm_atomic_helper_commit
@@ -629,6 +618,7 @@
   drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_plane_reset
   drm_atomic_helper_prepare_planes
+  __drm_atomic_helper_private_obj_duplicate_state
   drm_atomic_helper_set_config
   drm_atomic_helper_shutdown
   drm_atomic_helper_swap_state
@@ -636,6 +626,7 @@
   drm_atomic_helper_update_plane
   drm_atomic_helper_wait_for_fences
   drm_atomic_helper_wait_for_vblanks
+  drm_atomic_private_obj_init
   drm_atomic_set_crtc_for_connector
   drm_atomic_set_fence_for_plane
   drm_atomic_set_mode_for_crtc
@@ -679,7 +670,6 @@
   drm_cvt_mode
   drm_dbg
   drm_debug
-  drm_debugfs_create_files
   drm_detect_hdmi_monitor
   drm_detect_monitor_audio
   drm_dev_alloc
@@ -716,7 +706,9 @@
   drm_dp_mst_deallocate_vcpi
   drm_dp_mst_detect_port
   drm_dp_mst_get_edid
+  drm_dp_mst_get_port_malloc
   drm_dp_mst_hpd_irq
+  drm_dp_mst_put_port_malloc
   drm_dp_mst_reset_vcpi_slots
   drm_dp_mst_topology_mgr_destroy
   drm_dp_mst_topology_mgr_init
@@ -869,6 +861,7 @@
   extcon_unregister_notifier
   fasync_helper
   fd_install
+  fget
   filemap_write_and_wait
   file_path
   filp_close
@@ -962,6 +955,7 @@
   get_unused_fd_flags
   get_user_pages
   get_vaddr_frames
+  get_vm_area
   get_zeroed_page
   gnss_allocate_device
   gnss_deregister_device
@@ -1010,6 +1004,7 @@
   hrtimer_forward
   __hrtimer_get_remaining
   hrtimer_init
+  hrtimer_init_sleeper
   hrtimer_start_range_ns
   hrtimer_try_to_cancel
   hvc_alloc
@@ -1137,6 +1132,7 @@
   ion_heap_unmap_kernel
   __ioread32_copy
   __ioremap
+  ioremap_page_range
   iounmap
   __iowrite32_copy
   ip_compute_csum
@@ -1184,6 +1180,7 @@
   jiffies_to_msecs
   jiffies_to_usecs
   kasprintf
+  kernel_bind
   kernel_connect
   kernel_getsockname
   kernel_kobj
@@ -1318,10 +1315,12 @@
   __memcpy_toio
   memdup_user
   memmove
+  memory_read_from_buffer
   memparse
   memremap
   memset
   __memset_io
+  memunmap
   memweight
   mipi_dsi_create_packet
   mipi_dsi_dcs_set_display_brightness
@@ -1330,6 +1329,7 @@
   mipi_dsi_host_unregister
   misc_deregister
   misc_register
+  mmc_cqe_request_done
   mmc_of_parse
   mmc_send_tuning
   mntget
@@ -1383,6 +1383,7 @@
   netif_napi_add
   netif_napi_del
   netif_receive_skb
+  netif_receive_skb_list
   netif_rx
   netif_rx_ni
   netif_schedule_queue
@@ -1731,6 +1732,8 @@
   qcom_scm_disable_sdi
   qcom_scm_get_sec_dump_state
   qcom_scm_halt_spmi_pmic_arbiter
+  qcom_scm_invoke_callback_response
+  qcom_scm_invoke_smc
   qcom_scm_io_readl
   qcom_scm_io_reset
   qcom_scm_io_writel
@@ -1988,7 +1991,13 @@
   scsi_scan_host
   scsi_sense_desc_find
   sdev_prefix_printk
+  __sdhci_add_host
   sdhci_add_host
+  sdhci_cqe_disable
+  sdhci_cqe_enable
+  sdhci_cqe_irq
+  sdhci_cleanup_host
+  sdhci_dumpregs
   sdhci_enable_clk
   sdhci_get_property
   sdhci_pltfm_free
@@ -1996,6 +2005,7 @@
   sdhci_remove_host
   sdhci_reset
   sdhci_set_bus_width
+  sdhci_setup_host
   search_binary_handler
   security_sock_graft
   send_sig_info
@@ -2105,20 +2115,6 @@
   skb_tstamp_tx
   sk_free
   skip_spaces
-  slim_add_device
-  slim_change_val_element
-  slim_connect_sink
-  slim_connect_src
-  slim_control_ch
-  slim_define_ch
-  slim_disconnect_ports
-  slim_driver_register
-  slim_driver_unregister
-  slim_get_logical_addr
-  slim_get_slaveport
-  slim_query_ch
-  slim_remove_device
-  slim_request_val_element
   smp_call_function
   smp_call_function_single
   snd_ctl_add
@@ -2416,6 +2412,7 @@
   unlock_new_inode
   unlock_page
   unlock_rename
+  unmap_kernel_range
   unmap_mapping_range
   unregister_binfmt
   unregister_blkdev

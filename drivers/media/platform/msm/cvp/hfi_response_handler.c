@@ -648,6 +648,7 @@ int cvp_hfi_process_msg_packet(u32 device_id, void *hdr,
 		pkt_func = (pkt_func_def)hfi_process_session_abort_done;
 		break;
 	case HFI_MSG_SESSION_CVP_FLUSH:
+	case HFI_MSG_SESSION_CVP_FLUSH_DEPRECATE:
 		pkt_func = (pkt_func_def)hfi_process_session_flush_done;
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:

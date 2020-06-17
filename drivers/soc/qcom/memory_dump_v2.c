@@ -168,8 +168,8 @@ static ssize_t core_reg_num_store(struct device *dev,
 		goto err;
 	}
 	if (val == cpudata->core_reg_num) {
-		ret = 0;
-		goto err;
+		mutex_unlock(&cpudata->mutex);
+		return size;
 	}
 
 	mutex_unlock(&cpudata->mutex);

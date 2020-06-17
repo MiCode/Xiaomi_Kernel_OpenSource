@@ -348,6 +348,9 @@ void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl)
 		}
 		spin_unlock(&mhi_tsync->lock);
 
+		if (mhi_tsync->db_response_pending)
+			complete(&mhi_tsync->db_completion);
+
 		kfree(mhi_cntrl->mhi_tsync);
 		mhi_cntrl->mhi_tsync = NULL;
 		mutex_unlock(&mhi_cntrl->tsync_mutex);
@@ -522,6 +525,12 @@ static int mhi_init_debugfs_mhi_vote_open(struct inode *inode, struct file *fp)
 	return single_open(fp, mhi_debugfs_mhi_vote_show, inode->i_private);
 }
 
+static int mhi_init_debugfs_mhi_regdump_open(struct inode *inode,
+					     struct file *fp)
+{
+	return single_open(fp, mhi_debugfs_mhi_regdump_show, inode->i_private);
+}
+
 static const struct file_operations debugfs_state_ops = {
 	.open = mhi_init_debugfs_mhi_states_open,
 	.release = single_release,
@@ -546,8 +555,17 @@ static const struct file_operations debugfs_vote_ops = {
 	.read = seq_read,
 };
 
+static const struct file_operations debugfs_regdump_ops = {
+	.open = mhi_init_debugfs_mhi_regdump_open,
+	.release = single_release,
+	.read = seq_read,
+};
+
 DEFINE_DEBUGFS_ATTRIBUTE(debugfs_trigger_reset_fops, NULL,
 			 mhi_debugfs_trigger_reset, "%llu\n");
+
+DEFINE_DEBUGFS_ATTRIBUTE(debugfs_trigger_soc_reset_fops, NULL,
+			 mhi_debugfs_trigger_soc_reset, "%llu\n");
 
 void mhi_init_debugfs(struct mhi_controller *mhi_cntrl)
 {
@@ -575,6 +593,11 @@ void mhi_init_debugfs(struct mhi_controller *mhi_cntrl)
 				   &debugfs_vote_ops);
 	debugfs_create_file_unsafe("reset", 0444, dentry, mhi_cntrl,
 				   &debugfs_trigger_reset_fops);
+	debugfs_create_file_unsafe("regdump", 0444, dentry, mhi_cntrl,
+				   &debugfs_regdump_ops);
+	debugfs_create_file_unsafe("soc_reset", 0444, dentry, mhi_cntrl,
+				   &debugfs_trigger_soc_reset_fops);
+
 	mhi_cntrl->dentry = dentry;
 }
 
@@ -1234,7 +1257,7 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			mhi_event->process_event = mhi_process_ctrl_ev_ring;
 			break;
 		case MHI_ER_TSYNC_ELEMENT_TYPE:
-			mhi_event->process_event = mhi_process_tsync_event_ring;
+			mhi_event->process_event = mhi_process_tsync_ev_ring;
 			break;
 		case MHI_ER_BW_SCALE_ELEMENT_TYPE:
 			mhi_event->process_event = mhi_process_bw_scale_ev_ring;

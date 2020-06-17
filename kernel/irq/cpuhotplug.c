@@ -42,7 +42,7 @@ static inline bool irq_needs_fixup(struct irq_data *d)
 		 * If this happens then there was a missed IRQ fixup at some
 		 * point. Warn about it and enforce fixup.
 		 */
-		pr_warn("Eff. affinity %*pbl of IRQ %u contains only offline CPUs after offlining CPU %u\n",
+		pr_info("Eff. affinity %*pbl of IRQ %u contains only offline CPUs after offlining CPU %u\n",
 			cpumask_pr_args(m), d->irq, cpu);
 		return true;
 	}
@@ -58,7 +58,9 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	const struct cpumask *affinity;
 	bool brokeaff = false;
 	int err;
+#ifdef CONFIG_SCHED_WALT
 	struct cpumask available_cpus;
+#endif
 
 	/*
 	 * IRQ chip might be already torn down, but the irq descriptor is
@@ -111,12 +113,16 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	if (maskchip && chip->irq_mask)
 		chip->irq_mask(d);
 
+#ifdef CONFIG_SCHED_WALT
 	cpumask_copy(&available_cpus, affinity);
 	cpumask_andnot(&available_cpus, &available_cpus, cpu_isolated_mask);
 	affinity = &available_cpus;
+#endif
 
 	if (cpumask_any_and(affinity, cpu_online_mask) >= nr_cpu_ids) {
+#ifdef CONFIG_SCHED_WALT
 		const struct cpumask *default_affinity;
+#endif
 
 		/*
 		 * If the interrupt is managed, then shut it down and leave
@@ -128,6 +134,7 @@ static bool migrate_one_irq(struct irq_desc *desc)
 			return false;
 		}
 
+#ifdef CONFIG_SCHED_WALT
 		default_affinity = desc->affinity_hint ? : irq_default_affinity;
 		/*
 		 * The order of preference for selecting a fallback CPU is
@@ -155,6 +162,9 @@ static bool migrate_one_irq(struct irq_desc *desc)
 		 * prepared mask while overriding the user affinity.
 		 */
 		affinity = cpumask_of(cpumask_any(affinity));
+#else
+		affinity = cpu_online_mask;
+#endif
 		brokeaff = true;
 	}
 	/*
@@ -200,7 +210,7 @@ void irq_migrate_all_off_this_cpu(void)
 		raw_spin_unlock(&desc->lock);
 
 		if (affinity_broken) {
-			pr_warn_ratelimited("IRQ %u: no longer affine to CPU%u\n",
+			pr_info_ratelimited("IRQ %u: no longer affine to CPU%u\n",
 					    irq, smp_processor_id());
 		}
 	}

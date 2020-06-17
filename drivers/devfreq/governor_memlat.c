@@ -320,7 +320,7 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 }
 
 show_attr(ratio_ceil);
-store_attr(ratio_ceil, 1U, 20000U);
+store_attr(ratio_ceil, 1U, 50000U);
 static DEVICE_ATTR_RW(ratio_ceil);
 show_attr(stall_floor);
 store_attr(stall_floor, 0U, 100U);

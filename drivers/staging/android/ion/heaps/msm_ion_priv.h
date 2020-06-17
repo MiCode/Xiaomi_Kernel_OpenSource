@@ -123,6 +123,11 @@ struct msm_ion_heap {
 	struct ion_heap ion_heap;
 };
 
+struct msm_ion_buf_lock_state {
+	bool locked;
+	int vma_count;
+};
+
 /**
  * struct ion_platform_data - array of platform heaps passed from board file
  * @nr:    number of structures in the array

@@ -38,7 +38,7 @@
  * User Space Request & Response are synchronous.
  * read() & write() operations are blocking until completed or terminated.
  */
-#define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+#define pr_fmt(fmt)	KBUILD_MODNAME ":%s: " fmt, __func__
 
 #include <linux/kernel.h>	/* min()             */
 #include <linux/module.h>	/* MODULE_LICENSE    */
@@ -454,7 +454,8 @@ static int spcom_rx(struct spcom_channel *ch,
 	mutex_lock(&ch->lock);
 
 	if (ch->rx_buf_txn_id != ch->txn_id) {
-		spcom_pr_dbg("rpmsg_rx_buf is updated in a different session\n");
+		spcom_pr_dbg("ch[%s]:ch->rx_buf_txn_id=%d is updated in a different session\n",
+			     ch->name, ch->rx_buf_txn_id);
 		if (ch->rpmsg_rx_buf) {
 			memset(ch->rpmsg_rx_buf, 0, ch->actual_rx_size);
 			kfree((void *)ch->rpmsg_rx_buf);
@@ -477,9 +478,9 @@ static int spcom_rx(struct spcom_channel *ch,
 
 		mutex_lock(&ch->lock);
 		if (timeout_msec && timeleft == 0) {
+			spcom_pr_err("ch[%s]: timeout expired %d ms, set txn_id=%d\n",
+			       ch->name, timeout_msec, ch->txn_id);
 			ch->txn_id++; /* to drop expired rx packet later */
-			spcom_pr_err("rx_done timeout expired %d ms, set txn_id=%d\n",
-			       timeout_msec, ch->txn_id);
 			ret = -ETIMEDOUT;
 			goto exit_err;
 		} else if (ch->rpmsg_abort) {
@@ -491,10 +492,10 @@ static int spcom_rx(struct spcom_channel *ch,
 			ret = -EINTR; /* abort, not restartable */
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
-			spcom_pr_dbg("actual_rx_size is [%zu], txn_id %d\n",
-				 ch->actual_rx_size, ch->txn_id);
+			spcom_pr_dbg("ch[%s]:actual_rx_size is [%zu], txn_id %d\n",
+				 ch->name, ch->actual_rx_size, ch->txn_id);
 		} else {
-			spcom_pr_err("actual_rx_size is zero\n");
+			spcom_pr_err("ch[%s]:actual_rx_size==0\n", ch->name);
 			ret = -EFAULT;
 			goto exit_err;
 		}
@@ -503,7 +504,7 @@ static int spcom_rx(struct spcom_channel *ch,
 			     ch->name, ch->actual_rx_size, ch->txn_id);
 	}
 	if (!ch->rpmsg_rx_buf) {
-		spcom_pr_err("invalid rpmsg_rx_buf\n");
+		spcom_pr_err("ch[%s]:invalid rpmsg_rx_buf\n", ch->name);
 		ret = -ENOMEM;
 		goto exit_err;
 	}
@@ -759,8 +760,11 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 		}
 		/* may fail when RX intent not queued by SP */
 		ret = rpmsg_trysend(ch->rpdev->ept, tx_buf, tx_buf_size);
-		if (ret == 0)
+		if (ret == 0) {
+			spcom_pr_dbg("ch[%s]: successfully sent txn_id=%d\n",
+				     ch->name, ch->txn_id);
 			break;
+		}
 		time_msec += TX_RETRY_DELAY_MSEC;
 		mutex_unlock(&ch->lock);
 		msleep(TX_RETRY_DELAY_MSEC);
@@ -962,7 +966,8 @@ static int spcom_handle_send_modified_command(struct spcom_channel *ch,
 	time_msec = 0;
 	do {
 		if (ch->rpmsg_abort) {
-			spcom_pr_err("ch [%s] aborted\n", ch->name);
+			spcom_pr_err("ch[%s]: aborted, txn_id=%d\n",
+				     ch->name, ch->txn_id);
 			ret = -ECANCELED;
 			break;
 		}
@@ -1321,7 +1326,8 @@ static int spcom_handle_read_req_resp(struct spcom_channel *ch,
 
 	if (ch->is_server) {
 		ch->txn_id = hdr->txn_id;
-		spcom_pr_dbg("request txn_id [0x%x]\n", ch->txn_id);
+		spcom_pr_dbg("ch[%s]:request txn_id [0x%x]\n",
+			     ch->name, ch->txn_id);
 	}
 
 	/* copy data to user without the header */
@@ -2168,7 +2174,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 			ch->actual_rx_size = 0;
 		}
 		if (!ch->is_server && (hdr->txn_id != ch->txn_id)) {
-			spcom_pr_err("ch [%s] rx dropped txn_id %d, ch->txn_id %d\n",
+			spcom_pr_err("ch [%s] client: rx dropped txn_id %d, ch->txn_id %d\n",
 				ch->name, hdr->txn_id, ch->txn_id);
 			goto rx_aborted;
 		}

@@ -1809,7 +1809,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 
 	rcu_read_lock();
 
-	cpu = cpu_rq(smp_processor_id())->rd->min_cap_orig_cpu;
+	cpu = cpu_rq(smp_processor_id())->rd->wrd.min_cap_orig_cpu;
 	if (cpu < 0)
 		goto unlock;
 

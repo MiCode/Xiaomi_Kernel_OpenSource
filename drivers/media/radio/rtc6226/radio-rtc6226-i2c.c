@@ -808,8 +808,7 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	radio->videodev.v4l2_dev = v4l2_dev;
 	radio->videodev.ioctl_ops = &rtc6226_ioctl_ops;
 	radio->videodev.device_caps = V4L2_CAP_HW_FREQ_SEEK | V4L2_CAP_READWRITE
-		| V4L2_CAP_TUNER | V4L2_CAP_RADIO | V4L2_CAP_RDS_CAPTURE |
-		V4L2_CAP_DEVICE_CAPS;
+		| V4L2_CAP_TUNER | V4L2_CAP_RADIO | V4L2_CAP_RDS_CAPTURE;
 	video_set_drvdata(&radio->videodev, radio);
 
 	/* rds buffer allocation */

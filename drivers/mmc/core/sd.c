@@ -978,8 +978,8 @@ unsigned mmc_sd_get_max_clock(struct mmc_card *card)
 	}
 #else
 	if (mmc_card_hs(card)) {
-		if (max_dtr > card->sw_caps.uhs_max_dtr)
-			max_dtr = card->sw_caps.uhs_max_dtr;
+		if (max_dtr > card->sw_caps.hs_max_dtr)
+			max_dtr = card->sw_caps.hs_max_dtr;
 	} else if (max_dtr > card->csd.max_dtr) {
 		max_dtr = card->csd.max_dtr;
 	}

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
@@ -62,6 +62,7 @@ struct pil_desc {
 	int minidump_id;
 	int *aux_minidump_ids;
 	int num_aux_minidump_ids;
+	u32 extra_size;
 };
 
 /**

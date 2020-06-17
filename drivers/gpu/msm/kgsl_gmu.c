@@ -1594,7 +1594,7 @@ static int gmu_start(struct kgsl_device *device)
 		/* Vote for minimal DDR BW for GMU to init */
 		level = pwr->pwrlevels[pwr->default_pwrlevel].bus_min;
 		icc_set_bw(pwr->icc_path, 0,
-			MBps_to_icc(pwr->ddr_table[level]));
+			kBps_to_icc(pwr->ddr_table[level]));
 
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(device, GMU_FW_START,
 				GMU_COLD_BOOT, 0);

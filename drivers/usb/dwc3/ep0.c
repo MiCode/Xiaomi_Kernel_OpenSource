@@ -199,7 +199,7 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc || !dwc->pullups_connected ||
 		!dwc->vbus_active) {
-		dev_err(dwc->dev, "%s: can't queue to disabled endpoint\n",
+		dev_err_ratelimited(dwc->dev, "%s: can't queue to disabled endpoint\n",
 				dep->name);
 		ret = -ESHUTDOWN;
 		goto out;

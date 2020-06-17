@@ -617,6 +617,7 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 	if (d->subsys_desc.no_auth)
 		return 0;
 
+	size += pil->extra_size;
 	scm_ret = qcom_scm_pas_mem_setup(d->pas_id, addr, size);
 
 	return scm_ret;
@@ -1348,6 +1349,11 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 			return rc;
 		}
 	}
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,extra-size",
+						&d->desc.extra_size);
+	if (rc)
+		d->desc.extra_size = 0;
 
 	d->dev = &pdev->dev;
 	d->desc.dev = &pdev->dev;

@@ -584,12 +584,13 @@ int nfc_i3c_dev_probe(struct i3c_device *device)
 	int ret = 0;
 	struct nfc_dev *nfc_dev = NULL;
 	struct platform_gpio nfc_gpio;
+	struct platform_ldo nfc_ldo;
 
 	pr_debug("%s: enter\n", __func__);
 
 	//retrieve gpio details from dt
 
-	ret = nfc_parse_dt(&device->dev, &nfc_gpio, PLATFORM_IF_I3C);
+	ret = nfc_parse_dt(&device->dev, &nfc_gpio, &nfc_ldo, PLATFORM_IF_I3C);
 	if (ret) {
 		pr_err("%s : failed to parse nfc dt node\n", __func__);
 		goto err;

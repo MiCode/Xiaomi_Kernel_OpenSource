@@ -18,7 +18,7 @@
 #define DSP_VM_NUM 2
 #define CVP_DSP_MAX_RESERVED 5
 #define CVP_DSP2CPU_RESERVED 8
-#define CVP_DSP_RESPONSE_TIMEOUT 1000
+#define CVP_DSP_RESPONSE_TIMEOUT 300
 #define CVP_INVALID_RPMSG_TYPE 0xBADDFACE
 
 int cvp_dsp_device_init(void);

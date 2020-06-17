@@ -639,6 +639,10 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 	if (dwc->dis_del_phy_power_chg_quirk)
 		reg &= ~DWC3_GUSB3PIPECTL_DEPOCHANGE;
 
+	if (dwc->ssp_u3_u0_quirk)
+		reg |= (DWC3_GUSB3PIPECTL_UX_EXIT_PX |
+			DWC3_GUSB3PIPECTL_P3EXSIGP2);
+
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
@@ -1403,6 +1407,8 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 
 	dwc->dis_metastability_quirk = device_property_read_bool(dev,
 				"snps,dis_metastability_quirk");
+	dwc->ssp_u3_u0_quirk = device_property_read_bool(dev,
+				"snps,ssp-u3-u0-quirk");
 
 	device_property_read_u32(dev, "snps,xhci-imod-value",
 			&dwc->xhci_imod_value);

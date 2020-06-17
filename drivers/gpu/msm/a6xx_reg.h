@@ -119,8 +119,6 @@
 #define A6XX_VSC_ADDR_MODE_CNTL          0xC01
 
 /* LPAC registers */
-#define A6XX_CP_LPAC_ROQ_THRESHOLDS_1    0xB32
-#define A6XX_CP_LPAC_ROQ_THRESHOLDS_2    0xB33
 #define A6XX_CP_LPAC_PROG_FIFO_SIZE      0xB34
 
 /* RBBM registers */
@@ -726,6 +724,7 @@
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_10       0xE26
 #define A6XX_UCHE_PERFCTR_UCHE_SEL_11       0xE27
 #define A6XX_UCHE_GBIF_GX_CONFIG            0xE3A
+#define A6XX_UCHE_CMDQ_CONFIG               0xE3C
 
 /* SP registers */
 #define A6XX_SP_ADDR_MODE_CNTL              0xAE01

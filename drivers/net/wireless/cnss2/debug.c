@@ -71,8 +71,8 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_FW_READY:
 			seq_puts(s, "FW_READY");
 			continue;
-		case CNSS_COLD_BOOT_CAL:
-			seq_puts(s, "COLD_BOOT_CAL");
+		case CNSS_IN_COLD_BOOT_CAL:
+			seq_puts(s, "IN_COLD_BOOT_CAL");
 			continue;
 		case CNSS_DRIVER_LOADING:
 			seq_puts(s, "DRIVER_LOADING");
@@ -112,6 +112,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_IN_REBOOT:
 			seq_puts(s, "IN_REBOOT");
+			continue;
+		case CNSS_COLD_BOOT_CAL_DONE:
+			seq_puts(s, "COLD_BOOT_CAL_DONE");
 			continue;
 		}
 
@@ -750,6 +753,7 @@ static const struct file_operations cnss_dynamic_feature_fops = {
 	.llseek = seq_lseek,
 };
 
+#ifdef CONFIG_DEBUG_FS
 #ifdef CONFIG_CNSS2_DEBUG
 static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
 {
@@ -806,6 +810,17 @@ void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 {
 	debugfs_remove_recursive(plat_priv->root_dentry);
 }
+#else
+int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
+{
+	plat_priv->root_dentry = NULL;
+	return 0;
+}
+
+void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
+{
+}
+#endif
 
 int cnss_debug_init(void)
 {

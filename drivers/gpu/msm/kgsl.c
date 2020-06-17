@@ -24,6 +24,7 @@
 #include "kgsl_mmu.h"
 #include "kgsl_pool.h"
 #include "kgsl_sync.h"
+#include "kgsl_sysfs.h"
 #include "kgsl_trace.h"
 
 #ifndef arch_mmap_check
@@ -2590,7 +2591,8 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMFLAGS_USE_CPU_MAP
 			| KGSL_MEMFLAGS_SECURE
 			| KGSL_MEMFLAGS_FORCE_32BIT
-			| KGSL_MEMFLAGS_IOCOHERENT;
+			| KGSL_MEMFLAGS_IOCOHERENT
+			| KGSL_MEMFLAGS_GUARD_PAGE;
 
 	kgsl_memdesc_init(dev_priv->device, &entry->memdesc, param->flags);
 	if (param->type == KGSL_USER_MEM_TYPE_ADDR)
@@ -3269,7 +3271,8 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		| KGSL_MEMFLAGS_USE_CPU_MAP
 		| KGSL_MEMFLAGS_SECURE
 		| KGSL_MEMFLAGS_FORCE_32BIT
-		| KGSL_MEMFLAGS_IOCOHERENT;
+		| KGSL_MEMFLAGS_IOCOHERENT
+		| KGSL_MEMFLAGS_GUARD_PAGE;
 
 	/* Return not supported error if secure memory isn't enabled */
 	if (!kgsl_mmu_is_secured(mmu) &&
@@ -4733,6 +4736,50 @@ static void _unregister_device(struct kgsl_device *device)
 	mutex_unlock(&kgsl_driver.devlock);
 }
 
+/* sysfs_ops for the /sys/kernel/gpu kobject */
+static ssize_t kgsl_gpu_sysfs_attr_show(struct kobject *kobj,
+		struct attribute *__attr, char *buf)
+{
+	struct kgsl_gpu_sysfs_attr *attr = container_of(__attr,
+		struct kgsl_gpu_sysfs_attr, attr);
+	struct kgsl_device *device = container_of(kobj,
+			struct kgsl_device, gpu_sysfs_kobj);
+
+	if (attr->show)
+		return attr->show(device, buf);
+
+	return -EIO;
+}
+
+static ssize_t kgsl_gpu_sysfs_attr_store(struct kobject *kobj,
+		struct attribute *__attr, const char *buf, size_t count)
+{
+	struct kgsl_gpu_sysfs_attr *attr = container_of(__attr,
+		struct kgsl_gpu_sysfs_attr, attr);
+	struct kgsl_device *device = container_of(kobj,
+			struct kgsl_device, gpu_sysfs_kobj);
+
+	if (attr->store)
+		return attr->store(device, buf, count);
+
+	return -EIO;
+}
+
+/* Dummy release function - we have nothing to do here */
+static void kgsl_gpu_sysfs_release(struct kobject *kobj)
+{
+}
+
+static const struct sysfs_ops kgsl_gpu_sysfs_ops = {
+	.show = kgsl_gpu_sysfs_attr_show,
+	.store = kgsl_gpu_sysfs_attr_store,
+};
+
+static struct kobj_type kgsl_gpu_sysfs_ktype = {
+	.sysfs_ops = &kgsl_gpu_sysfs_ops,
+	.release = kgsl_gpu_sysfs_release,
+};
+
 static int _register_device(struct kgsl_device *device)
 {
 	static u64 dma_mask = DMA_BIT_MASK(64);
@@ -4773,6 +4820,10 @@ static int _register_device(struct kgsl_device *device)
 
 	device->dev->dma_mask = &dma_mask;
 	set_dma_ops(device->dev, NULL);
+
+	kobject_init_and_add(&device->gpu_sysfs_kobj, &kgsl_gpu_sysfs_ktype,
+		kernel_kobj, "gpu");
+
 	return 0;
 }
 
@@ -4897,7 +4948,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	kgsl_device_snapshot_close(device);
 
-	kobject_put(device->gpu_sysfs_kobj);
+	if (device->gpu_sysfs_kobj.state_initialized)
+		kobject_del(&device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
 

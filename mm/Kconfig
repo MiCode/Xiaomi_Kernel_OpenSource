@@ -758,6 +758,16 @@ config PERCPU_STATS
 	  information includes global and per chunk statistics, which can
 	  be used to help understand percpu memory usage.
 
+config MM_STAT_UNRECLAIMABLE_PAGES
+	default y
+	depends on QGKI
+	bool "Enable counter for unreclaimable pages"
+	help
+	  Unreclaimable pages counters accounts the pages that cannot be
+	  reclaimed under memory pressure. These include mm rss and global
+	  counter. This option allows the enabling of the mm rss and global
+	  unreclaimables pages counters on QGKI systems.
+
 config HAVE_USERSPACE_LOW_MEMORY_KILLER
 	bool "Configure reclaim paths if there is a userspace LMK"
 	default n
@@ -832,3 +842,20 @@ config OOM_TASK_PRIORITY_ADJ_LIMIT
 	  before considering tasks with a lower oom_score_adj value.
 
 endmenu
+
+config PROCESS_RECLAIM
+	bool "Enable process reclaim"
+	depends on PROC_FS
+	depends on QGKI
+	default y
+	help
+	 It allows to reclaim pages of the process by /proc/pid/reclaim.
+
+	 (echo file > /proc/PID/reclaim) reclaims file-backed pages only.
+	 (echo anon > /proc/PID/reclaim) reclaims anonymous pages only.
+	 (echo all > /proc/PID/reclaim) reclaims all pages.
+
+	 (echo addr size-byte > /proc/PID/reclaim) reclaims pages in
+	 (addr, addr + size-bytes) of the process.
+
+	 Any other value is ignored.

@@ -405,6 +405,8 @@ struct sdhci_msm_host {
 	struct sdhci_msm_regs_restore regs_restore;
 };
 
+static struct sdhci_msm_host *sdhci_slot[2];
+
 static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
 
 static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
@@ -3019,6 +3021,14 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto pltfm_free;
 
+	if (pdev->dev.of_node) {
+		ret = of_alias_get_id(pdev->dev.of_node, "sdhc");
+		if (ret <= 0)
+			dev_err(&pdev->dev, "get slot index failed %d\n", ret);
+		else if (ret <= 2)
+			sdhci_slot[ret-1] = msm_host;
+	}
+
 	/*
 	 * Based on the compatible string, load the required msm host info from
 	 * the data associated with the version info.
@@ -3214,8 +3224,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
-
-	msm_host->pltfm_init_done = true;
+	msm_host->mmc->caps |= MMC_CAP_NEED_RSP_BUSY;
 
 #if defined(CONFIG_SDC_QTI)
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
@@ -3232,6 +3241,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto pm_runtime_disable;
 	sdhci_msm_set_regulator_caps(msm_host);
+
+	/*
+	 * Ensure larger discard size by setting max_busy_timeout.
+	 * This has to set only after sdhci_add_host so that our
+	 * value won't be over-written.
+	 */
+	host->mmc->max_busy_timeout = 0;
+
+	/*
+	 * Set platfm_init_done only after sdhci_add_host().
+	 * So that we don't turn off vqmmc while we reset sdhc as
+	 * part of sdhci_add_host().
+	 */
+	msm_host->pltfm_init_done = true;
 
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);

@@ -146,13 +146,17 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 {
 	int i, num_parents = clk_hw_get_num_parents(hw);
 	struct clk_hw *hw_clk = clk_hw_get_parent(hw);
+	struct clk_hw *clk_parent;
 	const char *parent;
 
 	if (!hw_clk)
 		return 0;
 
 	for (i = 0; i < num_parents; i++) {
-		parent = clk_hw_get_name(clk_hw_get_parent_by_index(hw, i));
+		clk_parent = clk_hw_get_parent_by_index(hw, i);
+		if (!clk_parent)
+			return 0;
+		parent = clk_hw_get_name(clk_parent);
 		if (!strcmp(parent, clk_hw_get_name(hw_clk))) {
 			pr_debug("%s: clock parent - %s, index %d\n", __func__,
 				parent, i);

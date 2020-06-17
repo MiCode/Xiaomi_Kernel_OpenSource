@@ -27,7 +27,13 @@
 #include <soc/qcom/secure_buffer.h>
 #include <uapi/linux/mem-buf.h>
 
+#include "mem-buf-private.h"
+
+#define CREATE_TRACE_POINTS
+#include "trace-mem-buf.h"
+
 #define MEM_BUF_MAX_DEVS 1
+#define MEM_BUF_MHP_ALIGNMENT (1UL << SUBSECTION_SHIFT)
 #define MEM_BUF_TIMEOUT_MS 2000
 #define to_rmt_msg(_work) container_of(_work, struct mem_buf_rmt_msg, work)
 
@@ -55,23 +61,6 @@ static void *mem_buf_hh_msgq_hdl;
 static unsigned char mem_buf_capability;
 
 /**
- * enum mem_buf_msg_type: Message types used by the membuf driver for
- * communication.
- * @MEM_BUF_ALLOC_REQ: The message is an allocation request from another VM to
- * the receiving VM
- * @MEM_BUF_ALLOC_RESP: The message is a response from a remote VM to an
- * allocation request issued by the receiving VM
- * @MEM_BUF_ALLOC_RELINQUISH: The message is a notification from another VM
- * that the receiving VM can reclaim the memory.
- */
-enum mem_buf_msg_type {
-	MEM_BUF_ALLOC_REQ,
-	MEM_BUF_ALLOC_RESP,
-	MEM_BUF_ALLOC_RELINQUISH,
-	MEM_BUF_ALLOC_REQ_MAX,
-};
-
-/**
  * struct mem_buf_txn: Represents a transaction (request/response pair) in the
  * membuf driver.
  * @txn_id: Transaction ID used to match requests and responses (i.e. a new ID
@@ -86,75 +75,6 @@ struct mem_buf_txn {
 	struct completion txn_done;
 	void *resp_buf;
 };
-
-/**
- * struct mem_buf_msg_hdr: The header for all membuf messages
- * @txn_id: The transaction ID for the message. This field is only meaningful
- * for request/response type of messages.
- * @msg_type: The type of message.
- */
-struct mem_buf_msg_hdr {
-	u32 txn_id;
-	u32 msg_type;
-} __packed;
-
-/**
- * struct mem_buf_alloc_req: The message format for a memory allocation request
- * to another VM.
- * @hdr: Message header
- * @size: The size of the memory allocation to be performed on the remote VM.
- * @src_mem_type: The type of memory that the remote VM should allocate.
- * @acl_desc: A HH ACL descriptor that describes the VMIDs that will be
- * accessing the memory, as well as what permissions each VMID will have.
- *
- * NOTE: Certain memory types require additional information for the remote VM
- * to interpret. That information should be concatenated with this structure
- * prior to sending the allocation request to the remote VM. For example,
- * with memory type ION, the allocation request message will consist of this
- * structure, as well as the mem_buf_ion_alloc_data structure.
- */
-struct mem_buf_alloc_req {
-	struct mem_buf_msg_hdr hdr;
-	u64 size;
-	u32 src_mem_type;
-	struct hh_acl_desc acl_desc;
-} __packed;
-
-/**
- * struct mem_buf_ion_alloc_data: Represents the data needed to perform
- * an ION allocation on a remote VM.
- * @heap_id: The ID of the heap to allocate from
- */
-struct mem_buf_ion_alloc_data {
-	u32 heap_id;
-} __packed;
-
-/**
- * struct mem_buf_alloc_resp: The message format for a memory allocation
- * request response.
- * @hdr: Message header
- * @ret: Return code from remote VM
- * @hdl: The memparcel handle associated with the memory allocated to the
- * receiving VM. This field is only meaningful if the allocation on the remote
- * VM was carried out successfully, as denoted by @ret.
- */
-struct mem_buf_alloc_resp {
-	struct mem_buf_msg_hdr hdr;
-	s32 ret;
-	u32 hdl;
-} __packed;
-
-/**
- * struct mem_buf_alloc_relinquish: The message format for a notification
- * that the current VM has relinquished access to the memory lent to it by
- * another VM.
- * @hdr: Message header
- * @hdl: The memparcel handle associated with the memory.
- */
-struct mem_buf_alloc_relinquish {
-	struct mem_buf_msg_hdr hdr;
-	u32 hdl;
-} __packed;
 
 /* Data structures for maintaining memory shared to other VMs */
 static struct device *mem_buf_dev;
@@ -188,8 +108,10 @@ struct mem_buf_rmt_msg {
  * @hdl: The memparcel handle associated with the memory
  * @entry: List entry for maintaining a list of memory buffers that are lent
  * out.
- * @acl_desc: A HH ACL descriptor that describes the VMIDs that have access to
- * the memory, as well as the permissions each VMID has.
+ * @nr_acl_entries: The number of VMIDs and permissions associated with the
+ * memory
+ * @dst_vmids: The VMIDs that have access to the memory
+ * @dst_perms: The access permissions for the VMIDs that can access the memory
  */
 struct mem_buf_xfer_mem {
 	size_t size;
@@ -199,7 +121,9 @@ struct mem_buf_xfer_mem {
 	bool secure_alloc;
 	hh_memparcel_handle_t hdl;
 	struct list_head entry;
-	struct hh_acl_desc acl_desc;
+	u32 nr_acl_entries;
+	int *dst_vmids;
+	int *dst_perms;
 };
 
 /**
@@ -248,6 +172,26 @@ struct mem_buf_xfer_ion_mem {
 	struct dma_buf_attachment *attachment;
 };
 
+/**
+ * struct mem_buf_export: Represents a dmabuf that has been exported to other
+ * VM(s).
+ * @dmabuf: The dmabuf that was exported to other VM(s)
+ * @attachment: The dma-buf attachment for @dmabuf
+ * @mem_sgt: The SG-Table for the dmabuf that was exported.
+ * @nr_vmids: The number of VMIDs that have access to the memory that was
+ * exported.
+ * @dst_vmids: The VMIDs of the VMs that have access to the buffer.
+ * @filp: A file structure that corresponds to the buffer that was exported.
+ */
+struct mem_buf_export {
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attachment;
+	struct sg_table *mem_sgt;
+	unsigned int nr_vmids;
+	int *dst_vmids;
+	struct file *filp;
+};
+
 static int mem_buf_init_txn(struct mem_buf_txn *txn, void *resp_buf)
 {
 	int ret;
@@ -275,6 +219,8 @@ static int mem_buf_msg_send(void *msg, size_t msg_size)
 	if (ret < 0)
 		pr_err("%s: failed to send allocation request rc: %d\n",
 		       __func__, ret);
+	else
+		pr_debug("%s: alloc request sent\n", __func__);
 
 	return ret;
 }
@@ -283,10 +229,16 @@ static int mem_buf_txn_wait(struct mem_buf_txn *txn)
 {
 	int ret;
 
+	pr_debug("%s: waiting for allocation response\n", __func__);
 	ret = wait_for_completion_timeout(&txn->txn_done,
 					  msecs_to_jiffies(MEM_BUF_TIMEOUT_MS));
-	if (ret == 0)
+	if (ret == 0) {
+		pr_err("%s: timed out waiting for allocation response\n",
+		       __func__);
 		return -ETIMEDOUT;
+	} else {
+		pr_debug("%s: alloc response received\n", __func__);
+	}
 
 	return txn->txn_ret;
 }
@@ -308,14 +260,14 @@ static int mem_buf_rmt_alloc_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 	struct mem_buf_xfer_ion_mem *ion_mem_data = xfer_mem->mem_type_data;
 	int ion_flags = 0, flag;
 	int heap_id = ion_mem_data->heap_id;
-	u32 nr_acl_entries = xfer_mem->acl_desc.n_acl_entries;
-	struct hh_acl_entry *acl_entries = xfer_mem->acl_desc.acl_entries;
+	u32 nr_acl_entries = xfer_mem->nr_acl_entries;
 
+	pr_debug("%s: Starting ION allocation\n", __func__);
 	if (msm_ion_heap_is_secure(heap_id)) {
 		xfer_mem->secure_alloc = true;
 		ion_flags |= ION_FLAG_SECURE;
 		for (i = 0; i < nr_acl_entries; i++) {
-			flag = get_ion_flags(acl_entries[i].vmid);
+			flag = get_ion_flags(xfer_mem->dst_vmids[i]);
 			if (flag < 0)
 				return flag;
 			ion_flags |= flag;
@@ -353,6 +305,7 @@ static int mem_buf_rmt_alloc_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 	ion_mem_data->attachment = attachment;
 	xfer_mem->mem_sgt = mem_sgt;
 
+	pr_debug("%s: ION allocation complete\n", __func__);
 	return 0;
 }
 
@@ -373,9 +326,11 @@ static void mem_buf_rmt_free_ion_mem(struct mem_buf_xfer_mem *xfer_mem)
 	struct dma_buf_attachment *attachment = ion_mem_data->attachment;
 	struct sg_table *mem_sgt = xfer_mem->mem_sgt;
 
+	pr_debug("%s: Freeing ION memory\n", __func__);
 	dma_buf_unmap_attachment(attachment, mem_sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(dmabuf, attachment);
 	dma_buf_put(ion_mem_data->dmabuf);
+	pr_debug("%s: ION memory freed\n", __func__);
 }
 
 static void mem_buf_rmt_free_mem(struct mem_buf_xfer_mem *xfer_mem)
@@ -391,114 +346,127 @@ static int mem_buf_hh_acl_desc_to_vmid_perm_list(struct hh_acl_desc *acl_desc,
 	u32 nr_acl_entries = acl_desc->n_acl_entries;
 	unsigned int i;
 
-	if (!vmids && !perms)
+	if (!vmids || !perms)
 		return -EINVAL;
 
-	if (vmids) {
-		vmids_arr = kmalloc_array(nr_acl_entries, sizeof(*vmids_arr),
-					  GFP_KERNEL);
-		if (!vmids_arr)
-			return -ENOMEM;
+	vmids_arr = kmalloc_array(nr_acl_entries, sizeof(*vmids_arr),
+				  GFP_KERNEL);
+	if (!vmids_arr)
+		return -ENOMEM;
 
-		*vmids = vmids_arr;
+	perms_arr = kmalloc_array(nr_acl_entries, sizeof(*perms_arr),
+				  GFP_KERNEL);
+	if (!perms_arr) {
+		kfree(vmids_arr);
+		return -ENOMEM;
 	}
 
-	if (perms) {
-		perms_arr = kmalloc_array(nr_acl_entries, sizeof(*perms_arr),
-					  GFP_KERNEL);
-		if (!perms_arr) {
-			kfree(vmids_arr);
-			return -ENOMEM;
-		}
-
-		*perms = perms_arr;
-	}
+	*vmids = vmids_arr;
+	*perms = perms_arr;
 
 	for (i = 0; i < nr_acl_entries; i++) {
-		if (vmids_arr)
-			vmids_arr[i] = acl_desc->acl_entries[i].vmid;
-		if (perms_arr)
-			perms_arr[i] = acl_desc->acl_entries[i].perms;
+		vmids_arr[i] = acl_desc->acl_entries[i].vmid;
+		perms_arr[i] = acl_desc->acl_entries[i].perms;
 	}
 
 	return 0;
 }
 
-static int mem_buf_assign_mem(struct mem_buf_xfer_mem *xfer_mem)
+static int mem_buf_assign_mem(struct sg_table *sgt, int *dst_vmids,
+			      int *dst_perms, unsigned int nr_acl_entries)
 {
-	int *dst_vmids, *dst_perms;
 	u32 src_vmid = VMID_HLOS;
 	int ret;
 
-	if (!xfer_mem)
+	if (!sgt || !dst_vmids || !dst_perms || !nr_acl_entries)
 		return -EINVAL;
 
-	ret = mem_buf_hh_acl_desc_to_vmid_perm_list(&xfer_mem->acl_desc,
-						    &dst_vmids, &dst_perms);
-	if (ret < 0)
-		return ret;
-
-	ret = hyp_assign_table(xfer_mem->mem_sgt, &src_vmid, 1, dst_vmids,
-			       dst_perms, xfer_mem->acl_desc.n_acl_entries);
+	pr_debug("%s: Assigning memory to target VMIDs\n", __func__);
+	ret = hyp_assign_table(sgt, &src_vmid, 1, dst_vmids, dst_perms,
+			       nr_acl_entries);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory for rmt allocation rc:%d\n",
 		       __func__, ret);
-	kfree(dst_perms);
-	kfree(dst_vmids);
+	else
+		pr_debug("%s: Memory assigned to target VMIDs\n", __func__);
+
 	return ret;
 }
 
-static int mem_buf_unassign_mem(struct mem_buf_xfer_mem *xfer_mem)
+static int mem_buf_unassign_mem(struct sg_table *sgt, int *src_vmids,
+				unsigned int nr_acl_entries)
 {
 	int dst_vmid = VMID_HLOS;
 	int dst_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-	int *src_vmids;
 	int ret;
 
-	if (!xfer_mem)
+	if (!sgt || !src_vmids || !nr_acl_entries)
 		return -EINVAL;
 
-	ret = mem_buf_hh_acl_desc_to_vmid_perm_list(&xfer_mem->acl_desc,
-						    &src_vmids, NULL);
-	if (ret < 0)
-		return ret;
-
-	ret = hyp_assign_table(xfer_mem->mem_sgt, src_vmids,
-			       xfer_mem->acl_desc.n_acl_entries, &dst_vmid,
+	pr_debug("%s: Unassigning memory to HLOS\n", __func__);
+	ret = hyp_assign_table(sgt, src_vmids, nr_acl_entries, &dst_vmid,
 			       &dst_perms, 1);
 	if (ret < 0)
 		pr_err("%s: failed to assign memory from rmt allocation rc: %d\n",
 		       __func__, ret);
-	kfree(src_vmids);
+	else
+		pr_debug("%s: Unassigned memory to HLOS\n", __func__);
+
 	return ret;
 }
 
-static int mem_buf_retrieve_memparcel_hdl(struct mem_buf_xfer_mem *xfer_mem)
+static int mem_buf_retrieve_memparcel_hdl(struct sg_table *sgt,
+					  int *dst_vmids, int *dst_perms,
+					  u32 nr_acl_entries,
+					  hh_memparcel_handle_t *memparcel_hdl)
 {
 	struct hh_sgl_desc *sgl_desc;
-	unsigned int i, nr_sg_entries = xfer_mem->mem_sgt->nents;
+	struct hh_acl_desc *acl_desc;
+	unsigned int i, nr_sg_entries;
 	struct scatterlist *sg;
 	int ret;
-	size_t sgl_desc_size;
+	size_t sgl_desc_size, acl_desc_size;
 
+	if (!sgt || !dst_vmids || !dst_perms || !nr_acl_entries ||
+	    !memparcel_hdl)
+		return -EINVAL;
+
+	nr_sg_entries = sgt->nents;
 	sgl_desc_size = offsetof(struct hh_sgl_desc,
 				 sgl_entries[nr_sg_entries]);
 	sgl_desc = kzalloc(sgl_desc_size, GFP_KERNEL);
 	if (!sgl_desc)
 		return -ENOMEM;
 
+	acl_desc_size = offsetof(struct hh_acl_desc,
+				 acl_entries[nr_acl_entries]);
+	acl_desc = kzalloc(acl_desc_size, GFP_KERNEL);
+	if (!acl_desc) {
+		kfree(sgl_desc);
+		return -ENOMEM;
+	}
+
 	sgl_desc->n_sgl_entries = nr_sg_entries;
-	for_each_sg(xfer_mem->mem_sgt->sgl, sg, nr_sg_entries, i) {
+	for_each_sg(sgt->sgl, sg, nr_sg_entries, i) {
 		sgl_desc->sgl_entries[i].ipa_base = page_to_phys(sg_page(sg));
 		sgl_desc->sgl_entries[i].size = sg->length;
 	}
 
-	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL, 0,
-					&xfer_mem->acl_desc, sgl_desc, NULL,
-					&xfer_mem->hdl);
-	if (ret < 0)
-		pr_err("%s: hh_rm_mem_qcom_lookup_sgl failure rc: %d\n", ret);
+	acl_desc->n_acl_entries = nr_acl_entries;
+	for (i = 0; i < nr_acl_entries; i++) {
+		acl_desc->acl_entries[i].vmid = dst_vmids[i];
+		acl_desc->acl_entries[i].perms = dst_perms[i];
+	}
 
+
+	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL, 0, acl_desc,
+					sgl_desc, NULL, memparcel_hdl);
+	trace_lookup_sgl(sgl_desc, ret, *memparcel_hdl);
+	if (ret < 0)
+		pr_err("%s: hh_rm_mem_qcom_lookup_sgl failure rc: %d\n",
+		       __func__, ret);
+
+	kfree(acl_desc);
 	kfree(sgl_desc);
 	return ret;
 }
@@ -515,6 +483,8 @@ struct mem_buf_xfer_ion_mem *mem_buf_alloc_ion_xfer_mem_type_data(
 		return ERR_PTR(-ENOMEM);
 
 	xfer_ion_mem->heap_id = ion_data->heap_id;
+	pr_debug("%s: ION source heap ID: 0x%x\n", __func__,
+		 xfer_ion_mem->heap_id);
 	return xfer_ion_mem;
 }
 
@@ -545,35 +515,43 @@ static void mem_buf_free_xfer_mem_type_data(enum mem_buf_mem_type type,
 static
 struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 {
+	int ret;
 	struct mem_buf_xfer_mem *xfer_mem;
 	struct mem_buf_alloc_req *req = req_msg;
 	u32 nr_acl_entries = req->acl_desc.n_acl_entries;
-	size_t xfer_mem_size = offsetof(struct mem_buf_xfer_mem,
-					acl_desc.acl_entries[nr_acl_entries]);
-	size_t acl_size = offsetof(struct hh_acl_desc,
-				   acl_entries[nr_acl_entries]);
 	size_t alloc_req_msg_size = offsetof(struct mem_buf_alloc_req,
 					acl_desc.acl_entries[nr_acl_entries]);
 	void *arb_payload = req_msg + alloc_req_msg_size;
 	void *mem_type_data;
 
-	xfer_mem = kzalloc(xfer_mem_size, GFP_KERNEL);
+	xfer_mem = kzalloc(sizeof(*xfer_mem), GFP_KERNEL);
 	if (!xfer_mem)
 		return ERR_PTR(-ENOMEM);
 
 	xfer_mem->size = req->size;
 	xfer_mem->mem_type = req->src_mem_type;
+	xfer_mem->nr_acl_entries = req->acl_desc.n_acl_entries;
+	ret = mem_buf_hh_acl_desc_to_vmid_perm_list(&req->acl_desc,
+						    &xfer_mem->dst_vmids,
+						    &xfer_mem->dst_perms);
+	if (ret) {
+		pr_err("%s failed to create VMID and permissions list: %d\n",
+		       __func__, ret);
+		kfree(xfer_mem);
+		return ERR_PTR(ret);
+	}
 	mem_type_data = mem_buf_alloc_xfer_mem_type_data(req->src_mem_type,
 							 arb_payload);
 	if (IS_ERR(mem_type_data)) {
 		pr_err("%s: failed to allocate mem type specific data: %d\n",
 		       __func__, PTR_ERR(mem_type_data));
+		kfree(xfer_mem->dst_vmids);
+		kfree(xfer_mem->dst_perms);
 		kfree(xfer_mem);
 		return ERR_CAST(mem_type_data);
 	}
 	xfer_mem->mem_type_data = mem_type_data;
 	INIT_LIST_HEAD(&xfer_mem->entry);
-	memcpy(&xfer_mem->acl_desc, &req->acl_desc, acl_size);
 	return xfer_mem;
 }
 
@@ -581,6 +559,8 @@ static void mem_buf_free_xfer_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	mem_buf_free_xfer_mem_type_data(xfer_mem->mem_type,
 					xfer_mem->mem_type_data);
+	kfree(xfer_mem->dst_vmids);
+	kfree(xfer_mem->dst_perms);
 	kfree(xfer_mem);
 }
 
@@ -599,12 +579,18 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 		goto err_rmt_alloc;
 
 	if (!xfer_mem->secure_alloc) {
-		ret = mem_buf_assign_mem(xfer_mem);
+		ret = mem_buf_assign_mem(xfer_mem->mem_sgt, xfer_mem->dst_vmids,
+					 xfer_mem->dst_perms,
+					 xfer_mem->nr_acl_entries);
 		if (ret < 0)
 			goto err_assign_mem;
 	}
 
-	ret = mem_buf_retrieve_memparcel_hdl(xfer_mem);
+	ret = mem_buf_retrieve_memparcel_hdl(xfer_mem->mem_sgt,
+					     xfer_mem->dst_vmids,
+					     xfer_mem->dst_perms,
+					     xfer_mem->nr_acl_entries,
+					     &xfer_mem->hdl);
 	if (ret < 0)
 		goto err_retrieve_hdl;
 
@@ -615,10 +601,13 @@ static struct mem_buf_xfer_mem *mem_buf_process_alloc_req(void *req)
 	return xfer_mem;
 
 err_retrieve_hdl:
-	if (!xfer_mem->secure_alloc && (mem_buf_unassign_mem(xfer_mem) < 0))
+	if (!xfer_mem->secure_alloc &&
+	    (mem_buf_unassign_mem(xfer_mem->mem_sgt, xfer_mem->dst_vmids,
+				 xfer_mem->nr_acl_entries) < 0))
 		return ERR_PTR(ret);
 err_assign_mem:
-	mem_buf_rmt_free_mem(xfer_mem);
+	if (ret != -EADDRNOTAVAIL)
+		mem_buf_rmt_free_mem(xfer_mem);
 err_rmt_alloc:
 	mem_buf_free_xfer_mem(xfer_mem);
 	return ERR_PTR(ret);
@@ -626,8 +615,15 @@ err_rmt_alloc:
 
 static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem)
 {
-	if (!xfer_mem->secure_alloc && (mem_buf_unassign_mem(xfer_mem) < 0))
-		return;
+	int ret;
+
+	if (!xfer_mem->secure_alloc) {
+		ret = mem_buf_unassign_mem(xfer_mem->mem_sgt,
+					   xfer_mem->dst_vmids,
+					   xfer_mem->nr_acl_entries);
+		if (ret < 0)
+			return;
+	}
 	mem_buf_rmt_free_mem(xfer_mem);
 	mem_buf_free_xfer_mem(xfer_mem);
 }
@@ -652,6 +648,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 	struct mem_buf_xfer_mem *xfer_mem;
 	int ret = 0;
 
+	trace_receive_alloc_req(req_msg);
 	resp_msg = kzalloc(sizeof(*resp_msg), GFP_KERNEL);
 	if (!resp_msg)
 		goto err_alloc_resp;
@@ -668,6 +665,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 	}
 
 	resp_msg->ret = ret;
+	trace_send_alloc_resp_msg(resp_msg);
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, resp_msg, sizeof(*resp_msg), 0);
 
 	/*
@@ -683,6 +681,8 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		list_del(&xfer_mem->entry);
 		mutex_unlock(&mem_buf_xfer_mem_list_lock);
 		mem_buf_cleanup_alloc_req(xfer_mem);
+	} else {
+		pr_debug("%s: Allocation response sent\n", __func__);
 	}
 
 err_alloc_resp:
@@ -697,6 +697,7 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	struct mem_buf_alloc_relinquish *relinquish_msg = rmt_msg->msg;
 	hh_memparcel_handle_t hdl = relinquish_msg->hdl;
 
+	trace_receive_relinquish_msg(relinquish_msg);
 	mutex_lock(&mem_buf_xfer_mem_list_lock);
 	list_for_each_entry_safe(xfer_mem_iter, tmp, &mem_buf_xfer_mem_list,
 				 entry)
@@ -729,6 +730,7 @@ static int mem_buf_decode_alloc_resp(struct mem_buf_txn *txn, void *buf,
 		return -EINVAL;
 	}
 
+	trace_receive_alloc_resp_msg(alloc_resp);
 	if (alloc_resp->ret < 0)
 		pr_err("%s remote allocation failed rc: %d\n", __func__,
 		       alloc_resp->ret);
@@ -745,6 +747,7 @@ static void mem_buf_process_msg(void *buf, size_t size)
 	struct mem_buf_rmt_msg *rmt_msg;
 	work_func_t work_fn;
 
+	pr_debug("%s: mem-buf message received\n", __func__);
 	if (size < sizeof(*hdr)) {
 		pr_err("%s: message received is not of a proper size: 0x%lx\n",
 		       __func__, size);
@@ -867,6 +870,7 @@ static void *mem_buf_construct_alloc_req(struct mem_buf_desc *membuf,
 	mem_buf_populate_alloc_req_arb_payload(arb_payload, membuf->src_data,
 					       membuf->src_mem_type);
 
+	trace_send_alloc_req(req);
 	return req_buf;
 }
 
@@ -923,6 +927,7 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 	msg->hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH;
 	msg->hdl = membuf->memparcel_hdl;
 
+	trace_send_relinquish_msg(msg);
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, msg, sizeof(*msg), 0);
 
 	/*
@@ -934,48 +939,75 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 	if (ret < 0)
 		pr_err("%s failed to send memory relinquish message rc: %d\n",
 		       __func__, ret);
+	else
+		pr_debug("%s: allocation relinquish message sent\n", __func__);
 }
 
-static int mem_buf_map_mem_s2(struct mem_buf_desc *membuf)
+static struct hh_sgl_desc *mem_buf_map_mem_s2(
+					hh_memparcel_handle_t memparcel_hdl,
+					struct hh_acl_desc *acl_desc)
 {
-	int ret = 0;
 	struct hh_sgl_desc *sgl_desc;
-	u32 xfer_type = mem_buf_get_mem_xfer_type(membuf->acl_desc);
 
-	sgl_desc = hh_rm_mem_accept(membuf->memparcel_hdl,
-				    HH_RM_MEM_TYPE_NORMAL, xfer_type,
+	if (!acl_desc)
+		return ERR_PTR(-EINVAL);
+
+	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
+	sgl_desc = hh_rm_mem_accept(memparcel_hdl, HH_RM_MEM_TYPE_NORMAL,
+				    mem_buf_get_mem_xfer_type(acl_desc),
 				    HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-				    HH_RM_MEM_ACCEPT_DONE, 0, membuf->acl_desc,
-				    NULL, NULL, 0);
+				    HH_RM_MEM_ACCEPT_DONE, 0, acl_desc, NULL,
+				    NULL, 0);
 	if (IS_ERR(sgl_desc)) {
-		ret = PTR_ERR(sgl_desc);
 		pr_err("%s failed to map memory in stage 2 rc: %d\n", __func__,
 		       PTR_ERR(sgl_desc));
-	} else {
-		membuf->sgl_desc = sgl_desc;
+		return sgl_desc;
 	}
+
+	trace_map_mem_s2(memparcel_hdl, sgl_desc);
+	return sgl_desc;
+}
+
+static int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl)
+{
+	int ret;
+
+	pr_debug("%s: removing CPU MMU stage 2 mappings\n", __func__);
+	ret = hh_rm_mem_release(memparcel_hdl, HH_RM_MEM_RELEASE_CLEAR);
+
+	if (ret < 0)
+		pr_err("%s: Failed to release memparcel hdl: 0x%lx rc: %d\n",
+		       __func__, memparcel_hdl, ret);
+	else
+		pr_debug("%s: CPU MMU stage 2 mappings removed\n", __func__);
 
 	return ret;
 }
 
-static void mem_buf_unmap_mem_s2(struct mem_buf_desc *membuf)
-{
-	hh_rm_mem_release(membuf->memparcel_hdl, HH_RM_MEM_RELEASE_CLEAR);
-	kfree(membuf->sgl_desc);
-}
-
-static int mem_buf_map_mem_s1(struct mem_buf_desc *membuf)
+#ifdef CONFIG_MEMORY_HOTPLUG
+static int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
 {
 	int i, ret;
 	unsigned int nid;
 	u64 base, size;
 	struct mhp_restrictions restrictions = {};
 
+	if (!sgl_desc)
+		return -EINVAL;
+
+	pr_debug("%s: Creating CPU MMU stage 1 mappings\n", __func__);
 	mem_hotplug_begin();
 
-	for (i = 0; i < membuf->sgl_desc->n_sgl_entries; i++) {
-		base = membuf->sgl_desc->sgl_entries[i].ipa_base;
-		size = membuf->sgl_desc->sgl_entries[i].size;
+	for (i = 0; i < sgl_desc->n_sgl_entries; i++) {
+		base = sgl_desc->sgl_entries[i].ipa_base;
+		size = sgl_desc->sgl_entries[i].size;
+		if (!IS_ALIGNED(base, MEM_BUF_MHP_ALIGNMENT) ||
+		    !IS_ALIGNED(size, MEM_BUF_MHP_ALIGNMENT)) {
+			ret = -EINVAL;
+			pr_err("%s: IPA base: 0x%lx or size: 0x%lx not aligned properly\n",
+			       __func__, base, size);
+			goto err_add_mem;
+		}
 		nid = memory_add_physaddr_to_nid(base);
 		memblock_add_node(base, size, nid);
 		ret = arch_add_memory(nid, base, size, &restrictions);
@@ -987,12 +1019,13 @@ static int mem_buf_map_mem_s1(struct mem_buf_desc *membuf)
 	}
 
 	mem_hotplug_done();
+	pr_debug("%s: CPU MMU stage 1 mappings created\n", __func__);
 	return 0;
 
 err_add_mem:
 	for (i = i - 1; i >= 0; i--) {
-		base = membuf->sgl_desc->sgl_entries[i].ipa_base;
-		size = membuf->sgl_desc->sgl_entries[i].size;
+		base = sgl_desc->sgl_entries[i].ipa_base;
+		size = sgl_desc->sgl_entries[i].size;
 		nid = memory_add_physaddr_to_nid(base);
 		arch_remove_memory(nid, base, size, NULL);
 		memblock_remove(base, size);
@@ -1001,24 +1034,51 @@ err_add_mem:
 	mem_hotplug_done();
 	return ret;
 }
-
-static void mem_buf_unmap_mem_s1(struct mem_buf_desc *membuf)
+#else /* CONFIG_MEMORY_HOTPLUG */
+static inline int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
 {
+	return -EINVAL;
+}
+#endif /* CONFIG_MEMORY_HOTPLUG */
+
+#ifdef CONFIG_MEMORY_HOTREMOVE
+static int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
+{
+	int ret;
 	unsigned int i, nid;
 	u64 base, size;
 
+	if (!sgl_desc)
+		return -EINVAL;
+
+	pr_debug("%s: Removing CPU MMU stage 1 mappings\n", __func__);
 	mem_hotplug_begin();
 
-	for (i = 0; i < membuf->sgl_desc->n_sgl_entries; i++) {
-		base = membuf->sgl_desc->sgl_entries[i].ipa_base;
-		size = membuf->sgl_desc->sgl_entries[i].size;
+	for (i = 0; i < sgl_desc->n_sgl_entries; i++) {
+		base = sgl_desc->sgl_entries[i].ipa_base;
+		size = sgl_desc->sgl_entries[i].size;
 		nid = memory_add_physaddr_to_nid(base);
 		arch_remove_memory(nid, base, size, NULL);
-		memblock_remove(base, size);
+		ret = memblock_remove(base, size);
+		if (ret) {
+			pr_err("%s: memblock_remove failed rc: %d\n", __func__,
+			       ret);
+			goto out;
+		}
 	}
 
+out:
 	mem_hotplug_done();
+	if (!ret)
+		pr_debug("%s: CPU MMU stage 1 mappings removed\n", __func__);
+	return ret;
 }
+#else /* CONFIG_MEMORY_HOTREMOVE */
+static inline int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
+{
+	return -EINVAL;
+}
+#endif /* CONFIG_MEMORY_HOTREMOVE */
 
 static int mem_buf_add_ion_mem(struct sg_table *sgt, void *dst_data)
 {
@@ -1043,6 +1103,7 @@ static int mem_buf_add_mem(struct mem_buf_desc *membuf)
 	struct scatterlist *sgl;
 	u64 base, size;
 
+	pr_debug("%s: adding memory to destination\n", __func__);
 	nr_sgl_entries = membuf->sgl_desc->n_sgl_entries;
 	ret = sg_alloc_table(&sgt, nr_sgl_entries, GFP_KERNEL);
 	if (ret)
@@ -1059,6 +1120,8 @@ static int mem_buf_add_mem(struct mem_buf_desc *membuf)
 	if (ret)
 		pr_err("%s failed to add memory to destination rc: %d\n",
 		       __func__, ret);
+	else
+		pr_debug("%s: memory added to destination\n", __func__);
 
 	sg_free_table(&sgt);
 	return ret;
@@ -1087,6 +1150,7 @@ static int mem_buf_remove_mem(struct mem_buf_desc *membuf)
 	struct scatterlist *sgl;
 	u64 base, size;
 
+	pr_debug("%s: removing memory from destination\n", __func__);
 	nr_sgl_entries = membuf->sgl_desc->n_sgl_entries;
 	ret = sg_alloc_table(&sgt, nr_sgl_entries, GFP_KERNEL);
 	if (ret)
@@ -1103,6 +1167,8 @@ static int mem_buf_remove_mem(struct mem_buf_desc *membuf)
 	if (ret)
 		pr_err("%s failed to remove memory from destination rc: %d\n",
 		       __func__, ret);
+	else
+		pr_debug("%s: memory removed from destination\n", __func__);
 
 	sg_free_table(&sgt);
 	return ret;
@@ -1114,12 +1180,18 @@ static bool is_valid_mem_buf_vmid(u32 mem_buf_vmid)
 	    (mem_buf_vmid == MEM_BUF_VMID_TRUSTED_VM))
 		return true;
 
+	pr_err_ratelimited("%s: Invalid mem-buf VMID detected\n", __func__);
 	return false;
 }
 
 static bool is_valid_mem_buf_perms(u32 mem_buf_perms)
 {
-	return !(mem_buf_perms & ~MEM_BUF_PERM_VALID_FLAGS);
+	if (mem_buf_perms & ~MEM_BUF_PERM_VALID_FLAGS) {
+		pr_err_ratelimited("%s: Invalid mem-buf permissions detected\n",
+				   __func__);
+		return false;
+	}
+	return true;
 }
 
 static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
@@ -1127,6 +1199,9 @@ static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 	int ret;
 	hh_vmid_t vmid;
 	enum hh_vm_names vm_name;
+
+	if (!is_valid_mem_buf_vmid(mem_buf_vmid))
+		return -EINVAL;
 
 	if (mem_buf_vmid == MEM_BUF_VMID_PRIMARY_VM)
 		vm_name = HH_PRIMARY_VM;
@@ -1144,6 +1219,9 @@ static int mem_buf_vmid_to_vmid(u32 mem_buf_vmid)
 static int mem_buf_perms_to_perms(u32 mem_buf_perms)
 {
 	int perms = 0;
+
+	if (!is_valid_mem_buf_perms(mem_buf_perms))
+		return -EINVAL;
 
 	if (mem_buf_perms & MEM_BUF_PERM_FLAG_READ)
 		perms |= PERM_READ;
@@ -1173,13 +1251,12 @@ static struct hh_acl_desc *mem_buf_acl_to_hh_acl(unsigned int nr_acl_entries,
 	for (i = 0; i < nr_acl_entries; i++) {
 		mem_buf_vmid = entries[i].vmid;
 		mem_buf_perms = entries[i].perms;
-		if (!is_valid_mem_buf_vmid(mem_buf_vmid) ||
-		    !is_valid_mem_buf_perms(mem_buf_perms)) {
+		vmid = mem_buf_vmid_to_vmid(mem_buf_vmid);
+		perms = mem_buf_perms_to_perms(mem_buf_perms);
+		if (vmid < 0 || perms < 0) {
 			ret = -EINVAL;
 			goto err_inv_vmid_perms;
 		}
-		vmid = mem_buf_vmid_to_vmid(mem_buf_vmid);
-		perms = mem_buf_perms_to_perms(mem_buf_perms);
 		acl_desc->acl_entries[i].vmid = vmid;
 		acl_desc->acl_entries[i].perms = perms;
 	}
@@ -1213,6 +1290,7 @@ static void *mem_buf_retrieve_mem_type_data_user(enum mem_buf_mem_type mem_type,
 static void *mem_buf_retrieve_ion_mem_type_data(
 					struct mem_buf_ion_data *mem_type_data)
 {
+	pr_debug("%s: ION heap ID: 0x%x\n", __func__, mem_type_data->heap_id);
 	return kmemdup(mem_type_data, sizeof(*mem_type_data), GFP_KERNEL);
 }
 
@@ -1250,39 +1328,60 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 
 	ret = mem_buf_remove_mem(membuf);
 	if (ret < 0)
-		return ret;
+		goto out_free_mem;
 
-	mem_buf_unmap_mem_s1(membuf);
-	mem_buf_unmap_mem_s2(membuf);
+	ret = mem_buf_unmap_mem_s1(membuf->sgl_desc);
+	if (ret < 0)
+		goto out_free_mem;
+
+	ret = mem_buf_unmap_mem_s2(membuf->memparcel_hdl);
+	if (ret < 0)
+		goto out_free_mem;
+
 	mem_buf_relinquish_mem(membuf);
+
+out_free_mem:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
+	kfree(membuf->sgl_desc);
 	kfree(membuf->acl_desc);
 	kfree(membuf);
-	return 0;
+	return ret;
 }
 
 static const struct file_operations mem_buf_fops = {
 	.release = mem_buf_buffer_release,
 };
 
+static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
+{
+	return mem_type >= MEM_BUF_ION_MEM_TYPE &&
+		mem_type < MEM_BUF_MAX_MEM_TYPE;
+}
+
 void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 {
 	int ret;
 	struct file *filp;
 	struct mem_buf_desc *membuf;
+	struct hh_sgl_desc *sgl_desc;
 
 	if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 		return ERR_PTR(-ENOTSUPP);
 
-	if (!alloc_data)
+	if (!alloc_data || !alloc_data->size || !alloc_data->nr_acl_entries ||
+	    !alloc_data->acl_list ||
+	    (alloc_data->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
+	    !is_valid_mem_type(alloc_data->src_mem_type) ||
+	    !is_valid_mem_type(alloc_data->dst_mem_type))
 		return ERR_PTR(-EINVAL);
 
 	membuf = kzalloc(sizeof(*membuf), GFP_KERNEL);
 	if (!membuf)
 		return ERR_PTR(-ENOMEM);
 
-	membuf->size = alloc_data->size;
+	pr_debug("%s: mem buf alloc begin\n", __func__);
+	membuf->size = ALIGN(alloc_data->size, MEM_BUF_MHP_ALIGNMENT);
 	membuf->acl_desc = mem_buf_acl_to_hh_acl(alloc_data->nr_acl_entries,
 						 alloc_data->acl_list);
 	if (IS_ERR(membuf->acl_desc)) {
@@ -1308,15 +1407,18 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		goto err_alloc_dst_data;
 	}
 
+	trace_mem_buf_alloc_info(membuf->size, membuf->src_mem_type,
+				 membuf->dst_mem_type, membuf->acl_desc);
 	ret = mem_buf_request_mem(membuf);
 	if (ret)
 		goto err_mem_req;
 
-	ret = mem_buf_map_mem_s2(membuf);
-	if (ret)
+	sgl_desc = mem_buf_map_mem_s2(membuf->memparcel_hdl, membuf->acl_desc);
+	if (IS_ERR(sgl_desc))
 		goto err_map_mem_s2;
+	membuf->sgl_desc = sgl_desc;
 
-	ret = mem_buf_map_mem_s1(membuf);
+	ret = mem_buf_map_mem_s1(membuf->sgl_desc);
 	if (ret)
 		goto err_map_mem_s1;
 
@@ -1335,15 +1437,18 @@ void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	list_add_tail(&membuf->entry, &mem_buf_list);
 	mutex_unlock(&mem_buf_list_lock);
 
+	pr_debug("%s: mem buf alloc success\n", __func__);
 	return membuf;
 
 err_get_file:
 	if (mem_buf_remove_mem(membuf) < 0)
-		return ERR_PTR(ret);
+		goto err_mem_req;
 err_add_mem:
-	mem_buf_unmap_mem_s1(membuf);
+	if (mem_buf_unmap_mem_s1(membuf->sgl_desc) < 0)
+		goto err_mem_req;
 err_map_mem_s1:
-	mem_buf_unmap_mem_s2(membuf);
+	if (mem_buf_unmap_mem_s2(membuf->memparcel_hdl) < 0)
+		goto err_mem_req;
 err_map_mem_s2:
 	mem_buf_relinquish_mem(membuf);
 err_mem_req:
@@ -1358,28 +1463,65 @@ err_alloc_acl_list:
 }
 EXPORT_SYMBOL(mem_buf_alloc);
 
-int mem_buf_get_fd(void *membuf_desc)
+static int _mem_buf_get_fd(struct file *filp)
 {
 	int fd;
-	struct mem_buf_desc *membuf = membuf_desc;
+
+	if (!filp)
+		return -EINVAL;
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0)
 		return fd;
 
-	fd_install(fd, membuf->filp);
+	fd_install(fd, filp);
 	return fd;
 }
+
+int mem_buf_get_fd(void *membuf_desc)
+{
+	struct mem_buf_desc *membuf = membuf_desc;
+
+	if (!membuf_desc)
+		return -EINVAL;
+
+	return _mem_buf_get_fd(membuf->filp);
+}
 EXPORT_SYMBOL(mem_buf_get_fd);
+
+static int mem_buf_get_export_fd(struct mem_buf_export *export_buf)
+{
+	return _mem_buf_get_fd(export_buf->filp);
+}
+
+static int mem_buf_get_import_fd(struct mem_buf_import *import_buf)
+{
+	return dma_buf_fd(import_buf->dmabuf, O_CLOEXEC);
+}
+
+static void _mem_buf_put(struct file *filp)
+{
+	fput(filp);
+}
 
 void mem_buf_put(void *membuf_desc)
 {
 	struct mem_buf_desc *membuf = membuf_desc;
 
 	if (membuf && membuf->filp)
-		fput(membuf->filp);
+		_mem_buf_put(membuf->filp);
 }
 EXPORT_SYMBOL(mem_buf_put);
+
+static void mem_buf_export_put(struct mem_buf_export *export_buf)
+{
+	_mem_buf_put(export_buf->filp);
+}
+
+static void mem_buf_import_put(struct mem_buf_import *import_buf)
+{
+	dma_buf_put(import_buf->dmabuf);
+}
 
 static bool is_mem_buf_file(struct file *filp)
 {
@@ -1486,23 +1628,368 @@ out:
 	return ret;
 }
 
-static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
-{
-	return mem_type >= MEM_BUF_ION_MEM_TYPE &&
-		mem_type < MEM_BUF_MAX_MEM_TYPE;
-}
+union mem_buf_ioctl_arg {
+	struct mem_buf_alloc_ioctl_arg allocation;
+	struct mem_buf_export_ioctl_arg export;
+	struct mem_buf_import_ioctl_arg import;
+};
 
-static int validate_ioctl_arg(struct mem_buf_alloc_ioctl_arg *allocation)
+static int validate_ioctl_arg(union mem_buf_ioctl_arg *arg, unsigned int cmd)
 {
-	if (!allocation->size || !allocation->nr_acl_entries ||
-	    !allocation->acl_list ||
-	    !is_valid_mem_type(allocation->src_mem_type) ||
-	    !is_valid_mem_type(allocation->dst_mem_type) ||
-	    allocation->reserved0 || allocation->reserved1 ||
-	    allocation->reserved2)
+	switch (cmd) {
+	case MEM_BUF_IOC_ALLOC:
+	{
+		struct mem_buf_alloc_ioctl_arg *allocation = &arg->allocation;
+
+		if (!allocation->size || !allocation->nr_acl_entries ||
+		    !allocation->acl_list ||
+		    (allocation->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
+		    !is_valid_mem_type(allocation->src_mem_type) ||
+		    !is_valid_mem_type(allocation->dst_mem_type) ||
+		    allocation->reserved0 || allocation->reserved1 ||
+		    allocation->reserved2)
+			return -EINVAL;
+		break;
+	}
+	case MEM_BUF_IOC_EXPORT:
+	{
+		struct mem_buf_export_ioctl_arg *export = &arg->export;
+
+		if (!export->nr_acl_entries || !export->acl_list ||
+		    export->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+		    export->reserved0 || export->reserved1 || export->reserved2)
+			return -EINVAL;
+		break;
+	}
+	case MEM_BUF_IOC_IMPORT:
+	{
+		struct mem_buf_import_ioctl_arg *import = &arg->import;
+
+		if (!import->nr_acl_entries || !import->acl_list ||
+		    import->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS ||
+		    import->reserved0 || import->reserved1 || import->reserved2)
+			return -EINVAL;
+		break;
+	}
+	default:
 		return -EINVAL;
+	}
 
 	return 0;
+}
+
+static bool mem_buf_hlos_accessible(int *vmids, u32 nr_vmids)
+{
+	int i;
+
+	if (!vmids || !nr_vmids)
+		return false;
+
+	for (i = 0; i < nr_vmids; i++)
+		if (vmids[i] == VMID_HLOS)
+			return true;
+
+	return false;
+}
+
+static int mem_buf_export_release(struct inode *inode, struct file *filp)
+{
+	int ret;
+	struct mem_buf_export *export_buf = filp->private_data;
+	bool dma_buf_freeable = true;
+
+	ret = mem_buf_unassign_mem(export_buf->mem_sgt, export_buf->dst_vmids,
+				   export_buf->nr_vmids);
+	if (ret < 0)
+		dma_buf_freeable = false;
+
+	if (!mem_buf_hlos_accessible(export_buf->dst_vmids,
+				     export_buf->nr_vmids) && dma_buf_freeable)
+		msm_ion_dma_buf_unlock(export_buf->dmabuf);
+
+	kfree(export_buf->dst_vmids);
+	if (dma_buf_freeable) {
+		dma_buf_unmap_attachment(export_buf->attachment,
+					 export_buf->mem_sgt,
+					 DMA_BIDIRECTIONAL);
+		dma_buf_detach(export_buf->dmabuf, export_buf->attachment);
+		dma_buf_put(export_buf->dmabuf);
+	}
+	kfree(export_buf);
+	return ret;
+}
+
+static const struct file_operations mem_buf_export_fops = {
+	.release = mem_buf_export_release,
+};
+
+static int mem_buf_acl_to_vmid_perms_list(unsigned int nr_acl_entries,
+					  const void __user *acl_entries,
+					  int **dst_vmids, int **dst_perms)
+{
+	int ret, i, *vmids, *perms;
+	struct acl_entry entry;
+
+	if (!nr_acl_entries || !acl_entries)
+		return -EINVAL;
+
+	vmids = kmalloc_array(nr_acl_entries, sizeof(*vmids), GFP_KERNEL);
+	if (!vmids)
+		return -ENOMEM;
+
+	perms = kmalloc_array(nr_acl_entries, sizeof(*perms), GFP_KERNEL);
+	if (!perms) {
+		kfree(vmids);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < nr_acl_entries; i++) {
+		ret = copy_struct_from_user(&entry, sizeof(entry),
+					    acl_entries + (sizeof(entry) * i),
+					    sizeof(entry));
+		if (ret < 0)
+			goto out;
+
+		vmids[i] = mem_buf_vmid_to_vmid(entry.vmid);
+		perms[i] = mem_buf_perms_to_perms(entry.perms);
+		if (vmids[i] < 0 || perms[i] < 0) {
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	*dst_vmids = vmids;
+	*dst_perms = perms;
+	return ret;
+
+out:
+	kfree(perms);
+	kfree(vmids);
+	return ret;
+}
+
+static struct mem_buf_export *mem_buf_export_dma_buf(int dma_buf_fd,
+						unsigned int nr_acl_entries,
+						const void __user *acl_entries,
+					hh_memparcel_handle_t *memparcel_hdl)
+{
+	int ret;
+	struct mem_buf_export *export_buf;
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attachment;
+	struct sg_table *sgt;
+	int *dst_vmids, *dst_perms;
+	bool dma_buf_freeable = true;
+	struct file *filp;
+	unsigned long flags = 0;
+
+	if (!nr_acl_entries || !acl_entries || !memparcel_hdl)
+		return ERR_PTR(-EINVAL);
+
+	export_buf = kmalloc(sizeof(*export_buf), GFP_KERNEL);
+	if (!export_buf)
+		return ERR_PTR(-ENOMEM);
+
+	dmabuf = dma_buf_get(dma_buf_fd);
+	if (IS_ERR(dmabuf)) {
+		pr_err_ratelimited("%s: dma_buf_get failed rc: %d\n", __func__,
+				   PTR_ERR(dmabuf));
+		ret = PTR_ERR(dmabuf);
+		goto err_dma_buf_get;
+	}
+	export_buf->dmabuf = dmabuf;
+
+	ret = dma_buf_get_flags(dmabuf, &flags);
+	if (ret < 0) {
+		pr_err_ratelimited("%s: dma_buf_get_flags failed rc: %d\n",
+				   __func__, ret);
+		goto err_dma_buf_attach;
+	} else if (!(flags & ION_FLAG_CACHED)) {
+		ret = -EINVAL;
+		pr_err_ratelimited("%s: only cached buffers can be exported\n",
+				   __func__);
+		goto err_dma_buf_attach;
+	} else if (flags & (ION_FLAG_SECURE | ION_FLAGS_CP_MASK)) {
+		ret = -EINVAL;
+		pr_err_ratelimited("%s: only non-secure allocations can be exported\n",
+				  __func__);
+		goto err_dma_buf_attach;
+	}
+
+	attachment = dma_buf_attach(dmabuf, mem_buf_dev);
+	if (IS_ERR(attachment)) {
+		pr_err_ratelimited("%s: dma_buf_attach failed rc: %d\n",
+				   __func__, PTR_ERR(attachment));
+		ret = PTR_ERR(attachment);
+		goto err_dma_buf_attach;
+	}
+	export_buf->attachment = attachment;
+
+	sgt = dma_buf_map_attachment(attachment, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		pr_err_ratelimited("%s dma_buf_map_attachment failed rc: %d\n",
+				   __func__, PTR_ERR(sgt));
+		ret = PTR_ERR(sgt);
+		goto err_map_attachment;
+	}
+	export_buf->mem_sgt = sgt;
+
+	ret = mem_buf_acl_to_vmid_perms_list(nr_acl_entries, acl_entries,
+					     &dst_vmids, &dst_perms);
+	if (ret < 0) {
+		pr_err_ratelimited("%s failed to copy ACL rc: %d\n", __func__,
+				   ret);
+		goto err_cpy_acl_entries;
+	}
+	export_buf->nr_vmids = nr_acl_entries;
+	export_buf->dst_vmids = dst_vmids;
+
+	if (!mem_buf_hlos_accessible(dst_vmids, nr_acl_entries)) {
+		ret = msm_ion_dma_buf_lock(dmabuf);
+		if (ret < 0) {
+			pr_err_ratelimited("%s failed to lock buffer rc: %d\n",
+					   __func__, ret);
+			goto err_lock_mem;
+		}
+	}
+
+	ret = mem_buf_assign_mem(sgt, dst_vmids, dst_perms, nr_acl_entries);
+	if (ret < 0) {
+		if (ret == -EADDRNOTAVAIL)
+			dma_buf_freeable = false;
+		goto err_assign_mem;
+	}
+
+	ret = mem_buf_retrieve_memparcel_hdl(sgt, dst_vmids, dst_perms,
+					     nr_acl_entries, memparcel_hdl);
+	if (ret < 0)
+		goto err_retrieve_hdl;
+
+	filp = anon_inode_getfile("membuf", &mem_buf_export_fops, export_buf,
+				  O_RDWR);
+	if (IS_ERR(filp)) {
+		ret = PTR_ERR(filp);
+		goto err_retrieve_hdl;
+	}
+	export_buf->filp = filp;
+
+	kfree(dst_perms);
+	return export_buf;
+
+err_retrieve_hdl:
+	if (mem_buf_unassign_mem(sgt, dst_vmids, nr_acl_entries) < 0)
+		dma_buf_freeable = false;
+err_assign_mem:
+	if (!mem_buf_hlos_accessible(dst_vmids, nr_acl_entries) &&
+	    dma_buf_freeable)
+		msm_ion_dma_buf_unlock(dmabuf);
+err_lock_mem:
+	kfree(dst_vmids);
+	kfree(dst_perms);
+err_cpy_acl_entries:
+	if (dma_buf_freeable)
+		dma_buf_unmap_attachment(attachment, sgt, DMA_BIDIRECTIONAL);
+err_map_attachment:
+	if (dma_buf_freeable)
+		dma_buf_detach(dmabuf, attachment);
+err_dma_buf_attach:
+	if (dma_buf_freeable)
+		dma_buf_put(dmabuf);
+err_dma_buf_get:
+	kfree(export_buf);
+	return ERR_PTR(ret);
+}
+
+static size_t mem_buf_get_sgl_buf_size(struct hh_sgl_desc *sgl_desc)
+{
+	size_t size = 0;
+	unsigned int i;
+
+	for (i = 0; i < sgl_desc->n_sgl_entries; i++)
+		size += sgl_desc->sgl_entries[i].size;
+
+	return size;
+}
+
+static struct mem_buf_import *mem_buf_import_dma_buf(
+					hh_memparcel_handle_t memparcel_hdl,
+					unsigned int nr_acl_entries,
+					const void __user *acl_list)
+{
+	int ret;
+	struct mem_buf_import *import;
+	struct hh_acl_desc *acl_desc;
+	struct hh_sgl_desc *sgl_desc;
+	struct acl_entry *k_acl_list;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+
+	if (!nr_acl_entries || !acl_list)
+		return ERR_PTR(-EINVAL);
+
+	import = kzalloc(sizeof(*import), GFP_KERNEL);
+	if (!import)
+		return ERR_PTR(-ENOMEM);
+	import->memparcel_hdl = memparcel_hdl;
+	mutex_init(&import->lock);
+	INIT_LIST_HEAD(&import->attachments);
+
+	k_acl_list = memdup_user(acl_list, sizeof(*k_acl_list) *
+				 nr_acl_entries);
+	if (IS_ERR(k_acl_list)) {
+		ret = PTR_ERR(k_acl_list);
+		goto err_out;
+	}
+
+	acl_desc = mem_buf_acl_to_hh_acl(nr_acl_entries, k_acl_list);
+	kfree(k_acl_list);
+	if (IS_ERR(acl_desc)) {
+		ret = PTR_ERR(acl_desc);
+		goto err_out;
+	}
+
+	sgl_desc = mem_buf_map_mem_s2(memparcel_hdl, acl_desc);
+	kfree(acl_desc);
+	if (IS_ERR(sgl_desc)) {
+		ret = PTR_ERR(sgl_desc);
+		goto err_out;
+	}
+	import->sgl_desc = sgl_desc;
+	import->size = mem_buf_get_sgl_buf_size(sgl_desc);
+
+	ret = mem_buf_map_mem_s1(sgl_desc);
+	if (ret < 0)
+		goto err_map_mem_s1;
+
+	exp_info.ops = &mem_buf_dma_buf_ops;
+	exp_info.size = import->size;
+	exp_info.flags = O_RDWR;
+	exp_info.priv = import;
+
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf))
+		goto err_export_dma_buf;
+	import->dmabuf = dmabuf;
+
+	return import;
+
+err_export_dma_buf:
+	mem_buf_unmap_mem_s1(sgl_desc);
+err_map_mem_s1:
+	kfree(import->sgl_desc);
+	mem_buf_unmap_mem_s2(memparcel_hdl);
+err_out:
+	kfree(import);
+	return ERR_PTR(ret);
+}
+
+void mem_buf_unimport_dma_buf(struct mem_buf_import *import_buf)
+{
+	mem_buf_unmap_mem_s1(import_buf->sgl_desc);
+	kfree(import_buf->sgl_desc);
+	mem_buf_unmap_mem_s2(import_buf->memparcel_hdl);
+	mutex_destroy(&import_buf->lock);
+	kfree(import_buf);
 }
 
 static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
@@ -1510,32 +1997,84 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 {
 	int fd;
 	unsigned int dir = _IOC_DIR(cmd);
-	struct mem_buf_alloc_ioctl_arg allocation;
+	union mem_buf_ioctl_arg ioctl_arg;
 
-	if (_IOC_SIZE(cmd) > sizeof(allocation))
+	if (_IOC_SIZE(cmd) > sizeof(ioctl_arg))
 		return -EINVAL;
 
-	if (copy_from_user(&allocation, (void __user *)arg, _IOC_SIZE(cmd)))
+	if (copy_from_user(&ioctl_arg, (void __user *)arg, _IOC_SIZE(cmd)))
 		return -EFAULT;
 
-	if (validate_ioctl_arg(&allocation) < 0)
+	if (validate_ioctl_arg(&ioctl_arg, cmd) < 0)
 		return -EINVAL;
 
 	if (!(dir & _IOC_WRITE))
-		memset(&allocation, 0, sizeof(allocation));
+		memset(&ioctl_arg, 0, sizeof(ioctl_arg));
 
 	switch (cmd) {
 	case MEM_BUF_IOC_ALLOC:
 	{
+		struct mem_buf_alloc_ioctl_arg *allocation =
+			&ioctl_arg.allocation;
+
 		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
 			return -ENOTSUPP;
 
-		fd = mem_buf_alloc_fd(&allocation);
+		fd = mem_buf_alloc_fd(allocation);
 
 		if (fd < 0)
 			return fd;
 
-		allocation.mem_buf_fd = fd;
+		allocation->mem_buf_fd = fd;
+		break;
+	}
+	case MEM_BUF_IOC_EXPORT:
+	{
+		struct mem_buf_export_ioctl_arg *export = &ioctl_arg.export;
+		u32 ret_memparcel_hdl;
+		struct mem_buf_export *export_buf;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_SUPPLIER))
+			return -ENOTSUPP;
+
+		export_buf = mem_buf_export_dma_buf(export->dma_buf_fd,
+						    export->nr_acl_entries,
+					(const void __user *)export->acl_list,
+						    &ret_memparcel_hdl);
+		if (IS_ERR(export_buf))
+			return PTR_ERR(export_buf);
+
+		fd = mem_buf_get_export_fd(export_buf);
+		if (fd < 0) {
+			mem_buf_export_put(export_buf);
+			return fd;
+		}
+
+		export->export_fd = fd;
+		export->memparcel_hdl = ret_memparcel_hdl;
+		break;
+	}
+	case MEM_BUF_IOC_IMPORT:
+	{
+		struct mem_buf_import_ioctl_arg *import = &ioctl_arg.import;
+		struct mem_buf_import *import_buf;
+
+		if (!(mem_buf_capability & MEM_BUF_CAP_CONSUMER))
+			return -ENOTSUPP;
+
+		import_buf = mem_buf_import_dma_buf(import->memparcel_hdl,
+						import->nr_acl_entries,
+					(const void __user *)import->acl_list);
+		if (IS_ERR(import_buf))
+			return PTR_ERR(import_buf);
+
+		fd = mem_buf_get_import_fd(import_buf);
+		if (fd < 0) {
+			mem_buf_import_put(import_buf);
+			return fd;
+		}
+
+		import->dma_buf_import_fd = fd;
 		break;
 	}
 	default:
@@ -1543,7 +2082,7 @@ static long mem_buf_dev_ioctl(struct file *filp, unsigned int cmd,
 	}
 
 	if (dir & _IOC_READ) {
-		if (copy_to_user((void __user *)arg, &allocation,
+		if (copy_to_user((void __user *)arg, &ioctl_arg,
 				 _IOC_SIZE(cmd)))
 			return -EFAULT;
 	}
@@ -1560,6 +2099,8 @@ static int mem_buf_probe(struct platform_device *pdev)
 	int ret;
 	struct device *dev = &pdev->dev;
 	struct device *class_dev;
+	u64 dma_mask = IS_ENABLED(CONFIG_ARM64) ? DMA_BIT_MASK(64) :
+		DMA_BIT_MASK(32);
 
 	if (of_property_match_string(dev->of_node, "qcom,mem-buf-capabilities",
 				     "supplier") >= 0) {
@@ -1577,6 +2118,12 @@ static int mem_buf_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	ret = dma_set_mask_and_coherent(dev, dma_mask);
+	if (ret) {
+		dev_err(dev, "Unable to set dma mask: %d\n", ret);
+		return ret;
+	}
+
 	mem_buf_msgq_recv_thr = kthread_create(mem_buf_msgq_recv_fn, NULL,
 					       "mem_buf_rcvr");
 	if (IS_ERR(mem_buf_msgq_recv_thr)) {
@@ -1588,7 +2135,7 @@ static int mem_buf_probe(struct platform_device *pdev)
 	mem_buf_hh_msgq_hdl = hh_msgq_register(HH_MSGQ_LABEL_MEMBUF);
 	if (IS_ERR(mem_buf_hh_msgq_hdl)) {
 		ret = PTR_ERR(mem_buf_hh_msgq_hdl);
-		if (ret != EPROBE_DEFER)
+		if (ret != -EPROBE_DEFER)
 			dev_err(dev,
 				"Message queue registration failed: rc: %d\n",
 				ret);

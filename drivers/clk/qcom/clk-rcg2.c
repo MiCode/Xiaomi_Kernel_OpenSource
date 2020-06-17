@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013, 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -451,36 +451,47 @@ static int clk_rcg2_configure(struct clk_rcg2 *rcg, const struct freq_tbl *f)
 static void clk_rcg2_list_registers(struct seq_file *f, struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	int i = 0, size = 0, val;
-
-	static struct clk_register_data data[] = {
-		{"CMD_RCGR", 0x0},
-		{"CFG_RCGR", 0x4},
-	};
+	static struct clk_register_data *data;
+	int i, val;
 
 	static struct clk_register_data data1[] = {
+		{"CMD_RCGR", 0x0},
+		{"CFG_RCGR", 0x4},
+		{ },
+	};
+
+	static struct clk_register_data data2[] = {
 		{"CMD_RCGR", 0x0},
 		{"CFG_RCGR", 0x4},
 		{"M_VAL", 0x8},
 		{"N_VAL", 0xC},
 		{"D_VAL", 0x10},
+		{ },
 	};
 
-	if (rcg->mnd_width) {
-		size = ARRAY_SIZE(data1);
-		for (i = 0; i < size; i++) {
-			regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
-					data1[i].offset), &val);
-			seq_printf(f, "%20s: 0x%.8x\n",	data1[i].name, val);
-		}
-	} else {
-		size = ARRAY_SIZE(data);
-		for (i = 0; i < size; i++) {
-			regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
+	static struct clk_register_data data3[] = {
+		{"CMD_RCGR", 0x0},
+		{"CFG_RCGR", 0x4},
+		{"M_VAL", 0x8},
+		{"N_VAL", 0xC},
+		{"D_VAL", 0x10},
+		{"CMD_DFSR", 0x14},
+		{ },
+	};
+
+	if (rcg->flags & DFS_SUPPORT)
+		data = data3;
+	else if (rcg->mnd_width)
+		data = data2;
+	else
+		data = data1;
+
+	for (i = 0; data[i].name != NULL; i++) {
+		regmap_read(rcg->clkr.regmap, (rcg->cmd_rcgr +
 				data[i].offset), &val);
-			seq_printf(f, "%20s: 0x%.8x\n",	data[i].name, val);
-		}
+		seq_printf(f, "%20s: 0x%.8x\n", data[i].name, val);
 	}
+
 }
 
 /* Return the nth supported frequency for a given clock. */
@@ -1435,7 +1446,7 @@ const struct clk_ops clk_rcg2_shared_ops = {
 EXPORT_SYMBOL_GPL(clk_rcg2_shared_ops);
 
 /* Common APIs to be used for DFS based RCGR */
-static void clk_rcg2_dfs_populate_freq(struct clk_hw *hw, unsigned int l,
+static int clk_rcg2_dfs_populate_freq(struct clk_hw *hw, unsigned int l,
 				       struct freq_tbl *f)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
@@ -1462,6 +1473,8 @@ static void clk_rcg2_dfs_populate_freq(struct clk_hw *hw, unsigned int l,
 		if (src == rcg->parent_map[i].cfg) {
 			f->src = rcg->parent_map[i].src;
 			p = clk_hw_get_parent_by_index(&rcg->clkr.hw, i);
+			if (!p)
+				return -EINVAL;
 			prate = clk_hw_get_rate(p);
 		}
 	}
@@ -1482,12 +1495,13 @@ static void clk_rcg2_dfs_populate_freq(struct clk_hw *hw, unsigned int l,
 	}
 
 	f->freq = calc_rate(prate, f->m, f->n, mode, f->pre_div);
+	return 0;
 }
 
 static int clk_rcg2_dfs_populate_freq_table(struct clk_rcg2 *rcg)
 {
 	struct freq_tbl *freq_tbl;
-	int i;
+	int i, ret;
 
 	/* Allocate space for 1 extra since table is NULL terminated */
 	freq_tbl = kcalloc(MAX_PERF_LEVEL + 1, sizeof(*freq_tbl), GFP_KERNEL);
@@ -1495,10 +1509,13 @@ static int clk_rcg2_dfs_populate_freq_table(struct clk_rcg2 *rcg)
 		return -ENOMEM;
 	rcg->freq_tbl = freq_tbl;
 
-	for (i = 0; i < MAX_PERF_LEVEL; i++)
+	for (i = 0; i < MAX_PERF_LEVEL; i++) {
+		ret =
 		clk_rcg2_dfs_populate_freq(&rcg->clkr.hw, i, freq_tbl + i);
-
-	return 0;
+		if (ret)
+			return ret;
+	}
+	return ret;
 }
 
 static int clk_rcg2_dfs_determine_rate(struct clk_hw *hw,
@@ -1589,6 +1606,8 @@ static int clk_rcg2_enable_dfs(const struct clk_rcg_dfs_data *data,
 	struct clk_init_data *init = data->init;
 	u32 val;
 	int ret;
+
+	rcg->flags |= DFS_SUPPORT;
 
 	ret = regmap_read(regmap, rcg->cmd_rcgr + SE_CMD_DFSR_OFFSET, &val);
 	if (ret)
