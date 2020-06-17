@@ -1380,6 +1380,46 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 	}
 }
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static void ufs_qcom_set_adapt(struct ufs_hba *hba)
+{
+	u32 peer_rx_hs_adapt_initial_cap;
+	int ret;
+
+	ret = ufshcd_dme_peer_get(hba,
+			  UIC_ARG_MIB_SEL(RX_HS_ADAPT_INITIAL_CAPABILITY,
+					  UIC_ARG_MPHY_RX_GEN_SEL_INDEX(0)),
+				  &peer_rx_hs_adapt_initial_cap);
+	if (ret) {
+		dev_err(hba->dev,
+			"%s: RX_HS_ADAPT_INITIAL_CAP get failed %d\n",
+			__func__, ret);
+		peer_rx_hs_adapt_initial_cap =
+			PA_PEERRXHSADAPTINITIAL_Default;
+	}
+
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PEERRXHSADAPTINITIAL),
+			     peer_rx_hs_adapt_initial_cap);
+	if (ret)
+		dev_err(hba->dev,
+			"%s: PA_PEERRXHSADAPTINITIAL set failed %d\n",
+			__func__, ret);
+
+	/* INITIAL ADAPT */
+	ufshcd_dme_set(hba,
+		       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+		       PA_INITIAL_ADAPT);
+}
+#else
+static void ufs_qcom_set_adapt(struct ufs_hba *hba)
+{
+	/* INITIAL ADAPT */
+	ufshcd_dme_set(hba,
+		       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+		       PA_INITIAL_ADAPT);
+}
+#endif
+
 static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				enum ufs_notify_change_status status,
 				struct ufs_pa_layer_attr *dev_max_params,
@@ -1450,19 +1490,14 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 			ufshcd_is_hs_mode(dev_req_params))
 			ufs_qcom_dev_ref_clk_ctrl(host, true);
 
-		if (host->hw_ver.major >= 0x4) {
-			if (dev_req_params->gear_tx == UFS_HS_G4) {
-				/* INITIAL ADAPT */
-				ufshcd_dme_set(hba,
-					       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
-					       PA_INITIAL_ADAPT);
-			} else {
-				/* NO ADAPT */
-				ufshcd_dme_set(hba,
-					       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
-					       PA_NO_ADAPT);
-			}
-		}
+		if ((host->hw_ver.major >= 0x4) &&
+		    (dev_req_params->gear_tx == UFS_HS_G4))
+			ufs_qcom_set_adapt(hba);
+		else
+			/* NO ADAPT */
+			ufshcd_dme_set(hba,
+				       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+				       PA_NO_ADAPT);
 		break;
 	case POST_CHANGE:
 		if (ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
@@ -2768,6 +2803,24 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 	kfree(testbus);
 }
 
+static void ufshcd_print_fsm_state(struct ufs_hba *hba)
+{
+	int err = 0, tx_fsm_val = 0, rx_fsm_val = 0;
+
+	err = ufshcd_dme_get(hba,
+			     UIC_ARG_MIB_SEL(MPHY_TX_FSM_STATE,
+					     UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+			     &tx_fsm_val);
+	dev_err(hba->dev, "%s: TX_FSM_STATE = %u, err = %d\n", __func__,
+		tx_fsm_val, err);
+	err = ufshcd_dme_get(hba,
+			     UIC_ARG_MIB_SEL(MPHY_RX_FSM_STATE,
+					     UIC_ARG_MPHY_RX_GEN_SEL_INDEX(0)),
+			     &rx_fsm_val);
+	dev_err(hba->dev, "%s: RX_FSM_STATE = %u, err = %d\n", __func__,
+		rx_fsm_val, err);
+}
+
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -2791,6 +2844,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 		usleep_range(1000, 1100);
 		ufs_qcom_phy_dbg_register_dump(phy);
 	}
+	ufshcd_print_fsm_state(hba);
 }
 
 /*
