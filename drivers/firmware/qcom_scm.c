@@ -857,6 +857,21 @@ int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
 }
 EXPORT_SYMBOL(qcom_scm_lmh_get_type);
 
+int qcom_scm_lmh_fetch_data(u32 node_id, u32 debug_type, uint32_t *peak,
+		uint32_t *avg)
+{
+	int ret;
+
+	ret = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					   QCOM_SCM_LMH_DEBUG_FETCH_DATA);
+	if (ret <= 0)
+		return ret;
+
+	return __qcom_scm_lmh_fetch_data(__scm->dev, node_id, debug_type,
+			peak, avg);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_fetch_data);
+
 int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 {
 	return __qcom_scm_smmu_change_pgtbl_format(__scm->dev, dev_id, cbndx);

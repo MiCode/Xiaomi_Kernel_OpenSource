@@ -174,6 +174,8 @@ extern int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,
 			int payload_size, uint32_t *buf, int buf_size);
 extern int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
 			u64 debug_type, uint32_t get_from, uint32_t *size);
+extern int qcom_scm_lmh_fetch_data(u32 node_id, u32 debug_type, uint32_t *peak,
+		uint32_t *avg);
 extern int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
 extern int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure);
@@ -329,6 +331,9 @@ static inline int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,
 			{ return -ENODEV; }
 static inline int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
 			u64 debug_type, uint32_t get_from, uint32_t *size)
+			{ return -ENODEV; }
+static inline int qcom_scm_lmh_fetch_data(u32 node_id, u32 debug_type,
+			uint32_t *peak,	uint32_t *avg)
 			{ return -ENODEV; }
 static inline  int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 		{ return -ENODEV; }
