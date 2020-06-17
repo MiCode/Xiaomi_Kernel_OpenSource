@@ -131,6 +131,7 @@ static void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit)
 		goto out_unlock;
 	if (!pm_runtime_suspended(hba->dev)) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		pm_runtime_get_sync(hba->dev);
 		ufshcd_hold(hba, false);
 		down_write(&hba->lock);
 		ufshcd_scsi_block_requests(hba);
@@ -145,6 +146,7 @@ static void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit)
 		up_write(&hba->lock);
 		ufshcd_scsi_unblock_requests(hba);
 		ufshcd_release(hba, false);
+		pm_runtime_put(hba->dev);
 		return;
 	}
 	hba->ahit = ahit;
