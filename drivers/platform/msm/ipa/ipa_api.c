@@ -224,6 +224,8 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_MHI_LOW_LAT_CONS),
 	__stringify(IPA_CLIENT_QDSS_PROD),
 	__stringify(IPA_CLIENT_MHI_QDSS_CONS),
+	__stringify(IPA_CLIENT_ETHERNET2_PROD),
+	__stringify(IPA_CLIENT_ETHERNET2_CONS),
 };
 
 /**
