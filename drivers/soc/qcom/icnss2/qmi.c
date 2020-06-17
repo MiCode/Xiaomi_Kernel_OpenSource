@@ -609,7 +609,8 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 	if (!priv)
 		return -ENODEV;
 
-	icnss_pr_dbg("Sending capability message, state: 0x%lx\n", priv->state);
+	icnss_pr_dbg("Sending target capability message, state: 0x%lx\n",
+		     priv->state);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
