@@ -79,7 +79,6 @@ struct mdla_scheduler {
 
 /* platform callback functions */
 struct mdla_sched_cb_func {
-	bool (*sw_preemption_support)(void);
 	void (*split_alloc_cmd_batch)(struct command_entry *ce);
 	void (*del_free_cmd_batch)(struct command_entry *ce);
 };

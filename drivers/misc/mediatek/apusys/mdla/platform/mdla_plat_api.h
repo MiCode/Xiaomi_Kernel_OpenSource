@@ -8,6 +8,7 @@
 #include <linux/of_device.h>
 
 unsigned int mdla_plat_get_core_num(void);
+bool mdla_plat_sw_preemption_support(void);
 
 #ifdef CONFIG_OF
 const struct of_device_id *mdla_plat_get_device(void);

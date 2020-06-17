@@ -165,21 +165,20 @@ bool mdla_power_check(void)
 	return apusys_power_check();
 }
 
+void mdla_pwr_reset_setup(void (*hw_reset)(int core_id, const char *str))
+{
+	if (hw_reset)
+		mdla_power.hw_reset = hw_reset;
+}
+
 int mdla_pwr_device_register(struct platform_device *pdev,
 			int (*on)(int core_id, bool force),
-			int (*off)(int core_id, int suspend, bool force),
-			void (*hw_reset)(int core_id, const char *str))
+			int (*off)(int core_id, int suspend, bool force))
 {
 	int i, ret = 0;
 	enum DVFS_USER user_mdla;
 	struct mdla_dev *mdla_device;
 	struct mdla_pwr_ctrl *pwr_ctrl;
-
-	if (hw_reset)
-		mdla_power.hw_reset = hw_reset;
-
-	if (!on || !off)
-		return 0;
 
 	mdla_cmd_debug("probe 0, pdev id = %d name = %s, name = %s\n",
 						pdev->id, pdev->name,
@@ -226,8 +225,11 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 		mdla_device->sw_power_is_on = false;
 	}
 
-	mdla_power.on                   = on;
-	mdla_power.off                  = off;
+	if (on)
+		mdla_power.on = on;
+	if (off)
+		mdla_power.off = off;
+
 	mdla_power.set_opp              = mdla_pwr_set_opp;
 	mdla_power.set_opp_by_bootst    = mdla_pwr_set_opp_by_bootst;
 	mdla_power.switch_off_on        = mdla_pwr_switch_off_on;

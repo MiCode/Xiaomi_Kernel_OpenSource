@@ -4,13 +4,11 @@
  */
 #include <common/mdla_scheduler.h>
 
-static bool mdla_sched_dummy_bool_void(void) { return false; }
-static void mdla_sched_dummy_bool_p(struct command_entry *c) {}
+static void mdla_sched_dummy_cmd_batch(struct command_entry *c) {}
 
 static struct mdla_sched_cb_func mdla_scheduler_callback = {
-	.sw_preemption_support = mdla_sched_dummy_bool_void,
-	.split_alloc_cmd_batch = mdla_sched_dummy_bool_p,
-	.del_free_cmd_batch    = mdla_sched_dummy_bool_p,
+	.split_alloc_cmd_batch = mdla_sched_dummy_cmd_batch,
+	.del_free_cmd_batch    = mdla_sched_dummy_cmd_batch,
 };
 
 struct mdla_sched_cb_func *mdla_sched_plat_cb(void)

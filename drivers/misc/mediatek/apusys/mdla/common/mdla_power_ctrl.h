@@ -26,10 +26,10 @@ const struct mdla_pwr_ops *mdla_pwr_ops_get(void);
 
 bool mdla_power_check(void);
 
+void mdla_pwr_reset_setup(void (*hw_reset)(int core_id, const char *str));
 int mdla_pwr_device_register(struct platform_device *pdev,
 			int (*on)(int core_id, bool force),
-			int (*off)(int core_id, int suspend, bool force),
-			void (*hw_reset)(int core_id, const char *str));
+			int (*off)(int core_id, int suspend, bool force));
 int mdla_pwr_device_unregister(struct platform_device *pdev);
 
 #endif /* __MDLA_POWER_CTRL_H__ */
