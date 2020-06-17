@@ -12,6 +12,7 @@
 #include "mdla_plat_internal.h"
 
 static unsigned int nr_core_ids = DEFAULT_CORE_NUM;
+static bool sw_preempt_en;
 
 struct mdla_plat_func {
 	int (*init)(struct platform_device *pdev);
@@ -21,10 +22,10 @@ struct mdla_plat_func {
 #define MDLA_MATCH_DATA(name, entry, exit)\
 static struct mdla_plat_func name = { .init = entry, .deinit = exit}
 
-MDLA_MATCH_DATA(mt6779_data, mdla_mt6779_init, mdla_mt6779_deinit);
-MDLA_MATCH_DATA(mt6873_data, mdla_mt6873_init, mdla_mt6873_deinit);
-MDLA_MATCH_DATA(mt6885_data, mdla_mt6885_init, mdla_mt6885_deinit);
-MDLA_MATCH_DATA(mt8195_data, mdla_mt8195_init, mdla_mt8195_deinit);
+MDLA_MATCH_DATA(mt6779_data, mdla_v1_0_init, mdla_v1_0_deinit);
+MDLA_MATCH_DATA(mt6885_data, mdla_v1_5_init, mdla_v1_5_deinit);
+MDLA_MATCH_DATA(mt6873_data, mdla_v1_7_init, mdla_v1_7_deinit);
+MDLA_MATCH_DATA(mt8195_data, mdla_v2_0_init, mdla_v2_0_deinit);
 
 static const struct of_device_id mdla_of_match[] = {
 	{ .compatible = "mediatek, mt6779-mdla", .data = &mt6779_data},
@@ -46,6 +47,11 @@ const struct of_device_id *mdla_plat_get_device(void)
 	return mdla_of_match;
 }
 
+bool mdla_plat_sw_preemption_support(void)
+{
+	return sw_preempt_en;
+}
+
 int mdla_plat_init(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -58,6 +64,8 @@ int mdla_plat_init(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "MDLA core number = %d\n", nr_core_ids);
+
+	sw_preempt_en = of_property_read_bool(dev->of_node, "sw_preempt");
 
 	data = (struct mdla_plat_func *)of_device_get_match_data(dev);
 

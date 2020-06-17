@@ -43,6 +43,11 @@ void mdla_util_plat_deinit(struct platform_device *pdev)
 	mdla_plat_deinit(pdev);
 }
 
+bool mdla_util_sw_preemption_support(void)
+{
+	return mdla_plat_sw_preemption_support();
+}
+
 /* pmu */
 static void mdla_util_dummy_cnt_save(u32 a0, struct mdla_pmu_info *a1) {}
 static void mdla_util_dummy_cnt_read(u32 a0, u32 *a1) {}

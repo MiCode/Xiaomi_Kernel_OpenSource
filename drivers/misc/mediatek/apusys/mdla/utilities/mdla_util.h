@@ -16,6 +16,7 @@
 #endif
 
 /* platform */
+bool mdla_util_sw_preemption_support(void);
 const struct of_device_id *mdla_util_get_device_id(void);
 unsigned int mdla_util_get_core_num(void);
 int mdla_util_plat_init(struct platform_device *pdev);
