@@ -11,12 +11,13 @@
 # GNU General Public License for more details.
 #
 
+
 obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += dip/
 #obj-y += src/
 #obj-y += owe/
 #obj-y += rsc/
 #obj-y += wpe/
-#obj-y += dpe/
+obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += dpe/
 #obj-y += tsf/
 #obj-y += mfb/
 #obj-y += fdvt/
