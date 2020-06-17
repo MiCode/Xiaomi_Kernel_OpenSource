@@ -60,12 +60,18 @@ dtb-$(CONFIG_ARCH_HOLI) += holi-rumi.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-dtbo-$(CONFIG_ARCH_SHIMA) += \
-	shima-rumi-overlay.dtbo
+dtbo-$(CONFIG_ARCH_SHIMA) +=    \
+	shima-rumi-overlay.dtbo \
+	shima-idp-overlay.dtbo	\
+	shima-atp-overlay.dtbo
 
 shima-rumi-overlay.dtbo-base := shima.dtb
+shima-idp-overlay.dtbo-base := shima.dtb
+shima-atp-overlay.dtbo-base := shima.dtb
 else
-dtb-$(CONFIG_ARCH_SHIMA) += shima-rumi.dtb
+dtb-$(CONFIG_ARCH_SHIMA) += shima-rumi.dtb  \
+			    shima-idp.dtb   \
+			    shima-atp.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
