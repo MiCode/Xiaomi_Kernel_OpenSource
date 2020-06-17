@@ -375,10 +375,9 @@ static int ctrl_cmd_bye(struct sockaddr_qrtr *from)
 		msg.msg_namelen = sizeof(sq);
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-		if (ret < 0 && ret != -ENODEV) {
-			pr_err("failed to send bye cmd %d\n", ret);
-			return ret;
-		}
+		if (ret < 0 && ret != -ENODEV)
+			pr_err("send bye failed: [0x%x:0x%x] 0x%x ret: %d\n",
+			       srv->service, srv->instance, srv->port, ret);
 	}
 
 	return 0;
@@ -450,10 +449,9 @@ static int ctrl_cmd_del_client(struct sockaddr_qrtr *from,
 		msg.msg_namelen = sizeof(sq);
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
-		if (ret < 0 && ret != -ENODEV) {
-			pr_err("failed to send del client cmd %d\n", ret);
-			return ret;
-		}
+		if (ret < 0 && ret != -ENODEV)
+			pr_err("del client cmd failed: [0x%x:0x%x] 0x%x %d\n",
+			       srv->service, srv->instance, srv->port, ret);
 	}
 
 	return 0;
