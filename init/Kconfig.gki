@@ -72,7 +72,6 @@ config GKI_HIDDEN_QCOM_CONFIGS
 	bool "Hidden QCOM configs needed for GKI"
 	select QCOM_SMEM_STATE
 	select QCOM_GDSC if (ARCH_QCOM)
-	select PINCTRL_MSM if (PINCTRL && ARCH_QCOM)
 	select IOMMU_IO_PGTABLE_LPAE if (ARCH_QCOM)
 
 	help
