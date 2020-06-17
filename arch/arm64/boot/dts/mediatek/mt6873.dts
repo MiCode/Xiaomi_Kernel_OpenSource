@@ -23,6 +23,16 @@
 		interrupt-parent = <&pio>;
 		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-names = "IRQB";
+		mt6360_chg: chg {
+			compatible = "mediatek,mt6360_chg";
+			vinovp = <14500000>;
+			otg_vbus: usb-otg-vbus {
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4425000>;
+				regulator-max-microvolt = <5825000>;
+			};
+		};
 		mt6360_adc: adc {
 			compatible = "mediatek,mt6360_adc";
 			#io-channel-cells = <1>;
