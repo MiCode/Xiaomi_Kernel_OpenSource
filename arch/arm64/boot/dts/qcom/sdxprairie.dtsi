@@ -1612,6 +1612,7 @@
 #include "sdxprairie-coresight.dtsi"
 #include "sdxprairie-aqc.dtsi"
 #include "sdxprairie-thermal.dtsi"
+#include "sdxprairie-qcom-smmu.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

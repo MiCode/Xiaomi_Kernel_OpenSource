@@ -1,0 +1,33 @@
+Realtek  r8125B Ethernet Controller
+
+Required properties:
+
+- compatible : should be "realtek,rtl-8125"
+
+If SMMU is present, also use:
+
+- qcom,smmu : if present, SMMU attach is performed
+- qcom,smmu-iova-base : SMMU IOVA start address the device can access
+- qcom,smmu-iova-size : SMMU IOVA size the device can access
+
+Optional Properties:
+
+- qcom,smmu-attr-fastmap : Enables SMMU fastmap
+- qcom,smmu-attr-atomic : Enables DMA alloc using GFP_ATOMIC
+
+Example:
+
+&pcie_rc0 {
+
+	r8125_x1: qcom,r8125@0 {
+		compatible = realtek,rtl-8125";
+
+		qcom,smmu;
+		qcom,smmu-iova-base = /bits/ 64 <0x0>;
+		qcom,smmu-iova-size = /bits/ 64 <0x100000000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-fastmap;
+	};
+};
+

@@ -1,0 +1,38 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+&pcie0_rp {
+	realtek,rtl8125@pcie0_rp {
+		reg = <0 0 0 0 0>;
+
+		compatible = "realtek,rtl-8125";
+
+		pci-ids =
+		   "10ec:8125",
+		   "10ec:3000";
+
+		qcom,smmu;
+
+		/* IOVA range is restricted to avoid conflicts with PCI BAR
+		 * space, Q6 SMEM and IOVA spaces used by peripherals that are
+		 * currently attached to IPA.
+		 */
+		qcom,smmu-iova-base = /bits/ 64 <0x80000000>;
+		qcom,smmu-iova-size = /bits/ 64 <0x0FE40000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-fastmap;
+
+	};
+};
+
