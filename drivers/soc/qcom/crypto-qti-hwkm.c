@@ -98,7 +98,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 			pr_err("%s: Error with HWKM init %d\n", __func__,
 								err_program);
 			qti_hwkm_clocks(false);
-			return err_program;
+			return -EINVAL;
 		}
 		ice_entry->flags |= QTI_HWKM_INIT_DONE;
 	}
@@ -109,7 +109,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 		pr_err("%s: Error clearing ICE slot %d, err %d\n",
 			__func__, GP_KEYSLOT, err_clear);
 		qti_hwkm_clocks(false);
-		return err_clear;
+		return -EINVAL;
 	}
 
 	/* Unwrap keyblob into a non ICE slot using TP key */
@@ -124,7 +124,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 		pr_err("%s: Error with key unwrap %d\n", __func__,
 							err_program);
 		qti_hwkm_clocks(false);
-		return err_program;
+		return -EINVAL;
 	}
 
 	//Failsafe, clear ICE keyslot incase it is not empty for any reason
@@ -134,7 +134,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 		pr_err("%s: Error clearing ICE slot %d, err %d\n",
 			__func__, KEYMANAGER_ICE_MAP_SLOT(slot), err_clear);
 		qti_hwkm_clocks(false);
-		return err_clear;
+		return -EINVAL;
 	}
 
 	/* Derive a 512-bit key which will be the key to encrypt/decrypt data */
@@ -158,15 +158,15 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 
 	err_program = qti_hwkm_handle_cmd(&cmd_kdf, &rsp_kdf);
 	if (err_program) {
-		pr_err("%s: Error programming key %d\n", __func__,
-							err_program);
+		pr_err("%s: Error programming key %d, slot %d\n", __func__,
+						err_program, slot);
 		err_clear = crypto_qti_hwkm_evict_slot(GP_KEYSLOT, false);
 		if (err_clear) {
 			pr_err("%s: Error clearing slot %d err %d\n",
 					__func__, GP_KEYSLOT, err_clear);
 		}
 		qti_hwkm_clocks(false);
-		return err_program;
+		return -EINVAL;
 	}
 
 	err_clear = crypto_qti_hwkm_evict_slot(GP_KEYSLOT, false);
@@ -174,7 +174,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 		pr_err("%s: Error unwrapped slot clear %d\n", __func__,
 							err_clear);
 		qti_hwkm_clocks(false);
-		return err_clear;
+		return -EINVAL;
 	}
 
 	ice_writel(ice_entry, cfg.regval[0], (ICE_LUT_KEYS_CRYPTOCFG_R_16 +
@@ -201,8 +201,11 @@ int crypto_qti_invalidate_key(struct crypto_vops_qti_entry *ice_entry,
 
 	/* Clear key from ICE keyslot */
 	err = crypto_qti_hwkm_evict_slot(KEYMANAGER_ICE_MAP_SLOT(slot), true);
-	if (err)
-		pr_err("%s: Error with key clear %d\n", __func__, err);
+	if (err) {
+		pr_err("%s: Error with key clear %d, slot %d\n",
+				__func__, err, slot);
+		err =  -EINVAL;
+	}
 
 	qti_hwkm_clocks(false);
 
