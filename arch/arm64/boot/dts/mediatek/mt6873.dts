@@ -64,14 +64,14 @@
 		};
 		ldo {
 			compatible = "mediatek,mt6360_ldo";
-			ldo1 {
+			mt_pmic_vfp_ldo_reg: ldo1 {
 				regulator-compatible = "LDO1";
 				regulator-name = "mt6360,ldo1";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
 			};
-			ldo2 {
+			mt_pmic_vtp_ldo_reg: ldo2 {
 				regulator-compatible = "LDO2";
 				regulator-name = "vtp";
 				regulator-min-microvolt = <1200000>;
