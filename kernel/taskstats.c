@@ -489,6 +489,8 @@ static void sysstats_build(struct sys_memstats *stats)
 #ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
 	stats->unreclaimable =
 		K(global_node_page_state(NR_UNRECLAIMABLE_PAGES));
+#else
+	stats->unreclaimable = 0;
 #endif
 	stats->buffer = K(i.bufferram);
 	stats->swapcache = K(total_swapcache_pages());
@@ -682,6 +684,8 @@ static int taskstats2_cmd_attr_pid(struct genl_info *info)
 #ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
 		stats->unreclaimable =
 				K(get_mm_counter(p->mm, MM_UNRECLAIMABLE));
+#else
+		stats->unreclaimable = 0;
 #endif
 #undef K
 		task_unlock(p);
