@@ -58,12 +58,12 @@ enum MDLA_PMU_MODE {
 #define MDLA_IOC_MAGIC (0x3d1a632fULL)
 
 struct ioctl_malloc {
-	__u32 size;  /* [in] allocate size */
-	__u32 mva;   /* [out] modified virtual address */
-	void *pa;    /* [out] physical address */
-	void *kva;   /* [out] kernel virtual address */
-	__u8 type;   /* [in] allocate memory type */
-	void *data;  /* [out] userspace virtual address */
+	uint32_t size;  /* [in] allocate size */
+	uint32_t mva;   /* [out] modified virtual address */
+	void *pa;       /* [out] physical address */
+	void *kva;      /* [out] kernel virtual address */
+	uint8_t type;   /* [in] allocate memory type */
+	void *data;     /* [out] userspace virtual address */
 };
 
 struct ioctl_run_cmd {
@@ -76,16 +76,16 @@ struct ioctl_run_cmd {
 		uint8_t type;
 		void *data;
 
-		int ion_share_fd;
-		int ion_handle;       /* user space handle */
+		int32_t ion_share_fd;
+		int32_t ion_handle;   /* user space handle */
 		uint64_t ion_khandle; /* kernel space handle */
 	} buf;
 
-	__u32 offset;        /* [in] command byte offset in buf */
-	__u32 count;         /* [in] # of commands */
-	__u32 id;            /* [out] command id */
-	__u8 priority;       /* [in] dvfs priority */
-	__u8 boost_value;    /* [in] dvfs boost value */
+	uint32_t offset;        /* [in] command byte offset in buf */
+	uint32_t count;         /* [in] # of commands */
+	uint32_t id;            /* [out] command id */
+	uint8_t priority;       /* [in] dvfs priority */
+	uint8_t boost_value;    /* [in] dvfs boost value */
 };
 
 enum MDLA_CMD_RESULT {
@@ -105,8 +105,8 @@ enum MDLA_CMD_RESULT {
 #define MDLA_WAIT_CMD_ARRAY_SIZE 6
 
 struct ioctl_wait_cmd {
-	__u32 id;              /* [in] command id */
-	int  result;           /* [out] success(0), timeout(1) */
+	uint32_t id;           /* [in] command id */
+	int32_t result;        /* [out] success(0), timeout(1) */
 	uint64_t queue_time;   /* [out] time queued in driver (ns) */
 	uint64_t busy_time;    /* [out] mdla execution time (ns) */
 	uint32_t bandwidth;    /* [out] mdla bandwidth */
@@ -115,26 +115,26 @@ struct ioctl_wait_cmd {
 struct ioctl_run_cmd_sync {
 	struct ioctl_run_cmd req;
 	struct ioctl_wait_cmd res;
-	__u32 mdla_id;
+	uint32_t mdla_id;
 };
 
 struct ioctl_perf {
-	int handle;
-	__u32 interface;
-	__u32 event;
-	__u32 counter;
-	__u32 start;
-	__u32 end;
-	__u32 mode;
-	__u32 mdlaid;
+	int32_t handle;
+	uint32_t interface;
+	uint32_t event;
+	uint32_t counter;
+	uint32_t start;
+	uint32_t end;
+	uint32_t mode;
+	uint32_t mdlaid;
 };
 
 struct ioctl_ion {
-	int fd;         /* [in] user handle, eq. ion_user_handle_t */
-	__u64 mva;      /* [in] phyiscal address */
-	__u64 kva;      /* [in(unmap)/out(map)] kernel virtual address */
-	__u64 khandle;  /* [in(unmap)/out(map)] kernel handle */
-	size_t len;     /* [in] memory size */
+	int32_t fd;        /* [in] user handle, eq. ion_user_handle_t */
+	uint64_t mva;      /* [in] phyiscal address */
+	uint64_t kva;      /* [in(unmap)/out(map)] kernel virtual address */
+	uint64_t khandle;  /* [in(unmap)/out(map)] kernel handle */
+	size_t len;        /* [in] memory size */
 };
 
 enum MDLA_CONFIG {
@@ -147,15 +147,15 @@ enum MDLA_CONFIG {
 };
 
 struct ioctl_config {
-	__u32 op;
-	__u32 arg_count;
-	__u64 arg[8];
+	uint32_t op;
+	uint32_t arg_count;
+	uint64_t arg[8];
 };
 
 struct mdla_power {
 	uint8_t boost_value;
 	/* align with core index defined in user space header file */
-	unsigned int core;
+	uint32_t core_id;
 };
 
 enum MDLA_OPP_PRIORIYY {
@@ -168,7 +168,7 @@ enum MDLA_OPP_PRIORIYY {
 };
 
 struct mdla_lock_power {
-	unsigned int core;
+	uint32_t core;
 	uint8_t max_boost_value;
 	uint8_t min_boost_value;
 	bool lock;

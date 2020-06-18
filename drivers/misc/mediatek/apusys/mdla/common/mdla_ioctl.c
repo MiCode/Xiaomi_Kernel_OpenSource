@@ -14,7 +14,7 @@
 
 
 static int (*mdla_ioctl_perf)(struct file *filp,
-		unsigned int command, unsigned long arg, bool need_pwr_on);
+		u32 command, unsigned long arg, bool need_pwr_on);
 
 static long mdla_ioctl_config(unsigned long arg)
 {
@@ -71,15 +71,20 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(cmd_data_sync))) {
 			return -EFAULT;
 		}
-		mdla_cmd_debug("%s: RUN_CMD_SYNC: core=%d, kva=%p, mva=0x%08x, phys_to_virt=%p\n",
+		mdla_cmd_debug("%s: RUN_CMD_SYNC: core_id=%d, kva=%p, mva=0x%08x, phys_to_virt=%p\n",
 			__func__,
 			cmd_data_sync.mdla_id,
 			(void *)cmd_data_sync.req.buf.kva,
 			cmd_data_sync.req.buf.mva,
 			phys_to_virt(cmd_data_sync.req.buf.mva));
+
+		if (core_id_is_invalid(cmd_data_sync.mdla_id))
+			return -EFAULT;
+
 		retval = mdla_cmd_ops_get()->ut_run_sync(&cmd_data_sync.req,
 					&cmd_data_sync.res,
 					mdla_get_device(cmd_data_sync.mdla_id));
+
 		if (copy_to_user((void *) arg,
 				&cmd_data_sync, sizeof(cmd_data_sync)))
 			return -EFAULT;
@@ -147,7 +152,7 @@ const struct file_operations *mdla_ioctl_get_fops(void)
 
 
 void mdla_ioctl_register_perf_handle(int (*pmu_ioctl)(struct file *filp,
-						unsigned int command,
+						u32 command,
 						unsigned long arg,
 						bool need_pwr_on))
 {

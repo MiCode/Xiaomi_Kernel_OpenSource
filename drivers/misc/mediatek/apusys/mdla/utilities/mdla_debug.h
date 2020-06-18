@@ -21,11 +21,12 @@ enum REASON_MDLA_RETVAL_ENUM {
 	REASON_TIMEOUT   = 2,
 	REASON_POWERON   = 3,
 	REASON_PREEMPTED = 4,
+	REASON_SIMULATOR = 5,
 	REASON_MAX,
 };
 
 enum MDLA_DEBUG_FS_NODE_U64 {
-	FS_CFG_PERIOD,
+	FS_CFG_PMU_PERIOD,
 
 	NF_MDLA_DEBUG_FS_U64
 };
@@ -46,16 +47,14 @@ enum MDLA_DEBUG_FS_NODE_U32 {
 	FS_C13,
 	FS_C14,
 	FS_C15,
-	FS_CFG_CMD_TRACE,
 	FS_CFG_ENG0,
 	FS_CFG_ENG1,
 	FS_CFG_ENG2,
 	FS_CFG_ENG11,
-	FS_CFG_OP_TRACE,
-	FS_CFG_TIMER_EN,
+	FS_POLLING_CMD_DONE,
 	FS_DUMP_CMDBUF,
 	FS_DVFS_RAND,
-	FS_NN_PMU_POLLING,
+	FS_PMU_EVT_BY_APU,
 	FS_KLOG,
 	FS_POWEROFF_TIME,
 	FS_TIMEOUT,
@@ -71,27 +70,27 @@ struct mdla_dbg_cb_func {
 	void (*destroy_dump_cmdbuf)(struct mdla_dev *mdla_device);
 	int  (*create_dump_cmdbuf)(struct mdla_dev *mdla_device,
 			struct command_entry *ce);
-	void (*dump_reg)(unsigned int core_id, struct seq_file *s);
+	void (*dump_reg)(u32 core_id, struct seq_file *s);
 	void (*memory_show)(struct seq_file *s);
 
-	bool (*dbgfs_u64_enable)(unsigned int node);
-	bool (*dbgfs_u32_enable)(unsigned int node);
+	bool (*dbgfs_u64_enable)(int node);
+	bool (*dbgfs_u32_enable)(int node);
 	void (*dbgfs_plat_init)(struct device *dev, struct dentry *parent);
 };
 
 struct mdla_dbg_cb_func *mdla_dbg_plat_cb(void);
 
-u64 mdla_dbg_read_u64(unsigned int node);
-u32 mdla_dbg_read_u32(unsigned int node);
+u64 mdla_dbg_read_u64(int node);
+u32 mdla_dbg_read_u32(int node);
 
-void mdla_dbg_write_u64(unsigned int node, u64 val);
-void mdla_dbg_write_u32(unsigned int node, u32 val);
+void mdla_dbg_write_u64(int node, u64 val);
+void mdla_dbg_write_u32(int node, u32 val);
 
-void mdla_dbg_sub_u64(unsigned int node, u64 val);
-void mdla_dbg_sub_u32(unsigned int node, u32 val);
+void mdla_dbg_sub_u64(int node, u64 val);
+void mdla_dbg_sub_u32(int node, u32 val);
 
-void mdla_dbg_add_u64(unsigned int node, u64 val);
-void mdla_dbg_add_u32(unsigned int node, u32 val);
+void mdla_dbg_add_u64(int node, u64 val);
+void mdla_dbg_add_u32(int node, u32 val);
 
 enum MDLA_DEBUG_MASK {
 	MDLA_DBG_DRV         = (1U << 0),
@@ -144,6 +143,8 @@ const char *mdla_dbg_get_reason_str(int res);
 
 //void mdla_dbg_dump_cmdbuf_free(struct mdla_dev *mdla_device);
 void mdla_dbg_dump(struct mdla_dev *mdla_info, struct command_entry *ce);
+
+struct dentry *mdla_dbg_get_fs_root(void);
 
 void mdla_dbg_fs_setup(struct device *dev);
 void mdla_dbg_fs_init(struct dentry *apusys_dbg_root);

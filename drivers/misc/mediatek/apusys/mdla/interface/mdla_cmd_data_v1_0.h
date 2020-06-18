@@ -29,16 +29,16 @@ struct mdla_run_cmd {
 		uint64_t ion_khandle; /* kernel space handle */
 	};
 
-	__u32 offset;           /* [in] command byte offset in buf */
-	__u32 count;            /* [in] # of commands */
-	__u32 id;               /* [out] command id */
-	__u8 priority;          /* [in] dvfs priority */
-	__u8 boost_value;       /* [in] dvfs boost value */
+	uint32_t offset;           /* [in] command byte offset in buf */
+	uint32_t count;            /* [in] # of commands */
+	uint32_t id;               /* [out] command id */
+	uint8_t priority;          /* [in] dvfs priority */
+	uint8_t boost_value;       /* [in] dvfs boost value */
 };
 
 struct mdla_wait_cmd {
-	__u32 id;              /* [in] command id */
-	int  result;           /* [out] success(0), timeout(1) */
+	uint32_t id;           /* [in] command id */
+	int32_t result;        /* [out] success(0), timeout(1) */
 	uint64_t queue_time;   /* [out] time queued in driver (ns) */
 	uint64_t busy_time;    /* [out] mdla execution time (ns) */
 	uint32_t bandwidth;    /* [out] mdla bandwidth */
@@ -50,7 +50,7 @@ struct mdla_run_cmd_sync {
 };
 
 struct mdla_wait_entry {
-	u32 async_id;
+	uint32_t async_id;
 	struct list_head list;
 	struct mdla_wait_cmd wt;
 };
@@ -61,8 +61,8 @@ struct mdla_wait_entry {
 			((apusys_hd)->cmd_entry + (run_cmd)->offset_code_buf)
 
 struct mdla_wait_cmd {
-	__u32 id;              /* [in] command id */
-	int  result;           /* [out] success(0), timeout(1) */
+	uint32_t id;           /* [in] command id */
+	int32_t  result;       /* [out] success(0), timeout(1) */
 	uint64_t queue_time;   /* [out] time queued in driver (ns) */
 	uint64_t busy_time;    /* [out] mdla execution time (ns) */
 	uint32_t bandwidth;    /* [out] mdla bandwidth */
@@ -73,19 +73,19 @@ struct mdla_run_cmd {
 	uint32_t reserved;
 	uint32_t size;
 	uint32_t mva;
-	__u32 offset;        /* [in] command byte offset in buf */
-	__u32 count;         /* [in] # of commands */
-	__u32 id;            /* [out] command id */
+	uint32_t offset;        /* [in] command byte offset in buf */
+	uint32_t count;         /* [in] # of commands */
+	uint32_t id;            /* [out] command id */
 };
 
 struct mdla_run_cmd_sync {
 	struct mdla_run_cmd req;
 	struct mdla_wait_cmd res;
-	__u32 mdla_id;
+	uint32_t mdla_id;
 };
 
 struct mdla_wait_entry {
-	u32 async_id;
+	uint32_t async_id;
 	struct list_head list;
 	struct mdla_wait_cmd wt;
 };

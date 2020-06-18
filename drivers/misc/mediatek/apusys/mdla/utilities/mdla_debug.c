@@ -13,11 +13,6 @@
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_profile.h>
 
-enum MDLA_DEBUG_FS_PROF {
-	PROF_PMU_TIMER_STOP,
-	PROF_PMU_TIMER_START,
-};
-
 static struct dentry *mdla_dbg_root;
 
 struct mdla_dbgfs_file {
@@ -31,7 +26,7 @@ struct mdla_dbgfs_file {
 };
 
 static struct mdla_dbgfs_file ull_dbgfs_file[NF_MDLA_DEBUG_FS_U64] = {
-	[FS_CFG_PERIOD] = { .mode = 0660, .str = "period"},
+	[FS_CFG_PMU_PERIOD] = { .mode = 0660, .str = "period"},
 };
 
 static struct mdla_dbgfs_file u_dbgfs_file[NF_MDLA_DEBUG_FS_U32] = {
@@ -50,17 +45,14 @@ static struct mdla_dbgfs_file u_dbgfs_file[NF_MDLA_DEBUG_FS_U32] = {
 	[FS_C13] = { .mode = 0660, .hex = 1, .str = "c13"},
 	[FS_C14] = { .mode = 0660, .hex = 1, .str = "c14"},
 	[FS_C15] = { .mode = 0660, .hex = 1, .str = "c15"},
-	[FS_CFG_CMD_TRACE]     = { .mode = 0660, .str = "cmd_trace"},
 	[FS_CFG_ENG0]          = { .mode = 0660, .str = "eng0"},
 	[FS_CFG_ENG1]          = { .mode = 0660, .str = "eng1"},
 	[FS_CFG_ENG2]          = { .mode = 0660, .str = "eng2"},
 	[FS_CFG_ENG11]         = { .mode = 0660, .str = "eng11"},
-	[FS_CFG_OP_TRACE]      = { .mode = 0660, .str = "op_trace"},
-	//[FS_CFG_TIMER_EN]      = { .mode = 0660, .str = "prof_start"},
-	[FS_CFG_TIMER_EN]	   = { .mode = 0440, .str = "pmu_timer_st"},
+	[FS_POLLING_CMD_DONE]  = { .mode = 0660, .str = "polling_cmd_period"},
 	[FS_DUMP_CMDBUF]       = { .mode = 0660, .str = "dump_cmdbuf_en"},
 	[FS_DVFS_RAND]         = { .mode = 0660, .str = "dvfs_rand"},
-	[FS_NN_PMU_POLLING]    = { .mode = 0660, .str = "nn_pmu_polling"},
+	[FS_PMU_EVT_BY_APU]    = { .mode = 0660, .str = "pmu_evt_by_apusys"},
 	[FS_KLOG]              = { .mode = 0660, .hex = 1, .str = "klog"},
 	[FS_POWEROFF_TIME]     = { .mode = 0660, .str = "poweroff_time"},
 	[FS_TIMEOUT]           = { .mode = 0660, .str = "timeout"},
@@ -76,6 +68,7 @@ static const char *reason_str[REASON_MAX+1] = {
 	"command_timeout",
 	"power_on",
 	"preemption",
+	"simulator",
 	"-"
 };
 
@@ -92,12 +85,12 @@ static int mdla_dbg_dummy_create(struct mdla_dev *a0, struct command_entry *a1)
 {
 	return -1;
 }
-static void mdla_dbg_dummy_dump(unsigned int core_id,
+static void mdla_dbg_dummy_dump(u32 core_id,
 		struct seq_file *s)
 {
 }
 static void mdla_dbg_dummy_mem_show(struct seq_file *s) {}
-static bool mdla_dbg_dummy_enable(unsigned int node)
+static bool mdla_dbg_dummy_enable(int node)
 {
 	return false;
 }
@@ -120,165 +113,64 @@ struct mdla_dbg_cb_func *mdla_dbg_plat_cb(void)
 }
 
 
-void mdla_dbg_write_u64(unsigned int node, u64 val)
+void mdla_dbg_write_u64(int node, u64 val)
 {
-	if (node < NF_MDLA_DEBUG_FS_U64)
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U64))
 		ull_dbgfs_file[node].u64_var = val;
 }
 
-void mdla_dbg_write_u32(unsigned int node, u32 val)
+void mdla_dbg_write_u32(int node, u32 val)
 {
-	if (node < NF_MDLA_DEBUG_FS_U32)
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U32))
 		u_dbgfs_file[node].u32_var = val;
 }
 
-u64 mdla_dbg_read_u64(unsigned int node)
+u64 mdla_dbg_read_u64(int node)
 {
-	return node < NF_MDLA_DEBUG_FS_U64 ? ull_dbgfs_file[node].u64_var : ~0;
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U64))
+		return ull_dbgfs_file[node].u64_var;
+	return ~0;
 }
 
-u32 mdla_dbg_read_u32(unsigned int node)
+u32 mdla_dbg_read_u32(int node)
 {
-	return node < NF_MDLA_DEBUG_FS_U32 ? u_dbgfs_file[node].u32_var : ~0;
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U32))
+		return u_dbgfs_file[node].u32_var;
+	return ~0;
 }
 
-void mdla_dbg_sub_u64(unsigned int node, u64 val)
+void mdla_dbg_sub_u64(int node, u64 val)
 {
-	if (likely(node < NF_MDLA_DEBUG_FS_U64))
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U64))
 		ull_dbgfs_file[node].u64_var -= val;
 }
 
-void mdla_dbg_sub_u32(unsigned int node, u32 val)
+void mdla_dbg_sub_u32(int node, u32 val)
 {
-	if (likely(node < NF_MDLA_DEBUG_FS_U32))
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U32))
 		u_dbgfs_file[node].u32_var -= val;
 }
 
-void mdla_dbg_add_u64(unsigned int node, u64 val)
+void mdla_dbg_add_u64(int node, u64 val)
 {
-	if (likely(node < NF_MDLA_DEBUG_FS_U64))
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U64))
 		ull_dbgfs_file[node].u64_var += val;
 }
 
-void mdla_dbg_add_u32(unsigned int node, u32 val)
+void mdla_dbg_add_u32(int node, u32 val)
 {
-	if (likely(node < NF_MDLA_DEBUG_FS_U32))
+	if (likely(node >= 0 && node < NF_MDLA_DEBUG_FS_U32))
 		u_dbgfs_file[node].u32_var += val;
-}
-
-void mdla_dbg_dump_register(struct seq_file *s)
-{
-	int i;
-
-	for_each_mdla_core(i)
-		mdla_debug_callback.dump_reg(i, s);
 }
 
 void mdla_dbg_dump(struct mdla_dev *mdla_info, struct command_entry *ce)
 {
 	mdla_debug_callback.dump_reg(mdla_info->mdla_id, NULL);
 	mdla_debug_callback.create_dump_cmdbuf(mdla_info, ce);
-	/* FIXME: apusys platform code doesn't exist */
+	/* FIXME: apusys platform code doesn't ready */
 	//apusys_reg_dump();
 	mdla_aee_warn("MDLA", "MDLA timeout");
 }
-
-static int mdla_dbg_prof_show(struct seq_file *s, void *data)
-{
-	int i;
-
-	seq_printf(s, "period=%llu\n", ull_dbgfs_file[FS_CFG_PERIOD].u64_var);
-	seq_printf(s, "op_trace=%u\n", u_dbgfs_file[FS_CFG_OP_TRACE].u32_var);
-
-	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
-		seq_printf(s, "c%d=0x%x\n",
-			(i+1), u_dbgfs_file[FS_C1 + i].u32_var);
-
-	mdla_prof_info_show(s);
-
-	seq_puts(s, "==== usage ====\n");
-	seq_puts(s, "echo [param] > /d/mdla/prof_start\n");
-	seq_puts(s, "param:\n");
-	seq_printf(s, " %2d: stop pmu polling timer\n",
-			PROF_PMU_TIMER_STOP);
-	seq_printf(s, " %2d: start pmu polling timer\n",
-			PROF_PMU_TIMER_START);
-
-	return 0;
-}
-
-static ssize_t mdla_dbg_prof_write(struct file *flip,
-		const char __user *buffer,
-		size_t count, loff_t *f_pos)
-{
-	char *buf;
-	u32 param;
-	int i, prio, ret = 0;
-	struct mdla_util_pmu_ops *pmu_ops;
-
-	buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	ret = copy_from_user(buf, buffer, count);
-	if (ret)
-		goto out;
-
-	buf[count] = '\0';
-
-	if (kstrtouint(buf, 10, &param) != 0) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	switch (param) {
-	case PROF_PMU_TIMER_STOP:
-		u_dbgfs_file[FS_CFG_TIMER_EN].u32_var = 0;
-		mdla_prof_pmu_timer_stop();
-		break;
-	case PROF_PMU_TIMER_START:
-		mdla_prof_pmu_timer_stop();
-		pmu_ops = mdla_util_pmu_ops_get();
-
-		for_each_mdla_core(i) {
-			for (prio = 0; prio < PRIORITY_LEVEL; prio++) {
-				struct mdla_pmu_info *pmu;
-
-				pmu = pmu_ops->get_info(i, prio);
-
-				if (!pmu)
-					continue;
-
-				pmu_ops->clr_counter_variable(pmu);
-				pmu_ops->set_percmd_mode(pmu, NORMAL);
-			}
-
-			pmu_ops->reset_counter(i);
-		}
-		mdla_prof_pmu_timer_start();
-		u_dbgfs_file[FS_CFG_TIMER_EN].u32_var = 1;
-		break;
-	default:
-		break;
-	}
-
-out:
-	kfree(buf);
-	return count;
-}
-
-static int mdla_dbg_prof_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mdla_dbg_prof_show, inode->i_private);
-}
-
-static const struct file_operations mdla_dbg_prof_fops = {
-	.open = mdla_dbg_prof_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.write = mdla_dbg_prof_write,
-};
 
 static int mdla_dbg_register_show(struct seq_file *s, void *data)
 {
@@ -293,6 +185,11 @@ static int mdla_dbg_memory_show(struct seq_file *s, void *data)
 {
 	mdla_debug_callback.memory_show(s);
 	return 0;
+}
+
+struct dentry *mdla_dbg_get_fs_root(void)
+{
+	return mdla_dbg_root;
 }
 
 void mdla_dbg_fs_setup(struct device *dev)
@@ -335,22 +232,19 @@ void mdla_dbg_fs_setup(struct device *dev)
 	debugfs_create_devm_seqfile(dev, "mdla_memory", mdla_dbg_root,
 				mdla_dbg_memory_show);
 
-	//debugfs_create_file("prof", 0644, mdla_dbg_root,
-	//		NULL, &mdla_dbg_prof_fops);
-	debugfs_create_file("prof_start", 0644, mdla_dbg_root,
-			NULL, &mdla_dbg_prof_fops);
-
+	/* Platform debug node */
 	mdla_debug_callback.dbgfs_plat_init(dev, mdla_dbg_root);
 }
 
-void mdla_dbg_fs_init(struct dentry *apusys_dbg_root)
+void mdla_dbg_fs_init(struct dentry *droot)
 {
-	//mdla_dbg_root = debugfs_create_dir("mdla", apusys_dbg_root);
-	mdla_dbg_root = debugfs_create_dir("mdla", NULL);
+	mdla_dbg_root = debugfs_create_dir("mdla", droot);
 	if (IS_ERR_OR_NULL(mdla_dbg_root)) {
 		mdla_drv_debug("failed to create mdla debugfs\n");
 		return;
 	}
+
+	/* AP&uP common node */
 }
 
 void mdla_dbg_fs_exit(void)

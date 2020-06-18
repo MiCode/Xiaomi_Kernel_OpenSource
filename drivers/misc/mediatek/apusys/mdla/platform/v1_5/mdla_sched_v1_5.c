@@ -77,7 +77,7 @@ static inline void mdla_set_swcmd_done_int(void *base_kva, u32 cid)
  * Enqueue one CE and start scheduler
  *
  */
-static void mdla_sched_enqueue_ce(unsigned int core_id,
+static void mdla_sched_enqueue_ce(u32 core_id,
 					struct command_entry *ce)
 {
 	struct mdla_scheduler *sched = mdla_get_device(core_id)->sched;
@@ -116,19 +116,18 @@ static void mdla_sched_enqueue_ce(unsigned int core_id,
  *
  * NOTE: sched->lock should be acquired by caller
  */
-static unsigned int mdla_sched_process_ce(unsigned int core_id)
+static int mdla_sched_process_ce(u32 core_id)
 {
 	unsigned long flags;
-	unsigned int ret = CE_NONE;
+	int ret = CE_NONE;
 	struct command_entry *ce;
 	struct command_batch *cb;
 	struct mdla_dev *dev = mdla_get_device(core_id);
 	struct mdla_scheduler *sched = dev->sched;
-	struct mdla_util_io_ops *io = mdla_util_io_ops_get();
+	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 	struct mdla_pmu_info *pmu;
 	u16 priority;
-	u32 cmda4;
-	u32 fin_cid, irq_status;
+	u32 cmda4, fin_cid, irq_status;
 
 	spin_lock_irqsave(&dev->hw_lock, flags);
 
@@ -198,17 +197,16 @@ static unsigned int mdla_sched_process_ce(unsigned int core_id)
  * Issue the processing_ce to HW engine
  * NOTE: sched->lock should be acquired by caller
  */
-static void mdla_sched_issue_ce(unsigned int core_id)
+static void mdla_sched_issue_ce(u32 core_id)
 {
 	dma_addr_t addr;
-	u32 nr_cmd_to_issue;
+	u32 nr_cmd_to_issue, irq_status;
 	struct mdla_dev *dev = mdla_get_device(core_id);
 	struct mdla_scheduler *sched = dev->sched;
 	struct command_entry *ce;
 	struct command_batch *cb;
-	struct mdla_util_io_ops *io = mdla_util_io_ops_get();
+	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 	unsigned long flags;
-	u32 irq_status;
 
 	ce = sched->pro_ce;
 	if (!ce) {
@@ -292,7 +290,7 @@ static void mdla_sched_issue_ce(unsigned int core_id)
  * Set the status of completed CE as CE_FIN
  * NOTE: sched->lock should be acquired by caller
  */
-static void mdla_sched_complete_ce(unsigned int core_id)
+static void mdla_sched_complete_ce(u32 core_id)
 {
 	struct mdla_scheduler *sched = mdla_get_device(core_id)->sched;
 
@@ -309,11 +307,11 @@ static void mdla_sched_complete_ce(unsigned int core_id)
  *
  * NOTE: sched->lock should be acquired by caller
  */
-static unsigned int mdla_sched_dequeue_ce(unsigned int core_id)
+static int mdla_sched_dequeue_ce(u32 core_id)
 {
 	struct mdla_scheduler *sched = mdla_get_device(core_id)->sched;
 	struct command_entry *prioritized_ce = NULL;
-	unsigned int ret = REASON_QUEUE_NORMALEXE;
+	int ret = REASON_QUEUE_NORMALEXE;
 
 	/* get one CE from the active CE queue */
 	prioritized_ce =
@@ -467,8 +465,8 @@ int mdla_v1_5_sched_init(void)
 	}
 
 	/* set scheduler callback */
-	sched_cb->split_alloc_cmd_batch = mdla_del_free_command_batch;
-	sched_cb->del_free_cmd_batch    = mdla_split_alloc_command_batch;
+	sched_cb->split_alloc_cmd_batch = mdla_split_alloc_command_batch;
+	sched_cb->del_free_cmd_batch    = mdla_del_free_command_batch;
 
 	return 0;
 

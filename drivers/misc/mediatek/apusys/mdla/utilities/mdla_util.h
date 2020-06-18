@@ -5,6 +5,7 @@
 #ifndef __MDLA_UTIL_H__
 #define __MDLA_UTIL_H__
 
+#include <linux/types.h>
 #include <linux/platform_device.h>
 
 #include <common/mdla_device.h>
@@ -16,9 +17,8 @@
 #endif
 
 /* platform */
-bool mdla_util_sw_preemption_support(void);
 const struct of_device_id *mdla_util_get_device_id(void);
-unsigned int mdla_util_get_core_num(void);
+u32 mdla_util_get_core_num(void);
 int mdla_util_plat_init(struct platform_device *pdev);
 void mdla_util_plat_deinit(struct platform_device *pdev);
 
@@ -26,9 +26,6 @@ void mdla_util_plat_deinit(struct platform_device *pdev);
 for (i = 0;  i < mdla_util_get_core_num(); i++)
 
 #define core_id_is_invalid(i) ((i) >= mdla_util_get_core_num())
-
-/* MET */
-#define met_pmu_timer_en()    (!!mdla_dbg_read_u32(FS_CFG_TIMER_EN))
 
 /* pmu operation */
 #define MDLA_PMU_COUNTERS   (15)
@@ -95,17 +92,17 @@ void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
 
 /* IO operation */
 struct mdla_util_core_io_ops {
-	unsigned int (*read)(int id, unsigned int offset);
-	void (*write)(int id, unsigned int offset, unsigned int value);
-	void (*set_b)(int id, unsigned int offset, unsigned int value);
-	void (*clr_b)(int id, unsigned int offset, unsigned int value);
+	u32 (*read)(u32 id, u32 offset);
+	void (*write)(u32 id, u32 offset, u32 value);
+	void (*set_b)(u32 id, u32 offset, u32 value);
+	void (*clr_b)(u32 id, u32 offset, u32 value);
 };
 
 struct mdla_util_common_io_ops {
-	unsigned int (*read)(unsigned int offset);
-	void (*write)(unsigned int offset, unsigned int value);
-	void (*set_b)(unsigned int offset, unsigned int value);
-	void (*clr_b)(unsigned int offset, unsigned int value);
+	u32 (*read)(u32 offset);
+	void (*write)(u32 offset, u32 value);
+	void (*set_b)(u32 offset, u32 value);
+	void (*clr_b)(u32 offset, u32 value);
 };
 
 struct mdla_util_io_ops {
@@ -115,15 +112,42 @@ struct mdla_util_io_ops {
 	struct mdla_util_common_io_ops apu_conn;
 	struct mdla_util_common_io_ops infra_cfg;
 };
-struct mdla_util_io_ops *mdla_util_io_ops_get(void);
 
-/* decode operation */
-struct mdla_util_decode_ops {
-	void (*decode)(const char *cmd, char *str, int size);
+struct mdla_reg_ctl {
+	void *apu_mdla_cmde_mreg_top;
+	void *apu_mdla_config_top;
+	void *apu_mdla_biu_top;
 };
 
-const struct mdla_util_decode_ops *mdla_util_decode_ops_get(void);
-void mdla_util_setup_decode_ops(
-		void (*decode)(const char *cmd, char *str, int size));
+enum EXTRA_ADDR_TYPE {
+	EXTRA_ADDR_V1P0,
+	EXTRA_ADDR_V1PX,
+	EXTRA_ADDR_V2P0,
+};
+
+const struct mdla_util_io_ops *mdla_util_io_ops_get(void);
+void mdla_util_io_set_addr(struct mdla_reg_ctl *reg_ctl);
+void mdla_util_io_set_extra_addr(int type,
+		void *addr1, void *addr2, void *addr3);
+
+#define dump_reg_cfg(i, name)						\
+do {									\
+	if (s)								\
+		seq_printf(s, "%d: %s: %.8x\n",	i, #name,		\
+			mdla_util_io_ops_get()->cfg.read(i, name));	\
+	else								\
+		mdla_timeout_debug("%d: %s: %.8x\n", i, #name,		\
+			mdla_util_io_ops_get()->cfg.read(i, name));	\
+} while (0)
+
+#define dump_reg_top(i, name)						\
+do {									\
+	if (s)								\
+		seq_printf(s, "%d: %s: %.8x\n",	i, #name,		\
+			mdla_util_io_ops_get()->cmde.read(i, name));	\
+	else								\
+		mdla_timeout_debug("%d: %s: %.8x\n", i, #name,		\
+			mdla_util_io_ops_get()->cmde.read(i, name));	\
+} while (0)
 
 #endif /* __MDLA_UTIL_H__ */

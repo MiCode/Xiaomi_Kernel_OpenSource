@@ -7,7 +7,7 @@
 
 #include <linux/device.h>
 
-int mdla_v1_5_get_irq_num(int core_id);
+int mdla_v1_5_get_irq_num(u32 core_id);
 int mdla_v1_5_irq_request(struct device *dev, int irqdesc_num);
 int mdla_v1_5_irq_release(struct device *dev);
 

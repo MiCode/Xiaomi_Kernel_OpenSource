@@ -30,24 +30,24 @@ static void mdla_cmd_prepare_v2_0(struct mdla_run_cmd *cd,
 	ce->mva = cd->mva + cd->offset;
 
 	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
+		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
 				__func__,
 				cd->mva,
 				cd->offset,
 				cd->count);
 
+	apusys_hd->ip_time = 0;
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
 	ce->bandwidth = 0;
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
-	ce->receive_t = sched_clock();
 	ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
-	mdla_cmd_debug("%s: cmd_entry=%lld, offset_code_buf =%08x\n",
+	mdla_cmd_debug("%s: cmd_entry=0x%llx, offset_code_buf=0x%x\n",
 			__func__,
 			apusys_hd->cmd_entry,
 			cd->offset_code_buf);
-	mdla_cmd_debug("%s: kva=%p, size =%08x\n",
+	mdla_cmd_debug("%s: kva=%p, size =0x%x\n",
 			__func__,
 			ce->kva,
 			cd->size);
@@ -60,7 +60,7 @@ static void mdla_cmd_ut_prepare_v2_0(struct ioctl_run_cmd *cd,
 	ce->mva = cd->buf.mva + cd->offset;
 
 	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
+		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
 				__func__,
 				cd->buf.mva,
 				cd->offset,
@@ -71,7 +71,6 @@ static void mdla_cmd_ut_prepare_v2_0(struct ioctl_run_cmd *cd,
 	ce->bandwidth = 0;
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
-	ce->receive_t = sched_clock();
 	ce->kva = NULL;
 	ce->boost_val = cd->boost_value;
 }
@@ -81,16 +80,21 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 				struct apusys_cmd_hnd *apusys_hd,
 				bool can_be_preempted)
 {
-	u64 deadline = 0;
+	u64 deadline = 0, cmd_start_t;
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry ce;
 	int ret = 0;
-	int opp_rand = 0;
-	int core_id = 0;
+	u32 core_id = 0;
+	u16 prio = can_be_preempted ? 1 : 0;
+
+	cmd_start_t = sched_clock();
 
 	memset(&ce, 0, sizeof(struct command_entry));
 	core_id = mdla_info->mdla_id;
-	ce.queue_t = sched_clock();
+
+	ce.receive_t = cmd_start_t;
+	ce.queue_t = cmd_start_t;
+	mdla_prof_set_ts(core_id, TS_CMD_START, cmd_start_t);
 
 	/* The critical region of command enqueue */
 	mutex_lock(&mdla_info->cmd_lock);
@@ -112,21 +116,18 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 		goto out;
 	mdla_pwr_ops_get()->set_opp_by_bootst(core_id, apusys_hd->boost_val);
 
-	if (mdla_dbg_read_u32(FS_DVFS_RAND)) {
-		/* FIXME: Not define APUSYS_MAX_NUM_OPPS yet */
-		//opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
-		mdla_cmd_debug("core: %d, rand opp: %d\n", core_id, opp_rand);
-		mdla_pwr_ops_get()->set_opp(core_id, opp_rand);
-	}
+	if (mdla_dbg_read_u32(FS_DVFS_RAND))
+		mdla_power_set_random_opp(core_id);
 
-	mdla_util_apu_pmu_handle(mdla_info, apusys_hd, 0);
 	mdla_prof_start(core_id);
 	mdla_trace_begin(core_id, &ce);
 
 	ce.poweron_t = sched_clock();
-	ce.req_start_t = sched_clock();
 
 	mdla_cmd_plat_cb()->pre_cmd_handle(core_id, &ce);
+
+	if (mdla_util_apu_pmu_handle(mdla_info, apusys_hd, prio) == 0)
+		mdla_util_pmu_ops_get()->reset_write_evt_exec(core_id, prio);
 
 	/* Fill HW reg */
 	mdla_cmd_plat_cb()->process_command(core_id, &ce);
@@ -140,13 +141,11 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 			mdla_cmd_plat_cb()->get_wait_time(core_id));
 	}
 
+	mdla_cmd_plat_cb()->post_cmd_handle(core_id, &ce);
 	mdla_cmd_plat_cb()->post_cmd_info(core_id);
-
-	ce.req_end_t = sched_clock();
 
 	mdla_trace_end(core_id, 0, &ce);
 	mdla_prof_stop(core_id, 1);
-	mdla_prof_iter(core_id);
 	mdla_util_apu_pmu_update(mdla_info, apusys_hd, 0);
 
 	cd->id = mdla_info->max_cmd_id;
@@ -170,31 +169,34 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	}
 
 	mdla_pwr_ops_get()->off_timer_start(core_id);
-
-	ce.wait_t = sched_clock();
-
-	apusys_hd->ip_time = (uint32_t)((ce.wait_t - ce.poweron_t) / 1000);
+	apusys_hd->ip_time += (u32)((ce.req_end_t - ce.req_start_t) / 1000);
 
 out:
 	mdla_pwr_ops_get()->wake_unlock(core_id);
 	mutex_unlock(&mdla_info->cmd_lock);
+
+	mdla_prof_set_ts(core_id, TS_CMD_FINISH, sched_clock());
+	mdla_prof_iter(core_id);
+
 	return ret;
 }
 
 int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 			struct mdla_dev *mdla_info)
 {
-	u64 deadline = 0;
+	u64 deadline = 0, cmd_start_t;
 	struct ioctl_run_cmd *cd = (struct ioctl_run_cmd *)run_cmd;
 	struct ioctl_wait_cmd *wt = (struct ioctl_wait_cmd *)wait_cmd;
 	struct command_entry ce;
 	int ret = 0;
-	int opp_rand = 0;
-	int core_id = 0;
+	u32 core_id = 0;
+
+	cmd_start_t = sched_clock();
 
 	memset(&ce, 0, sizeof(struct command_entry));
 	core_id = mdla_info->mdla_id;
-	ce.queue_t = sched_clock();
+	ce.receive_t = cmd_start_t;
+	ce.queue_t = cmd_start_t;
 	wt->result = 0;
 
 	/* The critical region of command enqueue */
@@ -217,18 +219,13 @@ int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 		goto out;
 	mdla_pwr_ops_get()->set_opp_by_bootst(core_id, ce.boost_val);
 
-	if (mdla_dbg_read_u32(FS_DVFS_RAND)) {
-		/* FIXME: Not define APUSYS_MAX_NUM_OPPS yet */
-		//opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
-		mdla_cmd_debug("core: %d, rand opp: %d\n", core_id, opp_rand);
-		mdla_pwr_ops_get()->set_opp(core_id, opp_rand);
-	}
+	if (mdla_dbg_read_u32(FS_DVFS_RAND))
+		mdla_power_set_random_opp(core_id);
 
 	mdla_prof_start(core_id);
 	mdla_trace_begin(core_id, &ce);
 
 	ce.poweron_t = sched_clock();
-	ce.req_start_t = sched_clock();
 
 	mdla_cmd_plat_cb()->pre_cmd_handle(core_id, &ce);
 
@@ -245,9 +242,6 @@ int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 	}
 
 	mdla_cmd_plat_cb()->post_cmd_info(core_id);
-
-	ce.req_end_t = sched_clock();
-
 
 	mdla_prof_iter(core_id);
 	mdla_trace_end(core_id, 0, &ce);

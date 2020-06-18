@@ -17,7 +17,7 @@
 
 
 struct mdla_irq {
-	unsigned int irq;
+	u32 irq;
 	struct mdla_dev *dev;
 };
 
@@ -31,9 +31,9 @@ static irqreturn_t mdla_irq_handler(int irq, void *dev_id)
 	u32 status_int, id;
 	unsigned long flags;
 	struct mdla_dev *mdla_device = (struct mdla_dev *)dev_id;
-	struct mdla_util_io_ops *io = mdla_util_io_ops_get();
+	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 	struct mdla_pmu_info *pmu;
-	unsigned int core_id;
+	u32 core_id;
 
 	if (unlikely(!mdla_device))
 		return IRQ_HANDLED;
