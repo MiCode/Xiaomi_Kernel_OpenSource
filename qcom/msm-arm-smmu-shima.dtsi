@@ -169,12 +169,19 @@
 			/* For Compute: +15 deep PF */
 			<0x2960 0x40f 0x303>;
 
+		interconnects = <&gem_noc MASTER_APPSS_PROC
+				&config_noc SLAVE_IMEM_CFG>;
+		qcom,active-only;
+
 		anoc_1_tbu: anoc_1_tbu@15185000 {
 			compatible = "qcom,qsmmuv500-tbu";
 			reg = <0x15185000 0x1000>,
 				<0x15182200 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x0 0x400>;
+			interconnects = <&gem_noc MASTER_APPSS_PROC
+					&config_noc SLAVE_IMEM_CFG>;
+			qcom,active-only;
 		};
 
 		anoc_2_tbu: anoc_2_tbu@15189000 {
@@ -183,6 +190,9 @@
 				<0x15182208 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x400 0x400>;
+			interconnects = <&gem_noc MASTER_APPSS_PROC
+					&config_noc SLAVE_IMEM_CFG>;
+			qcom,active-only;
 		};
 
 		mdp_0_tbu: mdp_0_tbu@1518d000 {
@@ -191,6 +201,12 @@
 				<0x15182210 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x800 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_mdp0_gdsc>;
+			interconnects = <&mmss_noc MASTER_MDP0
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
+
 		};
 
 		mdp_1_tbu: mdp_1_tbu@15191000 {
@@ -199,6 +215,11 @@
 				<0x15182218 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0xc00 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_mdp1_gdsc>;
+			interconnects = <&mmss_noc MASTER_MDP1
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		cam_0_tbu: cam_0_tbu@15195000 {
@@ -207,6 +228,11 @@
 				<0x15182220 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1000 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc>;
+			interconnects = <&mmss_noc MASTER_MDP0
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		cam_1_tbu: cam_1_tbu@15199000 {
@@ -215,6 +241,11 @@
 				<0x15182228 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1400 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc>;
+			interconnects = <&mmss_noc MASTER_MDP0
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		compute_dsp_0_tbu: compute_dsp_0_tbu@1519d000 {
@@ -223,6 +254,12 @@
 				<0x15182230 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1800 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_turing_mmu_tbu0_gdsc>;
+			interconnects = <&nsp_noc MASTER_CDSP_PROC
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
+
 		};
 
 		compute_dsp_1_tbu: compute_dsp_1_tbu@151a1000 {
@@ -231,6 +268,12 @@
 				<0x15182238 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x1c00 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_turing_mmu_tbu1_gdsc>;
+			interconnects = <&nsp_noc MASTER_CDSP_PROC
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
+
 		};
 
 		lpass_tbu: lpass_0_tbu@151a5000 {
@@ -239,6 +282,9 @@
 				<0x15182240 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2000 0x400>;
+			interconnects = <&gem_noc MASTER_APPSS_PROC
+					&lpass_ag_noc SLAVE_LPASS_CORE_CFG>;
+			qcom,active-only;
 		};
 
 		anoc_pcie_tbu: anoc_pcie_tbu@151a9000 {
@@ -247,6 +293,9 @@
 				<0x15182248 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2400 0x400>;
+			interconnects = <&gem_noc MASTER_APPSS_PROC
+					&config_noc SLAVE_IMEM_CFG>;
+			qcom,active-only;
 		};
 
 		mnoc_sf_0_tbu: mnoc_sf_0_tbu@151ad000 {
@@ -255,6 +304,11 @@
 				<0x15182250 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2800 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc>;
+			interconnects = <&mmss_noc MASTER_CAMNOC_SF
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
 		};
 
 		mnoc_sf_1_tbu: mnoc_sf_1_tbu@151b1000 {
@@ -263,6 +317,12 @@
 				<0x15182258 0x8>;
 			reg-names = "base", "status-reg";
 			qcom,stream-id-range = <0x2c00 0x400>;
+			qcom,regulator-names = "vdd";
+			vdd-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc>;
+			interconnects = <&mmss_noc MASTER_CAMNOC_SF
+					&mc_virt SLAVE_EBI1>;
+			qcom,active-only;
+
 		};
 	};
 
