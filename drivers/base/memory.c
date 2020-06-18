@@ -845,6 +845,8 @@ int create_memory_block_devices(unsigned long start, unsigned long size)
 		for (block_id = start_block_id; block_id != end_block_id;
 		     block_id++) {
 			mem = find_memory_block_by_id(block_id, NULL);
+			if (WARN_ON_ONCE(!mem))
+				continue;
 			mem->section_count = 0;
 			unregister_memory(mem);
 		}
