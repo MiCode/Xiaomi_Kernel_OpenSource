@@ -33,6 +33,18 @@ Properties:
 			It's used for llcc cache single and double bit error detection
 			and reporting.
 
+- clocks:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition:  List of phandles and clock specifier pairs for the llcc perfmon
+		     trace feature support.
+
+- clock-names:
+	Usage: required
+	Value type: <stringlist>
+	Definition: List of clock input name strings sorted in the same
+		    order as the clocks property. Definition must have
+		    "qdss_clk"
 Example:
 
 	cache-controller@1100000 {
@@ -40,4 +52,6 @@ Example:
 		reg = <0x1100000 0x200000>, <0x1300000 0x50000> ;
 		reg-names = "llcc_base", "llcc_broadcast_base";
 		interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "qdss_clk";
 	};
