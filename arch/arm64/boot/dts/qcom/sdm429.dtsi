@@ -712,7 +712,7 @@
 
 		adsp_smsm: adsp@2 {
 			reg = <2>;
-			interrupts = <0 289 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <0 290 IRQ_TYPE_EDGE_RISING>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
 		};
