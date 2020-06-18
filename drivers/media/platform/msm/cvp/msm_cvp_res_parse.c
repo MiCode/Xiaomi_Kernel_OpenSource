@@ -115,6 +115,25 @@ void msm_cvp_free_platform_resources(
 	msm_cvp_free_bus_vectors(res);
 }
 
+static int msm_cvp_load_ipcc_regs(struct msm_cvp_platform_resources *res)
+{
+	int ret = 0;
+	unsigned int reg_config[2];
+	struct platform_device *pdev = res->pdev;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "qcom,ipcc-reg",
+				reg_config, 2);
+	if (ret) {
+		dprintk(CVP_ERR, "Failed to read ipcc reg: %d\n", ret);
+		return ret;
+	}
+
+	res->ipcc_reg_base = reg_config[0];
+	res->ipcc_reg_size = reg_config[1];
+
+	return ret;
+}
+
 static int msm_cvp_load_reg_table(struct msm_cvp_platform_resources *res)
 {
 	struct reg_set *reg_set;
@@ -782,6 +801,10 @@ int cvp_read_platform_resources_from_dt(
 		dprintk(CVP_ERR, "Failed to load reg table: %d\n", rc);
 		goto err_load_reg_table;
 	}
+
+	rc = msm_cvp_load_ipcc_regs(res);
+	if (rc)
+		dprintk(CVP_ERR, "Failed to load IPCC regs: %d\n", rc);
 
 	rc = msm_cvp_load_regulator_table(res);
 	if (rc) {
