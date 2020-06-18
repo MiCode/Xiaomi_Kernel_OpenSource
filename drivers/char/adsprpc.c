@@ -3166,7 +3166,7 @@ bail:
 static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
-	int err = 0, memlen = 0, mflags = 0;
+	int err = 0, memlen = 0, mflags = 0, locked = 0;
 	struct fastrpc_ioctl_invoke_async ioctl;
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	struct smq_phy_page pages[1];
@@ -3176,6 +3176,8 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	remote_arg_t ra[6];
 	int fds[6];
 	unsigned int gid = 0, one_mb = 1024*1024;
+	struct fastrpc_buf *init_mem;
+
 	struct {
 		int pgid;
 		unsigned int namelen;
@@ -3248,8 +3250,19 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 		goto bail;
 	}
 	/* Free any previous donated memory */
-	if (fl->init_mem)
-		fastrpc_buf_free(fl->init_mem, 0);
+	spin_lock(&fl->hlock);
+	locked = 1;
+	if (fl->init_mem) {
+		init_mem = fl->init_mem;
+		fl->init_mem = NULL;
+		spin_unlock(&fl->hlock);
+		locked = 0;
+		fastrpc_buf_free(init_mem, 0);
+	}
+	if (locked) {
+		spin_unlock(&fl->hlock);
+		locked = 0;
+	}
 
 	/* Allocate DMA buffer in kernel for donating to remote process */
 	memlen = ALIGN(max(3*one_mb, init->filelen * 4), one_mb);
@@ -3324,9 +3337,18 @@ bail:
 		mutex_unlock(&fl->map_mutex);
 	}
 	if (err) {
+		spin_lock(&fl->hlock);
+		locked = 1;
 		if (!IS_ERR_OR_NULL(fl->init_mem)) {
-			fastrpc_buf_free(fl->init_mem, 0);
+			init_mem = fl->init_mem;
 			fl->init_mem = NULL;
+			spin_unlock(&fl->hlock);
+			locked = 0;
+			fastrpc_buf_free(init_mem, 0);
+		}
+		if (locked) {
+			spin_unlock(&fl->hlock);
+			locked = 0;
 		}
 	}
 	return err;
