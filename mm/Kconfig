@@ -558,6 +558,14 @@ config CMA_PCP_LISTS
 	  allocations, as the amount of non-CMA memory to be reclaimed should
 	  be smaller.
 
+config LIMIT_MOVABLE_ZONE_ALLOC
+	bool "Limit types of allocations from Movable zone"
+	help
+	  Ensure that only allocations which include __GFP_OFFLINABLE can be
+	  satisfied from zone Movable. This restriction helps reduce the
+	  likelihood of a page in the movable zone being pinned which would
+	  prevent memory from being offlined.
+
 config MEM_SOFT_DIRTY
 	bool "Track memory changes"
 	depends on CHECKPOINT_RESTORE && HAVE_ARCH_SOFT_DIRTY && PROC_FS
