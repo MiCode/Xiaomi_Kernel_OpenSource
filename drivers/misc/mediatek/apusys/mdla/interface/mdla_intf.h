@@ -8,7 +8,6 @@
 
 #include "mdla_cmd_proc_intf.h"
 #include "mdla_power_ctrl_intf.h"
-#include "mdla_decoder_intf.h"
 
 #endif /* __MDLA_INTERFACE_H__ */
 

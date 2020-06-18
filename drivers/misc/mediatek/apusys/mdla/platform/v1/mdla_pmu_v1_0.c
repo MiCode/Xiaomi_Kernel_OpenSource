@@ -189,7 +189,7 @@ static void mdla_pmu_event_write_all(u32 core_id, u16 priority)
 
 	pmu = &(mdla_get_device(core_id)->pmu_info[priority]);
 
-	cnt = mdla_prof_use_dbgfs_pmu_event()
+	cnt = mdla_prof_use_dbgfs_pmu_event(core_id)
 		? MDLA_PMU_COUNTERS : pmu->number_of_event;
 
 	for (i = 0; i < cnt; i++) {
@@ -201,7 +201,7 @@ static void mdla_pmu_event_write_all(u32 core_id, u16 priority)
 
 static u32 mdla_pmu_get_num_evt(u32 core_id, int priority)
 {
-	if (mdla_prof_use_dbgfs_pmu_event())
+	if (mdla_prof_use_dbgfs_pmu_event(core_id))
 		return MDLA_PMU_COUNTERS;
 
 	if (priority >= PRIORITY_LEVEL)
@@ -449,7 +449,7 @@ static int mdla_pmu_counter_free(u32 core_id, int handle)
 }
 
 static int mdla_pmu_ioctl(struct file *filp,
-		unsigned int command, unsigned long arg, bool need_pwr_on)
+		u32 command, unsigned long arg, bool need_pwr_on)
 {
 	long retval = 0;
 	struct mdla_dev *mdla_device;
@@ -473,8 +473,10 @@ static int mdla_pmu_ioctl(struct file *filp,
 
 	if (need_pwr_on) {
 		mdla_pwr_ops_get()->lock(core_id);
-		if (mdla_device->power_is_on == false)
+		if (mdla_device->power_is_on == false) {
+			mdla_err("mdla%d power off, pmu ioctl FAIL\n", core_id);
 			goto out;
+		}
 	}
 
 	switch (command) {

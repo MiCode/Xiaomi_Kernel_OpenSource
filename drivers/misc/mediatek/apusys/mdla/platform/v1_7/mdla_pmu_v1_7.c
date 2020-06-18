@@ -18,9 +18,10 @@
 #include <common/mdla_cmd_proc.h>
 #include <common/mdla_ioctl.h>
 
+#include <platform/mdla_plat_api.h>
+
 #include "mdla_pmu_v1_7.h"
 #include "mdla_hw_reg_v1_7.h"
-#include "mdla_config_v1_7.h"
 
 
 #define biu_read(id, ofs) \
@@ -191,7 +192,7 @@ static void mdla_pmu_event_write_all(u32 core_id, u16 priority)
 
 	pmu = &(mdla_get_device(core_id)->pmu_info[priority]);
 
-	cnt = mdla_prof_use_dbgfs_pmu_event()
+	cnt = mdla_prof_use_dbgfs_pmu_event(core_id)
 		? MDLA_PMU_COUNTERS : pmu->number_of_event;
 
 	for (i = 0; i < cnt; i++) {
@@ -203,7 +204,7 @@ static void mdla_pmu_event_write_all(u32 core_id, u16 priority)
 
 static u32 mdla_pmu_get_num_evt(u32 core_id, int priority)
 {
-	if (mdla_prof_use_dbgfs_pmu_event())
+	if (mdla_prof_use_dbgfs_pmu_event(core_id))
 		return MDLA_PMU_COUNTERS;
 
 	if (priority >= PRIORITY_LEVEL)
@@ -467,7 +468,7 @@ static int mdla_pmu_counter_free(u32 core_id, int handle)
 }
 
 static int mdla_pmu_ioctl(struct file *filp,
-		unsigned int command, unsigned long arg, bool need_pwr_on)
+		u32 command, unsigned long arg, bool need_pwr_on)
 {
 	long retval = 0;
 	struct mdla_dev *mdla_device;
@@ -491,8 +492,10 @@ static int mdla_pmu_ioctl(struct file *filp,
 
 	if (need_pwr_on) {
 		mdla_pwr_ops_get()->lock(core_id);
-		if (mdla_device->power_is_on == false)
+		if (mdla_device->power_is_on == false) {
+			mdla_err("mdla%d power off, pmu ioctl FAIL\n", core_id);
 			goto out;
+		}
 	}
 
 	switch (command) {
@@ -613,7 +616,7 @@ void mdla_v1_7_pmu_info_show(struct seq_file *s)
 		}
 	}
 	seq_printf(s, "set event by %s\n",
-		mdla_prof_use_dbgfs_pmu_event() ? "debugfs" : "apusys");
+		mdla_dbg_read_u32(FS_PMU_EVT_BY_APU) ? "apusys" : "debugfs");
 }
 
 
@@ -676,12 +679,15 @@ void mdla_v1_7_pmu_init(struct mdla_dev *mdla_info)
 	pmu_ops->get_info             = mdla_pmu_get_info;
 	pmu_ops->apu_cmd_prepare      = mdla_pmu_cmd_prepare;
 
-	mdla_apusys_pmu_init();
+	if (mdla_plat_nn_pmu_support())
+		mdla_util_apusys_pmu_support(true);
+	else
+		mdla_util_apusys_pmu_support(false);
 }
 
 void mdla_v1_7_pmu_deinit(struct mdla_dev *mdla_info)
 {
-	mdla_apusys_pmu_deinit();
+	mdla_util_apusys_pmu_support(false);
 	mdla_ioctl_unregister_perf_handle();
 
 	kfree(mdla_info->pmu_dev);

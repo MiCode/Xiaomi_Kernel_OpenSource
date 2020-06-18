@@ -5,6 +5,7 @@
 #ifndef __MDLA_SCHEDULER_H__
 #define __MDLA_SCHEDULER_H__
 
+#include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
 
@@ -70,11 +71,11 @@ struct mdla_scheduler {
 
 	spinlock_t lock;
 
-	void (*enqueue_ce)(unsigned int core_id, struct command_entry *ce);
-	unsigned int (*dequeue_ce)(unsigned int core_id);
-	void (*issue_ce)(unsigned int core_id);
-	unsigned int (*process_ce)(unsigned int core_id);
-	void (*complete_ce)(unsigned int core_id);
+	void (*enqueue_ce)(u32 core_id, struct command_entry *ce);
+	int (*dequeue_ce)(u32 core_id);
+	void (*issue_ce)(u32 core_id);
+	int (*process_ce)(u32 core_id);
+	void (*complete_ce)(u32 core_id);
 };
 
 /* platform callback functions */

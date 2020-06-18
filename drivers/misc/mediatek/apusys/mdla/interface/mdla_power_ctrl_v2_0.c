@@ -18,7 +18,7 @@
 #include <utilities/mdla_debug.h>
 
 
-int mdla_pwr_on_v2_0(int core_id, bool force)
+int mdla_pwr_on_v2_0(u32 core_id, bool force)
 {
 	int ret = 0;
 	u64 poweron_t;
@@ -69,7 +69,7 @@ out:
 	return 0;
 }
 
-int mdla_pwr_off_v2_0(int core_id,
+int mdla_pwr_off_v2_0(u32 core_id,
 				int suspend, bool force)
 {
 	int ret = 0;

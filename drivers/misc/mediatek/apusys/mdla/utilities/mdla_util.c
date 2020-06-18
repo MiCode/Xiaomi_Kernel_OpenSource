@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/types.h>
+#include <linux/io.h>
 #include <linux/platform_device.h>
 
 #include <apusys_device.h>
@@ -23,7 +24,7 @@ struct mdla_pmu_result {
 };
 
 /* platform */
-unsigned int mdla_util_get_core_num(void)
+u32 mdla_util_get_core_num(void)
 {
 	return mdla_plat_get_core_num();
 }
@@ -35,17 +36,20 @@ const struct of_device_id *mdla_util_get_device_id(void)
 
 int mdla_util_plat_init(struct platform_device *pdev)
 {
-	return mdla_plat_init(pdev);
+	if (mdla_plat_init(pdev) != 0)
+		return -1;
+
+	mdla_fpga_reset();
+	mdla_dbg_fs_setup(&pdev->dev);
+	mdla_prof_init(mdla_plat_get_prof_ver());
+
+	return 0;
 }
 
 void mdla_util_plat_deinit(struct platform_device *pdev)
 {
+	mdla_prof_deinit();
 	mdla_plat_deinit(pdev);
-}
-
-bool mdla_util_sw_preemption_support(void)
-{
-	return mdla_plat_sw_preemption_support();
 }
 
 /* pmu */
@@ -172,9 +176,7 @@ int mdla_util_apu_pmu_handle(struct mdla_dev *mdla_info,
 	pmu_ops.clr_cycle_variable(pmu);
 
 
-	if (mdla_prof_pmu_timer_is_running(core_id)
-		&& mdla_prof_use_dbgfs_pmu_event()) {
-
+	if (mdla_prof_use_dbgfs_pmu_event(mdla_info->mdla_id)) {
 		pmu_ops.set_num_evt(core_id,
 				priority, MDLA_PMU_COUNTERS);
 
@@ -187,7 +189,7 @@ int mdla_util_apu_pmu_handle(struct mdla_dev *mdla_info,
 	}
 
 	if (!apusys_pmu_support)
-		return 0;
+		return -1;
 
 	if (mdla_util_pmu_addr_is_invalid(apusys_hd)) {
 		for (i = 0; i < MDLA_PMU_COUNTERS; i++)
@@ -237,8 +239,8 @@ void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
 	if (!apusys_pmu_support)
 		return;
 
-	if (mdla_prof_pmu_timer_is_running(mdla_info->mdla_id)
-		&& mdla_prof_use_dbgfs_pmu_event())
+	/* FIXME: NOT always upload pmu info to NN? */
+	if (mdla_prof_use_dbgfs_pmu_event(mdla_info->mdla_id))
 		return;
 
 	if (mdla_util_pmu_addr_is_invalid(apusys_hd))
@@ -342,9 +344,12 @@ void mdla_util_apusys_pmu_support(bool enable)
 }
 
 /* IO operation */
+static struct mdla_reg_ctl *mdla_reg_control;
+static void *apu_conn_top;
+static void *infracfg_ao_top;
 
-static u32 mdla_util_dummy_core_r(int i, u32 ofs) { return 0; }
-static void mdla_util_dummy_core_w(int i, u32 ofs, u32 val) {}
+static u32 mdla_util_dummy_core_r(u32 i, u32 ofs) { return 0; }
+static void mdla_util_dummy_core_w(u32 i, u32 ofs, u32 val) {}
 static u32 mdla_util_dummy_r(u32 ofs) { return 0; }
 static void mdla_util_dummy_w(u32 ofs, u32 val) {}
 
@@ -371,26 +376,201 @@ static struct mdla_util_io_ops io_ops = {
 			.clr_b = mdla_util_dummy_w},
 };
 
-struct mdla_util_io_ops *mdla_util_io_ops_get(void)
+const struct mdla_util_io_ops *mdla_util_io_ops_get(void)
 {
 	return &io_ops;
 }
 
-/* decode */
-static void mdla_util_decode_dummy(const char *cmd, char *str, int size) {}
-
-static struct mdla_util_decode_ops mdla_util_decode = {
-	.decode = mdla_util_decode_dummy,
-};
-
-const struct mdla_util_decode_ops *mdla_util_ops_get(void)
+static inline void reg_set(void *base, u32 offset, u32 value)
 {
-	return &mdla_util_decode;
+	iowrite32(ioread32(base + offset) | value, base + offset);
 }
 
-void mdla_util_setup_decode_ops(
-		void (*decode)(const char *cmd, char *str, int size))
+static inline void reg_clr(void *base, u32 offset, u32 value)
 {
-	if (decode)
-		mdla_util_decode.decode = decode;
+	iowrite32(ioread32(base + offset) & (~value), base + offset);
+}
+
+static u32 mdla_cfg_read(u32 id, u32 offset)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return 0;
+
+	return ioread32(mdla_reg_control[id].apu_mdla_config_top + offset);
+}
+
+static void mdla_cfg_write(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	iowrite32(value, mdla_reg_control[id].apu_mdla_config_top + offset);
+}
+
+static void mdla_cfg_set_b(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	reg_set(mdla_reg_control[id].apu_mdla_config_top, offset, value);
+}
+
+static void mdla_cfg_clr_b(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	reg_clr(mdla_reg_control[id].apu_mdla_config_top, offset, value);
+}
+
+static u32 mdla_reg_read(u32 id, u32 offset)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return 0;
+
+	return ioread32(mdla_reg_control[id].apu_mdla_cmde_mreg_top + offset);
+}
+
+static void mdla_reg_write(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	iowrite32(value, mdla_reg_control[id].apu_mdla_cmde_mreg_top + offset);
+}
+
+static void mdla_reg_set_b(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	reg_set(mdla_reg_control[id].apu_mdla_cmde_mreg_top, offset, value);
+}
+
+static void mdla_reg_clr_b(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	reg_clr(mdla_reg_control[id].apu_mdla_cmde_mreg_top, offset, value);
+}
+
+static u32 mdla_biu_read(u32 id, u32 offset)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return 0;
+
+	return ioread32(mdla_reg_control[id].apu_mdla_biu_top + offset);
+}
+
+static void mdla_biu_write(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	iowrite32(value, mdla_reg_control[id].apu_mdla_biu_top + offset);
+}
+
+static void mdla_biu_set_b(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	reg_set(mdla_reg_control[id].apu_mdla_biu_top, offset, value);
+}
+
+static void mdla_biu_clr_b(u32 id, u32 offset, u32 value)
+{
+	if (unlikely(core_id_is_invalid(id)))
+		return;
+
+	reg_clr(mdla_reg_control[id].apu_mdla_biu_top, offset, value);
+}
+
+static u32 mdla_apu_conn_read(u32 offset)
+{
+	return ioread32(apu_conn_top + offset);
+}
+
+static void mdla_apu_conn_write(u32 offset, u32 value)
+{
+	iowrite32(value, apu_conn_top + offset);
+}
+
+static void mdla_apu_conn_set_b(u32 offset, u32 value)
+{
+	reg_set(apu_conn_top, offset, value);
+}
+
+static void mdla_apu_conn_clr_b(u32 offset, u32 value)
+{
+	reg_clr(apu_conn_top, offset, value);
+}
+
+static u32 mdla_infracfg_ao_read(u32 offset)
+{
+	return ioread32(infracfg_ao_top + offset);
+}
+
+static void mdla_infracfg_ao_write(u32 offset, u32 value)
+{
+	iowrite32(value, infracfg_ao_top + offset);
+}
+
+static void mdla_infracfg_ao_set_b(u32 offset, u32 value)
+{
+	reg_set(infracfg_ao_top, offset, value);
+}
+
+static void mdla_infracfg_ao_clr_b(u32 offset, u32 value)
+{
+	reg_clr(infracfg_ao_top, offset, value);
+}
+
+void mdla_util_io_set_addr(struct mdla_reg_ctl *reg_ctl)
+{
+	if (reg_ctl == NULL)
+		return;
+
+	mdla_reg_control = reg_ctl;
+
+	io_ops.cfg.read        = mdla_cfg_read;
+	io_ops.cfg.write       = mdla_cfg_write;
+	io_ops.cfg.set_b       = mdla_cfg_set_b;
+	io_ops.cfg.clr_b       = mdla_cfg_clr_b;
+	io_ops.cmde.read       = mdla_reg_read;
+	io_ops.cmde.write      = mdla_reg_write;
+	io_ops.cmde.set_b      = mdla_reg_set_b;
+	io_ops.cmde.clr_b      = mdla_biu_clr_b;
+	io_ops.biu.read        = mdla_biu_read;
+	io_ops.biu.write       = mdla_biu_write;
+	io_ops.biu.set_b       = mdla_biu_set_b;
+	io_ops.biu.clr_b       = mdla_reg_clr_b;
+}
+
+void mdla_util_io_set_extra_addr(int type,
+		void *addr1, void *addr2, void *addr3)
+{
+	if (EXTRA_ADDR_V1P0) {
+		apu_conn_top    = addr1;
+		infracfg_ao_top = addr2;
+	} else if (EXTRA_ADDR_V1PX) {
+		apu_conn_top    = addr1;
+	} else {
+		return;
+	}
+
+	if (apu_conn_top) {
+		io_ops.apu_conn.read   = mdla_apu_conn_read;
+		io_ops.apu_conn.write  = mdla_apu_conn_write;
+		io_ops.apu_conn.set_b  = mdla_apu_conn_set_b;
+		io_ops.apu_conn.clr_b  = mdla_apu_conn_clr_b;
+	}
+
+	if (infracfg_ao_top) {
+		io_ops.infra_cfg.read  = mdla_infracfg_ao_read;
+		io_ops.infra_cfg.write = mdla_infracfg_ao_write;
+		io_ops.infra_cfg.set_b = mdla_infracfg_ao_set_b;
+		io_ops.infra_cfg.clr_b = mdla_infracfg_ao_clr_b;
+	}
 }

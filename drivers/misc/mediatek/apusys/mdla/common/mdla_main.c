@@ -15,7 +15,7 @@
 struct apusys_core_info;
 
 static struct mdla_dev *mdla_devices;
-static unsigned int mdla_device_num;
+static u32 mdla_device_num;
 
 struct mdla_dev *mdla_get_device(int id)
 {
@@ -25,7 +25,7 @@ struct mdla_dev *mdla_get_device(int id)
 	return &mdla_devices[id];
 }
 
-void mdla_set_device(struct mdla_dev *dev, unsigned int num)
+void mdla_set_device(struct mdla_dev *dev, u32 num)
 {
 	mdla_devices = dev;
 	mdla_device_num = num;

@@ -14,12 +14,14 @@
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_util.h>
 
+#include <platform/mdla_plat_api.h>
+
 #include "mdla_hw_reg_v1_7.h"
 #include "mdla_sched_v1_7.h"
 
 
 struct mdla_irq {
-	unsigned int irq;
+	u32 irq;
 	struct mdla_dev *dev;
 };
 
@@ -32,9 +34,8 @@ static void mdla_irq_sched(struct mdla_dev *mdla_device)
 {
 	struct mdla_scheduler *sched = mdla_device->sched;
 	unsigned long flags;
-	unsigned int status, core_id;
-	struct mdla_util_io_ops *io = mdla_util_io_ops_get();
-	u32 irq_status = 0;
+	u32 status, core_id, irq_status = 0;
+	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 
 	core_id = mdla_device->mdla_id;
 
@@ -100,10 +101,9 @@ unlock:
 
 static void mdla_irq_intr(struct mdla_dev *mdla_device)
 {
-	u32 status_int, id;
+	u32 status_int, core_id, id;
 	unsigned long flags;
-	unsigned int core_id;
-	struct mdla_util_io_ops *io = mdla_util_io_ops_get();
+	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 	struct mdla_pmu_info *pmu;
 
 	core_id = mdla_device->mdla_id;
@@ -137,7 +137,7 @@ static irqreturn_t mdla_irq_handler(int irq, void *dev_id)
 	if (unlikely(!mdla_device))
 		return IRQ_HANDLED;
 
-	if (mdla_util_sw_preemption_support())
+	if (mdla_plat_sw_preemption_support())
 		mdla_irq_sched(mdla_device);
 	else
 		mdla_irq_intr(mdla_device);
@@ -147,7 +147,7 @@ static irqreturn_t mdla_irq_handler(int irq, void *dev_id)
 
 /* platform public function */
 
-int mdla_v1_7_get_irq_num(int core_id)
+int mdla_v1_7_get_irq_num(u32 core_id)
 {
 	int i;
 

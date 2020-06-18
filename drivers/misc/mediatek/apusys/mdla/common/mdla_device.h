@@ -11,9 +11,9 @@
 #include <linux/workqueue.h>
 #include <linux/hrtimer.h>
 #include <linux/list.h>
+#include <linux/types.h>
 
-#define DEFAULT_CORE_NUM 1
-#define MAX_CORE_NUM 128
+#define MAX_CORE_NUM 16
 
 struct apusys_kmem;
 
@@ -95,7 +95,6 @@ enum REASON_QUEUE_STATE_ENUM {
 struct mdla_dev {
 	u32 mdla_id;
 
-	//u32 async_cmd_id;
 	u32 max_cmd_id;
 	struct mutex cmd_lock;
 	struct list_head cmd_list;
@@ -118,10 +117,8 @@ struct mdla_dev {
 
 	/* platform */
 	void *cmd_buf_dmp;
-	u32 cmd_buf_len;
+	size_t cmd_buf_len;
 	struct mutex cmd_buf_dmp_lock;
-	//u32 mdla_dde_zero_skip_count;
-	//u32 mdla_e1_detect_count;
 
 	/* sw preemption */
 	struct mdla_scheduler *sched;
@@ -140,10 +137,9 @@ struct command_entry {
 	void *kva;    /* Virtual Address for Kernel */
 	u32 mva;      /* Physical Address for Device */
 	u32 count;
-	//u32 id;
 	int boost_val;
 
-	uint32_t bandwidth;
+	u32 bandwidth;
 
 	int result;
 	u64 receive_t;   /* time of receive the request (ns) */
@@ -153,7 +149,7 @@ struct command_entry {
 	u64 req_end_t;   /* request end time (ns) */
 	u64 wait_t;      /* time waited by user */
 
-	__u64 deadline_t;
+	u64 deadline_t;
 
 	u32 fin_cid;         /* record the last finished command id */
 	u32 wish_fin_cid;
@@ -163,11 +159,11 @@ struct command_entry {
 	//struct command_batch *batch_list;	/* list of command batch */
 	struct apusys_kmem *cmdbuf;
 	int ctx_id;
-	int (*context_callback)(int a, int b, uint8_t c);
+	int (*context_callback)(int a, int b, unsigned char c);
 };
 
 
 struct mdla_dev *mdla_get_device(int id);
-void mdla_set_device(struct mdla_dev *dev, unsigned int num);
+void mdla_set_device(struct mdla_dev *dev, u32 num);
 
 #endif /* __MDLA_DEVICE_H__ */

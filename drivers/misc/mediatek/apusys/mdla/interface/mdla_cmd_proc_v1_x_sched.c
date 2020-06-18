@@ -9,9 +9,7 @@
 #include <linux/random.h>
 #include <linux/sched/clock.h>
 
-/* FIXME: mtk irq debug not ready */
-#define MTK_IRQ_RDY 0
-#if MTK_IRQ_RDY
+#ifdef CONFIG_MTK_GIC_V3_EXT
 #include <linux/irqchip/mtk-gic-extend.h>
 #else
 #define mt_irq_dump_status(n)
@@ -40,7 +38,7 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	ce->mva = cd->mva + cd->offset;
 
 	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
+		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
 				__func__,
 				cd->mva,
 				cd->offset,
@@ -68,11 +66,11 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	ce->context_callback = apusys_hd->context_callback;
 	apusys_hd->ip_time = 0;
 	ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
-	mdla_cmd_debug("%s: cmd_entry=%llu, offset_code_buf =%08x\n",
+	mdla_cmd_debug("%s: cmd_entry=0x%llx, offset_code_buf=0x%x\n",
 			__func__,
 			apusys_hd->cmd_entry,
 			cd->offset_code_buf);
-	mdla_cmd_debug("%s: kva=%p, size =%08x\n",
+	mdla_cmd_debug("%s: kva=%p, size =0x%x\n",
 			__func__,
 			ce->kva,
 			cd->size);
@@ -92,7 +90,7 @@ static void mdla_cmd_ut_prepare_v1_x_sched(struct ioctl_run_cmd *cd,
 	ce->mva = cd->buf.mva + cd->offset;
 
 	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
+		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
 				__func__,
 				cd->buf.mva,
 				cd->offset,
@@ -166,7 +164,7 @@ static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
 					struct command_entry *ce)
 {
 	struct mdla_scheduler *sched = mdla_info->sched;
-	int core_id = mdla_info->mdla_id;
+	u32 core_id = mdla_info->mdla_id;
 	unsigned long flags;
 	int status = REASON_QUEUE_PREEMPTION;
 
@@ -233,8 +231,7 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	struct command_entry *ce;
 	struct mdla_scheduler *sched = mdla_info->sched;
 	unsigned long flags;
-	int core_id = mdla_info->mdla_id;
-	int opp_rand = 0;
+	u32 core_id = mdla_info->mdla_id;
 	int boost_val = 0;
 
 	if (!cd || (cd->count == 0) || (apusys_hd->cmdbuf == NULL))
@@ -266,12 +263,8 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	if (ce->boost_val > boost_val)
 		mdla_pwr_ops_get()->set_opp_by_bootst(core_id, ce->boost_val);
 
-	if (mdla_dbg_read_u32(FS_DVFS_RAND)) {
-		/* FIXME: kernel-5.4 Not define APUSYS_MAX_NUM_OPPS yet */
-		//opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
-		mdla_cmd_debug("core: %d, rand opp: %d\n", core_id, opp_rand);
-		mdla_pwr_ops_get()->set_opp(core_id, opp_rand);
-	}
+	if (mdla_dbg_read_u32(FS_DVFS_RAND))
+		mdla_power_set_random_opp(core_id);
 
 	ce->poweron_t = sched_clock();
 
@@ -305,7 +298,7 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 		ret = mdla_cmd_wrong_count_handler(mdla_info, ce);
 
 	apusys_hd->ip_time +=
-			(uint32_t)(ce->req_end_t - ce->req_start_t)/1000;
+			(u32)(ce->req_end_t - ce->req_start_t)/1000;
 
 	/* update id to the last finished command id */
 	cd->id = ce->fin_cid;
@@ -317,9 +310,6 @@ error_handle:
 	mdla_prof_iter(core_id);
 	mdla_util_apu_pmu_update(mdla_info,
 				apusys_hd, ce->cmd_batch_en ? 1 : 0);
-
-	/* FIXME: no need? */
-	ce->wait_t = sched_clock();
 
 	if (ce->cmd_batch_en && ce->batch_list_head != NULL)
 		mdla_sched_plat_cb()->del_free_cmd_batch(ce);
@@ -343,8 +333,7 @@ int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
 	struct command_entry *ce;
 	struct mdla_scheduler *sched = mdla_info->sched;
 	unsigned long flags;
-	int core_id = mdla_info->mdla_id;
-	int opp_rand = 0;
+	u32 core_id = mdla_info->mdla_id;
 	int boost_val = 0;
 
 	if (!cd || (cd->count == 0))
@@ -378,12 +367,8 @@ int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
 	if (ce->boost_val > boost_val)
 		mdla_pwr_ops_get()->set_opp_by_bootst(core_id, ce->boost_val);
 
-	if (mdla_dbg_read_u32(FS_DVFS_RAND)) {
-		/* FIXME: kernel-4.19 Not define APUSYS_MAX_NUM_OPPS yet */
-		//opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
-		mdla_cmd_debug("core: %d, rand opp: %d\n", core_id, opp_rand);
-		mdla_pwr_ops_get()->set_opp(core_id, opp_rand);
-	}
+	if (mdla_dbg_read_u32(FS_DVFS_RAND))
+		mdla_power_set_random_opp(core_id);
 
 	ce->poweron_t = sched_clock();
 

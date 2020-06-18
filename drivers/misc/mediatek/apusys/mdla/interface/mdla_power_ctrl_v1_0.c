@@ -18,7 +18,7 @@
 #include <utilities/mdla_debug.h>
 
 
-int mdla_pwr_on_v1_0(int core_id, bool force)
+int mdla_pwr_on_v1_0(u32 core_id, bool force)
 {
 	int ret = 0;
 	struct mdla_dev *mdla_device = mdla_get_device(core_id);
@@ -53,7 +53,7 @@ power_on_done:
 	return ret;
 }
 
-int mdla_pwr_off_v1_0(int core_id,
+int mdla_pwr_off_v1_0(u32 core_id,
 				int suspend, bool force)
 {
 	int ret = 0;
