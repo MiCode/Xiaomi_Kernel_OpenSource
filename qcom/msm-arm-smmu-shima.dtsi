@@ -70,12 +70,11 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
-		#global-interrupts = <2>;
+		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
 		ranges;
 		interrupts =	<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
@@ -156,8 +155,7 @@
 				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 412 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>;
 
 		qcom,actlr =
 			/* For Camera: +3 deep PF */
