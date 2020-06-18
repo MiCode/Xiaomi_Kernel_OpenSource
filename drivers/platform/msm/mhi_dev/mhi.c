@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.*/
 
 /*
  * MSM MHI device core driver.
@@ -2408,32 +2408,52 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 					mhi->cfg.event_rings;
 	mhi->ch_ctx_shadow.size = sizeof(struct mhi_dev_ch_ctx) *
 					mhi->cfg.channels;
-
-	mhi->cmd_ctx_cache = dma_alloc_coherent(&pdev->dev,
-				sizeof(struct mhi_dev_cmd_ctx),
-				&mhi->cmd_ctx_cache_dma_handle,
-				GFP_KERNEL);
+	/*
+	 * This func mhi_dev_cache_host_cfg will be called when
+	 * processing mhi device reset as well, do not allocate
+	 * the command, event and channel context caches if they
+	 * were already allocated during device boot, to avoid
+	 * memory leak.
+	 */
 	if (!mhi->cmd_ctx_cache) {
-		pr_err("no memory while allocating cmd ctx\n");
-		return -ENOMEM;
+		mhi->cmd_ctx_cache = dma_alloc_coherent(&pdev->dev,
+			sizeof(struct mhi_dev_cmd_ctx),
+			&mhi->cmd_ctx_cache_dma_handle,
+			GFP_KERNEL);
+		if (!mhi->cmd_ctx_cache) {
+			pr_err("no memory while allocating cmd ctx\n");
+			rc = -ENOMEM;
+			goto exit;
+		}
 	}
 
-	mhi->ev_ctx_cache = dma_alloc_coherent(&pdev->dev,
-				sizeof(struct mhi_dev_ev_ctx) *
-				mhi->cfg.event_rings,
-				&mhi->ev_ctx_cache_dma_handle,
-				GFP_KERNEL);
-	if (!mhi->ev_ctx_cache)
-		return -ENOMEM;
+	if (!mhi->ev_ctx_cache) {
+		mhi->ev_ctx_cache = dma_alloc_coherent(&pdev->dev,
+			sizeof(struct mhi_dev_ev_ctx) *
+			mhi->cfg.event_rings,
+			&mhi->ev_ctx_cache_dma_handle,
+			GFP_KERNEL);
+		if (!mhi->ev_ctx_cache) {
+			rc = -ENOMEM;
+			goto exit;
+		}
+	}
+	memset(mhi->ev_ctx_cache, 0, sizeof(struct mhi_dev_ev_ctx) *
+						mhi->cfg.event_rings);
 
-	mhi->ch_ctx_cache = dma_alloc_coherent(&pdev->dev,
-				sizeof(struct mhi_dev_ch_ctx) *
-				mhi->cfg.channels,
-				&mhi->ch_ctx_cache_dma_handle,
-				GFP_KERNEL);
-	if (!mhi->ch_ctx_cache)
-		return -ENOMEM;
-
+	if (!mhi->ch_ctx_cache) {
+		mhi->ch_ctx_cache = dma_alloc_coherent(&pdev->dev,
+			sizeof(struct mhi_dev_ch_ctx) *
+			mhi->cfg.channels,
+			&mhi->ch_ctx_cache_dma_handle,
+			GFP_KERNEL);
+		if (!mhi->ch_ctx_cache) {
+			rc = -ENOMEM;
+			goto exit;
+		}
+	}
+	memset(mhi->ch_ctx_cache, 0, sizeof(struct mhi_dev_ch_ctx) *
+						mhi->cfg.channels);
 	if (MHI_USE_DMA(mhi)) {
 		data_transfer.phy_addr = mhi->cmd_ctx_cache_dma_handle;
 		data_transfer.host_pa = mhi->cmd_ctx_shadow.host_pa;
@@ -2466,6 +2486,20 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 
 	return mhi_ring_start(&mhi->ring[0],
 			(union mhi_dev_ring_ctx *)mhi->cmd_ctx_cache, mhi);
+
+exit:
+	if (mhi->cmd_ctx_cache)
+		dma_free_coherent(&pdev->dev,
+			sizeof(struct mhi_dev_cmd_ctx),
+			mhi->cmd_ctx_cache,
+			mhi->cmd_ctx_cache_dma_handle);
+	if (mhi->ev_ctx_cache)
+		dma_free_coherent(&pdev->dev,
+			sizeof(struct mhi_dev_ev_ctx) *
+			mhi->cfg.event_rings,
+			mhi->ev_ctx_cache,
+			mhi->ev_ctx_cache_dma_handle);
+	return rc;
 }
 
 void mhi_dev_pm_relax(void)
