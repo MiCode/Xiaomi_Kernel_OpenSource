@@ -7137,8 +7137,12 @@ fail:
  * preempt must be disabled.
  */
 static int
+#ifdef CONFIG_SCHED_WALT
 select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags,
 		    int sibling_count_hint)
+#else
+select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags)
+#endif
 {
 	struct sched_domain *tmp, *sd = NULL;
 	int cpu = smp_processor_id();
@@ -7148,8 +7152,12 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 
 	if (sched_energy_enabled()) {
 		rcu_read_lock();
+#ifdef CONFIG_SCHED_WALT
 		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync,
 						    sibling_count_hint);
+#else
+		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync, 1);
+#endif
 		if (unlikely(new_cpu < 0))
 			new_cpu = prev_cpu;
 		rcu_read_unlock();
@@ -7160,15 +7168,24 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		record_wakee(p);
 
 		if (sched_energy_enabled()) {
+#ifdef CONFIG_SCHED_WALT
 			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync,
 							    sibling_count_hint);
+#else
+			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync, 1);
+#endif
 			if (new_cpu >= 0)
 				return new_cpu;
 			new_cpu = prev_cpu;
 		}
 
+#ifdef CONFIG_SCHED_WALT
 		want_affine = !wake_wide(p, sibling_count_hint) &&
 			      cpumask_test_cpu(cpu, p->cpus_ptr);
+#else
+		want_affine = !wake_wide(p, 1) &&
+			      cpumask_test_cpu(cpu, p->cpus_ptr);
+#endif
 	}
 
 	rcu_read_lock();
