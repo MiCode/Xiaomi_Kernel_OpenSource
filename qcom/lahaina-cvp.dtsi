@@ -34,6 +34,7 @@
 		reset-power-status = <0x2 0x1>;
 
 		qcom,reg-presets = <0xB0088 0x0>;
+		qcom,ipcc-reg = <0x400000 0x100000>;
 
 		/* Buses */
 		cvp_cnoc {
