@@ -422,7 +422,6 @@ static int qcom_ipcc_remove(struct platform_device *pdev)
 	disable_irq_wake(proto_data->irq);
 	if (proto_data->num_chans)
 		mbox_controller_unregister(&proto_data->mbox);
-	irq_dispose_all_tree_mappings(proto_data->irq_domain);
 	irq_domain_remove(proto_data->irq_domain);
 
 	return 0;
