@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -497,7 +497,7 @@ exit:
  *
  * Invalidate the sleep and wake values in batch_cache.
  */
-int rpmh_invalidate(const struct device *dev)
+void rpmh_invalidate(const struct device *dev)
 {
 	struct rpmh_ctrlr *ctrlr = get_rpmh_ctrlr(dev);
 	struct batch_cache_req *req, *tmp;
@@ -509,7 +509,5 @@ int rpmh_invalidate(const struct device *dev)
 	INIT_LIST_HEAD(&ctrlr->batch_cache);
 	ctrlr->dirty = true;
 	spin_unlock_irqrestore(&ctrlr->cache_lock, flags);
-
-	return 0;
 }
 EXPORT_SYMBOL(rpmh_invalidate);
