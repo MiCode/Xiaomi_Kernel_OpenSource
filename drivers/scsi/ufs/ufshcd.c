@@ -5014,6 +5014,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		lrbp->in_use = false;
 		lrbp->compl_time_stamp = ktime_get();
 		cmd = lrbp->cmd;
+		ufshcd_vops_compl_xfer_req(hba, index, (cmd) ? true : false);
 		if (cmd) {
 			ufshcd_vops_compl_command(hba, lrbp);
 			ufshcd_add_command_trace(hba, index, "complete");
