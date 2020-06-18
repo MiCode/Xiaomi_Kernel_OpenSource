@@ -14,6 +14,7 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "qcs410.dtsi"
+#include "qcs610-camera-sensor-idp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS410 IOT";
