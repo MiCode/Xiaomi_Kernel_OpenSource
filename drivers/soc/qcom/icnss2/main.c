@@ -2951,9 +2951,11 @@ static int icnss_probe(struct platform_device *pdev)
 
 	init_completion(&priv->unblock_shutdown);
 
-	ret = icnss_genl_init();
-	if (ret < 0)
-		icnss_pr_err("ICNSS genl init failed %d\n", ret);
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = icnss_genl_init();
+		if (ret < 0)
+			icnss_pr_err("ICNSS genl init failed %d\n", ret);
+	}
 
 	icnss_pr_info("Platform driver probed successfully\n");
 
@@ -2978,7 +2980,8 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
 
-	icnss_genl_exit();
+	if (priv->device_id == WCN6750_DEVICE_ID)
+		icnss_genl_exit();
 
 	device_init_wakeup(&priv->pdev->dev, false);
 
