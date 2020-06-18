@@ -33,6 +33,7 @@
 #include <linux/of_irq.h>
 #include <linux/soc/qcom/qmi.h>
 #include <linux/sysfs.h>
+#include <linux/thermal.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/secure_buffer.h>
 #include <soc/qcom/subsystem_notif.h>
@@ -1797,6 +1798,113 @@ enable_pdr:
 
 	return 0;
 }
+
+static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
+					unsigned long *thermal_state)
+{
+	struct icnss_priv *priv = tcdev->devdata;
+
+	*thermal_state = priv->max_thermal_state;
+
+	return 0;
+}
+
+static int icnss_tcdev_get_cur_state(struct thermal_cooling_device *tcdev,
+					unsigned long *thermal_state)
+{
+	struct icnss_priv *priv = tcdev->devdata;
+
+	*thermal_state = priv->curr_thermal_state;
+
+	return 0;
+}
+
+static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
+					unsigned long thermal_state)
+{
+	struct icnss_priv *priv = tcdev->devdata;
+	struct device *dev = &priv->pdev->dev;
+	int ret = 0;
+
+	priv->curr_thermal_state = thermal_state;
+
+	if (!priv->ops || !priv->ops->set_therm_state)
+		return 0;
+
+	icnss_pr_vdbg("Cooling device set current state: %ld",
+							thermal_state);
+
+	ret = priv->ops->set_therm_state(dev, thermal_state);
+
+	if (ret)
+		icnss_pr_err("Setting Current Thermal State Failed: %d\n", ret);
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops icnss_cooling_ops = {
+	.get_max_state = icnss_tcdev_get_max_state,
+	.get_cur_state = icnss_tcdev_get_cur_state,
+	.set_cur_state = icnss_tcdev_set_cur_state,
+};
+
+int icnss_thermal_register(struct device *dev, unsigned long max_state)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	priv->max_thermal_state = max_state;
+
+	if (of_find_property(dev->of_node, "#cooling-cells", NULL)) {
+		priv->tcdev = thermal_of_cooling_device_register(dev->of_node,
+						"icnss", priv,
+						&icnss_cooling_ops);
+		if (IS_ERR_OR_NULL(priv->tcdev)) {
+			ret = PTR_ERR(priv->tcdev);
+			icnss_pr_err("Cooling device register failed: %d\n",
+								ret);
+		} else {
+			icnss_pr_vdbg("Cooling device registered");
+		}
+	} else {
+		icnss_pr_dbg("Cooling device registration not supported");
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(icnss_thermal_register);
+
+void icnss_thermal_unregister(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!IS_ERR_OR_NULL(priv->tcdev))
+		thermal_cooling_device_unregister(priv->tcdev);
+
+	priv->tcdev = NULL;
+}
+EXPORT_SYMBOL(icnss_thermal_unregister);
+
+int icnss_get_curr_therm_state(struct device *dev,
+					unsigned long *thermal_state)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(priv->tcdev)) {
+		ret = PTR_ERR(priv->tcdev);
+		icnss_pr_err("Get current thermal state failed: %d\n", ret);
+		return ret;
+	}
+
+	icnss_pr_vdbg("Cooling device current state: %ld",
+					priv->curr_thermal_state);
+
+	*thermal_state = priv->curr_thermal_state;
+	return ret;
+}
+EXPORT_SYMBOL(icnss_get_curr_therm_state);
 
 int icnss_qmi_send(struct device *dev, int type, void *cmd,
 		  int cmd_len, void *cb_ctx,
