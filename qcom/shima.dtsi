@@ -2072,7 +2072,7 @@
 
 #include "shima-pinctrl.dtsi"
 #include "shima-pm.dtsi"
-#include "shima-stub-regulator.dtsi"
+#include "shima-regulators.dtsi"
 #include "shima-qupv3.dtsi"
 #include "shima-gdsc.dtsi"
 #include "shima-ion.dtsi"
