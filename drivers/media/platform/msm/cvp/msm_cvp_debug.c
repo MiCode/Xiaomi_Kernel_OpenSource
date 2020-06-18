@@ -19,7 +19,7 @@ EXPORT_SYMBOL(msm_cvp_debug_out);
 
 int msm_cvp_fw_debug = 0x18;
 int msm_cvp_fw_debug_mode = 1;
-int msm_cvp_fw_low_power_mode = 1;
+int msm_cvp_fw_low_power_mode;
 bool msm_cvp_fw_coverage = !true;
 bool msm_cvp_thermal_mitigation_disabled = !true;
 bool msm_cvp_cacheop_disabled = true;
