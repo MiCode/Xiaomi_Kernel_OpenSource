@@ -128,12 +128,20 @@ void dw_spi_set_cs(struct spi_device *spi, bool enable)
 {
 	struct dw_spi *dws = spi_controller_get_devdata(spi->controller);
 	struct chip_data *chip = spi_get_ctldata(spi);
+	bool cs_high = !!(spi->mode & SPI_CS_HIGH);
 
 	/* Chip select logic is inverted from spi_set_cs() */
 	if (chip && chip->cs_control)
 		chip->cs_control(!enable);
 
-	if (!enable)
+	/*
+	 * DW SPI controller demands any native CS being set in order to
+	 * proceed with data transfer. So in order to activate the SPI
+	 * communications we must set a corresponding bit in the Slave
+	 * Enable register no matter whether the SPI core is configured to
+	 * support active-high or active-low CS level.
+	 */
+	if (cs_high == enable)
 		dw_writel(dws, DW_SPI_SER, BIT(spi->chip_select));
 	else if (dws->cs_override)
 		dw_writel(dws, DW_SPI_SER, 0);
@@ -524,7 +532,7 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 		}
 	}
 
-	ret = devm_spi_register_controller(dev, master);
+	ret = spi_register_controller(master);
 	if (ret) {
 		dev_err(&master->dev, "problem registering spi master\n");
 		goto err_dma_exit;
@@ -547,6 +555,8 @@ EXPORT_SYMBOL_GPL(dw_spi_add_host);
 void dw_spi_remove_host(struct dw_spi *dws)
 {
 	dw_spi_debugfs_remove(dws);
+
+	spi_unregister_controller(dws->master);
 
 	if (dws->dma_ops && dws->dma_ops->dma_exit)
 		dws->dma_ops->dma_exit(dws);
