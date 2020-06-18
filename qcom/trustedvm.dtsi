@@ -99,16 +99,19 @@
 		qrtr_shbuf: qrtr-shmem {
 			no-map;
 			reg = <0x0 0x2fef7000 0x0 0x9000>;
+			qcom,label = <3>;
 		};
 
 		chan0_shbuf: neuron-block@0 {
 			no-map;
 			reg = <0x0 0x2ff00000 0x0 0x80000>;
+			qcom,label = <1>;
 		};
 
 		chan1_shbuf: neuron-block@1 {
 			no-map;
 			reg = <0x0 0x2ff80000 0x0 0x80000>;
+			qcom,label = <2>;
 		};
 	};
 
