@@ -85,6 +85,7 @@ struct dvfsrc_soc_data {
 
 struct mtk_dvfsrc {
 	struct device *dev;
+	struct platform_device *dvfsrc_start;
 	struct platform_device *devfreq;
 	struct platform_device *regulator;
 	struct platform_device *icc;
@@ -816,12 +817,22 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 		goto unregister_icc;
 	}
 
+	dvfsrc->dvfsrc_start = platform_device_register_data(dvfsrc->dev,
+			"mtk-dvfsrc-start", -1, NULL, 0);
+	if (IS_ERR(dvfsrc->dvfsrc_start)) {
+		dev_err(dvfsrc->dev, "Failed create dvfsrc-start device\n");
+		ret = PTR_ERR(dvfsrc->dvfsrc_start);
+		goto unregister_devfreq;
+	}
+
 	ret = devm_of_platform_populate(dvfsrc->dev);
 	if (ret < 0)
-		goto unregister_devfreq;
+		goto unregister_start;
 
 	return 0;
 
+unregister_start:
+	platform_device_unregister(dvfsrc->dvfsrc_start);
 unregister_devfreq:
 	platform_device_unregister(dvfsrc->devfreq);
 unregister_icc:
@@ -948,7 +959,7 @@ static void dvfsrc_init_mt6873(struct mtk_dvfsrc *dvfsrc)
 	dvfsrc_write(dvfsrc, DVFSRC_TIMEOUT_NEXTREQ, 0x00000015);
 	dvfsrc_write(dvfsrc, DVFSRC_RSRV_5, 0x00000001);
 	dvfsrc_write(dvfsrc, DVFSRC_INT_EN, 0x00000002);
-	/* Init opp and trigger dvfsrc to run*/
+	/* Init opp and enable dvfsrc*/
 	dvfsrc_write(dvfsrc, DVFSRC_CURRENT_FORCE, 0x00000001);
 	dvfsrc_write(dvfsrc, DVFSRC_BASIC_CONTROL, 0x6698444B);
 	dvfsrc_write(dvfsrc, DVFSRC_BASIC_CONTROL, 0x6698054B);
