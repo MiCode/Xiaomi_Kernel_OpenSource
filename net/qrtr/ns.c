@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/qrtr.h>
 #include <linux/workqueue.h>
+#include <linux/xarray.h>
 #include <net/sock.h>
 
 #include "qrtr.h"
@@ -22,7 +23,7 @@
 static void *ns_ilc;
 #define NS_INFO(x, ...) ipc_log_string(ns_ilc, x, ##__VA_ARGS__)
 
-static RADIX_TREE(nodes, GFP_KERNEL);
+static DEFINE_XARRAY(nodes);
 
 static struct {
 	struct socket *sock;
@@ -79,7 +80,7 @@ static struct qrtr_node *node_get(unsigned int node_id)
 {
 	struct qrtr_node *node;
 
-	node = radix_tree_lookup(&nodes, node_id);
+	node = xa_load(&nodes, node_id);
 	if (node)
 		return node;
 
@@ -90,7 +91,7 @@ static struct qrtr_node *node_get(unsigned int node_id)
 
 	node->id = node_id;
 
-	radix_tree_insert(&nodes, node_id, node);
+	xa_store(&nodes, node_id, node, GFP_KERNEL);
 
 	return node;
 }
@@ -545,12 +546,11 @@ static int ctrl_cmd_del_server(struct sockaddr_qrtr *from,
 static int ctrl_cmd_new_lookup(struct sockaddr_qrtr *from,
 			       unsigned int service, unsigned int instance)
 {
-	struct radix_tree_iter node_iter;
 	struct qrtr_server_filter filter;
 	struct radix_tree_iter srv_iter;
 	struct qrtr_lookup *lookup;
 	struct qrtr_node *node;
-	void __rcu **node_slot;
+	unsigned long node_idx;
 	void __rcu **srv_slot;
 
 	/* Accept only local observers */
@@ -570,9 +570,7 @@ static int ctrl_cmd_new_lookup(struct sockaddr_qrtr *from,
 	filter.service = service;
 	filter.instance = instance;
 
-	radix_tree_for_each_slot(node_slot, &nodes, &node_iter, 0) {
-		node = radix_tree_deref_slot(node_slot);
-
+	xa_for_each(&nodes, node_idx, node) {
 		radix_tree_for_each_slot(srv_slot, &node->servers,
 					 &srv_iter, 0) {
 			struct qrtr_server *srv;
