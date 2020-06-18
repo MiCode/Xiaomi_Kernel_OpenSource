@@ -440,7 +440,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdm660-rcm-internal-codec-overlay.dtbo \
 		sda660-mtp-external-codec-overlay.dtbo \
 		sda660-cdp-external-codec-overlay.dtbo \
-		sda660-rcm-external-codec-overlay.dtbo
+		sda660-rcm-external-codec-overlay.dtbo \
+		sdm660-usbc-audio-mtp-overlay.dtbo
 
 sdm660-mtp-external-codec-overlay.dtbo-base := sdm660-pm660l.dtb
 
@@ -455,6 +456,8 @@ sdm660-qrd-external-codec-overlay.dtbo-base := sdm660-pm660l.dtb
 sdm660-rcm-external-codec-overlay.dtbo-base := sdm660-pm660l.dtb
 
 sdm660-rcm-internal-codec-overlay.dtbo-base := sdm660-pm660l.dtb
+
+sdm660-usbc-audio-mtp-overlay.dtbo-base := sdm660-pm660l.dtb
 
 sda660-mtp-external-codec-overlay.dtbo-base := sda660-pm660l.dtb
 
