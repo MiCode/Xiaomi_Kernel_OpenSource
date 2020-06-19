@@ -365,7 +365,7 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 				kfree(usb_req);
 				usb_req = NULL;
 				drvdata->usb_req = NULL;
-				dev_err(&tmcdrvdata->csdev->dev,
+				dev_err_ratelimited(&tmcdrvdata->csdev->dev,
 					"Write data failed:%d\n", ret);
 				goto out;
 			}
@@ -444,7 +444,9 @@ static void usb_read_work_fn(struct work_struct *work)
 					kfree(usb_req->sg);
 					kfree(usb_req);
 					usb_req = NULL;
-					dev_err(&tmcdrvdata->csdev->dev, "No data in ETR\n");
+					dev_err_ratelimited(
+						&tmcdrvdata->csdev->dev,
+						"No data in ETR\n");
 					return;
 				}
 
@@ -474,7 +476,8 @@ static void usb_read_work_fn(struct work_struct *work)
 					kfree(usb_req);
 					usb_req = NULL;
 					drvdata->usb_req = NULL;
-					dev_err(&tmcdrvdata->csdev->dev,
+					dev_err_ratelimited(
+						&tmcdrvdata->csdev->dev,
 						"Write data failed:%d\n", ret);
 					if (ret == -EAGAIN)
 						continue;
