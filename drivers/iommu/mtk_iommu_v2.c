@@ -382,6 +382,7 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 }
 
 #ifndef SMI_LARB_SEC_CON_EN
+#if 0 /*for security concern, normal world is forbiden to config secure/domain*/
 int mtk_iommu_set_sec_larb(int larb, int port,
 		int sec_en, int dom)
 {
@@ -405,7 +406,7 @@ int mtk_iommu_set_sec_larb(int larb, int port,
 
 	return ret;
 }
-
+#endif
 int mtk_iommu_dump_sec_larb(int larb, int port)
 {
 	unsigned int atf_cmd = 0;
