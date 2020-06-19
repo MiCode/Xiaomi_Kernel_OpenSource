@@ -2575,13 +2575,11 @@ void cmdq_core_dump_handle_error_instruction(const u32 *pcVA, const long pcPA,
 
 	/* for WFE, we specifically dump the event value */
 	if (op == CMDQ_CODE_WFE) {
-		u32 regValue = 0;
 		const u32 eventID = 0x3FF & insts[1];
 
-		CMDQ_REG_SET32(CMDQ_SYNC_TOKEN_ID, eventID);
-		regValue = CMDQ_REG_GET32(CMDQ_SYNC_TOKEN_VAL);
 		CMDQ_ERR("CMDQ_SYNC_TOKEN_VAL(idx:%u) of %s is %d\n",
-			eventID, cmdq_core_get_event_name(eventID), regValue);
+			eventID, cmdq_core_get_event_name(eventID),
+			cmdqCoreGetEvent(eventID));
 	}
 }
 
