@@ -1503,7 +1503,8 @@ static void fbt_do_boost(unsigned int blc_wt, int pid)
 
 	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
 
-	if (blc_wt < cpu_dvfs[fbt_get_L_cluster_num()].capacity_ratio[0]
+	if (cluster_num > 1
+		&& blc_wt < cpu_dvfs[fbt_get_L_cluster_num()].capacity_ratio[0]
 		&& pld[fbt_get_L_cluster_num()].max != -1
 		&& pld[fbt_get_L_cluster_num()].max
 			< cpu_dvfs[fbt_get_L_cluster_num()].power[0])
