@@ -44,6 +44,7 @@ int init_tchbst(struct proc_dir_entry *parent);
 void switch_usrtch(int enable);
 long usrtch_ioctl(unsigned int cmd, unsigned long arg);
 int init_utch(struct proc_dir_entry *parent);
+int notify_touch(int action);
 
 /*kernel*/
 int init_ktch(struct proc_dir_entry *parent);

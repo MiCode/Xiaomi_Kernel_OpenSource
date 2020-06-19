@@ -39,6 +39,7 @@
 #include "../fbt/include/fbt_fteh.h"
 #include "eara_job.h"
 #include "fpsgo_usedext.h"
+#include "tchbst.h"
 
 #include <mt-plat/mtk_perfobserver.h>
 
@@ -742,6 +743,9 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 
 		pob_fpsgo_qtsk_update(POB_FPSGO_QTSK_CPUCAP_UPDATE, &pfqi);
 	}
+
+	if (Curr_cap)
+		notify_touch(3);
 
 	if (mid) {
 		fpsgo_fstb2eara_get_exec_time(tgid, mid,
