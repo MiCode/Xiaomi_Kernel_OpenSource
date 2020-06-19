@@ -3785,8 +3785,12 @@ void mtcmos_force_off(void)
 void polling_rdma_output_line_is_not_zero(void);
 void mm_polling(struct clk_hw *hw)
 {
-	if (subsys_is_on(SYS_DIS))
-		polling_rdma_output_line_is_not_zero();
+	const char *clk_name = __clk_get_name(hw->clk);
+
+	if (clk_name) {
+		if (!strcmp(clk_name, "mm_sel") && subsys_is_on(SYS_DIS))
+			polling_rdma_output_line_is_not_zero();
+	}
 }
 
 #if CLK_DEBUG
