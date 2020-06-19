@@ -14,7 +14,8 @@
 
 #if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6765)
 #include <helio-dvfsrc_v2.h>
-#elif defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6885)
+#elif defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6885) \
+ || defined(CONFIG_MACH_MT6893)
 #include <helio-dvfsrc_v3.h>
 #elif defined(CONFIG_MACH_MT6873)
 #include <helio-dvfsrc_v3.h>

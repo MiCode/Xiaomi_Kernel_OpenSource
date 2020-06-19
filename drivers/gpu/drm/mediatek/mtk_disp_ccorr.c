@@ -230,7 +230,8 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		ccorr->offset[2] = g_disp_ccorr_coef[id]->offset[2];
 	}
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+ || defined(CONFIG_MACH_MT6893)
 	// For 6885 need to left shift one bit
 	for (i = 0; i < 3; i++)
 		for (j = 0; j < 3; j++)
@@ -606,7 +607,8 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		}
 	}
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+ || defined(CONFIG_MACH_MT6893)
 	// offset part
 	if ((matrix[12] != 0) || (matrix[13] != 0) || (matrix[14] != 0))
 		need_offset = true;
@@ -744,7 +746,8 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 
 	color_transform = data;
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+ || defined(CONFIG_MACH_MT6893)
 	// Support matrix:
 	// AOSP is 4x3 matrix. Offset is located at 4th row (not zero)
 

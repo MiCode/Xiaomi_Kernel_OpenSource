@@ -42,6 +42,10 @@ else ifeq ($(CONFIG_MACH_MT6885),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/engine_request.o
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/camera_dpe.o
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/videobuf2-dma-contig.o
+else ifeq ($(CONFIG_MACH_MT6893),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/camera_dpe.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/videobuf2-dma-contig.o
 else ifeq ($(CONFIG_MACH_MT6873),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/engine_request.o
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/camera_dpe.o
@@ -55,6 +59,8 @@ else
 endif
 
 ifeq ($(CONFIG_MACH_MT6885),y)
+  MTK_DPE_VER := 0
+else ifeq ($(CONFIG_MACH_MT6893),y)
   MTK_DPE_VER := 0
 else ifeq ($(CONFIG_MACH_MT6873),y)
   MTK_DPE_VER := 1

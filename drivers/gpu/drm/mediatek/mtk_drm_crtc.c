@@ -2031,7 +2031,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		ovl_status = *(unsigned int *)(cmdq_buf->va_base +
 			DISP_SLOT_OVL_STATUS);
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		if (ovl_status & 1)
 			DDPPR_ERR("ovl status error\n");
 #endif
@@ -2554,7 +2554,7 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 	if (panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
 		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		mtk_ddp_remove_dsc_prim_MT6885(mtk_crtc, handle);
 #endif
 #if defined(CONFIG_MACH_MT6873)
@@ -2620,7 +2620,7 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 		dsc_comp->mtk_crtc = mtk_crtc;
 
 		/* insert DSC */
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		mtk_ddp_insert_dsc_prim_MT6885(mtk_crtc, handle);
 #endif
 #if defined(CONFIG_MACH_MT6873)

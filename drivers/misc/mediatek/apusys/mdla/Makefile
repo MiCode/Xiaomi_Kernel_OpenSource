@@ -54,10 +54,10 @@ mdla-y += $(PMU_DIR)/$(PMU_VDIR)/mdla_trace.o $(PMU_DIR)/$(PMU_VDIR)/mdla_decode
 mdla-y += $(PMU_DIR)/$(PMU_PDIR)/mdla_pmu.o
 mdla-y += $(MEM_DIR)/$(MEM_VDIR)/gsm.o $(MEM_DIR)/$(MEM_VDIR)/mdla_ion.o
 
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885))
+ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6893))
 endif
 MTK_MDLA_CORE := 1
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885))
+ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6893))
 MTK_MDLA_CORE := 1
 else
 endif

@@ -22,6 +22,10 @@
 
 #include "udi_v2/mtk_udi_mt6885.h"
 
+#elif defined(CONFIG_MACH_MT6893)
+
+#include "udi_v2/mtk_udi_mt6885.h"
+
 #elif defined(CONFIG_MACH_MT6785)
 
 #include "udi_v2/mtk_udi_mt6785.h"

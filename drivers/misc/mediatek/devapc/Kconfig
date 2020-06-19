@@ -83,7 +83,7 @@ config DEVAPC_MT6785
 
 config DEVAPC_MT6885
 	bool "Mediatek MT6885 Device APC driver"
-	depends on MACH_MT6885 || COMPILE_TEST
+	depends on MACH_MT6885 || MACH_MT6893 || COMPILE_TEST
 	select DEVAPC_ARCH_V2
 	select MTK_DEVAPC
 	select DEVAPC_MMAP_DEBUG

@@ -51,6 +51,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6359p
 ccflags-y += -I$(srctree)/drivers/devfreq
 endif
 
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6893")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6359p
+ccflags-y += -I$(srctree)/drivers/devfreq
+endif
+
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6873")
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6359p
 ccflags-y += -I$(srctree)/drivers/devfreq

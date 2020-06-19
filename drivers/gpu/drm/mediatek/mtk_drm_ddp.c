@@ -3281,7 +3281,7 @@ void mtk_ddp_remove_comp_from_path(void __iomem *config_regs,
 	unsigned int addr, reg;
 	int value;
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	value = mtk_ddp_mout_en_MT6885(reg_data, cur, next, &addr);
 	if (value >= 0) {
 		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
@@ -3312,7 +3312,7 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	unsigned int addr;
 	int value;
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	value = mtk_ddp_mout_en_MT6885(mtk_crtc->mmsys_reg_data,
 				cur, next, &addr);
 	if (value >= 0)

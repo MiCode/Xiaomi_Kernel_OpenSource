@@ -54,7 +54,7 @@ SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
-else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6893"))
 BUILD_MMDVFS := true
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true

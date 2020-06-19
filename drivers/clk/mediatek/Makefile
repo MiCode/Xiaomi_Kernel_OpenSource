@@ -13,6 +13,7 @@ ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 obj-$(CONFIG_COMMON_CLK_MT6785) += clk-mt6785.o clk-mt6785-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6785.o clkchk-mt6785.o
 obj-$(CONFIG_COMMON_CLK_MT6873) += clk-mt6873.o clk-mt6873-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6873.o clkchk-mt6873.o
 obj-$(CONFIG_COMMON_CLK_MT6885) += clk-mt6885.o clk-mt6885-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6885.o clkchk-mt6885.o
+obj-$(CONFIG_COMMON_CLK_MT6893) += clk-mt6885.o clk-mt6885-pg.o clk-mtk-v1.o clkdbg.o clkchk.o clkdbg-mt6885.o clkchk-mt6885.o
 endif
 obj-$(CONFIG_COMMON_CLK_MT6797) += clk-mt6797.o
 obj-$(CONFIG_COMMON_CLK_MT6797_IMGSYS) += clk-mt6797-img.o
