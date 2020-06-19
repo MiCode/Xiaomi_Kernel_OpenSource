@@ -204,12 +204,13 @@ int goodix_cfg_bin_proc(void *data)
 	struct goodix_cfg_bin *cfg_bin =
 		kzalloc(sizeof(struct goodix_cfg_bin), GFP_KERNEL);
 
-	cfg_bin->cfg_pkgs = NULL;
 	if (!cfg_bin) {
 		ts_err("Failed to alloc memory for cfg_bin");
 		r = -ENOMEM;
 		goto out;
 	}
+
+	cfg_bin->cfg_pkgs = NULL;
 	/*get cfg_bin from file system*/
 	r = goodix_read_cfg_bin(dev, cfg_bin);
 	if (r < 0) {
