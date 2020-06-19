@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#ifdef JPEG_DEC_DRIVER
+
 
 #include <linux/kernel.h>
 /* #include <linux/xlog.h> */
@@ -20,7 +20,27 @@
 
 #include "jpeg_drv_common.h"
 #include "jpeg_drv_reg.h"
+#ifdef JPEG_HYBRID_DEC_DRIVER
 
+unsigned int _jpeg_hybrid_dec_int_status[HW_CORE_NUMBER];
+
+int jpeg_isr_hybrid_dec_lisr(int id)
+{
+	unsigned int tmp = 0;
+
+	tmp = IMG_REG_READ(REG_JPGDEC_HYBRID_INT_STATUS(id));
+	if (tmp) {
+		_jpeg_hybrid_dec_int_status[id] = tmp;
+		IMG_REG_WRITE(tmp, REG_JPGDEC_HYBRID_INT_STATUS(id));
+		JPEG_WRN("%s return 0", __func__);
+		return 0;
+	}
+	JPEG_WRN("%s return -1", __func__);
+	return -1;
+}
+#endif
+
+#ifdef JPEG_DEC_DRIVER
 /* #define DUMP_REG_CMD */
 
 #define ALIGN_MASK(BIT)		(((unsigned int)(BIT) >> 3) - 1)

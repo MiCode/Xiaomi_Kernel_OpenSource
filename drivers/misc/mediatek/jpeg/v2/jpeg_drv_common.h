@@ -24,6 +24,7 @@
 
 extern unsigned int _jpeg_enc_int_status;
 extern unsigned int _jpeg_dec_int_status;
+extern unsigned int _jpeg_hybrid_dec_int_status[HW_CORE_NUMBER];
 extern unsigned int _jpeg_dec_mode;
 
 enum JpegDrvEncYUVFormat {
@@ -153,8 +154,6 @@ unsigned int jpeg_drv_enc_get_file_size(void);
 unsigned int jpeg_drv_enc_get_result(unsigned int *fileSize);
 unsigned int jpeg_drv_enc_get_cycle_count(void);
 
-
-
 void jpeg_drv_enc_dump_reg(void);
 
 unsigned int jpeg_drv_enc_rw_reg(void);
@@ -163,11 +162,9 @@ void jpeg_drv_enc_prepare_bw_request(void);
 void jpegenc_drv_enc_update_bw_request(struct JPEG_ENC_DRV_IN cfgEnc);
 
 
-
-
-
 int jpeg_isr_enc_lisr(void);
 int jpeg_isr_dec_lisr(void);
+int jpeg_isr_hybrid_dec_lisr(int id);
 
 
 unsigned int jpeg_drv_enc_set_src_image(
