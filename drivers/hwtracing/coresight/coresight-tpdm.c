@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -265,6 +265,7 @@ struct tpdm_drvdata {
 	uint32_t		version;
 	bool			msr_support;
 	bool			msr_fix_req;
+	bool			cmb_msr_skip;
 };
 
 static void tpdm_init_default_data(struct tpdm_drvdata *drvdata);
@@ -561,7 +562,8 @@ static void __tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 
 	tpdm_writel(drvdata, val, TPDM_CMB_TIER);
 
-	__tpdm_config_cmb_msr(drvdata);
+	if (!drvdata->cmb_msr_skip)
+		__tpdm_config_cmb_msr(drvdata);
 
 	val = tpdm_readl(drvdata, TPDM_CMB_CR);
 	/* Set the flow control bit */
@@ -4047,6 +4049,8 @@ static int tpdm_parse_of_data(struct tpdm_drvdata *drvdata)
 
 	drvdata->clk_enable = of_property_read_bool(node, "qcom,clk-enable");
 	drvdata->msr_fix_req = of_property_read_bool(node, "qcom,msr-fix-req");
+	drvdata->cmb_msr_skip = of_property_read_bool(node,
+					"qcom,cmb-msr-skip");
 
 	drvdata->nr_tclk = of_property_count_strings(node, "qcom,tpdm-clks");
 	if (drvdata->nr_tclk > 0) {
