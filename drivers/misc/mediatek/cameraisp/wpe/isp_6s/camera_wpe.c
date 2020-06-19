@@ -102,10 +102,8 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 #endif
 
 /*  #include "smi_common.h" */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 #include "inc/camera_wpe.h"
@@ -280,10 +278,9 @@ static struct Tasklet_table WPE_tasklet[WPE_IRQ_TYPE_AMOUNT] = {
 	{ISP_TaskletFunc_WPE, &Wpetkt[WPE_IRQ_TYPE_INT_WPE_ST]},
 };
 
-#ifdef CONFIG_PM_WAKELOCKS
-struct wakeup_source WPE_wake_lock;
-#else
-struct wake_lock WPE_wake_lock;
+#ifdef CONFIG_PM_SLEEP
+struct wakeup_source *WPE_wake_lock;
+struct wakeup_source *WPE_MDP_wake_lock;
 #endif
 
 
@@ -4818,8 +4815,14 @@ static signed int WPE_open(struct inode *pInode, struct file *pFile)
 	g_WPE_ReqRing.HWProcessIdx = 0x0;
 
 	/* Enable clock */
+#ifdef CONFIG_PM_SLEEP
+	__pm_stay_awake(WPE_wake_lock);
+#endif
 	WPE_EnableClock(MTRUE);
 	g_u4WpeCnt = 0;
+#ifdef CONFIG_PM_SLEEP
+	__pm_relax(WPE_wake_lock);
+#endif
 	LOG_INF("WPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
 
@@ -4892,7 +4895,13 @@ static signed int WPE_release(struct inode *pInode, struct file *pFile)
 		current->tgid);
 
 	/* Disable clock. */
+#ifdef CONFIG_PM_SLEEP
+	__pm_stay_awake(WPE_wake_lock);
+#endif
 	WPE_EnableClock(MFALSE);
+#ifdef CONFIG_PM_SLEEP
+	__pm_relax(WPE_wake_lock);
+#endif
 	LOG_INF("WPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
 	/*  */
@@ -5224,11 +5233,11 @@ static signed int WPE_probe(struct platform_device *pDev)
 		init_waitqueue_head(&WPEInfo.WaitQueueHead);
 		INIT_WORK(&WPEInfo.ScheduleWpeWork, WPE_ScheduleWork);
 
-#ifdef CONFIG_PM_WAKELOCKS
-		wakeup_source_init(&WPE_wake_lock, "WPE_lock_wakelock");
-#else
-		wake_lock_init(&WPE_wake_lock,
-			WAKE_LOCK_SUSPEND, "WPE_lock_wakelock");
+#ifdef CONFIG_PM_SLEEP
+		WPE_wake_lock =
+			wakeup_source_register(NULL, "WPE_lock_wakelock");
+		WPE_MDP_wake_lock =
+			wakeup_source_register(NULL, "WPE_MDP_wake_lock");
 #endif
 
 		for (i = 0; i < WPE_IRQ_TYPE_AMOUNT; i++)
@@ -5717,6 +5726,9 @@ int32_t WPE_ClockOnCallback(uint64_t engineFlag)
 	/* LOG_DBG("WPE_ClockOnCallback"); */
 	/* LOG_DBG("+CmdqEn:%d", g_u4EnableClockCount); */
 	/* WPE_EnableClock(MTRUE); */
+#ifdef CONFIG_PM_SLEEP
+	__pm_stay_awake(WPE_MDP_wake_lock);
+#endif
 	WPE_EnableClock(1);
 	return 0;
 }
@@ -5744,6 +5756,9 @@ int32_t WPE_ClockOffCallback(uint64_t engineFlag)
 	/* WPE_EnableClock(MFALSE); */
 	/* LOG_DBG("-CmdqEn:%d", g_u4EnableClockCount); */
 	WPE_EnableClock(0);
+#ifdef CONFIG_PM_SLEEP
+	__pm_relax(WPE_MDP_wake_lock);
+#endif
 	return 0;
 }
 
