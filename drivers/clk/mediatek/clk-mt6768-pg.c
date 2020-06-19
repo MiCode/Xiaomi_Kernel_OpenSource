@@ -3164,9 +3164,9 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 			if (!pgcb) {
 				pr_notice("pgcb(%d) null\r\n", id);
 				WARN_ON(1);
-			}
-			if (pgcb && pgcb->before_off)
+			} else if (pgcb->before_off) {
 				pgcb->before_off(id);
+			}
 		}
 		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
