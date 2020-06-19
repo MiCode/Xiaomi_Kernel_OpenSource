@@ -4996,8 +4996,6 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 		return;
 	}
 
-	if (!msm_host->debug_mode_enabled)
-		return;
 	msm_host->reg_store = true;
 	sdhci_msm_exit_dbg_mode(host);
 	sdhci_msm_registers_save(host);
