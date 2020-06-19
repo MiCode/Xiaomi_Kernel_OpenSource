@@ -156,7 +156,6 @@ void cmdq_sec_thread_irq_handler(struct cmdq *cmdq,
 
 int32_t cmdq_sec_init_session_unlocked(struct cmdqSecContextStruct *handle)
 {
-	int32_t openRet = 0;
 	int32_t status = 0;
 
 	CMDQ_MSG("[SEC]-->SESSION_INIT: iwcState[%d]\n", (handle->state));
@@ -175,11 +174,11 @@ int32_t cmdq_sec_init_session_unlocked(struct cmdqSecContextStruct *handle)
 
 		if (handle->state < IWC_CONTEXT_INITED) {
 			/* open mobicore device */
-			openRet = cmdq_sec_init_context(&handle->tee);
-			if (openRet < 0) {
-				status = -1;
+#ifdef CMDQ_SECURE_TEE_SUPPORT
+			status = cmdq_sec_init_context(&handle->tee);
+			if (status < 0)
 				break;
-			}
+#endif
 			handle->state = IWC_CONTEXT_INITED;
 		}
 
@@ -192,6 +191,7 @@ int32_t cmdq_sec_init_session_unlocked(struct cmdqSecContextStruct *handle)
 			}
 
 			/* allocate world shared memory */
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 			status = cmdq_sec_allocate_wsm(&handle->tee,
 				&handle->iwcMessage,
 				sizeof(struct iwcCmdqMessage_t),
@@ -199,14 +199,17 @@ int32_t cmdq_sec_init_session_unlocked(struct cmdqSecContextStruct *handle)
 				sizeof(struct iwcCmdqMessageEx_t),
 				&handle->iwcMessageEx2,
 				sizeof(struct iwcCmdqMessageEx2_t));
+#endif
 			if (status < 0)
 				break;
 			handle->state = IWC_WSM_ALLOCATED;
 		}
 
 		/* open a secure session */
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 		status = cmdq_sec_open_session(&handle->tee,
 			handle->iwcMessage);
+#endif
 		if (status < 0)
 			break;
 		handle->state = IWC_SES_OPENED;
@@ -229,13 +232,19 @@ void cmdq_sec_deinit_session_unlocked(struct cmdqSecContextStruct *handle)
 		case IWC_SES_MSG_PACKAGED:
 			/* continue next clean-up */
 		case IWC_SES_OPENED:
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 			cmdq_sec_close_session(&handle->tee);
+#endif
 			/* continue next clean-up */
 		case IWC_WSM_ALLOCATED:
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 			cmdq_sec_free_wsm(&handle->tee, &handle->iwcMessage);
+#endif
 			/* continue next clean-up */
 		case IWC_CONTEXT_INITED:
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 			cmdq_sec_deinit_context(&handle->tee);
+#endif
 			/* continue next clean-up */
 			break;
 		case IWC_INIT:
@@ -600,8 +609,10 @@ s32 cmdq_sec_setup_context_session(struct cmdqSecContextStruct *handle)
 	s32 status;
 
 	/* init iwc parameter */
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 	if (handle->state == IWC_INIT)
 		cmdq_sec_setup_tee_context(&handle->tee);
+#endif
 
 	/* init secure session */
 	status = cmdq_sec_init_session_unlocked(handle);
@@ -816,7 +827,7 @@ static s32 cmdq_sec_send_context_session_message(
 	struct cmdqRecStruct *task, s32 thread, void *data)
 {
 	s32 status;
-	const s32 timeout_ms = 3 * 1000;
+	// const s32 timeout_ms = 3 * 1000;
 	struct iwcCmdqMessage_t *iwc;
 
 	const CmdqSecFillIwcCB fill_iwc_cb =
@@ -844,9 +855,11 @@ static s32 cmdq_sec_send_context_session_message(
 
 
 		/* send message */
+#ifdef CMDQ_SECURE_TEE_SUPPORT
 		status = cmdq_sec_execute_session(&handle->tee, iwc_command,
 			timeout_ms, iwc->iwcex_available & (1 << CMDQ_IWC_MSG1),
 			iwc->iwcex_available & (1 << CMDQ_IWC_MSG2));
+#endif
 		if (status) {
 			CMDQ_ERR(
 				"[SEC]cmdq_sec_execute_session_unlocked failed[%d], pid[%d:%d]\n",

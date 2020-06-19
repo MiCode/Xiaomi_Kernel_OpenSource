@@ -608,9 +608,13 @@ void cmdq_test_mbox_flush(
 	for (i = 0; i < CMDQ_TEST_CNT; i++) {
 		pkt[i] = cmdq_pkt_create(clt);
 #ifdef CMDQ_SECURE_SUPPORT
-		if (secure)
+		if (secure) {
 			cmdq_sec_pkt_set_data(pkt[i], 0, 0, CMDQ_SEC_DEBUG,
 				CMDQ_METAEX_NONE);
+#if 1
+			cmdq_sec_pkt_set_mtee(pkt[i], true);
+#endif
+		}
 #endif
 
 		cmdq_pkt_wfe(pkt[i], test->token_user0);
@@ -675,9 +679,14 @@ static void cmdq_test_mbox_write(
 
 	pkt = cmdq_pkt_create(clt);
 #ifdef CMDQ_SECURE_SUPPORT
-	if (secure)
+	if (secure) {
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SEC_DEBUG,
 			CMDQ_METAEX_NONE);
+
+#if 1
+		cmdq_sec_pkt_set_mtee(pkt, true); //MTEE UT
+#endif
+	}
 #endif
 
 	cmdq_pkt_write(pkt, NULL, pa, pttn, mask);

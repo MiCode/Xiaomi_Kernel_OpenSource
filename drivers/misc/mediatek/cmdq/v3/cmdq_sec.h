@@ -9,11 +9,13 @@
 #include "cmdq_helper_ext.h"
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
-#include "tee_client_api.h"
 #include "cmdq_sec_iwc_common.h"
+#if defined(CMDQ_SECURE_TEE_SUPPORT)
+#include "tee_client_api.h"
+#endif
 #if defined(CMDQ_GP_SUPPORT)
 #include "cmdq_sec_gp.h"
-#else
+#elif defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
 #include "cmdq_sec_trustonic.h"
 #endif
 #endif /* CMDQ_SECURE_PATH_SUPPORT */
@@ -58,7 +60,7 @@ struct cmdqSecContextStruct {
 	void *iwcMessageEx;	/* message buffer extra */
 	void *iwcMessageEx2;	/* message buffer extra */
 
-#if defined(CMDQ_SECURE_PATH_SUPPORT)
+#if defined(CMDQ_SECURE_TEE_SUPPORT)
 	struct cmdq_sec_tee_context tee;	/* trustzone parameters */
 #endif
 };
@@ -134,7 +136,7 @@ void cmdqSecDeInitialize(void);
 
 void cmdqSecEnableProfile(const bool enable);
 
-#if defined(CMDQ_SECURE_PATH_SUPPORT)
+#if defined(CMDQ_SECURE_TEE_SUPPORT)
 /*
  * tee vendor interface
  */
@@ -156,6 +158,6 @@ s32 cmdq_sec_close_session(struct cmdq_sec_tee_context *tee);
 
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
 	u32 cmd, s32 timeout_ms, bool share_mem_ex1, bool share_mem_ex2);
-#endif	/* CMDQ_SECURE_PATH_SUPPORT */
+#endif	/* CMDQ_SECURE_TEE_SUPPORT */
 
 #endif				/* __DDP_CMDQ_SEC_H__ */
