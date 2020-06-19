@@ -51,6 +51,7 @@ static int mtk_efuse_probe(struct platform_device *pdev)
 	econfig->stride = 4;
 	econfig->word_size = 4;
 	econfig->reg_read = mtk_reg_read;
+	econfig->read_only = true;
 	econfig->size = resource_size(res);
 	econfig->priv = base;
 	econfig->dev = dev;
