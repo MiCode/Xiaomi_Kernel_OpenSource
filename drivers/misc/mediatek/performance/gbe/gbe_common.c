@@ -41,6 +41,7 @@
 #include "gbe_common.h"
 #include "gbe1.h"
 #include "gbe2.h"
+#include "gbe_sysfs.h"
 
 static DEFINE_MUTEX(gbe_lock);
 static int cluster_num;
@@ -206,77 +207,67 @@ out:
 
 }
 
-#define GBE_DEBUGFS_ENTRY(name) \
-	static int gbe_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, gbe_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations gbe_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = gbe_##name##_open, \
-	.read = seq_read, \
-	.write = gbe_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
+static ssize_t gbe_policy_mask_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", policy_mask);
 }
 
-
-static int gbe_policy_mask_show(struct seq_file *m, void *unused)
+static ssize_t gbe_policy_mask_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%lu\n", policy_mask);
-	return 0;
-}
+	int val;
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-static ssize_t gbe_policy_mask_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
-	char buf[64];
-	unsigned long val = 0;
-	int ret, i;
-	char u_io_string[11];
-	char u_gpu_string[12];
-	char u_boost_string[12];
-
-	if (cnt >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	ret = kstrtoul(buf, 10, &val);
-	if (ret < 0)
-		return ret;
-
-	strncpy(u_io_string, "IO_BOOST=0", 11);
-	strncpy(u_gpu_string, "GPU_BOOST=0", 12);
-	strncpy(u_boost_string, "GBE_BOOST=0", 12);
-	for (i = 0; i < cluster_num; i++) {
-		pld[i].max = -1;
-		pld[i].min = -1;
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
 	}
 
-	mutex_lock(&gbe_lock);
-	policy_mask = val;
+	if (val > 64 || val < 0)
+		return count;
 
 	if (!pld)
-		goto out;
-	update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
-	update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, 0);
-	pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	sentuevent(u_io_string);
-	sentuevent(u_gpu_string);
-	sentuevent(u_boost_string);
+		return count;
 
-out:
-	mutex_unlock(&gbe_lock);
+	{
+		int i;
+		char u_io_string[11];
+		char u_gpu_string[12];
+		char u_boost_string[12];
 
-	return cnt;
+		strncpy(u_io_string, "IO_BOOST=0", 11);
+		strncpy(u_gpu_string, "GPU_BOOST=0", 12);
+		strncpy(u_boost_string, "GBE_BOOST=0", 12);
+		for (i = 0; i < cluster_num; i++) {
+			pld[i].max = -1;
+			pld[i].min = -1;
+		}
+
+		mutex_lock(&gbe_lock);
+		policy_mask = val;
+
+		update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, 0);
+		pm_qos_update_request(&dram_req, PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		sentuevent(u_io_string);
+		sentuevent(u_gpu_string);
+		sentuevent(u_boost_string);
+
+		mutex_unlock(&gbe_lock);
+	}
+
+	return count;
 }
 
-GBE_DEBUGFS_ENTRY(policy_mask);
+static KOBJ_ATTR_RW(gbe_policy_mask);
 
 static int init_gbe_kobj(void)
 {
@@ -307,6 +298,8 @@ static int init_gbe_kobj(void)
 
 static void __exit gbe_common_exit(void)
 {
+	gbe_sysfs_remove_file(&kobj_attr_gbe_policy_mask);
+	gbe_sysfs_exit();
 }
 
 struct dentry *gbe_debugfs_dir;
@@ -314,16 +307,11 @@ static int __init gbe_common_init(void)
 {
 	int ret = 0;
 
-	gbe_debugfs_dir = debugfs_create_dir("gbe", NULL);
-
+	gbe_sysfs_init();
 	gbe1_init();
 	gbe2_init();
 
-	debugfs_create_file("gbe_policy_mask",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_policy_mask_fops);
+	gbe_sysfs_create_file(&kobj_attr_gbe_policy_mask);
 
 	cluster_num = arch_get_nr_clusters();
 	pld = kcalloc(cluster_num,

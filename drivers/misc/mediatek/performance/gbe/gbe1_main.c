@@ -33,6 +33,7 @@
 #include "gbe1_usedext.h"
 #include "fstb_usedext.h"
 #include "gbe_common.h"
+#include "gbe_sysfs.h"
 
 enum GBE_NOTIFIER_PUSH_TYPE {
 	GBE_NOTIFIER_SWITCH_GBE			= 0x00,
@@ -339,58 +340,48 @@ out:
 	return retval;
 }
 
-#define GBE_DEBUGFS_ENTRY(name) \
-	static int gbe_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, gbe_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations gbe_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = gbe_##name##_open, \
-	.read = seq_read, \
-	.write = gbe_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
+static ssize_t gbe_enable1_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", gbe_is_enable());
 }
 
-static int gbe_enable1_show(struct seq_file *m, void *unused)
+static ssize_t gbe_enable1_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%d\n", gbe_is_enable());
-	return 0;
-}
-
-static ssize_t gbe_enable1_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
-	char buf[64];
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 	int val;
-	int ret;
 
-	if (cnt >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	ret = kstrtoint(buf, 10, &val);
-	if (ret < 0)
-		return ret;
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
 	enable_gbe(val);
 
-	return cnt;
+	return count;
 }
 
-GBE_DEBUGFS_ENTRY(enable1);
+static KOBJ_ATTR_RW(gbe_enable1);
 
-static int gbe_boost_list_show(struct seq_file *m, void *unused)
+static ssize_t gbe_boost_list1_show(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
 {
 	struct GBE_BOOST_LIST *gbe_list_iter = NULL;
+	char temp[GBE_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
 
-	seq_printf(m, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+	length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			"process_name",
 			"thread_name",
 			"pid",
@@ -399,9 +390,11 @@ static int gbe_boost_list_show(struct seq_file *m, void *unused)
 			"runtime_percent",
 			"now_task_runtime",
 			"boost_cnt");
+	pos += length;
 
 	hlist_for_each_entry(gbe_list_iter, &gbe_boost_list, hlist) {
-		seq_printf(m, "%s\t%s\t%d\t%d\t%llu\t\t%llu\t\t%llu\t\t%llu\n",
+		length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
+				"%s\t%s\t%d\t%d\t%llu\t\t%llu\t\t%llu\t\t%llu\n",
 				gbe_list_iter->process_name,
 				gbe_list_iter->thread_name,
 				gbe_list_iter->pid,
@@ -410,74 +403,55 @@ static int gbe_boost_list_show(struct seq_file *m, void *unused)
 				gbe_list_iter->runtime_percent,
 				gbe_list_iter->now_task_runtime,
 				gbe_list_iter->boost_cnt);
+		pos += length;
 	}
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t gbe_boost_list_write(struct file *flip,
-		const char *buffer, size_t count, loff_t *data)
+static ssize_t gbe_boost_list1_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
 	int ret = count;
-	char *buf;
 	char proc_name[16], thrd_name[16];
 	unsigned long long runtime_thrs;
 
-	if (count > 256)
-		return -ENOMEM;
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			acBuffer[count] = '\0';
+			if (sscanf(acBuffer, "%16s %16s %llu",
+						proc_name,
+						thrd_name,
+						&runtime_thrs) != 3) {
+				goto err;
+			}
 
-	buf = kmalloc(count + 1, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-
-	if (copy_from_user(buf, buffer, count)) {
-		ret = -EFAULT;
-		goto err;
+			if (set_gbe_boost_list(proc_name,
+					thrd_name, runtime_thrs))
+				goto err;
+		}
 	}
-	buf[count] = '\0';
-
-	if (sscanf(buf, "%16s %16s %llu",
-			proc_name,
-			thrd_name,
-			&runtime_thrs) != 3) {
-		ret = -EINVAL;
-		goto err;
-	}
-
-	if (set_gbe_boost_list(proc_name, thrd_name, runtime_thrs))
-		ret = -EINVAL;
-
 
 err:
-	kfree(buf);
 	return ret;
 }
 
-GBE_DEBUGFS_ENTRY(boost_list);
+static KOBJ_ATTR_RW(gbe_boost_list1);
 
 int init_gbe_common(void)
 {
-	if (!gbe_debugfs_dir)
-		return -ENODEV;
-
-	debugfs_create_file("gbe_enable1",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_enable1_fops);
-
-
-	debugfs_create_file("gbe_boost_list1",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_boost_list_fops);
+	gbe_sysfs_create_file(&kobj_attr_gbe_enable1);
+	gbe_sysfs_create_file(&kobj_attr_gbe_boost_list1);
 
 	return 0;
 }
 
 void gbe1_exit(void)
 {
+	gbe_sysfs_remove_file(&kobj_attr_gbe_enable1);
+	gbe_sysfs_remove_file(&kobj_attr_gbe_boost_list1);
 }
 
 int gbe1_init(void)
