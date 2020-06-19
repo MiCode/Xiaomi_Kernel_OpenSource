@@ -517,19 +517,21 @@ ssize_t mddp_dev_write(struct file *file,
 	/*
 	 * Not support WRITE.
 	 */
-	pr_notice("%s: Receive\n", __func__);
+	//pr_notice("%s: Receive\n", __func__);
 
-	return 0;
+	return count;
 }
 
 long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct mddp_dev_req_common_t    dev_req;
-	struct mddp_dev_rsp_common_t   *dev_rsp;
-	long                            ret = 0;
-	uint32_t                        data_len;
-	uint8_t                         buf[MAX_GET_BUF_SZ];
-	uint32_t                        buf_len = MAX_GET_BUF_SZ;
+	struct mddp_dev_req_common_t            dev_req;
+	struct mddp_dev_rsp_common_t           *dev_rsp;
+	long                                    ret = 0;
+	uint32_t                                data_len;
+	uint8_t                                 buf[MAX_GET_BUF_SZ] = { 0 };
+	uint32_t                                buf_len = MAX_GET_BUF_SZ;
+	struct mddp_dev_req_act_t              *act;
+	struct mddp_dev_req_set_data_limit_t   *limit;
 
 	/*
 	 * NG. copy_from_user fail!
@@ -565,17 +567,27 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case MDDP_CMCMD_ACT_REQ:
 		data_len = dev_req.data_len;
 		if (data_len == sizeof(struct mddp_dev_req_act_t)) {
-			ret = copy_from_user(&buf,
-				((struct mddp_dev_req_common_t *)arg)->data,
-				data_len);
+			act = (struct mddp_dev_req_act_t *)
+				&(((struct mddp_dev_req_common_t *)arg)->data);
+			ret = strncpy_from_user((char *)&buf,
+					(char *)&(act->ul_dev_name),
+					IFNAMSIZ - 1);
 
-			if (!ret) {
-				/* OK */
-				ret = mddp_on_activate(dev_req.app_type,
-				((struct mddp_dev_req_act_t *)buf)->ul_dev_name,
-				((struct mddp_dev_req_act_t *)buf)->dl_dev_name
-				);
-				break;
+			if (ret > 0) {
+				ret = strncpy_from_user(
+				(char *)&(((struct mddp_dev_req_act_t *)
+						buf)->dl_dev_name),
+				(char *)&(act->dl_dev_name),
+				IFNAMSIZ - 1);
+				if (ret > 0) {
+					/* OK */
+					ret = mddp_on_activate(dev_req.app_type,
+					((struct mddp_dev_req_act_t *)
+						buf)->ul_dev_name,
+					((struct mddp_dev_req_act_t *)
+						buf)->dl_dev_name);
+					break;
+				}
 			}
 		}
 		/* NG */
@@ -621,12 +633,16 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case MDDP_CMCMD_SET_DATA_LIMIT_REQ:
 		buf_len = sizeof(struct mddp_dev_req_set_data_limit_t);
-		ret = copy_from_user(&buf,
-				((struct mddp_dev_req_common_t *)arg)->data,
-				buf_len);
-		if (!ret)
+
+		limit = (struct mddp_dev_req_set_data_limit_t *)
+			&(((struct mddp_dev_req_common_t *)arg)->data);
+		ret = strncpy_from_user((char *)&buf,
+			(char *)&(limit->ul_dev_name), IFNAMSIZ - 1);
+
+		if (ret > 0)
 			ret = mddp_on_set_data_limit(dev_req.app_type,
 					buf, buf_len);
+
 		break;
 
 	default:
