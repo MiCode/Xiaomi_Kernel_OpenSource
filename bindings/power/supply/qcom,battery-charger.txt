@@ -22,6 +22,12 @@ information on "qcom,pmic_glink" device which is used in the example below.
 		    way that the next element is always less than or equal to
 		    the current element (descending order).
 
+- qcom,wireless-fw-name:
+	Usage: optional
+	Value type: <string>
+	Definition: Firmware name that needs to be used for updating wireless
+		    charger firmware.
+
 = EXAMPLE
 
 &soc {
@@ -31,6 +37,7 @@ information on "qcom,pmic_glink" device which is used in the example below.
 			compatible = "qcom,battery-charger";
 			qcom,thermal-mitigation =
 					<3000000 1500000 1000000 500000>;
+			qcom,wireless-fw-name = "idt9412.bin";
 		};
 		...
 	};
