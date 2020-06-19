@@ -1437,7 +1437,8 @@ static int mtk_cooler_mutt_register_ltf(void)
 		p_cooler = &clmutt_data.cooler_param[i];
 		for_each_mutt_cooler_instance(j) {
 			p_cooler->id[j] = id;
-			sprintf(temp, "mtk-cl-mutt%02d%s", j, postfix);
+			snprintf(temp, sizeof(temp), "mtk-cl-mutt%02d%s",
+				j, postfix);
 			/* put mutt state to cooler devdata */
 			p_cooler->dev[j] =
 				mtk_thermal_cooling_device_register(temp,
@@ -1447,7 +1448,7 @@ static int mtk_cooler_mutt_register_ltf(void)
 		}
 		for_each_tx_pwr_lv(j) {
 			p_cooler->id_tx_pwr[j] = id_tx_pwr;
-			sprintf(temp, "mtk-cl-tx-pwr%02d%s",
+			snprintf(temp, sizeof(temp), "mtk-cl-tx-pwr%02d%s",
 				j, postfix);
 			/* put mutt state to cooler devdata */
 			p_cooler->tx_pwr_dev[j] =
@@ -1457,16 +1458,16 @@ static int mtk_cooler_mutt_register_ltf(void)
 			id_tx_pwr++;
 		}
 
-		sprintf(temp, "mtk-cl-noIMS%s", postfix);
+		snprintf(temp, sizeof(temp), "mtk-cl-noIMS%s", postfix);
 		p_cooler->noIMS_dev = mtk_thermal_cooling_device_register(
 			temp, (void *)&p_cooler->type,
 			&mtk_cl_noIMS_ops);
-		sprintf(temp, "mtk-cl-mdoff%s", postfix);
+		snprintf(temp, sizeof(temp), "mtk-cl-mdoff%s", postfix);
 		p_cooler->mdoff_dev = mtk_thermal_cooling_device_register(
 			temp, (void *)&p_cooler->type,
 			&mtk_cl_mdoff_ops);
 #if FEATURE_ADAPTIVE_MUTT
-		sprintf(temp, "mtk-cl-adp-mutt%s", postfix);
+		snprintf(temp, sizeof(temp), "mtk-cl-adp-mutt%s", postfix);
 		p_cooler->adp_dev = mtk_thermal_cooling_device_register(
 			temp, (void *)&p_cooler->type,
 			&mtk_cl_adp_mutt_ops);
