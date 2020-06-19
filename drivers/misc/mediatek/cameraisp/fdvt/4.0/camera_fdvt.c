@@ -807,7 +807,7 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 
 	#ifdef FDVT_USE_GCE
 	int ret = 0;
-	unsigned int secMemType2MVA;
+	unsigned int secMemType2MVA = 1;
 	#endif
 
 	if (a_pstCfg == NULL) {
