@@ -13,6 +13,8 @@
 
 ifeq ($(CONFIG_MACH_MT6761),y)
 AUDIO_PLATFORM := mt6765
+else ifeq ($(CONFIG_MACH_MT6893),y)
+AUDIO_PLATFORM := mt6885
 else
 AUDIO_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 endif
