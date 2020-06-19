@@ -155,18 +155,19 @@ static void get_picachu_mem_addr(void)
 	void __iomem *virt_addr;
 
 	virt_addr = ioremap(EEM_TEMPSPARE0, 0);
-	picachu_mem_base_phys = picachu_read(virt_addr);
+	picachu_mem_base_virt = 0;
 	picachu_mem_size = 0x80000;
-	picachu_mem_base_virt =
-		(phys_addr_t)(uintptr_t)ioremap_wc(
-		picachu_mem_base_phys,
-		picachu_mem_size);
-
+	picachu_mem_base_phys = picachu_read(virt_addr);
+	if ((void __iomem *)picachu_mem_base_phys != NULL) {
+		picachu_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			picachu_mem_base_phys,
+			picachu_mem_size);
+	}
 	picachu_pr_notice("[PICACHU] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
 		(unsigned long long)picachu_mem_base_phys,
 		(unsigned long long)picachu_mem_size,
 		(unsigned long long)picachu_mem_base_virt);
-
 }
 
 #define MCUCFG_SPARE_REG	0x0C53FFEC
@@ -175,10 +176,10 @@ static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 	unsigned int i, cnt, sig, val;
 	void __iomem *addr_ptr;
 
-	/* 0x60000 was reserved for eem efuse using */
-	addr_ptr = (void __iomem *)(picachu_mem_base_virt+0x60000);
+	if ((void __iomem *)picachu_mem_base_virt != NULL) {
+		/* 0x60000 was reserved for eem efuse using */
+		addr_ptr = (void __iomem *)(picachu_mem_base_virt+0x60000);
 
-	if (addr_ptr != NULL) {
 		/* Get signature */
 		sig = (picachu_read(addr_ptr) >> PICACHU_SIGNATURE_SHIFT_BIT);
 		sig = sig & 0xff;
@@ -188,7 +189,7 @@ static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 			addr_ptr += 4;
 			for (i = 0; i < cnt; i++, addr_ptr += 4) {
 				val = picachu_read(addr_ptr);
-				seq_printf(m, "0x%X\n", val);
+				seq_printf(m, "%d:0x%X\n", i, val);
 			}
 		}
 	}
