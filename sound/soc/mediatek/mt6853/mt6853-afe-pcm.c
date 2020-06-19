@@ -147,7 +147,12 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
+/* only when adsp enable using hw semaphore to set memif */
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+			ret = mtk_dsp_memif_set_enable(afe, id);
+#else
 			ret = mtk_memif_set_enable(afe, id);
+#endif
 #else
 		ret = mtk_memif_set_enable(afe, id);
 #endif
@@ -215,7 +220,12 @@ int mt6853_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
+/* only when adsp enable using hw semaphore to set memif */
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+			ret = mtk_dsp_memif_set_disable(afe, id);
+#else
 			ret = mtk_memif_set_disable(afe, id);
+#endif
 #else
 		ret = mtk_memif_set_disable(afe, id);
 #endif
@@ -3433,16 +3443,13 @@ static bool mt6853_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_DOMAIN_SIDEBAND3_MON:
 	case AFE_APLL1_TUNER_CFG:	/* [20:31] is monitor */
 	case AFE_APLL2_TUNER_CFG:	/* [20:31] is monitor */
-		return true;
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	/* these control in dsp */
+	/* these reg would change in scp/adsp */
 	case AFE_DAC_CON0:
 	case AFE_IRQ_MCU_CON0:
 	case AFE_IRQ_MCU_EN:
 	case AFE_IRQ_MCU_DSP_EN:
 	case AFE_IRQ_MCU_SCP_EN:
 		return true;
-#endif
 	default:
 		return false;
 	};
