@@ -534,6 +534,15 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 					  pM4uPort->ePortID);
 		return -1;
 	}
+	if (is_user && !pM4uPort->Virtuality) {
+		M4U_MSG("port:%d name(%s) user(%d) cannot bypass iommu\n",
+			pM4uPort->ePortID, pM4uPort->name, is_user);
+		report_custom_config_port(
+					  name,
+					  pM4uPort->name,
+					  pM4uPort->ePortID);
+		return -5;
+	}
 	if (pM4uPort->Virtuality) {
 		bit32 = m4u_get_boundary(pM4uPort->ePortID);
 		if (bit32 < 0 ||
