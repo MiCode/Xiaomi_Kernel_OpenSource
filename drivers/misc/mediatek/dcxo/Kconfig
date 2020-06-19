@@ -1,0 +1,7 @@
+# XO Related
+config MTK_DCXO
+	bool "MediaTek DCXO Support"
+	---help---
+	  MediaTek PMIC DCXO driver. Which support MT6357 PMIC chip.
+	  PMIC DCXO module can generate 26MHz clock to other chip.
+	  The 26MHz can be adjusted to output a more accurate clock.
