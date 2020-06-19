@@ -807,6 +807,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 {
 	struct ufs_mtk_host *host;
 	int err = 0;
+	struct platform_device *pdev;
 
 	host = devm_kzalloc(hba->dev, sizeof(*host), GFP_KERNEL);
 	if (!host) {
@@ -847,6 +848,13 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 * probing if default pin state is declared.
 	 */
 	device_rename(hba->dev, "bootdevice");
+
+	/*
+	 * fix uaf(use afer free) issue: modify pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev = to_platform_device(hba->dev);
+	pdev->name = pdev->dev.kobj.name;
 
 	ufs_mtk_pltfrm_init();
 
