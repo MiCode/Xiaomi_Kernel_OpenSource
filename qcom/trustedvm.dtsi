@@ -5,11 +5,6 @@
 	#size-cells = <0x2>;
 	interrupt-parent = <&vgic>;
 
-	memory@28800000 {
-		device_type = "memory";
-		reg = <0x0 0x28800000 0x0 0x76f7000>; /* Temp S2 mapping */
-	};
-
 	qcom-mem-buf {
 		compatible = "qcom,mem-buf";
 		qcom,mem-buf-capabilities = "consumer";
