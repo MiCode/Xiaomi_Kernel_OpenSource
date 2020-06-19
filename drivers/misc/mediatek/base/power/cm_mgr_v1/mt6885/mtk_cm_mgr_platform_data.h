@@ -63,7 +63,10 @@ int x_ratio_enable = 1;
 int cm_mgr_camera_enable;
 int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP] = {0, 0, 0, 30, 30};
 int cpu_power_ratio_up_x[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0};
-
+#ifdef USE_BCPU_WEIGHT
+int cpu_power_bcpu_weight_max = 100;
+int cpu_power_bcpu_weight_min = 100;
+#endif
 int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {140, 140, 100, 100, 100};
 int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
 int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
