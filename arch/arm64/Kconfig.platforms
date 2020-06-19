@@ -412,6 +412,8 @@ config MACH_MT8168
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
 	select MTK_BOUNCING_CHECK if AEE_FEATURE
+	select MTK_DRAMC
+	select MTK_EMI
 	select MTK_TIMER_APXGPT
         help
           This enables support for MediaTek MT8168
