@@ -346,6 +346,7 @@
   __list_del_entry_valid
   memcpy
   __memcpy_fromio
+  memmove
   memset
   misc_deregister
   misc_register
@@ -612,6 +613,7 @@
   sysfs_create_link
   __sysfs_match_string
   sysfs_notify
+  sysfs_remove_file_ns
   sysfs_remove_group
   sysfs_remove_groups
   sysfs_remove_link
@@ -1501,7 +1503,7 @@
   dev_pm_opp_free_cpufreq_table
   dev_pm_opp_init_cpufreq_table
 
-# required by sprd-dpu.ko
+# required by sprd-drm.ko
   component_add
   component_bind_all
   component_del
@@ -1666,6 +1668,7 @@
   of_get_drm_display_mode
   of_graph_get_endpoint_by_regs
   of_graph_get_remote_port_parent
+  of_reserved_mem_device_release
   __platform_register_drivers
   platform_unregister_drivers
   regmap_get_reg_stride
@@ -2388,3 +2391,7 @@
   of_irq_to_resource
   _raw_spin_trylock
   regulator_get_linear_step
+
+# required by trusty-pm.ko
+  ktime_get_boot_fast_ns
+  unregister_syscore_ops
