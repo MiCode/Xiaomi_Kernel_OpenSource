@@ -63,6 +63,7 @@ enum MT6853_RC_NODE_TYPE {
 	MT6853_RC_NODE_RATIO_INTERVAL,
 	MT6853_RC_NODE_VALID_BBLPM,
 	MT6853_RC_NODE_VALID_TRACE,
+	MT6853_RC_NODE_VALID_TIMESTAMP,
 	MT6853_RC_NODE_MAX
 };
 
@@ -91,6 +92,7 @@ struct MT6853_RC_VALID_HANDLES {
 	struct MT6853_RC_ENTERY root;
 	struct MT6853_RC_NODE hBblpm;
 	struct MT6853_RC_NODE hTrace;
+	struct MT6853_RC_NODE hTimestamp;
 };
 
 struct MT6853_RC_RATIO_HANDLES {
@@ -321,6 +323,11 @@ static ssize_t mt6853_generic_rc_read(char *ToUserBuf,
 			MT6853_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
 				    MT_LPM_SMC_ACT_GET, node->rc_id, 0));
 		break;
+	case MT6853_RC_NODE_VALID_TIMESTAMP:
+		mt6853_rc_log(ToUserBuf, sz, len, "%lu\n",
+			MT6853_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE_TIME,
+				    MT_LPM_SMC_ACT_GET, node->rc_id, 0));
+		break;
 	}
 
 	return len;
@@ -337,7 +344,8 @@ static ssize_t mt6853_generic_rc_write(char *FromUserBuf,
 	if ((node->type == MT6853_RC_NODE_RC_ENABLE) ||
 		(node->type == MT6853_RC_NODE_COND_ENABLE) ||
 		(node->type == MT6853_RC_NODE_VALID_BBLPM) ||
-		(node->type == MT6853_RC_NODE_VALID_TRACE)) {
+		(node->type == MT6853_RC_NODE_VALID_TRACE) ||
+		(node->type == MT6853_RC_NODE_VALID_TIMESTAMP)) {
 		unsigned int parm;
 		int cmd;
 
@@ -349,7 +357,9 @@ static ssize_t mt6853_generic_rc_write(char *FromUserBuf,
 				(node->type == MT6853_RC_NODE_VALID_BBLPM) ?
 				MT_SPM_DBG_SMC_UID_RC_BBLPM :
 				(node->type == MT6853_RC_NODE_VALID_TRACE) ?
-				MT_SPM_DBG_SMC_UID_RC_TRACE : -1;
+				MT_SPM_DBG_SMC_UID_RC_TRACE :
+				(node->type == MT6853_RC_NODE_VALID_TIMESTAMP) ?
+				MT_SPM_DBG_SMC_UID_RC_TRACE_TIME : -1;
 
 			if (cmd < 0)
 				return -EINVAL;
@@ -434,6 +444,9 @@ static int mt6853_lpm_rc_valid_node_add(int rc_id,
 		MT6853_GENERIC_RC_NODE_INIT(valid->hTrace, "trace",
 				    rc_id, MT6853_RC_NODE_VALID_TRACE);
 		mt6853_lpm_rc_node_add(&valid->hTrace, 0200, &valid->root);
+		MT6853_GENERIC_RC_NODE_INIT(valid->hTimestamp, "timestamp",
+				    rc_id, MT6853_RC_NODE_VALID_TIMESTAMP);
+		mt6853_lpm_rc_node_add(&valid->hTimestamp, 0200, &valid->root);
 	}
 	return bRet;
 }
