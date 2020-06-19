@@ -642,6 +642,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 	break;
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	case CMD_SEC_WRITE:
+#if defined(CONFIG_MTK_CMDQ_MBOX_EXT)
 		cmdq_sec_pkt_write_reg(pkt,
 			addr,
 			data,
@@ -649,6 +650,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			dma_offset,
 			dma_size,
 			0);
+#endif
 			pr_debug("[VCU] %s addr: 0x%x, data: 0x%x, offset: 0x%x, size: 0x%x\n",
 				__func__, addr, data, dma_offset, dma_size);
 	break;
@@ -886,9 +888,11 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 			pr_debug("[VCU] dapc_engine: 0x%llx, port_sec_engine: 0x%llx\n",
 				dapc_engine, port_sec_engine);
+#if defined(CONFIG_MTK_CMDQ_MBOX_EXT)
 			cmdq_sec_pkt_set_data(pkt_ptr, dapc_engine,
 				port_sec_engine, CMDQ_SEC_KERNEL_CONFIG_GENERAL,
 				CMDQ_METAEX_VENC);
+#endif
 		}
 	}
 #endif
