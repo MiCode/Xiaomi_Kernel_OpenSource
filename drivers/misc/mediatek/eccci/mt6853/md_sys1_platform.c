@@ -67,6 +67,8 @@ static struct ccci_clk_node clk_table[] = {
 
 unsigned int devapc_callback_flag;
 unsigned int devapc_check_flag;
+spinlock_t devapc_flag_lock;
+
 #define TAG "mcd"
 
 #define ROr2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)|c))
@@ -74,6 +76,19 @@ unsigned int devapc_check_flag;
 #define RabIsc(a, b, c) ((ccci_read32(a, b)&c) != c)
 
 static int s_md_start_completed;
+
+int ccif_read32(void *b, unsigned long a)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&devapc_flag_lock, flags);
+	ret = ((devapc_check_flag == 1) ?
+			ioread32((void __iomem *)((b)+(a))) : 0);
+	spin_unlock_irqrestore(&devapc_flag_lock, flags);
+
+	return ret;
+}
 
 void md_cldma_hw_reset(unsigned char md_id)
 {
@@ -195,6 +210,8 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct device_node *node = NULL;
 	int idx = 0;
 	int retval;
+
+	spin_lock_init(&devapc_flag_lock);
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -352,6 +369,7 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 	struct md_hw_info *hw_info = md->hw_info;
 	int idx = 0;
 	int ret = 0;
+	unsigned long flags;
 
 	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
 
@@ -368,7 +386,9 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 				CCCI_ERROR_LOG(md->index, TAG,
 					"%s: on=%d,ret=%d\n",
 					__func__, on, ret);
+			spin_lock_irqsave(&devapc_flag_lock, flags);
 			devapc_check_flag = 1;
+			spin_unlock_irqrestore(&devapc_flag_lock, flags);
 		} else {
 			if (strcmp(clk_table[idx].clk_name, "infra-ccif4-md")
 				== 0) {
@@ -379,7 +399,9 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 				ccci_write32(hw_info->md_ccif4_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
+			spin_lock_irqsave(&devapc_flag_lock, flags);
 			devapc_check_flag = 0;
+			spin_unlock_irqrestore(&devapc_flag_lock, flags);
 			clk_disable_unprepare(clk_table[idx].clk_ref);
 		}
 	}
@@ -477,14 +499,14 @@ void md_cd_dump_md_bootup_status(struct ccci_modem *md)
 	 * dump 3 times, and buy-in the 3rd dump value.
 	 */
 
-	ccci_write32(md_reg->md_boot_stats_select, 0, 0);
+	ccci_write32(md_reg->md_boot_stats_select, 0, 2);
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	CCCI_NOTICE_LOG(md->index, TAG,
 		"md_boot_stats0:0x%X\n",
 		ccci_read32(md_reg->md_boot_stats, 0));
 
-	ccci_write32(md_reg->md_boot_stats_select, 0, 1);
+	ccci_write32(md_reg->md_boot_stats_select, 0, 3);
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	CCCI_NOTICE_LOG(md->index, TAG,
