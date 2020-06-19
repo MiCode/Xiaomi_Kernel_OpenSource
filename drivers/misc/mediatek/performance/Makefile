@@ -24,6 +24,8 @@ ifeq (,$(findstring mt8,$(CONFIG_MTK_PLATFORM)))
 	obj-y += boost_ctrl/
 	obj-y += syslimiter/
 	obj-y += tchbst/
+else
+	obj-y += boost_ctrl/eas_ctrl/
 endif
 
 obj-y += perf_ioctl/
