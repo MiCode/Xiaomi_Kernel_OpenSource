@@ -15,15 +15,9 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+
+#include <linux/proc_fs.h>
 #include <linux/uaccess.h>
-
-#include <linux/printk.h>
-#include <linux/kobject.h>
-#include <linux/sysfs.h>
-#include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/string.h>
-
 
 #include "spmtwam.h"
 #define CREATE_TRACE_POINTS
@@ -31,17 +25,17 @@
 
 /* spmtwam node operations:
  * 1. setup twam speed mode (optional, default high)
- *    echo [0|1] > /sys/kernel/spmtwam/speed_mode
+ *    echo [0|1] > /proc/spmtwam/speed_mode
  * 2. setup signal [0-3], id [0-31], and monitor type [0-3] for each channel
- *    echo [0-3]  > /sys/kernel/spmtwam/ch0/signal
- *    echo [0-31] > /sys/kernel/spmtwam/ch0/id
- *    echo [0-3]  > /sys/kernel/spmtwam/ch0/monitor_type
+ *    echo [0-3]  > /proc/spmtwam/ch0/signal
+ *    echo [0-31] > /proc/spmtwam/ch0/id
+ *    echo [0-3]  > /proc/spmtwam/ch0/monitor_type
  * 3. start monitor (monitor up to 4 channels at the same time)
- *    echo 1 > /sys/kernel/spmtwam/state
+ *    echo 1 > /proc/spmtwam/state
  * 4. stop monitor (will clear all configs)
- *    echo 0 > /sys/kernel/spmtwam/state
+ *    echo 0 > /proc/spmtwam/state
  * 5. check current config state
- *    cat /sys/kernel/spmtwam/state
+ *    cat /proc/spmtwam/state
  */
 
 struct spmtwam_local_cfg {
@@ -99,17 +93,21 @@ static void spmtwam_profile_enable(bool enable)
 		cur.enable = enable;
 }
 
-static struct kobject *sysfs_kobj;
 
-static ssize_t read_state(struct kobject *kobj,
-	struct kobj_attribute *attr, char *buf)
+static char dbgbuf[1024] = {0};
+#define log2buf(p, s, fmt, args...) \
+	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
+#undef log
+#define log(fmt, args...)   log2buf(p, dbgbuf, fmt, ##args)
+
+static ssize_t dbg_read(struct file *filp, char __user *userbuf,
+	size_t count, loff_t *f_pos)
 {
-	int i;
-	char *p = buf;
+	int i, len = 0;
+	char *p = dbgbuf;
 	struct spmtwam_cfg *cfg = &cur.cfg;
 
-	#undef log
-	#define log(fmt, args...) (p += sprintf(p, fmt, ##args))
+	p[0] = '\0';
 
 	log("spmtwam state:\n");
 	log("enable %d\n", cur.enable ? 1 : 0);
@@ -117,7 +115,6 @@ static ssize_t read_state(struct kobject *kobj,
 		cfg->spmtwam_speed_mode ? 1 : 0);
 	log("window_len %u (0x%x)\n",
 		cfg->spmtwam_window_len, cfg->spmtwam_window_len);
-
 	for (i = 0; i < 4; i++)
 		if (cfg->ch[i].id < 32)
 			log("ch%d: signal %u id %u montype %u (%s)\n",
@@ -133,128 +130,121 @@ static ssize_t read_state(struct kobject *kobj,
 		else
 			log("ch%d: off\n", i);
 
-	return p - buf;
+	len = p - dbgbuf;
+
+	return simple_read_from_buffer(userbuf, count, f_pos, dbgbuf, len);
 }
 
-static ssize_t write_state(struct kobject *kobj,
-	struct kobj_attribute *attr, const char *buf, size_t sz)
+static ssize_t dbg_write(struct file *fp, const char __user *userbuf,
+	size_t count, loff_t *f_pos)
 {
-	unsigned int enable = 0;
-	int err;
+	char cmd[16];
+	unsigned int en = 0;
 
-	err = kstrtouint(buf, 10, &enable);
-	if (err)
-		return err;
+	count = min(count, sizeof(cmd)-1);
 
-	if (enable != cur.enable)
-		spmtwam_profile_enable(enable ? true : false);
+	if (copy_from_user(cmd, userbuf, count))
+		return -EFAULT;
 
-	return sz;
+	cmd[count] = '\0';
+
+	if (kstrtou32(cmd, 0, &en) == 0)
+		spmtwam_profile_enable(en ? true : false);
+
+	return count;
 }
 
-static struct kobj_attribute attr_state =
-	__ATTR(state, 0644, read_state, write_state);
-
-
-#define SPMTWAM_NODE(name, node, var) \
-static ssize_t show_##name(struct kobject *kobj, \
-	struct kobj_attribute *attr, char *buf) \
-{ \
-	return sprintf(buf, "%u\n", (var)); \
-} \
-static ssize_t store_##name(struct kobject *kobj, \
-	struct kobj_attribute *attr, const char *buf, size_t sz) \
-{ \
-	int err = kstrtouint(buf, 10, &(var)); \
-	if (err) \
-		return err; \
-	return sz; \
-} \
-static struct kobj_attribute attr_##name = \
-	__ATTR(node, 0644, show_##name, store_##name)
-
-SPMTWAM_NODE(speed_mode, speed_mode, cur.cfg.spmtwam_speed_mode);
-SPMTWAM_NODE(window_len, window_len, cur.cfg.spmtwam_window_len);
-SPMTWAM_NODE(ch0sig, signal, cur.cfg.ch[0].signal);
-SPMTWAM_NODE(ch0id, id, cur.cfg.ch[0].id);
-SPMTWAM_NODE(ch0montype, montype, cur.cfg.ch[0].montype);
-SPMTWAM_NODE(ch1sig, signal, cur.cfg.ch[1].signal);
-SPMTWAM_NODE(ch1id, id, cur.cfg.ch[1].id);
-SPMTWAM_NODE(ch1montype, montype, cur.cfg.ch[1].montype);
-SPMTWAM_NODE(ch2sig, signal, cur.cfg.ch[2].signal);
-SPMTWAM_NODE(ch2id, id, cur.cfg.ch[2].id);
-SPMTWAM_NODE(ch2montype, montype, cur.cfg.ch[2].montype);
-SPMTWAM_NODE(ch3sig, signal, cur.cfg.ch[3].signal);
-SPMTWAM_NODE(ch3id, id, cur.cfg.ch[3].id);
-SPMTWAM_NODE(ch3montype, montype, cur.cfg.ch[3].montype);
-
-struct ka_list {
-	struct kobject *kn;
-	struct attribute *attr;
+const static struct file_operations dbg_fops = {
+	.owner = THIS_MODULE,
+	.read = dbg_read,
+	.write = dbg_write,
 };
 
-static int spmtwam_sysfs_init(void)
+static ssize_t var_read(struct file *fp, char __user *userbuf,
+	size_t count, loff_t *f_pos)
+{
+	unsigned int *v = PDE_DATA(file_inode(fp));
+	int len = 0;
+	char *p = dbgbuf;
+
+	p[0] = '\0';
+	log("%d\n", *v);
+	len = p - dbgbuf;
+
+	return simple_read_from_buffer(userbuf, count, f_pos, dbgbuf, len);
+}
+
+static ssize_t var_write(struct file *fp, const char __user *userbuf,
+	size_t count, loff_t *f_pos)
+{
+	unsigned int *v = PDE_DATA(file_inode(fp));
+	char cmd[16];
+
+	count = min(count, sizeof(cmd)-1);
+
+	if (copy_from_user(cmd, userbuf, count))
+		return -EFAULT;
+
+	cmd[count] = '\0';
+	kstrtou32(cmd, 0, v);
+
+	return count;
+}
+
+const static struct file_operations var_fops = {
+	.owner = THIS_MODULE,
+	.read = var_read,
+	.write = var_write,
+};
+
+static struct proc_dir_entry *spmtwam_droot;
+
+static int spmtwam_procfs_init(void)
 {
 	int i;
-	int ret;
-	struct kobject *kobj_ch[4];
-	struct ka_list l[] = {
-		{ NULL, &attr_state.attr },
-		{ NULL, &attr_speed_mode.attr },
-		{ NULL, &attr_window_len.attr },
-		{ NULL, &attr_ch0sig.attr },
-		{ NULL, &attr_ch0id.attr },
-		{ NULL, &attr_ch0montype.attr },
-		{ NULL, &attr_ch1sig.attr },
-		{ NULL, &attr_ch1id.attr },
-		{ NULL, &attr_ch1montype.attr },
-		{ NULL, &attr_ch2sig.attr },
-		{ NULL, &attr_ch2id.attr },
-		{ NULL, &attr_ch2montype.attr },
-		{ NULL, &attr_ch3sig.attr },
-		{ NULL, &attr_ch3id.attr },
-		{ NULL, &attr_ch3montype.attr },
-	};
+	struct proc_dir_entry *ch[4];
+	struct spmtwam_cfg *cfg = &cur.cfg;
 
 	/* setup local default spmtwam config*/
 	setup_default_cfg(&cur);
 
-	sysfs_kobj = kobject_create_and_add("spmtwam", kernel_kobj);
-	l[0].kn = l[1].kn = l[2].kn = sysfs_kobj;
+	/* create debugfs for this test driver */
+	spmtwam_droot = proc_mkdir("spmtwam", NULL);
 
-	if (!sysfs_kobj)
-		return -ENOMEM;
+	if (spmtwam_droot) {
 
-	kobj_ch[0] = kobject_create_and_add("ch0", sysfs_kobj);
-	l[3].kn = l[4].kn = l[5].kn = kobj_ch[0];
-	kobj_ch[1] = kobject_create_and_add("ch1", sysfs_kobj);
-	l[6].kn = l[7].kn = l[8].kn = kobj_ch[1];
-	kobj_ch[2] = kobject_create_and_add("ch2", sysfs_kobj);
-	l[9].kn = l[10].kn = l[11].kn = kobj_ch[2];
-	kobj_ch[3] = kobject_create_and_add("ch3", sysfs_kobj);
-	l[12].kn = l[13].kn = l[14].kn = kobj_ch[3];
+		proc_create("state", 0644, spmtwam_droot, &dbg_fops);
+		proc_create_data("speed_mode", 0644, spmtwam_droot, &var_fops,
+			(void *) &(cfg->spmtwam_speed_mode));
+		proc_create_data("window_len", 0644, spmtwam_droot, &var_fops,
+			(void *) &(cfg->spmtwam_window_len));
 
-	if (!kobj_ch[0] || !kobj_ch[1] || !kobj_ch[2] || !kobj_ch[3]) {
-		ret = -ENOMEM;
-		goto err;
+		ch[0] =	proc_mkdir("ch0", spmtwam_droot);
+		ch[1] =	proc_mkdir("ch1", spmtwam_droot);
+		ch[2] =	proc_mkdir("ch2", spmtwam_droot);
+		ch[3] =	proc_mkdir("ch3", spmtwam_droot);
+
+		for (i = 0 ; i < 4; i++) {
+			if (ch[i]) {
+				proc_create_data("signal",
+					0644, ch[i], &var_fops,
+					(void *)&(cfg->ch[i].signal));
+				proc_create_data("id",
+					0644, ch[i], &var_fops,
+					(void *)&(cfg->ch[i].id));
+				proc_create_data("montype",
+					0644, ch[i], &var_fops,
+					(void *)&(cfg->ch[i].montype));
+			}
+		}
 	}
-
-	for (i = 0; i < sizeof(l) / sizeof(struct ka_list); i++) {
-		ret = sysfs_create_file(l[i].kn, l[i].attr);
-		if (ret < 0)
-			goto err;
-	}
-
-err:
-	if (ret < 0)
-		kobject_put(sysfs_kobj);
-	return ret;
+	return 0;
 }
 
-static void spmtwam_sysfs_exit(void)
+static void spmtwam_procfs_exit(void)
 {
 	spmtwam_profile_enable(false);
-	kobject_put(sysfs_kobj);
+	remove_proc_entry("spmtwam", NULL);
 }
 
 /* ----------------------------------------------------------------------- */
@@ -535,7 +525,7 @@ static int spmtwam_probe(struct platform_device *pdev)
 	}
 
 	ret = request_irq(irq0, spm_irq0_handler,
-		IRQF_TRIGGER_LOW | IRQF_NO_SUSPEND, "TWAM", NULL);
+			 (IRQF_TRIGGER_NONE | IRQF_NO_SUSPEND), "TWAM", NULL);
 	if (ret)
 		return ret;
 
@@ -566,7 +556,7 @@ static int __init spmtwam_init(void)
 	g_spmtwam_init = (ret == 0);
 
 	/* create debugfs node */
-	spmtwam_sysfs_init();
+	spmtwam_procfs_init();
 
 	return ret;
 }
@@ -576,7 +566,7 @@ module_init(spmtwam_init);
 static void __exit spmtwam_exit(void)
 {
 	/* remove debugfs node */
-	spmtwam_sysfs_exit();
+	spmtwam_procfs_exit();
 
 	g_spmtwam_init = false;
 
