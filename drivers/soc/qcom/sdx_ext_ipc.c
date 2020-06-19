@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
-
+#include <soc/qcom/sb_notification.h>
 
 enum subsys_policies {
 	SUBSYS_PANIC = 0,
@@ -33,6 +33,8 @@ enum gpios {
 	STATUS_IN = 0,
 	STATUS_OUT,
 	STATUS_OUT2,
+	WAKEUP_OUT,
+	WAKEUP_IN,
 	NUM_GPIOS,
 };
 
@@ -40,16 +42,20 @@ static const char * const gpio_map[] = {
 	[STATUS_IN] = "qcom,status-in-gpio",
 	[STATUS_OUT] = "qcom,status-out-gpio",
 	[STATUS_OUT2] = "qcom,status-out2-gpio",
+	[WAKEUP_OUT] = "qcom,wakeup-gpio-out",
+	[WAKEUP_IN] = "qcom,wakeup-gpio-in",
 };
 
 struct gpio_cntrl {
 	unsigned int gpios[NUM_GPIOS];
 	int status_irq;
+	int wakeup_irq;
 	int policy;
 	struct device *dev;
 	struct mutex policy_lock;
 	struct mutex e911_lock;
 	struct notifier_block panic_blk;
+	struct notifier_block sideband_nb;
 };
 
 static ssize_t policy_show(struct device *dev, struct device_attribute *attr,
@@ -128,6 +134,26 @@ static ssize_t e911_store(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RW(e911);
 
+static int sideband_notify(struct notifier_block *nb,
+		unsigned long action, void *dev)
+{
+	struct gpio_cntrl *mdm = container_of(nb,
+					struct gpio_cntrl, sideband_nb);
+
+	switch (action) {
+
+	case EVT_WAKE_UP:
+		gpio_set_value(mdm->gpios[WAKEUP_OUT], 1);
+		usleep_range(10000, 20000);
+		gpio_set_value(mdm->gpios[WAKEUP_OUT], 0);
+		break;
+	default:
+		dev_info(mdm->dev, "Invalid action passed %d\n",
+				action);
+	}
+	return NOTIFY_OK;
+}
+
 static irqreturn_t ap_status_change(int irq, void *dev_id)
 {
 	struct gpio_cntrl *mdm = dev_id;
@@ -147,6 +173,12 @@ static irqreturn_t ap_status_change(int irq, void *dev_id)
 	} else
 		dev_info(mdm->dev, "HOST booted\n");
 
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t sdx_ext_ipc_wakeup_irq(int irq, void *dev_id)
+{
+	pr_info("%s: Received\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -209,6 +241,35 @@ static int setup_ipc(struct gpio_cntrl *mdm)
 		gpio_direction_output(mdm->gpios[STATUS_OUT2], 0);
 	} else
 		dev_info(mdm->dev, "STATUS_OUT2 not used\n");
+
+	if (mdm->gpios[WAKEUP_OUT] >= 0) {
+		ret = gpio_request(mdm->gpios[WAKEUP_OUT], "WAKEUP_OUT");
+
+		if (ret) {
+			dev_err(mdm->dev, "Failed to configure WAKEUP_OUT gpio\n");
+			return ret;
+		}
+		gpio_direction_output(mdm->gpios[WAKEUP_OUT], 0);
+	} else
+		dev_info(mdm->dev, "WAKEUP_OUT not used\n");
+
+	if (mdm->gpios[WAKEUP_IN] >= 0) {
+		ret = gpio_request(mdm->gpios[WAKEUP_IN], "WAKEUP_IN");
+
+		if (ret) {
+			dev_warn(mdm->dev, "Failed to configure WAKEUP_IN gpio\n");
+			return ret;
+		}
+		gpio_direction_input(mdm->gpios[WAKEUP_IN]);
+
+		irq = gpio_to_irq(mdm->gpios[WAKEUP_IN]);
+		if (irq < 0) {
+			dev_err(mdm->dev, "bad AP2MDM_STATUS IRQ resource\n");
+			return irq;
+		}
+		mdm->wakeup_irq = irq;
+	} else
+		dev_info(mdm->dev, "WAKEUP_IN not used\n");
 
 	return 0;
 }
@@ -283,6 +344,32 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 		}
 		irq_set_irq_wake(mdm->status_irq, 1);
 	}
+
+	if (mdm->gpios[WAKEUP_IN] >= 0) {
+		ret = devm_request_threaded_irq(mdm->dev, mdm->wakeup_irq,
+				NULL, sdx_ext_ipc_wakeup_irq,
+				IRQF_TRIGGER_FALLING, "sdx_ext_ipc_wakeup",
+				mdm);
+		if (ret < 0) {
+			dev_err(mdm->dev,
+				"%s: WAKEUP_IN IRQ#%d request failed,\n",
+				__func__, mdm->status_irq);
+			goto irq_fail;
+		}
+		disable_irq(mdm->wakeup_irq);
+	}
+
+	if (mdm->gpios[WAKEUP_OUT] >= 0) {
+		mdm->sideband_nb.notifier_call = sideband_notify;
+		ret = sb_register_evt_listener(&mdm->sideband_nb);
+		if (ret) {
+			dev_err(mdm->dev,
+				"%s: sb_register_evt_listener failed!\n",
+				__func__);
+			goto irq_fail;
+		}
+	}
+
 	return 0;
 
 irq_fail:
@@ -313,6 +400,31 @@ static int sdx_ext_ipc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int sdx_ext_ipc_suspend(struct device *dev)
+{
+	struct gpio_cntrl *mdm = dev_get_drvdata(dev);
+
+	if (mdm->gpios[WAKEUP_IN] >= 0)
+		enable_irq_wake(mdm->wakeup_irq);
+	return 0;
+}
+
+static int sdx_ext_ipc_resume(struct device *dev)
+{
+	struct gpio_cntrl *mdm = dev_get_drvdata(dev);
+
+	if (mdm->gpios[WAKEUP_IN] >= 0)
+		disable_irq_wake(mdm->wakeup_irq);
+	return 0;
+}
+
+static const struct dev_pm_ops sdx_ext_ipc_pm_ops = {
+	.suspend        =    sdx_ext_ipc_suspend,
+	.resume         =    sdx_ext_ipc_resume,
+};
+#endif
+
 static const struct of_device_id sdx_ext_ipc_of_match[] = {
 	{ .compatible = "qcom,sdx-ext-ipc"},
 	{ .compatible = "qcom,sa515m-ccard"},
@@ -326,6 +438,9 @@ static struct platform_driver sdx_ext_ipc_driver = {
 		.name	= "sdx-ext-ipc",
 		.owner	= THIS_MODULE,
 		.of_match_table = sdx_ext_ipc_of_match,
+#ifdef CONFIG_PM
+		.pm = &sdx_ext_ipc_pm_ops,
+#endif
 	},
 };
 
