@@ -131,7 +131,7 @@
 #define DDPDUMP(fmt, ...)						\
 	do {								\
 		if (ddp_debug_analysis_to_buffer()) {			\
-			char log[512] = {'\0'};				\
+			static char log[512] = {'\0'};			\
 			scnprintf(log, 511, fmt, ##__VA_ARGS__);	\
 			dprec_logger_dump(log);				\
 		} else {						\
