@@ -378,7 +378,7 @@ int mtk_jpeg_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_ENABLE_EXIF,
 			0, 1, 1, 0);
 	if (handler->error) {
-		v4l2_err(&jpeg->v4l2_dev, "V4L2_CID_JPEG_ACTIVE_MARKER Init control handler fail %d\n",
+		v4l2_err(&jpeg->v4l2_dev, "V4L2_CID_JPEG_ENABLE_EXIF Init control handler fail %d\n",
 				handler->error);
 		return handler->error;
 	}
