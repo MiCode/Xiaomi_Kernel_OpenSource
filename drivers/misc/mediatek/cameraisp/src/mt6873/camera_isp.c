@@ -1600,6 +1600,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	enum ISP_DEV_NODE_ENUM regModule; /* for read/write register */
 	enum ISP_DEV_NODE_ENUM inner_regModule;
 	unsigned int dma_en = 0, dma2_en = 0;
+	unsigned int int3_en = 0, int4_en = 0;
+	unsigned int Irq3StatusX = 0, Irq4StatusX = 0;
 
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -1711,6 +1713,18 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	dmaerr[_ufdi_r2_] =
 		(unsigned int)ISP_RD32(CAM_REG_UFDI_R2_ERR_STAT(regModule));
 
+	int3_en = ISP_RD32(CAM_REG_CTL_RAW_INT3_EN(regModule));
+	int4_en = ISP_RD32(CAM_REG_CTL_RAW_INT4_EN(regModule));
+
+	Irq3StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUSX(inner_regModule));
+	Irq4StatusX = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUSX(inner_regModule));
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"int3_en:0x%x|0x%x,int4_en:0x%x|0x%x\n",
+		       int3_en, Irq3StatusX,
+		       int4_en, Irq4StatusX);
+
 	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "camsys:0x%x",
 		       ISP_RD32(ISP_CAMSYS_CONFIG_BASE));
 
@@ -1821,14 +1835,14 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	/* Module DebugInfo when no p1_done */
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00FC0101 + (i * 0x100)));
+			 (0x00040101 + (i * 0x100)));
 		moduleReqStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			 (0x00FC1101 + (i * 0x100)));
+			 (0x00041101 + (i * 0x100)));
 		moduleRdyStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
 	}
@@ -3906,8 +3920,8 @@ static void ISP_ion_init(void)
 	if (!pIon_client && g_ion_device)
 		pIon_client = ion_client_create(g_ion_device, "camera_isp");
 
-	if (!pIon_client) {
-		LOG_NOTICE("invalid ion client!\n");
+	if (IS_ERR(pIon_client)) {
+		LOG_NOTICE("%s invalid ion client!\n", __func__);
 		return;
 	}
 
@@ -3920,8 +3934,8 @@ static void ISP_ion_init(void)
  ******************************************************************************/
 static void ISP_ion_uninit(void)
 {
-	if (!pIon_client) {
-		LOG_NOTICE("invalid ion client!\n");
+	if (IS_ERR(pIon_client)) {
+		LOG_NOTICE("%s invalid ion client!\n", __func__);
 		return;
 	}
 
@@ -3941,7 +3955,7 @@ static struct ion_handle *ISP_ion_import_handle(struct ion_client *client,
 {
 	struct ion_handle *handle = NULL;
 
-	if (!client) {
+	if (IS_ERR(client)) {
 		LOG_NOTICE("invalid ion client!\n");
 		return handle;
 	}
@@ -3971,7 +3985,7 @@ static struct ion_handle *ISP_ion_import_handle(struct ion_client *client,
 static void ISP_ion_free_handle(struct ion_client *client,
 				struct ion_handle *handle)
 {
-	if (!client) {
+	if (IS_ERR(client)) {
 		LOG_NOTICE("invalid ion client!\n");
 		return;
 	}
@@ -4762,7 +4776,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	} break;
 	case ISP_GET_CUR_ISP_CLOCK: {
 		struct ISP_GET_CLK_INFO getclk;
-		unsigned int clk[2];
+		unsigned int clk[2] = {0};
 
 		ISP_SetPMQOS(E_CLK_CUR, ISP_IRQ_TYPE_INT_CAM_A_ST, clk);
 		getclk.curClk = clk[0];
@@ -4977,7 +4991,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct T_ION_TBL *ptbl = NULL;
 			unsigned int jump;
 
-			if (!pIon_client) {
+			if (IS_ERR(pIon_client)) {
 				LOG_NOTICE("ion_import: invalid ion client!\n");
 				Ret = -EFAULT;
 				break;
@@ -5104,7 +5118,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			struct T_ION_TBL *ptbl = NULL;
 			unsigned int jump;
 
-			if (!pIon_client) {
+			if (IS_ERR(pIon_client)) {
 				LOG_NOTICE("ion_free: invalid ion client!\n");
 				Ret = -EFAULT;
 				break;
@@ -6473,7 +6487,7 @@ EXIT:
 static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	/*LOG_DBG("- E."); */
 	length = (pVma->vm_end - pVma->vm_start);
@@ -6496,7 +6510,7 @@ static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case CAM_C_INNER_BASE_HW:
 		if (length > ISP_REG_RANGE) {
 			LOG_NOTICE("range err:mod:0x%x len:0x%x RANGE:0x%x\n",
-				   pfn, (unsigned int)length,
+				   (unsigned int)pfn, (unsigned int)length,
 				   (unsigned int)ISP_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -6511,7 +6525,7 @@ static int ISP_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case CAMSV_7_BASE_HW:
 		if (length > ISPSV_REG_RANGE) {
 			LOG_NOTICE("range err:mod:0x%x len:0x%x RANGE:0x%x\n",
-				   pfn, (unsigned int)length,
+				   (unsigned int)pfn, (unsigned int)length,
 				   (unsigned int)ISPSV_REG_RANGE);
 			return -EAGAIN;
 		}
@@ -6627,7 +6641,7 @@ static int ISP_probe(struct platform_device *pDev)
 /* Get platform_device parameters */
 #ifdef CONFIG_OF
 	if (pDev == NULL) {
-		dev_info(&pDev->dev, "pDev is NULL");
+		dev_err(&pDev->dev, "pDev is NULL");
 		return -ENXIO;
 	}
 
@@ -6638,7 +6652,7 @@ static int ISP_probe(struct platform_device *pDev)
 			   GFP_KERNEL);
 
 	if (!_ispdev) {
-		dev_info(&pDev->dev, "Unable to allocate isp_devs\n");
+		dev_err(&pDev->dev, "Unable to allocate isp_devs\n");
 		return -ENOMEM;
 	}
 	isp_devs = _ispdev;
@@ -6650,7 +6664,7 @@ static int ISP_probe(struct platform_device *pDev)
 	isp_dev->regs = of_iomap(pDev->dev.of_node, 0);
 	if (!isp_dev->regs) {
 
-		dev_info(&pDev->dev,
+		dev_err(&pDev->dev,
 			"Unable to ioremap registers, of_iomap fail, nr_isp_devs=%d, devnode(%s).\n",
 			nr_isp_devs, pDev->dev.of_node->name);
 
@@ -6675,7 +6689,7 @@ static int ISP_probe(struct platform_device *pDev)
 					       irq_info,
 					       ARRAY_SIZE(irq_info))) {
 
-			dev_info(&pDev->dev, "get irq flags from DTS fail!!\n");
+			dev_err(&pDev->dev, "get irq flags from DTS fail!!\n");
 			return -ENODEV;
 		}
 
@@ -6692,7 +6706,7 @@ static int ISP_probe(struct platform_device *pDev)
 					NULL);
 
 				if (Ret) {
-					dev_info(&pDev->dev,
+					dev_err(&pDev->dev,
 					"request_irq fail, nr_isp_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
 					nr_isp_devs,
 					pDev->dev.of_node->name,
@@ -6727,7 +6741,7 @@ static int ISP_probe(struct platform_device *pDev)
 		/* Register char driver */
 		Ret = ISP_RegCharDev();
 		if ((Ret)) {
-			dev_info(&pDev->dev, "register char failed");
+			dev_err(&pDev->dev, "register char failed");
 			return Ret;
 		}
 
@@ -6743,7 +6757,7 @@ static int ISP_probe(struct platform_device *pDev)
 
 		if (IS_ERR(dev)) {
 			Ret = PTR_ERR(dev);
-			dev_info(&pDev->dev,
+			dev_err(&pDev->dev,
 				"Failed to create device: /dev/%s, err = %d",
 				ISP_DEV_NAME, Ret);
 
@@ -7959,8 +7973,11 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				ErrStatus, WarnStatus, warnTwo);
 
 			/* TG ERR print */
-			if (ErrStatus & TG_ERR_ST)
-				ISP_DumpDmaDeepDbg(module);
+			if (ErrStatus & TG_ERR_ST) {
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_A_ST);
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_B_ST);
+				ISP_DumpDmaDeepDbg(ISP_IRQ_TYPE_INT_CAM_C_ST);
+			}
 
 			/* DMA ERR print */
 			if (ErrStatus & DMA_ERR_ST)
@@ -8317,7 +8334,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_yuvco_]].Raw = 0x0;
 	}
 
-	if (dma2_en & _CRZO_R2_EN_) {
+	if (dma_en & _CRZO_R2_EN_) {
 		fbc_ctrl1[dma_arry_map[_crzo_r2_]].Raw =
 			ISP_RD32(CAM_REG_FBC_CRZO_R2_CTL1(module));
 
@@ -8328,7 +8345,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_crzo_r2_]].Raw = 0x0;
 	}
 
-	if (dma2_en & _RSSO_R2_EN_) {
+	if (dma_en & _RSSO_R2_EN_) {
 		fbc_ctrl1[dma_arry_map[_rsso_r2_]].Raw =
 			ISP_RD32(CAM_REG_FBC_RSSO_R2_CTL1(module));
 
@@ -8339,7 +8356,7 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_rsso_r2_]].Raw = 0x0;
 	}
 
-	if (dma2_en & _YUVO_R1_EN_) {
+	if (dma_en & _YUVO_R1_EN_) {
 		fbc_ctrl1[dma_arry_map[_yuvo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_YUVO_CTL1(module));
 
@@ -10738,6 +10755,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	unsigned int i, cardinalNum = 0, IrqStatus, ErrStatus, WarnStatus;
 	unsigned int DmaStatus, WarnStatus_2 = 0, cur_v_cnt = 0;
 	unsigned int cqDoneIndex = 0;
+	unsigned int dmaiStatus, dropStatus;
 
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
@@ -10797,6 +10815,8 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	}
 
 	WarnStatus = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUS(reg_module));
+	dmaiStatus = ISP_RD32(CAM_REG_CTL_RAW_INT3_STATUS(reg_module));
+	dropStatus = ISP_RD32(CAM_REG_CTL_RAW_INT4_STATUS(reg_module));
 
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 
