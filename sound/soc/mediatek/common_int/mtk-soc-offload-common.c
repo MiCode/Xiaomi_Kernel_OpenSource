@@ -897,8 +897,12 @@ static struct snd_soc_platform_driver mtk_dloffload_soc_platform = {
 
 static int mtk_dloffload_probe(struct platform_device *dev)
 {
-	if (dev->dev.of_node)
+	if (dev->dev.of_node) {
 		dev_set_name(&dev->dev, "%s", "mt_soc_offload_common");
+		dev->name = dev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), dev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	pr_info("%s: dev name %s\n", __func__, dev_name(&dev->dev));
 

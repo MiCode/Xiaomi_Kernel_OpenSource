@@ -79,8 +79,12 @@ static int scp_spk_pcm_dev_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, scp_spk);
 	pm_runtime_enable(&pdev->dev);
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", "snd_scp_spk");
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	ret = snd_soc_register_platform(&pdev->dev, &mtk_scp_spk_pcm_platform);
 	if (ret) {

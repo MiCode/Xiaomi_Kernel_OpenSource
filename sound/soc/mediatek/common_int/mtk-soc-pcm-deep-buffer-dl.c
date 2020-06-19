@@ -600,8 +600,12 @@ static int mtk_deep_buffer_dl_probe(struct platform_device *pdev)
 	pr_info("%s\n", __func__);
 
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_DEEP_BUFFER_DL_PCM);
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 

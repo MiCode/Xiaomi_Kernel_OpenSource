@@ -7810,6 +7810,7 @@ static int mtk_mt6358_codec_dev_probe(struct platform_device *pdev)
 {
 	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_CODEC_NAME);
+		pdev->name = pdev->dev.kobj.name;
 
 		/* check if use hp depop flow */
 		of_property_read_u32(pdev->dev.of_node,

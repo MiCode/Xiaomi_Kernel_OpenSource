@@ -398,8 +398,13 @@ static int mtk_fmtx_probe(struct platform_device *pdev)
 #if defined(FMTX_DEBUG_LOG)
 	pr_debug("%s\n", __func__);
 #endif
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_FM_MRGTX_PCM);
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
+
 #if defined(FMTX_DEBUG_LOG)
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 #endif

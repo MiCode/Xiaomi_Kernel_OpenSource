@@ -838,8 +838,12 @@ static int mtk_dai_stub_dev_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_DAI_NAME);
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 
