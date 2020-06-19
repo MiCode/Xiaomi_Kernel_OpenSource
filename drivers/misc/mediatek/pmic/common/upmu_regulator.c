@@ -89,7 +89,7 @@ static ssize_t store_buck_api(struct device *dev,
 {
 	/*PMICLOG("[EM] Not Support Write Function\n");*/
 	int ret = 0;
-	char *pvalue = NULL, *addr, *val;
+	char *pvalue = NULL, *addr = NULL, *val = NULL;
 	unsigned int buck_uV = 0;
 	unsigned int buck_type = 0;
 
@@ -156,9 +156,9 @@ static const struct platform_device_id pmic_regulator_id[] = {
 static int pmic_regulator_cust_dts_parser(struct platform_device *pdev,
 					  struct device_node *regulators)
 {
-	struct device_node *child;
+	struct device_node *child = NULL;
 	int ret = 0;
-	unsigned int i = 0, default_on;
+	unsigned int i = 0, default_on = 0;
 
 	if (!regulators) {
 		PMICLOG("[PMIC]%s regulators node not found\n", __func__);
@@ -215,10 +215,10 @@ static int pmic_regulator_cust_dts_parser(struct platform_device *pdev,
 static int pmic_regulator_buck_dts_parser(struct platform_device *pdev,
 					  struct device_node *np)
 {
-	struct device_node *buck_regulators;
+	struct device_node *buck_regulators = NULL;
 	struct regulator_config config = {};
-	struct regulator_dev *rdev;
-	struct regulation_constraints *c;
+	struct regulator_dev *rdev = NULL;
+	struct regulation_constraints *c = NULL;
 	int matched, i = 0, ret = 0;
 #ifdef REGULATOR_TEST
 	int isEn;
@@ -303,10 +303,10 @@ out:
 static int pmic_regulator_ldo_dts_parser(struct platform_device *pdev,
 					 struct device_node *np)
 {
-	struct device_node *ldo_regulators;
+	struct device_node *ldo_regulators = NULL;
 	struct regulator_config config = {};
-	struct regulator_dev *rdev;
-	int matched, i = 0, ret;
+	struct regulator_dev *rdev = NULL;
+	int matched, i = 0, ret = 0;
 #ifdef REGULATOR_TEST
 	int isEn;
 #endif /*--REGULATOR_TEST--*/
@@ -527,8 +527,8 @@ int mtk_regulator_init(struct platform_device *dev)
 void pmic_regulator_en_test(void)
 {
 	int i = 0;
-	int ret1, ret2;
-	struct regulator *reg;
+	int ret1 = 0, ret2 = 0;
+	struct regulator *reg = NULL;
 
 	/*for (i = 0; i < ARRAY_SIZE(mt_ldos); i++) {*/
 	for (i = 0; i < mt_ldos_size; i++) {
@@ -560,11 +560,11 @@ void pmic_regulator_en_test(void)
 
 void pmic_regulator_vol_test(void)
 {
-	int i, j;
-	struct regulator *reg;
-	const int *pVoltage;
-	const int *idxs;
-	int rvoltage;
+	int i = 0, j = 0;
+	struct regulator *reg = NULL;
+	const int *pVoltage = NULL;
+	const int *idxs = NULL;
+	int rvoltage = 0;
 
 	for (i = 0; i < mt_ldos_size; i++) {
 		reg = mt_ldos[i].reg;
@@ -605,11 +605,11 @@ void pmic_regulator_vol_test(void)
  ******************************************************************************/
 void dump_ldo_status_read_debug(void)
 {
-	int i, j;
+	int i = 0, j = 0;
 	int en = 0, ret = 0;
 	int voltage_reg = 0;
 	int voltage = 0;
-	const int *pVoltage, *pVoltidx;
+	const int *pVoltage = NULL, *pVoltidx = NULL;
 
 	pr_debug("********** BUCK/LDO status dump [1:ON,0:OFF]**********\n");
 
@@ -677,11 +677,11 @@ void dump_ldo_status_read_debug(void)
 
 static int proc_utilization_show(struct seq_file *m, void *v)
 {
-	int i, j;
+	int i = 0, j = 0;
 	int en = 0, ret = 0;
 	int voltage_reg = 0;
 	int voltage = 0;
-	const int *pVoltage, *pVoltidx;
+	const int *pVoltage = NULL, *pVoltidx = NULL;
 
 	seq_puts(m, "********** BUCK/LDO status dump [1:ON,0:OFF]**********\n");
 

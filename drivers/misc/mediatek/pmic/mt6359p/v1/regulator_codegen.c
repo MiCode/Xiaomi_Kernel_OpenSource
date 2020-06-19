@@ -5425,7 +5425,7 @@ static ssize_t show_regulator_status(
 					struct device_attribute *attr,
 					char *buf)
 {
-	struct mtk_regulator *mreg;
+	struct mtk_regulator *mreg = NULL;
 	unsigned int ret_value = 0;
 
 	mreg = container_of(attr, struct mtk_regulator, en_att);
@@ -5456,11 +5456,11 @@ static ssize_t show_regulator_voltage(
 					struct device_attribute *attr,
 					char *buf)
 {
-	struct mtk_regulator *mreg;
-	const int *pVoltage;
-	const int *pVoltidx;
+	struct mtk_regulator *mreg = NULL;
+	const int *pVoltage = NULL;
+	const int *pVoltidx = NULL;
 
-	unsigned short regVal;
+	unsigned short regVal = 0;
 	unsigned int ret_value = 0, i = 0, ret = 0;
 
 	mreg = container_of(attr, struct mtk_regulator, voltage_att);

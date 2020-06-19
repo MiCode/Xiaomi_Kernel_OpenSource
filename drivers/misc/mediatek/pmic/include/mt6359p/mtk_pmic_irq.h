@@ -55,10 +55,4 @@ struct pmic_sp_interrupt {
 	unsigned int top_int_bit;
 };
 
-#if defined(MTK_EVB_PLATFORM) || defined(CONFIG_FPGA_EARLY_PORTING)
-#define ENABLE_ALL_OC_IRQ 0
-#else
-#define ENABLE_ALL_OC_IRQ 0
-#endif
-
 #endif /*--PMIC_IRQ_H--*/
