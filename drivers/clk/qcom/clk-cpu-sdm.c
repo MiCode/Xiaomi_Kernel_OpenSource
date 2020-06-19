@@ -19,6 +19,9 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <dt-bindings/clock/qcom,cpu-sdm.h>
+#include <linux/suspend.h>
+#include <linux/pm_qos.h>
+#include <soc/qcom/pm.h>
 
 #include "clk-pll.h"
 #include "clk-debug.h"
@@ -38,6 +41,19 @@ enum apcs_mux_clk_parent {
 	P_BI_TCXO_AO,
 	P_GPLL0_AO_OUT_MAIN,
 	P_APCS_CPU_PLL,
+};
+
+struct pll_spm_ctrl {
+	u32 offset;
+	u32 force_event_offset;
+	u32 event_bit;
+	void __iomem *spm_base;
+};
+
+static struct pll_spm_ctrl apcs_pll_spm = {
+	.offset = 0x50,
+	.force_event_offset = 0x4,
+	.event_bit = 0x4,
 };
 
 static const struct parent_map apcs_mux_clk_parent_map0[] = {
@@ -200,6 +216,49 @@ static u8 cpucc_clk_get_parent(struct clk_hw *hw)
 	return clk_regmap_mux_div_ops.get_parent(hw);
 }
 
+static void spm_event(struct pll_spm_ctrl *apcs_pll_spm, bool enable)
+{
+	void __iomem *base = apcs_pll_spm->spm_base;
+	u32 offset, force_event_offset, bit, val;
+
+	if (!apcs_pll_spm)
+		return;
+
+	offset = apcs_pll_spm->offset;
+	force_event_offset = apcs_pll_spm->force_event_offset;
+	bit = apcs_pll_spm->event_bit;
+
+	if (enable) {
+		/* L2_SPM_FORCE_EVENT_EN */
+		val = readl_relaxed(base + offset);
+		val |= BIT(bit);
+		writel_relaxed(val, (base + offset));
+		/* Ensure that the write above goes through. */
+		mb();
+
+		/* L2_SPM_FORCE_EVENT */
+		val = readl_relaxed(base + offset + force_event_offset);
+		val |= BIT(bit);
+		writel_relaxed(val, (base + offset + force_event_offset));
+		/* Ensure that the write above goes through. */
+		mb();
+	} else {
+		/* L2_SPM_FORCE_EVENT */
+		val = readl_relaxed(base + offset + force_event_offset);
+		val &= ~BIT(bit);
+		writel_relaxed(val, (base + offset + force_event_offset));
+		/* Ensure that the write above goes through. */
+		mb();
+
+		/* L2_SPM_FORCE_EVENT_EN */
+		val = readl_relaxed(base + offset);
+		val &= ~BIT(bit);
+		writel_relaxed(val, (base + offset));
+		/* Ensure that the write above goes through. */
+		mb();
+	}
+}
+
 /*
  * We use the notifier function for switching to a temporary safe configuration
  * (mux and divider), while the APSS pll is reconfigured.
@@ -215,6 +274,11 @@ static int cpucc_notifier_cb(struct notifier_block *nb, unsigned long event,
 	case PRE_RATE_CHANGE:
 		/* set the mux to safe source gpll0_ao_out & div */
 		ret = __mux_div_set_src_div(cpuclk, safe_src, 1);
+		spm_event(&apcs_pll_spm, true);
+		break;
+	case POST_RATE_CHANGE:
+		if (cpuclk->src != safe_src)
+			spm_event(&apcs_pll_spm, false);
 		break;
 	case ABORT_RATE_CHANGE:
 		pr_err("Error in configuring PLL - stay at safe src only\n");
@@ -517,6 +581,30 @@ static void cpucc_clk_populate_opp_table(struct platform_device *pdev)
 	cpucc_clk_print_opp_table(sdm_cpu);
 }
 
+static int clock_pm_event(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+	switch (event) {
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		clk_unprepare(apcs_mux_c1_clk.clkr.hw.clk);
+		clk_unprepare(apcs_mux_cci_clk.clkr.hw.clk);
+		break;
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		clk_prepare(apcs_mux_c1_clk.clkr.hw.clk);
+		clk_prepare(apcs_mux_cci_clk.clkr.hw.clk);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block clock_pm_notifier = {
+	.notifier_call = clock_pm_event,
+};
+
 static int cpucc_driver_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -638,6 +726,21 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		return PTR_ERR(apcs_mux_cci_clk.clkr.regmap);
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"spm_c1_base");
+	if (res == NULL) {
+		dev_err(&pdev->dev, "Failed to get spm-c1 resources\n");
+		return -EINVAL;
+	}
+
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base)) {
+		dev_err(&pdev->dev, "Failed to ioremap c1 spm registers\n");
+		return -ENOMEM;
+	}
+
+	apcs_pll_spm.spm_base = base;
+
 	/* Get speed bin information */
 	cpucc_clk_get_speed_bin(pdev, &speed_bin, &version);
 
@@ -717,6 +820,8 @@ static int cpucc_driver_probe(struct platform_device *pdev)
 		clk_prepare_enable(apcs_mux_cci_clk.clkr.hw.clk);
 	}
 	put_online_cpus();
+
+	register_pm_notifier(&clock_pm_notifier);
 
 	cpucc_clk_populate_opp_table(pdev);
 	dev_info(dev, "CPU clock Driver probed successfully\n");
