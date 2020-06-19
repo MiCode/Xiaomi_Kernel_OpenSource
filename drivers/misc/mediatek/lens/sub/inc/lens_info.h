@@ -55,6 +55,9 @@
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
 
+
+#define CONVERT_CCU_TIMESTAMP 0x1000
+
 /* Structures */
 struct stAF_MotorInfo {
 	/* current position */
@@ -91,6 +94,20 @@ struct stAF_MotorName {
 struct stAF_MotorCmd {
 	u32 u4CmdID;
 	u32 u4Param;
+};
+
+/* Structures */
+struct stAF_CtrlCmd {
+	long long i8CmdID;
+	long long i8Param[2];
+};
+
+/* Structures */
+struct stAF_MotorOisInfo {
+	int i4OISHallPosXum;
+	int i4OISHallPosYum;
+	int i4OISHallFactorX;
+	int i4OISHallFactorY;
 };
 
 /* Structures */
