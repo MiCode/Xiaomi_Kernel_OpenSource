@@ -25,7 +25,6 @@
 #include "ged_gpufreq.h"
 #endif
 
-#undef CONFIG_MTK_QOS_V1_SUPPORT
 #ifdef CONFIG_MTK_QOS_V1_SUPPORT
 #include <mtk_gpu_bw.h>
 #endif

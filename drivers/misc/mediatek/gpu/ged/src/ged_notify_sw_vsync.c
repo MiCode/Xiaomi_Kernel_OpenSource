@@ -31,8 +31,6 @@
 #include "ged_monitor_3D_fence.h"
 #include "ged.h"
 
-#undef CONFIG_MTK_QOS_V1_SUPPORT
-
 #ifdef CONFIG_MTK_QOS_V1_SUPPORT
 #include <mtk_gpu_bw.h>
 #endif
