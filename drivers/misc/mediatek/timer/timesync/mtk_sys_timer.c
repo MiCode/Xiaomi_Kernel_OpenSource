@@ -103,7 +103,9 @@ static int sys_timer_mbox_write(unsigned int id, unsigned int val)
 {
 	int res;
 #ifndef SSPM_V2
-	res = sspm_mbox_write(SYS_TIMER_MBOX, id, (void *)&val, 1);
+	res = sspm_mbox_write(SYS_TIMER_MBOX,
+			      SYS_TIMER_MBOX_OFFSET_BASE + id,
+			      (void *)&val, 1);
 #else
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 	res = mcupm_mbox_write(SYS_TIMER_MCUPM_MBOX,
@@ -154,7 +156,7 @@ static void sys_timer_timesync_update_sspm(int suspended,
 	/* update tick, h -> l */
 	val = (tick >> 32) & 0xFFFFFFFF;
 	val |= header;
-	sys_timer_mbox_write(SYS_TIMER_MBOX_TICK_H, val);
+	sys_timer_mbox_write(MBOX_TICK_H, val);
 
 	sys_timer_print("%s: tick_h=0x%x\n", __func__, val);
 
@@ -162,7 +164,7 @@ static void sys_timer_timesync_update_sspm(int suspended,
 	mb();
 
 	val = tick & 0xFFFFFFFF;
-	sys_timer_mbox_write(SYS_TIMER_MBOX_TICK_L, val);
+	sys_timer_mbox_write(MBOX_TICK_L, val);
 
 	sys_timer_print("%s: tick_l=0x%x\n", __func__, val);
 
@@ -171,7 +173,7 @@ static void sys_timer_timesync_update_sspm(int suspended,
 
 	/* update ts, l -> h */
 	val = ts & 0xFFFFFFFF;
-	sys_timer_mbox_write(SYS_TIMER_MBOX_TS_L, val);
+	sys_timer_mbox_write(MBOX_TS_L, val);
 
 	sys_timer_print("%s: ts_l=0x%x\n", __func__, val);
 
@@ -180,7 +182,7 @@ static void sys_timer_timesync_update_sspm(int suspended,
 
 	val = (ts >> 32) & 0xFFFFFFFF;
 	val |= header;
-	sys_timer_mbox_write(SYS_TIMER_MBOX_TS_H, val);
+	sys_timer_mbox_write(MBOX_TS_H, val);
 
 	sys_timer_print("%s: ts_h=0x%x\n", __func__, val);
 
@@ -198,8 +200,8 @@ void sys_timer_timesync_verify_sspm(void)
 	u64 ts_sspm, ts_ap1, ts_ap2, temp_u64[2];
 
 	/* reset debug mbox before test */
-	sys_timer_mbox_write(SYS_TIMER_MBOX_DEBUG_TS_L, 0);
-	sys_timer_mbox_write(SYS_TIMER_MBOX_DEBUG_TS_H, 0);
+	sys_timer_mbox_write(MBOX_DEBUG_TS_L, 0);
+	sys_timer_mbox_write(MBOX_DEBUG_TS_H, 0);
 
 	ts_ap1 = sched_clock();
 
@@ -216,8 +218,8 @@ void sys_timer_timesync_verify_sspm(void)
 
 	/* wait until sspm writes sspm-view timestamp to sram */
 	while (1) {
-		sys_timer_mbox_read(SYS_TIMER_MBOX_DEBUG_TS_L, &ts_l);
-		sys_timer_mbox_read(SYS_TIMER_MBOX_DEBUG_TS_H, &ts_h);
+		sys_timer_mbox_read(MBOX_DEBUG_TS_L, &ts_l);
+		sys_timer_mbox_read(MBOX_DEBUG_TS_H, &ts_h);
 
 		if (ts_l || ts_h)
 			break;
