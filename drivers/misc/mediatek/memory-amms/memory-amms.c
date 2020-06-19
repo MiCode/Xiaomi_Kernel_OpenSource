@@ -452,13 +452,18 @@ static int __init memory_ccci_share_init(struct reserved_mem *rmem)
 		 __func__, rmem->name,
 		 &rmem->base, &rmem->size);
 
-
 	pos_addr = mt_secure_call(
 		MTK_SIP_KERNEL_AMMS_GET_MD_POS_ADDR, 0, 0, 0, 0);
 	pos_length = mt_secure_call(
 		MTK_SIP_KERNEL_AMMS_GET_MD_POS_LENGTH, 0, 0, 0, 0);
 	pr_info("pos_addr=%pa pos_length=%pa\n",
 		&pos_addr, &pos_length);
+
+	if ((long long)pos_addr == -1 || (long long)pos_addr == 0xffffffff) {
+		pr_info("%s: no support POS\n", __func__);
+		return 0;
+	}
+
 	if (pos_addr != 0)
 	/* init cma area */
 		ret = cma_init_reserved_mem(rmem->base,
