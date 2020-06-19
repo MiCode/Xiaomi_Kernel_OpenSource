@@ -804,8 +804,11 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 	#endif
 	FDVTRegIO *pREGIO = NULL;
 	u32 i = 0;
+
+	#ifdef FDVT_USE_GCE
 	int ret = 0;
 	unsigned int secMemType2MVA;
+	#endif
 
 	if (a_pstCfg == NULL) {
 		LOG_DBG("Null input argrment\n");
@@ -1359,23 +1362,23 @@ static long compat_FD_ioctl(
 		return -ENOTTY;
 
 	switch (cmd) {
+#if (MTK_FD_LARB == 2)
 	case COMPAT_FDVT_IOC_INIT_SETSECURE_CMD:
 	{
 	return
 	file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
-#if (MTK_FD_LARB == 2)
 	case COMPAT_FDVT_IOC_INIT_SETNORMAL_CMD:
 	{
 	return
 	file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
+#endif
 	case COMPAT_FDVT_IOC_INIT_SETPARA_CMD:
 	{
 	return
 	file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
-#endif
 	case COMPAT_FDVT_IOC_STARTFD_CMD:
 	{
 	return
