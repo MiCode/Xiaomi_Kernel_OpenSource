@@ -2314,7 +2314,7 @@ static void fsg_disable(struct usb_function *f)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
 
-	__raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE, fsg);
+	__raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE, NULL);
 }
 
 
