@@ -63,7 +63,7 @@ static void _mfc_draw_row(struct MFC_CONTEXT *ctxt, BYTE *dest, BYTE raw_color)
 
 	for (pixel_row = 0; pixel_row < ctxt->scale; pixel_row++) {
 		for (cols = 7; cols >= 0; cols--) {
-			if (raw_color >> cols & 1)
+			if (raw_color >> (unsigned int)cols & 1)
 				color = MFC_FG_COLOR;
 			else
 				color = MFC_BG_COLOR;
@@ -80,8 +80,8 @@ static void _mfc_draw_row(struct MFC_CONTEXT *ctxt, BYTE *dest, BYTE raw_color)
 static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 {
 	BYTE ch = *((BYTE *)&c);
-	const BYTE *cdat;
-	BYTE *dest;
+	const BYTE *cdat = (const BYTE *)MFC_FONT_DATA + ch * MFC_FONT_HEIGHT;
+	BYTE *dest = NULL;
 	INT32 rows, cols, offset;
 
 	int font_draw_table16[4];
@@ -110,8 +110,6 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 		font_draw_table16[3] =
 			MAKE_TWO_RGB565_COLOR(MFC_FG_COLOR, MFC_FG_COLOR);
 
-		cdat = (const BYTE *)MFC_FONT_DATA + ch * MFC_FONT_HEIGHT;
-
 		for (rows = MFC_FONT_HEIGHT; rows--;) {
 			BYTE bits = *cdat++;
 
@@ -132,13 +130,14 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 		}
 		break;
 	case 3:
-		cdat = (const BYTE *)MFC_FONT_DATA + ch * MFC_FONT_HEIGHT;
 		for (rows = MFC_FONT_HEIGHT; rows--; dest += MFC_PITCH) {
 			BYTE bits = *cdat++;
 			BYTE *tmp = dest;
 
 			for (cols = 0; cols < 8; ++cols) {
-				UINT32 color = ((bits >> (7 - cols)) & 0x1)
+				UINT32 color = (((unsigned int)bits >>
+						       (unsigned int)(7 -
+						       cols)) & 0x1)
 						       ? MFC_FG_COLOR
 						       : MFC_BG_COLOR;
 				((BYTE *)tmp)[0] = color & 0xff;
@@ -149,7 +148,6 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 		}
 		break;
 	case 4:
-		cdat = (const BYTE *)MFC_FONT_DATA + ch * MFC_FONT_HEIGHT;
 		for (rows = MFC_FONT_HEIGHT; rows--; dest += MFC_PITCH) {
 			BYTE bits = *cdat++;
 			BYTE *tmp = dest;
@@ -404,7 +402,7 @@ enum MFC_STATUS MFC_SetMem(MFC_HANDLE handle, const char *str, UINT32 color)
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)handle;
 	int count = 0;
 	int i, j;
-	UINT32 *ptr;
+	UINT32 *ptr = NULL;
 
 	if (!ctxt || !str)
 		return MFC_STATUS_INVALID_ARGUMENT;
@@ -483,9 +481,9 @@ void screen_logger_init(void)
 
 void screen_logger_add_message(char *obj, enum message_mode mode, char *message)
 {
-	struct screen_logger *p;
+	struct screen_logger *p = NULL;
 	int add_new = 1;
-	char *new, *old;
+	char *new = NULL, *old = NULL;
 	unsigned int len = 0;
 
 	screen_logger_init();
@@ -504,7 +502,10 @@ void screen_logger_add_message(char *obj, enum message_mode mode, char *message)
 			len = strlen(p->message) + strlen(message);
 			new = kmalloc(sizeof(char) * (len + 1), GFP_KERNEL);
 			strncpy(new, p->message, strlen(p->message));
-			strncat(new, message, strlen(message));
+			if (strlen(message) + strlen(p->message) < len)
+				strncat(new, message, strlen(message));
+			else
+				strncat(new, message, len - strlen(p->message));
 			old = p->message;
 			p->message = new;
 			kfree(old);
@@ -519,7 +520,6 @@ void screen_logger_add_message(char *obj, enum message_mode mode, char *message)
 	if (add_new == 1) {
 		struct screen_logger *logger =
 			kmalloc(sizeof(struct screen_logger), GFP_KERNEL);
-
 		if (logger == NULL)
 			return;
 
@@ -529,9 +529,9 @@ void screen_logger_add_message(char *obj, enum message_mode mode, char *message)
 	}
 }
 
-void screen_logger_remove_message(char *obj)
+void screen_logger_remove_message(const char *obj)
 {
-	struct screen_logger *p;
+	struct screen_logger *p = NULL;
 
 	list_for_each_entry(p, &logger_head.list, list) {
 		if (strcmp(p->obj, obj) == 0) {
@@ -548,7 +548,7 @@ void screen_logger_remove_message(char *obj)
 
 void screen_logger_print(MFC_HANDLE handle)
 {
-	struct screen_logger *p;
+	struct screen_logger *p = NULL;
 
 	list_for_each_entry(p, &logger_head.list, list)
 		MFC_Print(handle, p->message);
