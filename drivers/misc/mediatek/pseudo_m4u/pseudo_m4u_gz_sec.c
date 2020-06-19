@@ -25,8 +25,8 @@ static struct m4u_sec_ty_context m4u_ty_ctx = {
 	.ctx_lock = __MUTEX_INITIALIZER(m4u_ty_ctx.ctx_lock),
 };
 struct m4u_gz_sec_context m4u_gz_ta_ctx;
-struct m4u_msg *shared_buf;
-int _shm_size = PAGE_ALIGN(sizeof(struct m4u_msg));
+struct gz_m4u_msg *shared_buf;
+int _shm_size = PAGE_ALIGN(sizeof(struct gz_m4u_msg));
 int _num_PA;
 
 TZ_RESULT _reg_shmem(KREE_SESSION_HANDLE mem_sn,
@@ -124,14 +124,14 @@ int m4u_gz_ha_init(struct m4u_gz_sec_context *ctx)
 	/*reg shared mem */
 	ret = _reg_shmem(ty_ctx->mem_sn, &ty_ctx->mem_hd, &ty_ctx->shm_param);
 	if (ret == TZ_RESULT_SUCCESS) {
-		ctx->m4u_msg = (struct m4u_msg *)shared_buf;
+		ctx->gz_m4u_msg = (struct gz_m4u_msg *)shared_buf;
 		}
 	else  {
 		M4ULOG_HIGH("[MTEE]reg shmem fail\n");
 		goto out_create_mem_sn;
 		}
 
-	if (!m4u_gz_ta_ctx.m4u_msg) {
+	if (!m4u_gz_ta_ctx.gz_m4u_msg) {
 		M4ULOG_HIGH("[MTEE]m4u msg is invalid\n");
 		return -1;
 		}
@@ -257,7 +257,7 @@ static int m4u_gz_exec_session(struct m4u_gz_sec_context *ctx)
 	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
 
-	if (!ctx->m4u_msg) {
+	if (!ctx->gz_m4u_msg) {
 		M4U_MSG("[MTEE]%s TCI/DCI error\n", __func__);
 		return -1;
 	}
@@ -266,14 +266,14 @@ static int m4u_gz_exec_session(struct m4u_gz_sec_context *ctx)
 	param[1].value.b = _shm_size;
 	paramTypes = TZ_ParamTypes3(TZPT_VALUE_INPUT, TZPT_VALUE_INPUT,
 				    TZPT_VALUE_OUTPUT);
-	ret = KREE_TeeServiceCall(ty_ctx->m4u_sn, ctx->m4u_msg->cmd,
+	ret = KREE_TeeServiceCall(ty_ctx->m4u_sn, ctx->gz_m4u_msg->cmd,
 							  paramTypes, param);
 	if (ret != TZ_RESULT_SUCCESS) {
 		M4ULOG_HIGH("[MTEE][%s]echo 0x%x fail(0x%x)\n", __func__,
-					ctx->m4u_msg->cmd, ret);
+					ctx->gz_m4u_msg->cmd, ret);
 		goto exit;
 	}
-	M4ULOG_HIGH("[MTEE]%s, get_resp %x\n", __func__, ctx->m4u_msg->cmd);
+	M4ULOG_HIGH("[MTEE]%s, get_resp %x\n", __func__, ctx->gz_m4u_msg->cmd);
 exit:
 	return ret;
 }
@@ -282,7 +282,7 @@ int m4u_gz_exec_cmd(struct m4u_gz_sec_context *ctx)
 {
 	int ret;
 
-	if (ctx->m4u_msg == NULL) {
+	if (ctx->gz_m4u_msg == NULL) {
 		M4U_MSG("[MTEE]%s TCI/DCI error\n", __func__);
 		return -1;
 	}
