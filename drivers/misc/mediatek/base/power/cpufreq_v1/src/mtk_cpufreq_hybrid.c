@@ -1757,11 +1757,11 @@ static int dvfsp_module_init(void)
 	tag_pr_notice("@@!start %s\n", __func__);
 	r = platform_driver_register(&_mt_dvfsp_pdrv);
 	if (r)
-		tag_pr_notice("fail to register sspm driver @ %s()\n",
+		tag_pr_notice("fail to register dvfs driver @ %s()\n",
 								__func__);
 
 	if (!dvfsp_probe_done) {
-		tag_pr_notice("FAILED TO PROBE SSPM DEVICE\n");
+		tag_pr_notice("fail to probe dvfs\n");
 		return -ENODEV;
 	}
 
@@ -1829,7 +1829,7 @@ static int cpuhvfs_pre_module_init(void)
 
 	r = dvfsp_module_init();
 	if (r) {
-		tag_pr_notice("FAILED TO INIT DVFS SSPM (%d)\n", r);
+		tag_pr_notice("FAILED TO INIT DVFS MODULE(%d)\n", r);
 		return r;
 	}
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
