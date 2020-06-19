@@ -219,8 +219,9 @@ struct mdpm_scenario {
 	struct scenario_power_type_t *scenario_power;
 	enum tx_rat_type tx_power_rat[MAX_DBM_FUNC_NUM];
 	int tx_power_rat_sum;
-	int (*tx_power_func)(u32 *dbm_mem, u32 *old_dbm_mem, unsigned int rat,
-		unsigned int power_type, struct md_power_status *md_power_s);
+	int (*tx_power_func)(u32 *dbm_mem, u32 *old_dbm_mem,
+		enum tx_rat_type rat, enum mdpm_power_type power_type,
+		struct md_power_status *md_power_s);
 };
 
 #ifdef MD_POWER_UT
