@@ -593,6 +593,11 @@ static int mtu3_probe(struct platform_device *pdev)
 	ssusb->dev = dev;
 
 	dev_set_name(dev, "musb-hdrc");
+	/*
+	 * fix uaf(use afer free) issue:backup pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev->name = pdev->dev.kobj.name;
 
 	ret = get_ssusb_rscs(pdev, ssusb);
 	if (ret)
