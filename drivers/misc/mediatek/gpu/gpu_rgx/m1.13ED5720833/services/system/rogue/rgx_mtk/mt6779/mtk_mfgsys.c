@@ -119,8 +119,6 @@ struct clk *mtcmos_mfg0;
 struct clk *mtcmos_mfg1;
 
 unsigned int _mtk_ged_log;
-unsigned int _track_ged_log;
-unsigned int _mpu_ged_log;
 
 #ifdef CONFIG_MTK_SEGMENT_TEST
 static IMG_UINT32 efuse_mfg_enable;
@@ -1437,15 +1435,12 @@ void MTKMFGSystemDeInit(void)
 int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 {
 	struct device *pdev;
-
+#if !defined(CONFIG_MTK_ENABLE_GMO)
 	_mtk_ged_log = ged_log_buf_alloc(512, 512 * 64,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "PowerLog", "ppL");
-
-	_track_ged_log = ged_log_buf_alloc(32, 32 * 32,
-			GED_LOG_BUF_TYPE_RINGBUFFER, "RegStack", "RTrace");
-
-	_mpu_ged_log = ged_log_buf_alloc(32, 32 * 32,
-			GED_LOG_BUF_TYPE_RINGBUFFER, "GPUImport", "GImp");
+#else
+	_mtk_ged_log = 0;
+#endif /* CONFIG_MTK_ENABLE_GMO */
 
 #ifndef MTK_GPU_DVFS
 	/* Only Enable buck to get cg & mtcmos */
@@ -1484,12 +1479,6 @@ int MTKRGXDeviceDeInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 {
 	return 0;
 }
-
-void MTKSaveFrame(const char func_name[])
-{
-	ged_log_buf_print2(_track_ged_log, GED_LOG_ATTR_TIME, "%s", func_name);
-}
-EXPORT_SYMBOL(MTKSaveFrame);
 
 void MTKFWDump(void)
 {
