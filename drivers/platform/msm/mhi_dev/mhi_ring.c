@@ -443,33 +443,43 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 	wr_offset = mhi_dev_ring_addr2ofst(ring,
 					ring->ring_ctx->generic.wp);
 
-	ring->ring_cache = dma_alloc_coherent(mhi->dev,
-			ring->ring_size *
-			sizeof(union mhi_dev_ring_element_type),
-			&ring->ring_cache_dma_handle,
-			GFP_KERNEL);
-	if (!ring->ring_cache)
-		return -ENOMEM;
+	if (!ring->ring_cache) {
+		ring->ring_cache = dma_alloc_coherent(mhi->dev,
+				ring->ring_size *
+				sizeof(union mhi_dev_ring_element_type),
+				&ring->ring_cache_dma_handle,
+				GFP_KERNEL);
+		if (!ring->ring_cache) {
+			mhi_log(MHI_MSG_ERROR,
+				"Failed to allocate ring cache\n");
+			return -ENOMEM;
+		}
+	}
 
 	if (ring->type == RING_TYPE_ER) {
-		ring->evt_rp_cache = dma_alloc_coherent(mhi->dev,
-			sizeof(uint64_t) * ring->ring_size,
-			&ring->evt_rp_cache_dma_handle,
-			GFP_KERNEL);
 		if (!ring->evt_rp_cache) {
-			mhi_log(MHI_MSG_ERROR,
-				"Failed to allocate evt rp cache\n");
-			rc = -ENOMEM;
-			goto cleanup;
+			ring->evt_rp_cache = dma_alloc_coherent(mhi->dev,
+				sizeof(uint64_t) * ring->ring_size,
+				&ring->evt_rp_cache_dma_handle,
+				GFP_KERNEL);
+			if (!ring->evt_rp_cache) {
+				mhi_log(MHI_MSG_ERROR,
+					"Failed to allocate evt rp cache\n");
+				rc = -ENOMEM;
+				goto cleanup;
+			}
 		}
-		ring->msi_buf = dma_alloc_coherent(mhi->dev,
-			sizeof(uint32_t),
-			&ring->msi_buf_dma_handle,
-			GFP_KERNEL);
 		if (!ring->msi_buf) {
-			mhi_log(MHI_MSG_ERROR, "Failed to allocate msi buf\n");
-			rc = -ENOMEM;
-			goto cleanup;
+			ring->msi_buf = dma_alloc_coherent(mhi->dev,
+				sizeof(uint32_t),
+				&ring->msi_buf_dma_handle,
+				GFP_KERNEL);
+			if (!ring->msi_buf) {
+				mhi_log(MHI_MSG_ERROR,
+					"Failed to allocate msi buf\n");
+				rc = -ENOMEM;
+				goto cleanup;
+			}
 		}
 	}
 
@@ -512,7 +522,6 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 		if (rc)
 			return rc;
 	}
-
 	return rc;
 
 cleanup:
@@ -521,11 +530,13 @@ cleanup:
 		sizeof(union mhi_dev_ring_element_type),
 		ring->ring_cache,
 		ring->ring_cache_dma_handle);
+	ring->ring_cache = NULL;
 	if (ring->evt_rp_cache) {
 		dma_free_coherent(mhi->dev,
 			sizeof(uint64_t) * ring->ring_size,
 			ring->evt_rp_cache,
 			ring->evt_rp_cache_dma_handle);
+		ring->evt_rp_cache = NULL;
 	}
 	return rc;
 }
