@@ -454,10 +454,9 @@ static int apusys_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto mem_init_fail;
 	}
-	if (apusys_dbg_init()) {
-		ret = -EINVAL;
-		goto dbg_init_fail;
-	}
+
+	apusys_dbg_init();
+
 	if (mdw_tags_init()) {
 		ret = -EINVAL;
 		goto tag_init_fail;
@@ -471,7 +470,6 @@ static int apusys_probe(struct platform_device *pdev)
 
 tag_init_fail:
 	apusys_dbg_destroy();
-dbg_init_fail:
 	apusys_mem_destroy();
 mem_init_fail:
 	apusys_sched_destroy();
