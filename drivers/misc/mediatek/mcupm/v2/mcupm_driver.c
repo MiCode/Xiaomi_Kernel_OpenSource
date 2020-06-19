@@ -84,10 +84,12 @@ static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
 		.size = 0x100 + MCUPM_PLT_LOGGER_BUF_LEN,
 		/* logger header + 1M log buffer */
 	},
+#if !defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) && !defined(CONFIG_MTK_MET_MEM_ALLOC)
 	{
 		.num = MCUPM_MET_ID,
 		.size = MCUPM_MET_LOGGER_BUF_LEN,
 	},
+#endif
 	{
 		.num = MCUPM_EEMSN_MEM_ID,
 		.size = MCUPM_PLT_EEMSN_BUF_LEN,
