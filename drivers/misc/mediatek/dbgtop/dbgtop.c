@@ -23,6 +23,7 @@
 #include <linux/io.h>
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
+#include <mt-plat/mtk_wd_api.h>
 
 #include <mtk_dbgtop.h>
 #include <dbgtop.h>
@@ -160,12 +161,21 @@ static void __exit mtk_dbgtop_exit(void)
 
 int mtk_dbgtop_dram_reserved(int enable)
 {
-	unsigned int tmp;
+	unsigned int tmp, ret;
+	struct wd_api *wd_api = NULL;
 
 	if (DBGTOP_BASE == NULL)
 		return -1;
 
 	if (enable == 1) {
+		/* get watchdog api */
+		ret = get_wd_api(&wd_api);
+		if (ret < 0)
+			return ret;
+
+		wd_api->wd_dfd_count_en(1);
+		wd_api->wd_dfd_timeout(0x1ffff);
+
 		/* enable DDR reserved mode */
 		tmp = readl(IOMEM(MTK_DBGTOP_MODE));
 		tmp |= (MTK_DBGTOP_MODE_DDR_RESERVE | MTK_DBGTOP_MODE_KEY);
