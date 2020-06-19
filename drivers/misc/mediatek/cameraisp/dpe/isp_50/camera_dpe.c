@@ -467,7 +467,7 @@ static struct SV_LOG_STR gSvLog[DPE_IRQ_TYPE_AMOUNT];
 		ret = snprintf((char *)(pDes), avaLen, fmt,\
 			##__VA_ARGS__);   \
 		if (ret < 0) { \
-			LOG_ERR("snprintf fail(%d)\n", ret); \
+			LOG_INF("snprintf fail(%d)\n", ret); \
 		} \
 		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 			LOG_INF("log str over flow(%d)", irq);\
@@ -535,7 +535,7 @@ static struct SV_LOG_STR gSvLog[DPE_IRQ_TYPE_AMOUNT];
 			ptr2 = &(pSrc->_cnt[ppb][logT]);\
 		ret = snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);\
 		if (ret < 0) { \
-			LOG_ERR("snprintf fail(%d)\n", ret); \
+			LOG_INF("snprintf fail(%d)\n", ret); \
 		} \
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
