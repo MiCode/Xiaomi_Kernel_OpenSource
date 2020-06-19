@@ -1536,11 +1536,15 @@ static u32 gpmif_of;
 static u32 gpmif_val;
 static ssize_t pmif_access_show(struct device_driver *ddri, char *buf)
 {
+	int ret = 0;
+
 	if (buf == NULL) {
 		pr_notice("[%s] *buf is NULL!\n",  __func__);
 		return -EINVAL;
 	}
-	sprintf(buf, "[%s] [0x%x]=0x%x\n", __func__, gpmif_of, gpmif_val);
+	ret = sprintf(buf, "[%s] [0x%x]=0x%x\n", __func__, gpmif_of, gpmif_val);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	return strlen(buf);
 }
@@ -1586,11 +1590,15 @@ static u32 gspmi_of;
 static u32 gspmi_val;
 static ssize_t spmi_access_show(struct device_driver *ddri, char *buf)
 {
+	int ret = 0;
+
 	if (buf == NULL) {
 		pr_notice("[%s] *buf is NULL!\n",  __func__);
 		return -EINVAL;
 	}
-	sprintf(buf, "[%s] [0x%x]=0x%x\n", __func__, gspmi_of, gspmi_val);
+	ret = sprintf(buf, "[%s] [0x%x]=0x%x\n", __func__, gspmi_of, gspmi_val);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	return strlen(buf);
 }
