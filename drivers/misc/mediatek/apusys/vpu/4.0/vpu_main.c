@@ -748,9 +748,7 @@ static int vpu_probe(struct platform_device *pdev)
 #endif
 
 	/* register debugfs nodes */
-	ret = vpu_init_dev_debug(pdev, vd);
-	if (ret)
-		goto free;
+	vpu_init_dev_debug(pdev, vd);
 
 	vpu_init_dev_met(pdev, vd);
 
