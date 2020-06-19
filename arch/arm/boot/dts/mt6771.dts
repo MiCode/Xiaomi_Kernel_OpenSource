@@ -1909,9 +1909,10 @@
 		    <0 0x18080000 0 0x10000>; /*SRAM_BANK2*/
 		interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_LOW>;
 		mediatek,infracfg = <&infracfg_ao>;
-		mediatek,offset =<0xf00 0x800 0xfd0 0xfd4 0xfd8>;
 		/*INFRA MISC, conn_bt_cvsd_mask*/
 		/*cvsd_mcu_read, write, packet_indicator*/
+		mediatek,offset =<0xf00 0x800 0xfd0 0xfd4 0xfd8>;
+		disable_write_silence = <0>;
 	};
 
 	ufshci:ufshci@11270000 {
