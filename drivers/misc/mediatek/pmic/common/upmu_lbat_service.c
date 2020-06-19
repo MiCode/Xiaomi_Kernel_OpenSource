@@ -107,9 +107,11 @@ static int lv_list_cmp(void *priv, struct list_head *a, struct list_head *b)
 	return thd_b->thd_volt - thd_a->thd_volt;
 }
 
-static void modify_lbat_list(enum lbat_thd_type type,
+static int modify_lbat_list(enum lbat_thd_type type,
 	struct lbat_thd_t *thd)
 {
+	if (!thd)
+		return -EINVAL;
 	switch (type) {
 	case LBAT_HV:
 		list_add(&thd->list, &lbat_hv_list);
@@ -134,6 +136,7 @@ static void modify_lbat_list(enum lbat_thd_type type,
 		}
 		break;
 	}
+	return 0;
 }
 
 /*
@@ -287,7 +290,7 @@ int lbat_user_register(struct lbat_user *user, const char *name,
 		ret = PTR_ERR(user);
 		goto out;
 	}
-	strncpy(user->name, name, strlen(name));
+	strncpy(user->name, name, strlen(user->name));
 	if (hv_thd_volt >= 5400 || lv1_thd_volt <= 2650) {
 		ret = -11;
 		goto out;
