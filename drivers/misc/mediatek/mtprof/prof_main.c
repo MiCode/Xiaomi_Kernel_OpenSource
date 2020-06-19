@@ -73,16 +73,21 @@ static void probe_signal_generate(void *ignore, int sig, struct siginfo *info,
 {
 	unsigned int state = task->state ? __ffs(task->state) + 1 : 0;
 	int errno, code;
-
+	bool res_state = true;
 	/*
 	 * only log delivered signals
 	 */
 	STORE_SIGINFO(errno, code, info);
+
+	if (result < 0 || result >= sizeof(signal_deliver_results))
+		res_state = false;
+
 	printk_deferred("[signal][%d:%s]generate sig %d to [%d:%s:%c] errno=%d code=%d grp=%d res=%s\n",
-		 current->pid, current->comm, sig,
+		current->pid, current->comm, sig,
 		task->pid, task->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?',
-		errno, code, group, signal_deliver_results[result]);
+		errno, code, group,
+		res_state ? signal_deliver_results[result] : "?");
 }
 
 static void probe_signal_deliver(void *ignore, int sig, struct siginfo *info,
@@ -141,6 +146,7 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 			return;
 
 		state = task->state ? __ffs(task->state) + 1 : 0;
+
 		printk_deferred("[signal][%d:%s]send death sig %d to[%d:%s:%c]\n",
 			 current->pid, current->comm,
 			 sig, task->pid, task->comm,
@@ -156,6 +162,7 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 			return;
 
 		state = task->state ? __ffs(task->state) + 1 : 0;
+
 		printk_deferred("[signal][%d:%s]send %s sig %d to[%d:%s:%c]\n",
 			 current->pid, current->comm,
 			 (sig == SIGCONT) ? "continue" : "stop",
