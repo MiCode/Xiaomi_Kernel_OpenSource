@@ -77,6 +77,7 @@ msdc-y += msdc_partition.o
 msdc-y += $(MTK_PLATFORM)/msdc_cust.o
 msdc-y += autok.o
 msdc-y += $(MTK_PLATFORM)/autok_dvfs.o
+obj-$(CONFIG_MMC_CRYPTO) += sw-cqhci-crypto.o
 
 ifeq ($(CONFIG_FPGA_EARLY_PORTING),y)
 msdc-y += $(MTK_PLATFORM)/msdc_fpga_io.o

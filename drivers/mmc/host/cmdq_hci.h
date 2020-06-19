@@ -165,6 +165,76 @@
 #define CQ_TASK_DESC_TASK_PARAMS_SIZE 8
 #define CQ_TASK_DESC_CE_PARAMS_SIZE 8
 
+/*--------------------------------------------------------------------------*/
+/* Crypto CQE                                                    */
+/*--------------------------------------------------------------------------*/
+/* capabilities */
+#define CQHCI_CAP			0x04
+#define CQHCI_CAP_CS			(1 << 28)
+#define CQHCI_CCAP			0x100
+#define CQHCI_CRYPTOCAP			0x104
+
+/* configuration */
+#define CQHCI_CRYPTO_ENABLE		0x00000002
+
+#define CQHCI_TASK_DESC_SZ_128		0x1
+
+/* CCAP - Crypto Capability 100h */
+union cqhci_crypto_capabilities {
+	__le32 reg_val;
+	struct {
+		u8 num_crypto_cap;
+		u8 config_count;
+		u8 reserved;
+		u8 config_array_ptr;
+	};
+};
+
+enum cqhci_crypto_key_size {
+	CQHCI_CRYPTO_KEY_SIZE_INVALID	= 0,
+	CQHCI_CRYPTO_KEY_SIZE_128	= 1,
+	CQHCI_CRYPTO_KEY_SIZE_192	= 2,
+	CQHCI_CRYPTO_KEY_SIZE_256	= 3,
+	CQHCI_CRYPTO_KEY_SIZE_512	= 4,
+};
+
+enum cqhci_crypto_alg {
+	CQHCI_CRYPTO_ALG_AES_XTS		= 0,
+	CQHCI_CRYPTO_ALG_BITLOCKER_AES_CBC	= 1,
+	CQHCI_CRYPTO_ALG_AES_ECB		= 2,
+	CQHCI_CRYPTO_ALG_ESSIV_AES_CBC		= 3,
+};
+
+/* x-CRYPTOCAP - Crypto Capability X */
+union cqhci_crypto_cap_entry {
+	__le32 reg_val;
+	struct {
+		u8 algorithm_id;
+		u8 sdus_mask; /* Supported data unit size mask */
+		u8 key_size;
+		u8 reserved;
+	};
+};
+
+#define CQHCI_CRYPTO_CONFIGURATION_ENABLE (1 << 7)
+#define CQHCI_CRYPTO_KEY_MAX_SIZE 64
+/* x-CRYPTOCFG - Crypto Configuration X */
+union cqhci_crypto_cfg_entry {
+	__le32 reg_val[32];
+	struct {
+		u8 crypto_key[CQHCI_CRYPTO_KEY_MAX_SIZE];
+		/* 4KB/512 = 8 */
+		u8 data_unit_size;
+		u8 crypto_cap_idx;
+		u8 reserved_1;
+		u8 config_enable;
+		u8 reserved_multi_host;
+		u8 reserved_2;
+		u8 vsb[2];
+		u8 reserved_3[56];
+	};
+};
+
 struct cmdq_host {
 	const struct cmdq_host_ops *ops;
 	void __iomem *mmio;
@@ -210,6 +280,12 @@ struct cmdq_host {
 	struct completion halt_comp;
 	struct mmc_request **mrq_slot;
 	void *private;
+#ifdef CONFIG_MMC_CRYPTO
+	union cqhci_crypto_capabilities crypto_capabilities;
+	union cqhci_crypto_cap_entry *crypto_cap_array;
+	union cqhci_crypto_cfg_entry *crypto_cfgs;
+	u32 crypto_cfg_register;
+#endif
 };
 
 struct cmdq_host_ops {
