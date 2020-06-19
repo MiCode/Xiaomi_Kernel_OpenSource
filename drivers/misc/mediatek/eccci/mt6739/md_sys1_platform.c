@@ -162,6 +162,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr, struct ccci_dev_cfg
 
 		hw_info->sram_size = CCIF_SRAM_SIZE;
 		hw_info->md_rgu_base = MD_RGU_BASE;
+		hw_info->l1_rgu_base = L1_RGU_BASE;
 		hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 #if defined(CONFIG_PINCTRL_ELBRUS)
 		mdcldma_pinctrl = devm_pinctrl_get(&dev_ptr->dev);
