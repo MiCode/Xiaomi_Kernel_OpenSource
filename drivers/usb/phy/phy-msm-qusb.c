@@ -1769,7 +1769,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	} else {
-		qphy->notifier_gpio = 0;
 		qphy->is_port_valid = true;
 	}
 
