@@ -3645,15 +3645,23 @@ static void mtk_drm_crtc_release_fence(struct drm_crtc *crtc)
 		return;
 	}
 
-	DDPMSG("CRTC%u release all fence\n", id);
-
-	/* release layer fence */
+	/* release input layer fence */
+	DDPMSG("CRTC%u release input fence\n", id);
 	for (i = 0; i < MTK_TIMELINE_OUTPUT_TIMELINE_ID; i++)
 		mtk_release_layer_fence(session_id, i);
 
+	/* release output fence for crtc2 */
+	if (id == 2) {
+		DDPMSG("CRTC%u release output fence\n", id);
+		mtk_release_layer_fence(session_id,
+					MTK_TIMELINE_OUTPUT_TIMELINE_ID);
+	}
+
 	/* if primary display, release present fence */
-	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
+	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY) {
+		DDPMSG("CRTC%u release present fence\n", id);
 		mtk_drm_suspend_release_present_fence(crtc->dev->dev);
+	}
 }
 #endif
 
