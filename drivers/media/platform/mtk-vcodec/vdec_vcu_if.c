@@ -532,7 +532,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	msg.msg_id = AP_IPIMSG_DEC_INIT;
 	msg.ap_inst_addr = (unsigned long)vcu;
 
-	if (vcu->ctx->dec_params.svp_mode == 1)
+	if (vcu->ctx->dec_params.svp_mode)
 		msg.reserved = vcu->ctx->dec_params.svp_mode;
 
 	mtk_vcodec_debug(vcu, "vdec_inst=%p svp_mode=%d", vcu, msg.reserved);
