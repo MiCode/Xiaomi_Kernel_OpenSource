@@ -69,7 +69,7 @@ obj-y += mtk_spm_vcorefs_mt6771.o
 obj-y += mtk_lp_sysfs.o
 obj-y += mtk_lp_kernfs.o
 obj-y += mtk_idle_sysfs.o
-obj-y += mtk_lp_sysfs_kernfs.o
+obj-y += mtk_lp_sysfs_procfs.o
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 obj-y += mtk_spm_vcorefs_ipi_mt6771.o
@@ -91,7 +91,7 @@ obj-y += mtk_spm_vcorefs.o
 obj-y += mtk_lp_sysfs.o
 obj-y += mtk_lp_kernfs.o
 obj-y += mtk_idle_sysfs.o
-obj-y += mtk_lp_sysfs_kernfs.o
+obj-y += mtk_lp_sysfs_procfs.o
 
 endif
 

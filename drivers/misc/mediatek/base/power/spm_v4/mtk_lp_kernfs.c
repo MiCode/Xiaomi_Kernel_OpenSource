@@ -111,7 +111,7 @@ void *mtk_lp_kernfs_seq_next(struct seq_file *sf, void *v, loff_t *ppos)
 static int mtk_lp_kernfs_seq_show(struct seq_file *sf, void *v)
 {
 	return __mtk_lp_kernfs_seq_show(sf,
-				(struct mtk_lp_kernfs_info *)v);
+			(struct mtk_lp_kernfs_info *)v);
 }
 
 void mtk_lp_kernfs_seq_stop(struct seq_file *sf, void *v)
@@ -172,7 +172,6 @@ static struct kernfs_ops mtk_lp_kernfs_kfops_idiotype = {
 	.write = mtk_lp_kernfs_idio_write,
 };
 
-
 int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 				  struct kernfs_node **node,
 				  unsigned int flag,
@@ -206,12 +205,9 @@ int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 	return 0;
 }
 
-int mtk_lp_kernfs_remove_file(struct kernfs_node *parent,
-				  struct kernfs_node **node,
-				  unsigned int flag,
-				  const char *name, umode_t mode,
-				  void *attr)
+int mtk_lp_kernfs_remove_file(struct kernfs_node *node)
 {
+	kernfs_remove(node);
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lp_kernfs_remove_file);
@@ -230,8 +226,7 @@ int mtk_lp_kernfs_create_group(struct kobject *kobj
 	struct attribute *const *attr;
 	int error = 0, i;
 
-	kn = kernfs_create_dir(kobj->sd, grp->name,
-				       0755, kobj);
+	kn = mtk_lp_kernfs_create_dir(kobj, grp->name, 0755);
 
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
@@ -239,16 +234,16 @@ int mtk_lp_kernfs_create_group(struct kobject *kobj
 	kernfs_get(kn);
 	if (grp->attrs) {
 		for (i = 0, attr = grp->attrs; *attr && !error; i++, attr++)
-			mtk_lp_kernfs_create_file(kn, NULL, 0,
-				(*attr)->name, (*attr)->mode, (void *)*attr);
+			mtk_lp_kernfs_create_file(kn, NULL, 0, (*attr)->name,
+						  (*attr)->mode,
+						  (void *)*attr);
 	}
 	kernfs_put(kn);
 	return 0;
 }
-EXPORT_SYMBOL(mtk_lp_kernfs_create_group);
 
 size_t get_mtk_lp_kernfs_bufsz_max(void)
 {
 	return MTK_LP_SYSFS_POWER_BUFFER_SZ;
 }
-EXPORT_SYMBOL(get_mtk_lp_kernfs_bufsz_max);
+
