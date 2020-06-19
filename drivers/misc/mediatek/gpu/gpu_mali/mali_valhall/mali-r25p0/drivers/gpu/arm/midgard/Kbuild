@@ -67,6 +67,8 @@ else
 DEFINES +=-DMALI_KBASE_PLATFORM_PATH=$(src)/platform/$(CONFIG_MALI_PLATFORM_NAME)
 endif
 
+DEFINES +=-DCONFIG_GPU_TRACEPOINTS=y
+
 DEFINES += -I$(srctree)/drivers/staging/android
 
 DEFINES += -DMALI_KBASE_BUILD
