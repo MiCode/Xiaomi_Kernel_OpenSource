@@ -912,7 +912,7 @@ static void __mt_gpufreq_config_dfd(bool enable)
 		// [8] enable
 		writel(0x0F001100, g_mfg_base + 0xA00);
 
-		mtk_dbgtop_dfd_timeout(0x3E8); // 500 ms
+		mtk_dbgtop_dfd_timeout(0x3E8, 0); // 500 ms
 
 	} else {
 		writel(0x00000000, g_mfg_base + 0xA00);
