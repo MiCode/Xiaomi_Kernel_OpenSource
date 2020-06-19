@@ -585,7 +585,7 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 {
 	struct smblite *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
-	int rc = 0;
+	int rc = 0, icl_ua;
 	union power_supply_propval pval = {0, };
 
 	switch (psp) {
@@ -612,7 +612,23 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 				/* vote 100ma when usb is not present*/
 				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
 							true, USBIN_100UA);
+			} else if (chg->flash_active) {
+				icl_ua = get_effective_result_locked(
+						chg->usb_icl_votable);
+				if (icl_ua >= USBIN_400UA) {
+					vote(chg->usb_icl_votable,
+						FLASH_ACTIVE_VOTER,
+						true, icl_ua - USBIN_300UA);
+				}
+			} else {
+				vote(chg->usb_icl_votable, FLASH_ACTIVE_VOTER,
+							false, 0);
 			}
+			pr_debug("flash_active=%d usb_present=%d icl=%d\n",
+				chg->flash_active, pval.intval,
+				get_effective_result_locked(
+				chg->usb_icl_votable));
+
 		}
 		break;
 	default:
