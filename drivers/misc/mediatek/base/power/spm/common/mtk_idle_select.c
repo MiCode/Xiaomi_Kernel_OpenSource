@@ -93,7 +93,7 @@ void idle_lock_by_ufs(unsigned int lock)
 int mtk_idle_entrance(struct mtk_idle_info *info
 	, int *ChosenIdle, int IsSelectOnly)
 {
-	int idx;
+	int idx = 0;
 	int reason = NR_REASONS;
 	int bRet = 0;
 	#if defined(CONFIG_MTK_UFS_SUPPORT)
