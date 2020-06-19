@@ -338,36 +338,28 @@ int apusys_dbg_init(void)
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_root);
-	if (ret) {
-		mdw_drv_err("failed to create debug dir.\n");
+	if (ret)
 		goto out;
-	}
 
 	/* create device table info */
 	apusys_dbg_devinfo = debugfs_create_file("devinfo", 0444,
 		apusys_dbg_root, NULL, &apusys_dbg_fops_devinfo);
 	ret = IS_ERR_OR_NULL(apusys_dbg_devinfo);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(devinfo).\n");
+	if (ret)
 		goto out;
-	}
 
 	/* create device queue info */
 	apusys_dbg_device = debugfs_create_dir("device", apusys_dbg_root);
 	ret = IS_ERR_OR_NULL(apusys_dbg_device);
-	if (ret) {
-		mdw_drv_err("failed to create queue dir(device).\n");
+	if (ret)
 		goto out;
-	}
 
 	/* create user info */
 	apusys_dbg_user = debugfs_create_file("user", 0444,
 		apusys_dbg_root, NULL, &apusys_dbg_fops_user);
 	ret = IS_ERR_OR_NULL(apusys_dbg_user);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(user).\n");
+	if (ret)
 		goto out;
-	}
 
 	/* create user info */
 	apusys_dbg_mem = debugfs_create_file("mem", 0444,
@@ -382,10 +374,8 @@ int apusys_dbg_init(void)
 	apusys_dbg_test = debugfs_create_file("test", 0644,
 		apusys_dbg_root, NULL, &apusys_dbg_fops_test);
 	ret = IS_ERR_OR_NULL(apusys_dbg_test);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(test).\n");
+	if (ret)
 		goto out;
-	}
 
 	/* create log level */
 	apusys_dbg_log = debugfs_create_u32("klog", 0644,
@@ -397,26 +387,20 @@ int apusys_dbg_init(void)
 	cfg_apusys_trace = 0;
 
 	ret = IS_ERR_OR_NULL(apusys_dbg_trace);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(trace_en).\n");
+	if (ret)
 		goto out;
-	}
 
 	/* tmp log dump node */
 	apusys_dbg_debug_root =  debugfs_create_dir("apusys_debug", NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_debug_root);
-	if (ret) {
-		mdw_drv_err("failed to create debug dir(log).\n");
+	if (ret)
 		goto out;
-	}
 
 	apusys_dbg_debug_log = debugfs_create_file("log", 0444,
 		apusys_dbg_debug_root, NULL, &apusys_dbg_fops_log);
 	ret = IS_ERR_OR_NULL(apusys_dbg_debug_log);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(log).\n");
+	if (ret)
 		goto out;
-	}
 
 	apusys_dump_init();
 out:

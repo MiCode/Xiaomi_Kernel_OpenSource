@@ -143,20 +143,9 @@ int res_dbg_tab_init(struct apusys_res_table *tab)
 	tab->dbg_dir = debugfs_create_dir(tab->name,
 		apusys_dbg_device);
 
-	ret = IS_ERR_OR_NULL(tab->dbg_dir);
-	if (ret) {
-		mdw_drv_err("create q len node(%s) fail(%d)\n",
-		tab->name, ret);
-	}
-
 	/* create queue */
 	res_dbg_devq = debugfs_create_u32("queue", 0444,
 		tab->dbg_dir, &tab->normal_task_num);
-	ret = IS_ERR_OR_NULL(res_dbg_devq);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(%s/queue)\n",
-			tab->name);
-	}
 
 	return ret;
 }
