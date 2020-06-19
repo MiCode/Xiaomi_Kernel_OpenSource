@@ -243,6 +243,10 @@ extern void dmac_unmap_area(const void *, size_t, int);
 #define M4U_TEE_SERVICE_ENABLE
 #endif
 
+#ifdef M4U_TEE_SERVICE_ENABLE
+unsigned int mtk_init_tz_m4u(void);
+#endif
+
 int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort);
 struct device *m4u_get_larbdev(int portid);
 

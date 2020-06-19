@@ -49,6 +49,12 @@ struct page **iommu_dma_alloc(struct device *dev, size_t size, gfp_t gfp,
 		void (*flush_page)(struct device *, const void *, phys_addr_t));
 void iommu_dma_free(struct device *dev, struct page **pages, size_t size,
 		dma_addr_t *handle);
+struct page **
+iommu_dma_alloc_fix_iova(struct device *dev, size_t size, gfp_t gfp,
+		unsigned long attrs, int prot, dma_addr_t handle,
+		void (*flush_page)(struct device *, const void *, phys_addr_t));
+void iommu_dma_free_from_reserved_range(struct device *dev,
+		struct page **pages, size_t size, dma_addr_t *handle);
 
 int iommu_dma_mmap(struct page **pages, size_t size, struct vm_area_struct *vma);
 

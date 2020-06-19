@@ -26,6 +26,7 @@
 #include <linux/genalloc.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-contiguous.h>
+#include <linux/iova.h>
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
 #include <linux/pci.h>
@@ -922,6 +923,60 @@ void arch_teardown_dma_ops(struct device *dev)
 {
 	dev->dma_ops = NULL;
 }
+
+/*
+ * let user pass the parameters including
+ * 1. iommu device
+ * 2. the desired dma_addr from reserved range
+ *    (the iova start address is managed by user)
+ * 3. the iova buffer size
+ * 4. gfp flag
+ * return the va of caller space
+ */
+void *dma_alloc_coherent_fix_iova(struct device *dev, dma_addr_t dma_addr,
+				  size_t size, gfp_t flag)
+{
+	/* User pass the desired dma start address and size from the
+	 * reserved iova range. Then it maps the va and pa into a
+	 * scaterlist, uses the iova and scatterlist to complete the
+	 * iommu pagetable, finally it returns the va to caller.
+	 */
+	unsigned long attrs = DMA_ATTR_ALLOC_SINGLE_PAGES;
+	bool coherent = is_device_dma_coherent(dev);
+	int ioprot = dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
+	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL, coherent);
+	struct page **pages;
+	size_t iosize = size;
+	void *addr = NULL;
+
+	pages = iommu_dma_alloc_fix_iova(dev, iosize, flag, attrs, ioprot,
+					 dma_addr, flush_page);
+	if (!pages)
+		return NULL;
+
+	addr = dma_common_pages_remap(pages, size, VM_USERMAP, prot,
+				      __builtin_return_address(0));
+	if (!addr)
+		iommu_dma_free_from_reserved_range(dev, pages, iosize,
+						   &dma_addr);
+	return addr;
+}
+EXPORT_SYMBOL(dma_alloc_coherent_fix_iova);
+
+void dma_free_coherent_fix_iova(struct device *dev, void *cpu_addr,
+				dma_addr_t dma_addr, size_t size)
+{
+	struct vm_struct *area = find_vm_area(cpu_addr);
+	size_t iosize = size;
+
+	size = PAGE_ALIGN(size);
+
+	if (WARN_ON(!area || !area->pages))
+		return;
+	iommu_dma_free_from_reserved_range(dev, area->pages, iosize, &dma_addr);
+	dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+}
+EXPORT_SYMBOL(dma_free_coherent_fix_iova);
 
 #else
 
