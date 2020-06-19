@@ -109,7 +109,9 @@ static void set_cfp_ppm(struct ppm_limit_data *desired_freq, int headroom_opp)
 #ifdef CONFIG_TRACING
 	perfmgr_trace_count(cc_is_ceiled, "cfp_ceiled");
 #endif
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	mt_ppm_userlimit_cpu_freq(perfmgr_clusters, cfp_freq);
+#endif
 }
 
 static void cfp_lt_callback(int loading)
@@ -391,6 +393,7 @@ PROC_FOPS_RW(cfp_up_loading);
 PROC_FOPS_RW(cfp_down_loading);
 PROC_FOPS_RO(cfp_curr_stat);
 
+#ifdef CONFIG_MTK_CPU_CTRL_CFP
 int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 {
 	int i;
@@ -493,3 +496,4 @@ void cpu_ctrl_cfp_exit(void)
 
 	kfree(freq_tbl);
 }
+#endif

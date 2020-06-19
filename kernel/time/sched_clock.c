@@ -190,7 +190,9 @@ static enum hrtimer_restart sched_clock_poll(struct hrtimer *hrt)
 	hrtimer_forward_now(hrt, cd.wrap_kt);
 
 	/* snchronize new sched_clock base to co-processors */
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_ASYNC);
+#endif
 
 	return HRTIMER_RESTART;
 }
@@ -314,8 +316,10 @@ static int sched_clock_suspend(void)
 	rd->read_sched_clock = suspended_sched_clock_read;
 
 	/* snchronize new sched_clock base to co-processors */
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_SYNC |
 		SYS_TIMER_TIMESYNC_FLAG_FREEZE);
+#endif
 
 	return 0;
 }
@@ -329,8 +333,10 @@ static void sched_clock_resume(void)
 	rd->read_sched_clock = cd.actual_read_sched_clock;
 
 	/* snchronize new sched_clock base to co-processors */
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_SYNC |
 		SYS_TIMER_TIMESYNC_FLAG_UNFREEZE);
+#endif
 }
 
 static struct syscore_ops sched_clock_ops = {
