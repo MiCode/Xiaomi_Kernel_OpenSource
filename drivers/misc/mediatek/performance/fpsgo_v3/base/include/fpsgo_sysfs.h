@@ -3,8 +3,8 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
-#ifndef __GED_SYSFS_H__
-#define __GED_SYSFS_H__
+#ifndef __FPSGO_SYSFS_H__
+#define __FPSGO_SYSFS_H__
 
 #include <linux/kobject.h>
 

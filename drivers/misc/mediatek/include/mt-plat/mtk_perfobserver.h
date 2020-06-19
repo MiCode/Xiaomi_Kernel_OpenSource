@@ -16,40 +16,6 @@
 
 #include <linux/notifier.h>
 
-enum pob_dqd_info_num {
-	POB_BQD_QUEUE,
-	POB_BQD_ACQUIRE,
-};
-
-struct pob_bqd_info {
-	unsigned long long bqid;
-	int connectapi;
-	unsigned long long cameraid;
-};
-
-#ifdef CONFIG_MTK_PERF_OBSERVER
-extern int pob_bqd_register_client(struct notifier_block *nb);
-extern int pob_bqd_unregister_client(struct notifier_block *nb);
-
-extern int pob_bqd_queue_update(unsigned long long bufferid,
-			int connectapi,
-			unsigned long long cameraid);
-extern int pob_bqd_acquire_update(unsigned long long bufferid,
-			int connectapi);
-#else
-static inline int pob_bqd_register_client(struct notifier_block *nb)
-{ return 0; }
-static inline int pob_bqd_unregister_client(struct notifier_block *nb)
-{ return 0; }
-static inline int pob_bqd_queue_update(unsigned long long bufferid,
-			int connectapi,
-			unsigned long long cameraid)
-{ return 0; }
-static inline int pob_bqd_acquire_update(unsigned long long bufferid,
-			int connectapi)
-{ return 0; }
-#endif
-
 enum pob_fpsgo_info_num {
 	POB_FPSGO_TURNON,
 	POB_FPSGO_TURNOFF,
@@ -103,35 +69,6 @@ static inline int pob_fpsgo_fstb_stats_update(unsigned long infonum,
 { return 0; }
 static inline int pob_fpsgo_qtsk_update(unsigned long infonum,
 			struct pob_fpsgo_qtsk_info *info)
-{ return 0; }
-#endif
-
-struct pob_rs_quaweitime_info {
-	int MaxQWCPUTime;
-	int MaxQWGPUTime;
-	int MaxQWAPUTime;
-};
-
-enum pob_rs_info_num {
-	POB_RS_CPURESCUE_START,
-	POB_RS_CPURESCUE_END,
-	POB_RS_QUAWEITIME,
-};
-
-#ifdef CONFIG_MTK_PERF_OBSERVER
-extern int pob_rs_register_client(struct notifier_block *nb);
-extern int pob_rs_unregister_client(struct notifier_block *nb);
-
-extern int pob_rs_fps_update(enum pob_rs_info_num info_num);
-extern int pob_rs_qw_update(struct pob_rs_quaweitime_info *info);
-#else
-static inline int pob_rs_register_client(struct notifier_block *nb)
-{ return 0; }
-static inline int pob_rs_unregister_client(struct notifier_block *nb)
-{ return 0; }
-static inline int pob_rs_fps_update(enum pob_rs_info_num info_num)
-{ return 0; }
-static inline int pob_rs_qw_update(struct pob_rs_quaweitime_info *info)
 { return 0; }
 #endif
 

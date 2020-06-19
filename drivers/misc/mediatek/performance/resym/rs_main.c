@@ -15,45 +15,34 @@
  */
 
 #include <linux/module.h>
-#include <linux/debugfs.h>
-#include <linux/workqueue.h>
-#include <linux/proc_fs.h>
 
 #include "rs_base.h"
-#include "rs_log.h"
 #include "rs_trace.h"
 #include "rs_usage.h"
 #include "rs_state.h"
 
-struct dentry *rsm_debugfs_dir;
+#define RS_SYSFS_DIR_NAME "resym"
+
+struct kobject *rs_kobj;
 
 static int __init rs_init(void)
 {
-	struct proc_dir_entry *hps_dir = NULL;
-	struct dentry *rs_debugfs_dir = NULL;
+	rs_kobj = kobject_create_and_add(RS_SYSFS_DIR_NAME, kernel_kobj);
 
-	RS_LOGI("[RS_MAIN] init\n");
+	rs_trace_init();
+	rs_usage_init();
+	rs_state_init();
 
-	rs_debugfs_dir = debugfs_create_dir("resym", NULL);
-	if (!rs_debugfs_dir) {
-		RS_LOGE("debugfs_create_dir resym failed");
-		goto err;
-	}
-
-	rsm_debugfs_dir = rs_debugfs_dir;
-
-	rs_init_trace(rs_debugfs_dir);
-	rs_usage_init(rs_debugfs_dir, hps_dir);
-#ifdef RS_STATE_SUPPORT
-	rs_state_init(rs_debugfs_dir);
-#endif
 	return 0;
-err:
-	return -EFAULT;
 }
 
 static void __exit rs_exit(void)
 {
+	rs_usage_exit();
+	rs_state_exit();
+
+	kobject_put(rs_kobj);
+	rs_kobj = NULL;
 }
 
 module_init(rs_init);

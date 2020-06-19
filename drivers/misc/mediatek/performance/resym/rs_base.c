@@ -21,6 +21,8 @@
 
 #include "rs_base.h"
 
+#define LOGSIZE 32
+
 void *rs_alloc_atomic(int i32Size)
 {
 	void *pvBuf;
@@ -36,5 +38,61 @@ void *rs_alloc_atomic(int i32Size)
 void rs_free(void *pvBuf)
 {
 	kvfree(pvBuf);
+}
+
+int rs_sysfs_create_dir(struct kobject *parent,
+		const char *name, struct kobject **ppsKobj)
+{
+	struct kobject *psKobj = NULL;
+
+	if (name == NULL || ppsKobj == NULL)
+		return -1;
+
+	parent = (parent != NULL) ? parent : rs_kobj;
+	if (parent == NULL)
+		return -1;
+
+	psKobj = kobject_create_and_add(name, parent);
+	if (!psKobj)
+		return -1;
+
+	*ppsKobj = psKobj;
+
+	return 0;
+}
+
+void rs_sysfs_remove_dir(struct kobject **ppsKobj)
+{
+	if (ppsKobj == NULL)
+		return;
+
+	kobject_put(*ppsKobj);
+	*ppsKobj = NULL;
+}
+
+void rs_sysfs_create_file(struct kobject *parent,
+		struct kobj_attribute *kobj_attr)
+{
+	if (kobj_attr == NULL)
+		return;
+
+	parent = (parent != NULL) ? parent : rs_kobj;
+	if (parent == NULL)
+		return;
+
+	sysfs_create_file(parent, &(kobj_attr->attr));
+}
+
+void rs_sysfs_remove_file(struct kobject *parent,
+		struct kobj_attribute *kobj_attr)
+{
+	if (kobj_attr == NULL)
+		return;
+
+	parent = (parent != NULL) ? parent : rs_kobj;
+	if (parent == NULL)
+		return;
+
+	sysfs_remove_file(parent, &(kobj_attr->attr));
 }
 

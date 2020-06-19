@@ -17,8 +17,6 @@
 #ifndef _RS_TRACE_H_
 #define _RS_TRACE_H_
 
-#include <linux/fs.h>
-
 #define RS_SYSTRACE_LIST(macro) \
 	macro(MANDATORY, 0), \
 	macro(MAX, 1), \
@@ -30,7 +28,7 @@ enum {
 
 extern uint32_t rs_systrace_mask;
 
-int rs_init_trace(struct dentry *rs_debugfs_dir);
+int rs_trace_init(void);
 
 void __rs_systrace_c(pid_t pid, int val, const char *fmt, ...);
 void __rs_systrace_b(pid_t pid, const char *fmt, ...);
@@ -69,3 +67,4 @@ void __rs_systrace_c_uint64(pid_t pid, uint64_t val, const char *fmt, ...);
 	rs_systrace_c_uint64(RS_DEBUG_MANDATORY, pid, val, fmt)
 
 #endif
+

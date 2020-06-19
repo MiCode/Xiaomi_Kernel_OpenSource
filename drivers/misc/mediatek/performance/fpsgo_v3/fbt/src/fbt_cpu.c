@@ -35,7 +35,6 @@
 #include <linux/kthread.h>
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_sched.h>
-#include <linux/debugfs.h>
 #include <linux/sort.h>
 #include <linux/string.h>
 #include <asm/div64.h>
@@ -2911,7 +2910,6 @@ static ssize_t fbt_info_show(struct kobject *kobj,
 		fbt_enable, bypass_flag, walt_enable, set_idleprefer,
 		max_blc, max_blc_pid, _gdfrc_fps_limit, vsync_time);
 	posi += length;
-
 
 	mutex_unlock(&fbt_mlock);
 

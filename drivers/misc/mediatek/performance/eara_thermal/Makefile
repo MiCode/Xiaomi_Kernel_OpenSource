@@ -19,6 +19,7 @@ FPSGO_TOP = $(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/
 
 obj-y += platform/$(MTK_PLATFORM)/thermal_budget_platform.o
 obj-y += thermal_budget.o
+obj-y += thermal_base.o
 
 ccflags-y += -I$(MTK_TOP)/thermal/common/inc/
 ccflags-y += -I$(MTK_TOP)/thermal/$(MTK_PLATFORM)/inc/

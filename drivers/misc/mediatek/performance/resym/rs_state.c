@@ -12,34 +12,14 @@
  */
 
 #include <linux/mutex.h>
-#include <linux/slab.h>
-#include <linux/proc_fs.h>
-#include <linux/debugfs.h>
-#include <linux/vmalloc.h>
-#include <linux/module.h>
-
 #include <mt-plat/mtk_perfobserver.h>
 
 #include "rs_state.h"
-
-
-#define RSU_DEBUGFS_ENTRY(name) \
-static int rsu_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, rsu_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations rsu_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = rsu_##name##_open, \
-	.read = seq_read, \
-	.write = rsu_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
+#include "rs_base.h"
 
 static DEFINE_MUTEX(rsu_state_ntf_mutex);
 static int is_throttled;
+static struct kobject *rss_kobj;
 
 void rsu_get_state(int *throttled)
 {
@@ -73,57 +53,35 @@ static struct notifier_block rsu_pob_eara_thrm_notifier = {
 	.notifier_call = rsu_pob_eara_thrm_cb,
 };
 
-static int rsu_xState_show(struct seq_file *m, void *unused)
+static ssize_t rs_state_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	int thrm_state = -1;
 
 	rsu_get_state(&thrm_state);
-	seq_printf(m, "thermal state: %d\n", thrm_state);
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", thrm_state);
 }
+KOBJ_ATTR_RO(rs_state);
 
-static ssize_t rsu_xState_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
+int __init rs_state_init(void)
 {
-	uint32_t val;
-	int ret;
-
-	ret = kstrtou32_from_user(ubuf, cnt, 16, &val);
-	if (ret)
-		return ret;
-
-	return cnt;
-}
-
-RSU_DEBUGFS_ENTRY(xState);
-
-int __init rs_state_init(struct dentry *rs_debugfs_dir)
-{
-	struct dentry *rs_state_debugfs_dir = NULL;
-
-	rs_state_debugfs_dir = debugfs_create_dir("state", rs_debugfs_dir);
-
-	if (!rs_state_debugfs_dir)
-		return -ENODEV;
-
-	if (rs_state_debugfs_dir) {
-		debugfs_create_file("xState",
-				    0644,
-				    rs_state_debugfs_dir,
-				    NULL,
-				    &rsu_xState_fops);
-	}
-
 	rsu_getstate_fp = rsu_get_state;
 
 	pob_eara_thrm_register_client(&rsu_pob_eara_thrm_notifier);
 
+	if (rs_sysfs_create_dir(NULL, "state", &rss_kobj))
+		return -ENODEV;
+
+	rs_sysfs_create_file(rss_kobj, &kobj_attr_rs_state);
+
 	return 0;
 }
 
-void rs_state_exit(void)
+void __exit rs_state_exit(void)
 {
-
+	rs_sysfs_remove_file(rss_kobj, &kobj_attr_rs_state);
+	rs_sysfs_remove_dir(&rss_kobj);
 }
 
