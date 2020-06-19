@@ -87,6 +87,8 @@
 #define DEF_RESCUE_PERCENT 33
 #define DEF_RESCUE_NS_TH 0
 
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 #define SEQ_printf(m, x...)\
 do {\
 	if (m)\
@@ -1236,14 +1238,21 @@ static unsigned long long fbt_get_next_vsync_locked(
 	unsigned long mod;
 	unsigned long long diff;
 
-	if (vsync_time == 0 || queue_end <= vsync_time || vsync_period == 0) {
-		xgf_trace("ERROR 1 when get next_vsync");
+	if (vsync_time == 0 || vsync_period == 0) {
+		xgf_trace("ERROR no vsync");
 		return 0ULL;
 	}
 
-	diff = queue_end - vsync_time;
-	mod = do_div(diff, vsync_period);
-	next_vsync = queue_end + vsync_period - mod;
+	if (queue_end >= vsync_time) {
+		diff = queue_end - vsync_time;
+		mod = do_div(diff, vsync_period);
+		next_vsync = queue_end + vsync_period - mod;
+
+	} else {
+		diff = vsync_time - queue_end;
+		mod = do_div(diff, vsync_period);
+		next_vsync = queue_end + vsync_period + mod;
+	}
 
 	if (unlikely(next_vsync < queue_end)) {
 		xgf_trace("ERROR when get next_vsync");
@@ -1721,7 +1730,7 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 		t2wnt = fbt_cal_t2wnt(t_cpu_target,
 				ts, next_vsync, fps_rescue_percent);
 		if (t2wnt == 0ULL)
-			goto exit;
+			goto ERROR;
 
 		if (t_cpu_target > t2wnt) {
 			t2wnt = t_cpu_target;
@@ -1733,6 +1742,8 @@ static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
 					fps_min_rescue_percent);
 		}
 	}
+ERROR:
+	t2wnt = MAX(1ULL, t2wnt);
 
 exit:
 	mutex_unlock(&fbt_mlock);
