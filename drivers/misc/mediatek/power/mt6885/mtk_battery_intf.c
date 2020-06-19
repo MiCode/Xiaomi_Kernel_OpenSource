@@ -17,6 +17,10 @@
 #include <mtk_gauge_class.h>
 #include <mtk_battery_internal.h>
 
+#ifdef CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL
+#include <custome_external_battery.h>
+#endif
+
 int __attribute__((weak)) charger_get_vbus(void)
 {
 	return 4500;
@@ -76,6 +80,10 @@ signed int battery_get_bat_avg_current(void)
 	return 0;
 }
 #else
+
+	#ifdef CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL
+_CODE_DEFINEDE
+	#else
 
 signed int battery_get_bat_voltage(void)
 {
@@ -237,4 +245,5 @@ int reg_VBATON_UNDET(void (*callback)(void))
 	return 0;
 }
 
+	#endif
 #endif
