@@ -18,26 +18,14 @@
 
 #include "rs_pfm.h"
 
-#ifdef CONFIG_MTK_MDLA_SUPPORT
-#include "mdla_dvfs.h"
-#endif
-
 int rs_get_mdla_core_num(void)
 {
-#ifdef CONFIG_MTK_MDLA_SUPPORT
-	return 1;
-#else
 	return 0;
-#endif
 }
 
 int rs_get_mdla_opp_max(int core)
 {
-#ifdef CONFIG_MTK_MDLA_SUPPORT
-	return 15;
-#else
 	return -1;
-#endif
 }
 
 int rs_mdla_support_idletime(void)
@@ -47,28 +35,16 @@ int rs_mdla_support_idletime(void)
 
 int rs_get_mdla_curr_opp(int core)
 {
-#ifdef CONFIG_MTK_MDLA_SUPPORT
-	return get_mdlacore_opp();
-#else
 	return -1;
-#endif
 }
 
 int rs_get_mdla_ceiling_opp(int core)
 {
-#ifdef CONFIG_MTK_MDLA_SUPPORT
-	return get_mdla_ceiling_opp();
-#else
 	return -1;
-#endif
 }
 
 int rs_mdla_opp_to_freq(int core, int step)
 {
-#ifdef CONFIG_MTK_MDLA_SUPPORT
-	return get_mdla_opp_to_freq(step);
-#else
 	return -1;
-#endif
 }
 

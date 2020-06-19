@@ -18,11 +18,6 @@
 
 #include "rs_pfm.h"
 
-#ifdef CONFIG_MTK_APUSYS_SUPPORT
-#include <linux/platform_device.h>
-#include "apusys_power.h"
-#endif
-
 int rs_get_mdla_core_num(void)
 {
 	return 0;

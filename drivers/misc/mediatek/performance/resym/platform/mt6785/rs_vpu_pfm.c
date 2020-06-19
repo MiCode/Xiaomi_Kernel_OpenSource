@@ -34,7 +34,7 @@ int rs_get_vpu_core_num(void)
 int rs_get_vpu_opp_max(int core)
 {
 #ifdef CONFIG_MTK_VPU_SUPPORT
-	return 15;
+	return VPU_OPP_NUM - 1;
 #else
 	return -1;
 #endif

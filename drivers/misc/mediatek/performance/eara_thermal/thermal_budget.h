@@ -20,6 +20,9 @@
 extern struct ppm_cobra_data *ppm_cobra_pass_tbl(void);
 extern void eara_pass_perf_first_hint(int enable);
 
+extern struct mt_gpufreq_power_table_info *pass_gpu_table_to_eara(void);
+extern unsigned int mt_gpufreq_get_dvfs_table_num(void);
+
 extern void (*eara_thrm_gblock_bypass_fp)(int pid, int bypass);
 extern void (*eara_thrm_frame_start_fp)(int pid,
 	int cpu_time, int vpu_time, int mdla_time,
@@ -44,8 +47,6 @@ int eara_thrm_get_vpu_core_num(void);
 int eara_thrm_get_mdla_core_num(void);
 int eara_thrm_vpu_opp_to_freq(int opp);
 int eara_thrm_mdla_opp_to_freq(int opp);
-int eara_thrm_vpu_get_cur_opp(void);
-int eara_thrm_mdla_get_cur_opp(void);
 int eara_thrm_apu_ready(void);
 int eara_thrm_vpu_onoff(void);
 int eara_thrm_mdla_onoff(void);
