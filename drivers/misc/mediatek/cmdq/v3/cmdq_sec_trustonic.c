@@ -3,6 +3,7 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
+#include "cmdq_core.h"
 #include "cmdq_sec_trustonic.h"
 
 void cmdq_sec_setup_tee_context(struct cmdq_sec_tee_context *tee)

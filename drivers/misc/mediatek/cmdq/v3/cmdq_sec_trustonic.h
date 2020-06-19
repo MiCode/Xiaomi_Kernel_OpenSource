@@ -6,6 +6,8 @@
 #ifndef __CMDQ_SEC_TRUSTONIC_H__
 #define __CMDQ_SEC_TRUSTONIC_H__
 
+#include <linux/delay.h>
+
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
 #include "mobicore_driver_api.h"
 #endif
