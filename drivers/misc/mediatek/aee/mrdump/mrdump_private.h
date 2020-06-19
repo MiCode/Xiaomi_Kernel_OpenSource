@@ -37,6 +37,7 @@ static inline int get_HW_cpuid(void)
 
 struct pt_regs;
 
+extern bool mrdump_ddr_reserve_ready;
 extern struct mrdump_rsvmem_block mrdump_sram_cb;
 extern struct mrdump_control_block *mrdump_cblock;
 extern const unsigned long kallsyms_addresses[] __weak;

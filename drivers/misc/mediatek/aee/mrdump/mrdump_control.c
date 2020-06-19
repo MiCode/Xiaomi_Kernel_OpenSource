@@ -26,30 +26,6 @@
 struct mrdump_control_block *mrdump_cblock;
 struct mrdump_rsvmem_block mrdump_sram_cb;
 
-/* mrdump_cb info from lk */
-static int __init mrdump_get_cb(char *p)
-{
-	unsigned long cbaddr, cbsize;
-	int ret;
-
-	ret = sscanf(p, "0x%lx,0x%lx", &cbaddr, &cbsize);
-	if (ret != 2) {
-		pr_notice("%s: no mrdump_sram_cb. (ret=%d, p=%s)\n",
-			 __func__, ret, p);
-	} else {
-		mrdump_sram_cb.start_addr = cbaddr;
-		mrdump_sram_cb.size = cbsize;
-		pr_notice("%s: mrdump_cbaddr=%pa, mrdump_cbsize=%pa\n",
-			 __func__,
-			 &mrdump_sram_cb.start_addr,
-			 &mrdump_sram_cb.size
-			 );
-	}
-
-	return 0;
-}
-early_param("mrdump_cb", mrdump_get_cb);
-
 #if defined(CONFIG_KALLSYMS) && !defined(CONFIG_KALLSYMS_BASE_RELATIVE)
 static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
 {
@@ -93,11 +69,11 @@ __init void mrdump_cblock_init(void)
 {
 	struct mrdump_machdesc *machdesc_p;
 
-	if ((mrdump_sram_cb.start_addr == 0) || (mrdump_sram_cb.size == 0)) {
-		pr_notice("%s: no mrdump_cb\n", __func__);
+	if (mrdump_sram_cb.start_addr == 0) {
+		pr_notice("%s: mrdump control address cannot be 0\n",
+			  __func__);
 		goto end;
 	}
-
 	if (mrdump_sram_cb.size < sizeof(struct mrdump_control_block)) {
 		pr_notice("%s: not enough space for mrdump control block\n",
 			  __func__);
