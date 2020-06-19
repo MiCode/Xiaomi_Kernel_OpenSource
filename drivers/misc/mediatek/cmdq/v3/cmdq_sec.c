@@ -305,7 +305,7 @@ static void cmdq_sec_fill_client_meta(struct cmdqRecStruct *task,
 	struct iwcCmdqMessage_t *iwc, struct iwcCmdqMessageEx_t *iwc_ex)
 {
 	/* send iwc ex with isp meta */
-	iwc->iwcex_available = true;
+	iwc->iwcex_available |= (1 << CMDQ_IWC_MSG1);
 	iwc->metaex_type = task->sec_meta_type;
 	iwc_ex->size = task->sec_meta_size;
 
@@ -339,12 +339,12 @@ static void cmdq_sec_fill_isp_cq_meta(struct cmdqRecStruct *task,
 		memset(&iwc_ex2->isp.handles, 0, sizeof(iwc_ex2->isp.handles));
 		for (i = 0; i < ARRAY_SIZE(bufs); i++)
 			*bufs[i].sz = 0;
-		iwc->iwcex_available = false;
+		iwc->iwcex_available = 0;
 		return;
 	}
 
 	/* send iwc ex with isp meta */
-	iwc->iwcex_available = true;
+	iwc->iwcex_available |= ((1 << CMDQ_IWC_MSG1) | (1 << CMDQ_IWC_MSG2));
 	iwc->metaex_type = CMDQ_METAEX_CQ;
 
 	if (sizeof(iwc_ex2->isp.handles) !=
