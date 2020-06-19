@@ -1474,7 +1474,8 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 		if (atomic_read(&priv->is_shutdown)) {
 			atomic_set(&priv->is_shutdown, false);
 			if (!test_bit(ICNSS_PD_RESTART, &priv->state) &&
-				!test_bit(ICNSS_SHUTDOWN_DONE, &priv->state)) {
+				!test_bit(ICNSS_SHUTDOWN_DONE, &priv->state) &&
+				!test_bit(ICNSS_BLOCK_SHUTDOWN, &priv->state)) {
 				icnss_call_driver_remove(priv);
 			}
 		}
