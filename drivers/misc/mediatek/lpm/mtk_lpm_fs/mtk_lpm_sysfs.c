@@ -48,7 +48,7 @@ EXPORT_SYMBOL(mtk_lpm_sysfs_entry_node_remove);
 
 int mtk_lpm_sysfs_root_entry_create(void)
 {
-	int bRet = 0;
+	int bRet = -EACCES;
 
 	if (!IS_MTK_LP_SYS_HANDLE_VALID(&mtk_lpm_fs_root)) {
 		bRet = mtk_lp_sysfs_entry_func_create(
