@@ -87,8 +87,9 @@ static inline void __mt_update_tracing_mark_write_addr(void)
 
 void perfmgr_trace_count(int val, const char *fmt, ...)
 {
-	char log[32];
+	char log[128];
 	va_list args;
+	int len;
 
 	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
 		if (powerhal_tid <= 0)
@@ -97,8 +98,13 @@ void perfmgr_trace_count(int val, const char *fmt, ...)
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
+	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 128))
+		log[127] = '\0';
 
 	__mt_update_tracing_mark_write_addr();
 	preempt_disable();
