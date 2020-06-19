@@ -165,7 +165,7 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	goto out;
 
 error:
-	kfree(kva);
+	kvfree(kva);
 out:
 	return ret;
 
