@@ -827,7 +827,9 @@ static s32 cmdq_sec_send_context_session_message(
 	struct cmdqRecStruct *task, s32 thread, void *data)
 {
 	s32 status;
-	// const s32 timeout_ms = 3 * 1000;
+#ifdef CMDQ_SECURE_TEE_SUPPORT
+	const s32 timeout_ms = 3 * 1000;
+#endif
 	struct iwcCmdqMessage_t *iwc;
 
 	const CmdqSecFillIwcCB fill_iwc_cb =

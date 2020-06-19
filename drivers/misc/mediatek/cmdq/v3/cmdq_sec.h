@@ -13,7 +13,7 @@
 #if defined(CMDQ_SECURE_TEE_SUPPORT)
 #include "tee_client_api.h"
 #endif
-#if defined(CMDQ_GP_SUPPORT)
+#if defined(CONFIG_MTK_TEE_GP_SUPPORT)
 #include "cmdq_sec_gp.h"
 #elif defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
 #include "cmdq_sec_trustonic.h"
