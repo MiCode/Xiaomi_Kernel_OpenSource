@@ -1,0 +1,39 @@
+This is a introduction for flashlight chip MT6336
+
+[Scope]
+- Two channel for two LEDs
+
+
+[Hardware Interface]
+- I2C
+	* For general control
+	* Slave address 0x55, 0x56, 0x57, 0x58
+
+
+[Limit]
+- Channel couple:
+	* Flash/Torch enable
+	* Flash/Torch LED current source
+	* Flash mode watchdog timer
+	* Torch mode watchdog timer
+	* Flash/Torch timeout
+	* Flash mode step up/down timing (default: 10 us)
+	* Flash mode output regulation voltage (default: 5.0 V)
+
+- Channel decouple:
+	* Flash/Torch mode enable
+	* Brightness level
+
+- Torch Mode
+	* Step current: 12.5 mA
+	* Min currnet: 12.5 mA
+	* Max current: 200 mA
+
+- Flash Mode
+	* Step current: 12.5 mA
+	* Min currnet: 12.5 mA
+	* Max current: 1500 mA
+	* Max current for two channel: 2500 mA
+	* Min protected timeout: 200 ms
+	* Max protected timeout: 800 ms
+
