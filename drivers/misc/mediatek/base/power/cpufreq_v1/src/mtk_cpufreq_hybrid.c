@@ -58,6 +58,10 @@
 #include "mtk_cpufreq_opp_pv_table.h"
 #include "mtk_cpufreq_debug.h"
 
+#ifdef CONFIG_MTK_CPU_MSSV
+extern unsigned int cpumssv_get_state(void);
+#endif
+
 #ifdef CONFIG_HYBRID_CPU_DVFS
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -1190,9 +1194,12 @@ int cpuhvfs_get_cur_volt(int cluster_id)
 
 int cpuhvfs_get_volt(int buck_id)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
 	int ret = 0;
+
+	if (!cpumssv_get_state())
+		return csram_read(OFFS_CUR_VPROC_S + (buck_id * 4));
 
 	/* Cluster, Volt */
 	cdvfs_d.u.set_fv.arg[0] = buck_id;
@@ -1211,9 +1218,12 @@ int cpuhvfs_get_volt(int buck_id)
 
 int cpuhvfs_get_freq(int pll_id)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
 	int ret = 0;
+
+	if (!cpumssv_get_state())
+		return 0;
 
 	/* Cluster, Freq */
 	cdvfs_d.u.set_fv.arg[0] = pll_id;
@@ -1232,8 +1242,11 @@ int cpuhvfs_get_freq(int pll_id)
 
 int cpuhvfs_set_volt(int cluster_id, unsigned int volt)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
+
+	if (!cpumssv_get_state())
+		return 0;
 
 	cdvfs_d.u.set_fv.arg[0] = cluster_id;
 	cdvfs_d.u.set_fv.arg[1] = volt;
@@ -1249,8 +1262,11 @@ int cpuhvfs_set_volt(int cluster_id, unsigned int volt)
 
 int cpuhvfs_set_freq(int cluster_id, unsigned int freq)
 {
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	struct cdvfs_data cdvfs_d;
+
+	if (!cpumssv_get_state())
+		return 0;
 
 	cdvfs_d.u.set_fv.arg[0] = cluster_id;
 	cdvfs_d.u.set_fv.arg[1] = freq;
