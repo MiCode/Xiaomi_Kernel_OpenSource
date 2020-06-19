@@ -542,6 +542,8 @@ int pe40_init_state(void)
 	voltage = 0;
 	pe40_get_setting_by_watt(&voltage, &adapter_ibus,
 				&actual_current, watt, &input_current);
+	if (voltage <= 0)
+		chr_err("abnormal voltage: %d\n", voltage);
 	pe4->avbus = voltage / 10 * 10;
 	ret = pe40_pd_request(&pe4->avbus, &adapter_ibus,
 				input_current);
@@ -553,7 +555,10 @@ int pe40_init_state(void)
 	}
 
 	pe4->avbus = voltage;
-	pe4->ibus = watt / voltage;
+	if (voltage > 0)
+		pe4->ibus = watt / voltage;
+	else
+		pe4->ibus = 0;
 	pe4->watt = watt;
 	pe4->state = PE40_CC;
 
@@ -689,7 +694,7 @@ int pe40_cc_state(void)
 	int adapter_ibus = 0;
 	int input_current = 0;
 	int icl_threshold;
-	bool mivr_loop;
+	bool mivr_loop = false;
 
 	vbat = battery_get_bat_voltage();
 	ibat = battery_get_bat_current_mA();

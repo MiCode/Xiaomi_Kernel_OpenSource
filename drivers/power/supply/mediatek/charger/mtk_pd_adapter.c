@@ -157,7 +157,7 @@ static int pd_set_cap(struct adapter_device *dev, enum adapter_cap_type type,
 {
 	int ret = MTK_ADAPTER_OK;
 	int tcpm_ret = TCPM_SUCCESS;
-	struct mtk_pd_adapter_info *info;
+	struct mtk_pd_adapter_info *info = NULL;
 
 	chr_err("[%s] type:%d mV:%d mA:%d\n",
 		__func__, type, mV, mA);

@@ -261,9 +261,9 @@ int charger_manager_enable_high_voltage_charging(
 			struct charger_consumer *consumer, bool en)
 {
 	struct charger_manager *info = consumer->cm;
-	struct list_head *pos;
+	struct list_head *pos = NULL;
 	struct list_head *phead = &consumer_head;
-	struct charger_consumer *ptr;
+	struct charger_consumer *ptr = NULL;
 
 	if (!info)
 		return -EINVAL;
@@ -306,7 +306,7 @@ int charger_manager_enable_power_path(struct charger_consumer *consumer,
 	int ret = 0;
 	bool is_en = true;
 	struct charger_manager *info = consumer->cm;
-	struct charger_device *chg_dev;
+	struct charger_device *chg_dev = NULL;
 
 
 	if (!info)
@@ -346,7 +346,7 @@ static int _charger_manager_enable_charging(struct charger_consumer *consumer,
 		idx, en);
 
 	if (info != NULL) {
-		struct charger_data *pdata;
+		struct charger_data *pdata = NULL;
 
 		if (idx == MAIN_CHARGER)
 			pdata = &info->chg1_data;
@@ -453,7 +453,7 @@ int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 	struct charger_manager *info = consumer->cm;
 
 	if (info != NULL) {
-		struct charger_data *pdata;
+		struct charger_data *pdata = NULL;
 
 		if (!upmu_get_rgs_chrdet()) {
 			pr_debug("[%s] No cable in, skip it\n", __func__);
@@ -483,7 +483,7 @@ int charger_manager_force_charging_current(struct charger_consumer *consumer,
 	struct charger_manager *info = consumer->cm;
 
 	if (info != NULL) {
-		struct charger_data *pdata;
+		struct charger_data *pdata = NULL;
 
 		if (idx == MAIN_CHARGER)
 			pdata = &info->chg1_data;
@@ -516,7 +516,7 @@ int charger_manager_get_zcv(struct charger_consumer *consumer, int idx, u32 *uV)
 {
 	struct charger_manager *info = consumer->cm;
 	int ret = 0;
-	struct charger_device *pchg;
+	struct charger_device *pchg = NULL;
 
 
 	if (info != NULL) {
@@ -541,7 +541,7 @@ int charger_manager_enable_chg_type_det(struct charger_consumer *consumer,
 	bool en)
 {
 	struct charger_manager *info = consumer->cm;
-	struct charger_device *chg_dev;
+	struct charger_device *chg_dev = NULL;
 	int ret = 0;
 
 	if (info != NULL) {
@@ -736,26 +736,29 @@ unregister:
 
 void mtk_charger_get_atm_mode(struct charger_manager *info)
 {
-	char atm_str[64];
-	char *ptr, *ptr_e;
+	char atm_str[64] = {0};
+	char *ptr = NULL, *ptr_e = NULL;
+	char keyword[] = "androidboot.atm=";
+	int size = 0;
 
-	memset(atm_str, 0x0, sizeof(atm_str));
-	ptr = strstr(saved_command_line, "androidboot.atm=");
+	info->atm_enabled = false;
+
+	ptr = strstr(saved_command_line, keyword);
 	if (ptr != 0) {
 		ptr_e = strstr(ptr, " ");
+		if (ptr_e == NULL)
+			goto end;
 
-		if (ptr_e != 0) {
-			strncpy(atm_str, ptr + 16, ptr_e - ptr - 16);
-			atm_str[ptr_e - ptr - 16] = '\0';
-		}
+		size = ptr_e - (ptr + strlen(keyword));
+		if (size <= 0)
+			goto end;
+		strncpy(atm_str, ptr + strlen(keyword), size);
+		atm_str[size] = '\0';
 
 		if (!strncmp(atm_str, "enable", strlen("enable")))
 			info->atm_enabled = true;
-		else
-			info->atm_enabled = false;
-	} else
-		info->atm_enabled = false;
-
+	}
+end:
 	pr_info("%s: atm_enabled = %d\n", __func__, info->atm_enabled);
 }
 
@@ -1079,13 +1082,17 @@ static ssize_t store_charger_log_level(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	unsigned long val = 0;
-	int ret;
+	int ret = 0;
 
 	chr_err("%s\n", __func__);
 
 	if (buf != NULL && size != 0) {
 		chr_err("%s: buf is %s\n", __func__, buf);
 		ret = kstrtoul(buf, 10, &val);
+		if (ret < 0) {
+			chr_err("%s: kstrtoul fail, ret = %d\n", __func__, ret);
+			return ret;
+		}
 		if (val < 0) {
 			chr_err("%s: val is inavlid: %ld\n", __func__, val);
 			val = 0;
@@ -1538,8 +1545,8 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
 static void charger_check_status(struct charger_manager *info)
 {
 	bool charging = true;
-	int temperature;
-	struct battery_thermal_protection_data *thermal;
+	int temperature = 0;
+	struct battery_thermal_protection_data *thermal = NULL;
 
 	if (mt_get_charger_type() == CHARGER_UNKNOWN)
 		return;
@@ -1747,9 +1754,9 @@ static void mtk_charger_init_timer(struct charger_manager *info)
 static int charger_routine_thread(void *arg)
 {
 	struct charger_manager *info = arg;
-	unsigned long flags;
-	bool is_charger_on;
-	int bat_current, chg_current;
+	unsigned long flags = 0;
+	bool is_charger_on = false;
+	int bat_current = 0, chg_current = 0;
 
 	while (1) {
 		wait_event(info->wait_que,
@@ -3112,13 +3119,12 @@ void charger_debug_init(void)
 		charger_dir, &charger_dump_log_proc_fops);
 }
 
-
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct charger_manager *info = NULL;
-	struct list_head *pos;
+	struct list_head *pos = NULL;
 	struct list_head *phead = &consumer_head;
-	struct charger_consumer *ptr;
+	struct charger_consumer *ptr = NULL;
 	int ret;
 
 	chr_err("%s: starts\n", __func__);
