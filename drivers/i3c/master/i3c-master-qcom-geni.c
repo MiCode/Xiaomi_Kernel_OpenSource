@@ -151,12 +151,17 @@
 #define CFG_FAIL_STALL_DIFF_EN		BIT(20)
 #define ADDR_ASSOCIATED_W_OTHER_GPII_EN	BIT(21)
 
+/* Enable bits for GPIIn,  n:[0-11] */
+#define GPIIn_IBI_EN(n)	      BIT(n)
+
 /* IBI_CMD fields */
 #define IBI_CMD_OPCODE        BIT(0)
 #define I3C_SLAVE_RW          BIT(15)
 #define STALL                 BIT(21)
 #define I3C_SLAVE_ADDR_SHIFT  8
 #define I3C_SLAVE_MASK        0x7f
+#define NUM_OF_MDB_SHIFT      16
+#define IBI_NUM_OF_MDB_MSK    GENMASK(18, 16)
 
 /* IBI_GEN_CONFIG fields */
 #define IBI_C_ENABLE	BIT(0)
@@ -318,6 +323,9 @@ struct geni_i3c_clk_fld {
 	u8  i3c_t_cycle_cnt;
 	u32 i2c_t_cycle_cnt;
 };
+
+static void geni_i3c_enable_ibi_ctrl(struct geni_i3c_dev *gi3c, bool enable);
+static void geni_i3c_enable_ibi_irq(struct geni_i3c_dev *gi3c, bool enable);
 
 static struct geni_i3c_dev*
 to_geni_i3c_master(struct i3c_master_controller *master)
@@ -1430,38 +1438,14 @@ static int geni_i3c_master_disable_ibi(struct i3c_dev_desc *dev)
 
 static void qcom_geni_i3c_ibi_conf(struct geni_i3c_dev *gi3c)
 {
-	u32 val, timeout;
-
 	gi3c->ibi.err = 0;
 	reinit_completion(&gi3c->ibi.done);
 
 	/* set the configuration for 100Khz OD speed */
 	geni_write_reg(0x5FD74322, gi3c->se.ibi_base, IBI_SCL_PP_TIMING_CONFIG);
 
-	/* Enable I3C IBI controller */
-	val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_CONFIG);
-	val |= IBI_C_ENABLE;
-	geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_CONFIG);
-
-	/* enable ENABLE_CHANGE */
-	val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-	val |= IBI_C_ENABLE;
-	geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-
-	/* wait for ENABLE_CHANGE */
-	timeout = wait_for_completion_timeout(&gi3c->ibi.done, XFER_TIMEOUT);
-	if (!timeout) {
-		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"timeout while ENABLE_CHANGE bit\n");
-		return;
-	}
-
-	/* enable manager interrupts */
-	geni_write_reg(0x1B, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-
-	/* Enable GPII0 interrupts */
-	geni_write_reg(0x1, gi3c->se.ibi_base, IBI_GPII_IBI_EN);
-	geni_write_reg(~0u, gi3c->se.ibi_base, IBI_IRQ_EN(0));
+	geni_i3c_enable_ibi_ctrl(gi3c, true);
+	geni_i3c_enable_ibi_irq(gi3c, true);
 	gi3c->ibi.is_init = true;
 }
 
@@ -1472,6 +1456,7 @@ static int geni_i3c_master_request_ibi(struct i3c_dev_desc *dev,
 	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
 	struct geni_i3c_i2c_dev_data *data = i3c_dev_get_master_data(dev);
 	unsigned long i, flags;
+	unsigned int payload_len = req->max_payload_len;
 
 	if (!gi3c->ibi.hw_support)
 		return -EPERM;
@@ -1505,6 +1490,7 @@ static int geni_i3c_master_request_ibi(struct i3c_dev_desc *dev,
 
 		cmd = ((dev->info.dyn_addr & I3C_SLAVE_MASK)
 			<< I3C_SLAVE_ADDR_SHIFT) | I3C_SLAVE_RW | STALL;
+		cmd |= ((payload_len << NUM_OF_MDB_SHIFT) & IBI_NUM_OF_MDB_MSK);
 		geni_write_reg(cmd, gi3c->se.ibi_base, IBI_CMD(0));
 
 		/* wait for adding slave IBI */
@@ -1565,9 +1551,103 @@ static int qcom_deallocate_ibi_table_entry(struct geni_i3c_dev *gi3c)
 	return 0;
 }
 
-static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
+static void geni_i3c_enable_hotjoin_irq(struct geni_i3c_dev *gi3c, bool enable)
+{
+	u32 val;
+
+	//Disable hot-join, until next probe happens
+	val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+	if (enable)
+		val |= HOT_JOIN_IRQ_EN;
+	else
+		val &= ~HOT_JOIN_IRQ_EN;
+	geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+
+	GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+		"%s:%s\n", __func__, (enable) ? "Enabled" : "Disabled");
+}
+
+static void geni_i3c_enable_ibi_irq(struct geni_i3c_dev *gi3c, bool enable)
+{
+	u32 val;
+
+	if (enable) {
+		/* enable manager interrupts : HPG sec 4.1 */
+		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+		val |= (val & 0x1B);
+		geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+
+		/* Enable GPII0 interrupts */
+		geni_write_reg(GPIIn_IBI_EN(0), gi3c->se.ibi_base,
+							IBI_GPII_IBI_EN);
+		geni_write_reg(~0u, gi3c->se.ibi_base, IBI_IRQ_EN(0));
+	} else {
+		geni_write_reg(0, gi3c->se.ibi_base, IBI_GPII_IBI_EN);
+		geni_write_reg(0, gi3c->se.ibi_base, IBI_IRQ_EN(0));
+		geni_write_reg(0, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+	}
+}
+
+static void geni_i3c_enable_ibi_ctrl(struct geni_i3c_dev *gi3c, bool enable)
 {
 	u32 val, timeout;
+
+	if (enable) {
+		reinit_completion(&gi3c->ibi.done);
+
+		/* enable ENABLE_CHANGE */
+		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+		val |= IBI_C_ENABLE;
+		geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+
+		/* Enable I3C IBI controller, if not in enabled state */
+		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_CONFIG);
+		if (!(val & IBI_C_ENABLE)) {
+			val |= IBI_C_ENABLE;
+			geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_CONFIG);
+
+			/* wait for ENABLE_CHANGE */
+			timeout = wait_for_completion_timeout(&gi3c->ibi.done,
+								XFER_TIMEOUT);
+			if (!timeout) {
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"timeout while ENABLE_CHANGE bit\n");
+				return;
+			}
+			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"%s: IBI ctrl enabled\n", __func__);
+		}
+	} else {
+		 /* Disable IBI controller */
+
+		/* check if any IBI is enabled, if not then disable IBI ctrl */
+		val = geni_read_reg(gi3c->se.ibi_base, IBI_GPII_IBI_EN);
+		if (!val) {
+			gi3c->ibi.err = 0;
+			reinit_completion(&gi3c->ibi.done);
+
+			val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_CONFIG);
+			val &= ~IBI_C_ENABLE;
+			geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_CONFIG);
+
+			/* wait for ENABLE change */
+			timeout = wait_for_completion_timeout(&gi3c->ibi.done,
+					XFER_TIMEOUT);
+			if (!timeout) {
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"timeout disabling IBI: 0x%x\n", gi3c->ibi.err);
+				return;
+			}
+			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"%s: IBI ctrl disabled\n",  __func__);
+		}
+	}
+}
+
+
+static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
+{
+	u32 val;
 	int ret = 0;
 
 	val = geni_read_reg(gi3c->se.ibi_base, IBI_ALLOCATED_ENTRIES_GPII(0));
@@ -1575,40 +1655,6 @@ static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
 		ret = qcom_deallocate_ibi_table_entry(gi3c);
 		if (ret)
 			return;
-	}
-
-	/* disable interrupts */
-	geni_write_reg(0, gi3c->se.ibi_base, IBI_GPII_IBI_EN);
-	geni_write_reg(0, gi3c->se.ibi_base, IBI_IRQ_EN(0));
-
-	/* check if any IBI is enabled, if not then reset HW */
-	val = geni_read_reg(gi3c->se.ibi_base, IBI_GPII_IBI_EN);
-	if (!val) {
-
-		gi3c->ibi.err = 0;
-		reinit_completion(&gi3c->ibi.done);
-
-		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_CONFIG);
-		val &= ~IBI_C_ENABLE;
-		geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_CONFIG);
-
-
-		/* wait for ENABLE change */
-		timeout = wait_for_completion_timeout(&gi3c->ibi.done,
-				XFER_TIMEOUT);
-		if (!timeout) {
-			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"timeout while disabling  IBI controller\n");
-				return;
-		}
-
-		if (gi3c->ibi.err) {
-			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"error while disabling IBI controller 0x%x\n",
-				gi3c->ibi.err);
-			return;
-		}
-
 	}
 
 	gi3c->ibi.is_init = false;
@@ -1966,17 +2012,6 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	geni_se_init(gi3c->se.base, gi3c->tx_wm, tx_depth);
 	se_config_packing(gi3c->se.base, BITS_PER_BYTE, PACKING_BYTES_PW, true);
 
-	gi3c->hj_wl = wakeup_source_register(gi3c->se.dev,
-					     dev_name(gi3c->se.dev));
-	if (!gi3c->hj_wl) {
-		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev, "wakeup source registration failed\n");
-		se_geni_resources_off(&gi3c->se.i3c_rsc);
-		return -ENOMEM;
-	}
-
-	INIT_WORK(&gi3c->hj_wd, geni_i3c_hotjoin);
-	gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
-
 	ret = i3c_ibi_rsrcs_init(gi3c, pdev);
 	if (ret) {
 		se_geni_resources_off(&gi3c->se.i3c_rsc);
@@ -1999,8 +2034,19 @@ static int geni_i3c_probe(struct platform_device *pdev)
 		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
 			"i3c_master_register failed:%d\n", ret);
 
-	//enable hot-join IRQ also
-	geni_write_reg(~0u, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+	// hot-join
+	gi3c->hj_wl = wakeup_source_register(gi3c->se.dev,
+					     dev_name(gi3c->se.dev));
+	if (!gi3c->hj_wl) {
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
+					"wakeup source registration failed\n");
+		se_geni_resources_off(&gi3c->se.i3c_rsc);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&gi3c->hj_wd, geni_i3c_hotjoin);
+	gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
+	geni_i3c_enable_hotjoin_irq(gi3c, true);
 
 	GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "I3C probed\n");
 
@@ -2010,17 +2056,20 @@ static int geni_i3c_probe(struct platform_device *pdev)
 static int geni_i3c_remove(struct platform_device *pdev)
 {
 	struct geni_i3c_dev *gi3c = platform_get_drvdata(pdev);
-	int ret = 0, val = 0;
+	int ret = 0;
 
 	//Disable hot-join, until next probe happens
-	val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-	val &= ~HOT_JOIN_IRQ_EN;
-	geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+	geni_i3c_enable_hotjoin_irq(gi3c, false);
+	destroy_workqueue(gi3c->hj_wq);
+	wakeup_source_unregister(gi3c->hj_wl);
 
 	if (gi3c->ibi.is_init)
 		qcom_geni_i3c_ibi_unconf(gi3c);
-	destroy_workqueue(gi3c->hj_wq);
-	wakeup_source_unregister(gi3c->hj_wl);
+	geni_i3c_enable_ibi_ctrl(gi3c, false);
+
+	/* Potentially to be done before pinctrl change */
+	geni_i3c_enable_ibi_irq(gi3c, false);
+
 	/*force suspend to avoid the auto suspend caused by driver removal*/
 	pm_runtime_force_suspend(gi3c->se.dev);
 	ret = pinctrl_select_state(gi3c->se.i3c_rsc.geni_pinctrl,
@@ -2028,7 +2077,9 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	if (ret)
 		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
 			" i3c: pinctrl_select_state failed\n");
+
 	ret = i3c_master_unregister(&gi3c->ctrlr);
+	/* TBD : If we need debug for previous session, Don't delete logs */
 	if (gi3c->ipcl)
 		ipc_log_context_destroy(gi3c->ipcl);
 	return ret;
