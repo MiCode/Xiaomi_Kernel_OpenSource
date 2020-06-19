@@ -304,6 +304,7 @@ struct icnss_priv {
 	u32 mem_base_size;
 	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_ipa_start;
+	dma_addr_t smmu_iova_ipa_current;
 	size_t smmu_iova_ipa_len;
 	struct qmi_handle qmi;
 	struct list_head event_list;
