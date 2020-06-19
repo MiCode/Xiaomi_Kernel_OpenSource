@@ -532,9 +532,6 @@ int mt_spower_init(void)
 	if (tab_validate(&sptab[0]))
 		return 0;
 
-	for (i = 0; i < MTK_SPOWER_MAX; i++)
-		tab[i] = kmalloc(sizeof(struct sptab_list), GFP_KERNEL);
-
 #ifndef WITHOUT_LKG_EFUSE
 	for (i = 0; i < MTK_LEAKAGE_MAX; i++) {
 		devinfo = (int)get_devinfo_with_index(
