@@ -295,11 +295,9 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 	}
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	if (freeze == 0 && unfreeze == 0) {
 	/* sync with adsp */
-		sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
-			freeze, tick, ts);
-	}
+	sys_timer_timesync_update_ram(ADSP_OSTIMER_BUFFER,
+		freeze, tick, ts);
 #endif
 	/* sync with sspm */
 	sys_timer_timesync_update_sspm(freeze, tick, ts);
@@ -309,39 +307,6 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 	pr_debug("update base: ts=%llu, tick=0x%llx, fz=%d, ver=%d\n",
 		ts, tick, freeze, timesync_cxt.base_ver);
 }
-
-/* Todo: This api is used for adsp when suspend/resume, which
- * sram cannot be accessed and will cause system hang. This should
- * be refined by suspend/resume time_sync flow to make timesync at
- * the beginning of suspend and at the end of resume, then this api
- * can be removed
- */
-void sys_timer_timesync_sync_adsp(unsigned int flag)
-{
-	u64 tick, ts;
-	unsigned long irq_flags = 0;
-	int freeze;
-
-	spin_lock_irqsave(&timesync_cxt.lock, irq_flags);
-
-	ts = sched_clock_get_cyc(&tick);
-
-	timesync_cxt.base_tick = tick;
-	timesync_cxt.base_ts = ts;
-	sys_timer_timesync_inc_ver();
-
-	freeze = (flag & SYS_TIMER_TIMESYNC_FLAG_FREEZE) ? 1 : 0;
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	/* sync with adsp */
-	sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
-		freeze, tick, ts);
-#endif
-	spin_unlock_irqrestore(&timesync_cxt.lock, irq_flags);
-
-	pr_debug("update base (adsp): ts=%llu, tick=0x%llx, fz=%d, ver=%d\n",
-		ts, tick, freeze, timesync_cxt.base_ver);
-}
-EXPORT_SYMBOL(sys_timer_timesync_sync_adsp);
 
 u64 sys_timer_timesync_tick_to_sched_clock(u64 tick)
 {
