@@ -802,7 +802,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
 
 	if (!dsp->dsp_mem[id].substream) {
-		pr_info_ratelimited("%s substream NULL\n", __func__);
+		pr_info_ratelimited("%s substream NULL id[%d]\n", __func__, id);
 		return;
 	}
 
@@ -810,6 +810,14 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 		pr_info_ratelimited("%s = state[%d]\n", __func__,
 			 dsp->dsp_mem[id].substream->runtime->status->state);
 		return;
+	}
+
+	/* adsp reset message */
+	if (ipi_msg && ipi_msg->param2) {
+		pr_info("%s adsp resert id = %d\n", __func__, id);
+		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+		/* notify subsream */
+		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
 	}
 
 	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
@@ -829,11 +837,6 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	sync_ringbuf_readidx(
 		&dsp->dsp_mem[id].ring_buf,
 		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
-
-	if (ipi_msg && ipi_msg->param2) {
-		pr_info("%s adsp resert id = %d\n", __func__, id);
-		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
-	}
 
 	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 
@@ -1428,7 +1431,7 @@ static int audio_send_reset_event(void)
 {
 	int ret = 0, i;
 
-	for (i = 0; i < TASK_SCENE_FAST; i++) {
+	for (i = 0; i < TASK_SCENE_SIZE; i++) {
 		if ((i == TASK_SCENE_DEEPBUFFER) ||
 			(i == TASK_SCENE_VOIP) ||
 			(i == TASK_SCENE_PRIMARY) ||
@@ -1436,6 +1439,7 @@ static int audio_send_reset_event(void)
 			ret = mtk_scp_ipi_send(i, AUDIO_IPI_MSG_ONLY,
 			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_RESET,
 			ADSP_EVENT_READY, 0, NULL);
+			pr_info("%s scene = %d\n", __func__, i);
 		}
 	}
 	return ret;
