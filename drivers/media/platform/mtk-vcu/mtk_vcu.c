@@ -76,7 +76,7 @@
 #ifdef CONFIG_MTK_ENG_BUILD
 #define IPI_TIMEOUT_MS          16000U
 #else
-#define IPI_TIMEOUT_MS          6000U
+#define IPI_TIMEOUT_MS          5000U
 #endif
 
 #define VCU_FW_VER_LEN          16
