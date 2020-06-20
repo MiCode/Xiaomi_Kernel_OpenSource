@@ -2859,6 +2859,12 @@ enum sched_boost_policy {
 
 #ifdef CONFIG_SCHED_WALT
 
+#define WALT_MANY_WAKEUP_DEFAULT 1000
+static inline bool walt_want_remote_wakeup(void)
+{
+	return sysctl_sched_many_wakeup_threshold < WALT_MANY_WAKEUP_DEFAULT;
+}
+
 static inline int cluster_first_cpu(struct walt_sched_cluster *cluster)
 {
 	return cpumask_first(&cluster->cpus);
@@ -2996,7 +3002,6 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #define CPU_RESERVED    1
 
 extern enum sched_boost_policy __weak boost_policy;
-extern unsigned int __weak sched_task_filter_util;
 static inline enum sched_boost_policy sched_boost_policy(void)
 {
 	return boost_policy;
@@ -3120,7 +3125,7 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		 * under conservative boost.
 		 */
 		if (sched_boost() == CONSERVATIVE_BOOST &&
-				task_util(p) <= sched_task_filter_util)
+			task_util(p) <= sysctl_sched_min_task_util_for_boost)
 			policy = SCHED_BOOST_NONE;
 	}
 
@@ -3268,6 +3273,10 @@ static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
 }
 
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
+static inline bool walt_want_remote_wakeup(void)
+{
+	return false;
+}
 #endif  /* CONFIG_SCHED_WALT */
 
 struct sched_avg_stats {
