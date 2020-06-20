@@ -1712,6 +1712,15 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				ep_pcie_core_init(dev, true);
 				dev->link_status = EP_PCIE_LINK_UP;
 				dev->l23_ready = false;
+
+				/* enable pipe clock for early link init case*/
+				ret = ep_pcie_pipe_clk_init(dev);
+				if (ret) {
+					EP_PCIE_ERR(dev,
+					"PCIe V%d: failed to enable pipe clock\n",
+					dev->rev);
+					goto pipe_clk_fail;
+				}
 				goto checkbme;
 			} else {
 				ltssm_en = readl_relaxed(dev->parf
