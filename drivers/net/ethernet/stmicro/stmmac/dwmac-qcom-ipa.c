@@ -95,7 +95,7 @@ static int ethqos_alloc_ipa_tx_queue_struct(struct qcom_ethqos *ethqos)
 		goto err_out_tx_q_alloc_failed;
 	}
 
-	eth_ipa_ctx.tx_queue->desc_cnt = IPA_TX_DESC_CNT;
+	eth_ipa_ctx.tx_queue->desc_cnt = eth_ipa_ctx.ipa_dma_tx_desc_cnt;
 
 	/* Allocate tx_desc_ptrs */
 	eth_ipa_ctx.tx_queue->tx_desc_ptrs =
@@ -224,7 +224,7 @@ static int ethqos_alloc_ipa_rx_queue_struct(struct qcom_ethqos *ethqos)
 		goto err_out_rx_q_alloc_failed;
 	}
 
-	eth_ipa_ctx.rx_queue->desc_cnt = IPA_RX_DESC_CNT;
+	eth_ipa_ctx.rx_queue->desc_cnt = eth_ipa_ctx.ipa_dma_rx_desc_cnt;
 
 	/* Allocate rx_desc_ptrs */
 	eth_ipa_ctx.rx_queue->rx_desc_ptrs =
@@ -1664,8 +1664,8 @@ static int ethqos_ipa_create_debugfs(struct qcom_ethqos *ethqos)
 		debugfs_create_file("dma_stats", 0600,
 				    ethqos->debugfs_dir, ethqos,
 				    &fops_ntn_dma_stats);
-	if (!eth_ipa->debugfs_suspend_ipa_offload ||
-	    IS_ERR(eth_ipa->debugfs_suspend_ipa_offload)) {
+	if (!eth_ipa->debugfs_dma_stats ||
+	    IS_ERR(eth_ipa->debugfs_dma_stats)) {
 		ETHQOSERR("Cannot create debugfs_dma_stats %d\n",
 			  (int)eth_ipa->debugfs_dma_stats);
 		goto fail;
@@ -2193,11 +2193,29 @@ static int ethqos_ipa_uc_ready(struct qcom_ethqos *pdata)
 void ethqos_ipa_offload_event_handler(void *data,
 				      int ev)
 {
+	int ret;
 	ETHQOSDBG("Enter: event=%d\n", ev);
 
 	if (ev == EV_PROBE_INIT) {
 		eth_ipa_ctx.ethqos = data;
 		mutex_init(&eth_ipa_ctx.ipa_lock);
+		ret =
+		of_property_read_u32(eth_ipa_ctx.ethqos->pdev->dev.of_node,
+				     "ipa-dma-rx-desc-cnt",
+				     &eth_ipa_ctx.ipa_dma_rx_desc_cnt);
+		if (ret) {
+			ETHQOSDBG(":resource ipa-dma-rx-desc-cnt not in dt\n");
+			eth_ipa_ctx.ipa_dma_rx_desc_cnt = IPA_RX_DESC_CNT;
+		}
+
+		ret =
+		of_property_read_u32(eth_ipa_ctx.ethqos->pdev->dev.of_node,
+				     "ipa-dma-tx-desc-cnt",
+				     &eth_ipa_ctx.ipa_dma_tx_desc_cnt);
+		if (ret) {
+			ETHQOSDBG(":resource ipa-dma-tx-desc-cnt not in dt\n");
+			eth_ipa_ctx.ipa_dma_tx_desc_cnt = IPA_TX_DESC_CNT;
+		}
 		return;
 	}
 
