@@ -121,14 +121,14 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 {
 	int ret;
 
-	ret = of_property_read_u32(node, "mediatek,kpd-key-debounce",
+	ret = of_property_read_u32(node, "mediatek,key-debounce-ms",
 		&keypad->key_debounce);
 	if (ret) {
 		pr_debug("read mediatek,key-debounce-ms error.\n");
 		return ret;
 	}
 
-	ret = of_property_read_u32(node, "mediatek,kpd-hw-map-num",
+	ret = of_property_read_u32(node, "mediatek,hw-map-num",
 		&keypad->hw_map_num);
 	if (ret) {
 		pr_debug("read mediatek,hw-map-num error.\n");
@@ -141,7 +141,7 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32_array(node, "mediatek,kpd-hw-init-map",
+	ret = of_property_read_u32_array(node, "mediatek,hw-init-map",
 		keypad->hw_init_map, keypad->hw_map_num);
 
 	if (ret) {
