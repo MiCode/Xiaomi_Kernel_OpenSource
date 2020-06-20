@@ -296,6 +296,34 @@
 	reg = <0 0x8fd00000 0 0x3100000>;
 };
 
+&pil_video_mem {
+	reg = <0 0x92e00000 0 0x500000>;
+};
+
+&wlan_msa_mem {
+	reg = <0 0x93300000 0 0x200000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0 0x93500000 0 0x1e00000>;
+};
+
+&pil_adsp_mem {
+	reg = <0 0x95300000 0 0x1e00000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0 0x97100000 0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0 0x97110000 0 0x5000>;
+};
+
+&pil_gpu_mem {
+	reg = <0 0x97115000 0 0x2000>;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm6150l_l11>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
