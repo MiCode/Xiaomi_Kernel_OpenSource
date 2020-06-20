@@ -1014,7 +1014,16 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	if (!ipa3_is_ready()) {
 		IPAERR("IPA not ready, waiting for init completion\n");
-		wait_for_completion(&ipa3_ctx->init_completion_obj);
+		if (ipa3_ctx->manual_fw_load) {
+			if (!wait_for_completion_timeout(
+					&ipa3_ctx->init_completion_obj,
+					msecs_to_jiffies(1000))) {
+				IPAERR("IPA not ready, return\n");
+				return -ETIME;
+			}
+		} else {
+			wait_for_completion(&ipa3_ctx->init_completion_obj);
+		}
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
@@ -6891,6 +6900,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->uc_act_tbl_total = 0;
 	ipa3_ctx->uc_act_tbl_next_index = 0;
 	ipa3_ctx->ipa_config_is_auto = resource_p->ipa_config_is_auto;
+	ipa3_ctx->manual_fw_load = resource_p->manual_fw_load;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
@@ -7556,6 +7566,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_fltrt_not_hashable = false;
 	ipa_drv_res->ipa_endp_delay_wa = false;
 	ipa_drv_res->ipa_config_is_auto = false;
+	ipa_drv_res->manual_fw_load = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -7964,6 +7975,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 	IPADBG(": secure-debug-check-action = %d\n",
 		   ipa_drv_res->secure_debug_check_action);
+
+	ipa_drv_res->manual_fw_load =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,manual-fw-load");
+	IPADBG(": manual-fw-load (%s)\n",
+		ipa_drv_res->manual_fw_load
+		? "True" : "False");
 
 	return 0;
 }
