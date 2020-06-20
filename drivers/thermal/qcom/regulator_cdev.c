@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -47,7 +47,7 @@ static int reg_set_min_state(struct thermal_cooling_device *cdev,
 	int ret = 0;
 
 	if (state > reg_dev->lvl_ct)
-		return -EINVAL;
+		state = reg_dev->lvl_ct;
 
 	if (reg_dev->min_reg_state == state)
 		return ret;
