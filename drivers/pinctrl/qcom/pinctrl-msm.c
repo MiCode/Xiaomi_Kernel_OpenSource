@@ -80,6 +80,20 @@ struct msm_pinctrl {
 
 static struct msm_pinctrl *msm_pinctrl_data;
 
+#define EGPIO_PRESENT			11
+#define EGPIO_ENABLE			12
+#define MSM_APPS_OWNER			1
+#define MSM_REMOTE_OWNER		0
+
+/* custom pinconf parameters for msm pinictrl*/
+#define MSM_PIN_CONFIG_APPS		(PIN_CONFIG_END + 1)
+#define MSM_PIN_CONFIG_REMOTE		(PIN_CONFIG_END + 2)
+
+static const struct pinconf_generic_params msm_gpio_bindings[] = {
+	{"qcom,apps",			MSM_PIN_CONFIG_APPS,	0},
+	{"qcom,remote",			MSM_PIN_CONFIG_REMOTE,	0},
+};
+
 #define MSM_ACCESSOR(name) \
 static u32 msm_readl_##name(struct msm_pinctrl *pctrl, \
 			    const struct msm_pingroup *g) \
@@ -252,6 +266,11 @@ static int msm_config_reg(struct msm_pinctrl *pctrl,
 		*bit = g->oe_bit;
 		*mask = 1;
 		break;
+	case MSM_PIN_CONFIG_APPS:
+	case MSM_PIN_CONFIG_REMOTE:
+		*bit = EGPIO_ENABLE;
+		*mask = 1;
+		break;
 	default:
 		return -ENOTSUPP;
 	}
@@ -343,6 +362,20 @@ static int msm_config_group_get(struct pinctrl_dev *pctldev,
 			return -EINVAL;
 		arg = 1;
 		break;
+	case MSM_PIN_CONFIG_APPS:
+		/* Pin do not support egpio or remote owner */
+		if (!(val & BIT(EGPIO_PRESENT)) || !arg)
+			return -EINVAL;
+
+		arg = 1;
+		break;
+	case MSM_PIN_CONFIG_REMOTE:
+		/* Pin do not support epgio or APPS owner */
+		if (!(val & BIT(EGPIO_PRESENT)) || arg)
+			return -EINVAL;
+
+		arg = 1;
+		break;
 	default:
 		return -ENOTSUPP;
 	}
@@ -364,6 +397,7 @@ static int msm_config_group_set(struct pinctrl_dev *pctldev,
 	unsigned mask;
 	unsigned arg;
 	unsigned bit;
+	u32 owner_bit, owner_update = 0;
 	int ret;
 	u32 val;
 	int i;
@@ -426,6 +460,14 @@ static int msm_config_group_set(struct pinctrl_dev *pctldev,
 			/* disable output */
 			arg = 0;
 			break;
+		case MSM_PIN_CONFIG_APPS:
+			owner_update = 1;
+			owner_bit = MSM_APPS_OWNER;
+			break;
+		case MSM_PIN_CONFIG_REMOTE:
+			owner_update = 1;
+			owner_bit = MSM_REMOTE_OWNER;
+			break;
 		default:
 			dev_err(pctrl->dev, "Unsupported config parameter: %x\n",
 				param);
@@ -437,12 +479,31 @@ static int msm_config_group_set(struct pinctrl_dev *pctldev,
 			dev_err(pctrl->dev, "config %x: %x is invalid\n", param, arg);
 			return -EINVAL;
 		}
+		/* Update the owner bits as final config update */
+		if (param == MSM_PIN_CONFIG_APPS || param == MSM_PIN_CONFIG_REMOTE)
+			continue;
 
 		raw_spin_lock_irqsave(&pctrl->lock, flags);
 		val = msm_readl_ctl(pctrl, g);
 		val &= ~(mask << bit);
 		val |= arg << bit;
 		msm_writel_ctl(val, pctrl, g);
+		raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+	}
+
+	if (owner_update) {
+		ret = msm_config_reg(pctrl, g,
+					MSM_PIN_CONFIG_APPS, &mask, &bit);
+		if (ret < 0)
+			return ret;
+
+		raw_spin_lock_irqsave(&pctrl->lock, flags);
+		val = msm_readl_ctl(pctrl, g);
+		if (val & BIT(EGPIO_PRESENT)) {
+			val &= ~(mask << bit);
+			val |= owner_bit << bit;
+			msm_writel_ctl(val, pctrl, g);
+		}
 		raw_spin_unlock_irqrestore(&pctrl->lock, flags);
 	}
 
@@ -1450,6 +1511,8 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	pctrl->desc.name = dev_name(&pdev->dev);
 	pctrl->desc.pins = pctrl->soc->pins;
 	pctrl->desc.npins = pctrl->soc->npins;
+	pctrl->desc.num_custom_params = ARRAY_SIZE(msm_gpio_bindings);
+	pctrl->desc.custom_params = msm_gpio_bindings;
 
 	pctrl->pctrl = devm_pinctrl_register(&pdev->dev, &pctrl->desc, pctrl);
 	if (IS_ERR(pctrl->pctrl)) {
