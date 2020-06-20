@@ -3233,12 +3233,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 							__func__, ret);
 		goto exit_wakeup_unregister;
 	}
-	/*
-	 * Console usecase requires irq to be in enable state to handle RX data.
-	 * disable irq only for HSUART case from here.
-	 */
-	if (!is_console)
-		disable_irq(dev_port->uport.irq);
 
 	uport->private_data = (void *)drv;
 	platform_set_drvdata(pdev, dev_port);
