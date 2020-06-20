@@ -30,7 +30,7 @@
 		pil_ipa_fw_mem: pil_ipa_fw_region {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x99700000 0x0 0x10000>;
+			reg = <0x0 0x98700000 0x0 0x10000>;
 		};
 
 		pil_ipa_gsi_mem: pil_ipa_gsi_region {
