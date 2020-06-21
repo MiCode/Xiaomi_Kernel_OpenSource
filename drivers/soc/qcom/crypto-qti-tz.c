@@ -58,7 +58,7 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	desc.arginfo = TZ_ES_CONFIG_SET_ICE_KEY_CE_TYPE_PARAM_ID;
 	desc.args[0] = slot;
 	desc.args[1] = shm.paddr;
-	desc.args[2] = shm.size;
+	desc.args[2] = key->size;
 	desc.args[3] = ICE_CIPHER_MODE_XTS_256;
 	desc.args[4] = data_unit_mask;
 	desc.args[5] = storage_type;
@@ -90,6 +90,54 @@ int crypto_qti_invalidate_key(
 	err = scm_call2_noretry(smc_id, &desc);
 	if (err)
 		pr_err("%s:SCM call Error: 0x%x\n", __func__, err);
+	return err;
+}
+
+int crypto_qti_tz_raw_secret(const u8 *wrapped_key,
+			     unsigned int wrapped_key_size, u8 *secret,
+			     unsigned int secret_size)
+{
+	int err = 0;
+	struct qtee_shm shm_key, shm_secret;
+	uint32_t smc_id = 0;
+
+	struct scm_desc desc = {0};
+	char *tzbuf_key;
+
+	err = qtee_shmbridge_allocate_shm(wrapped_key_size, &shm_key);
+	if (err)
+		return -ENOMEM;
+
+	err = qtee_shmbridge_allocate_shm(secret_size, &shm_secret);
+	if (err)
+		return -ENOMEM;
+
+	tzbuf_key = shm_key.vaddr;
+	memcpy(tzbuf_key, wrapped_key, wrapped_key_size);
+	dmac_flush_range(tzbuf_key, tzbuf_key + wrapped_key_size);
+
+	smc_id = TZ_ES_RETRIEVE_RAW_SECRET_CE_TYPE_ID;
+	desc.arginfo = TZ_ES_RETRIEVE_RAW_SECRET_CE_TYPE_PARAM_ID;
+	desc.args[0] = shm_key.paddr;
+	desc.args[1] = wrapped_key_size;
+	desc.args[2] = shm_secret.paddr;
+	desc.args[3] = secret_size;
+
+	memset(shm_secret.vaddr, 0, secret_size);
+	dmac_flush_range(shm_secret.vaddr, shm_secret.vaddr + secret_size);
+
+	err = scm_call2_noretry(smc_id, &desc);
+	if (err) {
+		pr_err("%s failed to retrieve raw secret\n", __func__, err);
+		return err;
+	}
+
+	dmac_inv_range(shm_secret.vaddr, shm_secret.vaddr + secret_size);
+	memcpy(secret, shm_secret.vaddr, secret_size);
+
+	qtee_shmbridge_free_shm(&shm_key);
+	qtee_shmbridge_free_shm(&shm_secret);
+
 	return err;
 }
 
