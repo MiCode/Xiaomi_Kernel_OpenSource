@@ -16,9 +16,50 @@
 #include "sdxprairie-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDXPRAIRIE v2 CDP
-				TELEMATICS AU DSDA";
+	model = "Qualcomm Technologies, Inc. SDXPRAIRIE v2 CDP TEL AU DSDA";
 	compatible = "qcom,sdxprairie-cdp",
 		"qcom,sdxprairie", "qcom,cdp";
 	qcom,board-id = <0x6010001 0x0>;
+};
+
+/* delete pm8150b nodes */
+&thermal_zones {
+	/delete-node/ pm8150b-wp-therm;
+	/delete-node/ pm8150b_tz;
+	/delete-node/ pm8150b-ibat-lvl0;
+	/delete-node/ pm8150b-ibat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl0;
+	/delete-node/ pm8150b-vbat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl2;
+	/delete-node/ pm8150b-bcl-lvl0;
+	/delete-node/ pm8150b-bcl-lvl1;
+	/delete-node/ pm8150b-bcl-lvl2;
+	/delete-node/ soc;
+};
+
+&usb {
+	extcon = <&vbus_detect>;
+};
+
+&spmi_bus {
+	/delete-node/ qpnp,fg;
+	/delete-node/ bcl@1d00;
+	/delete-node/ qcom,usb-pdphy@1700;
+	/delete-node/ qcom,qpnp-smb5;
+	/delete-node/ adc_tm@3500;
+	/delete-node/ vadc@3100;
+	/delete-node/ qcom,pm8150b@2;
+	/delete-node/ qcom,pm8150b@3;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
+
+&vbus_detect {
+	status = "okay";
 };
