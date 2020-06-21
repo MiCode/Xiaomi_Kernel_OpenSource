@@ -30,7 +30,7 @@
 #include "stmmac_ptp.h"
 #include "dwmac-qcom-ipa-offload.h"
 
-static unsigned long tlmm_central_base_addr;
+static void __iomem *tlmm_central_base_addr;
 bool phy_intr_en;
 
 static struct ethqos_emac_por emac_por[] = {
@@ -1446,9 +1446,9 @@ static int ethqos_update_rgmii_tx_drv_strength(struct qcom_ethqos *ethqos)
 	ETHQOSDBG("tlmm_central_base = 0x%x, size = 0x%x\n",
 		  tlmm_central_base, tlmm_central_size);
 
-	tlmm_central_base_addr = (unsigned long)ioremap(
+	tlmm_central_base_addr = ioremap(
 	   tlmm_central_base, tlmm_central_size);
-	if ((void __iomem *)!tlmm_central_base_addr) {
+	if (!tlmm_central_base_addr) {
 		ETHQOSERR("cannot map dwc_tlmm_central reg memory, aborting\n");
 		ret = -EIO;
 		goto err_out;
@@ -1488,7 +1488,7 @@ static int ethqos_update_rgmii_tx_drv_strength(struct qcom_ethqos *ethqos)
 
 err_out:
 	if (tlmm_central_base_addr)
-		iounmap((void __iomem *)tlmm_central_base_addr);
+		iounmap(tlmm_central_base_addr);
 
 	return ret;
 }
