@@ -381,6 +381,10 @@
 			};
 		};
 
+		mt63xx_debug {
+			compatible = "mediatek,mt63xx-debug";
+		};
+
 		pmic_auxadc: pmic_auxadc {
 			compatible = "mediatek,mt6359p-auxadc";
 			#io-channel-cells = <1>;
