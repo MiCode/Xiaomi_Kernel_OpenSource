@@ -33,6 +33,20 @@
 static unsigned long tlmm_central_base_addr;
 bool phy_intr_en;
 
+static struct ethqos_emac_por emac_por[] = {
+	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x0 },
+	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x0 },
+	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x0 },
+	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x0 },
+	{ .offset = SDCC_USR_CTL,		.value = 0x0 },
+	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x0},
+};
+
+static struct ethqos_emac_driver_data emac_por_data = {
+	.por = emac_por,
+	.num_por = ARRAY_SIZE(emac_por),
+};
+
 struct qcom_ethqos *pethqos;
 
 struct stmmac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx = {0};
@@ -47,6 +61,21 @@ char tmp_buff[MAX_PROC_SIZE];
 static struct qmp_pkt pkt;
 static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
 static struct ip_params pparams = {"", "", "", ""};
+
+static void qcom_ethqos_read_iomacro_por_values(struct qcom_ethqos *ethqos)
+{
+	int i;
+
+	ethqos->por = emac_por_data.por;
+	ethqos->num_por = emac_por_data.num_por;
+
+	/* Read to POR values and enable clk */
+	for (i = 0; i < ethqos->num_por; i++)
+		ethqos->por[i].value =
+			readl_relaxed(
+				ethqos->rgmii_base +
+				ethqos->por[i].offset);
+}
 
 static inline unsigned int dwmac_qcom_get_eth_type(unsigned char *buf)
 {
@@ -1045,7 +1074,7 @@ static void ethqos_pps_irq_config(struct qcom_ethqos *ethqos)
 }
 
 static const struct of_device_id qcom_ethqos_match[] = {
-	{ .compatible = "qcom,sdxprairie-ethqos", .data = &emac_v2_3_2_por},
+	{ .compatible = "qcom,sdxprairie-ethqos",},
 	{ .compatible = "qcom,emac-smmu-embedded", },
 	{ .compatible = "qcom,stmmac-ethqos", },
 	{}
@@ -1771,8 +1800,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		goto err_mem;
 	}
 
-	ethqos->por = of_device_get_match_data(&pdev->dev);
-
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (!ethqos->rgmii_clk) {
 		ret = -ENOMEM;
@@ -1879,6 +1906,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos_emac_mem_base(ethqos);
 	pethqos = ethqos;
 	ethqos_create_debugfs(ethqos);
+
+	qcom_ethqos_read_iomacro_por_values(ethqos);
 
 	ndev = dev_get_drvdata(&ethqos->pdev->dev);
 	priv = netdev_priv(ndev);
