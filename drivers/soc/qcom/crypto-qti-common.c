@@ -461,7 +461,11 @@ int crypto_qti_derive_raw_secret(const u8 *wrapped_key,
 		return err;
 	}
 
-	memcpy(secret, wrapped_key, secret_size);
+	if (wrapped_key_size > 64)
+		err = crypto_qti_tz_raw_secret(wrapped_key, wrapped_key_size,
+					       secret, secret_size);
+	else
+		memcpy(secret, wrapped_key, secret_size);
 
 	return err;
 }
