@@ -204,8 +204,6 @@
   module_layout
   __msecs_to_jiffies
   msleep
-  msm_pinctrl_probe
-  msm_pinctrl_remove
   __mutex_init
   mutex_lock
   mutex_unlock
@@ -982,9 +980,6 @@
 # required by phy-qcom-usb-hs.ko
   of_property_read_variable_u8_array
   reset_control_reset
-
-# required by pinctrl-sdm845.ko
-  msm_pinctrl_dev_pm_ops
 
 # required by pinctrl-spmi-gpio.ko
   device_get_match_data
