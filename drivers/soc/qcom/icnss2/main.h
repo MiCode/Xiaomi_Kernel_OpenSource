@@ -302,6 +302,8 @@ struct icnss_priv {
 	void __iomem *mem_base_va;
 	u32 mem_base_size;
 	struct iommu_domain *iommu_domain;
+	dma_addr_t smmu_iova_start;
+	size_t smmu_iova_len;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;
 	struct qmi_handle qmi;
@@ -394,5 +396,7 @@ char *icnss_soc_wake_event_to_str(enum icnss_soc_wake_event_type type);
 int icnss_soc_wake_event_post(struct icnss_priv *priv,
 			      enum icnss_soc_wake_event_type type,
 			      u32 flags, void *data);
+int icnss_get_iova(struct icnss_priv *priv, u64 *addr, u64 *size);
+int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size);
 #endif
 

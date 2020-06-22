@@ -2225,6 +2225,8 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	struct wlfw_host_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	int ret = 0;
+	u64 iova_start = 0, iova_size = 0,
+	    iova_ipa_start = 0, iova_ipa_size = 0;
 
 	icnss_pr_dbg("Sending host capability message, state: 0x%lx\n",
 		    priv->state);
@@ -2253,6 +2255,16 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	req->cal_done_valid = 1;
 	req->cal_done = priv->cal_done;
 	icnss_pr_dbg("Calibration done is %d\n", priv->cal_done);
+
+	if (!icnss_get_iova(priv, &iova_start, &iova_size) &&
+	    !icnss_get_iova_ipa(priv, &iova_ipa_start,
+				&iova_ipa_size)) {
+		req->ddr_range_valid = 1;
+		req->ddr_range[0].start = iova_start;
+		req->ddr_range[0].size = iova_size + iova_ipa_size;
+		icnss_pr_dbg("Sending iova starting 0x%llx with size 0x%llx\n",
+			    req->ddr_range[0].start, req->ddr_range[0].size);
+	}
 
 	req->host_build_type_valid = 1;
 	req->host_build_type = icnss_get_host_build_type();
