@@ -1471,6 +1471,12 @@ config PAGE_OFFSET
 	default 0xB0000000 if VMSPLIT_3G_OPT
 	default 0xC0000000
 
+config COMMAND_LINE_SIZE
+	int "Maximum size of the command line."
+	default "1024"
+	help
+	This is the per architecture maximum command line size.
+
 config NR_CPUS
 	int "Maximum number of CPUs (2-32)"
 	range 2 32
