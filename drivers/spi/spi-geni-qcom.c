@@ -938,16 +938,24 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 		/* Transmit an entire FIFO worth of data per IRQ */
 		mas->tx_wm = 1;
 
-		mas->tx = dma_request_slave_channel(mas->dev, "tx");
-		if (IS_ERR_OR_NULL(mas->tx)) {
-			dev_info(mas->dev, "Failed to get tx DMA ch %ld",
+
+		mas->shared_se =
+			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
+							FIFO_IF_DISABLE);
+		if (mas->shared_se) {
+			mas->tx = dma_request_slave_channel(mas->dev, "tx");
+			if (IS_ERR_OR_NULL(mas->tx)) {
+				dev_info(mas->dev,
+					"Failed to get tx DMA ch %ld",
 							PTR_ERR(mas->tx));
-		} else {
+				goto setup_ipc;
+			}
 			mas->rx = dma_request_slave_channel(mas->dev, "rx");
 			if (IS_ERR_OR_NULL(mas->rx)) {
 				dev_info(mas->dev, "Failed to get rx DMA ch %ld",
 							PTR_ERR(mas->rx));
 				dma_release_channel(mas->tx);
+				goto setup_ipc;
 			}
 			mas->gsi = devm_kzalloc(mas->dev,
 				(sizeof(struct spi_geni_gsi) * NUM_SPI_XFER),
@@ -1006,9 +1014,6 @@ setup_ipc:
 				"%s:Major:%d Minor:%d step:%dos%d\n",
 			__func__, major, minor, step, mas->oversampling);
 		}
-		mas->shared_se =
-			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
-							FIFO_IF_DISABLE);
 		if (mas->dis_autosuspend)
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
 					"Auto Suspend is disabled\n");
