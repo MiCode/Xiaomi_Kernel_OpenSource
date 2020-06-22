@@ -37,10 +37,37 @@
 		status = "disabled";
 	};
 
+	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d050 {
+		compatible = "qcom,gdsc";
+		reg = <0x17d050 0x4>;
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
 	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@17d058 {
 		compatible = "qcom,gdsc";
 		reg = <0x17d058 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_mdp0_gdsc: qcom,gdsc@17d078 {
+		compatible = "qcom,gdsc";
+		reg = <0x17d078 0x4>;
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_mdp0_gdsc";
+		qcom,gds-timeout = <500>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_mdp1_gdsc: qcom,gdsc@17d07c {
+		compatible = "qcom,gdsc";
+		reg = <0x17d07c 0x4>;
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_mdp1_gdsc";
 		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";
@@ -55,10 +82,10 @@
 		status = "disabled";
 	};
 
-	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d050 {
+	hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc: qcom,gdsc@17d06c {
 		compatible = "qcom,gdsc";
-		reg = <0x17d050 0x4>;
-		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
+		reg = <0x17d06c 0x4>;
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc";
 		qcom,gds-timeout = <500>;
 		qcom,no-status-check-on-disable;
 		status = "disabled";

@@ -2111,6 +2111,18 @@
 	status = "ok";
 };
 
+&hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_mdp0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_mdp1_gdsc {
+	status = "ok";
+};
+
 &hlos1_vote_turing_mmu_tbu0_gdsc {
 	status = "ok";
 };
