@@ -1647,6 +1647,7 @@
   __rcu_read_lock
   __rcu_read_unlock
   rdev_get_drvdata
+  reboot_mode
   refcount_dec_and_lock
   refcount_dec_and_test_checked
   refcount_dec_checked
