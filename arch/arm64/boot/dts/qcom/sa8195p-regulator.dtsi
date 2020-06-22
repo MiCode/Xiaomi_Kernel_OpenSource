@@ -41,13 +41,6 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
-
-		ebi_cdev: regulator-cdev {
-			compatible = "qcom,rpmh-reg-cdev";
-			mboxes = <&qmp_aop 0>;
-			qcom,reg-resource-name = "ebi";
-			#cooling-cells = <2>;
-		};
 	};
 
 	/* PM8195_1 S2 = VDDCX_MM supply */
@@ -78,14 +71,6 @@
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
-		};
-
-		mm_cx_cdev: mm-cx-cdev-lvl {
-			compatible = "qcom,regulator-cooling-device";
-			regulator-cdev-supply = <&VDD_MMCX_LEVEL_AO>;
-			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
-					RPMH_REGULATOR_LEVEL_OFF>;
-			#cooling-cells = <2>;
 		};
 	};
 
@@ -188,14 +173,6 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
-
-		mx_cdev: mx-cdev-lvl {
-			compatible = "qcom,regulator-cooling-device";
-			regulator-cdev-supply = <&VDD_MX_LEVEL>;
-			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
-					RPMH_REGULATOR_LEVEL_OFF>;
-			#cooling-cells = <2>;
-			};
 	};
 
 	rpmh-regulator-ldoa2 {
@@ -646,12 +623,6 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 			qcom,min-dropout-voltage-level = <(-1)>;
-		};
-		cx_cdev: regulator-cdev {
-			compatible = "qcom,rpmh-reg-cdev";
-			mboxes = <&qmp_aop 0>;
-			qcom,reg-resource-name = "cx";
-			#cooling-cells = <2>;
 		};
 	};
 
