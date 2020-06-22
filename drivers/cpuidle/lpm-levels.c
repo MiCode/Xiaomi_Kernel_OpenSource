@@ -223,15 +223,88 @@ static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 	spin_unlock(&debug_lock);
 }
 
+uint32_t us_to_ticks(uint64_t sleep_val)
+{
+	uint64_t sec, nsec;
+
+	sec = sleep_val;
+	do_div(sec, USEC_PER_SEC);
+
+	if (sec > 0) {
+		nsec = sleep_val - sec * USEC_PER_SEC;
+		sleep_val = sec * ARCH_TIMER_HZ;
+		if (nsec > 0) {
+			nsec = nsec * NSEC_PER_USEC;
+			do_div(nsec, NSEC_PER_SEC/ARCH_TIMER_HZ);
+		}
+		sleep_val = sleep_val + nsec;
+	} else {
+		sleep_val = sleep_val * ARCH_TIMER_HZ;
+		do_div(sleep_val, USEC_PER_SEC);
+	}
+	return sleep_val;
+}
+
+static uint32_t get_next_event(struct lpm_cpu *cpu)
+{
+	ktime_t next_event = KTIME_MAX;
+	unsigned int next_cpu;
+
+	for_each_cpu(next_cpu, &cpu->related_cpus) {
+		ktime_t next_event_c = per_cpu(cpu_lpm, next_cpu)->next_hrtimer;
+
+		if (next_event > next_event_c)
+			next_event = next_event_c;
+	}
+
+	return ktime_to_us(ktime_sub(next_event, ktime_get()));
+}
+
+static void program_rimps_timer(struct lpm_cpu *cpu)
+{
+	uint32_t ctrl_val, next_event;
+	struct cpumask cpu_lpm_mask;
+	struct lpm_cluster *cl = cpu->parent;
+
+	if (!cpu->rimps_tmr_base)
+		return;
+
+	cpumask_and(&cpu_lpm_mask, &cl->num_children_in_sync,
+						&cpu->related_cpus);
+	if (!cpumask_equal(&cpu_lpm_mask, &cpu->related_cpus))
+		return;
+
+	next_event = get_next_event(cpu);
+	if (!next_event)
+		return;
+
+	next_event = us_to_ticks(next_event);
+	spin_lock(&cpu->cpu_lock);
+
+	/* RIMPS timer pending should be read before programming timeout val */
+	readl_relaxed(cpu->rimps_tmr_base + TIMER_PENDING);
+	ctrl_val = readl_relaxed(cpu->rimps_tmr_base + TIMER_CTRL);
+	writel_relaxed(ctrl_val & ~(TIMER_CONTROL_EN),
+				cpu->rimps_tmr_base + TIMER_CTRL);
+	writel_relaxed(next_event, cpu->rimps_tmr_base + TIMER_VAL);
+	writel_relaxed(ctrl_val | (TIMER_CONTROL_EN),
+				cpu->rimps_tmr_base + TIMER_CTRL);
+	/* Ensure the write is complete before returning. */
+	wmb();
+	spin_unlock(&cpu->cpu_lock);
+}
+
 #ifdef CONFIG_SMP
 static int lpm_dying_cpu(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_lpm, cpu)->parent;
+	struct lpm_cpu *lpm_cpu = per_cpu(cpu_lpm, cpu);
 
 	update_debug_pc_event(CPU_HP_DYING, cpu,
 				cluster->num_children_in_sync.bits[0],
 				cluster->child_cpus.bits[0], false);
 	cluster_prepare(cluster, get_cpu_mask(cpu), NR_LPM_LEVELS, false, 0);
+	program_rimps_timer(lpm_cpu);
 	return 0;
 }
 
@@ -1368,6 +1441,9 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 
 	if (need_resched())
 		goto exit;
+
+	if (idx == cpu->nlevels - 1)
+		program_rimps_timer(cpu);
 
 	ret = psci_enter_sleep(cpu, idx, true);
 	success = (ret == 0);

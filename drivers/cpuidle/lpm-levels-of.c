@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
@@ -10,6 +10,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/err.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
@@ -542,6 +543,7 @@ static int parse_cpu_levels(struct device_node *dn, struct lpm_cluster *c)
 	if (!cpu)
 		return -ENOMEM;
 
+	spin_lock_init(&cpu->cpu_lock);
 	if (get_cpumask_for_node(dn, &cpu->related_cpus))
 		return -EINVAL;
 
@@ -689,6 +691,37 @@ failed_parse_cluster:
 	return NULL;
 }
 
+static void add_rimps_tmr_register(struct device_node *dn,
+		struct lpm_cluster *cl)
+{
+	struct lpm_cpu *lpm_cpu;
+	uint32_t rimps_threshold = 0;
+	static uint32_t i;
+
+	if (list_empty(&cl->cpu)) {
+		struct lpm_cluster *n;
+
+		list_for_each_entry(n, &cl->child, list)
+			add_rimps_tmr_register(dn, n);
+	}
+
+	list_for_each_entry(lpm_cpu, &cl->cpu, list) {
+		int idx = lpm_cpu->nlevels-1;
+
+		lpm_cpu->rimps_tmr_base = of_iomap(dn, i++);
+		if (!lpm_cpu->rimps_tmr_base) {
+			pr_debug("Unable to get rimps base address\n");
+			return;
+		}
+		rimps_threshold = lpm_cpu->levels[idx].pwr.min_residency;
+		rimps_threshold = us_to_ticks(rimps_threshold);
+		writel_relaxed(rimps_threshold, lpm_cpu->rimps_tmr_base
+							 + TIMER_THRESHOLD);
+		/* Ensure the write is complete before returning. */
+		wmb();
+	}
+}
+
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 {
 	struct device_node *top = NULL;
@@ -702,6 +735,7 @@ struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 
 	lpm_pdev = pdev;
 	c = parse_cluster(top, NULL);
+	add_rimps_tmr_register(pdev->dev.of_node, c);
 	of_node_put(top);
 	return c;
 }
