@@ -881,10 +881,12 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	struct version nandc_version = {0};
 
 	ret = msm_nand_version_check(info, &nandc_version);
-	if (!ret && !(nandc_version.nand_major == 1 &&
+	if (!ret && !((nandc_version.nand_major == 1 &&
 			nandc_version.nand_minor >= 5 &&
 			nandc_version.qpic_major == 1 &&
-			nandc_version.qpic_minor >= 5)) {
+			nandc_version.qpic_minor >= 5) ||
+			(nandc_version.nand_major >= 2 &&
+			nandc_version.qpic_major >= 2))) {
 		ret = -EPERM;
 		goto out;
 	}
