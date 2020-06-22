@@ -1,6 +1,7 @@
 &soc {
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
+		reg = <0xfd91060 0x20>, <0xfd92060 0x20>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 

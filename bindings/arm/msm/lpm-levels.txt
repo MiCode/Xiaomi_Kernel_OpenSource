@@ -18,7 +18,6 @@ Required properties:
 
 [Node bindings for qcom,pm-cluster]
  Required properties:
-	- reg - The numeric cluster id
 	- label: Identifies the cluster name. The name is used when reporting
 	the stats for each low power mode.
 	- qcom,psci-mode-shift: The property is used to determine with bit
@@ -29,6 +28,7 @@ Required properties:
 	cluster low power modes in PSCI.
 
 Optional properties:
+	- reg: The address range
 	- qcom,disable-prediction: This property is used to indicate the LPM
 	governor will not use LPM prediction for this cluster.
 	- qcom,clstr-tmr-add: This property is used as correction timer for
