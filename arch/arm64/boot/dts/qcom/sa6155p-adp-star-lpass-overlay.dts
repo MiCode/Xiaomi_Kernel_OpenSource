@@ -1,4 +1,4 @@
-/* Copyright (c) 2020The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,12 +11,17 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "sa515m-v2-ttp.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
+
+#include "sa6155-adp-star.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA515M TTP ";
-	compatible = "qcom,sa515m-ttp",
-		"qcom,sdxprairie","qcom,ttp";
-	qcom,board-id = <0x06010001 0x0>;
+	model = "LPASS Audio PLL sourced from eMAC PPO ("ADP-Star")";
+	compatible = "qcom,sa6155p-adp-star", "qcom,sa6155p", "qcom,adp-star";
+	qcom,msm-id = <377 0x0>, <380 0>;
+	qcom,board-id = <0x01010019 0>;
 };
+

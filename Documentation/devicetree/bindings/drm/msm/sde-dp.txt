@@ -17,7 +17,9 @@ DP Controller: Required properties:
 - clock-names:          Names of the clocks corresponding to handles. Following clocks are required:
 			"core_aux_clk", "core_usb_ref_clk_src","core_usb_ref_clk", "core_usb_cfg_ahb_clk",
 			"core_usb_pipe_clk", "ctrl_link_clk", "ctrl_link_iface_clk", "ctrl_crypto_clk",
-			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent".
+			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent", "bond_pixel_parent".
+			Only under multiple DPs pixel clock bonding mode, i.e. triple DPs bonding, bond_pixel_parent
+			is used, replacing the pixel_parent for single DP mode.
 - gdsc-supply:		phandle to gdsc regulator node.
 - vdda-1p2-supply:		phandle to vdda 1.2V regulator node.
 - vdda-0p9-supply:		phandle to vdda 0.9V regulator node.
@@ -96,10 +98,18 @@ msm_ext_disp is a device which manages the interaction between external
 display interfaces, e.g. Display Port, and the audio subsystem.
 
 Optional properties:
+- qcom,intf-index:		u32 integer array to specify the intf instances
+- qcom,phy-index:		u32 integer to specify the phy instance
 - qcom,ext-disp:		phandle for msm-ext-display module
 - compatible:			Must be "qcom,msm-ext-disp"
 - qcom,dp-low-power-hw-hpd:	Low power hardware HPD feature enable control node
 - qcom,phy-version:		Phy version
+- qcom,phy-mode:		Phy mode from the following list. If not specified, the default PHY mode is decided by the PHY driver,
+				which is "dp" for DP/USB combo PHY, "edp" for eDP/DP combo PHY
+				"dp" - DP PHY mode
+				"minidp" - MiniDP PHY mode
+				"edp" - eDP PHY mode
+				"edp-highswing" - eDP PHY mode, high swing/pre-emphasis
 - qcom,pn-swap-lane-map:	P/N swap configuration of each lane
 - pinctrl-names:		List of names to assign mdss pin states defined in pinctrl device node
 				Refer to pinctrl-bindings.txt
@@ -110,6 +120,15 @@ Optional properties:
 - qcom,mst-fixed-topology-ports: u32 values of which MST output port to reserve, start from one
 - qcom,dp-aux-bridge:		phandle for dp aux bridge module, for 3rd party dp bridge only.
 - qcom,dp-aux-bridge-sim:	phandle for dp aux bridge module, for internal mst debug simulation only.
+- qcom,dp-force-bond-mode:	Ignore tile information from EDID and force DP to work in bond mode.
+- qcom,bond-dual-ctrl:		u32 array to specify the cell-index of the two DP controllers that support bond mode.
+				The first controller in the array is the bond master. Driver will switch to bond mode
+				if both DP controllers are connected to the same dual DP input monitor.
+				e.g. <1, 0> will bond DP0 and DP1, and DP1 is the master, and DP0 is the salve.
+- qcom,bond-tri-ctrl:		u32 array to specify the cell-index of the three DP controllers that support bond mode.
+				The first controller in the array is the bond master. Driver will switch to bond mode
+				if all three DP controllers are connected to the same triple DP input monitor.
+				e.g. <2, 0, 1> will bond DP0, DP1 and DP2 together, and DP2 is the master, DP0/DP1 are the slaves.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then

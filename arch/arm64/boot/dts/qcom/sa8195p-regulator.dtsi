@@ -521,7 +521,7 @@
 	rpmh-regulator-ldoc5 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
-		qcom,resource-name = "ldoa5";
+		qcom,resource-name = "ldoc5";
 		qcom,regulator-type = "pmic5-ldo";
 		qcom,supported-modes =
 			<RPMH_REGULATOR_MODE_LPM

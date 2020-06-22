@@ -26,11 +26,12 @@
 		qcom,msm-cpudai-tdm-group-port-id = <36864 36866 36868 36870>;
 		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
-		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <0>;
 		qcom,msm-cpudai-tdm-sync-src = <1>;
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
-		qcom,msm-cpudai-tdm-data-delay = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
 		dai_pri_tdm_rx_0: qcom,msm-dai-q6-tdm-pri-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36864>;
@@ -63,11 +64,12 @@
 		qcom,msm-cpudai-tdm-group-port-id = <36865 36867 36869 36871>;
 		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
-		qcom,msm-cpudai-tdm-sync-mode = <1>;
+		qcom,msm-cpudai-tdm-sync-mode = <0>;
 		qcom,msm-cpudai-tdm-sync-src = <1>;
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
-		qcom,msm-cpudai-tdm-data-delay = <0>;
+		qcom,msm-cpudai-tdm-data-delay = <1>;
+		qcom,msm-cpudai-tdm-clk-attribute = /bits/ 16 <1>;
 		dai_pri_tdm_tx_0: qcom,msm-dai-q6-tdm-pri-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36865>;
@@ -461,6 +463,20 @@
 		pinctrl-1 = <&pri_aux_pcm_sck_sleep &pri_aux_pcm_ws_sleep
 			&pri_aux_pcm_data0_sleep &pri_aux_pcm_data1_sleep>;
 	};
+
+qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+
+		afe_pcm_rx_1: qcom,msm-dai-q6-be-afe-pcm-rx-1 {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <226>;
+		};
+
+		afe_proxy_tx_1: qcom,msm-dai-q6-afe-proxy-tx-1 {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <242>;
+		};
+	};
 };
 
 &audio_apr {
@@ -507,10 +523,11 @@
 				<&dai_mi2s4>, <&dai_pri_auxpcm>,
 				<&dai_sec_auxpcm>, <&dai_tert_auxpcm>,
 				<&dai_quat_auxpcm>, <&dai_quin_auxpcm>,
-				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
-				<&afe_proxy_tx>, <&incall_record_rx>,
-				<&incall_record_tx>, <&incall_music_rx>,
-				<&incall_music_2_rx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&afe_pcm_rx_1>, <&afe_proxy_tx_1>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_rx_1>,
 				<&dai_pri_tdm_rx_2>, <&dai_pri_tdm_rx_3>,
@@ -544,6 +561,7 @@
 				"msm-dai-q6-auxpcm.4", "msm-dai-q6-auxpcm.5",
 				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.226", "msm-dai-q6-dev.242",
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",

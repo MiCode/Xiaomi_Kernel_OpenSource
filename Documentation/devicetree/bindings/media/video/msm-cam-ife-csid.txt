@@ -17,6 +17,8 @@ First Level Node - CAM IFE CSID device
   Value type: <string>
   Definition: Should be "qcom,csid170", "qcom,csid175", "qcom,csid175_200", "qcom,csid-lite170"
               or "qcom,csid-lite175".
+              For automotive, can specify "qcom,ais-csid170", "qcom,ais-csid175", "qcom,ais-csid175_200", "qcom,ais-csid-lite170"
+              or "qcom,ais-csid-lite175"
 
 - cell-index
   Usage: required

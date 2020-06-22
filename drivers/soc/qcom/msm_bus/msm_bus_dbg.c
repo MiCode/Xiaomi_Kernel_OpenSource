@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, 2014-2018, The Linux Foundation. All rights
+/* Copyright (c) 2010-2012, 2014-2018, 2020, The Linux Foundation. All rights
  * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,6 @@
 #include "msm_bus_core.h"
 #include "msm_bus_adhoc.h"
 
-#define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_bus.h>
 
 #define MAX_BUFF_SIZE 4096

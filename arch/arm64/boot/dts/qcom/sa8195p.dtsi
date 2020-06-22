@@ -25,6 +25,17 @@
 	qcom,msm-id = <405 0x20000>;
 };
 
+&mdss_mdp {
+	/* roi misr related hw block */
+	qcom,sde-roi-misr-off = <0x82820 0x82880 0x828e0
+				0x82940 0x829a0 0x82a00>;
+	qcom,sde-roi-misr-size = <0x60>;
+
+	qcom,sde-dspp-blocks {
+		qcom,sde-dspp-roi-misr = <0x1200 0x00010000>;
+	};
+};
+
 &soc {
 	hsi2s: qcom,hsi2s {
 		compatible = "qcom,sa8195-hsi2s", "qcom,hsi2s";
@@ -330,6 +341,31 @@
 	status= "ok";
 };
 
+&ufs2phy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4";
+	vdda-phy-supply = <&pm8195_3_l5>;
+	vdda-pll-supply = <&pm8195_1_l9>;
+	vdda-phy-max-microamp = <138000>;
+	vdda-pll-max-microamp = <65100>;
+
+	status = "disabled";
+};
+
+&ufshc2_mem {
+	vdd-hba-supply = <&ufs_card_2_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8195_1_l17>;
+	vcc-voltage-level = <2894000 2904000>;
+	vcc-low-voltage-sup;
+	vccq-supply = <&pm8195_2_l5>;
+	vccq2-supply = <&pm8195_s4>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <750000>;
+	vccq2-max-microamp = <750000>;
+
+	status= "disabled";
+};
+
 &usb2_phy0 {
 	vdd-supply = <&pm8195_3_l5>;
 	vdda18-supply = <&pm8195_1_l12>;
@@ -359,7 +395,17 @@
 	vdda-1p2-supply = <&pm8195_1_l9>;
 };
 
-&sde_dp {
+&sde_dp0 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&sde_dp1 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&sde_edp {
 	vdda-1p2-supply = <&pm8195_1_l9>;
 	vdda-0p9-supply = <&pm8195_3_l5>;
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,24 @@ static int32_t cam_pmic_ir_led_off(struct cam_ir_led_ctrl *ictrl)
 	if (rc)
 		CAM_ERR(CAM_IR_LED, "gpio operation failed(%d)", rc);
 
+	CAM_INFO(CAM_IR_LED, "CAM_IR_LED_PACKET_OPCODE_OFF_Output_GPIO_1:%d",
+		ictrl->soc_info.gpio_data->cam_gpio_common_tbl[0].gpio);
+	rc = gpio_direction_output(
+		ictrl->soc_info.gpio_data->cam_gpio_common_tbl[0].gpio,
+		0);
+	if (rc) {
+		CAM_ERR(CAM_IR_LED, "gpio operation failed(%d)", rc);
+		return rc;
+	}
+	CAM_INFO(CAM_IR_LED, "CAM_IR_LED_PACKET_OPCODE_OFF_Output_GPIO_2:%d",
+		ictrl->soc_info.gpio_data->cam_gpio_common_tbl[1].gpio);
+	rc = gpio_direction_output(
+		ictrl->soc_info.gpio_data->cam_gpio_common_tbl[1].gpio,
+		1);
+	if (rc) {
+		CAM_ERR(CAM_IR_LED, "gpio operation failed(%d)", rc);
+		return rc;
+	}
 	return rc;
 }
 
@@ -96,7 +114,7 @@ static int32_t cam_pmic_ir_led_on(
 		}
 		rc = gpio_direction_output(
 			ictrl->soc_info.gpio_data->cam_gpio_common_tbl[1].gpio,
-			1);
+			0);
 		if (rc) {
 			CAM_ERR(CAM_IR_LED, "gpio operation failed(%d)", rc);
 			return rc;

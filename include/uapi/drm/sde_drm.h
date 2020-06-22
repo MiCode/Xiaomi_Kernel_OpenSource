@@ -455,6 +455,30 @@ struct sde_drm_roi_v1 {
 };
 
 /**
+ * struct sde_drm_roi_misr_v1 - version 1 struct sde_drm_roi_misr
+ *
+ * @fence_fd_ptr:      roi misr fence fd pointer
+ * @roi_rect_num:      number of roi should be enabled
+ * @roi_ids:           the order number of every roi, this order
+ *                     are matches with roi range index in mode_info
+ * @roi_rects:         the rectangle information of every roi
+ * @roi_golden_value:  golden value is used to compare with the
+ *                     misr value calculated by h/w. if there is
+ *                     a mismatch, the misr fence will be signaled
+ *                     and the h/w calculated value will be returned
+ *                     in the misr fence. NULL if using default
+ *                     value of -1 for all roi misrs.
+ */
+#define SDE_DRM_ROI_MISR_V1
+struct sde_drm_roi_misr_v1 {
+	int64_t *fence_fd_ptr;
+	uint32_t roi_rect_num;
+	uint32_t *roi_ids;
+	struct drm_clip_rect *roi_rects;
+	uint32_t *roi_golden_value;
+};
+
+/**
  * Define extended power modes supported by the SDE connectors.
  */
 #define SDE_MODE_DPMS_ON	0

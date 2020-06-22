@@ -321,7 +321,7 @@ static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
 	struct net *net = dev_net(dev);
 
 	if (!net || !net->genl_sock || !net->genl_sock->sk_socket) {
-		ETHQOSINFO("Sock is null, unable to assign ipv4 address\n");
+		ETHQOSERR("Sock is null, unable to assign ipv4 address\n");
 		return res;
 	}
 	/*For valid Ipv4 address*/
@@ -862,6 +862,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 			dll_lock = rgmii_readl(ethqos, SDC4_STATUS);
 			if (dll_lock & SDC4_STATUS_DLL_LOCK)
 				break;
+			retry--;
 		} while (retry > 0);
 		if (!retry)
 			dev_err(&ethqos->pdev->dev,
@@ -971,6 +972,8 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 			phy_mac_interrupt(dev->phydev, LINK_DOWN);
 		} else if (!(phy_intr_status & AUTONEG_STATE_MASK)) {
 			ETHQOSDBG("Intr for link down with auto-neg err\n");
+		} else if (phy_intr_status & PHY_WOL) {
+			ETHQOSDBG("Interrupt received for WoL packet\n");
 		}
 	} else {
 		phy_intr_status =
@@ -1405,7 +1408,7 @@ static int ethqos_update_rgmii_tx_drv_strength(struct qcom_ethqos *ethqos)
 	    ethqos->pdev, IORESOURCE_MEM, "tlmm-central-base");
 
 	if (!resource) {
-		ETHQOSINFO("Resource tlmm-central-base not found\n");
+		ETHQOSERR("Resource tlmm-central-base not found\n");
 		goto err_out;
 	}
 
@@ -1463,6 +1466,8 @@ err_out:
 
 static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 {
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
 	ETHQOSINFO("Enter\n");
 
 	if (phy_intr_en)
@@ -1471,6 +1476,18 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 	ethqos->clks_suspended = 1;
 
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
+
+	if (priv->plat->stmmac_clk)
+		clk_disable_unprepare(priv->plat->stmmac_clk);
+
+	if (priv->plat->pclk)
+		clk_disable_unprepare(priv->plat->pclk);
+
+	if (priv->plat->clk_ptp_ref)
+		clk_disable_unprepare(priv->plat->clk_ptp_ref);
+
+	if (ethqos->rgmii_clk)
+		clk_disable_unprepare(ethqos->rgmii_clk);
 
 	ETHQOSINFO("Exit\n");
 }
@@ -1492,12 +1509,27 @@ inline bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos)
 	 */
 	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
 
-	return (priv->dev->phydev && priv->dev->phydev->link);
+	return ((priv->oldlink != -1) &&
+		(priv->dev->phydev && priv->dev->phydev->link));
 }
 
 static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 {
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+
 	ETHQOSINFO("Enter\n");
+
+	if (priv->plat->stmmac_clk)
+		clk_prepare_enable(priv->plat->stmmac_clk);
+
+	if (priv->plat->pclk)
+		clk_prepare_enable(priv->plat->pclk);
+
+	if (priv->plat->clk_ptp_ref)
+		clk_prepare_enable(priv->plat->clk_ptp_ref);
+
+	if (ethqos->rgmii_clk)
+		clk_prepare_enable(ethqos->rgmii_clk);
 
 	if (qcom_ethqos_is_phy_link_up(ethqos))
 		ethqos_update_rgmii_clk_and_bus_cfg(ethqos, ethqos->speed);
@@ -1558,11 +1590,11 @@ void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
 
 		wol.supported = 0;
 		wol.wolopts = 0;
-		ETHQOSINFO("phydev addr: 0x%pK\n", priv->phydev);
+		ETHQOSDBG("phydev addr: %x\n", priv->phydev);
 		phy_ethtool_get_wol(priv->phydev, &wol);
 		ethqos->phy_wol_supported = wol.supported;
-		ETHQOSINFO("Get WoL[0x%x] in %s\n", wol.supported,
-			   priv->phydev->drv->name);
+		ETHQOSDBG("Get WoL[0x%x] in %s\n", wol.supported,
+			  priv->phydev->drv->name);
 
 	/* Try to enable supported Wake-on-LAN features in PHY*/
 		if (wol.supported) {
@@ -1577,9 +1609,9 @@ void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
 				enable_irq_wake(ethqos->phy_intr);
 				device_set_wakeup_enable(&ethqos->pdev->dev, 1);
 
-				ETHQOSINFO("Enabled WoL[0x%x] in %s\n",
-					   wol.wolopts,
-					   priv->phydev->drv->name);
+				ETHQOSDBG("Enabled WoL[0x%x] in %s\n",
+					  wol.wolopts,
+					  priv->phydev->drv->name);
 			} else {
 				ETHQOSINFO("Disabled WoL[0x%x] in %s\n",
 					   wol.wolopts,
@@ -1597,7 +1629,7 @@ static void ethqos_is_ipv4_NW_stack_ready(struct work_struct *work)
 	struct net_device *ndev = NULL;
 	int ret;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Enter\n");
 	dwork = container_of(work, struct delayed_work, work);
 	ethqos = container_of(dwork, struct qcom_ethqos, ipv4_addr_assign_wq);
 
@@ -1627,7 +1659,7 @@ static void ethqos_is_ipv6_NW_stack_ready(struct work_struct *work)
 	struct net_device *ndev = NULL;
 	int ret;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Enter\n");
 	dwork = container_of(work, struct delayed_work, work);
 	ethqos = container_of(dwork, struct qcom_ethqos, ipv6_addr_assign_wq);
 
@@ -1696,6 +1728,10 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct stmmac_priv *priv;
 	int ret;
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,emac-smmu-embedded"))
+		return stmmac_emb_smmu_cb_probe(pdev);
+
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 	place_marker("M - Ethernet probe start");
 #endif
@@ -1705,11 +1741,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (!ipc_stmmac_log_ctxt)
 		ETHQOSERR("Error creating logging context for emac\n");
 	else
-		ETHQOSINFO("IPC logging has been enabled for emac\n");
-
-	if (of_device_is_compatible(pdev->dev.of_node,
-				    "qcom,emac-smmu-embedded"))
-		return stmmac_emb_smmu_cb_probe(pdev);
+		ETHQOSDBG("IPC logging has been enabled for emac\n");
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -1851,15 +1883,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ndev = dev_get_drvdata(&ethqos->pdev->dev);
 	priv = netdev_priv(ndev);
 
-	if (priv->phydev && priv->phydev->drv &&
-	    priv->phydev->drv->config_intr &&
-		!priv->phydev->drv->config_intr(priv->phydev)) {
-		qcom_ethqos_request_phy_wol(priv->plat);
-		priv->phydev->irq = PHY_IGNORE_INTERRUPT;
-		priv->phydev->interrupts =  PHY_INTERRUPT_ENABLED;
-	} else {
-		ETHQOSERR("config_phy_intr configuration failed");
-	}
 	if (ethqos->early_eth_enabled) {
 		/* Initialize work*/
 		INIT_WORK(&ethqos->early_eth,
@@ -2009,22 +2032,22 @@ static int __init qcom_ethqos_init_module(void)
 {
 	int ret = 0;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Enter\n");
 
 	ret = platform_driver_register(&qcom_ethqos_driver);
 	if (ret < 0) {
-		ETHQOSINFO("qcom-ethqos: Driver registration failed");
+		ETHQOSERR("qcom-ethqos: Driver registration failed");
 		return ret;
 	}
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Exit\n");
 
 	return ret;
 }
 
 static void __exit qcom_ethqos_exit_module(void)
 {
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Enter\n");
 
 	platform_driver_unregister(&qcom_ethqos_driver);
 
@@ -2036,7 +2059,7 @@ static void __exit qcom_ethqos_exit_module(void)
 
 	ipc_stmmac_log_ctxt = NULL;
 	ipc_stmmac_log_ctxt_low = NULL;
-	ETHQOSINFO("\n");
+	ETHQOSDBG("Exit\n");
 }
 
 /*!

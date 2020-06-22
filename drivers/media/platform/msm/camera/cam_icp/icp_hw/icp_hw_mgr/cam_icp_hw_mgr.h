@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,6 +219,7 @@ struct cam_ctx_clk_info {
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
  * @icp_dev_io_info: io config resource
+ * @last_flush_req: last flush req for this ctx
  */
 struct cam_icp_hw_ctx_data {
 	void *context_priv;
@@ -239,6 +240,7 @@ struct cam_icp_hw_ctx_data {
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;
 	struct cam_icp_acquire_dev_info icp_dev_io_info;
+	uint64_t last_flush_req;
 };
 
 /**

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -243,6 +243,7 @@ int mdss_qpic_overlay_init(struct msm_fb_data_type *mfd)
 	qpic_interface->dma_fnc = mdss_qpic_pan_display;
 	qpic_interface->ioctl_handler = NULL;
 	qpic_interface->kickoff_fnc = NULL;
+	qpic_interface->is_twm_en = NULL;
 	return 0;
 }
 

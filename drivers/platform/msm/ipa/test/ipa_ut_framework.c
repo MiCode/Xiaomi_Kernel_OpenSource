@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -931,7 +931,9 @@ static int ipa_ut_framework_init(void)
 
 	ipa_assert_on(!ipa_ut_ctx);
 
+#ifdef CONFIG_DEBUG_FS
 	ipa_ut_ctx->ipa_dbgfs_root = ipa_debugfs_get_root();
+#endif
 	if (!ipa_ut_ctx->ipa_dbgfs_root) {
 		IPA_UT_ERR("No IPA debugfs root entry\n");
 		return -EFAULT;

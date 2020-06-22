@@ -229,6 +229,7 @@ do {\
 #define LINK_STATE_MASK 0x4
 #define AUTONEG_STATE_MASK 0x20
 #define MICREL_LINK_UP_INTR_STATUS BIT(0)
+#define PHY_WOL 0x1
 
 #define VOTE_IDX_0MBPS 0
 #define VOTE_IDX_10MBPS 1

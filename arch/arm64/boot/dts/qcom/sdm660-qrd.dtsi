@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include "sdm660-camera-sensor-qrd.dtsi"
 #include "sdm660-external-codec.dtsi"
 / {
@@ -133,12 +135,13 @@
 
 &pm660_gpios {
 	/* GPIO 4 (NFC_CLK_REQ) */
-	gpio@c300 {
-		qcom,mode = <0>;
-		qcom,vin-sel = <1>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		status = "okay";
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+			pins = "gpio4";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
+		};
 	};
 };
 
@@ -153,23 +156,27 @@
 		qcom,nq-clkreq = <&pm660_gpios 4 0x00>;
 		qcom,nq-esepwr = <&tlmm 31 0x00>;
 		interrupt-parent = <&tlmm>;
+		qcom,clk-src = "BBCLK3";
 		interrupts = <28 0>;
 		interrupt-names = "nfc_irq";
 		pinctrl-names = "nfc_active", "nfc_suspend";
-		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+				&nfc_clk_default>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK3_PIN>;
+		clock-names = "ref_clk";
 	};
 };
 
 &pm660l_gpios {
 	/* GPIO 7 for VOL_UP */
-	gpio@c600 {
-		status = "ok";
-		qcom,mode = <0>;
-		qcom,pull = <0>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,out-strength = <1>;
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+		};
 	};
 };
 
@@ -215,13 +222,15 @@
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
 		status = "ok";
 
 		vol_up {
 			label = "volume_up";
-			gpios = <&pm660l_gpios 7 0x1>;
+			gpios = <&pm660l_gpios 7 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
-			linux,code = <115>;
+			linux,code = <KEY_VOLUMEUP>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};

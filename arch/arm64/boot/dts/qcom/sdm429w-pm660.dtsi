@@ -122,7 +122,7 @@
 	qcom,fg-bmd-en-delay-ms = <300>;
 	qcom,fg-force-load-profile;
 	qcom,fg-jeita-thresholds = <0 20 45 60>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pm660_haptics {
@@ -248,5 +248,6 @@
 };
 
 &usb_otg {
-	extcon = &pm660_charger;
+	extcon = <&pm660_charger>;
+	vbus_otg-supply = <&smb2_vbus>;
 };

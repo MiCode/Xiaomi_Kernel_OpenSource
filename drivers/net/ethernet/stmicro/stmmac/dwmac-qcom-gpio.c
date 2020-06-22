@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,7 +226,7 @@ int ethqos_init_pinctrl(struct device *dev)
 			return ret;
 		}
 
-		ETHQOSINFO("pinctrl_lookup_state %s succeded\n", name);
+		ETHQOSDBG("pinctrl_lookup_state %s succeded\n", name);
 
 		ret = pinctrl_select_state(pinctrl, pinctrl_state);
 		if (ret) {
@@ -234,7 +234,7 @@ int ethqos_init_pinctrl(struct device *dev)
 			return ret;
 		}
 
-		ETHQOSINFO("pinctrl_select_state %s succeded\n", name);
+		ETHQOSDBG("pinctrl_select_state %s succeded\n", name);
 	}
 
 	return ret;

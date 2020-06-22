@@ -239,6 +239,7 @@ struct msm_mdp_interface {
 					int retire_cnt);
 	int (*enable_panel_disable_mode)(struct msm_fb_data_type *mfd,
 		bool disable_panel);
+	bool (*is_twm_en)(void);
 	void *private1;
 };
 

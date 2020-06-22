@@ -17,7 +17,6 @@ Required properties:
 Optional property:
  - qcom,clk-freq-out: Desired I2C bus clock frequency in Hz.
    When missing default to 400000Hz.
- - ssr-enable: Required only for SSC QupV3 client for SSR notification.
  - qcom,clk-cfg: Array of <u32>, clk cfg array should have 2nd to 5th parameter as
    suggested by hardware expert. Standard frequency parameters taken cared by the
    driver itself. This field is needed only if client freq is not from the i2c standard

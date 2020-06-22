@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "qcs610-iot.dtsi"
 #include "sm6150-audio-overlay.dtsi"
 #include "sm6150-camera-sensor-idp.dtsi"
 / {
@@ -36,7 +35,7 @@
 &sm6150_snd {
 	status = "okay";
 	compatible = "qcom,sm6150-asoc-snd";
-	qcom,model = "sm6150-idp-snd-card";
+	qcom,model = "sm6150-ipc-snd-card";
 	qcom,audio-routing =
 		"AMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Analog Mic1",

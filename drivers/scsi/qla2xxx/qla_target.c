@@ -1210,7 +1210,6 @@ void qlt_schedule_sess_for_deletion(struct fc_port *sess,
 	    "Scheduling sess %p for deletion %8phC\n",
 	    sess, sess->port_name);
 
-	INIT_WORK(&sess->del_work, qla24xx_delete_sess_fn);
 	queue_work(sess->vha->hw->wq, &sess->del_work);
 }
 

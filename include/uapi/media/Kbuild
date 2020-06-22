@@ -9,6 +9,7 @@ header-y += cam_jpeg.h
 header-y += cam_req_mgr.h
 header-y += cam_sensor.h
 header-y += cam_sync.h
+header-y += ais_isp.h
 header-y += ais_sensor.h
 header-y += msm_media_info.h
 header-y += msm_vidc.h

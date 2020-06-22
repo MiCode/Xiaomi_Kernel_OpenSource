@@ -295,6 +295,8 @@ static int __init init_bootkpi(void)
 		return -ENODEV;
 	}
 
+	debugfs_create_dir("bootloader_log", dent_bkpi);
+
 	INIT_LIST_HEAD(&boot_marker_list.list);
 	spin_lock_init(&boot_marker_list.slock);
 	set_bootloader_stats(false);

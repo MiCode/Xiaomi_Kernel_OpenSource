@@ -19,6 +19,17 @@
 	compatible = "qcom,sa515m-ttp",
 		"qcom,sdxprairie","qcom,ttp";
 	qcom,board-id = <30 1> , <30 0x101>;
+
+	/delete-node/ qcom_gadget;
+	qcom_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,vid = <0x05c6>;
+
+		composition1 {
+			qcom,pid = <0x9105>;
+			qcom,composition = "diag.diag,gsi.dpl";
+		};
+	};
 };
 
 &ipa_hw {

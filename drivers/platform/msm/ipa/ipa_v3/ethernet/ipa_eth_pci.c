@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,6 +95,11 @@ static struct ipa_eth_device *lookup_eth_dev(struct pci_dev *pdev)
 	return eth_dev;
 }
 
+static struct ipa_eth_device *dev_to_eth_dev(struct device *dev)
+{
+	return lookup_eth_dev(to_pci_dev(dev));
+}
+
 static bool is_driver_used(struct ipa_eth_pci_driver *eth_pdrv)
 {
 	bool in_use = false;
@@ -123,11 +128,10 @@ static void ipa_eth_pcie_event_wakeup(struct pci_dev *pdev)
 		return;
 	}
 
-	/* Just set the flag here. ipa_eth_pm_notifier_cb() will later
-	 * schedule global refresh.
-	 */
-	if (eth_dev->start_on_wakeup)
+	if (eth_dev->start_on_wakeup && !eth_dev->start) {
 		eth_dev->start = true;
+		ipa_eth_device_refresh_sched(eth_dev);
+	}
 }
 
 static void ipa_eth_pcie_event_cb(struct msm_pcie_notify *notify)
@@ -254,9 +258,9 @@ static int ipa_eth_pci_probe_handler(struct pci_dev *pdev,
 	ipa_eth_dbg("PCI probe called for %s driver with devfn %u",
 		    pdev->driver->name, pdev->devfn);
 
-	if (!ipa_eth_pci_is_ready) {
-		ipa_eth_err("Offload sub-system PCI module is not initialized");
-		ipa_eth_err("PCI probe for device is deferred");
+	if (!ipa_eth_is_ready()) {
+		ipa_eth_log(
+			"Offload sub-system not initialized, deferring probe");
 		return -EPROBE_DEFER;
 	}
 
@@ -311,16 +315,22 @@ static int ipa_eth_pci_suspend_handler(struct device *dev)
 {
 	int rc = 0;
 	struct ipa_eth_device *eth_dev;
-	struct pci_dev *pci_dev = to_pci_dev(dev);
 
-	eth_dev = lookup_eth_dev(pci_dev);
+	eth_dev = dev_to_eth_dev(dev);
 	if (!eth_dev) {
 		ipa_eth_bug("Failed to lookup pci_dev -> eth_dev");
 		return -EFAULT;
 	}
 
-	if (work_pending(&eth_dev->refresh))
+	if (work_pending(&eth_dev->refresh)) {
+		ipa_eth_dev_log(eth_dev,
+			"Refresh work is pending, aborting suspend");
+
+		/* Just abort suspend. Since the wq is freezable, the work item
+		 * would get flushed before we get called again.
+		 */
 		return -EAGAIN;
+	}
 
 	/* When offload is started, PCI power collapse is already disabled by
 	 * the ipa_eth_pci_disable_pc() api. Nonetheless, we still need to do
@@ -328,9 +338,9 @@ static int ipa_eth_pci_suspend_handler(struct device *dev)
 	 * itself perform a config space save-restore.
 	 */
 	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
-		ipa_eth_dev_log(eth_dev,
+		ipa_eth_dev_dbg(eth_dev,
 			"Device suspend performing dummy config space save");
-		rc = pci_save_state(pci_dev);
+		rc = pci_save_state(to_pci_dev(dev));
 	} else {
 		ipa_eth_dev_log(eth_dev,
 			"Device suspend delegated to net driver");
@@ -338,11 +348,59 @@ static int ipa_eth_pci_suspend_handler(struct device *dev)
 	}
 
 	if (rc)
-		ipa_eth_dev_log(eth_dev, "Device suspend failed");
+		ipa_eth_dev_err(eth_dev, "Device suspend failed");
 	else
-		ipa_eth_dev_log(eth_dev, "Device suspend complete");
+		ipa_eth_dev_dbg(eth_dev, "Device suspend complete");
 
 	return rc;
+}
+
+static int ipa_eth_pci_suspend_late_handler(struct device *dev)
+{
+	struct ipa_eth_device *eth_dev;
+
+	eth_dev = dev_to_eth_dev(dev);
+	if (!eth_dev) {
+		ipa_eth_bug("Failed to lookup pci_dev -> eth_dev");
+		return -EFAULT;
+	}
+
+	/* In rare case where we detect some interface activity between the
+	 * time PM_SUSPEND_PREPARE event was processed and the device was
+	 * actually frozen, abort the suspend operation.
+	 */
+	if (ipa_eth_net_check_active(eth_dev)) {
+		pr_info("%s: %s shows late stage activity, preventing suspend",
+				IPA_ETH_SUBSYS, eth_dev->net_dev->name);
+
+		/* Have PM_SUSPEND_PREPARE give us one wakeup time quanta */
+		eth_dev_priv(eth_dev)->assume_active++;
+
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static int ipa_eth_pci_resume_early_handler(struct device *dev)
+{
+	struct ipa_eth_device *eth_dev;
+
+	eth_dev = dev_to_eth_dev(dev);
+	if (!eth_dev) {
+		ipa_eth_bug("Failed to lookup pci_dev -> eth_dev");
+		return -EFAULT;
+	}
+
+	/* We cannot check start_on_resume in the resume handler as it can get
+	 * invoked also if .suspend_late() aborts due to interface activity.
+	 */
+	if (eth_dev->start_on_resume && !eth_dev->start) {
+		eth_dev->start = true;
+		ipa_eth_device_refresh_sched(eth_dev);
+	}
+
+	return 0;
 }
 
 static int ipa_eth_pci_resume_handler(struct device *dev)
@@ -357,30 +415,27 @@ static int ipa_eth_pci_resume_handler(struct device *dev)
 		return -EFAULT;
 	}
 
-	/* Just set the flag here. ipa_eth_pm_notifier_cb() will later schedule
-	 * global refresh.
-	 */
-	if (eth_dev->start_on_resume)
-		eth_dev->start = true;
-
 	/* During suspend, RC power collapse would not have happened if offload
 	 * was started. Ignore resume callback since the device does not need
 	 * to be re-initialized.
 	 */
 	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
-		ipa_eth_dev_log(eth_dev,
+		ipa_eth_dev_dbg(eth_dev,
 			"Device resume performing nop");
 		rc = 0;
 	} else {
 		ipa_eth_dev_log(eth_dev,
 			"Device resume delegated to net driver");
 		rc = eth_dev_pm_ops(eth_dev)->resume(dev);
+
+		/* Give some time after a resume for the device to settle */
+		eth_dev_priv(eth_dev)->assume_active++;
 	}
 
 	if (rc)
-		ipa_eth_dev_log(eth_dev, "Device resume failed");
+		ipa_eth_dev_err(eth_dev, "Device resume failed");
 	else
-		ipa_eth_dev_log(eth_dev, "Device resume complete");
+		ipa_eth_dev_dbg(eth_dev, "Device resume complete");
 
 	return 0;
 }
@@ -390,6 +445,8 @@ static int ipa_eth_pci_resume_handler(struct device *dev)
  */
 static const struct dev_pm_ops ipa_eth_pci_pm_ops = {
 	.suspend = ipa_eth_pci_suspend_handler,
+	.suspend_late = ipa_eth_pci_suspend_late_handler,
+	.resume_early = ipa_eth_pci_resume_early_handler,
 	.resume = ipa_eth_pci_resume_handler,
 };
 

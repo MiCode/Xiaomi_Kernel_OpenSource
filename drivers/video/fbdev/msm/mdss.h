@@ -512,6 +512,7 @@ struct mdss_data_type {
 	u32 min_prefill_lines; /* this changes within different chipsets */
 	u32 props;
 
+	bool twm_en;
 	int handoff_pending;
 	bool idle_pc;
 	struct mdss_perf_tune perf_tune;

@@ -178,8 +178,8 @@ struct spi_geni_master {
 };
 
 static void spi_slv_setup(struct spi_geni_master *mas);
-static int ssr_spi_force_suspend(struct device *dev);
-static int ssr_spi_force_resume(struct device *dev);
+static void ssr_spi_force_suspend(struct device *dev);
+static void ssr_spi_force_resume(struct device *dev);
 
 static ssize_t show_slave_state(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -283,6 +283,7 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 						int bits_per_word)
 {
+	struct spi_master *spi = get_spi_master(mas->dev);
 	int pack_words = 1;
 	bool msb_first = (mode & SPI_LSB_FIRST) ? false : true;
 	u32 word_len = geni_read_reg(mas->base, SE_SPI_WORD_LEN);
@@ -294,10 +295,18 @@ static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 	 */
 	if (!(mas->tx_fifo_width % bits_per_word))
 		pack_words = mas->tx_fifo_width / bits_per_word;
-	word_len &= ~WORD_LEN_MSK;
-	word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
 	se_config_packing(mas->base, bits_per_word, pack_words, msb_first);
-	geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+
+	/*
+	 * Don't configure SPI word length for SPI Slave it is an optional
+	 * property for SPI Slave. H/W will take care of SPI slave word
+	 * if SPI_SLAVE_EN bit is set.
+	 */
+	if (!spi->slave) {
+		word_len &= ~WORD_LEN_MSK;
+		word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
+		geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+	}
 	se_get_packing_config(bits_per_word, pack_words, msb_first,
 							&cfg0, &cfg1);
 	GENI_SE_DBG(mas->ipc, false, mas->dev,
@@ -1584,8 +1593,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 	}
 	geni_mas->wrapper_dev = &wrapper_pdev->dev;
 	geni_mas->spi_rsc.wrapper_dev = &wrapper_pdev->dev;
-	rsc->rsc_ssr.ssr_enable = of_property_read_bool(pdev->dev.of_node,
-			"ssr-enable");
 	ret = geni_se_resources_init(rsc, SPI_CORE2X_VOTE,
 				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
 	if (ret) {
@@ -1864,7 +1871,7 @@ static int spi_geni_suspend(struct device *dev)
 }
 #endif
 
-static int ssr_spi_force_suspend(struct device *dev)
+static void ssr_spi_force_suspend(struct device *dev)
 {
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
@@ -1888,11 +1895,9 @@ static int ssr_spi_force_suspend(struct device *dev)
 
 	GENI_SE_DBG(mas->ipc, false, mas->dev, "force suspend done\n");
 	mutex_unlock(&mas->spi_ssr.ssr_lock);
-
-	return ret;
 }
 
-static int ssr_spi_force_resume(struct device *dev)
+static void ssr_spi_force_resume(struct device *dev)
 {
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
@@ -1901,8 +1906,6 @@ static int ssr_spi_force_resume(struct device *dev)
 	mas->spi_ssr.is_ssr_down = false;
 	GENI_SE_DBG(mas->ipc, false, mas->dev, "force resume done\n");
 	mutex_unlock(&mas->spi_ssr.ssr_lock);
-
-	return 0;
 }
 
 static const struct dev_pm_ops spi_geni_pm_ops = {
