@@ -41,7 +41,7 @@
 
 #define PLL_USER_CTL(p)		((p)->offset + (p)->regs[PLL_OFF_USER_CTL])
 # define PLL_POST_DIV_SHIFT	8
-# define PLL_POST_DIV_MASK(p)	GENMASK((p)->width, 0)
+# define PLL_POST_DIV_MASK(p)	GENMASK((p)->width - 1, 0)
 # define PLL_ALPHA_EN		BIT(24)
 # define PLL_ALPHA_MODE		BIT(25)
 # define PLL_VCO_SHIFT		20
@@ -1184,7 +1184,7 @@ static void clk_trion_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 		{"PLL_TEST_CTL_U", PLL_OFF_TEST_CTL_U},
 		{"PLL_TEST_CTL_U1", PLL_OFF_TEST_CTL_U1},
 		{"PLL_STATUS", PLL_OFF_STATUS},
-		{"PLL_OPMODE", PLL_OFF_MODE},
+		{"PLL_OPMODE", PLL_OFF_OPMODE},
 		{"PLL_ALPHA_VAL", PLL_OFF_ALPHA_VAL},
 	};
 
@@ -2330,6 +2330,11 @@ clk_trion_pll_postdiv_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	struct regmap *regmap = pll->clkr.regmap;
 	u32 i, div = 1, val;
 
+	if (!pll->post_div_table) {
+		pr_err("Missing the post_div_table for the PLL\n");
+		return -EINVAL;
+	}
+
 	regmap_read(regmap, PLL_USER_CTL(pll), &val);
 
 	val >>= pll->post_div_shift;
@@ -2363,6 +2368,11 @@ clk_trion_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct regmap *regmap = pll->clkr.regmap;
 	int i, val = 0, div;
 
+	if (!pll->post_div_table) {
+		pr_err("Missing the post_div_table for the PLL\n");
+		return -EINVAL;
+	}
+
 	div = DIV_ROUND_UP_ULL(parent_rate, rate);
 	for (i = 0; i < pll->num_post_div; i++) {
 		if (pll->post_div_table[i].div == div) {
@@ -2372,8 +2382,8 @@ clk_trion_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 	return regmap_update_bits(regmap, PLL_USER_CTL(pll),
-				  PLL_POST_DIV_MASK(pll) << PLL_POST_DIV_SHIFT,
-				  val << PLL_POST_DIV_SHIFT);
+				  PLL_POST_DIV_MASK(pll) << pll->post_div_shift,
+				  val << pll->post_div_shift);
 }
 
 const struct clk_ops clk_trion_pll_postdiv_ops = {
