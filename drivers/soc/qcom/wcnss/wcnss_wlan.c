@@ -1335,6 +1335,12 @@ struct rpmsg_endpoint *wcnss_open_channel(const char *name, rpmsg_rx_cb_t cb,
 }
 EXPORT_SYMBOL(wcnss_open_channel);
 
+void wcnss_close_channel(struct rpmsg_endpoint *channel)
+{
+	rpmsg_destroy_ept(channel);
+}
+EXPORT_SYMBOL(wcnss_close_channel);
+
 static int wcnss_ctrl_smd_callback(struct rpmsg_device *rpdev,
 				   void *data,
 				   int count,

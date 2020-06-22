@@ -169,6 +169,7 @@ int wcnss_get_wlan_unsafe_channel(
 				u16 *ch_count);
 struct rpmsg_endpoint *wcnss_open_channel(const char *name,
 					  rpmsg_rx_cb_t cb, void *priv);
+void wcnss_close_channel(struct rpmsg_endpoint *channel);
 int wcnss_smd_tx(struct rpmsg_endpoint *channel, void *data, int len);
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
