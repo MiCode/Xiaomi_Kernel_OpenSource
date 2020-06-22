@@ -29,6 +29,7 @@
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			next-level-cache = <&L2_0>;
+			qcom,freq-domain = <&cpufreq_hw 0 6>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -51,6 +52,7 @@
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			next-level-cache = <&L2_1>;
+			qcom,freq-domain = <&cpufreq_hw 0 6>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -68,6 +70,7 @@
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			next-level-cache = <&L2_2>;
+			qcom,freq-domain = <&cpufreq_hw 0 6>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -85,6 +88,7 @@
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			next-level-cache = <&L2_3>;
+			qcom,freq-domain = <&cpufreq_hw 0 6>;
 			L2_3: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -102,6 +106,7 @@
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			next-level-cache = <&L2_4>;
+			qcom,freq-domain = <&cpufreq_hw 0 6>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -119,6 +124,7 @@
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			next-level-cache = <&L2_5>;
+			qcom,freq-domain = <&cpufreq_hw 0 6>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -136,6 +142,7 @@
 			capacity-dmips-mhz = <1740>;
 			dynamic-power-coefficient = <324>;
 			next-level-cache = <&L2_6>;
+			qcom,freq-domain = <&cpufreq_hw 1 2>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -153,6 +160,7 @@
 			capacity-dmips-mhz = <1740>;
 			dynamic-power-coefficient = <324>;
 			next-level-cache = <&L2_7>;
+			qcom,freq-domain = <&cpufreq_hw 1 2>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -623,6 +631,18 @@
 		clock-output-names = "gpucc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	cpufreq_hw: qcom,cpufreq-hw {
+		compatible = "qcom,cpufreq-hw-epss";
+		reg = <0x0fd91000 0x1000>, <0x0fd92000 0x1000>;
+		reg-names = "freq-domain0", "freq-domain1";
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>, <&gcc GPLL0>;
+		clock-names = "xo", "alternate";
+		qcom,lut-row-size = <4>;
+		qcom,max-lut-entries = <12>;
+		qcom,skip-enable-check;
+		#freq-domain-cells = <2>;
 	};
 
 	tcsr_mutex_block: syscon@340000 {
