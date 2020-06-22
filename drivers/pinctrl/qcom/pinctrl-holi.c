@@ -269,14 +269,14 @@ static const struct pinctrl_pin_desc holi_pins[] = {
 	PINCTRL_PIN(153, "GPIO_153"),
 	PINCTRL_PIN(154, "GPIO_154"),
 	PINCTRL_PIN(155, "GPIO_155"),
-	PINCTRL_PIN(156, "SDC1_RCLK"),
-	PINCTRL_PIN(157, "SDC1_CLK"),
-	PINCTRL_PIN(158, "SDC1_CMD"),
-	PINCTRL_PIN(159, "SDC1_DATA"),
-	PINCTRL_PIN(160, "SDC2_CLK"),
-	PINCTRL_PIN(161, "SDC2_CMD"),
-	PINCTRL_PIN(162, "SDC2_DATA"),
-	PINCTRL_PIN(163, "UFS_RESET"),
+	PINCTRL_PIN(156, "UFS_RESET"),
+	PINCTRL_PIN(157, "SDC1_RCLK"),
+	PINCTRL_PIN(158, "SDC1_CLK"),
+	PINCTRL_PIN(159, "SDC1_CMD"),
+	PINCTRL_PIN(160, "SDC1_DATA"),
+	PINCTRL_PIN(161, "SDC2_CLK"),
+	PINCTRL_PIN(162, "SDC2_CMD"),
+	PINCTRL_PIN(163, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -438,14 +438,14 @@ DECLARE_MSM_GPIO_PINS(153);
 DECLARE_MSM_GPIO_PINS(154);
 DECLARE_MSM_GPIO_PINS(155);
 
-static const unsigned int sdc1_rclk_pins[] = { 156 };
-static const unsigned int sdc1_clk_pins[] = { 157 };
-static const unsigned int sdc1_cmd_pins[] = { 158 };
-static const unsigned int sdc1_data_pins[] = { 159 };
-static const unsigned int sdc2_clk_pins[] = { 160 };
-static const unsigned int sdc2_cmd_pins[] = { 161 };
-static const unsigned int sdc2_data_pins[] = { 162 };
-static const unsigned int ufs_reset_pins[] = { 163 };
+static const unsigned int sdc1_rclk_pins[] = { 157 };
+static const unsigned int sdc1_clk_pins[] = { 158 };
+static const unsigned int sdc1_cmd_pins[] = { 159 };
+static const unsigned int sdc1_data_pins[] = { 160 };
+static const unsigned int sdc2_clk_pins[] = { 161 };
+static const unsigned int sdc2_cmd_pins[] = { 162 };
+static const unsigned int sdc2_data_pins[] = { 163 };
+static const unsigned int ufs_reset_pins[] = { 156 };
 
 enum holi_functions {
 	msm_mux_gpio,
@@ -1521,14 +1521,14 @@ static const struct msm_pingroup holi_groups[] = {
 	[153] = PINGROUP(153, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C004, 12),
 	[154] = PINGROUP(154, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[155] = PINGROUP(155, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C004, 13),
-	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0000, 0, 0),
-	[157] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1a0000, 13, 6),
-	[158] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1a0000, 11, 3),
-	[159] = SDC_QDSD_PINGROUP(sdc1_data, 0x1a0000, 9, 0),
-	[160] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1a2000, 14, 6),
-	[161] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1a2000, 11, 3),
-	[162] = SDC_QDSD_PINGROUP(sdc2_data, 0x1a2000, 9, 0),
-	[163] = UFS_RESET(ufs_reset, 0x1ae000),
+	[156] = UFS_RESET(ufs_reset, 0x1ae000),
+	[157] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1a0000, 15, 0),
+	[158] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1a0000, 13, 6),
+	[159] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1a0000, 11, 3),
+	[160] = SDC_QDSD_PINGROUP(sdc1_data, 0x1a0000, 9, 0),
+	[161] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1a2000, 14, 6),
+	[162] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1a2000, 11, 3),
+	[163] = SDC_QDSD_PINGROUP(sdc2_data, 0x1a2000, 9, 0),
 };
 
 static const struct msm_pinctrl_soc_data holi_pinctrl = {
@@ -1538,7 +1538,7 @@ static const struct msm_pinctrl_soc_data holi_pinctrl = {
 	.nfunctions = ARRAY_SIZE(holi_functions),
 	.groups = holi_groups,
 	.ngroups = ARRAY_SIZE(holi_groups),
-	.ngpios = 156,
+	.ngpios = 157,
 };
 
 static int holi_pinctrl_probe(struct platform_device *pdev)
