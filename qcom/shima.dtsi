@@ -989,6 +989,14 @@
 		#freq-domain-cells = <2>;
 	};
 
+	qcom,cpufreq-hw-debug@18591000 {
+		compatible = "qcom,cpufreq-hw-epss-debug";
+		reg = <0x18591000 0x800>;
+		reg-names = "domain-top";
+		qcom,freq-hw-domain = <&cpufreq_hw 0>, <&cpufreq_hw 1>,
+					<&cpufreq_hw 2>;
+	};
+
 	qcom_tzlog: tz-log@0x146aa720 {
 		compatible = "qcom,tz-log";
 		reg = <0x146aa720 0x3000>;

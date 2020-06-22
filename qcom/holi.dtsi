@@ -1243,6 +1243,13 @@
 		#freq-domain-cells = <2>;
 	};
 
+	qcom,cpufreq-hw-debug@0fd91000 {
+		compatible = "qcom,cpufreq-hw-epss-debug";
+		reg = <0x0fd91000 0x800>;
+		reg-names = "domain-top";
+		qcom,freq-hw-domain = <&cpufreq_hw 0>, <&cpufreq_hw 1>;
+	};
+
 	ddr_bw_opp_table: ddr-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY(  200, 4); /*   762 MB/s */
