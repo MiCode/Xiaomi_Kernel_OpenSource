@@ -21,6 +21,8 @@ Optional named gpio properties:
 
 - qcom,ap2mdm-status2-gpio: gpio for APQ to indicate graceful shutdown to modem.
 
+- qcom,default-policy-nop: Set default policy from PANIC to NOP.
+
 Example:
 	sdx_ext_ipc: qcom,sdx_ext_ipc {
 		compatible = "qcom,sdx-ext-ipc";

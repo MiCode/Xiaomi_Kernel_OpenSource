@@ -21,7 +21,7 @@
 	model = "Qualcomm Technologies, Inc. SDM429";
 	compatible = "qcom,sdm429";
 	qcom,msm-id = <416 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	chosen {
 		bootargs = "sched_enable_hmp=1 kpti=0";
@@ -150,6 +150,7 @@
 };
 
 #include "sdm429-bus.dtsi"
+#include "sdm429-pm.dtsi"
 #include "sdm429-pinctrl.dtsi"
 #include "sdm429-blsp.dtsi"
 #include "sdm429-cpu.dtsi"
@@ -169,6 +170,26 @@
 		reg = <0x0b000000 0x1000>,
 		      <0x0b002000 0x1000>;
 	};
+
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic-sdm429", "qcom,mpm-gic";
+		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x601d0 0x1000>,
+			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <64>;
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <3>;
+	};
+
+	wakegpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-sdm429", "qcom,mpm-gpio";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
+	};
+
 
 	timer {
 		compatible = "arm,armv8-timer";
@@ -236,6 +257,14 @@
 			reg = <0xb128000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+
+	restart@4ab000 {
+		compatible = "qcom,pshold";
+		reg = <0x4ab000 0x4>,
+			<0x193d100 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
 	clocks {
@@ -314,7 +343,6 @@
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		qcom,scandump-size = <0x40000>;
-		status = "disabled";
 	};
 
 	rpm_bus: qcom,rpm-smd {
@@ -487,7 +515,6 @@
 		HSUSB_1p8-supply = <&L12A>;
 		HSUSB_3p3-supply = <&L16A>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
-		vbus_otg-supply = <&smb2_vbus>;
 
 		qcom,hsusb-otg-phy-init-seq = <0x43 0x80 0x06 0x82 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */

@@ -15,6 +15,7 @@
 #define _WCNSS_WLAN_H_
 
 #include <linux/device.h>
+#include <linux/rpmsg.h>
 #include <linux/sched.h>
 
 #define IRIS_REGULATORS		4
@@ -43,7 +44,7 @@ struct wcnss_wlan_config {
 	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
 	unsigned int iris_id;
-	int	vbatt;
+	u32 vbatt;
 	struct vregs_level pronto_vlevel[PRONTO_REGULATORS];
 	struct vregs_level iris_vlevel[IRIS_REGULATORS];
 };
@@ -166,6 +167,8 @@ int wcnss_set_wlan_unsafe_channel(
 int wcnss_get_wlan_unsafe_channel(
 				u16 *unsafe_ch_list, u16 buffer_size,
 				u16 *ch_count);
+struct rpmsg_endpoint *wcnss_open_channel(const char *name,
+					  rpmsg_rx_cb_t cb, void *priv);
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
 /* WLAN driver uses these names */

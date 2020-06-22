@@ -31,23 +31,26 @@ TRACE_EVENT(lan_rx_skb,
 	TP_ARGS(ch, skb),
 	TP_STRUCT__entry(
 		__field(const char *, dev)
-		__field(int, queue)
-		__field(int, ep_num)
 		__field(const struct ethhdr *, eth_hdr)
 		__field(unsigned int, eth_proto)
 		__field(unsigned int, skb_len)
+		__field(u64, count_total)
+		__field(u64, count_drops)
+		__field(u64, count_loopback)
 	),
 	TP_fast_assign(
 		__entry->dev = ch->eth_dev->net_dev->name;
-		__entry->queue = ch->queue;
-		__entry->ep_num = ch->ipa_ep_num;
 		__entry->eth_hdr = (struct ethhdr *)skb->data;
 		__entry->eth_proto = ntohs(__entry->eth_hdr->h_proto);
 		__entry->skb_len = skb->len;
+		__entry->count_total = ch->exception_total;
+		__entry->count_drops = ch->exception_drops;
+		__entry->count_loopback = ch->exception_loopback;
 	),
-	TP_printk("dev=%s queue=%d ep_num=%d eth_proto=%04X skb_len=%u",
-		__entry->dev, __entry->queue, __entry->ep_num,
-		__entry->eth_proto, __entry->skb_len
+	TP_printk(
+		"dev=%s count_total=%llu count_drops=%llu count_loopback=%llu eth_proto=%04X skb_len=%u",
+		__entry->dev, __entry->count_total, __entry->count_drops,
+		__entry->count_loopback, __entry->eth_proto, __entry->skb_len
 	)
 );
 

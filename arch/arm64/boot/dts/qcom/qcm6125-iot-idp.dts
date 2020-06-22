@@ -1,4 +1,5 @@
-/* Copyright (c) 2020The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,11 +13,11 @@
 
 /dts-v1/;
 
-#include "sa515m-v2-ttp.dtsi"
+#include "qcm6125.dtsi"
+#include "qcm6125-iot-idp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SA515M TTP ";
-	compatible = "qcom,sa515m-ttp",
-		"qcom,sdxprairie","qcom,ttp";
-	qcom,board-id = <0x06010001 0x0>;
+	model = "Qualcomm Technologies, Inc. QCM6125 IOT IDP SoC";
+	compatible = "qcom,qcm6125";
+	qcom,board-id = <34 0>;
 };

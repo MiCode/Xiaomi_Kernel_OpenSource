@@ -48,6 +48,7 @@
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
 #include <linux/sched/task_stack.h>
+#include <soc/qcom/boot_stats.h>
 
 #include <linux/uaccess.h>
 #include <asm/sections.h>
@@ -2185,6 +2186,7 @@ void resume_console(void)
 {
 	if (!console_suspend_enabled)
 		return;
+	place_marker("M - System Resume Started");
 	down_console_sem();
 	console_suspended = 0;
 	console_unlock();
