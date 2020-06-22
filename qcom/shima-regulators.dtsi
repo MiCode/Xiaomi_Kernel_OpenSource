@@ -910,3 +910,14 @@
 		};
 	};
 };
+
+&soc {
+	refgen: refgen-regulator@ff1000 {
+		compatible = "qcom,refgen-kona-regulator";
+		reg = <0xff1000 0x84>;
+		regulator-name = "refgen";
+		proxy-supply = <&refgen>;
+		qcom,proxy-consumer-enable;
+		regulator-enable-ramp-delay = <5>;
+	};
+};
