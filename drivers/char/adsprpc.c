@@ -121,6 +121,9 @@
  */
 #define NUM_KERNEL_ONLY_CONTEXTS (10)
 
+/* Maximum number of pending contexts per remote session */
+#define MAX_PENDING_CTX_PER_SESSION (64)
+
 #define NUM_DEVICES   2 /* adsprpc-smd, adsprpc-smd-secure */
 #define MINOR_NUM_DEV 0
 #define MINOR_NUM_SECURE_DEV 1
@@ -355,6 +358,8 @@ struct smq_invoke_ctx {
 struct fastrpc_ctx_lst {
 	struct hlist_head pending;
 	struct hlist_head interrupted;
+	/* Number of active contexts queued to DSP */
+	uint32_t num_active_ctxs;
 	/* Queue which holds all async job contexts of process */
 	struct list_head async_queue;
 };
@@ -1604,6 +1609,13 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 
+	spin_lock(&fl->hlock);
+	if (fl->clst.num_active_ctxs > MAX_PENDING_CTX_PER_SESSION) {
+		err = -EDQUOT;
+		spin_unlock(&fl->hlock);
+		goto bail;
+	}
+	spin_unlock(&fl->hlock);
 	bufs = REMOTE_SCALARS_LENGTH(invoke->sc);
 	size = bufs * sizeof(*ctx->lpra) + bufs * sizeof(*ctx->maps) +
 		sizeof(*ctx->fds) * (bufs) +
@@ -1685,9 +1697,6 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		if (err)
 			goto bail;
 	}
-	spin_lock(&fl->hlock);
-	hlist_add_head(&ctx->hn, &clst->pending);
-	spin_unlock(&fl->hlock);
 
 	chan = &me->channel[cid];
 
@@ -1713,6 +1722,11 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		err = -ENOKEY;
 		goto bail;
 	}
+	spin_lock(&fl->hlock);
+	hlist_add_head(&ctx->hn, &clst->pending);
+	clst->num_active_ctxs++;
+	spin_unlock(&fl->hlock);
+
 	trace_fastrpc_context_alloc((uint64_t)ctx,
 		ctx->ctxid | fl->pd, ctx->handle, ctx->sc);
 	*po = ctx;
@@ -1758,7 +1772,10 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 
 	spin_lock(&ctx->fl->hlock);
-	hlist_del_init(&ctx->hn);
+	if (!hlist_unhashed(&ctx->hn)) {
+		hlist_del_init(&ctx->hn);
+		ctx->fl->clst.num_active_ctxs--;
+	}
 	spin_unlock(&ctx->fl->hlock);
 
 	mutex_lock(&ctx->fl->map_mutex);
@@ -1922,6 +1939,7 @@ static void context_list_ctor(struct fastrpc_ctx_lst *me)
 {
 	INIT_HLIST_HEAD(&me->interrupted);
 	INIT_HLIST_HEAD(&me->pending);
+	me->num_active_ctxs = 0;
 	INIT_LIST_HEAD(&me->async_queue);
 }
 
@@ -1936,6 +1954,7 @@ static void fastrpc_context_list_dtor(struct fastrpc_file *fl)
 		spin_lock(&fl->hlock);
 		hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
 			hlist_del_init(&ictx->hn);
+			clst->num_active_ctxs--;
 			ctxfree = ictx;
 			break;
 		}
@@ -1948,6 +1967,7 @@ static void fastrpc_context_list_dtor(struct fastrpc_file *fl)
 		spin_lock(&fl->hlock);
 		hlist_for_each_entry_safe(ictx, n, &clst->pending, hn) {
 			hlist_del_init(&ictx->hn);
+			clst->num_active_ctxs--;
 			ctxfree = ictx;
 			break;
 		}
