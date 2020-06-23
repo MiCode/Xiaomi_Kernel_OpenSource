@@ -435,6 +435,26 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 	qphy->tune2_val = reg_val;
 }
 
+static void qusb_phy_set_tcsr_clamp(struct qusb_phy *qphy)
+{
+	if (!qphy->tcsr_clamp_dig_n)
+		return;
+
+	writel_relaxed(0x1, qphy->tcsr_clamp_dig_n);
+
+}
+
+static void qusb_phy_clear_tcsr_clamp(struct qusb_phy *qphy,
+						bool check_eud_state)
+{
+	if (!qphy->tcsr_clamp_dig_n)
+		return;
+
+	if (!check_eud_state || !(qphy->eud_enable_reg
+			&& readl_relaxed(qphy->eud_enable_reg)))
+		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+}
+
 static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 		unsigned long delay)
 {
@@ -725,9 +745,7 @@ suspend:
 				/* Make sure that above write is completed */
 				wmb();
 
-				if (qphy->tcsr_clamp_dig_n)
-					writel_relaxed(0x0,
-						qphy->tcsr_clamp_dig_n);
+				qusb_phy_clear_tcsr_clamp(qphy, false);
 
 				qusb_phy_enable_clocks(qphy, false);
 				qusb_phy_enable_power(qphy, false);
@@ -754,9 +772,7 @@ suspend:
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 		} else {
 			qusb_phy_enable_power(qphy, true);
-			if (qphy->tcsr_clamp_dig_n)
-				writel_relaxed(0x1,
-					qphy->tcsr_clamp_dig_n);
+			qusb_phy_set_tcsr_clamp(qphy);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
@@ -893,9 +909,7 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 		}
 		qphy->dpdm_enable = true;
 		if (qphy->put_into_high_z_state) {
-			if (qphy->tcsr_clamp_dig_n)
-				writel_relaxed(0x1,
-				qphy->tcsr_clamp_dig_n);
+			qusb_phy_set_tcsr_clamp(qphy);
 
 			qusb_phy_gdsc(qphy, true);
 			qusb_phy_enable_clocks(qphy, true);
@@ -952,11 +966,9 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 	mutex_lock(&qphy->phy_lock);
 	if (qphy->dpdm_enable) {
 		/* If usb core is active, rely on set_suspend to clamp phy */
-		if (!qphy->cable_connected) {
-			if (qphy->tcsr_clamp_dig_n)
-				writel_relaxed(0x0,
-					qphy->tcsr_clamp_dig_n);
-		}
+		if (!qphy->cable_connected)
+			qusb_phy_clear_tcsr_clamp(qphy, false);
+
 		ret = qusb_phy_enable_power(qphy, false);
 		if (ret < 0) {
 			dev_dbg(qphy->phy.dev,
@@ -1284,8 +1296,7 @@ static int qusb_phy_prepare_chg_det(struct qusb_phy *qphy)
 	if (ret)
 		return ret;
 
-	if (qphy->tcsr_clamp_dig_n)
-		writel_relaxed(0x1, qphy->tcsr_clamp_dig_n);
+	qusb_phy_set_tcsr_clamp(qphy);
 	qusb_phy_enable_clocks(qphy, true);
 
 	return 0;
@@ -1306,8 +1317,7 @@ static void qusb_phy_unprepare_chg_det(struct qusb_phy *qphy)
 		dev_err(qphy->phy.dev, "deassert failed\n");
 
 	qusb_phy_enable_clocks(qphy, false);
-	if (qphy->tcsr_clamp_dig_n)
-		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+	qusb_phy_clear_tcsr_clamp(qphy, false);
 	qusb_phy_enable_power(qphy, false);
 
 	qphy->dpdm_enable = false;
@@ -1349,6 +1359,16 @@ static void qusb_phy_port_state_work(struct work_struct *w)
 		}
 
 		if (vbus_active) {
+			if (qphy->eud_enable_reg &&
+					readl_relaxed(qphy->eud_enable_reg)) {
+				pr_err("qusb: EUD is enabled, no charger detection\n");
+				qusb_phy_notify_charger(qphy,
+							POWER_SUPPLY_TYPE_USB);
+				qusb_phy_notify_extcon(qphy, EXTCON_USB, 1);
+				qphy->port_state = PORT_CHG_DET_DONE;
+				return;
+			}
+
 			/* Enable DCD sequence */
 			ret = qusb_phy_prepare_chg_det(qphy);
 			if (ret)
@@ -1781,8 +1801,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		usb_remove_phy(&qphy->phy);
 
 	/* de-assert clamp dig n to reduce leakage on 1p8 upon boot up */
-	if (qphy->tcsr_clamp_dig_n)
-		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+	qusb_phy_clear_tcsr_clamp(qphy, true);
 
 	/*
 	 * Write the usb_hs_ac_value to usb_hs_ac_bitmask of tcsr_conn_box_spare
