@@ -1605,6 +1605,18 @@
 			clock-names = "apb", "smi";
 		};
 
+		dvs: dvs@1b100000 {
+			compatible = "mediatek,dvs";
+			reg = <0 0x1b100000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		dvp: dvp@1b100800 {
+			compatible = "mediatek,dvp";
+			reg = <0 0x1b100000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
 		larb19: larb@1b10f000 {
 			compatible = "mediatek,mt6873-smi-larb";
 			mediatek,smi = <&smi_common>;
