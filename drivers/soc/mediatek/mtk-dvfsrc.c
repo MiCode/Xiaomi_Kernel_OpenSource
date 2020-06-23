@@ -4,6 +4,7 @@
  */
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
+#include <linux/fb.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
@@ -78,6 +79,7 @@ struct dvfsrc_soc_data {
 	int (*wait_for_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*wait_for_vcore_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*wait_for_dram_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
+	void (*fb_notifier_callback)(struct mtk_dvfsrc *dvfsrc, int fb_blank);
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 	void (*set_force_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 #endif
@@ -96,6 +98,7 @@ struct mtk_dvfsrc {
 	struct mutex req_lock;
 	struct mutex pstate_lock;
 	struct notifier_block scpsys_notifier;
+	struct notifier_block fb_notifier;
 	bool dvfsrc_enable;
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 	bool opp_forced;
@@ -751,6 +754,28 @@ static void pstate_notifier_register(struct mtk_dvfsrc *dvfsrc)
 	register_scpsys_notifier(&dvfsrc->scpsys_notifier);
 }
 
+
+static int dvfsrc_fb_callback(struct notifier_block *b,
+			      unsigned long event, void *data)
+{
+	struct mtk_dvfsrc *dvfsrc;
+	struct fb_event *evdata = data;
+
+	if (event != FB_EVENT_BLANK)
+		return 0;
+
+	dvfsrc = container_of(b, struct mtk_dvfsrc, fb_notifier);
+	dvfsrc->dvd->fb_notifier_callback(dvfsrc, *(int *)evdata->data);
+
+	return 0;
+}
+
+static int fb_notifier_register(struct mtk_dvfsrc *dvfsrc)
+{
+	dvfsrc->fb_notifier.notifier_call = dvfsrc_fb_callback;
+	return fb_register_client(&dvfsrc->fb_notifier);
+}
+
 static int mtk_dvfsrc_probe(struct platform_device *pdev)
 {
 	struct arm_smccc_res ares;
@@ -828,6 +853,9 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	ret = devm_of_platform_populate(dvfsrc->dev);
 	if (ret < 0)
 		goto unregister_start;
+
+	if (dvfsrc->dvd->fb_notifier_callback)
+		fb_notifier_register(dvfsrc);
 
 	return 0;
 
@@ -966,6 +994,15 @@ static void dvfsrc_init_mt6873(struct mtk_dvfsrc *dvfsrc)
 	dvfsrc_write(dvfsrc, DVFSRC_CURRENT_FORCE, 0x00000000);
 }
 
+static void mt6873_fb_callback(struct mtk_dvfsrc *dvfsrc, int fb_blank)
+{
+	/* switch md some scenario request policy*/
+	if (fb_blank == FB_BLANK_UNBLANK)
+		dvfsrc_write(dvfsrc, DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
+	else if (fb_blank == FB_BLANK_POWERDOWN)
+		dvfsrc_write(dvfsrc, DVFSRC_95MD_SCEN_BW1_T, 0x22244444);
+}
+
 static const struct dvfsrc_opp dvfsrc_opp_mt6873_lp4[] = {
 	{0, 0}, {1, 0}, {2, 0}, {3, 0},
 	{0, 1}, {1, 1}, {2, 1}, {3, 1},
@@ -984,6 +1021,7 @@ static const struct dvfsrc_soc_data mt6873_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
 	.regs = mt6873_regs,
 	.dvfsrc_hw_init = dvfsrc_init_mt6873,
+	.fb_notifier_callback = mt6873_fb_callback,
 	.get_target_level = mt6873_get_target_level,
 	.get_current_level = mt6873_get_current_level,
 	.get_vcore_level = mt6873_get_vcore_level,
@@ -1007,6 +1045,9 @@ static const struct dvfsrc_soc_data mt6873_data = {
 static int mtk_dvfsrc_remove(struct platform_device *pdev)
 {
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
+
+	if (dvfsrc->dvd->fb_notifier_callback)
+		fb_unregister_client(&dvfsrc->fb_notifier);
 
 	platform_device_unregister(dvfsrc->regulator);
 	platform_device_unregister(dvfsrc->icc);
