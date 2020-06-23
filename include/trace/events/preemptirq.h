@@ -65,9 +65,10 @@ DEFINE_EVENT(preemptirq_template, preempt_enable,
 TRACE_EVENT(irqs_disable,
 
 	TP_PROTO(u64 delta, unsigned long caddr0, unsigned long caddr1,
-				unsigned long caddr2, unsigned long caddr3),
+				unsigned long caddr2, unsigned long caddr3,
+				unsigned long caddr4),
 
-	TP_ARGS(delta, caddr0, caddr1, caddr2, caddr3),
+	TP_ARGS(delta, caddr0, caddr1, caddr2, caddr3, caddr4),
 
 	TP_STRUCT__entry(
 		__field(u64, delta)
@@ -75,6 +76,7 @@ TRACE_EVENT(irqs_disable,
 		__field(void*, caddr1)
 		__field(void*, caddr2)
 		__field(void*, caddr3)
+		__field(void*, caddr4)
 	),
 
 	TP_fast_assign(
@@ -83,20 +85,22 @@ TRACE_EVENT(irqs_disable,
 		__entry->caddr1 = (void *)caddr1;
 		__entry->caddr2 = (void *)caddr2;
 		__entry->caddr3 = (void *)caddr3;
+		__entry->caddr4 = (void *)caddr4;
 	),
 
-	TP_printk("delta=%llu(ns) Callers:(%ps<-%ps<-%ps<-%ps)", __entry->delta,
-					__entry->caddr0, __entry->caddr1,
-					__entry->caddr2, __entry->caddr3)
+	TP_printk("delta=%llu(ns) Callers:(%ps<-%ps<-%ps<-%ps<-%ps)",
+					__entry->delta, __entry->caddr0,
+					__entry->caddr1, __entry->caddr2,
+					__entry->caddr3, __entry->caddr4)
 );
 
 TRACE_EVENT(sched_preempt_disable,
 
-	TP_PROTO(u64 delta, bool irqs_disabled,
-			unsigned long caddr0, unsigned long caddr1,
-			unsigned long caddr2, unsigned long caddr3),
+	TP_PROTO(u64 delta, bool irqs_disabled,	unsigned long caddr0,
+			unsigned long caddr1, unsigned long caddr2,
+			unsigned long caddr3, unsigned long caddr4),
 
-	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3),
+	TP_ARGS(delta, irqs_disabled, caddr0, caddr1, caddr2, caddr3, caddr4),
 
 	TP_STRUCT__entry(
 		__field(u64, delta)
@@ -105,6 +109,7 @@ TRACE_EVENT(sched_preempt_disable,
 		__field(void*, caddr1)
 		__field(void*, caddr2)
 		__field(void*, caddr3)
+		__field(void*, caddr4)
 	),
 
 	TP_fast_assign(
@@ -114,12 +119,14 @@ TRACE_EVENT(sched_preempt_disable,
 		__entry->caddr1 = (void *)caddr1;
 		__entry->caddr2 = (void *)caddr2;
 		__entry->caddr3 = (void *)caddr3;
+		__entry->caddr4 = (void *)caddr4;
 	),
 
-	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%ps<-%ps<-%ps<-%ps)",
+	TP_printk("delta=%llu(ns) irqs_d=%d Callers:(%ps<-%ps<-%ps<-%ps<-%ps)",
 				__entry->delta, __entry->irqs_disabled,
 				__entry->caddr0, __entry->caddr1,
-				__entry->caddr2, __entry->caddr3)
+				__entry->caddr2, __entry->caddr3,
+				__entry->caddr4)
 );
 
 #endif /* _TRACE_PREEMPTIRQ_H */
