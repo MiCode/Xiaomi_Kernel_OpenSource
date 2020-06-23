@@ -118,7 +118,7 @@
 /*#define ENABLE_WAITIRQ_LOG*/ /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/ /*show STT irq debug logs */
 
-#define Lafi_WAM_CQ_ERR (0)
+#define Lafi_WAM_CQ_ERR (1)
 /* Queue timestamp for deque. Update when non-drop frame @SOF */
 #define TIMESTAMP_QUEUE_EN (0)
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -672,8 +672,11 @@ static struct ISP_RAW_INT_STATUS g_ISPIntStatus_SMI[ISP_IRQ_TYPE_AMOUNT];
 /* ISP_CAM_A_IDX-ISP_CAM_C_IDX, each has 25 CQ thread. */
 static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][25] = {{0} };
 #if Lafi_WAM_CQ_ERR
+#define MAX_RECOVER_CNT 3
+#define TG_ERR_RECOVER
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1] = {0};
 static union FBC_CTRL_2 g_fbc_ctrl2[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
+static int g_recoverCnt[ISP_IRQ_TYPE_AMOUNT] = {0};
 #endif
 static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
 
@@ -1452,41 +1455,129 @@ static inline unsigned int ISP_JiffiesToMs(unsigned int Jiffies)
 #if (Lafi_WAM_CQ_ERR == 1)
 static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 {
-	unsigned int i = regModule, index = 0;
+	unsigned int i = 0, tmp_module = 0, index = 0;
+	union CAMCTL_TWIN_STATUS_ twinStatus;
+	unsigned int reg_module_array[2];
+	unsigned int reg_module_count = 0;
+	unsigned int reg_value = 0;
 
-	index = i - ISP_CAM_A_IDX;
-	if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][1] =
-				ISP_RD32(CAM_REG_CQ_THR1_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR9_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][9] =
-				ISP_RD32(CAM_REG_CQ_THR9_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][10] =
-				ISP_RD32(CAM_REG_CQ_THR10_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR11_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][11] =
-				ISP_RD32(CAM_REG_CQ_THR11_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][12] =
-				ISP_RD32(CAM_REG_CQ_THR12_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR13_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][13] =
-				ISP_RD32(CAM_REG_CQ_THR13_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR14_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][14] =
-				ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR16_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][16] =
-				ISP_RD32(CAM_REG_CQ_THR16_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][20] =
-				ISP_RD32(CAM_REG_CQ_THR20_BASEADDR(i));
-		if ((unsigned int)ISP_RD32(CAM_REG_CQ_THR24_CTL(i)) & 0x1)
-			g_cqBaseAddr[index][24] =
-				ISP_RD32(CAM_REG_CQ_THR24_BASEADDR(i));
+	reg_module_array[0] = regModule;
+	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(regModule));
+
+	if (twinStatus.Bits.TWIN_EN == MTRUE) {
+		if (((reg_module_array[0] == ISP_CAM_A_IDX) &&
+		     (twinStatus.Bits.MASTER_MODULE != CAM_A)) ||
+		    ((reg_module_array[0] == ISP_CAM_B_IDX) &&
+		     (twinStatus.Bits.MASTER_MODULE != CAM_B)) ||
+		    ((reg_module_array[0] == ISP_CAM_C_IDX) &&
+		     (twinStatus.Bits.MASTER_MODULE != CAM_C))) {
+			LOG_NOTICE(
+				"twin module is invalid! recover fail");
+		}
+
+		switch (twinStatus.Bits.TWIN_MODULE) {
+		case CAM_A:
+		reg_module_array[1] = ISP_CAM_A_IDX;
+		break;
+		case CAM_B:
+		reg_module_array[1] = ISP_CAM_B_IDX;
+		break;
+		default:
+		LOG_NOTICE(
+		"twin module is invalid! recover fail");
+		}
+
+		reg_module_count = twinStatus.Bits.SLAVE_CAM_NUM + 1;
+	} else {
+		reg_module_count = 1;
 	}
+
+
+	for (i = 0; i < reg_module_count; i++) {
+		//read inner register
+		tmp_module = reg_module_array[i] - ISP_CAMSYS_RAWC_CONFIG_IDX;
+		index = tmp_module - ISP_CAM_A_INNER_IDX;
+
+		if (index > (ISP_CAM_C_INNER_IDX - ISP_CAM_A_INNER_IDX)) {
+			LOG_NOTICE(
+				"index is invalid! recover fail");
+		}
+
+		//config next cq table when 1st sof coming
+		if (g_recoverCnt[regModule-ISP_CAM_A_IDX]) {
+			ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
+			  (ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
+			LOG_NOTICE("1st sof after cq recover done\n");
+		}
+
+		//CQ1
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR1_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][1] =
+				ISP_RD32(CAM_REG_CQ_THR1_BASEADDR(tmp_module));
+		//CQ9
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR9_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][9] =
+				ISP_RD32(CAM_REG_CQ_THR9_BASEADDR(tmp_module));
+		//CQ10
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR10_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][10] =
+				ISP_RD32(CAM_REG_CQ_THR10_BASEADDR(tmp_module));
+		//CQ11
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR11_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][11] =
+				ISP_RD32(CAM_REG_CQ_THR11_BASEADDR(tmp_module));
+		//CQ12
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR12_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][12] =
+				ISP_RD32(CAM_REG_CQ_THR12_BASEADDR(tmp_module));
+		//CQ13
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR13_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][13] =
+				ISP_RD32(CAM_REG_CQ_THR13_BASEADDR(tmp_module));
+		//CQ14
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][14] =
+				ISP_RD32(CAM_REG_CQ_THR14_BASEADDR(tmp_module));
+		//CQ16
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR16_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][16] =
+				ISP_RD32(CAM_REG_CQ_THR16_BASEADDR(tmp_module));
+		//CQ17
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR17_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][17] =
+				ISP_RD32(CAM_REG_CQ_THR17_BASEADDR(tmp_module));
+		//CQ20
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR20_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][20] =
+				ISP_RD32(CAM_REG_CQ_THR20_BASEADDR(tmp_module));
+		//CQ24
+		reg_value = (unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR24_CTL(tmp_module));
+		if (reg_value & 0x1)
+			g_cqBaseAddr[index][24] =
+				ISP_RD32(CAM_REG_CQ_THR24_BASEADDR(tmp_module));
+	}
+
 }
 #endif
 /*******************************************************************************
@@ -4912,11 +5003,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 	} break;
 	case ISP_NOTE_CQTHR0_BASE: {
-		unsigned int cq0_data[CAM_MAX][2];
+		unsigned int cq0_data[CAM_MAX][3];
 		unsigned int index = 0;
 
 		if (copy_from_user(&cq0_data, (void *)Param,
-				   sizeof(unsigned int) * CAM_MAX * 2) != 0) {
+				   sizeof(unsigned int) * CAM_MAX * 3) != 0) {
 			LOG_NOTICE("copy to user fail");
 			Ret = -EFAULT;
 			break;
@@ -4924,8 +5015,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		index = cq0_data[CAM_A][0] - ISP_CAM_A_IDX;
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_A][1] != 0) {
-				g_cqBaseAddr[index][0] = cq0_data[CAM_A][1];
-				/*LOG_NOTICE("(CAM A)CQ0 pa 0x%x, 0x%x",
+				g_cqBaseAddr[index][0] =
+					cq0_data[CAM_A][1];
+				/*LOG_NOTICE(
+				 *"(CAM A)CQ0 pa 0x%x, 0x%x",
 				 *cq0_data[CAM_A][0], cq0_data[CAM_A][1]);
 				 */
 			}
@@ -4933,18 +5026,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		index = cq0_data[CAM_B][0] - ISP_CAM_A_IDX;
 		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
 			if (cq0_data[CAM_B][1] != 0) {
-				g_cqBaseAddr[index][0] = cq0_data[CAM_B][1];
-				/*LOG_NOTICE("(CAM B)CQ0 pa 0x%x, 0x%x",
+				g_cqBaseAddr[index][0] =
+					cq0_data[CAM_B][1];
+				/*LOG_NOTICE(
+				 *"(CAM B)CQ0 pa 0x%x, 0x%x, prev:0x%0x",
 				 *cq0_data[CAM_B][0], cq0_data[CAM_B][1]);
-				 */
-			}
-		}
-		index = cq0_data[CAM_C][0] - ISP_CAM_A_IDX;
-		if (index <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
-			if (cq0_data[CAM_C][1] != 0) {
-				g_cqBaseAddr[index][0] = cq0_data[CAM_C][1];
-				/*LOG_NOTICE("(CAM C)CQ0 pa 0x%x, 0x%x",
-				 *cq0_data[CAM_C][0], cq0_data[CAM_C][1]);
 				 */
 			}
 		}
@@ -6407,6 +6493,11 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		sec_on = 0;
 	}
 
+#if Lafi_WAM_CQ_ERR
+    /*reset g_recoverCnt*/
+	g_recoverCnt[ISP_IRQ_TYPE_INT_CAM_A_ST] = 0;
+	g_recoverCnt[ISP_IRQ_TYPE_INT_CAM_B_ST] = 0;
+#endif
 	/*  */
 	for (i = ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++)
 		ISP_StopSVHW(i);
@@ -9637,6 +9728,11 @@ static void Set_CQ_immediate(unsigned int tmp_module)
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
 		ISP_WR32(CAM_REG_CQ_THR16_CTL(tmp_module), cq_ctrl.Raw);
 	}
+	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
+		ISP_WR32(CAM_REG_CQ_THR17_CTL(tmp_module), cq_ctrl.Raw);
+	}
 	cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(tmp_module));
 	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x1;
@@ -9709,6 +9805,12 @@ static void Set_CQ_continuous(unsigned int tmp_module)
 		ISP_WR32(CAM_REG_CQ_THR16_CTL(tmp_module), cq_ctrl.Raw);
 	}
 	cq_ctrl.Raw =
+		(unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(tmp_module));
+	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
+		ISP_WR32(CAM_REG_CQ_THR17_CTL(tmp_module), cq_ctrl.Raw);
+	}
+	cq_ctrl.Raw =
 		(unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(tmp_module));
 	if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 		cq_ctrl.Bits.CAMCQ_CQ_MODE = 0x2;
@@ -9746,6 +9848,13 @@ unsigned int *reg_module_count)
 		break;
 	}
 	LOG_NOTICE("+CQ recover");
+
+	if (g_recoverCnt[irg_module] >= MAX_RECOVER_CNT) {
+		LOG_NOTICE("CQ recover over 3 times");
+		return -1;
+	}
+	g_recoverCnt[irg_module]++;
+
 	reg_module_array[0] = *reg_module;
 	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(*reg_module));
 
@@ -9959,6 +10068,7 @@ unsigned int *reg_module_count)
 		LOG_NOTICE(
 			"disable double buffer CAM%d to do CQ recover",
 			tmp_module);
+		ISP_WR32(CAM_REG_CTL_RAW_INT6_EN(tmp_module), 0xFFFFFFFF);
 	}
 	index = *reg_module - ISP_CAM_A_IDX;
 	if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
@@ -9999,10 +10109,10 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 	union CAMCTL_INT6_STATUS_ DmaStatus6;
 	unsigned int  DmaEnStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 	unsigned long long  sec = 0, usec = 0, m_sec = 0, m_usec = 0;
-	unsigned long long  timeoutMs = 5000;/*5ms*/
+	unsigned long long  timeoutMs = 500;/*0.5ms*/
 	unsigned int i = 0, tmp_module = 0, index = 0;
 	unsigned int cq_done = 0;
-	int reset_count = 100;
+	int reset_count = 1;
 	bool ret = MTRUE;
 
 	do {
@@ -10011,14 +10121,20 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 		g_cqDoneStatus[0] = 0;
 		g_cqDoneStatus[1] = 0;
 		g_cqDoneStatus[2] = 0;
-		/* 4. HW reset & SW reset */
+		/* 4. HW reset & SW reset including master and slave cam*/
+		for (i = 0; i < reg_module_count; i++) {
+			tmp_module = reg_module_array[i];
+			ISP_WR32(
+			CAM_REG_CTL_SW_CTL(tmp_module), 0x0);
+			ISP_WR32(
+			CAM_REG_CTL_SW_CTL(tmp_module), 0x1); /*SW_RST_TRIG*/
 
-		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x0);
-		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x1); /*SW_RST_TRIG*/
-
-		mdelay(1); /* Wait reset done */
-		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x4); /*HW_RST*/
-		ISP_WR32(CAM_REG_CTL_SW_CTL(reg_module), 0x0);
+			mdelay(1); /* Wait reset done */
+			ISP_WR32(
+			CAM_REG_CTL_SW_CTL(tmp_module), 0x4); /*HW_RST*/
+			ISP_WR32(
+			CAM_REG_CTL_SW_CTL(tmp_module), 0x0);
+		}
 
 		/* 5. restore FBC setting*/
 
@@ -10120,6 +10236,14 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			if (DmaEnStatus[index][_rsso_r2_])
 				ISP_WR32(CAM_REG_FBC_RSSO_R2_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_rsso_r2_].Raw);
+
+		}
+
+		if (g_ISPIntStatus_SMI[
+			reg_module - ISP_CAM_A_IDX].ispIntErr
+			& TG_ERR_ST) {
+			LOG_NOTICE("skip cq restore");
+			break;
 		}
 
 		/* 6. restore CQ base address */
@@ -10132,20 +10256,22 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 					"index is invalid! recover fail");
 					return -1;
 			}
+
 			cq_ctrl.Raw = (unsigned int)ISP_RD32(
 				CAM_REG_CQ_THR0_CTL(tmp_module));
 			if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 				ISP_WR32(CAM_REG_CQ_THR0_BASEADDR(tmp_module),
 					g_cqBaseAddr[index][0]);
-				LOG_NOTICE("CQ0 base0x%x\n",
-					g_cqBaseAddr[index][0]);
+				LOG_NOTICE("[%d]CQ0 base: 0x2%x(0x2%x)\n",
+					index, g_cqBaseAddr[index][0],
+					(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR0_BASEADDR(tmp_module)));
 				if ((g_cqBaseAddr[index][0] -
 					(unsigned int)ISP_RD32(
 					CAM_REG_CQ_THR0_BASEADDR(tmp_module)))
 					!= 0) {
 					ISP_WR32(CAM_REG_CQ_THR0_BASEADDR(
-						tmp_module),
-						g_cqBaseAddr[index][0]);
+					  tmp_module), g_cqBaseAddr[index][0]);
 					LOG_NOTICE("restore CQ0 again\n");
 				}
 			}
@@ -10161,16 +10287,23 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 		}
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR1_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR1_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][1]);
-
+			LOG_NOTICE("[%d]CQ1 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][1],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR1_BASEADDR(tmp_module)));
+		}
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR9_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR9_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][9]);
-			LOG_NOTICE("CQ9 base0x%x\n", g_cqBaseAddr[index][9]);
+			LOG_NOTICE("[%d]CQ9 base:0x2%x(0x2%x)\n", index,
+				g_cqBaseAddr[index][9],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR9_BASEADDR(tmp_module)));
 			if ((g_cqBaseAddr[index][9] - (unsigned int)ISP_RD32(
 				CAM_REG_CQ_THR9_BASEADDR(tmp_module))) != 0) {
 				ISP_WR32(CAM_REG_CQ_THR9_BASEADDR(tmp_module),
@@ -10178,22 +10311,50 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				LOG_NOTICE("restore CQ9 again\n");
 			}
 		}
+		//CQ10(AAO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR10_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR10_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][10]);
+			LOG_NOTICE("[%d]CQ10 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][10],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR10_BASEADDR(tmp_module)));
+			if ((g_cqBaseAddr[index][10] - (unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR10_BASEADDR(tmp_module))) != 0) {
+				ISP_WR32(CAM_REG_CQ_THR10_BASEADDR(tmp_module),
+					g_cqBaseAddr[index][10]);
+				LOG_NOTICE("restore CQ10 again\n");
+			}
+		}
+		//CQ11(AAHO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR11_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR11_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][11]);
+			LOG_NOTICE("[%d]CQ11 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][11],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR11_BASEADDR(tmp_module)));
+			if ((g_cqBaseAddr[index][11] - (unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR11_BASEADDR(tmp_module))) != 0) {
+				ISP_WR32(CAM_REG_CQ_THR11_BASEADDR(tmp_module),
+					g_cqBaseAddr[index][11]);
+				LOG_NOTICE("restore CQ11 again\n");
+			}
+		}
+		//CQ12(AFO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR12_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR12_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][12]);
-			LOG_NOTICE("CQ12 base0x%x\n", g_cqBaseAddr[index][12]);
+			LOG_NOTICE("[%d]CQ12 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][12],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR12_BASEADDR(tmp_module)));
 			if ((g_cqBaseAddr[index][12] - (unsigned int)ISP_RD32(
 				CAM_REG_CQ_THR12_BASEADDR(tmp_module))) != 0) {
 				ISP_WR32(CAM_REG_CQ_THR12_BASEADDR(tmp_module),
@@ -10201,37 +10362,88 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				LOG_NOTICE("restore CQ12 again\n");
 			}
 		}
+		//CQ13(PDO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR13_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR13_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][13]);
+			LOG_NOTICE("[%d]CQ13 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][13],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR13_BASEADDR(tmp_module)));
+			if ((g_cqBaseAddr[index][13] - (unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR13_BASEADDR(tmp_module))) != 0) {
+				ISP_WR32(CAM_REG_CQ_THR13_BASEADDR(tmp_module),
+					g_cqBaseAddr[index][13]);
+				LOG_NOTICE("restore CQ13 again\n");
+			}
+		}
+		//CQ14(FLKO)
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR14_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR14_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][14]);
+			LOG_NOTICE("[%d]CQ14 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][14],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR14_BASEADDR(tmp_module)));
+			if ((g_cqBaseAddr[index][14] - (unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR14_BASEADDR(tmp_module))) != 0) {
+				ISP_WR32(CAM_REG_CQ_THR14_BASEADDR(tmp_module),
+					g_cqBaseAddr[index][14]);
+				LOG_NOTICE("restore CQ14 again\n");
+			}
+		}
+		//CQ16
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR16_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR16_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][16]);
+			LOG_NOTICE("[%d]CQ16 base:0x%x\n",
+					index, g_cqBaseAddr[index][16]);
+		}
+		//CQ17(LTMSO)
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			ISP_WR32(CAM_REG_CQ_THR17_BASEADDR(tmp_module),
+				g_cqBaseAddr[index][17]);
+			LOG_NOTICE("[%d]CQ17 base:0x2%x(0x2%x)\n",
+				index, g_cqBaseAddr[index][17],
+				(unsigned int)ISP_RD32(
+					CAM_REG_CQ_THR17_BASEADDR(tmp_module)));
+			if ((g_cqBaseAddr[index][17] - (unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR17_BASEADDR(tmp_module))) != 0) {
+				ISP_WR32(CAM_REG_CQ_THR17_BASEADDR(tmp_module),
+					g_cqBaseAddr[index][17]);
+				LOG_NOTICE("restore CQ17 again\n");
+			}
+		}
+		//CQ20
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR20_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][20]);
+			LOG_NOTICE("CQ20 base:0x%x\n", g_cqBaseAddr[index][20]);
+		}
+		//CQ24
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR24_CTL(
 			tmp_module));
-		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1)
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
 			ISP_WR32(CAM_REG_CQ_THR24_BASEADDR(tmp_module),
 				g_cqBaseAddr[index][24]);
+			LOG_NOTICE("CQ24 base:0x%x\n", g_cqBaseAddr[index][24]);
+		}
 
 		/* 7. set CQ immediate mode */
 		Set_CQ_immediate(tmp_module);
 
 		/* 8. CQ immediate trigger */
-		timeoutMs = 2000; /* 2ms */
+		timeoutMs = 500; /* 0.5ms */
 
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR0_CTL(
 			tmp_module));
@@ -10269,6 +10481,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 			tmp_module)),
 			(unsigned int)ISP_RD32(CAM_REG_CQ_THR0_BASEADDR(
 			tmp_module)));
+
 			if ((g_cqBaseAddr[index][0] - (unsigned int)ISP_RD32(
 				CAM_REG_CQ_THR0_BASEADDR(tmp_module))) == 0)
 				ret = MFALSE;
@@ -10577,6 +10790,48 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				ret = MFALSE;
 		}
 
+		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR17_CTL(
+			tmp_module));
+		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
+			en_ctlStart.Raw = 0x0;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+			en_ctlStart.Bits.CQ_THR17_START = 0x1;
+			ISP_WR32(CAM_REG_CTL_START(tmp_module),
+				en_ctlStart.Raw);
+
+			DmaStatus6.Raw = g_cqDoneStatus[index];
+			cq_done = DmaStatus6.Bits.CQ_THR17_DONE_ST;
+			m_sec = ktime_get(); /* ns */
+			do_div(m_sec, 1000); /* usec */
+			m_usec = do_div(m_sec, 1000000);/* sec and usec */
+			/* wait CQ loading done */
+			while ((ISP_RD32(CAM_REG_CTL_START_ST(tmp_module)) &
+			en_ctlStart.Bits.CQ_THR17_START) || (cq_done == 0)) {
+				sec = ktime_get(); /* ns */
+				do_div(sec, 1000); /* usec */
+				usec = do_div(sec, 1000000);/* sec and usec */
+			if ((usec - m_usec) > timeoutMs) {
+				LOG_NOTICE("wait CQ17 timeout0x%x, 0x%x\n",
+					(unsigned int)ISP_RD32(
+					CAM_REG_CTL_START_ST(tmp_module)),
+					cq_done);
+				ret = MFALSE;
+				break;
+			}
+				DmaStatus6.Raw = g_cqDoneStatus[index];
+				cq_done |= DmaStatus6.Bits.CQ_THR17_DONE_ST;
+			}
+			LOG_NOTICE("wait CQ17 start 0x%x, base 0x%x\n",
+			(unsigned int)ISP_RD32(CAM_REG_CTL_START_ST(
+			tmp_module)),
+			(unsigned int)ISP_RD32(CAM_REG_CQ_THR17_BASEADDR(
+			tmp_module)));
+			if ((g_cqBaseAddr[index][17] - (unsigned int)ISP_RD32(
+				CAM_REG_CQ_THR17_BASEADDR(tmp_module))) == 0)
+				ret = MFALSE;
+		}
+#if 0
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR20_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10610,7 +10865,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 				cq_done |= DmaStatus6.Bits.CQ_THR20_DONE_ST;
 			}
 		}
-
+#endif
 		cq_ctrl.Raw = (unsigned int)ISP_RD32(CAM_REG_CQ_THR24_CTL(
 			tmp_module));
 		if (cq_ctrl.Bits.CAMCQ_CQ_EN == 0x1) {
@@ -10657,20 +10912,27 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 	unsigned int tmp_module = ISP_CAM_A_IDX;
 
 	/* 9. set CQ continuous mode */
-	Set_CQ_continuous(tmp_module);
-
-	/* 10. enable double buffer */
+	/* 10. disable CQ done control and enable double buffer */
 	for (i = 0; i < reg_module_count; i++) {
 		tmp_module = reg_module_array[i];
-		ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
-			 (ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
-		LOG_NOTICE("en double buf CAM%d for CQ recover", tmp_module);
+		Set_CQ_continuous(tmp_module);
+		ISP_WR32(CAM_REG_CTL_RAW_INT6_EN(tmp_module), 0x0);
+
+		if ((g_ISPIntStatus_SMI[
+		  reg_module - ISP_CAM_A_IDX].ispIntErr
+		  & TG_ERR_ST) == 0) {
+			ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
+			  (ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
+			LOG_NOTICE(
+			  "en double buf CAM%d for CQ recover", tmp_module);
+		}
 	}
 	/* 11. enable TG CMOS & viewFinder */
 	ISP_WR32(CAM_REG_TG_SEN_MODE(reg_module),
 		 (ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) | 0x1));
 	ISP_WR32(CAM_REG_TG_VF_CON(reg_module),
 		 (ISP_RD32(CAM_REG_TG_VF_CON(reg_module)) | 0x1));
+
 	LOG_NOTICE(
 		"turn on TG VF, CMOS to do CQ recover 0x%x, 0x%x",
 		(unsigned int)ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)),
@@ -10753,7 +11015,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 	ErrStatus = IrqStatus & IspInfo.IrqInfo.ErrMask[module][SIGNAL_INT];
 
-	if (((IrqStatus & SOF_INT_ST) == 0) && (IrqStatus & VS_INT_ST)) {
+	if (((IrqStatus & SOF_INT_ST) == 0) &&
+#ifdef TG_ERR_RECOVER
+		(IrqStatus & (VS_INT_ST|TG_ERR_ST))) {
+#else
+		(IrqStatus & VS_INT_ST)) {
+#endif
 		if ((ISP_RD32(CAMX_REG_TG_VF_CON(reg_module)) == 0x1) &&
 		    (g1stSof[module] == MFALSE)) {
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
@@ -10885,6 +11152,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 		IspInfo.IrqInfo.LastestSigTime_sec[module][10] =
 			(unsigned int)(sec);
+
+#if Lafi_WAM_CQ_ERR
+		//after recover success, clear reset count
+		g_recoverCnt[module] = 0;
+#endif
 
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			/*SW p1_don is not reliable */
