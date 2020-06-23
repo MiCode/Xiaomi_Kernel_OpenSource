@@ -10574,11 +10574,19 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			 * we can proceed after checking the link and
 			 * dev state.
 			 */
-			if ((host_byte(ret) == DID_TIME_OUT) &&
-			    ufshcd_is_ufs_dev_active(hba) &&
+			if (ufshcd_is_ufs_dev_active(hba) &&
 			    ufshcd_is_link_active(hba))
 				ret = 0;
-			else
+
+			else if ((work_pending(&hba->eh_work)) ||
+				ufshcd_eh_in_progress(hba)) {
+				flush_work(&hba->eh_work);
+				ret = 0;
+				dev_info(hba->dev, "dev pwr mode=%d, UIC link state=%d\n",
+					hba->curr_dev_pwr_mode,
+					hba->uic_link_state);
+				}
+			if (ret)
 				goto set_old_link_state;
 		}
 	}
