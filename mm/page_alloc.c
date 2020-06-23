@@ -294,15 +294,10 @@ const char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
 	"Movable",
 	"Reclaimable",
-#ifndef CONFIG_CMA_PCP_LISTS
-	"HighAtomic",
 #ifdef CONFIG_CMA
 	"CMA",
 #endif
-#else
-	"CMA",
 	"HighAtomic",
-#endif
 #ifdef CONFIG_MEMORY_ISOLATION
 	"Isolate",
 #endif
@@ -2759,34 +2754,31 @@ __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 retry:
 	page = __rmqueue_smallest(zone, order, migratetype);
 
-	if (unlikely(!page)) {
-#ifndef CONFIG_CMA_DIRECT_UTILIZATION
-		if (migratetype == MIGRATE_MOVABLE)
-			page = __rmqueue_cma_fallback(zone, order);
-#endif
-
-		if (!page && __rmqueue_fallback(zone, order, migratetype,
-								alloc_flags))
-			goto retry;
-	}
+	if (unlikely(!page) && __rmqueue_fallback(zone, order, migratetype,
+						  alloc_flags))
+		goto retry;
 
 	trace_mm_page_alloc_zone_locked(page, order, migratetype);
 	return page;
 }
 
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
-static struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
+#ifdef CONFIG_CMA
+static struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
+				  int migratetype,
+				  unsigned int alloc_flags)
 {
 	struct page *page = 0;
 
-	if (!zone->cma_alloc)
-		page = __rmqueue_cma_fallback(zone, order);
-
+	if (IS_ENABLED(CONFIG_CMA))
+		if (!zone->cma_alloc)
+			page = __rmqueue_cma_fallback(zone, order);
 	trace_mm_page_alloc_zone_locked(page, order, MIGRATE_CMA);
 	return page;
 }
 #else
-static inline struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
+static inline struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
+					 int migratetype,
+					 unsigned int alloc_flags)
 {
 	return NULL;
 }
@@ -2813,7 +2805,8 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 		 * CMA utlization.
 		 */
 		if (is_migrate_cma(migratetype))
-			page = __rmqueue_cma(zone, order);
+			page = __rmqueue_cma(zone, order, migratetype,
+					     alloc_flags);
 		else
 			page = __rmqueue(zone, order, migratetype, alloc_flags);
 
@@ -2864,7 +2857,8 @@ static struct list_head *get_populated_pcp_list(struct zone *zone,
 
 	if (list_empty(list)) {
 		pcp->count += rmqueue_bulk(zone, order,
-				pcp->batch, list, migratetype, alloc_flags);
+				pcp->batch, list,
+				migratetype, alloc_flags);
 
 		if (list_empty(list))
 			list = NULL;
@@ -3300,7 +3294,8 @@ static inline void zone_statistics(struct zone *preferred_zone, struct zone *z)
 /* Remove page from the per-cpu list, caller must protect the list */
 static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
 			unsigned int alloc_flags,
-			struct per_cpu_pages *pcp, gfp_t gfp_flags)
+			struct per_cpu_pages *pcp,
+			gfp_t gfp_flags)
 {
 	struct page *page = NULL;
 	struct list_head *list = NULL;
@@ -3391,7 +3386,8 @@ struct page *rmqueue(struct zone *preferred_zone,
 
 		if (!page && migratetype == MIGRATE_MOVABLE &&
 				gfp_flags & __GFP_CMA)
-			page = __rmqueue_cma(zone, order);
+			page = __rmqueue_cma(zone, order, migratetype,
+					     alloc_flags);
 
 		if (!page)
 			page = __rmqueue(zone, order, migratetype, alloc_flags);
@@ -8571,7 +8567,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	if (ret < 0)
 		return ret;
 
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
+#ifdef CONFIG_CMA
 	cc.zone->cma_alloc = 1;
 #endif
 	/*
@@ -8655,7 +8651,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 done:
 	undo_isolate_page_range(pfn_max_align_down(start),
 				pfn_max_align_up(end), migratetype);
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
+#ifdef CONFIG_CMA
 	cc.zone->cma_alloc = 0;
 #endif
 	return ret;

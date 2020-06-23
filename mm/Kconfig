@@ -529,35 +529,6 @@ config CMA_AREAS
 
 	  If unsure, leave the default value "7".
 
-config CMA_DIRECT_UTILIZATION
-	bool "Allow clients to directly use CMA for page allocations"
-	depends on CMA
-	help
-	  CMA pages are currently used as a fallback for moveable page
-	  allocations only when all regular moveable pages have been
-	  allocated. This can cause stalls for non-movable allocations,
-	  as non-movable allocations will not consider CMA memory as free
-	  memory, and thus, will cause the system to reclaim movable pages
-	  to satisfy non-movable allocations, ignoring the CMA pages. Since
-	  the system now has movable memory, CMA pages will also be ignored,
-	  since they are used only when there is not enough movable memory
-	  to satisfy a movable request. Enable this option to specify to the
-	  page allocator that movable allocations should be satisfied with
-	  CMA pages, so that CMA pages can be used directly for allocations,
-	  instead of as a fallback, thus, improving CMA utilization.
-
-config CMA_PCP_LISTS
-	bool "Create PCP lists for CMA memory"
-	depends on CMA && CMA_DIRECT_UTILIZATION
-	help
-	  Improve memory utilization by creating PCP lists that contain CMA
-	  pages to satisfy order-0 allocations when appropriate. Increased
-	  CMA usage results in better memory utilization, as the system will
-	  can use CMA pages to satisfy movable allocations. This results in
-	  more efficient reclaim when trying to satisfy non-movable
-	  allocations, as the amount of non-CMA memory to be reclaimed should
-	  be smaller.
-
 config LIMIT_MOVABLE_ZONE_ALLOC
 	bool "Limit types of allocations from Movable zone"
 	help

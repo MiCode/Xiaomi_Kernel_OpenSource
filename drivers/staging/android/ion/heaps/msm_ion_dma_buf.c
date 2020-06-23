@@ -90,7 +90,7 @@ static void free_duped_table(struct sg_table *table)
 	kfree(table);
 }
 
-struct ion_dma_buf_attachment {
+struct msm_ion_dma_buf_attachment {
 	struct device *dev;
 	struct sg_table *table;
 	struct list_head list;
@@ -100,7 +100,7 @@ struct ion_dma_buf_attachment {
 static int msm_ion_dma_buf_attach(struct dma_buf *dmabuf,
 			      struct dma_buf_attachment *attachment)
 {
-	struct ion_dma_buf_attachment *a;
+	struct msm_ion_dma_buf_attachment *a;
 	struct sg_table *table;
 	struct ion_buffer *buffer = dmabuf->priv;
 
@@ -131,7 +131,7 @@ static int msm_ion_dma_buf_attach(struct dma_buf *dmabuf,
 static void msm_ion_dma_buf_detatch(struct dma_buf *dmabuf,
 				struct dma_buf_attachment *attachment)
 {
-	struct ion_dma_buf_attachment *a = attachment->priv;
+	struct msm_ion_dma_buf_attachment *a = attachment->priv;
 	struct ion_buffer *buffer = dmabuf->priv;
 
 	mutex_lock(&buffer->lock);
@@ -151,7 +151,7 @@ static struct sg_table
 *msm_ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		     enum dma_data_direction direction)
 {
-	struct ion_dma_buf_attachment *a = attachment->priv;
+	struct msm_ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
 	int count, map_attrs;
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
@@ -241,7 +241,7 @@ static void msm_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 	int map_attrs;
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
-	struct ion_dma_buf_attachment *a = attachment->priv;
+	struct msm_ion_dma_buf_attachment *a = attachment->priv;
 	unsigned long ino = file_inode(attachment->dmabuf->file)->i_ino;
 
 	mutex_lock(&buffer->lock);
@@ -545,7 +545,7 @@ static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 					    enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_dma_buf_attachment *a;
+	struct msm_ion_dma_buf_attachment *a;
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 	int ret = 0;
 
@@ -600,7 +600,7 @@ static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 					  enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_dma_buf_attachment *a;
+	struct msm_ion_dma_buf_attachment *a;
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 	int ret = 0;
 
@@ -658,7 +658,7 @@ static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 						unsigned int len)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_dma_buf_attachment *a;
+	struct msm_ion_dma_buf_attachment *a;
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 	int ret = 0;
 
@@ -728,7 +728,7 @@ static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 					      unsigned int len)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_dma_buf_attachment *a;
+	struct msm_ion_dma_buf_attachment *a;
 	unsigned long ino = file_inode(dmabuf->file)->i_ino;
 
 	int ret = 0;
