@@ -1283,6 +1283,20 @@ void sdhci_msm_mm_dbg_configure(struct sdhci_host *host, u32 mask,
 	readl_relaxed(host->ioaddr + SDCC_DEBUG_FEATURE_CFG_REG);
 }
 
+/* Dummy func for Mask and Match show */
+static ssize_t show_mask_and_match(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	if (!host)
+		return -EINVAL;
+
+	pr_info("%s: M&M show func\n", mmc_hostname(host->mmc));
+
+	return 0;
+}
+
 static ssize_t store_mask_and_match(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1335,6 +1349,8 @@ void sdhci_msm_enter_dbg_mode(struct sdhci_host *host)
 				SDCC_IP_CATALOG));
 	if (minor < 2 || msm_host->debug_mode_enabled)
 		return;
+	if (!(host->quirks2 & SDHCI_QUIRK2_USE_DBG_FEATURE))
+		return;
 
 	/* Enable debug mode */
 	writel_relaxed(ENABLE_DBG,
@@ -1377,6 +1393,8 @@ void sdhci_msm_exit_dbg_mode(struct sdhci_host *host)
 	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
 				SDCC_IP_CATALOG));
 	if (minor < 2 || !msm_host->debug_mode_enabled)
+		return;
+	if (!(host->quirks2 & SDHCI_QUIRK2_USE_DBG_FEATURE))
 		return;
 
 	/* Exit debug mode */
@@ -4978,8 +4996,6 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 		return;
 	}
 
-	if (!msm_host->debug_mode_enabled)
-		return;
 	msm_host->reg_store = true;
 	sdhci_msm_exit_dbg_mode(host);
 	sdhci_msm_registers_save(host);
@@ -5257,6 +5273,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	void __iomem *tlmm_mem;
 	unsigned long flags;
 	bool force_probe;
+	u32 minor;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -5556,6 +5573,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (host->quirks2 & SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK)
 		host->quirks2 |= SDHCI_QUIRK2_DIVIDE_TOUT_BY_4;
 
+	minor = IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
+				SDCC_IP_CATALOG));
+
 	host_version = readw_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
 	dev_dbg(&pdev->dev, "Host Version: 0x%x Vendor Version 0x%x\n",
 		host_version, ((host_version & SDHCI_VENDOR_VER_MASK) >>
@@ -5758,8 +5778,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
 	}
 
-	if (IPCAT_MINOR_MASK(readl_relaxed(host->ioaddr +
-				SDCC_IP_CATALOG)) >= 2) {
+	if (minor >= 2) {
+		msm_host->mask_and_match.show = show_mask_and_match;
 		msm_host->mask_and_match.store = store_mask_and_match;
 		sysfs_attr_init(&msm_host->mask_and_match.attr);
 		msm_host->mask_and_match.attr.name = "mask_and_match";

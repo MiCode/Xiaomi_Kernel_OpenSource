@@ -461,27 +461,22 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 static int cnss_pci_force_wake_get(struct cnss_pci_data *pci_priv)
 {
 	struct device *dev = &pci_priv->pci_dev->dev;
-	u32 timeout = 0;
 	int ret;
 
-	ret = cnss_pci_force_wake_request(dev);
+	ret = cnss_pci_force_wake_request_sync(dev,
+					       FORCE_WAKE_DELAY_TIMEOUT_US);
 	if (ret) {
 		if (ret != -EAGAIN)
 			cnss_pr_err("Failed to request force wake\n");
 		return ret;
 	}
 
-	while (!cnss_pci_is_device_awake(dev) &&
-	       timeout <= FORCE_WAKE_DELAY_TIMEOUT_US) {
-		usleep_range(FORCE_WAKE_DELAY_MIN_US, FORCE_WAKE_DELAY_MAX_US);
-		timeout += FORCE_WAKE_DELAY_MAX_US;
-	}
-
-	if (cnss_pci_is_device_awake(dev) != true) {
-		cnss_pr_err("Timed out to request force wake\n");
-		cnss_pci_force_wake_release(dev);
-		return -ETIMEDOUT;
-	}
+	/* If device's M1 state-change event races here, it can be ignored,
+	 * as the device is expected to immediately move from M2 to M0
+	 * without entering low power state.
+	 */
+	if (cnss_pci_is_device_awake(dev) != true)
+		cnss_pr_warn("MHI not in M0, while reg still accessible\n");
 
 	return 0;
 }
@@ -1064,16 +1059,20 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		ret = 0;
 		break;
 	case CNSS_MHI_SUSPEND:
+		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last)
 			ret = mhi_pm_fast_suspend(pci_priv->mhi_ctrl, true);
 		else
 			ret = mhi_pm_suspend(pci_priv->mhi_ctrl);
+		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_RESUME:
+		mutex_lock(&pci_priv->mhi_ctrl->pm_mutex);
 		if (pci_priv->drv_connected_last)
 			ret = mhi_pm_fast_resume(pci_priv->mhi_ctrl, true);
 		else
 			ret = mhi_pm_resume(pci_priv->mhi_ctrl);
+		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
 		ret = mhi_force_rddm_mode(pci_priv->mhi_ctrl);
@@ -2879,6 +2878,35 @@ int cnss_auto_resume(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_auto_resume);
 
+int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID &&
+	    pci_priv->device_id != QCA6490_DEVICE_ID)
+		return 0;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		return -EAGAIN;
+
+	return mhi_device_get_sync_atomic(mhi_ctrl->mhi_dev, timeout_us);
+}
+EXPORT_SYMBOL(cnss_pci_force_wake_request_sync);
+
 int cnss_pci_force_wake_request(struct device *dev)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
@@ -4261,6 +4289,29 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
+static int cnss_mhi_bw_scale(struct mhi_controller *mhi_ctrl,
+			     struct mhi_link_info *link_info)
+{
+	struct cnss_pci_data *pci_priv = mhi_ctrl->priv_data;
+	int ret = 0;
+
+	ret = msm_pcie_set_link_bandwidth(pci_priv->pci_dev,
+					  link_info->target_link_speed,
+					  link_info->target_link_width);
+
+	if (ret)
+		return ret;
+
+	pci_priv->def_link_speed = link_info->target_link_speed;
+	pci_priv->def_link_width = link_info->target_link_width;
+
+	cnss_pr_dbg("Setting link speed:0x%x, width:0x%x\n",
+		    link_info->target_link_speed,
+		    link_info->target_link_width);
+
+	return 0;
+}
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -4288,8 +4339,10 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->fw_image_fallback = plat_priv->fw_fallback_name;
 
 	mhi_ctrl->regs = pci_priv->bar;
-	cnss_pr_dbg("BAR starts at %pa\n",
-		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM));
+	mhi_ctrl->len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
+	cnss_pr_dbg("BAR starts at %pa, len-%x\n",
+		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM),
+		    mhi_ctrl->len);
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
@@ -4310,6 +4363,7 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->status_cb = cnss_mhi_notify_status;
 	mhi_ctrl->runtime_get = cnss_mhi_pm_runtime_get;
 	mhi_ctrl->runtime_put = cnss_mhi_pm_runtime_put_noidle;
+	mhi_ctrl->bw_scale = cnss_mhi_bw_scale;
 
 	mhi_ctrl->rddm_size = pci_priv->plat_priv->ramdump_info_v2.ramdump_size;
 	mhi_ctrl->sbl_size = SZ_512K;

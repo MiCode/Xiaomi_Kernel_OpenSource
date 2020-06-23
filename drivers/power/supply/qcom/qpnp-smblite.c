@@ -433,9 +433,6 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblite_lib_get_prop_scope(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
-		rc = schgm_flashlite_get_vreg_ok(chg, &val->intval);
-		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -530,6 +527,7 @@ static enum power_supply_property smblite_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FCC_DELTA,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_FLASH_TRIGGER,
+	POWER_SUPPLY_PROP_FLASH_ACTIVE,
 };
 
 static int smblite_usb_main_get_prop(struct power_supply *psy,
@@ -564,6 +562,12 @@ static int smblite_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblite_lib_get_icl_current(chg, &val->intval);
 		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		rc = schgm_flashlite_get_vreg_ok(chg, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		val->intval = chg->flash_active;
+		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
@@ -582,6 +586,7 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 	struct smblite *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
+	union power_supply_propval pval = {0, };
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
@@ -594,6 +599,21 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblite_lib_set_icl_current(chg, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		if (chg->flash_active != val->intval) {
+			chg->flash_active = val->intval;
+
+			rc = smblite_lib_get_prop_usb_present(chg, &pval);
+			if (rc < 0)
+				pr_err("Failed to get USB present status rc=%d\n",
+						rc);
+			if (!pval.intval) {
+				/* vote 100ma when usb is not present*/
+				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
+							true, USBIN_100UA);
+			}
+		}
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -972,7 +992,8 @@ static int smblite_configure_typec(struct smb_charger *chg)
 	}
 
 	rc = smblite_lib_masked_write(chg, TYPE_C_MODE_CFG_REG,
-					EN_SNK_ONLY_BIT, 0);
+					EN_TRY_SNK_BIT | EN_SNK_ONLY_BIT,
+					EN_TRY_SNK_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure TYPE_C_MODE_CFG_REG rc=%d\n",

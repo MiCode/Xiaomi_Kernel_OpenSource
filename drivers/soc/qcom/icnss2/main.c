@@ -33,6 +33,7 @@
 #include <linux/of_irq.h>
 #include <linux/soc/qcom/qmi.h>
 #include <linux/sysfs.h>
+#include <linux/thermal.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/secure_buffer.h>
 #include <soc/qcom/subsystem_notif.h>
@@ -177,6 +178,20 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 	return "UNKNOWN";
 };
 
+char *icnss_soc_wake_event_to_str(enum icnss_soc_wake_event_type type)
+{
+	switch (type) {
+	case ICNSS_SOC_WAKE_REQUEST_EVENT:
+		return "SOC_WAKE_REQUEST";
+	case ICNSS_SOC_WAKE_RELEASE_EVENT:
+		return "SOC_WAKE_RELEASE";
+	case ICNSS_SOC_WAKE_EVENT_MAX:
+		return "SOC_EVENT_MAX";
+	}
+
+	return "UNKNOWN";
+};
+
 int icnss_driver_event_post(struct icnss_priv *priv,
 			    enum icnss_driver_event_type type,
 			    u32 flags, void *data)
@@ -240,6 +255,78 @@ int icnss_driver_event_post(struct icnss_priv *priv,
 		goto out;
 	}
 	spin_unlock_irqrestore(&priv->event_lock, irq_flags);
+
+	ret = event->ret;
+	kfree(event);
+
+out:
+	icnss_pm_relax(priv);
+	return ret;
+}
+
+int icnss_soc_wake_event_post(struct icnss_priv *priv,
+			      enum icnss_soc_wake_event_type type,
+			      u32 flags, void *data)
+{
+	struct icnss_soc_wake_event *event;
+	unsigned long irq_flags;
+	int gfp = GFP_KERNEL;
+	int ret = 0;
+
+	if (!priv)
+		return -ENODEV;
+
+	icnss_pr_dbg("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
+		     icnss_soc_wake_event_to_str(type), type, current->comm,
+		     flags, priv->state);
+
+	if (type >= ICNSS_SOC_WAKE_EVENT_MAX) {
+		icnss_pr_err("Invalid Event type: %d, can't post", type);
+		return -EINVAL;
+	}
+
+	if (in_interrupt() || irqs_disabled())
+		gfp = GFP_ATOMIC;
+
+	event = kzalloc(sizeof(*event), gfp);
+	if (!event)
+		return -ENOMEM;
+
+	icnss_pm_stay_awake(priv);
+
+	event->type = type;
+	event->data = data;
+	init_completion(&event->complete);
+	event->ret = ICNSS_EVENT_PENDING;
+	event->sync = !!(flags & ICNSS_EVENT_SYNC);
+
+	spin_lock_irqsave(&priv->soc_wake_msg_lock, irq_flags);
+	list_add_tail(&event->list, &priv->soc_wake_msg_list);
+	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, irq_flags);
+
+	priv->stats.soc_wake_events[type].posted++;
+	queue_work(priv->soc_wake_wq, &priv->soc_wake_msg_work);
+
+	if (!(flags & ICNSS_EVENT_SYNC))
+		goto out;
+
+	if (flags & ICNSS_EVENT_UNINTERRUPTIBLE)
+		wait_for_completion(&event->complete);
+	else
+		ret = wait_for_completion_interruptible(&event->complete);
+
+	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
+		     icnss_soc_wake_event_to_str(type), type, priv->state, ret,
+		     event->ret);
+
+	spin_lock_irqsave(&priv->soc_wake_msg_lock, irq_flags);
+	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
+		event->sync = false;
+		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, irq_flags);
+		ret = -EINTR;
+		goto out;
+	}
+	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, irq_flags);
 
 	ret = event->ret;
 	kfree(event);
@@ -448,6 +535,8 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 	set_bit(ICNSS_WLFW_EXISTS, &priv->state);
 	clear_bit(ICNSS_FW_DOWN, &priv->state);
+	clear_bit(ICNSS_FW_READY, &priv->state);
+
 	icnss_ignore_fw_timeout(false);
 
 	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state)) {
@@ -522,7 +611,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto err_power_on;
 		}
 
-		icnss_pr_dbg("MEM_BASE pa: %pa, va: 0x%pK\n",
+		icnss_pr_dbg("Non-Secured Bar Address pa: %pa, va: 0x%pK\n",
 			     &priv->mem_base_pa,
 			     priv->mem_base_va);
 
@@ -888,6 +977,41 @@ static int icnss_qdss_trace_save_hdlr(struct icnss_priv *priv,
 	return ret;
 }
 
+static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
+{
+	int ret = 0;
+
+	if (!priv)
+		return -ENODEV;
+
+	ret = wlfw_send_soc_wake_msg(priv, QMI_WLFW_WAKE_REQUEST_V01);
+	if (!ret)
+		atomic_inc(&priv->soc_wake_ref_count);
+
+	return ret;
+}
+
+static int icnss_event_soc_wake_release(struct icnss_priv *priv, void *data)
+{
+	int ret = 0;
+	int count = 0;
+
+	if (!priv)
+		return -ENODEV;
+
+	count = atomic_dec_return(&priv->soc_wake_ref_count);
+
+	if (count) {
+		icnss_pr_dbg("Wake release not called. Ref count: %d",
+			     count);
+		return 0;
+	}
+
+	ret = wlfw_send_soc_wake_msg(priv, QMI_WLFW_WAKE_RELEASE_V01);
+
+	return ret;
+}
+
 static int icnss_driver_event_register_driver(struct icnss_priv *priv,
 							 void *data)
 {
@@ -1221,6 +1345,68 @@ static void icnss_driver_event_work(struct work_struct *work)
 		spin_lock_irqsave(&priv->event_lock, flags);
 	}
 	spin_unlock_irqrestore(&priv->event_lock, flags);
+
+	icnss_pm_relax(priv);
+}
+
+static void icnss_soc_wake_msg_work(struct work_struct *work)
+{
+	struct icnss_priv *priv =
+		container_of(work, struct icnss_priv, soc_wake_msg_work);
+	struct icnss_soc_wake_event *event;
+	unsigned long flags;
+	int ret;
+
+	icnss_pm_stay_awake(priv);
+
+	spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
+
+	while (!list_empty(&priv->soc_wake_msg_list)) {
+		event = list_first_entry(&priv->soc_wake_msg_list,
+					 struct icnss_soc_wake_event, list);
+		list_del(&event->list);
+		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
+
+		icnss_pr_dbg("Processing event: %s%s(%d), state: 0x%lx\n",
+			     icnss_soc_wake_event_to_str(event->type),
+			     event->sync ? "-sync" : "", event->type,
+			     priv->state);
+
+		switch (event->type) {
+		case ICNSS_SOC_WAKE_REQUEST_EVENT:
+			ret = icnss_event_soc_wake_request(priv,
+							   event->data);
+			break;
+		case ICNSS_SOC_WAKE_RELEASE_EVENT:
+			ret = icnss_event_soc_wake_release(priv,
+							   event->data);
+			break;
+		default:
+			icnss_pr_err("Invalid Event type: %d", event->type);
+			kfree(event);
+			continue;
+		}
+
+		priv->stats.soc_wake_events[event->type].processed++;
+
+		icnss_pr_dbg("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
+			     icnss_soc_wake_event_to_str(event->type),
+			     event->sync ? "-sync" : "", event->type, ret,
+			     priv->state);
+
+		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
+		if (event->sync) {
+			event->ret = ret;
+			complete(&event->complete);
+			continue;
+		}
+		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
+
+		kfree(event);
+
+		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
+	}
+	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
 
 	icnss_pm_relax(priv);
 }
@@ -1613,6 +1799,113 @@ enable_pdr:
 	return 0;
 }
 
+static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
+					unsigned long *thermal_state)
+{
+	struct icnss_priv *priv = tcdev->devdata;
+
+	*thermal_state = priv->max_thermal_state;
+
+	return 0;
+}
+
+static int icnss_tcdev_get_cur_state(struct thermal_cooling_device *tcdev,
+					unsigned long *thermal_state)
+{
+	struct icnss_priv *priv = tcdev->devdata;
+
+	*thermal_state = priv->curr_thermal_state;
+
+	return 0;
+}
+
+static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
+					unsigned long thermal_state)
+{
+	struct icnss_priv *priv = tcdev->devdata;
+	struct device *dev = &priv->pdev->dev;
+	int ret = 0;
+
+	priv->curr_thermal_state = thermal_state;
+
+	if (!priv->ops || !priv->ops->set_therm_state)
+		return 0;
+
+	icnss_pr_vdbg("Cooling device set current state: %ld",
+							thermal_state);
+
+	ret = priv->ops->set_therm_state(dev, thermal_state);
+
+	if (ret)
+		icnss_pr_err("Setting Current Thermal State Failed: %d\n", ret);
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops icnss_cooling_ops = {
+	.get_max_state = icnss_tcdev_get_max_state,
+	.get_cur_state = icnss_tcdev_get_cur_state,
+	.set_cur_state = icnss_tcdev_set_cur_state,
+};
+
+int icnss_thermal_register(struct device *dev, unsigned long max_state)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	priv->max_thermal_state = max_state;
+
+	if (of_find_property(dev->of_node, "#cooling-cells", NULL)) {
+		priv->tcdev = thermal_of_cooling_device_register(dev->of_node,
+						"icnss", priv,
+						&icnss_cooling_ops);
+		if (IS_ERR_OR_NULL(priv->tcdev)) {
+			ret = PTR_ERR(priv->tcdev);
+			icnss_pr_err("Cooling device register failed: %d\n",
+								ret);
+		} else {
+			icnss_pr_vdbg("Cooling device registered");
+		}
+	} else {
+		icnss_pr_dbg("Cooling device registration not supported");
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(icnss_thermal_register);
+
+void icnss_thermal_unregister(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!IS_ERR_OR_NULL(priv->tcdev))
+		thermal_cooling_device_unregister(priv->tcdev);
+
+	priv->tcdev = NULL;
+}
+EXPORT_SYMBOL(icnss_thermal_unregister);
+
+int icnss_get_curr_therm_state(struct device *dev,
+					unsigned long *thermal_state)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(priv->tcdev)) {
+		ret = PTR_ERR(priv->tcdev);
+		icnss_pr_err("Get current thermal state failed: %d\n", ret);
+		return ret;
+	}
+
+	icnss_pr_vdbg("Cooling device current state: %ld",
+					priv->curr_thermal_state);
+
+	*thermal_state = priv->curr_thermal_state;
+	return ret;
+}
+EXPORT_SYMBOL(icnss_get_curr_therm_state);
+
 int icnss_qmi_send(struct device *dev, int type, void *cmd,
 		  int cmd_len, void *cb_ctx,
 		  int (*cb)(void *ctx, void *event, int event_len))
@@ -1962,6 +2255,71 @@ int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 	return ret;
 }
 EXPORT_SYMBOL(icnss_set_fw_log_mode);
+
+int icnss_force_wake_request(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int count = 0;
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("Calling SOC Wake request");
+
+	if (atomic_read(&priv->soc_wake_ref_count)) {
+		count = atomic_inc_return(&priv->soc_wake_ref_count);
+		icnss_pr_dbg("SOC already awake, Ref count: %d", count);
+		return 0;
+	}
+
+	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_REQUEST_EVENT,
+				  0, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL(icnss_force_wake_request);
+
+int icnss_force_wake_release(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("Calling SOC Wake response");
+
+	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_RELEASE_EVENT,
+				  0, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL(icnss_force_wake_release);
+
+int icnss_is_device_awake(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	return atomic_read(&priv->soc_wake_ref_count);
+}
+EXPORT_SYMBOL(icnss_is_device_awake);
 
 int icnss_athdiag_read(struct device *dev, uint32_t offset,
 		       uint32_t mem_type, uint32_t data_len,
@@ -2620,7 +2978,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!of_id || !of_id->data) {
 		icnss_pr_err("Failed to find of match device!\n");
 		ret = -ENODEV;
-		goto out;
+		goto out_reset_drvdata;
 	}
 
 	device_id = of_id->data;
@@ -2644,18 +3002,19 @@ static int icnss_probe(struct platform_device *pdev)
 
 	ret = icnss_resource_parse(priv);
 	if (ret)
-		goto out;
+		goto out_reset_drvdata;
 
 	ret = icnss_msa_dt_parse(priv);
 	if (ret)
-		goto out;
+		goto out_free_resources;
 
 	ret = icnss_smmu_dt_parse(priv);
 	if (ret)
-		goto out;
+		goto out_free_resources;
 
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
+	spin_lock_init(&priv->soc_wake_msg_lock);
 	mutex_init(&priv->dev_lock);
 
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
@@ -2668,10 +3027,21 @@ static int icnss_probe(struct platform_device *pdev)
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
 	INIT_LIST_HEAD(&priv->event_list);
 
+	priv->soc_wake_wq = alloc_workqueue("icnss_soc_wake_event",
+					    WQ_UNBOUND, 1);
+	if (!priv->soc_wake_wq) {
+		icnss_pr_err("Soc wake Workqueue creation failed\n");
+		ret = -EFAULT;
+		goto out_destroy_wq;
+	}
+
+	INIT_WORK(&priv->soc_wake_msg_work, icnss_soc_wake_msg_work);
+	INIT_LIST_HEAD(&priv->soc_wake_msg_list);
+
 	ret = icnss_register_fw_service(priv);
 	if (ret < 0) {
 		icnss_pr_err("fw service registration failed: %d\n", ret);
-		goto out_destroy_wq;
+		goto out_destroy_soc_wq;
 	}
 
 	icnss_enable_recovery(priv);
@@ -2689,21 +3059,26 @@ static int icnss_probe(struct platform_device *pdev)
 
 	init_completion(&priv->unblock_shutdown);
 
-	ret = icnss_genl_init();
-	if (ret < 0)
-		icnss_pr_err("ICNSS genl init failed %d\n", ret);
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = icnss_genl_init();
+		if (ret < 0)
+			icnss_pr_err("ICNSS genl init failed %d\n", ret);
+	}
 
 	icnss_pr_info("Platform driver probed successfully\n");
 
 	return 0;
 
+out_destroy_soc_wq:
+	destroy_workqueue(priv->soc_wake_wq);
 out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
 smmu_cleanup:
 	priv->iommu_domain = NULL;
-out:
+out_free_resources:
+	icnss_put_resources(priv);
+out_reset_drvdata:
 	dev_set_drvdata(dev, NULL);
-
 	return ret;
 }
 
@@ -2713,7 +3088,8 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
 
-	icnss_genl_exit();
+	if (priv->device_id == WCN6750_DEVICE_ID)
+		icnss_genl_exit();
 
 	device_init_wakeup(&priv->pdev->dev, false);
 
@@ -2733,9 +3109,14 @@ static int icnss_remove(struct platform_device *pdev)
 	if (priv->event_wq)
 		destroy_workqueue(priv->event_wq);
 
+	if (priv->soc_wake_wq)
+		destroy_workqueue(priv->soc_wake_wq);
+
 	priv->iommu_domain = NULL;
 
 	icnss_hw_power_off(priv);
+
+	icnss_put_resources(priv);
 
 	dev_set_drvdata(&pdev->dev, NULL);
 

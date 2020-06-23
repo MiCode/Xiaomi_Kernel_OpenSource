@@ -548,6 +548,12 @@ static acpi_status acpi_serdev_register_device(struct serdev_controller *ctrl,
 	return AE_OK;
 }
 
+static const struct acpi_device_id serdev_acpi_devices_blacklist[] = {
+	{ "INT3511", 0 },
+	{ "INT3512", 0 },
+	{ },
+};
+
 static acpi_status acpi_serdev_add_device(acpi_handle handle, u32 level,
 				       void *data, void **return_value)
 {
@@ -555,6 +561,10 @@ static acpi_status acpi_serdev_add_device(acpi_handle handle, u32 level,
 	struct acpi_device *adev;
 
 	if (acpi_bus_get_device(handle, &adev))
+		return AE_OK;
+
+	/* Skip if black listed */
+	if (!acpi_match_device_ids(adev, serdev_acpi_devices_blacklist))
 		return AE_OK;
 
 	return acpi_serdev_register_device(ctrl, adev);
@@ -613,16 +623,18 @@ static int platform_serdev_register_devices(struct serdev_controller *ctrl)
 	return err;
 }
 
+
 /**
- * serdev_controller_add() - Add an serdev controller
+ * serdev_controller_add_platform() - Add an serdev controller
  * @ctrl:	controller to be registered.
+ * @platform:	whether to permit fallthrough to platform device probe
  *
  * Register a controller previously allocated via serdev_controller_alloc() with
- * the serdev core.
+ * the serdev core. Optionally permit probing via a platform device fallback.
  */
-int serdev_controller_add(struct serdev_controller *ctrl)
+int serdev_controller_add_platform(struct serdev_controller *ctrl, bool platform)
 {
-	int ret_of, ret_acpi, ret_platform, ret;
+	int ret, ret_of, ret_acpi, ret_platform = -ENODEV;
 
 	/* Can't register until after driver model init */
 	if (WARN_ON(!is_registered))
@@ -636,7 +648,8 @@ int serdev_controller_add(struct serdev_controller *ctrl)
 
 	ret_of = of_serdev_register_devices(ctrl);
 	ret_acpi = acpi_serdev_register_devices(ctrl);
-	ret_platform = platform_serdev_register_devices(ctrl);
+	if (platform)
+		ret_platform = platform_serdev_register_devices(ctrl);
 	if (ret_of && ret_acpi && ret_platform) {
 		dev_dbg(&ctrl->dev, "no devices registered: of:%d acpi:%d "
 				    "platform:%d\n",
@@ -654,7 +667,7 @@ err_rpm_disable:
 	device_del(&ctrl->dev);
 	return ret;
 };
-EXPORT_SYMBOL_GPL(serdev_controller_add);
+EXPORT_SYMBOL_GPL(serdev_controller_add_platform);
 
 /* Remove a device associated with a controller */
 static int serdev_remove_device(struct device *dev, void *data)

@@ -1754,6 +1754,12 @@ static int32_t nvt_ts_suspend(struct device *dev)
 	buf[0] = EVENT_MAP_HOST_CMD;
 	buf[1] = 0x11;
 	CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+
+	nvt_set_page(I2C_FW_Address, 0x11a50);
+	buf[0] = 0x11a50 & 0xff;
+	buf[1] = 0x11;
+	CTP_I2C_WRITE(ts->client, I2C_FW_Address, buf, 2);
+
 #endif // WAKEUP_GESTURE
 
 	mutex_unlock(&ts->lock);

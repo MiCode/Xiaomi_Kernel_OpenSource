@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/suspend.h>
@@ -15,7 +15,7 @@
 #define PROC_AWAKE_ID 12 /* 12th bit */
 #define AWAKE_BIT BIT(PROC_AWAKE_ID)
 static struct qcom_smem_state *state;
-static struct wakeup_source notify_ws;
+static struct wakeup_source *notify_ws;
 
 /**
  * sleepstate_pm_notifier() - PM notifier callback function.
@@ -49,7 +49,7 @@ static struct notifier_block sleepstate_pm_nb = {
 
 static irqreturn_t smp2p_sleepstate_handler(int irq, void *ctxt)
 {
-	__pm_wakeup_event(&notify_ws, 200);
+	__pm_wakeup_event(notify_ws, 200);
 	return IRQ_HANDLED;
 }
 
@@ -70,7 +70,12 @@ static int smp2p_sleepstate_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: power state notif error %d\n", __func__, ret);
 		return ret;
 	}
-	wakeup_source_init(&notify_ws, "smp2p-sleepstate");
+
+	notify_ws = wakeup_source_register(&pdev->dev, "smp2p-sleepstate");
+	if (!notify_ws) {
+		return -ENOMEM;
+		goto err_ws;
+	}
 
 	irq = of_irq_get_byname(node, "smp2p-sleepstate-in");
 	if (irq <= 0) {
@@ -89,7 +94,8 @@ static int smp2p_sleepstate_probe(struct platform_device *pdev)
 	}
 	return 0;
 err:
-	wakeup_source_trash(&notify_ws);
+	wakeup_source_unregister(notify_ws);
+err_ws:
 	unregister_pm_notifier(&sleepstate_pm_nb);
 	return ret;
 }

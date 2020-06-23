@@ -904,17 +904,21 @@ int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 out:
 	return ret;
 }
-#else
-int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
-{
-	return 0;
-}
-#endif
 
 void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
 {
 	debugfs_remove_recursive(plat_priv->root_dentry);
 }
+#else
+int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+void cnss_debugfs_destroy(struct cnss_plat_data *plat_priv)
+{
+}
+#endif
 
 int cnss_debug_init(void)
 {

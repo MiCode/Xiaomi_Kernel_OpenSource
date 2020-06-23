@@ -21,7 +21,8 @@ enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_LOW,
 	CNSS_BUS_WIDTH_MEDIUM,
 	CNSS_BUS_WIDTH_HIGH,
-	CNSS_BUS_WIDTH_VERY_HIGH
+	CNSS_BUS_WIDTH_VERY_HIGH,
+	CNSS_BUS_WIDTH_LOW_LATENCY
 };
 
 enum cnss_platform_cap_flag {
@@ -212,6 +213,7 @@ extern int cnss_wlan_pm_control(struct device *dev, bool vote);
 extern int cnss_auto_suspend(struct device *dev);
 extern int cnss_auto_resume(struct device *dev);
 extern int cnss_pci_is_drv_connected(struct device *dev);
+extern int cnss_pci_force_wake_request_sync(struct device *dev, int timeout);
 extern int cnss_pci_force_wake_request(struct device *dev);
 extern int cnss_pci_is_device_awake(struct device *dev);
 extern int cnss_pci_force_wake_release(struct device *dev);

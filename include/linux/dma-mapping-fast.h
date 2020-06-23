@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_DMA_MAPPING_FAST_H
@@ -23,9 +23,11 @@ struct dma_fast_smmu_mapping {
 	size_t		 num_4k_pages;
 
 	unsigned int	bitmap_size;
+	/* bitmap has 1s marked only valid mappings */
 	unsigned long	*bitmap;
+	/* clean_bitmap has 1s marked for both valid and stale tlb mappings */
+	unsigned long	*clean_bitmap;
 	unsigned long	next_start;
-	unsigned long	upcoming_stale_bit;
 	bool		have_stale_tlbs;
 
 	dma_addr_t	pgtbl_dma_handle;

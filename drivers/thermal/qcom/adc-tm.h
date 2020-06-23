@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_ADC_TM_H__
@@ -164,6 +164,7 @@ struct adc_tm_data {
 
 extern const struct adc_tm_data data_adc_tm5;
 extern const struct adc_tm_data data_adc_tm7;
+extern const struct adc_tm_data data_adc_tm_rev2;
 
 /**
  * Channel index for the corresponding index to adc_tm_channel_select

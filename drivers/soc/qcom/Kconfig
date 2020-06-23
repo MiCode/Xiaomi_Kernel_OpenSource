@@ -4,7 +4,7 @@
 #
 menu "Qualcomm SoC drivers"
 config QCOM_COMMAND_DB
-	bool "Qualcomm Command DB"
+	tristate "Qualcomm Command DB"
 	depends on ARCH_QCOM || COMPILE_TEST
 	depends on OF_RESERVED_MEM
 	help
@@ -241,7 +241,7 @@ config QCOM_RMTFS_MEM
 	  Say y here if you intend to boot the modem remoteproc.
 
 config QCOM_RPMH
-	bool "Qualcomm RPM-Hardened (RPMH) Communication"
+	tristate "Qualcomm RPM-Hardened (RPMH) Communication"
 	depends on ARCH_QCOM && ARM64 && OF || COMPILE_TEST
 	help
 	  Support for communication with the hardened-RPM blocks in
@@ -342,6 +342,15 @@ config QCOM_WCNSS_CTRL
 	help
 	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
 	  firmware to a newly booted WCNSS chip.
+
+config MSM_PIL_MSS_QDSP6V5
+	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	 Support for booting and shutting down QDSP6v5 (Hexagon) processors
+	 in modem subsystems. If you would like to make or receive phone
+	 calls then say Y here.
+	 If unsure, say N.
 
 config SETUP_SSR_NOTIF_TIMEOUTS
 	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
@@ -579,6 +588,14 @@ config QCOM_WATCHDOG_V2
 	  watchdog times out. It allows for detection of cpu hangs and
 	  deadlocks. It does not run during the bootup process, so it will
 	  not catch any early lockups.
+
+config QCOM_INITIAL_LOGBUF
+	bool "QCOM save initial log_buf"
+	depends on QCOM_WATCHDOG_V2
+	help
+	  This enables to keep copy of initial log_buf at 100 second from
+	  bootup.It can help in debugging issues which are manifestation of
+	  failure during initial bootup.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite"

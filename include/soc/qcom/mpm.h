@@ -16,4 +16,5 @@ struct mpm_pin {
 
 extern const struct mpm_pin mpm_bengal_gic_chip_data[];
 extern const struct mpm_pin mpm_scuba_gic_chip_data[];
+extern const struct mpm_pin mpm_sdm660_gic_chip_data[];
 #endif /* __QCOM_MPM_H__ */

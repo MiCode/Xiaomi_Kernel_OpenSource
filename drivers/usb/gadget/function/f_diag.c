@@ -3,7 +3,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  */
 #include <linux/init.h>
@@ -60,8 +60,8 @@ static struct usb_interface_descriptor intf_desc = {
 	.bLength            =	sizeof(intf_desc),
 	.bDescriptorType    =	USB_DT_INTERFACE,
 	.bNumEndpoints      =	2,
-	.bInterfaceClass    =	0xFF,
-	.bInterfaceSubClass =	0xFF,
+	.bInterfaceClass    =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_SUBCLASS_VENDOR_SPEC,
 	.bInterfaceProtocol =	0x30,
 };
 

@@ -82,6 +82,7 @@ struct clk_core {
 	struct clk_core		*new_child;
 	unsigned long		flags;
 	bool			orphan;
+	bool			rpm_enabled;
 	bool			need_sync;
 	bool			boot_enabled;
 	unsigned int		enable_count;
@@ -127,9 +128,9 @@ struct clk {
 /***           runtime pm          ***/
 static int clk_pm_runtime_get(struct clk_core *core)
 {
-	int ret = 0;
+	int ret;
 
-	if (!core->dev)
+	if (!core->rpm_enabled)
 		return 0;
 
 	ret = pm_runtime_get_sync(core->dev);
@@ -138,7 +139,7 @@ static int clk_pm_runtime_get(struct clk_core *core)
 
 static void clk_pm_runtime_put(struct clk_core *core)
 {
-	if (!core->dev)
+	if (!core->rpm_enabled)
 		return;
 
 	pm_runtime_put_sync(core->dev);
@@ -258,7 +259,7 @@ static bool clk_core_is_enabled(struct clk_core *core)
 	 * taking enable spinlock, but the below check is needed if one tries
 	 * to call it from other places.
 	 */
-	if (core->dev) {
+	if (core->rpm_enabled) {
 		pm_runtime_get_noresume(core->dev);
 		if (!pm_runtime_active(core->dev)) {
 			ret = false;
@@ -268,7 +269,7 @@ static bool clk_core_is_enabled(struct clk_core *core)
 
 	ret = core->ops->is_enabled(core->hw);
 done:
-	if (core->dev)
+	if (core->rpm_enabled)
 		pm_runtime_put(core->dev);
 
 	return ret;
@@ -4187,11 +4188,17 @@ static int __clk_core_init(struct clk_core *core)
 	if (core->flags & CLK_IS_CRITICAL) {
 		unsigned long flags;
 
-		clk_core_prepare(core);
+		ret = clk_core_prepare(core);
+		if (ret)
+			goto out;
 
 		flags = clk_enable_lock();
-		clk_core_enable(core);
+		ret = clk_core_enable(core);
 		clk_enable_unlock(flags);
+		if (ret) {
+			clk_core_unprepare(core);
+			goto out;
+		}
 	}
 
 	clk_core_hold_state(core);
@@ -4354,7 +4361,8 @@ struct clk *clk_register(struct device *dev, struct clk_hw *hw)
 	core->ops = hw->init->ops;
 
 	if (dev && pm_runtime_enabled(dev))
-		core->dev = dev;
+		core->rpm_enabled = true;
+	core->dev = dev;
 	if (dev && dev->driver)
 		core->owner = dev->driver->owner;
 	core->hw = hw;

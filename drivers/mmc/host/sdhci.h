@@ -548,6 +548,11 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 29)
 
+/*
+ * Use QTI specific SDCC debug feature.
+ */
+#define SDHCI_QUIRK2_USE_DBG_FEATURE (1 << 30)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 	char *bounce_buffer;	/* For packing SDMA reads/writes */

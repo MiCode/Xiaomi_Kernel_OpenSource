@@ -753,7 +753,18 @@ out:
 static void cqhci_crypto_update_queue(struct mmc_host *mmc,
 					struct request_queue *queue)
 {
-	struct cqhci_host *cq_host = mmc->cqe_private;
+	struct cqhci_host *cq_host;
+
+	if (!mmc) {
+		pr_err("%s mmc host is NULL\n", __func__);
+		return;
+	}
+
+	cq_host = mmc->cqe_private;
+	if (!cq_host) {
+		pr_err("%s cq host is NULL\n", __func__);
+		return;
+	}
 
 	if (cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) {
 		if (queue)

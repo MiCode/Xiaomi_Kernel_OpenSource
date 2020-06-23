@@ -84,6 +84,7 @@
 #define QMI_WLFW_MAC_ADDR_REQ_V01 0x0033
 #define QMI_WLFW_EXIT_POWER_SAVE_RESP_V01 0x0050
 #define QMI_WLFW_RESPOND_MEM_RESP_V01 0x0036
+#define QMI_WLFW_WFC_CALL_TWT_CONFIG_IND_V01 0x0051
 #define QMI_WLFW_VBATT_RESP_V01 0x0032
 #define QMI_WLFW_MSA_INFO_REQ_V01 0x002D
 #define QMI_WLFW_QDSS_TRACE_FREE_IND_V01 0x0046
@@ -153,6 +154,7 @@ enum wlfw_mem_type_enum_v01 {
 	QMI_WLFW_MEM_CAL_V01 = 4,
 	QMI_WLFW_MEM_DPD_V01 = 5,
 	QMI_WLFW_MEM_QDSS_V01 = 6,
+	QMI_WLFW_MEM_HANG_DATA_V01 = 7,
 	WLFW_MEM_TYPE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
@@ -163,11 +165,36 @@ enum wlfw_qdss_trace_mode_enum_v01 {
 	WLFW_QDSS_TRACE_MODE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
+enum wlfw_wfc_media_quality_v01 {
+	WLFW_WFC_MEDIA_QUALITY_MIN_VAL_V01 = INT_MIN,
+	QMI_WLFW_WFC_MEDIA_QUAL_NOT_AVAILABLE_V01 = 0,
+	QMI_WLFW_WFC_MEDIA_QUAL_BAD_V01 = 1,
+	QMI_WLFW_WFC_MEDIA_QUAL_GOOD_V01 = 2,
+	QMI_WLFW_WFC_MEDIA_QUAL_EXCELLENT_V01 = 3,
+	WLFW_WFC_MEDIA_QUALITY_MAX_VAL_V01 = INT_MAX,
+};
+
 enum wlfw_soc_wake_enum_v01 {
 	WLFW_SOC_WAKE_ENUM_MIN_VAL_V01 = INT_MIN,
 	QMI_WLFW_WAKE_REQUEST_V01 = 0,
 	QMI_WLFW_WAKE_RELEASE_V01 = 1,
 	WLFW_SOC_WAKE_ENUM_MAX_VAL_V01 = INT_MAX,
+};
+
+enum wlfw_host_build_type_v01 {
+	WLFW_HOST_BUILD_TYPE_MIN_VAL_V01 = INT_MIN,
+	QMI_HOST_BUILD_TYPE_UNSPECIFIED_V01 = 0,
+	QMI_HOST_BUILD_TYPE_PRIMARY_V01 = 1,
+	QMI_HOST_BUILD_TYPE_SECONDARY_V01 = 2,
+	WLFW_HOST_BUILD_TYPE_MAX_VAL_V01 = INT_MAX,
+};
+
+enum wlfw_qmi_param_value_v01 {
+	WLFW_QMI_PARAM_VALUE_MIN_VAL_V01 = INT_MIN,
+	QMI_PARAM_INVALID_V01 = 0,
+	QMI_PARAM_ENABLE_V01 = 1,
+	QMI_PARAM_DISABLE_V01 = 2,
+	WLFW_QMI_PARAM_VALUE_MAX_VAL_V01 = INT_MAX,
 };
 
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
@@ -302,9 +329,11 @@ struct wlfw_ind_register_req_msg_v01 {
 	u8 respond_get_info_enable;
 	u8 m3_dump_upload_req_enable_valid;
 	u8 m3_dump_upload_req_enable;
+	u8 wfc_call_twt_config_enable_valid;
+	u8 wfc_call_twt_config_enable;
 };
 
-#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 74
+#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 78
 extern struct qmi_elem_info wlfw_ind_register_req_msg_v01_ei[];
 
 struct wlfw_ind_register_resp_msg_v01 {
@@ -698,9 +727,11 @@ struct wlfw_host_cap_req_msg_v01 {
 	u8 ddr_range_valid;
 	struct wlfw_host_ddr_range_s_v01
 		ddr_range[QMI_WLFW_MAX_HOST_DDR_RANGE_SIZE_V01];
+	u8 host_build_type_valid;
+	enum wlfw_host_build_type_v01 host_build_type;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 312
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 319
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
@@ -909,9 +940,11 @@ struct wlfw_qdss_trace_mode_req_msg_v01 {
 	enum wlfw_qdss_trace_mode_enum_v01 mode;
 	u8 option_valid;
 	u64 option;
+	u8 hw_trc_disable_override_valid;
+	enum wlfw_qmi_param_value_v01 hw_trc_disable_override;
 };
 
-#define WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN 18
+#define WLFW_QDSS_TRACE_MODE_REQ_MSG_V01_MAX_MSG_LEN 25
 extern struct qmi_elem_info wlfw_qdss_trace_mode_req_msg_v01_ei[];
 
 struct wlfw_qdss_trace_mode_resp_msg_v01 {
@@ -979,9 +1012,21 @@ extern struct qmi_elem_info wlfw_antenna_grant_resp_msg_v01_ei[];
 struct wlfw_wfc_call_status_req_msg_v01 {
 	u32 wfc_call_status_len;
 	u8 wfc_call_status[QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01];
+	u8 wfc_call_active_valid;
+	u8 wfc_call_active;
+	u8 all_wfc_calls_held_valid;
+	u8 all_wfc_calls_held;
+	u8 is_wfc_emergency_valid;
+	u8 is_wfc_emergency;
+	u8 twt_ims_start_valid;
+	u64 twt_ims_start;
+	u8 twt_ims_int_valid;
+	u16 twt_ims_int;
+	u8 media_quality_valid;
+	enum wlfw_wfc_media_quality_v01 media_quality;
 };
 
-#define WLFW_WFC_CALL_STATUS_REQ_MSG_V01_MAX_MSG_LEN 261
+#define WLFW_WFC_CALL_STATUS_REQ_MSG_V01_MAX_MSG_LEN 296
 extern struct qmi_elem_info wlfw_wfc_call_status_req_msg_v01_ei[];
 
 struct wlfw_wfc_call_status_resp_msg_v01 {
@@ -1091,5 +1136,23 @@ struct wlfw_exit_power_save_resp_msg_v01 {
 
 #define WLFW_EXIT_POWER_SAVE_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_exit_power_save_resp_msg_v01_ei[];
+
+struct wlfw_wfc_call_twt_config_ind_msg_v01 {
+	u8 twt_sta_start_valid;
+	u64 twt_sta_start;
+	u8 twt_sta_int_valid;
+	u16 twt_sta_int;
+	u8 twt_sta_upo_valid;
+	u16 twt_sta_upo;
+	u8 twt_sta_sp_valid;
+	u16 twt_sta_sp;
+	u8 twt_sta_dl_valid;
+	u16 twt_sta_dl;
+	u8 twt_sta_config_changed_valid;
+	u8 twt_sta_config_changed;
+};
+
+#define WLFW_WFC_CALL_TWT_CONFIG_IND_MSG_V01_MAX_MSG_LEN 35
+extern struct qmi_elem_info wlfw_wfc_call_twt_config_ind_msg_v01_ei[];
 
 #endif

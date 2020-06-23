@@ -78,7 +78,7 @@ struct fpc1020_data {
 	struct pinctrl *fingerprint_pinctrl;
 	struct pinctrl_state *pinctrl_state[ARRAY_SIZE(pctl_names)];
 	struct regulator *vreg[ARRAY_SIZE(vreg_conf)];
-	struct wakeup_source ttw_wl;
+	struct wakeup_source *ttw_wl;
 	struct mutex lock; /* To set/get exported values in sysfs */
 	int irq_gpio;
 	int rst_gpio;
@@ -384,7 +384,7 @@ static ssize_t handle_wakelock_store(struct device *dev,
 		min(count, strlen(RELEASE_WAKELOCK_W_V)))) {
 		if (fpc1020->nbr_irqs_received_counter_start ==
 				fpc1020->nbr_irqs_received) {
-			__pm_relax(&fpc1020->ttw_wl);
+			__pm_relax(fpc1020->ttw_wl);
 		} else {
 			dev_dbg(dev, "Ignore releasing of wakelock %d != %d",
 			fpc1020->nbr_irqs_received_counter_start,
@@ -392,7 +392,7 @@ static ssize_t handle_wakelock_store(struct device *dev,
 		}
 	} else if (!memcmp(buf, RELEASE_WAKELOCK, min(count,
 				strlen(RELEASE_WAKELOCK)))) {
-		__pm_relax(&fpc1020->ttw_wl);
+		__pm_relax(fpc1020->ttw_wl);
 	} else if (!memcmp(buf, START_IRQS_RECEIVED_CNT,
 			min(count, strlen(START_IRQS_RECEIVED_CNT)))) {
 		fpc1020->nbr_irqs_received_counter_start =
@@ -443,7 +443,7 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 	mutex_lock(&fpc1020->lock);
 	if (atomic_read(&fpc1020->wakeup_enabled)) {
 		fpc1020->nbr_irqs_received++;
-		__pm_wakeup_event(&fpc1020->ttw_wl,
+		__pm_wakeup_event(fpc1020->ttw_wl,
 					msecs_to_jiffies(FPC_TTW_HOLD_TIME));
 	}
 	mutex_unlock(&fpc1020->lock);
@@ -546,7 +546,9 @@ static int fpc1020_probe(struct platform_device *pdev)
 
 	enable_irq_wake(gpio_to_irq(fpc1020->irq_gpio));
 
-	wakeup_source_init(&fpc1020->ttw_wl, "fpc_ttw_wl");
+	fpc1020->ttw_wl = wakeup_source_register(dev, "fpc_ttw_wl");
+	if (!fpc1020->ttw_wl)
+		return -ENOMEM;
 
 	rc = sysfs_create_group(&dev->kobj, &attribute_group);
 	if (rc) {
@@ -570,7 +572,7 @@ static int fpc1020_remove(struct platform_device *pdev)
 
 	sysfs_remove_group(&pdev->dev.kobj, &attribute_group);
 	mutex_destroy(&fpc1020->lock);
-	wakeup_source_trash(&fpc1020->ttw_wl);
+	wakeup_source_unregister(fpc1020->ttw_wl);
 	vreg_setup(fpc1020, "vdd_ana", false);
 	vreg_setup(fpc1020, "vdd_io", false);
 	vreg_setup(fpc1020, "vcc_spi", false);

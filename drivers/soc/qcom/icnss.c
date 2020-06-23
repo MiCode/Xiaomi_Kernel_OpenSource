@@ -844,6 +844,8 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	set_bit(ICNSS_WLFW_EXISTS, &penv->state);
 	clear_bit(ICNSS_FW_DOWN, &penv->state);
+	clear_bit(ICNSS_FW_READY, &penv->state);
+
 	icnss_ignore_fw_timeout(false);
 
 	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state)) {
@@ -1460,12 +1462,11 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	    notif->crashed == CRASH_STATUS_ERR_FATAL) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
 		icnss_msa0_ramdump(priv);
-
-		return NOTIFY_OK;
+		goto out;
 	}
 
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
-		return NOTIFY_OK;
+		goto out;
 
 	priv->is_ssr = true;
 
@@ -1481,7 +1482,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
 		}
-		return NOTIFY_OK;
+		goto out;
 	}
 
 	icnss_pr_info("Modem went down, state: 0x%lx, crashed: %d\n",
@@ -1498,8 +1499,10 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
-	if (event_data == NULL)
+	if (event_data == NULL) {
+		icnss_pr_vdbg("Exit %s, event_data is NULL\n", __func__);
 		return notifier_from_errno(-ENOMEM);
+	}
 
 	event_data->crashed = notif->crashed;
 
@@ -1511,7 +1514,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	}
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 				ICNSS_EVENT_SYNC, event_data);
-
+out:
+	icnss_pr_vdbg("Exit %s,state: 0x%lx\n", __func__, priv->state);
 	return NOTIFY_OK;
 }
 
@@ -2799,6 +2803,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_PDR:
 			seq_puts(s, "PDR TRIGGERED");
+			continue;
+		case ICNSS_DEL_SERVER:
+			seq_puts(s, "DEL SERVER");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

@@ -150,6 +150,18 @@ qmi_registered:
 	return ret;
 }
 
+#ifdef CONFIG_CNSS2_DEBUG
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_PRIMARY_V01;
+}
+#else
+static inline u32 cnss_get_host_build_type(void)
+{
+	return QMI_HOST_BUILD_TYPE_SECONDARY_V01;
+}
+#endif
+
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -208,6 +220,9 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("Sending iova starting 0x%llx with size 0x%llx\n",
 			    req->ddr_range[0].start, req->ddr_range[0].size);
 	}
+
+	req->host_build_type_valid = 1;
+	req->host_build_type = cnss_get_host_build_type();
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);

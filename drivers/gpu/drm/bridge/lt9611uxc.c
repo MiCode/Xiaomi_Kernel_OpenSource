@@ -24,13 +24,14 @@
 #include <linux/regulator/consumer.h>
 #include <linux/firmware.h>
 #include <linux/hdmi.h>
+#include <linux/string.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_crtc_helper.h>
-#include <linux/string.h>
+#include <drm/drm_client.h>
 
 #define CFG_HPD_INTERRUPTS BIT(0)
 #define CFG_EDID_INTERRUPTS BIT(1)
@@ -139,6 +140,7 @@ struct lt9611_timing_info {
 };
 
 static struct lt9611_timing_info lt9611_supp_timing_cfg[] = {
+	{3840, 2160, 24, 60, 4, 2}, /* 3840x2160 24bit 60Hz 4Lane 2ports */
 	{3840, 2160, 24, 30, 4, 2}, /* 3840x2160 24bit 30Hz 4Lane 2ports */
 	{1920, 1080, 24, 60, 4, 1}, /* 1080P 24bit 60Hz 4lane 1port */
 	{1920, 1080, 24, 30, 3, 1}, /* 1080P 24bit 30Hz 3lane 1port */
@@ -182,6 +184,11 @@ void lt9611_hpd_work(struct work_struct *work)
 	envp[4] = NULL;
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
 			   envp);
+
+	if (dev->mode_config.funcs->output_poll_changed)
+		dev->mode_config.funcs->output_poll_changed(dev);
+
+	drm_client_dev_hotplug(dev);
 }
 
 static struct lt9611 *bridge_to_lt9611(struct drm_bridge *bridge)
@@ -893,7 +900,7 @@ static void lt9611_reset(struct lt9611 *pdata, bool on_off)
 		gpio_set_value(pdata->reset_gpio, 0);
 		msleep(20);
 		gpio_set_value(pdata->reset_gpio, 1);
-		msleep(300);
+		msleep(180);
 	} else {
 		gpio_set_value(pdata->reset_gpio, 0);
 	}

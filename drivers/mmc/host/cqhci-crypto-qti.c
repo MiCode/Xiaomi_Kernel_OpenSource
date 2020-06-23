@@ -220,8 +220,10 @@ int cqhci_host_init_crypto_qti_spec(struct cqhci_host *host,
 				host->crypto_cap_array[cap_idx].sdus_mask * 512;
 	}
 
-	host->ksm = keyslot_manager_create(cqhci_num_keyslots(host), ksm_ops,
-					crypto_modes_supported, host);
+	host->ksm = keyslot_manager_create(host->mmc->parent,
+					   cqhci_num_keyslots(host),
+					   ksm_ops, crypto_modes_supported,
+					   host);
 
 	if (!host->ksm) {
 		err = -ENOMEM;

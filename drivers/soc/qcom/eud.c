@@ -92,14 +92,6 @@ static int enable;
 static bool eud_ready;
 static struct platform_device *eud_private;
 
-static int check_eud_mode_mgr2(struct eud_chip *chip)
-{
-	u32 val;
-
-	val = scm_io_read(chip->eud_mode_mgr2_phys_base);
-	return val & BIT(0);
-}
-
 static void enable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
@@ -113,7 +105,7 @@ static void enable_eud(struct platform_device *pdev)
 			priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
 
 	/* Enable secure eud if supported */
-	if (priv->secure_eud_en && !check_eud_mode_mgr2(priv)) {
+	if (priv->secure_eud_en) {
 		ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
 				   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
 		if (ret)
@@ -572,9 +564,6 @@ static int msm_eud_probe(struct platform_device *pdev)
 		}
 
 		chip->eud_mode_mgr2_phys_base = res->start;
-
-		if (check_eud_mode_mgr2(chip))
-			enable = 1;
 	}
 
 	chip->need_phy_clk_vote = of_property_read_bool(pdev->dev.of_node,

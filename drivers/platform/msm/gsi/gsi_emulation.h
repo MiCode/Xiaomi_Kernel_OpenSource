@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_GSI_EMULATION_H_)
@@ -10,7 +10,10 @@
 
 # include "gsi.h"
 # include "gsi_reg.h"
+
+#if defined(CONFIG_IPA_EMULATION)
 # include "gsi_emulation_stubs.h"
+#endif
 
 # define gsi_emu_readl(c)     (readl(c))
 # define gsi_emu_writel(v, c) ({ __iowmb(); writel_relaxed((v), (c)); })

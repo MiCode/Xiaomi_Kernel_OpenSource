@@ -19,6 +19,8 @@ bool is_usb_present(struct qpnp_qg *chip);
 bool is_dc_present(struct qpnp_qg *chip);
 bool is_input_present(struct qpnp_qg *chip);
 bool is_parallel_enabled(struct qpnp_qg *chip);
+bool is_cp_available(struct qpnp_qg *chip);
+bool is_parallel_available(struct qpnp_qg *chip);
 int qg_write_monotonic_soc(struct qpnp_qg *chip, int msoc);
 int qg_get_battery_temp(struct qpnp_qg *chip, int *batt_temp);
 int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua);

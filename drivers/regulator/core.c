@@ -231,6 +231,37 @@ static void regulator_unlock_supply(struct regulator_dev *rdev)
 }
 
 /**
+ * of_get_child_regulator - get a child regulator device node
+ * based on supply name
+ * @parent: Parent device node
+ * @prop_name: Combination regulator supply name and "-supply"
+ *
+ * Traverse all child nodes.
+ * Extract the child regulator device node corresponding to the supply name.
+ * returns the device node corresponding to the regulator if found, else
+ * returns NULL.
+ */
+static struct device_node *of_get_child_regulator(struct device_node *parent,
+						  const char *prop_name)
+{
+	struct device_node *regnode = NULL;
+	struct device_node *child = NULL;
+
+	for_each_child_of_node(parent, child) {
+		regnode = of_parse_phandle(child, prop_name, 0);
+
+		if (!regnode) {
+			regnode = of_get_child_regulator(child, prop_name);
+			if (regnode)
+				return regnode;
+		} else {
+			return regnode;
+		}
+	}
+	return NULL;
+}
+
+/**
  * of_get_regulator - get a regulator device node based on supply name
  * @dev: Device pointer for the consumer (of regulator) device
  * @supply: regulator supply name
@@ -250,6 +281,10 @@ static struct device_node *of_get_regulator(struct device *dev, const char *supp
 	regnode = of_parse_phandle(dev->of_node, prop_name, 0);
 
 	if (!regnode) {
+		regnode = of_get_child_regulator(dev->of_node, prop_name);
+		if (regnode)
+			return regnode;
+
 		dev_dbg(dev, "Looking up %s property in node %pOF failed\n",
 				prop_name, dev->of_node);
 		return NULL;
@@ -2732,6 +2767,40 @@ int regulator_list_hardware_vsel(struct regulator *regulator,
 	return selector;
 }
 EXPORT_SYMBOL_GPL(regulator_list_hardware_vsel);
+
+/**
+ * regulator_list_corner_voltage - return the maximum voltage in microvolts that
+ *	can be physically configured for the regulator when operating at the
+ *	specified voltage corner
+ * @regulator: regulator source
+ * @corner: voltage corner value
+ * Context: can sleep
+ *
+ * This function can be used for regulators which allow scaling between
+ * different voltage corners as opposed to be different absolute voltages.  The
+ * absolute voltage for a given corner may vary part-to-part or for a given part
+ * at runtime based upon various factors.
+ *
+ * Returns a voltage corresponding to the specified voltage corner or a negative
+ * errno if the corner value can't be used on this system.
+ */
+int regulator_list_corner_voltage(struct regulator *regulator, int corner)
+{
+	struct regulator_dev *rdev = regulator->rdev;
+	int ret;
+
+	if (corner < rdev->constraints->min_uV ||
+	    corner > rdev->constraints->max_uV ||
+	    !rdev->desc->ops->list_corner_voltage)
+		return -EINVAL;
+
+	mutex_lock(&rdev->mutex);
+	ret = rdev->desc->ops->list_corner_voltage(rdev, corner);
+	mutex_unlock(&rdev->mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(regulator_list_corner_voltage);
 
 /**
  * regulator_get_linear_step - return the voltage step size between VSEL values

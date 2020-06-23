@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2013, 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2013, 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef __QCOM_CLK_RCG_H__
 #define __QCOM_CLK_RCG_H__
@@ -173,6 +173,7 @@ extern const struct clk_ops clk_gfx3d_ops;
 extern const struct clk_ops clk_rcg2_shared_ops;
 extern const struct clk_ops clk_dp_ops;
 extern const struct clk_ops clk_rcg2_dependent_ops;
+extern const struct clk_ops clk_gfx3d_src_ops;
 
 struct clk_rcg_dfs_data {
 	struct clk_rcg2 *rcg;

@@ -483,6 +483,28 @@ int ipa_uc_offload_conn_pipes(struct ipa_uc_offload_conn_in_params *inp,
 }
 EXPORT_SYMBOL(ipa_uc_offload_conn_pipes);
 
+int ipa_set_perf_profile(struct ipa_perf_profile *profile)
+{
+	if (!profile) {
+		IPA_UC_OFFLOAD_ERR("Invalid input\n");
+		return -EINVAL;
+	}
+
+	if (profile->client != IPA_CLIENT_ETHERNET_PROD &&
+		profile->client != IPA_CLIENT_ETHERNET_CONS) {
+		IPA_UC_OFFLOAD_ERR("not supported\n");
+		return -EINVAL;
+	}
+
+	IPA_UC_OFFLOAD_DBG("setting throughput to %d\n",
+		profile->max_supported_bw_mbps);
+
+	return ipa_pm_set_throughput(
+		ipa_uc_offload_ctx[IPA_UC_NTN]->pm_hdl,
+		profile->max_supported_bw_mbps);
+}
+EXPORT_SYMBOL(ipa_set_perf_profile);
+
 static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 {
 	int ipa_ep_idx_ul, ipa_ep_idx_dl;

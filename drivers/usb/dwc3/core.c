@@ -1197,6 +1197,9 @@ static void __maybe_unused dwc3_core_exit_mode(struct dwc3 *dwc)
 		/* do nothing */
 		break;
 	}
+
+	/* de-assert DRVVBUS for HOST and OTG mode */
+	dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 }
 
 static void (*notify_event)(struct dwc3 *, unsigned int, unsigned int);

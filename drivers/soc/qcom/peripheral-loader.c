@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -134,7 +134,7 @@ struct pil_seg {
  */
 struct pil_priv {
 	struct delayed_work proxy;
-	struct wakeup_source ws;
+	struct wakeup_source *ws;
 	char wname[32];
 	struct pil_desc *desc;
 	int num_segs;
@@ -414,6 +414,33 @@ setup_fail:
 }
 
 /**
+ * print_aux_minidump_tocs() - Print the ToC for an auxiliary minidump entry
+ * @desc: PIL descriptor for the subsystem for which minidump is collected
+ *
+ * Prints out the table of contents(ToC) for all of the auxiliary
+ * minidump entries for a subsystem.
+ */
+static void print_aux_minidump_tocs(struct pil_desc *desc)
+{
+	int i;
+	struct md_ss_toc *toc;
+
+	for (i = 0; i < desc->num_aux_minidump_ids; i++) {
+		toc = desc->aux_minidump[i];
+		pr_debug("Minidump : md_aux_toc->toc_init 0x%x\n",
+			 (unsigned int)toc->md_ss_toc_init);
+		pr_debug("Minidump : md_aux_toc->enable_status 0x%x\n",
+			 (unsigned int)toc->md_ss_enable_status);
+		pr_debug("Minidump : md_aux_toc->encryption_status 0x%x\n",
+			 (unsigned int)toc->encryption_status);
+		pr_debug("Minidump : md_aux_toc->ss_region_count 0x%x\n",
+			 (unsigned int)toc->ss_region_count);
+		pr_debug("Minidump : md_aux_toc->smem_regions_baseptr 0x%x\n",
+			 (unsigned int)toc->md_ss_smem_regions_baseptr);
+	}
+}
+
+/**
  * pil_do_ramdump() - Ramdump an image
  * @desc: descriptor from pil_desc_init()
  * @ramdump_dev: ramdump device returned from create_ramdump_device()
@@ -441,6 +468,9 @@ int pil_do_ramdump(struct pil_desc *desc,
 		pr_debug("Minidump : md_ss_toc->md_ss_smem_regions_baseptr is 0x%x\n",
 			(unsigned int)
 			desc->minidump_ss->md_ss_smem_regions_baseptr);
+
+		print_aux_minidump_tocs(desc);
+
 		/**
 		 * Collect minidump if SS ToC is valid and segment table
 		 * is initialized in memory and encryption status is set.
@@ -581,7 +611,7 @@ static void __pil_proxy_unvote(struct pil_priv *priv)
 
 	desc->ops->proxy_unvote(desc);
 	notify_proxy_unvote(desc->dev);
-	__pm_relax(&priv->ws);
+	__pm_relax(priv->ws);
 	module_put(desc->owner);
 
 }
@@ -600,10 +630,10 @@ static int pil_proxy_vote(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 
 	if (desc->ops->proxy_vote) {
-		__pm_stay_awake(&priv->ws);
+		__pm_stay_awake(priv->ws);
 		ret = desc->ops->proxy_vote(desc);
 		if (ret)
-			__pm_relax(&priv->ws);
+			__pm_relax(priv->ws);
 	}
 
 	if (desc->proxy_unvote_irq)
@@ -1305,7 +1335,7 @@ int pil_boot(struct pil_desc *desc)
 	 * Fallback to serial loading of blobs if the
 	 * workqueue creatation failed during module init.
 	 */
-	if (pil_wq) {
+	if (pil_wq && !(desc->sequential_loading)) {
 		ret = pil_load_segs(desc);
 		if (ret)
 			goto err_deinit_image;
@@ -1561,7 +1591,13 @@ int pil_desc_init(struct pil_desc *desc)
 	}
 
 	snprintf(priv->wname, sizeof(priv->wname), "pil-%s", desc->name);
-	wakeup_source_init(&priv->ws, priv->wname);
+
+	priv->ws = wakeup_source_register(desc->dev, priv->wname);
+	if (!priv->ws) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	INIT_DELAYED_WORK(&priv->proxy, pil_proxy_unvote_work);
 	INIT_LIST_HEAD(&priv->segs);
 
@@ -1597,7 +1633,7 @@ void pil_desc_release(struct pil_desc *desc)
 	if (priv) {
 		ida_simple_remove(&pil_ida, priv->id);
 		flush_delayed_work(&priv->proxy);
-		wakeup_source_trash(&priv->ws);
+		wakeup_source_unregister(priv->ws);
 	}
 	desc->priv = NULL;
 	kfree(priv);

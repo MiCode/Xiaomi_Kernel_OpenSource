@@ -1485,60 +1485,53 @@ done:
  **************************************************************************/
 
 /*
- * rtc6226_fops_read - read RDS data
+ * rtc6226_fops_read - read event data
  */
-static ssize_t rtc6226_fops_read(struct file *file, char __user *buf,
+static ssize_t rtc6226_fops_read(struct file *file, char __user *buffer,
 		size_t count, loff_t *ppos)
 {
-	struct rtc6226_device *radio = video_drvdata(file);
-	int retval = 0;
-	unsigned int block_count = 0;
+	struct rtc6226_device *radio = video_get_drvdata(video_devdata(file));
+	enum rtc6226_buf_t buf_type = -1;
+	u8 buf_fifo[STD_BUF_SIZE] = {0};
+	struct kfifo *data_fifo = NULL;
+	int len = 0, retval = -1;
+	u32 bytesused = 0;
 
-	/* switch on rds reception */
-	mutex_lock(&radio->lock);
-	/* if RDS is not on, then turn on RDS */
-	if ((radio->registers[SYSCFG] & SYSCFG_CSR0_RDS_EN) == 0)
-		rtc6226_rds_on(radio);
-
-	/* block if no new data available */
-	while (radio->wr_index == radio->rd_index) {
-		if (file->f_flags & O_NONBLOCK) {
-			retval = -EWOULDBLOCK;
-			goto done;
-		}
-		if (wait_event_interruptible(radio->read_queue,
-				radio->wr_index != radio->rd_index) < 0) {
-			retval = -EINTR;
-			goto done;
-		}
+	if ((radio == NULL) || (buffer == NULL)) {
+		FMDERR("%s radio/buffer is NULL\n", __func__);
+		return -ENXIO;
 	}
 
-	/* calculate block count from byte count */
-	count /= 3;
-	FMDBG("%s : count = %zu\n", __func__, count);
+	buf_type = count;
+	len = STD_BUF_SIZE;
+	FMDBG("%s: requesting buffer %d\n", __func__, buf_type);
 
-	/* copy RDS block out of internal buffer and to user buffer */
-	while (block_count < count) {
-		if (radio->rd_index == radio->wr_index)
-			break;
-		/* always transfer rds complete blocks */
-		if (copy_to_user(buf, &radio->buffer[radio->rd_index], 3))
-			/* retval = -EFAULT; */
-			break;
-		/* increment and wrap read pointer */
-		radio->rd_index += 3;
-		if (radio->rd_index >= radio->buf_size)
-			radio->rd_index = 0;
-		/* increment counters */
-		block_count++;
-		buf += 3;
-		retval += 3;
-		FMDBG("%s : block_count = %d, count = %zu\n", __func__,
-			block_count, count);
+	if ((buf_type < RTC6226_FM_BUF_MAX) && (buf_type >= 0)) {
+		data_fifo = &radio->data_buf[buf_type];
+		if (buf_type == RTC6226_FM_BUF_EVENTS) {
+			if (wait_event_interruptible(radio->event_queue,
+						kfifo_len(data_fifo)) < 0) {
+				return -EINTR;
+			}
+		}
+	} else {
+		FMDERR("%s invalid buffer type\n", __func__);
+		return -EINVAL;
 	}
-
-done:
-	mutex_unlock(&radio->lock);
+	if (len <= STD_BUF_SIZE) {
+		bytesused = kfifo_out_locked(data_fifo, &buf_fifo[0],
+				len, &radio->buf_lock[buf_type]);
+	} else {
+		FMDERR("%s kfifo_out_locked can not use len more than 128\n",
+			__func__);
+		return -EINVAL;
+	}
+	retval = copy_to_user(buffer, &buf_fifo[0], bytesused);
+	if (retval > 0) {
+		FMDERR("%s Failed to copy %d bytes data\n", __func__, retval);
+		return -EAGAIN;
+	}
+	retval = bytesused;
 	return retval;
 }
 
