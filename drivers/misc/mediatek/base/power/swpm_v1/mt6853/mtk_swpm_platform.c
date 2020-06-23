@@ -384,12 +384,12 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 
 static struct dram_pwr_conf dram_def_pwr_conf[] = {
 	[DRAM_VDD1_1P8V] = {
-		.i_dd0 = 7020,
-		.i_dd2p = 720,
-		.i_dd2n = 3000,
-		.i_dd4r = 5946,
-		.i_dd4w = 1620,
-		.i_dd5 = 5600,
+		.i_dd0 = 5500,
+		.i_dd2p = 650,
+		.i_dd2n = 1750,
+		.i_dd4r = 5900,
+		.i_dd4w = 1750,
+		.i_dd5 = 5250,
 		.i_dd6 = 475,
 	},
 	[DRAM_VDD2_1P1V] = {
