@@ -240,6 +240,12 @@ static int get_devinfo(void)
 	else
 		gpu_vb_volt =
 			gpu_opp0_t_volt[0];
+#ifdef MC50_LOAD
+	gpu_vb_volt = gpu_opp0_t_volt[3];
+	eemg_error("mc50 load setting\n");
+
+#endif
+
 	eemg_error("gpu_vb_volt:%d, efuse_val:%d\n",
 			gpu_vb_volt, efuse_val);
 

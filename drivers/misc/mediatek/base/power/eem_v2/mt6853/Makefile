@@ -70,6 +70,21 @@ subdir-ccflags-y += -DMT6853
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853tv1_64_mcl")
+subdir-ccflags-y += -DMT6853T
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853tv1_64_120hz_mcl")
+subdir-ccflags-y += -DMT6853T
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6853v1_64_rf6190_4gb_1866_mcl")
+subdir-ccflags-y += -DMT6853
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
