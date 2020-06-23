@@ -676,7 +676,7 @@ static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][25] = {{0} };
 #define TG_ERR_RECOVER
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1] = {0};
 static union FBC_CTRL_2 g_fbc_ctrl2[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
-static int g_recoverCnt[ISP_IRQ_TYPE_AMOUNT] = {0};
+static int g_tgErrRecoverCnt[ISP_IRQ_TYPE_AMOUNT] = {0};
 #endif
 static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
 
@@ -1501,13 +1501,6 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 		if (index > (ISP_CAM_C_INNER_IDX - ISP_CAM_A_INNER_IDX)) {
 			LOG_NOTICE(
 				"index is invalid! recover fail");
-		}
-
-		//config next cq table when 1st sof coming
-		if (g_recoverCnt[regModule-ISP_CAM_A_IDX]) {
-			ISP_WR32(CAM_REG_CTL_MISC(tmp_module),
-			  (ISP_RD32(CAM_REG_CTL_MISC(tmp_module)) | 0x10));
-			LOG_NOTICE("1st sof after cq recover done\n");
 		}
 
 		//CQ1
@@ -6494,9 +6487,9 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	}
 
 #if Lafi_WAM_CQ_ERR
-    /*reset g_recoverCnt*/
-	g_recoverCnt[ISP_IRQ_TYPE_INT_CAM_A_ST] = 0;
-	g_recoverCnt[ISP_IRQ_TYPE_INT_CAM_B_ST] = 0;
+    /*reset g_tgErrRecoverCnt*/
+	g_tgErrRecoverCnt[ISP_IRQ_TYPE_INT_CAM_A_ST] = 0;
+	g_tgErrRecoverCnt[ISP_IRQ_TYPE_INT_CAM_B_ST] = 0;
 #endif
 	/*  */
 	for (i = ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++)
@@ -9824,7 +9817,7 @@ static void Set_CQ_continuous(unsigned int tmp_module)
 	}
 }
 
-int CQ_Recover_start(enum ISP_IRQ_TYPE_ENUM irg_module,
+int CQ_Recover_start(enum ISP_IRQ_TYPE_ENUM irq_module,
 unsigned int *reg_module, unsigned int *reg_module_array,
 unsigned int *reg_module_count)
 {
@@ -9832,7 +9825,7 @@ unsigned int *reg_module_count)
 	unsigned int  DmaEnStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 	unsigned int i = 0, tmp_module = 0, index = 0;
 
-	switch (irg_module) {
+	switch (irq_module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 		*reg_module = ISP_CAM_A_IDX;
 		break;
@@ -9844,16 +9837,18 @@ unsigned int *reg_module_count)
 		break;
 	default:
 		LOG_NOTICE("Wrong IRQ module: %d",
-			   (unsigned int)irg_module);
+			   (unsigned int)irq_module);
 		break;
 	}
 	LOG_NOTICE("+CQ recover");
 
-	if (g_recoverCnt[irg_module] >= MAX_RECOVER_CNT) {
-		LOG_NOTICE("CQ recover over 3 times");
+
+	if (g_tgErrRecoverCnt[irq_module] >= MAX_RECOVER_CNT) {
+		LOG_NOTICE("TG err recover over 3 times");
 		return -1;
 	}
-	g_recoverCnt[irg_module]++;
+	if (g_ISPIntStatus_SMI[irq_module].ispIntErr & TG_ERR_ST)
+		g_tgErrRecoverCnt[irq_module]++;
 
 	reg_module_array[0] = *reg_module;
 	twinStatus.Raw = ISP_RD32(CAM_REG_CTL_TWIN_STATUS(*reg_module));
@@ -10242,7 +10237,7 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 		if (g_ISPIntStatus_SMI[
 			reg_module - ISP_CAM_A_IDX].ispIntErr
 			& TG_ERR_ST) {
-			LOG_NOTICE("skip cq restore");
+			LOG_NOTICE("TG recover skip CQ restore");
 			break;
 		}
 
@@ -11016,11 +11011,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	ErrStatus = IrqStatus & IspInfo.IrqInfo.ErrMask[module][SIGNAL_INT];
 
 	if (((IrqStatus & SOF_INT_ST) == 0) &&
-#ifdef TG_ERR_RECOVER
-		(IrqStatus & (VS_INT_ST|TG_ERR_ST))) {
-#else
 		(IrqStatus & VS_INT_ST)) {
-#endif
 		if ((ISP_RD32(CAMX_REG_TG_VF_CON(reg_module)) == 0x1) &&
 		    (g1stSof[module] == MFALSE)) {
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
@@ -11155,7 +11146,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 #if Lafi_WAM_CQ_ERR
 		//after recover success, clear reset count
-		g_recoverCnt[module] = 0;
+		g_tgErrRecoverCnt[module] = 0;
 #endif
 
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
@@ -11843,9 +11834,16 @@ LB_CAM_SOF_IGNORE:
 	spin_unlock(&(IspInfo.SpinLockIrq[module]));
 	/*  */
 	if (IrqStatus & SOF_INT_ST) {
-		wake_up_interruptible(
+		//after TG err recover skip 1st sof coming
+		if (g_tgErrRecoverCnt[module]) {
+			ISP_WR32(CAM_REG_CTL_MISC(reg_module),
+			  (ISP_RD32(CAM_REG_CTL_MISC(reg_module)) | 0x10));
+			LOG_NOTICE("1st sof after cq recover done\n");
+		} else {
+			wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_SOF]);
+		}
 	}
 	if (IrqStatus & SW_PASS1_DON_ST) {
 		wake_up_interruptible(
@@ -11931,7 +11929,12 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
 		}
-		if (g_ISPIntStatus_SMI[irq_module].ispIntErr & CQ_VS_ERR_ST) {
+		if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
+#ifdef TG_ERR_RECOVER
+			(CQ_VS_ERR_ST | TG_ERR_ST)) {
+#else
+			CQ_VS_ERR_ST) {
+#endif
 /* sw workaround for CQ byebye */
 #if Lafi_WAM_CQ_ERR
 			unsigned int reg_module_array[3];
@@ -11964,7 +11967,7 @@ EXIT_CQ_RECOVER:
 			 *      LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
 			 */
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
-				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
+			g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
 		}
 		break;
 #ifndef DISABLE_SV_TOP0
