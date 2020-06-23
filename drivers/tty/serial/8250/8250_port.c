@@ -1874,7 +1874,9 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	unsigned char status;
 	unsigned long flags;
 	struct uart_8250_port *up = up_to_u8250p(port);
+#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	bool uartlog_status, uartlog_status_changed;
+#endif
 
 	if (iir & UART_IIR_NO_INT)
 		return 0;
@@ -1885,14 +1887,18 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 
 	if (status & (UART_LSR_DR | UART_LSR_BI)) {
 		if (!up->dma || handle_rx_dma(up, iir)) {
+#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 			uartlog_status = mt_get_uartlog_status();
 			if (uartlog_status)
 				mt_disable_uart();
+#endif
 			status = serial8250_rx_chars(up, status);
+#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 			uartlog_status_changed =
 				uartlog_status != mt_get_uartlog_status();
 			if (uartlog_status && uartlog_status_changed)
 				mt_enable_uart();
+#endif
 		}
 	}
 	serial8250_modem_status(up);
