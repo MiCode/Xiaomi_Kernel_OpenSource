@@ -121,7 +121,7 @@ static void phy_advance_settings(struct mtk_phy_instance *instance)
 		U3D_USBPHYACR2, 11, (0x3<<11), 0x3);
 
 	u3phywrite32(U3D_USBPHYACR6, RG_USB20_SQTH_OFST,
-		RG_USB20_SQTH, 0x5);
+		RG_USB20_SQTH, 0x2);
 
 	u3phywrite32(U3D_USBPHYACR6, (28),
 		(0x1<<28), 0x1);
@@ -411,8 +411,8 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 	struct device_node *of_node;
 
 	if (!instance->phy_tuning.inited) {
-		instance->phy_tuning.u2_vrt_ref = 5;
-		instance->phy_tuning.u2_term_ref = 5;
+		instance->phy_tuning.u2_vrt_ref = 6;
+		instance->phy_tuning.u2_term_ref = 6;
 		instance->phy_tuning.u2_enhance = 1;
 		of_node = of_find_compatible_node(NULL, NULL,
 			instance->phycfg->tuning_node_name);
