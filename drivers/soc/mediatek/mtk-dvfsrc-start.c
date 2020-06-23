@@ -24,6 +24,8 @@ static int mtk_dvfsrc_start_probe(struct platform_device *pdev)
 
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_DVFSRC_START, 0, 0, 0,
 		0, 0, 0, &ares);
+
+	return 0;
 }
 
 static struct platform_driver mtk_dvfsrc_run_drv = {
