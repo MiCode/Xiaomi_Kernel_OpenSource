@@ -308,6 +308,19 @@ struct v4l2_subdev_audio_ops {
 	int (*s_stream)(struct v4l2_subdev *sd, int enable);
 };
 
+#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
+/**
+ * struct v4l2_mbus_frame_desc_entry_csi2
+ *
+ * @channel: CSI-2 virtual channel
+ * @data_type: CSI-2 data type ID
+ */
+struct v4l2_mbus_frame_desc_entry_csi2 {
+	u8 channel;
+	u8 data_type;
+};
+#endif
+
 /**
  * enum v4l2_mbus_frame_desc_entry - media bus frame description flags
  *
@@ -331,11 +344,18 @@ enum v4l2_mbus_frame_desc_flags {
  *		%FRAME_DESC_FL_BLOB is not set.
  * @length:	number of octets per frame, valid if @flags
  *		%V4L2_MBUS_FRAME_DESC_FL_LEN_MAX is set.
+ * @bus:	Bus specific frame descriptor parameters
+ * @bus.csi2:	CSI-2 specific bus configuration
  */
 struct v4l2_mbus_frame_desc_entry {
 	enum v4l2_mbus_frame_desc_flags flags;
 	u32 pixelcode;
 	u32 length;
+#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
+	union {
+		struct v4l2_mbus_frame_desc_entry_csi2 csi2;
+	} bus;
+#endif
 };
 
 #define V4L2_FRAME_DESC_ENTRY_MAX	4
