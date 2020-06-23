@@ -39,6 +39,7 @@
 #include <linux/bitops.h>
 #include <linux/cdev.h>
 #include <linux/ipc_logging.h>
+#include <linux/sched/debug.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/adc-tm-clients.h>
 #include <linux/iio/consumer.h>
