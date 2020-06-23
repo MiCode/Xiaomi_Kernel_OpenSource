@@ -1271,7 +1271,7 @@ static struct sg_table *pseudo_find_sgtable(unsigned long mva)
 
 static struct sg_table *pseudo_add_sgtable(struct mva_sglist *mva_sg)
 {
-	struct sg_table *table;
+	struct sg_table *table = NULL;
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&pseudo_list_lock, flags);
