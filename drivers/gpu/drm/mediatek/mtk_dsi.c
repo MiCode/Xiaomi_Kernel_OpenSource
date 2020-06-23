@@ -1198,12 +1198,16 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_panel_ext *panel_ext;
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
 #endif
+	bool doze_enabled = 0;
+	unsigned int doze_wait = 0;
+	static unsigned int cnt;
 
 	if (mtk_drm_top_clk_isr_get("dsi_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
@@ -1303,8 +1307,25 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				wakeup_dsi_wq(&dsi->te_rdy);
 
 			if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-				mtk_crtc && mtk_crtc->vblank_en)
-				mtk_crtc_vblank_irq(&mtk_crtc->base);
+				mtk_crtc && mtk_crtc->vblank_en) {
+				panel_ext = dsi->ext;
+
+				if (dsi->encoder.crtc)
+					doze_enabled = mtk_dsi_doze_state(dsi);
+
+				if (panel_ext->params->doze_delay &&
+					doze_enabled) {
+					doze_wait =
+						panel_ext->params->doze_delay;
+					if (cnt % doze_wait == 0) {
+						mtk_crtc_vblank_irq(
+							&mtk_crtc->base);
+						cnt = 0;
+					}
+					cnt++;
+				} else
+					mtk_crtc_vblank_irq(&mtk_crtc->base);
+			}
 		}
 
 		if (status & FRAME_DONE_INT_FLAG) {
