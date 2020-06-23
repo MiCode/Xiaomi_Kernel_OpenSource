@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -238,6 +238,22 @@ static void unmap_aux_minidump_regions(struct aux_minidump_info *aux_mdump,
 }
 
 /**
+ * unmap_minidump_segments() - unmap the individual segments that were mapped
+ * @rd_segs: The array of ramdump segments
+ * @num_valid_segs: The number of valid segments from rd_segs
+ *
+ * The function unmaps the valid regions for the segments that were mapped.
+ */
+static void unmap_minidump_segments(struct ramdump_segment *rd_segs,
+					int num_valid_segs)
+{
+	while (num_valid_segs--) {
+		iounmap(rd_segs->v_address);
+		rd_segs++;
+	}
+}
+
+/**
  * prepare_minidump_segments() - Fills in the necessary information for the
  * ramdump driver to dump a region of memory, described by a segment.
  * @rd_segs: segments that will be filled in for ramdump collection
@@ -271,6 +287,12 @@ static unsigned int prepare_minidump_segments(struct ramdump_segment *rd_segs,
 			offset = offset +
 				sizeof(region_info->region_base_address);
 			rd_segs->size = __raw_readl(offset);
+
+			rd_segs->v_address = ioremap_wc(rd_segs->address,
+							rd_segs->size);
+			if (!rd_segs->v_address)
+				return -ENOMEM;
+
 			pr_debug("Minidump : Dumping segment %s with address 0x%lx and size 0x%x\n",
 				rd_segs->name, rd_segs->address,
 				(unsigned int)rd_segs->size);
@@ -301,14 +323,14 @@ static unsigned int prepare_minidump_segments(struct ramdump_segment *rd_segs,
  * describe the regions that should be dumped by the ramdump driver for a set
  * of auxiliary minidump IDs.
  */
-static void prepare_aux_minidump_segments(struct ramdump_segment *rd_segs,
+static int prepare_aux_minidump_segments(struct ramdump_segment *rd_segs,
 					  struct aux_minidump_info *aux_mdump,
 					  int *ss_valid_seg_cnt,
 					  int num_aux_md_ids)
 {
 	unsigned int i;
 	struct ramdump_segment *s = rd_segs;
-	unsigned int next_offset = 0;
+	int next_offset = 0;
 
 	for (i = 0; i < num_aux_md_ids; i++) {
 		s = &rd_segs[next_offset];
@@ -316,7 +338,11 @@ static void prepare_aux_minidump_segments(struct ramdump_segment *rd_segs,
 					aux_mdump[i].region_info_aux,
 					aux_mdump[i].seg_cnt,
 					ss_valid_seg_cnt);
+		if (next_offset < 0)
+			return next_offset;
 	}
+
+	return 0;
 }
 
 static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
@@ -329,7 +355,7 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	int ss_valid_seg_cnt;
 	int ret;
 	struct aux_minidump_info *aux_minidump_data = NULL;
-	unsigned int next_offset;
+	int next_offset;
 
 	if (!ramdump_dev)
 		return -ENODEV;
@@ -372,12 +398,17 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	next_offset = prepare_minidump_segments(ramdump_segs, region_info_ss,
 						 ss_mdump_seg_cnt_ss,
 						 &ss_valid_seg_cnt);
+	if (next_offset < 0)
+		goto seg_mapping_fail;
 
-	if (desc->num_aux_minidump_ids > 0)
-		prepare_aux_minidump_segments(&ramdump_segs[next_offset],
+	if (desc->num_aux_minidump_ids > 0) {
+		ret = prepare_aux_minidump_segments(&ramdump_segs[next_offset],
 					      aux_minidump_data,
 					      &ss_valid_seg_cnt,
 					      desc->num_aux_minidump_ids);
+		if (ret < 0)
+			goto seg_mapping_fail;
+	}
 
 	ret = do_minidump(ramdump_dev, ramdump_segs, ss_valid_seg_cnt);
 	if (ret)
@@ -388,6 +419,8 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 		ret = pil_assign_mem_to_subsys(desc, priv->region_start,
 			(priv->region_end - priv->region_start));
 
+seg_mapping_fail:
+	unmap_minidump_segments(ramdump_segs, ss_valid_seg_cnt);
 	kfree(ramdump_segs);
 mapping_fail:
 	unmap_aux_minidump_regions(aux_minidump_data,
