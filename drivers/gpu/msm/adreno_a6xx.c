@@ -8,6 +8,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
 
 #include "adreno.h"
@@ -241,6 +242,32 @@ static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 		return 0x00000002;
 
 	return 0x00000000;
+}
+
+bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+				struct kgsl_device *device, u32 timeout)
+{
+	ktime_t tout = ktime_add_us(ktime_get(), timeout * 1000);
+	unsigned int val;
+
+	if (IS_ERR_OR_NULL(reg))
+		return true;
+
+	regulator_disable(reg);
+
+	for (;;) {
+		gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+
+		if (!(val & BIT(31)))
+			return true;
+
+		if (ktime_compare(ktime_get(), tout) > 0) {
+			gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+			return (!(val & BIT(31)));
+		}
+
+		usleep_range((100 >> 2) + 1, 100);
+	}
 }
 
 static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
