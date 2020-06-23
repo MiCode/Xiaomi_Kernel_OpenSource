@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -827,6 +827,18 @@ static bool a6xx_gmu_gx_is_on(struct adreno_device *adreno_dev)
 
 	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return is_on(val);
+}
+
+/*
+ * a6xx_gmu_cx_is_on() - Check if CX is on using GPUCC register
+ * @device - Pointer to KGSL device struct
+ */
+static bool a6xx_gmu_cx_is_on(struct kgsl_device *device)
+{
+	unsigned int val;
+
+	gmu_core_regread(device, A6XX_GPU_CC_CX_GDSCR, &val);
+	return (val & BIT(31));
 }
 
 /*
@@ -1669,6 +1681,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.enable_lm = a6xx_gmu_enable_lm,
 	.rpmh_gpu_pwrctrl = a6xx_gmu_rpmh_gpu_pwrctrl,
 	.gx_is_on = a6xx_gmu_gx_is_on,
+	.cx_is_on = a6xx_gmu_cx_is_on,
 	.wait_for_lowest_idle = a6xx_gmu_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_gmu_wait_for_idle,
 	.ifpc_store = a6xx_gmu_ifpc_store,
