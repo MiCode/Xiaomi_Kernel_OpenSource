@@ -198,6 +198,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_TAS5720
 	imply SND_SOC_TAS6424
 	imply SND_SOC_TDA7419
+	imply SND_SOC_TFA9874
 	imply SND_SOC_TFA9879
 	imply SND_SOC_TLV320ADCX140
 	imply SND_SOC_TLV320AIC23_I2C
@@ -1321,6 +1322,15 @@ config SND_SOC_TDA7419
 	tristate "ST TDA7419 audio processor"
 	depends on I2C
 	select REGMAP_I2C
+
+config SND_SOC_TFA9874
+	tristate "NXP TFA9874 speaker amplifier"
+	depends on I2C
+	help
+	  Config of TFA9874. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with TFA9874 on it.
 
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
