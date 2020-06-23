@@ -187,6 +187,7 @@
 #include "sdm429-ion.dtsi"
 #include "msm-arm-smmu-sdm429.dtsi"
 #include "sdm429w-gpu.dtsi"
+#include "sdm429-vidc.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
