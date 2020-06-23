@@ -783,6 +783,22 @@
 		};
 	};
 
+	qcom,adsprpc-mem {
+	compatible = "qcom,msm-adsprpc-mem-region";
+	memory-region = <&adsp_mem>;
+	restrict-access;
+	};
+
+	qcom,msm_fastrpc {
+		compatible ="qcom,msm-fastrpc-legacy-compute";
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_iommu 0x2008 0x7>;
+			sids = <0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
+		};
+	};
+
 	wcnss-smp2p {
 		compatible = "qcom,smp2p";
 		qcom,smem = <451>, <431>;

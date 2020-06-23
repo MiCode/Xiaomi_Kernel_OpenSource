@@ -609,7 +609,7 @@ config MSM_FASTCVPD
 
 config MSM_ADSPRPC
         tristate "QTI ADSP RPC driver"
-        depends on QCOM_GLINK
+        depends on QCOM_GLINK || RPMSG_QCOM_SMD
         help
           Provides a communication mechanism that allows for clients to
           make remote method invocations across processor boundary to
