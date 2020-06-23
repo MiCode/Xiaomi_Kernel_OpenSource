@@ -101,7 +101,7 @@ static unsigned long long t_before, t_after;
 int check_page_ref(phys_addr_t start, phys_addr_t length
 	, int dump)
 {
-	struct page *page;
+	struct page *page = NULL;
 	int i = length >> PAGE_SHIFT;
 	int count = 0;
 	int pin_magic = 2;
@@ -129,7 +129,7 @@ int check_page_ref(phys_addr_t start, phys_addr_t length
 phys_addr_t amms_cma_allocate(unsigned int size)
 {
 	int count = size >> PAGE_SHIFT;
-	struct page *pages;
+	struct page *pages = NULL;
 	struct page **array_pages;
 	phys_addr_t addr;
 	int use_count;
@@ -197,9 +197,9 @@ retry:
 
 int amms_cma_free(phys_addr_t addr, unsigned int size)
 {
-	struct page *pages;
+	struct page *pages = NULL;
 	int count = size / PAGE_SIZE;
-	bool rs;
+	bool rs = false;
 
 	trace_amms_event_free(amms_seq_id);
 	pages = phys_to_page(addr);
@@ -352,8 +352,14 @@ static int __init memory_ccci_share_init(struct reserved_mem *rmem)
 		MTK_SIP_KERNEL_AMMS_GET_MD_POS_ADDR, 0, 0, 0, 0);
 	pos_length = mt_secure_call(
 		MTK_SIP_KERNEL_AMMS_GET_MD_POS_LENGTH, 0, 0, 0, 0);
-	pr_info("pos_addr=%p pos_length=%p\n",
-		(void *)pos_addr, (void *)pos_length);
+	pr_info("pos_addr=%pa pos_length=%pa\n",
+		&pos_addr, &pos_length);
+
+	if ((long long)pos_addr == -1 || (long long)pos_addr == 0xffffffff) {
+		pr_info("%s: no support POS\n", __func__);
+		return 0;
+	}
+
 	if (pos_addr != 0)
 	/* init cma area */
 		ret = cma_init_reserved_mem(rmem->base,
