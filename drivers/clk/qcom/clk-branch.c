@@ -47,6 +47,7 @@ static bool clk_branch_check_halt(const struct clk_branch *br, bool enabling)
 #define BRANCH_NOC_FSM_STATUS_SHIFT	28
 #define BRANCH_NOC_FSM_STATUS_MASK	0x7
 #define BRANCH_NOC_FSM_STATUS_ON	(0x2 << BRANCH_NOC_FSM_STATUS_SHIFT)
+#define BRANCH_CLK_DIS_MASK		BIT(22)
 
 static bool clk_branch2_check_halt(const struct clk_branch *br, bool enabling)
 {
@@ -150,6 +151,26 @@ static void clk_branch2_disable(struct clk_hw *hw)
 	clk_branch_toggle(hw, false, clk_branch2_check_halt);
 }
 
+static int clk_branch2_force_off_enable(struct clk_hw *hw)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	regmap_update_bits(rclk->regmap, rclk->enable_reg,
+			   BRANCH_CLK_DIS_MASK,
+			   0x0);
+	return clk_branch2_enable(hw);
+}
+
+static void clk_branch2_force_off_disable(struct clk_hw *hw)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	regmap_update_bits(rclk->regmap, rclk->enable_reg,
+			   BRANCH_CLK_DIS_MASK,
+			   BRANCH_CLK_DIS_MASK);
+	clk_branch2_disable(hw);
+}
+
 static void clk_branch2_list_registers(struct seq_file *f, struct clk_hw *hw)
 {
 	struct clk_branch *br = to_clk_branch(hw);
@@ -219,6 +240,15 @@ const struct clk_ops clk_branch2_aon_ops = {
 	.debug_init = clk_branch_debug_init,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_aon_ops);
+
+const struct clk_ops clk_branch2_force_off_ops = {
+	.enable = clk_branch2_force_off_enable,
+	.disable = clk_branch2_force_off_disable,
+	.is_enabled = clk_is_enabled_regmap,
+	.init = clk_branch2_init,
+	.debug_init = clk_branch_debug_init,
+};
+EXPORT_SYMBOL(clk_branch2_force_off_ops);
 
 static unsigned long clk_branch2_hw_ctl_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
