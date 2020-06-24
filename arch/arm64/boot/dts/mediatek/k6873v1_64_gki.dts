@@ -6,6 +6,11 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6873-pinfunc.h>
+#include <dt-bindings/clock/mt6873-clk.h>
+
 &gpio_usage_mapping {
 	GPIO_SIM1_HOT_PLUG = <&pio 43 0>;
 	GPIO_SIM2_SCLK = <&pio 45 0>;
@@ -237,4 +242,7 @@
 		<226 0 0 0 1 0 0>,
 		<227 0 0 0 1 0 0>;
 };
+
+#include "mediatek/cust_mt6873_touch_1080x2280.dtsi"
+
 /*End of this file, DO NOT ADD ANYTHING HERE*/
