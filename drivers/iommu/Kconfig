@@ -172,6 +172,15 @@ config IOMMU_DEBUGFS
 	  debug/iommu directory, and then populate a subdirectory with
 	  entries as required.
 
+config IO_PGTABLE_PAGE_ACCOUNTING
+	bool "Export the number of pages allocated for IOMMU pagetables"
+	depends on IOMMU_DEBUGFS && QGKI
+	help
+	  Allows exposure of the number of pages allocated for IOMMU
+	  pagetables through DebugFS. This is particularly useful for
+	  generating stats about the amount of memory consumed by IOMMU
+	  page tables in the system. If unsure, say N here.
+
 config IOMMU_DEFAULT_PASSTHROUGH
 	bool "IOMMU passthrough by default"
 	depends on IOMMU_API
