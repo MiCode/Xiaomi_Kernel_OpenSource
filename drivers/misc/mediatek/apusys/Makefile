@@ -17,6 +17,7 @@ UTIL_DIR = util
 # declare apusys version
 APUSYS_VERSION_MIDWARE = 1.5
 APUSYS_VERSION_SAMPLE = 1.5
+APUSYS_VERSION_MNOC = 1.5
 
 # target object
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys.o
@@ -68,3 +69,11 @@ apusys-objs += edma/edma_driver.o
 apusys-objs += edma/edma_dbgfs.o
 apusys-objs += edma/edma_cmd_hnd.o
 apusys-objs += edma/apusys_power_dummy.o
+# mnoc makefile
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/
+
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_dbg.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_drv.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_hw.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_pmu.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos.o
