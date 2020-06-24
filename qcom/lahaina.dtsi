@@ -4987,9 +4987,11 @@
 		      <0x1881024 0x4>,
 		      <0x1881028 0x4>,
 		      <0x188103c 0x4>,
+		      <0x1881100 0x4>,
 		      <0x1882014 0x4>;
 		reg-names = "sp2soc_irq_status", "sp2soc_irq_clr",
-			    "sp2soc_irq_mask", "rmb_err", "rmb_err_spare2";
+			    "sp2soc_irq_mask", "rmb_err",
+			    "rmb_general_purpose", "rmb_err_spare2";
 		interrupts = <0 352 1>;
 
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
