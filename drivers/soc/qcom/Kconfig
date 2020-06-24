@@ -716,6 +716,15 @@ config QTI_DDR_STATS_LOG
 	  frequency residency and counts. The driver outputs information using
 	  sysfs.
 
+config QTI_SYS_PM_VX
+	tristate "Qualcomm Technologies Inc (QTI) System PM Violators Driver"
+	depends on QMP_DEBUGFS_CLIENT
+	help
+	  This option enables debug subystems that prevent system low power
+	  modes. The user sends a QMP message to AOP to record subsystems
+	  preventing deeper system low power modes. The data is stored in the
+	  MSGRAM by AOP and read and reported in the debugfs by this driver.
+
 config MSM_JTAGV8
 	bool "Debug and ETM trace support across power collapse for ARMv8"
 	default y if CORESIGHT_SOURCE_ETM4X
