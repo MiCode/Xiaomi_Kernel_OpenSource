@@ -643,7 +643,7 @@ static ssize_t _name##_show(struct device *dev,				\
 	pm_runtime_put_sync(hba->dev);					\
 	if (ret)							\
 		return -EINVAL;						\
-	return sprintf(buf, "%s\n", flag ? "true" : "false"); \
+	return snprintf(buf, PAGE_SIZE, "%s\n", flag ? "true" : "false"); \
 }									\
 static DEVICE_ATTR_RO(_name)
 
@@ -696,7 +696,7 @@ static ssize_t _name##_show(struct device *dev,				\
 	pm_runtime_put_sync(hba->dev);					\
 	if (ret)							\
 		return -EINVAL;						\
-	return sprintf(buf, "0x%08X\n", value);				\
+	return snprintf(buf, PAGE_SIZE, "0x%08X\n", value);		\
 }									\
 static DEVICE_ATTR_RO(_name)
 
