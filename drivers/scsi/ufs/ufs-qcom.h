@@ -338,6 +338,9 @@ struct ufs_qcom_host {
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
 	bool err_occurred;
+	/* FlashPVL entries */
+	atomic_t scale_up;
+	atomic_t clks_on;
 };
 
 static inline u32
