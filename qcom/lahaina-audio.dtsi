@@ -7,6 +7,10 @@
 };
 
 &audio_apr {
+	msm_audio_ion_cma: qcom,msm-audio-ion-cma {
+		compatible = "qcom,msm-audio-ion-cma";
+	};
+
 	q6core: qcom,q6core-audio {
 		compatible = "qcom,q6core-audio";
 		#address-cells = <1>;
