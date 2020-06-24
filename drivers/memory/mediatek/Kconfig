@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config HAVE_MTK_MC
+	bool "MediaTek Memory Controller support"
+	help
+	  Support for the Memory Controller (MC) devices found on
+	  MediaTek(R) SoCs.
+	  This config enables MTK_EMI and MTK_DRAMC for EMI and
+	  DRAMC drivers.
+
+if HAVE_MTK_MC
+
+config MTK_EMI
+	tristate "MediaTek External Memory Interface driver"
+	depends on HAVE_MTK_MC
+	help
+	  This selects the MediaTek(R) EMI driver.
+	  Provide the API for MPU registration, EMI MPU violation handling,
+	  the API for EMI information, the BWL golden setting,
+	  and the sysfs for EMI ISU control.
+
+endif

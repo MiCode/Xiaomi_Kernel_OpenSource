@@ -26,6 +26,10 @@
 #define MTK_SIP_VCOREFS_CONTROL \
 	MTK_SIP_SMC_CMD(0x506)
 
+/* EMI MPU */
+#define MTK_SIP_EMIMPU_CONTROL \
+	MTK_SIP_SMC_CMD(0x50B)
+
 /* Security related SMC call */
 /* DEVMPU */
 #define MTK_SIP_KERNEL_DEVMPU_VIO_GET \
