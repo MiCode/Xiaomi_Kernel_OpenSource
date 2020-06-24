@@ -3350,7 +3350,7 @@ static int reset_ahb2axi_bridge(struct iris_hfi_device *device)
 		}
 
 		/* wait for deassert */
-		usleep_range(150, 250);
+		usleep_range(400, 450);
 
 		rc = __handle_reset_clk(device->res, i, DEASSERT, s);
 		if (rc) {
