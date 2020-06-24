@@ -1582,7 +1582,6 @@ static int handle_rx_hs(struct uart_port *uport,
 }
 
 static int msm_geni_serial_handle_rx(struct uart_port *uport, bool drop_rx)
-
 {
 	int ret = 0;
 	unsigned int rx_fifo_status;
