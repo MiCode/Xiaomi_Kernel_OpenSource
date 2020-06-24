@@ -844,8 +844,7 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	 * be populated. But data_write_pool is populated only
 	 * when debug_inface_enbled is not set.
 	 */
-	if (!list_empty(&qdss->ctrl_write_pool) &&
-	    list_empty(&qdss->data_write_pool) &&
+	if (list_empty(&qdss->data_write_pool) &&
 	    qdss->debug_inface_enabled) {
 		pr_err("%s:error: Invalid operation.\n", __func__);
 		spin_unlock_irqrestore(&qdss->lock, flags);

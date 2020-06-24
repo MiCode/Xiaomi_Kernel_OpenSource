@@ -1108,12 +1108,30 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 				"Failed to cancel/abort m_cmd\n");
 	}
 	if (mas->cur_xfer_mode == SE_DMA) {
-		if (xfer->tx_buf)
+		if (xfer->tx_buf) {
+			reinit_completion(&mas->xfer_done);
+			writel_relaxed(1, mas->base +
+				SE_DMA_TX_FSM_RST);
+			timeout =
+			wait_for_completion_timeout(&mas->xfer_done, HZ);
+			if (!timeout)
+				dev_err(mas->dev,
+					"DMA TX RESET failed\n");
 			geni_se_tx_dma_unprep(mas->wrapper_dev,
-					xfer->tx_dma, xfer->len);
-		if (xfer->rx_buf)
+				xfer->tx_dma, xfer->len);
+		}
+		if (xfer->rx_buf) {
+			reinit_completion(&mas->xfer_done);
+			writel_relaxed(1, mas->base +
+				SE_DMA_RX_FSM_RST);
+			timeout =
+			wait_for_completion_timeout(&mas->xfer_done, HZ);
+			if (!timeout)
+				dev_err(mas->dev,
+					"DMA RX RESET failed\n");
 			geni_se_rx_dma_unprep(mas->wrapper_dev,
-					xfer->rx_dma, xfer->len);
+				xfer->rx_dma, xfer->len);
+		}
 	}
 
 }

@@ -439,6 +439,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_NO_LINK_OFF),
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_NO_LINK_OFF),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9C8KBADG",
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9D8KBADG",
@@ -462,7 +464,10 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8HL1",
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
-
+	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUEG8UHDB-C2D1",
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
+	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUDG4UHDB-B2D1",
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
 	END_FIX
 };
 
@@ -8630,6 +8635,13 @@ static int ufshcd_tune_pa_hibern8time(struct ufs_hba *hba)
 	int ret = 0;
 	u32 local_tx_hibern8_time_cap = 0, peer_rx_hibern8_time_cap = 0;
 	u32 max_hibern8_time, tuned_pa_hibern8time;
+	u32 pa_hibern8time_quirk_enabled = hba->dev_info.quirks &
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME;
+
+	if (!ufshcd_is_unipro_pa_params_tuning_req(hba) &&
+	    !pa_hibern8time_quirk_enabled) {
+		return 0;
+	}
 
 	ret = ufshcd_dme_get(hba,
 			     UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAPABILITY,
@@ -8650,6 +8662,13 @@ static int ufshcd_tune_pa_hibern8time(struct ufs_hba *hba)
 	/* make sure proper unit conversion is applied */
 	tuned_pa_hibern8time = ((max_hibern8_time * HIBERN8TIME_UNIT_US)
 				/ PA_HIBERN8_TIME_UNIT_US);
+	/* PA_HIBERN8TIME is product of tuned_pa_hibern8time * granularity,
+	 * setting tuned_pa_hibern8time as 3 and since granularity is 100us
+	 * for both host and device side, 3 *100us = 300us is set as
+	 * PA_HIBERN8TIME if UFS_DEVICE_QUIRK_PA_HIBER8TIME quirk is enabled
+	 */
+	if (pa_hibern8time_quirk_enabled)
+		tuned_pa_hibern8time = 3; /* 3 *100us =300us */
 	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
 			     tuned_pa_hibern8time);
 out:
@@ -8728,11 +8747,10 @@ out:
 
 static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 {
-	if (ufshcd_is_unipro_pa_params_tuning_req(hba)) {
+	if (ufshcd_is_unipro_pa_params_tuning_req(hba))
 		ufshcd_tune_pa_tactivate(hba);
-		ufshcd_tune_pa_hibern8time(hba);
-	}
 
+	ufshcd_tune_pa_hibern8time(hba);
 	if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
 		/* set 1ms timeout for PA_TACTIVATE */
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
@@ -9056,21 +9074,27 @@ reinit:
 			goto out;
 	}
 
-	/**
-	 * UFS3.0 and newer devices use Vcc and Vccq(1.2V)
-	 * while UFS2.1 devices use Vcc and Vccq2(1.8V) power
-	 * supplies. If the system allows turning off the regulators
-	 * during power collapse event, turn off the regulators
-	 * during system suspend events. This will cause the UFS
-	 * device to re-initialize upon system resume events.
+	/*
+	 * On 4.19 kernel, the controlling of Vccq requlator got changed.
+	 * Its relying on sys_suspend_pwr_off regulator dt flag instead of spm
+	 * level.
+	 * Updated logic is not honoring spm level specified and the device
+	 * specific quirks for the desired link state.
+	 * Below change is to fix above listed issue without distrubing the
+	 * present logic.
 	 */
-	if ((hba->dev_info.w_spec_version >= 0x300 && hba->vreg_info.vccq &&
-		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
-		(hba->dev_info.w_spec_version < 0x300 &&
-		hba->vreg_info.vccq2->sys_suspend_pwr_off))
-		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+	if (hba->spm_lvl == ufs_get_desired_pm_lvl_for_dev_link_state(
 				UFS_POWERDOWN_PWR_MODE,
-				UIC_LINK_OFF_STATE);
+				UIC_LINK_OFF_STATE)) {
+		if ((hba->dev_info.w_spec_version >= 0x300 &&
+		     hba->vreg_info.vccq &&
+		     !hba->vreg_info.vccq->sys_suspend_pwr_off))
+			hba->vreg_info.vccq->sys_suspend_pwr_off = true;
+
+		if ((hba->dev_info.w_spec_version < 0x300 &&
+		     !hba->vreg_info.vccq2->sys_suspend_pwr_off))
+			hba->vreg_info.vccq2->sys_suspend_pwr_off = true;
+	}
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);

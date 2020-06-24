@@ -81,7 +81,7 @@
 
 #define IPA_MAX_NUM_REQ_CACHE 10
 
-#define NAPI_WEIGHT 60
+#define NAPI_WEIGHT 64
 
 #define IPADBG(fmt, args...) \
 	do { \
@@ -932,7 +932,7 @@ struct ipa3_ep_context {
 	struct ipa3_wlan_stats wstats;
 	u32 uc_offload_state;
 	u32 gsi_offload_state;
-	bool disconnect_in_progress;
+	atomic_t disconnect_in_progress;
 	u32 qmi_request_sent;
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
@@ -3227,5 +3227,5 @@ int ipa3_uc_send_enable_flow_control(uint16_t gsi_chid,
 int ipa3_uc_send_disable_flow_control(void);
 int ipa3_uc_send_update_flow_control(uint32_t bitmask,
 	uint8_t  add_delete);
-int ipa3_qmi_reg_dereg_for_bw(bool bw_reg);
+int ipa3_qmi_reg_dereg_for_bw(bool bw_reg, int bw_reg_dereg_type);
 #endif /* _IPA3_I_H_ */

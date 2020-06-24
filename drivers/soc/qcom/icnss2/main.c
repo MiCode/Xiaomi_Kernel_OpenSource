@@ -610,7 +610,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto err_power_on;
 		}
 
-		icnss_pr_dbg("MEM_BASE pa: %pa, va: 0x%pK\n",
+		icnss_pr_dbg("Non-Secured Bar Address pa: %pa, va: 0x%pK\n",
 			     &priv->mem_base_pa,
 			     priv->mem_base_va);
 
@@ -2870,7 +2870,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!of_id || !of_id->data) {
 		icnss_pr_err("Failed to find of match device!\n");
 		ret = -ENODEV;
-		goto out;
+		goto out_reset_drvdata;
 	}
 
 	device_id = of_id->data;
@@ -2894,15 +2894,15 @@ static int icnss_probe(struct platform_device *pdev)
 
 	ret = icnss_resource_parse(priv);
 	if (ret)
-		goto out;
+		goto out_reset_drvdata;
 
 	ret = icnss_msa_dt_parse(priv);
 	if (ret)
-		goto out;
+		goto out_free_resources;
 
 	ret = icnss_smmu_dt_parse(priv);
 	if (ret)
-		goto out;
+		goto out_free_resources;
 
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
@@ -2951,9 +2951,11 @@ static int icnss_probe(struct platform_device *pdev)
 
 	init_completion(&priv->unblock_shutdown);
 
-	ret = icnss_genl_init();
-	if (ret < 0)
-		icnss_pr_err("ICNSS genl init failed %d\n", ret);
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = icnss_genl_init();
+		if (ret < 0)
+			icnss_pr_err("ICNSS genl init failed %d\n", ret);
+	}
 
 	icnss_pr_info("Platform driver probed successfully\n");
 
@@ -2965,9 +2967,10 @@ out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
 smmu_cleanup:
 	priv->iommu_domain = NULL;
-out:
+out_free_resources:
+	icnss_put_resources(priv);
+out_reset_drvdata:
 	dev_set_drvdata(dev, NULL);
-
 	return ret;
 }
 
@@ -2977,7 +2980,8 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
 
-	icnss_genl_exit();
+	if (priv->device_id == WCN6750_DEVICE_ID)
+		icnss_genl_exit();
 
 	device_init_wakeup(&priv->pdev->dev, false);
 
@@ -3003,6 +3007,8 @@ static int icnss_remove(struct platform_device *pdev)
 	priv->iommu_domain = NULL;
 
 	icnss_hw_power_off(priv);
+
+	icnss_put_resources(priv);
 
 	dev_set_drvdata(&pdev->dev, NULL);
 

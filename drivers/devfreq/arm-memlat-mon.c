@@ -65,8 +65,20 @@ struct cpu_data {
  *				defaults to using all of @cpu_grp's CPUs.
  * @miss_ev_id:			The event code corresponding to the @miss_ev
  *				perf event. Will be 0 for compute.
+ * @access_ev_id:		The event code corresponding to the @access_ev
+ *				perf event. Optional - only needed for writeback
+ *				percent.
+ * @wb_ev_id:			The event code corresponding to the @wb_ev perf
+ *				event. Optional - only needed for writeback
+ *				percent.
  * @miss_ev:			The cache miss perf event exclusive to this
  *				mon. Will be NULL for compute.
+ * @access_ev:			The cache access perf event exclusive to this
+ *				mon. Optional - only needed for writeback
+ *				percent.
+ * @wb_ev:			The cache writeback perf event exclusive to this
+ *				mon. Optional - only needed for writeback
+ *				percent.
  * @requested_update_ms:	The mon's desired polling rate. The lowest
  *				@requested_update_ms of all mons determines
  *				@cpu_grp's update_ms.
@@ -78,8 +90,12 @@ struct memlat_mon {
 	bool			is_active;
 	cpumask_t		cpus;
 	unsigned int		miss_ev_id;
+	unsigned int		access_ev_id;
+	unsigned int		wb_ev_id;
 	unsigned int		requested_update_ms;
 	struct event_data	*miss_ev;
+	struct event_data	*access_ev;
+	struct event_data	*wb_ev;
 	struct memlat_hwmon	hw;
 
 	struct memlat_cpu_grp	*cpu_grp;
@@ -191,6 +207,11 @@ static void update_counts(struct memlat_cpu_grp *cpu_grp)
 			unsigned int mon_idx =
 				cpu - cpumask_first(&mon->cpus);
 			read_event(&mon->miss_ev[mon_idx]);
+
+			if (mon->wb_ev_id && mon->access_ev_id) {
+				read_event(&mon->wb_ev[mon_idx]);
+				read_event(&mon->access_ev[mon_idx]);
+			}
 		}
 	}
 }
@@ -219,6 +240,13 @@ static unsigned long get_cnt(struct memlat_hwmon *hw)
 			devstats->inst_count = 0;
 			devstats->mem_count = 1;
 		}
+
+		if (mon->access_ev_id && mon->wb_ev_id)
+			devstats->wb_pct =
+				mult_frac(100, mon->wb_ev[mon_idx].last_delta,
+					  mon->access_ev[mon_idx].last_delta);
+		else
+			devstats->wb_pct = 0;
 	}
 
 	return 0;
@@ -365,6 +393,18 @@ static int start_hwmon(struct memlat_hwmon *hw)
 					mon->miss_ev_id, attr);
 			if (ret)
 				goto unlock_out;
+
+			if (mon->access_ev_id && mon->wb_ev_id) {
+				ret = set_event(&mon->access_ev[idx], cpu,
+						mon->access_ev_id, attr);
+				if (ret)
+					goto unlock_out;
+
+				ret = set_event(&mon->wb_ev[idx], cpu,
+						mon->wb_ev_id, attr);
+				if (ret)
+					goto unlock_out;
+			}
 		}
 	}
 
@@ -401,6 +441,7 @@ static void stop_hwmon(struct memlat_hwmon *hw)
 		devstats->mem_count = 0;
 		devstats->freq = 0;
 		devstats->stall_pct = 0;
+		devstats->wb_pct = 0;
 	}
 
 	if (!cpu_grp->num_active_mons) {
@@ -648,6 +689,8 @@ static int memlat_mon_probe(struct platform_device *pdev, bool is_compute)
 	 */
 	if (is_compute) {
 		mon->miss_ev_id = 0;
+		mon->access_ev_id = 0;
+		mon->wb_ev_id = 0;
 		ret = register_compute(dev, hw);
 	} else {
 		mon->miss_ev =
@@ -667,6 +710,39 @@ static int memlat_mon_probe(struct platform_device *pdev, bool is_compute)
 			goto unlock_out;
 		}
 		mon->miss_ev_id = event_id;
+
+		ret = of_property_read_u32(dev->of_node, "qcom,access-ev",
+					   &event_id);
+		if (ret)
+			dev_dbg(dev, "Access event not specified. Skipping.\n");
+		else
+			mon->access_ev_id = event_id;
+
+		ret = of_property_read_u32(dev->of_node, "qcom,wb-ev",
+					   &event_id);
+		if (ret)
+			dev_dbg(dev, "WB event not specified. Skipping.\n");
+		else
+			mon->wb_ev_id = event_id;
+
+		if (mon->wb_ev_id && mon->access_ev_id) {
+			mon->access_ev =
+				devm_kzalloc(dev, num_cpus *
+					     sizeof(*mon->access_ev),
+					     GFP_KERNEL);
+			if (!mon->access_ev) {
+				ret = -ENOMEM;
+				goto unlock_out;
+			}
+
+			mon->wb_ev =
+				devm_kzalloc(dev, num_cpus *
+					     sizeof(*mon->wb_ev), GFP_KERNEL);
+			if (!mon->wb_ev) {
+				ret = -ENOMEM;
+				goto unlock_out;
+			}
+		}
 
 		ret = register_memlat(dev, hw);
 	}

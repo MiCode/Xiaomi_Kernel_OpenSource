@@ -843,12 +843,23 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_file *fl;
-	int vmid;
+	int vmid, cid = -1, err = 0;
 	struct fastrpc_session_ctx *sess;
 
 	if (!map)
 		return;
 	fl = map->fl;
+	if (fl && !(map->flags == ADSP_MMAP_HEAP_ADDR ||
+				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR)) {
+		cid = fl->cid;
+		VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+		if (err) {
+			err = -ECHRNG;
+			pr_err("adsprpc: ERROR:%s, Invalid channel id: %d, err:%d\n",
+				__func__, cid, err);
+			return;
+		}
+	}
 	if (map->flags == ADSP_MMAP_HEAP_ADDR ||
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		map->refs--;
@@ -2056,9 +2067,17 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 {
 	struct smq_msg *msg = &ctx->msg;
 	struct fastrpc_file *fl = ctx->fl;
-	struct fastrpc_channel_ctx *channel_ctx = &fl->apps->channel[fl->cid];
-	int err = 0;
+	struct fastrpc_channel_ctx *channel_ctx = NULL;
+	int err = 0, cid = -1;
 
+	cid = fl->cid;
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
+
+	channel_ctx = &fl->apps->channel[fl->cid];
 	mutex_lock(&channel_ctx->smd_mutex);
 	msg->pid = fl->tgid;
 	msg->tid = current->pid;
@@ -2247,10 +2266,23 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 {
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ioctl_invoke *invoke = &inv->inv;
-	int err = 0, interrupted = 0, cid = fl->cid;
+	int err = 0, interrupted = 0, cid = -1;
 	struct timespec invoket = {0};
 	int64_t *perf_counter = NULL;
 
+	cid = fl->cid;
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
+	VERIFY(err, fl->sctx != NULL);
+	if (err) {
+		pr_err("adsprpc: ERROR: %s: user application %s domain is not set\n",
+			__func__, current->comm);
+		err = -EBADR;
+		goto bail;
+	}
 	if (fl->profile) {
 		perf_counter = getperfcounter(fl, PERF_COUNT);
 		getnstimeofday(&invoket);
@@ -2266,15 +2298,6 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 				__func__, current->comm, cid, invoke->handle);
 			goto bail;
 		}
-	}
-
-	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS &&
-		fl->sctx != NULL);
-	if (err) {
-		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
-			__func__, current->comm);
-		err = EBADR;
-		goto bail;
 	}
 
 	if (!kernel) {
@@ -3864,7 +3887,7 @@ static const struct file_operations debugfs_fops = {
 static int fastrpc_channel_open(struct fastrpc_file *fl)
 {
 	struct fastrpc_apps *me = &gfa;
-	int cid, err = 0;
+	int cid = -1, err = 0;
 
 	VERIFY(err, fl && fl->sctx && fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err) {

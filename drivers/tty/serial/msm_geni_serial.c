@@ -625,7 +625,8 @@ static unsigned int msm_geni_serial_get_mctrl(struct uart_port *uport)
 	geni_ios = geni_read_reg_nolog(uport->membase, SE_GENI_IOS);
 	if (!(geni_ios & IO2_DATA_IN))
 		mctrl |= TIOCM_CTS;
-
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: geni_ios:0x%x, mctrl:0x%x\n",
+			__func__, geni_ios, mctrl);
 	return mctrl;
 }
 
@@ -1891,15 +1892,15 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 			geni_write_reg_nolog(dma_tx_status, uport->membase,
 						SE_DMA_TX_IRQ_CLR);
 
-			if (dma_tx_status & TX_DMA_DONE)
-				msm_geni_serial_handle_dma_tx(uport);
-
 			if (dma_tx_status & (TX_RESET_DONE |
 						TX_GENI_CANCEL_IRQ))
 				m_cmd_done = true;
 
 			if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
 				m_cmd_done = true;
+
+			if ((dma_tx_status & TX_DMA_DONE) && !m_cmd_done)
+				msm_geni_serial_handle_dma_tx(uport);
 		}
 
 		if (dma_rx_status) {
@@ -2117,10 +2118,6 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 						SE_GENI_RX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
 						SE_GENI_RX_PACKING_CFG1);
-		msm_port->handle_rx = handle_rx_hs;
-		msm_port->rx_fifo = devm_kzalloc(uport->dev,
-				sizeof(msm_port->rx_fifo_depth * sizeof(u32)),
-								GFP_KERNEL);
 		if (!msm_port->rx_fifo) {
 			ret = -ENOMEM;
 			goto exit_portsetup;
@@ -2648,6 +2645,12 @@ static void msm_geni_serial_cancel_rx(struct uart_port *uport)
 	unsigned int irq_status;
 	u32 rx_fifo_status;
 	u32 rx_fifo_wc;
+	u32 geni_status;
+
+	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
+	/* Possible thats stop rx is already done from UEFI end */
+	if (!(geni_status & S_GENI_CMD_ACTIVE))
+		return;
 
 	geni_cancel_s_cmd(uport->membase);
 	/* Ensure this goes through before polling. */
@@ -3220,6 +3223,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_port->rx_fifo = devm_kzalloc(uport->dev, sizeof(u32),
 								GFP_KERNEL);
 	} else {
+		dev_port->handle_rx = handle_rx_hs;
+		dev_port->rx_fifo = devm_kzalloc(uport->dev,
+				sizeof(dev_port->rx_fifo_depth * sizeof(u32)),
+								GFP_KERNEL);
+
 		pm_runtime_set_suspended(&pdev->dev);
 		pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
 		pm_runtime_use_autosuspend(&pdev->dev);

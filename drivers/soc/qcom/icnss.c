@@ -1842,8 +1842,8 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 
 	icnss_pr_dbg("Unregistering driver, state: 0x%lx\n", penv->state);
 
-	if (!penv->ops) {
-		icnss_pr_err("Driver not registered\n");
+	if (!penv->ops || (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))) {
+		icnss_pr_err("Driver not registered/probed\n");
 		ret = -ENOENT;
 		goto out;
 	}

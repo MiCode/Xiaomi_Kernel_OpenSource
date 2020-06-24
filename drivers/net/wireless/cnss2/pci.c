@@ -12,7 +12,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
 #include <linux/completion.h>
-#include <soc/qcom/ramdump.h>
 
 #include "main.h"
 #include "bus.h"
@@ -461,27 +460,22 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 static int cnss_pci_force_wake_get(struct cnss_pci_data *pci_priv)
 {
 	struct device *dev = &pci_priv->pci_dev->dev;
-	u32 timeout = 0;
 	int ret;
 
-	ret = cnss_pci_force_wake_request(dev);
+	ret = cnss_pci_force_wake_request_sync(dev,
+					       FORCE_WAKE_DELAY_TIMEOUT_US);
 	if (ret) {
 		if (ret != -EAGAIN)
 			cnss_pr_err("Failed to request force wake\n");
 		return ret;
 	}
 
-	while (!cnss_pci_is_device_awake(dev) &&
-	       timeout <= FORCE_WAKE_DELAY_TIMEOUT_US) {
-		usleep_range(FORCE_WAKE_DELAY_MIN_US, FORCE_WAKE_DELAY_MAX_US);
-		timeout += FORCE_WAKE_DELAY_MAX_US;
-	}
-
-	if (cnss_pci_is_device_awake(dev) != true) {
-		cnss_pr_err("Timed out to request force wake\n");
-		cnss_pci_force_wake_release(dev);
-		return -ETIMEDOUT;
-	}
+	/* If device's M1 state-change event races here, it can be ignored,
+	 * as the device is expected to immediately move from M2 to M0
+	 * without entering low power state.
+	 */
+	if (cnss_pci_is_device_awake(dev) != true)
+		cnss_pr_warn("MHI not in M0, while reg still accessible\n");
 
 	return 0;
 }
@@ -1049,6 +1043,11 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
+		/* Only set img_pre_alloc when power up succeeds */
+		if (!ret && !pci_priv->mhi_ctrl->img_pre_alloc) {
+			cnss_pr_dbg("Notify MHI to use already allocated images\n");
+			pci_priv->mhi_ctrl->img_pre_alloc = true;
+		}
 		/* -ETIMEDOUT means MHI power up has succeeded but timed out
 		 * for firmware mission mode event, so handle it properly.
 		 */
@@ -2696,9 +2695,6 @@ int cnss_pci_pm_request_resume(struct cnss_pci_data *pci_priv)
 
 	dev = &pci_priv->pci_dev->dev;
 
-	if (!pm_runtime_enabled(dev))
-		return 0;
-
 	status = dev->power.runtime_status;
 	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
 		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
@@ -2716,9 +2712,6 @@ int cnss_pci_pm_runtime_resume(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 
 	dev = &pci_priv->pci_dev->dev;
-
-	if (!pm_runtime_enabled(dev))
-		return 0;
 
 	status = dev->power.runtime_status;
 	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
@@ -2738,9 +2731,6 @@ int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
 
 	dev = &pci_priv->pci_dev->dev;
 
-	if (!pm_runtime_enabled(dev))
-		return 0;
-
 	status = dev->power.runtime_status;
 	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
 		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
@@ -2759,9 +2749,6 @@ int cnss_pci_pm_runtime_get_sync(struct cnss_pci_data *pci_priv)
 
 	dev = &pci_priv->pci_dev->dev;
 
-	if (!pm_runtime_enabled(dev))
-		return 0;
-
 	status = dev->power.runtime_status;
 	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
 		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
@@ -2775,9 +2762,6 @@ void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return;
 
-	if (!pm_runtime_enabled(&pci_priv->pci_dev->dev))
-		return;
-
 	pm_runtime_get_noresume(&pci_priv->pci_dev->dev);
 }
 
@@ -2789,9 +2773,6 @@ int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 
 	dev = &pci_priv->pci_dev->dev;
-
-	if (!pm_runtime_enabled(dev))
-		return 0;
 
 	if (atomic_read(&dev->power.usage_count) == 0) {
 		cnss_pr_dbg("Ignore excessive runtime PM put operation\n");
@@ -2809,9 +2790,6 @@ void cnss_pci_pm_runtime_put_noidle(struct cnss_pci_data *pci_priv)
 		return;
 
 	dev = &pci_priv->pci_dev->dev;
-
-	if (!pm_runtime_enabled(dev))
-		return;
 
 	if (atomic_read(&dev->power.usage_count) == 0) {
 		cnss_pr_dbg("Ignore excessive runtime PM put operation\n");
@@ -2896,6 +2874,35 @@ int cnss_auto_resume(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_auto_resume);
+
+int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv;
+	struct mhi_controller *mhi_ctrl;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	if (pci_priv->device_id != QCA6390_DEVICE_ID &&
+	    pci_priv->device_id != QCA6490_DEVICE_ID)
+		return 0;
+
+	mhi_ctrl = pci_priv->mhi_ctrl;
+	if (!mhi_ctrl)
+		return -EINVAL;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		return -EAGAIN;
+
+	return mhi_device_get_sync_atomic(mhi_ctrl->mhi_dev, timeout_us);
+}
+EXPORT_SYMBOL(cnss_pci_force_wake_request_sync);
 
 int cnss_pci_force_wake_request(struct device *dev)
 {
@@ -4052,6 +4059,14 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 	plat_priv->ramdump_info_v2.dump_data_valid = false;
 }
 
+void cnss_pci_device_crashed(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return;
+
+	cnss_device_crashed(&pci_priv->pci_dev->dev);
+}
+
 static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
@@ -4070,8 +4085,17 @@ static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
 void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
 				 char *prefix_name, char *name)
 {
+	struct cnss_plat_data *plat_priv;
+
 	if (!pci_priv)
 		return;
+
+	plat_priv = pci_priv->plat_priv;
+
+	if (!plat_priv->use_fw_path_with_prefix) {
+		scnprintf(prefix_name, MAX_FIRMWARE_NAME_LEN, "%s", name);
+		return;
+	}
 
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
@@ -4090,6 +4114,49 @@ void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
 	cnss_pr_dbg("FW name added with prefix: %s\n", prefix_name);
 }
 
+static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	plat_priv->device_version.family_number = mhi_ctrl->family_number;
+	plat_priv->device_version.device_number = mhi_ctrl->device_number;
+	plat_priv->device_version.major_version = mhi_ctrl->major_version;
+	plat_priv->device_version.minor_version = mhi_ctrl->minor_version;
+
+	cnss_pr_dbg("Get device version info, family number: 0x%x, device number: 0x%x, major version: 0x%x, minor version: 0x%x\n",
+		    plat_priv->device_version.family_number,
+		    plat_priv->device_version.device_number,
+		    plat_priv->device_version.major_version,
+		    plat_priv->device_version.minor_version);
+
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		if (plat_priv->device_version.major_version < FW_V2_NUMBER) {
+			cnss_pr_dbg("Device ID:version (0x%lx:%d) is not supported\n",
+				    pci_priv->device_id,
+				    plat_priv->device_version.major_version);
+			return -EINVAL;
+		}
+		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
+					    FW_V2_FILE_NAME);
+		snprintf(plat_priv->fw_fallback_name, MAX_FIRMWARE_NAME_LEN,
+			 FW_V2_FILE_NAME);
+		break;
+	default:
+		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
+					    DEFAULT_FW_FILE_NAME);
+		snprintf(plat_priv->fw_fallback_name, MAX_FIRMWARE_NAME_LEN,
+			 DEFAULT_FW_FILE_NAME);
+		break;
+	}
+
+	cnss_pr_dbg("FW name is %s, FW fallback name is %s\n",
+		    mhi_ctrl->fw_image, mhi_ctrl->fw_image_fallback);
+
+	return 0;
+}
+
 static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
 {
 	switch (status) {
@@ -4103,6 +4170,8 @@ static char *cnss_mhi_notify_status_to_str(enum MHI_CB status)
 		return "FATAL_ERROR";
 	case MHI_CB_EE_MISSION_MODE:
 		return "MISSION_MODE";
+	case MHI_CB_FW_FALLBACK_IMG:
+		return "FW_FALLBACK";
 	default:
 		return "UNKNOWN";
 	}
@@ -4175,6 +4244,10 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 		cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
 		cnss_reason = CNSS_REASON_RDDM;
 		break;
+	case MHI_CB_FW_FALLBACK_IMG:
+		plat_priv->use_fw_path_with_prefix = false;
+		cnss_pci_update_fw_name(pci_priv);
+		return;
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
@@ -4208,44 +4281,6 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 
 	pci_priv->mhi_ctrl->irq = irq;
 	pci_priv->mhi_ctrl->msi_allocated = num_vectors;
-
-	return 0;
-}
-
-static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
-{
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
-
-	plat_priv->device_version.family_number = mhi_ctrl->family_number;
-	plat_priv->device_version.device_number = mhi_ctrl->device_number;
-	plat_priv->device_version.major_version = mhi_ctrl->major_version;
-	plat_priv->device_version.minor_version = mhi_ctrl->minor_version;
-
-	cnss_pr_dbg("Get device version info, family number: 0x%x, device number: 0x%x, major version: 0x%x, minor version: 0x%x\n",
-		    plat_priv->device_version.family_number,
-		    plat_priv->device_version.device_number,
-		    plat_priv->device_version.major_version,
-		    plat_priv->device_version.minor_version);
-
-	switch (pci_priv->device_id) {
-	case QCA6390_DEVICE_ID:
-		if (plat_priv->device_version.major_version < FW_V2_NUMBER) {
-			cnss_pr_dbg("Device ID:version (0x%lx:%d) is not supported\n",
-				    pci_priv->device_id,
-				    plat_priv->device_version.major_version);
-			return -EINVAL;
-		}
-		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
-					    FW_V2_FILE_NAME);
-		break;
-	default:
-		cnss_pci_add_fw_prefix_name(pci_priv, plat_priv->firmware_name,
-					    DEFAULT_FW_FILE_NAME);
-		break;
-	}
-
-	cnss_pr_dbg("Firmware name is %s\n", mhi_ctrl->fw_image);
 
 	return 0;
 }
@@ -4297,10 +4332,13 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->slot = PCI_SLOT(pci_dev->devfn);
 
 	mhi_ctrl->fw_image = plat_priv->firmware_name;
+	mhi_ctrl->fw_image_fallback = plat_priv->fw_fallback_name;
 
 	mhi_ctrl->regs = pci_priv->bar;
-	cnss_pr_dbg("BAR starts at %pa\n",
-		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM));
+	mhi_ctrl->len = pci_resource_len(pci_priv->pci_dev, PCI_BAR_NUM);
+	cnss_pr_dbg("BAR starts at %pa, len-%x\n",
+		    &pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM),
+		    mhi_ctrl->len);
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
