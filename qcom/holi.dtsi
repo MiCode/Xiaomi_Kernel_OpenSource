@@ -1009,6 +1009,7 @@
 #include "msm-arm-smmu-holi.dtsi"
 #include "holi-usb.dtsi"
 #include "holi-pm.dtsi"
+#include "holi-vidc.dtsi"
 
 &pmk8350 {
 	reg = <6 SPMI_USID>;
