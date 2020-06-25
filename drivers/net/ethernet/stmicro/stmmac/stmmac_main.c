@@ -1053,6 +1053,15 @@ static int stmmac_init_phy(struct net_device *dev)
 	if (phydev->is_pseudo_fixed_link)
 		phydev->irq = PHY_POLL;
 
+	if (((phydev->phy_id & phydev->drv->phy_id_mask) == MICREL_PHY_ID) &&
+	    !priv->plat->phy_intr_en) {
+		ret = ethqos_phy_intr_enable(priv);
+		if (ret)
+			pr_alert("qcom-ethqos: Unable to enable PHY interrupt\n");
+		else
+			priv->plat->phy_intr_en = true;
+	}
+
 	if (phy_intr_en) {
 		if (phydev->drv->config_intr &&
 		    !phydev->drv->config_intr(phydev)) {

@@ -1038,9 +1038,15 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 	return IRQ_HANDLED;
 }
 
-static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
+int ethqos_phy_intr_enable(struct stmmac_priv *priv)
 {
 	int ret = 0;
+	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
+
+	if (ethqos_phy_intr_config(ethqos)) {
+		ret = 1;
+		return ret;
+	}
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
 	init_completion(&ethqos->clk_enable_done);
@@ -1052,7 +1058,6 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 			  ethqos->phy_intr);
 		return ret;
 	}
-
 	phy_intr_en = true;
 	return ret;
 }
@@ -1879,10 +1884,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk;
 
-	if (!ethqos_phy_intr_config(ethqos))
-		ethqos_phy_intr_enable(ethqos);
-	else
-		ETHQOSERR("Phy interrupt configuration failed");
 	rgmii_dump(ethqos);
 
 	if (ethqos->emac_ver == EMAC_HW_v2_3_2) {
