@@ -19,6 +19,12 @@
 enum icnss_uevent {
 	ICNSS_UEVENT_FW_CRASHED,
 	ICNSS_UEVENT_FW_DOWN,
+	ICNSS_UEVENT_HANG_DATA,
+};
+
+struct icnss_uevent_hang_data {
+	void *hang_event_data;
+	uint16_t hang_event_data_len;
 };
 
 struct icnss_uevent_fw_down_data {
@@ -149,6 +155,8 @@ extern struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev);
 extern struct iommu_domain *icnss_smmu_get_domain(struct device *dev);
 extern int icnss_smmu_map(struct device *dev, phys_addr_t paddr,
 			  uint32_t *iova_addr, size_t size);
+extern int icnss_smmu_unmap(struct device *dev,
+			    uint32_t iova_addr, size_t size);
 extern unsigned int icnss_socinfo_get_serial_number(struct device *dev);
 extern bool icnss_is_qmi_disable(struct device *dev);
 extern bool icnss_is_fw_ready(void);

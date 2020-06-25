@@ -245,6 +245,7 @@ struct icnss_stats {
 #define WLFW_MAX_NUM_CE 12
 #define WLFW_MAX_NUM_SVC 24
 #define WLFW_MAX_NUM_SHADOW_REG 24
+#define WLFW_MAX_HANG_EVENT_DATA_SIZE 400
 
 struct service_notifier_context {
 	void *handle;
@@ -303,6 +304,7 @@ struct icnss_priv {
 	u32 mem_base_size;
 	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_ipa_start;
+	dma_addr_t smmu_iova_ipa_current;
 	size_t smmu_iova_ipa_len;
 	struct qmi_handle qmi;
 	struct list_head event_list;
@@ -374,6 +376,10 @@ struct icnss_priv {
 	struct thermal_cooling_device *tcdev;
 	unsigned long curr_thermal_state;
 	unsigned long max_thermal_state;
+	phys_addr_t hang_event_data_pa;
+	void __iomem *hang_event_data_va;
+	uint16_t hang_event_data_len;
+	void *hang_event_data;
 };
 
 struct icnss_reg_info {

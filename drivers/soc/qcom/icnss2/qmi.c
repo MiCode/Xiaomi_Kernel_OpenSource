@@ -20,6 +20,7 @@
 #include <linux/thread_info.h>
 #include <linux/firmware.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/platform_device.h>
 #include <soc/qcom/icnss2.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
@@ -1460,7 +1461,7 @@ out:
 void icnss_handle_rejuvenate(struct icnss_priv *priv)
 {
 	struct icnss_event_pd_service_down_data *event_data;
-	struct icnss_uevent_fw_down_data fw_down_data;
+	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (event_data == NULL)
@@ -1574,6 +1575,10 @@ static void msa_ready_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 			     struct qmi_txn *txn, const void *data)
 {
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
+	struct device *dev = &priv->pdev->dev;
+	const struct wlfw_msa_ready_ind_msg_v01 *ind_msg = data;
+	uint64_t msa_base_addr = priv->msa_pa;
+	phys_addr_t hang_data_phy_addr;
 
 	icnss_pr_dbg("Received MSA Ready Indication\n");
 
@@ -1583,6 +1588,59 @@ static void msa_ready_ind_cb(struct qmi_handle *qmi, struct sockaddr_qrtr *sq,
 	}
 
 	priv->stats.msa_ready_ind++;
+
+	/* Check if the length is valid &
+	 * the length should not be 0 and
+	 * should be <=  WLFW_MAX_HANG_EVENT_DATA_SIZE(400)
+	 */
+
+	if (ind_msg->hang_data_length_valid &&
+	    ind_msg->hang_data_length &&
+	    ind_msg->hang_data_length <= WLFW_MAX_HANG_EVENT_DATA_SIZE)
+		priv->hang_event_data_len = ind_msg->hang_data_length;
+	else
+		goto out;
+
+	/* Check if the offset is valid &
+	 * the offset should be in range of 0 to msa_mem_size-hang_data_length
+	 */
+
+	if (ind_msg->hang_data_addr_offset_valid &&
+	    (ind_msg->hang_data_addr_offset <= (priv->msa_mem_size -
+						 ind_msg->hang_data_length)))
+		hang_data_phy_addr = msa_base_addr +
+						ind_msg->hang_data_addr_offset;
+	else
+		goto out;
+
+	if (priv->hang_event_data_pa == hang_data_phy_addr)
+		goto exit;
+
+	priv->hang_event_data_pa = hang_data_phy_addr;
+	priv->hang_event_data_va = devm_ioremap(dev, priv->hang_event_data_pa,
+						ind_msg->hang_data_length);
+
+	if (!priv->hang_event_data_va) {
+		icnss_pr_err("Hang Data ioremap failed: phy addr: %pa\n",
+			     &priv->hang_event_data_pa);
+		goto fail;
+	}
+exit:
+	icnss_pr_dbg("Hang Event Data details,Offset:0x%x, Length:0x%x,va_addr: 0x%pK\n",
+		     ind_msg->hang_data_addr_offset,
+		     ind_msg->hang_data_length,
+		     priv->hang_event_data_va);
+
+	return;
+
+out:
+	icnss_pr_err("Invalid Hang Data details, Offset:0x%x, Length:0x%x",
+		     ind_msg->hang_data_addr_offset,
+		     ind_msg->hang_data_length);
+fail:
+	priv->hang_event_data_va = NULL;
+	priv->hang_event_data_pa = 0;
+	priv->hang_event_data_len = 0;
 }
 
 static void pin_connect_result_ind_cb(struct qmi_handle *qmi,
