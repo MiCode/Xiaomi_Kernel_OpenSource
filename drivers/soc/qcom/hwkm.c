@@ -44,6 +44,8 @@ int retries;
 #define WAIT_UNTIL(cond)			\
 for (retries = 0; !(cond) && (retries < MAX_RETRIES); retries++)
 
+#define EXPECTED_UNWRAP_KEY_SIZE 68
+
 #define ICEMEM_SLAVE_TPKEY_VAL	0x192
 #define ICEMEM_SLAVE_TPKEY_SLOT	0x92
 #define KM_MASTER_TPKEY_SLOT	10
@@ -472,6 +474,12 @@ static int qti_handle_key_unwrap_import(const struct hwkm_cmd *cmd_in,
 	};
 
 	pr_debug("%s: KEY_UNWRAP_IMPORT start\n", __func__);
+
+	if (cmd_in->unwrap.sz != EXPECTED_UNWRAP_KEY_SIZE) {
+		pr_err("%s: Invalid key size - %d\n", __func__,
+						cmd_in->unwrap.sz);
+		return -EINVAL;
+	}
 
 	memcpy(cmd, &operation, OPERATION_INFO_LENGTH);
 	memcpy(cmd + COMMAND_WRAPPED_KEY_IDX, cmd_in->unwrap.wkb,
