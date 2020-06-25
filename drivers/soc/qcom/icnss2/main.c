@@ -2988,6 +2988,12 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 	if (ret) {
 		icnss_pr_err("SMMU IOVA base not found\n");
 	} else {
+		priv->smmu_iova_start = addr_win[0];
+		priv->smmu_iova_len = addr_win[1];
+		icnss_pr_dbg("SMMU IOVA start: %pa, len: %zx\n",
+			     &priv->smmu_iova_start,
+			     priv->smmu_iova_len);
+
 		priv->iommu_domain =
 			iommu_get_domain_for_dev(&pdev->dev);
 
@@ -3005,6 +3011,34 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 				     priv->smmu_iova_ipa_len);
 		}
 	}
+
+	return 0;
+}
+
+int icnss_get_iova(struct icnss_priv *priv, u64 *addr, u64 *size)
+{
+	if (!priv)
+		return -ENODEV;
+
+	if (!priv->smmu_iova_len)
+		return -EINVAL;
+
+	*addr = priv->smmu_iova_start;
+	*size = priv->smmu_iova_len;
+
+	return 0;
+}
+
+int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size)
+{
+	if (!priv)
+		return -ENODEV;
+
+	if (!priv->smmu_iova_ipa_len)
+		return -EINVAL;
+
+	*addr = priv->smmu_iova_ipa_start;
+	*size = priv->smmu_iova_ipa_len;
 
 	return 0;
 }
