@@ -199,10 +199,19 @@ MODULE_PARM_DESC(max_height, "maximum frame height");
 #define CID_SUSTAIN_FRAMERATE  (V4L2LOOPBACK_CID_BASE + 1)
 #define CID_TIMEOUT            (V4L2LOOPBACK_CID_BASE + 2)
 #define CID_TIMEOUT_IMAGE_IO   (V4L2LOOPBACK_CID_BASE + 3)
+#define CID_CROP_DATASIZE      (V4L2_CTRL_CLASS_USER + 0x1000)
 
 static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl);
 static const struct v4l2_ctrl_ops v4l2loopback_ctrl_ops = {
 	.s_ctrl = v4l2loopback_s_ctrl,
+};
+static int v4l2loopback_datasize_g_ctrl(struct v4l2_ctrl *ctrl);
+static int v4l2loopback_datasize_s_ctrl(struct v4l2_ctrl *ctrl);
+static int v4l2loopback_datasize_try_ctrl(struct v4l2_ctrl *ctrl);
+static const struct v4l2_ctrl_ops v4l2loopback_datasize_ctrl_ops = {
+	.s_ctrl = v4l2loopback_datasize_s_ctrl,
+	.try_ctrl = v4l2loopback_datasize_try_ctrl,
+	.g_volatile_ctrl = v4l2loopback_datasize_g_ctrl
 };
 static const struct v4l2_ctrl_config v4l2loopback_ctrl_keepformat = {
 	.ops = &v4l2loopback_ctrl_ops,
@@ -244,6 +253,17 @@ static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeoutimageio = {
 	.step = 1,
 	.def = 0,
 };
+static const struct v4l2_ctrl_config v4l2loopback_ctrl_datasize = {
+	.ops = &v4l2loopback_datasize_ctrl_ops,
+	.id = CID_CROP_DATASIZE,
+	.name = "crop_datasize",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min = V4L2LOOPBACK_SIZE_MIN_WIDTH * V4L2LOOPBACK_SIZE_MIN_HEIGHT,
+	.max = V4L2LOOPBACK_SIZE_MAX_WIDTH * V4L2LOOPBACK_SIZE_MAX_HEIGHT,
+	.step = 1,
+	.def = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH *
+			V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT,
+};
 
 
 /* module structures */
@@ -269,6 +289,7 @@ struct v4l2_loopback_device {
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
 	struct v4l2_captureparm capture_param;
+	struct v4l2_crop frame_crop;
 	unsigned long frame_jiffies;
 
 	/* ctrls */
@@ -1050,6 +1071,119 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 	return ret;
 }
 
+/* returns the crop capabilities for a device *dev
+ * as this is a loopback and does not control an actual sensor,
+ * just return the reported maximum supported dimensions
+ */
+static int v4l2_loopback_cropcap(struct v4l2_loopback_device *dev,
+		struct v4l2_cropcap *cropcap)
+{
+	cropcap->defrect = (struct v4l2_rect) {0, 0,
+			V4L2LOOPBACK_SIZE_MAX_WIDTH,
+			V4L2LOOPBACK_SIZE_MAX_HEIGHT};
+	cropcap->bounds = (struct v4l2_rect) {0, 0,
+			V4L2LOOPBACK_SIZE_MAX_WIDTH,
+			V4L2LOOPBACK_SIZE_MAX_HEIGHT};
+	cropcap->pixelaspect = (struct v4l2_fract){1, 1};
+	cropcap->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	return 0;
+}
+
+/* wrapper function with the necessary arguments for struct v4l2_ioctl_ops
+ */
+static int vidioc_cropcap(struct file *file, void *priv,
+		struct v4l2_cropcap *cropcap)
+{
+	struct v4l2_loopback_device *dev;
+
+	MARK();
+	dev = v4l2loopback_getdevice(file);
+
+	return v4l2_loopback_cropcap(dev, cropcap);
+}
+
+/* return the currently set dimensions for cropping
+ */
+static int vidioc_g_crop(struct file *file, void *priv, struct v4l2_crop *crop)
+{
+	struct v4l2_loopback_device *dev;
+	int ret = 0;
+
+	MARK();
+	if (crop != NULL) {
+		dev = v4l2loopback_getdevice(file);
+		crop->c = dev->frame_crop.c;
+		crop->type = dev->frame_crop.type;
+	} else {
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+/* set new dimensions for cropping and limit them to acceptable values
+ */
+static int v4l2_loopback_s_crop(struct v4l2_loopback_device *dev,
+		const struct v4l2_crop *crop, bool limit_to_pix_format)
+{
+	struct v4l2_rect c;
+	int ret = 0;
+
+	if (crop != NULL) {
+		c = crop->c;
+
+		if (limit_to_pix_format) {
+			c.left = min(c.left,
+				(typeof(c.left)) dev->pix_format.width - 1);
+			c.top = min(c.top,
+				(typeof(c.top)) dev->pix_format.height - 1);
+		}
+
+		c.left = max(c.left, 0);
+		c.top = max(c.top, 0);
+
+		if (limit_to_pix_format) {
+			c.width = min(c.width, (typeof(c.width))
+				dev->pix_format.width - c.left);
+			c.height = min(c.height, (typeof(c.height))
+				dev->pix_format.height - c.top);
+		}
+
+		c.width = max_t(typeof(c.width),
+			c.width, V4L2LOOPBACK_SIZE_MIN_WIDTH);
+		c.height = max_t(typeof(c.height),
+			c.height, V4L2LOOPBACK_SIZE_MIN_HEIGHT);
+
+		c.left = min(c.left, max_width - 1);
+		c.top = min(c.top, max_height - 1);
+		c.width = min(c.width, (typeof(c.width)) max_width - c.left);
+		c.height = min(c.height, (typeof(c.height)) max_height - c.top);
+
+		if (dev->buffer_size > 0 &&
+				c.width * c.height > dev->buffer_size)
+			c.height =
+				(typeof(c.height)) dev->buffer_size / c.width;
+
+		dev->frame_crop.c = c;
+		dev->frame_crop.type = crop->type;
+	} else {
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+/* wrapper function with the necessary arguments for struct v4l2_ioctl_ops
+ */
+static int vidioc_s_crop(struct file *file, void *priv,
+		const struct v4l2_crop *crop)
+{
+	struct v4l2_loopback_device *dev;
+
+	MARK();
+	dev = v4l2loopback_getdevice(file);
+
+	return v4l2_loopback_s_crop(dev, crop, true);
+}
+
 /*#define V4L2L_OVERLAY*/
 #ifdef V4L2L_OVERLAY
 /* ------------------ OVERLAY ----------------------- */
@@ -1214,12 +1348,55 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev,
 	return 0;
 }
 
+static int v4l2loopback_datasize_get_ctrl(struct v4l2_loopback_device *dev,
+				  u32 id,
+				  s32 *val)
+{
+	struct v4l2_pix_format pix_format;
+	const struct v4l2l_format *format;
+	__u32 pixfmt;
+	__u32 w;
+	__u32 h;
+
+	switch (id) {
+	case CID_CROP_DATASIZE:
+		pixfmt = dev->pix_format.pixelformat;
+		format = format_by_fourcc(pixfmt);
+		w = dev->frame_crop.c.width - dev->frame_crop.c.left;
+		h = dev->frame_crop.c.height - dev->frame_crop.c.top;
+		pix_format_set_size(&pix_format, format, w, h);
+		*val = (s32) pix_format.sizeimage;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_loopback_device *dev = container_of(ctrl->handler,
 			struct v4l2_loopback_device, ctrl_handler);
 
 	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val);
+}
+
+static int v4l2loopback_datasize_g_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct v4l2_loopback_device *dev = container_of(ctrl->handler,
+			struct v4l2_loopback_device, ctrl_handler);
+
+	return v4l2loopback_datasize_get_ctrl(dev, ctrl->id, &ctrl->val);
+}
+
+static int v4l2loopback_datasize_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	return -EINVAL;
+}
+
+static int v4l2loopback_datasize_try_ctrl(struct v4l2_ctrl *ctrl)
+{
+	return -EINVAL;
 }
 
 /* returns set of device outputs, in our case there is only one
@@ -2260,6 +2437,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 {
 	int ret;
 	struct v4l2_ctrl_handler *hdl = &dev->ctrl_handler;
+	struct v4l2_cropcap cropcap;
+	struct v4l2_crop crop;
+	struct v4l2_ctrl *ctrl;
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
 				"v4l2loopback-%03d", nr);
@@ -2330,6 +2510,12 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_sustainframerate, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeout, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeoutimageio, NULL);
+	ctrl = v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_datasize, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	else
+		goto error;
+
 	if (hdl->error) {
 		ret = hdl->error;
 		goto error;
@@ -2353,6 +2539,16 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 
 	init_waitqueue_head(&dev->read_event);
 	init_waitqueue_head(&dev->write_event);
+
+	ret = v4l2_loopback_cropcap(dev, &cropcap);
+	if (ret)
+		goto error;
+
+	crop.type = cropcap.type;
+	crop.c = cropcap.defrect;
+	ret = v4l2_loopback_s_crop(dev, &crop, false);
+	if (ret)
+		goto error;
 
 	MARK();
 	return 0;
@@ -2405,6 +2601,10 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_s_fmt_vid_out    = &vidioc_s_fmt_out,
 	.vidioc_g_fmt_vid_out    = &vidioc_g_fmt_out,
 	.vidioc_try_fmt_vid_out  = &vidioc_try_fmt_out,
+
+	.vidioc_cropcap          = &vidioc_cropcap,
+	.vidioc_g_crop           = &vidioc_g_crop,
+	.vidioc_s_crop           = &vidioc_s_crop,
 
 #ifdef V4L2L_OVERLAY
 	.vidioc_s_fmt_vid_overlay = &vidioc_s_fmt_overlay,
