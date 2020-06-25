@@ -1710,6 +1710,7 @@
 			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
 			qcom,iommu-faults = "stall-disable", "HUPCF";
 			dma-coherent;
+			shared-cb = <5>;
 		};
 
 		qcom,msm_fastrpc_compute_cb13 {
