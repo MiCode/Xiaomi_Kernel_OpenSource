@@ -3,6 +3,7 @@
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/soc/qcom/llcc-qcom.h>
@@ -1089,6 +1090,51 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 
 	return adj;
 }
+#define GPU_CPR_FSM_CTL_OFFSET	 0x4
+void a6xx_gx_cpr_toggle(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	static void __iomem *gx_cpr_virt;
+	struct resource *res;
+	u32 val = 0;
+
+	if (!a6xx_core->gx_cpr_toggle)
+		return;
+
+	if (!gx_cpr_virt) {
+		res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+				"gx_cpr");
+		if (res == NULL)
+			return;
+
+		gx_cpr_virt = devm_ioremap_resource(&device->pdev->dev, res);
+		if (!gx_cpr_virt) {
+			dev_err(device->dev, "Failed to map GX CPR\n");
+			return;
+		}
+	}
+
+	/*
+	 * Toggle(disable -> enable) closed loop functionality to recover
+	 * CPR measurements stall happened under certain conditions.
+	 */
+
+	val = readl_relaxed(gx_cpr_virt + GPU_CPR_FSM_CTL_OFFSET);
+	/* Make sure memory is updated before access */
+	rmb();
+
+	writel_relaxed(val & 0xfffffff0, gx_cpr_virt + GPU_CPR_FSM_CTL_OFFSET);
+	/* make sure register write committed */
+	wmb();
+
+	/* Wait for small time before we enable GX CPR */
+	udelay(5);
+
+	writel_relaxed(val | 0x00000001, gx_cpr_virt + GPU_CPR_FSM_CTL_OFFSET);
+	/* make sure register write committed */
+	wmb();
+}
 
 /**
  * a6xx_reset() - Helper function to reset the GPU
@@ -1121,6 +1167,9 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 		return ret;
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+
+	/* Toggle GX CPR on demand */
+	 a6xx_gx_cpr_toggle(device);
 
 	/*
 	 * If active_cnt is zero, there is no need to keep the GPU active. So,

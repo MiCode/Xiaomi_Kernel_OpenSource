@@ -971,6 +971,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
 	.vbif_count = ARRAY_SIZE(a615_gbif_regs),
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a630_protected_regs,
+	.gx_cpr_toggle = true,
 };
 
 static const struct adreno_reglist a620_hwcg_regs[] = {
