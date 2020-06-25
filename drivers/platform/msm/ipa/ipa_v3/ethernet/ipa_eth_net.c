@@ -13,6 +13,7 @@
 #include <linux/rtnetlink.h>
 
 #include "ipa_eth_i.h"
+#include "ipa_eth_trace.h"
 
 #define ipa_eth_nd_op(eth_dev, op, args...) (eth_dev->nd->ops->op(args))
 
@@ -97,6 +98,31 @@ static inline bool __is_netdev_link_up(struct ipa_eth_device *eth_dev)
 static inline bool __is_netdev_iface_up(struct ipa_eth_device *eth_dev)
 {
 	return !!(eth_dev->net_dev->flags & IFF_UP);
+}
+
+bool ipa_eth_net_check_active(struct ipa_eth_device *eth_dev)
+{
+	bool active = false;
+	struct rtnl_link_stats64 curr_rtnl_stats;
+	struct ipa_eth_device_private *ipa_priv = eth_dev_priv(eth_dev);
+	struct rtnl_link_stats64 *last_rtnl_stats = &ipa_priv->last_rtnl_stats;
+
+	dev_get_stats(eth_dev->net_dev, &curr_rtnl_stats);
+
+	trace_net_check_active(eth_dev,
+		last_rtnl_stats, &curr_rtnl_stats, ipa_priv->assume_active);
+
+	if (ipa_priv->assume_active) {
+		ipa_priv->assume_active--;
+		active = true;
+	}
+
+	if (curr_rtnl_stats.rx_packets != last_rtnl_stats->rx_packets)
+		active = true;
+
+	*last_rtnl_stats = curr_rtnl_stats;
+
+	return active;
 }
 
 /* Event handler for netdevice events from upper interfaces */

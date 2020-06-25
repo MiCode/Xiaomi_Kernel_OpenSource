@@ -404,6 +404,15 @@
 	qcom,sde-mixer-display-pref = "primary", "none", "none",
 				"none", "none", "none";
 	/delete-property/ qcom,sde-has-dest-scaler;
+
+	/* roi misr related hw block */
+	qcom,sde-roi-misr-off = <0x82820 0x82880 0x828e0
+				0x82940 0x829a0 0x82a00>;
+	qcom,sde-roi-misr-size = <0x60>;
+
+	qcom,sde-dspp-blocks {
+		qcom,sde-dspp-roi-misr = <0x1200 0x00010000>;
+	};
 };
 
 #include <dt-bindings/gpio/gpio.h>
@@ -769,4 +778,5 @@
 };
 
 #include "sa8155-audio.dtsi"
+#include "sa8155-camera.dtsi"
 #include "sa8155-camera-sensor.dtsi"

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -950,8 +950,7 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_set_wake   = msm_gpio_irq_set_wake,
 	.irq_request_resources    = msm_gpiochip_irq_reqres,
 	.irq_release_resources	  = msm_gpiochip_irq_relres,
-	.flags                    = IRQCHIP_MASK_ON_SUSPEND |
-					IRQCHIP_SKIP_SET_WAKE,
+	.flags                    = IRQCHIP_MASK_ON_SUSPEND,
 };
 
 static void msm_gpio_domain_set_info(struct irq_domain *d, unsigned int irq,
@@ -1277,6 +1276,19 @@ static void msm_dirconn_irq_unmask(struct irq_data *d)
 		parent_data->chip->irq_unmask(parent_data);
 }
 
+static int msm_dirconn_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (!parent_data)
+		return -EINVAL;
+
+	if (parent_data->chip->irq_set_wake)
+		return parent_data->chip->irq_set_wake(parent_data, on);
+
+	return 0;
+}
 static void msm_dirconn_irq_ack(struct irq_data *d)
 {
 	struct irq_desc *desc = irq_data_to_desc(d);
@@ -1553,10 +1565,10 @@ static struct irq_chip msm_dirconn_irq_chip = {
 	.irq_eoi		= msm_dirconn_irq_eoi,
 	.irq_ack		= msm_dirconn_irq_ack,
 	.irq_set_type		= msm_dirconn_irq_set_type,
+	.irq_set_wake		= msm_dirconn_irq_set_wake,
 	.irq_set_affinity	= msm_dirconn_irq_set_affinity,
 	.irq_set_vcpu_affinity	= msm_dirconn_irq_set_vcpu_affinity,
-	.flags			= IRQCHIP_SKIP_SET_WAKE
-					| IRQCHIP_MASK_ON_SUSPEND
+	.flags			= IRQCHIP_MASK_ON_SUSPEND
 					| IRQCHIP_SET_TYPE_MASKED,
 };
 

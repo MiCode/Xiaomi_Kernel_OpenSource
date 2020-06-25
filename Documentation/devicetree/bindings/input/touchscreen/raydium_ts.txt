@@ -1,0 +1,52 @@
+Raydium WT030 touch controller
+
+Please add this description here: The Raydium Touch controller is connected to the
+host processor via I2C. The controller generates interrupts when the user touches
+the panel. The host controller is expected to read the touch coordinates over I2C and
+pass the coordinates to the rest of the system.
+
+Required properties:
+
+ - compatible                     : should be "raydium,raydium-ts".
+ - reg                                : i2c slave address of the device.
+ - interrupt-parent               : parent of interrupt.
+ - raydium,irq-gpio               : irq gpio.
+ - raydium,reset-gpio         : reset gpio.
+ - vdd_ana-supply                         : analog voltage power supply needed to power device.
+ - vcc_i2c-supply                         : i2c voltage power supply needed to power device.
+
+Optional property:
+ - raydium,max-num-touches   : addr of ub-i2c.
+ - raydium,display-coords    : array of display coordinates.
+ - raydium,x_max                    : maximal x value of the panel.
+ - raydium,y_max                    : maximal y value of the panel.
+ - raydium,fw_id             : firmare id.
+ - raydium,soft-reset-delay-ms    : reset delay for controller (ms), default 100.
+ - raydium,hard-reset-delay-ms    : reset delay for controller (ms), default 100.
+
+Example:
+       i2c@78b7000 {
+               status = "ok";
+               raydium_ts@39 {
+                       compatible = "raydium,raydium-ts";
+                       reg = <0x39>;
+                       interrupt-parent = <&msm_gpio>;
+                       interrupts = <13 0x2008>;
+                       vdd_ana-supply = <&pm8916_l17>;
+                       vcc_i2c-supply = <&pm8916_l6>;
+                       pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+                       pinctrl-0 = <&ts_int_active &ts_reset_active>;
+                       pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+                       pinctrl-2 = <&ts_release>;
+                       raydium,reset-gpio = <&msm_gpio 12 0x00>;
+                       raydium,irq-gpio = <&msm_gpio 13 0x00>;
+                       raydium,num-max-touches = <2>;
+                       raydium,soft-reset-delay-ms = <50>;
+                       raydium,hard-reset-delay-ms = <100>;
+                       raydium,x_max = <390>;
+                       raydium,y_max = <390>;
+                       raydium,display-coords= <0  0 390 390>;
+                       raydium,fw_id = <0x2202>
+               };
+       };
+

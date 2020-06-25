@@ -46,6 +46,7 @@ enum MHI_CB {
 	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
+	MHI_CB_FW_FALLBACK_IMG,
 };
 
 /**
@@ -290,6 +291,7 @@ struct mhi_controller {
 
 	/* fw images */
 	const char *fw_image;
+	const char *fw_image_fallback;
 	const char *edl_image;
 
 	/* mhi host manages downloading entire fbc images */
@@ -408,6 +410,7 @@ struct mhi_controller {
 	bool initiate_mhi_reset;
 	void *priv_data;
 	void *log_buf;
+	void *cntrl_log_buf;
 	struct dentry *dentry;
 	struct dentry *parent;
 
@@ -860,7 +863,7 @@ char *mhi_get_restart_reason(const char *name);
 #ifdef CONFIG_MHI_DEBUG
 
 #define MHI_VERB(fmt, ...) do { \
-		if (mhi_cntrl->klog_lvl <= MHI_MSG_VERBOSE) \
+		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_VERBOSE) \
 			pr_dbg("[D][%s] " fmt, __func__, ##__VA_ARGS__);\
 } while (0)
 
@@ -870,8 +873,18 @@ char *mhi_get_restart_reason(const char *name);
 
 #endif
 
+#define MHI_CNTRL_LOG(fmt, ...) do {	\
+		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_INFO) \
+			pr_info("[I][%s] " fmt, __func__, ##__VA_ARGS__);\
+} while (0)
+
+#define MHI_CNTRL_ERR(fmt, ...) do {	\
+		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_ERROR) \
+			pr_err("[E][%s] " fmt, __func__, ##__VA_ARGS__); \
+} while (0)
+
 #define MHI_LOG(fmt, ...) do {	\
-		if (mhi_cntrl->klog_lvl <= MHI_MSG_INFO) \
+		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_INFO) \
 			pr_info("[I][%s] " fmt, __func__, ##__VA_ARGS__);\
 } while (0)
 
@@ -910,6 +923,20 @@ char *mhi_get_restart_reason(const char *name);
 } while (0)
 
 #endif
+
+#define MHI_CNTRL_LOG(fmt, ...) do { \
+		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_INFO) \
+			pr_err("[I][%s] " fmt, __func__, ##__VA_ARGS__);\
+		ipc_log_string(mhi_cntrl->cntrl_log_buf, "[I][%s] " fmt, \
+			       __func__, ##__VA_ARGS__); \
+} while (0)
+
+#define MHI_CNTRL_ERR(fmt, ...) do { \
+		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_ERROR) \
+			pr_err("[E][%s] " fmt, __func__, ##__VA_ARGS__); \
+		ipc_log_string(mhi_cntrl->cntrl_log_buf, "[E][%s] " fmt, \
+			       __func__, ##__VA_ARGS__); \
+} while (0)
 
 #define MHI_LOG(fmt, ...) do {	\
 		if (mhi_cntrl->klog_lvl <= MHI_MSG_LVL_INFO) \

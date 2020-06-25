@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,9 +65,9 @@
 		};
 	};
 
-	mdss_dp_pll: qcom,mdss_dp_pll@88ea000 {
+	mdss_dp0_pll: qcom,mdss_dp_pll@88ea000 {
 		compatible = "qcom,mdss_dp_pll_7nm";
-		label = "MDSS DP PLL";
+		label = "MDSS DP0 PLL";
 		cell-index = <0>;
 		#clock-cells = <1>;
 
@@ -75,9 +75,11 @@
 		      <0x88eaa00 0x200>,
 		      <0x88ea200 0x200>,
 		      <0x88ea600 0x200>,
-		      <0xaf03000 0x8>;
+		      <0xaf03000 0x8>,
+		      <0x88e8000 0x3c>,
+		      <0x88e9000 0x1c0>;
 		reg-names = "pll_base", "phy_base", "ln_tx0_base",
-			"ln_tx1_base", "gdsc_base";
+			"ln_tx1_base", "gdsc_base", "usb_dp_com", "usb_pll";
 
 		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			 <&clock_rpmh RPMH_CXO_CLK>,
@@ -86,6 +88,78 @@
 			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>;
 		clock-names = "iface_clk", "ref_clk_src", "gcc_iface",
 			"ref_clk", "pipe_clk";
+		clock-rate = <0>;
+	};
+
+	mdss_dp1_pll: qcom,mdss_dp_pll@88ef000 {
+		compatible = "qcom,mdss_dp_pll_7nm";
+		label = "MDSS DP1 PLL";
+		cell-index = <1>;
+		#clock-cells = <1>;
+
+		reg = <0x88ef000 0x200>,
+		      <0x88efa00 0x200>,
+		      <0x88ef200 0x200>,
+		      <0x88ef600 0x200>,
+		      <0xaf03000 0x8>,
+		      <0x88ed000 0x3c>,
+		      <0x88ee000 0x1c0>;
+		reg-names = "pll_base", "phy_base", "ln_tx0_base",
+			"ln_tx1_base", "gdsc_base", "usb_dp_com", "usb_pll";
+
+		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_DISP_AHB_CLK>,
+			 <&clock_gcc GCC_USB3_SEC_CLKREF_CLK>,
+			 <&clock_gcc GCC_USB3_SEC_PHY_PIPE_CLK>;
+		clock-names = "iface_clk", "ref_clk_src", "gcc_iface",
+			"ref_clk", "pipe_clk";
+		clock-rate = <0>;
+	};
+
+	mdss_dp2_pll: qcom,mdss_edp_pll@aec5000 {
+		compatible = "qcom,mdss_edp_pll_7nm";
+		label = "MDSS DP2 PLL";
+		cell-index = <0>;
+		#clock-cells = <1>;
+
+		reg = <0xaec5000 0x200>,
+		      <0xaec5a00 0x200>,
+		      <0xaec5200 0x200>,
+		      <0xaec5600 0x200>,
+		      <0xaf03000 0x8>;
+		reg-names = "pll_base", "phy_base", "ln_tx0_base",
+			"ln_tx1_base", "gdsc_base";
+
+		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_DISP_AHB_CLK>,
+			 <&clock_gcc GCC_PCIE_0_CLKREF_CLK>;
+		clock-names = "iface_clk", "ref_clk_src", "gcc_iface",
+			"ref_clk";
+		clock-rate = <0>;
+	};
+
+	mdss_edp_pll: qcom,mdss_edp_pll@aec2000 {
+		compatible = "qcom,mdss_edp_pll_7nm";
+		label = "MDSS eDP PLL";
+		cell-index = <1>;
+		#clock-cells = <1>;
+
+		reg = <0xaec2000 0x200>,
+		      <0xaec2a00 0x200>,
+		      <0xaec2200 0x200>,
+		      <0xaec2600 0x200>,
+		      <0xaf03000 0x8>;
+		reg-names = "pll_base", "phy_base", "ln_tx0_base",
+			"ln_tx1_base", "gdsc_base";
+
+		clocks = <&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_DISP_AHB_CLK>,
+			 <&clock_gcc GCC_PCIE_0_CLKREF_CLK>;
+		clock-names = "iface_clk", "ref_clk_src", "gcc_iface",
+			"ref_clk";
 		clock-rate = <0>;
 	};
 

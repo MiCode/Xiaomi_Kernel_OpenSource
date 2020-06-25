@@ -1454,7 +1454,11 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	struct hfi_device *hdev = NULL;
 	enum hal_perf_mode venc_mode;
 	u32 rc_mode = 0;
+	u32 hq_mbs_per_sec = 0;
+	struct msm_vidc_core *core;
+	struct msm_vidc_inst *instance = NULL;
 
+	core = inst->core;
 	hdev = inst->core->device;
 	if (inst->session_type != MSM_VIDC_ENCODER) {
 		dprintk(VIDC_DBG,
@@ -1468,6 +1472,19 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	if (mbs_per_frame > inst->core->resources.max_hq_mbs_per_frame ||
 		mbs_per_sec > inst->core->resources.max_hq_mbs_per_sec) {
 		enable = true;
+	}
+	if (!enable) {
+		mutex_lock(&core->lock);
+		list_for_each_entry(instance, &core->instances, list) {
+			if (instance->clk_data.core_id &&
+				!(instance->flags & VIDC_LOW_POWER))
+				hq_mbs_per_sec +=
+					msm_comm_get_inst_load_per_core(
+					instance, LOAD_CALC_NO_QUIRKS);
+		}
+		mutex_unlock(&core->lock);
+		if (hq_mbs_per_sec > inst->core->resources.max_hq_mbs_per_sec)
+			enable = true;
 	}
 	/* Power saving always disabled for CQ RC mode. */
 	rc_mode = msm_comm_g_ctrl_for_id(inst,

@@ -19,7 +19,7 @@
 	mhi_0: qcom,mhi@0 {
 		reg = <0 0 0 0 0 >;
 
-		pci-ids = "17cb:0305", "17cb:0306", "17cb:0307";
+		pci-ids = "17cb:0305", "17cb:0306", "17cb:0307", "17cb:0308";
 
 		/* controller specific configuration */
 		qcom,smmu-cfg = <0x3>;
@@ -586,7 +586,7 @@
 	mhi_1: qcom,mhi@0 {
 		reg = <0 0 0 0 0 >;
 
-		pci-ids = "17cb:0305", "17cb:0306";
+		pci-ids = "17cb:0305", "17cb:0306", "17cb:0307", "17cb:0308";
 
 		/* controller specific configuration */
 		qcom,smmu-cfg = <0x3>;

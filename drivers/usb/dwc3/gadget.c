@@ -782,12 +782,13 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 
 		init_waitqueue_head(&dep->wait_end_transfer);
 
+		dep->trb_dequeue = 0;
+		dep->trb_enqueue = 0;
+
 		if (usb_endpoint_xfer_control(desc))
 			goto out;
 
 		/* Initialize the TRB ring */
-		dep->trb_dequeue = 0;
-		dep->trb_enqueue = 0;
 		memset(dep->trb_pool, 0,
 		       sizeof(struct dwc3_trb) * DWC3_TRB_NUM);
 
@@ -2494,6 +2495,7 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 
 	/* begin to receive SETUP packets */
 	dwc->ep0state = EP0_SETUP_PHASE;
+	dwc->ep0_bounced = false;
 	dwc->link_state = DWC3_LINK_STATE_SS_DIS;
 	dwc3_ep0_out_start(dwc);
 
@@ -3331,6 +3333,10 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 			dwc3_ep0_end_control_data(dwc, dwc->eps[dir]);
 		else
 			dwc3_ep0_end_control_data(dwc, dwc->eps[!dir]);
+
+		dwc->eps[0]->trb_enqueue = 0;
+		dwc->eps[1]->trb_enqueue = 0;
+
 		dwc3_ep0_stall_and_restart(dwc);
 	}
 
@@ -3879,20 +3885,6 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 	if (dwc->err_evt_seen)
 		return IRQ_HANDLED;
 
-	/* Controller is being halted, ignore the interrupts */
-	if (!dwc->pullups_connected) {
-		/*
-		 * Even with controller halted, there is a possibility
-		 * that the interrupt line is kept asserted.
-		 * As per the databook (3.00A - 6.3.57) read the GEVNTCOUNT
-		 * to ensure that the interrupt line is de-asserted.
-		 */
-		count = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
-		count &= DWC3_GEVNTCOUNT_MASK;
-		dbg_event(0xFF, "NO_PULLUP", count);
-		return IRQ_HANDLED;
-	}
-
 	/*
 	 * With PCIe legacy interrupt, test shows that top-half irq handler can
 	 * be called again after HW interrupt deassertion. Check if bottom-half
@@ -3906,6 +3898,13 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 	count &= DWC3_GEVNTCOUNT_MASK;
 	if (!count)
 		return IRQ_NONE;
+
+	/* Controller is halted; ignore new/pending events */
+	if (!dwc->pullups_connected) {
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), count);
+		dbg_event(0xFF, "NO_PULLUP", count);
+		return IRQ_HANDLED;
+	}
 
 	if (count > evt->length) {
 		dbg_event(0xFF, "HUGE_EVCNT", count);

@@ -35,10 +35,13 @@ static void dwmac4_core_init(struct mac_device_info *hw,
 	if (mtu > 2000)
 		value |= GMAC_CONFIG_JE;
 
+	if (hw->crc_strip_en)
+		value |= GMAC_CONFIG_CRC;
+
 	if (hw->ps) {
 		value |= GMAC_CONFIG_TE;
 
-		value &= hw->link.speed_mask;
+		value &= ~(hw->link.speed_mask);
 		switch (hw->ps) {
 		case SPEED_1000:
 			value |= hw->link.speed1000;

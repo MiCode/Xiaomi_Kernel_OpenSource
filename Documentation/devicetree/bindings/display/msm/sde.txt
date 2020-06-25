@@ -104,6 +104,7 @@ Optional properties:
 - qcom,sde-dspp-size:		A u32 value indicates the address range for each dspp.
 - qcom,sde-intf-size:		A u32 value indicates the address range for each intf.
 - qcom,sde-dsc-size:		A u32 value indicates the address range for each dsc.
+- qcom,sde-roi-misr-size:	A u32 value indicates the address range for each roi misr.
 - qcom,sde-cdm-size:		A u32 value indicates the address range for each cdm.
 - qcom,sde-pp-size:		A u32 value indicates the address range for each pingpong.
 - qcom,sde-merge-3d-size:	A u32 value indicates the address range for each merge 3d.
@@ -140,6 +141,8 @@ Optional properties:
 				0xd - align at start of line
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
 				control feature is available on each source pipe.
+- qcom,sde-has-roi-misr:	Boolean property to indicate if roi misr
+				feature is available or not.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
 				feature is available or not.
 - qcom,sde-has-dim-layer:	Boolean property to indicate if mixer has dim layer
@@ -208,6 +211,7 @@ Optional properties:
 - qcom,sde-te-size:		A u32 value indicates the te block address range.
 - qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
 - qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
+- qcom,sde-roi-misr-off:	A u32 offset indicates the roi misr block offset on pingpong.
 - qcom,sde-qdss-off:		A u32 offset indicates the qdss block offset.
 - qcom,sde-dither-off:		A u32 offset indicates the dither block offset on pingpong.
 - qcom,sde-dither-version:	A u32 value indicates the dither block version.
@@ -263,6 +267,7 @@ Optional properties:
 				-- qcom,sde-dspp-dither: offset and version of dither hardware
 				-- qcom,sde-dspp-hist: offset and version of histogram hardware
 				-- qcom,sde-dspp-vlut: offset and version of PA vLUT hardware
+				-- qcom,sde-dspp-roi-misr: offset and version of roi misr hardware
 - qcom,sde-mixer-blocks:	A node that lists the blocks inside the layer mixer hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
@@ -566,6 +571,7 @@ Example:
     qcom,sde-pp-slave = <0x0 0x0 0x0 0x0>;
     qcom,sde-cdm-off = <0x0007a200>;
     qcom,sde-dsc-off = <0x00081000 0x00081400>;
+    qcom,sde-roi-misr-off = <0x00082820 0x00082880>;
     qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
 
     qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
@@ -607,6 +613,7 @@ Example:
     qcom,sde-ubwc-bw-calc-version = <0x1>;
     qcom,sde-smart-panel-align-mode = <0xd>;
     qcom,sde-panic-per-pipe;
+    qcom,sde-has-roi-misr;
     qcom,sde-has-src-split;
     qcom,sde-pipe-order-version = <0x1>;
     qcom,sde-has-dim-layer;
@@ -617,6 +624,7 @@ Example:
     qcom,sde-dspp-size = <0x100>;
     qcom,sde-intf-size = <0x100>;
     qcom,sde-dsc-size = <0x100>;
+    qcom,sde-roi-misr-size = <0x100>;
     qcom,sde-cdm-size = <0x100>;
     qcom,sde-pp-size = <0x100>;
     qcom,sde-wb-size = <0x100>;
@@ -778,6 +786,7 @@ Example:
         qcom,sde-dspp-dither = <0x0 0x00010000>;
         qcom,sde-dspp-hist = <0x0 0x00010000>;
         qcom,sde-dspp-vlut = <0x0 0x00010000>;
+        qcom,sde-dspp-roi-misr = <0x1200 0x00010000>;
     };
 
    qcom,sde-limits {

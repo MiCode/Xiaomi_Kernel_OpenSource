@@ -642,6 +642,7 @@ int32_t cam_context_flush_ctx_to_hw(struct cam_context *ctx)
 			ctx->dev_name, ctx->ctx_id);
 
 	flush_args.num_req_pending = 0;
+	flush_args.last_flush_req = ctx->last_flush_req;
 	while (true) {
 		spin_lock(&ctx->lock);
 		if (list_empty(&temp_list)) {

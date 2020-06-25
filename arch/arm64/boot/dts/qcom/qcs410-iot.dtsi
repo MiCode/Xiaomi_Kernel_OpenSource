@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
+#include "qcs410.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS410 IOT";
@@ -137,6 +138,42 @@
 	compatible = "qcom,smb1390-charger-psy";
 	io-channels = <&pm6150_vadc ADC_AMUX_THM3>;
 	io-channel-names = "cp_die_temp";
+	status = "ok";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm6150l_l11>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm6150_l12>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm6150l_l9>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm6150l_l6>;
+	qcom,vdd-io-voltage-level = <1800000 3100000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	cd-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
+
 	status = "ok";
 };
 

@@ -126,6 +126,7 @@
 #define IPA_IOCTL_GET_PHERIPHERAL_EP_INFO       78
 #define IPA_IOCTL_APP_CLOCK_VOTE                79
 #define IPA_IOCTL_PDN_CONFIG                    80
+#define IPA_IOCTL_SET_MAC_FLT                   81
 
 /**
  * max size of the header to be inserted
@@ -167,6 +168,11 @@
  * max number of destination pipes possible for a client.
  */
 #define QMI_IPA_MAX_CLIENT_DST_PIPES 4
+
+/**
+ * Max number of clients supported for mac based exception
+ */
+#define IPA_MAX_NUM_MAC_FLT 5
 
 /**
  * MAX number of the FLT_RT stats counter supported.
@@ -230,6 +236,7 @@
  * maximal number of NAT PDNs in the PDN config table
  */
 #define IPA_MAX_PDN_NUM 7
+#define IPA_MAX_PDN_NUM_v4 5
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
@@ -748,7 +755,13 @@ enum ipa_pdn_config_event {
 #define IPA_PDN_CONFIG_EVENT_MAX IPA_PDN_CONFIG_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_PDN_CONFIG_EVENT_MAX)
+enum ipa_mac_flt_event {
+	IPA_MAC_FLT_EVENT = IPA_PDN_CONFIG_EVENT_MAX,
+	IPA_MAC_FLT_EVENT_MAX
+#define IPA_MAC_FLT_EVENT_MAX IPA_MAC_FLT_EVENT_MAX
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_MAC_FLT_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -2301,7 +2314,7 @@ enum ipa_l2tp_tunnel_type {
 struct ipa_ioc_l2tp_vlan_mapping_info {
 	enum ipa_ip_type iptype;
 	char l2tp_iface_name[IPA_RESOURCE_NAME_MAX];
-	uint8_t l2tp_session_id;
+	uint32_t l2tp_session_id;
 	char vlan_iface_name[IPA_RESOURCE_NAME_MAX];
 	enum ipa_l2tp_tunnel_type tunnel_type;
 	uint16_t src_port;
@@ -2787,6 +2800,18 @@ struct ipa_ioc_pdn_config {
 	} u;
 };
 
+/**
+ * struct ipa_ioc_mac_client_list_type- mac addr exception list
+ * @mac_addr: an array to hold clients mac addrs
+ * @num_of_clients: holds num of clients to blacklist or whitelist
+ * @flt_state: true to block current mac addrs and false to clean
+ *		up all previous mac addrs
+ */
+struct ipa_ioc_mac_client_list_type {
+	uint8_t mac_addr[IPA_MAX_NUM_MAC_FLT][IPA_MAC_ADDR_SIZE];
+	int num_of_clients;
+	uint8_t flt_state;
+};
 
 /**
  *   actual IOCTLs supported by IPA driver
@@ -3052,6 +3077,11 @@ struct ipa_ioc_pdn_config {
 #define IPA_IOC_PDN_CONFIG _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_PDN_CONFIG, \
 				struct ipa_ioc_pdn_config)
+
+#define IPA_IOC_SET_MAC_FLT _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_MAC_FLT, \
+				struct ipa_ioc_mac_client_list_type)
+
 /*
  * unique magic number of the Tethering bridge ioctls
  */

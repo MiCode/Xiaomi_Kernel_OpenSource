@@ -156,6 +156,28 @@
 		gpios = <&tlmm 96 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+
+	qmi-tmd-devices {
+		adsp {
+			qcom,instance-id = <0x1>;
+
+			adsp_vdd: adsp-vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	aoss-lowf {
+		cooling-maps {
+			adsp_vdd_cdev {
+				trip = <&aoss_lowf>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+		};
+	};
 };
 
 &usb3 {
@@ -210,3 +232,50 @@
 
 	status = "ok";
 };
+
+&gpu_bw_tbl {
+	status = "disabled";
+};
+
+&gpubw {
+	status = "disabled";
+};
+
+&msm_gpu {
+	status = "disabled";
+};
+
+&kgsl_msm_iommu {
+	status = "disabled";
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa1 {
+		status = "disabled";
+		pms405_l1: regulator-l1 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "disabled";
+		pms405_l2: regulator-l2 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "disabled";
+		pms405_l7: regulator-l7 {
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "disabled";
+		pms405_l10: regulator-l10 {
+			status = "disabled";
+		};
+	};
+};
+

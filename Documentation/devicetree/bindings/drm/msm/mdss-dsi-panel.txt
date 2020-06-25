@@ -253,6 +253,7 @@ Optional properties:
 - qcom,mdss-dsi-color-order:		Specifies the R, G and B channel ordering.
 					"rgb_swap_rgb" = DSI_RGB_SWAP_RGB (default value)
 					"rgb_swap_rbg" = DSI_RGB_SWAP_RBG
+					"rgb_swap_bgr" = DSI_RGB_SWAP_BGR
 					"rgb_swap_brg" = DSI_RGB_SWAP_BRG
 					"rgb_swap_grb" = DSI_RGB_SWAP_GRB
 					"rgb_swap_gbr" = DSI_RGB_SWAP_GBR
@@ -553,6 +554,7 @@ Optional properties:
 					frequencies in Hz for the given panel.
 - qcom,dsi-dyn-clk-skip-timing-update:	Boolean to specify whether to skip phy timing parameter
 					update during dynamic clock switch.
+- qcom,csi-proxy-enable:		Boolean to config DSI transmission packet DataTypes to simulate the CSI-2 compatible signal
 
 Required properties for sub-nodes:	None
 Optional properties:

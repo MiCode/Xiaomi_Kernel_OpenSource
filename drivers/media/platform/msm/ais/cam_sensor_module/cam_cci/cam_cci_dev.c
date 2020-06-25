@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,7 +81,8 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			cci_master_info = &cci_dev->cci_master_info[MASTER_0];
 			cci_dev->cci_master_info[MASTER_0].reset_pending =
 				FALSE;
-			if (!cci_master_info->status)
+			if (!cci_master_info->status ||
+					cci_master_info->status == -EINVAL)
 				complete(&cci_master_info->reset_complete);
 			cci_master_info->status = 0;
 		}
@@ -89,7 +90,8 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			cci_master_info = &cci_dev->cci_master_info[MASTER_1];
 			cci_dev->cci_master_info[MASTER_1].reset_pending =
 				FALSE;
-			if (!cci_master_info->status)
+			if (!cci_master_info->status ||
+					cci_master_info->status == -EINVAL)
 				complete(&cci_master_info->reset_complete);
 			cci_master_info->status = 0;
 		}
@@ -430,7 +432,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	g_cci_subdev[soc_info->index] = &new_cci_dev->v4l2_dev_str.sd;
 	mutex_init(&(new_cci_dev->init_mutex));
 
-	CAM_INFO(CAM_CCI, "Device Type :%d", soc_info->index);
+	CAM_INFO(CAM_CCI, "Probe CCI %d", soc_info->index);
 
 	cam_register_subdev_fops(&cci_v4l2_subdev_fops);
 	cci_v4l2_subdev_fops.unlocked_ioctl = cam_cci_subdev_fops_ioctl;

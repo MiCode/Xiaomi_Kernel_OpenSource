@@ -1221,6 +1221,14 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	}
 
 	/*
+	 * Reset step_quot to default on each loop_en = 0 transition is
+	 * optional.
+	 */
+	ctrl->reset_step_quot_loop_en
+		= of_property_read_bool(ctrl->dev->of_node,
+					"qcom,cpr-reset-step-quot-loop-en");
+
+	/*
 	 * Regulator device handles are not necessary for CPRh controllers
 	 * since communication with the regulators is completely managed
 	 * in hardware.

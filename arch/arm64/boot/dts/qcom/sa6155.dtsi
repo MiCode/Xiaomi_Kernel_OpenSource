@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,16 @@
 &clock_gpucc {
 	compatible = "qcom,gpucc-sa6155", "syscon";
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
+};
+
+&mdss_mdp {
+	/* roi misr related hw block */
+	qcom,sde-roi-misr-off = <0x82820 0x82880 0x828e0>;
+	qcom,sde-roi-misr-size = <0x60>;
+
+	qcom,sde-dspp-blocks {
+		qcom,sde-dspp-roi-misr = <0x1200 0x00010000>;
+	};
 };
 
 #include "sa6155-pcie.dtsi"

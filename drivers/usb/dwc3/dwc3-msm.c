@@ -2179,9 +2179,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		break;
 	case DWC3_CONTROLLER_NOTIFY_CLEAR_DB:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
-		dwc3_msm_write_reg_field(mdwc->base,
-			GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
-			BLOCK_GSI_WR_GO_MASK, true);
+		if (mdwc->gsi_reg)
+			dwc3_msm_write_reg_field(mdwc->base,
+			    GSI_GENERAL_CFG_REG(mdwc->gsi_reg[GENERAL_CFG_REG]),
+			    BLOCK_GSI_WR_GO_MASK, true);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
@@ -4243,9 +4244,6 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 
 	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
-
-	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
 
 	last_irq_cnt = dwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);

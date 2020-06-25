@@ -15,18 +15,35 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/qcom,gcc-sdm429w.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/clock/mdss-12nm-pll-clk.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM429";
 	compatible = "qcom,sdm429";
 	qcom,msm-id = <416 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&wakegic>;
 
 	chosen {
 		bootargs = "sched_enable_hmp=1 kpti=0";
 	};
 
-	firmware: firmware { };
+	firmware: firmware {
+	     android {
+		compatible = "android,firmware";
+		fstab {
+		   compatible = "android,fstab";
+		   vendor {
+		      compatible = "android,vendor";
+		      dev =
+			"/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
+		      type = "ext4";
+		      mnt_flags = "ro,barrier=1,discard";
+		      fsmgr_flags = "wait,avb";
+		      status = "ok";
+		   };
+		};
+	     };
+	  };
 
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
@@ -133,11 +150,12 @@
 };
 
 #include "sdm429-bus.dtsi"
+#include "sdm429-pm.dtsi"
 #include "sdm429-pinctrl.dtsi"
 #include "sdm429-blsp.dtsi"
 #include "sdm429-cpu.dtsi"
 #include "sdm429-ion.dtsi"
-
+#include "msm-arm-smmu-sdm429.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -147,10 +165,31 @@
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-parent = <&intc>;
+		interrupt-controller;
 		#interrupt-cells = <3>;
 		reg = <0x0b000000 0x1000>,
 		      <0x0b002000 0x1000>;
 	};
+
+	wakegic: wake-gic {
+		compatible = "qcom,mpm-gic-sdm429", "qcom,mpm-gic";
+		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x601d0 0x1000>,
+			<0xb011008 0x4>;  /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		qcom,num-mpm-irqs = <64>;
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <3>;
+	};
+
+	wakegpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-sdm429", "qcom,mpm-gpio";
+		interrupt-controller;
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <2>;
+	};
+
 
 	timer {
 		compatible = "arm,armv8-timer";
@@ -256,6 +295,12 @@
 	gcc_mdss: qcom,gcc-mdss@1800000 {
 		compatible = "qcom,gcc-mdss-sdm429w";
 		reg = <0x1800000 0x80000>;
+		clocks = <&mdss_dsi0_pll PCLK_SRC_MUX_0_CLK>,
+		       <&mdss_dsi0_pll BYTE_CLK_SRC_0_CLK>,
+		       <&mdss_dsi1_pll PCLK_SRC_MUX_1_CLK>,
+		       <&mdss_dsi1_pll BYTE_CLK_SRC_1_CLK>;
+		clock-names = "pclk0_src", "byte0_src", "pclk1_src",
+			"byte1_src";
 		#clock-cells = <1>;
 	};
 
@@ -274,6 +319,10 @@
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
+		clocks = <&gcc GCC_BLSP1_UART2_APPS_CLK>,
+			<&gcc GCC_BLSP1_AHB_CLK>;
+		clock-names = "core", "iface";
+		status = "okay";
 	};
 
 	qcom,wdt@b017000 {
@@ -287,6 +336,13 @@
 		qcom,wakeup-enable;
 		qcom,scandump-size = <0x40000>;
 		status = "disabled";
+	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
 
 	qcom,chd {
@@ -452,7 +508,6 @@
 		HSUSB_1p8-supply = <&L12A>;
 		HSUSB_3p3-supply = <&L16A>;
 		qcom,vdd-voltage-level = <0 928000 928000>;
-		vbus_otg-supply = <&smb2_vbus>;
 
 		qcom,hsusb-otg-phy-init-seq = <0x43 0x80 0x06 0x82 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
@@ -572,6 +627,7 @@
 	smem {
 		compatible = "qcom,smem";
 		memory-region = <&smem_mem>;
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
 		hwlocks = <&tcsr_mutex 3>;
 	};
 
@@ -863,6 +919,10 @@
 };
 
 #include "sdm429-gdsc.dtsi"
+#include "sdm429w-pm660.dtsi"
+#include "sdm429w-regulator.dtsi"
+#include "sdm429-mdss.dtsi"
+#include "sdm429-mdss-pll.dtsi"
 
 &venus_gdsc {
 	clock-names = "bus_clk", "core_clk";

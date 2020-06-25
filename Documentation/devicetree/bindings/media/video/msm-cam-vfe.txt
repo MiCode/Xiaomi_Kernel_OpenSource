@@ -18,6 +18,7 @@ Required properties:
   Value type: <string>
   Definition: Should specify the compatibility string for matching the
 	driver. e.g. "qcom,vfe175", "qcom,vfe170", "qcom,vfe175_130",  "qcom,vfe-lite175", "qcom,vfe-lite175_130", "qcom,vfe-lite170".
+	For automotive, can specify "qcom,ais-vfe175", "qcom,ais-vfe170", "qcom,ais-vfe175_130",  "qcom,ais-vfe-lite175", "qcom,ais-vfe-lite175_130", "qcom,ais-vfe-lite170".
 
 - cell-index
   Usage: required

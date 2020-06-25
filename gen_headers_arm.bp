@@ -631,6 +631,7 @@ gen_headers_out_arm = [
     "linux/xilinx-v4l2-controls.h",
     "linux/zorro.h",
     "linux/zorro_ids.h",
+    "media/ais_isp.h",
     "media/ais_sensor.h",
     "media/cam_cpas.h",
     "media/cam_defs.h",

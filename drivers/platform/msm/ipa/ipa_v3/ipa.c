@@ -934,6 +934,51 @@ static int ipa3_send_gsb_msg(unsigned long usr_param, uint8_t msg_type)
 	return 0;
 }
 
+static void ipa3_mac_flt_list_free_cb(void *buff, u32 len, u32 type)
+{
+	if (!buff) {
+		IPAERR("Null buffer\n");
+		return;
+	}
+	kfree(buff);
+}
+
+static int ipa3_send_mac_flt_list(unsigned long usr_param)
+{
+	int retval;
+	struct ipa_msg_meta msg_meta;
+	void *buff;
+
+	buff = kzalloc(sizeof(struct ipa_ioc_mac_client_list_type),
+				GFP_KERNEL);
+	if (!buff)
+		return -ENOMEM;
+
+	if (copy_from_user(buff, (const void __user *)usr_param,
+		sizeof(struct ipa_ioc_mac_client_list_type))) {
+		kfree(buff);
+		return -EFAULT;
+	}
+	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+	msg_meta.msg_type = IPA_MAC_FLT_EVENT;
+	msg_meta.msg_len = sizeof(struct ipa_ioc_mac_client_list_type);
+
+	IPADBG("No of clients: %d, flt state: %d\n",
+		((struct ipa_ioc_mac_client_list_type *)buff)->num_of_clients,
+		((struct ipa_ioc_mac_client_list_type *)buff)->flt_state);
+
+	retval = ipa3_send_msg(&msg_meta, buff,
+		ipa3_mac_flt_list_free_cb);
+	if (retval) {
+		IPAERR("ipa3_send_msg failed: %d, msg_type %d\n",
+		retval,
+		msg_meta.msg_type);
+		kfree(buff);
+		return retval;
+	}
+	return 0;
+}
+
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -2985,6 +3030,13 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IPA_IOC_PDN_CONFIG:
 		if (ipa3_send_pdn_config_msg(arg)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_SET_MAC_FLT:
+		if (ipa3_send_mac_flt_list(arg)) {
 			retval = -EFAULT;
 			break;
 		}

@@ -915,7 +915,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-isp {
+	cam_isp_mgr: qcom,cam-isp {
 		compatible = "qcom,cam-isp";
 		arch-compat = "ife";
 		status = "ok";
@@ -1605,7 +1605,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-jpeg {
+	cam_jpeg_mgr: qcom,cam-jpeg {
 		compatible = "qcom,cam-jpeg";
 		compat-hw-name = "qcom,jpegenc",
 			"qcom,jpegdma";
@@ -1660,7 +1660,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-fd {
+	cam_fd_mgr: qcom,cam-fd {
 		compatible = "qcom,cam-fd";
 		compat-hw-name = "qcom,fd";
 		num-fd = <1>;
@@ -1696,7 +1696,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-lrme {
+	cam_lrme_mgr: qcom,cam-lrme {
 		compatible = "qcom,cam-lrme";
 		arch-compat = "lrme";
 		status = "ok";
@@ -1725,6 +1725,145 @@
 			<400000000 0>;
 		clock-cntl-level = "lowsvs", "svs", "svs_l1", "turbo";
 		src-clock-name = "lrme_clk_src";
+		status = "ok";
+	};
+};
+
+/*Overlay to use AIS and disable unused devices*/
+&cam_isp_mgr {
+	status = "disabled";
+};
+
+&cam_csid0 {
+	compatible = "qcom,ais-csid175";
+};
+
+&cam_vfe0 {
+	compatible = "qcom,ais-vfe175";
+};
+
+&cam_csid1 {
+	compatible = "qcom,ais-csid175";
+};
+
+&cam_vfe1 {
+	compatible = "qcom,ais-vfe175";
+};
+
+&cam_csid2 {
+	compatible = "qcom,ais-csid175";
+};
+
+&cam_vfe2 {
+	compatible = "qcom,ais-vfe175";
+};
+
+&cam_csid3 {
+	compatible = "qcom,ais-csid175";
+};
+
+&cam_vfe3 {
+	compatible = "qcom,ais-vfe175";
+};
+
+&cam_csid_lite0 {
+	compatible = "qcom,ais-csid-lite175";
+};
+
+&cam_vfe_lite0 {
+	compatible = "qcom,ais-vfe-lite175";
+};
+
+&cam_csid_lite1 {
+	compatible = "qcom,ais-csid-lite175";
+};
+
+&cam_vfe_lite1 {
+	compatible = "qcom,ais-vfe-lite175";
+};
+
+&cam_csid_lite2 {
+	compatible = "qcom,ais-csid-lite175";
+};
+
+&cam_vfe_lite2 {
+	compatible = "qcom,ais-vfe-lite175";
+};
+
+&cam_csid_lite3 {
+	compatible = "qcom,ais-csid-lite175";
+};
+
+&cam_vfe_lite3 {
+	compatible = "qcom,ais-vfe-lite175";
+};
+
+&cam_fd_mgr {
+	status = "disabled";
+};
+&cam_fd {
+	status = "disabled";
+};
+
+&cam_lrme_mgr {
+	status = "disabled";
+};
+&cam_lrme {
+	status = "disabled";
+};
+
+&soc {
+	/delete-node/ cam_isp_mgr;
+	/delete-node/ cam_fd_mgr;
+	/delete-node/ cam_fd;
+	/delete-node/ cam_lrme_mgr;
+	/delete-node/ cam_lrme;
+
+	qcom,ais-ife0 {
+		compatible = "qcom,ais-ife";
+		cell-index = <0>;
+		status = "ok";
+	};
+
+	qcom,ais-ife1 {
+		compatible = "qcom,ais-ife";
+		cell-index = <1>;
+		status = "ok";
+	};
+
+	qcom,ais-ife2 {
+		compatible = "qcom,ais-ife";
+		cell-index = <2>;
+		status = "ok";
+	};
+
+	qcom,ais-ife3 {
+		compatible = "qcom,ais-ife";
+		cell-index = <3>;
+		status = "ok";
+	};
+
+	qcom,ais-ife4 {
+		compatible = "qcom,ais-ife";
+		cell-index = <4>;
+		status = "ok";
+	};
+
+	qcom,ais-ife5 {
+		compatible = "qcom,ais-ife";
+		cell-index = <5>;
+		status = "ok";
+	};
+
+	qcom,ais-ife6 {
+		compatible = "qcom,ais-ife";
+		cell-index = <6>;
+		status = "ok";
+	};
+
+	qcom,ais-ife7 {
+		compatible = "qcom,ais-ife";
+		cell-index = <7>;
 		status = "ok";
 	};
 };

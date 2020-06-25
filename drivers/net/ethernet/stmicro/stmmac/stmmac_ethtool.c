@@ -28,6 +28,7 @@
 
 #include "stmmac.h"
 #include "dwmac_dma.h"
+#include "dwmac-qcom-ethqos.h"
 
 #define REG_SPACE_SIZE	0x1060
 #define MAC100_ETHTOOL_NAME	"st_mac100"
@@ -89,7 +90,16 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
 	STMMAC_STAT(rx_early_irq),
 	STMMAC_STAT(threshold),
 	STMMAC_STAT(tx_pkt_n),
+	STMMAC_STAT(q_tx_pkt_n[0]),
+	STMMAC_STAT(q_tx_pkt_n[1]),
+	STMMAC_STAT(q_tx_pkt_n[2]),
+	STMMAC_STAT(q_tx_pkt_n[3]),
+	STMMAC_STAT(q_tx_pkt_n[4]),
 	STMMAC_STAT(rx_pkt_n),
+	STMMAC_STAT(q_rx_pkt_n[0]),
+	STMMAC_STAT(q_rx_pkt_n[1]),
+	STMMAC_STAT(q_rx_pkt_n[2]),
+	STMMAC_STAT(q_rx_pkt_n[3]),
 	STMMAC_STAT(normal_irq_n),
 	STMMAC_STAT(rx_normal_irq_n),
 	STMMAC_STAT(napi_poll),
@@ -402,9 +412,11 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 
 		return 0;
 	}
-
-	rc = phy_ethtool_ksettings_set(phy, cmd);
-
+	/* Half duplex is not supported */
+	if (cmd->base.duplex != DUPLEX_FULL)
+		rc = -EINVAL;
+	else
+		rc = phy_ethtool_ksettings_set(phy, cmd);
 	return rc;
 }
 
@@ -615,10 +627,11 @@ static void stmmac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
+	phy_ethtool_get_wol(priv->phydev, wol);
 	mutex_lock(&priv->lock);
 	if (device_can_wakeup(priv->device)) {
 		wol->supported = WAKE_MAGIC | WAKE_UCAST;
-		wol->wolopts = priv->wolopts;
+		wol->wolopts |= priv->wolopts;
 	}
 	mutex_unlock(&priv->lock);
 }
@@ -626,33 +639,63 @@ static void stmmac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
-	u32 support = WAKE_MAGIC | WAKE_UCAST;
+	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
+	u32 emac_wol_support = 0;
+	int ret;
 
 	/* By default almost all GMAC devices support the WoL via
 	 * magic frame but we can disable it if the HW capability
 	 * register shows no support for pmt_magic_frame. */
-	if ((priv->hw_cap_support) && (!priv->dma_cap.pmt_magic_frame))
-		wol->wolopts &= ~WAKE_MAGIC;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_magic_frame)
+		wol->wolopts |= WAKE_MAGIC;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_remote_wake_up)
+		wol->wolopts |= WAKE_UCAST;
+
+	if (wol->wolopts & ~(emac_wol_support | ethqos->phy_wol_supported))
+		return -EOPNOTSUPP;
 
 	if (!device_can_wakeup(priv->device))
 		return -EINVAL;
 
-	if (wol->wolopts & ~support)
-		return -EINVAL;
-
-	if (wol->wolopts) {
-		pr_info("stmmac: wakeup enable\n");
-		device_set_wakeup_enable(priv->device, 1);
-		enable_irq_wake(priv->wol_irq);
-	} else {
-		device_set_wakeup_enable(priv->device, 0);
-		disable_irq_wake(priv->wol_irq);
-	}
-
 	mutex_lock(&priv->lock);
-	priv->wolopts = wol->wolopts;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_magic_frame)
+		priv->wolopts |= WAKE_MAGIC;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_remote_wake_up)
+		priv->wolopts |= WAKE_UCAST;
 	mutex_unlock(&priv->lock);
 
+	if (emac_wol_support && priv->wolopts != wol->wolopts) {
+		if (priv->wolopts) {
+			pr_info("stmmac: wakeup enable\n");
+			device_set_wakeup_enable(&ethqos->pdev->dev, 1);
+			enable_irq_wake(ethqos->phy_intr);
+		} else {
+			device_set_wakeup_enable(&ethqos->pdev->dev, 0);
+			disable_irq_wake(ethqos->phy_intr);
+		}
+	}
+
+	if (ethqos->phy_wol_wolopts != wol->wolopts) {
+		if (phy_intr_en && ethqos->phy_wol_supported) {
+			ethqos->phy_wol_wolopts = 0;
+
+			ret = phy_ethtool_set_wol(priv->phydev, wol);
+
+			if (ret) {
+				pr_err("set wol in PHY failed\n");
+				return ret;
+	}
+			ethqos->phy_wol_wolopts = wol->wolopts;
+
+			if (ethqos->phy_wol_wolopts) {
+				enable_irq_wake(ethqos->phy_intr);
+				device_set_wakeup_enable(&ethqos->pdev->dev, 1);
+			} else {
+				disable_irq_wake(ethqos->phy_intr);
+				device_set_wakeup_enable(&ethqos->pdev->dev, 0);
+			}
+		}
+	}
 	return 0;
 }
 

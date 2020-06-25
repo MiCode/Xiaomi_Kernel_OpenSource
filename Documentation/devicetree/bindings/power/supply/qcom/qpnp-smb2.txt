@@ -210,6 +210,11 @@ Charger specific properties:
   Definition: Boolean flag which when present enables stepwise change in FCC.
 		The default stepping rate is 100mA/sec.
 
+- qcom,ufp-only-mode
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present configure charger in SINK only
+		mode.
 
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals

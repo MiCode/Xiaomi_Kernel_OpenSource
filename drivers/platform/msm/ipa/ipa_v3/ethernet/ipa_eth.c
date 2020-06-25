@@ -11,7 +11,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/suspend.h>
 #include <linux/timer.h>
 
 #include "ipa_eth_i.h"
@@ -28,9 +27,14 @@ MODULE_PARM_DESC(ipa_eth_noauto,
 
 static struct workqueue_struct *ipa_eth_wq;
 
-bool ipa_eth_ready(void)
+bool ipa_eth_is_ready(void)
 {
-	return test_bit(IPA_ETH_ST_READY, &ipa_eth_state) &&
+	return test_bit(IPA_ETH_ST_READY, &ipa_eth_state);
+}
+
+bool ipa_eth_all_ready(void)
+{
+	return ipa_eth_is_ready() &&
 		test_bit(IPA_ETH_ST_UC_READY, &ipa_eth_state) &&
 		test_bit(IPA_ETH_ST_IPA_READY, &ipa_eth_state);
 }
@@ -51,7 +55,7 @@ static inline bool reachable(struct ipa_eth_device *eth_dev)
 static inline bool offloadable(struct ipa_eth_device *eth_dev)
 {
 	return
-		ipa_eth_ready() &&
+		ipa_eth_all_ready() &&
 		reachable(eth_dev) &&
 		!test_bit(IPA_ETH_DEV_F_UNPAIRING, &eth_dev->flags);
 }
@@ -378,7 +382,7 @@ static void ipa_eth_global_refresh_work(struct work_struct *work)
 
 	mutex_lock(&ipa_eth_devices_lock);
 
-	if (ipa_eth_ready()) {
+	if (ipa_eth_all_ready()) {
 		list_for_each_entry(eth_dev, &ipa_eth_devices, device_list) {
 			ipa_eth_device_refresh_sched(eth_dev);
 		}
@@ -550,6 +554,52 @@ static int ipa_eth_panic_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+/* During a system suspend, suspend-prepare callbacks are called first by the
+ * PM framework before freezing processes. This gives us an early opportunity
+ * to abort the suspend and reduces the chances for device resumes at a later
+ * stage.
+ */
+static int ipa_eth_pm_notifier_event_suspend_prepare(
+	struct ipa_eth_device *eth_dev)
+{
+	/* We look for any ethernet rx activity since previous attempt to
+	 * suspend, and if such an activity is found, we hold a wake lock
+	 * for WAKE_TIME_MS time. Any Rx packets received beyond this point
+	 * should cause a wake up due to the Rx interrupt. In rare cases
+	 * where Rx interrupt was already processed and NAPI poll is yet to
+	 * complete, we perform a second check in the suspend late handler
+	 * and reverts the device suspension by aborting the system suspend.
+	 */
+	if (ipa_eth_net_check_active(eth_dev)) {
+		pr_info("%s: %s is active, preventing suspend for some time",
+				IPA_ETH_SUBSYS, eth_dev->net_dev->name);
+		ipa_eth_dev_wakeup_event(eth_dev);
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_OK;
+}
+
+static int ipa_eth_pm_notifier_cb(struct notifier_block *nb,
+	unsigned long pm_event, void *unused)
+{
+	struct ipa_eth_device_private *ipa_priv = container_of(nb,
+				struct ipa_eth_device_private, pm_nb);
+	struct ipa_eth_device *eth_dev = ipa_priv->eth_dev;
+
+	ipa_eth_dbg("PM notifier called for event %s (0x%04lx)",
+			ipa_eth_pm_notifier_event_name(pm_event), pm_event);
+
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		return ipa_eth_pm_notifier_event_suspend_prepare(eth_dev);
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
 /*
  * ipa_eth_alloc_device() - Allocate an ipa_eth_device structure and initialize
  *                          all common fields
@@ -607,6 +657,7 @@ struct ipa_eth_device *ipa_eth_alloc_device(
 
 	INIT_LIST_HEAD(&ipa_priv->upper_devices);
 
+	ipa_priv->pm_nb.notifier_call = ipa_eth_pm_notifier_cb;
 	ipa_priv->panic_nb.notifier_call = ipa_eth_panic_notifier;
 
 	eth_dev->ipa_priv = ipa_priv;
@@ -657,6 +708,8 @@ int ipa_eth_register_device(struct ipa_eth_device *eth_dev)
 	mutex_lock(&ipa_eth_devices_lock);
 	list_add(&eth_dev->device_list, &ipa_eth_devices);
 	mutex_unlock(&ipa_eth_devices_lock);
+
+	(void) register_pm_notifier(&ipa_priv->pm_nb);
 
 	ipa_eth_dev_log(eth_dev, "Registered new device");
 
@@ -724,6 +777,8 @@ void ipa_eth_unregister_device(struct ipa_eth_device *eth_dev)
 	 * unregister_offload_driver() does not skip this device.
 	 */
 	ipa_eth_unpair_device(eth_dev);
+
+	(void) unregister_pm_notifier(&ipa_priv->pm_nb);
 
 	/* Remove from devices list so that no new global refreshes are
 	 * scheduled.
@@ -833,32 +888,16 @@ void ipa_eth_unregister_offload_driver(struct ipa_eth_offload_driver *od)
 }
 EXPORT_SYMBOL(ipa_eth_unregister_offload_driver);
 
-static int ipa_eth_pm_notifier_cb(struct notifier_block *nb,
-	unsigned long pm_event, void *unused)
-{
-	ipa_eth_log("PM notifier called for event %lu", pm_event);
-
-	/* Permissible offload states for a device can change due to certain
-	 * wake up events. Ex. if start_on_wakeup property is set for a device,
-	 * the eth_dev->start will be set to true during eth bus resume. Do a
-	 * global refresh on all devices to update their offload state based on
-	 * any such changes in permissible offload states that may have occurred
-	 * during resume.
-	 */
-	if (pm_event == PM_POST_SUSPEND)
-		ipa_eth_global_refresh_sched();
-
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block pm_notifier = {
-	.notifier_call = ipa_eth_pm_notifier_cb,
-};
-
 int ipa_eth_init(void)
 {
 	int rc;
 	unsigned int wq_flags = WQ_UNBOUND | WQ_MEM_RECLAIM;
+
+	/* Freeze the workqueue so that a refresh will not happen while the
+	 * device is suspended as the suspend operation itself can generate
+	 * Netlink events.
+	 */
+	wq_flags |= WQ_FREEZABLE;
 
 	rc = ipa_eth_ipc_log_init();
 	if (rc) {
@@ -884,12 +923,6 @@ int ipa_eth_init(void)
 	if (rc) {
 		ipa_eth_err("Failed to initialize debugfs");
 		goto err_dbgfs;
-	}
-
-	rc = register_pm_notifier(&pm_notifier);
-	if (rc) {
-		ipa_eth_err("Failed to register for PM notification");
-		goto err_pm_notifier;
 	}
 
 	rc = ipa3_uc_register_ready_cb(&uc_ready_cb);
@@ -920,8 +953,6 @@ int ipa_eth_init(void)
 err_ipa:
 	ipa3_uc_unregister_ready_cb(&uc_ready_cb);
 err_uc:
-	unregister_pm_notifier(&pm_notifier);
-err_pm_notifier:
 	ipa_eth_debugfs_cleanup();
 err_dbgfs:
 	ipa_eth_bus_modexit();
@@ -950,7 +981,6 @@ void ipa_eth_exit(void)
 
 	ipa3_uc_unregister_ready_cb(&uc_ready_cb);
 
-	unregister_pm_notifier(&pm_notifier);
 	ipa_eth_debugfs_cleanup();
 
 	/* Wait for all offload paths to deinit. Although the chances for any

@@ -763,7 +763,8 @@ int ipa3_allocate_nat_table(
 
 		ipahal_nat_entry_size(IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
 
-		pdn_mem_ptr->size = pdn_entry_size * IPA_MAX_PDN_NUM;
+		pdn_mem_ptr->size = pdn_entry_size *
+						ipa3_get_max_pdn();
 
 		if (IPA_MEM_PART(pdn_config_size) < pdn_mem_ptr->size) {
 			IPAERR(
@@ -1179,7 +1180,8 @@ static int ipa3_nat_create_modify_pdn_cmd(
 	IPADBG("\n");
 
 	ipahal_nat_entry_size(IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
-	mem_size = pdn_entry_size * IPA_MAX_PDN_NUM;
+
+	mem_size = pdn_entry_size * ipa3_get_max_pdn();
 
 	/* Before providing physical base address check pointer exist or not*/
 	if (!ipa3_ctx->nat_mem.pdn_mem.base)
@@ -1714,7 +1716,7 @@ int ipa3_nat_mdfy_pdn(
 		goto bail;
 	}
 
-	if (mdfy_pdn->pdn_index > (IPA_MAX_PDN_NUM - 1)) {
+	if (mdfy_pdn->pdn_index > (ipa3_get_max_pdn() - 1)) {
 		IPAERR_RL("pdn index out of range %d\n", mdfy_pdn->pdn_index);
 		result = -EPERM;
 		goto bail;

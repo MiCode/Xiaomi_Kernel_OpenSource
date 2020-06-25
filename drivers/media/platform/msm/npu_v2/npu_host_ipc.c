@@ -374,8 +374,6 @@ static int ipc_queue_write(struct npu_device *npu_dev,
 	/* Update qhdr_write_idx */
 	queue.qhdr_write_idx = new_write_idx;
 
-	*is_rx_req_set = (queue.qhdr_rx_req == 1) ? 1 : 0;
-
 	/* Update Write pointer -- queue.qhdr_write_idx */
 exit:
 	/* Update TX request -- queue.qhdr_tx_req */
@@ -385,6 +383,13 @@ exit:
 	MEMW(npu_dev, (void *)((size_t)(offset + (uint32_t)(
 		(size_t)&(queue.qhdr_write_idx) - (size_t)&queue))),
 		&queue.qhdr_write_idx, sizeof(queue.qhdr_write_idx));
+
+	/* check if irq is required after write_idx is updated */
+	MEMR(npu_dev, (void *)((size_t)(offset + (uint32_t)(
+		(size_t)&(queue.qhdr_rx_req) - (size_t)&queue))),
+		(uint8_t *)&queue.qhdr_rx_req,
+		sizeof(queue.qhdr_rx_req));
+	*is_rx_req_set = (queue.qhdr_rx_req == 1) ? 1 : 0;
 
 	return status;
 }

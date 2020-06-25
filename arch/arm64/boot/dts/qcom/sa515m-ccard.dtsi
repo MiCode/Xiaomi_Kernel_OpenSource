@@ -68,6 +68,7 @@
 				"msm-dai-q6-dev.32770";
 		asoc-codec = <&tlv320aic3x_codec>, <&stub_codec>;
 		asoc-codec-names = "tlv320aic3x-codec", "msm-stub-codec.1";
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
 
 	pps {

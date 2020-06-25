@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2018, 2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
@@ -208,7 +208,7 @@ struct mdp3_hw_resource {
 	bool solid_fill_vote_en;
 	struct list_head reg_bus_clist;
 	struct mutex reg_bus_lock;
-
+	bool twm_en;
 	u32 max_bw;
 
 	u8 ppp_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];

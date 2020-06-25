@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,6 +174,7 @@
 #define CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN	BIT(27)
 
 #define CPR4_REG_MISC				0x700
+#define CPR4_MISC_RESET_STEP_QUOT_LOOP_EN	BIT(2)
 #define CPR4_MISC_MARGIN_TABLE_ROW_SELECT_MASK	GENMASK(23, 20)
 #define CPR4_MISC_MARGIN_TABLE_ROW_SELECT_SHIFT	20
 #define CPR4_MISC_TEMP_SENSOR_ID_START_MASK	GENMASK(27, 24)
@@ -315,6 +316,12 @@
  * steps before utilizing it.
  */
 #define CPRH_DELTA_QUOT_STEP_FACTOR 4
+
+/*
+ * The multiplier applied to scaling factor value used to derive GCNT
+ * for aging measurements.
+ */
+#define CPR3_AGING_GCNT_SCALING_UNITY	1000
 
 static DEFINE_MUTEX(cpr3_controller_list_mutex);
 static LIST_HEAD(cpr3_controller_list);
@@ -698,6 +705,11 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 	int thread_id = 0;
 	u64 temp;
 
+	if (ctrl->reset_step_quot_loop_en)
+		cpr3_masked_write(ctrl, CPR4_REG_MISC,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN);
+
 	if (ctrl->supports_hw_closed_loop) {
 		if (ctrl->saw_use_unit_mV)
 			pmic_step_size = ctrl->step_volt / 1000;
@@ -1005,7 +1017,8 @@ static int cpr3_controller_program_sdelta(struct cpr3_controller *ctrl)
 		max_core_count << CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_SHIFT
 		| ((sdelta->allow_core_count_adj || sdelta->allow_boost)
 			? CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN : 0)
-		| ((sdelta->allow_temp_adj && ctrl->supports_hw_closed_loop)
+		| ((sdelta->allow_temp_adj && ctrl->supports_hw_closed_loop
+			&& sdelta->allow_core_count_adj)
 			? CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN : 0)
 		| (((ctrl->use_hw_closed_loop && !sdelta->allow_boost)
 		    || !ctrl->supports_hw_closed_loop)
@@ -1309,6 +1322,11 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 		cpr3_err(ctrl, "failed to initialize CPRh corner registers\n");
 		return rc;
 	}
+
+	if (ctrl->reset_step_quot_loop_en)
+		cpr3_masked_write(ctrl, CPR4_REG_MISC,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN);
 
 	if (ctrl->saw_use_unit_mV)
 		pmic_step_size = ctrl->step_volt / 1000;
@@ -3098,7 +3116,8 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	struct cpr4_sdelta *sdelta;
 	bool valid = false;
 	bool thread_valid;
-	int i, j, rc, new_volt, vdd_volt, dynamic_floor_volt, last_corner_volt;
+	int i, j, rc;
+	int new_volt, vdd_volt, dynamic_floor_volt, last_corner_volt = 0;
 	u32 reg_last_measurement = 0, sdelta_size;
 	int *sdelta_table, *boost_table;
 
@@ -3551,7 +3570,12 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	gcnt0_restore = cpr3_read(ctrl, CPR3_REG_GCNT(0));
 	gcnt1_restore = cpr3_read(ctrl, CPR3_REG_GCNT(1));
 	gcnt_ref = cpr3_regulator_get_gcnt(ctrl);
-	gcnt = gcnt_ref * 3 / 2;
+
+	gcnt = gcnt_ref;
+	if (ctrl->aging_gcnt_scaling_factor)
+		gcnt = gcnt_ref * ctrl->aging_gcnt_scaling_factor
+				/ CPR3_AGING_GCNT_SCALING_UNITY;
+
 	cpr3_write(ctrl, CPR3_REG_GCNT(0), gcnt);
 	cpr3_write(ctrl, CPR3_REG_GCNT(1), gcnt);
 

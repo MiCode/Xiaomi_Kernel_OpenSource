@@ -545,6 +545,7 @@
 		qcom,mhi-event-ring-id-limits = <9 14>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
+		qcom,use-xbl-boot;
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
 		qcom,wlan-ce-db-over-pcie;
@@ -1061,6 +1062,7 @@
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 		qcom,smmu-s1-enable;
 		qcom,set-wlaon-pwr-ctrl;
+		qcom,iommu-geometry;
 
 		mhi,max-channels = <30>;
 		mhi,buffer-len = <0x8000>;

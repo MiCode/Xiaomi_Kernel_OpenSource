@@ -199,5 +199,6 @@ struct plat_stmmacenet_data {
 	unsigned int (*get_plat_tx_coal_frames)
 		(struct sk_buff *skb);
 	bool early_eth;
+	bool crc_strip_en;
 };
 #endif

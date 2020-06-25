@@ -1,0 +1,163 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sa515m-v2-ttp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA515M TTP eMMC";
+	compatible = "qcom,sa515m-ttp",
+		"qcom,sdxprairie","qcom,ttp";
+	qcom,board-id = <30 0x5> , <30 0x105>;
+};
+
+&tlmm {
+	sdc1_data_4_on: sdc1_data_4_on {
+		mux {
+			pins = "gpio98";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio98";
+			drive-strength = <4>;
+			bias-pull-up;
+		};
+	};
+
+	sdc1_data_4_off: sdc1_data_4_off {
+		mux {
+			pins = "gpio98";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio98";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	sdc1_data_5_on: sdc1_data_5_on {
+		mux {
+			pins = "gpio99";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio99";
+			drive-strength = <4>;
+			bias-pull-up;
+		};
+	};
+
+	sdc1_data_5_off: sdc1_data_5_off {
+		mux {
+			pins = "gpio99";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio99";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	sdc1_data_6_on: sdc1_data_6_on {
+		mux {
+			pins = "gpio100";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio100";
+			drive-strength = <4>;
+			bias-pull-up;
+		};
+	};
+
+	sdc1_data_6_off: sdc1_data_6_off {
+		mux {
+			pins = "gpio100";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio100";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	sdc1_data_7_on: sdc1_data_7_on {
+		mux {
+			pins = "gpio101";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio101";
+			drive-strength = <4>;
+			bias-pull-up;
+		};
+	};
+
+	sdc1_data_7_off: sdc1_data_7_off {
+		mux {
+			pins = "gpio101";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio101";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+};
+
+&sdhc_1 {
+	vdd-supply = <&vreg_sd_vdd>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&vreg_vddpx_2>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	reg = <0x8804000 0x1000>, <0x8805000 0x1000>,
+			<0x0F198028 0x4>;
+	reg-names = "hc_mem", "cmdq_mem", "tlmm_mem";
+
+	qcom,bus-width = <8>;
+	tlmm_cfg = <0x6>;
+	qcom,clk-rates = <400000 20000000 25000000 50000000
+				100000000>;
+	qcom,devfreq,freq-table = <50000000 100000000>;
+
+	qcom,bus-speed-mode = "DDR_1p8v";
+
+	pinctrl-names = "active", "sleep";
+
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on
+		&sdc1_data_4_on &sdc1_data_5_on
+		&sdc1_data_6_on &sdc1_data_7_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+		&sdc1_data_4_off &sdc1_data_5_off
+		&sdc1_data_6_off &sdc1_data_7_off>;
+
+	/delete-property/ cd-gpios;
+
+	status = "ok";
+};

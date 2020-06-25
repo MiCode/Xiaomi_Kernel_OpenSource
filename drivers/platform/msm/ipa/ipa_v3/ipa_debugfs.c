@@ -89,6 +89,7 @@ const char *ipa3_event_name[] = {
 	__stringify(IPA_PDN_DEFAULT_MODE_CONFIG),
 	__stringify(IPA_PDN_IP_COLLISION_MODE_CONFIG),
 	__stringify(IPA_PDN_IP_PASSTHROUGH_MODE_CONFIG),
+	__stringify(IPA_MAC_FLT_EVENT),
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
@@ -1916,7 +1917,7 @@ static void ipa3_read_pdn_table(void)
 		}
 
 		for (i = 0, pdn_entry = ipa3_ctx->nat_mem.pdn_mem.base;
-			 i < IPA_MAX_PDN_NUM;
+			 i < ipa3_get_max_pdn();
 			 ++i, pdn_entry += pdn_entry_size) {
 
 			result = ipahal_nat_is_entry_zeroed(
@@ -2924,7 +2925,16 @@ struct dentry *ipa_debugfs_get_root(void)
 EXPORT_SYMBOL(ipa_debugfs_get_root);
 
 #else /* !CONFIG_DEBUG_FS */
+#define INVALID_NO_OF_CHAR (-1)
 void ipa3_debugfs_pre_init(void) {}
 void ipa3_debugfs_post_init(void) {}
 void ipa3_debugfs_remove(void) {}
+int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe)
+{
+	return INVALID_NO_OF_CHAR;
+}
+int _ipa_read_ep_reg_v4_0(char *buf, int max_len, int pipe)
+{
+	return INVALID_NO_OF_CHAR;
+}
 #endif

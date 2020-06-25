@@ -1503,7 +1503,7 @@ static int ipa_send_rsc_pipe_ind_to_modem(void)
 	ep_info->ic_type = DATA_IC_TYPE_AP_V01;
 	ep_info->ep_type = DATA_EP_DESC_TYPE_RSC_PROD_V01;
 	ep_info->ep_status = DATA_EP_STATUS_CONNECTED_V01;
-	return ipa3_qmi_send_rsc_pipe_indication(&req);
+	return ipa3_qmi_send_endp_desc_indication(&req);
 }
 
 static int handle3_ingress_format(struct net_device *dev,
