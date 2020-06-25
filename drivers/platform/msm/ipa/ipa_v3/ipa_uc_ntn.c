@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "ipa_i.h"
@@ -549,6 +549,9 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 			ep_ul->uc_offload_state, ep_dl->uc_offload_state);
 		return -EFAULT;
 	}
+
+	atomic_set(&ep_ul->disconnect_in_progress, 1);
+	atomic_set(&ep_dl->disconnect_in_progress, 1);
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 		cmd.size = sizeof(*cmd_data_v4_0);

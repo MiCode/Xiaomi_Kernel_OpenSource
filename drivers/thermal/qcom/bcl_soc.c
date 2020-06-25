@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -24,9 +24,9 @@ struct bcl_device {
 	struct notifier_block			psy_nb;
 	struct work_struct			soc_eval_work;
 	long					trip_temp;
+	long					trip_clr;
 	int					trip_val;
 	struct mutex				state_trans_lock;
-	bool					irq_enabled;
 	struct thermal_zone_device		*tz_dev;
 	struct thermal_zone_of_device_ops	ops;
 };
@@ -35,17 +35,18 @@ static struct bcl_device *bcl_perph;
 
 static int bcl_set_soc(void *data, int low, int high)
 {
-	if (low == bcl_perph->trip_temp)
-		return 0;
-
 	mutex_lock(&bcl_perph->state_trans_lock);
-	pr_debug("low soc threshold:%d\n", low);
-	bcl_perph->trip_temp = low;
-	if (low == INT_MIN) {
-		bcl_perph->irq_enabled = false;
+	if (high == bcl_perph->trip_temp &&
+		low == bcl_perph->trip_clr)
 		goto unlock_and_exit;
-	}
-	bcl_perph->irq_enabled = true;
+
+	pr_debug("socd threshold low:%d high:%d\n", low, high);
+	bcl_perph->trip_temp = high;
+	bcl_perph->trip_clr = low;
+
+	if (high == INT_MAX && low == INT_MIN)
+		goto unlock_and_exit;
+
 	schedule_work(&bcl_perph->soc_eval_work);
 
 unlock_and_exit:
@@ -59,7 +60,7 @@ static int bcl_read_soc(void *data, int *val)
 	union power_supply_propval ret = {0,};
 	int err = 0;
 
-	*val = 100;
+	*val = 0;
 	if (!batt_psy)
 		batt_psy = power_supply_get_by_name("battery");
 	if (batt_psy) {
@@ -70,35 +71,32 @@ static int bcl_read_soc(void *data, int *val)
 				err);
 			return err;
 		}
-		*val = ret.intval;
+		*val = 100 - ret.intval;
 	}
-	pr_debug("soc:%d\n", *val);
+	pr_debug("socd:%d\n", *val);
 
 	return err;
 }
 
 static void bcl_evaluate_soc(struct work_struct *work)
 {
-	int battery_percentage;
+	int battery_depletion;
 
 	if (!bcl_perph->tz_dev)
 		return;
 
-	if (bcl_read_soc(NULL, &battery_percentage))
+	if (bcl_read_soc(NULL, &battery_depletion))
 		return;
 
 	mutex_lock(&bcl_perph->state_trans_lock);
-	if (!bcl_perph->irq_enabled)
-		goto eval_exit;
-	if (battery_percentage > bcl_perph->trip_temp)
-		goto eval_exit;
-
-	bcl_perph->trip_val = battery_percentage;
-	mutex_unlock(&bcl_perph->state_trans_lock);
-	of_thermal_handle_trip(bcl_perph->tz_dev);
-
-	return;
-eval_exit:
+	if (battery_depletion >= bcl_perph->trip_temp ||
+		battery_depletion <= bcl_perph->trip_clr) {
+		bcl_perph->trip_val = battery_depletion;
+		mutex_unlock(&bcl_perph->state_trans_lock);
+		of_thermal_handle_trip_temp(bcl_perph->tz_dev,
+					battery_depletion);
+		return;
+	}
 	mutex_unlock(&bcl_perph->state_trans_lock);
 }
 
@@ -138,6 +136,9 @@ static int bcl_soc_probe(struct platform_device *pdev)
 	bcl_perph->ops.set_trips = bcl_set_soc;
 	INIT_WORK(&bcl_perph->soc_eval_work, bcl_evaluate_soc);
 	bcl_perph->psy_nb.notifier_call = battery_supply_callback;
+	bcl_perph->trip_temp = INT_MAX;
+	bcl_perph->trip_clr = INT_MIN;
+
 	ret = power_supply_reg_notifier(&bcl_perph->psy_nb);
 	if (ret < 0) {
 		pr_err("soc notifier registration error. defer. err:%d\n",
@@ -155,7 +156,6 @@ static int bcl_soc_probe(struct platform_device *pdev)
 		goto bcl_soc_probe_exit;
 	}
 	thermal_zone_device_update(bcl_perph->tz_dev, THERMAL_DEVICE_UP);
-	schedule_work(&bcl_perph->soc_eval_work);
 
 	dev_set_drvdata(&pdev->dev, bcl_perph);
 
