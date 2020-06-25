@@ -1007,6 +1007,7 @@
 #include "holi-gdsc.dtsi"
 #include "holi-ion.dtsi"
 #include "msm-arm-smmu-holi.dtsi"
+#include "holi-coresight.dtsi"
 #include "holi-usb.dtsi"
 #include "holi-pm.dtsi"
 #include "holi-vidc.dtsi"
