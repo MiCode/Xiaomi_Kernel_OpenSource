@@ -84,7 +84,7 @@ static atomic_t pages_allocated;
 
 static int io_pgtable_init(void)
 {
-	io_pgtable_top = debugfs_create_dir("io-pgtable", iommu_debugfs_top);
+	io_pgtable_top = debugfs_create_dir("io-pgtable", iommu_debugfs_dir);
 	if (!io_pgtable_top)
 		return -ENODEV;
 

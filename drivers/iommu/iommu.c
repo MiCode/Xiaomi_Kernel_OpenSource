@@ -20,7 +20,6 @@
 #include <linux/err.h>
 #include <linux/pci.h>
 #include <linux/bitops.h>
-#include <linux/debugfs.h>
 #include <linux/property.h>
 #include <linux/fsl/mc.h>
 #include <linux/module.h>
@@ -2161,8 +2160,6 @@ int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(report_iommu_fault);
-
-struct dentry *iommu_debugfs_top;
 
 static int __init iommu_init(void)
 {

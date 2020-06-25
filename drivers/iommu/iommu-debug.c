@@ -2347,8 +2347,7 @@ err:
 
 static int iommu_debug_init_tests(void)
 {
-	debugfs_tests_dir = debugfs_create_dir("tests",
-					       iommu_debugfs_top);
+	debugfs_tests_dir = debugfs_create_dir("tests", iommu_debugfs_dir);
 	if (!debugfs_tests_dir) {
 		pr_err_ratelimited("Couldn't create iommu/tests debugfs directory\n");
 		return -ENODEV;
