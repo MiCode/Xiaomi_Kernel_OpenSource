@@ -163,6 +163,7 @@ struct spi_geni_master {
 	bool cmd_done;
 	bool set_miso_sampling;
 	u32 miso_sampling_ctrl_val;
+	bool is_le_vm;	/* LE VM usecase */
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -1510,64 +1511,94 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 	geni_mas->wrapper_dev = &wrapper_pdev->dev;
-	geni_mas->spi_rsc.wrapper_dev = &wrapper_pdev->dev;
-	ret = geni_se_resources_init(rsc, SPI_CORE2X_VOTE,
-				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-	if (ret) {
-		dev_err(&pdev->dev, "Error geni_se_resources_init\n");
-		goto spi_geni_probe_err;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,le-vm")) {
+		geni_mas->is_le_vm = true;
+		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 
-	geni_mas->spi_rsc.ctrl_dev = geni_mas->dev;
-	rsc->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR_OR_NULL(rsc->geni_pinctrl)) {
-		dev_err(&pdev->dev, "No pinctrl config specified!\n");
-		ret = PTR_ERR(rsc->geni_pinctrl);
-		goto spi_geni_probe_err;
-	}
+	/*
+	 * For LE, clocks, gpio and icb voting will be provided by
+	 * by LA. The SPI operates in GSI mode only for LE usecase,
+	 * se irq not required. Below properties will not be present
+	 * in SPI LE dt.
+	 */
+	if (!geni_mas->is_le_vm) {
+		geni_mas->spi_rsc.wrapper_dev = &wrapper_pdev->dev;
+		ret = geni_se_resources_init(rsc, SPI_CORE2X_VOTE,
+					(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+		if (ret) {
+			dev_err(&pdev->dev, "Error geni_se_resources_init\n");
+			goto spi_geni_probe_err;
+		}
 
-	rsc->geni_gpio_active = pinctrl_lookup_state(rsc->geni_pinctrl,
+		geni_mas->spi_rsc.ctrl_dev = geni_mas->dev;
+		rsc->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR_OR_NULL(rsc->geni_pinctrl)) {
+			dev_err(&pdev->dev, "No pinctrl config specified!\n");
+			ret = PTR_ERR(rsc->geni_pinctrl);
+			goto spi_geni_probe_err;
+		}
+
+		rsc->geni_gpio_active = pinctrl_lookup_state(rsc->geni_pinctrl,
 							PINCTRL_DEFAULT);
-	if (IS_ERR_OR_NULL(rsc->geni_gpio_active)) {
-		dev_err(&pdev->dev, "No default config specified!\n");
-		ret = PTR_ERR(rsc->geni_gpio_active);
-		goto spi_geni_probe_err;
-	}
+		if (IS_ERR_OR_NULL(rsc->geni_gpio_active)) {
+			dev_err(&pdev->dev, "No default config specified!\n");
+			ret = PTR_ERR(rsc->geni_gpio_active);
+			goto spi_geni_probe_err;
+		}
 
-	rsc->geni_gpio_sleep = pinctrl_lookup_state(rsc->geni_pinctrl,
+		rsc->geni_gpio_sleep = pinctrl_lookup_state(rsc->geni_pinctrl,
 							PINCTRL_SLEEP);
-	if (IS_ERR_OR_NULL(rsc->geni_gpio_sleep)) {
-		dev_err(&pdev->dev, "No sleep config specified!\n");
-		ret = PTR_ERR(rsc->geni_gpio_sleep);
-		goto spi_geni_probe_err;
-	}
+		if (IS_ERR_OR_NULL(rsc->geni_gpio_sleep)) {
+			dev_err(&pdev->dev, "No sleep config specified!\n");
+			ret = PTR_ERR(rsc->geni_gpio_sleep);
+			goto spi_geni_probe_err;
+		}
 
-	ret = pinctrl_select_state(rsc->geni_pinctrl,
-					rsc->geni_gpio_sleep);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to set sleep configuration\n");
-		goto spi_geni_probe_err;
-	}
+		ret = pinctrl_select_state(rsc->geni_pinctrl,
+						rsc->geni_gpio_sleep);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to set sleep configuration\n");
+			goto spi_geni_probe_err;
+		}
 
-	rsc->se_clk = devm_clk_get(&pdev->dev, "se-clk");
-	if (IS_ERR(rsc->se_clk)) {
-		ret = PTR_ERR(rsc->se_clk);
-		dev_err(&pdev->dev, "Err getting SE Core clk %d\n", ret);
-		goto spi_geni_probe_err;
-	}
+		rsc->se_clk = devm_clk_get(&pdev->dev, "se-clk");
+		if (IS_ERR(rsc->se_clk)) {
+			ret = PTR_ERR(rsc->se_clk);
+			dev_err(&pdev->dev,
+			"Err getting SE Core clk %d\n", ret);
+			goto spi_geni_probe_err;
+		}
 
-	rsc->m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
-	if (IS_ERR(rsc->m_ahb_clk)) {
-		ret = PTR_ERR(rsc->m_ahb_clk);
-		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
-		goto spi_geni_probe_err;
-	}
+		rsc->m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
+		if (IS_ERR(rsc->m_ahb_clk)) {
+			ret = PTR_ERR(rsc->m_ahb_clk);
+			dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
+			goto spi_geni_probe_err;
+		}
 
-	rsc->s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
-	if (IS_ERR(rsc->s_ahb_clk)) {
-		ret = PTR_ERR(rsc->s_ahb_clk);
-		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
-		goto spi_geni_probe_err;
+		rsc->s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
+		if (IS_ERR(rsc->s_ahb_clk)) {
+			ret = PTR_ERR(rsc->s_ahb_clk);
+			dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
+			goto spi_geni_probe_err;
+		}
+
+		geni_mas->irq = platform_get_irq(pdev, 0);
+		if (geni_mas->irq < 0) {
+			dev_err(&pdev->dev, "Err getting IRQ\n");
+			ret = geni_mas->irq;
+			goto spi_geni_probe_unmap;
+		}
+
+		ret = devm_request_irq(&pdev->dev, geni_mas->irq,
+			geni_spi_irq, IRQF_TRIGGER_HIGH, "spi_geni", geni_mas);
+		if (ret) {
+			dev_err(&pdev->dev, "Request_irq failed:%d: err:%d\n",
+					   geni_mas->irq, ret);
+			goto spi_geni_probe_unmap;
+		}
 	}
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
@@ -1627,20 +1658,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
-	geni_mas->irq = platform_get_irq(pdev, 0);
-	if (geni_mas->irq < 0) {
-		dev_err(&pdev->dev, "Err getting IRQ\n");
-		ret = geni_mas->irq;
-		goto spi_geni_probe_unmap;
-	}
-	ret = devm_request_irq(&pdev->dev, geni_mas->irq, geni_spi_irq,
-			       IRQF_TRIGGER_HIGH, "spi_geni", geni_mas);
-	if (ret) {
-		dev_err(&pdev->dev, "Request_irq failed:%d: err:%d\n",
-				   geni_mas->irq, ret);
-		goto spi_geni_probe_unmap;
-	}
-
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	spi->num_chipselect = SPI_NUM_CHIPSELECT;
@@ -1694,6 +1711,9 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	if (geni_mas->is_le_vm)
+		return 0;
+
 	if (geni_mas->shared_ee)
 		goto exit_rt_suspend;
 
@@ -1715,6 +1735,9 @@ static int spi_geni_runtime_resume(struct device *dev)
 	int ret = 0;
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
+
+	if (geni_mas->is_le_vm)
+		return 0;
 
 	if (geni_mas->shared_ee)
 		goto exit_rt_resume;
