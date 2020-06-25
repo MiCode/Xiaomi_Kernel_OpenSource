@@ -534,6 +534,10 @@ struct mmc_host {
 	int			cqe_qdepth;
 	bool			cqe_enabled;
 	bool			cqe_on;
+
+	/* Host Software Queue support */
+	bool			hsq_enabled;
+
 #if defined(CONFIG_SDC_QTI)
 	atomic_t active_reqs;
 #endif
