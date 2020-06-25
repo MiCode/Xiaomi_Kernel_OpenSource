@@ -1,6 +1,4 @@
 #include "lahaina-qrd-common.dtsi"
-#include "display/lahaina-sde-display-qrd.dtsi"
-#include "camera/lahaina-camera-sensor-mtp.dtsi"
 #include "lahaina-audio-overlay.dtsi"
 
 &ufsphy_mem {
@@ -169,9 +167,6 @@
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-
-		panel = <&dsi_r66451_amoled_cmd
-			 &dsi_r66451_amoled_video>;
 	};
 };
 
