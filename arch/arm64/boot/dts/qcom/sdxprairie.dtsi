@@ -845,7 +845,6 @@
 				<125 512 0 0>,
 				<125 512 393600 393600>;
 		qcom,no-clock-support;
-		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x0066 0x0011>,
 			<&apps_smmu 0x0076 0x0011>;
 	};
@@ -874,7 +873,6 @@
 		qcom,use-sw-ahash-algo;
 		qcom,use-sw-hmac-algo;
 		qcom,no-clock-support;
-		qcom,smmu-s1-enable;
 		iommus = <&apps_smmu 0x0064 0x0011>,
 			<&apps_smmu 0x0074 0x0011>;
 	};
