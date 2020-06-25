@@ -6,6 +6,18 @@
 #ifndef _ADRENO_A6XX_HWSCHED_H_
 #define _ADRENO_A6XX_HWSCHED_H_
 
+#include "adreno_a6xx_hwsched_hfi.h"
+
+/**
+ * struct a6xx_hwsched_device - Container for the a6xx hwscheduling device
+ */
+struct a6xx_hwsched_device {
+	/** @a6xx_dev: Container for the a6xx device */
+	struct a6xx_device a6xx_dev;
+	/** @hwsched_hfi: Container for hwscheduling specific hfi resources */
+	struct a6xx_hwsched_hfi hwsched_hfi;
+};
+
 /**
  * a6xx_hwsched_probe - Target specific probe for hwsched
  * @pdev: Pointer to the platform device

@@ -35,9 +35,6 @@
 #define HFI_DBG_PRI 40
 #define HFI_DSP_PRI_0 20
 
-#define HFI_RSP_TIMEOUT 100 /* msec */
-
-#define HFI_IRQ_MSGQ_MASK		BIT(0)
 #define HFI_IRQ_SIDEMSGQ_MASK		BIT(1)
 #define HFI_IRQ_DBGQ_MASK		BIT(2)
 #define HFI_IRQ_CM3_FAULT_MASK		BIT(15)
@@ -158,6 +155,17 @@ struct hfi_queue_table {
 #define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
 #define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
+
+#define MSG_HDR_SET_SEQNUM(hdr, num) \
+	(((hdr) & 0xFFFFF) | ((num) << 20))
+
+#define QUEUE_HDR_TYPE(id, prio, rtype, stype) \
+	(((id) & 0xFF) | (((prio) & 0xFF) << 8) | \
+	(((rtype) & 0xFF) << 16) | (((stype) & 0xFF) << 24))
+
+#define HFI_RSP_TIMEOUT 100 /* msec */
+
+#define HFI_IRQ_MSGQ_MASK  BIT(0)
 
 #define H2F_MSG_INIT		0
 #define H2F_MSG_FW_VER		1
@@ -578,4 +586,93 @@ int a6xx_hfi_send_req(struct adreno_device *adreno_dev,
 
 /* Helper function to get to a6xx hfi struct from adreno device */
 struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_queue_write - Write a command to hfi queue
+ * @adreno_dev: Pointer to the adreno device
+ * @queue_idx: destination queue id
+ * @msg: Data to be written to the queue
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
+	u32 *msg);
+
+/**
+ * a6xx_hfi_queue_read - Read data from hfi queue
+ * @gmu: Pointer to the a6xx gmu device
+ * @queue_idx: queue id to read from
+ * @output: Pointer to read the data into
+ * @max_size: Number of bytes to read from the queue
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_queue_read(struct a6xx_gmu_device *gmu, u32 queue_idx,
+	u32 *output, u32 max_size);
+
+/**
+ * a6xx_receive_ack_cmd - Process ack type packets
+ * @gmu: Pointer to the a6xx gmu device
+ * @rcvd: Pointer to the data read from hfi queue
+ * @ret_cmd: Container for the hfi packet for which this ack is received
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
+	struct pending_cmd *ret_cmd);
+
+/**
+ * a6xx_hfi_send_feature_ctrl - Enable gmu feature via hfi
+ * @adreno_dev: Pointer to the adreno device
+ * @feature: feature to be enabled or disabled
+ * enable: Set 1 to enable or 0 to disable a feature
+ * @data: payload for the send feature hfi packet
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
+	u32 feature, u32 enable, u32 data);
+
+/**
+ * a6xx_hfi_send_core_fw_start - Send the core fw start hfi
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_core_fw_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_acd_feature_ctrl - Send the acd table and acd feature
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_lm_feature_ctrl -  Send the lm feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_lm_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_generic_req -  Send a generic hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ * @queue: The destination hfi queue
+ * @cmd: Pointer to the hfi packet header and data
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
+	u32 queue, void *cmd);
+
+/**
+ * a6xx_hfi_send_bcl_feature_ctrl -  Send the bcl feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev);
 #endif

@@ -524,4 +524,18 @@ int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev);
  * Return: 0 on success or negative error on failure
  */
 int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_get_gmu_domain - Get the gmu iommu domain for a gmu memory block
+ * @gmu: Pointer to the a6xx gmu device
+ * @gmuaddr: Address of the memory block
+ * @size: Size in bytes of the memory block
+ *
+ * Based on the gmu address and size of a gmu memory block, get the gmu iommu
+ * domain to map the memory block to.
+ *
+ * Return: gmu iommu domain to which the given memory block is to be mapped
+ */
+struct iommu_domain *a6xx_get_gmu_domain(struct a6xx_gmu_device *gmu,
+	u32 gmuaddr, u32 size);
 #endif

@@ -618,10 +618,10 @@ static int find_vma_block(struct a6xx_gmu_device *gmu, u32 addr, u32 size)
 	return -ENOENT;
 }
 
-static struct iommu_domain *get_gmu_domain(struct a6xx_gmu_device *gmu,
-	struct gmu_memdesc *md)
+struct iommu_domain *a6xx_get_gmu_domain(struct a6xx_gmu_device *gmu,
+	u32 gmuaddr, u32 size)
 {
-	u32 vma_id = find_vma_block(gmu, md->gmuaddr, md->size);
+	u32 vma_id = find_vma_block(gmu, gmuaddr, size);
 
 	if (vma_id == GMU_NONCACHED_USER)
 		return a6xx_gmu_ctx[GMU_CONTEXT_USER].domain;
@@ -1390,8 +1390,8 @@ struct gmu_memdesc *reserve_gmu_kernel_block(struct a6xx_gmu_device *gmu,
 
 	md->gmuaddr = addr;
 
-	ret = iommu_map(get_gmu_domain(gmu, md), addr, md->physaddr, md->size,
-		IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
+	ret = iommu_map(a6xx_get_gmu_domain(gmu, md->gmuaddr, md->size), addr,
+		md->physaddr, md->size, IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV);
 	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"Unable to map GMU kernel block: addr:0x%08x size:0x%x :%d\n",
@@ -2393,7 +2393,8 @@ static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 		if (!md->gmuaddr)
 			continue;
 
-		iommu_unmap(get_gmu_domain(gmu, md), md->gmuaddr, md->size);
+		iommu_unmap(a6xx_get_gmu_domain(gmu, md->gmuaddr, md->size),
+			md->gmuaddr, md->size);
 
 		dma_free_attrs(&gmu->pdev->dev, (size_t) md->size,
 				(void *)md->hostptr, md->physaddr, 0);

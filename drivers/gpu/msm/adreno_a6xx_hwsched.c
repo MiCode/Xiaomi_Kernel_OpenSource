@@ -11,7 +11,6 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
-#include "adreno_a6xx_hwsched_hfi.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
@@ -67,11 +66,7 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	ret = a6xx_gmu_hfi_start(adreno_dev);
-	if (ret)
-		goto err;
-
-	ret = a6xx_hfi_start(adreno_dev);
+	ret = a6xx_hwsched_hfi_start(adreno_dev);
 	if (ret)
 		goto err;
 
@@ -132,11 +127,7 @@ static int a6xx_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	ret = a6xx_gmu_hfi_start(adreno_dev);
-	if (ret)
-		goto err;
-
-	ret = a6xx_hfi_start(adreno_dev);
+	ret = a6xx_hwsched_hfi_start(adreno_dev);
 	if (ret)
 		goto err;
 
@@ -215,7 +206,7 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	a6xx_gmu_irq_disable(adreno_dev);
 
-	a6xx_hfi_stop(adreno_dev);
+	a6xx_hwsched_hfi_stop(adreno_dev);
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
@@ -226,7 +217,7 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	return ret;
 
 error:
-	a6xx_hfi_stop(adreno_dev);
+	a6xx_hwsched_hfi_stop(adreno_dev);
 	a6xx_gmu_suspend(adreno_dev);
 
 	return ret;
@@ -565,15 +556,15 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 {
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
-	struct a6xx_device *a6xx_dev;
+	struct a6xx_hwsched_device *a6xx_hwsched_dev;
 	int ret;
 
-	a6xx_dev = devm_kzalloc(&pdev->dev, sizeof(*a6xx_dev),
-			GFP_KERNEL);
-	if (!a6xx_dev)
+	a6xx_hwsched_dev = devm_kzalloc(&pdev->dev, sizeof(*a6xx_hwsched_dev),
+				GFP_KERNEL);
+	if (!a6xx_hwsched_dev)
 		return -ENOMEM;
 
-	adreno_dev = &a6xx_dev->adreno_dev;
+	adreno_dev = &a6xx_hwsched_dev->a6xx_dev.adreno_dev;
 
 	ret = a6xx_probe_common(pdev, adreno_dev, chipid, gpucore);
 	if (ret)
