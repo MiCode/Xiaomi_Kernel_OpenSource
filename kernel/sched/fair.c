@@ -7063,9 +7063,9 @@ unlock:
 
 done:
 	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
-			sync, need_idle, fbt_env.fastpath, task_boost_policy(p),
-			start_t, boosted, is_rtg, walt_get_rtg_status(p),
-			start_cpu);
+			sync, fbt_env.need_idle, fbt_env.fastpath,
+			task_boost_policy(p), start_t, boosted, is_rtg,
+			walt_get_rtg_status(p), start_cpu);
 
 	return best_energy_cpu;
 
