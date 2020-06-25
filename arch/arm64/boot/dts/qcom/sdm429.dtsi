@@ -1131,6 +1131,11 @@
 		qcom,ea-pc = <0x230>;
 		status = "disabled";
 	};
+	qcom,msm-adsp-loader {
+		status = "ok";
+		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
+	};
 };
 
 #include "sdm429-gdsc.dtsi"
