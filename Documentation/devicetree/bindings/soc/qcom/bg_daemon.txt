@@ -1,0 +1,20 @@
+Qualcomm Technologies Inc. bg-daemon
+
+BG-Daemon : When Modem goes down, to re-establish the connections,
+BG-Daemon toggles the bg-reset gpio to reset BG.
+
+Required properties:
+- compatible : should be "qcom,bg-daemon"
+- qcom,bg-reset-gpio : gpio for the apps processor use to soft reset BG
+- ssr-reg1-supply : Power supply needed to power up the BG device.
+                When BG brought up this regulator will be in normal power mode.
+- ssr-reg2-supply : Power supply needed to power up the BG device.
+                When BG BG brought up this regulator will be in normal power mode.
+
+Example:
+	qcom,bg-daemon {
+		compatible = "qcom,bg-daemon";
+		qcom,bg-reset-gpio = <&pm660_gpios 5 0>;
+		ssr-reg1-supply = <&pm660_l3>;
+		ssr-reg2-supply = <&pm660_l9>;
+	};
