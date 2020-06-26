@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/regulator/debug-regulator.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
@@ -208,6 +209,10 @@ static int refgen_probe(struct platform_device *pdev)
 	rc = devm_regulator_proxy_consumer_register(dev, dev->of_node);
 	if (rc)
 		dev_err(dev, "failed to register proxy consumer, rc=%d\n", rc);
+
+	rc = devm_regulator_debug_register(dev, vreg->rdev);
+	if (rc)
+		dev_err(dev, "failed to register debug regulator, rc=%d\n", rc);
 
 	return 0;
 }
