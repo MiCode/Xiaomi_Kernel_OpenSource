@@ -141,18 +141,21 @@ u16 dwmac_qcom_select_queue(
 	return txqueue_select;
 }
 
-void dwmac_qcom_program_avb_algorithm(
+int dwmac_qcom_program_avb_algorithm(
 	struct stmmac_priv *priv, struct ifr_data_struct *req)
 {
 	struct dwmac_qcom_avb_algorithm l_avb_struct, *u_avb_struct =
 		(struct dwmac_qcom_avb_algorithm *)req->ptr;
 	struct dwmac_qcom_avb_algorithm_params *avb_params;
+	int ret = 0;
 
 	ETHQOSDBG("\n");
 
 	if (copy_from_user(&l_avb_struct, (void __user *)u_avb_struct,
-			   sizeof(struct dwmac_qcom_avb_algorithm)))
+			   sizeof(struct dwmac_qcom_avb_algorithm))) {
 		ETHQOSERR("Failed to fetch AVB Struct\n");
+		return -EFAULT;
+	}
 
 	if (priv->speed == SPEED_1000)
 		avb_params = &l_avb_struct.speed1000params;
@@ -187,6 +190,7 @@ void dwmac_qcom_program_avb_algorithm(
 	   l_avb_struct.qinx);
 
 	ETHQOSDBG("\n");
+	return ret;
 }
 
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(
@@ -252,7 +256,7 @@ int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ret = ppsout_config(pdata, &eth_pps_cfg);
 		break;
 	case ETHQOS_AVB_ALGORITHM:
-		dwmac_qcom_program_avb_algorithm(pdata, &req);
+		ret = dwmac_qcom_program_avb_algorithm(pdata, &req);
 		break;
 	default:
 		break;

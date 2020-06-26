@@ -571,7 +571,7 @@ struct dwmac_qcom_avb_algorithm {
 	enum dwmac_qcom_queue_operating_mode op_mode;
 };
 
-void dwmac_qcom_program_avb_algorithm(
+int dwmac_qcom_program_avb_algorithm(
 	struct stmmac_priv *priv, struct ifr_data_struct *req);
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(
 	struct sk_buff *skb);
