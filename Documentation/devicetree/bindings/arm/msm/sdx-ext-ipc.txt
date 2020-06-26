@@ -8,14 +8,11 @@ state of one subsytem to another. Modem can indicate different events
 Required Properties:
 - compatible:	"qcom,sdx-ext-ipc".
 
-Required named gpio properties:
+Optional named gpio properties:
 - qcom,mdm2ap-status-gpio: gpio for modem to indicate the boot status to APQ.
 
 - qcom,ap2mdm-status-gpio: gpio for APQ to indicate the boot status to modem.
 
-
-
-Optional named gpio properties:
 - qcom,mdm2ap-status2-gpio: gpio for modem to indicate to APQ that it is in
 		E911 call or doing firmware upgrade.
 
