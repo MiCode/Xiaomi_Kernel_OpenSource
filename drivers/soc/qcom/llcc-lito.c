@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -61,7 +61,6 @@ static struct llcc_slice_config lito_data[] =  {
 	SCT_ENTRY(LLCC_AUDHW,    22, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_NPU,      23, 512, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_MODEMVPE, 29, 128, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_WRTCH,    31, 128, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 1),
 };
 
 static int lito_qcom_llcc_probe(struct platform_device *pdev)
