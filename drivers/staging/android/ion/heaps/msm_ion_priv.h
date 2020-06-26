@@ -156,7 +156,7 @@ bool ion_buffer_cached(struct ion_buffer *buffer);
  * heaps as appropriate.
  */
 
-struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused);
+struct ion_heap *ion_msm_system_heap_create(struct ion_platform_heap *unused);
 
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *heap);
 
