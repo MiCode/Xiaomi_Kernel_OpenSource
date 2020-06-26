@@ -492,7 +492,7 @@ struct sps_bam_props {
  *
  */
 struct sps_mem_buffer {
-	void *base;
+	void __iomem *base;
 	phys_addr_t phys_base;
 	unsigned long iova;
 	u32 size;
