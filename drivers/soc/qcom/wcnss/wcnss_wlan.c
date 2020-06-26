@@ -2292,8 +2292,8 @@ static void wcnss_process_smd_msg(void *buf, int len)
 		break;
 
 	case WCNSS_BUILD_VER_RSP:
-		/* ToDo: WCNSS_MAX_BUILD_VER_LEN + sizeof(struct smd_msg_hdr) */
-		if (len > WCNSS_MAX_BUILD_VER_LEN) {
+		if (len > sizeof(struct smd_msg_hdr) +
+		    WCNSS_MAX_BUILD_VER_LEN) {
 			wcnss_log(ERR,
 				  "invalid build version:%d\n", len);
 			return;
