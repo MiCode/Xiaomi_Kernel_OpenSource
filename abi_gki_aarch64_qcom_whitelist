@@ -27,6 +27,8 @@
   __arch_copy_from_user
   __arch_copy_in_user
   __arch_copy_to_user
+  arch_set_freq_scale
+  arch_setup_dma_ops
   arm64_const_caps_ready
   atomic_notifier_call_chain
   atomic_notifier_chain_register
@@ -167,6 +169,7 @@
   __cfi_slowpath
   check_disk_change
   __check_object_size
+  check_zeroed_user
   __class_create
   class_destroy
   class_find_device
@@ -253,8 +256,12 @@
   cpu_bit_bitmap
   cpu_down
   cpufreq_cpu_get
+  cpufreq_cpu_get_raw
   cpufreq_cpu_put
+  cpufreq_freq_attr_scaling_available_freqs
+  cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_attr
+  cpufreq_generic_frequency_table_verify
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_notifier
@@ -469,10 +476,13 @@
   dev_pm_opp_get_opp_count
   dev_pm_opp_get_opp_table
   dev_pm_opp_get_voltage
+  dev_pm_opp_of_register_em
   dev_pm_opp_put
   dev_pm_opp_put_opp_table
   dev_pm_opp_register_notifier
   dev_pm_opp_remove
+  dev_pm_opp_remove_all_dynamic
+  dev_pm_opp_set_sharing_cpus
   dev_pm_opp_unregister_notifier
   dev_pm_qos_add_request
   dev_pm_qos_remove_request
@@ -538,6 +548,7 @@
   dma_fence_context_alloc
   dma_fence_default_wait
   dma_fence_enable_sw_signaling
+  dma_fence_free
   dma_fence_get_status
   dma_fence_init
   dma_fence_match_context
@@ -1437,6 +1448,7 @@
   of_clk_src_onecell_get
   of_clk_src_simple_get
   of_count_phandle_with_args
+  of_cpufreq_cooling_register
   of_devfreq_cooling_register
   of_device_get_match_data
   of_device_is_available
@@ -1532,6 +1544,7 @@
   param_array_ops
   param_get_int
   param_get_string
+  param_get_ullong
   param_ops_bool
   param_ops_byte
   param_ops_charp
@@ -1719,7 +1732,9 @@
   pwmchip_add
   pwmchip_remove
   qcom_scm_assign_mem_regions
+  qcom_scm_camera_protect_all
   qcom_scm_camera_protect_phy_lanes
+  qcom_scm_config_cpu_errata
   qcom_scm_dcvs_ca_available
   qcom_scm_dcvs_core_available
   qcom_scm_dcvs_init_ca_v2
@@ -1737,6 +1752,8 @@
   qcom_scm_io_readl
   qcom_scm_io_reset
   qcom_scm_io_writel
+  qcom_scm_is_mode_switch_available
+  qcom_scm_is_secure_wdog_trigger_available
   qcom_scm_kgsl_set_smmu_aperture
   qcom_scm_kgsl_set_smmu_aperture_available
   qcom_scm_mem_protect_region_id
@@ -2167,6 +2184,7 @@
   snd_soc_dapm_put_volsw
   snd_soc_dapm_sync
   snd_soc_get_enum_double
+  snd_soc_get_pcm_runtime
   snd_soc_get_volsw
   snd_soc_get_volsw_sx
   snd_soc_info_enum_double
@@ -2304,6 +2322,7 @@
   sysfs_streq
   system_freezable_wq
   system_freezing_cnt
+  system_highpri_wq
   system_long_wq
   system_power_efficient_wq
   system_state
@@ -2690,6 +2709,12 @@
   ww_mutex_lock
   ww_mutex_lock_interruptible
   ww_mutex_unlock
+  __xa_alloc
+  xa_erase
+  xa_find
+  xa_find_after
+  xa_load
+  xa_store
   xdp_convert_zc_to_xdp_frame
   xdp_do_flush_map
   xdp_do_redirect
