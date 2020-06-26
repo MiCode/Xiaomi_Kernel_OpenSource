@@ -158,7 +158,7 @@ static struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 
 	switch (heap_type) {
 	case ION_HEAP_TYPE_SYSTEM:
-		heap = ion_system_heap_create(heap_data);
+		heap = ion_msm_system_heap_create(heap_data);
 		break;
 #ifdef CONFIG_CMA
 	case ION_HEAP_TYPE_DMA:
