@@ -313,7 +313,8 @@
 	sde_card1: qcom,sde-kms-lease@0 {
 		   compatible = "qcom,sde-kms-lease";
 		   qcom,dev-name = "msm_drm";
-		   qcom,lease-connectors = "shared-disp-0","DP-1","DP-2","DP-3";
+		   qcom,lease-connectors = "shared-disp-0","DP-1","DP-2","DP-3",
+						"Virtual-1";
 		   qcom,lease-planes = "plane-0","plane-1","plane-2","plane-3",
 					"plane-4", "plane-5", "plane-6",
 					"plane-7","plane-8","plane-9";
