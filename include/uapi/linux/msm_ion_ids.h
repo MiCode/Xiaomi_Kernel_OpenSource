@@ -16,7 +16,7 @@
  * possible fallbacks)
  */
 
-#define ION_SYSTEM_HEAP_ID		ION_BIT(0)
+/* ION_BIT(0) is reserved for the generic system heap. */
 #define ION_QSECOM_TA_HEAP_ID		ION_BIT(1)
 #define ION_CAMERA_HEAP_ID		ION_BIT(2)
 #define ION_DISPLAY_HEAP_ID		ION_BIT(3)
@@ -31,6 +31,7 @@
 #define ION_SPSS_HEAP_ID		ION_BIT(14)
 #define ION_SECURE_CARVEOUT_HEAP_ID	ION_BIT(15)
 #define ION_TUI_CARVEOUT_HEAP_ID	ION_BIT(16)
+#define ION_SYSTEM_HEAP_ID		ION_BIT(25)
 #define ION_HEAP_ID_RESERVED		ION_BIT(31)
 
 #endif /* _MSM_ION_IDS_H */

@@ -50,9 +50,9 @@ static inline unsigned int order_to_size(int order)
 	return PAGE_SIZE << order;
 }
 
-static int ion_heap_is_system_heap_type(enum ion_heap_type type)
+static int ion_heap_is_msm_system_heap_type(enum ion_heap_type type)
 {
-	return type == ((enum ion_heap_type)ION_HEAP_TYPE_SYSTEM);
+	return type == ((enum ion_heap_type)ION_HEAP_TYPE_MSM_SYSTEM);
 }
 
 static struct page *alloc_buffer_page(struct ion_msm_system_heap *sys_heap,
@@ -299,7 +299,7 @@ static int ion_msm_system_heap_allocate(struct ion_heap *heap,
 	if (size / PAGE_SIZE > totalram_pages() / 2)
 		return -ENOMEM;
 
-	if (ion_heap_is_system_heap_type(buffer->heap->type) &&
+	if (ion_heap_is_msm_system_heap_type(buffer->heap->type) &&
 	    is_secure_allocation(buffer->flags)) {
 		pr_info("%s: System heap doesn't support secure allocations\n",
 			__func__);
@@ -740,7 +740,7 @@ struct ion_heap *ion_msm_system_heap_create(struct ion_platform_heap *data)
 	heap->heap.msm_heap_ops = &msm_system_heap_ops;
 	heap->heap.ion_heap.ops = &system_heap_ops;
 	heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
-	heap->heap.ion_heap.type = ION_HEAP_TYPE_SYSTEM;
+	heap->heap.ion_heap.type = (enum ion_heap_type)ION_HEAP_TYPE_MSM_SYSTEM;
 	heap->heap.ion_heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
 	for (i = 0; i < VMID_LAST; i++)
