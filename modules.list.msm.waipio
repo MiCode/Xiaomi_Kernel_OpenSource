@@ -1,3 +1,4 @@
 clk-dummy.ko
 clk-qcom.ko
 stub-regulator.ko
+debug-regulator.ko
