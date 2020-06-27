@@ -46,6 +46,9 @@
 #define AUTO_RES_ERROR_BIT			BIT(1)
 #define HPRW_RDY_FAULT_BIT			BIT(0)
 
+#define HAP_CFG_INT_RT_STS_REG			0x10
+#define FIFO_EMPTY_BIT				BIT(1)
+
 /* config register definitions in HAPTICS_CFG module */
 #define HAP_CFG_DRV_CTRL_REG			0x47
 #define PSTG_DLY_MASK				GENMASK(7, 6)
@@ -1684,6 +1687,7 @@ static void haptics_fifo_empty_irq_config(struct haptics_chip *chip,
 static int haptics_stop_fifo_play(struct haptics_chip *chip)
 {
 	int rc;
+	u8 val;
 
 	if (atomic_read(&chip->play.fifo_status.is_busy) == 0) {
 		dev_dbg(chip->dev, "FIFO playing is not in progress\n");
@@ -1704,6 +1708,18 @@ static int haptics_stop_fifo_play(struct haptics_chip *chip)
 	chip->custom_effect->fifo->samples = NULL;
 
 	atomic_set(&chip->play.fifo_status.is_busy, 0);
+
+	/*
+	 * All other playing modes would use AUTO mode RC
+	 * calibration except FIFO streaming mode, so restore
+	 * back to AUTO RC calibration after FIFO playing.
+	 */
+	val = CAL_RC_CLK_AUTO_VAL << CAL_RC_CLK_SHIFT;
+	rc = haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_CAL_EN_REG, CAL_RC_CLK_MASK, val);
+	if (rc < 0)
+		return rc;
+
 	dev_dbg(chip->dev, "stopped FIFO playing successfully\n");
 	return 0;
 }
@@ -1923,8 +1939,19 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 	struct fifo_cfg *fifo = chip->play.effect->fifo;
 	struct fifo_play_status *status = &chip->play.fifo_status;
 	u32 samples_left;
-	u8 *samples;
+	u8 *samples, val;
 	int rc, num;
+
+	rc = haptics_read(chip, chip->cfg_addr_base,
+			HAP_CFG_INT_RT_STS_REG, &val, 1);
+	if (rc < 0)
+		return IRQ_HANDLED;
+
+	if (!(val & FIFO_EMPTY_BIT)) {
+		dev_dbg(chip->dev, "Ignore spurious/falling IRQ, INT_RT_STS = %#x\n",
+				val);
+		return IRQ_HANDLED;
+	}
 
 	if (atomic_read(&chip->play.fifo_status.written_done) == 1) {
 		/*
