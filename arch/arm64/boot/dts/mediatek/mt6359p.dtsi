@@ -229,6 +229,7 @@
 				regulator-max-microvolt = <1293750>;
 				regulator-ramp-delay = <5000>;
 				regulator-enable-ramp-delay = <240>;
+				regulator-always-on;
 			};
 
 			mt6359p_vefuse_reg: ldo_vefuse {
