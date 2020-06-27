@@ -7614,7 +7614,9 @@ static u32 ufshcd_find_max_sup_active_icc_level(struct ufs_hba *hba,
 	 * vendors don't use this rail for embedded UFS devices as well. So
 	 * it is normal that VCCQ rail may not be provided for given platform.
 	 */
-	if (!hba->vreg_info.vcc || !hba->vreg_info.vccq2) {
+	if (!hba->vreg_info.vcc ||
+		(!hba->vreg_info.vccq && hba->dev_info.wspecversion >= 0x300) ||
+		(!hba->vreg_info.vccq2 && hba->dev_info.wspecversion < 0x300)) {
 		dev_err(hba->dev, "%s: Regulator capability was not set, bActiveICCLevel=%d\n",
 			__func__, icc_level);
 		goto out;
