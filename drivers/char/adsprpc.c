@@ -182,6 +182,9 @@
 #define INIT_MEMLEN_MAX  (8*1024*1024)
 #define MAX_CACHE_BUF_SIZE (8*1024*1024)
 
+/* Maximum buffers cached in cached buffer list */
+#define MAX_CACHED_BUFS   (32)
+
 /* Max no. of persistent headers pre-allocated per process */
 #define MAX_PERSISTENT_HEADERS    (25)
 
@@ -503,6 +506,7 @@ struct fastrpc_file {
 	spinlock_t hlock;
 	struct hlist_head maps;
 	struct hlist_head cached_bufs;
+	uint32_t num_cached_buf;
 	struct hlist_head remote_bufs;
 	struct fastrpc_ctx_lst clst;
 	struct fastrpc_session_ctx *sctx;
@@ -741,11 +745,17 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 	}
 	if (cache && buf->size < MAX_CACHE_BUF_SIZE) {
 		spin_lock(&fl->hlock);
+		if (fl->num_cached_buf > MAX_CACHED_BUFS) {
+			spin_unlock(&fl->hlock);
+			goto skip_buf_cache;
+		}
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
+		fl->num_cached_buf++;
 		spin_unlock(&fl->hlock);
 		buf->type = -1;
 		return;
 	}
+skip_buf_cache:
 	if (buf->type == USERHEAP_BUF) {
 		spin_lock(&fl->hlock);
 		hlist_del_init(&buf->hn_rem);
@@ -790,6 +800,7 @@ static void fastrpc_cached_buf_list_free(struct fastrpc_file *fl)
 		spin_lock(&fl->hlock);
 		hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
 			hlist_del_init(&buf->hn);
+			fl->num_cached_buf--;
 			free = buf;
 			break;
 		}
@@ -1312,8 +1323,10 @@ static inline bool fastrpc_get_cached_buf(struct fastrpc_file *fl,
 		if (buf->size >= size && (!fr || fr->size > buf->size))
 			fr = buf;
 	}
-	if (fr)
+	if (fr) {
 		hlist_del_init(&fr->hn);
+		fl->num_cached_buf--;
+	}
 	spin_unlock(&fl->hlock);
 	if (fr) {
 		fr->type = buf_type;
@@ -5044,6 +5057,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	INIT_HLIST_HEAD(&fl->maps);
 	INIT_HLIST_HEAD(&fl->perf);
 	INIT_HLIST_HEAD(&fl->cached_bufs);
+	fl->num_cached_buf = 0;
 	INIT_HLIST_HEAD(&fl->remote_bufs);
 	init_waitqueue_head(&fl->async_wait_queue);
 	INIT_HLIST_NODE(&fl->hn);
