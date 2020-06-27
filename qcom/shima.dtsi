@@ -169,7 +169,7 @@
 			reg = <0x0 0x700>;
 			enable-method = "psci";
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
-			capacity-dmips-mhz = <1946>;
+			capacity-dmips-mhz = <1985>;
 			dynamic-power-coefficient = <552>;
 			cpu-idle-states = <&GOLD_OFF &GOLD_RAIL_OFF>;
 			next-level-cache = <&L2_7>;
