@@ -2342,13 +2342,17 @@ struct ipa_ioc_gsb_info {
 #define IPA_PCIE0_EP_ID		21
 #define IPA_PCIE1_EP_ID		22
 
+#define IPA_ETH0_EP_ID		31
+#define IPA_ETH1_EP_ID		32
+
 enum ipa_peripheral_ep_type {
 	IPA_DATA_EP_TYP_RESERVED = 0,
 	IPA_DATA_EP_TYP_HSIC = 1,
 	IPA_DATA_EP_TYP_HSUSB = 2,
 	IPA_DATA_EP_TYP_PCIE = 3,
 	IPA_DATA_EP_TYP_EMBEDDED = 4,
-	IPA_DATA_EP_TYP_BAM_DMUX,
+	IPA_DATA_EP_TYP_BAM_DMUX = 5,
+	IPA_DATA_EP_TYP_ETH,
 };
 
 enum ipa_data_ep_prot_type {
