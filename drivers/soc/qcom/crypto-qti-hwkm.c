@@ -9,6 +9,7 @@
 #include <linux/crypto-qti-common.h>
 #include <linux/hwkm.h>
 #include <linux/module.h>
+#include <linux/kernel.h>
 
 #include "crypto-qti-ice-regs.h"
 #include "crypto-qti-platform.h"
@@ -19,6 +20,8 @@
 
 #define QTI_HWKM_INIT_DONE		0x1
 #define SLOT_EMPTY_ERROR		0x1000
+#define INLINECRYPT_CTX			"inline encryption key"
+#define BYTE_ORDER_VAL			8
 
 union crypto_cfg {
 	__le32 regval[2];
@@ -65,19 +68,10 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 		.km_by_nsec_allowed = true,
 	};
 	struct hwkm_bsve bsve_kdf = {
-		.enabled = false,
+		.enabled = true,
+		.km_swc_en = true,
+		.km_child_key_policy_en = true,
 	};
-	u8 ctx[] = {
-		0xee, 0xb6, 0xa4, 0xc8, 0x6f, 0x22, 0x5f, 0xda,
-		0x18, 0xff, 0x61, 0x07, 0xfb, 0x88, 0x17, 0x7f,
-		0xe4, 0x89, 0x8f, 0xed, 0xdb, 0x0c, 0x68, 0xb2,
-		0x18, 0xe7, 0x58, 0xd0, 0xf7, 0x79, 0x61, 0xad,
-		0x77, 0xc6, 0x4d, 0x2b, 0x53, 0x93, 0x4f, 0x34,
-		0xaf, 0x51, 0xab, 0xda, 0x24, 0xa0, 0xa4, 0x76,
-		0xf4, 0x09, 0xed, 0xa3, 0x2c, 0xa1, 0x8b, 0xcd,
-		0x01, 0xe7, 0x0a, 0x3e, 0x9d, 0x73, 0xac, 0x96,
-	};
-
 	union crypto_cfg cfg;
 
 	if ((key->size) <= RAW_SECRET_SIZE) {
@@ -143,8 +137,9 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	cmd_kdf.kdf.kdk = GP_KEYSLOT;
 	cmd_kdf.kdf.policy = policy_kdf;
 	cmd_kdf.kdf.bsve = bsve_kdf;
-	cmd_kdf.kdf.sz = 64;
-	memcpy(cmd_kdf.kdf.ctx, ctx, HWKM_MAX_CTX_SIZE);
+	cmd_kdf.kdf.sz = round_up(strlen(INLINECRYPT_CTX), BYTE_ORDER_VAL);
+	memset(cmd_kdf.kdf.ctx, 0, HWKM_MAX_CTX_SIZE);
+	memcpy(cmd_kdf.kdf.ctx, INLINECRYPT_CTX, strlen(INLINECRYPT_CTX));
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.dusize = data_unit_mask;
