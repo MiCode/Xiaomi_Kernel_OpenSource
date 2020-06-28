@@ -346,7 +346,8 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 		drvdata->usb_req = usb_req;
 		req_size -= actual;
 
-		if ((drvdata->offset + actual) >= tmcdrvdata->size)
+		if ((drvdata->offset + actual) >=
+				tmcdrvdata->etr_buf->size)
 			drvdata->offset = 0;
 		else
 			drvdata->offset += actual;
@@ -455,7 +456,7 @@ static void usb_read_work_fn(struct work_struct *work)
 					sg_mark_end(&usb_req->sg[i]);
 
 				if ((drvdata->offset + actual) >=
-					tmcdrvdata->size)
+					tmcdrvdata->etr_buf->size)
 					drvdata->offset = 0;
 				else
 					drvdata->offset += actual;
