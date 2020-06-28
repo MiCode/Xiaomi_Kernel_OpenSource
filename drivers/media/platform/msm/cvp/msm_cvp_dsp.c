@@ -498,8 +498,10 @@ wait_dsp:
 		switch (me->pending_dsp2cpu_cmd.type) {
 		case DSP2CPU_POWERON:
 		{
-			if (me->state == DSP_READY)
+			if (me->state == DSP_READY) {
+				cmd.ret = 0;
 				break;
+			}
 
 			mutex_unlock(&me->lock);
 			old_state = me->state;
