@@ -147,8 +147,24 @@ static int ufshcd_crypto_qti_derive_raw_secret(struct keyslot_manager *ksm,
 					       u8 *secret,
 					       unsigned int secret_size)
 {
-	return crypto_qti_derive_raw_secret(wrapped_key, wrapped_key_size,
-			secret, secret_size);
+	int err = 0;
+	struct ufs_hba *hba = keyslot_manager_private(ksm);
+
+	pm_runtime_get_sync(hba->dev);
+	err = ufshcd_hold(hba, false);
+	if (err) {
+		pr_err("%s: failed to enable clocks, err %d\n", __func__, err);
+		return err;
+	}
+
+	err =  crypto_qti_derive_raw_secret(hba->crypto_vops->priv,
+				wrapped_key, wrapped_key_size,
+				secret, secret_size);
+
+	ufshcd_release(hba);
+	pm_runtime_put_sync(hba->dev);
+
+	return err;
 }
 
 static const struct keyslot_mgmt_ll_ops ufshcd_crypto_qti_ksm_ops = {
