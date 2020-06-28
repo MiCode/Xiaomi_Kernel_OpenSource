@@ -142,6 +142,7 @@ gen_headers_out_arm64 = [
     "linux/bcache.h",
     "linux/bcm933xx_hcs.h",
     "linux/bfs_fs.h",
+    "linux/bgcom_interface.h",
     "linux/binfmts.h",
     "linux/blkpg.h",
     "linux/blktrace_api.h",
