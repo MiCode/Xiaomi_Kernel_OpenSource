@@ -4175,10 +4175,10 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	/* HPG 6.1.2 Step 6 */
 	__disable_unprepare_clks(device);
 
-	/* HPG 6.1.2 Step 7 & 8 */
-	if (call_iris_op(device, reset_ahb2axi_bridge, device))
-		dprintk(CVP_ERR, "Failed to reset ahb2axi\n");
-
+	/*
+	 * HPG 6.1.2 Step 7 & 8
+	 * per new HPG update, core clock reset will be unnecessary
+	 */
 	if (__unvote_buses(device))
 		dprintk(CVP_WARN, "Failed to unvote for buses\n");
 
