@@ -684,8 +684,8 @@
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		clocks = <&rpmhcc RPMH_CXO_CLK>, <&rpmhcc RPMH_CXO_CLK_A>,
-			<&sleep_clk>;
-		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk";
+			<&sleep_clk>, <&gcc GCC_CAMERA_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk", "cfg_ahb";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -704,9 +704,9 @@
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
 		clocks = <&rpmhcc RPMH_CXO_CLK>, <&gcc GCC_GPU_GPLL0_CLK_SRC>,
-			<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
+			<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>, <&gcc GCC_GPU_CFG_AHB_CLK>;
 		clock-names = "bi_tcxo", "gcc_gpu_gpll0_clk_src",
-			"gcc_gpu_gpll0_div_clk_src";
+			"gcc_gpu_gpll0_div_clk_src", "cfg_ahb";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -718,8 +718,8 @@
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		clocks = <&rpmhcc RPMH_CXO_CLK>, <&rpmhcc RPMH_CXO_CLK_A>,
-			<&sleep_clk>;
-		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk";
+			<&sleep_clk>, <&gcc GCC_VIDEO_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk", "cfg_ahb";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -2298,12 +2298,16 @@
 };
 
 &cam_cc_titan_top_gdsc {
+	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &cam_cc_bps_gdsc {
+	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
+	clock-names = "ahb_clk";
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
@@ -2311,24 +2315,32 @@
 };
 
 &cam_cc_ife_0_gdsc {
+	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &cam_cc_ife_1_gdsc {
+	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &cam_cc_ife_2_gdsc {
+	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &cam_cc_ipe_0_gdsc {
+	clocks = <&gcc GCC_CAMERA_AHB_CLK>;
+	clock-names = "ahb_clk";
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
@@ -2336,6 +2348,8 @@
 };
 
 &disp_cc_mdss_core_gdsc {
+	clocks = <&gcc GCC_DISP_AHB_CLK>;
+	clock-names = "ahb_clk";
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
@@ -2343,18 +2357,24 @@
 };
 
 &gpu_cx_gdsc {
+	clocks = <&gcc GCC_GPU_CFG_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gpu_gx_gdsc {
+	clocks = <&gcc GCC_GPU_CFG_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_GFX_LEVEL>;
 	vdd_parent-supply = <&VDD_GFX_LEVEL>;
 	status = "ok";
 };
 
 &video_cc_mvs0_gdsc {
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
@@ -2362,12 +2382,16 @@
 };
 
 &video_cc_mvs0c_gdsc {
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &video_cc_mvs1_gdsc {
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
 	qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
@@ -2375,6 +2399,8 @@
 };
 
 &video_cc_mvs1c_gdsc {
+	clocks = <&gcc GCC_VIDEO_AHB_CLK>;
+	clock-names = "ahb_clk";
 	parent-supply = <&VDD_CX_LEVEL>;
 	vdd_parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
