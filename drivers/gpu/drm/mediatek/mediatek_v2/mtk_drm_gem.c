@@ -461,10 +461,12 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 			      struct sg_table *sg)
 {
 	struct mtk_drm_gem_obj *mtk_gem;
+#ifdef IF_ZERO
 	int ret;
 	struct scatterlist *s;
 	unsigned int i, last_len = 0, error_cnt = 0;
 	dma_addr_t expected, last_iova = 0;
+#endif
 
 	DDPDBG("%s:%d dev:0x%p, attach:0x%p, sg:0x%p +\n",
 			__func__, __LINE__,
@@ -480,6 +482,7 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 		return ERR_PTR(PTR_ERR(mtk_gem));
 	}
 
+#ifdef IF_ZERO
 	expected = sg_dma_address(sg->sgl);
 	for_each_sg(sg->sgl, s, sg->nents, i) {
 		if (sg_dma_address(s) != expected) {
@@ -500,6 +503,7 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 		ret = -EINVAL;
 		goto err_gem_free;
 	}
+#endif
 
 	mtk_gem->sec = false;
 	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
@@ -515,9 +519,11 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 
 	return &mtk_gem->base;
 
+#ifdef IF_ZERO
 err_gem_free:
 	kfree(mtk_gem);
 	return ERR_PTR(ret);
+#endif
 }
 
 int mtk_gem_map_offset_ioctl(struct drm_device *drm, void *data,
