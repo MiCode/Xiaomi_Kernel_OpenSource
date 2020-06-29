@@ -13,6 +13,10 @@
 #include "sdxprairie-v2.dtsi"
 #include "sdxprairie-mtp.dtsi"
 
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
+};
+
 /* delete pm8150b nodes */
 &thermal_zones {
 	/delete-node/ pm8150b-wp-therm;
