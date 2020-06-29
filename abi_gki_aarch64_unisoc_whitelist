@@ -2354,31 +2354,6 @@
   zlib_inflateReset
   zlib_inflate_workspacesize
 
-# required by tc-dwc-g210-pltfrm.ko
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-
-# required by ufshcd-pci.ko
-  pcim_iomap_regions
-  pcim_iomap_table
-  ufshcd_alloc_host
-  ufshcd_dealloc_host
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_init
-  ufshcd_remove
-  ufshcd_runtime_idle
-  ufshcd_runtime_resume
-  ufshcd_runtime_suspend
-  ufshcd_shutdown
-  ufshcd_system_resume
-  ufshcd_system_suspend
-
 # required by sprd_cpp.ko
   clk_get_parent
   of_iomap

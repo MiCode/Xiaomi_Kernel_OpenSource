@@ -2171,28 +2171,6 @@
   uart_update_timeout
   uart_write_wakeup
   __udelay
-  ufshcd_crypto_cap_find
-  ufshcd_crypto_disable_spec
-  ufshcd_crypto_enable_spec
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_dump_regs
-  ufshcd_get_local_unipro_ver
-  ufshcd_hold
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-  ufshcd_query_attr
-  ufshcd_query_descriptor_retry
-  ufshcd_query_flag
-  ufshcd_release
-  ufshcd_remove
-  ufshcd_uic_hibern8_enter
-  ufshcd_uic_hibern8_exit
   __uio_register_device
   uio_unregister_device
   unlock_page
