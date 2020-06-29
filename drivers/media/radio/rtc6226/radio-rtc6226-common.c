@@ -1763,7 +1763,6 @@ int rtc6226_vidioc_s_ctrl(struct file *file, void *priv,
 {
 	struct rtc6226_device *radio = video_drvdata(file);
 	int retval = 0;
-	int space_s = 0;
 
 	FMDBG("%s enter, ctrl->id: %x, value:%d\n", __func__,
 		ctrl->id, ctrl->value);
@@ -1814,13 +1813,6 @@ int rtc6226_vidioc_s_ctrl(struct file *file, void *priv,
 		radio->registers[SYSCFG] |= SYSCFG_CSR0_STDIRQEN;
 		/*radio->registers[SYSCFG] |= SYSCFG_CSR0_RDS_EN;*/
 		retval = rtc6226_set_register(radio, SYSCFG);
-		break;
-	case V4L2_CID_PRIVATE_RTC6226_SPACING:
-		space_s = ctrl->value;
-		radio->space = ctrl->value;
-		radio->registers[CHANNEL] &= ~CHANNEL_CSR0_CHSPACE;
-		radio->registers[CHANNEL] |= (space_s << 10);
-		retval = rtc6226_set_register(radio, CHANNEL);
 		break;
 	case V4L2_CID_PRIVATE_RTC6226_SRCHON:
 		rtc6226_search(radio, (bool)ctrl->value);
@@ -1973,18 +1965,22 @@ int rtc6226_vidioc_s_ctrl(struct file *file, void *priv,
 		retval = rtc6226_set_register(radio, RADIOSEEKCFG1);
 		retval = rtc6226_set_register(radio, RADIOSEEKCFG2);
 		break;
+	case V4L2_CID_PRIVATE_RTC6226_SPACING:
 	case V4L2_CID_PRIVATE_CSR0_CHSPACE:
 		FMDBG("V4L2_CID_PRIVATE_CSR0_CHSPACE : FM_SPACE=%d %d\n",
 			radio->registers[RADIOCFG], ctrl->value);
+		radio->space = ctrl->value;
+		radio->registers[RADIOCFG] &= ~CHANNEL_CSR0_CHSPACE;
+
 		switch (ctrl->value) {
 		case FMSPACE_200_KHZ:
-			radio->registers[RADIOCFG] = 20;
+			radio->registers[RADIOCFG] |= 0x1400;
 			break;
 		case FMSPACE_100_KHZ:
-			radio->registers[RADIOCFG] = 10;
+			radio->registers[RADIOCFG] |= 0x0A00;
 			break;
 		case FMSPACE_50_KHZ:
-			radio->registers[RADIOCFG] = 5;
+			radio->registers[RADIOCFG] |= 0x0500;
 			break;
 		default:
 			retval = -EINVAL;
