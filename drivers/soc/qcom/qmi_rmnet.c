@@ -55,6 +55,7 @@ MODULE_PARM_DESC(rmnet_wq_frequency, "Frequency of PS check in ms");
 					1 : rmnet_wq_frequency/10) * (HZ/100))
 #define NO_DELAY (0x0000 * HZ)
 #define PS_INTERVAL_KT (ms_to_ktime(1000))
+#define WATCHDOG_EXPIRE_JF (msecs_to_jiffies(50))
 
 #ifdef CONFIG_QCOM_QMI_DFC
 static unsigned int qmi_rmnet_scale_factor = 5;
@@ -235,6 +236,89 @@ static void qmi_rmnet_reset_txq(struct net_device *dev, unsigned int txq)
 	}
 }
 
+/**
+ * qmi_rmnet_watchdog_fn - watchdog timer func
+ */
+static void qmi_rmnet_watchdog_fn(struct timer_list *t)
+{
+	struct rmnet_bearer_map *bearer;
+
+	bearer = container_of(t, struct rmnet_bearer_map, watchdog);
+
+	trace_dfc_watchdog(bearer->qos->mux_id, bearer->bearer_id, 2);
+
+	spin_lock_bh(&bearer->qos->qos_lock);
+
+	if (bearer->watchdog_quit)
+		goto done;
+
+	/*
+	 * Possible stall, try to recover. Enable 80% query and jumpstart
+	 * the bearer if disabled.
+	 */
+	bearer->watchdog_expire_cnt++;
+	bearer->bytes_in_flight = 0;
+	if (!bearer->grant_size) {
+		bearer->grant_size = DEFAULT_GRANT;
+		bearer->grant_thresh = qmi_rmnet_grant_per(bearer->grant_size);
+		dfc_bearer_flow_ctl(bearer->qos->vnd_dev, bearer, bearer->qos);
+	} else {
+		bearer->grant_thresh = qmi_rmnet_grant_per(bearer->grant_size);
+	}
+
+done:
+	bearer->watchdog_started = false;
+	spin_unlock_bh(&bearer->qos->qos_lock);
+}
+
+/**
+ * qmi_rmnet_watchdog_add - add the bearer to watch
+ * Needs to be called with qos_lock
+ */
+void qmi_rmnet_watchdog_add(struct rmnet_bearer_map *bearer)
+{
+	bearer->watchdog_quit = false;
+
+	if (bearer->watchdog_started)
+		return;
+
+	bearer->watchdog_started = true;
+	mod_timer(&bearer->watchdog, jiffies + WATCHDOG_EXPIRE_JF);
+
+	trace_dfc_watchdog(bearer->qos->mux_id, bearer->bearer_id, 1);
+}
+
+/**
+ * qmi_rmnet_watchdog_remove - remove the bearer from watch
+ * Needs to be called with qos_lock
+ */
+void qmi_rmnet_watchdog_remove(struct rmnet_bearer_map *bearer)
+{
+	bearer->watchdog_quit = true;
+
+	if (!bearer->watchdog_started)
+		return;
+
+	if (try_to_del_timer_sync(&bearer->watchdog) >= 0)
+		bearer->watchdog_started = false;
+
+	trace_dfc_watchdog(bearer->qos->mux_id, bearer->bearer_id, 0);
+}
+
+/**
+ * qmi_rmnet_bearer_clean - clean the removed bearer
+ * Needs to be called with rtn_lock but not qos_lock
+ */
+static void qmi_rmnet_bearer_clean(struct qos_info *qos)
+{
+	if (qos->removed_bearer) {
+		qos->removed_bearer->watchdog_quit = true;
+		del_timer_sync(&qos->removed_bearer->watchdog);
+		kfree(qos->removed_bearer);
+		qos->removed_bearer = NULL;
+	}
+}
+
 static struct rmnet_bearer_map *__qmi_rmnet_bearer_get(
 				struct qos_info *qos_info, u8 bearer_id)
 {
@@ -254,6 +338,8 @@ static struct rmnet_bearer_map *__qmi_rmnet_bearer_get(
 		bearer->grant_thresh = qmi_rmnet_grant_per(bearer->grant_size);
 		bearer->mq_idx = INVALID_MQ;
 		bearer->ack_mq_idx = INVALID_MQ;
+		bearer->qos = qos_info;
+		timer_setup(&bearer->watchdog, qmi_rmnet_watchdog_fn, 0);
 		list_add(&bearer->list, &qos_info->bearer_head);
 	}
 
@@ -289,7 +375,7 @@ static void __qmi_rmnet_bearer_put(struct net_device *dev,
 
 		/* Remove from bearer map */
 		list_del(&bearer->list);
-		kfree(bearer);
+		qos_info->removed_bearer = bearer;
 	}
 }
 
@@ -420,6 +506,9 @@ again:
 
 done:
 	spin_unlock_bh(&qos_info->qos_lock);
+
+	qmi_rmnet_bearer_clean(qos_info);
+
 	return rc;
 }
 
@@ -463,6 +552,9 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 		netif_tx_wake_all_queues(dev);
 
 	spin_unlock_bh(&qos_info->qos_lock);
+
+	qmi_rmnet_bearer_clean(qos_info);
+
 	return 0;
 }
 
@@ -744,6 +836,8 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 		bearer->tcp_bidir = false;
 		bearer->rat_switch = false;
 
+		qmi_rmnet_watchdog_remove(bearer);
+
 		if (bearer->tx_off)
 			continue;
 
@@ -906,7 +1000,8 @@ inline unsigned int qmi_rmnet_grant_per(unsigned int grant)
 }
 EXPORT_SYMBOL(qmi_rmnet_grant_per);
 
-void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
+void *qmi_rmnet_qos_init(struct net_device *real_dev,
+			 struct net_device *vnd_dev, u8 mux_id)
 {
 	struct qos_info *qos;
 
@@ -916,6 +1011,7 @@ void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
 
 	qos->mux_id = mux_id;
 	qos->real_dev = real_dev;
+	qos->vnd_dev = vnd_dev;
 	qos->tran_num = 0;
 	INIT_LIST_HEAD(&qos->flow_head);
 	INIT_LIST_HEAD(&qos->bearer_head);
@@ -927,10 +1023,18 @@ EXPORT_SYMBOL(qmi_rmnet_qos_init);
 
 void qmi_rmnet_qos_exit_pre(void *qos)
 {
+	struct qos_info *qosi = (struct qos_info *)qos;
+	struct rmnet_bearer_map *bearer;
+
 	if (!qos)
 		return;
 
-	list_add(&((struct qos_info *)qos)->list, &qos_cleanup_list);
+	list_for_each_entry(bearer, &qosi->bearer_head, list) {
+		bearer->watchdog_quit = true;
+		del_timer_sync(&bearer->watchdog);
+	}
+
+	list_add(&qosi->list, &qos_cleanup_list);
 }
 EXPORT_SYMBOL(qmi_rmnet_qos_exit_pre);
 
@@ -952,6 +1056,7 @@ EXPORT_SYMBOL(qmi_rmnet_qos_exit_post);
 static struct workqueue_struct  *rmnet_ps_wq;
 static struct rmnet_powersave_work *rmnet_work;
 static bool rmnet_work_quit;
+static bool rmnet_work_inited;
 static LIST_HEAD(ps_list);
 
 struct rmnet_powersave_work {
@@ -1182,6 +1287,7 @@ void qmi_rmnet_work_init(void *port)
 	rmnet_work_quit = false;
 	qmi_rmnet_work_set_active(rmnet_work->port, 1);
 	queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, PS_INTERVAL);
+	rmnet_work_inited = true;
 }
 EXPORT_SYMBOL(qmi_rmnet_work_init);
 
@@ -1190,7 +1296,7 @@ void qmi_rmnet_work_maybe_restart(void *port)
 	struct qmi_info *qmi;
 
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
-	if (unlikely(!qmi))
+	if (unlikely(!qmi || !rmnet_work_inited))
 		return;
 
 	if (!test_and_set_bit(PS_WORK_ACTIVE_BIT, &qmi->ps_work_active))
@@ -1206,6 +1312,7 @@ void qmi_rmnet_work_exit(void *port)
 	rmnet_work_quit = true;
 	synchronize_rcu();
 
+	rmnet_work_inited = false;
 	alarm_cancel(&rmnet_work->atimer);
 	cancel_delayed_work_sync(&rmnet_work->work);
 	destroy_workqueue(rmnet_ps_wq);
