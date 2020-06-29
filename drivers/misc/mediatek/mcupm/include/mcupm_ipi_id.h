@@ -5,7 +5,7 @@
 #ifndef __MCUPM_IPI_ID_H__
 #define __MCUPM_IPI_ID_H__
 
-#include <mtk_tinysys_ipi.h>
+#include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 
 /* define module id here ... */
 #define CH_S_PLATFORM	0
