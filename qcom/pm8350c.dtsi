@@ -113,6 +113,7 @@
 			interrupt-names = "bcl-lvl0",
 						"bcl-lvl1",
 						"bcl-lvl2";
+			qcom,pmic7-threshold;
 			#thermal-sensor-cells = <1>;
 		};
 
