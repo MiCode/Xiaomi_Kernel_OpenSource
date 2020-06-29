@@ -14,7 +14,7 @@
 
 &soc {
 	kgsl_smmu: arm,smmu-kgsl@1c40000 {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "GPU";
 		reg = <0x1c40000 0x10000>;
@@ -26,8 +26,9 @@
 				<GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,dynamic;
 		qcom,use-3-lvl-tables;
-		qcom,enable-smmu-halt;
 		qcom,skip-init;
+		qcom,deferred-regulator-disable-delay = <80>;
+		qcom,enable-static-cb;
 		vdd-supply = <&oxili_cx_gdsc>;
 		qcom,regulator-names = "vdd";
 		clocks = <&gcc GCC_OXILI_AHB_CLK>,
@@ -46,7 +47,7 @@
 	};
 
 	apps_iommu: qcom,iommu@1e00000 {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,qsmmu-v500";
 		reg = <0x1e00000 0x40000>,
 			<0x1ee2000 0x20>;
