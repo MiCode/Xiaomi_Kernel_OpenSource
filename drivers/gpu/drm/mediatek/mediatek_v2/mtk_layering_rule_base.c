@@ -2906,12 +2906,14 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_layering_info *disp_info_user = data;
 	int ret;
 
+#ifdef IF_ZERO
 	/*free fb buf in second query valid*/
 	if (second_query && !already_free) {
 		mtk_drm_fb_gem_release(dev);
 		free_fb_buf();
 		already_free = true;
 	}
+#endif
 
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
