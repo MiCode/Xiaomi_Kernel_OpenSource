@@ -59,6 +59,9 @@ void dwc3_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
 {
 	u32			reg;
 
+	if (dwc->dis_u3_susphy_quirk)
+		return;
+
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
 
 	if (suspend)
@@ -67,6 +70,17 @@ void dwc3_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
 		reg &= ~DWC3_GUSB3PIPECTL_SUSPHY;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+
+	if (dwc->dual_port) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(1));
+
+		if (suspend)
+			reg |= DWC3_GUSB3PIPECTL_SUSPHY;
+		else
+			reg &= ~DWC3_GUSB3PIPECTL_SUSPHY;
+
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(1), reg);
+	}
 }
 
 /**
@@ -143,6 +157,12 @@ void dwc3_en_sleep_mode(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
 	reg |= DWC3_GUSB2PHYCFG_ENBLSLPM;
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+
+	if (dwc->dual_port) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(1));
+		reg |= DWC3_GUSB2PHYCFG_ENBLSLPM;
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(1), reg);
+	}
 }
 
 void dwc3_dis_sleep_mode(struct dwc3 *dwc)
@@ -565,6 +585,10 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 	u32 reg;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	if (dwc->dual_port) {
+		if (reg != dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(1)))
+			dev_warn(dwc->dev, "Reset values of pipectl registers are different!\n");
+	}
 
 	/*
 	 * Make sure UX_EXIT_PX is cleared as that causes issues with some
@@ -616,8 +640,14 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 				DWC3_GUSB3PIPECTL_P3EXSIGP2);
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	if (dwc->dual_port)
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(1), reg);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	if (dwc->dual_port) {
+		if (reg != dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(1)))
+			dev_warn(dwc->dev, "Reset values of usb2phycfg registers are different!\n");
+	}
 
 	/* Select the HS PHY interface */
 	switch (DWC3_GHWPARAMS3_HSPHY_IFC(dwc->hwparams.hwparams3)) {
@@ -678,6 +708,8 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 		reg &= ~DWC3_GUSB2PHYCFG_U2_FREECLK_EXISTS;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+	if (dwc->dual_port)
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(1), reg);
 
 	return 0;
 }

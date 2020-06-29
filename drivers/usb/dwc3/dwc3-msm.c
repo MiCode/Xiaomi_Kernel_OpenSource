@@ -2771,6 +2771,14 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 
 			reg |= DWC3_GUSB3PIPECTL_DISRXDETU3;
 			dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+
+			if (mdwc->dual_port) {
+				reg = dwc3_readl(dwc->regs,
+						DWC3_GUSB3PIPECTL(1));
+				reg |= DWC3_GUSB3PIPECTL_DISRXDETU3;
+				dwc3_writel(dwc->regs,
+						DWC3_GUSB3PIPECTL(1), reg);
+			}
 		}
 		/* indicate phy about SS mode */
 		dwc3_msm_is_superspeed(mdwc);
@@ -2980,6 +2988,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 			reg &= ~DWC3_GUSB3PIPECTL_DISRXDETU3;
 			dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+
+			if (mdwc->dual_port) {
+				reg = dwc3_readl(dwc->regs,
+						DWC3_GUSB3PIPECTL(1));
+				reg &= ~DWC3_GUSB3PIPECTL_DISRXDETU3;
+				dwc3_writel(dwc->regs,
+						DWC3_GUSB3PIPECTL(1), reg);
+			}
 		}
 	}
 
@@ -4609,9 +4625,21 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dwc3_msm_write_reg_field(mdwc->base,
 					DWC31_LINK_LU3LFPSRXTIM(0),
 					GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
-			dev_dbg(mdwc->dev, "LU3:%08x\n",
+			dev_dbg(mdwc->dev, "link0 LU3:%08x\n",
 				dwc3_msm_read_reg(mdwc->base,
 					DWC31_LINK_LU3LFPSRXTIM(0)));
+
+			if (mdwc->dual_port) {
+				dwc3_msm_write_reg_field(mdwc->base,
+					       DWC31_LINK_LU3LFPSRXTIM(1),
+					       GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
+				dwc3_msm_write_reg_field(mdwc->base,
+					       DWC31_LINK_LU3LFPSRXTIM(1),
+					       GEN1_U3_EXIT_RSP_RX_CLK_MASK, 5);
+				dev_dbg(mdwc->dev, "link1 LU3:%08x\n",
+					dwc3_msm_read_reg(mdwc->base,
+					       DWC31_LINK_LU3LFPSRXTIM(1)));
+			}
 		}
 
 		/* xHCI should have incremented child count as necessary */
