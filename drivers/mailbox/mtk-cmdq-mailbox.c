@@ -2049,6 +2049,7 @@ s32 cmdq_task_get_thread_irq(struct mbox_chan *chan, u32 *irq_out)
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_task_get_thread_irq);
 
 s32 cmdq_task_get_thread_irq_en(struct mbox_chan *chan, u32 *irq_en_out)
 {
@@ -2164,6 +2165,7 @@ s32 cmdq_task_get_pkt_from_thread(struct mbox_chan *chan,
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_task_get_pkt_from_thread);
 
 void cmdq_set_event(void *chan, u16 event_id)
 {
