@@ -30,16 +30,16 @@ static const char * const policies[] = {
 };
 
 enum gpios {
-	AP2MDM_STATUS = 0,
-	MDM2AP_STATUS,
-	MDM2AP_STATUS2,
+	STATUS_IN = 0,
+	STATUS_OUT,
+	STATUS_OUT2,
 	NUM_GPIOS,
 };
 
 static const char * const gpio_map[] = {
-	[AP2MDM_STATUS] = "qcom,ap2mdm-status-gpio",
-	[MDM2AP_STATUS] = "qcom,mdm2ap-status-gpio",
-	[MDM2AP_STATUS2] = "qcom,mdm2ap-status2-gpio",
+	[STATUS_IN] = "qcom,status-in-gpio",
+	[STATUS_OUT] = "qcom,status-out-gpio",
+	[STATUS_OUT2] = "qcom,status-out2-gpio",
 };
 
 struct gpio_cntrl {
@@ -94,11 +94,11 @@ static ssize_t e911_show(struct device *dev, struct device_attribute *attr,
 	int ret, state;
 	struct gpio_cntrl *mdm = dev_get_drvdata(dev);
 
-	if (mdm->gpios[MDM2AP_STATUS2] < 0)
+	if (mdm->gpios[STATUS_OUT2] < 0)
 		return -ENXIO;
 
 	mutex_lock(&mdm->e911_lock);
-	state = gpio_get_value(mdm->gpios[MDM2AP_STATUS2]);
+	state = gpio_get_value(mdm->gpios[STATUS_OUT2]);
 	ret = scnprintf(buf, 2, "%d\n", state);
 	mutex_unlock(&mdm->e911_lock);
 
@@ -114,14 +114,14 @@ static ssize_t e911_store(struct device *dev, struct device_attribute *attr,
 	if (kstrtoint(buf, 0, &e911))
 		return -EINVAL;
 
-	if (mdm->gpios[MDM2AP_STATUS2] < 0)
+	if (mdm->gpios[STATUS_OUT2] < 0)
 		return -ENXIO;
 
 	mutex_lock(&mdm->e911_lock);
 	if (e911)
-		gpio_set_value(mdm->gpios[MDM2AP_STATUS2], 1);
+		gpio_set_value(mdm->gpios[STATUS_OUT2], 1);
 	else
-		gpio_set_value(mdm->gpios[MDM2AP_STATUS2], 0);
+		gpio_set_value(mdm->gpios[STATUS_OUT2], 0);
 	mutex_unlock(&mdm->e911_lock);
 
 	return count;
@@ -132,13 +132,13 @@ static irqreturn_t ap_status_change(int irq, void *dev_id)
 {
 	struct gpio_cntrl *mdm = dev_id;
 	int state;
-	struct gpio_desc *gp_status = gpio_to_desc(mdm->gpios[AP2MDM_STATUS]);
+	struct gpio_desc *gp_status = gpio_to_desc(mdm->gpios[STATUS_IN]);
 	int active_low = 0;
 
 	if (gp_status)
 		active_low = gpiod_is_active_low(gp_status);
 
-	state = gpio_get_value(mdm->gpios[AP2MDM_STATUS]);
+	state = gpio_get_value(mdm->gpios[STATUS_IN]);
 	if ((!active_low && !state) || (active_low && state)) {
 		if (mdm->policy)
 			dev_info(mdm->dev, "Host undergoing SSR, leaving SDX as it is\n");
@@ -171,44 +171,44 @@ static int setup_ipc(struct gpio_cntrl *mdm)
 		mdm->gpios[i] = (val >= 0) ? val : -1;
 	}
 
-	if (mdm->gpios[AP2MDM_STATUS] >= 0) {
-		ret = gpio_request(mdm->gpios[AP2MDM_STATUS], "AP2MDM_STATUS");
+	if (mdm->gpios[STATUS_IN] >= 0) {
+		ret = gpio_request(mdm->gpios[STATUS_IN], "STATUS_IN");
 		if (ret) {
 			dev_err(mdm->dev,
-				"Failed to configure AP2MDM_STATUS gpio\n");
+				"Failed to configure STATUS_IN gpio\n");
 			return ret;
 		}
-		gpio_direction_input(mdm->gpios[AP2MDM_STATUS]);
+		gpio_direction_input(mdm->gpios[STATUS_IN]);
 
-		irq = gpio_to_irq(mdm->gpios[AP2MDM_STATUS]);
+		irq = gpio_to_irq(mdm->gpios[STATUS_IN]);
 		if (irq < 0) {
-			dev_err(mdm->dev, "bad AP2MDM_STATUS IRQ resource\n");
+			dev_err(mdm->dev, "bad STATUS_IN IRQ resource\n");
 			return irq;
 		}
 		mdm->status_irq = irq;
 	} else
-		dev_info(mdm->dev, "AP2MDM_STATUS not used\n");
+		dev_info(mdm->dev, "STATUS_IN not used\n");
 
-	if (mdm->gpios[MDM2AP_STATUS] >= 0) {
-		ret = gpio_request(mdm->gpios[MDM2AP_STATUS], "MDM2AP_STATUS");
+	if (mdm->gpios[STATUS_OUT] >= 0) {
+		ret = gpio_request(mdm->gpios[STATUS_OUT], "STATUS_OUT");
 		if (ret) {
-			dev_err(mdm->dev, "Failed to configure MDM2AP_STATUS gpio\n");
+			dev_err(mdm->dev, "Failed to configure STATUS_OUT gpio\n");
 			return ret;
 		}
-		gpio_direction_output(mdm->gpios[MDM2AP_STATUS], 1);
+		gpio_direction_output(mdm->gpios[STATUS_OUT], 1);
 	} else
-		dev_info(mdm->dev, "MDM2AP_STATUS not used\n");
+		dev_info(mdm->dev, "STATUS_OUT not used\n");
 
-	if (mdm->gpios[MDM2AP_STATUS2] >= 0) {
-		ret = gpio_request(mdm->gpios[MDM2AP_STATUS2],
-						"MDM2AP_STATUS2");
+	if (mdm->gpios[STATUS_OUT2] >= 0) {
+		ret = gpio_request(mdm->gpios[STATUS_OUT2],
+						"STATUS_OUT2");
 		if (ret) {
-			dev_err(mdm->dev, "Failed to configure MDM2AP_STATUS2 gpio\n");
+			dev_err(mdm->dev, "Failed to configure STATUS_OUT2 gpio\n");
 			return ret;
 		}
-		gpio_direction_output(mdm->gpios[MDM2AP_STATUS2], 0);
+		gpio_direction_output(mdm->gpios[STATUS_OUT2], 0);
 	} else
-		dev_info(mdm->dev, "MDM2AP_STATUS2 not used\n");
+		dev_info(mdm->dev, "STATUS_OUT2 not used\n");
 
 	return 0;
 }
@@ -219,7 +219,7 @@ static int sdx_ext_ipc_panic(struct notifier_block *this,
 	struct gpio_cntrl *mdm = container_of(this,
 					struct gpio_cntrl, panic_blk);
 
-	gpio_set_value(mdm->gpios[MDM2AP_STATUS], 0);
+	gpio_set_value(mdm->gpios[STATUS_OUT], 0);
 
 	return NOTIFY_DONE;
 }
@@ -243,7 +243,7 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (mdm->gpios[MDM2AP_STATUS] >= 0) {
+	if (mdm->gpios[STATUS_OUT] >= 0) {
 		mdm->panic_blk.notifier_call = sdx_ext_ipc_panic;
 		atomic_notifier_chain_register(&panic_notifier_list,
 						&mdm->panic_blk);
@@ -270,14 +270,14 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mdm);
 
-	if (mdm->gpios[AP2MDM_STATUS] >= 0) {
+	if (mdm->gpios[STATUS_IN] >= 0) {
 		ret = devm_request_irq(mdm->dev, mdm->status_irq,
 				ap_status_change,
 				IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
 				"ap status", mdm);
 		if (ret < 0) {
 			dev_err(mdm->dev,
-				 "%s: AP2MDM_STATUS IRQ#%d request failed,\n",
+				 "%s: STATUS_IN IRQ#%d request failed,\n",
 				__func__, mdm->status_irq);
 			goto irq_fail;
 		}
@@ -290,7 +290,7 @@ irq_fail:
 sys_fail1:
 	device_remove_file(mdm->dev, &dev_attr_e911);
 sys_fail:
-	if (mdm->gpios[MDM2AP_STATUS] >= 0)
+	if (mdm->gpios[STATUS_OUT] >= 0)
 		atomic_notifier_chain_unregister(&panic_notifier_list,
 						&mdm->panic_blk);
 	remove_ipc(mdm);
@@ -303,9 +303,9 @@ static int sdx_ext_ipc_remove(struct platform_device *pdev)
 	struct gpio_cntrl *mdm;
 
 	mdm = dev_get_drvdata(&pdev->dev);
-	if (mdm->gpios[AP2MDM_STATUS] >= 0)
+	if (mdm->gpios[STATUS_IN] >= 0)
 		disable_irq_wake(mdm->status_irq);
-	if (mdm->gpios[MDM2AP_STATUS] >= 0)
+	if (mdm->gpios[STATUS_OUT] >= 0)
 		atomic_notifier_chain_unregister(&panic_notifier_list,
 						&mdm->panic_blk);
 	remove_ipc(mdm);
