@@ -147,7 +147,8 @@ struct spi_geni_master {
 	int num_rx_eot;
 	int num_xfers;
 	void *ipc;
-	bool shared_se;
+	bool shared_se; /* GSI Mode */
+	bool shared_ee; /* Dual EE use case */
 	bool dis_autosuspend;
 	bool cmd_done;
 };
@@ -716,6 +717,32 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 {
 	int ret = 0;
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
+	int count;
+
+	if (mas->shared_ee) {
+		if (mas->setup) {
+			ret = pm_runtime_get_sync(mas->dev);
+			if (ret < 0) {
+				dev_err(mas->dev,
+					"%s:pm_runtime_get_sync failed %d\n",
+							__func__, ret);
+				pm_runtime_put_noidle(mas->dev);
+				goto exit_prepare_message;
+			}
+			ret = 0;
+
+			if (mas->dis_autosuspend) {
+				count =
+				atomic_read(&mas->dev->power.usage_count);
+				if (count <= 0)
+					GENI_SE_ERR(mas->ipc, false, NULL,
+					"resume usage count mismatch:%d",
+								count);
+			}
+		} else {
+			mas->setup = true;
+		}
+	}
 
 	mas->cur_xfer_mode = select_xfer_mode(spi, spi_msg);
 
@@ -733,6 +760,7 @@ static int spi_geni_prepare_message(struct spi_master *spi,
 		ret = setup_fifo_params(spi_msg->spi, spi);
 	}
 
+exit_prepare_message:
 	return ret;
 }
 
@@ -740,11 +768,27 @@ static int spi_geni_unprepare_message(struct spi_master *spi_mas,
 					struct spi_message *spi_msg)
 {
 	struct spi_geni_master *mas = spi_master_get_devdata(spi_mas);
+	int count = 0;
 
 	mas->cur_speed_hz = 0;
 	mas->cur_word_len = 0;
 	if (mas->cur_xfer_mode == GSI_DMA)
 		spi_geni_unmap_buf(mas, spi_msg);
+
+	if (mas->shared_ee) {
+		if (mas->dis_autosuspend) {
+			pm_runtime_put_sync(mas->dev);
+			count = atomic_read(&mas->dev->power.usage_count);
+			if (count < 0)
+				GENI_SE_ERR(mas->ipc, false, NULL,
+					"suspend usage count mismatch:%d",
+								count);
+		} else {
+			pm_runtime_mark_last_busy(mas->dev);
+			pm_runtime_put_autosuspend(mas->dev);
+		}
+	}
+
 	return 0;
 }
 
@@ -757,7 +801,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 
 	/* Adjust the IB based on the max speed of the slave in kHz.*/
 	rsc->ib = (max_speed * DEFAULT_BUS_WIDTH) / 1000;
-	if (mas->shared_se) {
+	if (mas->shared_se && !mas->shared_ee) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
 
@@ -769,20 +813,23 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 			"%s: Error %d pinctrl_select_state\n", __func__, ret);
 	}
 
-	ret = pm_runtime_get_sync(mas->dev);
-	if (ret < 0) {
-		dev_err(mas->dev, "%s:Error enabling SE resources %d\n",
+	if (!mas->setup || !mas->shared_ee) {
+		ret = pm_runtime_get_sync(mas->dev);
+		if (ret < 0) {
+			dev_err(mas->dev,
+				"%s:pm_runtime_get_sync failed %d\n",
 							__func__, ret);
-		pm_runtime_put_noidle(mas->dev);
-		goto exit_prepare_transfer_hardware;
-	} else {
+			pm_runtime_put_noidle(mas->dev);
+			goto exit_prepare_transfer_hardware;
+		}
 		ret = 0;
-	}
-	if (mas->dis_autosuspend) {
-		count = atomic_read(&mas->dev->power.usage_count);
-		if (count <= 0)
-			GENI_SE_ERR(mas->ipc, false, NULL,
+
+		if (mas->dis_autosuspend) {
+			count = atomic_read(&mas->dev->power.usage_count);
+			if (count <= 0)
+				GENI_SE_ERR(mas->ipc, false, NULL,
 				"resume usage count mismatch:%d", count);
+		}
 	}
 	if (unlikely(!mas->setup)) {
 		int proto = get_se_proto(mas->base);
@@ -856,7 +903,8 @@ setup_ipc:
 		dev_info(mas->dev, "tx_fifo %d rx_fifo %d tx_width %d\n",
 			mas->tx_fifo_depth, mas->rx_fifo_depth,
 			mas->tx_fifo_width);
-		mas->setup = true;
+		if (!mas->shared_ee)
+			mas->setup = true;
 		hw_ver = geni_se_qupv3_hw_version(mas->wrapper_dev, &major,
 							&minor, &step);
 		if (hw_ver)
@@ -884,6 +932,9 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 {
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	int count = 0;
+
+	if (mas->shared_ee)
+		return 0;
 
 	if (mas->shared_se) {
 		struct se_geni_rsc *rsc;
@@ -1458,6 +1509,15 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->dis_autosuspend =
 		of_property_read_bool(pdev->dev.of_node,
 				"qcom,disable-autosuspend");
+	/*
+	 * This property will be set when spi is being used from
+	 * dual Execution Environments unlike shared_se flag
+	 * which is set if SE is in GSI mode.
+	 */
+	geni_mas->shared_ee =
+		of_property_read_bool(pdev->dev.of_node,
+				"qcom,shared_ee");
+
 	geni_mas->phys_addr = res->start;
 	geni_mas->size = resource_size(res);
 	geni_mas->base = devm_ioremap(&pdev->dev, res->start,
@@ -1535,14 +1595,19 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	if (geni_mas->shared_ee)
+		goto exit_rt_suspend;
+
 	if (geni_mas->shared_se) {
 		ret = se_geni_clks_off(&geni_mas->spi_rsc);
 		if (ret)
 			GENI_SE_ERR(geni_mas->ipc, false, NULL,
 			"%s: Error %d turning off clocks\n", __func__, ret);
-	} else {
-		ret = se_geni_resources_off(&geni_mas->spi_rsc);
+		return ret;
 	}
+
+exit_rt_suspend:
+	ret = se_geni_resources_off(&geni_mas->spi_rsc);
 	return ret;
 }
 
@@ -1552,14 +1617,19 @@ static int spi_geni_runtime_resume(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	if (geni_mas->shared_ee)
+		goto exit_rt_resume;
+
 	if (geni_mas->shared_se) {
 		ret = se_geni_clks_on(&geni_mas->spi_rsc);
 		if (ret)
 			GENI_SE_ERR(geni_mas->ipc, false, NULL,
 			"%s: Error %d turning on clocks\n", __func__, ret);
-	} else {
-		ret = se_geni_resources_on(&geni_mas->spi_rsc);
+		return ret;
 	}
+
+exit_rt_resume:
+	ret = se_geni_resources_on(&geni_mas->spi_rsc);
 	return ret;
 }
 
