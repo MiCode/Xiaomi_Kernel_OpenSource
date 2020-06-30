@@ -463,7 +463,7 @@ static void swap_irq_info_fn(void *a, void *b, int size)
 static struct irq_info *search(struct irq_info *key, struct irq_info *base,
 			       size_t num, compare_t cmp)
 {
-	struct irq_info *pivot;
+	struct irq_info *pivot = NULL;
 	int result;
 
 	while (num > 0) {
@@ -568,7 +568,7 @@ static void compute_irq_stat(struct work_struct *work)
 			     arr_size, cmp_irq_info_fn);
 		pr_debug("*pos:%u key:%u\n",
 				pos->total_count, key.total_count);
-		if (pos->total_count >= key.total_count) {
+		if (pos && (pos->total_count >= key.total_count)) {
 			if (pos < start)
 				pos++;
 			else
