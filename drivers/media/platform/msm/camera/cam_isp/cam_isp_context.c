@@ -2544,13 +2544,20 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		if (rc)
 			goto end;
 
+		/*
+		 * As HW is stopped already No request will move from
+		 * one list to other good time to flush reqs.
+		 */
 		spin_lock_bh(&ctx->lock);
+		CAM_DBG(CAM_ISP, "try to flush pending list");
+		rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list,
+			flush_req);
 		CAM_DBG(CAM_ISP, "try to flush wait list");
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
-		flush_req);
+			flush_req);
 		CAM_DBG(CAM_ISP, "try to flush active list");
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->active_req_list,
-		flush_req);
+			flush_req);
 		ctx_isp->active_req_cnt = 0;
 		spin_unlock_bh(&ctx->lock);
 
