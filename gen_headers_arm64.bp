@@ -606,6 +606,7 @@ gen_headers_out_arm64 = [
     "linux/virtio_mmio.h",
     "linux/virtio_net.h",
     "linux/virtio_pci.h",
+    "linux/virtio_pmem.h",
     "linux/virtio_ring.h",
     "linux/virtio_rng.h",
     "linux/virtio_scsi.h",
