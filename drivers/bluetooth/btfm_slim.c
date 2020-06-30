@@ -370,8 +370,8 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 {
 	int ret;
 	int chipset_ver;
-	struct slim_device *slim = btfmslim->slim_pgd;
-	struct slim_device *slim_ifd = &btfmslim->slim_ifd;
+	struct slim_device *slim;
+	struct slim_device *slim_ifd;
 
 	BTFMSLIM_DBG("");
 	if (!btfmslim)
@@ -381,6 +381,10 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 		BTFMSLIM_DBG("Already enabled");
 		return 0;
 	}
+
+	slim = btfmslim->slim_pgd;
+	slim_ifd = &btfmslim->slim_ifd;
+
 	mutex_lock(&btfmslim->io_lock);
 		BTFMSLIM_INFO(
 			"PGD Enum Addr: %.02x:%.02x:%.02x:%.02x:%.02x: %.02x",
