@@ -662,13 +662,11 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 skip_sync_ep:
 	resp->interrupter_num = uaudio_qdev->intr_num;
 	resp->interrupter_num_valid = 1;
-
+	resp->controller_num_valid = 0;
 	ret = usb_get_controller_id(subs->dev);
-	if (!ret) {
+	if (ret >= 0) {
 		resp->controller_num = ret;
 		resp->controller_num_valid = 1;
-	} else {
-		resp->controller_num_valid = 0;
 	}
 
 	/*  map xhci data structures PA memory to iova */
