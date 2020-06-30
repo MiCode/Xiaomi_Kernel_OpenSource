@@ -203,6 +203,8 @@ int cnss_get_platform_cap(struct device *dev, struct cnss_platform_cap *cap)
 	if (cap)
 		*cap = plat_priv->cap;
 
+	cnss_pr_dbg("Platform cap_flag is 0x%x\n", cap->cap_flag);
+
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);

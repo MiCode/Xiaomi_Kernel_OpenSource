@@ -27,6 +27,7 @@ enum cnss_bus_width_type {
 enum cnss_platform_cap_flag {
 	CNSS_HAS_EXTERNAL_SWREG = 0x01,
 	CNSS_HAS_UART_ACCESS = 0x02,
+	CNSS_HAS_DRV_SUPPORT = 0x04,
 };
 
 struct cnss_platform_cap {
