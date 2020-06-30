@@ -27,8 +27,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	cci_dev = v4l2_get_subdevdata(sd);
 	if (!cci_dev || !c_ctrl) {
-		CAM_ERR(CAM_CCI, "failed: invalid params %pK %pK",
-			cci_dev, c_ctrl);
+		CAM_ERR(CAM_CCI, "failed: invalid params");
 		rc = -EINVAL;
 		return rc;
 	}
@@ -37,47 +36,15 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	base = soc_info->reg_map[0].mem_base;
 
 	if (!soc_info || !base) {
-		CAM_ERR(CAM_CCI, "failed: invalid params %pK %pK",
-			soc_info, base);
+		CAM_ERR(CAM_CCI, "failed: invalid params");
 		rc = -EINVAL;
 		return rc;
 	}
 
-	CAM_DBG(CAM_CCI, "Base address %pK", base);
+	CAM_DBG(CAM_CCI, "ref_count %d master %d", cci_dev->ref_count, master);
 
-	if (cci_dev->ref_count++) {
-		CAM_DBG(CAM_CCI, "ref_count %d", cci_dev->ref_count);
-		CAM_DBG(CAM_CCI, "master %d", master);
-		if (master < MASTER_MAX && master >= 0) {
-			mutex_lock(&cci_dev->cci_master_info[master].mutex);
-			flush_workqueue(cci_dev->write_wq[master]);
-			/* Re-initialize the completion */
-			reinit_completion(
-			&cci_dev->cci_master_info[master].reset_complete);
-			reinit_completion(
-			&cci_dev->cci_master_info[master].rd_done);
-			for (i = 0; i < NUM_QUEUES; i++)
-				reinit_completion(
-				&cci_dev->cci_master_info[master].report_q[i]);
-			/* Set reset pending flag to TRUE */
-			cci_dev->cci_master_info[master].reset_pending = TRUE;
-			/* Set proper mask to RESET CMD address */
-			if (master == MASTER_0)
-				cam_io_w_mb(CCI_M0_RESET_RMSK,
-					base + CCI_RESET_CMD_ADDR);
-			else
-				cam_io_w_mb(CCI_M1_RESET_RMSK,
-					base + CCI_RESET_CMD_ADDR);
-			/* wait for reset done irq */
-			rc = wait_for_completion_timeout(
-			&cci_dev->cci_master_info[master].reset_complete,
-				CCI_TIMEOUT);
-			if (rc <= 0)
-				CAM_ERR(CAM_CCI, "wait failed %d", rc);
-			mutex_unlock(&cci_dev->cci_master_info[master].mutex);
-		}
+	if (cci_dev->ref_count++)
 		return 0;
-	}
 
 	/* Enable Regulators and IRQ*/
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
