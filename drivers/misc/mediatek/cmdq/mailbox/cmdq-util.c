@@ -485,6 +485,7 @@ const char *cmdq_util_get_first_err_mod(void *chan)
 
 	return util.first_err_mod[hw_id];
 }
+EXPORT_SYMBOL(cmdq_util_get_first_err_mod);
 
 struct cmdq_util_controller_fp controller_fp = {
 	.dump_dbg_reg = cmdq_util_dump_dbg_reg,

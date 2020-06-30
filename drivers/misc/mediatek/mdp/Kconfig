@@ -1,0 +1,15 @@
+config MTK_MDP
+	tristate "enable MDP driver extension"
+	help
+	  This extension enable debug feature, such as mdp-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling.
+
+config MTK_MDP_MT6873
+	tristate "enable MDP MT6783 driver extension"
+	help
+	  This extension enable debug feature, such as mdp-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling.

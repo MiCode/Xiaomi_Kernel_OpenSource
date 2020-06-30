@@ -418,6 +418,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 
 	return buf;
 }
+EXPORT_SYMBOL(cmdq_pkt_alloc_buf);
 
 void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 {
