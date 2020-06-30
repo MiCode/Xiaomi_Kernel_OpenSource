@@ -216,7 +216,7 @@ static void mhi_buf_tbl_clear(struct diag_mhi_info *mhi_info)
 	struct diag_mhi_buf_tbl_t *item = NULL;
 	struct diag_mhi_buf_tbl_t *tp = NULL, *tp_temp = NULL;
 	struct diag_mhi_ch_t *ch = NULL;
-	unsigned char *buf;
+	unsigned char *buf = NULL;
 
 	if (!mhi_info || !mhi_info->enabled)
 		return;
