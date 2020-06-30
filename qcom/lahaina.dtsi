@@ -3590,7 +3590,7 @@
 
 	cpu_cpu_llcc_bw: qcom,cpu-cpu-llcc-bw {
 		compatible = "qcom,devfreq-icc";
-		governor = "performance";
+		governor = "bw_hwmon";
 		interconnects = <&gem_noc MASTER_APPSS_PROC &gem_noc SLAVE_LLCC>;
 		qcom,active-only;
 		operating-points-v2 = <&llcc_bw_opp_table>;
@@ -3609,7 +3609,7 @@
 
 	cpu_llcc_ddr_bw: qcom,cpu-llcc-ddr-bw {
 		compatible = "qcom,devfreq-icc-ddr";
-		governor = "performance";
+		governor = "bw_hwmon";
 		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
 		qcom,active-only;
 		operating-points-v2 = <&ddr_bw_opp_table>;
@@ -3629,7 +3629,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU0>;
@@ -3639,7 +3639,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU1>;
@@ -3649,7 +3649,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU2>;
@@ -3659,7 +3659,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU3>;
@@ -3669,7 +3669,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU4>;
@@ -3679,7 +3679,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU5>;
@@ -3689,7 +3689,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU6>;
@@ -3699,7 +3699,7 @@
 		compatible = "qcom,devfreq-icc-l3";
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_CPU7>;
@@ -3710,7 +3710,7 @@
 		reg = <0x18590100 0xa0>;
 		reg-names = "ftbl-base";
 		qcom,bus-width = <32>;
-		governor = "powersave";
+		governor = "bw_hwmon";
 		interconnects =
 			<&epss_l3_cpu MASTER_EPSS_L3_APPS
 			 &epss_l3_cpu SLAVE_EPSS_L3_SHARED>;
@@ -3729,7 +3729,7 @@
 
 	cpu0_cpu_llcc_lat: qcom,cpu0-cpu-llcc-lat {
 		compatible = "qcom,devfreq-icc";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects = <&gem_noc MASTER_APPSS_PROC &gem_noc SLAVE_LLCC>;
 		qcom,active-only;
 		operating-points-v2 = <&llcc_bw_opp_table>;
@@ -3737,7 +3737,7 @@
 
 	cpu4_cpu_llcc_lat: qcom,cpu4-cpu-llcc-lat {
 		compatible = "qcom,devfreq-icc";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects = <&gem_noc MASTER_APPSS_PROC &gem_noc SLAVE_LLCC>;
 		qcom,active-only;
 		operating-points-v2 = <&llcc_bw_opp_table>;
@@ -3745,7 +3745,7 @@
 
 	cpu0_llcc_ddr_lat: qcom,cpu0-llcc-ddr-lat {
 		compatible = "qcom,devfreq-icc-ddr";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
 		qcom,active-only;
 		operating-points-v2 = <&ddr_bw_opp_table>;
@@ -3753,7 +3753,7 @@
 
 	cpu4_llcc_ddr_lat: qcom,cpu4-llcc-ddr-lat {
 		compatible = "qcom,devfreq-icc-ddr";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
 		qcom,active-only;
 		operating-points-v2 = <&ddr_bw_opp_table>;
@@ -3761,7 +3761,7 @@
 
 	cpu4_cpu_ddr_latfloor: qcom,cpu4-cpu-ddr-latfloor {
 		compatible = "qcom,devfreq-icc-ddr";
-		governor = "performance";
+		governor = "compute";
 		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
 		qcom,active-only;
 		operating-points-v2 = <&ddr_bw_opp_table>;
@@ -3769,7 +3769,7 @@
 
 	cpu4_cpu_llcc_latfloor: qcom,cpu4-cpu-llcc-latfloor {
 		compatible = "qcom,devfreq-icc";
-		governor = "performance";
+		governor = "compute";
 		interconnects = <&gem_noc MASTER_APPSS_PROC &gem_noc SLAVE_LLCC>;
 		qcom,active-only;
 		operating-points-v2 = <&llcc_bw_opp_table>;
@@ -3777,7 +3777,7 @@
 
 	cpu7_cpu_ddr_latfloor: qcom,cpu7-cpu-ddr-latfloor {
 		compatible = "qcom,devfreq-icc-ddr";
-		governor = "performance";
+		governor = "mem_latency";
 		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
 		qcom,active-only;
 		operating-points-v2 = <&ddr_bw_opp_table>;
@@ -3785,7 +3785,7 @@
 
 	cpu4_cpu_ddr_qoslat: qcom,cpu4-cpu-ddr-qoslat {
 		compatible = "qcom,devfreq-qoslat";
-		governor = "powersave";
+		governor = "mem_latency";
 		operating-points-v2 = <&qoslat_opp_table>;
 		mboxes = <&qmp_aop 0>;
 	};
