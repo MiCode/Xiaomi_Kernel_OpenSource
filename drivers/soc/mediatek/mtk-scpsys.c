@@ -35,6 +35,7 @@
 #define MTK_SCPD_FWAIT_SRAM		BIT(1)
 #define MTK_SCPD_SRAM_ISO		BIT(2)
 #define MTK_SCPD_MD_OPS			BIT(3)
+#define MTK_SCPD_ALWAYS_ON		BIT(4)
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -880,6 +881,8 @@ static struct scp *init_scp(struct platform_device *pdev,
 		}
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ACTIVE_WAKEUP))
 			genpd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ALWAYS_ON))
+			genpd->flags |= GENPD_FLAG_ALWAYS_ON;
 
 		/* Add opp table check first to avoid OF runtime parse failed */
 		if (of_count_phandle_with_args(pdev->dev.of_node,
@@ -1501,6 +1504,7 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 			BUS_PROT(IFR_TYPE, 0xdcc, 0xdd0, 0xdc8, 0xdd8,
 				MT8192_TOP_AXI_PROT_EN_MM_2_DISP_2ND),
 		},
+		.caps = MTK_SCPD_ALWAYS_ON,
 	},
 	[MT8192_POWER_DOMAIN_ISP] = {
 		.name = "isp",
