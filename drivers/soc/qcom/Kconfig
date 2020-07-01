@@ -868,4 +868,6 @@ config QCOM_RTIC
 	  This option enables QCOM Real Time Integrity Check feature. This
 	  will trigger RTIC kernel MP.s (measurement parameters) generation
 	  during the kernel build.
+
+source "drivers/soc/qcom/icnss2/Kconfig"
 endmenu
