@@ -1022,6 +1022,14 @@ config MSM_BAM_DMUX
                 communication between G-Link/bg_com_dev and BG processor over SPI.
                 This handle the interrupts raised by BG and notify the G-link with
                 interrupt event and event data.
+config MSM_PIL_SSR_BG
+	tristate "MSM Subsystem Blackghost(BG) Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down Blackghost(BG) SOC which is
+	  an external SOC. This driver communicates with Blackghost(BG) SOC
+	  via pair of IPC GPIOs for inward and outward signals between MSM
+	  and Blackghost(BG) SOC.
 
 config QCOM_SOC_INFO
 	bool "Chip information for QTI SoCs"
