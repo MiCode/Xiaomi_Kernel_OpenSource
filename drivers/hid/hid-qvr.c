@@ -383,10 +383,10 @@ static int kernel_map_gyro_buffer(void)
 		goto err_dma;
 	}
 	sensor->vsize = sensor->qvr_buf->size;
-	sensor->vaddr = dma_buf_kmap(sensor->qvr_buf, 0);
-	if (IS_ERR_OR_NULL(sensor->vaddr)) {
+	sensor->vaddr = dma_buf_vmap(sensor->qvr_buf);
+	if (!sensor->vaddr) {
 		ret = -ENOMEM;
-		pr_err("dma_buf_kmap failed for fd: %d\n", sensor->fd);
+		pr_err("dma_buf_vmap failed for fd: %d\n", sensor->fd);
 		goto err_end_access;
 	}
 
@@ -409,7 +409,7 @@ static void kernel_unmap_gyro_buffer(void)
 
 	if (IS_ERR_OR_NULL(sensor->vaddr))
 		return;
-	dma_buf_kunmap(sensor->qvr_buf, 0, sensor->vaddr);
+	dma_buf_vunmap(sensor->qvr_buf, sensor->vaddr);
 	dma_buf_end_cpu_access(sensor->qvr_buf, DMA_BIDIRECTIONAL);
 	sensor->vaddr = NULL;
 	dma_buf_put(sensor->qvr_buf);
