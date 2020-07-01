@@ -19,6 +19,16 @@ config MTK_EMI
 	  the API for EMI information, the BWL golden setting,
 	  and the sysfs for EMI ISU control.
 
+config MTK_EMI_MPU_TEST
+	tristate "MediaTek EMI MPU test"
+	depends on HAVE_MTK_MC
+	depends on MTK_EMI
+	help
+	  Enable support for the test of the Mediatek(R) EMI driver.
+	  This driver is mainly for testing purposes. It creates interfaces
+	  for the self-test code of EMI MPU running in the user space.
+	  This driver should not be enabled in the release version.
+
 config MTK_DRAMC
 	tristate "MediaTek DRAMC driver"
 	depends on HAVE_MTK_MC
