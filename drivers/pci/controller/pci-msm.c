@@ -745,6 +745,7 @@ struct msm_pcie_drv_info {
 	u16 reply_seq;
 	u32 timeout_ms; /* IPC command timeout */
 	u32 l1ss_timeout_us;
+	u32 l1ss_sleep_disable;
 	struct completion completion;
 
 	/* for DRV SSR */
@@ -5317,6 +5318,9 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 
 	drv_info->dev_id = pcie_dev->rc_idx;
 
+	of_property_read_u32(of_node, "qcom,l1ss-sleep-disable",
+					&drv_info->l1ss_sleep_disable);
+
 	ret = of_property_read_u32(of_node, "qcom,phy-manage-pll",
 					&phy_manage_pll);
 	if (!ret && phy_manage_pll) {
@@ -6621,7 +6625,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	mutex_lock(&pcie_dev->setup_lock);
 
 	/* if rpdev is NULL then DRV subsystem is powered down */
-	if (rpdev) {
+	if (!drv_info->l1ss_sleep_disable && rpdev) {
 		ret = msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
 					&drv_info->drv_disable_l1ss_sleep);
 		if (ret)
@@ -6796,7 +6800,8 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	msm_pcie_vreg_deinit(pcie_dev);
 
 	/* enable L1ss sleep if client allows it */
-	if (!(options & MSM_PCIE_CONFIG_NO_L1SS_TO))
+	if (!drv_info->l1ss_sleep_disable &&
+		!(options & MSM_PCIE_CONFIG_NO_L1SS_TO))
 		msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
 					&drv_info->drv_enable_l1ss_sleep);
 
