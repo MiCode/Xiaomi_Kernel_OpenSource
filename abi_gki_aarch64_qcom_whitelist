@@ -398,6 +398,8 @@
   devm_clk_register
   dev_mc_sync_multiple
   dev_mc_unsync
+  devm_device_add_group
+  devm_device_remove_group
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_extcon_register_notifier
