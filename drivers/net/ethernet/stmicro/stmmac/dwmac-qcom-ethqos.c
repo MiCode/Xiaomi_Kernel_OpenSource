@@ -1796,6 +1796,13 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		return PTR_ERR(plat_dat);
 	}
 
+	if (plat_dat->tx_sched_algorithm == MTL_TX_ALGORITHM_WFQ ||
+	    plat_dat->tx_sched_algorithm == MTL_TX_ALGORITHM_DWRR) {
+		ETHQOSERR("WFO and DWRR TX Algorithm is not supported\n");
+		ETHQOSDBG("Set TX Algorithm to default WRR\n");
+		plat_dat->tx_sched_algorithm = MTL_TX_ALGORITHM_WRR;
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rgmii");
 	ethqos->rgmii_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(ethqos->rgmii_base)) {
