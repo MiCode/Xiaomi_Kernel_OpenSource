@@ -1336,6 +1336,12 @@ struct rpmsg_endpoint *wcnss_open_channel(const char *name, rpmsg_rx_cb_t cb,
 }
 EXPORT_SYMBOL(wcnss_open_channel);
 
+void wcnss_close_channel(struct rpmsg_endpoint *channel)
+{
+	rpmsg_destroy_ept(channel);
+}
+EXPORT_SYMBOL(wcnss_close_channel);
+
 static int wcnss_ctrl_smd_callback(struct rpmsg_device *rpdev,
 				   void *data,
 				   int count,
@@ -1964,15 +1970,16 @@ int wcnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 buffer_size,
 }
 EXPORT_SYMBOL(wcnss_get_wlan_unsafe_channel);
 
-static int wcnss_smd_tx(void *data, int len)
+int wcnss_smd_tx(struct rpmsg_endpoint *channel, void *data, int len)
 {
 	int ret = 0;
-	ret = rpmsg_send(penv->channel, data, len);
+	ret = rpmsg_send(channel, data, len);
 	if (ret < 0)
 		return ret;
 
 	return 0;
 }
+EXPORT_SYMBOL(wcnss_smd_tx);
 
 static int wcnss_get_battery_volt(u32 *result_uv)
 {
@@ -2089,7 +2096,7 @@ static void wcnss_send_vbatt_indication(struct work_struct *work)
 	wcnss_log(DBG, "send curr_volt: %d to FW\n",
 		 vbatt_msg.vbatt.curr_volt);
 
-	ret = wcnss_smd_tx(&vbatt_msg, vbatt_msg.hdr.msg_len);
+	ret = wcnss_smd_tx(penv->channel, &vbatt_msg, vbatt_msg.hdr.msg_len);
 	if (ret < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 }
@@ -2121,7 +2128,7 @@ static void wcnss_update_vbatt(struct work_struct *work)
 		return;
 	}
 	mutex_unlock(&penv->vbat_monitor_mutex);
-	ret = wcnss_smd_tx(&vbatt_msg, vbatt_msg.hdr.msg_len);
+	ret = wcnss_smd_tx(penv->channel, &vbatt_msg, vbatt_msg.hdr.msg_len);
 	if (ret < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 }
@@ -2141,7 +2148,7 @@ static void wcnss_send_cal_rsp(unsigned char fw_status)
 	rsphdr->msg_len = sizeof(struct smd_msg_hdr) + 1;
 	memcpy(msg + sizeof(struct smd_msg_hdr), &fw_status, 1);
 
-	rc = wcnss_smd_tx(msg, rsphdr->msg_len);
+	rc = wcnss_smd_tx(penv->channel, msg, rsphdr->msg_len);
 	if (rc < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 
@@ -2271,7 +2278,8 @@ static void wcnss_process_smd_msg(void *buf, int len)
 		case WCNSS_PRONTO_HW:
 			smd_msg.msg_type = WCNSS_BUILD_VER_REQ;
 			smd_msg.msg_len = sizeof(smd_msg);
-			rc = wcnss_smd_tx(&smd_msg, smd_msg.msg_len);
+			rc = wcnss_smd_tx(penv->channel, &smd_msg,
+					  smd_msg.msg_len);
 			if (rc < 0)
 				wcnss_log(ERR, "smd tx failed: %s\n", __func__);
 
@@ -2358,7 +2366,7 @@ static void wcnss_send_version_req(struct work_struct *worker)
 
 	smd_msg.msg_type = WCNSS_VERSION_REQ;
 	smd_msg.msg_len = sizeof(smd_msg);
-	ret = wcnss_smd_tx(&smd_msg, smd_msg.msg_len);
+	ret = wcnss_smd_tx(penv->channel, &smd_msg, smd_msg.msg_len);
 	if (ret < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 }
@@ -2398,7 +2406,7 @@ static void wcnss_send_pm_config(struct work_struct *worker)
 	hdr->msg_type = WCNSS_PM_CONFIG_REQ;
 	hdr->msg_len = sizeof(struct smd_msg_hdr) + (prop_len * sizeof(int));
 
-	rc = wcnss_smd_tx(msg, hdr->msg_len);
+	rc = wcnss_smd_tx(penv->channel, msg, hdr->msg_len);
 	if (rc < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 
@@ -2489,7 +2497,8 @@ static void wcnss_nvbin_dnld(void)
 		       (nv_blob_addr + count * NV_FRAGMENT_SIZE),
 		       cur_frag_size);
 
-		ret = wcnss_smd_tx(outbuffer, dnld_req_msg->hdr.msg_len);
+		ret = wcnss_smd_tx(penv->channel, outbuffer,
+				   dnld_req_msg->hdr.msg_len);
 
 		retry_count = 0;
 		while ((ret == -ENOSPC) && (retry_count <= 3)) {
@@ -2503,7 +2512,7 @@ static void wcnss_nvbin_dnld(void)
 			/* wait and try again */
 			msleep(20);
 			retry_count++;
-			ret = wcnss_smd_tx(outbuffer,
+			ret = wcnss_smd_tx(penv->channel, outbuffer,
 					   dnld_req_msg->hdr.msg_len);
 		}
 
@@ -2582,7 +2591,9 @@ static void wcnss_caldata_dnld(const void *cal_data,
 		       (cal_data + count * NV_FRAGMENT_SIZE),
 		       cur_frag_size);
 
-		ret = wcnss_smd_tx(outbuffer, cal_msg->hdr.msg_len);
+		ret = wcnss_smd_tx(penv->channel, outbuffer,
+				   cal_msg->hdr.msg_len);
+
 
 		retry_count = 0;
 		while ((ret == -ENOSPC) && (retry_count <= 3)) {
@@ -2596,7 +2607,7 @@ static void wcnss_caldata_dnld(const void *cal_data,
 			/* wait and try again */
 			msleep(20);
 			retry_count++;
-			ret = wcnss_smd_tx(outbuffer,
+			ret = wcnss_smd_tx(penv->channel, outbuffer,
 					   cal_msg->hdr.msg_len);
 		}
 
