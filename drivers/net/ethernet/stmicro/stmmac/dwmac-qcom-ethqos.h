@@ -398,6 +398,13 @@ enum current_phy_state {
 	RGMII_IO_MACRO_CONFIG_RGWR(v);\
 } while (0)
 
+struct ethqos_vlan_info {
+	u16 vlan_id;
+	u32 vlan_offset;
+	u32 rx_queue;
+	bool available;
+};
+
 struct ethqos_emac_por {
 	unsigned int offset;
 	unsigned int value;
@@ -454,6 +461,10 @@ struct qcom_ethqos {
 	struct cdev *avb_class_b_cdev;
 	struct class *avb_class_b_class;
 
+	dev_t emac_dev_t;
+	struct cdev *emac_cdev;
+	struct class *emac_class;
+
 	unsigned long avb_class_a_intr_cnt;
 	unsigned long avb_class_b_intr_cnt;
 	struct dentry *debugfs_dir;
@@ -503,6 +514,10 @@ struct qcom_ethqos {
 
 	/* IO Macro parameters */
 	struct ethqos_io_macro io_macro;
+
+	/* QMI over ethernet parameter */
+	u32 qoe_mode;
+	struct ethqos_vlan_info qoe_vlan;
 };
 
 struct pps_cfg {
@@ -576,6 +591,8 @@ u16 dwmac_qcom_select_queue(
 
 #define IPA_DMA_TX_CH 0
 #define IPA_DMA_RX_CH 0
+
+#define QMI_TAG_TX_CHANNEL 2
 
 #define VLAN_TAG_UCP_SHIFT 13
 #define CLASS_A_TRAFFIC_UCP 3
