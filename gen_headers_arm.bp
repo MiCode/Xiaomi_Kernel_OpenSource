@@ -651,6 +651,7 @@ gen_headers_out_arm = [
     "media/radio-iris-commands.h",
     "media/radio-iris.h",
     "media/synx.h",
+    "media/msmb_isp.h",
     "misc/cxl.h",
     "misc/ocxl.h",
     "misc/wigig_sensing_uapi.h",
