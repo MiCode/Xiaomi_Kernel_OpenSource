@@ -450,7 +450,7 @@
 		};
 
 		mt6359keys: mt6359keys {
-			compatible = "mediatek,mt6359-keys";
+			compatible = "mediatek,mt6359p-keys";
 			mediatek,long-press-mode = <1>;
 			power-off-time-sec = <0>;
 
