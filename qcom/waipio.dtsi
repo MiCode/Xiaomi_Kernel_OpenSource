@@ -21,7 +21,9 @@
 
 	chosen: chosen { };
 
-	aliases { };
+	aliases {
+		serial0 = &qupv3_se7_2uart;
+	 };
 
 	cpus {
 		#address-cells = <2>;
@@ -293,5 +295,8 @@
 		#reset-cells = <1>;
 	};
 };
+
+
+#include "waipio-qupv3.dtsi"
 #include "waipio-pinctrl.dtsi"
 #include "waipio-regulators.dtsi"
