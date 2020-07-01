@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef MSM_ADRENO_DEVFREQ_H
@@ -77,6 +77,7 @@ struct msm_adreno_extended_profile {
 
 struct msm_busmon_extended_profile {
 	u32 flag;
+	u32 sampling_ms;
 	unsigned long percent_ab;
 	unsigned long ab_mbytes;
 	struct devfreq_msm_adreno_tz_data *private_data;
