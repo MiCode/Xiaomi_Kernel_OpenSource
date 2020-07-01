@@ -444,7 +444,7 @@ static bool atl_checksum_workaround(struct sk_buff *skb,
 		break;
 	case atl_rx_pkt_type_ipv6:
 		ipv6 = (struct ipv6hdr *) &skb->data[ip_header_offset];
-		l4_header_offset = ip_header_offset + sizeof(struct ipv6hdr);
+		l4_header_offset = sizeof(struct ipv6hdr);
 		/* padding inside Ethernet frame */
 		if (ip_header_offset + sizeof(struct ipv6hdr) +
 		    ntohs(ipv6->payload_len) < desc->pkt_len)
@@ -1512,7 +1512,8 @@ static int atl_alloc_qvec_intr(struct atl_queue_vec *qvec)
 		return 0;
 
 	vector = pci_irq_vector(nic->hw.pdev, atl_qvec_intr(qvec));
-	ret = request_irq(vector, atl_ring_irq, 0, qvec->name, &qvec->napi);
+	ret = request_irq(vector, atl_ring_irq, IRQF_NO_SUSPEND,
+			  qvec->name, &qvec->napi);
 	if (ret) {
 		atl_nic_err("request MSI ring vector failed: %d\n", -ret);
 		return ret;

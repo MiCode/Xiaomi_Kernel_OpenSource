@@ -535,7 +535,7 @@ static int __atl_fw2_get_phy_temperature(struct atl_hw *hw, int *temp)
 	if (ret)
 		return ret;
 
-	*temp = (res & 0xffff) * 1000 / 256;
+	*temp = (int16_t)(res & 0xFFFF) * 1000 / 256;
 
 	return ret;
 }
