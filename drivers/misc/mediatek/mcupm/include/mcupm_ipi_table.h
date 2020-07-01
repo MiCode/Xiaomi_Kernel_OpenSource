@@ -235,5 +235,4 @@ struct mtk_ipi_device mcupm_ipidev = {
 	.id = IPI_DEV_MCUPM,
 	.mbdev = &mcupm_mboxdev,
 };
-EXPORT_SYMBOL_GPL(mcupm_ipidev);
 #endif

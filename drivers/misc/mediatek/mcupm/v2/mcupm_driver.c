@@ -373,6 +373,12 @@ int mcupm_mbox_write(unsigned int mbox, unsigned int slot, void *buf,
 }
 EXPORT_SYMBOL_GPL(mcupm_mbox_write);
 
+void *get_mcupm_ipidev(void)
+{
+	return &mcupm_ipidev;
+}
+EXPORT_SYMBOL_GPL(get_mcupm_ipidev);
+
 static int mcupm_device_probe(struct platform_device *pdev)
 {
 	int i, ret;
