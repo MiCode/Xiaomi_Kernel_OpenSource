@@ -1252,7 +1252,7 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	if (cmd->iommu_attach_mode == IOMMU_ATTACH) {
 		/* disable smmu stall on fault */
 		cam_smmu_set_attr(buf_mgr->iommu_hdl,
-			DOMAIN_ATTR_CB_STALL_DISABLE, &stall_disable);
+			DOMAIN_ATTR_FAULT_MODEL_NO_STALL, &stall_disable);
 		/*
 		 * Call hypervisor thru scm call to notify secure or
 		 * non-secure mode

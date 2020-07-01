@@ -301,7 +301,7 @@ static void msm_enqueue(struct msm_device_queue *queue,
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 	uint8_t put_buf);
 static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin);
-static void cpp_timer_callback(unsigned long data);
+static void cpp_timer_callback(struct timer_list *cpp_t);
 
 static uint8_t induce_error;
 static int msm_cpp_enable_debugfs(struct cpp_device *cpp_dev);
@@ -2039,7 +2039,7 @@ error:
 	pr_debug("%s:%d] exit\n", __func__, __LINE__);
 }
 
-static void cpp_timer_callback(unsigned long data)
+static void cpp_timer_callback(struct timer_list *cpp_t)
 {
 	struct msm_cpp_work_t *work =
 		cpp_timer.data.cpp_dev->work;
@@ -3706,7 +3706,8 @@ STREAM_BUFF_END:
 			stall_disable = 1;
 			/* disable smmu stall on fault */
 			cam_smmu_set_attr(cpp_dev->iommu_hdl,
-				DOMAIN_ATTR_CB_STALL_DISABLE, &stall_disable);
+				DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
+				&stall_disable);
 			if (cpp_dev->security_mode == SECURE_MODE) {
 				rc = cam_smmu_ops(cpp_dev->iommu_hdl,
 					CAM_SMMU_ATTACH_SEC_CPP);
@@ -4743,8 +4744,8 @@ static int cpp_probe(struct platform_device *pdev)
 	atomic_set(&cpp_timer.used, 0);
 	/* install timer for cpp timeout */
 	CPP_DBG("Installing cpp_timer\n");
-	setup_timer(&cpp_timer.cpp_timer,
-		cpp_timer_callback, (unsigned long)&cpp_timer);
+	timer_setup(&cpp_timer.cpp_timer,
+		cpp_timer_callback, 0);
 	cpp_dev->fw_name_bin = NULL;
 	cpp_dev->max_timeout_trial_cnt = MSM_CPP_MAX_TIMEOUT_TRIAL;
 
