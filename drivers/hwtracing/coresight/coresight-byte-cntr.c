@@ -200,7 +200,7 @@ int usb_bypass_start(struct byte_cntr *byte_cntr_data)
 	}
 
 	atomic_set(&byte_cntr_data->usb_free_buf, USB_BUF_NUM);
-	byte_cntr_data->offset = tmcdrvdata->etr_buf->offset;
+	byte_cntr_data->offset = tmc_sg_get_rwp_offset(tmcdrvdata);
 	byte_cntr_data->read_active = true;
 	/*
 	 * IRQ is a '8- byte' counter and to observe interrupt at
@@ -386,6 +386,7 @@ static void usb_read_work_fn(struct work_struct *work)
 	struct qdss_request *usb_req = NULL;
 	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
 	size_t actual, req_size, req_sg_num, small_size = 0;
+	size_t actual_total = 0;
 	char *buf;
 	struct byte_cntr *drvdata =
 		container_of(work, struct byte_cntr, read_work);
@@ -416,6 +417,7 @@ static void usb_read_work_fn(struct work_struct *work)
 
 		req_size = USB_BLK_SIZE - small_size;
 		small_size = 0;
+		actual_total = 0;
 
 		if (req_size > 0) {
 			seq++;
@@ -460,9 +462,10 @@ static void usb_read_work_fn(struct work_struct *work)
 					drvdata->offset = 0;
 				else
 					drvdata->offset += actual;
+				actual_total += actual;
 			}
 
-			usb_req->length = req_size;
+			usb_req->length = actual_total;
 			drvdata->usb_req = usb_req;
 			usb_req->num_sgs = i;
 
