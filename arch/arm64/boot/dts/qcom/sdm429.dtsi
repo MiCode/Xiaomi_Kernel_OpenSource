@@ -347,9 +347,11 @@
 		reg =   <0xb011050 0x8>,
 			<0xb1d1050 0x8>,
 			<0xB016000 0x34>,
-			<0x00a412c 0x8>;
+			<0x00a412c 0x8>,
+			<0x0b011200 0x100>;
 		reg-names = "apcs-c1-rcg-base",
-			"apcs-cci-rcg-base", "apcs_pll", "efuse";
+			"apcs-cci-rcg-base", "apcs_pll", "efuse",
+			"spm_c1_base";
 		clocks = <&rpmcc RPM_SMD_XO_A_CLK_SRC>,
 			<&gcc GPLL0_AO_OUT_MAIN>;
 		clock-names = "xo_ao", "gpll0_ao" ;
