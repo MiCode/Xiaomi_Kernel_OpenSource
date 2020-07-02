@@ -134,6 +134,7 @@
   devm_kmemdup
   devm_mfd_add_devices
   devm_nvmem_register
+  devm_of_platform_populate
   devm_pinctrl_get
   devm_pinctrl_put
   devm_power_supply_register
@@ -307,6 +308,7 @@
   jiffies
   jiffies_to_msecs
   kernel_kobj
+  kasprintf
   kernel_neon_begin
   kernel_neon_end
   __kfifo_alloc
@@ -378,6 +380,7 @@
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
+  of_dev_put
   of_find_compatible_node
   of_find_device_by_node
   of_find_node_by_name
@@ -601,18 +604,21 @@
   strncpy
   strncpy_from_user
   strnlen
+  strnstr
   strstr
   __sw_hweight32
   __sw_hweight64
   sync_filesystem
   syscon_regmap_lookup_by_phandle
   syscon_regmap_lookup_by_phandle_args
+  sysfs_create_bin_file
   sysfs_create_file_ns
   sysfs_create_group
   sysfs_create_groups
   sysfs_create_link
   __sysfs_match_string
   sysfs_notify
+  sysfs_remove_bin_file
   sysfs_remove_file_ns
   sysfs_remove_group
   sysfs_remove_groups
@@ -2370,3 +2376,85 @@
 # required by trusty-pm.ko
   ktime_get_boot_fast_ns
   unregister_syscore_ops
+
+# required by incrementalfs.ko
+  bcmp
+  bin2hex
+  __break_lease
+  clear_inode
+  __close_fd
+  crc32_le
+  d_add
+  d_drop
+  deactivate_locked_super
+  dentry_open
+  dget_parent
+  d_instantiate
+  d_make_root
+  down_write
+  dput
+  fget
+  flush_dcache_page
+  fput
+  free_pages
+  fs_kobj
+  fsstack_copy_attr_all
+  generic_file_llseek
+  generic_file_mmap
+  generic_file_read_iter
+  generic_file_splice_read
+  generic_read_dir
+  generic_shutdown_super
+  get_zeroed_page
+  iget5_locked
+  ihold
+  inode_init_once
+  inode_init_owner
+  iput
+  iterate_dir
+  kernel_read
+  kernel_write
+  kern_path
+  kobject_create_and_add
+  kobject_put
+  lockref_get
+  lock_rename
+  lookup_one_len
+  LZ4_decompress_safe
+  match_int
+  match_token
+  mutex_is_locked
+  noop_llseek
+  notify_change
+  pagecache_get_page
+  path_get
+  path_put
+  __put_cred
+  __put_page
+  register_filesystem
+  set_anon_super
+  sget
+  simple_getattr
+  simple_setattr
+  simple_statfs
+  strndup_user
+  strsep
+  sync_filesystem
+  truncate_inode_pages
+  unlock_new_inode
+  unlock_page
+  unlock_rename
+  unregister_filesystem
+  up_write
+  user_path_at_empty
+  vfs_create
+  vfs_fallocate
+  vfs_getattr
+  vfs_getxattr
+  vfs_link
+  vfs_listxattr
+  vfs_mkdir
+  vfs_rename
+  vfs_rmdir
+  vfs_setxattr
+  vfs_unlink
