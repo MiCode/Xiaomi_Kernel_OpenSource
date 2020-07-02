@@ -16,7 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <sound/tlv.h>
 #include <sound/soc.h>
-#include "mt6359.h"
+#include "mt6359p.h"
 
 enum {
 	MT6359_AIF_1 = 0,	/* dl: hp, rcv, hp+lo */
