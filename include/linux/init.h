@@ -133,7 +133,10 @@ extern unsigned int reset_devices;
 /* used by init/main.c */
 void setup_arch(char **);
 void prepare_namespace(void);
-void __init launch_early_services(void);
+void launch_early_services(void);
+#ifdef CONFIG_EARLY_SERVICES
+int get_early_services_status(void);
+#endif
 void __init load_default_modules(void);
 int __init init_rootfs(void);
 
