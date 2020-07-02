@@ -1695,6 +1695,8 @@ static void cnss_pci_collect_dump(struct cnss_pci_data *pci_priv)
  * Dump Primary and secondary bootloader debug log data. For SBL check the
  * log struct address and size for validity.
  *
+ * Supported only on QCA6490
+ *
  * Return: None
  */
 static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
@@ -1703,31 +1705,36 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
+	if (plat_priv->device_id != QCA6490_DEVICE_ID)
+		return;
+
 	if (cnss_pci_check_link_status(pci_priv))
 		return;
 
-	cnss_pci_reg_read(pci_priv, CNSS_TCSR_PBL_LOGGING_REG, &pbl_stage);
-	cnss_pci_reg_read(pci_priv, CNSS_PCIE_BHI_ERRDBG2_REG, &sbl_log_start);
-	cnss_pci_reg_read(pci_priv, CNSS_PCIE_BHI_ERRDBG3_REG, &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, QCA6490_TCSR_PBL_LOGGING_REG, &pbl_stage);
+	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG2_REG,
+			  &sbl_log_start);
+	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
+			  &sbl_log_size);
 	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: 0x%08x 0x%08x",
 		    pbl_stage, sbl_log_start, sbl_log_size);
 
 	cnss_pr_dbg("Dumping PBL log data");
 	/* cnss_pci_reg_read provides 32bit register values */
-	for (i = 0; i < CNSS_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
-		mem_addr = CNSS_DEBUG_PBL_LOG_SRAM_START + i;
+	for (i = 0; i < QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE; i += sizeof(val)) {
+		mem_addr = QCA6490_DEBUG_PBL_LOG_SRAM_START + i;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
 			break;
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
 
 	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-		if (sbl_log_start > CNSS_SBL_DATA_START_HSP_V2 &&
-		    (sbl_log_start + sbl_log_size) < CNSS_SBL_DATA_END_HSP_V2)
+		if (sbl_log_start > QCA6490_V2_SBL_DATA_START &&
+		    (sbl_log_start + sbl_log_size) < QCA6490_V2_SBL_DATA_END)
 			goto dump_sbl_log;
 	} else {
-		if (sbl_log_start > CNSS_SBL_DATA_START_HSP_V1 &&
-		    (sbl_log_start + sbl_log_size) < CNSS_SBL_DATA_END_HSP_V2)
+		if (sbl_log_start > QCA6490_V1_SBL_DATA_START &&
+		    (sbl_log_start + sbl_log_size) < QCA6490_V1_SBL_DATA_END)
 			goto dump_sbl_log;
 	}
 	cnss_pr_err("Invalid SBL log data");
@@ -1735,8 +1742,8 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 
 dump_sbl_log:
 	cnss_pr_dbg("Dumping SBL log data");
-	sbl_log_size = (sbl_log_size > CNSS_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
-			CNSS_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
+	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
+			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
 	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
 		mem_addr = sbl_log_start + i;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
