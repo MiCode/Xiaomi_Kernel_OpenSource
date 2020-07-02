@@ -2571,6 +2571,14 @@
 			disable_write_silence = <1>;
 		};
 
+		iommu1: iommu@19010000 {
+			compatible = "mediatek,mt6873-apu-iommu";
+			reg = <0 0x19010000 0 0x1000>;
+			interrupts = <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_APU>;
+			#iommu-cells = <1>;
+		};
+
 		apu_conn: apu_conn@19020000 {
 			compatible = "mediatek,mt8192-apu_conn", "syscon";
 			reg = <0 0x19020000 0 0x1000>;
