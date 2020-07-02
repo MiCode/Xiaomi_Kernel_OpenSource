@@ -50,8 +50,11 @@ struct mtk_iommu_iova_region;
 struct mtk_iommu_plat_data {
 	enum mtk_iommu_plat m4u_plat;
 	u32                 flags;
+	bool		    is_apu;
 	u32                 inv_sel_reg;
 	unsigned char       larbid_remap[MTK_LARB_COM_MAX][MTK_LARB_SUBCOM_MAX];
+	const unsigned int  iova_region_cnt;
+	const struct mtk_iommu_iova_region	*iova_region;
 };
 
 struct mtk_iommu_domain;

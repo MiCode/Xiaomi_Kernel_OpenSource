@@ -162,6 +162,27 @@ static LIST_HEAD(m4ulist);	/* List all the M4U HWs */
 
 #define for_each_m4u(data)	list_for_each_entry(data, &m4ulist, list)
 
+struct mtk_iommu_iova_region {
+	dma_addr_t		iova_base;
+	size_t			size;
+};
+
+static const struct mtk_iommu_iova_region single_domain[] = {
+	{.iova_base = 0, .size = SZ_4G},
+};
+
+static const struct mtk_iommu_iova_region mt6873_multi_dom[] = {
+	{ .iova_base = 0x0, .size = SZ_4G},	      /* disp : 0 ~ 4G */
+	{ .iova_base = SZ_4G, .size = SZ_4G},     /* vdec : 4G ~ 8G */
+	{ .iova_base = SZ_4G * 2, .size = SZ_4G}, /* CAM/MDP: 8G ~ 12G */
+	{ .iova_base = 0x240000000ULL, .size = 0x4000000}, /* CCU0 */
+	{ .iova_base = 0x244000000ULL, .size = 0x4000000}, /* CCU1 */
+	{ .iova_base = SZ_4G * 3, .size = SZ_4G}, /* APU DATA */
+	{ .iova_base = 0x304000000ULL, .size = 0x4000000}, /* APU VLM */
+	{ .iova_base = 0x310000000ULL, .size = 0x10000000}, /* APU VPU */
+	{ .iova_base = 0x370000000ULL, .size = 0x12600000}, /* APU REG */
+};
+
 /*
  * There may be 1 or 2 M4U HWs, But we always expect they are in the same domain
  * for the performance.
@@ -410,7 +431,8 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		pm_runtime_put(data->dev);
 	}
 
-	mtk_iommu_config(data, dev, true);
+	if (!data->plat_data->is_apu)
+		mtk_iommu_config(data, dev, true);
 	return 0;
 }
 
@@ -422,7 +444,8 @@ static void mtk_iommu_detach_device(struct iommu_domain *domain,
 	if (!data)
 		return;
 
-	mtk_iommu_config(data, dev, false);
+	if (!data->plat_data->is_apu)
+		mtk_iommu_config(data, dev, false);
 }
 
 static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
@@ -718,6 +741,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 			return PTR_ERR(data->bclk);
 	}
 
+	if (data->plat_data->is_apu)
+		goto skip_smi;
+
 	larb_nr = of_count_phandle_with_args(dev->of_node,
 					     "mediatek,larbs", NULL);
 	if (larb_nr < 0)
@@ -751,7 +777,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		component_match_add_release(dev, &match, release_of,
 					    compare_of, larbnode);
 	}
-
+skip_smi:
 	platform_set_drvdata(pdev, data);
 
 	pm_runtime_enable(dev);
@@ -787,7 +813,10 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	 * the consumer will power get when iommu is needed.
 	 */
 	pm_runtime_put_sync(dev);
-	return component_master_add_with_match(dev, &mtk_iommu_com_ops, match);
+	if (!data->plat_data->is_apu)
+		ret = component_master_add_with_match(dev, &mtk_iommu_com_ops,
+						      match);
+	return ret;
 }
 
 static int mtk_iommu_remove(struct platform_device *pdev)
@@ -878,6 +907,15 @@ static const struct mtk_iommu_plat_data mt6873_data = {
 			 {0, 14, 16}, {0, 13, 18, 17}},
 };
 
+static const struct mtk_iommu_plat_data mt6873_data_apu = {
+	.m4u_plat        = M4U_MT6873,
+	.is_apu          = true,
+	.inv_sel_reg     = REG_MMU_INV_SEL_GEN2,
+	.iova_region     = mt6873_multi_dom,
+	.larbid_remap    = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
+	.iova_region_cnt = ARRAY_SIZE(mt6873_multi_dom),
+};
+
 static const struct mtk_iommu_plat_data mt8173_data = {
 	.m4u_plat     = M4U_MT8173,
 	.flags	      = HAS_4GB_MODE | HAS_BCLK | RESET_AXI,
@@ -896,6 +934,7 @@ static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-m4u", .data = &mt2712_data},
 	{ .compatible = "mediatek,mt6779-m4u", .data = &mt6779_data},
 	{ .compatible = "mediatek,mt6873-m4u", .data = &mt6873_data},
+	{ .compatible = "mediatek,mt6873-apu-iommu", .data = &mt6873_data_apu},
 	{ .compatible = "mediatek,mt8173-m4u", .data = &mt8173_data},
 	{ .compatible = "mediatek,mt8183-m4u", .data = &mt8183_data},
 	{}
