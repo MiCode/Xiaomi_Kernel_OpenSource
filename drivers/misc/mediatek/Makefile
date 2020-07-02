@@ -14,3 +14,4 @@ obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
 obj-$(CONFIG_MTPROF) += mtprof/
 obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += cameraisp/
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq/
+obj-$(CONFIG_MTK_DVFSRC_HELPER) += dvfsrc/
