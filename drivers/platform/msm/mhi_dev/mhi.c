@@ -444,10 +444,11 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 	struct event_req *flush_ereq;
 
 	/*
-	 * Channel got closed with transfers pending
+	 * Channel got stopped or closed with transfers pending
 	 * Do not send completion events to host
 	 */
-	if (ch->state == MHI_DEV_CH_CLOSED) {
+	if (ch->state == MHI_DEV_CH_CLOSED ||
+		ch->state == MHI_DEV_CH_STOPPED) {
 		mhi_log(MHI_MSG_DBG, "Ch %d closed with %d writes pending\n",
 			ch->ch_id, ch->pend_wr_count + 1);
 		return -ENODEV;
@@ -2124,12 +2125,14 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 			req->len, DMA_FROM_DEVICE);
 
 	/*
-	 * Channel got closed with transfers pending
+	 * Channel got stopped or closed with transfers pending
 	 * Do not trigger callback or send cmpl to host
 	 */
-	if (ch->state == MHI_DEV_CH_CLOSED) {
-		mhi_log(MHI_MSG_DBG, "Ch %d closed with %d writes pending\n",
-				ch->ch_id, ch->pend_wr_count + 1);
+	if (ch->state == MHI_DEV_CH_CLOSED ||
+		ch->state == MHI_DEV_CH_STOPPED) {
+		mhi_log(MHI_MSG_DBG,
+			"Ch %d not in started state, %d writes pending\n",
+			ch->ch_id, ch->pend_wr_count + 1);
 		return;
 	}
 
@@ -2980,6 +2983,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	size_t bytes_written = 0;
 	uint32_t tre_len = 0, suspend_wait_timeout = 0;
 	bool async_wr_sched = false;
+	enum mhi_ctrl_info info;
 
 	if (WARN_ON(!wreq || !wreq->client || !wreq->buf)) {
 		pr_err("%s: invalid parameters\n", __func__);
@@ -3027,6 +3031,14 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	ring = ch->ring;
 
 	mutex_lock(&ch->ch_lock);
+
+	rc = mhi_ctrl_state_info(ch->ch_id, &info);
+	if (rc || (info != MHI_STATE_CONNECTED)) {
+		mhi_log(MHI_MSG_ERROR, "Channel %d not started by host\n",
+				ch->ch_id);
+		mutex_unlock(&ch->ch_lock);
+		return -ENODEV;
+	}
 
 	ch->pend_wr_count++;
 	if (ch->state == MHI_DEV_CH_STOPPED) {
