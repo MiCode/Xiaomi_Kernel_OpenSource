@@ -592,6 +592,10 @@ int ipa_uc_offload_conn_pipes(struct ipa_uc_offload_conn_in_params *inp,
 		return -EPERM;
 	}
 
+	/*Store the connection info, required during disconnect pipe */
+	memcpy(&offload_ctx->conn, &inp->u.ntn,
+			sizeof(struct ipa_ntn_conn_in_params));
+
 	switch (offload_ctx->proto) {
 	case IPA_UC_NTN:
 		ret = ipa_uc_ntn_conn_pipes(&inp->u.ntn, &outp->u.ntn,
