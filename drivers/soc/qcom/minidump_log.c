@@ -18,6 +18,8 @@
 #include <asm/stacktrace.h>
 #include <linux/mm.h>
 #include <linux/ratelimit.h>
+#include <linux/sizes.h>
+#include <linux/slab.h>
 #include <linux/sched/task.h>
 #include <linux/suspend.h>
 #include <linux/vmalloc.h>
@@ -53,6 +55,13 @@ static struct md_suspend_context_data md_suspend_context;
 #endif
 
 static bool is_vmap_stack __read_mostly;
+
+#ifdef CONFIG_QCOM_MINIDUMP_FTRACE
+#define MD_FTRACE_BUF_SIZE	SZ_2M
+
+static char *md_ftrace_buf_addr;
+static size_t md_ftrace_buf_current;
+#endif
 
 static void __init register_log_buf(void)
 {
@@ -489,6 +498,45 @@ static void register_irq_stack(void)
 static inline void register_irq_stack(void) {}
 #endif
 
+#ifdef CONFIG_QCOM_MINIDUMP_FTRACE
+void minidump_add_trace_event(char *buf, size_t size)
+{
+	char *addr;
+
+	if (!READ_ONCE(md_ftrace_buf_addr) ||
+	    (size > (size_t)MD_FTRACE_BUF_SIZE))
+		return;
+
+	if ((md_ftrace_buf_current + size) > (size_t)MD_FTRACE_BUF_SIZE)
+		md_ftrace_buf_current = 0;
+	addr = md_ftrace_buf_addr + md_ftrace_buf_current;
+	memcpy(addr, buf, size);
+	md_ftrace_buf_current += size;
+}
+
+static void md_register_trace_buf(void)
+{
+	struct md_region md_entry;
+	void *buffer_start;
+
+	buffer_start = kmalloc(MD_FTRACE_BUF_SIZE, GFP_KERNEL);
+
+	if (!buffer_start)
+		return;
+
+	strlcpy(md_entry.name, "KFTRACE", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)buffer_start;
+	md_entry.phys_addr = virt_to_phys(buffer_start);
+	md_entry.size = MD_FTRACE_BUF_SIZE;
+	if (msm_minidump_add_region(&md_entry) < 0)
+		pr_err("Failed to add ftrace buffer entry in Minidump\n");
+
+	/* Complete registration before adding enteries */
+	smp_mb();
+	WRITE_ONCE(md_ftrace_buf_addr, buffer_start);
+}
+#endif
+
 static int __init msm_minidump_log_init(void)
 {
 	register_kernel_sections();
@@ -499,6 +547,9 @@ static int __init msm_minidump_log_init(void)
 	register_suspend_context();
 #endif
 	register_log_buf();
+#ifdef CONFIG_QCOM_MINIDUMP_FTRACE
+	md_register_trace_buf();
+#endif
 	return 0;
 }
 late_initcall(msm_minidump_log_init);

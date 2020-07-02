@@ -487,6 +487,14 @@ config QCOM_DYN_MINIDUMP_STACK
 	  where CPU is unable to register it from IPI_CPU_STOP. The stack data
 	  can be used to unwind stack frames.
 
+config QCOM_MINIDUMP_FTRACE
+	bool "QCOM Minidump Support"
+	depends on QGKI && QCOM_MINIDUMP
+	help
+	  This enables ftrace buffer registration in minidump table.
+	  This allows dumping ftrace buffer content as part of
+	  minidump dumps.
+
 config MINIDUMP_MAX_ENTRIES
 	int "Minidump Maximum num of entries"
 	default 200
