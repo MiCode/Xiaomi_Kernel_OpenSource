@@ -130,30 +130,34 @@ static bool mmc_is_data_request(struct mmc_request *mmc_request)
 
 static void mmc_clk_scaling_start_busy(struct mmc_host *host, bool lock_needed)
 {
+	unsigned long flags;
+
 	struct mmc_devfeq_clk_scaling *clk_scaling = &host->clk_scaling;
 
 	if (!clk_scaling->enable)
 		return;
 
 	if (lock_needed)
-		spin_lock_bh(&clk_scaling->lock);
+		spin_lock_irqsave(&clk_scaling->lock, flags);
 
 	clk_scaling->start_busy = ktime_get();
 	clk_scaling->is_busy_started = true;
 
 	if (lock_needed)
-		spin_unlock_bh(&clk_scaling->lock);
+		spin_unlock_irqrestore(&clk_scaling->lock, flags);
 }
 
 static void mmc_clk_scaling_stop_busy(struct mmc_host *host, bool lock_needed)
 {
+	unsigned long flags;
+
 	struct mmc_devfeq_clk_scaling *clk_scaling = &host->clk_scaling;
 
 	if (!clk_scaling->enable)
 		return;
 
 	if (lock_needed)
-		spin_lock_bh(&clk_scaling->lock);
+		spin_lock_irqsave(&clk_scaling->lock, flags);
 
 	if (!clk_scaling->is_busy_started) {
 		WARN_ON(1);
@@ -169,7 +173,7 @@ static void mmc_clk_scaling_stop_busy(struct mmc_host *host, bool lock_needed)
 
 out:
 	if (lock_needed)
-		spin_unlock_bh(&clk_scaling->lock);
+		spin_unlock_irqrestore(&clk_scaling->lock, flags);
 }
 
 /**
