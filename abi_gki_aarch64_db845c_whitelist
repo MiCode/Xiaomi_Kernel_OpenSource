@@ -12,6 +12,7 @@
   bpf_trace_run4
   bt_err
   bt_info
+  cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
   __cfi_slowpath
@@ -59,6 +60,7 @@
   device_property_read_string
   device_property_read_u32_array
   device_register
+  device_release_driver
   device_set_wakeup_capable
   device_unregister
   device_wakeup_enable
@@ -825,6 +827,7 @@
   of_icc_get
   of_property_read_string_helper
   param_ops_charp
+  pm_runtime_get_if_in_use
   put_pid
   put_unused_fd
   _raw_read_lock
@@ -1049,6 +1052,26 @@
   rtc_update_irq
   rtc_valid_tm
 
+# required by ufs-qcom.ko
+  print_hex_dump
+  ufshcd_dme_get_attr
+  ufshcd_dme_set_attr
+  ufshcd_dump_regs
+  ufshcd_get_local_unipro_ver
+  ufshcd_get_pwr_dev_param
+  ufshcd_hold
+  ufshcd_pltfrm_init
+  ufshcd_pltfrm_resume
+  ufshcd_pltfrm_runtime_idle
+  ufshcd_pltfrm_runtime_resume
+  ufshcd_pltfrm_runtime_suspend
+  ufshcd_pltfrm_shutdown
+  ufshcd_pltfrm_suspend
+  ufshcd_release
+  ufshcd_remove
+  ufshcd_uic_hibern8_enter
+  ufshcd_uic_hibern8_exit
+
 # required by mdt_loader.ko
   request_firmware_into_buf
 
@@ -1153,7 +1176,9 @@
   usb_amd_hang_symptom_quirk
 
 # required by ehci-platform.ko
+  device_attach
   device_pm_wait_for_dev
+  soc_device_match
   usb_of_get_companion_dev
 
 # required by ohci-hcd.ko
@@ -1169,7 +1194,6 @@
 
 # required by xhci-hcd.ko
   add_timer
-  cancel_delayed_work
   mod_delayed_work_on
   __num_online_cpus
   param_ops_ullong
@@ -1189,7 +1213,6 @@
   wait_for_completion
 
 # required by xhci-pci-renesas.ko
-  device_release_driver
   pci_dev_get
   pci_write_config_dword
   request_firmware_nowait
