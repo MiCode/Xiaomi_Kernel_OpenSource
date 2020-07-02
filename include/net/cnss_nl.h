@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _NET_CNSS_GENETLINK_H_
 #define _NET_CNSS_GENETLINK_H_
@@ -19,6 +19,10 @@
  * @CLD80211_ATTR_META_DATA: Embed meta data for above data. This will help
  * wlan driver to peek into request message packet without opening up definition
  * of complete request message.
+ * @CLD80211_ATTR_CMD: cld80211 vendor subcommand in this attribute
+ * @CLD80211_ATTR_CMD_TAG_DATA: cld80211 vendor subcommand data is present in
+ * this attribute. It is a nested attribute with sub attributes of specified
+ * vendor sub command.
  *
  * Any new message in future can be added as another attribute
  */
@@ -26,6 +30,8 @@ enum cld80211_attr {
 	CLD80211_ATTR_VENDOR_DATA = 1,
 	CLD80211_ATTR_DATA,
 	CLD80211_ATTR_META_DATA,
+	CLD80211_ATTR_CMD,
+	CLD80211_ATTR_CMD_TAG_DATA,
 	/* add new attributes above here */
 
 	__CLD80211_ATTR_AFTER_LAST,

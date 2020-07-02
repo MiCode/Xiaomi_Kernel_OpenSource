@@ -3924,8 +3924,10 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 	if (err)
 		return err;
 
-	if (!key.p.key)
+	if (!key.p.key) {
+		GENL_SET_ERR_MSG(info, "no key");
 		return -EINVAL;
+	}
 
 	if (info->attrs[NL80211_ATTR_MAC])
 		mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
@@ -3939,8 +3941,10 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 
 	/* for now */
 	if (key.type != NL80211_KEYTYPE_PAIRWISE &&
-	    key.type != NL80211_KEYTYPE_GROUP)
+	    key.type != NL80211_KEYTYPE_GROUP) {
+		GENL_SET_ERR_MSG(info, "key type not pairwise or group");
 		return -EINVAL;
+	}
 
 	if (key.type == NL80211_KEYTYPE_GROUP &&
 	    info->attrs[NL80211_ATTR_VLAN_ID])
@@ -3951,15 +3955,22 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 
 	if (cfg80211_validate_key_settings(rdev, &key.p, key.idx,
 					   key.type == NL80211_KEYTYPE_PAIRWISE,
-					   mac_addr))
+					   mac_addr)) {
+		GENL_SET_ERR_MSG(info, "key setting validation failed");
 		return -EINVAL;
+	}
 
 	wdev_lock(dev->ieee80211_ptr);
 	err = nl80211_key_allowed(dev->ieee80211_ptr);
-	if (!err)
+	if (err)
+		GENL_SET_ERR_MSG(info, "key not allowed");
+	if (!err) {
 		err = rdev_add_key(rdev, dev, key.idx,
 				   key.type == NL80211_KEYTYPE_PAIRWISE,
 				    mac_addr, &key.p);
+		if (err)
+			GENL_SET_ERR_MSG(info, "key addition failed");
+	}
 	wdev_unlock(dev->ieee80211_ptr);
 
 	return err;
@@ -4800,8 +4811,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 		err = nl80211_parse_he_obss_pd(
 					info->attrs[NL80211_ATTR_HE_OBSS_PD],
 					&params.he_obss_pd);
-		if (err)
-			return err;
+		goto out;
 	}
 
 	nl80211_calculate_ap_params(&params);
@@ -4823,6 +4833,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 	}
 	wdev_unlock(wdev);
 
+out:
 	kfree(params.acl);
 
 	return err;

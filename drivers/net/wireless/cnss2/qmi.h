@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _CNSS_QMI_H
 #define _CNSS_QMI_H
 
-#include <linux/soc/qcom/qmi.h>
+#include "wlan_firmware_service_v01.h"
 
 struct cnss_plat_data;
 
@@ -29,7 +29,6 @@ struct cnss_qmi_event_qdss_trace_save_data {
 };
 
 #ifdef CONFIG_CNSS2_QMI
-#include "wlan_firmware_service_v01.h"
 #include "coexistence_service_v01.h"
 #include "ip_multimedia_subsystem_private_service_v01.h"
 
@@ -176,6 +175,13 @@ int cnss_wlfw_dynamic_feature_mask_send_sync(struct cnss_plat_data *plat_priv)
 }
 
 static inline
+int cnss_wlfw_get_info_send_sync(struct cnss_plat_data *plat_priv, int type,
+				 void *cmd, int cmd_len)
+{
+	return 0;
+}
+
+static inline
 int cnss_register_coex_service(struct cnss_plat_data *plat_priv)
 {
 	return 0;
@@ -192,6 +198,9 @@ int coex_antenna_switch_to_wlan_send_sync_msg(struct cnss_plat_data *plat_priv)
 
 static inline
 int coex_antenna_switch_to_mdm_send_sync_msg(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
 
 static inline
 int cnss_wlfw_qdss_trace_mem_info_send_sync(struct cnss_plat_data *plat_priv)

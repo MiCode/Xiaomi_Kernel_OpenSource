@@ -569,6 +569,7 @@ int snd_info_card_create(struct snd_card *card)
 	entry_state->size = SND_CARD_STATE_MAX_LEN;
 	entry_state->content = SNDRV_INFO_CONTENT_DATA;
 	entry_state->c.ops = &snd_info_card_state_proc_ops;
+	entry_state->private_data = card;
 #endif
 	return 0;
 }

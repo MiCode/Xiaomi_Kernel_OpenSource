@@ -32,6 +32,7 @@ hwkm.ko
 qbt_handler.ko
 smem.ko
 socinfo.ko
+eud.ko
 dwc3.ko
 dwc3-msm.ko
 roles.ko

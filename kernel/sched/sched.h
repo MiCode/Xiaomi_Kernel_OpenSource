@@ -1474,8 +1474,6 @@ extern void sched_ttwu_pending(void);
 	for (__sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd); \
 			__sd; __sd = __sd->parent)
 
-#define for_each_lower_domain(sd) for (; sd; sd = sd->child)
-
 /**
  * highest_flag_domain - Return highest sched_domain containing flag.
  * @cpu:	The CPU whose highest level of sched domain is to
@@ -1894,12 +1892,6 @@ struct sched_class {
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_change_group)(struct task_struct *p, int type);
-#endif
-
-#ifdef CONFIG_SCHED_WALT
-	void (*fixup_walt_sched_stats)(struct rq *rq, struct task_struct *p,
-					u16 updated_demand_scaled,
-					u16 updated_pred_demand_scaled);
 #endif
 };
 
@@ -2672,11 +2664,6 @@ unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
 	return clamp(util, min_util, max_util);
 }
 
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
-{
-	return uclamp_rq_util_with(rq, util, NULL);
-}
-
 static inline bool uclamp_boosted(struct task_struct *p)
 {
 	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
@@ -2687,11 +2674,6 @@ unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
 				  struct task_struct *p)
 {
 	return util;
-}
-
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
-{
-	return uclamp_rq_util_with(rq, util, NULL);
 }
 
 static inline bool uclamp_boosted(struct task_struct *p)
@@ -2898,7 +2880,6 @@ struct related_thread_group {
 
 extern struct sched_cluster *sched_cluster[NR_CPUS];
 
-extern unsigned int __weak sched_disable_window_stats;
 extern unsigned int max_possible_capacity;
 extern unsigned int __weak min_max_possible_capacity;
 extern unsigned int __read_mostly __weak sched_init_task_load_windows;
@@ -3058,8 +3039,6 @@ static inline bool task_sched_boost(struct task_struct *p)
 }
 
 extern int sync_cgroup_colocation(struct task_struct *p, bool insert);
-extern void update_cgroup_boost_settings(void);
-extern void restore_cgroup_boost_settings(void);
 #else
 static inline bool
 same_schedtg(struct task_struct *tsk1, struct task_struct *tsk2)
@@ -3072,8 +3051,6 @@ static inline bool task_sched_boost(struct task_struct *p)
 	return true;
 }
 
-static inline void update_cgroup_boost_settings(void) { }
-static inline void restore_cgroup_boost_settings(void) { }
 #endif
 
 extern int alloc_related_thread_groups(void);
@@ -3156,13 +3133,6 @@ static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
 	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
-
-extern void walt_fixup_sched_stats_fair(struct rq *rq,
-					struct task_struct *p,
-					u16 updated_demand_scaled,
-					u16 updated_pred_demand_scaled);
-extern void walt_fixup_nr_big_tasks(struct rq *rq, struct task_struct *p,
-					int delta, bool inc);
 #else   /* CONFIG_SCHED_WALT */
 
 struct walt_sched_stats;
@@ -3370,3 +3340,9 @@ extern struct task_struct *find_process_by_pid(pid_t pid);
 
 extern void enqueue_task_core(struct rq *rq, struct task_struct *p, int flags);
 extern void dequeue_task_core(struct rq *rq, struct task_struct *p, int flags);
+
+#if defined(CONFIG_SCHED_WALT) && defined(CONFIG_UCLAMP_TASK_GROUP)
+extern void walt_init_sched_boost(struct task_group *tg);
+#else
+static inline void walt_init_sched_boost(struct task_group *tg) {}
+#endif

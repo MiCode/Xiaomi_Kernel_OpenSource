@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -121,20 +121,12 @@ static struct qcom_icc_node *lahaina_epss_l3_nodes[] = {
 	[SLAVE_EPSS_L3_CPU5] = &slv_epss_l3_cpu5,
 	[SLAVE_EPSS_L3_CPU6] = &slv_epss_l3_cpu6,
 	[SLAVE_EPSS_L3_CPU7] = &slv_epss_l3_cpu7,
+	[SLAVE_EPSS_L3_SHARED] = &slv_epss_l3_shared,
 };
 
 static struct qcom_icc_desc lahaina_epss_l3 = {
 	.nodes = lahaina_epss_l3_nodes,
 	.num_nodes = ARRAY_SIZE(lahaina_epss_l3_nodes),
-};
-
-static struct qcom_icc_node *lahaina_epss_l3_shared_nodes[] = {
-	[SLAVE_EPSS_L3_SHARED] = &slv_epss_l3_shared,
-};
-
-static struct qcom_icc_desc lahaina_epss_l3_shared = {
-	.nodes = lahaina_epss_l3_shared_nodes,
-	.num_nodes = ARRAY_SIZE(lahaina_epss_l3_shared_nodes),
 };
 
 static int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
@@ -166,29 +158,6 @@ static int qcom_icc_l3_cpu_set(struct icc_node *src, struct icc_node *dst)
 	}
 
 	writel_relaxed(index, EPSS_L3_VOTE_REG(qp->base, qn->domain, qn->cpu));
-	return 0;
-}
-
-static int qcom_icc_l3_shared_set(struct icc_node *src, struct icc_node *dst)
-{
-	struct qcom_epss_l3_icc_provider *qp;
-	struct icc_provider *provider;
-	struct qcom_icc_node *qn;
-	unsigned int index;
-	u64 rate;
-
-	qn = dst->data;
-	provider = src->provider;
-	qp = to_qcom_provider(provider);
-
-	rate = dst->peak_bw;
-
-	for (index = 0; index < qp->max_state; index++) {
-		if (qp->lut_freqs[index] >= rate)
-			break;
-	}
-
-	writel_relaxed(index, qp->base + REG_PERF_STATE);
 	return 0;
 }
 
@@ -292,8 +261,6 @@ static int qcom_epss_l3_probe(struct platform_device *pdev)
 	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
-	if (!strcmp(compat, "qcom,lahaina-epss-l3-shared"))
-		provider->set = qcom_icc_l3_shared_set;
 
 	ret = icc_provider_add(provider);
 	if (ret) {
@@ -335,8 +302,6 @@ err:
 
 static const struct of_device_id epss_l3_of_match[] = {
 	{ .compatible = "qcom,lahaina-epss-l3-cpu", .data = &lahaina_epss_l3 },
-	{ .compatible = "qcom,lahaina-epss-l3-shared",
-		.data = &lahaina_epss_l3_shared },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, epss_l3_of_match);

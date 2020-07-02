@@ -187,3 +187,11 @@ config SCSI_UFS_CRYPTO
 	  Enabling this makes it possible for the kernel to use the crypto
 	  capabilities of the UFS device (if present) to perform crypto
 	  operations on data being transferred to/from the device.
+
+config SCSI_UFS_CRYPTO_QTI
+	tristate "Vendor specific UFS Crypto Engine Support"
+	depends on SCSI_UFS_CRYPTO
+	help
+	 Enable Vendor Crypto Engine Support in UFS
+	 Enabling this allows kernel to use UFS crypto operations defined
+	 and implemented by QTI.

@@ -14,42 +14,8 @@
 #include <linux/refcount.h>
 #include <media/msm_cvp_private.h>
 #include <media/msm_cvp_vidc.h>
-
-enum smem_prop {
-	SMEM_UNCACHED = 0x1,
-	SMEM_CACHED = 0x2,
-	SMEM_SECURE = 0x4,
-	SMEM_ADSP = 0x8,
-	SMEM_NON_PIXEL = 0x10
-};
-
-struct cvp_dma_mapping_info {
-	struct device *dev;
-	struct iommu_domain *domain;
-	struct sg_table *table;
-	struct dma_buf_attachment *attach;
-	struct dma_buf *buf;
-	void *cb_info;
-};
-
-struct msm_cvp_smem {
-	struct list_head list;
-	atomic_t refcount;
-	struct dma_buf *dma_buf;
-	void *kvaddr;
-	u32 device_addr;
-	dma_addr_t dma_handle;
-	u32 size;
-	u32 flags;
-	u32 ion_flags;
-	struct cvp_dma_mapping_info mapping_info;
-};
-
-enum smem_cache_ops {
-	SMEM_CACHE_CLEAN,
-	SMEM_CACHE_INVALIDATE,
-	SMEM_CACHE_CLEAN_INVALIDATE,
-};
+#include "msm_cvp_buf.h"
+#include "msm_cvp_synx.h"
 
 enum core_id {
 	MSM_CORE_CVP = 0,

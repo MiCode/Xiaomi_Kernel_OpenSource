@@ -109,7 +109,7 @@ struct gmu_core_ops {
 	void (*snapshot)(struct kgsl_device *device);
 	bool (*regulator_isenabled)(struct kgsl_device *device);
 	int (*suspend)(struct kgsl_device *device);
-	int (*acd_set)(struct kgsl_device *device, unsigned int val);
+	int (*acd_set)(struct kgsl_device *device, bool val);
 };
 
 struct gmu_dev_ops {
@@ -135,6 +135,7 @@ struct gmu_dev_ops {
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct kgsl_device *device);
 	bool (*scales_bandwidth)(struct kgsl_device *device);
+	u64 (*read_alwayson)(struct kgsl_device *device);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
 };
@@ -179,7 +180,7 @@ bool gmu_core_scales_bandwidth(struct kgsl_device *device);
 bool gmu_core_isenabled(struct kgsl_device *device);
 int gmu_core_dcvs_set(struct kgsl_device *device, int gpu_pwrlevel,
 		int bus_level);
-int gmu_core_acd_set(struct kgsl_device *device, unsigned int val);
+int gmu_core_acd_set(struct kgsl_device *device, bool val);
 bool gmu_core_regulator_isenabled(struct kgsl_device *device);
 bool gmu_core_is_register_offset(struct kgsl_device *device,
 				unsigned int offsetwords);
@@ -204,7 +205,6 @@ void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
 		const void *buffer, size_t size);
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
-const char *gmu_core_oob_type_str(enum oob_request req);
 int gmu_core_dev_oob_set(struct kgsl_device *device, enum oob_request req);
 void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req);
 int gmu_core_dev_hfi_start_msg(struct kgsl_device *device);
@@ -218,5 +218,6 @@ int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val);
 void gmu_core_dev_prepare_stop(struct kgsl_device *device);
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device);
 void gmu_core_dev_cooperative_reset(struct kgsl_device *device);
+u64 gmu_core_dev_read_alwayson(struct kgsl_device *device);
 
 #endif /* __KGSL_GMU_CORE_H */

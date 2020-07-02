@@ -47,12 +47,12 @@ enum qce_ota_algo_enum {
  * generate the final cipher data stream.
  */
 struct qce_f8_req {
-	uint8_t  *data_in;
-	uint8_t  *data_out;
-	uint16_t  data_len;
-	uint32_t  count_c;
-	uint8_t   bearer;
-	uint8_t   ckey[OTA_KEY_SIZE];
+	__u8  *data_in;
+	__u8  *data_out;
+	__u16  data_len;
+	__u32  count_c;
+	__u8   bearer;
+	__u8   ckey[OTA_KEY_SIZE];
 	enum qce_ota_dir_enum  direction;
 	enum qce_ota_algo_enum algorithm;
 };
@@ -117,9 +117,9 @@ struct qce_f8_req {
  *
  */
 struct qce_f8_multi_pkt_req {
-	uint16_t    num_pkt;
-	uint16_t    cipher_start;
-	uint16_t    cipher_size;
+	__u16    num_pkt;
+	__u16    cipher_start;
+	__u16    cipher_size;
 	struct qce_f8_req qce_f8_req;
 };
 
@@ -193,14 +193,14 @@ struct qce_f8_variable_multi_pkt_req {
  * @algorithm:  Kasumi, or Snow3G.
  */
 struct qce_f9_req {
-	uint8_t   *message;
-	uint16_t   msize;
-	uint8_t    last_bits;
-	uint32_t   mac_i;
-	uint32_t   fresh;
-	uint32_t   count_i;
+	__u8   *message;
+	__u16   msize;
+	__u8    last_bits;
+	__u32   mac_i;
+	__u32   fresh;
+	__u32   count_i;
 	enum qce_ota_dir_enum direction;
-	uint8_t    ikey[OTA_KEY_SIZE];
+	__u8    ikey[OTA_KEY_SIZE];
 	enum qce_ota_algo_enum algorithm;
 };
 

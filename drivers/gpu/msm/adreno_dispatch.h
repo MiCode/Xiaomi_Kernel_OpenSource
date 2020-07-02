@@ -76,6 +76,8 @@ struct adreno_dispatcher {
 	atomic_t fault;
 	/** @jobs - Array of dispatch job lists for each priority level */
 	struct llist_head jobs[16];
+	/** @requeue - Array of lists for dispatch jobs that got requeued */
+	struct llist_head requeue[16];
 	struct kthread_work work;
 	struct kobject kobj;
 	struct completion idle_gate;

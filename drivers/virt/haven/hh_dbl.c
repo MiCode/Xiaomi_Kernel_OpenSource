@@ -34,19 +34,21 @@ struct hh_dbl_cap_table {
 	const char *rx_irq_name;
 	dbl_rx_cb_t rx_callback;
 	void *rx_priv_data;
+	wait_queue_head_t cap_wq;
 };
 
+static bool hh_dbl_initialized;
 static struct hh_dbl_cap_table hh_dbl_cap_table[HH_DBL_LABEL_MAX];
 
 /**
  * hh_dbl_validate_params - Validate doorbell common parameters
  */
 static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
-				  enum hh_dbl_dir dir)
+			enum hh_dbl_dir dir, const unsigned long flags)
 {
 	struct hh_dbl_cap_table *cap_table_entry;
 
-	if (!client_desc)
+	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
@@ -67,23 +69,35 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
 	 * There are no doorbell setup for Tx or Rx
 	 */
 	if (dir == HH_DBL_DIRECTION_RX) {
-		if (!cap_table_entry->rx_cap_id ||
-		    !cap_table_entry->rx_reg_done) {
-			pr_err("%s: label: %d; rx_cap_id: %llu; dir: %d rx_done: %d\n",
-				__func__, client_desc->label,
-				cap_table_entry->rx_cap_id,
-				dir, cap_table_entry->rx_reg_done);
+		if (!cap_table_entry->rx_reg_done)
+			return -EINVAL;
+
+		if (cap_table_entry->rx_cap_id != HH_CAPID_INVAL)
+			return 0;
+
+		if (flags & HH_DBL_NONBLOCK)
 			return -EAGAIN;
-		}
+
+		if (wait_event_interruptible(cap_table_entry->cap_wq,
+				cap_table_entry->rx_cap_id != HH_CAPID_INVAL))
+			return -ERESTARTSYS;
+
+		return 0;
 	} else {
-		if (!cap_table_entry->tx_cap_id ||
-		    !cap_table_entry->tx_reg_done) {
-			pr_err("%s: label: %d; tx_cap_id: %llu; dir: %d tx_done: %d\n",
-				__func__, client_desc->label,
-				cap_table_entry->tx_cap_id,
-				dir, cap_table_entry->tx_reg_done);
+		if (!cap_table_entry->tx_reg_done)
+			return -EINVAL;
+
+		if (cap_table_entry->tx_cap_id != HH_CAPID_INVAL)
+			return 0;
+
+		if (flags & HH_DBL_NONBLOCK)
 			return -EAGAIN;
-		}
+
+		if (wait_event_interruptible(cap_table_entry->cap_wq,
+				cap_table_entry->tx_cap_id != HH_CAPID_INVAL))
+			return -ERESTARTSYS;
+
+		return 0;
 	}
 
 	return 0;
@@ -93,6 +107,8 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
  * hh_dbl_read_and_clean - Automatically read and clear the flags in doorbell
  * @client_desc: client handle to indetify the doorbell object
  * @clear_flags: clear the bits mentioned in the clear_flags
+ * @flags: Optional flags to pass to send the data. For the list of flags,
+ *         see linux/haven/hh_dbl.h
  *
  * Reads and clears the flags of the Doorbell object. If there is a pending
  * bound virtual interrupt, it will be de-asserted
@@ -101,7 +117,8 @@ static int hh_dbl_validate_params(struct hh_dbl_desc *client_desc,
  * 0 on success, @clear_flags contains the doorbell’s previous unmasked flags
  * before the @clear_flags were removed.
  */
-int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags)
+int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags,
+			  const unsigned long flags)
 {
 	struct hh_dbl_cap_table *cap_table_entry;
 	struct hh_hcall_dbl_recv_resp recv_resp;
@@ -111,7 +128,7 @@ int hh_dbl_read_and_clean(void *dbl_client_desc, hh_dbl_flags_t *clear_flags)
 	if (!clear_flags)
 		return -EINVAL;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX);
+	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX, flags);
 	if (ret)
 		return ret;
 
@@ -137,6 +154,8 @@ EXPORT_SYMBOL(hh_dbl_read_and_clean);
  *				 the doorbell's bound virtual interrupt
  * @ack_mask: Controls which flags should be automatically cleared
  *			  when the interrupt is asserted
+ * @flags: Optional flags to pass to send the data. For the list of flags,
+ *         see linux/haven/hh_dbl.h
  *
  * Sets the Doorbell object’s masks. A doorbell object has two masks
  * which are configured by the receiver to control which flags it is
@@ -146,13 +165,13 @@ EXPORT_SYMBOL(hh_dbl_read_and_clean);
  * 0 on success
  */
 int hh_dbl_set_mask(void *dbl_client_desc, hh_dbl_flags_t enable_mask,
-						hh_dbl_flags_t ack_mask)
+		    hh_dbl_flags_t ack_mask, const unsigned long flags)
 {
 	struct hh_dbl_cap_table *cap_table_entry;
 	struct hh_dbl_desc *client_desc = dbl_client_desc;
 	int ret, hh_ret;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX);
+	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX, flags);
 	if (ret)
 		return ret;
 
@@ -176,6 +195,8 @@ EXPORT_SYMBOL(hh_dbl_set_mask);
  * @client_desc: client handle to indetify the doorbell object
  * @newflags: flags to set in the doorbell. This flag along with enable_mask
  *			  in the doorbell decide whehter to raise vIRQ are not.
+ * @flags: Optional flags to pass to send the data. For the list of flags,
+ *         see linux/haven/hh_dbl.h
  *
  * Set flags in the doorbell. If following the send, the set of enabled flags
  * as defined by the bitwise-AND of the doorbell flags with the EnableMask,
@@ -185,7 +206,8 @@ EXPORT_SYMBOL(hh_dbl_set_mask);
  * 0 on success, @newflags contains the doorbell’s previous unmasked flags
  * before the @newflags were added.
  */
-int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
+int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags,
+		unsigned long flags)
 {
 	struct hh_dbl_cap_table *cap_table_entry;
 	struct hh_hcall_dbl_send_resp send_resp;
@@ -195,7 +217,7 @@ int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
 	if (!newflags)
 		return -EINVAL;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_TX);
+	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_TX, flags);
 	if (ret)
 		return ret;
 
@@ -206,7 +228,7 @@ int hh_dbl_send(void *dbl_client_desc, hh_dbl_flags_t *newflags)
 
 	ret = hh_remap_error(hh_ret);
 	if (ret != 0)
-		pr_err("%s: Hypercall failed ret = %d\n", hh_ret);
+		pr_err("%s: Hypercall failed ret = %d\n", __func__, hh_ret);
 	else
 		*newflags = send_resp.old_flags;
 
@@ -218,6 +240,8 @@ EXPORT_SYMBOL(hh_dbl_send);
  * hh_dbl_reset - clear all the flags of the doorbell and sets all bits in
  *				  the Doorbell’s mask.
  * @client_desc: client handle to indetify the doorbell object
+ * @flags: Optional flags to pass to send the data. For the list of flags,
+ *         see linux/haven/hh_dbl.h
  *
  * Clears all the flags of the doorbell and sets all bits in the doorbell’s
  * mask. If there is a pending bound virtual interrupt, it will be de-asserted.
@@ -225,13 +249,13 @@ EXPORT_SYMBOL(hh_dbl_send);
  * Returns:
  * 0 on success
  */
-int hh_dbl_reset(void *dbl_client_desc)
+int hh_dbl_reset(void *dbl_client_desc, const unsigned long flags)
 {
 	struct hh_dbl_cap_table *cap_table_entry;
 	struct hh_dbl_desc *client_desc = dbl_client_desc;
 	int ret, hh_ret;
 
-	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX);
+	ret = hh_dbl_validate_params(client_desc, HH_DBL_DIRECTION_RX, flags);
 	if (ret)
 		return ret;
 
@@ -247,17 +271,14 @@ int hh_dbl_reset(void *dbl_client_desc)
 }
 EXPORT_SYMBOL(hh_dbl_reset);
 
-static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *rx_priv_data)
+static irqreturn_t hh_dbl_rx_callback_thread(int irq, void *data)
 {
-	struct hh_dbl_cap_table *cap_table_entry;
-
-	cap_table_entry = container_of(rx_priv_data,
-				struct hh_dbl_cap_table, rx_priv_data);
+	struct hh_dbl_cap_table *cap_table_entry = data;
 
 	if (!cap_table_entry->rx_callback)
 		return IRQ_HANDLED;
 
-	cap_table_entry->rx_callback(irq, rx_priv_data);
+	cap_table_entry->rx_callback(irq, cap_table_entry->rx_priv_data);
 	return IRQ_HANDLED;
 }
 
@@ -280,6 +301,9 @@ void *hh_dbl_tx_register(enum hh_dbl_label label)
 
 	if (label < 0 || label >= HH_DBL_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
+
+	if (!hh_dbl_initialized)
+		return ERR_PTR(-EPROBE_DEFER);
 
 	cap_table_entry = &hh_dbl_cap_table[label];
 
@@ -341,6 +365,9 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 	if (label < 0 || label >= HH_DBL_LABEL_MAX)
 		return ERR_PTR(-EINVAL);
 
+	if (!hh_dbl_initialized)
+		return ERR_PTR(-EPROBE_DEFER);
+
 	cap_table_entry = &hh_dbl_cap_table[label];
 
 	if (mutex_lock_interruptible(&cap_table_entry->cap_entry_lock))
@@ -367,20 +394,6 @@ void *hh_dbl_rx_register(enum hh_dbl_label label, dbl_rx_cb_t rx_cb, void *priv)
 
 	cap_table_entry->rx_callback = rx_cb;
 	cap_table_entry->rx_priv_data = priv;
-
-	ret = request_threaded_irq(cap_table_entry->rx_irq,
-				   NULL,
-				   hh_dbl_rx_callback_thread,
-				   0,
-				   cap_table_entry->rx_irq_name,
-				   priv);
-
-	if (ret < 0) {
-		pr_err("%s: IRQ registration failed\n", __func__);
-		cap_table_entry->rx_callback = NULL;
-		cap_table_entry->rx_priv_data = NULL;
-		goto err;
-	}
 
 	cap_table_entry->rx_reg_done = 1;
 
@@ -410,7 +423,7 @@ int hh_dbl_tx_unregister(void *dbl_client_desc)
 	struct hh_dbl_desc *client_desc = dbl_client_desc;
 	struct hh_dbl_cap_table *cap_table_entry;
 
-	if (!client_desc)
+	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
@@ -461,7 +474,7 @@ int hh_dbl_rx_unregister(void *dbl_client_desc)
 	struct hh_dbl_desc *client_desc = dbl_client_desc;
 	struct hh_dbl_cap_table *cap_table_entry;
 
-	if (!client_desc)
+	if (IS_ERR_OR_NULL(client_desc))
 		return -EINVAL;
 
 	/* Check if the client has manipulated the label */
@@ -521,15 +534,18 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 	switch (direction) {
 	case HH_DBL_DIRECTION_TX:
 		/* No interrupt should associated with Tx doorbell*/
-		if (rx_irq >= 0) {
+		if (rx_irq > 0) {
 			pr_err("%s: No IRQ associated for Tx doorbell!\n",
 				__func__);
 			ret = -ENXIO;
 			goto err;
 		}
 		cap_table_entry->tx_cap_id = cap_id;
+
+		wake_up_interruptible(&cap_table_entry->cap_wq);
+
 		pr_debug("%s: label: %d; tx_cap_id: %llu; dir: %d; rx_irq: %d\n",
-			label, cap_id, direction, rx_irq);
+			__func__, label, cap_id, direction, rx_irq);
 		break;
 	case HH_DBL_DIRECTION_RX:
 		if (rx_irq <= 0) {
@@ -540,8 +556,23 @@ int hh_dbl_populate_cap_info(enum hh_dbl_label label, u64 cap_id,
 		}
 		cap_table_entry->rx_cap_id = cap_id;
 		cap_table_entry->rx_irq = rx_irq;
+
+		ret = request_threaded_irq(cap_table_entry->rx_irq,
+				   NULL,
+				   hh_dbl_rx_callback_thread,
+				   IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+				   cap_table_entry->rx_irq_name,
+				   cap_table_entry);
+
+		if (ret < 0) {
+			pr_err("%s: IRQ registration failed\n", __func__);
+			goto err;
+		}
+
+		wake_up_interruptible(&cap_table_entry->cap_wq);
+
 		pr_debug("%s: label: %d; rx_cap_id: %llu; dir: %d; rx_irq: %d\n",
-			label, cap_id, direction, rx_irq);
+			__func__, label, cap_id, direction, rx_irq);
 		break;
 	default:
 		pr_err("%s: Invalid direction(%d) for doorbell\n",
@@ -578,12 +609,17 @@ static int __init hh_dbl_init(void)
 	for (i = 0; i < HH_DBL_LABEL_MAX; i++) {
 		entry = &hh_dbl_cap_table[i];
 		mutex_init(&entry->cap_entry_lock);
+		init_waitqueue_head(&entry->cap_wq);
+		entry->tx_cap_id = HH_CAPID_INVAL;
+		entry->rx_cap_id = HH_CAPID_INVAL;
 		entry->rx_irq_name = kasprintf(GFP_KERNEL, "hh_dbl_rx_%d", i);
 		if (!entry->rx_irq_name) {
 			ret = -ENOMEM;
 			goto err;
 		}
 	}
+
+	hh_dbl_initialized = true;
 
 	return 0;
 

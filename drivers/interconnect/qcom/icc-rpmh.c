@@ -6,11 +6,13 @@
 
 #include <asm/div64.h>
 #include <dt-bindings/interconnect/qcom,sdm845.h>
+#include <linux/clk.h>
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
 
 #include "icc-rpmh.h"
 #include "bcm-voter.h"
+#include "qnoc-qos.h"
 
 /**
  * qcom_icc_pre_aggregate - cleans up stale values from prior icc_set
@@ -80,6 +82,7 @@ EXPORT_SYMBOL(qcom_icc_aggregate);
 int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 {
 	struct qcom_icc_provider *qp;
+	struct qcom_icc_node *qn;
 	struct icc_node *node;
 	int i;
 
@@ -89,9 +92,19 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 		node = src;
 
 	qp = to_qcom_provider(node->provider);
+	qn = node->data;
 
 	for (i = 0; i < qp->num_voters; i++)
 		qcom_icc_bcm_voter_commit(qp->voters[i]);
+
+	/* Defer setting QoS until the first non-zero bandwidth request. */
+	if (qn && qn->qosbox && !qn->qosbox->initialized &&
+	    (node->avg_bw || node->peak_bw)) {
+		clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+		qn->noc_ops->set_qos(qn);
+		clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
+		qn->qosbox->initialized = true;
+	}
 
 	return 0;
 }
@@ -136,6 +149,9 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 	bcm->aux_data.reserved = data->reserved;
 	INIT_LIST_HEAD(&bcm->list);
 	INIT_LIST_HEAD(&bcm->ws_list);
+
+	if (!bcm->vote_scale)
+		bcm->vote_scale = 1000;
 
 	/*
 	 * Link Qnodes to their respective BCMs

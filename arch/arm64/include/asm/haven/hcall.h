@@ -31,14 +31,21 @@ static inline int _hh_hcall(const hh_hcall_fnid_t hcall_num,
 	register uint64_t _x7 asm("x7") = args.arg7;
 
 	asm volatile (
+#if IS_ENABLED(CONFIG_SHADOW_CALL_STACK)
 		"str	x18, [%[_x18]]\n"
+#endif
 		"hvc	%[num]\n"
+#if IS_ENABLED(CONFIG_SHADOW_CALL_STACK)
 		"ldr	x18, [%[_x18]]\n"
 		"str	xzr, [%[_x18]]\n"
+#endif
 		: "+r"(_x0), "+r"(_x1), "+r"(_x2), "+r"(_x3), "+r"(_x4),
 		  "+r"(_x5), "+r"(_x6), "+r"(_x7)
 		: [num] "i" (hcall_num), [_x18] "r"(&_x18)
 		: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17",
+#if !IS_ENABLED(CONFIG_SHADOW_CALL_STACK)
+		  "x18",
+#endif
 		  "memory"
 		);
 

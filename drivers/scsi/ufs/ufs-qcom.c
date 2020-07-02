@@ -6,6 +6,7 @@
 #include <linux/acpi.h>
 #include <linux/time.h>
 #include <linux/of.h>
+#include <linux/bitfield.h>
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>
 #include <linux/gpio/consumer.h>
@@ -19,6 +20,8 @@
 #include "ufs-qcom.h"
 #include "ufshci.h"
 #include "ufs_quirks.h"
+#include "ufshcd-crypto-qti.h"
+
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
@@ -71,6 +74,7 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host);
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(struct ufs_hba *hba);
+static int ufs_qcom_init_sysfs(struct ufs_hba *hba);
 
 static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 				      struct ufs_pa_layer_attr *dev_max,
@@ -1422,6 +1426,20 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		if (!ufshcd_is_hs_mode(&hba->pwr_info) &&
 			ufshcd_is_hs_mode(dev_req_params))
 			ufs_qcom_dev_ref_clk_ctrl(host, true);
+
+		if (host->hw_ver.major >= 0x4) {
+			if (dev_req_params->gear_tx == UFS_HS_G4) {
+				/* INITIAL ADAPT */
+				ufshcd_dme_set(hba,
+					       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+					       PA_INITIAL_ADAPT);
+			} else {
+				/* NO ADAPT */
+				ufshcd_dme_set(hba,
+					       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
+					       PA_NO_ADAPT);
+			}
+		}
 		break;
 	case POST_CHANGE:
 		if (ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
@@ -1478,10 +1496,24 @@ out:
 
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
+	unsigned long flags;
 	int err = 0;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	/* Set the rpm auto suspend delay to 3s */
+	hba->host->hostt->rpm_autosuspend_delay = UFS_QCOM_AUTO_SUSPEND_DELAY;
+	/* Set the default auto-hiberate idle timer value to 1ms */
+	hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 1) |
+		    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+	/* Set the clock gating delay to performance mode */
+	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME)
 		err = ufs_qcom_quirk_host_pa_saveconfigtime(hba);
+
+	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_WDC)
+		hba->dev_quirks |= UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE;
 
 	return err;
 }
@@ -1547,7 +1579,8 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-			UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+			UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
+			UFSHCD_CAP_RPM_AUTOSUSPEND;
 	}
 
 	if (host->hw_ver.major >= 0x2) {
@@ -2127,6 +2160,12 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		goto out_variant_clear;
 	}
 
+	/*
+	 * Set the vendor specific ops needed for ICE.
+	 * Default implementation if the ops are not set.
+	 */
+	ufshcd_crypto_qti_set_vops(hba);
+
 	err = ufs_qcom_bus_register(host);
 	if (err)
 		goto out_variant_clear;
@@ -2224,6 +2263,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 				__func__, err);
 		err = 0;
 	}
+
+	ufs_qcom_init_sysfs(hba);
 
 	/* Provide SCSI host ioctl API */
 	hba->host->hostt->ioctl = (int (*)(struct scsi_device *, unsigned int,
@@ -2343,6 +2384,12 @@ out:
 
 static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 	return 0;
 }
 
@@ -2379,6 +2426,11 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 	struct ufs_clk_info *clki;
 	struct list_head *head = &hba->clk_list_head;
 	u32 curr_freq = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PWR_SAVE;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
@@ -2693,6 +2745,11 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+
+	host->err_occurred = true;
+
 	ufshcd_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16 * 4,
 			 "HCI Vendor Specific Registers ");
 
@@ -2705,6 +2762,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	usleep_range(1000, 1100);
 	ufs_qcom_print_utp_hci_testbus(hba);
 	usleep_range(1000, 1100);
+	ufs_qcom_phy_dbg_register_dump(phy);
 }
 
 /*
@@ -2792,6 +2850,69 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 	.device_reset		= ufs_qcom_device_reset,
 };
+
+/**
+ * QCOM specific sysfs group and nodes
+ */
+static ssize_t err_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->err_occurred);
+}
+
+static DEVICE_ATTR_RO(err_state);
+
+static ssize_t power_mode_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	static const char * const names[] = {
+		"INVALID MODE",
+		"FAST MODE",
+		"SLOW MODE",
+		"INVALID MODE",
+		"FASTAUTO MODE",
+		"SLOWAUTO MODE",
+		"INVALID MODE",
+	};
+
+	/* Print current power info */
+	return scnprintf(buf, PAGE_SIZE,
+		"[Rx,Tx]: Gear[%d,%d], Lane[%d,%d], PWR[%s,%s], Rate-%c\n",
+		hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
+		hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
+		names[hba->pwr_info.pwr_rx],
+		names[hba->pwr_info.pwr_tx],
+		hba->pwr_info.hs_rate == PA_HS_MODE_B ? 'B' : 'A');
+}
+
+static DEVICE_ATTR_RO(power_mode);
+
+static struct attribute *ufs_qcom_sysfs_attrs[] = {
+	&dev_attr_err_state.attr,
+	&dev_attr_power_mode.attr,
+	NULL
+};
+
+static const struct attribute_group ufs_qcom_sysfs_group = {
+	.name = "qcom",
+	.attrs = ufs_qcom_sysfs_attrs,
+};
+
+static int ufs_qcom_init_sysfs(struct ufs_hba *hba)
+{
+	int ret;
+
+	ret = sysfs_create_group(&hba->dev->kobj, &ufs_qcom_sysfs_group);
+	if (ret)
+		dev_err(hba->dev, "%s: Failed to create qcom sysfs group (err = %d)\n",
+				 __func__, ret);
+
+	return ret;
+}
 
 /**
  * ufs_qcom_probe - probe routine of the driver

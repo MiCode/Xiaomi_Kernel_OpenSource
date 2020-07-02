@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -457,6 +457,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"usb3_phy_wrapper_gcc_usb30_pipe_clk",
 	"usb3_uni_phy_sec_gcc_usb30_pipe_clk",
 	"video_cc_debug_mux",
+	"mc_cc_debug_mux",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -593,6 +594,7 @@ static int gcc_debug_mux_sels[] = {
 	0x7C,		/* usb3_phy_wrapper_gcc_usb30_pipe_clk */
 	0x7D,		/* usb3_uni_phy_sec_gcc_usb30_pipe_clk */
 	0x5A,		/* video_cc_debug_mux */
+	0xD3,		/* mc_cc_debug_mux or ddrss_gcc_debug_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {

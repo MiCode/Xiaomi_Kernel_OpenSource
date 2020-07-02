@@ -108,17 +108,6 @@ struct snd_soc_component_driver {
 		    struct snd_pcm_substream *substream,
 		    struct vm_area_struct *vma);
 
-#ifdef CONFIG_AUDIO_QGKI
-	/*
-	 * For platform-caused delay reporting, where the thread blocks waiting
-	 * for the delay amount to be determined.  Defining this will cause the
-	 * ASoC core to skip calling the delay callbacks for all components in
-	 * the runtime.
-	 * Optional.
-	 */
-	snd_pcm_sframes_t (*delay_blk)(struct snd_pcm_substream *substream,
-			struct snd_soc_dai *dai);
-#endif
 	const struct snd_compr_ops *compr_ops;
 
 	/* probe ordering - for components with runtime dependencies */

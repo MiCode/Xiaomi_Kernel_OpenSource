@@ -336,7 +336,6 @@ struct se_geni_rsc {
 #define RX_GENI_GP_IRQ_EXT	(GENMASK(13, 12))
 
 #define DEFAULT_BUS_WIDTH	(4)
-#define DEFAULT_SE_CLK		(19200000)
 
 /* GSI TRE fields */
 /* Packing fields */
@@ -366,6 +365,13 @@ if (print) { \
 } \
 } while (0)
 
+/* In KHz */
+#define DEFAULT_SE_CLK  19200
+#define I2C_CORE2X_VOTE	19200
+#define I3C_CORE2X_VOTE	19200
+#define SPI_CORE2X_VOTE	100000
+#define UART_CORE2X_VOTE	100000
+#define UART_CONSOLE_CORE2X_VOTE	19200
 
 #if IS_ENABLED(CONFIG_MSM_GENI_SE)
 /**

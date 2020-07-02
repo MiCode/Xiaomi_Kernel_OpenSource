@@ -239,6 +239,9 @@ void bio_uninit(struct bio *bio)
 		bio_integrity_free(bio);
 
 	bio_crypt_free_ctx(bio);
+
+	if (bio_integrity(bio))
+		bio_integrity_free(bio);
 }
 EXPORT_SYMBOL(bio_uninit);
 

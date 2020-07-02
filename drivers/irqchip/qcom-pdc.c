@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/err.h>
@@ -538,3 +538,4 @@ fail:
 
 IRQCHIP_DECLARE(qcom_pdc, "qcom,pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_lahaina, "qcom,lahaina-pdc", qcom_pdc_init);
+IRQCHIP_DECLARE(pdc_shima, "qcom,shima-pdc", qcom_pdc_init);

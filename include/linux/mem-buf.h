@@ -6,6 +6,8 @@
 #ifndef _MEM_BUF_H
 #define _MEM_BUF_H
 
+#include <linux/err.h>
+#include <linux/errno.h>
 #include <uapi/linux/mem-buf.h>
 
 /**

@@ -8,6 +8,7 @@
 #include <linux/of.h>
 #include <linux/bitfield.h>
 #include <linux/blkdev.h>
+#include <linux/blk-pm.h>
 #include <linux/suspend.h>
 #include <linux/devfreq.h>
 #include <linux/pinctrl/consumer.h>
@@ -2715,7 +2716,7 @@ int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
  */
 static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
-	struct ufshcd_sg_entry *prd_table;
+	struct ufshcd_sg_entry *prd;
 	struct scatterlist *sg;
 	struct scsi_cmnd *cmd;
 	int sg_segments;
@@ -2730,21 +2731,22 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		if (hba->quirks & UFSHCD_QUIRK_PRDT_BYTE_GRAN)
 			lrbp->utr_descriptor_ptr->prd_table_length =
 				cpu_to_le16((u16)(sg_segments *
-					sizeof(struct ufshcd_sg_entry)));
+						  hba->sg_entry_size));
 		else
 			lrbp->utr_descriptor_ptr->prd_table_length =
 				cpu_to_le16((u16) (sg_segments));
 
-		prd_table = (struct ufshcd_sg_entry *)lrbp->ucd_prdt_ptr;
+		prd = (struct ufshcd_sg_entry *)lrbp->ucd_prdt_ptr;
 
 		scsi_for_each_sg(cmd, sg, sg_segments, i) {
-			prd_table[i].size  =
+			prd->size =
 				cpu_to_le32(((u32) sg_dma_len(sg))-1);
-			prd_table[i].base_addr =
+			prd->base_addr =
 				cpu_to_le32(lower_32_bits(sg->dma_address));
-			prd_table[i].upper_addr =
+			prd->upper_addr =
 				cpu_to_le32(upper_32_bits(sg->dma_address));
-			prd_table[i].reserved = 0;
+			prd->reserved = 0;
+			prd = (void *)prd + hba->sg_entry_size;
 		}
 	} else {
 		lrbp->utr_descriptor_ptr->prd_table_length = 0;
@@ -4150,7 +4152,7 @@ static int ufshcd_memory_alloc(struct ufs_hba *hba)
 	size_t utmrdl_size, utrdl_size, ucdl_size;
 
 	/* Allocate memory for UTP command descriptors */
-	ucdl_size = (sizeof(struct utp_transfer_cmd_desc) * hba->nutrs);
+	ucdl_size = (sizeof_utp_transfer_cmd_desc(hba) * hba->nutrs);
 	hba->ucdl_base_addr = dmam_alloc_coherent(hba->dev,
 						  ucdl_size,
 						  &hba->ucdl_dma_addr,
@@ -4246,7 +4248,7 @@ static void ufshcd_host_memory_configure(struct ufs_hba *hba)
 	prdt_offset =
 		offsetof(struct utp_transfer_cmd_desc, prd_table);
 
-	cmd_desc_size = sizeof(struct utp_transfer_cmd_desc);
+	cmd_desc_size = sizeof_utp_transfer_cmd_desc(hba);
 	cmd_desc_dma_addr = hba->ucdl_dma_addr;
 
 	for (i = 0; i < hba->nutrs; i++) {
@@ -4278,17 +4280,17 @@ static void ufshcd_host_memory_configure(struct ufs_hba *hba)
 		hba->lrb[i].utr_descriptor_ptr = (utrdlp + i);
 		hba->lrb[i].utrd_dma_addr = hba->utrdl_dma_addr +
 				(i * sizeof(struct utp_transfer_req_desc));
-		hba->lrb[i].ucd_req_ptr =
-			(struct utp_upiu_req *)(cmd_descp + i);
+		hba->lrb[i].ucd_req_ptr = (struct utp_upiu_req *)cmd_descp;
 		hba->lrb[i].ucd_req_dma_addr = cmd_desc_element_addr;
 		hba->lrb[i].ucd_rsp_ptr =
-			(struct utp_upiu_rsp *)cmd_descp[i].response_upiu;
+			(struct utp_upiu_rsp *)cmd_descp->response_upiu;
 		hba->lrb[i].ucd_rsp_dma_addr = cmd_desc_element_addr +
 				response_offset;
 		hba->lrb[i].ucd_prdt_ptr =
-			(struct ufshcd_sg_entry *)cmd_descp[i].prd_table;
+			(struct ufshcd_sg_entry *)cmd_descp->prd_table;
 		hba->lrb[i].ucd_prdt_dma_addr = cmd_desc_element_addr +
 				prdt_offset;
+		cmd_descp = (void *)cmd_descp + cmd_desc_size;
 	}
 }
 
@@ -4826,7 +4828,25 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 	return ret;
 }
 
-static void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
+void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit)
+{
+	unsigned long flags;
+
+	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT))
+		return;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->ahit == ahit)
+		goto out_unlock;
+	hba->ahit = ahit;
+	if (!pm_runtime_suspended(hba->dev))
+		ufshcd_writel(hba, hba->ahit, REG_AUTO_HIBERNATE_IDLE_TIMER);
+out_unlock:
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+}
+EXPORT_SYMBOL_GPL(ufshcd_auto_hibern8_update);
+
+void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
@@ -5126,7 +5146,7 @@ out:
  *
  * Returns 0 on success, non-zero value on failure
  */
-static int ufshcd_make_hba_operational(struct ufs_hba *hba)
+int ufshcd_make_hba_operational(struct ufs_hba *hba)
 {
 	int err = 0;
 	u32 reg;
@@ -5256,7 +5276,7 @@ static int ufshcd_hba_execute_hce(struct ufs_hba *hba)
 	return 0;
 }
 
-static int ufshcd_hba_enable(struct ufs_hba *hba)
+int ufshcd_hba_enable(struct ufs_hba *hba)
 {
 	int ret;
 
@@ -5321,6 +5341,12 @@ static inline int ufshcd_disable_device_tx_lcc(struct ufs_hba *hba)
 {
 	return ufshcd_disable_tx_lcc(hba, true);
 }
+
+void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
+			    u32 reg)
+{
+}
+EXPORT_SYMBOL_GPL(ufshcd_update_reg_hist);
 
 /**
  * ufshcd_link_startup - Initialize unipro link startup
@@ -7651,14 +7677,13 @@ out:
 	kfree(desc_buf);
 }
 
-static int ufshcd_set_low_vcc_level(struct ufs_hba *hba,
-					struct ufs_dev_desc *dev_desc)
+static int ufshcd_set_low_vcc_level(struct ufs_hba *hba)
 {
 	int ret;
 	struct ufs_vreg *vreg = hba->vreg_info.vcc;
 
 	/* Check if device supports the low voltage VCC feature */
-	if (dev_desc->wspecversion < 0x300)
+	if (hba->dev_info.spec_version < 0x300)
 		return 0;
 
 	/*
@@ -7684,6 +7709,16 @@ static int ufshcd_set_low_vcc_level(struct ufs_hba *hba,
 	ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
 
 	return ret;
+}
+
+static inline void ufshcd_blk_pm_runtime_init(struct scsi_device *sdev)
+{
+	scsi_autopm_get_device(sdev);
+	blk_pm_runtime_init(sdev->request_queue, &sdev->sdev_gendev);
+	if (sdev->rpm_autosuspend)
+		pm_runtime_set_autosuspend_delay(&sdev->sdev_gendev,
+						 UFSHCD_AUTO_SUSPEND_DELAY_MS);
+	scsi_autopm_put_device(sdev);
 }
 
 /**
@@ -7725,6 +7760,7 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 		hba->sdev_ufs_device = NULL;
 		goto out;
 	}
+	ufshcd_blk_pm_runtime_init(hba->sdev_ufs_device);
 	scsi_device_put(hba->sdev_ufs_device);
 
 	sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
@@ -7733,14 +7769,17 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 		ret = PTR_ERR(sdev_rpmb);
 		goto remove_sdev_ufs_device;
 	}
+	ufshcd_blk_pm_runtime_init(sdev_rpmb);
 	scsi_device_put(sdev_rpmb);
 
 	sdev_boot = __scsi_add_device(hba->host, 0, 0,
 		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_BOOT_WLUN), NULL);
-	if (IS_ERR(sdev_boot))
+	if (IS_ERR(sdev_boot)) {
 		dev_err(hba->dev, "%s: BOOT WLUN not found\n", __func__);
-	else
+	} else {
+		ufshcd_blk_pm_runtime_init(sdev_boot);
 		scsi_device_put(sdev_boot);
+	}
 	goto out;
 
 remove_sdev_ufs_device:
@@ -7749,13 +7788,13 @@ out:
 	return ret;
 }
 
-static int ufs_get_device_desc(struct ufs_hba *hba,
-			       struct ufs_dev_desc *dev_desc)
+static int ufs_get_device_desc(struct ufs_hba *hba)
 {
 	int err;
 	size_t buff_len;
 	u8 model_index;
 	u8 *desc_buf;
+	struct ufs_dev_info *dev_info = &hba->dev_info;
 
 	buff_len = max_t(size_t, hba->desc_size.dev_desc,
 			 QUERY_DESC_MAX_SIZE + 1);
@@ -7774,16 +7813,19 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	 * getting vendor (manufacturerID) and Bank Index in big endian
 	 * format
 	 */
-	dev_desc->wmanufacturerid = desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
+	dev_info->wmanufacturerid = desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
 				     desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
 
-	dev_desc->wspecversion = desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
+	dev_info->spec_version = desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
 				  desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
+	dev_info->b_device_sub_class =
+		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
+	dev_info->i_product_name = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
 
 	model_index = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
 
 
-	err = ufshcd_read_string_desc(hba, model_index, &dev_desc->model,
+	err = ufshcd_read_string_desc(hba, model_index, &dev_info->model,
 				      true/*ASCII*/);
 	if (err < 0) {
 		dev_err(hba->dev, "%s: Failed reading Product Name. err = %d\n",
@@ -7802,16 +7844,25 @@ out:
 	return err;
 }
 
-static void ufs_fixup_device_setup(struct ufs_hba *hba,
-				   struct ufs_dev_desc *dev_desc)
+static void ufs_put_device_desc(struct ufs_hba *hba)
+{
+	struct ufs_dev_info *dev_info = &hba->dev_info;
+
+	kfree(dev_info->model);
+	dev_info->model = NULL;
+}
+
+static void ufs_fixup_device_setup(struct ufs_hba *hba)
 {
 	struct ufs_dev_fix *f;
+	struct ufs_dev_info *dev_info = &hba->dev_info;
 
 	for (f = ufs_fixups; f->quirk; f++) {
-		if ((f->card.wmanufacturerid == dev_desc->wmanufacturerid ||
-		     f->card.wmanufacturerid == UFS_ANY_VENDOR) &&
-		    (STR_PRFX_EQUAL(f->card.model, dev_desc->model) ||
-		     !strcmp(f->card.model, UFS_ANY_MODEL)))
+		if ((f->wmanufacturerid == dev_info->wmanufacturerid ||
+		     f->wmanufacturerid == UFS_ANY_VENDOR) &&
+		     ((dev_info->model &&
+		       STR_PRFX_EQUAL(f->model, dev_info->model)) ||
+		      !strcmp(f->model, UFS_ANY_MODEL)))
 			hba->dev_quirks |= f->quirk;
 	}
 }
@@ -7973,14 +8024,14 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 		ufshcd_tune_pa_hibern8time(hba);
 	}
 
+	ufshcd_vops_apply_dev_quirks(hba);
+
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
 		/* set 1ms timeout for PA_TACTIVATE */
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE)
 		ufshcd_quirk_tune_host_pa_tactivate(hba);
-
-	ufshcd_vops_apply_dev_quirks(hba);
 }
 
 static void ufshcd_clear_dbg_ufs_stats(struct ufs_hba *hba)
@@ -8126,13 +8177,12 @@ out:
 	return err;
 }
 
-static int ufshcd_get_dev_ref_clk_gating_wait(struct ufs_hba *hba,
-					struct ufs_dev_desc *dev_desc)
+static int ufshcd_get_dev_ref_clk_gating_wait(struct ufs_hba *hba)
 {
 	int err = 0;
 	u32 gating_wait = UFSHCD_REF_CLK_GATING_WAIT_US;
 
-	if (dev_desc->wspecversion >= 0x300) {
+	if (hba->dev_info.spec_version >= 0x300) {
 		err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 				QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME, 0, 0,
 				&gating_wait);
@@ -8146,41 +8196,10 @@ static int ufshcd_get_dev_ref_clk_gating_wait(struct ufs_hba *hba,
 			dev_err(hba->dev, "undefined ref clk gating wait time, use default %uus\n",
 					gating_wait);
 		}
+
+		hba->dev_ref_clk_gating_wait = gating_wait;
 	}
 
-	hba->dev_ref_clk_gating_wait = gating_wait;
-	return err;
-}
-
-static int ufs_read_device_desc_data(struct ufs_hba *hba)
-{
-	int err;
-	u8 *desc_buf = NULL;
-
-	if (hba->desc_size.dev_desc) {
-		desc_buf = kmalloc(hba->desc_size.dev_desc, GFP_KERNEL);
-		if (!desc_buf)
-			return -ENOMEM;
-	}
-	err = ufshcd_read_device_desc(hba, desc_buf, hba->desc_size.dev_desc);
-	if (err)
-		goto out;
-
-	/*
-	 * getting vendor (manufacturerID) and Bank Index in big endian
-	 * format
-	 */
-	hba->dev_info.w_manufacturer_id =
-		desc_buf[DEVICE_DESC_PARAM_MANF_ID] << 8 |
-		desc_buf[DEVICE_DESC_PARAM_MANF_ID + 1];
-	hba->dev_info.b_device_sub_class =
-		desc_buf[DEVICE_DESC_PARAM_DEVICE_SUB_CLASS];
-	hba->dev_info.i_product_name = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
-	hba->dev_info.w_spec_version =
-		desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
-		desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
-out:
-	kfree(desc_buf);
 	return err;
 }
 
@@ -8192,7 +8211,6 @@ out:
  */
 static int ufshcd_probe_hba(struct ufs_hba *hba)
 {
-	struct ufs_dev_desc card = {0};
 	int ret;
 	ktime_t start = ktime_get();
 
@@ -8222,26 +8240,21 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	/* clear any previous UFS device information */
 	memset(&hba->dev_info, 0, sizeof(hba->dev_info));
 
-	/* cache important parameters from device descriptor for later use */
-	ret = ufs_read_device_desc_data(hba);
-	if (ret)
-		goto out;
-
 	/* Init check for device descriptor sizes */
 	ufshcd_init_desc_sizes(hba);
 
-	ret = ufs_get_device_desc(hba, &card);
+	ret = ufs_get_device_desc(hba);
 	if (ret) {
 		dev_err(hba->dev, "%s: Failed getting device info. err = %d\n",
 			__func__, ret);
 		goto out;
 	}
 
-	ufs_fixup_device_setup(hba, &card);
+	ufs_fixup_device_setup(hba);
 	ufshcd_tune_unipro_params(hba);
 
 	ufshcd_apply_pm_quirks(hba);
-	if (card.wspecversion < 0x300) {
+	if (hba->dev_info.spec_version < 0x300) {
 		ret = ufshcd_set_vccq_rail_unused(hba,
 			(hba->dev_quirks & UFS_DEVICE_NO_VCCQ) ?
 			true : false);
@@ -8257,9 +8270,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	 * during system suspend events. This will cause the UFS
 	 * device to re-initialize upon system resume events.
 	 */
-	if ((hba->dev_info.w_spec_version >= 0x300 && hba->vreg_info.vccq &&
+	if ((hba->dev_info.spec_version >= 0x300 && hba->vreg_info.vccq &&
 		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
-		(hba->dev_info.w_spec_version < 0x300 && hba->vreg_info.vccq2 &&
+		(hba->dev_info.spec_version < 0x300 && hba->vreg_info.vccq2 &&
 		hba->vreg_info.vccq2->sys_suspend_pwr_off))
 		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 				UFS_POWERDOWN_PWR_MODE,
@@ -8274,7 +8287,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			"%s: Failed getting max supported power mode\n",
 			__func__);
 	} else {
-		ufshcd_get_dev_ref_clk_gating_wait(hba, &card);
+		ufshcd_get_dev_ref_clk_gating_wait(hba);
 
 		/*
 		 * Set the right value to bRefClkFreq before attempting to
@@ -8316,7 +8329,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			goto out;
 
 		/* lower VCC voltage level */
-		ufshcd_set_low_vcc_level(hba, &card);
+		ufshcd_set_low_vcc_level(hba);
 
 		/* Initialize devfreq after UFS device is detected */
 		if (ufshcd_is_clkscaling_supported(hba)) {
@@ -8911,6 +8924,7 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 		ufshcd_disable_clocks(hba, false);
 		ufshcd_setup_hba_vreg(hba, false);
 		hba->is_powered = false;
+		ufs_put_device_desc(hba);
 	}
 }
 
@@ -9095,14 +9109,14 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
 		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
-		if (hba->dev_info.w_spec_version >= 0x300 &&
+		if (hba->dev_info.spec_version >= 0x300 &&
 			hba->vreg_info.vccq->sys_suspend_pwr_off)
 			ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq, false);
 		else
 			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
 
-		if (hba->dev_info.w_spec_version < 0x300 &&
+		if (hba->dev_info.spec_version < 0x300 &&
 			hba->vreg_info.vccq2->sys_suspend_pwr_off)
 			ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq2, false);
@@ -9123,7 +9137,7 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 		!hba->dev_info.is_lu_power_on_wp) {
-		if (hba->dev_info.w_spec_version < 0x300 &&
+		if (hba->dev_info.spec_version < 0x300 &&
 			hba->vreg_info.vccq2->sys_suspend_pwr_off)
 			ret = ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq2, true);
@@ -9132,7 +9146,7 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 		if (ret)
 			goto vcc_disable;
 
-		if (hba->dev_info.w_spec_version >= 0x300 &&
+		if (hba->dev_info.spec_version >= 0x300 &&
 			hba->vreg_info.vccq->sys_suspend_pwr_off)
 			ret = ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq, true);
@@ -9781,6 +9795,7 @@ int ufshcd_alloc_host(struct device *dev, struct ufs_hba **hba_handle)
 	hba->host = host;
 	hba->dev = dev;
 	*hba_handle = hba;
+	hba->sg_entry_size = sizeof(struct ufshcd_sg_entry);
 
 	INIT_LIST_HEAD(&hba->clk_list_head);
 

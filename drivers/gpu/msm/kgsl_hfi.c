@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
+#include <linux/nvmem-consumer.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
@@ -265,7 +266,12 @@ static int poll_adreno_gmu_reg(struct adreno_device *adreno_dev,
 	unsigned int mask, unsigned int timeout_ms)
 {
 	unsigned int val;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
+	u64 ao_pre_poll, ao_post_poll;
+
+	ao_pre_poll = gmu_core_dev_read_alwayson(device);
 
 	while (time_is_after_jiffies(timeout)) {
 		adreno_read_gmureg(adreno_dev, offset_name, &val);
@@ -274,10 +280,15 @@ static int poll_adreno_gmu_reg(struct adreno_device *adreno_dev,
 		usleep_range(10, 100);
 	}
 
+	ao_post_poll = gmu_core_dev_read_alwayson(device);
+
 	/* Check one last time */
 	adreno_read_gmureg(adreno_dev, offset_name, &val);
 	if ((val & mask) == expected_val)
 		return 0;
+
+	dev_err(&gmu->pdev->dev, "kgsl hfi poll timeout: always on: %lld ms\n",
+		div_u64((ao_post_poll - ao_pre_poll) * 52, USEC_PER_SEC));
 
 	return -ETIMEDOUT;
 }
@@ -647,16 +658,21 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 static int hfi_send_lm_feature_ctrl(struct gmu_device *gmu,
 		struct adreno_device *adreno_dev)
 {
-	struct hfi_set_value_cmd req = {
-		.type = HFI_VALUE_LM_CS0,
-		.subtype = 0,
-		.data = adreno_dev->lm_slope,
-	};
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct hfi_set_value_cmd req;
+	u32 slope = 0;
 	int ret;
 
-	if (!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return 0;
+
+	memset(&req, 0, sizeof(req));
+
+	nvmem_cell_read_u32(&device->pdev->dev, "isense_slope", &slope);
+
+	req.type = HFI_VALUE_LM_CS0;
+	req.subtype = 0;
+	req.data = slope;
 
 	ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
 			device->pwrctrl.throttle_mask);
@@ -672,7 +688,7 @@ static int hfi_send_acd_feature_ctrl(struct gmu_device *gmu,
 {
 	int ret = 0;
 
-	if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag)) {
+	if (adreno_dev->acd_enabled) {
 		ret = hfi_send_acd_tbl(gmu);
 		if (!ret)
 			ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_ACD, 1, 0);
@@ -843,7 +859,6 @@ irqreturn_t hfi_irq_handler(int irq, void *data)
 	struct kgsl_device *device = data;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct kgsl_hfi *hfi = &gmu->hfi;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
 	adreno_read_gmureg(ADRENO_DEVICE(device),
@@ -856,8 +871,10 @@ irqreturn_t hfi_irq_handler(int irq, void *data)
 	if (status & HFI_IRQ_CM3_FAULT_MASK) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(device);
+		atomic_set(&gmu->cm3_fault, 1);
+
+		/* make sure other CPUs see the update */
+		smp_wmb();
 	}
 	if (status & ~HFI_IRQ_MASK)
 		dev_err_ratelimited(&gmu->pdev->dev,

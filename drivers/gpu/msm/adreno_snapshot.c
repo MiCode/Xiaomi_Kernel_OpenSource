@@ -837,17 +837,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
 
-	if (gmu_core_dev_gx_is_on(device)) {
-		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
-				ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ,
-				&snapshot->ib1size);
-		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB2_BASE,
-				ADRENO_REG_CP_IB2_BASE_HI, &snapshot->ib2base);
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ,
-				&snapshot->ib2size);
-	}
-
 	snapshot->ib1dumped = false;
 	snapshot->ib2dumped = false;
 

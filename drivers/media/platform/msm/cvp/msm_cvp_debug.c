@@ -11,7 +11,7 @@
 
 #define CREATE_TRACE_POINTS
 #define MAX_SSR_STRING_LEN 10
-int msm_cvp_debug = CVP_ERR | CVP_WARN | CVP_FW | CVP_DBG;
+int msm_cvp_debug = CVP_ERR | CVP_WARN | CVP_FW;
 EXPORT_SYMBOL(msm_cvp_debug);
 
 int msm_cvp_debug_out = CVP_OUT_PRINTK;
@@ -22,6 +22,7 @@ int msm_cvp_fw_debug_mode = 1;
 int msm_cvp_fw_low_power_mode = 1;
 bool msm_cvp_fw_coverage = !true;
 bool msm_cvp_thermal_mitigation_disabled = !true;
+bool msm_cvp_cacheop_enabled = true;
 int msm_cvp_clock_voting = !1;
 bool msm_cvp_syscache_disable = !true;
 bool msm_cvp_dsp_disable = !true;
@@ -258,6 +259,8 @@ struct dentry *msm_cvp_debugfs_init_drv(void)
 	__debugfs_create(u32, "debug_output", &msm_cvp_debug_out) &&
 	__debugfs_create(bool, "disable_thermal_mitigation",
 			&msm_cvp_thermal_mitigation_disabled) &&
+	__debugfs_create(bool, "enable_cacheop",
+			&msm_cvp_cacheop_enabled) &&
 	__debugfs_create(bool, "disable_cvp_syscache",
 			&msm_cvp_syscache_disable);
 
@@ -346,7 +349,8 @@ struct dentry *msm_cvp_debugfs_init_core(struct msm_cvp_core *core,
 
 	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "core%d", core->id);
 	dir = debugfs_create_dir(debugfs_name, parent);
-	if (!dir) {
+	if (IS_ERR_OR_NULL(dir)) {
+		dir = NULL;
 		dprintk(CVP_ERR, "Failed to create debugfs for msm_cvp\n");
 		goto failed_create_dir;
 	}
@@ -379,7 +383,7 @@ static int inst_info_open(struct inode *inode, struct file *file)
 static int publish_unreleased_reference(struct msm_cvp_inst *inst,
 		char **dbuf, char *end)
 {
-	dprintk(CVP_DBG, "%s deprecated function\n", __func__);
+	dprintk(CVP_SESS, "%s deprecated function\n", __func__);
 	return 0;
 }
 
@@ -492,7 +496,8 @@ struct dentry *msm_cvp_debugfs_init_inst(struct msm_cvp_inst *inst,
 	idata->inst = inst;
 
 	dir = debugfs_create_dir(debugfs_name, parent);
-	if (!dir) {
+	if (IS_ERR_OR_NULL(dir)) {
+		dir = NULL;
 		dprintk(CVP_ERR, "Failed to create debugfs for msm_cvp\n");
 		goto failed_create_dir;
 	}

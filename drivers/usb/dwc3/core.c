@@ -1125,6 +1125,19 @@ int dwc3_core_init(struct dwc3 *dwc)
 		}
 	}
 
+	if (dwc->gen2_tx_de_emph != -1)
+		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH(0),
+			dwc->gen2_tx_de_emph & DWC31_TX_DEEMPH_MASK);
+	if (dwc->gen2_tx_de_emph1 != -1)
+		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH_1(0),
+			dwc->gen2_tx_de_emph1 & DWC31_TX_DEEMPH_MASK);
+	if (dwc->gen2_tx_de_emph2 != -1)
+		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH_2(0),
+			dwc->gen2_tx_de_emph2 & DWC31_TX_DEEMPH_MASK);
+	if (dwc->gen2_tx_de_emph3 != -1)
+		dwc3_writel(dwc->regs, DWC31_LCSR_TX_DEEMPH_3(0),
+			dwc->gen2_tx_de_emph3 & DWC31_TX_DEEMPH_MASK);
+
 	/* set inter-packet gap 199.794ns to improve EL_23 margin */
 	if (dwc->revision >= DWC3_USB31_REVISION_170A) {
 		reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
@@ -1436,6 +1449,22 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 
 	device_property_read_u32(dev, "snps,xhci-imod-value",
 			&dwc->xhci_imod_value);
+
+	dwc->gen2_tx_de_emph = -1;
+	device_property_read_u32(dev, "snps,gen2-tx-de-emph",
+			&dwc->gen2_tx_de_emph);
+
+	dwc->gen2_tx_de_emph1 = -1;
+	device_property_read_u32(dev, "snps,gen2-tx-de-emph1",
+			&dwc->gen2_tx_de_emph1);
+
+	dwc->gen2_tx_de_emph2 = -1;
+	device_property_read_u32(dev, "snps,gen2-tx-de-emph2",
+			&dwc->gen2_tx_de_emph2);
+
+	dwc->gen2_tx_de_emph3 = -1;
+	device_property_read_u32(dev, "snps,gen2-tx-de-emph3",
+			&dwc->gen2_tx_de_emph3);
 
 	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
 	dwc->tx_de_emphasis = tx_de_emphasis;

@@ -84,6 +84,8 @@ struct ucsi_dev {
 	unsigned long			cmd_requested_flags;
 	struct ucsi_glink_constat_info	constat_info;
 	struct work_struct		notify_work;
+	struct work_struct		setup_work;
+	atomic_t			state;
 };
 
 static void *ucsi_ipc_log;
@@ -267,6 +269,9 @@ static int ucsi_qti_glink_write(struct ucsi_dev *udev, unsigned int offset,
 	if (!validate_ucsi_msg(offset, val_len))
 		return -EINVAL;
 
+	if (atomic_read(&udev->state) == PMIC_GLINK_STATE_DOWN)
+		return 0;
+
 	ucsi_buf.hdr.owner = MSG_OWNER_UC;
 	ucsi_buf.hdr.type = MSG_TYPE_REQ_RESP;
 	ucsi_buf.hdr.opcode = UC_UCSI_WRITE_BUF_REQ;
@@ -350,16 +355,16 @@ static void ucsi_qti_notify_work(struct work_struct *work)
 			notify_work);
 
 	raw_notifier_call_chain(&ucsi_glink_notifier, 0, &udev->constat_info);
-	mutex_lock(&udev->notify_lock);
-	clear_bit(CONN_STAT_REQD, &udev->cmd_requested_flags);
-	mutex_unlock(&udev->notify_lock);
 }
 
 static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
-			    struct ucsi_connector_status *status)
+			    struct ucsi_connector_status *status, size_t len)
 {
-	u8 conn_partner_type;
+	u8 conn_partner_type, conn_partner_flag;
 	bool cmd_requested;
+
+	if (len != sizeof(*status))
+		return;
 
 	mutex_lock(&udev->notify_lock);
 	cmd_requested = test_bit(CONN_STAT_REQD, &udev->cmd_requested_flags);
@@ -367,6 +372,10 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 
 	if (cmd_requested && offset == UCSI_MESSAGE_IN) {
 		cancel_work_sync(&udev->notify_work);
+
+		udev->constat_info.partner_usb = false;
+		udev->constat_info.partner_alternate_mode = false;
+
 		conn_partner_type = UCSI_CONSTAT_PARTNER_TYPE(status->flags);
 
 		switch (conn_partner_type) {
@@ -376,10 +385,27 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 		case UCSI_CONSTAT_PARTNER_TYPE_DEBUG:
 			udev->constat_info.acc = TYPEC_ACCESSORY_DEBUG;
 			break;
+		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
+		case UCSI_CONSTAT_PARTNER_TYPE_CABLE:
+		case UCSI_CONSTAT_PARTNER_TYPE_CABLE_AND_UFP:
+		case UCSI_CONSTAT_PARTNER_TYPE_DFP:
+			udev->constat_info.partner_usb = true;
+			/* fallthrough */
 		default:
 			udev->constat_info.acc = TYPEC_ACCESSORY_NONE;
 			break;
 		}
+
+		conn_partner_flag = UCSI_CONSTAT_PARTNER_FLAGS(status->flags);
+		if (conn_partner_flag & UCSI_CONSTAT_PARTNER_FLAG_USB)
+			udev->constat_info.partner_usb = true;
+
+		if (conn_partner_flag & UCSI_CONSTAT_PARTNER_FLAG_ALT_MODE)
+			udev->constat_info.partner_alternate_mode = true;
+
+		mutex_lock(&udev->notify_lock);
+		clear_bit(CONN_STAT_REQD, &udev->cmd_requested_flags);
+		mutex_unlock(&udev->notify_lock);
 
 		schedule_work(&udev->notify_work);
 	}
@@ -394,6 +420,9 @@ static int ucsi_qti_read(struct ucsi *ucsi, unsigned int offset,
 
 	if (!validate_ucsi_msg(offset, val_len))
 		return -EINVAL;
+
+	if (atomic_read(&udev->state) == PMIC_GLINK_STATE_DOWN)
+		return 0;
 
 	ucsi_buf.hdr.owner = MSG_OWNER_UC;
 	ucsi_buf.hdr.type = MSG_TYPE_REQ_RESP;
@@ -428,7 +457,7 @@ static int ucsi_qti_read(struct ucsi *ucsi, unsigned int offset,
 	memcpy((u8 *)val, &udev->rx_buf.buf[offset], val_len);
 	atomic_set(&udev->rx_valid, 0);
 	ucsi_log("read:", offset, (u8 *)val, val_len);
-	ucsi_qti_notify(udev, offset, val);
+	ucsi_qti_notify(udev, offset, val, val_len);
 
 out:
 	mutex_unlock(&udev->read_lock);
@@ -442,6 +471,71 @@ static const struct ucsi_operations ucsi_qti_ops = {
 	.async_write = ucsi_qti_async_write
 };
 
+static int ucsi_setup(struct ucsi_dev *udev)
+{
+	int rc;
+
+	if (udev->ucsi) {
+		dev_err(udev->dev, "ucsi is not NULL\n");
+		return -EINVAL;
+	}
+
+	udev->ucsi = ucsi_create(udev->dev, &ucsi_qti_ops);
+	if (IS_ERR(udev->ucsi)) {
+		rc = PTR_ERR(udev->ucsi);
+		dev_err(udev->dev, "ucsi_create failed rc=%d\n", rc);
+		udev->ucsi = NULL;
+		return rc;
+	}
+
+	ucsi_set_drvdata(udev->ucsi, udev);
+
+	rc = ucsi_register(udev->ucsi);
+	if (rc) {
+		dev_err(udev->dev, "ucsi_register failed rc=%d\n", rc);
+		ucsi_destroy(udev->ucsi);
+		udev->ucsi = NULL;
+		return rc;
+	}
+
+	return 0;
+}
+
+static void ucsi_qti_setup_work(struct work_struct *work)
+{
+	struct ucsi_dev *udev = container_of(work, struct ucsi_dev,
+			setup_work);
+
+	ucsi_setup(udev);
+}
+
+static void ucsi_qti_state_cb(void *priv, enum pmic_glink_state state)
+{
+	struct ucsi_dev *udev = priv;
+
+	dev_dbg(udev->dev, "state: %d\n", state);
+
+	atomic_set(&udev->state, state);
+
+	switch (state) {
+	case PMIC_GLINK_STATE_DOWN:
+		if (!udev->ucsi) {
+			dev_err(udev->dev, "ucsi is NULL\n");
+			return;
+		}
+
+		ucsi_unregister(udev->ucsi);
+		ucsi_destroy(udev->ucsi);
+		udev->ucsi = NULL;
+		break;
+	case PMIC_GLINK_STATE_UP:
+		schedule_work(&udev->setup_work);
+		break;
+	default:
+		break;
+	}
+}
+
 static int ucsi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -454,6 +548,7 @@ static int ucsi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	INIT_WORK(&udev->notify_work, ucsi_qti_notify_work);
+	INIT_WORK(&udev->setup_work, ucsi_qti_setup_work);
 	mutex_init(&udev->read_lock);
 	mutex_init(&udev->write_lock);
 	mutex_init(&udev->notify_lock);
@@ -461,11 +556,13 @@ static int ucsi_probe(struct platform_device *pdev)
 	init_completion(&udev->write_ack);
 	init_completion(&udev->sync_write_ack);
 	atomic_set(&udev->rx_valid, 0);
+	atomic_set(&udev->state, PMIC_GLINK_STATE_UP);
 
 	client_data.id = MSG_OWNER_UC;
 	client_data.name = "ucsi";
-	client_data.callback = ucsi_callback;
+	client_data.msg_cb = ucsi_callback;
 	client_data.priv = udev;
+	client_data.state_cb = ucsi_qti_state_cb;
 
 	udev->client = pmic_glink_register_client(dev, &client_data);
 	if (IS_ERR(udev->client)) {
@@ -477,33 +574,18 @@ static int ucsi_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, udev);
+	udev->dev = dev;
 
-	udev->ucsi = ucsi_create(dev, &ucsi_qti_ops);
-	if (IS_ERR(udev->ucsi)) {
-		rc = PTR_ERR(udev->ucsi);
-		dev_err(dev, "ucsi_create failed rc=%d\n", rc);
-		return rc;
-	}
-
-	ucsi_set_drvdata(udev->ucsi, udev);
 	ucsi_ipc_log = ipc_log_context_create(NUM_LOG_PAGES, "ucsi", 0);
 	if (!ucsi_ipc_log)
 		dev_warn(dev, "Error in creating ipc_log_context\n");
 
-	rc = ucsi_register(udev->ucsi);
+	rc = ucsi_setup(udev);
 	if (rc) {
-		dev_err(dev, "ucsi_register failed rc=%d\n", rc);
-		goto out;
+		ipc_log_context_destroy(ucsi_ipc_log);
+		ucsi_ipc_log = NULL;
+		pmic_glink_unregister_client(udev->client);
 	}
-
-	pr_debug("driver probed\n");
-
-	return 0;
-out:
-	ipc_log_context_destroy(ucsi_ipc_log);
-	ucsi_ipc_log = NULL;
-	ucsi_destroy(udev->ucsi);
-	pmic_glink_unregister_client(udev->client);
 
 	return rc;
 }

@@ -89,7 +89,7 @@ static int msm_dma_get_device_address(struct dma_buf *dbuf, u32 align,
 		mapping_info->buf = dbuf;
 		mapping_info->cb_info = (void *)cb;
 	} else {
-		dprintk(CVP_DBG, "iommu not present, use phys mem addr\n");
+		dprintk(CVP_MEM, "iommu not present, use phys mem addr\n");
 	}
 
 	return 0;
@@ -251,13 +251,13 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags, int map_kernel,
 
 	if (is_iommu_present(res)) {
 		if (flags & SMEM_ADSP) {
-			dprintk(CVP_DBG, "Allocating from ADSP heap\n");
+			dprintk(CVP_MEM, "Allocating from ADSP heap\n");
 			heap_mask = ION_HEAP(ION_ADSP_HEAP_ID);
 		} else {
 			heap_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
 		}
 	} else {
-		dprintk(CVP_DBG,
+		dprintk(CVP_MEM,
 		"allocate shared memory from adsp heap size %zx align %d\n",
 		size, align);
 		heap_mask = ION_HEAP(ION_ADSP_HEAP_ID);
@@ -314,7 +314,7 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags, int map_kernel,
 		}
 	}
 
-	dprintk(CVP_DBG,
+	dprintk(CVP_MEM,
 		"%s: dma_buf = %pK, device_addr = %x, size = %d, kvaddr = %pK, ion_flags = %#x, flags = %#lx\n",
 		__func__, mem->dma_buf, mem->device_addr, mem->size,
 		mem->kvaddr, mem->ion_flags, mem->flags);
@@ -331,7 +331,7 @@ fail_shared_mem_alloc:
 
 static int free_dma_mem(struct msm_cvp_smem *mem)
 {
-	dprintk(CVP_DBG,
+	dprintk(CVP_MEM,
 		"%s: dma_buf = %pK, device_addr = %x, size = %d, kvaddr = %pK, ion_flags = %#x\n",
 		__func__, mem->dma_buf, mem->device_addr, mem->size,
 		mem->kvaddr, mem->ion_flags);

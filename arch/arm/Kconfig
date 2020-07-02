@@ -41,7 +41,7 @@ config ARM
 	select CPU_PM if SUSPEND || CPU_IDLE
 	select DCACHE_WORD_ACCESS if HAVE_EFFICIENT_UNALIGNED_ACCESS
 	select DMA_DECLARE_COHERENT
-	select DMA_REMAP if MMU
+	select DMA_DIRECT_REMAP
 	select EDAC_SUPPORT
 	select EDAC_ATOMIC_SCRUB
 	select GENERIC_ALLOCATOR
@@ -450,6 +450,31 @@ config ARCH_PXA
 	select SPARSE_IRQ
 	help
 	  Support for Intel/Marvell's PXA2xx/PXA3xx processor line.
+
+config ARCH_QCOM
+       bool "Qualcomm MSM (non-multiplatform)"
+       select ARCH_REQUIRE_GPIOLIB
+       select CPU_V7
+       select AUTO_ZRELADDR
+       select HAVE_SMP
+       select CLKDEV_LOOKUP
+       select GENERIC_CLOCKEVENTS
+       select GENERIC_ALLOCATOR
+       select ARM_PATCH_PHYS_VIRT
+       select ARM_HAS_SG_CHAIN
+       select ARCH_HAS_OPP
+       select SOC_BUS
+       select GENERIC_IRQ_MULTI_HANDLER
+       select PM_OPP
+       select SPARSE_IRQ
+       select USE_OF
+       select PINCTRL
+       help
+         Support for Qualcomm MSM/QSD based systems.  This runs on the
+         apps processor of the MSM/QSD and depends on a shared memory
+         interface to the modem processor which runs the baseband
+         stack and controls some vital subsystems
+         (clock and power control, etc).
 
 config ARCH_RPC
 	bool "RiscPC"
@@ -1358,7 +1383,7 @@ config ARCH_NR_GPIO
 	int
 	default 2048 if ARCH_SOCFPGA
 	default 1024 if ARCH_BRCMSTB || ARCH_RENESAS || ARCH_TEGRA || \
-		ARCH_ZYNQ || ARCH_ASPEED
+		ARCH_ZYNQ || ARCH_ASPEED || ARCH_QCOM
 	default 512 if ARCH_EXYNOS || ARCH_KEYSTONE || SOC_OMAP5 || \
 		SOC_DRA7XX || ARCH_S3C24XX || ARCH_S3C64XX || ARCH_S5PV210
 	default 416 if ARCH_SUNXI
@@ -1738,6 +1763,21 @@ config DEPRECATED_PARAM_STRUCT
 	help
 	  This was deprecated in 2001 and announced to live on for 5 years.
 	  Some old boot loaders still use this way.
+
+config BUILD_ARM_APPENDED_DTB_IMAGE
+	bool "Build a concatenated zImage/dtb by default"
+	depends on OF
+	help
+	  Enabling this option will cause a concatenated zImage and list of
+	  DTBs to be built by default (instead of a standalone zImage.)
+	  The image will built in arch/arm/boot/zImage-dtb
+
+config BUILD_ARM_APPENDED_DTB_IMAGE_NAME
+	string "Default dtb name"
+	depends on BUILD_ARM_APPENDED_DTB_IMAGE
+	help
+	  Space separated list of names of dtbs to append when building a
+	  concatenated zImage-dtb.
 
 # Compressed boot loader in ROM.  Yes, we really want to ask about
 # TEXT and BSS so we preserve their values in the config files.

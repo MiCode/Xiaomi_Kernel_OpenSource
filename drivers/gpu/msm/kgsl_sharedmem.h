@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_SHAREDMEM_H
 #define __KGSL_SHAREDMEM_H
@@ -25,8 +25,15 @@ int kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 			uint32_t *dst,
 			uint64_t offsetbytes);
 
-int kgsl_sharedmem_writel(struct kgsl_device *device,
-			const struct kgsl_memdesc *memdesc,
+/**
+ * kgsl_sharedmem_writel - write a 32 bit value to a shared memory object
+ * @memdesc: Pointer to a GPU memory object
+ * @offsetbytes: Offset inside of @memdesc to write to
+ * @src: Value to write
+ *
+ * Write @src to @offsetbytes from the start of @memdesc
+ */
+void kgsl_sharedmem_writel(const struct kgsl_memdesc *memdesc,
 			uint64_t offsetbytes,
 			uint32_t src);
 
@@ -34,15 +41,17 @@ int kgsl_sharedmem_readq(const struct kgsl_memdesc *memdesc,
 			uint64_t *dst,
 			uint64_t offsetbytes);
 
-int kgsl_sharedmem_writeq(struct kgsl_device *device,
-			const struct kgsl_memdesc *memdesc,
+/**
+ * kgsl_sharedmem_writeq - write a 64 bit value to a shared memory object
+ * @memdesc: Pointer to a GPU memory object
+ * @offsetbytes: Offset inside of @memdesc to write to
+ * @src: Value to write
+ *
+ * Write @src to @offsetbytes from the start of @memdesc
+ */
+void kgsl_sharedmem_writeq(const struct kgsl_memdesc *memdesc,
 			uint64_t offsetbytes,
 			uint64_t src);
-
-int kgsl_sharedmem_set(struct kgsl_device *device,
-			const struct kgsl_memdesc *memdesc,
-			uint64_t offsetbytes, unsigned int value,
-			uint64_t sizebytes);
 
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc,
 			uint64_t offset, uint64_t size,

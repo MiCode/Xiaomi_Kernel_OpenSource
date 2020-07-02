@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2011-2012,2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012,2017, 2020, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Funnel driver
  */
@@ -285,6 +285,8 @@ static int funnel_probe(struct device *dev, struct resource *res)
 	}
 
 	dev_set_drvdata(dev, drvdata);
+
+	spin_lock_init(&drvdata->spinlock);
 
 	pdata = coresight_get_platform_data(dev);
 	if (IS_ERR(pdata)) {

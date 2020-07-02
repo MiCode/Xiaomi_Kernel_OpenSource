@@ -243,7 +243,7 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	u32 tbu_inv_pending = 0, tbu_sync_pending = 0;
 	u32 tbu_inv_acked = 0, tbu_sync_acked = 0;
 	u32 tcu_inv_pending = 0, tcu_sync_pending = 0;
-	u32 tbu_ids = 0;
+	unsigned long tbu_ids = 0;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	int ret;
 
@@ -304,8 +304,8 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 			tcu_inv_pending?"pending":"completed",
 			tcu_sync_pending?"pending":"completed");
 
-		for_each_set_bit(tbu_id, (unsigned long *) &tbu_ids,
-				 sizeof(tbu_ids) * BITS_PER_BYTE) {
+		for_each_set_bit(tbu_id, &tbu_ids, sizeof(tbu_ids) *
+				 BITS_PER_BYTE) {
 
 			struct qsmmuv500_tbu_device *tbu;
 
@@ -518,7 +518,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	int ret;
 	phys_addr_t phys = 0;
 	u64 val, fsr;
-	unsigned long flags;
+	unsigned long spinlock_flags;
 	int idx = cfg->cbndx;
 	u32 sctlr_orig, sctlr;
 	int needs_redo = 0;
@@ -571,7 +571,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	}
 
 	/* Only one concurrent atos operation */
-	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
+	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &spinlock_flags);
 	if (ret)
 		goto out_resume;
 
@@ -592,15 +592,15 @@ redo:
 	val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_NSEC);
 
 	/* Write or Read Access */
-	if (flags & IOMMU_TRANS_WRITE)
+	if (trans_flags & IOMMU_TRANS_WRITE)
 		val |= DEBUG_TXN_WRITE;
 
 	/* Priviledged or Unpriviledged Access */
-	if (flags & IOMMU_TRANS_PRIV)
+	if (trans_flags & IOMMU_TRANS_PRIV)
 		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_PRIV);
 
 	/* Data or Instruction Access */
-	if (flags & IOMMU_TRANS_INST)
+	if (trans_flags & IOMMU_TRANS_INST)
 		val |= FIELD_PREP(DEBUG_TXN_AXPROT, DEBUG_TXN_AXPROT_INST);
 
 	val |= DEBUG_TXN_TRIGGER;
@@ -664,7 +664,7 @@ redo:
 		goto redo;
 
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
-	qsmmuv500_ecats_unlock(smmu_domain, tbu, &flags);
+	qsmmuv500_ecats_unlock(smmu_domain, tbu, &spinlock_flags);
 
 out_resume:
 	qsmmuv500_tbu_resume(tbu);
@@ -691,7 +691,7 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	u32 frsynra;
 
-	/* 
+	/*
 	 * Read the SID from the frsynra register, kick of translation
 	 */
 	frsynra = arm_smmu_gr1_read(smmu,

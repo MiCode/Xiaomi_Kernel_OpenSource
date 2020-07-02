@@ -23,13 +23,22 @@
  */
 
 enum cvp_msg_prio {
-	CVP_ERR  = 0x0001,
-	CVP_WARN = 0x0002,
-	CVP_INFO = 0x0004,
-	CVP_DBG  = 0x0008,
-	CVP_PROF = 0x0010,
-	CVP_PKT  = 0x0020,
-	CVP_FW   = 0x1000,
+	CVP_ERR  = 0x000001,
+	CVP_WARN = 0x000002,
+	CVP_INFO = 0x000004,
+	CVP_PROF = 0x000010,
+	CVP_PKT  = 0x000020,
+	CVP_MEM  = 0x000040,
+	CVP_SYNX = 0x000080,
+	CVP_CORE = 0x000100,
+	CVP_REG  = 0x000200,
+	CVP_PWR  = 0x000400,
+	CVP_DSP  = 0x000800,
+	CVP_FW   = 0x001000,
+	CVP_SESS = 0x002000,
+	CVP_HFI  = 0x004000,
+	CVP_DBG  = CVP_MEM | CVP_SYNX | CVP_CORE | CVP_REG |
+		CVP_PWR | CVP_DSP | CVP_SESS | CVP_HFI,
 };
 
 enum cvp_msg_out {
@@ -50,6 +59,7 @@ extern int msm_cvp_fw_debug_mode;
 extern int msm_cvp_fw_low_power_mode;
 extern bool msm_cvp_fw_coverage;
 extern bool msm_cvp_thermal_mitigation_disabled;
+extern bool msm_cvp_cacheop_enabled;
 extern int msm_cvp_clock_voting;
 extern bool msm_cvp_syscache_disable;
 extern bool msm_cvp_dsp_disable;
@@ -94,8 +104,24 @@ static inline char *get_debug_level_str(int level)
 		return "prof";
 	case CVP_PKT:
 		return "pkt";
+	case CVP_MEM:
+		return "mem";
+	case CVP_SYNX:
+		return "synx";
+	case CVP_CORE:
+		return "core";
+	case CVP_REG:
+		return "reg";
+	case CVP_PWR:
+		return "pwr";
+	case CVP_DSP:
+		return "dsp";
 	case CVP_FW:
 		return "fw";
+	case CVP_SESS:
+		return "sess";
+	case CVP_HFI:
+		return "hfi";
 	default:
 		return "???";
 	}

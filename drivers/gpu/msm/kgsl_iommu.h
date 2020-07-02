@@ -16,7 +16,7 @@
 #define KGSL_IOMMU_GLOBAL_MEM_BASE64	0xfc000000
 
 #define KGSL_IOMMU_GLOBAL_MEM_BASE(__mmu)	\
-	(MMU_FEATURE(__mmu, KGSL_MMU_64BIT) ? \
+	(test_bit(KGSL_MMU_64BIT, &(__mmu)->features) ? \
 		KGSL_IOMMU_GLOBAL_MEM_BASE64 : KGSL_IOMMU_GLOBAL_MEM_BASE32)
 
 #define KGSL_IOMMU_SECURE_SIZE SZ_256M
@@ -27,18 +27,27 @@
 #define KGSL_IOMMU_SVM_BASE32		0x300000
 #define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
 
-#define KGSL_IOMMU_VA_BASE64		0x500000000ULL
-#define KGSL_IOMMU_VA_END64		0x600000000ULL
-/*
- * Note: currently we only support 36 bit addresses,
- * but the CPU supports 39. Eventually this range
- * should change to high part of the 39 bit address
- * space just like the CPU.
- */
-#define KGSL_IOMMU_SVM_BASE64		0x700000000ULL
-#define KGSL_IOMMU_SVM_END64		0x800000000ULL
+/* The CPU supports 39 bit addresses */
+#define KGSL_IOMMU_SVM_BASE64		0x100000000ULL
+#define KGSL_IOMMU_SVM_END64		0x4000000000ULL
+#define KGSL_IOMMU_VA_BASE64		0x4000000000ULL
+#define KGSL_IOMMU_VA_END64		0x8000000000ULL
+
 #define CP_APERTURE_REG			0
 #define CP_SMMU_APERTURE_ID		0x1B
+
+/* Register offsets */
+#define KGSL_IOMMU_CTX_SCTLR		0x0000
+#define KGSL_IOMMU_CTX_TTBR0		0x0020
+#define KGSL_IOMMU_CTX_CONTEXTIDR	0x0034
+#define KGSL_IOMMU_CTX_FSR		0x0058
+#define KGSL_IOMMU_CTX_TLBIALL		0x0618
+#define KGSL_IOMMU_CTX_RESUME		0x0008
+#define KGSL_IOMMU_CTX_FSYNR0		0x0068
+#define KGSL_IOMMU_CTX_FSYNR1		0x006c
+#define KGSL_IOMMU_CTX_TLBSYNC		0x07f0
+#define KGSL_IOMMU_CTX_TLBSTATUS	0x07f4
+
 /* TLBSTATUS register fields */
 #define KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE BIT(0)
 
@@ -49,21 +58,6 @@
 
 /* FSR fields */
 #define KGSL_IOMMU_FSR_SS_SHIFT		30
-
-enum kgsl_iommu_reg_map {
-	KGSL_IOMMU_CTX_SCTLR = 0,
-	KGSL_IOMMU_CTX_TTBR0,
-	KGSL_IOMMU_CTX_CONTEXTIDR,
-	KGSL_IOMMU_CTX_FSR,
-	KGSL_IOMMU_CTX_FAR,
-	KGSL_IOMMU_CTX_TLBIALL,
-	KGSL_IOMMU_CTX_RESUME,
-	KGSL_IOMMU_CTX_FSYNR0,
-	KGSL_IOMMU_CTX_FSYNR1,
-	KGSL_IOMMU_CTX_TLBSYNC,
-	KGSL_IOMMU_CTX_TLBSTATUS,
-	KGSL_IOMMU_REG_MAX
-};
 
 /* Max number of iommu clks per IOMMU unit */
 #define KGSL_IOMMU_MAX_CLKS 5
@@ -88,10 +82,9 @@ enum kgsl_iommu_reg_map {
 struct kgsl_iommu_context {
 	struct platform_device *pdev;
 	const char *name;
-	unsigned int cb_num;
+	int cb_num;
 	struct kgsl_device *kgsldev;
 	bool stalled_on_fault;
-	void __iomem *regbase;
 	struct kgsl_pagetable *default_pt;
 };
 
@@ -113,8 +106,6 @@ struct kgsl_iommu {
 	/** @lpac_context: Container for the LPAC iommu context */
 	struct kgsl_iommu_context lpac_context;
 	void __iomem *regbase;
-	unsigned long regstart;
-	unsigned int regsize;
 	struct kgsl_memdesc *setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
@@ -165,33 +156,5 @@ struct kgsl_iommu_pt {
 	uint64_t compat_va_start;
 	uint64_t compat_va_end;
 };
-
-/* Macros to read/write IOMMU registers */
-extern const unsigned int kgsl_iommu_reg_list[KGSL_IOMMU_REG_MAX];
-
-/*
- * Don't use this function directly. Use the macros below to read/write
- * IOMMU registers.
- */
-static inline void __iomem *
-kgsl_iommu_reg(struct kgsl_iommu_context *ctx, enum kgsl_iommu_reg_map reg)
-{
-	return ctx->regbase + kgsl_iommu_reg_list[reg];
-}
-
-#define KGSL_IOMMU_SET_CTX_REG_Q(_ctx, REG, val) \
-		writeq_relaxed((val), \
-			kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
-
-#define KGSL_IOMMU_GET_CTX_REG_Q(_ctx, REG) \
-		readq_relaxed(kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
-
-#define KGSL_IOMMU_SET_CTX_REG(_ctx, REG, val) \
-		writel_relaxed((val), \
-			kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
-
-#define KGSL_IOMMU_GET_CTX_REG(_ctx, REG) \
-		readl_relaxed(kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
-
 
 #endif

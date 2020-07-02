@@ -24,9 +24,10 @@
 #define FASTRPC_IOCTL_CONTROL   _IOWR('R', 12, struct fastrpc_ioctl_control)
 #define FASTRPC_IOCTL_MUNMAP_FD _IOWR('R', 13, struct fastrpc_ioctl_munmap_fd)
 #define FASTRPC_IOCTL_GET_DSP_INFO \
-		_IOWR('R', 17, struct fastrpc_ioctl_remote_dsp_capability)
+		_IOWR('R', 17, struct fastrpc_ioctl_capability)
 #define FASTRPC_IOCTL_INVOKE2   _IOWR('R', 18, struct fastrpc_ioctl_invoke2)
-
+#define FASTRPC_IOCTL_MEM_MAP   _IOWR('R', 19, struct fastrpc_ioctl_mem_map)
+#define FASTRPC_IOCTL_MEM_UNMAP _IOWR('R', 20, struct fastrpc_ioctl_mem_unmap)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -271,6 +272,77 @@ struct fastrpc_ioctl_munmap_fd {
 	ssize_t  len;			/* length */
 };
 
+/**
+ * Control flags for mapping memory on DSP user process
+ */
+enum fastrpc_map_flags {
+	/**
+	 * Map memory pages with RW- permission and CACHE WRITEBACK.
+	 * The driver is responsible for cache maintenance when passed
+	 * the buffer to FastRPC calls. Same virtual address will be
+	 * assigned for subsequent FastRPC calls.
+	 */
+	FASTRPC_MAP_STATIC = 0,
+
+	/* Reserved */
+	FASTRPC_MAP_RESERVED,
+
+	/**
+	 * Map memory pages with RW- permission and CACHE WRITEBACK.
+	 * Mapping tagged with a file descriptor. User is responsible for
+	 * CPU and DSP cache maintenance for the buffer. Get virtual address
+	 * of buffer on DSP using HAP_mmap_get() and HAP_mmap_put() APIs.
+	 */
+	FASTRPC_MAP_FD = 2,
+
+	/**
+	 * Mapping delayed until user call HAP_mmap() and HAP_munmap()
+	 * functions on DSP. It is useful to map a buffer with cache modes
+	 * other than default modes. User is responsible for CPU and DSP
+	 * cache maintenance for the buffer.
+	 */
+	FASTRPC_MAP_FD_DELAYED,
+	FASTRPC_MAP_MAX,
+};
+
+struct fastrpc_mem_map {
+	int fd;			/* ion fd */
+	int offset;		/* buffer offset */
+	uint32_t flags;		/* flags defined in enum fastrpc_map_flags */
+	int attrs;		/* buffer attributes used for SMMU mapping */
+	uintptr_t vaddrin;	/* buffer virtual address */
+	size_t length;		/* buffer length */
+	uint64_t vaddrout;	/* [out] remote virtual address */
+};
+
+/* Map and unmap IOCTL methods reserved memory size for future extensions */
+#define MAP_RESERVED_NUM (14)
+#define UNMAP_RESERVED_NUM (10)
+
+/* map memory to DSP device */
+struct fastrpc_ioctl_mem_map {
+	int version;		/* Initial version 0 */
+	union {
+		struct fastrpc_mem_map m;
+		int reserved[MAP_RESERVED_NUM];
+	};
+};
+
+struct fastrpc_mem_unmap {
+	int fd;			/* ion fd */
+	uint64_t vaddr;		/* remote process (dsp) virtual address */
+	size_t length;		/* buffer size */
+};
+
+/* unmap memory to DSP device */
+struct fastrpc_ioctl_mem_unmap {
+	int version;		/* Initial version 0 */
+	union {
+		struct fastrpc_mem_unmap um;
+		int reserved[UNMAP_RESERVED_NUM];
+	};
+};
+
 struct fastrpc_ioctl_perf {			/* kernel performance data */
 	uintptr_t data;
 	uint32_t numkeys;
@@ -282,6 +354,7 @@ enum fastrpc_control_type {
 	FASTRPC_CONTROL_SMMU		=	2,
 	FASTRPC_CONTROL_KALLOC		=	3,
 	FASTRPC_CONTROL_WAKELOCK	=	4,
+	FASTRPC_CONTROL_PM		=	5,
 };
 
 struct fastrpc_ctrl_latency {
@@ -297,19 +370,25 @@ struct fastrpc_ctrl_wakelock {
 	uint32_t enable;	/* wakelock control enable */
 };
 
+struct fastrpc_ctrl_pm {
+	uint32_t timeout;	/* timeout(in ms) for PM to keep system awake */
+};
+
 struct fastrpc_ioctl_control {
 	uint32_t req;
 	union {
 		struct fastrpc_ctrl_latency lp;
 		struct fastrpc_ctrl_kalloc kalloc;
 		struct fastrpc_ctrl_wakelock wp;
+		struct fastrpc_ctrl_pm pm;
 	};
 };
 
-#define FASTRPC_MAX_DSP_ATTRIBUTES	(9)
-#define ASYNC_FASTRPC_CAP (8)
+#define FASTRPC_MAX_DSP_ATTRIBUTES	(256)
+#define FASTRPC_MAX_ATTRIBUTES	(257)
+#define ASYNC_FASTRPC_CAP (9)
 
-struct fastrpc_ioctl_remote_dsp_capability {
+struct fastrpc_ioctl_capability {
 	uint32_t domain;
 	uint32_t attribute_ID;
 	uint32_t capability;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -618,9 +618,27 @@ static void isdb_write(void __iomem *base, u32 offset)
 
 static void set_isdb_breakpoint_registers(struct kgsl_device *device)
 {
+	struct clk *clk;
+	int ret;
+
 	if (!device->set_isdb_breakpoint || device->ftbl->is_hwcg_on(device)
 					|| device->qdss_gfx_virt == NULL)
 		return;
+
+	clk = clk_get(&device->pdev->dev, "apb_pclk");
+
+	if (IS_ERR(clk)) {
+		dev_err(device->dev, "Unable to get QDSS clock\n");
+		goto err;
+	}
+
+	ret = clk_prepare_enable(clk);
+
+	if (ret) {
+		dev_err(device->dev, "QDSS Clock enable error: %d\n", ret);
+		clk_put(clk);
+		goto err;
+	}
 
 	/* Issue break command for all six SPs */
 	isdb_write(device->qdss_gfx_virt, 0x0000);
@@ -629,6 +647,15 @@ static void set_isdb_breakpoint_registers(struct kgsl_device *device)
 	isdb_write(device->qdss_gfx_virt, 0x3000);
 	isdb_write(device->qdss_gfx_virt, 0x4000);
 	isdb_write(device->qdss_gfx_virt, 0x5000);
+
+	clk_disable_unprepare(clk);
+	clk_put(clk);
+
+	return;
+
+err:
+	/* Do not force kernel panic if isdb writes did not go through */
+	device->force_panic = false;
 }
 
 /**
@@ -1107,11 +1134,24 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 {
 	device->snapshot_memory.size = size;
 
-	device->snapshot_memory.ptr = kzalloc(device->snapshot_memory.size,
-		GFP_KERNEL);
+	device->snapshot_memory.ptr = devm_kzalloc(&device->pdev->dev,
+		device->snapshot_memory.size, GFP_KERNEL);
 
-	if (!device->snapshot_memory.ptr)
+	/*
+	 * If we fail to allocate more than 1MB for snapshot fall back
+	 * to 1MB
+	 */
+	if (WARN_ON((!device->snapshot_memory.ptr) && size > SZ_1M)) {
+		device->snapshot_memory.size = SZ_1M;
+		device->snapshot_memory.ptr = devm_kzalloc(&device->pdev->dev,
+			device->snapshot_memory.size, GFP_KERNEL);
+	}
+
+	if (!device->snapshot_memory.ptr) {
+		dev_err(device->dev,
+			"KGSL failed to allocate memory for snapshot\n");
 		return;
+	}
 
 	device->snapshot = NULL;
 	device->snapshot_faultcount = 0;
@@ -1147,14 +1187,6 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 	sysfs_remove_files(&device->snapshot_kobj, snapshot_attrs);
 
 	kobject_put(&device->snapshot_kobj);
-
-	kfree(device->snapshot_memory.ptr);
-
-	device->snapshot_memory.ptr = NULL;
-	device->snapshot_memory.size = 0;
-	device->snapshot_faultcount = 0;
-	device->force_panic = false;
-	device->snapshot_crashdumper = true;
 }
 
 /**

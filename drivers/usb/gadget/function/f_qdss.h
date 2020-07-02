@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _F_QDSS_H
@@ -49,11 +49,11 @@ struct f_qdss {
 	bool debug_inface_enabled;
 	struct usb_request *endless_req;
 	struct usb_qdss_ch ch;
-	struct list_head ctrl_read_pool;
 	struct list_head ctrl_write_pool;
 
 	/* for mdm channel SW path */
 	struct list_head data_write_pool;
+	struct list_head queued_data_pool;
 
 	struct work_struct connect_w;
 	struct work_struct disconnect_w;
@@ -62,6 +62,7 @@ struct f_qdss {
 	unsigned int ctrl_in_enabled:1;
 	unsigned int ctrl_out_enabled:1;
 	struct workqueue_struct *wq;
+	bool qdss_close;
 };
 
 struct usb_qdss_opts {
@@ -72,4 +73,5 @@ struct usb_qdss_opts {
 
 int uninit_data(struct usb_ep *ep);
 int set_qdss_data_connection(struct f_qdss *qdss, int enable);
+int alloc_sps_req(struct usb_ep *data_ep);
 #endif

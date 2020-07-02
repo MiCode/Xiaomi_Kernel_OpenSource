@@ -78,4 +78,24 @@ static inline int cpuidle_of_cooling_register(struct device_node *np,
 }
 #endif /* CONFIG_CPU_IDLE_THERMAL */
 
+#ifdef CONFIG_QTI_CPU_ISOLATE_COOLING_DEVICE
+extern void cpu_cooling_max_level_notifier_register(struct notifier_block *n);
+extern void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n);
+extern const struct cpumask *cpu_cooling_get_max_level_cpumask(void);
+#else
+static inline
+void cpu_cooling_max_level_notifier_register(struct notifier_block *n)
+{
+}
+
+static inline
+void cpu_cooling_max_level_notifier_unregister(struct notifier_block *n)
+{
+}
+
+static inline const struct cpumask *cpu_cooling_get_max_level_cpumask(void)
+{
+	return cpu_none_mask;
+}
+#endif /* CONFIG_QTI_CPU_ISOLATE_COOLING_DEVICE */
 #endif /* __CPU_COOLING_H__ */

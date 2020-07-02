@@ -2774,12 +2774,11 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	unsigned char touchId, touchcount;
 	int x, y;
 	int minor;
-	int major, distance;
+	int major, distance = 0;
 	u8 touchsize;
 
-	distance = 0;
-	if (!info->resume_bit)
-		goto no_report;
+	if (!info->resume_bit && !info->aoi_notify_enabled)
+		return;
 
 	touchId = event[1] & 0x0F;
 	touchcount = (event[1] & 0xF0) >> 4;
@@ -2803,6 +2802,13 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	if (y == Y_AXIS_MAX)
 		y--;
 
+	if (info->sensor_sleep && info->aoi_notify_enabled)
+		if ((x < info->aoi_left || x > info->aoi_right)
+			|| (y < info->aoi_top || y > info->aoi_bottom)) {
+			x = -x;
+			y = -y;
+		}
+
 	input_mt_slot(info->input_dev, touchId);
 	input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 1);
 
@@ -2816,9 +2822,7 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, minor);
 	input_report_abs(info->input_dev, ABS_MT_DISTANCE, distance);
 
-no_report:
 	return;
-
 }
 
 /* EventId : 0x04 */
@@ -4512,7 +4516,7 @@ static int check_dt(struct device_node *np)
 		}
 	}
 
-	return -ENODEV;
+	return PTR_ERR(panel);
 }
 
 static int check_default_tp(struct device_node *dt, const char *prop)
@@ -4795,10 +4799,10 @@ static int fts_probe_internal(struct i2c_client *client,
 		goto ProbeErrorExit_7;
 	}
 
-#ifdef SCRIPTLESS
 	/* I2C cmd */
-	if (fts_cmd_class == NULL)
-		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
+	fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
+
+#ifdef SCRIPTLESS
 	info->i2c_cmd_dev = device_create(fts_cmd_class,
 			NULL, DCHIP_ID_0, info, "fts_i2c");
 	if (IS_ERR(info->i2c_cmd_dev)) {
@@ -4819,8 +4823,6 @@ static int fts_probe_internal(struct i2c_client *client,
 #endif
 
 #ifdef DRIVER_TEST
-	if (fts_cmd_class == NULL)
-		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
 	info->test_cmd_dev = device_create(fts_cmd_class,
 			NULL, DCHIP_ID_0, info, "fts_driver_test");
 	if (IS_ERR(info->test_cmd_dev)) {
@@ -4840,8 +4842,6 @@ static int fts_probe_internal(struct i2c_client *client,
 	}
 #endif
 
-	if (fts_cmd_class == NULL)
-		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
 	info->aoi_cmd_dev = device_create(fts_cmd_class,
 			NULL, DCHIP_ID_0, info, "touch_aoi");
 	if (IS_ERR(info->aoi_cmd_dev)) {
@@ -4858,6 +4858,18 @@ static int fts_probe_internal(struct i2c_client *client,
 	if (error) {
 		logError(1, "%s ERROR: Failed to create sysfs group\n", tag);
 		goto ProbeErrorExit_11;
+	}
+
+	info->aoi_class = class_create(THIS_MODULE, "android_touch");
+	if (info->aoi_class) {
+		info->aoi_dev = device_create(info->aoi_class,
+			NULL, DCHIP_ID_0, info, "touch");
+		if (!IS_ERR(info->aoi_dev)) {
+			dev_set_drvdata(info->aoi_dev, info);
+
+			error = sysfs_create_group(&info->aoi_dev->kobj,
+				&aoi_enable_attr_group);
+		}
 	}
 
 	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
@@ -4939,7 +4951,11 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *idp)
 	int error = 0;
 	struct device_node *dp = client->dev.of_node;
 
-	if (check_dt(dp)) {
+	error = check_dt(dp);
+	if (error == -EPROBE_DEFER)
+		return error;
+
+	if (error) {
 		if (!check_default_tp(dp, "qcom,i2c-touch-active"))
 			error = -EPROBE_DEFER;
 		else
@@ -4955,6 +4971,17 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *idp)
 static int fts_remove(struct i2c_client *client)
 {
 	struct fts_ts_info *info = i2c_get_clientdata(client);
+
+	if (info->aoi_dev) {
+		sysfs_remove_group(&info->aoi_dev->kobj,
+			&aoi_enable_attr_group);
+		info->aoi_dev = NULL;
+	}
+
+	if (info->aoi_class) {
+		device_destroy(info->aoi_class, DCHIP_ID_0);
+		info->aoi_class = NULL;
+	}
 
 #ifdef DRIVER_TEST
 	sysfs_remove_group(&info->test_cmd_dev->kobj,

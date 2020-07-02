@@ -20,6 +20,8 @@
 #define AB_PERIPH_TYPE			0x24
 #define OLEDB_PERIPH_TYPE		0x2C
 
+#define PERIPH_SUBTYPE			0x05
+
 /* AB */
 #define AB_LDO_PD_CTL(chip)		(chip->ab_base + 0x78)
 
@@ -31,6 +33,14 @@
 
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)
+
+#define IBB_DUAL_PHASE_CTL(chip)		(chip->ibb_base + 0x70)
+
+/* IBB_DUAL_PHASE_CTL */
+#define IBB_DUAL_PHASE_CTL_MASK		GENMASK(2, 0)
+#define AUTO_DUAL_PHASE_BIT			BIT(2)
+#define FORCE_DUAL_PHASE_BIT			BIT(1)
+#define FORCE_SINGLE_PHASE_BIT			BIT(0)
 
 struct amoled_regulator {
 	struct regulator_desc	rdesc;
@@ -57,6 +67,7 @@ struct ab_regulator {
 
 struct ibb_regulator {
 	struct amoled_regulator	vreg;
+	u8			subtype;
 
 	/* DT params */
 	bool			swire_control;
@@ -81,6 +92,19 @@ enum reg_type {
 	AB,
 	IBB,
 };
+
+enum ibb_subtype {
+	PM8150A_IBB = 0x03,
+	PM8350B_IBB = 0x04,
+};
+
+static inline bool is_phase_ctrl_supported(struct ibb_regulator *ibb)
+{
+	if (ibb->subtype == PM8350B_IBB)
+		return true;
+
+	return false;
+}
 
 static int qpnp_amoled_read(struct qpnp_amoled *chip,
 			u16 addr, u8 *value, u8 count)
@@ -266,6 +290,28 @@ static unsigned int qpnp_ab_ibb_regulator_get_mode(struct regulator_dev *rdev)
 	return chip->ibb.vreg.mode;
 }
 
+#define SINGLE_PHASE_LIMIT_UA	30000000
+
+static int qpnp_ibb_regulator_set_load(struct regulator_dev *rdev,
+				int load_uA)
+{
+	struct qpnp_amoled *chip  = rdev_get_drvdata(rdev);
+	u8 ibb_phase;
+
+	if (!is_phase_ctrl_supported(&chip->ibb))
+		return 0;
+
+	if (load_uA < 0)
+		return -EINVAL;
+	else if (load_uA <= SINGLE_PHASE_LIMIT_UA)
+		ibb_phase = FORCE_SINGLE_PHASE_BIT;
+	else
+		ibb_phase = FORCE_DUAL_PHASE_BIT;
+
+	return qpnp_amoled_masked_write(chip, IBB_DUAL_PHASE_CTL(chip),
+			IBB_DUAL_PHASE_CTL_MASK, ibb_phase);
+}
+
 static struct regulator_ops qpnp_amoled_ab_ops = {
 	.enable		= qpnp_ab_regulator_enable,
 	.disable	= qpnp_ab_regulator_disable,
@@ -284,6 +330,7 @@ static struct regulator_ops qpnp_amoled_ibb_ops = {
 	.get_voltage	= qpnp_ab_ibb_regulator_get_voltage,
 	.set_mode	= qpnp_ab_ibb_regulator_set_mode,
 	.get_mode	= qpnp_ab_ibb_regulator_get_mode,
+	.set_load	= qpnp_ibb_regulator_set_load,
 };
 
 /* OLEDB regulator */
@@ -475,7 +522,7 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 	const __be32 *prop_addr;
 	int rc = 0;
 	u32 base;
-	u8 val;
+	u8 val[2];
 
 	for_each_available_child_of_node(node, temp) {
 		prop_addr = of_get_address(temp, 0, NULL, NULL);
@@ -485,13 +532,13 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 		}
 
 		base = be32_to_cpu(*prop_addr);
-		rc = qpnp_amoled_read(chip, base + PERIPH_TYPE, &val, 1);
+		rc = qpnp_amoled_read(chip, base + PERIPH_TYPE, val, 2);
 		if (rc < 0) {
 			pr_err("Couldn't read PERIPH_TYPE for base %x\n", base);
 			return rc;
 		}
 
-		switch (val) {
+		switch (val[0]) {
 		case OLEDB_PERIPH_TYPE:
 			chip->oledb_base = base;
 			chip->oledb.vreg.node = temp;
@@ -513,12 +560,12 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 							"qcom,swire-control");
 			chip->ibb.pd_control = of_property_read_bool(temp,
 							"qcom,aod-pd-control");
+			chip->ibb.subtype = val[1];
 			break;
 		default:
-			pr_err("Unknown peripheral type 0x%x\n", val);
+			pr_err("Unknown peripheral type 0x%x\n", val[0]);
 			return -EINVAL;
 		}
-
 	}
 
 	return 0;

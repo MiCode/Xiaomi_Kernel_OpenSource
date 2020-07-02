@@ -16,6 +16,8 @@ msm-cvp-objs := cvp.o \
 				hfi_packetization.o \
 				cvp_core_hfi.o \
 				msm_cvp_clocks.o \
-				msm_cvp_dsp.o
+				msm_cvp_dsp.o \
+				msm_cvp_buf.o \
+				msm_cvp_synx.o
 
 obj-$(CONFIG_MSM_CVP) := msm-cvp.o

@@ -15,8 +15,16 @@ static int interconnect_bus_set(struct kgsl_device *device, int level,
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
+	if ((level == pwr->cur_buslevel) && (ab == pwr->cur_ab))
+		return 0;
+
+	pwr->cur_buslevel = level;
+	pwr->cur_ab = ab;
+
 	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
 		kBps_to_icc(pwr->ddr_table[level]));
+
+	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level);
 
 	return 0;
 }
@@ -63,8 +71,6 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 		pwr->bus_percent_ab = 0;
 		pwr->bus_ab_mbytes = 0;
 	}
-	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
-	pwr->cur_buslevel = buslevel;
 
 	/* buslevel is the IB vote, update the AB */
 	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);

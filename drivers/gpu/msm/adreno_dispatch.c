@@ -175,8 +175,8 @@ static void fault_detect_read(struct adreno_device *adreno_dev)
  */
 static inline bool _isidle(struct adreno_device *adreno_dev)
 {
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	unsigned int reg_rbbm_status;
+	u32 mask;
 
 	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
 		goto ret;
@@ -187,7 +187,12 @@ static inline bool _isidle(struct adreno_device *adreno_dev)
 	/* only check rbbm status to determine if GPU is idle */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
 
-	if (reg_rbbm_status & gpucore->busy_mask)
+	if (adreno_is_a3xx(adreno_dev))
+		mask = 0x7ffffffe;
+	else
+		mask = 0xfffffffe;
+
+	if (reg_rbbm_status & mask)
 		return false;
 
 ret:
@@ -271,11 +276,11 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	 * Write the start and end timestamp to the memstore to keep the
 	 * accounting sane
 	 */
-	kgsl_sharedmem_writel(device, device->memstore,
+	kgsl_sharedmem_writel(device->memstore,
 		KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
 		drawobj->timestamp);
 
-	kgsl_sharedmem_writel(device, device->memstore,
+	kgsl_sharedmem_writel(device->memstore,
 		KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 		drawobj->timestamp);
 
@@ -864,11 +869,17 @@ static bool adreno_gpu_stopped(struct adreno_device *adreno_dev)
 	return (adreno_gpu_fault(adreno_dev) || adreno_gpu_halt(adreno_dev));
 }
 
-static void _adreno_dispatcher_handle_jobs(struct adreno_device *adreno_dev,
-		struct llist_head *head)
+static void dispatcher_handle_jobs_list(struct adreno_device *adreno_dev,
+		int id, unsigned long *map, struct llist_node *list)
 {
-	struct llist_node *list = llist_del_all(head);
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_dispatch_job *job, *next;
+
+	if (!list)
+		return;
+
+	/* Reverse the order so the oldest context is considered first */
+	list = llist_reverse_order(list);
 
 	llist_for_each_entry_safe(job, next, list, node) {
 		int ret;
@@ -880,17 +891,58 @@ static void _adreno_dispatcher_handle_jobs(struct adreno_device *adreno_dev,
 			continue;
 		}
 
+		/*
+		 * Due to the nature of the lockless queue the same context
+		 * might have multiple jobs on the list. We allow this so we
+		 * don't have to query the list on the producer side but on the
+		 * consumer side we only want each context to be considered
+		 * once. Use a bitmap to remember which contexts we've already
+		 * seen and quietly discard duplicate jobs
+		 */
+		if (test_and_set_bit(job->drawctxt->base.id, map)) {
+			kgsl_context_put(&job->drawctxt->base);
+			kmem_cache_free(jobs_cache, job);
+			continue;
+		}
+
 		ret = dispatcher_context_sendcmds(adreno_dev, job->drawctxt);
 
+		/*
+		 * If the context had nothing queued or the context has been
+		 * destroyed then drop the job
+		 */
 		if (!ret || ret == -ENOENT) {
 			kgsl_context_put(&job->drawctxt->base);
 			kmem_cache_free(jobs_cache, job);
 			continue;
 		}
 
-		/* The job didn't finish, put it back on the job queue */
-		llist_add(&job->node, head);
+		/*
+		 * If the ringbuffer is full then requeue the job to be
+		 * considered first next time. Otherwise the context
+		 * either successfully submmitted to the GPU or another error
+		 * happened and it should go back on the regular queue
+		 */
+		if (ret == -EBUSY)
+			llist_add(&job->node, &dispatcher->requeue[id]);
+		else
+			llist_add(&job->node, &dispatcher->jobs[id]);
 	}
+}
+
+static void dispatcher_handle_jobs(struct adreno_device *adreno_dev, int id)
+{
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	unsigned long map[BITS_TO_LONGS(KGSL_MEMSTORE_MAX)];
+	struct llist_node *requeue, *jobs;
+
+	memset(map, 0, sizeof(map));
+
+	requeue = llist_del_all(&dispatcher->requeue[id]);
+	jobs = llist_del_all(&dispatcher->jobs[id]);
+
+	dispatcher_handle_jobs_list(adreno_dev, id, map, requeue);
+	dispatcher_handle_jobs_list(adreno_dev, id, map, jobs);
 }
 
 /**
@@ -910,8 +962,7 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(dispatcher->jobs); i++)
-		_adreno_dispatcher_handle_jobs(adreno_dev,
-			&dispatcher->jobs[i]);
+		dispatcher_handle_jobs(adreno_dev, i);
 }
 
 static inline void _decrement_submit_now(struct kgsl_device *device)
@@ -2185,11 +2236,11 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 */
 
 	if (hung_rb != NULL) {
-		kgsl_sharedmem_writel(device, device->memstore,
-				MEMSTORE_RB_OFFSET(hung_rb, soptimestamp),
-				hung_rb->timestamp);
+		kgsl_sharedmem_writel(device->memstore,
+			MEMSTORE_RB_OFFSET(hung_rb, soptimestamp),
+			hung_rb->timestamp);
 
-		kgsl_sharedmem_writel(device, device->memstore,
+		kgsl_sharedmem_writel(device->memstore,
 				MEMSTORE_RB_OFFSET(hung_rb, eoptimestamp),
 				hung_rb->timestamp);
 
@@ -2197,10 +2248,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		kgsl_process_event_group(device, &hung_rb->events);
 	}
 
-	if (gpudev->reset)
-		ret = gpudev->reset(device, fault);
-	else
-		ret = adreno_reset(device, fault);
+	ret = adreno_reset(device, fault);
 
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */
@@ -2825,8 +2873,10 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 
 	jobs_cache = KMEM_CACHE(adreno_dispatch_job, 0);
 
-	for (i = 0; i < ARRAY_SIZE(dispatcher->jobs); i++)
+	for (i = 0; i < ARRAY_SIZE(dispatcher->jobs); i++) {
 		init_llist_head(&dispatcher->jobs[i]);
+		init_llist_head(&dispatcher->requeue[i]);
+	}
 
 	set_bit(ADRENO_DISPATCHER_INIT, &dispatcher->priv);
 

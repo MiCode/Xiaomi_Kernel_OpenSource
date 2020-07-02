@@ -127,7 +127,7 @@ static int msm_cvp_load_reg_table(struct msm_cvp_platform_resources *res)
 		 * qcom,reg-presets is an optional property.  It likely won't be
 		 * present if we don't have any register settings to program
 		 */
-		dprintk(CVP_DBG, "qcom,reg-presets not found\n");
+		dprintk(CVP_CORE, "qcom,reg-presets not found\n");
 		return 0;
 	}
 
@@ -137,7 +137,7 @@ static int msm_cvp_load_reg_table(struct msm_cvp_platform_resources *res)
 	reg_set->count /=  sizeof(*reg_set->reg_tbl) / sizeof(u32);
 
 	if (!reg_set->count) {
-		dprintk(CVP_DBG, "no elements in reg set\n");
+		dprintk(CVP_CORE, "no elements in reg set\n");
 		return rc;
 	}
 
@@ -156,7 +156,7 @@ static int msm_cvp_load_reg_table(struct msm_cvp_platform_resources *res)
 		return -EINVAL;
 	}
 	for (i = 0; i < reg_set->count; i++) {
-		dprintk(CVP_DBG,
+		dprintk(CVP_CORE,
 			"reg = %x, value = %x\n",
 			reg_set->reg_tbl[i].reg,
 			reg_set->reg_tbl[i].value
@@ -176,7 +176,7 @@ static int msm_cvp_load_qdss_table(struct msm_cvp_platform_resources *res)
 		 * qcom,qdss-presets is an optional property. It likely won't be
 		 * present if we don't have any register settings to program
 		 */
-		dprintk(CVP_DBG, "qcom,qdss-presets not found\n");
+		dprintk(CVP_CORE, "qcom,qdss-presets not found\n");
 		return rc;
 	}
 
@@ -186,7 +186,7 @@ static int msm_cvp_load_qdss_table(struct msm_cvp_platform_resources *res)
 	qdss_addr_set->count /= sizeof(*qdss_addr_set->addr_tbl) / sizeof(u32);
 
 	if (!qdss_addr_set->count) {
-		dprintk(CVP_DBG, "no elements in qdss reg set\n");
+		dprintk(CVP_CORE, "no elements in qdss reg set\n");
 		return rc;
 	}
 
@@ -210,7 +210,7 @@ static int msm_cvp_load_qdss_table(struct msm_cvp_platform_resources *res)
 	}
 
 	for (i = 0; i < qdss_addr_set->count; i++) {
-		dprintk(CVP_DBG, "qdss addr = %x, value = %x\n",
+		dprintk(CVP_CORE, "qdss addr = %x, value = %x\n",
 				qdss_addr_set->addr_tbl[i].start,
 				qdss_addr_set->addr_tbl[i].size);
 	}
@@ -227,7 +227,7 @@ static int msm_cvp_load_subcache_info(struct msm_cvp_platform_resources *res)
 	num_subcaches = of_property_count_strings(pdev->dev.of_node,
 		"cache-slice-names");
 	if (num_subcaches <= 0) {
-		dprintk(CVP_DBG, "No subcaches found\n");
+		dprintk(CVP_CORE, "No subcaches found\n");
 		goto err_load_subcache_table_fail;
 	}
 
@@ -241,7 +241,7 @@ static int msm_cvp_load_subcache_info(struct msm_cvp_platform_resources *res)
 	}
 
 	subcaches->count = num_subcaches;
-	dprintk(CVP_DBG, "Found %d subcaches\n", num_subcaches);
+	dprintk(CVP_CORE, "Found %d subcaches\n", num_subcaches);
 
 	for (c = 0; c < num_subcaches; ++c) {
 		struct subcache_info *vsc = &res->subcache_set.subcache_tbl[c];
@@ -287,7 +287,7 @@ int msm_cvp_load_u32_table(struct platform_device *pdev,
 	u32 *ptbl = NULL;
 
 	if (!of_find_property(of_node, table_name, NULL)) {
-		dprintk(CVP_DBG, "%s not found\n", table_name);
+		dprintk(CVP_CORE, "%s not found\n", table_name);
 		return 0;
 	}
 
@@ -333,7 +333,7 @@ static int msm_cvp_load_allowed_clocks_table(
 
 	if (!of_find_property(pdev->dev.of_node,
 			"qcom,allowed-clock-rates", NULL)) {
-		dprintk(CVP_DBG, "qcom,allowed-clock-rates not found\n");
+		dprintk(CVP_CORE, "qcom,allowed-clock-rates not found\n");
 		return 0;
 	}
 
@@ -428,7 +428,7 @@ static int msm_cvp_populate_bus(struct device *dev,
 			&bus->governor);
 	if (rc) {
 		rc = 0;
-		dprintk(CVP_DBG,
+		dprintk(CVP_CORE,
 				"'qcom,bus-governor' not found, default to performance governor\n");
 		bus->governor = PERF_GOV;
 	}
@@ -440,7 +440,7 @@ static int msm_cvp_populate_bus(struct device *dev,
 			range, ARRAY_SIZE(range));
 	if (rc) {
 		rc = 0;
-		dprintk(CVP_DBG,
+		dprintk(CVP_CORE,
 				"'qcom,range' not found defaulting to <0 INT_MAX>\n");
 		range[0] = 0;
 		range[1] = INT_MAX;
@@ -451,7 +451,7 @@ static int msm_cvp_populate_bus(struct device *dev,
 
 	buses->count++;
 	bus->dev = dev;
-	dprintk(CVP_DBG, "Found bus %s [%d->%d] with governor %s\n",
+	dprintk(CVP_CORE, "Found bus %s [%d->%d] with governor %s\n",
 			bus->name, bus->master, bus->slave, bus->governor);
 err_bus:
 	return rc;
@@ -537,13 +537,13 @@ static int msm_cvp_load_regulator_table(
 		rinfo->has_hw_power_collapse = of_property_read_bool(
 			regulator_node, "qcom,support-hw-trigger");
 
-		dprintk(CVP_DBG, "Found regulator %s: h/w collapse = %s\n",
+		dprintk(CVP_CORE, "Found regulator %s: h/w collapse = %s\n",
 				rinfo->name,
 				rinfo->has_hw_power_collapse ? "yes" : "no");
 	}
 
 	if (!regulators->count)
-		dprintk(CVP_DBG, "No regulators found");
+		dprintk(CVP_CORE, "No regulators found");
 
 	return 0;
 
@@ -564,7 +564,7 @@ static int msm_cvp_load_clock_table(
 	num_clocks = of_property_count_strings(pdev->dev.of_node,
 				"clock-names");
 	if (num_clocks <= 0) {
-		dprintk(CVP_DBG, "No clocks found\n");
+		dprintk(CVP_CORE, "No clocks found\n");
 		clocks->count = 0;
 		rc = 0;
 		goto err_load_clk_table_fail;
@@ -595,7 +595,7 @@ static int msm_cvp_load_clock_table(
 	}
 
 	clocks->count = num_clocks;
-	dprintk(CVP_DBG, "Found %d clocks\n", num_clocks);
+	dprintk(CVP_CORE, "Found %d clocks\n", num_clocks);
 
 	for (c = 0; c < num_clocks; ++c) {
 		struct clock_info *vc = &res->clock_set.clock_tbl[c];
@@ -615,7 +615,7 @@ static int msm_cvp_load_clock_table(
 		else
 			vc->has_mem_retention = false;
 
-		dprintk(CVP_DBG, "Found clock %s: scale-able = %s\n", vc->name,
+		dprintk(CVP_CORE, "Found clock %s: scale-able = %s\n", vc->name,
 			vc->count ? "yes" : "no");
 	}
 
@@ -650,7 +650,7 @@ static int msm_cvp_load_reset_table(
 		return -ENOMEM;
 
 	rst->count = num_clocks;
-	dprintk(CVP_DBG, "Found %d reset clocks\n", num_clocks);
+	dprintk(CVP_CORE, "Found %d reset clocks\n", num_clocks);
 	ret = of_property_read_u32_array(pdev->dev.of_node,
 				"reset-power-status", pwr_stats,
 				num_clocks);
@@ -703,7 +703,7 @@ int cvp_read_platform_resources_from_drv_data(
 
 	res->fw_name = "cvpss";
 
-	dprintk(CVP_DBG, "Firmware filename: %s\n", res->fw_name);
+	dprintk(CVP_CORE, "Firmware filename: %s\n", res->fw_name);
 
 	res->auto_pil = find_key_value(platform_data,
 			"qcom,auto-pil");
@@ -817,7 +817,7 @@ int cvp_read_platform_resources_from_dt(
 		of_property_read_u32(pdev->dev.of_node, "qcom,fw-bias",
 				&firmware_base);
 		res->firmware_base = (phys_addr_t)firmware_base;
-		dprintk(CVP_DBG,
+		dprintk(CVP_CORE,
 				"Using fw-bias : %pa", &res->firmware_base);
 	}
 
@@ -866,8 +866,8 @@ static int msm_cvp_setup_context_bank(struct msm_cvp_platform_resources *res,
 	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
 
-	dprintk(CVP_DBG, "Attached %s and created mapping\n", dev_name(dev));
-	dprintk(CVP_DBG,
+	dprintk(CVP_CORE, "Attached %s and created mapping\n", dev_name(dev));
+	dprintk(CVP_CORE,
 		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %pK",
 		cb->name, cb->buffer_type, cb->is_secure, cb->addr_range.start,
 		cb->addr_range.size, cb->dev);
@@ -904,7 +904,7 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		msm_cvp_comm_print_inst_info(inst);
+		msm_cvp_print_inst_bufs(inst);
 	}
 	core->smmu_fault_handled = true;
 	msm_cvp_noc_error_info(core);
@@ -942,12 +942,12 @@ static int msm_cvp_populate_context_bank(struct device *dev,
 
 	rc = of_property_read_string(np, "label", &cb->name);
 	if (rc) {
-		dprintk(CVP_DBG,
+		dprintk(CVP_CORE,
 			"Failed to read cb label from device tree\n");
 		rc = 0;
 	}
 
-	dprintk(CVP_DBG, "%s: context bank has name %s\n", __func__, cb->name);
+	dprintk(CVP_CORE, "%s: context bank has name %s\n", __func__, cb->name);
 	rc = of_property_read_u32_array(np, "qcom,iommu-dma-addr-pool",
 			(u32 *)&cb->addr_range, 2);
 	if (rc) {
@@ -958,7 +958,7 @@ static int msm_cvp_populate_context_bank(struct device *dev,
 	}
 
 	cb->is_secure = of_property_read_bool(np, "qcom,iommu-vmid");
-	dprintk(CVP_DBG, "context bank %s : secure = %d\n",
+	dprintk(CVP_CORE, "context bank %s : secure = %d\n",
 			cb->name, cb->is_secure);
 
 	/* setup buffer type for each sub device*/
@@ -968,7 +968,7 @@ static int msm_cvp_populate_context_bank(struct device *dev,
 		rc = -ENOENT;
 		goto err_setup_cb;
 	}
-	dprintk(CVP_DBG,
+	dprintk(CVP_CORE,
 		"context bank %s address start = %x address size = %x buffer_type = %x\n",
 		cb->name, cb->addr_range.start,
 		cb->addr_range.size, cb->buffer_type);
@@ -1021,7 +1021,7 @@ int cvp_read_context_bank_resources_from_dt(struct platform_device *pdev)
 	if (rc)
 		dprintk(CVP_ERR, "Failed to probe context bank\n");
 	else
-		dprintk(CVP_DBG, "Successfully probed context bank\n");
+		dprintk(CVP_CORE, "Successfully probed context bank\n");
 
 	return rc;
 }

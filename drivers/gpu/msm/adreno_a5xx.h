@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2017,2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017,2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _ADRENO_A5XX_H_
@@ -204,12 +204,6 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 /* LM defaults */
 #define LM_DEFAULT_LIMIT		6000
 #define A530_DEFAULT_LEAKAGE		0x004E001A
-
-static inline bool lm_on(struct adreno_device *adreno_dev)
-{
-	return ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
-}
 
 /**
  * to_a5xx_core - return the a5xx specific GPU core struct

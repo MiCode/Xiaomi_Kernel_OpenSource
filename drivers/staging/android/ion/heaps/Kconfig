@@ -16,7 +16,7 @@ config ION_CMA_HEAP
 
 config ION_MSM_HEAPS
 	tristate "MSM platform-based Ion heaps support"
-	depends on ION && DMA_CMA && QCOM_SECURE_BUFFER
+	depends on ION
 	help
 	  Enable this option to enable platform-based Ion heaps. The heaps
           will register with the Ion core framework, at which point userspace

@@ -532,13 +532,15 @@ config MSM_ADSPRPC
 		applications/compute DSP processor.
 		Say M if you want to enable this module.
 
-config ADSPRPC_DEBUG
-	bool "Debug logs in FastRPC driver"
+config ADSPRPC_QGKI
+	bool "Enable QGKI specific features in fastrpc driver"
+	depends on QGKI
 	help
-		Enable debug logs in the fastrpc driver. Flag will be
-		disabled by default to maximize RPC performance as debug
-		logging will impact RPC overhead.
-		Say Y here if you want to enable the logs.
+		Certain features in the fastrpc driver are supported only on the
+		QGKI kernel (like I/O coherency for the fastrpc context banks). This
+		config is used in the driver to detect whether it is being compiled
+		in a GKI kernel or not.
+		Say Y if the driver is being compiled in a QGKI kernel.
 
 config ADI
 	tristate "SPARC Privileged ADI driver"

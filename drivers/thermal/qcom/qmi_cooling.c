@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -127,6 +127,46 @@ static struct qmi_dev_info device_clients[] = {
 	},
 	{
 		.dev_name = "wlan",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw_skin0_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw_skin1_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw_skin2_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "mmw_skin3_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_skin_lte_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "modem_skin_nr_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "pa_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "pa_fr1_dsc",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "cdsp_sw",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "cdsp_hw",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{

@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2015,2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015,2017,2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPC_LOGGING_H
 #define _IPC_LOGGING_H
 
+#include <linux/errno.h>
 #include <linux/types.h>
 
 #define MAX_MSG_SIZE 255

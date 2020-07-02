@@ -846,6 +846,15 @@ config REGULATOR_QPNP_AMOLED
           positive, negative and bias for the AMOLED display panel. It also
           allows configurability for the various bias-voltage parameters.
 
+config REGULATOR_QPNP_LCDB
+        tristate "Qualcomm Technologies, Inc. QPNP LCDB support"
+        depends on SPMI
+        help
+          Supports the LCDB module in the Qualcomm Technologies, Inc.
+          QPNP PMICs. Exposes regulators to control the positive and
+          negative voltage bias for the LCD display panel. It also
+          allows configurability for the various bias-voltage parameters.
+
 config REGULATOR_RC5T583
 	tristate "RICOH RC5T583 Power regulators"
 	depends on MFD_RC5T583
@@ -1215,6 +1224,17 @@ config REGULATOR_RPMH
 	  block found on Qualcomm Technologies Inc. SoCs.  RPMh regulator
 	  control allows for voting on regulator state between multiple
 	  processors within the SoC.
+
+config REGULATOR_RPM_SMD
+	tristate "RPM SMD regulator driver"
+	depends on OF
+	depends on MSM_RPM_SMD
+	help
+	  Compile in support for the RPM SMD regulator driver which is used for
+	  setting voltages and other parameters of the various power rails
+	  supplied by some Qualcomm Technologies Inc. PMICs. The RPM SMD regulator driver should
+	  be used on systems which contain an RPM which communicates with the
+	  application processor over SMD.
 
 config REGULATOR_STUB
 	tristate "Stub Regulator"

@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WCD_SPI_H__
 #define __WCD_SPI_H__
+
+#include <linux/types.h>
 
 struct wcd_spi_msg {
 	/*

@@ -558,8 +558,6 @@ struct ufs_dev_info {
 	u8 max_lu_supported;
 #ifdef CONFIG_SCSI_UFSHCD_QTI
 	u8 b_device_sub_class;
-	u16 w_spec_version;
-	u16 w_manufacturer_id;
 	u8 i_product_name;
 	/* is Unit Attention Condition cleared on UFS Device LUN? */
 	unsigned is_ufs_dev_wlun_ua_cleared:1;

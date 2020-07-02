@@ -319,6 +319,8 @@ struct fts_ts_info {
 	bool aoi_wake_on_suspend;
 
 	/* aoi region */
+	struct class *aoi_class;
+	struct device *aoi_dev;
 	int aoi_left;
 	int aoi_top;
 	int aoi_bottom;
@@ -336,6 +338,7 @@ extern int input_register_notifier_client(struct notifier_block *nb);
 extern int input_unregister_notifier_client(struct notifier_block *nb);
 
 extern struct attribute_group aoi_cmd_attr_group;
+extern struct attribute_group aoi_enable_attr_group;
 
 #ifdef SCRIPTLESS
 extern struct attribute_group i2c_cmd_attr_group;

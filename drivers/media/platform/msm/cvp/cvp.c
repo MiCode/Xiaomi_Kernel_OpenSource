@@ -37,7 +37,7 @@ static int cvp_open(struct inode *inode, struct file *filp)
 		struct msm_cvp_core, cdev);
 	struct msm_cvp_inst *inst;
 
-	dprintk(CVP_DBG, "%s: Enter\n", __func__);
+	dprintk(CVP_SESS, "%s: Enter\n", __func__);
 
 	inst = msm_cvp_open(core->id, MSM_CVP_USER);
 	if (!inst) {
@@ -209,7 +209,7 @@ static ssize_t thermal_level_store(struct device *dev,
 			"Invalid thermal level value: %s\n", buf);
 		return -EINVAL;
 	}
-	dprintk(CVP_DBG, "Thermal level old %d new %d\n",
+	dprintk(CVP_PWR, "Thermal level old %d new %d\n",
 			cvp_driver->thermal_level, val);
 
 	if (val == cvp_driver->thermal_level)
@@ -375,7 +375,7 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 		if (rc != -EPROBE_DEFER)
 			dprintk(CVP_ERR, "Failed to create HFI device\n");
 		else
-			dprintk(CVP_DBG, "msm_cvp: request probe defer\n");
+			dprintk(CVP_CORE, "msm_cvp: request probe defer\n");
 		goto err_hfi_initialize;
 	}
 
@@ -388,7 +388,7 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 
 	cvp_driver->sku_version = core->resources.sku_version;
 
-	dprintk(CVP_DBG, "populating sub devices\n");
+	dprintk(CVP_CORE, "populating sub devices\n");
 	/*
 	 * Trigger probe for each sub-device i.e. qcom,msm-cvp,context-bank.
 	 * When msm_cvp_probe is called for each sub-device, parse the
@@ -403,6 +403,10 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 	}
 
 	atomic64_set(&core->kernel_trans_id, 0);
+
+	rc = cvp_dsp_device_init();
+	if (rc)
+		dprintk(CVP_WARN, "Failed to initialize DSP driver\n");
 
 	return rc;
 
@@ -575,10 +579,6 @@ static int __init msm_cvp_init(void)
 	cvp_driver->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
 	cvp_driver->buf_cache = KMEM_CACHE(cvp_internal_buf, 0);
 	cvp_driver->smem_cache = KMEM_CACHE(msm_cvp_smem, 0);
-
-	rc = cvp_dsp_device_init();
-	if (rc)
-		dprintk(CVP_WARN, "Failed to initialize DSP driver\n");
 
 	return rc;
 }

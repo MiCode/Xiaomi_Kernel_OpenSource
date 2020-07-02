@@ -345,7 +345,7 @@ static const unsigned int a6xx_registers[] = {
 	0x0540, 0x0555,
 	/* CP */
 	0x0800, 0x0803, 0x0806, 0x0808, 0x0810, 0x0813, 0x0820, 0x0821,
-	0x0823, 0x0824, 0x0826, 0x0827, 0x0830, 0x0833, 0x0840, 0x0843,
+	0x0823, 0x0824, 0x0826, 0x0827, 0x0830, 0x0833, 0x0840, 0x0845,
 	0x084F, 0x086F, 0x0880, 0x088A, 0x08A0, 0x08AB, 0x08C0, 0x08C4,
 	0x08D0, 0x08DD, 0x08F0, 0x08F3, 0x0900, 0x0903, 0x0908, 0x0911,
 	0x0928, 0x093E, 0x0942, 0x094D, 0x0980, 0x0984, 0x098D, 0x0996,
@@ -1782,6 +1782,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb;
 	bool sptprac_on;
 	unsigned int i, roq_size;
+	u32 hi, lo;
 
 	/* GMU TCM data dumped through AHB */
 	gmu_core_dev_snapshot(device, snapshot);
@@ -1829,6 +1830,19 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 
 	if (!gmu_core_dev_gx_is_on(device))
 		return;
+
+	kgsl_regread(device, A6XX_CP_IB1_BASE, &lo);
+	kgsl_regread(device, A6XX_CP_IB1_BASE_HI, &hi);
+
+	snapshot->ib1base = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, A6XX_CP_IB2_BASE, &lo);
+	kgsl_regread(device, A6XX_CP_IB2_BASE_HI, &hi);
+
+	snapshot->ib2base = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, A6XX_CP_IB1_REM_SIZE, &snapshot->ib1size);
+	kgsl_regread(device, A6XX_CP_IB2_REM_SIZE, &snapshot->ib2size);
 
 	/* Assert the isStatic bit before triggering snapshot */
 	if (adreno_is_a660(adreno_dev))

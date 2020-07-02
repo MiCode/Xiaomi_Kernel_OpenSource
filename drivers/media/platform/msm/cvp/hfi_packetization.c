@@ -79,7 +79,7 @@ int cvp_create_pkt_cmd_sys_coverage_config(
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_CONFIG_COVERAGE;
 	pkt->rg_property_data[1] = mode;
-	dprintk(CVP_DBG, "Firmware coverage mode %d\n",
+	dprintk(CVP_PKT, "Firmware coverage mode %d\n",
 			pkt->rg_property_data[1]);
 	return 0;
 }
@@ -99,7 +99,7 @@ int cvp_create_pkt_cmd_sys_set_idle_indicator(
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_IDLE_INDICATOR;
 	pkt->rg_property_data[1] = mode;
-	dprintk(CVP_DBG, "Firmware idle indicator mode %d\n",
+	dprintk(CVP_PKT, "Firmware idle indicator mode %d\n",
 			pkt->rg_property_data[1]);
 	return 0;
 }
@@ -148,7 +148,7 @@ int cvp_create_pkt_cmd_sys_set_resource(
 
 		for (i = 0; i < hfi_sc_info->num_entries; i++) {
 			hfi_sc[i] = res_sc[i];
-		dprintk(CVP_DBG, "entry hfi#%d, sc_id %d, size %d\n",
+		dprintk(CVP_PKT, "entry hfi#%d, sc_id %d, size %d\n",
 				 i, hfi_sc[i].sc_id, hfi_sc[i].size);
 		}
 		break;
@@ -189,7 +189,7 @@ int cvp_create_pkt_cmd_sys_release_resource(
 		rc = -ENOTSUPP;
 	}
 
-	dprintk(CVP_DBG,
+	dprintk(CVP_PKT,
 		"rel_res: pkt_type 0x%x res_type 0x%x prepared\n",
 		pkt->packet_type, pkt->resource_type);
 
@@ -449,7 +449,7 @@ static struct cvp_hfi_packetization_ops hfi_default = {
 struct cvp_hfi_packetization_ops *cvp_hfi_get_pkt_ops_handle(
 			enum hfi_packetization_type type)
 {
-	dprintk(CVP_DBG, "%s selected\n",
+	dprintk(CVP_HFI, "%s selected\n",
 		type == HFI_PACKETIZATION_4XX ?
 		"4xx packetization" : "Unknown hfi");
 

@@ -331,14 +331,15 @@ static const struct pinctrl_pin_desc shima_pins[] = {
 	PINCTRL_PIN(201, "GPIO_201"),
 	PINCTRL_PIN(202, "GPIO_202"),
 	PINCTRL_PIN(203, "GPIO_203"),
-	PINCTRL_PIN(204, "SDC1_RCLK"),
-	PINCTRL_PIN(205, "SDC1_CLK"),
-	PINCTRL_PIN(206, "SDC1_CMD"),
-	PINCTRL_PIN(207, "SDC1_DATA"),
-	PINCTRL_PIN(208, "SDC2_CLK"),
-	PINCTRL_PIN(209, "SDC2_CMD"),
-	PINCTRL_PIN(210, "SDC2_DATA"),
-	PINCTRL_PIN(211, "UFS_RESET"),
+	PINCTRL_PIN(204, "UFS_RESET"),
+	PINCTRL_PIN(205, "SDC1_RCLK"),
+	PINCTRL_PIN(206, "SDC1_CLK"),
+	PINCTRL_PIN(207, "SDC1_CMD"),
+	PINCTRL_PIN(208, "SDC1_DATA"),
+	PINCTRL_PIN(209, "SDC2_CLK"),
+	PINCTRL_PIN(210, "SDC2_CMD"),
+	PINCTRL_PIN(211, "SDC2_DATA"),
+
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -548,14 +549,14 @@ DECLARE_MSM_GPIO_PINS(201);
 DECLARE_MSM_GPIO_PINS(202);
 DECLARE_MSM_GPIO_PINS(203);
 
-static const unsigned int sdc1_rclk_pins[] = { 204 };
-static const unsigned int sdc1_clk_pins[] = { 205 };
-static const unsigned int sdc1_cmd_pins[] = { 206 };
-static const unsigned int sdc1_data_pins[] = { 207 };
-static const unsigned int sdc2_clk_pins[] = { 208 };
-static const unsigned int sdc2_cmd_pins[] = { 209 };
-static const unsigned int sdc2_data_pins[] = { 210 };
-static const unsigned int ufs_reset_pins[] = { 211 };
+static const unsigned int sdc1_rclk_pins[] = { 205 };
+static const unsigned int sdc1_clk_pins[] = { 206 };
+static const unsigned int sdc1_cmd_pins[] = { 207 };
+static const unsigned int sdc1_data_pins[] = { 208 };
+static const unsigned int sdc2_clk_pins[] = { 209 };
+static const unsigned int sdc2_cmd_pins[] = { 210};
+static const unsigned int sdc2_data_pins[] = { 211 };
+static const unsigned int ufs_reset_pins[] = { 204 };
 
 enum shima_functions {
 	msm_mux_gpio,
@@ -1856,20 +1857,37 @@ static const struct msm_pingroup shima_groups[] = {
 			 0xCC004, 12),
 	[203] = PINGROUP(203, forced_usb, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0, -1),
-	[204] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0000, 15, 0),
-	[205] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1d0000, 13, 6),
-	[206] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1d0000, 11, 3),
-	[207] = SDC_QDSD_PINGROUP(sdc1_data, 0x1d0000, 9, 0),
-	[208] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1d1000, 14, 6),
-	[209] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d1000, 11, 3),
-	[210] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d1000, 9, 0),
-	[211] = UFS_RESET(ufs_reset, 0x1db000),
+	[204] = UFS_RESET(ufs_reset, 0x1db000),
+	[205] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1d0000, 15, 0),
+	[206] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1d0000, 13, 6),
+	[207] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1d0000, 11, 3),
+	[208] = SDC_QDSD_PINGROUP(sdc1_data, 0x1d0000, 9, 0),
+	[209] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1d1000, 14, 6),
+	[210] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d1000, 11, 3),
+	[211] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d1000, 9, 0),
 };
 static struct pinctrl_qup shima_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
 	QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
 	QUP_I3C(8, QUP_I3C_8_MODE_OFFSET),
 	QUP_I3C(9, QUP_I3C_9_MODE_OFFSET),
+};
+
+static const struct msm_gpio_wakeirq_map shima_pdc_map[] = {
+	{ 2, 103 }, { 3, 104 }, { 7, 82 }, { 10, 163 }, { 11, 83 },
+	{ 15, 146 }, { 16, 155 }, { 17, 154 }, { 19, 121 }, { 23, 84 },
+	{ 26, 86 }, { 27, 75 }, { 31, 85 }, { 32, 95 }, { 34, 98 },
+	{ 36, 79 }, { 38, 99 }, { 39, 92 }, { 40, 101 }, { 43, 137 },
+	{ 45, 133 }, { 46, 96 }, { 47, 93 }, { 48, 127 }, { 50, 108 },
+	{ 56, 81 }, { 59, 112 }, { 60, 119 }, { 63, 73 }, { 66, 74 },
+	{ 80, 126 }, { 81, 139 }, { 82, 140 }, { 83, 141 }, { 84, 124 },
+	{ 87, 138 }, { 88, 122 }, { 89, 113 }, { 90, 114 }, { 91, 115 },
+	{ 93, 117 }, { 95, 147 }, { 96, 148 }, { 98, 149 }, { 99, 150 },
+	{ 105, 161 }, { 107, 160 }, { 110, 159 }, { 113, 158 }, { 114, 157 },
+	{ 116, 106 }, { 117, 105 }, { 118, 116 }, { 119, 123 }, { 130, 145 },
+	{ 136, 72 }, { 140, 100 }, { 151, 110 }, { 155, 107 }, { 156, 94 },
+	{ 159, 118 }, { 162, 77 }, { 169, 70 }, { 172, 132 }, { 174, 87 },
+	{ 177, 89 }, { 179, 120 }, { 180, 129 }, { 183, 90 }, { 185, 136 },
 };
 
 static const struct msm_pinctrl_soc_data shima_pinctrl = {
@@ -1879,9 +1897,11 @@ static const struct msm_pinctrl_soc_data shima_pinctrl = {
 	.nfunctions = ARRAY_SIZE(shima_functions),
 	.groups = shima_groups,
 	.ngroups = ARRAY_SIZE(shima_groups),
-	.ngpios = 204,
+	.ngpios = 205,
 	.qup_regs = shima_qup_regs,
 	.nqup_regs = ARRAY_SIZE(shima_qup_regs),
+	.wakeirq_map = shima_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(shima_pdc_map),
 };
 
 static int shima_pinctrl_probe(struct platform_device *pdev)

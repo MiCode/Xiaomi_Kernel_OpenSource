@@ -2,6 +2,7 @@
 
 menuconfig HAVEN_DRIVERS
 	bool "Haven Virtualization drivers"
+	depends on ARM64
 	help
 	  The Haven drivers are the helper interfaces that runs on the
 	  virtual machines that provides support such as memory/device
@@ -13,6 +14,27 @@ menuconfig HAVEN_DRIVERS
 	  If you say N, all options in this submenu will be skipped and disabled.
 
 if HAVEN_DRIVERS
+
+config HH_CTRL
+	tristate "Create Haven entries under /sys/hypervisor"
+	depends on SYSFS
+	select SYS_HYPERVISOR
+	help
+	  Create entries under /sys/hypervisor for the Haven hypervisor.
+	  The driver also provides a facility for controlling
+	  hypervisor debug features.
+	  See Documentation/ABI/testing/sysfs-hypervisor-haven for more details.
+
+if HH_CTRL
+config HH_DISABLE_UART
+	bool "Disable Haven UART print during kernel boot"
+	default y
+	help
+	  The hypervisor UART driver is enabled at boot,
+	  however its use may conflict with use of the
+	  Linux driver. This config requests Haven to
+	  disable its UART driver.
+endif
 
 config HH_MSGQ
 	tristate "Haven Message Queue driver"
@@ -46,5 +68,26 @@ config HH_DBL
 	  like either a source(Tx) or generate(Rx). Individual VMs make use of
 	  these doorbells by calling send and/or a receive primitives exposed by
 	  driver and trigger an interrupt to each other and exchange the data.
+
+config HH_IRQ_LEND
+	tristate "Haven IRQ Lending Framework"
+	depends on HH_RM_DRV
+	help
+	  Haven Resource Manager permits interrupts to be shared between
+	  virtual machines. This config enables a framework which
+	  supports sharing these interrupts. The follows RM recommended
+	  protocol.
+
+config HH_MEM_NOTIFIER
+	tristate "Haven Memory Resource Notification Framework"
+	depends on HH_RM_DRV
+	help
+	  The Haven Resource Manager allows for different memory resources
+	  to be transferred across virtual machines with different notification
+	  labels assigned to each resource to aid in distinguishing them.
+	  Enabling the Haven Memory Resource Notification Framework provides an
+	  interface for clients to transmit memory resources between virtual
+	  machines, and register callbacks that get invoked only when
+	  notifications pertaining to their memory resources arrive.
 
 endif

@@ -24,6 +24,7 @@ enum {
 
 static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 	unsigned long flags;
 	int ret = 0;
@@ -47,10 +48,9 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	} else {
 		unsigned int wptr;
 
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
+		kgsl_regread(device, A6XX_CP_RB_WPTR, &wptr);
 		if (wptr != rb->wptr) {
-			adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
-				rb->wptr);
+			kgsl_regwrite(device, A6XX_CP_RB_WPTR, rb->wptr);
 			reset_timer = true;
 		}
 	}
@@ -83,7 +83,7 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 	if (!kgsl_state_is_awake(device))
 		return;
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &status);
+	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &status);
 
 	if (status & 0x1) {
 		dev_err(device->dev,
@@ -106,7 +106,7 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 
 	del_timer_sync(&adreno_dev->preempt.timer);
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT_LEVEL_STATUS, &status);
+	kgsl_regread(device,  A6XX_CP_CONTEXT_SWITCH_LEVEL_STATUS, &status);
 
 	trace_adreno_preempt_done(adreno_dev->cur_rb, adreno_dev->next_rb,
 		status);
@@ -137,9 +137,9 @@ static void _a6xx_preemption_fault(struct adreno_device *adreno_dev)
 	 * was successful then just transition to the complete state
 	 */
 	if (kgsl_state_is_awake(device)) {
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &status);
+		kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &status);
 
-		if (status == 0) {
+		if (!(status & 0x1)) {
 			adreno_set_preempt_state(adreno_dev,
 				ADRENO_PREEMPT_COMPLETE);
 
@@ -149,7 +149,7 @@ static void _a6xx_preemption_fault(struct adreno_device *adreno_dev)
 	}
 
 	dev_err(device->dev,
-		     "Preemption timed out: cur=%d R/W=%X/%X, next=%d R/W=%X/%X\n",
+		     "Preemption Fault: cur=%d R/W=0x%x/0x%x, next=%d R/W=0x%x/0x%x\n",
 		     adreno_dev->cur_rb->id,
 		     adreno_get_rptr(adreno_dev->cur_rb),
 		     adreno_dev->cur_rb->wptr,
@@ -260,15 +260,15 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	kgsl_sharedmem_readl(next->pagetable_desc, &contextidr,
 		PT_INFO_OFFSET(contextidr));
 
-	kgsl_sharedmem_writel(device, next->preemption_desc,
+	kgsl_sharedmem_writel(next->preemption_desc,
 		PREEMPT_RECORD(wptr), next->wptr);
 
 	spin_unlock_irqrestore(&next->preempt_lock, flags);
 
 	/* And write it to the smmu info */
-	kgsl_sharedmem_writeq(device, iommu->smmu_info,
+	kgsl_sharedmem_writeq(iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(ttbr0), ttbr0);
-	kgsl_sharedmem_writel(device, iommu->smmu_info,
+	kgsl_sharedmem_writel(iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(context_idr), contextidr);
 
 	kgsl_sharedmem_readq(device->scratch, &gpuaddr,
@@ -373,10 +373,15 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 
 	return;
 err:
-
-	/* If fenced write fails, set the fault and trigger recovery */
+	/* If fenced write fails, take inline snapshot and trigger recovery */
+	if (!in_interrupt()) {
+		gmu_core_snapshot(device);
+		adreno_set_gpu_fault(adreno_dev,
+			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+	} else {
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+	}
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
-	adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
 	adreno_dispatcher_schedule(device);
 	/* Clear the keep alive */
 	if (gmu_core_isenabled(device))
@@ -385,13 +390,14 @@ err:
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int status;
 
 	if (!adreno_move_preempt_state(adreno_dev,
 		ADRENO_PREEMPT_TRIGGERED, ADRENO_PREEMPT_PENDING))
 		return;
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &status);
+	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &status);
 
 	if (status & 0x1) {
 		dev_err(KGSL_DEVICE(adreno_dev)->dev,
@@ -421,7 +427,7 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 
 	del_timer(&adreno_dev->preempt.timer);
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT_LEVEL_STATUS, &status);
+	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_LEVEL_STATUS, &status);
 
 	trace_adreno_preempt_done(adreno_dev->cur_rb, adreno_dev->next_rb,
 		status);
@@ -558,31 +564,28 @@ void a6xx_preemption_start(struct adreno_device *adreno_dev)
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
 
 	/* smmu_info is allocated and mapped in a6xx_preemption_iommu_init */
-	kgsl_sharedmem_writel(device, iommu->smmu_info,
+	kgsl_sharedmem_writel(iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(magic), A6XX_CP_SMMU_INFO_MAGIC_REF);
-	kgsl_sharedmem_writeq(device, iommu->smmu_info,
+	kgsl_sharedmem_writeq(iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(ttbr0), MMU_DEFAULT_TTBR0(device));
 
 	/* The CP doesn't use the asid record, so poison it */
-	kgsl_sharedmem_writel(device, iommu->smmu_info,
+	kgsl_sharedmem_writel(iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(asid), 0xDECAFBAD);
-	kgsl_sharedmem_writel(device, iommu->smmu_info,
+	kgsl_sharedmem_writel(iommu->smmu_info,
 		PREEMPT_SMMU_RECORD(context_idr),
 		MMU_DEFAULT_CONTEXTIDR(device));
 
-	adreno_writereg64(adreno_dev,
-		ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
-		ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
-		iommu->smmu_info->gpuaddr);
+	kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
+		lower_32_bits(iommu->smmu_info->gpuaddr));
+
+	kgsl_regwrite(device, A6XX_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
+		upper_32_bits(iommu->smmu_info->gpuaddr));
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		/*
-		 * preemption_desc is allocated and mapped at init time,
-		 * so no need to check sharedmem_writel return value
-		 */
-		kgsl_sharedmem_writel(device, rb->preemption_desc,
+		kgsl_sharedmem_writel(rb->preemption_desc,
 			PREEMPT_RECORD(rptr), 0);
-		kgsl_sharedmem_writel(device, rb->preemption_desc,
+		kgsl_sharedmem_writel(rb->preemption_desc,
 			PREEMPT_RECORD(wptr), 0);
 
 		adreno_ringbuffer_set_pagetable(rb,
@@ -620,24 +623,24 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	if (IS_ERR(rb->perfcounter_save_restore_desc))
 		return PTR_ERR(rb->perfcounter_save_restore_desc);
 
-	kgsl_sharedmem_writel(device, rb->preemption_desc,
+	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(magic), A6XX_CP_CTXRECORD_MAGIC_REF);
-	kgsl_sharedmem_writel(device, rb->preemption_desc,
+	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(info), 0);
-	kgsl_sharedmem_writel(device, rb->preemption_desc,
+	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(data), 0);
-	kgsl_sharedmem_writel(device, rb->preemption_desc,
+	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(cntl), A6XX_CP_RB_CNTL_DEFAULT);
-	kgsl_sharedmem_writel(device, rb->preemption_desc,
+	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(rptr), 0);
-	kgsl_sharedmem_writel(device, rb->preemption_desc,
+	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(wptr), 0);
-	kgsl_sharedmem_writeq(device, rb->preemption_desc,
+	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rptr_addr), SCRATCH_RPTR_GPU_ADDR(device,
 		rb->id));
-	kgsl_sharedmem_writeq(device, rb->preemption_desc,
+	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc->gpuaddr);
-	kgsl_sharedmem_writeq(device, rb->preemption_desc,
+	kgsl_sharedmem_writeq(rb->preemption_desc,
 		PREEMPT_RECORD(counter), 0);
 
 	return 0;

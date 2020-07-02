@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2008-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -59,7 +59,7 @@ static int _lm_limit_set(void *data, u64 val)
 
 	adreno_dev->lm_limit = val;
 
-	if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+	if (adreno_dev->lm_enabled) {
 		mutex_lock(&device->mutex);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -50,7 +50,6 @@
 #define SLV_ADDR_SHFT		(9)
 
 #define I2C_PACK_EN		(BIT(0) | BIT(1))
-#define I2C_CORE2X_VOTE		(960)
 #define GP_IRQ0			0
 #define GP_IRQ1			1
 #define GP_IRQ2			2
@@ -116,6 +115,7 @@ struct geni_i2c_dev {
 	enum i2c_se_mode se_mode;
 	bool cmd_done;
 	bool is_shared;
+	bool is_le_vm;
 };
 
 struct geni_i2c_err_log {
@@ -226,6 +226,42 @@ static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 	geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
 err_ret:
 	gi2c->err = gi2c_log[err].err;
+}
+
+static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
+{
+	if (gi2c->se_mode == UNINITIALIZED) {
+		int proto = get_se_proto(gi2c->base);
+		u32 se_mode;
+
+		if (proto != I2C) {
+			dev_err(gi2c->dev, "Invalid proto %d\n", proto);
+			if (!gi2c->is_le_vm)
+				se_geni_resources_off(&gi2c->i2c_rsc);
+			return -ENXIO;
+		}
+
+		se_mode = readl_relaxed(gi2c->base +
+					GENI_IF_FIFO_DISABLE_RO);
+		if (se_mode) {
+			gi2c->se_mode = GSI_ONLY;
+			geni_se_select_mode(gi2c->base, GSI_DMA);
+			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+					"i2c in GSI ONLY mode\n");
+		} else {
+			int gi2c_tx_depth = get_tx_fifo_depth(gi2c->base);
+
+			gi2c->se_mode = FIFO_SE_DMA;
+
+			gi2c->tx_wm = gi2c_tx_depth - 1;
+			geni_se_init(gi2c->base, gi2c->tx_wm, gi2c_tx_depth);
+			se_config_packing(gi2c->base, 8, 4, true);
+			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+					"i2c fifo/se-dma mode. fifo depth:%d\n",
+					gi2c_tx_depth);
+		}
+	}
+	return 0;
 }
 
 static irqreturn_t geni_i2c_irq(int irq, void *dev)
@@ -663,6 +699,16 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		pm_runtime_set_suspended(gi2c->dev);
 		return ret;
 	}
+
+	if (gi2c->is_le_vm) {
+		ret = geni_i2c_prepare(gi2c);
+		if (ret) {
+			dev_err(gi2c->dev, "I2C prepare failed\n");
+			pm_runtime_put_sync_suspend(gi2c->dev);
+			return ret;
+		}
+	}
+
 	if (gi2c->se_mode == GSI_ONLY) {
 		ret = geni_i2c_gsi_xfer(adap, msgs, num);
 		goto geni_i2c_txn_ret;
@@ -843,61 +889,89 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		return ret;
 	}
 	gi2c->wrapper_dev = &wrapper_pdev->dev;
-	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
-	ret = geni_se_resources_init(&gi2c->i2c_rsc, I2C_CORE2X_VOTE,
-				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-	if (ret) {
-		dev_err(gi2c->dev, "geni_se_resources_init\n");
-		return ret;
-	}
-
-	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
-	gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
-	if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
-		ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
-		dev_err(&pdev->dev, "Err getting SE Core clk %d\n", ret);
-		return ret;
-	}
-
-	gi2c->i2c_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
-	if (IS_ERR(gi2c->i2c_rsc.m_ahb_clk)) {
-		ret = PTR_ERR(gi2c->i2c_rsc.m_ahb_clk);
-		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
-		return ret;
-	}
-
-	gi2c->i2c_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
-	if (IS_ERR(gi2c->i2c_rsc.s_ahb_clk)) {
-		ret = PTR_ERR(gi2c->i2c_rsc.s_ahb_clk);
-		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
-		return ret;
-	}
 
 	gi2c->base = devm_ioremap_resource(gi2c->dev, res);
 	if (IS_ERR(gi2c->base))
 		return PTR_ERR(gi2c->base);
 
-	gi2c->i2c_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_pinctrl)) {
-		dev_err(&pdev->dev, "No pinctrl config specified\n");
-		ret = PTR_ERR(gi2c->i2c_rsc.geni_pinctrl);
-		return ret;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,le-vm")) {
+		gi2c->is_le_vm = true;
+		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
-	gi2c->i2c_rsc.geni_gpio_active =
-		pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
+
+	/*
+	 * For LE, clocks, gpio and icb voting will be provided by
+	 * by LA. The I2C operates in GSI mode only for LE usecase,
+	 * se irq not required. Below properties will not be present
+	 * in I2C LE dt.
+	 */
+	if (!gi2c->is_le_vm) {
+		gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
+		gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
+		gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
+		if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
+			ret = PTR_ERR(gi2c->i2c_rsc.se_clk);
+			dev_err(&pdev->dev, "Err getting SE Core clk %d\n",
+				ret);
+			return ret;
+		}
+
+		gi2c->i2c_rsc.m_ahb_clk = devm_clk_get(&pdev->dev, "m-ahb");
+		if (IS_ERR(gi2c->i2c_rsc.m_ahb_clk)) {
+			ret = PTR_ERR(gi2c->i2c_rsc.m_ahb_clk);
+			dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
+			return ret;
+		}
+
+		gi2c->i2c_rsc.s_ahb_clk = devm_clk_get(&pdev->dev, "s-ahb");
+		if (IS_ERR(gi2c->i2c_rsc.s_ahb_clk)) {
+			ret = PTR_ERR(gi2c->i2c_rsc.s_ahb_clk);
+			dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
+			return ret;
+		}
+
+		ret = geni_se_resources_init(&gi2c->i2c_rsc, I2C_CORE2X_VOTE,
+				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+		if (ret) {
+			dev_err(gi2c->dev, "geni_se_resources_init\n");
+			return ret;
+		}
+
+		gi2c->i2c_rsc.geni_pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_pinctrl)) {
+			dev_err(&pdev->dev, "No pinctrl config specified\n");
+			ret = PTR_ERR(gi2c->i2c_rsc.geni_pinctrl);
+			return ret;
+		}
+		gi2c->i2c_rsc.geni_gpio_active =
+			pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
 							PINCTRL_DEFAULT);
-	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_active)) {
-		dev_err(&pdev->dev, "No default config specified\n");
-		ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_active);
-		return ret;
-	}
-	gi2c->i2c_rsc.geni_gpio_sleep =
-		pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
+		if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_active)) {
+			dev_err(&pdev->dev, "No default config specified\n");
+			ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_active);
+			return ret;
+		}
+		gi2c->i2c_rsc.geni_gpio_sleep =
+			pinctrl_lookup_state(gi2c->i2c_rsc.geni_pinctrl,
 							PINCTRL_SLEEP);
-	if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_sleep)) {
-		dev_err(&pdev->dev, "No sleep config specified\n");
-		ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
-		return ret;
+		if (IS_ERR_OR_NULL(gi2c->i2c_rsc.geni_gpio_sleep)) {
+			dev_err(&pdev->dev, "No sleep config specified\n");
+			ret = PTR_ERR(gi2c->i2c_rsc.geni_gpio_sleep);
+			return ret;
+		}
+
+		gi2c->irq = platform_get_irq(pdev, 0);
+		if (gi2c->irq < 0)
+			return gi2c->irq;
+
+		irq_set_status_flags(gi2c->irq, IRQ_NOAUTOEN);
+		ret = devm_request_irq(gi2c->dev, gi2c->irq, geni_i2c_irq,
+					0, "i2c_geni", gi2c);
+		if (ret) {
+			dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n",
+					   gi2c->irq, ret);
+			return ret;
+		}
 	}
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared")) {
@@ -912,11 +986,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		gi2c->i2c_rsc.clk_freq_out = KHz(400);
 	}
 
-	gi2c->irq = platform_get_irq(pdev, 0);
-	if (gi2c->irq < 0) {
-		dev_err(gi2c->dev, "IRQ error for i2c-geni\n");
-		return gi2c->irq;
-	}
 
 	ret = geni_i2c_clk_map_idx(gi2c);
 	if (ret) {
@@ -937,14 +1006,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	gi2c->adap.algo = &geni_i2c_algo;
 	init_completion(&gi2c->xfer);
 	platform_set_drvdata(pdev, gi2c);
-	ret = devm_request_irq(gi2c->dev, gi2c->irq, geni_i2c_irq,
-			       IRQF_TRIGGER_HIGH, "i2c_geni", gi2c);
-	if (ret) {
-		dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n",
-				   gi2c->irq, ret);
-		return ret;
-	}
-	disable_irq(gi2c->irq);
 	i2c_set_adapdata(&gi2c->adap, gi2c);
 	gi2c->adap.dev.parent = gi2c->dev;
 	gi2c->adap.dev.of_node = pdev->dev.of_node;
@@ -955,9 +1016,13 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(gi2c->dev, I2C_AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(gi2c->dev);
 	pm_runtime_enable(gi2c->dev);
-	i2c_add_adapter(&gi2c->adap);
+	ret = i2c_add_adapter(&gi2c->adap);
+	if (ret) {
+		dev_err(gi2c->dev, "Add adapter failed, ret=%d\n", ret);
+		return ret;
+	}
 
-	dev_dbg(gi2c->dev, "I2C probed\n");
+	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }
 
@@ -985,7 +1050,10 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 	if (gi2c->se_mode == FIFO_SE_DMA)
 		disable_irq(gi2c->irq);
 
-	if (gi2c->is_shared) {
+	if (gi2c->is_le_vm) {
+		/* Do not control clk/gpio/icb for LE-VM */
+		return 0;
+	} else if (gi2c->is_shared) {
 		/* Do not unconfigure GPIOs if shared se */
 		se_geni_clks_off(&gi2c->i2c_rsc);
 	} else {
@@ -1006,43 +1074,28 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		gi2c->ipcl = ipc_log_context_create(2, ipc_name, 0);
 	}
 
-	ret = se_geni_resources_on(&gi2c->i2c_rsc);
+	if (!gi2c->is_le_vm) {
+		/* Do not control clk/gpio/icb for LE-VM */
+		ret = se_geni_resources_on(&gi2c->i2c_rsc);
 
-	if (ret)
-		return ret;
-
-	if (gi2c->se_mode == UNINITIALIZED) {
-		int proto = get_se_proto(gi2c->base);
-		u32 se_mode;
-
-		if (unlikely(proto != I2C)) {
-			dev_err(gi2c->dev, "Invalid proto %d\n", proto);
-			se_geni_resources_off(&gi2c->i2c_rsc);
-			return -ENXIO;
+		if (ret)
+			return ret;
+		/*
+		 * resume is called from probe so for LE,
+		 * geni_i2c_prepare can not be called inside
+		 * resume as clocks are not on during LE probe.
+		 * LA will provide clocks to LE so deferring
+		 * the below api call to first transfer in LE.
+		 */
+		ret = geni_i2c_prepare(gi2c);
+		if (ret) {
+			dev_err(gi2c->dev, "I2C prepare failed\n");
+			return ret;
 		}
 
-		se_mode = readl_relaxed(gi2c->base +
-					GENI_IF_FIFO_DISABLE_RO);
-		if (se_mode) {
-			gi2c->se_mode = GSI_ONLY;
-			geni_se_select_mode(gi2c->base, GSI_DMA);
-			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-				    "i2c in GSI ONLY mode\n");
-		} else {
-			int gi2c_tx_depth = get_tx_fifo_depth(gi2c->base);
-
-			gi2c->se_mode = FIFO_SE_DMA;
-
-			gi2c->tx_wm = gi2c_tx_depth - 1;
-			geni_se_init(gi2c->base, gi2c->tx_wm, gi2c_tx_depth);
-			se_config_packing(gi2c->base, 8, 4, true);
-			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-				    "i2c fifo/se-dma mode. fifo depth:%d\n",
-				    gi2c_tx_depth);
-		}
+		if (gi2c->se_mode == FIFO_SE_DMA)
+			enable_irq(gi2c->irq);
 	}
-	if (gi2c->se_mode == FIFO_SE_DMA)
-		enable_irq(gi2c->irq);
 
 	return 0;
 }

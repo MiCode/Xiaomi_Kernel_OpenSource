@@ -26,14 +26,14 @@ static inline int hh_hcall_hyp_identify(struct hh_hcall_hyp_identify_resp *resp)
 		(struct hh_hcall_args){ 0 },
 		&_resp);
 
-	if (!ret && resp) {
+	if (resp) {
 		resp->api_info = _resp.resp0;
 		resp->flags[0] = _resp.resp1;
 		resp->flags[1] = _resp.resp2;
 		resp->flags[2] = _resp.resp3;
 	}
 
-	return ret < 0 ? ret : 0;
+	return 0;
 }
 
 static inline int hh_hcall_dbl_bind(hh_capid_t dbl_capid, hh_capid_t vic_capid,
@@ -266,6 +266,36 @@ static inline int hh_hcall_msgq_configure_recv(hh_capid_t msgq_capid,
 		(struct hh_hcall_args){ msgq_capid, not_empty_threshold,
 					not_empty_delay, -1 },
 		&_resp);
+
+	return ret;
+}
+
+static inline int hh_hcall_vcpu_affinity_set(hh_capid_t vcpu_capid,
+						uint32_t cpu_index)
+{
+	int ret;
+	struct hh_hcall_resp _resp = {0};
+
+	ret = _hh_hcall(0x603d,
+			(struct hh_hcall_args){ vcpu_capid, cpu_index, -1 },
+			&_resp);
+
+	return ret;
+}
+
+static inline int hh_hcall_trace_update_class_flags(
+		uint64_t set_flags, uint64_t clear_flags,
+		uint64_t *new_flags)
+{
+	int ret;
+	struct hh_hcall_resp _resp = {0};
+
+	ret = _hh_hcall(0x603f,
+			(struct hh_hcall_args){ set_flags, clear_flags, 0 },
+			&_resp);
+
+	if (!ret && new_flags)
+		*new_flags = _resp.resp1;
 
 	return ret;
 }

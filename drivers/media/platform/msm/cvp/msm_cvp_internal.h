@@ -37,9 +37,6 @@
 #define FENCE_DME_DS_IDX 1
 #define FENCE_DME_OUTPUT_IDX 7
 
-#define MAX_FRAME_BUFFER_NUMS 10
-#define MAX_DMABUF_NUMS 30
-
 #define SYS_MSG_START HAL_SYS_INIT_DONE
 #define SYS_MSG_END HAL_SYS_ERROR
 #define SESSION_MSG_START HAL_SESSION_EVENT_CHANGE
@@ -81,44 +78,6 @@ enum dsp_state {
 	DSP_PROBED,
 	DSP_READY,
 	DSP_SUSPEND,
-};
-
-struct msm_cvp_list {
-	struct list_head list;
-	struct mutex lock;
-	u32 nr;
-	u32 maxnr;
-};
-
-static inline void INIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
-{
-	mutex_init(&mlist->lock);
-	INIT_LIST_HEAD(&mlist->list);
-	mlist->nr = 0;
-}
-
-static inline void DEINIT_MSM_CVP_LIST(struct msm_cvp_list *mlist)
-{
-	mutex_destroy(&mlist->lock);
-}
-
-enum buffer_owner {
-	DRIVER,
-	FIRMWARE,
-	CLIENT,
-	MAX_OWNER
-};
-
-struct cvp_internal_buf {
-	struct list_head list;
-	s32 fd;
-	u32 size;
-	u32 offset;
-	u32 type;
-	u32 index;
-	u64 ktid;
-	enum buffer_owner ownership;
-	struct msm_cvp_smem *smem;
 };
 
 struct msm_cvp_common_data {
@@ -235,13 +194,6 @@ struct cvp_session_msg {
 	struct cvp_hfi_msg_session_hdr pkt;
 };
 
-enum queue_state {
-	QUEUE_INIT,
-	QUEUE_ACTIVE = 1,
-	QUEUE_STOP = 2,
-	QUEUE_INVALID,
-};
-
 struct cvp_session_queue {
 	spinlock_t lock;
 	enum queue_state state;
@@ -271,14 +223,6 @@ struct cvp_session_prop {
 	u32 ddr_op_bw;
 	u32 ddr_cache;
 	u32 ddr_op_cache;
-};
-
-struct cvp_fence_queue {
-	spinlock_t lock;
-	enum queue_state state;
-	struct list_head wait_list;
-	wait_queue_head_t wq;
-	struct list_head sched_list;
 };
 
 enum cvp_event_t {
@@ -335,7 +279,7 @@ struct msm_cvp_inst {
 	enum instance_state state;
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
-	struct msm_cvp_list cpusmems;
+	struct cvp_dmamap_cache dma_cache;
 	struct msm_cvp_list cvpdspbufs;
 	struct msm_cvp_list frames;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
@@ -345,30 +289,10 @@ struct msm_cvp_inst {
 	enum msm_cvp_modes flags;
 	struct msm_cvp_capability capability;
 	struct kref kref;
-	struct cvp_kmd_request_power power;
 	struct cvp_session_prop prop;
 	u32 cur_cmd_type;
 	struct synx_session synx_session_id;
 	struct cvp_fence_queue fence_cmd_queue;
-};
-
-struct cvp_fence_type {
-	s32 h_synx;
-	u32 secure_key;
-};
-
-struct cvp_fence_command {
-	struct list_head list;
-	u32 type;
-	u32 synx[MAX_HFI_FENCE_SIZE/2];
-	struct cvp_hfi_cmd_session_hdr *pkt;
-};
-
-struct msm_cvp_frame {
-	struct list_head list;
-	struct cvp_internal_buf bufs[MAX_FRAME_BUFFER_NUMS];
-	u32 nr;
-	u64 ktid;
 };
 
 extern struct msm_cvp_drv *cvp_driver;
@@ -378,19 +302,7 @@ int msm_cvp_trigger_ssr(struct msm_cvp_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_cvp_noc_error_info(struct msm_cvp_core *core);
 void msm_cvp_comm_handle_thermal_event(void);
-int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags, int map_kernel,
-	void  *res, struct msm_cvp_smem *smem);
-int msm_cvp_smem_free(struct msm_cvp_smem *smem);
 
-struct context_bank_info *msm_cvp_smem_get_context_bank(bool is_secure,
-	struct msm_cvp_platform_resources *res, unsigned long ion_flags);
-int msm_cvp_map_smem(struct msm_cvp_inst *inst,
-				struct msm_cvp_smem *smem);
-int msm_cvp_unmap_smem(struct msm_cvp_smem *smem);
-struct dma_buf *msm_cvp_smem_get_dma_buf(int fd);
-void msm_cvp_smem_put_dma_buf(void *dma_buf);
-int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
-	enum smem_cache_ops cache_op, unsigned long offset, unsigned long size);
 void msm_cvp_fw_unload_handler(struct work_struct *work);
 void msm_cvp_ssr_handler(struct work_struct *work);
 /*

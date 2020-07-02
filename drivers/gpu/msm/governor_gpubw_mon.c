@@ -197,6 +197,9 @@ static int devfreq_gpubw_event_handler(struct devfreq *devfreq,
 	int result = 0;
 	unsigned long freq;
 
+	if (strcmp(dev_name(devfreq->dev.parent), "kgsl-busmon"))
+		return -EINVAL;
+
 	mutex_lock(&devfreq->lock);
 	freq = devfreq->previous_freq;
 	switch (event) {
@@ -233,6 +236,7 @@ static struct devfreq_governor devfreq_gpubw = {
 	.name = "gpubw_mon",
 	.get_target_freq = devfreq_gpubw_get_target,
 	.event_handler = devfreq_gpubw_event_handler,
+	.immutable = 1,
 };
 
 static int __init devfreq_gpubw_init(void)

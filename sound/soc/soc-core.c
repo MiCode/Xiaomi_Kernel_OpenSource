@@ -778,39 +778,6 @@ static int snd_soc_is_matching_component(
 	return 1;
 }
 
-#ifdef CONFIG_AUDIO_QGKI
-/**
- * soc_find_component: find a component from component_list in ASoC core
- *
- * @dlc: dlc of the component to query.
- *
- * function to find out if a component is already registered with ASoC core.
- *
- * Returns component handle for success, else NULL error.
- */
-struct snd_soc_component *soc_find_component(
-	const struct snd_soc_dai_link_component *dlc)
-{
-	struct snd_soc_component *component;
-
-	lockdep_assert_held(&client_mutex);
-
-	/*
-	 * NOTE
-	 *
-	 * It returns *1st* found component, but some driver
-	 * has few components by same of_node/name
-	 * ex)
-	 *	CPU component and generic DMAEngine component
-	 */
-	for_each_component(component)
-		if (snd_soc_is_matching_component(dlc, component))
-			return component;
-
-	return NULL;
-}
-EXPORT_SYMBOL(soc_find_component);
-#else
 static struct snd_soc_component *soc_find_component(
 	const struct snd_soc_dai_link_component *dlc)
 {
@@ -832,7 +799,6 @@ static struct snd_soc_component *soc_find_component(
 
 	return NULL;
 }
-#endif
 
 /**
  * snd_soc_find_dai - Find a registered DAI

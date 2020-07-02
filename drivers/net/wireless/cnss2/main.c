@@ -32,7 +32,6 @@
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
 #define COLD_BOOT_CAL_SHUTDOWN_DELAY_MS	50
-#define WLAN_WD_TIMEOUT_MS		60000
 
 #define CNSS_QUIRKS_DEFAULT		BIT(DISABLE_IO_COHERENCY)
 #ifdef CONFIG_CNSS_EMULATION
@@ -521,8 +520,10 @@ int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 	if (!(flags & CNSS_EVENT_SYNC))
 		goto out;
 
-	if (flags & CNSS_EVENT_UNINTERRUPTIBLE)
+	if (flags & CNSS_EVENT_UNKILLABLE)
 		wait_for_completion(&event->complete);
+	else if (flags & CNSS_EVENT_UNINTERRUPTIBLE)
+		ret = wait_for_completion_killable(&event->complete);
 	else
 		ret = wait_for_completion_interruptible(&event->complete);
 
@@ -995,6 +996,10 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 
 	switch (reason) {
 	case CNSS_REASON_LINK_DOWN:
+		if (!cnss_bus_check_link_status(plat_priv)) {
+			cnss_pr_dbg("Skip link down recovery as link is already up\n");
+			return 0;
+		}
 		if (test_bit(LINK_DOWN_SELF_RECOVERY,
 			     &plat_priv->ctrl_params.quirks))
 			goto self_recovery;
@@ -1711,6 +1716,27 @@ static void cnss_unregister_ramdump_v1(struct cnss_plat_data *plat_priv)
 				  ramdump_info->ramdump_pa);
 }
 
+/**
+ * cnss_ignore_dump_data_reg_fail - Ignore Ramdump table register failure
+ * @ret: Error returned by msm_dump_data_register_nominidump
+ *
+ * For Lahaina GKI boot, we dont have support for mem dump feature. So
+ * ignore failure.
+ *
+ * Return: Same given error code if mem dump feature enabled, 0 otherwise
+ */
+#ifdef CONFIG_QCOM_MEMORY_DUMP_V2
+static int cnss_ignore_dump_data_reg_fail(int ret)
+{
+	return ret;
+}
+#else
+static int cnss_ignore_dump_data_reg_fail(int ret)
+{
+	return 0;
+}
+#endif
+
 static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1747,7 +1773,9 @@ static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 	ret = msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
 						&dump_entry);
 	if (ret) {
-		cnss_pr_err("Failed to setup dump table, err = %d\n", ret);
+		ret = cnss_ignore_dump_data_reg_fail(ret);
+		cnss_pr_err("Failed to setup dump table, %s (%d)\n",
+			    ret ? "Error" : "Ignoring", ret);
 		goto free_ramdump;
 	}
 
@@ -1943,6 +1971,7 @@ static ssize_t shutdown_store(struct kobject *kobj,
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 		del_timer(&plat_priv->fw_boot_timer);
 		complete_all(&plat_priv->power_up_complete);
+		complete_all(&plat_priv->cal_complete);
 	}
 
 	cnss_pr_dbg("Received shutdown notification\n");
@@ -2082,6 +2111,9 @@ static int cnss_reboot_notifier(struct notifier_block *nb,
 		container_of(nb, struct cnss_plat_data, reboot_nb);
 
 	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+	del_timer(&plat_priv->fw_boot_timer);
+	complete_all(&plat_priv->power_up_complete);
+	complete_all(&plat_priv->cal_complete);
 	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
 
 	return NOTIFY_DONE;

@@ -604,11 +604,17 @@ static int video_cc_lahaina_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static void video_cc_lahaina_sync_state(struct device *dev)
+{
+	qcom_cc_sync_state(dev, &video_cc_lahaina_desc);
+}
+
 static struct platform_driver video_cc_lahaina_driver = {
 	.probe = video_cc_lahaina_probe,
 	.driver = {
 		.name = "video_cc-lahaina",
 		.of_match_table = video_cc_lahaina_match_table,
+		.sync_state = video_cc_lahaina_sync_state,
 	},
 };
 

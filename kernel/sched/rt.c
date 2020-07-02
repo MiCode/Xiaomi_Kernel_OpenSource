@@ -967,9 +967,10 @@ static void dump_throttled_rt_tasks(struct rt_rq *rt_rq)
 		rt_rq, cpu_of(rq_of_rt_rq(rt_rq)));
 
 	pos += snprintf(pos, end - pos,
-			"rt_period_timer: expires=%lld now=%llu period=%llu\n",
+			"rt_period_timer: expires=%lld now=%llu runtime=%llu period=%llu\n",
 			hrtimer_get_expires_ns(&rt_b->rt_period_timer),
-			ktime_get_ns(), sched_rt_period(rt_rq));
+			ktime_get_ns(), sched_rt_runtime(rt_rq),
+			sched_rt_period(rt_rq));
 
 	if (bitmap_empty(array->bitmap, MAX_RT_PRIO))
 		goto out;
@@ -2669,10 +2670,6 @@ const struct sched_class rt_sched_class = {
 
 #ifdef CONFIG_UCLAMP_TASK
 	.uclamp_enabled		= 1,
-#endif
-
-#ifdef CONFIG_SCHED_WALT
-	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
 #endif
 };
 

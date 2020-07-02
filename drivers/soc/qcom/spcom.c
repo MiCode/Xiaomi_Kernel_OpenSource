@@ -271,25 +271,12 @@ struct spcom_device {
 
 	int32_t nvm_ion_fd;
 	struct mutex ioctl_lock;
+	atomic_t subsys_req;
 };
 
 /* Device Driver State */
 static struct spcom_device *spcom_dev;
 static void *spcom_ipc_log_context;
-
-/* Physical address of SP2SOC RMB shared register */
-/* SP_SCSR_RMB_SP2SOC_IRQ_SET_ADDR */
-static u32 spcom_sp2soc_rmb_reg_addr;
-/* SP_SCSR_SP2SOC_IRQ_SET_SW_INIT_DONE_BMSK */
-static u32 spcom_sp2soc_initdone_mask;
-/* SP_SCSR_SP2SOC_IRQ_SET_PBL_DONE_BMSK */
-static u32 spcom_sp2soc_pbldone_mask;
-
-/* Physical address of SOC2SP RMB shared register */
-/* SP_SCSR_RMB_SOC2SP_IRQ_SET_ADDR */
-static u32 spcom_soc2sp_rmb_reg_addr;
-/* Bit used by spcom kernel for indicating SSR to SP */
-static u32 spcom_soc2sp_rmb_sp_ssr_mask;
 
 /* static functions declaration */
 static int spcom_create_channel_chardev(const char *name, bool is_sharable);
@@ -297,9 +284,6 @@ static int spcom_destroy_channel_chardev(const char *name);
 static struct spcom_channel *spcom_find_channel_by_name(const char *name);
 static int spcom_register_rpmsg_drv(struct spcom_channel *ch);
 static int spcom_unregister_rpmsg_drv(struct spcom_channel *ch);
-
-/* PIL's original SSR function*/
-int (*desc_powerup)(const struct subsys_desc *) = NULL;
 
 /**
  * spcom_is_channel_open() - channel is open on this side.
@@ -502,11 +486,9 @@ static int spcom_rx(struct spcom_channel *ch,
 			spcom_pr_warn("rpmsg channel is closing\n");
 			ret = -ERESTART;
 			goto exit_err;
-		} else if (ret < 0 || timeleft == -ERESTARTSYS) {
-			spcom_pr_dbg("wait interrupted: ret=%d, timeleft=%ld\n",
-				 ret, timeleft);
-			if (timeleft == -ERESTARTSYS)
-				ret = -ERESTARTSYS;
+		} else if (ret < 0 || timeleft < 0) {
+			spcom_pr_err("rx wait was interrupted!");
+			ret = -EINTR; /* abort, not restartable */
 			goto exit_err;
 		} else if (ch->actual_rx_size) {
 			spcom_pr_dbg("actual_rx_size is [%zu], txn_id %d\n",
@@ -644,47 +626,6 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 }
 
 /**
- * spcom_local_powerup() - Helper function that causes PIL boot to skip
- * powerup. This function sets the INIT DONE register.
- *
- * @subsys: subsystem descriptor.
- *
- * Return: 0 on successful operation, negative value otherwise.
- */
-static int spcom_local_powerup(const struct subsys_desc *subsys)
-{
-	void __iomem *regs;
-
-	regs = ioremap(spcom_sp2soc_rmb_reg_addr, sizeof(u32));
-	if (!regs)
-		return -ENOMEM;
-
-	writel_relaxed(spcom_sp2soc_pbldone_mask|spcom_sp2soc_initdone_mask,
-		regs);
-	iounmap(regs);
-	spcom_pr_dbg("spcom local powerup - SPSS cold boot\n");
-	return 0;
-}
-
-/**
- * spcom_local_powerup_after_fota() - SSR is not allowed after FOTA -
- * might cause cryptographic erase. Reset the device
- *
- * @subsys: subsystem descriptor.
- *
- * Return: 0 on successful operation, negative value otherwise.
- */
-static int spcom_local_powerup_after_fota(const struct subsys_desc *subsys)
-{
-	(void)subsys;
-
-	spcom_pr_err("SSR after firmware update before calling IAR update - panic\n");
-	panic("SSR after SPU firmware update\n");
-
-	return 0;
-}
-
-/**
  * spcom_handle_restart_sp_command() - Handle Restart SP command from
  * user space.
  *
@@ -697,8 +638,6 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 {
 	void *subsystem_get_retval = NULL;
 	struct spcom_user_restart_sp_command *cmd = cmd_buf;
-	struct subsys_desc *desc_p = NULL;
-	int (*desc_powerup)(const struct subsys_desc *) = NULL;
 
 	if (!cmd) {
 		spcom_pr_err("NULL cmd_buf\n");
@@ -714,51 +653,16 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 	spcom_pr_dbg("restart - PIL FW loading initiated: preloaded=%d\n",
 		cmd->arg);
 
-	if (cmd->arg) {
-		subsystem_get_retval = find_subsys_device("spss");
-		if (!subsystem_get_retval) {
-			spcom_pr_err("restart - no device\n");
-			return -ENODEV;
-		}
-
-		desc_p = *(struct subsys_desc **)subsystem_get_retval;
-		if (!desc_p) {
-			spcom_pr_err("restart - no device\n");
-			return -ENODEV;
-		}
-
-		spcom_pr_dbg("restart - Name: %s FW name: %s Depends on: %s\n",
-			desc_p->name, desc_p->fw_name, desc_p->pon_depends_on);
-		desc_powerup = desc_p->powerup;
-		/**
-		 * Overwrite the subsys PIL powerup function with an spcom
-		 * internal function which causes PIL to skip calling the
-		 * PIL boot function. This is done because SP is already
-		 * loaded in UEFI state and we do not want PIL to start
-		 * loading the SP again. We still want to let PIL perform
-		 * everything else wrt SP - hence calling the subsystem_get
-		 * API with a spcom internal function that only writes the
-		 * INIT DONE register on behalf of SP. Once done with this,
-		 * we shall reset the PIL subsys power up function so that
-		 * we let the PIL subsys to load/boot SP upon SSR
-		 */
-		desc_p->powerup = spcom_local_powerup;
-	}
-
 	subsystem_get_retval = subsystem_get("spss");
-	if (!subsystem_get_retval) {
-		spcom_pr_err("restart - unable to trigger PIL process for FW loading\n");
-		return -EINVAL;
-	}
-
-	if (cmd->arg) {
-
-		/* SPU got firmware update. Don't allow SSR*/
-		if (cmd->is_updated) {
-			desc_p->powerup = spcom_local_powerup_after_fota;
-		} else {
-			/* Reset the PIL subsystem power up function */
-			desc_p->powerup = desc_powerup;
+	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
+		spcom_pr_err("restart - spss crashed during device bootup\n");
+		if (atomic_cmpxchg(&spcom_dev->subsys_req, 1, 0)) {
+			subsystem_get_retval = subsystem_get("spss");
+			if (IS_ERR_OR_NULL(subsystem_get_retval)) {
+				spcom_pr_err("spss - restart - Failed start\n");
+				return -ENODEV;
+			}
+			spcom_pr_info("restart - spss started.\n");
 		}
 	}
 	spcom_pr_dbg("restart - PIL FW loading process is complete\n");
@@ -1239,28 +1143,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
  */
 static int spcom_handle_enable_ssr_command(void)
 {
-	struct subsys_desc *desc_p = NULL;
-	void *subsystem_get_retval = find_subsys_device("spss");
-
-	if (!subsystem_get_retval) {
-		spcom_pr_err("restart - no device\n");
-		return -ENODEV;
-	}
-
-	desc_p = *(struct subsys_desc **)subsystem_get_retval;
-	if (!desc_p) {
-		spcom_pr_err("restart - no device\n");
-		return -ENODEV;
-	}
-
-	if (!desc_powerup) {
-		spcom_pr_err("no original SSR function\n");
-		return -ENODEV;
-	}
-
-	desc_p->powerup = desc_powerup;
-	spcom_pr_info("SSR is enabled after FOTA\n");
-
+	spcom_pr_info("TBD: SSR is enabled after FOTA\n");
 	return 0;
 }
 
@@ -1296,6 +1179,13 @@ static int spcom_handle_write(struct spcom_channel *ch,
 			&& cmd_id != SPCOM_CMD_ENABLE_SSR) {
 		spcom_pr_err("channel context is null\n");
 		return -EINVAL;
+	}
+
+	if (cmd_id == SPCOM_CMD_SEND || cmd_id == SPCOM_CMD_SEND_MODIFIED) {
+		if (!spcom_is_channel_connected(ch)) {
+			pr_err("ch [%s] remote side not connected\n", ch->name);
+			return -ENOTCONN;
+		}
 	}
 
 	switch (cmd_id) {
@@ -1760,12 +1650,6 @@ static ssize_t spcom_device_write(struct file *filp,
 			return -EINVAL;
 		}
 		spcom_pr_dbg("control device - no channel context\n");
-	} else {
-		/* Check if remote side connect */
-		if (!spcom_is_channel_connected(ch)) {
-			spcom_pr_err("ch [%s] not connected\n", ch->name);
-			return -ENOTCONN;
-		}
 	}
 	buf_size = size; /* explicit casting size_t to int */
 	buf = kzalloc(size, GFP_KERNEL);
@@ -1894,8 +1778,6 @@ static inline int handle_poll(struct file *file,
 	const char *name = file_to_filename(file);
 	int ready = 0;
 	int ret = 0;
-	void __iomem *regs;
-
 
 	switch (op->cmd_id) {
 	case SPCOM_LINK_STATE_REQ:
@@ -1905,15 +1787,6 @@ static inline int handle_poll(struct file *file,
 					  &spcom_dev->rpmsg_state_change);
 			spcom_pr_dbg("ch [%s] link state change signaled\n",
 				     name);
-			regs = ioremap(spcom_soc2sp_rmb_reg_addr,
-					sizeof(u32));
-			if (regs) {
-				writel_relaxed(spcom_soc2sp_rmb_sp_ssr_mask,
-					regs);
-				iounmap(regs);
-			} else {
-				spcom_pr_err("failed to set register indicating SSR\n");
-			}
 		}
 		op->retval = atomic_read(&spcom_dev->rpmsg_dev_count) > 0;
 		break;
@@ -1943,7 +1816,8 @@ static inline int handle_poll(struct file *file,
 		mutex_unlock(&ch->lock);
 		break;
 	default:
-		spcom_pr_err("ch [%s] unsupported ioctl:%u\n", op->cmd_id);
+		spcom_pr_err("ch [%s] unsupported ioctl:%u\n",
+			name, op->cmd_id);
 		ret = -EINVAL;
 	}
 	spcom_pr_dbg("name=%s, retval=%d\n", name, op->retval);
@@ -2210,51 +2084,6 @@ static int spcom_parse_dt(struct device_node *np)
 	int num_ch;
 	int i;
 	const char *name;
-	u32 sp2soc_rmb_pbldone_bit = 0;
-	u32 sp2soc_rmb_initdone_bit = 0;
-	u32 soc2sp_rmb_sp_ssr_bit = 0;
-
-	/* Read SP HLOS SCSR RMB IRQ register address */
-	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-reg-addr",
-		&spcom_sp2soc_rmb_reg_addr);
-	if (ret < 0) {
-		spcom_pr_err("can't get sp2soc rmb reg addr\n");
-		return ret;
-	}
-
-	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-pbldone-bit",
-		&sp2soc_rmb_pbldone_bit);
-	if (ret < 0) {
-		spcom_pr_err("can't get sp2soc rmb pbl done bit\n");
-		return ret;
-	}
-
-	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-initdone-bit",
-		&sp2soc_rmb_initdone_bit);
-	if (ret < 0) {
-		spcom_pr_err("can't get sp2soc rmb sw init done bit\n");
-		return ret;
-	}
-
-	spcom_sp2soc_pbldone_mask = BIT(sp2soc_rmb_pbldone_bit);
-	spcom_sp2soc_initdone_mask = BIT(sp2soc_rmb_initdone_bit);
-
-	/* Read SOC 2 SP SCSR RMB IRQ register address */
-	ret = of_property_read_u32(np, "qcom,spcom-soc2sp-rmb-reg-addr",
-		&spcom_soc2sp_rmb_reg_addr);
-	if (ret < 0) {
-		spcom_pr_err("can't get soc2sp rmb reg addr\n");
-		return ret;
-	}
-
-	ret = of_property_read_u32(np, "qcom,spcom-soc2sp-rmb-sp-ssr-bit",
-		&soc2sp_rmb_sp_ssr_bit);
-	if (ret < 0) {
-		spcom_pr_err("can't get soc2sp rmb SP SSR bit\n");
-		return ret;
-	}
-
-	spcom_soc2sp_rmb_sp_ssr_mask = BIT(soc2sp_rmb_sp_ssr_bit);
 
 	/* Get predefined channels info */
 	num_ch = of_property_count_strings(np, propname);
@@ -2608,6 +2437,9 @@ static int spcom_probe(struct platform_device *pdev)
 	ret = spcom_parse_dt(np);
 	if (ret < 0)
 		goto fail_reg_chardev;
+
+	if (of_property_read_bool(np, "qcom,boot-enabled"))
+		atomic_set(&dev->subsys_req, 1);
 
 	ret = spcom_create_predefined_channels_chardev();
 	if (ret < 0) {

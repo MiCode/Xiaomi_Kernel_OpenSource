@@ -247,7 +247,7 @@ enum migrate_types {
 	RQ_TO_GROUP,
 };
 
-#ifdef CONFIG_HOTPLUG_CPU
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCHED_WALT)
 extern int sched_isolate_cpu(int cpu);
 extern int sched_unisolate_cpu(int cpu);
 extern int sched_unisolate_cpu_unlocked(int cpu);
@@ -545,11 +545,20 @@ struct cpu_cycle_counter_cb {
 
 DECLARE_PER_CPU_READ_MOSTLY(int, sched_load_boost);
 
+#ifdef CONFIG_QCOM_HYP_CORE_CTL
+extern int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id);
+#else
+static inline int hh_vcpu_populate_affinity_info(u32 cpu_index, u64 cap_id)
+{
+	return 0;
+}
+#endif /* CONFIG_QCOM_HYP_CORE_CTL */
+
 #ifdef CONFIG_SCHED_WALT
 extern void sched_exit(struct task_struct *p);
-extern int __weak
+extern int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
-extern void __weak
+extern void
 sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax);
 extern void free_task_load_ptrs(struct task_struct *p);
 extern void sched_set_refresh_rate(enum fps fps);
@@ -1072,8 +1081,10 @@ struct task_struct {
 	struct sysv_shm			sysvshm;
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK
+	/* hung task detection */
 	unsigned long			last_switch_count;
 	unsigned long			last_switch_time;
+	bool hang_detection_enabled;
 #endif
 	/* Filesystem information: */
 	struct fs_struct		*fs;

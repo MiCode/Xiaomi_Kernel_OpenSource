@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (c) 2014-2015,2017,2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015,2017,2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __ARCH_ARM_MACH_MSM_LPM_STATS_H
 #define __ARCH_ARM_MACH_MSM_LPM_STATS_H
 
 #include <linux/cpumask.h>
+#include <linux/err.h>
 #include <linux/types.h>
 
 struct lpm_stats;
