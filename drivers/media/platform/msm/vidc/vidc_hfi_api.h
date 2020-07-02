@@ -995,10 +995,9 @@ struct hal_fw_info {
 };
 
 enum hal_flush {
-	HAL_FLUSH_INPUT,
-	HAL_FLUSH_OUTPUT,
-	HAL_FLUSH_ALL,
-	HAL_UNUSED_FLUSH = 0x10000000,
+	HAL_FLUSH_INPUT = BIT(0),
+	HAL_FLUSH_OUTPUT = BIT(1),
+	HAL_FLUSH_ALL = HAL_FLUSH_INPUT | HAL_FLUSH_OUTPUT,
 };
 
 enum hal_event_type {
