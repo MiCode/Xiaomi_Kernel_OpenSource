@@ -172,7 +172,10 @@ static const struct mfd_cell mt6359p_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359p_keys_resources),
 		.resources = mt6359p_keys_resources,
 		.of_compatible = "mediatek,mt6359p-keys"
-	},
+	}, {
+		.name = "mt6359p-sound",
+		.of_compatible = "mediatek,mt6359p-sound"
+	}
 };
 
 static const struct mfd_cell mt6397_devs[] = {
