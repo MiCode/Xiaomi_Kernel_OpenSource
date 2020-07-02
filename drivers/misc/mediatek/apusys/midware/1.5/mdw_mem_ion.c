@@ -18,8 +18,7 @@
 #include <asm/mman.h>
 
 #include "mdw_cmn.h"
-#include "memory_mgt.h"
-#include "mdw_mem_ion.h"
+#include "mdw_mem_cmn.h"
 
 #define APUSYS_ION_PAGE_SIZE PAGE_SIZE
 
@@ -76,8 +75,7 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 	}
 
 	/* import fd */
-	ion_hnd = ion_import_dma_buf_fd(ion_ma.client,
-	mem->fd);
+	ion_hnd = ion_import_dma_buf_fd(ion_ma.client, mem->fd);
 
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
@@ -88,10 +86,10 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 		mdw_drv_err("map kernel va fail(%p/%p)\n",
 			ion_ma.client, ion_hnd);
 		ret = -ENOMEM;
-		goto free_import;
+		goto fail_map_kernel;
 	}
 
-	if (mem->khandle == 0)
+	if (!mem->khandle)
 		mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
@@ -101,7 +99,7 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 
 	return 0;
 
-free_import:
+fail_map_kernel:
 	ion_free(ion_ma.client, ion_hnd);
 	return ret;
 }
@@ -117,8 +115,7 @@ static int mdw_mem_ion_map_iova(struct apusys_kmem *mem)
 		return -EINVAL;
 
 	/* import fd */
-	ion_hnd = ion_import_dma_buf_fd(ion_ma.client,
-	mem->fd);
+	ion_hnd = ion_import_dma_buf_fd(ion_ma.client, mem->fd);
 
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
@@ -142,15 +139,17 @@ static int mdw_mem_ion_map_iova(struct apusys_kmem *mem)
 	mem->iova = mm_data.get_phys_param.phy_addr;
 	mem->iova_size = mm_data.get_phys_param.len;
 
-	if (mem->khandle == 0)
+	if (!mem->khandle)
 		mem->khandle = (uint64_t)ion_hnd;
 
 	mdw_mem_debug("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
+	return ret;
+
 free_import:
-	//ion_free(ion_ma.client, ion_hnd);
+	ion_free(ion_ma.client, ion_hnd);
 	return ret;
 }
 
@@ -162,10 +161,6 @@ static int mdw_mem_ion_unmap_iova(struct apusys_kmem *mem)
 	/* check argument */
 	if (mdw_mem_ion_check(mem))
 		return -EINVAL;
-
-	mdw_mem_debug("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
 
 	/* check argument */
 	if (mem->khandle == 0) {
@@ -199,59 +194,54 @@ static int mdw_mem_ion_unmap_kva(struct apusys_kmem *mem)
 		return -EINVAL;
 	}
 
+	mdw_mem_debug("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+
 	ion_hnd = (struct ion_handle *) mem->khandle;
 
 	ion_unmap_kernel(ion_ma.client, ion_hnd);
 
 	ion_free(ion_ma.client, ion_hnd);
 
-	mdw_mem_debug("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
-			mem->fd, mem->uva, mem->iova, mem->size,
-			mem->iova_size, mem->khandle, mem->kva);
-
 	return ret;
 }
 
 static int mdw_mem_ion_alloc(struct apusys_kmem *mem)
 {
-	struct ion_handle *ion_hnd = NULL;
+	int ret = 0;
 
-	ion_hnd = ion_alloc(ion_ma.client, mem->size, mem->align,
-		ION_HEAP_MULTIMEDIA_MASK, 0);
-	if (!ion_hnd)
-		return -ENOMEM;
+	ret = mdw_mem_ion_map_iova(mem);
+	if (ret)
+		goto fail_map_iova;
 
-	mem->khandle = (unsigned long long)ion_hnd;
-
-	if (mdw_mem_ion_map_iova(mem))
-		goto map_iova_fail;
-	if (mdw_mem_ion_map_kva(mem))
-		goto map_kva_fail;
+	ret = mdw_mem_ion_map_kva(mem);
+	if (ret)
+		goto fail_map_kva;
 
 	return 0;
 
-map_kva_fail:
+fail_map_kva:
 	mdw_mem_ion_unmap_iova(mem);
-map_iova_fail:
-	ion_free(ion_ma.client, ion_hnd);
-	return -ENOMEM;
+fail_map_iova:
+	return ret;
 }
 
 static int mdw_mem_ion_free(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
-	if (mdw_mem_ion_unmap_kva(mem)) {
+	ret = mdw_mem_ion_unmap_kva(mem);
+	if (ret) {
 		mdw_drv_err("unmap kva fail\n");
 		ret = -ENOMEM;
 	}
 
-	if (mdw_mem_ion_unmap_iova(mem)) {
+	ret = mdw_mem_ion_unmap_iova(mem);
+	if (ret) {
 		mdw_drv_err("unmap iova fail\n");
 		ret = -ENOMEM;
 	}
-
-	ion_free(ion_ma.client, (struct ion_handle *)mem->khandle);
 
 	return ret;
 }
@@ -282,6 +272,8 @@ static int mdw_mem_ion_flush(struct apusys_kmem *mem)
 	ion_hnd = (struct ion_handle *)mem->khandle;
 
 	va = ion_map_kernel(ion_ma.client, ion_hnd);
+	if (IS_ERR_OR_NULL(va))
+		return -ENOMEM;
 	sys_data.sys_cmd = ION_SYS_CACHE_SYNC;
 	sys_data.cache_sync_param.kernel_handle = ion_hnd;
 	sys_data.cache_sync_param.sync_type = ION_CACHE_FLUSH_BY_RANGE;
@@ -311,6 +303,8 @@ static int mdw_mem_ion_invalidate(struct apusys_kmem *mem)
 	ion_hnd = (struct ion_handle *)mem->khandle;
 
 	va = ion_map_kernel(ion_ma.client, ion_hnd);
+	if (IS_ERR_OR_NULL(va))
+		return -ENOMEM;
 
 	sys_data.sys_cmd = ION_SYS_CACHE_SYNC;
 	sys_data.cache_sync_param.kernel_handle = ion_hnd;
@@ -327,7 +321,7 @@ static int mdw_mem_ion_invalidate(struct apusys_kmem *mem)
 	return ret;
 }
 
-void mdw_mem_ion_destroy(void)
+static void mdw_mem_ion_destroy(void)
 {
 	ion_client_destroy(ion_ma.client);
 	memset(&ion_ma, 0, sizeof(ion_ma));

@@ -12,6 +12,7 @@
 
 #include "apu_tags.h"
 #include "apu_tp.h"
+#include "mdw_rsc.h"
 #include "mdw_tag.h"
 #include "mdw_events.h"
 
@@ -50,7 +51,7 @@ probe_mdw_cmd(void *data, uint32_t done, pid_t pid, pid_t tgid,
 	t.d.cmd.sc_idx = sc_idx;
 	t.d.cmd.num_sc = num_sc;
 	t.d.cmd.type = type;
-	strncpy(t.d.cmd.dev_name, dev_name, (APUSYS_DEV_NAME_SIZE - 1));
+	strncpy(t.d.cmd.dev_name, dev_name, (MDW_DEV_NAME_SIZE - 1));
 	t.d.cmd.dev_idx = dev_idx;
 	t.d.cmd.pack_id = pack_id;
 	t.d.cmd.multicore_idx = multicore_idx;
@@ -77,11 +78,13 @@ static void mdw_tag_seq_cmd(struct seq_file *s, struct mdw_tag *t)
 {
 	char status[8];
 
-	if (t->d.cmd.done)
-		snprintf(status, sizeof(status)-1, "%s", "done");
-	else
-		snprintf(status, sizeof(status)-1, "%s", "start");
-
+	if (t->d.cmd.done) {
+		if (snprintf(status, sizeof(status)-1, "%s", "done") < 0)
+			return;
+	} else {
+		if (snprintf(status, sizeof(status)-1, "%s", "start") < 0)
+			return;
+	}
 	seq_printf(s, "%s,", status);
 	seq_printf(s, "pid=%d,tgid=%d,cmd_uid=0x%llx,cmd_id=0x%llx,sc_idx=%d,total_sc=%u,",
 		t->d.cmd.pid, t->d.cmd.tgid, t->d.cmd.uid,
@@ -123,12 +126,12 @@ static struct apu_tp_tbl mdw_tp_tbl[] = {
 	APU_TP_TBL_END
 };
 
-void mdw_tags_show(struct seq_file *s)
+void mdw_tag_show(struct seq_file *s)
 {
 	apu_tags_seq(mdw_tags, s);
 }
 
-int mdw_tags_init(void)
+int mdw_tag_init(void)
 {
 	int ret;
 
@@ -145,7 +148,7 @@ int mdw_tags_init(void)
 	return ret;
 }
 
-void mdw_tags_destroy(void)
+void mdw_tag_exit(void)
 {
 	apu_tp_exit(mdw_tp_tbl);
 	apu_tags_free(mdw_tags);
