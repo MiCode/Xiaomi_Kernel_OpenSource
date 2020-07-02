@@ -61,6 +61,9 @@
 				compatible = "qcom,bolero-clk-rsc-mngr";
 			};
 
+			va_macro: va-macro@3370000 {
+			};
+
 			tx_macro: tx-macro@3220000 {
 				swr2: tx_swr_master {
 				};
