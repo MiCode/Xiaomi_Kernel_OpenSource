@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -576,6 +576,13 @@ enum {
 #define USB_FACTORY_MODE_ENABLE_BIT		BIT(2)
 #define TYPE_C_UFP_MODE_BIT			BIT(1)
 #define EN_80UA_180UA_CUR_SOURCE_BIT		BIT(0)
+enum {
+	TYPEC_SRC_RP_STD,
+	TYPEC_SRC_RP_1P5A,
+	TYPEC_SRC_RP_3A,
+	TYPEC_SRC_RP_3A_DUPLICATE,
+	TYPEC_SRC_RP_MAX_ELEMENTS
+};
 
 #define TYPE_C_CFG_3_REG			(USBIN_BASE + 0x5A)
 #define TVBUS_DEBOUNCE_BIT			BIT(7)
