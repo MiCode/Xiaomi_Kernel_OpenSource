@@ -776,11 +776,14 @@ static struct msm_pcie_device_info
 /* PCIe driver state */
 static struct pcie_drv_sta {
 	u32 rc_num;
+	unsigned long rc_drv_enabled;
 	struct msm_pcie_dev_t *msm_pcie_dev;
 	struct rpmsg_device *rpdev;
 	struct work_struct drv_connect; /* connect worker */
 	struct mutex drv_lock;
 } pcie_drv;
+
+#define PCIE_RC_DRV_ENABLED(rc_idx) test_bit((rc_idx), &pcie_drv.rc_drv_enabled)
 
 /* msm pcie device data */
 static struct msm_pcie_dev_t msm_pcie_dev[MAX_RC_NUM];
@@ -6046,6 +6049,7 @@ static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
 {
 	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
 
+	pcie_drv->rc_drv_enabled = 0;
 	pcie_drv->rpdev = NULL;
 	flush_work(&pcie_drv->drv_connect);
 
@@ -6160,6 +6164,7 @@ static void msm_pcie_early_notifier(void *data)
 {
 	struct pcie_drv_sta *pcie_drv = data;
 
+	pcie_drv->rc_drv_enabled = 0;
 	pcie_drv->rpdev = NULL;
 
 	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_WAKEUP);
@@ -6624,8 +6629,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	mutex_lock(&pcie_dev->recovery_lock);
 	mutex_lock(&pcie_dev->setup_lock);
 
-	/* if rpdev is NULL then DRV subsystem is powered down */
-	if (!drv_info->l1ss_sleep_disable && rpdev) {
+	/* if DRV hand-off was done and DRV subsystem is powered up */
+	if (PCIE_RC_DRV_ENABLED(pcie_dev->rc_idx) &&
+	    !drv_info->l1ss_sleep_disable && rpdev) {
 		ret = msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
 					&drv_info->drv_disable_l1ss_sleep);
 		if (ret)
@@ -6707,10 +6713,12 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 					PCIE20_PARF_CLKREQ_IN_VALUE, 0);
 	}
 
-	/* if rpdev is NULL then DRV subsystem is powered down */
-	if (rpdev)
+	/* if DRV hand-off was done and DRV subsystem is powered up */
+	if (PCIE_RC_DRV_ENABLED(pcie_dev->rc_idx) && rpdev) {
 		msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
 					&drv_info->drv_disable);
+		clear_bit(pcie_dev->rc_idx, &pcie_drv.rc_drv_enabled);
+	}
 
 	/* scale CX and rate change based on current GEN speed */
 	current_link_speed = readl_relaxed(pcie_dev->dm_core +
@@ -6767,6 +6775,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	}
 
 	pcie_dev->user_suspend = true;
+	set_bit(pcie_dev->rc_idx, &pcie_drv.rc_drv_enabled);
 	spin_lock_irq(&pcie_dev->cfg_lock);
 	pcie_dev->cfg_access = false;
 	spin_unlock_irq(&pcie_dev->cfg_lock);
