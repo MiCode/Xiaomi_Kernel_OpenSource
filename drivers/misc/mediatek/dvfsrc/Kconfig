@@ -1,0 +1,27 @@
+config MTK_DVFSRC_HELPER
+	tristate "MTK DVFSRC Helper debugging Support"
+	depends on MTK_DVFSRC
+	help
+	  This kernel config can be used to debug dvfsrc (dynamic voltage
+	  and frequency scaling resource collector) for Mediatek vcore_dvfs.
+	  When enable this option, we can trace the control flow for dvfsrc
+	  and dump current vcore and dram information.
+	  If unsure, say N.
+
+config MTK_DVFSRC_MET
+	tristate "MTK DVFSRC MET Support"
+	depends on MTK_DVFSRC_HELPER
+	help
+	  This kernel config can be used to enable VCORE_DVFS info report to for MET.
+	  When enable this option, it support reporting current vcore dvfs info to
+	  MET system for performance and power tuning.
+	  If unsure, say N.
+
+config MTK_DVFSRC_MET_MT6873
+	tristate "MTK DVFSRC MET for MT6873"
+	select MTK_DVFSRC_MET
+	help
+	  This kernel config can be used to enable MT6873 DVFSRC MET support.
+	  When enable this option, it support reporting current vcore dvfs info to
+	  MET system for performance and power tuning.
+	  If unsure, say N.
