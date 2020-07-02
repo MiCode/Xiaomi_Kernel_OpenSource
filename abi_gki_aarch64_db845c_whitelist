@@ -1162,25 +1162,6 @@
   usb_gadget_unmap_request_by_dev
   usb_get_maximum_speed
 
-# required by ehci-hcd.ko
-  device_remove_file
-  ehci_cf_port_reset_rwsem
-  hrtimer_cancel
-  kstrtouint
-  ktime_get_with_offset
-  usb_for_each_dev
-
-# required by ehci-pci.ko
-  pci_clear_mwi
-  pci_find_capability
-  usb_amd_hang_symptom_quirk
-
-# required by ehci-platform.ko
-  device_attach
-  device_pm_wait_for_dev
-  soc_device_match
-  usb_of_get_companion_dev
-
 # required by ohci-hcd.ko
   flush_work
   gen_pool_dma_alloc_align

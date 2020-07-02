@@ -1176,21 +1176,6 @@
   usb_get_gadget_udc_name
   use_mm
 
-# required by ehci-hcd.ko
-  ehci_cf_port_reset_rwsem
-  usb_for_each_dev
-
-# required by ehci-pci.ko
-  pci_clear_mwi
-  pci_find_capability
-  pci_read_config_dword
-  pci_write_config_byte
-  usb_amd_hang_symptom_quirk
-
-# required by ehci-platform.ko
-  device_pm_wait_for_dev
-  usb_of_get_companion_dev
-
 # required by ohci-hcd.ko
   gen_pool_dma_alloc_align
   gen_pool_dma_zalloc_align
