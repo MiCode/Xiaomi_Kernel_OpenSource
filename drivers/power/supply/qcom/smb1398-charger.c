@@ -1470,7 +1470,7 @@ static int smb1398_get_irq_index_byname(const char *irq_name)
 {
 	int i;
 
-	for (i = 0; i < NUM_IRQS; i++) {
+	for (i = 0; i < ARRAY_SIZE(smb_irqs); i++) {
 		if (smb_irqs[i].name != NULL)
 			if (strcmp(smb_irqs[i].name, irq_name) == 0)
 				return i;
@@ -1726,7 +1726,7 @@ static void smb1398_taper_work(struct work_struct *work)
 	struct smb1398_chip *chip = container_of(work,
 			struct smb1398_chip, taper_work);
 	union power_supply_propval pval = {0};
-	int rc, fcc_ua, fv_uv, stepper_ua, main_fcc_ua;
+	int rc, fcc_ua, fv_uv, stepper_ua, main_fcc_ua = 0;
 	bool slave_en;
 
 	if (!is_psy_voter_available(chip))

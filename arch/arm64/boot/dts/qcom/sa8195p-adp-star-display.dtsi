@@ -40,10 +40,46 @@
 	};
 };
 
-&sde_dp {
+&sde_dp0 {
 	qcom,ext-disp = <&ext_disp>;
 	qcom,dp-hpd-gpio = <&ioexp 8 0>;
 	qcom,mst-fixed-topology-ports = <1 2>;
+
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "refgen";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&sde_dp1 {
+	qcom,ext-disp = <&ext_disp>;
+	qcom,dp-hpd-gpio = <&ioexp 9 0>;
+
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "refgen";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&sde_edp {
+	qcom,ext-disp = <&ext_disp>;
+	qcom,dp-hpd-gpio = <&ioexp 11 0>;
 
 	qcom,core-supply-entries {
 		#address-cells = <1>;
@@ -82,7 +118,9 @@
 			&dsi1_cdet_cfg_pins
 			&dsi2_hpd_cfg_pins
 			&dsi2_cdet_cfg_pins
-			&dp_hpd_cfg_pins>;
+			&dp0_hpd_cfg_pins
+			&dp1_hpd_cfg_pins
+			&edp_hpd_cfg_pins>;
 
 		dsi1_hpd_cfg_pins: gpio0-cfg {
 			pins = "gpio0";
@@ -104,8 +142,18 @@
 			bias-pull-down;
 		};
 
-		dp_hpd_cfg_pins: gpio8-cfg {
+		dp0_hpd_cfg_pins: gpio8-cfg {
 			pins = "gpio8";
+			bias-pull-down;
+		};
+
+		dp1_hpd_cfg_pins: gpio9-cfg {
+			pins = "gpio9";
+			bias-pull-down;
+		};
+
+		edp_hpd_cfg_pins: gpio11-cfg {
+			pins = "gpio11";
 			bias-pull-down;
 		};
 	};
@@ -384,7 +432,7 @@
 		   compatible = "qcom,sde-kms-lease";
 		   qcom,dev-name = "msm_drm";
 		   qcom,lease-connectors = "DSI-2", "shared-disp-0",
-				"DP-1", "DP-2", "DP-3";
+				"DP-1", "DP-2", "DP-3", "DP-4", "DP-5";
 		   qcom,lease-planes = "plane-0", "plane-1", "plane-2",
 			   "plane-3","plane-4", "plane-5",
 			   "plane-6","plane-7", "plane-8",
@@ -415,7 +463,7 @@
 				"none", "none";
 	qcom,sde-mixer-display-pref = "primary", "none", "none",
 				"none", "none", "none";
-	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp &sde_wb
+	connectors = <&dsi_dp1 &dsi_dp2 &sde_dp0 &sde_dp1 &sde_edp &sde_wb
 			&sde_sh0 &sde_sh1 &sde_sh2 &sde_shp
 			&sde_card1 &sde_card2 &sde_card3>;
 };

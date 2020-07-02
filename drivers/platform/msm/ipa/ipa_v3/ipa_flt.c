@@ -857,7 +857,7 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule_i *rule,
 					"PDN index should be 0 when action is not pass to NAT\n");
 				goto error;
 			} else {
-				if (rule->pdn_idx >= IPA_MAX_PDN_NUM) {
+				if (rule->pdn_idx >= ipa3_get_max_pdn()) {
 					IPAERR_RL("PDN index %d is too large\n",
 						rule->pdn_idx);
 					goto error;

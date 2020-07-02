@@ -142,8 +142,7 @@ static struct pages_list *pages_list_lookup(
 		struct physical_channel *pchan,
 		bool get_pages_list)
 {
-	struct pages_list *pglist = NULL,
-					*tmp = NULL;
+	struct pages_list *pglist = NULL, *tmp = NULL;
 
 	spin_lock_bh(&hab_driver.imp_lock);
 	list_for_each_entry_safe(pglist, tmp, &hab_driver.imp_list, list) {
@@ -285,8 +284,7 @@ static int habmem_compress_pfns(
 	struct scatterlist *s = NULL;
 	struct sg_table *sg_table = NULL;
 	struct dma_buf_attachment *attach = NULL;
-	struct page *page = NULL,
-				*pre_page = NULL;
+	struct page *page = NULL, *pre_page = NULL;
 	unsigned long page_offset;
 	uint32_t spage_size = 0;
 
@@ -570,7 +568,7 @@ int habmem_exp_release(struct export_desc_super *exp_super)
 	struct dma_buf *dmabuf =
 			(struct dma_buf *) exp_super->platform_data;
 
-	if (IS_ERR_OR_NULL(dmabuf))
+	if (!IS_ERR_OR_NULL(dmabuf))
 		dma_buf_put(dmabuf);
 	else
 		pr_debug("release failed, dmabuf is null!!!\n");

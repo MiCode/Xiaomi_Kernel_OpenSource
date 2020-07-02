@@ -395,7 +395,17 @@
 	vdda-1p2-supply = <&pm8195_1_l9>;
 };
 
-&sde_dp {
+&sde_dp0 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&sde_dp1 {
+	vdda-1p2-supply = <&pm8195_1_l9>;
+	vdda-0p9-supply = <&pm8195_3_l5>;
+};
+
+&sde_edp {
 	vdda-1p2-supply = <&pm8195_1_l9>;
 	vdda-0p9-supply = <&pm8195_3_l5>;
 };

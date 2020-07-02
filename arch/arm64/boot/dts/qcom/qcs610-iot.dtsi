@@ -13,7 +13,14 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
-#include "qcs610.dtsi"
+
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
+#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
+#include <dt-bindings/clock/qcom,dispcc-sm6150.h>
+#include <dt-bindings/clock/qcom,gpucc-sm6150.h>
+
 #include "sm6150-sde.dtsi"
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde-display.dtsi"
@@ -23,6 +30,20 @@
 	model = "Qualcomm Technologies, Inc. QCS610 IOT";
 	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
 	qcom,board-id = <32 0>;
+};
+
+&soc {
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
+};
+
+&sm6150_snd {
+	/delete-property/ fsa4480-i2c-handle;
 };
 
 &qupv3_se3_i2c {

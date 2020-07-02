@@ -1075,6 +1075,49 @@ static int ais_ife_csid_force_reset(void *hw_priv,
 	return rc;
 }
 
+static int ais_ife_csid_reset_retain_sw_reg(
+	struct ais_ife_csid_hw *csid_hw)
+{
+	int rc = 0;
+	uint32_t status;
+	const struct ais_ife_csid_reg_offset *csid_reg =
+		csid_hw->csid_info->csid_reg;
+	struct cam_hw_soc_info          *soc_info;
+
+	soc_info = &csid_hw->hw_info->soc_info;
+	/* clear the top interrupt first */
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_clear_addr);
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_irq_cmd_addr);
+
+	usleep_range(3000, 3010);
+
+	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
+		soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_rst_strobes_addr);
+	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_status_addr,
+			status, (status & 0x1) == 0x1,
+		AIS_IFE_CSID_TIMEOUT_SLEEP_US, AIS_IFE_CSID_TIMEOUT_ALL_US);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "CSID:%d csid_reset fail rc = %d",
+			  csid_hw->hw_intf->hw_idx, rc);
+		rc = -ETIMEDOUT;
+	} else {
+		CAM_DBG(CAM_ISP, "CSID:%d hw reset completed %d",
+			csid_hw->hw_intf->hw_idx, rc);
+		rc = 0;
+	}
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_top_irq_clear_addr);
+	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+		csid_reg->cmn_reg->csid_irq_cmd_addr);
+
+	return rc;
+}
+
+
 static int ais_ife_csid_reserve(void *hw_priv,
 	void *reserve_args, uint32_t arg_size)
 {
@@ -1083,6 +1126,7 @@ static int ais_ife_csid_reserve(void *hw_priv,
 	struct cam_hw_info                     *csid_hw_info;
 	struct ais_ife_rdi_init_args            *rdi_cfg;
 	const struct ais_ife_csid_reg_offset   *csid_reg;
+	unsigned long                           flags;
 
 	if (!hw_priv || !reserve_args ||
 		(arg_size != sizeof(struct ais_ife_rdi_init_args))) {
@@ -1119,6 +1163,19 @@ static int ais_ife_csid_reserve(void *hw_priv,
 	rc = ais_ife_csid_enable_csi2(csid_hw, &rdi_cfg->csi_cfg);
 	if (rc)
 		goto end;
+
+	if (csid_hw->device_enabled == 0) {
+		rc = ais_ife_csid_reset_retain_sw_reg(csid_hw);
+		if (rc < 0) {
+			CAM_ERR(CAM_ISP, "CSID: Failed in SW reset");
+			goto disable_csi2;
+		} else {
+			CAM_DBG(CAM_ISP, "CSID: SW reset Successful");
+			spin_lock_irqsave(&csid_hw->lock_state, flags);
+			csid_hw->device_enabled = 1;
+			spin_unlock_irqrestore(&csid_hw->lock_state, flags);
+		}
+	}
 
 	rc = ais_ife_csid_config_rdi_path(csid_hw, rdi_cfg);
 	if (rc)
@@ -1185,57 +1242,12 @@ end:
 	return rc;
 }
 
-
-static int ais_ife_csid_reset_retain_sw_reg(
-	struct ais_ife_csid_hw *csid_hw)
-{
-	int rc = 0;
-	uint32_t status;
-	const struct ais_ife_csid_reg_offset *csid_reg =
-		csid_hw->csid_info->csid_reg;
-	struct cam_hw_soc_info          *soc_info;
-
-	soc_info = &csid_hw->hw_info->soc_info;
-	/* clear the top interrupt first */
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_top_irq_clear_addr);
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_irq_cmd_addr);
-
-	usleep_range(3000, 3010);
-
-	cam_io_w_mb(csid_reg->cmn_reg->csid_rst_stb,
-		soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_rst_strobes_addr);
-	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_top_irq_status_addr,
-			status, (status & 0x1) == 0x1,
-		AIS_IFE_CSID_TIMEOUT_SLEEP_US, AIS_IFE_CSID_TIMEOUT_ALL_US);
-	if (rc < 0) {
-		CAM_ERR(CAM_ISP, "CSID:%d csid_reset fail rc = %d",
-			  csid_hw->hw_intf->hw_idx, rc);
-		rc = -ETIMEDOUT;
-	} else {
-		CAM_DBG(CAM_ISP, "CSID:%d hw reset completed %d",
-			csid_hw->hw_intf->hw_idx, rc);
-		rc = 0;
-	}
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_top_irq_clear_addr);
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
-		csid_reg->cmn_reg->csid_irq_cmd_addr);
-
-	return rc;
-}
-
-
 static int ais_ife_csid_init_hw(void *hw_priv,
 	void *init_args, uint32_t arg_size)
 {
 	int rc = 0;
 	struct ais_ife_csid_hw                 *csid_hw;
 	struct cam_hw_info                     *csid_hw_info;
-	unsigned long                           flags;
 
 	if (!hw_priv || !init_args ||
 		(arg_size != sizeof(struct ais_ife_rdi_init_args))) {
@@ -1250,16 +1262,6 @@ static int ais_ife_csid_init_hw(void *hw_priv,
 
 	/* Initialize the csid hardware */
 	rc = ais_ife_csid_enable_hw(csid_hw);
-
-	if (csid_hw->device_enabled == 0) {
-		rc = ais_ife_csid_reset_retain_sw_reg(csid_hw);
-		if (rc < 0)
-			CAM_ERR(CAM_ISP, "CSID: Failed in SW reset");
-	}
-
-	spin_lock_irqsave(&csid_hw->lock_state, flags);
-	csid_hw->device_enabled = 1;
-	spin_unlock_irqrestore(&csid_hw->lock_state, flags);
 
 	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 
@@ -1623,7 +1625,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 
 		evt_payload.type = AIS_IFE_MSG_CSID_ERROR;
 
-		rc = csid_hw->event_cb(csid_hw->ctx, &evt_payload);
+		rc = csid_hw->event_cb(csid_hw->event_cb_priv, &evt_payload);
 		break;
 
 	case AIS_IFE_MSG_CSID_WARNING:

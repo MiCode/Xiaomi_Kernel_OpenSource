@@ -152,7 +152,7 @@
 		qcom,bam-producer-pipe-index = <5>;
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_1_active>;
 		pinctrl-1 = <&spi_1_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -178,7 +178,7 @@
 		qcom,bam-producer-pipe-index = <7>;
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_2_active>;
 		pinctrl-1 = <&spi_2_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -204,7 +204,7 @@
 		qcom,bam-producer-pipe-index = <9>;
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_3_active>;
 		pinctrl-1 = <&spi_3_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -230,7 +230,7 @@
 		qcom,bam-producer-pipe-index = <11>;
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_4_active>;
 		pinctrl-1 = <&spi_4_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -393,7 +393,7 @@
 		qcom,bam-producer-pipe-index = <5>;
 		qcom,master-id = <84>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_5_active>;
 		pinctrl-1 = <&spi_5_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -419,7 +419,7 @@
 		qcom,bam-producer-pipe-index = <7>;
 		qcom,master-id = <84>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_6_active>;
 		pinctrl-1 = <&spi_6_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -445,7 +445,7 @@
 		qcom,bam-producer-pipe-index = <9>;
 		qcom,master-id = <84>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_7_active>;
 		pinctrl-1 = <&spi_7_sleep>;
 		clock-names = "iface_clk", "core_clk";
@@ -471,7 +471,7 @@
 		qcom,bam-producer-pipe-index = <11>;
 		qcom,master-id = <84>;
 		qcom,use-pinctrl;
-		pinctrl-names = "spi_active", "spi_sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_8_active>;
 		pinctrl-1 = <&spi_8_sleep>;
 		clock-names = "iface_clk", "core_clk";

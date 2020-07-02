@@ -2691,7 +2691,7 @@ static void usbpd_sm(struct work_struct *w)
 		if (ret) {
 			if (pd->pd_connected) {
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
-				return;
+				break;
 			}
 			pd->caps_count++;
 			if (pd->caps_count >= PD_CAPS_COUNT) {

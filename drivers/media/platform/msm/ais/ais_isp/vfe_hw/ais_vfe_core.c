@@ -163,7 +163,7 @@ int ais_vfe_get_hw_caps(void *hw_priv, void *get_hw_cap_args, uint32_t arg_size)
 
 	core_info = (struct ais_vfe_hw_core_info *)vfe_dev->core_info;
 
-	CAM_INFO(CAM_ISP, "VFE%d get_hw_caps not implemented",
+	CAM_WARN(CAM_ISP, "VFE%d get_hw_caps not implemented",
 			core_info->vfe_idx);
 
 	rc = -EPERM;
@@ -229,7 +229,7 @@ static int ais_vfe_reset(void *hw_priv,
 		rc = EFAULT;
 	}
 
-	CAM_INFO(CAM_ISP, "reset complete done (%d)", rc);
+	CAM_DBG(CAM_ISP, "reset complete done (%d)", rc);
 
 	core_info->irq_mask0 = 0x0;
 	cam_io_w_mb(0x0, core_info->mem_base + AIS_VFE_IRQ_MASK0);
@@ -372,7 +372,7 @@ int ais_vfe_force_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 		rc = ais_vfe_deinit_hw(vfe_hw, NULL, 0);
 	}
 
-	CAM_INFO(CAM_ISP, "Exit (%d)", rc);
+	CAM_DBG(CAM_ISP, "Exit (%d)", rc);
 
 	return rc;
 }
@@ -1072,7 +1072,7 @@ static int ais_vfe_handle_bus_wr_irq(struct cam_hw_info *vfe_hw,
 	}
 
 	if (work_data->bus_wr_status[0] & 0x1) {
-		CAM_INFO(CAM_ISP, "VFE%d: WR BUS reset completed",
+		CAM_DBG(CAM_ISP, "VFE%d: WR BUS reset completed",
 			core_info->vfe_idx);
 		complete(&vfe_hw->hw_complete);
 	}
@@ -1186,7 +1186,7 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 		cam_io_w(0xFFFFFFFF, core_info->mem_base + AIS_VFE_IRQ_CLEAR0);
 		cam_io_w(0xFFFFFFFF, core_info->mem_base + AIS_VFE_IRQ_CLEAR1);
 		cam_io_w(0x1, core_info->mem_base + AIS_VFE_IRQ_CMD);
-		CAM_INFO(CAM_ISP, "VFE%d Calling Complete for RESET CMD",
+		CAM_DBG(CAM_ISP, "VFE%d Calling Complete for RESET CMD",
 				core_info->vfe_idx);
 		complete(&vfe_hw->hw_complete);
 	} else {

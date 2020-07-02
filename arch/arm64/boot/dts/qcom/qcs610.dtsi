@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,14 +16,4 @@
 	model = "Qualcomm Technologies, Inc. QCS610";
 	qcom,msm-name = "QCS610";
 	qcom,msm-id = <401 0>;
-};
-
-&soc {
-	qcom,rmnet-ipa {
-		status="disabled";
-	};
-};
-
-&ipa_hw {
-	status="disabled";
 };

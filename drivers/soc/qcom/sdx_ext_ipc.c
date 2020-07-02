@@ -232,7 +232,10 @@ static int sdx_ext_ipc_probe(struct platform_device *pdev)
 
 	mutex_init(&mdm->policy_lock);
 	mutex_init(&mdm->e911_lock);
-	mdm->policy = SUBSYS_NOP;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,default-policy-nop"))
+		mdm->policy = SUBSYS_NOP;
+	else
+		mdm->policy = SUBSYS_PANIC;
 
 	ret = device_create_file(mdm->dev, &dev_attr_policy);
 	if (ret) {

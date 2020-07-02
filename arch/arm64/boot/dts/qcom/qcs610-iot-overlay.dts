@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 #include "qcs610-iot.dtsi"
 
 / {
-	model = "IOT";
+	model = "Qualcomm Technologies, Inc. QCS610 IOT Overlay";
 	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
 	qcom,msm-id = <401 0x0>;
 	qcom,board-id = <32 0>;
