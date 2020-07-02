@@ -8,18 +8,18 @@
 #if !defined(_TRACE_APU_SCHED_EVENTS_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_APU_SCHED_EVENTS_H
 #include <linux/tracepoint.h>
-#include "resource_mgt.h"
+#include "mdw_rsc.h"
 TRACE_EVENT(deadline_load,
-	TP_PROTO(char name[APUSYS_DEV_NAME_SIZE],
+	TP_PROTO(char name[MDW_DEV_NAME_SIZE],
 		 u64 avg_load[3]),
 	TP_ARGS(name, avg_load),
 	TP_STRUCT__entry(
-		__array(char, name, APUSYS_DEV_NAME_SIZE)
+		__array(char, name, MDW_DEV_NAME_SIZE)
 		__array(u64, avg_load, 3)
 		),
 	TP_fast_assign(
 		memcpy(__entry->name, name,
-		       APUSYS_DEV_NAME_SIZE * sizeof(char));
+		       MDW_DEV_NAME_SIZE * sizeof(char));
 		memcpy(__entry->avg_load, avg_load, 3 * sizeof(u64));
 	),
 	TP_printk(
@@ -31,17 +31,17 @@ TRACE_EVENT(deadline_load,
 );
 
 TRACE_EVENT(deadline_task,
-	TP_PROTO(char name[APUSYS_DEV_NAME_SIZE],
+	TP_PROTO(char name[MDW_DEV_NAME_SIZE],
 		 bool enter, u64 apu_loading),
 	TP_ARGS(name, enter, apu_loading),
 	TP_STRUCT__entry(
-		__array(char, name, APUSYS_DEV_NAME_SIZE)
+		__array(char, name, MDW_DEV_NAME_SIZE)
 		__field(bool, enter)
 		__field(u64, apu_loading)
 		),
 	TP_fast_assign(
 		memcpy(__entry->name, name,
-		       APUSYS_DEV_NAME_SIZE * sizeof(char));
+		       MDW_DEV_NAME_SIZE * sizeof(char));
 		__entry->enter = enter;
 		__entry->apu_loading = apu_loading;
 	),

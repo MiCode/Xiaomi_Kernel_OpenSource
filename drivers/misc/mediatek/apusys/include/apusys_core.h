@@ -8,8 +8,8 @@ struct apusys_core_info {
 	struct dentry *dbg_root;
 };
 /* declare init/exit func at other module */
-int apusys_mdw_init(struct apusys_core_info *info);
-void apusys_mdw_exit(void);
+int mdw_init(struct apusys_core_info *info);
+void mdw_exit(void);
 int sample_init(struct apusys_core_info *info);
 void sample_exit(void);
 int edma_init(struct apusys_core_info *info);
@@ -21,10 +21,10 @@ void mnoc_exit(void);
  * call init function in order at apusys.ko init stage
  */
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
-	apusys_mdw_init,
+	mnoc_init,
+	mdw_init,
 	sample_init,
 	edma_init,
-	mnoc_init,
 };
 
 /*
@@ -32,9 +32,9 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
  * call exit function in order at apusys.ko exit stage
  */
 static void (*apusys_exit_func[])(void) = {
-	mnoc_exit,
 	edma_exit,
 	sample_exit,
-	apusys_mdw_exit,
+	mdw_exit,
+	mnoc_exit,
 };
 #endif

@@ -8,13 +8,13 @@
 #if !defined(__MDW_EVENTS_H__) || defined(TRACE_HEADER_MULTI_READ)
 #define __MDW_EVENTS_H__
 #include <linux/tracepoint.h>
-
+#include "mdw_rsc.h"
 #define MDW_TAG_CMD_PRINT "%s,pid=%d,tgid=%d,cmd_uid=0x%llx,cmd_id=0x%llx,"\
 	"sc_idx=%d,total_sc=%u,dev_type=%d,dev_name=%s,dev_idx=%d,"\
 	"pack_id=0x%x,mc_idx=%u,mc_num=%u,mc_bitmap=0x%llx,priority=%d,"\
 	"soft_limit=%u,hard_limit=%u,exec_time=%u,suggest_time=%u,"\
 	"power_save=%d,mem_ctx=%u,tcm_force=%d,tcm_usage=0x%x,"\
-	"tcm_teal_usage=0x%x,boost=%u,ip_time=%u,ret=%d\n"\
+	"tcm_real_usage=0x%x,boost=%u,ip_time=%u,ret=%d\n"\
 
 TRACE_EVENT(mdw_cmd,
 	TP_PROTO(uint32_t done, pid_t pid, pid_t tgid, uint64_t uid,
@@ -44,7 +44,7 @@ TRACE_EVENT(mdw_cmd,
 		__field(int, sc_idx)
 		__field(uint32_t, num_sc)
 		__field(int, type)
-		__array(char, dev_name, APUSYS_DEV_NAME_SIZE)
+		__array(char, dev_name, MDW_DEV_NAME_SIZE)
 		__field(int, dev_idx)
 		__field(uint32_t, pack_id)
 		__field(uint32_t, multicore_idx)
@@ -73,8 +73,9 @@ TRACE_EVENT(mdw_cmd,
 		__entry->sc_idx = sc_idx;
 		__entry->num_sc = num_sc;
 		__entry->type = type;
-		snprintf(__entry->dev_name, APUSYS_DEV_NAME_SIZE,
-			"%s", dev_name);
+		if (snprintf(__entry->dev_name, MDW_DEV_NAME_SIZE,
+			"%s", dev_name) < 0)
+			return;
 		__entry->dev_idx = dev_idx;
 		__entry->pack_id = pack_id;
 		__entry->multicore_idx = multicore_idx;

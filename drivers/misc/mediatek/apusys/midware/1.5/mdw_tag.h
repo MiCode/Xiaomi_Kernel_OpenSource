@@ -3,11 +3,10 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __MDW_TAG_H__
-#define __MDW_TAG_H__
+#ifndef __APUSYS_MDW_TAG_H__
+#define __APUSYS_MDW_TAG_H__
 
-#include "resource_mgt.h"
-
+#include "mdw_rsc.h"
 #define MDW_TAGS_CNT (3000)
 
 /* The tag entry of VPU */
@@ -24,7 +23,7 @@ struct mdw_tag {
 			int sc_idx;
 			uint32_t num_sc;
 			int type;
-			char dev_name[APUSYS_DEV_NAME_SIZE];
+			char dev_name[MDW_DEV_NAME_SIZE];
 			int dev_idx;
 			uint32_t pack_id;
 			uint32_t multicore_idx;
@@ -47,20 +46,20 @@ struct mdw_tag {
 	} d;
 };
 
-#if IS_ENABLED(CONFIG_MTK_APUSYS_DEBUG)
-int mdw_tags_init(void);
-void mdw_tags_destroy(void);
-void mdw_tags_show(struct seq_file *s);
+#ifdef CONFIG_MTK_APUSYS_DEBUG
+int mdw_tag_init(void);
+void mdw_tag_exit(void);
+void mdw_tag_show(struct seq_file *s);
 #else
-static inline int mdw_tags_init(void)
+static inline int mdw_tag_init(void)
 {
 	return 0;
 }
 
-static inline void mdw_tags_destroy(void)
+static inline void mdw_tag_exit(void)
 {
 }
-static inline void mdw_tags_show(struct seq_file *s)
+static inline void mdw_tag_show(struct seq_file *s)
 {
 }
 #endif

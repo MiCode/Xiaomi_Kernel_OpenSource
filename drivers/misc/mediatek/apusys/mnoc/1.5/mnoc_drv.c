@@ -37,7 +37,6 @@
 #endif
 
 
-#include "apusys_dbg.h"
 
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
