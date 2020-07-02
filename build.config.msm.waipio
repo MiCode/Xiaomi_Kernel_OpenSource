@@ -28,6 +28,7 @@ KMI_WHITELIST=abi_gki_qcom_whitelist
 case "${VARIANT}" in
 gki)
 	. ${KERNEL_DIR}/build.config.msm.gki
+	apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_GKI.config vendor/${MSM_ARCH}-gki_defconfig
 	;;
 gki-ack)
 	# In gki-only, then using ACK's GKI config directly
