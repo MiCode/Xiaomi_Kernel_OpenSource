@@ -38,7 +38,7 @@
 
 static int mdp_limit_open(struct inode *pInode, struct file *pFile)
 {
-	struct cmdqFileNodeStruct *pNode;
+	struct cmdqFileNodeStruct *pNode = NULL;
 
 	CMDQ_VERBOSE("mdp limit driver open fd=%p begin\n", pFile);
 
@@ -64,7 +64,7 @@ static int mdp_limit_open(struct inode *pInode, struct file *pFile)
 
 static int mdp_limit_release(struct inode *pInode, struct file *pFile)
 {
-	struct cmdqFileNodeStruct *pNode;
+	struct cmdqFileNodeStruct *pNode = NULL;
 	unsigned long flags;
 
 	CMDQ_VERBOSE("mdp limit driver release fd=%p begin\n", pFile);
@@ -164,8 +164,8 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 	u32 *ids = NULL;
 	u32 *addrs = NULL;
 	u32 *values = NULL;
-	void *ids_user;
-	void *values_user;
+	void *ids_user = NULL;
+	void *values_user = NULL;
 	s32 status = -EINVAL;
 	u32 count, i;
 
@@ -253,7 +253,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 static unsigned long translate_fd(struct op_meta *meta,
 				struct mdp_job_mapping *mapping_job)
 {
-	struct ion_handle *ion_h;
+	struct ion_handle *ion_h = NULL;
 	unsigned long mva = 0;
 	u32 i;
 	u32 port = cmdq_mdp_get_hw_port(meta->engine);
