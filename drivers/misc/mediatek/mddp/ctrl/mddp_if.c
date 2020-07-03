@@ -233,7 +233,7 @@ int32_t mddp_send_msg_to_md_isr(enum mddp_app_type_e type,
 		return -EPERM;
 	}
 
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + data_len, GFP_KERNEL);
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + data_len, GFP_ATOMIC);
 	if (unlikely(!md_msg))
 		return -ENOMEM;
 

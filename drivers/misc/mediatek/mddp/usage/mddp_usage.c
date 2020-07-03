@@ -130,7 +130,7 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	}
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(limit),
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return -EAGAIN;

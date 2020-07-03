@@ -15,6 +15,7 @@
 
 #include <linux/types.h>
 
+#include "mddp_filter.h"
 #include "mddp_sm.h"
 #include "mddp_ipc.h"
 #include "mddp_usage.h"
@@ -96,6 +97,35 @@ static int32_t _mddp_sm_drv_notify(
 		mddp_sm_on_event(app, MDDP_EVT_DRV_DISABLE);
 
 	return 0;
+}
+
+static int32_t mddp_sm_ctrl_msg_hdlr(
+		uint32_t msg_id,
+		void *buf,
+		uint32_t buf_len)
+{
+	int32_t                 ret = 0;
+
+	switch (msg_id) {
+#if defined MDDP_TETHERING_SUPPORT
+	case IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND:
+		pr_notice("%s: MDDP suspend indication.\n", __func__);
+		ret = mddp_f_suspend_tag();
+		break;
+
+	case IPC_MSG_ID_MDFPM_RESUME_TAG_IND:
+		pr_notice("%s: MDDP resume indication.\n", __func__);
+		ret = mddp_f_resume_tag();
+		break;
+#endif
+
+	default:
+		pr_notice("%s: Unaccepted msg_id(%d)!\n", __func__, msg_id);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -324,6 +354,10 @@ int32_t mddp_sm_msg_hdlr(
 	int32_t                 ret = -ENODEV;
 
 	switch (user_id) {
+	case MDFPM_USER_ID_MDFPM:
+		ret = mddp_sm_ctrl_msg_hdlr(msg_id, buf, buf_len);
+		goto _done;
+
 #if defined CONFIG_MTK_MDDP_USB_SUPPORT
 	case MDFPM_USER_ID_UFPM:
 		app = mddp_get_app_inst(MDDP_APP_TYPE_USB);

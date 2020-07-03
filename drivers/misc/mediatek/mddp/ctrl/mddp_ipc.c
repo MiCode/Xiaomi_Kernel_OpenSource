@@ -52,6 +52,10 @@ static struct mddp_ipc_rx_msg_entry_t mddp_rx_msg_table_s[] = {
 		sizeof(struct ufpm_enable_md_func_rsp_t) },
 	{ IPC_MSG_ID_UFPM_DEACTIVATE_MD_FAST_PATH_RSP,
 		sizeof(struct ufpm_deactivate_md_func_rsp_t) },
+	{ IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND,
+		0 },
+	{ IPC_MSG_ID_MDFPM_RESUME_TAG_IND,
+		0 },
 };
 static uint32_t mddp_rx_msg_table_cnt = ARRAY_SIZE(mddp_rx_msg_table_s);
 
@@ -249,7 +253,7 @@ bool mddp_ipc_rx_msg_validation(enum MDDP_MDFPM_MSG_ID_CODE msg_id,
 
 	for (i = 0; i < mddp_rx_msg_table_cnt; i++)
 		if (mddp_rx_msg_table_s[i].msg_id == msg_id)
-			return (mddp_rx_msg_table_s[i].rx_msg_len == msg_len)
+			return (mddp_rx_msg_table_s[i].rx_msg_len <= msg_len)
 				? (true) : (false);
 
 	return true;
