@@ -7541,7 +7541,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
-	int min_cpu = -1;
 	int backup_idle_min_cpu = -1;
 	int backup_active_min_cpu = -1;
 
