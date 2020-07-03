@@ -1290,6 +1290,11 @@ drm_atomic_connector_get_property(struct drm_connector *connector,
 		*val = state->picture_aspect_ratio;
 	} else if (property == connector->scaling_mode_property) {
 		*val = state->scaling_mode;
+	} else if (property == config->writeback_fb_id_property) {
+		/* Writeback framebuffer is one-shot, write and forget */
+		*val = 0;
+	} else if (property == config->writeback_out_fence_ptr_property) {
+		*val = 0;
 	} else if (connector->funcs->atomic_get_property) {
 		return connector->funcs->atomic_get_property(connector,
 				state, property, val);
