@@ -202,7 +202,7 @@ static int mix_release(struct inode *inode, struct file *filp)
 
 static int ccci_util_analyze_parameter(char *temp_buf, int size)
 {
-	char *psub, *pname, *pvalue;
+	char *psub = NULL, *pname = NULL, *pvalue = NULL;
 	long user_id = -1;
 	long time_interval = -1;
 	long read_count = -1;

@@ -82,7 +82,7 @@ void md_cldma_hw_reset(unsigned char md_id)
 
 void md1_subsys_debug_dump(enum subsys_id sys)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	if (sys != SYS_MD1)
 		return;
@@ -149,7 +149,7 @@ void ccci_md_devapc_register_cb(void)
 
 void ccci_md_dump_in_interrupt(char *user_info)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_NORMAL_LOG(0, TAG, "%s called by %s\n", __func__, user_info);
 	md = ccci_md_get_modem_by_id(0);
@@ -166,7 +166,7 @@ EXPORT_SYMBOL(ccci_md_dump_in_interrupt);
 
 void ccci_md_debug_dump(char *user_info)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	if (!s_md_start_completed) {
 		CCCI_ERROR_LOG(0, TAG,
@@ -412,7 +412,7 @@ void ccci_set_clk_by_id(int idx, unsigned int on)
 
 int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 {
-	struct md_pll_reg *md_reg;
+	struct md_pll_reg *md_reg = NULL;
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
 
 	/* call internal_dump io_remap */
