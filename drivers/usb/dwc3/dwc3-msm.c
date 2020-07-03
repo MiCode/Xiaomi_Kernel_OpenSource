@@ -758,6 +758,11 @@ int msm_data_fifo_config(struct usb_ep *ep, unsigned long addr,
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
+	if (dbm_ep >= DBM_1_5_NUM_EP) {
+		dev_err(mdwc->dev, "Invalid DBM EP num:%d\n", dbm_ep);
+		return -EINVAL;
+	}
+
 	mdwc->dbm_ep_num_mapping[dbm_ep] = dep->number;
 
 	if (!mdwc->dbm_is_1p4 || sizeof(addr) > sizeof(u32)) {
@@ -4253,6 +4258,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->default_bus_vote = BUS_VOTE_NOMINAL;
 	ret = of_property_read_u32(node, "qcom,default-bus-vote",
 			&mdwc->default_bus_vote);
+
+	if (mdwc->default_bus_vote >= BUS_VOTE_MAX)
+		mdwc->default_bus_vote = BUS_VOTE_MAX - 1;
+	else if (mdwc->default_bus_vote < BUS_VOTE_NONE)
+		mdwc->default_bus_vote = BUS_VOTE_NONE;
 
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++) {
 		mdwc->icc_paths[i] = of_icc_get(&pdev->dev, icc_path_names[i]);
