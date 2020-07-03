@@ -695,6 +695,8 @@ rewait:
 	/* Remove u_item anyway */
 	mutex_lock(&c->usr->mtx);
 	list_del(&c->u_item);
+	if (c->file)
+		c->file->private_data = NULL;
 	mutex_unlock(&c->usr->mtx);
 
 	if (ret < 0) { /* Wait fail handle */

@@ -30,6 +30,9 @@ static unsigned int apu_file_poll(struct file *file, poll_table *wait)
 {
 	struct mdw_apu_cmd *c = file->private_data;
 
+	if (c == NULL)
+		return POLLIN;
+
 	mdw_wait_cmd(c);
 	return POLLIN;
 }
