@@ -39,6 +39,19 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 static int
 migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target);
 
+#ifdef CONFIG_UCLAMP_TASK
+static __always_inline
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+					struct task_struct *p);
+#else
+
+inline unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+					struct task_struct *p)
+{
+	return util;
+}
+#endif
+
 #ifdef CONFIG_MTK_UNIFY_POWER
 extern int
 mtk_idle_power(int cpu_idx, int idle_state, int cpu, void *argu, int sd_level);

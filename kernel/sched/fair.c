@@ -11104,12 +11104,12 @@ more_balance:
 			 * If cpu_util + new task_util is overutil,
 			 * we don't migrate this task.
 			 */
+			int cpu = env.dst_cpu;
+			unsigned long util = cpu_util_without(cpu, busiest->curr) +
+						task_util_est(busiest->curr);
 			if ((capacity_of(env.dst_cpu) * 1024) <
-			((cpu_util(env.dst_cpu) +
-				boosted_task_util(busiest->curr))
-				* capacity_margin)) {
-				raw_spin_unlock_irqrestore(&busiest->lock,
-							    flags);
+			uclamp_rq_util_with(cpu_rq(cpu), util, busiest->curr) * capacity_margin) {
+				raw_spin_unlock_irqrestore(&busiest->lock, flags);
 				env.flags |= LBF_ALL_PINNED;
 				goto out_one_pinned;
 			}
