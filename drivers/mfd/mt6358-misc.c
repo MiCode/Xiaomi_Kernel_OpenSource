@@ -715,6 +715,60 @@ static int pmic_config_interface(unsigned int RegNum, unsigned int val,
 	return ret;
 }
 
+void rtc_enable_32k1v8_1(void)
+{
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6390)
+	unsigned int reg_val = 0;
+	int ret;
+
+#ifdef IPIMB
+	ret = regmap_read(pmic_regmap, PMIC_SWCID_ADDR, &reg_val);
+#else
+	ret = regmap_read(rtc_misc->regmap, PMIC_SWCID_ADDR, &reg_val);
+#endif
+	if (ret < 0)
+		return;
+	else if (((reg_val >> PMIC_SWCID_SHIFT) & PMIC_SWCID_MASK) == 0x90) {
+		pmic_config_interface(PMIC_XO_RESERVED3_ADDR, 1,
+					PMIC_XO_RESERVED3_MASK,
+					PMIC_XO_RESERVED3_SHIFT);
+		pmic_config_interface(PMIC_RG_RTC_32K1V8_1_SEL_ADDR, 0,
+					PMIC_RG_RTC_32K1V8_1_SEL_MASK,
+					PMIC_RG_RTC_32K1V8_1_SEL_SHIFT);
+		pmic_config_interface(PMIC_RG_RTC32K_1V8_1_PDN_ADDR, 0,
+					PMIC_RG_RTC32K_1V8_1_PDN_MASK,
+					PMIC_RG_RTC32K_1V8_1_PDN_SHIFT);
+	}
+#endif
+}
+
+void rtc_disable_32k1v8_1(void)
+{
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6390)
+	unsigned int reg_val = 0;
+	int ret;
+
+#ifdef IPIMB
+	ret = regmap_read(pmic_regmap, PMIC_SWCID_ADDR, &reg_val);
+#else
+	ret = regmap_read(rtc_misc->regmap, PMIC_SWCID_ADDR, &reg_val);
+#endif
+	if (ret < 0)
+		return;
+	else if (((reg_val >> PMIC_SWCID_SHIFT) & PMIC_SWCID_MASK) == 0x90) {
+		pmic_config_interface(PMIC_XO_RESERVED3_ADDR, 0,
+			 PMIC_XO_RESERVED3_MASK,
+			 PMIC_XO_RESERVED3_SHIFT);
+		pmic_config_interface(PMIC_RG_RTC_32K1V8_1_SEL_ADDR, 1,
+				PMIC_RG_RTC_32K1V8_1_SEL_MASK,
+				PMIC_RG_RTC_32K1V8_1_SEL_SHIFT);
+		pmic_config_interface(PMIC_RG_RTC32K_1V8_1_PDN_ADDR, 1,
+				PMIC_RG_RTC32K_1V8_1_PDN_MASK,
+				PMIC_RG_RTC32K_1V8_1_PDN_SHIFT);
+	}
+#endif
+}
+
 static void mtk_rtc_enable_k_eosc_revised(void)
 {
 	u32 td;
