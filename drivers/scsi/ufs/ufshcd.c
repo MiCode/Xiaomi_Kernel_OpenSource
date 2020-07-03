@@ -467,15 +467,16 @@ static void ufshcd_device_reset_log(struct ufs_hba *hba)
 }
 
 static void ufshcd_generic_log(struct ufs_hba *hba,
-	u32 arg1, u32 arg2, u32 arg3,
+	u32 arg1, u32 arg2, u32 arg3, struct scsi_cmnd *cmd,
 	enum ufs_trace_event event)
 {
 	ufs_mtk_dbg_add_trace(hba, event,
-		arg1,
+		(cmd) ? cmd->request->tag : 0xFF,
 		0,
-		arg2,
-		arg3,
-		0, 0, 0, 0, 0);
+		(cmd) ? blk_rq_bytes(cmd->request) : 0,
+		(cmd) ? blk_rq_pos(cmd->request) >> 3 : 0,
+		(cmd) ? cmd->cmnd[0] : 0,
+		0, arg1, arg2, arg3);
 }
 
 #else
@@ -498,7 +499,7 @@ static void ufshcd_device_reset_log(struct ufs_hba *hba)
 }
 
 static void ufshcd_generic_log(struct ufs_hba *hba,
-	u32 arg1, u32 arg2, u32 arg3,
+	u32 arg1, u32 arg2, u32 arg3, struct scsi_cmnd *cmd,
 	enum ufs_trace_event event)
 {
 }
@@ -1876,7 +1877,7 @@ start:
 		ufshcd_generic_log(hba,
 			hba->clk_gating.active_reqs,
 			(u32)(sched_clock() - s_time),
-			__LINE__,
+			__LINE__, NULL,
 			UFS_TRACE_GENERIC);
 		goto start;
 	default:
@@ -2994,7 +2995,7 @@ out:
 
 	if (err || line)
 		ufshcd_generic_log(hba,
-			 cmd->cmnd[0], err, line,
+			 cmd->cmnd[0], err, line, cmd,
 			UFS_TRACE_GENERIC);
 
 	return err;
@@ -6470,7 +6471,7 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 		mt_irq_dump_status(irq);
 #endif
 		ufshcd_generic_log(hba,
-			0, 0, __LINE__,
+			0, 0, __LINE__, NULL,
 			UFS_TRACE_GENERIC);
 		BUG();
 	}
