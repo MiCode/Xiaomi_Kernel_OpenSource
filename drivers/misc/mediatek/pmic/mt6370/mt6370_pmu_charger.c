@@ -473,7 +473,7 @@ static void diff(struct mt6370_pmu_charger_data *chg_data, int index,
 
 	temp = timespec_sub(end, start);
 	if (temp.tv_sec > 0) {
-		//BUG_ON(1);
+		/* BUG_ON(1); */
 		dev_info(chg_data->dev, "%s: duration[%d] %d %ld\n", __func__,
 			index, (int)temp.tv_sec, temp.tv_nsec);
 	}
@@ -699,7 +699,6 @@ static int __maybe_unused mt6370_is_dcd_tout_enable(
 }
 #endif
 
-#ifdef CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT
 static int mt6370_set_usbsw_state(struct mt6370_pmu_charger_data *chg_data,
 	int state)
 {
@@ -730,6 +729,7 @@ static int __maybe_unused __mt6370_enable_chgdet_flow(
 	return ret;
 }
 
+#ifdef CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT
 static int mt6370_inform_psy_changed(struct mt6370_pmu_charger_data *chg_data);
 
 static int mt6370_enable_chgdet_flow(struct mt6370_pmu_charger_data *chg_data,
@@ -3463,6 +3463,7 @@ static irqreturn_t mt6370_pmu_chgdeti_irq_handler(int irq, void *data)
 
 static irqreturn_t mt6370_pmu_dcdti_irq_handler(int irq, void *data)
 {
+#ifdef CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT
 	struct mt6370_pmu_charger_data *chg_data =
 		(struct mt6370_pmu_charger_data *)data;
 	int ret = 0;
@@ -3481,6 +3482,8 @@ static irqreturn_t mt6370_pmu_dcdti_irq_handler(int irq, void *data)
 		__mt6370_chgdet_handler(chg_data);
 		mutex_unlock(&chg_data->bc12_access_lock);
 	}
+#endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT */
+
 	return IRQ_HANDLED;
 }
 
