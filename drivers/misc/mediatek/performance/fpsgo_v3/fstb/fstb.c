@@ -2101,7 +2101,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
-static KOBJ_ATTR_RO(fpsgo_status);
+static KOBJ_ATTR_ROO(fpsgo_status);
 
 int mtk_fstb_init(void)
 {

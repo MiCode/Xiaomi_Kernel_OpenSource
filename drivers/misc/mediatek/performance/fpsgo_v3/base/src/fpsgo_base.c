@@ -802,7 +802,7 @@ static ssize_t fpsgo_enable_store(struct kobject *kobj,
 	return count;
 }
 
-static KOBJ_ATTR_RW(fpsgo_enable);
+static KOBJ_ATTR_RWO(fpsgo_enable);
 
 static ssize_t render_info_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
