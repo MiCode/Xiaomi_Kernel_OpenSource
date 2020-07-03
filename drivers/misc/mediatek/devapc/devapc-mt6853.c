@@ -1242,18 +1242,18 @@ static const char *mt6853_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 
 
 	if (slave_type == SLAVE_TYPE_INFRA) {
-		if (shift_sta_bit >= 0 && shift_sta_bit <= 3) {
-			return peri_mi_trans(bus_id);
-
-		} else if (shift_sta_bit >= 4 && shift_sta_bit <= 6) {
-			return infra_mi_trans(bus_id);
-
-		} else if (vio_addr <= 0x1FFFFF || shift_sta_bit == 7) {
+		if (vio_addr <= 0x1FFFFF || shift_sta_bit == 7) {
 			pr_info(PFX "vio_addr is from on-chip SRAMROM\n");
 			if ((bus_id & 0x1) == 0)
 				return "EMI_L2C_M";
 
 			return infra_mi_trans(bus_id >> 1);
+
+		} else if (shift_sta_bit >= 0 && shift_sta_bit <= 3) {
+			return peri_mi_trans(bus_id);
+
+		} else if (shift_sta_bit >= 4 && shift_sta_bit <= 6) {
+			return infra_mi_trans(bus_id);
 
 		} else if (shift_sta_bit == 8) {
 			pr_info(PFX "vio_addr is from MMSYS_MALI\n");
