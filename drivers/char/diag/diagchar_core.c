@@ -1038,7 +1038,7 @@ static int diag_send_raw_data_remote(int proc, void *buf, int len,
 	CONTROL_CHAR, NON_HDLC_VERSION, 0, 0 };
 	unsigned char end_byte[1] = { CONTROL_CHAR };
 
-	if (!buf)
+	if (!buf || proc <= 0 || proc >= NUM_DIAG_MD_DEV)
 		return -EINVAL;
 
 	if (len <= 0) {
@@ -3478,7 +3478,7 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 			return -EFAULT;
 		}
 	}
-	if (remote_proc) {
+	if (remote_proc && (remote_proc < NUM_DIAG_MD_DEV)) {
 		ret = diag_send_raw_data_remote(remote_proc,
 				(void *)(user_space_data + token_offset),
 				len, USER_SPACE_RAW_DATA);
