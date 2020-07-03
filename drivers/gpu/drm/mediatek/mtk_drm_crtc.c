@@ -711,6 +711,111 @@ int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level)
 	return 0;
 }
 
+static void mtk_drm_crtc_wk_lock(struct drm_crtc *crtc, bool get,
+	const char *func, int line);
+
+int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
+{
+
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp, *comp;
+	struct cmdq_pkt *cmdq_handle;
+	bool is_frame_mode;
+	struct cmdq_client *client;
+	int i, j;
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (mtk_crtc->enabled) {
+		DDPINFO("%s:%d, crtc is on\n", __func__,
+				__LINE__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		return -EINVAL;
+	}
+	CRTC_MMP_EVENT_START(0, backlight, 0x123,
+			level);
+	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
+
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -ENODEV;
+	}
+
+	/* 1. power on mtcmos */
+	mtk_drm_top_clk_prepare_enable(crtc->dev);
+
+
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_start_trig_loop(crtc);
+
+
+	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_ENABLE, NULL);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_dump_analysis(comp);
+
+	/* send LCM CMD */
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+
+	if (is_frame_mode)
+		cmdq_handle =
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	else
+		cmdq_handle =
+			cmdq_pkt_create(
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+	if (is_frame_mode) {
+		cmdq_pkt_wfe(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	}
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH, 0);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH, 0);
+	/* set backlight */
+	if (output_comp->funcs && output_comp->funcs->io_cmd)
+		output_comp->funcs->io_cmd(output_comp,
+			cmdq_handle, DSI_SET_BL_AOD, &level);
+
+	if (is_frame_mode) {
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	}
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_stop_trig_loop(crtc);
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_DISABLE, NULL);
+
+	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+
+	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
+	CRTC_MMP_EVENT_END(0, backlight, 0x123,
+			level);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return 0;
+}
+
 static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);

@@ -723,6 +723,7 @@ unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 	char *stringbuf, int buf_len);
 char *mtk_crtc_index_spy(int crtc_index);
 bool mtk_drm_get_hdr_property(void);
+int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);

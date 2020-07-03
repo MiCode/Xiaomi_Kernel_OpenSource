@@ -1659,6 +1659,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 				&& ext->funcs->doze_enable)
 				ext->funcs->doze_enable(dsi->panel, dsi,
 					mipi_dsi_dcs_write_gce2, NULL);
+
 			if (ext && ext->funcs
 				&& ext->funcs->doze_area)
 				ext->funcs->doze_area(dsi->panel, dsi,
@@ -4441,6 +4442,20 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					handle, *(int *)params);
 	}
 		break;
+	case DSI_SET_BL_AOD:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->set_aod_light_mode)
+			panel_ext->funcs->set_aod_light_mode(dsi,
+					mipi_dsi_dcs_write_gce,
+					handle, *(unsigned int *)params);
+	}
+		break;
+
 	case DSI_SET_BL_GRP:
 	{
 		struct mtk_dsi *dsi =

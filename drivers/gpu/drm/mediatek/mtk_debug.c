@@ -335,6 +335,23 @@ int mtkfb_set_backlight_level(unsigned int level)
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
+int mtkfb_set_aod_backlight_level(unsigned int level)
+{
+	struct drm_crtc *crtc;
+
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		pr_info("find crtc fail\n");
+		return 0;
+	}
+	mtk_drm_aod_setbacklight(crtc, level);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtkfb_set_aod_backlight_level);
+
 void mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
@@ -1346,6 +1363,18 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		mtkfb_set_backlight_level(level);
+	} else if (!strncmp(opt, "aod_bl:", 7)) {
+		unsigned int level;
+		int ret;
+
+		ret = sscanf(opt, "aod_bl:%u\n", &level);
+		if (ret != 1) {
+			pr_info("%d fail to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		mtkfb_set_aod_backlight_level(level);
 	} else if (strncmp(opt, "dump_fake_engine", 16) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
