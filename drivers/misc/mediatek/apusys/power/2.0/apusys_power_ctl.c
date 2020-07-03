@@ -539,9 +539,11 @@ void apusys_frequency_check(void)
 				apusys_power_on = true;
 		} else {
 			if (apusys_power_on == false &&
+#ifndef CONFIG_MACH_MT6853
 			apusys_opps.is_power_on[EDMA] == false &&
 #ifndef CONFIG_MACH_MT6873
 			apusys_opps.is_power_on[EDMA2] == false &&
+#endif
 #endif
 			apusys_opps.is_power_on[REVISER] == false)
 				continue;
@@ -984,7 +986,7 @@ int apusys_power_on(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_APU_CONN] =
 				APUSYS_DEFAULT_OPP;
-#ifndef CONFIG_MACH_MT6873
+#if !defined(CONFIG_MACH_MT6873) && !defined(CONFIG_MACH_MT6853)
 			apusys_opps.cur_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
@@ -1042,7 +1044,7 @@ int apusys_power_off(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_APU_CONN] =
 				APUSYS_DEFAULT_OPP;
-#ifndef CONFIG_MACH_MT6873
+#if !defined(CONFIG_MACH_MT6873) && !defined(CONFIG_MACH_MT6853)
 			apusys_opps.cur_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
