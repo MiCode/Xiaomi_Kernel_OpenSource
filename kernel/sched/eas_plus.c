@@ -185,7 +185,7 @@ int select_max_spare_capacity(struct task_struct *p, int target)
 		if (cpu_isolated(cpu))
 			continue;
 
-#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
+#ifdef CONFIG_MTK_SCHED_INTEROP
 		if (cpu_rq(cpu)->rt.rt_nr_running &&
 			likely(!is_rt_throttle(cpu)))
 			continue;
@@ -247,7 +247,7 @@ int find_best_idle_cpu(struct task_struct *p, bool prefer_idle)
 					!cpumask_test_cpu(i, tsk_cpus_allow))
 				continue;
 
-#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
+#ifdef CONFIG_MTK_SCHED_INTEROP
 			if (cpu_rq(i)->rt.rt_nr_running &&
 					likely(!is_rt_throttle(i)))
 				continue;
