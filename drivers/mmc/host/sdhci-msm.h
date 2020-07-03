@@ -325,6 +325,7 @@ struct sdhci_msm_host {
 	bool debug_mode_enabled;
 	bool reg_store;
 	struct reset_control *core_reset;
+	u32 minor;
 };
 
 extern char *saved_command_line;
