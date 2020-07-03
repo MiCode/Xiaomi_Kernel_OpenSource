@@ -38,17 +38,16 @@ u32 speed = 10000000;
 
 struct mtk_spi {
 	void __iomem *base;
-	void __iomem *peri_regs;
 	u32 state;
 	int pad_num;
 	u32 *pad_sel;
 	struct clk *parent_clk, *sel_clk, *spi_clk;
 	struct spi_transfer *cur_transfer;
 	u32 xfer_len;
+	u32 num_xfered;
 	struct scatterlist *tx_sgl, *rx_sgl;
 	u32 tx_sgl_len, rx_sgl_len;
 	const struct mtk_spi_compatible *dev_comp;
-	u32 dram_8gb_offset;
 };
 
 static struct mtk_chip_config mtk_test_chip_info = {
