@@ -4108,14 +4108,12 @@ static int mmc_blk_alloc_part(struct mmc_card *card,
 {
 	char cap_str[10];
 	struct mmc_blk_data *part_md;
-
 	part_md = mmc_blk_alloc_req(card, disk_to_dev(md->disk), size, default_ro,
 				    subname, area_type);
 	if (IS_ERR(part_md))
 		return PTR_ERR(part_md);
 	part_md->part_type = part_type;
 	list_add(&part_md->part, &md->part);
-
 	string_get_size((u64)get_capacity(part_md->disk), 512, STRING_UNITS_2,
 			cap_str, sizeof(cap_str));
 	pr_info("%s: %s %s partition %u %s\n",
@@ -4218,7 +4216,6 @@ static int mmc_blk_alloc_rpmb_part(struct mmc_card *card,
 	char rpmb_name[DISK_NAME_LEN];
 	char cap_str[10];
 	struct mmc_rpmb_data *rpmb;
-
 	/* This creates the minor number for the RPMB char device */
 	devidx = ida_simple_get(&mmc_rpmb_ida, 0, max_devices, GFP_KERNEL);
 	if (devidx < 0)
@@ -4253,7 +4250,6 @@ static int mmc_blk_alloc_rpmb_part(struct mmc_card *card,
 	}
 
 	list_add(&rpmb->node, &md->rpmbs);
-
 	string_get_size((u64)size, 512, STRING_UNITS_2,
 			cap_str, sizeof(cap_str));
 
@@ -4303,7 +4299,8 @@ static int mmc_blk_alloc_parts(struct mmc_card *card, struct mmc_blk_data *md)
 				card->part[idx].name);
 			if (ret)
 				return ret;
-		} else if (card->part[idx].size) {
+		}
+		if (card->part[idx].size) {
 			ret = mmc_blk_alloc_part(card, md,
 				card->part[idx].part_cfg,
 				card->part[idx].size >> 9,
@@ -4313,6 +4310,7 @@ static int mmc_blk_alloc_parts(struct mmc_card *card, struct mmc_blk_data *md)
 			if (ret)
 				return ret;
 		}
+
 	}
 
 	return 0;

@@ -240,28 +240,24 @@ int rpmb_cal_hmac(struct rpmb_frame *frame, int blk_cnt, u8 *key, u8 *key_mac)
  * CHECK THIS!!! Copy from block.c mmc_blk_data structure.
  */
 struct emmc_rpmb_blk_data {
-	spinlock_t lock;
+	spinlock_t	lock;
 	struct device	*parent;
-	struct gendisk *disk;
+	struct gendisk	*disk;
 	struct mmc_queue queue;
 	struct list_head part;
-
-	unsigned int flags;
-	unsigned int usage;
-	unsigned int read_only;
-	unsigned int part_type;
-	/* unsigned int name_idx; */
-	unsigned int reset_done;
-
-	/*
-	 * Only set in main mmc_blk_data associated
-	 * with mmc_card with mmc_set_drvdata, and keeps
-	 * track of the current selected device partition.
-	 */
-	unsigned int part_curr;
+	struct list_head rpmbs;
+	unsigned int	flags;
+	unsigned int	usage;
+	unsigned int	read_only;
+	unsigned int	part_type;
+	unsigned int	reset_done;
+	unsigned int	part_curr;
 	struct device_attribute force_ro;
 	struct device_attribute power_ro_lock;
-	int area_type;
+	int	area_type;
+
+	struct dentry *status_dentry;
+	struct dentry *ext_csd_dentry;
 };
 
 static void rpmb_dump_frame(u8 *data_frame)
