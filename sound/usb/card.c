@@ -806,6 +806,7 @@ static int __usb_audio_resume(struct usb_interface *intf, bool reset_resume)
 	atomic_inc(&chip->active); /* avoid autopm */
 	if (chip->num_suspended_intf > 1)
 		goto out;
+
 	/*
 	 * ALSA leaves material resumption to user space
 	 * we just notify and restart the mixers
