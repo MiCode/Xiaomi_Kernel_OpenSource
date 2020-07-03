@@ -381,6 +381,7 @@ int pe40_init_state(void)
 	enable_vbus_ovp(false);
 
 	adapter_get_pps_cap(&pe4->cap);
+	pe4->max_vbus = pe4->data.pe40_max_vbus;
 	pe4->is_connect = true;
 
 	voltage = 0;
@@ -853,11 +854,15 @@ int pe40_set_data(struct pe40_data data)
 	pe4->data.pe40_max_vbus = data.pe40_max_vbus;
 	pe4->data.pe40_max_ibus = data.pe40_max_ibus;
 	pe4->data.ibus_err = data.ibus_err;
+	pe4->data.high_temp_to_enter_pe40 = data.high_temp_to_enter_pe40;
+	pe4->data.low_temp_to_enter_pe40 = data.low_temp_to_enter_pe40;
+	pe4->data.high_temp_to_leave_pe40 = data.high_temp_to_leave_pe40;
+	pe4->data.low_temp_to_leave_pe40 = data.low_temp_to_leave_pe40;
 	pe4->data.pe40_r_cable_3a_lower = data.pe40_r_cable_3a_lower;
 	pe4->data.pe40_r_cable_2a_lower = data.pe40_r_cable_2a_lower;
 	pe4->data.pe40_r_cable_1a_lower = data.pe40_r_cable_1a_lower;
 
-	chr_err("[pe4_set_data]%d %d %d %d %d %d %d %d %d %d\n",
+	chr_err("[pe4_set_data]%d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
 		pe4->data.input_current_limit,
 		pe4->data.charging_current_limit,
 		pe4->data.battery_cv,
@@ -865,6 +870,10 @@ int pe40_set_data(struct pe40_data data)
 		pe4->data.pe40_max_vbus,
 		pe4->data.pe40_max_ibus,
 		pe4->data.ibus_err,
+		pe4->data.high_temp_to_enter_pe40,
+		pe4->data.low_temp_to_enter_pe40,
+		pe4->data.high_temp_to_leave_pe40,
+		pe4->data.low_temp_to_leave_pe40,
 		pe4->data.pe40_r_cable_3a_lower,
 		pe4->data.pe40_r_cable_2a_lower,
 		pe4->data.pe40_r_cable_1a_lower);

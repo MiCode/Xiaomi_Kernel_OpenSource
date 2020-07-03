@@ -62,7 +62,6 @@
 #include <linux/suspend.h>
 
 #include <mt-plat/mtk_boot.h>
-/* #include <musb_core.h> */ /* FIXME */
 #include "mtk_charger_intf.h"
 #include "mtk_switch_charging.h"
 #include "mtk_intf.h"
@@ -516,14 +515,19 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 	data->pe40_r_cable_2a_lower = pdata->pe40_r_cable_2a_lower;
 	data->pe40_r_cable_3a_lower = pdata->pe40_r_cable_3a_lower;
 
+	data->battery_cv = pdata->battery_cv;
 	if (info->enable_sw_jeita) {
 		if (info->sw_jeita.cv != 0)
 			data->battery_cv = info->sw_jeita.cv;
-	} else
-		data->battery_cv = pdata->battery_cv;
+	}
 
 	if (info->enable_hv_charging == false)
 		goto stop;
+	if (info->pd_reset == true) {
+		chr_err("encounter hard reset, stop pe4.0\n");
+		info->pd_reset = false;
+		goto stop;
+	}
 
 	ret = pe40_run();
 
