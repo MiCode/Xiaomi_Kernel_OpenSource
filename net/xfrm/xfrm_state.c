@@ -31,6 +31,11 @@
 #define xfrm_state_deref_prot(table, net) \
 	rcu_dereference_protected((table), lockdep_is_held(&(net)->xfrm.xfrm_state_lock))
 
+#undef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
+#define MTK_XFM_DEBUG
+#endif
+
 static void xfrm_state_gc_task(struct work_struct *work);
 
 /* Each xfrm_state may be linked to two tables:
@@ -427,6 +432,9 @@ static void xfrm_put_mode(struct xfrm_mode *mode)
 
 static void xfrm_state_gc_destroy(struct xfrm_state *x)
 {
+#ifdef MTK_XFM_DEBUG
+	pr_info("[mtk_net][xfrm_state] %s  free x %px\n", __func__, x);
+#endif
 	tasklet_hrtimer_cancel(&x->mtimer);
 	del_timer_sync(&x->rtimer);
 	kfree(x->aead);
@@ -564,7 +572,9 @@ struct xfrm_state *xfrm_state_alloc(struct net *net)
 	struct xfrm_state *x;
 
 	x = kzalloc(sizeof(struct xfrm_state), GFP_ATOMIC);
-
+#ifdef MTK_XFM_DEBUG
+	pr_info("[mtk_net][xfrm_state] %s alloc x: %px\n", __func__, x);
+#endif
 	if (x) {
 		write_pnet(&x->xs_net, net);
 		refcount_set(&x->refcnt, 1);
@@ -614,8 +624,13 @@ int __xfrm_state_delete(struct xfrm_state *x)
 		list_del(&x->km.all);
 		hlist_del_rcu(&x->bydst);
 		hlist_del_rcu(&x->bysrc);
-		if (x->id.spi)
+		if (x->id.spi) {
 			hlist_del_rcu(&x->byspi);
+#ifdef MTK_XFM_DEBUG
+			pr_info("[mtk_net][xfrm_state] %s delete x %px from byspi list\n",
+				__func__, x);
+#endif
+		}
 		net->xfrm.state_num--;
 		spin_unlock(&net->xfrm.xfrm_state_lock);
 
@@ -839,13 +854,25 @@ static void xfrm_state_print_btrace(unsigned long data)
 	(unsigned long long)ktime_to_ns(xfrm_state_deltatime) >> 10;
 
 	if (xfrm_state_duration > 2000000) { //2 second
-		pr_err("[mtk_net][xfrm_state] trace:[%d][%d][%d][%d]\n",
-		       trace1, trace2, trace3, trace4);
-		pr_err("[mtk_net][xfrm_state] dutation [%d]\n",
-		       xfrm_state_duration);
+		pr_info("[mtk_net][xfrm_state] trace:[%d][%d][%d][%d]\n",
+			trace1, trace2, trace3, trace4);
+		pr_info("[mtk_net][xfrm_state] dutation [%d]\n",
+			xfrm_state_duration);
 		for (i = 0; i < 32; i++)
-			pr_err("[mtk_net][xfrm_state] spi_dump[%d] : 0x%x\n",
-			       i, spi_dump[i]);
+			pr_info("[mtk_net][xfrm_state] spi_dump[%d] : 0x%x\n",
+				i, spi_dump[i]);
+	}
+}
+
+static void xfrm_state_dump_byspi(struct net *net)
+{
+	int i;
+	struct hlist_head *hlist;
+
+	for (i = 0; i < (net->xfrm.state_hmask + 1); i++) {
+		hlist = net->xfrm.state_byspi + i;
+		pr_info("[mtk_net][xfrm_state] byspi dump:byspi[%d]%px = %px",
+			i, hlist, *hlist);
 	}
 }
 
@@ -868,6 +895,9 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
 
 	count++;
 	xfrm_state_t1 = ktime_get();
+	pr_info("[mtk_net][xfrm_state] lookup x_num %d net %px byspi %px h %d\n",
+		net->xfrm.state_num, net, net->xfrm.state_byspi, h);
+	xfrm_state_dump_byspi(net);
 	hlist_for_each_entry_rcu(x, net->xfrm.state_byspi + h, byspi) {
 		trace1++;
 		xfrm_state_t2 = ktime_get();
@@ -1116,6 +1146,10 @@ found:
 			if (x->id.spi) {
 				h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, encap_family);
 				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+#ifdef MTK_XFM_DEBUG
+				pr_info("[mtk_net][xfrm_state] add list %s x %px byspi %px  h %d\n",
+					__func__, x, net->xfrm.state_byspi, h);
+#endif
 			}
 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
 			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
@@ -1228,6 +1262,10 @@ static void __xfrm_state_insert(struct xfrm_state *x)
 				  x->props.family);
 
 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+#ifdef MTK_XFM_DEBUG
+		pr_info("[mtk_net][xfrm_state] add list  %s x %px byspi %px  h %d\n",
+			__func__, x, net->xfrm.state_byspi, h);
+#endif
 	}
 
 	tasklet_hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
@@ -1891,6 +1929,10 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
 		spin_lock_bh(&net->xfrm.xfrm_state_lock);
 		h = xfrm_spi_hash(net, &x->id.daddr, x->id.spi, x->id.proto, x->props.family);
 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+#ifdef MTK_XFM_DEBUG
+		pr_info("[mtk_net][xfrm_state]add list  %s x %px byspi %px  h %d\n",
+			__func__, x, net->xfrm.state_byspi, h);
+#endif
 		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
 
 		err = 0;
