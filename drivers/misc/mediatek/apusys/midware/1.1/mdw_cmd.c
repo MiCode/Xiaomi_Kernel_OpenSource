@@ -25,6 +25,7 @@
 #include "mdw_sched.h"
 #include "mdw_rsc.h"
 #include "reviser_export.h"
+#include "mdw_fence.h"
 
 #define MDW_CMD_PSR_NUM_ERR 0xffffffff
 #define MDW_CMD_SCR_BMP_ERR 0xffffffffffffffff
@@ -136,10 +137,12 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 	if (c->multi > HDR_FLAG_MULTI_MULTI)
 		return -EINVAL;
 
-	if (c->hdr->flags & HDR_FLAG_MASK_FENCE_EXEC)
+	if (c->hdr->flags & HDR_FLAG_MASK_FENCE_EXEC) {
 		c->uf_hdr = (struct apu_fence_hdr *)(
 			(uint64_t)c->u_hdr + sizeof(struct apu_cmd_hdr) +
 			(c->hdr->num_sc - 1) * sizeof(uint32_t));
+		apu_sync_file_create(c);
+	}
 
 	return 0;
 }

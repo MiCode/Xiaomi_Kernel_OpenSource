@@ -16,6 +16,7 @@
 
 #include "apusys_drv.h"
 #include "apusys_device.h"
+#include "mdw_cmd.h"
 
 struct mdw_usr {
 	pid_t pid;

@@ -14,8 +14,10 @@
 #ifndef __APUSYS_MDW_CMD_H__
 #define __APUSYS_MDW_CMD_H__
 
+#include <linux/file.h>
 #include <linux/kref.h>
 #include "apu_cmd.h"
+#include "mdw_usr.h"
 #include "apusys_device.h"
 
 #define MDW_CMD_SC_MAX 64
@@ -30,6 +32,7 @@ struct mdw_apu_cmd {
 	struct apu_cmd_hdr *u_hdr; // from user
 	struct apu_cmd_hdr *hdr; // copied
 	struct apu_fence_hdr *uf_hdr; // from user
+	struct file *file; // Fence sync file
 	uint32_t size;
 	uint64_t kid;
 	struct apusys_kmem *cmdbuf;
@@ -53,6 +56,7 @@ struct mdw_apu_cmd {
 	int state;
 
 	struct list_head u_item; // to usr list
+	struct mdw_usr *usr; // usr
 	struct mutex mtx;
 	struct completion cmplt;
 
@@ -128,5 +132,6 @@ struct mdw_cmd_parser *mdw_cmd_get_parser(void);
 
 uint64_t mdw_cmd_get_magic(void);
 uint32_t mdw_cmd_get_ver(void);
+int mdw_wait_cmd(struct mdw_apu_cmd *c);
 
 #endif
