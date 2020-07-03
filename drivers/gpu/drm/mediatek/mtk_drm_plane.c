@@ -150,7 +150,6 @@ static struct mtk_drm_property mtk_plane_property[PLANE_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "DATASPACE", 0, INT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "VPITCH", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "COMPRESS", 0, UINT_MAX, 0},
-	{DRM_MODE_PROP_ATOMIC, "DIM_COLOR", 0, UINT_MAX, 0},
 };
 
 static void mtk_plane_reset(struct drm_plane *plane)
