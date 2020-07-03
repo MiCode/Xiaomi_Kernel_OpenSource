@@ -23,4 +23,6 @@
 extern struct mtk_mbox_device mcupm_mboxdev;
 extern struct mtk_ipi_device mcupm_ipidev;
 
+void *get_mcupm_ipidev(void);
+
 #endif /* __MCUPM_IPI_ID_H__ */
