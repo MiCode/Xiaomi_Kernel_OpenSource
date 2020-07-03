@@ -255,8 +255,6 @@ int get_dsp_task_id_from_str(const char *task_name)
 		ret = AUDIO_TASK_OFFLOAD_ID;
 	else if (strstr(task_name, "capture"))
 		ret = AUDIO_TASK_CAPTURE_UL1_ID;
-	else if (strstr(task_name, "a2dp"))
-		ret = AUDIO_TASK_DATAPROVIDER_ID;
 	else if (strstr(task_name, "fast"))
 		ret = AUDIO_TASK_FAST_ID;
 	else
