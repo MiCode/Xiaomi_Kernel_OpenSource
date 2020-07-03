@@ -233,13 +233,19 @@ static int get_devinfo(void)
 #endif
 
 	efuse_val = (get_devinfo_with_index(209)
-		>> 11) & 0x3;
+		>> 11) & 0x7;
 	if (efuse_val && efuse_val <= 4)
 		gpu_vb_volt =
 			gpu_opp0_t_volt[efuse_val - 1];
 	else
 		gpu_vb_volt =
 			gpu_opp0_t_volt[0];
+#ifdef MC50_LOAD
+	gpu_vb_volt = gpu_opp0_t_volt[3];
+	eemg_error("mc50 load setting\n");
+
+#endif
+
 	eemg_error("gpu_vb_volt:%d, efuse_val:%d\n",
 			gpu_vb_volt, efuse_val);
 
@@ -1057,9 +1063,6 @@ static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
 		ndet->volt_tbl_pmic[0],
 		ndet->volt_tbl_pmic[gpu_vb_turn_pt],
 		ndet->freq_tbl[i]));
-
-		eemg_error("ndet->volt_tbl_pmic[%d]:0x%x\n",
-			i, ndet->volt_tbl_pmic[i]);
 	}
 }
 

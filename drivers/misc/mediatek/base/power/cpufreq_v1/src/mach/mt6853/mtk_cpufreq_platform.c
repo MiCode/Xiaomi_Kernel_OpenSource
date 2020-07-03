@@ -14,6 +14,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/regulator/consumer.h>
+#include <linux/kernel.h>
+#include <mt-plat/mtk_devinfo.h>
 
 #ifdef CONFIG_MTK_FREQ_HOPPING
 #include <mtk_freqhopping_drv.h>
@@ -627,27 +629,65 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 #ifndef CONFIG_MT6360_PMIC
-	unsigned int lv = CPU_LEVEL_1;
+	unsigned int lv = CPU_LEVEL_3;
 #else
-	unsigned int lv = CPU_LEVEL_2;
+	unsigned int lv = CPU_LEVEL_4;
 #endif
-	int val = (get_devinfo_with_index(62) & 0x300);
-#if 0
+	int val = get_devinfo_with_index(7) & 0xFF; /* segment code */
+	int cpulv = get_devinfo_with_index(62); /* cpu level code */
+	/* int cpulv1 = (cpulv & 0xFF); */ /* cpu level code [7:0]*/
+	/* int cpulv2 = (cpulv & 0x300); */ /* cpu level code [9:8]*/
+	int seg = val & 0x3; /* segment cod[1:0] */
 
-	val = val >> 8;
-	switch (val) {
-	case 0:
-		break;
-	case 1:
-		lv += 2;
-		break;
-	default:
-		break;
-	}
-	turbo_flag = 0;
+	if (!val) {
+#if 0
+		if (cpulv1 <= 1 && !cpulv2) {
+#ifndef CONFIG_MT6360_PMIC
+			lv = CPU_LEVEL_1;
+#else
+			lv = CPU_LEVEL_2;
 #endif
-	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
-		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
+		}
+#else
+#ifndef CONFIG_MT6360_PMIC
+		lv = CPU_LEVEL_1;
+#else
+		lv = CPU_LEVEL_2;
+#endif
+
+#endif
+	} else {
+		if (seg) {
+#ifndef CONFIG_MT6360_PMIC
+			lv = CPU_LEVEL_1;
+#else
+			lv = CPU_LEVEL_2;
+#endif
+		}
+	}
+
+#if defined(CONFIG_ARM64) && \
+		defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+	/* oonly check for 6853t project */
+	if (strstr(
+		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+			"k6853tv1")){
+		WARN_ON(GEN_DB_ON(lv < CPU_LEVEL_3,
+			"cpufreq segment wrong, efuse_val = 0x%x 0x%x",
+			val, cpulv));
+	}
+	if (strstr(
+		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+			"_turbo")){
+		lv = CPU_LEVEL_0;
+		tag_pr_info("turbo project over\n");
+	}
+#endif
+
+
+	tag_pr_info("%s %d, %d, Settle time(%d, %d) efuse_val = 0x%x 0x%x\n",
+		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val, cpulv);
 	return lv;
 }
 #ifdef DFD_WORKAROUND
@@ -708,7 +748,7 @@ void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
 		cpumask_set_cpu(7, cpu_mask);
 	}
 
-	cpufreq_ver("cluster%d: cpumask = %*pbl\n",
+	cpufreq_deferred("cluster%d: cpumask = %*pbl\n",
 		cid, cpumask_pr_args(cpu_mask));
 }
 
@@ -720,7 +760,7 @@ unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
 	for (i = 0; i < NR_MT_CPU_DVFS - 1; i++) {
 		cpufreq_get_cluster_cpus(&cpu_mask, i);
 		if (cpumask_test_cpu(cpu_id, &cpu_mask)) {
-			cpufreq_ver("cluster%d: cpumask = %*pbl\n",
+			cpufreq_deferred("cluster%d: cpumask = %*pbl\n",
 			i, cpumask_pr_args(&cpu_mask));
 			return i;
 		}
