@@ -5473,21 +5473,21 @@ static int msdc_drv_remove(struct platform_device *pdev)
 #ifndef FPGA_PLATFORM
 	/* clock unprepare */
 	if (host->clk_ctl)
-		clk_unprepare(host->clk_ctl);
+		clk_disable_unprepare(host->clk_ctl);
 	if (host->hclk_ctl)
-		clk_unprepare(host->hclk_ctl);
+		clk_disable_unprepare(host->hclk_ctl);
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
 	if (host->aes_clk_ctl)
-		clk_unprepare(host->aes_clk_ctl);
+		clk_disable_unprepare(host->aes_clk_ctl);
 #endif
 	if (host->axi_clk_ctl)
-		clk_unprepare(host->axi_clk_ctl);
+		clk_disable_unprepare(host->axi_clk_ctl);
 	if (host->ahb2axi_brg_clk_ctl)
-		clk_unprepare(host->ahb2axi_brg_clk_ctl);
+		clk_disable_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
-		clk_unprepare(host->pclk_ctl);
+		clk_disable_unprepare(host->pclk_ctl);
 	if (host->src_hclk_ctl)
-		clk_unprepare(host->src_hclk_ctl);
+		clk_disable_unprepare(host->src_hclk_ctl);
 #endif
 	pm_qos_remove_request(&host->msdc_pm_qos_req);
 	pm_runtime_disable(&pdev->dev);
@@ -5518,19 +5518,19 @@ static int msdc_runtime_suspend(struct device *dev)
 	if (host->mclk)
 		msdc_clk_disable(host);
 
-	clk_unprepare(host->clk_ctl);
+	clk_disable_unprepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
-		clk_unprepare(host->aes_clk_ctl);
+		clk_disable_unprepare(host->aes_clk_ctl);
 	if (host->hclk_ctl)
-		clk_unprepare(host->hclk_ctl);
+		clk_disable_unprepare(host->hclk_ctl);
 	if (host->axi_clk_ctl)
-		clk_unprepare(host->axi_clk_ctl);
+		clk_disable_unprepare(host->axi_clk_ctl);
 	if (host->ahb2axi_brg_clk_ctl)
-		clk_unprepare(host->ahb2axi_brg_clk_ctl);
+		clk_disable_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
-		clk_unprepare(host->pclk_ctl);
+		clk_disable_unprepare(host->pclk_ctl);
 	if (host->src_hclk_ctl)
-		clk_unprepare(host->src_hclk_ctl);
+		clk_disable_unprepare(host->src_hclk_ctl);
 
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
@@ -5545,18 +5545,18 @@ static int msdc_runtime_resume(struct device *dev)
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
 	if (host->src_hclk_ctl)
-		(void)clk_prepare(host->src_hclk_ctl);
+		(void)clk_prepare_enable(host->src_hclk_ctl);
 	if (host->pclk_ctl)
-		(void)clk_prepare(host->pclk_ctl);
+		(void)clk_prepare_enable(host->pclk_ctl);
 	if (host->axi_clk_ctl)
-		(void)clk_prepare(host->axi_clk_ctl);
+		(void)clk_prepare_enable(host->axi_clk_ctl);
 	if (host->ahb2axi_brg_clk_ctl)
-		(void)clk_prepare(host->ahb2axi_brg_clk_ctl);
-	(void)clk_prepare(host->clk_ctl);
+		(void)clk_prepare_enable(host->ahb2axi_brg_clk_ctl);
+	(void)clk_prepare_enable(host->clk_ctl);
 	if (host->aes_clk_ctl)
-		(void)clk_prepare(host->aes_clk_ctl);
+		(void)clk_prepare_enable(host->aes_clk_ctl);
 	if (host->hclk_ctl)
-		(void)clk_prepare(host->hclk_ctl);
+		(void)clk_prepare_enable(host->hclk_ctl);
 
 	/* mclk = 0 means core layer resume will enable clk later. */
 	if (host->mclk)
