@@ -135,7 +135,8 @@ static long ged_dispatch(struct file *pFile,
 				sizeof(uint32_t) * GE_ALLOC_STRUCT_NUM;
 			}
 
-			pvIn = kmalloc(inputBufferSize, GFP_KERNEL);
+			if (inputBufferSize <= KMALLOC_MAX_SIZE)
+				pvIn = kmalloc(inputBufferSize, GFP_KERNEL);
 
 			if (pvIn == NULL)
 				goto dispatch_exit;
