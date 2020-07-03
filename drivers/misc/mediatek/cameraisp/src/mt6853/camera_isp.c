@@ -673,7 +673,7 @@ static struct ISP_RAW_INT_STATUS g_ISPIntStatus_SMI[ISP_IRQ_TYPE_AMOUNT];
 static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][25] = {{0} };
 #if Lafi_WAM_CQ_ERR
 #define MAX_RECOVER_CNT 3
-#define TG_ERR_RECOVER
+//#define TG_ERR_RECOVER
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1] = {0};
 static union FBC_CTRL_2 g_fbc_ctrl2[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
 static int g_tgErrRecoverCnt[ISP_IRQ_TYPE_AMOUNT] = {0};
