@@ -5292,9 +5292,14 @@ static inline void update_overutilized_status(struct rq *rq)
 	sd = rcu_dereference(rq->sd);
 	if (sd && !sd_overutilized(sd) &&
 	    cpu_overutilized(rq->cpu)) {
+		int min_cap_orig_cpu;
+		unsigned long min_capacity = -1;
+
+		min_cap_orig_cpu = rq->rd->min_cap_orig_cpu;
+		if (min_cap_orig_cpu > -1)
+			min_capacity = capacity_orig_of(min_cap_orig_cpu);
 		if (!sched_feat(SCHED_MTK_EAS) || (sched_feat(SCHED_MTK_EAS)
-			&& capacity_orig_of(cpu_of(rq)) <
-				rq->rd->max_cpu_capacity.val)) {
+			&& capacity_orig_of(cpu_of(rq)) == min_capacity)) {
 			set_sd_overutilized(sd);
 		}
 	}
