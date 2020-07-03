@@ -39,6 +39,7 @@
 #include <mt-plat/aee.h>
 #endif
 
+#include "mtk_eem.h"
 
 /*
  * Little cluster: L = 2, CCI = 2
@@ -89,7 +90,7 @@
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
-#define PICACHU_PROC_ENTRY_ATTR (0664)
+#define PICACHU_PROC_ENTRY_ATTR (0440)
 
 struct picachu_info {
 	union {
@@ -170,16 +171,10 @@ static void get_picachu_mem_addr(void)
 }
 
 #define MCUCFG_SPARE_REG	0x0C53FFEC
-#define EEM_TEMPSPARE1		0x112788F4
-#define VOLT_BASE		40000
-#define PMIC_STEP		625
-#define EXTBUCK_VAL_TO_VOLT(val, base, step) (((val) * step) + base)
 static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 {
-	unsigned int val, val2, val3;
+	unsigned int i, cnt, sig, val;
 	void __iomem *addr_ptr;
-#if 1
-	unsigned int i, cnt, sig;
 
 	if ((void __iomem *)picachu_mem_base_virt != NULL) {
 		/* 0x60000 was reserved for eem efuse using */
@@ -198,28 +193,10 @@ static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 			}
 		}
 	}
-#endif
+
 	addr_ptr = ioremap(MCUCFG_SPARE_REG, 0);
 	val = picachu_read(addr_ptr);
-	seq_printf(m, "\nAging counter value: 0x%08x\n", val);
-
-	addr_ptr = ioremap(EEM_TEMPSPARE1, 0);
-	val = picachu_read(addr_ptr);
-	if (val != 0) {
-		if ((val & 0x80000000) > 0)
-			seq_puts(m, "\nAging load\n");
-		val2 = EXTBUCK_VAL_TO_VOLT(((val & 0x0000ff00)>>8),
-			VOLT_BASE, PMIC_STEP);
-		val3 = EXTBUCK_VAL_TO_VOLT(((val & 0x7f000000)>>24),
-			VOLT_BASE, PMIC_STEP);
-		seq_printf(m, "\nBig high: %d mid: %d\n", val2, val3);
-		val2 = EXTBUCK_VAL_TO_VOLT((val & 0x000000ff), VOLT_BASE,
-			PMIC_STEP);
-		seq_printf(m, "\nLittle: %d\n", val2);
-		val2 = EXTBUCK_VAL_TO_VOLT(((val & 0x00ff0000)>>16), VOLT_BASE,
-			PMIC_STEP);
-		seq_printf(m, "\nCCI: %d\n", val2);
-	}
+	seq_printf(m, "\naging counter value: 0x%08x\n", val);
 }
 
 static int picachu_dump_proc_show(struct seq_file *m, void *v)
@@ -293,7 +270,6 @@ static int __init picachu_init(void)
 
 static void __exit picachu_exit(void)
 {
-
 }
 
 subsys_initcall(picachu_init);
