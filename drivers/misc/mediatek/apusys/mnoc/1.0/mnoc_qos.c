@@ -51,6 +51,21 @@ unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #define get_qosbound_enum(x) (APUSYS_QOSBOUND_START + x)
 
 #ifdef APU_QOS_IPUIF_ADJUST
+#ifdef CONFIG_MACH_MT6853
+#define NR_APU_VCORE_OPP (4)
+static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
+	10200, /* 4266 Mhz -> 0.725v */
+	7600,  /* 3200 Mhz -> 0.65v */
+	5100,  /* 1866 Mhz -> 0.6v */
+	0,     /* 800~1600 Mhz -> 0.55v */
+};
+enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
+	DVFS_VOLT_00_725000_V,	// VCORE_OPP_0
+	DVFS_VOLT_00_650000_V,	// VCORE_OPP_1
+	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
+	DVFS_VOLT_00_550000_V   // VCORE_OPP_3
+};
+#endif /* CONFIG_MACH_MT6853 */
 #ifdef CONFIG_MACH_MT6873
 #define NR_APU_VCORE_OPP (4)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
