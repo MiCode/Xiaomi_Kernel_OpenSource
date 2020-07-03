@@ -329,10 +329,12 @@ static struct mddp_sm_entry_t mddpwh_deactivating_state_machine_s[] = {
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATING, NULL} /* End of SM. */
 };
 
+#if defined(CONFIG_MTK_MDDP_WH_SUPPORT) || defined(CONFIG_MTK_ENG_BUILD)
 static struct mddp_sm_entry_t mddpwh_dead_state_machine_s[] = {
 /* event                new_state                action */
 {MDDP_EVT_DUMMY,        MDDP_STATE_DEACTIVATED,  NULL} /* End of SM. */
 };
+#endif
 
 struct mddp_sm_entry_t *mddpwh_state_machines_s[MDDP_STATE_CNT] = {
 	mddpwh_uninit_state_machine_s, /* UNINIT */
@@ -715,6 +717,7 @@ int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
 ssize_t mddpwh_sysfs_callback(
 	struct mddp_app_t *app,
 	enum mddp_sysfs_cmd_e cmd,
@@ -788,6 +791,7 @@ ssize_t mddpwh_sysfs_callback(
 	} else
 		return 0;
 }
+#endif
 
 int32_t mddpwh_sm_init(struct mddp_app_t *app)
 {
@@ -802,7 +806,9 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 	app->md_recv_msg_hdlr = mddpw_wfpm_msg_hdlr;
 	app->reg_drv_callback = mddpw_drv_reg_callback;
 	app->dereg_drv_callback = mddpw_drv_dereg_callback;
+#ifdef CONFIG_MTK_ENG_BUILD
 	app->sysfs_callback = mddpwh_sysfs_callback;
+#endif
 	memcpy(&app->md_cfg, &mddpw_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 	app->is_config = 1;
 
