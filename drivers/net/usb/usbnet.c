@@ -1364,7 +1364,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 	struct skb_data		*entry;
 	struct driver_info	*info = dev->driver_info;
 	unsigned long		flags;
-	int retval;
+	int retval = 0;
 
 	if (skb)
 		skb_tx_timestamp(skb);
