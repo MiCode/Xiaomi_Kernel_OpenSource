@@ -24,12 +24,14 @@
 #include <helio-dvfsrc-opp-mt6765.h>
 #elif defined(CONFIG_MACH_MT6785)
 #include <helio-dvfsrc-opp-mt6785.h>
-#elif defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+#elif defined(CONFIG_MACH_MT6885)
 #include <helio-dvfsrc-opp-mt6885.h>
 #elif defined(CONFIG_MACH_MT6873)
 #include <helio-dvfsrc-opp-mt6873.h>
 #elif defined(CONFIG_MACH_MT6853)
 #include <helio-dvfsrc-opp-mt6853.h>
+#elif defined(CONFIG_MACH_MT6893)
+#include <helio-dvfsrc-opp-mt6893.h>
 #else
 #include <helio-dvfsrc-opp-mt67xx.h>
 #endif
