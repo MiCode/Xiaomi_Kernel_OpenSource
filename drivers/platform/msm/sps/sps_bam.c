@@ -899,14 +899,12 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 					peer_bam->props.phys_addr;
 		}
 		if (!(bam_pipe->connect.options & SPS_O_DUMMY_PEER)) {
-			hw_params.peer_phys_addr =
-				bam_pipe->connect.destination;
-			hw_params.peer_pipe =
-				bam_pipe->connect.dest_pipe_index;
+			hw_params.peer_pipe = other_pipe->pipe_index;
 		} else {
 			hw_params.peer_phys_addr =
 					bam_pipe->connect.destination;
-			hw_params.peer_pipe = other_pipe->pipe_index;
+			hw_params.peer_pipe =
+					bam_pipe->connect.dest_pipe_index;
 			hw_params.dummy_peer = true;
 		}
 		/* Verify FIFO buffers are allocated for BAM-to-BAM pipes */
