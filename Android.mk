@@ -72,14 +72,12 @@ clean-kernel:
 	$(hide) rm -f $(INSTALLED_DTB_OVERLAY_TARGET)
 
 ### DTB build template
-CUSTOMER_DTB_PLATFORM := $(subst $\",,$(shell grep DTB_IMAGE_NAMES $(KERNEL_CONFIG_FILE) | sed 's/.*=//' ))
-MTK_DTBIMAGE_DTS:= $(addsuffix .dts,$(addprefix $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/,$(CUSTOMER_DTB_PLATFORM)))
+MTK_DTBIMAGE_DTS := $(addsuffix .dts,$(addprefix $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/,$(PLATFORM_DTB_NAME)))
 include device/mediatek/build/core/build_dtbimage.mk
 
-CUSTOMER_DTBO_PROJECT := $(subst $\",,$(shell grep DTB_OVERLAY_IMAGE_NAMES $(KERNEL_CONFIG_FILE) | sed 's/.*=//' ))
-MTK_DTBOIMAGE_DTS := $(addsuffix .dts,$(addprefix $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/,$(CUSTOMER_DTBO_PROJECT)))
-
+MTK_DTBOIMAGE_DTS := $(addsuffix .dts,$(addprefix $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/,$(PROJECT_DTB_NAMES)))
 include device/mediatek/build/core/build_dtboimage.mk
+
 
 endif#TARGET_NO_KERNEL
 endif#LINUX_KERNEL_VERSION
