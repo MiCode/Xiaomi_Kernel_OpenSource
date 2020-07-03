@@ -37,7 +37,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[KTV_FEATURE_ID]              = {.name = "ktv"},
 };
 
-int adsp_get_feature_index(char *str)
+int adsp_get_feature_index(const char *str)
 {
 	int i = 0;
 	struct adsp_feature_tb *unit;
@@ -58,7 +58,8 @@ int adsp_get_feature_index(char *str)
 
 ssize_t adsp_dump_feature_state(u32 cid, char *buffer, int size)
 {
-	int n = 0, i = 0;
+	int n = 0;
+	uint32_t i = 0;
 	struct adsp_feature_tb *unit;
 	struct adsp_feature_control *ctrl = &feature_ctrl[cid];
 

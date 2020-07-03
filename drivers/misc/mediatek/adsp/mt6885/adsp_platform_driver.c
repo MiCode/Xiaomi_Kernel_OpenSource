@@ -136,6 +136,8 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	/* mailbox */
 	mutex_init(&pdata->send_mbox->mutex_send);
 	pdata->recv_mbox->pin_buf = vmalloc(SHARE_BUF_SIZE);
+	if (!pdata->recv_mbox->pin_buf)
+		return -ENOMEM;
 	pdata->recv_mbox->prdata = &pdata->id;
 
 	/* dram_remap */
@@ -175,6 +177,8 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	/* mailbox */
 	mutex_init(&pdata->send_mbox->mutex_send);
 	pdata->recv_mbox->pin_buf = vmalloc(SHARE_BUF_SIZE);
+	if (!pdata->recv_mbox->pin_buf)
+		return -ENOMEM;
 	pdata->recv_mbox->prdata = &pdata->id;
 
 	/* core 1 use core 0 remapping cfg address */
