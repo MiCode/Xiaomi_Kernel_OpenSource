@@ -1784,12 +1784,11 @@ void hd_test(void)
 
 void aee_kernel_RT_Monitor_api(int lParam)
 {
-	reset_hang_info();
 	if (reboot_flag) {
 		pr_info("[Hang_Detect] in reboot flow.\n");
 		return;
 	}
-
+	reset_hang_info();
 	if (lParam == 0) {
 		hd_detect_enabled = 0;
 		hang_detect_counter = hd_timeout;
