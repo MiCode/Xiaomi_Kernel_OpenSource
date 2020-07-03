@@ -116,6 +116,8 @@ void msdc_dump_clock_sts(char **buff, unsigned long *size,
 #else
 #define msdc_clk_enable(host)
 #define msdc_clk_disable(host)
+#define msdc_clk_prepare_enable(host)
+#define msdc_clk_disable_unprepare(host)
 #endif
 
 int msdc_get_ccf_clk_pointer(struct platform_device *pdev,

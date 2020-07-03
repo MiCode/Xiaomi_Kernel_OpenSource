@@ -1072,6 +1072,7 @@ int cmdq_init(struct cmdq_host *cq_host, struct mmc_host *mmc,
 	      bool dma64)
 {
 	int err = 0;
+	struct msdc_host *msdc_host = mmc_priv(mmc);
 
 	cq_host->dma64 = dma64;
 	cq_host->mmc = mmc;
@@ -1088,13 +1089,15 @@ int cmdq_init(struct cmdq_host *cq_host, struct mmc_host *mmc,
 				sizeof(cq_host->mrq_slot), GFP_KERNEL);
 	if (!cq_host->mrq_slot)
 		return -ENOMEM;
-#if 0
+
+	msdc_clk_prepare_enable(msdc_host);
 	err = cqhci_host_init_crypto(cq_host);
 	if (err) {
 		dev_info(mmc->parent, "CQHCI crypto initialization failed\n");
 		WARN_ON(1);
 	}
-#endif
+	msdc_clk_disable_unprepare(msdc_host);
+
 	init_completion(&cq_host->halt_comp);
 	return err;
 }

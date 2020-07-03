@@ -171,7 +171,7 @@ int cqhci_host_init_crypto(struct cmdq_host *host)
 	 */
 	if (!(host->mmc->caps2 & MMC_CAP2_CRYPTO) ||
 	    !(cmdq_readl(host, CQHCI_CAP) & CQHCI_CAP_CS))
-		return 0;
+		return -EINVAL;
 
 	host->crypto_capabilities.reg_val =
 			cpu_to_le32(cmdq_readl(host, CQHCI_CCAP));
