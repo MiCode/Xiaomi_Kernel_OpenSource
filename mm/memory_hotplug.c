@@ -1025,10 +1025,8 @@ bool try_online_one_block(int nid)
 	struct zone *zone = &NODE_DATA(nid)->node_zones[ZONE_MOVABLE];
 	unsigned long zone_start, zone_size;
 	bool onlined_block = false;
-	int ret = lock_device_hotplug_sysfs();
 
-	if (ret)
-		return false;
+	lock_device_hotplug();
 
 	zone_start = PFN_PHYS(zone->zone_start_pfn);
 	zone_size = zone->spanned_pages << PAGE_SHIFT;
