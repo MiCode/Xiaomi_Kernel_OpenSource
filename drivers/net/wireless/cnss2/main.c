@@ -2181,23 +2181,21 @@ static int cnss_create_sysfs_link(struct cnss_plat_data *plat_priv)
 	if (ret) {
 		cnss_pr_err("Failed to create shutdown_wlan link, err = %d\n",
 			    ret);
-		goto del_cnss_link;
+		goto rm_cnss_link;
 	}
 
 	return 0;
 
-del_cnss_link:
-	sysfs_delete_link(kernel_kobj, &dev->kobj, "cnss");
+rm_cnss_link:
+	sysfs_remove_link(kernel_kobj, "cnss");
 out:
 	return ret;
 }
 
 static void cnss_remove_sysfs_link(struct cnss_plat_data *plat_priv)
 {
-	struct device *dev = &plat_priv->plat_dev->dev;
-
-	sysfs_delete_link(kernel_kobj, &dev->kobj, "shutdown_wlan");
-	sysfs_delete_link(kernel_kobj, &dev->kobj, "cnss");
+	sysfs_remove_link(kernel_kobj, "shutdown_wlan");
+	sysfs_remove_link(kernel_kobj, "cnss");
 }
 
 static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
