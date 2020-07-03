@@ -411,7 +411,7 @@ obj-$(CONFIG_THERMAL) += mtk_tsAll.o
 obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6893"))
 
 obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
 
