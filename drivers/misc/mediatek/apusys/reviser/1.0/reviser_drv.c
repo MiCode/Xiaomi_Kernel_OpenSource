@@ -395,10 +395,8 @@ static int reviser_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto free_map;
 	}
-	if (reviser_dbg_init(reviser_device)) {
-		ret = -EINVAL;
-		goto free_map;
-	}
+	reviser_dbg_init(reviser_device);
+
 	g_reviser_device = reviser_device;
 
 	ret = apu_power_callback_device_register(REVISOR,
