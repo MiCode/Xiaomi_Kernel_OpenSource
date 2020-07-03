@@ -839,6 +839,198 @@ static unsigned int aggressive_idle_pull(int this_cpu)
 #endif
 
 #ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
+#define fits_capacity(cap, max) ((cap) * capacity_margin < (max) * 1024)
+
+static __always_inline
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+					struct task_struct *p)
+{
+	unsigned long min_util = rq->uclamp.value[UCLAMP_MIN];
+	unsigned long max_util = rq->uclamp.value[UCLAMP_MAX];
+
+	if (p) {
+		min_util = max_t(unsigned long, min_util,
+		  (unsigned long)uclamp_task_effective_util(p, UCLAMP_MIN));
+		max_util = max_t(unsigned long, max_util,
+		  (unsigned long)uclamp_task_effective_util(p, UCLAMP_MAX));
+	}
+
+	/*
+	 * Since CPU's {min,max}_util clamps are MAX aggregated considering
+	 * RUNNABLE tasks with_different_ clamps, we can end up with an
+	 * inversion. Fix it now when the clamps are applied.
+	 */
+	if (unlikely(min_util >= max_util))
+		return min_util;
+
+	return clamp(util, min_util, max_util);
+}
+
+static void select_cpu_candidates(struct sched_domain *sd,
+		struct energy_env *eenv,
+		struct task_struct *p, int prev_cpu)
+{
+	int highest_spare_cap_cpu = prev_cpu, best_idle_cpu = -1;
+	unsigned long spare_cap, max_spare_cap, util, wake_util, cpu_cap;
+	bool prefer_idle = schedtune_prefer_idle(p);
+	bool boosted = schedtune_task_boost(p) > 0;
+	unsigned long target_cap = boosted ? 0 : ULONG_MAX;
+	unsigned long highest_spare_cap = 0;
+	unsigned int min_exit_lat = UINT_MAX;
+	int cpu, max_spare_cap_cpu;
+	struct cpuidle_state *idle;
+	struct sched_group *sg;
+	struct cpumask cpus;
+
+	eenv->max_cpu_count = EAS_CPU_NXT;
+	sd = rcu_dereference(per_cpu(sd_ea, cpu));
+	if (!sd)
+		return;
+
+	cpumask_clear(&cpus);
+	sg = sd->groups;
+	do {
+		max_spare_cap_cpu = -1;
+		max_spare_cap = 0;
+
+		for_each_cpu_and(cpu, &p->cpus_allowed, sched_group_span(sg)) {
+
+			if (cpu_isolated(cpu))
+				continue;
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			if (cpu_rq(cpu)->rt.rt_nr_running &&
+				likely(!is_rt_throttle(cpu)))
+				continue;
+#endif
+
+			/* Skip CPUs that will be overutilized. */
+			wake_util = cpu_util_without(cpu, p);
+			util = wake_util + task_util_est(p);
+
+			cpu_cap = capacity_of(cpu);
+
+			/*
+			 * Skip CPUs that cannot satisfy the capacity request.
+			 * IOW, placing the task there would make the CPU
+			 * overutilized. Take uclamp into account to see how
+			 * much capacity we can get out of the CPU; this is
+			 * aligned with schedutil_cpu_util().
+			 */
+			util = uclamp_rq_util_with(cpu_rq(cpu), util, p);
+			if (!fits_capacity(util, cpu_cap))
+				continue;
+
+			/*
+			 * Find the CPU with the maximum spare capacity in
+			 * the performance domain
+			 */
+			spare_cap = cpu_cap - util;
+			if (spare_cap > max_spare_cap) {
+				max_spare_cap = spare_cap;
+				max_spare_cap_cpu = cpu;
+			}
+
+			if (!prefer_idle)
+				continue;
+
+			if (idle_cpu(cpu)) {
+				cpu_cap = capacity_orig_of(cpu);
+				if (boosted && cpu_cap < target_cap)
+					continue;
+				if (!boosted && cpu_cap > target_cap)
+					continue;
+				idle = idle_get_state(cpu_rq(cpu));
+				if (idle && idle->exit_latency > min_exit_lat &&
+						cpu_cap == target_cap)
+					continue;
+
+				if (idle)
+					min_exit_lat = idle->exit_latency;
+				target_cap = cpu_cap;
+				best_idle_cpu = cpu;
+
+			} else if (spare_cap > highest_spare_cap) {
+				highest_spare_cap = spare_cap;
+				highest_spare_cap_cpu = cpu;
+			}
+		}
+
+		if (!prefer_idle && max_spare_cap_cpu >= 0 &&
+					max_spare_cap_cpu != prev_cpu)
+			cpumask_set_cpu(max_spare_cap_cpu, &cpus);
+	} while (sg = sg->next, sg != sd->groups);
+
+	if (prefer_idle) {
+		if (best_idle_cpu >= 0)
+			cpumask_set_cpu(best_idle_cpu, &cpus);
+		else
+			cpumask_set_cpu(highest_spare_cap_cpu, &cpus);
+	}
+
+	eenv->max_cpu_count = EAS_CPU_NXT;
+	for_each_cpu(cpu, &cpus) {
+
+		if (cpu == prev_cpu)
+			continue;
+
+		eenv->cpu[eenv->max_cpu_count].cpu_id = cpu;
+		eenv->max_cpu_count++;
+	}
+}
+
+static int find_energy_efficient_cpu_enhanced(struct sched_domain *sd,
+				     struct task_struct *p,
+				     int cpu, int prev_cpu,
+				     int sync)
+{
+	int target_cpu = -1;
+	struct energy_env *eenv;
+
+	if (sysctl_sched_sync_hint_enable && sync) {
+		if (cpumask_test_cpu(cpu, &p->cpus_allowed) &&
+			!cpu_isolated(cpu)) {
+			return cpu;
+		}
+	}
+	/* prepopulate energy diff environment */
+	eenv = get_eenv(p, prev_cpu);
+	if (eenv->max_cpu_count < 2)
+		return -1;
+
+	if (!boosted_task_util(p))
+		return -1;
+
+	select_cpu_candidates(sd, eenv, p, prev_cpu);
+	if (eenv->max_cpu_count == EAS_CPU_NXT) {
+		/*
+		 * we did not find any energy-awareness
+		 * candidates beyond prev_cpu, so we will
+		 * fall-back to the regular slow-path.
+		 */
+		return -1;
+	}
+
+	/* find most energy-efficient CPU */
+	target_cpu = select_energy_cpu_idx(eenv) < 0 ? -1 :
+					eenv->cpu[eenv->next_idx].cpu_id;
+
+	return target_cpu;
+}
+
+static int __find_energy_efficient_cpu(struct sched_domain *sd,
+				     struct task_struct *p,
+				     int cpu, int prev_cpu,
+				     int sync)
+{
+	int num_cluster = arch_get_nr_clusters();
+
+	if (num_cluster <= 2)
+		return find_energy_efficient_cpu(sd, p, cpu, prev_cpu, sync);
+	else
+		return find_energy_efficient_cpu_enhanced(sd, p, cpu,
+				prev_cpu, sync);
+}
+
 /*
  * group_norm_util() returns the approximated group util relative to it's
  * current capacity (busy ratio) in the range [0..SCHED_CAPACITY_SCALE] for use
@@ -884,10 +1076,7 @@ long group_norm_util(struct energy_env *eenv, int cpu_idx)
 		return SCHED_CAPACITY_SCALE;
 	return util_sum;
 }
-#endif
 
-
-#ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
 static unsigned long
 mtk_cluster_max_usage(int cid, struct energy_env *eenv, int cpu_idx,
 			int *max_cpu)
@@ -1313,6 +1502,14 @@ void mtk_update_new_capacity(struct energy_env *eenv)
 #else
 void mtk_update_new_capacity(struct energy_env *eenv)
 {
+}
+
+static int __find_energy_efficient_cpu(struct sched_domain *sd,
+				     struct task_struct *p,
+				     int cpu, int prev_cpu,
+				     int sync)
+{
+	return find_energy_efficient_cpu(sd, p, cpu, prev_cpu, sync);
 }
 #endif
 
