@@ -51,6 +51,7 @@ config ANDROID_DEFAULT_SETTING
 	select EMBEDDED
 	select EPOLL
 	select EVENTFD
+	select EXT4_FS_POSIX_ACL
 	select FB
 	select FILE_LOCKING
 	select FS_ENCRYPTION
@@ -228,6 +229,7 @@ config ANDROID_DEFAULT_SETTING
 	select SND
 	select SOUND
 	select STAGING
+	select STATIC_USERMODEHELPER
 	select STRICT_KERNEL_RWX
 	select STRICT_MODULE_RWX
 	select SUSPEND
@@ -257,6 +259,7 @@ config ANDROID_DEFAULT_SETTING
 	select USB_RTL8152
 	select USB_SUPPORT
 	select UTS_NS
+	select VETH
 	select XFRM_INTERFACE
 	select XFRM_STATISTICS
 	select XFRM_SUB_POLICY
