@@ -35,6 +35,9 @@ struct SENINF {
 	atomic_t seninf_open_cnt;
 };
 extern MINT32 seninf_dump_reg(void);
+#ifdef SENINF_IRQ
+extern MINT32 _seninf_irq(MINT32 Irq, void *DeviceId, struct SENINF *pseninf);
+#endif
 
 #endif
 
