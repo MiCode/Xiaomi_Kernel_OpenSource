@@ -451,7 +451,7 @@ static int upower_update_tbl_ref(void)
 	return ret;
 }
 
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893) || defined(TRIGEAR_LEAKAGE)
 static void get_pwr_efficiency(void)
 {
 #ifndef DISABLE_TP
@@ -886,7 +886,7 @@ static int __init upower_init(void)
 
 	upower_update_dyn_pwr();
 	upower_update_lkg_pwr();
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893) || defined(TRIGEAR_LEAKAGE)
 	get_pwr_efficiency();
 #else
 	get_L_pwr_efficiency();
