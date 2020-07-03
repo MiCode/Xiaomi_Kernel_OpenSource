@@ -60,6 +60,7 @@
 	defined(CONFIG_MACH_MT6785) || \
 	defined(CONFIG_MACH_KIBOPLUS) || \
 	defined(CONFIG_MACH_MT6885) || \
+	defined(CONFIG_MACH_MT6853) || \
 	defined(CONFIG_MACH_MT6873) || \
 	defined(CONFIG_MACH_ELBRUS) || \
 	defined(CONFIG_MACH_MT6893)
