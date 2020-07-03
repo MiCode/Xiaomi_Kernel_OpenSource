@@ -33,6 +33,12 @@
 extern int mtk_disp_hrt_bw_dbg(void);
 
 #ifdef _DRM_P_H_
+struct disp_rect {
+	u32 x;
+	u32 y;
+	u32 width;
+	u32 height;
+};
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *drm_dev);
 void disp_dbg_deinit(void);
