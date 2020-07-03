@@ -40,9 +40,10 @@
 #define U2PLL_HS	(0x00463c6e)
 
 #define DIV13_TRY_TIMES 3
+#define VCORE_OPP 0
 
 static struct phy *mtk_phy;
-struct pm_qos_request ddr_pm_qos;
+struct pm_qos_request vcore_pm_qos;
 
 #if !defined(CONFIG_USB_MU3D_DRV)
 void Charger_Detect_Init(void)
@@ -135,12 +136,14 @@ int ssusb_dual_phy_power_on(struct ssusb_mtk *ssusb, bool host_mode)
 	int ret;
 
 	if (host_mode) {
-		if (pm_qos_request_active(&ddr_pm_qos)) {
-			pm_qos_update_request(&ddr_pm_qos, 0);
-			pr_info("%s: QOS update %d\n", __func__, 0);
+		if (pm_qos_request_active(&vcore_pm_qos)) {
+			pm_qos_update_request(&vcore_pm_qos, VCORE_OPP);
+			pr_info("%s: Vcore QOS update %d\n", __func__,
+								VCORE_OPP);
 		} else {
-			pm_qos_add_request(&ddr_pm_qos, PM_QOS_DDR_OPP, 0);
-			pr_info("%s: QOS request\n", __func__);
+			pm_qos_add_request(&vcore_pm_qos, PM_QOS_VCORE_OPP,
+								VCORE_OPP);
+			pr_info("%s: Vcore QOS request\n", __func__);
 		}
 	}
 
@@ -156,12 +159,11 @@ int ssusb_dual_phy_power_on(struct ssusb_mtk *ssusb, bool host_mode)
 void ssusb_dual_phy_power_off(struct ssusb_mtk *ssusb, bool host_mode)
 {
 	if (host_mode) {
-		if (pm_qos_request_active(&ddr_pm_qos)) {
-			pm_qos_remove_request(&ddr_pm_qos);
-			pr_info("%s: QOS remove\n",  __func__);
+		if (pm_qos_request_active(&vcore_pm_qos)) {
+			pm_qos_remove_request(&vcore_pm_qos);
+			pr_info("%s: Vcore QOS remove\n",  __func__);
 		} else
-			pr_info("%s: QOS remove again\n", __func__);
-
+			pr_info("%s: Vcore QOS remove again\n", __func__);
 		usb_mtkphy_host_mode(ssusb->phys[0], false);
 	}
 
