@@ -14,6 +14,7 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/clock/qcom,rpmcc.h>
 #include "sda429-bg-dvt2-wtp.dtsi"
 
 / {
