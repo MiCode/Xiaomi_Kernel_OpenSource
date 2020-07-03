@@ -44,6 +44,10 @@
 #endif
 #endif
 
+#if defined(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)
+#define M4U_GZ_SERVICE_ENABLE
+#endif
+
 #define M4U_PAGE_SIZE		(0x1000)
 
 #define M4U_DEVNAME		"m4u"
@@ -243,6 +247,7 @@ void __iommu_dma_unmap(struct iommu_domain *domain, dma_addr_t dma_addr);
 #define MTK_M4U_T_CONFIG_TF		_IOW(MTK_M4U_MAGICNO, 28, int)
 #define MTK_M4U_T_DMA_OP		_IOW(MTK_M4U_MAGICNO, 29, int)
 #define MTK_M4U_T_SEC_INIT		_IOW(MTK_M4U_MAGICNO, 50, int)
+#define MTK_M4U_GZ_SEC_INIT		_IOW(MTK_M4U_MAGICNO, 60, int)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 struct COMPAT_M4U_MOUDLE_STRUCT {
