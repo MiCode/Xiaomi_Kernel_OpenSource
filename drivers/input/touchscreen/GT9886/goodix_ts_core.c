@@ -2132,34 +2132,22 @@ static int goodix_ts_probe(struct platform_device *pdev)
 			    core_data->pin_i2c_mode_default);
 			if (r < 0)
 				ts_err("Failed to select default, r:%d", r);
+
+			r = pinctrl_select_state(core_data->pinctrl,
+					core_data->pin_int_sta_active);
+			if (r < 0)
+				ts_err("Failed to select eint, r:%d", r);
 		}
-		r = pinctrl_select_state(core_data->pinctrl,
-				core_data->pin_int_sta_active);
-		if (r < 0)
-			ts_err("Failed to select int active pinstate, r:%d", r);
-		r = pinctrl_select_state(core_data->pinctrl,
-				core_data->pin_rst_sta_active);
-		if (r < 0)
-			ts_err("Failed to select rst active pinstate, r:%d", r);
 	}
 #endif
 
 	/*create sysfs files*/
 	goodix_ts_sysfs_init(core_data);
 
-	r = ts_device->hw_ops->reset(ts_device);
-	if (r < 0)
-		goto err;
-
-	msleep(50);
-
-	/*i2c test*/
-	r = ts_device->hw_ops->read_pid(ts_device,
-			&ts_device->chip_version);
-	if (!r)
-		ts_info("i2c test SUCCESS!!!");
-	else {
-		ts_err("i2c test FAILED!!!");
+	/* confirm it's goodix touch dev or not */
+	r = ts_device->hw_ops->dev_confirm(ts_device);
+	if (r) {
+		ts_err("goodix device confirm failed");
 		goto err;
 	}
 
@@ -2182,6 +2170,7 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	r = gt9886_touch_filter_register();
 	if (r)
 		ts_err("tpd_misc_device register failed! ret = %d!\n", r);
+
 #ifdef CONFIG_DRM_MEDIATEK
 	if (mtk_panel_tch_handle_init()) {
 		ret = mtk_panel_tch_handle_init();

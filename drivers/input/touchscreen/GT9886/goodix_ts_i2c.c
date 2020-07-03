@@ -886,6 +886,57 @@ static int goodix_read_pid(struct goodix_ts_device *dev,
 	return -EINVAL;
 }
 
+static int goodix_i2c_test(struct goodix_ts_device *dev)
+{
+#define TEST_ADDR  0x4100
+#define TEST_LEN   1
+	struct i2c_client *client = to_i2c_client(dev->dev);
+	unsigned char test_buf[TEST_LEN + 1], addr_buf[2];
+	struct i2c_msg msgs[] = {
+		{
+			.addr = client->addr,
+			.flags = !I2C_M_RD,
+			.buf = &addr_buf[0],
+			.len = TS_ADDR_LENGTH,
+		}, {
+			.addr = client->addr,
+			.flags = I2C_M_RD,
+			.buf = &test_buf[0],
+			.len = TEST_LEN,
+		}
+	};
+
+	msgs[0].buf[0] = (TEST_ADDR >> 8) & 0xFF;
+	msgs[0].buf[1] = TEST_ADDR & 0xFF;
+
+	if (i2c_transfer(client->adapter, msgs, 2) == 2)
+		return 0;
+
+	/* test failed */
+	return -EINVAL;
+}
+
+/* confirm current device is goodix or not.
+ * If confirmed 0 will return.
+ */
+static int goodix_ts_dev_confirm(struct goodix_ts_device *dev)
+{
+#define DEV_CONFIRM_RETRY 3
+	int retry;
+
+	for (retry = 0; retry < DEV_CONFIRM_RETRY; retry++) {
+		gpio_direction_output(dev->board_data->reset_gpio, 0);
+		udelay(2000);
+		gpio_direction_output(dev->board_data->reset_gpio, 1);
+		mdelay(5);
+		if (!goodix_i2c_test(dev)) {
+			msleep(95);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
 static int goodix_read_version(struct goodix_ts_device *dev,
 		struct goodix_ts_version *version)
 {
@@ -2194,6 +2245,7 @@ exit:
 /* hardware opeation funstions */
 static const struct goodix_ts_hw_ops hw_i2c_ops = {
 	.init = goodix_hw_init,
+	.dev_confirm = goodix_ts_dev_confirm,
 	.read = goodix_i2c_read,
 	.write = goodix_i2c_write,
 	.read_trans = goodix_i2c_read_trans,

@@ -369,6 +369,7 @@ struct goodix_ts_device {
 struct goodix_ts_hw_ops {
 
 	int (*init)(struct goodix_ts_device *dev);
+	int (*dev_confirm)(struct goodix_ts_device *ts_dev);
 	int (*reset)(struct goodix_ts_device *dev);
 	int (*read)(struct goodix_ts_device *dev, unsigned int addr,
 			 unsigned char *data, unsigned int len);
