@@ -1037,7 +1037,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Voip",
 		.stream_name = "DSP_Playback_Voip",
 		.cpu_dai_name = "audio_task_voip_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1045,7 +1044,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Primary",
 		.stream_name = "DSP_Playback_Primary",
 		.cpu_dai_name = "audio_task_primary_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1053,7 +1051,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Playback_DeepBuf",
 		.stream_name = "DSP_Playback_DeepBuf",
 		.cpu_dai_name = "audio_task_deepbuf_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1061,7 +1058,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Playback",
 		.stream_name = "DSP_Playback_Playback",
 		.cpu_dai_name = "audio_task_Playback_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1069,7 +1065,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Capture_Ul1",
 		.stream_name = "DSP_Capture_Ul1",
 		.cpu_dai_name = "audio_task_capture_ul1_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1077,7 +1072,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Call_Final",
 		.stream_name = "DSP_Call_Final",
 		.cpu_dai_name = "audio_task_call_final_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1085,7 +1079,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Fast",
 		.stream_name = "DSP_Playback_Fast",
 		.cpu_dai_name = "audio_task_fast_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1093,7 +1086,6 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.name = "DSP_Playback_Ktv",
 		.stream_name = "DSP_Playback_Ktv",
 		.cpu_dai_name = "audio_task_ktv_dai",
-		.platform_name = "snd_audio_dsp",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
@@ -1137,10 +1129,11 @@ static struct snd_soc_card mt6885_mt6359_soc_card = {
 static int mt6885_mt6359_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6885_mt6359_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node;
+	struct device_node *platform_node, *codec_node, *spk_node, *dsp_node;
 	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
 	int ret, i;
 	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
+	const char *name;
 
 	ret = mtk_spk_update_info(card, pdev,
 				  &spk_out_dai_link_idx, &spk_iv_dai_link_idx,
@@ -1184,9 +1177,22 @@ static int mt6885_mt6359_dev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Property 'platform' missing or invalid\n");
 		return -EINVAL;
 	}
+
+	dsp_node = of_parse_phandle(pdev->dev.of_node,
+				    "mediatek,snd_audio_dsp", 0);
+	if (!dsp_node)
+		dev_info(&pdev->dev, "Property 'snd_audio_dsp' missing or invalid\n");
+
 	for (i = 0; i < card->num_links; i++) {
 		if (mt6885_mt6359_dai_links[i].platform_name)
 			continue;
+		/* no platform assign and with dsp playback node. */
+		name = mt6885_mt6359_dai_links[i].name;
+		if (!strncmp(name, "DSP", strlen("DSP")) &&
+		    mt6885_mt6359_dai_links[i].platform_name == NULL) {
+			mt6885_mt6359_dai_links[i].platform_of_node = dsp_node;
+			continue;
+		}
 		mt6885_mt6359_dai_links[i].platform_of_node = platform_node;
 	}
 
