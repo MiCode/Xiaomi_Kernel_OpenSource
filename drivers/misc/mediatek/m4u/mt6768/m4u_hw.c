@@ -1509,7 +1509,15 @@ static int _m4u_config_port(unsigned int port,
 		m4uHw_set_field_by_mask(larb_base,
 			SMI_LARB_NON_SEC_CONx(larb_port),
 			F_SMI_MMU_EN, !!(virt));
-
+#ifdef M4U_GZ_SERVICE_ENABLE
+		if (virt == 1 && sec == 0)
+			m4uHw_set_field_by_mask(
+					larb_base,
+					SMI_LARB_NON_SEC_CONx(
+					larb_port),
+					F_SMI_BIT32,
+					0);
+#endif
 		/* debug use */
 		mmu_en = m4uHw_get_field_by_mask(
 			larb_base,
@@ -1586,7 +1594,7 @@ int m4u_config_port(
 	unsigned int larb = m4u_port_2_larb_id(PortID);
 
 	int ret;
-#ifdef M4U_TEE_SERVICE_ENABLE
+#if !defined(M4U_GZ_SERVICE_ENABLE) && defined(M4U_TEE_SERVICE_ENABLE)
 	unsigned int larb_port, mmu_en = 0, sec_en = 0;
 #endif
 
@@ -1600,7 +1608,7 @@ int m4u_config_port(
 	_m4u_port_clock_toggle(m4u_index, larb, 1);
 
 
-#ifdef M4U_TEE_SERVICE_ENABLE
+#if !defined(M4U_GZ_SERVICE_ENABLE) && defined(M4U_TEE_SERVICE_ENABLE)
 	larb_port = m4u_port_2_larb_port(PortID);
 	/* mmu_en = !!(m4uHw_get_field_by_mask(
 	 *gLarbBaseAddr[larb], SMI_LARB_MMU_EN, F_SMI_MMU_EN(
@@ -1671,7 +1679,7 @@ int m4u_config_port_array(struct m4u_port_array *port_array)
 
 	unsigned int config_larb[SMI_LARB_NR] = { 0 };
 	unsigned int regNew[SMI_LARB_NR][32] = { {0} };
-#ifdef M4U_TEE_SERVICE_ENABLE
+#if !defined(M4U_GZ_SERVICE_ENABLE) && defined(M4U_TEE_SERVICE_ENABLE)
 	unsigned char m4u_port_array[(M4U_PORT_NR + 1) / 2] = { 0 };
 #endif
 
@@ -1690,7 +1698,7 @@ int m4u_config_port_array(struct m4u_port_array *port_array)
 				(!!(port_array->ports[port] &
 				M4U_PORT_ATTR_VIRTUAL));
 
-#ifdef M4U_TEE_SERVICE_ENABLE
+#if !defined(M4U_GZ_SERVICE_ENABLE) && defined(M4U_TEE_SERVICE_ENABLE)
 			{
 				unsigned char attr = ((!!value) << 1) | 0x1;
 
@@ -1708,7 +1716,7 @@ int m4u_config_port_array(struct m4u_port_array *port_array)
 		if (config_larb[larb] != 0)
 			_m4u_port_clock_toggle(0, larb, 1);
 
-#ifdef M4U_TEE_SERVICE_ENABLE
+#if !defined(M4U_GZ_SERVICE_ENABLE) && defined(M4U_TEE_SERVICE_ENABLE)
 	if (m4u_tee_en) {
 		m4u_config_port_array_tee(m4u_port_array);
 		for (larb = 0; larb < SMI_LARB_NR; larb++) {
@@ -1754,6 +1762,18 @@ int m4u_config_port_array(struct m4u_port_array *port_array)
 					!!(regNew[larb][larb_port])));
 					spin_unlock(&gM4u_reg_lock);
 				}
+#ifdef M4U_GZ_SERVICE_ENABLE
+			if (regNew[larb][larb_port] == 1
+					&& (port_array->ports[port]
+					& M4U_PORT_ATTR_SEC) == 0) {
+				spin_lock(&gM4u_reg_lock);
+				m4uHw_set_field_by_mask(larb_base,
+					SMI_LARB_NON_SEC_CONx(larb_port),
+					F_SMI_BIT32,
+					0);
+				spin_unlock(&gM4u_reg_lock);
+			}
+#endif
 
 		}
 	}
