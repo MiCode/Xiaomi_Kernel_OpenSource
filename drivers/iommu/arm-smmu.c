@@ -157,7 +157,6 @@ struct arm_smmu_impl_def_reg {
 	u32 value;
 };
 
-
 /*
  * attach_count
  *	The SMR and S2CR registers are only programmed when the number of
@@ -1675,6 +1674,46 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 
 	return (phys == 0 ? phys_post_tlbiall : phys);
 }
+
+int iommu_get_fault_ids(struct iommu_domain *domain,
+			struct iommu_fault_ids *f_ids)
+{
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_cfg *cfg;
+	struct arm_smmu_device *smmu;
+	void __iomem *cb_base;
+	u32 fsr, fsynr1;
+	int ret;
+
+	if (!domain || !f_ids)
+		return -EINVAL;
+
+	smmu_domain = to_smmu_domain(domain);
+	cfg = &smmu_domain->cfg;
+	smmu = smmu_domain->smmu;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return ret;
+
+	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+
+	if (!(fsr & FSR_FAULT)) {
+		arm_smmu_power_off(smmu->pwr);
+		return -EINVAL;
+	}
+
+	fsynr1 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR1);
+	arm_smmu_power_off(smmu->pwr);
+
+	f_ids->bid = FIELD_GET(FSYNR1_BID, fsynr1);
+	f_ids->pid = FIELD_GET(FSYNR1_PID, fsynr1);
+	f_ids->mid = FIELD_GET(FSYNR1_MID, fsynr1);
+
+	return 0;
+}
+EXPORT_SYMBOL(iommu_get_fault_ids);
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
