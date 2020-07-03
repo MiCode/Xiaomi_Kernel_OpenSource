@@ -2760,16 +2760,14 @@ u32 *cmdq_core_dump_pc(const struct cmdqRecStruct *handle,
 
 		/* for WFE, we specifically dump the event value */
 		if (op == CMDQ_CODE_WFE) {
-			u32 regValue = 0;
 			const u32 eventID = 0x3FF & insts[1];
 
-			CMDQ_REG_SET32(CMDQ_SYNC_TOKEN_ID, eventID);
-			regValue = CMDQ_REG_GET32(CMDQ_SYNC_TOKEN_VAL);
 			CMDQ_LOG(
 				"[%s]Thread %d PC:0x%p(%pa) 0x%08x:0x%08x => %s value:%d",
 				tag, thread, pcVA, &curr_pc,
 				insts[0], insts[1],
-				parsedInstruction, regValue);
+				parsedInstruction,
+				cmdqCoreGetEvent(eventID));
 		} else {
 			CMDQ_LOG(
 				"[%s]Thread %d PC:0x%p(%pa), 0x%08x:0x%08x => %s",
