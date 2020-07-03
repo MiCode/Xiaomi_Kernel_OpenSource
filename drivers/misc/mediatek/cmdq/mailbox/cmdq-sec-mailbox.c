@@ -855,6 +855,7 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 
 	memset(iwc_msg, 0, sizeof(*iwc_msg));
 	iwc_msg->cmd = iwc_cmd;
+	iwc_msg->command.thread = thrd_idx;
 	iwc_msg->cmdq_id = cmdq_util_hw_id(cmdq->base_pa);
 	iwc_msg->debug.logLevel =
 		cmdq_util_is_feature_en(CMDQ_LOG_FEAT_SECURE);
@@ -1166,6 +1167,33 @@ static const struct of_device_id cmdq_sec_of_ids[] = {
 	{.compatible = "mediatek,mailbox-gce-sec",},
 	{}
 };
+
+void cmdq_sec_mbox_switch_normal(struct cmdq_client *cl)
+{
+#ifdef CMDQ_GP_SUPPORT
+	struct cmdq_sec *cmdq =
+		container_of(cl->chan->mbox, typeof(*cmdq), mbox);
+	struct cmdq_sec_thread *thread =
+		(struct cmdq_sec_thread *)cl->chan->con_priv;
+
+	cmdq_sec_resume(cmdq->mbox.dev);
+	cmdq_sec_clk_enable(cmdq);
+	cmdq_log("[ IN] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
+		__func__, cl, cmdq, thread, thread->idx);
+
+	mutex_lock(&cmdq->exec_lock);
+	/* TODO : use other CMD_CMDQ_TL for maintenance */
+	cmdq_sec_task_submit(cmdq, NULL, CMD_CMDQ_TL_PATH_RES_RELEASE,
+		thread->idx, NULL, false);
+	mutex_unlock(&cmdq->exec_lock);
+
+	cmdq_log("[OUT] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
+		__func__, cl, cmdq, thread, thread->idx);
+	cmdq_sec_clk_disable(cmdq);
+	cmdq_sec_suspend(cmdq->mbox.dev);
+#endif
+}
+EXPORT_SYMBOL(cmdq_sec_mbox_switch_normal);
 
 static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 {
