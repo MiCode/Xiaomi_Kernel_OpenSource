@@ -227,7 +227,6 @@ struct iommu_resv_region {
 	enum iommu_resv_type	type;
 };
 
-extern struct dentry *iommu_debugfs_top;
 /* Per device IOMMU features */
 enum iommu_dev_features {
 	IOMMU_DEV_FEAT_AUX,	/* Aux-domain feature */
