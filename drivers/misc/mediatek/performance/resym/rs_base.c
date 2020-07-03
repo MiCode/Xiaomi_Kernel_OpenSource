@@ -73,6 +73,8 @@ void rs_sysfs_remove_dir(struct kobject **ppsKobj)
 void rs_sysfs_create_file(struct kobject *parent,
 		struct kobj_attribute *kobj_attr)
 {
+	int ret;
+
 	if (kobj_attr == NULL)
 		return;
 
@@ -80,7 +82,9 @@ void rs_sysfs_create_file(struct kobject *parent,
 	if (parent == NULL)
 		return;
 
-	sysfs_create_file(parent, &(kobj_attr->attr));
+	ret = sysfs_create_file(parent, &(kobj_attr->attr));
+	if (ret)
+		pr_debug("Failed to create sysfs file\n");
 }
 
 void rs_sysfs_remove_file(struct kobject *parent,
