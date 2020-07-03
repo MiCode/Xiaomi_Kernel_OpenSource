@@ -257,16 +257,6 @@ void mtk_pe40_end(struct charger_manager *pinfo, int type, bool retry)
 	}
 }
 
-bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo)
-{
-	if (pinfo->enable_pe_4 == false)
-		return false;
-
-	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		return true;
-	return false;
-}
-
 void mtk_pe40_init_cap(struct charger_manager *info)
 {
 	adapter_dev_get_cap(info->pd_adapter, MTK_PD_APDO, &info->pe4.cap);

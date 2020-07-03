@@ -15,6 +15,7 @@
 #define __MTK_INTF_H
 
 #include "mtk_charger_intf.h"
+#include "mtk_pe50.h"
 #include "mtk_pe40.h"
 #include "mtk_pdc.h"
 
@@ -57,5 +58,6 @@ extern int adapter_is_support_pd(void);
 
 extern int set_charger_manager(struct charger_manager *info);
 extern int enable_vbus_ovp(bool en);
+extern int wake_up_charger(void);
 
 #endif /* __MTK_INTF_H */
