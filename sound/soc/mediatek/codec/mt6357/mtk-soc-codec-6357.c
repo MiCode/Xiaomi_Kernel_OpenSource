@@ -58,6 +58,13 @@
 #include <mt-plat/mtk_auxadc_intf.h>
 #include <mach/mtk_pmic.h>
 #endif
+
+#include <linux/fs.h>
+#include <linux/string.h>
+#include <linux/debugfs.h>
+#include <linux/platform_device.h>
+#include <linux/proc_fs.h>
+
 #include "mtk-auddrv-def.h"
 #include "mtk-auddrv-ana.h"
 #include "mtk-auddrv-gpio.h"
@@ -151,6 +158,7 @@ static unsigned int dAuxAdcChannel = 16;
 static const int mDcOffsetTrimChannel = 9;
 static bool mInitCodec;
 static bool mIsNeedPullDown = true;
+static int audio_micbias0_on;
 int (*enable_dc_compensation)(bool enable) = NULL;
 int (*set_lch_dc_compensation)(int value) = NULL;
 int (*set_rch_dc_compensation)(int value) = NULL;
@@ -4947,6 +4955,7 @@ static const struct soc_enum Audio_UL_Enum[] = {
 			    PreAmp_Mux_function),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ADC_function), ADC_function),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ADC_function), ADC_function),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ADC_function), ADC_function),
 };
 
 static bool amic_dcc_tuning_enable;
@@ -5690,6 +5699,36 @@ static int codec_debug_set(struct snd_kcontrol *kcontrol,
 	codec_debug_enable = ucontrol->value.integer.value[0];
 	return 0;
 }
+static int Audio_MICBIAS0_Get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = audio_micbias0_on;
+	return 0;
+}
+static int Audio_MICBIAS0_Set(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s()\n", __func__);
+	mutex_lock(&Ana_Power_Mutex);
+	if (ucontrol->value.integer.value[0]) {
+		if (audio_micbias0_on) {
+			pr_debug("%s MICBIAS0 already enabled\n", __func__);
+		} else {
+			audckbufEnable(true);
+			NvregEnable(true);
+			Ana_Set_Reg(AUDENC_ANA_CON8, 0x0021, 0xffff);
+		}
+	} else {
+		if (audio_micbias0_on) {
+			Ana_Set_Reg(AUDENC_ANA_CON8, 0x0000, 0xffff);
+			NvregEnable(false);
+			audckbufEnable(false);
+		}
+	}
+	audio_micbias0_on = ucontrol->value.integer.value[0];
+	mutex_unlock(&Ana_Power_Mutex);
+	return 0;
+}
 static const struct soc_enum Pmic_Test_Enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(Pmic_Test_function),
 			    Pmic_Test_function),
@@ -5785,6 +5824,9 @@ static const struct snd_kcontrol_new mt6357_UL_Codec_controls[] = {
 	SOC_ENUM_EXT("Audio_AMIC_DCC_Setting", Audio_UL_Enum[24],
 		     Audio_UL_AMIC_DCC_Get,
 		     Audio_UL_AMIC_DCC_Set),
+	SOC_ENUM_EXT("Audio_MICBIAS0_Switch", Audio_UL_Enum[25],
+		     Audio_MICBIAS0_Get,
+		     Audio_MICBIAS0_Set),
 };
 static int read_efuse_hp_impedance_current_calibration(void)
 {
@@ -5898,6 +5940,136 @@ static int dc_trim_thread(void *arg)
 	do_exit(0);
 	return 0;
 }
+
+static struct dentry *mt_sco_audio_debugfs;
+#define DEBUG_ANA_FS_NAME "mtksocanaaudio"
+
+static char const ParSetkeyAna[] = "Setanareg";
+static char const PareGetkeyAna[] = "Getanareg";
+
+static ssize_t mt_soc_ana_debug_write(struct file *f, const char __user *buf,
+				  size_t count, loff_t *offset)
+{
+#define MAX_DEBUG_WRITE_INPUT 256
+	int ret = 0;
+	char InputBuf[MAX_DEBUG_WRITE_INPUT];
+	char *token1 = NULL;
+	char *token2 = NULL;
+	char *token3 = NULL;
+	char *token4 = NULL;
+	char *token5 = NULL;
+	char *temp = NULL;
+	char *str_begin = NULL;
+
+	unsigned long regaddr = 0;
+	unsigned long regvalue = 0;
+	char delim[] = " ,";
+
+	if (!count) {
+		pr_debug("%s(), count is 0, return directly\n", __func__);
+		goto exit;
+	}
+
+	if (count > MAX_DEBUG_WRITE_INPUT)
+		count = MAX_DEBUG_WRITE_INPUT;
+
+	memset_io((void *)InputBuf, 0, MAX_DEBUG_WRITE_INPUT);
+
+	if (copy_from_user((InputBuf), buf, count)) {
+		pr_debug("%s(), copy_from_user fail, count = %zu\n",
+			 __func__, count);
+		goto exit;
+	}
+
+	str_begin = kstrndup(InputBuf, MAX_DEBUG_WRITE_INPUT - 1,
+			     GFP_KERNEL);
+	if (!str_begin) {
+		pr_debug("%s(), kstrdup fail\n", __func__);
+		goto exit;
+	}
+	temp = str_begin;
+
+	pr_debug(
+		"copy_from_user count = %zu, temp = %s, pointer = %p\n",
+		count, str_begin, str_begin);
+	token1 = strsep(&temp, delim);
+	token2 = strsep(&temp, delim);
+	token3 = strsep(&temp, delim);
+	token4 = strsep(&temp, delim);
+	token5 = strsep(&temp, delim);
+	pr_debug("token1 = %s token2 = %s token3 = %s token4 = %s token5 = %s\n",
+		token1, token2, token3, token4, token5);
+
+
+	if (strcmp(token1, ParSetkeyAna) == 0) {
+		if ((token3 != NULL) && (token5 != NULL)) {
+			ret = kstrtoul(token3, 16, &regaddr);
+			ret = kstrtoul(token5, 16, &regvalue);
+			pr_debug("%s, regaddr = 0x%x, regvalue = 0x%x\n",
+				 ParSetkeyAna, (unsigned int)regaddr,
+				 (unsigned int)regvalue);
+			audckbufEnable(true);
+			Ana_Set_Reg(regaddr, regvalue, 0xffffffff);
+			regvalue = Ana_Get_Reg(regaddr);
+			audckbufEnable(false);
+			pr_debug("%s, regaddr = 0x%x, regvalue = 0x%x\n",
+				 ParSetkeyAna, (unsigned int)regaddr,
+				 (unsigned int)regvalue);
+		} else {
+			pr_debug("token3 or token5 is NULL!\n");
+		}
+	}
+
+	if (strcmp(token1, PareGetkeyAna) == 0) {
+		if (token3 != NULL) {
+			ret = kstrtoul(token3, 16, &regaddr);
+			regvalue = Ana_Get_Reg(regaddr);
+			pr_debug("%s, regaddr = 0x%x, regvalue = 0x%x\n",
+				 PareGetkeyAna, (unsigned int)regaddr,
+				 (unsigned int)regvalue);
+		} else {
+			pr_debug("token3 is NULL!\n");
+		}
+	}
+
+	kfree(str_begin);
+exit:
+	return count;
+}
+
+static int mt_soc_ana_debug_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static ssize_t mt_soc_ana_debug_read(struct file *file, char __user *buf,
+				     size_t count, loff_t *pos)
+{
+	const int size = 8192;
+	/* char buffer[size]; */
+	char *buffer = NULL; /* for reduce kernel stack */
+	int n = 0;
+	int ret = 0;
+
+	buffer = kmalloc(size, GFP_KERNEL);
+	if (!buffer) {
+		kfree(buffer);
+		return -ENOMEM;
+	}
+
+	n = Ana_Debug_Read(buffer, size);
+
+	ret = simple_read_from_buffer(buf, count, pos, buffer, n);
+	kfree(buffer);
+	return ret;
+}
+
+static const struct file_operations mtaudio_ana_debug_ops = {
+	.open = mt_soc_ana_debug_open,
+	.read = mt_soc_ana_debug_read,
+	.write = mt_soc_ana_debug_write,
+};
+
 static int mt6357_codec_probe(struct snd_soc_codec *codec)
 {
 	int ret;
@@ -5936,6 +6108,12 @@ static int mt6357_codec_probe(struct snd_soc_codec *codec)
 	} else {
 		wake_up_process(dc_trim_task);
 	}
+
+	/* create analog debug file */
+	mt_sco_audio_debugfs = debugfs_create_file(
+		DEBUG_ANA_FS_NAME, S_IFREG | 0777, NULL,
+		(void *)DEBUG_ANA_FS_NAME, &mtaudio_ana_debug_ops);
+
 	return 0;
 }
 static int mt6357_codec_remove(struct snd_soc_codec *codec)
@@ -5969,7 +6147,6 @@ static int mtk_mt6357_codec_dev_probe(struct platform_device *pdev)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_CODEC_NAME);
-		pdev->name = pdev->dev.kobj.name;
 		/* check if use hp depop flow */
 		of_property_read_u32(pdev->dev.of_node,
 				     "use_hp_depop_flow",
