@@ -781,12 +781,8 @@ static void ram_console_update(void)
 		/* callback func in every subsys */
 		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-			if (!pgcb) {
-				pr_notice("pgcb(%d) null\r\n", DBG_ID);
-				WARN_ON(1);
-			} else if (pgcb->debug_dump) {
+			if (pgcb->debug_dump)
 				pgcb->debug_dump(id);
-			}
 		}
 		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
