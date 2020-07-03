@@ -70,6 +70,7 @@ struct mdw_dev_info {
 	int stop;
 	struct task_struct *thd;
 	struct completion cmplt;
+	struct completion thd_done;
 
 	struct mutex mtx;
 };

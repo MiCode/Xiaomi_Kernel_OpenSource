@@ -256,7 +256,7 @@ int mdw_sched_dev_routine(void *arg)
 
 		sc = (struct mdw_apu_sc *)d->sc;
 		if (!sc) {
-			mdw_drv_err("no sc to exec\n");
+			mdw_drv_warn("no sc to exec\n");
 			goto next;
 		}
 
@@ -317,6 +317,8 @@ next:
 		mdw_flw_debug("done\n");
 		continue;
 	}
+
+	complete(&d->thd_done);
 
 	return 0;
 }

@@ -275,7 +275,7 @@ void mdw_queue_deadline_destroy(void *q)
 {
 	struct deadline_root *root = (struct deadline_root *)q;
 
-	debugfs_remove_recursive(apusys_dbg_deadline);
+	//debugfs_remove_recursive(apusys_dbg_deadline);
 	cancel_delayed_work(&root->work);
 }
 

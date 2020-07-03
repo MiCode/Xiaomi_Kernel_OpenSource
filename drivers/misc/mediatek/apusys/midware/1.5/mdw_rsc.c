@@ -624,6 +624,7 @@ static int mdw_rsc_add_dev(struct apusys_device *dev)
 	list_add_tail(&d->t_item, &tab->list); // add list
 	tab->array[d->idx] = d; // add array
 	init_completion(&d->cmplt);
+	init_completion(&d->thd_done);
 	mutex_init(&d->mtx);
 
 	tab->dev_num++;
@@ -667,17 +668,15 @@ static int mdw_rsc_delete_dev(struct mdw_dev_info *d)
 	if (!tab)
 		return -ENODEV;
 
-	mutex_lock(&tab->mtx);
-
 	tab->array[d->idx] = NULL;
 	d->stop = true;
 	complete(&d->cmplt);
+	wait_for_completion(&d->thd_done);
 	tab->avl_num--;
 	tab->dev_num--;
 	list_del(&d->t_item);
+	mdw_flw_debug("delete dev(%s%d) done\n", d->name, d->idx);
 	vfree(d);
-
-	mutex_unlock(&tab->mtx);
 
 	return 0;
 }
@@ -1039,6 +1038,8 @@ void mdw_rsc_exit(void)
 	int type = 0, idx = 0;
 	struct mdw_dev_info *d = NULL;
 	struct mdw_rsc_tab *tab = NULL;
+
+	mdw_sched_exit();
 
 	for (type = 0; type < APUSYS_DEVICE_MAX; type++) {
 		for (idx = 0; idx < mdw_rsc_get_dev_num(type); idx++) {
