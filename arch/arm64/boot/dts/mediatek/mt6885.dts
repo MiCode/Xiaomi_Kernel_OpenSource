@@ -1310,7 +1310,7 @@ page_owner=on loop.max_part=7";
 			<GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&adsp_common 0>, /*channel 0*/
 			<&adsp_common 1>; /*channel 1*/
-		feature_control_bits = <0x303FF>;
+		feature_control_bits = <0x703FF>;
 	};
 
 	adsp_core1: adsp_core1@10850000 {
