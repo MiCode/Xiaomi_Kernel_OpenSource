@@ -738,7 +738,7 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	ssusb_host_disable(ssusb, ssusb->is_host);
 	/* ssusb_phy_power_off(ssusb); */
 	ssusb_clk_off(ssusb, ssusb->is_host);
-	usb_wakeup_enable(ssusb);
+	ssusb_wakeup_mode_enable(ssusb);
 	return 0;
 }
 
@@ -752,7 +752,7 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
-	usb_wakeup_disable(ssusb);
+	ssusb_wakeup_mode_disable(ssusb);
 	ssusb_clk_on(ssusb, ssusb->is_host);
 	/* ssusb_phy_power_on(ssusb); */
 	ssusb_host_enable(ssusb);
