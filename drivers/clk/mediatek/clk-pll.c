@@ -285,6 +285,23 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 	u32 r;
+	u32 i;
+
+	if (pll->data->flags & HAVE_RST_BAR_4_TIMES) {
+		for (i = 0; i < 3; i++) {
+			r = readl(pll->rst_bar_addr);
+			r &= ~pll->data->rst_bar_mask;
+			writel(r, pll->rst_bar_addr);
+
+			udelay(1);
+
+			r = readl(pll->rst_bar_addr);
+			r |= pll->data->rst_bar_mask;
+			writel(r, pll->rst_bar_addr);
+
+			udelay(1);
+		}
+	}
 
 	if (pll->data->flags & HAVE_RST_BAR) {
 		r = readl(pll->rst_bar_addr);
