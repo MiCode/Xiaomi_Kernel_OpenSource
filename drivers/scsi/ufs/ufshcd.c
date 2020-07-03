@@ -2518,26 +2518,17 @@ static void ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
 		dword_0 = data_direction | (lrbp->command_type
 				<< UPIU_COMMAND_TYPE_OFFSET);
 
-	/* MTK PATCH: dword_0 set UPIU_COMMAND_CRYPTO_EN_OFFSET if crypto_en  */
-	if (lrbp->crypto_en) {
-		/* crypto enable */
-		dword_0 |= (1 << UPIU_COMMAND_CRYPTO_EN_OFFSET);
-		dword_0 |= lrbp->crypto_cfgid;
-	}
-
 	if (lrbp->intr_cmd)
 		dword_0 |= UTP_REQ_DESC_INT_CMD;
 
 	/* Transfer request descriptor header fields */
 	if (ufshcd_lrbp_crypto_enabled(lrbp)) {
-#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO)
 		dword_0 |= UTP_REQ_DESC_CRYPTO_ENABLE_CMD;
 		dword_0 |= lrbp->crypto_key_slot;
 		req_desc->header.dword_1 =
 			cpu_to_le32(lower_32_bits(lrbp->data_unit_num));
 		req_desc->header.dword_3 =
 			cpu_to_le32(upper_32_bits(lrbp->data_unit_num));
-#endif /* CONFIG_SCSI_UFS_CRYPTO */
 	} else {
 		/* dword_1 and dword_3 are reserved, hence they are set to 0 */
 		req_desc->header.dword_1 = 0;
@@ -2908,9 +2899,6 @@ send_orig_cmd:
 	}
 	lrbp->req_abort_skip = false;
 
-	/* reset crypto_en first and set it later only on encrypted request */
-	lrbp->crypto_en = 0;
-
 	/*
 	 * configuration for other disk encryption method
 	 * (e.g., hw fde) or not encrypted
@@ -3010,11 +2998,8 @@ static int ufshcd_compose_dev_cmd(struct ufs_hba *hba,
 	lrbp->task_tag = tag;
 	lrbp->lun = 0; /* device management cmd is not specific to any LUN */
 	lrbp->intr_cmd = true; /* No interrupt aggregation */
-#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO)
 	lrbp->crypto_enable = false; /* No crypto operations */
-#endif
 	hba->dev_cmd.type = cmd_type;
-	lrbp->crypto_en = 0; /* device command shall not enable crypto */
 
 	return ufshcd_comp_devman_upiu(hba, lrbp);
 }

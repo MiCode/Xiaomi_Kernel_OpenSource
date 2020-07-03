@@ -141,10 +141,10 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 			ufs_cmd_hlist[ptr].rq =
 				hba->lrb[tag].cmd->request;
 			ufs_cmd_hlist[ptr].crypted =
-				hba->lrb[tag].crypto_en;
+				hba->lrb[tag].crypto_enable;
 			ufs_cmd_hlist[ptr].keyslot =
 				ufs_cmd_hlist[ptr].crypted ?
-				hba->lrb[tag].crypto_cfgid : 0;
+				hba->lrb[tag].crypto_key_slot : 0;
 		}
 	}
 

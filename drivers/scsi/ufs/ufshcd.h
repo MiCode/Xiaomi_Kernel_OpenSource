@@ -200,11 +200,9 @@ struct ufshcd_lrb {
 	int task_tag;
 	u8 lun; /* UPIU LUN id field is only 8-bit wide */
 	bool intr_cmd;
-#if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO)
 	bool crypto_enable;
 	u8 crypto_key_slot;
 	u64 data_unit_num;
-#endif /* CONFIG_SCSI_UFS_CRYPTO */
 
 	/*
 	 * Use sched_clock instead of ktime_get to align with
@@ -218,12 +216,6 @@ struct ufshcd_lrb {
 #if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
 	int hpb_ctx_id;
 #endif
-
-	/* MTK PATCH */
-	u32 crypto_en;
-	u32 crypto_cfgid;
-	u32 crypto_dunl;
-	u32 crypto_dunu;
 };
 
 /**
