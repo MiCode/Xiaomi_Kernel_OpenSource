@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# HAB configuration
+#
+config MSM_HAB
+	bool "Enable Hypervisor ABstraction Layer"
+	select WANT_DEV_COREDUMP
+	help
+	  HAB(Hypervisor ABstraction) driver can provide the message
+	  transmission and memory sharing services among different OSes.
+	  Internally, HAB makes use of some specific communication mechanism
+	  provided by the underlying hypervisor.
+	  It is required by the virtualization support for some multimedia
+	  and platform devices in MSM devices.
+
+config MSM_HAB_DEFAULT_VMID
+	int
+	default 2
+	help
+	  The default HAB VMID.
+	  It will not be used when there are some other configuration sources,
+	  e.g., device tree.
