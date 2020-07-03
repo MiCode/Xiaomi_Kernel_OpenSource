@@ -46,27 +46,28 @@ struct opp_profile {
 };
 
 extern int get_cur_vcore_dvfs_opp(void);
-extern void set_opp_table(int vcore_dvfs_opp, int vcore_uv, int ddr_khz);
+extern void set_opp_table(unsigned int vcore_dvfs_opp, int vcore_uv,
+			  int ddr_khz);
 
-extern int get_vcore_opp(int opp);
-extern int get_vcore_uv(int opp);
+extern int get_vcore_opp(unsigned int opp);
+extern int get_vcore_uv(unsigned int opp);
 extern int get_cur_vcore_opp(void);
 extern int get_cur_vcore_uv(void);
-extern void set_vcore_opp(int vcore_dvfs_opp, int vcore_opp);
+extern void set_vcore_opp(unsigned int vcore_dvfs_opp, int vcore_opp);
 
-extern int get_ddr_opp(int opp);
-extern int get_ddr_khz(int opp);
+extern int get_ddr_opp(unsigned int opp);
+extern int get_ddr_khz(unsigned int opp);
 extern int get_cur_ddr_opp(void);
 extern int get_cur_ddr_khz(void);
-extern void set_ddr_opp(int vcore_dvfs_opp, int ddr_opp);
+extern void set_ddr_opp(unsigned int vcore_dvfs_opp, int ddr_opp);
 
-extern void set_vcore_uv_table(int vcore_opp, int vcore_uv);
-extern int get_vcore_uv_table(int vcore_opp);
+extern void set_vcore_uv_table(unsigned int vcore_opp, int vcore_uv);
+extern int get_vcore_uv_table(unsigned int vcore_opp);
 
-extern void set_pwrap_cmd(int vcore_opp, int pwrap_cmd);
-extern int get_pwrap_cmd(int vcore_opp);
-extern int get_opp_ddr_freq(int ddr_opp);
-extern void set_opp_ddr_freq(int ddr_opp, int ddr_freq);
+extern void set_pwrap_cmd(unsigned int vcore_opp, int pwrap_cmd);
+extern int get_pwrap_cmd(unsigned int vcore_opp);
+extern int get_opp_ddr_freq(unsigned int ddr_opp);
+extern void set_opp_ddr_freq(unsigned int ddr_opp, int ddr_freq);
 #endif
 
 #endif /* __HELIO_DVFSRC_OPP_H */
