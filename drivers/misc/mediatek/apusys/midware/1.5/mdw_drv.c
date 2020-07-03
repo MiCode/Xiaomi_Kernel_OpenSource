@@ -131,10 +131,10 @@ static int mdw_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	mdw_rsc_init();
-	mdw_mem_init();
-	mdw_tag_init();
 	mdw_dbg_init(core_info);
+	mdw_tag_init();
+	mdw_mem_init();
+	mdw_rsc_init();
 	mdw_usr_init();
 	mdw_drv_info("-\n");
 
@@ -164,10 +164,10 @@ static int mdw_remove(struct platform_device *pdev)
 	mdw_drv_info("+\n");
 
 	mdw_usr_exit();
-	mdw_dbg_exit();
-	mdw_tag_exit();
-	mdw_mem_exit();
 	mdw_rsc_exit();
+	mdw_mem_exit();
+	mdw_tag_exit();
+	mdw_dbg_exit();
 
 	/* Release device */
 	device_destroy(mdw_class, mdw_devt);
