@@ -111,9 +111,12 @@ static int cvp_wait_process_message(struct msm_cvp_inst *inst,
 		goto exit;
 	}
 
-	if (out)
-		memcpy(out, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
+	if (!out) {
+		kmem_cache_free(cvp_driver->msg_cache, msg);
+		goto exit;
+	}
 
+	memcpy(out, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
 	kmem_cache_free(cvp_driver->msg_cache, msg);
 	hdr = (struct cvp_hfi_msg_session_hdr *)out;
 	msm_cvp_unmap_frame(inst, hdr->client_data.kdata);
@@ -1122,7 +1125,7 @@ static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (props->prop_num >= MAX_KMD_PROP_NUM) {
+	if (props->prop_num >= MAX_KMD_PROP_NUM_PER_PACKET) {
 		dprintk(CVP_ERR, "Too many properties %d to set\n",
 			props->prop_num);
 		return -E2BIG;

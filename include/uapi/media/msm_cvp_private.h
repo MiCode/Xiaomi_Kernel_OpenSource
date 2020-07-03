@@ -149,7 +149,8 @@ struct cvp_kmd_hfi_packet {
 #define CVP_KMD_PROP_PWR_DDR_OP	0x1C
 #define CVP_KMD_PROP_PWR_SYSCACHE_OP	0x1D
 
-#define MAX_KMD_PROP_NUM	(CVP_KMD_PROP_PWR_SYSCACHE_OP + 1)
+#define MAX_KMD_PROP_NUM_PER_PACKET		8
+#define MAX_KMD_PROP_TYPE	(CVP_KMD_PROP_PWR_SYSCACHE_OP + 1)
 
 struct cvp_kmd_sys_property {
 	__u32 prop_type;
