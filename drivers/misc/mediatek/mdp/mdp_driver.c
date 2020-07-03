@@ -1170,7 +1170,7 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		break;
 	case CMDQ_IOCTL_FREE_READBACK_SLOTS:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_FREE_READBACK_SLOTS\n");
-		status = mdp_ioctl_free_readback_slots(param);
+		status = mdp_ioctl_free_readback_slots(pf, param);
 		break;
 	case CMDQ_IOCTL_READ_READBACK_SLOTS:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");

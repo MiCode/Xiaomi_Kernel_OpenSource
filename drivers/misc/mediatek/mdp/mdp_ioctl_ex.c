@@ -824,7 +824,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 	return 0;
 }
 
-s32 mdp_ioctl_free_readback_slots(unsigned long param)
+s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 {
 	struct mdp_readback free_req;
 	u32 free_slot_index, free_slot_group, free_slot;
@@ -857,6 +857,12 @@ s32 mdp_ioctl_free_readback_slots(unsigned long param)
 		CMDQ_ERR("%s %d not in group[%d]:%llx\n", __func__,
 			free_req.start_id, free_slot_group,
 			alloc_slot[free_slot_group]);
+		return -EINVAL;
+	}
+	if (rb_slot[free_slot_index].fp != fp) {
+		mutex_unlock(&rb_slot_list_mutex);
+		CMDQ_ERR("%s fp %p different:%p\n", __func__,
+			fp, rb_slot[free_slot_index].fp);
 		return -EINVAL;
 	}
 	alloc_slot[free_slot_group] &= ~(1LL << free_slot);
@@ -961,7 +967,7 @@ static long mdp_limit_ioctl(struct file *pf, unsigned int code,
 		break;
 	case CMDQ_IOCTL_FREE_READBACK_SLOTS:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_FREE_READBACK_SLOTS\n");
-		status = mdp_ioctl_free_readback_slots(param);
+		status = mdp_ioctl_free_readback_slots(pf, param);
 		break;
 	case CMDQ_IOCTL_READ_READBACK_SLOTS:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");
