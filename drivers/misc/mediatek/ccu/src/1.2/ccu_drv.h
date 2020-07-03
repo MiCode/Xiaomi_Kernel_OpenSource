@@ -310,8 +310,6 @@ struct ccu_cmd_s {
 #define CCU_IOCTL_ENQUE_COMMAND             _IOW(CCU_MAGICNO,   1, int)
 #define CCU_IOCTL_DEQUE_COMMAND             _IOWR(CCU_MAGICNO,  2, int)
 #define CCU_IOCTL_FLUSH_COMMAND             _IOW(CCU_MAGICNO,   3, int)
-#define CCU_IOCTL_WAIT_AFB_IRQ               _IOW(CCU_MAGICNO,   7, int)
-#define CCU_IOCTL_WAIT_AF_IRQ               _IOW(CCU_MAGICNO,   8, int)
 #define CCU_IOCTL_WAIT_IRQ                  _IOW(CCU_MAGICNO,   9, int)
 #define CCU_IOCTL_SEND_CMD                  _IOWR(CCU_MAGICNO, 10, int)
 #define CCU_IOCTL_SET_RUN                   _IO(CCU_MAGICNO,   11)

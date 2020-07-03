@@ -169,12 +169,7 @@ int ccu_run(void);
  * @s:          wait mode.
  */
 int ccu_waitirq(struct CCU_WAIT_IRQ_STRUCT *WaitIrq);
-int ccu_AFwaitirq(struct CCU_WAIT_IRQ_STRUCT *WaitIrq, int tg_num);
 
-/**
- * ccu_irq - interrupt wait.
- * @s:          wait mode.
- */
 int ccu_flushLog(int argc, int *argv);
 
 /**
