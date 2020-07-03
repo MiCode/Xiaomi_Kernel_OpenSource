@@ -414,8 +414,7 @@ config MACH_MT8168
 	select MTK_BOUNCING_CHECK if AEE_FEATURE
 	select MTK_DRAMC
 	select MTK_EMI
-	select MTK_TIMER_APXGPT
-        help
+	help
           This enables support for MediaTek MT8168
           Support for aarch64 Architecture
           Support for fpga_64_mt8168 related projects
