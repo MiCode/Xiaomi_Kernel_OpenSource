@@ -195,9 +195,10 @@ int ccci_ringbuf_writeable(int md_id, struct ccci_ringbuf *ringbuf,
 	write = (unsigned int)(ringbuf->tx_control.write);
 	length = (unsigned int)(ringbuf->tx_control.length);
 	if (write_size > length) {
-		CCCI_ERROR_LOG(md_id, TAG,
-		"rbwb param error,writesize(%d) > length(%d)\n",
-		write_size, length);
+		if (length > 0)
+			CCCI_ERROR_LOG(md_id, TAG,
+				"rbwb param error,writesize(%d) > length(%d)\n",
+				write_size, length);
 		return -CCCI_RINGBUF_PARAM_ERR;
 	}
 	write_size += CCIF_HEADER_LEN + CCIF_FOOTER_LEN;
