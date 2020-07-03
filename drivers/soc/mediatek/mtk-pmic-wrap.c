@@ -2989,6 +2989,53 @@ static int pwrap_mt2701_init_soc_specific(struct pmic_wrapper *wrp)
 	return 0;
 }
 
+void wake_up_pwrap(void)
+{
+	dev_notice(wrp->dev, "[PWRAP] %s\n", __func__);
+	if (pwrap_thread_handle != NULL) {
+		pwrap_wake_lock(&pwrapThread_lock);
+		wake_up_process(pwrap_thread_handle);
+	} else {
+		dev_notice(wrp->dev,
+		"[PWRAP] pwrap_thread_handle not ready\n");
+		return;
+	}
+}
+
+int pwrap_thread_kthread(void *x)
+{
+	dev_notice(wrp->dev, "[PWRAP] enter kernel thread\n");
+
+	/* Run on a process content */
+	while (1) {
+		pwrap_reenable_pmic_logging();
+		pwrap_monitor_info();
+		pwrap_sw_monitor_clr();
+		aee_kernel_warning("PWRAP:HW Monitor match",
+				   "PWRAP:HW Monitor match");
+		pwrap_wake_unlock(&pwrapThread_lock);
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
+	dev_notice(wrp->dev, "[PWRAP] kernel thread error\n");
+	return 0;
+}
+
+static void pwrap_irq_thread_init(void)
+{
+	pwrap_init_wake_lock(&pwrapThread_lock, "pwrapThread_lock wakelock");
+
+	/* create pwrap irq thread handler*/
+	pwrap_thread_handle = kthread_create(pwrap_thread_kthread,
+					    (void *)NULL, "pwrap_thread");
+	if (IS_ERR(pwrap_thread_handle)) {
+		pwrap_thread_handle = NULL;
+		dev_notice(wrp->dev, "[PWRAP] kthread_create fails\n");
+	} else {
+		dev_notice(wrp->dev, "[PWRAP] kthread_create done\n");
+	}
+}
+
 static int pwrap_mt8168_init_soc_specific(struct pmic_wrapper *wrp)
 {
 	pwrap_writel(wrp, 0x3, PWRAP_TIMER_EN);
@@ -3090,6 +3137,9 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 {
 	u32 rdata = 0, int0_flg = 0, int1_flg = 0, int3_flg = 0, ret = 0;
 	u32 wdt0_src_en = 0, wdt0_flg = 0, wdt1_src_en = 0, wdt1_flg = 0;
+#if defined(CONFIG_MACH_MT6853)
+	u32 int4_flg = 0;
+#endif
 	struct pmic_wrapper *wrp = dev_id;
 	const struct pwrap_slv_type *slv = wrp->slave;
 
