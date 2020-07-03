@@ -51,6 +51,15 @@ config MTK_SCHED_EAS_POWER_SUPPORT
 	  return correct power of core and cluster for
 	  scheduler to refer.
 
+config MTK_SCHED_MULTI_GEARS
+	bool "MTK enhancmenet for mutl CPU gears"
+	depends on MTK_SCHED_EAS_POWER_SUPPORT
+	default n
+	help
+	  MTK enhancement for multi CPU gears
+	  1. share buck aware
+	     use max frequency for dynamic and static power in shared buck
+	  2. select a CPU in each CPU gears for energy diff
 endmenu
 
 menu "MTK Heterogenous MultiProcessor Scheduler"
