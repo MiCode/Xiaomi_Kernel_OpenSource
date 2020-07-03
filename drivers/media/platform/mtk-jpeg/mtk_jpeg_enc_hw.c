@@ -28,7 +28,7 @@ u32 mtk_jpeg_enc_get_int_status(void __iomem *base)
 	return ret;
 }
 
-u32 mtk_jpeg_enc_get_file_size(void __iomem *base) //for dst size
+u32 mtk_jpeg_enc_get_file_size(const void __iomem *base) //for dst size
 {
 	return readl(base + JPGENC_DMA_ADDR0) - readl(base + JPGENC_DST_ADDR0);
 }
@@ -37,12 +37,8 @@ u32 mtk_jpeg_enc_enum_result(void __iomem *base, u32 irq_status, u32 *fileSize)
 {
 	*fileSize = mtk_jpeg_enc_get_file_size(base);
 
-	pr_info("irq status done file size %d\n", *fileSize);
-
-
-
 	if (irq_status & JPEG_DRV_ENC_INT_STATUS_DONE) {
-		pr_info("irq status done\n");
+		pr_info("irq status done file size %d\n", *fileSize);
 		return 0;
 	} else if (irq_status & JPEG_DRV_ENC_INT_STATUS_STALL) {
 		pr_info("irq status stall\n");
@@ -217,7 +213,7 @@ void mtk_jpeg_enc_set_config(void __iomem *base,
 			 config->mem_stride,
 			 fb->fb_addr[0].dma_addr,
 			 fb->fb_addr[0].dma_addr +
-			 config->enc_h*config->img_stride);
+			 config->enc_h*config->mem_stride);
 	} else {
 		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
 			 config->mem_stride,
