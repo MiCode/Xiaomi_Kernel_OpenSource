@@ -55,6 +55,16 @@ config MTK_MMSYS
 	  Say yes here to add support for the MediaTek Multimedia
 	  Subsystem (MMSYS).
 
+config MTK_MMDVFS
+	tristate "MediaTek MMDVFS Support"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on REGULATOR_MTK_DVFSRC
+	help
+	  Say yes here to add support for the MediaTek Multimedia DVFS (MMDVFS)
+	  driver. The MMDVFS is used to set clk for Mediatek multimedia hardwares
+	  , such as display, camera, mdp and video codec. Say no if your device
+	  does not need to do DVFS for Multimedia hardwares.
+
 config MTK_IPI
 	tristate "MediaTek IPI Support"
 	depends on RPMSG_MTK
