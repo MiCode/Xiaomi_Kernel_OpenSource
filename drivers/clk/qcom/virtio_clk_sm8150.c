@@ -67,8 +67,16 @@ static const char * const sm8150_gcc_virtio_clocks[] = {
 	[GCC_PCIE_0_SLV_AXI_CLK] = "gcc_pcie_0_slv_axi_clk",
 	[GCC_PCIE_0_CLKREF_CLK] = "gcc_pcie_0_clkref_en",
 	[GCC_PCIE_0_SLV_Q2A_AXI_CLK] = "gcc_pcie_0_slv_q2a_axi_clk",
+	[GCC_PCIE_1_PIPE_CLK] = "gcc_pcie_1_pipe_clk",
+	[GCC_PCIE_1_AUX_CLK] = "gcc_pcie_1_aux_clk",
+	[GCC_PCIE_1_CFG_AHB_CLK] = "gcc_pcie_1_cfg_ahb_clk",
+	[GCC_PCIE_1_MSTR_AXI_CLK] = "gcc_pcie_1_mstr_axi_clk",
+	[GCC_PCIE_1_SLV_AXI_CLK] = "gcc_pcie_1_slv_axi_clk",
+	[GCC_PCIE_1_CLKREF_CLK] = "gcc_pcie_1_clkref_en",
+	[GCC_PCIE_1_SLV_Q2A_AXI_CLK] = "gcc_pcie_1_slv_q2a_axi_clk",
 	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = "gcc_aggre_noc_pcie_tbu_clk",
 	[GCC_PCIE0_PHY_REFGEN_CLK] = "gcc_pcie0_phy_refgen_clk",
+	[GCC_PCIE1_PHY_REFGEN_CLK] = "gcc_pcie1_phy_refgen_clk",
 	[GCC_PCIE_PHY_AUX_CLK] = "gcc_pcie_phy_aux_clk",
 	[GCC_SDCC2_AHB_CLK] = "gcc_sdcc2_ahb_clk",
 	[GCC_SDCC2_APPS_CLK] = "gcc_sdcc2_apps_clk",
@@ -86,6 +94,8 @@ static const char * const sm8150_gcc_virtio_resets[] = {
 	[GCC_USB30_SEC_BCR] = "gcc_usb30_sec_master_clk",
 	[GCC_PCIE_0_BCR] = "gcc_pcie_0_mstr_axi_clk",
 	[GCC_PCIE_0_PHY_BCR] = "gcc_pcie_0_phy_bcr",
+	[GCC_PCIE_1_BCR] = "gcc_pcie_1_mstr_axi_clk",
+	[GCC_PCIE_1_PHY_BCR] = "gcc_pcie_1_phy_bcr",
 };
 
 const struct clk_virtio_desc clk_virtio_sm8150_gcc = {
