@@ -1,3 +1,5 @@
+#include <dt-bindings/clock/qcom,gcc-shima.h>
+
 &soc {
 	timer {
 		clock-frequency = <5000000>;
@@ -109,5 +111,22 @@
 };
 
 &cpufreq_hw {
-	clocks = <&bi_tcxo>, <&gcc 0>;
+	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
+};
+
+&camcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+};
+
+&debugcc {
+	clocks = <&bi_tcxo>;
+};
+
+&videocc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+};
+
+&gpucc {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPU_GPLL0_CLK_SRC>,
+		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
 };
