@@ -104,6 +104,11 @@ static struct schedtune *allocated_group[BOOSTGROUPS_COUNT] = {
 	NULL,
 };
 
+static inline bool is_group_idx_valid(int idx)
+{
+	return idx >= 0 && idx < BOOSTGROUPS_COUNT;
+}
+
 /* SchedTune boost groups
  * Keep track of all the boost groups which impact on CPU, for example when a
  * CPU has two RUNNABLE tasks belonging to two different boost groups and thus

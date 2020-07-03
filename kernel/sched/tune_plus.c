@@ -97,6 +97,9 @@ int uclamp_min_for_perf_idx(int idx, int min_value)
 	if (min_value > SCHED_CAPACITY_SCALE)
 		return -ERANGE;
 
+	if (!is_group_idx_valid(idx))
+		return -ERANGE;
+
 	st = allocated_group[idx];
 	if (!st)
 		return -EINVAL;
@@ -153,6 +156,9 @@ int boost_write_for_perf_idx(int idx, int boost_value)
 	else if (boost_value <= 0)
 		boost_value = 0;
 
+	if (!is_group_idx_valid(idx))
+		return -ERANGE;
+
 	ct = allocated_group[idx];
 	if (ct) {
 		rcu_read_lock();
@@ -181,7 +187,12 @@ int boost_write_for_perf_idx(int idx, int boost_value)
 
 int prefer_idle_for_perf_idx(int idx, int prefer_idle)
 {
-	struct schedtune *ct = allocated_group[idx];
+	struct schedtune *ct = NULL;
+
+	if (!is_group_idx_valid(idx))
+		return -ERANGE;
+
+	ct = allocated_group[idx];
 
 	if (!ct)
 		return -EINVAL;
@@ -209,6 +220,9 @@ int group_boost_read(int group_idx)
 	struct schedtune *ct;
 	int boost = 0;
 
+	if (!is_group_idx_valid(group_idx))
+		return -ERANGE;
+
 	ct = allocated_group[group_idx];
 	if (ct) {
 		rcu_read_lock();
@@ -224,6 +238,9 @@ int group_prefer_idle_read(int group_idx)
 {
 	struct schedtune *ct;
 	int prefer_idle = 0;
+
+	if (!is_group_idx_valid(group_idx))
+		return -ERANGE;
 
 	ct = allocated_group[group_idx];
 	if (ct) {
