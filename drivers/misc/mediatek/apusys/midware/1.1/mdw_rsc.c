@@ -736,7 +736,8 @@ static int mdw_rsc_req_add_dev(struct mdw_dev_info *d, struct mdw_rsc_req *req)
 		mutex_unlock(&req->mtx);
 		return -EINVAL;
 	}
-	mdw_flw_debug("put dev(%s%d) to req(%p)\n", d->name, d->idx, req);
+	mdw_flw_debug("put dev(%s%d) to req(%p), ref(%d)\n",
+		d->name, d->idx, req, kref_read(&req->ref));
 
 	/* add dev to req */
 	list_add_tail(&d->r_item, &req->d_list);
@@ -757,7 +758,7 @@ int mdw_rsc_get_dev(struct mdw_rsc_req *req)
 	struct mdw_rsc_tab *tab = NULL;
 	struct mdw_dev_info *d = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
-	int ret = 0, n = 0, i = 0, type = 0, tmp_type = 0, get_total = 0;
+	int ret = 0, n = 0, i = 0, type = -1, get_total = 0;
 
 	mdw_flw_debug("req(%p) bmp(0x%llx) total(%d) mode(%d) policy(%d)\n",
 		req, req->acq_bmp, req->total_num, req->mode, req->policy);
@@ -778,10 +779,10 @@ int mdw_rsc_get_dev(struct mdw_rsc_req *req)
 	mutex_lock(&rsc_mgr.mtx);
 
 	while (1) {
-		tmp_type = type;
 		type = find_next_bit((unsigned long *)&req->acq_bmp,
-			APUSYS_DEVICE_MAX, type);
-		if (type >= APUSYS_DEVICE_MAX || type == tmp_type)
+			APUSYS_DEVICE_MAX, type + 1);
+		mdw_flw_debug("dev(%d) bmp(0x%llx)\n", type, req->acq_bmp);
+		if (type >= APUSYS_DEVICE_MAX)
 			break;
 
 		tab = mdw_rsc_get_tab(type);
@@ -831,8 +832,11 @@ int mdw_rsc_get_dev(struct mdw_rsc_req *req)
 		req->in_list = true;
 		list_add_tail(&req->r_item, &rsc_mgr.r_list);
 		/* wait if sync mode */
-		if (req->mode == MDW_DEV_INFO_GET_MODE_SYNC)
+		if (req->mode == MDW_DEV_INFO_GET_MODE_SYNC) {
+			mutex_unlock(&rsc_mgr.mtx);
 			wait_for_completion_interruptible(&req->complt);
+			mutex_lock(&rsc_mgr.mtx);
+		}
 		if (req->mode == MDW_DEV_INFO_GET_MODE_ASYNC)
 			ret = EAGAIN;
 	} else {
