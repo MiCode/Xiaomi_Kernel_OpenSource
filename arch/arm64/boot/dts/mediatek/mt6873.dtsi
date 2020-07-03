@@ -714,6 +714,13 @@
 			#dma-cells = <1>;
 		};
 
+		emicen: emicen@10219000 {
+			compatible = "mediatek,mt6873-emicen",
+				     "mediatek,common-emicen";
+			reg = <0 0x10219000 0 0x1000>;
+			mediatek,emi-reg = <&emichn>;
+		};
+
 		device_mpu_low@1021a000 {
 			compatible = "mediatek,device_mpu_low";
 			reg = <0 0x1021a000 0 0x1000>;
@@ -732,6 +739,27 @@
 				 <&gce 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+		};
+
+		emimpu:emimpu@10226000 {
+			compatible = "mediatek,mt6873-emimpu",
+				     "mediatek,common-emimpu";
+			reg = <0 0x10226000 0 0x1000>;
+			mediatek,emi-reg = <&emicen>;
+			interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH 0>;
+			region_cnt = <32>;
+			domain_cnt = <16>;
+			addr_align = <16>;
+			ap_region = <31>;
+			ap_apc = <0 5 5 5 0 0 6 5>,
+				 <0 0 5 0 0 1 5 5>;
+			dump = <0x1f0 0x1f8 0x1fc>;
+			clear = <0x160 0xffffffff 16>,
+				<0x200 0x00000003 16>,
+				<0x1f0 0x80000000 1>;
+			clear_md = <0x1fc 0x80000000 1>;
+			ctrl_intf = <1>;
+			slverr = <0>;
 		};
 
 		gce: mailbox@10228000 {
@@ -788,6 +816,13 @@
 				<0x070c 0x00000040 6>;
 			dqopen = <0x0870 0x00100000 20>,
 				<0x0870 0x00100000 20>;
+		};
+
+		emichn: emichn@10235000 {
+			compatible = "mediatek,mt6873-emichn",
+				     "mediatek,common-emichn";
+			reg = <0 0x10235000 0 0x1000>,
+			      <0 0x10245000 0 0x1000>;
 		};
 
 		md_ccif4@1024d000 {
