@@ -60,6 +60,16 @@ config MTK_SCHED_MULTI_GEARS
 	  1. share buck aware
 	     use max frequency for dynamic and static power in shared buck
 	  2. select a CPU in each CPU gears for energy diff
+
+config MTK_SCHED_BL_FIRST
+	bool "MTK enhancmenet for mutl CPU gears if hope put BL first"
+	depends on MTK_SCHED_MULTI_GEARS
+	default n
+	help
+	  Default is sorting the CPU domain from little to Big.
+	  This KCONFIG will support to prefer to
+	  put BL in Big domain for performance/power/thermal
+	  and so on consideration.
 endmenu
 
 menu "MTK Heterogenous MultiProcessor Scheduler"

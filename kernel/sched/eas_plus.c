@@ -228,19 +228,17 @@ int select_max_spare_capacity(struct task_struct *p, int target)
  */
 int find_best_idle_cpu(struct task_struct *p, bool prefer_idle)
 {
-	int iter_cpu;
+	int i;
 	int best_idle_cpu = -1;
 	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
 	struct hmp_domain *domain;
+	int domain_order = 0;
+	int prefer_big = prefer_idle && (task_util(p) > stune_task_threshold);
 
 	for_each_hmp_domain_L_first(domain) {
-		for_each_cpu(iter_cpu, &domain->possible_cpus) {
+		for_each_cpu(i, &domain->possible_cpus) {
 
 			/* tsk with prefer idle to find bigger idle cpu */
-			int i = ((prefer_idle &&
-				(task_util(p) > stune_task_threshold)))
-				?  nr_cpu_ids-iter_cpu-1 : iter_cpu;
-
 			if (!cpu_online(i) || cpu_isolated(i) ||
 					!cpumask_test_cpu(i, tsk_cpus_allow))
 				continue;
@@ -256,10 +254,23 @@ int find_best_idle_cpu(struct task_struct *p, bool prefer_idle)
 			 */
 			if (idle_cpu(i)) {
 				best_idle_cpu = i;
-				break;
+				if (!prefer_big) {
+					goto find_idle_cpu;
+				} else {
+#ifdef CONFIG_MTK_SCHED_BL_FIRST
+					if (domain_order == 1)
+						goto find_idle_cpu;
+#endif
+				}
 			}
 		}
+
+		domain_order++;
 	}
+
+find_idle_cpu:
+
+	trace_printk("best_idle_cpu=%d\n", best_idle_cpu);
 
 	return best_idle_cpu;
 }
