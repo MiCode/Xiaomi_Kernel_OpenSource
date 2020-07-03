@@ -34,9 +34,6 @@ static struct DISP_PQ_PARAM g_Color_Param[DISP_COLOR_TOTAL];
 
 #define CCORR_REG(idx) (idx * 4 + 0x80)
 
-// It's a work around for no comp assigned in functions.
-static struct mtk_ddp_comp *default_comp;
-
 int ncs_tuning_mode;
 
 static unsigned int g_split_en;
@@ -1115,7 +1112,7 @@ bool disp_color_reg_get(struct mtk_ddp_comp *comp,
 	if (spin_trylock_irqsave(&g_color_clock_lock, flags)) {
 		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
 			__func__, __LINE__);
-		*value = readl(default_comp->regs + addr);
+		*value = readl(comp->regs + addr);
 		spin_unlock_irqrestore(&g_color_clock_lock, flags);
 	} else {
 		DDPINFO("%s @ %d......... Failed to spin_trylock_irqsave ",
@@ -3037,9 +3034,6 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to initialize component: %d\n", ret);
 		return ret;
 	}
-
-	if (!default_comp)
-		default_comp = &priv->ddp_comp;
 
 	priv->data = of_device_get_match_data(dev);
 

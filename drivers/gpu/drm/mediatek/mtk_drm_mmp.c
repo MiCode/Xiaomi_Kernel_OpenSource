@@ -11,8 +11,14 @@
  * GNU General Public License for more details.
  */
 
+#include <drm/drm_crtc.h>
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_crtc.h"
+#include "mtk_drm_fb.h"
 #include "mtk_log.h"
+
+#define DISP_REG_OVL_L0_PITCH (0x044UL)
+#define L_PITCH_FLD_SRC_PITCH REG_FLD_MSB_LSB(15, 0)
 
 static struct DRM_MMP_Events g_DRM_MMP_Events;
 static struct CRTC_MMP_Events g_CRTC_MMP_Events[MMP_CRTC_NUM];
@@ -61,9 +67,9 @@ void init_drm_mmp_event(void)
 	g_DRM_MMP_Events.dsi1 =
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI1");
 	g_DRM_MMP_Events.pmqos =
-		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "PMQOS");
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =
-		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "HRT_BW");
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT_BW");
 	g_DRM_MMP_Events.mutex_lock =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
 	g_DRM_MMP_Events.layering =
@@ -80,7 +86,6 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_FREE");
 	g_DRM_MMP_Events.set_mode =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "SET_MODE");
-
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
 	for (i = 0; i < DISP_MUTEX_DDP_COUNT; i++) {
@@ -123,6 +128,12 @@ void init_crtc_mmp_event(void)
 			mmprofile_register_event(crtc_mmp_root, "disable");
 		g_CRTC_MMP_Events[i].release_fence = mmprofile_register_event(
 			crtc_mmp_root, "release_fence");
+		g_CRTC_MMP_Events[i].update_present_fence =
+			mmprofile_register_event(crtc_mmp_root,
+				"update_present_fence");
+		g_CRTC_MMP_Events[i].release_present_fence =
+			mmprofile_register_event(crtc_mmp_root,
+				"release_present_fence");
 		g_CRTC_MMP_Events[i].atomic_begin = mmprofile_register_event(
 			crtc_mmp_root, "atomic_begin");
 		g_CRTC_MMP_Events[i].atomic_flush = mmprofile_register_event(
@@ -173,9 +184,35 @@ void init_crtc_mmp_event(void)
 			mmprofile_register_event(crtc_mmp_root, "bl_cb");
 		g_CRTC_MMP_Events[i].clk_change = mmprofile_register_event(
 			crtc_mmp_root, "clk_change");
+		g_CRTC_MMP_Events[i].layerBmpDump =
+					mmprofile_register_event(
+					crtc_mmp_root, "LayerBmpDump");
+		g_CRTC_MMP_Events[i].layer_dump[0] =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].layerBmpDump,
+					"layer0_dump");
+		g_CRTC_MMP_Events[i].layer_dump[1] =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].layerBmpDump,
+					"layer1_dump");
+		g_CRTC_MMP_Events[i].layer_dump[2] =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].layerBmpDump,
+					"layer2_dump");
+		g_CRTC_MMP_Events[i].layer_dump[3] =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].layerBmpDump,
+					"layer3_dump");
+		g_CRTC_MMP_Events[i].layer_dump[4] =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].layerBmpDump,
+					"layer4_dump");
+		g_CRTC_MMP_Events[i].layer_dump[5] =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].layerBmpDump,
+					"layer5_dump");
 	}
 }
-
 void drm_mmp_init(void)
 {
 	DDPMSG("%s\n", __func__);
@@ -200,4 +237,165 @@ struct DRM_MMP_Events *get_drm_mmp_events(void)
 struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id)
 {
 	return &g_CRTC_MMP_Events[id];
+}
+
+#include <mtk_iommu_ext.h>
+#include <mtk_drm_drv.h>
+
+#define DISP_PAGE_MASK 0xfffL
+
+int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
+			unsigned long *map_va, unsigned int *map_size)
+{
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
+
+	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL))
+		mtk_iommu_iova_to_va(&(disp_dev->iommu_pdev->dev),
+				     mva, map_va, size);
+	else
+		DDPINFO("%s, %d, disp_dev is null\n", __func__, __LINE__);
+#endif
+
+	return 0;
+}
+
+int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
+			  unsigned long map_va)
+{
+#ifdef CONFIG_MTK_IOMMU_V2
+	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
+#endif
+	return 0;
+}
+
+int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
+			  u32 downSampleX, u32 downSampleY)
+{
+	struct mtk_plane_pending_state *pending = &state->pending;
+	struct drm_crtc *crtc = state->crtc;
+	int crtc_idx = drm_crtc_index(crtc);
+	struct mmp_metadata_bitmap_t bitmap;
+	struct mmp_metadata_t meta;
+	unsigned int fmt = pending->format;
+	int raw = 0;
+	int yuv = 0;
+
+	if (!pending->enable) {
+		DDPINFO("[MMP]layer is not disable\n");
+		return -1;
+	}
+
+	if (pending->prop_val[PLANE_PROP_COMPRESS]) {
+		DDPINFO("[MMP]layer is compress\n");
+		return -1;
+	}
+
+	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
+	bitmap.data1 = 0;
+	bitmap.width = pending->width;
+	bitmap.height = pending->height;
+
+	if (fmt == DRM_FORMAT_RGB565 || fmt == DRM_FORMAT_BGR565) {
+		bitmap.format = MMPROFILE_BITMAP_RGB565;
+		bitmap.bpp = 16;
+	} else if (fmt == DRM_FORMAT_RGB888 || fmt == DRM_FORMAT_BGR888 ||
+		   fmt == DRM_FORMAT_C8) {
+		bitmap.format = MMPROFILE_BITMAP_RGB888;
+		bitmap.bpp = 24;
+	} else if (fmt == DRM_FORMAT_BGRA8888 || fmt == DRM_FORMAT_BGRX8888) {
+		bitmap.format = MMPROFILE_BITMAP_BGRA8888;
+		bitmap.bpp = 32;
+	} else if (fmt == DRM_FORMAT_RGBA8888 ||
+		   fmt == DRM_FORMAT_RGBX8888 ||
+		   fmt == DRM_FORMAT_XRGB8888 ||
+		   fmt == DRM_FORMAT_ARGB8888 ||
+		   fmt == DRM_FORMAT_XBGR8888 ||
+		   fmt == DRM_FORMAT_ABGR8888 ||
+		   fmt == DRM_FORMAT_ABGR2101010 ||
+		   fmt == DRM_FORMAT_ABGRFP16) {
+		bitmap.format = MMPROFILE_BITMAP_RGBA8888;
+		bitmap.bpp = 32;
+	} else if (fmt == DRM_FORMAT_BGRA8888 ||
+		   fmt == DRM_FORMAT_BGRX8888){
+		bitmap.format = MMPROFILE_BITMAP_BGRA8888;
+		bitmap.bpp = 32;
+	} else if (fmt == DRM_FORMAT_YUYV) {
+		bitmap.format = MMPROFILE_BITMAP_RGB888;
+		bitmap.bpp = 16;
+		bitmap.data2 = MMPROFILE_BITMAP_YUYV;
+		yuv = 1;
+	} else if (fmt == DRM_FORMAT_YVYU) {
+		bitmap.format = MMPROFILE_BITMAP_RGB888;
+		bitmap.bpp = 16;
+		bitmap.data2 = MMPROFILE_BITMAP_YVYU;
+		yuv = 1;
+	} else if (fmt == DRM_FORMAT_UYVY) {
+		bitmap.format = MMPROFILE_BITMAP_RGB888;
+		bitmap.bpp = 16;
+		bitmap.data2 = MMPROFILE_BITMAP_UYVY;
+		yuv = 1;
+	} else if (fmt == DRM_FORMAT_VYUY) {
+		bitmap.format = MMPROFILE_BITMAP_RGB888;
+		bitmap.bpp = 16;
+		bitmap.data2 = MMPROFILE_BITMAP_VYUY;
+		yuv = 1;
+	} else {
+		DDPINFO("[MMP]unknown fmt\n");
+		raw = 1;
+	}
+
+	CRTC_MMP_EVENT_START(crtc_idx, layerBmpDump,
+			     state->comp_state.lye_id, pending->enable);
+	if (!raw) {
+		mmp_event *event_base = NULL;
+
+		bitmap.pitch = pending->pitch;
+		bitmap.start_pos = 0;
+		bitmap.data_size = bitmap.pitch * bitmap.height;
+		bitmap.down_sample_x = downSampleX;
+		bitmap.down_sample_y = downSampleY;
+
+		if (crtc_mva_map_kernel(pending->addr, bitmap.data_size,
+					(unsigned long *)&bitmap.p_data,
+					&bitmap.data_size) != 0) {
+			DDPINFO("%s,fail to dump rgb\n", __func__);
+			goto end;
+		}
+
+		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
+		if (event_base)
+			mmprofile_log_meta_bitmap(
+			event_base[state->comp_state.lye_id],
+			MMPROFILE_FLAG_PULSE,
+			&bitmap);
+		crtc_mva_unmap_kernel(pending->addr, bitmap.data_size,
+				      (unsigned long)bitmap.p_data);
+	} else {
+		mmp_event *event_base = NULL;
+
+		meta.data_type = MMPROFILE_META_RAW;
+		meta.size = pending->pitch * pending->height;
+		if (crtc_mva_map_kernel(pending->addr, bitmap.data_size,
+					(unsigned long *)&meta.p_data,
+					&meta.size) != 0) {
+			DDPINFO("%s,fail to dump rgb\n", __func__);
+			goto end;
+		}
+
+		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
+		if (event_base)
+			mmprofile_log_meta(
+			event_base[state->comp_state.lye_id],
+			MMPROFILE_FLAG_PULSE, &meta);
+
+		crtc_mva_unmap_kernel(pending->addr, meta.size,
+				(unsigned long)meta.p_data);
+	}
+
+end:
+	CRTC_MMP_EVENT_END(crtc_idx, layerBmpDump,
+			   pending->addr, pending->format);
+
+	return 0;
 }

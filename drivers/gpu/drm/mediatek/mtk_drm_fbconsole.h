@@ -58,18 +58,21 @@ struct MFC_CONTEXT {
 	UINT32 font_width;
 	UINT32 font_height;
 	UINT32 scale;
+	/*Avoid Kmemleak scan*/
+	struct file *filp;
 };
 
 /* MTK Framebuffer Console API */
 enum MFC_STATUS MFC_Open(MFC_HANDLE *handle, void *fb_addr,
 			 unsigned int fb_width, unsigned int fb_height,
 			 unsigned int fb_bpp, unsigned int fg_color,
-			 unsigned int bg_color);
+			 unsigned int bg_color, struct file *filp);
 
 enum MFC_STATUS MFC_Open_Ex(MFC_HANDLE *handle, void *fb_addr,
 			    unsigned int fb_width, unsigned int fb_height,
 			    unsigned int fb_pitch, unsigned int fb_bpp,
-			    unsigned int fg_color, unsigned int bg_color);
+			    unsigned int fg_color, unsigned int bg_color,
+			    struct file *filp);
 
 enum MFC_STATUS MFC_Close(MFC_HANDLE handle);
 

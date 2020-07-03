@@ -17,7 +17,7 @@
 #include "mmprofile.h"
 #include "mmprofile_static_event.h"
 
-
+#if 0
 #ifdef CONFIG_MMPROFILE
 mmp_event mmprofile_register_event(mmp_event parent, const char *name);
 mmp_event mmprofile_find_event(mmp_event parent, const char *name);
@@ -145,6 +145,7 @@ static inline void mmprofile_start(int start)
 static inline void mmprofile_enable(int enable)
 {
 }
+#endif
 #endif
 
 #endif

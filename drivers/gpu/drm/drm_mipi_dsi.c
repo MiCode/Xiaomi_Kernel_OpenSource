@@ -232,7 +232,8 @@ mipi_dsi_device_register_full(struct mipi_dsi_host *host,
 
 	ret = mipi_dsi_device_add(dsi);
 	if (ret) {
-		dev_err(dev, "failed to add DSI device %d\n", ret);
+		dev_err(dev, "failed to add DSI device:%s ret:%d\n",
+			dsi->name, ret);
 		kfree(dsi);
 		return ERR_PTR(ret);
 	}

@@ -54,7 +54,6 @@
 #include "mtk_disp_aal.h"
 #include "mtk_drm_mmp.h"
 
-
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -62,8 +61,10 @@
 #define DRIVER_MINOR 0
 
 atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
 wait_queue_head_t _mtk_fence_wq;
+#endif
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -78,6 +79,8 @@ unsigned long long mutex_nested_time_start;
 unsigned long long mutex_nested_time_end;
 long long mutex_nested_time_period;
 const char *mutex_nested_locker;
+
+struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
 static inline struct mtk_atomic_state *to_mtk_state(struct drm_atomic_state *s)
 {
@@ -1501,6 +1504,7 @@ static const struct mtk_mmsys_driver_data mt6853_mmsys_driver_data = {
 
 
 #ifdef MTK_DRM_FENCE_SUPPORT
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 static int mtk_drm_fence_release_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -1525,6 +1529,7 @@ static int mtk_drm_fence_release_thread(void *data)
 
 	return 0;
 }
+#endif
 
 void mtk_drm_fence_update(unsigned int fence_idx)
 {
@@ -1534,8 +1539,12 @@ void mtk_drm_fence_update(unsigned int fence_idx)
 		return;
 
 	atomic_set(&_mtk_fence_idx, fence_idx);
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	atomic_set(&_mtk_fence_update_event, 1);
 	wake_up_interruptible(&_mtk_fence_wq);
+#endif
+
+	CRTC_MMP_MARK(0, update_present_fence, 0, fence_idx);
 }
 
 int mtk_drm_suspend_release_fence(struct device *dev)
@@ -1784,6 +1793,7 @@ static void mtk_drm_first_enable(struct drm_device *drm)
 	drm_for_each_crtc(crtc, drm) {
 		if (mtk_drm_is_enable_from_lk(crtc))
 			mtk_drm_crtc_first_enable(crtc);
+		lcm_fps_ctx_init(crtc);
 	}
 }
 
@@ -1889,6 +1899,193 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
+/* runtime calculate vsync fps*/
+int lcm_fps_ctx_init(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
+	unsigned int index;
+
+	if (!crtc || crtc->index >= MAX_CRTC) {
+		DDPPR_ERR("%s:invalid crtc:%d\n",
+			  __func__, crtc->base.id);
+		return -EINVAL;
+	}
+	index = crtc->index;
+
+	if (atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:CRTC:%d invalid output comp\n",
+			  __func__, index);
+		return -EINVAL;
+	}
+
+	memset(&lcm_fps_ctx[index], 0, sizeof(struct lcm_fps_ctx_t));
+	spin_lock_init(&lcm_fps_ctx[index].lock);
+	atomic_set(&lcm_fps_ctx[index].skip_update, 0);
+	if (!mtk_dsi_is_cmd_mode(output_comp))
+		lcm_fps_ctx[index].dsi_mode = 1;
+	else
+		lcm_fps_ctx[index].dsi_mode = 0;
+	atomic_set(&lcm_fps_ctx[index].is_inited, 1);
+
+	DDPINFO("%s CRTC:%d done\n", __func__, index);
+	return 0;
+}
+
+int lcm_fps_ctx_reset(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
+	unsigned long flags = 0;
+	unsigned int index;
+
+	if (!crtc || crtc->index >= MAX_CRTC)
+		return -EINVAL;
+	index = crtc->index;
+
+	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	if (atomic_read(&lcm_fps_ctx[index].skip_update))
+		return 0;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:CRTC:%d invalid output comp\n",
+			  __func__, index);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+	if (!mtk_dsi_is_cmd_mode(output_comp))
+		lcm_fps_ctx[index].dsi_mode = 1;
+	else
+		lcm_fps_ctx[index].dsi_mode = 0;
+	lcm_fps_ctx[index].head_idx = 0;
+	lcm_fps_ctx[index].num = 0;
+	lcm_fps_ctx[index].last_ns = 0;
+	memset(&lcm_fps_ctx[index].array, 0, sizeof(lcm_fps_ctx[index].array));
+	atomic_set(&lcm_fps_ctx[index].skip_update, 0);
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+
+	DDPINFO("%s CRTC:%d done\n", __func__, index);
+
+	return 0;
+}
+
+int lcm_fps_ctx_update(unsigned long long cur_ns,
+		unsigned int crtc_id, unsigned int mode)
+{
+	unsigned int idx, index = crtc_id;
+	unsigned long long delta;
+	unsigned long flags = 0;
+
+	if (index > MAX_CRTC)
+		return -EINVAL;
+
+	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	if (lcm_fps_ctx[index].dsi_mode != mode)
+		return 0;
+
+	if (atomic_read(&lcm_fps_ctx[index].skip_update))
+		return 0;
+
+	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+
+	delta = cur_ns - lcm_fps_ctx[index].last_ns;
+	if (delta == 0 || lcm_fps_ctx[index].last_ns == 0) {
+		lcm_fps_ctx[index].last_ns = cur_ns;
+		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+		return 0;
+	}
+
+	idx = (lcm_fps_ctx[index].head_idx +
+		lcm_fps_ctx[index].num) % LCM_FPS_ARRAY_SIZE;
+	lcm_fps_ctx[index].array[idx] = delta;
+
+	if (lcm_fps_ctx[index].num < LCM_FPS_ARRAY_SIZE)
+		lcm_fps_ctx[index].num++;
+	else
+		lcm_fps_ctx[index].head_idx = (lcm_fps_ctx[index].head_idx +
+			 1) % LCM_FPS_ARRAY_SIZE;
+
+	lcm_fps_ctx[index].last_ns = cur_ns;
+
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+
+	DDPINFO("%s CRTC:%d update %lld to index %d\n",
+		__func__, index, delta, idx);
+
+	return 0;
+}
+
+unsigned int lcm_fps_ctx_get(unsigned int crtc_id)
+{
+	unsigned int i;
+	unsigned long long duration_avg = 0;
+	unsigned long long duration_min = (1ULL << 63) - 1ULL;
+	unsigned long long duration_max = 0;
+	unsigned long long duration_sum = 0;
+	unsigned long long fps = 100000000000;
+	unsigned long flags = 0;
+	unsigned int index = crtc_id;
+
+	if (crtc_id >= MAX_CRTC) {
+		DDPPR_ERR("%s:invalid crtc:%u\n",
+			  __func__, crtc_id);
+		return 0;
+	}
+
+	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
+		return 0;
+
+	spin_lock_irqsave(&lcm_fps_ctx[index].lock, flags);
+	if (atomic_read(&lcm_fps_ctx[index].skip_update) &&
+	    lcm_fps_ctx[index].fps) {
+		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+		return lcm_fps_ctx[index].fps;
+	}
+
+	if (lcm_fps_ctx[index].num <= 6) {
+		unsigned int ret = (lcm_fps_ctx[index].fps ?
+			lcm_fps_ctx[index].fps : 0);
+
+		DDPINFO("%s CRTC:%d num %d < 6, return fps:%u\n",
+			__func__, index, lcm_fps_ctx[index].num, ret);
+		spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+		return ret;
+	}
+
+
+	for (i = 0; i < lcm_fps_ctx[index].num; i++) {
+		duration_sum += lcm_fps_ctx[index].array[i];
+		duration_min = min(duration_min, lcm_fps_ctx[index].array[i]);
+		duration_max = max(duration_max, lcm_fps_ctx[index].array[i]);
+	}
+	duration_sum -= duration_min + duration_max;
+	duration_avg = duration_sum / (lcm_fps_ctx[index].num - 2);
+	do_div(fps, duration_avg);
+	lcm_fps_ctx[index].fps = (unsigned int)fps;
+
+	DDPMSG("%s CRTC:%d max=%lld, min=%lld, sum=%lld, num=%d, fps=%u\n",
+		__func__, index, duration_max, duration_min,
+		duration_sum, lcm_fps_ctx[index].num, (unsigned int)fps);
+
+	if (lcm_fps_ctx[index].num >= LCM_FPS_ARRAY_SIZE) {
+		atomic_set(&lcm_fps_ctx[index].skip_update, 1);
+		DDPINFO("%s set skip_update\n", __func__);
+	}
+	spin_unlock_irqrestore(&lcm_fps_ctx[index].lock, flags);
+
+	return (unsigned int)fps;
+}
+
 int mtk_drm_primary_get_info(struct drm_device *dev,
 			     struct drm_mtk_session_info *info)
 {
@@ -1905,8 +2102,11 @@ int mtk_drm_primary_get_info(struct drm_device *dev,
 	} else
 		DDPPR_ERR("Cannot get lcm_ext_params\n");
 
-	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
-	info->vsyncFPS = fps;
+	info->vsyncFPS = lcm_fps_ctx_get(0);
+	if (!info->vsyncFPS) {
+		_parse_tag_videolfb(&vramsize, &fb_base, &fps);
+		info->vsyncFPS = fps;
+	}
 
 	return ret;
 }
@@ -1952,15 +2152,17 @@ int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	int ret = 0;
-	/* TODO */
-	/*
-	 * struct mtk_drm_private *private = dev->dev_private;
-	 * struct mtk_panel_params *params =
-	 *			mtk_drm_get_lcm_ext_params(private->crtc[0]);
-	 */
+	unsigned int *info = data;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_panel_params *params =
+		mtk_drm_get_lcm_ext_params(private->crtc[0]);
 
-	/* wait for member of mtk_panel_params include lcm index */
-	/* *data = params->xxx; */
+	if (params) {
+		*info = params->lcm_index;
+	} else {
+		*info = 0;
+		pr_info("Cannot get lcm_ext_params\n");
+	}
 
 	return ret;
 }
@@ -2013,6 +2215,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	ret = mtk_drm_crtc_create(drm, private->data->main_path_data);
 	if (ret < 0)
 		goto err_component_unbind;
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* ... and OVL1 -> COLOR1 -> GAMMA -> RDMA1 -> DPI0. */
 	ret = mtk_drm_crtc_create(drm, private->data->ext_path_data);
 	if (ret < 0)
@@ -2021,7 +2224,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
 	if (ret < 0)
 		goto err_component_unbind;
-
+#endif
 	/* Use OVL device for all DMA memory allocations */
 	np = private->comp_node[private->data->main_path_data
 					->path[DDP_MAJOR][0][0]];
@@ -2063,6 +2266,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	INIT_LIST_HEAD(&private->repaint_data.job_pool);
 
 #ifdef MTK_DRM_FENCE_SUPPORT
+#ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	/* fence release kthread */
 	init_waitqueue_head(&_mtk_fence_wq);
 	private->fence_release_thread =
@@ -2073,14 +2277,15 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		goto err_kms_helper_poll_fini;
 	}
 #endif
+#endif
 
 #ifdef CONFIG_DRM_MEDIATEK_DEBUG_FS
 	mtk_drm_debugfs_init(drm, private);
 #endif
 	disp_dbg_init(drm);
-
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_drm_mmdvfs_init();
-
+#endif
 	DDPINFO("%s-\n", __func__);
 
 	ret = mtk_fbdev_init(drm);
@@ -2167,7 +2372,7 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_READ_SW_REG, mtk_drm_ioctl_read_sw_reg,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_GET_LCM_INDEX, mtk_drm_ioctl_get_lcm_index,
-			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_INIT_REG, mtk_drm_ioctl_aal_init_reg,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_HIST, mtk_drm_ioctl_aal_get_hist,
@@ -2262,7 +2467,9 @@ static int mtk_drm_bind(struct device *dev)
 	crtc = list_first_entry(&(drm)->mode_config.crtc_list, typeof(*crtc),
 				head);
 	mtk_drm_assert_layer_init(crtc);
-
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	pan_display_test(1, 32);
+#endif
 	DDPINFO("%s-\n", __func__);
 
 	return 0;
@@ -2446,6 +2653,56 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DMDP_AAL},
 	{} };
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static struct disp_iommu_device disp_iommu;
+static struct platform_device mydev;
+
+struct disp_iommu_device *disp_get_iommu_dev(void)
+{
+	struct device_node *larb_node[DISP_LARB_COUNT];
+	struct platform_device *larb_pdev[DISP_LARB_COUNT];
+	int larb_idx = 0;
+	struct device_node *np;
+
+	if (disp_iommu.inited)
+		return &disp_iommu;
+
+	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++) {
+
+		larb_node[larb_idx] = of_parse_phandle(mydev.dev.of_node,
+						"mediatek,larb", larb_idx);
+		if (!larb_node[larb_idx]) {
+			DDPINFO("disp driver get larb %d fail\n", larb_idx);
+			return NULL;
+		}
+		larb_pdev[larb_idx] =
+			of_find_device_by_node(larb_node[larb_idx]);
+		of_node_put(larb_node[larb_idx]);
+		if ((!larb_pdev[larb_idx]) ||
+		    (!larb_pdev[larb_idx]->dev.driver)) {
+			if (!larb_pdev[larb_idx])
+				DDPINFO("earlier than SMI, larb_pdev null\n");
+			else
+				DDPINFO("earlier than SMI, larb drv null\n");
+		}
+
+		disp_iommu.larb_pdev[larb_idx] = larb_pdev[larb_idx];
+	}
+	/* add for mmp dump mva->pa */
+	np = of_find_compatible_node(NULL, NULL, "mediatek,mt-pseudo_m4u-port");
+	if (np == NULL) {
+		DDPINFO("DT,mediatek,mt-pseudo_m4u-port is not found\n");
+	} else {
+		disp_iommu.iommu_pdev = of_find_device_by_node(np);
+		of_node_put(np);
+		if (!disp_iommu.iommu_pdev)
+			DDPINFO("get iommu device failed\n");
+	}
+	disp_iommu.inited = 1;
+	return &disp_iommu;
+}
+#endif
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2536,6 +2793,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		}
 		DDPINFO("%s line:%d, comp_id:%d\n", __func__, __LINE__,
 			comp_id);
+		/*comp node is registered here including PQ module*/
 		private->comp_node[comp_id] = of_node_get(node);
 
 		/*
@@ -2543,15 +2801,19 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		 * separate component platform drivers and initialize their own
 		 * DDP component structure. The others are initialized here.
 		 */
-		if (comp_type == MTK_DISP_COLOR ||
-		    comp_type == MTK_DISP_CCORR ||
-		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
-		    comp_type == MTK_DISP_DITHER || comp_type == MTK_DISP_OVL ||
+		if (comp_type == MTK_DISP_OVL ||
 		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_WDMA ||
 		    comp_type == MTK_DISP_RSZ ||
-		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI ||
+		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
+#ifndef DRM_BYPASS_PQ
+		    || comp_type == MTK_DISP_COLOR ||
+		    comp_type == MTK_DISP_CCORR ||
+		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
+		    comp_type == MTK_DISP_DITHER ||
 		    comp_type == MTK_DPI || comp_type == MTK_DISP_DSC ||
-		    comp_type == MTK_DMDP_AAL) {
+		    comp_type == MTK_DMDP_AAL
+#endif
+		    ) {
 			dev_info(dev, "Adding component match for %s\n",
 				 node->full_name);
 			component_match_add(dev, &match, compare_of, node);
@@ -2593,6 +2855,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	DDPINFO("%s-\n", __func__);
 
 	disp_dts_gpio_init(dev, private);
+	memcpy(&mydev, pdev, sizeof(mydev));
 
 	return 0;
 

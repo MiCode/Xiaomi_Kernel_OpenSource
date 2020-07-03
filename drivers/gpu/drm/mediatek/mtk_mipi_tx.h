@@ -17,6 +17,7 @@
 #include <linux/phy/phy.h>
 
 struct mtk_panel_ext;
+extern unsigned int mipi_volt;
 
 int mtk_mipi_tx_dump(struct phy *phy);
 unsigned int mtk_mipi_tx_pll_get_rate(struct phy *phy);

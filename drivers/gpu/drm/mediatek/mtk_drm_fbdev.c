@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/gfp.h>
+#include <linux/kmemleak.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
@@ -144,6 +146,64 @@ static int mtk_drm_fb_pan_display(struct fb_var_screeninfo *var,
 	return ret;
 }
 
+/* used when early porting, test pan display*/
+
+void disp_get_fb_address(unsigned long *fbVirAddr)
+{
+	*fbVirAddr = (unsigned long)debug_info->screen_base;
+	pr_info(
+		  "fbdev->fb_va_base = 0x%p\n", debug_info->screen_base);
+}
+
+int pan_display_test(int frame_num, int bpp)
+{
+	int i, j;
+	int Bpp = bpp / 8;
+	unsigned char *fb_va;
+	unsigned int fb_size;
+	int w, h, fb_h;
+	int yoffset_max;
+	int yoffset;
+
+	debug_info->var.yoffset = 0;
+	disp_get_fb_address((unsigned long *)&fb_va);
+	fb_size = debug_info->fix.smem_len;
+	w = debug_info->var.xres;
+	h = debug_info->var.yres;
+	fb_h = fb_size / (ALIGN_TO(w, 32) * Bpp) - 10;
+
+	pr_info("%s: frame_num=%d,bpp=%d, w=%d,h=%d,fb_h=%d\n",
+		__func__, frame_num, bpp, w, h, fb_h);
+
+	for (i = 0; i < fb_h; i++)
+		for (j = 0; j < w; j++) {
+			int x = (i * ALIGN_TO(w, 32) + j) * Bpp;
+
+			fb_va[x++] = (i + j) % 256;
+			fb_va[x++] = (i + j) % 256;
+			fb_va[x++] = (i + j) % 256;
+			if (Bpp == 4)
+				fb_va[x++] = 255;
+		}
+
+	debug_info->var.bits_per_pixel = bpp;
+
+	yoffset_max = fb_h - h;
+	yoffset = 0;
+	for (i = 0; i < frame_num; i++, yoffset += 10) {
+
+		if (yoffset >= yoffset_max)
+			yoffset = 0;
+
+		debug_info->var.xoffset = 0;
+		debug_info->var.yoffset = yoffset;
+		mtk_drm_fb_pan_display(&debug_info->var, debug_info);
+	}
+
+	return 0;
+}
+
+
 #define MTK_LEGACY_FB_MAP
 #ifndef MTK_LEGACY_FB_MAP
 static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
@@ -214,7 +274,6 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			*fps = videolfb_tag->fps;
 			if (*fps == 0)
 				*fps = 6000;
-
 			return 0;
 		}
 
@@ -302,6 +361,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 		mtk_gem = mtk_drm_fb_gem_insert(dev, size, fb_base, vramsize);
 		if (IS_ERR(mtk_gem))
 			return PTR_ERR(mtk_gem);
+		kmemleak_ignore(mtk_gem);
 	}
 
 	private->fbdev_bo = &mtk_gem->base;
@@ -335,14 +395,18 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	info->screen_size = size;
 	info->fix.smem_len = size;
 	info->fix.smem_start = fb_base;
+	debug_info = info;
 
-	mtk_drm_assert_fb_init(mtk_gem->kvaddr, mtk_gem->dma_addr,
+#if !defined(CONFIG_DRM_MTK_DISABLE_AEE_LAYER)
+	mtk_drm_assert_fb_init(dev,
 			       sizes->surface_width, sizes->surface_height);
+#endif
 
 	DRM_DEBUG_KMS("FB [%ux%u]-%u size=%zd\n", fb->width,
 		      fb->height, fb->format->depth, size);
 
 	info->skip_vt_switch = true;
+
 	DDPMSG("%s-\n", __func__);
 	return 0;
 

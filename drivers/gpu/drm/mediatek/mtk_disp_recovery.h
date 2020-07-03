@@ -27,6 +27,7 @@ struct mtk_drm_esd_ctx {
 	wait_queue_head_t ext_te_wq;
 	atomic_t ext_te_event;
 	atomic_t check_wakeup;
+	atomic_t target_time;
 	int eint_irq;
 	u32 chk_active;
 	u32 chk_mode;

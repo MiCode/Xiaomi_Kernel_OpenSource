@@ -55,6 +55,13 @@ bool g_mobile_log;
 bool g_fence_log;
 bool g_irq_log;
 bool g_detail_log;
+bool g_trace_log;
+unsigned int mipi_volt;
+unsigned int disp_met_en;
+
+int gCaptureOVLEn;
+int gCapturePriLayerDownX = 20;
+int gCapturePriLayerDownY = 20;
 
 struct logger_buffer {
 	char **buffer_ptr;
@@ -174,12 +181,7 @@ static void init_log_buffer(void)
 	if (is_buffer_init)
 		return;
 
-	/*1. Allocate debug buffer. This buffer used to store the output data.*/
-	debug_buffer = kzalloc(sizeof(char) * DEBUG_BUFFER_SIZE, GFP_KERNEL);
-	if (!debug_buffer)
-		goto err;
-
-	/*2. Allocate Error, Fence, Debug and Dump log buffer slot*/
+	/*1. Allocate Error, Fence, Debug and Dump log buffer slot*/
 	err_buffer = kzalloc(sizeof(char *) * ERROR_BUFFER_COUNT, GFP_KERNEL);
 	if (!err_buffer)
 		goto err;
@@ -196,13 +198,13 @@ static void init_log_buffer(void)
 	if (!status_buffer)
 		goto err;
 
-	/*3. Allocate log ring buffer.*/
+	/*2. Allocate log ring buffer.*/
 	buf_size = sizeof(char) * (DEBUG_BUFFER_SIZE - 4096);
 	temp_buf = kzalloc(buf_size, GFP_KERNEL);
 	if (!temp_buf)
 		goto err;
 
-	/*4. Dispatch log ring buffer to each buffer slot*/
+	/*3. Dispatch log ring buffer to each buffer slot*/
 	buf_idx = 0;
 	for (i = 0; i < ERROR_BUFFER_COUNT; i++) {
 		err_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
@@ -1107,6 +1109,38 @@ done:
 	DDPMSG("%s end -\n", __func__);
 }
 
+int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
+{
+	if (gCaptureOVLEn) {
+		mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
+			gCapturePriLayerDownY);
+		return 0;
+	}
+	DDPINFO("%s, gCapturePriLayerEnable is %d\n",
+		__func__, gCaptureOVLEn);
+	return -1;
+}
+
+void mtk_drm_idlemgr_kick_ext(const char *source)
+{
+	struct drm_crtc *crtc;
+
+	DDPINFO("%s +\n", __func__);
+
+	/* This cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+
+	mtk_drm_idlemgr_kick(source, crtc, 1);
+
+	DDPINFO("%s -\n", __func__);
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -1160,6 +1194,11 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_detail_log = 0;
+	} else if (strncmp(opt, "trace:", 6) == 0) {
+		if (strncmp(opt + 6, "on", 2) == 0)
+			g_trace_log = 1;
+		else if (strncmp(opt + 6, "off", 3) == 0)
+			g_trace_log = 0;
 	} else if (strncmp(opt, "diagnose", 8) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -1449,6 +1488,38 @@ static void process_dbg_opt(const char *opt)
 		DDPMSG("read_ddic_test:%d\n", case_num);
 
 		ddic_dsi_read_cmd_test(case_num);
+	} else if (strncmp(opt, "mipi_volt:", 10) == 0) {
+		char *p = (char *)opt + 10;
+		int ret;
+
+		ret = kstrtouint(p, 0, &mipi_volt);
+		if (ret) {
+			DDPMSG("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		DDPMSG("mipi_volt change :%d\n",
+		       mipi_volt);
+	} else if (strncmp(opt, "dump_layer:", 11) == 0) {
+		int ret;
+		unsigned int dump_en;
+		unsigned int downSampleX, downSampleY;
+
+		DDPMSG("get dump\n");
+		ret = sscanf(opt, "dump_layer:%d,%d,%d\n", &dump_en,
+			     &downSampleX, &downSampleY);
+		if (ret != 3) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+		gCaptureOVLEn = dump_en;
+
+		if (!downSampleX)
+			gCapturePriLayerDownX = downSampleX;
+		if (!downSampleY)
+			gCapturePriLayerDownY = downSampleY;
+	} else if (strncmp(opt, "idlemgr_kick", 12) == 0) {
+		mtk_drm_idlemgr_kick_ext(__func__);
 	}
 }
 
@@ -1476,6 +1547,14 @@ static ssize_t debug_read(struct file *file, char __user *ubuf, size_t count,
 
 	if (*ppos != 0 || !is_buffer_init)
 		goto out;
+
+	if (!debug_buffer) {
+		debug_buffer = vmalloc(sizeof(char) * DEBUG_BUFFER_SIZE);
+		if (!debug_buffer)
+			return -ENOMEM;
+
+		memset(debug_buffer, 0, sizeof(char) * DEBUG_BUFFER_SIZE);
+	}
 
 	debug_bufmax = DEBUG_BUFFER_SIZE - 1;
 	n = debug_get_info(debug_buffer, debug_bufmax);
@@ -1555,6 +1634,24 @@ static int idletime_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(idletime_fops, idletime_get, idletime_set, "%llu\n");
 
+int disp_met_set(void *data, u64 val)
+{
+	/*1 enable  ; 0 disable*/
+	disp_met_en = val;
+
+	return 0;
+}
+
+static int disp_met_get(void *data, u64 *val)
+{
+	*val = disp_met_en;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(disp_met_fops, disp_met_get, disp_met_set, "%llu\n");
+
+
 void disp_dbg_probe(void)
 {
 	struct dentry *d_folder;
@@ -1569,6 +1666,12 @@ void disp_dbg_probe(void)
 					     d_folder, NULL, &idletime_fops);
 	}
 
+	d_folder = debugfs_create_dir("mtkfb_debug", NULL);
+	if (d_folder) {
+		d_file = debugfs_create_file("disp_met", S_IFREG | 0644,
+					     d_folder, NULL, &disp_met_fops);
+	}
+
 	init_log_buffer();
 
 	drm_mmp_init();
@@ -1581,6 +1684,8 @@ void disp_dbg_init(struct drm_device *dev)
 
 void disp_dbg_deinit(void)
 {
+	if (debug_buffer)
+		vfree(debug_buffer);
 	debugfs_remove(mtkfb_dbgfs);
 }
 

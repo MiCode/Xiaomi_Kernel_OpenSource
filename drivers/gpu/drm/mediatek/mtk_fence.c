@@ -30,6 +30,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_gem.h"
+#include "mtk_drm_trace.h"
 
 /************************* log*********************/
 static bool mtk_fence_on;
@@ -417,6 +418,11 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 	current_timeline_idx = layer_info->timeline_idx;
 	num_fence = fence - layer_info->timeline_idx;
 	if (num_fence > 0) {
+		mtk_drm_trace_c("%d|layer_fence_release-%s-%d|%d",
+			DRM_TRACE_FENCE_ID,
+			mtk_fence_session_mode_spy(session_id),
+			layer_id, fence);
+
 		mtk_sync_timeline_inc(layer_info->timeline, num_fence);
 		layer_info->timeline_idx = fence;
 
@@ -427,10 +433,15 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 				MTK_SESSION_DEV(session_id), layer_id,
 				current_timeline_idx, fence);
 
+		mtk_drm_trace_c("%d|layer_fence_release-%s-%d|%d",
+			DRM_TRACE_FENCE_ID,
+			mtk_fence_session_mode_spy(session_id),
+			layer_id, 0);
 	} else {
 		mutex_unlock(&layer_info->sync_lock);
 		return;
 	}
+
 
 	list_for_each_entry_safe(buf, n, &layer_info->buf_list, list) {
 		if (buf->idx > fence)
@@ -469,7 +480,6 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
 			CRTC_MMP_MARK(0, release_fence, layer_id, buf->idx);
 	}
-
 	mutex_unlock(&layer_info->sync_lock);
 
 	if (ion_release_count != num_fence)
@@ -512,6 +522,10 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 	}
 
 	mutex_lock(&layer_info->sync_lock);
+
+	mtk_drm_trace_begin("present_fence_rel:%s-%d",
+		mtk_fence_session_mode_spy(session_id), fence_idx);
+
 	fence_increment = fence_idx - layer_info->timeline->value;
 
 	if (fence_increment >= 2)
@@ -527,6 +541,11 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 			 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);
 	}
 
+	/* print mmp log for primary display */
+	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
+		CRTC_MMP_MARK(0, release_present_fence, 0, fence_idx);
+
+	mtk_drm_trace_end();
 	mutex_unlock(&layer_info->sync_lock);
 	return 0;
 }

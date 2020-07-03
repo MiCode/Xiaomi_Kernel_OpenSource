@@ -30,9 +30,9 @@
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_wakeup.h>
 
+
 #define OVL_LAYER_NR 12L
 #define OVL_PHY_LAYER_NR 4L
-#define MAX_LAYER_NR 12L
 #define RDMA_LAYER_NR 1UL
 #define EXTERNAL_INPUT_LAYER_NR 2UL
 #define MEMORY_INPUT_LAYER_NR 2UL
@@ -46,7 +46,9 @@
 #define COLOR_MATRIX_PARAMS 17
 
 #define PRIMARY_OVL_PHY_LAYER_NR 6L
+
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
+
 
 #define pgc	_get_context()
 
@@ -76,8 +78,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_CONFIG_FENCE_BASE 0x0000
 #define DISP_SLOT_CUR_CONFIG_FENCE(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE_BASE + (0x4 * (n)))
-#define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
+#define DISP_SLOT_PRESENT_FENCE                                          \
 	DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR)
+#define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
+	(DISP_SLOT_PRESENT_FENCE + 0x4)
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE(n)                                      \
 	(DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE + (0x4 * (n)))
 #define DISP_SLOT_ESD_READ_BASE DISP_SLOT_SUBTRACTOR_WHEN_FREE(OVL_LAYER_NR)
@@ -330,6 +334,7 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_HBM_ENABLE,
 	CRTC_PROP_COLOR_TRANSFORM,
 	CRTC_PROP_USER_SCEN,
+	CRTC_PROP_HDR_ENABLE,
 	CRTC_PROP_MAX,
 };
 
@@ -416,6 +421,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_WDMA0_EOF,
 	EVENT_STREAM_BLOCK,
 	EVENT_CABC_EOF,
+	EVENT_DSI0_SOF,
 	EVENT_TYPE_MAX,
 };
 
@@ -656,7 +662,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc);
 bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status);
 void mtk_crtc_connect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
-void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
+int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb, void *cb_data,
 			struct cmdq_pkt *cmdq_handle);
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc);
 void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,
@@ -716,8 +722,9 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 	char *stringbuf, int buf_len);
 char *mtk_crtc_index_spy(int crtc_index);
+bool mtk_drm_get_hdr_property(void);
 
-/********************** Legacy DISP API ****************************/
+/* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);
 

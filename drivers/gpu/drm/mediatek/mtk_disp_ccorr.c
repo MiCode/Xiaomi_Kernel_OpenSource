@@ -333,8 +333,8 @@ void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp)
 				__func__, __LINE__);
 			return;
 		}
-	    intsta = readl(comp->regs + DISP_REG_CCORR_INTSTA);
-	    DDPINFO("%s: intsta: 0x%x", __func__, intsta);
+		intsta = readl(comp->regs + DISP_REG_CCORR_INTSTA);
+		DDPINFO("%s: intsta: 0x%x", __func__, intsta);
 
 		if (intsta & 0x2) {	/* End of frame */
 			// Clear irq
