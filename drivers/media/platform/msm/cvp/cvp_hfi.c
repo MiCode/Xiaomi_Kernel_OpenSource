@@ -1492,8 +1492,6 @@ static int __interface_dsp_queues_init(struct iris_hfi_device *dev)
 {
 	int rc = 0;
 	u32 i;
-	struct cvp_hfi_queue_table_header *q_tbl_hdr;
-	struct cvp_hfi_queue_header *q_hdr;
 	struct cvp_iface_q_info *iface_q;
 	int offset = 0;
 	phys_addr_t fw_bias = 0;
@@ -1552,43 +1550,11 @@ static int __interface_dsp_queues_init(struct iris_hfi_device *dev)
 		iface_q->q_array.align_virtual_addr = kvaddr + offset;
 		iface_q->q_array.mem_size = CVP_IFACEQ_QUEUE_SIZE;
 		offset += iface_q->q_array.mem_size;
-		iface_q->q_hdr = CVP_IFACEQ_GET_QHDR_START_ADDR(
-			dev->dsp_iface_q_table.align_virtual_addr, i);
-		__set_queue_hdr_defaults(iface_q->q_hdr);
 		spin_lock_init(&iface_q->hfi_lock);
 	}
 
-	q_tbl_hdr = (struct cvp_hfi_queue_table_header *)
-			dev->dsp_iface_q_table.align_virtual_addr;
-	q_tbl_hdr->qtbl_version = 0;
-	q_tbl_hdr->device_addr = (void *)dev;
-	strlcpy(q_tbl_hdr->name, "msm_cvp", sizeof(q_tbl_hdr->name));
-	q_tbl_hdr->qtbl_size = CVP_IFACEQ_TABLE_SIZE;
-	q_tbl_hdr->qtbl_qhdr0_offset =
-				sizeof(struct cvp_hfi_queue_table_header);
-	q_tbl_hdr->qtbl_qhdr_size = sizeof(struct cvp_hfi_queue_header);
-	q_tbl_hdr->qtbl_num_q = CVP_IFACEQ_NUMQ;
-	q_tbl_hdr->qtbl_num_active_q = CVP_IFACEQ_NUMQ;
+	cvp_dsp_init_hfi_queue_hdr(dev);
 
-	iface_q = &dev->dsp_iface_queues[CVP_IFACEQ_CMDQ_IDX];
-	q_hdr = iface_q->q_hdr;
-	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
-	q_hdr->qhdr_type |= HFI_Q_ID_HOST_TO_CTRL_CMD_Q;
-
-	iface_q = &dev->dsp_iface_queues[CVP_IFACEQ_MSGQ_IDX];
-	q_hdr = iface_q->q_hdr;
-	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
-	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_MSG_Q;
-
-	iface_q = &dev->dsp_iface_queues[CVP_IFACEQ_DBGQ_IDX];
-	q_hdr = iface_q->q_hdr;
-	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
-	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q;
-	/*
-	 * Set receive request to zero on debug queue as there is no
-	 * need of interrupt from cvp hardware for debug messages
-	 */
-	q_hdr->qhdr_rx_req = 0;
 	return rc;
 
 fail_dma_map:
