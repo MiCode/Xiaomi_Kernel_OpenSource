@@ -1,0 +1,135 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#ifndef __DT_BINDINGS_MT6362_H__
+#define __DT_BINDINGS_MT6362_H__
+
+/* ADC Channel definition */
+#define MT6362_ADCCH_CHGVINDIV5		(0)
+#define MT6362_ADCCH_VSYS		(1)
+#define MT6362_ADCCH_VBAT		(2)
+#define MT6362_ADCCH_IBUS		(3)
+#define MT6362_ADCCH_IBAT		(4)
+#define MT6362_ADCCH_RESV5		(5)
+#define MT6362_ADCCH_TEMPJC		(6)
+#define MT6362_ADCCH_VREFTS		(7)
+#define MT6362_ADCCH_TS			(8)
+#define MT6362_ADCCH_PDVBUSDIV10	(9)
+#define MT6362_ADCCH_PDCC1DIV4		(10)
+#define MT6362_ADCCH_PDCC2DIV4		(11)
+#define MT6362_ADCCH_PDSBU1DIV4		(12)
+#define MT6362_ADCCH_PDSBU2DIV4		(13)
+#define MT6362_ADCCH_ZCV		(14)
+
+/* Regulator MODE definitions */
+#define MT6362_REGULATOR_MODE_LP	(0)
+#define MT6362_REGULATOR_MODE_NORMAL	(1)
+
+/* IRQ definitions */
+/* 0 ~ 7 */
+#define MT6362_FL_PWR_RDY		(0)
+#define MT6362_FL_DETACH		(1)
+#define MT6362_FL_RECHG			(2)
+#define MT6362_FL_CHG_DONE		(3)
+#define MT6362_FL_FL_BK_CHG		(4)
+#define MT6362_FL_IEOC			(5)
+#define MT6362_FL_CHG_RDY		(6)
+#define MT6362_FL_VBUS_GD		(7)
+/* 8 ~ 15 */
+#define MT6362_FL_VBUS_OV		(8)
+#define MT6362_FL_CHG_BATOV		(9)
+#define MT6362_FL_CHG_SYSOV		(10)
+#define MT6362_FL_CHG_TOUT		(11)
+#define MT6362_FL_CHG_BUSUV		(12)
+#define MT6362_FL_CHG_THREG		(13)
+#define MT6362_FL_CHG_AICR		(14)
+#define MT6362_FL_CHG_MIVR		(15)
+/* 16 ~ 23 */
+#define MT6362_FL_SYS_SHORT		(16)
+#define MT6362_FL_SYS_MIN		(17)
+#define MT6362_FL_AICC_DONE		(18)
+#define MT6362_FL_PE_DONE		(19)
+#define MT6362_PP_PGB_EVT		(21)
+#define MT6362_FT_DIG_THR		(22)
+#define MT6362_FL_WDT			(23)
+/* 24 ~ 31 */
+#define MT6362_FL_OTG_FAULT		(24)
+#define MT6362_FL_OTG_BAT_LBP		(25)
+#define MT6362_FL_OTG_CC		(26)
+#define MT6362_FL_BC12_HVDCP		(30)
+#define MT6362_FL_BC12_DN		(31)
+/* 32 ~ 39 */
+#define MT6362_INT_CHRDET_UV		(32)
+#define MT6362_INT_CHRDET_OV		(33)
+#define MT6362_INT_CHRDET_EXT		(34)
+/* 40 ~ 47 */
+#define MT6362_ADC_DONEI		(44)
+/* 48 ~ 55 */
+#define MT6362_FLED_STRBPIN_EVT		(48)
+#define MT6362_FLED_TORPIN_EVT		(49)
+#define MT6362_FLED_TX_EVT		(50)
+#define MT6362_FLED_LVF_EVT		(51)
+#define MT6362_FLED_LBP_EVT		(52)
+#define MT6362_FLED_CHGVINOVP_EVT	(53)
+#define MT6362_FLED2_SHORT_EVT		(54)
+#define MT6362_FLED1_SHORT_EVT		(55)
+/* 56 ~ 63 */
+#define MT6362_FLED2_STRB_EVT		(56)
+#define MT6362_FLED1_STRB_EVT		(57)
+#define MT6362_FLED2_STRB_TO_EVT	(58)
+#define MT6362_FLED1_STRB_TO_EVT	(59)
+#define MT6362_FLED2_TOR_EVT		(60)
+#define MT6362_FLED1_TOR_EVT		(61)
+/* 64 ~ 71 */
+#define MT6362_APWDTRST_EVT		(65)
+#define MT6362_EN_EVT			(66)
+#define MT6362_QONB_RST_EVT		(67)
+#define MT6362_MRSTB_EVT		(68)
+#define MT6362_VDDAOV_EVT		(70)
+#define MT6362_SYSUV_EVT		(71)
+/* 72 ~ 79 */
+#define MT6362_OTP0_EVT			(72)
+#define MT6362_OTP1_EVT			(73)
+#define MT6362_OTP2_EVT			(74)
+#define MT6362_OTP3_EVT			(75)
+#define MT6362_OTP4_EVT			(76)
+#define MT6362_OTP5_EVT			(77)
+/* 80 ~ 87 */
+#define MT6362_BUCK1_OC_SDN_EVT		(81)
+#define MT6362_BUCK2_OC_SDN_EVT		(82)
+#define MT6362_BUCK3_OC_SDN_EVT		(83)
+#define MT6362_BUCK4_OC_SDN_EVT		(84)
+#define MT6362_BUCK5_OC_SDN_EVT		(85)
+#define MT6362_BUCK6_OC_SDN_EVT		(86)
+/* 88 ~ 95 */
+#define MT6362_BUCK1_PGB_EVT		(89)
+#define MT6362_BUCK2_PGB_EVT		(90)
+#define MT6362_BUCK3_PGB_EVT		(91)
+#define MT6362_BUCK4_PGB_EVT		(92)
+#define MT6362_BUCK5_PGB_EVT		(93)
+#define MT6362_BUCK6_PGB_EVT		(94)
+/* 96 ~ 103 */
+#define MT6362_LDO1_OC_EVT		(97)
+#define MT6362_LDO2_OC_EVT		(98)
+#define MT6362_LDO3_OC_EVT		(99)
+#define MT6362_LDO4_OC_EVT		(100)
+#define MT6362_LDO5_OC_EVT		(101)
+#define MT6362_LDO6_OC_EVT		(102)
+#define MT6362_LDO7_OC_EVT		(103)
+/* 104 ~ 111 */
+#define MT6362_VDIG18_PGB_EVT		(104)
+#define MT6362_LDO1_PGB_EVT		(105)
+#define MT6362_LDO2_PGB_EVT		(106)
+#define MT6362_LDO3_PGB_EVT		(107)
+#define MT6362_LDO4_PGB_EVT		(108)
+#define MT6362_LDO5_PGB_EVT		(109)
+#define MT6362_LDO6_PGB_EVT		(110)
+#define MT6362_LDO7_PGB_EVT		(111)
+/* 112 ~ 119 */
+#define MT6362_USBID_EVT		(112)
+/* 120 ~ 127 */
+#define MT6362_PD_EVT			(120)
+
+#endif /* __DT_BINDINGS_MT6362_H__ */
