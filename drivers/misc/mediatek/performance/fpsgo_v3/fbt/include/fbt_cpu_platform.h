@@ -35,7 +35,6 @@ extern int set_task_util_min_pct(pid_t pid, unsigned int min);
 void fbt_set_boost_value(unsigned int base_blc);
 void fbt_clear_boost_value(void);
 void fbt_set_per_task_min_cap(int pid, unsigned int base_blc);
-int fbt_get_L_cluster_num(void);
 int fbt_get_L_min_ceiling(void);
 void fbt_notify_CM_limit(int reach_limit);
 void fbt_reg_dram_request(int reg);
@@ -44,5 +43,6 @@ int fbt_get_default_boost_ta(void);
 int fbt_get_default_adj_loading(void);
 void fbt_set_cpu_prefer(int pid, unsigned int prefer_type);
 void fbt_set_affinity(pid_t pid, unsigned int prefer_type);
+int fbt_get_cluster_limit(int *cluster, int *freq);
 
 #endif

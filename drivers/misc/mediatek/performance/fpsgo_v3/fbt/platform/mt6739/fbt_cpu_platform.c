@@ -126,11 +126,6 @@ void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 
 }
 
-int fbt_get_L_cluster_num(void)
-{
-	return 0;
-}
-
 int fbt_get_L_min_ceiling(void)
 {
 	return 0;
@@ -142,6 +137,11 @@ int fbt_get_default_boost_ta(void)
 }
 
 int fbt_get_default_adj_loading(void)
+{
+	return 0;
+}
+
+int fbt_get_cluster_limit(int *cluster, int *freq)
 {
 	return 0;
 }

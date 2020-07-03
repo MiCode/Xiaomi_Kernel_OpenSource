@@ -95,11 +95,6 @@ void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 	fpsgo_systrace_c_fbt_gm(pid, base_blc, "min_cap");
 }
 
-int fbt_get_L_cluster_num(void)
-{
-	return 1;
-}
-
 int fbt_get_L_min_ceiling(void)
 {
 	return 1100000;
@@ -109,3 +104,9 @@ int fbt_get_default_boost_ta(void)
 {
 	return 0;
 }
+
+int fbt_get_cluster_limit(int *cluster, int *freq)
+{
+	return 0;
+}
+
