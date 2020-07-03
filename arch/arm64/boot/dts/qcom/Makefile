@@ -434,20 +434,22 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-v2-mtp-v1.1.dtb \
 	sdxprairie-v2-mtp-le-cpe.dtb \
 	sdxprairie-v2-ttp-cpe.dtb \
-        sa515m-v2-ttp.dtb \
-        sa515m-v2-ttp-usb-ep.dtb \
-        sa515m-v2-ttp-pcie-ep.dtb \
-        sa515m-v2-ttp-flashless-usb-ep.dtb \
-        sa515m-v2-ttp-flashless-pcie-ep.dtb \
-        sa515m-v2-ttp-emmc.dtb \
+	sa515m-v2-ttp.dtb \
+	sa515m-v2-ttp-usb-ep.dtb \
+	sa515m-v2-ttp-pcie-ep.dtb \
+	sa515m-v2-ttp-flashless-usb-ep.dtb \
+	sa515m-v2-ttp-flashless-pcie-ep.dtb \
+	sa515m-v2-ttp-emmc.dtb \
 	sa515m-ccard.dtb \
 	sa515m-ccard-pcie-ep.dtb \
 	sa515m-ccard-usb-ep.dtb \
-        sa515m-v2-ccard-flashless-pcie-ep.dtb \
-        sa515m-v2-ccard-flashless-usb-ep.dtb \
+	sa515m-ccard-eth-ep.dtb \
+	sa515m-v2-ccard-flashless-pcie-ep.dtb \
+	sa515m-v2-ccard-flashless-usb-ep.dtb \
 	sa515m-v2-ccard.dtb \
 	sa515m-v2-ccard-pcie-ep.dtb \
-	sa515m-v2-ccard-usb-ep.dtb
+	sa515m-v2-ccard-usb-ep.dtb \
+	sa515m-v2-ccard-eth-ep.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-cdp.dtb \
         mdm9607-mtp.dtb \
