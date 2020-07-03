@@ -27,7 +27,7 @@
 #include "xhci.h"
 #include "xhci-trace.h"
 
-#if IS_ENABLED(CONFIG_USB_XHCI_MTK_SUSPEND)
+#if IS_ENABLED(CONFIG_USB_XHCI_MTK)
 #include "xhci-mtk.h"
 #endif
 
@@ -1312,8 +1312,9 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 				if ((temp & PORT_PLS_MASK) != XDEV_U0)
 					xhci_warn(xhci, "error reset, 0x%08x\n",
 									temp);
-
+				#if IS_ENABLED(CONFIG_USB_XHCI_MTK)
 				xhci_mtk_set_port_mode(hcd, port_array, wIndex);
+				#endif
 			}
 			break;
 		case USB_PORT_FEAT_REMOTE_WAKE_MASK:
