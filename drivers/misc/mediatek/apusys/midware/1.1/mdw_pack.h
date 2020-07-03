@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,11 +11,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __APUSYS_MIDWARE_PLATFORM_H__
-#define __APUSYS_MIDWARE_PLATFORM_H__
+#ifndef __APUSYS_MDW_PACK_H__
+#define __APUSYS_MDW_PACK_H__
 
-extern struct dentry *mdw_dbg_root;
-#define APUSYS_VLM_START 0x1D800000 // tcm tmp
-#define APUSYS_VLM_SIZE 0x100000
+int mdw_pack_check(void);
+int mdw_pack_dispatch(struct mdw_apu_sc *sc);
+int mdw_pack_init(void);
+void mdw_pack_exit(void);
 
 #endif

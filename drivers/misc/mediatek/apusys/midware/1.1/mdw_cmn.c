@@ -1,5 +1,7 @@
+#include <linux/types.h>
+#include <linux/errno.h>
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,11 +13,19 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __APUSYS_MIDWARE_PLATFORM_H__
-#define __APUSYS_MIDWARE_PLATFORM_H__
+#include <linux/list.h>
+#include <linux/slab.h>
 
-extern struct dentry *mdw_dbg_root;
-#define APUSYS_VLM_START 0x1D800000 // tcm tmp
-#define APUSYS_VLM_SIZE 0x100000
+#include "mdw_cmn.h"
 
-#endif
+
+uint32_t mdw_cmn_get_time_diff(struct timespec *prev, struct timespec *next)
+{
+	uint32_t diff = 0;
+
+	diff = (next->tv_sec - prev->tv_sec) * 1000 * 1000;
+	if (next->tv_nsec - prev->tv_nsec)
+		diff += (next->tv_nsec - prev->tv_nsec)/1000;
+
+	return diff;
+}

@@ -264,17 +264,17 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 
 	/* memory api test */
 	if (hnd->cmdbuf != NULL) {
-		spl_drv_info("flush memory test\n");
+		spl_drv_dbg("flush memory test\n");
 		if (apusys_mem_flush(hnd->cmdbuf))
 			spl_drv_err("flush memory fail");
 		else
-			spl_drv_info("flush memory done");
+			spl_drv_dbg("flush memory done");
 
-		spl_drv_info("invalidate memory test\n");
+		spl_drv_dbg("invalidate memory test\n");
 		if (apusys_mem_invalidate(hnd->cmdbuf))
 			spl_drv_err("invalidate memory fail");
 		else
-			spl_drv_info("invalidate memory done");
+			spl_drv_dbg("invalidate memory done");
 	} else {
 		spl_drv_warn("no cmdbuf\n");
 	}

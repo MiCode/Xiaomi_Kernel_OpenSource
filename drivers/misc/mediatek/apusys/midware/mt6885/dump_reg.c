@@ -338,7 +338,7 @@ void apusys_dump_init(void)
 {
 	mutex_init(&dbg_lock);
 	mutex_init(&dump_lock);
-	debug_node = debugfs_create_dir("debug", apusys_dbg_root);
+	debug_node = debugfs_create_dir("debug", mdw_dbg_root);
 	debugfs_create_file("apusys_reg_all", 0444,
 			debug_node, NULL, &apu_dump_debug_fops);
 #if FORCE_REG_DUMP_ENABLE
