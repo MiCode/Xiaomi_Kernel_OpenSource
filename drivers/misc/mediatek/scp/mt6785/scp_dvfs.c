@@ -104,7 +104,7 @@ spm_resource_req(unsigned int user, unsigned int req_mask)
 }
 
 int __attribute__((weak))
-get_vcore_uv_table(int vcore_opp)
+get_vcore_uv_table(unsigned int vcore_opp)
 {
 	pr_err("ERROR: %s is not buildin by VCORE DVFS\n", __func__);
 	return 0;
