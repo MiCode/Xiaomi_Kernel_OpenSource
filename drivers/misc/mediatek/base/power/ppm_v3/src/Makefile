@@ -13,10 +13,15 @@
 
 ccflags-y += \
 	-I$(PPM_ROOT_DIR)/inc \
-	-I$(PPM_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)	\
+
+ifneq (,$(findstring 3gear,$(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)))
+ccflags-y += -I$(PPM_ROOT_DIR)/src/mach/mt6893
+else
+ccflags-y += -I$(PPM_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM)
+endif
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += \
