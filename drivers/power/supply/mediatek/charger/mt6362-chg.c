@@ -726,12 +726,7 @@ static int mt6362_chg_mivr_task_threadfn(void *data)
 
 	dev_info(cdata->dev, "%s ++\n", __func__);
 	while (!kthread_should_stop()) {
-		atomic_set(&cdata->mivr_cnt, 0);
-		mt6362_chg_irq_enable("chg_mivr_evt", 1);
-		ret = wait_event_interruptible(cdata->waitq,
-					atomic_read(&cdata->mivr_cnt) > 0);
-		if (ret < 0)
-			continue;
+		wait_event(cdata->waitq, atomic_read(&cdata->mivr_cnt) > 0);
 		mt_dbg(cdata->dev, "%s: enter mivr thread\n", __func__);
 		pm_stay_awake(cdata->dev);
 		/* check real mivr stat or not */
@@ -759,6 +754,9 @@ static int mt6362_chg_mivr_task_threadfn(void *data)
 		}
 loop_cont:
 		pm_relax(cdata->dev);
+		atomic_set(&cdata->mivr_cnt, 0);
+		mt6362_chg_irq_enable("chg_mivr_evt", 1);
+		msleep(200);
 	}
 	dev_info(cdata->dev, "%s --\n", __func__);
 	return 0;
