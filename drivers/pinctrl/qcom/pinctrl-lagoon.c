@@ -1604,14 +1604,14 @@ static const struct msm_pingroup lagoon_groups[] = {
 	[153] = PINGROUP(153, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C004, 13),
 	[154] = PINGROUP(154, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[155] = PINGROUP(155, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C004, 14),
-	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1a1000, 15, 0),
-	[157] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1a0000, 13, 6),
-	[158] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1a0000, 11, 3),
-	[159] = SDC_QDSD_PINGROUP(sdc1_data, 0x1a0000, 9, 0),
-	[160] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1a2000, 14, 6),
-	[161] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1a2000, 11, 3),
-	[162] = SDC_QDSD_PINGROUP(sdc2_data, 0x1a2000, 9, 0),
-	[163] = UFS_RESET(ufs_reset, 0x1ae000),
+	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0xa1000, 15, 0),
+	[157] = SDC_QDSD_PINGROUP(sdc1_clk, 0xa0000, 13, 6),
+	[158] = SDC_QDSD_PINGROUP(sdc1_cmd, 0xa0000, 11, 3),
+	[159] = SDC_QDSD_PINGROUP(sdc1_data, 0xa0000, 9, 0),
+	[160] = SDC_QDSD_PINGROUP(sdc2_clk, 0xa2000, 14, 6),
+	[161] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xa2000, 11, 3),
+	[162] = SDC_QDSD_PINGROUP(sdc2_data, 0xa2000, 9, 0),
+	[163] = UFS_RESET(ufs_reset, 0xae000),
 };
 
 static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
