@@ -2557,7 +2557,7 @@ static DEVICE_ATTR_RO(ver_info);
 
 #if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
 						IS_ENABLED(CONFIG_CONSOLE_POLL)
-static int __init msm_geni_console_setup(struct console *co, char *options)
+static int msm_geni_console_setup(struct console *co, char *options)
 {
 	struct uart_port *uport;
 	struct msm_geni_serial_port *dev_port;
