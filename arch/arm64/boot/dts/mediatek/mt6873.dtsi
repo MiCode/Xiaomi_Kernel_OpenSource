@@ -1587,6 +1587,306 @@
 			#clock-cells = <1>;
 		};
 
+		opp_table_disp: opp-table-disp {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <208000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <312000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <546000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_cam: opp-table-cam {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <273000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <392000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <499000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <624000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_img: opp-table-img {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <229000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <343000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <624000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_img2: opp-table-img2 {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <229000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <343000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <624000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_dpe: opp-table-dpe {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <249000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <364000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <458000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <546000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_ipe: opp-table-ipe {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <229000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <312000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <546000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_venc: opp-table-venc {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <249000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <364000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <458000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <624000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_vdec: opp-table-vdec {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <218000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <312000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <546000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_mdp: opp-table-mdp {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <229000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <343000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <416000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <594000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		opp_table_ccu: opp-table-ccu {
+			compatible = "operating-points-v2";
+			opp-0 {
+				opp-hz = /bits/ 64 <229000000>;
+				opp-microvolt = <575000>;
+			};
+			opp-1 {
+				opp-hz = /bits/ 64 <364000000>;
+				opp-microvolt = <600000>;
+			};
+			opp-2 {
+				opp-hz = /bits/ 64 <392000000>;
+				opp-microvolt = <650000>;
+			};
+			opp-3 {
+				opp-hz = /bits/ 64 <499000000>;
+				opp-microvolt = <725000>;
+			};
+		};
+
+		mmdvfs {
+			compatible = "mediatek,mmdvfs";
+
+			operating-points-v2 = <&opp_table_disp>;
+			mediatek,support_mux = "disp", "cam",
+			"img", "img2", "dpe",
+			"ipe","venc", "vdec",
+			"mdp", "ccu";
+			mediatek,mux_disp = "TOP_UNIVPLL_D6_D2",
+				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+				"TOP_MAINPLL_D4";
+			mediatek,mux_cam = "TOP_MAINPLL_D4_D2",
+				"TOP_MMPLL_D7", "TOP_UNIVPLL_D5",
+				"TOP_UNIVPLL_D4";
+			mediatek,mux_img = "TOP_MMPLL_D5_D2",
+				"TOP_MMPLL_D4_D2", "TOP_UNIVPLL_D6",
+				"TOP_UNIVPLL_D4";
+			mediatek,mux_img2 = "TOP_MMPLL_D5_D2",
+				"TOP_MMPLL_D4_D2", "TOP_UNIVPLL_D6",
+				"TOP_UNIVPLL_D4";
+			mediatek,mux_dpe = "TOP_UNIVPLL_D5_D2",
+				"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
+				"TOP_MAINPLL_D4";
+			mediatek,mux_ipe = "TOP_MMPLL_D5_D2",
+				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+				"TOP_MAINPLL_D4";
+			mediatek,mux_venc = "TOP_UNIVPLL_D5_D2",
+				"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
+				"TOP_UNIVPLL_D4";
+			mediatek,mux_vdec = "TOP_MAINPLL_D5_D2",
+				"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+				"TOP_MAINPLL_D4";
+			mediatek,mux_mdp = "TOP_MMPLL_D5_D2",
+				"TOP_MMPLL_D4_D2", "TOP_UNIVPLL_D6",
+				"TOP_TVDPLL_CK";
+			mediatek,mux_ccu = "TOP_MMPLL_D5_D2",
+				"TOP_MAINPLL_D6", "TOP_MMPLL_D7",
+				"TOP_UNIVPLL_D5";
+
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+
+			mediatek,support_hopping = "clk_mmpll_ck";
+			mediatek,hopping_clk_mmpll_ck = <229000000 275000000
+				 275000000 275000000>;
+			mediatek,action = <1>;
+
+			clocks = <&topckgen CLK_TOP_DISP_SEL>,	/* 0 */
+				<&topckgen CLK_TOP_CAM_SEL>,	/* 1 */
+				<&topckgen CLK_TOP_IMG1_SEL>,	/* 2 */
+				<&topckgen CLK_TOP_IMG2_SEL>,	/* 3 */
+				<&topckgen CLK_TOP_DPE_SEL>,	/* 4 */
+				<&topckgen CLK_TOP_IPE_SEL>,	/* 5 */
+				<&topckgen CLK_TOP_VENC_SEL>,	/* 6 */
+				<&topckgen CLK_TOP_VDEC_SEL>,	/* 7 */
+				<&topckgen CLK_TOP_MDP_SEL>,	/* 8 */
+				<&topckgen CLK_TOP_CCU_SEL>,	/* 9 */
+				<&topckgen CLK_TOP_MAINPLL_D4>,	/* 10 */
+				<&topckgen CLK_TOP_UNIVPLL_D6>,	/* 11 */
+				<&topckgen CLK_TOP_UNIVPLL_D4_D2>,	/* 12 */
+				<&topckgen CLK_TOP_UNIVPLL_D6_D2>,	/* 13 */
+				<&topckgen CLK_TOP_UNIVPLL_D4>,	/* 14 */
+				<&topckgen CLK_TOP_UNIVPLL_D5>,	/* 15 */
+				<&topckgen CLK_TOP_MMPLL_D7>,	/* 16 */
+				<&topckgen CLK_TOP_MAINPLL_D4_D2>,	/* 17 */
+				<&topckgen CLK_TOP_MMPLL_D4_D2>,	/* 18 */
+				<&topckgen CLK_TOP_MMPLL_D5_D2>,	/* 19 */
+				<&topckgen CLK_TOP_MMPLL_D6>,	/* 20 */
+				<&topckgen CLK_TOP_MAINPLL_D6>,	/* 21 */
+				<&topckgen CLK_TOP_UNIVPLL_D5_D2>,	/* 22 */
+				<&topckgen CLK_TOP_MAINPLL_D5_D2>,	/* 23 */
+				<&topckgen CLK_TOP_TVDPLL>,	/* 24 */
+				<&apmixedsys CLK_APMIXED_MMPLL>;
+			clock-names = "disp",	/* 0 */
+				"cam",	/* 1 */
+				"img",	/* 2 */
+				"img2",	/* 3 */
+				"dpe",	/* 4 */
+				"ipe",	/* 5 */
+				"venc",	/* 6 */
+				"vdec",	/* 7 */
+				"mdp",	/* 8 */
+				"ccu",	/* 9 */
+				"TOP_MAINPLL_D4",	/* 10 */
+				"TOP_UNIVPLL_D6",	/* 11 */
+				"TOP_UNIVPLL_D4_D2",	/* 12 */
+				"TOP_UNIVPLL_D6_D2",	/* 13 */
+				"TOP_UNIVPLL_D4",	/* 14 */
+				"TOP_UNIVPLL_D5",	/* 15 */
+				"TOP_MMPLL_D7",	/* 16 */
+				"TOP_MAINPLL_D4_D2",	/* 17 */
+				"TOP_MMPLL_D4_D2",	/* 18 */
+				"TOP_MMPLL_D5_D2",	/* 19 */
+				"TOP_MMPLL_D6",	/* 20 */
+				"TOP_MAINPLL_D6",	/* 21 */
+				"TOP_UNIVPLL_D5_D2",	/* 22 */
+				"TOP_MAINPLL_D5_D2",	/* 23 */
+				"TOP_TVDPLL_CK",	/* 24 */
+				"clk_mmpll_ck";
+		};
+
 		mmsys: mmsys@14000000 {
 			compatible = "mediatek,mt8192-mmsys", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
