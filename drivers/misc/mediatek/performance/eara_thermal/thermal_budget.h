@@ -50,5 +50,6 @@ int eara_thrm_mdla_opp_to_freq(int opp);
 int eara_thrm_apu_ready(void);
 int eara_thrm_vpu_onoff(void);
 int eara_thrm_mdla_onoff(void);
+int eara_thrm_keep_little_core(void);
 
 #endif

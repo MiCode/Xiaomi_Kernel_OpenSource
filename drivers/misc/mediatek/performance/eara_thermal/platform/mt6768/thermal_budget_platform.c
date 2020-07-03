@@ -16,7 +16,6 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include "mtk_gpufreq.h"
-#include "thermal_budget_platform.h"
 #include "thermal_budget.h"
 
 void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
@@ -108,5 +107,10 @@ int eara_thrm_vpu_onoff(void)
 int eara_thrm_mdla_onoff(void)
 {
 	return 0;
+}
+
+int eara_thrm_keep_little_core(void)
+{
+	return 1;
 }
 
