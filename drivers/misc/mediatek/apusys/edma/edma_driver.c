@@ -53,7 +53,7 @@ static int edma_init_queue_task(struct edma_sub *edma_sub)
 
 int edma_initialize(struct edma_device *edma_device)
 {
-	int ret = 0;
+	int ret = 0, len = 0;
 	int sub_id;
 
 	init_waitqueue_head(&edma_device->req_wait);
@@ -82,7 +82,10 @@ int edma_initialize(struct edma_device *edma_device)
 		edma_sub->power_state = EDMA_POWER_OFF;
 		mutex_init(&edma_sub->cmd_mutex);
 		init_waitqueue_head(&edma_sub->cmd_wait);
-		sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub);
+		len = sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub);
+		if (len < 0)
+			pr_notice("fail to copy to sub_name, lens = %d\n", len);
+
 		ret = edma_init_queue_task(edma_sub);
 	}
 
