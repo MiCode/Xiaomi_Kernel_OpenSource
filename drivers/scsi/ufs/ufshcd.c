@@ -247,6 +247,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 	/* MTK PATCH */
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_LIMITED_RPMB_MAX_RW_SIZE),
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_RESUME_CLOCK_ON_DELAY),
 
 	/* MTK PATCH */
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGJFCT0T44BAKLA",
@@ -9104,6 +9106,9 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ret = ufshcd_setup_clocks(hba, true);
 	if (ret)
 		goto out;
+
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_RESUME_CLOCK_ON_DELAY)
+		mdelay(1);
 
 	/* enable the host irq as host controller would be active soon */
 	ufshcd_enable_irq(hba);

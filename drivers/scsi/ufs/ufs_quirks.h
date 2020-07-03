@@ -134,6 +134,13 @@ struct ufs_dev_fix {
 
 /*
  * MTK PATCH
+ * Micron UFS device need 1ms delay in resume flow.
+ * This is a workaround before root cause figure out.
+ */
+#define UFS_DEVICE_QUIRK_RESUME_CLOCK_ON_DELAY	(1 << 29)
+
+/*
+ * MTK PATCH
  * Some UFS memory device needs limited RPMB max rw size otherwise
  * device issue, for example, device hang, may happen in some scenarios.
  */
