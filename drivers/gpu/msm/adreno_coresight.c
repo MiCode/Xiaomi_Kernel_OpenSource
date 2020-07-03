@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/coresight.h>
@@ -61,7 +61,7 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 
 		if (device->state == KGSL_STATE_ACTIVE ||
 			device->state == KGSL_STATE_NAP) {
-			if (!kgsl_active_count_get(device)) {
+			if (!adreno_active_count_get(adreno_dev)) {
 				if (!is_cx)
 					kgsl_regread(device, cattr->reg->offset,
 						&cattr->reg->value);
@@ -69,7 +69,7 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 					adreno_cx_dbgc_regread(device,
 						cattr->reg->offset,
 						&cattr->reg->value);
-				kgsl_active_count_put(device);
+				adreno_active_count_put(adreno_dev);
 			}
 		}
 
@@ -116,7 +116,7 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	/* Program the hardware if it is not power collapsed */
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_NAP) {
-		if (!kgsl_active_count_get(device)) {
+		if (!adreno_active_count_get(adreno_dev)) {
 			if (!is_cx)
 				kgsl_regwrite(device, cattr->reg->offset,
 					cattr->reg->value);
@@ -125,7 +125,7 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 					cattr->reg->offset,
 					cattr->reg->value);
 
-			kgsl_active_count_put(device);
+			adreno_active_count_put(adreno_dev);
 		}
 	}
 
@@ -166,7 +166,7 @@ static void adreno_coresight_disable(struct coresight_device *csdev,
 
 	mutex_lock(&device->mutex);
 
-	if (!kgsl_active_count_get(device)) {
+	if (!adreno_active_count_get(adreno_dev)) {
 		if (cs_id == GPU_CORESIGHT_GX)
 			for (i = 0; i < coresight->count; i++)
 				kgsl_regwrite(device,
@@ -176,7 +176,7 @@ static void adreno_coresight_disable(struct coresight_device *csdev,
 				adreno_cx_dbgc_regwrite(device,
 					coresight->registers[i].offset, 0);
 
-		kgsl_active_count_put(device);
+		adreno_active_count_put(adreno_dev);
 	}
 
 	if (cs_id == GPU_CORESIGHT_GX)
@@ -289,10 +289,10 @@ static int adreno_coresight_enable(struct coresight_device *csdev,
 				coresight->registers[i].initial;
 
 		if (kgsl_state_is_awake(device)) {
-			ret = kgsl_active_count_get(device);
+			ret = adreno_active_count_get(adreno_dev);
 			if (!ret) {
 				ret = _adreno_coresight_set(adreno_dev, cs_id);
-				kgsl_active_count_put(device);
+				adreno_active_count_put(adreno_dev);
 			}
 		}
 	}

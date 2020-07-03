@@ -9,14 +9,11 @@ msm_kgsl-y = \
 	kgsl_drawobj.o \
 	kgsl_events.o \
 	kgsl_ioctl.o \
-	kgsl_gmu.o \
 	kgsl_gmu_core.o \
-	kgsl_hfi.o \
 	kgsl_mmu.o \
 	kgsl_pool.o \
 	kgsl_pwrctrl.o \
 	kgsl_pwrscale.o \
-	kgsl_rgmu.o \
 	kgsl_sharedmem.o \
 	kgsl_snapshot.o \
 	kgsl_trace.o \
@@ -36,8 +33,11 @@ msm_kgsl-y += \
 	adreno_a5xx_snapshot.o \
 	adreno_a6xx.o \
 	adreno_a6xx_gmu.o \
+	adreno_a6xx_gmu_snapshot.o \
+	adreno_a6xx_hfi.o \
 	adreno_a6xx_preempt.o \
 	adreno_a6xx_rgmu.o \
+	adreno_a6xx_rpmh.o \
 	adreno_a6xx_snapshot.o \
 	adreno_cp_parser.o \
 	adreno_dispatch.o \
