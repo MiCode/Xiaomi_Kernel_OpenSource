@@ -1050,7 +1050,7 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 
 	gain = param->DREGainFltStatus;
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
- || defined(CONFIG_MACH_MT6893)
+	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
@@ -2102,7 +2102,7 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 			DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
 		DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
@@ -2422,11 +2422,23 @@ static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
 	.bitShift = 16,
 };
 
+static const struct mtk_disp_aal_data mt6853_aal_driver_data = {
+	.support_shadow = false,
+	.aal_dre_hist_start = 1536,
+	.aal_dre_hist_end   = 4604,
+	.aal_dre_gain_start = 4608,
+	.aal_dre_gain_end   = 6780,
+	.bitShift = 16,
+};
+
+
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-aal",
 	  .data = &mt6885_aal_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-aal",
 	  .data = &mt6873_aal_driver_data},
+	{ .compatible = "mediatek,mt6853-disp-aal",
+	  .data = &mt6853_aal_driver_data},
 	{},
 };
 

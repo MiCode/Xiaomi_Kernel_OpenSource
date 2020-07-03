@@ -234,6 +234,31 @@ found:
 	return 0;
 }
 
+int free_fb_buf(void)
+{
+	unsigned long va_start = 0;
+	unsigned long va_end = 0;
+	phys_addr_t fb_base;
+	unsigned int vramsize, fps;
+
+	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
+
+	if (!fb_base) {
+		DDPINFO("%s:get fb pa error\n", __func__);
+		return -1;
+	}
+
+	va_start = (unsigned long)__va(fb_base);
+	va_end = (unsigned long)__va(fb_base + (unsigned long)vramsize);
+	if (va_start)
+		free_reserved_area((void *)va_start,
+				   (void *)va_end, 0xff, "fbmem");
+	else
+		DDPINFO("%s:va invalid\n", __func__);
+
+	return 0;
+}
+
 static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 			   struct drm_fb_helper_surface_size *sizes)
 {

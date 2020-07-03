@@ -33,6 +33,7 @@
 	#define DSC_IN_SRC_SEL BIT(3)
 	#define DSC_BYPASS BIT(4)
 	#define DSC_RELAY BIT(5)
+	#define DSC_EMPTY_FLAG_SEL		0xC000
 	#define DSC_UFOE_SEL BIT(16)
 	#define CON_FLD_DSC_EN		REG_FLD_MSB_LSB(0, 0)
 	#define CON_FLD_DISP_DSC_BYPASS		REG_FLD_MSB_LSB(4, 4)
@@ -86,7 +87,7 @@
 #define DISP_REG_DSC_SHADOW			0x0200
 	#define DSC_FORCE_COMMIT BIT(1)
 #endif
-#ifdef CONFIG_MACH_MT6873
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 #define DISP_REG_DSC_SHADOW			0x0200
 #define DSC_FORCE_COMMIT	BIT(0)
 #define DSC_BYPASS_SHADOW	BIT(1)
@@ -157,7 +158,7 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
 		DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
@@ -516,11 +517,17 @@ static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-dsc",
 	  .data = &mt6885_dsc_driver_data},
 	{ .compatible = "mediatek,mt6873-disp-dsc",
 	  .data = &mt6873_dsc_driver_data},
+	{ .compatible = "mediatek,mt6853-disp-dsc",
+	  .data = &mt6853_dsc_driver_data},
 	{},
 };
 

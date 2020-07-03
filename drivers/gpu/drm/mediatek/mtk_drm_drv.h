@@ -35,6 +35,11 @@
 #define CONFIG_MTK_DISPLAY_CMDQ
 #define MTK_FB_MMDVFS_SUPPORT
 #define MTK_FILL_MIPI_IMPEDANCE
+#if (defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
+	|| defined(CONFIG_MACH_MT6853)) &&\
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#define MTK_DRM_DELAY_PRESENT_FENCE
+#endif
 
 
 struct device;
@@ -78,6 +83,7 @@ struct mtk_mmsys_driver_data {
 struct mtk_drm_lyeblob_ids {
 	uint32_t lye_idx;
 	uint32_t frame_weight;
+	uint32_t hrt_num;
 	int32_t ddp_blob_id;
 	int32_t ref_cnt;
 	int32_t ref_cnt_mask;
@@ -178,6 +184,28 @@ struct repaint_job_t {
 	unsigned int type;
 };
 
+#define LCM_FPS_ARRAY_SIZE  32
+struct lcm_fps_ctx_t {
+	atomic_t is_inited;
+	spinlock_t lock;
+	atomic_t skip_update;
+	unsigned int dsi_mode;
+	unsigned int head_idx;
+	unsigned int num;
+	unsigned int fps;
+	unsigned long long last_ns;
+	unsigned long long array[LCM_FPS_ARRAY_SIZE];
+};
+
+#define DISP_LARB_COUNT 1
+struct disp_iommu_device {
+	struct platform_device *larb_pdev[DISP_LARB_COUNT];
+	struct platform_device *iommu_pdev;
+	unsigned int inited;
+};
+
+struct disp_iommu_device *disp_get_iommu_dev(void);
+
 extern struct platform_driver mtk_ddp_driver;
 extern struct platform_driver mtk_disp_color_driver;
 extern struct platform_driver mtk_disp_ccorr_driver;
@@ -196,6 +224,7 @@ extern struct platform_driver mtk_mipi_tx_driver;
 extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
+extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
 void mtk_atomic_state_get(struct drm_atomic_state *state);
 void mtk_atomic_state_put(struct drm_atomic_state *state);
@@ -213,5 +242,9 @@ bool mtk_drm_session_mode_is_decouple_mode(struct drm_device *dev);
 bool mtk_drm_session_mode_is_mirror_mode(struct drm_device *dev);
 bool mtk_drm_top_clk_isr_get(char *master);
 void mtk_drm_top_clk_isr_put(char *master);
+int lcm_fps_ctx_init(struct drm_crtc *crtc);
+int lcm_fps_ctx_reset(struct drm_crtc *crtc);
+int lcm_fps_ctx_update(unsigned long long cur_ns,
+		unsigned int crtc_id, unsigned int mode);
 
 #endif /* MTK_DRM_DRV_H */
