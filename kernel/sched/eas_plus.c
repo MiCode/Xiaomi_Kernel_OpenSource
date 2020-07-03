@@ -42,7 +42,8 @@ static int share_buck[3] = {1, 0, 2};
 static int share_buck[2] = {2, 1};
 #define ARM_V8_2
 int l_plus_cpu = -1;
-#elif defined(CONFIG_MACH_MT6893) && defined(CONFIG_MTK_SCHED_MULTI_GEARS)
+#elif defined(CONFIG_MACH_MT6893) || \
+	(defined(CONFIG_MACH_MT6885) && defined(CONFIG_MTK_SCHED_MULTI_GEARS))
 static int share_buck[3] = {0, 2, 1};
 #else
 /* no buck shared */
