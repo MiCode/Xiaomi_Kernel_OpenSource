@@ -49,8 +49,12 @@
 #include "mtk_unified_power_data_mt6785.h"
 #endif
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6885)
 #include "mtk_unified_power_data_mt6885.h"
+#endif
+
+#if defined(CONFIG_MACH_MT6893)
+#include "mtk_unified_power_data_mt6893.h"
 #endif
 
 #if defined(CONFIG_MACH_MT6873)
