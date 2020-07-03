@@ -167,6 +167,7 @@ int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
 				enum smem_cache_ops cache_op,
 				unsigned long offset,
 				unsigned long size);
+int msm_cvp_map_ipcc_regs(u32 *iova);
 
 /* CVP driver internal buffer management functions*/
 struct cvp_internal_buf *cvp_allocate_arp_bufs(struct msm_cvp_inst *inst,

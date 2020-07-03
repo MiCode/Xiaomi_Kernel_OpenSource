@@ -1964,6 +1964,7 @@ static int __sys_set_power_control(struct iris_hfi_device *device,
 static int iris_hfi_core_init(void *device)
 {
 	int rc = 0;
+	u32 ipcc_iova;
 	struct cvp_hfi_cmd_sys_init_packet pkt;
 	struct cvp_hfi_cmd_sys_get_property_packet version_pkt;
 	struct iris_hfi_device *dev;
@@ -2009,6 +2010,12 @@ static int iris_hfi_core_init(void *device)
 		dprintk(CVP_ERR, "failed to init queues\n");
 		rc = -ENOMEM;
 		goto err_core_init;
+	}
+
+	rc = msm_cvp_map_ipcc_regs(&ipcc_iova);
+	if (!rc) {
+		dprintk(CVP_CORE, "IPCC iova 0x%x\n", ipcc_iova);
+		__write_register(dev, CVP_MMAP_ADDR, ipcc_iova);
 	}
 
 	rc = __boot_firmware(dev);
