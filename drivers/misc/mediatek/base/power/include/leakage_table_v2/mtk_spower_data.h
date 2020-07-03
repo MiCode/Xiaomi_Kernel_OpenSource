@@ -81,6 +81,10 @@ struct spower_raw_t {
 #include "mtk_spower_data_mt6853.h"
 #endif
 
+#if defined(CONFIG_MACH_MT8168)
+#include "mtk_spower_data_mt8168.h"
+#endif
+
 struct voltage_row_s {
 	int mV[VSIZE];
 };

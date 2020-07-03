@@ -16,6 +16,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/upower_v2	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)/	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(CONFIG_MTK_PLATFORM)/inc	\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach	\
 
@@ -41,3 +42,4 @@ obj-$(CONFIG_MACH_MT6885) += mtk_unified_power_mt6885.o
 obj-$(CONFIG_MACH_MT6893) += mtk_unified_power_mt6893.o
 obj-$(CONFIG_MACH_MT6873) += mtk_unified_power_mt6873.o
 obj-$(CONFIG_MACH_MT6853) += mtk_unified_power_mt6853.o
+obj-$(CONFIG_MACH_MT8168) += mtk_unified_power_mt8168.o

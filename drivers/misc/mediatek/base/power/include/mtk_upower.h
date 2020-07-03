@@ -20,7 +20,7 @@
 	|| defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6885) \
 	|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6765) \
 	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6893)
+	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT8168)
 #include "upower_v2/mtk_unified_power.h"
 #endif
 
