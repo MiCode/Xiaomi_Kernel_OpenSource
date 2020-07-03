@@ -1643,6 +1643,8 @@ static int npu_get_property(struct npu_client *client,
 	case MSM_NPU_PROP_ID_DRV_FEATURE:
 		prop.prop_param[0] = MSM_NPU_FEATURE_MULTI_EXECUTE |
 			MSM_NPU_FEATURE_ASYNC_EXECUTE;
+		if (npu_dev->npu_dsp_sid_mapped)
+			prop.prop_param[0] |= MSM_NPU_FEATURE_DSP_SID_MAPPED;
 		break;
 	default:
 		ret = npu_host_get_fw_property(client->npu_dev, &prop);
@@ -2419,6 +2421,10 @@ static int npu_hw_info_init(struct npu_device *npu_dev)
 	npu_dev->hw_version = REGR(npu_dev, NPU_HW_VERSION);
 	NPU_DBG("NPU_HW_VERSION 0x%x\n", npu_dev->hw_version);
 	npu_disable_core_power(npu_dev);
+
+	npu_dev->npu_dsp_sid_mapped =
+		of_property_read_bool(npu_dev->pdev->dev.of_node,
+		"qcom,npu-dsp-sid-mapped");
 
 	return rc;
 }
