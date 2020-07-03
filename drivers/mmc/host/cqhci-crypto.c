@@ -77,8 +77,11 @@ static int cqhci_crypto_keyslot_program(struct keyslot_manager *ksm,
 
 	if (WARN_ON(cap_idx < 0))
 		return -EOPNOTSUPP;
-
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK
 	cfg.data_unit_size = data_unit_mask;
+#else
+	cfg.data_unit_size = 1;
+#endif
 	cfg.crypto_cap_idx = cap_idx;
 	cfg.config_enable = CQHCI_CRYPTO_CONFIGURATION_ENABLE;
 
