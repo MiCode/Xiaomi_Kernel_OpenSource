@@ -400,6 +400,8 @@ struct ufs_hba_variant_ops {
 	int     (*scsi_dev_cfg)(struct scsi_device *, enum ufs_scsi_dev_cfg);
 	int	(*program_key)(struct ufs_hba *hba,
 			       const union ufs_crypto_cfg_entry *cfg, int slot);
+	void	(*abort_handler)(struct ufs_hba *hba, int tag, char *file,
+				 int line);
 };
 
 struct keyslot_mgmt_ll_ops;
@@ -1063,6 +1065,13 @@ static inline void ufshcd_vops_scsi_dev_cfg(struct scsi_device *sdev,
 
 	if (hba->vops && hba->vops->scsi_dev_cfg)
 		hba->vops->scsi_dev_cfg(sdev, op);
+}
+
+static inline void ufshcd_vops_abort_handler(struct ufs_hba *hba,
+					     int tag, char *file, int line)
+{
+	if (hba->vops && hba->vops->abort_handler)
+		hba->vops->abort_handler(hba, tag, file, line);
 }
 
 static inline void check_upiu_size(void)
