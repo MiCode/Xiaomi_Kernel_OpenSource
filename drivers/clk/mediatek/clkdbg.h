@@ -22,19 +22,23 @@ struct seq_file;
 enum FMETER_TYPE {
 	FT_NULL,
 	ABIST,
-	CKGEN
+	CKGEN,
+	ABIST_2,
 };
 
 struct fmeter_clk {
 	enum FMETER_TYPE type;
 	u32 id;
 	const char *name;
+	u32 ofs;
+	u32 pdn;
 };
 
 struct regbase {
 	u32 phys;
 	void __iomem *virt;
 	const char *name;
+	const char *pg;
 };
 
 struct regname {
@@ -73,6 +77,7 @@ struct clkdbg_ops {
 	const char * const *(*get_pwr_names)(void);
 	void (*setup_provider_clk)(struct provider_clk *pvdck);
 	u32 (*get_spm_pwr_status)(void);
+	bool (*is_pwr_on)(struct provider_clk *pvdck);
 };
 
 void set_clkdbg_ops(const struct clkdbg_ops *ops);
