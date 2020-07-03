@@ -25,6 +25,9 @@
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 
+#include "adsp_ipi.h"
+#include "mtk_hifixdsp_common.h"
+
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
@@ -409,7 +412,6 @@ int scp_send_msg_to_queue(
 	const uint32_t k_restart_sleep_min_us = 20 * 1000;
 	const uint32_t k_restart_sleep_max_us = (k_restart_sleep_min_us + 200);
 
-
 	scp_debug("%s(+), opendsp_id: %u, ipi_id: %u, buf: %p, len: %u, wait_ms: %u\n",
 		  __func__, opendsp_id, ipi_id, buf, len, wait_ms);
 
@@ -433,6 +435,12 @@ int scp_send_msg_to_queue(
 		return -1;
 	}
 
+	if (!hifixdsp_run_status() || is_from_wdt) {
+		pr_info("DSP shutdown, close ipi and empty scp queue!\n");
+		msg_queue->idx_w = 0;
+		msg_queue->idx_r = 0;
+		return -1;
+	}
 
 	/* NEVER sleep in ISR */
 	if (in_interrupt() && wait_ms != 0) {
@@ -1062,7 +1070,7 @@ static int scp_process_msg_from_scp(
 		return -EFAULT;
 	}
 
-	if (p_scp_msg->buf == NULL || p_scp_msg->len == 0) {
+	if (p_scp_msg->len == 0) {
 		pr_info("%s(), p_scp_msg->buf: %p, p_scp_msg->len: %u\n",
 			__func__, p_scp_msg->buf, p_scp_msg->len);
 		return -EFAULT;
