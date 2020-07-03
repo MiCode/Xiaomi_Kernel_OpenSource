@@ -621,28 +621,6 @@ static struct notifier_block cm_mgr_idle_notify = {
 };
 #endif /* USE_IDLE_NOTIFY */
 
-#if 0
-static int cm_mgr_is_lp_flavor(void)
-{
-	int r = 0;
-
-#if defined(CONFIG_ARM64)
-	int len;
-
-	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-
-	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
-				"_lp", 3) == 0)
-		r = 1;
-
-	pr_info("flavor check: %s, is_lp: %d\n",
-			CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES, r);
-#endif /* CONFIG_ARM64 */
-
-	return r;
-}
-#endif /* 0 */
-
 struct timer_list cm_mgr_ratio_timer;
 #define CM_MGR_RATIO_TIMER_MS	msecs_to_jiffies(1)
 
@@ -829,11 +807,6 @@ int cm_mgr_platform_init(void)
 #ifdef USE_IDLE_NOTIFY
 	mtk_idle_notifier_register(&cm_mgr_idle_notify);
 #endif /* USE_IDLE_NOTIFY */
-
-#if 0
-	if (cm_mgr_is_lp_flavor())
-		cm_mgr_enable = 1;
-#endif /* 0 */
 
 	init_timer_deferrable(&cm_mgr_ratio_timer);
 	cm_mgr_ratio_timer.function = cm_mgr_ratio_timer_fn;
