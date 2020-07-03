@@ -546,6 +546,8 @@ int get_taskid_by_afe_daiid(int task_dai_id)
 			return i;
 	}
 
+	pr_err("%s(), err, afe_dai_id: %d", __func__, task_dai_id);
+
 	return -1;
 }
 
