@@ -135,7 +135,7 @@ config MACH_MT6768
 	select GENERIC_CLOCKEVENTS
 	select ARCH_HAS_CPUFREQ
 	select ARM_AMBA
-	select ARM_DSU_PMU
+	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
 	select CPU_V7
 	select HAVE_SMP
 	select IRQ_DOMAIN
