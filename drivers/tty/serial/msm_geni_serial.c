@@ -1472,33 +1472,6 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 	start_rx_sequencer(&port->uport);
 }
 
-
-static void msm_geni_serial_rx_fsm_rst(struct uart_port *uport)
-{
-	unsigned int rx_irq_en;
-	int done = 0;
-	int tries = 0;
-	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
-
-	if (port->uart_ssr.is_ssr_down) {
-		IPC_LOG_MSG(port->ipc_log_misc, "%s: SSR Down event set\n",
-			__func__);
-		return;
-	}
-
-	rx_irq_en = geni_read_reg_nolog(uport->membase, SE_DMA_RX_IRQ_EN);
-	geni_write_reg_nolog(0, uport->membase, SE_DMA_RX_IRQ_EN_SET);
-	geni_write_reg_nolog(1, uport->membase, SE_DMA_RX_FSM_RST);
-	do {
-		done = msm_geni_serial_poll_bit(uport, SE_DMA_RX_IRQ_STAT,
-							RX_RESET_DONE, true);
-		tries++;
-	} while (!done && tries < 5);
-	geni_write_reg_nolog(RX_DMA_DONE | RX_RESET_DONE, uport->membase,
-						     SE_DMA_RX_IRQ_CLR);
-	geni_write_reg_nolog(rx_irq_en, uport->membase, SE_DMA_RX_IRQ_EN_SET);
-}
-
 static void msm_geni_serial_set_manual_flow(bool enable,
 					struct msm_geni_serial_port *port)
 {
@@ -1558,7 +1531,7 @@ static void stop_rx_sequencer(struct uart_port *uport)
 		IPC_LOG_MSG(port->ipc_log_misc,
 			"%s: RX is Inactive, geni_sts: 0x%x\n",
 						__func__, geni_status);
-		goto exit_rx_seq;
+		return;
 	}
 
 	port->s_cmd_done = false;
@@ -1617,15 +1590,25 @@ static void stop_rx_sequencer(struct uart_port *uport)
 			IPC_LOG_MSG(port->console_log,
 				"%s abort fail 0x%x\n",  __func__, geni_status);
 		}
+
+		if (port->xfer_mode == SE_DMA) {
+			port->s_cmd_done = false;
+			reinit_completion(&port->s_cmd_timeout);
+			geni_write_reg_nolog(1, uport->membase,
+						SE_DMA_RX_FSM_RST);
+
+			timeout = geni_wait_for_cmd_done(uport,
+							 is_irq_masked);
+			if (timeout)
+				IPC_LOG_MSG(port->ipc_log_misc,
+				"%s: rx fsm reset failed\n", __func__);
+		}
 	}
 	/* Enable the interrupts once the cancel operation is done. */
 	msm_geni_serial_enable_interrupts(uport);
 	port->s_cmd = false;
 
 exit_rx_seq:
-	if (port->xfer_mode == SE_DMA && port->rx_dma)
-		msm_geni_serial_rx_fsm_rst(uport);
-
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: End 0x%x\n",
 		    __func__, geni_status);
