@@ -269,3 +269,4 @@
 };
 
 #include "sdxlemur-pinctrl.dtsi"
+#include "sdxlemur-stub-regulator.dtsi"
