@@ -18,6 +18,12 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 			   unsigned int data_unit_mask, int capid);
 int crypto_qti_invalidate_key(struct crypto_vops_qti_entry *ice_entry,
 			      unsigned int slot);
+int crypto_qti_derive_raw_secret_platform(
+				struct crypto_vops_qti_entry *ice_entry,
+				const u8 *wrapped_key,
+				unsigned int wrapped_key_size, u8 *secret,
+				unsigned int secret_size);
+
 #if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
 void crypto_qti_disable_platform(struct crypto_vops_qti_entry *ice_entry);
 #else
@@ -39,6 +45,15 @@ static inline int crypto_qti_invalidate_key(
 {
 	return -EOPNOTSUPP;
 }
+static inline int crypto_qti_derive_raw_secret_platform(
+				struct crypto_vops_qti_entry *ice_entry,
+				const u8 *wrapped_key,
+				unsigned int wrapped_key_size, u8 *secret,
+				unsigned int secret_size)
+{
+	return -EOPNOTSUPP;
+}
+
 static inline void crypto_qti_disable_platform(
 				struct crypto_vops_qti_entry *ice_entry)
 {}
