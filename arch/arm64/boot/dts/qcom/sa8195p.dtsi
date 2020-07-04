@@ -294,6 +294,11 @@
 	status = "ok";
 };
 
+&usb2 {
+	qcom,ignore-wakeup-src-in-hostmode;
+	status = "ok";
+};
+
 &slpi_tlmm {
 	status = "ok";
 };
@@ -376,6 +381,32 @@
 	vdd-supply = <&pm8195_3_l5>;
 	vdda18-supply = <&pm8195_1_l12>;
 	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&usb2_phy2 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&usb_qmp_phy0 {
+	vdd-supply = <&pm8195_3_l9>;
+	core-supply = <&pm8195_1_l9>;
+	status = "ok";
+};
+
+&usb2_phy3 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&usb_qmp_phy1 {
+	vdd-supply = <&pm8195_3_l9>;
+	core-supply = <&pm8195_1_l9>;
 	status = "ok";
 };
 

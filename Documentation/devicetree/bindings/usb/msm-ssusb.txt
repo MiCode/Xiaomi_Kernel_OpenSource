@@ -93,6 +93,8 @@ Optional properties :
 	capable DWC3 which does not have extcon handle.
 - qcom,default-mode-host: If present, start host mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
+- qcom,dual-port: If present, 2 different physical ports are supported by this
+	core. Please note that this flag is valid for cores supporting only host mode.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
