@@ -629,6 +629,7 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
 	u32 scm_ret = 0;
+	unsigned long pfn_start, pfn_end, pfn;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -646,6 +647,14 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 		goto err_clks;
 
 	scm_ret = qcom_scm_pas_auth_and_reset(d->pas_id);
+
+	pfn_start = pil->priv->region_start >> PAGE_SHIFT;
+	if (pfn_valid(pfn_start) && !scm_ret) {
+		pfn_end = (PAGE_ALIGN(pil->priv->region_start +
+				pil->priv->region_size)) >> PAGE_SHIFT;
+		for (pfn = pfn_start; pfn < pfn_end; pfn++)
+			set_page_private(pfn_to_page(pfn), SECURE_PAGE_MAGIC);
+	}
 
 	scm_pas_disable_bw();
 	if (rc)
@@ -665,6 +674,7 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	struct pil_tz_data *d = desc_to_data(pil);
 	u32 scm_ret = 0;
 	int rc;
+	unsigned long pfn_start, pfn_end, pfn;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -684,6 +694,14 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 		goto err_clks;
 
 	scm_ret = qcom_scm_pas_shutdown(d->pas_id);
+
+	pfn_start = pil->priv->region_start >> PAGE_SHIFT;
+	if (pfn_valid(pfn_start) && !scm_ret) {
+		pfn_end = (PAGE_ALIGN(pil->priv->region_start +
+				pil->priv->region_size)) >> PAGE_SHIFT;
+		for (pfn = pfn_start; pfn < pfn_end; pfn++)
+			set_page_private(pfn_to_page(pfn), 0);
+	}
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
@@ -709,11 +727,22 @@ err_regulators:
 static int pil_deinit_image_trusted(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	u32 scm_ret = 0;
+	unsigned long pfn_start, pfn_end, pfn;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
 
-	return qcom_scm_pas_shutdown(d->pas_id);
+	scm_ret = qcom_scm_pas_shutdown(d->pas_id);
+	pfn_start = pil->priv->region_start >> PAGE_SHIFT;
+	if (pfn_valid(pfn_start) && !scm_ret) {
+		pfn_end = (PAGE_ALIGN(pil->priv->region_start +
+			    pil->priv->region_size)) >> PAGE_SHIFT;
+		for (pfn = pfn_start; pfn < pfn_end; pfn++)
+			set_page_private(pfn_to_page(pfn), 0);
+	}
+
+	return scm_ret;
 }
 
 static struct pil_reset_ops pil_ops_trusted = {

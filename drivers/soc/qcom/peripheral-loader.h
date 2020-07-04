@@ -9,9 +9,47 @@
 #include <linux/mailbox/qmp.h>
 #include "minidump_private.h"
 
+#define SECURE_PAGE_MAGIC 0xEEEEEEEE
 struct device;
 struct module;
-struct pil_priv;
+/**
+ * struct pil_priv - Private state for a pil_desc
+ * @proxy: work item used to run the proxy unvoting routine
+ * @ws: wakeup source to prevent suspend during pil_boot
+ * @wname: name of @ws
+ * @desc: pointer to pil_desc this is private data for
+ * @seg: list of segments sorted by physical address
+ * @entry_addr: physical address where processor starts booting at
+ * @base_addr: smallest start address among all segments that are relocatable
+ * @region_start: address where relocatable region starts or lowest address
+ * for non-relocatable images
+ * @region_end: address where relocatable region ends or highest address for
+ * non-relocatable images
+ * @region: region allocated for relocatable images
+ * @unvoted_flag: flag to keep track if we have unvoted or not.
+ *
+ * This struct contains data for a pil_desc that should not be exposed outside
+ * of this file. This structure points to the descriptor and the descriptor
+ * points to this structure so that PIL drivers can't access the private
+ * data of a descriptor but this file can access both.
+ */
+struct pil_priv {
+	struct delayed_work proxy;
+	struct wakeup_source *ws;
+	char wname[32];
+	struct pil_desc *desc;
+	int num_segs;
+	struct list_head segs;
+	phys_addr_t entry_addr;
+	phys_addr_t base_addr;
+	phys_addr_t region_start;
+	phys_addr_t region_end;
+	bool is_region_allocated;
+	struct pil_image_info __iomem *info;
+	int id;
+	int unvoted_flag;
+	size_t region_size;
+};
 
 /**
  * struct pil_desc - PIL descriptor
