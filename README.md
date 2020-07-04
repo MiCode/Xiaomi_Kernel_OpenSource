@@ -54,7 +54,7 @@
 | mocha-kk-oss | Mi Pad | Android KK | tegra-19r15.1-android-4.4 | [mocha-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mocha-kk-oss) |
 | nitrogen-o-oss | MI MAX3,Mi Note 3 | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [nitrogen-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-o-oss) |
 | nitrogen-p-oss | MI MAX3,MI 8Lite | Android P | LA.UM.7.2.r1-05200-sdm660.0 | [nitrogen-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-p-oss) |
-| nitrogen-q-oss | MI MAX3,MI 8Lite| Android Q | LLA.UM.8.2.r1-04300-sdm660.0 | [nitrogen-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-q-oss) |
+| nitrogen-q-oss | MI MAX3,MI 8Lite| Android Q | LA.UM.8.2.r1-04300-sdm660.0 | [nitrogen-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-q-oss) |
 | olive-p-oss | Redmi 8, Redmi 8A | Android P | LA.UM.7.6.2.r1-08100-89xx.0 | [olive-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/olive-p-oss) |
 | olivewood-p-oss  | Redmi 8A Dual | Android P | LA.UM.7.6.2.r1-08100-89xx.0 | [olivewood-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/olivewood-p-oss) |
 | onc-p-oss | Redmi 7, Redmi Y3 | Android P | LA.UM.7.6.2.r1-04200-89xx.0 | [onc-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/onc-p-oss) |
