@@ -1,3 +1,5 @@
+source "drivers/clk/qcom/mdss/Kconfig"
+
 config QCOM_GDSC
 	bool
 	select PM_GENERIC_DOMAINS if PM
