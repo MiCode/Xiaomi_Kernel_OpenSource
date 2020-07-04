@@ -2009,6 +2009,7 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 
 	if (!priv->ops || (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))) {
 		icnss_pr_err("Driver not registered\n");
+		penv->ops = NULL;
 		ret = -ENOENT;
 		goto out;
 	}
