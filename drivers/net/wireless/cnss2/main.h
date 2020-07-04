@@ -238,6 +238,7 @@ enum cnss_driver_state {
 	CNSS_IN_SUSPEND_RESUME = 15,
 	CNSS_IN_REBOOT,
 	CNSS_COLD_BOOT_CAL_DONE,
+	CNSS_IN_PANIC,
 };
 
 struct cnss_recovery_data {

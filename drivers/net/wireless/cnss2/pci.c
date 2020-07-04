@@ -422,6 +422,7 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 			     u32 offset, u32 *val)
 {
 	int ret;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
 	if (!in_interrupt() && !irqs_disabled()) {
 		ret = cnss_pci_check_link_status(pci_priv);
@@ -435,12 +436,21 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 		return 0;
 	}
 
-	spin_lock_bh(&pci_reg_window_lock);
-	cnss_pci_select_window(pci_priv, offset);
-
-	*val = readl_relaxed(pci_priv->bar + WINDOW_START +
-			     (offset & WINDOW_RANGE_MASK));
-	spin_unlock_bh(&pci_reg_window_lock);
+	/* If in panic, assumption is kernel panic handler will hold all threads
+	 * and interrupts. Further pci_reg_window_lock could be held before
+	 * panic. So only lock during normal operation.
+	 */
+	if (test_bit(CNSS_IN_PANIC, &plat_priv->driver_state)) {
+		cnss_pci_select_window(pci_priv, offset);
+		*val = readl_relaxed(pci_priv->bar + WINDOW_START +
+				     (offset & WINDOW_RANGE_MASK));
+	} else {
+		spin_lock_bh(&pci_reg_window_lock);
+		cnss_pci_select_window(pci_priv, offset);
+		*val = readl_relaxed(pci_priv->bar + WINDOW_START +
+				     (offset & WINDOW_RANGE_MASK));
+		spin_unlock_bh(&pci_reg_window_lock);
+	}
 
 	return 0;
 }
@@ -449,6 +459,7 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 			      u32 val)
 {
 	int ret;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
 	if (!in_interrupt() && !irqs_disabled()) {
 		ret = cnss_pci_check_link_status(pci_priv);
@@ -462,12 +473,18 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 		return 0;
 	}
 
-	spin_lock_bh(&pci_reg_window_lock);
-	cnss_pci_select_window(pci_priv, offset);
-
-	writel_relaxed(val, pci_priv->bar + WINDOW_START +
-		       (offset & WINDOW_RANGE_MASK));
-	spin_unlock_bh(&pci_reg_window_lock);
+	/* Same constraint as PCI register read in panic */
+	if (test_bit(CNSS_IN_PANIC, &plat_priv->driver_state)) {
+		cnss_pci_select_window(pci_priv, offset);
+		writel_relaxed(val, pci_priv->bar + WINDOW_START +
+			  (offset & WINDOW_RANGE_MASK));
+	} else {
+		spin_lock_bh(&pci_reg_window_lock);
+		cnss_pci_select_window(pci_priv, offset);
+		writel_relaxed(val, pci_priv->bar + WINDOW_START +
+			  (offset & WINDOW_RANGE_MASK));
+		spin_unlock_bh(&pci_reg_window_lock);
+	}
 
 	return 0;
 }
@@ -1922,10 +1939,12 @@ static void cnss_qca6290_crash_shutdown(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
+	set_bit(CNSS_IN_PANIC, &plat_priv->driver_state);
 	cnss_pr_dbg("Crash shutdown with driver_state 0x%lx\n",
 		    plat_priv->driver_state);
 
 	cnss_pci_collect_dump_info(pci_priv, true);
+	clear_bit(CNSS_IN_PANIC, &plat_priv->driver_state);
 }
 
 static int cnss_qca6290_ramdump(struct cnss_pci_data *pci_priv)
@@ -3989,7 +4008,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
 	int ret, i, j;
 
-	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
+	    !test_bit(CNSS_IN_PANIC, &plat_priv->driver_state))
 		cnss_pci_send_hang_event(pci_priv);
 
 	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state)) {
