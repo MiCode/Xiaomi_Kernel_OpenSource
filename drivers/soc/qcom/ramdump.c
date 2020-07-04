@@ -140,7 +140,7 @@ static unsigned long offset_translate(loff_t user_offset,
 		*data_left);
 
 	if (rd_dev->segments[i].v_address)
-		*vaddr = rd_dev->segments[i].v_address + user_offset;
+		*vaddr = (void *) rd_dev->segments[i].v_address + user_offset;
 
 	return rd_dev->segments[i].address + user_offset;
 }
