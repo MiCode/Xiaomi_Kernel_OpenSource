@@ -5,10 +5,13 @@
 
 #include <linux/cache.h>
 #include <linux/freezer.h>
+#include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/kallsyms.h>
+#include <linux/rbtree.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/thread_info.h>
 #include <soc/qcom/minidump.h>
@@ -18,11 +21,22 @@
 #include <asm/stacktrace.h>
 #include <linux/mm.h>
 #include <linux/ratelimit.h>
+#include <linux/notifier.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/sched/task.h>
 #include <linux/suspend.h>
 #include <linux/vmalloc.h>
+
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+#include <linux/bits.h>
+#include <linux/sched/prio.h>
+#include <linux/seq_buf.h>
+
+#include <asm/memory.h>
+
+#include "../../../kernel/sched/sched.h"
+#endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 
@@ -61,6 +75,14 @@ static bool is_vmap_stack __read_mostly;
 
 static char *md_ftrace_buf_addr;
 static size_t md_ftrace_buf_current;
+#endif
+
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+#define MD_RUNQUEUE_PAGES	8
+
+static bool md_in_oops_handler;
+static struct seq_buf *md_runq_seq_buf;
+static md_align_offset;
 #endif
 
 static void __init register_log_buf(void)
@@ -537,6 +559,235 @@ static void md_register_trace_buf(void)
 }
 #endif
 
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+
+static void md_dump_align(void)
+{
+	int tab_offset = md_align_offset;
+
+	while (tab_offset--)
+		seq_buf_printf(md_runq_seq_buf, " | ");
+	seq_buf_printf(md_runq_seq_buf, " |--");
+}
+
+static void md_dump_task_info(struct task_struct *task, char *status,
+			      struct task_struct *curr)
+{
+	struct sched_entity *se;
+
+	md_dump_align();
+	if (!task) {
+		seq_buf_printf(md_runq_seq_buf, "%s : None(0)\n", status);
+		return;
+	}
+
+	se = &task->se;
+	if (task == curr) {
+		seq_buf_printf(md_runq_seq_buf,
+			       "[status: curr] pid: %d comm: %s preempt: %#x\n",
+			       task_pid_nr(task), task->comm,
+			       task->thread_info.preempt_count);
+		return;
+	}
+
+	seq_buf_printf(md_runq_seq_buf,
+		       "[status: %s] pid: %d tsk: %#lx comm: %s stack: %#lx",
+		       status, task_pid_nr(task),
+		       (unsigned long)task,
+		       task->comm,
+		       (unsigned long)task->stack);
+	seq_buf_printf(md_runq_seq_buf,
+		       " prio: %d aff: %*pb",
+		       task->prio, cpumask_pr_args(&task->cpus_mask));
+#ifdef CONFIG_SCHED_WALT
+	seq_buf_printf(md_runq_seq_buf, " enq: %lu wake: %lu sleep: %lu",
+		       task->wts.last_enqueued_ts, task->wts.last_wake_ts,
+		       task->wts.last_sleep_ts);
+#endif
+	seq_buf_printf(md_runq_seq_buf,
+		       " vrun: %lu arr: %lu sum_ex: %lu\n",
+		       (unsigned long)se->vruntime,
+		       (unsigned long)se->exec_start,
+		       (unsigned long)se->sum_exec_runtime);
+}
+
+static void md_dump_cfs_rq(struct cfs_rq *cfs, struct task_struct *curr);
+
+static void md_dump_cgroup_state(char *status, struct sched_entity *se_p,
+				 struct task_struct *curr)
+{
+	struct task_struct *task;
+	struct cfs_rq *my_q = NULL;
+	unsigned int nr_running;
+
+	if (!se_p) {
+		md_dump_task_info(NULL, status, NULL);
+		return;
+	}
+#ifdef CONFIG_FAIR_GROUP_SCHED
+	my_q = se_p->my_q;
+#endif
+	if (!my_q) {
+		task = container_of(se_p, struct task_struct, se);
+		md_dump_task_info(task, status, curr);
+		return;
+	}
+	nr_running = my_q->nr_running;
+	md_dump_align();
+	seq_buf_printf(md_runq_seq_buf, "%s: %d process is grouping\n",
+				   status, nr_running);
+	md_align_offset++;
+	md_dump_cfs_rq(my_q, curr);
+	md_align_offset--;
+}
+
+static void md_dump_cfs_node_func(struct rb_node *node,
+				  struct task_struct *curr)
+{
+	struct sched_entity *se_p = container_of(node, struct sched_entity,
+						 run_node);
+
+	md_dump_cgroup_state("pend", se_p, curr);
+}
+
+static void md_rb_walk_cfs(struct rb_root_cached *rb_root_cached_p,
+			   struct task_struct *curr)
+{
+	int max_walk = 200;	/* Bail out, in case of loop */
+	struct rb_node *leftmost = rb_root_cached_p->rb_leftmost;
+	struct rb_root *root = &rb_root_cached_p->rb_root;
+	struct rb_node *rb_node = rb_first(root);
+
+	if (!leftmost)
+		return;
+	while (rb_node && max_walk--) {
+		md_dump_cfs_node_func(rb_node, curr);
+		rb_node = rb_next(rb_node);
+	}
+}
+
+static void md_dump_cfs_rq(struct cfs_rq *cfs, struct task_struct *curr)
+{
+	struct rb_root_cached *rb_root_cached_p = &cfs->tasks_timeline;
+
+	md_dump_cgroup_state("curr", cfs->curr, curr);
+	md_dump_cgroup_state("next", cfs->next, curr);
+	md_dump_cgroup_state("last", cfs->last, curr);
+	md_dump_cgroup_state("skip", cfs->skip, curr);
+	md_rb_walk_cfs(rb_root_cached_p, curr);
+}
+
+static void md_dump_rt_rq(struct rt_rq  *rt_rq, struct task_struct *curr)
+{
+	struct rt_prio_array *array = &rt_rq->active;
+	struct sched_rt_entity *rt_se;
+	int idx;
+
+	/* Lifted most of the below code from dump_throttled_rt_tasks() */
+	if (bitmap_empty(array->bitmap, MAX_RT_PRIO))
+		return;
+
+	idx = sched_find_first_bit(array->bitmap);
+	while (idx < MAX_RT_PRIO) {
+		list_for_each_entry(rt_se, array->queue + idx, run_list) {
+			struct task_struct *p;
+
+#ifdef CONFIG_RT_GROUP_SCHED
+			if (rt_se->my_q)
+				continue;
+#endif
+
+			p = container_of(rt_se, struct task_struct, rt);
+			md_dump_task_info(p, "pend", curr);
+		}
+		idx = find_next_bit(array->bitmap, MAX_RT_PRIO, idx + 1);
+	}
+}
+
+static void md_dump_runqueues(void)
+{
+	int cpu;
+	struct rq *rq;
+	struct rt_rq  *rt;
+	struct cfs_rq *cfs;
+
+	if (!md_runq_seq_buf)
+		return;
+
+	for_each_possible_cpu(cpu) {
+		rq = cpu_rq(cpu);
+		rt = &rq->rt;
+		cfs = &rq->cfs;
+		seq_buf_printf(md_runq_seq_buf,
+			       "CPU%d %d process is running\n",
+			       cpu, rq->nr_running);
+		md_dump_task_info(cpu_curr(cpu), "curr", NULL);
+		seq_buf_printf(md_runq_seq_buf,
+			       "CFS %d process is pending\n",
+			       cfs->nr_running);
+		md_dump_cfs_rq(cfs, cpu_curr(cpu));
+		seq_buf_printf(md_runq_seq_buf,
+			       "RT %d process is pending\n",
+			       rt->rt_nr_running);
+		md_dump_rt_rq(rt, cpu_curr(cpu));
+		seq_buf_printf(md_runq_seq_buf, "\n");
+	}
+}
+
+static int md_panic_handler(struct notifier_block *this,
+			    unsigned long event, void *ptr)
+{
+	if (md_in_oops_handler)
+		return NOTIFY_DONE;
+	md_in_oops_handler = true;
+	md_dump_runqueues();
+	md_in_oops_handler = false;
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block md_panic_blk = {
+	.notifier_call = md_panic_handler,
+	.priority = INT_MAX,
+};
+
+void md_register_panic_entries(void)
+{
+	char *runq_buf;
+	struct md_region md_entry;
+	struct seq_buf *runq_seq_buf;
+
+	runq_buf = kzalloc(MD_RUNQUEUE_PAGES * PAGE_SIZE, GFP_KERNEL);
+	if (!runq_buf)
+		return;
+
+	runq_seq_buf = kzalloc(sizeof(*runq_seq_buf), GFP_KERNEL);
+	if (!runq_seq_buf)
+		goto err_seq_buf;
+
+	strlcpy(md_entry.name, "KRUNQUEUE", sizeof(md_entry.name));
+	md_entry.virt_addr = (uintptr_t)runq_buf;
+	md_entry.phys_addr = virt_to_phys(runq_buf);
+	md_entry.size = MD_RUNQUEUE_PAGES * PAGE_SIZE;
+	if (msm_minidump_add_region(&md_entry) < 0) {
+		pr_err("Failed to add runq buffer entry in Minidump\n");
+		goto err_runq_reg;
+	}
+
+	seq_buf_init(runq_seq_buf, runq_buf, MD_RUNQUEUE_PAGES * PAGE_SIZE);
+
+	/* Complete registration before populating data */
+	smp_mb();
+	WRITE_ONCE(md_runq_seq_buf, runq_seq_buf);
+	return;
+
+err_runq_reg:
+	kfree(runq_seq_buf);
+err_seq_buf:
+	kfree(runq_buf);
+}
+
+#endif
+
 static int __init msm_minidump_log_init(void)
 {
 	register_kernel_sections();
@@ -549,6 +800,10 @@ static int __init msm_minidump_log_init(void)
 	register_log_buf();
 #ifdef CONFIG_QCOM_MINIDUMP_FTRACE
 	md_register_trace_buf();
+#endif
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+	md_register_panic_entries();
+	atomic_notifier_chain_register(&panic_notifier_list, &md_panic_blk);
 #endif
 	return 0;
 }
