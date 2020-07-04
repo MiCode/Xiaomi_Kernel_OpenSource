@@ -49,3 +49,12 @@ config INTERCONNECT_QCOM_BCM_VOTER
 
 config INTERCONNECT_QCOM_RPMH
 	tristate
+
+config INTERCONNECT_QCOM_SDXLEMUR
+	tristate "SDXLEMUR interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
+	select INTERCONNECT_QCOM_BCM_VOTER
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on sdxlemur-based platforms.
