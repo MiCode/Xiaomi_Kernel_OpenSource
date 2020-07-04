@@ -1408,7 +1408,6 @@
   of_usb_get_phy_mode
   of_usb_host_tpl_support
   oops_in_progress
-  open_exec
   panic
   panic_notifier_list
   panic_timeout
