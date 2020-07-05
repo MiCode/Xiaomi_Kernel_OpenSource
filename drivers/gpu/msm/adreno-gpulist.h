@@ -1573,6 +1573,35 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
 	.pdc_in_aop = true,
 };
 
+static const struct adreno_a6xx_core adreno_gpu_core_a660_shima = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_A660, 6, 6, 0, ANY_ID),
+		.compatible = "qcom,adreno-gpu-a660-shima",
+		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
+				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION,
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_base = 0,
+		.gmem_size = SZ_1M + SZ_512K,
+		.bus_width = 32,
+		.snapshot_size = SZ_2M,
+	},
+	.prim_fifo_threshold = 0x00300000,
+	.gmu_major = 2,
+	.gmu_minor = 0,
+	.sqefw_name = "a660_sqe.fw",
+	.gmufw_name = "a660_gmu.bin",
+	.zap_name = "a660_zap",
+	.hwcg = a660_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a660_hwcg_regs),
+	.vbif = a650_gbif_regs,
+	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
+	.hang_detect_cycles = 0x3ffff,
+	.protected_regs = a660_protected_regs,
+	.disable_tseskip = true,
+	.highest_bank_bit = 15,
+	.pdc_in_aop = true,
+};
+
 static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a306.base,
 	&adreno_gpu_core_a306a.base,
@@ -1606,4 +1635,5 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a612.base,
 	&adreno_gpu_core_a616.base,
 	&adreno_gpu_core_a610.base,
+	&adreno_gpu_core_a660_shima.base,
 };
