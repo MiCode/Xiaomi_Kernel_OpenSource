@@ -3,16 +3,16 @@
 . ${ROOT_DIR}/common/build.config.gki
 
 ABI_DEFINITION=abi_gki_aarch64.xml
-KMI_WHITELIST=abi_gki_aarch64_whitelist
+KMI_WHITELIST=abi_gki_aarch64
 ADDITIONAL_KMI_WHITELISTS="
-abi_gki_aarch64_cuttlefish_whitelist
-abi_gki_aarch64_db845c_whitelist
-abi_gki_aarch64_exynos_whitelist
-abi_gki_aarch64_goldfish_whitelist
-abi_gki_aarch64_hikey960_whitelist
-abi_gki_aarch64_qcom_whitelist
-abi_gki_aarch64_sunxi_whitelist
-abi_gki_aarch64_unisoc_whitelist
+abi_gki_aarch64_cuttlefish
+abi_gki_aarch64_db845c
+abi_gki_aarch64_exynos
+abi_gki_aarch64_goldfish
+abi_gki_aarch64_hikey960
+abi_gki_aarch64_qcom
+abi_gki_aarch64_sunxi
+abi_gki_aarch64_unisoc
 "
 TRIM_NONLISTED_KMI=1
 KMI_WHITELIST_STRICT_MODE=1
