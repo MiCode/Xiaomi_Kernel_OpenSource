@@ -36,6 +36,12 @@
 #include <asm/memory.h>
 
 #include "../../../kernel/sched/sched.h"
+
+#include <linux/kdebug.h>
+#include <linux/thread_info.h>
+#include <asm/ptrace.h>
+#include <linux/uaccess.h>
+#include <linux/percpu.h>
 #endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -78,11 +84,20 @@ static size_t md_ftrace_buf_current;
 #endif
 
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+/* Rnqueue information */
 #define MD_RUNQUEUE_PAGES	8
 
 static bool md_in_oops_handler;
 static struct seq_buf *md_runq_seq_buf;
 static md_align_offset;
+
+/* CPU context information */
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+#define MD_CPU_CNTXT_PAGES	32
+
+static int die_cpu = -1;
+static struct seq_buf *md_cntxt_seq_buf;
+#endif
 #endif
 
 static void __init register_log_buf(void)
@@ -734,12 +749,175 @@ static void md_dump_runqueues(void)
 	}
 }
 
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+/*
+ * dump a block of kernel memory from around the given address.
+ * Bulk of the code is lifted from arch/arm64/kernel/proccess.c.
+ */
+static void md_dump_data(unsigned long addr, int nbytes, const char *name)
+{
+	int	i, j;
+	int	nlines;
+	u32	*p;
+
+	/*
+	 * don't attempt to dump non-kernel addresses or
+	 * values that are probably just small negative numbers
+	 */
+	if (addr < PAGE_OFFSET || addr > -256UL)
+		return;
+
+	seq_buf_printf(md_cntxt_seq_buf, "\n%s: %#lx:\n", name, addr);
+
+	/*
+	 * round address down to a 32 bit boundary
+	 * and always dump a multiple of 32 bytes
+	 */
+	p = (u32 *)(addr & ~(sizeof(u32) - 1));
+	nbytes += (addr & (sizeof(u32) - 1));
+	nlines = (nbytes + 31) / 32;
+
+
+	for (i = 0; i < nlines; i++) {
+		/*
+		 * just display low 16 bits of address to keep
+		 * each line of the dump < 80 characters
+		 */
+		seq_buf_printf(md_cntxt_seq_buf, "%04lx ",
+			       (unsigned long)p & 0xffff);
+		for (j = 0; j < 8; j++) {
+			u32	data;
+
+			if (probe_kernel_address(p, data))
+				seq_buf_printf(md_cntxt_seq_buf, " ********");
+			else
+				seq_buf_printf(md_cntxt_seq_buf, " %08x", data);
+			++p;
+		}
+		seq_buf_printf(md_cntxt_seq_buf, "\n");
+	}
+}
+
+static void md_reg_context_data(struct pt_regs *regs)
+{
+	mm_segment_t fs;
+	unsigned int i;
+	int nbytes = 128;
+
+	if (user_mode(regs) ||  !regs->pc)
+		return;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	md_dump_data(regs->pc - nbytes, nbytes * 2, "PC");
+	md_dump_data(regs->regs[30] - nbytes, nbytes * 2, "LR");
+	md_dump_data(regs->sp - nbytes, nbytes * 2, "SP");
+	for (i = 0; i < 30; i++) {
+		char name[4];
+
+		snprintf(name, sizeof(name), "X%u", i);
+		md_dump_data(regs->regs[i] - nbytes, nbytes * 2, name);
+	}
+	set_fs(fs);
+}
+
+static inline void md_dump_panic_regs(void)
+{
+	struct pt_regs regs;
+	u64 tmp1, tmp2;
+
+	/* Lifted from crash_setup_regs() */
+	__asm__ __volatile__ (
+		"stp	 x0,   x1, [%2, #16 *  0]\n"
+		"stp	 x2,   x3, [%2, #16 *  1]\n"
+		"stp	 x4,   x5, [%2, #16 *  2]\n"
+		"stp	 x6,   x7, [%2, #16 *  3]\n"
+		"stp	 x8,   x9, [%2, #16 *  4]\n"
+		"stp	x10,  x11, [%2, #16 *  5]\n"
+		"stp	x12,  x13, [%2, #16 *  6]\n"
+		"stp	x14,  x15, [%2, #16 *  7]\n"
+		"stp	x16,  x17, [%2, #16 *  8]\n"
+		"stp	x18,  x19, [%2, #16 *  9]\n"
+		"stp	x20,  x21, [%2, #16 * 10]\n"
+		"stp	x22,  x23, [%2, #16 * 11]\n"
+		"stp	x24,  x25, [%2, #16 * 12]\n"
+		"stp	x26,  x27, [%2, #16 * 13]\n"
+		"stp	x28,  x29, [%2, #16 * 14]\n"
+		"mov	 %0,  sp\n"
+		"stp	x30,  %0,  [%2, #16 * 15]\n"
+
+		"/* faked current PSTATE */\n"
+		"mrs	 %0, CurrentEL\n"
+		"mrs	 %1, SPSEL\n"
+		"orr	 %0, %0, %1\n"
+		"mrs	 %1, DAIF\n"
+		"orr	 %0, %0, %1\n"
+		"mrs	 %1, NZCV\n"
+		"orr	 %0, %0, %1\n"
+		/* pc */
+		"adr	 %1, 1f\n"
+		"1:\n"
+		"stp	 %1, %0,   [%2, #16 * 16]\n"
+		: "=&r" (tmp1), "=&r" (tmp2)
+		: "r" (&regs)
+		: "memory"
+		);
+
+	seq_buf_printf(md_cntxt_seq_buf, "PANIC CPU : %d\n",
+				   raw_smp_processor_id());
+	md_reg_context_data(&regs);
+}
+
+static void md_dump_other_cpus_context(void)
+{
+	unsigned long ipi_stop_addr = kallsyms_lookup_name("regs_before_stop");
+	int cpu;
+	struct pt_regs *regs;
+
+	for_each_possible_cpu(cpu) {
+		regs = (struct pt_regs *)(ipi_stop_addr + per_cpu_offset(cpu));
+		seq_buf_printf(md_cntxt_seq_buf, "\nSTOPPED CPU : %d\n", cpu);
+		md_reg_context_data(regs);
+	}
+}
+
+static int md_die_context_notify(struct notifier_block *self,
+				 unsigned long val, void *data)
+{
+	struct die_args *args = (struct die_args *)data;
+
+	if (md_in_oops_handler)
+		return NOTIFY_DONE;
+	md_in_oops_handler = true;
+	if (!md_cntxt_seq_buf)
+		return NOTIFY_DONE;
+	die_cpu = raw_smp_processor_id();
+	seq_buf_printf(md_cntxt_seq_buf, "\nDIE CPU : %d\n", die_cpu);
+	md_reg_context_data(args->regs);
+	md_in_oops_handler = false;
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block md_die_context_nb = {
+	.notifier_call = md_die_context_notify,
+	.priority = INT_MAX
+};
+#endif
+
 static int md_panic_handler(struct notifier_block *this,
 			    unsigned long event, void *ptr)
 {
 	if (md_in_oops_handler)
 		return NOTIFY_DONE;
 	md_in_oops_handler = true;
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+	if (!md_cntxt_seq_buf)
+		goto dump_rq;
+	if (raw_smp_processor_id() != die_cpu)
+		md_dump_panic_regs();
+	md_dump_other_cpus_context();
+dump_rq:
+#endif
 	md_dump_runqueues();
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
@@ -750,40 +928,64 @@ static struct notifier_block md_panic_blk = {
 	.priority = INT_MAX,
 };
 
-void md_register_panic_entries(void)
+static int md_register_minidump_entry(char *name, u64 virt_addr,
+				      u64 phys_addr, u64 size)
 {
-	char *runq_buf;
 	struct md_region md_entry;
-	struct seq_buf *runq_seq_buf;
+	int ret;
 
-	runq_buf = kzalloc(MD_RUNQUEUE_PAGES * PAGE_SIZE, GFP_KERNEL);
-	if (!runq_buf)
+	strlcpy(md_entry.name, name, sizeof(md_entry.name));
+	md_entry.virt_addr = virt_addr;
+	md_entry.phys_addr = phys_addr;
+	md_entry.size = size;
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret < 0)
+		pr_err("Failed to add %s entry in Minidump\n", name);
+	return ret;
+}
+
+static void md_register_panic_entries(int num_pages, char *name,
+				      struct seq_buf **global_buf)
+{
+	char *buf;
+	struct seq_buf *seq_buf_p;
+	int ret;
+
+	buf = kzalloc(num_pages * PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
 		return;
 
-	runq_seq_buf = kzalloc(sizeof(*runq_seq_buf), GFP_KERNEL);
-	if (!runq_seq_buf)
+	seq_buf_p = kzalloc(sizeof(*seq_buf_p), GFP_KERNEL);
+	if (!seq_buf_p)
 		goto err_seq_buf;
 
-	strlcpy(md_entry.name, "KRUNQUEUE", sizeof(md_entry.name));
-	md_entry.virt_addr = (uintptr_t)runq_buf;
-	md_entry.phys_addr = virt_to_phys(runq_buf);
-	md_entry.size = MD_RUNQUEUE_PAGES * PAGE_SIZE;
-	if (msm_minidump_add_region(&md_entry) < 0) {
-		pr_err("Failed to add runq buffer entry in Minidump\n");
-		goto err_runq_reg;
-	}
+	ret = md_register_minidump_entry(name, (uintptr_t)buf,
+					 virt_to_phys(buf),
+					 num_pages * PAGE_SIZE);
+	if (ret < 0)
+		goto err_entry_reg;
 
-	seq_buf_init(runq_seq_buf, runq_buf, MD_RUNQUEUE_PAGES * PAGE_SIZE);
+	seq_buf_init(seq_buf_p, buf, num_pages * PAGE_SIZE);
 
 	/* Complete registration before populating data */
 	smp_mb();
-	WRITE_ONCE(md_runq_seq_buf, runq_seq_buf);
+	WRITE_ONCE(*global_buf, seq_buf_p);
 	return;
 
-err_runq_reg:
-	kfree(runq_seq_buf);
+err_entry_reg:
+	kfree(seq_buf_p);
 err_seq_buf:
-	kfree(runq_buf);
+	kfree(buf);
+}
+
+static void md_register_panic_data(void)
+{
+	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
+				  &md_runq_seq_buf);
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+	md_register_panic_entries(MD_CPU_CNTXT_PAGES, "KCNTXT",
+				  &md_cntxt_seq_buf);
+#endif
 }
 
 #endif
@@ -802,8 +1004,11 @@ static int __init msm_minidump_log_init(void)
 	md_register_trace_buf();
 #endif
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
-	md_register_panic_entries();
+	md_register_panic_data();
 	atomic_notifier_chain_register(&panic_notifier_list, &md_panic_blk);
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+	register_die_notifier(&md_die_context_nb);
+#endif
 #endif
 	return 0;
 }
