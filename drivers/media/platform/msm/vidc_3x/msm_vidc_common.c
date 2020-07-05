@@ -22,6 +22,8 @@
 #include <asm/div64.h>
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
+#include "vidc_hfi_helper.h"
+#include "vidc_hfi.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_dcvs.h"
 
@@ -659,6 +661,142 @@ struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 		return NULL;
 	}
 	return &fmt[i];
+}
+struct msm_vidc_format_constraint *msm_comm_get_pixel_fmt_constraints(
+	struct msm_vidc_format_constraint fmt[], int size, int fourcc)
+{
+	int i;
+
+	if (!fmt) {
+		dprintk(VIDC_ERR, "Invalid inputs, fmt = %pK\n", fmt);
+		return NULL;
+	}
+	for (i = 0; i < size; i++) {
+		if (fmt[i].fourcc == fourcc)
+			break;
+	}
+	if (i == size) {
+		dprintk(VIDC_ERR, "Format constraint not found.\n");
+		return NULL;
+	}
+	return &fmt[i];
+}
+u32 msm_comm_convert_color_fmt(u32 v4l2_fmt)
+{
+	switch (v4l2_fmt) {
+	case V4L2_PIX_FMT_NV12:
+		return COLOR_FMT_NV12;
+	case V4L2_PIX_FMT_NV21:
+		return COLOR_FMT_NV21;
+	case V4L2_PIX_FMT_NV12_512:
+		return COLOR_FMT_NV12_512;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS:
+		return COLOR_FMT_P010;
+	case V4L2_PIX_FMT_NV12_UBWC:
+		return COLOR_FMT_NV12_UBWC;
+	case V4L2_PIX_FMT_NV12_TP10_UBWC:
+		return COLOR_FMT_NV12_BPP10_UBWC;
+	default:
+		dprintk(VIDC_ERR,
+			"Invalid v4l2 color fmt FMT : %x, Set default(NV12)",
+			v4l2_fmt);
+		return COLOR_FMT_NV12;
+	}
+}
+static u32 get_hfi_buffer(int hal_buffer)
+{
+	u32 buffer;
+
+	switch (hal_buffer) {
+	case HAL_BUFFER_INPUT:
+		buffer = HFI_BUFFER_INPUT;
+		break;
+	case HAL_BUFFER_OUTPUT:
+		buffer = HFI_BUFFER_OUTPUT;
+		break;
+	case HAL_BUFFER_OUTPUT2:
+		buffer = HFI_BUFFER_OUTPUT2;
+		break;
+	case HAL_BUFFER_INTERNAL_PERSIST:
+		buffer = HFI_BUFFER_INTERNAL_PERSIST;
+		break;
+	case HAL_BUFFER_INTERNAL_PERSIST_1:
+		buffer = HFI_BUFFER_INTERNAL_PERSIST_1;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid buffer: %#x\n", hal_buffer);
+		buffer = 0;
+		break;
+	}
+	return buffer;
+}
+int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type,
+		struct msm_vidc_format_constraint *pix_constraint)
+{
+	struct hfi_uncompressed_plane_actual_constraints_info
+		*pconstraint = NULL;
+	u32 num_planes = 2;
+	u32 size = 0;
+	int rc = 0;
+	struct hfi_device *hdev;
+	u32 hfi_fmt;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n", __func__, inst);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	size = 2 * sizeof(u32)
+			+ num_planes
+			* sizeof(struct hfi_uncompressed_plane_constraints);
+
+	pconstraint = kzalloc(size, GFP_KERNEL);
+	if (!pconstraint) {
+		dprintk(VIDC_ERR, "No memory cannot alloc constrain\n");
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	hfi_fmt = msm_comm_convert_color_fmt(pix_constraint->fourcc);
+	pconstraint->buffer_type = get_hfi_buffer(buffer_type);
+	pconstraint->num_planes = pix_constraint->num_planes;
+	//set Y plan constraints
+	pconstraint->rg_plane_format[0].stride_multiples =
+			VENUS_Y_STRIDE(hfi_fmt, 1);
+	pconstraint->rg_plane_format[0].max_stride =
+			pix_constraint->y_max_stride;
+	pconstraint->rg_plane_format[0].min_plane_buffer_height_multiple =
+			VENUS_Y_SCANLINES(hfi_fmt, 1);
+	pconstraint->rg_plane_format[0].buffer_alignment =
+			pix_constraint->y_buffer_alignment;
+
+	//set UV plan constraints
+	pconstraint->rg_plane_format[1].stride_multiples =
+			VENUS_UV_STRIDE(hfi_fmt, 1);
+	pconstraint->rg_plane_format[1].max_stride =
+			pix_constraint->uv_max_stride;
+	pconstraint->rg_plane_format[1].min_plane_buffer_height_multiple =
+			VENUS_UV_SCANLINES(hfi_fmt, 1);
+	pconstraint->rg_plane_format[1].buffer_alignment =
+			pix_constraint->uv_buffer_alignment;
+
+	rc = call_hfi_op(hdev,
+		session_set_property,
+		inst->session,
+		HFI_PROPERTY_PARAM_UNCOMPRESSED_PLANE_ACTUAL_CONSTRAINTS_INFO,
+		pconstraint);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to set input color format constraint\n");
+	else
+		dprintk(VIDC_DBG, "Set color format constraint success\n");
+
+exit:
+	kfree(pconstraint);
+	return rc;
 }
 
 struct buf_queue *msm_comm_get_vb2q(

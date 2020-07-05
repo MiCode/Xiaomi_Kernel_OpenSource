@@ -1426,7 +1426,24 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = iframe_sizes,
 	},
 };
-
+struct msm_vidc_format_constraint enc_pix_format_constraints[] = {
+	{
+		.fourcc = V4L2_PIX_FMT_NV12,
+		.num_planes = 2,
+		.y_max_stride = 128,
+		.y_buffer_alignment = 32,
+		.uv_max_stride = 128,
+		.uv_buffer_alignment = 16,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV21,
+		.num_planes = 2,
+		.y_max_stride = 128,
+		.y_buffer_alignment = 32,
+		.uv_max_stride = 128,
+		.uv_buffer_alignment = 16,
+	},
+};
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
 
 static u32 get_frame_size_nv12(int plane, u32 height, u32 width)
@@ -4188,6 +4205,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int i;
 	struct hfi_device *hdev;
+	struct msm_vidc_format_constraint *fmt_constraint;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -4274,7 +4292,29 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		msm_venc_update_plane_count(inst, OUTPUT_PORT);
 		fmt->num_planes = inst->fmts[OUTPUT_PORT].num_planes;
 
-		msm_comm_set_color_format(inst, HAL_BUFFER_INPUT, fmt->fourcc);
+		rc = msm_comm_set_color_format(inst, HAL_BUFFER_INPUT,
+						fmt->fourcc);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: set color format (%#x) failed\n",
+				__func__, fmt->fourcc);
+			return rc;
+		}
+
+		fmt_constraint = msm_comm_get_pixel_fmt_constraints(
+					enc_pix_format_constraints,
+					ARRAY_SIZE(enc_pix_format_constraints),
+					fmt->fourcc);
+		if (fmt_constraint) {
+			rc = msm_comm_set_color_format_constraints(inst,
+				msm_comm_get_hal_output_buffer(inst),
+				fmt_constraint);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s: Set constraints for color format %#x failed\n",
+					__func__, fmt->fourcc);
+				return rc;
+			}
+		}
 	} else {
 		dprintk(VIDC_ERR, "%s - Unsupported buf type: %d\n",
 			__func__, f->type);

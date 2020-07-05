@@ -34,6 +34,11 @@ const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);
 struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 	struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type);
+struct msm_vidc_format_constraint *msm_comm_get_pixel_fmt_constraints(
+	struct msm_vidc_format_constraint fmt[], int size, int fourcc);
+int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type,
+		struct msm_vidc_format_constraint *pix_constraint);
 struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type);
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
