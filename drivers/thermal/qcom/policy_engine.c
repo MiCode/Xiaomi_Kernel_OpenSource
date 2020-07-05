@@ -18,8 +18,10 @@
 #define PE_INT_ENABLE_OFFSET	0x530
 #define PE_STATUS_OFFSET	0x590
 #define PE_INT_STATUS_OFFSET	0x620
+#define PE_INT_STATUS1_OFFSET	0x630
 #define PE_INTR_CFG		0x11000
 #define PE_INTR_CLEAR		0x11111
+#define PE_STS_CLEAR		0xFFFF
 #define PE_READ_MITIGATION_IDX(val) ((val >> 16) & 0x1F)
 
 struct pe_sensor_data {
@@ -91,6 +93,7 @@ static irqreturn_t pe_handle_irq(int irq, void *data)
 	} else
 		mutex_unlock(&pe_sens->mutex);
 	writel_relaxed(PE_INTR_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
+	writel_relaxed(PE_STS_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
 
 	return IRQ_HANDLED;
 }
@@ -141,6 +144,7 @@ static int pe_sens_device_probe(struct platform_device *pdev)
 	}
 	writel_relaxed(PE_INTR_CFG, pe_sens->regmap + PE_INT_ENABLE_OFFSET);
 	writel_relaxed(PE_INTR_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
+	writel_relaxed(PE_STS_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
 	ret = devm_request_threaded_irq(dev, pe_sens->irq_num, NULL,
 				pe_handle_irq,
 				IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
