@@ -17,7 +17,7 @@
 
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P LPASS Audio PLL sourced
-			 from eMAC PPO ("ADP-Star")";
+			 from eMAC PPO ADP-Star";
 	compatible = "qcom,sa6155p-adp-star", "qcom,sa6155p", "qcom,adp-star";
 	qcom,board-id = <0x01010019 0>;
 };
