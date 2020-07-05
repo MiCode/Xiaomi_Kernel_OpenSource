@@ -28,3 +28,11 @@
 &sdhc_1 {
 	status = "disabled";
 };
+
+&blsp1_uart1_hs {
+	status = "ok";
+};
+
+&blsp1_uart4_hs {
+	status = "disabled";
+};
