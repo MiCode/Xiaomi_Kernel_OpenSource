@@ -43,6 +43,7 @@ Optional properties:
 - qcom,default-sink-caps: List of 32-bit values representing the nominal sink
 			capabilities in voltage (millivolts) and current
 			(milliamps) pairs.
+- qcom,no-usb3-dp-concurrency: If present, usb3 and dp concurrency is not supported.
 
 Example:
 	qcom,qpnp-pdphy@1700 {
