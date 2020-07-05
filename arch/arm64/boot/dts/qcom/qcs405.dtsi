@@ -28,7 +28,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. QCS405";
 	compatible = "qcom,qcs405";
-	qcom,msm-id = <352 0x0>, <451 0x0>, <452 0x0>;
+	qcom,msm-id = <352 0x0>, <452 0x0>;
 	interrupt-parent = <&wakegic>;
 
 	chosen {
