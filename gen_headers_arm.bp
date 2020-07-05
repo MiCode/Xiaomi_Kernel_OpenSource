@@ -645,6 +645,7 @@ gen_headers_out_arm = [
     "media/msm_cvp_utils.h",
     "media/msm_media_info.h",
     "media/msm_sde_rotator.h",
+    "media/msm_vidc.h",
     "media/msm_vidc_private.h",
     "media/msm_vidc_utils.h",
     "media/radio-iris-commands.h",
