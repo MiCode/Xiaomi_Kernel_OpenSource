@@ -270,6 +270,7 @@ struct ais_ife_rdi_in_cfg {
 	uint32_t crop_bottom;
 	uint32_t crop_left;
 	uint32_t crop_right;
+	uint32_t init_frame_drop;
 	uint32_t reserved;
 };
 
