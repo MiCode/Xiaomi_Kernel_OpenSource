@@ -115,6 +115,9 @@ SoCs:
 - SA2145P
   compatible = "qcom,sa2145p"
 
+- SA2150P
+  compatible = "qcom,sa2150p"
+
 Generic board variants:
 
 - CDP device:
