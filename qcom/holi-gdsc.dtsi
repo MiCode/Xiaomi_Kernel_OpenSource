@@ -98,7 +98,7 @@
 	};
 
 	gpu_cx_gdsc: qcom,gdsc@599106c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x599106c 0x4>;
 		regulator-name = "gpu_cx_gdsc";
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
@@ -109,7 +109,7 @@
 	};
 
 	gpu_gx_gdsc: qcom,gdsc@599100c {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0x599100c 0x4>;
 		regulator-name = "gpu_gx_gdsc";
 		sw-reset = <&gpu_gx_sw_reset>;
