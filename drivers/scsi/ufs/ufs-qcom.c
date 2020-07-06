@@ -813,6 +813,67 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(struct ufs_hba *hba)
 	return err;
 }
 
+static int ufs_qcom_quirk_host_g4_workaround(struct ufs_hba *hba)
+{
+	int err;
+	u32 pa_vs_config_reg1;
+	u32 pa_vs_config_reg2;
+	u32 mask;
+	u32 val;
+
+	dev_err(hba->dev, "NITIN: enter ufs_qcom_quirk_hostg4_workaround \n");
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG1),
+			&pa_vs_config_reg1);
+
+	if (err) {
+		dev_err(hba->dev, "NITIN: dme get error 1\n");
+		goto out;
+	}
+
+	dev_err(hba->dev, "NITIN: val of pa_vs_config_reg1 is 0x%x \n", pa_vs_config_reg1);
+
+	err = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG1),
+			(pa_vs_config_reg1 | (1 << 23)));
+
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG1),
+                              &val);
+	if (err) {
+		dev_err(hba->dev, "NITIN: dme get error 2 \n");
+		goto out;
+	}
+
+	dev_err(hba->dev, "NITIN: read back val of pa_vs_config_reg1 is 0x%x \n", val);
+
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG2),
+			&pa_vs_config_reg2);
+	if (err) {
+		dev_err(hba->dev, "NITIN: dme get error 3\n");
+		goto out;
+	}
+
+	mask = (1 << 5 | 1 << 26);
+	pa_vs_config_reg2 = (pa_vs_config_reg2 & ~mask) | (1 << 7);
+
+
+	err = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG2),
+			(pa_vs_config_reg2));
+
+
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG2),
+			&val);
+
+	if (err) {
+
+		dev_err(hba->dev, "NITIN: dme get error 4\n");
+		goto out;
+	}
+
+	dev_err(hba->dev, "NITIN: read back val of pa_vs_config_reg2 is 0x%x \n", val);
+
+out:
+	return err;
+}
+
 static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 					enum ufs_notify_change_status status)
 {
@@ -853,6 +914,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 			err = ufshcd_disable_host_tx_lcc(hba);
 		if (err)
 			goto out;
+		ufs_qcom_quirk_host_g4_workaround(hba);
 		break;
 	case POST_CHANGE:
 		ufs_qcom_link_startup_post_change(hba);

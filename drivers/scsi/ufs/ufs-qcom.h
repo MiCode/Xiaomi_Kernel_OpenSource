@@ -166,6 +166,7 @@ enum ufs_qcom_phy_init_type {
 
 /* QUniPro Vendor specific attributes */
 #define PA_VS_CONFIG_REG1	0x9000
+#define PA_VS_CONFIG_REG2       0x9005
 #define SAVECONFIGTIME_MODE_MASK	0x6000
 #define DME_VS_CORE_CLK_CTRL	0xD002
 /* bit and mask definitions for DME_VS_CORE_CLK_CTRL attribute */
