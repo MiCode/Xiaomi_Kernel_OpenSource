@@ -42,6 +42,8 @@
 #include <asm/ptrace.h>
 #include <linux/uaccess.h>
 #include <linux/percpu.h>
+
+#include <linux/module.h>
 #endif
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
@@ -98,6 +100,24 @@ static md_align_offset;
 static int die_cpu = -1;
 static struct seq_buf *md_cntxt_seq_buf;
 #endif
+
+/* Modules information */
+#ifdef CONFIG_MODULES
+#define NUM_MD_MODULES	200
+
+static struct list_head md_mod_list_head;
+
+struct md_module_data {
+	struct list_head entry;
+	char name[MODULE_NAME_LEN];
+	void *base;
+	unsigned int size;
+};
+
+static struct seq_buf *md_mod_info_seq_buf;
+static int mod_curr_count;
+static DEFINE_SPINLOCK(md_modules_lock);
+#endif	/* CONFIG_MODULES */
 #endif
 
 static void __init register_log_buf(void)
@@ -889,8 +909,10 @@ static int md_die_context_notify(struct notifier_block *self,
 	if (md_in_oops_handler)
 		return NOTIFY_DONE;
 	md_in_oops_handler = true;
-	if (!md_cntxt_seq_buf)
+	if (!md_cntxt_seq_buf) {
+		md_in_oops_handler = false;
 		return NOTIFY_DONE;
+	}
 	die_cpu = raw_smp_processor_id();
 	seq_buf_printf(md_cntxt_seq_buf, "\nDIE CPU : %d\n", die_cpu);
 	md_reg_context_data(args->regs);
@@ -902,6 +924,23 @@ static struct notifier_block md_die_context_nb = {
 	.notifier_call = md_die_context_notify,
 	.priority = INT_MAX
 };
+#endif
+
+#ifdef CONFIG_MODULES
+static void md_dump_module_data(void)
+{
+	struct md_module_data *md_mod_data_p;
+
+	if (!md_mod_info_seq_buf)
+		return;
+	seq_buf_printf(md_mod_info_seq_buf, "=== MODULE INFO ===\n");
+	list_for_each_entry(md_mod_data_p, &md_mod_list_head, entry) {
+		seq_buf_printf(md_mod_info_seq_buf,
+			       "name: %s, base: %p size: %#x\n",
+			       md_mod_data_p->name, md_mod_data_p->base,
+			       md_mod_data_p->size);
+	}
+}
 #endif
 
 static int md_panic_handler(struct notifier_block *this,
@@ -919,6 +958,9 @@ static int md_panic_handler(struct notifier_block *this,
 dump_rq:
 #endif
 	md_dump_runqueues();
+#ifdef CONFIG_MODULES
+	md_dump_module_data();
+#endif
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -944,7 +986,7 @@ static int md_register_minidump_entry(char *name, u64 virt_addr,
 	return ret;
 }
 
-static void md_register_panic_entries(int num_pages, char *name,
+static int md_register_panic_entries(int num_pages, char *name,
 				      struct seq_buf **global_buf)
 {
 	char *buf;
@@ -953,11 +995,13 @@ static void md_register_panic_entries(int num_pages, char *name,
 
 	buf = kzalloc(num_pages * PAGE_SIZE, GFP_KERNEL);
 	if (!buf)
-		return;
+		return -EINVAL;
 
 	seq_buf_p = kzalloc(sizeof(*seq_buf_p), GFP_KERNEL);
-	if (!seq_buf_p)
+	if (!seq_buf_p) {
+		ret = -EINVAL;
 		goto err_seq_buf;
+	}
 
 	ret = md_register_minidump_entry(name, (uintptr_t)buf,
 					 virt_to_phys(buf),
@@ -970,12 +1014,13 @@ static void md_register_panic_entries(int num_pages, char *name,
 	/* Complete registration before populating data */
 	smp_mb();
 	WRITE_ONCE(*global_buf, seq_buf_p);
-	return;
+	return 0;
 
 err_entry_reg:
 	kfree(seq_buf_p);
 err_seq_buf:
 	kfree(buf);
+	return ret;
 }
 
 static void md_register_panic_data(void)
@@ -988,7 +1033,71 @@ static void md_register_panic_data(void)
 #endif
 }
 
-#endif
+#ifdef CONFIG_MODULES
+static int md_module_notify(struct notifier_block *self,
+			    unsigned long val, void *data)
+{
+	struct module *mod = data;
+	struct md_module_data *md_mod_data_p;
+	struct md_module_data *md_mod_data_p_next;
+
+	spin_lock(&md_modules_lock);
+	switch (val) {
+	case MODULE_STATE_COMING:
+		if (mod_curr_count >= NUM_MD_MODULES) {
+			spin_unlock(&md_modules_lock);
+			return 0;
+		}
+
+		md_mod_data_p = kzalloc(sizeof(*md_mod_data_p), GFP_ATOMIC);
+		if (!md_mod_data_p) {
+			spin_unlock(&md_modules_lock);
+			return 0;
+		}
+		strlcpy(md_mod_data_p->name, mod->name,
+			    sizeof(md_mod_data_p->name));
+		md_mod_data_p->base = mod->core_layout.base;
+		md_mod_data_p->size = mod->core_layout.size;
+		list_add(&md_mod_data_p->entry, &md_mod_list_head);
+		mod_curr_count++;
+		break;
+	case MODULE_STATE_GOING:
+		list_for_each_entry_safe(md_mod_data_p, md_mod_data_p_next,
+					 &md_mod_list_head, entry) {
+			if (!strcmp(md_mod_data_p->name, mod->name)) {
+				list_del(&md_mod_data_p->entry);
+				kfree(md_mod_data_p);
+				mod_curr_count--;
+				break;
+			}
+		}
+		break;
+	}
+	spin_unlock(&md_modules_lock);
+	return 0;
+}
+
+static struct notifier_block md_module_nb = {
+	.notifier_call = md_module_notify,
+};
+
+static void md_register_module_data(void)
+{
+	int ret;
+
+	ret = register_module_notifier(&md_module_nb);
+	if (ret) {
+		pr_err("Failed to register minidump module notifier\n");
+		return;
+	}
+
+	ret = md_register_panic_entries(1, "KMODULES",
+					&md_mod_info_seq_buf);
+	if (ret)
+		unregister_module_notifier(&md_module_nb);
+}
+#endif	/* CONFIG_MODULES */
+#endif	/* CONFIG_QCOM_MINIDUMP_PANIC_DUMP */
 
 static int __init msm_minidump_log_init(void)
 {
@@ -1004,6 +1113,10 @@ static int __init msm_minidump_log_init(void)
 	md_register_trace_buf();
 #endif
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+#ifdef CONFIG_MODULES
+	INIT_LIST_HEAD(&md_mod_list_head);
+	md_register_module_data();
+#endif
 	md_register_panic_data();
 	atomic_notifier_chain_register(&panic_notifier_list, &md_panic_blk);
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
