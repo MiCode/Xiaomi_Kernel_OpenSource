@@ -3,6 +3,8 @@
  * Copyright (C) 2020 MediaTek Inc.
  */
 
+#define pr_fmt(fmt) "[ION] " fmt
+
 #include <asm/page.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -13,7 +15,8 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-
+#include <linux/iommu.h>
+#include <dt-bindings/memory/mtk-smi-larb-port.h>
 #include "ion_page_pool.h"
 
 #define NUM_ORDERS ARRAY_SIZE(orders)
@@ -22,6 +25,23 @@ static gfp_t high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN |
 				     __GFP_NORETRY) & ~__GFP_RECLAIM;
 static gfp_t low_order_gfp_flags  = GFP_HIGHUSER | __GFP_ZERO;
 static const unsigned int orders[] = {8, 4, 0};
+
+struct dev_info {
+	struct device		*dev;
+	enum dma_data_direction	direction;
+	unsigned long		map_attrs;
+};
+
+struct ion_iommu_buf_info {
+	bool			mapped[MTK_M4U_DOM_NR_MAX];
+	struct dev_info		dev_class[MTK_M4U_DOM_NR_MAX];
+	struct sg_table		*table[MTK_M4U_DOM_NR_MAX];
+	struct mutex		lock; /* iova mapping lock */
+	pid_t			pid;
+	pid_t			tid;
+	char			task_comm[TASK_COMM_LEN];
+	char			thread_comm[TASK_COMM_LEN];
+};
 
 static int order_to_index(unsigned int order)
 {
@@ -103,10 +123,12 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 				container_of(heap,
 					     struct ion_mtk_iommu_heap,
 					     heap);
+	struct ion_iommu_buf_info *buf_info;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	struct list_head pages;
 	struct page *page, *tmp_page;
+	struct task_struct *task = current->group_leader;
 	int i = 0;
 	unsigned long size_remaining = PAGE_ALIGN(size);
 	unsigned int max_order = orders[0];
@@ -143,6 +165,18 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 	buffer->sg_table = table;
 
 	ion_buffer_prep_noncached(buffer);
+
+	buf_info = kzalloc(sizeof(*buf_info), GFP_KERNEL);
+	if (!buf_info)
+		goto  free_table;
+
+	buffer->priv_virt = buf_info;
+	mutex_init(&buf_info->lock);
+
+	get_task_comm(buf_info->task_comm, task);
+	buf_info->pid = task_pid_nr(task);
+	buf_info->tid = task_pid_nr(current);
+	get_task_comm(buf_info->thread_comm, current);
 
 	return 0;
 
@@ -255,6 +289,160 @@ err_create_pool:
 	return -ENOMEM;
 }
 
+/* source copy to dest */
+static int copy_sg_table(struct sg_table *source, struct sg_table *dest)
+{
+	int i;
+	struct scatterlist *sg, *dest_sg;
+
+	if (source->nents != dest->nents)
+		return -EINVAL;
+
+	dest_sg = dest->sgl;
+	for_each_sg(source->sgl, sg, source->nents, i) {
+		memcpy(dest_sg, sg, sizeof(*sg));
+		dest_sg = sg_next(dest_sg);
+	}
+
+	return 0;
+};
+
+static int update_buffer_info(struct ion_iommu_buf_info *buf_info,
+			      struct sg_table *table,
+			      struct dma_buf_attachment *attachment,
+			      enum dma_data_direction direction,
+			      int dom_id)
+{
+	int ret;
+
+	buf_info->table[dom_id] = kzalloc(sizeof(*buf_info->table[dom_id]),
+					  GFP_KERNEL);
+	if (!buf_info->table[dom_id])
+		return -ENOMEM;
+
+	ret = sg_alloc_table(buf_info->table[dom_id], table->nents, GFP_KERNEL);
+	if (ret) {
+		kfree(buf_info->table[dom_id]);
+		return -ENOMEM;
+	}
+
+	ret = copy_sg_table(table, buf_info->table[dom_id]);
+	if (ret)
+		return ret;
+
+	buf_info->mapped[dom_id] = true;
+	buf_info->dev_class[dom_id].dev = attachment->dev;
+	buf_info->dev_class[dom_id].direction = direction;
+	buf_info->dev_class[dom_id].map_attrs = attachment->dma_map_attrs;
+
+	return ret;
+}
+
+static struct
+sg_table *mtk_ion_map_dma_buf(struct dma_buf_attachment *attachment,
+			      enum dma_data_direction direction)
+{
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
+	struct ion_iommu_buf_info *buf_info = buffer->priv_virt;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
+	struct ion_dma_buf_attachment *a;
+	struct sg_table *table;
+	unsigned long attrs = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
+	int ret, dom_id = MTK_M4U_DOM_NR_MAX;
+
+	a = attachment->priv;
+	table = a->table;
+	if (!fwspec) {
+		if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
+				      direction, attrs)) {
+			pr_info("%s non-iommu map fail dom:%d, dev:%s\n",
+				__func__, dom_id, dev_name(attachment->dev));
+			return ERR_PTR(-ENOMEM);
+		}
+		a->mapped = true;
+		return table;
+	}
+
+	dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
+	mutex_lock(&buf_info->lock);
+	if (buf_info->mapped[dom_id]) {
+		ret = copy_sg_table(buf_info->table[dom_id], table);
+		if (ret) {
+			mutex_unlock(&buf_info->lock);
+			return ERR_PTR(-EINVAL);
+		}
+		mutex_unlock(&buf_info->lock);
+		return table;
+	}
+	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
+			      direction, attrs)) {
+		pr_info("%s iommu map fail dom:%d, dev:%s\n",
+			__func__, dom_id, dev_name(attachment->dev));
+		mutex_unlock(&buf_info->lock);
+		return ERR_PTR(-ENOMEM);
+	}
+	ret = update_buffer_info(buf_info, table,
+				 attachment, direction, dom_id);
+	if (ret) {
+		mutex_unlock(&buf_info->lock);
+		return ERR_PTR(-ENOMEM);
+	}
+	a->mapped = true;
+	mutex_unlock(&buf_info->lock);
+
+	return table;
+};
+
+static void mtk_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+				  struct sg_table *table,
+				  enum dma_data_direction direction)
+{
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
+	struct ion_dma_buf_attachment *a = attachment->priv;
+	unsigned long attrs = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
+
+	if (!fwspec) {
+		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
+				   direction, attrs);
+		a->mapped = false;
+	}
+	/* Do nothing for iommu-dev.
+	 * For ion_mtk_iommu_heap, we will unmap all the iova
+	 * in dma_buf_release
+	 */
+
+};
+
+static void mtk_ion_dma_buf_release(struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer = dmabuf->priv;
+	struct ion_iommu_buf_info *buf_info = buffer->priv_virt;
+	int i;
+
+	/* unmap iova */
+	for (i = 0; i < MTK_M4U_DOM_NR_MAX; i++) {
+		struct sg_table	*table = buf_info->table[i];
+		struct dev_info dev_info = buf_info->dev_class[i];
+		unsigned long attrs = dev_info.map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
+
+		if (!buf_info->mapped[i])
+			continue;
+
+		dma_unmap_sg_attrs(dev_info.dev, table->sgl, table->nents,
+				   dev_info.direction, attrs);
+		sg_free_table(table);
+		kfree(table);
+	}
+	kfree(buf_info);
+	ion_free(buffer);
+};
+
+static const struct dma_buf_ops mtk_dma_buf_ops = {
+	.map_dma_buf = mtk_ion_map_dma_buf,
+	.unmap_dma_buf = mtk_ion_unmap_dma_buf,
+	.release = mtk_ion_dma_buf_release,
+};
+
 static struct ion_heap_ops iommu_heap_ops = {
 	.allocate = ion_iommu_heap_allocate,
 	.free = ion_iommu_heap_free,
@@ -278,7 +466,14 @@ static int __init mtk_ion_iommu_heap_init(void)
 	if (ret)
 		return ret;
 
-	return ion_device_add_heap(&iommu_heap.heap);
+	ret = ion_device_add_heap(&iommu_heap.heap);
+	if (ret)
+		return ret;
+
+	memcpy(&iommu_heap.heap.buf_ops,
+	       &mtk_dma_buf_ops, sizeof(struct dma_buf_ops));
+
+	return ret;
 }
 
 static void __exit mtk_ion_iommu_heap_exit(void)
