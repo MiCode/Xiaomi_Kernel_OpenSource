@@ -28,6 +28,7 @@
 #include <linux/overflow.h>
 #include <linux/sizes.h>
 #include <linux/android_kabi.h>
+#include <linux/android_vendor.h>
 
 struct mempolicy;
 struct anon_vma;
@@ -453,6 +454,8 @@ struct vm_fault {
 					 */
 	unsigned long vma_flags;	/* Speculative Page Fault field */
 	pgprot_t vma_page_prot;		/* Speculative Page Fault field */
+	ANDROID_VENDOR_DATA(1);
+	ANDROID_VENDOR_DATA(2);
 };
 
 /* page entry size for vm->huge_fault() */
