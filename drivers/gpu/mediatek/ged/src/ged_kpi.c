@@ -262,7 +262,7 @@ static unsigned long long g_gpu_freq_accum;
 static unsigned int g_frame_count;
 
 static int gx_game_mode;
-static int gx_3D_benchmark_on;
+static int gx_boost_on;
 #ifdef GED_KPI_CPU_BOOST
 static int gx_force_cpu_boost;
 static int gx_top_app_pid;
@@ -300,7 +300,7 @@ module_param(boost_upper_bound, int, 0644);
 module_param(enable_game_self_frc_detect, int, 0644);
 #endif /* GED_KPI_CPU_BOOST */
 module_param(gx_game_mode, int, 0644);
-module_param(gx_3D_benchmark_on, int, 0644);
+module_param(gx_boost_on, int, 0644);
 
 int (*ged_kpi_push_game_frame_time_fp_fbt)(
 	pid_t pid,
@@ -1107,7 +1107,7 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 
 		if (is_game_control_frame_rate && (psHead == main_head)
 			&& (psHead->frc_mode == GED_KPI_FRC_DEFAULT_MODE)
-			&& (gx_3D_benchmark_on == 0))
+			&& (gx_boost_on == 0))
 			target_fps = target_fps_4_main_head;
 		psHead->target_fps = target_fps;
 		psHead->target_fps_margin = target_fps_margin;
