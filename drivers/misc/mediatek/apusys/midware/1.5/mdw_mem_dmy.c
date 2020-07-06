@@ -38,16 +38,6 @@ static int mdw_mem_dmy_free(struct apusys_kmem *mem)
 	return -ENOMEM;
 }
 
-static int mdw_mem_dmy_import(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
-static int mdw_mem_dmy_unimport(struct apusys_kmem *mem)
-{
-	return -ENOMEM;
-}
-
 static int mdw_mem_dmy_flush(struct apusys_kmem *mem)
 {
 	return -ENOMEM;
@@ -65,8 +55,6 @@ static void mdw_mem_dmy_destroy(void)
 struct mdw_mem_ops dmy_ops = {
 	.alloc = mdw_mem_dmy_alloc,
 	.free = mdw_mem_dmy_free,
-	.import = mdw_mem_dmy_import,
-	.unimport = mdw_mem_dmy_unimport,
 	.flush = mdw_mem_dmy_flush,
 	.invalidate = mdw_mem_dmy_invalidate,
 	.map_kva = mdw_mem_dmy_map_kva,

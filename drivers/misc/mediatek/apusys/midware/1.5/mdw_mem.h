@@ -13,6 +13,7 @@ enum {
 	APUSYS_MEM_PROP_NONE,
 	APUSYS_MEM_PROP_ALLOC,
 	APUSYS_MEM_PROP_IMPORT,
+	APUSYS_MEM_PROP_MAP,
 	APUSYS_MEM_PROP_MAX,
 };
 
@@ -24,6 +25,8 @@ struct mdw_mem {
 
 int mdw_mem_alloc(struct mdw_mem *m);
 int mdw_mem_free(struct mdw_mem *m);
+int mdw_mem_map(struct mdw_mem *m);
+int mdw_mem_unmap(struct mdw_mem *m);
 int mdw_mem_import(struct mdw_mem *m);
 int mdw_mem_unimport(struct mdw_mem *m);
 int mdw_mem_flush(struct apusys_kmem *km);
@@ -37,7 +40,6 @@ void mdw_mem_exit(void);
 
 unsigned int mdw_mem_get_support(void);
 void mdw_mem_get_vlm(unsigned int *start, unsigned int *size);
-
 
 void mdw_mem_u2k(struct apusys_mem *umem, struct apusys_kmem *kmem);
 void mdw_mem_k2u(struct apusys_kmem *kmem, struct apusys_mem *umem);

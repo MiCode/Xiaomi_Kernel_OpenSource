@@ -278,22 +278,8 @@ static long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case APUSYS_IOCTL_MEM_ALLOC:
-		if (copy_from_user(&um, (void *)arg,
-			sizeof(struct apusys_mem))) {
-			mdw_drv_err("copy mem struct fail\n");
-			ret = -EINVAL;
-			goto out;
-		}
-
-		ret = mdw_usr_mem_alloc(&um, u);
-		if (ret)
-			goto out;
-
-		if (copy_to_user((void *)arg, &um,
-			sizeof(struct apusys_mem))) {
-			mdw_drv_err("copy mem struct to u fail\n");
-			ret = -EINVAL;
-		}
+		mdw_drv_warn("not support mem alloc\n");
+		ret = -EINVAL;
 		break;
 
 	case APUSYS_IOCTL_MEM_IMPORT:
@@ -315,8 +301,28 @@ static long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
+	case APUSYS_IOCTL_MEM_MAP:
+		if (copy_from_user(&um, (void *)arg,
+			sizeof(struct apusys_mem))) {
+			mdw_drv_err("copy mem struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = mdw_usr_mem_map(&um, u);
+		if (ret)
+			goto out;
+
+		if (copy_to_user((void *)arg, &um,
+			sizeof(struct apusys_mem))) {
+			mdw_drv_err("copy mem struct to u fail\n");
+			ret = -EINVAL;
+		}
+		break;
+
 	case APUSYS_IOCTL_MEM_FREE:
 	case APUSYS_IOCTL_MEM_UNIMPORT:
+	case APUSYS_IOCTL_MEM_UNMAP:
 		if (copy_from_user(&um, (void *)arg,
 			sizeof(struct apusys_mem))) {
 			mdw_drv_err("copy mem struct fail\n");
@@ -477,6 +483,8 @@ static long mdw_compat_ioctl(struct file *flip, unsigned int cmd,
 	case APUSYS_IOCTL_USER_CMD:
 	case APUSYS_IOCTL_SEC_DEVICE_LOCK:
 	case APUSYS_IOCTL_SEC_DEVICE_UNLOCK:
+	case APUSYS_IOCTL_MEM_MAP:
+	case APUSYS_IOCTL_MEM_UNMAP:
 	{
 		return flip->f_op->unlocked_ioctl(flip, cmd,
 					(unsigned long)compat_ptr(arg));

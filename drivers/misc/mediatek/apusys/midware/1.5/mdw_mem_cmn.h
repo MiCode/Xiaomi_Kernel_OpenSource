@@ -11,8 +11,6 @@
 struct mdw_mem_ops {
 	int (*alloc)(struct apusys_kmem *mem);
 	int (*free)(struct apusys_kmem *mem);
-	int (*import)(struct apusys_kmem *mem);
-	int (*unimport)(struct apusys_kmem *mem);
 	int (*flush)(struct apusys_kmem *mem);
 	int (*invalidate)(struct apusys_kmem *mem);
 	int (*map_kva)(struct apusys_kmem *mem);
