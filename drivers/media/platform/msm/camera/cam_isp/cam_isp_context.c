@@ -228,7 +228,7 @@ static void __cam_isp_ctx_dump_state_monitor_array(
 	ctx_monitor = ctx_isp->cam_isp_ctx_state_monitor;
 
 	if (log_rate_limit)
-		CAM_INFO_RATE_LIMIT_CUSTOM(CAM_ISP, 5, 20,
+		CAM_DBG(CAM_ISP,
 			"Dumping state information for preceding requests");
 	else
 		CAM_INFO(CAM_ISP,
@@ -241,7 +241,7 @@ static void __cam_isp_ctx_dump_state_monitor_array(
 			CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES);
 
 		if (log_rate_limit) {
-			CAM_INFO_RATE_LIMIT_CUSTOM(CAM_ISP, 5, 20,
+			CAM_DBG(CAM_ISP,
 			"time[%lld] last reported req_id[%u] frame id[%lld] applied id[%lld] current state[%s] next state[%s] hw_event[%s]",
 			ctx_monitor[index].evt_time_stamp,
 			ctx_monitor[index].last_reported_id,
