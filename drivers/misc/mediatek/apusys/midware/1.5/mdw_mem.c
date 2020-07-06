@@ -100,7 +100,7 @@ int mdw_mem_import(struct mdw_mem *m)
 	if (!m_mgr.dops)
 		return -ENODEV;
 
-	ret = m_mgr.dops->import(&m->kmem);
+	ret = m_mgr.dops->map_iova(&m->kmem);
 	if (ret)
 		return ret;
 
@@ -117,10 +117,48 @@ int mdw_mem_unimport(struct mdw_mem *m)
 	if (!m_mgr.dops)
 		return -ENODEV;
 
-	ret = m_mgr.dops->unimport(&m->kmem);
+	ret = m_mgr.dops->unmap_iova(&m->kmem);
 	mdw_mem_list_del(m);
 
 	return ret;
+}
+
+int mdw_mem_map(struct mdw_mem *m)
+{
+	int ret = 0;
+
+	if (!m_mgr.dops)
+		return -ENODEV;
+
+	ret = m_mgr.dops->map_kva(&m->kmem);
+	if (ret)
+		goto fail_map_kva;
+
+	ret = m_mgr.dops->map_iova(&m->kmem);
+	if (ret)
+		goto fail_map_iova;
+
+	m->kmem.property = APUSYS_MEM_PROP_MAP;
+	mdw_mem_list_add(m);
+
+	return 0;
+
+fail_map_iova:
+	m_mgr.dops->unmap_kva(&m->kmem);
+fail_map_kva:
+	return ret;
+}
+
+int mdw_mem_unmap(struct mdw_mem *m)
+{
+	if (!m_mgr.dops)
+		return -ENODEV;
+
+	m_mgr.dops->unmap_iova(&m->kmem);
+	m_mgr.dops->unmap_kva(&m->kmem);
+	mdw_mem_list_del(m);
+
+	return 0;
 }
 
 int mdw_mem_flush(struct apusys_kmem *km)

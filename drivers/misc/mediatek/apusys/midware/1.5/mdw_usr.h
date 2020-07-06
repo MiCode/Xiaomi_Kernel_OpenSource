@@ -30,6 +30,7 @@ void mdw_usr_dump(struct seq_file *s);
 int mdw_usr_mem_alloc(struct apusys_mem *um, struct mdw_usr *u);
 int mdw_usr_mem_free(struct apusys_mem *um, struct mdw_usr *u);
 int mdw_usr_mem_import(struct apusys_mem *um, struct mdw_usr *u);
+int mdw_usr_mem_map(struct apusys_mem *um, struct mdw_usr *u);
 int mdw_usr_dev_sec_alloc(int type, struct mdw_usr *u);
 int mdw_usr_dev_sec_free(int type, struct mdw_usr *u);
 int mdw_usr_fw(struct apusys_ioctl_fw *f, int op);

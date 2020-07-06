@@ -65,6 +65,7 @@ enum {
 	APUSYS_MEM_DRAM_ION,
 	APUSYS_MEM_DRAM_DMA,
 	APUSYS_MEM_VLM,
+	APUSYS_MEM_DRAM_ION_AOSP,
 
 	APUSYS_MEM_MAX,
 };
@@ -188,6 +189,10 @@ struct apusys_ioctl_sec {
 	_IOW(APUSYS_MAGICNO, 13, struct apusys_ioctl_fw)
 #define APUSYS_IOCTL_USER_CMD \
 	_IOW(APUSYS_MAGICNO, 14, struct apusys_ioctl_ucmd)
+#define APUSYS_IOCTL_MEM_MAP \
+	_IOWR(APUSYS_MAGICNO, 15, struct apusys_mem)
+#define APUSYS_IOCTL_MEM_UNMAP \
+	_IOWR(APUSYS_MAGICNO, 16, struct apusys_mem)
 
 #define APUSYS_IOCTL_SEC_DEVICE_LOCK \
 	_IOW(APUSYS_MAGICNO, 60, int)

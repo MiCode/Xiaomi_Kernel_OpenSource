@@ -250,6 +250,9 @@ static struct mdw_mem *mdw_usr_mem_create(struct apusys_mem *um, int mem_op)
 	case APUSYS_MEM_PROP_IMPORT:
 		ret = mdw_mem_import(mm);
 		break;
+	case APUSYS_MEM_PROP_MAP:
+		ret = mdw_mem_map(mm);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -278,6 +281,9 @@ static int mdw_usr_mem_delete(struct mdw_mem *mm)
 		break;
 	case APUSYS_MEM_PROP_IMPORT:
 		ret = mdw_mem_unimport(mm);
+		break;
+	case APUSYS_MEM_PROP_MAP:
+		ret = mdw_mem_unmap(mm);
 		break;
 	default:
 		ret = -EINVAL;
@@ -342,6 +348,27 @@ int mdw_usr_mem_import(struct apusys_mem *um, struct mdw_usr *u)
 	struct mdw_mem *mm = NULL;
 
 	mm = mdw_usr_mem_create(um, APUSYS_MEM_PROP_IMPORT);
+	if (!mm)
+		return -ENOMEM;
+
+	/* add to user list */
+	mutex_lock(&u->mtx);
+	list_add_tail(&mm->u_item, &u->mem_list);
+
+	u->iova_size = u->iova_size + mm->kmem.iova_size;
+	if (u->iova_size_max < u->iova_size)
+		u->iova_size_max = u->iova_size;
+
+	mutex_unlock(&u->mtx);
+
+	return 0;
+}
+
+int mdw_usr_mem_map(struct apusys_mem *um, struct mdw_usr *u)
+{
+	struct mdw_mem *mm = NULL;
+
+	mm = mdw_usr_mem_create(um, APUSYS_MEM_PROP_MAP);
 	if (!mm)
 		return -ENOMEM;
 
