@@ -215,7 +215,6 @@ extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
-void mtk_atomic_state_get(struct drm_atomic_state *state);
 void mtk_atomic_state_put(struct drm_atomic_state *state);
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx);
