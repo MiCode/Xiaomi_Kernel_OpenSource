@@ -113,7 +113,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 		DDPINFO("M_ULOCK_NST[%d]:%s[%d] -\n", i, name, line);	\
 	} while (0)
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define DDPAEE(string, args...)                                                \
 	do {                                                                   \
 		char str[200];                                                 \
