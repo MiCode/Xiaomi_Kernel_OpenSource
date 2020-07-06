@@ -6,6 +6,7 @@
 #ifndef __MEMORY_SSMR_H__
 #define __MEMORY_SSMR_H__
 
+#include <linux/platform_device.h>
 #include "../private/tmem_device.h"
 
 #define NAME_SIZE 32
@@ -28,5 +29,6 @@ int ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
 int ssmr_online(unsigned int feat);
 int ssmr_query_total_sec_heap_count(void);
 int ssmr_query_heap_info(int heap_index, char *heap_name);
+int ssmr_probe(struct platform_device *pdev);
 
 #endif
