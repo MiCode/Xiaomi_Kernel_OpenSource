@@ -18,13 +18,6 @@ ccflags-y += -Werror
 #==========================================================================
 # Ensure module is built only when option is enabled
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) = trusted_mem.o
-obj-$(CONFIG_MTK_SSMR) += ssmr_module.o
-ifeq ($(filter y m,$(CONFIG_MTK_SSMR)),m)
-ssmr_module-y += ssmr/memory_ssmr_module.o
-endif
-ifeq ($(filter y m,$(CONFIG_MTK_SSMR)),y)
-ssmr_module-y += ssmr/memory_ssmr.o
-endif
 trusted_mem-y += dev_mgr.o
 trusted_mem-y += entry.o
 trusted_mem-y += region_mgr.o
@@ -32,6 +25,7 @@ trusted_mem-y += ssmr_mgr.o
 trusted_mem-y += peer_mgr.o
 trusted_mem-y += proc.o
 trusted_mem-y += alloc_api.o
+trusted_mem-y += ssmr/memory_ssmr_module.o
 
 ifeq ($(TCORE_PROFILING_SUPPORT),y)
 trusted_mem-y += profiler.o
@@ -101,10 +95,6 @@ endif # !CONFIG_MTK_GZ_KREE
 ifneq ($(filter y m,$(CONFIG_MTK_SVP)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssvp/
 endif # !CONFIG_MTK_SVP
-
-ifneq ($(filter y m,$(CONFIG_MTK_SSMR)),)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr/
-endif # !CONFIG_MTK_SSMR
 
 ifneq ($(filter y m,$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
