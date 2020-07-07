@@ -1674,17 +1674,6 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawc",
 	},
-	[MT8192_POWER_DOMAIN_MSDC] = {
-		.name = "msdc",
-		.sta_mask = BIT(30),
-		.ctl_offs = 0x03a4,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = 0,
-		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0xb84, 0xb88, 0xb80, 0xb90,
-				MT8192_TOP_AXI_PROT_EN_VDNR_MSDC),
-		},
-	},
 	/*
 	 * MT6873 shares most of MT8192's HW IP except modem.
 	 * So 6873 modem append to 8192's power domains.
