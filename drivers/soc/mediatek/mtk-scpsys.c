@@ -36,6 +36,7 @@
 #define MTK_SCPD_SRAM_ISO		BIT(2)
 #define MTK_SCPD_MD_OPS			BIT(3)
 #define MTK_SCPD_ALWAYS_ON		BIT(4)
+#define MTK_SCPD_APU_OPS		BIT(5)
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -174,6 +175,14 @@ int unregister_scpsys_notifier(struct notifier_block *nb)
 	return blocking_notifier_chain_unregister(&scpsys_notifier_list, nb);
 }
 EXPORT_SYMBOL_GPL(unregister_scpsys_notifier);
+
+static struct apu_callbacks *g_apucb;
+
+void register_apu_callback(struct apu_callbacks *apucb)
+{
+	g_apucb = apucb;
+}
+EXPORT_SYMBOL_GPL(register_apu_callback);
 
 static int scpsys_domain_is_on(struct scp_domain *scpd)
 {
@@ -680,6 +689,38 @@ out:
 	return ret;
 }
 
+static int scpsys_apu_power_on(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+
+	if (g_apucb && g_apucb->apu_power_on) {
+		ret = g_apucb->apu_power_on();
+		if (ret) {
+			dev_notice(scp->dev,
+				"Failed to power on domain %s\n", genpd->name);
+		}
+	}
+	return ret;
+}
+
+static int scpsys_apu_power_off(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+
+	if (g_apucb && g_apucb->apu_power_off) {
+		ret = g_apucb->apu_power_off();
+		if (ret) {
+			dev_notice(scp->dev,
+				"Failed to power off domain %s\n", genpd->name);
+		}
+	}
+	return ret;
+}
+
 static int init_subsys_clks(struct platform_device *pdev,
 		const char *prefix, struct clk **clk)
 {
@@ -875,6 +916,9 @@ static struct scp *init_scp(struct platform_device *pdev,
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_MD_OPS)) {
 			genpd->power_off = scpsys_md_power_off;
 			genpd->power_on = scpsys_md_power_on;
+		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_APU_OPS)) {
+			genpd->power_on = scpsys_apu_power_on;
+			genpd->power_off = scpsys_apu_power_off;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;
@@ -1691,6 +1735,10 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 			BUS_PROT(IFR_TYPE, 0xb84, 0xb88, 0xb80, 0xb90,
 				MT6873_TOP_AXI_PROT_EN_VDNR_MD),
 		},
+	},
+	[MT6873_POWER_DOMAIN_APU] = {
+		.name = "apu",
+		.caps = MTK_SCPD_APU_OPS,
 	},
 };
 
