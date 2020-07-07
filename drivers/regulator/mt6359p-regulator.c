@@ -175,35 +175,35 @@ struct mt6359p_regulator_info {
 	.qi = BIT(0),	\
 }
 
-static const struct regulator_linear_range mt_volt_range1[] = {
+static const struct linear_range mt_volt_range1[] = {
 	REGULATOR_LINEAR_RANGE(800000, 0, 0x70, 12500),
 };
 
-static const struct regulator_linear_range mt_volt_range2[] = {
+static const struct linear_range mt_volt_range2[] = {
 	REGULATOR_LINEAR_RANGE(400000, 0, 0x7f, 6250),
 };
 
-static const struct regulator_linear_range mt_volt_range3[] = {
+static const struct linear_range mt_volt_range3[] = {
 	REGULATOR_LINEAR_RANGE(400000, 0, 0x70, 6250),
 };
 
-static const struct regulator_linear_range mt_volt_range4[] = {
+static const struct linear_range mt_volt_range4[] = {
 	REGULATOR_LINEAR_RANGE(800000, 0, 0x40, 12500),
 };
 
-static const struct regulator_linear_range mt_volt_range5[] = {
+static const struct linear_range mt_volt_range5[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0, 0x3F, 50000),
 };
 
-static const struct regulator_linear_range mt_volt_range6[] = {
+static const struct linear_range mt_volt_range6[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0, 0x6f, 6250),
 };
 
-static const struct regulator_linear_range mt_volt_range7[] = {
+static const struct linear_range mt_volt_range7[] = {
 	REGULATOR_LINEAR_RANGE(500000, 0, 0x60, 6250),
 };
 
-static const struct regulator_linear_range mt_volt_range8[] = {
+static const struct linear_range mt_volt_range8[] = {
 	REGULATOR_LINEAR_RANGE(506250, 0, 0x7f, 6250),
 };
 
