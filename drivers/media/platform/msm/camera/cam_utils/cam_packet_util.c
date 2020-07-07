@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,7 +177,7 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 	uint32_t   temp;
 	uint32_t  *dst_cpu_addr;
 	uint32_t  *src_buf_iova_addr;
-	size_t     dst_buf_len;
+	size_t     dst_buf_len = 0;
 	size_t     src_buf_size;
 	int        i;
 	int        rc = 0;
