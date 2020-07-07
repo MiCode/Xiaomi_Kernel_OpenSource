@@ -24,6 +24,7 @@ endmenu # MultiMedia, Display, Camera
 
 menu "Security"
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
+source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
 
 menu "APU"
