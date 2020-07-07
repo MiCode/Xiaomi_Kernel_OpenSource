@@ -41,8 +41,8 @@
 /* mt2712 */
 #define SMI_LARB_NONSEC_CON(id)	(0x380 + ((id) * 4))
 #define F_MMU_EN		BIT(0)
-#define BANK_SEL(a)		((((a) & 0x3) << 8) || (((a) & 0x3) << 10) ||\
-				 (((a) & 0x3) << 12) || (((a) & 0x3) << 14))
+#define BANK_SEL(a)		((((a) & 0x3) << 8) | (((a) & 0x3) << 10) |\
+				 (((a) & 0x3) << 12) | (((a) & 0x3) << 14))
 
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
