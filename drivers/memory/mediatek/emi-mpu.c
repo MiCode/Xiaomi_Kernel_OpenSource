@@ -382,6 +382,12 @@ int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info)
 
 		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SET,
 			start, end, group_apc, 0, 0, 0, &smc_res);
+		if (smc_res.a0) {
+			pr_info("%s:%d failed to set region permission, ret=0x%lx\n",
+				__func__, __LINE__, smc_res.a0);
+			return -1;
+		}
+
 	}
 
 	return 0;
@@ -410,7 +416,11 @@ int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info)
 
 	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR,
 		rg_info->rg_num, 0, 0, 0, 0, 0, &smc_res);
-
+	if (smc_res.a0) {
+		pr_info("%s:%d failed to clear region permission, ret=0x%lx\n",
+			__func__, __LINE__, smc_res.a0);
+		return -1;
+	}
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emimpu_clear_protection);
@@ -795,9 +805,16 @@ static int emimpu_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32(emimpu_node, "slverr", &slverr);
 	if (!ret && slverr)
-		for (i = 0; i < mpu->domain_cnt; i++)
+		for (i = 0; i < mpu->domain_cnt; i++) {
 			arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SLVERR,
 				i, 0, 0, 0, 0, 0, &smc_res);
+			if (smc_res.a0) {
+				dev_err(&pdev->dev, "Failed to set MPU domain%d Slave Error, ret=0x%lx\n",
+					i, smc_res.a0);
+				ret = -EINVAL;
+				goto free_ap_rg_info;
+			}
+		}
 
 	devm_kfree(&pdev->dev, ap_apc);
 	devm_kfree(&pdev->dev, dump_list);
