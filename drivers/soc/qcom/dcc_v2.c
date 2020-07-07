@@ -1923,7 +1923,7 @@ static int dcc_v2_restore(struct device *dev)
 	struct dcc_save_state *state;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
-	if (!drvdata && !drvdata->sram_save_state && !drvdata->reg_save_state)
+	if (!drvdata || !drvdata->sram_save_state || !drvdata->reg_save_state)
 		return -EINVAL;
 
 	data = drvdata->sram_save_state;
