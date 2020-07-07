@@ -332,7 +332,7 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 				.hw = &gpu_cc_gmu_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_aon_ops,
 		},
 	},
@@ -507,7 +507,7 @@ static struct clk_branch gpu_cc_hub_aon_clk = {
 
 static struct clk_branch gpu_cc_hub_cx_int_clk = {
 	.halt_reg = 0x1204,
-	.halt_check = BRANCH_HALT_SKIP,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x1204,
 		.enable_mask = BIT(0),
@@ -517,7 +517,7 @@ static struct clk_branch gpu_cc_hub_cx_int_clk = {
 				.hw = &gpu_cc_hub_cx_int_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_aon_ops,
 		},
 	},
