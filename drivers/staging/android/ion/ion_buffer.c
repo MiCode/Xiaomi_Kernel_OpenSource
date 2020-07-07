@@ -14,7 +14,6 @@
 #define CREATE_TRACE_POINTS
 #include "ion_trace.h"
 #include "ion_private.h"
-#define ION_SYSTEM_HEAP_ID BIT(25)
 
 static atomic_long_t total_heap_bytes;
 
@@ -141,17 +140,10 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 		return ERR_PTR(-EINVAL);
 	}
 
-	/*
-	 * Temporarily reroute generic system heap allocations to the MSM system
-	 * heap. Once clients have stopped using the generic system heap ID, we
-	 * can remove this.
-	 */
 	if (heap_id_mask & ION_HEAP_SYSTEM) {
 		get_task_comm(task_comm, current->group_leader);
-		pr_warn_ratelimited("%s: Rerouting allocation from generic sys heap to msm sys heap for %s-%d\n",
+		pr_warn_ratelimited("%s: Detected allocation from generic sys heap for task %s-%d\n",
 				    __func__, task_comm, current->tgid);
-		heap_id_mask &= ~ION_HEAP_SYSTEM;
-		heap_id_mask |= ION_SYSTEM_HEAP_ID;
 	}
 
 	/*
