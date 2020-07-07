@@ -461,6 +461,10 @@
 		interrupts = <GIC_PPI 5 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	qcom-secure-buffer {
+		compatible = "qcom,secure-buffer";
+	};
+
 	qcom,msm-imem@c125000 {
 		compatible = "qcom,msm-imem";
 		reg = <0xc125000 0x1000>;
