@@ -384,33 +384,6 @@ void rtc6226_scan(struct work_struct *work)
 		FMDBG("%s valid channel %d, rssi %d\n", __func__,
 			next_freq_khz, radio->registers[RSSI] & RSSI_RSSI);
 
-		if (radio->registers[STATUS] & STATUS_SF) {
-			FMDERR("%s Seek one more time if lower freq is valid\n",
-					__func__);
-			retval = rtc6226_set_seek(radio, SRCH_UP, WRAP_ENABLE);
-			if (retval < 0) {
-				FMDERR("%s seek fail %d\n", __func__, retval);
-				goto seek_tune_fail;
-			}
-			if (!wait_for_completion_timeout(&radio->completion,
-					msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
-				FMDERR("timeout didn't receive STC for seek\n");
-			} else {
-				FMDERR("%s: received STC for seek\n", __func__);
-				retval = rtc6226_get_freq(radio,
-						&next_freq_khz);
-				if (retval < 0) {
-					FMDERR("%s getFreq failed\n", __func__);
-					goto seek_tune_fail;
-				}
-				if ((radio->recv_conf.band_low_limit *
-						TUNE_STEP_SIZE) ==
-							next_freq_khz)
-					rtc6226_q_event(radio,
-						RTC6226_EVT_TUNE_SUCC);
-			}
-			break;
-		}
 		if (radio->g_search_mode == SCAN)
 			rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
 		/*
@@ -438,6 +411,40 @@ void rtc6226_scan(struct work_struct *work)
 			rtc6226_q_event(radio, RTC6226_EVT_SCAN_NEXT);
 		} else if (radio->g_search_mode == SCAN_FOR_STRONG) {
 			rtc6226_update_search_list(radio, next_freq_khz);
+		}
+
+		if (radio->registers[STATUS] & STATUS_SF) {
+			FMDERR("%s Seek one more time if lower freq is valid\n",
+					__func__);
+			retval = rtc6226_set_seek(radio, SRCH_UP, WRAP_ENABLE);
+			if (retval < 0) {
+				FMDERR("%s seek fail %d\n", __func__, retval);
+				goto seek_tune_fail;
+			}
+			if (!wait_for_completion_timeout(&radio->completion,
+					msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
+				FMDERR("timeout didn't receive STC for seek\n");
+			} else {
+				FMDERR("%s: received STC for seek\n", __func__);
+				retval = rtc6226_get_freq(radio,
+						&next_freq_khz);
+				if (retval < 0) {
+					FMDERR("%s getFreq failed\n", __func__);
+					goto seek_tune_fail;
+				}
+				if ((radio->recv_conf.band_low_limit *
+						TUNE_STEP_SIZE) ==
+							next_freq_khz) {
+					FMDERR("lower band freq is valid\n");
+					rtc6226_q_event(radio,
+						RTC6226_EVT_TUNE_SUCC);
+					/* sleep for dwell period */
+					msleep(radio->dwell_time_sec * 1000);
+					rtc6226_q_event(radio,
+						RTC6226_EVT_SCAN_NEXT);
+				}
+			}
+			break;
 		}
 
 	}
