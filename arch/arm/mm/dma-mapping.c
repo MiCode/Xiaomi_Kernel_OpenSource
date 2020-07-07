@@ -17,6 +17,7 @@
 #include <linux/dma-direct.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-noncoherent.h>
+#include <linux/dma-iommu.h>
 #include <linux/dma-contiguous.h>
 #include <linux/highmem.h>
 #include <linux/memblock.h>
@@ -2489,8 +2490,9 @@ static void arm_iommu_get_dma_window(struct device *dev, u64 *dma_addr,
 	*dma_size = of_read_number(ranges + naddr, nsize);
 }
 
-static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
-				    const struct iommu_ops *iommu)
+static bool __maybe_unused
+arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
+			const struct iommu_ops *iommu)
 {
 	struct iommu_group *group;
 	struct iommu_domain *domain;
@@ -2550,8 +2552,9 @@ static void arm_teardown_iommu_dma_ops(struct device *dev)
 }
 #else
 
-static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
-				    const struct iommu_ops *iommu)
+static bool __maybe_unused
+arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
+			const struct iommu_ops *iommu)
 {
 	return false;
 }
@@ -2566,10 +2569,9 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 			const struct iommu_ops *iommu, bool coherent)
 {
 	const struct dma_map_ops *dma_ops;
-	struct dma_iommu_mapping *mapping;
 
 	dev->archdata.dma_coherent = coherent;
-#ifdef CONFIG_SWIOTLB
+#if defined(CONFIG_SWIOTLB) || defined(CONFIG_IOMMU_DMA)
 	dev->dma_coherent = coherent;
 #endif
 
@@ -2581,14 +2583,13 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (dev->dma_ops)
 		return;
 
-	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu)) {
-		mapping = to_dma_iommu_mapping(dev);
-		dma_ops = mapping->ops;
-	} else {
-		dma_ops = arm_get_dma_map_ops(coherent);
-	}
+	if (iommu)
+		iommu_setup_dma_ops(dev, dma_base, size);
 
-	set_dma_ops(dev, dma_ops);
+	if (!dev->dma_ops) {
+		dma_ops = arm_get_dma_map_ops(coherent);
+		set_dma_ops(dev, dma_ops);
+	}
 
 #ifdef CONFIG_XEN
 	if (xen_initial_domain())
