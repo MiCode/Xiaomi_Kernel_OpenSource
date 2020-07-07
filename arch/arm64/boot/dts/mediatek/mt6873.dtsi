@@ -880,6 +880,12 @@
 			mediatek,emi-reg = <&emichn>;
 		};
 
+		emiisu: emiisu {
+			compatible = "mediatek,mt6873-emiisu",
+				     "mediatek,common-emiisu";
+			ctrl_intf = <1>;
+		};
+
 		device_mpu_low@1021a000 {
 			compatible = "mediatek,device_mpu_low";
 			reg = <0 0x1021a000 0 0x1000>;
