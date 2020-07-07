@@ -216,8 +216,8 @@ struct tsens_device {
 	const struct tsens_data		*ctrl_data;
 	struct tsens_mtc_sysfs  mtcsys;
 	int				trdy_fail_ctr;
-	struct tsens_sensor		min_temp;
-	u8				min_temp_sensor_id;
+	struct tsens_sensor		zeroc;
+	u8				zeroc_sensor_id;
 	struct workqueue_struct		*tsens_reinit_work;
 	struct work_struct		therm_fwk_notify;
 	bool				tsens_reinit_wa;
@@ -233,7 +233,7 @@ extern struct list_head tsens_device_list;
 extern int calibrate_8937(struct tsens_device *tmdev);
 extern int calibrate_405(struct tsens_device *tmdev);
 
-extern int tsens_2xxx_get_min_temp(
-		struct tsens_sensor *sensor, int *temp);
+extern int tsens_2xxx_get_zeroc_status(
+		struct tsens_sensor *sensor, int *status);
 
 #endif /* __QCOM_TSENS_H__ */
