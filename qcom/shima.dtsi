@@ -2119,6 +2119,25 @@
 			qcom,dump-id = <0x104>;
 		};
 	};
+
+	qfprom: qfprom@780000 {
+		compatible = "qcom,qfprom";
+		reg = <0x780000 0x7000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
+
+		gpu_speed_bin: gpu_speed_bin@1e1 {
+			reg = <0x1e1 0x2>;
+			bits = <5 8>;
+		};
+
+		gpu_gaming_bin: gpu_gaming_bin@1ed {
+			reg = <0x1ed 0x1>;
+			bits = <5 1>;
+		};
+	};
 };
 
 #include "shima-pinctrl.dtsi"
@@ -2134,6 +2153,7 @@
 #include "msm-arm-smmu-shima.dtsi"
 #include "shima-vidc.dtsi"
 #include "shima-thermal.dtsi"
+#include "shima-gpu.dtsi"
 
 &gcc_pcie_0_gdsc {
 	status = "ok";
