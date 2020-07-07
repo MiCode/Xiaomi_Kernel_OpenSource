@@ -367,6 +367,31 @@ static int drawqueue_retire_timelineobj(struct kgsl_drawobj *drawobj,
 	return 0;
 }
 
+static int drawqueue_retire_bindobj(struct kgsl_drawobj *drawobj,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_drawobj_bind *bindobj = BINDOBJ(drawobj);
+
+	if (test_bit(KGSL_BINDOBJ_STATE_DONE, &bindobj->state)) {
+		_pop_drawobj(drawctxt);
+		_retire_timestamp(drawobj);
+		return 0;
+	}
+
+	if (!test_and_set_bit(KGSL_BINDOBJ_STATE_START, &bindobj->state)) {
+		/*
+		 * Take a referencre to the drawobj and the context because both
+		 * get referenced in the bind callback
+		 */
+		_kgsl_context_get(&drawctxt->base);
+		kref_get(&drawobj->refcount);
+
+		kgsl_sharedmem_bind_ranges(bindobj->bind);
+	}
+
+	return -EAGAIN;
+}
+
 /*
  * Retires all expired marker and sync objs from the context
  * queue and returns one of the below
@@ -403,6 +428,9 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 			break;
 		case SYNCOBJ_TYPE:
 			ret = dispatch_retire_syncobj(drawobj, drawctxt);
+			break;
+		case BINDOBJ_TYPE:
+			ret = drawqueue_retire_bindobj(drawobj, drawctxt);
 			break;
 		case TIMELINEOBJ_TYPE:
 			ret = drawqueue_retire_timelineobj(drawobj, drawctxt);
@@ -1357,6 +1385,7 @@ static int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 		case SYNCOBJ_TYPE:
 			drawctxt_queue_syncobj(drawctxt, drawobj[i], timestamp);
 			break;
+		case BINDOBJ_TYPE:
 		case TIMELINEOBJ_TYPE:
 			ret = drawctxt_queue_auxobj(adreno_dev,
 				drawctxt, drawobj[i], timestamp, user_ts);

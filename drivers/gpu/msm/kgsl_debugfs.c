@@ -299,6 +299,52 @@ static const struct file_operations process_mem_fops = {
 	.release = process_mem_release,
 };
 
+
+static int print_vbo_ranges(int id, void *ptr, void *data)
+{
+	kgsl_memdesc_print_vbo_ranges(ptr, data);
+	return 0;
+}
+
+static int vbo_print(struct seq_file *s, void *unused)
+{
+	struct kgsl_process_private *private = s->private;
+
+	seq_puts(s, "id    child range\n");
+
+	spin_lock(&private->mem_lock);
+	idr_for_each(&private->mem_idr, print_vbo_ranges, s);
+	spin_unlock(&private->mem_lock);
+
+	return 0;
+}
+
+static int vbo_open(struct inode *inode, struct file *file)
+{
+	pid_t pid = (pid_t) (unsigned long) inode->i_private;
+	struct kgsl_process_private *private;
+	int ret;
+
+	private = kgsl_process_private_find(pid);
+
+	if (!private)
+		return -ENODEV;
+
+	ret = single_open(file, vbo_print, private);
+	if (ret)
+		kgsl_process_private_put(private);
+
+	return ret;
+}
+
+static const struct file_operations vbo_fops = {
+	.open = vbo_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	/* Reuse the same release function */
+	.release = process_mem_release,
+};
+
 /**
  * kgsl_process_init_debugfs() - Initialize debugfs for a process
  * @private: Pointer to process private structure created for the process
@@ -317,17 +363,8 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 
 	private->debug_root = debugfs_create_dir(name, proc_d_debugfs);
 
-	/*
-	 * Both debugfs_create_dir() and debugfs_create_file() return
-	 * ERR_PTR(-ENODEV) if debugfs is disabled in the kernel but return
-	 * NULL on error when it is enabled. For both usages we need to check
-	 * for ERROR or NULL and only print a warning on an actual failure
-	 * (i.e. - when the return value is NULL)
-	 */
-
-	if (IS_ERR_OR_NULL(private->debug_root)) {
-		WARN((private->debug_root == NULL),
-			"Unable to create debugfs dir for %s\n", name);
+	if (IS_ERR(private->debug_root)) {
+		WARN_ONCE("Unable to create debugfs dir for %s\n", name);
 		private->debug_root = NULL;
 		return;
 	}
@@ -335,9 +372,11 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 	dentry = debugfs_create_file("mem", 0444, private->debug_root,
 		(void *) ((unsigned long) pid_nr(private->pid)), &process_mem_fops);
 
-	if (IS_ERR_OR_NULL(dentry))
-		WARN((dentry == NULL),
-			"Unable to create 'mem' file for %s\n", name);
+	if (IS_ERR(dentry))
+		WARN_ONCE("Unable to create 'mem' file for %s\n", name);
+
+	debugfs_create_file("vbos", 0444, private->debug_root,
+		(void *) ((unsigned long) pid_nr(private->pid)), &vbo_fops);
 }
 
 void kgsl_core_debugfs_init(void)

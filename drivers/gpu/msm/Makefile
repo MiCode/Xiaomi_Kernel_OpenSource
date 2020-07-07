@@ -19,7 +19,8 @@ msm_kgsl-y = \
 	kgsl_snapshot.o \
 	kgsl_timeline.o \
 	kgsl_trace.o \
-	kgsl_util.o
+	kgsl_util.o \
+	kgsl_vbo.o
 
 msm_kgsl-$(CONFIG_COMPAT) += kgsl_compat.o
 msm_kgsl-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o

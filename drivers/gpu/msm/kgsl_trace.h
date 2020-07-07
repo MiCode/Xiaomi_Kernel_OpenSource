@@ -623,6 +623,64 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 	)
 );
 
+TRACE_EVENT(kgsl_mem_add_bind_range,
+	TP_PROTO(struct kgsl_mem_entry *target, u64 offset,
+		 struct kgsl_mem_entry *child, u64 length),
+
+	TP_ARGS(target, offset, child, length),
+
+	TP_STRUCT__entry(
+		__field(u64, gpuaddr)
+		__field(u32, target)
+		__field(u32, tgid)
+		__field(u32, child)
+		__field(u64, length)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = target->memdesc.gpuaddr + offset;
+		__entry->tgid = pid_nr(target->priv->pid);
+		__entry->target = target->id;
+		__entry->child = child->id;
+		__entry->length = length;
+	),
+
+	TP_printk(
+	"tgid=%u target=%d gpuaddr=%llx length %llu child=%d",
+		__entry->tgid, __entry->target, __entry->gpuaddr,
+		__entry->length, __entry->child
+	)
+);
+
+TRACE_EVENT(kgsl_mem_remove_bind_range,
+	TP_PROTO(struct kgsl_mem_entry *target, u64 offset,
+		 struct kgsl_mem_entry *child, u64 length),
+
+	TP_ARGS(target, offset, child, length),
+
+	TP_STRUCT__entry(
+		__field(u64, gpuaddr)
+		__field(u32, target)
+		__field(u32, tgid)
+		__field(u32, child)
+		__field(u64, length)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = target->memdesc.gpuaddr + offset;
+		__entry->tgid = pid_nr(target->priv->pid);
+		__entry->target = target->id;
+		__entry->child = child->id;
+		__entry->length = length;
+	),
+
+	TP_printk(
+	"tgid=%u target=%d gpuaddr=%llx length %llu child=%d",
+		__entry->tgid, __entry->target, __entry->gpuaddr,
+		__entry->length, __entry->child
+	)
+);
+
 TRACE_EVENT(kgsl_mem_sync_full_cache,
 
 	TP_PROTO(unsigned int num_bufs, uint64_t bulk_size),

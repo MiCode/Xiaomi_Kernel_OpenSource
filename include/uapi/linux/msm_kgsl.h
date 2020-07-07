@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_KGSL_H
@@ -1766,9 +1766,32 @@ struct kgsl_gpumem_bind_ranges {
 #define IOCTL_KGSL_GPUMEM_BIND_RANGES \
 	_IOWR(KGSL_IOC_TYPE, 0x56, struct kgsl_gpumem_bind_ranges)
 
+#define KGSL_GPU_AUX_COMMAND_BIND	(1 << 0)
 #define KGSL_GPU_AUX_COMMAND_TIMELINE	(1 << 1)
 /* Reuse the same flag that GPU COMMAND uses */
 #define KGSL_GPU_AUX_COMMAND_SYNC	KGSL_CMDBATCH_SYNC
+
+/**
+ * struct kgsl_gpu_aux_command_bind - Descriptor for a GPU AUX bind command
+ * @rangeslist: Pointer to a list of &struct kgsl_gpumem_bind_range items
+ * @numranges Number of entries in @rangeslist
+ * @rangesize: Size of each entry in @rangeslist
+ * @target: The GPU memory ID for the target virtual buffer object
+ *
+ * Describe a GPU AUX command to bind ranges in a virtual buffer object.
+ * @rangeslist points to a &struct kgsl_gpumem_bind_ranges which is the same
+ * struct that is used by IOCTl_KGSL_GPUMEM_BIND_RANGES. @numrages is the size
+ * of the array in @rangeslist and @rangesize is the size of each entity in
+ * @rangeslist. @target points to the GPU ID for the target VBO object.
+ */
+struct kgsl_gpu_aux_command_bind {
+	__u64 rangeslist;
+	__u64 numranges;
+	__u64 rangesize;
+	__u32 target;
+/* private: Padding for 64 bit compatibility */
+	__u32 padding;
+};
 
 /**
  * struct kgsl_aux_command_generic - Container for an AUX command
