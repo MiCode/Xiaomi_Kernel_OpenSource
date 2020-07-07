@@ -60,8 +60,8 @@ static u32 ut_case_pass_count;
 static u32 ut_case_fail_count;
 static bool ut_case_halt;
 static u64 ut_case_command;
-static struct timeval ut_case_start_time;
-static struct timeval ut_case_end_time;
+static struct timespec64 ut_case_start_time;
+static struct timespec64 ut_case_end_time;
 void ut_set_halt(void)
 {
 	ut_case_halt = true;
@@ -94,16 +94,16 @@ static u32 ut_get_fail_cnt(void)
 
 static u32 ut_get_spend_sec(void)
 {
-	struct timeval *start_time = &ut_case_start_time;
-	struct timeval *end_time = &ut_case_end_time;
+	struct timespec64 *start_time = &ut_case_start_time;
+	struct timespec64 *end_time = &ut_case_end_time;
 
 	return GET_TIME_DIFF_SEC_P(start_time, end_time);
 }
 
 static u32 ut_get_spend_msec(void)
 {
-	struct timeval *start_time = &ut_case_start_time;
-	struct timeval *end_time = &ut_case_end_time;
+	struct timespec64 *start_time = &ut_case_start_time;
+	struct timespec64 *end_time = &ut_case_end_time;
 
 	return GET_TIME_DIFF_USEC_P(start_time, end_time);
 }
@@ -114,12 +114,12 @@ static void ut_status_reset(u64 ut_cmd)
 	ut_case_fail_count = 0;
 	ut_case_halt = false;
 	ut_case_command = ut_cmd;
-	do_gettimeofday(&ut_case_start_time);
+	ktime_get_ts64(&ut_case_start_time);
 }
 
 static void ut_status_dump(void)
 {
-	do_gettimeofday(&ut_case_end_time);
+	ktime_get_ts64(&ut_case_start_time);
 	pr_info("[UT_CASE]================================================\n");
 	pr_info("[UT_CASE]Executing UT command: %lld\n", ut_case_command);
 	pr_info("[UT_CASE]  TOTAL TEST ITEMS: %d\n",
