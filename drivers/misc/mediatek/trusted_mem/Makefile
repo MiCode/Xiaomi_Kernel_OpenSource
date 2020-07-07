@@ -47,6 +47,7 @@ trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o
 endif # !TCORE_UT_TESTS_SUPPORT
 
+ifneq ($(filter y m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
@@ -75,6 +76,7 @@ ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 trusted_mem-y += mtee_impl/mtee_ops.o
 trusted_mem-y += mtee_impl/mtee_invoke.o
 endif
+endif # !CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 
 #==========================================================================
 # Trusted Memory Subsystem Common Headers
