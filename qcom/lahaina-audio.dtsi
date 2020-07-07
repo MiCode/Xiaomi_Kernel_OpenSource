@@ -47,8 +47,10 @@
 						   <0x00000000>, <0x00000000>,
 						   <0x00000006>;
 
-			clock-names = "lpass_core_hw_vote";
-			clocks = <&lpass_core_hw_vote 0>;
+			clock-names = "lpass_core_hw_vote",
+					"lpass_audio_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>,
+					<&lpass_audio_hw_vote 0>;
 		};
 
 		bolero: bolero-cdc {
