@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,9 +27,24 @@
 #include <linux/regulator/machine.h>
 #include <linux/pmic-voter.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/alarmtimer.h>
 #include "smb5-reg.h"
 #include "smb5-lib.h"
 #include "schgm-flash.h"
+
+#ifdef THERMAL_CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+
+int LctIsInCall = 0;
+int LctThermal = 0;
+bool lct_backlight_off;
+
+union power_supply_propval lct_therm_lvl_reserved;
+union power_supply_propval lct_therm_level;
+union power_supply_propval lct_therm_call_level = {2,};
+
+#endif
 
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
@@ -249,6 +265,7 @@ enum {
 };
 
 #define PMI632_MAX_ICL_UA	3000000
+#define OTG_DISABLE_TIME	(10*60*1000)	//10min
 static int smb5_chg_config_init(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -627,6 +644,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+	POWER_SUPPLY_PROP_USB_OTG,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -767,6 +785,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
 		val->intval = chg->moisture_present;
+		break;
+	case POWER_SUPPLY_PROP_USB_OTG:
+		val->intval = chg->otg_present;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1262,7 +1283,13 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_RECHARGE_SOC,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
-	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
+	//begin for the total capacity of batt in  2018.11.05
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	//end for the total capacity of batt in  2018.11.05
+	#ifdef XIAOMI_CHARGER_RUNIN
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,//lct add for runin 20181105
+	#endif
+	POWER_SUPPLY_PROP_OTG_CTRL,
 };
 
 #define ITERM_SCALING_FACTOR_PMI632	1525
@@ -1319,6 +1346,11 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
+	#ifdef XIAOMI_CHARGER_RUNIN
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = chg->charging_enabled;
+		break;
+	#endif
 	case POWER_SUPPLY_PROP_STATUS:
 		rc = smblib_get_prop_batt_status(chg, val);
 		break;
@@ -1340,6 +1372,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_get_prop_batt_capacity(chg, val);
+		#ifdef XIAOMI_CHARGER_RUNIN
+		//pr_err("lct battery_capacity =%d\n", val->intval);
+		#endif
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		rc = smblib_get_prop_system_temp_level(chg, val);
@@ -1381,7 +1416,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LIPO;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		rc = smblib_get_prop_batt_charge_done(chg, val);
@@ -1403,6 +1438,11 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = chg->pulse_cnt;
 		break;
+	//begin for the total capacity of batt in  2018.11.05
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		rc = smblib_get_prop_battery_full_design(chg, val);
+		break;
+	//end for the total capacity of batt in  2018.11.05
 	case POWER_SUPPLY_PROP_RERUN_AICL:
 		val->intval = 0;
 		break;
@@ -1424,6 +1464,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		val->intval = chg->fcc_stepper_enable;
 		break;
+	case POWER_SUPPLY_PROP_OTG_CTRL:
+		val->intval = (int)chg->otg_en_ctrl;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1437,6 +1480,17 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	return 0;
 }
 
+static void set_prop_otg_ctrl(struct smb_charger *chg, int value)
+{
+	chg->otg_en_ctrl = (bool)value;
+	if (value) {
+		if (chg->otg_present)
+			smb5_notify_usb_host(chg, value);
+		else
+			alarm_start_relative(&chg->otg_ctrl_timer, ms_to_ktime(OTG_DISABLE_TIME));
+	}
+}
+
 static int smb5_batt_set_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		const union power_supply_propval *val)
@@ -1446,6 +1500,11 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	bool enable;
 
 	switch (prop) {
+	#ifdef XIAOMI_CHARGER_RUNIN
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		rc = lct_set_prop_input_suspend(chg, val);
+		break;
+	#endif
 	case POWER_SUPPLY_PROP_STATUS:
 		rc = smblib_set_prop_batt_status(chg, val);
 		break;
@@ -1521,6 +1580,9 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 					false, 0);
 		}
 		break;
+	case POWER_SUPPLY_PROP_OTG_CTRL:
+		set_prop_otg_ctrl(chg, val->intval);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1539,11 +1601,15 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PARALLEL_DISABLE:
 	case POWER_SUPPLY_PROP_DP_DM:
 	case POWER_SUPPLY_PROP_RERUN_AICL:
+	#ifdef XIAOMI_CHARGER_RUNIN
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	#endif
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_SW_JEITA_ENABLED:
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_OTG_CTRL:
 		return 1;
 	default:
 		break;
@@ -2066,14 +2132,15 @@ static int smb5_init_hw(struct smb5 *chip)
 	 * AICL configuration:
 	 * AICL ADC disable
 	 */
-	if (chg->smb_version != PMI632_SUBTYPE) {
+	//if (chg->smb_version != PMI632_SUBTYPE) {
 		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
 				USBIN_AICL_ADC_EN_BIT, 0);
+		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,0xff, 0x54);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
 			return rc;
 		}
-	}
+//}
 
 	/* enable the charging path */
 	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, false, 0);
@@ -2760,6 +2827,88 @@ static void smb5_create_debugfs(struct smb5 *chip)
 
 #endif
 
+#ifdef THERMAL_CONFIG_FB
+static ssize_t lct_thermal_call_status_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", LctIsInCall);
+}
+static ssize_t lct_thermal_call_status_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned int input;
+	if (sscanf(buf, "%u", &input) != 1)
+		retval = -EINVAL;
+	else
+	        LctIsInCall = input;
+
+	pr_err("LctIsInCall = %d\n", LctIsInCall);
+
+	return retval;
+}
+static struct device_attribute attrs2[] = {
+	__ATTR(thermalcall, S_IRUGO | S_IWUSR,
+			lct_thermal_call_status_show, lct_thermal_call_status_store),
+};
+
+
+static void thermal_fb_notifier_resume_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger, fb_notify_work);
+
+	LctThermal = 1;
+	if((lct_backlight_off) && (LctIsInCall == 0))//wait
+		smblib_set_prop_system_temp_level(chg,&lct_therm_level);//JEITA level_set = 0
+	else if(LctIsInCall == 1)//phone
+		smblib_set_prop_system_temp_level(chg,&lct_therm_call_level);//set charging current while calling
+	else
+		smblib_set_prop_system_temp_level(chg,&lct_therm_lvl_reserved);
+	LctThermal = 0;
+}
+
+
+// frame buffer notifier block control the suspend/resume procedure
+static int thermal_notifier_callback(struct notifier_block *noti, unsigned long event, void *data)
+{
+	struct fb_event *ev_data = data;
+	struct smb_charger *chg = container_of(noti, struct smb_charger, notifier);
+	int *blank;
+	if (ev_data && ev_data->data && chg) {
+		blank = ev_data->data;
+		if (event == FB_EARLY_EVENT_BLANK && *blank == FB_BLANK_UNBLANK) {
+
+			lct_backlight_off = false;
+			schedule_work(&chg->fb_notify_work);
+		}
+		else if (event == FB_EVENT_BLANK && *blank == FB_BLANK_POWERDOWN) {
+			lct_backlight_off = true;
+			schedule_work(&chg->fb_notify_work);
+		}
+	}
+
+	return 0;
+}
+
+
+static int lct_register_powermanager(struct smb_charger *chg)
+{
+	chg->notifier.notifier_call = thermal_notifier_callback;
+	fb_register_client(&chg->notifier);
+	return 0;
+}
+
+
+static int lct_unregister_powermanager(struct smb_charger *chg)
+{
+	fb_unregister_client(&chg->notifier);
+	return 0;
+}
+
+#endif
+
+
+
 static int smb5_show_charger_status(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -2801,12 +2950,32 @@ static int smb5_show_charger_status(struct smb5 *chip)
 	return rc;
 }
 
+static enum alarmtimer_restart otg_ctrl_timer_function(struct alarm *alarm, ktime_t now)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+	struct smb_charger *chg = container_of(alarm, struct smb_charger, otg_ctrl_timer);
+
+	pr_info("Enter OTG Disable timer function.\n");
+
+	rc = power_supply_get_property(chg->usb_psy, POWER_SUPPLY_PROP_USB_OTG, &pval);
+	if (rc < 0)
+		pr_err("Could not get otg status. rc = %d. \n", rc);
+
+	if (pval.intval == 0)
+		chg->otg_en_ctrl = false;
+
+	return ALARMTIMER_NORESTART;
+}
+
 static int smb5_probe(struct platform_device *pdev)
 {
 	struct smb5 *chip;
 	struct smb_charger *chg;
 	int rc = 0;
-
+	#ifdef THERMAL_CONFIG_FB
+	unsigned char attr_count2;
+	#endif
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
@@ -2820,7 +2989,9 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->irq_info = smb5_irqs;
 	chg->die_health = -EINVAL;
 	chg->otg_present = false;
+	chg->otg_en_ctrl = false;
 	mutex_init(&chg->vadc_lock);
+	alarm_init(&chg->otg_ctrl_timer, ALARM_BOOTTIME, otg_ctrl_timer_function);
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
@@ -2918,6 +3089,17 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	#ifdef THERMAL_CONFIG_FB
+	for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
+		    rc = sysfs_create_file(&chg->dev->kobj,
+						&attrs2[attr_count2].attr);
+			if (rc < 0) {
+		        sysfs_remove_file(&chg->dev->kobj,
+						&attrs2[attr_count2].attr);
+			}
+		}
+	#endif
+
 	rc = smb5_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
@@ -2947,6 +3129,21 @@ static int smb5_probe(struct platform_device *pdev)
 
 	device_init_wakeup(chg->dev, true);
 
+
+	#ifdef THERMAL_CONFIG_FB
+	lct_therm_lvl_reserved.intval= 0;
+	lct_therm_level.intval= 0;
+	lct_backlight_off = false;
+	INIT_WORK(&chg->fb_notify_work, thermal_fb_notifier_resume_work);
+	// register suspend and resume fucntion
+	lct_register_powermanager(chg);
+	#endif
+
+	#ifdef XIAOMI_CHARGER_RUNIN
+	chg->charging_enabled = true;
+	#endif
+
+
 	pr_info("QPNP SMB5 probed successfully\n");
 
 	return rc;
@@ -2965,6 +3162,15 @@ static int smb5_remove(struct platform_device *pdev)
 	struct smb5 *chip = platform_get_drvdata(pdev);
 	struct smb_charger *chg = &chip->chg;
 
+	#ifdef THERMAL_CONFIG_FB
+	unsigned char attr_count2;
+		for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
+			  sysfs_remove_file(&chg->dev->kobj,
+							&attrs2[attr_count2].attr);
+			}
+	lct_unregister_powermanager(chg);
+	#endif
+
 	/* force enable APSD */
 	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 				BC1P2_SRC_DETECT_BIT, BC1P2_SRC_DETECT_BIT);
@@ -2972,6 +3178,7 @@ static int smb5_remove(struct platform_device *pdev)
 	smb5_free_interrupts(chg);
 	smblib_deinit(chg);
 	platform_set_drvdata(pdev, NULL);
+	alarm_cancel(&chg->otg_ctrl_timer);
 	return 0;
 }
 

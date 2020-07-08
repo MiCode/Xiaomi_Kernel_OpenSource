@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -525,7 +526,7 @@ int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata,
 	}
 
 	pinfo = &pdata->panel_info;
-	pr_debug("%pS-->%s: cur_power_state=%d req_power_state=%d\n",
+	pr_info("%pS-->%s: cur_power_state=%d req_power_state=%d\n",
 		__builtin_return_address(0), __func__,
 		pinfo->panel_power_state, power_state);
 
@@ -1525,7 +1526,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		mdss_dsi_validate_debugfs_info(ctrl_pdata);
 
 	cur_power_state = pdata->panel_info.panel_power_state;
-	pr_debug("%s+: ctrl=%pK ndx=%d cur_power_state=%d\n", __func__,
+	pr_info("%s+: ctrl=%pK ndx=%d cur_power_state=%d\n", __func__,
 		ctrl_pdata, ctrl_pdata->ndx, cur_power_state);
 
 	pinfo = &pdata->panel_info;
@@ -1614,7 +1615,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 
 end:
-	pr_debug("%s-:\n", __func__);
+	pr_info("%s-:\n", __func__);
 	return ret;
 }
 

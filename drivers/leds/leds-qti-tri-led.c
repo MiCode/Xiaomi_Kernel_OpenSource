@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -341,6 +342,56 @@ unlock:
 	return (rc < 0) ? rc : count;
 }
 
+/*add blink function for F6 2018-0828 begin*/
+static ssize_t blink_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", led->led_setting.blink);
+}
+
+static ssize_t blink_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	int rc;
+	bool blink;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct qpnp_led_dev *led =
+		container_of(led_cdev, struct qpnp_led_dev, cdev);
+
+	rc = kstrtobool(buf, &blink);
+	if (rc < 0)
+		return rc;
+
+	mutex_lock(&led->lock);
+	if (led->blinking == blink)
+		goto unlock;
+
+	led->led_setting.blink = blink;
+	led->led_setting.on_ms = 1000;
+	led->led_setting.off_ms = 1000;
+	led->led_setting.breath = false;
+	led->led_setting.brightness = blink ? LED_FULL : LED_OFF;
+	rc = qpnp_tri_led_set(led);
+	if (rc < 0)
+		dev_err(led->chip->dev, "Set led failed for %s, rc=%d\n",
+				led->label, rc);
+
+unlock:
+	mutex_unlock(&led->lock);
+	return (rc < 0) ? rc : count;
+}
+
+static DEVICE_ATTR(blink, 0664, blink_show, blink_store);
+static const struct attribute  *blink_attrs[] = {
+	&dev_attr_blink.attr,
+	NULL
+};
+/*add blink function for F6 2018-0828 end*/
+
 static DEVICE_ATTR(breath, 0644, breath_show, breath_store);
 static const struct attribute *breath_attrs[] = {
 	&dev_attr_breath.attr,
@@ -370,6 +421,15 @@ static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 							led->label, rc);
 			goto err_out;
 		}
+
+		/*add blink function for F6 2018-0828 begin*/
+		rc = sysfs_create_files(&led->cdev.dev->kobj,blink_attrs);
+		if (rc < 0) {
+			dev_err(chip->dev, "Create breath file for %s led failed, rc=%d\n",
+					led->label, rc);
+			goto err_out;
+		}
+		/*add blink function for F6 2018-0828 end*/
 
 		if (pwm_get_output_type_supported(led->pwm_dev)
 				& PWM_OUTPUT_MODULATED) {

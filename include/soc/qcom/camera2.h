@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +22,27 @@
 #include <linux/of.h>
 
 #define MAX_SPECIAL_SUPPORT_SIZE 10
+#define CAMERA_VENDOR_EEPROM_COUNT_MAX 16
+
+enum __camera_vendor_module_id{
+	MID_NULL = 0,
+	MID_SUNNY,
+	MID_TRULY,
+	MID_A_KERR,
+	MID_LITEARRAY,
+	MID_DARLING,
+	MID_QTECH,
+	MID_OFILM,
+	MID_HUAQUAN,
+	MID_KINGCOM = MID_HUAQUAN,
+	MID_BOOYI,
+	MID_LAIMU,
+	MID_WDSEN,
+	MID_SUNRISE,
+	MID_AVC,
+	MID_MAX
+};
+typedef enum __camera_vendor_module_id camera_vendor_module_id;
 
 enum msm_camera_device_type_t {
 	MSM_CAMERA_I2C_DEVICE,
@@ -153,6 +175,7 @@ struct msm_camera_sensor_board_info {
 	const char *special_support_sensors[MAX_SPECIAL_SUPPORT_SIZE];
 	int32_t special_support_size;
 	struct msm_camera_slave_info *slave_info;
+	struct msm_vendor_id_info_t *vendor_id_info;
 	struct msm_camera_csi_lane_params *csi_lane_params;
 	struct msm_camera_sensor_strobe_flash_data *strobe_flash_data;
 	struct msm_actuator_info *actuator_info;
@@ -223,6 +246,11 @@ struct msm_eeprom_board_info {
 	struct msm_camera_power_ctrl_t power_info;
 	struct msm_eeprom_cmm_t cmm_data;
 	enum i2c_freq_mode_t i2c_freq_mode;
+};
+
+struct vendor_eeprom{
+	char eeprom_name[128];
+	uint8_t module_id;
 };
 
 #endif

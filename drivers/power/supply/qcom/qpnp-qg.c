@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,7 +124,7 @@ static int qg_read_ocv(struct qpnp_qg *chip, u32 *ocv_uv, u32 *ocv_raw, u8 type)
 	temp = *ocv_raw;
 	*ocv_uv = V_RAW_TO_UV(temp);
 
-	pr_debug("%s: OCV_RAW=%x OCV=%duV\n", ocv_name, *ocv_raw, *ocv_uv);
+	pr_info("%s: OCV_RAW=%x OCV=%duV\n", ocv_name, *ocv_raw, *ocv_uv);
 
 	return rc;
 }
@@ -1918,6 +1919,26 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
 		}
+	} else if (health == POWER_SUPPLY_HEALTH_GOOD && chip->msoc <= recharge_soc) {
+
+		 bool usb_present = is_usb_present(chip);
+
+		/*
+		 * force a recharge only if SOC <= recharge SOC and
+		 * we have not started charging.
+		*/
+		 if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
+			 usb_present && chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
+			 /* Force recharge */
+			 prop.intval = 0;
+			 rc = power_supply_set_property(chip->batt_psy,
+			 POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+
+		 if (rc < 0)
+			pr_err("Failed to force recharge rc=%d\n", rc);
+		 else
+			qg_dbg(chip, QG_DEBUG_STATUS, "Forced recharge\n");
+		 }
 	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
@@ -2617,7 +2638,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 		goto done;
 	}
 
-	qg_dbg(chip, QG_DEBUG_PON, "Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs temp=%d, time_now=%ldsecs temp_now=%d S7_soc=%d\n",
+	pr_info("lct Shutdown: Valid=%d SOC=%d OCV=%duV time=%dsecs temp=%d, time_now=%ldsecs temp_now=%d S7_soc=%d\n",
 			shutdown[SDAM_VALID],
 			shutdown[SDAM_SOC],
 			shutdown[SDAM_OCV_UV],
@@ -2651,7 +2672,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 	ocv_uv = shutdown[SDAM_OCV_UV];
 	soc = shutdown[SDAM_SOC];
 	strlcpy(ocv_type, "SHUTDOWN_SOC", 20);
-	qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
+	pr_info("Using SHUTDOWN_SOC @ PON\n");
 
 use_pon_ocv:
 	if (use_pon_ocv == true) {
@@ -3442,7 +3463,7 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.esr_min_ibat_ua = (int)temp;
 
-	rc = of_property_read_u32(node, "qcom,shutdown_soc_threshold", &temp);
+	rc = of_property_read_u32(node, "qcom,shutdown-soc-threshold", &temp);
 	if (rc < 0)
 		chip->dt.shutdown_soc_threshold = -EINVAL;
 	else

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,11 +66,18 @@
 		#size-cells = <2>;
 		ranges;
 
-		other_ext_mem: other_ext_region@0 {
+	/*	other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x0 0x85b00000 0x0 0xd00000>;
 		};
+	*/
+		other_ext_mem: other_ext_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
+		};
+
 
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
@@ -80,15 +88,17 @@
 		adsp_fw_mem: adsp_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d600000 0x0 0x1100000>;
+			reg = <0x0 0x8d600000 0x0 0x1400000>;
 		};
-
+//formal[reg = <0x0 0x8d600000 0x0 0x1100000>;]
+//modified by Quanyu.Lee for increase the adsp memory size for NXP porting at 2018.8.7
 		wcnss_fw_mem: wcnss_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8e700000 0x0 0x700000>;
+			reg = <0x0 0x8ea00000 0x0 0x700000>;
 		};
-
+//formal [reg = <0x0 0x8e700000 0x0 0x700000>;]
+//modified by Quanyu.Lee for increase the adsp memory size for NXP porting at 2018.8.7
 		venus_mem: venus_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -432,9 +442,11 @@
 		#thermal-sensor-cells = <1>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	//qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		//reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -812,7 +824,81 @@
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
+		status = "ok";
+	clock-frequency = <400000>;
+	goodix@14{
+		compatible = "goodix,gt1x";
+		reg = <0x14>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd_ana-supply = <&pm8953_l10>;
+		vcc_i2c-supply = <&pm8953_l6>;
+		/* pins used by touchscreen */
+	        pinctrl-names = "default","int-output-high","int-output-low","int-input",
+		"erst_as_default","erst_output_low","erst_output_high";
+		pinctrl-0 = <&ts_int_default>;
+		pinctrl-1 = <&ts_int_output_high>;
+		pinctrl-2 = <&ts_int_output_low>;
+		pinctrl-3 = <&ts_int_input>;
+		pinctrl-4 = <&ts_as_reset>;
+		pinctrl-5 = <&ts_reset_suspend>;
+		pinctrl-6 = <&ts_reset_active>;
+		goodix,reset-gpio = <&tlmm 64 0x00>;
+		goodix,irq-gpio = <&tlmm 65 0x00>;
+		goodix,default-config0 = [
+			FF  D0  02  F0  05  0A  3C  00  00  88  4E  0F  5A  46  3E
+			11  00  0C  08  1E  01  33  00  00  00  00  00  18  00  00
+			A0  0C  32  32  28  5A  11  22  91  A0  B4  00  00  00  00
+			00  00  00  00  00  50  BE  00  00  8E  20  1D  32  34  5A
+			0D  00  2E  53  24  7B  00  00  32  AB  26  95  2E  80  36
+			7F  3F  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  00  00  00  1E
+			50  40  94  D4  28  12  03  EE  26  AA  2E  82  36  72  3F
+			6E  47  6E  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  1F  1D  1B  1A
+			19  18  17  16  15  14  13  12  10  0F  01  02  03  04  05
+			06  07  08  09  0A  0B  0C  0D  0E  FF  FF  FF  06  08  0C
+			12  13  14  15  17  18  19  1A  1B  1C  1D  FF  FF  FF  FF
+			FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  00
+			F8  0A  23  23  50  5D  54  50  3C  05  32  00  00  04  40
+			00  8A  02  40  00  AA  00  22  22  00  40  D1  4C  01  33
+			00  00  00  00  00  00  00  10  00  28  A5  00  00  00  00
+			32  08  65  00  00  00  12  6E  19  01  64  03  64  28  50
+			65  0D  00  00  00  00  00  00  00  00  00  00  00  00  1E
+			0A  01  DC  00  00  00  14  28  46  11  20  A2  34  66  E4
+			0C  5A  00  0F  23  02  3C  0E  02  01  01  01  00  00  00
+			00  16  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  B7  70
+			];
+	};
+
+	focaltech@38{
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8953_l10>;
+		vcc_i2c-supply = <&pm8953_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_irqrst_active","pmx_ts_irqrst_suspend",
+		    "pmx_ts_irqrst_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_as_int &ts_as_reset>;
+		focaltech,name = "fts_ts";
+		focaltech,reset-gpio = <&tlmm 64 0x00>;
+		//focaltech,power_ldo-gpio = <&tlmm 0 0x00>;
+		focaltech,irq-gpio = <&tlmm 65 0x02>;
+		focaltech,display-coords = <0 0 720 1520>;
+		focaltech,max-touch-number = <10>;
+		/*focaltech,have-key;
+		focaltech,key-number = <3>;
+		focaltech,keys = <139 172 158>;
+		focaltech,key-y-coord = <1350>;
+		focaltech,key-x-coords = <180 350 540>;*/
+	};
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -838,7 +924,7 @@
 		dmas = <&dma_blsp2 4 64 0x20000020 0x20>,
 			<&dma_blsp2 5 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
+		status = "ok";
 	};
 
 	slim_msm: slim@c140000{
@@ -1416,6 +1502,15 @@
 		};
 	};
 
+	/* Add-begin fuse state check by jiang lei 20180621 */
+	sn_fuse: snfuse@a4128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xA4128 0x4>,
+		      <0xA6034 0x4>;
+		reg-names = "sn-base","fuse-state";
+	};
+	/* Add-end fuse state check by jiang lei 20180621 */
+
 	jtag_mm0: jtagmm@619c000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x619c000 0x1000>;
@@ -1831,9 +1926,9 @@
 		qcom,vdd-voltage-level = <0 925000 925000>;
 
 		qcom,qusb-phy-init-seq = <0xf8 0x80
-					0xb3 0x84
+					0x23 0x84
 					0x83 0x88
-					0xc0 0x8c
+					0xc5 0x8c
 					0x14 0x9c
 					0x30 0x08
 					0x79 0x0c
@@ -2234,6 +2329,65 @@
 		status = "ok";
 	};
 
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x0>;
+		fpc,gpio_rst = <&tlmm 140 0x0>;
+		fpc,gpio_irq = <&tlmm 48 0x0>;
+		fpc,gpio_ldo_en = <&tlmm 47 0x0>;
+
+		vcc_spi-supply = <&pm8953_l6>;
+		vdd_io-supply = <&pm8953_l6>;
+		vdd_ana-supply = <&pm8953_l6>;
+		//vdd_ana-supply = <&pm8953_l10>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active",
+			"fpc1020_ldo_2v8_en";
+		pinctrl-0 = <&fp_reset_low>;
+		pinctrl-1 = <&fp_reset_high>;
+		pinctrl-2 = <&fp_irq_active>;
+		pinctrl-3 = <&fp_ldo_2v8_en>;
+	};
+
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&tlmm 54 0x00>;
+	};
+
+	goodix_fp {
+		status = "ok";
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x0>;
+		goodix,gpio_reset = <&tlmm 140 0x0>;
+		goodix,gpio_irq = <&tlmm 48 0x0>;
+		goodix,gpio_pwr = <&tlmm 47 0x0>;
+
+		vcc_spi-supply = <&pm8953_l6>;
+		vdd_io-supply = <&pm8953_l6>;
+		vdd_ana-supply = <&pm8953_l6>;
+		//vdd_ana-supply = <&pm8953_l10>;
+
+		/* pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active",
+			"fpc1020_ldo_2v8_en";
+		pinctrl-0 = <&fp_reset_low>;
+		pinctrl-1 = <&fp_reset_high>;
+		pinctrl-2 = <&fp_irq_active>;
+		pinctrl-3 = <&fp_ldo_2v8_en>; */
+	};
+
+	ant_check {
+		compatible = "ant_check";
+		pinctrl-names = "ant_check_irq_state";
+		pinctrl-0 = <&ant_check_irq_state>;
+		ant_check,irq_gpio = <&tlmm 9 0>;
+	};
 };
 
 #include "pm8953-rpm-regulator.dtsi"

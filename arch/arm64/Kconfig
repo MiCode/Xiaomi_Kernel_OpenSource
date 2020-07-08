@@ -91,7 +91,6 @@ config ARM64
 	select HAVE_CMPXCHG_DOUBLE
 	select HAVE_CMPXCHG_LOCAL
 	select HAVE_CONTEXT_TRACKING
-	select HAVE_DEBUG_BUGVERBOSE
 	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
 	select HAVE_DMA_CONTIGUOUS
@@ -211,6 +210,12 @@ config GENERIC_BUG
 	def_bool y
 	depends on BUG
 
+config THERMAL_SWITCH
+        default n
+	bool "Support themral config switch"
+	help
+	  Support themral config switch.
+
 config GENERIC_BUG_RELATIVE_POINTERS
 	def_bool y
 	depends on GENERIC_BUG
@@ -262,6 +267,13 @@ config PGTABLE_LEVELS
 	default 3 if ARM64_4K_PAGES && ARM64_VA_BITS_39
 	default 3 if ARM64_16K_PAGES && ARM64_VA_BITS_47
 	default 4 if !ARM64_64K_PAGES && ARM64_VA_BITS_48
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
 
 source "init/Kconfig"
 

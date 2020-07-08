@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,7 +236,6 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_SMB1390_DIE_TEMP] = {qpnp_adc_scale_die_temp_1390},
 	[SCALE_BATT_THERM_TEMP_PU30] = {qpnp_adc_batt_therm_pu30},
 	[SCALE_BATT_THERM_TEMP_PU400] = {qpnp_adc_batt_therm_pu400},
-	[SCALE_BATT_THERM_TEMP_QRD_215] = {qpnp_adc_batt_therm_qrd_215}
 };
 
 static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {

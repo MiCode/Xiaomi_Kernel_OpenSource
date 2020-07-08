@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,8 @@ DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
 #endif
+
+struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
 
 /*
  * msm_get_read_mem_size - Get the total size for allocation
@@ -54,10 +57,8 @@ static int msm_get_read_mem_size
 			return -EINVAL;
 		}
 		for (i = 0; i < eeprom_map->memory_map_size; i++) {
-			if ((eeprom_map->mem_settings[i].i2c_operation ==
-				MSM_CAM_READ) ||
-				(eeprom_map->mem_settings[i].i2c_operation ==
-				MSM_CAM_READ_LOOP)) {
+			if (eeprom_map->mem_settings[i].i2c_operation ==
+				MSM_CAM_READ) {
 				size += eeprom_map->mem_settings[i].reg_data;
 			}
 		}
@@ -441,10 +442,8 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 			break;
 
 			default:
-				pr_err("%s: %d Invalid i2c operation LC:%d, op: %d\n",
-					__func__, __LINE__, i,
-					eeprom_map->mem_settings[i].
-						i2c_operation);
+				pr_err("%s: %d Invalid i2c operation LC:%d\n",
+					__func__, __LINE__, i);
 				return -EINVAL;
 			}
 		}
@@ -696,7 +695,7 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
+			rc = 0;//-EINVAL;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -733,6 +732,138 @@ static int msm_eeprom_get_subdev_id(struct msm_eeprom_ctrl_t *e_ctrl,
 	CDBG("subdev_id %d\n", *subdev_id);
 	CDBG("%s X\n", __func__);
 	return 0;
+}
+
+static camera_vendor_module_id onc_ov02a10_ofilm_i_get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint16_t MID_FLAG_OFFSET = 0x0000;//0x01 valid
+	uint16_t MODULE_INFO_OFFSET = 0x0001;//ofilm 0x07 valid
+	uint8_t flag=0;
+	uint8_t mid=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	bool rc = false;
+
+	flag = buffer[MID_FLAG_OFFSET];
+	mid = buffer[MODULE_INFO_OFFSET];
+	rc = (flag == 0x01 && mid==MID_OFILM) ? true : false;
+
+	if(rc==false) mid = MID_NULL;
+
+	CDBG("%s flag=0x%x, mid=0x%x.\n", __func__, flag, mid);
+	return mid;
+}
+
+static camera_vendor_module_id onc_ov02a10_sunny_ii_get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint16_t MID_FLAG_OFFSET = 0x0000;//0x01 valid
+	uint16_t MODULE_INFO_OFFSET = 0x0001;//sunny 0x01 valid
+	uint8_t flag=0;
+	uint8_t mid=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	bool rc = false;
+
+	flag = buffer[MID_FLAG_OFFSET];
+	mid = buffer[MODULE_INFO_OFFSET];
+	rc = (flag == 0x01 && mid==MID_SUNNY) ? true : false;
+
+	if (rc==false)
+		mid = MID_NULL;
+
+	CDBG(" %s flag=0x%x, mid=0x%x.\n", __func__, flag, mid);
+	return mid;
+}
+
+static camera_vendor_module_id onc_s5k4h7_ofilm_i_get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t VALID_FLAG = 0x55;
+	uint8_t group_otp_size =26;
+	uint8_t mid=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	bool rc = false;
+	uint8_t flag_group3 = buffer[52];
+	uint8_t flag_group2 = buffer[26];
+	uint8_t flag_group1 = buffer[0];
+	uint8_t group = 1;
+
+	CDBG("OTP: %s:%d group_flag3=0x%x, group_flag2=0x%x,group_flag1=0x%x",
+		__func__, __LINE__, flag_group3,flag_group2,flag_group1);
+
+	if (flag_group3 == 0x55)
+		group = 3;
+	else if (flag_group2 == 0x55)
+		group = 2;
+	else if (flag_group1 == 0x55)
+		group = 1;
+	if (buffer[(group-1)*group_otp_size] == VALID_FLAG) {
+		mid = buffer[(group-1)*group_otp_size+2] ;
+		pr_err("<3>""%s mid=0x%x\n", __func__, mid);
+		rc = (mid==0x07) ? true : false;
+	}
+
+	if(rc==false)
+		mid = MID_NULL;
+
+	CDBG("%s mid=0x%x.\n", __func__,mid);
+	return mid;
+}
+
+static camera_vendor_module_id onc_s5k4h7_sunny_ii_get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t VALID_FLAG = 0x55;
+	uint8_t group_otp_size =26;
+	uint8_t mid=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	bool rc = false;
+	uint8_t flag_group3 = buffer[52];
+	uint8_t flag_group2 = buffer[26];
+	uint8_t flag_group1 = buffer[0];
+	uint8_t group = 1;
+
+	CDBG("OTP: %s:%d group_flag3=0x%x, group_flag2=0x%x,group_flag1=0x%x",
+		__func__, __LINE__, flag_group3,flag_group2,flag_group1);
+
+	if (flag_group3 == 0x55)
+		group = 3;
+	else if (flag_group2 == 0x55)
+		group = 2;
+	else if (flag_group1 == 0x55)
+		group = 1;
+	if (buffer[(group-1)*group_otp_size] == VALID_FLAG) {
+		mid = buffer[(group-1)*group_otp_size+2] ;
+		pr_err("<3>""%s mid=0x%x\n", __func__, mid);
+		rc = (mid==0x01) ? true : false;
+	}
+
+	if(rc==false)
+		mid = MID_NULL;
+
+	CDBG("%s mid=0x%x.\n", __func__, mid);
+	return mid;
+}
+
+static uint8_t get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl, const char *eeprom_name)
+{
+	camera_vendor_module_id module_id = MID_NULL;
+
+	if ((strcmp(eeprom_name, "onc_ov02a10_ofilm_i") == 0)) {
+		module_id = onc_ov02a10_ofilm_i_get_otp_vendor_module_id(e_ctrl);
+	}
+	else if ((strcmp(eeprom_name, "onc_ov02a10_sunny_ii") == 0)) {
+		module_id = onc_ov02a10_sunny_ii_get_otp_vendor_module_id(e_ctrl);
+	}
+	else if ((strcmp(eeprom_name, "onc_s5k4h7_ofilm_i") == 0)) {
+		module_id = onc_s5k4h7_ofilm_i_get_otp_vendor_module_id(e_ctrl);
+	}
+	else if ((strcmp(eeprom_name, "onc_s5k4h7_sunny_ii") == 0)) {
+		module_id = onc_s5k4h7_sunny_ii_get_otp_vendor_module_id(e_ctrl);
+	}
+
+	CDBG("Brave %s:eeprom_name=%s, module_id=%d\n", __func__, eeprom_name,module_id);
+	if (module_id >= MID_MAX) {
+		module_id = MID_NULL;
+		pr_err("%s module_id=%d\n",__func__,module_id);
+	}
+	return ((uint8_t)module_id);
 }
 
 static long msm_eeprom_subdev_ioctl(struct v4l2_subdev *sd,
@@ -1634,13 +1765,14 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 	CDBG("%s E\n", __func__);
 	switch (cdata->cfgtype) {
 	case CFG_EEPROM_GET_INFO:
+		CDBG("%s E CFG_EEPROM_GET_INFO\n", __func__);
 		if (e_ctrl->userspace_probe == 1) {
 			pr_err("%s:%d Eeprom name should be module driver",
 				__func__, __LINE__);
 			rc = -EINVAL;
 			break;
 		}
-		CDBG("%s E CFG_EEPROM_GET_INFO\n", __func__);
+
 		cdata->is_supported = e_ctrl->is_supported;
 		length = strlen(e_ctrl->eboard_info->eeprom_name) + 1;
 		if (length > MAX_EEPROM_NAME) {
@@ -1665,7 +1797,7 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
+			rc = 0;//-EINVAL;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1867,6 +1999,15 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
+
+		if (eb_info->eeprom_name != NULL) {
+			CDBG("eb_info->eeprom_name != NULL \n");
+			s_vendor_eeprom[pdev->id].module_id = get_otp_vendor_module_id(e_ctrl, eb_info->eeprom_name);
+			strcpy(s_vendor_eeprom[pdev->id].eeprom_name, eb_info->eeprom_name);
+		} else {
+			strcpy(s_vendor_eeprom[pdev->id].eeprom_name, "NULL");
+			pr_err("eb_info->eeprom_name = NULL \n");
+		}
 
 		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 

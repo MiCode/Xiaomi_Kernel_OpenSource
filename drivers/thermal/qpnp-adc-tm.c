@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,7 +178,7 @@
 
 #define QPNP_MIN_TIME			2000
 #define QPNP_MAX_TIME			2100
-#define QPNP_RETRY			1000
+#define QPNP_RETRY			100
 
 /* QPNP ADC TM HC start */
 #define QPNP_BTM_HC_STATUS1				0x08

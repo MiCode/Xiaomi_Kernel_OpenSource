@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +44,17 @@
 #include <linux/ktime.h>
 #include <linux/extcon.h>
 #include <linux/pmic-voter.h>
+
+#ifdef THERMAL_CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+
+int lct_therm_lvl_reserved;
+int lct_therm_level;
+bool lct_backlight_off;
+int LctIsInCall = 0;
+int LctThermal = 0;
+#endif
 
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
@@ -114,6 +126,10 @@ struct smbchg_chip {
 	u8				revision[4];
 
 	/* configuration parameters */
+#ifdef THERMAL_CONFIG_FB
+	struct notifier_block notifier;
+	struct work_struct fb_notify_work;
+#endif
 	int				iterm_ma;
 	int				usb_max_current_ma;
 	int				typec_current_ma;
@@ -898,11 +914,13 @@ static void read_usb_type(struct smbchg_chip *chip, char **usb_type_name,
 #define BATT_TAPER_CHG_VAL		0x3
 #define CHG_INHIBIT_BIT			BIT(1)
 #define BAT_TCC_REACHED_BIT		BIT(7)
+static int get_prop_batt_health(struct smbchg_chip * chip);
 static int get_prop_batt_status(struct smbchg_chip *chip)
 {
 	int rc, status = POWER_SUPPLY_STATUS_DISCHARGING;
 	u8 reg = 0, chg_type;
 	bool charger_present, chg_inhibit;
+	int health;
 
 	charger_present = is_usb_present(chip) | is_dc_present(chip) |
 			  chip->hvdcp_3_det_ignore_uv;
@@ -915,8 +933,13 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 		return POWER_SUPPLY_STATUS_UNKNOWN;
 	}
 
-	if (reg & BAT_TCC_REACHED_BIT)
-		return POWER_SUPPLY_STATUS_FULL;
+	health = get_prop_batt_health(chip);
+	if (reg & BAT_TCC_REACHED_BIT){
+		if(health == POWER_SUPPLY_HEALTH_WARM)
+			return POWER_SUPPLY_STATUS_CHARGING;
+		else
+			return POWER_SUPPLY_STATUS_FULL;
+	}
 
 	chg_inhibit = reg & CHG_INHIBIT_BIT;
 	if (chg_inhibit)
@@ -2901,6 +2924,21 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 		return -EINVAL;
 	}
 
+	#ifdef THERMAL_CONFIG_FB
+	pr_err("smblib_set_prop_system_temp_level val=%d\n", lvl_sel);
+
+	if (lvl_sel == chip->thermal_levels)
+		return 0;
+
+	if (LctThermal == 0) {//from therml-engine store lvl_sel
+		lct_therm_lvl_reserved = lvl_sel;
+	}
+	if ((lct_backlight_off) && (LctIsInCall == 0) && (lvl_sel > 0)) {
+	    return 0;
+	}
+	pr_err("LctThermal=%d, lct_backlight_off= %d, IsInCall=%d\n", LctThermal, lct_backlight_off, LctIsInCall);
+	#endif
+
 	if (lvl_sel >= chip->thermal_levels) {
 		dev_err(chip->dev, "Unsupported level selected %d forcing %d\n",
 				lvl_sel, chip->thermal_levels - 1);
@@ -3854,6 +3892,8 @@ struct regulator_ops smbchg_otg_reg_ops = {
 
 #define USBIN_CHGR_CFG			0xF1
 #define ADAPTER_ALLOWANCE_MASK		0x7
+#define USBIN_9V_AICL_THRESHOLD_CFG	0x7
+#define USBIN_9V_AICL_THRESHOLD_7P2V	0x0
 #define USBIN_ADAPTER_9V		0x3
 #define USBIN_ADAPTER_5V_9V_CONT	0x2
 #define USBIN_ADAPTER_5V_UNREGULATED_9V	0x5
@@ -7400,6 +7440,13 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	if (rc)
 		pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
 			rc);
+	/*begin*/
+		rc = smbchg_sec_masked_write(chip,
+				chip->usb_chgpth_base + USBIN_CHGR_CFG,
+				USBIN_9V_AICL_THRESHOLD_CFG, USBIN_9V_AICL_THRESHOLD_7P2V);
+		if (rc < 0)
+			pr_err("force set 7.2v ovp. fail rc = %d\n", rc);
+	/*end*/
 
 	return rc;
 }
@@ -8184,7 +8231,7 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 
 	return 0;
 }
-
+/*
 static void rerun_hvdcp_det_if_necessary(struct smbchg_chip *chip)
 {
 	enum power_supply_type usb_supply_type;
@@ -8224,7 +8271,7 @@ static void rerun_hvdcp_det_if_necessary(struct smbchg_chip *chip)
 			pr_err("Couldn't vote for 0 for suspend wa, going ahead rc=%d\n",
 					rc);
 
-		/* Schedule work for HVDCP detection */
+		// Schedule work for HVDCP detection
 		if (!chip->hvdcp_not_supported) {
 			cancel_delayed_work_sync(&chip->hvdcp_det_work);
 			smbchg_stay_awake(chip, PM_DETECT_HVDCP);
@@ -8233,6 +8280,88 @@ static void rerun_hvdcp_det_if_necessary(struct smbchg_chip *chip)
 		}
 	}
 }
+*/
+#ifdef THERMAL_CONFIG_FB
+static ssize_t lct_thermal_call_status_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", LctIsInCall);
+}
+static ssize_t lct_thermal_call_status_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned int input;
+
+	if (sscanf(buf, "%u", &input) != 1)
+		retval = -EINVAL;
+	else
+	        LctIsInCall = input;
+
+	pr_err("IsInCall = %d\n", LctIsInCall);
+
+	return retval;
+}
+static struct device_attribute attrs2[] = {
+	__ATTR(thermalcall, S_IRUGO | S_IWUSR,
+			lct_thermal_call_status_show, lct_thermal_call_status_store),
+};
+
+static void thermal_fb_notifier_resume_work(struct work_struct *work)
+{
+	struct smbchg_chip *chip = container_of(work, struct smbchg_chip, fb_notify_work);
+
+	LctThermal = 1;
+	if((lct_backlight_off) && (LctIsInCall == 0))//wait
+		smbchg_system_temp_level_set(chip,lct_therm_level);//JEITA level_set = 0
+	else if(LctIsInCall == 1)//phone
+		smbchg_system_temp_level_set(chip,2);//vote 1A
+	else
+		smbchg_system_temp_level_set(chip,lct_therm_lvl_reserved);
+	LctThermal = 0;
+}
+
+/* frame buffer notifier block control the suspend/resume procedure */
+static int thermal_notifier_callback(struct notifier_block *noti, unsigned long event, void *data)
+{
+	struct fb_event *ev_data = data;
+	struct smbchg_chip *chip = container_of(noti, struct smbchg_chip, notifier);
+	int *blank;
+	if (ev_data && ev_data->data && chip) {
+		blank = ev_data->data;
+		if (event == FB_EARLY_EVENT_BLANK && *blank == FB_BLANK_UNBLANK) {
+
+			lct_backlight_off = false;
+			schedule_work(&chip->fb_notify_work);
+		}
+		else if (event == FB_EVENT_BLANK && *blank == FB_BLANK_POWERDOWN) {
+			lct_backlight_off = true;
+			schedule_work(&chip->fb_notify_work);
+		}
+	}
+
+	return 0;
+}
+
+static int lct_register_powermanger(struct smbchg_chip *chip)
+{
+#if defined(CONFIG_FB)
+	chip->notifier.notifier_call = thermal_notifier_callback;
+	fb_register_client(&chip->notifier);
+#endif
+
+	return 0;
+}
+
+static int lct_unregister_powermanger(struct smbchg_chip *chip)
+{
+#if defined(CONFIG_FB)
+	fb_unregister_client(&chip->notifier);
+#endif
+
+	return 0;
+}
+#endif
 
 static int smbchg_probe(struct platform_device *pdev)
 {
@@ -8244,6 +8373,12 @@ static int smbchg_probe(struct platform_device *pdev)
 	struct power_supply_config usb_psy_cfg = {};
 	struct power_supply_config batt_psy_cfg = {};
 	struct power_supply_config dc_psy_cfg = {};
+	#ifdef THERMAL_CONFIG_FB
+	unsigned char attr_count2;
+	lct_therm_lvl_reserved = 0;
+	lct_therm_level = 0;
+	lct_backlight_off = false;
+	#endif
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,external-typec")) {
 		/* read the type power supply name */
@@ -8387,6 +8522,11 @@ static int smbchg_probe(struct platform_device *pdev)
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
 	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smbchg_hvdcp_det_work);
+	#ifdef THERMAL_CONFIG_FB
+	INIT_WORK(&chip->fb_notify_work, thermal_fb_notifier_resume_work);
+	/* register suspend and resume fucntion*/
+	lct_register_powermanger(chip);
+	#endif
 	init_completion(&chip->src_det_lowered);
 	init_completion(&chip->src_det_raised);
 	init_completion(&chip->usbin_uv_lowered);
@@ -8558,7 +8698,18 @@ static int smbchg_probe(struct platform_device *pdev)
 		goto unregister_led_class;
 	}
 
-	rerun_hvdcp_det_if_necessary(chip);
+//	rerun_hvdcp_det_if_necessary(chip);
+	#ifdef THERMAL_CONFIG_FB
+	pr_info("enter sysfs create file thermal\n");
+	for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
+		    rc = sysfs_create_file(&chip->dev->kobj,
+						&attrs2[attr_count2].attr);
+			if (rc < 0) {
+		        sysfs_remove_file(&chip->dev->kobj,
+						&attrs2[attr_count2].attr);
+			}
+		}
+	#endif
 
 	update_usb_status(chip, is_usb_present(chip), false);
 	dump_regs(chip);
@@ -8604,6 +8755,14 @@ votables_cleanup:
 static int smbchg_remove(struct platform_device *pdev)
 {
 	struct smbchg_chip *chip = dev_get_drvdata(&pdev->dev);
+	#ifdef THERMAL_CONFIG_FB
+	unsigned char attr_count2;
+	for (attr_count2 = 0; attr_count2 < ARRAY_SIZE(attrs2); attr_count2++) {
+		sysfs_remove_file(&chip->dev->kobj,
+						&attrs2[attr_count2].attr);
+	}
+	lct_unregister_powermanger(chip);
+	#endif
 
 	debugfs_remove_recursive(chip->debug_root);
 

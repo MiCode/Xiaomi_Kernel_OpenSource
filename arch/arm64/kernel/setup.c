@@ -66,8 +66,20 @@
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
 #include <asm/system_misc.h>
+#ifdef CONFIG_BOOT_INFO
+#include <asm/bootinfo.h>
+#endif
 
 phys_addr_t __fdt_pointer __initdata;
+
+#ifdef CONFIG_BOOT_INFO
+void __init early_init_dt_setup_pureason_arch(unsigned long pu_reason)
+{
+	set_powerup_reason(pu_reason);
+	pr_info("Powerup reason=0x%x\n", get_powerup_reason());
+}
+#endif
+
 
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,9 +18,9 @@
 
 &qusb_phy {
 	qcom,qusb-phy-init-seq = <0x78 0x80
-				0xb3 0x84
+				0x23 0x84
 				0x83 0x88
-				0xc7 0x8c
+				0xc5 0x8c
 				0x14 0x9c
 				0x30 0x08
 				0x79 0x0c

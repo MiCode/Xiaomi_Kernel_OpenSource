@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +32,6 @@
 			reg = <0x800 0x100>;
 
 			qcom,secondary-pon-reset;
-			qcom,s3-src = "kpdpwr";
 		};
 
 		pmi632_vadc: vadc@3100 {
@@ -160,7 +160,7 @@
 				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
-				qcom,scale-function = <24>;
+				qcom,scale-function = <22>;
 				qcom,hw-settle-time = <0>;
 				qcom,fast-avg-setup = <0>;
 				qcom,cal-val = <0>;
@@ -227,7 +227,7 @@
 			};
 
 			chan@53 {
-				label = "quiet_therm";
+				label = "backlight_therm";
 				reg = <0x53>;
 				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
@@ -267,7 +267,7 @@
 			#thermal-sensor-cells = <1>;
 
 			chan@53 {
-				label = "quiet_therm";
+				label = "backlight_therm";
 				reg = <0x53>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -314,18 +314,21 @@
 
 			qcom,pmic-revid = <&pmi632_revid>;
 			dpdm-supply = <&qusb_phy>;
-			qcom,auto-recharge-soc = <98>;
 			qcom,chg-vadc = <&pmi632_vadc>;
-			qcom,flash-disable-soc = <10>;
-			qcom,sw-jeita-enable;
-			qcom,step-charging-enable;
-			qcom,hw-die-temp-mitigation;
-			qcom,hw-connector-mitigation;
-			qcom,connector-internal-pull-kohm = <100>;
+			qcom,float-option = <1>;
+			qcom,auto-recharge-soc = <99>;
+			qcom,hvdcp-disable;
+			qcom,micro-usb;
+			qcom,sw-jeita-enable = <1>;
+			qcom,fcc-max-ua = <2000000>;
+			qcom,usb-icl-ua = <3000000>;
+			qcom,fv-max-uv =  <4400000>;
+			qcom,chg-term-src = <1>;
+			qcom,chg-term-current-ma = <(-200)>;
 
 			qcom,thermal-mitigation
-				= <3000000 2500000 2000000 1500000
-					1000000 500000>;
+				= <2000000 1500000 1000000 800000
+					500000 200000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -483,11 +486,17 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,qg-iterm-ma = <100>;
+			qcom,vbatt-empty-mv = <2900>;
+			qcom,vbatt-empty-cold-mv = <3000>;
+			qcom,vbatt-low-mv = <3600>;
+			qcom,vbatt-cutoff-mv = <3500>;
+			qcom,qg-iterm-ma = <330>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
 			qcom,qg-vadc = <&pmi632_vadc>;
 			qcom,pmic-revid = <&pmi632_revid>;
+			qcom,ignore-shutdown-soc-secs = <1800>;
+			qcom,shutdown-soc-threshold = <40>;
 
 			qcom,qgauge@4800 {
 				status = "okay";
@@ -674,7 +683,7 @@
 				qcom,max-current = <1500>;
 				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <1000>;
+				qcom,current-ma = <1200>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
@@ -697,10 +706,10 @@
 			pmi632_torch0: qcom,torch_0 {
 				label = "torch";
 				qcom,led-name = "led:torch_0";
-				qcom,max-current = <500>;
+				qcom,max-current = <1200>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <200>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -716,6 +725,14 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			qcom,flashlight_0 {
+				label = "flashlight";
+				qcom,led-name = "flashlight";
+				qcom,torch-name = "led:torch_0", "led:torch_1";
+				qcom,switch-name = "led:switch_0";
+				qcom,id = <0>;
 			};
 
 			pmi632_switch0: qcom,led_switch_0 {

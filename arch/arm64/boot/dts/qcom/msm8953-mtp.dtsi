@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,12 +33,83 @@
 	};
 };
 
-&i2c_5 { /* BLSP2 QUP1 (NFC) */
-	#address-cells = <1>;
-	#size-cells = <0>;
 
+&i2c_3 { /* BLSP1 QUP3 */
+	status = "ok";
+	clock-frequency = <400000>;
+	goodix@14{
+		compatible = "goodix,gt1x";
+		reg = <0x14>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd_ana-supply = <&pm8953_l10>;
+		vcc_i2c-supply = <&pm8953_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "default","int-output-high","int-output-low","int-input",
+		"erst_as_default","erst_output_low","erst_output_high";
+		pinctrl-0 = <&ts_int_default>;
+		pinctrl-1 = <&ts_int_output_high>;
+		pinctrl-2 = <&ts_int_output_low>;
+		pinctrl-3 = <&ts_int_input>;
+		pinctrl-4 = <&ts_as_reset>;
+		pinctrl-5 = <&ts_reset_suspend>;
+		pinctrl-6 = <&ts_reset_active>;
+		goodix,reset-gpio = <&tlmm 64 0x00>;
+		goodix,irq-gpio = <&tlmm 65 0x00>;
+		goodix,default-config0 = [
+			FF  D0  02  F0  05  0A  3C  00  00  88  4E  0F  5A  46  3E
+			11  00  0C  08  1E  01  33  00  00  00  00  00  18  00  00
+			A0  0C  32  32  28  5A  11  22  91  A0  B4  00  00  00  00
+			00  00  00  00  00  50  BE  00  00  8E  20  1D  32  34  5A
+			0D  00  2E  53  24  7B  00  00  32  AB  26  95  2E  80  36
+			7F  3F  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  00  00  00  1E
+			50  40  94  D4  28  12  03  EE  26  AA  2E  82  36  72  3F
+			6E  47  6E  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  1F  1D  1B  1A
+			19  18  17  16  15  14  13  12  10  0F  01  02  03  04  05
+			06  07  08  09  0A  0B  0C  0D  0E  FF  FF  FF  06  08  0C
+			12  13  14  15  17  18  19  1A  1B  1C  1D  FF  FF  FF  FF
+			FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  FF  00
+			F8  0A  23  23  50  5D  54  50  3C  05  32  00  00  04  40
+			00  8A  02  40  00  AA  00  22  22  00  40  D1  4C  01  33
+			00  00  00  00  00  00  00  10  00  28  A5  00  00  00  00
+			32  08  65  00  00  00  12  6E  19  01  64  03  64  28  50
+			65  0D  00  00  00  00  00  00  00  00  00  00  00  00  1E
+			0A  01  DC  00  00  00  14  28  46  11  20  A2  34  66  E4
+			0C  5A  00  0F  23  02  3C  0E  02  01  01  01  00  00  00
+			00  16  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+			00  00  00  00  00  B7  70
+			];
+	};
+
+	focaltech@38{
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8953_l10>;
+		vcc_i2c-supply = <&pm8953_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_irqrst_active","pmx_ts_irqrst_suspend",
+	    "pmx_ts_irqrst_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_as_int &ts_as_reset>;
+		focaltech,name = "fts_ts";
+		focaltech,reset-gpio = <&tlmm 64 0x00>;
+		//focaltech,power_ldo-gpio = <&tlmm 0 0x00>;
+		focaltech,irq-gpio = <&tlmm 65 0x02>;
+		focaltech,display-coords = <0 0 720 1520>;
+		focaltech,max-touch-number = <10>;
+	};
+};
+&i2c_5 {
 	status = "ok";
 	nq@28 {
+		status = "disabled";
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
 		qcom,nq-irq = <&tlmm 17 0x00>;
@@ -107,7 +179,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 133 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 133 0x1>;
+	cd-gpios = <&tlmm 133 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
@@ -133,8 +205,25 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
-		qcom,platform-reset-gpio = <&tlmm 61 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
+	qcom,platform-reset-gpio = <&tlmm 61 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 136 0>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	//qcom,platform-enable-gpio = <&tlmm 46 0>;
+};
+
+&dsi_boe_hx8394f_720p_video{
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_shenchao_ili9881_720p_video{
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-min-level = <16>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
+&dsi_truly_otm1901a_720p_video{
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &mdss_dsi1 {
