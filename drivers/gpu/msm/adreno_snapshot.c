@@ -155,6 +155,8 @@ static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 				(ib_objs->gpuaddr + ib_objs->size)) &&
 				(objbuf[index].entry->priv == process)) {
 				freeze = 0;
+				objbuf[index].entry->memdesc.priv &=
+					~KGSL_MEMDESC_SKIP_RECLAIM;
 				break;
 			}
 		}
