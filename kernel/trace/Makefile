@@ -91,3 +91,5 @@ ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_IPC_LOGGING) += ipc_logging_debug.o
 endif
 libftrace-y := ftrace.o
+
+obj-$(CONFIG_PREEMPTIRQ_TRACEPOINTS) += preemptirq_long.o
