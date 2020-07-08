@@ -3,7 +3,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina v2";
 	compatible = "qcom,lahaina";
-	qcom,msm-id = <415 0x20000>;
+	qcom,msm-id = <415 0x20000>, <456 0x20000>;
 };
 
 &CPU4 {
