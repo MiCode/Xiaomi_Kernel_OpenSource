@@ -1424,9 +1424,9 @@ static int qseecom_vaddr_map(int ion_fd,
 	*sb_length = new_sgt->sgl->length;
 
 	dma_buf_begin_cpu_access(new_dma_buf, DMA_BIDIRECTIONAL);
-	new_va = dma_buf_kmap(new_dma_buf, 0);
-	if (IS_ERR_OR_NULL(new_va)) {
-		pr_err("dma_buf_kmap failed\n");
+	new_va = dma_buf_vmap(new_dma_buf);
+	if (!new_va) {
+		pr_err("dma_buf_vmap failed\n");
 		ret = -ENOMEM;
 		goto err_unmap;
 	}
@@ -1450,7 +1450,7 @@ static void qseecom_vaddr_unmap(void *vaddr, struct sg_table *sgt,
 {
 	if (!dmabuf || !vaddr || !sgt || !attach)
 		return;
-	dma_buf_kunmap(dmabuf, 0, vaddr);
+	dma_buf_vunmap(dmabuf, vaddr);
 	dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 	qseecom_dmabuf_unmap(sgt, attach, dmabuf);
 }
