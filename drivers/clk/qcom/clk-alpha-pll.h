@@ -156,6 +156,7 @@ extern const struct clk_ops clk_trion_pll_postdiv_ops;
 
 extern const struct clk_ops clk_alpha_pll_fixed_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_evo_ops;
+extern const struct clk_ops clk_alpha_pll_lucid_evo_ops;
 
 void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			     const struct alpha_pll_config *config);
@@ -169,6 +170,9 @@ int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
 int clk_zonda_5lpe_pll_configure(struct clk_alpha_pll *pll,
+				struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_lucid_evo_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
 #endif
