@@ -118,3 +118,12 @@ config QTI_SDPM_CLOCK_MONITOR
 	    for different clock rate change notifications and write the clock
 	    rate into the SDPM CSR register. This driver will receive the clock
 	    list and the CSR details from devicetree.
+
+config REGULATOR_COOLING_DEVICE
+	tristate "Regulator voltage floor cooling device"
+	depends on REGULATOR && THERMAL_OF
+	help
+	  This implements a mitigation device to place a minimum voltage floor
+	  on a particular regulator. This mitigation device will be used by low
+	  temperature reliability rules to mitigate a regulator at nominal
+	  voltage.
