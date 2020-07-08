@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#include <linux/kernel.h>
+#include <linux/sysfs.h>
+#include <linux/kobject.h>
+#include <linux/mutex.h>
+#include <linux/slab.h>
+
+#include "mtk_lp_sysfs.h"
+
+#ifndef __weak
+#define __weak __attribute__((weak))
+#endif
+
+DEFINE_MUTEX(mtk_lp_sysfs_locker);
+static LIST_HEAD(mtk_lp_sysfs_parent);
+
+int __weak mtk_lp_sysfs_entry_create_plat(const char *name,
+		int mode, struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
+{
+	return 0;
+}
+int __weak mtk_lp_sysfs_entry_node_add_plat(const char *name,
+		int mode, const struct mtk_lp_sysfs_op *op,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
+{
+	return 0;
+}
+
+int __weak mtk_lp_sysfs_entry_node_remove_plat(
+		struct mtk_lp_sysfs_handle *node)
+{
+	return 0;
+}
+
+int __weak mtk_lp_sysfs_entry_group_create_plat(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
+{
+	return 0;
+}
+
+static
+int __mtk_lp_sysfs_handle_add(struct mtk_lp_sysfs_handle *parent,
+				      struct mtk_lp_sysfs_handle *node)
+{
+	if (!node)
+		return -EINVAL;
+
+	INIT_LIST_HEAD(&node->dr);
+	INIT_LIST_HEAD(&node->np);
+
+	if (parent)
+		list_add(&node->np, &parent->dr);
+	else
+		list_add(&node->np, &mtk_lp_sysfs_parent);
+	return 0;
+}
+
+int mtk_lp_sysfs_entry_func_create(const char *name,
+		int mode, struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle)
+{
+	int bRet;
+	struct mtk_lp_sysfs_handle *p = NULL;
+
+	mutex_lock(&mtk_lp_sysfs_locker);
+
+	do {
+		if (!handle) {
+			p = kzalloc(sizeof(*p), GFP_KERNEL);
+			if (!p) {
+				bRet = -ENOMEM;
+				break;
+			}
+			p->flag |= MTK_LP_SYSFS_FREEZABLE;
+		} else
+			p = handle;
+
+		bRet = mtk_lp_sysfs_entry_create_plat(name,
+					mode, parent, p);
+
+		if (!bRet) {
+			p->flag |= MTK_LP_SYSFS_TYPE_ENTRY;
+			p->name = name;
+			__mtk_lp_sysfs_handle_add(parent, p);
+		} else
+			kfree(p);
+	} while (0);
+	mutex_unlock(&mtk_lp_sysfs_locker);
+	return bRet;
+}
+EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_create);
+
+int mtk_lp_sysfs_entry_func_node_add(const char *name,
+		int mode, const struct mtk_lp_sysfs_op *op,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *node)
+{
+	int bRet;
+	struct mtk_lp_sysfs_handle *p = NULL;
+
+	mutex_lock(&mtk_lp_sysfs_locker);
+
+	do {
+		if (!node) {
+			p = kzalloc(sizeof(*p), GFP_KERNEL);
+			if (!p) {
+				bRet = -ENOMEM;
+				break;
+			}
+			p->flag |= MTK_LP_SYSFS_FREEZABLE;
+		} else
+			p = node;
+
+		bRet = mtk_lp_sysfs_entry_node_add_plat(name,
+					mode, op, parent, p);
+		if (!bRet) {
+			p->flag &= ~MTK_LP_SYSFS_TYPE_ENTRY;
+			p->name = name;
+			__mtk_lp_sysfs_handle_add(parent, p);
+		} else
+			kfree(p);
+	} while (0);
+
+	mutex_unlock(&mtk_lp_sysfs_locker);
+	return bRet;
+}
+EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_node_add);
+
+static
+int __mtk_lp_sysfs_handle_remove(struct mtk_lp_sysfs_handle *node)
+{
+	int ret = 0;
+
+	if (!node)
+		return -EINVAL;
+
+	ret = mtk_lp_sysfs_entry_node_remove_plat(node);
+
+	if (!ret) {
+		list_del(&node->np);
+		INIT_LIST_HEAD(&node->np);
+		if (node->flag & MTK_LP_SYSFS_FREEZABLE)
+			kfree(node);
+	}
+	return ret;
+}
+
+static
+int __mtk_lp_sysfs_entry_rm(struct mtk_lp_sysfs_handle *node)
+{
+	int bret = 0;
+	struct mtk_lp_sysfs_handle *n;
+	struct mtk_lp_sysfs_handle *cur;
+
+	cur = list_first_entry(&node->dr, struct mtk_lp_sysfs_handle, np);
+	do {
+		if (list_is_last(&cur->np, &node->dr))
+			n = NULL;
+		else
+			n = list_next_entry(cur, np);
+
+		if (cur->flag & MTK_LP_SYSFS_TYPE_ENTRY)
+			__mtk_lp_sysfs_entry_rm(cur);
+		__mtk_lp_sysfs_handle_remove(cur);
+		cur = n;
+	} while (cur);
+
+	INIT_LIST_HEAD(&node->dr);
+	return bret;
+}
+
+int mtk_lp_sysfs_entry_func_node_remove(
+		struct mtk_lp_sysfs_handle *node)
+{
+	int bRet = 0;
+
+	if (!node)
+		return -EINVAL;
+
+	mutex_lock(&mtk_lp_sysfs_locker);
+	if (node->flag & MTK_LP_SYSFS_TYPE_ENTRY)
+		__mtk_lp_sysfs_entry_rm(node);
+	__mtk_lp_sysfs_handle_remove(node);
+	mutex_unlock(&mtk_lp_sysfs_locker);
+	return bRet;
+}
+EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_node_remove);
+
