@@ -499,7 +499,7 @@ MODULE_DEVICE_TABLE(of, mt6360_regulator_of_id);
 
 static int mt6360_regulator_probe(struct platform_device *pdev)
 {
-	struct mt6360_pmu_info *pmu_info = dev_get_drvdata(pdev->dev.parent);
+	struct mt6360_pmu_data *pmu_info = dev_get_drvdata(pdev->dev.parent);
 	struct mt6360_regulator_devdata *devdata;
 	struct mt6360_regulator_info *mri;
 	struct regulator_config config = {};
