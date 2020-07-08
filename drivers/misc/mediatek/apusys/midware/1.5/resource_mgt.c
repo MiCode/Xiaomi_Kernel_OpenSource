@@ -114,7 +114,6 @@ struct apusys_res_mgr *res_get_mgr(void)
 int res_dbg_tab_init(struct apusys_res_table *tab)
 {
 	int ret = 0;
-	struct dentry *res_dbg_devq;
 
 	/* check argument */
 	if (tab == NULL)
@@ -142,13 +141,8 @@ int res_dbg_tab_init(struct apusys_res_table *tab)
 	}
 
 	/* create queue */
-	res_dbg_devq = debugfs_create_u32("queue", 0444,
+	debugfs_create_u32("queue", 0444,
 		tab->dbg_dir, &tab->normal_task_num);
-	ret = IS_ERR_OR_NULL(res_dbg_devq);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(%s/queue)\n",
-			tab->name);
-	}
 
 	return ret;
 }

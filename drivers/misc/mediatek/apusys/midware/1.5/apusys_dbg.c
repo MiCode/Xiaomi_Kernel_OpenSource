@@ -31,9 +31,7 @@ struct dentry *apusys_dbg_user;
 struct dentry *apusys_dbg_devinfo;
 struct dentry *apusys_dbg_device;
 struct dentry *apusys_dbg_mem;
-struct dentry *apusys_dbg_trace;
 struct dentry *apusys_dbg_test;
-struct dentry *apusys_dbg_log;
 struct dentry *apusys_dbg_boost;
 
 struct dentry *apusys_dbg_debug_root;
@@ -383,19 +381,13 @@ int apusys_dbg_init(struct dentry *root)
 	}
 
 	/* create log level */
-	apusys_dbg_log = debugfs_create_u32("klog", 0644,
+	debugfs_create_u32("klog", 0644,
 		apusys_dbg_root, &g_mdw_klog);
 
 	/* create trace enable */
-	apusys_dbg_trace = debugfs_create_u8("trace_en", 0644,
+	debugfs_create_u8("trace_en", 0644,
 		apusys_dbg_root, &cfg_apusys_trace);
 	cfg_apusys_trace = 0;
-
-	ret = IS_ERR_OR_NULL(apusys_dbg_trace);
-	if (ret) {
-		mdw_drv_err("failed to create debug node(trace_en).\n");
-		goto out;
-	}
 
 	/* tmp log dump node */
 	apusys_dbg_debug_root =  debugfs_create_dir("apusys_debug", NULL);
