@@ -18,6 +18,7 @@ menu "MultiMedia, Display, Camera"
 source "drivers/misc/mediatek/cameraisp/Kconfig"
 source "drivers/misc/mediatek/cmdq/Kconfig"
 source "drivers/misc/mediatek/mmp/Kconfig"
+source "drivers/misc/mediatek/lens/Kconfig"
 endmenu # MultiMedia, Display, Camera
 
 menu "Security"

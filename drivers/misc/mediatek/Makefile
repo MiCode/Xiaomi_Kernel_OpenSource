@@ -15,3 +15,5 @@ obj-$(CONFIG_MTPROF) += mtprof/
 obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += cameraisp/
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq/
 obj-$(CONFIG_MTK_DVFSRC_HELPER) += dvfsrc/
+obj-$(CONFIG_MTK_V4L2_LENS) += lens/
+obj-$(CONFIG_MTK_LENS)      += lens/
