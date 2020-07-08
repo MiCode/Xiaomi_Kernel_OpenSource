@@ -57,27 +57,11 @@ _kgsl_get_pool_from_order(unsigned int order)
 	return NULL;
 }
 
-/* Map the page into kernel and zero it out */
-static void
-_kgsl_pool_zero_page(struct page *p, unsigned int pool_order)
-{
-	int i;
-
-	for (i = 0; i < (1 << pool_order); i++) {
-		struct page *page = nth_page(p, i);
-		void *addr = kmap_atomic(page);
-
-		memset(addr, 0, PAGE_SIZE);
-		dmac_flush_range(addr, addr + PAGE_SIZE);
-		kunmap_atomic(addr);
-	}
-}
-
 /* Add a page to specified pool */
 static void
 _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 {
-	_kgsl_pool_zero_page(p, pool->pool_order);
+	kgsl_zero_page(p, pool->pool_order);
 
 	spin_lock(&pool->list_lock);
 	list_add_tail(&p->lru, &pool->page_list);
@@ -208,43 +192,6 @@ kgsl_pool_reduce(unsigned int target_pages, bool exit)
 }
 
 /**
- * kgsl_pool_free_sgt() - Free scatter-gather list
- * @sgt: pointer of the sg list
- *
- * Free the sg list by collapsing any physical adjacent pages.
- * Pages are added back to the pool, if pool has sufficient space
- * otherwise they are given back to system.
- */
-
-void kgsl_pool_free_sgt(struct sg_table *sgt)
-{
-	int i;
-	struct scatterlist *sg;
-
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		/*
-		 * sg_alloc_table_from_pages() will collapse any physically
-		 * adjacent pages into a single scatterlist entry. We cannot
-		 * just call __free_pages() on the entire set since we cannot
-		 * ensure that the size is a whole order. Instead, free each
-		 * page or compound page group individually.
-		 */
-		struct page *p = sg_page(sg), *next;
-		unsigned int count;
-		unsigned int j = 0;
-
-		while (j < (sg->length/PAGE_SIZE)) {
-			count = 1 << compound_order(p);
-			next = nth_page(p, count);
-			kgsl_pool_free_page(p);
-
-			p = next;
-			j += count;
-		}
-	}
-}
-
-/**
  * kgsl_pool_free_pages() - Free pages in the pages array
  * @pages: pointer of the pages array
  *
@@ -299,22 +246,6 @@ static int kgsl_pool_get_retry_order(unsigned int order)
 	return 0;
 }
 
-static unsigned int kgsl_gfp_mask(unsigned int page_order)
-{
-	unsigned int gfp_mask = __GFP_HIGHMEM;
-
-	if (page_order > 0) {
-		gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
-		gfp_mask &= ~__GFP_RECLAIM;
-	} else
-		gfp_mask |= GFP_KERNEL;
-
-	if (kgsl_sharedmem_get_noretry())
-		gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
-
-	return gfp_mask;
-}
-
 /**
  * kgsl_pool_alloc_page() - Allocate a page of requested size
  * @page_size: Size of the page to be allocated
@@ -353,7 +284,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			} else
 				return -ENOMEM;
 		}
-		_kgsl_pool_zero_page(page, order);
+		kgsl_zero_page(page, order);
 		goto done;
 	}
 
@@ -373,7 +304,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 			page = alloc_pages(gfp_mask, order);
 			if (page == NULL)
 				return -ENOMEM;
-			_kgsl_pool_zero_page(page, order);
+			kgsl_zero_page(page, order);
 			goto done;
 		}
 	}
@@ -404,7 +335,7 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
 				return -ENOMEM;
 		}
 
-		_kgsl_pool_zero_page(page, order);
+		kgsl_zero_page(page, order);
 	}
 
 done:
