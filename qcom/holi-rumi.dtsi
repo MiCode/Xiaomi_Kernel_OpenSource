@@ -25,6 +25,14 @@
 				     0x10060 0x3c
 				     0x0 0x4>;
 	};
+
+	tsens0 {
+		status = "disabled";
+	};
+
+	tsens1 {
+		status = "disabled";
+	};
 };
 
 &usb0 {
