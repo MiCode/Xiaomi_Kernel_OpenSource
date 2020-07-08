@@ -317,7 +317,7 @@ static const struct regulator_ops mt6360_ldo_regulator_ops = {
 	.get_mode = mt6360_regulator_get_mode,
 };
 
-static const struct regulator_linear_range ldo_volt_ranges1[] = {
+static const struct linear_range ldo_volt_ranges1[] = {
 	REGULATOR_LINEAR_RANGE(1200000, 0x00, 0x09, 10000),
 	REGULATOR_LINEAR_RANGE(1300000, 0x0a, 0x10, 0),
 	REGULATOR_LINEAR_RANGE(1310000, 0x11, 0x19, 10000),
@@ -352,7 +352,7 @@ static const struct regulator_linear_range ldo_volt_ranges1[] = {
 	REGULATOR_LINEAR_RANGE(3600000, 0xfa, 0xff, 0),
 };
 
-static const struct regulator_linear_range ldo_volt_ranges2[] = {
+static const struct linear_range ldo_volt_ranges2[] = {
 	REGULATOR_LINEAR_RANGE(2700000, 0x00, 0x09, 10000),
 	REGULATOR_LINEAR_RANGE(2800000, 0x0a, 0x10, 0),
 	REGULATOR_LINEAR_RANGE(2810000, 0x11, 0x19, 10000),
