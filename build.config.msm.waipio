@@ -5,8 +5,8 @@
 
 ################################################################################
 ## Inheriting configs from ACK
-. ${KERNEL_DIR}/build.config.common
-. ${KERNEL_DIR}/build.config.aarch64
+. ${ROOT_DIR}/common/build.config.common
+. ${ROOT_DIR}/common/build.config.aarch64
 
 ################################################################################
 ## Variant setup
