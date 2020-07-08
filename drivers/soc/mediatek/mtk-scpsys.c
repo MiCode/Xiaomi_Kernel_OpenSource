@@ -37,6 +37,7 @@
 #define MTK_SCPD_MD_OPS			BIT(3)
 #define MTK_SCPD_ALWAYS_ON		BIT(4)
 #define MTK_SCPD_APU_OPS		BIT(5)
+#define MTK_SCPD_SRAM_SLP		BIT(6)
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -103,6 +104,8 @@
  * @ctl_offs: The offset for main power control register.
  * @sram_pdn_bits: The mask for sram power control bits.
  * @sram_pdn_ack_bits: The mask for sram power control acked bits.
+ * @sram_slp_bits: The mask for sram sleep control bits.
+ * @sram_slp_ack_bits: The mask for sram sleep control acked bits.
  * @basic_clk_name: The basic clocks required by this power domain.
  * @subsys_clk_prefix: The prefix name of the clocks need to be enabled
  *                     before releasing bus protection.
@@ -115,6 +118,8 @@ struct scp_domain_data {
 	int ctl_offs;
 	u32 sram_pdn_bits;
 	u32 sram_pdn_ack_bits;
+	u32 sram_slp_bits;
+	u32 sram_slp_ack_bits;
 	int extb_iso_offs;
 	u32 extb_iso_bits;
 	const char *basic_clk_name[MAX_CLKS];
@@ -262,11 +267,13 @@ static int scpsys_clk_enable(struct clk *clk[], int max_num)
 static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 {
 	u32 val;
-	u32 pdn_ack = scpd->data->sram_pdn_ack_bits;
 	int tmp;
 
-	val = readl(ctl_addr);
-	val &= ~scpd->data->sram_pdn_bits;
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		val = readl(ctl_addr) | scpd->data->sram_slp_bits;
+	else
+		val = readl(ctl_addr) & ~scpd->data->sram_pdn_bits;
+
 	writel(val, ctl_addr);
 
 	/* Either wait until SRAM_PDN_ACK all 0 or have a force wait */
@@ -279,14 +286,24 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 		usleep_range(12000, 12100);
 	} else {
 		/* Either wait until SRAM_PDN_ACK all 1 or 0 */
-		int ret = readl_poll_timeout(ctl_addr, tmp,
-				(tmp & pdn_ack) == 0,
-				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+		int ret;
+		u32 ack_mask, ack_sta;
+
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
+			ack_mask = scpd->data->sram_slp_ack_bits;
+			ack_sta = ack_mask;
+		} else {
+			ack_mask = scpd->data->sram_pdn_ack_bits;
+			ack_sta = 0;
+		}
+		ret = readl_poll_timeout(ctl_addr, tmp,
+			(tmp & ack_mask) == ack_sta,
+			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 		if (ret < 0)
 			return ret;
 	}
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO))	{
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
 		val = readl(ctl_addr) | PWR_SRAM_ISOINT_B_BIT;
 		writel(val, ctl_addr);
 		udelay(1);
@@ -300,10 +317,10 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 {
 	u32 val;
-	u32 pdn_ack = scpd->data->sram_pdn_ack_bits;
+	u32 ack_mask, ack_sta;
 	int tmp;
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO))	{
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
 		val = readl(ctl_addr) | PWR_SRAM_CLKISO_BIT;
 		writel(val, ctl_addr);
 		val &= ~PWR_SRAM_ISOINT_B_BIT;
@@ -311,13 +328,21 @@ static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 		udelay(1);
 	}
 
-	val = readl(ctl_addr) | scpd->data->sram_pdn_bits;
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
+		ack_mask = scpd->data->sram_slp_ack_bits;
+		ack_sta = 0;
+		val = readl(ctl_addr) & ~scpd->data->sram_slp_bits;
+	} else {
+		ack_mask = scpd->data->sram_pdn_ack_bits;
+		ack_sta = ack_mask;
+		val = readl(ctl_addr) | scpd->data->sram_pdn_bits;
+	}
 	writel(val, ctl_addr);
 
 	/* Either wait until SRAM_PDN_ACK all 1 or 0 */
 	return readl_poll_timeout(ctl_addr, tmp,
-			(tmp & pdn_ack) == pdn_ack,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+		(tmp & ack_mask) == ack_sta,
+		MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 }
 
 static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
@@ -1664,14 +1689,14 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 		.name = "adsp",
 		.sta_mask = BIT(22),
 		.ctl_offs = 0x0358,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
 		.basic_clk_name = {"adsp"},
 		.bp_table = {
 			BUS_PROT(IFR_TYPE, 0x714, 0x718, 0x710, 0x724,
 				MT8192_TOP_AXI_PROT_EN_2_ADSP),
 		},
-		.caps = MTK_SCPD_SRAM_ISO,
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
 	},
 	[MT8192_POWER_DOMAIN_CAM] = {
 		.name = "cam",
