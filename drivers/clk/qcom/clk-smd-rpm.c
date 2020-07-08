@@ -1003,7 +1003,7 @@ DEFINE_CLK_SMD_RPM(sdm429w, snoc_clk, snoc_a_clk, QCOM_SMD_RPM_BUS_CLK, 1);
 DEFINE_CLK_SMD_RPM(sdm429w, bimc_clk, bimc_a_clk, QCOM_SMD_RPM_MEM_CLK, 0);
 
 DEFINE_CLK_SMD_RPM(sdm429w, sysmmnoc_clk, sysmmnoc_a_clk, QCOM_SMD_RPM_BUS_CLK,
-			 0);
+			 2);
 
 DEFINE_CLK_SMD_RPM_QDSS(sdm429w, qdss_clk, qdss_a_clk, QCOM_SMD_RPM_MISC_CLK,
 			1);
