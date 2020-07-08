@@ -22,8 +22,16 @@
 #include <gz-trusty/smcall_mtee.h>
 #include <gz-trusty/trusty.h>
 
-/* define all functions used by MTEE 1 and MTEE 2
- * The array index in gz_smcnr_table.
+/* enum smc_functions:
+ * Define all SMC functions of GenieZone.
+ * SMCF means SMC Function.
+ * The value of this enum corresponds to the array index of gz_smcnr_table.
+ * Steps of adding a new SMC number:
+ *   1. Define SMC number in smcall_mtee.h.
+ *   2. Create an element which should be named as SMCF_[SC/FC]_[function name]
+ *      in this enum.
+ *   2. Insert an element to gz_smcnr_table and set the SMC number for TEEs.
+ *   3. Access the SMC number by MTEE_SMCNR_TID or MTEE_SMCNR.
  */
 enum smc_functions {
 	SMCF_NONE = 0,
@@ -79,7 +87,7 @@ enum smc_functions {
 	SMCF_END
 };
 
-/* get GZ version for select smcnr table */
+/* get GZ SMC version for select smcnr table */
 int init_smcnr_table(struct device *dev, enum tee_id_t tee_id);
 
 /* Get SMC number, not suggest to directly use */
