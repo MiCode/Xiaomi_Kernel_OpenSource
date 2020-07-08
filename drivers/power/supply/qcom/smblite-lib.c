@@ -191,6 +191,7 @@ static void smblite_lib_notify_device_mode(struct smb_charger *chg, bool enable)
 	extcon_set_state_sync(chg->extcon, EXTCON_USB, enable);
 }
 
+#define VBOOST_5P00V	0x03
 static void smblite_lib_notify_usb_host(struct smb_charger *chg, bool enable)
 {
 	int rc = 0;
@@ -208,7 +209,13 @@ static void smblite_lib_notify_usb_host(struct smb_charger *chg, bool enable)
 				"Couldn't enable VBUS in OTG mode rc=%d\n", rc);
 			return;
 		}
-
+		rc = smblite_lib_masked_write(chg, DCDC_BST_VREG_SEL,
+					VBOOST_MASK, VBOOST_5P00V);
+		if (rc < 0) {
+			smblite_lib_err(chg,
+				"Couldn't write BST_VREG_SEL rc=%d\n", rc);
+			return;
+		}
 		smblite_lib_notify_extcon_props(chg, EXTCON_USB_HOST);
 	} else {
 		smblite_lib_dbg(chg, PR_OTG, "disabling VBUS in OTG mode\n");

@@ -1446,9 +1446,6 @@ int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 	 */
 	mhi_special_events_pending(mhi_cntrl);
 
-	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		mhi_timesync_log(mhi_cntrl);
-
 	return 0;
 }
 
@@ -1539,9 +1536,6 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 
 	/* schedules worker if any special purpose events need to be handled */
 	mhi_special_events_pending(mhi_cntrl);
-
-	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		mhi_timesync_log(mhi_cntrl);
 
 	MHI_LOG("Exit with pm_state:%s dev_state:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),

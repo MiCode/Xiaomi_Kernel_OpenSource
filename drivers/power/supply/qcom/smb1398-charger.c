@@ -108,6 +108,7 @@
 #define MISC_CFG2_REG			0x2636
 
 #define NOLOCK_SPARE_REG		0x2637
+#define EN_SLAVE_OWN_FREQ_BIT		BIT(5)
 #define DIV2_WIN_UV_SEL_BIT		BIT(4)
 #define DIV2_WIN_UV_25MV		0
 #define COMBO_WIN_LO_EXIT_SEL_MASK	GENMASK(3, 2)
@@ -1296,16 +1297,6 @@ static int smb1398_div2_cp_slave_disable_vote_cb(struct votable *votable,
 	if (!is_cps_available(chip))
 		return -ENODEV;
 
-	/* Enable/disable SYNC driver before enabling/disabling slave */
-	reg = MISC_CFG0_REG;
-	val = !!disable ? DIS_SYNC_DRV_BIT : 0;
-	rc = smb1398_masked_write(chip, reg, DIS_SYNC_DRV_BIT, val);
-	if (rc < 0) {
-		dev_err(chip->dev, "%s slave SYNC_DRV failed, rc=%d\n",
-				!!disable ? "disable" : "enable", rc);
-		return rc;
-	}
-
 	reg = MISC_SL_SWITCH_EN_REG;
 	val = !!disable ? 0 : EN_SLAVE;
 	rc = smb1398_masked_write(chip, reg, EN_SLAVE, val);
@@ -2313,6 +2304,15 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 			SW_EN_SWITCHER_BIT, SW_EN_SWITCHER_BIT);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set MISC_CFG0_REG, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/* Enable slave clock on its own */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			EN_SLAVE_OWN_FREQ_BIT, EN_SLAVE_OWN_FREQ_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't enable slave clock, rc=%d\n",
 				rc);
 		return rc;
 	}

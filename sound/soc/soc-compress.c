@@ -155,15 +155,8 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
 	ret = dpcm_be_dai_startup(fe, stream);
-	if (ret < 0) {
-		/* clean up all links */
-		list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be)
-			dpcm->state = SND_SOC_DPCM_LINK_STATE_FREE;
-
-		dpcm_be_disconnect(fe, stream);
-		fe->dpcm[stream].runtime = NULL;
+	if (ret < 0)
 		goto out;
-	}
 
 	if (cpu_dai->driver->cops && cpu_dai->driver->cops->startup) {
 		ret = cpu_dai->driver->cops->startup(cstream, cpu_dai);
@@ -171,7 +164,7 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 			dev_err(cpu_dai->dev,
 				"Compress ASoC: can't open interface %s: %d\n",
 				cpu_dai->name, ret);
-			goto out;
+			goto be_unwind;
 		}
 	}
 
@@ -205,7 +198,15 @@ machine_err:
 open_err:
 	if (cpu_dai->driver->cops && cpu_dai->driver->cops->shutdown)
 		cpu_dai->driver->cops->shutdown(cstream, cpu_dai);
+be_unwind:
+	dpcm_be_dai_shutdown(fe, stream);
 out:
+	/* clean up all links */
+	list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be)
+		dpcm->state = SND_SOC_DPCM_LINK_STATE_FREE;
+
+	dpcm_be_disconnect(fe, stream);
+	fe->dpcm[stream].runtime = NULL;
 	dpcm_path_put(&list);
 be_err:
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_NO;

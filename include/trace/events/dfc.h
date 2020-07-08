@@ -281,6 +281,28 @@ TRACE_EVENT(dfc_adjust_grant,
 		__entry->rx_bytes, __entry->inflight, __entry->a_grant)
 );
 
+TRACE_EVENT(dfc_watchdog,
+
+	TP_PROTO(u8 mux_id, u8 bearer_id, u8 event),
+
+	TP_ARGS(mux_id, bearer_id, event),
+
+	TP_STRUCT__entry(
+		__field(u8, mux_id)
+		__field(u8, bearer_id)
+		__field(u8, event)
+	),
+
+	TP_fast_assign(
+		__entry->mux_id = mux_id;
+		__entry->bearer_id = bearer_id;
+		__entry->event = event;
+	),
+
+	TP_printk("mid=%u bid=%u event=%u",
+		__entry->mux_id, __entry->bearer_id, __entry->event)
+);
+
 #endif /* _TRACE_DFC_H */
 
 /* This part must be outside protection */

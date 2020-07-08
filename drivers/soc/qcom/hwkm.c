@@ -532,7 +532,7 @@ static int qti_handle_keyslot_clear(const struct hwkm_cmd *cmd_in,
 
 	rsp_in->status = rsp[RESPONSE_ERR_IDX];
 	if (rsp_in->status) {
-		pr_err("%s: KEYSLOT_CLEAR error status 0x%x\n",
+		pr_debug("%s: KEYSLOT_CLEAR error status 0x%x\n",
 				__func__, rsp_in->status);
 		return rsp_in->status;
 	}
