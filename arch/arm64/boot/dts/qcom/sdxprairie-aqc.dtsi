@@ -144,14 +144,14 @@
 				<&aqo_proxy_uc>;
 		qcom,rx-proxy-mode = "counter";
 
-		qcom,rx-ring-size = <4096>;
+		qcom,rx-ring-size = <512>;
 		qcom,rx-buff-size = <2048>;
 		qcom,rx-int-mod-usecs = <64>;
 
 		qcom,rx-gsi-mod-pc = <10>;
 		qcom,rx-gsi-mod-timer = <32>;
 
-		qcom,tx-ring-size = <4096>;
+		qcom,tx-ring-size = <512>;
 		qcom,tx-buff-size = <2048>;
 		qcom,tx-wrb-mod-pc = <25>;
 
