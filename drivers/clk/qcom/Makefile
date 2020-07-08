@@ -62,6 +62,7 @@ obj-$(CONFIG_SDM_GPUCC_845) += gpucc-sdm845.o
 obj-$(CONFIG_SDM_LPASSCC_845) += lpasscc-sdm845.o
 obj-$(CONFIG_SDM_VIDEOCC_845) += videocc-sdm845.o
 obj-$(CONFIG_SM_CAMCC_SHIMA) += camcc-shima.o
+obj-$(CONFIG_SM_DEBUGCC_HOLI) += debugcc-holi.o
 obj-$(CONFIG_SM_DEBUGCC_SHIMA) += debugcc-shima.o
 obj-$(CONFIG_SM_DISPCC_HOLI) += dispcc-holi.o
 obj-$(CONFIG_SM_DISPCC_SHIMA) += dispcc-shima.o
