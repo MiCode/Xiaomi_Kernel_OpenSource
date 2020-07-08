@@ -888,14 +888,14 @@
 		};
 	};
 
-	rpmcc: qcom,rpmcc {
+	rpmcc: clock-controller {
 		compatible = "qcom,rpmcc-holi";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	gcc: qcom,gcc@1400000 {
-		compatible = "qcom,holi-gcc";
+	gcc: clock-controller@1400000 {
+		compatible = "qcom,holi-gcc", "syscon";
 		reg = <0x1400000 0x1f0000>;
 		reg_names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -908,15 +908,20 @@
 		#reset-cells = <1>;
 	};
 
-	dispcc: qcom,dispcc@5f00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	dispcc: clock-controller@5f00000 {
+		compatible = "qcom,holi-dispcc", "syscon";
+		reg = <0x5f00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
+			 <&gcc GCC_DISP_GPLL0_DIV_CLK_SRC>;
+		clock-names = "bi_tcxo", "gcc_disp_gpll0_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	gpucc: qcom,gpucc@5990000 {
-		compatible = "qcom,holi-gpucc";
+	gpucc: clock-controller@5990000 {
+		compatible = "qcom,holi-gpucc", "syscon";
 		reg = <0x5990000 0x9000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -930,6 +935,28 @@
 				"gcc_gpu_snoc_dvm_gfx_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	cpucc: syscon@faa0018 {
+		compatible = "syscon";
+		reg = <0x0faa0018 0x4>;
+	};
+
+	mccc: syscon@0447d200 {
+		compatible = "syscon";
+		reg = <0x0447d200 0x100>;
+	};
+
+	debugcc: clock-controller@0 {
+		compatible = "qcom,holi-debugcc";
+		qcom,gcc = <&gcc>;
+		qcom,dispcc = <&dispcc>;
+		qcom,gpucc = <&gpucc>;
+		qcom,cpucc = <&cpucc>;
+		qcom,mccc = <&mccc>;
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
+		clock-names = "xo_clk_src";
+		#clock-cells = <1>;
 	};
 
 	cpufreq_hw: qcom,cpufreq-hw {
