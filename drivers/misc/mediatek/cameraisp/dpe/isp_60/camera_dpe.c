@@ -3241,18 +3241,12 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 	unsigned long flags; /* old: unsigned int flags;*/
 	unsigned int irqStatus;
 	/*int cnt = 0;*/
-	struct timeval time_getrequest;
+	struct timespec64 time_getrequest;
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
 	unsigned int p;
 
-	/* do_gettimeofday(&time_getrequest); */
-	sec = cpu_clock(0);	/* ns */
-	do_div(sec, 1000);	/* usec */
-	usec = do_div(sec, 1000000);	/* sec and usec */
-	time_getrequest.tv_usec = usec;
-	time_getrequest.tv_sec = sec;
-
+	ktime_get_ts64(&time_getrequest);
 
 	/* Debug interrupt */
 	if (DPEInfo.DebugMask & DPE_DBG_INT) {
@@ -4965,7 +4959,7 @@ if (DPE_dev->irq > 0) {
 		 */
 		vfd->lock = &DPE_dev->mutex;
 		video_set_drvdata(vfd, DPE_dev);
-		Ret = video_register_device(vfd, VFL_TYPE_GRABBER, -1);//
+		Ret = video_register_device(vfd, VFL_TYPE_VIDEO, -1);//
 
 		LOG_INF("video_register_device = %d\n", Ret);
 
@@ -5281,10 +5275,9 @@ static int proc_dpe_dump_open(struct inode *inode, struct file *file)
 	return single_open(file, dpe_dump_read, NULL);
 }
 
-static const struct file_operations dpe_dump_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = proc_dpe_dump_open,
-	.read = seq_read,
+static const struct proc_ops dpe_dump_proc_fops = {
+	.proc_open = proc_dpe_dump_open,
+	.proc_read = seq_read,
 };
 
 
@@ -5439,11 +5432,10 @@ static int proc_dpe_reg_open(struct inode *inode, struct file *file)
 	return single_open(file, dpe_reg_read, NULL);
 }
 
-static const struct file_operations dpe_reg_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = proc_dpe_reg_open,
-	.read = seq_read,
-	.write = dpe_reg_write,
+static const struct proc_ops dpe_reg_proc_fops = {
+	.proc_open = proc_dpe_reg_open,
+	.proc_read = seq_read,
+	.proc_write = dpe_reg_write,
 };
 
 /**************************************************************
