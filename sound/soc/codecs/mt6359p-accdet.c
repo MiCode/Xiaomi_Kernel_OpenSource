@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/iio/consumer.h>
 #include <linux/nvmem-consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/init.h>
 #include <linux/irqdomain.h>
 #include <linux/irq.h>
