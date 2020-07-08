@@ -27,9 +27,6 @@
 
 &i2c_4 {
 	status = "ok";
-	tsc@24 {
-		status = "disabled";
-	};
 
 	raydium_ts@39 {
 		compatible = "raydium,raydium-ts";
