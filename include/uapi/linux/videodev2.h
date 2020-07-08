@@ -2396,6 +2396,7 @@ struct v4l2_streamparm {
 #define V4L2_EVENT_SOURCE_CHANGE		5
 #define V4L2_EVENT_MOTION_DET			6
 #define V4L2_EVENT_PRIVATE_START		0x08000000
+#define V4L2_EVENT_REQUEST_DRAINED		(V4L2_EVENT_PRIVATE_START + 1)
 
 /* Payload for V4L2_EVENT_VSYNC */
 struct v4l2_event_vsync {
