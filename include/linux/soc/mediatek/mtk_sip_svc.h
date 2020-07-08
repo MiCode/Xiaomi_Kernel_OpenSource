@@ -48,4 +48,9 @@
 /* AUDIO related SMC call */
 #define MTK_SIP_AUDIO_CONTROL \
 	MTK_SIP_SMC_CMD(0x517)
+
+/* MTK LPM */
+#define MTK_SIP_MTK_LPM_CONTROL \
+	MTK_SIP_SMC_CMD(0x507)
+
 #endif

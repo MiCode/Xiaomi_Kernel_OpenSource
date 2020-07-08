@@ -10,6 +10,7 @@ source "drivers/misc/mediatek/mcupm/Kconfig"
 source "drivers/misc/mediatek/dvfsrc/Kconfig"
 source "drivers/misc/mediatek/dcm/Kconfig"
 source "drivers/misc/mediatek/qos/Kconfig"
+source "drivers/misc/mediatek/lpm/Kconfig"
 endmenu # Power
 
 menu "SSPM"
