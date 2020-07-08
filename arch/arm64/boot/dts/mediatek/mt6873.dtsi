@@ -86,67 +86,105 @@
 		opp-shared;
 		opp0 {
 			opp-hz = /bits/ 64 <2000000000>;
-			opp-microvolt = <925000>;
+			opp-microvolt = <1000000>;
+			opp-level = <0>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp1 {
-			opp-hz = /bits/ 64 <1875000000>;
-			opp-microvolt = <887500>;
+			opp-hz = /bits/ 64 <1895000000>;
+			opp-microvolt = <968750>;
+			opp-level = <1>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp2 {
-			opp-hz = /bits/ 64 <1812000000>;
-			opp-microvolt = <868750>;
+			opp-hz = /bits/ 64 <1833000000>;
+			opp-microvolt = <943750>;
+			opp-level = <2>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp3 {
 			opp-hz = /bits/ 64 <1750000000>;
-			opp-microvolt = <856250>;
+			opp-microvolt = <918750>;
+			opp-level = <3>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp4 {
-			opp-hz = /bits/ 64 <1687000000>;
-			opp-microvolt = <837500>;
+			opp-hz = /bits/ 64 <1666000000>;
+			opp-microvolt = <893750>;
+			opp-level = <4>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp5 {
-			opp-hz = /bits/ 64 <1625000000>;
-			opp-microvolt = <818750>;
+			opp-hz = /bits/ 64 <1583000000>;
+			opp-microvolt = <862500>;
+			opp-level = <5>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp6 {
-			opp-hz = /bits/ 64 <1541000000>;
-			opp-microvolt = <800000>;
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <837500>;
+			opp-level = <6>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp7 {
-			opp-hz = /bits/ 64 <1500000000>;
-			opp-microvolt = <781250>;
+			opp-hz = /bits/ 64 <1393000000>;
+			opp-microvolt = <806250>;
+			opp-level = <7>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp8 {
-			opp-hz = /bits/ 64 <1358000000>;
-			opp-microvolt = <750000>;
+			opp-hz = /bits/ 64 <1287000000>;
+			opp-microvolt = <775000>;
+			opp-level = <8>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp9 {
 			opp-hz = /bits/ 64 <1181000000>;
-			opp-microvolt = <712500>;
+			opp-microvolt = <750000>;
+			opp-level = <9>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp10 {
-			opp-hz = /bits/ 64 <1075000000>;
-			opp-microvolt = <693750>;
+			opp-hz = /bits/ 64 <1101000000>;
+			opp-microvolt = <725000>;
+			opp-level = <10>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp11 {
-			opp-hz = /bits/ 64 <968000000>;
-			opp-microvolt = <668750>;
+			opp-hz = /bits/ 64 <1021000000>;
+			opp-microvolt = <706250>;
+			opp-level = <11>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp12 {
-			opp-hz = /bits/ 64 <862000000>;
-			opp-microvolt = <643750>;
+			opp-hz = /bits/ 64 <889000000>;
+			opp-microvolt = <668750>;
+			opp-level = <12>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp13 {
-			opp-hz = /bits/ 64 <756000000>;
-			opp-microvolt = <625000>;
+			opp-hz = /bits/ 64 <809000000>;
+			opp-microvolt = <643750>;
+			opp-level = <13>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp14 {
-			opp-hz = /bits/ 64 <650000000>;
-			opp-microvolt = <600000>;
+			opp-hz = /bits/ 64 <729000000>;
+			opp-microvolt = <625000>;
+			opp-level = <14>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp15 {
+			opp-hz = /bits/ 64 <650000000>;
+			opp-microvolt = <600000>;
+			opp-level = <15>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
+		};
+		opp16 {
 			opp-hz = /bits/ 64 <500000000>;
 			opp-microvolt = <600000>;
+			opp-level = <16>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 	};
 
@@ -154,68 +192,124 @@
 		compatible = "operating-points-v2";
 		opp-shared;
 		opp0 {
-			opp-hz = /bits/ 64 <2000000000>;
-			opp-microvolt = <925000>;
+			opp-hz = /bits/ 64 <2500000000>;
+			opp-microvolt = <1000000>;
+			opp-level = <0>;
+			opp-supported-hw = <0x200 0xf0 0xf0>;
 		};
 		opp1 {
-			opp-hz = /bits/ 64 <1950000000>;
-			opp-microvolt = <906250>;
+			opp-hz = /bits/ 64 <2375000000>;
+			opp-microvolt = <968750>;
+			opp-level = <1>;
+			opp-supported-hw = <0x200 0xf0 0xf0>;
 		};
 		opp2 {
-			opp-hz = /bits/ 64 <1900000000>;
-			opp-microvolt = <887500>;
+			opp-hz = /bits/ 64 <2300000000>;
+			opp-microvolt = <943750>;
+			opp-level = <2>;
+			opp-supported-hw = <0x200 0xf0 0xf0>;
 		};
 		opp3 {
-			opp-hz = /bits/ 64 <1850000000>;
-			opp-microvolt = <868750>;
+			opp-hz = /bits/ 64 <2250000000>;
+			opp-microvolt = <931250>;
+			opp-level = <3>;
+			opp-supported-hw = <0x200 0xf0 0xf0>;
 		};
 		opp4 {
-			opp-hz = /bits/ 64 <1800000000>;
-			opp-microvolt = <850000>;
+			opp-hz = /bits/ 64 <2200000000>;
+			opp-microvolt = <918750>;
+			opp-level = <4>;
+			opp-supported-hw = <0x300 0xf0 0xf0>;
 		};
 		opp5 {
-			opp-hz = /bits/ 64 <1716000000>;
-			opp-microvolt = <831250>;
+			opp-hz = /bits/ 64 <2100000000>;
+			opp-microvolt = <893750>;
+			opp-level = <5>;
+			opp-supported-hw = <0x300 0xf0 0xf0>;
 		};
 		opp6 {
-			opp-hz = /bits/ 64 <1633000000>;
-			opp-microvolt = <806250>;
+			opp-hz = /bits/ 64 <2025000000>;
+			opp-microvolt = <868750>;
+			opp-level = <6>;
+			opp-supported-hw = <0x300 0xf0 0xf0>;
 		};
 		opp7 {
-			opp-hz = /bits/ 64 <1548000000>;
-			opp-microvolt = <800000>;
+			opp-hz = /bits/ 64 <1975000000>;
+			opp-microvolt = <856250>;
+			opp-level = <7>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp8 {
-			opp-hz = /bits/ 64 <1383000000>;
-			opp-microvolt = <750000>;
+			opp-hz = /bits/ 64 <1900000000>;
+			opp-microvolt = <837500>;
+			opp-level = <8>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp9 {
-			opp-hz = /bits/ 64 <1258000000>;
-			opp-microvolt = <718750>;
+			opp-hz = /bits/ 64 <1831000000>;
+			opp-microvolt = <825000>;
+			opp-level = <9>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp10 {
-			opp-hz = /bits/ 64 <1175000000>;
-			opp-microvolt = <700000>;
+			opp-hz = /bits/ 64 <1762000000>;
+			opp-microvolt = <806250>;
+			opp-level = <10>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp11 {
-			opp-hz = /bits/ 64 <1091000000>;
-			opp-microvolt = <675000>;
+			opp-hz = /bits/ 64 <1659000000>;
+			opp-microvolt = <787500>;
+			opp-level = <11>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp12 {
-			opp-hz = /bits/ 64 <1008000000>;
-			opp-microvolt = <656250>;
+			opp-hz = /bits/ 64 <1487000000>;
+			opp-microvolt = <750000>;
+			opp-level = <12>;
+			opp-supported-hw = <0x311 0xf0 0xf0>;
 		};
 		opp13 {
-			opp-hz = /bits/ 64 <925000000>;
-			opp-microvolt = <637500>;
+			opp-hz = /bits/ 64 <1384000000>;
+			opp-microvolt = <725000>;
+			opp-level = <13>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp14 {
-			opp-hz = /bits/ 64 <841000000>;
-			opp-microvolt = <618750>;
+			opp-hz = /bits/ 64 <1281000000>;
+			opp-microvolt = <706250>;
+			opp-level = <14>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 		opp15 {
-			opp-hz = /bits/ 64 <774000000>;
+			opp-hz = /bits/ 64 <1143000000>;
+			opp-microvolt = <675000>;
+			opp-level = <15>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
+		};
+		opp16 {
+			opp-hz = /bits/ 64 <1075000000>;
+			opp-microvolt = <662500>;
+			opp-level = <16>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
+		};
+		opp17 {
+			opp-hz = /bits/ 64 <1006000000>;
+			opp-microvolt = <643750>;
+			opp-level = <17>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
+		};
+		opp18 {
+			opp-hz = /bits/ 64 <903000000>;
+			opp-microvolt = <625000>;
+			opp-level = <18>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
+		};
+		opp19 {
+			opp-hz = /bits/ 64 <800000000>;
 			opp-microvolt = <600000>;
+			opp-level = <19>;
+			opp-supported-hw = <0x311 0xf1 0xf1>;
 		};
 	};
 
@@ -231,7 +325,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <365>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -244,7 +337,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <365>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -257,7 +349,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <365>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -270,7 +361,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <365>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -283,7 +373,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <1024>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -296,7 +385,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <1024>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -309,7 +397,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
 		};
@@ -322,7 +409,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
 		};
@@ -410,11 +496,6 @@
 				min-residency-us = <4294967295>;
 			};
 		};
-	};
-
-	dvfsp: dvfsp@0011bc00 {
-		compatible = "mediatek,mcupm-dvfsp";
-		reg = <0 0x0011bc00 0 0x1400>;
 	};
 
 	gic: interrupt-controller {
@@ -729,6 +810,14 @@
 		#size-cells = <2>;
 		compatible = "simple-bus";
 		ranges;
+
+		dvfsp: dvfsp@0011bc00 {
+			compatible = "mediatek,mt6873-mcupm-dvfs";
+			reg = <0 0x0011bc00 0 0x1400>,
+				<0 0x00115c00 0 0x400>;
+			nvmem-cells = <&efuse_segment &cpu_version>;
+			nvmem-cell-names = "seg_code","level_code1";
+		};
 
 		qos:qos@0011bb00 {
 			compatible = "mediatek,mt6873-qos";
@@ -2011,6 +2100,9 @@
 
 			apu_pod26: apu_efuse3 {
 				reg = <0x344 0x4>;
+			};
+			cpu_version: cpu_data {
+				reg = <0x234 0x4>;
 			};
 		};
 
