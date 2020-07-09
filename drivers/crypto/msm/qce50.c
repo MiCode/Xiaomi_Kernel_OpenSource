@@ -176,6 +176,22 @@ static uint32_t _std_init_vector_sha256[] = {
 	0x510E527F, 0x9B05688C,	0x1F83D9AB, 0x5BE0CD19
 };
 
+/* Standard initialization vector for SHA-384, source: FIPS 180-2 */
+static uint32_t _std_init_vector_sha384[] = {
+	0xCBBB9D5D, 0xC1059ED8, 0x629A292A, 0x367CD507,
+	0x9159015A, 0x3070DD17, 0x152FECD8, 0xF70E5939,
+	0x67332667, 0xFFC00B31, 0x8EB44A87, 0x68581511,
+	0xDB0C2E0D, 0x64F98FA7, 0x47B5481D, 0xBEFA4FA4
+};
+
+/* Standard initialization vector for SHA-512, source: FIPS 180-2 */
+static uint32_t _std_init_vector_sha512[] = {
+	0x6A09E667, 0xF3BCC908, 0xBB67AE85, 0x84CAA73B,
+	0x3C6EF372, 0xFE94F82B, 0xA54FF53A, 0x5F1D36F1,
+	0x510E527F, 0xADE682D1, 0x9B05688C, 0x2B3E6C1F,
+	0x1F83D9AB, 0xFB41BD6B, 0x5BE0CD19, 0x137E2179
+};
+
 static void _byte_stream_to_net_words(uint32_t *iv, unsigned char *b,
 		unsigned int len)
 {
@@ -223,6 +239,23 @@ static int count_sg(struct scatterlist *sg, int nbytes)
 	for (i = 0; nbytes > 0; i++, sg = sg_next(sg))
 		nbytes -= sg->length;
 	return i;
+}
+
+static uint32_t qce_get_block_size(enum qce_hash_alg_enum alg)
+{
+	switch (alg) {
+	case QCE_HASH_SHA1:
+	case QCE_HASH_SHA1_HMAC:
+		return SHA1_BLOCK_SIZE;
+	case QCE_HASH_SHA256:
+	case QCE_HASH_SHA256_HMAC:
+		return SHA256_BLOCK_SIZE;
+	case QCE_HASH_SHA384:
+	case QCE_HASH_SHA384_HMAC:
+		return SHA384_BLOCK_SIZE;
+	default:
+		return SHA512_BLOCK_SIZE;
+	}
 }
 
 static int qce_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
@@ -323,10 +356,18 @@ static struct qce_cmdlist_info *_ce_get_hash_cmdlistinfo(
 		return &cmdlistptr->auth_sha1;
 	case QCE_HASH_SHA256:
 		return &cmdlistptr->auth_sha256;
+	case QCE_HASH_SHA384:
+		return &cmdlistptr->auth_sha384;
+	case QCE_HASH_SHA512:
+		return &cmdlistptr->auth_sha512;
 	case QCE_HASH_SHA1_HMAC:
 		return &cmdlistptr->auth_sha1_hmac;
 	case QCE_HASH_SHA256_HMAC:
 		return &cmdlistptr->auth_sha256_hmac;
+	case QCE_HASH_SHA384_HMAC:
+		return &cmdlistptr->auth_sha384_hmac;
+	case QCE_HASH_SHA512_HMAC:
+		return &cmdlistptr->auth_sha512_hmac;
 	case QCE_HASH_AES_CMAC:
 		if (sreq->authklen == AES128_KEY_SIZE)
 			return &cmdlistptr->auth_aes_128_cmac;
@@ -341,12 +382,11 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 				struct qce_sha_req *sreq,
 				struct qce_cmdlist_info *cmdlistinfo)
 {
-	uint32_t auth32[SHA256_DIGEST_SIZE / sizeof(uint32_t)];
+	uint32_t auth32[SHA512_DIGEST_SIZE / sizeof(uint32_t)];
 	uint32_t diglen;
 	int i;
-	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	bool sha1 = false;
+	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {0};
+	bool sha1 = false, sha256 = false, sha384 = false, sha512 = false;
 	struct sps_command_element *pce = NULL;
 	bool use_hw_key = false;
 	bool use_pipe_key = false;
@@ -355,6 +395,8 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 
 	if ((sreq->alg == QCE_HASH_SHA1_HMAC) ||
 			(sreq->alg == QCE_HASH_SHA256_HMAC) ||
+			(sreq->alg == QCE_HASH_SHA384_HMAC) ||
+			(sreq->alg == QCE_HASH_SHA512_HMAC) ||
 			(sreq->alg ==  QCE_HASH_AES_CMAC)) {
 
 
@@ -387,7 +429,7 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 		goto go_proc;
 
 	/* if not the last, the size has to be on the block boundary */
-	if (!sreq->last_blk && (sreq->size % SHA256_BLOCK_SIZE))
+	if (!sreq->last_blk && (sreq->size % qce_get_block_size(sreq->alg)))
 		return -EIO;
 
 	switch (sreq->alg) {
@@ -399,6 +441,17 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 	case QCE_HASH_SHA256:
 	case QCE_HASH_SHA256_HMAC:
 		diglen = SHA256_DIGEST_SIZE;
+		sha256 = true;
+		break;
+	case QCE_HASH_SHA384:
+	case QCE_HASH_SHA384_HMAC:
+		diglen = SHA512_DIGEST_SIZE;
+		sha384 = true;
+		break;
+	case QCE_HASH_SHA512:
+	case QCE_HASH_SHA512_HMAC:
+		diglen = SHA512_DIGEST_SIZE;
+		sha512 = true;
 		break;
 	default:
 		return -EINVAL;
@@ -406,13 +459,18 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 
 	/* write 20/32 bytes, 5/8 words into auth_iv for SHA1/SHA256 */
 	if (sreq->first_blk) {
-		if (sha1) {
+		if (sha1)
 			for (i = 0; i < 5; i++)
 				auth32[i] = _std_init_vector_sha1[i];
-		} else {
+		if (sha256)
 			for (i = 0; i < 8; i++)
 				auth32[i] = _std_init_vector_sha256[i];
-		}
+		if (sha384)
+			for (i = 0; i < 16; i++)
+				auth32[i] = _std_init_vector_sha384[i];
+		if (sha512)
+			for (i = 0; i < 16; i++)
+				auth32[i] = _std_init_vector_sha512[i];
 	} else {
 		_byte_stream_to_net_words(auth32, sreq->digest, diglen);
 	}
@@ -421,15 +479,18 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 	for (i = 0; i < 5; i++, pce++)
 		pce->data = auth32[i];
 
-	if ((sreq->alg == QCE_HASH_SHA256) ||
-			(sreq->alg == QCE_HASH_SHA256_HMAC)) {
+	if (sha256)
 		for (i = 5; i < 8; i++, pce++)
 			pce->data = auth32[i];
-	}
+
+	if (sha384 || sha512)
+		for (i = 5; i < 16; i++, pce++)
+			pce->data = auth32[i];
+
 
 	/* write auth_bytecnt 0/1, start with 0 */
 	pce = cmdlistinfo->auth_bytecount;
-	for (i = 0; i < 2; i++, pce++)
+	for (i = 0; i < 4; i++, pce++)
 		pce->data = sreq->auth_data[i];
 
 	/* Set/reset  last bit in CFG register  */
@@ -1173,15 +1234,14 @@ static void _qce_dump_descr_fifos_dbg(struct qce_device *pce_dev, int req_info)
 static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 				struct qce_sha_req *sreq)
 {
-	uint32_t auth32[SHA256_DIGEST_SIZE / sizeof(uint32_t)];
+	uint32_t auth32[SHA512_DIGEST_SIZE / sizeof(uint32_t)];
 	uint32_t diglen;
 	bool use_hw_key = false;
 	bool use_pipe_key = false;
 	int i;
-	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	uint32_t mackey32[SHA_HMAC_KEY_SIZE / sizeof(uint32_t)] = {0};
 	uint32_t authk_size_in_word = sreq->authklen/sizeof(uint32_t);
-	bool sha1 = false;
+	bool sha1 = false, sha256 = false, sha384 = false, sha512 = false;
 	uint32_t auth_cfg = 0;
 
 	/* clear status */
@@ -1226,6 +1286,8 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 
 	if ((sreq->alg == QCE_HASH_SHA1_HMAC) ||
 			(sreq->alg == QCE_HASH_SHA256_HMAC) ||
+			(sreq->alg == QCE_HASH_SHA384_HMAC) ||
+			(sreq->alg == QCE_HASH_SHA512_HMAC) ||
 			(sreq->alg ==  QCE_HASH_AES_CMAC)) {
 
 		_byte_stream_to_net_words(mackey32, sreq->authkey,
@@ -1252,7 +1314,7 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 		goto go_proc;
 
 	/* if not the last, the size has to be on the block boundary */
-	if (!sreq->last_blk && (sreq->size % SHA256_BLOCK_SIZE))
+	if (!sreq->last_blk && (sreq->size % qce_get_block_size(sreq->alg)))
 		return -EIO;
 
 	switch (sreq->alg) {
@@ -1269,10 +1331,32 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 	case QCE_HASH_SHA256:
 		auth_cfg = pce_dev->reg.auth_cfg_sha256;
 		diglen = SHA256_DIGEST_SIZE;
+		sha256 = true;
 		break;
 	case QCE_HASH_SHA256_HMAC:
 		auth_cfg = pce_dev->reg.auth_cfg_hmac_sha256;
 		diglen = SHA256_DIGEST_SIZE;
+		sha256 = true;
+		break;
+	case QCE_HASH_SHA384:
+		auth_cfg = pce_dev->reg.auth_cfg_sha384;
+		diglen = SHA512_DIGEST_SIZE;
+		sha384 = true;
+		break;
+	case QCE_HASH_SHA384_HMAC:
+		auth_cfg = pce_dev->reg.auth_cfg_hmac_sha384;
+		diglen = SHA512_DIGEST_SIZE;
+		sha384 = true;
+		break;
+	case QCE_HASH_SHA512:
+		auth_cfg = pce_dev->reg.auth_cfg_sha512;
+		diglen = SHA512_DIGEST_SIZE;
+		sha512 = true;
+		break;
+	case QCE_HASH_SHA512_HMAC:
+		auth_cfg = pce_dev->reg.auth_cfg_hmac_sha512;
+		diglen = SHA512_DIGEST_SIZE;
+		sha512 = true;
 		break;
 	default:
 		return -EINVAL;
@@ -1280,13 +1364,18 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 
 	/* write 20/32 bytes, 5/8 words into auth_iv for SHA1/SHA256 */
 	if (sreq->first_blk) {
-		if (sha1) {
+		if (sha1)
 			for (i = 0; i < 5; i++)
 				auth32[i] = _std_init_vector_sha1[i];
-		} else {
+		if (sha256)
 			for (i = 0; i < 8; i++)
 				auth32[i] = _std_init_vector_sha256[i];
-		}
+		if (sha384)
+			for (i = 0; i < 16; i++)
+				auth32[i] = _std_init_vector_sha384[i];
+		if (sha512)
+			for (i = 0; i < 16; i++)
+				auth32[i] = _std_init_vector_sha512[i];
 	} else {
 		_byte_stream_to_net_words(auth32, sreq->digest, diglen);
 	}
@@ -1296,16 +1385,17 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 		QCE_WRITE_REG(auth32[i], (pce_dev->iobase +
 			(CRYPTO_AUTH_IV0_REG + i*sizeof(uint32_t))));
 
-	if ((sreq->alg == QCE_HASH_SHA256) ||
-			(sreq->alg == QCE_HASH_SHA256_HMAC)) {
+	if (sha256)
 		for (i = 5; i < 8; i++)
 			QCE_WRITE_REG(auth32[i], (pce_dev->iobase +
 				(CRYPTO_AUTH_IV0_REG + i*sizeof(uint32_t))));
-	}
-
+	if (sha384 || sha512)
+		for (i = 5; i < 16; i++)
+			QCE_WRITE_REG(auth32[i], (pce_dev->iobase +
+				(CRYPTO_AUTH_IV0_REG + i*sizeof(uint32_t))));
 
 	/* write auth_bytecnt 0/1/2/3, start with 0 */
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < 4; i++)
 		QCE_WRITE_REG(sreq->auth_data[i], pce_dev->iobase +
 					CRYPTO_AUTH_BYTECNT0_REG +
 						i * sizeof(uint32_t));
@@ -1362,7 +1452,7 @@ static int _ce_setup_aead_direct(struct qce_device *pce_dev,
 {
 	int32_t authk_size_in_word = SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
 	int i;
-	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {0};
+	uint32_t mackey32[SHA_HMAC_KEY_SIZE / sizeof(uint32_t)] = {0};
 	uint32_t a_cfg;
 	uint32_t enckey32[(MAX_CIPHER_KEY_SIZE*2)/sizeof(uint32_t)] = {0};
 	uint32_t enciv32[MAX_IV_LENGTH/sizeof(uint32_t)] = {0};
@@ -2139,8 +2229,8 @@ static int _aead_complete(struct qce_device *pce_dev, int req_info)
 static int _sha_complete(struct qce_device *pce_dev, int req_info)
 {
 	struct ahash_request *areq;
-	unsigned char digest[SHA256_DIGEST_SIZE];
-	uint32_t bytecount32[2];
+	unsigned char digest[SHA512_DIGEST_SIZE];
+	uint32_t bytecount32[AUTH_BYTECNT_REG_NUMBER];
 	int32_t result_status = 0;
 	uint32_t result_dump_status;
 	struct ce_request_info *preq_info;
@@ -2158,10 +2248,10 @@ static int _sha_complete(struct qce_device *pce_dev, int req_info)
 	qce_dma_unmap_sg(pce_dev->pdev, areq->src, preq_info->src_nents,
 				DMA_TO_DEVICE);
 	memcpy(digest, (char *)(&pce_sps_data->result->auth_iv[0]),
-						SHA256_DIGEST_SIZE);
+						SHA512_DIGEST_SIZE);
 	_byte_stream_to_net_words(bytecount32,
 		(unsigned char *)pce_sps_data->result->auth_byte_count,
-					2 * CRYPTO_REG_SIZE);
+				AUTH_BYTECNT_REG_NUMBER * CRYPTO_REG_SIZE);
 
 	if (_qce_unlock_other_pipes(pce_dev, req_info)) {
 		qce_free_req_info(pce_dev, req_info, true);
@@ -3574,6 +3664,40 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev, int cri_index,
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
 								0, NULL);
 	break;
+	case QCE_HASH_SHA384:
+		cmdlistptr->auth_sha384.cmdlist = (uintptr_t)ce_vaddr;
+		pcl_info = &(cmdlistptr->auth_sha384);
+
+		auth_cfg = pdev->reg.auth_cfg_sha384;
+		iv_reg = 16;
+
+		/* clear status register */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_STATUS_REG,
+					0, NULL);
+
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
+		/* 1 dummy write */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
+								0, NULL);
+	break;
+	case QCE_HASH_SHA512:
+		cmdlistptr->auth_sha512.cmdlist = (uintptr_t)ce_vaddr;
+		pcl_info = &(cmdlistptr->auth_sha512);
+
+		auth_cfg = pdev->reg.auth_cfg_sha512;
+		iv_reg = 16;
+
+		/* clear status register */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_STATUS_REG,
+					0, NULL);
+
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
+		/* 1 dummy write */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
+								0, NULL);
+	break;
 	case QCE_HASH_SHA1_HMAC:
 		cmdlistptr->auth_sha1_hmac.cmdlist = (uintptr_t)ce_vaddr;
 		pcl_info = &(cmdlistptr->auth_sha1_hmac);
@@ -3596,6 +3720,42 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev, int cri_index,
 		auth_cfg = pdev->reg.auth_cfg_hmac_sha256;
 		key_reg = 16;
 		iv_reg = 8;
+
+		/* clear status register */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_STATUS_REG, 0,
+					NULL);
+
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
+		/* 1 dummy write */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
+								0, NULL);
+	break;
+	case QCE_HASH_SHA384_HMAC:
+		cmdlistptr->auth_sha384_hmac.cmdlist = (uintptr_t)ce_vaddr;
+		pcl_info = &(cmdlistptr->auth_sha384_hmac);
+
+		auth_cfg = pdev->reg.auth_cfg_hmac_sha384;
+		key_reg = 32;
+		iv_reg = 16;
+
+		/* clear status register */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_STATUS_REG, 0,
+					NULL);
+
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CONFIG_REG,
+			pdev->reg.crypto_cfg_be, &pcl_info->crypto_cfg);
+		/* 1 dummy write */
+		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_ENCR_SEG_SIZE_REG,
+								0, NULL);
+	break;
+	case QCE_HASH_SHA512_HMAC:
+		cmdlistptr->auth_sha512_hmac.cmdlist = (uintptr_t)ce_vaddr;
+		pcl_info = &(cmdlistptr->auth_sha512_hmac);
+
+		auth_cfg = pdev->reg.auth_cfg_hmac_sha512;
+		key_reg = 32;
+		iv_reg = 16;
 
 		/* clear status register */
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_STATUS_REG, 0,
@@ -3674,6 +3834,8 @@ static int _setup_auth_cmdlistptrs(struct qce_device *pdev, int cri_index,
 						0, &pcl_info->auth_bytecount);
 	}
 	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_AUTH_BYTECNT1_REG, 0, NULL);
+	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_AUTH_BYTECNT2_REG, 0, NULL);
+	qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_AUTH_BYTECNT3_REG, 0, NULL);
 
 	if (key_reg) {
 		qce_add_cmd_element(pdev, &ce_vaddr,
@@ -4282,10 +4444,18 @@ static int qce_setup_cmdlistptrs(struct qce_device *pdev, int cri_index,
 								false);
 	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA256,
 								false);
+	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA384,
+								false);
+	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA512,
+								false);
 
 	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA1_HMAC,
 								false);
 	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA256_HMAC,
+								false);
+	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA384_HMAC,
+								false);
+	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_SHA512_HMAC,
 								false);
 
 	_setup_auth_cmdlistptrs(pdev, cri_index, pvaddr, QCE_HASH_AES_CMAC,
@@ -4505,6 +4675,18 @@ static int qce_init_ce_cfg_val(struct qce_device *pce_dev)
 		(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
 		(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
 
+	pce_dev->reg.auth_cfg_hmac_sha384 =
+		(CRYPTO_AUTH_MODE_HMAC << CRYPTO_AUTH_MODE)|
+		(CRYPTO_AUTH_SIZE_SHA384 << CRYPTO_AUTH_SIZE) |
+		(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
+		(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+
+	pce_dev->reg.auth_cfg_hmac_sha512 =
+		(CRYPTO_AUTH_MODE_HMAC << CRYPTO_AUTH_MODE)|
+		(CRYPTO_AUTH_SIZE_SHA512 << CRYPTO_AUTH_SIZE) |
+		(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
+		(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+
 	/* Initialize auth_cfg register for SHA1/256 alg */
 	pce_dev->reg.auth_cfg_sha1 =
 		(CRYPTO_AUTH_MODE_HASH << CRYPTO_AUTH_MODE)|
@@ -4515,6 +4697,18 @@ static int qce_init_ce_cfg_val(struct qce_device *pce_dev)
 	pce_dev->reg.auth_cfg_sha256 =
 		(CRYPTO_AUTH_MODE_HASH << CRYPTO_AUTH_MODE)|
 		(CRYPTO_AUTH_SIZE_SHA256 << CRYPTO_AUTH_SIZE) |
+		(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
+		(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+
+	pce_dev->reg.auth_cfg_sha384 =
+		(CRYPTO_AUTH_MODE_HASH << CRYPTO_AUTH_MODE)|
+		(CRYPTO_AUTH_SIZE_SHA384 << CRYPTO_AUTH_SIZE) |
+		(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
+		(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
+
+	pce_dev->reg.auth_cfg_sha512 =
+		(CRYPTO_AUTH_MODE_HASH << CRYPTO_AUTH_MODE)|
+		(CRYPTO_AUTH_SIZE_SHA512 << CRYPTO_AUTH_SIZE) |
 		(CRYPTO_AUTH_ALG_SHA << CRYPTO_AUTH_ALG) |
 		(CRYPTO_AUTH_POS_BEFORE << CRYPTO_AUTH_POS);
 
