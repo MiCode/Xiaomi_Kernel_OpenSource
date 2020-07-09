@@ -480,6 +480,13 @@ void cvp_dsp_send_hfi_queue(void)
 	mutex_lock(&device->lock);
 	mutex_lock(&me->lock);
 
+	if (!device->dsp_iface_q_table.align_virtual_addr) {
+		dprintk(CVP_ERR, "%s: DSP HFI queue released\n", __func__);
+		mutex_unlock(&me->lock);
+		mutex_unlock(&device->lock);
+		return;
+	}
+
 	addr = (uint64_t)device->dsp_iface_q_table.mem_data.dma_handle;
 	size = device->dsp_iface_q_table.mem_data.size;
 
