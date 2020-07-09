@@ -2,6 +2,7 @@
 #include <dt-bindings/clock/qcom,apsscc-sdxlemur.h>
 #include <dt-bindings/clock/qcom,gcc-sdxlemur.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/soc/qcom,dcc_v2.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interconnect/qcom,sdxlemur.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
@@ -188,6 +189,17 @@
 		reg = <0xc264000 0x4>,
 			<0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
+	dcc: dcc_v2@117f000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x117f000 0x1000>,
+		      <0x1100000 0x2000>;
+
+		qcom,transaction_timeout = <0>;
+
+		reg-names = "dcc-base", "dcc-ram-base";
+		dcc-ram-offset = <0x800>;
 	};
 
 	watchdog: qcom,wdt@17817000 {
