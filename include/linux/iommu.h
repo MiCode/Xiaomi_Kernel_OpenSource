@@ -391,8 +391,6 @@ struct iommu_ops {
  * @iova_to_phys_hard: translate iova to physical address using IOMMU hardware
  * @is_iova_coherent: checks coherency of the given iova
  * @tlbi_domain: Invalidate all TLBs covering an iommu domain
- * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
- * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
  * @iova_to_pte: translate iova to Page Table Entry (PTE).
  * @iommu_ops: the standard iommu ops
  */
@@ -404,8 +402,6 @@ struct msm_iommu_ops {
 					 unsigned long trans_flags);
 	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
 	void (*tlbi_domain)(struct iommu_domain *domain);
-	int (*enable_config_clocks)(struct iommu_domain *domain);
-	void (*disable_config_clocks)(struct iommu_domain *domain);
 	uint64_t (*iova_to_pte)(struct iommu_domain *domain, dma_addr_t iova);
 	struct iommu_ops iommu_ops;
 };
@@ -669,23 +665,6 @@ static inline void iommu_tlbiall(struct iommu_domain *domain)
 
 	if (ops->tlbi_domain)
 		ops->tlbi_domain(domain);
-}
-
-static inline int iommu_enable_config_clocks(struct iommu_domain *domain)
-{
-	struct msm_iommu_ops *ops = to_msm_iommu_ops(domain->ops);
-
-	if (ops->enable_config_clocks)
-		return ops->enable_config_clocks(domain);
-	return 0;
-}
-
-static inline void iommu_disable_config_clocks(struct iommu_domain *domain)
-{
-	struct msm_iommu_ops *ops = to_msm_iommu_ops(domain->ops);
-
-	if (ops->disable_config_clocks)
-		ops->disable_config_clocks(domain);
 }
 
 /**
@@ -1082,15 +1061,6 @@ static inline void iommu_device_unlink(struct device *dev, struct device *link)
 }
 
 static inline void iommu_tlbiall(struct iommu_domain *domain)
-{
-}
-
-static inline int iommu_enable_config_clocks(struct iommu_domain *domain)
-{
-	return 0;
-}
-
-static inline void iommu_disable_config_clocks(struct iommu_domain *domain)
 {
 }
 

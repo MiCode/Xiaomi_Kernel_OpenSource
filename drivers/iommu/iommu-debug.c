@@ -126,8 +126,6 @@ struct iommu_debug_device {
 	u64 phys;
 	size_t len;
 	struct list_head list;
-	struct mutex clk_lock;
-	unsigned int clk_count;
 	/* Protects domain */
 	struct mutex state_lock;
 #ifdef CONFIG_ARM64_PTDUMP_CORE
@@ -654,10 +652,6 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 	}
 	domain = ddev->domain;
 
-	if (iommu_enable_config_clocks(domain)) {
-		seq_puts(s, "Couldn't enable clocks\n");
-		goto out_detach;
-	}
 	for (experiment = 0; experiment < 2; ++experiment) {
 		size_t map_avg = 0, unmap_avg = 0;
 
@@ -674,7 +668,7 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 			ns = ktime_to_ns(diff);
 			if (dma_mapping_error(dev, dma_addr)) {
 				seq_puts(s, "dma_map_single failed\n");
-				goto out_disable_config_clocks;
+				goto out_detach;
 			}
 			map_elapsed_ns[i] = ns;
 
@@ -709,8 +703,6 @@ static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
 		seq_printf(s, "] (avg: %zu)\n", unmap_avg);
 	}
 
-out_disable_config_clocks:
-	iommu_disable_config_clocks(domain);
 out_detach:
 	iommu_debug_dma_deconfigure(ddev);
 out_kfree:
@@ -1278,12 +1270,7 @@ static int __apply_to_new_mapping(struct seq_file *s,
 	}
 
 	dev_err_ratelimited(dev, "testing with pgtables at %pa\n", &pt_phys);
-	if (iommu_enable_config_clocks(domain)) {
-		ds_printf(dev, s, "Couldn't enable clocks\n");
-		goto out_release_mapping;
-	}
 	ret = fn(dev, s, domain, priv);
-	iommu_disable_config_clocks(domain);
 
 out_release_mapping:
 	iommu_debug_dma_deconfigure(ddev);
@@ -2013,67 +2000,6 @@ static const struct file_operations iommu_debug_dma_unmap_fops = {
 	.write	= iommu_debug_dma_unmap_write,
 };
 
-static ssize_t iommu_debug_config_clocks_write(struct file *file,
-					       const char __user *ubuf,
-					       size_t count, loff_t *offset)
-{
-	char buf;
-	struct iommu_debug_device *ddev = file->private_data;
-	struct device *dev = ddev->dev;
-
-	/* we're expecting a single character plus (optionally) a newline */
-	if (count > 2) {
-		dev_err_ratelimited(dev, "Invalid value\n");
-		return -EINVAL;
-	}
-
-	if (!ddev->domain) {
-		dev_err_ratelimited(dev, "No domain. Did you already attach?\n");
-		return -EINVAL;
-	}
-
-	if (copy_from_user(&buf, ubuf, 1)) {
-		dev_err_ratelimited(dev, "Couldn't copy from user\n");
-		return -EFAULT;
-	}
-
-	mutex_lock(&ddev->clk_lock);
-	switch (buf) {
-	case '0':
-		if (ddev->clk_count == 0) {
-			dev_err_ratelimited(dev, "Config clocks already disabled\n");
-			break;
-		}
-
-		if (--ddev->clk_count > 0)
-			break;
-
-		dev_err_ratelimited(dev, "Disabling config clocks\n");
-		iommu_disable_config_clocks(ddev->domain);
-		break;
-	case '1':
-		if (ddev->clk_count++ > 0)
-			break;
-
-		dev_err_ratelimited(dev, "Enabling config clocks\n");
-		if (iommu_enable_config_clocks(ddev->domain))
-			dev_err_ratelimited(dev, "Failed!\n");
-		break;
-	default:
-		dev_err_ratelimited(dev, "Invalid value. Should be 0 or 1.\n");
-		mutex_unlock(&ddev->clk_lock);
-		return -EINVAL;
-	}
-	mutex_unlock(&ddev->clk_lock);
-
-	return count;
-}
-
-static const struct file_operations iommu_debug_config_clocks_fops = {
-	.open	= simple_open,
-	.write	= iommu_debug_config_clocks_write,
-};
-
 #ifdef CONFIG_ARM64_PTDUMP_CORE
 static int ptdump_show(struct seq_file *s, void *v)
 {
@@ -2133,7 +2059,6 @@ static int iommu_debug_device_setup(struct device *dev)
 	if (!ddev)
 		return -ENOMEM;
 
-	mutex_init(&ddev->clk_lock);
 	mutex_init(&ddev->state_lock);
 	ddev->dev = dev;
 	dir = debugfs_create_dir(dev_name(dev), debugfs_tests_dir);
@@ -2265,13 +2190,6 @@ static int iommu_debug_device_setup(struct device *dev)
 	if (!debugfs_create_file("pte", 0600, dir, ddev,
 			&iommu_debug_pte_fops)) {
 		pr_err_ratelimited("Couldn't create iommu/devices/%s/pte debugfs file\n",
-		       dev_name(dev));
-		goto err_rmdir;
-	}
-
-	if (!debugfs_create_file("config_clocks", 0200, dir, ddev,
-				 &iommu_debug_config_clocks_fops)) {
-		pr_err_ratelimited("Couldn't create iommu/devices/%s/config_clocks debugfs file\n",
 		       dev_name(dev));
 		goto err_rmdir;
 	}
