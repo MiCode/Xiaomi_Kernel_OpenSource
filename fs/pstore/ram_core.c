@@ -37,6 +37,9 @@ struct persistent_ram_buffer {
 	uint8_t     data[0];
 };
 
+#define MEM_TYPE_WCOMBINE	0
+#define MEM_TYPE_NONCACHED	1
+#define MEM_TYPE_NORMAL		2
 #define PERSISTENT_RAM_SIG (0x43474244) /* DBGC */
 
 static inline size_t buffer_size(struct persistent_ram_zone *prz)
@@ -411,8 +414,10 @@ static void *persistent_ram_vmap(phys_addr_t start, size_t size,
 	page_start = start - offset_in_page(start);
 	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
 
-	if (memtype)
+	if (memtype == MEM_TYPE_NONCACHED)
 		prot = pgprot_noncached(PAGE_KERNEL);
+	else if (memtype == MEM_TYPE_NORMAL)
+		prot = PAGE_KERNEL;
 	else
 		prot = pgprot_writecombine(PAGE_KERNEL);
 

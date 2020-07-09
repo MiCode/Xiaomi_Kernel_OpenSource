@@ -686,7 +686,8 @@ static int ramoops_parse_dt(struct platform_device *pdev,
 
 	pdata->mem_size = resource_size(res);
 	pdata->mem_address = res->start;
-	pdata->mem_type = of_property_read_bool(of_node, "unbuffered");
+	if (of_property_read_u32(of_node, "mem-type", &pdata->mem_type))
+		pdata->mem_type = of_property_read_bool(of_node, "unbuffered");
 	pdata->dump_oops = !of_property_read_bool(of_node, "no-dump-oops");
 
 #define parse_size(name, field) {					\
