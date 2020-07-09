@@ -9,6 +9,7 @@ outdir="$(pwd)"
 tarfile=$1
 cpio_dir=$outdir/$tarfile.tmp
 cpio=$srctree/tools/build/cpio
+tar=$srctree/tools/build/tar
 
 dir_list="
 include/
@@ -87,7 +88,7 @@ find $cpio_dir -type f -print0 |
 # For compatibility with older versions of tar, files are fed to tar
 # pre-sorted, as --sort=name might not be available.
 find $cpio_dir -printf "./%P\n" | LC_ALL=C sort | \
-    tar "${KBUILD_BUILD_TIMESTAMP:+--mtime=$KBUILD_BUILD_TIMESTAMP}" \
+    $tar "${KBUILD_BUILD_TIMESTAMP:+--mtime=$KBUILD_BUILD_TIMESTAMP}" \
     --owner=0 --group=0 --numeric-owner --no-recursion \
     -I $XZ -cf $tarfile -C $cpio_dir/ -T - > /dev/null
 
