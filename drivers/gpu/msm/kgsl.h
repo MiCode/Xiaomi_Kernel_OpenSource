@@ -191,6 +191,12 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_UCODE BIT(9)
 /* For global buffers, randomly assign an address from the region */
 #define KGSL_MEMDESC_RANDOM BIT(10)
+/* The memdesc pages can be reclaimed */
+#define KGSL_MEMDESC_CAN_RECLAIM BIT(11)
+/* The memdesc pages were reclaimed */
+#define KGSL_MEMDESC_RECLAIMED BIT(12)
+/* Skip reclaim of the memdesc pages */
+#define KGSL_MEMDESC_SKIP_RECLAIM BIT(13)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor
@@ -232,6 +238,18 @@ struct kgsl_memdesc {
 	unsigned int page_count;
 	unsigned int cur_bindings;
 	struct file *shmem_filp;
+	/**
+	 * @vma: Pointer to the vm_area_struct this memdesc is mapped to
+	 */
+	struct vm_area_struct *vma;
+	/**
+	 * @lock: Spinlock to protect the pages array
+	 */
+	spinlock_t lock;
+	/**
+	 * @reclaimed_page_count: Total number of pages reclaimed
+	 */
+	int reclaimed_page_count;
 };
 
 /*
