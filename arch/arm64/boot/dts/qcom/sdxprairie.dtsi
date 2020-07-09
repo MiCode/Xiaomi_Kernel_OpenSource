@@ -1535,7 +1535,7 @@
 		qcom,arm-smmu;
 		emac-phy-addr = <7>;
 		reg = <0x20000 0x10000>,
-		   <0x36000 0x100>,
+		   <0x36000 0x4A>,
 		   <0xf100000 0x300000>;
 		reg-names = "emac-base", "rgmii-base", "tlmm-central-base";
 		interrupts-extended = <&pdc 0 62 4>, <&pdc 0 60 4>,
