@@ -87,6 +87,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.id	= ION_DISPLAY_HEAP_ID,
 		.name	= ION_DISPLAY_HEAP_NAME,
 	},
+	{
+		.id	= ION_AUDIO_ML_HEAP_ID,
+		.name	= ION_AUDIO_ML_HEAP_NAME,
+	},
 };
 
 #define MAKE_HEAP_TYPE_MAPPING(h) { .name = #h, \
