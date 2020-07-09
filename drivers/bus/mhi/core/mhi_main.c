@@ -1206,19 +1206,21 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				enum MHI_PM_STATE new_state;
 
 				/*
-				 * Don't process sys error if device support
-				 * rddm since we will be processing rddm ee
-				 * event instead of sys error state change event
+				 * Allow move to SYS_ERROR even if RDDM is
+				 * supported so that core driver is inactive
+				 * with anticipation of an upcoming RDDM event
 				 */
-				if (mhi_cntrl->ee == MHI_EE_RDDM ||
-				    mhi_cntrl->rddm_supported)
-					break;
-
-				MHI_ERR("MHI system error detected\n");
 				write_lock_irq(&mhi_cntrl->pm_lock);
+				/* skip if RDDM event was already processed */
+				if (mhi_cntrl->ee == MHI_EE_RDDM) {
+					write_unlock_irq(&mhi_cntrl->pm_lock);
+					break;
+				}
 				new_state = mhi_tryset_pm_state(mhi_cntrl,
 							MHI_PM_SYS_ERR_DETECT);
 				write_unlock_irq(&mhi_cntrl->pm_lock);
+
+				MHI_ERR("MHI system error detected\n");
 				if (new_state == MHI_PM_SYS_ERR_DETECT)
 					mhi_process_sys_err(mhi_cntrl);
 				break;
