@@ -20,18 +20,11 @@
 #define QMI_TMD_RESP_TOUT	msecs_to_jiffies(100)
 #define QMI_CLIENT_NAME_LENGTH	40
 
-enum qmi_device_type {
-	QMI_CDEV_MAX_LIMIT_TYPE,
-	QMI_CDEV_MIN_LIMIT_TYPE,
-	QMI_CDEV_TYPE_NR,
-};
-
 struct qmi_cooling_device {
 	struct device_node		*np;
 	char				cdev_name[THERMAL_NAME_LENGTH];
 	char				qmi_name[QMI_CLIENT_NAME_LENGTH];
 	bool                            connection_active;
-	enum qmi_device_type		type;
 	struct list_head		qmi_node;
 	struct thermal_cooling_device	*cdev;
 	unsigned int			mtgn_state;
@@ -48,143 +41,42 @@ struct qmi_tmd_instance {
 	struct work_struct		svc_arrive_work;
 };
 
-struct qmi_dev_info {
-	char				*dev_name;
-	enum qmi_device_type		type;
-};
-
 static struct qmi_tmd_instance *tmd_instances;
 static int tmd_inst_cnt;
 
-static struct qmi_dev_info device_clients[] = {
-	{
-		.dev_name = "pa",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "pa_fr1",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "cx_vdd_limit",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem_current",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem_skin",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem_bw",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem_bw_backoff",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "vbatt_low",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "charge_state",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw0",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw1",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw2",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw3",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin0",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin1",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin2",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin3",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "wlan",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "wlan_bw",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin0_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin1_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin2_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "mmw_skin3_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem_skin_lte_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "modem_skin_nr_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "pa_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "pa_fr1_dsc",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "cdsp_sw",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "cdsp_hw",
-		.type = QMI_CDEV_MAX_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "cpuv_restriction_cold",
-		.type = QMI_CDEV_MIN_LIMIT_TYPE,
-	},
-	{
-		.dev_name = "cpr_cold",
-		.type = QMI_CDEV_MIN_LIMIT_TYPE,
-	}
+static char  device_clients[][QMI_CLIENT_NAME_LENGTH] = {
+	{"pa"},
+	{"pa_fr1"},
+	{"cx_vdd_limit"},
+	{"modem"},
+	{"modem_current"},
+	{"modem_skin"},
+	{"modem_bw"},
+	{"modem_bw_backoff"},
+	{"vbatt_low"},
+	{"charge_state"},
+	{"mmw0"},
+	{"mmw1"},
+	{"mmw2"},
+	{"mmw3"},
+	{"mmw_skin0"},
+	{"mmw_skin1"},
+	{"mmw_skin2"},
+	{"mmw_skin3"},
+	{"wlan"},
+	{"wlan_bw"},
+	{"mmw_skin0_dsc"},
+	{"mmw_skin1_dsc"},
+	{"mmw_skin2_dsc"},
+	{"mmw_skin3_dsc"},
+	{"modem_skin_lte_dsc"},
+	{"modem_skin_nr_dsc"},
+	{"pa_dsc"},
+	{"pa_fr1_dsc"},
+	{"cdsp_sw"},
+	{"cdsp_hw"},
+	{"cpuv_restriction_cold"},
+	{"cpr_cold"}
 };
 
 static int qmi_get_max_state(struct thermal_cooling_device *cdev,
@@ -208,10 +100,6 @@ static int qmi_get_cur_state(struct thermal_cooling_device *cdev,
 	if (!qmi_cdev)
 		return -EINVAL;
 
-	if (qmi_cdev->type == QMI_CDEV_MIN_LIMIT_TYPE) {
-		*state = 0;
-		return 0;
-	}
 	*state = qmi_cdev->mtgn_state;
 
 	return 0;
@@ -274,24 +162,27 @@ qmi_send_exit:
 	return ret;
 }
 
-static int qmi_set_cur_or_min_state(struct qmi_cooling_device *qmi_cdev,
+static int qmi_set_cur_state(struct thermal_cooling_device *cdev,
 				 unsigned long state)
 {
+	struct qmi_cooling_device *qmi_cdev = cdev->devdata;
 	int ret = 0;
-	struct qmi_tmd_instance *tmd = qmi_cdev->tmd;
 
-	if (!tmd)
+	if (!qmi_cdev)
+		return -EINVAL;
+
+	if (state > qmi_cdev->max_level)
 		return -EINVAL;
 
 	if (qmi_cdev->mtgn_state == state)
-		return ret;
+		return 0;
 
 	/* save it and return if server exit */
 	if (!qmi_cdev->connection_active) {
 		qmi_cdev->mtgn_state = state;
 		pr_debug("Pending request:%ld for %s\n", state,
 				qmi_cdev->cdev_name);
-		return ret;
+		return 0;
 	}
 
 	/* It is best effort to save state even if QMI fail */
@@ -300,23 +191,6 @@ static int qmi_set_cur_or_min_state(struct qmi_cooling_device *qmi_cdev,
 	qmi_cdev->mtgn_state = state;
 
 	return ret;
-}
-
-static int qmi_set_cur_state(struct thermal_cooling_device *cdev,
-				 unsigned long state)
-{
-	struct qmi_cooling_device *qmi_cdev = cdev->devdata;
-
-	if (!qmi_cdev)
-		return -EINVAL;
-
-	if (qmi_cdev->type == QMI_CDEV_MIN_LIMIT_TYPE)
-		return 0;
-
-	if (state > qmi_cdev->max_level)
-		state = qmi_cdev->max_level;
-
-	return qmi_set_cur_or_min_state(qmi_cdev, state);
 }
 
 static struct thermal_cooling_device_ops qmi_device_ops = {
@@ -569,7 +443,7 @@ static int of_get_qmi_tmd_platform_data(struct device *dev)
 			}
 			/* Check for supported qmi dev*/
 			for (i = 0; i < ARRAY_SIZE(device_clients); i++) {
-				if (strcmp(device_clients[i].dev_name,
+				if (strcmp(device_clients[i],
 					qmi_cdev->qmi_name) == 0)
 					break;
 			}
@@ -580,7 +454,6 @@ static int of_get_qmi_tmd_platform_data(struct device *dev)
 				of_node_put(cdev_np);
 				break;
 			}
-			qmi_cdev->type = device_clients[i].type;
 			qmi_cdev->tmd = &tmd[idx];
 			qmi_cdev->np = cdev_np;
 			qmi_cdev->mtgn_state = 0;
