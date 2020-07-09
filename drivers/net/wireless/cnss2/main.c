@@ -656,12 +656,22 @@ int cnss_idle_restart(struct device *dev)
 	}
 
 	timeout = cnss_get_boot_timeout(dev);
+	/* In Idle restart power up sequence, we have fw_boot_timer to handle
+	 * FW initialization failure. It uses WLAN_DRIVER_LOAD_TIMEOUT.
+	 * Thus setup 3x that completion wait time to account for FW reinit /
+	 * dump collection on retry.
+	 */
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
-					  msecs_to_jiffies((timeout << 1) +
-							   WLAN_WD_TIMEOUT_MS));
+					  msecs_to_jiffies(timeout +
+					  WLAN_MISSION_MODE_TIMEOUT * 3));
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for idle restart to complete\n");
+		/* This exception occurs after attempting retry of FW recovery.
+		 * Thus we can safely power off the device.
+		 */
+		cnss_fatal_err("Timeout for idle restart to complete\n");
 		ret = -ETIMEDOUT;
+		cnss_power_down(dev);
+		CNSS_ASSERT(0);
 		goto out;
 	}
 

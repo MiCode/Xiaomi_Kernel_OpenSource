@@ -1919,7 +1919,7 @@ retry:
 		if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state))
 			timeout += WLAN_COLD_BOOT_CAL_TIMEOUT;
 		else
-			timeout += WLAN_DRIVER_LOAD_TIMEOUT;
+			timeout += WLAN_MISSION_MODE_TIMEOUT;
 		mod_timer(&plat_priv->fw_boot_timer,
 			  jiffies + msecs_to_jiffies(timeout));
 	}
