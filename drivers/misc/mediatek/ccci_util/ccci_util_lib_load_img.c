@@ -105,7 +105,13 @@ char *ccci_get_ap_platform(void)
 	if (ret < 0)
 		return NULL;
 	ap_platform = kzalloc(16, GFP_KERNEL);
-	snprintf(ap_platform, 16, "%s", ap_plat_info);
+	if (!ap_platform) {
+		CCCI_UTIL_ERR_MSG("%s: kzalloc ap_platform fail\n", __func__);
+		return NULL;
+	}
+	ret = snprintf(ap_platform, 16, "%s", ap_plat_info);
+	if (ret < 0 || ret >= 16)
+		return NULL;
 
 	return ap_platform;
 }

@@ -136,11 +136,7 @@ struct ccmni_instance {
 	unsigned long      rx_met_bytes;
 	unsigned long      tx_met_bytes;
 #endif
-#ifndef mtk09077
 	struct timespec64 flush_time;
-#else
-	struct timespec    flush_time;
-#endif
 	void               *priv_data;
 };
 

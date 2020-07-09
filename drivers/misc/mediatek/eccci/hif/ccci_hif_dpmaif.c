@@ -1523,22 +1523,16 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	cache_start = rxq->pit_base + sizeof(struct dpmaifq_normal_pit)
 				* cur_pit;
 	if ((cur_pit + pit_cnt) <= pit_len) {
-#ifdef mtk09077
 		__inval_dcache_area(cache_start,
 				sizeof(struct dpmaifq_normal_pit) * pit_cnt);
-#endif
 	} else {
-#ifdef mtk09077
 		__inval_dcache_area(cache_start,
 			sizeof(struct dpmaifq_normal_pit)
 					* (pit_len - cur_pit));
-#endif
 		cache_start = rxq->pit_base;
-#ifdef mtk09077
 		__inval_dcache_area(cache_start,
 			sizeof(struct dpmaifq_normal_pit)
 				* (cur_pit + pit_cnt - pit_len));
-#endif
 	}
 #endif
 
