@@ -1685,5 +1685,18 @@
 				bias-pull-down;
 			};
 		};
+
+		wakeup_gpio_default: wakeup_gpio_default {
+			mux {
+				pins = "gpio22";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 	};
 };
