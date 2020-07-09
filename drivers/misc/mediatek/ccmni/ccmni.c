@@ -1093,8 +1093,13 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 
 		/* init net device */
 		ccmni_dev_init(md_id, dev);
+
 		/* used to support auto add ipv6 mroute */
-		dev->type = ARPHRD_RAWIP;//ARPHRD_PUREIP;
+		/* change ccmni dev->type to ARPHRD_PPP temporary,
+		 * When modem RS/RA solution is ready in Andoird S,
+		 * it can rollback  ARPHRD_RAWIP to support mroute
+		 */
+		dev->type = ARPHRD_PPP;//ARPHRD_PUREIP;
 
 		sprintf(dev->name, "%s%d", ctlb->ccci_ops->name, i);
 
