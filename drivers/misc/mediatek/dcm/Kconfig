@@ -1,0 +1,19 @@
+config MTK_DCM_COMMON
+	tristate "Mediatek DCM COMMON"
+	depends on ARCH_MEDIATEK && OF
+	help
+	  For Mediatek Dynamic Clock Management control. Provid a common interface to
+	  adjust dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
+
+config MTK_DCM_MT6873
+	tristate "Mediatek MT6873 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6873 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6873 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6873 dcm setting.
+	  Select "n" if you do not need to change
+

@@ -8,6 +8,7 @@ menu "Power, PMIC, Battery & Low Power"
 source "drivers/misc/mediatek/cm_mgr/Kconfig"
 source "drivers/misc/mediatek/mcupm/Kconfig"
 source "drivers/misc/mediatek/dvfsrc/Kconfig"
+source "drivers/misc/mediatek/dcm/Kconfig"
 endmenu # Power
 
 menu "SSPM"
