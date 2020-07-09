@@ -27,7 +27,6 @@
 #include <linux/io.h>
 #include <linux/types.h>
 #include <linux/platform_device.h>
-#include <mt-plat/sync_write.h>
 #include "sspm_define.h"
 #include "sspm_helper.h"
 #include "sspm_reservedmem.h"

@@ -21,7 +21,6 @@
 #include <linux/io.h>
 #include <linux/types.h>
 #include <linux/atomic.h>
-#include <mt-plat/sync_write.h>
 #include "sspm_define.h"
 #include "sspm_ipi_id.h"
 #include "sspm_helper.h"
@@ -72,7 +71,7 @@ static inline void sspm_log_timer_add(void)
 	}
 }
 
-static void sspm_log_timeout(unsigned long data)
+static void sspm_log_timeout(struct timer_list *unused)
 {
 	if (buf_info->r_pos != buf_info->w_pos) {
 		sspm_log_if_wake();
@@ -259,7 +258,7 @@ int __init sspm_logger_init_done(void)
 		if (unlikely(ret != 0))
 			return ret;
 
-		setup_timer(&sspm_log_timer, &sspm_log_timeout, 0);
+		timer_setup(&sspm_log_timer, &sspm_log_timeout, 0);
 		sspm_log_timer.expires = 0;
 
 		sspm_logger_inited = 1;
