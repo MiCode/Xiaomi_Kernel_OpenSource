@@ -21,6 +21,10 @@
 	};
 };
 
+&hab {
+	vmid = <3>;
+};
+
 &slpi_tlmm {
 	status = "ok";
 };
