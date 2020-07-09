@@ -390,7 +390,6 @@ struct iommu_ops {
  *          to an iommu domain
  * @iova_to_phys_hard: translate iova to physical address using IOMMU hardware
  * @is_iova_coherent: checks coherency of the given iova
- * @trigger_fault: trigger a fault on the device attached to an iommu domain
  * @tlbi_domain: Invalidate all TLBs covering an iommu domain
  * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
  * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
@@ -404,7 +403,6 @@ struct msm_iommu_ops {
 					 dma_addr_t iova,
 					 unsigned long trans_flags);
 	bool (*is_iova_coherent)(struct iommu_domain *domain, dma_addr_t iova);
-	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
 	void (*tlbi_domain)(struct iommu_domain *domain);
 	int (*enable_config_clocks)(struct iommu_domain *domain);
 	void (*disable_config_clocks)(struct iommu_domain *domain);
@@ -657,9 +655,6 @@ static inline void iommu_iotlb_gather_add_page(struct iommu_domain *domain,
 	if (gather->start > start)
 		gather->start = start;
 }
-
-extern void iommu_trigger_fault(struct iommu_domain *domain,
-				unsigned long flags);
 
 /* PCI device grouping function */
 extern struct iommu_group *pci_device_group(struct device *dev);
@@ -1083,11 +1078,6 @@ static inline int iommu_device_link(struct device *dev, struct device *link)
 }
 
 static inline void iommu_device_unlink(struct device *dev, struct device *link)
-{
-}
-
-static inline void iommu_trigger_fault(struct iommu_domain *domain,
-				       unsigned long flags)
 {
 }
 

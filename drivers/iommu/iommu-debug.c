@@ -2074,35 +2074,6 @@ static const struct file_operations iommu_debug_config_clocks_fops = {
 	.write	= iommu_debug_config_clocks_write,
 };
 
-static ssize_t iommu_debug_trigger_fault_write(
-		struct file *file, const char __user *ubuf, size_t count,
-		loff_t *offset)
-{
-	struct iommu_debug_device *ddev = file->private_data;
-	unsigned long flags;
-
-	if (kstrtoul_from_user(ubuf, count, 0, &flags)) {
-		pr_err_ratelimited("Invalid flags format\n");
-		return -EFAULT;
-	}
-
-	mutex_lock(&ddev->state_lock);
-	if (!ddev->domain) {
-		pr_err_ratelimited("No domain. Did you already attach?\n");
-		mutex_unlock(&ddev->state_lock);
-		return -EINVAL;
-	}
-	iommu_trigger_fault(ddev->domain, flags);
-
-	mutex_unlock(&ddev->state_lock);
-	return count;
-}
-
-static const struct file_operations iommu_debug_trigger_fault_fops = {
-	.open	= simple_open,
-	.write	= iommu_debug_trigger_fault_write,
-};
-
 #ifdef CONFIG_ARM64_PTDUMP_CORE
 static int ptdump_show(struct seq_file *s, void *v)
 {
@@ -2301,13 +2272,6 @@ static int iommu_debug_device_setup(struct device *dev)
 	if (!debugfs_create_file("config_clocks", 0200, dir, ddev,
 				 &iommu_debug_config_clocks_fops)) {
 		pr_err_ratelimited("Couldn't create iommu/devices/%s/config_clocks debugfs file\n",
-		       dev_name(dev));
-		goto err_rmdir;
-	}
-
-	if (!debugfs_create_file("trigger-fault", 0200, dir, ddev,
-				 &iommu_debug_trigger_fault_fops)) {
-		pr_err_ratelimited("Couldn't create iommu/devices/%s/trigger-fault debugfs file\n",
 		       dev_name(dev));
 		goto err_rmdir;
 	}
