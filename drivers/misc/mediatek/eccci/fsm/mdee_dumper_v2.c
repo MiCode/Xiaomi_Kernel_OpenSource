@@ -270,13 +270,9 @@ static void mdee_info_dump_v2(struct ccci_fsm_ee *mdee)
 			"Fail alloc Mem for ex_info_buf!\n");
 		goto err_exit;
 	}
-#ifndef mtk09077
 	ktime_get_ts64(&time_spec64); /* ktime_get_ts64 maybe we should use */
 	tv.tv_sec = time_spec64.tv_sec;
 	tv.tv_usec = time_spec64.tv_nsec/NSEC_PER_USEC;
-#else
-	do_gettimeofday(&tv);
-#endif
 	tv_android = tv;
 	rtc_time_to_tm(tv.tv_sec, &tm);
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;

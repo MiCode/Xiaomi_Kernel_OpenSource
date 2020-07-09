@@ -234,53 +234,21 @@ static int is_skb_gro(struct sk_buff *skb)
 		return 0;
 }
 
-#ifdef mtk09077
-/* none from 5.0 */
-long long timespec_sub(struct timespec a, struct timespec b)
-{
-	long long ret = NSEC_PER_SEC * b.tv_sec + b.tv_nsec;
-
-	ret -= NSEC_PER_SEC * a.tv_sec + a.tv_nsec;
-	return ret;
-}
-
-#endif
-
 static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 {
-#ifndef mtk09077
 	struct timespec64 curr_time, diff;
-#else
-	struct timespec curr_time, diff;
-#endif
 
 	if (!gro_flush_timer)
 		return;
 
 	if (unlikely(ccmni->flush_time.tv_sec == 0)) {
-#ifndef mtk09077
 		ktime_get_real_ts64(&ccmni->flush_time);
-#else
-		getnstimeofday(&ccmni->flush_time);
-#endif
 	} else {
-#ifndef mtk09077
 		ktime_get_real_ts64(&curr_time);
-#else
-		getnstimeofday(&(curr_time));
-#endif
-#ifndef mtk09077
 		diff = timespec64_sub(curr_time, ccmni->flush_time);
-#else
-		diff = timespec_sub(curr_time, ccmni->flush_time);
-#endif
 		if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
 			napi_gro_flush(ccmni->napi, false);
-#ifndef mtk09077
-		ktime_get_real_ts64(&ccmni->flush_time);
-#else
-			getnstimeofday(&ccmni->flush_time);
-#endif
+			ktime_get_real_ts64(&ccmni->flush_time);
 		}
 	}
 }
