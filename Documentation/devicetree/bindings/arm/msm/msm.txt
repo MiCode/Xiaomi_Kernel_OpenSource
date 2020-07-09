@@ -112,6 +112,12 @@ SoCs:
 - QCS6125
   compatible = "qcom,qcs6125"
 
+- SA2145P
+  compatible = "qcom,sa2145p"
+
+- SA2150P
+  compatible = "qcom,sa2150p"
+
 Generic board variants:
 
 - CDP device:
@@ -229,6 +235,7 @@ compatible = "qcom,sa6155p-adp-air"
 compatible = "qcom,qcs405-rumi"
 compatible = "qcom,qcs405-iot"
 compatible = "qcom,sa2150p-ccard"
+compatible = "qcom,sa2145p-ccard"
 compatible = "qcom,qcs403-iot"
 compatible = "qcom,qcs401-iot"
 compatible = "qcom,qcs404-iot"
