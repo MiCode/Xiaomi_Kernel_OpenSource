@@ -1984,7 +1984,7 @@ free_dma:
 			total_ecc_byte_cnt, DMA_FROM_DEVICE);
 	/* check for bit flips in ecc data */
 	ecc_temp = ecc;
-	for (n = rw_params->start_sector; n < cwperpage; n++) {
+	for (n = rw_params->start_sector; !err && n < cwperpage; n++) {
 		int last_pos = 0, next_pos = 0;
 		int ecc_bytes_percw_in_bits = (chip->ecc_parity_bytes * 8);
 
@@ -2651,7 +2651,7 @@ free_dma:
 			total_ecc_byte_cnt, DMA_FROM_DEVICE);
 	/* check for bit flips in ecc data */
 	ecc_temp = ecc;
-	for (n = rw_params->start_sector; n < cwperpage; n++) {
+	for (n = rw_params->start_sector; !err && n < cwperpage; n++) {
 		int last_pos = 0, next_pos = 0;
 		int ecc_bytes_percw_in_bits = (chip->ecc_parity_bytes * 8);
 
