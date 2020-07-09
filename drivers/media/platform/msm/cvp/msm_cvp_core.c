@@ -211,6 +211,7 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	mutex_lock(&core->lock);
 	list_add_tail(&inst->list, &core->instances);
+	core->ssr_sess_cnt++;
 	mutex_unlock(&core->lock);
 
 	__init_fence_queue(inst);
