@@ -1274,6 +1274,12 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	}
 }
 
+static const struct of_device_id adreno_gmu_match[] = {
+	{ .compatible = "qcom,gpu-gmu" },
+	{ .compatible = "qcom,gpu-rgmu" },
+	{},
+};
+
 int adreno_device_probe(struct platform_device *pdev,
 		struct adreno_device *adreno_dev)
 {
@@ -1310,10 +1316,12 @@ int adreno_device_probe(struct platform_device *pdev,
 	 * Bind the GMU components (if applicable) before doing the KGSL
 	 * platform probe
 	 */
-	status = component_bind_all(dev, NULL);
-	if (status) {
-		kgsl_bus_close(device);
-		return status;
+	if (of_find_matching_node(dev->of_node, adreno_gmu_match)) {
+		status = component_bind_all(dev, NULL);
+		if (status) {
+			kgsl_bus_close(device);
+			return status;
+		}
 	}
 
 	/*
@@ -1418,7 +1426,9 @@ int adreno_device_probe(struct platform_device *pdev,
 err:
 	device->pdev = NULL;
 
-	component_unbind_all(dev, NULL);
+	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
+		component_unbind_all(dev, NULL);
+
 	kgsl_bus_close(device);
 
 	return status;
@@ -1511,7 +1521,8 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_device_platform_remove(device);
 
-	component_unbind_all(dev, NULL);
+	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
+		component_unbind_all(dev, NULL);
 
 	clear_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
@@ -3755,12 +3766,6 @@ const struct adreno_power_ops adreno_power_operations = {
 	.touch_wakeup = adreno_touch_wakeup,
 };
 
-static const struct of_device_id adreno_gmu_match[] = {
-	{ .compatible = "qcom,gpu-gmu" },
-	{ .compatible = "qcom,gpu-rgmu" },
-	{},
-};
-
 static int _compare_of(struct device *dev, void *data)
 {
 	return (dev->of_node == data);
@@ -3795,12 +3800,20 @@ static int adreno_probe(struct platform_device *pdev)
 
 	adreno_add_gmu_components(&pdev->dev, &match);
 
-	return component_master_add_with_match(&pdev->dev, &adreno_ops, match);
+	if (match)
+		return component_master_add_with_match(&pdev->dev,
+				&adreno_ops, match);
+	else
+		return adreno_bind(&pdev->dev);
 }
 
 static int adreno_remove(struct platform_device *pdev)
 {
-	component_master_del(&pdev->dev, &adreno_ops);
+	if (of_find_matching_node(NULL, adreno_gmu_match))
+		component_master_del(&pdev->dev, &adreno_ops);
+	else
+		adreno_unbind(&pdev->dev);
+
 	return 0;
 }
 
