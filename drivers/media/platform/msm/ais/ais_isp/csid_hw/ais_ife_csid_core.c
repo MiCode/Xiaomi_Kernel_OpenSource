@@ -677,10 +677,17 @@ static int ais_ife_csid_config_rdi_path(
 			struct ais_ife_csid_path_cfg *tmp =
 				&csid_hw->rdi_cfg[i];
 
+			/*
+			 * doesn't compare with itself and
+			 * not INIT/STREAMING rdi
+			 */
+			if (id == i ||
+				tmp->state < AIS_ISP_RESOURCE_STATE_INIT_HW)
+				continue;
+
 			/*checking for multiple streams of same VC*/
-			if (i != id &&
-				tmp->vc	== path_cfg->vc &&
-				tmp->decode_fmt	== path_cfg->decode_fmt) {
+			if (tmp->vc == path_cfg->vc &&
+				tmp->decode_fmt == path_cfg->decode_fmt) {
 				val = path_cfg->decode_fmt <<
 					csid_reg->cmn_reg->fmt_shift_val;
 
@@ -784,9 +791,12 @@ static int ais_ife_csid_deinit_rdi_path(
 			struct ais_ife_csid_path_cfg *tmp =
 				&csid_hw->rdi_cfg[i];
 
-			if (i != id &&
-				tmp->vc	== path_cfg->vc &&
-				tmp->decode_fmt	== path_cfg->decode_fmt)
+			if (i == id ||
+				tmp->state == AIS_ISP_RESOURCE_STATE_AVAILABLE)
+				continue;
+
+			if (tmp->vc == path_cfg->vc &&
+				tmp->decode_fmt == path_cfg->decode_fmt)
 				check_cnt++;
 		}
 

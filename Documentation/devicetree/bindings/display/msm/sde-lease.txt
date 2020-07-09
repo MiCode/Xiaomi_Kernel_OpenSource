@@ -4,13 +4,20 @@ Snapdragon Display Engine Lease registers with the Linux DRM/KMS framework to
 facilitate DRM driver creation, publishing /dev/dri/card<n>, n=1,2,... from
 card0 with objects implicitly leased.
 
+This device must be added to the connectors list of qcom,sde-kms device.
+
 Required properties
 - compatible: Must be "qcom,sde-kms-lease".
-- qcom,lease-connectors: Connector names leased to the card.
-- qcom,lease-planes: Plane names leased to the card.
 
 Optional properties
+- qcom,lease-connectors: Connector names leased to the card.
+- qcom,lease-planes: Plane names leased to the card.
 - qcom,dev-name: Name of the lease device.
+
+If there are cards with qcom,lease-connectors and/or qcom,lease-planes not
+defined, the last one with empty connectors and/or planes in the connectors
+list of qcom,sde-kms device will have all the remaining connectors and/or
+planes that are not leased to other cards.
 
 Example:
 	card1: qcom,sde-kms-lease@0 {

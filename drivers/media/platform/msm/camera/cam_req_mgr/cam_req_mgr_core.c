@@ -2494,7 +2494,6 @@ static int cam_req_mgr_cb_notify_trigger(
 	struct  crm_task_payload         *task_data;
 	bool    send_sof = true;
 	int     i = 0;
-	int64_t sof_time_diff = 0;
 
 	if (!trigger_data) {
 		CAM_ERR(CAM_CRM, "sof_data is NULL");
@@ -2514,10 +2513,6 @@ static int cam_req_mgr_cb_notify_trigger(
 		if (link->dev_sof_evt[i].dev_hdl == trigger_data->dev_hdl) {
 			if (link->dev_sof_evt[i].sof_done == false) {
 				link->dev_sof_evt[i].sof_done = true;
-				link->dev_sof_evt[i].frame_id =
-						trigger_data->frame_id;
-				link->dev_sof_evt[i].timestamp =
-					trigger_data->sof_timestamp_val;
 			} else
 				CAM_INFO(CAM_CRM, "Received Spurious SOF");
 		} else if (link->dev_sof_evt[i].sof_done == false) {
@@ -2527,23 +2522,6 @@ static int cam_req_mgr_cb_notify_trigger(
 
 	if (!send_sof)
 		return 0;
-	if (link->num_sof_src > 1) {
-		for (i = 0; i < (link->num_sof_src - 1); i++) {
-			if (link->dev_sof_evt[i].timestamp >=
-				link->dev_sof_evt[i+1].timestamp) {
-				sof_time_diff = link->dev_sof_evt[i].timestamp -
-					link->dev_sof_evt[i+1].timestamp;
-			} else {
-				sof_time_diff =
-					link->dev_sof_evt[i+1].timestamp -
-					link->dev_sof_evt[i].timestamp;
-			}
-			if ((link->dev_sof_evt[i].frame_id !=
-				link->dev_sof_evt[i+1].frame_id) ||
-				sof_time_diff > TIMESTAMP_DIFF_THRESHOLD)
-				return 0;
-		}
-	}
 
 	for (i = 0; i < link->num_sof_src; i++)
 		link->dev_sof_evt[i].sof_done = false;

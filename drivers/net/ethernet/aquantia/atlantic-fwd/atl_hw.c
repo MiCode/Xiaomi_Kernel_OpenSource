@@ -473,7 +473,14 @@ void atl_refresh_link(struct atl_nic *nic)
 			netif_carrier_on(nic->ndev);
 			pm_runtime_get_sync(&nic->hw.pdev->dev);
 #if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
-			atl_init_macsec(hw);
+			{
+				int ret;
+
+				ret = atl_init_macsec(hw);
+
+				if (ret)
+					atl_dev_err("atl_init_macsec failed with %d", ret);
+			}
 #endif
 		}
 	} else {
@@ -549,8 +556,8 @@ int atl_alloc_link_intr(struct atl_nic *nic)
 	int ret;
 
 	if (nic->flags & ATL_FL_MULTIPLE_VECTORS) {
-		ret = request_irq(pci_irq_vector(pdev, 0), atl_link_irq, 0,
-				  nic->ndev->name, nic);
+		ret = request_irq(pci_irq_vector(pdev, 0), atl_link_irq,
+				  IRQF_NO_SUSPEND, nic->ndev->name, nic);
 		if (ret)
 			atl_nic_err("request MSI link vector failed: %d\n",
 				-ret);

@@ -145,6 +145,9 @@ static void free_sink_buffer(struct etm_event_data *event_data)
 
 	cpu = cpumask_first(mask);
 	sink = coresight_get_sink(etm_event_cpu_path(event_data, cpu));
+	if (!sink)
+		return;
+
 	sink_ops(sink)->free_buffer(event_data->snk_config);
 }
 

@@ -247,6 +247,8 @@
 	pinctrl-1 = <&emac_pin_pps_0>;
 	pinctrl-2 = <&emac_pin_pps_1>;
 	qcom,phy-reset-delay-msecs = <10>;
+	ipa-dma-rx-desc-cnt = <512>;
+	ipa-dma-tx-desc-cnt = <512>;
 };
 
 &vreg_rgmii_io_pads {

@@ -616,6 +616,8 @@ static int shd_connector_get_modes(struct drm_connector *connector,
 	drm_mode.vtotal = drm_mode.vsync_end;
 
 	m = drm_mode_duplicate(disp->drm_dev, &drm_mode);
+	if (!m)
+		return 0;
 	drm_mode_set_name(m);
 	drm_mode_probed_add(connector, m);
 	rc = shd_drm_update_edid_name(&edid, disp->name);

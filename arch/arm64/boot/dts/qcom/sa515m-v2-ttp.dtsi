@@ -59,6 +59,11 @@
 	status = "disabled";
 };
 
+&ethqos_hw {
+	ipa-dma-rx-desc-cnt = <512>;
+	ipa-dma-tx-desc-cnt = <512>;
+};
+
 &soc {
 	bluetooth: bt_qca6390 {
 		compatible = "qca,qca6390";

@@ -883,7 +883,9 @@ static struct etr_buf *tmc_alloc_etr_buf(struct tmc_drvdata *drvdata,
 
 static void tmc_free_etr_buf(struct etr_buf *etr_buf)
 {
-	WARN_ON(!etr_buf->ops || !etr_buf->ops->free);
+	if (WARN_ON(!etr_buf->ops || !etr_buf->ops->free))
+		return;
+
 	etr_buf->ops->free(etr_buf);
 	kfree(etr_buf);
 }
@@ -947,7 +949,8 @@ static void tmc_sync_etr_buf(struct tmc_drvdata *drvdata)
 
 	etr_buf->full = status & TMC_STS_FULL;
 
-	WARN_ON(!etr_buf->ops || !etr_buf->ops->sync);
+	if (WARN_ON(!etr_buf->ops || !etr_buf->ops->sync))
+		return;
 
 	etr_buf->ops->sync(etr_buf, rrp, rwp);
 }

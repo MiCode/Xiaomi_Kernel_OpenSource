@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -622,13 +622,16 @@
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK_SRC>,
 			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
-			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>;
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL1_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK_SRC>,
+			 <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ref_clk", "core_usb_pipe_clk",
 			"link_clk", "link_iface_clk",
 			"crypto_clk", "pixel_clk_rcg", "pixel_parent",
 			"pixel1_clk_rcg", "pixel1_parent",
-			"strm0_pixel_clk", "strm1_pixel_clk";
+			"strm0_pixel_clk", "strm1_pixel_clk",
+			"link_clk_rcg", "xo_clk";
 
 		qcom,phy-version = <0x420>;
 		qcom,aux-cfg0-settings = [20 00];

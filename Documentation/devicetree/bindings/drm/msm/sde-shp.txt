@@ -3,6 +3,8 @@ QTI Snapdragon Display Engine (SDE) shared plane
 This driver allows to create multiple virtual planes from the same
 physical plane. Only one plane can be activated at a time.
 
+This device must be added to the connectors list of qcom,sde-kms device.
+
 Required properties:
 - compatible:		"qcom,sde-shared-plane"
 - qcom,add-planes:	Shared planes to add to the DRM system. Each child
@@ -15,8 +17,10 @@ Required properties:
 			to handoff state at system bootup.
 	qcom,plane-init-active: optional boolean, if set, the plane is inited to
 			active state at system bootup.
-	qcom,plane-detach-handoff: optional boolean, if set, the plane is set to
-			handoff state whenever it is detached.
+	qcom,plane-detach-handoff: optional boolean, if set, and when the plane
+			set handoff to true and crtc to null, the plane will
+			immediately become inaccessible and handoff will reset
+			to false.
 
 
 Example:

@@ -289,7 +289,9 @@ struct smd_channel_info_word_pair {
 		(GET_RX_CHANNEL_FLAG(channel, fDSR) ? TIOCM_DSR : 0) |	      \
 		(GET_RX_CHANNEL_FLAG(channel, fCTS) ? TIOCM_CTS : 0) |	      \
 		(GET_RX_CHANNEL_FLAG(channel, fCD) ? TIOCM_CD : 0) |	      \
-		(GET_RX_CHANNEL_FLAG(channel, fRI) ? TIOCM_RI : 0);	      \
+		(GET_RX_CHANNEL_FLAG(channel, fRI) ? TIOCM_RI : 0) |	      \
+		(GET_TX_CHANNEL_FLAG(channel, fDSR) ? TIOCM_DTR : 0) |        \
+		(GET_TX_CHANNEL_FLAG(channel, fCTS) ? TIOCM_RTS : 0);         \
 	})
 
 #define SET_RX_CHANNEL_FLAG(channel, param, value)			     \

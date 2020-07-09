@@ -448,12 +448,6 @@
 			reg = <0 0x46200000 0 0x2d00000>;
 		};
 
-		pil_camera_mem: camera_region@4ab00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x4ab00000 0 0x500000>;
-		};
-
 		pil_modem_mem: modem_region@4b000000 {
 			compatible = "removed-dma-pool";
 			no-map;

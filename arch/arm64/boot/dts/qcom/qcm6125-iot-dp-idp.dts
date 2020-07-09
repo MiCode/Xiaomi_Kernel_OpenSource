@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcm6125.dtsi"
+#include "qcm6125-iot-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCM6125 IOT Disp. Port Enable IDP";
+	compatible = "qcom,qcm6125-idp", "qcom,qcm6125", "qcom,idp";
+	qcom,board-id = <34 4>;
+};
+
+&sde_dp {
+	status = "ok";
+	qcom,dp-hpd-gpio = <&tlmm 100 0>;
+	qcom,dp-low-power-hw-hpd;
+};
+
+&mdss_dp_pll {
+	status = "ok";
+};
+
+&usb0 {
+	dwc3@4e00000 {
+		usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&mdss_mdp {
+	connectors = <&sde_wb &sde_dsi &sde_dp>;
+};
