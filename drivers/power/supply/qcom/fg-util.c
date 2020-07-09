@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -715,7 +715,7 @@ static inline bool is_sec_access(struct fg_dev *fg, int addr)
 	if (fg->version != GEN3_FG)
 		return false;
 
-	return ((addr & 0x00FF) > 0xD0);
+	return ((addr & 0x00FF) > 0xB8);
 }
 
 int fg_write(struct fg_dev *fg, int addr, u8 *val, int len)
@@ -1683,3 +1683,28 @@ err_remove_fs:
 	debugfs_remove_recursive(fg->dfs_root);
 	return -ENOMEM;
 }
+
+void fg_stay_awake(struct fg_dev *fg, int awake_reason)
+{
+	spin_lock(&fg->awake_lock);
+
+	if (!fg->awake_status)
+		pm_stay_awake(fg->dev);
+
+	fg->awake_status |= awake_reason;
+
+	spin_unlock(&fg->awake_lock);
+}
+
+void fg_relax(struct fg_dev *fg, int awake_reason)
+{
+	spin_lock(&fg->awake_lock);
+
+	fg->awake_status &= ~awake_reason;
+
+	if (!fg->awake_status)
+		pm_relax(fg->dev);
+
+	spin_unlock(&fg->awake_lock);
+}
+
