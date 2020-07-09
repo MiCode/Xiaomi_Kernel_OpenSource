@@ -8,6 +8,9 @@
 
 #include <linux/kernel.h>
 #include <linux/sched/clock.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
 
 extern unsigned long long mutex_time_start;
 extern unsigned long long mutex_time_end;
