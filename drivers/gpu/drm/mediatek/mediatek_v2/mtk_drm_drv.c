@@ -3,12 +3,15 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_fourcc.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_vblank.h>
+#include <linux/delay.h>
 #include <linux/component.h>
 #include <linux/iommu.h>
 #include <linux/of_address.h>
@@ -53,6 +56,10 @@
 #define DRIVER_DATE "20150513"
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
+
+void disp_dbg_deinit(void);
+void disp_dbg_probe(void);
+void disp_dbg_init(struct drm_device *dev);
 
 atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
@@ -2411,7 +2418,7 @@ static struct drm_driver mtk_drm_driver = {
 	/* .get_vblank_counter = drm_vblank_no_hw_counter, */
 	.enable_vblank = mtk_drm_crtc_enable_vblank,
 	.disable_vblank = mtk_drm_crtc_disable_vblank,
-	.get_vblank_timestamp = mtk_crtc_get_vblank_timestamp,
+	//.get_vblank_timestamp = mtk_crtc_get_vblank_timestamp,
 
 	.gem_free_object_unlocked = mtk_drm_gem_free_object,
 	.gem_vm_ops = &drm_gem_cma_vm_ops,
@@ -2719,7 +2726,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	PanelMaster_probe();
 	DDPINFO("%s+\n", __func__);
 
-	drm_debug = 0x2; /* DRIVER messages */
+	//drm_debug = 0x2; /* DRIVER messages */
 	private = devm_kzalloc(dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
 		return -ENOMEM;

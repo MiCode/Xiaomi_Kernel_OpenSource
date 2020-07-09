@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
@@ -24,6 +23,8 @@
 #include "mtk_drm_fb.h"
 #include "mtk_layering_rule.h"
 #include "mtk_drm_trace.h"
+
+int disp_met_set(void *data, u64 val);
 
 #define DISP_REG_RDMA_INT_ENABLE 0x0000
 #define DISP_REG_RDMA_INT_STATUS 0x0004
@@ -248,6 +249,7 @@ static inline struct mtk_disp_rdma *comp_to_rdma(struct mtk_ddp_comp *comp)
 	return container_of(comp, struct mtk_disp_rdma, ddp_comp);
 }
 
+int disp_met_set(void *data, u64 val);
 static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_rdma *priv = dev_id;

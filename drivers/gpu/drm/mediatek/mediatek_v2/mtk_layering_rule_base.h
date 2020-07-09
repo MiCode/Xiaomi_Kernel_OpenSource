@@ -14,7 +14,6 @@
 #include "disp_drv_platform.h"
 #include "display_recorder.h"
 #endif
-#include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem.h>

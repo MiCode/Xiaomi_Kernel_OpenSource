@@ -5,12 +5,12 @@
 
 #include <linux/gfp.h>
 #include <linux/kmemleak.h>
-#include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_fourcc.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
@@ -302,8 +302,9 @@ int free_fb_buf(void)
 	va_start = (unsigned long)__va(fb_base);
 	va_end = (unsigned long)__va(fb_base + (unsigned long)vramsize);
 	if (va_start)
-		free_reserved_area((void *)va_start,
-				   (void *)va_end, 0xff, "fbmem");
+		//free_reserved_area((void *)va_start,
+		//		   (void *)va_end, 0xff, "fbmem");
+		;
 	else
 		DDPINFO("%s:va invalid\n", __func__);
 
@@ -425,12 +426,12 @@ static int mtk_drm_fb_add_one_connector(struct drm_device *dev,
 		if (helper_private->best_encoder)
 			encoder = helper_private->best_encoder(connector);
 		else {
-			encoder = drm_encoder_find(connector->dev, NULL,
-				connector->encoder_ids[0]);
+			//encoder = drm_encoder_find(connector->dev, NULL,
+			//	connector->encoder_ids[0]);
 		}
 		if (encoder && (encoder->possible_crtcs & 0x1)) {
-			ret = drm_fb_helper_add_one_connector(
-				helper, connector);
+			//ret = drm_fb_helper_add_one_connector(
+			//	helper, connector);
 			break;
 		}
 	}
@@ -451,7 +452,7 @@ int mtk_fbdev_init(struct drm_device *dev)
 
 	drm_fb_helper_prepare(dev, helper, &mtk_drm_fb_helper_funcs);
 
-	ret = drm_fb_helper_init(dev, helper, 1);
+	ret = drm_fb_helper_init(dev, helper);
 	if (ret) {
 		dev_err(dev->dev, "failed to initialize DRM FB helper, %d\n",
 			ret);

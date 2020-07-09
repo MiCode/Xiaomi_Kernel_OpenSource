@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/of_device.h>
@@ -12,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 
 //For 120Hz rotation issue
 #include <linux/time.h>
@@ -377,7 +377,7 @@ static void disp_aal_notify_backlight_log(int bl_1024)
 		}
 	}
 
-	memcpy(&g_aal_log_prevtime, &aal_time, sizeof(struct timeval));
+	memcpy(&g_aal_log_prevtime, &aal_time, sizeof(struct timespec64));
 }
 
 void disp_aal_refresh_by_kernel(void)

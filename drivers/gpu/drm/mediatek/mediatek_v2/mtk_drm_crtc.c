@@ -4,10 +4,10 @@
  */
 
 #include <asm/barrier.h>
-#include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_fourcc.h>
 #include <drm/drm_plane_helper.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
@@ -17,6 +17,9 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
+#include <drm/drm_vblank.h>
+#include <linux/dma-mapping.h>
+#include <linux/delay.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -808,7 +811,7 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
 
-	*vblank_time = timeval_to_ktime(mtk_crtc->vblank_time);
+	*vblank_time = timespec64_to_ktime(mtk_crtc->vblank_time);
 	return true;
 }
 
@@ -4750,7 +4753,7 @@ void mtk_crtc_vblank_irq(struct drm_crtc *crtc)
 	char tag_name[100] = {'\0'};
 	ktime_t ktime = ktime_get();
 
-	mtk_crtc->vblank_time = ktime_to_timeval(ktime);
+	mtk_crtc->vblank_time = ktime_to_timespec64(ktime);
 
 	sprintf(tag_name, "%d|HW_VSYNC|%lld",
 		DRM_TRACE_VSYNC_ID, ktime);

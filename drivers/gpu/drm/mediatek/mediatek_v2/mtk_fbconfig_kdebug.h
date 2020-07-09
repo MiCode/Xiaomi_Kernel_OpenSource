@@ -7,7 +7,6 @@
 #define __MTK_FBCONFIG_KDEBUG_H
 
 #include <linux/types.h>
-#include <drm/drmP.h>
 #include <drm/drm_mipi_dsi.h>
 #include "mtk_drm_ddp_comp.h"
 

@@ -7,7 +7,6 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/uaccess.h>
-#include <drm/drmP.h>
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_plane.h"
 #include "mtk_drm_crtc.h"

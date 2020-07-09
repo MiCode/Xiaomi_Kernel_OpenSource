@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/of_device.h>
@@ -12,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/delay.h>
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -2657,7 +2657,7 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 		return -EFAULT;
 	}
 
-	va = ioremap_nocache(pa, sizeof(va));
+	va = ioremap(pa, sizeof(va));
 
 	DDPDBG("%s @ %d......... spin_trylock_irqsave ++ ",
 		__func__, __LINE__);
