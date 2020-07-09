@@ -2577,6 +2577,12 @@
 			#iommu-cells = <1>;
 		};
 
+		apu_iommu_data: apu_iommu_data {
+			compatible = "mediatek,apu_iommu_data";
+			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
+			iommus = <&iommu1 M4U_PORT_L22_APU_DATA>;
+		};
+
 		apu_conn: apu_conn@19020000 {
 			compatible = "mediatek,mt8192-apu_conn", "syscon";
 			reg = <0 0x19020000 0 0x1000>;
