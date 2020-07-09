@@ -45,13 +45,13 @@ static struct pll_vco fabia_vco[] = {
 /* 506MHz configuration */
 static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.l = 0x1A,
-	.cal_l = 0x3A,
+	.cal_l = 0x3F,
 	.alpha = 0x5AAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
 	.test_ctl_hi_val = 0x00000002,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
 };
 
@@ -84,13 +84,13 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 /* 514MHz configuration */
 static const struct alpha_pll_config gpu_cc_pll1_config = {
 	.l = 0x1A,
-	.cal_l = 0x38,
+	.cal_l = 0x3D,
 	.alpha = 0xC555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
 	.test_ctl_hi_val = 0x00000002,
-	.user_ctl_val = 0x00000000,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00004805,
 };
 
