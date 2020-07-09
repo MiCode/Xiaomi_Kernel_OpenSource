@@ -5,7 +5,7 @@
 #ifndef __SSPM_IPI_ID_H__
 #define __SSPM_IPI_ID_H__
 
-#include <mt-plat/mtk_tinysys_ipi.h>
+#include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 
 /* define module id here ... */
 #define IPIS_C_PPM            0

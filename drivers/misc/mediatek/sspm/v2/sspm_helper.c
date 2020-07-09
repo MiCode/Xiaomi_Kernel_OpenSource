@@ -28,7 +28,6 @@
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/atomic.h>
-#include <mt-plat/sync_write.h>
 #include "sspm_define.h"
 #include "sspm_helper.h"
 #include "sspm_ipi_table.h"

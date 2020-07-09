@@ -4,7 +4,6 @@
  */
 
 #include <linux/module.h>       /* needed by all modules */
-#include <mt-plat/sync_write.h>
 #include "sspm_define.h"
 #include "sspm_ipi_id.h"
 
