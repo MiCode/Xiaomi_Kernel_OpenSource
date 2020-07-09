@@ -27,6 +27,8 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		serial0 = &qupv3_se9_2uart;
 		hsuart0 = &qupv3_se1_4uart;
+		swr0 = &swr0;
+		swr1 = &swr1;
 	};
 
 	cpus {
@@ -1735,6 +1737,7 @@
 #include "holi-thermal.dtsi"
 #include "holi-pinctrl.dtsi"
 #include "holi-qupv3.dtsi"
+#include "holi-audio.dtsi"
 
 &pmk8350 {
 	reg = <6 SPMI_USID>;
