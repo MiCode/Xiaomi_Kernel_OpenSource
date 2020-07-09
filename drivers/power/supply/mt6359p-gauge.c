@@ -1738,6 +1738,7 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 	int r_fg_value;
 	int car_tune_value;
 
+	bm_err("%s start\n", __func__);
 	r_fg_value = gauge->hw_status.r_fg_value;
 	car_tune_value = gauge->hw_status.car_tune_value;
 	regmap_read(gauge->regmap, PMIC_FG_R_CURR_ADDR, &reg_value);
@@ -3246,19 +3247,23 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 	struct mtk_gauge *gauge;
 	int ret;
 	struct iio_channel *chan_bat_temp;
-	struct mt6397_chip *chip;
 
-	chan_bat_temp = devm_iio_channel_get(&pdev->dev, "pmic_battery_temp");
-	if (PTR_ERR(chan_bat_temp) == -ENODEV)
+	bm_err("%s: starts\n", __func__);
+
+	chan_bat_temp = devm_iio_channel_get(
+		&pdev->dev, "pmic_battery_temp");
+	if (IS_ERR(chan_bat_temp)) {
+		bm_err("mt6359 requests probe deferral\n");
 		return -EPROBE_DEFER;
-
+	}
 
 	gauge = devm_kzalloc(&pdev->dev, sizeof(*gauge), GFP_KERNEL);
 	if (!gauge)
 		return -ENOMEM;
 
-	chip = (struct mt6397_chip *)dev_get_drvdata(pdev->dev.parent);
-	gauge->regmap = chip->regmap;
+	gauge->chip = (struct mt6397_chip *)dev_get_drvdata(
+		pdev->dev.parent);
+	gauge->regmap = gauge->chip->regmap;
 	dev_set_drvdata(&pdev->dev, gauge);
 	gauge->pdev = pdev;
 	mutex_init(&gauge->ops_lock);
@@ -3339,9 +3344,17 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 			&gauge->psy_cfg);
 	gauge_sysfs_create_group(gauge);
 
+	battery_init(pdev);
+
+	bm_err("%s: done\n", __func__);
+
 	return 0;
 }
 
+static const struct of_device_id mt6359_gauge_of_match[] = {
+	{.compatible = "mediatek,mt6359p-gauge",},
+	{},
+};
 
 static int mt6359_gauge_remove(struct platform_device *pdev)
 {
@@ -3352,6 +3365,7 @@ static int mt6359_gauge_remove(struct platform_device *pdev)
 	return 0;
 }
 
+MODULE_DEVICE_TABLE(of, mt6359_gauge_of_match);
 
 static struct platform_driver mt6359_gauge_driver = {
 	.probe = mt6359_gauge_probe,
@@ -3361,6 +3375,7 @@ static struct platform_driver mt6359_gauge_driver = {
 	.resume = mt6359_gauge_resume,
 	.driver = {
 		.name = "mt6359p_gauge",
+		.of_match_table = mt6359_gauge_of_match,
 		},
 };
 
