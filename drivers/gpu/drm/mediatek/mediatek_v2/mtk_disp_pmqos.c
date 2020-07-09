@@ -317,10 +317,10 @@ static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	DDPINFO("%s set mmclk level: %d\n", caller, g_freq_level);
 
 	if (g_freq_level >= 0)
-		pm_qos_update_request(&mm_freq_request,
+		cpu_latency_qos_update_request(&mm_freq_request,
 			g_freq_steps[g_freq_level]);
 	else
-		pm_qos_update_request(&mm_freq_request, 0);
+		cpu_latency_qos_update_request(&mm_freq_request, 0);
 }
 
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,

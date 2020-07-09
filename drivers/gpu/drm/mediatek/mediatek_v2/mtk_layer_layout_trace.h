@@ -32,7 +32,7 @@ TRACE_EVENT(layer_bw,
 	TP_ARGS(msg),
 
 	TP_STRUCT__entry(
-		__string(msg, msg);
+		__string(msg, msg)
 	),
 
 	TP_fast_assign(

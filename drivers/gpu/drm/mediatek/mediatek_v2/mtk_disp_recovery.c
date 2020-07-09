@@ -14,9 +14,9 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 #include <linux/sched/clock.h>
+#include <linux/delay.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/pinctrl/consumer.h>
-#include <drm/drmP.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk_drm_drv.h"

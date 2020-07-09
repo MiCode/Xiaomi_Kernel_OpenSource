@@ -10,7 +10,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <drm/drmP.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
 #ifdef IF_ZERO

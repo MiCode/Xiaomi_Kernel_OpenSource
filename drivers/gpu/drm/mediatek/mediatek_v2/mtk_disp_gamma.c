@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/of_device.h>

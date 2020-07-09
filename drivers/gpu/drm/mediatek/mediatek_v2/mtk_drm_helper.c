@@ -7,7 +7,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_graph.h>
-#include <drm/drmP.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_of.h>
 

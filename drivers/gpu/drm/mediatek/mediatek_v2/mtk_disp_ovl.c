@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/iommu.h>
@@ -29,6 +28,8 @@
 #include "cmdq-sec.h"
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_mmp.h"
+
+int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))

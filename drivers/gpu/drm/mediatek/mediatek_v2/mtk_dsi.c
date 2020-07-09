@@ -3,13 +3,15 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_probe_helper.h>
+#include <drm/drm_bridge.h>
+#include <drm/drm_encoder.h>
+#include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
@@ -1855,7 +1857,7 @@ static int mtk_dsi_connector_get_modes(struct drm_connector *connector)
 {
 	struct mtk_dsi *dsi = connector_to_dsi(connector);
 
-	return drm_panel_get_modes(dsi->panel);
+	return drm_panel_get_modes(dsi->panel, connector);
 }
 
 static int mtk_dsi_atomic_check(struct drm_encoder *encoder,
@@ -1913,12 +1915,12 @@ static int mtk_drm_attach_bridge(struct drm_bridge *bridge,
 	if (!bridge)
 		return -ENOENT;
 
-	encoder->bridge = bridge;
+	//encoder->bridge = bridge;
 	bridge->encoder = encoder;
-	ret = drm_bridge_attach(encoder, bridge, NULL);
+	ret = drm_bridge_attach(encoder, bridge, NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 	if (ret) {
 		DRM_ERROR("Failed to attach bridge to drm\n");
-		encoder->bridge = NULL;
+		//encoder->bridge = NULL;
 		bridge->encoder = NULL;
 	}
 
@@ -3362,8 +3364,7 @@ int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 	DDPMSG("%s +\n", __func__);
 
 	/* Check cmd_msg param */
-	if (cmd_msg->type == 0 ||
-		cmd_msg->tx_cmd_num == 0 ||
+	if (cmd_msg->tx_cmd_num == 0 ||
 		cmd_msg->tx_cmd_num > MAX_TX_CMD_NUM) {
 		DDPPR_ERR("%s: type is %s, tx_cmd_num is %d\n",
 			__func__, cmd_msg->type, (int)cmd_msg->tx_cmd_num);
@@ -3591,8 +3592,7 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 	DDPMSG("%s +\n", __func__);
 
 	/* Check cmd_msg param */
-	if (cmd_msg->type == 0 ||
-		cmd_msg->tx_cmd_num == 0 ||
+	if (cmd_msg->tx_cmd_num == 0 ||
 		cmd_msg->rx_cmd_num == 0 ||
 		cmd_msg->tx_cmd_num > MAX_TX_CMD_NUM ||
 		cmd_msg->rx_cmd_num > MAX_RX_CMD_NUM) {

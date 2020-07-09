@@ -6,7 +6,6 @@
 #ifndef _MTK_DRM_SESSION_H_
 #define _MTK_DRM_SESSION_H_
 
-#include <drm/drmP.h>
 #include <drm/mediatek_drm.h>
 
 #define MAX_SESSION_COUNT 3

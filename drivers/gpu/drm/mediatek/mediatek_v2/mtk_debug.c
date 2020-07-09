@@ -5,11 +5,11 @@
 
 #include <linux/string.h>
 #include <linux/time.h>
+#include <linux/delay.h>
 #include <linux/wait.h>
 #include <linux/debugfs.h>
 #include <linux/sched/clock.h>
 #include <linux/of_address.h>
-#include <drm/drmP.h>
 #include <drm/drm_mipi_dsi.h>
 #include "mtk_dump.h"
 #include "mtk_debug.h"
