@@ -61,7 +61,9 @@ int get_ptim_i(struct mtk_battery *gm)
 	union power_supply_propval val;
 
 	psy = gm->gauge->psy;
-	power_supply_get_property(psy,
+
+	if (psy != NULL)
+		power_supply_get_property(psy,
 				POWER_SUPPLY_PROP_CURRENT_NOW, &val);
 
 	return val.intval;
@@ -705,7 +707,8 @@ void fgr_construct_vboot(struct mtk_battery *gm, int table_idx)
 	algo = &gm->algo;
 	ptable = &gm->fg_table_cust_data;
 	pdata = &gm->fg_cust_data;
-	ptim_i = get_ptim_i(gm);
+	/* TODO */
+	/*ptim_i = get_ptim_i(gm); */
 	ptim_vbat = gauge_get_int_property(GAUGE_PROP_PTIM_BATTERY_VOLTAGE)
 		* 10;
 
@@ -1795,7 +1798,7 @@ void fgr_set_int1(struct mtk_battery *gm)
 
 void battery_algo_init(struct mtk_battery *gm)
 {
-	int is_bat_exist;
+	int is_bat_exist = 1;
 	struct mtk_battery_algo *algo;
 	struct fuel_gauge_table_custom_data *ptable;
 

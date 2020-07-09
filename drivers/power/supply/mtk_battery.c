@@ -184,7 +184,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_battery *gm;
 	struct battery_data *bs_data;
-	union power_supply_propval prop;
+	union power_supply_propval online, status;
 	union power_supply_propval prop_type;
 	int cur_chr_type = 0;
 
@@ -199,16 +199,23 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		bm_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,
-			POWER_SUPPLY_PROP_ONLINE, &prop);
-		if (prop.intval)
-			bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
-		else
-			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
+			POWER_SUPPLY_PROP_ONLINE, &online);
 
 		ret = power_supply_get_property(chg_psy,
-			POWER_SUPPLY_PROP_STATUS, &prop);
+			POWER_SUPPLY_PROP_STATUS, &status);
 
-		if (prop.intval == POWER_SUPPLY_STATUS_FULL
+		if (!online.intval)
+			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
+		else {
+			if (status.intval == POWER_SUPPLY_STATUS_NOT_CHARGING)
+				bs_data->bat_status =
+					POWER_SUPPLY_STATUS_NOT_CHARGING;
+			else
+				bs_data->bat_status =
+					POWER_SUPPLY_STATUS_CHARGING;
+		}
+
+		if (status.intval == POWER_SUPPLY_STATUS_FULL
 			&& gm->b_EOC != true) {
 			bm_err("POWER_SUPPLY_STATUS_FULL\n");
 			gm->b_EOC = true;
@@ -232,10 +239,9 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		}
 	}
 
-	bm_err("%s event, name:%s online:%d, EOC:%d, cur_chr_type:%d old:%d\n",
-		__func__,
-		psy->desc->name, prop.intval, gm->b_EOC,
-		cur_chr_type, gm->chr_type);
+	bm_err("%s event, name:%s online:%d, status:%d, EOC:%d, cur_chr_type:%d old:%d\n",
+		__func__, psy->desc->name, online.intval, status.intval,
+		gm->b_EOC, cur_chr_type, gm->chr_type);
 
 	gm->chr_type = cur_chr_type;
 
@@ -2766,8 +2772,6 @@ int battery_psy_init(struct platform_device *pdev)
 	}
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
 
-	battery_init(pdev);
-
 	return 0;
 }
 
@@ -2814,7 +2818,6 @@ int battery_init(struct platform_device *pdev)
 	fg_check_bootmode(&pdev->dev, gm);
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
-
 	gauge_coulomb_service_init(gm);
 	gm->coulomb_plus.callback = fg_coulomb_int_h_handler;
 	gauge_coulomb_consumer_init(&gm->coulomb_plus, &pdev->dev, "car+1%");
