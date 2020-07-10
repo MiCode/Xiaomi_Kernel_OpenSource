@@ -28,6 +28,11 @@ Optional:
 				 if set to zero then the feature is disabled.
 - qcom,tx-napi: Enable usage of NAPI in the TX data path.
 - qcom,lan-rx-napi: Enable NAPI in the LAN RX data path.
+- qcom,ipa-uc-holb-monitor: Enable uC HOLB monitor feature.
+- qcom,ipa-holb-monitor-poll-period: Poll period for HOLB monitor feature.
+- qcom,holb-monitor-max-cnt-wlan: Max stuck count for HOLB on WLAN channel.
+- qcom,holb-monitor-max-cnt-usb: Max stuck count for HOLB on USB channel.
+- qcom,holb-monitor-max-cnt-11ad: Max stuck count for HOLB on 11AD channel.
 - qcom,wan-rx-ring-size: size of WAN rx ring, default is 192
 - qcom,lan-rx-ring-size: size of LAN rx ring, default is 192
 - qcom,arm-smmu: SMMU is present and ARM SMMU driver is used
@@ -118,6 +123,8 @@ memory allocation over a PCIe bridge
 				0 (use scm call),
 				1 (override scm call as though it returned true), and
 				2 (override scm call as though it returned false)
+- qcom,ipa-gpi-event-rp-ddr: Boolean context flag to control whether GPI and GCI event
+                                rings read pointer should be read from the ddr.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

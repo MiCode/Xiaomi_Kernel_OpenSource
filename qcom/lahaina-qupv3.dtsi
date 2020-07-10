@@ -57,7 +57,7 @@
 			<GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,max-num-gpii = <12>;
-		qcom,gpii-mask = <0xff>;
+		qcom,gpii-mask = <0x7f>;
 		qcom,ev-factor = <2>;
 		iommus = <&apps_smmu 0x5b6 0x0>;
 		qcom,gpi-ee-offset = <0x10000>;

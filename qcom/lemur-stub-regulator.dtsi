@@ -1,0 +1,265 @@
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+&soc {
+		VDD_MSS_LEVEL:
+		S1E_LEVEL:
+		pmx65_s1_level: regulator-pmx65-s1-level {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_s1_level";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		S2E:
+		pmx65_s2: regulator-pmx65-s2 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_s2";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1060000>;
+			regulator-max-microvolt = <1560000>;
+		};
+
+		S4E:
+		pmx65_s4: regulator-pmx65-s4 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_s4";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1350000>;
+			regulator-max-microvolt = <2040000>;
+		};
+
+		VDD_CX_LEVEL:
+		S5E_LEVEL:
+		pmx65_s5_level: regulator-pmx65-s5-level {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_s5_level";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		VDD_CX_LEVEL_AO:
+		S5E_LEVEL_AO:
+		pmx65_s5_level_ao: regulator-pmx65-s5-level-ao {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_s5_level_ao";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		S7E:
+		pmx65_s7: regulator-pmx65-s7 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_s7";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <775000>;
+			regulator-max-microvolt = <1150000>;
+		};
+
+		L1E:
+		pmx65_l1: regulator-pmx65-l1 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l1";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1300000>;
+		};
+
+		L2E:
+		pmx65_l2: regulator-pmx65-l2 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l2";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <960000>;
+			regulator-max-microvolt = <1170000>;
+		};
+
+		L3E:
+		pmx65_l3: regulator-pmx65-l3 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l3";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <530000>;
+			regulator-max-microvolt = <800000>;
+		};
+
+		L4E:
+		pmx65_l4: regulator-pmx65-l4 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l4";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <675000>;
+			regulator-max-microvolt = <1050000>;
+		};
+
+		L5E:
+		pmx65_l5: regulator-pmx65-l5 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l5";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1615000>;
+			regulator-max-microvolt = <1980000>;
+		};
+
+		L6E:
+		pmx65_l6: regulator-pmx65-l6 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l6";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1504000>;
+			regulator-max-microvolt = <2000000>;
+		};
+
+		VDD_MX_LEVEL:
+		L7E_LEVEL:
+		pmx65_l7_level: regulator-pmx65-l7-level {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l7_level";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		VDD_MX_LEVEL_AO:
+		L7E_LEVEL_AO:
+		pmx65_l7_level_ao: regulator-pmx65-l7-level-ao {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l7_level_ao";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		L8E:
+		pmx65_l8: regulator-pmx65-l8 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l8";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <751000>;
+			regulator-max-microvolt = <824000>;
+		};
+
+		L9E:
+		pmx65_l9: regulator-pmx65-l9 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l9";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <760000>;
+			regulator-max-microvolt = <840000>;
+		};
+
+		L10E:
+		pmx65_l10: regulator-pmx65-l10 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l10";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3544000>;
+		};
+
+		L11E:
+		pmx65_l11: regulator-pmx65-l11 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l11";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <1950000>;
+		};
+
+		L12E:
+		pmx65_l12: regulator-pmx65-l12 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l12";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1140000>;
+			regulator-max-microvolt = <1260000>;
+		};
+
+		L13E:
+		pmx65_l13: regulator-pmx65-l13 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l13";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <1950000>;
+		};
+
+		L14E:
+		pmx65_l14: regulator-pmx65-l14 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l14";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <515000>;
+			regulator-max-microvolt = <1050000>;
+		};
+
+		L15E:
+		pmx65_l15: regulator-pmx65-l15 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l15";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1080000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		L16E:
+		pmx65_l16: regulator-pmx65-l16 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l16";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1698000>;
+			regulator-max-microvolt = <1957000>;
+		};
+
+		L17E:
+		pmx65_l17: regulator-pmx65-l17 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l17";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <536000>;
+			regulator-max-microvolt = <888000>;
+		};
+
+		L18E:
+		pmx65_l18: regulator-pmx65-l18 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l18";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		L19E:
+		pmx65_l19: regulator-pmx65-l19 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l19";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <700000>;
+			regulator-max-microvolt = <880000>;
+		};
+
+		L20E:
+		pmx65_l20: regulator-pmx65-l20 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l20";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <826000>;
+			regulator-max-microvolt = <898000>;
+		};
+
+		L21E:
+		pmx65_l21: regulator-pmx65-l21 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pmx65_l21";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <530000>;
+			regulator-max-microvolt = <800000>;
+		};
+};

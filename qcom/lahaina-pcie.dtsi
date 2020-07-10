@@ -37,9 +37,12 @@
 
 		perst-gpio = <&tlmm 94 0>;
 		wake-gpio = <&tlmm 96 0>;
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie0_perst_default
 				&pcie0_clkreq_default
+				&pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_perst_default
+				&pcie0_clkreq_sleep
 				&pcie0_wake_default>;
 
 		gdsc-vdd-supply = <&gcc_pcie_0_gdsc>;

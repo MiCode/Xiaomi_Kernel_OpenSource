@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "lahainap.dtsi"
+#include "lahainap-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. LahainaP QRD";
+	compatible = "qcom,lahainap-qrd", "qcom,lahainap", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};

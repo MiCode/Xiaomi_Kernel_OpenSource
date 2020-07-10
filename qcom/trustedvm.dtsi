@@ -8,7 +8,7 @@
 	chosen {
 		bootargs = "root=/dev/ram rw init=/init console=hvc0 loglevel=8";
 		linux,initrd-start = <0x2a900000>;
-		linux,initrd-end = <0x2b42171a>; /* 11 MB */
+		linux,initrd-end = <0x2b100000>; /* 8 MB */
 		kaslr-seed = <0xfeedbeef 0xc0def00d>;
 	};
 
@@ -38,9 +38,75 @@
 		method = "smc";
 	};
 
-	memory@28000000 {
+	qcom-mem-buf {
+		compatible = "qcom,mem-buf";
+	};
+
+	memory@28800000 {
 		device_type = "memory";
-		reg = <0x0 0x28000000 0x0 0x8000000>; /* Temp S2 mapping */
+		reg = <0x0 0x28800000 0x0 0x76f7000>; /* Temp S2 mapping */
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		qrtr_shbuf: qrtr-shmem {
+			no-map;
+			reg = <0x0 0x2fef7000 0x0 0x9000>;
+		};
+
+		chan0_shbuf: neuron-block@0 {
+			no-map;
+			reg = <0x0 0x2ff00000 0x0 0x80000>;
+		};
+
+		chan1_shbuf: neuron-block@1 {
+			no-map;
+			reg = <0x0 0x2ff80000 0x0 0x80000>;
+		};
+	};
+
+	neuron-client-block {
+		compatible = "qcom,neuron-service";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		protocol {
+			compatible = "qcom,neuron-protocol-block";
+			processes = "client";
+		};
+
+		application {
+			compatible = "qcom,neuron-block-client";
+		};
+
+		channel@0 {
+			reg = <0>;
+			compatible = "qcom,neuron-channel-haven-shmem";
+			class = "message-queue";
+			direction = "send";
+			max-size = <0 65536>;
+			shared-buffer = <&chan0_shbuf>;
+			haven-label = <1>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			compatible = "qcom,neuron-channel-haven-shmem";
+			class = "message-queue";
+			direction = "receive";
+			max-size = <0 65536>;
+			shared-buffer = <&chan1_shbuf>;
+			haven-label = <2>;
+		};
+	};
+
+	qrtr-haven {
+		compatible = "qcom,qrtr-haven";
+		haven-label = <3>;
+		shared-buffer = <&qrtr_shbuf>;
 	};
 
 	qcom,vm-config {
@@ -90,4 +156,64 @@
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 12 (GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
 	};
+	soc: soc { };
 };
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	/*
+	 * QUPv3 Instances
+	 * North 4 : SE 4
+	 */
+
+	/* QUPv3_0 wrapper instance: North QUP */
+	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x9c0000 0x2000>;
+	};
+
+	/* GPI */
+	gpi_dma0: qcom,gpi-dma@900000 {
+		compatible = "qcom,gpi-dma";
+		#dma-cells = <5>;
+		reg = <0x900000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,max-num-gpii = <12>;
+		qcom,gpii-mask = <0x80>;
+		qcom,ev-factor = <2>;
+		qcom,gpi-ee-offset = <0x10000>;
+		status = "ok";
+	};
+
+	/* I2C SE */
+	qupv3_se4_i2c: i2c@990000 {
+		compatible = "qcom,i2c-geni";
+		reg = <0x990000 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dmas = <&gpi_dma0 0 4 3 64 0>,
+			<&gpi_dma0 1 4 3 64 0>;
+		dma-names = "tx", "rx";
+		qcom,wrapper-core = <&qupv3_0>;
+		qcom,le-vm;
+		status = "ok";
+	};
+};
+
+#include "trustedvm-ion.dtsi"

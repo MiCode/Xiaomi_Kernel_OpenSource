@@ -15,6 +15,20 @@ remote subsystem (e.g. DSP) over Glink channel.
 	Value type: <stringlist>
 	Definition: should be same as Glink channel name under rpmsg device.
 
+- qcom,subsys-name:
+	Usage: optional
+	Value type: <stringlist>
+	Definition: should be the subsystem name for which subsystem restart
+		    notifications should be handled and state transitions be
+		    sent to the clients.
+
+- qcom,protection-domain:
+	Usage: optional
+	Value type: <stringlist>
+	Definition: should be the protection domain service name and path name
+		    for which notifications should be handled and state
+		    transitions be sent to the clients.
+
 Refer to Documentation/devicetree/bindings/soc/qcom/qcom,glink.txt for
 information on rpmsg device ("qcom,pmic_glink_rpmsg" used in the example below)
 that needs to be specified under a glink device.
@@ -42,6 +56,8 @@ after the PMIC Glink device initializes.
 	qcom,pmic_glink {
 		compatible = "qcom,pmic-glink";
 		qcom,pmic-glink-channel = "PMIC_RTR_ADSP_APPS";
+		qcom,subsys-name = "adsp";
+		qcom,protection-domain = "tms/servreg", "msm/adsp/charger_pd";
 
 		qcom,batt_chg {
 			compatible = "qcom,battery-charger";

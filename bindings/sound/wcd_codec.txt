@@ -439,6 +439,24 @@ wsa883x_0221: wsa883x@02170221 {
 	qcom,cdc-static-supplies = "cdc-vdd-1p8";
 };
 
+Haptics Soundwire slave device as child of Soundwire master in Bolero codec
+
+Required properties:
+ - compatible: "qcom,swr-haptics", or "qcom,pm8350b-swr-haptics".
+ - reg: Specifies the haptics soundwire slave unique device address.
+ - swr-slave-supply: Specify the phandle of the regulator device to take
+		haptics soundwire slave out of reset.
+ - qcom,rx_swr_ch_map: Specify the mapping of soundwire rx slave port configuration.
+		format: <port_id, ch_mask, ch_rate, num_ch, port_type>.
+
+Example:
+swr_haptics: swr_haptics@f0170220 {
+	compatible = "qcom,pm8350b-swr-haptics";
+	reg = <0x01 0xf0170220>;
+	swr-slave-supply = <&hap_swr_slave_reg>;
+	qcom,rx_swr_ch_map = <0 0x1 0xF 0 PCM_OUT1>;
+};
+
 SWR MIC Soundwire slave device as child of Soundwire master in digital codec
 
 Required properties:

@@ -6,5 +6,6 @@
 / {
 	model = "Qualcomm Technologies, Inc. Shima RUMI";
 	compatible = "qcom,shima-rumi", "qcom,shima", "qcom,rumi";
+	qcom,msm-id = <450 0x10000>;
 	qcom,board-id = <0x1000F 0>;
 };

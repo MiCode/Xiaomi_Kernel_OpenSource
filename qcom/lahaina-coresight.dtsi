@@ -138,6 +138,7 @@
 		      <0x6064000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
 
+		qcom,iommu-dma = "bypass";
 		iommus = <&apps_smmu 0x0480 0>,
 			<&apps_smmu 0x0520 0>;
 
@@ -150,6 +151,7 @@
 		arm,buffer-size = <0x400000>;
 		arm,scatter-gather;
 
+		qcom,sw-usb;
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;
@@ -2433,6 +2435,7 @@
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 
+		status = "disabled";
 		qcom,msr-fix-req;
 
 		out-ports {

@@ -50,6 +50,9 @@ SoCs:
 - LAHAINA
   compatible = "qcom,lahaina"
 
+- LAHAINAP
+  compatible = "qcom,lahainap"
+
 - SHIMA
   compatible = "qcom,shima"
 
@@ -76,6 +79,9 @@ SoCs:
 
 - SDMMAGPIE
   compatible = "qcom,sdmmagpie"
+
+- HOLI
+  compatible = "qcom,holi"
 
 Generic board variants:
 
@@ -167,6 +173,14 @@ compatible = "qcom,sm8150-qrd"
 compatible = "qcom,sm8150p-cdp"
 compatible = "qcom,sm8150p-mtp"
 compatible = "qcom,sm8150p-qrd"
+compatible = "qcom,sa8155-adp"
+compatible = "qcom,sa8155p-adp"
+compatible = "qcom,sa8155-adp-star"
+compatible = "qcom,sa8155p-adp-star"
+compatible = "qcom,sa8155-adp-air"
+compatible = "qcom,sa8155-v2-adp-air"
+compatible = "qcom,sa8155p-v2-adp-air"
+compatible = "qcom,adp-air"
 compatible = "qcom,kona-rumi"
 compatible = "qcom,kona-mtp"
 compatible = "qcom,kona-cdp"
@@ -177,6 +191,9 @@ compatible = "qcom,lahaina-cdp"
 compatible = "qcom,lahaina-qrd"
 compatible = "qcom,lahaina-qrd-module"
 compatible = "qcom,shima-rumi"
+compatible = "qcom,lahainap-mtp"
+compatible = "qcom,lahainap-cdp"
+compatible = "qcom,lahainap-qrd"
 compatible = "qcom,lito-rumi"
 compatible = "qcom,lito-mtp"
 compatible = "qcom,lito-cdp"
@@ -202,3 +219,4 @@ compatible = "qcom,sdxprairie-cdp"
 compatible = "qcom,sdmmagpie-rumi"
 compatible = "qcom,sdmmagpie-idp"
 compatible = "qcom,sdmmagpie-qrd"
+compatible = "qcom,holi-rumi"

@@ -17,6 +17,9 @@ Required properties:
 Optional property:
  - qcom,clk-freq-out : Desired I2C bus clock frequency in Hz.
    When missing default to 400000Hz.
+ - qcom,shared : Boolean flag to support multi-ee usecase, used in GSI mode.
+   Needs to be added by client driver node in case of multi-ee usecase.
+ - qcom,le-vm : Boolean flag to support I2C functionality in trusted VM.
 
 Child nodes should conform to i2c bus binding.
 
