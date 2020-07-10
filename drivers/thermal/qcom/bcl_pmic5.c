@@ -40,6 +40,10 @@
 #define BCL_IRQ_L1       0x2
 #define BCL_IRQ_L2       0x4
 
+/*
+ * 49827 = 64.879uV (one bit value) * 3 (voltage divider)
+ *		* 256 (8 bit shift for MSB)
+ */
 #define BCL_VBAT_SCALING_UV   49827
 #define BCL_VBAT_NO_READING   127
 #define BCL_VBAT_BASE_MV      2000
@@ -97,6 +101,7 @@ struct bcl_device {
 static struct bcl_device *bcl_devices[MAX_PERPH_COUNT];
 static int bcl_device_ct;
 static bool ibat_use_qg_adc;
+static bool no_bit_shift;
 
 static int bcl_read_register(struct bcl_device *bcl_perph, int16_t reg_offset,
 				unsigned int *data)
@@ -147,10 +152,13 @@ static int bcl_write_register(struct bcl_device *bcl_perph,
 static void convert_adc_to_vbat_thresh_val(int *val)
 {
 	/*
-	 * Threshold register is bit shifted from ADC MSB.
-	 * So the scaling factor is half.
+	 * Threshold register can be bit shifted from ADC MSB.
+	 * So the scaling factor is half in those cases.
 	 */
-	*val = (*val * BCL_VBAT_SCALING_UV) / 2000;
+	if (no_bit_shift)
+		*val = (*val * BCL_VBAT_SCALING_UV) / 1000;
+	else
+		*val = (*val * BCL_VBAT_SCALING_UV) / 2000;
 }
 
 static void convert_adc_to_vbat_val(int *val)
@@ -161,11 +169,13 @@ static void convert_adc_to_vbat_val(int *val)
 static void convert_ibat_to_adc_val(int *val)
 {
 	/*
-	 * Threshold register is bit shifted from ADC MSB.
-	 * So the scaling factor is half.
+	 * Threshold register can be bit shifted from ADC MSB.
+	 * So the scaling factor is half in those cases.
 	 */
 	if (ibat_use_qg_adc)
 		*val = (int)div_s64(*val * 2000 * 2, BCL_IBAT_SCALING_UA);
+	else if (no_bit_shift)
+		*val = (int)div_s64(*val * 1000, BCL_IBAT_SCALING_UA);
 	else
 		*val = (int)div_s64(*val * 2000, BCL_IBAT_SCALING_UA);
 
@@ -464,6 +474,8 @@ static int bcl_get_devicetree_data(struct platform_device *pdev,
 
 	ibat_use_qg_adc =  of_property_read_bool(dev_node,
 				"qcom,ibat-use-qg-adc-5a");
+	no_bit_shift =  of_property_read_bool(dev_node,
+				"qcom,pmic7-threshold");
 
 	return ret;
 }
