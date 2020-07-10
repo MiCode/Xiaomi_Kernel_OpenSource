@@ -17,6 +17,8 @@
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
 
+#include <soc/qcom/minidump.h>
+
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
 
@@ -4274,6 +4276,7 @@ static void __sched notrace __schedule(bool preempt)
 
 		/* Also unlocks the rq: */
 		rq = context_switch(rq, prev, next, &rf);
+		update_md_current_stack(NULL);
 	} else {
 		update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
 		rq->clock_update_flags &= ~(RQCF_ACT_SKIP|RQCF_REQ_SKIP);
