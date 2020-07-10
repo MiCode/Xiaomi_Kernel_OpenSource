@@ -4041,7 +4041,6 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable SMI_LARB11! Ret: %d\n",
 					(ret));
-	LOG_INF("smi_bus_prepare_enable SMI LARB9 LARB11\n");
 
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB11);
 	if (ret)
@@ -4083,7 +4082,6 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB11);
 
 	smi_bus_disable_unprepare(SMI_LARB11, DIP_DEV_NAME);
-	LOG_INF("smi_bus_disable_unprepare SMI LARB 9 LARB11\n");
 #endif
 
 }
