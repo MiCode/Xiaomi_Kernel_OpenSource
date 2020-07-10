@@ -18,14 +18,16 @@ properties:
     items:
       - const: iommu-debug-test
 
-  iommus:
-    minItems: 1
-    items:
-      - description: IOMMU specifier with a SID and an SMR mask
-    description:
-      The SID in the IOMMU specifier is a placeholder so that the SMMU driver
-      can recognize the node. Our test uses ATOS, which doesn't use SIDs anyway,
-      so using a dummy value is ok.
+  child nodes:
+    compatible: : iommu-debug-usecase
+    iommus:
+      minItems: 1
+      items:
+        - description: IOMMU specifier with a SID and an SMR mask
+      description:
+        The SID in the IOMMU specifier is a placeholder so that the SMMU driver
+        can recognize the node. Our test uses ATOS, which doesn't use SIDs anyway,
+        so using a dummy value is ok.
 
 required:
   - compatible
@@ -35,5 +37,8 @@ examples:
   - |
     iommu_test_device {
         compatible = "iommu-debug-test";
-        iommus = <&cpp_fd_smmu 42>;
+        basic_usecase {
+          compatible = "iommu-debug-usecase";
+          iommus = <&cpp_fd_smmu 42>;
+        }
     };
