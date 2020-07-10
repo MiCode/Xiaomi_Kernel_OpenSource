@@ -1768,6 +1768,14 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 	return ret;
 }
 
+bool qcom_ethqos_ipa_enabled(void)
+{
+#ifdef CONFIG_ETH_IPA_OFFLOAD
+	return pethqos->ipa_enabled;
+#endif
+	return false;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
