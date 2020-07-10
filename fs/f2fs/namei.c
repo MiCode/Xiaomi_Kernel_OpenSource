@@ -510,7 +510,8 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 	struct page *page;
 	int err = -ENOENT;
 
-	trace_f2fs_unlink_enter(dir, dentry);
+	/* Comment out temporarily for since this has use-after-free issue */
+	/* trace_f2fs_unlink_enter(dir, dentry); */
 
 	if (unlikely(f2fs_cp_error(sbi)))
 		return -EIO;
@@ -544,7 +545,8 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 	if (IS_DIRSYNC(dir))
 		f2fs_sync_fs(sbi->sb, 1);
 fail:
-	trace_f2fs_unlink_exit(inode, err);
+	/* Comment out temporarily for since this has use-after-free issue */
+	/* trace_f2fs_unlink_exit(inode, err); */
 	return err;
 }
 
