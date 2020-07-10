@@ -1773,6 +1773,30 @@ int __qcom_scm_lmh_get_type(struct device *dev, phys_addr_t payload,
 	return ret;
 }
 
+int __qcom_scm_lmh_fetch_data(struct device *dev,
+		u32 node_id, u32 debug_type, uint32_t *peak, uint32_t *avg)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_LMH,
+		.cmd = QCOM_SCM_LMH_DEBUG_FETCH_DATA,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = node_id;
+	desc.args[1] = debug_type;
+	desc.arginfo = SCM_ARGS(2, QCOM_SCM_VAL, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (peak)
+		*peak = desc.res[0];
+	if (avg)
+		*avg = desc.res[1];
+
+	return ret;
+}
+
 int __qcom_scm_smmu_change_pgtbl_format(struct device *dev, u64 dev_id,
 					int cbndx)
 {
