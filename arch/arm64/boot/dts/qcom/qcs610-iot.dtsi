@@ -324,6 +324,10 @@
 	reg = <0 0x97115000 0 0x2000>;
 };
 
+&msm_gpu {
+	/delete-node/qcom,gpu-mempools;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm6150l_l11>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
