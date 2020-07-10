@@ -131,3 +131,8 @@
 &mt6359p_vufs_reg {
 	regulator-always-on;
 };
+
+&mtk_gauge {
+	charger = <&mt6360_chg>;
+};
+
