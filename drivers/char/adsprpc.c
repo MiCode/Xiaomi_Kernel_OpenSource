@@ -101,14 +101,14 @@
  * bits 0-3   : type of remote PD
  * bit  4     : type of job (sync/async)
  * bit  5     : reserved
- * bits 6-14  : index in context table
- * bits 15-63 : incrementing context ID
+ * bits 6-15  : index in context table
+ * bits 16-63 : incrementing context ID
  */
-#define FASTRPC_CTX_MAX (512)
+#define FASTRPC_CTX_MAX (1024)
 
 #define FASTRPC_CTX_JOB_TYPE_POS (4)
 #define FASTRPC_CTX_TABLE_IDX_POS (6)
-#define FASTRPC_CTX_JOBID_POS (15)
+#define FASTRPC_CTX_JOBID_POS (16)
 #define FASTRPC_CTX_TABLE_IDX_MASK \
 	((FASTRPC_CTX_MAX - 1) << FASTRPC_CTX_TABLE_IDX_POS)
 #define FASTRPC_ASYNC_JOB_MASK   (1)
@@ -116,10 +116,10 @@
 #define GET_TABLE_IDX_FROM_CTXID(ctxid) \
 	((ctxid & FASTRPC_CTX_TABLE_IDX_MASK) >> FASTRPC_CTX_TABLE_IDX_POS)
 
-/* Reserve few entries in context table for critical kernel RPC calls
- * to avoid user invocations from exhausting all entries.
+/* Reserve few entries in context table for critical kernel and static RPC
+ * calls to avoid user invocations from exhausting all entries.
  */
-#define NUM_KERNEL_ONLY_CONTEXTS (10)
+#define NUM_KERNEL_AND_STATIC_ONLY_CONTEXTS (70)
 
 #define NUM_DEVICES   2 /* adsprpc-smd, adsprpc-smd-secure */
 #define MINOR_NUM_DEV 0
@@ -1706,7 +1706,8 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	me->jobid[cid]++;
-	for (ii = (kernel ? 0 : NUM_KERNEL_ONLY_CONTEXTS);
+	for (ii = ((kernel || ctx->handle < FASTRPC_STATIC_HANDLE_MAX)
+				? 0 : NUM_KERNEL_AND_STATIC_ONLY_CONTEXTS);
 				ii < FASTRPC_CTX_MAX; ii++) {
 		if (!chan->ctxtable[ii]) {
 			chan->ctxtable[ii] = ctx;
