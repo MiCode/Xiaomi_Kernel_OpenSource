@@ -18,6 +18,7 @@
 #include <linux/pm_runtime.h>
 #include <soc/mediatek/smi.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include "smi_public.h"
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_util.h"
@@ -305,8 +306,10 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 			do_gettimeofday(&tv_end);
 			usec = (tv_end.tv_sec - tv_start.tv_sec) * 1000000 +
 			       (tv_end.tv_usec - tv_start.tv_usec);
-			if (usec > 20000) {
-				mtk_v4l2_err("VDEC HW break timeout");
+			if (usec > 2000000) {
+				mtk_v4l2_err("VDEC HW break timeout (core). codec:0x%08x", dev->curr_dec_ctx[hw_id]->q_data[MTK_Q_DATA_SRC].fmt->fourcc);
+				msleep(2000);
+				do_gettimeofday(&tv_start);
 				//smi_debug_bus_hang_detect(0, "VCODEC");
 			}
 			cg_status = readl(vdec_misc_addr + 0x0104);
@@ -326,8 +329,10 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 			do_gettimeofday(&tv_end);
 			usec = (tv_end.tv_sec - tv_start.tv_sec) * 1000000 +
 			       (tv_end.tv_usec - tv_start.tv_usec);
-			if (usec > 20000) {
-				mtk_v4l2_err("VDEC HW break timeout");
+			if (usec > 2000000) {
+				mtk_v4l2_err("VDEC HW break timeout (lat). codec:0x%08x", dev->curr_dec_ctx[hw_id]->q_data[MTK_Q_DATA_SRC].fmt->fourcc);
+				msleep(2000);
+				do_gettimeofday(&tv_start);
 				//smi_debug_bus_hang_detect(0, "VCODEC");
 			}
 			cg_status = readl(vdec_lat_misc_addr + 0x0104);
