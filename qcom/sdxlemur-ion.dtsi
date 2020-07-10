@@ -1,0 +1,15 @@
+#include <dt-bindings/arm/msm/msm_ion_ids.h>
+
+&soc {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		system_heap: qcom,ion-heap@25 {
+			reg = <ION_SYSTEM_HEAP_ID>;
+			qcom,ion-heap-type = "MSM_SYSTEM";
+		};
+	};
+};
+

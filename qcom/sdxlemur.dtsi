@@ -504,4 +504,5 @@
 #include "sdxlemur-pinctrl.dtsi"
 #include "sdxlemur-stub-regulator.dtsi"
 #include "msm-arm-smmu-sdxlemur.dtsi"
+#include "sdxlemur-ion.dtsi"
 #include "sdxlemur-usb.dtsi"
