@@ -37,6 +37,7 @@ unsigned int drv_dpmaif_dl_idle_check(void);
 void drv_dpmaif_mask_ul_que_interrupt(unsigned char q_num);
 void drv_dpmaif_unmask_ul_interrupt(unsigned char q_num);
 unsigned int drv_dpmaif_ul_get_ridx(unsigned char q_num);
+unsigned int drv_dpmaif_ul_get_rwidx(unsigned char q_num);
 int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt);
 /* isr part */
 #define drv_dpmaif_get_dl_isr_event() \
