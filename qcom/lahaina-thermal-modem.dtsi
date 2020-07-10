@@ -463,16 +463,38 @@
 		thermal-governor = "step_wise";
 		thermal-sensors = <&tsens1 9>;
 		trips {
-			mdmss1_config: active-config0 {
+			mdmss10_config: active-config0 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss11_config: active-config1 {
 				temperature = <100000>;
-				hysteresis = <10000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss12_config: active-config2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
 
 		cooling-maps {
-			mdmss1_cdev {
-				trip = <&mdmss1_config>;
+			mdmss10_cdev {
+				trip = <&mdmss10_config>;
+				cooling-device = <&modem_tj 1 1>;
+			};
+
+			mdmss11_cdev {
+				trip = <&mdmss11_config>;
+				cooling-device = <&modem_tj 2 2>;
+			};
+
+			mdmss12_cdev {
+				trip = <&mdmss12_config>;
 				cooling-device = <&modem_tj 3 3>;
 			};
 		};
@@ -484,16 +506,38 @@
 		thermal-governor = "step_wise";
 		thermal-sensors = <&tsens1 10>;
 		trips {
-			mdmss2_config: active-config0 {
+			mdmss20_config: active-config0 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss21_config: active-config1 {
 				temperature = <100000>;
-				hysteresis = <10000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss22_config: active-config2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
 
 		cooling-maps {
-			mdmss2_cdev {
-				trip = <&mdmss2_config>;
+			mdmss20_cdev {
+				trip = <&mdmss20_config>;
+				cooling-device = <&modem_tj 1 1>;
+			};
+
+			mdmss21_cdev {
+				trip = <&mdmss21_config>;
+				cooling-device = <&modem_tj 2 2>;
+			};
+
+			mdmss22_cdev {
+				trip = <&mdmss22_config>;
 				cooling-device = <&modem_tj 3 3>;
 			};
 		};
