@@ -7,7 +7,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
 
 obj-$(CONFIG_MTK_DVFSRC_HELPER) += mtk-dvfsrc-helper.o
-mtk-dvfsrc-helper-objs += dvfsrc-debug.o dvfsrc-debug-v3.o dvfsrc-sysfs.o
+mtk-dvfsrc-helper-objs += dvfsrc-helper.o dvfsrc-debug-v3.o dvfsrc-sysfs.o
 
 obj-${CONFIG_MTK_DVFSRC_MET} += mtk-dvfsrc-met.o
 mtk-dvfsrc-met-y = dvfsrc-met.o

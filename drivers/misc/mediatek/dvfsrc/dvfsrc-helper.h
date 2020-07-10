@@ -30,7 +30,6 @@ struct dvfsrc_qos_config {
 	int (*qos_dvfsrc_init)(struct mtk_dvfsrc *dvfs);
 };
 
-/* debug */
 struct dvfsrc_opp_data {
 	u32 num_opp_desc;
 	struct dvfsrc_opp_desc *opps_desc;
@@ -38,6 +37,7 @@ struct dvfsrc_opp_data {
 	void (*setup_opp_table)(struct mtk_dvfsrc *dvfsrc);
 };
 
+/* debug */
 struct dvfsrc_config {
 	u32 ip_verion;
 	const int *regs;
@@ -53,7 +53,6 @@ struct dvfsrc_debug_data {
 	struct dvfsrc_opp_desc *opps_desc;
 	const struct dvfsrc_config *config;
 };
-
 
 struct mtk_dvfsrc {
 	struct device *dev;
@@ -72,7 +71,7 @@ struct mtk_dvfsrc {
 	struct regulator *dvfsrc_vcore_power;
 	struct regulator *dvfsrc_vscp_power;
 	int num_perf;
-	int *perfs_peak_bw;
+	u32 *perfs_peak_bw;
 	u32 force_opp_idx;
 	const struct dvfsrc_debug_data *dvd;
 	char *(*dump_info)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);

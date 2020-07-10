@@ -15,8 +15,10 @@
 #include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
-
-#include "dvfsrc-debug.h"
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+#include <soc/mediatek/dramc.h>
+#endif
+#include "dvfsrc-helper.h"
 #include "dvfsrc-common.h"
 
 static struct mtk_dvfsrc *dvfsrc_drv;
@@ -282,7 +284,7 @@ static int mtk_dvfsrc_debug_setting(struct mtk_dvfsrc *dvfsrc)
 
 	if (dvfsrc->num_perf > 0) {
 		dvfsrc->perfs_peak_bw = devm_kzalloc(dvfsrc->dev,
-			 dvfsrc->num_perf * sizeof(int),
+			 dvfsrc->num_perf * sizeof(u32),
 			GFP_KERNEL);
 
 		if (!dvfsrc->perfs_peak_bw)
@@ -379,7 +381,7 @@ static const struct dvfsrc_debug_data mt6873_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
 };
 
-static const struct of_device_id dvfsrc_debug_of_match[] = {
+static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
 		.compatible = "mediatek,mt6873-dvfsrc",
 		.data = &mt6873_data,
@@ -388,7 +390,7 @@ static const struct of_device_id dvfsrc_debug_of_match[] = {
 	},
 };
 
-static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
+static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
@@ -397,7 +399,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	struct mtk_dvfsrc *dvfsrc;
 	int ret;
 
-	match = of_match_node(dvfsrc_debug_of_match, dev->parent->of_node);
+	match = of_match_node(dvfsrc_helper_of_match, dev->parent->of_node);
 	if (!match) {
 		dev_info(dev, "invalid compatible string\n");
 		return -ENODEV;
@@ -434,7 +436,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 
 	ret = mtk_dvfsrc_opp_setting(dvfsrc);
 	if (ret) {
-		dev_info(dev, "dvfsrc debug setting fail\n");
+		dev_info(dev, "dvfsrc opp setting fail\n");
 		return ret;
 	}
 
@@ -452,7 +454,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
+static int mtk_dvfsrc_helper_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
@@ -461,35 +463,35 @@ static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mtk_dvfsrc_debug_of_match[] = {
+static const struct of_device_id mtk_dvfsrc_helper_of_match[] = {
 	{
-		.compatible = "mediatek,dvfsrc-debug",
+		.compatible = "mediatek,dvfsrc-helper",
 	}, {
 		/* sentinel */
 	},
 };
 
-static struct platform_driver mtk_dvfsrc_debug_driver = {
-	.probe	= mtk_dvfsrc_debug_probe,
-	.remove	= mtk_dvfsrc_debug_remove,
+static struct platform_driver mtk_dvfsrc_helper_driver = {
+	.probe	= mtk_dvfsrc_helper_probe,
+	.remove	= mtk_dvfsrc_helper_remove,
 	.driver = {
-		.name = "mtk-dvfsrc-debug",
-		.of_match_table = of_match_ptr(mtk_dvfsrc_debug_of_match),
+		.name = "mtk-dvfsrc-helper",
+		.of_match_table = of_match_ptr(mtk_dvfsrc_helper_of_match),
 	},
 };
 
-static int __init mtk_dvfsrc_debug_init(void)
+static int __init mtk_dvfsrc_helper_init(void)
 {
-	return platform_driver_register(&mtk_dvfsrc_debug_driver);
+	return platform_driver_register(&mtk_dvfsrc_helper_driver);
 }
-late_initcall_sync(mtk_dvfsrc_debug_init)
+late_initcall_sync(mtk_dvfsrc_helper_init)
 
-static void __exit mtk_dvfsrc_debug_exit(void)
+static void __exit mtk_dvfsrc_helper_exit(void)
 {
-	platform_driver_unregister(&mtk_dvfsrc_debug_driver);
+	platform_driver_unregister(&mtk_dvfsrc_helper_driver);
 }
-module_exit(mtk_dvfsrc_debug_exit);
+module_exit(mtk_dvfsrc_helper_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("MTK DVFSRC debug driver");
+MODULE_DESCRIPTION("MTK DVFSRC helper driver");
 
