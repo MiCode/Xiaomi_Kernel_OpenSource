@@ -57,6 +57,9 @@ struct skipped_freq {
 	bool skip;
 	u32 freq;
 	u32 cc;
+	u32 prev_index;
+	u32 prev_freq;
+	u32 prev_cc;
 	u32 high_temp_index;
 	u32 low_temp_index;
 	u32 final_index;
@@ -188,6 +191,32 @@ static void limits_dcvsh_poll(struct work_struct *work)
 	mutex_unlock(&c->dcvsh_lock);
 }
 
+static bool dcvsh_core_count_change(struct cpufreq_qcom *c)
+{
+	bool ret = false;
+	unsigned long freq, flags;
+	u32 index, regval;
+
+	spin_lock_irqsave(&c->skip_data.lock, flags);
+	index = readl_relaxed(c->reg_bases[REG_PERF_STATE]);
+
+	freq = readl_relaxed(c->reg_bases[REG_DOMAIN_STATE]) & GENMASK(7, 0);
+	freq = DIV_ROUND_CLOSEST_ULL(freq * c->xo_rate, 1000);
+
+	if ((index == c->skip_data.final_index) &&
+			(freq == c->skip_data.prev_freq)) {
+		regval = readl_relaxed(c->reg_bases[REG_INTR_CLR]);
+		regval |= GT_IRQ_STATUS;
+		writel_relaxed(regval, c->reg_bases[REG_INTR_CLR]);
+		pr_debug("core count change index IRQ received\n");
+		ret = true;
+	}
+
+	spin_unlock_irqrestore(&c->skip_data.lock, flags);
+
+	return ret;
+}
+
 static irqreturn_t dcvsh_handle_isr(int irq, void *data)
 {
 	struct cpufreq_qcom *c = data;
@@ -200,6 +229,9 @@ static irqreturn_t dcvsh_handle_isr(int irq, void *data)
 	mutex_lock(&c->dcvsh_lock);
 
 	if (c->is_irq_enabled) {
+		if (c->skip_data.skip && dcvsh_core_count_change(c))
+			goto done;
+
 		c->is_irq_enabled = false;
 		disable_irq_nosync(c->dcvsh_irq);
 		limits_mitigation_notify(c, true);
@@ -207,7 +239,7 @@ static irqreturn_t dcvsh_handle_isr(int irq, void *data)
 				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
 
 	}
-
+done:
 	mutex_unlock(&c->dcvsh_lock);
 
 	return IRQ_HANDLED;
@@ -455,6 +487,10 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 				c->skip_data.cc = core_count;
 				c->skip_data.final_index = i + 1;
 				c->skip_data.low_temp_index = i + 1;
+				c->skip_data.prev_freq =
+						c->table[i-1].frequency;
+				c->skip_data.prev_index = i - 1;
+				c->skip_data.prev_cc = prev_cc;
 			} else {
 				cur_freq = CPUFREQ_ENTRY_INVALID;
 				c->table[i].flags = CPUFREQ_BOOST_FREQ;
@@ -493,11 +529,14 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	c->table[i].frequency = CPUFREQ_TABLE_END;
 
 	if (c->skip_data.skip) {
-		pr_debug("%s Skip: Index[%u], Frequency[%u], Core Count %u, Final Index %u Actual Index %u\n",
+		pr_info("%s Skip: Index[%u], Frequency[%u], Core Count %u, Final Index %u Actual Index %u Prev_Freq[%u] Prev_Index[%u] Prev_CC[%u]\n",
 				__func__, c->skip_data.high_temp_index,
 				c->skip_data.freq, c->skip_data.cc,
 				c->skip_data.final_index,
-				c->skip_data.low_temp_index);
+				c->skip_data.low_temp_index,
+				c->skip_data.prev_freq,
+				c->skip_data.prev_index,
+				c->skip_data.prev_cc);
 	}
 
 	return 0;

@@ -12,22 +12,10 @@
 #include "qmi.h"
 #include "debug.h"
 
-static struct icnss_vreg_cfg icnss_vreg_list[] = {
-	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0, false},
-	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0, false},
-	{"vdd-wlan-xtal-aon", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2, 0, false},
-	{"vdd-wlan", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-ctrl1", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-ctrl2", 0, 0, 0, 0, 0, false},
-	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0, 0, false},
-	{"wlan-ant-switch", 1800000, 1800000, 0, 0, 0, false},
-	{"wlan-soc-swreg", 1200000, 1200000, 0, 0, 0, false},
-	{"vdd-wlan-aon", 950000, 950000, 0, 0, 0, false},
-	{"vdd-wlan-dig", 950000, 952000, 0, 0, 0, false},
-	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0, 0, false},
-	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0, 0, false},
-	{"vdd-wlan-en", 0, 0, 0, 10, 0, false},
+static struct icnss_vreg_cfg icnss_wcn6750_vreg_list[] = {
+	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false},
+	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false},
+	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false},
 };
 
 static struct icnss_vreg_cfg icnss_adrestea_vreg_list[] = {
@@ -46,7 +34,7 @@ static struct icnss_clk_cfg icnss_adrestea_clk_list[] = {
 	{"cxo_ref_clk_pin", 0, 0},
 };
 
-#define ICNSS_VREG_LIST_SIZE		ARRAY_SIZE(icnss_vreg_list)
+#define ICNSS_VREG_LIST_SIZE		ARRAY_SIZE(icnss_wcn6750_vreg_list)
 #define ICNSS_VREG_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_vreg_list)
 #define ICNSS_CLK_LIST_SIZE		ARRAY_SIZE(icnss_clk_list)
 #define ICNSS_CLK_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_clk_list)
@@ -148,16 +136,6 @@ done:
 
 out:
 	return ret;
-}
-
-static void icnss_put_vreg_single(struct icnss_priv *priv,
-				  struct icnss_vreg_info *vreg)
-{
-	struct device *dev = &priv->pdev->dev;
-
-	icnss_pr_dbg("Put regulator: %s\n", vreg->cfg.name);
-	devm_regulator_put(vreg->reg);
-	devm_kfree(dev, vreg);
 }
 
 static int icnss_vreg_on_single(struct icnss_vreg_info *vreg)
@@ -286,7 +264,7 @@ static struct icnss_vreg_cfg *get_vreg_list(u32 *vreg_list_size,
 	switch (device_id) {
 	case WCN6750_DEVICE_ID:
 		*vreg_list_size = ICNSS_VREG_LIST_SIZE;
-		return icnss_vreg_list;
+		return icnss_wcn6750_vreg_list;
 
 	case ADRASTEA_DEVICE_ID:
 		*vreg_list_size = ICNSS_VREG_ADRESTEA_LIST_SIZE;
@@ -321,13 +299,10 @@ int icnss_get_vreg(struct icnss_priv *priv)
 		memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
 		ret = icnss_get_vreg_single(priv, vreg);
 		if (ret != 0) {
-			if (ret == -ENODEV) {
-				devm_kfree(dev, vreg);
+			if (ret == -ENODEV)
 				continue;
-			} else {
-				devm_kfree(dev, vreg);
+			else
 				return ret;
-			}
 		}
 		list_add_tail(&vreg->list, vreg_list);
 	}
@@ -344,9 +319,6 @@ void icnss_put_vreg(struct icnss_priv *priv)
 		vreg = list_first_entry(vreg_list,
 					struct icnss_vreg_info, list);
 		list_del(&vreg->list);
-		if (IS_ERR_OR_NULL(vreg->reg))
-			continue;
-		icnss_put_vreg_single(priv, vreg);
 	}
 }
 
@@ -432,15 +404,6 @@ int icnss_get_clk_single(struct icnss_priv *priv,
 		     clk_info->cfg.name, clk_info->cfg.freq);
 
 	return 0;
-}
-
-static void icnss_put_clk_single(struct icnss_priv *priv,
-				 struct icnss_clk_info *clk_info)
-{
-	struct device *dev = &priv->pdev->dev;
-
-	icnss_pr_dbg("Put clock: %s\n", clk_info->cfg.name);
-	devm_clk_put(dev, clk_info->clk);
 }
 
 static int icnss_clk_on_single(struct icnss_clk_info *clk_info)
@@ -532,13 +495,10 @@ int icnss_get_clk(struct icnss_priv *priv)
 		       sizeof(clk_info->cfg));
 		ret = icnss_get_clk_single(priv, clk_info);
 		if (ret != 0) {
-			if (clk_info->cfg.required) {
-				devm_kfree(dev, clk_info);
+			if (clk_info->cfg.required)
 				goto cleanup;
-			} else {
-				devm_kfree(dev, clk_info);
+			else
 				continue;
-			}
 		}
 		list_add_tail(&clk_info->list, clk_list);
 	}
@@ -550,10 +510,6 @@ cleanup:
 		clk_info = list_first_entry(clk_list, struct icnss_clk_info,
 					    list);
 		list_del(&clk_info->list);
-		if (IS_ERR_OR_NULL(clk_info->clk))
-			continue;
-		icnss_put_clk_single(priv, clk_info);
-		devm_kfree(dev, clk_info);
 	}
 
 	return ret;
@@ -575,10 +531,6 @@ void icnss_put_clk(struct icnss_priv *priv)
 		clk_info = list_first_entry(clk_list, struct icnss_clk_info,
 					    list);
 		list_del(&clk_info->list);
-		if (IS_ERR_OR_NULL(clk_info->clk))
-			continue;
-		icnss_put_clk_single(priv, clk_info);
-		devm_kfree(dev, clk_info);
 	}
 }
 

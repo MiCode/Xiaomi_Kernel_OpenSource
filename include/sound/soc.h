@@ -1368,6 +1368,8 @@ int snd_soc_component_test_bits(struct snd_soc_component *component,
 	unsigned int reg, unsigned int mask, unsigned int value);
 struct snd_soc_component *soc_find_component(
 	const struct device_node *of_node, const char *name);
+struct snd_soc_component *soc_find_component_locked(
+	const struct device_node *of_node, const char *name);
 
 /* component wide operations */
 int snd_soc_component_set_sysclk(struct snd_soc_component *component,

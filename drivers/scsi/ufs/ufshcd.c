@@ -438,6 +438,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_NO_LINK_OFF),
+	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_NO_LINK_OFF),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9C8KBADG",
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9D8KBADG",
@@ -461,7 +463,10 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8HL1",
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
-
+	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUEG8UHDB-C2D1",
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
+	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUDG4UHDB-B2D1",
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
 	END_FIX
 };
 
@@ -6506,8 +6511,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
 			hba->ufs_stats.clk_rel.ctx = XFR_REQ_COMPL;
-			__ufshcd_release(hba, false);
-			__ufshcd_hibern8_release(hba, false);
 			if (cmd->request) {
 				/*
 				 * As we are accessing the "request" structure,
@@ -6519,6 +6522,17 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			}
 
 			clear_bit_unlock(index, &hba->lrb_in_use);
+			/*
+			 *__ufshcd_release and __ufshcd_hibern8_release is
+			 * called after clear_bit_unlock so that
+			 * these function can be called with updated state of
+			 * lrb_in_use flag so that for last transfer req
+			 * completion, gate and hibernate work function would
+			 * be called to gate the clock and put the link in
+			 * hibern8 state.
+			 */
+			__ufshcd_release(hba, false);
+			__ufshcd_hibern8_release(hba, false);
 
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -6574,7 +6588,6 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
-			ufshcd_release_all(hba);
 			if (cmd->request) {
 				/*
 				 * As we are accessing the "request" structure,
@@ -6585,6 +6598,17 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 					true);
 			}
 			clear_bit_unlock(index, &hba->lrb_in_use);
+
+			/*
+			 * ufshcd_release_all is called after clear_bit_unlock
+			 * so that the function can be called with updated state
+			 * of lrb_in_use flag so that for last abort req
+			 * completion, gate and hibernate work function would
+			 * be called to gate the clock and put the link in
+			 * hibern8 state.
+			 */
+			 ufshcd_release_all(hba);
+
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
@@ -8506,8 +8530,9 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	model_index = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
 
 
-	/* Enable WB only for UFS-3.1 OR if desc len >= 0x59 */
+	/* Enable WB only for UFS-3.1 or UFS-2.2 OR if desc len >= 0x59 */
 	if ((dev_desc->wspecversion >= 0x310) ||
+	    (dev_desc->wspecversion == 0x220) ||
 	    (dev_desc->wmanufacturerid == UFS_VENDOR_TOSHIBA &&
 	     dev_desc->wspecversion >= 0x300 &&
 	     hba->desc_size.dev_desc >= 0x59)) {
@@ -8634,6 +8659,13 @@ static int ufshcd_tune_pa_hibern8time(struct ufs_hba *hba)
 	int ret = 0;
 	u32 local_tx_hibern8_time_cap = 0, peer_rx_hibern8_time_cap = 0;
 	u32 max_hibern8_time, tuned_pa_hibern8time;
+	u32 pa_hibern8time_quirk_enabled = hba->dev_info.quirks &
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME;
+
+	if (!ufshcd_is_unipro_pa_params_tuning_req(hba) &&
+	    !pa_hibern8time_quirk_enabled) {
+		return 0;
+	}
 
 	ret = ufshcd_dme_get(hba,
 			     UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAPABILITY,
@@ -8654,6 +8686,13 @@ static int ufshcd_tune_pa_hibern8time(struct ufs_hba *hba)
 	/* make sure proper unit conversion is applied */
 	tuned_pa_hibern8time = ((max_hibern8_time * HIBERN8TIME_UNIT_US)
 				/ PA_HIBERN8_TIME_UNIT_US);
+	/* PA_HIBERN8TIME is product of tuned_pa_hibern8time * granularity,
+	 * setting tuned_pa_hibern8time as 3 and since granularity is 100us
+	 * for both host and device side, 3 *100us = 300us is set as
+	 * PA_HIBERN8TIME if UFS_DEVICE_QUIRK_PA_HIBER8TIME quirk is enabled
+	 */
+	if (pa_hibern8time_quirk_enabled)
+		tuned_pa_hibern8time = 3; /* 3 *100us =300us */
 	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
 			     tuned_pa_hibern8time);
 out:
@@ -8732,11 +8771,10 @@ out:
 
 static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 {
-	if (ufshcd_is_unipro_pa_params_tuning_req(hba)) {
+	if (ufshcd_is_unipro_pa_params_tuning_req(hba))
 		ufshcd_tune_pa_tactivate(hba);
-		ufshcd_tune_pa_hibern8time(hba);
-	}
 
+	ufshcd_tune_pa_hibern8time(hba);
 	if (hba->dev_info.quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
 		/* set 1ms timeout for PA_TACTIVATE */
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
@@ -9060,21 +9098,27 @@ reinit:
 			goto out;
 	}
 
-	/**
-	 * UFS3.0 and newer devices use Vcc and Vccq(1.2V)
-	 * while UFS2.1 devices use Vcc and Vccq2(1.8V) power
-	 * supplies. If the system allows turning off the regulators
-	 * during power collapse event, turn off the regulators
-	 * during system suspend events. This will cause the UFS
-	 * device to re-initialize upon system resume events.
+	/*
+	 * On 4.19 kernel, the controlling of Vccq requlator got changed.
+	 * Its relying on sys_suspend_pwr_off regulator dt flag instead of spm
+	 * level.
+	 * Updated logic is not honoring spm level specified and the device
+	 * specific quirks for the desired link state.
+	 * Below change is to fix above listed issue without distrubing the
+	 * present logic.
 	 */
-	if ((hba->dev_info.w_spec_version >= 0x300 && hba->vreg_info.vccq &&
-		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
-		(hba->dev_info.w_spec_version < 0x300 &&
-		hba->vreg_info.vccq2->sys_suspend_pwr_off))
-		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+	if (hba->spm_lvl == ufs_get_desired_pm_lvl_for_dev_link_state(
 				UFS_POWERDOWN_PWR_MODE,
-				UIC_LINK_OFF_STATE);
+				UIC_LINK_OFF_STATE)) {
+		if ((hba->dev_info.w_spec_version >= 0x300 &&
+		     hba->vreg_info.vccq &&
+		     !hba->vreg_info.vccq->sys_suspend_pwr_off))
+			hba->vreg_info.vccq->sys_suspend_pwr_off = true;
+
+		if ((hba->dev_info.w_spec_version < 0x300 &&
+		     !hba->vreg_info.vccq2->sys_suspend_pwr_off))
+			hba->vreg_info.vccq2->sys_suspend_pwr_off = true;
+	}
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
@@ -10278,10 +10322,18 @@ static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
 
 static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 {
+	int ret;
+	struct ufs_vreg_info *info = &hba->vreg_info;
+
 	if (ufshcd_is_link_off(hba) ||
 	    (ufshcd_is_link_hibern8(hba)
 	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
-		ufshcd_setup_hba_vreg(hba, true);
+		ret = ufshcd_setup_hba_vreg(hba, true);
+
+	if (ret && (info->vdd_hba->enabled == false)) {
+		dev_err(hba->dev, "vdd_hba is not enabled\n");
+		BUG_ON(1);
+	}
 }
 
 /**

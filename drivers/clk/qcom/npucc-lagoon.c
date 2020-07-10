@@ -110,6 +110,7 @@ static struct pll_vco fabia_vco[] = {
 /* 537.60MHz Configuration */
 static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x1C,
+	.cal_l = 0x3F,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
@@ -147,6 +148,7 @@ static struct clk_alpha_pll npu_cc_pll0 = {
 /* 300MHz Configuration */
 static struct alpha_pll_config npu_cc_pll1_config = {
 	.l = 0xF,
+	.cal_l = 0x33,
 	.alpha = 0xA000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
@@ -182,6 +184,7 @@ static struct clk_alpha_pll npu_cc_pll1 = {
 /* 250MHz Configuration */
 static struct alpha_pll_config npu_q6ss_pll_config = {
 	.l = 0xD,
+	.cal_l = 0x1E,
 	.alpha = 0x555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
@@ -228,11 +231,11 @@ static struct clk_fixed_factor npu_cc_crc_div = {
 
 static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src[] = {
 	F(100000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(192000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(268800000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(403200000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(515000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(650000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(850000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(748800000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
 
@@ -253,11 +256,11 @@ static struct clk_rcg2 npu_cc_cal_hm0_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 100000000,
-			[VDD_LOWER] = 268800000,
-			[VDD_LOW] = 403200000,
-			[VDD_LOW_L1] = 515000000,
-			[VDD_NOMINAL] = 650000000,
-			[VDD_HIGH] = 850000000},
+			[VDD_LOWER] = 192000000,
+			[VDD_LOW] = 268800000,
+			[VDD_LOW_L1] = 403200000,
+			[VDD_NOMINAL] = 515000000,
+			[VDD_HIGH] = 748800000},
 	},
 };
 

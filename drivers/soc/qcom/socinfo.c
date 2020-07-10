@@ -321,6 +321,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* kona ID */
 	[356] = {MSM_CPU_KONA, "KONA"},
+	[455] = {MSM_CPU_KONA, "KONA"},
 
 	/* Lito ID */
 	[400] = {MSM_CPU_LITO, "LITO"},
@@ -339,6 +340,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Scuba ID */
 	[441] = {MSM_CPU_SCUBA, "SCUBA"},
+	[471] = {MSM_CPU_SCUBA, "SCUBA"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are

@@ -534,9 +534,14 @@ static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 			ch_ctx->ring.rp_local = rp;
 		}
 
-
-		/* the element at RP is also processed */
-		gsi_incr_ring_rp(&ch_ctx->ring);
+		/*
+		 * Increment RP local only in polling context to avoid
+		 * sys len mismatch.
+		 */
+		if (!(callback && ch_ctx->props.dir ==
+					GSI_CHAN_DIR_FROM_GSI))
+			/* the element at RP is also processed */
+			gsi_incr_ring_rp(&ch_ctx->ring);
 
 		ch_ctx->ring.rp = ch_ctx->ring.rp_local;
 		rp_idx = gsi_find_idx_from_addr(&ch_ctx->ring, rp);
@@ -546,11 +551,20 @@ static void gsi_process_chan(struct gsi_xfer_compl_evt *evt,
 		notify->veid = evt->veid;
 	}
 
-	ch_ctx->stats.completed++;
 
 	WARN_ON(!ch_ctx->user_data[rp_idx].valid);
 	notify->xfer_user_data = ch_ctx->user_data[rp_idx].p;
-	ch_ctx->user_data[rp_idx].valid = false;
+	/*
+	 * In suspend just before stopping the channel possible to receive
+	 * the IEOB interrupt and xfer pointer will not be processed in this
+	 * mode and moving channel poll mode. In resume after starting the
+	 * channel will receive the IEOB interrupt and xfer pointer will be
+	 * overwritten. To avoid this process all data in polling context.
+	 */
+	if (!(callback && ch_ctx->props.dir == GSI_CHAN_DIR_FROM_GSI)) {
+		ch_ctx->stats.completed++;
+		ch_ctx->user_data[rp_idx].valid = false;
+	}
 
 	notify->chan_user_data = ch_ctx->props.chan_user_data;
 	notify->evt_id = evt->code;
@@ -569,10 +583,18 @@ static void gsi_process_evt_re(struct gsi_evt_ctx *ctx,
 		struct gsi_chan_xfer_notify *notify, bool callback)
 {
 	struct gsi_xfer_compl_evt *evt;
+	struct gsi_chan_ctx *ch_ctx;
 
 	evt = (struct gsi_xfer_compl_evt *)(ctx->ring.base_va +
 			ctx->ring.rp_local - ctx->ring.base);
 	gsi_process_chan(evt, notify, callback);
+	/*
+	 * Increment RP local only in polling context to avoid
+	 * sys len mismatch.
+	 */
+	ch_ctx = &gsi_ctx->chan[evt->chid];
+	if (callback && ch_ctx->props.dir == GSI_CHAN_DIR_FROM_GSI)
+		return;
 	gsi_incr_ring_rp(&ctx->ring);
 	/* recycle this element */
 	gsi_incr_ring_wp(&ctx->ring);

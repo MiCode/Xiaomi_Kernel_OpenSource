@@ -94,6 +94,16 @@
 #define MAX_TX_SG		(3)
 #define NUM_SPI_XFER		(8)
 
+/* SPI sampling registers */
+#define SE_GENI_CGC_CTRL	(0x28)
+#define SE_GENI_CFG_SEQ_START	(0x84)
+#define SE_GENI_CFG_REG108	(0x2B0)
+#define SE_GENI_CFG_REG109	(0x2B4)
+#define CPOL_CTRL_SHFT	1
+#define RX_IO_POS_FF_EN_SEL_SHFT	4
+#define RX_IO_EN2CORE_EN_DELAY_SHFT	8
+#define RX_SI_EN2IO_DELAY_SHFT 12
+
 struct gsi_desc_cb {
 	struct spi_master *spi;
 	struct spi_transfer *xfer;
@@ -152,6 +162,8 @@ struct spi_geni_master {
 	bool shared_ee; /* Dual EE use case */
 	bool dis_autosuspend;
 	bool cmd_done;
+	bool set_miso_sampling;
+	u32 miso_sampling_ctrl_val;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -799,6 +811,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 	int ret = 0, count = 0;
 	u32 max_speed = spi->cur_msg->spi->max_speed_hz;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
+	u32 cpol, cpha, cfg_reg108, cfg_reg109, cfg_seq_start;
 
 	/* Adjust the IB based on the max speed of the slave.*/
 	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
@@ -861,6 +874,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 				dev_info(mas->dev, "Failed to get rx DMA ch %ld\n",
 							PTR_ERR(mas->rx));
 				dma_release_channel(mas->tx);
+				goto setup_ipc;
 			}
 			mas->gsi = devm_kzalloc(mas->dev,
 				(sizeof(struct spi_geni_gsi) * NUM_SPI_XFER),
@@ -918,6 +932,54 @@ setup_ipc:
 				"%s:Major:%d Minor:%d step:%dos%d\n",
 			__func__, major, minor, step, mas->oversampling);
 		}
+
+		if (!mas->set_miso_sampling)
+			goto shared_se;
+
+		cpol = geni_read_reg(mas->base, SE_SPI_CPOL);
+		cpha = geni_read_reg(mas->base, SE_SPI_CPHA);
+		cfg_reg108 = geni_read_reg(mas->base, SE_GENI_CFG_REG108);
+		cfg_reg109 = geni_read_reg(mas->base, SE_GENI_CFG_REG109);
+		/* clear CPOL bit */
+		cfg_reg108 &= ~(1 << CPOL_CTRL_SHFT);
+
+		if (major == 1 && minor == 0) {
+			/* Write 1 to RX_SI_EN2IO_DELAY reg */
+			cfg_reg108 &= ~(0x7 << RX_SI_EN2IO_DELAY_SHFT);
+			cfg_reg108 |= (1 << RX_SI_EN2IO_DELAY_SHFT);
+			/* Write 0 to RX_IO_POS_FF_EN_SEL reg */
+			cfg_reg108 &= ~(1 << RX_IO_POS_FF_EN_SEL_SHFT);
+		} else if ((major < 2) || (major == 2 && minor < 5)) {
+			/* Write 0 to RX_IO_EN2CORE_EN_DELAY reg */
+			cfg_reg108 &= ~(0x7 << RX_IO_EN2CORE_EN_DELAY_SHFT);
+		} else {
+			/*
+			 * Write miso_sampling_ctrl_set to
+			 * RX_IO_EN2CORE_EN_DELAY reg
+			 */
+			cfg_reg108 &= ~(0x7 << RX_IO_EN2CORE_EN_DELAY_SHFT);
+			cfg_reg108 |= (mas->miso_sampling_ctrl_val <<
+					RX_IO_EN2CORE_EN_DELAY_SHFT);
+		}
+
+		geni_write_reg(cfg_reg108, mas->base, SE_GENI_CFG_REG108);
+
+		if (cpol == 0 && cpha == 0)
+			cfg_reg109 = 1;
+		else if (cpol == 1 && cpha == 0)
+			cfg_reg109 = 0;
+		geni_write_reg(cfg_reg109, mas->base,
+					SE_GENI_CFG_REG109);
+		if (!(major == 1 && minor == 0))
+			geni_write_reg(1, mas->base, SE_GENI_CFG_SEQ_START);
+		cfg_reg108 = geni_read_reg(mas->base, SE_GENI_CFG_REG108);
+		cfg_reg109 = geni_read_reg(mas->base, SE_GENI_CFG_REG109);
+		cfg_seq_start = geni_read_reg(mas->base, SE_GENI_CFG_SEQ_START);
+
+		GENI_SE_DBG(mas->ipc, false, mas->dev,
+			"%s cfg108: 0x%x cfg109: 0x%x cfg_seq_start: 0x%x\n",
+			__func__, cfg_reg108, cfg_reg109, cfg_seq_start);
+shared_se:
 		mas->shared_se =
 			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
 							FIFO_IF_DISABLE);
@@ -1146,6 +1208,12 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 
 	if ((xfer->tx_buf == NULL) && (xfer->rx_buf == NULL)) {
 		dev_err(mas->dev, "Invalid xfer both tx rx are NULL\n");
+		return -EINVAL;
+	}
+
+	/* Check for zero length transfer */
+	if (xfer->len < 1) {
+		dev_err(mas->dev, "Zero length transfer\n");
 		return -EINVAL;
 	}
 
@@ -1538,6 +1606,15 @@ static int spi_geni_probe(struct platform_device *pdev)
 		of_property_read_bool(pdev->dev.of_node,
 				"qcom,shared_ee");
 
+	geni_mas->set_miso_sampling = of_property_read_bool(pdev->dev.of_node,
+				"qcom,set-miso-sampling");
+	if (geni_mas->set_miso_sampling) {
+		if (!of_property_read_u32(pdev->dev.of_node,
+				"qcom,miso-sampling-ctrl-val",
+				&geni_mas->miso_sampling_ctrl_val))
+			dev_info(&pdev->dev, "MISO_SAMPLING_SET: %d\n",
+				geni_mas->miso_sampling_ctrl_val);
+	}
 	geni_mas->phys_addr = res->start;
 	geni_mas->size = resource_size(res);
 	geni_mas->base = devm_ioremap(&pdev->dev, res->start,

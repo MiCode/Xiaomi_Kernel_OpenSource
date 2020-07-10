@@ -128,9 +128,7 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 			SLIM_PUSH : SLIM_AUTO_ISO;
 	prop.baser = ((rates == 44100) || (rates == 88200)) ?
 			SLIM_RATE_11025HZ : SLIM_RATE_4000HZ;
-	prop.dataf = ((rates == 48000) || (rates == 44100) ||
-		(rates == 88200) || (rates == 96000)) ?
-			SLIM_CH_DATAF_NOT_DEFINED : SLIM_CH_DATAF_LPCM_AUDIO;
+	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 
 	/* for feedback channel, PCM bit should not be set */
 	if (btfm_feedback_ch_setting) {
@@ -372,8 +370,8 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 {
 	int ret;
 	int chipset_ver;
-	struct slim_device *slim = btfmslim->slim_pgd;
-	struct slim_device *slim_ifd = &btfmslim->slim_ifd;
+	struct slim_device *slim;
+	struct slim_device *slim_ifd;
 
 	BTFMSLIM_DBG("");
 	if (!btfmslim)
@@ -383,6 +381,10 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 		BTFMSLIM_DBG("Already enabled");
 		return 0;
 	}
+
+	slim = btfmslim->slim_pgd;
+	slim_ifd = &btfmslim->slim_ifd;
+
 	mutex_lock(&btfmslim->io_lock);
 		BTFMSLIM_INFO(
 			"PGD Enum Addr: %.02x:%.02x:%.02x:%.02x:%.02x: %.02x",

@@ -1819,7 +1819,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		adreno_snapshot_registers(device, snapshot,
 			a6xx_rscc_snapshot_registers,
 			ARRAY_SIZE(a6xx_rscc_snapshot_registers) / 2);
-	} else if (adreno_is_a610(adreno_dev)) {
+	} else if (adreno_is_a610(adreno_dev) || adreno_is_a702(adreno_dev)) {
 		adreno_snapshot_registers(device, snapshot,
 			a6xx_gmu_wrapper_registers,
 			ARRAY_SIZE(a6xx_gmu_wrapper_registers) / 2);

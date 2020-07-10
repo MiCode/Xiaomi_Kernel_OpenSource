@@ -427,6 +427,7 @@ struct dma_buf {
 	char *buf_name;
 	ktime_t ktime;
 	const char *name;
+	spinlock_t name_lock;
 	struct module *owner;
 	struct list_head list_node;
 	void *priv;

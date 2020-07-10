@@ -42,6 +42,7 @@
 		.intr_cfg_reg = REG_BASE + 0x8 + REG_SIZE * id,		\
 		.intr_status_reg = REG_BASE + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = REG_BASE + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = REG_BASE + 0xBF000,\
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -58,6 +59,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 		.wake_reg = REG_BASE + wake_off,	\
 		.wake_bit = bit,		\
 	}
@@ -1604,14 +1606,23 @@ static const struct msm_pingroup lagoon_groups[] = {
 	[153] = PINGROUP(153, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C004, 13),
 	[154] = PINGROUP(154, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[155] = PINGROUP(155, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C004, 14),
-	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1a1000, 15, 0),
-	[157] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1a0000, 13, 6),
-	[158] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1a0000, 11, 3),
-	[159] = SDC_QDSD_PINGROUP(sdc1_data, 0x1a0000, 9, 0),
-	[160] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1a2000, 14, 6),
-	[161] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1a2000, 11, 3),
-	[162] = SDC_QDSD_PINGROUP(sdc2_data, 0x1a2000, 9, 0),
-	[163] = UFS_RESET(ufs_reset, 0x1ae000),
+	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0xa1000, 15, 0),
+	[157] = SDC_QDSD_PINGROUP(sdc1_clk, 0xa0000, 13, 6),
+	[158] = SDC_QDSD_PINGROUP(sdc1_cmd, 0xa0000, 11, 3),
+	[159] = SDC_QDSD_PINGROUP(sdc1_data, 0xa0000, 9, 0),
+	[160] = SDC_QDSD_PINGROUP(sdc2_clk, 0xa2000, 14, 6),
+	[161] = SDC_QDSD_PINGROUP(sdc2_cmd, 0xa2000, 11, 3),
+	[162] = SDC_QDSD_PINGROUP(sdc2_data, 0xa2000, 9, 0),
+	[163] = UFS_RESET(ufs_reset, 0xae000),
+};
+
+static const int lagoon_reserved_gpios[] = {
+	13, 14, 15, 16, 45, 46, 56, 57, -1
+};
+
+static struct msm_dir_conn lagoon_dir_conn[] = {
+	{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0},
+	{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}
 };
 
 static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
@@ -1621,7 +1632,9 @@ static const struct msm_pinctrl_soc_data lagoon_pinctrl = {
 	.nfunctions = ARRAY_SIZE(lagoon_functions),
 	.groups = lagoon_groups,
 	.ngroups = ARRAY_SIZE(lagoon_groups),
+	.reserved_gpios = lagoon_reserved_gpios,
 	.ngpios = 156,
+	.dir_conn = lagoon_dir_conn,
 };
 
 static int lagoon_pinctrl_probe(struct platform_device *pdev)
