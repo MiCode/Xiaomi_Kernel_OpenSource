@@ -1885,6 +1885,10 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 		dma_rx_status = geni_read_reg_nolog(uport->membase,
 							SE_DMA_RX_IRQ_STAT);
 
+		IPC_LOG_MSG(msm_port->ipc_log_misc,
+			    "%s: sirq:0x%x mirq:0x%x dma_txirq:0x%x dma_rxirq:0x%x\n",
+			    __func__, s_irq_status, m_irq_status,
+			    dma_tx_status, dma_rx_status);
 		if (dma_tx_status) {
 
 			geni_write_reg_nolog(dma_tx_status, uport->membase,
