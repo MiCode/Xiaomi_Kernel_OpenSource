@@ -92,9 +92,15 @@ int MV_to_REG_12_value(signed int _reg)
 
 static int MV_to_REG_12_temp_value(signed int _reg)
 {
-	int ret = (_reg * 4096) / (VOLTAGE_FULL_RANGES * R_VAL_TEMP_2);
+	int ret = 0;
 
-	bm_trace("[%s] %d => %d\n", __func__, _reg, ret);
+	if (_reg > 50000)
+		bm_err("[%s]overflow, %d\n", __func__, _reg);
+	else {
+		ret = (_reg * 4096) / (VOLTAGE_FULL_RANGES * R_VAL_TEMP_2);
+		bm_trace("[%s] %d => %d\n", __func__, _reg, ret);
+	}
+
 	return ret;
 }
 
