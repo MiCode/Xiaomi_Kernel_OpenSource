@@ -12,11 +12,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 
-#include "dvfsrc-debug.h"
+#include "dvfsrc-helper.h"
 #include "dvfsrc-common.h"
-#if IS_ENABLED(CONFIG_MTK_DRAMC)
-#include <memory/mediatek/dramc.h>
-#endif
 
 enum dvfsrc_regs {
 	DVFSRC_BASIC_CONTROL,
