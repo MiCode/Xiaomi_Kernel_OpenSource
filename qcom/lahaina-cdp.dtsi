@@ -73,6 +73,11 @@
 		st,reset-gpio = <&tlmm 22 0x00>;
 		st,regulator_dvdd = "vdd";
 		st,regulator_avdd = "avdd";
+		st,trusted-touch-mode = "vm_mode";
+		st,touch-environment = "pvm";
+		st,trusted-touch-spi-irq = <566>;
+		st,trusted-touch-io-bases = <0xF114000 0xF115000 0xF116000 0xF117000 0x990000 0x00910000>;
+		st,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x4000 0x4000>;
 		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
 			 &dsi_sw43404_amoled_fhd_plus_cmd>;
 	};
