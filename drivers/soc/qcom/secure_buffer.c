@@ -286,6 +286,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_ADSP_HEAP";
 	case VMID_INVAL:
 		return "VMID_INVAL";
+	case VMID_NAV:
+		return "VMID_NAV";
 	default:
 		return "Unknown VMID";
 	}
