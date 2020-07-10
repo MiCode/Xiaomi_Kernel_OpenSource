@@ -19,6 +19,8 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded  UFS Slot */
+		serial0 = &qupv3_se9_2uart;
+		hsuart0 = &qupv3_se1_4uart;
 	};
 
 	cpus {
@@ -1200,6 +1202,8 @@
 #include "holi-pm.dtsi"
 #include "holi-vidc.dtsi"
 #include "holi-thermal.dtsi"
+#include "holi-pinctrl.dtsi"
+#include "holi-qupv3.dtsi"
 
 &pmk8350 {
 	reg = <6 SPMI_USID>;
@@ -1473,5 +1477,9 @@
 
 &gpu_gx_gdsc {
 	parent-supply = <&VDD_GFX_LEVEL>;
+	status = "ok";
+};
+
+&qupv3_se9_2uart {
 	status = "ok";
 };
