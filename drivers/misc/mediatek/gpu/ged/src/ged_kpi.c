@@ -1598,6 +1598,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						time_spent, psKPI->t_gpu_target
 						, psKPI->target_fps_margin
 						, 1); /* fallback mode */
+				else
+					/* t_gpu is not accurate, so hint -1 */
+					gpu_freq_pre = ged_kpi_gpu_dvfs(
+						-1, psKPI->t_gpu_target
+						, psKPI->target_fps_margin
+						, 0); /* do nothing */
 
 				last_3D_done = cur_3D_done;
 				psKPI->cpu_gpu_info.gpu.gpu_freq_target
@@ -1619,7 +1625,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 			if (!g_force_gpu_dvfs_fallback)
 				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
-#endif
+#endif /* GED_ENABLE_DYNAMIC_DVFS_MARGIN */
 
 				if (!g_force_gpu_dvfs_fallback)
 					ged_set_backup_timer_timeout(0);
