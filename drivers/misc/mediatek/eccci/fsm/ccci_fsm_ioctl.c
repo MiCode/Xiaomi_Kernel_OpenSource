@@ -390,6 +390,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 	int ret = 0;
 	enum MD_STATE_FOR_USER state_for_user;
 	unsigned int data;
@@ -426,6 +427,8 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 	case CCCI_IOC_MD_RESET:
 		CCCI_NORMAL_LOG(md_id, FSM,
 			"MD reset ioctl called by %s\n", current->comm);
+		if (md->exp_reboot)
+			do_exception_reboot(md);
 		ret = fsm_monitor_send_message(ctl->md_id,
 			CCCI_MD_MSG_RESET_REQUEST, 0);
 		fsm_monitor_send_message(GET_OTHER_MD_ID(ctl->md_id),
@@ -559,6 +562,19 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		CCCI_NORMAL_LOG(md_id, FSM,
 			"get modem exception type=%d ret=%d\n",
 			ctl->ee_ctl.ex_type, ret);
+		break;
+	case CCCI_IOC_MDLOG_STATUS:
+		if (copy_from_user(&data, (void __user *)arg,
+			sizeof(unsigned int))) {
+			CCCI_ERROR_LOG(md_id, FSM,
+				"set md log status fail\n");
+			ret = -EFAULT;
+			break;
+		}
+		CCCI_NORMAL_LOG(md_id, FSM,
+			"mdlog status changed from %d to %d\n",
+			md->mdlog_status, data);
+		md->mdlog_status = data;
 		break;
 	default:
 		ret = fsm_md_data_ioctl(md_id, cmd, arg);

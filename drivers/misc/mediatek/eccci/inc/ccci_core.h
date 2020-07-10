@@ -292,7 +292,8 @@ extern void mtk_ccci_ccb_info_peek(void);
 /* RILD  factory */
 #define CCCI_IOC_LEAVE_DEEP_FLIGHT_ENHANCED     \
 	_IO(CCCI_IOC_MAGIC,  124)
-
+#define CCCI_IOC_MDLOG_STATUS			\
+	_IOW(CCCI_IOC_MAGIC, 125, unsigned int)
 
 #define CCCI_IPC_MAGIC 'P' /* only for IPC user */
 #define CCCI_IPC_RESET_RECV			_IO(CCCI_IPC_MAGIC, 0)

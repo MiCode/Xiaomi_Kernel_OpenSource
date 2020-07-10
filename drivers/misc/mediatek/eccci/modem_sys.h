@@ -190,6 +190,9 @@ struct ccci_modem {
 	struct md_hw_info *hw_info;
 
 	struct ccci_per_md per_md_data;
+	int mdlog_status;
+	int aee_status;
+	int exp_reboot;
 };
 
 extern struct ccci_modem *modem_sys[MAX_MD_NUM];

@@ -1435,6 +1435,7 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 	md->plat_dev->dev.dma_mask = &cldma_dmamask;
 	md->plat_dev->dev.coherent_dma_mask = cldma_dmamask;
 	md->ops = &md_cd_ops;
+	md->mdlog_status = md->aee_status = md->exp_reboot = 0;
 	CCCI_INIT_LOG(md_id, TAG,
 		"%s:md=%p,md->private_data=%p\n", __func__,
 		md, md->private_data);

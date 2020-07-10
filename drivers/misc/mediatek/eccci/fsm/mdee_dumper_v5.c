@@ -21,6 +21,7 @@
 #include "mdee_dumper_v5.h"
 #include "ccci_config.h"
 #include "ccci_fsm_sys.h"
+#include "modem_sys.h"
 
 #ifndef DB_OPT_DEFAULT
 #define DB_OPT_DEFAULT    (0)	/* Dummy macro define to avoid build error */
@@ -29,6 +30,7 @@
 #ifndef DB_OPT_FTRACE
 #define DB_OPT_FTRACE   (0)	/* Dummy macro define to avoid build error */
 #endif
+
 
 static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	char *aed_str, int db_opt)
@@ -53,7 +55,12 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 #endif
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 
+	CCCI_ERROR_LOG(md_id, FSM, "aee status = %d\n", aee_cur_status());
+	if (aee_cur_status() == 1)
+		md->aee_status = 1;
+	md->exp_reboot = is_reboot_epon(md_id);
 	buff = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (buff == NULL) {
 		CCCI_ERROR_LOG(md_id, FSM, "Fail alloc Mem for buff!\n");

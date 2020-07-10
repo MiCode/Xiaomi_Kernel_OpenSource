@@ -503,15 +503,31 @@ success:
 	fsm_finish_command(ctl, cmd, 1);
 }
 
+static void ccci_trigger_reboot(char str[])
+{
+	CCCI_NORMAL_LOG(0, FSM, "reboot system for EE by: %s\n", str);
+	panic("EE Reboot");
+}
+
 static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
 	int reset_md = 0;
 	int is_epon_set = 0;
+	struct ccci_modem *md = ccci_md_get_modem_by_id(ctl->md_id);
 	struct ccci_smem_region *mdss_dbg
 		= ccci_md_get_smem_by_user_id(ctl->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
 
+	while (md->exp_reboot) {
+		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			"Need EE reboot at WDT\n");
+		do_exception_reboot(md);
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"We should not enter here at WDT\n");
+		while (1)
+			; /* Avoid repeat while loop */
+	}
 	if (ctl->md_id == MD_SYS1)
 		is_epon_set =
 			*((int *)(mdss_dbg->base_ap_view_vir
@@ -527,7 +543,7 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 		reset_md = 1;
 	} else {
 		if (ccci_port_get_critical_user(ctl->md_id,
-				CRIT_USR_MDLOG) == 0) {
+				CRIT_USR_MDLOG) == 0 || !md->mdlog_status) {
 			CCCI_NORMAL_LOG(ctl->md_id, FSM,
 				"mdlogger closed, reset MD after WDT\n");
 			reset_md = 1;
@@ -928,3 +944,30 @@ unsigned long ccci_get_md_boot_count(int md_id)
 		return 0;
 }
 
+void do_exception_reboot(struct ccci_modem *md)
+{
+	if (md->aee_status == 1) {
+		CCCI_ERROR_LOG(md->index, FSM,
+		"reboot system for MD EE by AEE\n");
+		aee_sp_md_case();
+	} else
+		ccci_trigger_reboot("CCCI");
+}
+
+int is_reboot_epon(int md_id)
+{
+	int ret = 0;
+	struct ccci_smem_region *mdss_dbg
+		= ccci_md_get_smem_by_user_id(md_id,
+			SMEM_USER_RAW_MDSS_DBG);
+
+	ret = *((int *)(mdss_dbg->base_ap_view_vir
+			+ CCCI_EE_OFFSET_EPON_MD1)) == 0xD1ED1ED0;
+
+	return ret;
+}
+
+void ccci_trigger_ke(void)
+{
+	ccci_trigger_reboot("AED");
+}

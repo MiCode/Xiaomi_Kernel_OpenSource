@@ -30,12 +30,15 @@
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
+#include <mt-plat/aee.h>
+
 #include "ccci_core.h"
 #include "ccci_fsm.h"
 #include "ccci_modem.h"
 #include "ccci_hif.h"
 #include "ccci_port.h"
 #include "port_t.h"
+#include "modem_sys.h"
 
 /************ enumerations ************/
 
@@ -295,6 +298,8 @@ void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage);
 void fsm_ee_message_handler(struct ccci_fsm_ee *ee_ctl, struct sk_buff *skb);
 int fsm_check_ee_done(struct ccci_fsm_ee *ee_ctl, int timeout);
 int force_md_stop(struct ccci_fsm_monitor *monitor_ctl);
+void do_exception_reboot(struct ccci_modem *md);
+int is_reboot_epon(int md_id);
 
 extern int mdee_dumper_v1_alloc(struct ccci_fsm_ee *mdee);
 extern int mdee_dumper_v2_alloc(struct ccci_fsm_ee *mdee);
