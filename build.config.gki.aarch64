@@ -7,9 +7,13 @@ KMI_WHITELIST=abi_gki_aarch64_whitelist
 ADDITIONAL_KMI_WHITELISTS="
 abi_gki_aarch64_cuttlefish_whitelist
 abi_gki_aarch64_db845c_whitelist
+abi_gki_aarch64_exynos_whitelist
 abi_gki_aarch64_goldfish_whitelist
 abi_gki_aarch64_hikey960_whitelist
 abi_gki_aarch64_qcom_whitelist
+abi_gki_aarch64_sunxi_whitelist
 abi_gki_aarch64_unisoc_whitelist
 "
 TRIM_NONLISTED_KMI=1
+KMI_WHITELIST_STRICT_MODE=1
+KMI_ENFORCED=1

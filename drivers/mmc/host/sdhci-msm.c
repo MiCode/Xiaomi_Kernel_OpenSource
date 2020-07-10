@@ -3377,8 +3377,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
-	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
-	msm_host->mmc->caps |= MMC_CAP_NEED_RSP_BUSY;
+	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 
 #if defined(CONFIG_SDC_QTI)
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
