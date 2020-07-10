@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "shima-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Shima ATP";
+	compatible = "qcom,shima-atp", "qcom,shima", "qcom,atp";
+	qcom,msm-id = <450 0x10000>;
+	qcom,board-id = <0x10021 0>;
+};
