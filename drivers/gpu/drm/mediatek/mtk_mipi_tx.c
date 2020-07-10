@@ -2059,3 +2059,40 @@ struct platform_driver mtk_mipi_tx_driver = {
 			.of_match_table = mtk_mipi_tx_match,
 		},
 };
+/*        PanelMaster                 */
+void mtk_mipi_tx_pll_rate_set_for_pm(struct phy *phy, unsigned long rate)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+
+	DDPINFO("%s+ %lu\n", __func__, rate);
+	/* parameter rate should be MHz */
+	if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 1000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+	} else if (rate >= 500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+	} else if (rate > 250) {
+		txdiv = 8;
+		txdiv0 = 3;
+		txdiv1 = 0;
+	} else if (rate >= 125) {
+		txdiv = 16;
+		txdiv0 = 4;
+		txdiv1 = 0;
+	} else {
+		return;
+	}
+
+	tmp = _dsi_get_pcw(rate, txdiv);
+	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
+
+}
+/*        end PanelMaster            */

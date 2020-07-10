@@ -6536,8 +6536,14 @@ void mtk_crtc_start_for_pm(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *comp;
 	struct cmdq_pkt *cmdq_handle;
 	/* start trig loop */
-	if (mtk_crtc_with_trigger_loop(crtc))
+	if (mtk_crtc_with_trigger_loop(crtc)) {
 		mtk_crtc_start_trig_loop(crtc);
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+				(!mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_start_sodi_loop(crtc);
+#endif
+	}
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	/*if VDO mode start DSI MODE */

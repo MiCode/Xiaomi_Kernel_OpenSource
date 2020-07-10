@@ -5517,16 +5517,16 @@ void Panel_Master_primary_display_config_dsi(struct mtk_dsi *dsi,
 		dsi->ext->params->ssc_range = config_value;
 		return;
 	}
-
+	/* store data_rate in MHZ */
 	dsi->data_rate = dsi->ext->params->pll_clk * 2;
-	mipi_tx_rate = dsi->data_rate * 1000000;
+	mipi_tx_rate = dsi->data_rate;
 
 	mtk_dsi_set_interrupt_enable(dsi);
 	/* config dsi clk */
 
 	clk_set_rate(dsi->hs_clk, mipi_tx_rate);
-	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
-
+	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, mipi_tx_rate);
+	mtk_mipi_tx_pll_rate_set_for_pm(dsi->phy, mipi_tx_rate);
 	mtk_dsi_phy_timconfig(dsi);
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {

@@ -31,5 +31,5 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 
 void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en);
 void mtk_mipi_tx_pre_oe_config(struct phy *phy, bool en);
-
+void mtk_mipi_tx_pll_rate_set_for_pm(struct phy *phy, unsigned long rate);
 #endif
