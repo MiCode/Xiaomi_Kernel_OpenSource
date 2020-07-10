@@ -469,6 +469,24 @@
 		};
 	};
 
+	modem_diag: dummy_source {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-modem-diag";
+		qcom,dummy-source;
+
+
+		out-ports {
+			port {
+				modem_diag_out_funnel_modem1_dup: endpoint {
+					remote-endpoint =
+						<&funnel_modem1_dup_in_modem_diag>;
+				};
+			};
+		};
+	};
+
+
 	tpdm_center: tpdm@8b60000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb968>;
@@ -808,7 +826,7 @@
 
 		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
 		clock-names = "apb_pclk";
-
+		qcom,cmb_msr_skip;
 		out-ports {
 			port {
 				tpdm_sdcc1_out_tpda_qdss30: endpoint {
@@ -1305,9 +1323,9 @@
 
 		out-ports {
 			port {
-				funnel_modem1_out_funnel_modem1_dup1: endpoint {
+				funnel_modem1_out_funnel_modem1_dup: endpoint {
 					remote-endpoint =
-					<&funnel_modem1_dup1_in_funnel_modem1>;
+					<&funnel_modem1_dup_in_funnel_modem1>;
 				};
 			};
 		};
@@ -1325,16 +1343,16 @@
 		};
 	};
 
-	funnel_modem1_dup1: funnel@880c000 {
+	funnel_modem1_dup: funnel@880d000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb908>;
 
-		reg = <0x880b000 0x1000>,
+		reg = <0x880d000 0x1000>,
 			<0x0880c000 0x1000>;
 
 		reg-names = "funnel-base-dummy", "funnel-base-real";
 
-		coresight-name = "coresight-funnel-modem1_dup1";
+		coresight-name = "coresight-funnel-modem1_dup";
 
 
 		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
@@ -1343,9 +1361,9 @@
 
 		out-ports {
 			port {
-				funnel_modem1_dup1_out_funnel_modem1_dup2: endpoint {
+				funnel_modem1_dup_out_funnel_modem0: endpoint {
 					remote-endpoint =
-					<&funnel_modem1_dup2_in_funnel_modem1_dup1>;
+					<&funnel_modem0_in_funnel_modem1_dup>;
 				};
 			};
 		};
@@ -1355,52 +1373,21 @@
 			#size-cells = <0>;
 			port@1 {
 				reg = <1>;
-				funnel_modem1_dup1_in_funnel_modem1: endpoint {
+				funnel_modem1_dup_in_funnel_modem1: endpoint {
 					remote-endpoint =
-					<&funnel_modem1_out_funnel_modem1_dup1>;
+					<&funnel_modem1_out_funnel_modem1_dup>;
 				};
 			};
-		};
-	};
 
-	funnel_modem1_dup2: funnel@880c000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x000bb908>;
-
-		reg = <0x880a000 0x1000>,
-			<0x0880c000 0x1000>;
-
-		reg-names = "funnel-base-dummy", "funnel-base-real";
-
-		coresight-name = "coresight-funnel-modem1_dup2";
-
-
-		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
-		clock-names = "apb_pclk";
-		qcom,duplicate-funnel;
-
-		out-ports {
-			port {
-				funnel_modem1_dup2_out_funnel_modem0: endpoint {
-					remote-endpoint =
-					<&funnel_modem0_in_funnel_modem1_dup2>;
-				};
-			};
-		};
-
-		in-ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			port@2 {
 				reg = <2>;
-				funnel_modem1_dup2_in_funnel_modem1_dup1: endpoint {
+				funnel_modem1_dup_in_modem_diag: endpoint {
 					remote-endpoint =
-					<&funnel_modem1_dup1_out_funnel_modem1_dup2>;
+					<&modem_diag_out_funnel_modem1_dup>;
 				};
 			};
 		};
 	};
-
 
 	funnel_modem0: funnel@8804000 {
 		compatible = "arm,primecell";
@@ -1443,9 +1430,9 @@
 
 			port@3 {
 				reg = <3>;
-				funnel_modem0_in_funnel_modem1_dup2: endpoint {
+				funnel_modem0_in_funnel_modem1_dup: endpoint {
 					remote-endpoint =
-					<&funnel_modem1_dup2_out_funnel_modem0>;
+					<&funnel_modem1_dup_out_funnel_modem0>;
 				};
 			};
 
