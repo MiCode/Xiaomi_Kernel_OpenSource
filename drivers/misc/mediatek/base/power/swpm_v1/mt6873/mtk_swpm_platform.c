@@ -665,6 +665,12 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 	wrap_d = (struct share_wrap *)
 		sspm_sbuf_get(offset);
 
+	/* exception control for illegal sbuf request */
+	if (!wrap_d) {
+		swpm_err("swpm share sram offset fail\n");
+		goto error;
+	}
+
 	/* get sram power index and control address from wrap data */
 	share_idx_ref = (struct share_index *)
 		sspm_sbuf_get(wrap_d->share_index_addr);
@@ -697,6 +703,19 @@ error:
 	share_idx_ctrl = NULL;
 	idx_ref_uint_ptr = NULL;
 	idx_output_size = 0;
+}
+
+static inline void swpm_pass_to_sspm(void)
+{
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#ifdef CONFIG_MTK_DRAMC
+	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
+		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
+#else
+	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
+		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
+#endif
+#endif
 }
 
 static void swpm_core_thermal_cb(void)
@@ -784,6 +803,12 @@ static void swpm_log_loop(unsigned long data)
 
 	t1 = ktime_get();
 #endif
+
+	/* initialization retry */
+	if (!swpm_init_state) {
+		swpm_pass_to_sspm();
+	}
+
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		if ((1 << i) & swpm_log_mask) {
 			ptr += snprintf(ptr, 256, "%s/",
@@ -910,19 +935,6 @@ static void swpm_mem_pwr_data_init(void)
 		(unsigned long)sizeof(aphy_def_others_pwr_tbl),
 		(unsigned long)sizeof(dram_def_pwr_conf),
 		(unsigned short)sizeof(ddr_opp_freq));
-}
-
-static inline void swpm_pass_to_sspm(void)
-{
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#ifdef CONFIG_MTK_DRAMC
-	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
-		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
-#else
-	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
-		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
-#endif
-#endif
 }
 
 static void swpm_init_pwr_data(void)
