@@ -201,7 +201,7 @@
 	dsi_anx_7625_1: qcom,dsi-display@17 {
 		label = "dsi_anx_7625_1";
 		qcom,dsi-display-active;
-		qcom,display-label = "primary";
+		qcom,display-type = "primary";
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
