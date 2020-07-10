@@ -36,6 +36,7 @@
 #include <linux/vmalloc.h>
 #include <mt-plat/mrdump.h>
 #include <mrdump_private.h>
+#include <aed.h>
 
 static struct aee_kernel_api *g_aee_api;
 #define KERNEL_REPORT_LENGTH 344
@@ -277,6 +278,20 @@ int aee_is_printk_too_much(const char *module)
 	return 0;
 }
 EXPORT_SYMBOL(aee_is_printk_too_much);
+
+void aee_sp_md_case(void)
+{
+#ifdef CONFIG_MTK_AEE_AED
+	aed_md_exception_api(NULL, 0, NULL, 0, "reboot", DB_OPT_DEFAULT);
+#endif
+}
+EXPORT_SYMBOL(aee_sp_md_case);
+
+int aee_cur_status(void)
+{
+	return aee_status;
+}
+EXPORT_SYMBOL(aee_cur_status);
 
 char sram_printk_buf[256];
 

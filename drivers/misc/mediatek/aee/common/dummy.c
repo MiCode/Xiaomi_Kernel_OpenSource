@@ -112,6 +112,18 @@ __weak int aee_is_printk_too_much(const char *module)
 }
 EXPORT_SYMBOL(aee_is_printk_too_much);
 
+__weak void aee_sp_md_case(void)
+{
+
+}
+EXPORT_SYMBOL(aee_sp_md_case);
+
+__weak int aee_cur_status(void)
+{
+	return 1;
+}
+EXPORT_SYMBOL(aee_cur_status);
+
 __weak void mt_fiq_printf(const char *fmt, ...)
 {
 }

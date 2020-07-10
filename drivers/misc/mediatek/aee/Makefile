@@ -35,6 +35,9 @@ endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed
+
 obj-y	+= common/
 obj-$(CONFIG_MTK_AEE_FEATURE)	+= aed/
 obj-y	+= mrdump/

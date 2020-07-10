@@ -194,6 +194,7 @@ struct aee_siginfo {
 #define AEEIOCTL_SET_HANG_REBOOT _IO('p', 0x12)
 #define AEEIOCTL_GET_THREAD_RMS  _IOW('p', 0x13, struct unwind_info_rms)
 #define AEEIOCTL_GET_THREAD_STACK_RAW  _IOW('p', 0x14, struct unwind_info_stack)
+#define AEEIOCTL_GET_AEE_STATUS	_IOR('p', 0x15, int)
 
 
 #define AED_FILE_OPS(entry) \
@@ -230,6 +231,7 @@ extern void ksysfs_bootinfo_exit(void);
 extern int aee_dump_ccci_debug_info(int md_id, void **addr, int *size);
 extern void show_stack(struct task_struct *tsk, unsigned long *sp);
 extern int aee_mode;
+extern int aee_status;
 extern void aee_kernel_RT_Monitor_api(int lParam);
 extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));
 extern void get_msdc_aee_buffer(unsigned long *buff,

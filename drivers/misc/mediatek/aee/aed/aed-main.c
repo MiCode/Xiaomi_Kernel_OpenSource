@@ -44,6 +44,8 @@
 #include <linux/rtc.h>
 #include "aed.h"
 #include <linux/highmem.h>
+#include <linux/skbuff.h>
+#include <ccci_fsm.h>
 
 struct aee_req_queue {
 	struct list_head list;
@@ -69,6 +71,9 @@ static int aee_force_exp = AEE_FORCE_EXP_NOT_SET;
 static int ke_log_available = 1;
 
 static struct proc_dir_entry *aed_proc_dir;
+
+static char *md_status;
+int aee_status = -1;
 
 
 #define MaxStackSize 8100
@@ -1036,6 +1041,7 @@ static ssize_t aed_ee_write(struct file *filp, const char __user *buf,
 	struct AE_Msg msg;
 	int rsize;
 	struct aed_eerec *eerec = aed_dev.eerec;
+	int cnt = 0;
 
 	/* recevied a new request means the previous response is unavilable */
 	/* 1. set position to be zero */
@@ -1095,6 +1101,19 @@ static ssize_t aed_ee_write(struct file *filp, const char __user *buf,
 	} else if (msg.cmdType == AE_IND) {
 		switch (msg.cmdId) {
 		case AE_IND_LOG_CLOSE:
+			if (strstr(eerec->exp_filename, "digrf_platform/src") &&
+					strstr(eerec->exp_filename,
+						"p1:0xdfee0001")) {
+				while (strcmp(md_status, "reboot")
+						&& (cnt < 90)) {
+					msleep(1000);
+					cnt = cnt + 1;
+				}
+				if (!strcmp(md_status, "reboot")) {
+					msleep(2000);
+					ccci_trigger_ke();
+				}
+			}
 			complete(&aed_ee_com);
 			break;
 		default:
@@ -1513,6 +1532,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 	int aee_mode_tmp = 0;
 	int aee_force_exp_tmp = 0;
+	int aee_status_tmp = -1;
 
 	if (down_interruptible(&aed_dal_sem) < 0)
 		return -ERESTARTSYS;
@@ -2060,6 +2080,23 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
+	case AEEIOCTL_GET_AEE_STATUS:
+		{
+			if (copy_from_user(&aee_status_tmp, (void __user *)arg,
+					sizeof(aee_status_tmp))) {
+				ret = -EFAULT;
+				goto EXIT;
+			}
+			if (aee_status_tmp >= 0) {
+				aee_status = aee_status_tmp;
+			} else {
+				ret = -EFAULT;
+				goto EXIT;
+			}
+			pr_debug("set aee status = %d\n", aee_status);
+			break;
+		}
+
 	default:
 		ret = -EINVAL;
 	}
@@ -2379,6 +2416,11 @@ static void external_exception(const char *assert_type, const int *log,
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER) &&
 		(aee_force_exp == AEE_FORCE_EXP_NOT_SET))
 		return;
+	if (strstr(detail, "reboot")) {
+		if (md_status != NULL)
+			strcpy(md_status, "reboot");
+		return;
+	}
 	eerec = kzalloc(sizeof(struct aed_eerec), GFP_ATOMIC);
 	if (eerec == NULL) {
 		return;
@@ -2613,6 +2655,11 @@ static int __init aed_init(void)
 	INIT_WORK(&ee_work, ee_worker);
 
 	aee_register_api(&kernel_api);
+
+	md_status = kmalloc(8, GFP_ATOMIC);
+	if (md_status == NULL)
+		return err;
+	strcpy(md_status, "normal");
 
 	spin_lock_init(&aed_device_lock);
 	err = misc_register(&aed_ee_dev);

@@ -376,6 +376,8 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 			int cpu);
 
 int aee_is_printk_too_much(const char *module);
+void aee_sp_md_case(void);
+int aee_cur_status(void);
 
 /* QHQ RT Monitor */
 void aee_kernel_RT_Monitor_api(int lParam);
