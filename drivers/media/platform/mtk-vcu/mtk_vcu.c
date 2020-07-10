@@ -599,10 +599,12 @@ static int vcu_log_get(struct mtk_vcu *vcu, unsigned long arg)
 static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 {
 	int i;
+	char data;
 
 	mutex_lock(&vcu_ptr->vcu_share);
 	for (i = 0; i < VCODEC_INST_MAX; i++) {
-		if (vcu_ptr->gce_info[i].v4l2_ctx == NULL) {
+		if (vcu_ptr->gce_info[i].v4l2_ctx == NULL &&
+			!probe_kernel_address(ctx, data)) {
 			vcu_ptr->gce_info[i].v4l2_ctx = ctx;
 			vcu_ptr->gce_info[i].user_hdl = gce_handle;
 			mutex_unlock(&vcu_ptr->vcu_share);
@@ -814,6 +816,13 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 	pr_debug("[VCU] %s +\n", __func__);
 
+	if (strcmp(current->comm, "vdec_srv") != 0 &&
+		strcmp(current->comm, "venc_srv") != 0) {
+		pr_info("[VCU] %s invalid user: %s\n",
+			__func__, current->comm);
+		return -EINVAL;
+	}
+
 	time_check_start();
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&buff.cmdq_buff, user_data_addr,
@@ -887,7 +896,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	time_check_start();
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
 
-	if (buff.cmdq_buff.codec_type == VCU_VENC) {
+	if (buff.cmdq_buff.codec_type == VCU_VENC &&
+		vcu->gce_info[j].v4l2_ctx != NULL) {
 		int lock = -1;
 
 		while (lock != 0) {
