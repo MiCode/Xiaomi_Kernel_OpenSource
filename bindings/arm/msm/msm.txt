@@ -130,6 +130,9 @@ Generic board variants:
 - IOT device:
   compatible = "qcom,iot"
 
+- HDK device:
+  compatible = "qcom,hdk"
+
 
 Boards (SoC type + board variant):
 
@@ -194,6 +197,7 @@ compatible = "qcom,lahaina-mtp"
 compatible = "qcom,lahaina-cdp"
 compatible = "qcom,lahaina-qrd"
 compatible = "qcom,lahaina-qrd-module"
+compatible = "qcom,lahaina-hdk"
 compatible = "qcom,lahainap-mtp"
 compatible = "qcom,lahainap-cdp"
 compatible = "qcom,lahainap-atp"
