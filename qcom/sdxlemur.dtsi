@@ -20,21 +20,45 @@
 
 	memory { device_type = "memory"; reg = <0 0>; };
 
-	reserved-memory {
+	reserved_memory: reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 
-		peripheral2_mem: peripheral2_region@8fd00000 {
+		mpss_adsp_mem: mpss_adsp_region@90800000 {
 			no-map;
-			reg = <0x8fd00000 0x140000>;
-			label = "peripheral2_mem";
+			reg = <0x90800000 0x10000000>;
+		};
+
+		tz_mem: tz_mem_region@8ff00000 {
+			no-map;
+			reg = <0x8ff00000 0x600000>;
 		};
 
 		smem_mem: smem_region@8fe40000 {
 			no-map;
 			reg = <0x8fe40000 0xc0000>;
 			label = "smem_mem";
+		};
+
+		peripheral_mem: peripheral_region@8fd00000 {
+			no-map;
+			reg = <0x8fd00000 0x140000>;
+		};
+
+		/*
+		 * The exact size of this region may vary based on DDR size.
+		 * 0x100000 will be valid for all DDR sizes at the cost of
+		 * slightly reducing the memory available for HLOS.
+		 */
+		peripheral_mem2: peripheral_region2@8fb00000 {
+			no-map;
+			reg = <0x8fb00000 0x100000>;
+		};
+
+		mpss_dsm: mpss_dsm_region@8c400000 {
+			no-map;
+			reg = <0x8c400000 0x3200000>;
 		};
 	};
 
