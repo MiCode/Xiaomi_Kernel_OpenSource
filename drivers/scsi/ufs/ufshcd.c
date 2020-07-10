@@ -4167,8 +4167,8 @@ void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
-	if (!ufshcd_is_auto_hibern8_supported(hba) || !hba->ahit
-	    || (hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8))
+	if (!ufshcd_is_auto_hibern8_supported(hba) ||
+	    (hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8))
 		return;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
