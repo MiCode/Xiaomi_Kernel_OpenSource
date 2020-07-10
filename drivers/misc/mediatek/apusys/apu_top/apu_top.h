@@ -1,0 +1,95 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+
+#include <linux/io.h>
+#include <linux/clk.h>
+
+#define ENABLE_CLK(clk) \
+	{ \
+		if (clk_prepare_enable(clk)) { \
+			pr_notice("fail to prepare & enable clk:%s\n", #clk); \
+		} \
+	}
+
+#define DISABLE_CLK(clk) \
+	{ \
+		clk_disable_unprepare(clk); \
+	}
+
+/*
+ * BIT Operation
+ */
+#undef  BIT
+#define BIT(_bit_) (unsigned int)(1 << (_bit_))
+#define BITS(_bits_, _val_) ((((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+& ~((1U << ((0) ? _bits_)) - 1)) & ((_val_)<<((0) ? _bits_)))
+#define BITMASK(_bits_) (((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
+& ~((1U << ((0) ? _bits_)) - 1))
+#define GET_BITS_VAL(_bits_, _val_) (((_val_) & \
+(BITMASK(_bits_))) >> ((0) ? _bits_))
+
+#define mt_reg_sync_writel(v, a) \
+do {    \
+	__raw_writel((v), (void __force __iomem *)((a)));   \
+	mb();  /*make sure register access in order */ \
+} while (0)
+
+static inline void DRV_WriteReg32(void *addr, uint32_t value)
+{
+	mt_reg_sync_writel(value, addr);
+}
+
+static inline u32 DRV_Reg32(void *addr)
+{
+	return ioread32(addr);
+}
+
+void *g_APUSYS_RPCTOP_BASE;
+void *g_APUSYS_VCORE_BASE;
+void *g_APUSYS_CONN_BASE;
+void *g_APUSYS_SPM_BASE;
+
+/**************************************************
+ * APUSYS_RPC related register
+ *************************************************/
+#define APUSYS_RPCTOP_BASE		(g_APUSYS_RPCTOP_BASE)
+#define APUSYS_RPC_TOP_CON		(void *)(APUSYS_RPCTOP_BASE + 0x000)
+#define APUSYS_RPC_TOP_SEL		(void *)(APUSYS_RPCTOP_BASE + 0x004)
+#define APUSYS_RPC_SW_FIFO_WE	(void *)(APUSYS_RPCTOP_BASE + 0x008)
+#define APUSYS_RPC_INTF_PWR_RDY	(void *)(APUSYS_RPCTOP_BASE + 0x044)
+
+#define APUSYS_RPC_SW_TYPE0	(void *)(APUSYS_RPCTOP_BASE + 0x200)
+#define APUSYS_RPC_SW_TYPE1	(void *)(APUSYS_RPCTOP_BASE + 0x210)
+#define APUSYS_RPC_SW_TYPE2	(void *)(APUSYS_RPCTOP_BASE + 0x220)
+#define APUSYS_RPC_SW_TYPE3	(void *)(APUSYS_RPCTOP_BASE + 0x230)
+#define APUSYS_RPC_SW_TYPE4	(void *)(APUSYS_RPCTOP_BASE + 0x240)
+#define APUSYS_RPC_SW_TYPE6	(void *)(APUSYS_RPCTOP_BASE + 0x260)
+#define APUSYS_RPC_SW_TYPE7	(void *)(APUSYS_RPCTOP_BASE + 0x270)
+
+/**************************************************
+ * APUSYS_VCORE related register
+ *************************************************/
+#define APUSYS_VCORE_BASE		(g_APUSYS_VCORE_BASE)
+#define APUSYS_VCORE_CG_CON	(void *)(APUSYS_VCORE_BASE + 0x000)
+#define APUSYS_VCORE_CG_SET	(void *)(APUSYS_VCORE_BASE + 0x004)
+#define APUSYS_VCORE_CG_CLR	(void *)(APUSYS_VCORE_BASE + 0x008)
+
+/**************************************************
+ * SPM and related register
+ *************************************************/
+#define APUSYS_SPM_BASE		(g_APUSYS_SPM_BASE)
+#define APUSYS_OTHER_PWR_STATUS	(void *)(APUSYS_SPM_BASE + 0x178)
+#define APUSYS_BUCK_ISOLATION		(void *)(APUSYS_SPM_BASE + 0x39C)
+#define APUSYS_SPM_CROSS_WAKE_M01_REQ	(void *)(APUSYS_SPM_BASE + 0x670)
+
+#define APMCU_WAKEUP_APU	(0x1 << 0)
+
+/**************************************************
+ * APUSYS_CONN related register
+ *************************************************/
+#define APUSYS_CONN_BASE		(g_APUSYS_CONN_BASE)
+#define APUSYS_CONN_CG_CON	(void *)(APUSYS_CONN_BASE+0x000)
+#define APUSYS_CONN_CG_CLR	(void *)(APUSYS_CONN_BASE + 0x0008)
+

@@ -18,6 +18,7 @@ UTIL_DIR = util
 APUSYS_VERSION_MIDWARE = 1.5
 APUSYS_VERSION_SAMPLE = 1.5
 APUSYS_VERSION_MNOC = 1.5
+APUSYS_VERSION_POWER_PLATFORM = mt6873
 
 # target object
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys.o
@@ -71,7 +72,7 @@ apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_inf.o
 apusys-objs += edma/edma_driver.o
 apusys-objs += edma/edma_dbgfs.o
 apusys-objs += edma/edma_cmd_hnd.o
-apusys-objs += edma/apusys_power_dummy.o
+#apusys-objs += edma/apusys_power_dummy.o
 # mnoc makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/
 
@@ -80,3 +81,29 @@ apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_drv.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_hw.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_pmu.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos.o
+
+# power driver makefile
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_MIDWARE)/
+ifeq ($(APUSYS_VERSION_POWER_PLATFORM),mt6873)
+subdir-ccflags-y += -DCONFIG_MACH_MT6873
+endif
+
+apusys-objs += power/2.0/apusys_power_driver.o
+apusys-objs += power/2.0/apusys_power_ctl.o
+apusys-objs += power/2.0/apusys_power_debug.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/hal_config_power.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_power_regulator.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_power_clock.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apusys_power_cust.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_power_table.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_platform_resource.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_platform_debug.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apusys_power_rule_check.o
+apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_power_tag.o
+#apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/dummy_vpu_driver.o
+#apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/dummy_mdla_driver.o
+
