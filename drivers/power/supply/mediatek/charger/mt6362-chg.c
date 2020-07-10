@@ -150,7 +150,7 @@ module_param(dbg_log_en, bool, 0644);
 /* 0x50 */
 #define MT6362_MASK_BC12_EN		BIT(7)
 #define MT6362_MASK_SPECTA_EN		(0x40)
-#define MT6362_SHFT_SPECTA_EN		BIT(6)
+#define MT6362_SHFT_SPECTA_EN		(6)
 #define MT6362_MASK_DCDT_SEL		(0x30)
 #define MT6362_SHFT_DCDT_SEL		(4)
 /* 0x51 */
@@ -249,6 +249,7 @@ static const struct mt6362_chg_platform_data def_platform_data = {
 	.ircmp_resistor = 25000,	/* uohm */
 	.ircmp_vclamp = 32000,		/* uV */
 	.dcdt_sel = 2,
+	.specta_det = 0,
 	.en_te = true,
 	.en_wdt = true,
 	.aicc_oneshot = true,
@@ -2712,6 +2713,7 @@ static int mt6362_chg_parse_dt_data(struct device *dev,
 		{ "ircmp_vclamp", &pdata->ircmp_vclamp },
 		{ "vbusov_sel", &pdata->vbusov_sel },
 		{ "dcdt_sel", &pdata->dcdt_sel },
+		{ "specta_det", &pdata->specta_det },
 		{ "en_te", &pdata->en_te },
 		{ "en_wdt", &pdata->en_wdt },
 		{ "aicc_oneshot", &pdata->aicc_oneshot },
@@ -2837,8 +2839,8 @@ static int mt6362_chg_apply_pdata(struct mt6362_chg_data *data,
 		ret |= regmap_update_bits(data->regmap,
 					  sel_props[i].reg,
 					  sel_props[i].mask,
-					  *(u8 *)sel_props[i].val_ptr <<
-							   sel_props[i].shift);
+					  *sel_props[i].val_ptr <<
+						sel_props[i].shift);
 	return ret;
 }
 
