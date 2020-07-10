@@ -1067,6 +1067,14 @@ static inline int adreno_is_a660v1(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 
+static inline int adreno_is_a660_shima(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A660) &&
+		(adreno_dev->gpucore->compatible &&
+		!strcmp(adreno_dev->gpucore->compatible,
+		"qcom,adreno-gpu-a660-shima"));
+}
+
 ADRENO_TARGET(a610, ADRENO_REV_A610)
 ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a618, ADRENO_REV_A618)
