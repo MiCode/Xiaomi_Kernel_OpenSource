@@ -1,5 +1,5 @@
 #include <dt-bindings/clock/qcom,gcc-shima.h>
-
+#include <dt-bindings/gpio/gpio.h>
 &soc {
 	timer {
 		clock-frequency = <5000000>;
@@ -94,6 +94,46 @@
 	spm-level = <0>;
 
 	status = "ok";
+};
+
+&sdhc_1 {
+	status = "ok";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+
+	vdd-supply = <&pm8350_l7>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm8350_s10>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	cap-mmc-highspeed;
+};
+
+&sdhc_2 {
+	status = "ok";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	vdd-supply = <&pm8350c_l9>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm8350c_l6>;
+	qcom,vdd-io-voltage-level = <2960000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	cap-sd-highspeed;
+
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
 };
 
 /* Debug UART console */
