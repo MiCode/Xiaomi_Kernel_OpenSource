@@ -1000,7 +1000,12 @@ static inline void assert_clock_updated(struct rq *rq)
 	 * The only reason for not seeing a clock update since the
 	 * last rq_pin_lock() is if we're currently skipping updates.
 	 */
-	SCHED_WARN_ON(rq->clock_update_flags < RQCF_ACT_SKIP);
+	//SCHED_WARN_ON(rq->clock_update_flags < RQCF_ACT_SKIP);
+#ifdef CONFIG_MTK_ENG_BUILD
+	if (rq->clock_update_flags < RQCF_ACT_SKIP)
+		pr_warn_once("wrong clock_update_flags:%d",
+		rq->clock_update_flags);
+#endif
 }
 
 static inline u64 rq_clock(struct rq *rq)
