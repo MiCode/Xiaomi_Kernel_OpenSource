@@ -841,9 +841,24 @@ s32 smi_larb_port_check(void)
 #if IS_ENABLED(CONFIG_MACH_MT6853)
 	mtk_smi_clk_enable(smi_dev[2]);
 
-	if (readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(0)) & 0x4)
+	if (readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(0)) & 0x4) {
 		pr_info("[SMI LOG]cmdq smi_larb2+0x380[2]:%#x\n",
 			readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(0)));
+		writel(readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(0))
+			& 0xFFFFFFFB,
+			smi_dev[2]->base + SMI_LARB_NON_SEC_CON(0));
+		pr_info("[SMI LOG]new cmdq smi_larb2+0x380[2]:%#x\n",
+			readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(0)));
+	}
+	if (readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(1)) & 0x4) {
+		pr_info("[SMI LOG]cmdq smi_larb2+0x384[2]:%#x\n",
+			readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(1)));
+		writel(readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(1))
+			& 0xFFFFFFFB,
+			smi_dev[2]->base + SMI_LARB_NON_SEC_CON(1));
+		pr_info("[SMI LOG]new cmdq smi_larb2+0x384[2]:%#x\n",
+			readl(smi_dev[2]->base + SMI_LARB_NON_SEC_CON(1)));
+	}
 
 	mtk_smi_clk_disable(smi_dev[2]);
 #endif

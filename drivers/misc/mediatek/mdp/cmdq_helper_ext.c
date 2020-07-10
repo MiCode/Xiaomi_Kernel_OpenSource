@@ -3521,6 +3521,8 @@ static void cmdq_core_group_clk_cb(bool enable,
 #if defined(CONFIG_MACH_MT6853)
 	if ((engine_flag & (1LL << CMDQ_ENG_MDP_RDMA0)) && enable)
 		smi_larb_port_check();
+	if ((engine_flag & (1LL << CMDQ_ENG_MDP_RDMA1)) && enable)
+		smi_larb_port_check();
 #endif
 
 }
