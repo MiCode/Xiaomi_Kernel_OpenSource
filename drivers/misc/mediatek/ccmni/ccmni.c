@@ -1036,6 +1036,15 @@ static inline void ccmni_dev_init(int md_id, struct net_device *dev)
 	random_ether_addr((u8 *) dev->dev_addr);
 }
 
+#ifdef CCCI_CCMNI_MODULE
+const struct header_ops ccmni_eth_header_ops ____cacheline_aligned = {
+	.create		= eth_header,
+	.parse		= eth_header_parse,
+	.cache		= eth_header_cache,
+	.cache_update	= eth_header_cache_update,
+};
+#endif
+
 static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 {
 	int i = 0, j = 0, ret = 0;
@@ -1192,6 +1201,8 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 #ifndef CCCI_CCMNI_MODULE
 		/* just for KO: build pass; ccmni-lan closed in ccci. */
 		dev->header_ops = &eth_header_ops;
+#else
+		dev->header_ops = &ccmni_eth_header_ops;
 #endif
 		/*ccmni-lan need handle ARP packet */
 		dev->flags = IFF_BROADCAST | IFF_MULTICAST;
