@@ -402,13 +402,13 @@ static struct dram_pwr_conf dram_def_pwr_conf[] = {
 		.i_dd6 = 625,
 	},
 	[DRAM_VDDQ_0P6V] = {
-		.i_dd0 = 9000,
-		.i_dd2p = 11250,
-		.i_dd2n = 7500,
-		.i_dd4r = 38000,
-		.i_dd4w = 10000,
-		.i_dd5 = 8000,
-		.i_dd6 = 65,
+		.i_dd0 = 4800,
+		.i_dd2p = 6000,
+		.i_dd2n = 4000,
+		.i_dd4r = 20267,
+		.i_dd4w = 5334,
+		.i_dd5 = 4267,
+		.i_dd6 = 475,
 	},
 };
 
