@@ -112,6 +112,11 @@
 	interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
 };
 
+&mt6359p_vemc_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
 &mt6359p_vgpu11_reg {
 	regulator-always-on;
 };
