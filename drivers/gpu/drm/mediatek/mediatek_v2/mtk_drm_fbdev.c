@@ -416,7 +416,7 @@ static int mtk_drm_fb_add_one_connector(struct drm_device *dev,
 {
 	struct drm_connector *connector;
 	struct drm_connector_list_iter conn_iter;
-	struct drm_encoder *encoder;
+	struct drm_encoder *encoder = 0;
 	const struct drm_connector_helper_funcs *helper_private;
 	int ret = 0;
 
@@ -426,8 +426,8 @@ static int mtk_drm_fb_add_one_connector(struct drm_device *dev,
 		if (helper_private->best_encoder)
 			encoder = helper_private->best_encoder(connector);
 		else {
-			//encoder = drm_encoder_find(connector->dev, NULL,
-			//	connector->encoder_ids[0]);
+			encoder = drm_encoder_find(connector->dev, NULL,
+				0);
 		}
 		if (encoder && (encoder->possible_crtcs & 0x1)) {
 			//ret = drm_fb_helper_add_one_connector(
