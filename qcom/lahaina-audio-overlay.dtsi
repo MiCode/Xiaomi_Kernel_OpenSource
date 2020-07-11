@@ -387,6 +387,7 @@
 		pinctrl-1 = <&rx_swr_clk_sleep &rx_swr_data_sleep
 				&rx_swr_data1_sleep>;
 		qcom,lpi-gpios;
+		qcom,tlmm-pins = <172>;
 		#gpio-cells = <0>;
 	};
 
