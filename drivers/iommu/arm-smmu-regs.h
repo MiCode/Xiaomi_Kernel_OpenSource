@@ -273,4 +273,8 @@ enum arm_smmu_s2cr_privcfg {
 #define ACTLR_QCOM_NSH_SHIFT		30
 #define ACTLR_QCOM_NSH			1
 
+#define FSYNR1_BID			GENMASK(15, 13)
+#define FSYNR1_PID			GENMASK(12, 8)
+#define FSYNR1_MID			GENMASK(7, 0)
+
 #endif /* _ARM_SMMU_REGS_H */
