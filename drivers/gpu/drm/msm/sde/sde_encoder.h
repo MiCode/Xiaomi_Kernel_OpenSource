@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -23,6 +23,7 @@
 
 #include "msm_prop.h"
 #include "sde_hw_mdss.h"
+#include "sde_kms.h"
 
 #define SDE_ENCODER_FRAME_EVENT_DONE			BIT(0)
 #define SDE_ENCODER_FRAME_EVENT_ERROR			BIT(1)
@@ -59,12 +60,14 @@ struct sde_encoder_hw_resources {
  * @affected_displays:  bitmask, bit set means the ROI of the commit lies within
  *                      the bounds of the physical display at the bit index
  * @recovery_events_enabled: indicates status of client for recoovery events
+ * @frame_trigger_mode: indicates frame trigger mode
  */
 struct sde_encoder_kickoff_params {
 	u32 inline_rotate_prefill;
 	u32 is_primary;
 	unsigned long affected_displays;
 	bool recovery_events_enabled;
+	enum frame_trigger_mode_type frame_trigger_mode;
 };
 
 /**
@@ -168,11 +171,11 @@ void sde_encoder_kickoff(struct drm_encoder *encoder, bool is_error);
  * @encoder:	encoder pointer
  * @event:      event to wait for
  * MSM_ENC_COMMIT_DONE -  Wait for hardware to have flushed the current pending
- *                        frames to hardware at a vblank or ctl_start
+ *                        frames to hardware at a vblank or wr_ptr_start
  *                        Encoders will map this differently depending on the
  *                        panel type.
  *	                  vid mode -> vsync_irq
- *                        cmd mode -> ctl_start
+ *                        cmd mode -> wr_ptr_start_irq
  * MSM_ENC_TX_COMPLETE -  Wait for the hardware to transfer all the pixels to
  *                        the panel. Encoders will map this differently
  *                        depending on the panel type.
@@ -341,12 +344,5 @@ void sde_encoder_control_idle_pc(struct drm_encoder *enc, bool enable);
  * @Return:     true if display in continuous splash
  */
 int sde_encoder_in_cont_splash(struct drm_encoder *enc);
-
-/**
- * sde_encoder_get_ctlstart_timeout_state - checks if ctl start timeout happened
- * @drm_enc:    Pointer to drm encoder structure
- * @Return:     non zero value if ctl start timeout occurred
- */
-int sde_encoder_get_ctlstart_timeout_state(struct drm_encoder *enc);
 
 #endif /* __SDE_ENCODER_H__ */

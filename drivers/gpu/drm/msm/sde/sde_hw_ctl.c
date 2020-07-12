@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #define   CTL_PREPARE                   0x0d0
 #define   CTL_SW_RESET                  0x030
 #define   CTL_SW_RESET_OVERRIDE         0x060
+#define   CTL_STATUS                    0x064
 #define   CTL_LAYER_EXTN_OFFSET         0x40
 #define   CTL_ROT_TOP                   0x0C0
 #define   CTL_ROT_FLUSH                 0x0C4
@@ -709,6 +710,13 @@ static u32 sde_hw_ctl_get_reset_status(struct sde_hw_ctl *ctx)
 	return (u32)SDE_REG_READ(&ctx->hw, CTL_SW_RESET);
 }
 
+static u32 sde_hw_ctl_get_scheduler_status(struct sde_hw_ctl *ctx)
+{
+	if (!ctx)
+		return 0;
+	return (u32)SDE_REG_READ(&ctx->hw, CTL_STATUS);
+}
+
 static int sde_hw_ctl_reset_control(struct sde_hw_ctl *ctx)
 {
 	struct sde_hw_blk_reg_map *c;
@@ -1273,6 +1281,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 			sde_hw_ctl_update_bitmask_periph_v1;
 		ops->get_ctl_intf = sde_hw_ctl_get_intf_v1;
 		ops->reset_post_disable = sde_hw_ctl_reset_post_disable;
+		ops->get_scheduler_status = sde_hw_ctl_get_scheduler_status;
 	} else {
 		ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
 		ops->trigger_flush = sde_hw_ctl_trigger_flush;

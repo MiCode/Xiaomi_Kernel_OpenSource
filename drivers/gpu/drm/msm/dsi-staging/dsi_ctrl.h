@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,6 +230,9 @@ struct dsi_ctrl_interrupts {
  * @debugfs_root:        Root for debugfs entries.
  * @misr_enable:         Frame MISR enable/disable
  * @misr_cache:          Cached Frame MISR value
+ * @frame_threshold_time_us: Frame threshold time in microseconds, where
+ *                       dsi data lane will be idle i.e from pingpong done to
+ *                       next TE for command mode.
  * @phy_isolation_enabled:    A boolean property allows to isolate the phy from
  *                          dsi controller and run only dsi controller.
  * @null_insertion_enabled:  A boolean property to allow dsi controller to
@@ -281,6 +284,8 @@ struct dsi_ctrl {
 	/* MISR */
 	bool misr_enable;
 	u32 misr_cache;
+
+	u32 frame_threshold_time_us;
 
 	/* Check for spurious interrupts */
 	unsigned long jiffies_start;
@@ -352,6 +357,7 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  * dsi_ctrl_update_host_config() - update dsi host configuration
  * @dsi_ctrl:          DSI controller handle.
  * @config:            DSI host configuration.
+ * @mode:              DSI host mode selected.
  * @flags:             dsi_mode_flags modifying the behavior
  * @clk_handle:        Clock handle for DSI clocks
  *
@@ -363,6 +369,7 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  */
 int dsi_ctrl_update_host_config(struct dsi_ctrl *dsi_ctrl,
 				struct dsi_host_config *config,
+				struct dsi_display_mode *mode,
 				int flags, void *clk_handle);
 
 /**
