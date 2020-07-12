@@ -127,6 +127,13 @@ Optional properties:
 					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
 					idle screen (footswitch control off) when this property is enabled.
 - qcom,dsi-phy-regulator-min-datarate-bps:  Minimum per lane data rate (bps) to turn on PHY regulator.
+- frame-threshold-time-us:		For command mode panel, this specifies the idle
+					time for dsi controller where no active data is
+					sent to the panel, as controller is done sending
+					active pixels. If there is no desired DSI clocks
+					specified, then clocks will be derived from this
+					threshold time, which has a default value in chipset
+					based on the CPU processing power.
 
 [1] Documentation/devicetree/bindings/clock/clock-bindings.txt
 [2] Documentation/devicetree/bindings/graph.txt
@@ -178,6 +185,7 @@ Example:
 		qcom,sync-dual-dsi;
 
 		qcom,mdss-mdp-transfer-time-us = <12000>;
+		frame-threshold-time-us = <800>;
 
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&dsi_active>;
