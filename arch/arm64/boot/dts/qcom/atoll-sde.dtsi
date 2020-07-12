@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -419,6 +419,7 @@
 		compatible = "qcom,dsi-ctrl-hw-v2.4";
 		label = "dsi-ctrl-0";
 		cell-index = <0>;
+		frame-threshold-time-us = <800>;
 		reg =	<0xae94000 0x400>,
 			<0xaf08000 0x4>;
 		reg-names = "dsi_ctrl", "disp_cc_base";
