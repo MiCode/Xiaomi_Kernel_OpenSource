@@ -417,6 +417,14 @@
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
 		qcom,iommu-dma = "fastmap";
 		status = "ok";
+
+		/* Slimbus Slave DT for QCA6490 */
+		btfmslim_codec: qca6490 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 21 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 21 02 17 02];
+		};
 	};
 
 	intc: interrupt-controller@17a00000 {
