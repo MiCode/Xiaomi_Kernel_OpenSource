@@ -16,6 +16,9 @@
 #include "mtk-afe-fe-dai.h"
 #include "mtk-base-afe.h"
 
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
+#include "mtk-sram-manager.h"
+#endif
 #define AFE_BASE_END_OFFSET 8
 
 static int mtk_regmap_update_bits(struct regmap *map, int reg,
@@ -153,6 +156,62 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
+	/*
+	 * hw_params may be called several time,
+	 * free sram of this substream first
+	 */
+	mtk_audio_sram_free(afe->sram, substream);
+
+	substream->runtime->dma_bytes = params_buffer_bytes(params);
+
+	if (memif->use_dram_only == 0 &&
+	    mtk_audio_sram_allocate(afe->sram,
+				    &substream->runtime->dma_addr,
+				    &substream->runtime->dma_area,
+				    substream->runtime->dma_bytes,
+				    substream,
+				    params_format(params), false) == 0) {
+		memif->using_sram = 1;
+	} else {
+		ret = snd_pcm_lib_malloc_pages(substream,
+					       params_buffer_bytes(params));
+		if (ret < 0)
+			return ret;
+		memif->using_sram = 0;
+	}
+	dev_info(afe->dev, "%s(), %s, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
+		 __func__, memif->data->name,
+		 memif->using_sram, memif->use_dram_only,
+		 channels, rate, format,
+		 &substream->runtime->dma_addr,
+		 substream->runtime->dma_area,
+		 substream->runtime->dma_bytes);
+#else
+
+	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+	if (ret < 0)
+		return ret;
+	memif->using_sram = 0;
+#endif
+
+	memset_io(substream->runtime->dma_area, 0,
+		  substream->runtime->dma_bytes);
+
+	if (memif->using_sram == 0 && afe->request_dram_resource)
+		afe->request_dram_resource(afe->dev);
+
+	/* set addr */
+	ret = mtk_memif_set_addr(afe, id,
+				 substream->runtime->dma_area,
+				 substream->runtime->dma_addr,
+				 substream->runtime->dma_bytes);
+	if (ret) {
+		dev_err(afe->dev, "%s(), error, id %d, set addr, ret %d\n",
+			__func__, id, ret);
+		return ret;
+	}
+
 	/* set channel */
 	ret = mtk_memif_set_channel(afe, id, channels);
 	if (ret) {
@@ -185,11 +244,29 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
+	struct mtk_base_afe_memif *memif = &afe->memif[cpu_dai->id];
 
 	if (afe->release_dram_resource)
 		afe->release_dram_resource(afe->dev);
 
 	return 0;
+
+
+	if (memif->using_sram == 0 && afe->release_dram_resource)
+		afe->release_dram_resource(afe->dev);
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
+	if (memif->using_sram) {
+		memif->using_sram = 0;
+		return mtk_audio_sram_free(afe->sram, substream);
+	}
+
+	return snd_pcm_lib_free_pages(substream);
+#else
+	return snd_pcm_lib_free_pages(substream);
+#endif
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_hw_free);
 
@@ -368,6 +445,7 @@ int mtk_afe_resume(struct snd_soc_component *component)
 }
 EXPORT_SYMBOL_GPL(mtk_afe_resume);
 
+
 int mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
@@ -377,7 +455,8 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 			 __func__, id);
 		return 0;
 	}
-	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
+	return mtk_regmap_update_bits(afe->regmap,
+				      memif->data->enable_reg,
 				      1, 1, memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_enable);
@@ -391,7 +470,8 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 			 __func__, id);
 		return 0;
 	}
-	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
+	return mtk_regmap_update_bits(afe->regmap,
+				      memif->data->enable_reg,
 				      1, 0, memif->data->enable_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
@@ -436,7 +516,7 @@ int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 	/* set MSB to 33-bit */
 	if (memif->data->msb_reg >= 0)
 		mtk_regmap_update_bits(afe->regmap, memif->data->msb_reg,
-				       1, msb_at_bit33, memif->data->msb_shift);
+				1, msb_at_bit33, memif->data->msb_shift);
 
 	return 0;
 }
@@ -474,10 +554,9 @@ static int mtk_memif_set_rate_fs(struct mtk_base_afe *afe,
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 
-	if (memif->data->fs_shift >= 0)
-		mtk_regmap_update_bits(afe->regmap, memif->data->fs_reg,
-				       memif->data->fs_maskbit,
-				       fs, memif->data->fs_shift);
+	mtk_regmap_update_bits(afe->regmap, memif->data->fs_reg,
+			       memif->data->fs_maskbit,
+			       fs, memif->data->fs_shift);
 
 	return 0;
 }
@@ -499,17 +578,17 @@ int mtk_memif_set_rate(struct mtk_base_afe *afe,
 		return -EINVAL;
 
 	return mtk_memif_set_rate_fs(afe, id, fs);
+
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_rate);
 
 int mtk_memif_set_rate_substream(struct snd_pcm_substream *substream,
 				 int id, unsigned int rate)
 {
-	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_component *component =
 		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-
 	int fs = 0;
 
 	if (!afe->memif_fs) {
@@ -532,7 +611,7 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int hd_audio = 0;
-	int hd_align = 0;
+	int memif_32bit_supported = afe->memif_32bit_supported;
 
 	/* set hd mode */
 	switch (format) {
@@ -542,8 +621,10 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 	case SNDRV_PCM_FORMAT_U32_LE:
-		hd_audio = 1;
-		hd_align = 1;
+		if (memif_32bit_supported)
+			hd_audio = 2;
+		else
+			hd_audio = 1;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_U24_LE:
@@ -555,13 +636,8 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 		break;
 	}
 
-	mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
-			       1, hd_audio, memif->data->hd_shift);
-
-	mtk_regmap_update_bits(afe->regmap, memif->data->hd_align_reg,
-			       1, hd_align, memif->data->hd_align_mshift);
-
-	return 0;
+	return mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
+				      0x3, hd_audio, memif->data->hd_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_format);
 
@@ -570,7 +646,8 @@ int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 {
 	const struct mtk_base_memif_data *memif_data = afe->memif[id].data;
 
-	if (memif_data->pbuf_mask == 0 || memif_data->minlen_mask == 0)
+	if (memif_data->pbuf_mask == 0 ||
+	    memif_data->minlen_mask == 0)
 		return 0;
 
 	mtk_regmap_update_bits(afe->regmap, memif_data->pbuf_reg,
