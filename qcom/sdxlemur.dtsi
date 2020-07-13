@@ -286,3 +286,4 @@
 
 #include "sdxlemur-pinctrl.dtsi"
 #include "sdxlemur-stub-regulator.dtsi"
+#include "sdxlemur-usb.dtsi"
