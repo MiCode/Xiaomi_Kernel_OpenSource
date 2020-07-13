@@ -1028,21 +1028,17 @@ out_free_pages:
 static int __functional_dma_api_va_test(struct device *dev, struct seq_file *s,
 				     struct iommu_domain *domain, void *priv)
 {
-	int i, j, ret = 0;
+	int ret = 0;
 	size_t *sz, *sizes = priv;
 
-	for (j = 0; j < 1; ++j) {
-		for (sz = sizes; *sz; ++sz) {
-			for (i = 0; i < 2; ++i) {
-				ds_printf(dev, s, "Full VA sweep @%s %d",
-					       _size_to_string(*sz), i);
-				if (__full_va_sweep(dev, s, *sz, domain)) {
-					ds_printf(dev, s, "  -> FAILED\n");
-					ret = -EINVAL;
-				} else {
-					ds_printf(dev, s, "  -> SUCCEEDED\n");
-				}
-			}
+	for (sz = sizes; *sz; ++sz) {
+		ds_printf(dev, s, "Full VA sweep @%s",
+			       _size_to_string(*sz));
+		if (__full_va_sweep(dev, s, *sz, domain)) {
+			ds_printf(dev, s, "  -> FAILED\n");
+			ret = -EINVAL;
+		} else {
+			ds_printf(dev, s, "  -> SUCCEEDED\n");
 		}
 	}
 
@@ -1055,15 +1051,13 @@ static int __functional_dma_api_va_test(struct device *dev, struct seq_file *s,
 	}
 
 	for (sz = sizes; *sz; ++sz) {
-		for (i = 0; i < 2; ++i) {
-			ds_printf(dev, s, "Rand VA sweep @%s %d",
-				   _size_to_string(*sz), i);
-			if (__rand_va_sweep(dev, s, *sz)) {
-				ds_printf(dev, s, "  -> FAILED\n");
-				ret = -EINVAL;
-			} else {
-				ds_printf(dev, s, "  -> SUCCEEDED\n");
-			}
+		ds_printf(dev, s, "Rand VA sweep @%s",
+			   _size_to_string(*sz));
+		if (__rand_va_sweep(dev, s, *sz)) {
+			ds_printf(dev, s, "  -> FAILED\n");
+			ret = -EINVAL;
+		} else {
+			ds_printf(dev, s, "  -> SUCCEEDED\n");
 		}
 	}
 
