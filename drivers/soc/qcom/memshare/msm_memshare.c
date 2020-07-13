@@ -313,10 +313,10 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 			memblock[i].alloc_request = 0;
 		break;
 
-	case SUBSYS_RAMDUMP_NOTIFICATION:
+	case SUBSYS_AFTER_SHUTDOWN:
 		ramdump_event = true;
 		dev_info(memsh_drv->dev,
-		"memshare: SUBSYS_RAMDUMP_NOTIFICATION: ramdump_event:%d\n",
+		"memshare: SUBSYS_AFTER_SHUTDOWN: ramdump_event:%d\n",
 		ramdump_event);
 		break;
 
