@@ -1342,9 +1342,11 @@ static int smblite_init_hw(struct smblite *chip)
 	}
 
 	/* enable WD BARK and enable it on plugin */
-	val = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT
+	mask = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT
 		| BITE_WDOG_DISABLE_CHARGING_CFG_BIT | WDOG_TIMER_EN_BIT;
-	rc = smblite_lib_masked_write(chg, WD_CFG_REG, val, val);
+	val = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT
+		| BITE_WDOG_DISABLE_CHARGING_CFG_BIT;
+	rc = smblite_lib_masked_write(chg, WD_CFG_REG, mask, val);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
 		return rc;
