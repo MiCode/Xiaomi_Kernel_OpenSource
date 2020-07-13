@@ -235,6 +235,7 @@ int mtk_ccci_send_data(int index, const char *buf, int size)
 		tx_port->name);
 	return -1;
 }
+EXPORT_SYMBOL(mtk_ccci_send_data);
 
 int mtk_ccci_read_data(int index, char *buf, size_t count)
 {
@@ -254,6 +255,7 @@ int mtk_ccci_read_data(int index, char *buf, size_t count)
 	}
 	return ret;
 }
+EXPORT_SYMBOL(mtk_ccci_read_data);
 
 static inline void proxy_set_critical_user(struct port_proxy *proxy_p,
 	int user_id, int enabled)

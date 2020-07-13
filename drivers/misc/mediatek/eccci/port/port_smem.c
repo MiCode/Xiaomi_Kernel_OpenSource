@@ -361,6 +361,7 @@ void __iomem *get_smem_start_addr(int md_id,
 	}
 	return addr;
 }
+EXPORT_SYMBOL(get_smem_start_addr);
 
 phys_addr_t get_smem_phy_start_addr(int md_id,
 	enum SMEM_USER_ID user_id, int *size_o)
