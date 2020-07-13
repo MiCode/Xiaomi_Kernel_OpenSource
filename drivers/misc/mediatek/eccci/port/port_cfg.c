@@ -448,6 +448,7 @@ int mtk_ccci_request_port(char *name)
 	CCCI_ERROR_LOG(-1, PORT, "can not find port %s", name);
 	return -1;
 }
+EXPORT_SYMBOL(mtk_ccci_request_port);
 
 int find_port_by_channel(int index, struct port_t **port)
 {
@@ -467,6 +468,7 @@ int mtk_ccci_open_port(int index)
 	atomic_inc(&md1_ccci_ports[index].usage_cnt);
 	return 0;
 }
+EXPORT_SYMBOL(mtk_ccci_open_port);
 
 int mtk_ccci_release_port(int index)
 {
@@ -474,3 +476,4 @@ int mtk_ccci_release_port(int index)
 	atomic_dec(&md1_ccci_ports[index].usage_cnt);
 	return 0;
 }
+EXPORT_SYMBOL(mtk_ccci_release_port);
