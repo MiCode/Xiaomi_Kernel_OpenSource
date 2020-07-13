@@ -2,6 +2,22 @@
 config SND_SOC_MEDIATEK
 	tristate
 
+config SND_SOC_MTK_SMART_PHONE
+	tristate "Mediatek Smart Phone PCM Operation"
+	help
+	  Mediatek PCM operation which is specific for
+	  smart phone product.
+	  Select Y if product is smart phone.
+	  If unsure select "N".
+
+config SND_SOC_MTK_SRAM
+	tristate "Mediatek Audio SRAM Management"
+	help
+	  Mediatek Audio SRAM management for
+	  normal mode and compact mode.
+	  Select Y if you use this SRAM management.
+	  If unsure select "N".
+
 config SND_SOC_MT2701
 	tristate "ASoC support for Mediatek MT2701 chip"
 	depends on ARCH_MEDIATEK
@@ -50,6 +66,28 @@ config SND_SOC_MT6797_MT6351
 	help
 	  This adds ASoC driver for Mediatek MT6797 boards
 	  with the MT6351 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6873
+	tristate "ASoC support for Mediatek MT6873 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	help
+	  This adds ASoC driver for Mediatek MT6873 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6873_MT6359P
+	tristate "ASoc Audio driver for MT6873 with MT6359P codec"
+	depends on SND_SOC_MT6873
+	select SND_SOC_MT6359P
+	help
+	  This adds ASoC driver for Mediatek MT6873 boards
+	  with the MT6359P codecs.
 	  Select Y if you have such device.
 	  If unsure select "N".
 

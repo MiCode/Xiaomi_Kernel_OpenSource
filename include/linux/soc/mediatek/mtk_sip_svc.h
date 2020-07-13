@@ -44,4 +44,8 @@
 #define MTK_SIP_KERNEL_CLR_SRAMROM_VIO \
 	MTK_SIP_SMC_CMD(0x26C)
 
+
+/* AUDIO related SMC call */
+#define MTK_SIP_AUDIO_CONTROL \
+	MTK_SIP_SMC_CMD(0x517)
 #endif
