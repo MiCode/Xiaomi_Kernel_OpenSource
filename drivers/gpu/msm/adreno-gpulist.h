@@ -938,6 +938,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 		.gpudev = &adreno_a630_gpudev,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
+		.snapshot_size = SZ_2M,
 	},
 	.prim_fifo_threshold = 0x0018000,
 	.gmu_major = 1,
@@ -951,6 +952,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 	.vbif_count = ARRAY_SIZE(a615_gbif_regs),
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a630_protected_regs,
+	.highest_bank_bit = 14,
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
@@ -961,6 +963,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
+		.snapshot_size = SZ_2M,
 	},
 	.prim_fifo_threshold = 0x0018000,
 	.sqefw_name = "a630_sqe.fw",
@@ -972,6 +975,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
 	.hang_detect_cycles = 0x3fffff,
 	.protected_regs = a630_protected_regs,
 	.gx_cpr_toggle = true,
+	.highest_bank_bit = 14,
 };
 
 static const struct adreno_reglist a620_hwcg_regs[] = {
