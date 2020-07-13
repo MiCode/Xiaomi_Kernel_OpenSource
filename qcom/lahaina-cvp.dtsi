@@ -36,6 +36,9 @@
 		qcom,reg-presets = <0xB0088 0x0>;
 		qcom,ipcc-reg = <0x400000 0x100000>;
 
+		pas-id = <26>;
+		memory-region = <&pil_cvp_mem>;
+
 		/* Buses */
 		cvp_cnoc {
 			compatible = "qcom,msm-cvp,bus";
