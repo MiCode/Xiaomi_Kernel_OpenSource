@@ -1,0 +1,31 @@
+Qualcomm Technologies, Inc. Waipio Network-On-Chip interconnect driver binding
+-----------------------------------------------------------
+
+Waipio interconnect providers support system bandwidth requirements through
+RPMh hardware accelerators known as Bus Clock Manager (BCM). The provider is
+able to communicate with the BCM through the Resource State Coordinator (RSC)
+associated with each execution environment. Provider nodes must point to at
+least one RPMh device child node pertaining to their RSC and each provider
+can map to multiple RPMh resources.
+
+Required properties :
+- compatible : shall contain only one of the following:
+			"qcom,waipio-aggre1_noc",
+			"qcom,waipio-aggre2_noc",
+			"qcom,waipio-clk_virt",
+			"qcom,waipio-config_noc",
+			"qcom,waipio-gem_noc",
+			"qcom,waipio-lpass_ag_noc",
+			"qcom,waipio-mc_virt",
+			"qcom,waipio-mmss_noc",
+			"qcom,waipio-nsp_noc",
+			"qcom,waipio-system_noc",
+			"qcom,waipio-pcie_anoc",
+- #interconnect-cells : should contain 1
+
+Examples:
+
+system_noc: interconnect@1680000 {
+	compatible = "qcom,waipio-system_noc";
+	interconnect-cells = <1>;
+};
