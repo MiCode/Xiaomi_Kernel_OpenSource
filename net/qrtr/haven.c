@@ -68,6 +68,7 @@ struct qrtr_haven_dev {
 	u32 label;
 	void *tx_dbl;
 	void *rx_dbl;
+	struct work_struct work;
 
 	struct haven_pipe tx_pipe;
 	struct haven_pipe rx_pipe;
@@ -81,8 +82,20 @@ static void qrtr_haven_kick(struct qrtr_haven_dev *qdev)
 	int ret;
 
 	ret = hh_dbl_send(qdev->tx_dbl, &dbl_mask, HH_DBL_NONBLOCK);
-	if (ret)
+	if (ret) {
 		dev_err(qdev->dev, "failed to raise doorbell %d\n", ret);
+		if (!qdev->master)
+			schedule_work(&qdev->work);
+	}
+}
+
+static void qrtr_haven_retry_work(struct work_struct *work)
+{
+	struct qrtr_haven_dev *qdev = container_of(work, struct qrtr_haven_dev,
+						   work);
+	hh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
+
+	hh_dbl_send(qdev->tx_dbl, &dbl_mask, 0);
 }
 
 static void qrtr_haven_cb(int irq, void *data)
@@ -477,6 +490,7 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 		dev_err(qdev->dev, "failed to get haven tx dbl %d\n", ret);
 		return ret;
 	}
+	INIT_WORK(&qdev->work, qrtr_haven_retry_work);
 
 	qdev->rx_dbl = hh_dbl_rx_register(dbl_label, qrtr_haven_cb, qdev);
 	if (IS_ERR_OR_NULL(qdev->rx_dbl)) {
@@ -498,6 +512,7 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 register_fail:
 	hh_dbl_rx_unregister(qdev->rx_dbl);
 fail_rx_dbl:
+	cancel_work_sync(&qdev->work);
 	hh_dbl_tx_unregister(qdev->tx_dbl);
 
 	return ret;
@@ -507,6 +522,7 @@ static int qrtr_haven_remove(struct platform_device *pdev)
 {
 	struct qrtr_haven_dev *qdev = dev_get_drvdata(&pdev->dev);
 
+	cancel_work_sync(&qdev->work);
 	hh_dbl_tx_unregister(qdev->tx_dbl);
 	hh_dbl_rx_unregister(qdev->rx_dbl);
 
