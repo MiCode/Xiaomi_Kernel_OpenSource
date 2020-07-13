@@ -16,7 +16,11 @@
 #include <linux/regulator/consumer.h>
 #include <sound/tlv.h>
 #include <sound/soc.h>
+#if IS_ENABLED(CONFIG_SND_SOC_MT6359P)
 #include "mt6359p.h"
+#elif IS_ENABLED(CONFIG_SND_SOC_MT6359)
+#include "mt6359.h"
+#endif
 
 enum {
 	MT6359_AIF_1 = 0,	/* dl: hp, rcv, hp+lo */
@@ -5306,13 +5310,14 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 
 static const struct of_device_id mt6359_of_match[] = {
 	{.compatible = "mediatek,mt6359-sound",},
+	{.compatible = "mediatek,mt6359p-sound",},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mt6359_of_match);
 
 static struct platform_driver mt6359_platform_driver = {
 	.driver = {
-		.name = "mt6359-sound",
+		.name = DEVICE_MT6359_NAME,
 		.of_match_table = mt6359_of_match,
 	},
 	.probe = mt6359_platform_driver_probe,

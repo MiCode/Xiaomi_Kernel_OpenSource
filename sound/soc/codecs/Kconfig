@@ -127,6 +127,8 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_ML26124
 	imply SND_SOC_MT6351
 	imply SND_SOC_MT6358
+	imply SND_SOC_MT6359
+	imply SND_SOC_MT6359P
 	imply SND_SOC_MT6660
 	imply SND_SOC_NAU8540
 	imply SND_SOC_NAU8810
@@ -1747,6 +1749,14 @@ config SND_SOC_MT6359
 	tristate "MediaTek MT6359 Codec driver"
 	help
 	  MediaTek MT6359 is a codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
+
+config SND_SOC_MT6359P
+	tristate "MediaTek MT6359P Codec driver"
+	help
+	  MediaTek MT6359P is a codec which contain
 	  three ADC for uplink path(MICs), and
 	  three DAC for downlink path(handset,
 	  headset, lineout).

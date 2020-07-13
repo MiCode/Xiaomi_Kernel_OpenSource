@@ -4,8 +4,8 @@
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
 
-#ifndef _MT6359_H_
-#define _MT6359_H_
+#ifndef _MT6359P_H_
+#define _MT6359P_H_
 
 /*************Register Bit Define*************/
 #define MT6359_TOP0_ID                       0x0
@@ -4791,51 +4791,7 @@
 #define MT6359_ZCD_CON3                      0x260e
 #define MT6359_ZCD_CON4                      0x2610
 #define MT6359_ZCD_CON5                      0x2612
-#define MT6359_ACCDET_DSN_DIG_ID             0x2680
-#define MT6359_ACCDET_DSN_DIG_REV0           0x2682
-#define MT6359_ACCDET_DSN_DBI                0x2684
-#define MT6359_ACCDET_DSN_FPI                0x2686
-#define MT6359_ACCDET_CON0                   0x2688
-#define MT6359_ACCDET_CON1                   0x268a
-#define MT6359_ACCDET_CON2                   0x268c
-#define MT6359_ACCDET_CON3                   0x268e
-#define MT6359_ACCDET_CON4                   0x2690
-#define MT6359_ACCDET_CON5                   0x2692
-#define MT6359_ACCDET_CON6                   0x2694
-#define MT6359_ACCDET_CON7                   0x2696
-#define MT6359_ACCDET_CON8                   0x2698
-#define MT6359_ACCDET_CON9                   0x269a
-#define MT6359_ACCDET_CON10                  0x269c
-#define MT6359_ACCDET_CON11                  0x269e
-#define MT6359_ACCDET_CON12                  0x26a0
-#define MT6359_ACCDET_CON13                  0x26a2
-#define MT6359_ACCDET_CON14                  0x26a4
-#define MT6359_ACCDET_CON15                  0x26a6
-#define MT6359_ACCDET_CON16                  0x26a8
-#define MT6359_ACCDET_CON17                  0x26aa
-#define MT6359_ACCDET_CON18                  0x26ac
-#define MT6359_ACCDET_CON19                  0x26ae
-#define MT6359_ACCDET_CON20                  0x26b0
-#define MT6359_ACCDET_CON21                  0x26b2
-#define MT6359_ACCDET_CON22                  0x26b4
-#define MT6359_ACCDET_CON23                  0x26b6
-#define MT6359_ACCDET_CON24                  0x26b8
-#define MT6359_ACCDET_CON25                  0x26ba
-#define MT6359_ACCDET_CON26                  0x26bc
-#define MT6359_ACCDET_CON27                  0x26be
-#define MT6359_ACCDET_CON28                  0x26c0
-#define MT6359_ACCDET_CON29                  0x26c2
-#define MT6359_ACCDET_CON30                  0x26c4
-#define MT6359_ACCDET_CON31                  0x26c6
-#define MT6359_ACCDET_CON32                  0x26c8
-#define MT6359_ACCDET_CON33                  0x26ca
-#define MT6359_ACCDET_CON34                  0x26cc
-#define MT6359_ACCDET_CON35                  0x26ce
-#define MT6359_ACCDET_CON36                  0x26d0
-#define MT6359_ACCDET_CON37                  0x26d2
-#define MT6359_ACCDET_CON38                  0x26d4
-#define MT6359_ACCDET_CON39                  0x26d6
-#define MT6359_ACCDET_CON40                  0x26d8
+
 #define MT6359_MAX_REGISTER MT6359_ZCD_CON5
 
 enum {
@@ -4844,7 +4800,8 @@ enum {
 	MT6359_MTKAIF_PROTOCOL_2_CLK_P2,
 };
 
-#define CODEC_MT6359_NAME "mtk-codec-mt6359"
+#define CODEC_MT6359_NAME "mtk-codec-mt6359p"
+#define DEVICE_MT6359_NAME "mt6359p-sound"
 
 int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol);
@@ -4854,4 +4811,4 @@ int mt6359_mtkaif_calibration_disable(struct snd_soc_component *cmpnt);
 int mt6359_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
 					int phase_1, int phase_2, int phase_3);
 
-#endif/* end _MT6359_H_ */
+#endif/* end _MT6359P_H_ */
