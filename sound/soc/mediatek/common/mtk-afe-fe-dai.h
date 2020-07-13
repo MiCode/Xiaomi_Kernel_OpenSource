@@ -50,4 +50,5 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 			 int id, snd_pcm_format_t format);
 int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 			    int id, int pbuf_size);
+
 #endif

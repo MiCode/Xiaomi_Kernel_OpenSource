@@ -77,6 +77,19 @@ int mtk_afe_add_sub_dai_control(struct snd_soc_component *component)
 }
 EXPORT_SYMBOL_GPL(mtk_afe_add_sub_dai_control);
 
+unsigned int word_size_align(unsigned int in_size)
+{
+	unsigned int align_size;
+
+	/* sram is device memory,need word size align,
+	 * 8 byte for 64 bit platform
+	 * [3:0] = 4'h0 for the convenience of the hardware implementation
+	 */
+	align_size = in_size & 0xFFFFFFF0;
+	return align_size;
+}
+EXPORT_SYMBOL_GPL(word_size_align);
+
 snd_pcm_uframes_t mtk_afe_pcm_pointer(struct snd_soc_component *component,
 				      struct snd_pcm_substream *substream)
 {
@@ -108,9 +121,32 @@ snd_pcm_uframes_t mtk_afe_pcm_pointer(struct snd_soc_component *component,
 	pcm_ptr_bytes = hw_ptr - hw_base;
 
 POINTER_RETURN_FRAMES:
+	pcm_ptr_bytes = word_size_align(pcm_ptr_bytes);
 	return bytes_to_frames(substream->runtime, pcm_ptr_bytes);
 }
 EXPORT_SYMBOL_GPL(mtk_afe_pcm_pointer);
+
+int mtk_afe_pcm_ack(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_component *component =
+		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
+	struct mtk_base_afe_memif *memif = &afe->memif[cpu_dai->id];
+
+	if (!memif->ack_enable)
+		return 0;
+
+	if (memif->ack)
+		memif->ack(substream);
+	else
+		dev_warn(afe->dev, "%s(), ack_enable but ack == NULL\n",
+			 __func__);
+
+	return 0;
+}
+
 
 int mtk_afe_pcm_new(struct snd_soc_component *component,
 		    struct snd_soc_pcm_runtime *rtd)

@@ -1177,7 +1177,7 @@ static int tfa98xx_set_profile(struct snd_kcontrol *kcontrol,
 
 	/* modified by jiangtao.zeng begin. */
 	/* we are updating profile index only if the device is not in
-	 * operating mode, and will be start in tfa98xx_mute() later.
+	 * operating mode, and will be start in tfa98xx_mute_stream() later.
 	 * if the device in operating mode, we will apply new
 	 * profile now.
 	 */
@@ -2622,7 +2622,7 @@ static int tfa98xx_send_mute_cmd(void)
 }
 #endif
 
-static int tfa98xx_mute(struct snd_soc_dai *dai, int mute)
+static int tfa98xx_mute_stream(struct snd_soc_dai *dai, int mute, int direction)
 {
 	struct snd_soc_component *codec = dai->component;
 	struct tfa98xx *tfa98xx = snd_soc_component_get_drvdata(codec);
@@ -2690,7 +2690,7 @@ static const struct snd_soc_dai_ops tfa98xx_dai_ops = {
 	.set_sysclk = tfa98xx_set_dai_sysclk,
 	.set_tdm_slot = tfa98xx_set_tdm_slot,
 	.hw_params = tfa98xx_hw_params,
-	.digital_mute = tfa98xx_mute,
+	.mute_stream = tfa98xx_mute_stream,
 };
 
 static struct snd_soc_dai_driver tfa98xx_dai[] = {

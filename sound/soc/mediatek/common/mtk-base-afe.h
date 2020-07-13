@@ -62,8 +62,13 @@ struct mtk_base_irq_data {
 	int irq_en_shift;
 	int irq_clr_reg;
 	int irq_clr_shift;
+	int irq_ap_en_reg;
+	int irq_ap_en_shift;
+	int irq_scp_en_reg;
+	int irq_scp_en_shift;
 };
 
+struct dentry;
 struct device;
 struct list_head;
 struct mtk_base_afe_memif;
@@ -89,6 +94,7 @@ struct mtk_base_afe {
 
 	struct mtk_base_afe_memif *memif;
 	int memif_size;
+	int memif_32bit_supported;
 	struct mtk_base_afe_irq *irqs;
 	int irqs_size;
 
@@ -105,8 +111,12 @@ struct mtk_base_afe {
 			  int dai_id, unsigned int rate);
 	int (*get_memif_pbuf_size)(struct snd_pcm_substream *substream);
 
+	void *sram;
 	int (*request_dram_resource)(struct device *dev);
 	int (*release_dram_resource)(struct device *dev);
+
+	struct dentry *debugfs;
+	const struct mtk_afe_debug_cmd *debug_cmds;
 
 	void *platform_priv;
 };
@@ -118,9 +128,14 @@ struct mtk_base_afe_memif {
 	const struct mtk_base_memif_data *data;
 	int irq_usage;
 	int const_irq;
+
+	int using_sram;
+	int use_dram_only;
 	unsigned char *dma_area;
 	dma_addr_t dma_addr;
 	size_t dma_bytes;
+	bool ack_enable;
+	int (*ack)(struct snd_pcm_substream *substream);
 };
 
 struct mtk_base_afe_irq {
