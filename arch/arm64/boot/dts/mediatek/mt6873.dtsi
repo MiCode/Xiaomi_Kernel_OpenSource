@@ -430,6 +430,19 @@
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
+
+		reserve-memory-sspm_share {
+			compatible = "mediatek,reserve-memory-sspm_share";
+			no-map;
+			status = "okay";
+#if defined(CONFIG_MTK_MET_MEM_ALLOC)
+			size = <0 0x110000>; /* 1M + 64K */
+#else
+			size = <0 0x510000>; /* 5M + 64K */
+#endif
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
 	};
 
 	timer: timer {
@@ -1106,6 +1119,59 @@
 			prot-size = <0x4 0x00000000>;
 			page-size = <0x200000>;
 			interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		sspm@10400000 {
+			compatible = "mediatek,sspm";
+			reg = <0 0x10400000 0 0x28000>,
+				<0 0x10440000 0 0x10000>,
+				<0 0x10450000 0 0x100>,
+				<0 0x10451000 0 0x4>,
+				<0 0x10451004 0 0x4>,
+				<0 0x10460000 0 0x100>,
+				<0 0x10461000 0 0x4>,
+				<0 0x10461004 0 0x4>,
+				<0 0x10470000 0 0x100>,
+				<0 0x10471000 0 0x4>,
+				<0 0x10471004 0 0x4>,
+				<0 0x10480000 0 0x100>,
+				<0 0x10481000 0 0x4>,
+				<0 0x10481004 0 0x4>,
+				<0 0x10490000 0 0x100>,
+				<0 0x10491000 0 0x4>,
+				<0 0x10491004 0 0x4>;
+
+			reg-names = "sspm_base",
+				"cfgreg",
+				"mbox0_base",
+				"mbox0_set",
+				"mbox0_clr",
+				"mbox1_base",
+				"mbox1_set",
+				"mbox1_clr",
+				"mbox2_base",
+				"mbox2_set",
+				"mbox2_clr",
+				"mbox3_base",
+				"mbox3_set",
+				"mbox3_clr",
+				"mbox4_base",
+				"mbox4_set",
+				"mbox4_clr";
+
+			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH 0>;
+
+			interrupt-names = "ipc",
+				"mbox0",
+				"mbox1",
+				"mbox2",
+				"mbox3",
+				"mbox4";
 		};
 
 		scp_adsp: scp_adsp@10720000 {
