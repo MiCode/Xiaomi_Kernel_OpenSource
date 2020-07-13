@@ -972,6 +972,14 @@
 		memory-region = <&pil_video_mem>;
 	};
 
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x200000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+		qcom,vm-nav-path;
+	};
+
 	ufsphy_mem: ufsphy_mem@4807000 {
 		reg = <0x4807000 0xDDC>;
 		reg-names = "phy_mem";
