@@ -476,5 +476,9 @@
 				linux,keycodes = <115>;
 			};
 		};
+
+		mt6359p_snd: mt6359p_snd {
+			compatible = "mediatek,mt6359p-sound";
+		};
 	};
 };
