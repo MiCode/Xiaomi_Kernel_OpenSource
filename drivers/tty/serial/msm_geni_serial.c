@@ -130,10 +130,8 @@
 				M_CMD_CANCEL_EN | M_CMD_ABORT_EN)
 #define S_IRQ_BITS		(S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN |\
 				S_CMD_CANCEL_EN | S_CMD_ABORT_EN)
-#define DMA_TX_IRQ_BITS		(TX_RESET_DONE | TX_DMA_DONE |\
-				TX_GENI_CANCEL_IRQ)
-#define DMA_RX_IRQ_BITS		(RX_EOT | RX_GENI_CANCEL_IRQ |\
-				RX_RESET_DONE | UART_DMA_RX_ERRS |\
+#define DMA_TX_IRQ_BITS		(TX_RESET_DONE | TX_DMA_DONE)
+#define DMA_RX_IRQ_BITS		(RX_EOT | RX_RESET_DONE | UART_DMA_RX_ERRS |\
 				UART_DMA_RX_PARITY_ERR | UART_DMA_RX_BREAK |\
 				RX_DMA_DONE)
 
@@ -300,8 +298,13 @@ static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 	geni_m_irq_en |= M_IRQ_BITS;
 	geni_s_irq_en |= S_IRQ_BITS;
 	if (port->xfer_mode == SE_DMA) {
-		dma_m_irq_en |= DMA_TX_IRQ_BITS;
-		dma_s_irq_en |= DMA_RX_IRQ_BITS;
+		if (((port->ver_info.hw_major_ver <= 1)	&&
+			(port->ver_info.hw_minor_ver <= 2)))
+			dma_m_irq_en |= DMA_TX_IRQ_BITS;
+		else
+			dma_m_irq_en |= DMA_TX_IRQ_BITS | TX_GENI_CANCEL_IRQ;
+		dma_s_irq_en |= (DMA_RX_IRQ_BITS |
+					RX_GENI_CANCEL_IRQ(port->ver_info));
 	}
 
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
@@ -340,8 +343,14 @@ static bool msm_serial_try_disable_interrupts(struct uart_port *uport)
 	geni_m_irq_en &= ~M_IRQ_BITS;
 	geni_s_irq_en &= ~S_IRQ_BITS;
 	if (port->xfer_mode == SE_DMA) {
-		dma_m_irq_en &= ~DMA_TX_IRQ_BITS;
-		dma_s_irq_en &= ~DMA_RX_IRQ_BITS;
+		if (((port->ver_info.hw_major_ver <= 1)	&&
+			(port->ver_info.hw_minor_ver <= 2)))
+			dma_m_irq_en &= ~DMA_TX_IRQ_BITS;
+		else
+			dma_m_irq_en &= ~(DMA_TX_IRQ_BITS |
+						TX_GENI_CANCEL_IRQ);
+		dma_s_irq_en &= DMA_RX_IRQ_BITS |
+					RX_GENI_CANCEL_IRQ(port->ver_info);
 	}
 
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
@@ -2038,9 +2047,15 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 
 			if (dma_tx_status & TX_DMA_DONE)
 				msm_geni_serial_handle_dma_tx(uport);
-			if (dma_tx_status & (TX_RESET_DONE |
-						TX_GENI_CANCEL_IRQ))
+
+			if (((msm_port->ver_info.hw_major_ver <= 1) &&
+				(msm_port->ver_info.hw_minor_ver <= 2)) &&
+				(dma_tx_status & TX_RESET_DONE)) {
 				m_cmd_done = true;
+			} else if (dma_tx_status & (TX_RESET_DONE |
+				TX_GENI_CANCEL_IRQ)) {
+				m_cmd_done = true;
+			}
 			if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
 				m_cmd_done = true;
 		}
@@ -2076,7 +2091,8 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 					dma_rx_status & RX_DMA_DONE) {
 				msm_geni_serial_handle_dma_rx(uport,
 							drop_rx);
-				if (!(dma_rx_status & RX_GENI_CANCEL_IRQ)) {
+				if (!(dma_rx_status &
+				RX_GENI_CANCEL_IRQ(msm_port->ver_info))) {
 					geni_se_rx_dma_start(uport->membase,
 					DMA_RX_BUF_SIZE, &msm_port->rx_dma);
 				}
@@ -2089,7 +2105,8 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 				WARN_ON(1);
 			}
 
-			if (dma_rx_status & (RX_EOT | RX_GENI_CANCEL_IRQ |
+			if (dma_rx_status & (RX_EOT |
+				RX_GENI_CANCEL_IRQ(msm_port->ver_info) |
 								RX_DMA_DONE))
 				s_cmd_done = true;
 
