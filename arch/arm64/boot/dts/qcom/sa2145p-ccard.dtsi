@@ -249,22 +249,6 @@
 	status = "ok";
 };
 
-&gpu_bw_tbl {
-	status = "disabled";
-};
-
-&gpubw {
-	status = "disabled";
-};
-
-&msm_gpu {
-	status = "disabled";
-};
-
-&kgsl_msm_iommu {
-	status = "disabled";
-};
-
 &rpm_bus {
 	rpm-regulator-ldoa1 {
 		status = "disabled";
