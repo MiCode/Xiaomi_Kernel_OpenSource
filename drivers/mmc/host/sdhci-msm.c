@@ -132,6 +132,7 @@
 
 #define MSM_MMC_AUTOSUSPEND_DELAY_MS	50
 #define MSM_PMQOS_UNVOTING_DELAY_MS	10 /* msec */
+#define MSM_CLK_GATING_DELAY_MS		200 /* msec */
 
 /* Timeout value to avoid infinite waiting for pwr_irq */
 #define MSM_PWR_IRQ_TIMEOUT_MS 5000
@@ -420,6 +421,7 @@ struct sdhci_msm_host {
 	struct sdhci_msm_bus_vote_data *bus_vote_data;
 	struct delayed_work bus_vote_work;
 	struct delayed_work pmqos_unvote_work;
+	struct delayed_work clk_gating_work;
 	bool pltfm_init_done;
 	bool core_3_0v_support;
 	bool use_7nm_dll;
@@ -2677,7 +2679,11 @@ static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
 	sdhci_msm_bus_set_vote(msm_host, vote);
 }
 
-#define MSM_MMC_BUS_VOTING_DELAY	200 /* msecs */
+/* Add delay of 100 mSec as MMC_CAP_SYNC_RUNTIME_PM is
+ * would suspend device immidiatly.
+ * 200(deferred time) + 100 (suspend time) = 300.
+ */
+#define MSM_MMC_BUS_VOTING_DELAY	300 /* msecs */
 #define VOTE_ZERO  0
 
 /*
@@ -3102,6 +3108,17 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	if ((major == 1) && ((minor == 0x6e) || (minor == 0x71) ||
 				(minor == 0x72)))
 		msm_host->use_7nm_dll = true;
+}
+
+static void sdhci_msm_clk_gating_delayed_work(struct work_struct *work)
+{
+	struct sdhci_msm_host *msm_host = container_of(work,
+			struct sdhci_msm_host, clk_gating_work.work);
+	struct sdhci_host *host = mmc_priv(msm_host->mmc);
+
+	sdhci_msm_registers_save(host);
+	clk_bulk_disable_unprepare(ARRAY_SIZE(msm_host->bulk_clks),
+					msm_host->bulk_clks);
 }
 
 /* Find cpu group qos from a given cpu */
@@ -3566,6 +3583,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "TCXO clk not present (%d)\n", ret);
 	}
 
+	INIT_DELAYED_WORK(&msm_host->clk_gating_work,
+			sdhci_msm_clk_gating_delayed_work);
+
 	ret = sdhci_msm_bus_register(msm_host, pdev);
 	if (ret && !msm_host->skip_bus_bw_voting) {
 		dev_err(&pdev->dev, "Bus registration failed (%d)\n", ret);
@@ -3672,7 +3692,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
-	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
+	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 
 #if defined(CONFIG_SDC_QTI)
@@ -3681,9 +3701,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev,
+	if (!(msm_host->mmc->caps & MMC_CAP_SYNC_RUNTIME_PM)) {
+		pm_runtime_set_autosuspend_delay(&pdev->dev,
 					 MSM_MMC_AUTOSUSPEND_DELAY_MS);
-	pm_runtime_use_autosuspend(&pdev->dev);
+		pm_runtime_use_autosuspend(&pdev->dev);
+	}
 
 	host->mmc_host_ops.execute_tuning = sdhci_msm_execute_tuning;
 
@@ -3801,9 +3823,10 @@ static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 			msecs_to_jiffies(MSM_PMQOS_UNVOTING_DELAY_MS));
 
 skip_qos:
-	sdhci_msm_registers_save(host);
-	clk_bulk_disable_unprepare(ARRAY_SIZE(msm_host->bulk_clks),
-				   msm_host->bulk_clks);
+	queue_delayed_work(msm_host->workq,
+			&msm_host->clk_gating_work,
+			msecs_to_jiffies(MSM_CLK_GATING_DELAY_MS));
+
 	sdhci_msm_bus_voting(host, false);
 	return 0;
 }
@@ -3816,24 +3839,28 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 	struct sdhci_msm_qos_req *qos_req = msm_host->sdhci_qos;
 	int ret;
 
-	ret = clk_bulk_prepare_enable(ARRAY_SIZE(msm_host->bulk_clks),
-				msm_host->bulk_clks);
-	if (ret)
-		return ret;
+	ret = cancel_delayed_work_sync(&msm_host->clk_gating_work);
+	if (!ret) {
+		ret = clk_bulk_prepare_enable(ARRAY_SIZE(msm_host->bulk_clks),
+					       msm_host->bulk_clks);
+		if (ret)
+			return ret;
 
-	sdhci_msm_registers_restore(host);
-	/*
-	 * Whenever core-clock is gated dynamically, it's needed to
-	 * restore the SDR DLL settings when the clock is ungated.
-	 */
-	if (msm_host->restore_dll_config && msm_host->clk_rate)
-		sdhci_msm_restore_sdr_dll_config(host);
+		sdhci_msm_registers_restore(host);
+		/*
+		 * Whenever core-clock is gated dynamically, it's needed to
+		 * restore the SDR DLL settings when the clock is ungated.
+		 */
+		if (msm_host->restore_dll_config && msm_host->clk_rate)
+			sdhci_msm_restore_sdr_dll_config(host);
+	}
 
 	if (!qos_req)
 		goto skip_qos_vote;
-	cancel_delayed_work_sync(&msm_host->pmqos_unvote_work);
-	sdhci_msm_vote_pmqos(msm_host->mmc,
-				msm_host->sdhci_qos->active_mask);
+	ret = cancel_delayed_work_sync(&msm_host->pmqos_unvote_work);
+	if (!ret)
+		sdhci_msm_vote_pmqos(msm_host->mmc,
+					msm_host->sdhci_qos->active_mask);
 
 skip_qos_vote:
 	sdhci_msm_bus_voting(host, true);
