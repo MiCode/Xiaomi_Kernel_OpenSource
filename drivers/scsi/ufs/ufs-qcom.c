@@ -1631,6 +1631,10 @@ static void __ufs_qcom_pm_qos_req_end(struct ufs_qcom_host *host, int req_cpu)
 	if (!host->pm_qos.groups || !host->pm_qos.is_enabled)
 		return;
 
+	if (group->active_reqs <= 0)
+		pr_err_ratelimited("ufshcd-qcom: active req coount is negative: %d\n",
+					group->active_reqs);
+
 	group = &host->pm_qos.groups[ufs_qcom_cpu_to_group(host, req_cpu)];
 
 	if (--group->active_reqs)
