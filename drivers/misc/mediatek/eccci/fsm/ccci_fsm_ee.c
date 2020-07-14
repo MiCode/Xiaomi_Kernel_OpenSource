@@ -129,16 +129,16 @@ void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage)
 		if (ee_ctl->ops->dump_ee_info)
 			ee_ctl->ops->dump_ee_info(ee_ctl,
 				MDEE_DUMP_LEVEL_STAGE1, ee_case);
-#ifdef mtk09077
+
 		/* Dump MD register*/
 		md_dump_flag = DUMP_FLAG_REG | DUMP_FLAG_MD_WDT;
-#endif
+
 		if (ee_case == MD_EE_CASE_ONLY_SWINT)
 			md_dump_flag |= (DUMP_FLAG_QUEUE_0
 							| DUMP_FLAG_CCIF
 							| DUMP_FLAG_CCIF_REG);
 		ccci_md_dump_info(md_id, md_dump_flag, NULL, 0);
-#ifdef mtk09077
+
 		/* check this first, as we overwrite share memory here */
 		if (ee_case == MD_EE_CASE_NO_RESPONSE)
 			ccci_md_dump_info(md_id, DUMP_FLAG_CCIF
@@ -160,7 +160,6 @@ void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage)
 		ccci_md_dump_info(md_id,
 			DUMP_FLAG_SMEM_CCB_CTRL | DUMP_FLAG_SMEM_CCB_DATA,
 			NULL, 0);
-#endif
 
 		CCCI_ERROR_LOG(md_id, FSM, "MD exception stage 1: end\n");
 _dump_done:
@@ -182,12 +181,11 @@ _dump_done:
 		if (MD_EE_WDT_GET & ee_ctl->ee_info_flag)
 			md_wdt_ee = 1;
 		spin_unlock_irqrestore(&ee_ctl->ctrl_lock, flags);
-#ifdef mtk09077
+
 		/* Dump MD register, only NO response case dump */
 		if (md_id == MD_SYS1
 			|| ee_ctl->ee_case == MD_EE_CASE_NO_RESPONSE)
 			md_dump_flag = DUMP_FLAG_REG | DUMP_FLAG_MD_WDT;
-#endif
 		if (ee_ctl->ee_case == MD_EE_CASE_ONLY_SWINT)
 			md_dump_flag |= (DUMP_FLAG_QUEUE_0
 			| DUMP_FLAG_CCIF | DUMP_FLAG_CCIF_REG);

@@ -98,6 +98,7 @@ struct md_ccif_ctrl {
 	void __iomem *ccif_md_base;
 	void __iomem *md_pcore_pccif_base;
 	void __iomem *md_ccif4_base;
+	void __iomem *md_ccif5_base;
 	unsigned int ap_ccif_irq0_id;
 	unsigned int ap_ccif_irq1_id;
 	unsigned long ap_ccif_irq0_flags;

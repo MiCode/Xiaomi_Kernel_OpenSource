@@ -11,14 +11,6 @@
 #include "ccci_common_config.h"
 #include "modem_sys.h"
 
-struct  ccci_plat_val {
-	void __iomem *infra_ao_base;
-	unsigned int md_gen;
-	unsigned long offset_epof_md1;
-	void __iomem *md_plat_info;
-};
-static struct ccci_plat_val md_cd_plat_val_ptr;
-
 #define ccci_write32(b, a, v)  \
 do { \
 	writel(v, (b) + (a)); \

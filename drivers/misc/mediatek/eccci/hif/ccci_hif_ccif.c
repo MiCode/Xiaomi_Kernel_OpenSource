@@ -44,7 +44,7 @@
 
 #define TAG "cif"
 /* struct md_ccif_ctrl *ccif_ctrl; */
-unsigned int devapc_check_flag = 1;
+unsigned int devapc_check_flag;
 
 /* this table maybe can be set array when multi, or else. */
 static struct ccci_clk_node ccif_clk_table[] = {
@@ -1090,9 +1090,11 @@ void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
 			jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
 	} else {
 		del_timer(&md_ctrl->traffic_monitor);
-		ccci_reset_ccif_hw(md_ctrl->md_id,
-			ccif_id, md_ctrl->ccif_ap_base,
-			md_ctrl->ccif_md_base, md_ctrl);
+		/*
+		 *ccci_reset_ccif_hw(md_ctrl->md_id,
+		 *	ccif_id, md_ctrl->ccif_ap_base,
+		 *	md_ctrl->ccif_md_base, md_ctrl);
+		 */
 	}
 
 	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s\n", __func__);
@@ -1822,13 +1824,25 @@ static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 			devapc_check_flag = 1;
 		} else {
 			if (strcmp(ccif_clk_table[idx].clk_name,
-				"infra-ccif4-md") == 0) {
+				"infra-ccif4-md") == 0
+				&& ccif_ctrl->md_ccif4_base) {
 				udelay(1000);
 				CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
 					"ccif4 %s: after 1ms, set 0x%llx + 0x14 = 0xFF\n",
 					__func__,
 					(u64)ccif_ctrl->md_ccif4_base);
 				ccci_write32(ccif_ctrl->md_ccif4_base, 0x14,
+					0xFF); /* special use ccci_write32 */
+			}
+			if (strcmp(ccif_clk_table[idx].clk_name,
+				"infra-ccif5-md") == 0
+				&& ccif_ctrl->md_ccif5_base) {
+				udelay(1000);
+				CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
+					"ccif4 %s: after 1ms, set 0x%llx + 0x14 = 0xFF\n",
+					__func__,
+					(u64)ccif_ctrl->md_ccif5_base);
+				ccci_write32(ccif_ctrl->md_ccif5_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
 			devapc_check_flag = 0;
@@ -1962,7 +1976,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	node = dev->of_node;
 	if (!node) {
 		CCCI_ERROR_LOG(-1, TAG, "No ccif node in dtsi\n");
-		ret = -3;
+		ret = -5;
 		return ret;
 	}
 	md_ctrl->ccif_ap_base = of_iomap(node, 0);
@@ -2008,7 +2022,18 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 			CCCI_ERROR_LOG(-1, TAG,
 				"ccif4_base fail: 0x%p!\n",
 				md_ctrl->md_ccif4_base);
-			return -2;
+			return -6;
+		}
+	}
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,md_ccif5");
+	if (node) {
+		md_ctrl->md_ccif5_base = of_iomap(node, 0);
+		if (!md_ctrl->md_ccif5_base) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccif5_base fail: 0x%p!\n",
+				md_ctrl->md_ccif5_base);
+			return -7;
 		}
 	}
 

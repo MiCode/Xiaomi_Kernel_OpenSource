@@ -8,6 +8,13 @@
 
 #include <linux/skbuff.h>
 
+struct  ccci_plat_val {
+	void __iomem *infra_ao_base;
+	unsigned int md_gen;
+	unsigned long offset_epof_md1;
+	void __iomem *md_plat_info;
+};
+
 struct ccci_clk_node {
 	struct clk *clk_ref;
 	unsigned char *clk_name;
@@ -52,19 +59,15 @@ struct md_hw_info {
 	unsigned long ap_ccif_base;
 	unsigned long md_ccif_base;
 	unsigned int sram_size;
-	void __iomem *md_ccif4_base;
-	void __iomem *md_ccif5_base;
 	unsigned long spm_sleep_base;
 
 	/* HW info - Interrutpt ID */
-	unsigned int ap_ccif_irq0_id;
 	unsigned int ap_ccif_irq1_id;
 	unsigned int md_wdt_irq_id;
 	unsigned int ap2md_bus_timeout_irq_id;
 	void __iomem *md_pcore_pccif_base;
 
 	/* HW info - Interrupt flags */
-	unsigned long ap_ccif_irq0_flags;
 	unsigned long ap_ccif_irq1_flags;
 	unsigned long md_wdt_irq_flags;
 	void *hif_hw_info;
@@ -93,7 +96,6 @@ int ccci_modem_syssuspend(void);
 void ccci_modem_sysresume(void);
 void md_dump_register_6873(unsigned int md_index);
 
-extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern void dump_emi_outstanding(void);
 extern int ccci_modem_init_common(struct platform_device *plat_dev,

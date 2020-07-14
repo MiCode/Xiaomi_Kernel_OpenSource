@@ -10,7 +10,7 @@
 #include "ccci_modem.h"
 #include "ccci_core.h"
 #include "ccci_config.h"
-#include "ccif_hif_platform.h"
+#include "ccif_hif_reg.h"
 
 enum CCCI_HIF {
 	CLDMA_HIF_ID,

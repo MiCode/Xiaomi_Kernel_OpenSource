@@ -46,6 +46,7 @@
 #include "ap_md_reg_dump.h"
 
 static struct regulator *reg_vmodem, *reg_vsram;
+static struct ccci_plat_val md_cd_plat_val_ptr;
 
 static struct ccci_clk_node clk_table[] = {
 /* #ifdef USING_PM_RUNTIME */
@@ -183,12 +184,9 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 		hw_info->md_wdt_irq_id =
 		 irq_of_parse_and_map(dev_ptr->dev.of_node, 0);
-#ifdef mtk09077
-		hw_info->ap_ccif_irq0_id =
-		 irq_of_parse_and_map(dev_ptr->dev.of_node, 1);
 		hw_info->ap_ccif_irq1_id =
 		 irq_of_parse_and_map(dev_ptr->dev.of_node, 2);
-#endif
+
 		hw_info->md_pcore_pccif_base =
 		 ioremap_wc(MD_PCORE_PCCIF_BASE, 0x20);
 		CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
@@ -197,7 +195,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		/* Device tree using none flag to register irq,
 		 * sensitivity has set at "irq_of_parse_and_map"
 		 */
-		hw_info->ap_ccif_irq0_flags = IRQF_TRIGGER_NONE;
 		hw_info->ap_ccif_irq1_flags = IRQF_TRIGGER_NONE;
 		hw_info->md_wdt_irq_flags = IRQF_TRIGGER_NONE;
 
@@ -239,30 +236,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			}
 		}
 		node = of_find_compatible_node(NULL, NULL,
-			"mediatek,md_ccif4");
-		if (node) {
-			hw_info->md_ccif4_base = of_iomap(node, 0);
-			if (!hw_info->md_ccif4_base) {
-				CCCI_ERROR_LOG(dev_cfg->index, TAG,
-				"ccif4_base fail: 0x%p!\n",
-				(void *)hw_info->md_ccif4_base);
-				return -1;
-			}
-		}
-
-		node = of_find_compatible_node(NULL, NULL,
-			"mediatek,md_ccif5");
-		if (node) {
-			hw_info->md_ccif5_base = of_iomap(node, 0);
-			if (!hw_info->md_ccif5_base) {
-				CCCI_ERROR_LOG(dev_cfg->index, TAG,
-				"ccif5_base fail: 0x%p!\n",
-				(void *)hw_info->md_ccif5_base);
-				return -1;
-			}
-		}
-
-		node = of_find_compatible_node(NULL, NULL,
 			"mediatek,mt8192-topckgen");//"mediatek,mt6873-topckgen"
 		if (node)
 			hw_info->ap_topclkgen_base = of_iomap(node, 0);
@@ -288,16 +261,11 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
-	if (
-#ifdef mtk09077
-		hw_info->ap_ccif_irq0_id == 0 ||
-		hw_info->ap_ccif_irq1_id == 0 ||
-#endif
+	if (hw_info->ap_ccif_irq1_id == 0 ||
 		hw_info->md_wdt_irq_id == 0) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
-			"ccif_irq0:%d,ccif_irq0:%d,md_wdt_irq:%d\n",
-			hw_info->ap_ccif_irq0_id, hw_info->ap_ccif_irq1_id,
-			hw_info->md_wdt_irq_id);
+			"ccif_irq1:%d, md_wdt_irq:%d\n",
+			hw_info->ap_ccif_irq1_id, hw_info->md_wdt_irq_id);
 		return -1;
 	}
 
@@ -321,10 +289,11 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		"ap_ccif_base:0x%p, md_ccif_base:0x%p\n",
 					(void *)hw_info->ap_ccif_base,
 					(void *)hw_info->md_ccif_base);
+
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
-		"ccif_irq0:%d,ccif_irq1:%d,md_wdt_irq:%d\n",
-		hw_info->ap_ccif_irq0_id, hw_info->ap_ccif_irq1_id,
-		hw_info->md_wdt_irq_id);
+		"ccif_irq1:%d,md_wdt_irq:%d\n",
+		hw_info->ap_ccif_irq1_id, hw_info->md_wdt_irq_id);
+
 	//xuxin-clk-pg//register_pg_callback(&md1_subsys_handle);
 #ifdef USING_PM_RUNTIME
 	pm_runtime_enable(&dev_ptr->dev);
