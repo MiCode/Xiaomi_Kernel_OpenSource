@@ -768,10 +768,15 @@ static int haptics_get_closeloop_lra_period_v2(
 	u8 val[2];
 	u32 tmp;
 
-	val[0] = MOD_STATUS_SEL_LAST_GOOD_TLRA_VAL;
-	val[1] = MOD_STATUS_XT_SEL_LAST_GOOD_TLRA_VAL;
+	val[0] = MOD_STATUS_XT_SEL_LAST_GOOD_TLRA_VAL;
 	rc = haptics_write(chip, chip->cfg_addr_base,
-			HAP_CFG_MOD_STATUS_SEL_REG, val, 2);
+			HAP_CFG_MOD_STATUS_XT_V2_REG, val, 1);
+	if (rc < 0)
+		return rc;
+
+	val[0] = MOD_STATUS_SEL_LAST_GOOD_TLRA_VAL;
+	rc = haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_MOD_STATUS_SEL_REG, val, 1);
 	if (rc < 0)
 		return rc;
 
@@ -835,6 +840,8 @@ static int haptics_set_vmax_mv(struct haptics_chip *chip, u32 vmax_mv)
 			HAP_CFG_VMAX_REG, &val, 1);
 	if (rc < 0)
 		dev_err(chip->dev, "config VMAX failed, rc=%d\n", rc);
+	else
+		dev_dbg(chip->dev, "Set Vmax to %u mV\n", vmax_mv);
 
 	return rc;
 }
@@ -1075,8 +1082,8 @@ static int haptics_get_available_fifo_memory(struct haptics_chip *chip)
 	u8 val[2];
 	u32 fill, available;
 
-	val[0] = MOD_STATUS_SEL_FIFO_FILL_STATUS_VAL;
 	if (chip->ptn_revision == HAP_PTN_V1) {
+		val[0] = MOD_STATUS_SEL_FIFO_FILL_STATUS_VAL;
 		rc = haptics_write(chip, chip->cfg_addr_base,
 				HAP_CFG_MOD_STATUS_SEL_REG, val, 1);
 		if (rc < 0)
@@ -1089,9 +1096,15 @@ static int haptics_get_available_fifo_memory(struct haptics_chip *chip)
 
 		fill = val[0] & FIFO_REAL_TIME_FILL_STATUS_MASK_V1;
 	} else {
-		val[1] = MOD_STATUS_XT_V2_FIFO_FILL_STATUS_VAL;
+		val[0] = MOD_STATUS_XT_V2_FIFO_FILL_STATUS_VAL;
 		rc = haptics_write(chip, chip->cfg_addr_base,
-				HAP_CFG_MOD_STATUS_SEL_REG, val, 2);
+				HAP_CFG_MOD_STATUS_XT_V2_REG, val, 1);
+		if (rc < 0)
+			return rc;
+
+		val[0] = MOD_STATUS_SEL_FIFO_FILL_STATUS_VAL;
+		rc = haptics_write(chip, chip->cfg_addr_base,
+				HAP_CFG_MOD_STATUS_SEL_REG, val, 1);
 		if (rc < 0)
 			return rc;
 
@@ -1301,6 +1314,9 @@ static int haptics_load_constant_effect(struct haptics_chip *chip, u8 amplitude)
 		rc = -EBUSY;
 		goto unlock;
 	}
+
+	/* No effect data when playing constant waveform */
+	play->effect = NULL;
 
 	/* configure VMAX in case it was changed in previous effect playing */
 	rc = haptics_set_vmax_mv(chip, chip->config.vmax_mv);
