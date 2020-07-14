@@ -278,12 +278,12 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				qcom,speed-bin = <159>;
+				qcom,speed-bin = <152>;
 				qcom,initial-pwrlevel = <5>;
 
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;
-					qcom,gpu-freq = <752000000>;
+					qcom,gpu-freq = <720000000>;
 					qcom,level = <RPMH_REGULATOR_LEVEL_NOM_L1>;
 
 					qcom,bus-freq-ddr7 = <11>;
