@@ -595,7 +595,7 @@ static int hyp_core_ctl_hp_offline(unsigned int cpu)
 	 * isolated by us. An offline CPU is considered
 	 * as reserved. So no further action is needed.
 	 */
-	if (cpumask_test_and_clear_cpu(cpu, &the_hcd->our_isolated_cpus))
+	if (cpumask_test_and_clear_cpu(cpu, &the_hcd->our_isolated_cpus)) {
 		sched_unisolate_cpu_unlocked(cpu);
 		qos_req = &per_cpu(qos_min_req, cpu);
 		ret = freq_qos_update_request(qos_req,
@@ -603,6 +603,7 @@ static int hyp_core_ctl_hp_offline(unsigned int cpu)
 		if (ret < 0)
 			pr_err("fail to update min freq for CPU%d ret=%d\n",
 								cpu, ret);
+	}
 
 	return 0;
 }
