@@ -26,7 +26,10 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-cdp.dtb \
 	sa8155p-v2-adp-star.dtb \
 	sa8155-v2-adp-air.dtb \
 	sa8155p-v2-adp-air.dtb \
-	sa8155p-v2-adp-air-lpass.dtb
+	sa8155p-v2-adp-air-lpass.dtb \
+	sa8155p-v2-adp-air-capture.dtb \
+	sa8155p-v2-adp-star-capture.dtb
+
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -176,6 +179,8 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sa8155p-v2-adp-star.dtb \
 	sa8155-v2-adp-air.dtb \
 	sa8155p-v2-adp-air.dtb \
+	sa8155p-v2-adp-air-capture.dtb \
+	sa8155p-v2-adp-star-capture.dtb \
 	sa8155-adp-alcor.dtb \
 	sa8155p-adp-alcor.dtb \
 	sm8150-v2-rumi.dtb \
