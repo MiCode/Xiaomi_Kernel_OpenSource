@@ -4,16 +4,15 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/device.h>
+#include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/device.h>
-#include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
-#include <linux/io.h>
-
 #include <soc/mediatek/emi.h>
 
 struct emi_cen {
@@ -85,16 +84,14 @@ static int emicen_probe(struct platform_device *pdev)
 		"ch_cnt", &(cen->ch_cnt));
 	if (ret) {
 		dev_err(&pdev->dev, "No ch_cnt\n");
-		ret = -ENXIO;
-		goto free_emi_cen;
+		return -ENXIO;
 	}
 
 	ret = of_property_read_u32(emicen_node,
 		"rk_cnt", &(cen->rk_cnt));
 	if (ret) {
 		dev_err(&pdev->dev, "No rk_cnt\n");
-		ret = -ENXIO;
-		goto free_emi_cen;
+		return -ENXIO;
 	}
 
 	cen->rk_size = devm_kmalloc_array(&pdev->dev,
@@ -102,31 +99,27 @@ static int emicen_probe(struct platform_device *pdev)
 		GFP_KERNEL);
 	if (!(cen->rk_size)) {
 		return -ENOMEM;
-		goto free_emi_cen;
 	}
 
 	ret = of_property_read_u64_array(emicen_node,
 		"rk_size", cen->rk_size, cen->rk_cnt);
 	if (ret) {
 		dev_err(&pdev->dev, "No rk_size\n");
-		ret = -ENXIO;
-		goto free_rk_size;
+		return -ENXIO;
 	}
 
 	ret = of_property_count_elems_of_size(emicen_node,
 		"reg", sizeof(unsigned int) * 4);
 	if (ret <= 0) {
 		dev_err(&pdev->dev, "No reg\n");
-		ret = -ENXIO;
-		goto free_rk_size;
+		return -ENXIO;
 	}
 	cen->emi_cen_cnt = (unsigned int)ret;
 
 	cen->emi_cen_base = devm_kmalloc_array(&pdev->dev,
 		cen->emi_cen_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(cen->emi_cen_base)) {
-		ret = -ENOMEM;
-		goto free_rk_size;
+		return -ENOMEM;
 	}
 	for (i = 0; i < cen->emi_cen_cnt; i++)
 		cen->emi_cen_base[i] = of_iomap(emicen_node, i);
@@ -134,8 +127,7 @@ static int emicen_probe(struct platform_device *pdev)
 	cen->emi_chn_base = devm_kmalloc_array(&pdev->dev,
 		cen->ch_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(cen->emi_chn_base)) {
-		ret = -ENOMEM;
-		goto free_cen_base;
+		return -ENOMEM;
 	}
 	for (i = 0; i < cen->ch_cnt; i++)
 		cen->emi_chn_base[i] = of_iomap(emichn_node, i);
@@ -152,29 +144,11 @@ static int emicen_probe(struct platform_device *pdev)
 			i, cen->rk_size[i]);
 
 	return 0;
-
-free_cen_base:
-	devm_kfree(&pdev->dev, cen->emi_cen_base);
-
-free_rk_size:
-	devm_kfree(&pdev->dev, cen->rk_size);
-
-free_emi_cen:
-	devm_kfree(&pdev->dev, cen);
-
-	return ret;
 }
 
 static int emicen_remove(struct platform_device *pdev)
 {
-	struct emi_cen *cen = platform_get_drvdata(pdev);
-
 	global_emi_cen = NULL;
-
-	devm_kfree(&pdev->dev, cen->emi_chn_base);
-	devm_kfree(&pdev->dev, cen->emi_cen_base);
-	devm_kfree(&pdev->dev, cen->rk_size);
-	devm_kfree(&pdev->dev, cen);
 
 	return 0;
 }
