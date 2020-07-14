@@ -204,7 +204,11 @@ ignore_violation:
 	return IRQ_HANDLED;
 }
 
+#if !defined(MODULE)
+static int __init emimpu_ap_region_init(void)
+#else
 static int emimpu_ap_region_init(void)
+#endif
 {
 	struct emi_mpu *mpu;
 
