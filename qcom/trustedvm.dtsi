@@ -188,6 +188,83 @@
 
 		vdevices {
 			peer-default;
+			shm1 {
+				vdevice-type = "shm";
+				generate = "/hypervisor/shm1";
+				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
+				peer-default;
+				memory {
+					label = <0x00000001>;
+					allocate-base;
+				};
+			};
+
+			shm2 {
+				vdevice-type = "shm";
+				generate = "/hypervisor/shm2";
+				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
+				peer-default;
+				memory {
+					label = <0x00000002>;
+					allocate-base;
+				};
+			};
+
+			shm3 {
+				vdevice-type = "shm";
+				generate = "/hypervisor/shm3";
+				push-compatible = "qcom,qrtr-haven-gen";
+				peer-default;
+				memory {
+					label = <0x00000003>;
+					allocate-base;
+				};
+			};
+
+			neuron-ch1-doorbell-source {
+				vdevice-type = "doorbell-source";
+				generate = "/hypervisor/neuron-ch1-doorbell-source";
+				label = <0x00000001>;
+				peer-default;
+			};
+
+			neuron-ch1-doorbell {
+				vdevice-type = "doorbell";
+				generate = "/hypervisor/neuron-ch1-doorbell";
+				interrupts = <0x00000000 0x00000020 0x00000001>;
+				label = <0x00000001>;
+				peer-default;
+			};
+
+			neuron-ch2-doorbell-source {
+				vdevice-type = "doorbell-source";
+				generate = "/hypervisor/neuron-ch2-doorbell-source";
+				label = <0x00000002>;
+				peer-default;
+			};
+
+			neuron-ch2-doorbell {
+				vdevice-type = "doorbell";
+				generate = "/hypervisor/neuron-ch2-doorbell";
+				interrupts = <0x00000000 0x00000021 0x00000001>;
+				label = <0x00000002>;
+				peer-default;
+			};
+
+			qrtr-doorbell-source {
+				vdevice-type = "doorbell-source";
+				generate = "/hypervisor/qrtr-doorbell-source";
+				label = <0x00000003>;
+				peer-default;
+			};
+
+			qrtr-doorbell {
+				vdevice-type = "doorbell";
+				generate = "/hypervisor/qrtr-doorbell";
+				interrupts = <0x00000000 0x00000022 0x00000001>;
+				label = <0x00000003>;
+				peer-default;
+			};
 		};
 	};
 
