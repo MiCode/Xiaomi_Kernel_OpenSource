@@ -1,5 +1,36 @@
 DEFCONFIG=allmodconfig
 
+# When trying to prevent others from using symbol_get/put we need to exclude a
+# number of in-kernel modules that use those functions.
+SYMBOL_GET_USERS="			\
+	-d CAIF				\
+	-d DELL_LAPTOP			\
+	-d DRM_I915			\
+	-d DVB_USB			\
+	-d DVB_USB_V2			\
+	-d FSL_ENETC			\
+	-d FSL_ENETC_VF			\
+	-d INTEL_IPS			\
+	-d KVM				\
+	-d MEDIA_DIGITAL_TV_SUPPORT	\
+	-d MEDIA_PCI_SUPPORT		\
+	-d MEDIA_RADIO_SUPPORT		\
+	-d MTD_CFI			\
+	-d MTD_GEN_PROBE		\
+	-d MTD_HYPERBUS			\
+	-d MTD_JEDECPROBE		\
+	-d MTD_TS5500			\
+	-d NFS_V4			\
+	-d SAMPLE_HW_BREAKPOINT		\
+	-d VFIO				\
+	-d VIDEO_CX231XX		\
+	-d VIDEO_EM28XX			\
+	-d VIDEO_GO7007			\
+	-d VIDEO_PVRUSB2		\
+	-d VIDEO_TM6000			\
+	-d VIDEO_USBVISION		\
+"
+
 POST_DEFCONFIG_CMDS="update_config"
 function update_config() {
     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
@@ -7,6 +38,7 @@ function update_config() {
          -d CPU_BIG_ENDIAN \
          -d STM \
          -d TEST_MEMCAT_P \
+         ${SYMBOL_GET_USERS} \
          -e UNWINDER_FRAME_POINTER \
 
     (cd ${OUT_DIR} && \
