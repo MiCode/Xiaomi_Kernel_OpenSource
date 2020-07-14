@@ -27,7 +27,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina";
 	compatible = "qcom,lahaina";
-	qcom,msm-id = <415 0x10000>;
+	qcom,msm-id = <415 0x10000>, <456 0x10000>;
 	interrupt-parent = <&intc>;
 
 	#address-cells = <2>;
