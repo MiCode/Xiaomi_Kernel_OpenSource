@@ -188,7 +188,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&wakeup_gpio_default>;
 	};
-
 };
 
 &thermal_zones {
