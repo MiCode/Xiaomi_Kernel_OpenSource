@@ -1,0 +1,7 @@
+#include "lahaina-v2.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Lahaina v2.1";
+	compatible = "qcom,lahaina";
+	qcom,msm-id = <415 0x20001>, <456 0x20001>;
+};
