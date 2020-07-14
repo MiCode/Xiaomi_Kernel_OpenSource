@@ -5,8 +5,6 @@
 
 #ifndef __CCIF_HIF_PLATFORM_H__
 #define __CCIF_HIF_PLATFORM_H__
-#include "ccci_config.h"
-#include "ccci_common_config.h"
 
 #include <linux/io.h>
 
