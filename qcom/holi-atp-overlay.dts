@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "holi-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi ATP";
+	compatible = "qcom,holi-atp", "qcom,holi", "qcom,atp";
+	qcom,msm-id = <454 0x10000>;
+	qcom,board-id = <33 0>;
+};
