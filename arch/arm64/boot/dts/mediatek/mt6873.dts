@@ -604,6 +604,52 @@
 			compatible = "mediatek,mt6360_adc";
 			#io-channel-cells = <1>;
 		};
+		mt6360_led: led {
+			compatible = "mediatek,mt6360_led";
+			rgbon_sync = <1>;
+			iled  {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				led@0 {
+					reg = <0>;
+					label = "isink1";
+				};
+				led@1 {
+					reg = <1>;
+					label = "isink2";
+				};
+				led@2 {
+					reg = <2>;
+					label = "isink3";
+				};
+				led@3 {
+					reg = <3>;
+					label = "isink4";
+				};
+			};
+			fled {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				flash@0 {
+					reg = <0>;
+					label = "mt6360_flash_ch1";
+					led-max-microamp = <400000>;
+					flash-max-microamp = <1500000>;
+					flash-max-timeout = <1248000>;
+					port@0 {
+					};
+				};
+				flash@1 {
+					reg = <1>;
+					label = "mt6360_flash_ch2";
+					led-max-microamp = <400000>;
+					flash-max-microamp = <1500000>;
+					flash-max-timeout = <1248000>;
+					port@1 {
+					};
+				};
+			};
+		};
 		pmic {
 			compatible = "mediatek,mt6360_pmic";
 			mt6360_mdla_buck_reg: buck1 {
