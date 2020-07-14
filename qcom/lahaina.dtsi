@@ -517,6 +517,14 @@
 			reg = <0x0 0xe3300000 0x0 0x0100000>;
 			label = "dfps_data_region";
 		};
+
+		non_secure_display_memory: non_secure_display_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x6400000>;
+		};
 	};
 
 	chosen {

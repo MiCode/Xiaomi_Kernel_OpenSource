@@ -67,5 +67,10 @@
 			qcom,ion-heap-type = "DMA";
 		};
 
+		qcom,ion-heap@3 { /* NON SECURE DISPLAY HEAP */
+			reg = <ION_DISPLAY_HEAP_ID>;
+			memory-region = <&non_secure_display_memory>;
+			qcom,ion-heap-type = "DMA";
+		};
 	};
 };
