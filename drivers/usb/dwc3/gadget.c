@@ -2116,6 +2116,28 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	return 0;
 }
 
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
+{
+	int ret = 0;
+	struct dwc3 *dwc = gadget_to_dwc(g);
+
+	if (dwc3_gadget_is_suspended(dwc)) {
+		dev_dbg(dwc->dev, "USB bus is suspended, scheduling wakeup\n");
+		dwc3_gadget_wakeup(&dwc->gadget);
+		return -EAGAIN;
+	}
+
+	ret = dwc3_send_gadget_generic_command(dwc, DWC3_DGCMD_XMIT_DEV,
+			0x1 | (interface_id << 4));
+	if (ret)
+		dev_err(dwc->dev, "Function wakeup HW command failed, ret %d\n",
+				ret);
+
+	return ret;
+}
+#endif
+
 static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 		int is_selfpowered)
 {
@@ -2770,6 +2792,9 @@ static void __maybe_unused dwc3_gadget_set_speed(struct usb_gadget *g,
 static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
+#ifdef CONFIG_USB_FUNC_WAKEUP_SUPPORTED
+	.func_wakeup		= dwc_gadget_func_wakeup,
+#endif
 	.set_selfpowered	= dwc3_gadget_set_selfpowered,
 	.vbus_session		= dwc3_gadget_vbus_session,
 	.vbus_draw		= dwc3_gadget_vbus_draw,
