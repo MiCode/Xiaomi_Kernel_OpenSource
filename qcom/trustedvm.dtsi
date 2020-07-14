@@ -265,6 +265,15 @@
 				label = <0x00000003>;
 				peer-default;
 			};
+
+			mem-buf-message-queue-pair {
+				vdevice-type = "message-queue-pair";
+				generate = "/hypervisor/membuf-msgq-pair";
+				message-size = <0x000000f0>;
+				queue-depth = <0x00000008>;
+				peer-default;
+				qcom,label = <0x0000001>;
+			};
 		};
 	};
 
