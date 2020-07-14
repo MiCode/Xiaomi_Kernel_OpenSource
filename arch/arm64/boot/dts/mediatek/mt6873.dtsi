@@ -495,6 +495,53 @@
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
+
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x1000000>;
+			alloc-range = <0 0xc0000000 0 0x10000000>;
+		};
+	};
+
+	memory_ssmr_features: memory-ssmr-features {
+		compatible = "mediatek,memory-ssmr-features";
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+		svp-size = <0 0x10000000>;
+#endif
+#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
+		2d_fr-size = <0 0x8000000>;
+#endif
+#if defined(CONFIG_TRUSTONIC_TRUSTED_UI) || \
+	defined(CONFIG_BLOWFISH_TUI_SUPPORT)
+		tui-size = <0 0x4000000>;
+#endif
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
+		wfd-size = <0 0x4000000>;
+#endif
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+		prot-sharedmem-size = <0 0x8000000>;
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+		ta-elf-size = <0 0x1000000>;
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+		ta-stack-heap-size = <0 0x6000000>;
+#endif
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+		sdsp-tee-sharedmem-size = <0 0x1000000>;
+#endif
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+		sdsp-firmware-size = <0 0x1000000>;
+#endif
+		};
+
+	ssmr {
+		compatible = "mediatek,trusted_mem";
+		memory-region = <&ssmr_cma_mem>;
 	};
 
 	timer: timer {
