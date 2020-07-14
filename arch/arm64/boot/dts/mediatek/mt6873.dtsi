@@ -1303,6 +1303,17 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		pwm_leds {
+			compatible = "pwm-leds";
+
+			backlight {
+				label = "lcd-backlight";
+				pwms = <&disp_pwm 0 39385>;
+				pwm-names = "lcd-backlight";
+				max-brightness = <255>;
+			};
+		};
+
 		i2c10: i2c@11015000 {
 			compatible = "mediatek,mt6873-i2c";
 			reg = <0 0x11015000 0 0x1000>;
