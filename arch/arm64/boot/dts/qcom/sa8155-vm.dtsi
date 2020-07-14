@@ -885,6 +885,7 @@
 			&sdc2_cmd_off &sdc2_data_off &storage_cd_default>;
 
 		broken-cd;
+		qcom,nonhotplug;
 		status = "disabled";
 	};
 
