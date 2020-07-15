@@ -8,6 +8,8 @@
 #include "mtk_disp_pmqos.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_drv.h"
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 
 #ifndef MTK_FB_MMDVFS_SUPPORT
 #define	MAX_FREQ_STEP 6
@@ -16,8 +18,8 @@
 static struct drm_crtc *dev_crtc;
 
 /* add for mm qos */
-static struct pm_qos_request mm_freq_request;
-static u64 g_freq_steps[MAX_FREQ_STEP];
+static struct regulator *mm_freq_request;
+static u32 *g_freq_steps;
 static int g_freq_level = -1;
 static int step_size = 1;
 
@@ -290,19 +292,39 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 
 	return 0;
 }
-#ifdef MTK_FB_MMDVFS_SUPPORT
-void mtk_drm_mmdvfs_init(void)
+#if IS_ENABLED(CONFIG_MTK_MMDVFS)
+static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 {
+	int i = 0;
+	struct dev_pm_opp *opp;
+	unsigned long freq;
 
-	pm_qos_add_request(&mm_freq_request, PM_QOS_DISP_FREQ,
-			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
-
-	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, g_freq_steps, &step_size);
+	step_size = dev_pm_opp_get_opp_count(dev);
+	g_freq_steps = kcalloc(step_size, sizeof(u32), GFP_KERNEL);
+	freq = 0;
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
+		g_freq_steps[i] = freq;
+		freq++;
+		i++;
+		dev_pm_opp_put(opp);
+	}
 }
-#endif
+void mtk_drm_mmdvfs_init(struct device *dev)
+{
+	dev_pm_opp_of_add_table(dev);
+	mm_freq_request = devm_regulator_get(dev, "dvfsrc-vcore");
+
+	mtk_drm_mmdvfs_get_avail_freq(dev);
+}
+
+
 static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {
+	struct dev_pm_opp *opp;
+	unsigned long freq;
+	int volt, ret;
+
 	if (drm_crtc_index(crtc) != 0)
 		return;
 
@@ -317,33 +339,42 @@ static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	DDPINFO("%s set mmclk level: %d\n", caller, g_freq_level);
 
 	if (g_freq_level >= 0)
-		cpu_latency_qos_update_request(&mm_freq_request,
-			g_freq_steps[g_freq_level]);
+		freq = g_freq_steps[g_freq_level];
 	else
-		cpu_latency_qos_update_request(&mm_freq_request, 0);
+		freq = g_freq_steps[0];
+
+	opp = dev_pm_opp_find_freq_ceil(crtc->dev->dev, &freq);
+	volt = dev_pm_opp_get_voltage(opp);
+	dev_pm_opp_put(opp);
+	ret = regulator_set_voltage(mm_freq_request, volt, INT_MAX);
+
+	if (ret)
+		DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
 }
 
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 	unsigned int pixclk, const char *caller)
 {
 	int i;
+	unsigned long freq = pixclk * 1000000;
 
-	if (pixclk >= g_freq_steps[0]) {
+	if (freq > g_freq_steps[step_size - 1]) {
 		DDPMSG("%s:error:pixleclk (%d) is to big for mmclk (%llu)\n",
-			caller, pixclk, g_freq_steps[0]);
-		mtk_drm_set_mmclk(crtc, 0, caller);
+			caller, freq, g_freq_steps[step_size - 1]);
+		mtk_drm_set_mmclk(crtc, step_size - 1, caller);
 		return;
 	}
-	if (!pixclk) {
+	if (!freq) {
 		mtk_drm_set_mmclk(crtc, -1, caller);
 		return;
 	}
-	for (i = 1; i < step_size; i++) {
-		if (pixclk >= g_freq_steps[i]) {
-			mtk_drm_set_mmclk(crtc, i-1, caller);
+	for (i = step_size - 2 ; i >= 0; i--) {
+		if (freq > g_freq_steps[i]) {
+			mtk_drm_set_mmclk(crtc, i + 1, caller);
 			break;
 		}
-		if (i == step_size - 1)
+		if (i == 0)
 			mtk_drm_set_mmclk(crtc, -1, caller);
 	}
 }
+#endif

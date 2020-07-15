@@ -2281,8 +2281,8 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #endif
 	disp_dbg_init(drm);
 	PanelMaster_Init(drm);
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	mtk_drm_mmdvfs_init();
+#if IS_ENABLED(CONFIG_MTK_MMDVFS)
+	mtk_drm_mmdvfs_init(drm->dev);
 #endif
 	DDPINFO("%s-\n", __func__);
 
