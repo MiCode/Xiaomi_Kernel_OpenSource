@@ -1,3 +1,12 @@
 #Add symbols to bypass ABI Monitor here
 bypass_arr=(\
-)
+"fb_" \
+"_fb" \
+"usb_"
+"function int remove_conflicting_framebuffers" \
+"function int remove_conflicting_pci_framebuffers" \
+"function clk\* clk_register_composite" \
+"function int clocksource_mmio_init" \
+"function u64 clocksource_mmio_readl_up" \
+"function void sched_clock_register" \
+"struct dma_async_tx_descriptor ")
