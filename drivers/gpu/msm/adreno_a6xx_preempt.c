@@ -594,6 +594,8 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT |
+		(ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? 0 : (1 << 27));
 
 	if (IS_ERR_OR_NULL(rb->preemption_desc))
 		rb->preemption_desc = kgsl_allocate_global(device,
@@ -627,7 +629,7 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(data), 0);
 	kgsl_sharedmem_writel(rb->preemption_desc,
-		PREEMPT_RECORD(cntl), A6XX_CP_RB_CNTL_DEFAULT);
+		PREEMPT_RECORD(cntl), cp_rb_cntl);
 	kgsl_sharedmem_writel(rb->preemption_desc,
 		PREEMPT_RECORD(rptr), 0);
 	kgsl_sharedmem_writel(rb->preemption_desc,
