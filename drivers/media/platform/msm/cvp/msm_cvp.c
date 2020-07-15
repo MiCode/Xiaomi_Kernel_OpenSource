@@ -274,7 +274,7 @@ static bool cvp_fence_wait(struct cvp_fence_queue *q,
 
 	f = list_first_entry(&q->wait_list, struct cvp_fence_command, list);
 	list_del_init(&f->list);
-	list_add_tail(&q->sched_list, &f->list);
+	list_add_tail(&f->list, &q->sched_list);
 
 	mutex_unlock(&q->lock);
 	*fence = f;
@@ -293,7 +293,7 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 	struct cvp_hfi_device *hdev;
 	struct cvp_session_queue *sq;
 	u32 hfi_err = HFI_ERR_NONE;
-	struct cvp_hfi_msg_session_hdr *hdr;
+	struct cvp_hfi_msg_session_hdr hdr;
 
 	dprintk(CVP_SYNX, "%s %s\n", current->comm, __func__);
 
@@ -317,9 +317,8 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 
 	timeout = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
 	rc = cvp_wait_process_message(inst, sq, &ktid, timeout,
-				(struct cvp_kmd_hfi_packet *)pkt);
-	hdr = (struct cvp_hfi_msg_session_hdr *)pkt;
-	hfi_err = hdr->error_type;
+				(struct cvp_kmd_hfi_packet *)&hdr);
+	hfi_err = hdr.error_type;
 	if (rc) {
 		dprintk(CVP_ERR, "%s %s: cvp_wait_process_message rc %d\n",
 			current->comm, __func__, rc);
