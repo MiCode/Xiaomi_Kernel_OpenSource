@@ -14,7 +14,7 @@ ORI_ABI_XML=abi_$src_defconfig.xml
 TARGET_ABI_XML=abi_target.xml
 ABI_REPORT=abi-report.out
 FINAL_ABI_REPORT=abi-report-final.out
-TARGET_KERNEL_DIR=$BASE_DIR/out
+TARGET_KERNEL_DIR=$BASE_DIR/temp/out
 TARGET_VMLINUX_DIR=$BASE_DIR/out_vmlinux
 
 echo "Get ABIGAIL_VERSION from $ABIGAIL_BUILD_SCRIPT"
@@ -33,7 +33,7 @@ based on src_defconfig and compare with abi_{src_defconfig}.xml${eol}"
 	echo "[src_defconfig]: source project defconfig"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-evb6873_64_defconfig mode=m \
+k6873v1_64_gki_defconfig mode=m \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
@@ -50,7 +50,7 @@ monitor result to [abi_result_path]${eol}"
 	echo "[abi_result_path]: absolute path to put abi monitor result"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-evb6873_64_defconfig mode=m abi_result_path=absolute_path \
+k6873v1_64_gki_defconfig mode=m abi_result_path=absolute_path \
 ./scripts/abi/CompareABI.sh 2>&1 | tee buildABI.log${eol}"
 	echo ""
 	echo -e "${red}Command for delete temp files:${eol}"
@@ -118,11 +118,19 @@ then
 /prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
 $PWD/prebuilts/clang/host/linux-x86/clang-r353983c/bin/:$PATH
 	cd $BASE_DIR
-	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang $src_defconfig O=out
-	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang O=out -j24 -k
+	echo "Copy arch/arm64/configs/$src_defconfig to \
+arch/arm64/configs/$src_defconfig.config"
+	cp arch/arm64/configs/$src_defconfig \
+	arch/arm64/configs/$src_defconfig.config
 
+	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
+	CROSS_COMPILE=aarch64-linux-android- CC=clang \
+	gki_defconfig $src_defconfig.config O=temp/out
+	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
+	CROSS_COMPILE=aarch64-linux-android- CC=clang O=temp/out -j24 -k
+
+	echo "Remove temp file arch/arm64/configs/$src_defconfig.config"
+	rm arch/arm64/configs/$src_defconfig.config
 
 	echo "Generate ABI xml:$TARGET_ABI_XML from kernel \
 tree:$TARGET_VMLINUX_DIR"

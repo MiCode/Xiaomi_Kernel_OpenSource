@@ -25,7 +25,7 @@ echo "ABIGAIL_DIR_RELEASE=$ABIGAIL_DIR_RELEASE"
 
 cd $TARGET_KERNEL_DIR
 TARGET_KERNEL_DIR_RELATED_PATH=`pwd`
-TARGET_KERNEL_OUT_DIR_RELATED_PATH=$TARGET_KERNEL_DIR_RELATED_PATH/common/out/..
+TARGET_KERNEL_OUT_DIR_RELATED_PATH=$TARGET_KERNEL_DIR_RELATED_PATH/common/temp/out/..
 echo "TARGET_KERNEL_DIR_RELATED_PATH=$TARGET_KERNEL_DIR_RELATED_PATH"
 echo "TARGET_KERNEL_OUT_DIR_RELATED_PATH=$TARGET_KERNEL_OUT_DIR_RELATED_PATH"
 cd $BASE_DIR
@@ -45,7 +45,7 @@ mode=m ./scripts/abi/genOriABIxml.sh"
 	echo "[target_commit]: target kernel commit id"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_commit=491f0e3 \
-src_defconfig=evb6873_64_defconfig \
+src_defconfig=k6873k_64_gki_defconfig \
 target_branch=common-android-5.4 target_commit=f232ce6 mode=m \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
@@ -61,7 +61,7 @@ for preflight based on src_defconfig ${eol}"
 	echo "[target_branch]: target branch"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
-evb6873_64_defconfig \
+k6873v1_64_gki_defconfig \
 target_branch=common-android-5.4 mode=p \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
@@ -74,8 +74,8 @@ target_branch=common-android-5.4 mode=p \
 
 function del_temp_files(){
 	echo "Start delete temp files..."
-	echo "Delete temp files $BASE_DIR/out"
-	rm -rf $BASE_DIR/out
+	echo "Delete temp files $BASE_DIR/temp/out"
+	rm -rf $BASE_DIR/temp/out
 	echo "Delete temp files $TARGET_KERNEL_DIR"
 	rm -rf $TARGET_KERNEL_DIR
 	#rm -rf $ABI_XML_DIR/$TARGET_ABI_XML
@@ -115,17 +115,7 @@ then
 	$ABIGAIL_BUILD_SCRIPT
 	#remove temp files first
 	del_temp_files
-	echo "Generate .config from src_defconfig:$src_defconfig with kernel \
-commit id:$src_commit"
 	cd ..
-	export PATH=\
-$PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts/clang/host/linux-x86/clang-r353983c/bin/:$PATH
-	cd $BASE_DIR
-	git checkout $src_commit
-	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-		CROSS_COMPILE=aarch64-linux-android- \
-		CC=clang $src_defconfig O=out
 
 	echo "Generate ABI xml:$TARGET_ABI_XML of target_branch:$target_branch \
 with commit id:$target_commit"
@@ -139,9 +129,9 @@ $PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
 $PWD/prebuilts-master/clang/host/linux-x86/clang-r353983c/bin/:$PATH
 	cd common
 	git checkout $target_commit
-	echo "Move .config from $BASE_DIR/out to \
+	echo "Move gki_defconfig from arch/arm64/configs/ to \
 $PWD/arch/arm64/configs/$TARGET_DEFCONFIG"
-	cp $BASE_DIR/out/.config arch/arm64/configs/$TARGET_DEFCONFIG
+	cp arch/arm64/configs/gki_defconfig arch/arm64/configs/$TARGET_DEFCONFIG
 	#Modify $TARGET_DEFCONFIG configs according to $TARGET_DEFCONFIG_PATCH
 	exec < $TARGET_DEFCONFIG_PATCH
 	while read line
@@ -154,14 +144,14 @@ $PWD/arch/arm64/configs/$TARGET_DEFCONFIG"
 	done
 
 	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang $TARGET_DEFCONFIG O=out
+	CROSS_COMPILE=aarch64-linux-android- CC=clang $TARGET_DEFCONFIG O=temp/out
 	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
-	CROSS_COMPILE=aarch64-linux-android- CC=clang O=out -j24 -k
+	CROSS_COMPILE=aarch64-linux-android- CC=clang O=temp/out -j24 -k
 
 	#Only use vmlinux to generate ABI xml
-	echo "Copy vmlinux from $PWD/out to $PWD/out_vmlinux"
+	echo "Copy vmlinux from $PWD/temp/out to $PWD/out_vmlinux"
 	mkdir out_vmlinux
-	cp out/vmlinux out_vmlinux
+	cp temp/out/vmlinux out_vmlinux
 
 	#Use abi_dump to generate $TARGET_ABI_XML
 	#export $ABIGAIL_DIR bin and lib
