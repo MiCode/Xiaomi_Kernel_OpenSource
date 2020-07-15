@@ -25,6 +25,8 @@ trusted_mem-y += ssmr_mgr.o
 trusted_mem-y += peer_mgr.o
 trusted_mem-y += proc.o
 trusted_mem-y += alloc_api.o
+trusted_mem-y += pmem/buddy_ops.o
+trusted_mem-y += pmem/memmgr.o
 trusted_mem-y += ssmr/memory_ssmr_module.o
 
 ifeq ($(TCORE_PROFILING_SUPPORT),y)
@@ -58,10 +60,6 @@ trusted_mem-y += tee_devices.o
 ccflags-y += -DTEE_DEVICES_SUPPORT
 trusted_mem-y += tee_impl/tee_invoke.o
 
-ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
-		  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
-trusted_mem-y += tee_impl/tee_ops.o
-endif
 endif
 
 #==========================================================================
