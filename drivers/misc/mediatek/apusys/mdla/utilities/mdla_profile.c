@@ -17,9 +17,6 @@
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_trace.h>
 
-#define DBGFS_PROF_NAME_V1 "prof"
-#define DBGFS_PROF_NAME_V2 "profile"
-
 #define LAT_BRKDN_NUM (4)
 #define LAT_NUM       (LAT_BRKDN_NUM + 3)
 

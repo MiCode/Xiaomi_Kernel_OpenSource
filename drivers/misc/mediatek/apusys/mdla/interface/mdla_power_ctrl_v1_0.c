@@ -44,10 +44,9 @@ int mdla_pwr_on_v1_0(u32 core_id, bool force)
 						__func__, user_mdla);
 	}
 
+power_on_done:
 	mdla_pwr_ops_get()->hw_reset(core_id,
 				mdla_dbg_get_reason_str(REASON_POWERON));
-
-power_on_done:
 	mdla_pwr_ops_get()->unlock(core_id);
 
 	return ret;

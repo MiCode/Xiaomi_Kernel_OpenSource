@@ -7,6 +7,10 @@
 
 #include <linux/types.h>
 
+
+#define DBGFS_PROF_NAME_V1 "prof"
+#define DBGFS_PROF_NAME_V2 "profile"
+
 enum PROF_MODE {
 	PROF_V1,
 	PROF_V2,

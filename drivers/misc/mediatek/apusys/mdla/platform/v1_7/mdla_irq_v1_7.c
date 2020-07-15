@@ -188,7 +188,8 @@ int mdla_v1_7_irq_request(struct device *dev, int irqdesc_num)
 		}
 
 		if (request_irq(irq_desc->irq, mdla_irq_handler,
-			IRQF_TRIGGER_HIGH, DRIVER_NAME, irq_desc->dev)) {
+			irq_get_trigger_type(irq_desc->irq),
+			DRIVER_NAME, irq_desc->dev)) {
 			dev_info(dev, "mtk_mdla[%d]: Could not allocate interrupt %d.\n",
 					i, irq_desc->irq);
 			/* IRQF_TRIGGER_HIGH for Simulator workaroud only */

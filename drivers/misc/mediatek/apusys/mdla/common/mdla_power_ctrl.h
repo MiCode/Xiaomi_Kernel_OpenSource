@@ -8,6 +8,8 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 
+#define DBGFS_PWR_NAME      "pwr_dbg"
+
 struct mdla_pwr_ops {
 	int (*on)(u32 core_id, bool force);
 	int (*off)(u32 core_id, int suspend, bool force);

@@ -32,14 +32,14 @@ int mdla_pwr_on_v1_x(u32 core_id, bool force)
 	if (force == false) {
 		mdla_device->cmd_list_cnt++;
 		if (mdla_device->cmd_list_cnt > 1)
-			goto out;
+			goto power_on_done;
 	}
 	mdla_device->sw_power_is_on = true;
 
 	mdla_pwr_ops_get()->off_timer_cancel(core_id);
 
 	if (mdla_device->power_is_on)
-		goto out;
+		goto power_on_done;
 
 	poweron_t = sched_clock();
 	ret = apu_device_power_on(user_mdla);
@@ -60,13 +60,13 @@ int mdla_pwr_on_v1_x(u32 core_id, bool force)
 	mdla_drv_debug("mdla %d: power on info: apu_device_power_on_time: %llu\n",
 			core_id, sched_clock() - poweron_t);
 
+power_on_done:
 	mdla_pwr_ops_get()->hw_reset(core_id,
 				mdla_dbg_get_reason_str(REASON_POWERON));
-
 out:
 	mdla_pwr_ops_get()->unlock(core_id);
 
-	return 0;
+	return ret;
 }
 
 int mdla_pwr_off_v1_x(u32 core_id,

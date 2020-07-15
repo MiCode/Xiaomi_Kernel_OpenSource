@@ -65,7 +65,6 @@ struct mdla_pmu_info {
 	u64 PMU_res_buf_addr;
 	struct mdla_pmu_hnd *pmu_hnd;
 	struct mdla_pmu_data data;
-	spinlock_t lock;
 	u32 number_of_event;
 	u8 pmu_mode;
 };
@@ -343,30 +342,19 @@ static void mdla_pmu_reset_and_write_event(u32 core_id, u16 priority)
 static void mdla_pmu_reset_counter_variable(struct mdla_pmu_info *pmu)
 {
 	int i;
-	unsigned long flags;
-
-	spin_lock_irqsave(&pmu->lock, flags);
 
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
 		pmu->data.l_counters[i] = 0;
 
 	pmu->data.l_cmd_id = 0;
 	pmu->data.l_cmd_cnt = 0;
-
-	spin_unlock_irqrestore(&pmu->lock, flags);
 }
 
 static void mdla_pmu_reset_cycle_variable(struct mdla_pmu_info *pmu)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&pmu->lock, flags);
-
 	pmu->data.l_cycle = 0;
 	pmu->data.l_end_t = 0;
 	pmu->data.l_start_t = 0;
-
-	spin_unlock_irqrestore(&pmu->lock, flags);
 }
 
 static void mdla_pmu_reset_counter_no_lock(u32 core_id)
@@ -615,8 +603,16 @@ void mdla_v2_0_pmu_info_show(struct seq_file *s)
 						pmu->data.l_counters[c]);
 		}
 	}
-	seq_printf(s, "set event by %s\n",
+	seq_printf(s, "\nset event by %s\n",
 		mdla_dbg_read_u32(FS_PMU_EVT_BY_APU) ? "apusys" : "debugfs");
+
+	seq_puts(s, "\n==== usage ====\n");
+	seq_printf(s, "%24s: echo [1|0] > /d/mdla/%s\n",
+			"set pmu event source",
+			mdla_dbg_get_u32_node_str(FS_PMU_EVT_BY_APU));
+	seq_printf(s, "%24s: echo [us(dec)] > /d/mdla/%s\n",
+			"set pmu timer period",
+			mdla_dbg_get_u64_node_str(FS_CFG_PMU_PERIOD));
 }
 
 
@@ -639,10 +635,8 @@ void mdla_v2_0_pmu_init(struct mdla_dev *mdla_info)
 		return;
 	}
 
-	for (i = 0; i < PRIORITY_LEVEL; i++) {
+	for (i = 0; i < PRIORITY_LEVEL; i++)
 		info[i].data.cfg_percmd_mode = NORMAL;
-		spin_lock_init(&info[i].lock);
-	}
 
 	spin_lock_init(&dev->lock);
 
