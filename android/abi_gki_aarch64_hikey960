@@ -186,11 +186,6 @@
   get_random_bytes
   gpiod_set_value_cansleep
   gpio_to_desc
-  hci_alloc_dev
-  hci_free_dev
-  hci_recv_frame
-  hci_register_dev
-  hci_unregister_dev
   hrtimer_cancel
   hrtimer_init
   hrtimer_start_range_ns
@@ -504,40 +499,6 @@
   sdio_readb
   sdio_release_irq
   sdio_writeb
-
-# required by hci_uart.ko
-  baswap
-  bit_wait_timeout
-  bt_warn
-  __hci_cmd_sync
-  n_tty_ioctl_helper
-  nvmem_cell_get
-  nvmem_cell_put
-  nvmem_cell_read
-  out_of_line_wait_on_bit_timeout
-  __percpu_down_read
-  percpu_down_write
-  percpu_free_rwsem
-  __percpu_init_rwsem
-  __percpu_up_read
-  percpu_up_write
-  serdev_device_close
-  __serdev_device_driver_register
-  serdev_device_get_tiocm
-  serdev_device_open
-  serdev_device_set_baudrate
-  serdev_device_set_flow_control
-  serdev_device_set_tiocm
-  serdev_device_write_buf
-  serdev_device_write_flush
-  tty_driver_flush_buffer
-  tty_ldisc_flush
-  tty_register_ldisc
-  tty_set_termios
-  tty_termios_encode_baud_rate
-  tty_unregister_ldisc
-  tty_unthrottle
-  wake_up_bit
 
 # required by clk-hi655x.ko
   devm_clk_hw_register
@@ -1257,62 +1218,6 @@
   typec_unregister_altmode
   typec_unregister_partner
   typec_unregister_port
-
-# required by rfcomm.ko
-  add_wait_queue_exclusive
-  bt_accept_dequeue
-  bt_accept_enqueue
-  bt_accept_unlink
-  bt_sock_ioctl
-  bt_sock_poll
-  bt_sock_reclassify_lock
-  bt_sock_stream_recvmsg
-  bt_sock_wait_ready
-  bt_sock_wait_state
-  device_move
-  hci_conn_check_secure
-  hci_conn_security
-  hci_conn_switch_role
-  hci_get_route
-  hci_register_cb
-  hci_unregister_cb
-  kernel_accept
-  kernel_bind
-  kernel_connect
-  kernel_listen
-  lock_sock_nested
-  put_tty_driver
-  _raw_read_lock
-  _raw_read_unlock
-  _raw_write_lock
-  _raw_write_unlock
-  release_sock
-  security_sk_clone
-  sock_alloc_send_skb
-  sock_create_kern
-  sock_gettstamp
-  sock_release
-  __tty_alloc_driver
-  tty_flip_buffer_push
-  tty_insert_flip_string_fixed_flag
-  tty_kref_put
-  tty_port_close
-  tty_port_hangup
-  tty_port_init
-  tty_port_install
-  tty_port_open
-  tty_port_put
-  tty_port_register_device
-  tty_port_tty_get
-  tty_port_tty_hangup
-  tty_port_tty_wakeup
-  tty_register_driver
-  tty_set_operations
-  tty_std_termios
-  tty_unregister_device
-  tty_unregister_driver
-  tty_vhangup
-  tty_wakeup
 
 # required by rfkill-gpio.ko
   rfkill_alloc

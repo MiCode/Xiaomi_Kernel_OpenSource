@@ -157,8 +157,6 @@
   gpiod_set_value_cansleep
   handle_edge_irq
   handle_level_irq
-  __hci_cmd_sync
-  hci_recv_frame
   hdmi_audio_infoframe_init
   hrtimer_init
   hrtimer_start_range_ns
@@ -464,43 +462,6 @@
   spmi_register_read
   spmi_register_write
   spmi_register_zero_write
-
-# required by btqca.ko
-  __hci_cmd_send
-  __hci_cmd_sync_ev
-
-# required by hci_uart.ko
-  bit_wait_timeout
-  hci_alloc_dev
-  hci_free_dev
-  hci_recv_diag
-  hci_register_dev
-  hci_unregister_dev
-  jiffies_to_msecs
-  n_tty_ioctl_helper
-  out_of_line_wait_on_bit_timeout
-  __percpu_down_read
-  percpu_down_write
-  percpu_free_rwsem
-  __percpu_init_rwsem
-  __percpu_up_read
-  percpu_up_write
-  serdev_device_close
-  __serdev_device_driver_register
-  serdev_device_open
-  serdev_device_set_baudrate
-  serdev_device_set_flow_control
-  serdev_device_set_tiocm
-  serdev_device_wait_until_sent
-  serdev_device_write_buf
-  serdev_device_write_flush
-  tty_driver_flush_buffer
-  tty_ldisc_flush
-  tty_register_ldisc
-  tty_set_termios
-  tty_unregister_ldisc
-  tty_unthrottle
-  wake_up_bit
 
 # required by clk-scmi.ko
   clk_hw_set_rate_range
