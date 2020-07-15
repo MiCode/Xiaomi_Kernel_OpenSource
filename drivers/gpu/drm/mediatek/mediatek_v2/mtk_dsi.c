@@ -4577,7 +4577,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case SET_MMCLK_BY_DATARATE:
 	{
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_MMDVFS)
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
 
