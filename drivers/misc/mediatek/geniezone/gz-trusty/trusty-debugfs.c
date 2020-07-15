@@ -15,15 +15,16 @@
  *    ecosystem, ex: M-TEE, Trusty, GlobalPlatform, ...)
  */
 
-
 #include <linux/random.h>
 #include <gz-trusty/trusty.h>
 #include <gz-trusty/smcall.h>
 #include <linux/kthread.h>
 #include <linux/signal.h>
 #include <linux/sched/signal.h>	/* Linux kernel 4.14 */
+#include <linux/mutex.h>
 
 /*** Trusty MT test device attributes ***/
+static DEFINE_MUTEX(gz_concurrent_lock);
 static struct task_struct *trusty_task;
 static struct task_struct *nebula_task;
 static struct device *mtee_dev[TEE_ID_END];
@@ -113,9 +114,11 @@ static ssize_t gz_concurrent_show(struct device *dev,
 {
 	char str[256], tmp[256];
 	int i = 0;
+	size_t ret = 0;
 
 	str[0] = '\0';
 
+	mutex_lock(&gz_concurrent_lock);
 	if (trusty_task) {
 		i = snprintf(tmp, 256,
 			"stress_trusty on CPU %d, succeed %lld, failed %lld\n",
@@ -148,7 +151,11 @@ static ssize_t gz_concurrent_show(struct device *dev,
 			255);
 		strncat(str, "\techo 0 > to stop\n", 255);
 	}
-	return scnprintf(buf, PAGE_SIZE, "%s", str);
+
+	ret = scnprintf(buf, 256, "%s", str);
+	mutex_unlock(&gz_concurrent_lock);
+
+	return ret;
 }
 
 static ssize_t gz_concurrent_store(struct device *dev,
@@ -167,6 +174,7 @@ static ssize_t gz_concurrent_store(struct device *dev,
 	tmp %= 100;
 	pr_info("[%s] get number %lu\n", __func__, tmp);
 
+	mutex_lock(&gz_concurrent_lock);
 	if (tmp == 0) {
 		if (trusty_task) {
 			pr_info("[%s] Stop stress_trusty_thread", __func__);
@@ -178,11 +186,13 @@ static ssize_t gz_concurrent_store(struct device *dev,
 			kthread_stop(nebula_task);
 		}
 		trusty_task = nebula_task = NULL;
+		mutex_unlock(&gz_concurrent_lock);
 		return n;
 	}
 
 	if (trusty_task || nebula_task) {
 		pr_info("[%s] Start already!\n", __func__);
+		mutex_unlock(&gz_concurrent_lock);
 		return n;
 	}
 
@@ -221,6 +231,8 @@ static ssize_t gz_concurrent_store(struct device *dev,
 			__func__, cpu[1]);
 		wake_up_process(nebula_task);
 	}
+
+	mutex_unlock(&gz_concurrent_lock);
 
 	return n;
 }
