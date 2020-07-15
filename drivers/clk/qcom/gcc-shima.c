@@ -3184,7 +3184,7 @@ static struct clk_branch gcc_video_axi0_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi0_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_force_off_ops,
 		},
 	},
 };
@@ -3199,7 +3199,7 @@ static struct clk_branch gcc_video_axi1_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi1_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_force_off_ops,
 		},
 	},
 };
