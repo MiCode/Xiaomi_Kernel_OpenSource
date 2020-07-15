@@ -60,7 +60,7 @@ static int fhctl_to_tinysys_command(unsigned int cmd,
 	case FH_DCTL_CMD_SSC_TBL_CONFIG:
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_FHCTL,
 		IPI_SEND_WAIT, ipi_data, FHCTL_D_LEN, 10);
 		if (ret != 0) {
 			pr_info("[Error]mtk_ipi_send_compl err(%x) ret:%d-%d\n",
@@ -88,7 +88,7 @@ static int clk_mt_fh_mcupm_hal_init(void)
 	int ret = 0;
 	unsigned int ack_data = 0;
 
-	ret = mtk_ipi_register(&mcupm_ipidev, CH_S_FHCTL, NULL,
+	ret = mtk_ipi_register(get_mcupm_ipidev(), CH_S_FHCTL, NULL,
 			NULL, (void *)&ack_data);
 	if (ret) {
 		pr_info("[FH]MCUPM ipi_register fail, ret %d\n", ret);
