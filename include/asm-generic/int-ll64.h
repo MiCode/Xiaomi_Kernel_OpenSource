@@ -13,7 +13,7 @@
 
 #ifndef __ASSEMBLY__
 
-typedef signed char s8;
+typedef __s8 s8;
 typedef __u8  u8;
 typedef __s16 s16;
 typedef __u16 u16;
