@@ -483,11 +483,21 @@
 		reg = <0x50>;
 		status = "okay";
 	};
+	camera_main_two_mtk:camera_main_two@10 {
+		compatible = "mediatek,camera_main_two";
+		reg = <0x10>;
+		status = "okay";
+	};
 };
 &i2c4 {
 	mtk_camera_eeprom1:camera_eeprom1@51 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x51>;
+		status = "okay";
+	};
+	camera_sub_mtk:camera_sub@1a {
+		compatible = "mediatek,camera_sub";
+		reg = <0x1a>;
 		status = "okay";
 	};
 };
@@ -497,11 +507,21 @@
 		reg = <0x50>;
 		status = "okay";
 	};
+	camera_main_mtk:camera_main@1a {
+		compatible = "mediatek,camera_main";
+		reg = <0x1a>;
+		status = "okay";
+	};
 };
 &i2c9 {
 	mtk_camera_eeprom4:camera_eeprom4@51 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x51>;
+		status = "okay";
+	};
+	camera_main_three_mtk:camera_main_three@10 {
+		compatible = "mediatek,camera_main_three";
+		reg = <0x10>;
 		status = "okay";
 	};
 };
