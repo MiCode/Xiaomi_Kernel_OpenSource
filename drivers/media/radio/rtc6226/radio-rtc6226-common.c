@@ -333,8 +333,11 @@ void rtc6226_scan(struct work_struct *work)
 		goto seek_tune_fail;
 	/* wait for tune to complete. */
 	if (!wait_for_completion_timeout(&radio->completion,
-				msecs_to_jiffies(WAIT_TIMEOUT_MSEC)))
+				msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
 		FMDERR("In %s, didn't receive STC for tune\n", __func__);
+		rtc6226_q_event(radio, RTC6226_EVT_ERROR);
+		return;
+	}
 
 	while (1) {
 		if (radio->is_search_cancelled) {
@@ -346,6 +349,7 @@ void rtc6226_scan(struct work_struct *work)
 			goto seek_cancelled;
 		} else if (radio->mode != FM_RECV) {
 			FMDERR("%s: FM is not in proper state\n", __func__);
+			rtc6226_q_event(radio, RTC6226_EVT_ERROR);
 			return;
 		}
 
@@ -364,7 +368,8 @@ void rtc6226_scan(struct work_struct *work)
 				FMDBG("%s registers[%d]:%x\n", __func__, i,
 					radio->registers[i]);
 			/* FM is not correct state or scan is cancelled */
-			continue;
+			rtc6226_q_event(radio, RTC6226_EVT_ERROR);
+			return;
 		} else
 			FMDERR("%s: received STC for seek\n", __func__);
 
@@ -399,6 +404,7 @@ void rtc6226_scan(struct work_struct *work)
 			goto seek_cancelled;
 		} else if (radio->mode != FM_RECV) {
 			FMDERR("%s: FM is not in proper state\n", __func__);
+			rtc6226_q_event(radio, RTC6226_EVT_ERROR);
 			return;
 		}
 		FMDBG("%s update search list %d\n", __func__, next_freq_khz);
@@ -424,6 +430,8 @@ void rtc6226_scan(struct work_struct *work)
 			if (!wait_for_completion_timeout(&radio->completion,
 					msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
 				FMDERR("timeout didn't receive STC for seek\n");
+				rtc6226_q_event(radio, RTC6226_EVT_ERROR);
+				return;
 			} else {
 				FMDERR("%s: received STC for seek\n", __func__);
 				retval = rtc6226_get_freq(radio,
