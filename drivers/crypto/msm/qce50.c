@@ -2435,10 +2435,7 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
 						sps_bam_pipe->iovec_count;
 
-	if (!sg_src)
-		return -ENOENT;
-
-	while (nbytes > 0) {
+	while (nbytes > 0 && sg_src) {
 		len = min(nbytes, sg_dma_len(sg_src));
 		nbytes -= len;
 		addr = sg_dma_address(sg_src);
