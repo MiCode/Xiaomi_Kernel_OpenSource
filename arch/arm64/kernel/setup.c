@@ -174,8 +174,16 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	void *dt_virt = fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
 	const char *name;
 
-	if (dt_virt)
+	if (dt_virt) {
 		memblock_reserve(dt_phys, size);
+		/*
+		 * memblock_dbg is not up because of parse_early_param
+		 * get called after setup_machine_fd. To capture fdt
+		 * reserved info below pr_info is added.
+		 */
+		pr_info("memblock_reserve: 0x%x %pS\n", size - 1,
+			(void *) _RET_IP_);
+	}
 
 	if (!dt_virt || !early_init_dt_scan(dt_virt)) {
 		pr_crit("\n"
