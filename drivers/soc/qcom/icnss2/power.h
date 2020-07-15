@@ -10,7 +10,6 @@ int icnss_hw_power_on(struct icnss_priv *priv);
 int icnss_hw_power_off(struct icnss_priv *priv);
 int icnss_get_clk(struct icnss_priv *priv);
 int icnss_get_vreg(struct icnss_priv *priv);
-int icnss_init_vph_monitor(struct icnss_priv *priv);
 void icnss_put_resources(struct icnss_priv *priv);
 void icnss_put_vreg(struct icnss_priv *priv);
 void icnss_put_clk(struct icnss_priv *priv);

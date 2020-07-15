@@ -104,11 +104,6 @@ static inline int icnss_register_fw_service(struct icnss_priv *priv)
 	return 0;
 }
 static inline void icnss_unregister_fw_service(struct icnss_priv *priv) {}
-static inline int icnss_send_vbatt_update(struct icnss_priv *priv,
-					  uint64_t voltage_uv)
-{
-	return 0;
-}
 
 static inline int wlfw_device_info_send_msg(struct icnss_priv *priv)
 {
@@ -173,7 +168,6 @@ int icnss_send_wlan_enable_to_fw(struct icnss_priv *priv,
 int icnss_send_wlan_disable_to_fw(struct icnss_priv *priv);
 int icnss_register_fw_service(struct icnss_priv *priv);
 void icnss_unregister_fw_service(struct icnss_priv *priv);
-int icnss_send_vbatt_update(struct icnss_priv *priv, uint64_t voltage_uv);
 int wlfw_host_cap_send_sync(struct icnss_priv *priv);
 int wlfw_device_info_send_msg(struct icnss_priv *priv);
 int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
