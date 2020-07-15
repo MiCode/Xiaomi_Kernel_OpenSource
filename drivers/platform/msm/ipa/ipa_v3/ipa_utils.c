@@ -7596,13 +7596,9 @@ static bool ipa3_gsi_channel_is_quite(struct ipa3_ep_context *ep)
 	bool empty;
 
 	gsi_is_channel_empty(ep->gsi_chan_hdl, &empty);
-	if (!empty) {
+	if (!empty)
 		IPADBG("ch %ld not empty\n", ep->gsi_chan_hdl);
-		/* queue a work to start polling if don't have one */
-		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
-		if (!atomic_read(&ep->sys->curr_polling_state))
-			__ipa_gsi_irq_rx_scedule_poll(ep->sys);
-	}
+	/*Schedule NAPI only from interrupt context to avoid race conditions*/
 	return empty;
 }
 
