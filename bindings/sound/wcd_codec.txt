@@ -66,6 +66,8 @@ Optional properties:
  - qcom,va-clk-mux-selectï¼ VA macro MCLK MUX selection
  - qcom,va-island-mode-muxselï¼ VA macro island mode MUX selection
 		This property is required if qcom,va-clk-mux-select is provided
+ - qcom,disable-afe-wakeup-event-listener : If enabled wakeup event listener
+   will not be called from VA macro.
 
 Example:
 
