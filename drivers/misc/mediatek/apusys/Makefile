@@ -107,3 +107,5 @@ apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_power_tag.o
 #apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/dummy_vpu_driver.o
 #apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/dummy_mdla_driver.o
 
+# apu_top target
+obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top/
