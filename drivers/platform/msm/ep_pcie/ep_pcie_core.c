@@ -33,6 +33,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "ep_pcie_com.h"
 #include <asm/dma-iommu.h>
@@ -1712,6 +1713,15 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				ep_pcie_core_init(dev, true);
 				dev->link_status = EP_PCIE_LINK_UP;
 				dev->l23_ready = false;
+
+				/* enable pipe clock for early link init case*/
+				ret = ep_pcie_pipe_clk_init(dev);
+				if (ret) {
+					EP_PCIE_ERR(dev,
+					"PCIe V%d: failed to enable pipe clock\n",
+					dev->rev);
+					goto pipe_clk_fail;
+				}
 				goto checkbme;
 			} else {
 				ltssm_en = readl_relaxed(dev->parf
@@ -1884,6 +1894,9 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		EP_PCIE_INFO(dev,
 			"PCIe V%d: link initialized for LE PCIe endpoint\n",
 			dev->rev);
+		pr_crit("PCIe - link initialized for LE PCIe endpoint\n");
+		place_marker(
+			"PCIe - link initialized for LE PCIe endpoint\n");
 	}
 
 checkbme:
@@ -3073,6 +3086,21 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	else
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: phy-status-reg:0x%x\n",
 			ep_pcie_dev.rev, ep_pcie_dev.phy_status_reg);
+
+	ep_pcie_dev.phy_status_bit_mask_bit = BIT(6);
+
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,phy-status-reg2",
+				&ep_pcie_dev.phy_status_reg);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: phy-status-reg2 does not exist\n",
+			ep_pcie_dev.rev);
+	} else {
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: phy-status-reg2:0x%x\n",
+			ep_pcie_dev.rev, ep_pcie_dev.phy_status_reg);
+		ep_pcie_dev.phy_status_bit_mask_bit = BIT(7);
+	}
 
 	ep_pcie_dev.phy_rev = 1;
 	ret = of_property_read_u32((&pdev->dev)->of_node,

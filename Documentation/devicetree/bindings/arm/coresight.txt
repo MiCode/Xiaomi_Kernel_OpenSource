@@ -139,6 +139,9 @@ its hardware characteristcs.
 	* arm,sg-enable : indicates whether scatter gather feature is enabled
 	  by default for TMC ETR configuration.
 
+	* qcom,qdss-ipa-support : indicates whether qdss to ipa bam connection
+	  need to support.
+
 * Required property for TPDAs:
 
 	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.

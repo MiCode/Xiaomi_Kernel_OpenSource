@@ -1613,7 +1613,7 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	unsigned int rx_bytes = 0;
 	struct tty_port *tport;
-	int ret;
+	int ret = 0;
 	unsigned int geni_status;
 
 	if (msm_port->uart_ssr.is_ssr_down) {
@@ -1726,6 +1726,10 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 							SE_GENI_M_IRQ_CLEAR);
 		geni_write_reg_nolog(s_irq_status, uport->membase,
 							SE_GENI_S_IRQ_CLEAR);
+		dma_tx_status = geni_read_reg_nolog(uport->membase,
+							SE_DMA_TX_IRQ_STAT);
+		dma_rx_status = geni_read_reg_nolog(uport->membase,
+							SE_DMA_RX_IRQ_STAT);
 		if (dma_tx_status)
 			geni_write_reg_nolog(dma_tx_status, uport->membase,
 						SE_DMA_TX_IRQ_CLR);
@@ -3081,8 +3085,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	return 0;
 
 exit_geni_serial_probe:
-	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: fail port:%s ret:%d\n",
-		    __func__, uport->name, ret);
+	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: ret:%d\n", __func__, ret);
 	return ret;
 }
 

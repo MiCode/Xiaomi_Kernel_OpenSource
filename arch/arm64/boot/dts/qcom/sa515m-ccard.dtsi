@@ -53,7 +53,7 @@
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_sec_auxpcm>, <&incall2_record_rx>,
-				<&incall_music_2_rx>;
+				<&incall_music_2_rx>, <&incall_music_dl_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-stub-dev.4", "msm-dai-stub-dev.5",
@@ -65,7 +65,7 @@
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
 				"msm-dai-q6-auxpcm.2", "msm-dai-q6-dev.32769",
-				"msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.32774";
 		asoc-codec = <&tlv320aic3x_codec>, <&stub_codec>;
 		asoc-codec-names = "tlv320aic3x-codec", "msm-stub-codec.1";
 		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
@@ -78,6 +78,10 @@
 		gpios = <&tlmm 32 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+};
+
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
 };
 
 /* delete pm8150b nodes */
@@ -247,6 +251,8 @@
 	pinctrl-1 = <&emac_pin_pps_0>;
 	pinctrl-2 = <&emac_pin_pps_1>;
 	qcom,phy-reset-delay-msecs = <10>;
+	ipa-dma-rx-desc-cnt = <512>;
+	ipa-dma-tx-desc-cnt = <512>;
 };
 
 &vreg_rgmii_io_pads {

@@ -570,6 +570,7 @@ static int ais_ife_csid_config_rdi_path(
 	path_cfg->end_line = res->in_cfg.crop_bottom;
 	path_cfg->decode_fmt = res->in_cfg.decode_format;
 	path_cfg->plain_fmt = res->in_cfg.pack_type;
+	path_cfg->init_frame_drop = res->in_cfg.init_frame_drop;
 
 	if (path_cfg->decode_fmt == 0xF)
 		path_cfg->pix_enable = false;
@@ -677,10 +678,17 @@ static int ais_ife_csid_config_rdi_path(
 			struct ais_ife_csid_path_cfg *tmp =
 				&csid_hw->rdi_cfg[i];
 
+			/*
+			 * doesn't compare with itself and
+			 * not INIT/STREAMING rdi
+			 */
+			if (id == i ||
+				tmp->state < AIS_ISP_RESOURCE_STATE_INIT_HW)
+				continue;
+
 			/*checking for multiple streams of same VC*/
-			if (i != id &&
-				tmp->vc	== path_cfg->vc &&
-				tmp->decode_fmt	== path_cfg->decode_fmt) {
+			if (tmp->vc == path_cfg->vc &&
+				tmp->decode_fmt == path_cfg->decode_fmt) {
 				val = path_cfg->decode_fmt <<
 					csid_reg->cmn_reg->fmt_shift_val;
 
@@ -784,9 +792,12 @@ static int ais_ife_csid_deinit_rdi_path(
 			struct ais_ife_csid_path_cfg *tmp =
 				&csid_hw->rdi_cfg[i];
 
-			if (i != id &&
-				tmp->vc	== path_cfg->vc &&
-				tmp->decode_fmt	== path_cfg->decode_fmt)
+			if (i == id ||
+				tmp->state == AIS_ISP_RESOURCE_STATE_AVAILABLE)
+				continue;
+
+			if (tmp->vc == path_cfg->vc &&
+				tmp->decode_fmt == path_cfg->decode_fmt)
 				check_cnt++;
 		}
 
@@ -812,8 +823,6 @@ static int ais_ife_csid_enable_rdi_path(
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
 	path_data = &csid_hw->rdi_cfg[id];
-
-	path_data->init_frame_drop = 1;
 	path_data->sof_cnt = 0;
 
 	/* Enable the required RDI interrupts */

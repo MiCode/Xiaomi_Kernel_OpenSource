@@ -1840,6 +1840,7 @@ struct ipa3_app_clock_vote {
  * @app_vote: holds userspace application clock vote count
  * IPA context - holds all relevant info about IPA driver and its state
  * @coal_cmd_pyld: holds the coslescing close frame command payload
+ * @manual_fw_load: bool,if fw load is done manually
  */
 struct ipa3_context {
 	struct ipa3_char_device_context cdev;
@@ -2019,6 +2020,7 @@ struct ipa3_context {
 	struct mutex act_tbl_lock;
 	int uc_act_tbl_total;
 	int uc_act_tbl_next_index;
+	bool manual_fw_load;
 };
 
 struct ipa3_plat_drv_res {
@@ -2068,6 +2070,7 @@ struct ipa3_plat_drv_res {
 	u32 secure_debug_check_action;
 	bool ipa_mhi_proxy;
 	bool ipa_wan_skb_page;
+	bool manual_fw_load;
 };
 
 /**
@@ -2390,6 +2393,9 @@ int ipa3_cfg_ep_deaggr(u32 clnt_hdl,
 int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
 
 int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
+int ipa3_force_cfg_ep_holb(u32 clnt_hdl,
+	struct ipa_ep_cfg_holb *ipa_ep_cfg);
 
 void ipa3_cal_ep_holb_scale_base_val(u32 tmr_val,
 				struct ipa_ep_cfg_holb *ep_holb);
@@ -2820,6 +2826,10 @@ void ipa3_debugfs_post_init(void);
 void ipa3_debugfs_remove(void);
 
 void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
+
+int ipa3_conn_qdss_pipes(struct ipa_qdss_conn_in_params *in,
+	struct ipa_qdss_conn_out_params *out);
+int ipa3_disconn_qdss_pipes(void);
 #ifdef IPA_DEBUG
 #define IPA_DUMP_BUFF(base, phy_base, size) \
 	ipa3_dump_buff_internal(base, phy_base, size)

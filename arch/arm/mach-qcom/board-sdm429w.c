@@ -29,7 +29,7 @@ static void __init sdm429w_init(void)
 }
 
 DT_MACHINE_START(SDM429W_DT,
-	"Qualcomm Technologies, Inc. QCS403 (Flattened Device Tree)")
+	"Qualcomm Technologies, Inc. SDM429W (Flattened Device Tree)")
 	.init_machine           = sdm429w_init,
 	.dt_compat              = sdm429w_dt_match,
 MACHINE_END

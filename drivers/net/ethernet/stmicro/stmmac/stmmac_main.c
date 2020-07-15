@@ -51,8 +51,7 @@
 #include <linux/of_mdio.h>
 #include "dwmac1000.h"
 
-
-#define	STMMAC_ALIGN(x)		__ALIGN_KERNEL(x, SMP_CACHE_BYTES)
+#define	STMMAC_ALIGN(x)		ALIGN(ALIGN(x, SMP_CACHE_BYTES), 16)
 #define	TSO_MAX_BUFF_SIZE	(SZ_16K - 1)
 
 /* Module parameters */
@@ -1126,7 +1125,9 @@ static int stmmac_set_bfsize(int mtu, int bufsize)
 {
 	int ret = bufsize;
 
-	if (mtu >= BUF_SIZE_4KiB)
+	if (mtu >= BUF_SIZE_8KiB)
+		ret = BUF_SIZE_16KiB;
+	else if (mtu >= BUF_SIZE_4KiB)
 		ret = BUF_SIZE_8KiB;
 	else if (mtu >= BUF_SIZE_2KiB)
 		ret = BUF_SIZE_4KiB;
@@ -1866,6 +1867,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 	u32 rxmode = 0;
 	u32 chan = 0;
 	u32 mtl_rx_int;
+	u8 qmode = 0;
 
 	if (rxfifosz == 0)
 		rxfifosz = priv->dma_cap.rx_fifo_size;
@@ -1898,8 +1900,10 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 	/* configure all channels */
 	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
 		for (chan = 0; chan < rx_channels_count; chan++) {
+			qmode = priv->plat->rx_queues_cfg[chan].mode_to_use;
+
 			priv->hw->dma->dma_rx_mode(priv->ioaddr, rxmode, chan,
-						   rxfifosz);
+						   rxfifosz, qmode);
 			if (priv->rx_queue[chan].skip_sw) {
 				mtl_rx_int = readl_relaxed(priv->ioaddr +
 							   (0x00000d00 + 0x2c));
@@ -1909,9 +1913,12 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 			}
 		}
 
-		for (chan = 0; chan < tx_channels_count; chan++)
+		for (chan = 0; chan < tx_channels_count; chan++) {
+			qmode = priv->plat->tx_queues_cfg[chan].mode_to_use;
+
 			priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan,
-						   txfifosz);
+						   txfifosz, qmode);
+		}
 	} else {
 		priv->hw->dma->dma_mode(priv->ioaddr, txmode, rxmode,
 					rxfifosz);
@@ -2094,6 +2101,8 @@ static void stmmac_tx_err(struct stmmac_priv *priv, u32 chan)
 static void stmmac_set_dma_operation_mode(struct stmmac_priv *priv, u32 txmode,
 					  u32 rxmode, u32 chan)
 {
+	u8 rxqmode = priv->plat->rx_queues_cfg[chan].mode_to_use;
+	u8 txqmode = priv->plat->tx_queues_cfg[chan].mode_to_use;
 	u32 rx_channels_count = priv->plat->rx_queues_to_use;
 	u32 tx_channels_count = priv->plat->tx_queues_to_use;
 	int rxfifosz = priv->plat->rx_fifo_size;
@@ -2110,9 +2119,9 @@ static void stmmac_set_dma_operation_mode(struct stmmac_priv *priv, u32 txmode,
 
 	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
 		priv->hw->dma->dma_rx_mode(priv->ioaddr, rxmode, chan,
-					   rxfifosz);
+					   rxfifosz, rxqmode);
 		priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan,
-					   txfifosz);
+					   txfifosz, txqmode);
 	} else {
 		priv->hw->dma->dma_mode(priv->ioaddr, txmode, rxmode,
 					rxfifosz);
@@ -3799,11 +3808,23 @@ static void stmmac_set_rx_mode(struct net_device *dev)
 static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
+	int txfifosz = priv->plat->tx_fifo_size;
+
+	if (txfifosz == 0)
+		txfifosz = priv->dma_cap.tx_fifo_size;
+
+	txfifosz /= priv->plat->tx_queues_to_use;
 
 	if (netif_running(dev)) {
 		netdev_err(priv->dev, "must be stopped to change its MTU\n");
 		return -EBUSY;
 	}
+
+	new_mtu = STMMAC_ALIGN(new_mtu);
+
+	/* If condition true, FIFO is too small or MTU too large */
+	if ((txfifosz < new_mtu) || (new_mtu > BUF_SIZE_16KiB))
+		return -EINVAL;
 
 	dev->mtu = new_mtu;
 

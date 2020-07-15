@@ -265,11 +265,19 @@ void kgsl_pool_free_pages(struct page **pages, unsigned int pcount)
 	if (pages == NULL || pcount == 0)
 		return;
 
+	if (WARN(!kern_addr_valid((unsigned long)pages),
+		"Address of pages=%pK is not valid\n", pages))
+		return;
+
 	for (i = 0; i < pcount;) {
 		/*
 		 * Free each page or compound page group individually.
 		 */
 		struct page *p = pages[i];
+
+		if (WARN(!kern_addr_valid((unsigned long)p),
+			"Address of page=%pK is not valid\n", p))
+			return;
 
 		i += 1 << compound_order(p);
 		kgsl_pool_free_page(p);

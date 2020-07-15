@@ -2,7 +2,6 @@
  * f_qdss.c -- QDSS function Driver
  *
  * Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
-
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -423,11 +422,13 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	qdss_data_intf_desc.bInterfaceNumber = iface;
 	qdss->data_iface_id = iface;
 
-	id = usb_string_id(c->cdev);
-	if (id < 0)
-		return id;
-	qdss_string_defs[QDSS_DATA_IDX].id = id;
-	qdss_data_intf_desc.iInterface = id;
+	if (!qdss_string_defs[QDSS_DATA_IDX].id) {
+		id = usb_string_id(c->cdev);
+		if (id < 0)
+			return id;
+		qdss_string_defs[QDSS_DATA_IDX].id = id;
+		qdss_data_intf_desc.iInterface = id;
+	}
 
 	if (qdss->debug_inface_enabled) {
 		/* Allocate ctrl I/F */
@@ -438,11 +439,14 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		}
 		qdss_ctrl_intf_desc.bInterfaceNumber = iface;
 		qdss->ctrl_iface_id = iface;
-		id = usb_string_id(c->cdev);
-		if (id < 0)
-			return id;
-		qdss_string_defs[QDSS_CTRL_IDX].id = id;
-		qdss_ctrl_intf_desc.iInterface = id;
+
+		if (!qdss_string_defs[QDSS_CTRL_IDX].id) {
+			id = usb_string_id(c->cdev);
+			if (id < 0)
+				return id;
+			qdss_string_defs[QDSS_CTRL_IDX].id = id;
+			qdss_ctrl_intf_desc.iInterface = id;
+		}
 	}
 
 	/* for non-accelerated path keep tx fifo size 1k */
@@ -525,6 +529,10 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 	pr_debug("%s\n", __func__);
 
 	flush_workqueue(qdss->wq);
+
+	/* Reset string ids */
+	qdss_string_defs[QDSS_DATA_IDX].id = 0;
+	qdss_string_defs[QDSS_CTRL_IDX].id = 0;
 
 	qdss->debug_inface_enabled = 0;
 

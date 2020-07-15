@@ -24,6 +24,19 @@
 			output-high;
 		};
 	};
+
+	wakeup_gpio_default: wakeup_gpio_default {
+		mux {
+			pins = "gpio79";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio79";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
 };
 
 &pcie0_perst_default {
@@ -167,6 +180,15 @@
 			};
 		};
 	};
+
+	sdx_ext_ipc: qcom,sdx_ext_ipc {
+		compatible = "qcom,sdx-ext-ipc";
+		qcom,wakeup-gpio-in = <&tlmm 14 0x00>;
+		qcom,wakeup-gpio-out = <&tlmm 79 0x00>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wakeup_gpio_default>;
+	};
+
 };
 
 &thermal_zones {
@@ -190,6 +212,23 @@
 
 &usb2s {
 	extcon = <&usb2_extcon>;
+};
+
+&ethqos_hw {
+	status = "okay";
+	vreg_emac_phy-supply = <&vreg_emac_phy>;
+	vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+	rxc-skew-ps = <0>;
+
+	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state";
+	pinctrl-15 = <&emac_phy_reset_state>;
 };
 
 &emac_hw {

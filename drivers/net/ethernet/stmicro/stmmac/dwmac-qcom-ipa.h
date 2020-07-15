@@ -76,8 +76,8 @@ static char * const IPA_OFFLOAD_EVENT_string[] = {
 
 #define ETHQOS_ETH_FRAME_LEN_IPA ((1 << 11)) /*IPA can support 2KB max length*/
 
-#define IPA_TX_DESC_CNT	128 /*Increase TX desc count to 128 for IPA offload*/
-#define IPA_RX_DESC_CNT	128 /*Increase RX desc count to 128 for IPA offload*/
+#define IPA_TX_DESC_CNT 128 /*Default TX desc count to 128 for IPA offload*/
+#define IPA_RX_DESC_CNT 128 /*Default RX desc count to 128 for IPA offload*/
 
 #define  BASE_ADDRESS (ethqos->ioaddr)
 
@@ -643,6 +643,9 @@ struct ethqos_prv_ipa_data {
 	phys_addr_t uc_db_rx_addr;
 	phys_addr_t uc_db_tx_addr;
 	u32 ipa_client_hndl;
+
+	u32 ipa_dma_tx_desc_cnt;
+	u32 ipa_dma_rx_desc_cnt;
 
 	/* IPA state variables */
 	/* State of EMAC HW initialization */

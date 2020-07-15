@@ -964,8 +964,11 @@ static ssize_t addr_range_show(struct device *dev,
 	spin_lock(&drvdata->spinlock);
 	idx = config->addr_idx;
 
-	if (idx >= ETM_MAX_SINGLE_ADDR_CMP)
+	if (idx >= ETM_MAX_SINGLE_ADDR_CMP) {
+		spin_unlock(&drvdata->spinlock);
 		return -EINVAL;
+	}
+
 	if (idx % 2 != 0) {
 		spin_unlock(&drvdata->spinlock);
 		return -EPERM;
@@ -1002,8 +1005,11 @@ static ssize_t addr_range_store(struct device *dev,
 	spin_lock(&drvdata->spinlock);
 	idx = config->addr_idx;
 
-	if (idx >= ETM_MAX_SINGLE_ADDR_CMP)
+	if (idx >= ETM_MAX_SINGLE_ADDR_CMP) {
+		spin_unlock(&drvdata->spinlock);
 		return -EINVAL;
+	}
+
 	if (idx % 2 != 0) {
 		spin_unlock(&drvdata->spinlock);
 		return -EPERM;

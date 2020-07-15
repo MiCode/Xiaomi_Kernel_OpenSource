@@ -2841,6 +2841,7 @@
 #include "sdmshrike-regulators.dtsi"
 #include "sdmshrike-ion.dtsi"
 #include "sdmshrike-bus.dtsi"
+#include "sdmshrike-coresight.dtsi"
 #include "msm-arm-smmu-sdmshrike.dtsi"
 #include "sdmshrike-usb.dtsi"
 #include "sdmshrike-qupv3.dtsi"

@@ -23,6 +23,7 @@ enum bridge_id {
 	USB_BRIDGE_QDSS,
 	USB_BRIDGE_DPL,
 	USB_BRIDGE_EDL,
+	USB_BRIDGE_DIAG,
 	MAX_BRIDGE_DEVICES,
 };
 
@@ -37,6 +38,8 @@ static int bridge_name_to_id(const char *name)
 		return USB_BRIDGE_DPL;
 	if (!strncasecmp(name, "edl", MAX_INST_NAME_LEN))
 		return USB_BRIDGE_EDL;
+	if (!strncasecmp(name, "diag", MAX_INST_NAME_LEN))
+		return USB_BRIDGE_DIAG;
 
 fail:
 	return -EINVAL;
@@ -51,6 +54,8 @@ static int bridge_id_to_protocol(enum bridge_id id)
 		return 0x80;
 	case USB_BRIDGE_EDL:
 		return 0x10;
+	case USB_BRIDGE_DIAG:
+		return 0x30;
 	default:
 		return -EINVAL;
 	}

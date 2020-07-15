@@ -2173,6 +2173,7 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 		break;
 	case GSI_CHAN_PROT_AQC:
 	case GSI_CHAN_PROT_11AD:
+	case GSI_CHAN_PROT_QDSS:
 		prot_msb = 1;
 		break;
 	default:

@@ -1137,7 +1137,7 @@ static int ais_vfe_dispatch_irq(struct cam_hw_info *vfe_hw,
 	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
 
 	CAM_DBG(CAM_ISP, "VFE[%d] event %d",
-		core_info->vfe_idx, work_data->evt_type);
+		core_info->vfe_idx, p_work->evt_type);
 
 	task = cam_req_mgr_workq_get_task(core_info->workq);
 	if (!task) {

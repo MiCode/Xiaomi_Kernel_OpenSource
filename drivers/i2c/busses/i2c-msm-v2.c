@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3037,7 +3037,7 @@ static int i2c_msm_init(void)
 {
 	return platform_driver_register(&i2c_msm_driver);
 }
-subsys_initcall(i2c_msm_init);
+module_init(i2c_msm_init);
 
 static void i2c_msm_exit(void)
 {

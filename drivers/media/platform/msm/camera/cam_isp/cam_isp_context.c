@@ -340,6 +340,23 @@ put:
 	}
 }
 
+static void __cam_isp_ctx_dequeue_request(struct cam_context *ctx,
+	struct cam_ctx_request *req)
+{
+	struct cam_ctx_request           *req_current;
+	struct cam_ctx_request           *req_prev;
+
+	spin_lock_bh(&ctx->lock);
+	list_for_each_entry_safe_reverse(req_current, req_prev,
+		&ctx->pending_req_list, list) {
+		if (req->request_id == req_current->request_id) {
+			list_del_init(&req_current->list);
+			break;
+		}
+	}
+	spin_unlock_bh(&ctx->lock);
+}
+
 static int __cam_isp_ctx_enqueue_request_in_order(
 	struct cam_context *ctx, struct cam_ctx_request *req)
 {
@@ -2527,13 +2544,20 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		if (rc)
 			goto end;
 
+		/*
+		 * As HW is stopped already No request will move from
+		 * one list to other good time to flush reqs.
+		 */
 		spin_lock_bh(&ctx->lock);
+		CAM_DBG(CAM_ISP, "try to flush pending list");
+		rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list,
+			flush_req);
 		CAM_DBG(CAM_ISP, "try to flush wait list");
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
-		flush_req);
+			flush_req);
 		CAM_DBG(CAM_ISP, "try to flush active list");
 		rc = __cam_isp_ctx_flush_req(ctx, &ctx->active_req_list,
-		flush_req);
+			flush_req);
 		ctx_isp->active_req_cnt = 0;
 		spin_unlock_bh(&ctx->lock);
 
@@ -3409,13 +3433,12 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 			add_req.dev_hdl  = ctx->dev_hdl;
 			add_req.req_id   = req->request_id;
 			add_req.skip_before_applying = 0;
+			__cam_isp_ctx_enqueue_request_in_order(ctx, req);
 			rc = ctx->ctx_crm_intf->add_req(&add_req);
 			if (rc) {
 				CAM_ERR(CAM_ISP, "Add req failed: req id=%llu",
 					req->request_id);
-			} else {
-				__cam_isp_ctx_enqueue_request_in_order(
-					ctx, req);
+				__cam_isp_ctx_dequeue_request(ctx, req);
 			}
 		} else {
 			rc = -EINVAL;

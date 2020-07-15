@@ -13,6 +13,10 @@
 #include "sdxprairie-v2.dtsi"
 #include "sdxprairie-mtp.dtsi"
 
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
+};
+
 /* delete pm8150b nodes */
 &thermal_zones {
 	/delete-node/ pm8150b-wp-therm;
@@ -57,6 +61,11 @@
 
 &cnss_qca6390 {
 	status = "disabled";
+};
+
+&ethqos_hw {
+	ipa-dma-rx-desc-cnt = <512>;
+	ipa-dma-tx-desc-cnt = <512>;
 };
 
 &soc {
