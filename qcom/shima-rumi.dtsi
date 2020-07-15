@@ -45,7 +45,16 @@
 	};
 };
 
+&usb2_phy0 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
 &usb0 {
+	/delete-property/ extcon;
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
