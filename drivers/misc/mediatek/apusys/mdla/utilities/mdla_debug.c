@@ -25,11 +25,12 @@ struct mdla_dbgfs_file {
 	char *str;
 };
 
-static struct mdla_dbgfs_file ull_dbgfs_file[NF_MDLA_DEBUG_FS_U64] = {
+static struct mdla_dbgfs_file ull_dbgfs_file[NF_MDLA_DEBUG_FS_U64 + 1] = {
 	[FS_CFG_PMU_PERIOD] = { .mode = 0660, .str = "period"},
+	[NF_MDLA_DEBUG_FS_U64] = { .str = "unknown"},
 };
 
-static struct mdla_dbgfs_file u_dbgfs_file[NF_MDLA_DEBUG_FS_U32] = {
+static struct mdla_dbgfs_file u_dbgfs_file[NF_MDLA_DEBUG_FS_U32 + 1] = {
 	[FS_C1]  = { .mode = 0660, .hex = 1, .str = "c1"},
 	[FS_C2]  = { .mode = 0660, .hex = 1, .str = "c2"},
 	[FS_C3]  = { .mode = 0660, .hex = 1, .str = "c3"},
@@ -60,6 +61,7 @@ static struct mdla_dbgfs_file u_dbgfs_file[NF_MDLA_DEBUG_FS_U32] = {
 	[FS_BATCH_NUM]         = { .mode = 0660, .str = "batch_number"},
 	[FS_PREEMPTION_TIMES]  = { .mode = 0660, .str = "preemption_times"},
 	[FS_PREEMPTION_DBG]   = { .mode = 0660, .str = "preemption_debug"},
+	[NF_MDLA_DEBUG_FS_U32] = { .str = "unknown"},
 };
 
 static const char *reason_str[REASON_MAX+1] = {
@@ -78,6 +80,22 @@ const char *mdla_dbg_get_reason_str(int res)
 		res = REASON_MAX;
 
 	return reason_str[res];
+}
+
+const char *mdla_dbg_get_u64_node_str(int node)
+{
+	if (unlikely(node < 0 || node > NF_MDLA_DEBUG_FS_U64))
+		node = NF_MDLA_DEBUG_FS_U64;
+
+	return ull_dbgfs_file[node].str;
+}
+
+const char *mdla_dbg_get_u32_node_str(int node)
+{
+	if (unlikely(node < 0 || node > NF_MDLA_DEBUG_FS_U32))
+		node = NF_MDLA_DEBUG_FS_U32;
+
+	return u_dbgfs_file[node].str;
 }
 
 static void mdla_dbg_dummy_destroy(struct mdla_dev *a0) {}
@@ -227,9 +245,9 @@ void mdla_dbg_fs_setup(struct device *dev)
 		}
 	}
 
-	debugfs_create_devm_seqfile(dev, "register", mdla_dbg_root,
+	debugfs_create_devm_seqfile(dev, DBGFS_HW_REG_NAME, mdla_dbg_root,
 				mdla_dbg_register_show);
-	debugfs_create_devm_seqfile(dev, "mdla_memory", mdla_dbg_root,
+	debugfs_create_devm_seqfile(dev, DBGFS_CMDBUF_NAME, mdla_dbg_root,
 				mdla_dbg_memory_show);
 
 	/* Platform debug node */

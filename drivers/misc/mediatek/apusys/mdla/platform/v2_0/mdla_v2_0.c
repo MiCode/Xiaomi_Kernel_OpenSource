@@ -32,6 +32,8 @@
 #include "mdla_pmu_v2_0.h"
 #include "mdla_sched_v2_0.h"
 
+#define DBGFS_PMU_NAME      "pmu_reg"
+#define DBGFS_USAGE_NAME    "help"
 
 static struct mdla_reg_ctl *mdla_reg_control;
 static struct mdla_dev *mdla_plat_devices;
@@ -280,8 +282,52 @@ static bool mdla_plat_dbgfs_u32_enable(int node)
 
 static int mdla_plat_register_show(struct seq_file *s, void *data)
 {
-	seq_puts(s, "==== PMU ====\n");
 	mdla_v2_0_pmu_info_show(s);
+
+	return 0;
+}
+
+static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
+{
+	seq_puts(s, "---- Kernel debug log maks (default = 0x46) ----\n");
+	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n",
+				mdla_dbg_get_u32_node_str(FS_KLOG));
+	seq_puts(s, "\tbit0 = MDLA_DBG_DRV\n");
+	seq_puts(s, "\tbit1 = MDLA_DBG_MEM\n");
+	seq_puts(s, "\tbit2 = MDLA_DBG_CMD\n");
+	seq_puts(s, "\tbit3 = MDLA_DBG_PMU\n");
+	seq_puts(s, "\tbit4 = MDLA_DBG_PERF\n");
+	seq_puts(s, "\tbit5 = MDLA_DBG_QOS\n");
+	seq_puts(s, "\tbit6 = MDLA_DBG_TIMEOUT\n");
+	seq_puts(s, "\tbit7 = MDLA_DBG_DVFS\n");
+	seq_puts(s, "\tbit8 = MDLA_DBG_TIMEOUT_ALL\n");
+
+	seq_puts(s, "\n---- Dump MDLA HW register ----\n");
+	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_HW_REG_NAME);
+
+	seq_puts(s, "\n---- Dump the last code buffer ----\n");
+	seq_printf(s, "echo [1|0] > /d/mdla/%s\n",
+				mdla_dbg_get_u32_node_str(FS_DUMP_CMDBUF));
+	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_CMDBUF_NAME);
+
+	seq_puts(s, "\n---- Command timeout setting ----\n");
+	seq_printf(s, "echo [ms(dec)] > /d/mdla/%s\n",
+				mdla_dbg_get_u32_node_str(FS_TIMEOUT));
+
+	seq_puts(s, "\n---- Set delay time of power off (default = 2s) ----\n");
+	seq_printf(s, "echo [ms(dec)] > /d/mdla/%s\n",
+				mdla_dbg_get_u32_node_str(FS_POWEROFF_TIME));
+
+	seq_puts(s, "\n---- Show power usage ----\n");
+	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_PWR_NAME);
+
+	seq_puts(s, "\n---- Show profile usage----\n");
+	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_PROF_NAME_V2);
+
+	seq_puts(s, "\n---- Dump PMU data ----\n");
+	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_PMU_NAME);
+
+	seq_puts(s, "\n");
 
 	return 0;
 }
@@ -291,8 +337,10 @@ static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 	if (!dev || !parent)
 		return;
 
-	debugfs_create_devm_seqfile(dev, "pmu_reg", parent,
+	debugfs_create_devm_seqfile(dev, DBGFS_PMU_NAME, parent,
 				mdla_plat_register_show);
+	debugfs_create_devm_seqfile(dev, DBGFS_USAGE_NAME, parent,
+				mdla_plat_dbgfs_usage);
 }
 
 

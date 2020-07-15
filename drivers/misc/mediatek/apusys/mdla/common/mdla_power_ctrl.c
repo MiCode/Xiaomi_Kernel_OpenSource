@@ -11,6 +11,9 @@
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <linux/seq_file.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 
 #include <apusys_power.h>
 #include <apusys_power_cust.h>
@@ -151,6 +154,91 @@ static void mdla_pwr_wake_unlock(u32 core_id)
 	__pm_relax(mdla_get_device(core_id)->power->wakeup);
 }
 
+static int mdla_dbg_pwr_show(struct seq_file *s, void *data)
+{
+	int i;
+	struct mdla_dev *mdla_device;
+
+	for_each_mdla_core(i) {
+		mdla_device = mdla_get_device(i);
+
+		seq_printf(s, "---- core %d ----\n", i);
+		seq_printf(s, "apu power status = %d\n", apu_get_power_on_status(get_pwr_id(i)));
+		seq_printf(s, "power_is_on      = %d\n", mdla_device->power_is_on);
+		seq_printf(s, "sw_power_is_on   = %d\n", mdla_device->sw_power_is_on);
+		seq_printf(s, "cmd_list_cnt     = %d\n", mdla_device->cmd_list_cnt);
+	}
+	seq_printf(s, "\nRandom opp test: %u\n", mdla_dbg_read_u32(FS_DVFS_RAND));
+
+	seq_puts(s, "\n==== usage ====\n");
+	seq_printf(s, "echo [param] > /d/mdla/%s\n", DBGFS_PWR_NAME);
+	seq_puts(s, "\tparam:\n");
+	seq_puts(s, "\t  0: force all core power off\n");
+	seq_puts(s, "\t  1: force all core power on\n");
+	seq_printf(s, "echo [0|1] > /d/mdla/%s\n", mdla_dbg_get_u32_node_str(FS_DVFS_RAND));
+	seq_puts(s, "\tEnable/Disable random opp test\n");
+
+	return 0;
+}
+
+static int mdla_dbg_pwr_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mdla_dbg_pwr_show, inode->i_private);
+}
+
+static ssize_t mdla_dbg_pwr_write(struct file *flip,
+		const char __user *buffer,
+		size_t count, loff_t *f_pos)
+{
+	char *buf;
+	u32 param;
+	int i, ret;
+
+	buf = kzalloc(count + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = copy_from_user(buf, buffer, count);
+	if (ret)
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtouint(buf, 10, &param) != 0) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	for_each_mdla_core(i) {
+		if (param == 0)
+			mdla_pwr_ops_get()->off(i, 0, true);
+		else if (param == 1)
+			mdla_pwr_ops_get()->on(i, true);
+	}
+
+out:
+	kfree(buf);
+	return count;
+}
+
+static const struct file_operations mdla_dbg_pwr_fops = {
+	.open = mdla_dbg_pwr_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = mdla_dbg_pwr_write,
+};
+
+
+static void mdla_pwr_fs_init(void)
+{
+	struct dentry *d = mdla_dbg_get_fs_root();
+
+	if (d)
+		debugfs_create_file(DBGFS_PWR_NAME, 0644, d, NULL,
+				&mdla_dbg_pwr_fops);
+}
+
 const struct mdla_pwr_ops *mdla_pwr_ops_get(void)
 {
 	return &mdla_power;
@@ -245,6 +333,8 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 	mdla_power.unlock               = mdla_pwr_unlock;
 	mdla_power.wake_lock            = mdla_pwr_wake_lock;
 	mdla_power.wake_unlock          = mdla_pwr_wake_unlock;
+
+	mdla_pwr_fs_init();
 
 	return 0;
 

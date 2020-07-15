@@ -109,3 +109,9 @@ apusys-objs += power/2.0/$(APUSYS_VERSION_POWER_PLATFORM)/apu_power_tag.o
 
 # apu_top target
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top/
+
+# mdla
+src=$(srctree)/drivers/misc/mediatek/apusys
+ccflags-y += -I$(src)/mdla/
+apusys-objs += $(shell cd $(src) && find mdla -name "*.c" | sed 's/\.c/\.o/g')
+

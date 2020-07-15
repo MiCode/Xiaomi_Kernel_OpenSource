@@ -53,7 +53,6 @@ static struct mdla_plat_drv mt8195_drv = {
 	.init           = mdla_v2_0_init,
 	.deinit         = mdla_v2_0_deinit,
 	.sw_cfg         = BIT(CFG_DUMMY_MMU)
-				| BIT(CFG_DUMMY_PWR)
 				| BIT(CFG_MICRO_P_SUPPORT),
 	.klog           = (MDLA_DBG_CMD | MDLA_DBG_TIMEOUT),
 	.timeout_ms     = 6000,

@@ -141,7 +141,14 @@ do {							\
 
 const char *mdla_dbg_get_reason_str(int res);
 
-//void mdla_dbg_dump_cmdbuf_free(struct mdla_dev *mdla_device);
+/* debugfs node name : used to r/w 32/64-bit value */
+const char *mdla_dbg_get_u64_node_str(int node);
+const char *mdla_dbg_get_u32_node_str(int node);
+
+/* debugfs node name : used to show information */
+#define DBGFS_HW_REG_NAME   "register"
+#define DBGFS_CMDBUF_NAME   "mdla_memory"
+
 void mdla_dbg_dump(struct mdla_dev *mdla_info, struct command_entry *ce);
 
 struct dentry *mdla_dbg_get_fs_root(void);
