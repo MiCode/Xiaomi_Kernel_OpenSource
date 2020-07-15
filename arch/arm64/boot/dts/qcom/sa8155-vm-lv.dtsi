@@ -49,3 +49,11 @@
 	/delete-property/ qcom,client-id;
 	qcom,client-id = "7816";
 };
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};
