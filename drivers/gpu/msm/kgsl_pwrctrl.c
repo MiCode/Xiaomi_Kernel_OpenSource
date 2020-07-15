@@ -1476,6 +1476,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,no-nap"))
 		device->pwrctrl.ctrl_flags |= BIT(KGSL_PWRFLAGS_NAP_OFF);
+	else if (!IS_ENABLED(CONFIG_COMMON_CLK_QCOM)) {
+		dev_warn(device->dev, "KGSL nap state is not supported\n");
+		device->pwrctrl.ctrl_flags |= BIT(KGSL_PWRFLAGS_NAP_OFF);
+	}
 
 	if (pwr->num_pwrlevels == 0) {
 		dev_err(device->dev, "No power levels are defined\n");

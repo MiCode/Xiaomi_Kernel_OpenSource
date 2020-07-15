@@ -3,6 +3,7 @@
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/clk/qcom.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
@@ -2635,12 +2636,27 @@ update:
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	WARN(adreno_is_a610(adreno_dev),
-		"clk_set_flags() is not supported\n");
+	/* Handle clock settings for GFX PSCBCs */
+	if (on) {
+		if (!strcmp(name, "mem_iface_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		} else if (!strcmp(name, "core_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			qcom_clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
+		}
+	}
 }
+#endif
 
 u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
 {
@@ -2698,7 +2714,9 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
 	.clk_set_options = a6xx_clk_set_options,
+#endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &adreno_power_operations,
 };
@@ -2733,7 +2751,6 @@ struct adreno_gpudev adreno_a6xx_gmu_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
-	.clk_set_options = a6xx_clk_set_options,
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_gmu_power_ops,
 };
@@ -2768,7 +2785,6 @@ struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
-	.clk_set_options = a6xx_clk_set_options,
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_rgmu_power_ops,
 };
@@ -2803,7 +2819,6 @@ struct adreno_gpudev adreno_a630_gpudev = {
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
-	.clk_set_options = a6xx_clk_set_options,
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a630_gmu_power_ops,
 };
