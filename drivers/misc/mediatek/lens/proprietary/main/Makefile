@@ -21,13 +21,13 @@ ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
 
 
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main/inc
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main/common/lc898122af
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main/common/lc898212xdaf/inc
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/main/inc
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/main/common/lc898122af
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/main/common/lc898212xdaf/inc
 ifeq ($(CONFIG_MTK_LENS_BU63165AF_SUPPORT), y)
-  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main/common/bu63165af/inc
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/main/common/bu63165af/inc
 else
-  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main/common/bu63169af/inc
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/main/common/bu63169af/inc
 endif
 
 obj-$(CONFIG_MTK_LENS)    += mainaf.o
