@@ -2206,7 +2206,7 @@
 			port@4 {
 				reg = <4>;
 				turing_in_turing_dup: endpoint {
-					retmote-endpoint =
+					remote-endpoint =
 					  <&turing_dup_out_turing>;
 				};
 			};
