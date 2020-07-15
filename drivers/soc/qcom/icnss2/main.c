@@ -26,8 +26,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/thread_info.h>
 #include <linux/uaccess.h>
-#include <linux/adc-tm-clients.h>
-#include <linux/iio/consumer.h>
 #include <linux/etherdevice.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -633,9 +631,6 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 	if (!priv->fw_early_crash_irq)
 		register_early_crash_notifications(&priv->pdev->dev);
 
-	if (priv->vbatt_supported)
-		icnss_init_vph_monitor(priv);
-
 	return ret;
 
 err_power_on:
@@ -656,10 +651,6 @@ static int icnss_driver_event_server_exit(struct icnss_priv *priv)
 	icnss_pr_info("WLAN FW Service Disconnected: 0x%lx\n", priv->state);
 
 	icnss_clear_server(priv);
-
-	if (priv->adc_tm_dev && priv->vbatt_supported)
-		adc_tm_disable_chan_meas(priv->adc_tm_dev,
-					  &priv->vph_monitor_params);
 
 	return 0;
 }
@@ -2745,44 +2736,6 @@ static void icnss_sysfs_destroy(struct icnss_priv *priv)
 		kobject_put(icnss_kobject);
 }
 
-static int icnss_get_vbatt_info(struct icnss_priv *priv)
-{
-	struct adc_tm_chip *adc_tm_dev = NULL;
-	struct iio_channel *channel = NULL;
-	int ret = 0;
-
-	adc_tm_dev = get_adc_tm(&priv->pdev->dev, "icnss");
-	if (PTR_ERR(adc_tm_dev) == -EPROBE_DEFER) {
-		icnss_pr_err("adc_tm_dev probe defer\n");
-		return -EPROBE_DEFER;
-	}
-
-	if (IS_ERR(adc_tm_dev)) {
-		ret = PTR_ERR(adc_tm_dev);
-		icnss_pr_err("Not able to get ADC dev, VBATT monitoring is disabled: %d\n",
-			     ret);
-		return ret;
-	}
-
-	channel = iio_channel_get(&priv->pdev->dev, "icnss");
-	if (PTR_ERR(channel) == -EPROBE_DEFER) {
-		icnss_pr_err("channel probe defer\n");
-		return -EPROBE_DEFER;
-	}
-
-	if (IS_ERR(channel)) {
-		ret = PTR_ERR(channel);
-		icnss_pr_err("Not able to get VADC dev, VBATT monitoring is disabled: %d\n",
-			     ret);
-		return ret;
-	}
-
-	priv->adc_tm_dev = adc_tm_dev;
-	priv->channel = channel;
-
-	return 0;
-}
-
 static int icnss_resource_parse(struct icnss_priv *priv)
 {
 	int ret = 0, i = 0;
@@ -2790,13 +2743,6 @@ static int icnss_resource_parse(struct icnss_priv *priv)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	u32 int_prop;
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,icnss-adc_tm")) {
-		ret = icnss_get_vbatt_info(priv);
-		if (ret == -EPROBE_DEFER)
-			goto out;
-		priv->vbatt_supported = true;
-	}
 
 	ret = icnss_get_vreg(priv);
 	if (ret) {

@@ -6,13 +6,10 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
-#include <linux/adc-tm-clients.h>
-#include <linux/iio/consumer.h>
 #include <linux/irqreturn.h>
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/ipc_logging.h>
-#include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <soc/qcom/icnss2.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
@@ -221,9 +218,6 @@ struct icnss_stats {
 	uint32_t rejuvenate_ack_req;
 	uint32_t rejuvenate_ack_resp;
 	uint32_t rejuvenate_ack_err;
-	uint32_t vbatt_req;
-	uint32_t vbatt_resp;
-	uint32_t vbatt_req_err;
 	uint32_t device_info_req;
 	uint32_t device_info_resp;
 	uint32_t device_info_err;
@@ -360,11 +354,6 @@ struct icnss_priv {
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
 	struct completion unblock_shutdown;
-	struct adc_tm_param vph_monitor_params;
-	struct adc_tm_chip *adc_tm_dev;
-	struct iio_channel *channel;
-	uint64_t vph_pwr;
-	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 	bool is_ssr;
 	struct kobject *icnss_kobject;
