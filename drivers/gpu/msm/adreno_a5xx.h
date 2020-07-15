@@ -102,7 +102,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev);
 
 void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 
-#define A5XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
+#define A5XX_CP_RB_CNTL_DEFAULT ((1 << 27) | ((ilog2(4) << 8) & 0x1F00) | \
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 /* GPMU interrupt multiplexor */
 #define FW_INTR_INFO			(0)
