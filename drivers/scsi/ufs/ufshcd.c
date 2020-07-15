@@ -8480,8 +8480,10 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ret = ufshcd_link_state_transition(hba, req_link_state, 1);
 	if (ret)
 		goto set_dev_active;
-
-	ufshcd_vreg_set_lpm(hba);
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	if (!hba->auto_bkops_enabled)
+#endif
+		ufshcd_vreg_set_lpm(hba);
 
 disable_clks:
 	/*

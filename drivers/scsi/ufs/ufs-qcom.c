@@ -993,8 +993,7 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			err = ufs_qcom_disable_vreg(hba->dev,
 					host->vddp_ref_clk);
 		if (host->vccq_parent && !hba->auto_bkops_enabled)
-			ufs_qcom_config_vreg(hba->dev,
-					host->vccq_parent, false);
+			ufs_qcom_disable_vreg(hba->dev, host->vccq_parent);
 		if (!err)
 			err = ufs_qcom_unvote_qos_all(hba);
 	}
@@ -1011,8 +1010,9 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 				   hba->spm_lvl > UFS_PM_LVL_3))
 		ufs_qcom_enable_vreg(hba->dev,
 				      host->vddp_ref_clk);
+
 	if (host->vccq_parent)
-		ufs_qcom_config_vreg(hba->dev, host->vccq_parent, true);
+		ufs_qcom_enable_vreg(hba->dev, host->vccq_parent);
 
 	err = ufs_qcom_enable_lane_clks(host);
 	if (err)
@@ -2563,9 +2563,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	err = ufs_qcom_parse_reg_info(host, "qcom,vccq-parent",
 				      &host->vccq_parent);
 	if (host->vccq_parent) {
-		err = ufs_qcom_config_vreg(hba->dev, host->vccq_parent, true);
+		err = ufs_qcom_enable_vreg(dev, host->vccq_parent);
 		if (err) {
-			dev_err(dev, "%s: failed vccq-parent set load: %d\n",
+			dev_err(dev, "%s: failed enable vccq-parent err=%d\n",
 				__func__, err);
 			goto out_disable_vddp;
 		}
@@ -2573,7 +2573,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	err = ufs_qcom_init_lane_clks(host);
 	if (err)
-		goto out_set_load_vccq_parent;
+		goto out_disable_vccq_parent;
 
 	ufs_qcom_parse_pm_level(hba);
 	ufs_qcom_parse_limits(host);
@@ -2617,9 +2617,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_qos_init(hba);
 	goto out;
 
-out_set_load_vccq_parent:
+out_disable_vccq_parent:
 	if (host->vccq_parent)
-		ufs_qcom_config_vreg(hba->dev, host->vccq_parent, false);
+		ufs_qcom_disable_vreg(dev, host->vccq_parent);
 out_disable_vddp:
 	if (host->vddp_ref_clk)
 		ufs_qcom_disable_vreg(dev, host->vddp_ref_clk);
