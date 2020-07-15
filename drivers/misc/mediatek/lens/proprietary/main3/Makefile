@@ -21,7 +21,7 @@ ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
 
 
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/mtk/main3/inc
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/lens/proprietary/main3/inc
 
 obj-$(CONFIG_MTK_LENS)    += main3af.o
 
