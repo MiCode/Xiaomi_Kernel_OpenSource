@@ -1258,34 +1258,6 @@
   typec_unregister_partner
   typec_unregister_port
 
-# required by hidp.ko
-  hid_add_device
-  hid_allocate_device
-  hid_destroy_device
-  hid_ignore
-  hid_input_report
-  hid_parse_report
-  input_allocate_device
-  input_unregister_device
-  l2cap_conn_get
-  l2cap_conn_put
-  l2cap_is_socket
-  l2cap_register_user
-  l2cap_unregister_user
-  memscan
-  __module_put_and_exit
-  sockfd_lookup
-  sock_no_accept
-  sock_no_bind
-  sock_no_connect
-  sock_no_getname
-  sock_no_getsockopt
-  sock_no_listen
-  sock_no_recvmsg
-  sock_no_sendmsg
-  sock_no_setsockopt
-  sock_no_shutdown
-
 # required by rfcomm.ko
   add_wait_queue_exclusive
   bt_accept_dequeue
