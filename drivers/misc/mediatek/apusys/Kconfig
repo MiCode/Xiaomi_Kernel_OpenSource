@@ -58,3 +58,5 @@ config MTK_APUSYS_EDMA_SUPPORT
 	  data transfer between external memory such as
 	  DRAM/TCM, It will cooperate with MDLA. eDMA
 	  support different modes for image process.
+
+source "drivers/misc/mediatek/apusys/apu_top/Kconfig"
