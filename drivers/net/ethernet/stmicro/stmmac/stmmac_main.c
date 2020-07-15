@@ -539,6 +539,13 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
 			   sizeof(struct hwtstamp_config)))
 		return -EFAULT;
 
+	if (qcom_ethqos_ipa_enabled() &&
+	    config.rx_filter == HWTSTAMP_FILTER_ALL) {
+		netdev_alert(priv->dev,
+			     "No hw timestamping since ipa is enabled\n");
+		return -EOPNOTSUPP;
+	}
+
 	netdev_dbg(priv->dev, "%s config flags:0x%x, tx_type:0x%x, rx_filter:0x%x\n",
 		   __func__, config.flags, config.tx_type, config.rx_filter);
 
