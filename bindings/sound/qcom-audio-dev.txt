@@ -943,6 +943,16 @@ Example:
 		qcom,smmu-enabled;
 	};
 
+* msm-audio-ion-cma
+
+Required properties:
+ - compatible : "qcom,msm-audio-ion-cma"
+
+Example:
+	qcom,msm-audio-ion-cma {
+		compatible = "qcom,msm-audio-ion-cma";
+	};
+
 * msm-dai-tdm
 
 [First Level Nodes]
