@@ -18,5 +18,6 @@ obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq/
 obj-$(CONFIG_MTK_DVFSRC_HELPER) += dvfsrc/
 obj-$(CONFIG_MTK_V4L2_LENS) += lens/
 obj-$(CONFIG_MTK_LENS)      += lens/
+obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
 obj-$(CONFIG_MMSTAT_TRACER) += mmstat/
