@@ -368,6 +368,12 @@
   netif_carrier_on
   netif_rx_ni
   netif_tx_wake_queue
+  nf_conntrack_find_get
+  nf_ct_get_tuplepr
+  nf_ct_invert_tuple
+  nf_ct_l4proto_find
+  nf_register_net_hooks
+  nf_unregister_net_hooks
   nr_cpu_ids
   nvmem_cell_get
   nvmem_cell_put
