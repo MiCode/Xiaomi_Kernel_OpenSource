@@ -1068,6 +1068,17 @@ static int m4u_debug_set(void *data, u64 val)
 			larb_clock_off(i, 1);
 	}
 	break;
+#ifdef M4U_GZ_SERVICE_ENABLE
+	case 52:
+	{
+		int ret = 0;
+
+		ret = m4u_gz_sec_init(0);
+		pr_notice("%s, %d, genie zone secure init, ret:%d\n",
+			  __func__, __LINE__, ret);
+	}
+	break;
+#endif
 	default:
 		M4U_MSG("%s error,val=%llu\n", __func__, val);
 	}
@@ -1204,6 +1215,8 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 8'd50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 8'd51 > /d/m4u/debug:	IOMMU ATF (all) command test\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 8'd52 > /d/m4u/debug:	init the genie zone secure iommu\n");
 
 	M4U_PRINT_SEQ(s, "\nM4U_MAGIC_KEY:0x%x(bit31~bit8)\n", M4U_MAGIC_KEY);
 	M4U_PRINT_SEQ(s, "ex: adb shell \"echo 0x%xxx > /d/m4u/debug\"\n",
