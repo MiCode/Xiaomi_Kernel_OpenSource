@@ -705,7 +705,44 @@
 		qcom,smem-state-names = "qcom,force-stop";
 		memory-region = <&wcnss_fw_mem>;
 	};
+	qcom,venus@1de0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x1de0000 0x4000>;
 
+		vdd-supply = <&venus_gdsc>;
+		qcom,proxy-reg-names = "vdd";
+
+		clocks = <&gcc GCC_VENUS0_VCODEC0_CLK>,
+			 <&gcc GCC_VENUS0_AHB_CLK>,
+			 <&gcc GCC_VENUS0_AXI_CLK>,
+			 <&gcc GCC_CRYPTO_CLK>,
+			 <&gcc GCC_CRYPTO_AHB_CLK>,
+			 <&gcc GCC_CRYPTO_AXI_CLK>,
+			 <&gcc CRYPTO_CLK_SRC>;
+
+		clock-names = "core_clk", "iface_clk", "bus_clk",
+				"scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+
+		qcom,proxy-clock-names = "core_clk", "iface_clk",
+					 "bus_clk", "scm_core_clk",
+					 "scm_iface_clk", "scm_bus_clk",
+					 "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <80000000>;
+
+		qcom,msm-bus,name = "pil-venus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 0 304000>;
+
+		qcom,mas-crypto = <&mas_crypto>;
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <100>;
+		qcom,firmware-name = "venus";
+		memory-region = <&venus_mem>;
+	};
 	pil_modem: qcom,mss@4080000 {
 		compatible = "qcom,pil-q6v55-mss";
 		reg =   <0x4080000 0x100>,
