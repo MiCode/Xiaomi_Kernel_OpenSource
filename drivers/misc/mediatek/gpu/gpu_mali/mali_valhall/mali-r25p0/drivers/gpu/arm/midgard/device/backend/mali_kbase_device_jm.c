@@ -33,6 +33,9 @@
 #include <mali_kbase_model_linux.h>
 #endif
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include <arbiter/mali_kbase_arbiter_pm.h>
+#endif
 
 #include <mali_kbase.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
@@ -158,10 +161,10 @@ static const struct kbase_device_init dev_init[] = {
 	{registers_map, registers_unmap,
 			"Register map failed"},
 #endif
-	{power_control_init, power_control_term,
-			"Power control initialization failed"},
 	{kbase_device_io_history_init, kbase_device_io_history_term,
 			"Register access history initialization failed"},
+	{kbase_device_pm_init, kbase_device_pm_term,
+			"Power management initialization failed"},
 	{kbase_device_early_init, kbase_device_early_term,
 			"Early device initialization failed"},
 	{kbase_device_populate_max_freq, NULL,

@@ -51,6 +51,9 @@
 #include "backend/gpu/mali_kbase_pm_internal.h"
 #include "backend/gpu/mali_kbase_irq_internal.h"
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include "arbiter/mali_kbase_arbiter_pm.h"
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 /* NOTE: Magic - 0x45435254 (TRCE in ASCII).
  * Supports tracing feature provided in the base module.
@@ -413,7 +416,14 @@ fail_runtime_pm:
 
 void kbase_device_early_term(struct kbase_device *kbdev)
 {
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	if (kbdev->arb.arb_if)
+		kbase_arbiter_pm_release_interrupts(kbdev);
+	else
+		kbase_release_interrupts(kbdev);
+#else
 	kbase_release_interrupts(kbdev);
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	kbase_pm_runtime_term(kbdev);
 	kbasep_platform_device_term(kbdev);
 }

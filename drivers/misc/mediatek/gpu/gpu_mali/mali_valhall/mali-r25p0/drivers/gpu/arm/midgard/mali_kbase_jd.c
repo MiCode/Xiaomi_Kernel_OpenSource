@@ -465,8 +465,6 @@ static inline void jd_resolve_dep(struct list_head *out_list,
 	}
 }
 
-KBASE_EXPORT_TEST_API(jd_resolve_dep);
-
 /**
  * is_dep_valid - Validate that a dependency is valid for early dependency
  *                submission
@@ -928,7 +926,6 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 #endif /* MALI_JIT_PRESSURE_LIMIT */
 
 	katom->renderpass_id = user_atom->renderpass_id;
-
 
 	/* Implicitly sets katom->protected_state.enter as well. */
 	katom->protected_state.exit = KBASE_ATOM_EXIT_PROTECTED_CHECK;

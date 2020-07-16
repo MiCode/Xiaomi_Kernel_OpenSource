@@ -162,6 +162,25 @@ void kbase_sysfs_term(struct kbase_device *kbdev);
 int kbase_protected_mode_init(struct kbase_device *kbdev);
 void kbase_protected_mode_term(struct kbase_device *kbdev);
 
+/**
+ * kbase_device_pm_init() - Performs power management initialization and
+ * Verifies device tree configurations.
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Return: 0 if successful, otherwise a standard Linux error code
+ */
+int kbase_device_pm_init(struct kbase_device *kbdev);
+
+/**
+ * kbase_device_pm_term() - Performs power management deinitialization and
+ * Free resources.
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Clean up all the resources
+ */
+void kbase_device_pm_term(struct kbase_device *kbdev);
+
+
 int power_control_init(struct kbase_device *kbdev);
 void power_control_term(struct kbase_device *kbdev);
 
@@ -385,6 +404,24 @@ static inline bool kbase_pm_is_suspending(struct kbase_device *kbdev)
 {
 	return kbdev->pm.suspending;
 }
+
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+/*
+ * Check whether a gpu lost is in progress
+ *
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Indicates whether a gpu lost has been received and jobs are no longer
+ * being scheduled
+ *
+ * Return: false if gpu is lost
+ * Return: != false otherwise
+ */
+static inline bool kbase_pm_is_gpu_lost(struct kbase_device *kbdev)
+{
+	return kbdev->pm.gpu_lost;
+}
+#endif
 
 /**
  * kbase_pm_is_active - Determine whether the GPU is active

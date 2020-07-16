@@ -23,9 +23,12 @@ include $(src)/Kbuild-mtk-custom-env
 include $(src)/platform/mtk_platform_common/Kbuild
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= "r25p0-00cet2"
+MALI_RELEASE_NAME ?= "r25p1-01bet0"
 
 # Paths required for build
+
+# make $(src) as absolute path if it isn't already, by prefixing $(srctree)
+src:=$(if $(patsubst /%,,$(src)),$(srctree)/$(src),$(src))
 KBASE_PATH = $(src)
 KBASE_PLATFORM_PATH = $(KBASE_PATH)/platform_dummy
 UMP_PATH = $(src)/../../../base
