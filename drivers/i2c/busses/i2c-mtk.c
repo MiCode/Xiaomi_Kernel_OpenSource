@@ -33,6 +33,7 @@
 #include <linux/of_irq.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/syscore_ops.h>
 
 #if 0
 #include <mtk_cpufreq_hybrid.h>
@@ -49,6 +50,7 @@
 static struct i2c_dma_info g_dma_regs[I2C_MAX_CHANNEL];
 static struct mt_i2c *g_mt_i2c[I2C_MAX_CHANNEL];
 static struct mtk_i2c_compatible i2c_common_compat;
+static struct mtk_i2c_pll i2c_pll_info;
 
 
 static inline void _i2c_writew(u16 value, struct mt_i2c *i2c, u16 offset)
@@ -1814,6 +1816,7 @@ static int mt_i2c_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	i2c->dev_comp = of_id->data;
+	i2c->i2c_pll_info = &i2c_pll_info;
 	i2c->adap.dev.of_node = pdev->dev.of_node;
 	i2c->dev = &i2c->adap.dev;
 	i2c->adap.dev.parent = &pdev->dev;
@@ -1863,6 +1866,38 @@ static int mt_i2c_probe(struct platform_device *pdev)
 	else
 		dev_dbg(&pdev->dev, "i2c%d has the relevant pal clk.\n",
 			i2c->id);
+	if (i2c->i2c_pll_info->clk_mux == NULL) {
+		i2c->i2c_pll_info->clk_mux = devm_clk_get(&pdev->dev, "mux");
+		if (IS_ERR(i2c->i2c_pll_info->clk_mux)) {
+			i2c->i2c_pll_info->clk_mux = NULL;
+			dev_info(&pdev->dev, "cannot get mux clock\n");
+		} else
+			dev_info(&pdev->dev,
+				"i2c%d has the relevant clk_mux clk.\n",
+				i2c->id);
+	}
+	if (i2c->i2c_pll_info->clk_p_main == NULL) {
+		i2c->i2c_pll_info->clk_p_main =
+			devm_clk_get(&pdev->dev, "p_main");
+		if (IS_ERR(i2c->i2c_pll_info->clk_p_main)) {
+			i2c->i2c_pll_info->clk_p_main = NULL;
+			dev_info(&pdev->dev, "cannot get p_main clock\n");
+		} else
+			dev_info(&pdev->dev,
+				"i2c%d has the relevant clk_p_main clk.\n",
+				i2c->id);
+	}
+	if (i2c->i2c_pll_info->clk_p_univ == NULL) {
+		i2c->i2c_pll_info->clk_p_univ =
+			devm_clk_get(&pdev->dev, "p_univ");
+		if (IS_ERR(i2c->i2c_pll_info->clk_p_univ)) {
+			i2c->i2c_pll_info->clk_p_univ = NULL;
+			dev_info(&pdev->dev, "cannot get p_univ clock\n");
+		} else
+			dev_info(&pdev->dev,
+				"i2c%d has the relevant clk_p_univ clk.\n",
+				i2c->id);
+	}
 #endif
 
 	if (i2c->have_pmic) {
@@ -1933,6 +1968,53 @@ static int mt_i2c_remove(struct platform_device *pdev)
 
 
 MODULE_DEVICE_TABLE(of, mt_i2c_match);
+
+void mt_i2c_pll_resume(void)
+{
+
+	if (i2c_pll_info.clk_mux && i2c_pll_info.clk_p_univ) {
+		pr_info("i2c main pll switch to univ pll\n");
+		clk_prepare_enable(i2c_pll_info.clk_mux);
+		clk_set_parent(i2c_pll_info.clk_mux, i2c_pll_info.clk_p_univ);
+		clk_disable_unprepare(i2c_pll_info.clk_mux);
+	} else {
+		pr_info("i2c no need switch top pll\n");
+	}
+}
+
+int mt_i2c_pll_suspend(void)
+{
+	int ret = 0;
+	const char *parent;
+
+	if (i2c_pll_info.clk_mux && i2c_pll_info.clk_p_main) {
+		pr_info("i2c univ pll switch to main pll\n");
+		clk_prepare_enable(i2c_pll_info.clk_mux);
+		parent =
+			__clk_get_name(clk_get_parent(i2c_pll_info.clk_mux));
+		pr_info("i2c before parent: %s\n", parent);
+		ret = clk_set_parent(i2c_pll_info.clk_mux,
+			i2c_pll_info.clk_p_main);
+		if (ret) {
+			pr_info("set i2c clk_p_main fail(%d)\n", ret);
+			return ret;
+		}
+		parent =
+			__clk_get_name(clk_get_parent(i2c_pll_info.clk_mux));
+		pr_info("i2c after parent: %s\n", parent);
+		clk_disable_unprepare(i2c_pll_info.clk_mux);
+	} else {
+		pr_info("i2c no need switch top pll\n");
+	}
+
+	return ret;
+}
+
+
+static struct syscore_ops mtk_i2c_syscore_ops = {
+	.resume = mt_i2c_pll_resume,
+	.suspend = mt_i2c_pll_suspend,
+};
 
 #ifdef CONFIG_PM_SLEEP
 static int mt_i2c_suspend_noirq(struct device *dev)
@@ -2037,6 +2119,8 @@ static s32 __init mt_i2c_init(void)
 		pr_info("Mapp dma regs successfully.\n");
 	if (!mt_i2c_parse_comp_data())
 		pr_info("Get compatible data from dts successfully.\n");
+
+	register_syscore_ops(&mtk_i2c_syscore_ops);
 
 	pr_info("%s: driver as platform device\n", __func__);
 	return platform_driver_register(&mt_i2c_driver);
