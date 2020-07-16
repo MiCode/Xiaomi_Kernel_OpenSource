@@ -76,8 +76,14 @@ static uint32_t ws_count;
 void mdla_wakeup_source_init(void)
 {
 #ifdef CONFIG_PM_SLEEP
+	char ws_name[16];
+
+	if (snprintf(ws_name, sizeof(ws_name)-1, "mdla") < 0) {
+		pr_debug("init mdla wakeup source fail\n");
+		return;
+	}
 	ws_count = 0;
-	mdla_ws = wakeup_source_register(NULL, "mdla");
+	mdla_ws = wakeup_source_register(NULL, ws_name);
 	if (!mdla_ws)
 		pr_debug("mdla wakelock register fail!\n");
 #endif
