@@ -391,19 +391,19 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.PS = LCM_PACKED_PS_24BIT_RGB888;
 
 	params->dsi.vertical_sync_active = 4;
-	params->dsi.vertical_backporch = 15;
-	params->dsi.vertical_frontporch = 60;
+	params->dsi.vertical_backporch = 60;
+	params->dsi.vertical_frontporch = 20;
 	params->dsi.vertical_frontporch_for_low_power = 750;
 	params->dsi.vertical_active_line = FRAME_HEIGHT;
 
 	params->dsi.horizontal_sync_active = 10;
-	params->dsi.horizontal_backporch = 10;
-	params->dsi.horizontal_frontporch = 30;
+	params->dsi.horizontal_backporch = 20;
+	params->dsi.horizontal_frontporch = 40;
 	params->dsi.horizontal_active_pixel = FRAME_WIDTH;
 	/* params->dsi.ssc_disable = 1; */
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* this value must be in MTK suggested table */
-	params->dsi.PLL_CLOCK = 570;
+	params->dsi.PLL_CLOCK = 585;
 	params->dsi.PLL_CK_CMD = 480;
 #else
 	params->dsi.pll_div1 = 0;
