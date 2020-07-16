@@ -378,17 +378,17 @@ struct DPE_REQUEST_STRUCT {
 
 	unsigned int
 		enqueReqNum;   /* to judge it belongs to which frame package */
-	signed int FrameWRIdx; /* Frame write Index */
-	signed int RrameRDIdx; /* Frame read Index */
+	unsigned int FrameWRIdx; /* Frame write Index */
+	unsigned int RrameRDIdx; /* Frame read Index */
 	enum DPE_FRAME_STATUS_ENUM
 		DpeFrameStatus[_SUPPORT_MAX_DPE_FRAME_REQUEST_];
 	struct DPE_Config DpeFrameConfig[_SUPPORT_MAX_DPE_FRAME_REQUEST_];
 };
 
 struct DPE_REQUEST_RING_STRUCT {
-	signed int WriteIdx;     /* enque how many request  */
-	signed int ReadIdx;      /* read which request index */
-	signed int HWProcessIdx; /* HWWriteIdx */
+	unsigned int WriteIdx;     /* enque how many request  */
+	unsigned int ReadIdx;      /* read which request index */
+	unsigned int HWProcessIdx; /* HWWriteIdx */
 	struct DPE_REQUEST_STRUCT
 		DPEReq_Struct[_SUPPORT_MAX_DPE_REQUEST_RING_SIZE_];
 };
@@ -591,8 +591,8 @@ static struct SV_LOG_STR gSvLog[DPE_IRQ_TYPE_AMOUNT];
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int logT = 0;\
+	unsigned int ppb = 0;\
+	unsigned int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} else{\
