@@ -77,7 +77,8 @@ void trusted_mem_ut_cmd_invoke(u64 cmd, u64 param1, u64 param2, u64 param3)
 	run_ut_with_memory_leak_check(cmd, param1, param2, param3);
 }
 
-#define VALID_MEM_TYPE(type) (type != TRUSTED_MEM_INVALID)
+#define VALID_MEM_TYPE(type)                                                   \
+	((type >= TRUSTED_MEM_START) && (type < TRUSTED_MEM_MAX))
 struct trusted_mem_device *
 get_trusted_mem_device(enum TRUSTED_MEM_TYPE mem_type)
 {
