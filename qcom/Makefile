@@ -21,7 +21,7 @@ lahaina-cdp-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb lahaina-v2.1.dtb
 lahaina-atp-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb lahaina-v2.1.dtb
 lahaina-qrd-hsp-overlay.dtbo-base := lahaina.dtb
 lahaina-qrd-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb lahaina-v2.1.dtb
-lahaina-qrd-module-overlay.dtbo-base := lahaina.dtb
+lahaina-qrd-module-overlay.dtbo-base := lahaina.dtb lahaina-v2.dtb lahaina-v2.1.dtb
 lahainap-mtp-overlay.dtbo-base := lahainap.dtb lahainap-v2.dtb lahainap-v2.1.dtb
 lahainap-cdp-overlay.dtbo-base := lahainap.dtb lahainap-v2.dtb lahainap-v2.1.dtb
 lahainap-atp-overlay.dtbo-base := lahainap.dtb lahainap-v2.dtb lahainap-v2.1.dtb
@@ -45,6 +45,7 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-v2-cdp.dtb \
 	lahaina-v2-atp.dtb \
 	lahaina-v2-qrd.dtb \
+	lahaina-v2-qrd-module.dtb \
 	lahainap-v2-mtp.dtb \
 	lahainap-v2-cdp.dtb \
 	lahainap-v2-atp.dtb \
@@ -54,6 +55,7 @@ dtb-$(CONFIG_ARCH_LAHAINA) += lahaina-rumi.dtb \
 	lahaina-v2.1-cdp.dtb \
 	lahaina-v2.1-atp.dtb \
 	lahaina-v2.1-qrd.dtb \
+	lahaina-v2.1-qrd-module.dtb \
 	lahainap-v2.1-mtp.dtb \
 	lahainap-v2.1-cdp.dtb \
 	lahainap-v2.1-atp.dtb \
