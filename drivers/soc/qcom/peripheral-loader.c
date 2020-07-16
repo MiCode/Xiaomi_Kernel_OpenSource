@@ -398,8 +398,10 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	next_offset = prepare_minidump_segments(ramdump_segs, region_info_ss,
 						 ss_mdump_seg_cnt_ss,
 						 &ss_valid_seg_cnt);
-	if (next_offset < 0)
+	if (next_offset < 0) {
+		ret = -ENOMEM;
 		goto seg_mapping_fail;
+	}
 
 	if (desc->num_aux_minidump_ids > 0) {
 		ret = prepare_aux_minidump_segments(&ramdump_segs[next_offset],
