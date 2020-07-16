@@ -16,7 +16,6 @@
 #include <linux/completion.h>
 #include <linux/pagemap.h>
 #include <linux/mm.h>
-#include <linux/fs.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/module.h>
@@ -32,7 +31,6 @@
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/service-locator.h>
 #include <linux/scatterlist.h>
-#include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/of.h>
@@ -3516,19 +3514,6 @@ bail:
 	return err;
 }
 
-static int fastrpc_kstat(const char *filename, struct kstat *stat)
-{
-	int result;
-	mm_segment_t fs_old;
-
-	fs_old = get_fs();
-	set_fs(KERNEL_DS);
-	result = vfs_stat((const char __user *)filename, stat);
-	set_fs(fs_old);
-
-	return result;
-}
-
 static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
 {
 	int err = 0;
@@ -3571,35 +3556,14 @@ static int fastrpc_get_info_from_dsp(struct fastrpc_file *fl,
 				uint32_t dsp_attr_buf_len,
 				uint32_t domain)
 {
-	int err = 0, dsp_support = 0;
+	int err = 0;
 	struct fastrpc_ioctl_invoke_async ioctl;
 	remote_arg_t ra[2];
-	struct kstat sb;
 
-	// Querying device about DSP support
-	switch (domain) {
-	case ADSP_DOMAIN_ID:
-		if (!fastrpc_kstat("/dev/subsys_adsp", &sb))
-			dsp_support = 1;
-		break;
-	case MDSP_DOMAIN_ID:
-		//Modem not supported for fastRPC
-		break;
-	case SDSP_DOMAIN_ID:
-		if (!fastrpc_kstat("/dev/subsys_slpi", &sb))
-			dsp_support = 1;
-		break;
-	case CDSP_DOMAIN_ID:
-		if (!fastrpc_kstat("/dev/subsys_cdsp", &sb))
-			dsp_support = 1;
-		break;
-	default:
-		dsp_support = 0;
-		break;
-	}
-	dsp_attr_buf[0] = dsp_support;
+	dsp_attr_buf[0] = 0;	// Capability filled in userspace
 
-	if (dsp_support == 0)
+	// Fastrpc to modem not supported
+	if (domain == MDSP_DOMAIN_ID)
 		goto bail;
 
 	err = fastrpc_channel_open(fl);
