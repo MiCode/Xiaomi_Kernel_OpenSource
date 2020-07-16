@@ -28,6 +28,7 @@ struct msm_msi {
 	struct irq_domain *inner_domain; /* parent domain; gen irq related */
 	struct irq_domain *msi_domain; /* child domain; pci related */
 	phys_addr_t msi_addr;
+	u32 msi_addr_size;
 };
 
 /* structure for each client of MSI controller */
@@ -106,7 +107,7 @@ static int msm_msi_domain_prepare(struct irq_domain *domain, struct device *dev,
 	client->msi = msi;
 	client->dev = dev;
 	client->msi_addr = dma_map_resource(client->dev, msi->msi_addr,
-					PAGE_SIZE, DMA_FROM_DEVICE, 0);
+				msi->msi_addr_size, DMA_FROM_DEVICE, 0);
 	if (dma_mapping_error(client->dev, client->msi_addr)) {
 		dev_err(msi->dev, "MSI: failed to map msi address\n");
 		client->msi_addr = 0;
@@ -322,6 +323,7 @@ int msm_msi_init(struct device *dev)
 	struct device_node *of_node;
 	const __be32 *prop_val;
 	struct of_phandle_args irq;
+	u32 size_exp = 0;
 
 	if (!dev->of_node) {
 		dev_err(dev, "MSI: missing DT node\n");
@@ -369,6 +371,12 @@ int msm_msi_init(struct device *dev)
 		ret = -EINVAL;
 		goto err;
 	}
+
+	of_property_read_u32(of_node, "qcom,msi-addr-size-exp", &size_exp);
+
+	size_exp = (size_exp > PAGE_SHIFT) ? size_exp : PAGE_SHIFT;
+
+	msi->msi_addr_size = 1 << size_exp;
 
 	while (of_irq_parse_one(msi->of_node, msi->nr_irqs, &irq) == 0)
 		msi->nr_irqs++;
