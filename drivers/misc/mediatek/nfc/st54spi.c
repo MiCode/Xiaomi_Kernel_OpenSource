@@ -656,13 +656,13 @@ static long st54spi_ioctl(
 				spi->mode |= SPI_LSB_FIRST;
 			else
 				spi->mode &= ~SPI_LSB_FIRST;
-				retval = spi_setup(spi);
-				if (retval < 0)
-					spi->mode = save;
-				else
-					dev_dbg(&spi->dev,
-						"%csb first\n", tmp ?
-						'l' : 'm');
+			retval = spi_setup(spi);
+			if (retval < 0)
+				spi->mode = save;
+			else
+				dev_dbg(&spi->dev,
+					"%csb first\n", tmp ?
+					'l' : 'm');
 		}
 		break;
 	case SPI_IOC_WR_BITS_PER_WORD:
