@@ -189,6 +189,11 @@ char *iommu_get_port_name(int port)
 	int idx;
 
 	idx = mtk_iommu_larb_port_idx(port);
+	if (idx >= M4U_PORT_NR ||
+	    idx < 0) {
+		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
+		return NULL;
+	}
 	return iommu_port[idx].name;
 }
 
@@ -208,6 +213,12 @@ bool report_custom_iommu_fault(
 	if (is_vpu) {
 		port = M4U_PORT_APU;
 		idx = mtk_iommu_larb_port_idx(port);
+		if (idx >= M4U_PORT_NR ||
+		    idx < 0) {
+			pr_info("[MTK_IOMMU] fail,iova 0x%lx, port %d\n",
+				fault_iova, port);
+			return -1;
+		}
 		name = mtk_iommu_get_vpu_port_name(fault_id);
 	} else {
 		idx = mtk_iommu_get_tf_larb_port_idx(m4uid, fault_id);
@@ -271,7 +282,8 @@ int mtk_iommu_register_fault_callback(int port,
 {
 	int idx = mtk_iommu_larb_port_idx(port);
 
-	if (idx >= M4U_PORT_UNKNOWN) {
+	if (idx >= M4U_PORT_NR ||
+	    idx < 0) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -284,7 +296,8 @@ int mtk_iommu_unregister_fault_callback(int port)
 {
 	int idx = mtk_iommu_larb_port_idx(port);
 
-	if (idx >= M4U_PORT_UNKNOWN) {
+	if (idx >= M4U_PORT_NR ||
+	    idx < 0) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -297,7 +310,8 @@ int mtk_iommu_enable_tf(int port, bool fgenable)
 {
 	int idx = mtk_iommu_larb_port_idx(port);
 
-	if (idx >= M4U_PORT_UNKNOWN) {
+	if (idx >= M4U_PORT_NR ||
+	    idx < 0) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -404,7 +418,7 @@ static ssize_t process_write(struct file *file, const char __user *ubuf,
 			   size_t count, loff_t *ppos)
 {
 	const int debug_bufmax = sizeof(debug_buffer) - 1;
-	size_t ret;
+	size_t ret = 0;
 
 	ret = count;
 
@@ -433,7 +447,7 @@ static int debug_open(struct inode *inode, struct file *file)
 static ssize_t debug_write(struct file *file, const char __user *ubuf,
 			   size_t count, loff_t *ppos)
 {
-	process_write(file, ubuf, count, ppos);
+	return process_write(file, ubuf, count, ppos);
 }
 
 static const struct file_operations debug_fops = {
@@ -454,7 +468,7 @@ static int proc_open(struct inode *inode, struct file *file)
 static ssize_t proc_write(struct file *file, const char __user *ubuf,
 			   size_t count, loff_t *ppos)
 {
-	process_write(file, ubuf, count, ppos);
+	return process_write(file, ubuf, count, ppos);
 }
 
 static const struct file_operations proc_fops = {
@@ -529,6 +543,9 @@ void mtk_iommu_log_dump(void *seq_file)
 		    (iommu_globals.record[i].time_high == 0))
 			break;
 		event_id = iommu_globals.record[i].event_id;
+		if (event_id < 0 || event_id >= IOMMU_EVENT_MAX)
+			continue;
+
 		if (event_id <= IOMMU_UNMAP)
 			end_iova = iommu_globals.record[i].data1 +
 				iommu_globals.record[i].data2 - 1;
@@ -565,6 +582,10 @@ void mtk_iommu_trace_rec_write(int event,
 
 	if (iommu_globals.enable == 0)
 		return;
+	if ((event >= IOMMU_EVENT_MAX) ||
+	    (event < 0))
+		return;
+
 	if (event_mgr[event].dump_log)
 		pr_info("[MTK_IOMMU] _trace %10s |0x%-8lx |%9lu |0x%-8lx |0x%-8lx\n",
 			event_mgr[event].name,
@@ -604,15 +625,22 @@ void mtk_iommu_trace_unmap(unsigned long orig_iova,
 	mtk_iommu_trace_rec_write(IOMMU_UNMAP, orig_iova, size, unmapped);
 }
 
-void mtk_iommu_trace_register(int event, const char *name)
+int mtk_iommu_trace_register(int event, const char *name)
 {
+	int n = 0;
+
 	if ((event >= IOMMU_EVENT_MAX) ||
+	    (event < 0) ||
 	    (name == NULL)) {
 		pr_info("[MTK_IOMMU] parameter error, event-%d, name %p, EVENT_MAX: %d\n",
 			event, name, IOMMU_EVENT_MAX);
-		return;
+		return -1;
 	}
-	snprintf(event_mgr[event].name, 10, "%s", name);
+	n = snprintf(event_mgr[event].name, 10, "%s", name);
+	if (n <= 0)
+		pr_info("[MTK_IOMMU] failed to record event name\n");
+
+	return n;
 }
 
 void mtk_iommu_trace_log(int event,
@@ -620,7 +648,8 @@ void mtk_iommu_trace_log(int event,
 			 unsigned long data2,
 			 unsigned long data3)
 {
-	if (event >= IOMMU_EVENT_MAX)
+	if (event >= IOMMU_EVENT_MAX ||
+	    event < 0)
 		return;
 
 	if (strlen(event_mgr[event].name) == 0)
