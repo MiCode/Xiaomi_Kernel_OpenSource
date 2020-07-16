@@ -652,6 +652,13 @@ enum cmdq_sec_rec_meta_type {
 	CMDQ_SEC_METAEX_CQ,
 };
 
+struct mdp_readback_engine {
+	u32 engine;
+	u32 start;
+	u32 count;
+	u32 param;
+};
+
 struct cmdqRecStruct {
 	struct list_head list_entry;
 	struct cmdq_pkt *pkt;
@@ -670,6 +677,9 @@ struct cmdqRecStruct {
 	u32 sram_base;	/* Original PA address of SRAM buffer content */
 	void *node_private;
 	void *user_private;
+	u32 mdp_extension;
+	struct mdp_readback_engine readback_engs[CMDQ_MAX_READBACK_ENG];
+	u32 readback_cnt;
 
 	struct cmdqSecDataStruct secData;	/* secure execution data */
 	void *sec_isp_msg1;

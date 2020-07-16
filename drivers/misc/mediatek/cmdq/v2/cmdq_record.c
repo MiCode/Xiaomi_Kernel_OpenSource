@@ -2301,6 +2301,11 @@ void cmdq_mdp_meta_replace_sec_addr(struct op_meta *metas,
 #endif
 }
 
+void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
+	dma_addr_t addr, u32 param)
+{
+}
+
 s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 {
 	s32 status;

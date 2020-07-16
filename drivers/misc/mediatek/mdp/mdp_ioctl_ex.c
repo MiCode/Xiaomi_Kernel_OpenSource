@@ -353,6 +353,18 @@ static s32 translate_meta(struct op_meta *meta,
 #endif
 		break;
 	}
+	case CMDQ_MOP_READBACK:
+	{
+		dma_addr_t dram_addr;
+		u32 offset;
+
+		dram_addr = translate_read_id_ex(meta->readback_id, &offset);
+		if (!dram_addr)
+			return -EINVAL;
+		cmdq_mdp_op_readback(handle, meta->engine,
+			dram_addr + offset * sizeof(u32), meta->mask);
+		break;
+	}
 	case CMDQ_MOP_POLL:
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
@@ -463,7 +475,11 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 				metas[i].value, metas[i].mask);
 			status = translate_meta(&metas[i], mapping_job, handle);
 			if (unlikely(status < 0)) {
-				CMDQ_ERR("translate[%u] fail: %d\n", i, status);
+				CMDQ_ERR(
+					"translate[%u] fail: %d meta: (%u,%u,%#x,%#x,%#x)\n",
+					i, status, metas[i].op,
+					metas[i].engine, metas[i].offset,
+					metas[i].value, metas[i].mask);
 				break;
 			}
 		}

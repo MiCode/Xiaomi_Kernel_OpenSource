@@ -80,7 +80,7 @@
 #define CMDQ_MAX_INST_CYCLE             (27)
 #define CMDQ_MAX_ERROR_SIZE             (8 * 1024)
 
-#define CMDQ_MAX_TASK_IN_SECURE_THREAD	(10)
+#define CMDQ_MAX_TASK_IN_SECURE_THREAD	(3)
 
 /* max value of CMDQ_THR_EXEC_CMD_CNT (value starts from 0) */
 #ifdef CMDQ_USE_LARGE_MAX_COOKIE
@@ -220,6 +220,13 @@ enum CMDQ_MDP_PA_BASE_ENUM {
 	CMDQ_MAX_MDP_PA_BASE_COUNT,	/* ALWAYS keep at the end */
 };
 
+enum DP_CMD_EXT {
+	DP_CMDEXT_AAL_DRE,
+	DP_CMDEXT_AAL_MULTIPIPE,
+	DP_CMDEXT_HDR,
+	DP_CMDEXT_VERIFY,
+};
+
 #define CMDQ_SUBSYS_GRPNAME_MAX		(30)
 /* GCE subsys information */
 struct SubsysStruct {
@@ -265,11 +272,21 @@ struct cmdqRegValueStruct {
 	cmdqU32Ptr_t regValues;
 };
 
+#define CMDQ_MAX_READBACK_ENG	8
+
+struct cmdqReadbackEngine {
+	uint32_t engine;
+	uint32_t start;
+	uint32_t count;
+	uint32_t param;
+};
+
 struct cmdqReadAddressStruct {
 	uint32_t count;		/* [IN] number of entries in result. */
 
 	/* [IN] array of physical addresses to read.
-	 * these value must allocated by CMDQ_IOCTL_ALLOC_WRITE_ADDRESS ioctl
+	 * these value must allocated by
+	 * CMDQ_IOCTL_ALLOC_WRITE_ADDRESS ioctl
 	 *
 	 * indeed param dmaAddresses should be UNSIGNED LONG type
 	 * for 64 bit kernel.
