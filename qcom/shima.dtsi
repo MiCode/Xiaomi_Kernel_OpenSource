@@ -438,7 +438,7 @@
 		redistributor-stride = <0x0 0x20000>;
 		reg = <0x17a00000 0x10000>,     /* GICD */
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
-		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	pdc: interrupt-controller@b220000 {
@@ -545,7 +545,7 @@
 
 	kryo-erp {
 		compatible = "arm,arm64-kryo-cpu-erp";
-		interrupts = <GIC_PPI 0 IRQ_TYPE_LEVEL_LOW>,
+		interrupts = <GIC_PPI 0 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "l1-l2-faultirq","l3-scu-faultirq";
 	};
