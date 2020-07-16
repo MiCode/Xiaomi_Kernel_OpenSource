@@ -14,7 +14,6 @@
 #ifndef __DRV_CLKDBG_MT6758_H
 #define __DRV_CLKDBG_MT6758_H
 
-#include "clk-mtk.h"
 enum dbg_sys_id {
 	topckgen,
 	infracfg_ao,

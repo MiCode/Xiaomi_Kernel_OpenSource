@@ -82,6 +82,7 @@ static struct regbase rb[] = {
 	[vdecsys]  = REGBASE_V(0x1602f000, vdecsys, "PG_VDEC"),
 	[infracfg_dbg]  = REGBASE_V(0x10001000, infracfg_dbg, NULL),
 	[infrapdn_dbg]  = REGBASE_V(0x10215000, infrapdn_dbg, NULL),
+	{},
 };
 
 #define REGNAME(_base, _ofs, _name)	\
@@ -307,7 +308,7 @@ static void __init init_regbase(void)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(rb); i++) {
+	for (i = 0; i < ARRAY_SIZE(rb) - 1; i++) {
 		if (!rb[i].phys)
 			continue;
 
@@ -396,6 +397,7 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("aes_msdcfde_sel", 416000, 416000, 416000, 416000),
 	MTK_VF_TABLE("mcupm_sel", 182000, 182000, 182000, 182000),
 	MTK_VF_TABLE("sflash_sel", 62400, 62400, 62400, 62400),
+	{},
 };
 
 /*
@@ -623,7 +625,7 @@ static int mtk_mux2id(const char **mux_name)
 {
 	int i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(vf_table) && vf_table[i].name; i++) {
+	for (i = 0; i < ARRAY_SIZE(vf_table) - 1 && vf_table[i].name; i++) {
 		if (strcmp(*mux_name, vf_table[i].name) == 0)
 			return i;
 	}
@@ -683,10 +685,10 @@ static unsigned int check_mux_pdn(unsigned int ID)
 	int i;
 
 	if ((ID > 0) && (ID < 64)) {
-		for (i = 0; i < ARRAY_SIZE(fclks); i++)
+		for (i = 0; i < ARRAY_SIZE(fclks) - 1; i++)
 			if (fclks[i].id == ID)
 				break;
-		if (i >= ARRAY_SIZE(fclks))
+		if (i >= ARRAY_SIZE(fclks) - 1)
 			return 1;
 		if ((clk_readl(rb[topckgen].virt + fclks[i].ofs)
 				& BIT(fclks[i].pdn)))
@@ -787,7 +789,6 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 			break;
 	}
 
-		;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFC0FFFC)|(ID << 16));
 
@@ -856,7 +857,7 @@ static unsigned int mt_get_abist2_freq(unsigned int ID)
 		if (i > 30)
 			break;
 	}
-		;
+
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xC0FFFFFC)
 			| (ID << 24) | (0x2));

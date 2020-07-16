@@ -22,7 +22,6 @@
 #include <linux/mfd/syscon.h>
 
 #include "clk-mtk.h"
-#include "clk-mux.h"
 #include "clk-gate.h"
 #include "clk-fixup-div.h"
 
@@ -165,6 +164,7 @@ int mtk_clk_register_gates(struct device_node *node,
 	int i;
 	struct clk *clk;
 	struct regmap *regmap;
+	struct regmap *pwr_regmap;
 
 	if (!clk_data)
 		return -ENOMEM;
@@ -175,6 +175,10 @@ int mtk_clk_register_gates(struct device_node *node,
 				PTR_ERR(regmap));
 		return PTR_ERR(regmap);
 	}
+
+	pwr_regmap = syscon_regmap_lookup_by_phandle(node, "pwr-regmap");
+	if (IS_ERR(pwr_regmap))
+		pwr_regmap = NULL;
 
 	for (i = 0; i < num; i++) {
 		const struct mtk_gate *gate = &clks[i];
@@ -187,8 +191,11 @@ int mtk_clk_register_gates(struct device_node *node,
 				gate->regs->set_ofs,
 				gate->regs->clr_ofs,
 				gate->regs->sta_ofs,
-				gate->shift, gate->ops,
-				gate->flags);
+				gate->shift,
+				gate->ops,
+				gate->flags,
+				gate->pwr_stat,
+				pwr_regmap);
 
 		if (IS_ERR(clk)) {
 			pr_err("Failed to register clk %s: %ld\n",
@@ -197,46 +204,6 @@ int mtk_clk_register_gates(struct device_node *node,
 		}
 
 		clk_data->clks[gate->id] = clk;
-	}
-
-	return 0;
-}
-
-int mtk_clk_register_muxes(const struct mtk_mux *muxes,
-			   int num, struct device_node *node,
-			   spinlock_t *lock,
-			   struct clk_onecell_data *clk_data)
-{
-	struct regmap *regmap;
-	struct clk *clk;
-	int i;
-
-	if (!clk_data)
-		return -ENOMEM;
-
-	regmap = syscon_node_to_regmap(node);
-	if (IS_ERR(regmap)) {
-		pr_err("Cannot find regmap for %pOF: %ld\n", node,
-		       PTR_ERR(regmap));
-		return PTR_ERR(regmap);
-	}
-
-	for (i = 0; i < num; i++) {
-		const struct mtk_mux *mux = &muxes[i];
-
-		if (clk_data && !IS_ERR_OR_NULL(clk_data->clks[mux->id]))
-			continue;
-
-		clk = mtk_clk_register_mux(mux, regmap, lock);
-
-		if (IS_ERR(clk)) {
-			pr_err("Failed to register clk %s: %ld\n",
-			       mux->name, PTR_ERR(clk));
-			continue;
-		}
-
-		if (clk_data)
-			clk_data->clks[mux->id] = clk;
 	}
 
 	return 0;
@@ -265,7 +232,7 @@ struct clk *mtk_clk_register_composite(const struct mtk_composite *mc,
 		mux->mask = BIT(mc->mux_width) - 1;
 		mux->shift = mc->mux_shift;
 		mux->lock = lock;
-
+		mux->flags = mc->mux_flags;
 		mux_hw = &mux->hw;
 		mux_ops = &clk_mux_ops;
 

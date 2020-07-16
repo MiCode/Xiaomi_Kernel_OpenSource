@@ -1,19 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2018 MediaTek Inc.
- * Author: Wendell Lin <wendell.lin@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Author: Owen Chen <owen.chen@mediatek.com>
  */
 
-#ifndef __DRV_CLK_MUX_H
-#define __DRV_CLK_MUX_H
+#ifndef __DRV_CLK_MTK_MUX_H
+#define __DRV_CLK_MTK_MUX_H
 
 #include <linux/clk-provider.h>
 
@@ -23,10 +15,10 @@ struct mtk_clk_mux {
 
 	const char *name;
 
-	int mux_set_ofs;
-	int mux_clr_ofs;
-	int mux_ofs;
-	int upd_ofs;
+	u32 mux_ofs;
+	u32 set_ofs;
+	u32 clr_ofs;
+	u32 upd_ofs;
 
 	s8 mux_shift;
 	s8 mux_width;
@@ -36,19 +28,15 @@ struct mtk_clk_mux {
 	spinlock_t *lock;
 };
 
-extern const struct clk_ops mtk_mux_upd_ops;
-extern const struct clk_ops mtk_mux_clr_set_upd_ops;
-
-struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
-				 struct regmap *regmap,
-				 spinlock_t *lock);
-
-struct mtk_mux_upd {
+struct mtk_mux {
 	int id;
 	const char *name;
 	const char * const *parent_names;
+	unsigned int flags;
 
 	u32 mux_ofs;
+	u32 set_ofs;
+	u32 clr_ofs;
 	u32 upd_ofs;
 
 	s8 mux_shift;
@@ -56,22 +44,58 @@ struct mtk_mux_upd {
 	s8 gate_shift;
 	s8 upd_shift;
 
+	const struct clk_ops *ops;
+
 	s8 num_parents;
 };
-/*
- *#define MUX_UPD(_id, _name, _parents, _mux_ofs, _shift, _width, _gate,\
- *			_upd_ofs, _upd) {				\
- *		.id = _id,						\
- *		.name = _name,						\
- *		.mux_ofs = _mux_ofs,					\
- *		.upd_ofs = _upd_ofs,					\
- *		.mux_shift = _shift,					\
- *		.mux_width = _width,					\
- *		.gate_shift = _gate,					\
- *		.upd_shift = _upd,					\
- *		.parent_names = _parents,				\
- *		.num_parents = ARRAY_SIZE(_parents),			\
- *	}
- */
 
-#endif /* __DRV_CLK_MUX_H */
+extern const struct clk_ops mtk_mux_ops;
+extern const struct clk_ops mtk_mux_clr_set_upd_ops;
+extern const struct clk_ops mtk_mux_gate_ops;
+extern const struct clk_ops mtk_mux_gate_clr_set_upd_ops;
+
+#define CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,		\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd, _flags, _ops) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.mux_ofs = _mux_ofs,					\
+		.set_ofs = _mux_set_ofs,				\
+		.clr_ofs = _mux_clr_ofs,				\
+		.upd_ofs = _upd_ofs,					\
+		.mux_shift = _shift,					\
+		.mux_width = _width,					\
+		.gate_shift = _gate,					\
+		.upd_shift = _upd,					\
+		.parent_names = _parents,				\
+		.num_parents = ARRAY_SIZE(_parents),			\
+		.flags = _flags,					\
+		.ops = &_ops,						\
+	}
+
+#define MUX_CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,	\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd, _flags)			\
+		CLR_SET_UPD_FLAGS(_id, _name, _parents, _mux_ofs,	\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd, _flags,			\
+			mtk_mux_gate_clr_set_upd_ops)
+
+#define MUX_CLR_SET_UPD(_id, _name, _parents, _mux_ofs,		\
+			_mux_set_ofs, _mux_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd)				\
+		MUX_CLR_SET_UPD_FLAGS(_id, _name, _parents,	\
+			_mux_ofs, _mux_set_ofs, _mux_clr_ofs, _shift,	\
+			_width, _gate, _upd_ofs, _upd,			\
+			CLK_SET_RATE_PARENT)
+
+struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
+				 struct regmap *regmap,
+				 spinlock_t *lock);
+
+int mtk_clk_register_muxes(const struct mtk_mux *muxes,
+			   int num, struct device_node *node,
+			   spinlock_t *lock,
+			   struct clk_onecell_data *clk_data);
+
+#endif /* __DRV_CLK_MTK_MUX_H */
