@@ -592,7 +592,7 @@ static void cmdq_test_mbox_sync_token_flush(unsigned long data)
 }
 
 void cmdq_test_mbox_flush(
-	struct cmdq_test *test, const bool secure, const bool threaded)
+	struct cmdq_test *test, const s32 secure, const bool threaded)
 {
 	struct cmdq_client		*clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt			*pkt[CMDQ_TEST_CNT] = {0};
@@ -611,8 +611,9 @@ void cmdq_test_mbox_flush(
 		if (secure) {
 			cmdq_sec_pkt_set_data(pkt[i], 0, 0, CMDQ_SEC_DEBUG,
 				CMDQ_METAEX_NONE);
-#if 1
-			cmdq_sec_pkt_set_mtee(pkt[i], true);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+			if (!~secure)
+				cmdq_sec_pkt_set_mtee(pkt[i], true);
 #endif
 		}
 #endif
@@ -653,7 +654,7 @@ void cmdq_test_mbox_flush(
 }
 
 static void cmdq_test_mbox_write(
-	struct cmdq_test *test, const bool secure, const bool need_mask)
+	struct cmdq_test *test, const s32 secure, const bool need_mask)
 {
 	const u32	mask = need_mask ? (1 << 16) : ~0;
 	const u32	pttn = (1 << 0) | (1 << 2) | (1 << 16);
@@ -682,9 +683,9 @@ static void cmdq_test_mbox_write(
 	if (secure) {
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SEC_DEBUG,
 			CMDQ_METAEX_NONE);
-
-#if 1
-		cmdq_sec_pkt_set_mtee(pkt, true); //MTEE UT
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		if (!~secure)
+			cmdq_sec_pkt_set_mtee(pkt, true);
 #endif
 	}
 #endif
