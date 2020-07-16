@@ -182,7 +182,9 @@
 		vcpus {
 			config = "/cpus";
 			affinity = "static";
-			affinity-map = <0x0>;   /* VCPU -> CPU */
+			affinity-map = <0x4 0x5>;   /* VCPU[0,1] -> CPU[4,5] */
+			sched-priority = < (-1) >;  /* relative to PVM */
+			sched-timeslice = <2000>;   /* in ms */
 		};
 
 		interrupts {
