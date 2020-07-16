@@ -2925,6 +2925,9 @@ int vpu_init_hw(int core, struct vpu_device *device)
 			if (i == 0)
 				wakeup_source_init(
 					&(vpu_wake_lock[i]), "vpu_wakelock_0");
+			else
+				wakeup_source_init(
+					&(vpu_wake_lock[i]), "vpu_wakelock_1");
 			#else
 			if (i == 0)
 				wake_lock_init(
