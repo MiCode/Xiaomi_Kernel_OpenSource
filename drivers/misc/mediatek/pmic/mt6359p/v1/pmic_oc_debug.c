@@ -119,6 +119,7 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 			       void *unused)
 {
 	unsigned int val = 0;
+	unsigned int len = 0;
 	char oc_str[30] = "";
 	struct reg_oc_debug_t *reg_oc_dbg;
 
@@ -150,7 +151,7 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 		/* case results from mechanism design */
 		return NOTIFY_OK;
 	}
-	snprintf(oc_str, 30, "PMIC OC:%s", reg_oc_dbg->name);
+	len += snprintf(oc_str, 30, "PMIC OC:%s", reg_oc_dbg->name);
 	if (reg_oc_dbg->is_md_reg) {
 		aee_kernel_warning(oc_str,
 				   "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
