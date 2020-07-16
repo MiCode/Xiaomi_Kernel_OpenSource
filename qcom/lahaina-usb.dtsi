@@ -68,6 +68,8 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
 			snps,is-utmi-l1-suspend;
+			snps,dis-u1-entry-quirk;
+			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
 			snps,ssp-u3-u0-quirk;
 			tx-fifo-resize;
@@ -398,6 +400,8 @@
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
 			snps,is-utmi-l1-suspend;
+			snps,dis-u1-entry-quirk;
+			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
 			tx-fifo-resize;
 			maximum-speed = "super-speed";
