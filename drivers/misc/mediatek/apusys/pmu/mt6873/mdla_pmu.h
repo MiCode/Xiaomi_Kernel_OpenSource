@@ -20,7 +20,7 @@
 #include "apusys_device.h"
 #endif
 
-extern int get_power_on_status(int core_id);
+extern int get_power_on_status(unsigned int core_id);
 extern int cfg_timer_en;
 
 #define MDLA_PMU_COUNTERS 15

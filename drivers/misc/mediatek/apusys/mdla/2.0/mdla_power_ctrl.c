@@ -59,17 +59,17 @@ enum MDLA_POWER_STAT {
 };
 
 
-int get_power_on_status(int core_id)
+int get_power_on_status(unsigned int core_id)
 {
 	return mdla_devices[core_id].mdla_power_status;
 }
 
-int get_sw_power_on_status(int core_id)
+int get_sw_power_on_status(unsigned int core_id)
 {
 	return mdla_devices[core_id].mdla_sw_power_status;
 }
 
-int mdla_pwr_on(int core_id, bool force)
+int mdla_pwr_on(unsigned int core_id, bool force)
 {
 
 	int ret = 0;
@@ -138,7 +138,7 @@ power_on_done:
 	return ret;
 }
 
-int mdla_pwr_off(int core_id, int suspend, bool force)
+int mdla_pwr_off(unsigned int core_id, int suspend, bool force)
 {
 	int ret = 0;
 	int i;
@@ -194,7 +194,7 @@ power_off_done:
 	return ret;
 }
 
-void mdla_set_opp(int core_id, int bootst_val)
+void mdla_set_opp(unsigned int core_id, int bootst_val)
 {
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	uint8_t mdla_opp = 0;
@@ -215,7 +215,7 @@ void mdla1_start_power_off(struct work_struct *work)
 	mdla_start_power_off(1, 0, false);
 }
 
-int mdla_start_power_off(int core_id, int suspend, bool force)
+int mdla_start_power_off(unsigned int core_id, int suspend, bool force)
 {
 	int ret = 0;
 
@@ -233,7 +233,7 @@ void mdla_power_timeup(unsigned long data)
 	schedule_work(&mdla_devices[data].power_off_work);
 }
 
-void mdla_setup_power_down(int core_id)
+void mdla_setup_power_down(unsigned int core_id)
 {
 	if (mdla_devices[core_id].cmd_list_cnt > 0)
 		mdla_devices[core_id].cmd_list_cnt--;

@@ -253,7 +253,7 @@ int mdla_dts_map(struct platform_device *pdev)
 	return 0;
 }
 
-void mdla_reset(int core, int res)
+void mdla_reset(unsigned int core, int res)
 {
 	const char *str = mdla_get_reason_str(res);
 	unsigned long flags;
@@ -337,7 +337,7 @@ void mdla_multi_core_sync_rst_done(void)
 			udelay(10);
 }
 
-int mdla_zero_skip_detect(int core_id)
+int mdla_zero_skip_detect(unsigned int core_id)
 {
 	u32 dde_debug_if_0, dde_debug_if_2, dde_it_front_c_invalid;
 

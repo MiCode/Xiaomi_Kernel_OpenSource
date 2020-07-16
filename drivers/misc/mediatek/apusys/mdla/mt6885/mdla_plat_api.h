@@ -15,12 +15,12 @@
 #define _MDLA_PLAT_API_H_
 #include <linux/interrupt.h>
 #include <linux/device.h>
-void mdla_reset(int core, int res);
+void mdla_reset(unsigned int core, int res);
 #if 0
 int mdla_process_command(int core_id, struct command_entry *ce);
 int hw_e1_timeout_detect(int core_id);
 #endif
-int mdla_zero_skip_detect(int core_id);
+int mdla_zero_skip_detect(unsigned int core_id);
 int mdla_run_command_codebuf_check(struct command_entry *ce);
 
 int mdla_dts_map(struct platform_device *pdev);

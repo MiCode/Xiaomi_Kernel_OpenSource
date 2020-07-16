@@ -495,7 +495,7 @@ out:
 
 }
 
-void mdla_dump_cmd_buf_free(int core_id)
+void mdla_dump_cmd_buf_free(unsigned int core_id)
 {
 	mutex_lock(&mdla_devices[core_id].cmd_buf_dmp_lock);
 	if (mdla_devices[core_id].cmd_buf_len != 0) {

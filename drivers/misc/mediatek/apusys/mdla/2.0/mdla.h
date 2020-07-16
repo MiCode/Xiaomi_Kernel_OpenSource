@@ -84,7 +84,7 @@ enum REASON_MDLA_RETVAL_ENUM {
 	REASON_MAX,
 };
 
-void mdla_reset_lock(int core, int ret);
+void mdla_reset_lock(unsigned int core, int ret);
 
 enum command_entry_flags {
 	CE_NOP     = 0x00,
