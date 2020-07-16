@@ -180,6 +180,9 @@ vpu_map_sg_to_iova(
 	bool match = false;
 	int ret;
 
+	if (!sg)
+		return 0;
+
 	if (given_iova >= VPU_IOVA_END) {
 		dyn_alloc = true;
 		mask = (VPU_IOVA_END - 1) | VPU_IOVA_BANK;
@@ -222,7 +225,6 @@ vpu_map_sg_to_iova(
 		vpu_aee_warn("VPU", "iova mapping error");
 
 	return iova;
-
 }
 
 static dma_addr_t

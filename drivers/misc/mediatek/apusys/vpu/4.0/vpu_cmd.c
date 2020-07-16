@@ -20,13 +20,13 @@
 #include "vpu_reg.h"
 #include "vpu_algo.h"
 
-static int vpu_prio(int p)
+static unsigned int vpu_prio(int p)
 {
 	if (p < 0)
 		return 0;
 	if (p >= VPU_MAX_PRIORITY)
 		return (VPU_MAX_PRIORITY - 1);
-	return p;
+	return (unsigned int)p;
 }
 
 /**
@@ -112,7 +112,7 @@ void vpu_cmd_clear(struct vpu_device *vd)
  */
 void vpu_cmd_lock(struct vpu_device *vd, int prio)
 {
-	int p = vpu_prio(prio);
+	unsigned int p = vpu_prio(prio);
 	struct vpu_cmd_ctl *c = &vd->cmd[p];
 
 	mutex_lock_nested(&c->lock, VPU_MUTEX_CMD + p);
