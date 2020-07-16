@@ -93,10 +93,12 @@ int get_chipset_version(void);
 #define BT_CMD_SLIM_TEST            0xbfac
 #define BT_CMD_PWR_CTRL             0xbfad
 #define BT_CMD_CHIPSET_VERS         0xbfae
-#define BT_CMD_GETVAL_RESET_GPIO    0xbfb5
-#define BT_CMD_GETVAL_SW_CTRL_GPIO  0xbfb0
-#define BT_CMD_GETVAL_VDD_AON_LDO   0xbfb1
-#define BT_CMD_GETVAL_VDD_DIG_LDO   0xbfb2
-#define BT_CMD_GETVAL_VDD_RFA1_LDO  0xbfb3
-#define BT_CMD_GETVAL_VDD_RFA2_LDO  0xbfb4
+/* 0xbfaf --> reserved for kernel 5.4 */
+#define BT_CMD_CHECK_SW_CTRL        0xbfb0
+#define BT_CMD_GETVAL_POWER_SRCS    0xbfb1
+
+
+/* total number of power src */
+#define BT_POWER_SRC_SIZE           28
+
 #endif /* __LINUX_BLUETOOTH_POWER_H */
