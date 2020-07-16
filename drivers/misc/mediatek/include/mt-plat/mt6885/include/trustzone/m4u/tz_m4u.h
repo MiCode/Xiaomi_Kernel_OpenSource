@@ -158,6 +158,27 @@ struct m4u_msg {
 	unsigned int     cmd;
 	unsigned int     retval_for_tbase; /* it must be 0 */
 	unsigned int     rsp;
+
+	union {
+		struct m4u_session_param session_param;
+		struct m4u_cfg_port_param port_param;
+		struct m4u_buf_param buf_param;
+		struct m4u_init_param init_param;
+		struct m4u_cfg_port_array_param port_array_param;
+#ifdef __M4U_SECURE_SYSTRACE_ENABLE__
+		struct m4u_systrace_param systrace_param;
+#endif
+		struct m4u_larb_restore_param larb_param;
+		struct m4u_reserved_memory_param reserved_memory_param;
+		struct m4u_sec_mem_param sec_mem_param;
+	};
+
+};
+
+struct gz_m4u_msg {
+	unsigned int     cmd;
+	unsigned int     retval_for_tbase; /* it must be 0 */
+	unsigned int     rsp;
 	unsigned int     iommu_type;
 	unsigned int     iommu_sec_id;
 
