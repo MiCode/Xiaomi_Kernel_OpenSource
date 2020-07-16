@@ -1707,7 +1707,7 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 	MHI_VERB("Exit\n");
 
 	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-		queue_work(mhi_cntrl->special_wq, &mhi_cntrl->special_work);
+		queue_work(mhi_cntrl->wq, &mhi_cntrl->special_work);
 
 	return IRQ_WAKE_THREAD;
 }
