@@ -290,6 +290,7 @@ struct mhi_controller {
 
 	/* mhi host manages downloading entire fbc images */
 	bool fbc_download;
+	bool rddm_supported;
 	size_t rddm_size;
 	size_t sbl_size;
 	size_t seg_len;

@@ -1211,7 +1211,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 				 * event instead of sys error state change event
 				 */
 				if (mhi_cntrl->ee == MHI_EE_RDDM ||
-				    mhi_cntrl->rddm_image)
+				    mhi_cntrl->rddm_supported)
 					break;
 
 				MHI_ERR("MHI system error detected\n");
@@ -1637,20 +1637,20 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 		TO_MHI_EXEC_STR(ee),
 		TO_MHI_STATE_STR(state));
 
-	if (mhi_cntrl->power_down) {
-		write_unlock_irq(&mhi_cntrl->pm_lock);
-		goto exit_intvec;
-	}
-
 	if (state == MHI_STATE_SYS_ERR) {
 		MHI_ERR("MHI system error detected\n");
 		pm_state = mhi_tryset_pm_state(mhi_cntrl,
 					       MHI_PM_SYS_ERR_DETECT);
 	}
-	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	if (ee == MHI_EE_RDDM) {
-		write_lock_irq(&mhi_cntrl->pm_lock);
+	if (mhi_cntrl->rddm_supported) {
+		/* exit as power down is already initiated */
+		if (mhi_cntrl->power_down || ee != MHI_EE_RDDM) {
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			goto exit_intvec;
+		}
+
+		/* prevent multiple entries for RDDM execution environment */
 		if (mhi_cntrl->ee == MHI_EE_RDDM) {
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			goto exit_intvec;
@@ -1669,6 +1669,8 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 
 		goto exit_intvec;
 	}
+
+	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	/* if device is in RDDM, don't bother processing SYS_ERR */
 	if (ee != MHI_EE_RDDM && pm_state == MHI_PM_SYS_ERR_DETECT) {
