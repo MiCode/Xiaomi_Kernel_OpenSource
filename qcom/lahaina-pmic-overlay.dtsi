@@ -554,3 +554,11 @@
 		nvmem-cell-names = "restart_reason";
 	};
 };
+
+&soc {
+	pmic-pon-log {
+		compatible = "qcom,pmic-pon-log";
+		nvmem = <&pmk8350_sdam_5>;
+		nvmem-names = "pon_log";
+	};
+};
