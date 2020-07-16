@@ -29,7 +29,8 @@ extern u8 cfg_apusys_trace;
 		if (cfg_apusys_trace) {\
 			len = snprintf(buf, sizeof(buf), \
 				       format, args); \
-			trace_async_tag(1, buf); \
+			if (len >= 0) \
+				trace_async_tag(1, buf); \
 		} \
 	}
 
@@ -43,7 +44,8 @@ extern u8 cfg_apusys_trace;
 		if (cfg_apusys_trace) { \
 			len = snprintf(buf, sizeof(buf), \
 				       format, args); \
-			trace_async_tag(0, buf); \
+			if (len >= 0) \
+				trace_async_tag(0, buf); \
 		} \
 	}
 #else

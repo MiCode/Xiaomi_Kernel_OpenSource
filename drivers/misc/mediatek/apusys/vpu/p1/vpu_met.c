@@ -589,7 +589,10 @@ int vpu_init_drv_met(void)
 	for (i = 0; i < VPU_MET_PM_MAX; i++) {
 		char name[32];
 
-		snprintf(name, sizeof(name), "ctrl%d", i);
+		if (snprintf(name, sizeof(name), "ctrl%d", i) < 0) {
+			name[0] = '\0';
+			vpu_met_debug("%s: snprintf fail\n", __func__);
+		}
 		debugfs_create_u32(name, 0660, dpm, &pm_sel[i]);
 	}
 
