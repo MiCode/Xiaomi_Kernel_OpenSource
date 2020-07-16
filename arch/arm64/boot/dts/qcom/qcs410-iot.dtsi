@@ -19,7 +19,6 @@
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-sm6150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm6150.h>
-#include "qcs410.dtsi"
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde-display.dtsi"
 #include "qcs610-camera-sensor-idp.dtsi"
