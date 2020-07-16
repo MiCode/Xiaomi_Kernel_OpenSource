@@ -502,13 +502,14 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 	} else if (sysfs_streq(cmd, "resume")) {
 		ret = cnss_pci_pm_runtime_resume(pci_priv);
 	} else if (sysfs_streq(cmd, "get")) {
-		ret = cnss_pci_pm_runtime_get(pci_priv);
+		ret = cnss_pci_pm_runtime_get(pci_priv, RTPM_ID_CNSS);
 	} else if (sysfs_streq(cmd, "get_noresume")) {
-		cnss_pci_pm_runtime_get_noresume(pci_priv);
+		cnss_pci_pm_runtime_get_noresume(pci_priv, RTPM_ID_CNSS);
 	} else if (sysfs_streq(cmd, "put_autosuspend")) {
-		ret = cnss_pci_pm_runtime_put_autosuspend(pci_priv);
+		ret = cnss_pci_pm_runtime_put_autosuspend(pci_priv,
+							  RTPM_ID_CNSS);
 	} else if (sysfs_streq(cmd, "put_noidle")) {
-		cnss_pci_pm_runtime_put_noidle(pci_priv);
+		cnss_pci_pm_runtime_put_noidle(pci_priv, RTPM_ID_CNSS);
 	} else if (sysfs_streq(cmd, "mark_last_busy")) {
 		cnss_pci_pm_runtime_mark_last_busy(pci_priv);
 	} else if (sysfs_streq(cmd, "resume_bus")) {
@@ -528,6 +529,17 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 
 static int cnss_runtime_pm_debug_show(struct seq_file *s, void *data)
 {
+	struct cnss_plat_data *plat_priv = s->private;
+	struct cnss_pci_data *pci_priv;
+	int i;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	pci_priv = plat_priv->bus_priv;
+	if (!pci_priv)
+		return -ENODEV;
+
 	seq_puts(s, "\nUsage: echo <action> > <debugfs_path>/cnss/runtime_pm\n");
 	seq_puts(s, "<action> can be one of below:\n");
 	seq_puts(s, "usage_count: get runtime PM usage count\n");
@@ -540,6 +552,25 @@ static int cnss_runtime_pm_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "mark_last_busy: do runtime PM mark last busy\n");
 	seq_puts(s, "resume_bus: do bus resume only\n");
 	seq_puts(s, "suspend_bus: do bus suspend only\n");
+
+	seq_puts(s, "\nStats:\n");
+	seq_printf(s, "%s: %u\n", "get count",
+		   atomic_read(&pci_priv->pm_stats.runtime_get));
+	seq_printf(s, "%s: %u\n", "put count",
+		   atomic_read(&pci_priv->pm_stats.runtime_put));
+	seq_printf(s, "%-10s%-10s%-10s%-15s%-15s\n",
+		   "id:", "get",  "put", "get time(us)", "put time(us)");
+	for (i = 0; i < RTPM_ID_MAX; i++) {
+		seq_printf(s, "%d%-9s", i, ":");
+		seq_printf(s, "%-10d",
+			   atomic_read(&pci_priv->pm_stats.runtime_get_id[i]));
+		seq_printf(s, "%-10d",
+			   atomic_read(&pci_priv->pm_stats.runtime_put_id[i]));
+		seq_printf(s, "%-15llu",
+			   pci_priv->pm_stats.runtime_get_timestamp_id[i]);
+		seq_printf(s, "%-15llu\n",
+			   pci_priv->pm_stats.runtime_put_timestamp_id[i]);
+	}
 
 	return 0;
 }
