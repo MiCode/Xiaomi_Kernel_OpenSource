@@ -183,9 +183,15 @@ void mdw_usr_dump(struct seq_file *s)
 static void mdw_usr_ws_init(void)
 {
 #if defined CONFIG_PM_SLEEP
+	char ws_name[16];
+
+	if (snprintf(ws_name, sizeof(ws_name)-1, "apusys_usr") < 0) {
+		mdw_drv_err("init rsc wakeup source fail\n");
+		return;
+	}
 	ws_cnt = 0;
 	mutex_init(&ws_mtx);
-	mdw_usr_ws = wakeup_source_register(NULL, "apusys_usr");
+	mdw_usr_ws = wakeup_source_register(NULL, ws_name);
 	if (!mdw_usr_ws)
 		mdw_drv_err("register ws lock fail!\n");
 #else
@@ -366,7 +372,7 @@ int mdw_usr_dev_sec_alloc(int type, struct mdw_usr *u)
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	int ret = 0;
 
-	if (type >= APUSYS_DEVICE_RT)
+	if (type >= APUSYS_DEVICE_RT || type < 0)
 		return -ENODEV;
 
 	mutex_lock(&u->mtx);

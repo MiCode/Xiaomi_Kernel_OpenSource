@@ -193,7 +193,7 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
 
 	/* find mdw_pid struct from nq's pid list */
 	p = mdw_queue_norm_pid_get(nq, prio);
-	if (!q) {
+	if (!p) {
 		ret = -EINVAL;
 		goto fail_get_pid;
 	}
@@ -202,7 +202,7 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
 	pi = vzalloc(sizeof(struct mdw_pid_item));
 	if (!pi) {
 		ret = -ENOMEM;
-		goto fail_alloc_pi;
+		goto fail_alloc_pitem;
 	}
 
 	/* add pitem to normal task queue/pid pi queue */
@@ -231,7 +231,7 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
 
 	goto out;
 
-fail_alloc_pi:
+fail_alloc_pitem:
 	mdw_queue_norm_pid_put(p);
 fail_get_pid:
 out:
@@ -264,8 +264,6 @@ static int mdw_queue_norm_delete(struct mdw_apu_sc *sc, void *q)
 	}
 
 	/* get p item from the last of pid's pi list and delete it */
-	if (list_empty(&p->pi_list))
-		goto fail_empty_pi;
 	pi = list_last_entry(&p->pi_list, struct mdw_pid_item, p_item);
 	if (!pi)
 		goto fail_get_pi;
@@ -293,7 +291,6 @@ static int mdw_queue_norm_delete(struct mdw_apu_sc *sc, void *q)
 	mdw_rsc_update_avl_bmp(sc->type);
 
 fail_get_pi:
-fail_empty_pi:
 	mdw_queue_norm_pid_put(p);
 out:
 	mutex_unlock(&nq->mtx);

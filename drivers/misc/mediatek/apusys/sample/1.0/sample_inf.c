@@ -505,7 +505,9 @@ int sample_device_init(void)
 
 		/* assign private info */
 		sample_private[i]->idx = 0;
-		snprintf(sample_private[i]->name, 21, "apusys sample driver");
+		if (snprintf(sample_private[i]->name, 21,
+			"apusys sample driver") < 0)
+			goto fail_set_name;
 
 		/* assign sample dev */
 		sample_private[i]->dev->dev_type = APUSYS_DEVICE_SAMPLE;
@@ -530,6 +532,7 @@ int sample_device_init(void)
 
 register_device_fail:
 	kfree(sample_private[i]->dev);
+fail_set_name:
 alloc_dev_fail:
 	kfree(sample_private[i]);
 alloc_info_fail:
