@@ -22,8 +22,18 @@ MEM_VDIR = 1.0
 UTIL_DIR = ../util
 POWER_DIR = ../power
 POWER_VDIR = 2.0
+POWER_PDIR = $(MTK_PLATFORM)
 MIDWARE_DIR = ../midware
 MIDWARE_VDIR = 1.1
+M4U_PDIR = $(MTK_PLATFORM)
+
+# mt6893 and mt6885 co-platform folder
+ifeq ($(CONFIG_MACH_MT6893),y)
+PDIR = mt6885
+PMU_PDIR = mt6885
+POWER_PDIR = mt6885
+M4U_PDIR = mt6885
+endif
 
 ccflags-y += -I$(obj)/$(VDIR)
 ccflags-y += -I$(obj)/$(PDIR)
@@ -36,9 +46,9 @@ ccflags-y += -I$(obj)/$(MEM_DIR)/$(MEM_VDIR)
 
 #Power
 ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)
-ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)/$(MTK_PLATFORM)
+ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)/$(POWER_PDIR)
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(M4U_PDIR)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/arch/arm64/include/asm/
 
@@ -54,14 +64,6 @@ mdla-y += $(PMU_DIR)/$(PMU_VDIR)/mdla_trace.o $(PMU_DIR)/$(PMU_VDIR)/mdla_decode
 mdla-y += $(PMU_DIR)/$(PMU_PDIR)/mdla_pmu.o
 mdla-y += $(MEM_DIR)/$(MEM_VDIR)/gsm.o $(MEM_DIR)/$(MEM_VDIR)/mdla_ion.o
 
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6893))
-endif
-MTK_MDLA_CORE := 1
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6893))
-MTK_MDLA_CORE := 1
-else
-endif
-subdir-ccflags-y += -DMTK_MDLA_CORE=$(MTK_MDLA_CORE)
 subdir-ccflags-y += -DMTK_MDLA_DVT
 
 # FPGA environment
