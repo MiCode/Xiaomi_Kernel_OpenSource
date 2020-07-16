@@ -473,6 +473,8 @@ static const struct snd_kcontrol_new mtk_hw_src_2_in_ch1_mix[] = {
 				    I_DL3_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH1", AFE_CONN42_1,
 				    I_DL5_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN2_OUT_CH1", AFE_CONN42,
+				    I_GAIN2_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_hw_src_2_in_ch2_mix[] = {
@@ -482,6 +484,8 @@ static const struct snd_kcontrol_new mtk_hw_src_2_in_ch2_mix[] = {
 				    I_DL3_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH2", AFE_CONN43_1,
 				    I_DL5_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN2_OUT_CH2", AFE_CONN43,
+				    I_GAIN2_OUT_CH2, 1, 0),
 };
 
 static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
@@ -528,8 +532,10 @@ static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
 	else
 		src_priv = afe_priv->dai_priv[MT6785_DAI_SRC_2];
 
-	dev_info(afe->dev, "%s(), dl_rate %d,ul_rate %d\n",
-		 __func__, src_priv->dl_rate, src_priv->ul_rate);
+	dev_info(afe->dev,
+		 "%s(), source %s, sink %s, dl_rate %d, ul_rate %d\n",
+		 __func__, source->name, sink->name,
+		 src_priv->dl_rate, src_priv->ul_rate);
 
 	return (src_priv->dl_rate > 0 && src_priv->ul_rate > 0) ? 1 : 0;
 }
