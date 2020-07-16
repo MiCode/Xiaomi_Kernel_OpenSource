@@ -321,6 +321,12 @@ static noinline int __freq_to_index(enum FH_PLL_ID pll_id,
 	const unsigned int size =
 		ARRAY_SIZE(g_pll_ssc_setting_tbl[pll_id]);
 
+	if (pll_id < 0) {
+		FH_MSG("(ERROR) %s [pll_id]:%d invalid PLL ID value\n",
+			__func__, pll_id);
+		return 0;
+	}
+
 	while (i < size) {
 		if (pattern == g_pll_ssc_setting_tbl[pll_id][i].idx_pattern) {
 			retVal = i;
