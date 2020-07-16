@@ -10,7 +10,7 @@
 
 #include "ged_type.h"
 
-#define GED_SYSFS_MAX_BUFF_SIZE 1024
+#define GED_SYSFS_MAX_BUFF_SIZE 128
 
 #define KOBJ_ATTR_RW(_name)	\
 	struct kobj_attribute kobj_attr_##_name =	\
