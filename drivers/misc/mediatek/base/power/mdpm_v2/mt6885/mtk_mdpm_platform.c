@@ -573,7 +573,7 @@ enum md_scenario get_md1_scenario(u32 share_reg,
 
 	scenario = (scenario < 0) ? S_STANDBY : scenario;
 
-	if (mt_mdpm_debug)
+	if (mt_mdpm_debug && scenario >= 0)
 		pr_info("MD1 scenario: %d(%s), reg: 0x%x\n",
 			scenario, mdpm_scen[scenario].scenario_name,
 			share_reg);
@@ -594,7 +594,7 @@ enum md_scenario get_md1_scenario_by_shm(u32 *share_mem)
 
 	scenario = (scenario < 0) ? S_STANDBY : scenario;
 
-	if (mt_mdpm_debug)
+	if (mt_mdpm_debug && scenario >= 0)
 		pr_info("MD1 scenario: %d(%s), scen_status: 0x%x\n",
 			scenario, mdpm_scen[scenario].scenario_name,
 			scen_status);
@@ -607,6 +607,10 @@ int get_md1_scenario_power(enum md_scenario scenario,
 	enum mdpm_power_type power_type, struct md_power_status *mdpm_pwr_sta)
 {
 	int s_power = 0;
+	int temp;
+
+	if (unlikely(scenario < 0))
+		goto just_out;
 
 	switch (power_type) {
 	case MAX_POWER:
@@ -620,11 +624,15 @@ int get_md1_scenario_power(enum md_scenario scenario,
 		break;
 	}
 	mdpm_pwr_sta->scenario_id = scenario;
-	sprintf(mdpm_pwr_sta->scenario_name, "%s",
-		mdpm_scen[scenario].scenario_name);
+	temp = snprintf(mdpm_pwr_sta->scenario_name, MAX_MDPM_NAME_LEN,
+		"%s", mdpm_scen[scenario].scenario_name);
+	if (temp < 0)
+		pr_notice("%s error scenario_name\n", __func__);
+
 	mdpm_pwr_sta->scanario_power = s_power;
 	mdpm_pwr_sta->power_type = power_type;
 
+just_out:
 	return s_power;
 }
 
@@ -652,6 +660,9 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 
 		return 0;
 	}
+
+	if (unlikely(scenario < 0))
+		return 0;
 
 	if (check_shm_version(share_mem) == VERSION_VALID)
 		rf_ret = get_rfhw(share_mem);
