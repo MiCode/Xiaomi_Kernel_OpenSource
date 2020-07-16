@@ -7,6 +7,7 @@
 };
 
 &pcie0 {
+	qcom,l1ss-sleep-disable = <0x0>;
 	qcom,pcie-phy-ver = <21100>;
 	qcom,phy-sequence = <0x0240 0x03 0x0
 			0x0094 0x08 0x0
