@@ -21,8 +21,8 @@
 		start_vbat_max = <4300>;
 		idvchg_term = <500>;
 		idvchg_step = <50>;
-		ita_level = <3000 2700 2400 2000>;
-		rcable_level = <250 277 312 375>;
+		ita_level = <3000 2500 2000 1500>;
+		rcable_level = <250 300 375 500>;
 		ita_level_dual = <4000 3700 3400 3000>;
 		rcable_level_dual = <187 202 220 250>;
 		idvchg_ss_init = <1000>;
