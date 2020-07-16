@@ -991,7 +991,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 
 static int fbt_get_target_cluster(unsigned int blc_wt)
 {
-	int cluster;
+	int cluster = min_cap_cluster;
 	int i = max_cap_cluster;
 	int order = (max_cap_cluster > min_cap_cluster)?1:0;
 
