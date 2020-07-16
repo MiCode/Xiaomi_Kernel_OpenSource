@@ -28,3 +28,4 @@ obj-$(CONFIG_MTK_COMBO) += connectivity/
 obj-$(CONFIG_MTK_BTIF) += btif/
 obj-$(CONFIG_MTK_CONN_MD) += conn_md/
 obj-$(CONFIG_MTK_CAM_CAL) += cam_cal/
+obj-$(CONFIG_MTK_AEE_FEATURE) += aee/

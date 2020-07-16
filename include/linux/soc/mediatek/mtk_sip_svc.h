@@ -30,6 +30,10 @@
 #define MTK_SIP_EMIMPU_CONTROL \
 	MTK_SIP_SMC_CMD(0x50B)
 
+/* Debug feature and ATF related */
+#define MTK_SIP_KERNEL_WDT \
+	MTK_SIP_SMC_CMD(0x200)
+
 /* Security related SMC call */
 /* DEVMPU */
 #define MTK_SIP_KERNEL_DEVMPU_VIO_GET \
