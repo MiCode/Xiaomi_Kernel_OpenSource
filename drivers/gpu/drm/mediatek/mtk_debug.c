@@ -350,6 +350,23 @@ int mtkfb_set_backlight_level(unsigned int level)
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
+int mtkfb_set_aod_backlight_level(unsigned int level)
+{
+	struct drm_crtc *crtc;
+
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		pr_info("find crtc fail\n");
+		return 0;
+	}
+	mtk_drm_aod_setbacklight(crtc, level);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtkfb_set_aod_backlight_level);
+
 void mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
@@ -1136,26 +1153,6 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 	return -1;
 }
 
-void mtk_drm_idlemgr_kick_ext(const char *source)
-{
-	struct drm_crtc *crtc;
-
-	DDPINFO("%s +\n", __func__);
-
-	/* This cmd only for crtc0 */
-	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
-			typeof(*crtc), head);
-
-	if (!crtc) {
-		DDPPR_ERR("find crtc fail\n");
-		return;
-	}
-
-	mtk_drm_idlemgr_kick(source, crtc, 1);
-
-	DDPINFO("%s -\n", __func__);
-}
-
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -1361,6 +1358,18 @@ static void process_dbg_opt(const char *opt)
 		}
 
 		mtkfb_set_backlight_level(level);
+	} else if (!strncmp(opt, "aod_bl:", 7)) {
+		unsigned int level;
+		int ret;
+
+		ret = sscanf(opt, "aod_bl:%u\n", &level);
+		if (ret != 1) {
+			pr_info("%d fail to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		mtkfb_set_aod_backlight_level(level);
 	} else if (strncmp(opt, "dump_fake_engine", 16) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -1533,8 +1542,6 @@ static void process_dbg_opt(const char *opt)
 			gCapturePriLayerDownX = downSampleX;
 		if (!downSampleY)
 			gCapturePriLayerDownY = downSampleY;
-	} else if (strncmp(opt, "idlemgr_kick", 12) == 0) {
-		mtk_drm_idlemgr_kick_ext(__func__);
 	}
 }
 

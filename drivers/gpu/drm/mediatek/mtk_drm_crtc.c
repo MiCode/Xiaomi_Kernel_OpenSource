@@ -52,6 +52,8 @@
 #include "cmdq-sec-iwc-common.h"
 #include "mtk_disp_ccorr.h"
 
+/* *****Panel_Master*********** */
+#include "mtk_fbconfig_kdebug.h"
 #include "mtk_layering_rule_base.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
@@ -705,6 +707,111 @@ int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level)
 
 	CRTC_MMP_EVENT_END(index, backlight_grp, (unsigned long)crtc,
 			level);
+
+	return 0;
+}
+
+static void mtk_drm_crtc_wk_lock(struct drm_crtc *crtc, bool get,
+	const char *func, int line);
+
+int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
+{
+
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp, *comp;
+	struct cmdq_pkt *cmdq_handle;
+	bool is_frame_mode;
+	struct cmdq_client *client;
+	int i, j;
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (mtk_crtc->enabled) {
+		DDPINFO("%s:%d, crtc is on\n", __func__,
+				__LINE__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		return -EINVAL;
+	}
+	CRTC_MMP_EVENT_START(0, backlight, 0x123,
+			level);
+	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
+
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -ENODEV;
+	}
+
+	/* 1. power on mtcmos */
+	mtk_drm_top_clk_prepare_enable(crtc->dev);
+
+
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_start_trig_loop(crtc);
+
+
+	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_ENABLE, NULL);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_dump_analysis(comp);
+
+	/* send LCM CMD */
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+
+	if (is_frame_mode)
+		cmdq_handle =
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	else
+		cmdq_handle =
+			cmdq_pkt_create(
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+	if (is_frame_mode) {
+		cmdq_pkt_wfe(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	}
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH, 0);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH, 0);
+	/* set backlight */
+	if (output_comp->funcs && output_comp->funcs->io_cmd)
+		output_comp->funcs->io_cmd(output_comp,
+			cmdq_handle, DSI_SET_BL_AOD, &level);
+
+	if (is_frame_mode) {
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	}
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_stop_trig_loop(crtc);
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_DISABLE, NULL);
+
+	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+
+	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
+	CRTC_MMP_EVENT_END(0, backlight, 0x123,
+			level);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
 }
@@ -6420,6 +6527,99 @@ int MMPathTraceCrtcPlanes(struct drm_crtc *crtc,
 	return n;
 }
 
+/* ************   Panel Master   **************** */
+
+void mtk_crtc_start_for_pm(struct drm_crtc *crtc)
+{
+	int i, j;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *cmdq_handle;
+	/* start trig loop */
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_start_trig_loop(crtc);
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	/*if VDO mode start DSI MODE */
+	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
+		mtk_crtc_is_connector_enable(mtk_crtc)) {
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				DSI_START_VDO_MODE, NULL);
+		}
+	}
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		mtk_ddp_comp_start(comp, cmdq_handle);
+	}
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+}
+
+void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
+{
+	struct cmdq_pkt *cmdq_handle;
+
+	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
+
+	/* 0. Waiting CLIENT_DSI_CFG thread done */
+	if (crtc_id == 0) {
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (!need_wait)
+		goto skip;
+
+	if (crtc_id == 2) {
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		/* 1. wait stream eof & clear tocken */
+		/* clear eof token to prevent any config after this command */
+		cmdq_pkt_wfe(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+		/* clear dirty token to prevent trigger loop start */
+		cmdq_pkt_clear_event(
+			cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	} else if (mtk_crtc_is_connector_enable(mtk_crtc)) {
+		/* In vdo mode, DSI would be stop when disable connector
+		 * Do not wait frame done in this case.
+		 */
+		cmdq_pkt_wfe(cmdq_handle,
+				 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+	}
+
+skip:
+	/* 2. stop all modules in this CRTC */
+	mtk_crtc_stop_ddp(mtk_crtc, cmdq_handle);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	/* 3. stop trig loop  */
+	if (mtk_crtc_with_trigger_loop(crtc)) {
+		mtk_crtc_stop_trig_loop(crtc);
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+				(!mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_stop_sodi_loop(crtc);
+#endif
+	}
+
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
+}
+/* ***********  Panel Master end ************** */
 
 bool mtk_drm_get_hdr_property(void)
 {
