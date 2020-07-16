@@ -21,6 +21,9 @@
 #include <linux/sched/clock.h>
 #include "archcounter_timesync.h"
 #include "plat_sram_flag.h"
+#ifdef CONFIG_MTK_BUS_TRACER
+#include <asm/arch_timer.h>
+#endif
 
 static struct plat_sram_flag *plat;
 
@@ -92,6 +95,7 @@ int set_sram_flag_etb_user(unsigned int etb_id, unsigned int user_id)
 }
 EXPORT_SYMBOL(set_sram_flag_etb_user);
 
+#ifdef CONFIG_MTK_BUS_TRACER
 int set_sram_flag_timestamp(void)
 {
 	u64 tick, ts, boot_time;
@@ -113,6 +117,7 @@ int set_sram_flag_timestamp(void)
 	return 0;
 }
 EXPORT_SYMBOL(set_sram_flag_timestamp);
+#endif
 
 /* return negative integer if fails */
 int set_sram_flag_dfd_valid(void)
