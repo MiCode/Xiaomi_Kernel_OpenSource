@@ -2808,6 +2808,114 @@
 				};
 			};
 		};
+
+		pmx_sde: pmx_sde {
+			sde_dsi_active: sde_dsi_active {
+				mux {
+					pins = "gpio24";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio24";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;     /* no pull */
+				};
+			};
+
+			sde_dsi_suspend: sde_dsi_suspend {
+				mux {
+					pins = "gpio24";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio24";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_dsi1_active: sde_dsi1_active {
+				mux {
+					pins = "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable = <0>;     /* no pull */
+				};
+			};
+
+			sde_dsi1_suspend: sde_dsi1_suspend {
+				mux {
+					pins = "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_sde_te: pmx_sde_te {
+			sde_te_active: sde_te_active {
+				mux {
+					pins = "gpio82";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio82";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te_suspend: sde_te_suspend {
+				mux {
+					pins = "gpio82";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio82";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te1_active: sde_te1_active {
+				mux {
+					pins = "gpio83";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio83";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+
+			sde_te1_suspend: sde_te1_suspend {
+				mux {
+					pins = "gpio83";
+					function = "mdp_vsync";
+				};
+
+				config {
+					pins = "gpio83";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;         /* PULL DOWN */
+				};
+			};
+		};
 	};
 };
 
