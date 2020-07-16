@@ -451,11 +451,12 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 
 		list_del_init(&buf->list);
 #ifdef CONFIG_MTK_IOMMU_V2
-		if (buf->hnd)
+		if (buf->hnd) {
 			mtk_drm_gem_ion_free_handle(buf->client, buf->hnd,
 					__func__, __LINE__);
+			ion_release_count++;
+		}
 #endif
-		ion_release_count++;
 
 		/* we must use another mutex for buffer list*/
 		/* because it will be operated by ALL layer info.*/
@@ -483,7 +484,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 	mutex_unlock(&layer_info->sync_lock);
 
 	if (ion_release_count != num_fence)
-		DDPPR_ERR("released %d fence but %d ion handle freed\n",
+		DDPFENCE("released %d fence but %d ion handle freed\n",
 			  num_fence, ion_release_count);
 }
 

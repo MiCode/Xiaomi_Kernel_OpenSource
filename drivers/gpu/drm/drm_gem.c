@@ -41,6 +41,7 @@
 #include <drm/drm_vma_manager.h>
 #include <drm/drm_gem.h>
 #include "drm_internal.h"
+#include "mtk_drm_mmp.h"
 
 /** @file drm_gem.c
  *
@@ -213,6 +214,7 @@ static void drm_gem_object_exported_dma_buf_free(struct drm_gem_object *obj)
 {
 	/* Unbreak the reference cycle if we have an exported dma_buf. */
 	if (obj->dma_buf) {
+		DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)obj->dma_buf);
 		dma_buf_put(obj->dma_buf);
 		obj->dma_buf = NULL;
 	}

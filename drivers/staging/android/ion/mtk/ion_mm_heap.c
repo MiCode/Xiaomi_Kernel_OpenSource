@@ -1429,8 +1429,9 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 				continue;
 			client->dbg_hnd_cnt++;
 			ION_DUMP(s,
-				 "\thandle=0x%p, buffer=0x%p, heap=%u, fd=%4d, ts: %lldms (%d)\n",
+				 "\thandle=0x%p, buffer=0x%p/0x%lx, heap=%u, fd=%4d, ts: %lldms (%d)\n",
 				 handle, handle->buffer,
+				 (unsigned long)handle->buffer,
 				 handle->buffer->heap->id,
 				 handle->dbg.fd,
 				 handle->dbg.user_ts,

@@ -78,6 +78,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_ALLOC");
 	g_DRM_MMP_Events.dma_free =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_FREE");
+	g_DRM_MMP_Events.dma_get =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_GET");
+	g_DRM_MMP_Events.dma_put =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_PUT");
 	g_DRM_MMP_Events.ion_import_dma =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_DMA");
 	g_DRM_MMP_Events.ion_import_fd =
