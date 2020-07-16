@@ -27,6 +27,10 @@
 #include <trace/events/kmem.h>
 
 #include "slab.h"
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+#include <soc/qcom/minidump.h>
+#include <linux/seq_buf.h>
+#endif
 
 enum slab_state slab_state;
 LIST_HEAD(slab_caches);
@@ -1500,6 +1504,62 @@ static int slab_show(struct seq_file *m, void *p)
 	cache_show(s, m);
 	return 0;
 }
+
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_DUMP
+void md_dump_slabinfo(void)
+{
+	struct kmem_cache *s;
+	struct slabinfo sinfo;
+
+	if (!md_slabinfo_seq_buf)
+		return;
+
+	/* print_slabinfo_header */
+	#ifdef CONFIG_DEBUG_SLAB
+		seq_buf_printf(md_slabinfo_seq_buf,
+				"slabinfo - version: 2.1 (statistics)\n");
+	#else
+		seq_buf_printf(md_slabinfo_seq_buf,
+				"slabinfo - version: 2.1\n");
+	#endif
+		seq_buf_printf(md_slabinfo_seq_buf,
+				"# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab>");
+		seq_buf_printf(md_slabinfo_seq_buf,
+				" : tunables <limit> <batchcount> <sharedfactor>");
+		seq_buf_printf(md_slabinfo_seq_buf,
+				" : slabdata <active_slabs> <num_slabs> <sharedavail>");
+	#ifdef CONFIG_DEBUG_SLAB
+		seq_buf_printf(md_slabinfo_seq_buf,
+				" : globalstat <listallocs> <maxobjs> <grown> <reaped> <error> <maxfreeable> <nodeallocs> <remotefrees> <alienoverflow>");
+		seq_buf_printf(md_slabinfo_seq_buf,
+				" : cpustat <allochit> <allocmiss> <freehit> <freemiss>");
+	#endif
+		seq_buf_printf(md_slabinfo_seq_buf, "\n");
+
+	/* Loop through all slabs */
+	mutex_lock(&slab_mutex);
+	list_for_each_entry(s, &slab_root_caches, root_caches_node) {
+		memset(&sinfo, 0, sizeof(sinfo));
+		get_slabinfo(s, &sinfo);
+
+		memcg_accumulate_slabinfo(s, &sinfo);
+
+		seq_buf_printf(md_slabinfo_seq_buf,
+		   "%-17s %6lu %6lu %6u %4u %4d",
+		   cache_name(s), sinfo.active_objs, sinfo.num_objs, s->size,
+		   sinfo.objects_per_slab, (1 << sinfo.cache_order));
+
+		seq_buf_printf(md_slabinfo_seq_buf, " : tunables %4u %4u %4u",
+		   sinfo.limit, sinfo.batchcount, sinfo.shared);
+		seq_buf_printf(md_slabinfo_seq_buf,
+		   " : slabdata %6lu %6lu %6lu",
+		   sinfo.active_slabs, sinfo.num_slabs, sinfo.shared_avail);
+		slabinfo_show_stats(NULL, s);
+		seq_buf_printf(md_slabinfo_seq_buf, "\n");
+	}
+	mutex_unlock(&slab_mutex);
+}
+#endif
 
 void dump_unreclaimable_slab(void)
 {
