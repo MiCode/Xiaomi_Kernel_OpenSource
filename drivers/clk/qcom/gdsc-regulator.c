@@ -577,6 +577,19 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 */
 		gdsc_mb(sc);
 		udelay(1);
+
+		/*
+		 * While switching from HW to SW mode, HW may be busy
+		 * updating internal required signals. Polling for PWR_ON
+		 * ensures that the GDSC switches to SW mode before software
+		 * starts to use SW mode.
+		 */
+		if (sc->is_gdsc_enabled) {
+			ret = poll_gdsc_status(sc, ENABLED);
+			if (ret)
+				dev_err(&rdev->dev, "%s enable timed out\n",
+					sc->rdesc.name);
+		}
 		break;
 	default:
 		ret = -EINVAL;
