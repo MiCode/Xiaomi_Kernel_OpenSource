@@ -13,7 +13,12 @@
 
 ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6885 mt6873 mt6893 mt6853))
 
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
+PDIR = mt6885
+else
 PDIR = $(MTK_PLATFORM)
+endif
+
 IPDIR = p1
 VDIR = 4.0
 
