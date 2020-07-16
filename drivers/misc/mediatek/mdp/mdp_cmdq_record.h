@@ -18,7 +18,7 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mdp_def.h"
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 
 enum CMDQ_STACK_TYPE_ENUM {
 	CMDQ_STACK_NULL = -1,
@@ -276,6 +276,14 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 s32 cmdqRecWriteFromDataRegister(struct cmdqRecStruct *handle,
 	enum cmdq_gpr_reg src_data_reg, u32 hw_addr);
 
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
+	CMDQ_VARIABLE argument, u32 mask);
+s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event);
+s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
+	u32 write_reg, u32 from_reg);
+s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp);
+s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt);
+s32 cmdq_free_write_addr_by_node(u32 clt, void *fp);
 
 /* Allocate 32-bit register backup slot
  */

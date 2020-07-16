@@ -3424,8 +3424,7 @@ static int32_t cmdq_core_insert_read_reg_command(
 	enum CMDQ_DATA_REGISTER_ENUM valueRegId;
 	enum CMDQ_DATA_REGISTER_ENUM destRegId;
 	enum CMDQ_EVENT_ENUM regAccessToken;
-	const bool userSpaceRequest = cmdq_core_is_request_from_user_space(
-		pTask->scenario);
+	const bool userSpaceRequest = false;
 	bool postInstruction = false;
 
 	int32_t subsysCode;
@@ -4612,7 +4611,7 @@ const char *cmdq_core_parse_subsys_from_reg_addr(uint32_t reg_addr)
 int32_t cmdq_core_subsys_from_phys_addr(uint32_t physAddr)
 {
 	int32_t msb;
-	int32_t subsysID = -1;
+	int32_t subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
 	uint32_t i;
 
 	for (i = 0; i < CMDQ_SUBSYS_MAX_COUNT; i++) {
@@ -4626,10 +4625,6 @@ int32_t cmdq_core_subsys_from_phys_addr(uint32_t physAddr)
 		}
 	}
 
-	if (-1 == subsysID) {
-		/* printf error message */
-		CMDQ_ERR("unrecognized subsys, physAddr:0x%08x\n", physAddr);
-	}
 	return subsysID;
 }
 

@@ -11,9 +11,9 @@
  * GNU General Public License for more details.
  */
 
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 #include "cmdq_reg.h"
-#include "cmdq_device.h"
+#include "mdp_cmdq_device.h"
 #include "cmdq_virtual.h"
 #include <linux/seq_file.h>
 #ifdef CMDQ_CG_M4U_LARB0

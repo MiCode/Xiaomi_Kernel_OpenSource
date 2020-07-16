@@ -14,7 +14,7 @@
 #ifndef __CMDQ_MMP_H__
 #define __CMDQ_MMP_H__
 
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "mmprofile.h"
 #endif

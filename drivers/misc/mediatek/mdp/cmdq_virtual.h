@@ -15,7 +15,7 @@
 #define __CMDQ_VIRTUAL_H__
 
 #include "mdp_def.h"
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 
 /* get subsys LSB in arg_a */
 typedef u32(*CmdqGetSubsysLSBArgA) (void);

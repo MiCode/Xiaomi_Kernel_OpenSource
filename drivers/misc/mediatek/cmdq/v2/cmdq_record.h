@@ -15,11 +15,18 @@
 #define __CMDQ_RECORD_H__
 
 #include <linux/types.h>
+#include <linux/uaccess.h>
 #include "cmdq_def.h"
 #include "cmdq_core.h"
 
 struct TaskStruct;
 typedef uint64_t CMDQ_VARIABLE;
+
+struct task_private {
+	void *node_private_data;
+	bool internal;		/* internal used only task */
+	bool ignore_timeout;	/* timeout is expected */
+};
 
 struct cmdqRecStruct {
 	uint64_t engineFlag;
@@ -33,6 +40,16 @@ struct cmdqRecStruct {
 	enum CMDQ_HW_THREAD_PRIORITY_ENUM priority;
 	bool finalized;		/* set to true after flush() or startLoop() */
 	uint32_t prefetchCount;	/* maintenance prefetch instruction */
+
+	/* register backup at end of task */
+	u32 reg_count;
+	u32 *reg_values;
+	dma_addr_t reg_values_pa;
+	/* user space data */
+	u32 user_reg_count;
+	u32 user_token;
+	struct TaskStruct *mdp_meta_task;
+	bool get_meta_task;
 
 	struct cmdqSecDataStruct secData;	/* secure execution data */
 
@@ -676,6 +693,42 @@ extern "C" {
 		struct cmdqRecStruct *handle,
 		enum CMDQ_EVENT_ENUM resourceEvent,
 		uint32_t addr, uint32_t value, uint32_t mask);
+
+/* MDP META use */
+	struct op_meta;
+	struct mdp_submit;
+
+	s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
+		CMDQ_VARIABLE argument, u32 mask);
+	s32 cmdq_op_acquire(struct cmdqRecStruct *handle,
+		enum CMDQ_EVENT_ENUM event);
+	s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
+		u32 write_reg, u32 from_reg);
+	s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart,
+		u32 clt, void *fp);
+	s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt);
+	s32 cmdq_free_write_addr_by_node(u32 clt, void *fp);
+	s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out);
+	s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle);
+	s32 cmdq_mdp_wait(struct cmdqRecStruct *handle, void *temp);
+	s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
+		struct cmdqRecStruct *handle);
+	void cmdq_mdp_release_task_by_file_node(void *file_node);
+	void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out);
+	s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
+		u32 sec_handle, u32 index, u32 instr_index);
+	u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle);
+	void cmdq_mdp_meta_replace_sec_addr(struct op_meta *metas,
+		struct mdp_submit *user_job, struct cmdqRecStruct *handle);
+
+#define CMDQ_CLT_MDP 0
+#define CMDQ_MAX_USER_PROP_SIZE		(1024)
+#define MDP_META_IN_LEGACY_V2
+#define CMDQ_SYSTRACE_BEGIN(fmt, args...) do { \
+} while (0)
+
+#define CMDQ_SYSTRACE_END() do { \
+} while (0)
 
 /* tablet use */
 /*

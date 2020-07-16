@@ -413,7 +413,7 @@ void cmdq_mdp_init_pmqos_isp(s32 index, struct plist_head *owner_list)
 #include "mach/pseudo_m4u.h"
 #endif
 
-#include "cmdq_device.h"
+#include "mdp_cmdq_device.h"
 struct CmdqMdpModuleBaseVA {
 	long MDP_RDMA0;
 	long MDP_RDMA1;

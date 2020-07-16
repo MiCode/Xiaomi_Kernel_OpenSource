@@ -17,8 +17,8 @@
 #include <mt-plat/sync_write.h>
 #include <linux/io.h>
 
-#include "cmdq_helper_ext.h"
-#include "cmdq_device.h"
+#include "mdp_cmdq_helper_ext.h"
+#include "mdp_cmdq_device.h"
 
 #define GCE_BASE_PA			cmdq_dev_get_module_base_PA_GCE()
 #define GCE_BASE_VA			cmdq_dev_get_module_base_VA_GCE()

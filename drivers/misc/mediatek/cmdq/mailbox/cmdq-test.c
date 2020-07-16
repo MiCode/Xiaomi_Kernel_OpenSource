@@ -18,7 +18,7 @@
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
-#include "../../mdp/cmdq_helper_ext.h"
+#include "../../mdp/mdp_cmdq_helper_ext.h"
 
 #define CMDQ_THR_SPR3(base, id)		((base) + (0x80 * (id)) + 0x16c)
 #define CMDQ_GPR_R32(base, id)		((base) + (0x4 * (id)) + 0x80)

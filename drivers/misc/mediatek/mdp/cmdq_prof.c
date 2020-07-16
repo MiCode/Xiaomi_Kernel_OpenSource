@@ -12,7 +12,7 @@
  */
 
 #include "cmdq_prof.h"
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 
 /* expect no EMI latency, GCE spends 80 ns per 4 cycle*/
 #define CMDQ_HW_EXEC_NS(hw_cycle) (hw_cycle * (80 / 4))

@@ -14,11 +14,11 @@
 #include <mt-plat/mtk_lpae.h>
 #include <linux/sched/clock.h>
 
-#include "cmdq_record.h"
+#include "mdp_cmdq_record.h"
 #include "cmdq_reg.h"
 #include "cmdq_virtual.h"
-#include "cmdq_helper_ext.h"
-#include "cmdq_device.h"
+#include "mdp_cmdq_helper_ext.h"
+#include "mdp_cmdq_device.h"
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "cmdq_mmp.h"
 #endif
@@ -1342,9 +1342,12 @@ s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 {
 	s32 status;
 
-	status = cmdq_append_command(handle, CMDQ_CODE_MOVE, 0, ~mask, 0, 0);
-	if (status)
-		return status;
+	if (mask != 0xFFFFFFFF) {
+		status = cmdq_append_command(handle, CMDQ_CODE_MOVE, 0,
+			~mask, 0, 0);
+		if (status)
+			return status;
+	}
 
 	status = cmdq_append_command(handle, CMDQ_CODE_POLL, (addr | 0x1),
 		value, 0, 0);
@@ -1496,6 +1499,57 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 	CMDQ_ERR("func:%s failed since CMDQ doesn't support GPR\n", __func__);
 	return -EFAULT;
 #endif				/* CMDQ_GPR_SUPPORT */
+}
+
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
+	CMDQ_VARIABLE argument, u32 mask)
+{
+	return cmdq_pkt_write_value_addr(handle->pkt, addr, argument, mask);
+}
+
+s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+
+	if (arg_a < 0 || !handle)
+		return -EINVAL;
+
+	return cmdq_pkt_acquire_event(handle->pkt, arg_a);
+}
+
+s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
+	u32 write_reg, u32 from_reg)
+{
+	s32 status;
+
+	if (!handle)
+		return -EINVAL;
+
+	do {
+		status = cmdq_op_read_reg(handle, from_reg,
+			&handle->arg_value, ~0);
+		CMDQ_CHECK_AND_BREAK_STATUS(status);
+
+		status = cmdq_op_write_reg(handle, write_reg,
+			handle->arg_value, ~0);
+	} while (0);
+
+	return status;
+}
+
+s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp)
+{
+	return cmdqCoreAllocWriteAddress(count, paStart, clt, fp);
+}
+
+s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt)
+{
+	return cmdqCoreFreeWriteAddress(paStart, clt);
+}
+
+s32 cmdq_free_write_addr_by_node(u32 clt, void *fp)
+{
+	return cmdqCoreFreeWriteAddressByNode(fp, clt);
 }
 
 /* Allocate 32-bit register backup slot */
