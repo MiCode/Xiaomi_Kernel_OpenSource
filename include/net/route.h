@@ -231,7 +231,7 @@ void fib_del_ifaddr(struct in_ifaddr *, struct in_ifaddr *);
 void rt_add_uncached_list(struct rtable *rt);
 void rt_del_uncached_list(struct rtable *rt);
 
-static inline void ip_rt_put(struct rtable *rt)
+static inline void __attribute__((no_sanitize("null"))) ip_rt_put(struct rtable *rt)
 {
 	/* dst_release() accepts a NULL parameter.
 	 * We rely on dst being first structure in struct rtable
