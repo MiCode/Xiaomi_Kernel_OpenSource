@@ -83,12 +83,14 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8992-bullhead-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
 dtb-$(CONFIG_ARCH_QCS403) += qcs403-iot-sku1.dtb \
-			qcs403-iot-sku3.dtb \
-			qcs403-iot-sku5.dtb \
-			qcs401-iot-sku5.dtb \
-			qcs404-iot-sku3.dtb \
-			qcs404-iot-sku5.dtb \
-			qcs404-iot-sku6.dtb
+		qcs403-iot-sku3.dtb \
+		qcs403-iot-sku5.dtb \
+		qcs401-iot-sku5.dtb \
+		qcs404-iot-sku3.dtb \
+		qcs404-iot-sku5.dtb \
+		qcs404-iot-sku6.dtb \
+		sa2145p-ccard-nand-dc.dtb \
+		sa2150p-ccard-nand-dc.dtb
 
 dtb-$(CONFIG_ARCH_QCS405) += qcs405-iot-sku1.dtb \
 		qcs407-iot-sku1.dtb \
