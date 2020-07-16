@@ -27,36 +27,12 @@
 #endif
 #endif
 
-#if defined(CONFIG_MTK_DBGTOP) || defined(CONFIG_MTK_WATCHDOG)
-static char mrdump_lk_ddr_reserve_ready[4];
-
-static int __init mrdump_get_ddr_reserve_status(char *str)
-{
-	strlcpy(mrdump_lk_ddr_reserve_ready, str,
-			sizeof(mrdump_lk_ddr_reserve_ready));
-	return 0;
-}
-
-early_param("mrdump_ddrsv", mrdump_get_ddr_reserve_status);
-
-static bool mrdump_ddr_reserve_is_ready(void)
-{
-	if (strncmp(mrdump_lk_ddr_reserve_ready, "yes", 3) == 0)
-		return true;
-	else
-		return false;
-}
-#endif
-
 #ifdef CONFIG_MTK_DBGTOP
 static void mrdump_dbgtop_dram_reserved(bool enable)
 {
 	int res;
 
-	pr_notice("%s: DDR Reserved Mode ready or not? (%s)\n", __func__,
-			mrdump_lk_ddr_reserve_ready);
-
-	if (mrdump_ddr_reserve_is_ready()) {
+	if (mrdump_ddr_reserve_ready) {
 
 		if (enable == true) {
 			pr_notice("%s: Trying to enable DDR Reserve Mode(%d)\n",
@@ -96,13 +72,11 @@ static void mrdump_wd_dram_reserved_mode(bool enabled)
 	int res;
 	struct wd_api *wd_api = NULL;
 
-	pr_notice("%s: DDR Reserved Mode ready or not? (%s)\n", __func__,
-			mrdump_lk_ddr_reserve_ready);
 	res = get_wd_api(&wd_api);
 	if (res < 0) {
 		pr_notice("%s: get wd api error (%d)\n", __func__, res);
 	} else {
-		if (mrdump_ddr_reserve_is_ready()) {
+		if (mrdump_ddr_reserve_ready) {
 			res = wd_api->wd_dram_reserved_mode(enabled);
 			if (res == 0) {
 				if (enabled == true) {
@@ -117,7 +91,7 @@ static void mrdump_wd_dram_reserved_mode(bool enabled)
 						pr_notice("%s: DFD_BASIC_DUMP enabled\n",
 								__func__);
 #else
-			pr_notice("%s: config is not enabled yet\n",
+			pr_notice("%s: dfd config is not enabled yet\n",
 					__func__);
 #endif
 				} else {
