@@ -241,7 +241,7 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 	if (_IOC_DIR(a_cmd) == _IOC_NONE)
 		return -EFAULT;
 
-	pBuff = kmalloc(_IOC_SIZE(a_cmd), GFP_KERNEL);
+	pBuff = kzalloc(_IOC_SIZE(a_cmd), GFP_KERNEL);
 	if (pBuff == NULL)
 		return -ENOMEM;
 
@@ -325,11 +325,22 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 		return -EINVAL;
 	}
 
-	snprintf(device_drv_name, DEV_NAME_STR_LEN_MAX - 1,
+	ret = snprintf(device_drv_name, DEV_NAME_STR_LEN_MAX - 1,
 		DEV_NAME_FMT, index);
-	snprintf(class_drv_name, DEV_NAME_STR_LEN_MAX - 1,
+	if (ret < 0) {
+		pr_info(
+		"[eeprom]%s error, ret = %d", __func__, ret);
+		return -EFAULT;
+	}
+	ret = snprintf(class_drv_name, DEV_NAME_STR_LEN_MAX - 1,
 		DEV_CLASS_NAME_FMT, index);
+	if (ret < 0) {
+		pr_info(
+		"[eeprom]%s error, ret = %d", __func__, ret);
+		return -EFAULT;
+	}
 
+	ret = 0;
 	pinst = &ginst_drv[index];
 	pinst->dev_no = MKDEV(EEPROM_DEVICE_NNUMBER, index);
 
@@ -351,7 +362,7 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 	memcpy(pinst->class_name, class_drv_name, DEV_NAME_STR_LEN_MAX);
 	pinst->pclass = class_create(THIS_MODULE, pinst->class_name);
 	if (IS_ERR(pinst->pclass)) {
-		int ret = PTR_ERR(pinst->pclass);
+		ret = PTR_ERR(pinst->pclass);
 
 		pr_err("Unable to create class, err = %d\n", ret);
 		return ret;
