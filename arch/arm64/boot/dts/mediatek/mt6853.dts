@@ -442,7 +442,11 @@ page_owner=on";
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
 			no-map;
+#ifdef CONFIG_MTK_TINYSYS_SCP_LOGGER_SUPPORT
 			size = <0 0x00300000>; /*3 MB share mem size */
+#else
+			size = <0 0x00180000>;
+#endif
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
