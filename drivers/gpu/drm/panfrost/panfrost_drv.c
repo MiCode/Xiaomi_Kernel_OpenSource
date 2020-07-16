@@ -433,6 +433,9 @@ static int panfrost_ioctl_madvise(struct drm_device *dev, void *data,
 		else if (args->madv == PANFROST_MADV_WILLNEED)
 			list_del_init(&bo->base.madv_list);
 	}
+
+out_unlock_mappings:
+	mutex_unlock(&bo->mappings.lock);
 	mutex_unlock(&pfdev->shrinker_lock);
 
 out_unlock_mappings:

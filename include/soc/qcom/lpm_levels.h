@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SOC_QCOM_LPM_LEVEL_H__
 #define __SOC_QCOM_LPM_LEVEL_H__
 
+#include <linux/errno.h>
 #include <linux/types.h>
 
 struct cpumask;

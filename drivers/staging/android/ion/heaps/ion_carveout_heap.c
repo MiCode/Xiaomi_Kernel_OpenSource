@@ -300,8 +300,10 @@ __ion_carveout_heap_create(struct ion_platform_heap *heap_data,
 	carveout_heap->heap.ion_heap.ops = &carveout_heap_ops;
 	carveout_heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	carveout_heap->heap.msm_heap_ops = &msm_carveout_heap_ops;
-	carveout_heap->heap.ion_heap.type = ION_HEAP_TYPE_CARVEOUT;
-	carveout_heap->heap.ion_heap.flags = ION_HEAP_FLAG_DEFER_FREE;
+	carveout_heap->heap.ion_heap.type =
+		(enum ion_heap_type)ION_HEAP_TYPE_MSM_CARVEOUT;
+	if (!dynamic_heap)
+		carveout_heap->heap.ion_heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 
 	return &carveout_heap->heap.ion_heap;
 }
@@ -377,6 +379,8 @@ static void ion_sc_heap_free(struct ion_buffer *buffer)
 		return;
 	}
 
+	if (hlos_accessible_buffer(buffer))
+		ion_buffer_zero(buffer);
 	ion_carveout_free(child, paddr, buffer->size);
 	sg_free_table(table);
 	kfree(table);

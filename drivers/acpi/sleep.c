@@ -1046,6 +1046,15 @@ static bool acpi_s2idle_wake(void)
 		if (pm_wakeup_pending())
 			return true;
 
+		/*
+		 * The SCI is in the "suspended" state now and it cannot produce
+		 * new wakeup events till the rearming below, so if any of them
+		 * are pending here, they must be resulting from the processing
+		 * of EC events above or coming from somewhere else.
+		 */
+		if (pm_wakeup_pending())
+			return true;
+
 		rearm_wake_irq(acpi_sci_irq);
 	}
 

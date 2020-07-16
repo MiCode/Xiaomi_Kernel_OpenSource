@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
 
 #include <asm/arch_timer.h>
 #include <linux/debugfs.h>
@@ -69,9 +69,6 @@ void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 	pm_runtime_mark_last_busy(&pci_dev->dev);
 	pm_runtime_dont_use_autosuspend(&pci_dev->dev);
 	pm_runtime_disable(&pci_dev->dev);
-
-	/* reset counter for lpm state changes */
-	mhi_dev->lpm_disable_depth = 0;
 
 	pci_free_irq_vectors(pci_dev);
 	kfree(mhi_cntrl->irq);
@@ -417,15 +414,15 @@ static int mhi_force_suspend(struct mhi_controller *mhi_cntrl)
 		msleep(delayms);
 	}
 
-	if (ret)
+	if (ret) {
+		MHI_ERR("Force suspend ret with %d\n", ret);
 		goto exit_force_suspend;
+	}
 
 	mhi_dev->suspend_mode = MHI_DEFAULT_SUSPEND;
 	ret = mhi_arch_link_suspend(mhi_cntrl);
 
 exit_force_suspend:
-	MHI_LOG("Force suspend ret with %d\n", ret);
-
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	return ret;
@@ -447,89 +444,13 @@ static int mhi_link_status(struct mhi_controller *mhi_cntrl, void *priv)
 /* disable PCIe L1 */
 static int mhi_lpm_disable(struct mhi_controller *mhi_cntrl, void *priv)
 {
-	struct mhi_dev *mhi_dev = priv;
-	struct pci_dev *pci_dev = mhi_dev->pci_dev;
-	int lnkctl = pci_dev->pcie_cap + PCI_EXP_LNKCTL;
-	u8 val;
-	unsigned long flags;
-	int ret = 0;
-
-	spin_lock_irqsave(&mhi_dev->lpm_lock, flags);
-
-	/* L1 is already disabled */
-	if (mhi_dev->lpm_disable_depth) {
-		mhi_dev->lpm_disable_depth++;
-		goto lpm_disable_exit;
-	}
-
-	ret = pci_read_config_byte(pci_dev, lnkctl, &val);
-	if (ret) {
-		MHI_ERR("Error reading LNKCTL, ret:%d\n", ret);
-		goto lpm_disable_exit;
-	}
-
-	/* L1 is not supported, do not increment lpm_disable_depth */
-	if (unlikely(!(val & PCI_EXP_LNKCTL_ASPM_L1)))
-		goto lpm_disable_exit;
-
-	val &= ~PCI_EXP_LNKCTL_ASPM_L1;
-	ret = pci_write_config_byte(pci_dev, lnkctl, val);
-	if (ret) {
-		MHI_ERR("Error writing LNKCTL to disable LPM, ret:%d\n", ret);
-		goto lpm_disable_exit;
-	}
-
-	mhi_dev->lpm_disable_depth++;
-
-lpm_disable_exit:
-	spin_unlock_irqrestore(&mhi_dev->lpm_lock, flags);
-
-	return ret;
+	return mhi_arch_link_lpm_disable(mhi_cntrl);
 }
 
 /* enable PCIe L1 */
 static int mhi_lpm_enable(struct mhi_controller *mhi_cntrl, void *priv)
 {
-	struct mhi_dev *mhi_dev = priv;
-	struct pci_dev *pci_dev = mhi_dev->pci_dev;
-	int lnkctl = pci_dev->pcie_cap + PCI_EXP_LNKCTL;
-	u8 val;
-	unsigned long flags;
-	int ret = 0;
-
-	spin_lock_irqsave(&mhi_dev->lpm_lock, flags);
-
-	/*
-	 * Exit if L1 is not supported or is already disabled or
-	 * decrementing lpm_disable_depth still keeps it above 0
-	 */
-	if (!mhi_dev->lpm_disable_depth)
-		goto lpm_enable_exit;
-
-	if (mhi_dev->lpm_disable_depth > 1) {
-		mhi_dev->lpm_disable_depth--;
-		goto lpm_enable_exit;
-	}
-
-	ret = pci_read_config_byte(pci_dev, lnkctl, &val);
-	if (ret) {
-		MHI_ERR("Error reading LNKCTL, ret:%d\n", ret);
-		goto lpm_enable_exit;
-	}
-
-	val |= PCI_EXP_LNKCTL_ASPM_L1;
-	ret = pci_write_config_byte(pci_dev, lnkctl, val);
-	if (ret) {
-		MHI_ERR("Error writing LNKCTL to enable LPM, ret:%d\n", ret);
-		goto lpm_enable_exit;
-	}
-
-	mhi_dev->lpm_disable_depth = 0;
-
-lpm_enable_exit:
-	spin_unlock_irqrestore(&mhi_dev->lpm_lock, flags);
-
-	return ret;
+	return mhi_arch_link_lpm_enable(mhi_cntrl);
 }
 
 void mhi_qcom_store_hwinfo(struct mhi_controller *mhi_cntrl)
@@ -574,10 +495,6 @@ static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 	/* when coming out of SSR, initial states are not valid */
 	mhi_cntrl->ee = 0;
 	mhi_cntrl->power_down = false;
-
-	ret = mhi_arch_power_up(mhi_cntrl);
-	if (ret)
-		return ret;
 
 	ret = mhi_async_power_up(mhi_cntrl);
 
@@ -633,9 +550,12 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		 */
 		pm_runtime_get(dev);
 		ret = mhi_force_suspend(mhi_cntrl);
-		if (!ret)
+		if (!ret) {
+			MHI_LOG("Attempt resume after forced suspend\n");
 			mhi_runtime_resume(dev);
+		}
 		pm_runtime_put(dev);
+		mhi_arch_mission_mode_enter(mhi_cntrl);
 		break;
 	default:
 		MHI_ERR("Unhandled cb:0x%x\n", reason);
@@ -809,7 +729,6 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	}
 
 	mhi_dev->pci_dev = pci_dev;
-	spin_lock_init(&mhi_dev->lpm_lock);
 
 	/* setup power management apis */
 	mhi_cntrl->status_cb = mhi_status_cb;
@@ -837,11 +756,28 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->fw_image = firmware_info->fw_image;
 	mhi_cntrl->edl_image = firmware_info->edl_image;
 
+	mhi_cntrl->offload_wq = alloc_ordered_workqueue("offload_wq",
+						WQ_MEM_RECLAIM | WQ_HIGHPRI);
+	if (!mhi_cntrl->offload_wq)
+		goto error_register;
+
+	INIT_WORK(&mhi_cntrl->reg_write_work, mhi_reg_write_work);
+
+	mhi_cntrl->reg_write_q = kcalloc(REG_WRITE_QUEUE_LEN,
+					sizeof(*mhi_cntrl->reg_write_q),
+					GFP_KERNEL);
+	if (!mhi_cntrl->reg_write_q)
+		goto error_free_wq;
+
+	atomic_set(&mhi_cntrl->write_idx, -1);
+
 	if (sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj, &mhi_qcom_group))
 		MHI_ERR("Error while creating the sysfs group\n");
 
 	return mhi_cntrl;
 
+error_free_wq:
+	destroy_workqueue(mhi_cntrl->offload_wq);
 error_register:
 	mhi_free_controller(mhi_cntrl);
 

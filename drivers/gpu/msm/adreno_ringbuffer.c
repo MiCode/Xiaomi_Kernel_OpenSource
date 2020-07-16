@@ -63,6 +63,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned long flags;
 	int ret = 0;
 
@@ -74,7 +75,7 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 			 * Let the pwrscale policy know that new commands have
 			 * been submitted.
 			 */
-			kgsl_pwrscale_busy(KGSL_DEVICE(adreno_dev));
+			kgsl_pwrscale_busy(device);
 
 			/*
 			 * Ensure the write posted after a possible
@@ -99,9 +100,14 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 	spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
 	if (ret) {
-		/* If WPTR update fails, set the fault and trigger recovery */
-		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-		adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+		/*
+		 * If WPTR update fails, take inline snapshot and trigger
+		 * recovery.
+		 */
+		gmu_core_snapshot(device);
+		adreno_set_gpu_fault(adreno_dev,
+			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+		adreno_dispatcher_schedule(device);
 	}
 }
 
@@ -211,33 +217,6 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 	return ERR_PTR(-ENOSPC);
 }
 
-/**
- * adreno_ringbuffer_start() - Ringbuffer start
- * @adreno_dev: Pointer to adreno device
- */
-int adreno_ringbuffer_start(struct adreno_device *adreno_dev)
-{
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb;
-	int i;
-
-	/* Setup the ringbuffers state before we start */
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		kgsl_sharedmem_set(device, rb->buffer_desc,
-				0, 0xAA, KGSL_RB_SIZE);
-		if (!adreno_is_a3xx(adreno_dev))
-			kgsl_sharedmem_writel(device, device->scratch,
-					SCRATCH_RPTR_OFFSET(rb->id), 0);
-		rb->wptr = 0;
-		rb->_wptr = 0;
-		rb->wptr_preempt_end = 0xFFFFFFFF;
-	}
-
-	/* start is specific GPU rb */
-	return gpudev->rb_start(adreno_dev);
-}
-
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb;
@@ -292,7 +271,7 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 		return 0;
 
 	rb->id = id;
-	kgsl_add_event_group(&rb->events, NULL, _rb_readtimestamp, rb,
+	kgsl_add_event_group(device, &rb->events, NULL, _rb_readtimestamp, rb,
 		"rb_events-%d", id);
 
 	rb->timestamp = 0;
@@ -316,32 +295,6 @@ static void adreno_preemption_timer(struct timer_list *t)
 
 	/* Schedule the worker to take care of the details */
 	queue_work(system_unbound_wq, &adreno_dev->preempt.work);
-}
-
-static void adreno_preemption_init(struct adreno_device *adreno_dev)
-{
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-	int ret;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		return;
-
-	timer_setup(&preempt->timer, adreno_preemption_timer, 0);
-
-	ret = gpudev->preemption_init(adreno_dev);
-
-	WARN(ret, "adreno GPU preemption is disabled\n");
-}
-
-static void adreno_preemption_close(struct adreno_device *adreno_dev)
-{
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		return;
-
-	del_timer(&preempt->timer);
 }
 
 int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
@@ -380,21 +333,30 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev)
 		}
 	}
 
-	adreno_preemption_init(adreno_dev);
-
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+		struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+		struct adreno_preemption *preempt = &adreno_dev->preempt;
+		int ret;
+
+		timer_setup(&preempt->timer, adreno_preemption_timer, 0);
+
+		ret = gpudev->preemption_init(adreno_dev);
+		WARN(ret, "adreno GPU preemption is disabled\n");
+	}
+
 	return 0;
 }
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_ringbuffer *rb;
-	int i;
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
-		kgsl_del_event_group(&rb->events);
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		return;
 
-	adreno_preemption_close(adreno_dev);
+	del_timer(&preempt->timer);
 }
 
 /*
@@ -791,7 +753,7 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
 			(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
 
-		if (!device->l3_clk) {
+		if (IS_ERR_OR_NULL(device->l3_clk)) {
 			dev_err_once(device->dev,
 				"l3_vote clk not available\n");
 			return;

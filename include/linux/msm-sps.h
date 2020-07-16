@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 /* Smart-Peripheral-Switch (SPS) API. */
 
 #ifndef _SPS_H_
 #define _SPS_H_
 
+#include <linux/errno.h>
 #include <linux/types.h>	/* u32 */
 
 #if defined(CONFIG_PHYS_ADDR_T_64BIT) || defined(CONFIG_ARM_LPAE)

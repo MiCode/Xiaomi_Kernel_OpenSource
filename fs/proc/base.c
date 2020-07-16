@@ -2596,7 +2596,7 @@ static struct dentry *proc_pident_instantiate(struct dentry *dentry,
 	return d_splice_alias(inode, dentry);
 }
 
-static struct dentry *proc_pident_lookup(struct inode *dir, 
+static struct dentry *proc_pident_lookup(struct inode *dir,
 					 struct dentry *dentry,
 					 const struct pid_entry *p,
 					 const struct pid_entry *end)
@@ -2783,7 +2783,7 @@ static const struct pid_entry attr_dir_stuff[] = {
 
 static int proc_attr_dir_readdir(struct file *file, struct dir_context *ctx)
 {
-	return proc_pident_readdir(file, ctx, 
+	return proc_pident_readdir(file, ctx,
 				   attr_dir_stuff, ARRAY_SIZE(attr_dir_stuff));
 }
 
@@ -2945,6 +2945,53 @@ static int proc_tgid_io_accounting(struct seq_file *m, struct pid_namespace *ns,
 	return do_io_accounting(task, m, 1);
 }
 #endif /* CONFIG_TASK_IO_ACCOUNTING */
+
+#ifdef CONFIG_DETECT_HUNG_TASK
+static ssize_t proc_hung_task_detection_enabled_read(struct file *file,
+				char __user *buf, size_t count, loff_t *ppos)
+{
+	struct task_struct *task = get_proc_task(file_inode(file));
+	char buffer[PROC_NUMBUF];
+	size_t len;
+	bool hang_detection_enabled;
+
+	if (!task)
+		return -ESRCH;
+	hang_detection_enabled = task->hang_detection_enabled;
+	put_task_struct(task);
+
+	len = scnprintf(buffer, sizeof(buffer), "%d\n", hang_detection_enabled);
+
+	return simple_read_from_buffer(buf, sizeof(buffer), ppos, buffer, len);
+}
+
+static ssize_t proc_hung_task_detection_enabled_write(struct file *file,
+			const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct task_struct *task;
+	bool hang_detection_enabled;
+	int rv;
+
+	rv = kstrtobool_from_user(buf, count, &hang_detection_enabled);
+	if (rv < 0)
+		return rv;
+
+	task = get_proc_task(file_inode(file));
+	if (!task)
+		return -ESRCH;
+	task->hang_detection_enabled = hang_detection_enabled;
+	put_task_struct(task);
+
+	return count;
+}
+
+static const
+struct file_operations proc_hung_task_detection_enabled_operations = {
+	.read		= proc_hung_task_detection_enabled_read,
+	.write		= proc_hung_task_detection_enabled_write,
+	.llseek		= generic_file_llseek,
+};
+#endif
 
 #ifdef CONFIG_SCHED_WALT
 static ssize_t proc_sched_task_boost_read(struct file *file,
@@ -3330,6 +3377,10 @@ static const struct pid_entry tgid_base_stuff[] = {
 #endif
 #ifdef CONFIG_TASK_IO_ACCOUNTING
 	ONE("io",	S_IRUSR, proc_tgid_io_accounting),
+#endif
+#ifdef CONFIG_DETECT_HUNG_TASK
+	REG("hang_detection_enabled", 0666,
+		proc_hung_task_detection_enabled_operations),
 #endif
 #ifdef CONFIG_USER_NS
 	REG("uid_map",    S_IRUGO|S_IWUSR, proc_uid_map_operations),
@@ -3733,6 +3784,10 @@ static const struct pid_entry tid_base_stuff[] = {
 #endif
 #ifdef CONFIG_TASK_IO_ACCOUNTING
 	ONE("io",	S_IRUSR, proc_tid_io_accounting),
+#endif
+#ifdef CONFIG_DETECT_HUNG_TASK
+	REG("hang_detection_enabled", 0666,
+		proc_hung_task_detection_enabled_operations),
 #endif
 #ifdef CONFIG_USER_NS
 	REG("uid_map",    S_IRUGO|S_IWUSR, proc_uid_map_operations),

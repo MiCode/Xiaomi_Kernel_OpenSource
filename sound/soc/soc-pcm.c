@@ -1211,9 +1211,6 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai;
-#ifdef CONFIG_AUDIO_QGKI
-	struct snd_soc_component *component;
-#endif
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	snd_pcm_uframes_t offset = 0;
 	snd_pcm_sframes_t delay = 0;
@@ -1224,16 +1221,6 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	runtime->delay = 0;
 
 	offset = snd_soc_pcm_component_pointer(substream);
-#ifdef CONFIG_AUDIO_QGKI
-	for_each_rtd_components(rtd, i, component) {
-		if (!component->driver->ops ||
-			!component->driver->ops->pointer)
-			continue;
-
-		if (component->driver->delay_blk)
-			return offset;
-	}
-#endif
 	/* base delay if assigned in pointer callback */
 	delay = runtime->delay;
 
@@ -1249,26 +1236,6 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 
 	return offset;
 }
-
-#ifdef CONFIG_AUDIO_QGKI
-static int soc_pcm_delay_blk(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_component *component;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	snd_pcm_sframes_t delay = 0;
-	int i;
-
-	for_each_rtd_components(rtd, i, component) {
-		if (component->driver->delay_blk)
-			delay = component->driver->delay_blk(substream,
-						rtd->codec_dais[0]);
-	}
-	runtime->delay = delay;
-
-	return 0;
-}
-#endif
 
 /* connect a FE and BE */
 static int dpcm_be_connect(struct snd_soc_pcm_runtime *fe,
@@ -2881,28 +2848,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_AUDIO_QGKI
-static int soc_pcm_compat_ioctl(struct snd_pcm_substream *substream,
-		     unsigned int cmd, void *arg)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_component *component;
-	int i;
-
-	for_each_rtd_components(rtd, i, component) {
-		if (!component->driver->ops ||
-			!component->driver->ops->compat_ioctl)
-			continue;
-
-		/* FIXME: use 1st ioctl */
-		return component->driver->ops->compat_ioctl(
-				substream, cmd, arg);
-	}
-
-	return snd_pcm_lib_ioctl(substream, cmd, arg);
-}
-#endif
-
 static int dpcm_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 {
 	struct snd_pcm_substream *substream =
@@ -3388,10 +3333,6 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.close		= dpcm_fe_dai_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
 		rtd->ops.ioctl		= snd_soc_pcm_component_ioctl;
-#ifdef CONFIG_AUDIO_QGKI
-		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
-		rtd->ops.delay_blk	= soc_pcm_delay_blk;
-#endif
 	} else {
 		rtd->ops.open		= soc_pcm_open;
 		rtd->ops.hw_params	= soc_pcm_hw_params;
@@ -3401,10 +3342,6 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.close		= soc_pcm_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
 		rtd->ops.ioctl		= snd_soc_pcm_component_ioctl;
-#ifdef CONFIG_AUDIO_QGKI
-		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
-		rtd->ops.delay_blk	= soc_pcm_delay_blk;
-#endif
 	}
 
 	for_each_rtd_components(rtd, i, component) {

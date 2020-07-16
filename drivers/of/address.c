@@ -1016,3 +1016,28 @@ bool of_dma_is_coherent(struct device_node *np)
 	return false;
 }
 EXPORT_SYMBOL_GPL(of_dma_is_coherent);
+
+#if defined(CONFIG_DMA_COHERENT_HINT_CACHED)
+/**
+ * of_dma_is_coherent_hint_cached - Check if device is coherent hint cached
+ * @np: device node
+ *
+ * It returns true if "dma-coherent-hint-cached" property was found
+ * for this device in DT.
+ */
+bool of_dma_is_coherent_hint_cached(struct device_node *np)
+{
+	struct device_node *node = of_node_get(np);
+
+	while (node) {
+		if (of_property_read_bool(node, "dma-coherent-hint-cached")) {
+			of_node_put(node);
+			return true;
+		}
+		node = of_get_next_parent(node);
+	}
+	of_node_put(node);
+	return false;
+}
+EXPORT_SYMBOL(of_dma_is_coherent_hint_cached);
+#endif /* CONFIG_DMA_COHERENT_HINT_CACHED */

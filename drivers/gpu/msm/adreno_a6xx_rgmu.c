@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -35,19 +35,17 @@ irqreturn_t rgmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
-	adreno_read_gmureg(adreno_dev,
-			ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS, &status);
+	gmu_core_regread(device, A6XX_GMU_AO_HOST_INTERRUPT_STATUS, &status);
 
 	if (status & RGMU_AO_IRQ_FENCE_ERR) {
 		unsigned int fence_status;
 
-		adreno_read_gmureg(adreno_dev,
-				ADRENO_REG_GMU_AHB_FENCE_STATUS, &fence_status);
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR, status);
+		gmu_core_regread(device, A6XX_GMU_AHB_FENCE_STATUS,
+			&fence_status);
+		gmu_core_regwrite(device, A6XX_GMU_AO_HOST_INTERRUPT_CLR,
+			status);
 
 		dev_err_ratelimited(&rgmu->pdev->dev,
 			"FENCE error interrupt received %x\n", fence_status);
@@ -68,12 +66,10 @@ irqreturn_t oob_irq_handler(int irq, void *data)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
-	adreno_read_gmureg(adreno_dev,
-			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
+	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
 
 	if (status & RGMU_OOB_IRQ_ERR_MSG) {
-		adreno_write_gmureg(adreno_dev,
-				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
+		gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, status);
 
 		dev_err_ratelimited(&rgmu->pdev->dev,
 				"RGMU oob irq error\n");
@@ -86,6 +82,15 @@ irqreturn_t oob_irq_handler(int irq, void *data)
 				status & ~RGMU_OOB_IRQ_MASK);
 
 	return IRQ_HANDLED;
+}
+
+static const char *oob_to_str(enum oob_request req)
+{
+	if (req == oob_gpu)
+		return "oob_gpu";
+	else if (req == oob_perfcntr)
+		return "oob_perfcntr";
+	return "unknown";
 }
 
 /*
@@ -116,7 +121,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 		gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &status);
 		dev_err(&rgmu->pdev->dev,
 				"Timed out while setting OOB req:%s status:0x%x\n",
-				gmu_core_oob_type_str(req), status);
+				oob_to_str(req), status);
 		return ret;
 	}
 
@@ -498,9 +503,9 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 	if (rgmu->fw_hostptr)
 		return 0;
 
-	ret = request_firmware(&fw, a6xx_core->gmufw_name, device->dev);
+	ret = request_firmware(&fw, a6xx_core->gmufw_name, &rgmu->pdev->dev);
 	if (ret < 0) {
-		pr_err("request_firmware (%s) failed: %d\n",
+		dev_err(&rgmu->pdev->dev, "request_firmware (%s) failed: %d\n",
 				a6xx_core->gmufw_name, ret);
 		return ret;
 	}
@@ -559,6 +564,11 @@ static void a6xx_rgmu_snapshot(struct kgsl_device *device,
 					ARRAY_SIZE(a6xx_rgmu_registers) / 2);
 }
 
+static u64 a6xx_rgmu_read_alwayson(struct kgsl_device *device)
+{
+	return a6xx_read_alwayson(ADRENO_DEVICE(device));
+}
+
 struct gmu_dev_ops adreno_a6xx_rgmudev = {
 	.load_firmware = a6xx_rgmu_load_firmware,
 	.oob_set = a6xx_rgmu_oob_set,
@@ -573,6 +583,7 @@ struct gmu_dev_ops adreno_a6xx_rgmudev = {
 	.ifpc_show = a6xx_rgmu_ifpc_show,
 	.snapshot = a6xx_rgmu_snapshot,
 	.halt_execution = a6xx_rgmu_halt_execution,
+	.read_alwayson = a6xx_rgmu_read_alwayson,
 	.gmu2host_intr_mask = RGMU_OOB_IRQ_MASK,
 	.gmu_ao_intr_mask = RGMU_AO_IRQ_MASK,
 };

@@ -1598,11 +1598,22 @@ static int validate_displayid(u8 *displayid, int length, int idx);
 static int drm_edid_block_checksum(const u8 *raw_edid)
 {
 	int i;
-	u8 csum = 0;
-	for (i = 0; i < EDID_LENGTH; i++)
+	u8 csum = 0, crc = 0;
+
+	for (i = 0; i < EDID_LENGTH - 1; i++)
 		csum += raw_edid[i];
 
-	return csum;
+	crc = 0x100 - csum;
+
+	return crc;
+}
+
+static bool drm_edid_block_checksum_diff(const u8 *raw_edid, u8 real_checksum)
+{
+	if (raw_edid[EDID_LENGTH - 1] != real_checksum)
+		return true;
+	else
+		return false;
 }
 
 static bool drm_edid_is_zero(const u8 *in_edid, int length)
@@ -1660,7 +1671,7 @@ bool drm_edid_block_valid(u8 *raw_edid, int block, bool print_bad_edid,
 	}
 
 	csum = drm_edid_block_checksum(raw_edid);
-	if (csum) {
+	if (drm_edid_block_checksum_diff(raw_edid, csum)) {
 		if (edid_corrupt)
 			*edid_corrupt = true;
 
@@ -1801,6 +1812,11 @@ static void connector_bad_edid(struct drm_connector *connector,
 			       u8 *edid, int num_blocks)
 {
 	int i;
+	u8 num_of_ext = edid[0x7e];
+
+	/* Calculate real checksum for the last edid extension block data */
+	connector->real_edid_checksum =
+		drm_edid_block_checksum(edid + num_of_ext * EDID_LENGTH);
 
 	if (connector->bad_edid_counter++ && !drm_debug_enabled(DRM_UT_KMS))
 		return;
@@ -4211,6 +4227,48 @@ static void fixup_detailed_cea_mode_clock(struct drm_display_mode *mode)
 	mode->clock = clock;
 }
 
+static bool cea_db_is_hdmi_colorimetry_data_block(const u8 *db)
+{
+	if (cea_db_tag(db) != USE_EXTENDED_TAG)
+		return false;
+
+	if (db[1] != COLORIMETRY_EXTENDED_DATA_BLOCK)
+		return false;
+
+	if (cea_db_payload_len(db) < 2)
+		return false;
+
+	return true;
+}
+
+static void
+drm_parse_colorimetry_data_block(struct drm_connector *connector, const u8 *db)
+{
+	struct drm_hdmi_info *info = &connector->display_info.hdmi;
+
+	if (db[2] & DRM_EDID_CLRMETRY_xvYCC_601)
+		info->colorimetry |= DRM_EDID_CLRMETRY_xvYCC_601;
+	if (db[2] & DRM_EDID_CLRMETRY_xvYCC_709)
+		info->colorimetry |= DRM_EDID_CLRMETRY_xvYCC_709;
+	if (db[2] & DRM_EDID_CLRMETRY_sYCC_601)
+		info->colorimetry |= DRM_EDID_CLRMETRY_sYCC_601;
+	if (db[2] & DRM_EDID_CLRMETRY_ADBYCC_601)
+		info->colorimetry |= DRM_EDID_CLRMETRY_ADBYCC_601;
+	if (db[2] & DRM_EDID_CLRMETRY_ADB_RGB)
+		info->colorimetry |= DRM_EDID_CLRMETRY_ADB_RGB;
+	if (db[2] & DRM_EDID_CLRMETRY_BT2020_CYCC)
+		info->colorimetry |= DRM_EDID_CLRMETRY_BT2020_CYCC;
+	if (db[2] & DRM_EDID_CLRMETRY_BT2020_YCC)
+		info->colorimetry |= DRM_EDID_CLRMETRY_BT2020_YCC;
+	if (db[2] & DRM_EDID_CLRMETRY_BT2020_RGB)
+		info->colorimetry |= DRM_EDID_CLRMETRY_BT2020_RGB;
+	/* Byte 4 Bit 7: DCI-P3 */
+	if (db[3] & BIT(7))
+		info->colorimetry |= DRM_EDID_CLRMETRY_DCI_P3;
+
+	DRM_DEBUG_KMS("Supported Colorimetry 0x%x\n", info->colorimetry);
+}
+
 static bool cea_db_is_hdmi_hdr_metadata_block(const u8 *db)
 {
 	if (cea_db_tag(db) != USE_EXTENDED_TAG)
@@ -5118,6 +5176,8 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
 			drm_parse_vcdb(connector, db);
 		if (cea_db_is_hdmi_hdr_metadata_block(db))
 			drm_parse_hdr_metadata_block(connector, db);
+		if (cea_db_is_hdmi_colorimetry_data_block(db))
+			drm_parse_colorimetry_data_block(connector, db);
 	}
 }
 

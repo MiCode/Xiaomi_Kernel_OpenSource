@@ -4,6 +4,7 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/rwlock.h>
 
 #include "kgsl_debugfs.h"
 #include "kgsl_device.h"
@@ -14,7 +15,6 @@
  * so frequently
  */
 static struct kmem_cache *events_cache;
-static struct dentry *events_dentry;
 
 static inline void signal_event(struct kgsl_device *device,
 		struct kgsl_event *event, int result)
@@ -296,45 +296,34 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	return 0;
 }
 
-static DEFINE_RWLOCK(group_lock);
-static LIST_HEAD(group_list);
-
 void kgsl_process_event_groups(struct kgsl_device *device)
 {
 	struct kgsl_event_group *group;
 
-	read_lock(&group_lock);
-	list_for_each_entry(group, &group_list, group)
+	read_lock(&device->event_groups_lock);
+	list_for_each_entry(group, &device->event_groups, group)
 		_process_event_group(device, group, false);
-	read_unlock(&group_lock);
+	read_unlock(&device->event_groups_lock);
 }
 
-/**
- * kgsl_del_event_group() - Remove a GPU event group
- * @group: GPU event group to remove
- */
-void kgsl_del_event_group(struct kgsl_event_group *group)
+void kgsl_del_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group)
 {
+	/* Check if the group is uninintalized */
+	if (!group->context)
+		return;
+
 	/* Make sure that all the events have been deleted from the list */
 	WARN_ON(!list_empty(&group->events));
 
-	write_lock(&group_lock);
+	write_lock(&device->event_groups_lock);
 	list_del(&group->group);
-	write_unlock(&group_lock);
+	write_unlock(&device->event_groups_lock);
 }
 
-/**
- * kgsl_add_event_group() - Add a new GPU event group
- * @group: Pointer to the new group to add to the list
- * @context: Context that owns the group (or NULL for global)
- * @readtimestamp: Function pointer to the readtimestamp function to call when
- * processing events
- * @priv: Priv member to pass to the readtimestamp function
- * @fmt: The format string to use to build the event name
- * @...: Arguments for the format string
- */
-void kgsl_add_event_group(struct kgsl_event_group *group,
-		struct kgsl_context *context, readtimestamp_func readtimestamp,
+void kgsl_add_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group, struct kgsl_context *context,
+		readtimestamp_func readtimestamp,
 		void *priv, const char *fmt, ...)
 {
 	va_list args;
@@ -354,9 +343,9 @@ void kgsl_add_event_group(struct kgsl_event_group *group,
 		va_end(args);
 	}
 
-	write_lock(&group_lock);
-	list_add_tail(&group->group, &group_list);
-	write_unlock(&group_lock);
+	write_lock(&device->event_groups_lock);
+	list_add_tail(&group->group, &device->event_groups);
+	write_unlock(&device->event_groups_lock);
 }
 
 static void events_debugfs_print_group(struct seq_file *s,
@@ -385,24 +374,25 @@ static void events_debugfs_print_group(struct seq_file *s,
 
 static int events_debugfs_print(struct seq_file *s, void *unused)
 {
+	struct kgsl_device *device = s->private;
 	struct kgsl_event_group *group;
 
 	seq_puts(s, "event groups:\n");
 	seq_puts(s, "--------------\n");
 
-	read_lock(&group_lock);
-	list_for_each_entry(group, &group_list, group) {
+	read_lock(&device->event_groups_lock);
+	list_for_each_entry(group, &device->event_groups, group) {
 		events_debugfs_print_group(s, group);
 		seq_puts(s, "\n");
 	}
-	read_unlock(&group_lock);
+	read_unlock(&device->event_groups_lock);
 
 	return 0;
 }
 
 static int events_debugfs_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, events_debugfs_print, NULL);
+	return single_open(file, events_debugfs_print, inode->i_private);
 }
 
 static const struct file_operations events_fops = {
@@ -412,14 +402,33 @@ static const struct file_operations events_fops = {
 	.release = single_release,
 };
 
+void kgsl_device_events_remove(struct kgsl_device *device)
+{
+	struct kgsl_event_group *group, *tmp;
+
+	write_lock(&device->event_groups_lock);
+	list_for_each_entry_safe(group, tmp, &device->event_groups, group) {
+		WARN_ON(!list_empty(&group->events));
+		list_del(&group->group);
+	}
+	write_unlock(&device->event_groups_lock);
+}
+
+void kgsl_device_events_probe(struct kgsl_device *device)
+{
+	INIT_LIST_HEAD(&device->event_groups);
+	rwlock_init(&device->event_groups_lock);
+
+	debugfs_create_file("events", 0444, device->d_debugfs, device,
+		&events_fops);
+}
+
 /**
  * kgsl_events_exit() - Destroy the event kmem cache on module exit
  */
 void kgsl_events_exit(void)
 {
 	kmem_cache_destroy(events_cache);
-
-	debugfs_remove(events_dentry);
 }
 
 /**
@@ -427,14 +436,5 @@ void kgsl_events_exit(void)
  */
 void __init kgsl_events_init(void)
 {
-	struct dentry *debugfs_dir = kgsl_get_debugfs_dir();
-
 	events_cache = KMEM_CACHE(kgsl_event, 0);
-
-	events_dentry = debugfs_create_file("events", 0444, debugfs_dir, NULL,
-		&events_fops);
-
-	/* Failure to create a debugfs entry is non fatal */
-	if (IS_ERR(events_dentry))
-		events_dentry = NULL;
 }

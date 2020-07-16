@@ -16,27 +16,6 @@ static const struct of_device_id gmu_match_table[] = {
 	{},
 };
 
-struct oob_entry {
-	enum oob_request req;
-	const char *str;
-};
-
-const char *gmu_core_oob_type_str(enum oob_request req)
-{
-	int i;
-	struct oob_entry table[] =  {
-			{ oob_gpu, "oob_gpu"},
-			{ oob_perfcntr, "oob_perfcntr"},
-			{ oob_boot_slumber, "oob_boot_slumber"},
-			{ oob_dcvs, "oob_dcvs"},
-	};
-
-	for (i = 0; i < ARRAY_SIZE(table); i++)
-		if (req == table[i].req)
-			return table[i].str;
-	return "UNKNOWN";
-}
-
 void __init gmu_core_register(void)
 {
 	const struct of_device_id *match;
@@ -142,7 +121,7 @@ int gmu_core_dcvs_set(struct kgsl_device *device, int gpu_pwrlevel,
 	return -EINVAL;
 }
 
-int gmu_core_acd_set(struct kgsl_device *device, unsigned int val)
+int gmu_core_acd_set(struct kgsl_device *device, bool val)
 {
 	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
 
@@ -277,7 +256,7 @@ int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device)
 	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->wait_for_lowest_idle)
-		ops->wait_for_lowest_idle(device);
+		return ops->wait_for_lowest_idle(device);
 
 	return 0;
 }
@@ -352,6 +331,16 @@ int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);
+
+	return 0;
+}
+
+u64 gmu_core_dev_read_alwayson(struct kgsl_device *device)
+{
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+
+	if (ops && ops->read_alwayson)
+		return ops->read_alwayson(device);
 
 	return 0;
 }

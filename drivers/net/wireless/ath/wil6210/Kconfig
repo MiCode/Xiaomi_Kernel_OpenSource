@@ -42,6 +42,18 @@ config WIL6210_TRACING
 
 	  If unsure, say Y to make it easier to debug problems.
 
+config WIL6210_PLATFORM_MSM
+	bool "wil6210 MSM platform specific support"
+	depends on WIL6210
+	depends on ARCH_QCOM
+	default y
+	help
+	  Say Y here to enable wil6210 driver support for MSM
+	  Platform driver used to handle msm specific platform
+	  requirement for 11ad chipset connected to msm platform
+
+	  If unsure, say N.
+
 config WIL6210_DEBUGFS
 	bool "wil6210 debugfs support"
 	depends on WIL6210

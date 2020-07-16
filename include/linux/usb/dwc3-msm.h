@@ -16,6 +16,9 @@
 #define PHY_LANE_B			BIT(3)
 #define PHY_HSFS_MODE			BIT(4)
 #define PHY_LS_MODE			BIT(5)
+#define EUD_SPOOF_DISCONNECT		BIT(6)
+#define EUD_SPOOF_CONNECT		BIT(7)
+#define PHY_SUS_OVERRIDE		BIT(8)
 
 /*
  * The following are bit fields describing the USB BAM options.

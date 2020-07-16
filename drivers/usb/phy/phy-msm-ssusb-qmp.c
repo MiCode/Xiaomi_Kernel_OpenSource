@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -17,6 +17,8 @@
 #include <linux/clk.h>
 #include <linux/extcon.h>
 #include <linux/reset.h>
+#include <linux/pinctrl/devinfo.h>
+#include <linux/pinctrl/consumer.h>
 
 enum core_ldo_levels {
 	CORE_LEVEL_NONE = 0,
@@ -363,6 +365,44 @@ static void msm_ssphy_qmp_setmode(struct msm_ssphy_qmp *phy, u32 mode)
 	readl_relaxed(phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
 }
 
+static void usb_qmp_update_hw_portselect(struct msm_ssphy_qmp *phy)
+{
+	struct pinctrl		*portselect_pinctrl;
+	struct pinctrl_state	*portselect_state;
+
+	if (phy->phy.dev->pins) {
+		portselect_pinctrl = phy->phy.dev->pins->p;
+		portselect_state = phy->phy.dev->pins->default_state;
+	} else {
+		portselect_pinctrl = pinctrl_get(phy->phy.dev);
+		if (IS_ERR_OR_NULL(portselect_pinctrl)) {
+			dev_dbg(phy->phy.dev, "failed to get pinctrl\n");
+			return;
+		}
+
+		portselect_state =
+			pinctrl_lookup_state(portselect_pinctrl, "portselect");
+		if (IS_ERR_OR_NULL(portselect_state)) {
+			dev_dbg(phy->phy.dev,
+				"failed to find portselect state\n");
+			pinctrl_put(portselect_pinctrl);
+			return;
+		}
+	}
+
+	dev_dbg(phy->phy.dev, "use hw port select\n");
+
+	writel_relaxed(0x01,
+		phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
+	pinctrl_select_state(portselect_pinctrl, portselect_state);
+
+	writel_relaxed(0x00,
+		phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+
+	if (!phy->phy.dev->pins)
+		pinctrl_put(portselect_pinctrl);
+}
 
 static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 {
@@ -380,6 +420,8 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 	switch (phy->phy_type) {
 	case USB3_AND_DP:
+		usb_qmp_update_hw_portselect(phy);
+
 		/* override hardware control for reset of qmp phy */
 		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
 			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
@@ -488,11 +530,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
 		return ret;
 	}
-
-	/* perform software reset of PHY common logic */
-	if (phy->phy_type == USB3_AND_DP)
-		writel_relaxed(0x00,
-			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
 	/* perform software reset of PCS/Serdes */
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);

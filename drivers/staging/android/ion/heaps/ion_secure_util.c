@@ -3,6 +3,7 @@
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/haven/hh_rm_drv.h>
 #include <linux/slab.h>
 #include <soc/qcom/secure_buffer.h>
 #include "ion_secure_util.h"
@@ -10,6 +11,11 @@
 
 bool is_secure_vmid_valid(int vmid)
 {
+	int ret;
+	hh_vmid_t trusted_vm_vmid;
+
+	ret = hh_rm_get_vmid(HH_TRUSTED_VM, &trusted_vm_vmid);
+
 	return (vmid == VMID_CP_TOUCH ||
 		vmid == VMID_CP_BITSTREAM ||
 		vmid == VMID_CP_PIXEL ||
@@ -22,11 +28,19 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_SPSS_SP_SHARED ||
 		vmid == VMID_CP_SPSS_HLOS_SHARED ||
 		vmid == VMID_CP_CDSP ||
-		vmid == VMID_TRUSTED_UI);
+		(!ret && vmid == trusted_vm_vmid));
+}
+
+bool is_secure_allocation(unsigned long flags)
+{
+	return !!(flags & (ION_FLAGS_CP_MASK | ION_FLAG_SECURE));
 }
 
 int get_secure_vmid(unsigned long flags)
 {
+	int ret;
+	hh_vmid_t vmid;
+
 	if (flags & ION_FLAG_CP_TOUCH)
 		return VMID_CP_TOUCH;
 	if (flags & ION_FLAG_CP_BITSTREAM)
@@ -51,13 +65,20 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_HLOS_SHARED;
 	if (flags & ION_FLAG_CP_CDSP)
 		return VMID_CP_CDSP;
-	if (flags & ION_FLAG_CP_TRUSTED_UI)
-		return VMID_TRUSTED_UI;
+	if (flags & ION_FLAG_CP_TRUSTED_VM) {
+		ret = hh_rm_get_vmid(HH_TRUSTED_VM, &vmid);
+		if (!ret)
+			return vmid;
+		return ret;
+	}
 	return -EINVAL;
 }
 
 int get_ion_flags(u32 vmid)
 {
+	int ret;
+	hh_vmid_t trusted_vm_vmid;
+
 	if (vmid == VMID_CP_TOUCH)
 		return ION_FLAG_CP_TOUCH;
 	if (vmid == VMID_CP_BITSTREAM)
@@ -68,6 +89,8 @@ int get_ion_flags(u32 vmid)
 		return ION_FLAG_CP_NON_PIXEL;
 	if (vmid == VMID_CP_CAMERA)
 		return ION_FLAG_CP_CAMERA;
+	if (vmid == VMID_HLOS)
+		return ION_FLAG_CP_HLOS;
 	if (vmid == VMID_CP_SEC_DISPLAY)
 		return ION_FLAG_CP_SEC_DISPLAY;
 	if (vmid == VMID_CP_APP)
@@ -82,8 +105,10 @@ int get_ion_flags(u32 vmid)
 		return ION_FLAG_CP_SPSS_HLOS_SHARED;
 	if (vmid == VMID_CP_CDSP)
 		return ION_FLAG_CP_CDSP;
-	if (vmid == VMID_TRUSTED_UI)
-		return ION_FLAG_CP_TRUSTED_UI;
+
+	ret = hh_rm_get_vmid(HH_TRUSTED_VM, &trusted_vm_vmid);
+	if (!ret && vmid == trusted_vm_vmid)
+		return ION_FLAG_CP_TRUSTED_VM;
 	return -EINVAL;
 }
 EXPORT_SYMBOL(get_ion_flags);

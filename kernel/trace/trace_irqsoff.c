@@ -608,11 +608,24 @@ static void irqsoff_tracer_stop(struct trace_array *tr)
 
 #ifdef CONFIG_IRQSOFF_TRACER
 #ifdef CONFIG_PREEMPTIRQ_EVENTS
+#define IRQSOFF_SENTINEL 0x0fffDEAD
 /*
  * irqsoff stack tracing threshold in ns.
- * default: 1ms
+ * default: 5ms
  */
-unsigned int sysctl_irqsoff_tracing_threshold_ns = 1000000UL;
+unsigned int sysctl_irqsoff_tracing_threshold_ns = 5000000UL;
+/*
+ * Enable irqsoff tracing to dmesg
+ */
+unsigned int sysctl_irqsoff_dmesg_output_enabled;
+/*
+ * Sentinel value to prevent unnecessary irqsoff crash
+ */
+unsigned int sysctl_irqsoff_crash_sentinel_value;
+/*
+ * Irqsoff warning threshold to trigger crash
+ */
+unsigned int sysctl_irqsoff_crash_threshold_ns = 10000000UL;
 
 struct irqsoff_store {
 	u64 ts;
@@ -637,9 +650,22 @@ void tracer_hardirqs_on(unsigned long a0, unsigned long a1)
 	delta = sched_clock() - is->ts;
 
 	if (!is_idle_task(current) &&
-			delta > sysctl_irqsoff_tracing_threshold_ns)
+			delta > sysctl_irqsoff_tracing_threshold_ns) {
 		trace_irqs_disable(delta, is->caddr[0], is->caddr[1],
 						is->caddr[2], is->caddr[3]);
+		if (sysctl_irqsoff_dmesg_output_enabled == IRQSOFF_SENTINEL)
+			printk_deferred(KERN_ERR "D=%llu C:(%ps<-%ps<-%ps<-%ps)\n",
+				delta, is->caddr[0], is->caddr[1],
+					is->caddr[2], is->caddr[3]);
+		if (sysctl_irqsoff_crash_sentinel_value == IRQSOFF_SENTINEL &&
+			delta > sysctl_irqsoff_crash_threshold_ns) {
+			printk_deferred(KERN_ERR
+			"delta=%llu(ns) > crash_threshold=%llu(ns) Task=%s\n",
+				delta, sysctl_irqsoff_crash_threshold_ns,
+					current->comm);
+			BUG_ON(1);
+		}
+	}
 	is->ts = 0;
 	lockdep_on();
 #endif /* CONFIG_PREEMPTIRQ_EVENTS */

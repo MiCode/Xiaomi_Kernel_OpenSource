@@ -95,7 +95,7 @@ static int ufs_qcom_phy_qrbtc_sdm845_init(struct phy *generic_phy)
 	if (ret)
 		dev_err(phy_common->dev, "Failed to get reset control\n", ret);
 
-	return 0;
+	return ret;
 }
 
 static int ufs_qcom_phy_qrbtc_sdm845_exit(struct phy *generic_phy)
@@ -103,9 +103,26 @@ static int ufs_qcom_phy_qrbtc_sdm845_exit(struct phy *generic_phy)
 	return 0;
 }
 
+static
+int ufs_qcom_phy_qrbtc_sdm845_set_mode(struct phy *generic_phy,
+				   enum phy_mode mode, int submode)
+{
+	struct ufs_qcom_phy *phy_common = get_ufs_qcom_phy(generic_phy);
+
+	phy_common->mode = PHY_MODE_INVALID;
+
+	if (mode > 0)
+		phy_common->mode = mode;
+
+	phy_common->submode = submode;
+
+	return 0;
+}
+
 static struct phy_ops ufs_qcom_phy_qrbtc_sdm845_phy_ops = {
 	.init		= ufs_qcom_phy_qrbtc_sdm845_init,
 	.exit		= ufs_qcom_phy_qrbtc_sdm845_exit,
+	.set_mode	= ufs_qcom_phy_qrbtc_sdm845_set_mode,
 	.calibrate	= ufs_qcom_phy_qrbtc_sdm845_phy_calibrate,
 	.owner		= THIS_MODULE,
 };

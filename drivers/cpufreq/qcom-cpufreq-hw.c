@@ -8,13 +8,18 @@
 #include <linux/cpu_cooling.h>
 #include <linux/energy_model.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/dcvsh.h>
 
 #define LUT_MAX_ENTRIES			40U
 #define LUT_SRC				GENMASK(31, 30)
@@ -23,15 +28,24 @@
 #define LUT_VOLT			GENMASK(11, 0)
 #define LUT_ROW_SIZE			32
 #define CLK_HW_DIV			2
+#define EQ_IRQ_STATUS			BIT(0)
+#define LT_IRQ_STATUS			BIT(1)
+#define MAX_FN_SIZE			12
+#define LIMITS_POLLING_DELAY_MS		10
 
 #define CYCLE_CNTR_OFFSET(c, m, acc_count)				\
 			(acc_count ? ((c - cpumask_first(m) + 1) * 4) : 0)
+
 enum {
 	REG_ENABLE,
 	REG_FREQ_LUT,
 	REG_VOLT_LUT,
 	REG_PERF_STATE,
 	REG_CYCLE_CNTR,
+	REG_LLM_DCVS_VC_VOTE,
+	REG_INTR_EN,
+	REG_INTR_CLR,
+	REG_INTR_STATUS,
 
 	REG_ARRAY_SIZE,
 };
@@ -39,12 +53,21 @@ enum {
 static unsigned long cpu_hw_rate, xo_rate;
 static const u16 *offsets;
 static unsigned int lut_row_size = LUT_ROW_SIZE;
+static unsigned int lut_max_entries = LUT_MAX_ENTRIES;
 static bool accumulative_counter;
 
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
 	void __iomem *base;
 	cpumask_t related_cpus;
+	unsigned long dcvsh_freq_limit;
+	struct delayed_work freq_poll_work;
+	struct mutex dcvsh_lock;
+	struct device_attribute freq_limit_attr;
+	int dcvsh_irq;
+	char dcvsh_irq_name[MAX_FN_SIZE];
+	bool is_irq_enabled;
+	bool is_irq_requested;
 };
 
 struct cpufreq_counter {
@@ -67,10 +90,100 @@ static const u16 cpufreq_qcom_epss_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_VOLT_LUT]		= 0x200,
 	[REG_PERF_STATE]	= 0x320,
 	[REG_CYCLE_CNTR]	= 0x3c4,
+	[REG_LLM_DCVS_VC_VOTE]	= 0x024,
+	[REG_INTR_EN]		= 0x304,
+	[REG_INTR_CLR]		= 0x308,
+	[REG_INTR_STATUS]	= 0x30C,
 };
 
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
 static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
+
+static ssize_t dcvsh_freq_limit_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct cpufreq_qcom *c = container_of(attr, struct cpufreq_qcom,
+						freq_limit_attr);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", c->dcvsh_freq_limit);
+}
+
+static unsigned long limits_mitigation_notify(struct cpufreq_qcom *c)
+{
+	int i;
+	u32 max_vc;
+
+	max_vc = readl_relaxed(c->base + offsets[REG_LLM_DCVS_VC_VOTE]) &
+						GENMASK(13, 8);
+
+	for (i = 0; i < lut_max_entries; i++) {
+		if (c->table[i].driver_data != max_vc)
+			continue;
+		else {
+			sched_update_cpu_freq_min_max(&c->related_cpus, 0,
+					c->table[i].frequency);
+			trace_dcvsh_freq(cpumask_first(&c->related_cpus),
+						c->table[i].frequency);
+			c->dcvsh_freq_limit = c->table[i].frequency;
+			return c->table[i].frequency;
+		}
+	}
+
+	return 0;
+}
+
+static void limits_dcvsh_poll(struct work_struct *work)
+{
+	struct cpufreq_qcom *c = container_of(work, struct cpufreq_qcom,
+						freq_poll_work.work);
+	struct cpufreq_policy *policy;
+	unsigned long freq_limit;
+	u32 regval, cpu;
+
+	mutex_lock(&c->dcvsh_lock);
+
+	cpu = cpumask_first(&c->related_cpus);
+	policy = cpufreq_cpu_get_raw(cpu);
+
+	freq_limit = limits_mitigation_notify(c);
+	if (freq_limit != policy->cpuinfo.max_freq || !freq_limit) {
+		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
+				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
+	} else {
+		regval = readl_relaxed(c->base + offsets[REG_INTR_CLR]);
+		regval &= ~LT_IRQ_STATUS;
+		writel_relaxed(regval, c->base + offsets[REG_INTR_CLR]);
+
+		c->is_irq_enabled = true;
+		enable_irq(c->dcvsh_irq);
+	}
+
+	mutex_unlock(&c->dcvsh_lock);
+}
+
+static irqreturn_t dcvsh_handle_isr(int irq, void *data)
+{
+	struct cpufreq_qcom *c = data;
+	u32 regval;
+
+	regval = readl_relaxed(c->base + offsets[REG_INTR_STATUS]);
+	if (!(regval & LT_IRQ_STATUS))
+		return IRQ_HANDLED;
+
+	mutex_lock(&c->dcvsh_lock);
+
+	if (c->is_irq_enabled) {
+		c->is_irq_enabled = false;
+		disable_irq_nosync(c->dcvsh_irq);
+		limits_mitigation_notify(c);
+		mod_delayed_work(system_highpri_wq, &c->freq_poll_work,
+				msecs_to_jiffies(LIMITS_POLLING_DELAY_MS));
+
+	}
+
+	mutex_unlock(&c->dcvsh_lock);
+
+	return IRQ_HANDLED;
+}
 
 static u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
 {
@@ -131,7 +244,7 @@ static unsigned int qcom_cpufreq_hw_get(unsigned int cpu)
 		return 0;
 
 	index = readl_relaxed(policy->driver_data + offsets[REG_PERF_STATE]);
-	index = min(index, LUT_MAX_ENTRIES - 1);
+	index = min(index, lut_max_entries - 1);
 
 	return policy->freq_table[index].frequency;
 }
@@ -183,6 +296,27 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 	policy->dvfs_possible_from_any_cpu = true;
 
 	dev_pm_opp_of_register_em(policy->cpus);
+
+	if (c->dcvsh_irq > 0 && !c->is_irq_requested) {
+		snprintf(c->dcvsh_irq_name, sizeof(c->dcvsh_irq_name),
+					"dcvsh-irq-%d", policy->cpu);
+		ret = devm_request_threaded_irq(cpu_dev, c->dcvsh_irq, NULL,
+			dcvsh_handle_isr, IRQF_TRIGGER_HIGH | IRQF_ONESHOT |
+			IRQF_NO_SUSPEND | IRQF_SHARED, c->dcvsh_irq_name, c);
+		if (ret) {
+			dev_err(cpu_dev, "Failed to register irq %d\n", ret);
+			return ret;
+		}
+
+		c->is_irq_requested = true;
+		c->is_irq_enabled = true;
+		writel_relaxed(LT_IRQ_STATUS, c->base + offsets[REG_INTR_EN]);
+		c->freq_limit_attr.attr.name = "dcvsh_freq_limit";
+		c->freq_limit_attr.show = dcvsh_freq_limit_show;
+		c->freq_limit_attr.attr.mode = 0444;
+		c->dcvsh_freq_limit = U32_MAX;
+		device_create_file(cpu_dev, &c->freq_limit_attr);
+	}
 
 	return 0;
 }
@@ -243,14 +377,14 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	u32 data, src, lval, i, core_count, prev_cc, prev_freq, freq, volt;
 	unsigned long cpu;
 
-	c->table = devm_kcalloc(dev, LUT_MAX_ENTRIES + 1,
+	c->table = devm_kcalloc(dev, lut_max_entries + 1,
 				sizeof(*c->table), GFP_KERNEL);
 	if (!c->table)
 		return -ENOMEM;
 
 	cpu = cpumask_first(&c->related_cpus);
 
-	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
+	for (i = 0; i < lut_max_entries; i++) {
 		data = readl_relaxed(c->base + offsets[REG_FREQ_LUT] +
 				      i * lut_row_size);
 		src = FIELD_GET(LUT_SRC, data);
@@ -374,6 +508,15 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 		return ret;
 	}
 
+	if (of_find_property(dev->of_node, "interrupts", NULL)) {
+		c->dcvsh_irq = of_irq_get(dev->of_node, index);
+		if (c->dcvsh_irq > 0) {
+			mutex_init(&c->dcvsh_lock);
+			INIT_DEFERRABLE_WORK(&c->freq_poll_work,
+					limits_dcvsh_poll);
+		}
+	}
+
 	for_each_cpu(cpu_r, &c->related_cpus)
 		qcom_freq_domain_map[cpu_r] = c;
 
@@ -404,6 +547,9 @@ static int qcom_resources_init(struct platform_device *pdev)
 
 	of_property_read_u32(pdev->dev.of_node, "qcom,lut-row-size",
 			      &lut_row_size);
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,lut-max-entries",
+			      &lut_max_entries);
 
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);

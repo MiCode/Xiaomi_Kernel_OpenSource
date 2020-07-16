@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2008-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -37,7 +37,7 @@ static void kgsl_qdss_gfx_register_probe(struct kgsl_device *device)
 	if (res == NULL)
 		return;
 
-	device->qdss_gfx_virt = devm_ioremap(device->dev, res->start,
+	device->qdss_gfx_virt = devm_ioremap(&device->pdev->dev, res->start,
 							resource_size(res));
 
 	if (device->qdss_gfx_virt == NULL)

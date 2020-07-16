@@ -27,6 +27,7 @@
 #if defined(__KERNEL__) || defined(__linux__)
 #include <linux/types.h>
 #include <asm/byteorder.h>
+#include <linux/time.h>
 #else
 #include <endian.h>
 #include <sys/ioctl.h>
@@ -113,21 +114,15 @@ enum {
 	SNDRV_HWDEP_IFACE_LINE6,	/* Line6 USB processors */
 	SNDRV_HWDEP_IFACE_FW_MOTU,	/* MOTU FireWire series */
 	SNDRV_HWDEP_IFACE_FW_FIREFACE,	/* RME Fireface series */
-#ifdef CONFIG_AUDIO_QGKI
 	SNDRV_HWDEP_IFACE_AUDIO_BE,	/* Backend Audio Control */
 	SNDRV_HWDEP_IFACE_AUDIO_CODEC,  /* codec Audio Control */
 
 	/* Don't forget to change the following: */
 	SNDRV_HWDEP_IFACE_LAST = SNDRV_HWDEP_IFACE_AUDIO_CODEC
-#else
-	SNDRV_HWDEP_IFACE_LAST = SNDRV_HWDEP_IFACE_FW_FIREFACE
-#endif
 };
 
-#ifdef CONFIG_AUDIO_QGKI
 #define SNDRV_HWDEP_IFACE_AUDIO_BE SNDRV_HWDEP_IFACE_AUDIO_BE
 #define SNDRV_HWDEP_IFACE_AUDIO_CODEC SNDRV_HWDEP_IFACE_AUDIO_CODEC
-#endif
 
 struct snd_hwdep_info {
 	unsigned int device;		/* WR: device number */
@@ -1154,9 +1149,5 @@ struct snd_ctl_event {
 #define SNDRV_CTL_NAME_IEC958_PRO_MASK			"Pro Mask"
 #define SNDRV_CTL_NAME_IEC958_PCM_STREAM		"PCM Stream"
 #define SNDRV_CTL_NAME_IEC958(expl,direction,what)	"IEC958 " expl SNDRV_CTL_NAME_##direction SNDRV_CTL_NAME_IEC958_##what
-
-#ifdef CONFIG_AUDIO_QGKI
-#define SNDRV_AUDIO_QGKI 1
-#endif
 
 #endif /* _UAPI__SOUND_ASOUND_H */

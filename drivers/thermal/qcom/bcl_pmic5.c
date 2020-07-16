@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -34,6 +34,7 @@
 #define BCL_VBAT_ADC_LOW      0x48
 #define BCL_VBAT_COMP_LOW     0x49
 #define BCL_VBAT_COMP_TLOW    0x4A
+#define BCL_VBAT_CONV_REQ     0x72
 
 #define BCL_IRQ_L0       0x1
 #define BCL_IRQ_L1       0x2
@@ -503,11 +504,17 @@ static void bcl_vbat_init(struct platform_device *pdev,
 		enum bcl_dev_type type, struct bcl_device *bcl_perph)
 {
 	struct bcl_peripheral_data *vbat = &bcl_perph->param[type];
+	unsigned int val = 0;
+	int ret;
 
 	mutex_init(&vbat->state_trans_lock);
 	vbat->dev = bcl_perph;
 	vbat->irq_num = 0;
 	vbat->irq_enabled = false;
+	vbat->tz_dev = NULL;
+	ret = bcl_read_register(bcl_perph, BCL_VBAT_CONV_REQ, &val);
+	if (ret || !val)
+		return;
 	vbat->tz_dev = thermal_zone_device_register("vbat", 3, 0, vbat,
 			&vbat_tzd_ops, &vbat_tzp, 0, 0);
 	if (IS_ERR(vbat->tz_dev)) {

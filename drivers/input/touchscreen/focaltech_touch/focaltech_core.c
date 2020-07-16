@@ -55,8 +55,9 @@
 #define INTERVAL_READ_REG                   200  /* unit:ms */
 #define TIMEOUT_READ_REG                    1000 /* unit:ms */
 #if FTS_POWER_SOURCE_CUST_EN
-#define FTS_VTG_MIN_UV                      2800000
+#define FTS_VTG_MIN_UV                      3000000
 #define FTS_VTG_MAX_UV                      3300000
+#define FTS_LOAD_MAX_UA                     30000
 #define FTS_I2C_VTG_MIN_UV                  1800000
 #define FTS_I2C_VTG_MAX_UV                  1800000
 #endif
@@ -982,6 +983,13 @@ static int fts_power_source_init(struct fts_ts_data *ts_data)
 			regulator_put(ts_data->vdd);
 			return ret;
 		}
+
+		ret = regulator_set_load(ts_data->vdd, FTS_LOAD_MAX_UA);
+		if (ret) {
+			FTS_ERROR("vdd regulator set_load failed ret=%d", ret);
+			regulator_put(ts_data->vdd);
+			return ret;
+		}
 	}
 
 	ts_data->vcc_i2c = regulator_get(ts_data->dev, "vcc_i2c");
@@ -1704,7 +1712,7 @@ static int fts_ts_check_dt(struct device_node *np)
 		}
 	}
 
-	return -ENODEV;
+	return PTR_ERR(panel);
 }
 
 static int fts_ts_check_default_tp(struct device_node *dt, const char *prop)
@@ -1764,7 +1772,11 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 		return -ENODEV;
 	}
 
-	if (fts_ts_check_dt(dp)) {
+	ret = fts_ts_check_dt(dp);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	if (ret) {
 		if (!fts_ts_check_default_tp(dp, "qcom,i2c-touch-active"))
 			ret = -EPROBE_DEFER;
 		else

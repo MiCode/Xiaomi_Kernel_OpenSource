@@ -458,4 +458,35 @@ config BLK_DEV_RSXX
 	  To compile this driver as a module, choose M here: the
 	  module will be called rsxx.
 
+config NEURON_APP_BLOCK_CLIENT
+	tristate "Neuron block client"
+	depends on NEURON
+	select NEURON_PROT_BLOCK_CLIENT
+	help
+	  Neuron is a device-sharing framework which is used by guests of the
+	  haven hypervisor to serve or access shared I/O devices and other
+	  inter-VM services.
+
+	  This option enables the Neuron block client, which can access block
+	  devices that are shared via Neuron services. These shared devices can
+	  then be accessed as block device special files such as
+	  /dev/neuron-block0, either directly or by mounting filesystems
+	  on them.
+
+	  If unsure, say N.
+
+config NEURON_APP_BLOCK_SERVER
+	tristate "Neuron block server"
+	depends on NEURON
+	select NEURON_PROT_BLOCK_SERVER
+	help
+	  Neuron is a device-sharing framework which is used by guests of the
+	  haven hypervisors to serve or access shared I/O devices and other
+	  inter-VM services.
+
+	  This option enables the Neuron block device server, which exposes a
+	  specified block device to a client in another VM via a Neuron service.
+
+	  If unsure, say N.
+
 endif # BLK_DEV

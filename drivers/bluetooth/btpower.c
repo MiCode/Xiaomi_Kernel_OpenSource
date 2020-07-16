@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
+#include <linux/uaccess.h>
 #include <linux/btpower.h>
 
 #if defined CONFIG_BT_SLIM_QCA6390 || \
@@ -50,6 +51,7 @@ static struct bt_power_vreg_data bt_power_vreg_info[] = {
 static int bt_power_vreg_get(struct platform_device *pdev);
 static int bt_power_vreg_set(enum bt_power_modes mode);
 static void bt_power_vreg_put(void);
+static int bt_dt_parse_chipset_info(struct device *dev);
 
 static struct bluetooth_power_platform_data *bt_power_pdata;
 static struct platform_device *btpdev;
@@ -460,6 +462,30 @@ err:
 	return ret;
 }
 
+static int bt_dt_parse_chipset_info(struct device *dev)
+{
+	int ret = -EINVAL;
+	struct device_node *np = dev->of_node;
+
+	/* Allocated 32 byte size buffer for compatible string */
+	bt_power_pdata->compatible_chipset_version = devm_kzalloc(dev,
+					MAX_PROP_SIZE, GFP_KERNEL);
+	if (bt_power_pdata->compatible_chipset_version == NULL) {
+		ret = -ENOMEM;
+		return ret;
+	}
+	ret = of_property_read_string(np, "compatible",
+			&bt_power_pdata->compatible_chipset_version);
+	if (ret < 0) {
+		pr_err("%s: reading \"compatible\" failed\n",
+			__func__);
+	} else {
+		pr_debug("%s: compatible =%s\n", __func__,
+			bt_power_pdata->compatible_chipset_version);
+	}
+	return ret;
+}
+
 static int bt_power_vreg_get(struct platform_device *pdev)
 {
 	struct bt_power_vreg_data *vreg_info;
@@ -567,6 +593,10 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 					&bt_power_pdata->bt_chip_clk);
 		if (rc < 0)
 			pr_err("%s: clock not provided in device tree\n",
+				__func__);
+		rc = bt_dt_parse_chipset_info(&pdev->dev);
+		if (rc < 0)
+			pr_err("%s: compatible not provided in device tree\n",
 				__func__);
 	}
 
@@ -693,8 +723,21 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (chipset_version) {
 			soc_id = chipset_version;
 		} else {
-			pr_err("%s: got invalid soc version\n");
+			pr_err("%s: got invalid soc version\n", __func__);
 			soc_id = 0;
+		}
+		break;
+	case BT_CMD_GET_CHIPSET_ID:
+		if (bt_power_pdata->compatible_chipset_version) {
+			if (copy_to_user((void __user *)arg,
+				bt_power_pdata->compatible_chipset_version,
+				MAX_PROP_SIZE)) {
+				pr_err("%s: copy to user failed\n", __func__);
+				ret = -EFAULT;
+			}
+		} else {
+			pr_err("%s: compatible string not valid\n", __func__);
+			ret = -EINVAL;
 		}
 		break;
 	default:

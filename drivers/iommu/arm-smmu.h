@@ -340,6 +340,7 @@ struct arm_smmu_s2cr {
 	enum arm_smmu_s2cr_type		type;
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
+	bool				cb_handoff;
 	bool				pinned;
 };
 
@@ -535,6 +536,7 @@ static inline u32 arm_smmu_lpae_vtcr(struct io_pgtable_cfg *cfg)
 }
 
 /* Implementation details, yay! */
+
 struct arm_smmu_impl {
 	u32 (*read_reg)(struct arm_smmu_device *smmu, int page, int offset);
 	void (*write_reg)(struct arm_smmu_device *smmu, int page, int offset,

@@ -16,11 +16,14 @@
 #include <linux/completion.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
+#include <linux/sched.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include <linux/haven/hh_dbl.h>
 #include <linux/haven/hh_msgq.h>
 #include <linux/haven/hh_errno.h>
 #include <linux/haven/hh_common.h>
+#include <linux/haven/hh_rm_drv.h>
 
 #include "hh_rm_drv_private.h"
 
@@ -34,6 +37,7 @@
 	(HH_MSGQ_MAX_MSG_SIZE_BYTES - sizeof(struct hh_rm_rpc_hdr))
 
 struct hh_rm_connection {
+	u32 msg_id;
 	u16 seq;
 	void *recv_buff;
 	u32 reply_err_code;
@@ -51,6 +55,8 @@ static struct hh_msgq_desc *hh_rm_msgq_desc;
 
 static DEFINE_MUTEX(hh_rm_call_idr_lock);
 static DEFINE_IDR(hh_rm_call_idr);
+static struct hh_rm_connection *curr_connection;
+static DEFINE_MUTEX(hh_rm_send_lock);
 
 static DEFINE_IDA(hh_rm_free_virq_ida);
 static struct device_node *hh_rm_intc;
@@ -61,9 +67,7 @@ SRCU_NOTIFIER_HEAD_STATIC(hh_rm_notifier);
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work);
 static DECLARE_WORK(hh_rm_get_svm_res_work, hh_rm_get_svm_res_work_fn);
 
-static int hh_rm_populate_hyp_res(void);
-
-static struct hh_rm_connection *hh_rm_alloc_connection(int seq)
+static struct hh_rm_connection *hh_rm_alloc_connection(u32 msg_id)
 {
 	struct hh_rm_connection *connection;
 
@@ -73,20 +77,7 @@ static struct hh_rm_connection *hh_rm_alloc_connection(int seq)
 
 	init_completion(&connection->seq_done);
 
-	if (seq > 0) {
-		connection->seq = seq;
-		return connection;
-	}
-
-	/* Allocate a new seq number for this connection */
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
-		kfree(connection);
-		return ERR_PTR(-ERESTARTSYS);
-	}
-
-	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
-					0, U16_MAX, GFP_KERNEL);
-	mutex_unlock(&hh_rm_call_idr_lock);
+	connection->msg_id = msg_id;
 
 	return connection;
 }
@@ -132,21 +123,6 @@ int hh_rm_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(hh_rm_unregister_notifier);
 
-static int hh_rm_process_notif_vm_status(void *recv_buff, size_t recv_buff_size)
-{
-	struct hh_rm_notif_vm_status_payload *vm_status_payload;
-
-	vm_status_payload = recv_buff + sizeof(struct hh_rm_rpc_hdr);
-
-	/* The VM is now booting. Collect it's info and
-	 * populate to other entities such as MessageQ and DBL
-	 */
-	if (vm_status_payload->vm_status == HH_RM_OS_STATUS_BOOT)
-		return hh_rm_populate_hyp_res();
-
-	return 0;
-}
-
 static struct hh_rm_connection *
 hh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 {
@@ -155,11 +131,12 @@ hh_rm_wait_for_notif_fragments(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
-	connection = hh_rm_alloc_connection(hdr->seq);
+	connection = hh_rm_alloc_connection(hdr->msg_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
 	payload_size = recv_buff_size - sizeof(*hdr);
+	curr_connection = connection;
 
 	ret = hh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*hdr), payload_size);
@@ -187,6 +164,11 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 	int ret = 0;
 
 	pr_debug("Notification received from RM-VM: %x\n", notification);
+
+	if (curr_connection) {
+		pr_err("Received new notification from RM-VM before completing last connection\n");
+		return -EINVAL;
+	}
 
 	if (recv_buff_size > sizeof(*hdr))
 		payload = recv_buff + sizeof(*hdr);
@@ -216,8 +198,6 @@ static int hh_rm_process_notif(void *recv_buff, size_t recv_buff_size)
 			ret = -EINVAL;
 			goto err;
 		}
-
-		ret = hh_rm_process_notif_vm_status(recv_buff, recv_buff_size);
 		break;
 	case HH_RM_NOTIF_VM_IRQ_LENT:
 		if (recv_buff_size != sizeof(*hdr) +
@@ -299,6 +279,11 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	size_t payload_size;
 	int ret = 0;
 
+	if (curr_connection) {
+		pr_err("Received new reply from RM-VM before completing last connection\n");
+		return -EINVAL;
+	}
+
 	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
 		ret = -ERESTARTSYS;
 		goto out;
@@ -307,7 +292,8 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	connection = idr_find(&hh_rm_call_idr, hdr->seq);
 	mutex_unlock(&hh_rm_call_idr_lock);
 
-	if (!connection || connection->seq != hdr->seq) {
+	if (!connection || connection->seq != hdr->seq ||
+	    connection->msg_id != hdr->msg_id) {
 		pr_err("%s: Failed to get the connection info for seq: %d\n",
 			__func__, hdr->seq);
 		ret = -EINVAL;
@@ -315,6 +301,7 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	}
 
 	payload_size = recv_buff_size - sizeof(*reply_hdr);
+	curr_connection = connection;
 
 	ret = hh_rm_init_connection_buff(connection, recv_buff,
 					sizeof(*reply_hdr), payload_size);
@@ -331,8 +318,10 @@ static int hh_rm_process_rply(void *recv_buff, size_t recv_buff_size)
 	 * this buffer as and when the fragments arrive, and finally
 	 * wakeup the receiver upon reception of the last fragment.
 	 */
-	if (!hdr->fragments)
+	if (!hdr->fragments) {
+		curr_connection = NULL;
 		complete(&connection->seq_done);
+	}
 out:
 	return ret;
 }
@@ -340,20 +329,18 @@ out:
 static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 {
 	struct hh_rm_rpc_hdr *hdr = recv_buff;
-	struct hh_rm_connection *connection;
+	struct hh_rm_connection *connection = curr_connection;
 	size_t payload_size;
 
-	if (mutex_lock_interruptible(&hh_rm_call_idr_lock))
-		return -ERESTARTSYS;
-
-	connection = idr_find(&hh_rm_call_idr, hdr->seq);
-	mutex_unlock(&hh_rm_call_idr_lock);
-
-	/* The seq number should be the same for all the fragments */
-	if (!connection || connection->seq != hdr->seq) {
-		pr_err("%s: Failed to get the connection info for seq: %d\n",
-			__func__, hdr->seq);
+	if (!connection) {
+		pr_err("%s: not processing a fragmented connection\n",
+			__func__);
 		return -EINVAL;
+	}
+
+	if (connection->msg_id != hdr->msg_id) {
+		pr_err("%s: got message id %x when expecting %x\n",
+			__func__, hdr->msg_id, connection->msg_id);
 	}
 
 	/*
@@ -375,8 +362,10 @@ static int hh_rm_process_cont(void *recv_buff, size_t recv_buff_size)
 	connection->recv_buff_size += payload_size;
 
 	connection->fragments_received++;
-	if (connection->fragments_received == connection->num_fragments)
+	if (connection->fragments_received == connection->num_fragments) {
+		curr_connection = NULL;
 		complete(&connection->seq_done);
+	}
 
 	return 0;
 }
@@ -413,9 +402,10 @@ static void hh_rm_process_recv_work(struct work_struct *work)
 
 	/* All the processing functions would have trimmed-off the header
 	 * and copied the data to connection->recv_buff. Hence, it's okay
-	 * to release the original packet that arrived.
+	 * to release the original packet that arrived and free the msgq_data.
 	 */
 	kfree(recv_buff);
+	kfree(msgq_data);
 }
 
 static int hh_rm_recv_task_fn(void *data)
@@ -426,12 +416,18 @@ static int hh_rm_recv_task_fn(void *data)
 	int ret;
 
 	while (!kthread_should_stop()) {
+		recv_buff = kzalloc(HH_MSGQ_MAX_MSG_SIZE_BYTES, GFP_KERNEL);
+		if (!recv_buff)
+			continue;
+
 		/* Block until a new message is received */
-		ret = hh_msgq_recv(hh_rm_msgq_desc, &recv_buff,
+		ret = hh_msgq_recv(hh_rm_msgq_desc, recv_buff,
+					HH_MSGQ_MAX_MSG_SIZE_BYTES,
 					&recv_buff_size, 0);
 		if (ret < 0) {
 			pr_err("%s: Failed to receive the message: %d\n",
 				__func__, ret);
+			kfree(recv_buff);
 			continue;
 		} else if (recv_buff_size <= sizeof(struct hh_rm_rpc_hdr)) {
 			pr_err("%s: Invalid message size received\n", __func__);
@@ -447,6 +443,9 @@ static int hh_rm_recv_task_fn(void *data)
 			kfree(recv_buff);
 			continue;
 		}
+
+		print_hex_dump_debug("hh_rm_recv: ", DUMP_PREFIX_OFFSET,
+				     4, 1, recv_buff, recv_buff_size, false);
 
 		msgq_data->recv_buff = recv_buff;
 		msgq_data->recv_buff_size = recv_buff_size;
@@ -486,6 +485,10 @@ static int hh_rm_send_request(u32 message_id,
 		return -E2BIG;
 	}
 
+	if (mutex_lock_interruptible(&hh_rm_send_lock)) {
+		return -ERESTARTSYS;
+	}
+
 	/* Consider also the 'request' packet for the loop count */
 	for (i = 0; i <= num_fragments; i++) {
 		if (buff_size_remaining > HH_RM_MAX_MSG_SIZE_BYTES) {
@@ -496,8 +499,10 @@ static int hh_rm_send_request(u32 message_id,
 		}
 
 		send_buff = kzalloc(sizeof(*hdr) + payload_size, GFP_KERNEL);
-		if (!send_buff)
+		if (!send_buff) {
+			mutex_unlock(&hh_rm_send_lock);
 			return -ENOMEM;
+		}
 
 		hdr = send_buff;
 		hdr->version = HH_RM_RPC_HDR_VERSION_ONE;
@@ -517,12 +522,22 @@ static int hh_rm_send_request(u32 message_id,
 
 		ret = hh_msgq_send(hh_rm_msgq_desc, send_buff,
 					sizeof(*hdr) + payload_size, tx_flags);
+
+		/*
+		 * In the case of a success, the hypervisor would have consumed
+		 * the buffer. While in the case of a failure, we are going to
+		 * quit anyways. Hence, free the buffer regardless of the
+		 * return value.
+		 */
+		kfree(send_buff);
+
 		if (ret) {
-			kfree(send_buff);
+			mutex_unlock(&hh_rm_send_lock);
 			return ret;
 		}
 	}
 
+	mutex_unlock(&hh_rm_send_lock);
 	return 0;
 }
 
@@ -553,10 +568,23 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 	if (!message_id || !req_buff || !resp_buff_size || !reply_err_code)
 		return ERR_PTR(-EINVAL);
 
-	connection = hh_rm_alloc_connection(-1);
+	connection = hh_rm_alloc_connection(message_id);
 	if (IS_ERR_OR_NULL(connection))
 		return connection;
 
+	/* Allocate a new seq number for this connection */
+	if (mutex_lock_interruptible(&hh_rm_call_idr_lock)) {
+		kfree(connection);
+		return ERR_PTR(-ERESTARTSYS);
+	}
+
+	connection->seq = idr_alloc_cyclic(&hh_rm_call_idr, connection,
+					0, U16_MAX, GFP_KERNEL);
+	mutex_unlock(&hh_rm_call_idr_lock);
+
+	pr_debug("%s TX msg_id: %x\n", __func__, message_id);
+	print_hex_dump_debug("hh_rm_call TX: ", DUMP_PREFIX_OFFSET, 4, 1,
+			     req_buff, req_buff_size, false);
 	/* Send the request to the Resource Manager VM */
 	req_ret = hh_rm_send_request(message_id,
 					req_buff, req_buff_size,
@@ -574,11 +602,19 @@ void *hh_rm_call(hh_rm_msgid_t message_id,
 
 	*reply_err_code = connection->reply_err_code;
 	if (connection->reply_err_code) {
-		pr_err("%s: Reply for seq:%d failed with err: %d\n",
+		pr_err("%s: Reply for seq:%d failed with RM err: %d\n",
 			__func__, connection->seq, connection->reply_err_code);
 		ret = ERR_PTR(hh_remap_error(connection->reply_err_code));
 		goto out;
 	}
+
+	print_hex_dump_debug("hh_rm_call RX: ", DUMP_PREFIX_OFFSET, 4, 1,
+			     connection->recv_buff, connection->recv_buff_size,
+			     false);
+
+	mutex_lock(&hh_rm_call_idr_lock);
+	idr_remove(&hh_rm_call_idr, connection->seq);
+	mutex_unlock(&hh_rm_call_idr_lock);
 
 	ret = connection->recv_buff;
 	*resp_buff_size = connection->recv_buff_size;
@@ -588,7 +624,7 @@ out:
 	return ret;
 }
 
-static int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
+int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
 {
 	struct irq_fwspec fwspec = {};
 
@@ -600,6 +636,7 @@ static int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger)
 
 	return irq_create_fwspec_mapping(&fwspec);
 }
+EXPORT_SYMBOL(hh_rm_virq_to_linux_irq);
 
 static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 {
@@ -608,7 +645,7 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 	/* For resources, such as DBL source, there's no IRQ. The virq_handle
 	 * wouldn't be defined for such cases. Hence ignore such cases
 	 */
-	if (!res_entry->virq_handle)
+	if (!res_entry->virq_handle && !virq)
 		return 0;
 
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
@@ -622,20 +659,36 @@ static int hh_rm_get_irq(struct hh_vm_get_hyp_res_resp_entry *res_entry)
 		if (ret < 0)
 			return ret;
 
+		/* Add 32 offset to make interrupt as hwirq */
+		virq += 32;
+
 		/* Bind the vIRQ */
 		ret = hh_rm_vm_irq_accept(res_entry->virq_handle, virq);
 		if (ret < 0)
 			goto err;
+	} else if ((virq - 32) < 0) {
+		/* Sanity check to make sure hypervisor is passing the correct
+		 * interrupt numbers.
+		 */
+		return -EINVAL;
 	}
 
-	return hh_rm_virq_to_linux_irq(virq, GIC_SPI, IRQ_TYPE_LEVEL_HIGH);
+	return hh_rm_virq_to_linux_irq(virq - 32, GIC_SPI,
+				       IRQ_TYPE_EDGE_RISING);
 
 err:
-	ida_free(&hh_rm_free_virq_ida, virq);
+	ida_free(&hh_rm_free_virq_ida, virq - 32);
 	return ret;
 }
 
-static int hh_rm_populate_hyp_res(void)
+/**
+ * hh_rm_populate_hyp_res: Query Resource Manager VM to get hyp resources.
+ * @vmid: The vmid of resources to be queried.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int hh_rm_populate_hyp_res(hh_vmid_t vmid)
 {
 	struct hh_vm_get_hyp_res_resp_entry *res_entries = NULL;
 	int linux_irq, ret = 0;
@@ -643,11 +696,25 @@ static int hh_rm_populate_hyp_res(void)
 	hh_label_t label;
 	u32 n_res, i;
 
-	res_entries = hh_rm_vm_get_hyp_res(0, &n_res);
+	res_entries = hh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
 		return PTR_ERR(res_entries);
 
+	pr_debug("%s: %d Resources are associated with vmid %d\n",
+		 __func__, n_res, vmid);
+
 	for (i = 0; i < n_res; i++) {
+		pr_debug("%s: idx:%d res_entries.res_type = 0x%x, res_entries.partner_vmid = 0x%x, res_entries.resource_handle = 0x%x, res_entries.resource_label = 0x%x, res_entries.cap_id_low = 0x%x, res_entries.cap_id_high = 0x%x, res_entries.virq_handle = 0x%x, res_entries.virq = 0x%x\n",
+			__func__, i,
+			res_entries[i].res_type,
+			res_entries[i].partner_vmid,
+			res_entries[i].resource_handle,
+			res_entries[i].resource_label,
+			res_entries[i].cap_id_low,
+			res_entries[i].cap_id_high,
+			res_entries[i].virq_handle,
+			res_entries[i].virq);
+
 		ret = linux_irq = hh_rm_get_irq(&res_entries[i]);
 		if (ret < 0)
 			goto out;
@@ -657,7 +724,6 @@ static int hh_rm_populate_hyp_res(void)
 		label = res_entries[i].resource_label;
 
 		/* Populate MessageQ & DBL's cap tables */
-		/* TODO: Handle DBL */
 		switch (res_entries[i].res_type) {
 		case HH_RM_RES_TYPE_MQ_TX:
 			ret = hh_msgq_populate_cap_info(label, cap_id,
@@ -667,9 +733,16 @@ static int hh_rm_populate_hyp_res(void)
 			ret = hh_msgq_populate_cap_info(label, cap_id,
 					HH_MSGQ_DIRECTION_RX, linux_irq);
 			break;
+		case HH_RM_RES_TYPE_VCPU:
+			ret = hh_vcpu_populate_affinity_info(label, cap_id);
+			break;
 		case HH_RM_RES_TYPE_DB_TX:
+			ret = hh_dbl_populate_cap_info(label, cap_id,
+					HH_MSGQ_DIRECTION_TX, linux_irq);
 			break;
 		case HH_RM_RES_TYPE_DB_RX:
+			ret = hh_dbl_populate_cap_info(label, cap_id,
+					HH_MSGQ_DIRECTION_RX, linux_irq);
 			break;
 		default:
 			pr_err("%s: Unknown resource type: %u\n",
@@ -685,73 +758,86 @@ out:
 	kfree(res_entries);
 	return ret;
 }
+EXPORT_SYMBOL(hh_rm_populate_hyp_res);
 
 static void hh_rm_get_svm_res_work_fn(struct work_struct *work)
 {
-	hh_rm_populate_hyp_res();
+	hh_vmid_t vmid;
+	int ret;
+
+	ret = hh_rm_get_vmid(HH_PRIMARY_VM, &vmid);
+	if (ret)
+		pr_err("%s: Unable to get VMID for VM label %d\n",
+						__func__, HH_PRIMARY_VM);
+	else
+		hh_rm_populate_hyp_res(vmid);
+}
+
+static int hh_vm_probe(struct device *dev, struct device_node *hyp_root)
+{
+	struct device_node *node;
+	struct hh_vm_property temp_property;
+	int vmid, owner_vmid, ret;
+
+	node = of_find_compatible_node(hyp_root, NULL, "qcom,haven-vm-id-1.0");
+	if (IS_ERR_OR_NULL(node)) {
+		dev_err(dev, "Could not find vm-id node\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(node, "qcom,vmid", &vmid);
+	if (ret) {
+		dev_err(dev, "Could not read vmid: %d\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_u32(node, "qcom,owner-vmid", &owner_vmid);
+	if (ret) {
+		/* We must be HH_PRIMARY_VM */
+		temp_property.vmid = vmid;
+		hh_update_vm_prop_table(HH_PRIMARY_VM, &temp_property);
+	} else {
+		/* We must be HH_TRUSTED_VM */
+		temp_property.vmid = vmid;
+		hh_update_vm_prop_table(HH_TRUSTED_VM, &temp_property);
+		temp_property.vmid = owner_vmid;
+		hh_update_vm_prop_table(HH_PRIMARY_VM, &temp_property);
+
+		/* Query RM for available resources */
+		schedule_work(&hh_rm_get_svm_res_work);
+	}
+
+	return 0;
 }
 
 static const struct of_device_id hh_rm_drv_of_match[] = {
-	{ .compatible = "qcom,haven-resource-manager-1-0" },
+	{ .compatible = "qcom,resource-manager-1-0" },
 	{ }
 };
 
 static int hh_rm_drv_probe(struct platform_device *pdev)
 {
-	struct resource *rm_tx_res, *rm_rx_res;
-	int tx_irq, rx_irq;
-	u32 owner_vmid;
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 	int ret;
 
-	rm_tx_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"rm-tx-cap-id");
-	if (!rm_tx_res) {
-		dev_err(&pdev->dev, "Failed to get the Tx cap-id\n");
-		return -EINVAL;
+	ret = hh_msgq_probe(pdev, HH_MSGQ_LABEL_RM);
+	if (ret) {
+		dev_err(dev, "Failed to probe message queue: %d\n", ret);
+		return ret;
 	}
 
-	rm_rx_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"rm-rx-cap-id");
-	if (!rm_rx_res) {
-		dev_err(&pdev->dev, "Failed to get the Rx cap-id\n");
-		return -EINVAL;
-	}
-
-	tx_irq = platform_get_irq_byname(pdev, "rm-tx-irq");
-	if (tx_irq < 0) {
-		dev_err(&pdev->dev, "Failed to get the Tx IRQ. ret: %d\n",
-			tx_irq);
-		return tx_irq;
-	}
-
-	rx_irq = platform_get_irq_byname(pdev, "rm-rx-irq");
-	if (rx_irq < 0) {
-		dev_err(&pdev->dev, "Failed to get the Rx IRQ. ret: %d\n",
-			rx_irq);
-		return rx_irq;
-	}
-
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,virq-base",
-				&hh_rm_base_virq)) {
-		dev_err(&pdev->dev, "Failed to get the vIRQ base\n");
+	if (of_property_read_u32(node, "qcom,free-irq-start",
+				 &hh_rm_base_virq)) {
+		dev_err(dev, "Failed to get the vIRQ base\n");
 		return -ENXIO;
 	}
 
-	hh_rm_intc = of_irq_find_parent(pdev->dev.of_node);
+	hh_rm_intc = of_irq_find_parent(node);
 	if (!hh_rm_intc) {
-		dev_err(&pdev->dev, "Failed to get the IRQ parent node\n");
+		dev_err(dev, "Failed to get the IRQ parent node\n");
 		return -ENXIO;
 	}
-
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rm_tx_res->start,
-					HH_MSGQ_DIRECTION_TX, tx_irq);
-	if (ret)
-		return ret;
-
-	ret = hh_msgq_populate_cap_info(HH_MSGQ_LABEL_RM, rm_rx_res->start,
-					HH_MSGQ_DIRECTION_RX, rx_irq);
-	if (ret)
-		return ret;
 
 	hh_rm_msgq_desc = hh_msgq_register(HH_MSGQ_LABEL_RM);
 	if (IS_ERR_OR_NULL(hh_rm_msgq_desc))
@@ -767,14 +853,10 @@ static int hh_rm_drv_probe(struct platform_device *pdev)
 		goto err_recv_task;
 	}
 
-	/* If the node has a "qcom,owner-vmid" property, it means that it's
-	 * a secondary-VM. Gain the info about it's resources here as there
-	 * won't be any explicit notification from the primary-VM.
-	 */
-	if (!of_property_read_u32(pdev->dev.of_node, "qcom,owner-vmid",
-				&owner_vmid)) {
-		schedule_work(&hh_rm_get_svm_res_work);
-	}
+	/* Probe the vmid */
+	ret = hh_vm_probe(dev, node->parent);
+	if (ret < 0 && ret != -ENODEV)
+		goto err_recv_task;
 
 	return 0;
 

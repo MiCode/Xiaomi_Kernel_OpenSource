@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/msm_rtb.h>
 
@@ -143,14 +143,14 @@ extern struct bus_type mhi_bus_type;
 #define CAP_NEXT_CAP_SHIFT (12)
 
 /* MHI Timesync offsets */
-#define TIMESYNC_CFG_OFFSET (0x00)
-#define TIMESYNC_CFG_CAPID_MASK (CAP_CAPID_MASK)
-#define TIMESYNC_CFG_CAPID_SHIFT (CAP_CAPID_SHIFT)
-#define TIMESYNC_CFG_NEXT_OFF_MASK (CAP_NEXT_CAP_MASK)
-#define TIMESYNC_CFG_NEXT_OFF_SHIFT (CAP_NEXT_CAP_SHIFT)
-#define TIMESYNC_CFG_NUMCMD_MASK (0xFF)
-#define TIMESYNC_CFG_NUMCMD_SHIFT (0)
-#define TIMESYNC_DB_OFFSET (0x4)
+#define TIMESYNC_CFG_OFFSET (0x04)
+#define TIMESYNC_CFG_ENABLED_MASK (0x80000000)
+#define TIMESYNC_CFG_ENABLED_SHIFT (31)
+#define TIMESYNC_CFG_CHAN_DB_ID_MASK (0x0000FF00)
+#define TIMESYNC_CFG_CHAN_DB_ID_SHIFT (8)
+#define TIMESYNC_CFG_ER_ID_MASK (0x000000FF)
+#define TIMESYNC_CFG_ER_ID_SHIFT (0)
+
 #define TIMESYNC_TIME_LOW_OFFSET (0x8)
 #define TIMESYNC_TIME_HIGH_OFFSET (0xC)
 
@@ -299,6 +299,7 @@ enum mhi_cmd_type {
 	MHI_CMD_TYPE_STOP = 17,
 	MHI_CMD_TYPE_START = 18,
 	MHI_CMD_TYPE_TSYNC = 24,
+	MHI_CMD_TYPE_SFR_CFG = 73,
 };
 
 /* no operation command */
@@ -323,11 +324,10 @@ enum mhi_cmd_type {
 #define MHI_TRE_CMD_START_DWORD1(chid) ((chid << 24) | \
 					(MHI_CMD_TYPE_START << 16))
 
-/* time sync cfg command */
-#define MHI_TRE_CMD_TSYNC_CFG_PTR (0)
-#define MHI_TRE_CMD_TSYNC_CFG_DWORD0 (0)
-#define MHI_TRE_CMD_TSYNC_CFG_DWORD1(er) ((MHI_CMD_TYPE_TSYNC << 16) | \
-					  (er << 24))
+/* subsystem failure reason cfg command */
+#define MHI_TRE_CMD_SFR_CFG_PTR(ptr) (ptr)
+#define MHI_TRE_CMD_SFR_CFG_DWORD0(len) (len)
+#define MHI_TRE_CMD_SFR_CFG_DWORD1 (MHI_CMD_TYPE_SFR_CFG << 16)
 
 #define MHI_TRE_GET_CMD_CHID(tre) (((tre)->dword[1] >> 24) & 0xFF)
 #define MHI_TRE_GET_CMD_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
@@ -344,6 +344,7 @@ enum mhi_cmd_type {
 #define MHI_TRE_GET_EV_STATE(tre) (((tre)->dword[0] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_EXECENV(tre) (((tre)->dword[0] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_TSYNC_SEQ(tre) ((tre)->dword[0])
+#define MHI_TRE_GET_EV_TSYNC_UNIT(tre) (((tre)->dword[1] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_TIME(tre) ((tre)->ptr)
 #define MHI_TRE_GET_EV_COOKIE(tre) lower_32_bits((tre)->ptr)
 #define MHI_TRE_GET_EV_VEID(tre) (((tre)->dword[0] >> 16) & 0xFF)
@@ -362,11 +363,13 @@ enum mhi_cmd_type {
 #define MHI_RSCTRE_DATA_DWORD0(cookie) (cookie)
 #define MHI_RSCTRE_DATA_DWORD1 (MHI_PKT_TYPE_COALESCING << 16)
 
+#define MHI_RSC_MIN_CREDITS (8)
+
 enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
 	MHI_CMD_START_CHAN,
 	MHI_CMD_STOP_CHAN,
-	MHI_CMD_TIMSYNC_CFG,
+	MHI_CMD_SFR_CFG,
 };
 
 enum MHI_PKT_TYPE {
@@ -383,6 +386,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_RSC_TX_EVENT = 0x28,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
 	MHI_PKT_TYPE_TSYNC_EVENT = 0x48,
+	MHI_PKT_TYPE_SFR_CFG_CMD = 0x49,
 	MHI_PKT_TYPE_BW_REQ_EVENT = 0x50,
 	MHI_PKT_TYPE_STALE_EVENT, /* internal event */
 };
@@ -519,9 +523,15 @@ enum MHI_XFER_TYPE {
 #define NR_OF_CMD_RINGS (1)
 #define CMD_EL_PER_RING (128)
 #define PRIMARY_CMD_RING (0)
+#define MHI_TIMESYNC_CHAN_DB (125)
 #define MHI_BW_SCALE_CHAN_DB (126)
 #define MHI_DEV_WAKE_DB (127)
 #define MHI_MAX_MTU (0xffff)
+
+#define MHI_TIMESYNC_DB_SETUP(er_index) ((MHI_TIMESYNC_CHAN_DB << \
+	TIMESYNC_CFG_CHAN_DB_ID_SHIFT) & TIMESYNC_CFG_CHAN_DB_ID_MASK | \
+	(1 << TIMESYNC_CFG_ENABLED_SHIFT) & TIMESYNC_CFG_ENABLED_MASK | \
+	((er_index) << TIMESYNC_CFG_ER_ID_SHIFT) & TIMESYNC_CFG_ER_ID_MASK)
 
 #define MHI_BW_SCALE_SETUP(er_index) ((MHI_BW_SCALE_CHAN_DB << \
 	BW_SCALE_CFG_CHAN_DB_ID_SHIFT) & BW_SCALE_CFG_CHAN_DB_ID_MASK | \
@@ -539,10 +549,10 @@ enum MHI_ER_TYPE {
 enum mhi_er_priority {
 	MHI_ER_PRIORITY_HIGH,
 	MHI_ER_PRIORITY_MEDIUM,
-	MHI_ER_PRIORITY_LOW,
+	MHI_ER_PRIORITY_SPECIAL,
 };
 
-#define IS_MHI_ER_PRIORITY_LOW(ev) (ev->priority >= MHI_ER_PRIORITY_LOW)
+#define IS_MHI_ER_PRIORITY_SPECIAL(ev) (ev->priority >= MHI_ER_PRIORITY_SPECIAL)
 #define IS_MHI_ER_PRIORITY_HIGH(ev) (ev->priority == MHI_ER_PRIORITY_HIGH)
 
 enum mhi_er_data_type {
@@ -654,6 +664,9 @@ struct mhi_event {
 			     struct mhi_event *mhi_event,
 			     u32 event_quota);
 	struct mhi_controller *mhi_cntrl;
+	struct mhi_tre last_cached_tre;
+	u64 last_dev_rp;
+	bool force_uncached;
 };
 
 struct mhi_chan {
@@ -695,11 +708,15 @@ struct mhi_chan {
 	struct completion completion;
 	rwlock_t lock;
 	struct list_head node;
+
+	/* stats */
+	u64 mode_change;
 };
 
 struct tsync_node {
 	struct list_head node;
 	u32 sequence;
+	u32 int_sequence;
 	u64 local_time;
 	u64 remote_time;
 	struct mhi_device *mhi_dev;
@@ -708,14 +725,20 @@ struct tsync_node {
 };
 
 struct mhi_timesync {
-	u32 er_index;
-	void __iomem *db;
 	void __iomem *time_reg;
+	u32 int_sequence;
+	bool db_support;
+	spinlock_t lock; /* list protection */
+	struct list_head head;
+};
+
+struct mhi_sfr_info {
+	void *buf_addr;
+	dma_addr_t dma_addr;
+	size_t len;
+	char *str;
 	enum MHI_EV_CCS ccs;
 	struct completion completion;
-	spinlock_t lock; /* list protection */
-	struct mutex lpm_mutex; /* lpm protection */
-	struct list_head head;
 };
 
 struct mhi_bus {
@@ -727,7 +750,10 @@ struct mhi_bus {
 #define MHI_TIMEOUT_MS (1000)
 extern struct mhi_bus mhi_bus;
 
+struct mhi_controller *find_mhi_controller_by_name(const char *name);
+
 /* debug fs related functions */
+int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d);
@@ -748,8 +774,8 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 			       enum MHI_ST_TRANSITION state);
 void mhi_pm_st_worker(struct work_struct *work);
 void mhi_fw_load_worker(struct work_struct *work);
+void mhi_special_purpose_work(struct work_struct *work);
 void mhi_process_sys_err(struct mhi_controller *mhi_cntrl);
-void mhi_low_priority_worker(struct work_struct *work);
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl);
 void mhi_ctrl_ev_task(unsigned long data);
 int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl);
@@ -813,12 +839,12 @@ void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
 void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr);
-int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
-int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
-void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
-int mhi_create_sysfs(struct mhi_controller *mhi_cntrl);
+int mhi_init_sfr(struct mhi_controller *mhi_cntrl);
+void mhi_create_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl);
 int mhi_early_notify_device(struct device *dev, void *data);
+void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
+			void __iomem *base, u32 offset, u32 val);
 
 /* timesync log support */
 static inline void mhi_timesync_log(struct mhi_controller *mhi_cntrl)
@@ -850,6 +876,29 @@ static inline void mhi_free_coherent(struct mhi_controller *mhi_cntrl,
 {
 	atomic_sub(size, &mhi_cntrl->alloc_size);
 	dma_free_coherent(mhi_cntrl->dev, size, vaddr, dma_handle);
+}
+
+static inline void *mhi_alloc_uncached(struct mhi_controller *mhi_cntrl,
+				       size_t size,
+				       dma_addr_t *dma_handle,
+				       gfp_t gfp)
+{
+	void *buf = dma_alloc_attrs(mhi_cntrl->dev, size, dma_handle, gfp,
+			DMA_ATTR_FORCE_NON_COHERENT);
+
+	if (buf)
+		atomic_add(size, &mhi_cntrl->alloc_size);
+
+	return buf;
+}
+static inline void mhi_free_uncached(struct mhi_controller *mhi_cntrl,
+				     size_t size,
+				     void *vaddr,
+				     dma_addr_t dma_handle)
+{
+	atomic_sub(size, &mhi_cntrl->alloc_size);
+	dma_free_attrs(mhi_cntrl->dev, size, vaddr, dma_handle,
+			DMA_ATTR_FORCE_NON_COHERENT);
 }
 
 static inline void *mhi_alloc_contig_coherent(
@@ -910,8 +959,11 @@ void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl);
 int mhi_dtr_init(void);
 void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 		      struct image_info *img_info);
+void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl);
 int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 			struct mhi_chan *mhi_chan);
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl);
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl);
 
 /* isr handlers */
 irqreturn_t mhi_msi_handlr(int irq_number, void *dev);
@@ -919,22 +971,9 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev);
 irqreturn_t mhi_intvec_handlr(int irq_number, void *dev);
 void mhi_ev_task(unsigned long data);
 
-#ifdef CONFIG_MHI_DEBUG
-
-#define MHI_ASSERT(cond, msg) do { \
+#define MHI_ASSERT(cond, fmt, ...) do { \
 	if (cond) \
-		panic(msg); \
+		panic(fmt); \
 } while (0)
-
-#else
-
-#define MHI_ASSERT(cond, msg) do { \
-	if (cond) { \
-		MHI_ERR(msg); \
-		WARN_ON(cond); \
-	} \
-} while (0)
-
-#endif
 
 #endif /* _MHI_INT_H */

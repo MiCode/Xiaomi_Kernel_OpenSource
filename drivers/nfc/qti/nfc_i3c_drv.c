@@ -199,11 +199,28 @@ int i3c_nci_kbuf_retrieve(struct nfc_dev *dev, char *buf,
 			break;
 
 		reinit_completion(&i3c_dev->read_cplt);
-		ret = wait_for_completion_interruptible(&i3c_dev->read_cplt);
-		if (ret != 0) {
-			pr_err("didn't get completion, interrupted!! ret %d\n",
-			       ret);
-			return ret;
+		/*
+		 * During probe if there is no response for NCI commands,
+		 * probe shouldn't be blocked, that is why timeout is added.
+		 */
+
+		if (i3c_dev->is_probe_done) {
+			ret = wait_for_completion_interruptible(
+							&i3c_dev->read_cplt);
+			if (ret != 0) {
+				pr_err("nfc completion interrupted! ret %d\n",
+							ret);
+				return ret;
+			}
+		} else {
+			ret = wait_for_completion_interruptible_timeout(
+					&i3c_dev->read_cplt,
+					msecs_to_jiffies(MAX_IBI_WAIT_TIME));
+			if (ret <= 0) {
+				pr_err("nfc completion timedout ret %d\n",
+							ret);
+				return ret;
+			}
 		}
 	} while (available_size < requested_size);
 
@@ -675,6 +692,7 @@ int nfc_i3c_dev_probe(struct i3c_device *device)
 
 	atomic_set(&nfc_dev->i3c_dev.pm_state, PM_STATE_NORMAL);
 	device_init_wakeup(&device->dev, true);
+	nfc_dev->i3c_dev.is_probe_done = true;
 
 	pr_info("%s success\n", __func__);
 

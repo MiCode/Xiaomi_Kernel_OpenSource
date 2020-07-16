@@ -115,6 +115,7 @@ struct memlat_cpu_grp {
 	cpumask_t		cpus;
 	unsigned int		common_ev_ids[NUM_COMMON_EVS];
 	struct cpu_data		*cpus_data;
+	int			read_event_cpu;
 	ktime_t			last_update_ts;
 	unsigned long		last_ts_delta_us;
 
@@ -180,8 +181,11 @@ static void update_counts(struct memlat_cpu_grp *cpu_grp)
 		struct cpu_data *cpu_data = to_cpu_data(cpu_grp, cpu);
 		struct event_data *common_evs = cpu_data->common_evs;
 
-		for (i = 0; i < NUM_COMMON_EVS; i++)
+		for (i = 0; i < NUM_COMMON_EVS; i++) {
+			cpu_grp->read_event_cpu = cpu;
 			read_event(&common_evs[i]);
+			cpu_grp->read_event_cpu = -1;
+		}
 
 		if (!common_evs[STALL_IDX].pevent)
 			common_evs[STALL_IDX].last_delta =
@@ -202,7 +206,9 @@ static void update_counts(struct memlat_cpu_grp *cpu_grp)
 		for_each_cpu(cpu, &mon->cpus) {
 			unsigned int mon_idx =
 				cpu - cpumask_first(&mon->cpus);
+			cpu_grp->read_event_cpu = cpu;
 			read_event(&mon->miss_ev[mon_idx]);
+			cpu_grp->read_event_cpu = -1;
 		}
 	}
 }
@@ -742,6 +748,8 @@ static int memlat_cpu_grp_probe(struct platform_device *pdev)
 		dev_err(dev, "No CPUs specified.\n");
 		return -ENODEV;
 	}
+
+	cpu_grp->read_event_cpu = -1;
 
 	num_mons = of_get_available_child_count(dev->of_node);
 

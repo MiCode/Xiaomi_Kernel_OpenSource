@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018,2020 The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -9,6 +9,7 @@
 #if !defined(_TRACE_ION_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_ION_H
 
+#include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/types.h>
 #include <linux/tracepoint.h>

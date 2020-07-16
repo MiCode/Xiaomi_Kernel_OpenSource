@@ -3391,10 +3391,12 @@ static void clk_debug_unregister(struct clk_core *core)
 }
 
 #ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-#define clock_debug_output(m, fmt, ...)		\
+#define clock_debug_output(m, c, fmt, ...)		\
 do {							\
 	if (m)						\
 		seq_printf(m, fmt, ##__VA_ARGS__);	\
+	else if (c)					\
+		pr_cont(fmt, ##__VA_ARGS__);		\
 	else						\
 		pr_info(fmt, ##__VA_ARGS__);		\
 } while (0)
@@ -3407,28 +3409,29 @@ static int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
 	if (!c || !c->prepare_count)
 		return 0;
 
+	clock_debug_output(s, 0, "    ");
+
 	clk = c->hw->clk;
 
 	do {
 		c = clk->core;
 		if (c->ops->list_rate_vdd_level)
-			clock_debug_output(s, "%s%s:%u:%u [%ld, %d]", start,
+			clock_debug_output(s, 1, "%s%s:%u:%u [%ld, %d]", start,
 				c->name,
 				c->prepare_count,
 				c->enable_count,
 				c->rate,
 				c->ops->list_rate_vdd_level(c->hw, c->rate));
 		else
-			clock_debug_output(s, "%s%s:%u:%u [%ld]", start,
+			clock_debug_output(s, 1, "%s%s:%u:%u [%ld]", start,
 				c->name,
 				c->prepare_count,
 				c->enable_count,
 				c->rate);
 		start = " -> ";
-	} while (s && (clk = clk_get_parent(clk)));
+	} while ((clk = clk_get_parent(clk)));
 
-	if (s)
-		clock_debug_output(s, "\n");
+	clock_debug_output(s, 1, "\n");
 
 	return 1;
 }
@@ -3441,21 +3444,23 @@ static void clock_debug_print_enabled_clocks(struct seq_file *s)
 	struct clk_core *core;
 	int cnt = 0;
 
-	clock_debug_output(s, "Enabled clocks:\n");
+	clock_debug_output(s, 0, "Enabled clocks:\n");
 
 	hlist_for_each_entry(core, &clk_debug_list, debug_node)
 		cnt += clock_debug_print_clock(core, s);
 
 	if (cnt)
-		clock_debug_output(s, "Enabled clock count: %d\n", cnt);
+		clock_debug_output(s, 0, "Enabled clock count: %d\n", cnt);
 	else
-		clock_debug_output(s, "No clocks enabled.\n");
+		clock_debug_output(s, 0, "No clocks enabled.\n");
 }
 
 static int enabled_clocks_show(struct seq_file *s, void *unused)
 {
 	mutex_lock(&clk_debug_lock);
+
 	clock_debug_print_enabled_clocks(s);
+
 	mutex_unlock(&clk_debug_lock);
 
 	return 0;
@@ -3488,6 +3493,7 @@ void clock_debug_print_enabled(void)
 		return;
 
 	clock_debug_print_enabled_clocks(NULL);
+
 	mutex_unlock(&clk_debug_lock);
 }
 EXPORT_SYMBOL(clock_debug_print_enabled);
@@ -3802,7 +3808,6 @@ static int __clk_core_init(struct clk_core *core)
 
 	clk_core_hold_state(core);
 	clk_core_reparent_orphans_nolock();
-
 
 	kref_init(&core->ref);
 out:

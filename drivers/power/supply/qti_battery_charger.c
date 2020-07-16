@@ -5,8 +5,10 @@
 
 #define pr_fmt(fmt)	"BATTERY_CHG: %s: " fmt, __func__
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/rpmsg.h>
 #include <linux/mutex.h>
@@ -144,6 +146,15 @@ struct battery_chg_dev {
 	struct mutex			rw_lock;
 	struct completion		ack;
 	struct psy_state		psy_list[PSY_TYPE_MAX];
+	struct dentry			*debugfs_dir;
+	u32				*thermal_levels;
+	int				curr_thermal_level;
+	int				num_thermal_levels;
+	atomic_t			state;
+	struct work_struct		subsys_up_work;
+	int				fake_soc;
+	bool				block_tx;
+	bool				debug_battery_detected;
 };
 
 static const int battery_prop_map[BATT_PROP_MAX] = {
@@ -193,6 +204,19 @@ static int battery_chg_write(struct battery_chg_dev *bcdev, void *data,
 				int len)
 {
 	int rc;
+
+	/*
+	 * When the subsystem goes down, it's better to return the last
+	 * known values until it comes back up. Hence, return 0 so that
+	 * pmic_glink_write() is not attempted until pmic glink is up.
+	 */
+	if (atomic_read(&bcdev->state) == PMIC_GLINK_STATE_DOWN) {
+		pr_debug("glink state is down\n");
+		return 0;
+	}
+
+	if (bcdev->debug_battery_detected && bcdev->block_tx)
+		return 0;
 
 	mutex_lock(&bcdev->rw_lock);
 	reinit_completion(&bcdev->ack);
@@ -264,6 +288,40 @@ static int get_property_id(struct psy_state *pst,
 	return -ENOENT;
 }
 
+static void battery_chg_notify_enable(struct battery_chg_dev *bcdev)
+{
+	struct battery_charger_set_notify_msg req_msg = { { 0 } };
+	int rc;
+
+	/* Send request to enable notification */
+	req_msg.hdr.owner = MSG_OWNER_BC;
+	req_msg.hdr.type = MSG_TYPE_NOTIFY;
+	req_msg.hdr.opcode = BC_SET_NOTIFY_REQ;
+
+	rc = battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
+	if (rc < 0)
+		pr_err("Failed to enable notification rc=%d\n", rc);
+}
+
+static void battery_chg_subsys_up_work(struct work_struct *work)
+{
+	struct battery_chg_dev *bcdev = container_of(work,
+					struct battery_chg_dev, subsys_up_work);
+
+	battery_chg_notify_enable(bcdev);
+}
+
+static void battery_chg_state_cb(void *priv, enum pmic_glink_state state)
+{
+	struct battery_chg_dev *bcdev = priv;
+
+	pr_debug("state: %d\n", state);
+
+	atomic_set(&bcdev->state, state);
+	if (state == PMIC_GLINK_STATE_UP)
+		schedule_work(&bcdev->subsys_up_work);
+}
+
 /**
  * qti_battery_charger_get_prop() - Gets the property being requested
  *
@@ -313,10 +371,9 @@ int qti_battery_charger_get_prop(const char *name,
 }
 EXPORT_SYMBOL(qti_battery_charger_get_prop);
 
-static bool validate_message(void *data, size_t len)
+static bool validate_message(struct battery_charger_resp_msg *resp_msg,
+				size_t len)
 {
-	struct battery_charger_resp_msg *resp_msg = data;
-
 	if (len != sizeof(*resp_msg)) {
 		pr_err("Incorrect response length %zu for opcode %#x\n", len,
 			resp_msg->hdr.opcode);
@@ -333,12 +390,12 @@ static bool validate_message(void *data, size_t len)
 	return true;
 }
 
+#define MODEL_DEBUG_BOARD	"Debug_Board"
 static void handle_message(struct battery_chg_dev *bcdev, void *data,
 				size_t len)
 {
 	struct battery_charger_resp_msg *resp_msg = data;
 	struct battery_model_resp_msg *model_resp_msg = data;
-	u32 prop_id = resp_msg->property_id, val = resp_msg->value;
 	struct psy_state *pst;
 	bool ack_set = false;
 
@@ -350,28 +407,33 @@ static void handle_message(struct battery_chg_dev *bcdev, void *data,
 		if (pst->model && len == sizeof(*model_resp_msg)) {
 			memcpy(pst->model, model_resp_msg->model, MAX_STR_LEN);
 			ack_set = true;
+			bcdev->debug_battery_detected = !strcmp(pst->model,
+					MODEL_DEBUG_BOARD);
 			break;
 		}
 
 		/* Other response should be of same type as they've u32 value */
-		if (validate_message(data, len) && prop_id < pst->prop_count) {
-			pst->prop[prop_id] = val;
+		if (validate_message(resp_msg, len) &&
+		    resp_msg->property_id < pst->prop_count) {
+			pst->prop[resp_msg->property_id] = resp_msg->value;
 			ack_set = true;
 		}
 
 		break;
 	case BC_USB_STATUS_GET:
 		pst = &bcdev->psy_list[PSY_TYPE_USB];
-		if (validate_message(data, len) && prop_id < pst->prop_count) {
-			pst->prop[prop_id] = val;
+		if (validate_message(resp_msg, len) &&
+		    resp_msg->property_id < pst->prop_count) {
+			pst->prop[resp_msg->property_id] = resp_msg->value;
 			ack_set = true;
 		}
 
 		break;
 	case BC_WLS_STATUS_GET:
 		pst = &bcdev->psy_list[PSY_TYPE_WLS];
-		if (validate_message(data, len) && prop_id < pst->prop_count) {
-			pst->prop[prop_id] = val;
+		if (validate_message(resp_msg, len) &&
+		    resp_msg->property_id < pst->prop_count) {
+			pst->prop[resp_msg->property_id] = resp_msg->value;
 			ack_set = true;
 		}
 
@@ -500,8 +562,17 @@ static const struct power_supply_desc wls_psy_desc = {
 
 static int usb_psy_set_icl(struct battery_chg_dev *bcdev, u32 prop_id, int val)
 {
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_USB];
 	u32 temp;
 	int rc;
+
+	rc = read_property_id(bcdev, pst, USB_ADAP_TYPE);
+	if (rc < 0)
+		return rc;
+
+	/* Allow this only for SDP and not for other charger types */
+	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_SDP)
+		return -EINVAL;
 
 	/*
 	 * Input current limit (ICL) can be set by different clients. E.g. USB
@@ -514,8 +585,7 @@ static int usb_psy_set_icl(struct battery_chg_dev *bcdev, u32 prop_id, int val)
 	if (val < 0)
 		temp = UINT_MAX;
 
-	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_USB], prop_id,
-				temp);
+	rc = write_property_id(bcdev, pst, prop_id, temp);
 	if (!rc)
 		pr_debug("Set ICL to %u\n", temp);
 
@@ -616,6 +686,35 @@ static const struct power_supply_desc usb_psy_desc = {
 	.property_is_writeable	= usb_psy_prop_is_writeable,
 };
 
+static int battery_psy_set_charge_current(struct battery_chg_dev *bcdev,
+					int val)
+{
+	int rc;
+	u32 fcc_ua;
+
+	if (!bcdev->num_thermal_levels)
+		return 0;
+
+	if (bcdev->num_thermal_levels < 0) {
+		pr_err("Incorrect num_thermal_levels\n");
+		return -EINVAL;
+	}
+
+	if (val < 0 || val > bcdev->num_thermal_levels)
+		return -EINVAL;
+
+	fcc_ua = bcdev->thermal_levels[val];
+
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_BATTERY],
+				BATT_CHG_CTRL_LIM, fcc_ua);
+	if (!rc) {
+		bcdev->curr_thermal_level = val;
+		pr_debug("Set FCC to %u uA\n", fcc_ua);
+	}
+
+	return rc;
+}
+
 static int battery_psy_get_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		union power_supply_propval *pval)
@@ -640,9 +739,18 @@ static int battery_psy_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		pval->intval = DIV_ROUND_CLOSEST(pst->prop[prop_id], 100);
+		if (IS_ENABLED(CONFIG_QTI_PMIC_GLINK_CLIENT_DEBUG) &&
+		   (bcdev->fake_soc >= 0 && bcdev->fake_soc <= 100))
+			pval->intval = bcdev->fake_soc;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		pval->intval = DIV_ROUND_CLOSEST((int)pst->prop[prop_id], 10);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		pval->intval = bcdev->curr_thermal_level;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		pval->intval = bcdev->num_thermal_levels;
 		break;
 	default:
 		pval->intval = pst->prop[prop_id];
@@ -656,12 +764,28 @@ static int battery_psy_set_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		const union power_supply_propval *pval)
 {
+	struct battery_chg_dev *bcdev = power_supply_get_drvdata(psy);
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		return battery_psy_set_charge_current(bcdev, pval->intval);
+	default:
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
 static int battery_psy_prop_is_writeable(struct power_supply *psy,
 		enum power_supply_property prop)
 {
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		return 1;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -734,6 +858,32 @@ static int battery_chg_init_psy(struct battery_chg_dev *bcdev)
 
 	return 0;
 }
+
+static ssize_t fake_soc_store(struct class *c, struct class_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int val;
+
+	if (kstrtoint(buf, 0, &val))
+		return -EINVAL;
+
+	bcdev->fake_soc = val;
+	pr_debug("Set fake soc to %d\n", val);
+
+	return count;
+}
+
+static ssize_t fake_soc_show(struct class *c, struct class_attribute *attr,
+				char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", bcdev->fake_soc);
+}
+static CLASS_ATTR_RW(fake_soc);
 
 static ssize_t wireless_boost_en_store(struct class *c,
 					struct class_attribute *attr,
@@ -863,16 +1013,108 @@ static struct attribute *battery_class_attrs[] = {
 	&class_attr_moisture_detection_status.attr,
 	&class_attr_moisture_detection_en.attr,
 	&class_attr_wireless_boost_en.attr,
+	&class_attr_fake_soc.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(battery_class);
+
+#ifdef CONFIG_DEBUG_FS
+static void battery_chg_add_debugfs(struct battery_chg_dev *bcdev)
+{
+	int rc;
+	struct dentry *dir, *file;
+
+	dir = debugfs_create_dir("battery_charger", NULL);
+	if (IS_ERR(dir)) {
+		rc = PTR_ERR(dir);
+		pr_err("Failed to create charger debugfs directory, rc=%d\n",
+			rc);
+		return;
+	}
+
+	file = debugfs_create_bool("block_tx", 0600, dir, &bcdev->block_tx);
+	if (IS_ERR(file)) {
+		rc = PTR_ERR(file);
+		pr_err("Failed to create block_tx debugfs file, rc=%d\n",
+			rc);
+		goto error;
+	}
+
+	bcdev->debugfs_dir = dir;
+
+	return;
+error:
+	debugfs_remove_recursive(dir);
+}
+#else
+static void battery_chg_add_debugfs(struct battery_chg_dev *bcdev) { }
+#endif
+
+static int battery_chg_parse_dt(struct battery_chg_dev *bcdev)
+{
+	struct device_node *node = bcdev->dev->of_node;
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
+	int i, rc, len;
+	u32 prev, val;
+
+	rc = of_property_count_elems_of_size(node, "qcom,thermal-mitigation",
+						sizeof(u32));
+	if (rc <= 0)
+		return 0;
+
+	len = rc;
+
+	rc = read_property_id(bcdev, pst, BATT_CHG_CTRL_LIM_MAX);
+	if (rc < 0)
+		return rc;
+
+	prev = pst->prop[BATT_CHG_CTRL_LIM_MAX];
+
+	for (i = 0; i < len; i++) {
+		rc = of_property_read_u32_index(node, "qcom,thermal-mitigation",
+						i, &val);
+		if (rc < 0)
+			return rc;
+
+		if (val > prev) {
+			pr_err("Thermal levels should be in descending order\n");
+			bcdev->num_thermal_levels = -EINVAL;
+			return 0;
+		}
+
+		prev = val;
+	}
+
+	bcdev->thermal_levels = devm_kcalloc(bcdev->dev, len + 1,
+					sizeof(*bcdev->thermal_levels),
+					GFP_KERNEL);
+	if (!bcdev->thermal_levels)
+		return -ENOMEM;
+
+	/*
+	 * Element 0 is for normal charging current. Elements from index 1
+	 * onwards is for thermal mitigation charging currents.
+	 */
+
+	bcdev->thermal_levels[0] = pst->prop[BATT_CHG_CTRL_LIM_MAX];
+
+	rc = of_property_read_u32_array(node, "qcom,thermal-mitigation",
+					&bcdev->thermal_levels[1], len);
+	if (rc < 0) {
+		pr_err("Error in reading qcom,thermal-mitigation, rc=%d\n", rc);
+		return rc;
+	}
+
+	bcdev->num_thermal_levels = len;
+
+	return 0;
+}
 
 static int battery_chg_probe(struct platform_device *pdev)
 {
 	struct battery_chg_dev *bcdev;
 	struct device *dev = &pdev->dev;
-	struct pmic_glink_client_data client_data;
-	struct battery_charger_set_notify_msg req_msg = { { 0 } };
+	struct pmic_glink_client_data client_data = { };
 	int rc, i;
 
 	bcdev = devm_kzalloc(&pdev->dev, sizeof(*bcdev), GFP_KERNEL);
@@ -905,11 +1147,17 @@ static int battery_chg_probe(struct platform_device *pdev)
 	if (!bcdev->psy_list[PSY_TYPE_BATTERY].model)
 		return -ENOMEM;
 
+	mutex_init(&bcdev->rw_lock);
+	init_completion(&bcdev->ack);
+	INIT_WORK(&bcdev->subsys_up_work, battery_chg_subsys_up_work);
+	atomic_set(&bcdev->state, PMIC_GLINK_STATE_UP);
 	bcdev->dev = dev;
+
 	client_data.id = MSG_OWNER_BC;
 	client_data.name = "battery_charger";
-	client_data.callback = battery_chg_callback;
+	client_data.msg_cb = battery_chg_callback;
 	client_data.priv = bcdev;
+	client_data.state_cb = battery_chg_state_cb;
 
 	bcdev->client = pmic_glink_register_client(dev, &client_data);
 	if (IS_ERR(bcdev->client)) {
@@ -920,9 +1168,12 @@ static int battery_chg_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = battery_chg_parse_dt(bcdev);
+	if (rc < 0)
+		goto error;
+
 	platform_set_drvdata(pdev, bcdev);
-	mutex_init(&bcdev->rw_lock);
-	init_completion(&bcdev->ack);
+	bcdev->fake_soc = -EINVAL;
 	rc = battery_chg_init_psy(bcdev);
 	if (rc < 0)
 		goto error;
@@ -935,14 +1186,8 @@ static int battery_chg_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	/* Send request to enable notification */
-	req_msg.hdr.owner = MSG_OWNER_BC;
-	req_msg.hdr.type = MSG_TYPE_NOTIFY;
-	req_msg.hdr.opcode = BC_SET_NOTIFY_REQ;
-
-	rc = battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
-	if (rc < 0)
-		pr_err("Failed to enable notification rc=%d\n", rc);
+	battery_chg_add_debugfs(bcdev);
+	battery_chg_notify_enable(bcdev);
 
 	return 0;
 error:
@@ -955,6 +1200,7 @@ static int battery_chg_remove(struct platform_device *pdev)
 	struct battery_chg_dev *bcdev = platform_get_drvdata(pdev);
 	int rc;
 
+	debugfs_remove_recursive(bcdev->debugfs_dir);
 	class_unregister(&bcdev->battery_class);
 	rc = pmic_glink_unregister_client(bcdev->client);
 	if (rc < 0) {

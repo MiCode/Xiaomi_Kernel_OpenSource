@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config NEURON_CH_HAVEN
+	tristate "Shared memory channel drivers for Haven guests"
+	depends on OF && HAVEN_DRIVERS
+	help
+	  This option enables receive and send Neuron channel drivers that use
+	  a shared memory buffer and a pair of notification objects to
+	  communicate with another VM. This is the Haven version.
+
+	  If unsure, say Y.

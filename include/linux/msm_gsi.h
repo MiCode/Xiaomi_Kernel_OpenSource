@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef MSM_GSI_H
@@ -176,7 +176,7 @@ enum gsi_evt_ring_elem_size {
  * @ring_len:        length of ring in bytes (must be integral multiple of
  *                   re_size)
  * @ring_base_addr:  physical base address of ring. Address must be aligned to
- *		     ring_len rounded to power of two
+ *                   ring_len rounded to power of two
  * @ring_base_vaddr: virtual base address of ring (set to NULL when not
  *                   applicable)
  * @int_modt:        cycles base interrupt moderation (32KHz clock)
@@ -186,6 +186,8 @@ enum gsi_evt_ring_elem_size {
  * @rp_update_addr:  physical address to which event read pointer should be
  *                   written on every event generation. must be set to 0 when
  *                   no update is desdired
+ * @rp_update_vaddr: virtual address of event ring read pointer (set to NULL
+ *                   when not applicable)
  * @exclusive:       if true, only one GSI channel can be associated with this
  *                   event ring. if false, the event ring can be shared among
  *                   multiple GSI channels but in that case no polling
@@ -196,6 +198,7 @@ enum gsi_evt_ring_elem_size {
  * @evchid:          the event ID that is being specifically requested (this is
  *                   relevant for MHI where doorbell routing requires ERs to be
  *                   physically contiguous)
+ * @gsi_read_event_ring_rp: function reads the value of the event ring RP.
  */
 struct gsi_evt_ring_props {
 	enum gsi_evt_chtype intf;
@@ -209,11 +212,14 @@ struct gsi_evt_ring_props {
 	uint32_t intvec;
 	uint64_t msi_addr;
 	uint64_t rp_update_addr;
+	void *rp_update_vaddr;
 	bool exclusive;
 	void (*err_cb)(struct gsi_evt_err_notify *notify);
 	void *user_data;
 	bool evchid_valid;
 	uint8_t evchid;
+	uint64_t (*gsi_read_event_ring_rp)(struct gsi_evt_ring_props *props,
+						uint8_t id, int ee);
 };
 
 enum gsi_chan_mode {
@@ -1383,6 +1389,16 @@ int gsi_read_channel_scratch(unsigned long chan_hdl,
 int gsi_read_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
 		union __packed gsi_wdi3_channel_scratch2_reg *val);
 
+/*
+ * gsi_pending_irq_type - Peripheral should call this function to
+ * check if there is any pending irq
+ *
+ * This function can sleep
+ *
+ * @Return gsi_irq_type
+ */
+int gsi_pending_irq_type(void);
+
 /**
  * gsi_update_mhi_channel_scratch - MHI Peripheral should call this
  * function to update the scratch area of the channel context. Updating
@@ -1723,6 +1739,20 @@ int gsi_map_virtual_ch_to_per_ep(u32 ee, u32 chan_num, u32 per_ep_index);
  */
 int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
 
+/**
+ * gsi_enable_flow_control_ee - Peripheral should call this function
+ * to enable flow control other EE's channel. This is usually done in USB
+ * connent and SSR scenarios.
+ *
+ * @chan_idx: Virtual channel index
+ * @ee: EE
+ * @code: [out] response code for operation
+
+ * @Return gsi_status
+ */
+int gsi_enable_flow_control_ee(unsigned int chan_idx, unsigned int ee,
+								int *code);
+
 /*
  * Here is a typical sequence of calls
  *
@@ -1839,6 +1869,11 @@ static inline int gsi_write_channel_scratch2_reg(unsigned long chan_hdl,
 
 static inline int gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch *val)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_pending_irq_type(void)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1992,6 +2027,12 @@ static inline int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee,
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
+static inline int gsi_enable_flow_control_ee(unsigned int chan_idx,
+			unsigned int ee, int *code)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
 static inline void gsi_wdi3_write_evt_ring_db(
 	unsigned long chan_hdl, uint32_t db_addr_low,
 	uint32_t db_addr_high)
@@ -2001,6 +2042,5 @@ static inline void gsi_wdi3_write_evt_ring_db(
 static inline void gsi_wdi3_dump_register(unsigned long chan_hdl)
 {
 }
-
 #endif /* IS_ENABLED(CONFIG_GSI) */
 #endif

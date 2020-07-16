@@ -52,6 +52,11 @@
 #define UFS_QCOM_LIMIT_DESIRED_MODE	FAST
 #define UFS_QCOM_LIMIT_PHY_SUBMODE	UFS_QCOM_PHY_SUBMODE_G4
 
+/* default value of auto suspend is 3 seconds */
+#define UFS_QCOM_AUTO_SUSPEND_DELAY	3000
+#define UFS_QCOM_CLK_GATING_DELAY_MS_PWR_SAVE	10
+#define UFS_QCOM_CLK_GATING_DELAY_MS_PERF	50
+
 /* QCOM UFS host controller vendor specific registers */
 enum {
 	REG_UFS_SYS1CLK_1US                 = 0xC0,
@@ -333,6 +338,7 @@ struct ufs_qcom_host {
 	bool is_phy_pwr_on;
 	/* Protect the usage of is_phy_pwr_on against racing */
 	struct mutex phy_mutex;
+	bool err_occurred;
 };
 
 static inline u32

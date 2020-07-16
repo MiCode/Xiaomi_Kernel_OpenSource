@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -341,7 +341,8 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 
 	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg)) {
 		dev_err(phy->phy.dev, "eud is enabled\n");
-		return 0;
+		ret = msm_hsphy_enable_power(phy, true);
+		return ret;
 	}
 
 	ret = msm_hsphy_enable_power(phy, true);
@@ -460,11 +461,15 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 
 	if (phy->suspended && suspend) {
+		if (phy->phy.flags & PHY_SUS_OVERRIDE)
+			goto suspend;
+
 		dev_dbg(uphy->dev, "%s: USB PHY is already suspended\n",
-			__func__);
+								__func__);
 		return 0;
 	}
 
+suspend:
 	if (suspend) { /* Bus suspend */
 		if (phy->cable_connected ||
 			(phy->phy.flags & PHY_HOST_MODE)) {
@@ -480,9 +485,13 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			msm_hsphy_enable_clocks(phy, false);
 		} else {/* Cable disconnect */
 			mutex_lock(&phy->phy_lock);
+			dev_dbg(uphy->dev, "phy->flags:0x%x\n", phy->phy.flags);
 			if (!phy->dpdm_enable) {
-				msm_hsphy_enable_clocks(phy, false);
-				msm_hsphy_enable_power(phy, false);
+				if (!(phy->phy.flags & EUD_SPOOF_DISCONNECT)) {
+					dev_dbg(uphy->dev, "turning off clocks/ldo\n");
+					msm_hsphy_enable_clocks(phy, false);
+					msm_hsphy_enable_power(phy, false);
+				}
 			} else {
 				dev_dbg(uphy->dev, "dpdm reg still active.  Keep clocks/ldo ON\n");
 			}
@@ -799,6 +808,13 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 
 	msm_hsphy_create_debugfs(phy);
 
+	/*
+	 * EUD may be enable in boot loader and to keep EUD session alive across
+	 * kernel boot till USB phy driver is initialized based on cable status,
+	 * keep LDOs on here.
+	 */
+	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg))
+		msm_hsphy_enable_power(phy, true);
 	return 0;
 
 err_ret:

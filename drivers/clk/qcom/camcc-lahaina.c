@@ -3007,11 +3007,17 @@ static int cam_cc_lahaina_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static void cam_cc_lahaina_sync_state(struct device *dev)
+{
+	qcom_cc_sync_state(dev, &cam_cc_lahaina_desc);
+}
+
 static struct platform_driver cam_cc_lahaina_driver = {
 	.probe = cam_cc_lahaina_probe,
 	.driver = {
 		.name = "lahaina-cam_cc",
 		.of_match_table = cam_cc_lahaina_match_table,
+		.sync_state = cam_cc_lahaina_sync_state,
 	},
 };
 

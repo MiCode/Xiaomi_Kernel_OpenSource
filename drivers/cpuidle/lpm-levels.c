@@ -29,6 +29,7 @@
 #include <linux/cpuhotplug.h>
 #include <linux/regulator/machine.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/idle.h>
 #include <linux/sched/stat.h>
 #include <linux/psci.h>
 #include <soc/qcom/pm.h>
@@ -39,13 +40,14 @@
 #include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include <trace/events/power.h>
-#include "../clk/clk.h"
+#include <linux/clk.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
+#define MAX_LPM_CPUS (8)
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
@@ -109,6 +111,13 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 static bool sleep_disabled;
 module_param_named(sleep_disabled, sleep_disabled, bool, 0664);
 
+static int lpm_cpu_qos_notify(struct notifier_block *nb,
+		unsigned long val, void *ptr);
+
+static struct notifier_block dev_pm_qos_nb[MAX_LPM_CPUS] = {
+	[0 ... (MAX_LPM_CPUS - 1)] = { .notifier_call = lpm_cpu_qos_notify },
+};
+
 #ifdef CONFIG_SCHED_WALT
 static bool check_cpu_isolated(int cpu)
 {
@@ -120,6 +129,38 @@ static bool check_cpu_isolated(int cpu)
 	return false;
 }
 #endif
+
+static int lpm_cpu_qos_notify(struct notifier_block *nb,
+		unsigned long val, void *ptr)
+{
+	int cpu = nb - dev_pm_qos_nb;
+
+	preempt_disable();
+	if (cpu != smp_processor_id() && cpu_online(cpu) &&
+	    !check_cpu_isolated(cpu))
+		wake_up_if_idle(cpu);
+	preempt_enable();
+
+	return NOTIFY_OK;
+}
+
+static int lpm_offline_cpu(unsigned int cpu)
+{
+	struct device *dev = get_cpu_device(cpu);
+
+	dev_pm_qos_remove_notifier(dev, &dev_pm_qos_nb[cpu],
+				   DEV_PM_QOS_RESUME_LATENCY);
+	return 0;
+}
+
+static int lpm_online_cpu(unsigned int cpu)
+{
+	struct device *dev = get_cpu_device(cpu);
+
+	dev_pm_qos_add_notifier(dev, &dev_pm_qos_nb[cpu],
+				DEV_PM_QOS_RESUME_LATENCY);
+	return 0;
+}
 
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
@@ -453,12 +494,27 @@ static inline bool lpm_disallowed(s64 sleep_us, int cpu)
 	return false;
 }
 
+static inline uint32_t get_cpus_qos(const struct cpumask *mask)
+{
+	int cpu;
+	uint32_t n;
+	uint32_t latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
+
+	for_each_cpu(cpu, mask) {
+		n = cpuidle_governor_latency_req(cpu);
+		if (n < latency)
+			latency = n;
+	}
+
+	return latency;
+}
+
 static int cpu_power_select(struct cpuidle_device *dev,
 		struct lpm_cpu *cpu)
 {
 	ktime_t delta_next;
 	int best_level = 0;
-	uint32_t latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+	uint32_t latency_us = get_cpus_qos(cpumask_of(dev->cpu));
 	s64 sleep_us = ktime_to_us(tick_nohz_get_sleep_length(&delta_next));
 	int i, idx_restrict;
 	uint32_t lvl_latency_us = 0;
@@ -792,7 +848,7 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle,
 	}
 
 	if (cpumask_and(&mask, cpu_online_mask, &cluster->child_cpus))
-		latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+		latency_us = get_cpus_qos(&mask);
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *level = &cluster->levels[i];
@@ -870,6 +926,17 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	if (level->notify_rpm) {
+		/*
+		 * Print enabled clocks and regulators which are on during
+		 * system suspend. This debug information is useful to know
+		 * which resources are enabled and preventing system level
+		 * LPMs (XO and Vmin).
+		 */
+		if (!from_idle) {
+			clock_debug_print_enabled();
+			regulator_debug_print_enabled();
+		}
+
 		cpu = get_next_online_cpu(from_idle);
 		cpumask_copy(&cpumask, cpumask_of(cpu));
 		clear_predict_history();
@@ -1097,10 +1164,10 @@ unlock_and_return:
 	return state_id;
 }
 
-static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
+static int psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 {
 	int affinity_level = 0, state_id = 0, power_state = 0;
-	bool success = false;
+	int ret, success;
 	/*
 	 * idx = 0 is the default LPM state
 	 */
@@ -1109,12 +1176,13 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 		stop_critical_timings();
 		cpu_do_idle();
 		start_critical_timings();
-		return true;
+		return 0;
 	}
 
 	if (from_idle && cpu->levels[idx].use_bc_timer) {
-		if (tick_broadcast_enter())
-			return success;
+		ret = tick_broadcast_enter();
+		if (ret)
+			return ret;
 	}
 
 	state_id = get_cluster_id(cpu->parent, &affinity_level, from_idle);
@@ -1126,7 +1194,8 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 			0xdeaffeed, 0xdeaffeed, from_idle);
 	stop_critical_timings();
 
-	success = !psci_cpu_suspend_enter(state_id);
+	ret = psci_cpu_suspend_enter(state_id);
+	success = (ret == 0);
 
 	start_critical_timings();
 	update_debug_pc_event(CPU_EXIT, state_id,
@@ -1135,7 +1204,7 @@ static bool psci_enter_sleep(struct lpm_cpu *cpu, int idx, bool from_idle)
 	if (from_idle && cpu->levels[idx].use_bc_timer)
 		tick_broadcast_exit();
 
-	return success;
+	return ret;
 }
 
 static int lpm_cpuidle_select(struct cpuidle_driver *drv,
@@ -1191,6 +1260,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	ktime_t start = ktime_get();
 	uint64_t start_time = ktime_to_ns(start), end_time;
+	int ret = -EBUSY;
 
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, true, start_time);
@@ -1201,7 +1271,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	if (need_resched())
 		goto exit;
 
-	success = psci_enter_sleep(cpu, idx, true);
+	ret = psci_enter_sleep(cpu, idx, true);
+	success = (ret == 0);
 
 exit:
 	end_time = ktime_to_ns(ktime_get());
@@ -1211,7 +1282,7 @@ exit:
 	cpu_unprepare(cpu, idx, true);
 	dev->last_residency = ktime_us_delta(ktime_get(), start);
 	update_history(dev, idx);
-	trace_cpu_idle_exit(idx, success);
+	trace_cpu_idle_exit(idx, ret);
 	if (lpm_prediction && cpu->lpm_prediction) {
 		histtimer_cancel();
 		clusttimer_cancel();
@@ -1225,7 +1296,8 @@ static void lpm_cpuidle_s2idle(struct cpuidle_device *dev,
 {
 	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
-	bool success = false;
+	bool success;
+	int ret;
 
 	for (; idx >= 0; idx--) {
 		if (lpm_cpu_mode_allow(dev->cpu, idx, false))
@@ -1239,7 +1311,8 @@ static void lpm_cpuidle_s2idle(struct cpuidle_device *dev,
 	cpu_prepare(cpu, idx, true);
 	cluster_prepare(cpu->parent, cpumask, idx, false, 0);
 
-	success = psci_enter_sleep(cpu, idx, false);
+	ret = psci_enter_sleep(cpu, idx, false);
+	success = (ret == 0);
 
 	cluster_unprepare(cpu->parent, cpumask, idx, false, 0, success);
 	cpu_unprepare(cpu, idx, true);
@@ -1443,6 +1516,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	const struct cpumask *cpumask = get_cpu_mask(cpu);
 	int idx;
 	bool success;
+	int ret;
 
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
 		if (lpm_cpu_mode_allow(cpu, idx, false))
@@ -1455,7 +1529,8 @@ static int lpm_suspend_enter(suspend_state_t state)
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
 
-	success = psci_enter_sleep(lpm_cpu, idx, false);
+	ret = psci_enter_sleep(lpm_cpu, idx, false);
+	success = (ret == 0);
 
 	cluster_unprepare(cluster, cpumask, idx, false, 0, success);
 	cpu_unprepare(lpm_cpu, idx, false);
@@ -1522,6 +1597,12 @@ static int lpm_probe(struct platform_device *pdev)
 	ret = cpuhp_setup_state(CPUHP_AP_QCOM_TIMER_STARTING,
 			"AP_QCOM_SLEEP_STARTING",
 			lpm_starting_cpu, lpm_dying_cpu);
+	if (ret)
+		goto failed;
+
+	ret = cpuhp_setup_state(CPUHP_AP_QCOM_CPU_QOS_ONLINE,
+			"AP_QCOM_CPU_QOS_ONLINE",
+			lpm_online_cpu, lpm_offline_cpu);
 	if (ret)
 		goto failed;
 

@@ -98,6 +98,8 @@
 	(HFI_CMD_SESSION_CVP_START + 0x054)
 #define HFI_CMD_SESSION_CVP_RELEASE_PERSIST_BUFFERS\
 	(HFI_CMD_SESSION_CVP_START + 0x055)
+#define HFI_CMD_SESSION_CVP_FLUSH\
+	(HFI_CMD_SESSION_CVP_START + 0x057)
 #define  HFI_CMD_SESSION_CVP_ICA_FRAME\
 	(HFI_CMD_SESSION_CVP_START + 0x100)
 #define  HFI_CMD_SESSION_CVP_ICA_CONFIG\
@@ -136,14 +138,16 @@
 	(HFI_MSG_SESSION_CVP_START + 0x023)
 #define HFI_MSG_SESSION_CVP_OPERATION_CONFIG (HFI_MSG_SESSION_CVP_START + 0x030)
 
-#define  HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS\
+#define HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS\
 	(HFI_MSG_SESSION_CVP_START + 0x034)
-#define  HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS\
+#define HFI_MSG_SESSION_CVP_SET_MODEL_BUFFERS\
 	(HFI_MSG_SESSION_CVP_START + 0x036)
-#define  HFI_MSG_SESSION_CVP_FD\
+#define HFI_MSG_SESSION_CVP_FD\
 	(HFI_MSG_SESSION_CVP_START + 0x037)
-#define  HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS\
+#define HFI_MSG_SESSION_CVP_RELEASE_PERSIST_BUFFERS\
 	(HFI_MSG_SESSION_CVP_START + 0x038)
+#define HFI_MSG_SESSION_CVP_FLUSH\
+	(HFI_CMD_SESSION_CVP_START + 0x03A)
 
 #define CVP_IFACEQ_MAX_PKT_SIZE       1024
 #define CVP_IFACEQ_MED_PKT_SIZE       768
@@ -197,8 +201,7 @@ struct msm_cvp_fw {
 };
 
 int cvp_hfi_process_msg_packet(u32 device_id,
-	struct cvp_hal_msg_pkt_hdr *msg_hdr,
-		struct msm_cvp_cb_info *info);
+	void *msg_hdr, struct msm_cvp_cb_info *info);
 
 enum cvp_status cvp_hfi_process_sys_init_done_prop_read(
 	struct cvp_hfi_msg_sys_init_done_packet *pkt,

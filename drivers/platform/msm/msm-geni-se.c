@@ -29,8 +29,7 @@
 #define GENI_SE_DMA_PTR_H(ptr) 0
 #endif
 
-/* Convert BCM threshold to actual frequency x 4 */
-#define CONV_TO_BW(x) (x*20000*4)
+#define CONV_TO_BW(x) (x*4)
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/export.h>
@@ -512,17 +512,19 @@ static const struct file_operations list_rates_fops = {
 
 static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
 {
-	struct clk_regmap *rclk = to_clk_regmap(hw);
+	struct clk_regmap *rclk;
 
 	if (IS_ERR_OR_NULL(hw))
 		return;
 
 	clk_debug_print_hw(clk_hw_get_parent(hw), f);
-
 	seq_printf(f, "%s\n", clk_hw_get_name(hw));
 
-	if (rclk->ops && rclk->ops->list_registers)
-		rclk->ops->list_registers(f, hw);
+	if (clk_is_regmap_clk(hw)) {
+		rclk = to_clk_regmap(hw);
+		if (rclk->ops && rclk->ops->list_registers)
+			rclk->ops->list_registers(f, hw);
+	}
 }
 
 static int print_hw_show(struct seq_file *m, void *unused)

@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 
+#include <linux/haven/hh_msgq.h>
 #include <linux/haven/hh_rm_drv.h>
 #include <linux/haven/hh_common.h>
 
@@ -94,8 +95,8 @@ struct hh_vm_property {
 
 /* Call: VM_ALLOCATE */
 struct hh_vm_allocate_req_payload {
-	u8 vmid:4;
-	u8 reserved:4;
+	hh_vmid_t vmid;
+	u16 reserved;
 } __packed;
 
 struct hh_vm_allocate_resp_payload {
@@ -104,8 +105,8 @@ struct hh_vm_allocate_resp_payload {
 
 /* Call: VM_START */
 struct hh_vm_start_req_payload {
-	u8 vmid:4;
-	u8 reserved:4;
+	hh_vmid_t vmid;
+	u16 reserved;
 } __packed;
 
 struct hh_vm_start_resp_payload {
@@ -114,23 +115,15 @@ struct hh_vm_start_resp_payload {
 
 /* Call: CONSOLE_OPEN, CONSOLE_CLOSE, CONSOLE_FLUSH */
 struct hh_vm_console_common_req_payload {
-	u32 vmid;
-	u32 reserved0;
-} __packed;
-
-struct hh_vm_console_common_resp_payload {
-	u32 response;
+	hh_vmid_t vmid;
+	u16 reserved0;
 } __packed;
 
 /* Call: CONSOLE_WRITE */
 struct hh_vm_console_write_req_payload {
-	u32 vmid;
-	u32 num_bytes;
+	hh_vmid_t vmid;
+	u16 num_bytes;
 	u8 data[0];
-} __packed;
-
-struct hh_vm_console_write_resp_payload {
-	u32 response;
 } __packed;
 
 /* Message ID headers */
@@ -139,16 +132,17 @@ struct hh_vm_console_write_resp_payload {
 #define HH_RM_RES_TYPE_DB_RX	1
 #define HH_RM_RES_TYPE_MQ_TX	2
 #define HH_RM_RES_TYPE_MQ_RX	3
+#define HH_RM_RES_TYPE_VCPU	4
 
 struct hh_vm_get_hyp_res_req_payload {
-	u16 vmid;
+	hh_vmid_t vmid;
 	u16 reserved;
 } __packed;
 
 struct hh_vm_get_hyp_res_resp_entry {
 	u8 res_type;
 	u8 reserved;
-	u16 partner_vmid;
+	hh_vmid_t partner_vmid;
 	u32 resource_handle;
 	u32 resource_label;
 	u32 cap_id_low;
@@ -175,6 +169,7 @@ struct hh_vm_irq_accept_resp_payload {
 /* Call: VM_IRQ_LEND */
 struct hh_vm_irq_lend_req_payload {
 	hh_vmid_t vmid;
+	u16 reserved;
 	s32 virq;
 	s32 label;
 } __packed;
@@ -187,19 +182,29 @@ struct hh_vm_irq_lend_resp_payload {
 #define HH_VM_IRQ_NOTIFY_FLAGS_LENT	BIT(0)
 #define HH_VM_IRQ_NOTIFY_FLAGS_RELEASED	BIT(1)
 
-struct hh_vm_irq_notify_req_payload {
-	hh_virq_handle_t virq;
-	u16 flags;
-	u16 reserved0;
-	u32 reserved1;
-	struct {
-		u32 num_vmids;
-		u64 vmids[0];
-	} optional[0];
+/* Call: VM_IRQ_RELEASE */
+struct hh_vm_irq_release_req_payload {
+	hh_virq_handle_t virq_handle;
 } __packed;
 
-struct hh_vm_irq_notify_resp_payload {
+/* Call: VM_IRQ_RECLAIM */
+struct hh_vm_irq_reclaim_req_payload {
+	hh_virq_handle_t virq_handle;
+} __packed;
+
+struct hh_vm_irq_notify_req_payload {
 	hh_virq_handle_t virq;
+	u8 flags;
+	u8 reserved0;
+	u16 reserved1;
+	struct __packed {
+		u16 num_vmids;
+		u16 reserved;
+		struct __packed {
+			hh_vmid_t vmid;
+			u16 reserved;
+		} vmids[0];
+	} optional[0];
 } __packed;
 
 /* Call: MEM_QCOM_LOOKUP_SGL */
@@ -270,11 +275,13 @@ struct hh_mem_notify_req_payload {
 	hh_memparcel_handle_t memparcel_handle;
 	u32 flags:8;
 	u32 reserved1:24;
+	hh_label_t mem_info_tag;
 } __packed;
 
 /* End Message ID headers */
 
 /* Common function declerations */
+int hh_rm_virq_to_linux_irq(u32 virq, u32 type, u32 trigger);
 int hh_update_vm_prop_table(enum hh_vm_names vm_name,
 			struct hh_vm_property *vm_prop);
 void *hh_rm_call(hh_rm_msgid_t message_id,

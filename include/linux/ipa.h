@@ -829,7 +829,6 @@ struct ipa_rx_page_data {
 	bool is_tmp_alloc;
 };
 
-
 /**
  * enum ipa_irq_type - IPA Interrupt Type
  * Used to register handlers for IPA interrupts
@@ -1509,6 +1508,18 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *metadata);
 
 /*
+ * ipa_rmnet_ctl_xmit - QMAP Flow control TX
+ *
+ * @skb - tx QMAP control packet
+ *
+ * Note: This need to be called after client receive rmnet_ctl_
+ * ready_cb and want to send TX flow control message.
+ *
+ * This funciton will return 0 on success, -EAGAIN if pipe if full.
+ */
+int ipa_rmnet_ctl_xmit(struct sk_buff *skb);
+
+/*
  * To transfer multiple data packets
  * While passing the data descriptor list, the anchor node
  * should be of type struct ipa_tx_data_desc not list_head
@@ -1700,6 +1711,12 @@ int ipa_stop_gsi_channel(u32 clnt_hdl);
 
 typedef void (*ipa_ready_cb)(void *user_data);
 
+typedef void (*ipa_rmnet_ctl_ready_cb)(void *user_data);
+
+typedef void (*ipa_rmnet_ctl_stop_cb)(void *user_data);
+
+typedef void (*ipa_rmnet_ctl_rx_notify_cb)(void *user_data, void *rx_data);
+
 /**
  * ipa_register_ipa_ready_cb() - register a callback to be invoked
  * when IPA core driver initialization is complete.
@@ -1721,6 +1738,45 @@ typedef void (*ipa_ready_cb)(void *user_data);
  */
 int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 			      void *user_data);
+
+/**
+ * ipa_register_rmnet_ctl_cb() - register callbacks to be invoked
+ * to rmnet_ctl for qmap flow control pipes setup/teardown/rx_notify.
+ *
+ * @ipa_rmnet_ctl_ready_cb:  CB to be called when pipes setup.
+ * @user_data1: user_data for ipa_rmnet_ctl_ready_cb.
+ * @ipa_rmnet_ctl_stop_cb: CB to be called when pipes teardown.
+ * @user_data2: user_data for ipa_rmnet_ctl_stop_cb.
+ * @ipa_rmnet_ctl_rx_notify_cb: CB to be called when receive rx pkts.
+ * @user_data3: user_data for ipa_rmnet_ctl_rx_notify_cb.
+ * @rx_data: RX data buffer.
+ *
+ * Note: This function is expected to be utilized for rmnet_ctl
+ * module when new qmap flow control is enabled.
+ *
+ * The function will return 0 on success, -EAGAIN if IPA not ready,
+ * -ENXIO is feature is not enabled, -EEXIST if already called.
+ */
+int ipa_register_rmnet_ctl_cb(
+	void (*ipa_rmnet_ctl_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ctl_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ctl_rx_notify_cb)(void *user_data3, void *rx_data),
+	void *user_data3);
+
+/**
+ * ipa_unregister_rmnet_ctl_cb() - unregister callbacks to be
+ * invoked to rmnet_ctl for qmap flow control pipes
+ * setup/teardown/rx_notify.
+ *
+ * Note: This function is expected to be utilized for rmnet_ctl
+ * module when new qmap flow control is enabled.
+ *
+ * The function will return 0 on success, -EAGAIN if IPA not ready,
+ * -ENXIO is feature is not enabled.
+ */
+int ipa_unregister_rmnet_ctl_cb(void);
 
 /**
  * ipa_tz_unlock_reg - Unlocks memory regions so that they become accessible
@@ -2174,6 +2230,14 @@ static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 }
 
 /*
+ * QMAP Flow control TX
+ */
+static inline int ipa_rmnet_ctl_xmit(struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+/*
  * To transfer multiple data packets
  */
 static inline int ipa_tx_dp_mul(
@@ -2587,6 +2651,22 @@ static inline int ipa_stop_gsi_channel(u32 clnt_hdl)
 static inline int ipa_register_ipa_ready_cb(
 	void (*ipa_ready_cb)(void *user_data),
 	void *user_data)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_rmnet_ctl_cb(
+	void (*ipa_rmnet_ctl_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ctl_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ctl_rx_notify_cb)(void *user_data3, void *rx_data),
+	void *user_data3)
+{
+	return -EPERM;
+}
+
+static inline int ipa_unregister_rmnet_ctl_cb(void)
 {
 	return -EPERM;
 }

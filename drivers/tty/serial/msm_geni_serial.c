@@ -106,8 +106,6 @@
 #define DEF_FIFO_DEPTH_WORDS	(16)
 #define DEF_TX_WM		(2)
 #define DEF_FIFO_WIDTH_BITS	(32)
-#define UART_CORE2X_VOTE	(5000)
-#define UART_CONSOLE_CORE2X_VOTE (960)
 
 #define WAKEBYTE_TIMEOUT_MSEC	(2000)
 #define WAIT_XFER_MAX_ITER	(2)
@@ -709,7 +707,8 @@ static void msm_geni_serial_poll_put_char(struct uart_port *uport,
 }
 #endif
 
-#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
+					IS_ENABLED(CONFIG_CONSOLE_POLL)
 static void msm_geni_serial_wr_char(struct uart_port *uport, int ch)
 {
 	geni_write_reg_nolog(ch, uport->membase, SE_GENI_TX_FIFOn);
@@ -2212,7 +2211,8 @@ static ssize_t ver_info_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(ver_info);
 
-#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
+						IS_ENABLED(CONFIG_CONSOLE_POLL)
 static int __init msm_geni_console_setup(struct console *co, char *options)
 {
 	struct uart_port *uport;
@@ -2257,115 +2257,6 @@ static int __init msm_geni_console_setup(struct console *co, char *options)
 
 	return uart_set_options(uport, co, baud, parity, bits, flow);
 }
-
-static void
-msm_geni_serial_early_console_write(struct console *con, const char *s,
-			unsigned int n)
-{
-	struct earlycon_device *dev = con->data;
-
-	__msm_geni_serial_console_write(&dev->port, s, n);
-}
-
-static int __init
-msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
-		const char *opt)
-{
-	struct uart_port *uport = &dev->port;
-	int ret = 0;
-	u32 tx_trans_cfg = 0;
-	u32 tx_parity_cfg = 0;
-	u32 rx_trans_cfg = 0;
-	u32 rx_parity_cfg = 0;
-	u32 stop_bit = 0;
-	u32 rx_stale = 0;
-	u32 bits_per_char = 0;
-	u32 s_clk_cfg = 0;
-	u32 baud = 115200;
-	int clk_div;
-	unsigned long clk_rate;
-	unsigned long cfg0, cfg1;
-
-	if (!uport->membase) {
-		ret = -ENOMEM;
-		goto exit_geni_serial_earlyconsetup;
-	}
-
-	if (get_se_proto(uport->membase) != UART) {
-		ret = -ENXIO;
-		goto exit_geni_serial_earlyconsetup;
-	}
-
-	/*
-	 * Ignore Flow control.
-	 * Disable Tx Parity.
-	 * Don't check Parity during Rx.
-	 * Disable Rx Parity.
-	 * n = 8.
-	 * Stop bit = 0.
-	 * Stale timeout in bit-time (3 chars worth).
-	 */
-	tx_trans_cfg |= UART_CTS_MASK;
-	tx_parity_cfg = 0;
-	rx_trans_cfg = 0;
-	rx_parity_cfg = 0;
-	bits_per_char = 0x8;
-	stop_bit = 0;
-	rx_stale = 0x18;
-	clk_div = get_clk_div_rate(baud, &clk_rate);
-	if (clk_div <= 0) {
-		ret = -EINVAL;
-		goto exit_geni_serial_earlyconsetup;
-	}
-
-	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING))
-		clk_div *= 2;
-
-	s_clk_cfg |= SER_CLK_EN;
-	s_clk_cfg |= (clk_div << CLK_DIV_SHFT);
-
-	/*
-	 * Make an unconditional cancel on the main sequencer to reset
-	 * it else we could end up in data loss scenarios.
-	 */
-	msm_geni_serial_poll_cancel_tx(uport);
-
-	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING)) {
-		/* Only for earlyconsole */
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
-		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
-		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
-	}
-
-	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
-	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
-					(DEF_FIFO_DEPTH_WORDS - 2));
-	geni_se_select_mode(uport->membase, FIFO_MODE);
-	geni_write_reg_nolog(cfg0, uport->membase, SE_GENI_TX_PACKING_CFG0);
-	geni_write_reg_nolog(cfg1, uport->membase, SE_GENI_TX_PACKING_CFG1);
-	geni_write_reg_nolog(tx_trans_cfg, uport->membase,
-							SE_UART_TX_TRANS_CFG);
-	geni_write_reg_nolog(tx_parity_cfg, uport->membase,
-							SE_UART_TX_PARITY_CFG);
-	geni_write_reg_nolog(bits_per_char, uport->membase,
-							SE_UART_TX_WORD_LEN);
-	geni_write_reg_nolog(stop_bit, uport->membase, SE_UART_TX_STOP_BIT_LEN);
-	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
-	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
-	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
-
-	dev->con->write = msm_geni_serial_early_console_write;
-	dev->con->setup = NULL;
-	/*
-	 * Ensure that the early console setup completes before
-	 * returning.
-	 */
-	mb();
-exit_geni_serial_earlyconsetup:
-	return ret;
-}
-OF_EARLYCON_DECLARE(msm_geni_serial, "qcom,msm-geni-console",
-		msm_geni_serial_earlycon_setup);
 
 static int console_register(struct uart_driver *drv)
 {
@@ -2515,7 +2406,8 @@ static const struct uart_ops msm_geni_serial_pops = {
 };
 
 static const struct of_device_id msm_geni_device_tbl[] = {
-#if defined(CONFIG_SERIAL_MSM_GENI_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE) || \
+						IS_ENABLED(CONFIG_CONSOLE_POLL)
 	{ .compatible = "qcom,msm-geni-console",
 			.data = (void *)&msm_geni_console_driver},
 #endif

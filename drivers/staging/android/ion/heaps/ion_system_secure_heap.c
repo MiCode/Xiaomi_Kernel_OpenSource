@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -79,9 +79,10 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 	struct ion_system_secure_heap *secure_heap =
 		to_system_secure_heap(heap);
 	enum ion_heap_type type = secure_heap->heap.ion_heap.type;
+	unsigned long cp_flags = buffer->flags & ION_FLAGS_CP_MASK;
 
 	if (!ion_heap_is_system_secure_heap_type(type) ||
-	    !is_cp_flag_present(flags)) {
+	    !is_cp_flag_present(flags) || (hweight_long(cp_flags) != 1)) {
 		pr_info("%s: Incorrect heap type or incorrect flags\n",
 			__func__);
 		return -EINVAL;
@@ -120,7 +121,9 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 		goto out;
 
 	ret = ion_hyp_assign_sg(buffer.sg_table, &vmid, 1, true);
-	if (ret)
+	if (ret == -EADDRNOTAVAIL)
+		goto out1;
+	else if (ret < 0)
 		goto out;
 
 	/* Now free it to the secure heap */
@@ -129,6 +132,12 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 
 out:
 	sys_heap->ops->free(&buffer);
+out1:
+	/*
+	 * The security state of the pages is unknown after a failure;
+	 * They can neither be added back to the secure pool nor buddy system.
+	 */
+	return;
 }
 
 /*

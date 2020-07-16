@@ -6,6 +6,7 @@
 
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <linux/vmalloc.h>
 
 #include "synx_api.h"
 #include "synx_util.h"
@@ -139,17 +140,16 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj)
 		bind_ops = synx_util_get_bind_ops(type);
 		rc = bind_ops->deregister_callback(
 				synx_external_callback, data, sync_id);
-		if (rc < 0)
+		if (rc < 0) {
 			pr_err("de-registration fail id: %d, type: %u, err: %d\n",
 				sync_id, type, rc);
+			continue;
+		}
+
 		/*
 		 * release the memory allocated for external data.
-		 * It is safe to release this memory as external cb
-		 * has been already deregistered before this.
-		 * even if deregistration fails, it implies the
-		 * external fence might have been cleaned up already
-		 * or in some bad state. Have to release cb data
-		 * at this point or else will lead to memory leak.
+		 * It is safe to release this memory
+		 * only if deregistration is successful.
 		 */
 		kfree(data);
 	}
@@ -975,7 +975,7 @@ static void synx_client_destroy(struct kref *kref)
 
 	pr_info("[sess: %u] session destroyed %s\n",
 		client->id, client->name);
-	kfree(client);
+	vfree(client);
 }
 
 void synx_put_client(struct synx_client *client)

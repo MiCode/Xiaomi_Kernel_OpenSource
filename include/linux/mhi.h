@@ -1,8 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
+
+#include <linux/device.h>
+#include <linux/dma-direction.h>
+#include <linux/mutex.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/types.h>
 
 struct mhi_chan;
 struct mhi_event;
@@ -12,6 +19,9 @@ struct image_info;
 struct bhi_vec_entry;
 struct mhi_timesync;
 struct mhi_buf_info;
+struct mhi_sfr_info;
+
+#define REG_WRITE_QUEUE_LEN 1024
 
 /**
  * enum MHI_CB - MHI callback
@@ -35,6 +45,7 @@ enum MHI_CB {
 	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
+	MHI_CB_FW_FALLBACK_IMG,
 };
 
 /**
@@ -186,6 +197,19 @@ struct file_info {
 };
 
 /**
+ * struct reg_write_info - offload reg write info
+ * @reg_addr - register address
+ * @val - value to be written to register
+ * @chan - channel number
+ * @valid - entry is valid or not
+ */
+struct reg_write_info {
+	void __iomem *reg_addr;
+	u32 val;
+	bool valid;
+};
+
+/**
  * struct mhi_controller - Master controller structure for external modem
  * @dev: Device associated with this controller
  * @of_node: DT that has MHI configuration information
@@ -247,6 +271,7 @@ struct mhi_controller {
 	void __iomem *bhi;
 	void __iomem *bhie;
 	void __iomem *wake_db;
+	void __iomem *tsync_db;
 	void __iomem *bw_scale_db;
 
 	/* device topology */
@@ -265,6 +290,7 @@ struct mhi_controller {
 
 	/* fw images */
 	const char *fw_image;
+	const char *fw_image_fallback;
 	const char *edl_image;
 
 	/* mhi host manages downloading entire fbc images */
@@ -290,7 +316,7 @@ struct mhi_controller {
 	u32 msi_allocated;
 	int *irq; /* interrupt table */
 	struct mhi_event *mhi_event;
-	struct list_head lp_ev_rings; /* low priority event rings */
+	struct list_head sp_ev_rings; /* special purpose event rings */
 
 	/* cmd rings */
 	struct mhi_cmd *mhi_cmd;
@@ -303,6 +329,7 @@ struct mhi_controller {
 
 	/* caller should grab pm_mutex for suspend/resume operations */
 	struct mutex pm_mutex;
+	struct mutex tsync_mutex;
 	bool pre_init;
 	rwlock_t pm_lock;
 	u32 pm_state;
@@ -329,8 +356,9 @@ struct mhi_controller {
 
 	/* worker for different state transitions */
 	struct work_struct st_worker;
-	struct work_struct fw_worker;
-	struct work_struct low_priority_worker;
+	struct work_struct special_work;
+	struct workqueue_struct *special_wq;
+
 	wait_queue_head_t state_event;
 
 	/* shadow functions */
@@ -352,6 +380,8 @@ struct mhi_controller {
 	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
 	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			struct mhi_link_info *link_info);
+	void (*write_reg)(struct mhi_controller *mhi_cntrl, void __iomem *base,
+			u32 offset, u32 val);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
@@ -362,9 +392,12 @@ struct mhi_controller {
 
 	/* supports time sync feature */
 	struct mhi_timesync *mhi_tsync;
-	struct mhi_device *tsync_dev;
 	u64 local_timer_freq;
 	u64 remote_timer_freq;
+
+	/* subsytem failure reason retrieval feature */
+	struct mhi_sfr_info *mhi_sfr;
+	size_t sfr_len;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;
@@ -373,11 +406,20 @@ struct mhi_controller {
 	enum MHI_DEBUG_LEVEL log_lvl;
 
 	/* controller specific data */
+	const char *name;
 	bool power_down;
+	bool initiate_mhi_reset;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
 	struct dentry *parent;
+
+	/* for reg write offload */
+	struct workqueue_struct *offload_wq;
+	struct work_struct reg_write_work;
+	struct reg_write_info *reg_write_q;
+	atomic_t write_idx;
+	u32 read_idx;
 };
 
 /**
@@ -743,6 +785,23 @@ int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
 void mhi_dump_sfr(struct mhi_controller *mhi_cntrl);
 
 /**
+ * mhi_get_remote_time - Get external modem time relative to host time
+ * Trigger event to capture modem time, also capture host time so client
+ * can do a relative drift comparision.
+ * Recommended only tsync device calls this method and do not call this
+ * from atomic context
+ * @mhi_dev: Device associated with the channels
+ * @sequence:unique sequence id track event
+ * @cb_func: callback function to call back
+ */
+int mhi_get_remote_time(struct mhi_device *mhi_dev,
+			u32 sequence,
+			void (*cb_func)(struct mhi_device *mhi_dev,
+					u32 sequence,
+					u64 local_time,
+					u64 remote_time));
+
+/**
  * mhi_get_remote_time_sync - Get external soc time relative to local soc time
  * using MMIO method.
  * @mhi_dev: Device associated with the channels
@@ -810,6 +869,12 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_restart_reason - retrieve the subsystem failure reason
+ * @name: controller name
+ */
+char *mhi_get_restart_reason(const char *name);
 
 #ifndef CONFIG_ARCH_QCOM
 

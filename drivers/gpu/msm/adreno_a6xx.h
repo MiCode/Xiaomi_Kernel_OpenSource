@@ -42,8 +42,6 @@ struct adreno_a6xx_core {
 	u32 gmu_minor;
 	/** @prim_fifo_threshold: target specific value for PC_DBG_ECO_CNTL */
 	unsigned int prim_fifo_threshold;
-	/** @pdc_address_offset: Offset for the PDC region for the target */
-	unsigned int pdc_address_offset;
 	/** @sqefw_name: Name of the SQE microcode file */
 	const char *sqefw_name;
 	/** @gmufw_name: Name of the GMU firmware file */

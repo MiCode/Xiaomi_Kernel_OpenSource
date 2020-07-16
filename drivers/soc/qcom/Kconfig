@@ -59,7 +59,7 @@ config OVERRIDE_MEMORY_LIMIT
 
 config QCOM_MEM_BUF
 	bool "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
-	depends on HH_MSGQ && HH_RM_DRV && ION_MSM_HEAPS && QCOM_SECURE_BUFFER
+	depends on HH_MSGQ && HH_RM_DRV && ION_MSM_HEAPS
 	help
 	  Add support for lending memory from one virtual machine to another.
 	  This driver communicates with the hypervisor, as well as other
@@ -115,6 +115,19 @@ config MSM_QBT_HANDLER
 	  from the queue. It also creates an input device to send key events such as
 	  KEY_POWER, KEY_HOME.
 
+config QCOM_PROXY_OF_CONSUMER
+	tristate "Qualcomm Technologies, Inc. OF proxy consumer driver"
+	help
+	  A target may contain multiple defconfigs, but only one device-tree
+	  configuration. Such a target may have device-drivers that are
+	  only enabled in a particular defconfig, while disabled in the
+	  others. For the kernel that boots up with disabled configuration,
+	  since the device-tree node exists, the of_devlink logic expects
+	  the driver to be probed, which is not possible. As a result, the
+	  sync-state remains incomplete.
+	  This proxy consumer driver shows a proxy-presence of the main
+	  driver to satisfy the sync-state.
+
 config QCOM_GSBI
 	tristate "QCOM General Serial Bus Interface"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -139,27 +152,9 @@ config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
 	help
-	  Qualcomm Technologies, Inc. platform specific
-	  Last Level Cache Controller(LLCC) driver. This provides interfaces
-	  to clients that use the LLCC. Say yes here to enable LLCC slice
-	  driver.
-
-config QCOM_LAHAINA_LLCC
-	tristate "Qualcomm Technologies, Inc. LAHAINA LLCC driver"
-	depends on QCOM_LLCC
-	help
-	  Say y or m here to enable the LLCC driver for Lahaina platform.
-	  This provides data required to configure LLCC so that clients
-	  can start using the LLCC slices.
-	  If unsure, say n.
-
-config QCOM_SDM845_LLCC
-	tristate "Qualcomm Technologies, Inc. SDM845 LLCC driver"
-	depends on QCOM_LLCC
-	help
-	  Say yes here to enable the LLCC driver for SDM845. This provides
-	  data required to configure LLCC so that clients can start using the
-	  LLCC slices.
+	  Last Level Cache Controller(LLCC) driver for platforms such as,
+	  SDM845. This provides interfaces to clients that use the LLCC.
+	  Say yes here to enable LLCC slice driver.
 
 config QCOM_LLCC_PERFMON
 	tristate "Qualcomm Technologies, Inc. LLCC Perfmon driver"
@@ -396,7 +391,7 @@ config QCOM_SMD_RPM
 	  module. This will build a module called "qcom-smd-rpm".
 
 config QCOM_MEMORY_DUMP_V2
-	bool "QCOM Memory Dump V2 Support"
+	tristate "QCOM Memory Dump V2 Support"
 	help
 	  This enables memory dump feature. It allows various client
 	  subsystems to register respective dump regions. At the time
@@ -585,6 +580,16 @@ config QTI_PMIC_GLINK
 	  charging and gauging.
 	  This enables clients to read and write battery charging parameters.
 
+config QTI_PMIC_GLINK_CLIENT_DEBUG
+	depends on QTI_PMIC_GLINK && DEBUG_FS
+	bool "Enable debugfs features in PMIC GLINK client drivers"
+	help
+	  This option enables the generation of debugfs files in PMIC GLINK
+	  client drivers that are strictly meant for internal debugging only.
+	  Writing to these debug files changes key physical parameters of a
+	  system, which may lead to instability. Therefore, this option should
+	  never be enabled on production devices.
+
 config QTI_BATTERY_GLINK_DEBUG
 	tristate "Enable support for QTI battery glink debug driver"
 	depends on QTI_PMIC_GLINK
@@ -716,6 +721,16 @@ config QCOM_SOC_SLEEP_STATS
 	  various SoC level low power modes statistics and export to sysfs
 	  interface.
 
+config QCOM_CDSP_RM
+	tristate "CDSP request manager"
+	depends on QCOM_GLINK
+	help
+	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
+	  improving CDSP performance. Using this driver, CDSP can set appropriate
+	  CPU L3 clock for improving IO-Coherent throughput and opt for QoS mode
+	  to improve RPC latency. The driver also registers cooling devices for
+	  CDSP subsystem and implements Cx ipeak limit management.
+
 config QCOM_WATCHDOG
 	tristate "Qualcomm Watchdog Support"
 	depends on ARCH_QCOM
@@ -736,7 +751,7 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 
 config MSM_SPCOM
          depends on QCOM_GLINK
-         bool "Secure Processor Communication over RPMSG"
+         tristate "Secure Processor Communication over RPMSG"
          help
 	   SPCOM driver allows loading Secure Processor Applications and sending
 	   messages to Secure Processor Applications. SPCOM implements logic of RPMSG
@@ -772,5 +787,41 @@ config QCOM_GUESTVM
 	   any guest Virtual Machine (VM). It also communicates with the
 	   Resource Manager driver to start the boot of VMs once it has
 	   successfully loaded the VM images in the designated memory.
+
+config QCOM_HYP_CORE_CTL
+	bool "CPU reservation scheme for Hypervisor"
+	depends on QCOM_GUESTVM
+	help
+	  This driver reserve the specified CPUS by isolating them. The reserved
+	  CPUs can be assigned to the other guest OS by the hypervisor.
+	  An offline CPU is considered as a reserved CPU since this OS can't use
+	  it.
+
+config QTI_CRYPTO_COMMON
+	tristate "Enable common crypto functionality used for FBE"
+	depends on SCSI_UFS_CRYPTO_QTI
+	help
+	 Say 'Y' to enable the common crypto implementation to be used by
+	 different storage layers such as UFS and EMMC for file based hardware
+	 encryption. This library implements API to program and evict
+	 keys using Trustzone or Hardware Key Manager.
+
+config QTI_CRYPTO_TZ
+	tristate "Enable Trustzone to be used for FBE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable routing crypto requests to Trustzone while
+	 performing hardware based file encryption. This means keys are
+	 programmed and managed through SCM calls to TZ where ICE driver
+	 will configure keys.
+
+config QTI_HW_KEY_MANAGER
+	tristate "Enable QTI Hardware Key Manager for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
 
 endmenu

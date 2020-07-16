@@ -67,6 +67,25 @@ struct cnss_wlan_runtime_ops {
 	int (*runtime_resume)(struct pci_dev *pdev);
 };
 
+enum cnss_driver_status {
+	CNSS_UNINITIALIZED,
+	CNSS_INITIALIZED,
+	CNSS_LOAD_UNLOAD,
+	CNSS_RECOVERY,
+	CNSS_FW_DOWN,
+	CNSS_HANG_EVENT,
+};
+
+struct cnss_hang_event {
+	void *hang_event_data;
+	u16 hang_event_data_len;
+};
+
+struct cnss_uevent_data {
+	enum cnss_driver_status status;
+	void *data;
+};
+
 struct cnss_wlan_driver {
 	char *name;
 	int  (*probe)(struct pci_dev *pdev, const struct pci_device_id *id);
@@ -83,16 +102,10 @@ struct cnss_wlan_driver {
 	int  (*resume_noirq)(struct pci_dev *pdev);
 	void (*modem_status)(struct pci_dev *pdev, int state);
 	void (*update_status)(struct pci_dev *pdev, uint32_t status);
+	int  (*update_event)(struct pci_dev *pdev,
+			     struct cnss_uevent_data *uevent);
 	struct cnss_wlan_runtime_ops *runtime_ops;
 	const struct pci_device_id *id_table;
-};
-
-enum cnss_driver_status {
-	CNSS_UNINITIALIZED,
-	CNSS_INITIALIZED,
-	CNSS_LOAD_UNLOAD,
-	CNSS_RECOVERY,
-	CNSS_FW_DOWN,
 };
 
 struct cnss_ce_tgt_pipe_cfg {

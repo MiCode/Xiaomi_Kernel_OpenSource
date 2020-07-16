@@ -1199,7 +1199,7 @@ static void dwc3_prepare_one_trb_sg(struct dwc3_ep *dep,
 		 * passed. Mark the chain bit to false if it is the last mapped
 		 * sg.
 		 */
-		if (sg_is_last(s) || (i == remaining - 1))
+		if (i == remaining - 1)
 			chain = false;
 
 		if (rem && usb_endpoint_dir_out(dep->endpoint.desc) && !chain) {
@@ -1586,6 +1586,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	}
 
 	dbg_ep_queue(dep->number, req);
+
 	/*
 	 * NOTICE: Isochronous endpoints should NEVER be prestarted. We must
 	 * wait for a XferNotReady event so we will know what's the current
@@ -2169,7 +2170,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	if (!is_on && ret == -ETIMEDOUT) {
 		dev_err(dwc->dev, "%s: Core soft reset...\n", __func__);
-		dwc3_device_core_soft_reset(dwc);
+		ret = dwc3_device_core_soft_reset(dwc);
 	}
 	enable_irq(dwc->irq);
 
@@ -2832,7 +2833,18 @@ static int dwc3_gadget_ep_cleanup_completed_request(struct dwc3_ep *dep,
 		const struct dwc3_event_depevt *event,
 		struct dwc3_request *req, int status)
 {
+	struct dwc3 *dwc = dep->dwc;
 	int ret;
+
+	/*
+	 * If the HWO is set, it implies the TRB is still being
+	 * processed by the core. Hence do not reclaim it until
+	 * it is processed by the core.
+	 */
+	if (req->trb->ctrl & DWC3_TRB_CTRL_HWO) {
+		dbg_event(0xFF, "PEND TRB", dep->number);
+		return 1;
+	}
 
 	if (req->num_pending_sgs)
 		ret = dwc3_gadget_ep_reclaim_trb_sg(dep, req, event,

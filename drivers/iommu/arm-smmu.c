@@ -203,6 +203,9 @@ static bool is_iommu_pt_coherent(struct arm_smmu_domain *smmu_domain)
 	if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
 		     smmu_domain->attributes))
 		return true;
+	else if (test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+			  smmu_domain->attributes))
+		return false;
 	else if (smmu_domain->smmu && smmu_domain->smmu->dev)
 		return dev_is_dma_coherent(smmu_domain->smmu->dev);
 	else
@@ -1682,15 +1685,10 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	unsigned long quirks = 0;
 	struct iommu_group *group;
+	struct io_pgtable *iop;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	if (smmu_domain->smmu)
-		goto out_unlock;
-
-	group = iommu_group_get(dev);
-	ret = iommu_logger_register(&smmu_domain->logger, domain, group);
-	iommu_group_put(group);
-	if (ret)
 		goto out_unlock;
 
 	if (domain->type == IOMMU_DOMAIN_DMA) {
@@ -1698,7 +1696,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		if (ret) {
 			dev_err(dev, "%s: default domain setup failed\n",
 				__func__);
-			goto out_logger;
+			goto out_unlock;
 		}
 	}
 
@@ -1755,7 +1753,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_NONE) {
 		ret = -EINVAL;
-		goto out_logger;
+		goto out_unlock;
 	}
 
 	switch (smmu_domain->stage) {
@@ -1803,7 +1801,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		break;
 	default:
 		ret = -EINVAL;
-		goto out_logger;
+		goto out_unlock;
 	}
 
 	if (smmu_domain->non_strict)
@@ -1812,7 +1810,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	ret = __arm_smmu_alloc_cb(smmu, start, dev);
 	if (ret < 0)
-		goto out_logger;
+		goto out_unlock;
 
 	cfg->cbndx = ret;
 
@@ -1842,6 +1840,13 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_clear_smmu;
 	}
 
+	group = iommu_group_get_for_dev(smmu_domain->dev);
+	iop = container_of(smmu_domain->pgtbl_ops, struct io_pgtable, ops);
+	ret = iommu_logger_register(&smmu_domain->logger, domain, group, iop);
+	iommu_group_put(group);
+	if (ret)
+		goto out_clear_smmu;
+
 	/*
 	 * assign any page table memory that might have been allocated
 	 * during alloc_io_pgtable_ops
@@ -1855,34 +1860,34 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	domain->geometry.aperture_end = (1UL << ias) - 1;
 	ret = arm_smmu_adjust_domain_geometry(dev, domain);
 	if (ret)
-		goto out_clear_smmu;
+		goto out_logger;
 	domain->geometry.force_aperture = true;
 
 	if (domain->type == IOMMU_DOMAIN_DMA) {
 		ret = arm_smmu_get_dma_cookie(dev, smmu_domain);
 		if (ret)
-			goto out_clear_smmu;
+			goto out_logger;
 	}
 
 	/* Assign an asid */
 	ret = arm_smmu_init_asid(domain, smmu);
 	if (ret)
-		goto out_clear_smmu;
+		goto out_logger;
 
 	ret = arm_smmu_setup_context_bank(smmu_domain, smmu, dev);
 	if (ret)
-		goto out_clear_smmu;
+		goto out_logger;
 
 	mutex_unlock(&smmu_domain->init_mutex);
 
 	return 0;
 
-out_clear_smmu:
-	arm_smmu_destroy_domain_context(domain);
-	smmu_domain->smmu = NULL;
 out_logger:
 	iommu_logger_unregister(smmu_domain->logger);
 	smmu_domain->logger = NULL;
+out_clear_smmu:
+	arm_smmu_destroy_domain_context(domain);
+	smmu_domain->smmu = NULL;
 out_unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
@@ -2473,6 +2478,9 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 	if (!strcmp(str, "coherent"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT, &attr);
+	else if (!strcmp(str, "non-coherent"))
+		__arm_smmu_domain_set_attr(domain,
+			DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT, &attr);
 	else if (!strcmp(str, "LLC"))
 		__arm_smmu_domain_set_attr(domain,
 			DOMAIN_ATTR_USE_UPSTREAM_HINT, &attr);
@@ -3167,6 +3175,12 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					  smmu_domain->attributes);
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT:
+		*((int *)data) =
+			test_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+				 smmu_domain->attributes);
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_CB_STALL_DISABLE:
 		*((int *)data) = test_bit(DOMAIN_ATTR_CB_STALL_DISABLE,
 					  smmu_domain->attributes);
@@ -3392,22 +3406,36 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 	case DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT: {
 		int force_coherent = *((int *)data);
 
-		if (IS_ENABLED(CONFIG_QCOM_IOMMU_IO_PGTABLE_QUIRKS)) {
-			if (smmu_domain->smmu != NULL) {
-				dev_err(smmu_domain->smmu->dev,
-				  "cannot change force coherent attribute while attached\n");
-				ret = -EBUSY;
-			} else if (force_coherent) {
-				set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					smmu_domain->attributes);
-				ret = 0;
-			} else {
-				clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					  smmu_domain->attributes);
-				ret = 0;
-			}
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change force coherent attribute while attached\n");
+			ret = -EBUSY;
+		} else if (force_coherent) {
+			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				smmu_domain->attributes);
+			ret = 0;
 		} else {
-			ret = -ENOTSUPP;
+			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
+				  smmu_domain->attributes);
+			ret = 0;
+		}
+		break;
+	}
+	case DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT: {
+		int force_non_coherent = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+				"cannot change force non-coherent attribute while attached\n");
+			ret = -EBUSY;
+		} else if (force_non_coherent) {
+			set_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+				smmu_domain->attributes);
+			ret = 0;
+		} else {
+			clear_bit(DOMAIN_ATTR_PAGE_TABLE_FORCE_NON_COHERENT,
+				  smmu_domain->attributes);
+			ret = 0;
 		}
 		break;
 	}

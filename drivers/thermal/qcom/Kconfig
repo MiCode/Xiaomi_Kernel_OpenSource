@@ -80,3 +80,23 @@ config QTI_CPU_ISOLATE_COOLING_DEVICE
 	   scheduled and hence will let the CPU to power collapse. Isolating
 	   a CPU will be used when the CPU frequency mitigation
 	   is not good enough to achieve the necessary cooling.
+
+config QTI_THERMAL_LIMITS_DCVS
+	tristate "QTI LMH DCVS Driver"
+	depends on THERMAL_OF && QTI_THERMAL && CPU_THERMAL
+	help
+	  This enables the driver for Limits Management Hardware - DCVS block
+	  for the application processors. The h/w block that is available for
+	  each cluster can be used to perform quick thermal mitigations by
+	  tracking temperatures of the CPUs and taking thermal action in the
+	  hardware without s/w intervention.
+
+config QTI_CPU_VOLTAGE_COOLING_DEVICE
+	tristate "QTI CPU VOLTAGE cooling devices"
+	depends on CPU_FREQ && THERMAL_OF && QTI_THERMAL
+	help
+	    This enables the QTI CPU Voltage cooling devices. This cooling
+	    device will allow the CPUs with different frequency plan in a
+	    cluster to be mitigated together based on the voltages. This will
+	    decrease or increase the voltages in a cluster based on thermal
+	    conditions.

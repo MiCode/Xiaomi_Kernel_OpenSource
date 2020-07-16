@@ -573,6 +573,7 @@ struct io_kiocb {
 	u32			sequence;
 
 	struct list_head	inflight_entry;
+	struct fs_struct	*fs;
 
 	struct io_wq_work	work;
 };
@@ -1239,6 +1240,7 @@ got_it:
 	refcount_set(&req->refs, 2);
 	req->result = 0;
 	INIT_IO_WORK(&req->work, io_wq_submit_work);
+	req->fs = NULL;
 	return req;
 fallback:
 	req = io_get_fallback_req(ctx);
@@ -6886,7 +6888,7 @@ static int io_uring_create(unsigned entries, struct io_uring_params *p)
 	ctx->user = user;
 	ctx->creds = get_current_cred();
 
-	ctx->creds = prepare_creds();
+	ctx->creds = get_current_cred();
 	if (!ctx->creds) {
 		ret = -ENOMEM;
 		goto err;

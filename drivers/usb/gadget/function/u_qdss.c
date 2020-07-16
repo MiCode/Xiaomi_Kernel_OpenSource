@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -10,7 +10,7 @@
 #include <linux/usb/dwc3-msm.h>
 
 #include "f_qdss.h"
-static int alloc_sps_req(struct usb_ep *data_ep)
+int alloc_sps_req(struct usb_ep *data_ep)
 {
 	struct usb_request *req = NULL;
 	struct f_qdss *qdss = data_ep->driver_data;
@@ -95,7 +95,6 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 				&bam_info.usb_bam_pipe_idx,
 				NULL, bam_info.data_fifo, NULL);
 
-		alloc_sps_req(qdss->port.data);
 		msm_data_fifo_config(qdss->port.data,
 			bam_info.data_fifo->iova,
 			bam_info.data_fifo->size,
