@@ -909,7 +909,6 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
-	tmp_reg |= HSTX_CKLP_EN;
 
 	writel(tmp_reg, dsi->regs + DSI_TXRX_CTRL);
 
