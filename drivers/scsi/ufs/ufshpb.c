@@ -661,7 +661,7 @@ void ufshpb_end_pre_req(struct ufsf_feature *ufsf, struct request *req)
 }
 
 int ufshpb_prepare_pre_req(struct ufsf_feature *ufsf, struct scsi_cmnd *cmd,
-			   int lun)
+			   u8 lun)
 {
 	struct ufs_hba *hba = ufsf->hba;
 	struct ufshpb_lu *hpb;
@@ -2561,7 +2561,7 @@ static void ufshpb_init_lu_constant(struct ufshpb_dev_info *hpb_dev_info,
 	INIT_INFO("===================================\n");
 }
 
-static int ufshpb_lu_hpb_init(struct ufsf_feature *ufsf, int lun)
+static int ufshpb_lu_hpb_init(struct ufsf_feature *ufsf, u8 lun)
 {
 	struct ufshpb_lu *hpb = ufsf->ufshpb_lup[lun];
 	struct ufshpb_region *rgn_table, *rgn;
@@ -2743,7 +2743,7 @@ void ufshpb_get_geo_info(struct ufshpb_dev_info *hpb_dev_info, u8 *geo_buf)
 	ufshpb_init_constant();
 }
 
-int ufshpb_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *unit_buf)
+int ufshpb_get_lu_info(struct ufsf_feature *ufsf, u8 lun, u8 *unit_buf)
 {
 	struct ufsf_lu_desc lu_desc;
 	struct ufshpb_lu *hpb;
@@ -3164,7 +3164,11 @@ static ssize_t ufshpb_sysfs_prep_disable_show(struct ufshpb_lu *hpb, char *buf)
 	ret = snprintf(buf, PAGE_SIZE, "force_hpb_read_disable %d\n",
 		       hpb->force_disable);
 
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("%s", buf);
+
 	return ret;
 }
 
@@ -3195,6 +3199,9 @@ static ssize_t ufshpb_sysfs_map_disable_show(struct ufshpb_lu *hpb, char *buf)
 
 	ret = snprintf(buf, PAGE_SIZE, "force_map_req_disable %d\n",
 		       hpb->force_map_req_disable);
+
+	if (ret < 0)
+		return ret;
 
 	SYSFS_INFO("%s", buf);
 
@@ -3230,6 +3237,9 @@ static ssize_t ufshpb_sysfs_throttle_map_req_show(struct ufshpb_lu *hpb,
 	ret = snprintf(buf, PAGE_SIZE, "throttle_map_req %d\n",
 		       hpb->throttle_map_req);
 
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("%s", buf);
 
 	return ret;
@@ -3258,6 +3268,9 @@ static ssize_t ufshpb_sysfs_throttle_pre_req_show(struct ufshpb_lu *hpb,
 	ret = snprintf(buf, PAGE_SIZE, "throttle_pre_req %d\n",
 		       hpb->throttle_pre_req);
 
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("%s", buf);
 
 	return ret;
@@ -3284,6 +3297,10 @@ static ssize_t ufshpb_sysfs_pre_req_min_tr_len_show(struct ufshpb_lu *hpb,
 	int ret;
 
 	ret = snprintf(buf, PAGE_SIZE, "%d", hpb->pre_req_min_tr_len);
+
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("pre_req min transfer len %d", hpb->pre_req_min_tr_len);
 
 	return ret;
@@ -3318,6 +3335,10 @@ static ssize_t ufshpb_sysfs_pre_req_max_tr_len_show(struct ufshpb_lu *hpb,
 	int ret;
 
 	ret = snprintf(buf, PAGE_SIZE, "%d", hpb->pre_req_max_tr_len);
+
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("pre_req max transfer len %d", hpb->pre_req_max_tr_len);
 
 	return ret;
@@ -3348,6 +3369,9 @@ static ssize_t ufshpb_sysfs_debug_show(struct ufshpb_lu *hpb, char *buf)
 	int ret;
 
 	ret = snprintf(buf, PAGE_SIZE, "debug %d\n", hpb->debug);
+
+	if (ret < 0)
+		return ret;
 
 	SYSFS_INFO("%s", buf);
 
@@ -3381,6 +3405,9 @@ static ssize_t ufshpb_sysfs_version_show(struct ufshpb_lu *hpb, char *buf)
 		       GET_BYTE_1(hpb->hpb_ver), GET_BYTE_0(hpb->hpb_ver),
 		       GET_BYTE_1(UFSHPB_DD_VER), GET_BYTE_0(UFSHPB_DD_VER));
 
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("%s", buf);
 
 	return ret;
@@ -3395,6 +3422,9 @@ static ssize_t ufshpb_sysfs_hit_show(struct ufshpb_lu *hpb, char *buf)
 
 	ret = snprintf(buf, PAGE_SIZE, "hit_count %lld\n", hit_cnt);
 
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("%s", buf);
 
 	return ret;
@@ -3408,6 +3438,9 @@ static ssize_t ufshpb_sysfs_miss_show(struct ufshpb_lu *hpb, char *buf)
 	miss_cnt = atomic64_read(&hpb->miss);
 
 	ret = snprintf(buf, PAGE_SIZE, "miss_count %lld\n", miss_cnt);
+
+	if (ret < 0)
+		return ret;
 
 	SYSFS_INFO("%s", buf);
 
@@ -3429,6 +3462,9 @@ static ssize_t ufshpb_sysfs_map_req_show(struct ufshpb_lu *hpb, char *buf)
 		       rb_noti_cnt, rb_active_cnt, rb_inactive_cnt,
 		       map_req_cnt);
 
+	if (ret < 0)
+		return ret;
+
 	SYSFS_INFO("%s", buf);
 
 	return ret;
@@ -3442,6 +3478,9 @@ static ssize_t ufshpb_sysfs_pre_req_show(struct ufshpb_lu *hpb, char *buf)
 	pre_req_cnt = atomic64_read(&hpb->pre_req_cnt);
 
 	ret = snprintf(buf, PAGE_SIZE, "pre_req_count %lld\n", pre_req_cnt);
+
+	if (ret < 0)
+		return ret;
 
 	SYSFS_INFO("%s", buf);
 
@@ -3466,6 +3505,11 @@ static ssize_t ufshpb_sysfs_region_stat_show(struct ufshpb_lu *hpb, char *buf)
 	ret = snprintf(buf, PAGE_SIZE,
 		       "Total %d pinned %d active %d inactive %d\n",
 		       hpb->rgns_per_lu, pin_cnt, act_cnt, inact_cnt);
+
+	if (ret < 0)
+		return ret;
+
+	SYSFS_INFO("%s", buf);
 
 	return ret;
 }

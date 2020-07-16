@@ -2384,9 +2384,9 @@ static struct ufs_cmd_str_struct ufs_cmd_str_tbl[] = {
 	{"UNKNOWN",                0xFF}
 };
 
-static int ufs_mtk_get_cmd_str_idx(char cmd)
+static unsigned int ufs_mtk_get_cmd_str_idx(char cmd)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; ufs_cmd_str_tbl[i].cmd != 0xFF; i++) {
 		if (ufs_cmd_str_tbl[i].cmd == cmd)

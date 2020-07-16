@@ -223,7 +223,7 @@ struct victim_select_info {
 
 struct ufshpb_lu {
 	struct ufsf_feature *ufsf;
-	int lun;
+	u8 lun;
 	int qd;
 	struct ufshpb_region *rgn_tbl;
 
@@ -306,12 +306,12 @@ struct ufs_hba;
 struct ufshcd_lrb;
 
 int ufshpb_prepare_pre_req(struct ufsf_feature *ufsf, struct scsi_cmnd *cmd,
-			   int lun);
+			   u8 lun);
 int ufshpb_prepare_add_lrbp(struct ufsf_feature *ufsf, int add_tag);
 void ufshpb_end_pre_req(struct ufsf_feature *ufsf, struct request *req);
 void ufshpb_get_dev_info(struct ufshpb_dev_info *hpb_dev_info, u8 *desc_buf);
 void ufshpb_get_geo_info(struct ufshpb_dev_info *hpb_dev_info, u8 *geo_buf);
-int ufshpb_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *unit_buf);
+int ufshpb_get_lu_info(struct ufsf_feature *ufsf, u8 lun, u8 *unit_buf);
 void ufshpb_init_handler(struct work_struct *work);
 void ufshpb_reset_handler(struct work_struct *work);
 void ufshpb_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
