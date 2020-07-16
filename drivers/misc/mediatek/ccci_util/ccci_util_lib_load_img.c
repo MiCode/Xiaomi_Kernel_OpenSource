@@ -86,7 +86,7 @@ static char *get_md_img_cap_str(int md_img_type)
 	return md_img_type_str[md_img_type];
 }
 
-static int curr_ubin_id;
+int curr_ubin_id;
 static char *product_str[] = {[INVALID_VARSION] = INVALID_STR,
 	[DEBUG_VERSION] = DEBUG_STR,
 	[RELEASE_VERSION] = RELEASE_STR
