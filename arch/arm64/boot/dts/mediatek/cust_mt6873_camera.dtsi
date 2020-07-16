@@ -526,3 +526,27 @@
 	};
 };
 /* CAMERA EEPROM end */
+
+/* CAMERA AF */
+&i2c2 {
+	camera_main_two_af_mtk:camera_main_two_af@0c {
+		compatible = "mediatek,camera_main_two_af";
+		reg = <0x0c>;
+		status = "okay";
+	};
+};
+&i2c8 {
+	camera_main_af_mtk:camera_main_af@72 {
+		compatible = "mediatek,camera_main_af";
+		reg = <0x72>;
+		status = "okay";
+	};
+};
+&i2c9 {
+	camera_main_three_af_mtk:camera_main_three_af@0c {
+		compatible = "mediatek,camera_main_three_af";
+		reg = <0x0c>;
+		status = "okay";
+	};
+};
+/* CAMERA AF end */
