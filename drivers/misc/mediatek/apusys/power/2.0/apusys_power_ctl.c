@@ -35,6 +35,7 @@
 
 static struct mutex power_dvfs_mtx;
 struct apusys_dvfs_opps apusys_opps;
+static spinlock_t ipuif_lock;
 
 bool dvfs_user_support(enum DVFS_USER user)
 {
@@ -870,48 +871,59 @@ void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 #if SUPPORT_VCORE_TO_IPUIF
 void apusys_ipuif_opp_change(void)
 {
-	mutex_lock(&power_dvfs_mtx);
+	int prev_ipuif = 0, next_ipuif = 0;
 	//enum DVFS_USER user = MDLA0;	// separate from VPU0 for vcore pm_qos
 
-	if (apusys_opps.qos_apu_vcore == apusys_opps.driver_apu_vcore) {
-		PWR_LOG_INF("%s, qos_apu_vcore=%d, driver_apu_vcore=%d\n",
-			__func__, apusys_opps.qos_apu_vcore,
-			apusys_opps.driver_apu_vcore);
-
-		mutex_unlock(&power_dvfs_mtx);
-		return;
+	mutex_lock(&power_dvfs_mtx);
+	spin_lock(&ipuif_lock);
+	if (apusys_opps.qos_apu_vcore != apusys_opps.driver_apu_vcore) {
+		prev_ipuif = apusys_opps.driver_apu_vcore;
+		next_ipuif = apusys_opps.qos_apu_vcore;
+		apusys_opps.driver_apu_vcore = apusys_opps.qos_apu_vcore;
 	}
+	spin_unlock(&ipuif_lock);
+
+	/* no change and leave */
+	if (!next_ipuif && !prev_ipuif)
+		goto out;
+	else
+		PWR_LOG_INF("%s, qos_apu_vcore=%d, driver_apu_vcore=%d\n",
+			__func__, next_ipuif, prev_ipuif);
 
 	if (conn_mtcmos_on == 1) {
-		if (apusys_opps.qos_apu_vcore > apusys_opps.driver_apu_vcore) {
-			config_vcore(MDLA0, (int)volt_to_vcore_opp(
-				apusys_opps.qos_apu_vcore));
+		/* raise freq */
+		if (next_ipuif > prev_ipuif) {
+			config_vcore(MDLA0, (int)volt_to_vcore_opp(next_ipuif));
 			set_apu_clock_source(
-				volt_to_ipuif_freq(apusys_opps.qos_apu_vcore),
+				volt_to_ipuif_freq(next_ipuif),
 				V_VCORE);
 		} else {
 			set_apu_clock_source(
-				volt_to_ipuif_freq(apusys_opps.qos_apu_vcore),
+				volt_to_ipuif_freq(next_ipuif),
 				V_VCORE);
 			config_vcore(MDLA0, (int)volt_to_vcore_opp(
-				apusys_opps.qos_apu_vcore));
+				next_ipuif));
 		}
-		apusys_opps.driver_apu_vcore = apusys_opps.qos_apu_vcore;
+
 	} else {
 		//26M setting in conn_mtcmos off
 		//set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 		//buck_control
 		//config_vcore(user, volt_to_vcore_opp(VCORE_DEFAULT_VOLT));
 	}
+
+out:
 	mutex_unlock(&power_dvfs_mtx);
+
 }
 
 void apusys_set_apu_vcore(int target_volt)
 {
 	if (is_power_debug_lock == false) {
 		if (conn_mtcmos_on == 1) {
+			spin_lock(&ipuif_lock);
 			apusys_opps.qos_apu_vcore = target_volt;
-
+			spin_unlock(&ipuif_lock);
 			PWR_LOG_INF("%s, qos_apu_vcore, target_volt=%d\n",
 			__func__, target_volt);
 		}
@@ -1080,7 +1092,7 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	enum DVFS_VOLTAGE_DOMAIN domain;
 
 	mutex_init(&power_dvfs_mtx);
-
+	spin_lock_init(&ipuif_lock);
 	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
 
 	if (seg_data.seg == SEGMENT_0)
