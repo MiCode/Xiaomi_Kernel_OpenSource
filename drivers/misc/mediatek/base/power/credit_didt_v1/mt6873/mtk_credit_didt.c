@@ -482,6 +482,16 @@ static int credit_didt_en_proc_show(struct seq_file *m, void *v)
 				param = ls_vx * NR_CREDIT_DIDT_CFG + cfg;
 
 				cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+
+				/* coverity check */
+				if (cpu >= CREDIT_DIDT_CPU_START_ID)
+					cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+				else {
+					credit_didt_err(
+						"cpu(%d) is illegal\n", cpu);
+					return -1;
+				}
+
 				credit_didt_info[cpu_tmp][ls_vx][cfg] =
 				mt_secure_call_credit_didt(
 					MTK_SIP_KERNEL_CREDIT_DIDT_CONTROL,
@@ -504,6 +514,15 @@ static int credit_didt_en_proc_show(struct seq_file *m, void *v)
 			ls_vx < NR_CREDIT_DIDT_CHANNEL; ls_vx++) {
 
 			cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+
+			/* coverity check */
+			if (cpu >= CREDIT_DIDT_CPU_START_ID)
+				cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+			else {
+				credit_didt_err(
+					"cpu(%d) is illegal\n", cpu);
+				return -1;
+			}
 
 			seq_printf(m,
 			"cpu%d %s enable=%d\n",
@@ -534,7 +553,7 @@ static ssize_t credit_didt_en_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &value)) {
+	if (kstrtou32((const char *)buf, 0, &value)) {
 		credit_didt_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -565,6 +584,15 @@ static int credit_didt_const_mode_proc_show(struct seq_file *m, void *v)
 		cpu <= CREDIT_DIDT_CPU_END_ID; cpu++) {
 
 		cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+
+		/* coverity check */
+		if (cpu >= CREDIT_DIDT_CPU_START_ID)
+			cpu_tmp = cpu-CREDIT_DIDT_CPU_START_ID;
+		else {
+			credit_didt_err(
+				"cpu(%d) is illegal\n", cpu);
+			return -1;
+		}
 
 		do {
 			credit_didt_bcpu_cfg[cpu_tmp] =
@@ -611,7 +639,7 @@ static ssize_t credit_didt_const_mode_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &value)) {
+	if (kstrtou32((const char *)buf, 0, &value)) {
 		credit_didt_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -701,7 +729,7 @@ static ssize_t credit_didt_reg_r_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (kstrtou32(buf, 0, &addr_r)) {
+	if (kstrtou32((const char *)buf, 0, &addr_r)) {
 		credit_didt_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
