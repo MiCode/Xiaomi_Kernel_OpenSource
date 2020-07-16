@@ -245,7 +245,7 @@ enum scp_ipi_status scp_legacy_ipi_init(void)
 	return SCP_IPI_DONE;
 }
 
-void mbox_setup_pin_table(int mbox)
+void mbox_setup_pin_table(unsigned int mbox)
 {
 	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
 
