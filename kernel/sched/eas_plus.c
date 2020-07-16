@@ -901,7 +901,7 @@ struct sg_state {
  * to compute what would be the energy if we decided to actually migrate that
  * task.
  */
-static void
+static int
 update_sg_util(struct task_struct *p, int dst_cpu,
 		const struct cpumask *sg_mask, struct sg_state *sg_env)
 {
@@ -919,7 +919,7 @@ update_sg_util(struct task_struct *p, int dst_cpu,
 		sg = sd->groups;
 		sge = sg->sge;
 	} else
-		return;
+		return 0;
 
 	/*
 	 * The capacity state of CPUs of the current rd can be driven by CPUs
@@ -966,6 +966,8 @@ update_sg_util(struct task_struct *p, int dst_cpu,
 		"dst_cpu=%d mask=0x%lx sum_util=%lu max_util=%lu new_util=%lu (idx=%d cap=%ld volt=%ld)",
 		dst_cpu, sg_mask->bits[0], sg_env->sum_util, sg_env->max_util,
 		new_util, sg_env->cap_idx, sg_env->cap, sg_env->volt);
+
+	return 1;
 }
 
 unsigned int share_buck_lkg_idx(const struct sched_group_energy *_sge,
@@ -1099,11 +1101,13 @@ compute_energy_enhanced(struct task_struct *p, int dst_cpu,
 #else
 	cid = cpu_topology[cpu].socket_id;
 #endif
-	update_sg_util(p, dst_cpu, sg_cpus, &sg_env);
+	if (!update_sg_util(p, dst_cpu, sg_cpus, &sg_env))
+		return 0;
 
 	if (is_share_buck(cid, &share_cid)) {
 		arch_get_cluster_cpus(&share_cpus, share_cid);
-		update_sg_util(p, dst_cpu, &share_cpus, &share_env);
+		if (!update_sg_util(p, dst_cpu, &share_cpus, &share_env))
+			return 0;
 
 		total_energy += compute_energy_sg(&share_cpus, &share_env,
 							&sg_env);
