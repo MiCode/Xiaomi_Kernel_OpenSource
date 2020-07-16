@@ -1967,7 +1967,8 @@ static int mhi_driver_remove(struct device *dev)
 		MHI_CH_STATE_DISABLED,
 		MHI_CH_STATE_DISABLED
 	};
-	int dir;
+	int dir, ret;
+	bool interrupted = false;
 
 	/* control device has no work to do */
 	if (mhi_dev->dev_type == MHI_CONTROLLER_TYPE)
@@ -1975,11 +1976,11 @@ static int mhi_driver_remove(struct device *dev)
 
 	MHI_LOG("Removing device for chan:%s\n", mhi_dev->chan_name);
 
-	/* reset both channels */
+	/* move both channels to suspended state and disallow processing */
 	for (dir = 0; dir < 2; dir++) {
 		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
 
-		if (!mhi_chan)
+		if (!mhi_chan || mhi_chan->offload_ch)
 			continue;
 
 		/* wake all threads waiting for completion */
@@ -1988,15 +1989,45 @@ static int mhi_driver_remove(struct device *dev)
 		complete_all(&mhi_chan->completion);
 		write_unlock_irq(&mhi_chan->lock);
 
-		/* move channel state to disable, no more processing */
 		mutex_lock(&mhi_chan->mutex);
 		write_lock_irq(&mhi_chan->lock);
+		if (mhi_chan->ch_state != MHI_CH_STATE_DISABLED) {
+			ch_state[dir] = mhi_chan->ch_state;
+			mhi_chan->ch_state = MHI_CH_STATE_SUSPENDED;
+		}
+		write_unlock_irq(&mhi_chan->lock);
+		mutex_unlock(&mhi_chan->mutex);
+	}
+
+	/* wait for each channel to close and reset both channels */
+	for (dir = 0; dir < 2; dir++) {
+		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+
+		if (!mhi_chan || mhi_chan->offload_ch)
+			continue;
+
+		/* unbind request from userspace, wait for channel reset */
+		if (!(mhi_cntrl->power_down ||
+		    MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) &&
+		    ch_state[dir] != MHI_CH_STATE_DISABLED && !interrupted) {
+			MHI_ERR("Channel %s busy, wait for it to be reset\n",
+				mhi_dev->chan_name);
+			ret = wait_event_interruptible(mhi_cntrl->state_event,
+				mhi_chan->ch_state == MHI_CH_STATE_DISABLED ||
+				MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state));
+			if (unlikely(ret))
+				interrupted = true;
+		}
+
+		/* update channel state as an error can exit above wait */
+		mutex_lock(&mhi_chan->mutex);
+
+		write_lock_irq(&mhi_chan->lock);
 		ch_state[dir] = mhi_chan->ch_state;
-		mhi_chan->ch_state = MHI_CH_STATE_SUSPENDED;
 		write_unlock_irq(&mhi_chan->lock);
 
-		/* reset the channel */
-		if (!mhi_chan->offload_ch)
+		/* reset channel if it was left enabled */
+		if (ch_state[dir] != MHI_CH_STATE_DISABLED)
 			mhi_reset_chan(mhi_cntrl, mhi_chan);
 
 		mutex_unlock(&mhi_chan->mutex);
@@ -2014,7 +2045,7 @@ static int mhi_driver_remove(struct device *dev)
 
 		mutex_lock(&mhi_chan->mutex);
 
-		if (ch_state[dir] == MHI_CH_STATE_ENABLED &&
+		if (ch_state[dir] != MHI_CH_STATE_DISABLED &&
 		    !mhi_chan->offload_ch)
 			mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
 

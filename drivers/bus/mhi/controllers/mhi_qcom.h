@@ -63,6 +63,7 @@ struct mhi_dev {
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	enum mhi_suspend_mode suspend_mode;
+	struct work_struct fatal_worker;
 
 	/* hardware info */
 	u32 serial_num;
