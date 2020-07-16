@@ -153,11 +153,14 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 	int err = 0;
 	u8 data_unit_mask;
 	union mmc_crypto_cfg_entry cfg;
-	union mmc_crypto_cfg_entry *cfg_arr = host->crypto_cfgs;
+	union mmc_crypto_cfg_entry *cfg_arr;
 	u8 cap_idx;
 
 	if (!host || !key)
 		return -EINVAL;
+
+	cfg_arr = host->crypto_cfgs;
+
 	cap_idx = mmc_crypto_cap_find(host, key->crypto_mode,
 					       key->data_unit_size);
 
