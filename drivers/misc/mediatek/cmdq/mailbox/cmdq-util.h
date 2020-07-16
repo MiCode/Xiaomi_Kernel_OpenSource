@@ -47,7 +47,10 @@ enum {
 #define cmdq_util_aee(key, fmt, args...) \
 	do { \
 		char tag[LINK_MAX]; \
-		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
 		cmdq_aee(fmt, ##args); \
 		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
 		aee_kernel_warning_api(__FILE__, __LINE__, \
@@ -57,7 +60,10 @@ enum {
 #define cmdq_util_aee(key, fmt, args...) \
 	do { \
 		char tag[LINK_MAX]; \
-		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
 		cmdq_aee(fmt" (aee not ready)", ##args); \
 		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
 	} while (0)
