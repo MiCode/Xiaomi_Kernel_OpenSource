@@ -280,16 +280,15 @@ static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	if (!scsi_sg_count(cmd))
 		return 0;
 
-#ifdef CONFIG_MTK_HW_FDE
-	if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
-		mode = UFS_CRYPTO_HW_FDE;
-		priv = 1;
-	}
-#endif
-
 	if (hba->lrb[tag].crypto_enable) {
-		mode = UFS_CRYPTO_HW_FDE;
-		priv = 1;
+		mode = UFS_CRYPTO_HW_FBE;
+		/*
+		 * ufshcd_crypto_enable() will re-program all of the keys with
+		 * the same index in keyslot_manager_reprogram_all_keys()
+		 * so use key slot as key index for checking different keys
+		 */
+		priv = hba->lrb[tag].crypto_key_slot;
+		priv++;
 	}
 
 	for (i = 0; i < scsi_sg_count(cmd); i++) {
