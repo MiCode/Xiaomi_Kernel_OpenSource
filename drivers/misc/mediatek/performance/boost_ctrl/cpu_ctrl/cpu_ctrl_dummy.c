@@ -17,6 +17,12 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 }
 EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
+int update_isolation_cpu(int kicker, int enable, int cpu)
+{
+	return 0;
+}
+EXPORT_SYMBOL(update_isolation_cpu);
+
 int cpu_ctrl_init(struct proc_dir_entry *parent)
 {
 	return 0;
