@@ -102,7 +102,9 @@
 
 static unsigned int ctrl_EEMSN_Enable = 1;
 static unsigned int ctrl_SN_Enable = 1;
+#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 static unsigned char ctrl_agingload_enable;
+#endif
 
 /* Get time stmp to known the time period */
 //static unsigned long long eem_pTime_us, eem_cTime_us, eem_diff_us;
