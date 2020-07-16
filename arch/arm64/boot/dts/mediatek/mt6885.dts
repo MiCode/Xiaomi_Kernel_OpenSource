@@ -2778,7 +2778,7 @@ page_owner=on loop.max_part=7";
 			"mbox4";
 
 		core_0 = "enable";
-		scp_sramSize = <0x00100000>;
+		scp_sramSize = <0x00180000>;
 	};
 
 	dramc_ch1_rsv@10900000 {
