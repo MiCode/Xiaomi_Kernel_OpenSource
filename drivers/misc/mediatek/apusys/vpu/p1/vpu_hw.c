@@ -1038,6 +1038,7 @@ int vpu_dev_boot_sequence(struct vpu_device *vd)
 	vpu_reg_write(vd, XTENSA_INFO21,
 		vd->iova_work.m.pa + VPU_LOG_OFFSET);
 	vpu_reg_write(vd, XTENSA_INFO22, vd->wb_log_size);
+	vpu_reg_read(vd, XTENSA_ALTRESETVEC);
 
 	vpu_run(vd, 0, 0);
 
@@ -1090,6 +1091,7 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 
 	vpu_reg_write(vd, XTENSA_INFO29, HOST_VERSION);
 	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
+	vpu_reg_read(vd, XTENSA_INFO01);
 	vpu_cmd(vd, 0, VPU_CMD_SET_DEBUG);
 	vpu_reg_unlock(vd, &flags);
 
