@@ -1496,6 +1496,10 @@ static int ipa_send_mhi_endp_ind_to_modem(void)
 	int ipa_mhi_cons_ep_idx =
 		ipa3_get_ep_mapping(IPA_CLIENT_MHI_LOW_LAT_CONS);
 
+	if (ipa_mhi_prod_ep_idx == IPA_EP_NOT_ALLOCATED ||
+		ipa_mhi_cons_ep_idx == IPA_EP_NOT_ALLOCATED)
+		return -EINVAL;
+
 	memset(&req, 0, sizeof(struct ipa_endp_desc_indication_msg_v01));
 	req.ep_info_len = 2;
 	req.ep_info_valid = true;
@@ -4165,7 +4169,12 @@ void ipa3_q6_handshake_complete(bool ssr_bootup)
 	if (ipa3_ctx->ipa_mhi_proxy)
 		imp_handle_modem_ready();
 
-	if (ipa3_ctx->ipa_config_is_mhi)
+	/*
+	 * currently the endp_desc indication only send
+	 * on non-auto mode for low latency pipes
+	 */
+	if (ipa3_ctx->ipa_config_is_mhi &&
+		!ipa3_ctx->ipa_config_is_auto)
 		ipa_send_mhi_endp_ind_to_modem();
 }
 
