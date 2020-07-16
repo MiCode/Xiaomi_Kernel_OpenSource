@@ -5568,8 +5568,11 @@ page_owner=on";
 			<0 0x10217080 0 0x80>;
 		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_w CLK_IMPW_AP_CLOCK_RO_I2C0>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <97>;
 		sda-gpio-id = <98>;
@@ -5588,8 +5591,11 @@ page_owner=on";
 			<0 0x10217100 0 0x80>;
 		interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C1>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <99>;
 		sda-gpio-id = <100>;
@@ -5608,8 +5614,11 @@ page_owner=on";
 			<0 0x10217180 0 0x180>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C2>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <101>;
 		sda-gpio-id = <102>;
@@ -5628,8 +5637,11 @@ page_owner=on";
 			<0 0x10217300 0 0x80>;
 		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_e CLK_IMPE_AP_CLOCK_RO_I2C3>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <103>;
 		sda-gpio-id = <104>;
@@ -5648,8 +5660,11 @@ page_owner=on";
 			<0 0x10217380 0 0x180>;
 		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_ws CLK_IMPWS_AP_CLOCK_RO_I2C4>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <105>;
 		sda-gpio-id = <106>;
@@ -5668,8 +5683,11 @@ page_owner=on";
 			<0 0x10217500 0 0x80>;
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C5>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <107>;
 		sda-gpio-id = <108>;
@@ -5688,8 +5706,11 @@ page_owner=on";
 			<0 0x10217580 0 0x80>;
 		interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_n CLK_IMPN_AP_CLOCK_RO_I2C6>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <109>;
 		sda-gpio-id = <110>;
@@ -5708,8 +5729,11 @@ page_owner=on";
 			<0 0x10217600 0 0x180>;
 		interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C7>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <111>;
 		sda-gpio-id = <112>;
@@ -5728,8 +5752,11 @@ page_owner=on";
 			<0 0x10217780 0 0x180>;
 		interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C8>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <113>;
 		sda-gpio-id = <114>;
@@ -5748,8 +5775,11 @@ page_owner=on";
 			<0 0x10217900 0 0x180>;
 		interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&imp_iic_wrap_s CLK_IMPS_AP_CLOCK_RO_I2C9>,
-			<&infracfg_ao CLK_IFRAO_AP_DMA>;
-		clock-names = "main", "dma";
+			<&infracfg_ao CLK_IFRAO_AP_DMA>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "dma", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		scl-gpio-id = <141>;
 		sda-gpio-id = <142>;
@@ -5766,8 +5796,11 @@ page_owner=on";
 		id = <10>;
 		reg = <0 0x11015000 0 0x1000>;
 		interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C10>;
-		clock-names = "main";
+		clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C10>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		aed = <0x1a>;
 		mediatek,fifo_only;
@@ -5778,8 +5811,11 @@ page_owner=on";
 		id = <11>;
 		reg = <0 0x11017000 0 0x1000>;
 		interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C11>;
-		clock-names = "main";
+		clocks = <&imp_iic_wrap_c CLK_IMPC_AP_CLOCK_RO_I2C11>,
+			<&topckgen CLK_TOP_I2C_SEL>,
+			<&topckgen CLK_TOP_MAINPLL_D4_D8>,
+			<&topckgen CLK_TOP_UNIVPLL_D5_D4>;
+		clock-names = "main", "mux", "p_main", "p_univ";
 		clock-div = <5>;
 		aed = <0x1a>;
 		mediatek,fifo_only;
