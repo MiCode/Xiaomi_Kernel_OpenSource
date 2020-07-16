@@ -286,7 +286,7 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 		mode >>= CFG_MODE_SHIFT;
 	}
 
-	if (rcg->enable_safe_config && !src) {
+	if (rcg->enable_safe_config && rcg->current_freq && rcg->freq_tbl) {
 		f_curr = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
 		if (!f_curr)
 			return -EINVAL;
