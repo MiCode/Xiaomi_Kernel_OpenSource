@@ -333,6 +333,9 @@ static noinline void double_free(void)
 	char *p = kmalloc(32, GFP_KERNEL);
 	int i;
 
+	if (p == NULL)
+		return;
+
 	pr_info("test case : double free\n");
 	for (i = 0; i < 32; i++)
 		p[i] = (char)i;
