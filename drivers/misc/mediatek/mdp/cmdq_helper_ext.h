@@ -97,7 +97,9 @@ if (status < 0)		\
 {		\
 do {			\
 	char dispatchedTag[50]; \
-	snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	int len = snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	if (len >= 50) \
+		pr_debug("%s:%d len:%d over 50\n", __func__, __LINE__, len); \
 	pr_notice("[MDP][AEE]"string, ##args); \
 	cmdq_core_save_first_dump("[MDP][AEE]"string, ##args); \
 	aee_kernel_warning_api(__FILE__, __LINE__, \
@@ -118,7 +120,9 @@ do { \
 {		\
 do {			\
 	char dispatchedTag[50]; \
-	snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	int len = snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
+	if (len >= 50) \
+		pr_debug("%s:%d len:%d over 50\n", __func__, __LINE__, len); \
 	pr_debug("[MDP][AEE] AEE not READY!!!"); \
 	pr_debug("[MDP][AEE]"string, ##args); \
 	cmdq_core_save_first_dump("[MDP][AEE]"string, ##args); \
