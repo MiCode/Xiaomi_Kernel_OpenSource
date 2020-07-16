@@ -546,11 +546,18 @@ void iommu_dma_free_from_reserved_range(struct device *dev,
 		struct page **pages, size_t size, dma_addr_t *handle)
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
-	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
-	unsigned long shift = iova_shift(iovad);
-	unsigned long pfn = (*handle) >> shift;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
+	unsigned long shift;
+	unsigned long pfn;
 	size_t unmap_sz;
+
+	if (!domain)
+		return;
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
+	shift = iova_shift(iovad);
+	pfn = (*handle) >> shift;
 
 	unmap_sz = iommu_unmap(domain, pfn << shift, size);
 	WARN_ON(size > unmap_sz);
@@ -965,12 +972,17 @@ iommu_dma_alloc_fix_iova(struct device *dev, size_t size, gfp_t gfp,
 		void (*flush_page)(struct device *, const void *, phys_addr_t))
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
-	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
 	struct page **pages;
 	struct sg_table sgt;
 	dma_addr_t iova = handle;
 	unsigned int count, min_size, alloc_sizes = domain->pgsize_bitmap;
+
+	if (!domain)
+		return NULL;
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
 
 	min_size = alloc_sizes & -alloc_sizes;
 	if (min_size < PAGE_SIZE) {
@@ -1026,12 +1038,17 @@ int dma_map_sg_within_reserved_iova(struct device *dev, struct scatterlist *sg,
 				    int nents, int prot, dma_addr_t dma_addr)
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
-	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
 	struct scatterlist *s, *prev = NULL;
 	size_t iova_len = 0;
 	size_t map_len = 0;
 	int i;
+
+	if (!domain)
+		return -EINVAL;
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
 
 	for_each_sg(sg, s, nents, i) {
 		size_t s_iova_off = iova_offset(iovad, s->offset);
@@ -1058,11 +1075,17 @@ void dma_unmap_sg_within_reserved_iova(struct device *dev,
 				       int prot, size_t size)
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
-	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
-	unsigned long shift = iova_shift(iovad);
-	unsigned long pfn = sg_dma_address(sg) >> shift;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
+	unsigned long shift;
+	unsigned long pfn;
 
+	if (!domain)
+		return;
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
+	shift = iova_shift(iovad);
+	pfn = sg_dma_address(sg) >> shift;
 	/*
 	 * The scatterlist segments are mapped into a single
 	 * contiguous IOVA allocation, so this is incredibly easy.
