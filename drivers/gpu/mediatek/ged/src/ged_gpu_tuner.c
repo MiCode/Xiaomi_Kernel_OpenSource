@@ -152,11 +152,10 @@ static ssize_t dump_status_show(struct kobject *kobj,
 	struct list_head *listentry;
 	struct GED_GPU_TUNER_ITEM *item;
 	int cnt = 0;
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"========================================\n"
 			"[Global Status]\n"
 			"feature(%08x)\n"
@@ -166,8 +165,8 @@ static ssize_t dump_status_show(struct kobject *kobj,
 	list_for_each(listentry, &gItemList) {
 		item = list_entry(listentry, struct GED_GPU_TUNER_ITEM, List);
 		if (item) {
-			length = scnprintf(temp + pos,
-					GED_SYSFS_MAX_BUFF_SIZE - pos,
+			length = scnprintf(buf + pos,
+					PAGE_SIZE - pos,
 					" [%d]\n"
 					" pkgname(%s) cmd(%s) feature(%08x)\n"
 					"========================================\n",
@@ -180,7 +179,7 @@ static ssize_t dump_status_show(struct kobject *kobj,
 		}
 	}
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static KOBJ_ATTR_RO(dump_status);
@@ -262,18 +261,17 @@ static ssize_t custom_hint_set_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"support cmd list\n"
 			"anisotropic_disable => MTK_GPU_TUNER_ANISOTROPIC_DISABLE\n"
 			"trilinear_disable => MTK_GPU_TUNER_TRILINEAR_DISABLE\n"
 			"========================================\n");
 	pos += length;
 	if (gpu_tuner_last_custom_hint.packagename[0]) {
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				" name(%s) cmd(%s) feature(%d) value(%d)\n",
 				gpu_tuner_last_custom_hint.packagename,
 				gpu_tuner_last_custom_hint.cmd,
@@ -281,12 +279,12 @@ static ssize_t custom_hint_set_show(struct kobject *kobj,
 				gpu_tuner_last_custom_hint.value);
 		pos += length;
 	} else {
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				"no custom hint is set\n");
 		pos += length;
 	}
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static KOBJ_ATTR_RW(custom_hint_set);
