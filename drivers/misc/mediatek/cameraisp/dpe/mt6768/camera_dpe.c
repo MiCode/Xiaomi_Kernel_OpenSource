@@ -292,8 +292,8 @@ struct DVE_REQUEST_STRUCT {
 	unsigned int callerID;	/* caller thread ID */
 	/* to judge it belongs to which frame package */
 	unsigned int enqueReqNum;
-	unsigned int FrameWRIdx;	/* Frame write Index */
-	unsigned int FrameRDIdx;	/* Frame read Index */
+	int FrameWRIdx;	/* Frame write Index */
+	int FrameRDIdx;	/* Frame read Index */
 	enum DPE_FRAME_STATUS_ENUM
 		DveFrameStatus[_SUPPORT_MAX_DPE_FRAME_REQUEST_];
 	struct DPE_DVEConfig
@@ -301,9 +301,9 @@ struct DVE_REQUEST_STRUCT {
 };
 
 struct DVE_REQUEST_RING_STRUCT {
-	unsigned int WriteIdx;	/* enque how many request  */
-	unsigned int ReadIdx;		/* read which request index */
-	unsigned int HWProcessIdx;	/* HWWriteIdx */
+	int WriteIdx;	/* enque how many request  */
+	int ReadIdx;		/* read which request index */
+	int HWProcessIdx;	/* HWWriteIdx */
 struct DVE_REQUEST_STRUCT
 	DVEReq_Struct[_SUPPORT_MAX_DPE_REQUEST_RING_SIZE_];
 };
@@ -325,8 +325,8 @@ struct WMFE_REQUEST_STRUCT {
 	unsigned int callerID;	/* caller thread ID */
 	/* to judge it belongs to which frame package */
 	unsigned int enqueReqNum;
-	unsigned int FrameWRIdx;	/* Frame write Index */
-	unsigned int FrameRDIdx;	/* Frame read Index */
+	int FrameWRIdx;	/* Frame write Index */
+	int FrameRDIdx;	/* Frame read Index */
 	enum DPE_FRAME_STATUS_ENUM
 		WmfeFrameStatus[_SUPPORT_MAX_DPE_FRAME_REQUEST_];
 	struct DPE_WMFEConfig
@@ -334,9 +334,9 @@ struct WMFE_REQUEST_STRUCT {
 };
 
 struct WMFE_REQUEST_RING_STRUCT {
-	unsigned int WriteIdx;	/* enque how many request  */
-	unsigned int ReadIdx;		/* read which request index */
-	unsigned int HWProcessIdx;	/* HWWriteIdx */
+	int WriteIdx;	/* enque how many request  */
+	int ReadIdx;		/* read which request index */
+	int HWProcessIdx;	/* HWWriteIdx */
 	struct WMFE_REQUEST_STRUCT
 		WMFEReq_Struct[_SUPPORT_MAX_DPE_REQUEST_RING_SIZE_];
 };
@@ -385,8 +385,8 @@ struct DPE_INFO_STRUCT {
 	unsigned int DebugMask;	/* Debug Mask */
 	signed int IrqNum;
 	struct DPE_IRQ_INFO_STRUCT IrqInfo;
-	unsigned int WriteReqIdx;
-	unsigned int ReadReqIdx;
+	int WriteReqIdx;
+	int ReadReqIdx;
 	pid_t ProcessID[_SUPPORT_MAX_DPE_FRAME_REQUEST_];
 };
 
@@ -524,8 +524,8 @@ if (pSrc->_cnt[ppb][logT] != 0) {\
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	unsigned int ppb = 0;\
-	unsigned int logT = 0;\
+	int ppb = 0;\
+	int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} \
@@ -1008,7 +1008,7 @@ static inline unsigned int DPE_JiffiesToMs(unsigned int Jiffies)
 	} \
 }
 
-static bool ConfigDVEFrameByReqIdx(unsigned int ReqIdx)
+static bool ConfigDVEFrameByReqIdx(int ReqIdx)
 {
 #ifdef DPE_USE_GCE
 	unsigned int j;
@@ -1045,7 +1045,7 @@ for (j = 0; j < _SUPPORT_MAX_DPE_FRAME_REQUEST_; j++) {
 #endif
 }
 
-static bool ConfigDVERequest(unsigned int ReqIdx)
+static bool ConfigDVERequest(int ReqIdx)
 {
 #ifdef DPE_USE_GCE
 	unsigned int j;
@@ -1223,7 +1223,7 @@ if ((_SUPPORT_MAX_DPE_FRAME_REQUEST_ == (next_idx))
 
 }
 
-static bool ConfigWMFEFrameByReqIdx(unsigned int ReqIdx)
+static bool ConfigWMFEFrameByReqIdx(int ReqIdx)
 {
 #ifdef DPE_USE_GCE
 	unsigned int j;
@@ -1259,7 +1259,7 @@ for (j = 0; j < _SUPPORT_MAX_DPE_FRAME_REQUEST_; j++) {
 #endif
 }
 
-static bool ConfigWMFERequest(unsigned int ReqIdx)
+static bool ConfigWMFERequest(int ReqIdx)
 {
 #ifdef DPE_USE_GCE
 	unsigned int j;
@@ -2823,8 +2823,8 @@ static long DPE_ioctl
 	struct DPE_CLEAR_IRQ_STRUCT ClearIrq;
 	struct DPE_DVERequest dpe_DveReq;
 	struct DPE_WMFERequest dpe_WmfeReq;
-	unsigned int DveWriteIdx = 0;
-	unsigned int WmfeWriteIdx = 0;
+	int DveWriteIdx = 0;
+	int WmfeWriteIdx = 0;
 	bool bWMFEFound = MFALSE;
 	bool bDveFound = MFALSE;
 	int idx;
@@ -2992,8 +2992,8 @@ return -EFAULT;
 	}
 	case DPE_DVE_ENQUE_REQ:
 	{
-	unsigned int WIdx;
-	unsigned int FWRIdx;
+	int WIdx;
+	int FWRIdx;
 
 	if (copy_from_user(&dpe_DveReq, (void *)Param,
 		sizeof(struct DPE_DVERequest)) == 0) {
@@ -3085,8 +3085,8 @@ return -EFAULT;
 	break;
 	case DPE_DVE_DEQUE_REQ:
 	{
-	unsigned int ReadIdx;
-	unsigned int FrameRDIdx;
+	int ReadIdx;
+	int FrameRDIdx;
 
 	if (copy_from_user(&dpe_DveReq,
 		(void *)Param, sizeof(struct DPE_DVERequest)) == 0) {
@@ -3167,8 +3167,8 @@ LOG_INF("DEQ_NUM No Buf!,ReadIdx(%d),ReqSta(%d),FrameRDIdx(%d),enqReqNum(%d)\n",
 	}
 	case DPE_WMFE_ENQUE_REQ:
 	{
-	unsigned int WIdx;
-	unsigned int FWRIdx;
+	int WIdx;
+	int FWRIdx;
 
 	if (copy_from_user(&dpe_WmfeReq, (void *)Param,
 	sizeof(struct DPE_WMFERequest)) == 0) {
@@ -3260,8 +3260,8 @@ for (idx = 0; idx < dpe_WmfeReq.m_ReqNum; idx++) {
 	}
 	case DPE_WMFE_DEQUE_REQ:
 	{
-	unsigned int FrameRDIdx;
-	unsigned int ReadIdx;
+	int FrameRDIdx;
+	int ReadIdx;
 
 	if (copy_from_user
 		(&dpe_WmfeReq, (void *)Param,
@@ -4458,7 +4458,7 @@ static ssize_t dpe_reg_write(
 	size_t count, loff_t *data)
 {
 	char desc[128];
-	unsigned int len = 0;
+	int len = 0;
 	/*char *pEnd;*/
 	char addrSzBuf[24];
 	char valSzBuf[24];
@@ -4743,7 +4743,7 @@ static void DPE_ScheduleDveWork(struct work_struct *data)
 	bool bFound = MFALSE;
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
-	unsigned int DveWriteIdx = 0;
+	int DveWriteIdx = 0;
 
 	DpeDveSta0 = DPE_RD32(DPE_DVE_STA_REG);
 
@@ -4807,7 +4807,7 @@ static void DPE_ScheduleWmfeWork(struct work_struct *data)
 	bool bResulst = MFALSE;
 	bool bFound = MFALSE;
 	pid_t ProcessID;
-	unsigned int WmfeWriteIdx = 0;
+	int WmfeWriteIdx = 0;
 
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)
 		log_dbg("- E.");
