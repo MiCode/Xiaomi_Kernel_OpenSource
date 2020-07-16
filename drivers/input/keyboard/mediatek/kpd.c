@@ -434,6 +434,10 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 		input_unregister_device(kpd_input_dev);
 		return err;
 	}
+
+	if (enable_irq_wake(kp_irqnr) < 0)
+		kpd_notice("irq %d enable irq wake fail\n", kp_irqnr);
+
 #ifdef CONFIG_MTK_MRDUMP_KEY
 	mt_eint_register();
 #endif
