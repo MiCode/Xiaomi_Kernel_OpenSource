@@ -2464,3 +2464,15 @@
   vfs_rmdir
   vfs_setxattr
   vfs_unlink
+
+# required by ufs-sprd.ko
+  ufshcd_dme_set_attr
+  ufshcd_get_local_unipro_ver
+  ufshcd_pltfrm_init
+  ufshcd_pltfrm_resume
+  ufshcd_pltfrm_runtime_idle
+  ufshcd_pltfrm_runtime_resume
+  ufshcd_pltfrm_runtime_suspend
+  ufshcd_pltfrm_shutdown
+  ufshcd_pltfrm_suspend
+  ufshcd_remove
