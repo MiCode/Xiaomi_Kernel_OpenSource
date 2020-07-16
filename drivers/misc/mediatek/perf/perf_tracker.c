@@ -160,7 +160,7 @@ int perf_tracker_enable(int val)
 	if (val == 1 && gpu_pmu_enable && !is_gpu_pmu_worked) {
 		if (MTKGPUPower_model_start_symbol)
 			MTKGPUPower_model_start_symbol(gpu_pmu_period);
-			is_gpu_pmu_worked = 1;
+		is_gpu_pmu_worked = 1;
 	} else if (val == 0 && is_gpu_pmu_worked) {
 		if (MTKGPUPower_model_stop_symbol)
 			MTKGPUPower_model_stop_symbol();
