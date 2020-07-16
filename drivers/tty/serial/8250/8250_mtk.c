@@ -832,18 +832,15 @@ void mtk8250_backup_dev(void)
 	struct uart_8250_port *up;
 	struct mtk8250_data *data;
 	struct mtk8250_reg *reg;
-	if (data == NULL)
-		return;
-	reg = &data->reg;
-	up = serial8250_get_port(data->line);
-	if (up->port.dev == NULL)
-		return;
 
 	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
 		up = serial8250_get_port(line);
+		if (up->port.dev == NULL)
+			return;
 		data = dev_get_drvdata(up->port.dev);
+		if (data == NULL)
+			return;
 		reg = &data->reg;
-
 		if (!uart_console(&up->port))
 			continue;
 
