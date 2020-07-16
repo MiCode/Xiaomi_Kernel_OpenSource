@@ -1122,6 +1122,10 @@
 			<0 0>,
 			<0 0>;
 
+		interconnects = <&aggre1_noc MASTER_UFS_MEM &mc_virt SLAVE_EBI1>,
+			<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_UFS_MEM_CFG>;
+		interconnect-names = "ufs-ddr", "cpu-ufs";
+
 		qcom,ufs-bus-bw,name = "ufshc_mem";
 		qcom,ufs-bus-bw,num-cases = <26>;
 		qcom,ufs-bus-bw,num-paths = <2>;
