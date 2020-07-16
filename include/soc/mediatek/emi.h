@@ -33,6 +33,15 @@
 #define MTK_EMI_MAX_TOKEN		4
 #define MTK_EMI_MAX_CMD_LEN		4096
 
+struct emi_addr_map {
+	int emi;
+	int channel;
+	int rank;
+	int bank;
+	int row;
+	int column;
+};
+
 struct reg_info_t {
 	unsigned int offset;
 	unsigned int value;
@@ -63,6 +72,7 @@ struct emimpu_dbg_cb {
 unsigned int mtk_emicen_get_ch_cnt(void);
 unsigned int mtk_emicen_get_rk_cnt(void);
 unsigned int mtk_emicen_get_rk_size(unsigned int rk_id);
+int mtk_emicen_addr2dram(unsigned long addr, struct emi_addr_map *map);
 
 /* mtk emidbg api */
 void mtk_emidbg_dump(void);
