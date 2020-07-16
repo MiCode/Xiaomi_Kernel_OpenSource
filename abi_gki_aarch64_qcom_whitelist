@@ -1668,6 +1668,11 @@
   platform_get_resource
   platform_get_resource_byname
   platform_irq_count
+  pm_clk_add
+  pm_clk_create
+  pm_clk_destroy
+  pm_clk_resume
+  pm_clk_suspend
   pm_generic_resume
   pm_generic_runtime_resume
   pm_generic_runtime_suspend
