@@ -1426,3 +1426,4 @@ ktime_t *get_next_event_cpu(unsigned int cpu)
 {
 	return &(per_cpu(tick_cpu_device, cpu).evtdev->next_event);
 }
+EXPORT_SYMBOL_GPL(get_next_event_cpu);
