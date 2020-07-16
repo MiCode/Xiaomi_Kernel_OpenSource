@@ -42,4 +42,17 @@ struct clk *kgsl_of_clk_by_name(struct clk_bulk_data *clks, int count,
  */
 int kgsl_regulator_set_voltage(struct device *dev,
 		struct regulator *reg, u32 voltage);
+
+/**
+ * kgsl_zap_shader_load - Load a zap shader
+ * @dev: Pointer to the struct device for the GPU platform device
+ * @name: Basename of the zap shader to load (without the postfix)
+ *
+ * Load and install the zap shader named @name. Name should be specified without
+ * the extension for example "a660_zap" instead of "a660_zap.mdt".
+ *
+ * Return: 0 on success or negative on failure
+ */
+int kgsl_zap_shader_load(struct device *dev, const char *name);
+
 #endif
