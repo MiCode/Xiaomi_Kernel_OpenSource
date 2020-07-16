@@ -1533,7 +1533,7 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->ccif_irq_id, ccif_irq_flags);
 
 	ret = request_irq(md_ctrl->ccif_irq_id, md_ccif_isr,
-		ccif_irq_flags | IRQF_NO_SUSPEND, "CCIF_AP_DATA", md_ctrl);
+		ccif_irq_flags, "CCIF_AP_DATA", md_ctrl);
 	if (ret) {
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"request CCIF_AP_DATA IRQ(%d) error %d\n",
