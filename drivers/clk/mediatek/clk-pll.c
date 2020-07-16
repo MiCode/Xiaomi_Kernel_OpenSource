@@ -327,6 +327,7 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	writel(r, pll->en_addr);
 #else
 	r = readl(pll->en_addr) & ~pll->en_mask;
+	writel(r, pll->en_addr);
 #endif
 
 	r = readl(pll->pwr_addr) | pll->iso_mask;
