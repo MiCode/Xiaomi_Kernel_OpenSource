@@ -11,7 +11,7 @@
 #define CMDQ_SEC_IRQ_THREAD		(15)
 
 /* Thread that are high-priority (display threads) */
-#define CMDQ_MAX_SECURE_THREAD_COUNT	(4)
+#define CMDQ_MAX_SECURE_THREAD_COUNT	(5)
 #define CMDQ_MIN_SECURE_THREAD_ID	(8)
 
 #define CMDQ_THREAD_SEC_PRIMARY_DISP	(CMDQ_MIN_SECURE_THREAD_ID)
