@@ -690,7 +690,7 @@ void ufstw_get_geo_info(struct ufstw_dev_info *tw_dev_info, u8 *geo_buf)
 		 geo_buf[GEOMETRY_DESC_TW_SUPPORT_BUF_TYPE]);
 }
 
-int ufstw_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *lu_buf)
+int ufstw_get_lu_info(struct ufsf_feature *ufsf, unsigned int lun, u8 *lu_buf)
 {
 	struct ufsf_lu_desc lu_desc;
 	struct ufstw_lu *tw;
@@ -774,7 +774,7 @@ error_put:
 	ufstw_lu_put(tw);
 }
 
-static void ufstw_lu_init(struct ufsf_feature *ufsf, int lun)
+static void ufstw_lu_init(struct ufsf_feature *ufsf, unsigned int lun)
 {
 	struct ufstw_lu *tw = ufsf->tw_lup[lun];
 
@@ -830,7 +830,7 @@ out:
 
 void ufstw_init(struct ufsf_feature *ufsf)
 {
-	int lun;
+	unsigned int lun;
 	unsigned int tw_enabled_lun = 0;
 #ifdef UFS_MTK_TW_AWAYS_ON
 	int tw_lun = 0;
