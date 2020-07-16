@@ -1855,7 +1855,14 @@ static int adreno_first_open(struct kgsl_device *device)
 
 static int adreno_close(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	return kgsl_pwrctrl_change_state(KGSL_DEVICE(adreno_dev),
+			KGSL_STATE_INIT);
+}
+
+static int adreno_last_close(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
 
 	/*
 	 * Wait up to 1 second for the active count to go low
@@ -1869,14 +1876,6 @@ static int adreno_close(struct adreno_device *adreno_dev)
 			dev_err(device->dev,
 				"Still waiting for the active count\n");
 	}
-
-	return kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
-}
-
-static int adreno_last_close(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
 
 	return ops->last_close(adreno_dev);
 }
