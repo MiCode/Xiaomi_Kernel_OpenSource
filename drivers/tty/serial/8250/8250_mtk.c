@@ -908,8 +908,6 @@ void mtk8250_restore_dev(void)
 			continue;
 
 		mtk8250_runtime_resume(up->port.dev);
-		pr_info("restore UART register start!\n");
-
 		spin_lock_irqsave(&up->port.lock, flags);
 
 		/* restore when LCR = 0xBF */
@@ -950,8 +948,6 @@ void mtk8250_restore_dev(void)
 		serial_out(up, MTK_UART_FCR_RD, reg->fcr_rd);
 		serial_out(up, MTK_UART_RX_SEL, reg->rx_sel);
 		spin_unlock_irqrestore(&up->port.lock, flags);
-
-		pr_info("restore UART register finish!\n");
 	}
 }
 EXPORT_SYMBOL(mtk8250_restore_dev);
