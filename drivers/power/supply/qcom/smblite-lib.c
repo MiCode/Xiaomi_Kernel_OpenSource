@@ -467,8 +467,10 @@ void smblite_lib_suspend_on_debug_battery(struct smb_charger *chg)
 	}
 	if (chg->suspend_input_on_debug_batt) {
 		vote(chg->usb_icl_votable, DEBUG_BOARD_VOTER, val.intval, 0);
-		if (val.intval)
+		if (val.intval) {
 			pr_info("Input suspended: Fake battery\n");
+			schgm_flashlite_config_usbin_collapse(chg, false);
+		}
 	} else {
 		vote(chg->chg_disable_votable, DEBUG_BOARD_VOTER,
 					val.intval, 0);
