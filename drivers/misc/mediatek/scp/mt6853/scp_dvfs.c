@@ -60,6 +60,9 @@
 #include <linux/pm_qos.h>
 #include "helio-dvfsrc-opp.h"
 #include "mtk_secure_api.h"
+#include <clk-mux.h>
+#include "clkdbg.h"
+#include "clkdbg-mt6853.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -100,6 +103,48 @@ static struct pm_qos_request dvfsrc_scp_vcore_req;
 unsigned int slp_ipi_ackdata0;
 int slp_ipi_init_done;
 unsigned int sleep_block_cnt[NR_REASONS];
+
+#if ULPOSC_CALI_BY_AP
+static void __iomem *ulposc_base;
+
+#define ULPOSC2_CON0 (ulposc_base + 0x2C0)
+#define RG_OSC_CALI_MSK		0x7F
+#define RG_OSC_CALI_SHFT	0
+
+#define ULPOSC2_CON1 (ulposc_base + 0x2C4)
+#define ULPOSC2_CON2 (ulposc_base + 0x2C8)
+
+#define CAL_MIN_VAL		0
+#define CAL_MAX_VAL		RG_OSC_CALI_MSK
+
+/* calibation miss rate, unit: 1% */
+#define CAL_MIS_RATE	5
+
+#define MAX_ULPOSC_CALI_NUM	3
+struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
+	{
+		.freq = CLK_OPP0,
+		.ulposc_rg0 = 0x38a94d,
+		.ulposc_rg1 = 0x2900,
+		.ulposc_rg2 = 0x40,
+		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+	},
+	{
+		.freq = CLK_OPP1,
+		.ulposc_rg0 = 0x4ea94d,
+		.ulposc_rg1 = 0x2900,
+		.ulposc_rg2 = 0x40,
+		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+	},
+	{
+		.freq = CLK_OPP2,
+		.ulposc_rg0 = 0x5aa955,
+		.ulposc_rg1 = 0x2900,
+		.ulposc_rg2 = 0x40,
+		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
+	},
+};
+#endif /* ULPOSC_CALI_BY_AP */
 
 void scp_slp_ipi_init(void)
 {
@@ -824,6 +869,211 @@ static int mt_scp_dvfs_pm_restore_early(struct device *dev)
 {
 	return 0;
 }
+
+#if ULPOSC_CALI_BY_AP
+static void turn_onoff_clk_high(int id, int is_on)
+{
+	pr_debug("%s(%d, %d)\n", __func__, id, is_on);
+
+	if (is_on) {
+		/* turn on ulposc */
+		DRV_SetReg32(CLK_ENABLE, (1 << CLK_HIGH_EN_BIT));
+		if (id == ULPOSC_2)
+			DRV_ClrReg32(CLK_ON_CTRL, (1 << HIGH_CORE_DIS_SUB_BIT));
+
+		/* wait settle time */
+		udelay(150);
+
+		/* turn on CG */
+		if (id == ULPOSC_2)
+			DRV_SetReg32(CLK_HIGH_CORE, (1 << HIGH_CORE_CG_BIT));
+		else
+			DRV_SetReg32(CLK_ENABLE, (1 << CLK_HIGH_CG_BIT));
+	} else {
+		/* turn off CG */
+		if (id == ULPOSC_2)
+			DRV_ClrReg32(CLK_HIGH_CORE, (1 << HIGH_CORE_CG_BIT));
+		else
+			DRV_ClrReg32(CLK_ENABLE, (1 << CLK_HIGH_CG_BIT));
+
+		udelay(50);
+
+		/* turn off ULPOSC */
+		if (id == ULPOSC_2)
+			DRV_SetReg32(CLK_ON_CTRL, (1 << HIGH_CORE_DIS_SUB_BIT));
+		else
+			DRV_ClrReg32(CLK_ENABLE, (1 << CLK_HIGH_EN_BIT));
+	}
+
+	udelay(50);
+}
+
+
+static void set_ulposc_cali_value(unsigned int cali_val)
+{
+	unsigned int val;
+
+	val = DRV_Reg32(ULPOSC2_CON0) & ~(RG_OSC_CALI_MSK << RG_OSC_CALI_SHFT);
+	val = (val | ((cali_val & RG_OSC_CALI_MSK) << RG_OSC_CALI_SHFT));
+	DRV_WriteReg32(ULPOSC2_CON0, val);
+
+	udelay(50);
+}
+
+static unsigned int ulposc_cali_process(int idx)
+{
+	unsigned int target_val = 0, current_val = 0;
+	unsigned int min = CAL_MIN_VAL, max = CAL_MAX_VAL, middle;
+	unsigned int diff_by_min = 0, diff_by_max = 0xffff;
+	unsigned int cal_result = 0;
+
+	target_val = ulposc_cfg[idx].freq * 1000;
+
+	do {
+		middle = (min + max) / 2;
+		if (middle == min) {
+			pr_debug("middle(%d) == min(%d)\n", middle, min);
+			break;
+		}
+
+		set_ulposc_cali_value(middle);
+		current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
+
+		if (current_val > target_val)
+			max = middle;
+		else
+			min = middle;
+	} while (min <= max);
+
+	set_ulposc_cali_value(min);
+	current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
+	if (current_val > target_val)
+		diff_by_min = current_val - target_val;
+	else
+		diff_by_min = target_val - current_val;
+
+	set_ulposc_cali_value(max);
+	current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
+	if (current_val > target_val)
+		diff_by_max = current_val - target_val;
+	else
+		diff_by_max = target_val - current_val;
+
+	if (diff_by_min < diff_by_max)
+		cal_result = min;
+	else
+		cal_result = max;
+
+	set_ulposc_cali_value(cal_result);
+	current_val = mt_get_abist_freq(ulposc_cfg[idx].fmeter_id);
+
+	/* check if calibrated value is in the range of target value +- 4% */
+	if ((current_val < (target_val * (100 - CAL_MIS_RATE) / 100)) ||
+		(current_val > (target_val * (100 + CAL_MIS_RATE) / 100))) {
+		pr_err("calibration fail, target=%dMHz, calibrated=%dMHz\n",
+				target_val/1000, current_val/1000);
+		return 0;
+	}
+
+	pr_info("calibration done, target=%dMHz, calibrated=%dMHz\n",
+				target_val/1000, current_val/1000);
+
+	return cal_result;
+}
+
+void ulposc_cali_init(void)
+{
+	struct device_node *node;
+	int i;
+
+	pr_info("%s\n", __func__);
+
+	/* get ULPOSC base address */
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,mt6853-apmixedsys");
+	if (!node) {
+		pr_err("error: can't find apmixedsys node\n");
+		WARN_ON(1);
+		return;
+	}
+
+	ulposc_base = of_iomap(node, 0);
+	if (!ulposc_base) {
+		pr_err("error: iomap fail for ulposc_base\n");
+		WARN_ON(1);
+		return;
+	}
+
+	for (i = 0; i < MAX_ULPOSC_CALI_NUM; i++) {
+		/* turn off ULPOSC2 */
+		turn_onoff_clk_high(ULPOSC_2, 0);
+
+		/* init ULPOSC RGs */
+		DRV_WriteReg32(ULPOSC2_CON0, ulposc_cfg[i].ulposc_rg0);
+		DRV_WriteReg32(ULPOSC2_CON1, ulposc_cfg[i].ulposc_rg1);
+		DRV_WriteReg32(ULPOSC2_CON2, ulposc_cfg[i].ulposc_rg2);
+
+		/* turn on ULPOSC2 */
+		turn_onoff_clk_high(ULPOSC_2, 1);
+
+		pr_debug("ULPOSC2: CON0=0x%x, CON1=0x%x, CON2=0x%x\n",
+			DRV_Reg32(ULPOSC2_CON0),
+			DRV_Reg32(ULPOSC2_CON1),
+			DRV_Reg32(ULPOSC2_CON2));
+
+		ulposc_cfg[i].cali_val = (unsigned short)ulposc_cali_process(i);
+		if (!ulposc_cfg[i].cali_val) {
+			pr_err("Error: calibrate ULPOSC2 to %dM fail\n",
+					ulposc_cfg[i].freq);
+			break;
+		}
+	}
+
+	/* turn off ULPOSC2 */
+	turn_onoff_clk_high(ULPOSC_2, 0);
+}
+
+void sync_ulposc_cali_data_to_scp(void)
+{
+	int i, ret;
+	unsigned int ipi_data[2];
+	unsigned short *ptrTmp = (unsigned short *)&ipi_data[1];
+
+	if (!slp_ipi_init_done)
+		scp_slp_ipi_init();
+
+	ipi_data[0] = SLP_DBG_CMD_ULPOSC_CALI_VAL;
+
+	for (i = 0; i < MAX_ULPOSC_CALI_NUM; i++) {
+		*ptrTmp = ulposc_cfg[i].freq;
+		*(ptrTmp+1) = ulposc_cfg[i].cali_val;
+
+		pr_info("ipi to scp: freq=%d, cali_val=0x%x\n",
+			ulposc_cfg[i].freq, ulposc_cfg[i].cali_val);
+
+		ret = mtk_ipi_send_compl(&scp_ipidev,
+					IPI_OUT_C_SLEEP_0,
+					IPI_SEND_WAIT,
+					&ipi_data[0],
+					PIN_OUT_C_SIZE_SLEEP_0,
+					500);
+		if (ret != IPI_ACTION_DONE) {
+			pr_err("mtk_ipi_send_compl ULPOSC2_CALI_VAL(%d,%d) fail\n",
+					ulposc_cfg[i].freq,
+					ulposc_cfg[i].cali_val);
+			WARN_ON(1);
+		}
+	}
+
+	/* check if SCP clock is switched to ULPOSC */
+	if ((((DRV_Reg32(CLK_SW_SEL)>>CLK_SW_SEL_O_BIT) & CLK_SW_SEL_O_MASK) &
+		 (CLK_SW_SEL_O_ULPOSC_CORE | CLK_SW_SEL_O_ULPOSC_PERI)) == 0) {
+		pr_err("Error: SCP clock is not switched to ULPOSC, CLK_SW_SEL=0x%x\n",
+			DRV_Reg32(CLK_SW_SEL));
+		WARN_ON(1);
+	}
+}
+#endif /* ULPOSC_CALI_BY_AP */
 
 static int mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 {

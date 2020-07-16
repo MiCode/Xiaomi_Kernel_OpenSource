@@ -375,10 +375,6 @@ static void scp_A_notify_ws(struct work_struct *ws)
 
 
 	if (scp_notify_flag) {
-#if SCP_DVFS_INIT_ENABLE
-		/* release pll clock after scp ulposc calibration */
-		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
-#endif
 		scp_recovery_flag[SCP_A_ID] = SCP_A_RECOVERY_OK;
 
 		writel(0xff, SCP_TO_SPM_REG); /* patch: clear SPM interrupt */
@@ -388,6 +384,15 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		atomic_set(&scp_reset_status, RESET_STATUS_STOP);
 #endif
 		scp_ready[SCP_A_ID] = 1;
+
+#if SCP_DVFS_INIT_ENABLE
+#if ULPOSC_CALI_BY_AP
+		sync_ulposc_cali_data_to_scp();
+#endif
+		/* release pll clock after scp ulposc calibration */
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+#endif
+
 		pr_debug("[SCP] notify blocking call\n");
 		blocking_notifier_call_chain(&scp_A_notifier_list
 			, SCP_EVENT_READY, NULL);
@@ -1705,6 +1710,10 @@ static int scp_device_probe(struct platform_device *pdev)
 				      SCP_IPI_COUNT);
 	if (ret)
 		pr_err("[SCP] ipi_dev_register fail, ret %d\n", ret);
+
+#if SCP_DVFS_INIT_ENABLE && ULPOSC_CALI_BY_AP
+	ulposc_cali_init();
+#endif
 
 	return ret;
 }
