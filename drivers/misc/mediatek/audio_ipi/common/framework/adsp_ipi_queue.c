@@ -420,6 +420,7 @@ int scp_send_msg_to_queue(
 	const uint32_t k_max_try_cnt = 300; /* retry 3 sec for -ERESTARTSYS */
 	const uint32_t k_restart_sleep_min_us = 10 * 1000; /* 10 ms */
 	const uint32_t k_restart_sleep_max_us = (k_restart_sleep_min_us + 200);
+	struct ipi_msg_t *p_ipi_msg = NULL;
 
 
 	scp_debug("in, dsp_id: %u, ipi_id: %u, buf: %p, len: %u, wait_ms: %u",
@@ -507,8 +508,10 @@ int scp_send_msg_to_queue(
 			break;
 		}
 		if (retval == 0) { /* timeout */
-			pr_info("wait %u ms timeout, will still send to scp later!!",
-				wait_ms);
+			p_ipi_msg = (struct ipi_msg_t *)p_element->msg.buf;
+			pr_info("wait %u ms timeout, will still send to dsp later!! msg: 0x%x, task: %d",
+				wait_ms, p_ipi_msg->msg_id,
+				p_ipi_msg->task_scene);
 			break;
 		}
 		if (retval == -ERESTARTSYS) {
