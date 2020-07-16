@@ -897,8 +897,12 @@ static void a6xx_rgmu_touch_wakeup(struct adreno_device *adreno_dev)
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 	int ret;
 
-	/* Do not wake up a suspended device through touch event */
-	if (test_bit(RGMU_PRIV_PM_SUSPEND, &rgmu->flags))
+	/*
+	 * Do not wake up a suspended device or until the first boot sequence
+	 * has been completed.
+	 */
+	if (test_bit(RGMU_PRIV_PM_SUSPEND, &rgmu->flags) ||
+		!test_bit(RGMU_PRIV_FIRST_BOOT_DONE, &rgmu->flags))
 		return;
 
 	if (test_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags))
