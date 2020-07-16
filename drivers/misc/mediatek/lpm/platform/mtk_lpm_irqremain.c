@@ -151,6 +151,7 @@ mtk_lpm_irqremain_release:
 	if (tar) {
 		kfree(tar->irqs);
 		kfree(tar->wakeup_src);
+		kfree(tar->wakeup_src_cat);
 		kfree(tar);
 	}
 	mtk_lpm_system_unlock(flag);
