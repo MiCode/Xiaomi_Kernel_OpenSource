@@ -2431,7 +2431,7 @@ page_owner=on loop.max_part=7";
 			/*WDT_EINT */
 			   <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
 			/*conn2ap_sw_irq*/
-			   <GIC_SPI 378 IRQ_TYPE_EDGE_RISING>;
+			   <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&scpsys SCP_SYS_CONN>,
 			<&infracfg_ao INFRACFG_AO_CCIF4_AP_CG>;
 		clock-names = "conn", "ccif";
