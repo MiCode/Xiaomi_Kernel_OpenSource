@@ -19,5 +19,12 @@ ccflags-y +=	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
 
+ifeq ($(findstring k71v1_bsp_2g,$(PROJECT_DTB_NAMES)),k71v1_bsp_2g)
+subdir-ccflags-y = -DLV
+endif
+
+ifeq ($(findstring k71v1_bsp_2g_ducam,$(PROJECT_DTB_NAMES)),k71v1_bsp_2g_ducam)
+subdir-ccflags-y = -DLV
+endif
 
 obj-y += mtk_cpufreq_platform.o

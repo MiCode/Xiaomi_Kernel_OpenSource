@@ -19,5 +19,12 @@ ccflags-y +=	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
 
+ifeq ($(findstring _aging,$(PROJECT_DTB_NAMES)),_aging)
+subdir-ccflags-y = -DK6873TV1
+endif
+
+ifeq ($(findstring _turbo,$(PROJECT_DTB_NAMES)),_turbo)
+subdir-ccflags-y = -DTURBO
+endif
 
 obj-y += mtk_cpufreq_platform.o

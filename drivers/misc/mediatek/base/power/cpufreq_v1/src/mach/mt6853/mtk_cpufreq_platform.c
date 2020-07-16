@@ -666,27 +666,18 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		}
 	}
 
-#if defined(CONFIG_ARM64) && \
-		defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	/* oonly check for 6853t project */
-	if (strstr(
-		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k6853tv1")){
-		WARN_ON(GEN_DB_ON(lv < CPU_LEVEL_3,
-			"cpufreq segment wrong, efuse_val = 0x%x 0x%x",
-			val, cpulv));
-	}
-	if (strstr(
-		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"_turbo")){
-		lv = CPU_LEVEL_0;
-		tag_pr_info("turbo project over\n");
-	}
+#if defined(K6873TV1)
+	WARN_ON(GEN_DB_ON(lv < CPU_LEVEL_3,
+		"cpufreq segment wrong, efuse_val = 0x%x 0x%x",
+		val, cpulv));
 #endif
 
+#if defined(TURBO)
+	lv = CPU_LEVEL_0;
+	tag_pr_info("turbo project over\n");
+#endif
 
-	tag_pr_info("%s %d, %d, Settle time(%d, %d) efuse_val = 0x%x 0x%x\n",
-		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val, cpulv);
 	return lv;
 }

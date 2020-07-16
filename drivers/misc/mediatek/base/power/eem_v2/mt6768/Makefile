@@ -38,13 +38,17 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
 
+ifeq ($(findstring k68v1_64_aging,$(PROJECT_DTB_NAMES)),k68v1_64_aging)
+subdir-ccflags-y += -DAGING_LOAD
+endif
+
 # HQA load
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/evb6779_64_hqact")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/evb6779_64_hqact")
 subdir-ccflags-y += -DCORN_LOAD
 endif
 
 # HQA load
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k79v1_64_ctighten")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k79v1_64_ctighten")
 subdir-ccflags-y += -DCORN_LOAD
 endif
 

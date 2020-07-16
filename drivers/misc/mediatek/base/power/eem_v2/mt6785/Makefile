@@ -39,20 +39,20 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
 
 # HQA load
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/evb6779_64_hqact")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/evb6779_64_hqact")
 subdir-ccflags-y += -DCORN_LOAD
 endif
 
 # HQA load
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k79v1_64_ctighten")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k79v1_64_ctighten")
 subdir-ccflags-y += -DCORN_LOAD
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k85v1_64_cmd")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k85v1_64_cmd")
 subdir-ccflags-y += -DCMD_LOAD
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k85v1_64_mcl50ptpv2")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k85v1_64_mcl50ptpv2")
 subdir-ccflags-y += -DMC50_LOAD
 endif
 

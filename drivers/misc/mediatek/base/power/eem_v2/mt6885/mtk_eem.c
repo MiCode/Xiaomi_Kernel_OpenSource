@@ -3723,13 +3723,11 @@ static int eem_probe(struct platform_device *pdev)
 #ifdef CONFIG_EEM_AEE_RR_REC
 		_mt_eem_aee_init();
 #endif
-#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-						"aging") != NULL) {
-		eem_debug("@%s: AGING flavor name: %s\n",
-			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		eem_aging_enable = 1;
-	}
+
+#if defined(AGING_LOAD)
+	eem_debug("@%s: AGING flavor name: %s\n",
+		__func__, PROJECT_DTB_NAMES);
+	eem_aging_enable = 1;
 #endif
 
 	if (eem_aging_enable) {
