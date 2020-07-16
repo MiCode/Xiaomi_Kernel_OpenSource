@@ -301,7 +301,8 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 	sq = &inst->session_queue_fence;
 	ktid = pkt->client_data.kdata;
 
-	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state)) {
+	rc = cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state);
+	if (rc) {
 		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
 		goto exit;
 	}
@@ -416,12 +417,16 @@ wait:
 	mutex_lock(&q->lock);
 	cvp_release_synx(inst, f);
 	list_del_init(&f->list);
+	state = q->state;
 	mutex_unlock(&q->lock);
 
 	dprintk(CVP_SYNX, "%s done with %d ktid %llu frameID %llu rc %d\n",
 		current->comm, pkt->packet_type, ktid, f->frame_id, rc);
 
 	cvp_free_fence_data(f);
+
+	if (rc && state != QUEUE_ACTIVE)
+		goto exit;
 
 	goto wait;
 
@@ -1277,10 +1282,8 @@ static int cvp_drain_fence_sched_list(struct msm_cvp_inst *inst)
 	mutex_lock(&q->lock);
 	list_for_each_entry(f, &q->sched_list, list) {
 		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
-		dprintk(CVP_SYNX, "%s: frame %llu is in sched_list\n",
-			__func__, ktid);
-		dprintk(CVP_SYNX, "%s: frameID %llu is in sched_list\n",
-			__func__, f->frame_id);
+		dprintk(CVP_SYNX, "%s: frame %llu %llu is in sched_list\n",
+			__func__, ktid, f->frame_id);
 		++count;
 	}
 	mutex_unlock(&q->lock);
@@ -1312,14 +1315,71 @@ retry:
 	return rc;
 }
 
+static void cvp_clean_fence_queue(struct msm_cvp_inst *inst, int synx_state)
+{
+	struct cvp_fence_queue *q;
+	struct cvp_fence_command *f, *d;
+	u64 ktid;
+
+	q = &inst->fence_cmd_queue;
+
+	mutex_lock(&q->lock);
+	q->mode = OP_DRAINING;
+
+	list_for_each_entry_safe(f, d, &q->wait_list, list) {
+		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
+
+		dprintk(CVP_SYNX, "%s: (%#x) flush frame %llu %llu wait_list\n",
+			__func__, hash32_ptr(inst->session), ktid, f->frame_id);
+
+		list_del_init(&f->list);
+		msm_cvp_unmap_frame(inst, f->pkt->client_data.kdata);
+		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f, synx_state);
+		cvp_release_synx(inst, f);
+		cvp_free_fence_data(f);
+	}
+
+	list_for_each_entry(f, &q->sched_list, list) {
+		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
+
+		dprintk(CVP_SYNX, "%s: (%#x)flush frame %llu %llu sched_list\n",
+			__func__, hash32_ptr(inst->session), ktid, f->frame_id);
+		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f, synx_state);
+	}
+
+	mutex_unlock(&q->lock);
+}
+
+int cvp_stop_clean_fence_queue(struct msm_cvp_inst *inst)
+{
+	struct cvp_fence_queue *q;
+	u32 count = 0, max_retries = 100;
+
+	cvp_clean_fence_queue(inst, SYNX_STATE_SIGNALED_ERROR);
+	cvp_fence_thread_stop(inst);
+
+	/* Waiting for all output synx sent */
+	q = &inst->fence_cmd_queue;
+retry:
+	mutex_lock(&q->lock);
+	if (list_empty(&q->sched_list)) {
+		mutex_unlock(&q->lock);
+		return 0;
+	}
+	mutex_unlock(&q->lock);
+	usleep_range(500, 1000);
+	if (++count > max_retries)
+		return -EBUSY;
+
+	goto retry;
+}
+
 static int cvp_flush_all(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
 	struct msm_cvp_inst *s;
 	struct cvp_fence_queue *q;
-	struct cvp_fence_command *f, *d;
 	struct cvp_hfi_device *hdev;
-	u64 ktid;
 
 	if (!inst || !inst->core) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -1330,40 +1390,15 @@ static int cvp_flush_all(struct msm_cvp_inst *inst)
 	if (!s)
 		return -ECONNRESET;
 
+	dprintk(CVP_SESS, "session %llx (%#x)flush all starts\n",
+			inst, hash32_ptr(inst->session));
 	q = &inst->fence_cmd_queue;
 	hdev = inst->core->device;
 
-	mutex_lock(&q->lock);
-	q->mode = OP_DRAINING;
+	cvp_clean_fence_queue(inst, SYNX_STATE_SIGNALED_CANCEL);
 
-	list_for_each_entry_safe(f, d, &q->wait_list, list) {
-		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
-
-		dprintk(CVP_SESS, "%s: flush frame %llu from wait_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from wait_list\n",
-			__func__, f->frame_id);
-
-		list_del_init(&f->list);
-		msm_cvp_unmap_frame(inst, f->pkt->client_data.kdata);
-		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f);
-		cvp_release_synx(inst, f);
-		cvp_free_fence_data(f);
-	}
-
-	list_for_each_entry(f, &q->sched_list, list) {
-		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
-
-		dprintk(CVP_SESS, "%s: flush frame %llu from sched_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from sched_list\n",
-			__func__, f->frame_id);
-		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f);
-	}
-
-	mutex_unlock(&q->lock);
-
-	dprintk(CVP_SESS, "%s: send flush to fw\n", __func__);
+	dprintk(CVP_SESS, "%s: (%#x) send flush to fw\n",
+			__func__, hash32_ptr(inst->session));
 
 	/* Send flush to FW */
 	rc = call_hfi_op(hdev, session_flush, (void *)inst->session);
@@ -1379,7 +1414,8 @@ static int cvp_flush_all(struct msm_cvp_inst *inst)
 		dprintk(CVP_WARN, "%s: wait for signal failed, rc %d\n",
 		__func__, rc);
 
-	dprintk(CVP_SESS, "%s: received flush from fw\n", __func__);
+	dprintk(CVP_SESS, "%s: (%#x) received flush from fw\n",
+			__func__, hash32_ptr(inst->session));
 
 exit:
 	rc = cvp_drain_fence_sched_list(inst);
@@ -1442,6 +1478,8 @@ static int cvp_flush_frame(struct msm_cvp_inst *inst, u64 frame_id)
 	if (!s)
 		return -ECONNRESET;
 
+	dprintk(CVP_SESS, "Session %llx, flush frame with id %llu\n",
+			inst, frame_id);
 	q = &inst->fence_cmd_queue;
 
 	mutex_lock(&q->lock);
@@ -1455,14 +1493,13 @@ static int cvp_flush_frame(struct msm_cvp_inst *inst, u64 frame_id)
 
 		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
 
-		dprintk(CVP_SESS, "%s: flush frame %llu from wait_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from wait_list\n",
-			__func__, f->frame_id);
+		dprintk(CVP_SYNX, "%s: flush frame %llu %llu from wait_list\n",
+			__func__, ktid, f->frame_id);
 
 		list_del_init(&f->list);
 		msm_cvp_unmap_frame(inst, f->pkt->client_data.kdata);
-		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f);
+		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f,
+				SYNX_STATE_SIGNALED_CANCEL);
 		cvp_release_synx(inst, f);
 		cvp_free_fence_data(f);
 	}
@@ -1473,11 +1510,10 @@ static int cvp_flush_frame(struct msm_cvp_inst *inst, u64 frame_id)
 
 		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
 
-		dprintk(CVP_SESS, "%s: flush frame %llu from sched_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from sched_list\n",
-			__func__, f->frame_id);
-		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f);
+		dprintk(CVP_SYNX, "%s: flush frame %llu %llu from sched_list\n",
+			__func__, ktid, f->frame_id);
+		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f,
+				SYNX_STATE_SIGNALED_CANCEL);
 	}
 
 	mutex_unlock(&q->lock);
