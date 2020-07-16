@@ -51,9 +51,9 @@ static inline int mtk_pe50_init(struct charger_manager *chgmgr)
 	return -ENOTSUPP;
 }
 
-static inline int mtk_pe50_is_ready(struct charger_manager *chgmgr)
+static inline bool mtk_pe50_is_ready(struct charger_manager *chgmgr)
 {
-	return -ENOTSUPP;
+	return false;
 }
 
 static inline int mtk_pe50_start(struct charger_manager *chgmgr)
@@ -73,12 +73,12 @@ static inline int mtk_pe50_plugout_reset(struct charger_manager *chgmgr)
 
 static inline bool mtk_pe50_get_is_connect(struct charger_manager *chgmgr)
 {
-	return -ENOTSUPP;
+	return false;
 }
 
 static inline bool mtk_pe50_get_is_enable(struct charger_manager *chgmgr)
 {
-	return -ENOTSUPP;
+	return false;
 }
 
 static inline void mtk_pe50_set_is_enable(struct charger_manager *chgmgr,
