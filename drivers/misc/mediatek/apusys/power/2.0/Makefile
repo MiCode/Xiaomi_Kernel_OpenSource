@@ -45,7 +45,7 @@ obj-y += $(PDIR)/apu_power_tag.o
 endif
 
 
-ifneq (,$(findstring aging,$(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)))
+ifneq (,$(findstring aging,$(PROJECT_DTB_NAMES)))
 subdir-ccflags-y += -DAGING_MARGIN
 endif
 
