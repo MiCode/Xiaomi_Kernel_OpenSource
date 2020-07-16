@@ -919,6 +919,7 @@ gen_headers_out_arm = [
     "linux/usb/g_uvc.h",
     "linux/usb/gadgetfs.h",
     "linux/usb/midi.h",
+    "linux/usb/raw_gadget.h",
     "linux/usb/tmc.h",
     "linux/usb/usb_ctrl_qti.h",
     "linux/usb/video.h",
