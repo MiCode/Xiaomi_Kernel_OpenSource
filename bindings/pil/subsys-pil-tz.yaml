@@ -164,6 +164,13 @@ properties:
       in between.
     type: boolean
 
+  qcom,boot-enabled:
+    description:
+      Set this property if subsystem is brought out of reset
+      during bootloader stage. subsystem-pil-tz driver checks the
+      crash status of subsystems when initial subsystem request is made.
+    type: boolean
+
   qcom,ignore-ssr-failure:
     description: If set, SSR failures are not considered fatal.
     type: boolean

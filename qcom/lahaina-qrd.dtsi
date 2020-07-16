@@ -1,7 +1,6 @@
 #include "lahaina-qrd-common.dtsi"
-#include "display/lahaina-sde-display-qrd.dtsi"
-#include "camera/lahaina-camera-sensor-mtp.dtsi"
 #include "lahaina-audio-overlay.dtsi"
+#include "lahaina-thermal-overlay.dtsi"
 
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4-lahaina";
@@ -47,7 +46,7 @@
 
 	cd-gpios = <&tlmm 92 GPIO_ACTIVE_LOW>;
 
-	status = "disabled";
+	status = "ok";
 };
 
 &swr_dmic_01 {
@@ -169,29 +168,6 @@
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
-
-		panel = <&dsi_r66451_amoled_cmd
-			 &dsi_r66451_amoled_video>;
-	};
-};
-
-&i3c3 {
-	se-clock-frequency = <19200000>;
-	i3c-scl-hz = <3500000>;
-	i2c-scl-hz = <400000>;
-	status = "ok";
-
-	sn@0,23600000000 {
-		compatible = "qcom,sn-nci-i3c";
-		reg = <0x0 0x236 0x00000000>;
-		qcom,sn-ven = <&tlmm 62 0x00>;
-		qcom,sn-firm = <&tlmm 86 0x00>;
-		qcom,sn-clkreq = <&tlmm 63 0x00>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&nfc_enable_active &nfc_fwdl_active
-					&nfc_clk_req_active>;
-		pinctrl-1 = <&nfc_enable_suspend &nfc_fwdl_suspend
-					&nfc_clk_req_suspend>;
 	};
 };
 
@@ -202,4 +178,46 @@
 			&tert_mi2s_sd0_active>;
 	pinctrl-1 = <&tert_mi2s_sck_sleep &tert_mi2s_ws_sleep
 			&tert_mi2s_sd0_sleep>;
+};
+
+&wil6210 {
+	status = "ok";
+};
+
+&usb_qmp_dp_phy {
+	pinctrl-names = "portselect";
+};
+
+&qupv3_se13_i2c {
+	status = "ok";
+
+	redriver: redriver@1c {
+		compatible = "onnn,redriver";
+		reg = <0x1c>;
+
+		pinctrl-names = "enable_gpio";
+		pinctrl-0 = <&usb3phy_portselect_gpio>;
+		orientation_gpio = <&tlmm 81 0>;
+
+		eq = /bits/ 8 <
+				/* Parameters for USB */
+				0x4 0x4 0x4 0x4
+				/* Parameters for DP */
+				0x6 0x4 0x4 0x6>;
+		flat-gain = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x1 0x1 0x3
+				/* Parameters for DP */
+				0x2 0x1 0x1 0x2>;
+		output-comp = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x3 0x3 0x3
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+		loss-match = /bits/ 8 <
+				/* Parameters for USB */
+				0x1 0x3 0x3 0x1
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+	};
 };

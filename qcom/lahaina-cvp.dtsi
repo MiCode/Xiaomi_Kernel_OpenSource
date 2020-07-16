@@ -61,6 +61,7 @@
 			iommus =
 				<&apps_smmu 0x2120 0x400>;
 			buffer-types = <0xfff>;
+			dma-coherent-hint-cached;
 			qcom,iommu-dma-addr-pool = <0x4b000000 0x90000000>;
 		};
 

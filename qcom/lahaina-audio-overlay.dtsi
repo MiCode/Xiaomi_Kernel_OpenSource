@@ -83,7 +83,7 @@
 				compatible = "qcom,swr-dmic";
 				reg = <0x08 0x58350220>;
 				qcom,swr-dmic-prefix = "SWR_MIC0";
-				qcom,codec-name = "swr-dmic-01";
+				qcom,codec-name = "swr-dmic.01";
 				qcom,swr-dmic-supply = <3>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
@@ -92,7 +92,7 @@
 				compatible = "qcom,swr-dmic";
 				reg = <0x08 0x58350221>;
 				qcom,swr-dmic-prefix = "SWR_MIC1";
-				qcom,codec-name = "swr-dmic-02";
+				qcom,codec-name = "swr-dmic.02";
 				qcom,swr-dmic-supply = <1>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
@@ -101,7 +101,7 @@
 				compatible = "qcom,swr-dmic";
 				reg = <0x08 0x58350222>;
 				qcom,swr-dmic-prefix = "SWR_MIC2";
-				qcom,codec-name = "swr-dmic-03";
+				qcom,codec-name = "swr-dmic.03";
 				qcom,swr-dmic-supply = <1>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
@@ -110,7 +110,7 @@
 				compatible = "qcom,swr-dmic";
 				reg = <0x08 0x58350223>;
 				qcom,swr-dmic-prefix = "SWR_MIC3";
-				qcom,codec-name = "swr-dmic-04";
+				qcom,codec-name = "swr-dmic.04";
 				qcom,swr-dmic-supply = <3>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
@@ -198,6 +198,7 @@
 				qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
 				qcom,cdc-vdd-1p8-current = <20000>;
 				qcom,cdc-static-supplies = "cdc-vdd-1p8";
+				qcom,wsa-prefix = "SpkrLeft";
 			};
 
 			wsa883x_0222: wsa883x@02170222 {
@@ -210,6 +211,7 @@
 				qcom,cdc-vdd-1p8-voltage = <1800000 1800000>;
 				qcom,cdc-vdd-1p8-current = <20000>;
 				qcom,cdc-static-supplies = "cdc-vdd-1p8";
+				qcom,wsa-prefix = "SpkrRight";
 			};
 		};
 	};
@@ -338,19 +340,17 @@
 		"Digital Mic5", "VA MIC BIAS4";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec  = <&stub_codec>, <&bolero>,
+		      <&wcd938x_codec>,
+		      <&wsa883x_0221>, <&wsa883x_0222>,
+		      <&swr_dmic_01>, <&swr_dmic_02>,
+		      <&swr_dmic_03>, <&swr_dmic_04>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-			   "msm-ext-disp-audio-codec-rx";
+			   "wcd938x_codec",
+			   "wsa-codec1", "wsa-codec2",
+			   "swr-dmic.01", "swr-dmic.02",
+			   "swr-dmic.03", "swr-dmic.04";
 	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa883x_0221>, <&wsa883x_0222>;
-	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight";
-	qcom,codec-max-aux-devs = <1>;
-	qcom,codec-aux-devs = <&wcd938x_codec>;
-	qcom,swr-dmic-max-devs = <4>;
-	qcom,swr-dmic-devs = <&swr_dmic_01>, <&swr_dmic_02>,
-			     <&swr_dmic_03>, <&swr_dmic_04>;
-	qcom,swr-dmic-prefix = "SWR_MIC0", "SWR_MIC1",
-				"SWR_MIC2", "SWR_MIC3";
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
 				  <&bolero>;
 };
@@ -362,6 +362,7 @@
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
 		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
 		qcom,lpi-gpios;
+		#gpio-cells = <0>;
 	};
 
 	rx_swr_gpios: rx_swr_clk_data_pinctrl {
@@ -372,6 +373,7 @@
 		pinctrl-1 = <&rx_swr_clk_sleep &rx_swr_data_sleep
 				&rx_swr_data1_sleep>;
 		qcom,lpi-gpios;
+		#gpio-cells = <0>;
 	};
 
 	tx_swr_gpios: tx_swr_clk_data_pinctrl {
@@ -382,7 +384,8 @@
 		pinctrl-1 = <&tx_swr_clk_sleep &tx_swr_data0_sleep
 			    &tx_swr_data1_sleep &tx_swr_data2_sleep>;
 		qcom,lpi-gpios;
-		qcom,tlmm-gpio = <169>;
+		qcom,tlmm-pins = <169>;
+		#gpio-cells = <0>;
 	};
 
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
@@ -391,7 +394,8 @@
 		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
 		pinctrl-1 = <&cdc_dmic01_clk_sleep &cdc_dmic01_data_sleep>;
 		qcom,lpi-gpios;
-		qcom,tlmm-gpio = <174 175>;
+		qcom,tlmm-pins = <174 175>;
+		#gpio-cells = <0>;
 	};
 
 	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
@@ -400,7 +404,8 @@
 		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
 		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
 		qcom,lpi-gpios;
-		qcom,tlmm-gpio = <177>;
+		qcom,tlmm-pins = <177>;
+		#gpio-cells = <0>;
 	};
 
 	cdc_dmic45_gpios: cdc_dmic45_pinctrl {
@@ -409,7 +414,8 @@
 		pinctrl-0 = <&cdc_dmic45_clk_active &cdc_dmic45_data_active>;
 		pinctrl-1 = <&cdc_dmic45_clk_sleep &cdc_dmic45_data_sleep>;
 		qcom,lpi-gpios;
-		qcom,tlmm-gpio = <180>;
+		qcom,tlmm-pins = <180>;
+		#gpio-cells = <0>;
 	};
 };
 

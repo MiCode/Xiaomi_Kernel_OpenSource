@@ -3,7 +3,7 @@
 
 #include "lahaina-pmic-overlay.dtsi"
 #include "lahaina-audio-overlay.dtsi"
-#include "display/lahaina-sde-display-cdp.dtsi"
+#include "lahaina-thermal-overlay.dtsi"
 
 &spmi_debug_bus {
 	status = "ok";
@@ -30,6 +30,12 @@
 			debounce-interval = <15>;
 			linux,can-disable;
 		};
+	};
+
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 38 0>;
+		qcom,finger-detect-gpio = <&tlmm 39 0>;
 	};
 
 	extcon_usb1: extcon_usb1 {
@@ -66,33 +72,51 @@
 		st,reset-gpio = <&tlmm 22 0x00>;
 		st,regulator_dvdd = "vdd";
 		st,regulator_avdd = "avdd";
-		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
-			 &dsi_sw43404_amoled_fhd_plus_cmd>;
 	};
-	qcom,qbt_handler {
-		compatible = "qcom,qbt-handler";
-		qcom,ipc-gpio = <&tlmm 38 0>;
-		qcom,finger-detect-gpio = <&tlmm 39 0>;
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <23 0x2008>;
+		focaltech,reset-gpio = <&tlmm 22 0x00>;
+		focaltech,irq-gpio = <&tlmm 23 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+
+		vdd-supply = <&L3C>;
+		vcc_i2c-supply = <&L8C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		// panel = <&dsi_r66451_amoled_cmd
+		// 	 &dsi_r66451_amoled_video>;
+		status = "disabled";
 	};
-};
 
-&i3c3 {
-	se-clock-frequency = <19200000>;
-	i3c-scl-hz = <3500000>;
-	i2c-scl-hz = <400000>;
-	status = "ok";
+	atmel_mxt_ts@4a {
+		compatible = "atmel,maxtouch";
+		reg = <0x4a>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <23 0x2008>;
+		avdd-supply = <&L3C>;
+		vdd-supply = <&L8C>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 
-	sn@0,23600000000 {
-		compatible = "qcom,sn-nci-i3c";
-		reg = <0x0 0x236 0x00000000>;
-		qcom,sn-ven = <&tlmm 62 0x00>;
-		qcom,sn-firm = <&tlmm 86 0x00>;
-		qcom,sn-clkreq = <&tlmm 63 0x00>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&nfc_enable_active &nfc_fwdl_active
-					&nfc_clk_req_active>;
-		pinctrl-1 = <&nfc_enable_suspend &nfc_fwdl_suspend
-					&nfc_clk_req_suspend>;
+		atmel,xy_switch;
+		atmel,inverty;
+		atmel,invertx;
+		reset-gpios = <&tlmm 22 0x00>;
+		irq-gpios = <&tlmm 23 0x2008>;
+		atmel,panel-coords = <0 0 479 799>;
+		atmel,display-coords = <0 0 339 729>;
+		// panel = <&dsi_sharp_qhd_plus_dsc_cmd>;
+		status = "disabled";
 	};
 };
 
@@ -178,4 +202,6 @@
 	extcon = <&extcon_usb1>;
 };
 
-#include "camera/lahaina-camera-sensor-cdp.dtsi"
+&wil6210 {
+	status = "ok";
+};

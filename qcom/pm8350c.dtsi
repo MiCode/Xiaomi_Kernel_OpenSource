@@ -71,6 +71,18 @@
 			};
 		};
 
+		pm8350c_bcl: bcl@4700 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x4700 0x100>;
+			interrupts = <0x2 0x47 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x47 0x1 IRQ_TYPE_NONE>,
+					<0x2 0x47 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1",
+						"bcl-lvl2";
+			#thermal-sensor-cells = <1>;
+		};
+
 		pm8350c_flash: qcom,flash_led@ee00 {
 			compatible = "qcom,pm8350c-flash-led";
 			reg = <0xee00>;
@@ -205,6 +217,51 @@
 				temperature = <145000>;
 				hysteresis = <0>;
 				type = "critical";
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8350c_bcl 5>;
+
+		trips {
+			c_bcl_lvl0: c-bcl-lvl0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8350c_bcl 6>;
+
+		trips {
+			c_bcl_lvl1: c-bcl-lvl1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8350c_bcl 7>;
+
+		trips {
+			c_bcl_lvl2: c-bcl-lvl2 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
 			};
 		};
 	};

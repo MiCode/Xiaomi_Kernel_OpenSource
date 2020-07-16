@@ -38,6 +38,20 @@
 	};
 };
 
+&pm8350c_gpios {
+	lcd_backlight_ctrl {
+		lcd_backlight_ctrl_default: lcd_backlight_ctrl_default {
+			pins = "gpio9";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <1>;	/* 1.8V */
+			qcom,drive-strength = <2>;
+		};
+	};
+};
+
 &qupv3_se13_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -208,7 +222,7 @@
 			L3J: pm8008j_l3: regulator@4200 {
 				reg = <0x4200>;
 				regulator-name = "pm8008j_l3";
-				regulator-min-microvolt = <1800000>;
+				regulator-min-microvolt = <1728000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <70000>;
 			};
@@ -216,7 +230,7 @@
 			L4J: pm8008j_l4: regulator@4300 {
 				reg = <0x4300>;
 				regulator-name = "pm8008j_l4";
-				regulator-min-microvolt = <1800000>;
+				regulator-min-microvolt = <1728000>;
 				regulator-max-microvolt = <1800000>;
 				qcom,min-dropout-voltage = <70000>;
 			};
@@ -240,7 +254,7 @@
 			L7J: pm8008j_l7: regulator@4600 {
 				reg = <0x4600>;
 				regulator-name = "pm8008j_l7";
-				regulator-min-microvolt = <3000000>;
+				regulator-min-microvolt = <2808000>;
 				regulator-max-microvolt = <3600000>;
 				qcom,min-dropout-voltage = <200000>;
 			};
@@ -326,6 +340,18 @@
 &pm8350b_tz {
 	io-channels = <&pmk8350_vadc PM8350B_ADC7_DIE_TEMP>;
 	io-channel-names = "thermal";
+};
+
+&pmk8350_sdam_2 {
+	hap_cl_brake: cl_brake@7c {
+		reg = <0x7c 0x1>;
+		bits = <0 8>;
+	};
+};
+
+&pm8350b_haptics {
+	nvmem-cell-names = "hap_cl_brake";
+	nvmem-cells = <&hap_cl_brake>;
 };
 
 &pmr735a_tz {

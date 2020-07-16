@@ -70,11 +70,34 @@ Properties:
 		or if it's defined as an array with all zeros, then manual
 		brake is disabled.
 
+- qcom,fifo-empty-threshold:
+  Usage:	optional
+  Value type:	<u32>
+  Definition:	Specifies the FIFO empty threshold. The "fifo-empty" IRQ will be
+		triggered when the number of the samples in the FIFO is less
+		than the threshold. For PM8350B v1, allowed value is 1 - 103
+		and the default value is 48. For PM8350B v2, allowed value is
+		1 - 639 and the default value is 280.
+
 - qcom,use-erm:
   Usage:	optional
   Value type:	<bool>
   Definition:	Specifies if the hardware is driving an ERM actuator. If it's
 		not defined, then LRA actuator is used.
+
+- nvmem-cell-names:
+  Usage:	optional
+  Value type:	<string>
+  Definition:	The nvmem cell name of the SDAM module where the closed-loop
+		brake calibration settings can be stored. It must be
+		"hap_cl_brake".
+
+- nvmem-cells:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the nvmem cell to store the closed-loop brake
+		calibration settings. Please refer to nvmem bindings as
+		described in bindings/nvmem/nvmem.txt.
 
 The following properties are only required when LRA actuator is used:
 
@@ -107,6 +130,12 @@ The following properties are only required when LRA actuator is used:
   Definition:	Specifies the brake signal gain when sine brake signal shape
 		is selected. Please refer to:
 		include/dt-bindings/input/qcom,hv-haptics.h.
+
+A child node named "qcom,hap-swr-slave-reg" can be defined to export a regulator
+device which is used for swr-haptics module to control the online status of SWR
+slave. The child node should have following property for this regulator device:
+
+- regulator-name: Please refer to: bindings/regulator/regulator.txt.
 
 The following properties should be specified in child nodes for defining
 different vibration effects:
@@ -160,10 +189,11 @@ different vibration effects:
 - qcom,wf-fifo-data:
   Usage:	optional
   Value type:	<prop-encoded-array>
-  Definition:	Defines a 9-bit data array of patterns which will be filled
-		into the FIFO memory and played when FIFO mode is selected.
-		The array needs to be specified as 16-bit using '/bits/ 16'
-		parameter. Either "qcom,wf-pattern-data" or "qcom,wf-fifo-data"
+  Definition:	Defines a byte array of patterns which will be filled into
+		the FIFO memory and played when FIFO mode is selected.
+		The array needs to be specified as 8-bit using '/bits/ 8'
+		parameter, or using '[]' instead of '<>'.
+		Either "qcom,wf-pattern-data" or "qcom,wf-fifo-data"
 		need to be defined in one effect child node. If both are
 		defined, then the FIFO data defined in this property will be
 		ignored.
@@ -215,12 +245,18 @@ Example:
 		reg = <0xf000>, <0xf100>;
 		interrupts = <0x3 0xf0 0x1 IRQ_TYPE_EDGE_BOTH>;
 		interrupt-names = "fifo-empty";
+		nvmem-cell-names = "hap_cl_brake";
+		nvmem-cells = <&hap_cl_brake>;
 		qcom,vmax-mv = <900>;
 		qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
 		qcom,brake-pattern = /bits/ 8 <0xff 0x3f 0x1f>;
 		qcom,lra-period-us = <5880>;
 		qcom,drv-sig-shape = <WF_SINE>;
 		qcom,brake-sig-shape = <WF_SINE>;
+
+		qcom,hap-swr-slave-reg {
+			regulator-name = "hap-swr-slave-reg";
+		};
 
 		effect_0 {
 			/* CLICK effect */
@@ -244,9 +280,9 @@ Example:
 			/* DOUBLE_CLICK effect */
 			qcom,effect-id = <1>;
 			qcom,wf-vmax-mv = <5000>;
-			qcom,wf-fifo-data = /bits/ 16 <0x1ff 0x1ff 0x1ff 0x1ff 0x1ff
-					    0x1ff 0x1ff 0x1ff 0x1ff 0x1ff
-					    0x1ff 0x1ff 0x1ff 0x1ff 0x1ff>;
+			qcom,wf-fifo-data = /bits/ 8 <0xff 0xff 0xff 0xff 0xff
+					    0xff 0xff 0xff 0xff 0xff
+					    0xff 0xff 0xff 0xff 0xff>;
 			qcom,wf-fifo-period = <S_PERIOD_F_8KHZ>;
 			qcom,wf-brake-pattern = /bits/ 8 <0x7f 0x5f 0x3f>;
 			qcom,wf-auto-res-disable;

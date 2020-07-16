@@ -3,7 +3,9 @@ Qualcomm Technologies, Inc. Graphics Clock & Reset Controller Binding
 
 Required properties :
 - compatible : shall contain "qcom,sdm845-gpucc" or "qcom,msm8998-gpucc",
-		"qcom,lahaina-gpucc.
+		"qcom,lahaina-gpucc",
+		"qcom,shima-gpucc",
+		"qcom,holi-gpucc".
 - reg: shall contain base register offset and size.
 - reg-names: names of registers listed in the same order as in the reg property.
 		Must contain "cc_base".

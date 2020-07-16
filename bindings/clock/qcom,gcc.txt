@@ -24,6 +24,12 @@ Required properties :
 			"qcom,gcc-sdm660"
 			"qcom,gcc-sdm845"
 			"qcom,lahaina-gcc"
+			"qcom,gcc-sm8150"
+			"qcom,gcc-sm8150-v2"
+			"qcom,gcc-sa8155"
+			"qcom,gcc-sa8155-v2"
+			"qcom,shima-gcc"
+			"qcom,holi-gcc"
 
 - reg : shall contain base register location and length
 - vdd_cx-supply: The vdd_cx logic rail supply.

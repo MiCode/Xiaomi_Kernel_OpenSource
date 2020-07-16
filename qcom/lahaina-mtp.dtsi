@@ -3,7 +3,7 @@
 
 #include "lahaina-pmic-overlay.dtsi"
 #include "lahaina-audio-overlay.dtsi"
-#include "display/lahaina-sde-display-mtp.dtsi"
+#include "lahaina-thermal-overlay.dtsi"
 
 &spmi_debug_bus {
 	status = "ok";
@@ -30,6 +30,12 @@
 			debounce-interval = <15>;
 			linux,can-disable;
 		};
+	};
+
+	qcom,qbt_handler {
+		compatible = "qcom,qbt-handler";
+		qcom,ipc-gpio = <&tlmm 38 0>;
+		qcom,finger-detect-gpio = <&tlmm 39 0>;
 	};
 
 	extcon_usb1: extcon_usb1 {
@@ -68,33 +74,6 @@
 		st,y-flip = <1>;
 		st,regulator_dvdd = "vdd";
 		st,regulator_avdd = "avdd";
-		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
-			 &dsi_sw43404_amoled_fhd_plus_cmd>;
-	};
-	qcom,qbt_handler {
-		compatible = "qcom,qbt-handler";
-		qcom,ipc-gpio = <&tlmm 38 0>;
-		qcom,finger-detect-gpio = <&tlmm 39 0>;
-	};
-};
-
-&i3c3 {
-	se-clock-frequency = <19200000>;
-	i3c-scl-hz = <3500000>;
-	i2c-scl-hz = <400000>;
-	status = "ok";
-
-	sn@0,23600000000 {
-		compatible = "qcom,sn-nci-i3c";
-		reg = <0x0 0x236 0x00000000>;
-		qcom,sn-ven = <&tlmm 62 0x00>;
-		qcom,sn-firm = <&tlmm 86 0x00>;
-		qcom,sn-clkreq = <&tlmm 63 0x00>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&nfc_enable_active &nfc_fwdl_active
-					&nfc_clk_req_active>;
-		pinctrl-1 = <&nfc_enable_suspend &nfc_fwdl_suspend
-					&nfc_clk_req_suspend>;
 	};
 };
 
@@ -180,4 +159,10 @@
 	extcon = <&extcon_usb1>;
 };
 
-#include "camera/lahaina-camera-sensor-mtp.dtsi"
+&battery_charger {
+	qcom,thermal-mitigation = <3000000 1500000 1000000 500000>;
+};
+
+&wil6210 {
+	status = "ok";
+};

@@ -57,6 +57,10 @@ Subsystem properties:
 		24. sys_therm1
 		25. sys_therm2
 		26. modem_tsens1
+		27. mmw_pa1
+		28. mmw_pa2
+		29. mmw_pa3
+		30. sdr_mmw_therm
 
 Example:
 

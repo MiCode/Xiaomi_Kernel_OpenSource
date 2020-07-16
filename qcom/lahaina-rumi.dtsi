@@ -1,6 +1,5 @@
 #include "lahaina-pmic-overlay.dtsi"
 #include <dt-bindings/gpio/gpio.h>
-#include "display/lahaina-sde-display-rumi.dtsi"
 
 &arch_timer {
 	clock-frequency = <96000>;
@@ -12,6 +11,11 @@
 
 &spmi_debug_bus {
 	status = "ok";
+};
+
+/* Debug UART console */
+&qupv3_se3_2uart {
+	qcom,rumi_platform;
 };
 
 &ufsphy_mem {

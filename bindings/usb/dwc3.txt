@@ -108,6 +108,14 @@ Optional properties:
 			When just one value, which means INCRX burst mode enabled. When
 			more than one value, which means undefined length INCR burst type
 			enabled. The values can be 1, 4, 8, 16, 32, 64, 128 and 256.
+ - snps,gen2-tx-de-emph: This register is for setting TX deemphasis used in
+			normal operation in gen2.
+ - snps,gen2-tx-de-emph1: This register is for setting TX deemphasis used in
+			compliance mode, pattern 13.
+ - snps,gen2-tx-de-emph2: This register is for setting TX deemphasis used in
+			compliance mode, pattern 14.
+ - snps,gen2-tx-de-emph3: This register is for setting TX deemphasis used in
+			compliance mode, pattern 16.
 
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well

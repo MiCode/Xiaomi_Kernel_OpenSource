@@ -12,7 +12,7 @@
 			regulator-name = "pm8350_s9_level";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -21,7 +21,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_MXC_LEVEL_AO: S9B_LEVEL_AO:
@@ -60,7 +59,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			pm8350_s5_level-parent-supply = <&VDD_MXC_LEVEL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -70,7 +69,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_MXA_LEVEL_AO: S5B_LEVEL_AO:
@@ -179,6 +177,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350_l2>;
 		L2B: pm8350_l2: regulator-pm8350-l2 {
 			regulator-name = "pm8350_l2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -186,6 +185,8 @@
 			regulator-max-microvolt = <3072000>;
 			qcom,init-voltage = <3072000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <100000>;
 		};
 	};
 
@@ -241,6 +242,25 @@
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 			qcom,proxy-consumer-enable;
 			qcom,proxy-consumer-current = <100000>;
+		};
+
+		L5B_AO: pm8350_l5_ao: regulator-pm8350-l5-ao {
+			regulator-name = "pm8350_l5_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		regulator-pm8350-l5-so {
+			regulator-name = "pm8350_l5_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-enable = <0>;
 		};
 	};
 
@@ -384,7 +404,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			pm8350c_s6_level-parent-supply = <&VDD_MXA_LEVEL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -394,7 +414,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_CX_LEVEL_AO: S6C_LEVEL_AO:
@@ -435,7 +454,7 @@
 			pm8350c_s8_level-parent-supply =
 				<&VDD_MXA_MMCX_SUPPLY_LEVEL>;
 			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_TURBO>;
+				<RPMH_REGULATOR_LEVEL_LOW_SVS>;
 			regulator-max-microvolt =
 				<RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level =
@@ -445,7 +464,6 @@
 			qcom,proxy-consumer-voltage =
 				<RPMH_REGULATOR_LEVEL_TURBO
 				 RPMH_REGULATOR_LEVEL_MAX>;
-			regulator-always-on;
 		};
 
 		VDD_MMCX_LEVEL_AO: S8C_LEVEL_AO: VDD_MM_LEVEL_AO:
@@ -494,6 +512,7 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8350c_l1>;
 		L1C: pm8350c_l1: regulator-pm8350c-l1 {
 			regulator-name = "pm8350c_l1";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
@@ -501,6 +520,27 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <100000>;
+		};
+
+		L1C_AO: pm8350c_l1_ao: regulator-pm8350c-l1-ao {
+			regulator-name = "pm8350c_l1_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		regulator-pm8350c-l1-so {
+			regulator-name = "pm8350c_l1_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-enable = <0>;
 		};
 	};
 

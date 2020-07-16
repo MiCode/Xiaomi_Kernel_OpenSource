@@ -1,0 +1,119 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/neuron.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Neuron Configuration
+
+maintainers:
+  - Chris Lew <clew@quicinc.com>
+
+description: |
+  Configuration properties for a Neuron service. This configuration is used by
+  a Neuron service to instantiate the necessary elements to virtualize services
+  between VMs such as the Block and Net protocols.
+
+  A Neuron service has two levels of nodes. The main node represents the service
+  (block, net, etc.) and sub nodes which represent the application, protocol
+  and channel layers.
+
+properties:
+  compatible:
+    const: qcom,neuron-service
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+  protocol:
+    type: object
+    properties:
+      compatible:
+        enum:
+          - qcom,neuron-protocol-dummy
+          - qcom,neuron-protocol-block
+          - qcom,neuron-protocol-net
+
+      processes:
+        oneOf:
+          - $ref: "/schemas/types.yaml#/definitions/string"
+          - enum:
+            - client
+            - server
+        description: String to specify whether the protocol operates in client
+                     or server mode
+
+  application:
+    type: object
+    properties:
+      compatible:
+        enum:
+          - qcom,neuron-dummy-client
+          - qcom,neuron-dummy-server
+          - qcom,neuron-block-client
+          - qcom,neuron-block-server
+          - qcom,neuron-net-client
+          - qcom,neuron-net-server
+
+patternProperties:
+  '^channel@[0-9a-f]*$':
+    type: object
+    properties:
+      compatible:
+        enum:
+          - qcom,neuron-channel-mq-loopback
+          - qcom,neuron-channel-mq-shmem
+          - qcom,neuron-channel-haven-shmem
+
+      direction:
+        oneOf:
+          - $ref: "/schemas/types.yaml#/definitions/string"
+          - enum:
+            - send
+            - receive
+        description: String to specify whether the channel is used to send or
+                     receive for this virtual machine.
+
+required:
+  -compatible
+  -#address-cells
+  -#size-cells
+  -protocol
+  -application
+
+examples:
+  - |
+    shmem-server-block {
+        compatible = "qcom,neuron-service";
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        protocol {
+            compatible = "qcom,neuron-protocol-block";
+            processes = "server";
+        };
+
+        application {
+            compatible = "qcom,neuron-block-server";
+        };
+
+        channel@0 {
+            compatible = "cog,neuron-channel-mq-shmem";
+            direction = "receive";
+            max-size = <0 65536>;
+            shared-buffer = <&chan0_shbuf>;
+            outgoing-notification = <&chan0_int_line>;
+            incoming-notification = <&chan0_virq>;
+        };
+
+        channel@1 {
+            compatible = "cog,neuron-channel-mq-shmem";
+            direction = "send";
+            max-size = <0 65536>;
+            shared-buffer = <&chan1_shbuf>;
+            outgoing-notification = <&chan1_int_line>;
+            incoming-notification = <&chan1_virq>;
+        };
+    };

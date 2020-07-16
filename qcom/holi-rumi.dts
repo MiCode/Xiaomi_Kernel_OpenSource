@@ -1,0 +1,11 @@
+/dts-v1/;
+/memreserve/ 0x50000000 0x00000100;
+
+#include "holi.dtsi"
+#include "holi-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi RUMI";
+	compatible = "qcom,holi-rumi", "qcom,holi", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
