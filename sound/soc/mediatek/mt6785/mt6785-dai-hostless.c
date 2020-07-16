@@ -385,7 +385,7 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 	},
 	{
 		.name = "Hostless HW Gain AAudio DAI",
-		.id = MT6873_DAI_HOSTLESS_HW_GAIN_AAUDIO,
+		.id = MT6785_DAI_HOSTLESS_HW_GAIN_AAUDIO,
 		.capture = {
 			.stream_name = "Hostless HW Gain AAudio In",
 			.channels_min = 1,
@@ -397,7 +397,7 @@ static struct snd_soc_dai_driver mtk_dai_hostless_driver[] = {
 	},
 	{
 		.name = "Hostless SRC AAudio DAI",
-		.id = MT6873_DAI_HOSTLESS_SRC_AAUDIO,
+		.id = MT6785_DAI_HOSTLESS_SRC_AAUDIO,
 		.playback = {
 			.stream_name = "Hostless SRC AAudio DL",
 			.channels_min = 1,
