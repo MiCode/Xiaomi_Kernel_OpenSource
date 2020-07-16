@@ -55,8 +55,9 @@ static void conn_md_log_add_msg(struct conn_md_time_struct *cur_time)
 	if (g_log_msg_info.msg_total == 0)
 		g_log_msg_info.msg_begin_time = *cur_time;
 
-	snprintf(buf, CONN_MD_MSG_TIME_LENGTH, " %llu.%03lu",
-		 cur_time->sec, cur_time->msec);
+	if (snprintf(buf, CONN_MD_MSG_TIME_LENGTH, " %llu.%03lu", cur_time->sec,
+		cur_time->msec) < 0)
+		return;
 
 	msg_buf_size = strlen(buf);
 	remain_size = CONN_MD_BUF_SIZE - strlen(g_log_msg_info.msg_buf) - 1;
@@ -546,7 +547,7 @@ int conn_md_dmp_msg_logged(uint32 src_id, uint32 dst_id)
 
 static int __init conn_md_init(void)
 {
-	int i_ret = -1;
+	int i_ret = 0;
 	struct conn_md_queue *p_queue = NULL;
 	struct conn_md_user_list *p_user_list = NULL;
 
