@@ -214,7 +214,8 @@ static ssize_t adsp_debug_read(struct file *filp, char __user *buf,
 	buffer = adsp_get_reserve_mem_virt(memid);
 	max_size = adsp_get_reserve_mem_size(memid);
 
-	n = strnlen(buffer, max_size);
+	if (buffer)
+		n = strnlen(buffer, max_size);
 
 	return simple_read_from_buffer(buf, count, pos, buffer, n);
 }

@@ -234,7 +234,7 @@ enum adsp_ipi_status adsp_ipi_registration(
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name)
 {
-	if (id < ADSP_NR_IPI) {
+	if (id < ADSP_NR_IPI && id >= 0) {
 		adsp_ipi_descs[id].name = name;
 
 		if (ipi_handler == NULL)
@@ -253,7 +253,7 @@ EXPORT_SYMBOL_GPL(adsp_ipi_registration);
  */
 enum adsp_ipi_status adsp_ipi_unregistration(enum adsp_ipi_id id)
 {
-	if (id < ADSP_NR_IPI) {
+	if (id < ADSP_NR_IPI && id >= 0) {
 		adsp_ipi_descs[id].name = "";
 		adsp_ipi_descs[id].handler = NULL;
 		return ADSP_IPI_DONE;

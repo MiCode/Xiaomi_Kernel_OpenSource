@@ -32,7 +32,7 @@ int adsp_set_top_mux(enum adsp_clk clk)
 
 	pr_debug("%s(%x)\n", __func__, clk);
 
-	if (clk >= ADSP_CLK_NUM)
+	if (clk >= ADSP_CLK_NUM  || clk < 0)
 		return -EINVAL;
 
 	ret = clk_set_parent(adsp_clks[CLK_TOP_ADSP_SEL].clock,
