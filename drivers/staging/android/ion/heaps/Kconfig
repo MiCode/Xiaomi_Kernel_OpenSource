@@ -13,3 +13,12 @@ config ION_CMA_HEAP
 	  Choose this option to enable CMA heaps with Ion. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config ION_MTK_IOMMU_HEAP
+	tristate "Ion mtk_iommu heap"
+	depends on ION
+	help
+	  Choose this option to enable the Ion mtk_iommu heap. Compared with
+	  ion_system_heap, it optimizes some func implementations which include
+	  map/unmap dma_address and dma_buf_release to improve performance for
+	  MTK platform.
