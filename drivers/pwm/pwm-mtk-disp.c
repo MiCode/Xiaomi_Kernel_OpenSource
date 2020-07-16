@@ -67,7 +67,6 @@ struct mtk_disp_pwm {
 	bool pwm_src_enabled;
 	u32 source_rate;
 	bool pwm_src_set;
-	u32 source_fmeter_base;
 
 };
 
@@ -88,32 +87,12 @@ static void mtk_disp_pwm_update_bits(struct mtk_disp_pwm *mdp, u32 offset,
 	writel(value, address);
 }
 
-static int get_pwm_src_rate(struct mtk_disp_pwm *mdp)
-{
-
-	mdp->source_rate = 0;
-
-	mdp->source_rate = mt_get_ckgen_freq(mdp->source_fmeter_base)*1000;
-
-	if (mdp->source_rate == 0) {
-		dev_notice(mdp->chip.dev,
-			"get freq fail %d\n", mdp->source_rate);
-	}
-
-	return mdp->source_rate;
-}
-
 static int get_pwm_src_base(struct device *dev, struct mtk_disp_pwm *mdp)
 {
 	int ret = 0;
 	struct device_node *node;
 	void __iomem *pmw_src_base;
 	u32 addr_offset = 0;
-
-	ret = of_property_read_u32(dev->of_node, "pwm_src_fmeter_id",
-		&mdp->source_fmeter_base);
-	if (ret < 0)
-		dev_info(dev, "no pwm_src_fmeter_id\n");
 
 	node = of_parse_phandle(dev->of_node, "pwm_src_base", 0);
 	if (!node) {
@@ -198,9 +177,7 @@ static int mtk_disp_pwm_config_impl(struct mtk_disp_pwm *mdp,
 	 * high_width = (PWM_CLK_RATE * duty_ns) / (10^9 * (clk_div + 1))
 	 */
 	dev_notice(mdp->chip.dev, "duty=%d period=%d\n", duty_ns, period_ns);
-	rate = mdp->source_rate;
-	if (rate == 0)
-		rate = clk_get_rate(mdp->clk_main);
+	rate = clk_get_rate(mdp->clk_main);
 
 	clk_div = div_u64(rate * period_ns, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
@@ -282,7 +259,6 @@ static int mtk_disp_pwm_enable_impl(struct mtk_disp_pwm *mdp)
 					dev_info(mdp->chip.dev, "no pwm_src\n");
 			dev_info(mdp->chip.dev, "select clk_mm with pwm_src\n");
 		}
-		get_pwm_src_rate(mdp);
 		mdp->pwm_src_set = true;
 	}
 
