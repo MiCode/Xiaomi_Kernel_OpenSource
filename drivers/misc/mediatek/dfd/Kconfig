@@ -1,6 +1,7 @@
 config MTK_DFD_INTERNAL_DUMP
 	bool "Enable MediaTek DFD internal dump"
 	select MTK_PLAT_SRAM_FLAG
+	default n
 	help
 	  DFD (Design for Debug) is a debugging tool,
 	  which scans flip-flops and dumps to internal

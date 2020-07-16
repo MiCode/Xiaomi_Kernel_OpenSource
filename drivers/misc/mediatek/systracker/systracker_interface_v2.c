@@ -29,8 +29,6 @@
 #include <mt-plat/sync_write.h>
 #include "systracker_v2.h"
 
-#define TRACKER_DEBUG 1
-
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
@@ -172,8 +170,15 @@ int systracker_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int systracker_resume_default(struct platform_device *pdev)
 {
-	if (track_config.state || track_config.enable_wp)
+	/*
+	 * due to watchpoint address is locate in nao domain, we need to
+	 * setup address and enable again after system resume
+	 */
+	if (track_config.state || track_config.enable_wp) {
+		systracker_watchpoint_disable();
+		systracker_watchpoint_enable();
 		systracker_enable();
+	}
 
 	return 0;
 }
@@ -336,7 +341,7 @@ static int systracker_watchpoint_enable_default(void)
 	track_config.enable_wp = 1;
 
 	writel(track_config.wp_phy_address, IOMEM(BUS_DBG_WP));
-	writel(0x00000000, IOMEM(BUS_DBG_WP_MASK));
+	writel(track_config.wp_phy_mask, IOMEM(BUS_DBG_WP_MASK));
 
 	con = readl(IOMEM(BUS_DBG_CON_INFRA)) | BUS_DBG_CON_WP_EN;
 	writel(con, IOMEM(BUS_DBG_CON_INFRA));
@@ -476,7 +481,7 @@ void systracker_enable_default(void)
 		con |= BUS_DBG_CON_TIMEOUT_EN;
 
 	if (track_config.enable_slave_err)
-		con |= BUS_DBG_CON_SLV_ERR_EN;
+		con |= (BUS_DBG_CON_SLV_ERR_EN | BUS_DBG_CON_WSLV_ERR_EN);
 
 	if (track_config.enable_irq) {
 		con |= BUS_DBG_CON_IRQ_EN;
@@ -775,6 +780,13 @@ int systracker_set_watchpoint_addr(unsigned int addr)
 	return 0;
 }
 
+int systracker_set_watchpoint_mask(unsigned int mask)
+{
+	track_config.wp_phy_mask = mask;
+
+	return 0;
+}
+
 static ssize_t set_wp_address_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
@@ -784,23 +796,12 @@ static ssize_t set_wp_address_store
 	ret = kstrtou32(buf, 16, &value);
 	pr_debug("watch address:0x%x, ret = %d\n", value, ret);
 	systracker_set_watchpoint_addr(value);
+	systracker_set_watchpoint_mask(0);
 
 	return count;
 }
 
 static DRIVER_ATTR_RW(set_wp_address);
-
-static ssize_t tracker_entry_dump_show
-	(struct device_driver *driver, char *buf)
-{
-	int ret = tracker_dump(buf);
-
-	if (ret == -1)
-		pr_notice("Dump error in %s, %d\n", __func__, __LINE__);
-
-	return strlen(buf);
-}
-
 
 static ssize_t tracker_swtrst_show(struct device_driver *driver, char *buf)
 {
@@ -926,14 +927,6 @@ static ssize_t test_suit_store
 static DRIVER_ATTR_RW(test_suit);
 #endif
 
-static ssize_t tracker_entry_dump_store
-	(struct device_driver *driver, const char *buf, size_t count)
-{
-	return count;
-}
-
-static DRIVER_ATTR_RW(tracker_entry_dump);
-
 static ssize_t tracker_last_status_show
 	(struct device_driver *driver, char *buf)
 {
@@ -970,8 +963,6 @@ static int __init systracker_init(void)
 		return err;
 
 	/* Create sysfs entry */
-	ret  = driver_create_file(&mt_systracker_drv.driver.driver,
-		&driver_attr_tracker_entry_dump);
 	ret |= driver_create_file(&mt_systracker_drv.driver.driver,
 		&driver_attr_tracker_run);
 	ret |= driver_create_file(&mt_systracker_drv.driver.driver,
