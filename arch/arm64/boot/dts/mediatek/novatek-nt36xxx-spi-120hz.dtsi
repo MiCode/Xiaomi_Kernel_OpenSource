@@ -15,11 +15,19 @@
  * more details.
  *
  */
-
 &spi4 {
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	pinctrl-names = "default", "gt9896s_int_active",
+		"gt9896s_reset_active", "gt9896s_int_suspend",
+		"gt9896s_reset_suspend", "gt9896s_spi_mode";
+	pinctrl-0 = <&ctp_gt9896s_pins_default>;
+	pinctrl-1 = <&ctp_gt9896s_int_active>;
+	pinctrl-2 = <&ctp_gt9896s_reset_active>;
+	pinctrl-3 = <&ctp_gt9896s_int_suspend>;
+	pinctrl-4 = <&ctp_gt9896s_reset_suspend>;
+	pinctrl-5 = <&ctp_gt9896s_spi_mode>;
 
 	/* Novatek device tree node */
 	novatek@0 {
@@ -522,6 +530,44 @@
 			    (-75) (-75) (-75)>;
 
 			PS_Config_Diff_Test_Frame = <50>;
+		};
+	};
+};
+
+&pio {
+	ctp_gt9896s_pins_default: pins_default {
+	};
+	ctp_gt9896s_int_active: int1_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			input-enable;
+		};
+	};
+	ctp_gt9896s_reset_active: reset1_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			output-high;
+		};
+	};
+	ctp_gt9896s_int_suspend: int1_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			output-low;
+		};
+	};
+	ctp_gt9896s_reset_suspend: reset1_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			output-low;
+		};
+	};
+	ctp_gt9896s_spi_mode: spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO18__FUNC_SPI4_C_MI>,
+				<PINMUX_GPIO19__FUNC_SPI4_C_MO>,
+				<PINMUX_GPIO204__FUNC_SPI4_C_CLK>,
+				<PINMUX_GPIO205__FUNC_SPI4_C_CSB>;
+			drive-strength = <2>;
 		};
 	};
 };
