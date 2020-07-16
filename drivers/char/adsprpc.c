@@ -3211,7 +3211,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	 * apps are not allowed to offload to signedPD on DSP. This is detected
 	 * by comparing current PID with the one stored during device open.
 	 */
-	if (fl->tgid != fl->tgid_open) {
+	if (current->tgid != fl->tgid_open) {
 		VERIFY(err, uproc->attrs & FASTRPC_MODE_UNSIGNED_MODULE);
 		if (err) {
 			err = -EINVAL;
