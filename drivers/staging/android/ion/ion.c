@@ -47,7 +47,6 @@
 #include "ion.h"
 #include "ion_priv.h"
 #include "compat_ion.h"
-#include <trace/events/kmem.h>
 #include "aee.h"
 #include "mtk/ion_profile.h"
 #include "mtk/mtk_ion.h"
@@ -397,8 +396,6 @@ exit:
 	ion_buffer_add(dev, buffer);
 	mutex_unlock(&dev->buffer_lock);
 	atomic_long_add(len, &total_heap_bytes);
-	trace_ion_heap_grow(heap->name, len,
-			    atomic_long_read(&heap->total_allocated));
 	atomic_long_add(len, &heap->total_allocated);
 	return buffer;
 
@@ -416,8 +413,6 @@ void ion_buffer_destroy(struct ion_buffer *buffer)
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
 	}
 
-	trace_ion_heap_shrink(buffer->heap->name,  buffer->size,
-			      atomic_long_read(&buffer->heap->total_allocated));
 	atomic_long_sub(buffer->size, &buffer->heap->total_allocated);
 	buffer->heap->ops->free(buffer);
 	vfree(buffer->pages);
