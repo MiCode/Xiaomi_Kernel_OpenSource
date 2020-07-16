@@ -83,6 +83,28 @@
 		panel = <&dsi_sw43404_amoled_cmd &dsi_sw43404_amoled_video
 			 &dsi_sw43404_amoled_fhd_plus_cmd>;
 	};
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <23 0x2008>;
+		focaltech,reset-gpio = <&tlmm 22 0x00>;
+		focaltech,irq-gpio = <&tlmm 23 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+
+		vdd-supply = <&L3C>;
+		vcc_i2c-supply = <&L8C>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		panel = <&dsi_r66451_amoled_cmd
+			 &dsi_r66451_amoled_video>;
+	};
 };
 
 &sdhc_2 {
