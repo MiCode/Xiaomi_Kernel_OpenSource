@@ -8,7 +8,7 @@
 
 		system_heap: qcom,ion-heap@25 {
 			reg = <ION_SYSTEM_HEAP_ID>;
-			qcom,ion-heap-type = "SYSTEM";
+			qcom,ion-heap-type = "MSM_SYSTEM";
 		};
 
 		adsp_heap: qcom,ion-heap@22 {
