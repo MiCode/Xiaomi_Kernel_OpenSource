@@ -2735,8 +2735,11 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 	tsync_node->cb_func = cb_func;
 	tsync_node->mhi_dev = mhi_dev;
 
-	if (mhi_tsync->db_response_pending)
+	if (mhi_tsync->db_response_pending) {
+		mhi_device_put(mhi_cntrl->mhi_dev,
+			       MHI_VOTE_DEVICE | MHI_VOTE_BUS);
 		goto skip_tsync_db;
+	}
 
 	mhi_tsync->int_sequence++;
 	if (mhi_tsync->int_sequence == 0xFFFFFFFF)
