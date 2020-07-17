@@ -1479,6 +1479,13 @@ config KRYO_PMU_WORKAROUND
 
 	  Enable this flag for effect SoCs.
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"
 	depends on OF
@@ -1545,3 +1552,10 @@ source "arch/arm64/kvm/Kconfig"
 if CRYPTO
 source "arch/arm64/crypto/Kconfig"
 endif
+
+config FACTORY_BUILD
+	bool "distiguish factory versionion from dev version"
+	default n
+	help
+	  This macro will be defined Whenen build factory version. It is used to
+	  distinguish factory and dev codes in kernel.

@@ -23,6 +23,11 @@ config ANDROID_VSOC
 	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
 	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
 
+config MIGT
+        bool "boost cpufreq when load high"
+        ---help---
+          Boost cpufreq when current frame drawing time too long
+
 source "drivers/staging/android/ion/Kconfig"
 
 endif # if ANDROID

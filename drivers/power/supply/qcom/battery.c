@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QCOM-BATT: %s: " fmt, __func__
@@ -196,7 +197,7 @@ static int get_hvdcp3_icl_limit(struct pl_data *chip)
 
 	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_REAL_TYPE, &pval);
-	if ((rc < 0) || (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3))
+	if ((rc < 0) || (pval.intval != POWER_SUPPLY_TYPE_USB_HVDCP_3) || (pval.intval == POWER_SUPPLY_TYPE_USB_HVDCP_3P5))
 		return target_icl;
 
 	/*
@@ -230,6 +231,7 @@ static int get_hvdcp3_icl_limit(struct pl_data *chip)
  * USBIN-VBAT:
  *	SMB1390 ILIM: based on FCC portion of SMB1390 and independent of ICL.
  */
+//#define HVDCP3_ICL_UA	2250000
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
 	int rc, fcc, target_icl;
@@ -905,7 +907,7 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 {
 	struct pl_data *chip = data;
 	int master_fcc_ua = total_fcc_ua, slave_fcc_ua = 0;
-	int cp_fcc_ua = 0, rc = 0;
+	int main_fcc_ua = 0, cp_fcc_ua = 0, rc = 0;
 	union power_supply_propval pval = {0, };
 
 	if (total_fcc_ua < 0)
@@ -944,7 +946,14 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 				pr_err("Couldn't get MIN ICL threshold rc=%d\n",
 									rc);
 		}
+	}
+	if (total_fcc_ua - pval.intval * 2 > 0) {
+		cp_fcc_ua = pval.intval * 2;
+		main_fcc_ua = total_fcc_ua - cp_fcc_ua;
+	} else
+		cp_fcc_ua = total_fcc_ua - main_fcc_ua;
 
+	if (cp_fcc_ua > 0) {
 		if (chip->cp_slave_psy && chip->cp_slave_disable_votable) {
 			/*
 			 * Disable Slave CP if FCC share
@@ -1205,6 +1214,8 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	 * check for termination at reduced float voltage and re-trigger
 	 * charging if new float voltage is above last FV.
 	 */
+/* This logic, together with FFC logic, will cause deadlock */
+/*
 	if ((chip->float_voltage_uv < fv_uv) && is_batt_available(chip)) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &pval);
@@ -1225,6 +1236,7 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	}
 
 	chip->float_voltage_uv = fv_uv;
+*/
 
 	return 0;
 }
@@ -1521,6 +1533,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 							chip->fcc_main_votable);
 			if (cp_ilim > 0)
 				cp_configure_ilim(chip, FCC_VOTER, cp_ilim / 2);
+			else
+				cp_configure_ilim(chip, FCC_VOTER, 0);
 
 			/* reset parallel FCC */
 			chip->slave_fcc_ua = 0;

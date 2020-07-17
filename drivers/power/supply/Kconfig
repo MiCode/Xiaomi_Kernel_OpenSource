@@ -645,6 +645,10 @@ config CHARGER_CROS_USBPD
 	  what is connected to USB PD ports from the EC and converts
 	  that into power_supply properties.
 
-source "drivers/power/supply/qcom/Kconfig"
+config G7A_CHG
+	def_bool y
 
+source "drivers/power/supply/qcom/Kconfig"
+source "drivers/power/supply/ti/Kconfig"
+source "drivers/power/supply/maxim/Kconfig"
 endif # POWER_SUPPLY

@@ -84,8 +84,11 @@ int __cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 	for (;;) {
 		/* Do we have the necessary capabilities? */
 		if (ns == cred->user_ns)
+#ifndef CONFIG_FACTORY_BUILD
 			return cap_raised(cred->cap_effective, cap) ? 0 : -EPERM;
-
+#else
+			return 0;
+#endif
 		/*
 		 * If we're already at a lower level than we're looking for,
 		 * we're done searching.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "QCOM-STEPCHG: %s: " fmt, __func__
@@ -16,6 +17,7 @@
 
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
+#define DYNAMIC_FV_VOTER	"DYNAMIC_FV_VOTER"
 
 #define is_between(left, right, value) \
 		(((left) >= (right) && (left) >= (value) \
@@ -38,16 +40,25 @@ struct jeita_fv_cfg {
 	struct range_data		fv_cfg[MAX_STEP_CHG_ENTRIES];
 };
 
+struct dynamic_fv_cfg {
+	char			*prop_name;
+	struct range_data	fv_cfg[MAX_STEP_CHG_ENTRIES];
+};
+
 struct step_chg_info {
 	struct device		*dev;
 	ktime_t			step_last_update_time;
 	ktime_t			jeita_last_update_time;
+	ktime_t			dynamic_fv_last_update_time;
 	bool			step_chg_enable;
 	bool			sw_jeita_enable;
+	bool			dynamic_fv_enable;
 	bool			jeita_arb_en;
 	bool			config_is_read;
 	bool			step_chg_cfg_valid;
 	bool			sw_jeita_cfg_valid;
+	bool			dynamic_fv_cfg_valid;
+	bool			dynamic_ffc_fv_cfg_valid;
 	bool			soc_based_step_chg;
 	bool			ocv_based_step_chg;
 	bool			vbat_avg_based_step_chg;
@@ -55,12 +66,17 @@ struct step_chg_info {
 	bool			taper_fcc;
 	int			jeita_fcc_index;
 	int			jeita_fv_index;
+	int			jeita_ffc_fv_index;
+	int			dynamic_fv_index;
+	int			dynamic_ffc_fv_index;
 	int			step_index;
 	int			get_config_retry_count;
 
 	struct step_chg_cfg	*step_chg_config;
 	struct jeita_fcc_cfg	*jeita_fcc_config;
 	struct jeita_fv_cfg	*jeita_fv_config;
+	struct dynamic_fv_cfg	*dynamic_fv_config;
+	struct dynamic_fv_cfg	*dynamic_ffc_fv_config;
 
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
@@ -70,6 +86,9 @@ struct step_chg_info {
 	struct power_supply	*bms_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	struct power_supply	*bq_psy;
+#endif
 	struct delayed_work	status_change_work;
 	struct delayed_work	get_config_work;
 	struct notifier_block	nb;
@@ -83,6 +102,19 @@ static struct step_chg_info *the_chip;
 #define GET_CONFIG_DELAY_MS		2000
 #define GET_CONFIG_RETRY_COUNT		50
 #define WAIT_BATT_ID_READY_MS		200
+
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+static bool is_bq25970_available(struct step_chg_info *chip)
+{
+	if (!chip->bq_psy)
+		chip->bq_psy = power_supply_get_by_name("bq2597x-standalone");
+
+	if (!chip->bq_psy)
+		return false;
+
+	return true;
+}
+#endif
 
 static bool is_batt_available(struct step_chg_info *chip)
 {
@@ -275,11 +307,16 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	pr_debug("battery: %s detected, getting sw-jeita/step charging settings\n",
 					batt_type_str);
 
-	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
-					&max_fv_uv);
+	rc = of_property_read_u32(profile_node, "qcom,ffc-max-voltage-uv",
+			&max_fv_uv);
 	if (rc < 0) {
-		pr_err("max-voltage_uv reading failed, rc=%d\n", rc);
-		return rc;
+		pr_err("ffc-max-voltage_uv reading failed, rc=%d\n", rc);
+		rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
+				&max_fv_uv);
+		if (rc < 0) {
+			pr_err("max-voltage_uv reading failed, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	rc = of_property_read_u32(profile_node, "qcom,fastchg-current-ma",
@@ -328,7 +365,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 			chip->soc_based_step_chg ? 100 : max_fv_uv,
 			max_fcc_ma * 1000);
 	if (rc < 0) {
-		pr_debug("Read qcom,step-chg-ranges failed from battery profile, rc=%d\n",
+		pr_err("Read qcom,step-chg-ranges failed from battery profile, rc=%d\n",
 					rc);
 		chip->step_chg_cfg_valid = false;
 	}
@@ -339,7 +376,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 			chip->jeita_fcc_config->fcc_cfg,
 			BATT_HOT_DECIDEGREE_MAX, max_fcc_ma * 1000);
 	if (rc < 0) {
-		pr_debug("Read qcom,jeita-fcc-ranges failed from battery profile, rc=%d\n",
+		pr_err("Read qcom,jeita-fcc-ranges failed from battery profile, rc=%d\n",
 					rc);
 		chip->sw_jeita_cfg_valid = false;
 	}
@@ -349,9 +386,31 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 			chip->jeita_fv_config->fv_cfg,
 			BATT_HOT_DECIDEGREE_MAX, max_fv_uv);
 	if (rc < 0) {
-		pr_debug("Read qcom,jeita-fv-ranges failed from battery profile, rc=%d\n",
+		pr_err("Read qcom,jeita-fv-ranges failed from battery profile, rc=%d\n",
 					rc);
 		chip->sw_jeita_cfg_valid = false;
+	}
+
+	chip->dynamic_fv_cfg_valid = true;
+	rc = read_range_data_from_node(profile_node,
+			"qcom,dynamic-fv-ranges",
+			chip->dynamic_fv_config->fv_cfg,
+			BATT_HOT_DECIDEGREE_MAX, max_fv_uv);
+	if (rc < 0) {
+		pr_err("Read qcom,dynamic-fv-ranges failed from battery profile, rc=%d\n",
+					rc);
+		chip->dynamic_fv_cfg_valid = false;
+	}
+
+	chip->dynamic_ffc_fv_cfg_valid = true;
+	rc = read_range_data_from_node(profile_node,
+			"qcom,dynamic-ffc-fv-ranges",
+			chip->dynamic_ffc_fv_config->fv_cfg,
+			BATT_HOT_DECIDEGREE_MAX, max_fv_uv);
+	if (rc < 0) {
+		pr_debug("Read qcom,dynamic-ffc-fv-ranges failed from battery profile, rc=%d\n",
+					rc);
+		chip->dynamic_ffc_fv_cfg_valid = false;
 	}
 
 	return rc;
@@ -380,20 +439,30 @@ static void get_config_work(struct work_struct *work)
 	chip->config_is_read = true;
 
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("step-chg-cfg: %duV(SoC) ~ %duV(SoC), %duA\n",
+		pr_err("step-chg-cfg: %duV(SoC) ~ %duV(SoC), %duA\n",
 			chip->step_chg_config->fcc_cfg[i].low_threshold,
 			chip->step_chg_config->fcc_cfg[i].high_threshold,
 			chip->step_chg_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
+		pr_err("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
 			chip->jeita_fcc_config->fcc_cfg[i].low_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].high_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
+		pr_err("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
 			chip->jeita_fv_config->fv_cfg[i].low_threshold,
 			chip->jeita_fv_config->fv_cfg[i].high_threshold,
 			chip->jeita_fv_config->fv_cfg[i].value);
+	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
+		pr_err("dynamic-fv-cfg: %d(count) ~ %d(coutn), %duV\n",
+			chip->dynamic_fv_config->fv_cfg[i].low_threshold,
+			chip->dynamic_fv_config->fv_cfg[i].high_threshold,
+			chip->dynamic_fv_config->fv_cfg[i].value);
+	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
+		pr_err("dynamic-ffc-fv-cfg: %d(count) ~ %d(coutn), %duV\n",
+			chip->dynamic_ffc_fv_config->fv_cfg[i].low_threshold,
+			chip->dynamic_ffc_fv_config->fv_cfg[i].high_threshold,
+			chip->dynamic_ffc_fv_config->fv_cfg[i].value);
 
 	return;
 
@@ -450,6 +519,15 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 		*val = range[*new_index].value;
 	}
 
+	if (threshold < range[0].low_threshold) {
+		*new_index = 0;
+		*val = range[*new_index].value;
+	} else if (threshold > range[MAX_STEP_CHG_ENTRIES - 1].low_threshold) {
+		*new_index = MAX_STEP_CHG_ENTRIES - 1;
+		*val = range[*new_index].value;
+	}
+
+
 	/*
 	 * If we don't have a current_index return this
 	 * newfound value. There is no hysterisis from out of range
@@ -463,7 +541,11 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 	 * of our current index.
 	 */
 	if (*new_index == current_index + 1) {
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+		if (threshold < range[*new_index].low_threshold) {
+#else
 		if (threshold < range[*new_index].low_threshold + hysteresis) {
+#endif
 			/*
 			 * Stay in the current index, threshold is not higher
 			 * by hysteresis amount
@@ -536,7 +618,19 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 	elapsed_us = ktime_us_delta(ktime_get(), chip->step_last_update_time);
 	/* skip processing, event too early */
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
-		return 0;
+	{
+		/*if usb is removing, do not skip*/
+		rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_USB_IS_REMOVING, &pval);
+		if (rc < 0)
+		{
+			pr_err("%s:failed to read usb_is_removing", __func__);
+			return 0;
+		}
+		pr_info("%s:usb_is_removing=%d\n", __func__,pval.intval);
+		if (!pval.intval)
+			return 0;
+	}
 
 	rc = power_supply_get_property(chip->batt_psy,
 		POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED, &pval);
@@ -551,12 +645,18 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		goto update_time;
 	}
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	rc = power_supply_get_property(chip->bq_psy,
+			POWER_SUPPLY_PROP_TI_BATTERY_VOLTAGE, &pval);
+	pval.intval = pval.intval * 1000;
+#else
 	if (chip->step_chg_config->param.use_bms)
 		rc = power_supply_get_property(chip->bms_psy,
 				chip->step_chg_config->param.psy_prop, &pval);
 	else
 		rc = power_supply_get_property(chip->batt_psy,
 				chip->step_chg_config->param.psy_prop, &pval);
+#endif
 
 	if (rc < 0) {
 		pr_err("Couldn't read %s property rc=%d\n",
@@ -586,6 +686,10 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		chip->step_index = 0;
 	}
 
+	/* Do not drop step-chg index, if input supply is present */
+	fcc_ua = chip->step_chg_config->fcc_cfg[chip->step_index].value;
+	pr_info("batt_volt=%d, step_fcc_ua=%d\n", pval.intval, fcc_ua);
+
 	if (!chip->fcc_votable)
 		chip->fcc_votable = find_votable("FCC");
 	if (!chip->fcc_votable)
@@ -598,7 +702,7 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		vote(chip->fcc_votable, STEP_CHG_VOTER, true, fcc_ua);
 	}
 
-	pr_debug("%s = %d Step-FCC = %duA taper-fcc: %d\n",
+	pr_info("%s = %d Step-FCC = %duA taper-fcc: %d\n",
 		chip->step_chg_config->param.prop_name, pval.intval,
 		get_client_vote(chip->fcc_votable, STEP_CHG_VOTER),
 		chip->taper_fcc);
@@ -608,12 +712,101 @@ update_time:
 	return 0;
 }
 
+static int handle_dynamic_fv(struct step_chg_info *chip)
+{
+	union power_supply_propval pval = {0, };
+	int rc = 0, fv_uv, cycle_count;
+	u64 elapsed_us;
+	int batt_vol = 0;
+
+	rc = power_supply_get_property(chip->batt_psy,
+		POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED, &pval);
+	if (rc < 0)
+		chip->dynamic_fv_enable = 0;
+	else
+		chip->dynamic_fv_enable = pval.intval;
+
+	if (!chip->dynamic_fv_enable || !chip->dynamic_fv_cfg_valid) {
+		/*need recovery some setting*/
+		if (chip->fv_votable)
+			vote(chip->fv_votable, DYNAMIC_FV_VOTER, false, 0);
+		return 0;
+	}
+
+	elapsed_us = ktime_us_delta(ktime_get(), chip->dynamic_fv_last_update_time);
+	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
+		return 0;
+
+	rc = power_supply_get_property(chip->bms_psy,
+			POWER_SUPPLY_PROP_CYCLE_COUNT, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't read %s property rc=%d\n",
+				chip->dynamic_fv_config->prop_name, rc);
+		return rc;
+	}
+	cycle_count = pval.intval;
+
+	rc = get_val(chip->dynamic_fv_config->fv_cfg,
+			0,
+			chip->dynamic_fv_index,
+			cycle_count,
+			&chip->dynamic_fv_index,
+			&fv_uv);
+	if (rc < 0) {
+		/* remove the vote if no step-based fv is found */
+		if (chip->fv_votable)
+			vote(chip->fv_votable, DYNAMIC_FV_VOTER, false, 0);
+		goto update_time;
+	}
+
+	power_supply_get_property(chip->batt_psy,
+		POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+	batt_vol = pval.intval;
+	if (batt_vol >= fv_uv) {
+		goto update_time;
+	}
+
+	chip->fv_votable = find_votable("FV");
+	if (!chip->fv_votable)
+		goto update_time;
+
+	vote(chip->fv_votable, DYNAMIC_FV_VOTER, true, fv_uv);
+
+	/*set battery full voltage to FLOAT VOLTAGE*/
+	pval.intval = fv_uv;
+	rc = power_supply_set_property(chip->bms_psy,
+		POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't set CONSTANT VOLTAGE property rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("%s:cycle_count:%d,Batt_full:%d,fv:%d,\n", __func__, cycle_count, pval.intval, fv_uv);
+
+update_time:
+	chip->dynamic_fv_last_update_time = ktime_get();
+	return 0;
+}
+
 #define JEITA_SUSPEND_HYST_UV		50000
+#define BATT_COOL_THRESHOLD		150
+#define BATT_WARM_THRESHOLD		450
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+#define FFC_FLOAT_VOLTAGE_FOR_PM7150_CHG	4450000
+#define FFC_FLOAT_VOLTAGE_FOR_BMS		4470000
+#define FLOAT_VOLTAGE_NORMAL			4400000
+#else
+#define FFC_FLOAT_VOLTAGE_FOR_PM7150_CHG	4480000
+#define FFC_FLOAT_VOLTAGE_FOR_BMS		4480000
+#define FLOAT_VOLTAGE_NORMAL			4450000
+#endif
+#define WARM_FLOAT_VOLTAGE			4100000
 static int handle_jeita(struct step_chg_info *chip)
 {
 	union power_supply_propval pval = {0, };
-	int rc = 0, fcc_ua = 0, fv_uv = 0;
+	int rc = 0, fcc_ua = 0, fv_uv = 0, batt_temp = 0, charger_type = 0;
 	u64 elapsed_us;
+	int batt_soc = 0, fastcharge_mode = 0, pd_authentication = 0;
 
 	rc = power_supply_get_property(chip->batt_psy,
 		POWER_SUPPLY_PROP_SW_JEITA_ENABLED, &pval);
@@ -634,8 +827,19 @@ static int handle_jeita(struct step_chg_info *chip)
 
 	elapsed_us = ktime_us_delta(ktime_get(), chip->jeita_last_update_time);
 	/* skip processing, event too early */
-	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
-		return 0;
+	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US) {
+	/*if usb is removing, do not skip*/
+		rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_USB_IS_REMOVING, &pval);
+		if (rc < 0)
+		{
+			pr_err("%s:failed to read usb_is_removing", __func__);
+			return 0;
+		}
+		pr_info("%s:usb_is_removing=%d\n", __func__,pval.intval);
+		if (!pval.intval)
+			return 0;
+	}
 
 	if (chip->jeita_fcc_config->param.use_bms)
 		rc = power_supply_get_property(chip->bms_psy,
@@ -650,10 +854,12 @@ static int handle_jeita(struct step_chg_info *chip)
 		return rc;
 	}
 
+	batt_temp = pval.intval;
+
 	rc = get_val(chip->jeita_fcc_config->fcc_cfg,
 			chip->jeita_fcc_config->param.hysteresis,
 			chip->jeita_fcc_index,
-			pval.intval,
+			batt_temp,
 			&chip->jeita_fcc_index,
 			&fcc_ua);
 	if (rc < 0)
@@ -670,11 +876,40 @@ static int handle_jeita(struct step_chg_info *chip)
 	rc = get_val(chip->jeita_fv_config->fv_cfg,
 			chip->jeita_fv_config->param.hysteresis,
 			chip->jeita_fv_index,
-			pval.intval,
+			batt_temp,
 			&chip->jeita_fv_index,
 			&fv_uv);
 	if (rc < 0)
 		fv_uv = 0;
+
+	rc = power_supply_get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't read batt_soc fail rc=%d\n", rc);
+		return rc;
+	}
+	batt_soc = pval.intval;
+
+	rc = power_supply_get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't read fastcharge mode fail rc=%d\n", rc);
+		return rc;
+	}
+	fastcharge_mode = pval.intval;
+	if (fastcharge_mode) {
+		fv_uv = FFC_FLOAT_VOLTAGE_FOR_PM7150_CHG;
+		if (batt_soc < 95)
+			pval.intval = FFC_FLOAT_VOLTAGE_FOR_BMS;
+	} else {
+			pval.intval = FLOAT_VOLTAGE_NORMAL;
+	}
+	rc = power_supply_set_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't set FFC FLOAT VOLTAGE property for bms rc=%d\n", rc);
+		return rc;
+	}
 
 	chip->fv_votable = find_votable("FV");
 	if (!chip->fv_votable)
@@ -685,6 +920,52 @@ static int handle_jeita(struct step_chg_info *chip)
 
 	if (!chip->usb_icl_votable)
 		goto set_jeita_fv;
+
+	rc = power_supply_get_property(chip->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+	if (rc < 0) {
+		pr_err("Get real charger type failed, rc = %d\n", rc);
+		return rc;
+	}
+	charger_type = pval.intval;
+
+	rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PD_AUTHENTICATION, &pval);
+	if (rc < 0) {
+		pr_err("Get fastcharge mode status failed, rc=%d\n", rc);
+		return rc;
+	}
+	pd_authentication = pval.intval;
+
+	pr_err("pd_authentication = %d, charger_type = %d, batt_soc = %d, fascharge_mode = %d\n",
+			pd_authentication, charger_type, batt_soc, fastcharge_mode);
+
+#ifdef CONFIG_SMB1398_CHARGER
+	if (pd_authentication || charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3 || charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3P5) {
+#else
+	if (pd_authentication) {
+#endif
+		if ((batt_temp >= BATT_WARM_THRESHOLD || batt_temp <= BATT_COOL_THRESHOLD) && fastcharge_mode) {
+			pr_err("temp:%d disable fastcharge mode\n", batt_temp);
+			pval.intval = false;
+			rc = power_supply_set_property(chip->usb_psy,
+						POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+			if (rc < 0) {
+				pr_err("Set fastcharge mode failed, rc=%d\n", rc);
+				return rc;
+			}
+		} else if ((batt_temp < BATT_WARM_THRESHOLD - chip->jeita_fv_config->param.hysteresis) &&
+				(batt_temp > BATT_COOL_THRESHOLD + chip->jeita_fv_config->param.hysteresis) &&
+				!fastcharge_mode) {
+			pr_err("temp:%d enable fastcharge mode\n", batt_temp);
+			pval.intval = true;
+			rc = power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+			if (rc < 0) {
+				pr_err("Set fastcharge mode failed, rc=%d\n", rc);
+				return rc;
+			}
+		}
+	}
 
 	/*
 	 * If JEITA float voltage is same as max-vfloat of battery then
@@ -701,7 +982,15 @@ static int handle_jeita(struct step_chg_info *chip)
 	 * Suspend USB input path if battery voltage is above
 	 * JEITA VFLOAT threshold.
 	 */
-	if (chip->jeita_arb_en && fv_uv > 0) {
+	/* if (chip->jeita_arb_en && fv_uv > 0) { */
+	rc = power_supply_get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_STATUS, &pval);
+	if (rc < 0) {
+		pr_err("Get battery status failed, rc = %d\n", rc);
+		goto set_jeita_fv;
+	}
+
+	if (fv_uv == WARM_FLOAT_VOLTAGE && pval.intval == POWER_SUPPLY_STATUS_CHARGING) {
 		rc = power_supply_get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
 		if (!rc && (pval.intval > fv_uv))
@@ -738,6 +1027,8 @@ static int handle_battery_insertion(struct step_chg_info *chip)
 		if (chip->batt_missing) {
 			chip->step_chg_cfg_valid = false;
 			chip->sw_jeita_cfg_valid = false;
+			chip->dynamic_fv_cfg_valid = false;
+			chip->dynamic_ffc_fv_cfg_valid = false;
 			chip->get_config_retry_count = 0;
 		} else {
 			/*
@@ -759,19 +1050,38 @@ static void status_change_work(struct work_struct *work)
 	int rc = 0;
 	union power_supply_propval prop = {0, };
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	if (!is_batt_available(chip) || !is_bms_available(chip) || !is_bq25970_available(chip))
+#else
 	if (!is_batt_available(chip) || !is_bms_available(chip))
+#endif
 		goto exit_work;
 
 	handle_battery_insertion(chip);
+
+	if (!is_usb_available(chip))
+		goto exit_work;
 
 	/* skip elapsed_us debounce for handling battery temperature */
 	rc = handle_jeita(chip);
 	if (rc < 0)
 		pr_err("Couldn't handle sw jeita rc = %d\n", rc);
 
+	rc = handle_dynamic_fv(chip);
+	if (rc < 0)
+		pr_err("Couldn't handle sw dynamic fv rc = %d\n", rc);
+
 	rc = handle_step_chg_config(chip);
 	if (rc < 0)
 		pr_err("Couldn't handle step rc = %d\n", rc);
+
+	rc= power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_USB_IS_REMOVING, &prop);
+	if (prop.intval) {
+		prop.intval = 0;
+		power_supply_set_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_USB_IS_REMOVING, &prop);
+	}
 
 	/* Remove stale votes on USB removal */
 	if (is_usb_available(chip)) {
@@ -854,6 +1164,8 @@ int qcom_step_chg_init(struct device *dev,
 	chip->step_index = -EINVAL;
 	chip->jeita_fcc_index = -EINVAL;
 	chip->jeita_fv_index = -EINVAL;
+	chip->dynamic_fv_index = -EINVAL;
+	chip->dynamic_ffc_fv_index = -EINVAL;
 
 	chip->step_chg_config = devm_kzalloc(dev,
 			sizeof(struct step_chg_cfg), GFP_KERNEL);
@@ -868,15 +1180,26 @@ int qcom_step_chg_init(struct device *dev,
 			sizeof(struct jeita_fcc_cfg), GFP_KERNEL);
 	chip->jeita_fv_config = devm_kzalloc(dev,
 			sizeof(struct jeita_fv_cfg), GFP_KERNEL);
-	if (!chip->jeita_fcc_config || !chip->jeita_fv_config)
+	chip->dynamic_fv_config = devm_kzalloc(dev,
+			sizeof(struct dynamic_fv_cfg), GFP_KERNEL);
+	if (!chip->jeita_fcc_config || !chip->jeita_fv_config || !chip->dynamic_fv_config)
 		return -ENOMEM;
+
+	chip->dynamic_ffc_fv_config =  devm_kzalloc(dev,
+			sizeof(struct dynamic_fv_cfg), GFP_KERNEL);
+
+	if (!chip->dynamic_ffc_fv_config)
+		return -ENOMEM;
+	chip->dynamic_ffc_fv_config->prop_name = "BATT_CYCLE_COUNT";
 
 	chip->jeita_fcc_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fcc_config->param.prop_name = "BATT_TEMP";
-	chip->jeita_fcc_config->param.hysteresis = 10;
+	chip->jeita_fcc_config->param.hysteresis = 5;
 	chip->jeita_fv_config->param.psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fv_config->param.prop_name = "BATT_TEMP";
-	chip->jeita_fv_config->param.hysteresis = 10;
+	chip->jeita_fv_config->param.hysteresis = 5;
+
+	chip->dynamic_fv_config->prop_name = "BATT_CYCLE_COUNT";
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->get_config_work, get_config_work);

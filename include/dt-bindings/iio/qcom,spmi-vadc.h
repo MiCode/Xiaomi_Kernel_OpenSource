@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2014,2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 
@@ -239,5 +240,7 @@
 #define ADC_SCALE_HW_CALIB_BATT_THERM_30K	0xD
 #define ADC_SCALE_HW_CALIB_BATT_THERM_400K	0xE
 #define ADC_SCALE_HW_CALIB_PM5_SMB1398_TEMP	0xF
+
+#define ADC_SCALE_HW_CALIB_MAX			0x20
 
 #endif /* _DT_BINDINGS_QCOM_SPMI_VADC_H */

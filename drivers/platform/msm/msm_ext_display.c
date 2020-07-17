@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -429,6 +430,7 @@ int msm_ext_disp_select_audio_codec(struct platform_device *pdev,
 	}
 
 	ret = msm_ext_disp_update_audio_ops(ext_disp, codec);
+
 
 end:
 	mutex_unlock(&ext_disp->lock);

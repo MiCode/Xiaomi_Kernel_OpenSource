@@ -15,6 +15,7 @@ extern void dump_cpu_task(int cpu);
  * Only dump TASK_* tasks. (0 for all tasks)
  */
 extern void show_state_filter(unsigned long state_filter);
+extern void show_state_filter_single(unsigned long state_filter);
 
 static inline void show_state(void)
 {

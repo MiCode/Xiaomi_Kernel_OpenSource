@@ -96,6 +96,7 @@ int devm_gpio_request(struct device *dev, unsigned gpio, const char *label);
 int devm_gpio_request_one(struct device *dev, unsigned gpio,
 			  unsigned long flags, const char *label);
 void devm_gpio_free(struct device *dev, unsigned int gpio);
+struct gpio_chip *find_chip_by_name(const char *name);
 
 #else /* ! CONFIG_GPIOLIB */
 
@@ -257,6 +258,12 @@ static inline int devm_gpio_request_one(struct device *dev, unsigned gpio,
 static inline void devm_gpio_free(struct device *dev, unsigned int gpio)
 {
 	WARN_ON(1);
+}
+
+struct gpio_chip *find_chip_by_name(const char *name)
+{
+	WARN_ON(1);
+	return NULL;
 }
 
 #endif /* ! CONFIG_GPIOLIB */

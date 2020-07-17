@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -144,9 +145,9 @@ static struct pll_vco lucid_vco[] = {
 };
 
 static const struct alpha_pll_config disp_cc_pll0_config = {
-	.l = 0x47,
+	.l = 0x35,
 	.cal_l = 0x44,
-	.alpha = 0xE000,
+	.alpha = 0xE800,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x329A699C,
@@ -456,7 +457,7 @@ static struct clk_rcg2 disp_cc_mdss_esc1_clk_src = {
 static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src[] = {
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
-	F(345000000, P_DISP_CC_PLL0_OUT_MAIN, 4, 0, 0),
+	F(345000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(460000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
@@ -526,12 +527,18 @@ static struct clk_rcg2 disp_cc_mdss_pclk1_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src[] = {
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 	.cmd_rcgr = 0x20e0,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = disp_cc_parent_map_3,
-	.freq_tbl = ftbl_disp_cc_mdss_mdp_clk_src,
+	.freq_tbl = ftbl_disp_cc_mdss_rot_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_mdss_rot_clk_src",
@@ -543,9 +550,7 @@ static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 200000000,
-			[VDD_LOW] = 300000000,
-			[VDD_LOW_L1] = 345000000,
-			[VDD_NOMINAL] = 460000000},
+			[VDD_LOW] = 300000000},
 	},
 };
 

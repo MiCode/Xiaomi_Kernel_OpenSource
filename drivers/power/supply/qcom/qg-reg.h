@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #ifndef __QG_REG_H__
@@ -90,6 +91,7 @@
 #define QG_POST_ESR_I_DATA0_REG			0x7E
 
 #define QG_S2_NORMAL_AVG_V_DATA0_REG		0x80
+#define QG_S2_NORMAL_AVG_I_DATA0_REG		0x82
 
 #define QG_V_ACCUM_DATA0_RT_REG			0x88
 #define QG_I_ACCUM_DATA0_RT_REG			0x8B
