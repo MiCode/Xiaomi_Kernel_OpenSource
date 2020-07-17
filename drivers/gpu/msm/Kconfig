@@ -26,23 +26,3 @@ config QCOM_ADRENO_DEFAULT_GOVERNOR
 config QCOM_KGSL_IOMMU
 	bool
 	default y if QCOM_KGSL && (MSM_IOMMU || ARM_SMMU)
-
-config QCOM_KGSL_USE_SHMEM
-	bool "Enable using shmem for memory allocations"
-	depends on QCOM_KGSL
-	help
-	  Say 'Y' to enable using shmem for memory allocations. If enabled,
-	  there will be no support for the memory pools and higher order pages.
-	  But using shmem will help in making kgsl pages available for
-	  reclaiming.
-
-config QCOM_KGSL_PROCESS_RECLAIM
-	bool "Make driver pages available for reclaim"
-	depends on QCOM_KGSL && PROCESS_RECLAIM
-	select QCOM_KGSL_USE_SHMEM
-	help
-	  Say 'Y' to make driver pages available for reclaiming. If enabled,
-	  shmem will be used for allocation. kgsl would know the process
-	  foreground/background activity through the sysfs entry exposed per
-	  process. Based on this kgsl can unpin the pages of the process and
-	  make those pages available to the Per Process Reclaim (PPR).

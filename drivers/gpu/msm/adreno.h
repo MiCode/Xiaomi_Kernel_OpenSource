@@ -110,6 +110,20 @@
 /* The target supports ringbuffer level APRIV */
 #define ADRENO_APRIV BIT(21)
 /*
+ * Use SHMEM for page allocation. There will be no support
+ * for pools and higher order pages.
+ */
+#define ADRENO_USE_SHMEM BIT(22)
+/*
+ * Make pages available for reclaim. Process foreground/background
+ * activity is known through sysfs exposed per process. Based on
+ * this, pages are unpinned and made available to Per Process
+ * Reclaim (PPR). SHMEM is used for allocation of pages and
+ * support for pools is removed.
+ */
+#define ADRENO_PROCESS_RECLAIM BIT(23)
+
+/*
  * Adreno GPU quirks - control bits for various workarounds
  */
 
