@@ -27,6 +27,9 @@ struct emi_cen {
 	void __iomem **emi_cen_base;
 	void __iomem **emi_chn_base;
 
+	/* address from the sysfs file for EMI addr2dram */
+	unsigned long a2d_addr;
+
 	/*
 	 * EMI addr2dram settings from device tree
 	 */
@@ -524,6 +527,47 @@ int mtk_emicen_addr2dram(unsigned long addr, struct emi_addr_map *map)
 }
 EXPORT_SYMBOL(mtk_emicen_addr2dram);
 
+static ssize_t emicen_addr2dram_show(struct device_driver *driver, char *buf)
+{
+	int ret;
+	struct emi_addr_map map;
+	unsigned long addr;
+
+	if (!global_emi_cen)
+		return 0;
+
+	addr = global_emi_cen->a2d_addr;
+
+	ret = mtk_emicen_addr2dram(addr, &map);
+	if (!ret)
+		return snprintf(buf, PAGE_SIZE,
+		     "0x%lx\n->\nemi%d\nchn%d\nrank%d\nbank%d\nrow%d\ncol%d\n",
+		     addr, map.emi, map.channel, map.rank,
+		     map.bank, map.row, map.column);
+	else
+		return snprintf(buf, PAGE_SIZE, "0x%lx\n->failed\n", addr);
+}
+
+static ssize_t emicen_addr2dram_store
+	(struct device_driver *driver, const char *buf, size_t count)
+{
+	u64 addr;
+	int ret;
+
+	if (!global_emi_cen)
+		return count;
+
+	ret = kstrtou64(buf, 16, &addr);
+	if (ret)
+		return ret;
+
+	global_emi_cen->a2d_addr = (unsigned long)addr;
+
+	return ret ? : count;
+}
+
+static DRIVER_ATTR_RW(emicen_addr2dram);
+
 static int emicen_probe(struct platform_device *pdev)
 {
 	struct device_node *emicen_node = pdev->dev.of_node;
@@ -675,6 +719,13 @@ static __init int emicen_init(void)
 	ret = platform_driver_register(&emicen_drv);
 	if (ret) {
 		pr_err("emicen: failed to register driver\n");
+		return ret;
+	}
+
+	ret = driver_create_file(&emicen_drv.driver,
+		&driver_attr_emicen_addr2dram);
+	if (ret) {
+		pr_err("emicen: failed to create addr2dram file\n");
 		return ret;
 	}
 
