@@ -101,8 +101,9 @@ static struct mhi_pm_transitions const mhi_state_transitions[] = {
 	},
 	{
 		MHI_PM_SYS_ERR_DETECT,
-		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_PROCESS |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_SYS_ERR_PROCESS,
@@ -1493,6 +1494,26 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 		return -EIO;
 	}
 
+	if (mhi_cntrl->rddm_supported) {
+		if (mhi_get_exec_env(mhi_cntrl) == MHI_EE_RDDM &&
+		    !mhi_cntrl->power_down) {
+			mhi_cntrl->ee = MHI_EE_RDDM;
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+
+			MHI_ERR("RDDM event occurred!\n");
+
+			/* notify critical clients with early notifications */
+			mhi_control_error(mhi_cntrl);
+
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_EE_RDDM);
+			wake_up_all(&mhi_cntrl->state_event);
+
+			tasklet_enable(&mhi_cntrl->mhi_event->task);
+			goto exit_pm_fast_resume;
+		}
+	}
+
 	/* restore the states */
 	mhi_cntrl->pm_state = mhi_cntrl->saved_pm_state;
 	mhi_cntrl->dev_state = mhi_cntrl->saved_dev_state;
@@ -1536,6 +1557,7 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 	/* schedules worker if any special purpose events need to be handled */
 	mhi_special_events_pending(mhi_cntrl);
 
+exit_pm_fast_resume:
 	MHI_LOG("Exit with pm_state:%s dev_state:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
