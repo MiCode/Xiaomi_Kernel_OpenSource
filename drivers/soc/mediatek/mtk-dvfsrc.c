@@ -95,7 +95,7 @@ struct mtk_dvfsrc {
 	int dram_type;
 	const struct dvfsrc_opp_desc *curr_opps;
 	void __iomem *regs;
-	struct mutex req_lock;
+	spinlock_t req_lock;
 	struct mutex pstate_lock;
 	struct notifier_block scpsys_notifier;
 	struct notifier_block fb_notifier;
@@ -532,16 +532,16 @@ static void mt6873_set_dram_hrtbw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 
 static void mt6873_set_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	mutex_lock(&dvfsrc->req_lock);
+	spin_lock(&dvfsrc->req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x7, 12);
-	mutex_unlock(&dvfsrc->req_lock);
+	spin_unlock(&dvfsrc->req_lock);
 }
 
 static void mt6873_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	mutex_lock(&dvfsrc->req_lock);
+	spin_lock(&dvfsrc->req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x7, 4);
-	mutex_unlock(&dvfsrc->req_lock);
+	spin_unlock(&dvfsrc->req_lock);
 }
 
 static void mt6873_set_vscp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
@@ -795,7 +795,7 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	if (IS_ERR(dvfsrc->regs))
 		return PTR_ERR(dvfsrc->regs);
 
-	mutex_init(&dvfsrc->req_lock);
+	spin_lock_init(&dvfsrc->req_lock);
 	mutex_init(&dvfsrc->pstate_lock);
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 	spin_lock_init(&dvfsrc->force_lock);
