@@ -8,6 +8,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
+#include <linux/highmem.h>
 
 #include "apusys_device.h"
 #include "mdw_cmn.h"
@@ -102,8 +103,11 @@ static int mdw_mem_aosp_map_kva(struct apusys_kmem *mem)
 		return -EINVAL;
 
 	d = dma_buf_get(mem->fd);
-	if (IS_ERR_OR_NULL(d))
-		return -ENOMEM;
+	if (IS_ERR_OR_NULL(d)) {
+		ret = PTR_ERR(d);
+		mdw_drv_err("dma_buf_get(%d) failed: %d\n", mem->fd, ret);
+		return -EBADF;
+	}
 
 	ret = dma_buf_begin_cpu_access(d, DMA_FROM_DEVICE);
 	if (ret) {
@@ -158,8 +162,11 @@ static int mdw_mem_aosp_map_iova(struct apusys_kmem *mem)
 
 	d = dma_buf_get(mem->fd);
 
-	if (IS_ERR_OR_NULL(d))
-		return -ENOMEM;
+	if (IS_ERR_OR_NULL(d)) {
+		ret = PTR_ERR(d);
+		mdw_drv_err("dma_buf_get(%d) failed: %d\n", mem->fd, ret);
+		return -EBADF;
+	}
 
 	attach = dma_buf_attach(d, md.dev);
 	if (IS_ERR(attach)) {
@@ -253,11 +260,16 @@ static int mdw_mem_aosp_flush(struct apusys_kmem *mem)
 	if (!md.dev)
 		return -ENODEV;
 
-	if (!mem || IS_ERR_OR_NULL(mem->d) || IS_ERR_OR_NULL(mem->sgt))
+	if (!mem || IS_ERR_OR_NULL(mem->d))
 		return -EINVAL;
 
-	dma_sync_sg_for_device(md.dev, mem->sgt->sgl,
+	if (IS_ERR_OR_NULL(mem->sgt))
+		flush_kernel_vmap_range(mem->kva, mem->size);
+	else
+		dma_sync_sg_for_device(md.dev, mem->sgt->sgl,
 			mem->sgt->nents, DMA_FROM_DEVICE);
+
+	apu_mem_dbg(mem);
 
 	return ret;
 }
@@ -269,11 +281,16 @@ static int mdw_mem_aosp_invalidate(struct apusys_kmem *mem)
 	if (!md.dev)
 		return -ENODEV;
 
-	if (!mem || IS_ERR_OR_NULL(mem->d) || IS_ERR_OR_NULL(mem->sgt))
+	if (!mem || IS_ERR_OR_NULL(mem->d))
 		return -EINVAL;
 
-	dma_sync_sg_for_cpu(md.dev, mem->sgt->sgl,
+	if (IS_ERR_OR_NULL(mem->sgt))
+		invalidate_kernel_vmap_range(mem->kva, mem->size);
+	else
+		dma_sync_sg_for_cpu(md.dev, mem->sgt->sgl,
 			mem->sgt->nents, DMA_FROM_DEVICE);
+
+	apu_mem_dbg(mem);
 
 	return ret;
 }

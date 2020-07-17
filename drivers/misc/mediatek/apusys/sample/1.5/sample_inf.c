@@ -212,6 +212,7 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 	struct sample_dev_info *info = NULL;
 	struct timespec64 duration;
 	uint32_t tdiff = 0;
+	int ret;
 
 	if (hnd == NULL || dev == NULL)
 		return -EINVAL;
@@ -239,16 +240,19 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 	/* memory api test */
 	if (hnd->cmdbuf != NULL) {
 		spl_drv_info("flush memory test\n");
-		if (apusys_mem_flush(hnd->cmdbuf))
-			spl_drv_err("flush memory fail");
+		ret = apusys_mem_flush(hnd->cmdbuf);
+		if (ret)
+			spl_drv_err("flush memory fail: %d\n", ret);
 		else
-			spl_drv_info("flush memory done");
+			spl_drv_info("flush memory done\n");
 
 		spl_drv_info("invalidate memory test\n");
-		if (apusys_mem_invalidate(hnd->cmdbuf))
-			spl_drv_err("invalidate memory fail");
+
+		ret = apusys_mem_invalidate(hnd->cmdbuf);
+		if (ret)
+			spl_drv_err("invalidate memory fail: %d\n", ret);
 		else
-			spl_drv_info("invalidate memory done");
+			spl_drv_info("invalidate memory done\n");
 	} else {
 		spl_drv_warn("no cmdbuf\n");
 	}
