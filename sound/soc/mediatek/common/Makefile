@@ -12,5 +12,5 @@ snd-soc-mtk-sram-manager-objs := mtk-sram-manager.o
 obj-$(CONFIG_SND_SOC_MTK_SRAM) += snd-soc-mtk-sram-manager.o
 obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += mtk-btcvsd.o
 
-snd-soc-mtk-sp-common-objs := mtk-sp-pcm-ops.o mtk-afe-debug.o
+snd-soc-mtk-sp-common-objs := mtk-sp-pcm-ops.o mtk-afe-debug.o mtk-usip.o
 obj-$(CONFIG_SND_SOC_MTK_SMART_PHONE) += snd-soc-mtk-sp-common.o
