@@ -230,6 +230,7 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <365>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu1: cpu@001 {
@@ -240,6 +241,7 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <365>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu2: cpu@002 {
@@ -250,6 +252,7 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <365>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu3: cpu@003 {
@@ -260,6 +263,7 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <365>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu4: cpu@100 {
@@ -270,6 +274,7 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <1024>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu5: cpu@101 {
@@ -280,6 +285,7 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <1024>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu6: cpu@102 {
@@ -290,6 +296,7 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <1024>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu7: cpu@103 {
@@ -300,6 +307,7 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <1024>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu-map {
@@ -331,6 +339,50 @@
 				core3 {
 					cpu = <&cpu7>;
 				};
+			};
+		};
+
+		idle-states {
+			entry-method = "arm,psci";
+			cpuoff_l: cpuoff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1600>;
+			};
+			cpuoff_b: cpuoff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010001>;
+				local-timer-stop;
+				entry-latency-us = <50>;
+				exit-latency-us = <100>;
+				min-residency-us = <1400>;
+			};
+			clusteroff_l: clusteroff_l {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010001>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <2100>;
+			};
+			clusteroff_b: clusteroff_b {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010001>;
+				local-timer-stop;
+				entry-latency-us = <100>;
+				exit-latency-us = <250>;
+				min-residency-us = <1900>;
+			};
+			mcusysoff: mcusysoff {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010002>;
+				local-timer-stop;
+				entry-latency-us = <300>;
+				exit-latency-us = <1200>;
+				min-residency-us = <2600>;
 			};
 		};
 	};
@@ -3221,6 +3273,110 @@
 		mediatek,audio-codec = <&mt6359p_snd>;
 		mediatek,platform = <&afe>;
 	};
+
+
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		suspend-method = "disabled";
+		irq-remain = <&edge_keypad &edge_mdwdt>,
+				<&level_mali0 &level_mali1>,
+				<&level_mali2 &level_mali3 &level_mali4>,
+				<&level_mtk_mdla >;
+
+		resource-ctrl = <&bus26m &infra &syspll>,
+				<&dram_s0 &dram_s1>;
+		constraints = <&rc_bus26m &rc_syspll &rc_dram>;
+
+		cpupm_sysram: cpupm-sysram@0011b000 {
+			compatible = "mediatek,cpupm-sysram";
+			reg = <0 0x0011b000 0 0x500>;
+		};
+
+		mcusys_ctrl: mcusys-ctrl@0c53a000 {
+			compatible = "mediatek,mcusys-ctrl";
+			reg = <0 0x0c53a000 0 0x1000>;
+		};
+
+		lpm_sysram: lpm_sysram@0011b500 {
+			compatible = "mediatek,lpm-sysram";
+			reg = <0 0x0011b500 0 0x300>;
+		};
+
+		irq-remain-list {
+			edge_keypad: edge_keypad {
+				target = <&keypad>;
+				value = <1 0 0 0x04>;
+			};
+			edge_mdwdt: edge_mdwdt {
+				target = <&mddriver>;
+				value = <1 0 0 0x02000000>;
+			};
+			level_mali0: level_mali0 {
+				target = <&mali>;
+				value = <0 0 0 0>;
+			};
+			level_mali1: level_mali1 {
+				target = <&mali>;
+				value = <0 1 0 0>;
+			};
+			level_mali2: level_mali2 {
+				target = <&mali>;
+				value = <0 2 0 0>;
+			};
+			level_mali3: level_mali3 {
+				target = <&mali>;
+				value = <0 3 0 0>;
+			};
+			level_mali4: level_mali4 {
+				target = <&mali>;
+				value = <0 4 0 0>;
+			};
+			level_mtk_mdla: level_mtk_mdla {
+				target = <&mtk_mdla>;
+				value = <0 0 0 0>;
+			};
+		};
+		resource-ctrl-list {
+			bus26m: bus26m {
+				id = <0x00000000>;
+				value = <0>;
+			};
+			infra: infra {
+				id = <0x00000001>;
+				value = <0>;
+			};
+			syspll: syspll {
+				id = <0x00000002>;
+				value = <0>;
+			};
+			dram_s0: dram_s0 {
+				id = <0x00000003>;
+				value = <0>;
+			};
+			dram_s1: dram_s1 {
+				id = <0x00000004>;
+				value = <0>;
+			};
+		};
+		constraint-list {
+			rc_bus26m: rc_bus26m {
+				id = <0x00000000>;
+				value = <1>;
+			};
+			rc_syspll: rc_syspll {
+				id = <0x00000001>;
+				value = <1>;
+			};
+			rc_dram: rc_dram {
+				id = <0x00000002>;
+				value = <1>;
+			};
+		};
+	};
+
 };
 
 &pio {
