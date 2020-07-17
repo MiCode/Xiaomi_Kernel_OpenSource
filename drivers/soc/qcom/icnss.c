@@ -129,6 +129,17 @@ static struct icnss_clk_info icnss_clk_info[] = {
 
 #define ICNSS_CLK_INFO_SIZE		ARRAY_SIZE(icnss_clk_info)
 
+static struct icnss_battery_level icnss_battery_level[] = {
+	{70, 3300000},
+	{60, 3200000},
+	{50, 3100000},
+	{25, 3000000},
+	{0, 2850000},
+};
+
+#define ICNSS_BATTERY_LEVEL_COUNT	ARRAY_SIZE(icnss_battery_level)
+#define ICNSS_MAX_BATTERY_LEVEL		100
+
 enum icnss_pdr_cause_index {
 	ICNSS_FW_CRASH,
 	ICNSS_ROOT_PD_CRASH,
@@ -956,6 +967,78 @@ out:
 	return ret;
 }
 
+static int icnss_get_battery_level(struct icnss_priv *priv)
+{
+	int err = 0, battery_percentage = 0;
+	union power_supply_propval psp = {0,};
+
+	if (!priv->batt_psy)
+		priv->batt_psy = power_supply_get_by_name("battery");
+
+	if (priv->batt_psy) {
+		err = power_supply_get_property(priv->batt_psy,
+						POWER_SUPPLY_PROP_CAPACITY,
+						&psp);
+		if (err) {
+			icnss_pr_err("battery percentage read error:%d\n", err);
+			goto out;
+		}
+		battery_percentage = psp.intval;
+	}
+
+	icnss_pr_info("Battery Percentage: %d\n", battery_percentage);
+out:
+	return battery_percentage;
+}
+
+static void icnss_update_soc_level(struct work_struct *work)
+{
+	int battery_percentage = 0, current_updated_voltage = 0, err = 0;
+	int level_count;
+
+	battery_percentage = icnss_get_battery_level(penv);
+	if (!battery_percentage ||
+	    battery_percentage > ICNSS_MAX_BATTERY_LEVEL) {
+		icnss_pr_err("Battery percentage read failure\n");
+		return;
+	}
+
+	for (level_count = 0; level_count < ICNSS_BATTERY_LEVEL_COUNT;
+	     level_count++) {
+		if (battery_percentage >=
+		    icnss_battery_level[level_count].lower_battery_threshold) {
+			current_updated_voltage =
+				icnss_battery_level[level_count].ldo_voltage;
+			break;
+		}
+	}
+
+	if (level_count != ICNSS_BATTERY_LEVEL_COUNT &&
+	    penv->last_updated_voltage != current_updated_voltage) {
+		err = icnss_send_vbatt_update(penv, current_updated_voltage);
+		if (err < 0) {
+			icnss_pr_err("Unable to update ldo voltage");
+			return;
+		}
+		penv->last_updated_voltage = current_updated_voltage;
+	}
+}
+
+static int icnss_battery_supply_callback(struct notifier_block *nb,
+					 unsigned long event, void *data)
+{
+	struct power_supply *psy = data;
+
+	if (strcmp(psy->desc->name, "battery"))
+		return NOTIFY_OK;
+
+	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state) &&
+	    !test_bit(ICNSS_FW_DOWN, &penv->state))
+		queue_work(penv->soc_update_wq, &penv->soc_update_work);
+
+	return NOTIFY_OK;
+}
+
 static int icnss_driver_event_server_arrive(void *data)
 {
 	int ret = 0;
@@ -1039,6 +1122,9 @@ static int icnss_driver_event_server_arrive(void *data)
 	if (penv->vbatt_supported)
 		icnss_init_vph_monitor(penv);
 
+	if (penv->psf_supported)
+		queue_work(penv->soc_update_wq, &penv->soc_update_work);
+
 	return ret;
 
 err_setup_msa:
@@ -1066,6 +1152,9 @@ static int icnss_driver_event_server_exit(void *data)
 	if (penv->adc_tm_dev && penv->vbatt_supported)
 		adc_tm5_disable_chan_meas(penv->adc_tm_dev,
 					  &penv->vph_monitor_params);
+
+	if (penv->psf_supported)
+		penv->last_updated_voltage = 0;
 
 	return 0;
 }
@@ -3425,6 +3514,17 @@ static void icnss_sysfs_destroy(struct icnss_priv *priv)
 		kobject_put(icnss_kobject);
 }
 
+static void icnss_unregister_power_supply_notifier(struct icnss_priv *priv)
+{
+	if (priv->batt_psy)
+		power_supply_put(penv->batt_psy);
+
+	if (priv->psf_supported) {
+		flush_workqueue(priv->soc_update_wq);
+		destroy_workqueue(priv->soc_update_wq);
+		power_supply_unreg_notifier(&priv->psf_nb);
+	}
+}
 static int icnss_get_vbatt_info(struct icnss_priv *priv)
 {
 	struct adc_tm_chip *adc_tm_dev = NULL;
@@ -3463,6 +3563,36 @@ static int icnss_get_vbatt_info(struct icnss_priv *priv)
 	return 0;
 }
 
+static int icnss_get_psf_info(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	priv->soc_update_wq = alloc_workqueue("icnss_soc_update",
+					      WQ_UNBOUND, 1);
+	if (!priv->soc_update_wq) {
+		icnss_pr_err("Workqueue creation failed for soc update\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	priv->psf_nb.notifier_call = icnss_battery_supply_callback;
+	ret = power_supply_reg_notifier(&priv->psf_nb);
+	if (ret < 0) {
+		icnss_pr_err("Power supply framework registration err: %d\n",
+			     ret);
+		goto err_psf_registration;
+	}
+
+	INIT_WORK(&priv->soc_update_work, icnss_update_soc_level);
+
+	return 0;
+
+err_psf_registration:
+	destroy_workqueue(priv->soc_update_wq);
+out:
+	return ret;
+}
+
 static int icnss_resource_parse(struct icnss_priv *priv)
 {
 	int ret = 0, i = 0;
@@ -3475,6 +3605,13 @@ static int icnss_resource_parse(struct icnss_priv *priv)
 		if (ret == -EPROBE_DEFER)
 			goto out;
 		priv->vbatt_supported = true;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,psf-supported")) {
+		ret = icnss_get_psf_info(priv);
+		if (ret < 0)
+			goto out;
+		priv->psf_supported = true;
 	}
 
 	for (i = 0; i < ICNSS_VREG_INFO_SIZE; i++) {
@@ -3724,6 +3861,8 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_pr_info("Removing driver: state: 0x%lx\n", penv->state);
 
 	device_init_wakeup(&penv->pdev->dev, false);
+
+	icnss_unregister_power_supply_notifier(penv);
 
 	icnss_debugfs_destroy(penv);
 
