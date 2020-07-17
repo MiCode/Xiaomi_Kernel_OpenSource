@@ -1525,7 +1525,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			dev_err(&csdev->dev, "usb_qdss_open failed\n");
 			drvdata->enable = false;
 			drvdata->mode = CS_MODE_DISABLED;
+			if (drvdata->byte_cntr->sw_usb)
+				tmc_etr_disable_hw(drvdata);
 			ret = -ENODEV;
+			goto out;
 		}
 	}
 
@@ -2052,11 +2055,6 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 		}
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		/* Free memory outside the spinlock if need be */
-		if (drvdata->etr_buf) {
-			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
-			drvdata->etr_buf = NULL;
-		}
 	}
 out:
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");
