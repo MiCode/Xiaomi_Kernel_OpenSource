@@ -2557,7 +2557,7 @@
 					"apusys_vcore";
 			vvpu-supply = <&mt6359p_vproc1_reg>;
 			vmdla-supply = <&mt6359p_vproc2_reg>;
-			vsram_apu-supply = <&mt6359p_vsram_md_reg>;
+			vsram_apu-supply = <&mt6359p_vsram_proc2_reg>;
 			vcore-supply = <&mt6359p_vgpu11_reg>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_APU>;
 			clocks = <&topckgen CLK_TOP_DSP_SEL>,	    /* CONN */
