@@ -2383,6 +2383,22 @@
 			clock-names = "apb", "smi", "gals0";
 		};
 
+		mmqos: interconnect {
+			compatible = "mediatek,mt6873-mmqos";
+			#interconnect-cells = <1>;
+			mediatek,larbs = <&larb0 &larb1 &larb2 &larb4
+					  &larb5 &larb7 &larb9 &larb11
+					  &larb13 &larb14 &larb16 &larb17
+					  &larb18 &larb19 &larb20>;
+			mediatek,commons = <&smi_common>;
+			clocks = <&topckgen CLK_TOP_DISP_SEL>;
+			clock-names = "mm";
+			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_HRT_MMSYS
+					 &dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-hrt-bw";
+		};
+
 		iommu0: iommu@1401d000 {
 			compatible = "mediatek,mt6873-m4u";
 			reg = <0 0x1401d000 0 0x1000>;
