@@ -11,3 +11,20 @@ config INTERCONNECT_MTK_EMI
 	help
 	  This is a driver for the Mediatek Network-on-Chip on DVFSRC-based
 	  platforms.
+
+config INTERCONNECT_MTK_MMQOS_COMMON
+	tristate "Mediatek MMQoS support"
+	help
+	  Support for multimedia QoS in Mediatek's SoCs.
+	  The Mediatek MMQoS(Multimedia Quality of Service) Interconnect
+	  driver will collect BW requests from MM users, such as display,
+	  camera, mdp and video codec, and configure SMI settings dynamically
+	  according to the aggregated BW.
+
+config INTERCONNECT_MTK_MMQOS_MT6873
+	tristate "Mediatek MT6873 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6873 multimedia QoS.
