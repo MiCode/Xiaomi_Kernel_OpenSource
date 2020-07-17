@@ -1650,7 +1650,6 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 static void dwc3_gadget_ep_skip_trbs(struct dwc3_ep *dep, struct dwc3_request *req)
 {
 	int i;
-	struct dwc3_trb *trb = req->trb;
 
 	/*
 	 * If request was already started, this means we had to
@@ -1663,11 +1662,11 @@ static void dwc3_gadget_ep_skip_trbs(struct dwc3_ep *dep, struct dwc3_request *r
 	 * pointer.
 	 */
 	for (i = 0; i < req->num_trbs; i++) {
+		struct dwc3_trb *trb;
+
+		trb = &dep->trb_pool[dep->trb_dequeue];
 		trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
 		dwc3_ep_inc_deq(dep);
-		trb++;
-		if (trb->ctrl & DWC3_TRBCTL_LINK_TRB)
-			trb = dep->trb_pool;
 	}
 
 	req->num_trbs = 0;
@@ -3089,11 +3088,8 @@ static void dwc3_gadget_endpoint_transfer_in_progress(struct dwc3_ep *dep,
 
 	dwc3_gadget_ep_cleanup_completed_requests(dep, event, status);
 
-	if (stop) {
+	if (stop)
 		dwc3_stop_active_transfer(dwc, dep->number, true);
-		dep->flags = DWC3_EP_ENABLED;
-	}
-
 	/*
 	 * WORKAROUND: This is the 2nd half of U1/U2 -> U0 workaround.
 	 * See dwc3_gadget_linksts_change_interrupt() for 1st half.
