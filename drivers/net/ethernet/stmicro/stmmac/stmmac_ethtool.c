@@ -386,6 +386,7 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct phy_device *phy = dev->phydev;
 	int rc;
+	u32 cmd_speed = cmd->base.speed;
 
 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
@@ -412,11 +413,14 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 
 		return 0;
 	}
+
 	/* Half duplex is not supported */
-	if (cmd->base.duplex != DUPLEX_FULL)
+	if (cmd->base.duplex != DUPLEX_FULL ||
+	    (cmd_speed == SPEED_1000 && cmd->base.autoneg == AUTONEG_DISABLE))
 		rc = -EINVAL;
 	else
 		rc = phy_ethtool_ksettings_set(phy, cmd);
+
 	return rc;
 }
 
