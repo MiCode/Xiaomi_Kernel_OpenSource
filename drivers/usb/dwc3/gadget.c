@@ -619,7 +619,11 @@ static int dwc3_gadget_start_config(struct dwc3_ep *dep)
 	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
 		struct dwc3_ep *dep = dwc->eps[i];
 
-		if (!dep)
+		/*
+		 * Don't set xfer resource with USB GSI endpoint as it is
+		 * performed before enabling USB GSI endpoint.
+		 */
+		if (!dep || dep->gsi)
 			continue;
 
 		ret = dwc3_gadget_set_xfer_resource(dep);
