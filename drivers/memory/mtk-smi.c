@@ -43,12 +43,19 @@
 #define F_MMU_EN		BIT(0)
 #define BANK_SEL(a)		((((a) & 0x3) << 8) | (((a) & 0x3) << 10) |\
 				 (((a) & 0x3) << 12) | (((a) & 0x3) << 14))
+/* mt6873 */
+#define SMI_LARB_OSTDL_PORT		0x200
+#define SMI_LARB_OSTDL_PORTx(id)	(SMI_LARB_OSTDL_PORT + ((id) << 2))
 
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
 #define SMI_BUS_LARB_SHIFT(larbid)	((larbid) << 1)
 /* All are MMU0 defaultly. Only specialize mmu1 here. */
 #define F_MMU1_LARB(larbid)		(0x1 << SMI_BUS_LARB_SHIFT(larbid))
+
+#define SMI_L1LEN			0x100
+#define SMI_L1ARB0			0x104
+#define SMI_L1ARB(id)			(SMI_L1ARB0 + ((id) << 2))
 
 enum mtk_smi_gen {
 	MTK_SMI_GEN1,
@@ -89,6 +96,24 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	u32				*mmu;
 	u32				*bank;
 };
+
+void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+	struct mtk_smi *common = dev_get_drvdata(larb->smi_common_dev);
+
+	writel(val, common->base + SMI_L1ARB(port));
+}
+EXPORT_SYMBOL_GPL(mtk_smi_common_bw_set);
+
+void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+
+	if (val)
+		writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
 
 static int mtk_smi_clk_enable(const struct mtk_smi *smi)
 {
