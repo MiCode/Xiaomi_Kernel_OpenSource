@@ -690,9 +690,15 @@
 		#reset-cells = <1>;
 	};
 
-	dispcc: qcom,dispcc@af00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+	dispcc: clock-controller@af00000 {
+		compatible = "qcom,shima-dispcc", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>, <&rpmhcc RPMH_CXO_CLK_A>,
+			<&gcc GCC_DISP_GPLL0_CLK_SRC>, <&sleep_clk>, <&gcc GCC_DISP_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "gcc_disp_gpll0_clk_src",
+				"sleep_clk", "cfg_ahb";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -724,12 +730,25 @@
 		#reset-cells = <1>;
 	};
 
+	apsscc: syscon@182a0000 {
+		compatible = "syscon";
+		reg = <0x182a0000 0x1c>;
+	};
+
+	mccc: syscon@90ba000 {
+		compatible = "syscon";
+		reg = <0x90ba000 0x54>;
+	};
+
 	debugcc: debug-clock-controller@0 {
 		compatible = "qcom,shima-debugcc";
 		qcom,gcc = <&gcc>;
 		qcom,videocc = <&videocc>;
 		qcom,camcc = <&camcc>;
+		qcom,dispcc = <&dispcc>;
 		qcom,gpucc = <&gpucc>;
+		qcom,apsscc = <&apsscc>;
+		qcom,mccc = <&mccc>;
 		clocks = <&rpmhcc RPMH_CXO_CLK>;
 		clock-names = "xo_clk_src";
 		#clock-cells = <1>;
