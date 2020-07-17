@@ -500,3 +500,12 @@
 		};
 	};
 };
+
+&soc {
+	refgen: refgen-regulator@162F000 {
+		compatible = "qcom,refgen-kona-regulator";
+		reg = <0x162F000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
+	};
+};
