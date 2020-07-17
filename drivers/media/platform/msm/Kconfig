@@ -9,6 +9,7 @@ menuconfig SPECTRA_CAMERA
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
 
+source "drivers/media/platform/msm/vidc_3x/Kconfig"
 source "drivers/media/platform/msm/cvp/Kconfig"
 source "drivers/media/platform/msm/npu/Kconfig"
 source "drivers/media/platform/msm/synx/Kconfig"

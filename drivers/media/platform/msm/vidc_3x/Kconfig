@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# VIDEO CORE
+#
+source "drivers/media/platform/msm/vidc_3x/governors/Kconfig"
+
+menuconfig MSM_VIDC_3X_V4L2
+	tristate "Qualcomm Technologies, Inc. MSM V4L2 3X based video driver"
+		depends on ARCH_QCOM && VIDEO_V4L2
+		select VIDEOBUF2_CORE
+	help
+		Enable support of MSM V4L2 3X based video driver for
+		Qualcomm Technologies, Inc.
+
