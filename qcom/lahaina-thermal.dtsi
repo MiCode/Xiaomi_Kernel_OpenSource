@@ -29,6 +29,13 @@
 		video_cc_mvs0-supply = <&video_cc_mvs0_gdsc>;
 		csr-id = <1 3 5>;
 	};
+
+	mx_pe: mx_rdpm_pe@0x00637000 {
+		compatible = "qcom,policy-engine";
+		#thermal-sensor-cells = <0>;
+		reg = <0x00637000 0x1000>;
+		interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 &cpufreq_hw {
@@ -1134,5 +1141,36 @@
 		};
 	};
 
+	mx-pe-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&mx_pe>;
+		thermal-governor = "step_wise";
+		trips {
+			mx_pe_config1: mx-pe-config1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+
+			mx_pe_config2: mx-pe-config2 {
+				temperature = <2>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			mx_pe_cdev_1 {
+				trip = <&mx_pe_config1>;
+				cooling-device = <&cdsp_sw 1 1>;
+			};
+
+			mx_pe_cdev_2 {
+				trip = <&mx_pe_config2>;
+				cooling-device = <&msm_gpu 1 1>;
+			};
+		};
+	};
 };
 
