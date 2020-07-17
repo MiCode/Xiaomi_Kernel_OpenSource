@@ -1061,5 +1061,19 @@
 				output-low;
 			};
 		};
+
+		pm8008_active: pm8008_active {
+			mux {
+				pins = "gpio58";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio58";
+				bias-pull-up;
+				output-high;
+				drive-strength = <2>;
+			};
+		};
 	};
 };

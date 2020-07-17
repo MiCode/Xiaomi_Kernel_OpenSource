@@ -1,3 +1,6 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+#include "holi-pmic-overlay.dtsi"
 #include "holi-thermal-overlay.dtsi"
 
 &ufsphy_mem {
@@ -51,4 +54,40 @@
 		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
 	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm6350_gpios 2 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+};
+
+&qupv3_se10_i2c {
+	status = "disabled";
+};
+
+&pm8008_8 {
+	status = "disabled";
+};
+
+&pm8008_9 {
+	status = "disabled";
+};
+
+&pm6150a_amoled {
+	status = "ok";
 };
