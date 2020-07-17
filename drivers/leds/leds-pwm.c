@@ -183,6 +183,7 @@ static int led_pwm_set(struct led_classdev *led_cdev,
 		duty = led_data->period - duty;
 
 	led_data->duty = duty;
+	led_data->blinking = false;
 
 	__led_pwm_set(led_data);
 
