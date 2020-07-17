@@ -1740,11 +1740,6 @@
   rfkill_register
   rfkill_unregister
   round_jiffies
-  rpmh_flush
-  rpmh_invalidate
-  rpmh_write
-  rpmh_write_async
-  rpmh_write_batch
   rtc_class_close
   rtc_class_open
   rtc_read_time

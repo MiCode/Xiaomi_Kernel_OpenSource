@@ -337,7 +337,6 @@
   request_threaded_irq
   reset_control_assert
   reset_control_deassert
-  rpmh_write_async
   schedule_timeout
   schedule_timeout_uninterruptible
   scnprintf
@@ -852,8 +851,6 @@
   icc_provider_add
   icc_provider_del
   of_icc_xlate_onecell
-  rpmh_invalidate
-  rpmh_write_batch
 
 # required by arm_smmu.ko
   alloc_io_pgtable_ops
@@ -996,7 +993,6 @@
   of_get_regulator_init_data
   of_node_name_eq
   regulator_list_voltage_linear_range
-  rpmh_write
 
 # required by qcom_spmi-regulator.ko
   jiffies_to_usecs
