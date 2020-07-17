@@ -51,7 +51,9 @@
 				<&afe_proxy_tx>, <&incall_record_rx>,
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_pri_tdm_rx_1>, <&dai_pri_tdm_tx_1>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_sec_tdm_rx_1>, <&dai_sec_tdm_tx_1>,
 				<&dai_sec_auxpcm>, <&incall2_record_rx>,
 				<&incall_music_2_rx>, <&incall_music_dl_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
@@ -63,7 +65,9 @@
 				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+				"msm-dai-q6-tdm.36866", "msm-dai-q6-tdm.36867",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36882", "msm-dai-q6-tdm.36883",
 				"msm-dai-q6-auxpcm.2", "msm-dai-q6-dev.32769",
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.32774";
 		asoc-codec = <&tlv320aic3x_codec>, <&stub_codec>;
