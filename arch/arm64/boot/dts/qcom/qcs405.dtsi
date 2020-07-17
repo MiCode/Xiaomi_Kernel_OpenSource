@@ -1611,7 +1611,7 @@
 		};
 	};
 
-	ethqos_hw: qcom,ethernet@00020000 {
+	ethqos_hw: qcom,ethernet@07A80000 {
 		compatible = "qcom,stmmac-ethqos";
 		reg = <0x07A80000 0x10000>,
 			  <0x7A96000 0x100>;
