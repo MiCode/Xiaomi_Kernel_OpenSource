@@ -37,6 +37,14 @@
 	status = "disabled";
 };
 
+&qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se7_4uart {
+	status = "ok";
+};
+
 &pm6150l_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
