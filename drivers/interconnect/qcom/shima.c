@@ -19,6 +19,11 @@
 #include "icc-rpmh.h"
 #include "bcm-voter.h"
 
+static LIST_HEAD(qnoc_probe_list);
+static DEFINE_MUTEX(probe_list_lock);
+
+static int probe_count;
+
 static struct qcom_icc_node qhm_qspi = {
 	.name = "qhm_qspi",
 	.id = MASTER_QSPI_0,
@@ -394,7 +399,7 @@ static struct qcom_icc_node qhm_config_noc = {
 static struct qcom_icc_node llcc_mc = {
 	.name = "llcc_mc",
 	.id = MASTER_LLCC,
-	.channels = 4,
+	.channels = 2,
 	.buswidth = 4,
 	.num_links = 1,
 	.links = { SLAVE_EBI1 },
@@ -547,7 +552,7 @@ static struct qcom_icc_node qnm_mnoc_hf_disp = {
 static struct qcom_icc_node llcc_mc_disp = {
 	.name = "llcc_mc_disp",
 	.id = MASTER_LLCC_DISP,
-	.channels = 4,
+	.channels = 2,
 	.buswidth = 4,
 	.num_links = 1,
 	.links = { SLAVE_EBI1_DISP },
@@ -1205,7 +1210,7 @@ static struct qcom_icc_node srvc_niu_lpass_agnoc = {
 static struct qcom_icc_node ebi = {
 	.name = "ebi",
 	.id = SLAVE_EBI1,
-	.channels = 4,
+	.channels = 2,
 	.buswidth = 4,
 	.num_links = 0,
 };
@@ -1291,7 +1296,7 @@ static struct qcom_icc_node qns_llcc_disp = {
 static struct qcom_icc_node ebi_disp = {
 	.name = "ebi_disp",
 	.id = SLAVE_EBI1_DISP,
-	.channels = 4,
+	.channels = 2,
 	.buswidth = 4,
 	.num_links = 0,
 };
@@ -2067,7 +2072,11 @@ static int qnoc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, qp);
 
-	dev_dbg(&pdev->dev, "Registered SHIMA ICC\n");
+	dev_info(&pdev->dev, "Registered SHIMA ICC\n");
+
+	mutex_lock(&probe_list_lock);
+	list_add_tail(&qp->probe_list, &qnoc_probe_list);
+	mutex_unlock(&probe_list_lock);
 
 	return ret;
 err:
@@ -2121,12 +2130,50 @@ static const struct of_device_id qnoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, qnoc_of_match);
 
+static void qnoc_sync_state(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	struct qcom_icc_bcm *bcm;
+	struct bcm_voter *voter;
+
+	mutex_lock(&probe_list_lock);
+	probe_count++;
+
+	if (probe_count < ARRAY_SIZE(qnoc_of_match) - 1) {
+		mutex_unlock(&probe_list_lock);
+		return;
+	}
+
+	list_for_each_entry(qp, &qnoc_probe_list, probe_list) {
+		int i;
+
+		for (i = 0; i < qp->num_voters; i++)
+			qcom_icc_bcm_voter_clear_init(qp->voters[i]);
+
+		for (i = 0; i < qp->num_bcms; i++) {
+			bcm = qp->bcms[i];
+			if (!bcm->keepalive)
+				continue;
+
+			voter = qp->voters[bcm->voter_idx];
+			qcom_icc_bcm_voter_add(voter, bcm);
+			qcom_icc_bcm_voter_commit(voter);
+		}
+	}
+
+	mutex_unlock(&probe_list_lock);
+
+	pr_err("ICC interconnect state synced\n");
+}
+
 static struct platform_driver qnoc_driver = {
 	.probe = qnoc_probe,
 	.remove = qnoc_remove,
 	.driver = {
 		.name = "qnoc-shima",
 		.of_match_table = qnoc_of_match,
+		.sync_state = qnoc_sync_state,
 	},
 };
 
