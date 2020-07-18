@@ -86,9 +86,36 @@ static const unsigned int eud_extcon_cable[] = {
  * On the kernel command line specify eud.enable=1 to enable EUD.
  * EUD is disabled by default.
  */
-static int enable;
+static int enable = EUD_ENABLE_CMD;
 static bool eud_ready;
 static struct platform_device *eud_private;
+
+static inline void msm_eud_enable_irqs(struct eud_chip *chip)
+{
+	/* Enable vbus, chgr & safe mode warning interrupts */
+	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
+			chip->eud_reg_base + EUD_REG_INT1_EN_MASK);
+}
+
+static int msm_eud_hw_is_enabled(struct platform_device *pdev)
+{
+	struct eud_chip *chip = platform_get_drvdata(pdev);
+	int sec_eud_enabled = 0;
+
+	if (chip->secure_eud_en) {
+		int ret = qcom_scm_io_readl(
+				chip->eud_mode_mgr2_phys_base + EUD_REG_EUD_EN2,
+				&sec_eud_enabled);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"qcom_scm_io_readl failed with rc: %d\n", ret);
+			sec_eud_enabled = 0;
+		}
+	}
+
+	return (sec_eud_enabled & BIT(0)) ||
+	(readl_relaxed(chip->eud_reg_base + EUD_REG_CSR_EUD_EN) & BIT(0));
+}
 
 static void enable_eud(struct platform_device *pdev)
 {
@@ -98,9 +125,7 @@ static void enable_eud(struct platform_device *pdev)
 	/* write into CSR to enable EUD */
 	writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
 
-	/* Enable vbus, chgr & safe mode warning interrupts */
-	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
-			priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+	msm_eud_enable_irqs(priv);
 
 	/* Enable secure eud if supported */
 	if (priv->secure_eud_en) {
@@ -651,9 +676,9 @@ static int msm_eud_probe(struct platform_device *pdev)
 	eud_private = pdev;
 	eud_ready = true;
 
-	/* Enable EUD */
-	if (enable)
-		enable_eud(pdev);
+	/* Proceed enable other EUD elements if bootloader has enabled it */
+	if (enable && msm_eud_hw_is_enabled(pdev))
+		msm_eud_enable_irqs(chip);
 
 	return 0;
 
