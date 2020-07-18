@@ -2740,6 +2740,9 @@ static int icnss_fw_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "  VAL: 1 (WLAN FW test)\n");
 	seq_puts(s, "  VAL: 2 (CCPM test)\n");
 	seq_puts(s, "  VAL: 3 (Trigger Recovery)\n");
+	seq_puts(s, "  VAL: 4 (Allow Recursive Recovery)\n");
+	seq_puts(s, "  VAL: 5 (Disallow Recursive Recovery)\n");
+	seq_puts(s, "  VAL: 6 (Trigger power supply callback)\n");
 
 	seq_puts(s, "\nCMD: dynamic_feature_mask\n");
 	seq_puts(s, "  VAL: (64 bit feature mask)\n");
@@ -2915,6 +2918,9 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 			break;
 		case 5:
 			icnss_disallow_recursive_recovery(&priv->pdev->dev);
+			break;
+		case 6:
+			power_supply_changed(priv->batt_psy);
 			break;
 		default:
 			return -EINVAL;
