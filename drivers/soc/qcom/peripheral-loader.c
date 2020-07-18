@@ -1531,6 +1531,7 @@ int pil_desc_init(struct pil_desc *desc)
 	void __iomem *addr;
 	void *ss_toc_addr;
 	int ret;
+	size_t size;
 	char buf[sizeof(priv->info->name)];
 	struct device_node *ofnode = desc->dev->of_node;
 
@@ -1559,6 +1560,15 @@ int pil_desc_init(struct pil_desc *desc)
 		&desc->minidump_id))
 		pr_err("minidump-id not found for %s\n", desc->name);
 	else {
+		if (IS_ERR_OR_NULL(g_md_toc)) {
+			/* Get Global minidump ToC*/
+			g_md_toc = qcom_smem_get(QCOM_SMEM_HOST_ANY,
+				SBL_MINIDUMP_SMEM_ID, &size);
+			if (PTR_ERR(g_md_toc) == -EPROBE_DEFER) {
+				g_md_toc = NULL;
+				pr_err("SMEM is not initialized.\n");
+			}
+		}
 		if (g_md_toc && g_md_toc->md_toc_init == true) {
 			ss_toc_addr = &g_md_toc->md_ss_toc[desc->minidump_id];
 			pr_debug("Minidump : ss_toc_addr for ss is %pa and desc->minidump_id is %d\n",
@@ -1665,7 +1675,6 @@ static int __init msm_pil_init(void)
 	struct device_node *np;
 	struct resource res;
 	int i;
-	size_t size;
 
 	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-pil");
 	if (!np) {
@@ -1687,15 +1696,6 @@ static int __init msm_pil_init(void)
 	}
 	for (i = 0; i < resource_size(&res)/sizeof(u32); i++)
 		writel_relaxed(0, pil_info_base + (i * sizeof(u32)));
-
-	/* Get Global minidump ToC*/
-	g_md_toc = qcom_smem_get(QCOM_SMEM_HOST_ANY, SBL_MINIDUMP_SMEM_ID,
-				 &size);
-	pr_debug("Minidump: g_md_toc is %pa\n", &g_md_toc);
-	if (PTR_ERR(g_md_toc) == -EPROBE_DEFER) {
-		pr_err("SMEM is not initialized.\n");
-		return -EPROBE_DEFER;
-	}
 
 	pil_wq = alloc_workqueue("pil_workqueue", WQ_HIGHPRI | WQ_UNBOUND, 0);
 	if (!pil_wq)
