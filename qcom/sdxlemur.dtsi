@@ -300,7 +300,7 @@
 	mc_virt: interconnect {
 		compatible = "qcom,sdxlemur-mc_virt";
 		#interconnect-cells = <1>;
-	}
+	};
 
 	tcsr_mutex_block: syscon@1f40000 {
 		compatible = "syscon";
