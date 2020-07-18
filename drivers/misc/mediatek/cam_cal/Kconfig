@@ -1,0 +1,11 @@
+config MTK_CAM_CAL
+	tristate "MTK camera cal driver"
+	help
+	  This module is used for reading calibration data of camera which
+	  stored in EEPROM component.
+	  CONFIG_MTK_CAM_CAL define if the camera cal driver should be
+	  built in or not. If you want to use EEPROM which contains
+	  calibration data for sensor. You have enable CONFIG_MTK_CAM_CAL
+	  on ProjectConfig. The kernel space for EEPROM will be build.
+	  It may be like as "/dev/camera_eeprom0".
+	  User space code will control the driver by open and read this one.
