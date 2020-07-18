@@ -1,5 +1,9 @@
 clk-dummy.ko
 clk-qcom.ko
+dwc3.ko
+dwc3-msm.ko
+phy-generic.ko
+phy-qcom-emu.ko
 pinctrl-waipio.ko
 stub-regulator.ko
 debug-regulator.ko
