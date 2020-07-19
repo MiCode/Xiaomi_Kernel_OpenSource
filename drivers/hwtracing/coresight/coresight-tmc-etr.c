@@ -1527,7 +1527,10 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			dev_err(&csdev->dev, "usb_qdss_open failed\n");
 			drvdata->enable = false;
 			drvdata->mode = CS_MODE_DISABLED;
+			if (drvdata->byte_cntr->sw_usb)
+				tmc_etr_disable_hw(drvdata);
 			ret = -ENODEV;
+			goto out;
 		}
 	}
 
@@ -2042,29 +2045,18 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
-		&& drvdata->byte_cntr->sw_usb) {
-		usb_bypass_stop(drvdata->byte_cntr);
-		flush_workqueue(drvdata->byte_cntr->usb_wq);
-		drvdata->usbch = NULL;
+	if ((drvdata->out_mode == TMC_ETR_OUT_MODE_USB
+		&& drvdata->byte_cntr->sw_usb)
+		|| drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+		else {
+			usb_bypass_stop(drvdata->byte_cntr);
+			flush_workqueue(drvdata->byte_cntr->usb_wq);
+			drvdata->usbch = NULL;
+		}
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		/* Free memory outside the spinlock if need be */
-		if (drvdata->etr_buf) {
-			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
-			drvdata->etr_buf = NULL;
-		}
-	}
-
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
-		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
-		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		/* Free memory outside the spinlock if need be */
-		if (drvdata->etr_buf) {
-			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
-			drvdata->etr_buf = NULL;
-		}
 	}
 out:
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
