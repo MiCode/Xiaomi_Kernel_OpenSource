@@ -50,6 +50,28 @@ static uint8_t _std_init_vector_sha256_uint8[] = {
 	0x1F, 0x83, 0xD9, 0xAB, 0x5B, 0xE0, 0xCD, 0x19
 };
 
+static uint8_t _std_init_vector_sha384_uint8[] = {
+	0xCB, 0xBB, 0x9D, 0x5D, 0xC1, 0x05, 0x9E, 0xD8,
+	0x62, 0x9A, 0x29, 0x2A, 0x36, 0x7C, 0xD5, 0x07,
+	0x91, 0x59, 0x01, 0x5A, 0x30, 0x70, 0xDD, 0x17,
+	0x15, 0x2F, 0xEC, 0xD8, 0xF7, 0x0E, 0x59, 0x39,
+	0x67, 0x33, 0x26, 0x67, 0xFF, 0xC0, 0x0B, 0x31,
+	0x8E, 0xB4, 0x4A, 0x87, 0x68, 0x58, 0x15, 0x11,
+	0xDB, 0x0C, 0x2E, 0x0D, 0x64, 0xF9, 0x8F, 0xA7,
+	0x47, 0xB5, 0x48, 0x1D, 0xBE, 0xFA, 0x4F, 0xA4
+};
+
+static uint8_t _std_init_vector_sha512_uint8[] = {
+	0x6A, 0x09, 0xE6, 0x67, 0xF3, 0xBC, 0xC9, 0x08,
+	0xBB, 0x67, 0xAE, 0x85, 0x84, 0xCA, 0xA7, 0x3B,
+	0x3C, 0x6E, 0xF3, 0x72, 0xFE, 0x94, 0xF8, 0x2B,
+	0xA5, 0x4F, 0xF5, 0x3A, 0x5F, 0x1D, 0x36, 0xF1,
+	0x51, 0x0E, 0x52, 0x7F, 0xAD, 0xE6, 0x82, 0xD1,
+	0x9B, 0x05, 0x68, 0x8C, 0x2B, 0x3E, 0x6C, 0x1F,
+	0x1F, 0x83, 0xD9, 0xAB, 0xFB, 0x41, 0xBD, 0x6B,
+	0x5B, 0xE0, 0xCD, 0x19, 0x13, 0x7E, 0x21, 0x79
+};
+
 static DEFINE_MUTEX(send_cmd_lock);
 static DEFINE_MUTEX(qcedev_sent_bw_req);
 static DEFINE_MUTEX(hash_access_lock);
@@ -65,6 +87,23 @@ static const struct of_device_id qcedev_match[] = {
 	{	.compatible = "qcom,qcedev,context-bank"},
 	{}
 };
+
+static uint32_t qcedev_get_block_size(enum qcedev_sha_alg_enum alg)
+{
+	switch (alg) {
+	case QCEDEV_ALG_SHA1:
+	case QCEDEV_ALG_SHA1_HMAC:
+		return SHA1_BLOCK_SIZE;
+	case QCEDEV_ALG_SHA256:
+	case QCEDEV_ALG_SHA256_HMAC:
+		return SHA256_BLOCK_SIZE;
+	case QCEDEV_ALG_SHA384:
+	case QCEDEV_ALG_SHA384_HMAC:
+		return SHA384_BLOCK_SIZE;
+	default:
+		return SHA512_BLOCK_SIZE;
+	}
+}
 
 static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
 {
@@ -340,11 +379,14 @@ void qcedev_sha_req_cb(void *cookie, unsigned char *digest,
 	pdev = handle->cntl;
 
 	if (digest)
-		memcpy(&handle->sha_ctxt.digest[0], digest, 32);
+		memcpy(&handle->sha_ctxt.digest[0], digest,
+			QCEDEV_MAX_SHA_DIGEST);
 
 	if (authdata) {
 		handle->sha_ctxt.auth_data[0] = auth32[0];
 		handle->sha_ctxt.auth_data[1] = auth32[1];
+		handle->sha_ctxt.auth_data[2] = auth32[2];
+		handle->sha_ctxt.auth_data[3] = auth32[3];
 	}
 
 	tasklet_schedule(&pdev->done_tasklet);
@@ -490,12 +532,17 @@ static int start_sha_req(struct qcedev_control *podev)
 	case QCEDEV_ALG_SHA256:
 		sreq.alg = QCE_HASH_SHA256;
 		break;
+	case QCEDEV_ALG_SHA384:
+		sreq.alg = QCE_HASH_SHA384;
+		break;
+	case QCEDEV_ALG_SHA512:
+		sreq.alg = QCE_HASH_SHA512;
+		break;
 	case QCEDEV_ALG_SHA1_HMAC:
 		if (podev->ce_support.sha_hmac) {
 			sreq.alg = QCE_HASH_SHA1_HMAC;
 			sreq.authkey = &handle->sha_ctxt.authkey[0];
-			sreq.authklen = QCEDEV_MAX_SHA_BLOCK_SIZE;
-
+			sreq.authklen = SHA1_BLOCK_SIZE;
 		} else {
 			sreq.alg = QCE_HASH_SHA1;
 			sreq.authkey = NULL;
@@ -505,9 +552,29 @@ static int start_sha_req(struct qcedev_control *podev)
 		if (podev->ce_support.sha_hmac) {
 			sreq.alg = QCE_HASH_SHA256_HMAC;
 			sreq.authkey = &handle->sha_ctxt.authkey[0];
-			sreq.authklen = QCEDEV_MAX_SHA_BLOCK_SIZE;
+			sreq.authklen = SHA256_BLOCK_SIZE;
 		} else {
 			sreq.alg = QCE_HASH_SHA256;
+			sreq.authkey = NULL;
+		}
+		break;
+	case QCEDEV_ALG_SHA384_HMAC:
+		if (podev->ce_support.sha_hmac) {
+			sreq.alg = QCE_HASH_SHA384_HMAC;
+			sreq.authkey = &handle->sha_ctxt.authkey[0];
+			sreq.authklen = SHA384_BLOCK_SIZE;
+		} else {
+			sreq.alg = QCE_HASH_SHA384;
+			sreq.authkey = NULL;
+		}
+		break;
+	case QCEDEV_ALG_SHA512_HMAC:
+		if (podev->ce_support.sha_hmac) {
+			sreq.alg = QCE_HASH_SHA512_HMAC;
+			sreq.authkey = &handle->sha_ctxt.authkey[0];
+			sreq.authklen = SHA512_BLOCK_SIZE;
+		} else {
+			sreq.alg = QCE_HASH_SHA512;
 			sreq.authkey = NULL;
 		}
 		break;
@@ -623,14 +690,27 @@ static int qcedev_sha_init(struct qcedev_async_req *areq,
 		memcpy(&sha_ctxt->digest[0],
 			&_std_init_vector_sha1_uint8[0], SHA1_DIGEST_SIZE);
 		sha_ctxt->diglen = SHA1_DIGEST_SIZE;
-	} else {
-		if ((areq->sha_op_req.alg == QCEDEV_ALG_SHA256) ||
+	}
+	if ((areq->sha_op_req.alg == QCEDEV_ALG_SHA256) ||
 			(areq->sha_op_req.alg == QCEDEV_ALG_SHA256_HMAC)) {
-			memcpy(&sha_ctxt->digest[0],
-					&_std_init_vector_sha256_uint8[0],
-					SHA256_DIGEST_SIZE);
-			sha_ctxt->diglen = SHA256_DIGEST_SIZE;
-		}
+		memcpy(&sha_ctxt->digest[0],
+			&_std_init_vector_sha256_uint8[0],
+			SHA256_DIGEST_SIZE);
+		sha_ctxt->diglen = SHA256_DIGEST_SIZE;
+	}
+	if ((areq->sha_op_req.alg == QCEDEV_ALG_SHA384) ||
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA384_HMAC)) {
+		memcpy(&sha_ctxt->digest[0],
+			&_std_init_vector_sha384_uint8[0],
+			SHA512_DIGEST_SIZE);
+		sha_ctxt->diglen = SHA384_DIGEST_SIZE;
+	}
+	if ((areq->sha_op_req.alg == QCEDEV_ALG_SHA512) ||
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA512_HMAC)) {
+		memcpy(&sha_ctxt->digest[0],
+			&_std_init_vector_sha512_uint8[0],
+			SHA512_DIGEST_SIZE);
+		sha_ctxt->diglen = SHA512_DIGEST_SIZE;
 	}
 	sha_ctxt->init_done = true;
 	return 0;
@@ -657,10 +737,7 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 
 	total = qcedev_areq->sha_op_req.data_len + t_buf;
 
-	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA1)
-		sha_block_size = SHA1_BLOCK_SIZE;
-	else
-		sha_block_size = SHA256_BLOCK_SIZE;
+	sha_block_size = qcedev_get_block_size(qcedev_areq->sha_op_req.alg);
 
 	if (total <= sha_block_size) {
 		uint32_t len =  qcedev_areq->sha_op_req.data_len;
@@ -686,7 +763,6 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 
 		return 0;
 	}
-
 
 	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
 				GFP_KERNEL);
@@ -727,8 +803,8 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	}
 
 	/*  get new trailing buffer */
-	sha_pad_len = ALIGN(total, CE_SHA_BLOCK_SIZE) - total;
-	trailing_buf_len =  CE_SHA_BLOCK_SIZE - sha_pad_len;
+	sha_pad_len = ALIGN(total, sha_block_size) - total;
+	trailing_buf_len =  sha_block_size - sha_pad_len;
 
 	qcedev_areq->sha_req.sreq.src = sg_src;
 	sg_init_one(qcedev_areq->sha_req.sreq.src, k_align_src,
@@ -738,7 +814,8 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 
 	/*  update sha_ctxt trailing buf content to new trailing buf */
 	if (trailing_buf_len > 0) {
-		memset(&handle->sha_ctxt.trailing_buf[0], 0, 64);
+		memset(&handle->sha_ctxt.trailing_buf[0], 0,
+			QCEDEV_MAX_SHA_BLOCK_SIZE);
 		memcpy(&handle->sha_ctxt.trailing_buf[0],
 			(k_src - trailing_buf_len),
 			trailing_buf_len);
@@ -905,9 +982,11 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	handle->sha_ctxt.last_blk = 0;
 	handle->sha_ctxt.auth_data[0] = 0;
 	handle->sha_ctxt.auth_data[1] = 0;
+	handle->sha_ctxt.auth_data[2] = 0;
+	handle->sha_ctxt.auth_data[3] = 0;
 	handle->sha_ctxt.trailing_buf_len = 0;
 	handle->sha_ctxt.init_done = false;
-	memset(&handle->sha_ctxt.trailing_buf[0], 0, 64);
+	memset(&handle->sha_ctxt.trailing_buf[0], 0, QCEDEV_MAX_SHA_BLOCK_SIZE);
 	memset(k_buf_src, 0, ksize((void *)k_buf_src));
 	kfree(k_buf_src);
 	qcedev_areq->sha_req.sreq.src = NULL;
@@ -979,8 +1058,9 @@ static int qcedev_set_hmac_auth_key(struct qcedev_async_req *areq,
 					struct scatterlist *sg_src)
 {
 	int err = 0;
+	int qcedev_max_key = qcedev_get_block_size(areq->sha_op_req.alg);
 
-	if (areq->sha_op_req.authklen <= QCEDEV_MAX_KEY_SIZE) {
+	if (areq->sha_op_req.authklen <= qcedev_max_key) {
 		qcedev_sha_init(areq, handle);
 		if (copy_from_user(&handle->sha_ctxt.authkey[0],
 				(void __user *)areq->sha_op_req.authkey,
@@ -1006,6 +1086,10 @@ static int qcedev_set_hmac_auth_key(struct qcedev_async_req *areq,
 			authkey_areq.sha_op_req.alg = QCEDEV_ALG_SHA1;
 		if (areq->sha_op_req.alg == QCEDEV_ALG_SHA256_HMAC)
 			authkey_areq.sha_op_req.alg = QCEDEV_ALG_SHA256;
+		if (areq->sha_op_req.alg == QCEDEV_ALG_SHA384_HMAC)
+			authkey_areq.sha_op_req.alg = QCEDEV_ALG_SHA384;
+		if (areq->sha_op_req.alg == QCEDEV_ALG_SHA512_HMAC)
+			authkey_areq.sha_op_req.alg = QCEDEV_ALG_SHA512;
 
 		authkey_areq.op_type = QCEDEV_CRYPTO_OPER_SHA;
 
@@ -1034,15 +1118,16 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 	uint32_t sha_block_size = 0;
 	uint32_t sha_digest_size = 0;
 
-	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA1_HMAC) {
+	sha_block_size = qcedev_get_block_size(qcedev_areq->sha_op_req.alg);
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA1_HMAC)
 		sha_digest_size = SHA1_DIGEST_SIZE;
-		sha_block_size = SHA1_BLOCK_SIZE;
-	} else {
-		if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA256_HMAC) {
-			sha_digest_size = SHA256_DIGEST_SIZE;
-			sha_block_size = SHA256_BLOCK_SIZE;
-		}
-	}
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA256_HMAC)
+		sha_digest_size = SHA256_DIGEST_SIZE;
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA384_HMAC)
+		sha_digest_size = SHA384_DIGEST_SIZE;
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA512_HMAC)
+		sha_digest_size = SHA512_DIGEST_SIZE;
+
 	k_src = kmalloc(sha_block_size, GFP_KERNEL);
 	if (k_src == NULL)
 		return -ENOMEM;
@@ -1076,6 +1161,18 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 			&_std_init_vector_sha256_uint8[0], SHA256_DIGEST_SIZE);
 		handle->sha_ctxt.diglen = SHA256_DIGEST_SIZE;
 	}
+
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA384_HMAC) {
+		memcpy(&handle->sha_ctxt.digest[0],
+			&_std_init_vector_sha384_uint8[0], SHA512_DIGEST_SIZE);
+		handle->sha_ctxt.diglen = SHA384_DIGEST_SIZE;
+	}
+
+	if (qcedev_areq->sha_op_req.alg == QCEDEV_ALG_SHA512_HMAC) {
+		memcpy(&handle->sha_ctxt.digest[0],
+			&_std_init_vector_sha512_uint8[0], SHA512_DIGEST_SIZE);
+		handle->sha_ctxt.diglen = SHA512_DIGEST_SIZE;
+	}
 	err = submit_req(qcedev_areq, handle);
 
 	handle->sha_ctxt.last_blk = 0;
@@ -1098,10 +1195,7 @@ static int qcedev_hmac_update_iokey(struct qcedev_async_req *areq,
 	else
 		constant = 0x5c;
 
-	if (areq->sha_op_req.alg == QCEDEV_ALG_SHA1_HMAC)
-		sha_block_size = SHA1_BLOCK_SIZE;
-	else
-		sha_block_size = SHA256_BLOCK_SIZE;
+	sha_block_size = qcedev_get_block_size(areq->sha_op_req.alg);
 
 	memset(&handle->sha_ctxt.trailing_buf[0], 0, sha_block_size);
 	for (i = 0; i < sha_block_size; i++)
@@ -1151,7 +1245,9 @@ static int qcedev_hash_init(struct qcedev_async_req *areq,
 				struct scatterlist *sg_src)
 {
 	if ((areq->sha_op_req.alg == QCEDEV_ALG_SHA1) ||
-			(areq->sha_op_req.alg == QCEDEV_ALG_SHA256))
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA256) ||
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA384) ||
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA512))
 		return qcedev_sha_init(areq, handle);
 	else
 		return qcedev_hmac_init(areq, handle, sg_src);
@@ -1168,7 +1264,9 @@ static int qcedev_hash_final(struct qcedev_async_req *areq,
 				struct qcedev_handle *handle)
 {
 	if ((areq->sha_op_req.alg == QCEDEV_ALG_SHA1) ||
-			(areq->sha_op_req.alg == QCEDEV_ALG_SHA256))
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA256) ||
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA384) ||
+			(areq->sha_op_req.alg == QCEDEV_ALG_SHA512))
 		return qcedev_sha_final(areq, handle);
 	else
 		return qcedev_hmac_final(areq, handle);
@@ -1635,7 +1733,9 @@ static int qcedev_check_sha_params(struct qcedev_sha_op_req *req,
 		goto sha_error;
 	}
 	if ((req->alg == QCEDEV_ALG_SHA1_HMAC) ||
-			(req->alg == QCEDEV_ALG_SHA256_HMAC)) {
+			(req->alg == QCEDEV_ALG_SHA256_HMAC) ||
+			(req->alg == QCEDEV_ALG_SHA384_HMAC) ||
+			(req->alg == QCEDEV_ALG_SHA512_HMAC)) {
 		if (req->authkey == NULL) {
 			pr_err("%s: Invalid authkey pointer\n", __func__);
 			goto sha_error;
@@ -1997,10 +2097,12 @@ static inline long qcedev_ioctl(struct file *file,
 	}
 
 exit_free_qcedev_areq:
-	if (podev->platform_support.bus_scale_table != NULL &&
-		cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
-		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
-		qcedev_ce_high_bw_req(podev, false);
+	if (podev) {
+		if (podev->platform_support.bus_scale_table != NULL &&
+				cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
+				cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
+			qcedev_ce_high_bw_req(podev, false);
+	}
 	kfree(qcedev_areq);
 	return err;
 }

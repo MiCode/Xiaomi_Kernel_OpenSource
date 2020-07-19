@@ -3,7 +3,7 @@
  * Copyright (c) 2015, Sony Mobile Communications, AB.
  */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"WLED: %s: " fmt, __func__
@@ -2370,6 +2370,7 @@ static const struct of_device_id wled_match_table[] = {
 	{ .compatible = "qcom,pmi8998-spmi-wled", .data = &version_table[0] },
 	{ .compatible = "qcom,pm8150l-spmi-wled", .data = &version_table[2] },
 	{ .compatible = "qcom,pm6150l-spmi-wled", .data = &version_table[2] },
+	{ .compatible = "qcom,pm660l-spmi-wled",  .data = &version_table[1] },
 	{ },
 };
 

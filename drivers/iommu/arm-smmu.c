@@ -70,6 +70,7 @@
 #include "iommu-logger.h"
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/bitfield.h>
 
 /*
  * Apparently, some Qualcomm arm64 platforms which appear to expose their SMMU
@@ -155,7 +156,6 @@ struct arm_smmu_impl_def_reg {
 	u32 offset;
 	u32 value;
 };
-
 
 /*
  * attach_count
@@ -1981,6 +1981,46 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 	return (phys_stimu == 0 ? phys_stimu_post_tlbiall : phys_stimu);
 }
 
+int iommu_get_fault_ids(struct iommu_domain *domain,
+			struct iommu_fault_ids *f_ids)
+{
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_cfg *cfg;
+	struct arm_smmu_device *smmu;
+	void __iomem *cb_base;
+	u32 fsr, fsynr1;
+	int ret;
+
+	if (!domain || !f_ids)
+		return -EINVAL;
+
+	smmu_domain = to_smmu_domain(domain);
+	cfg = &smmu_domain->cfg;
+	smmu = smmu_domain->smmu;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return ret;
+
+	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+
+	if (!(fsr & FSR_FAULT)) {
+		arm_smmu_power_off(smmu->pwr);
+		return -EINVAL;
+	}
+
+	fsynr1 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR1);
+	arm_smmu_power_off(smmu->pwr);
+
+	f_ids->bid = FIELD_GET(FSYNR1_BID, fsynr1);
+	f_ids->pid = FIELD_GET(FSYNR1_PID, fsynr1);
+	f_ids->mid = FIELD_GET(FSYNR1_MID, fsynr1);
+
+	return 0;
+}
+EXPORT_SYMBOL(iommu_get_fault_ids);
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	int flags, ret, tmp;
@@ -2043,6 +2083,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			"Context fault handled by client: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 			iova, cfg->cbndx, fsr, fsynr0, fsynr1);
 		dev_dbg(smmu->dev,
+			"Client info: BID=0x%x, PID=0x%x, MID=0x%x\n",
+			FIELD_GET(FSYNR1_BID, fsynr1),
+			FIELD_GET(FSYNR1_PID, fsynr1),
+			FIELD_GET(FSYNR1_MID, fsynr1));
+		dev_dbg(smmu->dev,
 			"soft iova-to-phys=%pa\n", &phys_soft);
 		ret = IRQ_HANDLED;
 		resume = RESUME_TERMINATE;
@@ -2056,7 +2101,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
-
+			dev_err(smmu->dev,
+				"Client info: BID=0x%x, PID=0x%x, MID=0x%x\n",
+				FIELD_GET(FSYNR1_BID, fsynr1),
+				FIELD_GET(FSYNR1_PID, fsynr1),
+				FIELD_GET(FSYNR1_MID, fsynr1));
 
 			dev_err(smmu->dev,
 				"soft iova-to-phys=%pa\n", &phys_soft);

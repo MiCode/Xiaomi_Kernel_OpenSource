@@ -276,6 +276,10 @@ int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic)
 	void __iomem *base = mhi_cntrl->bhie;
 	u32 rx_status;
 
+	/* device supports RDDM but controller wants to skip ramdumps */
+	if (!mhi_cntrl->rddm_supported || !mhi_cntrl->rddm_image)
+		return -EINVAL;
+
 	if (in_panic)
 		return __mhi_download_rddm_in_panic(mhi_cntrl);
 

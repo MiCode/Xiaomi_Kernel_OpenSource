@@ -719,7 +719,6 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 	int ret = 0;
 	int list;
 	uint32_t ram_cfg_base;
-	uint32_t hw_info;
 
 	mutex_lock(&drvdata->mutex);
 
@@ -754,10 +753,6 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		dcc_writel(drvdata, drvdata->ram_start +
 				drvdata->ram_offset/4, DCC_FD_BASE(list));
 		dcc_writel(drvdata, 0xFFF, DCC_LL_TIMEOUT(list));
-
-		hw_info = dcc_readl(drvdata, DCC_HW_INFO);
-		if (hw_info & 0x80)
-			dcc_writel(drvdata, 0x3F, DCC_TRANS_TIMEOUT(list));
 
 		/* 4. Clears interrupt status register */
 		dcc_writel(drvdata, 0, DCC_LL_INT_ENABLE(list));
