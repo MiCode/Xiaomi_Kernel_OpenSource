@@ -1,2 +1,4 @@
 &soc {
 };
+
+#include "camera/shima-camera-sensor-idp.dtsi"
