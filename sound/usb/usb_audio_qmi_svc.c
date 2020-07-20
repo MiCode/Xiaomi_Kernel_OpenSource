@@ -1309,10 +1309,18 @@ static struct qmi_ops uaudio_svc_ops_options = {
 	.del_client = uaudio_qmi_svc_disconnect_cb,
 };
 
+static int uaudio_qmi_svc_init(void);
+
 static int uaudio_qmi_plat_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
+
+	if (!uaudio_svc) {
+		ret = uaudio_qmi_svc_init();
+		if (ret)
+			return ret;
+	}
 
 	uaudio_qdev = devm_kzalloc(&pdev->dev, sizeof(struct uaudio_qmi_dev),
 		GFP_KERNEL);
@@ -1465,13 +1473,7 @@ static void uaudio_qmi_svc_exit(void)
 
 static int __init uaudio_qmi_plat_init(void)
 {
-	int ret;
-
-	ret = platform_driver_register(&uaudio_qmi_driver);
-	if (ret)
-		return ret;
-
-	return uaudio_qmi_svc_init();
+	return platform_driver_register(&uaudio_qmi_driver);
 }
 
 static void __exit uaudio_qmi_plat_exit(void)
