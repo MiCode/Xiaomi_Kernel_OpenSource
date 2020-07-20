@@ -129,14 +129,14 @@ static struct clk_alpha_pll_postdiv gpll0_out_odd = {
 
 static const struct alpha_pll_config gpll10_config = {
 	.l = 0x3C,
-	.cal_l = 0x3C,
+	.cal_l = 0x36,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
-	.user_ctl_val = 0x00000007,
-	.user_ctl_hi_val = 0x00004005,
+	.test_ctl_hi_val = 0x00000002,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll10 = {
@@ -170,14 +170,14 @@ static struct clk_alpha_pll gpll10 = {
 
 static const struct alpha_pll_config gpll11_config = {
 	.l = 0x1B,
-	.cal_l = 0x21,
+	.cal_l = 0x25,
 	.alpha = 0xB555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
-	.user_ctl_val = 0x00000007,
-	.user_ctl_hi_val = 0x00004005,
+	.test_ctl_hi_val = 0x00000002,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll11 = {
@@ -385,14 +385,14 @@ static struct clk_alpha_pll gpll7 = {
 
 static const struct alpha_pll_config gpll8_config = {
 	.l = 0x1B,
-	.cal_l = 0x26,
+	.cal_l = 0x2A,
 	.alpha = 0xC555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000103,
-	.user_ctl_hi_val = 0x00004005,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll8 = {
@@ -450,8 +450,8 @@ static struct clk_alpha_pll_postdiv gpll8_out_even = {
 static const struct alpha_pll_config gpll9_config = {
 	.l = 0x64,
 	.alpha = 0x0,
-	.config_ctl_hi_val = 0x000003D2,
-	.config_ctl_val = 0x20000AA8,
+	.config_ctl_hi_val = 0x400003D2,
+	.config_ctl_val = 0x20000800,
 	.test_ctl_val = 0x4000400,
 	.test_ctl_hi_val = 0x4000,
 	.post_div_val = 0x3 << 8,
@@ -1134,7 +1134,7 @@ static const struct freq_tbl ftbl_gcc_camss_ope_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPLL8_OUT_EVEN, 2, 0, 0),
 	F(266600000, P_GPLL8_OUT_EVEN, 1, 0, 0),
-	F(465000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
+	F(480000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
 	F(580000000, P_GPLL8_OUT_MAIN, 1, 0, 0),
 	{ }
 };
@@ -1160,7 +1160,7 @@ static struct clk_rcg2 gcc_camss_ope_clk_src = {
 			[VDD_LOWER] = 19200000,
 			[VDD_LOW] = 200000000,
 			[VDD_LOW_L1] = 266600000,
-			[VDD_NOMINAL] = 465000000,
+			[VDD_NOMINAL] = 480000000,
 			[VDD_HIGH] = 580000000},
 	},
 };
@@ -2301,7 +2301,7 @@ static struct clk_branch gcc_cam_throttle_rt_clk = {
 
 static struct clk_branch gcc_camera_ahb_clk = {
 	.halt_reg = 0x17008,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17008,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -4031,7 +4031,7 @@ static struct clk_branch gcc_venus_ctl_axi_clk = {
 
 static struct clk_branch gcc_video_ahb_clk = {
 	.halt_reg = 0x17004,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17004,
 	.hwcg_bit = 1,
 	.clkr = {
