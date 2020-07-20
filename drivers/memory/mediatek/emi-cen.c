@@ -415,8 +415,49 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 		tmp ^= (test_bit(10, &addr) && test_bit(2, &hash)) ? 1 : 0;
 		tmp ^= (test_bit(11, &addr) && test_bit(3, &hash)) ? 1 : 0;
 		map->channel = tmp;
-	} else
-		return -1;
+	} else {
+		if (global_emi_cen->channels == 1) {
+			tmp = 0;
+			switch (global_emi_cen->chnpos) {
+			case 0:
+				tmp = 7;
+				break;
+			case 1:
+				tmp = 8;
+				break;
+			case 2:
+				tmp = 9;
+				break;
+			case 3:
+				tmp = 12;
+				break;
+			default:
+				return -1;
+			}
+			map->channel = (bfraddr >> tmp) % 2;
+		} else if (global_emi_cen->channels == 2) {
+			tmp = 0;
+			switch (global_emi_cen->chnpos) {
+			case 0:
+				tmp = 7;
+				break;
+			case 1:
+				tmp = 8;
+				break;
+			case 2:
+				tmp = 9;
+				break;
+			case 3:
+				tmp = 12;
+				break;
+			default:
+				return -1;
+			}
+			map->channel = (bfraddr >> tmp) % 4;
+		} else {
+			return -1;
+		}
+	}
 
 	if (map->channel > 1)
 		ch_ab_not_cd = 0;
@@ -434,30 +475,35 @@ static int mtk_emicen_addr2dram_v1(unsigned long addr,
 
 	if (!global_emi_cen->channels)
 		chnaddr = bfraddr;
-	else {
+	else if (global_emi_cen->chnpos > 3) {
+		tmp = chn_hash_lsb;
+		chnaddr = bfraddr >> (tmp + 1);
+		chnaddr = chnaddr << tmp;
+		chnaddr += bfraddr & ((1 << tmp) - 1);
+	} else if (global_emi_cen->channels == 1 ||
+			global_emi_cen->channels == 2) {
 		tmp = 0;
 		switch (global_emi_cen->chnpos) {
 		case 0:
-			tmp = (tmp) ? tmp : 7;
-			/* fall through */
+			tmp = 7;
+			break;
 		case 1:
-			tmp = (tmp) ? tmp : 8;
-			/* fall through */
+			tmp = 8;
+			break;
 		case 2:
-			tmp = (tmp) ? tmp : 9;
-			/* fall through */
+			tmp = 9;
+			break;
 		case 3:
-			tmp = (tmp) ? tmp : 12;
-			chnaddr = bfraddr >> (tmp + 1);
-			chnaddr = chnaddr << tmp;
-			chnaddr += bfraddr & ((1 << tmp) - 1);
+			tmp = 12;
 			break;
 		default:
-			chnaddr = bfraddr >> (chn_hash_lsb + 1);
-			chnaddr = chnaddr << chn_hash_lsb;
-			chnaddr += bfraddr & ((1 << chn_hash_lsb) - 1);
 			break;
 		}
+		chnaddr = bfraddr >> (tmp + (global_emi_cen->channels - 1));
+		chnaddr = chnaddr << tmp;
+		chnaddr += bfraddr & ((1 << tmp) - 1);
+	} else {
+		return -1;
 	}
 
 	if ((map->channel) ?
