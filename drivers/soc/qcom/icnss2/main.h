@@ -134,6 +134,15 @@ struct icnss_vreg_info {
 	u32 enabled;
 };
 
+struct icnss_cpr_info {
+	resource_size_t tcs_cmd_base_addr;
+	resource_size_t tcs_cmd_data_addr;
+	void __iomem *tcs_cmd_base_addr_io;
+	void __iomem *tcs_cmd_data_addr_io;
+	u32 cpr_pmic_addr;
+	u32 voltage;
+};
+
 enum icnss_vreg_type {
 	ICNSS_VREG_PRIM,
 };
@@ -292,6 +301,7 @@ struct icnss_priv {
 	struct ce_irq_list ce_irq_list[ICNSS_MAX_IRQ_REGISTRATIONS];
 	struct list_head vreg_list;
 	struct list_head clk_list;
+	struct icnss_cpr_info cpr_info;
 	unsigned long device_id;
 	struct icnss_msi_config *msi_config;
 	u32 msi_base_data;
@@ -404,5 +414,7 @@ int icnss_soc_wake_event_post(struct icnss_priv *priv,
 			      u32 flags, void *data);
 int icnss_get_iova(struct icnss_priv *priv, u64 *addr, u64 *size);
 int icnss_get_iova_ipa(struct icnss_priv *priv, u64 *addr, u64 *size);
+int icnss_get_cpr_info(struct icnss_priv *priv);
+int icnss_update_cpr_info(struct icnss_priv *priv);
 #endif
 

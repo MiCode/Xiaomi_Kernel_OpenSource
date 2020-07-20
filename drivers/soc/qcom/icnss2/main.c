@@ -3194,6 +3194,7 @@ static int icnss_probe(struct platform_device *pdev)
 			icnss_pr_err("ICNSS genl init failed %d\n", ret);
 
 		icnss_runtime_pm_init(priv);
+		icnss_get_cpr_info(priv);
 	}
 
 	icnss_pr_info("Platform driver probed successfully\n");
