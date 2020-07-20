@@ -4,6 +4,7 @@ qcom_rpmh.ko
 cmd-db.ko
 qnoc-waipio.ko
 icc-bcm-voter.ko
+gcc-waipio.ko
 dwc3.ko
 dwc3-msm.ko
 phy-generic.ko
