@@ -6,7 +6,7 @@ Required properties :
 			"qcom,holi-bimc",
 			"qcom,holi-system_noc",
 			"qcom,holi-config_noc",
-			"qcom,holi-qup_virt",
+			"qcom,holi-clk_virt",
 			"qcom,holi-mmnrt_virt",
 			"qcom,holi-mmrt_virt",
 - #interconnect-cells : should contain 1
