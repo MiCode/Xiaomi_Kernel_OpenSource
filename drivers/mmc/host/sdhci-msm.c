@@ -112,7 +112,7 @@
 #define CORE_START_CDC_TRAFFIC		BIT(6)
 
 #define CORE_PWRSAVE_DLL	BIT(3)
-
+#define CORE_FIFO_ALT_EN	BIT(10)
 #define DDR_CONFIG_POR_VAL		0x80040873
 #define DLL_USR_CTL_POR_VAL		0x10800
 #define ENABLE_DLL_LOCK_STATUS		BIT(26)
@@ -3856,6 +3856,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	/* Reset the vendor spec register to power on reset state */
 	writel_relaxed(CORE_VENDOR_SPEC_POR_VAL,
 			host->ioaddr + msm_offset->core_vendor_spec);
+
+	/* Ensure SDHCI FIFO is enabled by disabling alternative FIFO */
+	config = readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec3);
+	config &= ~CORE_FIFO_ALT_EN;
+	writel_relaxed(config, host->ioaddr + msm_offset->core_vendor_spec3);
 
 	if (!msm_host->mci_removed) {
 		/* Set HC_MODE_EN bit in HC_MODE register */
