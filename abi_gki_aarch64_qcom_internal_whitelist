@@ -94,6 +94,7 @@
   hdcp2_force_encryption
   hdcp2_init
   hdcp2_open_stream
+  hyp_assign_phys
   ipa_register_rmnet_ctl_cb
   ipa_rmnet_ctl_xmit
   ipa_unregister_rmnet_ctl_cb
