@@ -5254,6 +5254,24 @@
 		wlan-ant-switch-supply = <&L7E>;
 		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 0>;
 
+		interconnects = <&aggre2_noc MASTER_PCIE_0 &mc_virt SLAVE_EBI1>;
+		qcom,bus-bw-cfg-num = <7>;
+		qcom,bus-bw-cfg =
+		/* no vote */
+		<0 0>,
+		/* idle: 0-18 Mbps ddr freq: 451.2 MHz */
+		<2250 1600000>,
+		/* low: 18-60 Mbps ddr freq: 451.2 MHz */
+		<7500 1600000>,
+		/* medium: 60-240 Mbps ddr freq: 451.2 MHz */
+		<30000 1804800>,
+		/* high: 240 - 1080 Mbps ddr freq: 451.2 MHz */
+		<100000 1804800>,
+		/* high: 1080 - 1400 Mbps ddr freq: 451.2 MHz */
+		<175000 1804800>,
+		/* low (latency critical): 18 - 60 Mbps, ddr freq: 547.2 MHz */
+		<7500 2188800>;
+
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
 		mhi,buffer-len = <0x8000>;
