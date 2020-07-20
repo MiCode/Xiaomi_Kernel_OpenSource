@@ -45,6 +45,9 @@
 #define PMIC5_SMB1398_TEMP_SCALE_FACTOR	340
 #define PMIC5_SMB1398_TEMP_CONSTANT		268235
 
+#define PMIC5_PM2250_S3_DIE_TEMP_SCALE_FACTOR	187263
+#define PMIC5_PM2250_S3_DIE_TEMP_CONSTANT		720100
+
 #define PMI_CHG_SCALE_1				-138890
 #define PMI_CHG_SCALE_2				391750000000LL
 
@@ -150,6 +153,8 @@ struct vadc_prescale_ratio {
  *	charger temperature.
  * SCALE_HW_CALIB_CUR_RAW: Returns result in microamperes for PMIC7 channels
  *	that uses raw ADC code.
+ * SCALE_HW_CALIB_PM2250_S3_DIE_TEMP: Returns result in millidegrees for
+ *	S3 die temperature channel on PM2250.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -173,6 +178,7 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_PM7_SMB_TEMP,
 	SCALE_HW_CALIB_PM7_CHG_TEMP,
 	SCALE_HW_CALIB_CUR_RAW,
+	SCALE_HW_CALIB_PM2250_S3_DIE_TEMP,
 	SCALE_HW_CALIB_INVALID,
 };
 
