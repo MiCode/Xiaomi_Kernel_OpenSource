@@ -1,0 +1,49 @@
+config MTK_POWER_THROTTLING_COMMON
+	bool "MTK power throttling common"
+	help
+	  For MediaTek power throttling. Provide common interface for MTK
+	  power throttle.
+	  Select "y" if you want to enable power throttling feature
+	  Select "n" if unsure.
+
+config PMIC_LBAT_SERVICE
+	tristate "PMIC lbat service"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek PMIC lbat service.
+	  It will detect if VBAT is higher or lower some threshold and trigger
+	  interrupt to notify.
+	  Select "y" if you want to enable PMIC lbat service.
+	  Select "n" if unsure.
+
+config MTK_BATTERY_OC_POWER_THROTTLING
+	tristate "MTK battery over current throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek battery over current power throttling.
+	  Power throttle when battery current loading higher than some
+	  threshold.
+	  Select "y" if you want to enable battery over current power
+	  throttling feature.
+	  Select "n" if unsure.
+
+config MTK_BATTERY_PERCENT_THROTTLING
+	tristate "MTK battery percent power throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek battery percent throttling.
+	  Power throttle when battery percent lower than some threshold
+	  Select "y" if you want to enable battery percent power throttling
+	  feature
+	  Select "n" if unsure.
+
+config MTK_LOW_BATTERY_POWER_THROTTLING
+	tristate "MTK low battery throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	select PMIC_LBAT_SERVICE
+	help
+	  For MediaTek low battery power throttling.
+	  Power throttle when battery voltage lower than some threshold.
+	  Select "y" if you want to enable low battery power throttling
+	  feature.
+	  Select "n" if unsure.
