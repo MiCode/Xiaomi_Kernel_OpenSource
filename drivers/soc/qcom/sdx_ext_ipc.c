@@ -47,7 +47,7 @@ static const char * const gpio_map[] = {
 };
 
 struct gpio_cntrl {
-	unsigned int gpios[NUM_GPIOS];
+	int gpios[NUM_GPIOS];
 	int status_irq;
 	int wakeup_irq;
 	int policy;
