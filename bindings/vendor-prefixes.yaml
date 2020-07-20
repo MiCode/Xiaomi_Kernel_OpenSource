@@ -535,6 +535,8 @@ patternProperties:
     description: LSI Corp. (LSI Logic)
   "^lwn,.*":
     description: Liebherr-Werk Nenzing GmbH
+  "^lt,.*":
+    description: Lontium Semiconductor Corporation
   "^macnica,.*":
     description: Macnica Americas
   "^mapleboard,.*":
