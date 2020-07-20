@@ -295,3 +295,4 @@
 };
 #include "waipio-pinctrl.dtsi"
 #include "waipio-regulators.dtsi"
+#include "waipio-usb.dtsi"
