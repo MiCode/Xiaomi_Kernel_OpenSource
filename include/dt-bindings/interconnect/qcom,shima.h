@@ -52,10 +52,11 @@
 #define MASTER_PCIE_1				43
 #define MASTER_QDSS_DAP				44
 #define MASTER_QDSS_ETR				45
-#define MASTER_SDCC_2				46
-#define MASTER_SDCC_4				47
-#define MASTER_UFS_MEM				48
-#define MASTER_USB3_0				49
+#define MASTER_SDCC_1				46
+#define MASTER_SDCC_2				47
+#define MASTER_SDCC_4				48
+#define MASTER_UFS_MEM				49
+#define MASTER_USB3_0				50
 #define SLAVE_EBI1				512
 #define SLAVE_AHB2PHY_SOUTH				513
 #define SLAVE_AHB2PHY_NORTH				514

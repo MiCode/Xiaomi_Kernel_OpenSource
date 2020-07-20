@@ -47,6 +47,15 @@ static struct qcom_icc_node qnm_a1noc_cfg = {
 	.links = { SLAVE_SERVICE_A1NOC },
 };
 
+static struct qcom_icc_node xm_sdc1 = {
+	.name = "xm_sdc1",
+	.id = MASTER_SDCC_1,
+	.channels = 1,
+	.buswidth = 8,
+	.num_links = 1,
+	.links = { SLAVE_A1NOC_SNOC },
+};
+
 static struct qcom_icc_node xm_sdc4 = {
 	.name = "xm_sdc4",
 	.id = MASTER_SDCC_4,
@@ -1558,6 +1567,7 @@ static struct qcom_icc_node *aggre1_noc_nodes[] = {
 	[MASTER_QSPI_0] = &qhm_qspi,
 	[MASTER_QUP_1] = &qhm_qup1,
 	[MASTER_A1NOC_CFG] = &qnm_a1noc_cfg,
+	[MASTER_SDCC_1] = &xm_sdc1,
 	[MASTER_SDCC_4] = &xm_sdc4,
 	[MASTER_UFS_MEM] = &xm_ufs_mem,
 	[MASTER_USB3_0] = &xm_usb3_0,
