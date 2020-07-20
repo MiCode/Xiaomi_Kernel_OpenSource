@@ -352,6 +352,8 @@
 &pm8350b_haptics {
 	nvmem-cell-names = "hap_cl_brake";
 	nvmem-cells = <&hap_cl_brake>;
+	nvmem-names = "hap_cfg_sdam";
+	nvmem = <&pmk8350_sdam_46>;
 };
 
 &pmr735a_tz {

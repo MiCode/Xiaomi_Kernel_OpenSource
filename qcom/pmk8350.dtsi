@@ -219,6 +219,11 @@
 			reg = <0x8500>;
 		};
 
+		pmk8350_sdam_46: sdam@9d00 {
+			compatible = "qcom,spmi-sdam";
+			reg = <0x9d00>;
+		};
+
 		pmk8350_gpios: pinctrl@b000 {
 			compatible = "qcom,pmk8350-gpio";
 			reg = <0xb000>;
