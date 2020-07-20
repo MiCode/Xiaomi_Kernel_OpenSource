@@ -532,6 +532,36 @@
 			125000 44>;
 	};
 
+	md_cooler_mutt: mutt {
+		compatible = "mediatek,mt6297-md-cooler-mutt";
+		mutt_pa1: mutt-pa1 {
+			id = <0>;
+			#cooling-cells = <2>;
+		};
+		mutt_pa2: mutt-pa2 {
+			id = <1>;
+			#cooling-cells = <2>;
+		};
+	};
+	md_cooler_tx_pwr: tx-pwr {
+		compatible = "mediatek,md-cooler-tx-pwr";
+		tx_pwr_pa1: tx-pwr-pa1 {
+			id = <0>;
+			#cooling-cells = <2>;
+		};
+		tx_pwr_pa2: tx-pwr-pa2 {
+			id = <1>;
+			#cooling-cells = <2>;
+		};
+	};
+	md_cooler_scg_off: scg-off {
+		compatible = "mediatek,md-cooler-scg-off";
+		scg_off_pa2: scg-off-pa2 {
+			id = <1>;
+			#cooling-cells = <2>;
+		};
+	};
+
 	thermal-zones {
 		ap_ntc: ap_ntc {
 			polling-delay = <1000>; /* milliseconds */
@@ -552,10 +582,30 @@
 			thermal-sensors = <&tboard_thermistor2>;
 
 			trips {
-				ltepa_ntc_crit: ltepa_ntc_crit@0 {
+				ltepa_ntc_target: ltepa_ntc_trip@0 {
+					temperature = <68000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				ltepa_ntc_no_ims: ltepa_ntc_trip@1 {
 					temperature = <100000>;
 					hysteresis = <2000>;
+					type = "passive";
+				};
+				ltepa_ntc_crit: ltepa_ntc_trip@2 {
+					temperature = <120000>;
+					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&ltepa_ntc_target>;
+					cooling-device = <&mutt_pa1 1 8>;
+				};
+				map1 {
+					trip = <&ltepa_ntc_no_ims>;
+					cooling-device = <&mutt_pa1 9 9>;
 				};
 			};
 		};
@@ -565,10 +615,30 @@
 			thermal-sensors = <&tboard_thermistor3>;
 
 			trips {
-				nrpa_ntc_crit: nrpa_ntc_crit@0 {
+				nrpa_ntc_target: nrpa_ntc_trip@0 {
+					temperature = <68000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				nrpa_ntc_no_ims: nrpa_ntc_trip@1 {
 					temperature = <100000>;
 					hysteresis = <2000>;
+					type = "passive";
+				};
+				nrpa_ntc_crit: nrpa_ntc_trip@2 {
+					temperature = <120000>;
+					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&nrpa_ntc_target>;
+					cooling-device = <&mutt_pa2 1 8>;
+				};
+				map1 {
+					trip = <&nrpa_ntc_no_ims>;
+					cooling-device = <&mutt_pa2 9 9>;
 				};
 			};
 		};
