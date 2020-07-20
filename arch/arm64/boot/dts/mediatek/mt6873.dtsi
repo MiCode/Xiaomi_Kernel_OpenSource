@@ -2790,8 +2790,8 @@
 				"TOP_F26M_CK_D2",
 				"TOP_UNIVP_192M_D16",
 				"TOP_UNIVP_192M_D32";
-			//operating-points-v2 = <&opp_table_cam>;
-			//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			operating-points-v2 = <&opp_table_cam>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		kd_camera_hw1:kd_camera_hw1@1a004000 {
