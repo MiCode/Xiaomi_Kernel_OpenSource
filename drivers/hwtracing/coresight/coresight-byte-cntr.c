@@ -28,7 +28,7 @@ static struct tmc_drvdata *tmcdrvdata;
 static void tmc_etr_read_bytes(struct byte_cntr *byte_cntr_data, loff_t *ppos,
 			       size_t bytes, size_t *len, char **bufp)
 {
-	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
+	struct etr_buf *etr_buf = tmcdrvdata->sysfs_buf;
 	size_t actual;
 
 	if (*len >= bytes)
@@ -62,7 +62,7 @@ static irqreturn_t etr_handler(int irq, void *data)
 static void tmc_etr_flush_bytes(loff_t *ppos, size_t bytes, size_t *len)
 {
 	uint32_t rwp = 0;
-	dma_addr_t paddr = tmcdrvdata->etr_buf->hwaddr;
+	dma_addr_t paddr = tmcdrvdata->sysfs_buf->hwaddr;
 
 	rwp = readl_relaxed(tmcdrvdata->base + TMC_RWP);
 
@@ -327,7 +327,7 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 			struct byte_cntr *drvdata, size_t *small_size)
 {
 	int ret = 0;
-	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
+	struct etr_buf *etr_buf = tmcdrvdata->sysfs_buf;
 	size_t req_size, actual;
 	long w_offset;
 
@@ -352,7 +352,7 @@ static int usb_transfer_small_packet(struct qdss_request *usb_req,
 		req_size -= actual;
 
 		if ((drvdata->offset + actual) >=
-				tmcdrvdata->etr_buf->size)
+				tmcdrvdata->sysfs_buf->size)
 			drvdata->offset = 0;
 		else
 			drvdata->offset += actual;
@@ -389,7 +389,7 @@ static void usb_read_work_fn(struct work_struct *work)
 {
 	int ret, i, seq = 0;
 	struct qdss_request *usb_req = NULL;
-	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
+	struct etr_buf *etr_buf = tmcdrvdata->sysfs_buf;
 	size_t actual, req_size, req_sg_num, small_size = 0;
 	size_t actual_total = 0;
 	char *buf;
@@ -461,7 +461,7 @@ static void usb_read_work_fn(struct work_struct *work)
 					sg_mark_end(&usb_req->sg[i]);
 
 				if ((drvdata->offset + actual) >=
-					tmcdrvdata->etr_buf->size)
+					tmcdrvdata->sysfs_buf->size)
 					drvdata->offset = 0;
 				else
 					drvdata->offset += actual;
