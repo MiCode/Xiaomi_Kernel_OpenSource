@@ -3,6 +3,8 @@
 #include <dt-bindings/clock/qcom,gpucc-holi.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/interconnect/qcom,epss-l3.h>
+#include <dt-bindings/interconnect/qcom,holi.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -866,34 +868,57 @@
 		#mbox-cells = <2>;
 	};
 
+	clk_virt: interconnect {
+		compatible = "qcom,holi-clk_virt";
+		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_QUP_CLK>,
+			<&rpmcc RPM_SMD_QUP_A_CLK>;
+	};
+
 	system_noc: interconnect@1880000 {
+		reg = <0x01880000 0x1900>;
 		compatible = "qcom,holi-system_noc";
 		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_SNOC_CLK>,
+			<&rpmcc RPM_SMD_SNOC_A_CLK>;
 	};
 
-	qup_virt: interconnect@1880000 {
-		compatible = "qcom,holi-qup_virt";
-		#interconnect-cells = <1>;
-	};
-
-	mmnrt_virt: interconnect@1880000 {
+	mmnrt_virt: interconnect@1899000 {
+		reg = <0x01899000 0x6000>;
 		compatible = "qcom,holi-mmnrt_virt";
 		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_MMNRT_CLK>,
+			<&rpmcc RPM_SMD_MMNRT_A_CLK>;
 	};
 
-	mmrt_virt: interconnect@1880000 {
+	mmrt_virt: interconnect@189f000 {
+		reg = <0x0189f000 0x1000>;
 		compatible = "qcom,holi-mmrt_virt";
 		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_MMRT_CLK>,
+			<&rpmcc RPM_SMD_MMRT_A_CLK>;
 	};
 
 	config_noc: interconnect@1900000 {
+		reg = <0x01900000 0x6200>;
 		compatible = "qcom,holi-config_noc";
 		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_CNOC_CLK>,
+			<&rpmcc RPM_SMD_CNOC_A_CLK>;
 	};
 
 	bimc: interconnect@4480000 {
+		reg = <0x04480000 0x80000>;
 		compatible = "qcom,holi-bimc";
 		#interconnect-cells = <1>;
+		clock-names = "bus", "bus_a";
+		clocks = <&rpmcc RPM_SMD_BIMC_CLK>,
+			<&rpmcc RPM_SMD_BIMC_A_CLK>;
 	};
 
 	epss_l3_cpu: l3_cpu@fd91000 {
