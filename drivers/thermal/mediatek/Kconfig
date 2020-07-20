@@ -30,4 +30,25 @@ config MTK_SOC_THERMAL_LVTS
           information for Mediatek platforms. This driver
           configures LVTS thermal controllers to collect temperatures
           via ASIF interface.
+
+config MTK_MD_THERMAL
+	tristate "Mediatek Modem cooling framework"
+	depends on MTK_ECCCI_DRIVER
+	help
+	  Enable this option to turn on modem throttle mechanisms
+	  for Mediatek platforms.
+	  This option depends on MTK_ECCCI_DRIVER which is the
+	  IPC interface between AP SoC and modem.
+
+if MTK_MD_THERMAL
+
+config MTK_MD_THERMAL_MUTT
+	tristate "Mediatek modem uplink throughput throttle driver"
+	help
+	  Enable this option if you want to use modem
+	  uplink throughput throttle cooler for Mediatek
+	  platforms.
+	  The throttling levels are defined in modem.
+endif
+
 endif
