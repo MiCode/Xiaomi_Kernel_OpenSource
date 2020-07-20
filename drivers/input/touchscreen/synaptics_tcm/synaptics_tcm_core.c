@@ -50,6 +50,16 @@
 
 /* #define FORCE_RUN_APPLICATION_FIRMWARE */
 
+#define SYNA_VTG_MIN_UV	2800000
+
+#define SYNA_VTG_MAX_UV	3300000
+
+#define SYNA_LOAD_MAX_UA 30000
+
+#define SYNA_VDD_VTG_MIN_UV 1800000
+
+#define SYNA_VDD_VTG_MAX_UV 2000000
+
 #define NOTIFIER_PRIORITY 2
 
 #define RESPONSE_TIMEOUT_MS 3000
@@ -1911,6 +1921,22 @@ static int syna_tcm_enable_regulator(struct syna_tcm_hcd *tcm_hcd, bool en)
 	}
 
 	if (tcm_hcd->bus_reg) {
+		retval = regulator_set_voltage(tcm_hcd->bus_reg,
+				SYNA_VDD_VTG_MIN_UV, SYNA_VDD_VTG_MAX_UV);
+		if (retval) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+				"set bus regulator voltage failed\n");
+			goto exit;
+		}
+
+		retval = regulator_set_load(tcm_hcd->bus_reg,
+						SYNA_LOAD_MAX_UA);
+		if (retval) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+				"set bus regulator load failed\n");
+			goto exit;
+		}
+
 		retval = regulator_enable(tcm_hcd->bus_reg);
 		if (retval < 0) {
 			LOGE(tcm_hcd->pdev->dev.parent,
@@ -1920,6 +1946,23 @@ static int syna_tcm_enable_regulator(struct syna_tcm_hcd *tcm_hcd, bool en)
 	}
 
 	if (tcm_hcd->pwr_reg) {
+		if (regulator_count_voltages(tcm_hcd->pwr_reg) > 0) {
+			retval = regulator_set_voltage(tcm_hcd->pwr_reg,
+				SYNA_VTG_MIN_UV, SYNA_VTG_MAX_UV);
+			if (retval) {
+				LOGE(tcm_hcd->pdev->dev.parent,
+					"set power regulator voltage failed\n");
+				goto disable_bus_reg;
+			}
+			retval = regulator_set_load(tcm_hcd->pwr_reg,
+							SYNA_LOAD_MAX_UA);
+			if (retval) {
+				LOGE(tcm_hcd->pdev->dev.parent,
+					"set power regulator load failed\n");
+				goto disable_bus_reg;
+			}
+		}
+
 		retval = regulator_enable(tcm_hcd->pwr_reg);
 		if (retval < 0) {
 			LOGE(tcm_hcd->pdev->dev.parent,
@@ -1932,12 +1975,22 @@ static int syna_tcm_enable_regulator(struct syna_tcm_hcd *tcm_hcd, bool en)
 	return 0;
 
 disable_pwr_reg:
-	if (tcm_hcd->pwr_reg)
+	if (tcm_hcd->pwr_reg) {
+		if (regulator_count_voltages(tcm_hcd->pwr_reg) > 0) {
+			regulator_set_load(tcm_hcd->pwr_reg, 0);
+			regulator_set_voltage(tcm_hcd->pwr_reg, 0,
+							SYNA_VTG_MAX_UV);
+		}
 		regulator_disable(tcm_hcd->pwr_reg);
+	}
 
 disable_bus_reg:
-	if (tcm_hcd->bus_reg)
+	if (tcm_hcd->bus_reg) {
+		regulator_set_load(tcm_hcd->bus_reg, 0);
+		regulator_set_voltage(tcm_hcd->bus_reg, 0,
+						SYNA_VDD_VTG_MAX_UV);
 		regulator_disable(tcm_hcd->bus_reg);
+	}
 
 exit:
 	return retval;
@@ -2840,6 +2893,9 @@ static int syna_tcm_resume(struct device *dev)
 
 	if (!tcm_hcd->init_okay)
 		syna_tcm_deferred_probe(dev);
+
+	if (!tcm_hcd->in_suspend)
+		return 0;
 	else {
 		if (tcm_hcd->irq_enabled) {
 			tcm_hcd->watchdog.run = false;
@@ -2848,8 +2904,11 @@ static int syna_tcm_resume(struct device *dev)
 		}
 	}
 
-	if (!tcm_hcd->in_suspend)
-		return 0;
+	retval = syna_tcm_enable_regulator(tcm_hcd, true);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to enable regulators\n");
+	}
 
 	retval = pinctrl_select_state(
 			tcm_hcd->ts_pinctrl,
@@ -2945,6 +3004,7 @@ static int syna_tcm_suspend(struct device *dev)
 {
 	struct syna_tcm_module_handler *mod_handler;
 	struct syna_tcm_hcd *tcm_hcd = dev_get_drvdata(dev);
+	int retval;
 
 	if (tcm_hcd->in_suspend || !tcm_hcd->init_okay)
 		return 0;
@@ -2967,11 +3027,17 @@ static int syna_tcm_suspend(struct device *dev)
 		}
 	}
 
+	retval = syna_tcm_enable_regulator(tcm_hcd, false);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to disable regulators\n");
+	}
+
 	mutex_unlock(&mod_pool.mutex);
 
 	tcm_hcd->in_suspend = true;
 
-	return 0;
+	return retval;
 }
 #endif
 
@@ -3354,10 +3420,30 @@ static int syna_tcm_probe(struct platform_device *pdev)
 		goto err_get_regulator;
 	}
 
-	retval = synaptics_tcm_pinctrl_init(tcm_hcd);
+	retval = syna_tcm_enable_regulator(tcm_hcd, true);
 	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent, "Failed to init pinctrl\n");
-		goto err_pinctrl_init;
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to enable regulators\n");
+		goto err_enable_regulator;
+	}
+
+	retval = syna_tcm_config_gpio(tcm_hcd);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to configure GPIO's\n");
+		goto err_config_gpio;
+	}
+
+	retval = synaptics_tcm_pinctrl_init(tcm_hcd);
+	if (!retval && tcm_hcd->ts_pinctrl) {
+		retval = pinctrl_select_state(
+				tcm_hcd->ts_pinctrl,
+				tcm_hcd->pinctrl_state_active);
+		if (retval < 0) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+					"%s: Failed to select %s pinstate %d\n",
+					__func__, PINCTRL_STATE_ACTIVE, retval);
+		}
 	}
 
 	sysfs_dir = kobject_create_and_add(PLATFORM_DRIVER_NAME,
@@ -3481,7 +3567,21 @@ err_sysfs_create_file:
 	kobject_put(tcm_hcd->sysfs_dir);
 
 err_sysfs_create_dir:
-err_pinctrl_init:
+	if (bdata->irq_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->irq_gpio, false, 0, 0);
+
+	if (bdata->power_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->power_gpio, false, 0, 0);
+
+	if (bdata->reset_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
+
+err_config_gpio:
+	syna_tcm_enable_regulator(tcm_hcd, false);
+
+err_enable_regulator:
+	syna_tcm_get_regulator(tcm_hcd, false);
+
 err_get_regulator:
 	device_init_wakeup(&pdev->dev, 0);
 
@@ -3502,32 +3602,7 @@ err_drm_reg:
 static int syna_tcm_deferred_probe(struct device *dev)
 {
 	int retval;
-	const struct syna_tcm_board_data *bdata;
 	struct syna_tcm_hcd *tcm_hcd = dev_get_drvdata(dev);
-
-	retval = pinctrl_select_state(
-			tcm_hcd->ts_pinctrl,
-			tcm_hcd->pinctrl_state_active);
-
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to pinctrl_select_state\n");
-		goto err_pinctrl_select_state;
-	}
-
-	retval = syna_tcm_enable_regulator(tcm_hcd, true);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to enable regulators\n");
-		goto err_enable_regulator;
-	}
-
-	retval = syna_tcm_config_gpio(tcm_hcd);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to configure GPIO's\n");
-		goto err_config_gpio;
-	}
 
 	retval = tcm_hcd->enable_irq(tcm_hcd, true, NULL);
 	if (retval < 0) {
@@ -3558,27 +3633,6 @@ static int syna_tcm_deferred_probe(struct device *dev)
 err_reset:
 #endif
 err_enable_irq:
-
-err_config_gpio:
-	syna_tcm_enable_regulator(tcm_hcd, false);
-
-err_enable_regulator:
-	syna_tcm_get_regulator(tcm_hcd, false);
-
-err_pinctrl_select_state:
-	if (!tcm_hcd->hw_if || !tcm_hcd->hw_if->bdata)
-		return -EINVAL;
-
-	bdata = tcm_hcd->hw_if->bdata;
-
-	if (bdata->irq_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->irq_gpio, false, 0, 0);
-
-	if (bdata->power_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->power_gpio, false, 0, 0);
-
-	if (bdata->reset_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
 
 	return retval;
 }
@@ -3678,11 +3732,6 @@ static int syna_tcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void syna_tcm_shutdown(struct platform_device *pdev)
-{
-	syna_tcm_remove(pdev);
-}
-
 #ifdef CONFIG_PM
 static const struct dev_pm_ops syna_tcm_dev_pm_ops = {
 #if !defined(CONFIG_DRM) && !defined(CONFIG_FB)
@@ -3702,7 +3751,6 @@ static struct platform_driver syna_tcm_driver = {
 	},
 	.probe = syna_tcm_probe,
 	.remove = syna_tcm_remove,
-	.shutdown = syna_tcm_shutdown,
 };
 
 static int __init syna_tcm_module_init(void)
