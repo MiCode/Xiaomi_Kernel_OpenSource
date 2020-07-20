@@ -145,7 +145,7 @@
 
 	/* GDSCs in DISPCC */
 	disp_cc_mdss_core_gdsc: qcom,gdsc@af03000 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xaf03000 0x4>;
 		regulator-name = "disp_cc_mdss_core_gdsc";
 		proxy-supply = <&disp_cc_mdss_core_gdsc>;

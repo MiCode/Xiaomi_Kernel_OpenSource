@@ -155,7 +155,7 @@
 };
 
 &camcc {
-	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>, <&gcc GCC_CAMERA_AHB_CLK>;
 };
 
 &debugcc {
@@ -163,10 +163,15 @@
 };
 
 &videocc {
-	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>;
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>, <&sleep_clk>, <&gcc GCC_VIDEO_AHB_CLK>;
 };
 
 &gpucc {
 	clocks = <&bi_tcxo>, <&gcc GCC_GPU_GPLL0_CLK_SRC>,
-		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
+		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>, <&gcc GCC_GPU_CFG_AHB_CLK>;
+};
+
+&dispcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>,
+		<&gcc GCC_DISP_GPLL0_CLK_SRC>, <&sleep_clk>, <&gcc GCC_DISP_AHB_CLK>;
 };
