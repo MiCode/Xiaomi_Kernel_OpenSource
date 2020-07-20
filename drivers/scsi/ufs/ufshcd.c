@@ -5080,15 +5080,16 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 			ufshcd_get_uic_cmd_result(hba);
 		hba->active_uic_cmd->argument3 =
 			ufshcd_get_dme_attr_val(hba);
-		complete(&hba->active_uic_cmd->done);
 		if (!hba->uic_async_done)
 			hba->active_uic_cmd->cmd_active = 0;
+		complete(&hba->active_uic_cmd->done);
 		retval = IRQ_HANDLED;
 	}
 
 	if ((intr_status & UFSHCD_UIC_PWR_MASK) && hba->uic_async_done) {
+		if (hba->active_uic_cmd)
+			hba->active_uic_cmd->cmd_active = 0;
 		complete(hba->uic_async_done);
-		hba->active_uic_cmd->cmd_active = 0;
 		retval = IRQ_HANDLED;
 	}
 	return retval;
