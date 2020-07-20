@@ -579,6 +579,11 @@
 		compatible = "simple-bus";
 		ranges;
 
+		qos:qos@0011bb00 {
+			compatible = "mediatek,mt6873-qos";
+			reg = <0 0x0011bb00 0 0x100>;
+		};
+
 		cm_mgr: cm_mgr@0c530000 {
 			compatible = "mediatek,mt6873-cm_mgr";
 			reg = <0 0x0c530000 0 0x9000>;
