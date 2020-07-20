@@ -2688,8 +2688,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	tx->dma_in_flight = false;
 	MSM_HS_DBG("%s():desc usage flag 0x%lx\n", __func__, rx->queued_flag);
 	timer_setup(&(tx->tx_timeout_timer),
-			tx_timeout_handler,
-			(unsigned long) msm_uport);
+			tx_timeout_handler, 0);
 
 	/* Enable reading the current CTS, no harm even if CTS is ignored */
 	msm_uport->imr_reg |= UARTDM_ISR_CURRENT_CTS_BMSK;
@@ -3315,6 +3314,12 @@ static int msm_hs_probe(struct platform_device *pdev)
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
 	unsigned long data;
 	char name[30];
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_err(&pdev->dev, "could not set DMA mask\n");
+		return ret;
+	}
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
