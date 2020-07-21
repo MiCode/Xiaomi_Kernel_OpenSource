@@ -78,8 +78,6 @@ struct neuron_mq_data_priv {
 	u32 interrupt_counter;
 	/* name of peer vm */
 	u32 peer_name;
-	/* label to get haven resources like doorbell and shm */
-	u32 haven_label;
 	/* haven tx doorbell descriptor */
 	void *tx_dbl;
 	/* haven rx doorbell descriptor */

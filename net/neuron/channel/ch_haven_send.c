@@ -350,18 +350,17 @@ static int channel_hh_probe(struct neuron_channel *cdev)
 		return -ENOMEM;
 	priv->dev = cdev;
 
-	ret = of_property_read_u32(node, "haven-label", &priv->haven_label);
-	if (ret) {
-		dev_err(dev, "failed to read label info %d\n", ret);
-		return ret;
-	}
-
 	ret = channel_hh_map_memory(priv, dev);
 	if (ret)
 		return ret;
 
 	/* Get outgoing haven doorbell information */
-	dbl_label = priv->haven_label;
+	ret = of_property_read_u32(node, "haven-label", &dbl_label);
+	if (ret) {
+		dev_err(dev, "failed to read label info %d\n", ret);
+		goto fail_tx_dbl;
+	}
+
 	priv->tx_dbl = hh_dbl_tx_register(dbl_label);
 	if (IS_ERR_OR_NULL(priv->tx_dbl)) {
 		ret = PTR_ERR(priv->tx_dbl);
