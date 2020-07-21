@@ -26,7 +26,7 @@
 #else
 static u32 get_devinfo_with_index(unsigned int index)
 {
-	return 0x0;
+	return 0x1;
 }
 #endif
 
@@ -1012,7 +1012,6 @@ static void get_current_power_info(void *param, int force)
 static int uninit_power_resource(void)
 {
 	if (is_apu_power_initilized) {
-		buck_control(VPU0, 0); // buck off
 		buck_already_on = 0;
 		udelay(100);
 #ifndef MTK_FPGA_PORTING
