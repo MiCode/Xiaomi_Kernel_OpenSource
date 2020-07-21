@@ -21,7 +21,8 @@ enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_LOW,
 	CNSS_BUS_WIDTH_MEDIUM,
 	CNSS_BUS_WIDTH_HIGH,
-	CNSS_BUS_WIDTH_VERY_HIGH
+	CNSS_BUS_WIDTH_VERY_HIGH,
+	CNSS_BUS_WIDTH_LOW_LATENCY
 };
 
 enum cnss_platform_cap_flag {

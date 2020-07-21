@@ -1955,19 +1955,53 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 
 static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 {
-	int ret = 0;
+	int ret = 0, len = 0, i, j;
 	struct cnss_bus_bw_info *bus_bw_info;
+	const u32 *cfg_arr;
 
 	bus_bw_info = &plat_priv->bus_bw_info;
 
 	bus_bw_info->cnss_path =
 		of_icc_get(&plat_priv->plat_dev->dev, NULL);
+
+	if (!bus_bw_info->cnss_path) {
+		cnss_pr_err("Skip Bus BW setup. Interconnect not configured\n");
+		return 0;
+	}
+
 	if (IS_ERR(bus_bw_info->cnss_path))  {
 		ret = PTR_ERR(bus_bw_info->cnss_path);
 		if (ret != -EPROBE_DEFER) {
-			cnss_pr_err("Failed to get bus path: %d!\n", ret);
+			cnss_pr_err("Failed to get Interconnect path: %d!\n",
+				    ret);
 			goto out;
 		}
+	}
+	ret = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+				   "qcom,bus-bw-cfg-num",
+				   &bus_bw_info->num_cfg);
+	if (ret) {
+		cnss_pr_err("Failed to get Bus BW Config table size\n");
+		goto out;
+	}
+
+	cfg_arr = of_get_property(plat_priv->plat_dev->dev.of_node,
+				  "qcom,bus-bw-cfg", &len);
+	if (!cfg_arr) {
+		cnss_pr_err("Bus BW Config Table not setup!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	bus_bw_info->cfg_table = kcalloc(bus_bw_info->num_cfg,
+					 sizeof(*bus_bw_info->cfg_table),
+					 GFP_KERNEL);
+	for (i = 0, j = 0; i < bus_bw_info->num_cfg; i++, j += 2) {
+		bus_bw_info->cfg_table[i].ab = be32_to_cpu(cfg_arr[j]);
+		bus_bw_info->cfg_table[i].ib = be32_to_cpu(cfg_arr[j + 1]);
+		cnss_pr_dbg("Bandwidth Type: %d bw_cfg.ab: %d bw_cfg.ib: %d\n",
+			    i, bus_bw_info->cfg_table[i].ab,
+			    bus_bw_info->cfg_table[i].ib);
 	}
 
 	return 0;
@@ -1983,6 +2017,8 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 
 	if (bus_bw_info->cnss_path)
 		icc_put(bus_bw_info->cnss_path);
+
+	kfree(bus_bw_info->cfg_table);
 }
 
 static ssize_t shutdown_store(struct device *dev,
