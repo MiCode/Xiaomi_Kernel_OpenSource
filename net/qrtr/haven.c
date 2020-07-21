@@ -356,36 +356,6 @@ static void qrtr_haven_fifo_init(struct qrtr_haven_dev *qdev)
 	*qdev->rx_pipe.tail = 0;
 }
 
-static struct device_node *qrtr_haven_svm_of_parse(struct qrtr_haven_dev *qdev)
-{
-	const char *compat = "qcom,qrtr-haven-gen";
-	struct device_node *np = NULL;
-	struct device_node *shm_np;
-	u32 label;
-	int ret;
-
-	while ((np = of_find_compatible_node(np, NULL, compat))) {
-		ret = of_property_read_u32(np, "qcom,label", &label);
-		if (ret) {
-			of_node_put(np);
-			continue;
-		}
-		if (label == qdev->label)
-			break;
-
-		of_node_put(np);
-	}
-	if (!np)
-		return NULL;
-
-	shm_np = of_parse_phandle(np, "memory-region", 0);
-	if (!shm_np)
-		dev_err(qdev->dev, "cant parse svm shared mem node!\n");
-
-	of_node_put(np);
-	return shm_np;
-}
-
 static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
 {
 	struct device *dev = qdev->dev;
@@ -395,11 +365,8 @@ static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
 
 	np = of_parse_phandle(dev->of_node, "shared-buffer", 0);
 	if (!np) {
-		np = qrtr_haven_svm_of_parse(qdev);
-		if (!np) {
-			dev_err(dev, "cant parse shared mem node!\n");
-			return -EINVAL;
-		}
+		dev_err(dev, "shared-buffer node missing!\n");
+		return -EINVAL;
 	}
 
 	ret = of_address_to_resource(np, 0, &qdev->res);
