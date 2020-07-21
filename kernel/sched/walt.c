@@ -71,8 +71,6 @@ void __weak sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
 
 void __weak free_task_load_ptrs(struct task_struct *p) { }
 
-void __weak sched_set_refresh_rate(enum fps fps) { }
-
 int __weak core_ctl_set_boost(bool boost) { return 0; }
 
 void __weak core_ctl_notifier_register(struct notifier_block *n) { }
