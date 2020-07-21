@@ -70,3 +70,8 @@
 
 		status = "ok";
 };
+
+/* Debug UART Console */
+&qupv3_se9_2uart {
+	qcom,rumi_platform;
+};
