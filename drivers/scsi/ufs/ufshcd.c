@@ -51,7 +51,6 @@
 #include "ufs-sysfs.h"
 #include "ufs_bsg.h"
 #include "ufshcd-crypto.h"
-#include "ufs-qcom.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
@@ -5773,25 +5772,17 @@ static void ufshcd_err_handler(struct work_struct *work)
 			goto skip_err_handling;
 	}
 
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufshcd_vops_dbg_register_dump(hba);
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
 	if ((hba->saved_err & INT_FATAL_ERRORS) ||
 	    (hba->saved_err & UFSHCD_UIC_HIBERN8_MASK) ||
 	    ((hba->saved_err & UIC_ERROR) &&
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
 				   UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
-				   UFSHCD_UIC_DL_TCx_REPLAY_ERROR)))) {
-		u32 pa_vs_status_reg1 = 0;
-		int ret;
-
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_STATUS_REG1),
-				     &pa_vs_status_reg1);
-		dev_err(hba->dev, "%s: pa_vs_status_reg1 0x%x, ret %d\n",
-				__func__, pa_vs_status_reg1, ret);
-		ufshcd_vops_dbg_register_dump(hba);
-		spin_lock_irqsave(hba->host->host_lock, flags);
-
+				   UFSHCD_UIC_DL_TCx_REPLAY_ERROR))))
 		needs_reset = true;
-	}
 
 	/*
 	 * if host reset is required then skip clearing the pending

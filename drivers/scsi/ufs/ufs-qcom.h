@@ -165,7 +165,6 @@ enum ufs_qcom_phy_init_type {
 	 UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
 /* QUniPro Vendor specific attributes */
-#define PA_VS_STATUS_REG1	0x9001
 #define PA_VS_CONFIG_REG1	0x9000
 #define SAVECONFIGTIME_MODE_MASK	0x6000
 #define DME_VS_CORE_CLK_CTRL	0xD002
