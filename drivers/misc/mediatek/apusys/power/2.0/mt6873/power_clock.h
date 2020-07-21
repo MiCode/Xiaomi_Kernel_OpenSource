@@ -10,15 +10,8 @@
 
 #include "apu_log.h"
 
-#ifndef APUSYS_POWER_BRINGUP
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
-extern unsigned int mt_get_abist_freq(unsigned int ID);
-extern void check_vpu_clk_sts(void);
-#else
-static inline unsigned int mt_get_ckgen_freq(unsigned int ID) { return 0; }
-static inline unsigned int mt_get_abist_freq(unsigned int ID) { return 0; }
-static inline void check_vpu_clk_sts(void) { }
-#endif
+#define KHZ	1000
+#define MHZ	(KHZ * KHZ)
 
 /**********************************************
  * macro for clock management operation
