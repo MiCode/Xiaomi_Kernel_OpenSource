@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018,2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,10 @@ struct bt_power_clk_data {
 struct bluetooth_power_platform_data {
 	/* Bluetooth reset gpio */
 	int bt_gpio_sys_rst;
+	/* Bluetooth 3p3 gpio */
+	int bt_gpio_3p3_en;
+	/* Bluetooth 1p3 gpio */
+	int bt_gpio_1p3_en;
 	struct device *slim_dev;
 	/* VDDIO voltage regulator */
 	struct bt_power_vreg_data *vreg_info;
