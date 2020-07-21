@@ -35,7 +35,11 @@
 #define IPA_ETH_IPC_LOGDBG_DEFAULT false
 #endif
 
+/* Time to remain awake after a suspend abort due to NIC activity */
 #define IPA_ETH_WAKE_TIME_MS 500
+
+/* Time for NIC HW to settle down (ex. receive link interrupt) after a resume */
+#define IPA_ETH_RESUME_SETTLE_MS 2000
 
 #define IPA_ETH_PFDEV (ipa3_ctx ? ipa3_ctx->pdev : NULL)
 #define IPA_ETH_SUBSYS "ipa_eth"
@@ -161,9 +165,31 @@ extern bool ipa_eth_ipc_logdbg;
 bool ipa_eth_is_ready(void);
 bool ipa_eth_all_ready(void);
 
-static inline void ipa_eth_dev_wakeup_event(struct ipa_eth_device *eth_dev)
+static inline void ipa_eth_dev_assume_active_ms(
+	struct ipa_eth_device *eth_dev,
+	unsigned int msec)
 {
-	pm_wakeup_dev_event(eth_dev->dev, IPA_ETH_WAKE_TIME_MS, false);
+	eth_dev_priv(eth_dev)->assume_active +=
+			DIV_ROUND_UP(msec, IPA_ETH_WAKE_TIME_MS);
+	pm_system_wakeup();
+}
+
+static inline void ipa_eth_dev_assume_active_inc(
+	struct ipa_eth_device *eth_dev,
+	unsigned int count)
+{
+	eth_dev_priv(eth_dev)->assume_active += count;
+	pm_system_wakeup();
+}
+
+static inline void ipa_eth_dev_assume_active_dec(
+	struct ipa_eth_device *eth_dev,
+	unsigned int count)
+{
+	if (eth_dev_priv(eth_dev)->assume_active > count)
+		eth_dev_priv(eth_dev)->assume_active -= count;
+	else
+		eth_dev_priv(eth_dev)->assume_active = 0;
 }
 
 struct ipa_eth_device *ipa_eth_alloc_device(
