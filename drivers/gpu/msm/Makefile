@@ -15,17 +15,14 @@ msm_kgsl_core-y = \
 	kgsl_gmu_core.o \
 	kgsl_gmu.o \
 	kgsl_rgmu.o \
-	kgsl_hfi.o
+	kgsl_hfi.o \
+	kgsl_pool.o \
+	kgsl_reclaim.o
 
 msm_kgsl_core-$(CONFIG_QCOM_KGSL_IOMMU) += kgsl_iommu.o
 msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl_core-$(CONFIG_SYNC_FILE) += kgsl_sync.o
 msm_kgsl_core-$(CONFIG_COMPAT) += kgsl_compat.o
-msm_kgsl_core-$(CONFIG_QCOM_KGSL_PROCESS_RECLAIM) += kgsl_reclaim.o
-
-ifndef CONFIG_QCOM_KGSL_USE_SHMEM
-	msm_kgsl_core-y += kgsl_pool.o
-endif
 
 msm_adreno-y += \
 	adreno_ioctl.o \

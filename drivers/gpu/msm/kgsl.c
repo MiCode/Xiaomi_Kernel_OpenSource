@@ -5142,9 +5142,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_close_mmu;
 
 	/* Initialize the memory pools */
-	kgsl_init_page_pools(device->pdev);
+	kgsl_init_page_pools(device);
 
-	status = kgsl_reclaim_init();
+	status = kgsl_reclaim_init(device);
 	if (status)
 		goto error_close_mmu;
 
