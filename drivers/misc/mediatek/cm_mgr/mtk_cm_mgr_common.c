@@ -32,19 +32,35 @@
 
 #include <linux/fb.h>
 #include <linux/notifier.h>
+#include <linux/interconnect.h>
 
 #include "mtk_cm_mgr_common.h"
 
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-#include <sspm_ipi.h>
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+#ifdef CONFIG_MTK_DVFSRC
+#include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <dvfsrc-exp.h>
+#endif /* CONFIG_MTK_DVFSRC */
+
+/* FIXME: */
+#define USE_CM_MGR_AT_SSPM
+
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
+#include <sspm_ipi_id.h>
+#include <sspm_define.h>
+static int cm_sspm_ready;
+int cm_ipi_ackdata;
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 
 static struct kobject *cm_mgr_kobj;
 struct platform_device *cm_mgr_pdev;
 void __iomem *cm_mgr_base;
 int cm_mgr_num_perf;
-int *cm_mgr_perfs;
+u32 *cm_mgr_perfs;
+struct icc_path *cm_perf_bw_path;
+int *cm_mgr_cpu_opp_to_dram;
 int cm_mgr_num_array;
+int *cm_mgr_buf;
+int cm_mgr_cpu_opp_size;
 
 int cm_mgr_blank_status;
 int cm_mgr_disable_fb = 1;
@@ -55,9 +71,9 @@ int cm_mgr_loading_level = 1000;
 int cm_mgr_opp_enable = 1;
 int cm_mgr_perf_enable = 1;
 int cm_mgr_perf_force_enable;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_sspm_enable = 1;
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 int *cpu_power_ratio_down;
 int *cpu_power_ratio_up;
 int *debounce_times_down_adb;
@@ -68,9 +84,6 @@ int *debounce_times_up_adb;
 int light_load_cps = 1000;
 int *vcore_power_ratio_down;
 int *vcore_power_ratio_up;
-#ifdef USE_CPU_TO_DRAM_MAP
-int cm_mgr_cpu_map_dram_enable = 1;
-#endif /* USE_CPU_TO_DRAM_MAP */
 
 int debounce_times_perf_down_local = -1;
 int debounce_times_perf_down_force_local = -1;
@@ -81,6 +94,16 @@ int cm_mgr_dram_opp = -1;
 int cm_mgr_loop_count;
 static int cm_mgr_dram_level;
 int total_bw_value;
+
+/* setting in DTS */
+int cm_mgr_use_bcpu_weight;
+int cm_mgr_use_cpu_to_dram_map;
+int cm_mgr_use_cpu_to_dram_map_new;
+int cpu_power_bcpu_weight_max = 100;
+int cpu_power_bcpu_weight_min = 100;
+int cm_mgr_cpu_map_dram_enable = 1;
+int cm_mgr_cpu_map_emi_opp = 1;
+int cm_mgr_cpu_map_skip_cpu_opp = 2;
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 		unsigned long event, void *data)
@@ -97,18 +120,14 @@ static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 	case FB_BLANK_UNBLANK:
 		pr_info("#@# %s(%d) SCREEN ON\n", __func__, __LINE__);
 		cm_mgr_blank_status = 0;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 0);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 		break;
 	case FB_BLANK_POWERDOWN:
 		pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
 		cm_mgr_blank_status = 1;
 		cm_mgr_dram_opp_base = -1;
 		cm_mgr_perf_platform_set_status(0);
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_BLANK, 1);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 		break;
 	default:
 		break;
@@ -148,19 +167,24 @@ EXPORT_SYMBOL_GPL(cm_mgr_perf_set_force_status);
 void cm_mgr_enable_fn(int enable)
 {
 	cm_mgr_enable = enable;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 }
 EXPORT_SYMBOL_GPL(cm_mgr_enable_fn);
 
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_to_sspm_command(u32 cmd, int val)
 {
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 	unsigned int ret = 0;
 	struct cm_mgr_data cm_mgr_d;
-	int ack_data;
+
+	if (cm_sspm_ready != 1) {
+		pr_info("#@# %s(%d) sspm not ready(%d) to receive cmd(%d)\n",
+			__func__, __LINE__, cm_sspm_ready, cmd);
+		ret = -1;
+		return ret;
+	}
+	cm_ipi_ackdata = 0;
 
 	switch (cmd) {
 	case IPI_CM_MGR_INIT:
@@ -182,29 +206,54 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_LOADING_ENABLE:
 	case IPI_CM_MGR_LOADING_LEVEL:
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
+	case IPI_CM_MGR_OPP_FREQ_SET:
+	case IPI_CM_MGR_OPP_VOLT_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
-		ret = sspm_ipi_send_sync(IPI_ID_CM, IPI_OPT_POLLING,
-				&cm_mgr_d, CM_MGR_D_LEN, &ack_data, 1);
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
+		IPI_SEND_POLLING, &cm_mgr_d, CM_MGR_D_LEN, 2000);
 		if (ret != 0) {
 			pr_info("#@# %s(%d) cmd(%d) error, return %d\n",
 					__func__, __LINE__, cmd, ret);
-		} else if (ack_data < 0) {
-			ret = ack_data;
-			pr_info("#@# %s(%d) cmd(%d) return %d\n",
+		} else if (!cm_ipi_ackdata) {
+			ret = cm_ipi_ackdata;
+			pr_info("#@# %s(%d) cmd(%d) ack fail %d\n",
 					__func__, __LINE__, cmd, ret);
 		}
-		break;
+	break;
 	default:
 		pr_info("#@# %s(%d) wrong cmd(%d)!!!\n",
-				__func__, __LINE__, cmd);
-		break;
+			__func__, __LINE__, cmd);
+	break;
 	}
 
 	return ret;
+#else
+	return -1;
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 }
 EXPORT_SYMBOL_GPL(cm_mgr_to_sspm_command);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+
+int __weak dbg_cm_mgr_platform_show(char *buff) { return 0; }
+
+void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
+{}
+
+void cm_mgr_cpu_map_update_table(void)
+{
+	int i;
+
+	for (i = 0; i < cm_mgr_cpu_opp_size; i++) {
+		if (i < cm_mgr_cpu_map_skip_cpu_opp)
+			cm_mgr_cpu_opp_to_dram[i] = cm_mgr_cpu_map_emi_opp;
+		else
+			cm_mgr_cpu_opp_to_dram[i] =
+				cm_mgr_num_perf;
+	}
+}
+EXPORT_SYMBOL_GPL(cm_mgr_cpu_map_update_table);
 
 static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buff)
@@ -217,17 +266,29 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 
 	len += cm_mgr_print("cm_mgr_opp_enable %d\n", cm_mgr_opp_enable);
 	len += cm_mgr_print("cm_mgr_enable %d\n", cm_mgr_enable);
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 	len += cm_mgr_print("cm_mgr_sspm_enable %d\n", cm_mgr_sspm_enable);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 	len += cm_mgr_print("cm_mgr_perf_enable %d\n",
 			cm_mgr_perf_enable);
 	len += cm_mgr_print("cm_mgr_perf_force_enable %d\n",
 			cm_mgr_perf_force_enable);
-#ifdef USE_CPU_TO_DRAM_MAP
-	len += cm_mgr_print("cm_mgr_cpu_map_dram_enable %d\n",
-			cm_mgr_cpu_map_dram_enable);
-#endif /* USE_CPU_TO_DRAM_MAP */
+	if (cm_mgr_use_cpu_to_dram_map) {
+		len += cm_mgr_print("cm_mgr_cpu_map_dram_enable %d\n",
+				cm_mgr_cpu_map_dram_enable);
+	}
+	if (cm_mgr_use_cpu_to_dram_map_new) {
+		len += cm_mgr_print("cm_mgr_cpu_map_emi_opp %d\n",
+				cm_mgr_cpu_map_emi_opp);
+		len += cm_mgr_print("cm_mgr_cpu_map_skip_cpu_opp %d\n",
+				cm_mgr_cpu_map_skip_cpu_opp);
+
+		len += cm_mgr_print("cm_mgr_cpu_opp_to_dram table");
+		for (i = 0; i < cm_mgr_cpu_opp_size; i++)
+			len += cm_mgr_print(" %d", cm_mgr_cpu_opp_to_dram[i]);
+		len += cm_mgr_print("\n");
+	}
+
 	len += cm_mgr_print("cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	len += cm_mgr_print("light_load_cps %d\n", light_load_cps);
 	len += cm_mgr_print("total_bw_value %d\n", total_bw_value);
@@ -259,6 +320,13 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 		len += cm_mgr_print(" %d", vcore_power_ratio_down[i]);
 	len += cm_mgr_print("\n");
 
+	if (cm_mgr_use_bcpu_weight) {
+		len += cm_mgr_print("cpu_power_bcpu_weight_max %d\n",
+				cpu_power_bcpu_weight_max);
+		len += cm_mgr_print("cpu_power_bcpu_weight_min %d\n",
+				cpu_power_bcpu_weight_min);
+	}
+
 	len += cm_mgr_print("debounce_times_up_adb");
 	for (i = 0; i < cm_mgr_num_array; i++)
 		len += cm_mgr_print(" %d", debounce_times_up_adb[i]);
@@ -277,6 +345,8 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			debounce_times_perf_force_down);
 
 	len += cm_mgr_print("\n");
+
+	len += dbg_cm_mgr_platform_show(buff);
 
 	return (len > 4096) ? 4096 : len;
 }
@@ -298,14 +368,14 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 
 	if (!strcmp(cmd, "cm_mgr_enable")) {
 		cm_mgr_enable = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 				cm_mgr_enable);
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 	} else if (!strcmp(cmd, "cm_mgr_sspm_enable")) {
 		cm_mgr_sspm_enable = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
 				cm_mgr_sspm_enable);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cm_mgr_perf_enable")) {
 		cm_mgr_perf_enable = val_1;
 	} else if (!strcmp(cmd, "cm_mgr_perf_force_enable")) {
@@ -313,87 +383,77 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		cm_mgr_perf_set_force_status(val_1);
 	} else if (!strcmp(cmd, "cm_mgr_disable_fb")) {
 		cm_mgr_disable_fb = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DISABLE_FB,
 				cm_mgr_disable_fb);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "light_load_cps")) {
 		light_load_cps = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_LIGHT_LOAD_CPS, val_1);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "total_bw_value")) {
 		total_bw_value = val_1;
 	} else if (!strcmp(cmd, "cm_mgr_loop_count")) {
 		cm_mgr_loop_count = val_1;
 	} else if (!strcmp(cmd, "cm_mgr_dram_level")) {
 		cm_mgr_dram_level = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_LEVEL, val_1);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cm_mgr_loading_level")) {
 		cm_mgr_loading_level = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_LOADING_LEVEL, val_1);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cm_mgr_loading_enable")) {
 		cm_mgr_loading_enable = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_LOADING_ENABLE, val_1);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cm_mgr_emi_demand_check")) {
 		cm_mgr_emi_demand_check = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_EMI_DEMAND_CHECK, val_1);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cpu_power_ratio_up")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			cpu_power_ratio_up[val_1] = val_2;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cpu_power_ratio_down")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			cpu_power_ratio_down[val_1] = val_2;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "vcore_power_ratio_up")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			vcore_power_ratio_up[val_1] = val_2;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_VCORE_POWER_RATIO_UP,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "vcore_power_ratio_down")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			vcore_power_ratio_down[val_1] = val_2;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_VCORE_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "debounce_times_up_adb")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			debounce_times_up_adb[val_1] = val_2;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_UP,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "debounce_times_down_adb")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			debounce_times_down_adb[val_1] = val_2;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_DOWN,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "debounce_times_reset_adb")) {
 		debounce_times_reset_adb = val_1;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 				debounce_times_reset_adb);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+	} else if (!strcmp(cmd, "cpu_power_bcpu_weight_max")) {
+		if (cpu_power_bcpu_weight_max < cpu_power_bcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bcpu_weight_max = val_1;
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MAX_SET,
+					val_1);
+		}
+	} else if (!strcmp(cmd, "cpu_power_bcpu_weight_min")) {
+		if (cpu_power_bcpu_weight_max < cpu_power_bcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bcpu_weight_min = val_1;
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
+					val_1);
+		}
 	} else if (!strcmp(cmd, "debounce_times_perf_down")) {
 		debounce_times_perf_down = val_1;
 	} else if (!strcmp(cmd, "debounce_times_perf_force_down")) {
@@ -406,10 +466,16 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
-#ifdef USE_CPU_TO_DRAM_MAP
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
 		cm_mgr_cpu_map_dram_enable = !!val_1;
-#endif /* USE_CPU_TO_DRAM_MAP */
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_skip_cpu_opp")) {
+		cm_mgr_cpu_map_skip_cpu_opp = val_1;
+		cm_mgr_cpu_map_update_table();
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_emi_opp")) {
+		cm_mgr_cpu_map_emi_opp = val_1;
+		cm_mgr_cpu_map_update_table();
+	} else {
+		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
 
 out:
@@ -429,6 +495,146 @@ static struct attribute *attrs[] = {
 static struct attribute_group attr_group = {
 	.attrs = attrs,
 };
+
+int cm_mgr_check_dts_setting(struct platform_device *pdev)
+{
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	struct device_node *node = pdev->dev.of_node;
+	const char *buf;
+	int ret;
+	int opp_count;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cm_mgr_base");
+	cm_mgr_base = devm_ioremap_resource(dev, res);
+
+	if (IS_ERR((void const *) cm_mgr_base)) {
+		pr_info("[CM_MGR] Unable to ioremap registers\n");
+		return -1;
+	}
+
+	pr_info("[CM_MGR] platform-cm_mgr cm_mgr_base=%p\n",
+			cm_mgr_base);
+
+	/* cm_mgr_cpu_opp_to_dram */
+	opp_count = of_count_phandle_with_args(node,
+			"cm_mgr_cpu_opp_to_dram", NULL);
+	pr_info("#@# %s(%d) opp_count %d\n",
+			__func__, __LINE__, opp_count);
+
+	if (opp_count > 0)
+		cm_mgr_cpu_opp_size = opp_count;
+	else
+		cm_mgr_cpu_opp_size = 16;
+
+	cm_mgr_cpu_opp_to_dram = devm_kzalloc(dev,
+			sizeof(int) * cm_mgr_cpu_opp_size, GFP_KERNEL);
+
+	if (!cm_mgr_cpu_opp_to_dram) {
+		ret = -ENOMEM;
+		goto ERROR;
+	}
+
+	if (opp_count > 0) {
+		ret = of_property_read_u32_array(node, "cm_mgr_cpu_opp_to_dram",
+				cm_mgr_cpu_opp_to_dram, cm_mgr_cpu_opp_size);
+	}
+
+	ret = of_property_read_string(node,
+			"status", (const char **)&buf);
+	if (!ret) {
+		if (!strcmp(buf, "enable"))
+			cm_mgr_enable = 1;
+		else
+			cm_mgr_enable = 0;
+	}
+	pr_info("#@# %s(%d) cm_mgr_enable %d\n",
+			__func__, __LINE__, cm_mgr_enable);
+
+	ret = of_property_read_string(node,
+			"use_bcpu_weight", (const char **)&buf);
+	if (!ret) {
+		if (!strcmp(buf, "enable"))
+			cm_mgr_use_bcpu_weight = 1;
+		else
+			cm_mgr_use_bcpu_weight = 0;
+	}
+	pr_info("#@# %s(%d) cm_mgr_use_bcpu_weight %d\n",
+			__func__, __LINE__, cm_mgr_use_bcpu_weight);
+
+	ret = of_property_read_string(node,
+			"use_cpu_to_dram_map", (const char **)&buf);
+	if (!ret) {
+		if (!strcmp(buf, "enable"))
+			cm_mgr_use_cpu_to_dram_map = 1;
+		else
+			cm_mgr_use_cpu_to_dram_map = 0;
+	}
+	pr_info("#@# %s(%d) cm_mgr_use_cpu_to_dram_map %d\n",
+			__func__, __LINE__, cm_mgr_use_cpu_to_dram_map);
+
+	ret = of_property_read_string(node,
+			"use_cpu_to_dram_map_new", (const char **)&buf);
+	if (!ret) {
+		if (!strcmp(buf, "enable"))
+			cm_mgr_use_cpu_to_dram_map_new = 1;
+		else
+			cm_mgr_use_cpu_to_dram_map_new = 0;
+	}
+	pr_info("#@# %s(%d) cm_mgr_use_cpu_to_dram_map_new %d\n",
+			__func__, __LINE__, cm_mgr_use_cpu_to_dram_map_new);
+
+	ret = of_property_read_s32(node, "cpu_power_bcpu_weight_max",
+			&cpu_power_bcpu_weight_max);
+	if (!ret)
+		cpu_power_bcpu_weight_max = 100;
+	pr_info("#@# %s(%d) cpu_power_bcpu_weight_max %d\n",
+			__func__, __LINE__, cpu_power_bcpu_weight_max);
+
+	ret = of_property_read_s32(node, "cpu_power_bcpu_weight_min",
+			&cpu_power_bcpu_weight_min);
+	if (!ret)
+		cpu_power_bcpu_weight_min = 100;
+	pr_info("#@# %s(%d) cpu_power_bcpu_weight_min %d\n",
+			__func__, __LINE__, cpu_power_bcpu_weight_min);
+
+	/* cm_mgr args */
+	cm_mgr_buf = devm_kzalloc(dev, sizeof(int) * 6 * cm_mgr_num_array,
+			GFP_KERNEL);
+
+	if (!cm_mgr_buf) {
+		ret = -ENOMEM;
+		goto ERROR1;
+	}
+
+	cpu_power_ratio_down = cm_mgr_buf;
+	cpu_power_ratio_up = cpu_power_ratio_down + cm_mgr_num_array;
+	debounce_times_down_adb = cpu_power_ratio_up + cm_mgr_num_array;
+	debounce_times_up_adb = debounce_times_down_adb + cm_mgr_num_array;
+	vcore_power_ratio_down = debounce_times_up_adb + cm_mgr_num_array;
+	vcore_power_ratio_up = vcore_power_ratio_down + cm_mgr_num_array;
+
+	ret = of_property_read_u32_array(node, "cm_mgr,cp_down",
+			cpu_power_ratio_down, cm_mgr_num_array);
+	ret = of_property_read_u32_array(node, "cm_mgr,cp_up",
+			cpu_power_ratio_up, cm_mgr_num_array);
+	ret = of_property_read_u32_array(node, "cm_mgr,dt_down",
+			debounce_times_down_adb, cm_mgr_num_array);
+	ret = of_property_read_u32_array(node, "cm_mgr,dt_up",
+			debounce_times_up_adb, cm_mgr_num_array);
+	ret = of_property_read_u32_array(node, "cm_mgr,vp_down",
+			vcore_power_ratio_down, cm_mgr_num_array);
+	ret = of_property_read_u32_array(node, "cm_mgr,vp_up",
+			vcore_power_ratio_up, cm_mgr_num_array);
+
+	return 0;
+
+ERROR1:
+	kfree(cm_mgr_cpu_opp_to_dram);
+ERROR:
+	return ret;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_check_dts_setting);
 
 int cm_mgr_common_init(void)
 {
@@ -452,14 +658,27 @@ int cm_mgr_common_init(void)
 		return ret;
 	}
 
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
+	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_CM, NULL, NULL,
+				(void *) &cm_ipi_ackdata);
+	if (ret) {
+		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", ret);
+		cm_sspm_ready = -1;
+		return -1;
+	}
+	pr_info("SSPM is ready to service CM IPI\n");
+	cm_sspm_ready = 1;
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
 
+#if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
 			cm_mgr_sspm_enable);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_EMI_DEMAND_CHECK,
 			cm_mgr_emi_demand_check);
@@ -472,7 +691,14 @@ int cm_mgr_common_init(void)
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 			debounce_times_reset_adb);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
+
+	if (cm_mgr_use_bcpu_weight) {
+		cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MAX_SET,
+				cpu_power_bcpu_weight_max);
+
+		cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
+				cpu_power_bcpu_weight_min);
+	}
 
 	return 0;
 }
