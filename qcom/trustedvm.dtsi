@@ -182,7 +182,9 @@
 		vcpus {
 			config = "/cpus";
 			affinity = "static";
-			affinity-map = <0x0>;   /* VCPU -> CPU */
+			affinity-map = <0x4 0x5>;   /* VCPU[0,1] -> CPU[4,5] */
+			sched-priority = < (-1) >;  /* relative to PVM */
+			sched-timeslice = <2000>;   /* in ms */
 		};
 
 		interrupts {
@@ -197,7 +199,7 @@
 				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
 				peer-default;
 				memory {
-					label = <0x00000001>;
+					qcom,label = <0x00000001>;
 					allocate-base;
 				};
 			};
@@ -208,7 +210,7 @@
 				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
 				peer-default;
 				memory {
-					label = <0x00000002>;
+					qcom,label = <0x00000002>;
 					allocate-base;
 				};
 			};
@@ -219,7 +221,7 @@
 				push-compatible = "qcom,qrtr-haven-gen";
 				peer-default;
 				memory {
-					label = <0x00000003>;
+					qcom,label = <0x00000003>;
 					allocate-base;
 				};
 			};
@@ -227,7 +229,7 @@
 			neuron-ch1-doorbell-source {
 				vdevice-type = "doorbell-source";
 				generate = "/hypervisor/neuron-ch1-doorbell-source";
-				label = <0x00000001>;
+				qcom,label = <0x00000001>;
 				peer-default;
 			};
 
@@ -235,14 +237,14 @@
 				vdevice-type = "doorbell";
 				generate = "/hypervisor/neuron-ch1-doorbell";
 				interrupts = <0x00000000 0x00000020 0x00000001>;
-				label = <0x00000001>;
+				qcom,label = <0x00000001>;
 				peer-default;
 			};
 
 			neuron-ch2-doorbell-source {
 				vdevice-type = "doorbell-source";
 				generate = "/hypervisor/neuron-ch2-doorbell-source";
-				label = <0x00000002>;
+				qcom,label = <0x00000002>;
 				peer-default;
 			};
 
@@ -250,14 +252,14 @@
 				vdevice-type = "doorbell";
 				generate = "/hypervisor/neuron-ch2-doorbell";
 				interrupts = <0x00000000 0x00000021 0x00000001>;
-				label = <0x00000002>;
+				qcom,label = <0x00000002>;
 				peer-default;
 			};
 
 			qrtr-doorbell-source {
 				vdevice-type = "doorbell-source";
 				generate = "/hypervisor/qrtr-doorbell-source";
-				label = <0x00000003>;
+				qcom,label = <0x00000003>;
 				peer-default;
 			};
 
@@ -265,7 +267,7 @@
 				vdevice-type = "doorbell";
 				generate = "/hypervisor/qrtr-doorbell";
 				interrupts = <0x00000000 0x00000022 0x00000001>;
-				label = <0x00000003>;
+				qcom,label = <0x00000003>;
 				peer-default;
 			};
 
