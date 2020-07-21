@@ -1318,7 +1318,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 		return irq_id < 0 ? irq_id : -ENXIO;
 
 	ret = devm_request_irq(dev, irq_id, mtk_btcvsd_snd_irq_handler,
-			       IRQF_TRIGGER_LOW, "BTCVSD_ISR_Handle",
+			       IRQF_TRIGGER_NONE, "BTCVSD_ISR_Handle",
 			       (void *)btcvsd);
 	if (ret) {
 		dev_err(dev, "could not request_irq for BTCVSD_ISR_Handle\n");
