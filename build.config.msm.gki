@@ -8,7 +8,7 @@ DEFCONFIG=vendor/${MSM_ARCH}-${VARIANT}_defconfig
 append_cmd PRE_DEFCONFIG_CMDS 'generate_defconfig'
 
 if [ -z "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
-	GKI_RAMDISK_PREBUILT_BINARY=prebuilts/boot-artifacts/${ARCH}/gki-ramdisk.cpio.gz
+	GKI_RAMDISK_PREBUILT_BINARY=prebuilts/boot-artifacts/${ARCH}/gki-ramdisk.cpio
 fi
 
 if [ "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then

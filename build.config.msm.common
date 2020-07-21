@@ -47,3 +47,37 @@ function menuconfig() {
 	mv ${OUT_DIR}/defconfig ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
 }
 export -f menuconfig
+# Configuration options to build images for MSM targets
+# Must be included AFTER build.config.msm.<target>
+
+MODULES_LIST=${KERNEL_DIR}/modules.list.${CONFIG_TARGET}
+
+# boot image macros
+BUILD_BOOT_IMG=1
+BUILD_INITRAMFS=1
+
+################################################################################
+## DT Overlay
+LIBUFDT_PREBUILTS_BIN=tools/libufdt/utils/src
+function make_dtbo_img() {
+	mkdir -p ${DIST_DIR}/
+	mkdtboimg.py create ${DIST_DIR}/dtbo.img --page_size=${PAGE_SIZE} ${DIST_DIR}/*.dtbo
+}
+if [ ! -z $DT_OVERLAY_SUPPORT ] && [ ! $DT_OVERLAY_SUPPORT -eq "0" ]; then
+	append_cmd DIST_CMDS 'make_dtbo_img'
+fi
+
+################################################################################
+## Miscellaneous
+function determine_result_image {
+	if [[ $(${KERNEL_DIR}/scripts/config \
+		--file ${OUT_DIR}/.config \
+		--state CONFIG_BUILD_${ARCH^^}_UNCOMPRESSED_KERNEL) \
+		== 'y' ]];
+	then
+		KERNEL_BINARY=Image
+	else
+		KERNEL_BINARY=Image.gz
+	fi
+}
+append_cmd DIST_CMDS 'determine_result_image'
