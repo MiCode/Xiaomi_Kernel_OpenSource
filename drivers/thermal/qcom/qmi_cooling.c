@@ -86,6 +86,10 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "modem_bw_backoff",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "vbatt_low",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
@@ -127,6 +131,10 @@ static struct qmi_dev_info device_clients[] = {
 	},
 	{
 		.dev_name = "wlan",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "wlan_bw",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
