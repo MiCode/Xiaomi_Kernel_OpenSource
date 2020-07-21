@@ -1114,8 +1114,10 @@
 
 		lanes-per-direction = <2>;
 		clock-names = "ref_clk_src",
+			"ref_clk",
 			"ref_aux_clk";
 		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&gcc GCC_UFS_1_CLKREF_EN>,
 			<&gcc GCC_UFS_PHY_PHY_AUX_CLK>;
 		resets = <&ufshc_mem 0>;
 
