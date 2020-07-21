@@ -355,37 +355,6 @@ static int channel_hh_rm_cb(struct notifier_block *nb, unsigned long cmd,
 	return NOTIFY_DONE;
 }
 
-static struct device_node *
-channel_hh_svm_of_parse(struct neuron_mq_data_priv *priv, struct device *dev)
-{
-	const char *compat = "qcom,neuron-channel-haven-shmem-gen";
-	struct device_node *np = NULL;
-	struct device_node *shm_np;
-	u32 label;
-	int ret;
-
-	while ((np = of_find_compatible_node(np, NULL, compat))) {
-		ret = of_property_read_u32(np, "qcom,label", &label);
-		if (ret) {
-			of_node_put(np);
-			continue;
-		}
-		if (label == priv->haven_label)
-			break;
-
-		of_node_put(np);
-	}
-	if (!np)
-		return NULL;
-
-	shm_np = of_parse_phandle(np, "memory-region", 0);
-	if (!shm_np)
-		dev_err(dev, "cant parse svm shared mem node!\n");
-
-	of_node_put(np);
-	return shm_np;
-}
-
 static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
 				 struct device *dev)
 {
@@ -396,11 +365,8 @@ static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
 
 	np = of_parse_phandle(dev->of_node, "shared-buffer", 0);
 	if (!np) {
-		np = channel_hh_svm_of_parse(priv, dev);
-		if (!np) {
-			dev_err(dev, "cant parse shared mem node!\n");
-			return -EINVAL;
-		}
+		dev_err(dev, "shared-buffer node missing!\n");
+		return -EINVAL;
 	}
 
 	ret = of_address_to_resource(np, 0, &priv->buffer);
