@@ -237,7 +237,7 @@ static unsigned long uaudio_get_iova(unsigned long *curr_iova,
 			va = info->start_iova;
 			*curr_iova_size -= size;
 			found = true;
-			uaudio_dbg("exact size :%zu found\n", size);
+			uaudio_dbg("exact size: %zu found\n", size);
 			goto done;
 		} else if (!info->in_use && tmp_size >= info->size) {
 			if (!new_info)
@@ -283,8 +283,8 @@ done:
 	if (!found)
 		uaudio_err("unable to find %zu size iova\n", size);
 	else
-		uaudio_dbg("va:%lu curr_iova:%lu curr_iova_size:%zu\n", va,
-				*curr_iova, *curr_iova_size);
+		uaudio_dbg("va:0x%08lx curr_iova:0x%08lx curr_iova_size:%zu\n",
+				va, *curr_iova, *curr_iova_size);
 
 	return va;
 }
@@ -338,14 +338,14 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, bool dma_coherent,
 								prot);
 		if (ret) {
 			uaudio_err("mapping failed ret%d\n", ret);
-			uaudio_err("memtype:%d, pa:%pK iova:%lu sg_len:%zu\n",
+			uaudio_err("type:%d, pa:%pa iova:0x%08lx sg_len:%zu\n",
 				mtype, &pa_sg, va_sg, sg_len);
 			uaudio_iommu_unmap(MEM_XFER_BUF, va, size, total_len);
 			va = 0;
 			goto done;
 		}
-		uaudio_dbg("memtype %d:map pa:%pK to iova:%lu len:%zu\n", mtype,
-				&pa_sg, va_sg, sg_len);
+		uaudio_dbg("type:%d map pa:%pa to iova:0x%08lx len:%zu offset:%u\n",
+				mtype, &pa_sg, va_sg, sg_len, sg->offset);
 		va_sg += sg_len;
 		total_len += sg_len;
 	}
@@ -359,12 +359,12 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, bool dma_coherent,
 	return va;
 
 skip_sgt_map:
-	uaudio_dbg("memtype:%d map pa:%pK to iova %lu size:%zu\n", mtype, &pa,
+	uaudio_dbg("type:%d map pa:%pa to iova:0x%08lx size:%zu\n", mtype, &pa,
 			va, size);
 
 	ret = iommu_map(uaudio_qdev->domain, va, pa, size, prot);
 	if (ret)
-		uaudio_err("failed to map pa:%pK iova:%lu memtype:%d ret:%d\n",
+		uaudio_err("failed to map pa:%pa iova:0x%lx type:%d ret:%d\n",
 				&pa, va, mtype, ret);
 done:
 	return va;
@@ -439,12 +439,12 @@ static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 	if (!unmap || !mapped_iova_size)
 		return;
 
-	uaudio_dbg("memtype %d: unmap iova %lu size %zu\n", mtype, va,
+	uaudio_dbg("type %d: unmap iova 0x%08lx size %zu\n", mtype, va,
 			mapped_iova_size);
 
 	umap_size = iommu_unmap(uaudio_qdev->domain, va, mapped_iova_size);
 	if (umap_size != mapped_iova_size)
-		uaudio_err("unmapped size %zu for iova %lu of mapped size %zu\n",
+		uaudio_err("unmapped size %zu for iova 0x%08lx of mapped size %zu\n",
 				umap_size, va, mapped_iova_size);
 }
 
