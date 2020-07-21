@@ -239,7 +239,6 @@
   devm_snd_dmaengine_pcm_register
   devm_snd_soc_register_card
   devm_snd_soc_register_component
-  devm_usb_get_phy
   devm_usb_get_phy_by_phandle
   _dev_notice
   dev_pm_opp_add
@@ -1204,11 +1203,8 @@
   up_read
   up_write
   usb_add_function
-  usb_add_gadget_udc
   usb_assign_descriptors
   usb_copy_descriptors
-  usb_decode_ctrl
-  usb_del_gadget_udc
   usb_ep_alloc_request
   usb_ep_autoconfig
   usb_ep_dequeue
@@ -1217,19 +1213,12 @@
   usb_ep_free_request
   usb_ep_queue
   usb_ep_set_halt
-  usb_ep_set_maxpacket_limit
   usb_free_all_descriptors
   usb_function_register
   usb_function_unregister
-  usb_gadget_giveback_request
-  usb_gadget_map_request_by_dev
-  usb_gadget_set_state
-  usb_gadget_udc_reset
-  usb_gadget_unmap_request_by_dev
   usb_gadget_vbus_connect
   usb_gadget_vbus_disconnect
   usb_get_dr_mode
-  usb_get_maximum_speed
   usb_gstrings_attach
   usb_hub_find_child
   usb_interface_id

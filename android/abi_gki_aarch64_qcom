@@ -449,7 +449,6 @@
   devm_rtc_device_register
   devm_snd_soc_register_card
   devm_thermal_zone_of_sensor_register
-  devm_usb_get_phy
   devm_usb_get_phy_by_phandle
   _dev_notice
   dev_open
@@ -836,17 +835,13 @@
   eth_type_trans
   eth_validate_addr
   event_triggers_call
-  extcon_find_edev_by_node
   extcon_get_edev_by_phandle
   extcon_get_edev_name
-  extcon_get_extcon_dev
   extcon_get_property
   extcon_get_state
-  extcon_register_notifier
   extcon_set_property
   extcon_set_property_capability
   extcon_set_state_sync
-  extcon_unregister_notifier
   fasync_helper
   fd_install
   fget
@@ -2325,7 +2320,6 @@
   update_devfreq
   up_read
   up_write
-  usb_add_gadget_udc
   usb_add_hcd
   usb_add_phy_dev
   usb_alloc_coherent
@@ -2350,8 +2344,6 @@
   usb_create_hcd
   usb_create_shared_hcd
   usb_debug_root
-  usb_decode_ctrl
-  usb_del_gadget_udc
   usb_deregister
   usb_disabled
   usb_disable_xhci_ports
@@ -2369,7 +2361,6 @@
   usb_ep_free_request
   usb_ep_queue
   usb_ep_set_halt
-  usb_ep_set_maxpacket_limit
   usb_ep_set_wedge
   usb_find_common_endpoints
   usb_free_all_descriptors
@@ -2377,11 +2368,6 @@
   usb_free_urb
   usb_function_register
   usb_function_unregister
-  usb_gadget_giveback_request
-  usb_gadget_map_request_by_dev
-  usb_gadget_set_state
-  usb_gadget_udc_reset
-  usb_gadget_unmap_request_by_dev
   usb_gadget_vbus_connect
   usb_gadget_vbus_disconnect
   usb_gadget_vbus_draw
@@ -2390,7 +2376,6 @@
   usb_get_dev
   usb_get_dr_mode
   usb_get_intf
-  usb_get_maximum_speed
   usb_get_urb
   usb_gstrings_attach
   usb_hcd_check_unlink_urb

@@ -136,8 +136,6 @@
   event_triggers_call
   extcon_get_edev_by_phandle
   extcon_get_state
-  extcon_register_notifier
-  extcon_unregister_notifier
   fd_install
   find_next_bit
   find_next_zero_bit
@@ -1093,31 +1091,6 @@
   of_device_request_module
   of_device_uevent_modalias
   __request_module
-
-# required by dwc3-qcom.ko
-  devm_extcon_register_notifier
-  of_clk_get_parent_count
-
-# required by dwc3.ko
-  device_property_read_u8_array
-  devm_usb_get_phy
-  extcon_find_edev_by_node
-  extcon_get_extcon_dev
-  of_usb_get_phy_mode
-  phy_pm_runtime_get_sync
-  phy_pm_runtime_put_sync
-  platform_get_irq_byname_optional
-  system_freezable_wq
-  usb_add_gadget_udc
-  usb_decode_ctrl
-  usb_del_gadget_udc
-  usb_ep_set_maxpacket_limit
-  usb_gadget_giveback_request
-  usb_gadget_map_request_by_dev
-  usb_gadget_set_state
-  usb_gadget_udc_reset
-  usb_gadget_unmap_request_by_dev
-  usb_get_maximum_speed
 
 # required by ohci-hcd.ko
   flush_work

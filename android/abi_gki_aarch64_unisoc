@@ -145,7 +145,6 @@
   devm_regulator_register
   devm_request_threaded_irq
   devm_spi_register_controller
-  devm_usb_get_phy
   devm_usb_get_phy_by_phandle
   dev_queue_xmit
   dev_set_name
@@ -678,14 +677,12 @@
   unregister_chrdev_region
   unregister_pernet_subsys
   up
-  usb_add_gadget_udc
   usb_alloc_coherent
   usb_alloc_urb
   usb_autopm_get_interface
   usb_autopm_get_interface_no_resume
   usb_autopm_put_interface
   usb_control_msg
-  usb_del_gadget_udc
   usb_deregister
   usb_ep_alloc_request
   usb_ep_autoconfig
@@ -693,14 +690,11 @@
   usb_ep_enable
   usb_ep_free_request
   usb_ep_queue
-  usb_ep_set_maxpacket_limit
   usb_find_common_endpoints
   usb_free_coherent
   usb_free_urb
   usb_function_register
   usb_function_unregister
-  usb_gadget_giveback_request
-  usb_gadget_udc_reset
   usb_get_dr_mode
   usb_get_intf
   usb_hcd_is_primary_hcd
@@ -801,50 +795,6 @@
   __cpufreq_driver_target
   cpufreq_register_governor
   cpufreq_unregister_governor
-
-# required by dwc3-haps.ko
-  pcim_enable_device
-
-# required by dwc3-of-simple.ko
-  clk_bulk_get_all
-  clk_bulk_put_all
-  of_reset_control_array_get
-  reset_control_put
-  reset_control_reset
-
-# required by dwc3-qcom.ko
-  devm_extcon_register_notifier
-  devm_reset_control_array_get
-
-# required by dwc3.ko
-  device_property_read_string
-  device_property_read_u8_array
-  devm_clk_bulk_get
-  devm_phy_get
-  __devm_reset_control_get
-  extcon_find_edev_by_node
-  extcon_get_extcon_dev
-  extcon_register_notifier
-  extcon_unregister_notifier
-  of_usb_get_phy_mode
-  phy_exit
-  phy_init
-  phy_pm_runtime_get_sync
-  phy_pm_runtime_put_sync
-  phy_power_off
-  phy_power_on
-  phy_set_mode_ext
-  pinctrl_pm_select_default_state
-  pinctrl_pm_select_sleep_state
-  platform_get_irq_byname_optional
-  synchronize_irq
-  usb_decode_ctrl
-  usb_gadget_map_request_by_dev
-  usb_gadget_set_state
-  usb_gadget_unmap_request_by_dev
-  usb_get_maximum_speed
-  usb_role_switch_register
-  usb_role_switch_unregister
 
 # required by exfat.ko
   __blockdev_direct_IO
