@@ -525,6 +525,15 @@ config SDX_EXT_IPC
 
 	  If unsure, say N.
 
+config QTI_NOTIFY_SIDEBAND
+	tristate "QCOM sideband signalling helper"
+	help
+	  This provides helper APIs and a header file through which
+	  transport layer driver can talk to the sideband driver to
+	  assert appropriate sideband signal.
+
+	  If unsure, say N.
+
 config PANIC_ON_GLADIATOR_ERROR
 	depends on MSM_GLADIATOR_ERP
 	bool "Panic on GLADIATOR error report"
@@ -723,7 +732,7 @@ config QCOM_GLINK
 
 config QCOM_GLINK_PKT
 	tristate "Enable device interface for GLINK packet channels"
-	depends on QCOM_GLINK
+	depends on QCOM_GLINK || RPMSG_QCOM_GLINK_BGCOM
 	help
 	  G-link packet driver provides the interface for the userspace
 	  clients to communicate over G-Link via device nodes.

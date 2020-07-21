@@ -178,6 +178,14 @@ Charger specific properties:
   Definition: Boolean flag which when present enables input suspend for
 		debug battery.
 
+- qcom,fake-chg-status-on-debug-batt
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which when present shows charging status as
+		unknown for debug battery. This needs to be specified only if
+		the device needs to be kept powered on always with
+		"svc power stayon true".
+
 - qcom,min-freq-khz
   Usage:      optional
   Value type: <u32>

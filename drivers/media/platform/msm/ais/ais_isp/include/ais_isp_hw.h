@@ -270,6 +270,7 @@ struct ais_ife_rdi_in_cfg {
 	uint32_t crop_bottom;
 	uint32_t crop_left;
 	uint32_t crop_right;
+	uint32_t init_frame_drop;
 	uint32_t reserved;
 };
 
@@ -478,6 +479,7 @@ struct ais_ife_frame_msg {
 enum ais_ife_msg_type {
 	AIS_IFE_MSG_SOF,
 	AIS_IFE_MSG_FRAME_DONE,
+	AIS_IFE_MSG_OUTPUT_WARNING,
 	AIS_IFE_MSG_OUTPUT_ERROR,
 	AIS_IFE_MSG_CSID_WARNING,
 	AIS_IFE_MSG_CSID_ERROR

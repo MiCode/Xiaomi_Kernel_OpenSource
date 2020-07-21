@@ -34,6 +34,9 @@
 #include <linux/debugfs.h>
 #include <linux/property.h>
 #include <trace/events/iommu.h>
+#ifdef CONFIG_MSM_TZ_SMMU
+#include <soc/qcom/msm_tz_smmu.h>
+#endif
 
 #include "iommu-debug.h"
 
@@ -106,6 +109,26 @@ void iommu_device_unregister(struct iommu_device *iommu)
 	list_del(&iommu->list);
 	spin_unlock(&iommu_device_lock);
 }
+
+#ifdef CONFIG_MSM_TZ_SMMU
+void *arm_smmu_get_by_addr(void __iomem *addr)
+{
+	struct iommu_device *iommu;
+	unsigned long flags;
+	void *smmu = NULL;
+
+	spin_lock_irqsave(&iommu_device_lock, flags);
+	list_for_each_entry(iommu, &iommu_device_list, list) {
+		smmu = get_smmu_from_addr(iommu, addr);
+		if (!smmu)
+			continue;
+		break;
+	}
+	spin_unlock_irqrestore(&iommu_device_lock, flags);
+
+	return smmu;
+}
+#endif
 
 static struct iommu_domain *__iommu_domain_alloc(struct bus_type *bus,
 						 unsigned type);
@@ -1960,9 +1983,9 @@ int iommu_request_dm_for_dev(struct device *dev)
 	int ret;
 
 	/* Device must already be in a group before calling this function */
-	group = iommu_group_get_for_dev(dev);
-	if (IS_ERR(group))
-		return PTR_ERR(group);
+	group = iommu_group_get(dev);
+	if (!group)
+		return -EINVAL;
 
 	mutex_lock(&group->mutex);
 

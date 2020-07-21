@@ -1526,6 +1526,7 @@
 			compatible = "qcom,emac-smmu-embedded";
 			iommus = <&apps_smmu 0x1c0 0xf>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
+			qcom,smmu-geometry;
 		};
 	};
 
@@ -1534,7 +1535,7 @@
 		qcom,arm-smmu;
 		emac-phy-addr = <7>;
 		reg = <0x20000 0x10000>,
-		   <0x36000 0x100>,
+		   <0x36000 0x4A>,
 		   <0xf100000 0x300000>;
 		reg-names = "emac-base", "rgmii-base", "tlmm-central-base";
 		interrupts-extended = <&pdc 0 62 4>, <&pdc 0 60 4>,
@@ -1593,9 +1594,13 @@
 
 	sdx_ext_ipc: qcom,sdx_ext_ipc {
 		compatible = "qcom,sdx-ext-ipc";
-		qcom,ap2mdm-status-gpio = <&tlmm 64 0x00>;
-		qcom,mdm2ap-status-gpio = <&tlmm 63 0x00>;
-		qcom,mdm2ap-status2-gpio = <&tlmm 66 0x00>;
+		qcom,status-in-gpio = <&tlmm 64 0x00>;
+		qcom,status-out-gpio = <&tlmm 63 0x00>;
+		qcom,status-out2-gpio = <&tlmm 66 0x00>;
+		qcom,wakeup-gpio-in = <&tlmm 87 0x00>;
+		qcom,wakeup-gpio-out = <&tlmm 22 0x00>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wakeup_gpio_default>;
 		status = "disabled";
 	};
 };
@@ -1613,6 +1618,7 @@
 #include "sdxprairie-coresight.dtsi"
 #include "sdxprairie-aqc.dtsi"
 #include "sdxprairie-thermal.dtsi"
+#include "sdxprairie-qcom-smmu.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

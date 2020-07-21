@@ -19,6 +19,7 @@
 		};
 	};
 
+	/delete-node/ cpus;
 };
 
 &slpi_tlmm {

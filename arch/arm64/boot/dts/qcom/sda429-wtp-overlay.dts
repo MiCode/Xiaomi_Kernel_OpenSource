@@ -14,6 +14,7 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/clock/qcom,rpmcc.h>
 #include "sda429-wtp.dtsi"
 
 / {
@@ -26,9 +27,6 @@
 
 &i2c_4 {
 	status = "ok";
-	tsc@24 {
-		status = "disabled";
-	};
 
 	raydium_ts@39 {
 		compatible = "raydium,raydium-ts";

@@ -9007,6 +9007,7 @@ static int qseecom_probe(struct platform_device *pdev)
 	struct device *class_dev;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_ce_info_use *pce_info_use = NULL;
+	struct msm_bus_scale_pdata *qseecom_platform_support = NULL;
 
 	qseecom.qsee_bw_count = 0;
 	qseecom.qsee_perf_client = 0;
@@ -9187,6 +9188,9 @@ static int qseecom_probe(struct platform_device *pdev)
 			qseecom.ce_drv.ce_bus_clk = qclk->ce_bus_clk;
 		}
 
+		qseecom_platform_support = (struct msm_bus_scale_pdata *)
+						msm_bus_cl_get_pdata(pdev);
+
 		if (qseecom.qsee_version >= (QSEE_VERSION_02) &&
 			(!qseecom.is_apps_region_protected &&
 			!qseecom.appsbl_qseecom_support)) {
@@ -9254,6 +9258,9 @@ static int qseecom_probe(struct platform_device *pdev)
 		if (qseecom.is_apps_region_protected ||
 					qseecom.appsbl_qseecom_support)
 			qseecom.commonlib_loaded = true;
+	} else {
+		qseecom_platform_support = (struct msm_bus_scale_pdata *)
+						pdev->dev.platform_data;
 	}
 
 	if (qseecom.support_bus_scaling) {
@@ -9262,8 +9269,10 @@ static int qseecom_probe(struct platform_device *pdev)
 					qseecom_bw_inactive_req_work);
 		qseecom.bw_scale_down_timer.function =
 				qseecom_scale_bus_bandwidth_timer_callback;
+		qseecom.timer_running = false;
+		qseecom.qsee_perf_client = msm_bus_scale_register_client(
+		      qseecom_platform_support);
 	}
-	qseecom.timer_running = false;
 
 	qseecom.whitelist_support = qseecom_check_whitelist_feature();
 	pr_warn("qseecom.whitelist_support = %d\n",
@@ -9292,6 +9301,9 @@ static int qseecom_probe(struct platform_device *pdev)
 	}
 	atomic_set(&qseecom.unload_app_kthread_state,
 						UNLOAD_APP_KT_SLEEP);
+
+	if (!qseecom.qsee_perf_client)
+		pr_err("Unable to register bus client\n");
 
 	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_READY);
 	return 0;

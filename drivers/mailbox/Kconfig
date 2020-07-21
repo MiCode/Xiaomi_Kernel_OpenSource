@@ -132,6 +132,16 @@ config QCOM_APCS_IPC
 	  providing an interface for invoking the inter-process communication
 	  signals from the application processor to other masters.
 
+config QCOM_GVM_IPC
+	tristate "Qualcomm Technologies, Inc. GVM IPC driver"
+	depends on ARCH_QCOM
+	help
+	  Say y here to enable support for the GVM IPC mailbox driver,
+	  This driver will providing an interface for invoking the communication
+	  between GVM and primary host through virtual IRQ line. It signals from
+	  the GVM to primary host and primary host will send different signal to
+	  remote sub system.
+
 config TEGRA_HSP_MBOX
 	bool "Tegra HSP (Hardware Synchronization Primitives) Driver"
 	depends on ARCH_TEGRA_186_SOC

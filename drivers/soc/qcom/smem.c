@@ -280,6 +280,9 @@ struct qcom_smem {
 /* Pointer to the one and only smem handle */
 static struct qcom_smem *__smem;
 
+/* default smem host id for apps is SMEM_HOST_APPS */
+static u32 smem_host_id = SMEM_HOST_APPS;
+
 /* Timeout (ms) for the trylock of remote spinlocks */
 #define HWSPINLOCK_TIMEOUT	1000
 
@@ -986,6 +989,7 @@ static int qcom_smem_probe(struct platform_device *pdev)
 	int hwlock_id;
 	u32 version;
 	int ret;
+	u32 host_id;
 
 	num_regions = 1;
 	if (of_find_property(pdev->dev.of_node, "qcom,rpm-msg-ram", NULL))
@@ -1006,6 +1010,10 @@ static int qcom_smem_probe(struct platform_device *pdev)
 	if (num_regions > 1 && (ret = qcom_smem_map_memory(smem, &pdev->dev,
 					"qcom,rpm-msg-ram", 1)))
 		return ret;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "smem-host-id", &host_id);
+	if (!ret)
+		smem_host_id = host_id;
 
 	header = smem->regions[0].virt_base;
 	if (le32_to_cpu(header->initialized) != 1 ||
@@ -1030,7 +1038,7 @@ static int qcom_smem_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ret = qcom_smem_enumerate_partitions(smem, SMEM_HOST_APPS);
+	ret = qcom_smem_enumerate_partitions(smem, smem_host_id);
 	if (ret < 0)
 		return ret;
 

@@ -1344,6 +1344,7 @@ static int stmmac_emb_smmu_cb_probe(struct platform_device *pdev)
 	int atomic_ctx = 1;
 	int fast = 1;
 	int bypass = 1;
+	struct iommu_domain_geometry geometry = {0};
 
 	ETHQOSDBG("EMAC EMB SMMU CB probe: smmu pdev=%p\n", pdev);
 
@@ -1357,6 +1358,10 @@ static int stmmac_emb_smmu_cb_probe(struct platform_device *pdev)
 	stmmac_emb_smmu_ctx.va_size = iova_ap_mapping[1];
 	stmmac_emb_smmu_ctx.va_end = stmmac_emb_smmu_ctx.va_start +
 				   stmmac_emb_smmu_ctx.va_size;
+
+	geometry.aperture_start = stmmac_emb_smmu_ctx.va_start;
+	geometry.aperture_end =
+	stmmac_emb_smmu_ctx.va_start + stmmac_emb_smmu_ctx.va_size;
 
 	stmmac_emb_smmu_ctx.smmu_pdev = pdev;
 
@@ -1402,6 +1407,19 @@ static int stmmac_emb_smmu_cb_probe(struct platform_device *pdev)
 			goto err_smmu_probe;
 		}
 		ETHQOSDBG("SMMU fast map set\n");
+		if (of_property_read_bool(dev->of_node,
+					  "qcom,smmu-geometry")) {
+			if (iommu_domain_set_attr
+			    (stmmac_emb_smmu_ctx.mapping->domain,
+			     DOMAIN_ATTR_GEOMETRY,
+			     &geometry)) {
+				ETHQOSERR("Couldn't set DOMAIN_ATTR_GEOMETRY");
+				result = -EIO;
+				goto err_smmu_probe;
+			}
+			ETHQOSDBG("SMMU DOMAIN_ATTR_GEOMETRY set\n");
+		}
+
 	}
 
 	result = arm_iommu_attach_device(&stmmac_emb_smmu_ctx.smmu_pdev->dev,
@@ -1748,6 +1766,14 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 		memcpy(priv->dev->dev_addr, dev_addr, ETH_ALEN);
 	}
 	return ret;
+}
+
+bool qcom_ethqos_ipa_enabled(void)
+{
+#ifdef CONFIG_ETH_IPA_OFFLOAD
+	return pethqos->ipa_enabled;
+#endif
+	return false;
 }
 
 static int qcom_ethqos_probe(struct platform_device *pdev)

@@ -250,4 +250,5 @@
 &usb_otg {
 	extcon = <&pm660_charger>;
 	vbus_otg-supply = <&smb2_vbus>;
+	qcom,vdd-voltage-level = <0 800000 800000>;
 };

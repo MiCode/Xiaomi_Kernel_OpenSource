@@ -19,7 +19,9 @@
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-sm6150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm6150.h>
-
+#include "qcs410.dtsi"
+#include "sm6150-sde-pll.dtsi"
+#include "sm6150-sde-display.dtsi"
 #include "qcs610-camera-sensor-idp.dtsi"
 
 / {
@@ -30,6 +32,10 @@
 &qupv3_se3_i2c {
 	status = "ok";
 	#include "smb1390.dtsi"
+};
+
+&fsa4480 {
+	status = "disabled";
 };
 
 &pm6150l_gpios {
@@ -234,4 +240,125 @@
 
 &L5C {
 	regulator-max-microvolt = <2912000>;
+};
+
+&sde_dp {
+	status="disabled";
+};
+
+&mdss_dp_pll {
+	status="disabled";
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+	lt9611: lt,lt9611@3b {
+		compatible = "lt,lt9611";
+		reg = <0x3b>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <26 0>;
+		interrupt-names = "lt_irq";
+		lt,irq-gpio = <&tlmm 26 0x0>;
+		lt,reset-gpio = <&tlmm 20 0x0>;
+		lt,hdmi-en-gpio = <&tlmm 79 0x0>;
+		instance_id = <0>;
+		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lt9611_pins>;
+
+		vdd-supply = <&pm6150_l13>;
+		vcc-supply = <&pm6150_l16>;
+
+		lt,supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			lt,supply-entry@0 {
+				reg = <0>;
+				lt,supply-name = "vdd";
+				lt,supply-min-voltage = <1800000>;
+				lt,supply-max-voltage = <1800000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+			lt,supply-entry@1 {
+				reg = <1>;
+				lt,supply-name = "vcc";
+				lt,supply-min-voltage = <3304000>;
+				lt,supply-max-voltage = <3304000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+
+
+		};
+
+		lt,customize-modes {
+			lt,customize-mode-id@0 {
+				lt,mode-h-active = <1920>;
+				lt,mode-h-front-porch = <88>;
+				lt,mode-h-pulse-width = <44>;
+				lt,mode-h-back-porch = <148>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <1080>;
+				lt,mode-v-front-porch = <4>;
+				lt,mode-v-pulse-width = <5>;
+				lt,mode-v-back-porch = <36>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <60>;
+				lt,mode-clock-in-khz = <148500>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in: endpoint {
+					remote-endpoint = <&ext_dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+&dsi_ext_bridge_hdmi_1080p {
+	qcom,mdss-dsi-ext-bridge = <0>;
+};
+
+&soc {
+	ext_dsi_bridge_display: qcom,dsi-display@50 {
+		label = "ext_dsi_bridge_display hdmi 1080p";
+		qcom,dsi-display-active;
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+		qcom,dsi-panel = <&dsi_ext_bridge_hdmi_1080p>;
+	};
+};
+
+&sde_dsi {
+	qcom,dsi-display-list = <&ext_dsi_bridge_display>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			ext_dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in>;
+			};
+		};
+	};
 };

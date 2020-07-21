@@ -342,9 +342,15 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	if (mode & SPI_CPOL)
 		cpol |= CPOL;
 
-	if (!spi->slave) {
-		if (mode & SPI_CPHA)
-			cpha |= CPHA;
+	if (mode & SPI_CPHA)
+		cpha |= CPHA;
+
+	/* SPI slave supports only mode 1, log unsuppoted mode and exit */
+	if (spi->slave && !(cpol == 0 && cpha == 1)) {
+		GENI_SE_DBG(mas->ipc, false, mas->dev,
+			"%s: Unsupported SPI Slave mode cpol %d cpha %d\n",
+							__func__, cpol, cpha);
+		return -EINVAL;
 	}
 
 	if (spi_slv->mode & SPI_CS_HIGH)
@@ -938,16 +944,24 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 		/* Transmit an entire FIFO worth of data per IRQ */
 		mas->tx_wm = 1;
 
-		mas->tx = dma_request_slave_channel(mas->dev, "tx");
-		if (IS_ERR_OR_NULL(mas->tx)) {
-			dev_info(mas->dev, "Failed to get tx DMA ch %ld",
+
+		mas->shared_se =
+			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
+							FIFO_IF_DISABLE);
+		if (mas->shared_se) {
+			mas->tx = dma_request_slave_channel(mas->dev, "tx");
+			if (IS_ERR_OR_NULL(mas->tx)) {
+				dev_info(mas->dev,
+					"Failed to get tx DMA ch %ld",
 							PTR_ERR(mas->tx));
-		} else {
+				goto setup_ipc;
+			}
 			mas->rx = dma_request_slave_channel(mas->dev, "rx");
 			if (IS_ERR_OR_NULL(mas->rx)) {
 				dev_info(mas->dev, "Failed to get rx DMA ch %ld",
 							PTR_ERR(mas->rx));
 				dma_release_channel(mas->tx);
+				goto setup_ipc;
 			}
 			mas->gsi = devm_kzalloc(mas->dev,
 				(sizeof(struct spi_geni_gsi) * NUM_SPI_XFER),
@@ -1006,9 +1020,6 @@ setup_ipc:
 				"%s:Major:%d Minor:%d step:%dos%d\n",
 			__func__, major, minor, step, mas->oversampling);
 		}
-		mas->shared_se =
-			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
-							FIFO_IF_DISABLE);
 		if (mas->dis_autosuspend)
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
 					"Auto Suspend is disabled\n");
@@ -1226,12 +1237,30 @@ static void handle_fifo_timeout(struct spi_master *spi,
 	}
 dma_unprep:
 	if (mas->cur_xfer_mode == SE_DMA) {
-		if (xfer->tx_buf)
+		if (xfer->tx_buf) {
+			reinit_completion(&mas->xfer_done);
+			writel_relaxed(1, mas->base +
+				SE_DMA_TX_FSM_RST);
+			timeout =
+			wait_for_completion_timeout(&mas->xfer_done, HZ);
+			if (!timeout)
+				dev_err(mas->dev,
+					"DMA TX RESET failed\n");
 			geni_se_tx_dma_unprep(mas->wrapper_dev,
-					xfer->tx_dma, xfer->len);
-		if (xfer->rx_buf)
+				xfer->tx_dma, xfer->len);
+		}
+		if (xfer->rx_buf) {
+			reinit_completion(&mas->xfer_done);
+			writel_relaxed(1, mas->base +
+				SE_DMA_RX_FSM_RST);
+			timeout =
+			wait_for_completion_timeout(&mas->xfer_done, HZ);
+			if (!timeout)
+				dev_err(mas->dev,
+					"DMA RX RESET failed\n");
 			geni_se_rx_dma_unprep(mas->wrapper_dev,
-					xfer->rx_dma, xfer->len);
+				xfer->rx_dma, xfer->len);
+		}
 	}
 	if (spi->slave && !mas->dis_autosuspend)
 		pm_runtime_put_sync_suspend(mas->dev);
@@ -1254,6 +1283,12 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	mutex_lock(&mas->spi_ssr.ssr_lock);
 	if (mas->spi_ssr.is_ssr_down || !mas->spi_ssr.xfer_prepared) {
 		mutex_unlock(&mas->spi_ssr.ssr_lock);
+		return -EINVAL;
+	}
+
+	/* Check for zero length transfer */
+	if (xfer->len < 1) {
+		dev_err(mas->dev, "Zero length transfer\n");
 		return -EINVAL;
 	}
 

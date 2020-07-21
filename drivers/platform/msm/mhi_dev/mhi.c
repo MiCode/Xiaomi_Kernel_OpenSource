@@ -30,6 +30,7 @@
 #include <linux/vmalloc.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "mhi.h"
 #include "mhi_hwio.h"
@@ -40,6 +41,9 @@
 /* Wait time before suspend/resume is complete */
 #define MHI_SUSPEND_MIN			100
 #define MHI_SUSPEND_TIMEOUT		600
+/* Wait time on the device for Host to set BHI_INTVEC */
+#define MHI_BHI_INTVEC_MAX_CNT			200
+#define MHI_BHI_INTVEC_WAIT_MS		50
 #define MHI_WAKEUP_TIMEOUT_CNT		20
 #define MHI_MASK_CH_EV_LEN		32
 #define MHI_RING_CMD_ID			0
@@ -444,10 +448,11 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 	struct event_req *flush_ereq;
 
 	/*
-	 * Channel got closed with transfers pending
+	 * Channel got stopped or closed with transfers pending
 	 * Do not send completion events to host
 	 */
-	if (ch->state == MHI_DEV_CH_CLOSED) {
+	if (ch->state == MHI_DEV_CH_CLOSED ||
+		ch->state == MHI_DEV_CH_STOPPED) {
 		mhi_log(MHI_MSG_DBG, "Ch %d closed with %d writes pending\n",
 			ch->ch_id, ch->pend_wr_count + 1);
 		return -ENODEV;
@@ -1269,6 +1274,9 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 			pr_err("Error configuring interrupts, rc = %d\n", rc);
 			return;
 		}
+
+		mhi_log(MHI_MSG_CRITICAL, "Device in M0 State\n");
+		place_marker("MHI - Device in M0 State\n");
 		break;
 	case IPA_MHI_EVENT_DATA_AVAILABLE:
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);
@@ -1294,6 +1302,11 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	switch (type) {
 	case MHI_DEV_RING_EL_RESET:
 	case MHI_DEV_RING_EL_STOP:
+		if ((chid-HW_CHANNEL_BASE) > NUM_HW_CHANNELS) {
+			pr_err("Invalid Channel ID = 0x%X\n", chid);
+			return -EINVAL;
+		}
+
 		rc = ipa_mhi_disconnect_pipe(
 			mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
 		if (rc)
@@ -1303,6 +1316,16 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
+
+		if (chid > HW_CHANNEL_END) {
+			pr_err("Channel DB for %d not enabled\n", chid);
+			return -EINVAL;
+		}
+
+		if ((chid-HW_CHANNEL_BASE) > NUM_HW_CHANNELS) {
+			pr_err("Invalid Channel = 0x%X\n", chid);
+			return -EINVAL;
+		}
 
 		rc = ipa_mhi_connect_pipe(&connect_params,
 			&mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
@@ -2025,6 +2048,14 @@ static void mhi_update_state_info_all(enum mhi_ctrl_info info)
 
 	mhi_ctx->ctrl_info = info;
 	for (i = 0; i < MHI_MAX_SOFTWARE_CHANNELS; ++i) {
+		/*
+		 * Skip channel state info change
+		 * if channel is already in the desired state.
+		 */
+		if (channel_state_info[i].ctrl_info == info ||
+		    (info == MHI_STATE_DISCONNECTED &&
+		    channel_state_info[i].ctrl_info == MHI_STATE_CONFIGURED))
+			continue;
 		channel_state_info[i].ctrl_info = info;
 		/* Notify kernel clients */
 		mhi_dev_trigger_cb(i);
@@ -2124,12 +2155,14 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 			req->len, DMA_FROM_DEVICE);
 
 	/*
-	 * Channel got closed with transfers pending
+	 * Channel got stopped or closed with transfers pending
 	 * Do not trigger callback or send cmpl to host
 	 */
-	if (ch->state == MHI_DEV_CH_CLOSED) {
-		mhi_log(MHI_MSG_DBG, "Ch %d closed with %d writes pending\n",
-				ch->ch_id, ch->pend_wr_count + 1);
+	if (ch->state == MHI_DEV_CH_CLOSED ||
+		ch->state == MHI_DEV_CH_STOPPED) {
+		mhi_log(MHI_MSG_DBG,
+			"Ch %d not in started state, %d writes pending\n",
+			ch->ch_id, ch->pend_wr_count + 1);
 		return;
 	}
 
@@ -2980,6 +3013,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	size_t bytes_written = 0;
 	uint32_t tre_len = 0, suspend_wait_timeout = 0;
 	bool async_wr_sched = false;
+	enum mhi_ctrl_info info;
 
 	if (WARN_ON(!wreq || !wreq->client || !wreq->buf)) {
 		pr_err("%s: invalid parameters\n", __func__);
@@ -3027,6 +3061,14 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	ring = ch->ring;
 
 	mutex_lock(&ch->ch_lock);
+
+	rc = mhi_ctrl_state_info(ch->ch_id, &info);
+	if (rc || (info != MHI_STATE_CONNECTED)) {
+		mhi_log(MHI_MSG_ERROR, "Channel %d not started by host\n",
+				ch->ch_id);
+		mutex_unlock(&ch->ch_lock);
+		return -ENODEV;
+	}
 
 	ch->pend_wr_count++;
 	if (ch->state == MHI_DEV_CH_STOPPED) {
@@ -3131,7 +3173,7 @@ EXPORT_SYMBOL(mhi_dev_write_channel);
 static int mhi_dev_recover(struct mhi_dev *mhi)
 {
 	int rc = 0;
-	uint32_t syserr, max_cnt = 0, bhi_intvec = 0;
+	uint32_t syserr, max_cnt = 0, bhi_intvec = 0, bhi_max_cnt = 0;
 	u32 mhi_reset;
 	enum mhi_dev_state state;
 
@@ -3155,6 +3197,26 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 		rc = mhi_dev_mmio_read(mhi, BHI_INTVEC, &bhi_intvec);
 		if (rc)
 			return rc;
+
+		while (bhi_intvec == 0xffffffff &&
+				bhi_max_cnt < MHI_BHI_INTVEC_MAX_CNT) {
+			/* Wait for Host to set the bhi_intvec */
+			msleep(MHI_BHI_INTVEC_WAIT_MS);
+			mhi_log(MHI_MSG_VERBOSE,
+					"Wait for Host to set BHI_INTVEC\n");
+			rc = mhi_dev_mmio_read(mhi, BHI_INTVEC, &bhi_intvec);
+			if (rc) {
+				pr_err("%s: Get BHI_INTVEC failed\n", __func__);
+				return rc;
+			}
+			bhi_max_cnt++;
+		}
+
+		if (bhi_max_cnt == MHI_BHI_INTVEC_MAX_CNT) {
+			mhi_log(MHI_MSG_ERROR,
+					"Host failed to set BHI_INTVEC\n");
+			return -EINVAL;
+		}
 
 		if (bhi_intvec != 0xffffffff) {
 			/* Indicate the host that the device is ready */

@@ -549,6 +549,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->suspend_input_on_debug_batt = of_property_read_bool(node,
 					"qcom,suspend-input-on-debug-batt");
 
+	chg->fake_chg_status_on_debug_batt = of_property_read_bool(node,
+					"qcom,fake-chg-status-on-debug-batt");
+
 	rc = of_property_read_u32(node, "qcom,otg-deglitch-time-ms",
 					&chg->otg_delay_ms);
 	if (rc < 0)

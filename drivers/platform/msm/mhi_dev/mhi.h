@@ -271,6 +271,7 @@ struct mhi_config {
 
 #define NUM_CHANNELS			128
 #define HW_CHANNEL_BASE			100
+#define NUM_HW_CHANNELS			15
 #define HW_CHANNEL_END			110
 #define MHI_ENV_VALUE			2
 #define MHI_MASK_ROWS_CH_EV_DB		4
@@ -549,7 +550,7 @@ struct mhi_dev {
 	size_t			ch_ring_start;
 
 	/* IPA Handles */
-	u32				ipa_clnt_hndl[4];
+	u32				ipa_clnt_hndl[NUM_HW_CHANNELS];
 	struct workqueue_struct		*ring_init_wq;
 	struct work_struct		ring_init_cb_work;
 	struct work_struct		re_init;

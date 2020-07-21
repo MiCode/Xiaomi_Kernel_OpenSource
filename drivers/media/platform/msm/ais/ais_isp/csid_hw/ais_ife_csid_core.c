@@ -570,6 +570,7 @@ static int ais_ife_csid_config_rdi_path(
 	path_cfg->end_line = res->in_cfg.crop_bottom;
 	path_cfg->decode_fmt = res->in_cfg.decode_format;
 	path_cfg->plain_fmt = res->in_cfg.pack_type;
+	path_cfg->init_frame_drop = res->in_cfg.init_frame_drop;
 
 	if (path_cfg->decode_fmt == 0xF)
 		path_cfg->pix_enable = false;
@@ -822,8 +823,6 @@ static int ais_ife_csid_enable_rdi_path(
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
 	path_data = &csid_hw->rdi_cfg[id];
-
-	path_data->init_frame_drop = 1;
 	path_data->sof_cnt = 0;
 
 	/* Enable the required RDI interrupts */

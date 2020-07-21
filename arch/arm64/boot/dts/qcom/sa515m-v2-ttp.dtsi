@@ -13,6 +13,10 @@
 #include "sdxprairie-v2.dtsi"
 #include "sdxprairie-mtp.dtsi"
 
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
+};
+
 /* delete pm8150b nodes */
 &thermal_zones {
 	/delete-node/ pm8150b-wp-therm;
@@ -26,6 +30,26 @@
 	/delete-node/ pm8150b-bcl-lvl1;
 	/delete-node/ pm8150b-bcl-lvl2;
 	/delete-node/ soc;
+
+	/* update Tj thresholds */
+	mdm-core-0-step {
+		trips {
+			active-config0 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+			};
+
+			active-config1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+			};
+
+			active-config2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+			};
+		};
+	};
 };
 
 &usb {

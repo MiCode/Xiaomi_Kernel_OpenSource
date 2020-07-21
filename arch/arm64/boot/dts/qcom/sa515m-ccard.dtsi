@@ -51,9 +51,11 @@
 				<&afe_proxy_tx>, <&incall_record_rx>,
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_pri_tdm_rx_1>, <&dai_pri_tdm_tx_1>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_sec_tdm_rx_1>, <&dai_sec_tdm_tx_1>,
 				<&dai_sec_auxpcm>, <&incall2_record_rx>,
-				<&incall_music_2_rx>;
+				<&incall_music_2_rx>, <&incall_music_dl_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-stub-dev.4", "msm-dai-stub-dev.5",
@@ -63,9 +65,11 @@
 				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+				"msm-dai-q6-tdm.36866", "msm-dai-q6-tdm.36867",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+				"msm-dai-q6-tdm.36882", "msm-dai-q6-tdm.36883",
 				"msm-dai-q6-auxpcm.2", "msm-dai-q6-dev.32769",
-				"msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.32774";
 		asoc-codec = <&tlv320aic3x_codec>, <&stub_codec>;
 		asoc-codec-names = "tlv320aic3x-codec", "msm-stub-codec.1";
 		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
@@ -78,6 +82,10 @@
 		gpios = <&tlmm 32 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+};
+
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
 };
 
 /* delete pm8150b nodes */
@@ -93,6 +101,26 @@
 	/delete-node/ pm8150b-bcl-lvl1;
 	/delete-node/ pm8150b-bcl-lvl2;
 	/delete-node/ soc;
+
+	/* update Tj thresholds */
+	mdm-core-0-step {
+		trips {
+			active-config0 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+			};
+
+			active-config1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+			};
+
+			active-config2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+			};
+		};
+	};
 };
 
 &usb {

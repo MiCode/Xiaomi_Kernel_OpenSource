@@ -81,6 +81,9 @@
 		qcom,ep92-busnum  = <3>;
 		qcom,ep92-reg  = <0x64>;
 
+		qcom,clk-src-name-integ = "LPAPLL0";
+		qcom,clk-src-name-fract = "LPAPLL2";
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,

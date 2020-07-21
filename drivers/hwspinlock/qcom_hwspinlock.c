@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013,2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2015, Sony Mobile Communications AB
  *
  * This software is licensed under the terms of the GNU General Public
@@ -28,13 +28,19 @@
 #define QCOM_MUTEX_APPS_PROC_ID	1
 #define QCOM_MUTEX_NUM_LOCKS	32
 
+/**
+ * setting default mutex id as QCOM_MUTEX_APPS_PROC_ID
+ * and will override this value if dt entry is found
+ */
+static u32 qcom_mutex_lock_id = QCOM_MUTEX_APPS_PROC_ID;
+
 static int qcom_hwspinlock_trylock(struct hwspinlock *lock)
 {
 	struct regmap_field *field = lock->priv;
 	u32 lock_owner;
 	int ret;
 
-	ret = regmap_field_write(field, QCOM_MUTEX_APPS_PROC_ID);
+	ret = regmap_field_write(field, qcom_mutex_lock_id);
 	if (ret)
 		return ret;
 
@@ -42,7 +48,7 @@ static int qcom_hwspinlock_trylock(struct hwspinlock *lock)
 	if (ret)
 		return ret;
 
-	return lock_owner == QCOM_MUTEX_APPS_PROC_ID;
+	return lock_owner == qcom_mutex_lock_id;
 }
 
 static void qcom_hwspinlock_unlock(struct hwspinlock *lock)
@@ -57,7 +63,7 @@ static void qcom_hwspinlock_unlock(struct hwspinlock *lock)
 		return;
 	}
 
-	if (lock_owner != QCOM_MUTEX_APPS_PROC_ID) {
+	if (lock_owner != qcom_mutex_lock_id) {
 		pr_err("%s: spinlock not owned by us (actual owner is %d)\n",
 				__func__, lock_owner);
 	}
@@ -88,6 +94,7 @@ static int qcom_hwspinlock_probe(struct platform_device *pdev)
 	size_t array_size;
 	u32 stride;
 	u32 base;
+	u32 mutex_id;
 	int ret;
 	int i;
 
@@ -113,6 +120,10 @@ static int qcom_hwspinlock_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no stride syscon\n");
 		return -EINVAL;
 	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "mutex-id", &mutex_id);
+	if (!ret)
+		qcom_mutex_lock_id = mutex_id;
 
 	array_size = QCOM_MUTEX_NUM_LOCKS * sizeof(struct hwspinlock);
 	bank = devm_kzalloc(&pdev->dev, sizeof(*bank) + array_size, GFP_KERNEL);

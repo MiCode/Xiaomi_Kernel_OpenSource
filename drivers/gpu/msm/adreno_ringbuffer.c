@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +89,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long flags;
 	int ret = 0;
 
@@ -103,6 +104,17 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 			kgsl_pwrscale_busy(KGSL_DEVICE(adreno_dev));
 
 			/*
+			 * There could be a situation where GPU comes out of
+			 * ifpc after a fenced write transaction but before
+			 * reading AHB_FENCE_STATUS from KMD, it goes back to
+			 * ifpc due to inactivity (kernel scheduler plays a
+			 * role here). Put a keep alive vote to avoid such
+			 * unlikely scenario.
+			 */
+			if (gpudev->gpu_keepalive)
+				gpudev->gpu_keepalive(adreno_dev, true);
+
+			/*
 			 * Ensure the write posted after a possible
 			 * GMU wakeup (write could have dropped during wakeup)
 			 */
@@ -110,6 +122,9 @@ static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 				ADRENO_REG_CP_RB_WPTR, rb->_wptr,
 				FENCE_STATUS_WRITEDROPPED0_MASK);
 			rb->skip_inline_wptr = false;
+			if (gpudev->gpu_keepalive)
+				gpudev->gpu_keepalive(adreno_dev, false);
+
 		}
 	} else {
 		/*

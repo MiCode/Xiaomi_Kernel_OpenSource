@@ -24,6 +24,19 @@
 			output-high;
 		};
 	};
+
+	wakeup_gpio_default: wakeup_gpio_default {
+		mux {
+			pins = "gpio79";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio79";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
 };
 
 &pcie0_perst_default {
@@ -167,6 +180,14 @@
 			};
 		};
 	};
+
+	sdx_ext_ipc: qcom,sdx_ext_ipc {
+		compatible = "qcom,sdx-ext-ipc";
+		qcom,wakeup-gpio-in = <&tlmm 14 0x00>;
+		qcom,wakeup-gpio-out = <&tlmm 79 0x00>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wakeup_gpio_default>;
+	};
 };
 
 &thermal_zones {
@@ -250,22 +271,6 @@
 	status = "ok";
 };
 
-&gpu_bw_tbl {
-	status = "disabled";
-};
-
-&gpubw {
-	status = "disabled";
-};
-
-&msm_gpu {
-	status = "disabled";
-};
-
-&kgsl_msm_iommu {
-	status = "disabled";
-};
-
 &rpm_bus {
 	rpm-regulator-ldoa1 {
 		status = "disabled";
@@ -295,4 +300,3 @@
 		};
 	};
 };
-

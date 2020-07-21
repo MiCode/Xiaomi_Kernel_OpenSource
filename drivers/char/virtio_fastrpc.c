@@ -17,6 +17,7 @@
 #include <linux/dma-buf.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
+#include <linux/ion.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -512,6 +513,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_mmap *map = NULL;
 	int err = 0, sgl_index = 0;
+	unsigned long flags;
 	struct scatterlist *sgl = NULL;
 
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
@@ -535,12 +537,21 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			dev_err(me->dev, "can't get dma buf fd %d\n", fd);
 			goto bail;
 		}
+		VERIFY(err, !dma_buf_get_flags(map->buf, &flags));
+		if (err) {
+			dev_err(me->dev, "can't get dma buf flags %d\n", fd);
+			goto bail;
+		}
+
 		VERIFY(err, !IS_ERR_OR_NULL(map->attach =
 					dma_buf_attach(map->buf, me->dev)));
 		if (err) {
 			dev_err(me->dev, "can't attach dma buf\n");
 			goto bail;
 		}
+
+		if (!(flags & ION_FLAG_CACHED))
+			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 					dma_buf_map_attachment(map->attach,
 					DMA_BIDIRECTIONAL)));

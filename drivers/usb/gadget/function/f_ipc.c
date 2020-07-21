@@ -21,6 +21,7 @@
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
 #include <linux/usb/ipc_bridge.h>
+#include <soc/qcom/sb_notification.h>
 
 #define MAX_INST_NAME_LEN	40
 
@@ -272,22 +273,34 @@ retry_write:
 	reinit_completion(&ipc_dev->write_done);
 
 	if (usb_ep_queue(in, req, GFP_KERNEL)) {
+		/* Notify GPIO driver to wakup the host if host
+		 * is in suspend mode.
+		 */
+		sb_notifier_call_chain(EVT_WAKE_UP, NULL);
 		wait_event_interruptible(ipc_dev->state_wq, ipc_dev->online ||
 				ipc_dev->current_state == IPC_DISCONNECTED);
 		pr_debug("%s: Interface ready, Retry IN request\n", __func__);
 		goto retry_write;
 	}
 
+retry_write_done:
 	ret = wait_for_completion_interruptible_timeout(&ipc_dev->write_done,
 				msecs_to_jiffies(IPC_WRITE_WAIT_TIMEOUT));
 	if (ret < 0) {
 		pr_err("%s: Interruption triggered\n", __func__);
 		ret = -EINTR;
 		goto fail;
-	} else if (ret == 0) {
+	} else if (ret == 0 && ipc_dev->online) {
 		pr_err("%s: Request timed out\n", __func__);
 		ret = -ETIMEDOUT;
 		goto fail;
+	/* Notify the GPIO driver to wakeup the host and reintialize the
+	 * completion structure.
+	 */
+	} else if (!ipc_dev->online) {
+		sb_notifier_call_chain(EVT_WAKE_UP, NULL);
+		reinit_completion(&ipc_dev->write_done);
+		goto retry_write_done;
 	}
 
 	return !req->status ? req->actual : req->status;
