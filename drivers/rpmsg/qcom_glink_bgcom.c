@@ -255,6 +255,7 @@ struct glink_bgcom_channel {
 	struct mutex intent_req_lock;
 	bool intent_req_result;
 	struct completion intent_req_comp;
+	struct completion intent_alloc_comp;
 };
 
 struct rx_pkt {
@@ -306,6 +307,7 @@ glink_bgcom_alloc_channel(struct glink_bgcom *glink, const char *name)
 	init_completion(&channel->open_req);
 	init_completion(&channel->open_ack);
 	init_completion(&channel->intent_req_comp);
+	init_completion(&channel->intent_alloc_comp);
 
 	idr_init(&channel->liids);
 	idr_init(&channel->riids);
@@ -325,6 +327,7 @@ static void glink_bgcom_channel_release(struct kref *ref)
 
 	channel->intent_req_result = 0;
 	complete(&channel->intent_req_comp);
+	complete(&channel->intent_alloc_comp);
 
 	mutex_lock(&channel->intent_lock);
 	idr_for_each_entry(&channel->liids, tmp, iid) {
@@ -557,6 +560,7 @@ static int glink_bgcom_send_data(struct glink_bgcom_channel *channel,
 		struct glink_bgcom_msg msg;
 		__le32 chunk_size;
 		__le32 left_size;
+		uint64_t addr;
 	} __packed req;
 
 	CH_INFO(channel, "chunk:%d, left:%d\n", chunk_size, left_size);
@@ -571,6 +575,7 @@ static int glink_bgcom_send_data(struct glink_bgcom_channel *channel,
 	req.msg.param2 = cpu_to_le32(intent->id);
 	req.chunk_size = cpu_to_le32(chunk_size);
 	req.left_size = cpu_to_le32(left_size);
+	req.addr = 0;
 
 	mutex_lock(&glink->tx_lock);
 	while (glink_bgcom_tx_avail(glink) < sizeof(req)/WORD_SIZE) {
@@ -762,6 +767,7 @@ static int glink_bgcom_request_intent(struct glink_bgcom *glink,
 	mutex_lock(&channel->intent_req_lock);
 
 	reinit_completion(&channel->intent_req_comp);
+	reinit_completion(&channel->intent_alloc_comp);
 
 	req.cmd = cpu_to_le16(BGCOM_CMD_RX_INTENT_REQ);
 	req.param1 = cpu_to_le16(channel->lcid);
@@ -775,12 +781,17 @@ static int glink_bgcom_request_intent(struct glink_bgcom *glink,
 
 	ret = wait_for_completion_timeout(&channel->intent_req_comp, 10 * HZ);
 	if (!ret) {
-		dev_err(glink->dev, "intent request timed out\n");
+		dev_err(glink->dev, "intent request ack timed out\n");
+		ret = -ETIMEDOUT;
+	}
+
+	ret = wait_for_completion_timeout(&channel->intent_alloc_comp, 10 * HZ);
+	if (!ret) {
+		dev_err(glink->dev, "intent request alloc timed out\n");
 		ret = -ETIMEDOUT;
 	} else {
 		ret = channel->intent_req_result ? 0 : -ECANCELED;
 	}
-
 unlock:
 	mutex_unlock(&channel->intent_req_lock);
 	kref_put(&channel->refcount, glink_bgcom_channel_release);
@@ -1814,6 +1825,7 @@ static int glink_bgcom_handle_intent(struct glink_bgcom *glink,
 			dev_err(glink->dev, "failed to store remote intent\n");
 	}
 
+	complete(&channel->intent_alloc_comp);
 	return msglen;
 }
 
