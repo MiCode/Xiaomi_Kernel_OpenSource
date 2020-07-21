@@ -1619,6 +1619,8 @@
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <421>;
 		qcom,sysmon-id = <0>;
+		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,firmware-name = "modem";
 		memory-region = <&pil_mpss_wlan_mem>;
