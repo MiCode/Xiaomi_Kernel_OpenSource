@@ -36,6 +36,9 @@
 #ifdef APUPWR_TAG_TP
 #include "apu_power_tag.h"
 #endif
+#if APUSYS_DEVFREQ_COOLING
+#include "apu_power_table.h"
+#endif
 
 #ifdef APUSYS_POWER_BRINGUP
 int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
@@ -395,6 +398,10 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 	power_profiling.end = sched_clock();
 	apu_profiling(&power_profiling, __func__);
 #endif
+
+#if APUSYS_DEVFREQ_COOLING
+	stop_monitor_devfreq_cooling(user);
+#endif
 	return 0;
 }
 
@@ -485,6 +492,10 @@ int apu_device_power_on(enum DVFS_USER user)
 	power_profiling.end = sched_clock();
 	apu_profiling(&power_profiling, __func__);
 #endif
+
+#if APUSYS_DEVFREQ_COOLING
+	start_monitor_devfreq_cooling(user);
+#endif
 	return 0;
 }
 
@@ -510,6 +521,10 @@ int apu_power_device_register(enum DVFS_USER user, struct platform_device *pdev)
 
 	apu_power_counter++;
 
+#if APUSYS_DEVFREQ_COOLING
+	register_devfreq_cooling(pdev, user);
+	stop_monitor_devfreq_cooling(user);
+#endif
 	mutex_unlock(&power_device_list_mtx);
 
 	LOG_INF("%s add dvfs user %d success\n", __func__, user);
@@ -551,6 +566,10 @@ void apu_power_device_unregister(enum DVFS_USER user)
 
 	mutex_lock(&power_device_list_mtx);
 
+#if APUSYS_DEVFREQ_COOLING
+	stop_monitor_devfreq_cooling(user);
+	unregister_devfreq_cooling(user);
+#endif
 	apu_power_counter--;
 	if (apu_power_counter == 0)
 		apusys_power_uninit(user);

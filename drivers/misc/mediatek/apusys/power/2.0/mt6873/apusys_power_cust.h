@@ -37,6 +37,12 @@
 #define APUSYS_SETTLE_TIME_TEST (0)
 #define SUPPORT_VCORE_TO_IPUIF	(1)
 
+#ifdef CONFIG_DEVFREQ_THERMAL
+#define APUSYS_DEVFREQ_COOLING	(1)
+#else
+#define APUSYS_DEVFREQ_COOLING	(0)
+#endif
+
 #define APUSYS_MAX_NUM_OPPS                (6)
 #define APUSYS_PATH_USER_NUM               (3)   // num of DVFS_XXX_PATH
 #define APUSYS_DVFS_CONSTRAINT_NUM			(3)

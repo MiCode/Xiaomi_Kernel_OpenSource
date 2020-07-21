@@ -714,6 +714,23 @@ out:
 	return ret;
 }
 
+#if APUSYS_DEVFREQ_COOLING
+unsigned int get_single_device_freq(enum DVFS_USER user)
+{
+	switch (user) {
+	case VPU0:
+		return clk_get_rate(clk_top_dsp1_npupll_sel);
+	case VPU1:
+		return clk_get_rate(clk_top_dsp2_npupll_sel);
+	case MDLA0:
+		return clk_get_rate(clk_top_dsp5_apupll_sel);
+	default:
+		LOG_ERR("%s invalid user:%d\n", __func__, user);
+		return 0;
+	}
+}
+#endif
+
 // dump related frequencies of APUsys
 void dump_frequency(struct apu_power_info *info)
 {
