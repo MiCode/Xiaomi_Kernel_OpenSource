@@ -19,7 +19,6 @@
 #include <linux/kthread.h>
 #include <linux/neuron.h>
 #include <asm-generic/barrier.h>
-#include <linux/haven/hh_rm_drv.h>
 #include <linux/haven/hh_dbl.h>
 #include "ch_mq_shmem_common.h"
 
@@ -336,15 +335,9 @@ static int channel_hh_map_memory(struct neuron_mq_data_priv *priv,
 		return -ENXIO;
 	}
 
-	if (of_property_read_bool(dev->of_node, "qcom,primary")) {
+	if (of_property_read_bool(dev->of_node, "qcom,primary"))
 		memset(priv->base, 0,
 		       sizeof(struct neuron_shmem_channel_header));
-
-		ret = of_property_read_u32(dev->of_node, "peer-name",
-					   &priv->peer_name);
-		if (ret)
-			priv->peer_name = HH_SELF_VM;
-	}
 
 	return 0;
 }
