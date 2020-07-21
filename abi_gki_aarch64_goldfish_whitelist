@@ -21,6 +21,7 @@
   __check_object_size
   __class_create
   class_destroy
+  __close_fd
   complete
   __const_udelay
   consume_skb
@@ -56,6 +57,7 @@
   eth_validate_addr
   event_triggers_call
   fd_install
+  fget
   finish_wait
   flush_work
   fput
@@ -85,6 +87,7 @@
   kimage_voffset
   __kmalloc
   kmalloc_caches
+  kmalloc_order_trace
   kmem_cache_alloc
   kmem_cache_alloc_trace
   kmem_cache_create
@@ -92,12 +95,11 @@
   kmem_cache_free
   kmemdup
   kobject_add
+  kobject_create_and_add
   kobject_init
   kobject_put
   kobject_uevent
   kstrdup
-  kstrtouint
-  kstrtoull
   ktime_get_mono_fast_ns
   ktime_get_raw_ts64
   ktime_get_real_seconds
@@ -112,7 +114,6 @@
   memset
   misc_deregister
   misc_register
-  mod_timer
   module_layout
   module_put
   __msecs_to_jiffies
@@ -129,10 +130,11 @@
   netif_device_detach
   netif_tx_stop_all_queues
   netif_tx_wake_queue
+  nf_conntrack_destroy
+  noop_llseek
   nr_cpu_ids
   param_ops_bool
   param_ops_int
-  param_ops_uint
   passthru_features_check
   pci_disable_device
   pci_enable_device
@@ -146,16 +148,14 @@
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   physvirt_offset
-  platform_device_add
-  platform_device_alloc
-  platform_device_del
-  platform_device_put
   platform_device_unregister
   __platform_driver_register
   platform_driver_unregister
   platform_get_irq
   platform_get_resource
+  pm_runtime_allow
   __pm_runtime_suspend
+  __pm_runtime_use_autosuspend
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
@@ -180,7 +180,6 @@
   __rcu_read_unlock
   refcount_dec_and_test_checked
   refcount_inc_checked
-  regcache_sync
   register_blkdev
   register_netdev
   register_virtio_device
@@ -221,7 +220,6 @@
   submit_bio
   sync_file_create
   synchronize_irq
-  synchronize_rcu
   sysfs_create_group
   sysfs_remove_group
   system_wq
@@ -235,11 +233,11 @@
   trace_raw_output_prep
   trace_seq_printf
   try_module_get
+  unlock_page
   unregister_blkdev
   unregister_netdev
   unregister_virtio_device
   unregister_virtio_driver
-  usleep_range
   vabits_actual
   virtio_check_driver_offered_feature
   virtio_config_changed
@@ -303,9 +301,86 @@
   __tasklet_schedule
 
 # required by goldfish_sync.ko
-  __close_fd
   dma_fence_default_wait
   dma_fence_free
+
+# required by incrementalfs.ko
+  bin2hex
+  __break_lease
+  clear_inode
+  crc32_le
+  crypto_alloc_shash
+  crypto_destroy_tfm
+  crypto_shash_digest
+  d_add
+  d_drop
+  deactivate_locked_super
+  dentry_open
+  dget_parent
+  d_instantiate
+  d_make_root
+  down_write
+  dput
+  flush_dcache_page
+  flush_delayed_work
+  fs_kobj
+  fsstack_copy_attr_all
+  generic_file_llseek
+  generic_file_mmap
+  generic_file_read_iter
+  generic_file_splice_read
+  generic_read_dir
+  generic_shutdown_super
+  get_zeroed_page
+  iget5_locked
+  ihold
+  inode_init_once
+  inode_init_owner
+  iput
+  iterate_dir
+  kernel_read
+  kernel_write
+  kern_path
+  ktime_get
+  lockref_get
+  lock_rename
+  lookup_one_len
+  LZ4_decompress_safe
+  match_int
+  match_token
+  mutex_is_locked
+  notify_change
+  pagecache_get_page
+  path_get
+  path_put
+  __put_cred
+  register_filesystem
+  seq_puts
+  set_anon_super
+  sget
+  simple_getattr
+  simple_setattr
+  simple_statfs
+  strndup_user
+  strsep
+  sync_filesystem
+  truncate_inode_pages
+  unlock_new_inode
+  unlock_rename
+  unregister_filesystem
+  up_write
+  user_path_at_empty
+  vfs_create
+  vfs_fallocate
+  vfs_getattr
+  vfs_getxattr
+  vfs_link
+  vfs_listxattr
+  vfs_mkdir
+  vfs_rename
+  vfs_rmdir
+  vfs_setxattr
+  vfs_unlink
 
 # required by mac80211_hwsim.ko
   alloc_netdev_mqs
@@ -421,7 +496,6 @@
   check_disk_change
   __cpu_possible_mask
   del_timer_sync
-  fget
   file_path
   flush_signals
   flush_workqueue
@@ -437,6 +511,8 @@
   kobject_get
   kstrtobool
   kstrtoll
+  kstrtouint
+  kstrtoull
   kthread_create_on_node
   kthread_parkme
   kthread_should_park
@@ -446,6 +522,7 @@
   mempool_destroy
   mempool_kfree
   mempool_kmalloc
+  mod_timer
   __per_cpu_offset
   percpu_ref_exit
   percpu_ref_init
@@ -468,6 +545,7 @@
   submit_bh
   submit_bio_wait
   sync_blockdev
+  synchronize_rcu
   sysfs_create_link
   sysfs_notify
   sysfs_remove_link
@@ -504,6 +582,10 @@
   del_timer
   device_init_wakeup
   devm_rtc_allocate_device
+  platform_device_add
+  platform_device_alloc
+  platform_device_del
+  platform_device_put
   __rtc_register_device
   rtc_time64_to_tm
   rtc_tm_to_time64
@@ -524,7 +606,6 @@
   get_device_system_crosststamp
   kvasprintf
   ns_to_timespec
-  pm_runtime_allow
   __pm_runtime_disable
   pm_runtime_enable
   pm_runtime_forbid
@@ -532,9 +613,7 @@
   pm_runtime_force_suspend
   __pm_runtime_idle
   pm_runtime_set_autosuspend_delay
-  __pm_runtime_use_autosuspend
   __printk_ratelimit
-  regcache_cache_only
   regcache_mark_dirty
   snd_card_rw_proc_new
   snd_component_add
@@ -577,21 +656,24 @@
   device_initialize
   dev_set_name
   kasprintf
-  kobject_create_and_add
   krealloc
   kstrtoint
   pm_runtime_get_if_in_use
   __pm_runtime_resume
   __pm_runtime_set_status
+  regcache_cache_only
+  regcache_sync
   regmap_exit
   __regmap_init
   regmap_read
+  regmap_update_bits_base
   regmap_write
   snd_dma_alloc_pages
   snd_dma_free_pages
   snd_pcm_format_width
   __sw_hweight64
   timecounter_init
+  usleep_range
 
 # required by snd-hda-intel.ko
   bpf_trace_run1
@@ -607,6 +689,7 @@
   pci_get_device
   pci_intx
   pci_ioremap_bar
+  pci_match_id
   pci_read_config_word
   pci_release_regions
   pci_request_regions
@@ -708,11 +791,9 @@
   drm_set_preferred_mode
   drm_universal_plane_init
   __get_task_comm
-  kmalloc_order_trace
   kvfree
   kvmalloc_node
   memdup_user
-  noop_llseek
   __sg_alloc_table_from_pages
   sg_free_table
   sg_next
@@ -777,6 +858,7 @@
   blk_status_to_errno
   _dev_notice
   kobject_uevent_env
+  param_ops_uint
   string_get_size
   __sysfs_match_string
 
@@ -802,7 +884,6 @@
   __register_chrdev
   __splice_from_pipe
   system_freezing_cnt
-  unlock_page
   __unregister_chrdev
 
 # required by virtio_input.ko

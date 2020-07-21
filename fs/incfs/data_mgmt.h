@@ -276,7 +276,7 @@ int incfs_scan_metadata_chain(struct data_file *df);
 struct dir_file *incfs_open_dir_file(struct mount_info *mi, struct file *bf);
 void incfs_free_dir_file(struct dir_file *dir);
 
-ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
+ssize_t incfs_read_data_file_block(struct mem_range dst, struct file *f,
 				   int index, int timeout_ms,
 				   struct mem_range tmp);
 
@@ -315,7 +315,7 @@ static inline struct inode_info *get_incfs_node(struct inode *inode)
 	if (!inode)
 		return NULL;
 
-	if (inode->i_sb->s_magic != INCFS_MAGIC_NUMBER) {
+	if (inode->i_sb->s_magic != (long) INCFS_MAGIC_NUMBER) {
 		/* This inode doesn't belong to us. */
 		pr_warn_once("incfs: %s on an alien inode.", __func__);
 		return NULL;

@@ -375,6 +375,7 @@
   device_online
   device_property_present
   device_property_read_string
+  device_property_read_u16_array
   device_property_read_u32_array
   device_property_read_u8_array
   device_register
@@ -984,6 +985,7 @@
   gpiochip_generic_free
   gpiochip_generic_request
   gpiochip_get_data
+  gpiochip_line_is_valid
   gpiochip_remove
   gpiod_cansleep
   gpiod_direction_input
@@ -1009,6 +1011,7 @@
   gro_cells_destroy
   gro_cells_init
   gro_cells_receive
+  handle_bad_irq
   handle_edge_irq
   handle_level_irq
   handle_nested_irq
@@ -1368,9 +1371,6 @@
   __msecs_to_jiffies
   msleep
   msleep_interruptible
-  msm_gpio_mpm_wake_set
-  msm_pinctrl_probe
-  msm_pinctrl_remove
   __mutex_init
   mutex_is_locked
   mutex_lock
@@ -1639,6 +1639,8 @@
   physvirt_offset
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
+  pinctrl_force_default
+  pinctrl_force_sleep
   pinctrl_get
   pinctrl_lookup_state
   pinctrl_pm_select_default_state
@@ -2422,6 +2424,7 @@
   unregister_pernet_subsys
   unregister_pm_notifier
   unregister_reboot_notifier
+  unregister_restart_handler
   unregister_rpmsg_driver
   unregister_shrinker
   unregister_syscore_ops

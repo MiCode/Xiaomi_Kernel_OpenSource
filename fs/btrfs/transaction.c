@@ -21,6 +21,7 @@
 #include "dev-replace.h"
 #include "qgroup.h"
 #include "block-group.h"
+#include "space-info.h"
 
 #define BTRFS_ROOT_TRANS_TAG 0
 
@@ -451,6 +452,7 @@ start_transaction(struct btrfs_root *root, unsigned int num_items,
 	u64 num_bytes = 0;
 	u64 qgroup_reserved = 0;
 	bool reloc_reserved = false;
+	bool do_chunk_alloc = false;
 	int ret;
 
 	/* Send isn't supposed to start transactions. */
@@ -491,7 +493,8 @@ start_transaction(struct btrfs_root *root, unsigned int num_items,
 		 * refill that amount for whatever is missing in the reserve.
 		 */
 		num_bytes = btrfs_calc_insert_metadata_size(fs_info, num_items);
-		if (delayed_refs_rsv->full == 0) {
+		if (flush == BTRFS_RESERVE_FLUSH_ALL &&
+		    delayed_refs_rsv->full == 0) {
 			delayed_refs_bytes = num_bytes;
 			num_bytes <<= 1;
 		}
@@ -512,6 +515,9 @@ start_transaction(struct btrfs_root *root, unsigned int num_items,
 							  delayed_refs_bytes);
 			num_bytes -= delayed_refs_bytes;
 		}
+
+		if (rsv->space_info->force_alloc)
+			do_chunk_alloc = true;
 	} else if (num_items == 0 && flush == BTRFS_RESERVE_FLUSH_ALL &&
 		   !delayed_refs_rsv->full) {
 		/*
@@ -594,6 +600,19 @@ got_it:
 		current->journal_info = h;
 
 	/*
+	 * If the space_info is marked ALLOC_FORCE then we'll get upgraded to
+	 * ALLOC_FORCE the first run through, and then we won't allocate for
+	 * anybody else who races in later.  We don't care about the return
+	 * value here.
+	 */
+	if (do_chunk_alloc && num_bytes) {
+		u64 flags = h->block_rsv->space_info->flags;
+
+		btrfs_chunk_alloc(h, btrfs_get_alloc_profile(fs_info, flags),
+				  CHUNK_ALLOC_NO_FORCE);
+	}
+
+	/*
 	 * btrfs_record_root_in_trans() needs to alloc new extents, and may
 	 * call btrfs_join_transaction() while we're also starting a
 	 * transaction.
@@ -627,43 +646,10 @@ struct btrfs_trans_handle *btrfs_start_transaction(struct btrfs_root *root,
 
 struct btrfs_trans_handle *btrfs_start_transaction_fallback_global_rsv(
 					struct btrfs_root *root,
-					unsigned int num_items,
-					int min_factor)
+					unsigned int num_items)
 {
-	struct btrfs_fs_info *fs_info = root->fs_info;
-	struct btrfs_trans_handle *trans;
-	u64 num_bytes;
-	int ret;
-
-	/*
-	 * We have two callers: unlink and block group removal.  The
-	 * former should succeed even if we will temporarily exceed
-	 * quota and the latter operates on the extent root so
-	 * qgroup enforcement is ignored anyway.
-	 */
-	trans = start_transaction(root, num_items, TRANS_START,
-				  BTRFS_RESERVE_FLUSH_ALL, false);
-	if (!IS_ERR(trans) || PTR_ERR(trans) != -ENOSPC)
-		return trans;
-
-	trans = btrfs_start_transaction(root, 0);
-	if (IS_ERR(trans))
-		return trans;
-
-	num_bytes = btrfs_calc_insert_metadata_size(fs_info, num_items);
-	ret = btrfs_cond_migrate_bytes(fs_info, &fs_info->trans_block_rsv,
-				       num_bytes, min_factor);
-	if (ret) {
-		btrfs_end_transaction(trans);
-		return ERR_PTR(ret);
-	}
-
-	trans->block_rsv = &fs_info->trans_block_rsv;
-	trans->bytes_reserved = num_bytes;
-	trace_btrfs_space_reservation(fs_info, "transaction",
-				      trans->transid, num_bytes, 1);
-
-	return trans;
+	return start_transaction(root, num_items, TRANS_START,
+				 BTRFS_RESERVE_FLUSH_ALL_STEAL, false);
 }
 
 struct btrfs_trans_handle *btrfs_join_transaction(struct btrfs_root *root)
