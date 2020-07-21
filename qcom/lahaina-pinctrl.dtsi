@@ -1489,7 +1489,7 @@
 			config {
 				pins = "gpio60", "gpio61";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-up;
 			};
 		};
 	};
