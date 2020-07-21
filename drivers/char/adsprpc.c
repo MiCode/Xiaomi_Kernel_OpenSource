@@ -2342,10 +2342,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 	}
 	PERF_END);
-	for (i = bufs; rpra && i < bufs + handles; i++) {
+
+	for (i = bufs; ctx->fds && rpra && i < bufs + handles; i++) {
 		rpra[i].dma.fd = ctx->fds[i];
 		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
-		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
+		rpra[i].dma.offset =
+				(uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
 
 	/* Copy rpra to local buffer */
