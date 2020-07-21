@@ -944,6 +944,7 @@
 			qcom,smd-edge = <1>;
 			qcom,ipc = <&apcs 0 8>;
 			qcom,remote-pid = <2>;
+			mbox-names = "adsp_smem";
 			interrupts = <GIC_SPI 289 IRQ_TYPE_EDGE_RISING>;
 			label = "adsp";
 
@@ -951,6 +952,9 @@
 			qcom,adsp_qrtr {
 				qcom,net-id = <1>;
 				qcom,low-latency;
+			};
+			qcom,apr_tal_rpmsg {
+				qcom,smd-channels = "apr_audio_svc";
 			};
 		};
 
@@ -1298,11 +1302,6 @@
 		qcom,ea-pc = <0x230>;
 		status = "disabled";
 	};
-	qcom,msm-adsp-loader {
-		status = "ok";
-		compatible = "qcom,adsp-loader";
-		qcom,adsp-state = <0>;
-	};
 };
 
 #include "sdm429-gdsc.dtsi"
@@ -1310,6 +1309,7 @@
 #include "sdm429w-regulator.dtsi"
 #include "sdm429-mdss.dtsi"
 #include "sdm429-mdss-pll.dtsi"
+#include "sdm429-audio.dtsi"
 
 &venus_gdsc {
 	clock-names = "bus_clk", "core_clk";

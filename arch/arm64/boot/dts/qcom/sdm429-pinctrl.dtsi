@@ -1044,5 +1044,274 @@
 				};
 			};
 		};
+
+		pmx_quat_mi2s {
+			label = "quat_mi2s";
+			quat_mi2s_active: quat_mi2s_active {
+				mux {
+					pins = "gpio94", "gpio95";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio94", "gpio95";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;           /* No PULL */
+				};
+			};
+			quat_mi2s_sleep: quat_mi2s_sleep {
+				mux {
+					pins = "gpio94", "gpio95";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio94", "gpio95";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_quat_mi2s_din {
+			label = "quat_mi2s_din";
+			quat_mi2s_din_active: quat_mi2s_din_active {
+				mux {
+					pins = "gpio12", "gpio13";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio12", "gpio13";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;	        /* No PULL */
+					output-high;
+				};
+			};
+			quat_mi2s_din_sleep: quat_mi2s_din_sleep {
+				mux {
+					pins = "gpio12", "gpio13";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio12", "gpio13";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+		};
+
+		cdc-dmic-lines {
+			cdc_dmic0_clk_act: dmic0_clk_on {
+				mux {
+					pins = "gpio89";
+					function = "dmic0_clk";
+				};
+
+				config {
+					pins = "gpio89";
+					drive-strength = <8>;
+					bias-pull-none;
+				};
+			};
+
+			cdc_dmic0_clk_sus: dmic0_clk_off {
+				mux {
+					pins = "gpio89";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio89";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			cdc_dmic0_data_act: dmic0_data_on {
+				mux {
+					pins = "gpio90";
+					function = "dmic0_data";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <8>;
+					bias-pull-none;
+				};
+			};
+
+			cdc_dmic0_data_sus: dmic0_data_off {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		cdc_mclk2_pin {
+			cdc_mclk2_sleep: cdc_mclk2_sleep {
+				mux {
+					pins = "gpio66";
+					function = "pri_mi2s";
+				};
+				config {
+					pins = "gpio66";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down;       /* PULL DOWN */
+				};
+			};
+			cdc_mclk2_active: cdc_mclk2_active {
+				mux {
+					pins = "gpio66";
+					function = "pri_mi2s";
+				};
+				config {
+					pins = "gpio66";
+					drive-strength = <8>; /* 8 mA */
+					bias-disable;         /* NO PULL */
+				};
+			};
+		};
+
+		cross-conn-det {
+			cross_conn_det_act: lines_on {
+				mux {
+					pins = "gpio63";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio63";
+					drive-strength = <8>;
+					output-low;
+					bias-pull-down;
+				};
+			};
+
+			cross_conn_det_sus: lines_off {
+				mux {
+					pins = "gpio63";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio63";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		cdc-pdm-lines {
+			cdc_pdm_lines_act: pdm_lines_on {
+				mux {
+					pins = "gpio69", "gpio73", "gpio74";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio69", "gpio73", "gpio74";
+					drive-strength = <8>;
+				};
+			};
+			cdc_pdm_lines_sus: pdm_lines_off {
+				mux {
+					pins = "gpio69", "gpio73", "gpio74";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio69", "gpio73", "gpio74";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		cdc-pdm-2-lines {
+			cdc_pdm_lines_2_act: pdm_lines_2_on {
+				mux {
+					pins = "gpio70", "gpio71", "gpio72";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio70", "gpio71", "gpio72";
+					drive-strength = <8>;
+				};
+			};
+
+			cdc_pdm_lines_2_sus: pdm_lines_2_off {
+				mux {
+					pins = "gpio70", "gpio71", "gpio72";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio70", "gpio71", "gpio72";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		pri-tlmm-lines {
+			pri_tlmm_lines_act: pri_tlmm_lines_act {
+				mux {
+					pins = "gpio85", "gpio88";
+					function = "pri_mi2s";
+				};
+
+				config {
+					pins = "gpio85", "gpio88";
+					drive-strength = <8>;
+				};
+			};
+
+			pri_tlmm_lines_sus: pri_tlmm_lines_sus {
+				mux {
+					pins = "gpio85", "gpio88";
+					function = "pri_mi2s";
+				};
+
+				config {
+					pins = "gpio85", "gpio88";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pri-tlmm-ws-lines {
+			pri_tlmm_ws_act: pri_tlmm_ws_act {
+				mux {
+					pins = "gpio87";
+					function = "pri_mi2s_ws";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <8>;
+				};
+			};
+
+			pri_tlmm_ws_sus: pri_tlmm_ws_sus {
+				mux {
+					pins = "gpio87";
+					function = "pri_mi2s_ws";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 	};
 };
