@@ -4,6 +4,7 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+             -I$(srctree)/drivers/misc/mediatek/include \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM) \
              -I$(srctree)/drivers/misc/mediatek/mmp/
