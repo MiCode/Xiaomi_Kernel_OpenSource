@@ -2146,6 +2146,7 @@ Optional properties:
 - qcom,msm_audio_ssr_devs: List the snd event framework clients
 - qcom,afe-rxtx-lb: AFE RX to TX loopback.
 - qcom,tlmm-gpio: TLMM gpio number for corresponding LPASS gpio
+- qcom,wcd-disabled : Property to specify if wcd codec is disabled for the target
 
 Example:
 	lahaina_snd: sound {
@@ -2155,6 +2156,7 @@ Example:
 		qcom,wcn-bt = <0>;
 		qcom,ext-disp-audio-rx = <0>;
 		qcom,afe-rxtx-lb = <0>;
+		qcom,wcd-disabled = <0>;
 
 		clock-names = "lpass_audio_hw_vote";
 		clocks = <&lpass_audio_hw_vote 0>;
