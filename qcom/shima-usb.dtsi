@@ -42,6 +42,7 @@
 			0x144 /* GSI_RING_BASE_ADDR_H */
 			0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
+		usb-role-switch;
 		extcon = <&eud>;
 
 		interconnect-names = "usb-ddr", "usb-ipa", "ddr-usb";
@@ -68,6 +69,11 @@
 			dr_mode = "otg";
 		};
 
+		port {
+			usb_port0: endpoint {
+				remote-endpoint = <&usb_port0_connector>;
+			};
+		};
 	};
 
 	/* Primary USB port related High Speed PHY */
