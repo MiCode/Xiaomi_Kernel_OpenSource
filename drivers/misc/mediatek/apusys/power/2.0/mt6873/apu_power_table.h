@@ -34,4 +34,12 @@ extern int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 						enum APU_OPP_INDEX opp);
 extern int32_t apusys_thermal_dis_throttle_cb(enum DVFS_USER user);
 
+#if APUSYS_DEVFREQ_COOLING
+extern int register_devfreq_cooling(struct platform_device *pdev,
+						enum DVFS_USER user);
+extern void unregister_devfreq_cooling(enum DVFS_USER user);
+extern void start_monitor_devfreq_cooling(enum DVFS_USER user);
+extern void stop_monitor_devfreq_cooling(enum DVFS_USER user);
+#endif
+
 #endif

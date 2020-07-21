@@ -74,6 +74,10 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 void dump_voltage(struct apu_power_info *info);
 void dump_frequency(struct apu_power_info *info);
 
+#if APUSYS_DEVFREQ_COOLING
+unsigned int get_single_device_freq(enum DVFS_USER user);
+#endif
+
 bool dvfs_user_support(enum DVFS_USER user);
 bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain);
 
