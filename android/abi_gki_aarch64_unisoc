@@ -368,6 +368,7 @@
   netif_carrier_on
   netif_rx_ni
   netif_tx_wake_queue
+  nf_conntrack_destroy
   nf_conntrack_find_get
   nf_ct_get_tuplepr
   nf_ct_invert_tuple
@@ -842,6 +843,8 @@
   usb_gadget_set_state
   usb_gadget_unmap_request_by_dev
   usb_get_maximum_speed
+  usb_role_switch_register
+  usb_role_switch_unregister
 
 # required by exfat.ko
   __blockdev_direct_IO
@@ -1702,6 +1705,11 @@
   of_dma_controller_free
   of_dma_controller_register
   of_dma_simple_xlate
+  vchan_dma_desc_free_list
+  vchan_find_desc
+  vchan_init
+  vchan_tx_desc_free
+  vchan_tx_submit
 
 # required by sprd-gsp.ko
   __kthread_init_worker
