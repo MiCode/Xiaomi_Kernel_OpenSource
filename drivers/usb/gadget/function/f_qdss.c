@@ -686,14 +686,19 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 		/* Increment usage count on connect */
 		usb_gadget_autopm_get_async(qdss->gadget);
 
-		if (config_ep_by_speed(gadget, f, qdss->port.data)) {
-			ret = -EINVAL;
+		ret = config_ep_by_speed(gadget, f, qdss->port.data);
+		if (ret) {
+			pr_err("%s: failed config_ep_by_speed ret:%d\n",
+							__func__, ret);
 			goto fail;
 		}
 
 		ret = usb_ep_enable(qdss->port.data);
-		if (ret)
+		if (ret) {
+			pr_err("%s: failed to enable ep ret:%d\n",
+							__func__, ret);
 			goto fail;
+		}
 
 		qdss->port.data->driver_data = qdss;
 		qdss->data_enabled = 1;
@@ -749,7 +754,7 @@ fail:
 	/* Decrement usage count in case of failure */
 	usb_gadget_autopm_put_async(qdss->gadget);
 fail1:
-	pr_err("%s failed\n", __func__);
+	pr_err("%s failed ret:%d\n", __func__, ret);
 	qdss_eps_disable(f);
 	return ret;
 }
