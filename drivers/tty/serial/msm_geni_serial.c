@@ -667,7 +667,8 @@ static unsigned int msm_geni_serial_get_mctrl(struct uart_port *uport)
 	geni_ios = geni_read_reg_nolog(uport->membase, SE_GENI_IOS);
 	if (!(geni_ios & IO2_DATA_IN))
 		mctrl |= TIOCM_CTS;
-
+	IPC_LOG_MSG(port->ipc_log_misc, "%s: geni_ios:0x%x, mctrl:0x%x\n",
+			__func__, geni_ios, mctrl);
 	return mctrl;
 }
 
@@ -2045,8 +2046,6 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 			geni_write_reg_nolog(dma_tx_status, uport->membase,
 						SE_DMA_TX_IRQ_CLR);
 
-			if (dma_tx_status & TX_DMA_DONE)
-				msm_geni_serial_handle_dma_tx(uport);
 
 			if (((msm_port->ver_info.hw_major_ver <= 1) &&
 				(msm_port->ver_info.hw_minor_ver <= 2)) &&
@@ -2058,6 +2057,9 @@ static void msm_geni_serial_handle_isr(struct uart_port *uport,
 			}
 			if (m_irq_status & (M_CMD_CANCEL_EN | M_CMD_ABORT_EN))
 				m_cmd_done = true;
+
+			if ((dma_tx_status & TX_DMA_DONE) && !m_cmd_done)
+				msm_geni_serial_handle_dma_tx(uport);
 		}
 
 		if (dma_rx_status) {
