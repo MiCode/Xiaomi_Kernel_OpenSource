@@ -44,7 +44,6 @@
   cpu_number
   __cpu_online_mask
   crc32_le
-  _ctype
   delayed_work_timer_fn
   del_timer
   del_timer_sync
@@ -137,6 +136,7 @@
   extcon_get_state
   extcon_register_notifier
   extcon_unregister_notifier
+  fd_install
   find_next_bit
   find_next_zero_bit
   finish_wait
@@ -145,6 +145,7 @@
   generic_handle_irq
   generic_mii_ioctl
   get_device
+  get_unused_fd_flags
   gpiochip_add_data_with_key
   gpiochip_add_pin_range
   gpiochip_generic_free
@@ -152,6 +153,7 @@
   gpiochip_get_data
   gpiochip_remove
   gpiod_set_value_cansleep
+  handle_edge_irq
   handle_level_irq
   __hci_cmd_sync
   hci_recv_frame
@@ -167,8 +169,13 @@
   iommu_present
   __ioremap
   iounmap
+  irq_chip_disable_parent
+  irq_chip_enable_parent
+  irq_chip_eoi_parent
   irq_chip_mask_parent
+  irq_chip_set_parent_state
   irq_chip_set_type_parent
+  irq_chip_set_wake_parent
   irq_chip_unmask_parent
   __irq_domain_add
   irq_domain_free_irqs_common
@@ -191,7 +198,6 @@
   kmem_cache_alloc_trace
   kmemdup
   kstrdup
-  kstrtouint
   ktime_get
   ktime_get_mono_fast_ns
   __list_add_valid
@@ -202,12 +208,13 @@
   mii_nway_restart
   mod_timer
   module_layout
+  module_put
   __msecs_to_jiffies
   msleep
-  msm_pinctrl_probe
-  msm_pinctrl_remove
   __mutex_init
+  mutex_is_locked
   mutex_lock
+  mutex_lock_interruptible
   mutex_unlock
   __netdev_alloc_skb
   netdev_info
@@ -371,6 +378,7 @@
   trace_handle_return
   trace_raw_output_prep
   trace_seq_printf
+  try_module_get
   tty_flip_buffer_push
   __tty_insert_flip_char
   tty_termios_encode_baud_rate
@@ -395,7 +403,22 @@
   usb_deregister
   usb_disabled
   usb_get_dr_mode
+  usb_hcd_check_unlink_urb
+  usb_hcd_end_port_resume
+  usb_hcd_giveback_urb
   usb_hc_died
+  usb_hcd_is_primary_hcd
+  usb_hcd_link_urb_to_ep
+  usb_hcd_pci_pm_ops
+  usb_hcd_pci_probe
+  usb_hcd_pci_remove
+  usb_hcd_pci_shutdown
+  usb_hcd_platform_shutdown
+  usb_hcd_poll_rh_status
+  usb_hcd_resume_root_hub
+  usb_hcds_loaded
+  usb_hcd_start_port_resume
+  usb_hcd_unlink_urb_from_ep
   usb_hub_clear_tt_buffer
   usbnet_disconnect
   usbnet_get_endpoints
@@ -555,6 +578,7 @@
   component_master_add_with_match
   component_master_del
   component_unbind_all
+  _ctype
   devfreq_recommended_opp
   devfreq_resume_device
   devfreq_suspend_device
@@ -743,10 +767,8 @@
   drm_state_dump
   drm_universal_plane_init
   drm_vblank_init
-  fd_install
   flush_workqueue
   get_pid_task
-  get_unused_fd_flags
   gpiod_direction_input
   gpiod_direction_output
   gpiod_get_value
@@ -784,8 +806,6 @@
   mipi_dsi_host_register
   mipi_dsi_host_unregister
   mipi_dsi_packet_format_is_long
-  mutex_is_locked
-  mutex_lock_interruptible
   mutex_trylock_recursive
   no_llseek
   nsecs_to_jiffies
@@ -901,13 +921,9 @@
   __udelay
 
 # required by qcom-pdc.ko
-  irq_chip_disable_parent
-  irq_chip_enable_parent
-  irq_chip_eoi_parent
   irq_chip_get_parent_state
   irq_chip_retrigger_hierarchy
   irq_chip_set_affinity_parent
-  irq_chip_set_parent_state
   irq_chip_set_vcpu_affinity_parent
   irq_domain_alloc_irqs_parent
   irq_domain_create_hierarchy
@@ -983,14 +999,23 @@
   of_property_read_variable_u8_array
   reset_control_reset
 
-# required by pinctrl-sdm845.ko
-  msm_pinctrl_dev_pm_ops
+# required by pinctrl-msm.ko
+  device_property_read_u16_array
+  gpiochip_line_is_valid
+  gpiochip_lock_as_irq
+  gpiochip_set_chained_irqchip
+  gpiochip_unlock_as_irq
+  handle_bad_irq
+  pinctrl_force_default
+  pinctrl_force_sleep
+  pm_power_off
+  register_restart_handler
+  unregister_restart_handler
 
 # required by pinctrl-spmi-gpio.ko
   device_get_match_data
   gpiochip_populate_parent_fwspec_fourcell
   irq_chip_ack_parent
-  irq_chip_set_wake_parent
 
 # required by pinctrl-spmi-mpp.ko
   platform_irq_count
@@ -1024,26 +1049,6 @@
   rtc_update_irq
   rtc_valid_tm
 
-# required by ufs-qcom.ko
-  print_hex_dump
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_dump_regs
-  ufshcd_get_local_unipro_ver
-  ufshcd_get_pwr_dev_param
-  ufshcd_hold
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-  ufshcd_release
-  ufshcd_remove
-  ufshcd_uic_hibern8_enter
-  ufshcd_uic_hibern8_exit
-
 # required by mdt_loader.ko
   request_firmware_into_buf
 
@@ -1076,7 +1081,6 @@
   qcom_smem_state_unregister
 
 # required by spmi-pmic-arb.ko
-  handle_edge_irq
   irq_domain_set_info
   spmi_controller_add
   spmi_controller_alloc
@@ -1139,6 +1143,7 @@
   device_remove_file
   ehci_cf_port_reset_rwsem
   hrtimer_cancel
+  kstrtouint
   ktime_get_with_offset
   usb_for_each_dev
 
@@ -1209,12 +1214,94 @@
   fwnode_get_parent
   fwnode_property_present
   kstrtobool
-  module_put
   __sysfs_match_string
-  try_module_get
 
 # required by qcom-wdt.ko
   platform_get_irq_optional
+
+# required by incrementalfs.ko
+  bcmp
+  bin2hex
+  __break_lease
+  clear_inode
+  __close_fd
+  crypto_alloc_shash
+  crypto_destroy_tfm
+  crypto_shash_digest
+  d_add
+  d_drop
+  deactivate_locked_super
+  dentry_open
+  dget_parent
+  d_instantiate
+  d_make_root
+  dput
+  fget
+  flush_dcache_page
+  flush_delayed_work
+  free_pages
+  fs_kobj
+  fsstack_copy_attr_all
+  generic_file_llseek
+  generic_file_mmap
+  generic_file_read_iter
+  generic_file_splice_read
+  generic_read_dir
+  generic_shutdown_super
+  __get_free_pages
+  get_zeroed_page
+  iget5_locked
+  ihold
+  inode_init_once
+  inode_init_owner
+  iput
+  iterate_dir
+  kernel_read
+  kernel_write
+  kern_path
+  kobject_create_and_add
+  kobject_put
+  lockref_get
+  lock_rename
+  lookup_one_len
+  LZ4_decompress_safe
+  match_int
+  match_token
+  noop_llseek
+  notify_change
+  pagecache_get_page
+  path_get
+  path_put
+  __put_cred
+  __put_page
+  register_filesystem
+  set_anon_super
+  sget
+  simple_getattr
+  simple_setattr
+  simple_statfs
+  strndup_user
+  strsep
+  sync_filesystem
+  sysfs_create_group
+  sysfs_remove_group
+  truncate_inode_pages
+  unlock_new_inode
+  unlock_page
+  unlock_rename
+  unregister_filesystem
+  user_path_at_empty
+  vfs_create
+  vfs_fallocate
+  vfs_getattr
+  vfs_getxattr
+  vfs_link
+  vfs_listxattr
+  vfs_mkdir
+  vfs_rename
+  vfs_rmdir
+  vfs_setxattr
+  vfs_unlink
 
 # required by qrtr-tun.ko
   _copy_to_iter

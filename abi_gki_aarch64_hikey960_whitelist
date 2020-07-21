@@ -1043,20 +1043,6 @@
   rtc_year_days
   seq_puts
 
-# required by ufs-hisi.ko
-  devm_platform_ioremap_resource
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_get_pwr_dev_param
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-  ufshcd_remove
-
 # required by spi-pl022.ko
   devm_gpio_request
   devm_spi_register_controller

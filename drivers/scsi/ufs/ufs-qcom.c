@@ -1685,9 +1685,7 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
 			UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
 			UFSHCD_CAP_RPM_AUTOSUSPEND;
-#if defined(CONFIG_SCSI_UFSHCD_QTI)
-			hba->caps |= UFSHCD_CAP_WB_EN;
-#endif
+		hba->caps |= UFSHCD_CAP_WB_EN;
 	}
 
 	if (host->hw_ver.major >= 0x2) {
@@ -2092,7 +2090,7 @@ ufs_qcom_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 			goto out_einval;
 		}
 		err = ufshcd_query_flag(hba, ioctl_data->opcode,
-					ioctl_data->idn, &flag);
+					ioctl_data->idn, 0, &flag);
 		break;
 	default:
 		goto out_einval;

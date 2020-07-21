@@ -916,13 +916,17 @@ static int clk_debug_lahaina_probe(struct platform_device *pdev)
 	debug_mux_priv.cxo = clk;
 
 	for (i = 0; i < ARRAY_SIZE(mux_list); i++) {
-		ret = map_debug_bases(pdev, mux_list[i].regmap_name,
-				      mux_list[i].mux);
-		if (ret == -EBADR)
-			continue;
-		else if (ret)
-			return ret;
+		if (IS_ERR_OR_NULL(mux_list[i].mux->regmap)) {
+			ret = map_debug_bases(pdev,
+				mux_list[i].regmap_name, mux_list[i].mux);
+			if (ret == -EBADR)
+				continue;
+			else if (ret)
+				return ret;
+		}
+	}
 
+	for (i = 0; i < ARRAY_SIZE(mux_list); i++) {
 		clk = devm_clk_register(&pdev->dev, &mux_list[i].mux->hw);
 		if (IS_ERR(clk)) {
 			dev_err(&pdev->dev, "Unable to register %s, err:(%d)\n",

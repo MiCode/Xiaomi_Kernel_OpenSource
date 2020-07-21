@@ -346,6 +346,7 @@
   __list_del_entry_valid
   memcpy
   __memcpy_fromio
+  memmove
   memset
   misc_deregister
   misc_register
@@ -592,6 +593,7 @@
   strchr
   strcmp
   strcpy
+  strlcat
   strlcpy
   strlen
   strncasecmp
@@ -611,6 +613,7 @@
   sysfs_create_link
   __sysfs_match_string
   sysfs_notify
+  sysfs_remove_file_ns
   sysfs_remove_group
   sysfs_remove_groups
   sysfs_remove_link
@@ -687,6 +690,7 @@
   usb_gadget_udc_reset
   usb_get_dr_mode
   usb_get_intf
+  usb_hcd_is_primary_hcd
   usb_interface_id
   usb_kill_urb
   usb_phy_get_charger_current
@@ -1499,7 +1503,7 @@
   dev_pm_opp_free_cpufreq_table
   dev_pm_opp_init_cpufreq_table
 
-# required by sprd-dpu.ko
+# required by sprd-drm.ko
   component_add
   component_bind_all
   component_del
@@ -1664,6 +1668,7 @@
   of_get_drm_display_mode
   of_graph_get_endpoint_by_regs
   of_graph_get_remote_port_parent
+  of_reserved_mem_device_release
   __platform_register_drivers
   platform_unregister_drivers
   regmap_get_reg_stride
@@ -1763,6 +1768,7 @@
 
 # required by sprd_powerdebug.ko
   cpu_pm_register_notifier
+  cpu_pm_unregister_notifier
   pm_print_active_wakeup_sources
   syscon_node_to_regmap
 
@@ -2348,62 +2354,19 @@
   zlib_inflateReset
   zlib_inflate_workspacesize
 
-# required by tc-dwc-g210-pltfrm.ko
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
+# required by sprd_cpp.ko
+  clk_get_parent
+  of_iomap
 
-# required by ufshcd-pci.ko
-  pcim_iomap_regions
-  pcim_iomap_table
-  ufshcd_alloc_host
-  ufshcd_dealloc_host
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_init
-  ufshcd_remove
-  ufshcd_runtime_idle
-  ufshcd_runtime_resume
-  ufshcd_runtime_suspend
-  ufshcd_shutdown
-  ufshcd_system_resume
-  ufshcd_system_suspend
+# required by sprd_camera.ko
+  ion_alloc
+  ion_free
+  ktime_get_ts64
+  ns_to_timeval
+  of_irq_to_resource
+  _raw_spin_trylock
+  regulator_get_linear_step
 
-# required by erofs.ko
-  add_to_page_cache_lru
-  bio_add_page
-  bio_alloc_bioset
-  bio_associate_blkg
-  bio_put
-  bit_wait
-  flush_dcache_page
-  fs_bio_set
-  fs_ftype_to_dtype
-  generic_ro_fops
-  iget_failed
-  init_user_ns
-  inode_nohighmem
-  __lock_page
-  LZ4_decompress_safe_partial
-  out_of_line_wait_on_bit_lock
-  pagecache_get_page
-  page_get_link
-  posix_acl_access_xattr_handler
-  posix_acl_default_xattr_handler
-  posix_acl_from_xattr
-  put_pages_list
-  radix_tree_gang_lookup
-  radix_tree_preload
-  read_cache_page
-  read_cache_page_gfp
-  simple_get_link
-  submit_bio
-  trace_print_flags_seq
-  unlock_page
-  vm_unmap_aliases
-  wake_up_bit
-  __wake_up_locked
+# required by trusty-pm.ko
+  ktime_get_boot_fast_ns
+  unregister_syscore_ops
