@@ -40,7 +40,6 @@ struct haven_pipe {
  * @base: Base of the shared fifo.
  * @size: fifo size.
  * @master: primary vm indicator.
- * @label: label for haven resources
  * @tx_dbl: doorbell for tx notifications.
  * @rx_dbl: doorbell for rx notifications.
  * @tx_pipe: TX haven specific info.
@@ -55,7 +54,6 @@ struct qrtr_haven_dev {
 	size_t size;
 	bool master;
 
-	u32 label;
 	void *tx_dbl;
 	void *rx_dbl;
 
@@ -330,19 +328,18 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 	if (!qdev->buf)
 		return -ENOMEM;
 
-	ret = of_property_read_u32(node, "haven-label", &qdev->label);
-	if (ret) {
-		dev_err(qdev->dev, "failed to read label info %d\n", ret);
-		return ret;
-	}
 	qdev->master = of_property_read_bool(node, "qcom,master");
 	ret = qrtr_haven_map_memory(qdev);
 	if (ret)
 		return ret;
 
+	ret = of_property_read_u32(node, "haven-label", &dbl_label);
+	if (ret) {
+		dev_err(qdev->dev, "failed to read label info %d\n", ret);
+		return ret;
+	}
 	qrtr_haven_fifo_init(qdev);
 
-	dbl_label = qdev->label;
 	qdev->tx_dbl = hh_dbl_tx_register(dbl_label);
 	if (IS_ERR_OR_NULL(qdev->tx_dbl)) {
 		ret = PTR_ERR(qdev->tx_dbl);
