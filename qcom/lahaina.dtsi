@@ -3854,9 +3854,10 @@
 			< 2400000 1516800000 >;
 	};
 
-	cpu0_memlat_cpugrp: qcom,cpu0-cpugrp {
+	memlat_cpugrp: qcom,memlat-cpugrp {
 		compatible = "qcom,arm-memlat-cpugrp";
-		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3
+				&CPU4 &CPU5 &CPU6 &CPU7>;
 
 		cpu0_cpu_l3_latmon: qcom,cpu0-cpu-l3-latmon {
 			compatible = "qcom,arm-memlat-mon";
@@ -3892,6 +3893,7 @@
 
 		cpu0_cpu_llcc_latmon: qcom,cpu0-cpu-llcc-latmon {
 			compatible = "qcom,arm-memlat-mon";
+			qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 			qcom,target-dev = <&cpu0_cpu_llcc_lat>;
 			qcom,cachemiss-ev = <0x2A>;
 			qcom,core-dev-table =
@@ -3927,12 +3929,6 @@
 			};
 		};
 
-	};
-
-	cpu4_memlat_cpugrp: qcom,cpu4-cpugrp {
-		compatible = "qcom,arm-memlat-cpugrp";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
-
 		cpu4_cpu_l3_latmon: qcom,cpu4-cpu-l3-latmon {
 			compatible = "qcom,arm-memlat-mon";
 			qcom,cpulist = <&CPU4>;
@@ -3967,6 +3963,7 @@
 
 		cpu4_cpu_llcc_latmon: qcom,cpu4-cpu-llcc-latmon {
 			compatible = "qcom,arm-memlat-mon";
+			qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 			qcom,target-dev = <&cpu4_cpu_llcc_lat>;
 			qcom,cachemiss-ev = <0x2A>;
 			qcom,core-dev-table =
@@ -4013,6 +4010,7 @@
 
 		cpu4_computemon: qcom,cpu4-computemon {
 			compatible = "qcom,arm-compute-mon";
+			qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 			qcom,target-dev = <&cpu4_cpu_ddr_latfloor>;
 			ddr4-map {
 				qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
@@ -4031,6 +4029,7 @@
 
 		cpu4_llcc_computemon: qcom,cpu4-llcc-computemon {
 			compatible = "qcom,arm-compute-mon";
+			qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 			qcom,target-dev = <&cpu4_cpu_llcc_latfloor>;
 			qcom,core-dev-table =
 				< 1804800 MHZ_TO_MBPS( 150, 16) >,
@@ -4059,6 +4058,7 @@
 
 		cpu4_qoslatmon: qcom,cpu4-qoslatmon {
 			compatible = "qcom,arm-memlat-mon";
+			qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 			qcom,target-dev = <&cpu4_cpu_ddr_qoslat>;
 			qcom,cachemiss-ev = <0x1000>;
 			qcom,core-dev-table =
