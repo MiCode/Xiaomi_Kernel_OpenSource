@@ -84,10 +84,6 @@ struct neuron_mq_data_priv {
 	void *tx_dbl;
 	/* haven rx doorbell descriptor */
 	void *rx_dbl;
-	/* memparcel handle after assigning label to shared memory */
-	u32 shm_memparcel;
-	/* haven rm status notifier block */
-	struct notifier_block rm_nb;
 	/* pointer to the device structure */
 	struct neuron_channel *dev;
 	/* shared memory mapped address */
