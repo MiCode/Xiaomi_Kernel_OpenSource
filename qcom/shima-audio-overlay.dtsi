@@ -198,8 +198,8 @@
 			<0 ADC2 0x2 0 SWRM_TX1_CH2>,
 			<1 ADC3 0x1 0 SWRM_TX2_CH1>,
 			<1 ADC4 0x2 0 SWRM_TX2_CH2>,
-			<2 DMIC0 0x1 0 SWRM_TX2_CH1>,
-			<2 DMIC1 0x2 0 SWRM_TX2_CH2>,
+			<2 DMIC0 0x1 0 SWRM_TX1_CH3>,
+			<2 DMIC1 0x2 0 SWRM_TX1_CH4>,
 			<2 MBHC 0x4 0 SWRM_TX2_CH3>,
 			<2 DMIC2 0x4 0 SWRM_TX2_CH3>,
 			<2 DMIC3 0x8 0 SWRM_TX2_CH4>,
@@ -242,9 +242,9 @@
 };
 
 &shima_snd {
-	qcom,model = "shima-mtp-snd-card";
+	qcom,model = "shima-idp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
-	qcom,wcn-bt = <0>;
+	qcom,wcn-btfm = <0>;
 	qcom,ext-disp-audio-rx = <0>;
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
@@ -258,15 +258,15 @@
 		"AMIC5", "Analog Mic5",
 		"Analog Mic5", "MIC BIAS4",
 		"TX DMIC0", "Digital Mic0",
-		"TX DMIC0", "MIC BIAS3",
+		"TX DMIC0", "MIC BIAS1",
 		"TX DMIC1", "Digital Mic1",
 		"TX DMIC1", "MIC BIAS3",
 		"TX DMIC2", "Digital Mic2",
-		"TX DMIC2", "MIC BIAS1",
+		"TX DMIC2", "MIC BIAS4",
 		"TX DMIC3", "Digital Mic3",
 		"TX DMIC3", "MIC BIAS1",
 		"TX DMIC4", "Digital Mic4",
-		"TX DMIC4", "MIC BIAS4",
+		"TX DMIC4", "MIC BIAS3",
 		"TX DMIC5", "Digital Mic5",
 		"TX DMIC5", "MIC BIAS4",
 		"IN1_HPHL", "HPHL_OUT",

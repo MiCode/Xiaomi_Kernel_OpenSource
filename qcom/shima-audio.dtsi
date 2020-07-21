@@ -186,7 +186,7 @@
 				<&afe_proxy_tx_1>,
 				<&proxy_rx>, <&proxy_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
-				<&sb_7_rx>, <&sb_7_tx>,
+				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
@@ -222,6 +222,7 @@
 				"msm-dai-q6-dev.8194", "msm-dai-q6-dev.8195",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
 				"msm-dai-q6-dev.16398", "msm-dai-q6-dev.16399",
+				"msm-dai-q6-dev.16401",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
 				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
@@ -251,6 +252,15 @@
 				"msm-dai-cdc-dma-dev.45116",
 				"msm-dai-cdc-dma-dev.45118",
 				"msm-dai-q6-dev.24577";
+				fsa4480-i2c-handle = <&fsa4480>;
+	};
+};
+
+&qupv3_se5_i2c {
+	status = "ok";
+	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
 	};
 };
 
