@@ -1022,7 +1022,7 @@ static int __ref kernel_init(void *unused)
 {
 	int ret;
 #ifdef CONFIG_EARLY_SERVICES
-	int status = get_early_services_status();
+	int status = 0;
 #endif
 	kernel_init_freeable();
 	/* need to finish all async __init code before freeing the memory */
@@ -1037,6 +1037,7 @@ static int __ref kernel_init(void *unused)
 	place_marker("M - DRIVER Kernel Boot Done");
 
 #ifdef CONFIG_EARLY_SERVICES
+	status = get_early_services_status();
 	if (status) {
 		struct kstat stat;
 		/* Wait for early services SE policy load completion signal */
