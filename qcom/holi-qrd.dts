@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "holi.dtsi"
+#include "holi-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Holi QRD";
+	compatible = "qcom,holi-qrd", "qcom,holi", "qcom,qrd";
+	qcom,board-id = <0xb 0>;
+};
