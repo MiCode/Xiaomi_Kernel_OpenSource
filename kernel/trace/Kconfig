@@ -119,6 +119,16 @@ config QCOM_RTB
 	  to aid in debugging reset cases where the caches may not be flushed
 	  before the target resets.
 
+config QCOM_RTB_QGKI
+	bool "QCOM RTB QGKI support"
+	depends on QGKI
+	help
+	  When QGKI variants are selected, include arch specific io header in
+	  in resolving multiple declaration of various read, write log variants.
+	  This flag is enabled only for QGKI variants and when enabled,ABI
+	  compatibilities are not applicable as exported symbols' CRC changes
+	  with the arch specific header inclusion.
+
 config QCOM_RTB_SEPARATE_CPUS
 	bool "Separate entries for each cpu"
 	depends on QCOM_RTB
