@@ -29,9 +29,12 @@
 		reset-names = "core_reset";
 
 		USB3_GDSC-supply = <&gcc_usb30_prim_gdsc>;
+		dpdm-supply = <&qusb_phy0>;
+		qcom,usb-charger;
 
 		qcom,core-clk-rate = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
+
 		qcom,num-gsi-evt-buffs = <0x3>;
 		qcom,gsi-reg-offset =
 			<0x0fc /* GSI_GENERAL_CFG */
@@ -47,22 +50,103 @@
 			reg = <0x4e00000 0xcd00>;
 			interrupt-parent = <&intc>;
 			interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
+			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 			tx-fifo-resize;
 			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
+			snps,is-utmi-l1-suspend;
+			snps,dis-u1-entry-quirk;
+			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
-			snps,dis_enblslpm_quirk;
 			snps,has-lpm-erratum;
-			snps,hird-threshold = /bits/ 8 <0x10>;
+			snps,hird-threshold = /bits/ 8 <0x0>;
 			snps,usb3_lpm_capable;
-			usb-core-id = <0>;
-			maximum-speed = "super-speed";
+			maximum-speed = "high-speed";
 			dr_mode = "otg";
 		};
+	};
+
+	/* Primary USB port related QUSB2 PHY */
+	qusb_phy0: qusb@162b000 {
+		compatible = "qcom,qusb2phy-v2";
+		reg = <0x0162b000 0x400>,
+			<0x1b40268 0x4>,
+			<0x0162f014 0x4>;
+		reg-names = "qusb_phy_base", "efuse_addr",
+				"refgen_north_bg_reg_addr";
+
+		qcom,efuse-bit-pos = <25>;
+		qcom,efuse-num-bits = <3>;
+		vdd-supply = <&L18A>;
+		vdda18-supply = <&L2A>;
+		vdda33-supply = <&L3A>;
+		refgen-supply = <&L22A>;
+		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,qusb-phy-reg-offset =
+			<0x240 /* QUSB2PHY_PORT_TUNE1 */
+			 0x1a0 /* QUSB2PHY_PLL_COMMON_STATUS_ONE */
+			 0x210 /* QUSB2PHY_PWR_CTRL1 */
+			 0x230 /* QUSB2PHY_INTR_CTRL */
+			 0x0a8 /* QUSB2PHY_PLL_CORE_INPUT_OVERRIDE */
+			 0x254 /* QUSB2PHY_TEST1 */
+			 0x198 /* PLL_BIAS_CONTROL_2 */
+			 0x27c /* QUSB2PHY_DEBUG_CTRL1 */
+			 0x280 /* QUSB2PHY_DEBUG_CTRL2 */
+			 0x284 /* QUSB2PHY_DEBUG_CTRL3 */
+			 0x288 /* QUSB2PHY_DEBUG_CTRL4 */
+			 0x2a0>; /* QUSB2PHY_STAT5 */
+
+		qcom,qusb-phy-init-seq =
+			/* <value reg_offset> */
+			<0x23 0x210 /* PWR_CTRL1 */
+			 0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+			 0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+			 0x80 0x2c  /* PLL_CMODE */
+			 0x0a 0x184 /* PLL_LOCK_DELAY */
+			 0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+			 0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+			 0x22 0x198 /* PLL_BIAS_CONTROL_2 */
+			 0x21 0x214 /* PWR_CTRL2 */
+			 0x08 0x220 /* IMP_CTRL1 */
+			 0x58 0x224 /* IMP_CTRL2 */
+			 0x45 0x240 /* TUNE1 */
+			 0x29 0x244 /* TUNE2 */
+			 0xca 0x248 /* TUNE3 */
+			 0x04 0x24c /* TUNE4 */
+			 0x03 0x250 /* TUNE5 */
+			 0x30 0x23c /* CHG_CTRL2 */
+			 0x22 0x210>; /* PWR_CTRL1 */
+
+		qcom,qusb-phy-host-init-seq =
+			/* <value reg_offset> */
+			<0x23 0x210 /* PWR_CTRL1 */
+			0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+			0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+			0x80 0x2c  /* PLL_CMODE */
+			0x0a 0x184 /* PLL_LOCK_DELAY */
+			0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+			0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+			0x22 0x198 /* PLL_BIAS_CONTROL_2 */
+			0x21 0x214 /* PWR_CTRL2 */
+			0x08 0x220 /* IMP_CTRL1 */
+			0x58 0x224 /* IMP_CTRL2 */
+			0x45 0x240 /* TUNE1 */
+			0x29 0x244 /* TUNE2 */
+			0xca 0x248 /* TUNE3 */
+			0x04 0x24c /* TUNE4 */
+			0x03 0x250 /* TUNE5 */
+			0x30 0x23c /* CHG_CTRL2 */
+			0x22 0x210>; /* PWR_CTRL1 */
+
+		phy_type= "utmi";
+		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>;
+		clock-names = "ref_clk_src";
+
+		resets = <&gcc GCC_QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
 	};
 
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
 	};
-
 };

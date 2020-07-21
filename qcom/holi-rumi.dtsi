@@ -37,6 +37,7 @@
 };
 
 &usb0 {
+	dpdm-supply = <&usb_nop_phy>;
 	dwc3@4e00000 {
 		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
