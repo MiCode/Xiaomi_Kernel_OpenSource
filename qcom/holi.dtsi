@@ -1634,6 +1634,7 @@
 #include "holi-usb.dtsi"
 #include "holi-pm.dtsi"
 #include "holi-vidc.dtsi"
+#include "camera/holi-camera.dtsi"
 #include "holi-thermal.dtsi"
 #include "holi-pinctrl.dtsi"
 #include "holi-qupv3.dtsi"
