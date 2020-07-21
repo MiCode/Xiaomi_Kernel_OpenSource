@@ -79,21 +79,12 @@
 				reg = <0x0D 0x01170223>;
 			};
 
-			swr_dmic_01: dmic_swr@58350220 {
+			swr_dmic_04: dmic_swr@58350223 {
 				compatible = "qcom,swr-dmic";
-				reg = <0x08 0x58350220>;
-				qcom,swr-dmic-prefix = "SWR_MIC0";
-				qcom,codec-name = "swr-dmic.01";
+				reg = <0x08 0x58350223>;
+				qcom,swr-dmic-prefix = "SWR_MIC3";
+				qcom,codec-name = "swr-dmic.04";
 				qcom,swr-dmic-supply = <3>;
-				qcom,wcd-handle = <&wcd938x_codec>;
-			};
-
-			swr_dmic_02: dmic_swr@58350221 {
-				compatible = "qcom,swr-dmic";
-				reg = <0x08 0x58350221>;
-				qcom,swr-dmic-prefix = "SWR_MIC1";
-				qcom,codec-name = "swr-dmic.02";
-				qcom,swr-dmic-supply = <1>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
@@ -106,11 +97,20 @@
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
 
-			swr_dmic_04: dmic_swr@58350223 {
+			swr_dmic_02: dmic_swr@58350221 {
 				compatible = "qcom,swr-dmic";
-				reg = <0x08 0x58350223>;
-				qcom,swr-dmic-prefix = "SWR_MIC3";
-				qcom,codec-name = "swr-dmic.04";
+				reg = <0x08 0x58350221>;
+				qcom,swr-dmic-prefix = "SWR_MIC1";
+				qcom,codec-name = "swr-dmic.02";
+				qcom,swr-dmic-supply = <1>;
+				qcom,wcd-handle = <&wcd938x_codec>;
+			};
+
+			swr_dmic_01: dmic_swr@58350220 {
+				compatible = "qcom,swr-dmic";
+				reg = <0x08 0x58350220>;
+				qcom,swr-dmic-prefix = "SWR_MIC0";
+				qcom,codec-name = "swr-dmic.01";
 				qcom,swr-dmic-supply = <3>;
 				qcom,wcd-handle = <&wcd938x_codec>;
 			};
