@@ -12,12 +12,16 @@
 #ifndef LINUX_MMC_CQ_HCI_H
 #define LINUX_MMC_CQ_HCI_H
 #include <linux/mmc/core.h>
+#include <linux/platform_device.h>
 
 /* registers */
 /* version */
 #define CQVER		0x00
 /* capabilities */
 #define CQCAP		0x04
+#define CQ_CAP_CS	(1 << 28)
+#define CQ_CCAP		0x100
+#define CQ_CRYPTOCAP	0x104
 /* configuration */
 #define CQCFG		0x08
 #define CQ_DCMD		0x00001000
@@ -150,6 +154,62 @@
 #define CQ_V5_VENDOR_CFG	0x900
 #define CQ_VENDOR_CFG	0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
+
+/* CCAP - Crypto Capability 100h */
+union cmdq_crypto_capabilities {
+	__le32 reg_val;
+	struct {
+		u8 num_crypto_cap;
+		u8 config_count;
+		u8 reserved;
+		u8 config_array_ptr;
+	};
+};
+
+enum cmdq_crypto_key_size {
+	CMDQ_CRYPTO_KEY_SIZE_INVALID	= 0x0,
+	CMDQ_CRYPTO_KEY_SIZE_128	= 0x1,
+	CMDQ_CRYPTO_KEY_SIZE_192	= 0x2,
+	CMDQ_CRYPTO_KEY_SIZE_256	= 0x3,
+	CMDQ_CRYPTO_KEY_SIZE_512	= 0x4,
+};
+
+enum cmdq_crypto_alg {
+	CMDQ_CRYPTO_ALG_AES_XTS		= 0x0,
+	CMDQ_CRYPTO_ALG_BITLOCKER_AES_CBC	= 0x1,
+	CMDQ_CRYPTO_ALG_AES_ECB		= 0x2,
+	CMDQ_CRYPTO_ALG_ESSIV_AES_CBC		= 0x3,
+};
+
+/* x-CRYPTOCAP - Crypto Capability X */
+union cmdq_crypto_cap_entry {
+	__le32 reg_val;
+	struct {
+		u8 algorithm_id;
+		u8 sdus_mask; /* Supported data unit size mask */
+		u8 key_size;
+		u8 reserved;
+	};
+};
+
+#define CMDQ_CRYPTO_CONFIGURATION_ENABLE (1 << 7)
+#define CMDQ_CRYPTO_KEY_MAX_SIZE 64
+
+/* x-CRYPTOCFG - Crypto Configuration X */
+union cmdq_crypto_cfg_entry {
+	__le32 reg_val[32];
+	struct {
+		u8 crypto_key[CMDQ_CRYPTO_KEY_MAX_SIZE];
+		u8 data_unit_size;
+		u8 crypto_cap_idx;
+		u8 reserved_1;
+		u8 config_enable;
+		u8 reserved_multi_host;
+		u8 reserved_2;
+		u8 vsb[2];
+		u8 reserved_3[56];
+	};
+};
 
 struct task_history {
 	u64 task;
