@@ -1280,15 +1280,15 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return -EINVAL;
 	}
 
-	mutex_lock(&mas->spi_ssr.ssr_lock);
-	if (mas->spi_ssr.is_ssr_down || !mas->spi_ssr.xfer_prepared) {
-		mutex_unlock(&mas->spi_ssr.ssr_lock);
-		return -EINVAL;
-	}
-
 	/* Check for zero length transfer */
 	if (xfer->len < 1) {
 		dev_err(mas->dev, "Zero length transfer\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&mas->spi_ssr.ssr_lock);
+	if (mas->spi_ssr.is_ssr_down || !mas->spi_ssr.xfer_prepared) {
+		mutex_unlock(&mas->spi_ssr.ssr_lock);
 		return -EINVAL;
 	}
 
