@@ -161,6 +161,16 @@ static inline void set_each_page_of_sg(struct sg_table *table, u64 flag)
 }
 
 #define SECURE_PAGE_MAGIC 0xEEEEEEEE
+int page_accessible(unsigned long pfn)
+{
+	struct page *page = pfn_to_page(pfn);
+
+	if (page->private == SECURE_PAGE_MAGIC)
+		return 0;
+	else
+		return 1;
+}
+
 /*
  *  When -EADDRNOTAVAIL is returned the memory may no longer be in
  *  a usable state and should no longer be accessed by the HLOS.
