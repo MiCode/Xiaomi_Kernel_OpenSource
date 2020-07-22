@@ -4325,7 +4325,7 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	if (rc < 0)
 		chip->dt.rbat_conn_mohm = 0;
 	else
-		chip->dt.rbat_conn_mohm = temp;
+		chip->dt.rbat_conn_mohm = (int)temp;
 
 	/* esr */
 	chip->dt.esr_disable = of_property_read_bool(node,
