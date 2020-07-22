@@ -3216,7 +3216,7 @@ static void mt6359_gauge_shutdown(struct platform_device *pdev)
 	gm->shutdown(gm);
 }
 
-static int mt6359_gauge_suspend(struct platform_device *pdev,
+static int __nocfi mt6359_gauge_suspend(struct platform_device *pdev,
 	pm_message_t state)
 {
 	struct mtk_battery *gm;
