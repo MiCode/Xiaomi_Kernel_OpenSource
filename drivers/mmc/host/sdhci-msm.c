@@ -2267,8 +2267,14 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	msm_set_clock_rate_for_bus_mode(host, clock);
 out:
-	if (!msm_host->skip_bus_bw_voting)
-		sdhci_msm_bus_voting(host, !!clock);
+	/* Vote on bus only with clock frequency or when changing clock
+	 * frequency. No need to vote when setting clock frequency as 0
+	 * because after setting clock at 0, we release host, which will
+	 * eventually call host runtime suspend and unvoting would be
+	 * taken care in runtime suspend call.
+	 */
+	if (!msm_host->skip_bus_bw_voting && clock)
+		sdhci_msm_bus_voting(host, true);
 	__sdhci_msm_set_clock(host, clock);
 }
 
@@ -2638,32 +2644,10 @@ out:
 }
 
 /*
- * Internal work. Work to set 0 bandwidth for msm bus.
- */
-static void sdhci_msm_bus_work(struct work_struct *work)
-{
-	struct sdhci_msm_host *msm_host;
-	struct sdhci_host *host;
-
-	msm_host = container_of(work, struct sdhci_msm_host,
-				bus_vote_work.work);
-	host =  platform_get_drvdata(msm_host->pdev);
-
-	if (!msm_host->bus_vote_data->sdhc_ddr ||
-			!msm_host->bus_vote_data->cpu_sdhc)
-		return;
-	/* don't vote for 0 bandwidth if any request is in progress */
-	if (!host->mmc->ongoing_mrq)
-		sdhci_msm_bus_set_vote(msm_host, 0);
-	else
-		pr_debug("Transfer in progress. Skipping bus voting to 0\n");
-}
-
-/*
  * This function cancels any scheduled delayed work and sets the bus
  * vote based on bw (bandwidth) argument.
  */
-static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
+static void sdhci_msm_bus_get_and_set_vote(struct sdhci_host *host,
 						unsigned int bw)
 {
 	int vote;
@@ -2674,32 +2658,8 @@ static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
 		!msm_host->bus_vote_data->sdhc_ddr ||
 		!msm_host->bus_vote_data->cpu_sdhc)
 		return;
-	cancel_delayed_work_sync(&msm_host->bus_vote_work);
 	vote = sdhci_msm_bus_get_vote_for_bw(msm_host, bw);
 	sdhci_msm_bus_set_vote(msm_host, vote);
-}
-
-/* Add delay of 100 mSec as MMC_CAP_SYNC_RUNTIME_PM is
- * would suspend device immidiatly.
- * 200(deferred time) + 100 (suspend time) = 300.
- */
-#define MSM_MMC_BUS_VOTING_DELAY	300 /* msecs */
-#define VOTE_ZERO  0
-
-/*
- * This function queues a work which will set the bandwidth
- * requirement to 0.
- */
-static void sdhci_msm_bus_queue_work(struct sdhci_host *host)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-
-	if (msm_host->bus_vote_data &&
-		msm_host->bus_vote_data->curr_vote != VOTE_ZERO)
-		queue_delayed_work(system_wq,
-				   &msm_host->bus_vote_work,
-				   msecs_to_jiffies(MSM_MMC_BUS_VOTING_DELAY));
 }
 
 static struct sdhci_msm_bus_vote_data *sdhci_msm_get_bus_vote_data(struct device
@@ -2821,8 +2781,6 @@ static int sdhci_msm_bus_register(struct sdhci_msm_host *host,
 		return ret;
 	}
 
-	INIT_DELAYED_WORK(&host->bus_vote_work, sdhci_msm_bus_work);
-
 	return ret;
 }
 
@@ -2842,9 +2800,9 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable)
 
 	if (enable) {
 		bw = sdhci_get_bw_required(host, ios);
-		sdhci_msm_bus_cancel_work_and_set_vote(host, bw);
+		sdhci_msm_bus_get_and_set_vote(host, bw);
 	} else
-		sdhci_msm_bus_queue_work(host);
+		sdhci_msm_bus_get_and_set_vote(host, 0);
 }
 
 /*****************************************************************************\
@@ -3110,7 +3068,7 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 		msm_host->use_7nm_dll = true;
 }
 
-static void sdhci_msm_clk_gating_delayed_work(struct work_struct *work)
+static void sdhci_msm_clkgate_bus_delayed_work(struct work_struct *work)
 {
 	struct sdhci_msm_host *msm_host = container_of(work,
 			struct sdhci_msm_host, clk_gating_work.work);
@@ -3119,6 +3077,7 @@ static void sdhci_msm_clk_gating_delayed_work(struct work_struct *work)
 	sdhci_msm_registers_save(host);
 	clk_bulk_disable_unprepare(ARRAY_SIZE(msm_host->bulk_clks),
 					msm_host->bulk_clks);
+	sdhci_msm_bus_voting(host, false);
 }
 
 /* Find cpu group qos from a given cpu */
@@ -3584,7 +3543,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&msm_host->clk_gating_work,
-			sdhci_msm_clk_gating_delayed_work);
+			sdhci_msm_clkgate_bus_delayed_work);
 
 	ret = sdhci_msm_bus_register(msm_host, pdev);
 	if (ret && !msm_host->skip_bus_bw_voting) {
@@ -3751,7 +3710,7 @@ vreg_deinit:
 	sdhci_msm_vreg_init(&pdev->dev, msm_host, false);
 bus_unregister:
 	if (!msm_host->skip_bus_bw_voting) {
-		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+		sdhci_msm_bus_get_and_set_vote(host, 0);
 		sdhci_msm_bus_unregister(&pdev->dev, msm_host);
 	}
 clk_disable:
@@ -3802,7 +3761,7 @@ skip_removing_qos:
 	if (!IS_ERR(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
 	if (!msm_host->skip_bus_bw_voting) {
-		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+		sdhci_msm_bus_get_and_set_vote(host, 0);
 		sdhci_msm_bus_unregister(&pdev->dev, msm_host);
 	}
 	sdhci_pltfm_free(pdev);
@@ -3827,7 +3786,6 @@ skip_qos:
 			&msm_host->clk_gating_work,
 			msecs_to_jiffies(MSM_CLK_GATING_DELAY_MS));
 
-	sdhci_msm_bus_voting(host, false);
 	return 0;
 }
 
@@ -3841,10 +3799,14 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 
 	ret = cancel_delayed_work_sync(&msm_host->clk_gating_work);
 	if (!ret) {
+		sdhci_msm_bus_voting(host, true);
 		ret = clk_bulk_prepare_enable(ARRAY_SIZE(msm_host->bulk_clks),
 					       msm_host->bulk_clks);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "Failed to enable clocks %d\n", ret);
+			sdhci_msm_bus_voting(host, false);
 			return ret;
+		}
 
 		sdhci_msm_registers_restore(host);
 		/*
@@ -3856,14 +3818,12 @@ static __maybe_unused int sdhci_msm_runtime_resume(struct device *dev)
 	}
 
 	if (!qos_req)
-		goto skip_qos_vote;
+		return 0;
 	ret = cancel_delayed_work_sync(&msm_host->pmqos_unvote_work);
 	if (!ret)
 		sdhci_msm_vote_pmqos(msm_host->mmc,
 					msm_host->sdhci_qos->active_mask);
 
-skip_qos_vote:
-	sdhci_msm_bus_voting(host, true);
 	return 0;
 }
 
