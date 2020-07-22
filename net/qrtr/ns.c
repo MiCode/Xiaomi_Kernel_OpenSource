@@ -608,9 +608,9 @@ static void ns_log_msg(const struct qrtr_ctrl_pkt *pkt,
 	unsigned int cmd = le32_to_cpu(pkt->cmd);
 
 	if (cmd == QRTR_TYPE_HELLO || cmd == QRTR_TYPE_BYE)
-		NS_INFO("cmd:0x%x addr[0x%x]\n", cmd, sq->sq_node, sq->sq_port);
+		NS_INFO("cmd:0x%x node[0x%x]\n", cmd, sq->sq_node);
 	else if (cmd == QRTR_TYPE_DEL_CLIENT)
-		NS_INFO("cmd:0x%x addr[0x%x]\n", cmd,
+		NS_INFO("cmd:0x%x addr[0x%x:0x%x]\n", cmd,
 			le32_to_cpu(pkt->client.node),
 			le32_to_cpu(pkt->client.port));
 	else if (cmd == QRTR_TYPE_NEW_SERVER || cmd == QRTR_TYPE_DEL_SERVER)
@@ -732,7 +732,7 @@ void qrtr_ns_init(void)
 	INIT_LIST_HEAD(&qrtr_ns.lookups);
 	INIT_WORK(&qrtr_ns.work, qrtr_ns_worker);
 
-	ns_ilc = ipc_log_context_create(NS_LOG_PAGE_CNT, "ns", 0);
+	ns_ilc = ipc_log_context_create(NS_LOG_PAGE_CNT, "qrtr_ns", 0);
 
 	ret = sock_create_kern(&init_net, AF_QIPCRTR, SOCK_DGRAM,
 			       PF_QIPCRTR, &qrtr_ns.sock);
