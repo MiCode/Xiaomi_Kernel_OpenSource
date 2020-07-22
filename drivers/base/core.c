@@ -1321,6 +1321,11 @@ int lock_device_hotplug_sysfs(void)
 	return restart_syscall();
 }
 
+int trylock_device_hotplug(void)
+{
+	return mutex_trylock(&device_hotplug_lock);
+}
+
 #ifdef CONFIG_SCHED_WALT
 void lock_device_hotplug_assert(void)
 {

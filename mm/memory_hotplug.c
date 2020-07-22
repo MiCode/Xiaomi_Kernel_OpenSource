@@ -1025,7 +1025,8 @@ bool try_online_one_block(int nid)
 	unsigned long zone_start, zone_size;
 	bool onlined_block = false;
 
-	lock_device_hotplug();
+	if (!trylock_device_hotplug())
+		return false;
 
 	zone_start = PFN_PHYS(zone->zone_start_pfn);
 	zone_size = zone->spanned_pages << PAGE_SHIFT;
