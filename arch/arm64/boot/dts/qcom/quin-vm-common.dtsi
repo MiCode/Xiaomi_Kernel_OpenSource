@@ -124,6 +124,11 @@
 			memory-region = <&qseecom_ta_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
+
+		qcom,ion-heap@9 {
+			reg = <9>;
+			qcom,ion-heap-type = "SYSTEM_SECURE";
+		};
 	};
 
 	hab: qcom,hab {
