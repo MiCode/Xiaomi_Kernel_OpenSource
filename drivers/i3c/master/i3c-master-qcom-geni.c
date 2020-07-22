@@ -458,11 +458,11 @@ static void qcom_geni_i3c_conf(struct geni_i3c_dev *gi3c,
 static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
 {
 	if (gi3c->cur_rnw == WRITE_TRANSACTION)
-		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "len:%d, write\n",
-			gi3c->cur_len);
+		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"%s:Error: Write, len:%d\n", __func__, gi3c->cur_len);
 	else
-		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "len:%d, read\n",
-			gi3c->cur_len);
+		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"%s:Error: Read, len:%d\n", __func__, gi3c->cur_len);
 
 	GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "%s\n", gi3c_log[err].msg);
 	gi3c->err = gi3c_log[err].err;
@@ -775,6 +775,8 @@ static int _i3c_geni_execute_command
 					gi3c->se.base, gi3c->cur_buf,
 					len, &rx_dma);
 			if (ret) {
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"DMA Err:%d, FIFO mode enabled\n", ret);
 				xfer->mode = FIFO_MODE;
 				geni_se_select_mode(gi3c->se.base, xfer->mode);
 			}
@@ -793,6 +795,8 @@ static int _i3c_geni_execute_command
 					gi3c->se.base, gi3c->cur_buf,
 					len, &tx_dma);
 			if (ret) {
+				GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+					"DMA Err:%d, FIFO mode enabled\n", ret);
 				xfer->mode = FIFO_MODE;
 				geni_se_select_mode(gi3c->se.base, xfer->mode);
 			}
@@ -1122,6 +1126,10 @@ static int geni_i3c_master_priv_xfers
 				<< SLV_ADDR_SHFT);
 		xfer.m_param |= (use_7e) ? USE_7E : 0;
 
+		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+		"%s: stall:%d,use_7e:%d, nxfers:%d,i:%d,m_param:0x%x,rnw:%d\n",
+		__func__, stall, use_7e, nxfers, i, xfer.m_param, xfers[i].rnw);
+
 		/* Update use_7e status for next loop iteration */
 		use_7e = !stall;
 
@@ -1211,6 +1219,7 @@ static int geni_i3c_master_attach_i2c_dev(struct i2c_dev_desc *dev)
 	if (!data)
 		return -ENOMEM;
 
+	GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "%s\n", __func__);
 	i2c_dev_set_master_data(dev, data);
 
 	return 0;
@@ -1371,6 +1380,8 @@ static bool geni_i3c_master_supports_ccc_cmd
 	const struct i3c_ccc_cmd *cmd
 )
 {
+	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
+
 	switch (cmd->id) {
 	case I3C_CCC_ENEC(true):
 	/* fallthrough */
@@ -1428,6 +1439,8 @@ static bool geni_i3c_master_supports_ccc_cmd
 		break;
 	}
 
+	GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"%s: Unsupported cmnd\n", __func__);
 	return false;
 }
 
