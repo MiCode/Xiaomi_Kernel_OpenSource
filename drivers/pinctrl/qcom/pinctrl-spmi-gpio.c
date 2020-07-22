@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2014, 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/gpio/driver.h>
@@ -1158,6 +1158,7 @@ static const struct of_device_id pmic_gpio_of_match[] = {
 	{ .compatible = "qcom,pm7250b-gpio", .data = (void *) 12 },
 	{ .compatible = "qcom,pm6350-gpio", .data = (void *) 9 },
 	{ .compatible = "qcom,pm6150l-gpio", .data = (void *) 12 },
+	{ .compatible = "qcom,pmx65-gpio", .data = (void *) 16 },
 	{ },
 };
 
