@@ -145,6 +145,22 @@ static int batched_hyp_assign(struct sg_table *table, u32 *source_vmids,
 	return ret;
 }
 
+static inline void set_each_page_of_sg(struct sg_table *table, u64 flag)
+{
+	struct scatterlist *sg;
+	int npages;
+	int i = 0;
+
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		npages = sg->length / PAGE_SIZE;
+		if (sg->length % PAGE_SIZE)
+			npages++;
+		while (npages--)
+			set_page_private(nth_page(sg_page(sg), npages), flag);
+	}
+}
+
+#define SECURE_PAGE_MAGIC 0xEEEEEEEE
 /*
  *  When -EADDRNOTAVAIL is returned the memory may no longer be in
  *  a usable state and should no longer be accessed by the HLOS.
@@ -205,6 +221,19 @@ int hyp_assign_table(struct sg_table *table,
 
 	ret = batched_hyp_assign(table, source_vm_copy, source_vm_copy_size,
 				 dest_vm_copy, dest_vm_copy_size);
+
+	if (!ret) {
+		while (dest_nelems--) {
+			if (dest_vmids[dest_nelems] == VMID_HLOS)
+				break;
+		}
+
+		if (dest_nelems == -1)
+			set_each_page_of_sg(table, SECURE_PAGE_MAGIC);
+		else
+			set_each_page_of_sg(table, 0);
+	}
+
 
 	dma_unmap_single(qcom_secure_buffer_dev, dest_dma_addr,
 			 dest_vm_copy_size, DMA_TO_DEVICE);
