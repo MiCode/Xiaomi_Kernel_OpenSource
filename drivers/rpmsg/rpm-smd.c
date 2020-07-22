@@ -702,6 +702,24 @@ static struct msm_rpm_driver_data msm_rpm_data = {
 	.smd_open = COMPLETION_INITIALIZER(msm_rpm_data.smd_open),
 };
 
+static int trysend_count = 20;
+module_param(trysend_count, int, 0664);
+static int msm_rpm_trysend_smd_buffer(char *buf, uint32_t size)
+{
+	int ret;
+	int count = 0;
+
+	do {
+		ret = rpmsg_trysend(rpm->rpm_channel, buf, size);
+		if (!ret)
+			break;
+		udelay(10);
+		count++;
+	} while (count < trysend_count);
+
+	return ret;
+}
+
 static int msm_rpm_flush_requests(bool print)
 {
 	struct rb_node *t;
@@ -719,7 +737,7 @@ static int msm_rpm_flush_requests(bool print)
 
 		set_msg_id(s->buf, msm_rpm_get_next_msg_id());
 
-		ret = rpmsg_send(rpm->rpm_channel, s->buf, get_buf_len(s->buf));
+		ret = msm_rpm_trysend_smd_buffer(s->buf, get_buf_len(s->buf));
 
 		WARN_ON(ret != 0);
 		trace_rpm_smd_send_sleep_set(get_msg_id(s->buf), type, id);
