@@ -109,9 +109,12 @@ struct a6xx_hwsched_hfi {
 	u32 mem_alloc_entries;
 };
 
+/* Interrupt handler for hfi interrupts */
+irqreturn_t a6xx_hfi_handler(int irq, void *data);
+
 /**
  * a6xx_hwsched_hfi_init - Initialize hfi resources
- * @adreno_dev - Pointer to adreno device structure
+ * @adreno_dev: Pointer to adreno device structure
  *
  * This function is used to initialize hfi resources
  * once before the very first gmu boot
@@ -137,4 +140,15 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev);
  * This function does the hfi cleanup when powering down the gmu
  */
 void a6xx_hwsched_hfi_stop(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hwched_cp_init - Send CP_INIT via HFI
+ * @adreno_dev: Pointer to adreno device structure
+ *
+ * This function is used to send CP INIT packet and bring
+ * GPU out of secure mode using hfi raw packets.
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev);
 #endif

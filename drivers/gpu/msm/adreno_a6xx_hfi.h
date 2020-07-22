@@ -675,4 +675,16 @@ int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
  * Return: 0 on success or negative error on failure
  */
 int a6xx_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev);
+
+/*
+ * a6xx_hfi_send_cmd - Send and wait for a hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ * @queue_idx: Destination queue id
+ * @data: Pointer to hfi packet header and data
+ * @ret_cmd: Container for data needed for waiting for the ack
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev, u32 queue_idx,
+	void *data, struct pending_cmd *ret_cmd);
 #endif

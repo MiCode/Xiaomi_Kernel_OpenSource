@@ -256,6 +256,12 @@ static int a6xx_hwsched_gpu_boot(struct adreno_device *adreno_dev)
 
 	a6xx_enable_gpu_irq(adreno_dev);
 
+	ret = a6xx_hwsched_cp_init(adreno_dev);
+	if (ret) {
+		a6xx_disable_gpu_irq(adreno_dev);
+		goto err;
+	}
+
 	device->reset_counter++;
 err:
 	a6xx_gmu_oob_clear(device, oob_gpu);

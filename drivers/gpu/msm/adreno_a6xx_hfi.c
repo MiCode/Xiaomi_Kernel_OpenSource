@@ -286,8 +286,8 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 	return -ETIMEDOUT;
 }
 
-static int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev,
-	uint32_t queue_idx, void *data, struct pending_cmd *ret_cmd)
+int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev, uint32_t queue_idx,
+		void *data, struct pending_cmd *ret_cmd)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);

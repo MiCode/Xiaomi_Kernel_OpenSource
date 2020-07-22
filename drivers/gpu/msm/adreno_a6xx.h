@@ -183,6 +183,9 @@ struct cpu_gpu_lock {
 #define A6XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 
+/* Size of the CP_INIT pm4 stream in dwords */
+#define A6XX_CP_INIT_DWORDS 12
+
 /**
  * to_a6xx_core - return the a6xx specific GPU core struct
  * @adreno_dev: An Adreno GPU device handle
@@ -275,6 +278,15 @@ u64 a6xx_read_alwayson(struct adreno_device *adreno_dev);
 void a6xx_start(struct adreno_device *adreno_dev);
 
 /**
+ * a6xx_sqe_unhalt - Unhalt the SQE engine
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * Points the hardware to the microcode location in memory and then
+ * unhalts the SQE so that it can fetch instructions from DDR
+ */
+void a6xx_unhalt_sqe(struct adreno_device *adreno_dev);
+
+/**
  * a6xx_init - Initialize a6xx resources
  * @adreno_dev: An Adreno GPU handle
  *
@@ -329,4 +341,13 @@ int a6xx_probe_common(struct platform_device *pdev,
  * Return: True if gpu is idle, otherwise false
  */
 bool a6xx_hw_isidle(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_spin_idle_debug - Debug logging used when gpu fails to idle
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * This function logs interesting registers and triggers a snapshot
+ */
+void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
+	const char *str);
 #endif

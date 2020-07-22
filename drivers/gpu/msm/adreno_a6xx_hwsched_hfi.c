@@ -8,6 +8,7 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
+#include "adreno_pm4types.h"
 #include "kgsl_device.h"
 #include "kgsl_pwrctrl.h"
 #include "kgsl_trace.h"
@@ -454,6 +455,72 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 err:
 	if (ret)
 		a6xx_hwsched_hfi_stop(adreno_dev);
+
+	return ret;
+}
+
+static int submit_raw_cmds(struct adreno_device *adreno_dev, void *cmds,
+	const char *str)
+{
+	struct pending_cmd ret_cmd = {0};
+	int ret;
+
+	ret = a6xx_hfi_send_cmd(adreno_dev, HFI_CMD_ID, cmds, &ret_cmd);
+	if (ret)
+		return ret;
+
+	ret = timed_poll_check(KGSL_DEVICE(adreno_dev),
+			A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, 0, 200, BIT(23));
+	if (ret)
+		a6xx_spin_idle_debug(adreno_dev, str);
+
+	return ret;
+}
+
+static int cp_init(struct adreno_device *adreno_dev)
+{
+	u32 cmds[A6XX_CP_INIT_DWORDS + 1];
+
+	cmds[0] = CMD_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
+			(A6XX_CP_INIT_DWORDS + 1) << 2);
+	memcpy(&cmds[1], adreno_dev->cp_init_cmds, A6XX_CP_INIT_DWORDS << 2);
+
+	return submit_raw_cmds(adreno_dev, cmds,
+			"CP initialization failed to idle\n");
+}
+
+static int send_switch_to_unsecure(struct adreno_device *adreno_dev)
+{
+	u32 cmds[3];
+
+	cmds[0] = CMD_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, sizeof(cmds));
+	cmds[1] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
+	cmds[2] = 0;
+
+	return  submit_raw_cmds(adreno_dev, cmds,
+			"Switch to unsecure failed to idle\n");
+}
+
+int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev)
+{
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	int ret;
+
+	a6xx_unhalt_sqe(adreno_dev);
+
+	ret = cp_init(adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
+	if (ret)
+		return ret;
+
+	if (!adreno_dev->zap_loaded)
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
+			A6XX_RBBM_SECVID_TRUST_CNTL, 0x0);
+	else
+		ret = send_switch_to_unsecure(adreno_dev);
 
 	return ret;
 }
