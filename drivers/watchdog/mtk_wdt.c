@@ -57,6 +57,9 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 static unsigned int timeout;
 
+static int mtk_wdt_start(struct watchdog_device *wdt_dev);
+static int mtk_wdt_stop(struct watchdog_device *wdt_dev);
+
 struct mtk_wdt_dev {
 	struct watchdog_device wdt_dev;
 	void __iomem *wdt_base;
@@ -148,6 +151,19 @@ static int toprgu_register_reset_controller(struct platform_device *pdev,
 	return ret;
 }
 
+static int mtk_wdt_init(struct watchdog_device *wdt_dev)
+{
+	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
+	void __iomem *wdt_base;
+
+	wdt_base = mtk_wdt->wdt_base;
+
+	if (readl(wdt_base + WDT_MODE) & WDT_MODE_EN)
+		mtk_wdt_start(wdt_dev);
+	else
+		mtk_wdt_stop(wdt_dev);
+}
+
 static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 			   unsigned long action, void *data)
 {
@@ -206,6 +222,8 @@ static int mtk_wdt_stop(struct watchdog_device *wdt_dev)
 	reg |= WDT_MODE_KEY;
 	iowrite32(reg, wdt_base + WDT_MODE);
 
+	clear_bit(WDOG_HW_RUNNING, &wdt_dev->status);
+
 	return 0;
 }
 
@@ -221,9 +239,10 @@ static int mtk_wdt_start(struct watchdog_device *wdt_dev)
 		return ret;
 
 	reg = ioread32(wdt_base + WDT_MODE);
-	reg &= ~(WDT_MODE_IRQ_EN | WDT_MODE_DUAL_EN);
 	reg |= (WDT_MODE_EN | WDT_MODE_KEY);
 	iowrite32(reg, wdt_base + WDT_MODE);
+
+	set_bit(WDOG_HW_RUNNING, &wdt_dev->status);
 
 	return 0;
 }
@@ -274,7 +293,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 
 	watchdog_set_drvdata(&mtk_wdt->wdt_dev, mtk_wdt);
 
-	mtk_wdt_stop(&mtk_wdt->wdt_dev);
+	mtk_wdt_init(&mtk_wdt->wdt_dev);
 
 	watchdog_stop_on_reboot(&mtk_wdt->wdt_dev);
 	err = devm_watchdog_register_device(dev, &mtk_wdt->wdt_dev);
