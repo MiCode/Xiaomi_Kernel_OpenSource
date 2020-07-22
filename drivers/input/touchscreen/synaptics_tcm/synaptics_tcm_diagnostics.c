@@ -411,9 +411,6 @@ static void diag_report(void)
 		diag_hcd->state = state;
 		state = PING;
 	}
-
-	if (diag_hcd->pid)
-		send_sig_info(SIGIO, &diag_hcd->sigio, diag_hcd->task);
 }
 
 static int diag_init(struct syna_tcm_hcd *tcm_hcd)
