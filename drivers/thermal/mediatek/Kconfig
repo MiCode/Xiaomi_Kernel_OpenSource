@@ -65,6 +65,15 @@ config MTK_MD_THERMAL_SCG_OFF
 	  throttle cooler for Mediatek platforms.
 	  This feature is only supported for mt6297 or later
 	  modem platforms.
+
+config MTK_MD_THERMAL_DEBUGFS
+	bool "Mediatek modem throttle debugfs driver"
+	depends on DEBUG_FS
+	help
+	  Enable this option if you want to use Mediatek
+	  modem coolers debugfs.
+	  This option should be enabled only for HW power
+	  evaluation purpose.
 endif
 
 endif
