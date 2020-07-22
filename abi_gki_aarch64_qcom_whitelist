@@ -1924,11 +1924,11 @@
   rpmh_write_batch
   rpmsg_create_ept
   rpmsg_destroy_ept
-  rpmsg_get_sigs
+  rpmsg_get_signals
   rpmsg_poll
   rpmsg_register_device
   rpmsg_send
-  rpmsg_set_sigs
+  rpmsg_set_signals
   rpmsg_trysend
   rpmsg_unregister_device
   rtc_class_close

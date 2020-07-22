@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2011 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  * All rights reserved.
  */
 
@@ -61,15 +61,15 @@ struct rpmsg_device {
 };
 
 typedef int (*rpmsg_rx_cb_t)(struct rpmsg_device *, void *, int, void *, u32);
-typedef int (*rpmsg_rx_sig_t)(struct rpmsg_device *, u32, u32);
+typedef int (*rpmsg_rx_sig_t)(struct rpmsg_device *, void *, u32, u32);
 
 /**
  * struct rpmsg_endpoint - binds a local rpmsg address to its user
  * @rpdev: rpmsg channel device
  * @refcount: when this drops to zero, the ept is deallocated
  * @cb: rx callback handler
- * @sig_cb: rx serial signal handler
  * @cb_lock: must be taken before accessing/changing @cb
+ * @sig_cb: rx serial signal handler
  * @addr: local rpmsg address
  * @priv: private data for the driver's use
  *
@@ -91,8 +91,8 @@ struct rpmsg_endpoint {
 	struct rpmsg_device *rpdev;
 	struct kref refcount;
 	rpmsg_rx_cb_t cb;
-	rpmsg_rx_sig_t sig_cb;
 	struct mutex cb_lock;
+	rpmsg_rx_sig_t sig_cb;
 	u32 addr;
 	void *priv;
 
@@ -114,7 +114,8 @@ struct rpmsg_driver {
 	int (*probe)(struct rpmsg_device *dev);
 	void (*remove)(struct rpmsg_device *dev);
 	int (*callback)(struct rpmsg_device *, void *, int, void *, u32);
-	int (*signals)(struct rpmsg_device *rpdev, u32 old, u32 new);
+	int (*signals)(struct rpmsg_device *rpdev,
+		       void *priv, u32 old, u32 new);
 };
 
 #if IS_ENABLED(CONFIG_RPMSG)
@@ -141,8 +142,8 @@ int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
 __poll_t rpmsg_poll(struct rpmsg_endpoint *ept, struct file *filp,
 			poll_table *wait);
 
-int rpmsg_get_sigs(struct rpmsg_endpoint *ept, u32 *lsigs, u32 *rsigs);
-int rpmsg_set_sigs(struct rpmsg_endpoint *ept, u32 sigs);
+int rpmsg_get_signals(struct rpmsg_endpoint *ept);
+int rpmsg_set_signals(struct rpmsg_endpoint *ept, u32 set, u32 clear);
 
 #else
 
@@ -251,8 +252,7 @@ static inline __poll_t rpmsg_poll(struct rpmsg_endpoint *ept,
 	return 0;
 }
 
-static inline int rpmsg_get_sigs(struct rpmsg_endpoint *ept, u32 *lsigs,
-				 u32 *rsigs)
+static inline int rpmsg_get_signals(struct rpmsg_endpoint *ept)
 {
 	/* This shouldn't be possible */
 	WARN_ON(1);
@@ -260,7 +260,8 @@ static inline int rpmsg_get_sigs(struct rpmsg_endpoint *ept, u32 *lsigs,
 	return -ENXIO;
 }
 
-static inline int rpmsg_set_sigs(struct rpmsg_endpoint *ept, u32 sigs)
+static inline int rpmsg_set_signals(struct rpmsg_endpoint *ept,
+				    u32 set, u32 clear)
 {
 	/* This shouldn't be possible */
 	WARN_ON(1);
