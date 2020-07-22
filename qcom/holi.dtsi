@@ -1483,6 +1483,7 @@
 		phy-names = "ufsphy";
 		#reset-cells = <1>;
 		limit-phy-submode = <0>;
+		spm-level = <5>;
 
 		lanes-per-direction = <1>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
@@ -1552,10 +1553,25 @@
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"MAX";
 
+		iommus = <&apps_smmu 0x60 0x0>;
+		qcom,iommu-dma = "bypass";
+
 		reset-gpios = <&tlmm 156 GPIO_ACTIVE_LOW>;
+
 		//resets = <&gcc GCC_UFS_PHY_BCR>;
 		//reset-names = "rst";
+
 		status = "disabled";
+
+		qos0 {
+			mask = <0x3f>;
+			vote = <59>;
+		};
+
+		qos1 {
+			mask = <0xc0>;
+			vote = <65>;
+		};
 	};
 
 	sdhc_1: sdhci@4744000 {
