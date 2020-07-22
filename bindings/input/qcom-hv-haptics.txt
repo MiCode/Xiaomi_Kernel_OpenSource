@@ -100,6 +100,18 @@ Properties:
 		calibration settings. Please refer to nvmem bindings as
 		described in bindings/nvmem/nvmem.txt.
 
+- nvmem-names:
+  Usage:	optional
+  Value type:	<string>
+  Definition:	The nvmem device name of the SDAM module used for haptics
+		configuration. It must be "hap_cfg_sdam".
+
+- nvmem:
+  Usage:	optional
+  Value type:	<phandle>
+  Definition:	Phandle of the nvmem device used for haptics configuration.
+		Please refer to nvmem bindings as described in bindings/nvmem/nvmem.txt.
+
 The following properties are only required when LRA actuator is used:
 
 - qcom,lra-period-us:
@@ -248,6 +260,8 @@ Example:
 		interrupt-names = "fifo-empty";
 		nvmem-cell-names = "hap_cl_brake";
 		nvmem-cells = <&hap_cl_brake>;
+		nvmem-names = "hap_cfg_sdam";
+		nvmem = <&pmk8350_sdam_46>;
 		qcom,vmax-mv = <900>;
 		qcom,brake-mode = <BRAKE_CLOSE_LOOP>;
 		qcom,brake-pattern = /bits/ 8 <0xff 0x3f 0x1f>;
