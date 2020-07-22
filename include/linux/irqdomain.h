@@ -35,8 +35,7 @@
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
-#include <linux/slab.h>
-#include <linux/irq.h>
+#include <linux/android_kabi.h>
 
 struct device_node;
 struct irq_domain;
@@ -178,6 +177,11 @@ struct irq_domain {
 #ifdef CONFIG_GENERIC_IRQ_DEBUGFS
 	struct dentry		*debugfs_file;
 #endif
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 
 	/* reverse map data. The linear map gets appended to the irq_domain */
 	irq_hw_number_t hwirq_max;
@@ -389,37 +393,6 @@ extern unsigned int irq_create_mapping(struct irq_domain *host,
 				       irq_hw_number_t hwirq);
 extern unsigned int irq_create_fwspec_mapping(struct irq_fwspec *fwspec);
 extern void irq_dispose_mapping(unsigned int virq);
-
-/**
-* irq_dispose_all_tree_mappings() - Unmaps all interrupts from a domain
-* @domain: domain owning the interrupt range
-*
-* This routine helps unmap all the interrupts that were mapped to the
-* domain using a radix tree.
-*/
-static inline void irq_dispose_all_tree_mappings(
-					struct irq_domain *domain)
-{
-	struct irq_data **irq_data;
-	unsigned int num_irqs = 0;
-	unsigned int max_irqs = domain->mapcount;
-	unsigned int index = 0;
-
-	if (!max_irqs)
-		return;
-
-	irq_data = kcalloc(max_irqs, sizeof(*irq_data), GFP_KERNEL);
-	if (!irq_data)
-		return;
-
-	rcu_read_lock();
-	num_irqs = radix_tree_gang_lookup(&domain->revmap_tree,
-					(void **)irq_data, 0, max_irqs);
-	rcu_read_unlock();
-	for (index = 0; index < num_irqs; index++)
-		irq_dispose_mapping(irq_data[index]->irq);
-	kfree(irq_data);
-}
 
 /**
  * irq_linear_revmap() - Find a linux irq from a hw irq number.

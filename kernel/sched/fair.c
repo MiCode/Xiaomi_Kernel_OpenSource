@@ -2696,7 +2696,7 @@ static void task_tick_numa(struct rq *rq, struct task_struct *curr)
 	/*
 	 * We don't care about NUMA placement if we don't have memory.
 	 */
-	if (!curr->mm || (curr->flags & PF_EXITING) || work->next != work)
+	if ((curr->flags & (PF_EXITING | PF_KTHREAD)) || work->next != work)
 		return;
 
 	/*
@@ -4097,6 +4097,7 @@ static inline void check_schedstat_required(void)
 #endif
 }
 
+static inline bool cfs_bandwidth_used(void);
 
 /*
  * MIGRATION
@@ -4175,10 +4176,16 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 		__enqueue_entity(cfs_rq, se);
 	se->on_rq = 1;
 
-	if (cfs_rq->nr_running == 1) {
+	/*
+	 * When bandwidth control is enabled, cfs might have been removed
+	 * because of a parent been throttled but cfs->nr_running > 1. Try to
+	 * add it unconditionnally.
+	 */
+	if (cfs_rq->nr_running == 1 || cfs_bandwidth_used())
 		list_add_leaf_cfs_rq(cfs_rq);
+
+	if (cfs_rq->nr_running == 1)
 		check_enqueue_throttle(cfs_rq);
-	}
 }
 
 static void __clear_buddies_last(struct sched_entity *se)
@@ -4759,10 +4766,21 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 			break;
 	}
 
-	assert_list_leaf_cfs_rq(rq);
-
 	if (!se)
 		add_nr_running(rq, task_delta);
+
+	/*
+	 * The cfs_rq_throttled() breaks in the above iteration can result in
+	 * incomplete leaf list maintenance, resulting in triggering the
+	 * assertion below.
+	 */
+	for_each_sched_entity(se) {
+		cfs_rq = cfs_rq_of(se);
+
+		list_add_leaf_cfs_rq(cfs_rq);
+	}
+
+	assert_list_leaf_cfs_rq(rq);
 
 	/* Determine whether we need to wake up potentially idle CPU: */
 	if (rq->curr == rq->idle && rq->cfs.nr_running)
@@ -5094,6 +5112,8 @@ static enum hrtimer_restart sched_cfs_period_timer(struct hrtimer *timer)
 		if (!overrun)
 			break;
 
+		idle = do_sched_cfs_period_timer(cfs_b, overrun, flags);
+
 		if (++count > 3) {
 			u64 new, old = ktime_to_ns(cfs_b->period);
 
@@ -5123,8 +5143,6 @@ static enum hrtimer_restart sched_cfs_period_timer(struct hrtimer *timer)
 			/* reset count so we don't come right back in here */
 			count = 0;
 		}
-
-		idle = do_sched_cfs_period_timer(cfs_b, overrun, flags);
 	}
 	if (idle)
 		cfs_b->period_active = 0;
@@ -5418,32 +5436,38 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cfs_rq = cfs_rq_of(se);
 		enqueue_entity(cfs_rq, se, flags);
 
-		/*
-		 * end evaluation on encountering a throttled cfs_rq
-		 *
-		 * note: in the case of encountering a throttled cfs_rq we will
-		 * post the final h_nr_running increment below.
-		 */
-		if (cfs_rq_throttled(cfs_rq))
-			break;
 		cfs_rq->h_nr_running++;
 		cfs_rq->idle_h_nr_running += idle_h_nr_running;
+
+		/* end evaluation on encountering a throttled cfs_rq */
+		if (cfs_rq_throttled(cfs_rq))
+			goto enqueue_throttle;
 
 		flags = ENQUEUE_WAKEUP;
 	}
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
-		cfs_rq->h_nr_running++;
-		cfs_rq->idle_h_nr_running += idle_h_nr_running;
-
-		if (cfs_rq_throttled(cfs_rq))
-			break;
 
 		update_load_avg(cfs_rq, se, UPDATE_TG);
 		update_cfs_group(se);
+
+		cfs_rq->h_nr_running++;
+		cfs_rq->idle_h_nr_running += idle_h_nr_running;
+
+		/* end evaluation on encountering a throttled cfs_rq */
+		if (cfs_rq_throttled(cfs_rq))
+			goto enqueue_throttle;
+
+               /*
+                * One parent has been throttled and cfs_rq removed from the
+                * list. Add it back to not break the leaf list.
+                */
+               if (throttled_hierarchy(cfs_rq))
+                       list_add_leaf_cfs_rq(cfs_rq);
 	}
 
+enqueue_throttle:
 	if (!se) {
 		add_nr_running(rq, 1);
 #ifdef CONFIG_SCHED_WALT
@@ -5507,16 +5531,12 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cfs_rq = cfs_rq_of(se);
 		dequeue_entity(cfs_rq, se, flags);
 
-		/*
-		 * end evaluation on encountering a throttled cfs_rq
-		 *
-		 * note: in the case of encountering a throttled cfs_rq we will
-		 * post the final h_nr_running decrement below.
-		*/
-		if (cfs_rq_throttled(cfs_rq))
-			break;
 		cfs_rq->h_nr_running--;
 		cfs_rq->idle_h_nr_running -= idle_h_nr_running;
+
+		/* end evaluation on encountering a throttled cfs_rq */
+		if (cfs_rq_throttled(cfs_rq))
+			goto dequeue_throttle;
 
 		/* Don't dequeue parent if it has other entities besides us */
 		if (cfs_rq->load.weight) {
@@ -5535,16 +5555,20 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
-		cfs_rq->h_nr_running--;
-		cfs_rq->idle_h_nr_running -= idle_h_nr_running;
-
-		if (cfs_rq_throttled(cfs_rq))
-			break;
 
 		update_load_avg(cfs_rq, se, UPDATE_TG);
 		update_cfs_group(se);
+
+		cfs_rq->h_nr_running--;
+		cfs_rq->idle_h_nr_running -= idle_h_nr_running;
+
+		/* end evaluation on encountering a throttled cfs_rq */
+		if (cfs_rq_throttled(cfs_rq))
+			goto dequeue_throttle;
+
 	}
 
+dequeue_throttle:
 	if (!se) {
 		sub_nr_running(rq, 1);
 		dec_rq_walt_stats(rq, p);
@@ -6499,7 +6523,6 @@ enum fastpaths {
 	NONE = 0,
 	SYNC_WAKEUP,
 	PREV_CPU_FASTPATH,
-	MANY_WAKEUP,
 };
 
 static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
@@ -6937,7 +6960,6 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int weight, cpu = smp_processor_id(), best_energy_cpu = prev_cpu;
-	struct sched_domain *sd;
 	struct perf_domain *pd;
 	unsigned long cur_energy;
 	cpumask_t *candidates;
@@ -6951,6 +6973,9 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	bool boosted = is_uclamp_boosted || (task_boost > 0);
 	int start_cpu, order_index, end_index;
 
+	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
+			cpumask_test_cpu(prev_cpu, &p->cpus_mask))
+		return prev_cpu;
 
 	if (unlikely(!cpu_array))
 		goto eas_not_ready;
@@ -6980,31 +7005,10 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		goto done;
 	}
 
-	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
-				bias_to_this_cpu(p, prev_cpu, start_cpu)) {
-		best_energy_cpu = prev_cpu;
-		fbt_env.fastpath = MANY_WAKEUP;
-		goto done;
-	}
-
 	rcu_read_lock();
 	pd = rcu_dereference(rd->pd);
 	if (!pd)
 		goto fail;
-
-	/*
-	 * Energy-aware wake-up happens on the lowest sched_domain starting
-	 * from sd_asym_cpucapacity spanning over this_cpu and prev_cpu.
-	 */
-	sd = rcu_dereference(*this_cpu_ptr(&sd_asym_cpucapacity));
-	while (sd && !cpumask_test_cpu(prev_cpu, sched_domain_span(sd)))
-		sd = sd->parent;
-	if (!sd)
-		goto fail;
-
-	sync_entity_load_avg(&p->se);
-	if (!task_util_est(p))
-		goto unlock;
 
 	fbt_env.is_rtg = is_rtg;
 	fbt_env.start_cpu = start_cpu;
@@ -7238,8 +7242,12 @@ fail:
  * preempt must be disabled.
  */
 static int
+#ifdef CONFIG_SCHED_WALT
 select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags,
 		    int sibling_count_hint)
+#else
+select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags)
+#endif
 {
 	struct sched_domain *tmp, *sd = NULL;
 	int cpu = smp_processor_id();
@@ -7249,8 +7257,12 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 
 	if (sched_energy_enabled()) {
 		rcu_read_lock();
+#ifdef CONFIG_SCHED_WALT
 		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync,
 						    sibling_count_hint);
+#else
+		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync, 1);
+#endif
 		if (unlikely(new_cpu < 0))
 			new_cpu = prev_cpu;
 		rcu_read_unlock();
@@ -7261,15 +7273,24 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		record_wakee(p);
 
 		if (sched_energy_enabled()) {
+#ifdef CONFIG_SCHED_WALT
 			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync,
 							    sibling_count_hint);
+#else
+			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync, 1);
+#endif
 			if (new_cpu >= 0)
 				return new_cpu;
 			new_cpu = prev_cpu;
 		}
 
+#ifdef CONFIG_SCHED_WALT
 		want_affine = !wake_wide(p, sibling_count_hint) &&
 			      cpumask_test_cpu(cpu, p->cpus_ptr);
+#else
+		want_affine = !wake_wide(p, 1) &&
+			      cpumask_test_cpu(cpu, p->cpus_ptr);
+#endif
 	}
 
 	rcu_read_lock();
@@ -10734,11 +10755,15 @@ static inline int find_new_ilb(void)
 {
 	int ilb;
 
-	if (sched_energy_enabled())
+	if (static_branch_likely(&sched_asym_cpucapacity))
 		return find_energy_aware_new_ilb();
 
 	for_each_cpu_and(ilb, nohz.idle_cpus_mask,
 			      housekeeping_cpumask(HK_FLAG_MISC)) {
+#ifdef CONFIG_SCHED_WALT
+		if (cpu_isolated(ilb))
+			continue;
+#endif
 		if (idle_cpu(ilb))
 			return ilb;
 	}

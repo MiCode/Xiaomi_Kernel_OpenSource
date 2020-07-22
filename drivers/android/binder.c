@@ -979,6 +979,11 @@ static void binder_wakeup_poll_threads_ilocked(struct binder_proc *proc,
 		thread = rb_entry(n, struct binder_thread, rb_node);
 		if (thread->looper & BINDER_LOOPER_STATE_POLL &&
 		    binder_available_for_proc_work_ilocked(thread)) {
+#ifdef CONFIG_SCHED_WALT
+			if (sync && thread->task && thread->task->signal &&
+				(thread->task->signal->oom_score_adj <= 0))
+				thread->task->wts.low_latency = true;
+#endif
 			if (sync)
 				wake_up_interruptible_sync(&thread->wait);
 			else
@@ -1038,6 +1043,11 @@ static void binder_wakeup_thread_ilocked(struct binder_proc *proc,
 	assert_spin_locked(&proc->inner_lock);
 
 	if (thread) {
+#ifdef CONFIG_SCHED_WALT
+		if (sync && thread->task && thread->task->signal &&
+			(thread->task->signal->oom_score_adj <= 0))
+			thread->task->wts.low_latency = true;
+#endif
 		if (sync)
 			wake_up_interruptible_sync(&thread->wait);
 		else
@@ -3598,6 +3608,12 @@ static void binder_transaction(struct binder_proc *proc,
 		binder_pop_transaction_ilocked(target_thread, in_reply_to);
 		binder_enqueue_thread_work_ilocked(target_thread, &t->work);
 		binder_inner_proc_unlock(target_proc);
+#ifdef CONFIG_SCHED_WALT
+		if (target_thread->task && target_thread->task->signal &&
+			(target_thread->task->signal->oom_score_adj <= 0)) {
+			target_thread->task->wts.low_latency = true;
+		}
+#endif
 		wake_up_interruptible_sync(&target_thread->wait);
 		binder_restore_priority(current, in_reply_to->saved_priority);
 		binder_free_transaction(in_reply_to);
@@ -4690,6 +4706,10 @@ retry:
 		ptr += trsize;
 
 		trace_binder_transaction_received(t);
+#ifdef CONFIG_SCHED_WALT
+		if (current->wts.low_latency)
+			current->wts.low_latency = false;
+#endif
 		binder_stat_br(proc, thread, cmd);
 		binder_debug(BINDER_DEBUG_TRANSACTION,
 			     "%d:%d %s %d %d:%d, cmd %d size %zd-%zd ptr %016llx-%016llx\n",
@@ -4857,8 +4877,15 @@ static struct binder_thread *binder_get_thread(struct binder_proc *proc)
 
 static void binder_free_proc(struct binder_proc *proc)
 {
+	struct binder_device *device;
+
 	BUG_ON(!list_empty(&proc->todo));
 	BUG_ON(!list_empty(&proc->delivered_death));
+	device = container_of(proc->context, struct binder_device, context);
+	if (refcount_dec_and_test(&device->ref)) {
+		kfree(proc->context->name);
+		kfree(device);
+	}
 	binder_alloc_deferred_release(&proc->alloc);
 	put_task_struct(proc->tsk);
 	binder_stats_deleted(BINDER_STAT_PROC);
@@ -5585,7 +5612,6 @@ static int binder_node_release(struct binder_node *node, int refs)
 static void binder_deferred_release(struct binder_proc *proc)
 {
 	struct binder_context *context = proc->context;
-	struct binder_device *device;
 	struct rb_node *n;
 	int threads, nodes, incoming_refs, outgoing_refs, active_transactions;
 
@@ -5602,12 +5628,6 @@ static void binder_deferred_release(struct binder_proc *proc)
 		context->binder_context_mgr_node = NULL;
 	}
 	mutex_unlock(&context->context_mgr_node_lock);
-	device = container_of(proc->context, struct binder_device, context);
-	if (refcount_dec_and_test(&device->ref)) {
-		kfree(context->name);
-		kfree(device);
-	}
-	proc->context = NULL;
 	binder_inner_proc_lock(proc);
 	/*
 	 * Make sure proc stays alive after we

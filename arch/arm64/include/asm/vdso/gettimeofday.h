@@ -8,11 +8,12 @@
 #ifndef __ASSEMBLY__
 
 #include <asm/unistd.h>
-#include <uapi/linux/time.h>
 
 #define __VDSO_USE_SYSCALL		ULLONG_MAX
 
 #define VDSO_HAS_CLOCK_GETRES		1
+
+#define VDSO_HAS_TIME			1
 
 static __always_inline
 int gettimeofday_fallback(struct __kernel_old_timeval *_tv,

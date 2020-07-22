@@ -1602,8 +1602,12 @@ static void yield_task_dl(struct rq *rq)
 static int find_later_rq(struct task_struct *task);
 
 static int
+#ifdef CONFIG_SCHED_WALT
 select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags,
 		  int sibling_count_hint)
+#else
+select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags)
+#endif
 {
 	struct task_struct *curr;
 	struct rq *rq;
@@ -2701,6 +2705,7 @@ void __dl_clear_params(struct task_struct *p)
 	dl_se->dl_bw			= 0;
 	dl_se->dl_density		= 0;
 
+	dl_se->dl_boosted		= 0;
 	dl_se->dl_throttled		= 0;
 	dl_se->dl_yielded		= 0;
 	dl_se->dl_non_contending	= 0;

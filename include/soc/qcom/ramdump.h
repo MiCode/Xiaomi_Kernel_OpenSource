@@ -1,19 +1,34 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2014, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RAMDUMP_HEADER
 #define _RAMDUMP_HEADER
+#include <linux/kernel.h>
+#include <linux/firmware.h>
+#include <linux/devcoredump.h>
+#include <linux/soc/qcom/mdt_loader.h>
 
 struct device;
 
 struct ramdump_segment {
 	char *name;
 	unsigned long address;
-	void *v_address;
+	volatile void __iomem *v_address;
 	unsigned long size;
 };
+
+struct qcom_dump_segment {
+	struct list_head node;
+	dma_addr_t da;
+	void *va;
+	size_t size;
+};
+
+extern int do_elf_dump(struct list_head *segs, struct device *dev);
+extern int do_dump(struct list_head *head, struct device *dev);
+extern int do_fw_elf_dump(struct firmware *fw, struct device *dev);
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 extern void *create_ramdump_device(const char *dev_name, struct device *parent);

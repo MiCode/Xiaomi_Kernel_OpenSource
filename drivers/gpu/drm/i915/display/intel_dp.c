@@ -1292,8 +1292,7 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 	bool is_tc_port = intel_phy_is_tc(i915, phy);
 	i915_reg_t ch_ctl, ch_data[5];
 	u32 aux_clock_divider;
-	enum intel_display_power_domain aux_domain =
-		intel_aux_power_domain(intel_dig_port);
+	enum intel_display_power_domain aux_domain;
 	intel_wakeref_t aux_wakeref;
 	intel_wakeref_t pps_wakeref;
 	int i, ret, recv_bytes;
@@ -1307,6 +1306,8 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 
 	if (is_tc_port)
 		intel_tc_port_lock(intel_dig_port);
+
+	aux_domain = intel_aux_power_domain(intel_dig_port);
 
 	aux_wakeref = intel_display_power_get(i915, aux_domain);
 	pps_wakeref = pps_lock(intel_dp);
@@ -7218,11 +7219,8 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 		intel_connector->get_hw_state = intel_connector_get_hw_state;
 
 	/* init MST on ports that can support it */
-	if (HAS_DP_MST(dev_priv) && !intel_dp_is_edp(intel_dp) &&
-	    (port == PORT_B || port == PORT_C ||
-	     port == PORT_D || port == PORT_F))
-		intel_dp_mst_encoder_init(intel_dig_port,
-					  intel_connector->base.base.id);
+	intel_dp_mst_encoder_init(intel_dig_port,
+				  intel_connector->base.base.id);
 
 	if (!intel_edp_init_connector(intel_dp, intel_connector)) {
 		intel_dp_aux_fini(intel_dp);

@@ -85,7 +85,7 @@ void dsi_set_output_client(struct drm_device *dev)
 
 	mutex_unlock(&dev->mode_config.mutex);
 }
-EXPORT_SYMBOL(dsi_set_output_client);
+EXPORT_SYMBOL_GPL(dsi_set_output_client);
 /************************for the panel attach to dsi*****************************/
 static int dsi_connector_get_modes(struct drm_connector *connector)
 {

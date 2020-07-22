@@ -70,6 +70,30 @@ static void _update_wptr(struct adreno_device *adreno_dev, bool reset_timer)
 	}
 }
 
+static void _power_collapse_set(struct adreno_device *adreno_dev, bool val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (!gmu_core_isenabled(device))
+		return;
+
+	if (val) {
+		if (adreno_is_a660(adreno_dev))
+			gmu_core_regwrite(device,
+				 A6XX_GMU_PWR_COL_PREEMPT_KEEPALIVE, 0x1);
+		else
+			gmu_core_regrmw(device,
+				 A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
+	} else {
+		if (adreno_is_a660(adreno_dev))
+			gmu_core_regwrite(device,
+				 A6XX_GMU_PWR_COL_PREEMPT_KEEPALIVE, 0x0);
+		else
+			gmu_core_regrmw(device,
+				 A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
+	}
+}
+
 static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -287,8 +311,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	 * free when the GPU is already powered on, whereas an OOB requires an
 	 * unconditional handshake with the GMU.
 	 */
-	if (gmu_core_isenabled(device))
-		gmu_core_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x0, 0x2);
+	_power_collapse_set(adreno_dev, true);
 
 	/*
 	 * Fenced writes on this path will make sure the GPU is woken up
@@ -375,7 +398,7 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 err:
 	/* If fenced write fails, take inline snapshot and trigger recovery */
 	if (!in_interrupt()) {
-		gmu_core_snapshot(device);
+		gmu_fault_snapshot(device);
 		adreno_set_gpu_fault(adreno_dev,
 			ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
 	} else {
@@ -384,8 +407,8 @@ err:
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
 	adreno_dispatcher_schedule(device);
 	/* Clear the keep alive */
-	if (gmu_core_isenabled(device))
-		gmu_core_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
+	_power_collapse_set(adreno_dev, false);
+
 }
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
@@ -421,9 +444,7 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 	 * We can now safely clear the preemption keepalive bit, allowing
 	 * power collapse to resume its regular activity.
 	 */
-	if (gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
-		gmu_core_regrmw(KGSL_DEVICE(adreno_dev),
-				A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
+	_power_collapse_set(adreno_dev, false);
 
 	del_timer(&adreno_dev->preempt.timer);
 

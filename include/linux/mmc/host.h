@@ -95,6 +95,9 @@ struct mmc_host_ops {
 			    int err);
 	void	(*pre_req)(struct mmc_host *host, struct mmc_request *req);
 	void	(*request)(struct mmc_host *host, struct mmc_request *req);
+	/* Submit one request to host in atomic context. */
+	int	(*request_atomic)(struct mmc_host *host,
+				  struct mmc_request *req);
 
 	/*
 	 * Avoid calling the next three functions too often or in a "fast
@@ -440,9 +443,11 @@ struct mmc_host {
 #define MMC_CAP2_CQE_DCMD	(1 << 24)	/* CQE can issue a direct command */
 #define MMC_CAP2_AVOID_3_3V	(1 << 25)	/* Host must negotiate down from 3.3V */
 #define MMC_CAP2_MERGE_CAPABLE	(1 << 26)	/* Host can merge a segment over the segment size */
+#define MMC_CAP2_CRYPTO		(1 << 27)	/* Host supports inline encryption */
 #if defined(CONFIG_SDC_QTI)
-#define MMC_CAP2_CLK_SCALE      (1 << 27)       /* Allow dynamic clk scaling */
+#define MMC_CAP2_CLK_SCALE      (1 << 28)       /* Allow dynamic clk scaling */
 #endif
+
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
@@ -534,6 +539,14 @@ struct mmc_host {
 	int			cqe_qdepth;
 	bool			cqe_enabled;
 	bool			cqe_on;
+#ifdef CONFIG_MMC_CRYPTO
+	struct keyslot_manager	*ksm;
+	void *crypto_DO_NOT_USE[7];
+#endif /* CONFIG_MMC_CRYPTO */
+
+	/* Host Software Queue support */
+	bool			hsq_enabled;
+
 #if defined(CONFIG_SDC_QTI)
 	atomic_t active_reqs;
 #endif

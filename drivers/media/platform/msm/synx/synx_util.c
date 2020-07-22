@@ -107,8 +107,9 @@ static void synx_util_destroy_coredata(struct kref *kref)
 
 	if (synx_obj->fence) {
 		/* need to release callback if unsignaled */
-		if (synx_util_get_object_status(synx_obj) ==
-			SYNX_STATE_ACTIVE)
+		if (!synx_util_is_merged_object(synx_obj) &&
+			(synx_util_get_object_status(synx_obj) ==
+			SYNX_STATE_ACTIVE))
 			if (!dma_fence_remove_callback(synx_obj->fence,
 				&synx_obj->fence_cb))
 				/* nothing much but logging the error */

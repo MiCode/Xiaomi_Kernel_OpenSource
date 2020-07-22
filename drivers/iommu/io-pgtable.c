@@ -11,10 +11,12 @@
 #include <linux/io-pgtable.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
+#ifdef CONFIG_IO_PGTABLE_PAGE_ACCOUNTING
 #include <linux/iommu.h>
 #include <linux/debugfs.h>
 #include <linux/atomic.h>
 #include <linux/module.h>
+#endif
 
 static const struct io_pgtable_init_fns *
 io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
@@ -32,8 +34,6 @@ io_pgtable_init_table[IO_PGTABLE_NUM_FMTS] = {
 	[ARM_V8L_FAST] = &io_pgtable_av8l_fast_init_fns,
 #endif
 };
-
-static struct dentry *io_pgtable_top;
 
 struct io_pgtable_ops *alloc_io_pgtable_ops(enum io_pgtable_fmt fmt,
 					    struct io_pgtable_cfg *cfg,
@@ -78,7 +78,41 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops)
 }
 EXPORT_SYMBOL_GPL(free_io_pgtable_ops);
 
+#ifdef CONFIG_IO_PGTABLE_PAGE_ACCOUNTING
+static struct dentry *io_pgtable_top;
 static atomic_t pages_allocated;
+
+static int io_pgtable_init(void)
+{
+	io_pgtable_top = debugfs_create_dir("io-pgtable", iommu_debugfs_dir);
+	if (!io_pgtable_top)
+		return -ENODEV;
+
+	if (!debugfs_create_atomic_t("pages", 0600, io_pgtable_top,
+				     &pages_allocated)) {
+		debugfs_remove_recursive(io_pgtable_top);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+module_init(io_pgtable_init);
+
+static void io_pgtable_exit(void)
+{
+	debugfs_remove_recursive(io_pgtable_top);
+}
+module_exit(io_pgtable_exit);
+
+static void mod_pages_allocated(int nr_pages)
+{
+	atomic_add(nr_pages, &pages_allocated);
+}
+#else
+static void mod_pages_allocated(int nr_pages)
+{
+}
+#endif
 
 void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 				   size_t size, gfp_t gfp_mask)
@@ -92,7 +126,7 @@ void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 		ret = alloc_pages_exact(size, gfp_mask);
 
 	if (likely(ret))
-		atomic_add(1 << get_order(size), &pages_allocated);
+		mod_pages_allocated(1 << get_order(size));
 
 	return ret;
 }
@@ -107,29 +141,5 @@ void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 	else
 		free_pages_exact(virt, size);
 
-	atomic_sub(1 << get_order(size), &pages_allocated);
+	mod_pages_allocated(-(1 << get_order(size)));
 }
-
-static int io_pgtable_init(void)
-{
-	io_pgtable_top = debugfs_create_dir("io-pgtable", iommu_debugfs_top);
-
-	if (!io_pgtable_top)
-		return -ENODEV;
-
-	if (!debugfs_create_atomic_t("pages", 0600,
-				     io_pgtable_top, &pages_allocated)) {
-		debugfs_remove_recursive(io_pgtable_top);
-		return -ENODEV;
-	}
-
-	return 0;
-}
-
-static void io_pgtable_exit(void)
-{
-	debugfs_remove_recursive(io_pgtable_top);
-}
-
-module_init(io_pgtable_init);
-module_exit(io_pgtable_exit);

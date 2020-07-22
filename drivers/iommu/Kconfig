@@ -172,6 +172,15 @@ config IOMMU_DEBUGFS
 	  debug/iommu directory, and then populate a subdirectory with
 	  entries as required.
 
+config IO_PGTABLE_PAGE_ACCOUNTING
+	bool "Export the number of pages allocated for IOMMU pagetables"
+	depends on IOMMU_DEBUGFS && QGKI
+	help
+	  Allows exposure of the number of pages allocated for IOMMU
+	  pagetables through DebugFS. This is particularly useful for
+	  generating stats about the amount of memory consumed by IOMMU
+	  page tables in the system. If unsure, say N here.
+
 config IOMMU_DEFAULT_PASSTHROUGH
 	bool "IOMMU passthrough by default"
 	depends on IOMMU_API
@@ -457,9 +466,9 @@ config QTI_IOMMU_SUPPORT
 config ARM_SMMU
 	tristate "ARM Ltd. System MMU (SMMU) Support"
 	depends on (ARM64 || ARM) && MMU
+	depends on QCOM_SCM || !QCOM_SCM #if QCOM_SCM=m this can't be =y
 	select IOMMU_API
 	select IOMMU_IO_PGTABLE_LPAE
-	select ARM_DMA_USE_IOMMU if ARM
 	help
 	  Support for implementations of the ARM System MMU architecture
 	  versions 1 and 2.

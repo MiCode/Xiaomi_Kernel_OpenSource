@@ -294,15 +294,10 @@ const char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
 	"Movable",
 	"Reclaimable",
-#ifndef CONFIG_CMA_PCP_LISTS
-	"HighAtomic",
 #ifdef CONFIG_CMA
 	"CMA",
 #endif
-#else
-	"CMA",
 	"HighAtomic",
-#endif
 #ifdef CONFIG_MEMORY_ISOLATION
 	"Isolate",
 #endif
@@ -1573,6 +1568,7 @@ void set_zone_contiguous(struct zone *zone)
 		if (!__pageblock_pfn_to_page(block_start_pfn,
 					     block_end_pfn, zone))
 			return;
+		cond_resched();
 	}
 
 	/* We confirm that there is no hole */
@@ -1657,7 +1653,6 @@ static void __init deferred_free_pages(unsigned long pfn,
 		} else if (!(pfn & nr_pgmask)) {
 			deferred_free_range(pfn - nr_free, nr_free);
 			nr_free = 1;
-			touch_nmi_watchdog();
 		} else {
 			nr_free++;
 		}
@@ -1687,7 +1682,6 @@ static unsigned long  __init deferred_init_pages(struct zone *zone,
 			continue;
 		} else if (!page || !(pfn & nr_pgmask)) {
 			page = pfn_to_page(pfn);
-			touch_nmi_watchdog();
 		} else {
 			page++;
 		}
@@ -1810,6 +1804,13 @@ static int __init deferred_init_memmap(void *data)
 	BUG_ON(pgdat->first_deferred_pfn > pgdat_end_pfn(pgdat));
 	pgdat->first_deferred_pfn = ULONG_MAX;
 
+	/*
+	 * Once we unlock here, the zone cannot be grown anymore, thus if an
+	 * interrupt thread must allocate this early in boot, zone must be
+	 * pre-grown prior to start of deferred page initialization.
+	 */
+	pgdat_resize_unlock(pgdat, &flags);
+
 	/* Only the highest zone is deferred so find it */
 	for (zid = 0; zid < MAX_NR_ZONES; zid++) {
 		zone = pgdat->node_zones + zid;
@@ -1827,11 +1828,11 @@ static int __init deferred_init_memmap(void *data)
 	 * that we can avoid introducing any issues with the buddy
 	 * allocator.
 	 */
-	while (spfn < epfn)
+	while (spfn < epfn) {
 		nr_pages += deferred_init_maxorder(&i, zone, &spfn, &epfn);
+		cond_resched();
+	}
 zone_empty:
-	pgdat_resize_unlock(pgdat, &flags);
-
 	/* Sanity check that the next zone really is unpopulated */
 	WARN_ON(++zid < MAX_NR_ZONES && populated_zone(++zone));
 
@@ -1874,17 +1875,6 @@ deferred_grow_zone(struct zone *zone, unsigned int order)
 	pgdat_resize_lock(pgdat, &flags);
 
 	/*
-	 * If deferred pages have been initialized while we were waiting for
-	 * the lock, return true, as the zone was grown.  The caller will retry
-	 * this zone.  We won't return to this function since the caller also
-	 * has this static branch.
-	 */
-	if (!static_branch_unlikely(&deferred_pages)) {
-		pgdat_resize_unlock(pgdat, &flags);
-		return true;
-	}
-
-	/*
 	 * If someone grew this zone while we were waiting for spinlock, return
 	 * true, as there might be enough pages already.
 	 */
@@ -1912,6 +1902,7 @@ deferred_grow_zone(struct zone *zone, unsigned int order)
 		first_deferred_pfn = spfn;
 
 		nr_pages += deferred_init_maxorder(&i, zone, &spfn, &epfn);
+		touch_nmi_watchdog();
 
 		/* We should only stop along section boundaries */
 		if ((first_deferred_pfn ^ spfn) < PAGES_PER_SECTION)
@@ -2395,6 +2386,14 @@ static inline void boost_watermark(struct zone *zone)
 
 	if (!watermark_boost_factor || !boost_eligible(zone))
 		return;
+	/*
+	 * Don't bother in zones that are unlikely to produce results.
+	 * On small machines, including kdump capture kernels running
+	 * in a small area, boosting the watermark can cause an out of
+	 * memory situation immediately.
+	 */
+	if ((pageblock_nr_pages * 4) > zone_managed_pages(zone))
+		return;
 
 	max_boost = mult_frac(zone->_watermark[WMARK_HIGH],
 			watermark_boost_factor, 10000);
@@ -2759,34 +2758,31 @@ __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 retry:
 	page = __rmqueue_smallest(zone, order, migratetype);
 
-	if (unlikely(!page)) {
-#ifndef CONFIG_CMA_DIRECT_UTILIZATION
-		if (migratetype == MIGRATE_MOVABLE)
-			page = __rmqueue_cma_fallback(zone, order);
-#endif
-
-		if (!page && __rmqueue_fallback(zone, order, migratetype,
-								alloc_flags))
-			goto retry;
-	}
+	if (unlikely(!page) && __rmqueue_fallback(zone, order, migratetype,
+						  alloc_flags))
+		goto retry;
 
 	trace_mm_page_alloc_zone_locked(page, order, migratetype);
 	return page;
 }
 
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
-static struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
+#ifdef CONFIG_CMA
+static struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
+				  int migratetype,
+				  unsigned int alloc_flags)
 {
 	struct page *page = 0;
 
-	if (!zone->cma_alloc)
-		page = __rmqueue_cma_fallback(zone, order);
-
+	if (IS_ENABLED(CONFIG_CMA))
+		if (!zone->cma_alloc)
+			page = __rmqueue_cma_fallback(zone, order);
 	trace_mm_page_alloc_zone_locked(page, order, MIGRATE_CMA);
 	return page;
 }
 #else
-static inline struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
+static inline struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
+					 int migratetype,
+					 unsigned int alloc_flags)
 {
 	return NULL;
 }
@@ -2813,7 +2809,8 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 		 * CMA utlization.
 		 */
 		if (is_migrate_cma(migratetype))
-			page = __rmqueue_cma(zone, order);
+			page = __rmqueue_cma(zone, order, migratetype,
+					     alloc_flags);
 		else
 			page = __rmqueue(zone, order, migratetype, alloc_flags);
 
@@ -2864,7 +2861,8 @@ static struct list_head *get_populated_pcp_list(struct zone *zone,
 
 	if (list_empty(list)) {
 		pcp->count += rmqueue_bulk(zone, order,
-				pcp->batch, list, migratetype, alloc_flags);
+				pcp->batch, list,
+				migratetype, alloc_flags);
 
 		if (list_empty(list))
 			list = NULL;
@@ -3300,7 +3298,8 @@ static inline void zone_statistics(struct zone *preferred_zone, struct zone *z)
 /* Remove page from the per-cpu list, caller must protect the list */
 static struct page *__rmqueue_pcplist(struct zone *zone, int migratetype,
 			unsigned int alloc_flags,
-			struct per_cpu_pages *pcp, gfp_t gfp_flags)
+			struct per_cpu_pages *pcp,
+			gfp_t gfp_flags)
 {
 	struct page *page = NULL;
 	struct list_head *list = NULL;
@@ -3391,7 +3390,8 @@ struct page *rmqueue(struct zone *preferred_zone,
 
 		if (!page && migratetype == MIGRATE_MOVABLE &&
 				gfp_flags & __GFP_CMA)
-			page = __rmqueue_cma(zone, order);
+			page = __rmqueue_cma(zone, order, migratetype,
+					     alloc_flags);
 
 		if (!page)
 			page = __rmqueue(zone, order, migratetype, alloc_flags);
@@ -4685,6 +4685,9 @@ retry:
 
 	/* Avoid recursion of direct reclaim */
 	if (current->flags & PF_MEMALLOC)
+		goto nopage;
+
+	if (fatal_signal_pending(current) && !(gfp_mask & __GFP_NOFAIL))
 		goto nopage;
 
 	/* Try direct reclaim and then allocating */
@@ -7657,6 +7660,11 @@ unsigned long free_reserved_area(void *start, void *end, int poison, const char 
 		pr_info("Freeing %s memory: %ldK\n",
 			s, pages << (PAGE_SHIFT - 10));
 
+#ifdef CONFIG_HAVE_MEMBLOCK
+		memblock_dbg("memblock_free: [%#016llx-%#016llx] %pS\n",
+			__pa(start), __pa(end), (void *)_RET_IP_);
+#endif
+
 	return pages;
 }
 EXPORT_SYMBOL_GPL(free_reserved_area);
@@ -8051,6 +8059,22 @@ int watermark_boost_factor_sysctl_handler(struct ctl_table *table, int write,
 	return 0;
 }
 
+#ifdef CONFIG_MULTIPLE_KSWAPD
+int kswapd_threads_sysctl_handler(struct ctl_table *table, int write,
+	void __user *buffer, size_t *length, loff_t *ppos)
+{
+	int rc;
+
+	rc = proc_dointvec_minmax(table, write, buffer, length, ppos);
+	if (rc)
+		return rc;
+
+	if (write)
+		update_kswapd_threads();
+
+	return 0;
+}
+#endif
 int watermark_scale_factor_sysctl_handler(struct ctl_table *table, int write,
 	void __user *buffer, size_t *length, loff_t *ppos)
 {
@@ -8571,7 +8595,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	if (ret < 0)
 		return ret;
 
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
+#ifdef CONFIG_CMA
 	cc.zone->cma_alloc = 1;
 #endif
 	/*
@@ -8655,7 +8679,7 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 done:
 	undo_isolate_page_range(pfn_max_align_down(start),
 				pfn_max_align_up(end), migratetype);
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
+#ifdef CONFIG_CMA
 	cc.zone->cma_alloc = 0;
 #endif
 	return ret;

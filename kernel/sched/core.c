@@ -1251,17 +1251,8 @@ static void uclamp_fork(struct task_struct *p)
 		return;
 
 	for_each_clamp_id(clamp_id) {
-		unsigned int clamp_value = uclamp_none(clamp_id);
-
-		/* By default, RT tasks always get 100% boost */
-		if (sched_feat(SUGOV_RT_MAX_FREQ) &&
-			       unlikely(rt_task(p) &&
-			       clamp_id == UCLAMP_MIN)) {
-
-			clamp_value = uclamp_none(UCLAMP_MAX);
-		}
-
-		uclamp_se_set(&p->uclamp_req[clamp_id], clamp_value, false);
+		uclamp_se_set(&p->uclamp_req[clamp_id],
+			      uclamp_none(clamp_id), false);
 	}
 }
 
@@ -2187,15 +2178,19 @@ out:
  */
 static inline
 int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags,
-		  int sibling_count_hint)
+		  __attribute__((unused))int sibling_count_hint)
 {
 	bool allow_isolated = (p->flags & PF_KTHREAD);
 
 	lockdep_assert_held(&p->pi_lock);
 
 	if (p->nr_cpus_allowed > 1)
+#ifdef CONFIG_SCHED_WALT
 		cpu = p->sched_class->select_task_rq(p, cpu, sd_flags, wake_flags,
 						     sibling_count_hint);
+#else
+		cpu = p->sched_class->select_task_rq(p, cpu, sd_flags, wake_flags);
+#endif
 	else
 		cpu = cpumask_any(p->cpus_ptr);
 
@@ -2489,7 +2484,8 @@ static void ttwu_queue(struct task_struct *p, int cpu, int wake_flags)
 	struct rq_flags rf;
 
 #if defined(CONFIG_SMP)
-	if (sched_feat(TTWU_QUEUE) && !cpus_share_cache(smp_processor_id(), cpu)) {
+	if ((sched_feat(TTWU_QUEUE) && !cpus_share_cache(smp_processor_id(), cpu)) ||
+			walt_want_remote_wakeup()) {
 		sched_clock_cpu(cpu); /* Sync clocks across CPUs */
 		ttwu_queue_remote(p, cpu, wake_flags);
 		return;
@@ -3623,7 +3619,11 @@ void sched_exec(void)
 		return;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+#ifdef CONFIG_SCHED_WALT
 	dest_cpu = p->sched_class->select_task_rq(p, task_cpu(p), SD_BALANCE_EXEC, 0, 1);
+#else
+	dest_cpu = p->sched_class->select_task_rq(p, task_cpu(p), SD_BALANCE_EXEC, 0);
+#endif
 	if (dest_cpu == smp_processor_id())
 		goto unlock;
 
@@ -3825,7 +3825,6 @@ static void sched_tick_remote(struct work_struct *work)
 	if (cpu_is_offline(cpu))
 		goto out_unlock;
 
-	curr = rq->curr;
 	update_rq_clock(rq);
 
 	if (!is_idle_task(curr)) {
@@ -4615,7 +4614,8 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
 	 */
 	if (dl_prio(prio)) {
 		if (!dl_prio(p->normal_prio) ||
-		    (pi_task && dl_entity_preempt(&pi_task->dl, &p->dl))) {
+		    (pi_task && dl_prio(pi_task->prio) &&
+		     dl_entity_preempt(&pi_task->dl, &p->dl))) {
 			p->dl.dl_boosted = 1;
 			queue_flag |= ENQUEUE_REPLENISH;
 		} else
@@ -5650,7 +5650,7 @@ bool is_sched_lib_based_app(pid_t pid)
 	char *libname, *lib_list;
 	struct vm_area_struct *vma;
 	char path_buf[LIB_PATH_LENGTH];
-	char tmp_lib_name[LIB_PATH_LENGTH];
+	char *tmp_lib_name;
 	bool found = false;
 	struct task_struct *p;
 	struct mm_struct *mm;
@@ -5658,11 +5658,16 @@ bool is_sched_lib_based_app(pid_t pid)
 	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
 		return false;
 
+	tmp_lib_name = kmalloc(LIB_PATH_LENGTH, GFP_KERNEL);
+	if (!tmp_lib_name)
+		return false;
+
 	rcu_read_lock();
 
 	p = find_process_by_pid(pid);
 	if (!p) {
 		rcu_read_unlock();
+		kfree(tmp_lib_name);
 		return false;
 	}
 
@@ -5700,6 +5705,7 @@ release_sem:
 	mmput(mm);
 put_task_struct:
 	put_task_struct(p);
+	kfree(tmp_lib_name);
 	return found;
 }
 
@@ -6421,13 +6427,14 @@ void idle_task_exit(void)
 	struct mm_struct *mm = current->active_mm;
 
 	BUG_ON(cpu_online(smp_processor_id()));
+	BUG_ON(current != this_rq()->idle);
 
 	if (mm != &init_mm) {
 		switch_mm(mm, &init_mm, current);
-		current->active_mm = &init_mm;
 		finish_arch_post_lock_switch();
 	}
-	mmdrop(mm);
+
+	/* finish_cpu(), as ran on the BP, will clean up the active_mm state */
 }
 
 /*
@@ -7752,6 +7759,8 @@ static DEFINE_MUTEX(cfs_constraints_mutex);
 
 const u64 max_cfs_quota_period = 1 * NSEC_PER_SEC; /* 1s */
 static const u64 min_cfs_quota_period = 1 * NSEC_PER_MSEC; /* 1ms */
+/* More than 203 days if BW_SHIFT equals 20. */
+static const u64 max_cfs_runtime = MAX_BW * NSEC_PER_USEC;
 
 static int __cfs_schedulable(struct task_group *tg, u64 period, u64 runtime);
 
@@ -7777,6 +7786,12 @@ static int tg_set_cfs_bandwidth(struct task_group *tg, u64 period, u64 quota)
 	 * feasibility.
 	 */
 	if (period > max_cfs_quota_period)
+		return -EINVAL;
+
+	/*
+	 * Bound quota to defend quota against overflow during bandwidth shift.
+	 */
+	if (quota != RUNTIME_INF && quota > max_cfs_runtime)
 		return -EINVAL;
 
 	/*

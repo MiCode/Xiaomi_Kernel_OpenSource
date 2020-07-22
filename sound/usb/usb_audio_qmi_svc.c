@@ -18,6 +18,7 @@
 #include <linux/soc/qcom/qmi.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-noncoherent.h>
 #include <linux/platform_device.h>
 #include <linux/usb/audio-v3.h>
 #include <linux/usb/xhci-sec.h>
@@ -236,7 +237,7 @@ static unsigned long uaudio_get_iova(unsigned long *curr_iova,
 			va = info->start_iova;
 			*curr_iova_size -= size;
 			found = true;
-			uaudio_dbg("exact size :%zu found\n", size);
+			uaudio_dbg("exact size: %zu found\n", size);
 			goto done;
 		} else if (!info->in_use && tmp_size >= info->size) {
 			if (!new_info)
@@ -282,14 +283,14 @@ done:
 	if (!found)
 		uaudio_err("unable to find %zu size iova\n", size);
 	else
-		uaudio_dbg("va:%lu curr_iova:%lu curr_iova_size:%zu\n", va,
-				*curr_iova, *curr_iova_size);
+		uaudio_dbg("va:0x%08lx curr_iova:0x%08lx curr_iova_size:%zu\n",
+				va, *curr_iova, *curr_iova_size);
 
 	return va;
 }
 
-static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
-		size_t size, struct sg_table *sgt)
+static unsigned long uaudio_iommu_map(enum mem_type mtype, bool dma_coherent,
+		phys_addr_t pa, size_t size, struct sg_table *sgt)
 {
 	unsigned long va_sg, va = 0;
 	bool map = true;
@@ -298,6 +299,9 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
 	struct scatterlist *sg;
 	phys_addr_t pa_sg;
 	int prot = IOMMU_READ | IOMMU_WRITE;
+
+	if (dma_coherent)
+		prot |= IOMMU_CACHE;
 
 	switch (mtype) {
 	case MEM_EVENT_RING:
@@ -334,17 +338,14 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
 								prot);
 		if (ret) {
 			uaudio_err("mapping failed ret%d\n", ret);
-			uaudio_err("memtype:%d, pa:%pK iova:%lu sg_len:%zu\n",
+			uaudio_err("type:%d, pa:%pa iova:0x%08lx sg_len:%zu\n",
 				mtype, &pa_sg, va_sg, sg_len);
 			uaudio_iommu_unmap(MEM_XFER_BUF, va, size, total_len);
 			va = 0;
 			goto done;
 		}
-		uaudio_dbg("memtype %d:map pa:%pK to iova:%lu len:%zu\n", mtype,
-				&pa_sg, va_sg, sg_len);
-		/* Invalidate cpu cache for device to access shared memory */
-		dma_sync_single_for_device(uaudio_qdev->dev, va_sg, sg_len,
-							DMA_TO_DEVICE);
+		uaudio_dbg("type:%d map pa:%pa to iova:0x%08lx len:%zu offset:%u\n",
+				mtype, &pa_sg, va_sg, sg_len, sg->offset);
 		va_sg += sg_len;
 		total_len += sg_len;
 	}
@@ -358,18 +359,13 @@ static unsigned long uaudio_iommu_map(enum mem_type mtype, phys_addr_t pa,
 	return va;
 
 skip_sgt_map:
-	uaudio_dbg("memtype:%d map pa:%pK to iova %lu size:%zu\n", mtype, &pa,
+	uaudio_dbg("type:%d map pa:%pa to iova:0x%08lx size:%zu\n", mtype, &pa,
 			va, size);
 
 	ret = iommu_map(uaudio_qdev->domain, va, pa, size, prot);
-	if (ret) {
-		uaudio_err("failed to map pa:%pK iova:%lu memtype:%d ret:%d\n",
+	if (ret)
+		uaudio_err("failed to map pa:%pa iova:0x%lx type:%d ret:%d\n",
 				&pa, va, mtype, ret);
-		goto done;
-	}
-
-	/* Invalidate cpu cache for device to access shared memory */
-	dma_sync_single_for_device(uaudio_qdev->dev, va, size, DMA_TO_DEVICE);
 done:
 	return va;
 }
@@ -443,12 +439,12 @@ static void uaudio_iommu_unmap(enum mem_type mtype, unsigned long va,
 	if (!unmap || !mapped_iova_size)
 		return;
 
-	uaudio_dbg("memtype %d: unmap iova %lu size %zu\n", mtype, va,
+	uaudio_dbg("type %d: unmap iova 0x%08lx size %zu\n", mtype, va,
 			mapped_iova_size);
 
 	umap_size = iommu_unmap(uaudio_qdev->domain, va, mapped_iova_size);
 	if (umap_size != mapped_iova_size)
-		uaudio_err("unmapped size %zu for iova %lu of mapped size %zu\n",
+		uaudio_err("unmapped size %zu for iova 0x%08lx of mapped size %zu\n",
 				umap_size, va, mapped_iova_size);
 }
 
@@ -503,6 +499,7 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	phys_addr_t xhci_pa, xfer_buf_pa, tr_data_pa = 0, tr_sync_pa = 0;
 	dma_addr_t dma;
 	struct sg_table sgt;
+	bool dma_coherent;
 
 	iface = usb_ifnum_to_if(subs->dev, subs->interface);
 	if (!iface) {
@@ -662,16 +659,15 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 skip_sync_ep:
 	resp->interrupter_num = uaudio_qdev->intr_num;
 	resp->interrupter_num_valid = 1;
-
+	resp->controller_num_valid = 0;
 	ret = usb_get_controller_id(subs->dev);
-	if (!ret) {
+	if (ret >= 0) {
 		resp->controller_num = ret;
 		resp->controller_num_valid = 1;
-	} else {
-		resp->controller_num_valid = 0;
 	}
 
-	/*  map xhci data structures PA memory to iova */
+	/* map xhci data structures PA memory to iova */
+	dma_coherent = dev_is_dma_coherent(subs->dev->bus->sysdev);
 
 	/* event ring */
 	ret = xhci_sec_event_ring_setup(subs->dev, resp->interrupter_num);
@@ -688,7 +684,8 @@ skip_sync_ep:
 		goto err;
 	}
 
-	va = uaudio_iommu_map(MEM_EVENT_RING, xhci_pa, PAGE_SIZE, NULL);
+	va = uaudio_iommu_map(MEM_EVENT_RING, dma_coherent, xhci_pa, PAGE_SIZE,
+			NULL);
 	if (!va) {
 		ret = -ENOMEM;
 		goto err;
@@ -709,7 +706,8 @@ skip_sync_ep:
 	resp->speed_info_valid = 1;
 
 	/* data transfer ring */
-	va = uaudio_iommu_map(MEM_XFER_RING, tr_data_pa, PAGE_SIZE, NULL);
+	va = uaudio_iommu_map(MEM_XFER_RING, dma_coherent, tr_data_pa,
+			PAGE_SIZE, NULL);
 	if (!va) {
 		ret = -ENOMEM;
 		goto unmap_er;
@@ -725,7 +723,8 @@ skip_sync_ep:
 		goto skip_sync;
 
 	xhci_pa = resp->xhci_mem_info.tr_sync.pa;
-	va = uaudio_iommu_map(MEM_XFER_RING, tr_sync_pa, PAGE_SIZE, NULL);
+	va = uaudio_iommu_map(MEM_XFER_RING, dma_coherent, tr_sync_pa,
+			PAGE_SIZE, NULL);
 	if (!va) {
 		ret = -ENOMEM;
 		goto unmap_data;
@@ -760,7 +759,8 @@ skip_sync:
 
 	dma_get_sgtable(subs->dev->bus->sysdev, &sgt, xfer_buf, xfer_buf_pa,
 			len);
-	va = uaudio_iommu_map(MEM_XFER_BUF, xfer_buf_pa, len, &sgt);
+	va = uaudio_iommu_map(MEM_XFER_BUF, dma_coherent, xfer_buf_pa, len,
+			&sgt);
 	if (!va) {
 		ret = -ENOMEM;
 		goto unmap_sync;
@@ -1309,10 +1309,18 @@ static struct qmi_ops uaudio_svc_ops_options = {
 	.del_client = uaudio_qmi_svc_disconnect_cb,
 };
 
+static int uaudio_qmi_svc_init(void);
+
 static int uaudio_qmi_plat_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
+
+	if (!uaudio_svc) {
+		ret = uaudio_qmi_svc_init();
+		if (ret)
+			return ret;
+	}
 
 	uaudio_qdev = devm_kzalloc(&pdev->dev, sizeof(struct uaudio_qmi_dev),
 		GFP_KERNEL);
@@ -1465,13 +1473,7 @@ static void uaudio_qmi_svc_exit(void)
 
 static int __init uaudio_qmi_plat_init(void)
 {
-	int ret;
-
-	ret = platform_driver_register(&uaudio_qmi_driver);
-	if (ret)
-		return ret;
-
-	return uaudio_qmi_svc_init();
+	return platform_driver_register(&uaudio_qmi_driver);
 }
 
 static void __exit uaudio_qmi_plat_exit(void)

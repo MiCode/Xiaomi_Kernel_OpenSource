@@ -68,8 +68,6 @@ struct bus_vectors {
  * @bus_bw_set_noc:	Clock plan for DDR path.
  * @cur_bus_bw_idx:	Current index within the bus clock plan.
  * @cur_bus_bw_idx_noc:	Current index within the DDR path clock plan.
- * @num_clk_levels:	Number of valid clock levels in clk_perf_tbl.
- * @clk_perf_tbl:	Table of clock frequency input to Serial Engine clock.
  * @log_ctx:		Logging context to hold the debug information.
  * @vectors:		Structure to store Master End and Slave End IDs for
 			QUPv3 clock and DDR path bus BW request.
@@ -101,8 +99,6 @@ struct geni_se_device {
 	unsigned long *bus_bw_set_noc;
 	int cur_bus_bw_idx;
 	int cur_bus_bw_idx_noc;
-	unsigned int num_clk_levels;
-	unsigned long *clk_perf_tbl;
 	void *log_ctx;
 	struct bus_vectors *vectors;
 	int num_paths;
@@ -1037,11 +1033,12 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 					geni_se_dev->vectors[0].src,
 					geni_se_dev->vectors[0].dst);
 		if (IS_ERR_OR_NULL(geni_se_dev->bus_bw)) {
-			GENI_SE_ERR(geni_se_dev->log_ctx,
-				false, NULL,
-			"%s: Error creating bus client (Core2x)\n",
-								 __func__);
-			return -EFAULT;
+			GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+				"%s: Error Get Path: (Core2x), %ld\n",
+				__func__, PTR_ERR(geni_se_dev->bus_bw));
+
+				return geni_se_dev->bus_bw ?
+				PTR_ERR(geni_se_dev->bus_bw) : -ENOENT;
 		}
 	}
 	rsc->ab = ab;
@@ -1053,12 +1050,15 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 						geni_se_dev->vectors[1].src,
 						geni_se_dev->vectors[1].dst);
 			if (IS_ERR_OR_NULL(geni_se_dev->bus_bw_noc)) {
-				GENI_SE_ERR(geni_se_dev->log_ctx,
-					false, NULL,
-				"%s: Error creating bus client (DDR)\n",
-								 __func__);
+				GENI_SE_ERR(geni_se_dev->log_ctx, false, NULL,
+					"%s: Error Get Path: (DDR), %ld\n",
+					 __func__,
+					PTR_ERR(geni_se_dev->bus_bw_noc));
 				icc_put(geni_se_dev->bus_bw);
-				return -EFAULT;
+				geni_se_dev->bus_bw = NULL;
+
+				return geni_se_dev->bus_bw_noc ?
+				PTR_ERR(geni_se_dev->bus_bw_noc) : -ENOENT;
 			}
 		}
 
@@ -1118,31 +1118,31 @@ int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl)
 	mutex_lock(&geni_se_dev->geni_dev_lock);
 	*tbl = NULL;
 
-	if (geni_se_dev->clk_perf_tbl) {
-		*tbl = geni_se_dev->clk_perf_tbl;
-		ret = geni_se_dev->num_clk_levels;
+	if (rsc->clk_perf_tbl) {
+		*tbl = rsc->clk_perf_tbl;
+		ret = rsc->num_clk_levels;
 		goto exit_se_clk_tbl_get;
 	}
 
-	geni_se_dev->clk_perf_tbl = kzalloc(sizeof(*geni_se_dev->clk_perf_tbl) *
+	rsc->clk_perf_tbl = kzalloc(sizeof(*rsc->clk_perf_tbl) *
 						MAX_CLK_PERF_LEVEL, GFP_KERNEL);
-	if (!geni_se_dev->clk_perf_tbl) {
+	if (!rsc->clk_perf_tbl) {
 		ret = -ENOMEM;
 		goto exit_se_clk_tbl_get;
 	}
 
 	for (i = 0; i < MAX_CLK_PERF_LEVEL; i++) {
-		geni_se_dev->clk_perf_tbl[i] = clk_round_rate(rsc->se_clk,
+		rsc->clk_perf_tbl[i] = clk_round_rate(rsc->se_clk,
 								prev_freq + 1);
-		if (geni_se_dev->clk_perf_tbl[i] == prev_freq) {
-			geni_se_dev->clk_perf_tbl[i] = 0;
+		if (rsc->clk_perf_tbl[i] == prev_freq) {
+			rsc->clk_perf_tbl[i] = 0;
 			break;
 		}
-		prev_freq = geni_se_dev->clk_perf_tbl[i];
+		prev_freq = rsc->clk_perf_tbl[i];
 	}
-	geni_se_dev->num_clk_levels = i;
-	*tbl = geni_se_dev->clk_perf_tbl;
-	ret = geni_se_dev->num_clk_levels;
+	rsc->num_clk_levels = i;
+	*tbl = rsc->clk_perf_tbl;
+	ret = rsc->num_clk_levels;
 exit_se_clk_tbl_get:
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;

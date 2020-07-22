@@ -10,24 +10,6 @@
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 
-static int interconnect_bus_set(struct kgsl_device *device, int level,
-		u32 ab)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	if ((level == pwr->cur_buslevel) && (ab == pwr->cur_ab))
-		return 0;
-
-	pwr->cur_buslevel = level;
-	pwr->cur_ab = ab;
-
-	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
-		kBps_to_icc(pwr->ddr_table[level]));
-
-	trace_kgsl_buslevel(device, pwr->active_pwrlevel, level);
-
-	return 0;
-}
 
 static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 		u32 ib)
@@ -49,7 +31,7 @@ static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 }
 
 
-void kgsl_bus_update(struct kgsl_device *device, bool on)
+int kgsl_bus_update(struct kgsl_device *device, bool on)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	/* FIXME: this might be wrong? */
@@ -59,7 +41,7 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 
 	/* the bus should be ON to update the active frequency */
 	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
-		return;
+		return 0;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
 	 * otherwise request bus level 0, off.
@@ -78,7 +60,7 @@ void kgsl_bus_update(struct kgsl_device *device, bool on)
 	/* buslevel is the IB vote, update the AB */
 	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
 
-	pwr->bus_set(device, buslevel, ab);
+	return device->ftbl->gpu_bus_set(device, buslevel, ab);
 }
 
 static void validate_pwrlevels(struct kgsl_device *device, u32 *ibs,
@@ -127,7 +109,7 @@ u32 *kgsl_bus_get_table(struct platform_device *pdev,
 	if (num <= 0)
 		return ERR_PTR(-EINVAL);
 
-	levels = devm_kcalloc(&pdev->dev, num, sizeof(*levels), GFP_KERNEL);
+	levels = kcalloc(num, sizeof(*levels), GFP_KERNEL);
 	if (!levels)
 		return ERR_PTR(-ENOMEM);
 
@@ -171,15 +153,16 @@ done:
 	pwr->icc_path = of_icc_get(&pdev->dev, NULL);
 	if (IS_ERR(pwr->icc_path) && !gmu_core_scales_bandwidth(device)) {
 		WARN(1, "The CPU has no way to set the GPU bus levels\n");
+
+		kfree(pwr->ddr_table);
 		return PTR_ERR(pwr->icc_path);
 	}
-
-	pwr->bus_set = interconnect_bus_set;
 
 	return 0;
 }
 
 void kgsl_bus_close(struct kgsl_device *device)
 {
+	kfree(device->pwrctrl.ddr_table);
 	icc_put(device->pwrctrl.icc_path);
 }

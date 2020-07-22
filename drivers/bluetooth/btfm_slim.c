@@ -128,9 +128,7 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 			SLIM_PUSH : SLIM_AUTO_ISO;
 	prop.baser = ((rates == 44100) || (rates == 88200)) ?
 			SLIM_RATE_11025HZ : SLIM_RATE_4000HZ;
-	prop.dataf = ((rates == 48000) || (rates == 44100) ||
-		(rates == 88200) || (rates == 96000)) ?
-			SLIM_CH_DATAF_NOT_DEFINED : SLIM_CH_DATAF_LPCM_AUDIO;
+	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 
 	/* for feedback channel, PCM bit should not be set */
 	if (btfm_feedback_ch_setting) {

@@ -46,6 +46,10 @@
 #define SYSMON_CDSP_FEATURE_CAMERA_ACTIVITY_TX	11
 #define SYSMON_CDSP_FEATURE_VERSION_RX		12
 #define SYSMON_CDSP_FEATURE_VTCM_CONFIG		13
+#define SYSMON_CDSP_VTCM_SEND_TX_STATUS     14
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+#define SYSMON_CDSP_VTCM_SEND_TEST_TX_STATUS  15
+#endif
 
 #define SYSMON_CDSP_QOS_FLAG_IGNORE	0
 #define SYSMON_CDSP_QOS_FLAG_ENABLE	1
@@ -60,8 +64,9 @@
 #define SYSMON_CDSP_GLINK_VERSION	0x2
 
 enum {
-	VTCM_PARTITION_SET = 1,
 	VTCM_PARTITION_REMOVE = 0,
+	VTCM_PARTITION_SET = 1,
+	VTCM_PARTITION_TEST = 2,
 };
 
 struct vtcm_partition_info_t {
@@ -135,6 +140,10 @@ struct sysmon_msg {
 		struct sysmon_npu_activity_msg npu_activity;
 		struct sysmon_npu_corner_msg npu_corner;
 		struct sysmon_version_msg version;
+		unsigned int vtcm_rx_status;
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+		unsigned int vtcm_test_rx_status;
+#endif
 	} fs;
 	unsigned int size;
 };
@@ -179,6 +188,9 @@ struct cdsprm {
 	unsigned int			cdsp_version;
 	unsigned int			event;
 	unsigned int			b_vtcm_partitioning;
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+	unsigned int			b_vtcm_test_partitioning;
+#endif
 	unsigned int			b_vtcm_partition_en;
 	struct completion		msg_avail;
 	struct cdsprm_request		msg_queue[CDSPRM_MSG_QUEUE_DEPTH];
@@ -223,6 +235,10 @@ struct cdsprm {
 	int					b_cdsprm_devinit;
 	int					b_hvxrm_devinit;
 	struct dentry			*debugfs_dir;
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+	struct dentry			*debugfs_dir_debug;
+	struct dentry			*debugfs_file_vtcm_test;
+#endif
 	struct dentry			*debugfs_file_priority;
 	struct dentry			*debugfs_file_vtcm;
 	int (*set_l3_freq)(unsigned int freq_khz);
@@ -301,6 +317,35 @@ int cdsprm_compute_core_set_priority(unsigned int priority_idx)
 	return 0;
 }
 EXPORT_SYMBOL(cdsprm_compute_core_set_priority);
+
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+int cdsprm_compute_vtcm_test(unsigned int vtcm_test_data)
+{
+	int result = -EINVAL;
+	struct sysmon_msg_tx_v2 rpmsg_v2;
+
+	if (gcdsprm.rpmsgdev && gcdsprm.cdsp_version > 1) {
+		rpmsg_v2.cdsp_ver_info = SYSMON_CDSP_GLINK_VERSION;
+		rpmsg_v2.feature_id = SYSMON_CDSP_FEATURE_VTCM_CONFIG;
+		rpmsg_v2.fs.vtcm_partition.command = VTCM_PARTITION_TEST;
+		rpmsg_v2.size = sizeof(rpmsg_v2);
+		result = rpmsg_send(gcdsprm.rpmsgdev->ept,
+				&rpmsg_v2,
+				sizeof(rpmsg_v2));
+		gcdsprm.b_vtcm_test_partitioning =
+		rpmsg_v2.fs.vtcm_partition.command;
+		if (result)
+			pr_info("VTCM partition test failed\n");
+		else {
+			pr_info("VTCM partition test command set to %d\n",
+				rpmsg_v2.fs.vtcm_partition.command);
+		}
+	}
+
+	return result;
+
+}
+#endif
 
 int cdsprm_compute_vtcm_set_partition_map(unsigned int b_vtcm_partitioning)
 {
@@ -902,7 +947,30 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 		b_valid = true;
 		dev_dbg(&dev->dev, "Received CDSP version 0x%x\n",
 			gcdsprm.cdsp_version);
-	} else {
+	} else if (msg->feature_id == SYSMON_CDSP_VTCM_SEND_TX_STATUS) {
+		gcdsprm.b_vtcm_partitioning = msg->fs.vtcm_rx_status;
+		if (gcdsprm.b_vtcm_partitioning == 0)
+			gcdsprm.b_vtcm_partitioning = VTCM_PARTITION_SET;
+		else
+			gcdsprm.b_vtcm_partitioning = VTCM_PARTITION_REMOVE;
+		dev_dbg(&dev->dev, "Received CDSP VTCM Tx status %d\n",
+			gcdsprm.b_vtcm_partitioning);
+	}
+
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+	else if (msg->feature_id == SYSMON_CDSP_VTCM_SEND_TEST_TX_STATUS) {
+		gcdsprm.b_vtcm_test_partitioning = msg->fs.vtcm_test_rx_status;
+		if (gcdsprm.b_vtcm_test_partitioning == 0)
+			gcdsprm.b_vtcm_test_partitioning = VTCM_PARTITION_TEST;
+		else
+			gcdsprm.b_vtcm_test_partitioning =
+				VTCM_PARTITION_REMOVE;
+		dev_dbg(&dev->dev, "Received CDSP VTCM test enablement status %d\n",
+			gcdsprm.b_vtcm_test_partitioning);
+	}
+#endif
+
+	else {
 		dev_err(&dev->dev, "Received incorrect msg feature %d\n",
 		msg->feature_id);
 	}
@@ -1027,6 +1095,26 @@ static int cdsprm_compute_prio_write(void *data, u64 val)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+static int cdsprm_vtcm_test_state_read(void *data, u64 *val)
+{
+	*val = gcdsprm.b_vtcm_test_partitioning;
+
+	return 0;
+}
+
+static int cdsprm_vtcm_test_state_write(void *data, u64 val)
+{
+	cdsprm_compute_vtcm_test((unsigned int)val);
+
+	if (gcdsprm.b_vtcm_test_partitioning != VTCM_PARTITION_TEST)
+		return -EINVAL;
+
+	return 0;
+
+}
+#endif
+
 DEFINE_DEBUGFS_ATTRIBUTE(cdsprm_debugfs_fops,
 			cdsprm_compute_prio_read,
 			cdsprm_compute_prio_write,
@@ -1036,6 +1124,13 @@ DEFINE_DEBUGFS_ATTRIBUTE(cdsprmvtcm_debugfs_fops,
 			cdsprm_vtcm_partition_state_read,
 			cdsprm_vtcm_partition_state_write,
 			"%llu\n");
+
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+DEFINE_DEBUGFS_ATTRIBUTE(cdsprmvtcm_test_debugfs_fops,
+			cdsprm_vtcm_test_state_read,
+			cdsprm_vtcm_test_state_write,
+			"%llu\n");
+#endif
 
 static const struct thermal_cooling_device_ops hvx_cooling_ops = {
 	.get_max_state = hvx_get_max_state,
@@ -1107,6 +1202,27 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 	}
 
 	gcdsprm.b_qosinitdone = true;
+
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+	gcdsprm.debugfs_dir_debug
+			 = debugfs_create_dir("vtcm_test", NULL);
+
+		if (!gcdsprm.debugfs_dir_debug) {
+			dev_err(dev,
+			"Failed to find debugfs directory for cdsprm\n");
+		} else {
+			gcdsprm.debugfs_file_vtcm_test =
+				debugfs_create_file("vtcm_partition_test",
+				0644, gcdsprm.debugfs_dir_debug,
+				NULL, &cdsprmvtcm_test_debugfs_fops);
+		}
+		if (!gcdsprm.debugfs_file_vtcm_test) {
+			debugfs_remove_recursive(gcdsprm.debugfs_dir_debug);
+					dev_err(dev,
+					"Failed to create debugfs file\n");
+		}
+#endif
+
 	gcdsprm.b_vtcm_partition_en = of_property_read_bool(dev->of_node,
 				"qcom,vtcm-partition-info");
 
@@ -1482,6 +1598,9 @@ static void __exit cdsprm_exit(void)
 	gcdsprm.debugfs_dir = NULL;
 	gcdsprm.debugfs_file_priority = NULL;
 	gcdsprm.debugfs_file_vtcm = NULL;
+#if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
+	gcdsprm.debugfs_file_vtcm_test = NULL;
+#endif
 	gcdsprm.hvx_tcdev = NULL;
 	gcdsprm.cdsp_tcdev = NULL;
 

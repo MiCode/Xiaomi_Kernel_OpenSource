@@ -447,6 +447,10 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
 	int ret;
 	rx_handler_result_t handle_res;
 
+	/* Packets from dev_loopback_xmit() do not have L2 header, bail out */
+	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+		return RX_HANDLER_PASS;
+
 	port = macvlan_port_get_rcu(skb->dev);
 	if (is_multicast_ether_addr(eth->h_dest)) {
 		unsigned int hash;
@@ -1704,7 +1708,7 @@ static int macvlan_device_event(struct notifier_block *unused,
 						struct macvlan_dev,
 						list);
 
-		if (macvlan_sync_address(vlan->dev, dev->dev_addr))
+		if (vlan && macvlan_sync_address(vlan->dev, dev->dev_addr))
 			return NOTIFY_BAD;
 
 		break;

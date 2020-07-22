@@ -2,3 +2,5 @@
 
 obj-$(CONFIG_QPNP_QG)	+= qpnp-qg.o battery-profile-loader.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o
 obj-$(CONFIG_QPNP_SMB5)	+= step-chg-jeita.o battery.o qpnp-smb5.o smb5-lib.o pmic-voter.o storm-watch.o schgm-flash.o
+obj-$(CONFIG_SMB1398_CHARGER)		+= smb1398-charger.o pmic-voter.o
+obj-$(CONFIG_SMB1355_SLAVE_CHARGER)	+= smb1355-charger.o pmic-voter.o

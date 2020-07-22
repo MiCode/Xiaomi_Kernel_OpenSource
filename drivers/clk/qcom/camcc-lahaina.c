@@ -49,7 +49,7 @@ enum {
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 1750000000, 0 },
 };
 
 static struct pll_vco zonda_5lpe_vco[] = {
@@ -92,8 +92,8 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -180,8 +180,8 @@ static struct clk_alpha_pll cam_cc_pll1 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -216,6 +216,15 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_val = 0x08200920,
 	.config_ctl_hi_val = 0x05008011,
 	.config_ctl_hi1_val = 0x00000000,
+};
+
+static const struct alpha_pll_config cam_cc_pll2_config_sm8350_v2 = {
+	.l = 0x32,
+	.cal_l = 0x32,
+	.alpha = 0x0,
+	.config_ctl_val = 0x08200800,
+	.config_ctl_hi_val = 0x05028011,
+	.config_ctl_hi1_val = 0x08000000,
 };
 
 static struct clk_alpha_pll cam_cc_pll2 = {
@@ -281,8 +290,8 @@ static struct clk_alpha_pll cam_cc_pll3 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -346,8 +355,8 @@ static struct clk_alpha_pll cam_cc_pll4 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -411,8 +420,8 @@ static struct clk_alpha_pll cam_cc_pll5 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -476,8 +485,8 @@ static struct clk_alpha_pll cam_cc_pll6 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -2975,9 +2984,32 @@ static const struct qcom_cc_desc cam_cc_lahaina_desc = {
 
 static const struct of_device_id cam_cc_lahaina_match_table[] = {
 	{ .compatible = "qcom,lahaina-camcc" },
+	{ .compatible = "qcom,lahaina-camcc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_lahaina_match_table);
+
+static void cam_cc_lahaina_fixup_lahainav2(struct regmap *regmap)
+{
+	clk_zonda_5lpe_pll_configure(&cam_cc_pll2, regmap,
+		&cam_cc_pll2_config_sm8350_v2);
+}
+
+static int cam_cc_lahaina_fixup(struct platform_device *pdev,
+	struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,lahaina-camcc-v2"))
+		cam_cc_lahaina_fixup_lahainav2(regmap);
+
+	return 0;
+}
 
 static int cam_cc_lahaina_probe(struct platform_device *pdev)
 {
@@ -3006,6 +3038,10 @@ static int cam_cc_lahaina_probe(struct platform_device *pdev)
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll4, regmap, &cam_cc_pll4_config);
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll5, regmap, &cam_cc_pll5_config);
 	clk_lucid_5lpe_pll_configure(&cam_cc_pll6, regmap, &cam_cc_pll6_config);
+
+	ret = cam_cc_lahaina_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	ret = qcom_cc_really_probe(pdev, &cam_cc_lahaina_desc, regmap);
 	if (ret) {

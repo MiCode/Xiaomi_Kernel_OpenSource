@@ -16,6 +16,7 @@ static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 		.max = 350,
 		.floating = true,
 	},
+	.mod_percent = 100,
 };
 
 /**
@@ -387,6 +388,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 
 		last_status.total_time = stat->total_time;
 		last_status.busy_time = stat->busy_time;
+		last_status.current_frequency = stat->current_frequency;
 
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;

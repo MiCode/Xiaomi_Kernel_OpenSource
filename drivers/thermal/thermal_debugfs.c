@@ -156,7 +156,7 @@ static int parse_threshold(struct thermal_zone_device *tz, char *buf_ptr,
 	if (!trip_buf_end)
 		return -EINVAL;
 
-	temp_buf = strnstr(buf, "trip_threshold", count);
+	temp_buf = strnstr(buf, "set_temp", count);
 	if (!temp_buf)
 		goto eval_device;
 	if (!tz->ops->set_trip_temp)
@@ -166,7 +166,7 @@ static int parse_threshold(struct thermal_zone_device *tz, char *buf_ptr,
 	if (!temp_buf_end)
 		return -EINVAL;
 
-	hyst_buf = strnstr(buf, "trip_threshold_clr", count);
+	hyst_buf = strnstr(buf, "clr_temp", count);
 	if (hyst_buf) {
 		if (!tz->ops->set_trip_hyst)
 			return -EPERM;
@@ -257,7 +257,7 @@ static int parse_delay(struct thermal_zone_device *tz, char *buf,
 			return -EINVAL;
 		tz->polling_delay = delay;
 	} else {
-		if (sscanf(buf, "passive_polling_delay %d", &delay) != 1)
+		if (sscanf(buf, "passive_delay %d", &delay) != 1)
 			return -EINVAL;
 		tz->passive_delay = delay;
 	}
@@ -303,7 +303,7 @@ static int parse_config(struct thermal_zone_device *tz, char *buf_ptr,
 			count = next_buf - curr_buf;
 		else
 			count = buf_end - curr_buf + 1;
-		if (strnstr(curr_buf, "passive_polling_delay", count))
+		if (strnstr(curr_buf, "passive_delay", count))
 			ret = parse_delay(tz, curr_buf, count, false);
 		else if (strnstr(curr_buf, "polling_delay", count))
 			ret = parse_delay(tz, curr_buf, count, true);

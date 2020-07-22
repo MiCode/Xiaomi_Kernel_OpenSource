@@ -443,11 +443,19 @@ int crypto_qti_keyslot_evict(void *priv_data, unsigned int slot)
 }
 EXPORT_SYMBOL(crypto_qti_keyslot_evict);
 
-int crypto_qti_derive_raw_secret(const u8 *wrapped_key,
+int crypto_qti_derive_raw_secret(void *priv_data,
+				 const u8 *wrapped_key,
 				 unsigned int wrapped_key_size, u8 *secret,
 				 unsigned int secret_size)
 {
 	int err = 0;
+	struct crypto_vops_qti_entry *ice_entry;
+
+	ice_entry = (struct crypto_vops_qti_entry *) priv_data;
+	if (!ice_entry) {
+		pr_err("%s: vops ice data is invalid\n", __func__);
+		return -EINVAL;
+	}
 
 	if (wrapped_key_size <= RAW_SECRET_SIZE) {
 		pr_err("%s: Invalid wrapped_key_size: %u\n",
@@ -461,9 +469,9 @@ int crypto_qti_derive_raw_secret(const u8 *wrapped_key,
 		return err;
 	}
 
-	memcpy(secret, wrapped_key, secret_size);
-
-	return err;
+	return crypto_qti_derive_raw_secret_platform(ice_entry,
+				wrapped_key, wrapped_key_size,
+				secret, secret_size);
 }
 EXPORT_SYMBOL(crypto_qti_derive_raw_secret);
 

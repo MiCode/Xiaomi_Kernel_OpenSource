@@ -11,7 +11,7 @@
  */
 
 #include <linux/device.h>
-
+#include <linux/irq.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -27,7 +27,8 @@
 #include <linux/completion.h>
 /*#include <linux/wakelock.h>*/
 #include <linux/pm_wakeup.h>
-
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <linux/of_irq.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
@@ -54,6 +55,24 @@
 #include "fts_lib/ftsTime.h"
 #include "fts_lib/ftsTool.h"
 #include "linux/moduleparam.h"
+
+#if defined(CONFIG_ST_TRUSTED_TOUCH)
+
+#include <linux/atomic.h>
+#include <linux/clk.h>
+#include <linux/pm_runtime.h>
+
+#include <linux/debugfs.h>
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
+#include "linux/haven/hh_irq_lend.h"
+#include "linux/haven/hh_msgq.h"
+#include "linux/haven/hh_mem_notifier.h"
+#include "linux/haven/hh_rm_drv.h"
+#include <linux/sort.h>
+#endif
 
 #define LINK_KOBJ_NAME "tp"
 
@@ -94,6 +113,873 @@ do { \
 
 #if defined(SCRIPTLESS) || defined(DRIVER_TEST)
 static struct class *fts_cmd_class;
+#endif
+
+static void fts_interrupt_disable(struct fts_ts_info *info);
+static void fts_interrupt_enable(struct fts_ts_info *info);
+static irqreturn_t fts_interrupt_handler(int irq, void *handle);
+static int fts_probe_delayed(struct fts_ts_info *info);
+
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+
+static struct hh_acl_desc *fts_vm_get_acl(enum hh_vm_names vm_name)
+{
+	struct hh_acl_desc *acl_desc;
+	hh_vmid_t vmid;
+
+	hh_rm_get_vmid(vm_name, &vmid);
+
+	acl_desc = kzalloc(offsetof(struct hh_acl_desc, acl_entries[1]),
+			GFP_KERNEL);
+	if (!acl_desc)
+		return ERR_PTR(ENOMEM);
+
+	acl_desc->n_acl_entries = 1;
+	acl_desc->acl_entries[0].vmid = vmid;
+	acl_desc->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+
+	return acl_desc;
+}
+
+static struct hh_sgl_desc *fts_vm_get_sgl(struct trusted_touch_vm_info *vm_info)
+{
+	struct hh_sgl_desc *sgl_desc;
+	int i;
+
+	sgl_desc = kzalloc(offsetof(struct hh_sgl_desc,
+			sgl_entries[vm_info->iomem_list_size]), GFP_KERNEL);
+	if (!sgl_desc)
+		return ERR_PTR(ENOMEM);
+
+	sgl_desc->n_sgl_entries = vm_info->iomem_list_size;
+
+	for (i = 0; i < vm_info->iomem_list_size; i++) {
+		sgl_desc->sgl_entries[i].ipa_base = vm_info->iomem_bases[i];
+		sgl_desc->sgl_entries[i].size = vm_info->iomem_sizes[i];
+	}
+
+	return sgl_desc;
+}
+
+static int fts_populate_vm_info(struct fts_ts_info *info)
+{
+	int rc = 0;
+	struct trusted_touch_vm_info *vm_info;
+	struct device_node *np = info->client->dev.of_node;
+	int num_regs, num_sizes = 0;
+
+	vm_info = kzalloc(sizeof(struct trusted_touch_vm_info), GFP_KERNEL);
+	if (!vm_info) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	info->vm_info = vm_info;
+	vm_info->irq_label = HH_IRQ_LABEL_TRUSTED_TOUCH;
+	vm_info->vm_name = HH_TRUSTED_VM;
+	rc = of_property_read_u32(np, "st,trusted-touch-spi-irq",
+			&vm_info->hw_irq);
+	if (rc) {
+		pr_err("Failed to read trusted touch SPI irq:%d\n", rc);
+		goto vm_error;
+	}
+	num_regs = of_property_count_u32_elems(np,
+			"st,trusted-touch-io-bases");
+	if (num_regs < 0) {
+		pr_err("Invalid number of IO regions specified\n");
+		rc = -EINVAL;
+		goto vm_error;
+	}
+
+	num_sizes = of_property_count_u32_elems(np,
+			"st,trusted-touch-io-sizes");
+	if (num_sizes < 0) {
+		pr_err("Invalid number of IO regions specified\n");
+		rc = -EINVAL;
+		goto vm_error;
+	}
+
+	if (num_regs != num_sizes) {
+		pr_err("IO bases and sizes doe not match\n");
+		rc = -EINVAL;
+		goto vm_error;
+	}
+
+	vm_info->iomem_list_size = num_regs;
+
+	vm_info->iomem_bases = kcalloc(num_regs, sizeof(*vm_info->iomem_bases),
+								GFP_KERNEL);
+	if (!vm_info->iomem_bases) {
+		rc = -ENOMEM;
+		goto vm_error;
+	}
+
+	rc = of_property_read_u32_array(np, "st,trusted-touch-io-bases",
+			vm_info->iomem_bases, vm_info->iomem_list_size);
+	if (rc) {
+		pr_err("Failed to read trusted touch io bases:%d\n", rc);
+		goto io_bases_error;
+	}
+
+	vm_info->iomem_sizes = kzalloc(
+			sizeof(*vm_info->iomem_sizes) * num_sizes, GFP_KERNEL);
+	if (!vm_info->iomem_sizes) {
+		rc = -ENOMEM;
+		goto io_bases_error;
+	}
+
+	rc = of_property_read_u32_array(np, "st,trusted-touch-io-sizes",
+			vm_info->iomem_sizes, vm_info->iomem_list_size);
+	if (rc) {
+		pr_err("Failed to read trusted touch io sizes:%d\n", rc);
+		goto io_sizes_error;
+	}
+	return rc;
+
+io_sizes_error:
+	kfree(vm_info->iomem_sizes);
+io_bases_error:
+	kfree(vm_info->iomem_bases);
+vm_error:
+	kfree(vm_info);
+error:
+	return rc;
+}
+
+static void fts_destroy_vm_info(struct fts_ts_info *info)
+{
+	kfree(info->vm_info->iomem_sizes);
+	kfree(info->vm_info->iomem_bases);
+	kfree(info->vm_info);
+}
+
+static void fts_vm_deinit(struct fts_ts_info *info)
+{
+	if (info->vm_info->mem_cookie)
+		hh_mem_notifier_unregister(info->vm_info->mem_cookie);
+	fts_destroy_vm_info(info);
+}
+
+#ifdef CONFIG_ARCH_QTI_VM
+static int fts_vm_mem_release(struct fts_ts_info *info);
+static void fts_trusted_touch_vm_mode_disable(struct fts_ts_info *info);
+
+static int fts_sgl_cmp(const void *a, const void *b)
+{
+	struct hh_sgl_entry *left = (struct hh_sgl_entry *)a;
+	struct hh_sgl_entry *right = (struct hh_sgl_entry *)b;
+
+	return (left->ipa_base - right->ipa_base);
+}
+
+static int fts_vm_compare_sgl_desc(struct hh_sgl_desc *expected,
+		struct hh_sgl_desc *received)
+{
+	int idx;
+
+	if (expected->n_sgl_entries != received->n_sgl_entries)
+		return -E2BIG;
+	sort(received->sgl_entries, received->n_sgl_entries,
+			sizeof(received->sgl_entries[0]), fts_sgl_cmp, NULL);
+	sort(expected->sgl_entries, expected->n_sgl_entries,
+			sizeof(expected->sgl_entries[0]), fts_sgl_cmp, NULL);
+
+	for (idx = 0; idx < expected->n_sgl_entries; idx++) {
+		struct hh_sgl_entry *left = &expected->sgl_entries[idx];
+		struct hh_sgl_entry *right = &received->sgl_entries[idx];
+
+		if ((left->ipa_base != right->ipa_base) ||
+				(left->size != right->size)) {
+			pr_err("sgl mismatch: left_base:%d right base:%d left size:%d right size:%d\n",
+					left->ipa_base, right->ipa_base,
+					left->size, right->size);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+static int fts_vm_handle_vm_hardware(struct fts_ts_info *info)
+{
+	int rc = 0;
+
+	if (atomic_read(&info->delayed_vm_probe_pending)) {
+		rc = fts_probe_delayed(info);
+		if (rc) {
+			pr_err(" Delayed probe failure on VM!\n");
+			return rc;
+		}
+		atomic_set(&info->delayed_vm_probe_pending, 0);
+		return rc;
+	}
+
+	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
+			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
+	fts_interrupt_enable(info);
+	return rc;
+}
+
+static void fts_vm_irq_on_lend_callback(void *data, enum hh_irq_label label)
+{
+	struct fts_ts_info *info = data;
+	struct irq_data *irq_data;
+	int irq = 0;
+	int const resource_timeout = msecs_to_jiffies(2000);
+	int rc = 0;
+
+	irq = hh_irq_accept(info->vm_info->irq_label, -1, IRQ_TYPE_LEVEL_HIGH);
+	if (irq < 0) {
+		pr_err("failed to accept irq\n");
+		goto irq_fail;
+	}
+	atomic_set(&info->vm_info->tvm_owns_irq, 1);
+	irq_data = irq_get_irq_data(irq);
+	if (!irq_data) {
+		pr_err("Invalid irq data for trusted touch\n");
+		goto irq_fail;
+	}
+	if (!irq_data->hwirq) {
+		pr_err("Invalid irq in irq data\n");
+		goto irq_fail;
+	}
+	if (irq_data->hwirq != info->vm_info->hw_irq) {
+		pr_err("Invalid irq lent\n");
+		goto irq_fail;
+	}
+
+	pr_debug("irq:returned from accept:%d\n", irq);
+	info->client->irq = irq;
+	if (!wait_for_completion_timeout(&info->resource_checkpoint,
+				resource_timeout)) {
+		pr_err("Resources not acquired in TVM\n");
+		goto irq_fail;
+	}
+
+	rc = fts_vm_handle_vm_hardware(info);
+	if (rc) {
+		pr_err(" Delayed probe failure on VM!\n");
+		goto irq_fail;
+	}
+
+	atomic_set(&info->trusted_touch_enabled, 1);
+	return;
+irq_fail:
+	fts_trusted_touch_vm_mode_disable(info);
+}
+
+static void fts_vm_mem_on_lend_handler(enum hh_mem_notifier_tag tag,
+		unsigned long notif_type, void *entry_data, void *notif_msg)
+{
+	struct hh_rm_notif_mem_shared_payload *payload;
+	struct hh_sgl_desc *sgl_desc, *expected_sgl_desc;
+	struct hh_acl_desc *acl_desc;
+	struct trusted_touch_vm_info *vm_info;
+	struct fts_ts_info *info;
+	int rc = 0;
+
+	if (notif_type != HH_RM_NOTIF_MEM_SHARED ||
+			tag != HH_MEM_NOTIFIER_TAG_TOUCH) {
+		pr_err("Invalid command passed from rm\n");
+		return;
+	}
+
+	if (!entry_data || !notif_msg) {
+		pr_err("Invalid entry data passed from rm\n");
+		return;
+	}
+
+	info = (struct fts_ts_info *)entry_data;
+	vm_info = info->vm_info;
+	if (!vm_info) {
+		pr_err("Invalid vm_info\n");
+		return;
+	}
+
+	payload = (struct hh_rm_notif_mem_shared_payload  *)notif_msg;
+	if (payload->trans_type != HH_RM_TRANS_TYPE_LEND ||
+			payload->label != TRUSTED_TOUCH_MEM_LABEL) {
+		pr_err("Invalid label or transaction type\n");
+		goto onlend_fail;
+	}
+
+	acl_desc = fts_vm_get_acl(HH_TRUSTED_VM);
+	if (IS_ERR(acl_desc)) {
+		pr_err("failed to populated acl data:rc=%d\n",
+				PTR_ERR(acl_desc));
+		goto onlend_fail;
+	}
+
+	sgl_desc = hh_rm_mem_accept(payload->mem_handle, HH_RM_MEM_TYPE_IO,
+			HH_RM_TRANS_TYPE_LEND,
+			HH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
+			HH_RM_MEM_ACCEPT_VALIDATE_LABEL |
+			HH_RM_MEM_ACCEPT_DONE,  payload->label, acl_desc,
+			NULL, NULL, 0);
+	if (IS_ERR_OR_NULL(sgl_desc)) {
+		pr_err("failed to do mem accept :rc=%d\n",
+				PTR_ERR(sgl_desc));
+		goto acl_fail;
+	}
+	atomic_set(&vm_info->tvm_owns_iomem, 1);
+
+	/* Initiate i2c session on tvm */
+	rc = pm_runtime_get_sync(info->client->adapter->dev.parent);
+	if (rc < 0) {
+		pr_err("failed to get sync rc:%d\n", rc);
+		(void)fts_vm_mem_release(info);
+		atomic_set(&info->vm_info->tvm_owns_iomem, 0);
+		goto acl_fail;
+	}
+	complete(&info->resource_checkpoint);
+
+	expected_sgl_desc = fts_vm_get_sgl(vm_info);
+	if (fts_vm_compare_sgl_desc(expected_sgl_desc, sgl_desc)) {
+		pr_err("IO sg list does not match\n");
+		goto sgl_cmp_fail;
+	}
+
+	vm_info->vm_mem_handle = payload->mem_handle;
+	kfree(expected_sgl_desc);
+	kfree(acl_desc);
+	return;
+
+sgl_cmp_fail:
+	kfree(expected_sgl_desc);
+acl_fail:
+	kfree(acl_desc);
+onlend_fail:
+	fts_trusted_touch_vm_mode_disable(info);
+}
+
+static int fts_vm_mem_release(struct fts_ts_info *info)
+{
+	int rc = 0;
+
+	rc = hh_rm_mem_release(info->vm_info->vm_mem_handle, 0);
+	if (rc)
+		pr_err("VM mem release failed: rc=%d\n", rc);
+
+	rc = hh_rm_mem_notify(info->vm_info->vm_mem_handle,
+				HH_RM_MEM_NOTIFY_OWNER,
+				HH_MEM_NOTIFIER_TAG_TOUCH, 0);
+	if (rc)
+		pr_err("Failed to notify mem release to PVM: rc=%d\n");
+
+	info->vm_info->vm_mem_handle = 0;
+	return rc;
+}
+
+static void fts_trusted_touch_vm_mode_disable(struct fts_ts_info *info)
+{
+	int rc = 0;
+
+
+	if (atomic_read(&info->vm_info->tvm_owns_iomem) &&
+			atomic_read(&info->vm_info->tvm_owns_irq))
+		fts_interrupt_disable(info);
+
+	if (atomic_read(&info->vm_info->tvm_owns_iomem)) {
+		flushFIFO();
+		release_all_touches(info);
+		rc = fts_vm_mem_release(info);
+		if (rc)
+			pr_err("Failed to release mem rc:%d\n", rc);
+		else
+			atomic_set(&info->vm_info->tvm_owns_iomem, 0);
+		pm_runtime_put_sync(info->client->adapter->dev.parent);
+	}
+
+	if (atomic_read(&info->vm_info->tvm_owns_irq)) {
+		rc = hh_irq_release(info->vm_info->irq_label);
+		if (rc)
+			pr_err("Failed to release irq rc:%d\n", rc);
+		else
+			atomic_set(&info->vm_info->tvm_owns_irq, 0);
+	}
+	atomic_set(&info->trusted_touch_enabled, 0);
+	reinit_completion(&info->resource_checkpoint);
+	pr_debug("trusted touch disabled\n");
+}
+
+static int fts_handle_trusted_touch_tvm(struct fts_ts_info *info, int value)
+{
+	int err = 0;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&info->trusted_touch_enabled) == 0) {
+			pr_err("Trusted touch is already disabled\n");
+			break;
+		}
+		if (atomic_read(&info->trusted_touch_mode) ==
+				TRUSTED_TOUCH_VM_MODE) {
+			fts_trusted_touch_vm_mode_disable(info);
+		} else {
+			pr_err("Unsupported trusted touch mode\n");
+		}
+		break;
+
+	case 1:
+		if (atomic_read(&info->trusted_touch_enabled)) {
+			pr_err("Trusted touch usecase underway\n");
+			err = -EBUSY;
+			break;
+		}
+		if (atomic_read(&info->trusted_touch_mode) ==
+				TRUSTED_TOUCH_VM_MODE) {
+			pr_err("Cannot turnon trusted touch(vm mode) in VM\n");
+		} else {
+			pr_err("Unsupported trusted touch mode\n");
+		}
+		break;
+
+	default:
+		dev_err(&info->client->dev, "unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
+#else
+
+static int fts_clk_prepare_enable(struct fts_ts_info *info)
+{
+	int ret;
+
+	ret = clk_prepare_enable(info->iface_clk);
+	if (ret) {
+		dev_err(&info->client->dev,
+			"error on clk_prepare_enable(iface_clk):%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(info->core_clk);
+	if (ret) {
+		clk_disable_unprepare(info->iface_clk);
+		dev_err(&info->client->dev,
+			"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static void fts_clk_disable_unprepare(struct fts_ts_info *info)
+{
+	clk_disable_unprepare(info->core_clk);
+	clk_disable_unprepare(info->iface_clk);
+}
+
+static int fts_bus_get(struct fts_ts_info *info)
+{
+	int rc = 0;
+
+	mutex_lock(&info->fts_clk_io_ctrl_mutex);
+	rc = pm_runtime_get_sync(info->client->adapter->dev.parent);
+	if (rc >= 0 &&  info->core_clk != NULL && info->iface_clk != NULL) {
+		rc = fts_clk_prepare_enable(info);
+		if (rc)
+			pm_runtime_put_sync(info->client->adapter->dev.parent);
+	}
+	mutex_unlock(&info->fts_clk_io_ctrl_mutex);
+	return rc;
+}
+
+static void fts_bus_put(struct fts_ts_info *info)
+{
+	mutex_lock(&info->fts_clk_io_ctrl_mutex);
+	if (info->core_clk != NULL && info->iface_clk != NULL)
+		fts_clk_disable_unprepare(info);
+	pm_runtime_put_sync(info->client->adapter->dev.parent);
+	mutex_unlock(&info->fts_clk_io_ctrl_mutex);
+}
+
+static struct hh_notify_vmid_desc *fts_vm_get_vmid(hh_vmid_t vmid)
+{
+	struct hh_notify_vmid_desc *vmid_desc;
+
+	vmid_desc = kzalloc(offsetof(struct hh_notify_vmid_desc,
+				vmid_entries[1]), GFP_KERNEL);
+	if (!vmid_desc)
+		return ERR_PTR(ENOMEM);
+
+	vmid_desc->n_vmid_entries = 1;
+	vmid_desc->vmid_entries[0].vmid = vmid;
+	return vmid_desc;
+}
+
+static void fts_trusted_touch_complete(struct fts_ts_info *info)
+{
+	if (atomic_read(&info->vm_info->pvm_owns_iomem) &&
+			atomic_read(&info->vm_info->pvm_owns_irq)) {
+		fts_interrupt_enable(info);
+		fts_bus_put(info);
+		complete(&info->trusted_touch_powerdown);
+		atomic_set(&info->trusted_touch_enabled, 0);
+		pr_debug("reenabled interrupts on PVM\n");
+	} else {
+		pr_err("PVM does not own irq and IOMEM\n");
+	}
+}
+
+static void fts_vm_irq_on_release_callback(void *data, enum hh_irq_label label)
+{
+	struct fts_ts_info *info = data;
+	int rc = 0;
+
+	rc = hh_irq_reclaim(info->vm_info->irq_label);
+	if (rc)
+		pr_err("failed to reclaim irq on pvm rc:%d\n", rc);
+	else
+		atomic_set(&info->vm_info->pvm_owns_irq, 1);
+}
+
+static void fts_vm_mem_on_release_handler(enum hh_mem_notifier_tag tag,
+		unsigned long notif_type, void *entry_data, void *notif_msg)
+{
+	struct hh_rm_notif_mem_released_payload *payload;
+	struct trusted_touch_vm_info *vm_info;
+	struct fts_ts_info *info;
+	int rc = 0;
+
+	if (notif_type != HH_RM_NOTIF_MEM_RELEASED ||
+			tag != HH_MEM_NOTIFIER_TAG_TOUCH) {
+		pr_err(" Invalid tag or command passed\n");
+		return;
+	}
+
+	if (!entry_data || !notif_msg) {
+		pr_err(" Invalid data or notification message\n");
+		return;
+	}
+
+	payload = (struct hh_rm_notif_mem_released_payload  *)notif_msg;
+	info = (struct fts_ts_info *)entry_data;
+	vm_info = info->vm_info;
+	if (!vm_info) {
+		pr_err(" Invalid vm_info\n");
+		return;
+	}
+
+	if (payload->mem_handle != vm_info->vm_mem_handle) {
+		pr_err("Invalid mem handle detected\n");
+		return;
+	}
+
+	rc = hh_rm_mem_reclaim(payload->mem_handle, 0);
+	if (rc) {
+		pr_err("Trusted touch VM mem release failed rc:%d\n", rc);
+		return;
+	}
+	atomic_set(&vm_info->pvm_owns_iomem, 1);
+	vm_info->vm_mem_handle = 0;
+}
+
+static int fts_vm_mem_lend(struct fts_ts_info *info)
+{
+	struct hh_acl_desc *acl_desc;
+	struct hh_sgl_desc *sgl_desc;
+	struct hh_notify_vmid_desc *vmid_desc;
+	hh_memparcel_handle_t mem_handle;
+	hh_vmid_t trusted_vmid;
+	int rc = 0;
+
+	acl_desc = fts_vm_get_acl(HH_TRUSTED_VM);
+	if (IS_ERR(acl_desc)) {
+		pr_err("Failed to get acl of IO memories for Trusted touch\n");
+		PTR_ERR(acl_desc);
+		return -EINVAL;
+	}
+
+	sgl_desc = fts_vm_get_sgl(info->vm_info);
+	if (IS_ERR(sgl_desc)) {
+		pr_err("Failed to get sgl of IO memories for Trusted touch\n");
+		PTR_ERR(sgl_desc);
+		rc = -EINVAL;
+		goto sgl_error;
+	}
+
+	rc = hh_rm_mem_lend(HH_RM_MEM_TYPE_IO, 0, TRUSTED_TOUCH_MEM_LABEL,
+			acl_desc, sgl_desc, NULL, &mem_handle);
+	if (rc) {
+		pr_err("Failed to lend IO memories for Trusted touch rc:%d\n",
+							rc);
+		goto error;
+	}
+
+	hh_rm_get_vmid(HH_TRUSTED_VM, &trusted_vmid);
+
+	vmid_desc = fts_vm_get_vmid(trusted_vmid);
+
+	rc = hh_rm_mem_notify(mem_handle, HH_RM_MEM_NOTIFY_RECIPIENT,
+			HH_MEM_NOTIFIER_TAG_TOUCH, vmid_desc);
+	if (rc) {
+		pr_err("Failed to notify mem lend to hypervisor rc:%d\n", rc);
+		goto vmid_error;
+	}
+
+	info->vm_info->vm_mem_handle = mem_handle;
+vmid_error:
+	kfree(vmid_desc);
+error:
+	kfree(sgl_desc);
+sgl_error:
+	kfree(acl_desc);
+
+	return rc;
+}
+
+static int fts_trusted_touch_vm_mode_enable(struct fts_ts_info *info)
+{
+	int rc = 0;
+	struct trusted_touch_vm_info *vm_info = info->vm_info;
+
+	/* i2c session start and resource acquire */
+	if (fts_bus_get(info) < 0) {
+		dev_err(&info->client->dev, "fts_bus_get failed\n");
+		rc = -EIO;
+		return rc;
+	}
+
+	/* flush pending interurpts from FIFO */
+	fts_interrupt_disable(info);
+	flushFIFO();
+	release_all_touches(info);
+
+	rc = fts_vm_mem_lend(info);
+	if (rc) {
+		pr_err("Failed to lend memory\n");
+		return -EINVAL;
+	}
+	atomic_set(&vm_info->pvm_owns_iomem, 0);
+
+	rc = hh_irq_lend(vm_info->irq_label, vm_info->vm_name,
+		info->client->irq, &fts_vm_irq_on_release_callback, info);
+	if (rc) {
+		pr_err("Failed to lend irq\n");
+		return -EINVAL;
+	}
+	atomic_set(&vm_info->pvm_owns_irq, 0);
+
+	reinit_completion(&info->trusted_touch_powerdown);
+	atomic_set(&info->trusted_touch_enabled, 1);
+	pr_debug("trusted touch enabled\n");
+	return rc;
+}
+
+static int fts_handle_trusted_touch_pvm(struct fts_ts_info *info, int value)
+{
+	int err = 0;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&info->trusted_touch_enabled) == 0) {
+			pr_err("Trusted touch is already disabled\n");
+			break;
+		}
+		if (atomic_read(&info->trusted_touch_mode) ==
+				TRUSTED_TOUCH_VM_MODE) {
+			fts_trusted_touch_complete(info);
+		} else {
+			pr_err("Unsupported trusted touch mode\n");
+		}
+		break;
+
+	case 1:
+		if (atomic_read(&info->trusted_touch_enabled)) {
+			pr_err("Trusted touch usecase underway\n");
+			err = -EBUSY;
+			break;
+		}
+		if (atomic_read(&info->trusted_touch_mode) ==
+				TRUSTED_TOUCH_VM_MODE) {
+			err = fts_trusted_touch_vm_mode_enable(info);
+		} else {
+			pr_err("Unsupported trusted touch mode\n");
+		}
+		break;
+
+	default:
+		dev_err(&info->client->dev, "unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+	return err;
+}
+#endif
+
+static int fts_vm_init(struct fts_ts_info *info)
+{
+	int rc = 0;
+	struct trusted_touch_vm_info *vm_info;
+	void *mem_cookie;
+
+	rc = fts_populate_vm_info(info);
+	if (rc) {
+		pr_err("Cannot setup vm pipeline\n");
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	vm_info = info->vm_info;
+#ifdef CONFIG_ARCH_QTI_VM
+	mem_cookie = hh_mem_notifier_register(HH_MEM_NOTIFIER_TAG_TOUCH,
+			fts_vm_mem_on_lend_handler, info);
+	if (!mem_cookie) {
+		pr_err("Failed to register on lend mem notifier\n");
+		rc = -EINVAL;
+		goto init_fail;
+	}
+	vm_info->mem_cookie = mem_cookie;
+	rc = hh_irq_wait_for_lend(vm_info->irq_label, HH_PRIMARY_VM,
+			&fts_vm_irq_on_lend_callback, info);
+	atomic_set(&vm_info->tvm_owns_irq, 0);
+	atomic_set(&vm_info->tvm_owns_iomem, 0);
+	init_completion(&info->resource_checkpoint);
+#else
+	mem_cookie = hh_mem_notifier_register(HH_MEM_NOTIFIER_TAG_TOUCH,
+			fts_vm_mem_on_release_handler, info);
+	if (!mem_cookie) {
+		pr_err("Failed to register on release mem notifier\n");
+		rc = -EINVAL;
+		goto init_fail;
+	}
+	vm_info->mem_cookie = mem_cookie;
+	atomic_set(&vm_info->pvm_owns_irq, 1);
+	atomic_set(&vm_info->pvm_owns_iomem, 1);
+#endif
+	return rc;
+init_fail:
+	fts_vm_deinit(info);
+fail:
+	return rc;
+}
+
+static void fts_dt_parse_trusted_touch_info(struct fts_ts_info *info)
+{
+	struct device_node *np = info->client->dev.of_node;
+	int rc = 0;
+	const char *selection;
+	const char *environment;
+
+	rc = of_property_read_string(np, "st,trusted-touch-mode",
+								&selection);
+	if (rc) {
+		dev_warn(&info->client->dev,
+			"%s: No trusted touch mode selection made\n", __func__);
+	}
+
+	if (!strcmp(selection, "vm_mode")) {
+		atomic_set(&info->trusted_touch_mode, TRUSTED_TOUCH_VM_MODE);
+		pr_err("Selected trusted touch mode to VM mode\n");
+	} else {
+		atomic_set(&info->trusted_touch_mode, TRUSTED_TOUCH_MODE_NONE);
+		pr_err("Invalid trusted_touch mode\n");
+	}
+
+	rc = of_property_read_string(np, "st,touch-environment",
+								&environment);
+	if (rc) {
+		dev_warn(&info->client->dev,
+			"%s: No trusted touch mode environment\n", __func__);
+	}
+	info->touch_environment = environment;
+	pr_err("Trusted touch environment:%s\n",
+			info->touch_environment);
+}
+
+static void fts_trusted_touch_init(struct fts_ts_info *info)
+{
+	int rc = 0;
+
+	atomic_set(&info->trusted_touch_initialized, 0);
+	init_completion(&info->trusted_touch_powerdown);
+	fts_dt_parse_trusted_touch_info(info);
+
+	/* Get clocks */
+		info->core_clk = devm_clk_get(info->client->dev.parent,
+							"m-ahb");
+		if (IS_ERR(info->core_clk)) {
+			info->core_clk = NULL;
+			dev_warn(&info->client->dev,
+				"%s: core_clk is not defined\n", __func__);
+		}
+
+		info->iface_clk = devm_clk_get(info->client->dev.parent,
+							"se-clk");
+		if (IS_ERR(info->iface_clk)) {
+			info->iface_clk = NULL;
+			dev_warn(&info->client->dev,
+				"%s: iface_clk is not defined\n", __func__);
+		}
+	if (atomic_read(&info->trusted_touch_mode) == TRUSTED_TOUCH_VM_MODE) {
+		rc = fts_vm_init(info);
+		if (rc)
+			pr_err("Failed to init VM\n");
+	}
+	atomic_set(&info->trusted_touch_initialized, 1);
+}
+
+static ssize_t fts_trusted_touch_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fts_ts_info *info;
+
+	if (!client)
+		return scnprintf(buf, PAGE_SIZE, "client is null\n");
+
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		logError(0, "info is null\n");
+		return scnprintf(buf, PAGE_SIZE, "info is null\n");
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			atomic_read(&info->trusted_touch_enabled));
+}
+
+static ssize_t fts_trusted_touch_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fts_ts_info *info;
+	unsigned long value;
+	int err = 0;
+
+	if (!client)
+		return -EIO;
+	info = i2c_get_clientdata(client);
+	if (!info) {
+		logError(0, "info is null\n");
+		return -EIO;
+	}
+	if (count > 2)
+		return -EINVAL;
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	if (!atomic_read(&info->trusted_touch_initialized))
+		return -EIO;
+
+#ifdef CONFIG_ARCH_QTI_VM
+	err = fts_handle_trusted_touch_tvm(info, value);
+	if (err) {
+		pr_err("Failed to handle trusted touch in tvm\n");
+		return -EINVAL;
+	}
+#else
+	err = fts_handle_trusted_touch_pvm(info, value);
+	if (err) {
+		pr_err("Failed to handle trusted touch in pvm\n");
+		return -EINVAL;
+	}
+#endif
+	err = count;
+	return err;
+}
+
 #endif
 
 //struct chipInfo ftsInfo;
@@ -1919,7 +2805,7 @@ static ssize_t fts_add_custom_gesture_store(struct device *dev,
 					tag, __func__);
 				logError(1, " mask: ERROR %08X\n", res);
 			} else {
-				/*if(check_feature_feasibility(info,*/
+				/*if (check_feature_feasibility(info,*/
 				/*FEAT_GESTURE)==OK)*/
 				/*info->gesture_enabled =*/
 				/*isAnyGestureActive();*/
@@ -2026,7 +2912,7 @@ static ssize_t fts_remove_custom_gesture_store(struct device *dev,
 				    "%s %s:error in enable gesture mask:%08X\n",
 				    tag, __func__, res);
 			} else {
-				/*if(check_feature_feasibility*/
+				/*if (check_feature_feasibility*/
 				/*(info,FEAT_GESTURE)==OK)*/
 				/*info->gesture_enabled = */
 				/*isAnyGestureActive();*/
@@ -2665,6 +3551,13 @@ static DEVICE_ATTR_RW(fts_remove_custom_gesture);
 #endif
 #endif
 
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+static DEVICE_ATTR(trusted_touch_enable,
+	0664,
+	fts_trusted_touch_enable_show,
+	fts_trusted_touch_enable_store);
+#endif
+
 /*  /sys/devices/soc.0/f9928000.i2c/i2c-6/6-0049  */
 static struct attribute *fts_attr_group[] = {
 	&dev_attr_fts_fwupdate.attr,
@@ -2713,6 +3606,9 @@ static struct attribute *fts_attr_group[] = {
 	&dev_attr_fts_remove_custom_gesture.attr,
 #endif
 
+#endif
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	&dev_attr_trusted_touch_enable.attr,
 #endif
 	NULL,
 };
@@ -3408,6 +4304,21 @@ static irqreturn_t fts_interrupt_handler(int irq, void *handle)
 {
 	struct fts_ts_info *info = handle;
 
+	if (!info) {
+		pr_err("%s: Invalid info\n", __func__);
+		return IRQ_HANDLED;
+	}
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	if (atomic_read(&info->vm_info->pvm_owns_iomem) &&
+			atomic_read(&info->vm_info->pvm_owns_irq) &&
+			atomic_read(&info->trusted_touch_enabled)) {
+		pr_err("%s: Cannot service interrupts in PVM while trusted touch is enabled\n",
+				__func__);
+		return IRQ_HANDLED;
+	}
+#endif
+#endif
 	disable_irq_nosync(info->client->irq);
 
 	queue_work(info->event_wq, &info->work);
@@ -3452,6 +4363,15 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 	info->timer.function = fts_timer_func;
 	hrtimer_start(&info->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 #else
+#ifdef CONFIG_ARCH_QTI_VM
+	logError(0, "%s Interrupt Mode\n", tag);
+	if (request_threaded_irq(info->client->irq, NULL, fts_interrupt_handler,
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, info->client->name, info)) {
+		logError(1, "%s Request irq failed\n", tag);
+		kfree(info->event_dispatch_table);
+		error = -EBUSY;
+	}
+#else
 	logError(0, "%s Interrupt Mode\n", tag);
 	if (request_threaded_irq(info->client->irq, NULL, fts_interrupt_handler,
 		IRQF_TRIGGER_LOW | IRQF_ONESHOT, info->client->name, info)) {
@@ -3459,6 +4379,7 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 		kfree(info->event_dispatch_table);
 		error = -EBUSY;
 	}
+#endif
 #endif
 	return error;
 }
@@ -4086,6 +5007,12 @@ static void fts_suspend_work(struct work_struct *work)
 
 	info = container_of(work, struct fts_ts_info, suspend_work);
 
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	if (atomic_read(&info->trusted_touch_enabled))
+		wait_for_completion_interruptible(
+				&info->trusted_touch_powerdown);
+#endif
+
 	__pm_wakeup_event(info->wakeup_source, HZ);
 
 	info->resume_bit = 0;
@@ -4548,13 +5475,109 @@ static int check_default_tp(struct device_node *dt, const char *prop)
 	return ret;
 }
 
+static int fts_probe_delayed(struct fts_ts_info *info)
+{
+	int error = 0;
+	int retval = 0;
+
+/* Avoid setting up hardware for TVM during probe */
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+#ifdef CONFIG_ARCH_QTI_VM
+	if (!atomic_read(&info->delayed_vm_probe_pending)) {
+		atomic_set(&info->delayed_vm_probe_pending, 1);
+		return 0;
+	}
+	goto tvm_setup;
+#endif
+#endif
+	logError(0, "%s SET Regulators:\n", tag);
+	retval = fts_get_reg(info, true);
+	if (retval < 0) {
+		logError(1, "%s ERROR: %s: Failed to get regulators\n",
+				tag, __func__);
+		goto Exit_1;
+	}
+	retval = fts_enable_reg(info, true);
+	if (retval < 0) {
+		logError(1,
+			"%s %s: ERROR Failed to enable regulators\n",
+				tag, __func__);
+		goto Exit_2;
+	}
+
+	logError(0, "%s SET GPIOS:\n", tag);
+	retval = fts_set_gpio(info);
+	if (retval < 0) {
+		logError(1, "%s %s: ERROR Failed to set up GPIO's\n",
+			tag, __func__);
+		goto Exit_2;
+	}
+
+	info->client->irq = gpio_to_irq(info->bdata->irq_gpio);
+	retval = fts_pinctrl_init(info);
+	if (!retval && info->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is
+		 * found let pins to be configured in active state.
+		 * If not found continue further without error.
+		 */
+		retval = pinctrl_select_state(info->ts_pinctrl,
+						info->pinctrl_state_active);
+		if (retval < 0) {
+			logError(1,
+				"%s: Failed to select %s pinstate %d\n",
+			__func__, PINCTRL_STATE_ACTIVE, retval);
+		}
+	}
+
+#ifdef CONFIG_ARCH_QTI_VM
+tvm_setup:
+#endif
+	/* init hardware device */
+	logError(0, "%s Device Initialization:\n", tag);
+	error = fts_init(info);
+	if (error < OK) {
+		logError(1, "%s Cannot initialize the device ERROR %08X\n",
+			tag, error);
+		error = -ENODEV;
+#ifdef CONFIG_ARCH_QTI_VM
+		return error;
+#endif
+		goto Exit_3;
+	}
+
+	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
+			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
+	return error;
+
+Exit_3:
+	if (info->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(info->pinctrl_state_release)) {
+			devm_pinctrl_put(info->ts_pinctrl);
+			info->ts_pinctrl = NULL;
+		} else {
+			if (pinctrl_select_state(info->ts_pinctrl,
+						info->pinctrl_state_release))
+				logError(1, "%s:Failed to select %s pinstate\n",
+					__func__, PINCTRL_STATE_RELEASE);
+		}
+	}
+	fts_enable_reg(info, false);
+	fts_gpio_setup(info->bdata->irq_gpio, false, 0, 0);
+	fts_gpio_setup(info->bdata->reset_gpio, false, 0, 0);
+
+Exit_2:
+	fts_get_reg(info, false);
+Exit_1:
+	return error;
+}
+
 static int fts_probe_internal(struct i2c_client *client,
 		const struct i2c_device_id *idp)
 {
 	struct fts_ts_info *info = NULL;
 	int error = 0;
 	struct device_node *dp = client->dev.of_node;
-	int retval;
 	int skip_5_1 = 0;
 
 	logError(0, "%s %s: driver probe begin!\n", tag, __func__);
@@ -4570,7 +5593,7 @@ static int fts_probe_internal(struct i2c_client *client,
 	info = kzalloc(sizeof(struct fts_ts_info), GFP_KERNEL);
 	if (!info) {
 		logError(1,
-			"%s Out of memory, can't to allocate struct info!\n",
+			"%s can't allocate struct info!\n",
 			tag);
 		error = -ENOMEM;
 		goto ProbeErrorExit_0;
@@ -4601,51 +5624,12 @@ static int fts_probe_internal(struct i2c_client *client,
 		parse_dt(&client->dev, info->bdata);
 	}
 
-	logError(0, "%s SET Regulators:\n", tag);
-	retval = fts_get_reg(info, true);
-	if (retval < 0) {
-		logError(1, "%s ERROR: %s: Failed to get regulators\n",
-			tag, __func__);
-		goto ProbeErrorExit_1;
-	}
-
-	retval = fts_enable_reg(info, true);
-	if (retval < 0) {
-		logError(1, "%s %s: ERROR Failed to enable regulators\n",
-			tag, __func__);
-		goto ProbeErrorExit_2;
-	}
-
-	logError(0, "%s SET GPIOS:\n", tag);
-	retval = fts_set_gpio(info);
-	if (retval < 0) {
-		logError(1, "%s %s: ERROR Failed to set up GPIO's\n",
-			tag, __func__);
-		goto ProbeErrorExit_2;
-	}
-	info->client->irq = gpio_to_irq(info->bdata->irq_gpio);
-
-	retval = fts_pinctrl_init(info);
-	if (!retval && info->ts_pinctrl) {
-		/*
-		 * Pinctrl handle is optional. If pinctrl handle is found
-		 * let pins to be configured in active state. If not
-		 * found continue further without error.
-		 */
-		retval = pinctrl_select_state(info->ts_pinctrl,
-						info->pinctrl_state_active);
-		if (retval < 0) {
-			logError(1, "%s: Failed to select %s pinstate %d\n",
-				__func__, PINCTRL_STATE_ACTIVE, retval);
-		}
-	}
-
 	logError(0, "%s SET Auto Fw Update:\n", tag);
 	info->fwu_workqueue = alloc_workqueue("fts-fwu-queue",
 				WQ_UNBOUND|WQ_HIGHPRI|WQ_CPU_INTENSIVE, 1);
 	if (!info->fwu_workqueue) {
 		logError(1, "%s ERROR: Cannot create fwu work thread\n", tag);
-		goto ProbeErrorExit_3;
+		goto ProbeErrorExit_1;
 	}
 
 	INIT_DELAYED_WORK(&info->fwu_work, fts_fw_update_auto);
@@ -4761,16 +5745,6 @@ static int fts_probe_internal(struct i2c_client *client,
 	info->stylus_id = 0;
 #endif
 
-	/* init hardware device */
-	logError(0, "%s Device Initialization:\n", tag);
-	error = fts_init(info);
-	if (error < OK) {
-		logError(1, "%s Cannot initialize the device ERROR %08X\n",
-			tag, error);
-		error = -ENODEV;
-		goto ProbeErrorExit_6;
-	}
-
 	/*
 	 * init feature switches (by default all the features
 	 * are disable, if one feature want to be enabled from
@@ -4788,6 +5762,11 @@ static int fts_probe_internal(struct i2c_client *client,
 
 	info->resume_bit = 1;
 	info->notifier = fts_noti_block;
+
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	fts_trusted_touch_init(info);
+	mutex_init(&(info->fts_clk_io_ctrl_mutex));
+#endif
 
 	logError(0, "%s SET Device File Nodes:\n", tag);
 	/* sysfs stuff */
@@ -4872,10 +5851,13 @@ static int fts_probe_internal(struct i2c_client *client,
 		}
 	}
 
-	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
-			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
+	error = fts_probe_delayed(info);
+	if (error) {
+		logError(1, "%s ERROR: Failed to enable resources\n",
+						tag);
+		goto ProbeErrorExit_11;
+	}
 	logError(1, "%s Probe Finished!\n", tag);
-
 	return OK;
 
 	/* error exit path */
@@ -4900,9 +5882,10 @@ ProbeErrorExit_8:
 #endif
 
 ProbeErrorExit_7:
+#ifdef CONFIG_ST_TRUSTED_TOUCH
+	fts_vm_deinit(info);
+#endif
 	/* fb_unregister_client(&info->notifier); */
-
-ProbeErrorExit_6:
 	input_unregister_device(info->input_dev);
 
 ProbeErrorExit_5_1:
@@ -4915,25 +5898,6 @@ ProbeErrorExit_5:
 ProbeErrorExit_4:
 	destroy_workqueue(info->fwu_workqueue);
 	wakeup_source_unregister(info->wakeup_source);
-
-ProbeErrorExit_3:
-	if (info->ts_pinctrl) {
-		if (IS_ERR_OR_NULL(info->pinctrl_state_release)) {
-			devm_pinctrl_put(info->ts_pinctrl);
-			info->ts_pinctrl = NULL;
-		} else {
-			if (pinctrl_select_state(info->ts_pinctrl,
-						info->pinctrl_state_release))
-				logError(1, "%s:Failed to select %s pinstate\n",
-					__func__, PINCTRL_STATE_RELEASE);
-		}
-	}
-	fts_enable_reg(info, false);
-	fts_gpio_setup(info->bdata->irq_gpio, false, 0, 0);
-	fts_gpio_setup(info->bdata->reset_gpio, false, 0, 0);
-
-ProbeErrorExit_2:
-	fts_get_reg(info, false);
 
 ProbeErrorExit_1:
 	kfree(info->i2c_data);

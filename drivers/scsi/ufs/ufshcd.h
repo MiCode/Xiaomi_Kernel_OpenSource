@@ -55,8 +55,8 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
-#include <linux/devfreq.h>
 #include <linux/bitfield.h>
+#include <linux/devfreq.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -67,8 +67,10 @@
 #include <scsi/scsi_tcq.h>
 #include <scsi/scsi_dbg.h>
 #include <scsi/scsi_eh.h>
+#include <linux/android_kabi.h>
 
 #include "ufs.h"
+#include "ufs_quirks.h"
 #include "ufshci.h"
 
 #define UFSHCD "ufshcd"
@@ -370,6 +372,7 @@ struct ufs_hba_variant_ops {
 	void    (*hibern8_notify)(struct ufs_hba *, enum uic_cmd_dme,
 					enum ufs_notify_change_status);
 	int	(*apply_dev_quirks)(struct ufs_hba *hba);
+	void	(*fixup_dev_quirks)(struct ufs_hba *hba);
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
@@ -380,6 +383,11 @@ struct ufs_hba_variant_ops {
 	void	(*config_scaling_param)(struct ufs_hba *hba,
 					struct devfreq_dev_profile *profile,
 					void *data);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 struct keyslot_mgmt_ll_ops;
@@ -403,6 +411,12 @@ struct ufs_hba_crypto_variant_ops {
 				    struct scsi_cmnd *cmd,
 				    struct ufshcd_lrb *lrbp);
 	void *priv;
+	void *crypto_DO_NOT_USE[8];
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /* clock gating state  */
@@ -476,7 +490,7 @@ struct ufs_saved_pwr_info {
 struct ufs_clk_scaling {
 	int active_reqs;
 	unsigned long tot_busy_t;
-	unsigned long window_start_t;
+	ktime_t window_start_t;
 	ktime_t busy_start_t;
 	struct device_attribute enable_attr;
 	struct ufs_saved_pwr_info saved_pwr_info;
@@ -656,6 +670,13 @@ struct ufs_stats {
 	struct ufs_err_reg_hist task_abort;
 };
 
+struct ufs_hba_variant_params {
+	struct devfreq_dev_profile devfreq_profile;
+	struct devfreq_simple_ondemand_data ondemand_data;
+	u16 hba_enable_delay_us;
+	u32 wb_flush_threshold;
+};
+
 /**
  * struct ufs_hba - per adapter private structure
  * @mmio_base: UFSHCI base register address
@@ -761,6 +782,7 @@ struct ufs_hba {
 	u32 ufs_version;
 
 	const struct ufs_hba_variant_ops *vops;
+	struct ufs_hba_variant_params *vps;
 	void *priv;
 	const struct ufs_hba_crypto_variant_ops *crypto_vops;
 	size_t sg_entry_size;
@@ -931,19 +953,17 @@ struct ufs_hba {
 	 * inline crypto engine, if it is present
 	 */
 #define UFSHCD_CAP_CRYPTO (1 << 7)
-#if defined(CONFIG_SCSI_UFSHCD_QTI)
 	/*
 	 * This capability allows the host controller driver to turn-on
 	 * WriteBooster, if the underlying device supports it and is
 	 * provisioned to be used. This would increase the write performance.
 	 */
 #define	UFSHCD_CAP_WB_EN (1 << 8)
-#endif
 
 #ifdef CONFIG_SCSI_UFSHCD_QTI
-#define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 7)
+#define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 8)
 	/* Allow standalone Hibern8 enter on idle */
-#define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 5)
+#define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 9)
 	struct rw_semaphore lock;
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
@@ -978,17 +998,22 @@ struct ufs_hba {
 	struct device		bsg_dev;
 	struct request_queue	*bsg_queue;
 
-#if defined(CONFIG_SCSI_UFSHCD_QTI)
-	bool wb_buf_flush_enabled;
-	bool wb_enabled;
-#endif
 #ifdef CONFIG_SCSI_UFS_CRYPTO
 	/* crypto */
 	union ufs_crypto_capabilities crypto_capabilities;
 	union ufs_crypto_cap_entry *crypto_cap_array;
 	u32 crypto_cfg_register;
 	struct keyslot_manager *ksm;
+	void *crypto_DO_NOT_USE[8];
 #endif /* CONFIG_SCSI_UFS_CRYPTO */
+
+	bool wb_buf_flush_enabled;
+	bool wb_enabled;
+	struct delayed_work rpm_dev_flush_recheck_work;
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
@@ -1073,12 +1098,10 @@ static inline bool ufshcd_is_auto_hibern8_enabled(struct ufs_hba *hba)
 }
 #endif
 
-#if defined(CONFIG_SCSI_UFSHCD_QTI)
 static inline bool ufshcd_is_wb_allowed(struct ufs_hba *hba)
 {
 	return hba->caps & UFSHCD_CAP_WB_EN;
 }
-#endif
 
 #define ufshcd_writel(hba, val, reg)	\
 	writel((val), (hba)->mmio_base + (reg))
@@ -1106,9 +1129,11 @@ int ufshcd_alloc_host(struct device *, struct ufs_hba **);
 void ufshcd_dealloc_host(struct ufs_hba *);
 int ufshcd_hba_enable(struct ufs_hba *hba);
 int ufshcd_init(struct ufs_hba * , void __iomem * , unsigned int);
+int ufshcd_link_recovery(struct ufs_hba *hba);
 int ufshcd_make_hba_operational(struct ufs_hba *hba);
 void ufshcd_remove(struct ufs_hba *);
 int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
+void ufshcd_delay_us(unsigned long us, unsigned long tolerance);
 int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
@@ -1146,6 +1171,13 @@ static inline bool ufshcd_keep_autobkops_enabled_except_suspend(
 							struct ufs_hba *hba)
 {
 	return hba->caps & UFSHCD_CAP_KEEP_AUTO_BKOPS_ENABLED_EXCEPT_SUSPEND;
+}
+
+static inline u8 ufshcd_wb_get_query_index(struct ufs_hba *hba)
+{
+	if (hba->dev_info.b_wb_buffer_type == WB_BUF_MODE_LU_DEDICATED)
+		return hba->dev_info.wb_dedicated_lu;
+	return 0;
 }
 
 extern int ufshcd_runtime_suspend(struct ufs_hba *hba);
@@ -1234,11 +1266,11 @@ int ufshcd_read_desc_param(struct ufs_hba *hba,
 int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 		      enum attr_idn idn, u8 index, u8 selector, u32 *attr_val);
 int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
-	enum flag_idn idn, bool *flag_res);
+	enum flag_idn idn, u8 index, bool *flag_res);
 
 void ufshcd_auto_hibern8_enable(struct ufs_hba *hba);
 void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit);
-
+void ufshcd_fixup_dev_quirks(struct ufs_hba *hba, struct ufs_dev_fix *fixups);
 #define SD_ASCII_STD true
 #define SD_RAW false
 
@@ -1369,6 +1401,12 @@ static inline int ufshcd_vops_apply_dev_quirks(struct ufs_hba *hba)
 	if (hba->vops && hba->vops->apply_dev_quirks)
 		return hba->vops->apply_dev_quirks(hba);
 	return 0;
+}
+
+static inline void ufshcd_vops_fixup_dev_quirks(struct ufs_hba *hba)
+{
+	if (hba->vops && hba->vops->fixup_dev_quirks)
+		hba->vops->fixup_dev_quirks(hba);
 }
 
 static inline int ufshcd_vops_suspend(struct ufs_hba *hba, enum ufs_pm_op op)

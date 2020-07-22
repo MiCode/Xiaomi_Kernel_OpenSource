@@ -648,43 +648,15 @@ void loaded_vmcs_init(struct loaded_vmcs *loaded_vmcs)
 }
 
 #ifdef CONFIG_KEXEC_CORE
-/*
- * This bitmap is used to indicate whether the vmclear
- * operation is enabled on all cpus. All disabled by
- * default.
- */
-static cpumask_t crash_vmclear_enabled_bitmap = CPU_MASK_NONE;
-
-static inline void crash_enable_local_vmclear(int cpu)
-{
-	cpumask_set_cpu(cpu, &crash_vmclear_enabled_bitmap);
-}
-
-static inline void crash_disable_local_vmclear(int cpu)
-{
-	cpumask_clear_cpu(cpu, &crash_vmclear_enabled_bitmap);
-}
-
-static inline int crash_local_vmclear_enabled(int cpu)
-{
-	return cpumask_test_cpu(cpu, &crash_vmclear_enabled_bitmap);
-}
-
 static void crash_vmclear_local_loaded_vmcss(void)
 {
 	int cpu = raw_smp_processor_id();
 	struct loaded_vmcs *v;
 
-	if (!crash_local_vmclear_enabled(cpu))
-		return;
-
 	list_for_each_entry(v, &per_cpu(loaded_vmcss_on_cpu, cpu),
 			    loaded_vmcss_on_cpu_link)
 		vmcs_clear(v->vmcs);
 }
-#else
-static inline void crash_enable_local_vmclear(int cpu) { }
-static inline void crash_disable_local_vmclear(int cpu) { }
 #endif /* CONFIG_KEXEC_CORE */
 
 static void __loaded_vmcs_clear(void *arg)
@@ -696,19 +668,24 @@ static void __loaded_vmcs_clear(void *arg)
 		return; /* vcpu migration can race with cpu offline */
 	if (per_cpu(current_vmcs, cpu) == loaded_vmcs->vmcs)
 		per_cpu(current_vmcs, cpu) = NULL;
-	crash_disable_local_vmclear(cpu);
+
+	vmcs_clear(loaded_vmcs->vmcs);
+	if (loaded_vmcs->shadow_vmcs && loaded_vmcs->launched)
+		vmcs_clear(loaded_vmcs->shadow_vmcs);
+
 	list_del(&loaded_vmcs->loaded_vmcss_on_cpu_link);
 
 	/*
-	 * we should ensure updating loaded_vmcs->loaded_vmcss_on_cpu_link
-	 * is before setting loaded_vmcs->vcpu to -1 which is done in
-	 * loaded_vmcs_init. Otherwise, other cpu can see vcpu = -1 fist
-	 * then adds the vmcs into percpu list before it is deleted.
+	 * Ensure all writes to loaded_vmcs, including deleting it from its
+	 * current percpu list, complete before setting loaded_vmcs->vcpu to
+	 * -1, otherwise a different cpu can see vcpu == -1 first and add
+	 * loaded_vmcs to its percpu list before it's deleted from this cpu's
+	 * list. Pairs with the smp_rmb() in vmx_vcpu_load_vmcs().
 	 */
 	smp_wmb();
 
-	loaded_vmcs_init(loaded_vmcs);
-	crash_enable_local_vmclear(cpu);
+	loaded_vmcs->cpu = -1;
+	loaded_vmcs->launched = 0;
 }
 
 void loaded_vmcs_clear(struct loaded_vmcs *loaded_vmcs)
@@ -1309,33 +1286,42 @@ after_clear_sn:
 		pi_set_on(pi_desc);
 }
 
-void vmx_vcpu_load_vmcs(struct kvm_vcpu *vcpu, int cpu)
+void vmx_vcpu_load_vmcs(struct kvm_vcpu *vcpu, int cpu,
+			struct loaded_vmcs *buddy)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	bool already_loaded = vmx->loaded_vmcs->cpu == cpu;
+	struct vmcs *prev;
 
 	if (!already_loaded) {
 		loaded_vmcs_clear(vmx->loaded_vmcs);
 		local_irq_disable();
-		crash_disable_local_vmclear(cpu);
 
 		/*
-		 * Read loaded_vmcs->cpu should be before fetching
-		 * loaded_vmcs->loaded_vmcss_on_cpu_link.
-		 * See the comments in __loaded_vmcs_clear().
+		 * Ensure loaded_vmcs->cpu is read before adding loaded_vmcs to
+		 * this cpu's percpu list, otherwise it may not yet be deleted
+		 * from its previous cpu's percpu list.  Pairs with the
+		 * smb_wmb() in __loaded_vmcs_clear().
 		 */
 		smp_rmb();
 
 		list_add(&vmx->loaded_vmcs->loaded_vmcss_on_cpu_link,
 			 &per_cpu(loaded_vmcss_on_cpu, cpu));
-		crash_enable_local_vmclear(cpu);
 		local_irq_enable();
 	}
 
-	if (per_cpu(current_vmcs, cpu) != vmx->loaded_vmcs->vmcs) {
+	prev = per_cpu(current_vmcs, cpu);
+	if (prev != vmx->loaded_vmcs->vmcs) {
 		per_cpu(current_vmcs, cpu) = vmx->loaded_vmcs->vmcs;
 		vmcs_load(vmx->loaded_vmcs->vmcs);
-		indirect_branch_prediction_barrier();
+
+		/*
+		 * No indirect branch prediction barrier needed when switching
+		 * the active VMCS within a guest, e.g. on nested VM-Enter.
+		 * The L1 VMM can protect itself with retpolines, IBPB or IBRS.
+		 */
+		if (!buddy || WARN_ON_ONCE(buddy->vmcs != prev))
+			indirect_branch_prediction_barrier();
 	}
 
 	if (!already_loaded) {
@@ -1380,11 +1366,10 @@ void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
-	vmx_vcpu_load_vmcs(vcpu, cpu);
+	vmx_vcpu_load_vmcs(vcpu, cpu, NULL);
 
 	vmx_vcpu_pi_load(vcpu, cpu);
 
-	vmx->host_pkru = read_pkru();
 	vmx->host_debugctlmsr = get_debugctlmsr();
 }
 
@@ -2251,21 +2236,6 @@ static int hardware_enable(void)
 	if (static_branch_unlikely(&enable_evmcs) &&
 	    !hv_get_vp_assist_page(cpu))
 		return -EFAULT;
-
-	INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));
-	INIT_LIST_HEAD(&per_cpu(blocked_vcpu_on_cpu, cpu));
-	spin_lock_init(&per_cpu(blocked_vcpu_on_cpu_lock, cpu));
-
-	/*
-	 * Now we can enable the vmclear operation in kdump
-	 * since the loaded_vmcss_on_cpu list on this cpu
-	 * has been initialized.
-	 *
-	 * Though the cpu is not in VMX operation now, there
-	 * is no problem to enable the vmclear operation
-	 * for the loaded_vmcss_on_cpu list is empty!
-	 */
-	crash_enable_local_vmclear(cpu);
 
 	rdmsrl(MSR_IA32_FEATURE_CONTROL, old);
 
@@ -4505,8 +4475,13 @@ static int vmx_nmi_allowed(struct kvm_vcpu *vcpu)
 
 static int vmx_interrupt_allowed(struct kvm_vcpu *vcpu)
 {
-	return (!to_vmx(vcpu)->nested.nested_run_pending &&
-		vmcs_readl(GUEST_RFLAGS) & X86_EFLAGS_IF) &&
+	if (to_vmx(vcpu)->nested.nested_run_pending)
+		return false;
+
+	if (is_guest_mode(vcpu) && nested_exit_on_intr(vcpu))
+		return true;
+
+	return (vmcs_readl(GUEST_RFLAGS) & X86_EFLAGS_IF) &&
 		!(vmcs_read32(GUEST_INTERRUPTIBILITY_INFO) &
 			(GUEST_INTR_STATE_STI | GUEST_INTR_STATE_MOV_SS));
 }
@@ -4600,7 +4575,7 @@ static int handle_rmode_exception(struct kvm_vcpu *vcpu,
  */
 static void kvm_machine_check(void)
 {
-#if defined(CONFIG_X86_MCE) && defined(CONFIG_X86_64)
+#if defined(CONFIG_X86_MCE)
 	struct pt_regs regs = {
 		.cs = 3, /* Fake ring 3 no matter what the guest ran on */
 		.flags = X86_EFLAGS_IF,
@@ -6452,23 +6427,6 @@ static void atomic_switch_perf_msrs(struct vcpu_vmx *vmx)
 					msrs[i].host, false);
 }
 
-static void atomic_switch_umwait_control_msr(struct vcpu_vmx *vmx)
-{
-	u32 host_umwait_control;
-
-	if (!vmx_has_waitpkg(vmx))
-		return;
-
-	host_umwait_control = get_umwait_control_msr();
-
-	if (vmx->msr_ia32_umwait_control != host_umwait_control)
-		add_atomic_switch_msr(vmx, MSR_IA32_UMWAIT_CONTROL,
-			vmx->msr_ia32_umwait_control,
-			host_umwait_control, false);
-	else
-		clear_atomic_switch_msr(vmx, MSR_IA32_UMWAIT_CONTROL);
-}
-
 static void vmx_update_hv_timer(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -6555,15 +6513,9 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu)
 
 	kvm_load_guest_xcr0(vcpu);
 
-	if (static_cpu_has(X86_FEATURE_PKU) &&
-	    kvm_read_cr4_bits(vcpu, X86_CR4_PKE) &&
-	    vcpu->arch.pkru != vmx->host_pkru)
-		__write_pkru(vcpu->arch.pkru);
-
 	pt_guest_enter(vmx);
 
 	atomic_switch_perf_msrs(vmx);
-	atomic_switch_umwait_control_msr(vmx);
 
 	if (enable_preemption_timer)
 		vmx_update_hv_timer(vcpu);
@@ -6648,18 +6600,6 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu)
 
 	pt_guest_exit(vmx);
 
-	/*
-	 * eager fpu is enabled if PKEY is supported and CR4 is switched
-	 * back on host, so it is safe to read guest PKRU from current
-	 * XSAVE.
-	 */
-	if (static_cpu_has(X86_FEATURE_PKU) &&
-	    kvm_read_cr4_bits(vcpu, X86_CR4_PKE)) {
-		vcpu->arch.pkru = rdpkru();
-		if (vcpu->arch.pkru != vmx->host_pkru)
-			__write_pkru(vmx->host_pkru);
-	}
-
 	kvm_put_guest_xcr0(vcpu);
 
 	vmx->nested.nested_run_pending = 0;
@@ -6684,6 +6624,10 @@ static struct kvm *vmx_vm_alloc(void)
 	struct kvm_vmx *kvm_vmx = __vmalloc(sizeof(struct kvm_vmx),
 					    GFP_KERNEL_ACCOUNT | __GFP_ZERO,
 					    PAGE_KERNEL);
+
+	if (!kvm_vmx)
+		return NULL;
+
 	return &kvm_vmx->kvm;
 }
 
@@ -7310,11 +7254,11 @@ static void vmx_flush_log_dirty(struct kvm *kvm)
 	kvm_flush_pml_buffers(kvm);
 }
 
-static int vmx_write_pml_buffer(struct kvm_vcpu *vcpu)
+static int vmx_write_pml_buffer(struct kvm_vcpu *vcpu, gpa_t gpa)
 {
 	struct vmcs12 *vmcs12;
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	gpa_t gpa, dst;
+	gpa_t dst;
 
 	if (is_guest_mode(vcpu)) {
 		WARN_ON_ONCE(vmx->nested.pml_full);
@@ -7333,7 +7277,7 @@ static int vmx_write_pml_buffer(struct kvm_vcpu *vcpu)
 			return 1;
 		}
 
-		gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS) & ~0xFFFull;
+		gpa &= ~0xFFFull;
 		dst = vmcs12->pml_address + sizeof(u64) * vmcs12->guest_pml_index;
 
 		if (kvm_write_guest_page(vcpu->kvm, gpa_to_gfn(dst), &gpa,
@@ -8022,7 +7966,7 @@ module_exit(vmx_exit);
 
 static int __init vmx_init(void)
 {
-	int r;
+	int r, cpu;
 
 #if IS_ENABLED(CONFIG_HYPERV)
 	/*
@@ -8074,6 +8018,12 @@ static int __init vmx_init(void)
 	if (r) {
 		vmx_exit();
 		return r;
+	}
+
+	for_each_possible_cpu(cpu) {
+		INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));
+		INIT_LIST_HEAD(&per_cpu(blocked_vcpu_on_cpu, cpu));
+		spin_lock_init(&per_cpu(blocked_vcpu_on_cpu_lock, cpu));
 	}
 
 #ifdef CONFIG_KEXEC_CORE

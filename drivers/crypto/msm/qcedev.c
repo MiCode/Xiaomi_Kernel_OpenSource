@@ -250,7 +250,6 @@ static int qcedev_open(struct inode *inode, struct file *file)
 
 	handle->cntl = podev;
 	file->private_data = handle;
-	qcedev_ce_high_bw_req(podev, true);
 
 	mutex_init(&handle->registeredbufs.lock);
 	INIT_LIST_HEAD(&handle->registeredbufs.list);
@@ -274,8 +273,6 @@ static int qcedev_release(struct inode *inode, struct file *file)
 
 	kzfree(handle);
 	file->private_data = NULL;
-	if (podev)
-		qcedev_ce_high_bw_req(podev, false);
 	return 0;
 }
 
@@ -1698,6 +1695,10 @@ long qcedev_ioctl(struct file *file,
 	init_completion(&qcedev_areq->complete);
 	pstat = &_qcedev_stat;
 
+	if (cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
+		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
+		qcedev_ce_high_bw_req(podev, true);
+
 	switch (cmd) {
 	case QCEDEV_IOCTL_ENC_REQ:
 	case QCEDEV_IOCTL_DEC_REQ:
@@ -1986,6 +1987,9 @@ long qcedev_ioctl(struct file *file,
 	}
 
 exit_free_qcedev_areq:
+	if (cmd != QCEDEV_IOCTL_MAP_BUF_REQ &&
+		cmd != QCEDEV_IOCTL_UNMAP_BUF_REQ)
+		qcedev_ce_high_bw_req(podev, false);
 	kfree(qcedev_areq);
 	return err;
 }

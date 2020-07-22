@@ -8,6 +8,8 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/haven/hh_rm_drv.h>
+#include <linux/types.h>
 #include <uapi/linux/mem-buf.h>
 
 /**

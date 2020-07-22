@@ -16,6 +16,12 @@ struct sock;
 struct socket;
 struct rxrpc_call;
 
+enum rxrpc_interruptibility {
+	RXRPC_INTERRUPTIBLE,	/* Call is interruptible */
+	RXRPC_PREINTERRUPTIBLE,	/* Call can be cancelled whilst waiting for a slot */
+	RXRPC_UNINTERRUPTIBLE,	/* Call should not be interruptible at all */
+};
+
 /*
  * Debug ID counter for tracing.
  */
@@ -41,7 +47,7 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *,
 					   gfp_t,
 					   rxrpc_notify_rx_t,
 					   bool,
-					   bool,
+					   enum rxrpc_interruptibility,
 					   unsigned int);
 int rxrpc_kernel_send_data(struct socket *, struct rxrpc_call *,
 			   struct msghdr *, size_t,
@@ -53,7 +59,7 @@ bool rxrpc_kernel_abort_call(struct socket *, struct rxrpc_call *,
 void rxrpc_kernel_end_call(struct socket *, struct rxrpc_call *);
 void rxrpc_kernel_get_peer(struct socket *, struct rxrpc_call *,
 			   struct sockaddr_rxrpc *);
-u64 rxrpc_kernel_get_rtt(struct socket *, struct rxrpc_call *);
+u32 rxrpc_kernel_get_srtt(struct socket *, struct rxrpc_call *);
 int rxrpc_kernel_charge_accept(struct socket *, rxrpc_notify_rx_t,
 			       rxrpc_user_attach_call_t, unsigned long, gfp_t,
 			       unsigned int);

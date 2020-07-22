@@ -58,5 +58,16 @@ int crypto_qti_invalidate_key(struct crypto_vops_qti_entry *ice_entry,
 }
 EXPORT_SYMBOL(crypto_qti_invalidate_key);
 
+int crypto_qti_derive_raw_secret_platform(
+				struct crypto_vops_qti_entry *ice_entry,
+				const u8 *wrapped_key,
+				unsigned int wrapped_key_size, u8 *secret,
+				unsigned int secret_size)
+{
+	memcpy(secret, wrapped_key, secret_size);
+	return 0;
+}
+EXPORT_SYMBOL(crypto_qti_derive_raw_secret_platform);
+
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Crypto TZ library for storage encryption");

@@ -934,7 +934,7 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv)
 {
 	struct page **pages;
-	u32 count;
+	int count;
 	struct sg_table *sgt;
 	int ret;
 

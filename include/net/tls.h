@@ -43,6 +43,7 @@
 #include <linux/mutex.h>
 #include <linux/netdevice.h>
 #include <linux/rcupdate.h>
+#include <linux/android_kabi.h>
 
 #include <net/tcp.h>
 #include <net/strparser.h>
@@ -157,6 +158,8 @@ struct tls_sw_context_tx {
 	struct tls_rec *open_rec;
 	struct list_head tx_list;
 	atomic_t encrypt_pending;
+	/* protect crypto_wait with encrypt_pending */
+	spinlock_t encrypt_compl_lock;
 	int async_notify;
 	int async_capable;
 
@@ -177,6 +180,8 @@ struct tls_sw_context_rx {
 	int async_capable;
 	bool decrypted;
 	atomic_t decrypt_pending;
+	/* protect crypto_wait with decrypt_pending*/
+	spinlock_t decrypt_compl_lock;
 	bool async_notify;
 };
 
@@ -304,6 +309,12 @@ struct tlsdev_ops {
 	int (*tls_dev_resync)(struct net_device *netdev,
 			      struct sock *sk, u32 seq, u8 *rcd_sn,
 			      enum tls_offload_ctx_dir direction);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
+
 };
 
 enum tls_offload_sync_type {
@@ -584,6 +595,15 @@ static inline bool tls_sw_has_ctx_tx(const struct sock *sk)
 	if (!ctx)
 		return false;
 	return !!tls_sw_ctx_tx(ctx);
+}
+
+static inline bool tls_sw_has_ctx_rx(const struct sock *sk)
+{
+	struct tls_context *ctx = tls_get_ctx(sk);
+
+	if (!ctx)
+		return false;
+	return !!tls_sw_ctx_rx(ctx);
 }
 
 void tls_sw_write_space(struct sock *sk, struct tls_context *ctx);

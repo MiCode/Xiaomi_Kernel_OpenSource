@@ -67,6 +67,7 @@
 
 #define TSENS_INIT_ID	0x5
 #define TSENS_RECOVERY_LOOP_COUNT 5
+#define TSENS_RE_INIT_MAX_COUNT   5
 
 static void msm_tsens_convert_temp(int last_temp, int *temp)
 {
@@ -87,6 +88,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	void __iomem *sensor_addr, *trdy;
 	int last_temp = 0, last_temp2 = 0, last_temp3 = 0, count = 0;
 	int tsens_ret;
+	static atomic_t in_tsens_reinit;
 
 	if (!sensor)
 		return -EINVAL;
@@ -99,8 +101,14 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
 			TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
+		if (atomic_read(&in_tsens_reinit)) {
+			pr_err("%s: tsens re-init is in progress\n", __func__);
+			return -EAGAIN;
+		}
+
 		pr_err("%s: tsens device first round not complete0x%x\n",
 			__func__, code);
+
 		/* Wait for 2.5 ms for tsens controller to recover */
 		do {
 			udelay(500);
@@ -117,16 +125,32 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 		 * proceed with SCM call to re-init it
 		 */
 		if (tmdev->tsens_reinit_wa) {
+			if (atomic_read(&in_tsens_reinit)) {
+				pr_err("%s: tsens re-init is in progress\n",
+					__func__);
+				return -EAGAIN;
+			}
+
+			atomic_set(&in_tsens_reinit, 1);
 
 			if (tmdev->ops->dbg)
 				tmdev->ops->dbg(tmdev, 0,
 					TSENS_DBG_LOG_BUS_ID_DATA, NULL);
+
+			if (tmdev->tsens_reinit_cnt >=
+					TSENS_RE_INIT_MAX_COUNT) {
+				pr_err(
+				"%s: TSENS not recovered after %d re-init\n",
+					__func__, tmdev->tsens_reinit_cnt);
+				BUG();
+			}
+
 			/*Make an scm call to re-init TSENS */
 			TSENS_DBG(tmdev, "%s",
-				   "Calling TZ to re-init TSENS\n");
+					"Calling TZ to re-init TSENS\n");
 			ret = qcom_scm_tsens_reinit(&tsens_ret);
 			TSENS_DBG(tmdev, "%s",
-				   "return from scm call\n");
+					"return from scm call\n");
 			if (ret) {
 				pr_err("%s: scm call failed %d\n",
 					__func__, ret);
@@ -137,6 +161,9 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 					__func__, tsens_ret);
 				BUG();
 			}
+			tmdev->tsens_reinit_cnt++;
+			atomic_set(&in_tsens_reinit, 0);
+
 			/* Notify thermal fwk */
 			list_for_each_entry(tmdev_itr,
 						&tsens_device_list, list) {
@@ -154,6 +181,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 sensor_read:
 
 	tmdev->trdy_fail_ctr = 0;
+	tmdev->tsens_reinit_cnt = 0;
 
 	code = readl_relaxed_no_log(sensor_addr +
 			(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));

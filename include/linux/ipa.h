@@ -10,6 +10,7 @@
 #include <linux/skbuff.h>
 #include <linux/types.h>
 #include <linux/if_ether.h>
+#include <linux/ipa_qmi_service_v01.h>
 #include "linux/msm_gsi.h"
 
 #define IPA_APPS_MAX_BW_IN_MBPS 700
@@ -1307,181 +1308,138 @@ struct ipa_smmu_out_params {
 };
 
 #if IS_ENABLED(CONFIG_IPA3)
-
-/*
- * Resume / Suspend
- */
-int ipa_reset_endpoint(u32 clnt_hdl);
-
-/*
- * Remove ep delay
- */
-int ipa_clear_endpoint_delay(u32 clnt_hdl);
-
-/*
- * Disable ep
- */
-int ipa_disable_endpoint(u32 clnt_hdl);
-
 /*
  * Configuration
  */
-int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
 
-int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg);
-
-int ipa_cfg_ep_conn_track(u32 clnt_hdl,
-	const struct ipa_ep_cfg_conn_track *ep_conn_track);
-
-int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
-
-int ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
-			const struct ipa_ep_cfg_hdr_ext *ipa_ep_cfg);
-
-int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg);
-
-int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg);
-
-int ipa_cfg_ep_deaggr(u32 clnt_hdl,
-		      const struct ipa_ep_cfg_deaggr *ipa_ep_cfg);
-
-int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
-
-int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
-
-int ipa_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *ipa_ep_cfg);
-
-int ipa_cfg_ep_metadata_mask(u32 clnt_hdl, const struct ipa_ep_cfg_metadata_mask
-		*ipa_ep_cfg);
-
-int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
-				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
-
+/**
+ * ipa_cfg_ep_ctrl() -  IPA end-point Control configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg_ctrl:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ */
 int ipa_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl);
-
-/*
- * Header removal / addition
- */
-int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs);
-
-int ipa_add_hdr_usr(struct ipa_ioc_add_hdr *hdrs, bool user_only);
-
-int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls);
-
-int ipa_commit_hdr(void);
-
-int ipa_reset_hdr(bool user_only);
-
-int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup);
-
-int ipa_put_hdr(u32 hdr_hdl);
-
-int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy);
-
-/*
- * Header Processing Context
- */
-int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs,
-							bool user_only);
-
-int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
 
 /*
  * Routing
  */
+
+/**
+ * ipa_add_rt_rule() - Add the specified routing rules to SW and optionally
+ * commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
 int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules);
 
-int ipa_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules);
-
-int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only);
-
-int ipa_add_rt_rule_usr_v2(struct ipa_ioc_add_rt_rule_v2 *rules,
-	bool user_only);
-
-int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls);
-
-int ipa_commit_rt(enum ipa_ip_type ip);
-
-int ipa_reset_rt(enum ipa_ip_type ip, bool user_only);
-
-int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup);
-
+/**
+ * ipa_put_rt_tbl() - Release the specified routing table handle
+ * @rt_tbl_hdl:	[in] the routing table handle to release
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
 int ipa_put_rt_tbl(u32 rt_tbl_hdl);
-
-int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in);
-
-int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules);
-
-int ipa_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *rules);
-
-/*
- * Filtering
- */
-int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules);
-
-int ipa_add_flt_rule_v2(struct ipa_ioc_add_flt_rule_v2 *rules);
-
-int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules, bool user_only);
-
-int ipa_add_flt_rule_usr_v2(struct ipa_ioc_add_flt_rule_v2 *rules,
-	bool user_only);
-
-int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls);
-
-int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules);
-
-int ipa_mdfy_flt_rule_v2(struct ipa_ioc_mdfy_flt_rule_v2 *rules);
-
-int ipa_commit_flt(enum ipa_ip_type ip);
-
-int ipa_reset_flt(enum ipa_ip_type ip, bool user_only);
-
-/*
- * NAT\IPv6CT
- */
-int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
-int ipa_allocate_nat_table(struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
-int ipa_allocate_ipv6ct_table(
-	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc);
-
-int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
-int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init);
-
-int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
-int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
-
-int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
-int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
-int ipa_del_ipv6ct_table(struct ipa_ioc_nat_ipv6ct_table_del *del);
-
-int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
-
-/*
- * Messaging
- */
-int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
-		  ipa_msg_free_fn callback);
-int ipa_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback);
-int ipa_deregister_pull_msg(struct ipa_msg_meta *meta);
 
 /*
  * Interface
  */
-int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
-		       const struct ipa_rx_intf *rx);
-int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
-		       const struct ipa_rx_intf *rx,
-		       const struct ipa_ext_intf *ext);
-int ipa_deregister_intf(const char *name);
+int ipa_register_intf(const char *name,
+	const struct ipa_tx_intf *tx,
+	const struct ipa_rx_intf *rx);
 
 /*
  * Aggregation
  */
+
+/**
+ * ipa_set_aggr_mode() - Set the aggregation mode which is a global setting
+ * @mode:	[in] the desired aggregation mode for e.g. straight MBIM, QCNCM,
+ * etc
+ *
+ * Returns:	0 on success
+ */
+
 int ipa_set_aggr_mode(enum ipa_aggr_mode mode);
 
+/**
+ * ipa_set_qcncm_ndp_sig() - Set the NDP signature used for QCNCM aggregation
+ * mode
+ * @sig:	[in] the first 3 bytes of QCNCM NDP signature (expected to be
+ * "QND")
+ *
+ * Set the NDP signature used for QCNCM aggregation mode. The fourth byte
+ * (expected to be 'P') needs to be set using the header addition mechanism
+ *
+ * Returns:	0 on success, negative on failure
+ */
 int ipa_set_qcncm_ndp_sig(char sig[3]);
 
+/**
+ * ipa_set_single_ndp_per_mbim() - Enable/disable single NDP per MBIM frame
+ * configuration
+ * @enable:	[in] true for single NDP/MBIM; false otherwise
+ *
+ * Returns:	0 on success
+ */
 int ipa_set_single_ndp_per_mbim(bool enable);
+
+/*
+ * interrupts
+ */
+
+/**
+ * ipa_add_interrupt_handler() - Adds handler to an interrupt type
+ * @interrupt:		Interrupt type
+ * @handler:		The handler to be added
+ * @deferred_flag:	whether the handler processing should be deferred in
+ *			a workqueue
+ * @private_data:	the client's private data
+ *
+ * Adds handler to an interrupt type and enable the specific bit
+ * in IRQ_EN register, associated interrupt in IRQ_STTS register will be enabled
+ */
+
+int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
+	ipa_irq_handler_t handler,
+	bool deferred_flag,
+	void *private_data);
+
+/**
+ * ipa_restore_suspend_handler() - restores the original suspend IRQ handler
+ * as it was registered in the IPA init sequence.
+ * Return codes:
+ * 0: success
+ * -EPERM: failed to remove current handler or failed to add original handler
+ */
+int ipa_restore_suspend_handler(void);
+
+/*
+ * Messaging
+ */
+
+/**
+ * ipa_send_msg() - Send "message" from kernel client to IPA driver
+ * @meta: [in] message meta-data
+ * @buff: [in] the payload for message
+ * @callback: [in] free callback
+ *
+ * Client supplies the message meta-data and payload which IPA driver buffers
+ * till read by user-space. After read from user space IPA driver invokes the
+ * callback supplied to free the message payload. Client must not touch/free
+ * the message payload after calling this API.
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
+		  ipa_msg_free_fn callback);
 
 /*
  * Data path
@@ -1529,23 +1487,36 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
  */
 int ipa_rmnet_ctl_xmit(struct sk_buff *skb);
 
-/*
- * To transfer multiple data packets
- * While passing the data descriptor list, the anchor node
- * should be of type struct ipa_tx_data_desc not list_head
- */
-int ipa_tx_dp_mul(enum ipa_client_type dst,
-			struct ipa_tx_data_desc *data_desc);
-
 void ipa_free_skb(struct ipa_rx_data *data);
-int ipa_rx_poll(u32 clnt_hdl, int budget);
-void ipa_recycle_wan_skb(struct sk_buff *skb);
 
 /*
  * System pipes
  */
+
+/**
+ * ipa_setup_sys_pipe() - Setup an IPA end-point in system-BAM mode and perform
+ * IPA EP configuration
+ * @sys_in:	[in] input needed to setup BAM pipe and configure EP
+ * @clnt_hdl:	[out] client handle
+ *
+ *  - configure the end-point registers with the supplied
+ *    parameters from the user.
+ *  - call SPS APIs to create a system-to-bam connection with IPA.
+ *  - allocate descriptor FIFO
+ *  - register callback function(ipa_sps_irq_rx_notify or
+ *    ipa_sps_irq_tx_notify - depends on client type) in case the driver is
+ *    not configured to pulling mode
+ *
+ * Returns:	0 on success, negative on failure
+ */
 int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 
+/**
+ * ipa_teardown_sys_pipe() - Teardown the system-BAM pipe and cleanup IPA EP
+ * @clnt_hdl:	[in] the handle obtained from ipa_setup_sys_pipe
+ *
+ * Returns:	0 on success, negative on failure
+ */
 int ipa_teardown_sys_pipe(u32 clnt_hdl);
 
 int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
@@ -1555,10 +1526,26 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl);
 int ipa_disable_wdi_pipe(u32 clnt_hdl);
 int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
+
+/**
+ * ipa_get_wdi_stats() - Query WDI statistics from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
 int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 int ipa_uc_bw_monitor(struct ipa_wdi_bw_info *info);
-int ipa_set_wlan_tx_info(struct ipa_wdi_tx_info *info);
-u16 ipa_get_smem_restr_bytes(void);
+
+/**
+ * ipa_broadcast_wdi_quota_reach_ind() - quota reach
+ * @uint32_t fid: [in] input netdev ID
+ * @uint64_t num_bytes: [in] used bytes
+ *
+ * Returns:	0 on success, negative on failure
+ */
 int ipa_broadcast_wdi_quota_reach_ind(uint32_t fid,
 		uint64_t num_bytes);
 
@@ -1569,153 +1556,102 @@ int ipa_broadcast_wdi_quota_reach_ind(uint32_t fid,
 int ipa_uc_wdi_get_dbpa(struct ipa_wdi_db_params *out);
 
 /*
- * To register uC ready callback if uC not ready
- * and also check uC readiness
- * if uC not ready only, register callback
- */
-int ipa_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
-/*
- * To de-register uC ready callback
- */
-int ipa_uc_dereg_rdyCB(void);
-
-int ipa_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
-int ipa_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
-
-/*
- * Resource manager
- */
-int ipa_rm_create_resource(struct ipa_rm_create_params *create_params);
-
-int ipa_rm_delete_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa_rm_register(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params);
-
-int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params);
-
-int ipa_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_perf_profile *profile);
-
-int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
-
-int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-int ipa_rm_request_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa_rm_release_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa_rm_notify_completion(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name);
-
-int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
-				 unsigned long msecs);
-
-int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name);
-
-int ipa_rm_inactivity_timer_request_resource(
-				enum ipa_rm_resource_name resource_name);
-
-int ipa_rm_inactivity_timer_release_resource(
-				enum ipa_rm_resource_name resource_name);
-
-/*
- * Tethering bridge (Rmnet / MBIM)
- */
-int teth_bridge_init(struct teth_bridge_init_params *params);
-
-int teth_bridge_disconnect(enum ipa_client_type client);
-
-int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
-
-/*
- * Tethering client info
- */
-void ipa_set_client(int index, enum ipacm_client_enum client, bool uplink);
-
-enum ipacm_client_enum ipa_get_client(int pipe_idx);
-
-bool ipa_get_client_uplink(int pipe_idx);
-
-/*
  * IPADMA
  */
+ /**
+  * ipa_dma_init() -Initialize IPADMA.
+  *
+  * This function initialize all IPADMA internal data and connect in dma:
+  *	MEMCPY_DMA_SYNC_PROD ->MEMCPY_DMA_SYNC_CONS
+  *	MEMCPY_DMA_ASYNC_PROD->MEMCPY_DMA_SYNC_CONS
+  *
+  * Return codes: 0: success
+  *		-EFAULT: IPADMA is already initialized
+  *		-ENOMEM: allocating memory error
+  *		-EPERM: pipe connection failed
+  */
 int ipa_dma_init(void);
 
+/**
+ * ipa_dma_enable() -Vote for IPA clocks.
+ *
+ *Return codes: 0: success
+ *		-EINVAL: IPADMA is not initialized
+ *		-EPERM: Operation not permitted as ipa_dma is already
+ *		 enabled
+ */
 int ipa_dma_enable(void);
 
+
+/**
+ * ipa_dma_disable()- Unvote for IPA clocks.
+ *
+ * enter to power save mode.
+ *
+ * Return codes: 0: success
+ *		-EINVAL: IPADMA is not initialized
+ *		-EPERM: Operation not permitted as ipa_dma is already
+ *			diabled
+ *		-EFAULT: can not disable ipa_dma as there are pending
+ *			memcopy works
+ */
 int ipa_dma_disable(void);
 
+/**
+ * ipa_dma_sync_memcpy()- Perform synchronous memcpy using IPA.
+ *
+ * @dest: physical address to store the copied data.
+ * @src: physical address of the source data to copy.
+ * @len: number of bytes to copy.
+ *
+ * Return codes: 0: success
+ *		-EINVAL: invalid params
+ *		-EPERM: operation not permitted as ipa_dma isn't enable or
+ *			initialized
+ *		-SPS_ERROR: on sps faliures
+ *		-EFAULT: other
+ */
 int ipa_dma_sync_memcpy(u64 dest, u64 src, int len);
 
+/**
+ * ipa_dma_async_memcpy()- Perform asynchronous memcpy using IPA.
+ *
+ * @dest: physical address to store the copied data.
+ * @src: physical address of the source data to copy.
+ * @len: number of bytes to copy.
+ * @user_cb: callback function to notify the client when the copy was done.
+ * @user_param: cookie for user_cb.
+ *
+ * Return codes: 0: success
+ *		-EINVAL: invalid params
+ *		-EPERM: operation not permitted as ipa_dma isn't enable or
+ *			initialized
+ *		-SPS_ERROR: on sps faliures
+ *		-EFAULT: descr fifo is full.
+ */
 int ipa_dma_async_memcpy(u64 dest, u64 src, int len,
 			void (*user_cb)(void *user1), void *user_param);
 
-int ipa_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 
+/**
+ * ipa_dma_destroy() -teardown IPADMA pipes and release ipadma.
+ *
+ * this is a blocking function, returns just after destroying IPADMA.
+ */
 void ipa_dma_destroy(void);
-
-/*
- * mux id
- */
-int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in);
-
-/*
- * interrupts
- */
-int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
-		ipa_irq_handler_t handler,
-		bool deferred_flag,
-		void *private_data);
-
-int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt);
-
-int ipa_restore_suspend_handler(void);
 
 /*
  * Miscellaneous
  */
-void ipa_bam_reg_dump(void);
 
 int ipa_get_ep_mapping(enum ipa_client_type client);
 
 bool ipa_is_ready(void);
 
-void ipa_proxy_clk_vote(void);
-void ipa_proxy_clk_unvote(void);
-
 enum ipa_hw_type ipa_get_hw_type(void);
 
-bool ipa_is_client_handle_valid(u32 clnt_hdl);
-
-enum ipa_client_type ipa_get_client_mapping(int pipe_idx);
-
-enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
-
-bool ipa_get_modem_cfg_emb_pipe_flt(void);
-
-enum ipa_transport_type ipa_get_transport_type(void);
-
-struct device *ipa_get_dma_dev(void);
-struct iommu_domain *ipa_get_smmu_domain(void);
-
-int ipa_uc_debug_stats_alloc(
-	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo);
-int ipa_uc_debug_stats_dealloc(uint32_t protocol);
-void ipa_get_gsi_stats(int prot_id,
-	struct ipa_uc_dbg_ring_stats *stats);
-int ipa_get_prot_id(enum ipa_client_type client);
-
-int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
-
-const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info
-	(enum ipa_client_type client);
+const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(
+	enum ipa_client_type client);
 
 int ipa_stop_gsi_channel(u32 clnt_hdl);
 
@@ -1788,20 +1724,6 @@ int ipa_register_rmnet_ctl_cb(
  */
 int ipa_unregister_rmnet_ctl_cb(void);
 
-/**
- * ipa_tz_unlock_reg - Unlocks memory regions so that they become accessible
- *	from AP.
- * @reg_info - Pointer to array of memory regions to unlock
- * @num_regs - Number of elements in the array
- *
- * Converts the input array of regions to a struct that TZ understands and
- * issues an SCM call.
- * Also flushes the memory cache to DDR in order to make sure that TZ sees the
- * correct data structure.
- *
- * Returns: 0 on success, negative on failure
- */
-int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
 	struct ipa_smmu_out_params *out);
 /**
@@ -1820,218 +1742,34 @@ int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
  */
 bool ipa_get_lan_rx_napi(void);
 
+int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
+int ipa_wigig_save_regs(void);
+
+/*
+ * this function needs to be removed, but wlan driver is checking return value
+ * to see if IPA is present, so we can't return -EPERM
+ */
+static inline int ipa_uc_reg_rdyCB(
+	struct ipa_wdi_uc_ready_params *inout)
+{
+	return -EFAULT;
+}
+
 #else /* IS_ENABLED(CONFIG_IPA3) */
-
-/*
- * Resume / Suspend
- */
-static inline int ipa_reset_endpoint(u32 clnt_hdl)
-{
-	return -EPERM;
-}
-
-/*
- * Remove ep delay
- */
-static inline int ipa_clear_endpoint_delay(u32 clnt_hdl)
-{
-	return -EPERM;
-}
-
-/*
- * Disable ep
- */
-static inline int ipa_disable_endpoint(u32 clnt_hdl)
-{
-	return -EPERM;
-}
 
 /*
  * Configuration
  */
-static inline int ipa_cfg_ep(u32 clnt_hdl,
-		const struct ipa_ep_cfg *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_nat(u32 clnt_hdl,
-		const struct ipa_ep_cfg_nat *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_conn_track(u32 clnt_hdl,
-	const struct ipa_ep_cfg_conn_track *ep_conn_track)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_hdr(u32 clnt_hdl,
-		const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
-		const struct ipa_ep_cfg_hdr_ext *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_mode(u32 clnt_hdl,
-		const struct ipa_ep_cfg_mode *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_aggr(u32 clnt_hdl,
-		const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_deaggr(u32 clnt_hdl,
-		const struct ipa_ep_cfg_deaggr *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_route(u32 clnt_hdl,
-		const struct ipa_ep_cfg_route *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
-		const struct ipa_ep_cfg_holb *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
-		const struct ipa_ep_cfg_holb *ep_holb)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_cfg(u32 clnt_hdl,
-		const struct ipa_ep_cfg_cfg *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_metadata_mask(u32 clnt_hdl,
-		const struct ipa_ep_cfg_metadata_mask *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
 static inline int ipa_cfg_ep_ctrl(u32 clnt_hdl,
-			const struct ipa_ep_cfg_ctrl *ep_ctrl)
+	const struct ipa_ep_cfg_ctrl *ep_ctrl)
 {
 	return -EPERM;
 }
 
-/*
- * Header removal / addition
- */
-static inline int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_hdr_usr(struct ipa_ioc_add_hdr *hdrs,
-				bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
-{
-	return -EPERM;
-}
-
-static inline int ipa_commit_hdr(void)
-{
-	return -EPERM;
-}
-
-static inline int ipa_reset_hdr(bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
-{
-	return -EPERM;
-}
-
-static inline int ipa_put_hdr(u32 hdr_hdl)
-{
-	return -EPERM;
-}
-
-static inline int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
-{
-	return -EPERM;
-}
-
-/*
- * Header Processing Context
- */
-static inline int ipa_add_hdr_proc_ctx(
-				struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs,
-				bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
-{
-	return -EPERM;
-}
 /*
  * Routing
  */
 static inline int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules,
-					bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_rt_rule_usr_v2(
-	struct ipa_ioc_add_rt_rule_v2 *rules, bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
-{
-	return -EPERM;
-}
-
-static inline int ipa_commit_rt(enum ipa_ip_type ip)
-{
-	return -EPERM;
-}
-
-static inline int ipa_reset_rt(enum ipa_ip_type ip, bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 {
 	return -EPERM;
 }
@@ -2041,173 +1779,12 @@ static inline int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 	return -EPERM;
 }
 
-static inline int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
-{
-	return -EPERM;
-}
-
-static inline int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules)
-{
-	return -EPERM;
-}
-
-static inline int ipa_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *rules)
-{
-	return -EPERM;
-}
-
-/*
- * Filtering
- */
-static inline int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_flt_rule_v2(struct ipa_ioc_add_flt_rule_v2 *rules)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules,
-					bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_flt_rule_usr_v2(
-	struct ipa_ioc_add_flt_rule_v2 *rules, bool user_only)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
-{
-	return -EPERM;
-}
-
-static inline int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules)
-{
-	return -EPERM;
-}
-
-static inline int ipa_mdfy_flt_rule_v2(
-	struct ipa_ioc_mdfy_flt_rule_v2 *rules)
-{
-	return -EPERM;
-}
-
-
-static inline int ipa_commit_flt(enum ipa_ip_type ip)
-{
-	return -EPERM;
-}
-
-static inline int ipa_reset_flt(enum ipa_ip_type ip, bool user_only)
-{
-	return -EPERM;
-}
-
-/*
- * NAT
- */
-static inline int ipa_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
-{
-	return -EPERM;
-}
-
-static inline int ipa_allocate_nat_table(
-	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
-{
-	return -EPERM;
-}
-
-static inline int ipa_allocate_ipv6ct_table(
-	struct ipa_ioc_nat_ipv6ct_table_alloc *table_alloc)
-{
-	return -EPERM;
-}
-
-static inline int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
-{
-	return -EPERM;
-}
-
-static inline int ipa_ipv6ct_init_cmd(struct ipa_ioc_ipv6ct_init *init)
-{
-	return -EPERM;
-}
-
-static inline int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
-{
-	return -EPERM;
-}
-
-static inline int ipa_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
-{
-	return -EPERM;
-}
-
-static inline int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_ipv6ct_table(
-	struct ipa_ioc_nat_ipv6ct_table_del *del)
-{
-	return -EPERM;
-}
-
-static inline int ipa_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
-{
-	return -EPERM;
-}
-
-/*
- * Messaging
- */
-static inline int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
-		ipa_msg_free_fn callback)
-{
-	return -EPERM;
-}
-
-static inline int ipa_register_pull_msg(struct ipa_msg_meta *meta,
-		ipa_msg_pull_fn callback)
-{
-	return -EPERM;
-}
-
-static inline int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
-{
-	return -EPERM;
-}
-
 /*
  * Interface
  */
 static inline int ipa_register_intf(const char *name,
-				     const struct ipa_tx_intf *tx,
-				     const struct ipa_rx_intf *rx)
-{
-	return -EPERM;
-}
-
-static inline int ipa_register_intf_ext(const char *name,
-		const struct ipa_tx_intf *tx,
-		const struct ipa_rx_intf *rx,
-		const struct ipa_ext_intf *ext)
-{
-	return -EPERM;
-}
-
-static inline int ipa_deregister_intf(const char *name)
+	const struct ipa_tx_intf *tx,
+	const struct ipa_rx_intf *rx)
 {
 	return -EPERM;
 }
@@ -2231,6 +1808,31 @@ static inline int ipa_set_single_ndp_per_mbim(bool enable)
 }
 
 /*
+ * interrupts
+ */
+static inline int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
+	ipa_irq_handler_t handler,
+	bool deferred_flag,
+	void *private_data)
+{
+	return -EPERM;
+}
+
+static inline int ipa_restore_suspend_handler(void)
+{
+	return -EPERM;
+}
+
+/*
+ * Messaging
+ */
+static inline int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
+		ipa_msg_free_fn callback)
+{
+	return -EPERM;
+}
+
+/*
  * Data path
  */
 static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
@@ -2247,36 +1849,13 @@ static inline int ipa_rmnet_ctl_xmit(struct sk_buff *skb)
 	return -EPERM;
 }
 
-/*
- * To transfer multiple data packets
- */
-static inline int ipa_tx_dp_mul(
-	enum ipa_client_type dst,
-	struct ipa_tx_data_desc *data_desc)
-{
-	return -EPERM;
-}
-
 static inline void ipa_free_skb(struct ipa_rx_data *rx_in)
-{
-}
-
-static inline int ipa_rx_poll(u32 clnt_hdl, int budget)
-{
-	return -EPERM;
-}
-
-static inline void ipa_recycle_wan_skb(struct sk_buff *skb)
 {
 }
 
 /*
  * System pipes
  */
-static inline u16 ipa_get_smem_restr_bytes(void)
-{
-	return -EPERM;
-}
 
 static inline int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in,
 		u32 *clnt_hdl)
@@ -2332,153 +1911,6 @@ static inline int ipa_uc_wdi_get_dbpa(
 	return -EPERM;
 }
 
-static inline int ipa_uc_reg_rdyCB(
-	struct ipa_wdi_uc_ready_params *param)
-{
-	return -EPERM;
-}
-
-static inline int ipa_uc_dereg_rdyCB(void)
-{
-	return -EPERM;
-}
-
-
-/*
- * Resource manager
- */
-static inline int ipa_rm_create_resource(
-		struct ipa_rm_create_params *create_params)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_delete_resource(
-		enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_register(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_set_perf_profile(
-		enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_perf_profile *profile)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_add_dependency(
-		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_add_dependency_sync(
-		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_delete_dependency(
-		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_request_resource(
-		enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_release_resource(
-		enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_notify_completion(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_inactivity_timer_init(
-		enum ipa_rm_resource_name resource_name,
-			unsigned long msecs)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_inactivity_timer_destroy(
-		enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_inactivity_timer_request_resource(
-				enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-static inline int ipa_rm_inactivity_timer_release_resource(
-				enum ipa_rm_resource_name resource_name)
-{
-	return -EPERM;
-}
-
-/*
- * Tethering bridge (Rmnet / MBIM)
- */
-static inline int teth_bridge_init(struct teth_bridge_init_params *params)
-{
-	return -EPERM;
-}
-
-static inline int teth_bridge_disconnect(enum ipa_client_type client)
-{
-	return -EPERM;
-}
-
-static inline int teth_bridge_connect(struct teth_bridge_connect_params
-				      *connect_params)
-{
-	return -EPERM;
-}
-
-/*
- * Tethering client info
- */
-static inline void ipa_set_client(int index, enum ipacm_client_enum client,
-	bool uplink)
-{
-}
-
-static inline enum ipacm_client_enum ipa_get_client(int pipe_idx)
-{
-	return -EPERM;
-}
-
-static inline bool ipa_get_client_uplink(int pipe_idx)
-{
-	return -EPERM;
-}
-
 /*
  * IPADMA
  */
@@ -2510,62 +1942,19 @@ static inline int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src
 	return -EPERM;
 }
 
-static inline int ipa_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
-{
-	return -EPERM;
-}
-
 static inline void ipa_dma_destroy(void)
 {
 }
 
 /*
- * mux id
- */
-static inline int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
-{
-	return -EPERM;
-}
-
-/*
- * interrupts
- */
-static inline int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
-		ipa_irq_handler_t handler,
-		bool deferred_flag,
-		void *private_data)
-{
-	return -EPERM;
-}
-
-static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
-{
-	return -EPERM;
-}
-
-static inline int ipa_restore_suspend_handler(void)
-{
-	return -EPERM;
-}
-
-/*
  * Miscellaneous
  */
-static inline void ipa_bam_reg_dump(void)
-{
-}
-
 static inline int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 {
 	return -EPERM;
 }
 
 static inline int ipa_uc_bw_monitor(struct ipa_wdi_bw_info *info)
-{
-	return -EPERM;
-}
-
-static inline int ipa_set_wlan_tx_info(struct ipa_wdi_tx_info *info)
 {
 	return -EPERM;
 }
@@ -2580,87 +1969,41 @@ static inline bool ipa_is_ready(void)
 	return false;
 }
 
-static inline void ipa_proxy_clk_vote(void)
-{
-}
-
-static inline void ipa_proxy_clk_unvote(void)
-{
-}
-
 static inline enum ipa_hw_type ipa_get_hw_type(void)
 {
 	return IPA_HW_None;
 }
 
-static inline bool ipa_is_client_handle_valid(u32 clnt_hdl)
+static inline int ipa_register_ipa_ready_cb(
+	void (*ipa_ready_cb)(void *user_data),
+	void *user_data)
 {
-	return -EINVAL;
+	return -EPERM;
 }
 
-static inline enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
+static inline int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
+	struct ipa_smmu_out_params *out)
 {
-	return -EINVAL;
+	return -EPERM;
 }
 
-static inline enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(
-	int pipe_idx)
+static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 {
-	return -EFAULT;
+	return -EPERM;
 }
 
-static inline bool ipa_get_modem_cfg_emb_pipe_flt(void)
+static inline bool ipa_get_lan_rx_napi(void)
 {
-	return -EINVAL;
+	return false;
 }
 
-static inline enum ipa_transport_type ipa_get_transport_type(void)
-{
-	return -EFAULT;
-}
-
-static inline struct device *ipa_get_dma_dev(void)
-{
-	return NULL;
-}
-
-static inline struct iommu_domain *ipa_get_smmu_domain(void)
-{
-	return NULL;
-}
-
-static inline int ipa_create_wdi_mapping(u32 num_buffers,
-		struct ipa_wdi_buffer_info *info)
-{
-	return -EINVAL;
-}
-
-static inline int ipa_release_wdi_mapping(u32 num_buffers,
-		struct ipa_wdi_buffer_info *info)
-{
-	return -EINVAL;
-}
-
-static inline int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size,
-		uint32_t agg_count)
-{
-	return -EINVAL;
-}
-
-static inline const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info
-	(enum ipa_client_type client)
+static inline const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(
+	enum ipa_client_type client)
 {
 	return NULL;
 }
 
 static inline int ipa_stop_gsi_channel(u32 clnt_hdl)
-{
-	return -EPERM;
-}
-
-static inline int ipa_register_ipa_ready_cb(
-	void (*ipa_ready_cb)(void *user_data),
-	void *user_data)
 {
 	return -EPERM;
 }
@@ -2681,50 +2024,255 @@ static inline int ipa_unregister_rmnet_ctl_cb(void)
 	return -EPERM;
 }
 
-static inline int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info,
-	u16 num_regs)
-{
-	return -EPERM;
-}
-
-
-static inline int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
-	struct ipa_smmu_out_params *out)
-{
-	return -EPERM;
-}
-
-static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
-{
-	return -EPERM;
-}
-
-static inline bool ipa_get_lan_rx_napi(void)
-{
-	return false;
-}
-
-static inline int ipa_uc_debug_stats_alloc(
-	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo)
-{
-	return -EPERM;
-}
-
-static inline int ipa_uc_debug_stats_dealloc(uint32_t protocol)
-{
-	return -EPERM;
-}
-
-static inline void ipa_get_gsi_stats(int prot_id,
-	struct ipa_uc_dbg_ring_stats *stats)
-{
-}
-
-static inline int ipa_get_prot_id(enum ipa_client_type client)
+static inline int ipa_uc_reg_rdyCB(
+	struct ipa_wdi_uc_ready_params *inout)
 {
 	return -EPERM;
 }
 
 #endif /* IS_ENABLED(CONFIG_IPA3) */
+
+/* stubs - to be removed once dependent drivers remove references */
+static inline int ipa_reset_endpoint(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_clear_endpoint_delay(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_commit_hdr(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_put_hdr(u32 hdr_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_pull_msg(struct ipa_msg_meta *meta,
+	ipa_msg_pull_fn callback)
+{
+	return -EPERM;
+}
+
+static inline int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_intf_ext(const char *name,
+	const struct ipa_tx_intf *tx,
+	const struct ipa_rx_intf *rx,
+	const struct ipa_ext_intf *ext)
+{
+	return -EPERM;
+}
+
+static inline int ipa_tx_dp_mul(enum ipa_client_type src,
+	struct ipa_tx_data_desc *data_desc)
+{
+	return -EPERM;
+}
+
+static inline u16 ipa_get_smem_restr_bytes(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_create_wdi_mapping(u32 num_buffers,
+	struct ipa_wdi_buffer_info *info)
+{
+	return -EPERM;
+}
+
+static inline int ipa_release_wdi_mapping(u32 num_buffers,
+	struct ipa_wdi_buffer_info *info)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_create_resource(
+	struct ipa_rm_create_params *create_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_delete_resource(
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_register(enum ipa_rm_resource_name resource_name,
+	struct ipa_rm_register_params *reg_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_deregister(
+	enum ipa_rm_resource_name resource_name,
+	struct ipa_rm_register_params *reg_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_set_perf_profile(
+	enum ipa_rm_resource_name resource_name,
+	struct ipa_rm_perf_profile *profile)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_add_dependency(
+	enum ipa_rm_resource_name resource_name,
+	enum ipa_rm_resource_name depends_on_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_add_dependency_sync(
+	enum ipa_rm_resource_name resource_name,
+	enum ipa_rm_resource_name depends_on_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_delete_dependency(
+	enum ipa_rm_resource_name resource_name,
+	enum ipa_rm_resource_name depends_on_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_request_resource(
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_init(
+	enum ipa_rm_resource_name resource_name,
+	unsigned long msecs)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_release_resource(
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_notify_completion(enum ipa_rm_event event,
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_destroy(
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_request_resource(
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_release_resource(
+	enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(
+	int pipe_idx)
+{
+	return -EPERM;
+}
+
+static inline void ipa_bam_reg_dump(void)
+{
+}
+
+static inline void ipa_proxy_clk_vote(void)
+{
+}
+
+static inline void ipa_proxy_clk_unvote(void)
+{
+}
+
+static inline bool ipa_is_client_handle_valid(u32 clnt_hdl)
+{
+	return false;
+}
+
+static inline enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
+{
+	return -EPERM;
+}
+
+static inline bool ipa_get_modem_cfg_emb_pipe_flt(void)
+{
+	return false;
+}
+
+static inline enum ipa_transport_type ipa_get_transport_type(void)
+{
+	return IPA_TRANSPORT_TYPE_GSI;
+}
+
+static inline struct device *ipa_get_dma_dev(void)
+{
+	return NULL;
+}
+
+static inline struct iommu_domain *ipa_get_smmu_domain(void)
+{
+	return NULL;
+}
+
+static inline int ipa_disable_apps_wan_cons_deaggr(
+	uint32_t agg_size, uint32_t agg_count)
+{
+	return -EPERM;
+}
+
+static inline int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
+{
+	return -EPERM;
+}
+
+static inline int ipa_deregister_intf(const char *name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_uc_dereg_rdyCB(void)
+{
+	return -EPERM;
+}
 
 #endif /* _IPA_H_ */

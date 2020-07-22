@@ -195,6 +195,9 @@
 #define GCC_VIDEO_VENUS_CLK_SRC			186
 #define GCC_VIDEO_VENUS_CTL_CLK			187
 #define GCC_VIDEO_XO_CLK			188
+#define GCC_UFS_MEM_CLKREF_CLK			189
+#define GCC_RX5_PCIE_CLKREF_EN_CLK		190
+#define GCC_DISP_GPLL0_CLK_SRC			191
 
 /* GCC power domains */
 #define GCC_CAMSS_TOP_GDSC			0

@@ -7,8 +7,27 @@
 #define _ADRENO_A6XX_H_
 
 #include <linux/delay.h>
+#include <linux/iopoll.h>
 
 #include "a6xx_reg.h"
+#include "adreno_a6xx_gmu.h"
+#include "adreno_a6xx_rgmu.h"
+
+extern const struct adreno_power_ops a6xx_gmu_power_ops;
+extern const struct adreno_power_ops a6xx_rgmu_power_ops;
+extern const struct adreno_power_ops a630_gmu_power_ops;
+
+/**
+ * struct a6xx_device - Container for the a6xx_device
+ */
+struct a6xx_device {
+	/** @gmu: Container for the a6xx GMU device */
+	struct a6xx_gmu_device gmu;
+	/** @rgmu: Container for the a6xx rGMU device */
+	struct a6xx_rgmu_device rgmu;
+	/** @adreno_dev: Container for the generic adreno device */
+	struct adreno_device adreno_dev;
+};
 
 /**
  * struct a6xx_protected_regs - container for a protect register span
@@ -66,6 +85,8 @@ struct adreno_a6xx_core {
 	const struct a6xx_protected_regs *protected_regs;
 	/** @disable_tseskip: True if TSESkip logic is disabled */
 	bool disable_tseskip;
+	/** @gx_cpr_toggle: True to toggle GX CPR FSM to avoid CPR stalls */
+	bool gx_cpr_toggle;
 	/** @highest_bank_bit: The bit of the highest DDR bank */
 	u32 highest_bank_bit;
 };
@@ -174,74 +195,35 @@ to_a6xx_core(struct adreno_device *adreno_dev)
 	return container_of(core, struct adreno_a6xx_core, base);
 }
 
-/*
+/**
  * timed_poll_check() - polling *gmu* register at given offset until
  * its value changed to match expected value. The function times
  * out and returns after given duration if register is not updated
  * as expected.
  *
  * @device: Pointer to KGSL device
- * @offset: Register offset
+ * @offset: Register offset in dwords
  * @expected_ret: expected register value that stops polling
- * @timout: number of jiffies to abort the polling
+ * @timeout_ms: time in milliseconds to poll the register
  * @mask: bitmask to filter register value to match expected_ret
  */
 static inline int timed_poll_check(struct kgsl_device *device,
 		unsigned int offset, unsigned int expected_ret,
-		unsigned int timeout, unsigned int mask)
+		unsigned int timeout_ms, unsigned int mask)
 {
-	unsigned long t;
-	unsigned int value;
+	u32 val;
+	void __iomem *addr = device->gmu_core.reg_virt +
+		((offset - device->gmu_core.gmu2gpu_offset) << 2);
 
-	t = jiffies + msecs_to_jiffies(timeout);
+	if (WARN(!gmu_core_is_register_offset(device, offset),
+		"Out of bounds register read: 0x%x\n", offset))
+		return -EINVAL;
 
-	do {
-		gmu_core_regread(device, offset, &value);
-		if ((value & mask) == expected_ret)
-			return 0;
-		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		usleep_range(10, 100);
-	} while (!time_after(jiffies, t));
+	if (readl_poll_timeout(addr, val, (val & mask) == expected_ret, 100,
+		timeout_ms * 1000))
+		return -ETIMEDOUT;
 
-	/* Double check one last time */
-	gmu_core_regread(device, offset, &value);
-	if ((value & mask) == expected_ret)
-		return 0;
-
-	return -ETIMEDOUT;
-}
-
-static inline int timed_poll_check_rscc(struct kgsl_device *device,
-		unsigned int offset, unsigned int expected_ret,
-		unsigned int timeout, unsigned int mask)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned long t;
-	unsigned int value;
-
-	t = jiffies + msecs_to_jiffies(timeout);
-
-	do {
-		if (adreno_is_a650_family(adreno_dev))
-			adreno_rscc_regread(adreno_dev, offset, &value);
-		else
-			gmu_core_regread(device, offset + RSCC_OFFSET_LEGACY,
-						&value);
-		if ((value & mask) == expected_ret)
-			return 0;
-		/* Wait 100us to reduce unnecessary AHB bus traffic */
-		usleep_range(10, 100);
-	} while (!time_after(jiffies, t));
-
-	/* Double check one last time */
-	if (adreno_is_a650_family(adreno_dev))
-		adreno_rscc_regread(adreno_dev, offset, &value);
-	else
-		gmu_core_regread(device, offset + RSCC_OFFSET_LEGACY, &value);
-	if ((value & mask) == expected_ret)
-		return 0;
-
-	return -ETIMEDOUT;
+	return 0;
 }
 
 /* Preemption functions */
@@ -273,10 +255,67 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev);
 bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev);
 
 /**
- * a6xx_read_alwayson: Read the current always on clock value
+ * a6xx_read_alwayson - Read the current always on clock value
  * @adreno_dev: An Adreno GPU handle
  *
  * Return: The current value of the GMU always on counter
  */
 u64 a6xx_read_alwayson(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_start - Program a6xx registers
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * This function does all a6xx register programming every
+ * time we boot the gpu
+ */
+void a6xx_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_init - Initialize a6xx resources
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * This function does a6xx specific one time initialization
+ * and is invoked when the very first client opens a
+ * kgsl instance
+ *
+ * Return: Zero on success and negative error on failure
+ */
+int a6xx_init(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_rb_start - A6xx specific ringbuffer setup
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * This function does a6xx specific ringbuffer setup and
+ * attempts to submit CP INIT and bring GPU out of secure mode
+ *
+ * Return: Zero on success and negative error on failure
+ */
+int a6xx_rb_start(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_microcode_read - Get the cp microcode from the filesystem
+ * @adreno_dev: An Adreno GPU handle
+ *
+ * This function gets the firmware from filesystem and sets up
+ * the micorocode global buffer
+ *
+ * Return: Zero on success and negative error on failure
+ */
+int a6xx_microcode_read(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_probe_common - Probe common a6xx resources
+ * @pdev: Pointer to the platform device
+ * @adreno_dev: Pointer to the adreno device
+ * @chipid: Chipid of the target
+ * @gpucore: Pointer to the gpucore strucure
+ *
+ * This function sets up the a6xx resources common across all
+ * a6xx targets
+ */
+int a6xx_probe_common(struct platform_device *pdev,
+	struct  adreno_device *adreno_dev, u32 chipid,
+	const struct adreno_gpu_core *gpucore);
 #endif

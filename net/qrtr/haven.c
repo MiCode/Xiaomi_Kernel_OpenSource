@@ -10,7 +10,9 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <linux/skbuff.h>
+#include <linux/haven/hh_rm_drv.h>
 #include <linux/haven/hh_dbl.h>
+#include <soc/qcom/secure_buffer.h>
 #include "qrtr.h"
 
 #define HAVEN_MAGIC_KEY	0x24495043 /* "$IPC" */
@@ -37,9 +39,14 @@ struct haven_pipe {
  * @ep: qrtr endpoint specific info.
  * @dev: device from platform_device.
  * @buf: buf for reading from fifo.
+ * @res: resource of reserved mem region
+ * @memparcel: memparcel handle returned from sharing mem
  * @base: Base of the shared fifo.
  * @size: fifo size.
  * @master: primary vm indicator.
+ * @peer_name: name of vm peer.
+ * @rm_nb: notifier block for vm status from rm
+ * @label: label for haven resources
  * @tx_dbl: doorbell for tx notifications.
  * @rx_dbl: doorbell for rx notifications.
  * @tx_pipe: TX haven specific info.
@@ -50,12 +57,18 @@ struct qrtr_haven_dev {
 	struct device *dev;
 	void *buf;
 
+	struct resource res;
+	u32 memparcel;
 	void *base;
 	size_t size;
 	bool master;
+	u32 peer_name;
+	struct notifier_block rm_nb;
 
+	u32 label;
 	void *tx_dbl;
 	void *rx_dbl;
+	struct work_struct work;
 
 	struct haven_pipe tx_pipe;
 	struct haven_pipe rx_pipe;
@@ -69,8 +82,20 @@ static void qrtr_haven_kick(struct qrtr_haven_dev *qdev)
 	int ret;
 
 	ret = hh_dbl_send(qdev->tx_dbl, &dbl_mask, HH_DBL_NONBLOCK);
-	if (ret)
+	if (ret) {
 		dev_err(qdev->dev, "failed to raise doorbell %d\n", ret);
+		if (!qdev->master)
+			schedule_work(&qdev->work);
+	}
+}
+
+static void qrtr_haven_retry_work(struct work_struct *work)
+{
+	struct qrtr_haven_dev *qdev = container_of(work, struct qrtr_haven_dev,
+						   work);
+	hh_dbl_flags_t dbl_mask = QRTR_DBL_MASK;
+
+	hh_dbl_send(qdev->tx_dbl, &dbl_mask, 0);
 }
 
 static void qrtr_haven_cb(int irq, void *data)
@@ -224,6 +249,81 @@ static void qrtr_haven_read(struct qrtr_haven_dev *qdev)
 	}
 }
 
+static int qrtr_haven_share_mem(struct qrtr_haven_dev *qdev,
+				hh_vmid_t self, hh_vmid_t peer)
+{
+	u32 src_vmlist[1] = {self};
+	int dst_vmlist[2] = {self, peer};
+	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
+	struct hh_acl_desc *acl;
+	struct hh_sgl_desc *sgl;
+	int ret;
+
+	ret = hyp_assign_phys(qdev->res.start, resource_size(&qdev->res),
+			      src_vmlist, 1,
+			      dst_vmlist, dst_perms, 2);
+	if (ret) {
+		pr_err("%s: hyp_assign_phys failed addr=%x size=%u err=%d\n",
+		       __func__, qdev->res.start, qdev->size, ret);
+		return ret;
+	}
+
+	acl = kzalloc(offsetof(struct hh_acl_desc, acl_entries[2]), GFP_KERNEL);
+	if (!acl)
+		return -ENOMEM;
+	sgl = kzalloc(offsetof(struct hh_sgl_desc, sgl_entries[1]), GFP_KERNEL);
+	if (!sgl) {
+		kfree(acl);
+		return -ENOMEM;
+	}
+	acl->n_acl_entries = 2;
+	acl->acl_entries[0].vmid = (u16)self;
+	acl->acl_entries[0].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+	acl->acl_entries[1].vmid = (u16)peer;
+	acl->acl_entries[1].perms = HH_RM_ACL_R | HH_RM_ACL_W;
+
+	sgl->n_sgl_entries = 1;
+	sgl->sgl_entries[0].ipa_base = qdev->res.start;
+	sgl->sgl_entries[0].size = resource_size(&qdev->res);
+	ret = hh_rm_mem_qcom_lookup_sgl(HH_RM_MEM_TYPE_NORMAL,
+					qdev->label,
+					acl, sgl, NULL,
+					&qdev->memparcel);
+	kfree(acl);
+	kfree(sgl);
+
+	return ret;
+}
+
+static int qrtr_haven_rm_cb(struct notifier_block *nb, unsigned long cmd,
+			    void *data)
+{
+	struct hh_rm_notif_vm_status_payload *vm_status_payload;
+	struct qrtr_haven_dev *qdev;
+	hh_vmid_t peer_vmid;
+	hh_vmid_t self_vmid;
+
+	qdev = container_of(nb, struct qrtr_haven_dev, rm_nb);
+
+	if (cmd != HH_RM_NOTIF_VM_STATUS)
+		return NOTIFY_DONE;
+
+	vm_status_payload = data;
+	if (vm_status_payload->vm_status != HH_RM_VM_STATUS_READY)
+		return NOTIFY_DONE;
+	if (hh_rm_get_vmid(qdev->peer_name, &peer_vmid))
+		return NOTIFY_DONE;
+	if (hh_rm_get_vmid(HH_PRIMARY_VM, &self_vmid))
+		return NOTIFY_DONE;
+	if (peer_vmid != vm_status_payload->vmid)
+		return NOTIFY_DONE;
+
+	if (qrtr_haven_share_mem(qdev, self_vmid, peer_vmid))
+		pr_err("%s: failed to share memory\n", __func__);
+
+	return NOTIFY_DONE;
+}
+
 /**
  * qrtr_haven_fifo_init() - init haven xprt configs
  *
@@ -269,29 +369,61 @@ static void qrtr_haven_fifo_init(struct qrtr_haven_dev *qdev)
 	*qdev->rx_pipe.tail = 0;
 }
 
+static struct device_node *qrtr_haven_svm_of_parse(struct qrtr_haven_dev *qdev)
+{
+	const char *compat = "qcom,qrtr-haven-gen";
+	struct device_node *np = NULL;
+	struct device_node *shm_np;
+	u32 label;
+	int ret;
+
+	while ((np = of_find_compatible_node(np, NULL, compat))) {
+		ret = of_property_read_u32(np, "qcom,label", &label);
+		if (ret) {
+			of_node_put(np);
+			continue;
+		}
+		if (label == qdev->label)
+			break;
+
+		of_node_put(np);
+	}
+	if (!np)
+		return NULL;
+
+	shm_np = of_parse_phandle(np, "memory-region", 0);
+	if (!shm_np)
+		dev_err(qdev->dev, "cant parse svm shared mem node!\n");
+
+	of_node_put(np);
+	return shm_np;
+}
+
 static int qrtr_haven_map_memory(struct qrtr_haven_dev *qdev)
 {
 	struct device *dev = qdev->dev;
 	struct device_node *np;
 	resource_size_t size;
-	struct resource r;
 	int ret;
 
 	np = of_parse_phandle(dev->of_node, "shared-buffer", 0);
 	if (!np) {
-		dev_err(dev, "shared-buffer node missing!\n");
-		return -EINVAL;
+		np = qrtr_haven_svm_of_parse(qdev);
+		if (!np) {
+			dev_err(dev, "cant parse shared mem node!\n");
+			return -EINVAL;
+		}
 	}
 
-	ret = of_address_to_resource(np, 0, &r);
+	ret = of_address_to_resource(np, 0, &qdev->res);
 	of_node_put(np);
 	if (ret) {
 		dev_err(dev, "of_address_to_resource failed!\n");
 		return -EINVAL;
 	}
-	size = resource_size(&r);
+	size = resource_size(&qdev->res);
 
-	qdev->base = devm_ioremap_nocache(dev, r.start, size);
+	qdev->base = devm_ioremap_nocache(dev, qdev->res.start, size);
 	if (!qdev->base) {
 		dev_err(dev, "ioremap failed!\n");
 		return -ENXIO;
@@ -328,24 +460,37 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 	if (!qdev->buf)
 		return -ENOMEM;
 
-	qdev->master = of_property_read_bool(node, "qcom,master");
-	ret = qrtr_haven_map_memory(qdev);
-	if (ret)
-		return ret;
-
-	ret = of_property_read_u32(node, "haven-label", &dbl_label);
+	ret = of_property_read_u32(node, "haven-label", &qdev->label);
 	if (ret) {
 		dev_err(qdev->dev, "failed to read label info %d\n", ret);
 		return ret;
 	}
+	qdev->master = of_property_read_bool(node, "qcom,master");
+
+	ret = qrtr_haven_map_memory(qdev);
+	if (ret)
+		return ret;
+
 	qrtr_haven_fifo_init(qdev);
 
+	if (qdev->master) {
+		ret = of_property_read_u32(node, "peer-name", &qdev->peer_name);
+		if (ret)
+			qdev->peer_name = HH_SELF_VM;
+
+		qdev->rm_nb.notifier_call = qrtr_haven_rm_cb;
+		qdev->rm_nb.priority = INT_MAX;
+		hh_rm_register_notifier(&qdev->rm_nb);
+	}
+
+	dbl_label = qdev->label;
 	qdev->tx_dbl = hh_dbl_tx_register(dbl_label);
 	if (IS_ERR_OR_NULL(qdev->tx_dbl)) {
 		ret = PTR_ERR(qdev->tx_dbl);
 		dev_err(qdev->dev, "failed to get haven tx dbl %d\n", ret);
 		return ret;
 	}
+	INIT_WORK(&qdev->work, qrtr_haven_retry_work);
 
 	qdev->rx_dbl = hh_dbl_rx_register(dbl_label, qrtr_haven_cb, qdev);
 	if (IS_ERR_OR_NULL(qdev->rx_dbl)) {
@@ -367,6 +512,7 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 register_fail:
 	hh_dbl_rx_unregister(qdev->rx_dbl);
 fail_rx_dbl:
+	cancel_work_sync(&qdev->work);
 	hh_dbl_tx_unregister(qdev->tx_dbl);
 
 	return ret;
@@ -376,6 +522,7 @@ static int qrtr_haven_remove(struct platform_device *pdev)
 {
 	struct qrtr_haven_dev *qdev = dev_get_drvdata(&pdev->dev);
 
+	cancel_work_sync(&qdev->work);
 	hh_dbl_tx_unregister(qdev->tx_dbl);
 	hh_dbl_rx_unregister(qdev->rx_dbl);
 

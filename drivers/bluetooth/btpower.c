@@ -646,13 +646,13 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 
 		bt_power_pdata->bt_gpio_sw_ctrl  =
 			of_get_named_gpio(pdev->dev.of_node,
-						"qca,bt-sw-ctrl-gpio",  0);
+						"qcom,bt-sw-ctrl-gpio",  0);
 		if (bt_power_pdata->bt_gpio_sw_ctrl < 0)
-			pr_err("bt-sw_ctrl-gpio not provided in devicetree\n");
+			pr_err("bt-sw-ctrl-gpio not provided in devicetree\n");
 
 		bt_power_pdata->bt_gpio_debug  =
 			of_get_named_gpio(pdev->dev.of_node,
-						"qca,bt-debug-gpio",  0);
+						"qcom,bt-debug-gpio",  0);
 		if (bt_power_pdata->bt_gpio_debug < 0)
 			pr_err("bt-debug-gpio not provided in devicetree\n");
 

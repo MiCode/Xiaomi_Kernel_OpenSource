@@ -135,6 +135,13 @@ struct iommu_debug_device {
 #endif
 };
 
+static int __apply_to_new_mapping(struct seq_file *s,
+				    int (*fn)(struct device *dev,
+					      struct seq_file *s,
+					      struct iommu_domain *domain,
+					      void *priv),
+				    void *priv);
+
 static int iommu_debug_build_phoney_sg_table(struct device *dev,
 					     struct sg_table *table,
 					     unsigned long total_size,
@@ -727,7 +734,8 @@ static const struct file_operations iommu_debug_profiling_fast_dma_api_fops = {
 	.release = single_release,
 };
 
-static int __tlb_stress_sweep(struct device *dev, struct seq_file *s)
+static int __tlb_stress_sweep(struct device *dev, struct seq_file *s,
+				struct iommu_domain *domain, void *unused)
 {
 	int i, ret = 0;
 	u64 iova;
@@ -834,7 +842,7 @@ static unsigned long get_next_fib(struct fib_state *f)
  * Not actually random.  Just testing the fibs (and max - the fibs).
  */
 static int __rand_va_sweep(struct device *dev, struct seq_file *s,
-			   const size_t size)
+			   struct iommu_domain *domain, void *priv)
 {
 	u64 iova;
 	const u64 max = SZ_1G * 4ULL - 1;
@@ -842,6 +850,7 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 	void *virt;
 	dma_addr_t dma_addr, dma_addr2;
 	struct fib_state fib;
+	const size_t size = (size_t)priv;
 
 	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(size));
 	if (!virt) {
@@ -925,7 +934,7 @@ static int __check_mapping(struct device *dev, struct iommu_domain *domain,
 }
 
 static int __full_va_sweep(struct device *dev, struct seq_file *s,
-			   const size_t size, struct iommu_domain *domain)
+			   struct iommu_domain *domain, void *priv)
 {
 	u64 iova;
 	dma_addr_t dma_addr;
@@ -933,6 +942,7 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 	phys_addr_t phys;
 	const u64 max = SZ_1G * 4ULL - 1;
 	int ret = 0, i;
+	const size_t size = (size_t)priv;
 
 	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(size));
 	if (!virt) {
@@ -945,24 +955,6 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 		return -ENOMEM;
 	}
 	phys = virt_to_phys(virt);
-
-	/*
-	 * A previous test might have made it so that the next IOVA that we
-	 * start to search from is not 0, so map the entire IOVA space, and
-	 * then unmap it to reset the starting IOVA to search from to address
-	 * 0.
-	 */
-	dma_addr = dma_map_single_attrs(dev, virt, SZ_1G * 4ULL, DMA_TO_DEVICE,
-					DMA_ATTR_SKIP_CPU_SYNC);
-	if (dma_mapping_error(dev, dma_addr)) {
-		dev_err_ratelimited(dev,
-				    "Failed to map all of the IOVA space\n");
-		ret = -ENOMEM;
-		goto out_free_pages;
-	}
-
-	dma_unmap_single_attrs(dev, dma_addr, SZ_1G * 4ULL, DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
 
 	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
 		unsigned long expected = iova;
@@ -1015,7 +1007,6 @@ out:
 	for (iova = 0; iova < max; iova += size)
 		dma_unmap_single(dev, (dma_addr_t)iova, size, DMA_TO_DEVICE);
 
-out_free_pages:
 	free_pages((unsigned long)virt, get_order(size));
 	return ret;
 }
@@ -1025,29 +1016,27 @@ out_free_pages:
 			seq_printf(s, fmt, ##__VA_ARGS__);	\
 		})
 
-static int __functional_dma_api_va_test(struct device *dev, struct seq_file *s,
-				     struct iommu_domain *domain, void *priv)
+static int __functional_dma_api_va_test(struct seq_file *s)
 {
-	int i, j, ret = 0;
-	size_t *sz, *sizes = priv;
+	int ret = 0;
+	size_t *sz;
+	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
+	struct iommu_debug_device *ddev = s->private;
+	struct device *dev = ddev->dev;
 
-	for (j = 0; j < 1; ++j) {
-		for (sz = sizes; *sz; ++sz) {
-			for (i = 0; i < 2; ++i) {
-				ds_printf(dev, s, "Full VA sweep @%s %d",
-					       _size_to_string(*sz), i);
-				if (__full_va_sweep(dev, s, *sz, domain)) {
-					ds_printf(dev, s, "  -> FAILED\n");
-					ret = -EINVAL;
-				} else {
-					ds_printf(dev, s, "  -> SUCCEEDED\n");
-				}
-			}
+	for (sz = sizes; *sz; ++sz) {
+		ds_printf(dev, s, "Full VA sweep @%s",
+			       _size_to_string(*sz));
+		if (__apply_to_new_mapping(s, __full_va_sweep, (void *)*sz)) {
+			ds_printf(dev, s, "  -> FAILED\n");
+			ret = -EINVAL;
+		} else {
+			ds_printf(dev, s, "  -> SUCCEEDED\n");
 		}
 	}
 
 	ds_printf(dev, s, "bonus map:");
-	if (__full_va_sweep(dev, s, SZ_4K, domain)) {
+	if (__apply_to_new_mapping(s, __full_va_sweep, (void *)SZ_4K)) {
 		ds_printf(dev, s, "  -> FAILED\n");
 		ret = -EINVAL;
 	} else {
@@ -1055,20 +1044,18 @@ static int __functional_dma_api_va_test(struct device *dev, struct seq_file *s,
 	}
 
 	for (sz = sizes; *sz; ++sz) {
-		for (i = 0; i < 2; ++i) {
-			ds_printf(dev, s, "Rand VA sweep @%s %d",
-				   _size_to_string(*sz), i);
-			if (__rand_va_sweep(dev, s, *sz)) {
-				ds_printf(dev, s, "  -> FAILED\n");
-				ret = -EINVAL;
-			} else {
-				ds_printf(dev, s, "  -> SUCCEEDED\n");
-			}
+		ds_printf(dev, s, "Rand VA sweep @%s",
+			   _size_to_string(*sz));
+		if (__apply_to_new_mapping(s, __rand_va_sweep, (void *)*sz)) {
+			ds_printf(dev, s, "  -> FAILED\n");
+			ret = -EINVAL;
+		} else {
+			ds_printf(dev, s, "  -> SUCCEEDED\n");
 		}
 	}
 
 	ds_printf(dev, s, "TLB stress sweep");
-	if (__tlb_stress_sweep(dev, s)) {
+	if (__apply_to_new_mapping(s, __tlb_stress_sweep, NULL)) {
 		ds_printf(dev, s, "  -> FAILED\n");
 		ret = -EINVAL;
 	} else {
@@ -1076,7 +1063,7 @@ static int __functional_dma_api_va_test(struct device *dev, struct seq_file *s,
 	}
 
 	ds_printf(dev, s, "second bonus map:");
-	if (__full_va_sweep(dev, s, SZ_4K, domain)) {
+	if (__apply_to_new_mapping(s, __full_va_sweep, (void *)SZ_4K)) {
 		ds_printf(dev, s, "  -> FAILED\n");
 		ret = -EINVAL;
 	} else {
@@ -1309,12 +1296,11 @@ out:
 static int iommu_debug_functional_fast_dma_api_show(struct seq_file *s,
 						    void *ignored)
 {
-	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
 	int ret = 0;
 
 	ret |= __apply_to_new_mapping(s, __functional_dma_api_alloc_test, NULL);
 	ret |= __apply_to_new_mapping(s, __functional_dma_api_basic_test, NULL);
-	ret |= __apply_to_new_mapping(s, __functional_dma_api_va_test, sizes);
+	ret |=  __functional_dma_api_va_test(s);
 	return ret;
 }
 
@@ -2347,8 +2333,7 @@ err:
 
 static int iommu_debug_init_tests(void)
 {
-	debugfs_tests_dir = debugfs_create_dir("tests",
-					       iommu_debugfs_top);
+	debugfs_tests_dir = debugfs_create_dir("tests", iommu_debugfs_dir);
 	if (!debugfs_tests_dir) {
 		pr_err_ratelimited("Couldn't create iommu/tests debugfs directory\n");
 		return -ENODEV;

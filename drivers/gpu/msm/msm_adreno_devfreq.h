@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef MSM_ADRENO_DEVFREQ_H
@@ -61,6 +61,8 @@ struct devfreq_msm_adreno_tz_data {
 	bool is_64;
 	bool disable_busy_time_burst;
 	bool ctxt_aware_enable;
+	/* Multiplier to change gpu busy status */
+	u32 mod_percent;
 };
 
 struct msm_adreno_extended_profile {
@@ -76,6 +78,7 @@ struct msm_adreno_extended_profile {
 
 struct msm_busmon_extended_profile {
 	u32 flag;
+	u32 sampling_ms;
 	unsigned long percent_ab;
 	unsigned long ab_mbytes;
 	struct devfreq_msm_adreno_tz_data *private_data;

@@ -12,6 +12,7 @@
 #include <linux/dma-noncoherent.h>
 
 #include "ion_private.h"
+#define ION_SYSTEM_HEAP_ID BIT(25)
 
 /* this function should only be called while dev->lock is held */
 static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
@@ -76,12 +77,12 @@ err2:
 
 static int ion_clear_pages(struct page **pages, int num, pgprot_t pgprot)
 {
-	void *addr = vm_map_ram(pages, num, -1, pgprot);
+	void *addr = vmap(pages, num, VM_MAP, pgprot);
 
 	if (!addr)
 		return -ENOMEM;
 	memset(addr, 0, PAGE_SIZE * num);
-	vm_unmap_ram(addr, num);
+	vunmap(addr);
 
 	return 0;
 }
@@ -115,9 +116,23 @@ struct ion_buffer *ion_buffer_alloc(struct ion_device *dev, size_t len,
 {
 	struct ion_buffer *buffer = NULL;
 	struct ion_heap *heap;
+	char task_comm[TASK_COMM_LEN];
 
 	if (!dev || !len) {
 		return ERR_PTR(-EINVAL);
+	}
+
+	/*
+	 * Temporarily reroute generic system heap allocations to the MSM system
+	 * heap. Once clients have stopped using the generic system heap ID, we
+	 * can remove this.
+	 */
+	if (heap_id_mask & ION_HEAP_SYSTEM) {
+		get_task_comm(task_comm, current->group_leader);
+		pr_warn_ratelimited("%s: Rerouting allocation from generic sys heap to msm sys heap for %s-%d\n",
+				    __func__, task_comm, current->tgid);
+		heap_id_mask &= ~ION_HEAP_SYSTEM;
+		heap_id_mask |= ION_SYSTEM_HEAP_ID;
 	}
 
 	/*

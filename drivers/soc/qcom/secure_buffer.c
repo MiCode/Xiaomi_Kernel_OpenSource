@@ -268,6 +268,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SEC_DISPLAY";
 	case VMID_CP_APP:
 		return "VMID_CP_APP";
+	case VMID_LPASS:
+		return "VMID_LPASS";
 	case VMID_WLAN:
 		return "VMID_WLAN";
 	case VMID_WLAN_CE:
@@ -280,8 +282,12 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SPSS_SP_SHARED";
 	case VMID_CP_SPSS_HLOS_SHARED:
 		return "VMID_CP_SPSS_HLOS_SHARED";
+	case VMID_ADSP_HEAP:
+		return "VMID_ADSP_HEAP";
 	case VMID_INVAL:
 		return "VMID_INVAL";
+	case VMID_NAV:
+		return "VMID_NAV";
 	default:
 		return "Unknown VMID";
 	}

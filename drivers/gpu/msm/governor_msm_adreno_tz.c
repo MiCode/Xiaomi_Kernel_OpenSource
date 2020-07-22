@@ -130,13 +130,42 @@ static ssize_t suspend_time_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%llu\n", time_diff);
 }
 
+static ssize_t mod_percent_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+	struct devfreq *devfreq = to_devfreq(dev);
+	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	priv->mod_percent = clamp_t(u32, val, 10, 1000);
+
+	return count;
+}
+
+static ssize_t mod_percent_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct devfreq *devfreq = to_devfreq(dev);
+	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", priv->mod_percent);
+}
+
 static DEVICE_ATTR_RO(gpu_load);
 
 static DEVICE_ATTR_RO(suspend_time);
+static DEVICE_ATTR_RW(mod_percent);
 
 static const struct device_attribute *adreno_tz_attr_list[] = {
 		&dev_attr_gpu_load,
 		&dev_attr_suspend_time,
+		&dev_attr_mod_percent,
 		NULL
 };
 
@@ -327,6 +356,7 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 	struct devfreq_dev_status *stats = &devfreq->last_status;
 	int val, level = 0;
 	int context_count = 0;
+	u64 busy_time;
 
 	/* keeps stats.private_data == NULL   */
 	result = devfreq_update_stats(devfreq);
@@ -337,6 +367,14 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 
 	*freq = stats->current_frequency;
 	priv->bin.total_time += stats->total_time;
+
+	/* Update gpu busy time as per mod_percent */
+	busy_time = stats->busy_time * priv->mod_percent;
+	do_div(busy_time, 100);
+
+	/* busy_time should not go over total_time */
+	stats->busy_time = min_t(u64, busy_time, stats->total_time);
+
 	priv->bin.busy_time += stats->busy_time;
 
 	if (stats->private_data)

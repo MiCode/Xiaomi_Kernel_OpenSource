@@ -713,8 +713,6 @@ enum shima_functions {
 	msm_mux_qup7,
 	msm_mux_qup8,
 	msm_mux_qup9,
-	msm_mux_qup_l0,
-	msm_mux_qup_l1,
 	msm_mux_qup_l4,
 	msm_mux_qup_l5,
 	msm_mux_qup_l6,
@@ -1242,12 +1240,6 @@ static const char * const qup8_groups[] = {
 static const char * const qup9_groups[] = {
 	"gpio60", "gpio61", "gpio62", "gpio63",
 };
-static const char * const qup_l0_groups[] = {
-	"gpio107",
-};
-static const char * const qup_l1_groups[] = {
-	"gpio108",
-};
 static const char * const qup_l4_groups[] = {
 	"gpio2", "gpio6", "gpio58",
 };
@@ -1441,9 +1433,7 @@ static const struct msm_function shima_functions[] = {
 	FUNCTION(cci_async),
 	FUNCTION(qdss_gpio6),
 	FUNCTION(cci_i2c),
-	FUNCTION(qup_l0),
 	FUNCTION(qdss_gpio7),
-	FUNCTION(qup_l1),
 	FUNCTION(qdss_gpio8),
 	FUNCTION(qdss_gpio),
 	FUNCTION(qdss_gpio9),
@@ -1699,9 +1689,9 @@ static const struct msm_pingroup shima_groups[] = {
 			 0xCC014, 9),
 	[106] = PINGROUP(106, cci_async, NA, NA, qdss_gpio6, NA, NA, NA, NA,
 			 NA, 0, -1),
-	[107] = PINGROUP(107, cci_i2c, qup_l0, NA, qdss_gpio7, NA, NA, NA, NA,
+	[107] = PINGROUP(107, cci_i2c, NA, NA, qdss_gpio7, NA, NA, NA, NA,
 			 NA, 0xCC014, 10),
-	[108] = PINGROUP(108, cci_i2c, qup_l1, NA, qdss_gpio8, NA, NA, NA, NA,
+	[108] = PINGROUP(108, cci_i2c, NA, NA, qdss_gpio8, NA, NA, NA, NA,
 			 NA, 0, -1),
 	[109] = PINGROUP(109, cci_i2c, NA, NA, qdss_gpio, NA, NA, NA, NA, NA,
 			 0, -1),
@@ -1861,6 +1851,11 @@ static const struct msm_pingroup shima_groups[] = {
 	[210] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1d1000, 11, 3),
 	[211] = SDC_QDSD_PINGROUP(sdc2_data, 0x1d1000, 9, 0),
 };
+
+static const int shima_reserved_gpios[] = {
+	24, 25, 26, 27, 40, 41, 42, 43, -1
+};
+
 static struct pinctrl_qup shima_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
 	QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
@@ -1892,6 +1887,7 @@ static const struct msm_pinctrl_soc_data shima_pinctrl = {
 	.nfunctions = ARRAY_SIZE(shima_functions),
 	.groups = shima_groups,
 	.ngroups = ARRAY_SIZE(shima_groups),
+	.reserved_gpios = shima_reserved_gpios,
 	.ngpios = 205,
 	.qup_regs = shima_qup_regs,
 	.nqup_regs = ARRAY_SIZE(shima_qup_regs),

@@ -19,7 +19,7 @@
 #include "clk-regmap-mux.h"
 #include "clk-regmap-divider.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-holi.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
@@ -129,14 +129,14 @@ static struct clk_alpha_pll_postdiv gpll0_out_odd = {
 
 static const struct alpha_pll_config gpll10_config = {
 	.l = 0x3C,
-	.cal_l = 0x3C,
+	.cal_l = 0x36,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
-	.user_ctl_val = 0x00000007,
-	.user_ctl_hi_val = 0x00004005,
+	.test_ctl_hi_val = 0x00000002,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll10 = {
@@ -170,14 +170,14 @@ static struct clk_alpha_pll gpll10 = {
 
 static const struct alpha_pll_config gpll11_config = {
 	.l = 0x1B,
-	.cal_l = 0x21,
+	.cal_l = 0x25,
 	.alpha = 0xB555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
-	.user_ctl_val = 0x00000007,
-	.user_ctl_hi_val = 0x00004005,
+	.test_ctl_hi_val = 0x00000002,
+	.user_ctl_val = 0x00000001,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll11 = {
@@ -385,14 +385,14 @@ static struct clk_alpha_pll gpll7 = {
 
 static const struct alpha_pll_config gpll8_config = {
 	.l = 0x1B,
-	.cal_l = 0x26,
+	.cal_l = 0x2A,
 	.alpha = 0xC555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000103,
-	.user_ctl_hi_val = 0x00004005,
+	.user_ctl_hi_val = 0x00004805,
 };
 
 static struct clk_alpha_pll gpll8 = {
@@ -450,8 +450,8 @@ static struct clk_alpha_pll_postdiv gpll8_out_even = {
 static const struct alpha_pll_config gpll9_config = {
 	.l = 0x64,
 	.alpha = 0x0,
-	.config_ctl_hi_val = 0x000003D2,
-	.config_ctl_val = 0x20000AA8,
+	.config_ctl_hi_val = 0x400003D2,
+	.config_ctl_val = 0x20000800,
 	.test_ctl_val = 0x4000400,
 	.test_ctl_hi_val = 0x4000,
 	.post_div_val = 0x3 << 8,
@@ -1134,7 +1134,7 @@ static const struct freq_tbl ftbl_gcc_camss_ope_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(200000000, P_GPLL8_OUT_EVEN, 2, 0, 0),
 	F(266600000, P_GPLL8_OUT_EVEN, 1, 0, 0),
-	F(465000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
+	F(480000000, P_GPLL8_OUT_EVEN, 1, 0, 0),
 	F(580000000, P_GPLL8_OUT_MAIN, 1, 0, 0),
 	{ }
 };
@@ -1160,7 +1160,7 @@ static struct clk_rcg2 gcc_camss_ope_clk_src = {
 			[VDD_LOWER] = 19200000,
 			[VDD_LOW] = 200000000,
 			[VDD_LOW_L1] = 266600000,
-			[VDD_NOMINAL] = 465000000,
+			[VDD_NOMINAL] = 480000000,
 			[VDD_HIGH] = 580000000},
 	},
 };
@@ -2301,7 +2301,7 @@ static struct clk_branch gcc_cam_throttle_rt_clk = {
 
 static struct clk_branch gcc_camera_ahb_clk = {
 	.halt_reg = 0x17008,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17008,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -2905,6 +2905,19 @@ static struct clk_branch gcc_disp_ahb_clk = {
 	},
 };
 
+static struct clk_regmap_div gcc_disp_gpll0_clk_src = {
+	.reg = 0x17058,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "gcc_disp_gpll0_clk_src",
+		.parent_names =
+			(const char *[]){ "gpll0" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ops,
+	},
+};
+
 static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
@@ -2913,7 +2926,7 @@ static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_gpll0_div_clk_src",
 			.parent_data = &(const struct clk_parent_data){
-				.hw = &gpll0.clkr.hw,
+				.hw = &gcc_disp_gpll0_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -3905,6 +3918,32 @@ static struct clk_branch gcc_usb30_prim_sleep_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_mem_clkref_clk = {
+	.halt_reg = 0x8c000,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c000,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_mem_clkref_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_rx5_pcie_clkref_en_clk = {
+	.halt_reg = 0x8c00c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c00c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_rx5_pcie_clkref_en_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_usb3_prim_clkref_clk = {
 	.halt_reg = 0x8c010,
 	.halt_check = BRANCH_HALT,
@@ -3992,7 +4031,7 @@ static struct clk_branch gcc_venus_ctl_axi_clk = {
 
 static struct clk_branch gcc_video_ahb_clk = {
 	.halt_reg = 0x17004,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17004,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -4152,6 +4191,7 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_CPUSS_AHB_POSTDIV_CLK_SRC] = &gcc_cpuss_ahb_postdiv_clk_src.clkr,
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
+	[GCC_DISP_GPLL0_CLK_SRC] = &gcc_disp_gpll0_clk_src.clkr,
 	[GCC_DISP_GPLL0_DIV_CLK_SRC] = &gcc_disp_gpll0_div_clk_src.clkr,
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
 	[GCC_DISP_SLEEP_CLK] = &gcc_disp_sleep_clk.clkr,
@@ -4256,6 +4296,8 @@ static struct clk_regmap *gcc_holi_clocks[] = {
 	[GCC_VIDEO_VENUS_CLK_SRC] = &gcc_video_venus_clk_src.clkr,
 	[GCC_VIDEO_VENUS_CTL_CLK] = &gcc_video_venus_ctl_clk.clkr,
 	[GCC_VIDEO_XO_CLK] = &gcc_video_xo_clk.clkr,
+	[GCC_UFS_MEM_CLKREF_CLK] = &gcc_ufs_mem_clkref_clk.clkr,
+	[GCC_RX5_PCIE_CLKREF_EN_CLK] = &gcc_rx5_pcie_clkref_en_clk.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
 	[GPLL0_OUT_ODD] = &gpll0_out_odd.clkr,
@@ -4362,6 +4404,9 @@ static int gcc_holi_probe(struct platform_device *pdev)
 	regmap = qcom_cc_map(pdev, &gcc_holi_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
+
+	/* GCC_DISP_GPLL0_CDIVR__CLK_DIV */
+	regmap_update_bits(regmap, 0x17058, 0x1, 0x1);
 
 	clk_fabia_pll_configure(&gpll10, regmap, &gpll10_config);
 	clk_fabia_pll_configure(&gpll11, regmap, &gpll11_config);

@@ -306,24 +306,35 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 
 	case SUBSYS_BEFORE_SHUTDOWN:
 		bootup_request++;
+		dev_info(memsh_drv->dev,
+		"memshare: SUBSYS_BEFORE_SHUTDOWN: bootup_request:%d\n",
+		bootup_request);
 		for (i = 0; i < MAX_CLIENTS; i++)
 			memblock[i].alloc_request = 0;
 		break;
 
-	case SUBSYS_RAMDUMP_NOTIFICATION:
+	case SUBSYS_AFTER_SHUTDOWN:
 		ramdump_event = true;
+		dev_info(memsh_drv->dev,
+		"memshare: SUBSYS_AFTER_SHUTDOWN: ramdump_event:%d\n",
+		ramdump_event);
 		break;
 
 	case SUBSYS_BEFORE_POWERUP:
 		if (_cmd) {
 			notifdata = (struct notif_data *) _cmd;
+			dev_info(memsh_drv->dev,
+			"memshare: SUBSYS_BEFORE_POWERUP: enable_ramdump: %d, ramdump_event: %d\n",
+			notifdata->enable_ramdump, ramdump_event);
 		} else {
 			ramdump_event = false;
+			dev_info(memsh_drv->dev,
+			"memshare: SUBSYS_BEFORE_POWERUP: ramdump_event: %d\n",
+			ramdump_event);
 			break;
 		}
 
 		if (notifdata->enable_ramdump && ramdump_event) {
-			dev_info(memsh_drv->dev, "memshare: Ramdump collection is enabled\n");
 			ret = mem_share_do_ramdump();
 			if (ret)
 				dev_err(memsh_drv->dev, "memshare: Ramdump collection failed\n");
@@ -332,7 +343,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		break;
 
 	case SUBSYS_AFTER_POWERUP:
-		dev_dbg(memsh_drv->dev, "memshare: Modem has booted up\n");
+		dev_info(memsh_drv->dev, "memshare: SUBSYS_AFTER_POWERUP: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
 			size = memblock[i].size;
 			if (memblock[i].free_memory > 0 &&
@@ -396,8 +407,9 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	default:
 		break;
 	}
-
 	mutex_unlock(&memsh_drv->mem_share);
+	dev_info(memsh_drv->dev,
+	"memshare: notifier_cb processed for code: %d\n", code);
 	return NOTIFY_DONE;
 }
 

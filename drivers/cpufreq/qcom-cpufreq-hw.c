@@ -316,8 +316,12 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 			return ret;
 		}
 
+		ret = irq_set_affinity_hint(c->dcvsh_irq, &c->related_cpus);
+		if (ret)
+			dev_err(cpu_dev, "Failed to set affinity for irq %d\n",
+					c->dcvsh_irq);
+
 		c->is_irq_requested = true;
-		writel_relaxed(GT_IRQ_STATUS, c->base + offsets[REG_INTR_EN]);
 		writel_relaxed(0x0, c->base + offsets[REG_INTR_CLR]);
 		c->is_irq_enabled = true;
 		c->freq_limit_attr.attr.name = "dcvsh_freq_limit";
@@ -528,14 +532,14 @@ static int qcom_resources_init(struct platform_device *pdev)
 	unsigned int cpu;
 	int ret;
 
-	clk = devm_clk_get(&pdev->dev, "xo");
+	clk = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
 	xo_rate = clk_get_rate(clk);
 	clk_put(clk);
 
-	clk = devm_clk_get(&pdev->dev, "alternate");
+	clk = clk_get(&pdev->dev, "alternate");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -612,6 +616,25 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 
 static int qcom_cpufreq_hw_driver_remove(struct platform_device *pdev)
 {
+	struct cpufreq_qcom *c;
+	struct device *cpu_dev;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		cpu_dev = get_cpu_device(cpu);
+		if (!cpu_dev)
+			continue;
+
+		dev_pm_opp_remove_all_dynamic(cpu_dev);
+
+		c = qcom_freq_domain_map[cpu];
+		if (c->dcvsh_irq > 0 && c->is_irq_requested) {
+			devm_free_irq(cpu_dev, c->dcvsh_irq, c);
+			device_remove_file(cpu_dev, &c->freq_limit_attr);
+			c->is_irq_requested = false;
+		}
+	}
+
 	return cpufreq_unregister_driver(&cpufreq_qcom_hw_driver);
 }
 

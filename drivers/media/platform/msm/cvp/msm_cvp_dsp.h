@@ -24,6 +24,7 @@
 int cvp_dsp_device_init(void);
 void cvp_dsp_device_exit(void);
 void cvp_dsp_send_hfi_queue(void);
+void cvp_dsp_init_hfi_queue_hdr(struct iris_hfi_device *device);
 
 enum CVP_DSP_COMMAND {
 	CPU2DSP_SEND_HFI_QUEUE = 0,

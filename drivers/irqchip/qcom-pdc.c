@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/soc/qcom/irq.h>
@@ -461,7 +462,9 @@ static int __init qcom_pdc_early_init(void)
 
 	return 0;
 }
+#ifndef MODULE
 module_init(qcom_pdc_early_init);
+#endif
 
 static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
 {
@@ -524,6 +527,9 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
 	}
 
 	irq_domain_update_bus_token(pdc_gpio_domain, DOMAIN_BUS_WAKEUP);
+#ifdef MODULE
+	qcom_pdc_early_init();
+#endif
 
 	return 0;
 
@@ -536,6 +542,36 @@ fail:
 	return ret;
 }
 
-IRQCHIP_DECLARE(pdc_sdm845, "qcom,sdm845-pdc", qcom_pdc_init);
+
+#ifdef MODULE
+static int qcom_pdc_probe(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct device_node *parent = of_irq_find_parent(np);
+	return qcom_pdc_init(np, parent);
+}
+
+static const struct of_device_id qcom_pdc_match_table[] = {
+	{ .compatible = "qcom,lahaina-pdc" },
+	{ .compatible = "qcom,shima-pdc" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, qcom_pdc_match_table);
+
+static struct platform_driver qcom_pdc_driver = {
+	.probe = qcom_pdc_probe,
+	.driver = {
+		.name = "qcom-pdc",
+		.of_match_table = qcom_pdc_match_table,
+	},
+};
+module_platform_driver(qcom_pdc_driver);
+#else
+IRQCHIP_DECLARE(qcom_pdc, "qcom,pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_lahaina, "qcom,lahaina-pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_shima, "qcom,shima-pdc", qcom_pdc_init);
+IRQCHIP_DECLARE(pdc_sdxlemur, "qcom,sdxlemur-pdc", qcom_pdc_init);
+#endif
+
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Power Domain Controller");
+MODULE_LICENSE("GPL v2");

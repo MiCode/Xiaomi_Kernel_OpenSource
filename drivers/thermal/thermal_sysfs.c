@@ -56,12 +56,12 @@ config_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset, "sensor %s\n",
 				tz->type);
-	offset += scnprintf(buf + offset, PAGE_SIZE - offset, "policy %s\n",
+	offset += scnprintf(buf + offset, PAGE_SIZE - offset, "algo_type %s\n",
 				tz->governor->name);
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset,
 				"polling_delay %d\n", tz->polling_delay);
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset,
-				"passive_polling_delay %d\n",
+				"passive_delay %d\n",
 				tz->passive_delay);
 	if (!tz->trips || !tz->ops->get_trip_temp)
 		return offset;
@@ -98,10 +98,10 @@ config_show(struct device *dev, struct device_attribute *attr, char *buf)
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset,
 				"trip %s\n", buf_trip);
 	offset += scnprintf(buf + offset, PAGE_SIZE - offset,
-				"trip_threshold %s\n", buf_temp);
+				"set_temp %s\n", buf_temp);
 	if (buf2_offset)
 		offset += scnprintf(buf + offset, PAGE_SIZE - offset,
-				"trip_threshold_clr %s\n", buf_hyst);
+				"clr_temp %s\n", buf_hyst);
 
 	buf_size = 0;
 	buf_offset = 0;

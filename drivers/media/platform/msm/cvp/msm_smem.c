@@ -14,6 +14,7 @@
 #include "msm_cvp_core.h"
 #include "msm_cvp_debug.h"
 #include "msm_cvp_resources.h"
+#include "cvp_core_hfi.h"
 
 
 static int msm_dma_get_device_address(struct dma_buf *dbuf, u32 align,
@@ -470,4 +471,42 @@ struct context_bank_info *msm_cvp_smem_get_context_bank(bool is_secure,
 			__func__, ion_flags, is_secure);
 
 	return match;
+}
+
+int msm_cvp_map_ipcc_regs(u32 *iova)
+{
+	struct context_bank_info *cb;
+	struct msm_cvp_core *core;
+	struct cvp_hfi_device *hfi_ops;
+	struct iris_hfi_device *dev = NULL;
+	phys_addr_t paddr;
+	u32 size;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core) {
+		hfi_ops = core->device;
+		if (hfi_ops)
+			dev = hfi_ops->hfi_device_data;
+	}
+
+	if (!dev)
+		return -EINVAL;
+
+	paddr = dev->res->ipcc_reg_base;
+	size = dev->res->ipcc_reg_size;
+
+	if (!paddr || !size)
+		return -EINVAL;
+
+	cb = msm_cvp_smem_get_context_bank(false, dev->res, 0);
+	if (!cb) {
+		dprintk(CVP_ERR, "%s: fail to get context bank\n", __func__);
+		return -EINVAL;
+	}
+	*iova = dma_map_resource(cb->dev, paddr, size, DMA_BIDIRECTIONAL, 0);
+	if (*iova == DMA_MAPPING_ERROR) {
+		dprintk(CVP_WARN, "%s: fail to map IPCC regs\n", __func__);
+		return -EFAULT;
+	}
+	return 0;
 }

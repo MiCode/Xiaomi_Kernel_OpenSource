@@ -16,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 
 #include "sdhci-pltfm.h"
+#include "cqhci.h"
 
 #define CORE_MCI_VERSION		0x50
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -134,6 +135,10 @@
 
 #define msm_host_writel(msm_host, val, host, offset) \
 	msm_host->var_ops->msm_writel_relaxed(val, host, offset)
+
+/* CQHCI vendor specific registers */
+#define CQHCI_VENDOR_CFG1	0xA00
+#define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
 
 struct sdhci_msm_offset {
 	u32 core_hc_mode;
@@ -347,25 +352,11 @@ struct sdhci_msm_reg_data {
  * This structure keeps information for all the
  * regulators required for a SDCC slot.
  */
-struct sdhci_msm_slot_reg_data {
+struct sdhci_msm_vreg_data {
 	/* keeps VDD/VCC regulator info */
 	struct sdhci_msm_reg_data *vdd_data;
 	 /* keeps VDD IO regulator info */
 	struct sdhci_msm_reg_data *vdd_io_data;
-};
-
-struct sdhci_msm_pltfm_data {
-	/* Supported UHS-I Modes */
-	u32 caps;
-
-	/* More capabilities */
-	u32 caps2;
-
-	unsigned long mmc_bus_width;
-	struct sdhci_msm_slot_reg_data *vreg_data;
-	bool nonremovable;
-	bool nonhotplug;
-	bool largeaddressbus;
 };
 
 struct sdhci_msm_host {
@@ -376,7 +367,7 @@ struct sdhci_msm_host {
 	struct clk *xo_clk;	/* TCXO clk needed for FLL feature of cm_dll*/
 	struct clk_bulk_data bulk_clks[4]; /* core, iface, cal, sleep clocks */
 	unsigned long clk_rate;
-	struct sdhci_msm_pltfm_data *pdata;
+	struct sdhci_msm_vreg_data *vreg_data;
 	struct mmc_host *mmc;
 	bool use_14lpp_dll_reset;
 	bool tuning_done;
@@ -1319,6 +1310,12 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	msm_host->use_cdr = true;
 
 	/*
+	 * Clear tuning_done flag before tuning to ensure proper
+	 * HS400 settings.
+	 */
+	msm_host->tuning_done = 0;
+
+	/*
 	 * For HS400 tuning in HS200 timing requires:
 	 * - select MCLK/2 in VENDOR_SPEC
 	 * - program MCLK to 400MHz (or nearest supported) in GCC
@@ -1576,83 +1573,30 @@ skip_hsr:
 }
 
 /* Parse platform data */
-static
-struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
+static bool sdhci_msm_populate_pdata(struct device *dev,
 						struct sdhci_msm_host *msm_host)
 {
-	struct sdhci_msm_pltfm_data *pdata = NULL;
 	struct device_node *np = dev->of_node;
-	u32 bus_width = 0;
-	int len, i;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		goto out;
-
-	of_property_read_u32(np, "qcom,bus-width", &bus_width);
-	if (bus_width == 8)
-		pdata->mmc_bus_width = MMC_CAP_8_BIT_DATA;
-	else if (bus_width == 4)
-		pdata->mmc_bus_width = MMC_CAP_4_BIT_DATA;
-	else {
-		dev_notice(dev, "invalid bus-width, default to 1-bit mode\n");
-		pdata->mmc_bus_width = 0;
-	}
-
-	pdata->vreg_data = devm_kzalloc(dev, sizeof(struct
-						    sdhci_msm_slot_reg_data),
+	msm_host->vreg_data = devm_kzalloc(dev, sizeof(struct
+						    sdhci_msm_vreg_data),
 					GFP_KERNEL);
-	if (!pdata->vreg_data) {
+	if (!msm_host->vreg_data) {
 		dev_err(dev, "failed to allocate memory for vreg data\n");
 		goto out;
 	}
 
-	if (sdhci_msm_dt_parse_vreg_info(dev, &pdata->vreg_data->vdd_data,
+	if (sdhci_msm_dt_parse_vreg_info(dev, &msm_host->vreg_data->vdd_data,
 					 "vdd")) {
 		dev_err(dev, "failed parsing vdd data\n");
 		goto out;
 	}
 	if (sdhci_msm_dt_parse_vreg_info(dev,
-					 &pdata->vreg_data->vdd_io_data,
+					 &msm_host->vreg_data->vdd_io_data,
 					 "vdd-io")) {
 		dev_err(dev, "failed parsing vdd-io data\n");
 		goto out;
 	}
-
-	len = of_property_count_strings(np, "qcom,bus-speed-mode");
-
-	for (i = 0; i < len; i++) {
-		const char *name = NULL;
-
-		of_property_read_string_index(np,
-			"qcom,bus-speed-mode", i, &name);
-		if (!name)
-			continue;
-
-		if (!strcmp(name, "HS400_1p8v"))
-			pdata->caps2 |= MMC_CAP2_HS400_1_8V;
-		else if (!strcmp(name, "HS400_1p2v"))
-			pdata->caps2 |= MMC_CAP2_HS400_1_2V;
-		else if (!strcmp(name, "HS200_1p8v"))
-			pdata->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
-		else if (!strcmp(name, "HS200_1p2v"))
-			pdata->caps2 |= MMC_CAP2_HS200_1_2V_SDR;
-		else if (!strcmp(name, "DDR_1p8v"))
-			pdata->caps |= MMC_CAP_1_8V_DDR
-						| MMC_CAP_UHS_DDR50;
-		else if (!strcmp(name, "DDR_1p2v"))
-			pdata->caps |= MMC_CAP_1_2V_DDR
-						| MMC_CAP_UHS_DDR50;
-	}
-
-	if (of_get_property(np, "qcom,nonremovable", NULL))
-		pdata->nonremovable = true;
-
-	if (of_get_property(np, "qcom,nonhotplug", NULL))
-		pdata->nonhotplug = true;
-
-	pdata->largeaddressbus =
-		of_property_read_bool(np, "qcom,large-address-bus");
 
 	if (of_get_property(np, "qcom,core_3_0v_support", NULL))
 		msm_host->core_3_0v_support = true;
@@ -1663,9 +1607,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
 
-	return pdata;
+	return false;
 out:
-	return NULL;
+	return true;
 }
 
 static inline void sdhci_msm_init_pwr_irq_wait(struct sdhci_msm_host *msm_host)
@@ -1955,14 +1899,14 @@ out:
 	return ret;
 }
 
-static int sdhci_msm_setup_vreg(struct sdhci_msm_pltfm_data *pdata,
+static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 			bool enable, bool is_init)
 {
 	int ret = 0, i;
-	struct sdhci_msm_slot_reg_data *curr_slot;
+	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *vreg_table[2];
 
-	curr_slot = pdata->vreg_data;
+	curr_slot = msm_host->vreg_data;
 	if (!curr_slot) {
 		pr_debug("%s: vreg info unavailable,assuming the slot is powered by always on domain\n",
 			 __func__);
@@ -1988,14 +1932,14 @@ out:
 
 /* This init function should be called only once for each SDHC slot */
 static int sdhci_msm_vreg_init(struct device *dev,
-				struct sdhci_msm_pltfm_data *pdata,
+				struct sdhci_msm_host *msm_host,
 				bool is_init)
 {
 	int ret = 0;
-	struct sdhci_msm_slot_reg_data *curr_slot;
+	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *curr_vdd_reg, *curr_vdd_io_reg;
 
-	curr_slot = pdata->vreg_data;
+	curr_slot = msm_host->vreg_data;
 	if (!curr_slot)
 		goto out;
 
@@ -2024,7 +1968,7 @@ out:
 	return ret;
 }
 
-static int sdhci_msm_set_vdd_io_vol(struct sdhci_msm_pltfm_data *pdata,
+static int sdhci_msm_set_vdd_io_vol(struct sdhci_msm_host *msm_host,
 			enum vdd_io_level level,
 			unsigned int voltage_level)
 {
@@ -2032,10 +1976,10 @@ static int sdhci_msm_set_vdd_io_vol(struct sdhci_msm_pltfm_data *pdata,
 	int set_level;
 	struct sdhci_msm_reg_data *vdd_io_reg;
 
-	if (!pdata->vreg_data)
+	if (!msm_host->vreg_data)
 		return ret;
 
-	vdd_io_reg = pdata->vreg_data->vdd_io_data;
+	vdd_io_reg = msm_host->vreg_data->vdd_io_data;
 	if (vdd_io_reg && vdd_io_reg->is_enabled) {
 		switch (level) {
 		case VDD_IO_LOW:
@@ -2100,7 +2044,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		udelay(10);
 	}
 
-	if (mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
+	if (mmc->card && mmc->ops->get_cd && !mmc->ops->get_cd(mmc) &&
 		irq_status & CORE_PWRCTL_BUS_ON) {
 		irq_ack = CORE_PWRCTL_BUS_FAIL;
 		msm_host_writel(msm_host, irq_ack, host,
@@ -2109,9 +2053,9 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
-		ret = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
+		ret = sdhci_msm_setup_vreg(msm_host, true, false);
 		if (!ret)
-			ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata,
+			ret = sdhci_msm_set_vdd_io_vol(msm_host,
 					VDD_IO_HIGH, 0);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_BUS_FAIL;
@@ -2123,10 +2067,10 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 	if (irq_status & CORE_PWRCTL_BUS_OFF) {
 		if (msm_host->pltfm_init_done)
-			ret = sdhci_msm_setup_vreg(msm_host->pdata,
+			ret = sdhci_msm_setup_vreg(msm_host,
 					false, false);
 		if (!ret)
-			ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata,
+			ret = sdhci_msm_set_vdd_io_vol(msm_host,
 					VDD_IO_LOW, 0);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_BUS_FAIL;
@@ -2139,7 +2083,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	/* Handle IO LOW/HIGH */
 	if (irq_status & CORE_PWRCTL_IO_LOW) {
 		/* Switch voltage Low */
-		ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_LOW, 0);
+		ret = sdhci_msm_set_vdd_io_vol(msm_host, VDD_IO_LOW, 0);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
 		else
@@ -2149,7 +2093,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 	}
 	if (irq_status & CORE_PWRCTL_IO_HIGH) {
 		/* Switch voltage High */
-		ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_HIGH, 0);
+		ret = sdhci_msm_set_vdd_io_vol(msm_host, VDD_IO_HIGH, 0);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
 		else
@@ -2860,6 +2804,160 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable)
 		sdhci_msm_bus_queue_work(host);
 }
 
+/*****************************************************************************\
+ *                                                                           *
+ * MSM Command Queue Engine (CQE)                                            *
+ *                                                                           *
+\*****************************************************************************/
+
+static u32 sdhci_msm_cqe_irq(struct sdhci_host *host, u32 intmask)
+{
+	int cmd_error = 0;
+	int data_error = 0;
+
+	if (!sdhci_cqe_irq(host, intmask, &cmd_error, &data_error))
+		return intmask;
+
+	cqhci_irq(host->mmc, intmask, cmd_error, data_error);
+	return 0;
+}
+
+static void sdhci_msm_cqe_disable(struct mmc_host *mmc, bool recovery)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+	u32 ctrl;
+
+	/*
+	 * When CQE is halted, the legacy SDHCI path operates only
+	 * on 16-byte descriptors in 64bit mode.
+	 */
+	if (host->flags & SDHCI_USE_64_BIT_DMA)
+		host->desc_sz = 16;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	/*
+	 * During CQE command transfers, command complete bit gets latched.
+	 * So s/w should clear command complete interrupt status when CQE is
+	 * either halted or disabled. Otherwise unexpected SDCHI legacy
+	 * interrupt gets triggered when CQE is halted/disabled.
+	 */
+	ctrl = sdhci_readl(host, SDHCI_INT_ENABLE);
+	ctrl |= SDHCI_INT_RESPONSE;
+	sdhci_writel(host,  ctrl, SDHCI_INT_ENABLE);
+	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
+
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	sdhci_cqe_disable(mmc, recovery);
+}
+
+static void sdhci_msm_cqe_enable(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+#if !defined(CONFIG_SDC_QTI)
+	if (host->flags & SDHCI_USE_64_BIT_DMA)
+		host->desc_sz = 12;
+#endif
+	sdhci_cqe_enable(mmc);
+
+	/* Set maximum timeout as per qti spec */
+	sdhci_writeb(host, 0xF, SDHCI_TIMEOUT_CONTROL);
+}
+
+static void sdhci_msm_cqe_sdhci_dumpregs(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	sdhci_dumpregs(host);
+}
+
+static const struct cqhci_host_ops sdhci_msm_cqhci_ops = {
+	.enable		= sdhci_msm_cqe_enable,
+	.disable	= sdhci_msm_cqe_disable,
+	.dumpregs	= sdhci_msm_cqe_sdhci_dumpregs,
+};
+
+static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
+				struct platform_device *pdev)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct cqhci_host *cq_host;
+	bool dma64;
+	u32 cqcfg;
+	int ret;
+
+#if defined(CONFIG_SDC_QTI)
+	/*
+	 * When CQE is halted, SDHC operates only on 16byte ADMA descriptors.
+	 * So ensure ADMA table is allocated for 16byte descriptors.
+	 */
+	if (host->caps & SDHCI_CAN_64BIT)
+		host->alloc_desc_sz = 16;
+#endif
+
+	ret = sdhci_setup_host(host);
+	if (ret)
+		return ret;
+
+	cq_host = cqhci_pltfm_init(pdev);
+	if (IS_ERR(cq_host)) {
+		ret = PTR_ERR(cq_host);
+		dev_err(&pdev->dev, "cqhci-pltfm init: failed: %d\n", ret);
+		goto cleanup;
+	}
+
+	msm_host->mmc->caps2 |= MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD;
+	cq_host->ops = &sdhci_msm_cqhci_ops;
+
+	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
+
+	ret = cqhci_init(cq_host, host->mmc, dma64);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: CQE init: failed (%d)\n",
+				mmc_hostname(host->mmc), ret);
+		goto cleanup;
+	}
+
+	/* Disable cqe reset due to cqe enable signal */
+	cqcfg = cqhci_readl(cq_host, CQHCI_VENDOR_CFG1);
+	cqcfg |= CQHCI_VENDOR_DIS_RST_ON_CQ_EN;
+	cqhci_writel(cq_host, cqcfg, CQHCI_VENDOR_CFG1);
+
+#if defined(CONFIG_SDC_QTI)
+	/*
+	 * SDHC expects 12byte ADMA descriptors till CQE is enabled.
+	 * So limit desc_sz to 12 so that the data commands that are sent
+	 * during card initialization (before CQE gets enabled) would
+	 * get executed without any issues.
+	 */
+	if (host->flags & SDHCI_USE_64_BIT_DMA)
+		host->desc_sz = 12;
+#endif
+
+	ret = __sdhci_add_host(host);
+	if (ret)
+		goto cleanup;
+
+	dev_info(&pdev->dev, "%s: CQE init: success\n",
+			mmc_hostname(host->mmc));
+	return ret;
+
+cleanup:
+	sdhci_cleanup_host(host);
+	return ret;
+}
+
+static void sdhci_msm_reset(struct sdhci_host *host, u8 mask)
+{
+	if ((host->mmc->caps2 & MMC_CAP2_CQE) && (mask & SDHCI_RESET_ALL))
+		cqhci_deactivate(host->mmc);
+	sdhci_reset(host, mask);
+}
+
 static const struct sdhci_msm_variant_ops mci_var_ops = {
 	.msm_readl_relaxed = sdhci_msm_mci_variant_readl_relaxed,
 	.msm_writel_relaxed = sdhci_msm_mci_variant_writel_relaxed,
@@ -2898,7 +2996,7 @@ static const struct of_device_id sdhci_msm_dt_match[] = {
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
 static const struct sdhci_ops sdhci_msm_ops = {
-	.reset = sdhci_reset,
+	.reset = sdhci_msm_reset,
 	.set_clock = sdhci_msm_set_clock,
 	.get_min_clock = sdhci_msm_get_min_clock,
 	.get_max_clock = sdhci_msm_get_max_clock,
@@ -2906,13 +3004,16 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.write_w = sdhci_msm_writew,
 	.write_b = sdhci_msm_writeb,
+	.irq	= sdhci_msm_cqe_irq,
 };
 
 static const struct sdhci_pltfm_data sdhci_msm_pdata = {
 	.quirks = SDHCI_QUIRK_BROKEN_CARD_DETECTION |
 		  SDHCI_QUIRK_SINGLE_POWER_WRITE |
 		  SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
-		  SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
+		  SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC |
+		  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12,
+
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.ops = &sdhci_msm_ops,
 };
@@ -2936,26 +3037,6 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	caps = readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES);
 
 	/*
-	 * Starting with SDCC 5 controller (core major version = 1)
-	 * controller won't advertise 3.0v, 1.8v and 8-bit features
-	 * except for some targets.
-	 */
-	if (major >= 1 && minor != 0x11 && minor != 0x12) {
-		struct sdhci_msm_reg_data *vdd_io_reg;
-		/*
-		 * Enable 1.8V support capability on controllers that
-		 * support dual voltage
-		 */
-		vdd_io_reg = msm_host->pdata->vreg_data->vdd_io_data;
-		if (vdd_io_reg && (vdd_io_reg->high_vol_level > 2700000))
-			caps |= CORE_3_0V_SUPPORT;
-		if (vdd_io_reg && (vdd_io_reg->low_vol_level < 1950000))
-			caps |= CORE_1_8V_SUPPORT;
-		if (msm_host->pdata->mmc_bus_width == MMC_CAP_8_BIT_DATA)
-			caps |= CORE_8_BIT_SUPPORT;
-	}
-
-	/*
 	 * SDCC 5 controller with major version 1, minor version 0x34 and later
 	 * with HS 400 mode support will use CM DLL instead of CDC LP 533 DLL.
 	 */
@@ -2974,15 +3055,9 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 			msm_offset->core_vendor_spec_capabilities0);
 	}
 
-	/*
-	 * Mask 64-bit support for controller with 32-bit address bus so that
-	 * smaller descriptor size will be used and improve memory consumption.
-	 */
-	if (!msm_host->pdata->largeaddressbus)
-		caps &= ~CORE_SYS_BUS_SUPPORT_64_BIT;
-
 	writel_relaxed(caps, host->ioaddr +
 		msm_offset->core_vendor_spec_capabilities0);
+
 	/* keep track of the value in SDHCI_CAPABILITIES */
 	msm_host->caps_0 = caps;
 
@@ -3006,6 +3081,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	const struct sdhci_msm_offset *msm_offset;
 	const struct sdhci_msm_variant_info *var_info;
 	struct device *dev = &pdev->dev;
+	struct device_node *node = pdev->dev.of_node;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_msm_pdata, sizeof(*msm_host));
 	if (IS_ERR(host))
@@ -3046,8 +3122,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	msm_host->saved_tuning_phase = INVALID_TUNING_PHASE;
 
-	msm_host->pdata = sdhci_msm_populate_pdata(dev, msm_host);
-	if (!msm_host->pdata) {
+	ret = sdhci_msm_populate_pdata(dev, msm_host);
+	if (ret) {
 		dev_err(&pdev->dev, "DT parsing error\n");
 		goto pltfm_free;
 	}
@@ -3126,7 +3202,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		sdhci_msm_bus_voting(host, true);
 
 	/* Setup regulators */
-	ret = sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, true);
+	ret = sdhci_msm_vreg_init(&pdev->dev, msm_host, true);
 	if (ret) {
 		dev_err(&pdev->dev, "Regulator setup failed (%d)\n", ret);
 		goto bus_unregister;
@@ -3223,8 +3299,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
-	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
-	msm_host->mmc->caps |= MMC_CAP_NEED_RSP_BUSY;
+	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 
 #if defined(CONFIG_SDC_QTI)
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
@@ -3237,7 +3312,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 
 	host->mmc_host_ops.execute_tuning = sdhci_msm_execute_tuning;
-	ret = sdhci_add_host(host);
+	if (of_property_read_bool(node, "supports-cqe"))
+		ret = sdhci_msm_cqe_add_host(host, pdev);
+	else
+		ret = sdhci_add_host(host);
 	if (ret)
 		goto pm_runtime_disable;
 	sdhci_msm_set_regulator_caps(msm_host);
@@ -3266,7 +3344,7 @@ pm_runtime_disable:
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 vreg_deinit:
-	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
+	sdhci_msm_vreg_init(&pdev->dev, msm_host, false);
 bus_unregister:
 	if (!msm_host->skip_bus_bw_voting) {
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
@@ -3293,7 +3371,7 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 
 	sdhci_remove_host(host, dead);
 
-	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
+	sdhci_msm_vreg_init(&pdev->dev, msm_host, false);
 
 	pm_runtime_get_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_SYSSTATS_H
@@ -25,9 +25,7 @@ struct sys_memstats {
 	__u64	zram_compressed;
 	__u64	swap_used;
 	__u64	swap_total;
-#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
 	__u64	unreclaimable;
-#endif
 	__u64	buffer;
 	__u64	slab_reclaimable;
 	__u64	slab_unreclaimable;

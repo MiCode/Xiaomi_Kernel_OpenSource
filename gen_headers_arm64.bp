@@ -982,6 +982,7 @@ gen_headers_out_arm64 = [
     "audio/sound/msmcal-hwdep.h",
     "audio/sound/voice_params.h",
     "audio/sound/wcd-dsp-glink.h",
+    "audio/sound/audio_compressed_formats.h",
     "audio/linux/mfd/wcd9xxx/wcd9320_registers.h",
     "audio/linux/mfd/wcd9xxx/wcd9xxx_registers.h",
     "camera/media/cam_cpas.h",

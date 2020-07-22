@@ -7,11 +7,11 @@
 #define _DT_BINDINGS_CLK_QCOM_GPU_CC_SHIMA_H
 
 /* GPU_CC clocks */
-#define GPU_CC_PLL1						0
-#define GPU_CC_AHB_CLK						1
-#define GPU_CC_CB_CLK						2
-#define GPU_CC_CRC_AHB_CLK					3
-#define GPU_CC_CX_APB_CLK					4
+#define GPU_CC_PLL0						0
+#define GPU_CC_PLL1						1
+#define GPU_CC_AHB_CLK						2
+#define GPU_CC_CB_CLK						3
+#define GPU_CC_CRC_AHB_CLK					4
 #define GPU_CC_CX_GMU_CLK					5
 #define GPU_CC_CX_SNOC_DVM_CLK					6
 #define GPU_CC_CXO_AON_CLK					7

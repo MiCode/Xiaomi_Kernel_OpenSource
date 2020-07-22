@@ -489,6 +489,7 @@ config MMC_SDHCI_MSM
 	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
 	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
+	select MMC_CQHCI
 	help
 	  This selects the Secure Digital Host Controller Interface (SDHCI)
 	  support present in Qualcomm SOCs. The controller supports
@@ -632,6 +633,7 @@ config MMC_SDHCI_SPRD
 	depends on ARCH_SPRD
 	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
+	select MMC_HSQ
 	help
 	  This selects the SDIO Host Controller in Spreadtrum
 	  SoCs, this driver supports R11(IP version: R11P0).
@@ -936,6 +938,17 @@ config MMC_CQHCI
 
 	  If unsure, say N.
 
+config MMC_HSQ
+	tristate "MMC Host Software Queue support"
+	help
+	  This selects the MMC Host Software Queue support. This may increase
+	  performance, if the host controller and its driver supports it.
+
+	  If you have a controller/driver supporting this interface, say Y or M
+	  here.
+
+	  If unsure, say N.
+
 config MMC_TOSHIBA_PCI
 	tristate "Toshiba Type A SD/MMC Card Interface Driver"
 	depends on PCI
@@ -1022,7 +1035,7 @@ config MMC_SDHCI_AM654
 
 config SDC_QTI
 	tristate "Enable QTI specific code in MMC upstream driver"
-	depends on QGKI
+	depends on QGKI && MMC_SDHCI_MSM
 	default n
 	help
 	  This configuration flag allows adding QTI code in

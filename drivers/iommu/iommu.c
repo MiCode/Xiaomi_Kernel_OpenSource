@@ -20,7 +20,6 @@
 #include <linux/err.h>
 #include <linux/pci.h>
 #include <linux/bitops.h>
-#include <linux/debugfs.h>
 #include <linux/property.h>
 #include <linux/fsl/mc.h>
 #include <linux/module.h>
@@ -510,7 +509,7 @@ struct iommu_group *iommu_group_alloc(void)
 				   NULL, "%d", group->id);
 	if (ret) {
 		ida_simple_remove(&iommu_group_ida, group->id);
-		kfree(group);
+		kobject_put(&group->kobj);
 		return ERR_PTR(ret);
 	}
 
@@ -1429,7 +1428,7 @@ struct iommu_group *iommu_group_get_for_dev(struct device *dev)
 
 	return group;
 }
-EXPORT_SYMBOL(iommu_group_get_for_dev);
+EXPORT_SYMBOL_GPL(iommu_group_get_for_dev);
 
 struct iommu_domain *iommu_group_default_domain(struct iommu_group *group)
 {
@@ -2161,8 +2160,6 @@ int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(report_iommu_fault);
-
-struct dentry *iommu_debugfs_top;
 
 static int __init iommu_init(void)
 {

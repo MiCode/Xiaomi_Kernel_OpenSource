@@ -481,22 +481,7 @@
   usb_disabled
   usb_gadget_set_state
   usb_get_dr_mode
-  usb_hcd_check_unlink_urb
-  usb_hcd_end_port_resume
-  usb_hcd_giveback_urb
   usb_hc_died
-  usb_hcd_is_primary_hcd
-  usb_hcd_link_urb_to_ep
-  usb_hcd_pci_pm_ops
-  usb_hcd_pci_probe
-  usb_hcd_pci_remove
-  usb_hcd_pci_shutdown
-  usb_hcd_platform_shutdown
-  usb_hcd_poll_rh_status
-  usb_hcd_resume_root_hub
-  usb_hcds_loaded
-  usb_hcd_start_port_resume
-  usb_hcd_unlink_urb_from_ep
   usb_hub_clear_tt_buffer
   usb_put_hcd
   usb_remove_hcd
@@ -733,22 +718,6 @@
 # required by i2c-designware-platform.ko
   i2c_del_adapter
   i2c_parse_fw_timings
-
-# required by i2c-dev.ko
-  bus_register_notifier
-  bus_unregister_notifier
-  cdev_add
-  cdev_del
-  device_for_each_child
-  i2c_adapter_type
-  i2c_bus_type
-  i2c_for_each_dev
-  i2c_get_adapter
-  i2c_put_adapter
-  i2c_smbus_xfer
-  i2c_transfer_buffer_flags
-  i2c_verify_client
-  register_chrdev_region
 
 # required by hisi_powerkey.ko
   devm_input_allocate_device
@@ -987,7 +956,6 @@
   param_set_int
   pci_device_is_present
   pci_disable_device
-  pcie_aspm_enabled
   pci_enable_device_mem
   pci_free_irq
   pci_load_saved_state
@@ -1075,20 +1043,6 @@
   rtc_year_days
   seq_puts
 
-# required by ufs-hisi.ko
-  devm_platform_ioremap_resource
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_get_pwr_dev_param
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-  ufshcd_remove
-
 # required by spi-pl022.ko
   devm_gpio_request
   devm_spi_register_controller
@@ -1126,7 +1080,6 @@
   thermal_zone_device_update
 
 # required by 8250_dw.ko
-  dw8250_setup_port
   of_device_is_big_endian
   serial8250_clear_and_reinit_fifos
   serial8250_do_pm

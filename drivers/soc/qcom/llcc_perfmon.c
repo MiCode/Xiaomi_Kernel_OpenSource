@@ -69,6 +69,7 @@ struct event_port_ops {
  * @expires:		timer expire time in nano seconds
  * @num_mc:		number of MCS
  * @version:		Version information of llcc block
+ * @clk:		clock node to enable qdss
  */
 struct llcc_perfmon_private {
 	struct regmap *llcc_map;
@@ -86,6 +87,7 @@ struct llcc_perfmon_private {
 	ktime_t expires;
 	unsigned int num_mc;
 	unsigned int version;
+	struct clk *clock;
 };
 
 static inline void llcc_bcast_write(struct llcc_perfmon_private *llcc_priv,
@@ -500,6 +502,7 @@ static ssize_t perfmon_start_store(struct device *dev,
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	uint32_t val = 0, mask_val;
 	unsigned long start;
+	int ret;
 
 	if (kstrtoul(buf, 0, &start))
 		return -EINVAL;
@@ -508,6 +511,12 @@ static ssize_t perfmon_start_store(struct device *dev,
 	if (start) {
 		if (!llcc_priv->configured_cntrs) {
 			pr_err("start failed. perfmon not configured\n");
+			mutex_unlock(&llcc_priv->mutex);
+			return -EINVAL;
+		}
+
+		ret = clk_prepare_enable(llcc_priv->clock);
+		if (ret) {
 			mutex_unlock(&llcc_priv->mutex);
 			return -EINVAL;
 		}
@@ -534,6 +543,10 @@ static ssize_t perfmon_start_store(struct device *dev,
 	mask_val = PERFMON_MODE_MONITOR_MODE_MASK |
 		PERFMON_MODE_MONITOR_EN_MASK;
 	llcc_bcast_modify(llcc_priv, PERFMON_MODE, val, mask_val);
+
+	if (!start)
+		clk_disable_unprepare(llcc_priv->clock);
+
 	mutex_unlock(&llcc_priv->mutex);
 	return count;
 }
@@ -1268,6 +1281,12 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 		llcc_priv->version = REV_1;
 	else if (val == LLCC_VERSION_2)
 		llcc_priv->version = REV_2;
+
+	llcc_priv->clock = devm_clk_get(pdev->dev.parent, "qdss_clk");
+	if (IS_ERR_OR_NULL(llcc_priv->clock)) {
+		pr_err("failed to get clock node\n");
+		return PTR_ERR(llcc_priv->clock);
+	}
 
 	result = sysfs_create_group(&pdev->dev.kobj, &llcc_perfmon_group);
 	if (result) {

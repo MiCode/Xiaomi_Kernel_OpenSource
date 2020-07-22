@@ -302,7 +302,7 @@ static void vmx_switch_vmcs(struct kvm_vcpu *vcpu, struct loaded_vmcs *vmcs)
 	cpu = get_cpu();
 	prev = vmx->loaded_vmcs;
 	vmx->loaded_vmcs = vmcs;
-	vmx_vcpu_load_vmcs(vcpu, cpu);
+	vmx_vcpu_load_vmcs(vcpu, cpu, prev);
 	vmx_sync_vmcs_host_state(vmx, prev);
 	put_cpu();
 
@@ -3460,7 +3460,7 @@ static void nested_vmx_inject_exception_vmexit(struct kvm_vcpu *vcpu,
 	nested_vmx_vmexit(vcpu, EXIT_REASON_EXCEPTION_NMI, intr_info, exit_qual);
 }
 
-static int vmx_check_nested_events(struct kvm_vcpu *vcpu, bool external_intr)
+static int vmx_check_nested_events(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	unsigned long exit_qual;
@@ -3507,8 +3507,7 @@ static int vmx_check_nested_events(struct kvm_vcpu *vcpu, bool external_intr)
 		return 0;
 	}
 
-	if ((kvm_cpu_has_interrupt(vcpu) || external_intr) &&
-	    nested_exit_on_intr(vcpu)) {
+	if (kvm_cpu_has_interrupt(vcpu) && nested_exit_on_intr(vcpu)) {
 		if (block_nested_events)
 			return -EBUSY;
 		nested_vmx_vmexit(vcpu, EXIT_REASON_EXTERNAL_INTERRUPT, 0, 0);
@@ -4158,17 +4157,8 @@ void nested_vmx_vmexit(struct kvm_vcpu *vcpu, u32 exit_reason,
 	vcpu->arch.mp_state = KVM_MP_STATE_RUNNABLE;
 
 	if (likely(!vmx->fail)) {
-		/*
-		 * TODO: SDM says that with acknowledge interrupt on
-		 * exit, bit 31 of the VM-exit interrupt information
-		 * (valid interrupt) is always set to 1 on
-		 * EXIT_REASON_EXTERNAL_INTERRUPT, so we shouldn't
-		 * need kvm_cpu_has_interrupt().  See the commit
-		 * message for details.
-		 */
-		if (nested_exit_intr_ack_set(vcpu) &&
-		    exit_reason == EXIT_REASON_EXTERNAL_INTERRUPT &&
-		    kvm_cpu_has_interrupt(vcpu)) {
+		if (exit_reason == EXIT_REASON_EXTERNAL_INTERRUPT &&
+		    nested_exit_intr_ack_set(vcpu)) {
 			int irq = kvm_cpu_get_interrupt(vcpu);
 			WARN_ON(irq < 0);
 			vmcs12->vm_exit_intr_info = irq |
@@ -5367,7 +5357,7 @@ bool nested_vmx_exit_reflected(struct kvm_vcpu *vcpu, u32 exit_reason)
 				vmcs_read32(VM_EXIT_INTR_ERROR_CODE),
 				KVM_ISA_VMX);
 
-	switch (exit_reason) {
+	switch ((u16)exit_reason) {
 	case EXIT_REASON_EXCEPTION_NMI:
 		if (is_nmi(intr_info))
 			return false;

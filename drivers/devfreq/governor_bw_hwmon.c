@@ -616,6 +616,11 @@ static int gov_start(struct devfreq *df)
 		goto err_sysfs;
 	}
 
+	mutex_lock(&df->lock);
+	df->min_freq = df->max_freq;
+	update_devfreq(df);
+	mutex_unlock(&df->lock);
+
 	return 0;
 
 err_sysfs:
@@ -934,6 +939,7 @@ out:
 
 static struct devfreq_governor devfreq_gov_bw_hwmon = {
 	.name = "bw_hwmon",
+	.immutable = 1,
 	.get_target_freq = devfreq_bw_hwmon_get_freq,
 	.event_handler = devfreq_bw_hwmon_ev_handler,
 };

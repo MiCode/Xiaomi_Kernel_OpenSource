@@ -3191,6 +3191,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
+		ufshcd_release_all(hba);
 		goto out;
 	}
 	lrbp->req_abort_skip = false;
@@ -4850,8 +4851,8 @@ void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
-	if (!ufshcd_is_auto_hibern8_supported(hba) || !hba->ahit
-	    || (hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8))
+	if (!ufshcd_is_auto_hibern8_supported(hba) ||
+	    (hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8))
 		return;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -7613,7 +7614,9 @@ static u32 ufshcd_find_max_sup_active_icc_level(struct ufs_hba *hba,
 	 * vendors don't use this rail for embedded UFS devices as well. So
 	 * it is normal that VCCQ rail may not be provided for given platform.
 	 */
-	if (!hba->vreg_info.vcc || !hba->vreg_info.vccq2) {
+	if (!hba->vreg_info.vcc ||
+		(!hba->vreg_info.vccq && hba->dev_info.wspecversion >= 0x300) ||
+		(!hba->vreg_info.vccq2 && hba->dev_info.wspecversion < 0x300)) {
 		dev_err(hba->dev, "%s: Regulator capability was not set, bActiveICCLevel=%d\n",
 			__func__, icc_level);
 		goto out;

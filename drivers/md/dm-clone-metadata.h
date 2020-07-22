@@ -44,7 +44,9 @@ int dm_clone_set_region_hydrated(struct dm_clone_metadata *cmd, unsigned long re
  * @start: Starting region number
  * @nr_regions: Number of regions in the range
  *
- * This function doesn't block, so it's safe to call it from interrupt context.
+ * This function doesn't block, but since it uses spin_lock_irq()/spin_unlock_irq()
+ * it's NOT safe to call it from any context where interrupts are disabled, e.g.,
+ * from interrupt context.
  */
 int dm_clone_cond_set_range(struct dm_clone_metadata *cmd, unsigned long start,
 			    unsigned long nr_regions);
@@ -154,7 +156,7 @@ bool dm_clone_is_range_hydrated(struct dm_clone_metadata *cmd,
 /*
  * Returns the number of hydrated regions.
  */
-unsigned long dm_clone_nr_of_hydrated_regions(struct dm_clone_metadata *cmd);
+unsigned int dm_clone_nr_of_hydrated_regions(struct dm_clone_metadata *cmd);
 
 /*
  * Returns the first unhydrated region with region_nr >= @start

@@ -35,7 +35,8 @@ int crypto_qti_keyslot_program(void *priv_data,
 			       unsigned int slot, u8 data_unit_mask,
 			       int capid);
 int crypto_qti_keyslot_evict(void *priv_data, unsigned int slot);
-int crypto_qti_derive_raw_secret(const u8 *wrapped_key,
+int crypto_qti_derive_raw_secret(void *priv_data,
+				 const u8 *wrapped_key,
 				 unsigned int wrapped_key_size, u8 *secret,
 				 unsigned int secret_size);
 
@@ -74,7 +75,8 @@ static inline int crypto_qti_keyslot_evict(void *priv_data, unsigned int slot)
 {
 	return -EOPNOTSUPP;
 }
-static inline int crypto_qti_derive_raw_secret(const u8 *wrapped_key,
+static inline int crypto_qti_derive_raw_secret(void *priv_data,
+					       const u8 *wrapped_key,
 					       unsigned int wrapped_key_size,
 					       u8 *secret,
 					       unsigned int secret_size)

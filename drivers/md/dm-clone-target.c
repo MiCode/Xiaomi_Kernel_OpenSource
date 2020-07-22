@@ -282,7 +282,7 @@ static bool bio_triggers_commit(struct clone *clone, struct bio *bio)
 /* Get the address of the region in sectors */
 static inline sector_t region_to_sector(struct clone *clone, unsigned long region_nr)
 {
-	return (region_nr << clone->region_shift);
+	return ((sector_t)region_nr << clone->region_shift);
 }
 
 /* Get the region number of the bio */
@@ -293,10 +293,17 @@ static inline unsigned long bio_to_region(struct clone *clone, struct bio *bio)
 
 /* Get the region range covered by the bio */
 static void bio_region_range(struct clone *clone, struct bio *bio,
-			     unsigned long *rs, unsigned long *re)
+			     unsigned long *rs, unsigned long *nr_regions)
 {
+	unsigned long end;
+
 	*rs = dm_sector_div_up(bio->bi_iter.bi_sector, clone->region_size);
-	*re = bio_end_sector(bio) >> clone->region_shift;
+	end = bio_end_sector(bio) >> clone->region_shift;
+
+	if (*rs >= end)
+		*nr_regions = 0;
+	else
+		*nr_regions = end - *rs;
 }
 
 /* Check whether a bio overwrites a region */
@@ -338,8 +345,6 @@ static void submit_bios(struct bio_list *bios)
  */
 static void issue_bio(struct clone *clone, struct bio *bio)
 {
-	unsigned long flags;
-
 	if (!bio_triggers_commit(clone, bio)) {
 		generic_make_request(bio);
 		return;
@@ -358,9 +363,9 @@ static void issue_bio(struct clone *clone, struct bio *bio)
 	 * Batch together any bios that trigger commits and then issue a single
 	 * commit for them in process_deferred_flush_bios().
 	 */
-	spin_lock_irqsave(&clone->lock, flags);
+	spin_lock_irq(&clone->lock);
 	bio_list_add(&clone->deferred_flush_bios, bio);
-	spin_unlock_irqrestore(&clone->lock, flags);
+	spin_unlock_irq(&clone->lock);
 
 	wake_worker(clone);
 }
@@ -456,7 +461,7 @@ static void trim_bio(struct bio *bio, sector_t sector, unsigned int len)
 
 static void complete_discard_bio(struct clone *clone, struct bio *bio, bool success)
 {
-	unsigned long rs, re;
+	unsigned long rs, nr_regions;
 
 	/*
 	 * If the destination device supports discards, remap and trim the
@@ -465,9 +470,9 @@ static void complete_discard_bio(struct clone *clone, struct bio *bio, bool succ
 	 */
 	if (test_bit(DM_CLONE_DISCARD_PASSDOWN, &clone->flags) && success) {
 		remap_to_dest(clone, bio);
-		bio_region_range(clone, bio, &rs, &re);
-		trim_bio(bio, rs << clone->region_shift,
-			 (re - rs) << clone->region_shift);
+		bio_region_range(clone, bio, &rs, &nr_regions);
+		trim_bio(bio, region_to_sector(clone, rs),
+			 nr_regions << clone->region_shift);
 		generic_make_request(bio);
 	} else
 		bio_endio(bio);
@@ -475,12 +480,21 @@ static void complete_discard_bio(struct clone *clone, struct bio *bio, bool succ
 
 static void process_discard_bio(struct clone *clone, struct bio *bio)
 {
-	unsigned long rs, re, flags;
+	unsigned long rs, nr_regions;
 
-	bio_region_range(clone, bio, &rs, &re);
-	BUG_ON(re > clone->nr_regions);
+	bio_region_range(clone, bio, &rs, &nr_regions);
+	if (!nr_regions) {
+		bio_endio(bio);
+		return;
+	}
 
-	if (unlikely(rs == re)) {
+	if (WARN_ON(rs >= clone->nr_regions || (rs + nr_regions) < rs ||
+		    (rs + nr_regions) > clone->nr_regions)) {
+		DMERR("%s: Invalid range (%lu + %lu, total regions %lu) for discard (%llu + %u)",
+		      clone_device_name(clone), rs, nr_regions,
+		      clone->nr_regions,
+		      (unsigned long long)bio->bi_iter.bi_sector,
+		      bio_sectors(bio));
 		bio_endio(bio);
 		return;
 	}
@@ -489,7 +503,7 @@ static void process_discard_bio(struct clone *clone, struct bio *bio)
 	 * The covered regions are already hydrated so we just need to pass
 	 * down the discard.
 	 */
-	if (dm_clone_is_range_hydrated(clone->cmd, rs, re - rs)) {
+	if (dm_clone_is_range_hydrated(clone->cmd, rs, nr_regions)) {
 		complete_discard_bio(clone, bio, true);
 		return;
 	}
@@ -507,9 +521,9 @@ static void process_discard_bio(struct clone *clone, struct bio *bio)
 	/*
 	 * Defer discard processing.
 	 */
-	spin_lock_irqsave(&clone->lock, flags);
+	spin_lock_irq(&clone->lock);
 	bio_list_add(&clone->deferred_discard_bios, bio);
-	spin_unlock_irqrestore(&clone->lock, flags);
+	spin_unlock_irq(&clone->lock);
 
 	wake_worker(clone);
 }
@@ -784,11 +798,14 @@ static void hydration_copy(struct dm_clone_region_hydration *hd, unsigned int nr
 	struct dm_io_region from, to;
 	struct clone *clone = hd->clone;
 
+	if (WARN_ON(!nr_regions))
+		return;
+
 	region_size = clone->region_size;
 	region_start = hd->region_nr;
 	region_end = region_start + nr_regions - 1;
 
-	total_size = (nr_regions - 1) << clone->region_shift;
+	total_size = region_to_sector(clone, nr_regions - 1);
 
 	if (region_end == clone->nr_regions - 1) {
 		/*
@@ -1167,13 +1184,13 @@ static void process_deferred_discards(struct clone *clone)
 	int r = -EPERM;
 	struct bio *bio;
 	struct blk_plug plug;
-	unsigned long rs, re, flags;
+	unsigned long rs, nr_regions;
 	struct bio_list discards = BIO_EMPTY_LIST;
 
-	spin_lock_irqsave(&clone->lock, flags);
+	spin_lock_irq(&clone->lock);
 	bio_list_merge(&discards, &clone->deferred_discard_bios);
 	bio_list_init(&clone->deferred_discard_bios);
-	spin_unlock_irqrestore(&clone->lock, flags);
+	spin_unlock_irq(&clone->lock);
 
 	if (bio_list_empty(&discards))
 		return;
@@ -1183,14 +1200,13 @@ static void process_deferred_discards(struct clone *clone)
 
 	/* Update the metadata */
 	bio_list_for_each(bio, &discards) {
-		bio_region_range(clone, bio, &rs, &re);
+		bio_region_range(clone, bio, &rs, &nr_regions);
 		/*
 		 * A discard request might cover regions that have been already
 		 * hydrated. There is no need to update the metadata for these
 		 * regions.
 		 */
-		r = dm_clone_cond_set_range(clone->cmd, rs, re - rs);
-
+		r = dm_clone_cond_set_range(clone->cmd, rs, nr_regions);
 		if (unlikely(r))
 			break;
 	}
@@ -1203,13 +1219,12 @@ out:
 
 static void process_deferred_bios(struct clone *clone)
 {
-	unsigned long flags;
 	struct bio_list bios = BIO_EMPTY_LIST;
 
-	spin_lock_irqsave(&clone->lock, flags);
+	spin_lock_irq(&clone->lock);
 	bio_list_merge(&bios, &clone->deferred_bios);
 	bio_list_init(&clone->deferred_bios);
-	spin_unlock_irqrestore(&clone->lock, flags);
+	spin_unlock_irq(&clone->lock);
 
 	if (bio_list_empty(&bios))
 		return;
@@ -1220,7 +1235,6 @@ static void process_deferred_bios(struct clone *clone)
 static void process_deferred_flush_bios(struct clone *clone)
 {
 	struct bio *bio;
-	unsigned long flags;
 	bool dest_dev_flushed;
 	struct bio_list bios = BIO_EMPTY_LIST;
 	struct bio_list bio_completions = BIO_EMPTY_LIST;
@@ -1229,13 +1243,13 @@ static void process_deferred_flush_bios(struct clone *clone)
 	 * If there are any deferred flush bios, we must commit the metadata
 	 * before issuing them or signaling their completion.
 	 */
-	spin_lock_irqsave(&clone->lock, flags);
+	spin_lock_irq(&clone->lock);
 	bio_list_merge(&bios, &clone->deferred_flush_bios);
 	bio_list_init(&clone->deferred_flush_bios);
 
 	bio_list_merge(&bio_completions, &clone->deferred_flush_completions);
 	bio_list_init(&clone->deferred_flush_completions);
-	spin_unlock_irqrestore(&clone->lock, flags);
+	spin_unlock_irq(&clone->lock);
 
 	if (bio_list_empty(&bios) && bio_list_empty(&bio_completions) &&
 	    !(dm_clone_changed_this_transaction(clone->cmd) && need_commit_due_to_time(clone)))
@@ -1455,7 +1469,7 @@ static void clone_status(struct dm_target *ti, status_type_t type,
 			goto error;
 		}
 
-		DMEMIT("%u %llu/%llu %llu %lu/%lu %u ",
+		DMEMIT("%u %llu/%llu %llu %u/%lu %u ",
 		       DM_CLONE_METADATA_BLOCK_SIZE,
 		       (unsigned long long)(nr_metadata_blocks - nr_free_metadata_blocks),
 		       (unsigned long long)nr_metadata_blocks,
@@ -1775,6 +1789,7 @@ error:
 static int clone_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 {
 	int r;
+	sector_t nr_regions;
 	struct clone *clone;
 	struct dm_arg_set as;
 
@@ -1816,7 +1831,16 @@ static int clone_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto out_with_source_dev;
 
 	clone->region_shift = __ffs(clone->region_size);
-	clone->nr_regions = dm_sector_div_up(ti->len, clone->region_size);
+	nr_regions = dm_sector_div_up(ti->len, clone->region_size);
+
+	/* Check for overflow */
+	if (nr_regions != (unsigned long)nr_regions) {
+		ti->error = "Too many regions. Consider increasing the region size";
+		r = -EOVERFLOW;
+		goto out_with_source_dev;
+	}
+
+	clone->nr_regions = nr_regions;
 
 	r = validate_nr_regions(clone->nr_regions, &ti->error);
 	if (r)

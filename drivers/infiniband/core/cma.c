@@ -1631,6 +1631,8 @@ static struct rdma_id_private *cma_find_listener(
 {
 	struct rdma_id_private *id_priv, *id_priv_dev;
 
+	lockdep_assert_held(&lock);
+
 	if (!bind_list)
 		return ERR_PTR(-EINVAL);
 
@@ -1677,6 +1679,7 @@ cma_ib_id_from_event(struct ib_cm_id *cm_id,
 		}
 	}
 
+	mutex_lock(&lock);
 	/*
 	 * Net namespace might be getting deleted while route lookup,
 	 * cm_id lookup is in progress. Therefore, perform netdevice
@@ -1718,6 +1721,7 @@ cma_ib_id_from_event(struct ib_cm_id *cm_id,
 	id_priv = cma_find_listener(bind_list, cm_id, ib_event, req, *net_dev);
 err:
 	rcu_read_unlock();
+	mutex_unlock(&lock);
 	if (IS_ERR(id_priv) && *net_dev) {
 		dev_put(*net_dev);
 		*net_dev = NULL;
@@ -2473,6 +2477,8 @@ static void cma_listen_on_dev(struct rdma_id_private *id_priv,
 	struct net *net = id_priv->id.route.addr.dev_addr.net;
 	int ret;
 
+	lockdep_assert_held(&lock);
+
 	if (cma_family(id_priv) == AF_IB && !rdma_cap_ib_cm(cma_dev->device, 1))
 		return;
 
@@ -2911,6 +2917,7 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
 err2:
 	kfree(route->path_rec);
 	route->path_rec = NULL;
+	route->num_paths = 0;
 err1:
 	kfree(work);
 	return ret;
@@ -3244,6 +3251,8 @@ static void cma_bind_port(struct rdma_bind_list *bind_list,
 	u64 sid, mask;
 	__be16 port;
 
+	lockdep_assert_held(&lock);
+
 	addr = cma_src_addr(id_priv);
 	port = htons(bind_list->port);
 
@@ -3272,6 +3281,8 @@ static int cma_alloc_port(enum rdma_ucm_port_space ps,
 	struct rdma_bind_list *bind_list;
 	int ret;
 
+	lockdep_assert_held(&lock);
+
 	bind_list = kzalloc(sizeof *bind_list, GFP_KERNEL);
 	if (!bind_list)
 		return -ENOMEM;
@@ -3297,6 +3308,8 @@ static int cma_port_is_unique(struct rdma_bind_list *bind_list,
 	struct sockaddr  *daddr = cma_dst_addr(id_priv);
 	struct sockaddr  *saddr = cma_src_addr(id_priv);
 	__be16 dport = cma_port(daddr);
+
+	lockdep_assert_held(&lock);
 
 	hlist_for_each_entry(cur_id, &bind_list->owners, node) {
 		struct sockaddr  *cur_daddr = cma_dst_addr(cur_id);
@@ -3336,6 +3349,8 @@ static int cma_alloc_any_port(enum rdma_ucm_port_space ps,
 	int low, high, remaining;
 	unsigned int rover;
 	struct net *net = id_priv->id.route.addr.dev_addr.net;
+
+	lockdep_assert_held(&lock);
 
 	inet_get_local_port_range(net, &low, &high);
 	remaining = (high - low) + 1;
@@ -3384,6 +3399,8 @@ static int cma_check_port(struct rdma_bind_list *bind_list,
 	struct rdma_id_private *cur_id;
 	struct sockaddr *addr, *cur_addr;
 
+	lockdep_assert_held(&lock);
+
 	addr = cma_src_addr(id_priv);
 	hlist_for_each_entry(cur_id, &bind_list->owners, node) {
 		if (id_priv == cur_id)
@@ -3413,6 +3430,8 @@ static int cma_use_port(enum rdma_ucm_port_space ps,
 	struct rdma_bind_list *bind_list;
 	unsigned short snum;
 	int ret;
+
+	lockdep_assert_held(&lock);
 
 	snum = ntohs(cma_port(cma_src_addr(id_priv)));
 	if (snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
@@ -4718,6 +4737,19 @@ static struct pernet_operations cma_pernet_operations = {
 static int __init cma_init(void)
 {
 	int ret;
+
+	/*
+	 * There is a rare lock ordering dependency in cma_netdev_callback()
+	 * that only happens when bonding is enabled. Teach lockdep that rtnl
+	 * must never be nested under lock so it can find these without having
+	 * to test with bonding.
+	 */
+	if (IS_ENABLED(CONFIG_LOCKDEP)) {
+		rtnl_lock();
+		mutex_lock(&lock);
+		mutex_unlock(&lock);
+		rtnl_unlock();
+	}
 
 	cma_wq = alloc_ordered_workqueue("rdma_cm", WQ_MEM_RECLAIM);
 	if (!cma_wq)

@@ -139,43 +139,13 @@ static bool _ft_hang_intr_status_show(struct adreno_device *adreno_dev)
 	return true;
 }
 
-static int pwrflag_store(struct adreno_device *adreno_dev,
-		unsigned int val, bool *flag)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (*flag == val)
-		return 0;
-
-	mutex_lock(&device->mutex);
-
-	/* Power down the GPU before changing the state */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	*flag = val;
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-
-	return 0;
-}
-
-static int _preemption_store(struct adreno_device *adreno_dev, bool val)
+static void change_preemption(struct adreno_device *adreno_dev, void *priv)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_context *context;
 	struct adreno_context *drawctxt;
 	int id;
 
-	mutex_lock(&device->mutex);
-
-	if (!(ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) ||
-		(test_bit(ADRENO_DEVICE_PREEMPTION,
-		&adreno_dev->priv) == val)) {
-		mutex_unlock(&device->mutex);
-		return 0;
-	}
-
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
 
@@ -186,12 +156,16 @@ static int _preemption_store(struct adreno_device *adreno_dev, bool val)
 		drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 	}
 	write_unlock(&device->context_lock);
+}
 
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+static int _preemption_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (!(ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) ||
+		(test_bit(ADRENO_DEVICE_PREEMPTION,
+		&adreno_dev->priv) == val))
+		return 0;
 
-	mutex_unlock(&device->mutex);
-
-	return 0;
+	return adreno_power_cycle(adreno_dev, change_preemption, NULL);
 }
 
 static bool _preemption_show(struct adreno_device *adreno_dev)
@@ -201,7 +175,11 @@ static bool _preemption_show(struct adreno_device *adreno_dev)
 
 static int _hwcg_store(struct adreno_device *adreno_dev, bool val)
 {
-	return pwrflag_store(adreno_dev, val, &adreno_dev->hwcg_enabled);
+	if (adreno_dev->hwcg_enabled == val)
+		return 0;
+
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->hwcg_enabled,
+		val);
 }
 
 static bool _hwcg_show(struct adreno_device *adreno_dev)
@@ -211,10 +189,12 @@ static bool _hwcg_show(struct adreno_device *adreno_dev)
 
 static int _throttling_store(struct adreno_device *adreno_dev, bool val)
 {
-	if (!adreno_is_a540(adreno_dev))
+	if (!adreno_is_a540(adreno_dev) ||
+		adreno_dev->throttling_enabled == val)
 		return 0;
 
-	return pwrflag_store(adreno_dev, val, &adreno_dev->throttling_enabled);
+	return adreno_power_cycle_bool(adreno_dev,
+		&adreno_dev->throttling_enabled, val);
 }
 
 static bool _throttling_show(struct adreno_device *adreno_dev)
@@ -224,10 +204,12 @@ static bool _throttling_show(struct adreno_device *adreno_dev)
 
 static int _sptp_pc_store(struct adreno_device *adreno_dev, bool val)
 {
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
+		adreno_dev->sptp_pc_enabled == val)
 		return 0;
 
-	return pwrflag_store(adreno_dev, val, &adreno_dev->sptp_pc_enabled);
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->sptp_pc_enabled,
+		val);
 }
 
 static bool _sptp_pc_show(struct adreno_device *adreno_dev)
@@ -237,10 +219,12 @@ static bool _sptp_pc_show(struct adreno_device *adreno_dev)
 
 static int _lm_store(struct adreno_device *adreno_dev, bool val)
 {
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
+		adreno_dev->lm_enabled == val)
 		return 0;
 
-	return pwrflag_store(adreno_dev, val, &adreno_dev->lm_enabled);
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->lm_enabled,
+		val);
 }
 
 static bool _lm_show(struct adreno_device *adreno_dev)
@@ -277,7 +261,7 @@ static bool _acd_show(struct adreno_device *adreno_dev)
 
 static int _acd_store(struct adreno_device *adreno_dev, bool val)
 {
-	return gmu_core_acd_set(KGSL_DEVICE(adreno_dev), val);
+	return gmu_core_dev_acd_set(KGSL_DEVICE(adreno_dev), val);
 }
 
 static ssize_t _sysfs_store_u32(struct device *dev,

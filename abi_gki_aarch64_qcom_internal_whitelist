@@ -1,47 +1,73 @@
 # List of symbols exported by QCOM in-kernel drivers and used by external DLKMs
 # QCOM internal whitelist
 [abi_whitelist]
+  cnss_lock_pm_sem
+  cnss_release_pm_sem
+  cnss_get_fw_files_for_target
+  cnss_get_platform_cap
+  cnss_request_pm_qos
+  cnss_remove_pm_qos
+  cnss_wlan_enable
+  cnss_wlan_disable
   cnss_athdiag_read
   cnss_athdiag_write
-  cnss_auto_resume
-  cnss_auto_suspend
-  cnss_device_crashed
-  cnss_force_collect_rddm
-  cnss_get_fw_files_for_target
-  cnss_get_msi_address
-  cnss_get_msi_irq
-  cnss_get_platform_cap
-  cnss_get_soc_info
-  cnss_get_user_msi_assignment
-  cnss_get_virt_ramdump_mem
+  cnss_set_fw_log_mode
+  cnss_get_boot_timeout
+  cnss_power_up
+  cnss_power_down
   cnss_idle_restart
   cnss_idle_shutdown
-  cnss_lock_pm_sem
-  cnss_pci_allow_l1
-  cnss_pci_force_wake_release
-  cnss_pci_force_wake_request
-  cnss_pci_is_device_awake
-  cnss_pci_is_device_down
-  cnss_pci_is_drv_connected
-  cnss_pci_link_down
-  cnss_pci_lock_reg_window
-  cnss_pci_prevent_l1
-  cnss_pci_unlock_reg_window
-  cnss_qmi_send
+  cnss_device_crashed
+  cnss_get_virt_ramdump_mem
+  cnss_self_recovery
+  cnss_schedule_recovery
+  cnss_force_fw_assert
+  cnss_force_collect_rddm
   cnss_qmi_send_get
   cnss_qmi_send_put
-  cnss_release_pm_sem
-  cnss_remove_pm_qos
+  cnss_qmi_send
   cnss_request_bus_bandwidth
-  cnss_request_pm_qos
-  cnss_self_recovery
-  cnss_set_fw_log_mode
-  cnss_smmu_get_domain
-  cnss_smmu_map
-  cnss_wlan_disable
-  cnss_wlan_enable
+  cnss_pci_prevent_l1
+  cnss_pci_allow_l1
+  cnss_pci_link_down
+  cnss_pci_is_device_down
+  cnss_pci_lock_reg_window
+  cnss_pci_unlock_reg_window
+  cnss_pci_is_drv_connected
   cnss_wlan_register_driver
   cnss_wlan_unregister_driver
+  cnss_wlan_pm_control
+  cnss_auto_suspend
+  cnss_auto_resume
+  cnss_pci_force_wake_request_sync
+  cnss_pci_force_wake_request
+  cnss_pci_is_device_awake
+  cnss_pci_force_wake_release
+  cnss_smmu_get_domain
+  cnss_smmu_map
+  cnss_get_soc_info
+  cnss_get_user_msi_assignment
+  cnss_get_msi_irq
+  cnss_get_msi_address
+  register_cld_cmd_cb
+  deregister_cld_cmd_cb
+  cld80211_get_genl_family
+  wcnss_prealloc_get
+  wcnss_prealloc_put
+  wcnss_prealloc_check_memory_leak
+  wcnss_pre_alloc_reset
+  cnss_utils_set_wlan_unsafe_channel
+  cnss_utils_get_wlan_unsafe_channel
+  cnss_utils_wlan_set_dfs_nol
+  cnss_utils_wlan_get_dfs_nol
+  cnss_utils_increment_driver_load_cnt
+  cnss_utils_get_driver_load_cnt
+  cnss_utils_set_wlan_mac_address
+  cnss_utils_set_wlan_derived_mac_address
+  cnss_utils_get_wlan_mac_address
+  cnss_utils_get_wlan_derived_mac_address
+  cnss_utils_set_cc_source
+  cnss_utils_get_cc_source
   debugfs_attr_read
   debugfs_attr_write
   debugfs_create_atomic_t
@@ -68,12 +94,57 @@
   hdcp2_force_encryption
   hdcp2_init
   hdcp2_open_stream
+  hyp_assign_phys
   ipa_register_rmnet_ctl_cb
   ipa_rmnet_ctl_xmit
   ipa_unregister_rmnet_ctl_cb
+  qcom_scm_assign_mem_regions
+  qcom_scm_camera_protect_phy_lanes
+  qcom_scm_dcvs_ca_available
+  qcom_scm_dcvs_core_available
+  qcom_scm_dcvs_init_ca_v2
+  qcom_scm_dcvs_init_v2
+  qcom_scm_dcvs_reset
+  qcom_scm_dcvs_update
+  qcom_scm_dcvs_update_ca_v2
+  qcom_scm_dcvs_update_v2
+  qcom_scm_deassert_ps_hold
+  qcom_scm_disable_sdi
+  qcom_scm_get_sec_dump_state
+  qcom_scm_halt_spmi_pmic_arbiter
+  qcom_scm_invoke_callback_response
+  qcom_scm_invoke_smc
+  qcom_scm_io_readl
+  qcom_scm_io_reset
+  qcom_scm_io_writel
+  qcom_scm_kgsl_set_smmu_aperture
+  qcom_scm_kgsl_set_smmu_aperture_available
+  qcom_scm_mem_protect_region_id
+  qcom_scm_mem_protect_sd_ctrl
+  qcom_scm_mem_protect_video
+  qcom_scm_pas_auth_and_reset
+  qcom_scm_pas_init_image
+  qcom_scm_pas_mem_setup
+  qcom_scm_pas_shutdown
+  qcom_scm_qseecom_call
+  qcom_scm_qseecom_call_noretry
+  qcom_scm_qsmmu500_wait_safe_toggle
+  qcom_scm_sec_wdog_deactivate
+  qcom_scm_sec_wdog_trigger
+  qcom_scm_set_download_mode
+  qcom_scm_set_remote_state
+  qcom_scm_smmu_notify_secure_lut
+  qcom_scm_spin_cpu
   qmi_rmnet_ps_ind_deregister
   qmi_rmnet_ps_ind_register
   qmi_rmnet_work_maybe_restart
+  qtee_shmbridge_allocate_shm
+  qtee_shmbridge_deregister
+  qtee_shmbridge_flush_shm_buf
+  qtee_shmbridge_free_shm
+  qtee_shmbridge_is_enabled
+  qtee_shmbridge_query
+  qtee_shmbridge_register
   rmnet_ctl_if
   rmnet_deliver_skb
   rmnet_frag_deliver
@@ -94,6 +165,23 @@
   socinfo_get_id
   socinfo_get_id_string
   subsys_bus_type
+  synx_addrefcount
+  synx_bind
+  synx_create
+  synx_deregister_callback
+  synx_deregister_ops
+  synx_export
+  synx_get_fence
+  synx_get_status
+  synx_import
+  synx_initialize
+  synx_merge
+  synx_register_callback
+  synx_register_ops
+  synx_release
+  synx_signal
+  synx_uninitialize
+  synx_wait
   __tracepoint_rmnet_freq_boost
   __tracepoint_rmnet_freq_reset
   __tracepoint_rmnet_perf_low

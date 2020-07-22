@@ -179,9 +179,7 @@ struct taskstats2 {
 	__u64 file_rss;	/* KB */
 	__u64 swap_rss;	/* KB */
 	__u64 shmem_rss;	/* KB */
-#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
 	__u64 unreclaimable;	/* KB */
-#endif
 	/* version 1 ends here */
 };
 

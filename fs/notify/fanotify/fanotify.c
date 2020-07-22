@@ -26,7 +26,7 @@ static bool should_merge(struct fsnotify_event *old_fsn,
 	old = FANOTIFY_E(old_fsn);
 	new = FANOTIFY_E(new_fsn);
 
-	if (old_fsn->inode != new_fsn->inode || old->pid != new->pid ||
+	if (old_fsn->objectid != new_fsn->objectid || old->pid != new->pid ||
 	    old->fh_type != new->fh_type || old->fh_len != new->fh_len)
 		return false;
 
@@ -171,6 +171,17 @@ static u32 fanotify_group_event_mask(struct fsnotify_group *group,
 		if (!fsnotify_iter_should_report_type(iter_info, type))
 			continue;
 		mark = iter_info->marks[type];
+
+		/* Apply ignore mask regardless of ISDIR and ON_CHILD flags */
+		marks_ignored_mask |= mark->ignored_mask;
+
+		/*
+		 * If the event is on dir and this mark doesn't care about
+		 * events on dir, don't send it!
+		 */
+		if (event_mask & FS_ISDIR && !(mark->mask & FS_ISDIR))
+			continue;
+
 		/*
 		 * If the event is for a child and this mark doesn't care about
 		 * events on a child, don't send it!
@@ -181,7 +192,6 @@ static u32 fanotify_group_event_mask(struct fsnotify_group *group,
 			continue;
 
 		marks_mask |= mark->mask;
-		marks_ignored_mask |= mark->ignored_mask;
 	}
 
 	test_mask = event_mask & marks_mask & ~marks_ignored_mask;
@@ -202,10 +212,6 @@ static u32 fanotify_group_event_mask(struct fsnotify_group *group,
 	} else {
 		user_mask &= ~FAN_ONDIR;
 	}
-
-	if (event_mask & FS_ISDIR &&
-	    !(marks_mask & FS_ISDIR & ~marks_ignored_mask))
-		return 0;
 
 	return test_mask & user_mask;
 }
@@ -314,7 +320,12 @@ struct fanotify_event *fanotify_alloc_event(struct fsnotify_group *group,
 	if (!event)
 		goto out;
 init: __maybe_unused
-	fsnotify_init_event(&event->fse, inode);
+	/*
+	 * Use the victim inode instead of the watching inode as the id for
+	 * event queue, so event reported on parent is merged with event
+	 * reported on child when both directory and child watches exist.
+	 */
+	fsnotify_init_event(&event->fse, (unsigned long)id);
 	event->mask = mask;
 	if (FAN_GROUP_FLAG(group, FAN_REPORT_TID))
 		event->pid = get_pid(task_pid(current));

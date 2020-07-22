@@ -8,7 +8,7 @@
 #ifndef __ASSEMBLY__
 
 #include <asm/unistd.h>
-#include <uapi/linux/time.h>
+#include <asm/errno.h>
 
 #include <asm/vdso/compat_barrier.h>
 
@@ -16,7 +16,10 @@
 
 #define VDSO_HAS_CLOCK_GETRES		1
 
+#define VDSO_HAS_TIME			1
+
 #define VDSO_HAS_32BIT_FALLBACK		1
+#define BUILD_VDSO32			1
 
 static __always_inline
 int gettimeofday_fallback(struct __kernel_old_timeval *_tv,
@@ -78,10 +81,6 @@ int clock_getres_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
 	register long ret asm ("r0");
 	register long nr asm("r7") = __NR_compat_clock_getres_time64;
 
-	/* The checks below are required for ABI consistency with arm */
-	if ((_clkid >= MAX_CLOCKS) && (_ts == NULL))
-		return -EINVAL;
-
 	asm volatile(
 	"       swi #0\n"
 	: "=r" (ret)
@@ -98,10 +97,6 @@ int clock_getres32_fallback(clockid_t _clkid, struct old_timespec32 *_ts)
 	register clockid_t clkid asm("r0") = _clkid;
 	register long ret asm ("r0");
 	register long nr asm("r7") = __NR_compat_clock_getres;
-
-	/* The checks below are required for ABI consistency with arm */
-	if ((_clkid >= MAX_CLOCKS) && (_ts == NULL))
-		return -EINVAL;
 
 	asm volatile(
 	"       swi #0\n"

@@ -925,6 +925,8 @@ static int pci_pm_resume_noirq(struct device *dev)
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct device_driver *drv = dev->driver;
 	int error = 0;
+	pci_power_t prev_state = pci_dev->current_state;
+	bool skip_bus_pm = pci_dev->skip_bus_pm;
 
 	if (dev_pm_may_skip_resume(dev))
 		return 0;
@@ -943,7 +945,7 @@ static int pci_pm_resume_noirq(struct device *dev)
 	 * configuration here and attempting to put them into D0 again is
 	 * pointless, so avoid doing that.
 	 */
-	if (!(pci_dev->skip_bus_pm && pm_suspend_no_platform())
+	if (!(skip_bus_pm && pm_suspend_no_platform())
 #ifdef CONFIG_PCI_QTI
 		&& !pci_dev->no_d3hot
 #endif
@@ -952,6 +954,9 @@ static int pci_pm_resume_noirq(struct device *dev)
 
 	pci_fixup_device(pci_fixup_resume_early, pci_dev);
 	pcie_pme_root_status_cleanup(pci_dev);
+
+	if (!skip_bus_pm && prev_state == PCI_D3cold)
+		pci_bridge_wait_for_secondary_bus(pci_dev);
 
 	if (pci_has_legacy_pm_support(pci_dev))
 		return pci_legacy_resume_early(dev);
@@ -1349,6 +1354,7 @@ static int pci_pm_runtime_resume(struct device *dev)
 	int rc = 0;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
+	pci_power_t prev_state = pci_dev->current_state;
 
 #ifdef CONFIG_PCI_QTI
 	/* we skipped d3hot processing so skip re-init */
@@ -1369,6 +1375,9 @@ static int pci_pm_runtime_resume(struct device *dev)
 	pci_fixup_device(pci_fixup_resume_early, pci_dev);
 	pci_enable_wake(pci_dev, PCI_D0, false);
 	pci_fixup_device(pci_fixup_resume, pci_dev);
+
+	if (prev_state == PCI_D3cold)
+		pci_bridge_wait_for_secondary_bus(pci_dev);
 
 #ifdef CONFIG_PCI_QTI
 skip_restore:

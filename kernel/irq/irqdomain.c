@@ -296,6 +296,7 @@ void irq_domain_update_bus_token(struct irq_domain *domain,
 
 	mutex_unlock(&irq_domain_mutex);
 }
+EXPORT_SYMBOL_GPL(irq_domain_update_bus_token);
 
 /**
  * irq_domain_add_simple() - Register an irq_domain and optionally map a range of irqs
@@ -1293,6 +1294,11 @@ int irq_domain_alloc_irqs_hierarchy(struct irq_domain *domain,
 				    unsigned int irq_base,
 				    unsigned int nr_irqs, void *arg)
 {
+	if (!domain->ops->alloc) {
+		pr_debug("domain->ops->alloc() is NULL\n");
+		return -ENOSYS;
+	}
+
 	return domain->ops->alloc(domain, irq_base, nr_irqs, arg);
 }
 
@@ -1328,11 +1334,6 @@ int __irq_domain_alloc_irqs(struct irq_domain *domain, int irq_base,
 		domain = irq_default_domain;
 		if (WARN(!domain, "domain is NULL; cannot allocate IRQ\n"))
 			return -EINVAL;
-	}
-
-	if (!domain->ops->alloc) {
-		pr_debug("domain->ops->alloc() is NULL\n");
-		return -ENOSYS;
 	}
 
 	if (realloc && irq_base >= 0) {

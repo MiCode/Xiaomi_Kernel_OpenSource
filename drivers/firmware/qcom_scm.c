@@ -6,7 +6,6 @@
 #include <linux/init.h>
 #include <linux/cpumask.h>
 #include <linux/export.h>
-#include <linux/dma-direct.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -535,8 +534,7 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 	struct qcom_scm_mem_map_info *mem_to_map;
 	phys_addr_t mem_to_map_phys;
 	phys_addr_t dest_phys;
-	phys_addr_t ptr_phys;
-	dma_addr_t ptr_dma;
+	dma_addr_t ptr_phys;
 	size_t mem_to_map_sz;
 	size_t dest_sz;
 	size_t src_sz;
@@ -553,10 +551,9 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 	ptr_sz = ALIGN(src_sz, SZ_64) + ALIGN(mem_to_map_sz, SZ_64) +
 			ALIGN(dest_sz, SZ_64);
 
-	ptr = dma_alloc_coherent(__scm->dev, ptr_sz, &ptr_dma, GFP_KERNEL);
+	ptr = dma_alloc_coherent(__scm->dev, ptr_sz, &ptr_phys, GFP_KERNEL);
 	if (!ptr)
 		return -ENOMEM;
-	ptr_phys = dma_to_phys(__scm->dev, ptr_dma);
 
 	/* Fill source vmid detail */
 	src = ptr;
@@ -584,7 +581,7 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 
 	ret = __qcom_scm_assign_mem(__scm->dev, mem_to_map_phys, mem_to_map_sz,
 				    ptr_phys, src_sz, dest_phys, dest_sz);
-	dma_free_coherent(__scm->dev, ptr_sz, ptr, ptr_dma);
+	dma_free_coherent(__scm->dev, ptr_sz, ptr, ptr_phys);
 	if (ret) {
 		dev_err(__scm->dev,
 			"Assign memory protection call failed %d\n", ret);
@@ -857,6 +854,21 @@ int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
 }
 EXPORT_SYMBOL(qcom_scm_lmh_get_type);
 
+int qcom_scm_lmh_fetch_data(u32 node_id, u32 debug_type, uint32_t *peak,
+		uint32_t *avg)
+{
+	int ret;
+
+	ret = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					   QCOM_SCM_LMH_DEBUG_FETCH_DATA);
+	if (ret <= 0)
+		return ret;
+
+	return __qcom_scm_lmh_fetch_data(__scm->dev, node_id, debug_type,
+			peak, avg);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_fetch_data);
+
 int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 {
 	return __qcom_scm_smmu_change_pgtbl_format(__scm->dev, dev_id, cbndx);
@@ -1078,11 +1090,9 @@ static int qcom_scm_probe(struct platform_device *pdev)
 
 	__qcom_scm_init();
 
-#if CONFIG_ARM64
 	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret)
 		return ret;
-#endif
 
 	return 0;
 }

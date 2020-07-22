@@ -28,8 +28,8 @@ static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NOMINAL + 1, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NOMINAL + 1, 1, vdd_corner);
 
 static struct clk_vdd_class *gpu_cc_lahaina_regulators[] = {
-	&vdd_mx,
 	&vdd_cx,
+	&vdd_mx,
 };
 
 enum {
@@ -42,7 +42,7 @@ enum {
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 1750000000, 0 },
 };
 
 static const struct alpha_pll_config gpu_cc_pll0_config = {
@@ -81,8 +81,8 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -123,8 +123,8 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 			.rate_max = (unsigned long[VDD_NUM]) {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1600000000,
-				[VDD_NOMINAL] = 2000000000},
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000},
 		},
 	},
 };
@@ -191,7 +191,7 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 200000000,
+			[VDD_LOWER] = 200000000,
 			[VDD_LOW] = 500000000},
 	},
 };
@@ -222,7 +222,7 @@ static struct clk_rcg2 gpu_cc_hub_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 150000000,
+			[VDD_LOWER] = 150000000,
 			[VDD_LOW] = 240000000,
 			[VDD_NOMINAL] = 300000000},
 	},
@@ -332,7 +332,7 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 				.hw = &gpu_cc_gmu_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_aon_ops,
 		},
 	},
@@ -507,7 +507,7 @@ static struct clk_branch gpu_cc_hub_aon_clk = {
 
 static struct clk_branch gpu_cc_hub_cx_int_clk = {
 	.halt_reg = 0x1204,
-	.halt_check = BRANCH_HALT_SKIP,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x1204,
 		.enable_mask = BIT(0),
@@ -517,7 +517,7 @@ static struct clk_branch gpu_cc_hub_cx_int_clk = {
 				.hw = &gpu_cc_hub_cx_int_div_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_aon_ops,
 		},
 	},

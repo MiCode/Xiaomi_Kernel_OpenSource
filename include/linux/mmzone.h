@@ -39,13 +39,12 @@
  */
 #define PAGE_ALLOC_COSTLY_ORDER 3
 
+#define MAX_KSWAPD_THREADS 16
+
 enum migratetype {
 	MIGRATE_UNMOVABLE,
 	MIGRATE_MOVABLE,
 	MIGRATE_RECLAIMABLE,
-#ifndef CONFIG_CMA_PCP_LISTS
-	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
-	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
 #ifdef CONFIG_CMA
 	/*
 	 * MIGRATE_CMA migration type is designed to mimic the way
@@ -62,11 +61,8 @@ enum migratetype {
 	 */
 	MIGRATE_CMA,
 #endif
-#else
-	MIGRATE_CMA,
-	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
+	MIGRATE_PCPTYPES, /* the number of types on the pcp lists */
 	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
-#endif
 #ifdef CONFIG_MEMORY_ISOLATION
 	MIGRATE_ISOLATE,	/* can't allocate from here */
 #endif
@@ -79,11 +75,7 @@ extern const char * const migratetype_names[MIGRATE_TYPES];
 #ifdef CONFIG_CMA
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #  define is_migrate_cma_page(_page) (get_pageblock_migratetype(_page) == MIGRATE_CMA)
-#ifdef CONFIG_CMA_PCP_LISTS
 #  define get_cma_migrate_type() MIGRATE_CMA
-#else
-#  define get_cma_migrate_type() MIGRATE_MOVABLE
-#endif
 #else
 #  define is_migrate_cma(migratetype) false
 #  define is_migrate_cma_page(_page) false
@@ -459,7 +451,7 @@ struct zone {
 	struct pglist_data	*zone_pgdat;
 	struct per_cpu_pageset __percpu *pageset;
 
-#ifdef CONFIG_CMA_DIRECT_UTILIZATION
+#ifdef CONFIG_CMA
 	bool			cma_alloc;
 #endif
 
@@ -737,6 +729,8 @@ typedef struct pglist_data {
 	/*
 	 * Must be held any time you expect node_start_pfn,
 	 * node_present_pages, node_spanned_pages or nr_zones to stay constant.
+	 * Also synchronizes pgdat->first_deferred_pfn during deferred page
+	 * init.
 	 *
 	 * pgdat_resize_lock() and pgdat_resize_unlock() are provided to
 	 * manipulate node_size_lock without checking for CONFIG_MEMORY_HOTPLUG
@@ -753,8 +747,13 @@ typedef struct pglist_data {
 	int node_id;
 	wait_queue_head_t kswapd_wait;
 	wait_queue_head_t pfmemalloc_wait;
-	struct task_struct *kswapd;	/* Protected by
-					   mem_hotplug_begin/end() */
+	struct task_struct *kswapd;
+#ifdef CONFIG_MULTIPLE_KSWAPD
+	/*
+	 * Protected by mem_hotplug_begin/end()
+	 */
+	struct task_struct *mkswapd[MAX_KSWAPD_THREADS];
+#endif
 	int kswapd_order;
 	enum zone_type kswapd_classzone_idx;
 
@@ -967,6 +966,9 @@ static inline int is_highmem(struct zone *zone)
 
 /* These two functions are used to setup the per zone pages min values */
 struct ctl_table;
+int kswapd_threads_sysctl_handler(struct ctl_table *table, int write,
+					void __user *buffer, size_t *length,
+					loff_t *pos);
 int min_free_kbytes_sysctl_handler(struct ctl_table *, int,
 					void __user *, size_t *, loff_t *);
 int watermark_boost_factor_sysctl_handler(struct ctl_table *, int,

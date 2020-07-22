@@ -1985,11 +1985,11 @@ static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv)
 		icc_put(bus_bw_info->cnss_path);
 }
 
-static ssize_t shutdown_store(struct kobject *kobj,
-			      struct kobj_attribute *attr,
+static ssize_t shutdown_store(struct device *dev,
+			      struct device_attribute *attr,
 			      const char *buf, size_t count)
 {
-	struct cnss_plat_data *plat_priv = cnss_get_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
 
 	if (plat_priv) {
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
@@ -2046,54 +2046,66 @@ static ssize_t fs_ready_store(struct device *dev,
 	return count;
 }
 
-static struct kobj_attribute shutdown_attribute = __ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(fs_ready);
+static DEVICE_ATTR_WO(shutdown);
 
-static int cnss_create_shutdown_sysfs(struct cnss_plat_data *plat_priv)
+static struct attribute *cnss_attrs[] = {
+	&dev_attr_fs_ready.attr,
+	&dev_attr_shutdown.attr,
+	NULL,
+};
+
+static struct attribute_group cnss_attr_group = {
+	.attrs = cnss_attrs,
+};
+
+static int cnss_create_sysfs_link(struct cnss_plat_data *plat_priv)
 {
-	int ret = 0;
+	struct device *dev = &plat_priv->plat_dev->dev;
+	int ret;
 
-	plat_priv->shutdown_kobj = kobject_create_and_add("shutdown_wlan",
-							  kernel_kobj);
-	if (!plat_priv->shutdown_kobj) {
-		cnss_pr_err("Failed to create shutdown_wlan kernel object\n");
-		return -ENOMEM;
-	}
-
-	ret = sysfs_create_file(plat_priv->shutdown_kobj,
-				&shutdown_attribute.attr);
+	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "cnss");
 	if (ret) {
-		cnss_pr_err("Failed to create sysfs shutdown file, err = %d\n",
+		cnss_pr_err("Failed to create cnss link, err = %d\n",
 			    ret);
-		kobject_put(plat_priv->shutdown_kobj);
-		plat_priv->shutdown_kobj = NULL;
+		goto out;
 	}
 
+	/* This is only for backward compatibility. */
+	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "shutdown_wlan");
+	if (ret) {
+		cnss_pr_err("Failed to create shutdown_wlan link, err = %d\n",
+			    ret);
+		goto rm_cnss_link;
+	}
+
+	return 0;
+
+rm_cnss_link:
+	sysfs_remove_link(kernel_kobj, "cnss");
+out:
 	return ret;
 }
 
-static void cnss_remove_shutdown_sysfs(struct cnss_plat_data *plat_priv)
+static void cnss_remove_sysfs_link(struct cnss_plat_data *plat_priv)
 {
-	if (plat_priv->shutdown_kobj) {
-		sysfs_remove_file(plat_priv->shutdown_kobj,
-				  &shutdown_attribute.attr);
-		kobject_put(plat_priv->shutdown_kobj);
-		plat_priv->shutdown_kobj = NULL;
-	}
+	sysfs_remove_link(kernel_kobj, "shutdown_wlan");
+	sysfs_remove_link(kernel_kobj, "cnss");
 }
 
 static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 
-	ret = device_create_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
+	ret = devm_device_add_group(&plat_priv->plat_dev->dev,
+				    &cnss_attr_group);
 	if (ret) {
-		cnss_pr_err("Failed to create device fs_ready file, err = %d\n",
+		cnss_pr_err("Failed to create cnss device group, err = %d\n",
 			    ret);
 		goto out;
 	}
 
-	cnss_create_shutdown_sysfs(plat_priv);
+	cnss_create_sysfs_link(plat_priv);
 
 	return 0;
 out:
@@ -2102,8 +2114,8 @@ out:
 
 static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
 {
-	cnss_remove_shutdown_sysfs(plat_priv);
-	device_remove_file(&plat_priv->plat_dev->dev, &dev_attr_fs_ready);
+	cnss_remove_sysfs_link(plat_priv);
+	devm_device_remove_group(&plat_priv->plat_dev->dev, &cnss_attr_group);
 }
 
 static int cnss_event_work_init(struct cnss_plat_data *plat_priv)

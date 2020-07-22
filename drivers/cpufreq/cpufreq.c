@@ -107,6 +107,8 @@ bool have_governor_per_policy(void)
 }
 EXPORT_SYMBOL_GPL(have_governor_per_policy);
 
+static struct kobject *cpufreq_global_kobject;
+
 struct kobject *get_governor_parent_kobj(struct cpufreq_policy *policy)
 {
 	if (have_governor_per_policy())
@@ -2542,26 +2544,27 @@ EXPORT_SYMBOL_GPL(cpufreq_update_limits);
 static int cpufreq_boost_set_sw(int state)
 {
 	struct cpufreq_policy *policy;
-	int ret = -EINVAL;
 
 	for_each_active_policy(policy) {
+		int ret;
+
 		if (!policy->freq_table)
-			continue;
+			return -ENXIO;
 
 		ret = cpufreq_frequency_table_cpuinfo(policy,
 						      policy->freq_table);
 		if (ret) {
 			pr_err("%s: Policy frequency update failed\n",
 			       __func__);
-			break;
+			return ret;
 		}
 
 		ret = freq_qos_update_request(policy->max_freq_req, policy->max);
 		if (ret < 0)
-			break;
+			return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
 int cpufreq_boost_trigger_state(int state)
@@ -2781,9 +2784,6 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
-
-struct kobject *cpufreq_global_kobject;
-EXPORT_SYMBOL(cpufreq_global_kobject);
 
 static int __init cpufreq_core_init(void)
 {

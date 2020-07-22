@@ -54,6 +54,7 @@
 #define ARM64_WORKAROUND_1463225		44
 #define ARM64_WORKAROUND_CAVIUM_TX2_219_TVM	45
 #define ARM64_WORKAROUND_CAVIUM_TX2_219_PRFM	46
+#define ARM64_WORKAROUND_1542419		47
 
 /* kabi: reserve 48 - 62 for future cpu capabilities */
 #define ARM64_NCAPS				62

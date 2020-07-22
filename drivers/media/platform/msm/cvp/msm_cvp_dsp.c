@@ -393,6 +393,68 @@ static struct rpmsg_driver cvp_dsp_rpmsg_client = {
 	},
 };
 
+static void cvp_dsp_set_queue_hdr_defaults(struct cvp_hfi_queue_header *q_hdr)
+{
+	q_hdr->qhdr_status = 0x1;
+	q_hdr->qhdr_type = CVP_IFACEQ_DFLT_QHDR;
+	q_hdr->qhdr_q_size = CVP_IFACEQ_QUEUE_SIZE / 4;
+	q_hdr->qhdr_pkt_size = 0;
+	q_hdr->qhdr_rx_wm = 0x1;
+	q_hdr->qhdr_tx_wm = 0x1;
+	q_hdr->qhdr_rx_req = 0x1;
+	q_hdr->qhdr_tx_req = 0x0;
+	q_hdr->qhdr_rx_irq_status = 0x0;
+	q_hdr->qhdr_tx_irq_status = 0x0;
+	q_hdr->qhdr_read_idx = 0x0;
+	q_hdr->qhdr_write_idx = 0x0;
+}
+
+void cvp_dsp_init_hfi_queue_hdr(struct iris_hfi_device *device)
+{
+	u32 i;
+	struct cvp_hfi_queue_table_header *q_tbl_hdr;
+	struct cvp_hfi_queue_header *q_hdr;
+	struct cvp_iface_q_info *iface_q;
+
+	for (i = 0; i < CVP_IFACEQ_NUMQ; i++) {
+		iface_q = &device->dsp_iface_queues[i];
+		iface_q->q_hdr = CVP_IFACEQ_GET_QHDR_START_ADDR(
+			device->dsp_iface_q_table.align_virtual_addr, i);
+		cvp_dsp_set_queue_hdr_defaults(iface_q->q_hdr);
+	}
+	q_tbl_hdr = (struct cvp_hfi_queue_table_header *)
+			device->dsp_iface_q_table.align_virtual_addr;
+	q_tbl_hdr->qtbl_version = 0;
+	q_tbl_hdr->device_addr = (void *)device;
+	strlcpy(q_tbl_hdr->name, "msm_cvp", sizeof(q_tbl_hdr->name));
+	q_tbl_hdr->qtbl_size = CVP_IFACEQ_TABLE_SIZE;
+	q_tbl_hdr->qtbl_qhdr0_offset =
+				sizeof(struct cvp_hfi_queue_table_header);
+	q_tbl_hdr->qtbl_qhdr_size = sizeof(struct cvp_hfi_queue_header);
+	q_tbl_hdr->qtbl_num_q = CVP_IFACEQ_NUMQ;
+	q_tbl_hdr->qtbl_num_active_q = CVP_IFACEQ_NUMQ;
+
+	iface_q = &device->dsp_iface_queues[CVP_IFACEQ_CMDQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
+	q_hdr->qhdr_type |= HFI_Q_ID_HOST_TO_CTRL_CMD_Q;
+
+	iface_q = &device->dsp_iface_queues[CVP_IFACEQ_MSGQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
+	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_MSG_Q;
+
+	iface_q = &device->dsp_iface_queues[CVP_IFACEQ_DBGQ_IDX];
+	q_hdr = iface_q->q_hdr;
+	q_hdr->qhdr_start_addr = iface_q->q_array.align_device_addr;
+	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q;
+	/*
+	 * Set receive request to zero on debug queue as there is no
+	 * need of interrupt from cvp hardware for debug messages
+	 */
+	q_hdr->qhdr_rx_req = 0;
+}
+
 void cvp_dsp_send_hfi_queue(void)
 {
 	struct msm_cvp_core *core;
@@ -418,6 +480,13 @@ void cvp_dsp_send_hfi_queue(void)
 	mutex_lock(&device->lock);
 	mutex_lock(&me->lock);
 
+	if (!device->dsp_iface_q_table.align_virtual_addr) {
+		dprintk(CVP_ERR, "%s: DSP HFI queue released\n", __func__);
+		mutex_unlock(&me->lock);
+		mutex_unlock(&device->lock);
+		return;
+	}
+
 	addr = (uint64_t)device->dsp_iface_q_table.mem_data.dma_handle;
 	size = device->dsp_iface_q_table.mem_data.size;
 
@@ -434,6 +503,12 @@ void cvp_dsp_send_hfi_queue(void)
 		dprintk(CVP_ERR, "%s: cvp_hyp_assign_to_dsp. rc=%d\n",
 			__func__, rc);
 		goto exit;
+	}
+
+	if (me->state == DSP_PROBED) {
+		cvp_dsp_init_hfi_queue_hdr(device);
+		dprintk(CVP_WARN,
+			"%s: Done init of HFI queue headers\n", __func__);
 	}
 
 	rc = cvp_dsp_send_cmd_hfi_queue((phys_addr_t *)addr, size);
@@ -498,8 +573,10 @@ wait_dsp:
 		switch (me->pending_dsp2cpu_cmd.type) {
 		case DSP2CPU_POWERON:
 		{
-			if (me->state == DSP_READY)
+			if (me->state == DSP_READY) {
+				cmd.ret = 0;
 				break;
+			}
 
 			mutex_unlock(&me->lock);
 			old_state = me->state;

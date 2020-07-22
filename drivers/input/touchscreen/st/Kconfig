@@ -20,3 +20,13 @@ config TOUCHSCREEN_ST_I2C
 	depends on TOUCHSCREEN_ST
 	help
 	 This enables support for ST touch panel over I2C based touchscreens.
+
+config ST_TRUSTED_TOUCH
+       bool "STMicroelectronics Trusted Touch"
+       depends on TOUCHSCREEN_ST
+       help
+         Say Y here to enable STMicroelectronics Trusted Touch in supported drivers.
+
+         If unsure, say N.
+
+#endif

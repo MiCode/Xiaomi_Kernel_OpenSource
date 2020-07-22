@@ -557,7 +557,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	if (dispatcher->inflight == 1 &&
 			!test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
 		/* Time to make the donuts.  Turn on the GPU */
-		ret = kgsl_active_count_get(device);
+		ret = adreno_active_count_get(adreno_dev);
 		if (ret) {
 			dispatcher->inflight--;
 			dispatch_q->inflight--;
@@ -608,7 +608,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 			kgsl_pwrscale_midframe_timer_restart(device);
 
 		} else {
-			kgsl_active_count_put(device);
+			adreno_active_count_put(adreno_dev);
 			clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 		}
 	}
@@ -2251,11 +2251,12 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	ret = adreno_reset(device, fault);
 
 	mutex_unlock(&device->mutex);
-	/* if any other fault got in until reset then ignore */
-	atomic_set(&dispatcher->fault, 0);
 
 	/* If adreno_reset() fails then what hope do we have for the future? */
 	BUG_ON(ret);
+
+	/* if any other fault got in until reset then ignore */
+	atomic_set(&dispatcher->fault, 0);
 
 	/* recover all the dispatch_q's starting with the one that hung */
 	if (dispatch_q)
@@ -2500,7 +2501,7 @@ static void _dispatcher_power_down(struct adreno_device *adreno_dev)
 	del_timer_sync(&dispatcher->fault_timer);
 
 	if (test_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv)) {
-		kgsl_active_count_put(device);
+		adreno_active_count_put(adreno_dev);
 		clear_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 	}
 
@@ -2908,7 +2909,7 @@ int adreno_dispatcher_idle(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret;
 
-	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
+	if (device->state != KGSL_STATE_ACTIVE)
 		return 0;
 
 	/*

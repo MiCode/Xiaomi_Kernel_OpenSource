@@ -529,34 +529,13 @@ config CMA_AREAS
 
 	  If unsure, leave the default value "7".
 
-config CMA_DIRECT_UTILIZATION
-	bool "Allow clients to directly use CMA for page allocations"
-	depends on CMA
+config LIMIT_MOVABLE_ZONE_ALLOC
+	bool "Limit types of allocations from Movable zone"
 	help
-	  CMA pages are currently used as a fallback for moveable page
-	  allocations only when all regular moveable pages have been
-	  allocated. This can cause stalls for non-movable allocations,
-	  as non-movable allocations will not consider CMA memory as free
-	  memory, and thus, will cause the system to reclaim movable pages
-	  to satisfy non-movable allocations, ignoring the CMA pages. Since
-	  the system now has movable memory, CMA pages will also be ignored,
-	  since they are used only when there is not enough movable memory
-	  to satisfy a movable request. Enable this option to specify to the
-	  page allocator that movable allocations should be satisfied with
-	  CMA pages, so that CMA pages can be used directly for allocations,
-	  instead of as a fallback, thus, improving CMA utilization.
-
-config CMA_PCP_LISTS
-	bool "Create PCP lists for CMA memory"
-	depends on CMA && CMA_DIRECT_UTILIZATION
-	help
-	  Improve memory utilization by creating PCP lists that contain CMA
-	  pages to satisfy order-0 allocations when appropriate. Increased
-	  CMA usage results in better memory utilization, as the system will
-	  can use CMA pages to satisfy movable allocations. This results in
-	  more efficient reclaim when trying to satisfy non-movable
-	  allocations, as the amount of non-CMA memory to be reclaimed should
-	  be smaller.
+	  Ensure that only allocations which include __GFP_OFFLINABLE can be
+	  satisfied from zone Movable. This restriction helps reduce the
+	  likelihood of a page in the movable zone being pinned which would
+	  prevent memory from being offlined.
 
 config MEM_SOFT_DIRTY
 	bool "Track memory changes"
@@ -779,6 +758,29 @@ config HAVE_USERSPACE_LOW_MEMORY_KILLER
 	  when the OOM killer and userspace memory killer both have the
 	  potential to run).
 
+config ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+       def_bool n
+
+config SPECULATIVE_PAGE_FAULT
+       bool "Speculative page faults"
+       default y
+       depends on ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+       depends on MMU && SMP
+       depends on QGKI
+       help
+         Try to handle user space page faults without holding the mmap_sem.
+
+	 This should allow better concurrency for massively threaded process
+	 since the page fault handler will not wait for other threads memory
+	 layout change to be done, assuming that this change is done in another
+	 part of the process's memory space. This type of page fault is named
+	 speculative page fault.
+
+	 If the speculative page fault fails because of a concurrency is
+	 detected or because underlying PMD or PTE tables are not yet
+	 allocating, it is failing its processing and a classic page fault
+	 is then tried.
+
 config GUP_BENCHMARK
 	bool "Enable infrastructure for get_user_pages_fast() benchmarking"
 	help
@@ -859,3 +861,16 @@ config PROCESS_RECLAIM
 	 (addr, addr + size-bytes) of the process.
 
 	 Any other value is ignored.
+
+config MULTIPLE_KSWAPD
+	bool "Spawn multiple kswapd threads"
+	depends on QGKI
+	default y
+	help
+	 kswapd_threads allows you to control the number of kswapd threads
+	 per node running on the system. The default value is 1 and the
+	 range of acceptible values are 1-16. The number of threads can
+	 be controlled by below command:
+	 (echo <num> > /proc/sys/vm/kswapd_threads)
+
+	 Values not in the range of 1..16 are ignored.

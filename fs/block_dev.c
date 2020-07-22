@@ -34,6 +34,7 @@
 #include <linux/task_io_accounting_ops.h>
 #include <linux/falloc.h>
 #include <linux/uaccess.h>
+#include <linux/suspend.h>
 #include "internal.h"
 
 struct bdev_inode {
@@ -1545,10 +1546,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 	 */
 	if (!for_part) {
 		ret = devcgroup_inode_permission(bdev->bd_inode, perm);
-		if (ret != 0) {
-			bdput(bdev);
+		if (ret != 0)
 			return ret;
-		}
 	}
 
  restart:
@@ -1617,8 +1616,10 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 				goto out_clear;
 			BUG_ON(for_part);
 			ret = __blkdev_get(whole, mode, 1);
-			if (ret)
+			if (ret) {
+				bdput(whole);
 				goto out_clear;
+			}
 			bdev->bd_contains = whole;
 			bdev->bd_part = disk_get_part(disk, partno);
 			if (!(disk->flags & GENHD_FL_UP) ||
@@ -1668,7 +1669,6 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 	disk_unblock_events(disk);
 	put_disk_and_module(disk);
  out:
-	bdput(bdev);
 
 	return ret;
 }
@@ -1734,6 +1734,9 @@ int blkdev_get(struct block_device *bdev, fmode_t mode, void *holder)
 		mutex_unlock(&bdev->bd_mutex);
 		bdput(whole);
 	}
+
+	if (res)
+		bdput(bdev);
 
 	return res;
 }
@@ -1975,7 +1978,8 @@ ssize_t blkdev_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (bdev_read_only(I_BDEV(bd_inode)))
 		return -EPERM;
 
-	if (IS_SWAPFILE(bd_inode))
+	/* uswsusp needs write permission to the swap */
+	if (IS_SWAPFILE(bd_inode) && !hibernation_available())
 		return -ETXTBSY;
 
 	if (!iov_iter_count(from))

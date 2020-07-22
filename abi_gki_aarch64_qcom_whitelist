@@ -27,7 +27,10 @@
   __arch_copy_from_user
   __arch_copy_in_user
   __arch_copy_to_user
+  arch_set_freq_scale
+  arch_setup_dma_ops
   arm64_const_caps_ready
+  __arm_smccc_smc
   atomic_notifier_call_chain
   atomic_notifier_chain_register
   atomic_notifier_chain_unregister
@@ -167,6 +170,7 @@
   __cfi_slowpath
   check_disk_change
   __check_object_size
+  check_zeroed_user
   __class_create
   class_destroy
   class_find_device
@@ -253,8 +257,12 @@
   cpu_bit_bitmap
   cpu_down
   cpufreq_cpu_get
+  cpufreq_cpu_get_raw
   cpufreq_cpu_put
+  cpufreq_freq_attr_scaling_available_freqs
+  cpufreq_freq_attr_scaling_boost_freqs
   cpufreq_generic_attr
+  cpufreq_generic_frequency_table_verify
   cpufreq_quick_get_max
   cpufreq_register_driver
   cpufreq_register_notifier
@@ -367,6 +375,7 @@
   device_online
   device_property_present
   device_property_read_string
+  device_property_read_u16_array
   device_property_read_u32_array
   device_property_read_u8_array
   device_register
@@ -391,6 +400,8 @@
   devm_clk_register
   dev_mc_sync_multiple
   dev_mc_unsync
+  devm_device_add_group
+  devm_device_remove_group
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_extcon_register_notifier
@@ -469,10 +480,13 @@
   dev_pm_opp_get_opp_count
   dev_pm_opp_get_opp_table
   dev_pm_opp_get_voltage
+  dev_pm_opp_of_register_em
   dev_pm_opp_put
   dev_pm_opp_put_opp_table
   dev_pm_opp_register_notifier
   dev_pm_opp_remove
+  dev_pm_opp_remove_all_dynamic
+  dev_pm_opp_set_sharing_cpus
   dev_pm_opp_unregister_notifier
   dev_pm_qos_add_request
   dev_pm_qos_remove_request
@@ -538,6 +552,7 @@
   dma_fence_context_alloc
   dma_fence_default_wait
   dma_fence_enable_sw_signaling
+  dma_fence_free
   dma_fence_get_status
   dma_fence_init
   dma_fence_match_context
@@ -923,10 +938,13 @@
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_avail
+  gen_pool_best_fit
   gen_pool_create
   gen_pool_destroy
   gen_pool_free_owner
+  gen_pool_set_algo
   gen_pool_size
+  gen_pool_virt_to_phys
   getboottime64
   get_cpu_device
   get_device
@@ -967,6 +985,7 @@
   gpiochip_generic_free
   gpiochip_generic_request
   gpiochip_get_data
+  gpiochip_line_is_valid
   gpiochip_remove
   gpiod_cansleep
   gpiod_direction_input
@@ -992,6 +1011,7 @@
   gro_cells_destroy
   gro_cells_init
   gro_cells_receive
+  handle_bad_irq
   handle_edge_irq
   handle_level_irq
   handle_nested_irq
@@ -1141,8 +1161,16 @@
   ipv6_ext_hdr
   ipv6_skip_exthdr
   irq_chip_ack_parent
+  irq_chip_disable_parent
+  irq_chip_enable_parent
+  irq_chip_eoi_parent
+  irq_chip_get_parent_state
   irq_chip_mask_parent
+  irq_chip_retrigger_hierarchy
+  irq_chip_set_affinity_parent
+  irq_chip_set_parent_state
   irq_chip_set_type_parent
+  irq_chip_set_vcpu_affinity_parent
   irq_chip_set_wake_parent
   irq_chip_unmask_parent
   irq_create_fwspec_mapping
@@ -1157,6 +1185,7 @@
   irq_domain_remove
   irq_domain_set_hwirq_and_chip
   irq_domain_set_info
+  irq_domain_update_bus_token
   irq_domain_xlate_onecell
   irq_domain_xlate_twocell
   irq_find_mapping
@@ -1342,9 +1371,6 @@
   __msecs_to_jiffies
   msleep
   msleep_interruptible
-  msm_gpio_mpm_wake_set
-  msm_pinctrl_probe
-  msm_pinctrl_remove
   __mutex_init
   mutex_is_locked
   mutex_lock
@@ -1437,6 +1463,7 @@
   of_clk_src_onecell_get
   of_clk_src_simple_get
   of_count_phandle_with_args
+  of_cpufreq_cooling_register
   of_devfreq_cooling_register
   of_device_get_match_data
   of_device_is_available
@@ -1532,6 +1559,7 @@
   param_array_ops
   param_get_int
   param_get_string
+  param_get_ullong
   param_ops_bool
   param_ops_byte
   param_ops_charp
@@ -1611,6 +1639,8 @@
   physvirt_offset
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
+  pinctrl_force_default
+  pinctrl_force_sleep
   pinctrl_get
   pinctrl_lookup_state
   pinctrl_pm_select_default_state
@@ -1640,6 +1670,11 @@
   platform_get_resource
   platform_get_resource_byname
   platform_irq_count
+  pm_clk_add
+  pm_clk_create
+  pm_clk_destroy
+  pm_clk_resume
+  pm_clk_suspend
   pm_generic_resume
   pm_generic_runtime_resume
   pm_generic_runtime_suspend
@@ -1718,55 +1753,11 @@
   pwm_apply_state
   pwmchip_add
   pwmchip_remove
-  qcom_scm_assign_mem_regions
-  qcom_scm_camera_protect_phy_lanes
-  qcom_scm_dcvs_ca_available
-  qcom_scm_dcvs_core_available
-  qcom_scm_dcvs_init_ca_v2
-  qcom_scm_dcvs_init_v2
-  qcom_scm_dcvs_reset
-  qcom_scm_dcvs_update
-  qcom_scm_dcvs_update_v2
-  qcom_scm_dcvs_update_ca_v2
-  qcom_scm_deassert_ps_hold
-  qcom_scm_disable_sdi
-  qcom_scm_get_sec_dump_state
-  qcom_scm_halt_spmi_pmic_arbiter
-  qcom_scm_invoke_callback_response
-  qcom_scm_invoke_smc
-  qcom_scm_io_readl
-  qcom_scm_io_reset
-  qcom_scm_io_writel
-  qcom_scm_kgsl_set_smmu_aperture
-  qcom_scm_kgsl_set_smmu_aperture_available
-  qcom_scm_mem_protect_region_id
-  qcom_scm_mem_protect_sd_ctrl
-  qcom_scm_mem_protect_video
-  qcom_scm_pas_auth_and_reset
-  qcom_scm_pas_init_image
-  qcom_scm_pas_mem_setup
-  qcom_scm_pas_shutdown
-  qcom_scm_qseecom_call
-  qcom_scm_qseecom_call_noretry
-  qcom_scm_qsmmu500_wait_safe_toggle
-  qcom_scm_sec_wdog_deactivate
-  qcom_scm_sec_wdog_trigger
-  qcom_scm_set_download_mode
-  qcom_scm_set_remote_state
-  qcom_scm_smmu_notify_secure_lut
-  qcom_scm_spin_cpu
   qcom_smem_state_get
   qcom_smem_state_register
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
   qdisc_reset
-  qtee_shmbridge_allocate_shm
-  qtee_shmbridge_deregister
-  qtee_shmbridge_flush_shm_buf
-  qtee_shmbridge_free_shm
-  qtee_shmbridge_is_enabled
-  qtee_shmbridge_query
-  qtee_shmbridge_register
   queue_delayed_work_on
   queue_work_on
   radix_tree_delete
@@ -2167,6 +2158,7 @@
   snd_soc_dapm_put_volsw
   snd_soc_dapm_sync
   snd_soc_get_enum_double
+  snd_soc_get_pcm_runtime
   snd_soc_get_volsw
   snd_soc_get_volsw_sx
   snd_soc_info_enum_double
@@ -2304,6 +2296,7 @@
   sysfs_streq
   system_freezable_wq
   system_freezing_cnt
+  system_highpri_wq
   system_long_wq
   system_power_efficient_wq
   system_state
@@ -2431,6 +2424,7 @@
   unregister_pernet_subsys
   unregister_pm_notifier
   unregister_reboot_notifier
+  unregister_restart_handler
   unregister_rpmsg_driver
   unregister_shrinker
   unregister_syscore_ops
@@ -2690,6 +2684,12 @@
   ww_mutex_lock
   ww_mutex_lock_interruptible
   ww_mutex_unlock
+  __xa_alloc
+  xa_erase
+  xa_find
+  xa_find_after
+  xa_load
+  xa_store
   xdp_convert_zc_to_xdp_frame
   xdp_do_flush_map
   xdp_do_redirect

@@ -1271,6 +1271,43 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 	return (phys_stimu == 0 ? phys_stimu_post_tlbiall : phys_stimu);
 }
 
+int iommu_get_fault_ids(struct iommu_domain *domain,
+			struct iommu_fault_ids *f_ids)
+{
+	struct arm_smmu_domain *smmu_domain;
+	struct arm_smmu_device *smmu;
+	u32 fsr, fsynr1;
+	int idx, ret;
+
+	if (!domain || !f_ids)
+		return -EINVAL;
+
+	smmu_domain = to_smmu_domain(domain);
+	smmu = smmu_domain->smmu;
+	idx = smmu_domain->cfg.cbndx;
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return ret;
+
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+
+	if (!(fsr & FSR_FAULT)) {
+		arm_smmu_power_off(smmu, smmu->pwr);
+		return -EINVAL;
+	}
+
+	fsynr1 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR1);
+	arm_smmu_power_off(smmu, smmu->pwr);
+
+	f_ids->bid = FIELD_GET(FSYNR1_BID, fsynr1);
+	f_ids->pid = FIELD_GET(FSYNR1_PID, fsynr1);
+	f_ids->mid = FIELD_GET(FSYNR1_MID, fsynr1);
+
+	return 0;
+}
+EXPORT_SYMBOL(iommu_get_fault_ids);
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	int flags, ret, tmp;

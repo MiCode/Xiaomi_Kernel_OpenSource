@@ -313,6 +313,10 @@ int synx_signal_fence(struct synx_coredata *synx_obj,
 		return -EINVAL;
 	}
 
+	if (synx_util_get_object_status(synx_obj) !=
+		SYNX_STATE_ACTIVE)
+		return -EALREADY;
+
 	/*
 	 * remove registered callback for the fence
 	 * so it does not invoke the signal through callback again
@@ -324,12 +328,6 @@ int synx_signal_fence(struct synx_coredata *synx_obj,
 	}
 
 	spin_lock_irqsave(synx_obj->fence->lock, flags);
-	if (synx_util_get_object_status_locked(synx_obj) !=
-		SYNX_STATE_ACTIVE) {
-		spin_unlock_irqrestore(synx_obj->fence->lock, flags);
-		return -EALREADY;
-	}
-
 	/* set fence error to model {signal w/ error} */
 	if (status != SYNX_STATE_SIGNALED_SUCCESS)
 		dma_fence_set_error(synx_obj->fence, -status);

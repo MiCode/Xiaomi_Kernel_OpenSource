@@ -3,6 +3,7 @@
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/completion.h>
 #include <linux/list.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -31,6 +32,7 @@ static struct kobj_type guestvm_kobj_type = {
 
 struct guestvm_loader_private {
 	struct notifier_block guestvm_nb;
+	struct completion vm_start;
 	struct kobject vm_loader_kobj;
 	struct device *dev;
 	char vm_name[MAX_LEN];
@@ -82,6 +84,7 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 				vm_status_payload->vmid, ret);
 			return NOTIFY_DONE;
 		}
+		complete_all(&priv->vm_start);
 		break;
 	case HH_RM_VM_STATUS_RUNNING:
 		break;
@@ -129,6 +132,8 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 			priv->vm_loaded = NULL;
 			return ret;
 		}
+		if (wait_for_completion_interruptible(&priv->vm_start))
+			dev_err(priv->dev, "VM start completion interrupted\n");
 
 		priv->vm_status = HH_RM_VM_STATUS_RUNNING;
 		ret = hh_rm_vm_start(priv->vmid);
@@ -184,6 +189,7 @@ static int guestvm_loader_probe(struct platform_device *pdev)
 		goto error_return;
 	}
 
+	init_completion(&priv->vm_start);
 	priv->guestvm_nb.notifier_call = guestvm_loader_nb_handler;
 	ret = hh_rm_register_notifier(&priv->guestvm_nb);
 	if (ret)
@@ -207,8 +213,10 @@ static int guestvm_loader_remove(struct platform_device *pdev)
 {
 	struct guestvm_loader_private *priv = platform_get_drvdata(pdev);
 
-	if (priv->vm_loaded)
+	if (priv->vm_loaded) {
 		subsystem_put(priv->vm_loaded);
+		init_completion(&priv->vm_start);
+	}
 
 	if (kobject_name(&priv->vm_loader_kobj) != NULL) {
 		kobject_del(&priv->vm_loader_kobj);

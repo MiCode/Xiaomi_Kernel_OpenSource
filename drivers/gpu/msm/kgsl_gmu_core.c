@@ -11,8 +11,8 @@
 #include "kgsl_trace.h"
 
 static const struct of_device_id gmu_match_table[] = {
-	{ .compatible = "qcom,gpu-gmu", .data = &kgsl_gmu_driver },
-	{ .compatible = "qcom,gpu-rgmu", .data = &kgsl_rgmu_driver },
+	{ .compatible = "qcom,gpu-gmu", .data = &a6xx_gmu_driver },
+	{ .compatible = "qcom,gpu-rgmu", .data = &a6xx_rgmu_driver },
 	{},
 };
 
@@ -51,7 +51,7 @@ bool gmu_core_isenabled(struct kgsl_device *device)
 
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 {
-	return (device->gmu_core.core_ops != NULL);
+	return (device->gmu_core.dev_ops != NULL);
 }
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)
@@ -64,81 +64,14 @@ bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 	return false;
 }
 
-int gmu_core_init(struct kgsl_device *device)
+int gmu_core_dev_acd_set(struct kgsl_device *device, bool val)
 {
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
-	if (gmu_core_ops && gmu_core_ops->init)
-		return gmu_core_ops->init(device);
-
-	return 0;
-}
-
-int gmu_core_start(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->start)
-		return gmu_core_ops->start(device);
+	if (ops && ops->acd_set)
+		return ops->acd_set(device, val);
 
 	return -EINVAL;
-}
-
-void gmu_core_stop(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->stop)
-		gmu_core_ops->stop(device);
-}
-
-int gmu_core_suspend(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->suspend)
-		return gmu_core_ops->suspend(device);
-
-	return -EINVAL;
-}
-
-void gmu_core_snapshot(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->snapshot)
-		gmu_core_ops->snapshot(device);
-}
-
-int gmu_core_dcvs_set(struct kgsl_device *device, int gpu_pwrlevel,
-		int bus_level)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->dcvs_set)
-		return gmu_core_ops->dcvs_set(device, gpu_pwrlevel, bus_level);
-
-	return -EINVAL;
-}
-
-int gmu_core_acd_set(struct kgsl_device *device, bool val)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->acd_set)
-		return gmu_core_ops->acd_set(device, val);
-
-	return -EINVAL;
-}
-
-bool gmu_core_regulator_isenabled(struct kgsl_device *device)
-{
-	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
-
-	if (gmu_core_ops && gmu_core_ops->regulator_isenabled)
-		return gmu_core_ops->regulator_isenabled(device);
-
-	return false;
 }
 
 bool gmu_core_is_register_offset(struct kgsl_device *device,
@@ -241,43 +174,6 @@ void gmu_core_dev_oob_clear(struct kgsl_device *device, enum oob_request req)
 		ops->oob_clear(device, req);
 }
 
-int gmu_core_dev_hfi_start_msg(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->hfi_start_msg)
-		return ops->hfi_start_msg(device);
-
-	return 0;
-}
-
-int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->wait_for_lowest_idle)
-		return ops->wait_for_lowest_idle(device);
-
-	return 0;
-}
-
-void gmu_core_dev_enable_lm(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->enable_lm)
-		ops->enable_lm(device);
-}
-
-void gmu_core_dev_snapshot(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->snapshot)
-		ops->snapshot(device, snapshot);
-}
-
 void gmu_core_dev_cooperative_reset(struct kgsl_device *device)
 {
 
@@ -317,30 +213,12 @@ int gmu_core_dev_ifpc_store(struct kgsl_device *device, unsigned int val)
 	return -EINVAL;
 }
 
-void gmu_core_dev_prepare_stop(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->prepare_stop)
-		ops->prepare_stop(device);
-}
-
 int gmu_core_dev_wait_for_active_transition(struct kgsl_device *device)
 {
 	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->wait_for_active_transition)
 		return ops->wait_for_active_transition(device);
-
-	return 0;
-}
-
-u64 gmu_core_dev_read_alwayson(struct kgsl_device *device)
-{
-	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
-
-	if (ops && ops->read_alwayson)
-		return ops->read_alwayson(device);
 
 	return 0;
 }

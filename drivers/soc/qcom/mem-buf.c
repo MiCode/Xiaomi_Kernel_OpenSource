@@ -973,7 +973,7 @@ static int mem_buf_unmap_mem_s2(hh_memparcel_handle_t memparcel_hdl)
 	int ret;
 
 	pr_debug("%s: removing CPU MMU stage 2 mappings\n", __func__);
-	ret = hh_rm_mem_release(memparcel_hdl, HH_RM_MEM_RELEASE_CLEAR);
+	ret = hh_rm_mem_release(memparcel_hdl, 0);
 
 	if (ret < 0)
 		pr_err("%s: Failed to release memparcel hdl: 0x%lx rc: %d\n",
@@ -992,7 +992,7 @@ static int mem_buf_map_mem_s1(struct hh_sgl_desc *sgl_desc)
 	u64 base, size;
 	struct mhp_restrictions restrictions = {};
 
-	if (!sgl_desc)
+	if (!sgl_desc || !sgl_desc->n_sgl_entries)
 		return -EINVAL;
 
 	pr_debug("%s: Creating CPU MMU stage 1 mappings\n", __func__);
@@ -1048,7 +1048,7 @@ static int mem_buf_unmap_mem_s1(struct hh_sgl_desc *sgl_desc)
 	unsigned int i, nid;
 	u64 base, size;
 
-	if (!sgl_desc)
+	if (!sgl_desc || !sgl_desc->n_sgl_entries)
 		return -EINVAL;
 
 	pr_debug("%s: Removing CPU MMU stage 1 mappings\n", __func__);

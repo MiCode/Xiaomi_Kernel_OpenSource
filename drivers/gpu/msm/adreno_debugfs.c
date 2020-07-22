@@ -8,6 +8,11 @@
 #include "adreno.h"
 extern struct dentry *kgsl_debugfs_dir;
 
+static void set_isdb(struct adreno_device *adreno_dev, void *priv)
+{
+	set_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
+}
+
 static int _isdb_set(void *data, u64 val)
 {
 	struct kgsl_device *device = data;
@@ -17,19 +22,11 @@ static int _isdb_set(void *data, u64 val)
 	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv))
 		return 0;
 
-	mutex_lock(&device->mutex);
-
 	/*
 	 * Bring down the GPU so we can bring it back up with the correct power
 	 * and clock settings
 	 */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	set_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-
-	return 0;
+	return  adreno_power_cycle(adreno_dev, set_isdb, NULL);
 }
 
 static int _isdb_get(void *data, u64 *val)
@@ -57,14 +54,9 @@ static int _lm_limit_set(void *data, u64 val)
 	else if (val < 3000)
 		val = 3000;
 
-	adreno_dev->lm_limit = val;
-
-	if (adreno_dev->lm_enabled) {
-		mutex_lock(&device->mutex);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-		mutex_unlock(&device->mutex);
-	}
+	if (adreno_dev->lm_enabled)
+		return adreno_power_cycle_u32(adreno_dev,
+			&adreno_dev->lm_limit, val);
 
 	return 0;
 }
