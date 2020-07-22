@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/sched_clock.h>
 #include <linux/slab.h>
+#include <linux/tick.h>
 #include "timer-of.h"
 
 #define TIMER_CLK_EVT           (1)
@@ -314,13 +315,29 @@ static int __init mtk_gpt_init(struct device_node *node)
 }
 
 #ifdef MODULE
+static void mtk_timer_setup_broadcast_timer(void *arg)
+{
+	tick_broadcast_enable();
+}
+
+static void mtk_timer_disable_broadcast_timer(void *arg)
+{
+	tick_broadcast_disable();
+}
+
 static int mtk_timer_probe(struct platform_device *pdev)
 {
 	int (*timer_init)(struct device_node *node);
 	struct device_node *np = pdev->dev.of_node;
+	int ret = 0, cpu = 0;
 
 	timer_init = of_device_get_match_data(&pdev->dev);
-	return timer_init(np);
+	ret = timer_init(np);
+	if (!ret) {
+		on_each_cpu_mask(cpu_possible_mask, mtk_timer_disable_broadcast_timer, NULL, 1);
+		on_each_cpu_mask(cpu_possible_mask, mtk_timer_setup_broadcast_timer, NULL, 1);
+	}
+	return ret;
 }
 
 static const struct of_device_id mtk_timer_match_table[] = {
