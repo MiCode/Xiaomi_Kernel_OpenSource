@@ -1731,6 +1731,26 @@ config PERF_EVENTS
 
 	  Say Y if unsure.
 
+config PERF_KERNEL_SHARE
+	bool "Perf event sharing with kernel-space"
+	depends on QGKI
+	help
+	  Say yes here to enable the kernel-space sharing of events. The events
+	  can be shared among other kernel-space events or with kernel created
+	  events that has the same config and type event attributes.
+
+	  Say N if unsure.
+
+config PERF_USER_SHARE
+	bool "Perf event sharing with user-space"
+	depends on PERF_KERNEL_SHARE
+	help
+	  Say yes here to enable the user-space sharing of events. The events
+	  can be shared among other user-space events or with kernel created
+	  events that has the same config and type event attributes.
+
+	  Say N if unsure.
+
 config DEBUG_PERF_USE_VMALLOC
 	default n
 	bool "Debug: use vmalloc to back perf mmap() buffers"
