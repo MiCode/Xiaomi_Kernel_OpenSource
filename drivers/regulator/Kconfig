@@ -29,16 +29,6 @@ config REGULATOR_DEBUG
 	help
 	  Say yes here to enable debugging support.
 
-config REGULATOR_QTI_DEBUG
-	bool "Regulator QTI debug feature support"
-	depends on DEBUG_FS && QGKI
-	help
-	  Say yes to enable QTI debug features.  This primarily provides
-	  runtime debugfs control of regulator parameters such as enable state,
-	  voltage, load current, and bypass state.  Requests made via this
-	  debugfs interface are aggregated the same way as normal kernel
-	  consumer requests.
-
 config REGULATOR_FIXED_VOLTAGE
 	tristate "Fixed voltage regulator support"
 	help
