@@ -76,10 +76,10 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmmagpie")
 #define early_machine_is_sdm660()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
-#define early_machine_is_qcm4290()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcm4290")
-#define early_machine_is_qcs4290()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs4290")
+#define early_machine_is_bengal_iot()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,bengal-iot")
+#define early_machine_is_bengalp_iot()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,bengalp-iot")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -112,8 +112,8 @@
 #define early_machine_is_sdxprairie()	0
 #define early_machine_is_sdmmagpie()	0
 #define early_machine_is_sdm660()	0
-#define early_machine_is_qcm4290()	0
-#define early_machine_is_qcs4290()	0
+#define early_machine_is_bengal_iot()	0
+#define early_machine_is_bengalp_iot()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -148,8 +148,8 @@ enum msm_cpu {
 	MSM_CPU_QCS405,
 	SDX_CPU_SDXPRAIRIE,
 	MSM_CPU_SDMMAGPIE,
-	MSM_CPU_QCM4290,
-	MSM_CPU_QCS4290,
+	MSM_CPU_BENGAL_IOT,
+	MSM_CPU_BENGALP_IOT,
 };
 
 struct msm_soc_info {
