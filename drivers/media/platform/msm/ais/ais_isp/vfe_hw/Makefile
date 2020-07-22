@@ -5,6 +5,7 @@ ccflags-y += -Idrivers/media/platform/msm/ais/cam_smmu/
 ccflags-y += -Idrivers/media/platform/msm/ais/cam_req_mgr/
 ccflags-y += -Idrivers/media/platform/msm/ais/ais_isp
 ccflags-y += -Idrivers/media/platform/msm/ais/ais_isp/include
+ccflags-y += -Idrivers/media/platform/msm/ais/ais_isp/utils
 ccflags-y += -Idrivers/media/platform/msm/ais/ais_isp/vfe_hw/include
 ccflags-y += -Idrivers/media/platform/msm/ais/ais_isp/vfe_hw/vfe_bus/include
 ccflags-y += -Idrivers/media/platform/msm/ais/ais_isp/vfe_hw/vfe_bus
