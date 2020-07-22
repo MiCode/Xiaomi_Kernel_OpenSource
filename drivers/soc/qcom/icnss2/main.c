@@ -1830,9 +1830,9 @@ enable_pdr:
 static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
 					unsigned long *thermal_state)
 {
-	struct icnss_priv *priv = tcdev->devdata;
+	struct icnss_thermal_cdev *icnss_tcdev = tcdev->devdata;
 
-	*thermal_state = priv->max_thermal_state;
+	*thermal_state = icnss_tcdev->max_thermal_state;
 
 	return 0;
 }
@@ -1840,9 +1840,9 @@ static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
 static int icnss_tcdev_get_cur_state(struct thermal_cooling_device *tcdev,
 					unsigned long *thermal_state)
 {
-	struct icnss_priv *priv = tcdev->devdata;
+	struct icnss_thermal_cdev *icnss_tcdev = tcdev->devdata;
 
-	*thermal_state = priv->curr_thermal_state;
+	*thermal_state = icnss_tcdev->curr_thermal_state;
 
 	return 0;
 }
@@ -1850,22 +1850,25 @@ static int icnss_tcdev_get_cur_state(struct thermal_cooling_device *tcdev,
 static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
 					unsigned long thermal_state)
 {
-	struct icnss_priv *priv = tcdev->devdata;
-	struct device *dev = &priv->pdev->dev;
+	struct icnss_thermal_cdev *icnss_tcdev = tcdev->devdata;
+	struct device *dev = &penv->pdev->dev;
 	int ret = 0;
 
-	priv->curr_thermal_state = thermal_state;
 
-	if (!priv->ops || !priv->ops->set_therm_state)
+	if (!penv->ops || !penv->ops->set_therm_cdev_state)
 		return 0;
 
-	icnss_pr_vdbg("Cooling device set current state: %ld",
-							thermal_state);
+	icnss_pr_vdbg("Cooling device set current state: %ld,for cdev id %d",
+		      thermal_state, icnss_tcdev->tcdev_id);
 
-	ret = priv->ops->set_therm_state(dev, thermal_state);
-
+	mutex_lock(&penv->tcdev_lock);
+	icnss_tcdev->curr_thermal_state = thermal_state;
+	ret = penv->ops->set_therm_cdev_state(dev, thermal_state,
+					      icnss_tcdev->tcdev_id);
+	mutex_unlock(&penv->tcdev_lock);
 	if (ret)
-		icnss_pr_err("Setting Current Thermal State Failed: %d\n", ret);
+		icnss_pr_err("Setting Current Thermal State Failed: %d,for cdev id %d",
+			     ret, icnss_tcdev->tcdev_id);
 
 	return 0;
 }
@@ -1876,23 +1879,47 @@ static struct thermal_cooling_device_ops icnss_cooling_ops = {
 	.set_cur_state = icnss_tcdev_set_cur_state,
 };
 
-int icnss_thermal_register(struct device *dev, unsigned long max_state)
+int icnss_thermal_cdev_register(struct device *dev, unsigned long max_state,
+			   int tcdev_id)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_thermal_cdev *icnss_tcdev = NULL;
+	char cdev_node_name[THERMAL_NAME_LENGTH] = "";
+	struct device_node *dev_node;
 	int ret = 0;
 
-	priv->max_thermal_state = max_state;
+	icnss_tcdev = devm_kzalloc(dev, sizeof(*icnss_tcdev), GFP_KERNEL);
+	if (!icnss_tcdev)
+		return -ENOMEM;
 
-	if (of_find_property(dev->of_node, "#cooling-cells", NULL)) {
-		priv->tcdev = thermal_of_cooling_device_register(dev->of_node,
-						"icnss", priv,
+	icnss_tcdev->tcdev_id = tcdev_id;
+	icnss_tcdev->max_thermal_state = max_state;
+
+	snprintf(cdev_node_name, THERMAL_NAME_LENGTH,
+		 "qcom,icnss_cdev%d", tcdev_id);
+
+	dev_node = of_find_node_by_name(NULL, cdev_node_name);
+	if (!dev_node) {
+		icnss_pr_err("Failed to get cooling device node\n");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("tcdev node->name=%s\n", dev_node->name);
+
+	if (of_find_property(dev_node, "#cooling-cells", NULL)) {
+		icnss_tcdev->tcdev = thermal_of_cooling_device_register(
+						dev_node,
+						cdev_node_name, icnss_tcdev,
 						&icnss_cooling_ops);
-		if (IS_ERR_OR_NULL(priv->tcdev)) {
-			ret = PTR_ERR(priv->tcdev);
-			icnss_pr_err("Cooling device register failed: %d\n",
-								ret);
+		if (IS_ERR_OR_NULL(icnss_tcdev->tcdev)) {
+			ret = PTR_ERR(icnss_tcdev->tcdev);
+			icnss_pr_err("Cooling device register failed: %d, for cdev id %d\n",
+				     ret, icnss_tcdev->tcdev_id);
 		} else {
-			icnss_pr_vdbg("Cooling device registered");
+			icnss_pr_dbg("Cooling device registered for cdev id %d",
+				     icnss_tcdev->tcdev_id);
+			list_add(&icnss_tcdev->tcdev_list,
+				 &priv->icnss_tcdev_list);
 		}
 	} else {
 		icnss_pr_dbg("Cooling device registration not supported");
@@ -1901,38 +1928,44 @@ int icnss_thermal_register(struct device *dev, unsigned long max_state)
 
 	return ret;
 }
-EXPORT_SYMBOL(icnss_thermal_register);
+EXPORT_SYMBOL(icnss_thermal_cdev_register);
 
-void icnss_thermal_unregister(struct device *dev)
+void icnss_thermal_cdev_unregister(struct device *dev, int tcdev_id)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_thermal_cdev *icnss_tcdev = NULL;
 
-	if (!IS_ERR_OR_NULL(priv->tcdev))
-		thermal_cooling_device_unregister(priv->tcdev);
-
-	priv->tcdev = NULL;
-}
-EXPORT_SYMBOL(icnss_thermal_unregister);
-
-int icnss_get_curr_therm_state(struct device *dev,
-					unsigned long *thermal_state)
-{
-	struct icnss_priv *priv = dev_get_drvdata(dev);
-	int ret = 0;
-
-	if (IS_ERR_OR_NULL(priv->tcdev)) {
-		ret = PTR_ERR(priv->tcdev);
-		icnss_pr_err("Get current thermal state failed: %d\n", ret);
-		return ret;
+	list_for_each_entry(icnss_tcdev, &priv->icnss_tcdev_list, tcdev_list) {
+		thermal_cooling_device_unregister(icnss_tcdev->tcdev);
+		list_del(&icnss_tcdev->tcdev_list);
+		kfree(icnss_tcdev);
 	}
-
-	icnss_pr_vdbg("Cooling device current state: %ld",
-					priv->curr_thermal_state);
-
-	*thermal_state = priv->curr_thermal_state;
-	return ret;
 }
-EXPORT_SYMBOL(icnss_get_curr_therm_state);
+EXPORT_SYMBOL(icnss_thermal_cdev_unregister);
+
+int icnss_get_curr_therm_cdev_state(struct device *dev,
+				    unsigned long *thermal_state,
+				    int tcdev_id)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_thermal_cdev *icnss_tcdev = NULL;
+
+	mutex_lock(&priv->tcdev_lock);
+	list_for_each_entry(icnss_tcdev, &priv->icnss_tcdev_list, tcdev_list) {
+		if (icnss_tcdev->tcdev_id != tcdev_id)
+			continue;
+
+		*thermal_state = icnss_tcdev->curr_thermal_state;
+		mutex_unlock(&priv->tcdev_lock);
+		icnss_pr_dbg("Cooling device current state: %ld, for cdev id %d",
+			     icnss_tcdev->curr_thermal_state, tcdev_id);
+		return 0;
+	}
+	mutex_unlock(&priv->tcdev_lock);
+	icnss_pr_dbg("Cooling device ID not found: %d", tcdev_id);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(icnss_get_curr_therm_cdev_state);
 
 int icnss_qmi_send(struct device *dev, int type, void *cmd,
 		  int cmd_len, void *cb_ctx,
@@ -3148,6 +3181,7 @@ static int icnss_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->on_off_lock);
 	spin_lock_init(&priv->soc_wake_msg_lock);
 	mutex_init(&priv->dev_lock);
+	mutex_init(&priv->tcdev_lock);
 
 	priv->event_wq = alloc_workqueue("icnss_driver_event", WQ_UNBOUND, 1);
 	if (!priv->event_wq) {
@@ -3198,6 +3232,8 @@ static int icnss_probe(struct platform_device *pdev)
 
 		icnss_runtime_pm_init(priv);
 	}
+
+	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
 
 	icnss_pr_info("Platform driver probed successfully\n");
 
