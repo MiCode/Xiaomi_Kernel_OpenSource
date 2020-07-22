@@ -579,6 +579,15 @@ static void mdm_data_start_rx(struct mdm_data_port *port)
 		return;
 	}
 
+	if (!test_bit(CH_READY, &port->bridge_sts)) {
+		while (!list_empty(&port->rx_idle)) {
+			req = list_first_entry(&port->rx_idle,
+						struct usb_request, list);
+			list_del(&req->list);
+			usb_ep_free_request(ep, req);
+		}
+	}
+
 	while (atomic_read(&port->connected) && !list_empty(&port->rx_idle)) {
 		if (port->rx_skb_q.qlen > mdm_data_pend_limit_with_bridge)
 			break;
