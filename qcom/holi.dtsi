@@ -2144,6 +2144,11 @@
 		#size-cells = <1>;
 		read-only;
 		ranges;
+
+		feat_conf8: feat_conf8@6024 {
+			reg = <0x6024 0x2>;
+			bits = <21 1>;
+		};
 	};
 };
 
