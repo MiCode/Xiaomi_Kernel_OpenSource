@@ -499,6 +499,9 @@
 		qcom,pipe-attr-ee;
 	};
 
+	qcom-secure-buffer {
+		compatible = "qcom,secure-buffer";
+	};
 };
 
 #include "sdxlemur-pinctrl.dtsi"
