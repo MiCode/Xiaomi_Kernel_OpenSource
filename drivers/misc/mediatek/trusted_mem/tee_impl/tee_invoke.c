@@ -25,7 +25,7 @@
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
-#ifdef TCORE_UT_TESTS_SUPPORT
+#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
 #include "tests/ut_common.h"
 #endif
 #include "tee_impl/tee_ops.h"
@@ -82,7 +82,7 @@ int secmem_fr_set_prot_shared_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
-#ifdef TCORE_UT_TESTS_SUPPORT
+#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
 	if (is_multi_type_alloc_multithread_test_locked()) {
 		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
 		return TMEM_OK;
@@ -111,7 +111,7 @@ int secmem_set_mchunks_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
-#ifdef TCORE_UT_TESTS_SUPPORT
+#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
 	if (is_multi_type_alloc_multithread_test_locked()) {
 		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
 		return TMEM_OK;

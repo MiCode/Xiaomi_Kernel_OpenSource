@@ -48,7 +48,7 @@ void spm_enable_sodi(bool en);
 int memory_ssmr_debug_init(void);
 int trusted_mem_subsys_init(void);
 void trusted_mem_subsys_exit(void);
-#ifdef TCORE_UT_TESTS_SUPPORT
+#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
 int tmem_ut_server_init(void);
 void tmem_ut_server_exit(void);
 int tmem_ut_cases_init(void);

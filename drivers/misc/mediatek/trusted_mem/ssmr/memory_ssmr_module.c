@@ -442,7 +442,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 
 	feature->alloc_size = alloc_size;
 
-	pr_info("%s[%d]: upper_limit: %llx, feature{ alloc_size : %lu",
+	pr_info("%s[%d]: upper_limit: %llx, feature{ alloc_size : 0x%lx",
 		__func__, __LINE__, upper_limit, alloc_size);
 
 	/*
