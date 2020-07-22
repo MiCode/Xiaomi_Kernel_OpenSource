@@ -1,5 +1,5 @@
 /dts-v1/;
-/memreserve/ 0x90000000 0x00000100;
+/memreserve/ 0x90000000 0x00010000;
 
 #include "waipio.dtsi"
 #include "waipio-rumi.dtsi"
