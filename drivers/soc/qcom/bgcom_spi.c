@@ -26,6 +26,7 @@
 #include <linux/of_gpio.h>
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 #include "bgcom.h"
 #include "bgrsb.h"
 #include "bgcom_interface.h"
@@ -263,7 +264,9 @@ static int bgcom_transfer(void *handle, uint8_t *tx_buf,
 		tx_xfer->rx_buf = rx_buf;
 
 	tx_xfer->len = txn_len;
+	pm_runtime_get_sync(bg_spi->spi->controller->dev.parent);
 	ret = spi_sync(spi, &bg_spi->msg1);
+	pm_runtime_put_sync_suspend(bg_spi->spi->controller->dev.parent);
 	mutex_unlock(&bg_spi->xfer_mutex);
 
 	if (ret)
