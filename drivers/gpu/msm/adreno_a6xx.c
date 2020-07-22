@@ -121,10 +121,32 @@ static u32 a615_pwrup_reglist[] = {
 
 static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
 
+static void a6xx_gmu_wrapper_init(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct resource *res;
+
+	if (adreno_dev->gmu_wrapper_virt)
+		return;
+
+	res = platform_get_resource_byname(device->pdev,
+		IORESOURCE_MEM, "gmu_wrapper");
+	if (!res)
+		return;
+
+	adreno_dev->gmu_wrapper_base = res->start - device->reg_phys;
+	adreno_dev->gmu_wrapper_virt = devm_ioremap(&device->pdev->dev,
+		res->start, resource_size(res));
+
+	if (!adreno_dev->gmu_wrapper_virt)
+		dev_warn(device->dev, "gmu_wrapper ioremap failed\n");
+}
+
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 
+	a6xx_gmu_wrapper_init(adreno_dev);
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
 	/* If the memory type is DDR 4, override the existing configuration */
@@ -605,10 +627,27 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	 * Enable GMU power counter 0 to count GPU busy. This is applicable to
 	 * all a6xx targets
 	 */
-	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
-	kgsl_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0xff, 0x20);
-	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+	if (adreno_is_a619_holi(adreno_dev)) {
+		unsigned int val;
 
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
+		adreno_read_gmu_wrapper(adreno_dev,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, &val);
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			(val & 0xff) | 0x20);
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+
+	} else {
+		kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK,
+			0xff000000);
+		kgsl_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			0xff, 0x20);
+		kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE,
+			0x1);
+	}
 	a6xx_protect_init(adreno_dev);
 	/*
 	 * We start LM here because we want all the following to be up

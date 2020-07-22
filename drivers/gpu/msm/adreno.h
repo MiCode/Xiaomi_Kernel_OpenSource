@@ -5,6 +5,7 @@
 #ifndef __ADRENO_H
 #define __ADRENO_H
 
+#include <linux/of.h>
 #include "adreno_coresight.h"
 #include "adreno_dispatch.h"
 #include "adreno_drawctxt.h"
@@ -487,6 +488,8 @@ struct adreno_device {
 	unsigned long isense_base;
 	unsigned int isense_len;
 	void __iomem *isense_virt;
+	unsigned long gmu_wrapper_base;
+	void __iomem *gmu_wrapper_virt;
 	const struct adreno_gpu_core *gpucore;
 	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
@@ -1124,6 +1127,12 @@ static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
 		rev == ADRENO_REV_A660);
 }
 
+static inline int adreno_is_a619_holi(struct adreno_device *adreno_dev)
+{
+	return of_device_is_compatible(adreno_dev->dev.pdev->dev.of_node,
+		"qcom,adreno-gpu-a619-holi");
+}
+
 static inline int adreno_is_a620v1(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A620) &&
@@ -1251,6 +1260,24 @@ static inline void adreno_write_gmureg(struct adreno_device *adreno_dev,
 		gmu_core_regwrite(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets[offset_name], val);
 }
+
+/**
+ * adreno_read_gmu_wrapper() - Read a GMU wrapper register
+ * @adreno_dev: Pointer to the the adreno device
+ * @offsetwords: Offset of the wrapper register
+ * @val: Register value read is placed here
+ */
+void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
+	u32 offsetwords, u32 *val);
+
+/**
+ * adreno_write_gmu_wrapper() - write on a GMU wrapper register
+ * @adreno_dev: Pointer to the the adreno device
+ * @offsetwords: Offset of the wrapper register
+ * @val: value to write on wrapper register
+ */
+void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
+	u32 offsetwords, u32 value);
 
 /**
  * adreno_gpu_fault() - Return the current state of the GPU
