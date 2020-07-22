@@ -1,4 +1,12 @@
+#include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/clock/qcom,camcc-waipio.h>
+#include <dt-bindings/clock/qcom,dispcc-waipio.h>
+#include <dt-bindings/clock/qcom,gcc-waipio.h>
+#include <dt-bindings/clock/qcom,gpucc-waipio.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,videocc-waipio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio";
@@ -202,6 +210,88 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
-};
 
+	clocks {
+		xo_board: xo_board {
+			compatible = "fixed-clock";
+			clock-frequency = <38400000>;
+			clock-output-names = "xo_board";
+			#clock-cells = <0>;
+		};
+
+		sleep_clk: sleep_clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32764>;
+			clock-output-names = "sleep_clk";
+			#clock-cells = <0>;
+		};
+	};
+
+
+	cxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clocks = <&xo_board>;
+		clock-mult = <1>;
+		clock-div = <2>;
+		#clock-cells = <0>;
+		clock-output-names = "bi_tcxo";
+	};
+
+	cxo_a: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clocks = <&xo_board>;
+		clock-mult = <1>;
+		clock-div = <2>;
+		#clock-cells = <0>;
+		clock-output-names = "bi_tcxo_ao";
+	};
+
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmh_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_aop: qcom,aopclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "qdss_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_camcc: qcom,camcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "camcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpucc: qcom,gpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+};
 #include "waipio-pinctrl.dtsi"
+#include "waipio-regulators.dtsi"
