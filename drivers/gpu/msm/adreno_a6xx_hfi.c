@@ -21,9 +21,6 @@
 #define HOST_QUEUE_START_ADDR(hfi_mem, i) \
 	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
 
-static int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
-		uint32_t queue_idx, struct pending_cmd *ret_cmd);
-
 struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -220,9 +217,6 @@ int a6xx_hfi_init(struct adreno_device *adreno_dev)
 	return PTR_ERR_OR_ZERO(hfi->hfi_mem);
 }
 
-#define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
-	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
-
 int a6xx_receive_ack_cmd(struct a6xx_gmu_device *gmu, void *rcvd,
 	struct pending_cmd *ret_cmd)
 {
@@ -286,8 +280,8 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 	return -ETIMEDOUT;
 }
 
-int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev, uint32_t queue_idx,
-		void *data, struct pending_cmd *ret_cmd)
+static int a6xx_hfi_send_cmd_wait_inline(struct adreno_device *adreno_dev,
+	uint32_t queue_idx, void *data, struct pending_cmd *ret_cmd)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -336,7 +330,7 @@ int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
 
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
-	rc = a6xx_hfi_send_cmd(adreno_dev, queue, cmd, &ret_cmd);
+	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, queue, cmd, &ret_cmd);
 
 	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
 		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -378,7 +372,8 @@ static int a6xx_hfi_get_fw_version(struct adreno_device *adreno_dev,
 
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
-	rc = a6xx_hfi_send_cmd(adreno_dev, HFI_CMD_ID, &cmd, &ret_cmd);
+	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, HFI_CMD_ID, &cmd,
+			&ret_cmd);
 	if (rc)
 		return rc;
 
@@ -473,7 +468,8 @@ static int a6xx_hfi_send_get_value(struct adreno_device *adreno_dev,
 
 	cmd->hdr = CMD_MSG_HDR(H2F_MSG_GET_VALUE, sizeof(*cmd));
 
-	rc = a6xx_hfi_send_cmd(adreno_dev, HFI_CMD_ID, cmd, &ret_cmd);
+	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, HFI_CMD_ID, cmd,
+			&ret_cmd);
 	if (rc)
 		return rc;
 
@@ -535,7 +531,7 @@ static void a6xx_hfi_v1_receiver(struct a6xx_gmu_device *gmu, uint32_t *rcvd,
 	}
 }
 
-static int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
+int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 		uint32_t queue_idx, struct pending_cmd *ret_cmd)
 {
 	uint32_t rcvd[MAX_RCVD_SIZE];

@@ -447,14 +447,6 @@ void a6xx_gmu_oob_clear(struct kgsl_device *device, enum oob_request oob);
 int a6xx_gmu_wait_for_lowest_idle(struct adreno_device *adreno_dev);
 
 /**
- * a6xx_gmu_notify_slumber - Send NOTIFY_SLUMBER hfi to gmu
- * @adreno_dev: Pointer to the adreno device
- *
- * Return: 0 on success or negative error on failure
- */
-int a6xx_gmu_notify_slumber(struct adreno_device *adreno_dev);
-
-/**
  * a6xx_gmu_wait_for_idle - Wait for gmu to become idle
  * @adreno_dev: Pointer to the adreno device
  *

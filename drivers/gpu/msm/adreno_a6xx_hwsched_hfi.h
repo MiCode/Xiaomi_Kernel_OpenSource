@@ -107,10 +107,19 @@ struct mem_alloc_entry {
 struct a6xx_hwsched_hfi {
 	struct mem_alloc_entry mem_alloc_table[32];
 	u32 mem_alloc_entries;
+	/** @pending_ack: To track un-ack'd hfi packet */
+	struct pending_cmd pending_ack;
+	/** @irq_mask: Store the hfi interrupt mask */
+	u32 irq_mask;
 };
 
-/* Interrupt handler for hfi interrupts */
-irqreturn_t a6xx_hfi_handler(int irq, void *data);
+/**
+ * a6xx_hwsched_hfi_probe - Probe hwsched hfi resources
+ * @adreno_dev: Pointer to adreno device structure
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int a6xx_hwsched_hfi_probe(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_hwsched_hfi_init - Initialize hfi resources
@@ -151,4 +160,16 @@ void a6xx_hwsched_hfi_stop(struct adreno_device *adreno_dev);
  * Return: 0 on success and negative error on failure.
  */
 int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hfi_send_cmd_async - Send an hfi packet
+ * @adreno_dev: Pointer to adreno device structure
+ * @data: Data to be sent in the hfi packet
+ *
+ * Send data in the form of an HFI packet to gmu and wait for
+ * it's ack asynchronously
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 #endif

@@ -177,6 +177,24 @@ static void a6xx_hwsched_active_count_put(struct adreno_device *adreno_dev)
 	wake_up(&device->active_cnt_wq);
 }
 
+static int a6xx_hwsched_notify_slumber(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct hfi_prep_slumber_cmd req;
+
+	req.hdr = CMD_MSG_HDR(H2F_MSG_PREPARE_SLUMBER, sizeof(req));
+	req.freq = gmu->hfi.dcvs_table.gpu_level_num -
+			pwr->default_pwrlevel - 1;
+	req.bw = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
+
+	/* Disable the power counter so that the GMU is not busy */
+	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
+
+	return a6xx_hfi_send_cmd_async(adreno_dev, &req);
+
+}
 static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -191,7 +209,7 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	if (ret)
 		goto error;
 
-	ret = a6xx_gmu_notify_slumber(adreno_dev);
+	ret = a6xx_hwsched_notify_slumber(adreno_dev);
 	if (ret)
 		goto error;
 
@@ -549,12 +567,92 @@ static int a6xx_hwsched_active_count_get(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
+		int gpu_pwrlevel, int bus_level)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct hfi_dcvstable_cmd *table = &gmu->hfi.dcvs_table;
+	struct hfi_gx_bw_perf_vote_cmd req = {
+		.hdr = CMD_MSG_HDR(H2F_MSG_GX_BW_PERF_VOTE, sizeof(req)),
+		.ack_type = DCVS_ACK_BLOCK,
+		.freq = INVALID_DCVS_IDX,
+		.bw = INVALID_DCVS_IDX,
+	};
+	int ret = 0;
+
+	if (!test_bit(GMU_PRIV_HFI_STARTED, &gmu->flags))
+		return 0;
+
+	/* Do not set to XO and lower GPU clock vote from GMU */
+	if ((gpu_pwrlevel != INVALID_DCVS_IDX) &&
+			(gpu_pwrlevel >= table->gpu_level_num - 1)) {
+		dev_err(&gmu->pdev->dev, "Invalid gpu dcvs request: %d\n",
+			gpu_pwrlevel);
+		return -EINVAL;
+	}
+
+	if (gpu_pwrlevel < table->gpu_level_num - 1)
+		req.freq = table->gpu_level_num - gpu_pwrlevel - 1;
+
+	if (bus_level < pwr->ddr_table_count && bus_level > 0)
+		req.bw = bus_level;
+
+	/* GMU will vote for slumber levels through the sleep sequence */
+	if ((req.freq == INVALID_DCVS_IDX) && (req.bw == INVALID_DCVS_IDX))
+		return 0;
+
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, &req);
+
+	if (ret)
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"Failed to set GPU perf idx %d, bw idx %d\n",
+			req.freq, req.bw);
+
+	return ret;
+}
+
+static int a6xx_hwsched_clock_set(struct adreno_device *adreno_dev,
+	u32 pwrlevel)
+{
+	return a6xx_hwsched_dcvs_set(adreno_dev, pwrlevel, INVALID_DCVS_IDX);
+}
+
+static int a6xx_hwsched_bus_set(struct adreno_device *adreno_dev, int buslevel,
+	u32 ab)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int ret = 0;
+
+	if (buslevel != pwr->cur_buslevel) {
+		ret = a6xx_hwsched_dcvs_set(adreno_dev, INVALID_DCVS_IDX,
+				buslevel);
+		if (ret)
+			return ret;
+
+		pwr->cur_buslevel = buslevel;
+
+		trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
+	}
+
+	if (ab != pwr->cur_ab) {
+		icc_set_bw(pwr->icc_path, MBps_to_icc(ab), 0);
+		pwr->cur_ab = ab;
+	}
+
+	return ret;
+}
+
 const struct adreno_power_ops a6xx_hwsched_power_ops = {
 	.first_open = a6xx_hwsched_first_open,
 	.last_close = a6xx_hwsched_power_off,
 	.active_count_get = a6xx_hwsched_active_count_get,
 	.active_count_put = a6xx_hwsched_active_count_put,
 	.touch_wakeup = a6xx_hwsched_touch_wakeup,
+	.gpu_clock_set = a6xx_hwsched_clock_set,
+	.gpu_bus_set = a6xx_hwsched_bus_set,
 };
 
 int a6xx_hwsched_probe(struct platform_device *pdev,
@@ -589,8 +687,19 @@ static int a6xx_hwsched_bind(struct device *dev, struct device *master,
 	void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	int ret;
 
-	return a6xx_gmu_probe(device, to_platform_device(dev));
+	ret = a6xx_gmu_probe(device, to_platform_device(dev));
+	if (ret)
+		goto error;
+
+	ret = a6xx_hwsched_hfi_probe(ADRENO_DEVICE(device));
+
+error:
+	if (ret)
+		a6xx_gmu_remove(device);
+
+	return ret;
 }
 
 static void a6xx_hwsched_unbind(struct device *dev, struct device *master,

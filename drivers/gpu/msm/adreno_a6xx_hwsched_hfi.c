@@ -61,6 +61,156 @@ static struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(
 	return &a6xx_hwsched->hwsched_hfi;
 }
 
+static void a6xx_receive_ack_async(struct adreno_device *adreno_dev, void *rcvd,
+	struct pending_cmd *ret_cmd)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	u32 *ack = rcvd;
+	u32 hdr = ack[0];
+	u32 req_hdr = ack[1];
+	u32 size_bytes = MSG_HDR_GET_SIZE(hdr) << 2;
+
+	trace_kgsl_hfi_receive(MSG_HDR_GET_ID(req_hdr),
+		MSG_HDR_GET_SIZE(req_hdr), MSG_HDR_GET_SEQNUM(req_hdr));
+
+	if (size_bytes > sizeof(ret_cmd->results))
+		dev_err(&gmu->pdev->dev,
+			"Ack result too big: %d Truncating to: %d\n",
+			size_bytes, sizeof(ret_cmd->results));
+
+	if (HDR_CMP_SEQNUM(ret_cmd->sent_hdr, req_hdr)) {
+		memcpy(ret_cmd->results, ack,
+			min_t(u32, size_bytes, sizeof(ret_cmd->results)));
+		complete(&ret_cmd->complete);
+		return;
+	}
+
+	/* Didn't find the sender, list the waiter */
+	dev_err_ratelimited(&gmu->pdev->dev,
+		"Unexpectedly got id %d seqnum %d while waiting for id %d seqnum %d\n",
+		MSG_HDR_GET_ID(req_hdr), MSG_HDR_GET_SEQNUM(req_hdr),
+		MSG_HDR_GET_ID(ret_cmd->sent_hdr),
+		MSG_HDR_GET_SEQNUM(ret_cmd->sent_hdr));
+}
+
+static void process_msgq_irq(struct adreno_device *adreno_dev)
+{
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u32 rcvd[MAX_RCVD_SIZE];
+
+	if (a6xx_hfi_queue_read(to_a6xx_gmu(adreno_dev),
+		HFI_MSG_ID, rcvd, sizeof(rcvd)) <= 0)
+		return;
+
+	/*
+	 * We are assuming that there is only one outstanding ack
+	 * because hfi sending thread waits for completion while
+	 * holding the device mutex
+	 */
+	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK)
+		a6xx_receive_ack_async(adreno_dev, rcvd, &hfi->pending_ack);
+}
+
+/* HFI interrupt handler */
+static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
+{
+	struct adreno_device *adreno_dev = data;
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status = 0;
+
+	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, hfi->irq_mask);
+
+	if (status & HFI_IRQ_MSGQ_MASK)
+		process_msgq_irq(adreno_dev);
+	if (status & HFI_IRQ_DBGQ_MASK)
+		a6xx_hfi_process_queue(gmu, HFI_DBG_ID, NULL);
+	if (status & HFI_IRQ_CM3_FAULT_MASK) {
+		atomic_set(&gmu->cm3_fault, 1);
+
+		/* make sure other CPUs see the update */
+		smp_wmb();
+
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"GMU CM3 fault interrupt received\n");
+	}
+
+	/* Ignore OOB bits */
+	status &= GENMASK(31, 31 - (oob_max - 1));
+
+	if (status & ~hfi->irq_mask)
+		dev_err_ratelimited(&gmu->pdev->dev,
+			"Unhandled HFI interrupts 0x%lx\n",
+			status & ~hfi->irq_mask);
+
+	return IRQ_HANDLED;
+}
+
+static int wait_ack_completion(struct adreno_device *adreno_dev, u32 *cmd)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	int rc;
+
+	rc = wait_for_completion_timeout(&hfi->pending_ack.complete,
+		HFI_RSP_TIMEOUT);
+	if (!rc) {
+		dev_err(&gmu->pdev->dev,
+			"Ack timeout for id:%d sequence=%d\n",
+			MSG_HDR_GET_ID(*cmd),
+			MSG_HDR_GET_SEQNUM(*cmd));
+		gmu_fault_snapshot(KGSL_DEVICE(adreno_dev));
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int check_ack_failure(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct pending_cmd *cmd = &hfi->pending_ack;
+	int rc = cmd->results[2] ? -EINVAL : 0;
+
+	if (cmd->results[2] == 0xffffffff)
+		dev_err(&gmu->pdev->dev,
+				"HFI ACK failure: Req 0x%8.8x\n",
+				cmd->results[1]);
+
+	/* reset the ack */
+	memset(cmd->results, 0x0, sizeof(cmd->results));
+	reinit_completion(&hfi->pending_ack.complete);
+	cmd->sent_hdr = 0;
+
+	return rc;
+}
+
+int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u32 *cmd = data;
+	u32 seqnum = atomic_inc_return(&gmu->hfi.seqnum);
+	int rc;
+
+	*cmd = MSG_HDR_SET_SEQNUM(*cmd, seqnum);
+
+	hfi->pending_ack.sent_hdr = cmd[0];
+
+	rc = a6xx_hfi_queue_write(adreno_dev, HFI_CMD_ID, cmd);
+	if (rc)
+		return rc;
+
+	rc = wait_ack_completion(adreno_dev, cmd);
+	if (rc)
+		return rc;
+
+	return check_ack_failure(adreno_dev);
+}
+
 static void init_queues(struct a6xx_hfi *hfi)
 {
 	u32 gmuaddr = hfi->hfi_mem->gmuaddr;
@@ -183,11 +333,11 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 static struct mem_alloc_entry *lookup_mem_alloc_table(
 	struct adreno_device *adreno_dev, struct hfi_mem_alloc_desc *desc)
 {
-	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	int i;
 
-	for (i = 0; i < hfi->mem_alloc_entries; i++) {
-		struct mem_alloc_entry *entry = &hfi->mem_alloc_table[i];
+	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
+		struct mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
 
 		if ((entry->desc.mem_kind == desc->mem_kind) &&
 		(entry->desc.gmu_mem_handle == desc->gmu_mem_handle) &&
@@ -305,8 +455,8 @@ static int send_start_msg(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	unsigned int seqnum = atomic_inc_return(&gmu->hfi.seqnum);
-	struct pending_cmd ret_cmd = {0};
 	int rc = 0;
 	struct hfi_start_cmd cmd;
 	u32 rcvd[MAX_RCVD_SIZE];
@@ -314,7 +464,7 @@ static int send_start_msg(struct adreno_device *adreno_dev)
 	cmd.hdr = CMD_MSG_HDR(H2F_MSG_START, sizeof(cmd));
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 
-	ret_cmd.sent_hdr = cmd.hdr;
+	hfi->pending_ack.sent_hdr = cmd.hdr;
 
 	rc = a6xx_hfi_queue_write(adreno_dev, HFI_CMD_ID, (u32 *)&cmd);
 	if (rc)
@@ -342,8 +492,13 @@ poll:
 		return -EINVAL;
 	}
 
-	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK)
-		return a6xx_receive_ack_cmd(gmu, rcvd, &ret_cmd);
+	if (MSG_HDR_GET_TYPE(rcvd[0]) == HFI_MSG_ACK) {
+		rc = a6xx_receive_ack_cmd(gmu, rcvd, &hfi->pending_ack);
+		if (rc)
+			return rc;
+
+		return check_ack_failure(adreno_dev);
+	}
 
 	if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_MEM_ALLOC) {
 		rc = mem_alloc_reply(adreno_dev, rcvd);
@@ -357,6 +512,7 @@ poll:
 		"MSG_START: unexpected response id:%d, type:%d\n",
 		MSG_HDR_GET_ID(rcvd[0]),
 		MSG_HDR_GET_TYPE(rcvd[0]));
+
 	gmu_fault_snapshot(device);
 
 	return rc;
@@ -389,6 +545,9 @@ static void reset_hfi_queues(struct adreno_device *adreno_dev)
 void a6xx_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+
+	hfi->irq_mask &= ~HFI_IRQ_MSGQ_MASK;
 
 	reset_hfi_queues(adreno_dev);
 
@@ -396,6 +555,18 @@ void a6xx_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 
 	clear_bit(GMU_PRIV_HFI_STARTED, &gmu->flags);
 
+}
+
+static void enable_async_hfi(struct adreno_device *adreno_dev)
+{
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+
+	hfi->irq_mask |= HFI_IRQ_MSGQ_MASK;
+
+	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_GMU2HOST_INTR_MASK,
+		(u32)~hfi->irq_mask);
+
+	init_completion(&hfi->pending_ack.complete);
 }
 
 int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
@@ -442,6 +613,8 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	enable_async_hfi(adreno_dev);
+
 	set_bit(GMU_PRIV_HFI_STARTED, &gmu->flags);
 
 	/* Request default DCVS level */
@@ -462,10 +635,9 @@ err:
 static int submit_raw_cmds(struct adreno_device *adreno_dev, void *cmds,
 	const char *str)
 {
-	struct pending_cmd ret_cmd = {0};
 	int ret;
 
-	ret = a6xx_hfi_send_cmd(adreno_dev, HFI_CMD_ID, cmds, &ret_cmd);
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmds);
 	if (ret)
 		return ret;
 
@@ -523,4 +695,22 @@ int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev)
 		ret = send_switch_to_unsecure(adreno_dev);
 
 	return ret;
+}
+
+int a6xx_hwsched_hfi_probe(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
+
+	gmu->hfi.irq = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
+		a6xx_hwsched_hfi_handler, adreno_dev);
+
+	if (gmu->hfi.irq < 0)
+		return gmu->hfi.irq;
+
+	hw_hfi->irq_mask = HFI_IRQ_MASK;
+
+	disable_irq(gmu->hfi.irq);
+
+	return 0;
 }

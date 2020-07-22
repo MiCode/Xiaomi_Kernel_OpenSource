@@ -1688,7 +1688,7 @@ static void a6xx_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
  * a6xx_gmu_notify_slumber() - initiate request to GMU to prepare to slumber
  * @device: Pointer to KGSL device
  */
-int a6xx_gmu_notify_slumber(struct adreno_device *adreno_dev)
+static int a6xx_gmu_notify_slumber(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -2639,7 +2639,6 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-	struct a6xx_hfi *hfi = &gmu->hfi;
 	struct resource *res;
 	int ret;
 
@@ -2706,14 +2705,6 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 
 	device->gmu_core.dev_ops = &a6xx_gmudev;
 
-	/* Initialize HFI and GMU interrupts */
-	hfi->irq = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
-		a6xx_hfi_irq_handler, device);
-	if (hfi->irq < 0) {
-		ret = hfi->irq;
-		goto error;
-	}
-
 	gmu->irq = kgsl_request_irq(gmu->pdev, "kgsl_gmu_irq",
 		a6xx_gmu_irq_handler, device);
 
@@ -2725,7 +2716,6 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 	/* Don't enable GMU interrupts until GMU started */
 	/* We cannot use irq_disable because it writes registers */
 	disable_irq(gmu->irq);
-	disable_irq(gmu->hfi.irq);
 
 	return 0;
 
@@ -3367,8 +3357,29 @@ int a6xx_gmu_restart(struct kgsl_device *device)
 static int a6xx_gmu_bind(struct device *dev, struct device *master, void *data)
 {
 	struct kgsl_device *device = dev_get_drvdata(master);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(ADRENO_DEVICE(device));
+	struct a6xx_hfi *hfi = &gmu->hfi;
+	int ret;
 
-	return a6xx_gmu_probe(device, to_platform_device(dev));
+	ret = a6xx_gmu_probe(device, to_platform_device(dev));
+	if (ret)
+		return ret;
+
+	/*
+	 * a6xx_gmu_probe() is also called by hwscheduling probe. However,
+	 * since HFI interrupts are handled differently in hwscheduling, move
+	 * out HFI interrupt setup from a6xx_gmu_probe().
+	 */
+	hfi->irq = kgsl_request_irq(gmu->pdev, "kgsl_hfi_irq",
+		a6xx_hfi_irq_handler, device);
+	if (hfi->irq < 0) {
+		a6xx_gmu_remove(device);
+		return hfi->irq;
+	}
+
+	disable_irq(gmu->hfi.irq);
+
+	return 0;
 }
 
 static void a6xx_gmu_unbind(struct device *dev, struct device *master,

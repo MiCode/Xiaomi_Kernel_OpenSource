@@ -156,6 +156,12 @@ struct hfi_queue_table {
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
 #define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
 
+#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
+#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
+
+#define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
+	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
+
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
 	(((hdr) & 0xFFFFF) | ((num) << 20))
 
@@ -514,12 +520,14 @@ struct hfi_context_bad_reply_cmd {
 /**
  * struct pending_cmd - data structure to track outstanding HFI
  *	command messages
- * @sent_hdr: copy of outgoing header for response comparison
- * @results: the payload of received return message (ACK)
  */
 struct pending_cmd {
-	uint32_t sent_hdr;
-	uint32_t results[MAX_RCVD_SIZE];
+	/** @sent_hdr: Header of the un-ack'd hfi packet */
+	u32 sent_hdr;
+	/** @results: Array to store the ack packet */
+	u32 results[MAX_RCVD_SIZE];
+	/** @complete: Completion to signal hfi ack has been received */
+	struct completion complete;
 };
 
 /**
@@ -677,14 +685,13 @@ int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
 int a6xx_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev);
 
 /*
- * a6xx_hfi_send_cmd - Send and wait for a hfi packet
- * @adreno_dev: Pointer to the adreno device
- * @queue_idx: Destination queue id
- * @data: Pointer to hfi packet header and data
+ * a6xx_hfi_process_queue - Check hfi queue for messages from gmu
+ * @gmu: Pointer to the a6xx gmu device
+ * @queue_idx: queue id to be processed
  * @ret_cmd: Container for data needed for waiting for the ack
  *
  * Return: 0 on success or negative error on failure
  */
-int a6xx_hfi_send_cmd(struct adreno_device *adreno_dev, u32 queue_idx,
-	void *data, struct pending_cmd *ret_cmd);
+int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
+	u32 queue_idx, struct pending_cmd *ret_cmd);
 #endif
