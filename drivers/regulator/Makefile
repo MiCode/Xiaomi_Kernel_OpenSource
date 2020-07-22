@@ -152,5 +152,6 @@ obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 obj-$(CONFIG_REGULATOR_REFGEN) += refgen.o
 obj-$(CONFIG_REGULATOR_RPMH) += rpmh-regulator.o
 obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
+obj-$(CONFIG_REGULATOR_DEBUG_CONTROL) += debug-regulator.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
