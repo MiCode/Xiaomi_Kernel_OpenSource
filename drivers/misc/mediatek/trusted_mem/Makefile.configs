@@ -6,9 +6,6 @@
 #==========================================================================
 # Trusted Memory Subsystem Options
 #==========================================================================
-# Enable test cases support
-TCORE_UT_TESTS_SUPPORT := n
-
 # Enable profiling support
 TCORE_PROFILING_SUPPORT := n
 
@@ -23,7 +20,6 @@ TCORE_MEMORY_LEAK_DETECTION_SUPPORT := n
 #==========================================================================
 # Force enable option for ENG build only
 ifeq ($(CONFIG_MTK_ENG_BUILD),y)
-TCORE_UT_TESTS_SUPPORT := y
 TCORE_PROFILING_SUPPORT := y
 TCORE_PROFILING_AUTO_DUMP := n
 TCORE_MEMORY_LEAK_DETECTION_SUPPORT := y

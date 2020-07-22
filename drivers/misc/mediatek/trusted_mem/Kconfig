@@ -17,7 +17,6 @@ config MTK_PROT_MEM_SUPPORT
 
 config MTK_SECURE_MEM_SUPPORT
 	bool "MTK SVP SECURE Memory Support"
-	depends on TRUSTONIC_TEE_SUPPORT || MICROTRUST_TEE_SUPPORT
 	help
 	  Enable the support of MediaTek SVP secure memory driver.
 	  This driver is in charge of SVP secure memory region require/release
@@ -121,20 +120,9 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
-config HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
-	bool "HAVE MTK Trusted Memory Subsystem Support"
-	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
-		   MTK_MTEE_MULTI_CHUNK_SUPPORT
-	help
-	  Enable the support of MediaTek trusted memory subsystem driver.
-	  This option is been used to be auto selected by other option.
-	  Say Y if you would like to enable this feature.
-	  If unsure, say N.
-
 config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tristate "MTK Trusted Memory Subsystem Support"
-	default y
-	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	default n
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This driver provide a general subsystem layer for trusted peer memory
@@ -147,7 +135,7 @@ config MTK_TRUSTED_MEMORY_SUBSYSTEM
 config MTK_SSMR
 	tristate "MTK Shareable Secure Memory Region"
 	default y
-	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	depends on MTK_TRUSTED_MEMORY_SUBSYSTEM
 	select CMA
 	select DMA_CMA
 	select ZONE_MOVABLE_CMA
@@ -158,3 +146,14 @@ config MTK_SSMR
 	  Say Y if you would like to build it in kernel image.
 	  Say M if you would like to build it as a kernel module.
 	  If unsure, say N.
+
+config TEST_MTK_TRUSTED_MEMORY
+	tristate "MTK Trusted Memory UT SUITE"
+	default n
+	select MTK_SECURE_MEM_SUPPORT
+	select MTK_WFD_SMEM_SUPPORT
+	select MTK_SEC_VIDEO_PATH_SUPPORT
+	help
+	  This is a test module doing various nasty things like
+	  open/close/alloc/free operation, It is useful for testing
+	  trusted memory features.
