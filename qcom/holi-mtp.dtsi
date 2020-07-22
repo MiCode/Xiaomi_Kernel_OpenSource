@@ -1,4 +1,5 @@
 #include "holi-audio-overlay.dtsi"
+#include "holi-thermal-overlay.dtsi"
 
 &ufsphy_mem {
 		compatible = "qcom,ufs-phy-qmp-v3";
