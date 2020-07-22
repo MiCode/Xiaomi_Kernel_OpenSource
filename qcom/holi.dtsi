@@ -16,7 +16,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. Holi";
 	compatible = "qcom,holi";
-	qcom,msm-id = <454 0x10000>;
+	qcom,msm-id = <454 0x10000>, <472 0x10000>;
 	interrupt-parent = <&intc>;
 
 	#address-cells = <2>;
