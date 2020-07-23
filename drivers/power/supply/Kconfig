@@ -723,4 +723,6 @@ config CHARGER_WILCO
 	  information can be found in
 	  Documentation/ABI/testing/sysfs-class-power-wilco
 
+source "drivers/power/supply/qcom/Kconfig"
+
 endif # POWER_SUPPLY
