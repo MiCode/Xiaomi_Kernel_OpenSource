@@ -3079,6 +3079,14 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 static void ufshcd_print_fsm_state(struct ufs_hba *hba)
 {
 	int err = 0, tx_fsm_val = 0, rx_fsm_val = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->active_uic_cmd) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	err = ufshcd_dme_get(hba,
 			     UIC_ARG_MIB_SEL(MPHY_TX_FSM_STATE,
