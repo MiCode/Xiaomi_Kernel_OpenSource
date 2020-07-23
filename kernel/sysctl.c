@@ -140,9 +140,6 @@ static int ten_thousand = 10000;
 #ifdef CONFIG_PERF_EVENTS
 static int six_hundred_forty_kb = 640 * 1024;
 #endif
-static unsigned int __maybe_unused half_million = 500000;
-static unsigned int __maybe_unused one_hundred_million = 100000000;
-static unsigned int __maybe_unused one_million = 1000000;
 static int __maybe_unused max_kswapd_threads = MAX_KSWAPD_THREADS;
 
 #ifdef CONFIG_SCHED_WALT
@@ -340,49 +337,6 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
-#if defined(CONFIG_PREEMPT_TRACER) && defined(CONFIG_PREEMPTIRQ_EVENTS)
-	{
-		.procname	= "preemptoff_tracing_threshold_ns",
-		.data		= &sysctl_preemptoff_tracing_threshold_ns,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
-#if defined(CONFIG_IRQSOFF_TRACER) && defined(CONFIG_PREEMPTIRQ_EVENTS)
-	{
-		.procname	= "irqsoff_tracing_threshold_ns",
-		.data		= &sysctl_irqsoff_tracing_threshold_ns,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax,
-		.extra1		= &half_million,
-		.extra2		= &one_hundred_million,
-	},
-	{
-		.procname	= "irqsoff_dmesg_output_enabled",
-		.data		= &sysctl_irqsoff_dmesg_output_enabled,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "irqsoff_crash_sentinel_value",
-		.data		= &sysctl_irqsoff_crash_sentinel_value,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "irqsoff_crash_threshold_ns",
-		.data		= &sysctl_irqsoff_crash_threshold_ns,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax,
-		.extra1		= &one_million,
-		.extra2		= &one_hundred_million,
-	},
-#endif
 #ifdef CONFIG_SCHED_WALT
 	{
 		.procname	= "sched_user_hint",
