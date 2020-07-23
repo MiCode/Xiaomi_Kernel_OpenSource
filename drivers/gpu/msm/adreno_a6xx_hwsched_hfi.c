@@ -849,7 +849,7 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 
 #define DISPQ_IRQ_BIT(_idx) BIT((_idx) + HFI_DSP_IRQ_BASE)
 
-int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
+int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_cmd *cmdobj)
 {
 	struct a6xx_hfi *hfi = to_a6xx_hfi(adreno_dev);
@@ -868,6 +868,10 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
 	list_for_each_entry(ib, &cmdobj->cmdlist, node)
 		numibs++;
 
+	/* We need to dispatch a marker object but not execute it on the GPU */
+	if (test_bit(CMDOBJ_SKIP, &cmdobj->priv))
+		numibs = 0;
+
 	/* Add a *issue_ib struct for each IB */
 	cmd_sizebytes = sizeof(*cmd) + (sizeof(*issue_ib) * numibs);
 
@@ -880,16 +884,18 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
 			atomic_inc_return(&hfi->seqnum));
 
 	cmd->ctxt_id = drawobj->context->id;
-	cmd->flags = flags;
+	cmd->flags = CTXT_FLAG_NOTIFY;
 	cmd->ts = drawobj->timestamp;
 	cmd->numibs = numibs;
 
-	issue_ib = (struct hfi_issue_ib *)&cmd[1];
+	if (numibs) {
+		issue_ib = (struct hfi_issue_ib *)&cmd[1];
 
-	list_for_each_entry(ib, &cmdobj->cmdlist, node) {
-		issue_ib->addr = ib->gpuaddr;
-		issue_ib->size = ib->size;
-		issue_ib++;
+		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
+			issue_ib->addr = ib->gpuaddr;
+			issue_ib->size = ib->size;
+			issue_ib++;
+		}
 	}
 
 	ret = a6xx_hfi_queue_write(adreno_dev, HFI_DSP_ID_0, (u32 *)cmd);

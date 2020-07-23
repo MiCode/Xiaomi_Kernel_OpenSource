@@ -181,7 +181,6 @@ int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 /**
  * a6xx_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
  * @adreno_dev: Pointer to adreno device structure
- * @flags: Flags associated with the submission
  * @cmdobj: The command object which needs to be submitted
  *
  * This function is used to register the context if needed and submit
@@ -189,7 +188,7 @@ int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 
  * Return: 0 on success and negative error on failure
  */
-int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
+int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_cmd *cmdobj);
 
 /**

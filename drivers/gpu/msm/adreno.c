@@ -22,6 +22,7 @@
 #include "adreno_a5xx.h"
 #include "adreno_a6xx.h"
 #include "adreno_compat.h"
+#include "adreno_hwsched.h"
 #include "adreno_iommu.h"
 #include "adreno_trace.h"
 #include "kgsl_bus.h"
@@ -1522,10 +1523,15 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_pwrscale_close(device);
 
-	adreno_dispatcher_close(adreno_dev);
-	adreno_ringbuffer_close(adreno_dev);
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
+		adreno_hwsched_dispatcher_close(adreno_dev);
+	else {
+		adreno_dispatcher_close(adreno_dev);
 
-	adreno_fault_detect_stop(adreno_dev);
+		adreno_ringbuffer_close(adreno_dev);
+
+		adreno_fault_detect_stop(adreno_dev);
+	}
 
 	kfree(adreno_ft_regs);
 	adreno_ft_regs = NULL;
@@ -3607,6 +3613,12 @@ static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
 	u32 count, u32 *timestamp)
 {
+	struct kgsl_device *device = dev_priv->device;
+
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
+		return adreno_hwsched_queue_cmds(dev_priv, context, drawobj,
+				count, timestamp);
+
 	return adreno_dispatcher_queue_cmds(dev_priv, context, drawobj, count,
 			timestamp);
 }
@@ -3614,6 +3626,10 @@ static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
 static void adreno_drawctxt_sched(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
+	if (test_bit(GMU_DISPATCH, &device->gmu_core.flags))
+		return adreno_hwsched_queue_context(device,
+			ADRENO_CONTEXT(context));
+
 	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
 }
 

@@ -393,6 +393,8 @@ static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
+	adreno_hwsched_start(adreno_dev);
+
 	mod_timer(&device->idle_timer, jiffies +
 			device->pwrctrl.interval_timeout);
 
@@ -436,6 +438,10 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	ret = a6xx_hwsched_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
+
+	adreno_hwsched_init(adreno_dev);
+
+	adreno_hwsched_start(adreno_dev);
 
 	adreno_get_bus_counters(adreno_dev);
 
