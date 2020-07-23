@@ -6640,7 +6640,11 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	msm_pcie_vreg_init(pcie_dev);
 
-	regulator_enable(pcie_dev->gdsc);
+	ret = regulator_enable(pcie_dev->gdsc);
+	if (ret)
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: failed to enable GDSC: ret %d\n",
+			pcie_dev->rc_idx, ret);
 
 	if (pcie_dev->icc_path) {
 		ret = icc_set_bw(pcie_dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
