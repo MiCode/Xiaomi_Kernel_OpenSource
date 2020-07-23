@@ -539,6 +539,8 @@ struct pending_cmd {
 	u32 results[MAX_RCVD_SIZE];
 	/** @complete: Completion to signal hfi ack has been received */
 	struct completion complete;
+	/** @node: to add it to the list of hfi packets waiting for ack */
+	struct list_head node;
 };
 
 /**

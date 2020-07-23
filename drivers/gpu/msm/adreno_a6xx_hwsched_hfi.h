@@ -107,10 +107,13 @@ struct mem_alloc_entry {
 struct a6xx_hwsched_hfi {
 	struct mem_alloc_entry mem_alloc_table[32];
 	u32 mem_alloc_entries;
-	/** @pending_ack: To track un-ack'd hfi packet */
-	struct pending_cmd pending_ack;
 	/** @irq_mask: Store the hfi interrupt mask */
 	u32 irq_mask;
+	/** @msglock: To protect the list of un-ACKed hfi packets */
+	rwlock_t msglock;
+	/** @msglist: List of un-ACKed hfi packets */
+	struct list_head msglist;
+
 };
 
 struct kgsl_drawobj_cmd;
