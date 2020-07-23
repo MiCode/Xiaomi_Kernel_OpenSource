@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# waipio uses config fragments and gki_defconfig as base
+waipio-*_defconfig
+# lahaina uses config fragments and gki_defconfig as base
+lahaina-*_defconfig
