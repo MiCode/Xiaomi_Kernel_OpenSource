@@ -378,6 +378,7 @@ struct icnss_priv {
 	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 	bool is_ssr;
+	bool smmu_s1_enable;
 	struct kobject *icnss_kobject;
 	atomic_t is_shutdown;
 	u32 qdss_mem_seg_len;

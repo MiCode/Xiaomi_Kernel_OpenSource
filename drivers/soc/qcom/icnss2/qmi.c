@@ -2322,7 +2322,8 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	req->cal_done = priv->cal_done;
 	icnss_pr_dbg("Calibration done is %d\n", priv->cal_done);
 
-	if (!icnss_get_iova(priv, &iova_start, &iova_size) &&
+	if (priv->smmu_s1_enable &&
+	    !icnss_get_iova(priv, &iova_start, &iova_size) &&
 	    !icnss_get_iova_ipa(priv, &iova_ipa_start,
 				&iova_ipa_size)) {
 		req->ddr_range_valid = 1;
