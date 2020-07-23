@@ -411,6 +411,11 @@ static int cmdq_enable(struct mmc_host *mmc)
 	if (cmdq_host_is_crypto_supported(cq_host)) {
 		cmdq_crypto_enable(cq_host);
 		cqcfg |= CQ_ICE_ENABLE;
+		/* For SDHC v5.0 onwards, ICE 3.0 specific registers are added
+		 * in CQ register space, due to which few CQ registers are
+		 * shifted. Set offset_changed boolean to use updated address.
+		 */
+		cq_host->offset_changed = true;
 	}
 
 	cmdq_writel(cq_host, cqcfg, CQCFG);
