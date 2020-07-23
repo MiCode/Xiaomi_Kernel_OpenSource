@@ -3213,7 +3213,9 @@ static void mt6359_gauge_shutdown(struct platform_device *pdev)
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gm = gauge->gm;
-	gm->shutdown(gm);
+
+	if (gm->shutdown != NULL)
+		gm->shutdown(gm);
 }
 
 static int mt6359_gauge_suspend(struct platform_device *pdev,
@@ -3224,7 +3226,9 @@ static int mt6359_gauge_suspend(struct platform_device *pdev,
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gm = gauge->gm;
-	gm->suspend(gm, state);
+
+	if (gm->suspend != NULL)
+		gm->suspend(gm, state);
 
 	return 0;
 }
@@ -3236,7 +3240,9 @@ static int mt6359_gauge_resume(struct platform_device *pdev)
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gm = gauge->gm;
-	gm->resume(gm);
+
+	if (gm->resume != NULL)
+		gm->resume(gm);
 
 	return 0;
 }
