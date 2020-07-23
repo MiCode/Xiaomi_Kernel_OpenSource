@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -424,7 +424,8 @@ void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc)
 	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
 		return;
 
-	if (!kgsl_memdesc_is_global(memdesc))
+	if (!kgsl_memdesc_is_global(memdesc) &&
+			!kgsl_memdesc_is_reclaimed(memdesc))
 		unmap_fail = kgsl_mmu_unmap(pagetable, memdesc);
 
 	/*

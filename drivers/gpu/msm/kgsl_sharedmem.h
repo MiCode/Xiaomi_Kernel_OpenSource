@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002, 2007-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_SHAREDMEM_H
 #define __KGSL_SHAREDMEM_H
@@ -74,6 +74,28 @@ int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 void kgsl_free_secure_page(struct page *page);
 
 struct page *kgsl_alloc_secure_page(void);
+
+/**
+ * kgsl_free_pages() - Free pages in the pages array
+ * @memdesc: memdesc that has the array to be freed
+ *
+ * Free the pages in the pages array of memdesc. If pool
+ * is configured, pages are added back to the pool.
+ * If shmem is used for allocation, kgsl refcount on the page
+ * is decremented.
+ */
+void kgsl_free_pages(struct kgsl_memdesc *memdesc);
+
+/**
+ * kgsl_free_pages_from_sgt() - Free scatter-gather list
+ * @memdesc: pointer of the memdesc which has the sgt to be freed
+ *
+ * Free the sg list by collapsing any physical adjacent pages.
+ * If pool is configured, pages are added back to the pool.
+ * If shmem is used for allocation, kgsl refcount on the page
+ * is decremented.
+ */
+void kgsl_free_pages_from_sgt(struct kgsl_memdesc *memdesc);
 
 #define MEMFLAGS(_flags, _mask, _shift) \
 	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
@@ -199,6 +221,17 @@ static inline int
 kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
 {
 	return (memdesc->priv & KGSL_MEMDESC_GUARD_PAGE) != 0;
+}
+
+/**
+ * kgsl_memdesc_is_reclaimed - check if a buffer is reclaimed
+ * @memdesc: the memdesc
+ *
+ * Return: true if the memdesc pages were reclaimed, false otherwise
+ */
+static inline bool kgsl_memdesc_is_reclaimed(const struct kgsl_memdesc *memdesc)
+{
+	return memdesc && (memdesc->priv & KGSL_MEMDESC_RECLAIMED);
 }
 
 /*
@@ -333,7 +366,8 @@ static inline void kgsl_free_sgt(struct sg_table *sgt)
  *
  * Return supported pagesize
  */
-#ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
+#if !defined(CONFIG_QCOM_KGSL_USE_SHMEM) && \
+	!defined(CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS)
 static inline int kgsl_get_page_size(size_t size, unsigned int align)
 {
 	if (align >= ilog2(SZ_1M) && size >= SZ_1M &&
@@ -354,5 +388,52 @@ static inline int kgsl_get_page_size(size_t size, unsigned int align)
 	return PAGE_SIZE;
 }
 #endif
+
+/**
+ * kgsl_gfp_mask() - get gfp_mask to be used
+ * @page_order: order of the page
+ *
+ * Get the gfp_mask to be used for page allocation
+ * based on the order of the page
+ *
+ * Return appropriate gfp_mask
+ */
+unsigned int kgsl_gfp_mask(unsigned int page_order);
+
+/**
+ * kgsl_zero_page() - zero out a page
+ * @p: pointer to the struct page
+ * @order: order of the page
+ *
+ * Map a page into kernel and zero it out
+ */
+void kgsl_zero_page(struct page *page, unsigned int order);
+
+/**
+ * kgsl_flush_page - flush a page
+ * @page: pointer to the struct page
+ *
+ * Map a page into kernel and flush it
+ */
+void kgsl_flush_page(struct page *page);
+
+/**
+ * struct kgsl_process_attribute - basic attribute for a process
+ * @attr: Underlying struct attribute
+ * @show: Attribute show function
+ * @store: Attribute store function
+ */
+struct kgsl_process_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *kobj,
+			struct kgsl_process_attribute *attr, char *buf);
+	ssize_t (*store)(struct kobject *kobj,
+		struct kgsl_process_attribute *attr, const char *buf,
+		ssize_t count);
+};
+
+#define PROCESS_ATTR(_name, _mode, _show, _store) \
+	static struct kgsl_process_attribute attr_##_name = \
+			__ATTR(_name, _mode, _show, _store)
 
 #endif /* __KGSL_SHAREDMEM_H */

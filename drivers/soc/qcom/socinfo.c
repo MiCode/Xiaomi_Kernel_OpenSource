@@ -337,6 +337,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	[441] = {MSM_CPU_SCUBA, "SCUBA"},
 	[471] = {MSM_CPU_SCUBA, "SCUBA"},
 
+	/* QCM4290 ID */
+	[469] = {MSM_CPU_QCM4290, "QCM4290"},
+
+	/* QCS4290 ID */
+	[470] = {MSM_CPU_QCS4290, "QCS4290"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1239,6 +1245,14 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sdmmagpie()) {
 		dummy_socinfo.id = 365;
 		strlcpy(dummy_socinfo.build_id, "sdmmagpie - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_qcm4290()) {
+		dummy_socinfo.id = 469;
+		strlcpy(dummy_socinfo.build_id, "qcm4290 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_qcs4290()) {
+		dummy_socinfo.id = 470;
+		strlcpy(dummy_socinfo.build_id, "qcs4290 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
