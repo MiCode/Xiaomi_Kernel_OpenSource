@@ -214,10 +214,6 @@
   cma_alloc
   cma_get_name
   cma_release
-  cmd_db_read_addr
-  cmd_db_read_aux_data
-  cmd_db_read_slave_id
-  cmd_db_ready
   compat_alloc_user_space
   complete
   complete_all

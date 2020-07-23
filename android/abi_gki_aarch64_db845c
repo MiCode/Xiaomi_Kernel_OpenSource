@@ -29,8 +29,6 @@
   clk_set_rate
   clk_sync_state
   clk_unprepare
-  cmd_db_read_addr
-  cmd_db_read_aux_data
   complete
   complete_all
   __const_udelay
@@ -177,6 +175,7 @@
   __list_add_valid
   __list_del_entry_valid
   memcpy
+  memremap
   memset
   mii_ethtool_gset
   mii_nway_restart
@@ -219,6 +218,7 @@
   of_property_read_string
   of_property_read_u32_index
   of_property_read_variable_u32_array
+  of_reserved_mem_lookup
   param_ops_bool
   param_ops_int
   pci_bus_type
@@ -313,6 +313,7 @@
   strcpy
   strlcpy
   strlen
+  strncpy
   __sw_hweight32
   __sw_hweight64
   synchronize_irq
@@ -703,7 +704,6 @@
   kvmalloc_node
   llist_add_batch
   memparse
-  memremap
   memunmap
   mipi_dsi_create_packet
   mipi_dsi_host_register
@@ -749,7 +749,6 @@
   sg_free_table
   shmem_truncate_range
   sscanf
-  strncpy
   strstr
   sync_file_create
   sync_file_get_fence
@@ -997,7 +996,6 @@
 # required by qcom_rpmh.ko
   bitmap_find_next_zero_area_off
   __bitmap_set
-  cmd_db_ready
   of_get_property
 
 # required by rmtfs_mem.ko
@@ -1010,12 +1008,8 @@
   default_llseek
   device_initialize
   devm_memremap
-  of_reserved_mem_lookup
   remap_pfn_range
   unregister_chrdev_region
-
-# required by rpmhpd.ko
-  cmd_db_read_slave_id
 
 # required by smem.ko
   devm_ioremap_wc
