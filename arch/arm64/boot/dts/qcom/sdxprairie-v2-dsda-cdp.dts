@@ -99,3 +99,7 @@
 	regulator-min-microvolt = <1800000>;
 	regulator-max-microvolt = <1800000>;
 };
+
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
+};
