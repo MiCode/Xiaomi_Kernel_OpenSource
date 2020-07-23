@@ -6597,6 +6597,9 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 
 	/* Check MHI configuration on MDM devices */
 	if (!ipa3_is_msm_device()) {
+		/* reset ecm default as non-vlan mode */
+		if (!ipa3_ctx->vlan_mode_set && ipa3_ctx->ipa_config_is_auto)
+			ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_ECM] = false;
 
 		if (strnstr(dbg_buff, "vlan", strlen(dbg_buff))) {
 			if (strnstr(dbg_buff, "eth", strlen(dbg_buff)))
@@ -6613,6 +6616,13 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			 * when vlan mode is passed to our dev we expect
 			 * another write
 			 */
+			ipa3_ctx->vlan_mode_set = true;
+			IPAERR("emac vlan(%d)\n",
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_EMAC]);
+			IPAERR("rndis vlan(%d)\n",
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_RNDIS]);
+			IPAERR("ecm vlan(%d)\n",
+				ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_ECM]);
 			return count;
 		}
 
@@ -7355,6 +7365,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		ipa3_proxy_clk_unvote();
 
 	mutex_init(&ipa3_ctx->app_clock_vote.mutex);
+
+	/* put ecm default as vlan mode */
+	if (ipa3_ctx->ipa_config_is_auto)
+		ipa3_ctx->vlan_mode_iface[IPA_VLAN_IF_ECM] = true;
 
 	return 0;
 
