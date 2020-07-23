@@ -3662,7 +3662,7 @@ static void sde_encoder_frame_done_callback(
 {
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
-	bool trigger = true;
+	bool trigger = true, is_cmd_mode;
 	enum sde_rm_topology_name topology = SDE_RM_TOPOLOGY_NONE;
 
 	if (!drm_enc || !sde_enc->cur_master) {
@@ -3674,10 +3674,12 @@ static void sde_encoder_frame_done_callback(
 
 	sde_enc->crtc_frame_event_cb_data.connector =
 				sde_enc->cur_master->connector;
+	is_cmd_mode = sde_enc->disp_info.capabilities &
+				MSM_DISPLAY_CAP_CMD_MODE;
 
 	if (event & (SDE_ENCODER_FRAME_EVENT_DONE
 			| SDE_ENCODER_FRAME_EVENT_ERROR
-			| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
+			| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD) && is_cmd_mode) {
 		if (ready_phys->connector)
 			topology = sde_connector_get_topology_name(
 							ready_phys->connector);
@@ -3717,9 +3719,14 @@ static void sde_encoder_frame_done_callback(
 				atomic_set(&sde_enc->frame_done_cnt[i], 0);
 		}
 	} else {
-		if (sde_enc->crtc_frame_event_cb)
+		if (sde_enc->crtc_frame_event_cb) {
+			if (!is_cmd_mode)
+				sde_encoder_resource_control(drm_enc,
+						SDE_ENC_RC_EVENT_FRAME_DONE);
+
 			sde_enc->crtc_frame_event_cb(
 				&sde_enc->crtc_frame_event_cb_data, event);
+		}
 	}
 }
 

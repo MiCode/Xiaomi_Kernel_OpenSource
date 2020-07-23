@@ -594,12 +594,11 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	pend_ret_fence_cnt = atomic_read(&phys_enc->pending_retire_fence_cnt);
 
 	/* signal only for master, where there is a pending kickoff */
-	if (sde_encoder_phys_vid_is_master(phys_enc)) {
-		if (atomic_add_unless(&phys_enc->pending_retire_fence_cnt,
-					-1, 0))
-			event |= SDE_ENCODER_FRAME_EVENT_DONE |
-				SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE |
-				SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
+	if (sde_encoder_phys_vid_is_master(phys_enc) &&
+		atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0)) {
+		event = SDE_ENCODER_FRAME_EVENT_DONE |
+			SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE |
+			SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 	}
 
 not_flushed:
@@ -949,19 +948,13 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 {
 	struct sde_encoder_wait_info wait_info = {0};
 	int ret = 0;
-	u32 event = 0, event_helper = 0;
+	u32 event = SDE_ENCODER_FRAME_EVENT_ERROR |
+			SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE |
+			SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
 
 	if (!phys_enc) {
 		pr_err("invalid encoder\n");
 		return -EINVAL;
-	}
-
-	if (!sde_encoder_phys_vid_is_master(phys_enc)) {
-		/* signal done for slave video encoder, unless it is pp-split */
-		if (!_sde_encoder_phys_is_ppsplit(phys_enc) && notify) {
-			event = SDE_ENCODER_FRAME_EVENT_DONE;
-			goto end;
-		}
 	}
 
 	wait_info.wq = &phys_enc->pending_kickoff_wq;
@@ -972,23 +965,12 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_VSYNC,
 			&wait_info);
 
-	event_helper = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
-			| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
-
-	if (notify && (ret == -ETIMEDOUT)) {
-		event = SDE_ENCODER_FRAME_EVENT_ERROR;
-		if (atomic_add_unless(&phys_enc->pending_retire_fence_cnt,
-				-1, 0))
-			event |= event_helper;
-	}
-
-end:
-	SDE_EVT32(DRMID(phys_enc->parent), event, notify, ret,
-			ret ? SDE_EVTLOG_FATAL : 0);
-	if (phys_enc->parent_ops.handle_frame_done && event)
+	if (notify && (ret == -ETIMEDOUT) &&
+		atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0) &&
+			phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(
-				phys_enc->parent, phys_enc,
-				event);
+			 phys_enc->parent, phys_enc, event);
+
 	return ret;
 }
 
