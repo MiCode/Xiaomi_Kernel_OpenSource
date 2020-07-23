@@ -1017,7 +1017,7 @@ static const char * const qup00_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3",
 };
 static const char * const qup01_groups[] = {
-	"gpio61", "gpio62", "gpio63", "gpio64",
+	"gpio4", "gpio5", "gpio61", "gpio62", "gpio63", "gpio64",
 };
 static const char * const qup02_groups[] = {
 	"gpio45", "gpio46", "gpio48", "gpio56", "gpio57",
@@ -1285,9 +1285,9 @@ static const struct msm_pingroup holi_groups[] = {
 		       NA, 0, -1),
 	[3] = PINGROUP(3, qup00, CCI_I2C, sp_cmu, dbg_out, qdss_cti, NA, NA,
 		       NA, NA, 0x9C018, 1),
-	[4] = PINGROUP(4, qup14, qup14, sdc1_tb, NA, NA, NA, NA, NA, NA,
+	[4] = PINGROUP(4, qup01, qup01, sdc1_tb, NA, NA, NA, NA, NA, NA,
 		       0x9C00C, 3),
-	[5] = PINGROUP(5, qup14, qup14, sdc2_tb, NA, NA, NA, NA, NA, NA, 0, -1),
+	[5] = PINGROUP(5, qup01, qup01, sdc2_tb, NA, NA, NA, NA, NA, NA, 0, -1),
 	[6] = PINGROUP(6, MDP_VSYNC, qdss_cti, NA, NA, NA, NA, NA, NA, NA,
 		       0, -1),
 	[7] = PINGROUP(7, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C018, 2),
