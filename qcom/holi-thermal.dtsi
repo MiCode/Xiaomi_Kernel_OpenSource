@@ -1,4 +1,5 @@
 #include <dt-bindings/thermal/thermal_qti.h>
+#include "holi-thermal-modem.dtsi"
 
 &soc {
 	tsens0:tsens@4410000 {
@@ -31,6 +32,33 @@
 				"tsens-0C";
 		tsens-reinit-wa;
 		#thermal-sensor-cells = <1>;
+	};
+
+	qmi-tmd-devices {
+		compatible = "qcom,qmi-cooling-devices";
+
+		cdsp {
+			qcom,instance-id = <QMI_CDSP_INST_ID>;
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: cdsp_hw {
+				qcom,qmi-dev-name = "cdsp_hw";
+				#cooling-cells = <2>;
+			};
+		};
+
+		adsp {
+			qcom,instance-id = <QMI_ADSP_INST_ID>;
+
+			adsp_vdd: adsp_vdd {
+				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+		};
 	};
 };
 
