@@ -12,3 +12,6 @@ qti-fixed-regulator.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs-qcom.ko
+usb_f_cdev.ko
+usb_f_diag.ko
+usb_f_mass_storage.ko
