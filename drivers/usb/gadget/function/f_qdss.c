@@ -595,17 +595,22 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	qdss = container_of(work, struct f_qdss, connect_w);
 
 	/* If cable is already removed, discard connect_work */
+	spin_lock_irqsave(&qdss->lock, flags);
 	if (qdss->usb_connected == 0) {
 		qdss_log("%s: discard connect_work\n", __func__);
+		spin_unlock_irqrestore(&qdss->lock, flags);
 		cancel_work_sync(&qdss->disconnect_w);
 		return;
 	}
 
 	qdss_log("%s: channel name = %s\n", __func__, qdss->ch.name);
 
-	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MDM))
+	if (!strcmp(qdss->ch.name, USB_QDSS_CH_MDM)) {
+		spin_unlock_irqrestore(&qdss->lock, flags);
 		goto notify;
+	}
 
+	spin_unlock_irqrestore(&qdss->lock, flags);
 	status = set_qdss_data_connection(qdss, 1);
 	if (status) {
 		pr_err("set_qdss_data_connection error(%d)\n", status);
