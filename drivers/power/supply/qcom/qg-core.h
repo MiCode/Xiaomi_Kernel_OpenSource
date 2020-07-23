@@ -59,6 +59,7 @@ struct qg_dt {
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
 	int			tcss_entry_soc;
+	int			esr_low_temp_threshold;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
