@@ -1,6 +1,9 @@
 CONFIG_DIR=arch/${ARCH}/configs
 CC="${ROOT_DIR}/common/scripts/gcc-wrapper.py ${CC}"
 
+BRANCH=msm-waipio
+CONFIG_TARGET=msm.${MSM_ARCH}
+
 ################################################################################
 ## DTB general support
 DTB_DIR=vendor/qcom
@@ -37,6 +40,11 @@ fi
 
 if [ ! -z $VARIANT ]; then
 	BRANCH+=-${VARIANT}
+fi
+
+if ( for v in "${VARIANTS[@]}"; do if [ "${v}" = "${VARIANT}" ]; then exit 1; fi; done; exit 0 ) ; then
+	echo "Unsupported variant '${VARIANT}'"
+	exit 1
 fi
 
 ################################################################################
