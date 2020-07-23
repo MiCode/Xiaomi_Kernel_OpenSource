@@ -1021,17 +1021,12 @@ static int online_memory_one_block(struct memory_block *mem, void *arg)
 
 bool try_online_one_block(int nid)
 {
-	struct zone *zone = &NODE_DATA(nid)->node_zones[ZONE_MOVABLE];
-	unsigned long zone_start, zone_size;
 	bool onlined_block = false;
 
-	lock_device_hotplug();
+	if (!trylock_device_hotplug())
+		return false;
 
-	zone_start = PFN_PHYS(zone->zone_start_pfn);
-	zone_size = zone->spanned_pages << PAGE_SHIFT;
-	walk_memory_blocks(zone_start, zone_size, &onlined_block,
-			   online_memory_one_block);
-
+	for_each_memory_block(&onlined_block, online_memory_one_block);
 	unlock_device_hotplug();
 	return onlined_block;
 }
