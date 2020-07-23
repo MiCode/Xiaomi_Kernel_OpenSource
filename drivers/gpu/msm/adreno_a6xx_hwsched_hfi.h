@@ -113,6 +113,8 @@ struct a6xx_hwsched_hfi {
 	u32 irq_mask;
 };
 
+struct kgsl_drawobj_cmd;
+
 /**
  * a6xx_hwsched_hfi_probe - Probe hwsched hfi resources
  * @adreno_dev: Pointer to adreno device structure
@@ -172,4 +174,18 @@ int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev);
  * Return: 0 on success and negative error on failure.
  */
 int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
+
+/**
+ * a6xx_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
+ * @adreno_dev: Pointer to adreno device structure
+ * @flags: Flags associated with the submission
+ * @cmdobj: The command object which needs to be submitted
+ *
+ * This function is used to register the context if needed and submit
+ * IBs to the hfi dispatch queues.
+
+ * Return: 0 on success and negative error on failure
+ */
+int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
+	struct kgsl_drawobj_cmd *cmdobj);
 #endif

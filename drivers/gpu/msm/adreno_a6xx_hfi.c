@@ -138,6 +138,15 @@ int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, uint32_t queue_idx,
 
 	hdr->write_index = write;
 
+	return 0;
+}
+
+int a6xx_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg)
+{
+	int ret;
+
+	ret = a6xx_hfi_queue_write(adreno_dev, HFI_CMD_ID, msg);
+
 	/*
 	 * Memory barrier to make sure packet and write index are written before
 	 * an interrupt is raised
@@ -145,10 +154,12 @@ int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, uint32_t queue_idx,
 	wmb();
 
 	/* Send interrupt to GMU to receive the message */
-	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_HOST2GMU_INTR_SET,
-		0x1);
+	if (!ret)
+		gmu_core_regwrite(KGSL_DEVICE(adreno_dev),
+			A6XX_GMU_HOST2GMU_INTR_SET,
+			0x1);
 
-	return 0;
+	return ret;
 }
 
 /* Sizes of the queue and message are in unit of dwords */
@@ -281,7 +292,7 @@ static int poll_gmu_reg(struct adreno_device *adreno_dev,
 }
 
 static int a6xx_hfi_send_cmd_wait_inline(struct adreno_device *adreno_dev,
-	uint32_t queue_idx, void *data, struct pending_cmd *ret_cmd)
+	void *data, struct pending_cmd *ret_cmd)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -292,11 +303,11 @@ static int a6xx_hfi_send_cmd_wait_inline(struct adreno_device *adreno_dev,
 
 	*cmd = MSG_HDR_SET_SEQNUM(*cmd, seqnum);
 	if (ret_cmd == NULL)
-		return a6xx_hfi_queue_write(adreno_dev, queue_idx, cmd);
+		return a6xx_hfi_cmdq_write(adreno_dev, cmd);
 
 	ret_cmd->sent_hdr = cmd[0];
 
-	rc = a6xx_hfi_queue_write(adreno_dev, queue_idx, cmd);
+	rc = a6xx_hfi_cmdq_write(adreno_dev, cmd);
 	if (rc)
 		return rc;
 
@@ -322,15 +333,14 @@ static int a6xx_hfi_send_cmd_wait_inline(struct adreno_device *adreno_dev,
 
 #define HFI_ACK_ERROR 0xffffffff
 
-int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
-		uint32_t queue, void *cmd)
+int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd)
 {
 	struct pending_cmd ret_cmd;
 	int rc;
 
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
-	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, queue, cmd, &ret_cmd);
+	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, cmd, &ret_cmd);
 
 	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
 		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -356,7 +366,7 @@ static int a6xx_hfi_send_gmu_init(struct adreno_device *adreno_dev)
 		.boot_state = 0x1,
 	};
 
-	return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, &cmd);
+	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
 
 static int a6xx_hfi_get_fw_version(struct adreno_device *adreno_dev,
@@ -372,8 +382,7 @@ static int a6xx_hfi_get_fw_version(struct adreno_device *adreno_dev,
 
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
-	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, HFI_CMD_ID, &cmd,
-			&ret_cmd);
+	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, &cmd, &ret_cmd);
 	if (rc)
 		return rc;
 
@@ -394,7 +403,7 @@ int a6xx_hfi_send_core_fw_start(struct adreno_device *adreno_dev)
 		.handle = 0x0,
 	};
 
-	return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, &cmd);
+	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
 
 static const char * const a6xx_hfi_features[] = {
@@ -423,7 +432,7 @@ int a6xx_hfi_send_feature_ctrl(struct adreno_device *adreno_dev,
 	};
 	int ret;
 
-	ret = a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, &cmd);
+	ret = a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 	if (ret)
 		dev_err(&gmu->pdev->dev,
 				"Unable to %s feature %s (%d)\n",
@@ -454,7 +463,7 @@ static int a6xx_hfi_send_dcvstbl_v1(struct adreno_device *adreno_dev)
 	cmd.cx_votes[1].vote = table->cx_votes[1].vote;
 	cmd.cx_votes[1].freq = table->cx_votes[1].freq;
 
-	return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, &cmd);
+	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
 
 static int a6xx_hfi_send_get_value(struct adreno_device *adreno_dev,
@@ -468,8 +477,7 @@ static int a6xx_hfi_send_get_value(struct adreno_device *adreno_dev,
 
 	cmd->hdr = CMD_MSG_HDR(H2F_MSG_GET_VALUE, sizeof(*cmd));
 
-	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, HFI_CMD_ID, cmd,
-			&ret_cmd);
+	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, cmd, &ret_cmd);
 	if (rc)
 		return rc;
 
@@ -485,7 +493,7 @@ static int a6xx_hfi_send_test(struct adreno_device *adreno_dev)
 		.hdr = CMD_MSG_HDR(H2F_MSG_TEST, sizeof(cmd)),
 	};
 
-	return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, &cmd);
+	return a6xx_hfi_send_generic_req(adreno_dev, &cmd);
 }
 
 static void receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd)
@@ -655,7 +663,7 @@ int a6xx_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 	int ret = 0;
 
 	if (adreno_dev->acd_enabled) {
-		ret = a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID,
+		ret = a6xx_hfi_send_generic_req(adreno_dev,
 			&gmu->hfi.acd_table);
 		if (!ret)
 			ret = a6xx_hfi_send_feature_ctrl(adreno_dev,
@@ -702,13 +710,12 @@ int a6xx_hfi_start(struct adreno_device *adreno_dev)
 	if (GMU_VER_MAJOR(gmu->ver.hfi) < 2)
 		result = a6xx_hfi_send_dcvstbl_v1(adreno_dev);
 	else
-		result = a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID,
+		result = a6xx_hfi_send_generic_req(adreno_dev,
 			&gmu->hfi.dcvs_table);
 	if (result)
 		goto err;
 
-	result = a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID,
-			&gmu->hfi.bw_table);
+	result = a6xx_hfi_send_generic_req(adreno_dev, &gmu->hfi.bw_table);
 	if (result)
 		goto err;
 
@@ -795,7 +802,7 @@ int a6xx_hfi_send_req(struct adreno_device *adreno_dev, unsigned int id,
 
 		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
 
-		return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, cmd);
+		return a6xx_hfi_send_generic_req(adreno_dev, cmd);
 	}
 	case H2F_MSG_PREPARE_SLUMBER: {
 		struct hfi_prep_slumber_cmd *cmd = data;
@@ -805,14 +812,14 @@ int a6xx_hfi_send_req(struct adreno_device *adreno_dev, unsigned int id,
 
 		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
 
-		return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, cmd);
+		return a6xx_hfi_send_generic_req(adreno_dev, cmd);
 	}
 	case H2F_MSG_START: {
 		struct hfi_start_cmd *cmd = data;
 
 		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
 
-		return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, cmd);
+		return a6xx_hfi_send_generic_req(adreno_dev, cmd);
 	}
 	case H2F_MSG_GET_VALUE: {
 		return a6xx_hfi_send_get_value(adreno_dev, data);
@@ -822,7 +829,7 @@ int a6xx_hfi_send_req(struct adreno_device *adreno_dev, unsigned int id,
 
 		cmd->hdr = CMD_MSG_HDR(id, sizeof(*cmd));
 
-		return a6xx_hfi_send_generic_req(adreno_dev, HFI_CMD_ID, cmd);
+		return a6xx_hfi_send_generic_req(adreno_dev, cmd);
 	}
 	default:
 		break;

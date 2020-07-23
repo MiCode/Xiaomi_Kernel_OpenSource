@@ -493,6 +493,7 @@ struct hfi_context_pointers_cmd {
 	uint32_t ctxt_id;
 	uint64_t sop_addr;
 	uint64_t eop_addr;
+	u64 user_ctxt_record_addr;
 } __packed;
 
 /* H2F */
@@ -516,6 +517,16 @@ struct hfi_context_bad_reply_cmd {
 	uint32_t hdr;
 	uint32_t req_hdr;
 } __packed;
+
+/* H2F */
+struct hfi_submit_cmd {
+	u32 hdr;
+	u32 ctxt_id;
+	u32 flags;
+	u32 ts;
+	u32 numibs;
+} __packed;
+
 
 /**
  * struct pending_cmd - data structure to track outstanding HFI
@@ -668,13 +679,11 @@ int a6xx_hfi_send_lm_feature_ctrl(struct adreno_device *adreno_dev);
 /**
  * a6xx_hfi_send_generic_req -  Send a generic hfi packet
  * @adreno_dev: Pointer to the adreno device
- * @queue: The destination hfi queue
  * @cmd: Pointer to the hfi packet header and data
  *
  * Return: 0 on success or negative error on failure
  */
-int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev,
-	u32 queue, void *cmd);
+int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd);
 
 /**
  * a6xx_hfi_send_bcl_feature_ctrl -  Send the bcl feature hfi packet
@@ -694,4 +703,13 @@ int a6xx_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev);
  */
 int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
 	u32 queue_idx, struct pending_cmd *ret_cmd);
+
+/**
+ * a6xx_hfi_cmdq_write - Write a command to command queue
+ * @adreno_dev: Pointer to the adreno device
+ * @msg: Data to be written to the queue
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int a6xx_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg);
 #endif
