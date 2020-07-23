@@ -186,6 +186,31 @@ struct cpu_gpu_lock {
 /* Size of the CP_INIT pm4 stream in dwords */
 #define A6XX_CP_INIT_DWORDS 12
 
+#define A6XX_INT_MASK \
+	((1 << A6XX_INT_CP_AHB_ERROR) |			\
+	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
+	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
+	 (1 << A6XX_INT_CP_SW) |			\
+	 (1 << A6XX_INT_CP_HW_ERROR) |			\
+	 (1 << A6XX_INT_CP_IB2) |			\
+	 (1 << A6XX_INT_CP_IB1) |			\
+	 (1 << A6XX_INT_CP_RB) |			\
+	 (1 << A6XX_INT_CP_CACHE_FLUSH_TS) |		\
+	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
+	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
+	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
+	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A6XX_INT_TSB_WRITE_ERROR))
+
+#define A6XX_HWSCHED_INT_MASK \
+	((1 << A6XX_INT_CP_AHB_ERROR) |			\
+	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
+	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
+	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
+	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
+	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A6XX_INT_TSB_WRITE_ERROR))
+
 /**
  * to_a6xx_core - return the a6xx specific GPU core struct
  * @adreno_dev: An Adreno GPU device handle

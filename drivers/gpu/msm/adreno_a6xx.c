@@ -17,22 +17,6 @@
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
 
-#define A6XX_INT_MASK \
-	((1 << A6XX_INT_CP_AHB_ERROR) |			\
-	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
-	 (1 << A6XX_INT_CP_SW) |			\
-	 (1 << A6XX_INT_CP_HW_ERROR) |			\
-	 (1 << A6XX_INT_CP_IB2) |			\
-	 (1 << A6XX_INT_CP_IB1) |			\
-	 (1 << A6XX_INT_CP_RB) |			\
-	 (1 << A6XX_INT_CP_CACHE_FLUSH_TS) |		\
-	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
-	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
-	 (1 << A6XX_INT_TSB_WRITE_ERROR))
-
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
 	A6XX_VSC_ADDR_MODE_CNTL,
@@ -438,8 +422,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	unsigned int amsbc = 0;
 	unsigned int rgb565_predicator = 0;
 	static bool patch_reglist;
-
-	adreno_dev->irq_mask = A6XX_INT_MASK;
 
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
@@ -2531,6 +2513,8 @@ static int a6xx_probe(struct platform_device *pdev,
 	timer_setup(&device->idle_timer, kgsl_timer, 0);
 
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
+
+	adreno_dev->irq_mask = A6XX_INT_MASK;
 
 	return 0;
 }

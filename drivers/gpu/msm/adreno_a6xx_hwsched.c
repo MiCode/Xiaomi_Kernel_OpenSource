@@ -705,6 +705,8 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
 
 	timer_setup(&device->idle_timer, hwsched_idle_timer, 0);
 
+	adreno_dev->irq_mask = A6XX_HWSCHED_INT_MASK;
+
 	return 0;
 }
 
