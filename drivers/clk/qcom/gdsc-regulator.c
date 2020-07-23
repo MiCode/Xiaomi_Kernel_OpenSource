@@ -10,6 +10,7 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/debug-regulator.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
@@ -803,6 +804,11 @@ static int gdsc_probe(struct platform_device *pdev)
 	ret = devm_regulator_proxy_consumer_register(dev, dev->of_node);
 	if (ret)
 		dev_err(dev, "failed to register proxy consumer, ret=%d\n",
+			ret);
+
+	ret = devm_regulator_debug_register(dev, sc->rdev);
+	if (ret)
+		dev_err(dev, "failed to register debug regulator, ret=%d\n",
 			ret);
 
 	platform_set_drvdata(pdev, sc);

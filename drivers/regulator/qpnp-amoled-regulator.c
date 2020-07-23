@@ -10,6 +10,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/regulator/debug-regulator.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
@@ -472,6 +473,13 @@ static int qpnp_amoled_regulator_register(struct qpnp_amoled *chip,
 			pr_err("Failed to register amoled regulator for type %d rc = %d\n",
 				type, rc);
 			return rc;
+		}
+
+		rc = devm_regulator_debug_register(chip->dev, rdev);
+		if (rc) {
+			pr_err("failed to register debug regulator rc=%d\n",
+				rc);
+			rc = 0;
 		}
 
 		if (type == OLEDB)

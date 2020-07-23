@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
+#include <linux/regulator/debug-regulator.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
@@ -687,6 +688,10 @@ static int pm8008_register_ldo(struct pm8008_regulator *pm8008_reg,
 		}
 	}
 
+	rc = devm_regulator_debug_register(dev, pm8008_reg->rdev);
+	if (rc)
+		pr_err("failed to register debug regulator rc=%d\n", rc);
+
 	pr_debug("%s regulator registered\n", name);
 
 	return 0;
@@ -854,6 +859,10 @@ static int pm8008_chip_init_regulator(struct pm8008_chip *chip)
 		chip->rdev = NULL;
 		return rc;
 	}
+
+	rc = devm_regulator_debug_register(chip->dev, chip->rdev);
+	if (rc)
+		pr_err("failed to register debug regulator rc=%d\n", rc);
 
 	return 0;
 }

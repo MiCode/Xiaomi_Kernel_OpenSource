@@ -2,3 +2,4 @@ clk-dummy.ko
 clk-qcom.ko
 pinctrl-waipio.ko
 stub-regulator.ko
+debug-regulator.ko
