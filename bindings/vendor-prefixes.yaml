@@ -899,7 +899,7 @@ patternProperties:
     description: Sun Microsystems, Inc
   "^swir,.*":
     description: Sierra Wireless
-  "^syna,.*":
+  "^synaptics,.*":
     description: Synaptics Inc.
   "^synology,.*":
     description: Synology, Inc.
