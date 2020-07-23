@@ -714,20 +714,6 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-void a6xx_preemption_context_destroy(struct kgsl_context *context)
-{
-	struct kgsl_device *device = context->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	if (!adreno_is_preemption_enabled(adreno_dev))
-		return;
-
-	gpumem_free_entry(context->user_ctxt_record);
-
-	/* Put the extra ref from gpumem_alloc_entry() */
-	kgsl_mem_entry_put(context->user_ctxt_record);
-}
-
 int a6xx_preemption_context_init(struct kgsl_context *context)
 {
 	struct kgsl_device *device = context->device;

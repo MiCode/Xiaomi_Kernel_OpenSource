@@ -191,4 +191,13 @@ int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
  */
 int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, u32 flags,
 	struct kgsl_drawobj_cmd *cmdobj);
+
+/**
+ * a6xx_hwsched_context_detach - Unregister a context with GMU
+ * @drawctxt: Pointer to the adreno context
+ *
+ * This function sends context unregister HFI and waits for the ack
+ * to ensure all submissions from this context have retired
+ */
+void a6xx_hwsched_context_detach(struct adreno_context *drawctxt);
 #endif

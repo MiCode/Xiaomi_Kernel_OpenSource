@@ -911,3 +911,84 @@ free:
 
 	return ret;
 }
+
+static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
+	u32 ctxt_id, u32 ts)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct pending_cmd pending_ack;
+	struct hfi_unregister_ctxt_cmd cmd;
+	u32 seqnum;
+	int rc;
+
+	cmd.hdr = CMD_MSG_HDR(H2F_MSG_UNREGISTER_CONTEXT, sizeof(cmd));
+	cmd.ctxt_id = ctxt_id,
+	cmd.ts = ts,
+
+	seqnum = atomic_inc_return(&gmu->hfi.seqnum);
+	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
+
+	add_waiter(hfi, cmd.hdr, &pending_ack);
+
+	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
+	if (rc)
+		goto done;
+
+	mutex_unlock(&device->mutex);
+
+	rc = wait_for_completion_timeout(&pending_ack.complete,
+			msecs_to_jiffies(30 * 1000));
+	if (!rc) {
+		dev_err(&gmu->pdev->dev,
+			"Ack timeout for context unregister seq: %d ctx: %d ts: %d\n",
+			MSG_HDR_GET_SEQNUM(pending_ack.sent_hdr),
+			ctxt_id, ts);
+		rc = -ETIMEDOUT;
+		mutex_lock(&device->mutex);
+		gmu_fault_snapshot(device);
+		goto done;
+	}
+
+	mutex_lock(&device->mutex);
+
+	rc = check_ack_failure(adreno_dev, &pending_ack);
+done:
+	del_waiter(hfi, &pending_ack);
+
+	return rc;
+}
+
+void a6xx_hwsched_context_detach(struct adreno_context *drawctxt)
+{
+	struct kgsl_context *context = &drawctxt->base;
+	struct kgsl_device *device = context->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	int ret = 0;
+
+	mutex_lock(&device->mutex);
+
+	/* Only send HFI if device is not in SLUMBER */
+	if (context->gmu_registered &&
+		test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		ret = send_context_unregister_hfi(adreno_dev, context->id,
+			drawctxt->internal_timestamp);
+
+	if (!ret) {
+		kgsl_sharedmem_writel(device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
+			drawctxt->timestamp);
+
+		kgsl_sharedmem_writel(device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
+			drawctxt->timestamp);
+
+		adreno_profile_process_results(adreno_dev);
+	}
+
+	context->gmu_registered = false;
+
+	mutex_unlock(&device->mutex);
+}

@@ -177,6 +177,21 @@ static void a6xx_hwsched_active_count_put(struct adreno_device *adreno_dev)
 	wake_up(&device->active_cnt_wq);
 }
 
+static int unregister_context_hwsched(int id, void *ptr, void *data)
+{
+	struct kgsl_context *context = ptr;
+
+	/*
+	 * We don't need to send the unregister hfi packet because
+	 * we are anyway going to lose the gmu state of registered
+	 * contexts. So just reset the flag so that the context
+	 * registers with gmu on its first submission post slumber.
+	 */
+	context->gmu_registered = false;
+
+	return 0;
+}
+
 static int a6xx_hwsched_notify_slumber(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -477,6 +492,10 @@ no_gx_power:
 
 	a6xx_hwsched_gmu_power_off(adreno_dev);
 
+	read_lock(&device->context_lock);
+	idr_for_each(&device->context_idr, unregister_context_hwsched, NULL);
+	read_unlock(&device->context_lock);
+
 	if (!IS_ERR_OR_NULL(adreno_dev->gpu_llc_slice))
 		llcc_slice_deactivate(adreno_dev->gpu_llc_slice);
 
@@ -695,9 +714,13 @@ static int a6xx_hwsched_bind(struct device *dev, struct device *master,
 
 	ret = a6xx_hwsched_hfi_probe(ADRENO_DEVICE(device));
 
+	if (!ret) {
+		set_bit(GMU_DISPATCH, &device->gmu_core.flags);
+		return 0;
+	}
+
 error:
-	if (ret)
-		a6xx_gmu_remove(device);
+	a6xx_gmu_remove(device);
 
 	return ret;
 }

@@ -806,7 +806,7 @@ struct adreno_gpudev {
 	int (*preemption_init)(struct adreno_device *adreno_dev);
 	void (*preemption_schedule)(struct adreno_device *adreno_dev);
 	int (*preemption_context_init)(struct kgsl_context *context);
-	void (*preemption_context_destroy)(struct kgsl_context *context);
+	void (*context_detach)(struct adreno_context *drawctxt);
 	void (*clk_set_options)(struct adreno_device *adreno_dev,
 				const char *name, struct clk *clk, bool on);
 	void (*pre_reset)(struct adreno_device *adreno_dev);
