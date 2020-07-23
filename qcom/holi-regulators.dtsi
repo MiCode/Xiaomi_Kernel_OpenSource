@@ -37,6 +37,18 @@
 					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
 			qcom,use-voltage-level;
 		};
+
+		VDD_GFX_LEVEL_AO:
+		S3A_LEVEL_AO: pm6350_s3_level_ao: regulator-s3-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm6350_s3_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
 	};
 
 	/* PM6350 L1 - VDD_MX supply */
