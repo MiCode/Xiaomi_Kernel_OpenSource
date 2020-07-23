@@ -1740,7 +1740,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 			else
 				goto out1;
 		}
-		dev_err(dwc->dev, "request %pK was not queued to %s\n",
+		dev_err_ratelimited(dwc->dev, "request %pK was not queued to %s\n",
 				request, ep->name);
 		ret = -EINVAL;
 		goto out0;
