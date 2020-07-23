@@ -28,6 +28,7 @@
 #define CQ_DCMD		0x00001000
 #define CQ_TASK_DESC_SZ 0x00000100
 #define CQ_ENABLE	0x00000001
+#define CQ_ICE_ENABLE	0x00000002
 
 /* control */
 #define CQCTL		0x0C
@@ -147,6 +148,14 @@
 #define DAT_LENGTH(x)	((x & 0xFFFF) << 16)
 #define DAT_ADDR_LO(x)	((x & 0xFFFFFFFF) << 32)
 #define DAT_ADDR_HI(x)	((x & 0xFFFFFFFF) << 0)
+#define DATA_UNIT_NUM(x)	(((u64)(x) & 0xFFFFFFFF) << 0)
+#define CRYPTO_CONFIG_INDEX(x)	(((u64)(x) & 0xFF) << 32)
+#define CRYPTO_ENABLE(x)	(((u64)(x) & 0x1) << 47)
+
+/* ICE context is present in the upper 64bits of task descriptor */
+#define CQ_TASK_DESC_ICE_PARAM_OFFSET	8
+/* ICE descriptor size */
+#define CQ_TASK_DESC_ICE_PARAMS_SIZE	8
 
 /*
  * Add new macro for updated CQ vendor specific
@@ -247,6 +256,7 @@ struct task_history {
 struct cmdq_host {
 	const struct cmdq_host_ops *ops;
 	void __iomem *mmio;
+	void __iomem *icemmio;
 	struct mmc_host *mmc;
 
 	/* 64 bit DMA */
@@ -256,6 +266,7 @@ struct cmdq_host {
 	u32 dcmd_slot;
 	u32 caps;
 #define CMDQ_TASK_DESC_SZ_128 0x1
+#define CMDQ_CAP_CRYPTO_SUPPORT 0x2
 
 	u32 quirks;
 #define CMDQ_QUIRK_SHORT_TXFR_DESC_SZ 0x1
@@ -290,6 +301,15 @@ struct cmdq_host {
 	struct completion halt_comp;
 	struct mmc_request **mrq_slot;
 	void *private;
+	const struct cmdq_host_crypto_variant_ops *crypto_vops;
+#ifdef CONFIG_MMC_CQ_HCI_CRYPTO
+	union cmdq_crypto_capabilities crypto_capabilities;
+	union cmdq_crypto_cap_entry *crypto_cap_array;
+	u32 crypto_cfg_register;
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	struct keyslot_manager *ksm;
+#endif /* CONFIG_BLK_INLINE_ENCRYPTION */
+#endif /* CONFIG_SCSI_CQHCI_CRYPTO */
 };
 
 struct cmdq_host_ops {
