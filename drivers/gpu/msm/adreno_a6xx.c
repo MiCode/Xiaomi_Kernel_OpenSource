@@ -627,7 +627,7 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
-		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x90);
+		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x66906);
 	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
