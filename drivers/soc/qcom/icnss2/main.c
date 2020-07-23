@@ -2923,6 +2923,7 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 	int ret = 0;
 	struct platform_device *pdev = priv->pdev;
 	struct device *dev = &pdev->dev;
+	const char *iommu_dma_type;
 	struct resource *res;
 	u32 addr_win[2];
 
@@ -2942,6 +2943,13 @@ static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 
 		priv->iommu_domain =
 			iommu_get_domain_for_dev(&pdev->dev);
+
+		ret = of_property_read_string(dev->of_node, "qcom,iommu-dma",
+					      &iommu_dma_type);
+		if (!ret && !strcmp("fastmap", iommu_dma_type)) {
+			icnss_pr_dbg("SMMU S1 stage enabled\n");
+			priv->smmu_s1_enable = true;
+		}
 
 		res = platform_get_resource_byname(pdev,
 						   IORESOURCE_MEM,
