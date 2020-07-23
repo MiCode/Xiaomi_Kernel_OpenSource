@@ -31,6 +31,14 @@ enum adreno_hwsched_flags {
 };
 
 /**
+ * adreno_hwsched_trigger - Function to schedule the hwsched thread
+ * @adreno_dev: A handle to adreno device
+ *
+ * Schedule the hw dispatcher for retiring and submitting command objects
+ */
+void adreno_hwsched_trigger(struct adreno_device *adreno_dev);
+
+/**
  * adreno_hwsched_queue_cmds() - Queue a new draw object in the context
  * @dev_priv: Pointer to the device private struct
  * @context: Pointer to the kgsl draw context

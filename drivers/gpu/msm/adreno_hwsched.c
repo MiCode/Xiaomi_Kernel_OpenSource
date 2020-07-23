@@ -526,7 +526,7 @@ static void hwsched_issuecmds(struct adreno_device *adreno_dev)
 		hwsched_handle_jobs(adreno_dev, i);
 }
 
-static void adreno_hwsched_trigger(struct adreno_device *adreno_dev)
+void adreno_hwsched_trigger(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 
