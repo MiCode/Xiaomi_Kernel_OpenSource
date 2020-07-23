@@ -708,7 +708,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_encoder_wait_info wait_info = {NULL};
+	struct sde_encoder_wait_info wait_info = {0};
 	bool recovery_events;
 	int ret;
 
@@ -761,7 +761,7 @@ static int _sde_encoder_phys_cmd_wait_for_autorefresh_done(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_encoder_wait_info wait_info = {NULL};
+	struct sde_encoder_wait_info wait_info = {0};
 	int ret = 0;
 
 	if (!phys_enc) {
@@ -1386,7 +1386,7 @@ static int _sde_encoder_phys_cmd_wait_for_wr_ptr(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	struct sde_encoder_wait_info wait_info = {NULL};
+	struct sde_encoder_wait_info wait_info = {0};
 	int ret;
 	bool frame_pending = true;
 	struct sde_hw_ctl *ctl;
@@ -1536,7 +1536,7 @@ static int sde_encoder_phys_cmd_wait_for_vblank(
 {
 	int rc = 0;
 	struct sde_encoder_phys_cmd *cmd_enc;
-	struct sde_encoder_wait_info wait_info = {NULL};
+	struct sde_encoder_wait_info wait_info = {0};
 
 	if (!phys_enc)
 		return -EINVAL;
