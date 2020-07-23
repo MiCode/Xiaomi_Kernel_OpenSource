@@ -149,4 +149,12 @@
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
 	};
+
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&apps_smmu 0x0af 0x0>;
+		qcom,iommu-dma = "disabled";
+		qcom,usb-audio-stream-id = <0xf>;
+		qcom,usb-audio-intr-num = <2>;
+	};
 };
