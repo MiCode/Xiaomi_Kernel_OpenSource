@@ -4,6 +4,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interconnect/qcom,sdxlemur.h>
+#include <dt-bindings/soc/qcom,rpmh-rsc.h>
 
 / {
 	#address-cells = <1>;
@@ -24,6 +25,12 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
+
+	cmd_db: reserved-memory@8fe20000 {
+		compatible = "qcom,cmd-db";
+		no-map;
+		reg = <0x8fe20000 0x20000>;
+	};
 
 		peripheral2_mem: peripheral2_region@8fd00000 {
 			no-map;
@@ -46,6 +53,8 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0x0>;
+			enable-method = "psci";
+			cpu-idle-states = <&A7_SPC &A7_PC &CX_MIN>;
 		};
 	};
 
@@ -274,6 +283,35 @@
 		#reset-cells = <1>;
 	};
 
+	apps_rsc: rsc@17830000 {
+		label = "apps_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0x17830000 0x10000>,
+		      <0x17840000 0x10000>;
+		reg-names = "drv-0", "drv-1";
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,tcs-offset = <0xd00>;
+		qcom,drv-id = <1>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				  <SLEEP_TCS   2>,
+				  <WAKE_TCS    2>,
+				  <CONTROL_TCS 1>;
+
+		system_pm {
+			compatible = "qcom,system-pm";
+		};
+	};
+
+	pdc: interrupt-controller@b210000 {
+		compatible = "qcom,sdxlemur-pdc";
+		reg = <0xb210000 0x30000>;
+		qcom,pdc-ranges = <0 147 52>, <52 266 32>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
 	 /* GCC GDSCs */
 	gcc_pcie_gdsc: qcom,gdsc@143004 {
 		compatible = "regulator-fixed";
@@ -470,3 +508,4 @@
 #include "sdxlemur-pinctrl.dtsi"
 #include "sdxlemur-stub-regulator.dtsi"
 #include "sdxlemur-usb.dtsi"
+#include "sdxlemur-pm.dtsi"

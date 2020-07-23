@@ -12,6 +12,7 @@
 		interrupt-controller;
 		interrupt-parent = <&intc>;
 		#interrupt-cells = <2>;
+		wakeup-parent = <&pdc>;
 
 		uart3_console_active: uart3_console_active {
 			mux {
