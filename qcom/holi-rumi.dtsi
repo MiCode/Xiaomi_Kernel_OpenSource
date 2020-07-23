@@ -1,3 +1,4 @@
+#include <dt-bindings/gpio/gpio.h>
 &soc {
 	timer {
 		clock-frequency = <500000>;
@@ -41,6 +42,46 @@
 		maximum-speed = "high-speed";
 		dr_mode = "peripheral";
 	};
+};
+
+&sdhc_1 {
+	status = "ok";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+
+	cap-mmc-highspeed;
+
+	vdd-supply = <&L7E>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L12A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+};
+
+&sdhc_2 {
+	status = "ok";
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+
+	cap-sd-highspeed;
+
+	vdd-supply = <&L9E>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&L6E>;
+	qcom,vdd-io-voltage-level = <2960000 2960000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	cd-gpios = <&tlmm 94 GPIO_ACTIVE_LOW>;
 };
 
 &ufsphy_mem {

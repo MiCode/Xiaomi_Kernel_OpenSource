@@ -22,6 +22,9 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded  UFS Slot */
+
+		sdhc1 = &sdhc_1; /*SDC1 eMMC slot*/
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		serial0 = &qupv3_se9_2uart;
 		hsuart0 = &qupv3_se1_4uart;
 	};
@@ -1514,6 +1517,48 @@
 		reset-gpios = <&tlmm 156 GPIO_ACTIVE_LOW>;
 		//resets = <&gcc GCC_UFS_PHY_BCR>;
 		//reset-names = "rst";
+		status = "disabled";
+	};
+
+	sdhc_1: sdhci@4744000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x04744000 0x1000>, <0x04745000 0x1000>;
+		reg-names = "hc_mem", "cqhci_mem";
+
+		iommus = <&apps_smmu 0x20 0x0>;
+		qcom,iommu-dma = "bypass";
+
+		interrupts = <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		clocks = <&gcc GCC_SDCC1_APPS_CLK>, <&gcc GCC_SDCC1_AHB_CLK>;
+		clock-names = "core", "iface";
+
+		bus-width = <8>;
+		non-removable;
+		supports-cqe;
+
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@4784000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x04784000 0x1000>;
+		reg-names = "hc_mem";
+
+		interrupts = <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		clocks = <&gcc GCC_SDCC2_APPS_CLK>, <&gcc GCC_SDCC2_AHB_CLK>;
+		clock-names = "core", "iface";
+
+		bus-width = <4>;
+
+		iommus = <&apps_smmu 0x40 0x0>;
+		qcom,iommu-dma = "bypass";
+
 		status = "disabled";
 	};
 
