@@ -397,6 +397,11 @@ struct kgsl_context {
 	unsigned int total_fault_count;
 	unsigned int last_faulted_cmd_ts;
 	bool gmu_registered;
+	/**
+	 * @gmu_dispatch_queue: dispatch queue id to which this context will be
+	 * submitted
+	 */
+	u32 gmu_dispatch_queue;
 };
 
 #define _context_comm(_c) \

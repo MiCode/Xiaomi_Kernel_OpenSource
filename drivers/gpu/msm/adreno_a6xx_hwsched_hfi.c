@@ -31,6 +31,20 @@
 		.write_index = 0, \
 }
 
+static struct dq_info {
+	/** @max_dq: Maximum number of dispatch queues per RB level */
+	u32 max_dq;
+	/** @base_dq_id: Base dqid for level */
+	u32 base_dq_id;
+	/** @offset: Next dqid to use for roundrobin context assignment */
+	u32 offset;
+} a6xx_hfi_dqs[KGSL_PRIORITY_MAX_RB_LEVELS] = {
+	{ 4, 0, }, /* RB0 */
+	{ 4, 4, }, /* RB1 */
+	{ 3, 8, }, /* RB2 */
+	{ 3, 11, }, /* RB3 */
+};
+
 static const char * const memkind_strings[] = {
 	[MEMKIND_GENERIC] = "GMU GENERIC",
 	[MEMKIND_RB] =  "GMU RB",
@@ -781,6 +795,25 @@ int a6xx_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 #define CTXT_FLAG_PREEMPT_STYLE_RB      1
 #define CTXT_FLAG_PREEMPT_STYLE_FG      2
 
+static u32 get_next_dq(u32 priority)
+{
+	struct dq_info *info = &a6xx_hfi_dqs[priority];
+	u32 next = info->base_dq_id + info->offset;
+
+	info->offset = (info->offset + 1) % info->max_dq;
+
+	return next;
+}
+
+static u32 get_dq_id(u32 priority)
+{
+	u32 level = priority / KGSL_PRIORITY_MAX_RB_LEVELS;
+
+	level = min_t(u32, level, KGSL_PRIORITY_MAX_RB_LEVELS - 1);
+
+	return get_next_dq(level);
+}
+
 static int send_context_register(struct adreno_device *adreno_dev,
 	struct kgsl_context *context)
 {
@@ -834,15 +867,17 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 	}
 
 	ret = send_context_pointers(adreno_dev, context);
-	if (ret)
+	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"Unable to register context %d pointers: %d\n",
 			context->id, ret);
+		return ret;
+	}
 
-	if (!ret)
-		context->gmu_registered = true;
+	context->gmu_registered = true;
+	context->gmu_dispatch_queue = get_dq_id(context->priority);
 
-	return ret;
+	return 0;
 }
 
 #define HFI_DSP_IRQ_BASE 2
@@ -898,7 +933,9 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 		}
 	}
 
-	ret = a6xx_hfi_queue_write(adreno_dev, HFI_DSP_ID_0, (u32 *)cmd);
+	ret = a6xx_hfi_queue_write(adreno_dev,
+		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
+		(u32 *)cmd);
 	if (ret)
 		goto free;
 
@@ -910,7 +947,7 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 
 	/* Send interrupt to GMU to receive the message */
 	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_HOST2GMU_INTR_SET,
-		DISPQ_IRQ_BIT(0));
+		DISPQ_IRQ_BIT(drawobj->context->gmu_dispatch_queue));
 
 free:
 	kvfree(cmd);
