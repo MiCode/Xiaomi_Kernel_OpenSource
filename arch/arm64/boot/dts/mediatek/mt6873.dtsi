@@ -353,7 +353,7 @@
 		idle-states {
 			entry-method = "arm,psci";
 			cpuoff_l: cpuoff_l {
-				//compatible = "arm,idle-state";
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00010001>;
 				local-timer-stop;
 				entry-latency-us = <50>;
@@ -361,7 +361,7 @@
 				min-residency-us = <1600>;
 			};
 			cpuoff_b: cpuoff_b {
-				//compatible = "arm,idle-state";
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00010001>;
 				local-timer-stop;
 				entry-latency-us = <50>;
@@ -369,7 +369,7 @@
 				min-residency-us = <1400>;
 			};
 			clusteroff_l: clusteroff_l {
-				//compatible = "arm,idle-state";
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010001>;
 				local-timer-stop;
 				entry-latency-us = <100>;
@@ -377,7 +377,7 @@
 				min-residency-us = <2100>;
 			};
 			clusteroff_b: clusteroff_b {
-				//compatible = "arm,idle-state";
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010001>;
 				local-timer-stop;
 				entry-latency-us = <100>;
@@ -385,7 +385,7 @@
 				min-residency-us = <1900>;
 			};
 			mcusysoff: mcusysoff {
-				//compatible = "arm,idle-state";
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010002>;
 				local-timer-stop;
 				entry-latency-us = <300>;
