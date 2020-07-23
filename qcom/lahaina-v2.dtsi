@@ -158,6 +158,12 @@
 		< 2814600 1593600000 >;
 };
 
+&cpu7_l3_computemon {
+	qcom,core-dev-table =
+		< 2726400 300000000 >,
+		< 2814600 1593600000 >;
+};
+
 &cpu0_cpu_llcc_latmon {
 	qcom,core-dev-table =
 		<  300000 MHZ_TO_MBPS( 150, 16) >,
