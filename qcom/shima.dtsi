@@ -2345,6 +2345,11 @@
 			reg = <0x1ed 0x1>;
 			bits = <5 1>;
 		};
+
+		adsp_variant: adsp_variant@6020 {
+			reg = <0x6022 0x1>;
+			bits = <2 4>;
+		};
 	};
 
 	wlan: qcom,cnss-qca6490@b0000000 {
