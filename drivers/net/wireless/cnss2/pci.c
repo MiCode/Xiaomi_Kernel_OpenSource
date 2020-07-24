@@ -4240,11 +4240,17 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 {
 	struct cnss_pci_data *pci_priv =
 		from_timer(pci_priv, t, dev_rddm_timer);
+	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
 
 	if (!pci_priv)
 		return;
 
 	cnss_fatal_err("Timeout waiting for RDDM notification\n");
+
+	if (mhi_get_exec_env(mhi_ctrl) == MHI_EE_PBL)
+		cnss_pr_err("Unable to collect ramdumps due to abrupt reset\n");
+
+	mhi_debug_reg_dump(mhi_ctrl);
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
