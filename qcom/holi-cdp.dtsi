@@ -1,0 +1,31 @@
+
+&ufsphy_mem {
+		compatible = "qcom,ufs-phy-qmp-v3";
+
+		vdda-phy-supply = <&L18A>;
+		vdda-pll-supply = <&L22A>;
+		vdda-phy-max-microamp = <62900>;
+		vdda-pll-max-microamp = <18300>;
+
+		status = "ok";
+};
+
+&ufshc_mem {
+		vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+		vdd-hba-fixed-regulator;
+
+		vcc-supply = <&L7E>;
+		vcc-voltage-level = <2950000 2960000>;
+		vcc-max-microamp = <800000>;
+
+		vccq2-supply = <&L12A>;
+		vccq2-max-microamp = <800000>;
+
+		qcom,vddp-ref-clk-supply = <&L22A>;
+		qcom,vddp-ref-clk-max-microamp = <100>;
+
+		/* put vdd-ref-clk regulator to lpm */
+		qcom,vddp-ref-clk-min-uV = <0>;
+
+		status = "ok";
+};
