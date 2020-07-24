@@ -378,6 +378,7 @@ static void smblite_lib_update_usb_type(struct smb_charger *chg,
 					enum power_supply_type type)
 {
 	chg->real_charger_type = type;
+	smblite_update_usb_desc(chg);
 }
 
 static int smblite_lib_notifier_call(struct notifier_block *nb,
