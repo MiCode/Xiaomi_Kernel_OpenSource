@@ -601,17 +601,6 @@ void a6xx_hfi_stop(struct adreno_device *adreno_dev);
  */
 int a6xx_hfi_init(struct adreno_device *adreno_dev);
 
-/**
- * a6xx_hfi_send_req - Send an HFI packet to GMU
- * @adreno_dev: Pointer to the adreno device
- * @id: Packet id to be sent
- * @data: Container for the data sent as part of this pcket
- *
- * Return: 0 on success or negative error on failure
- */
-int a6xx_hfi_send_req(struct adreno_device *adreno_dev,
-	unsigned int id, void *data);
-
 /* Helper function to get to a6xx hfi struct from adreno device */
 struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev);
 
