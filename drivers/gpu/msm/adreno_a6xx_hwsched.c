@@ -199,7 +199,8 @@ static int a6xx_hwsched_notify_slumber(struct adreno_device *adreno_dev)
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct hfi_prep_slumber_cmd req;
 
-	req.hdr = CMD_MSG_HDR(H2F_MSG_PREPARE_SLUMBER, sizeof(req));
+	CMD_MSG_HDR(req, H2F_MSG_PREPARE_SLUMBER);
+
 	req.freq = gmu->hfi.dcvs_table.gpu_level_num -
 			pwr->default_pwrlevel - 1;
 	req.bw = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
@@ -600,7 +601,6 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct hfi_dcvstable_cmd *table = &gmu->hfi.dcvs_table;
 	struct hfi_gx_bw_perf_vote_cmd req = {
-		.hdr = CMD_MSG_HDR(H2F_MSG_GX_BW_PERF_VOTE, sizeof(req)),
 		.ack_type = DCVS_ACK_BLOCK,
 		.freq = INVALID_DCVS_IDX,
 		.bw = INVALID_DCVS_IDX,
@@ -627,6 +627,8 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 	/* GMU will vote for slumber levels through the sleep sequence */
 	if ((req.freq == INVALID_DCVS_IDX) && (req.bw == INVALID_DCVS_IDX))
 		return 0;
+
+	CMD_MSG_HDR(req, H2F_MSG_GX_BW_PERF_VOTE);
 
 	ret = a6xx_hfi_send_cmd_async(adreno_dev, &req);
 

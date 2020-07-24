@@ -583,7 +583,8 @@ static int send_start_msg(struct adreno_device *adreno_dev)
 	u32 rcvd[MAX_RCVD_SIZE];
 	struct pending_cmd pending_ack = {0};
 
-	cmd.hdr = CMD_MSG_HDR(H2F_MSG_START, sizeof(cmd));
+	CMD_MSG_HDR(cmd, H2F_MSG_START);
+
 	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
 
 	pending_ack.sent_hdr = cmd.hdr;
@@ -775,8 +776,9 @@ static int cp_init(struct adreno_device *adreno_dev)
 {
 	u32 cmds[A6XX_CP_INIT_DWORDS + 1];
 
-	cmds[0] = CMD_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
-			(A6XX_CP_INIT_DWORDS + 1) << 2);
+	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
+		(A6XX_CP_INIT_DWORDS + 1) << 2, HFI_MSG_CMD);
+
 	memcpy(&cmds[1], adreno_dev->cp_init_cmds, A6XX_CP_INIT_DWORDS << 2);
 
 	return submit_raw_cmds(adreno_dev, cmds,
@@ -787,7 +789,9 @@ static int send_switch_to_unsecure(struct adreno_device *adreno_dev)
 {
 	u32 cmds[3];
 
-	cmds[0] = CMD_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, sizeof(cmds));
+	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, sizeof(cmds),
+			HFI_MSG_CMD);
+
 	cmds[1] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 	cmds[2] = 0;
 
@@ -980,7 +984,8 @@ static int send_context_register(struct adreno_device *adreno_dev,
 	struct hfi_register_ctxt_cmd cmd;
 	struct kgsl_pagetable *pt = context->proc_priv->pagetable;
 
-	cmd.hdr = CMD_MSG_HDR(H2F_MSG_REGISTER_CONTEXT, sizeof(cmd));
+	CMD_MSG_HDR(cmd, H2F_MSG_REGISTER_CONTEXT);
+
 	cmd.ctxt_id = context->id;
 	cmd.flags = CTXT_FLAG_NOTIFY | context->flags;
 	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt);
@@ -996,7 +1001,7 @@ static int send_context_pointers(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_context_pointers_cmd cmd;
 
-	cmd.hdr = CMD_MSG_HDR(H2F_MSG_CONTEXT_POINTERS, sizeof(cmd));
+	CMD_MSG_HDR(cmd, H2F_MSG_CONTEXT_POINTERS);
 	cmd.ctxt_id = context->id;
 	cmd.sop_addr = MEMSTORE_ID_GPU_ADDR(device, context->id, soptimestamp);
 	cmd.eop_addr = MEMSTORE_ID_GPU_ADDR(device, context->id, eoptimestamp);
@@ -1071,11 +1076,15 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	/* Add a *issue_ib struct for each IB */
 	cmd_sizebytes = sizeof(*cmd) + (sizeof(*issue_ib) * numibs);
 
+	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
+		return -EMSGSIZE;
+
 	cmd = kvmalloc(cmd_sizebytes, GFP_KERNEL);
 	if (cmd == NULL)
 		return -ENOMEM;
 
-	cmd->hdr = CMD_MSG_HDR(H2F_MSG_ISSUE_CMD, cmd_sizebytes);
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD, cmd_sizebytes,
+			HFI_MSG_CMD);
 	cmd->hdr = MSG_HDR_SET_SEQNUM(cmd->hdr,
 			atomic_inc_return(&hfi->seqnum));
 
@@ -1150,7 +1159,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 	u32 seqnum;
 	int rc;
 
-	cmd.hdr = CMD_MSG_HDR(H2F_MSG_UNREGISTER_CONTEXT, sizeof(cmd));
+	CMD_MSG_HDR(cmd, H2F_MSG_UNREGISTER_CONTEXT);
 	cmd.ctxt_id = ctxt_id,
 	cmd.ts = ts,
 

@@ -8,7 +8,7 @@
 #define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16		/* dwords */
 #define MAX_RCVD_SIZE			(MAX_RCVD_PAYLOAD_SIZE + 3) /* dwords */
-#define HFI_MAX_MSG_SIZE		(SZ_1K>>2)	/* dwords */
+#define HFI_MAX_MSG_SIZE		(SZ_1K)
 
 #define HFI_CMD_ID 0
 #define HFI_MSG_ID 1
@@ -133,7 +133,6 @@ struct hfi_queue_header {
 /* Size is converted from Bytes to DWords */
 #define CREATE_MSG_HDR(id, size, type) \
 	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
-#define CMD_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_CMD)
 #define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
 
 #define HFI_QUEUE_DEFAULT_CNT 3
@@ -568,6 +567,13 @@ struct a6xx_hfi {
 	/** @dcvs_table: HFI table for gpu dcvs levels */
 	struct hfi_dcvstable_cmd dcvs_table;
 };
+
+#define CMD_MSG_HDR(cmd, id) \
+	do { \
+		if (WARN_ON((sizeof(cmd)) > HFI_MAX_MSG_SIZE)) \
+			return -EMSGSIZE; \
+		cmd.hdr = CREATE_MSG_HDR((id), (sizeof(cmd)), HFI_MSG_CMD); \
+	} while (0)
 
 struct a6xx_gmu_device;
 
