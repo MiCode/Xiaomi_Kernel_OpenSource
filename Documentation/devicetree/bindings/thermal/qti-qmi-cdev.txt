@@ -52,6 +52,7 @@ Subsystem properties:
 			"mmw_skin1" -> MMW skin mitigation device1,
 			"mmw_skin2" -> MMW skin mitigation device2,
 			"mmw_skin3" -> MMW skin mitigation device3,
+			"modem_v2x" -> modem CV2X mitigation device,
 			"cpr_cold" -> for cpr restriction,
 			"cdsp_sw" -> for CDSP DCVS mitigation device,
 			"cdsp_hw" -> for CDSP hardware mitigation device.
@@ -93,6 +94,11 @@ Example:
 
 			modem_cpr_cold: modem_cpr_cold {
 				qcom,qmi-dev-name = "cpr_cold";
+				#cooling-cells = <2>;
+			};
+
+			modem_v2x: modem_v2x {
+				qcom,qmi-dev-name = "modem_v2x";
 				#cooling-cells = <2>;
 			};
 		};
