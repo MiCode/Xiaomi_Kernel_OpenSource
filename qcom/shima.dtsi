@@ -2276,6 +2276,16 @@
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x104>;
 		};
+
+		pcu_reg {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0x164>;
+		};
+
+		fsm_data {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0x165>;
+		};
 	};
 
 	qfprom: qfprom@780000 {
