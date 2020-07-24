@@ -349,8 +349,8 @@ static struct usb_interface_descriptor rmnet_gsi_interface_desc = {
 	.bDescriptorType =	USB_DT_INTERFACE,
 	.bNumEndpoints =	3,
 	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
-	.bInterfaceSubClass =	USB_CLASS_VENDOR_SPEC,
-	.bInterfaceProtocol =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_SUBCLASS_VENDOR_SPEC,
+	.bInterfaceProtocol =	0x50,
 	/* .iInterface = DYNAMIC */
 };
 
@@ -1360,9 +1360,9 @@ static struct usb_interface_descriptor qdss_gsi_data_intf_desc = {
 	.bDescriptorType    =	USB_DT_INTERFACE,
 	.bAlternateSetting  =   0,
 	.bNumEndpoints      =	1,
-	.bInterfaceClass    =	0xff,
-	.bInterfaceSubClass =	0xff,
-	.bInterfaceProtocol =	0xff,
+	.bInterfaceClass    =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_SUBCLASS_VENDOR_SPEC,
+	.bInterfaceProtocol =	0x80,
 };
 
 static struct usb_endpoint_descriptor qdss_gsi_fs_data_desc = {
