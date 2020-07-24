@@ -106,6 +106,159 @@
 	};
 
 	soc: soc { };
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		hyp_mem: hyp_region@0x80000000 {
+			no-map;
+			reg = <0x0 0x80000000 0x0 0x600000>;
+		};
+
+		xbl_mem: xbl_region@0x80700000 {
+			no-map;
+			reg = <0x0 0x80700000 0x0 0x100000>;
+		};
+
+		aop_image_mem: aop_image_region@0x80800000 {
+			no-map;
+			reg = <0x0 0x80800000 0x0 0x60000>;
+		};
+
+		aop_cmd_db_mem: aop_cmd_db_region@0x80860000 {
+			no-map;
+			reg = <0x0 0x80860000 0x0 0x20000>;
+		};
+
+		tme_log_mem: tme_log_region@0x80880000 {
+			no-map;
+			reg = <0x0 0x80880000 0x0 0x4000>;
+		};
+
+		secdata_mem: secdata_region@0x808ff000 {
+			no-map;
+			reg = <0x0 0x808ff000 0x0 0x1000>;
+		};
+
+		smem_mem: smem_region@0x80900000 {
+			no-map;
+			reg = <0x0 0x80900000 0x0 0x200000>;
+		};
+
+		cpucp_fw_mem: cpucp_fw_region@0x80b00000 {
+			no-map;
+			reg = <0x0 0x80b00000 0x0 0x100000>;
+		};
+
+		cdsp_secure_heap_mem: cdsp_secure_heap_region@0x80c00000 {
+			no-map;
+			reg = <0x0 0x80c00000 0x0 0x4600000>;
+		};
+
+		camera_mem: camera_region@0x85200000 {
+			no-map;
+			reg = <0x0 0x85200000 0x0 0x500000>;
+		};
+
+		video_mem: video_region@0x85700000 {
+			no-map;
+			reg = <0x0 0x85700000 0x0 0x700000>;
+		};
+
+		cvp_mem: cvp_region@0x85e00000 {
+			no-map;
+			reg = <0x0 0x85e00000 0x0 0x500000>;
+		};
+
+		adsp_mem: adsp_region@0x86300000 {
+			no-map;
+			reg = <0x0 0x86300000 0x0 0x2100000>;
+		};
+
+		slpi_mem: slpi_region@0x88400000 {
+			no-map;
+			reg = <0x0 0x88400000 0x0 0x1500000>;
+		};
+
+		cdsp_mem: cdsp_region@0x89900000 {
+			no-map;
+			reg = <0x0 0x89900000 0x0 0x1e00000>;
+		};
+
+		ipa_fw_mem: ipa_fw_region@0x8b700000 {
+			no-map;
+			reg = <0x0 0x8b700000 0x0 0x10000>;
+		};
+
+		ipa_gsi_mem: ipa_gsi_region@0x8b710000 {
+			no-map;
+			reg = <0x0 0x8b710000 0x0 0xa000>;
+		};
+
+		gpu_micro_code_mem: gpu_micro_code_region@0x8b71a000 {
+			no-map;
+			reg = <0x0 0x8b71a000 0x0 0x2000>;
+		};
+
+		spss_region_mem: spss_region_region@0x8b800000 {
+			no-map;
+			reg = <0x0 0x8b800000 0x0 0x100000>;
+		};
+
+		mpss_mem: mpss_region@0x8bc00000 {
+			no-map;
+			reg = <0x0 0x8bc00000 0x0 0x13200000>;
+		};
+
+		/* uefi region can be reused by HLOS */
+
+		qheebsp_reserved_mem: qheebsp_reserved_region@0xe0000000 {
+			no-map;
+			reg = <0x0 0xe0000000 0x0 0x600000>;
+		};
+
+		debug_vm_mem: debug_vm_region@0xe0600000 {
+			no-map;
+			reg = <0x0 0xe0600000 0x0 0x100000>;
+		};
+
+		hyp_reserved_mem: hyp_reserved_region@0xe0700000 {
+			no-map;
+			reg = <0x0 0xe0700000 0x0 0x100000>;
+		};
+
+		trust_ui_vm_mem: trust_ui_vm_region@0xe0800000 {
+			no-map;
+			reg = <0x0 0xe0800000 0x0 0x8000000>;
+		};
+
+		tz_stat_mem: tz_stat_region@0xe8800000 {
+			no-map;
+			reg = <0x0 0xe8800000 0x0 0x100000>;
+		};
+
+		tags_mem: tags_region@0xe8900000 {
+			no-map;
+			reg = <0x0 0xe8900000 0x0 0x1200000>;
+		};
+
+		qtee_mem: qtee_region@0xe9b00000 {
+			no-map;
+			reg = <0x0 0xe9b00000 0x0 0x500000>;
+		};
+
+		trusted_apps_mem: trusted_apps_region@0xea000000 {
+			no-map;
+			reg = <0x0 0xea000000 0x0 0x3900000>;
+		};
+
+		trusted_apps_ext_mem: trusted_apps_ext_region@0xed900000 {
+			no-map;
+			reg = <0x0 0xed900000 0x0 0x1700000>;
+		};
+	};
 };
 
 &soc {
