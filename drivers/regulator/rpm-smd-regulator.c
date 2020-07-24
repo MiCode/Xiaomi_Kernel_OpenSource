@@ -1459,6 +1459,11 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 		goto fail_free_reg;
 	}
 
+	rc = of_property_read_u32(node, "qcom,min-dropout-voltage",
+		&val);
+	if (!rc)
+		reg->rdesc.min_dropout_uV = val;
+
 	reg->set_active = !!(val & RPM_SET_CONFIG_ACTIVE);
 	reg->set_sleep = !!(val & RPM_SET_CONFIG_SLEEP);
 
