@@ -60,6 +60,11 @@
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
 #define DWC3_GUCTL3_USB20_RETRY_DISABLE	BIT(16)
 #define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
+
+#define DWC3_LLUCTL	0xd024
+/* Force Gen1 speed on Gen2 link */
+#define DWC3_LLUCTL_FORCE_GEN1	BIT(10)
+
 #define DWC31_LINK_GDBGLTSSM	0xd050
 #define DWC3_GDBGLTSSM_LINKSTATE_MASK	(0xF << 22)
 
@@ -568,6 +573,7 @@ struct dwc3_msm {
 	phys_addr_t		ebc_desc_addr;
 	bool			dis_sending_cm_l1_quirk;
 	bool			use_eusb2_phy;
+	bool			force_gen1;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3373,6 +3379,10 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
 	}
+
+	/* Force Gen1 speed on Gen2 controller if required */
+	if (mdwc->force_gen1 && DWC3_IP_IS(DWC31))
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
@@ -5451,6 +5461,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
 	INIT_WORK(&mdwc->redriver_work, dwc3_msm_redriver_work);
+
+	mdwc->force_gen1 = of_property_read_bool(node, "qcom,force-gen1");
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
