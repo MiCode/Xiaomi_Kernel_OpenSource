@@ -1,5 +1,7 @@
 clk-dummy.ko
 clk-qcom.ko
+qcom_rpmh.ko
+cmd-db.ko
 dwc3.ko
 dwc3-msm.ko
 phy-generic.ko
