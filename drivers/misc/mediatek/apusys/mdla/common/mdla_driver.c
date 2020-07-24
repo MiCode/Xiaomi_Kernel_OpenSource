@@ -264,7 +264,7 @@ static int mdla_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	if (!mdla_power_check())
+	if (mdla_pwr_apusys_disabled())
 		return -1;
 
 	/* Initialize platform to allocate mdla devices first. */
@@ -345,7 +345,7 @@ static int mdla_remove(struct platform_device *pdev)
 {
 	int i;
 
-	if (!mdla_power_check())
+	if (mdla_pwr_apusys_disabled())
 		return 0;
 
 	dev_info(&pdev->dev, "%s start -\n", __func__);

@@ -65,7 +65,7 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 	case IOCTL_FREE:
 	case IOCTL_ION_KMAP:
 	case IOCTL_ION_KUNMAP:
-		mdla_cmd_debug("%s: Not support memory control\n", __func__);
+		mdla_err("%s: Not support memory control\n", __func__);
 		break;
 	case IOCTL_RUN_CMD_SYNC:
 		if (copy_from_user(&cmd_data_sync, (void *) arg,

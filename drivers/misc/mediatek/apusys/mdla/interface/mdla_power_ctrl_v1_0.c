@@ -29,14 +29,14 @@ int mdla_pwr_on_v1_0(u32 core_id, bool force)
 	mdla_pwr_ops_get()->off_timer_cancel(core_id);
 
 	if (mdla_device->power_is_on) {
-		mdla_cmd_debug("%s: already on.\n", __func__);
+		mdla_pwr_debug("%s: already on.\n", __func__);
 		goto power_on_done;
 	}
 
 	ret = apu_device_power_on(user_mdla);
 
 	if (!ret) {
-		mdla_cmd_debug("%s power on device %d success\n",
+		mdla_pwr_debug("%s power on device %d success\n",
 						__func__, user_mdla);
 		mdla_device->power_is_on = true;
 	} else {
@@ -71,7 +71,7 @@ int mdla_pwr_off_v1_0(u32 core_id,
 	ret = apu_device_power_off(user_mdla);
 
 	if (!ret) {
-		mdla_cmd_debug("%s power off device %d success\n",
+		mdla_pwr_debug("%s power off device %d success\n",
 						__func__, user_mdla);
 		mdla_device->power_is_on = false;
 	} else {

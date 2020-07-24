@@ -6,7 +6,6 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <linux/random.h>
 #include <linux/sched/clock.h>
 
 #ifdef CONFIG_MTK_GIC_V3_EXT
@@ -37,13 +36,6 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 {
 	ce->mva = cd->mva + cd->offset;
 
-	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
-				__func__,
-				cd->mva,
-				cd->offset,
-				cd->count);
-
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
 	ce->bandwidth = 0;
@@ -66,14 +58,6 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	ce->context_callback = apusys_hd->context_callback;
 	apusys_hd->ip_time = 0;
 	ce->kva = (void *)(apusys_hd->cmd_entry + cd->offset_code_buf);
-	mdla_cmd_debug("%s: cmd_entry=0x%llx, offset_code_buf=0x%x\n",
-			__func__,
-			apusys_hd->cmd_entry,
-			cd->offset_code_buf);
-	mdla_cmd_debug("%s: kva=%p, size =0x%x\n",
-			__func__,
-			ce->kva,
-			cd->size);
 	ce->cmdbuf = apusys_hd->cmdbuf;
 	ce->cmd_batch_en = can_be_preempted;
 	if (apusys_hd->multicore_total == 2)
@@ -82,6 +66,23 @@ static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 		ce->cmd_batch_size = apusys_hd->cluster_size;
 
 	init_completion(&ce->swcmd_done_wait);
+
+	mdla_cmd_debug("%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
+			__func__,
+			(u64)ce->kva,
+			apusys_hd->cmd_entry,
+			cd->offset_code_buf,
+			ce->mva,
+			cd->mva,
+			cd->offset,
+			ce->count,
+			cd->size);
+	mdla_verbose("%s: ctx_id=%d apu_hd_core_num=%d batch(en=%d sz=%d)\n",
+			__func__,
+			ce->ctx_id,
+			apusys_hd->multicore_total,
+			ce->cmd_batch_en,
+			ce->cmd_batch_size);
 }
 
 static void mdla_cmd_ut_prepare_v1_x_sched(struct ioctl_run_cmd *cd,
@@ -89,8 +90,7 @@ static void mdla_cmd_ut_prepare_v1_x_sched(struct ioctl_run_cmd *cd,
 {
 	ce->mva = cd->buf.mva + cd->offset;
 
-	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
+	mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
 				__func__,
 				cd->buf.mva,
 				cd->offset,
@@ -158,6 +158,25 @@ static void mdla_cmd_free_sched_ce(struct mdla_scheduler *sched,
 		sched->pro_ce_high = NULL;
 	}
 	spin_unlock_irqrestore(&sched->lock, flags);
+}
+
+static void mdla_cmd_set_opp(u32 core_id, struct mdla_scheduler *sched, int ce_boost_val)
+{
+	unsigned long flags;
+	int boost_val = ce_boost_val;
+
+	spin_lock_irqsave(&sched->lock, flags);
+
+	if (sched->pro_ce && ce_boost_val <= sched->pro_ce->boost_val)
+		boost_val = 0;
+
+	spin_unlock_irqrestore(&sched->lock, flags);
+
+	if (unlikely(mdla_dbg_read_u32(FS_DVFS_RAND)))
+		boost_val = mdla_pwr_get_random_boost_val();
+
+	if (boost_val)
+		mdla_pwr_ops_get()->set_opp_by_boost(core_id, boost_val);
 }
 
 static int mdla_cmd_wrong_count_handler(struct mdla_dev *mdla_info,
@@ -230,9 +249,8 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry *ce;
 	struct mdla_scheduler *sched = mdla_info->sched;
-	unsigned long flags;
+
 	u32 core_id = mdla_info->mdla_id;
-	int boost_val = 0;
 
 	if (!cd || (cd->count == 0) || (apusys_hd->cmdbuf == NULL))
 		return -EINVAL;
@@ -255,16 +273,7 @@ int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 	if (ret)
 		goto out;
 
-	spin_lock_irqsave(&sched->lock, flags);
-	if (sched->pro_ce != NULL)
-		boost_val = sched->pro_ce->boost_val;
-	spin_unlock_irqrestore(&sched->lock, flags);
-
-	if (ce->boost_val > boost_val)
-		mdla_pwr_ops_get()->set_opp_by_bootst(core_id, ce->boost_val);
-
-	if (mdla_dbg_read_u32(FS_DVFS_RAND))
-		mdla_power_set_random_opp(core_id);
+	mdla_cmd_set_opp(core_id, sched, ce->boost_val);
 
 	ce->poweron_t = sched_clock();
 
@@ -332,9 +341,7 @@ int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
 	struct ioctl_wait_cmd *wt = (struct ioctl_wait_cmd *)wait_cmd;
 	struct command_entry *ce;
 	struct mdla_scheduler *sched = mdla_info->sched;
-	unsigned long flags;
 	u32 core_id = mdla_info->mdla_id;
-	int boost_val = 0;
 
 	if (!cd || (cd->count == 0))
 		return -EINVAL;
@@ -359,16 +366,7 @@ int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
 	if (ret)
 		goto out;
 
-	spin_lock_irqsave(&sched->lock, flags);
-	if (sched->pro_ce != NULL)
-		boost_val = sched->pro_ce->boost_val;
-	spin_unlock_irqrestore(&sched->lock, flags);
-
-	if (ce->boost_val > boost_val)
-		mdla_pwr_ops_get()->set_opp_by_bootst(core_id, ce->boost_val);
-
-	if (mdla_dbg_read_u32(FS_DVFS_RAND))
-		mdla_power_set_random_opp(core_id);
+	mdla_cmd_set_opp(core_id, sched, ce->boost_val);
 
 	ce->poweron_t = sched_clock();
 

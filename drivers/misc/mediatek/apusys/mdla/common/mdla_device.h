@@ -15,6 +15,7 @@
 
 #define MAX_CORE_NUM 16
 
+struct device;
 struct apusys_kmem;
 
 struct mdla_run_cmd;
@@ -94,6 +95,7 @@ enum REASON_QUEUE_STATE_ENUM {
 /*mdla dev info, register to apusys callback*/
 struct mdla_dev {
 	u32 mdla_id;
+	struct device *dev;
 
 	u32 max_cmd_id;
 	struct mutex cmd_lock;

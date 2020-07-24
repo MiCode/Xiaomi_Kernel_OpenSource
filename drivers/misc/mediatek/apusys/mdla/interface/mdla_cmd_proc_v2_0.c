@@ -6,7 +6,6 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <linux/random.h>
 #include <linux/sched/clock.h>
 
 #include <apusys_device.h>
@@ -28,14 +27,6 @@ static void mdla_cmd_prepare_v2_0(struct mdla_run_cmd *cd,
 	struct apusys_cmd_hnd *apusys_hd, struct command_entry *ce)
 {
 	ce->mva = cd->mva + cd->offset;
-
-	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
-				__func__,
-				cd->mva,
-				cd->offset,
-				cd->count);
-
 	apusys_hd->ip_time = 0;
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
@@ -43,13 +34,16 @@ static void mdla_cmd_prepare_v2_0(struct mdla_run_cmd *cd,
 	ce->result = MDLA_SUCCESS;
 	ce->count = cd->count;
 	ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
-	mdla_cmd_debug("%s: cmd_entry=0x%llx, offset_code_buf=0x%x\n",
+
+	mdla_cmd_debug("%s: kva=0x%llx(0x%llx+0x%x) mva=0x%08x(0x%08x+0x%x) cnt=%u sz=0x%x\n",
 			__func__,
+			(u64)ce->kva,
 			apusys_hd->cmd_entry,
-			cd->offset_code_buf);
-	mdla_cmd_debug("%s: kva=%p, size =0x%x\n",
-			__func__,
-			ce->kva,
+			cd->offset_code_buf,
+			ce->mva,
+			cd->mva,
+			cd->offset,
+			ce->count,
 			cd->size);
 }
 
@@ -59,8 +53,7 @@ static void mdla_cmd_ut_prepare_v2_0(struct ioctl_run_cmd *cd,
 {
 	ce->mva = cd->buf.mva + cd->offset;
 
-	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
+	mdla_cmd_debug("%s: mva=0x%08x, offset=0x%x, count: %u\n",
 				__func__,
 				cd->buf.mva,
 				cd->offset,
@@ -83,7 +76,7 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 	u64 deadline = 0, cmd_start_t;
 	struct mdla_run_cmd *cd = &cmd_data->req;
 	struct command_entry ce;
-	int ret = 0;
+	int ret = 0, boost_val;
 	u32 core_id = 0;
 	u16 prio = can_be_preempted ? 1 : 0;
 
@@ -107,17 +100,19 @@ int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 
 	mdla_info->max_cmd_id = 0;
 
-	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
+	mdla_verbose("%s: core: %d max_cmd_id: %d id: %d\n",
 			__func__, core_id, mdla_info->max_cmd_id, ce.count);
 
 	ret = mdla_pwr_ops_get()->on(core_id, false);
 	if (ret)
 		goto out;
-	mdla_pwr_ops_get()->set_opp_by_bootst(core_id, apusys_hd->boost_val);
 
-	if (mdla_dbg_read_u32(FS_DVFS_RAND))
-		mdla_power_set_random_opp(core_id);
+	boost_val = apusys_hd->boost_val;
+
+	if (unlikely(mdla_dbg_read_u32(FS_DVFS_RAND)))
+		boost_val = mdla_pwr_get_random_boost_val();
+
+	mdla_pwr_ops_get()->set_opp_by_boost(core_id, boost_val);
 
 	mdla_prof_start(core_id);
 	mdla_trace_begin(core_id, &ce);
@@ -188,7 +183,7 @@ int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 	struct ioctl_run_cmd *cd = (struct ioctl_run_cmd *)run_cmd;
 	struct ioctl_wait_cmd *wt = (struct ioctl_wait_cmd *)wait_cmd;
 	struct command_entry ce;
-	int ret = 0;
+	int ret = 0, boost_val;
 	u32 core_id = 0;
 
 	cmd_start_t = sched_clock();
@@ -210,17 +205,19 @@ int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 
 	mdla_info->max_cmd_id = 0;
 
-	if (mdla_dbg_read_u32(FS_TIMEOUT_DBG))
-		mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
+	mdla_verbose("%s: core: %d max_cmd_id: %d id: %d\n",
 			__func__, core_id, mdla_info->max_cmd_id, ce.count);
 
 	ret = mdla_pwr_ops_get()->on(core_id, false);
 	if (ret)
 		goto out;
-	mdla_pwr_ops_get()->set_opp_by_bootst(core_id, ce.boost_val);
 
-	if (mdla_dbg_read_u32(FS_DVFS_RAND))
-		mdla_power_set_random_opp(core_id);
+	boost_val = ce.boost_val;
+
+	if (unlikely(mdla_dbg_read_u32(FS_DVFS_RAND)))
+		boost_val = mdla_pwr_get_random_boost_val();
+
+	mdla_pwr_ops_get()->set_opp_by_boost(core_id, boost_val);
 
 	mdla_prof_start(core_id);
 	mdla_trace_begin(core_id, &ce);

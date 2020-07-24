@@ -45,7 +45,7 @@ int mdla_pwr_on_v2_0(u32 core_id, bool force)
 	ret = apu_device_power_on(user_mdla);
 
 	if (!ret) {
-		mdla_drv_debug("%s power on device %d (mdla core %d) success\n",
+		mdla_pwr_debug("%s power on device %d (mdla core %d) success\n",
 					__func__, user_mdla, core_id);
 		mdla_device->power_is_on = true;
 	} else {
@@ -57,7 +57,7 @@ int mdla_pwr_on_v2_0(u32 core_id, bool force)
 		goto out;
 	}
 
-	mdla_drv_debug("mdla %d: power on info: apu_device_power_on_time: %llu\n",
+	mdla_pwr_debug("mdla %d: power on info: apu_device_power_on_time: %llu\n",
 			core_id, sched_clock() - poweron_t);
 
 power_on_done:
@@ -109,7 +109,7 @@ int mdla_pwr_off_v2_0(u32 core_id,
 
 		ret = apu_device_power_suspend(MDLA0 + i, suspend);
 		if (!ret) {
-			mdla_cmd_debug("%s power off device %d (mdla-%d) success\n",
+			mdla_pwr_debug("%s power off device %d (mdla-%d) success\n",
 						__func__, MDLA0 + i, i);
 			mdla_get_device(i)->power_is_on = false;
 		} else {

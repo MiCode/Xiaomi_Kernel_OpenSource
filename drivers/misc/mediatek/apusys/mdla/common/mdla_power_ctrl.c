@@ -16,7 +16,6 @@
 #include <linux/uaccess.h>
 
 #include <apusys_power.h>
-#include <apusys_power_cust.h>
 
 #include <common/mdla_device.h>
 #include <common/mdla_power_ctrl.h>
@@ -56,7 +55,7 @@ static struct mdla_pwr_ops mdla_power = {
 	.off_timer_start    = mdla_pwr_dummy_ops,
 	.off_timer_cancel   = mdla_pwr_dummy_ops,
 	.set_opp            = mdla_pwr_dummy_opp,
-	.set_opp_by_bootst  = mdla_pwr_dummy_opp,
+	.set_opp_by_boost   = mdla_pwr_dummy_opp,
 	.switch_off_on      = mdla_pwr_dummy_ops,
 	.hw_reset           = mdla_pwr_dummy_hw_reset,
 	.lock               = mdla_pwr_dummy_lock,
@@ -94,7 +93,7 @@ static void mdla_pwr_off_timer_start(u32 core_id)
 		mdla_device->cmd_list_cnt--;
 
 	if (poweroff_time) {
-		mdla_drv_debug("%s: MDLA %d start power_timer\n",
+		mdla_pwr_debug("%s: MDLA %d start power_timer\n",
 				__func__, core_id);
 		mod_timer(&pwr_ctrl->power_off_timer,
 			jiffies + msecs_to_jiffies(poweroff_time));
@@ -116,12 +115,13 @@ static void mdla_pwr_set_opp(u32 core_id, int opp)
 	apu_device_set_opp(get_pwr_id(core_id), opp);
 }
 
-static void mdla_pwr_set_opp_by_bootst(u32 core_id, int bootst_val)
+static void mdla_pwr_set_opp_by_boost(u32 core_id, int boost_val)
 {
 	unsigned char mdla_opp = 0;
 
-	mdla_opp = apusys_boost_value_to_opp(get_pwr_id(core_id), bootst_val);
+	mdla_opp = apusys_boost_value_to_opp(get_pwr_id(core_id), (unsigned char)boost_val);
 	apu_device_set_opp(get_pwr_id(core_id), mdla_opp);
+	mdla_pwr_debug("core: %d, opp: %d\n", core_id, mdla_opp);
 }
 
 static void mdla_pwr_switch_off_on(u32 core_id)
@@ -131,7 +131,7 @@ static void mdla_pwr_switch_off_on(u32 core_id)
 	mutex_lock(&pwr_ctrl->lock);
 	if (apu_device_power_off(get_pwr_id(core_id))
 			|| apu_device_power_on(get_pwr_id(core_id)))
-		mdla_cmd_debug("%s: fail\n", __func__);
+		mdla_err("%s: fail\n", __func__);
 	mutex_unlock(&pwr_ctrl->lock);
 }
 
@@ -244,18 +244,22 @@ const struct mdla_pwr_ops *mdla_pwr_ops_get(void)
 	return &mdla_power;
 }
 
-void mdla_power_set_random_opp(u32 core_id)
+int mdla_pwr_get_random_boost_val(void)
 {
-	int opp_rand;
+	int val;
 
-	opp_rand = get_random_int() % APUSYS_MAX_NUM_OPPS;
-	mdla_cmd_debug("core: %d, rand opp: %d\n", core_id, opp_rand);
-	mdla_power.set_opp(core_id, opp_rand);
+	/**
+	 * Get opp 0 only when boost_val is 100
+	 * Using division of 128 to increase probabiliy of getting opp 0
+	 */
+	val = (get_random_int() & 0x7F) + 1;
+
+	return val > 100 ? 100 : val;
 }
 
-bool mdla_power_check(void)
+bool mdla_pwr_apusys_disabled(void)
 {
-	return apusys_power_check();
+	return !apusys_power_check();
 }
 
 void mdla_pwr_reset_setup(void (*hw_reset)(u32 core_id, const char *str))
@@ -274,7 +278,7 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 	struct mdla_dev *mdla_device;
 	struct mdla_pwr_ctrl *pwr_ctrl;
 
-	mdla_cmd_debug("probe 0, pdev id = %d name = %s, name = %s\n",
+	mdla_drv_debug("probe 0, pdev id = %d name = %s, name = %s\n",
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
 
@@ -296,7 +300,7 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 		user_mdla = get_pwr_id(i);
 		ret = apu_power_device_register(user_mdla, pdev);
 		if (!ret) {
-			mdla_cmd_debug("%s register power device %d success\n",
+			mdla_drv_debug("%s register power device %d success\n",
 							__func__,
 							user_mdla);
 		} else {
@@ -325,7 +329,7 @@ int mdla_pwr_device_register(struct platform_device *pdev,
 		mdla_power.off = off;
 
 	mdla_power.set_opp              = mdla_pwr_set_opp;
-	mdla_power.set_opp_by_bootst    = mdla_pwr_set_opp_by_bootst;
+	mdla_power.set_opp_by_boost     = mdla_pwr_set_opp_by_boost;
 	mdla_power.switch_off_on        = mdla_pwr_switch_off_on;
 	mdla_power.off_timer_start      = mdla_pwr_off_timer_start;
 	mdla_power.off_timer_cancel     = mdla_pwr_off_timer_cancel;

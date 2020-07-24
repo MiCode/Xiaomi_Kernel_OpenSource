@@ -168,7 +168,7 @@ int mdla_util_apu_pmu_handle(struct mdla_dev *mdla_info,
 	pmu = pmu_ops.get_info(core_id, priority);
 
 	if (!pmu) {
-		mdla_pmu_debug("No pmu info\n");
+		mdla_err("%s: No pmu info device\n", __func__);
 		return -1;
 	}
 
@@ -194,7 +194,6 @@ int mdla_util_apu_pmu_handle(struct mdla_dev *mdla_info,
 	if (mdla_util_pmu_addr_is_invalid(apusys_hd)) {
 		for (i = 0; i < MDLA_PMU_COUNTERS; i++)
 			pmu_ops.set_evt_handle(pmu, i, COUNTER_CLEAR);
-		mdla_pmu_debug("pmu kva from apusys : invalid\n");
 		return -1;
 	}
 
@@ -250,8 +249,8 @@ void mdla_util_apu_pmu_update(struct mdla_dev *mdla_info,
 	pmu = pmu_ops.get_info(core_id, priority);
 
 	if (!pmu) {
-		mdla_pmu_debug("No pmu info(core:%d, prio:%d)\n",
-				core_id, priority);
+		mdla_err("%s: no pmu info device(core:%d, prio:%d)\n",
+				__func__, core_id, priority);
 		return;
 	}
 
