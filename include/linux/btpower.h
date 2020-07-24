@@ -28,6 +28,12 @@ struct bt_power_vreg_data {
 	bool is_retention_supp; /* does this regulator support retention mode */
 };
 
+struct bt_power {
+	char compatible[32];
+	struct bt_power_vreg_data *vregs;
+	int num_vregs;
+};
+
 struct bt_power_clk_data {
 	struct clk *clk;  /* clock regulator handle */
 	const char *name; /* clock name */
@@ -45,7 +51,8 @@ struct bluetooth_power_platform_data {
 	struct bt_power_vreg_data *vreg_info;  /* VDDIO voltage regulator */
 	struct bt_power_clk_data *bt_chip_clk; /* bluetooth reference clock */
 	int (*bt_power_setup)(int id); /* Bluetooth power setup function */
-	const char *compatible_chipset_version; /*Bluetooth chipset version */
+	char compatible[32]; /*Bluetooth SoC name */
+	int num_vregs;
 };
 
 int btpower_register_slimdev(struct device *dev);
