@@ -50,16 +50,19 @@ static int ufs_qcom_phy_qmp_v3_phy_calibrate(struct phy *generic_phy)
 					phy_cal_table_2nd_lane,
 					ARRAY_SIZE(phy_cal_table_2nd_lane));
 	} else {
-		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_no_g4,
-				       ARRAY_SIZE(phy_cal_table_rate_A_no_g4));
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
+				       ARRAY_SIZE(phy_cal_table_rate_A));
 		if (ufs_qcom_phy->lanes_per_direction == 2)
 			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
-				      phy_cal_table_2nd_lane_no_g4,
-				      ARRAY_SIZE(phy_cal_table_2nd_lane_no_g4));
+				      phy_cal_table_2nd_lane,
+				      ARRAY_SIZE(phy_cal_table_2nd_lane));
 	}
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
+
+	/* flush buffered writes */
+	mb();
 
 	err = reset_control_deassert(ufs_qcom_phy->ufs_reset);
 	if (err) {

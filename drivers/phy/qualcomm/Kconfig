@@ -89,6 +89,12 @@ config PHY_QCOM_UFS_QRBTC_SDM845
 	  No low power mode support is present.
 	  Doesn't restrict number of lanes.
 
+config PHY_QCOM_UFS_V3
+	tristate
+	default PHY_QCOM_UFS
+	help
+	  Support for 8nm UFS QMP phy present on QCOM chipsets.
+
 endif
 
 config PHY_QCOM_USB_HS
