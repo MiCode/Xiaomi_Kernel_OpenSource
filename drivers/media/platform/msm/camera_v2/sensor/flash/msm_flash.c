@@ -328,7 +328,7 @@ static int32_t msm_flash_i2c_init(
 				flash_init_info->settings, sizeof(
 				struct msm_camera_i2c_reg_setting_array));
 		if (IS_ERR(settings)) {
-			ret = PTR_ERR(settings);
+			return PTR_ERR(settings);
 		rc = msm_flash_i2c_write_table(flash_ctrl, settings);
 		kfree(settings);
 
@@ -337,12 +337,12 @@ static int32_t msm_flash_i2c_init(
 				__func__, __LINE__, rc);
 		}
 	}
+	}
 	return 0;
 
 msm_flash_i2c_init_fail:
 	return rc;
 }
-
 static int32_t msm_flash_gpio_init(
 	struct msm_flash_ctrl_t *flash_ctrl,
 	struct msm_flash_cfg_data_t *flash_data)
@@ -426,8 +426,8 @@ static int32_t msm_flash_i2c_write_setting_array(
 	settings = memdup_user((void __user *)
 			flash_data->cfg.settings, sizeof(
 				struct msm_camera_i2c_reg_setting_array));
-	if (IS_ERR(settings)) {
-		ret = PTR_ERR(settings);
+	if (IS_ERR(settings))
+		return PTR_ERR(settings);
 	rc = msm_flash_i2c_write_table(flash_ctrl, settings);
 	kfree(settings);
 

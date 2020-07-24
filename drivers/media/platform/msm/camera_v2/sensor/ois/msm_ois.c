@@ -875,19 +875,19 @@ static long msm_ois_subdev_do_ioctl(
 		case CFG_OIS_CONTROL:
 			ois_data.cfg.set_info.ois_params.setting_size =
 				u32->cfg.set_info.ois_params.setting_size;
-				ois_data.cfg.set_info.ois_params.i2c_addr =
-					u32->cfg.set_info.ois_params.i2c_addr;
-				ois_data.cfg.set_info.ois_params.i2c_freq_mode =
+			ois_data.cfg.set_info.ois_params.i2c_addr =
+				u32->cfg.set_info.ois_params.i2c_addr;
+			ois_data.cfg.set_info.ois_params.i2c_freq_mode =
 				u32->cfg.set_info.ois_params.i2c_freq_mode;
-				ois_data.cfg.set_info.ois_params.i2c_addr_type =
+			ois_data.cfg.set_info.ois_params.i2c_addr_type =
 				u32->cfg.set_info.ois_params.i2c_addr_type;
-				ois_data.cfg.set_info.ois_params.i2c_data_type =
+			ois_data.cfg.set_info.ois_params.i2c_data_type =
 				u32->cfg.set_info.ois_params.i2c_data_type;
-				ois_data.cfg.set_info.ois_params.settings =
-					compat_ptr(u32->cfg.set_info.ois_params
-							.settings);
-				parg = &ois_data;
-				break;
+			ois_data.cfg.set_info.ois_params.settings =
+				compat_ptr(u32->cfg.set_info.ois_params
+					.settings);
+			parg = &ois_data;
+			break;
 		case CFG_OIS_I2C_WRITE_SEQ_TABLE:
 			if (copy_from_user(&settings32,
 			(void __user *)compat_ptr(u32->cfg.settings),
@@ -903,25 +903,25 @@ static long msm_ois_subdev_do_ioctl(
 			settings.reg_setting = memdup_user((void __user *)
 				compat_ptr(settings32.reg_setting),
 				sizeof(struct msm_camera_i2c_seq_reg_array));
-				if (IS_ERR(settings.reg_setting)) {
-					return PTR_ERR(settings.reg_setting);
-					ois_data.cfg.settings = &settings;
-					parg = &ois_data;
-					break;
-					default:
-					parg = &ois_data;
-					break;
-				}
-				break;
-		case VIDIOC_MSM_OIS_CFG:
-			pr_err("%s: invalid cmd 0x%x received\n", __func__,
-				cmd);
-			return -EINVAL;
+			if (IS_ERR(settings.reg_setting))
+				return PTR_ERR(settings.reg_setting);
+			ois_data.cfg.settings = &settings;
+			parg = &ois_data;
+			break;
+		default:
+			parg = &ois_data;
+			break;
 		}
-		rc = msm_ois_subdev_ioctl(sd, cmd, parg);
-
-			return rc;
+		break;
+	case VIDIOC_MSM_OIS_CFG:
+		pr_err("%s: invalid cmd 0x%x received\n", __func__,
+				cmd);
+		return -EINVAL;
 	}
+	rc = msm_ois_subdev_ioctl(sd, cmd, parg);
+
+	return rc;
+}
 
 static long msm_ois_subdev_fops_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
