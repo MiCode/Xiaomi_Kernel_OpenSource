@@ -1,0 +1,8 @@
+config MTK_DBGTOP
+	tristate "MTK DBGTOP driver"
+	help
+	  This selects the Mediatek(R) dbgtop driver.
+	  Provide APIs for enabling debuggers such as the DDR
+	  reserved mode (retention of DRAM after reset).
+	  Provide APIs for interactions between debuggers
+	  and some hardware modules.
