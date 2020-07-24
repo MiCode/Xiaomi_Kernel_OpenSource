@@ -164,7 +164,7 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 	if (!vreg)
 		return rc;
 
-	pr_debug("vreg_disable for : %s\n", __func__, vreg->name);
+	pr_debug("%s for : %s\n", __func__, vreg->name);
 
 	if (vreg->is_enabled) {
 		rc = regulator_disable(vreg->reg);
@@ -643,25 +643,24 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 			of_get_named_gpio(pdev->dev.of_node,
 						"qcom,bt-reset-gpio", 0);
 		if (bt_power_pdata->bt_gpio_sys_rst < 0)
-			pr_err("%s: bt-reset-gpio not provided in device tree\n",
-				__func__);
+			pr_warn("bt-reset-gpio not provided in devicetree\n");
 
 		bt_power_pdata->bt_gpio_sw_ctrl  =
 			of_get_named_gpio(pdev->dev.of_node,
 						"qcom,bt-sw-ctrl-gpio",  0);
 		if (bt_power_pdata->bt_gpio_sw_ctrl < 0)
-			pr_err("bt-sw-ctrl-gpio not provided in devicetree\n");
+			pr_warn("bt-sw-ctrl-gpio not provided in devicetree\n");
 
 		bt_power_pdata->bt_gpio_debug  =
 			of_get_named_gpio(pdev->dev.of_node,
 						"qcom,bt-debug-gpio",  0);
 		if (bt_power_pdata->bt_gpio_debug < 0)
-			pr_err("bt-debug-gpio not provided in devicetree\n");
+			pr_warn("bt-debug-gpio not provided in devicetree\n");
 
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
 		if (rc < 0)
-			pr_err("%s: clock not provided in device tree\n",
+			pr_warn("%s: clock not provided in device tree\n",
 				__func__);
 	}
 
@@ -805,7 +804,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case BT_CMD_PWR_CTRL:
 		pwr_cntrl = (int)arg;
-		pr_err("%s: BT_CMD_PWR_CTRL pwr_cntrl: %d\n",
+		pr_warn("%s: BT_CMD_PWR_CTRL pwr_cntrl: %d\n",
 			__func__, pwr_cntrl);
 		if (pwr_state != pwr_cntrl) {
 			ret = bluetooth_power(pwr_cntrl);
@@ -819,7 +818,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case BT_CMD_CHIPSET_VERS:
 		chipset_version = (int)arg;
-		pr_err("%s: unified Current SOC Version : %x\n", __func__,
+		pr_warn("%s: unified Current SOC Version : %x\n", __func__,
 			chipset_version);
 		if (chipset_version) {
 			soc_id = chipset_version;
