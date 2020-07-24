@@ -1881,11 +1881,11 @@ static int adreno_last_close(struct kgsl_device *device)
 	 * Wait up to 1 second for the active count to go low
 	 * and then start complaining about it
 	 */
-	if (kgsl_active_count_wait(device, 0)) {
+	if (kgsl_active_count_wait(device, 0, HZ)) {
 		dev_err(device->dev,
 			"Waiting for the active count to become 0\n");
 
-		while (kgsl_active_count_wait(device, 0))
+		while (kgsl_active_count_wait(device, 0, HZ))
 			dev_err(device->dev,
 				"Still waiting for the active count\n");
 	}

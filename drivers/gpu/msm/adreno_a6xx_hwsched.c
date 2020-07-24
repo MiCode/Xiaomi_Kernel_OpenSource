@@ -672,12 +672,95 @@ static int a6xx_hwsched_bus_set(struct adreno_device *adreno_dev, int buslevel,
 	return ret;
 }
 
+static int a6xx_hwsched_pm_suspend(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	int ret;
+
+	if (test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags))
+		return 0;
+
+	trace_kgsl_pwr_request_state(device, KGSL_STATE_SUSPEND);
+
+	/* Halt any new submissions */
+	reinit_completion(&device->halt_gate);
+
+	mutex_unlock(&device->mutex);
+
+	/* Flush any currently running instances of the dispatcher */
+	kthread_flush_worker(&kgsl_driver.worker);
+
+	mutex_lock(&device->mutex);
+
+	/* This ensures that dispatcher doesn't submit any new work */
+	adreno_dispatcher_halt(device);
+
+	/**
+	 * Wait for the dispatcher to retire everything by waiting
+	 * for the active count to go to zero.
+	 */
+	ret = kgsl_active_count_wait(device, 0, msecs_to_jiffies(100));
+	if (ret) {
+		dev_err(device->dev, "Timed out waiting for the active count\n");
+		goto err;
+	}
+
+	if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
+		unsigned long wait = jiffies +
+			msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
+
+		do {
+			if (a6xx_hw_isidle(adreno_dev))
+				break;
+		} while (time_before(jiffies, wait));
+
+		if (!a6xx_hw_isidle(adreno_dev)) {
+			dev_err(device->dev, "Timed out idling the gpu\n");
+			ret = -ETIMEDOUT;
+			goto err;
+		}
+
+		a6xx_hwsched_power_off(adreno_dev);
+	}
+
+	set_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
+
+	trace_kgsl_pwr_set_state(device, KGSL_STATE_SUSPEND);
+
+	return 0;
+
+err:
+	adreno_dispatcher_unhalt(device);
+	adreno_hwsched_start(adreno_dev);
+
+	return ret;
+}
+
+static void a6xx_hwsched_pm_resume(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	if (WARN(!test_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags),
+		"resume invoked without a suspend\n"))
+		return;
+
+	adreno_dispatcher_unhalt(device);
+
+	adreno_hwsched_start(adreno_dev);
+
+	clear_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
+}
+
 const struct adreno_power_ops a6xx_hwsched_power_ops = {
 	.first_open = a6xx_hwsched_first_open,
 	.last_close = a6xx_hwsched_power_off,
 	.active_count_get = a6xx_hwsched_active_count_get,
 	.active_count_put = a6xx_hwsched_active_count_put,
 	.touch_wakeup = a6xx_hwsched_touch_wakeup,
+	.pm_suspend = a6xx_hwsched_pm_suspend,
+	.pm_resume = a6xx_hwsched_pm_resume,
 	.gpu_clock_set = a6xx_hwsched_clock_set,
 	.gpu_bus_set = a6xx_hwsched_bus_set,
 };

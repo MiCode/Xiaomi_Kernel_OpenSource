@@ -296,6 +296,13 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 
 	mutex_lock(&device->mutex);
 
+	if (adreno_gpu_halt(adreno_dev) != 0) {
+		mutex_unlock(&device->mutex);
+		kmem_cache_free(obj_cache, obj);
+		return -EBUSY;
+	}
+
+
 	if (kgsl_context_detached(context)) {
 		mutex_unlock(&device->mutex);
 		kmem_cache_free(obj_cache, obj);
