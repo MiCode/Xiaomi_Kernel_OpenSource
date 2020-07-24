@@ -24,6 +24,8 @@
 #include <linux/mutex.h>
 
 /*** Trusty MT test device attributes ***/
+#define GZ_CONCURRENT_TEST_ENABLE (0)
+#if GZ_CONCURRENT_TEST_ENABLE
 static DEFINE_MUTEX(gz_concurrent_lock);
 static struct task_struct *trusty_task;
 static struct task_struct *nebula_task;
@@ -212,21 +214,21 @@ static ssize_t gz_concurrent_store(struct device *dev,
 		cpu[1] = (tmp % 10) & (num_possible_cpus() - 1);
 	}
 
-	kthread_bind(trusty_task, cpu[0]);
 	if (IS_ERR(trusty_task))
 		pr_info("[%s] Unable to start on cpu %d: stress_trusty_thread",
 			__func__, cpu[0]);
 	else {
+		kthread_bind(trusty_task, cpu[0]);
 		pr_info("[%s] Start stress_trusty_thread on cpu %d",
 			__func__, cpu[0]);
 		wake_up_process(trusty_task);
 	}
 
-	kthread_bind(nebula_task, cpu[1]);
 	if (IS_ERR(nebula_task))
 		pr_info("[%s] Unable to start at cpu %d: stress_nebula_thread",
 			__func__, cpu[1]);
 	else {
+		kthread_bind(nebula_task, cpu[1]);
 		pr_info("[%s] Start stress_nebula_thread on cpu %d",
 			__func__, cpu[1]);
 		wake_up_process(nebula_task);
@@ -236,6 +238,20 @@ static ssize_t gz_concurrent_store(struct device *dev,
 
 	return n;
 }
+#else
+static ssize_t gz_concurrent_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE,
+			 "Not support Geniezone concurrent test\n");
+}
+
+static ssize_t gz_concurrent_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t n)
+{
+	return n;
+}
+#endif // GZ_CONCURRENT_TEST_ENABLE
 DEVICE_ATTR_RW(gz_concurrent);
 
 static ssize_t trusty_add_show(struct device *dev,
@@ -372,7 +388,9 @@ static void trusty_create_debugfs(struct trusty_state *s, struct device *dev)
 	if (!is_trusty_tee(s->tee_id))
 		return;
 
+#if GZ_CONCURRENT_TEST_ENABLE
 	mtee_dev[s->tee_id] = dev;
+#endif
 
 	ret = device_create_file(dev, &dev_attr_gz_concurrent);
 	if (ret)
@@ -536,7 +554,9 @@ static void nebula_create_debugfs(struct trusty_state *s, struct device *dev)
 	if (!is_nebula_tee(s->tee_id))
 		return;
 
+#if GZ_CONCURRENT_TEST_ENABLE
 	mtee_dev[s->tee_id] = dev;
+#endif
 
 	ret = device_create_file(dev, &dev_attr_vmm_fast_add);
 	if (ret)
