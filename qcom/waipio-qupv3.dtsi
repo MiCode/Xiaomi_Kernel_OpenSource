@@ -1,0 +1,26 @@
+&soc {
+
+	/* QUPv3_0  wrapper  instance : North QUP*/
+	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x9c0000 0x2000>;
+		status = "ok";
+	};
+
+	/* PORed Debug UART */
+	qupv3_se7_2uart: qcom,qup_uart@99c000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x99c000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S7_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se7_2uart_active>;
+		pinctrl-1 = <&qupv3_se7_2uart_sleep>;
+		interrupts = <GIC_SPI 608 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "ok";
+	};
+};
