@@ -1106,6 +1106,11 @@
 			};
 		};
 
+		drm:drm@1000d000 {
+			compatible = "mediatek,dbgtop-drm";
+			reg = <0 0x1000d000 0 0x1000>;
+		};
+
 		keypad: kp@10010000 {
 			compatible = "mediatek,kp";
 			reg = <0 0x10010000 0 0x1000>;
