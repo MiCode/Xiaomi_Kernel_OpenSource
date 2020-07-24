@@ -619,6 +619,8 @@
 		qcom,ee = <0>;
 	};
 
+	thermal_zones: thermal-zones {
+	};
 };
 
 #include "sdxlemur-pinctrl.dtsi"
