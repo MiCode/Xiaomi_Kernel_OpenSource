@@ -165,6 +165,16 @@
 		image-name = "qcom,trustedvm";
 		qcom,pasid = <0x0 0x1c>;
 
+		iomemory-ranges = <0x0 0x92c000 0x0 0x92c000 0x0 0x4000 0x0
+				0x0 0xc400000 0x0 0xc400000 0x0 0x30000 0x1
+				0x0 0xc440000 0x0 0xc440000 0x0 0x10000 0x1
+				0x0 0xc600000 0x0 0xc600000 0x0 0x2000000 0x1
+				0x0 0xe600000 0x0 0xe600000 0x0 0x100000 0x1
+				0x0 0xe700000 0x0 0xe700000 0x0 0xa0000 0x1
+				0x0 0xae8f000 0x0 0xae8f000 0x0 0x1000 0x0>;
+
+		gic-irq-ranges = <283 283>; /* PVM->SVM IRQ transfer */
+
 		memory {
 			#address-cells = <0x2>;
 			#size-cells = <0x0>;
@@ -173,16 +183,13 @@
 		};
 
 		segments {
-			/* offset and size */
-			kernel = <0x0 0x80000 0x0 0x1f80000>;    /* 31MB */
-			dt = <0x0 0x2000000 0x0 0x100000>;       /* 1MB */
-			ramdisk = <0x0 0x2100000 0x0 0x800000>; /* 8MB */
+			ramdisk = <2>; /* 8MB */
 		};
 
 		vcpus {
 			config = "/cpus";
 			affinity = "static";
-			affinity-map = <0x4 0x5>;   /* VCPU[0,1] -> CPU[4,5] */
+			affinity-map = <0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7>;
 			sched-priority = < (-1) >;  /* relative to PVM */
 			sched-timeslice = <2000>;   /* in ms */
 		};
@@ -192,83 +199,14 @@
 		};
 
 		vdevices {
-			peer-default;
-			shm1 {
-				vdevice-type = "shm";
-				generate = "/hypervisor/shm1";
-				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
-				peer-default;
-				memory {
-					qcom,label = <0x00000001>;
-					allocate-base;
-				};
-			};
-
-			shm2 {
-				vdevice-type = "shm";
-				generate = "/hypervisor/shm2";
-				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
-				peer-default;
-				memory {
-					qcom,label = <0x00000002>;
-					allocate-base;
-				};
-			};
-
-			shm3 {
-				vdevice-type = "shm";
-				generate = "/hypervisor/shm3";
-				push-compatible = "qcom,qrtr-haven-gen";
-				peer-default;
-				memory {
-					qcom,label = <0x00000003>;
-					allocate-base;
-				};
-			};
-
-			neuron-ch1-doorbell-source {
-				vdevice-type = "doorbell-source";
-				generate = "/hypervisor/neuron-ch1-doorbell-source";
-				qcom,label = <0x00000001>;
-				peer-default;
-			};
-
-			neuron-ch1-doorbell {
-				vdevice-type = "doorbell";
-				generate = "/hypervisor/neuron-ch1-doorbell";
-				interrupts = <0x00000000 0x00000020 0x00000001>;
-				qcom,label = <0x00000001>;
-				peer-default;
-			};
-
-			neuron-ch2-doorbell-source {
-				vdevice-type = "doorbell-source";
-				generate = "/hypervisor/neuron-ch2-doorbell-source";
-				qcom,label = <0x00000002>;
-				peer-default;
-			};
-
-			neuron-ch2-doorbell {
-				vdevice-type = "doorbell";
-				generate = "/hypervisor/neuron-ch2-doorbell";
-				interrupts = <0x00000000 0x00000021 0x00000001>;
-				qcom,label = <0x00000002>;
-				peer-default;
-			};
-
-			qrtr-doorbell-source {
-				vdevice-type = "doorbell-source";
-				generate = "/hypervisor/qrtr-doorbell-source";
-				qcom,label = <0x00000003>;
-				peer-default;
-			};
-
-			qrtr-doorbell {
-				vdevice-type = "doorbell";
-				generate = "/hypervisor/qrtr-doorbell";
-				interrupts = <0x00000000 0x00000022 0x00000001>;
-				qcom,label = <0x00000003>;
-				peer-default;
+			generate = "/hypervisor";
+			rm-rpc {
+				vdevice-type = "rm-rpc";
+				generate = "/hypervisor/qcom,resource-mgr";
+				console-dev;
+				message-size = <0x000000f0>;
+				queue-depth = <0x00000008>;
+				qcom,label = <0x1>;
 			};
 
 			mem-buf-message-queue-pair {
@@ -278,6 +216,39 @@
 				queue-depth = <0x00000008>;
 				peer-default;
 				qcom,label = <0x0000001>;
+			};
+
+			neuron-ch1-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/neuron-ch1-shm";
+				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x1>;
+					allocate-base;
+				};
+			};
+
+			neuron-ch2-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/neuron-ch2-shm";
+				push-compatible = "qcom,neuron-channel-haven-shmem-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x2>;
+					allocate-base;
+				};
+			};
+
+			qrtr-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/qrtr-shm";
+				push-compatible = "qcom,qrtr-haven-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x3>;
+					allocate-base;
+				};
 			};
 		};
 	};
