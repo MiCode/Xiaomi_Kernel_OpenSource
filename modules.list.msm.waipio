@@ -7,4 +7,5 @@ phy-qcom-emu.ko
 pinctrl-waipio.ko
 stub-regulator.ko
 debug-regulator.ko
+proxy-consumer.ko
 qti-fixed-regulator.ko
