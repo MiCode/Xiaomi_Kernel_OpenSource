@@ -34,6 +34,9 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long flags;
+	struct adreno_context *drawctxt = rb->drawctxt_active;
+	struct kgsl_context *context = &drawctxt->base;
+
 	/*
 	 * Here we are attempting to create a mapping between the
 	 * GPU time domain (alwayson counter) and the CPU time domain
@@ -49,7 +52,8 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 	time->ticks = gpudev->read_alwayson(adreno_dev);
 
 	/* Trace the GPU time to create a mapping to ftrace time */
-	trace_adreno_cmdbatch_sync(rb->drawctxt_active, time->ticks);
+	trace_adreno_cmdbatch_sync(context->id, context->priority,
+		drawctxt->timestamp, time->ticks);
 
 	/* Get the kernel clock for time since boot */
 	time->ktime = local_clock();

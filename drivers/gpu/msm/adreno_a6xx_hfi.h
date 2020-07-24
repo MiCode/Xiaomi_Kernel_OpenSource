@@ -60,6 +60,7 @@
 #define HFI_FEATURE_BCL		11
 #define HFI_FEATURE_ACD		12
 #define HFI_FEATURE_DIDT	13
+#define HFI_FEATURE_KPROF	14
 
 #define HFI_VALUE_FT_POLICY		100
 #define HFI_VALUE_RB_MAX_CMDS		101
@@ -481,10 +482,14 @@ struct hfi_ts_notify_cmd {
 
 /* F2H */
 struct hfi_ts_retire_cmd {
-	uint32_t hdr;
-	uint32_t ctxt_id;
-	uint32_t ts;
-	uint32_t ret;
+	u32 hdr;
+	u32 ctxt_id;
+	u32 ts;
+	u32 type;
+	u64 submitted_to_rb;
+	u64 sop;
+	u64 eop;
+	u64 retired_on_gmu;
 } __packed;
 
 /* H2F */
