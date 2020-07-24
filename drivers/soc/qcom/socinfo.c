@@ -345,6 +345,10 @@ static struct msm_soc_info cpu_of_id[] = {
 	[441] = {MSM_CPU_SCUBA, "SCUBA"},
 	[471] = {MSM_CPU_SCUBA, "SCUBA"},
 
+	/* Scuba IIOT  ID */
+	[473] = {MSM_CPU_SCUBAIOT, "SCUBAIIOT"},
+	[474] = {MSM_CPU_SCUBAPIOT, "SCUBAPIIOT"},
+
 	/* BENGAL-IOT ID */
 	[469] = {MSM_CPU_BENGAL_IOT, "BENGAL-IOT"},
 
@@ -1241,6 +1245,14 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_scuba()) {
 		dummy_socinfo.id = 441;
 		strlcpy(dummy_socinfo.build_id, "scuba - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_scubaiot()) {
+		dummy_socinfo.id = 473;
+		strlcpy(dummy_socinfo.build_id, "scubaiot - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_scubapiot()) {
+		dummy_socinfo.id = 474;
+		strlcpy(dummy_socinfo.build_id, "scubapiot - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdmshrike()) {
 		dummy_socinfo.id = 340;
