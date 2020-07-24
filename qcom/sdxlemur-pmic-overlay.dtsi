@@ -1,0 +1,8 @@
+#include "pmk8350.dtsi"
+#include "pmx65.dtsi"
+#include "pm7250b.dtsi"
+
+&pm7250b_clkdiv {
+	clocks = <&rpmhcc RPMH_CXO_CLK>;
+	clock-names = "xo";
+};
