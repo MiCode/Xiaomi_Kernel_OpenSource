@@ -290,6 +290,11 @@ struct gid_list {
 	unsigned int gidcount;
 };
 
+struct qos_cores {
+	int *coreno;
+	int corecount;
+};
+
 struct fastrpc_file;
 
 struct fastrpc_buf {
@@ -454,6 +459,7 @@ struct fastrpc_apps {
 	/* Non-secure subsystem like CDSP will use regular client */
 	struct wakeup_source *wake_source;
 	uint32_t duplicate_rsp_err_cnt;
+	struct qos_cores silvercores;
 };
 
 struct fastrpc_mmap {
@@ -538,7 +544,7 @@ struct fastrpc_file {
 	struct hlist_head perf;
 	struct dentry *debugfs_file;
 	struct mutex perf_mutex;
-	struct pm_qos_request pm_qos_req;
+	struct dev_pm_qos_request *dev_pm_qos_req;
 	int qos_request;
 	struct mutex map_mutex;
 	struct mutex internal_map_mutex;
@@ -4704,6 +4710,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	mutex_destroy(&fl->perf_mutex);
 	mutex_destroy(&fl->map_mutex);
 	mutex_destroy(&fl->internal_map_mutex);
+	kfree(fl->dev_pm_qos_req);
 	kfree(fl);
 	return 0;
 }
@@ -4711,14 +4718,23 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 static int fastrpc_device_release(struct inode *inode, struct file *file)
 {
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
+	struct fastrpc_apps *me = &gfa;
+	u32 ii;
 
-	if (fl) {
-		if (fl->qos_request && pm_qos_request_active(&fl->pm_qos_req))
-			pm_qos_remove_request(&fl->pm_qos_req);
-		debugfs_remove(fl->debugfs_file);
-		fastrpc_file_free(fl);
-		file->private_data = NULL;
+	if (!fl)
+		return 0;
+
+	if (fl->qos_request && fl->dev_pm_qos_req) {
+		for (ii = 0; ii < me->silvercores.corecount; ii++) {
+			if (!dev_pm_qos_request_active(&fl->dev_pm_qos_req[ii]))
+				continue;
+			dev_pm_qos_remove_request(&fl->dev_pm_qos_req[ii]);
+		}
 	}
+	debugfs_remove(fl->debugfs_file);
+	fastrpc_file_free(fl);
+	file->private_data = NULL;
+
 	return 0;
 }
 
@@ -5065,6 +5081,10 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	hlist_add_head(&fl->hn, &me->drivers);
 	spin_unlock(&me->hlock);
 	mutex_init(&fl->perf_mutex);
+	fl->dev_pm_qos_req = kcalloc(me->silvercores.corecount,
+				sizeof(struct dev_pm_qos_request),
+				GFP_KERNEL);
+
 	return 0;
 }
 
@@ -5181,6 +5201,8 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 {
 	int err = 0;
 	unsigned int latency;
+	struct fastrpc_apps *me = &gfa;
+	u32 silver_core_count = me->silvercores.corecount, ii = 0, cpu;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
 	if (err) {
@@ -5202,12 +5224,33 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			err = -EINVAL;
 			goto bail;
 		}
-		if (!fl->qos_request) {
-			pm_qos_add_request(&fl->pm_qos_req,
-				PM_QOS_CPU_DMA_LATENCY, latency);
+
+		VERIFY(err, me->silvercores.coreno && fl->dev_pm_qos_req);
+		if (err)
+			goto bail;
+
+		for (ii = 0; ii < silver_core_count; ii++) {
+			cpu = me->silvercores.coreno[ii];
+			if (!fl->qos_request) {
+				err = dev_pm_qos_add_request(
+						get_cpu_device(cpu),
+						&fl->dev_pm_qos_req[ii],
+						DEV_PM_QOS_RESUME_LATENCY,
+						latency);
+			} else {
+				err = dev_pm_qos_update_request(
+						&fl->dev_pm_qos_req[ii],
+						latency);
+			}
+			if (err < 0) {
+				pr_warn("adsprpc: %s: %s: PM voting for cpu:%d failed, err %d, QoS update %d\n",
+					current->comm, __func__, cpu,
+					err, fl->qos_request);
+				break;
+			}
+		}
+		if (err >= 0)
 			fl->qos_request = 1;
-		} else
-			pm_qos_update_request(&fl->pm_qos_req, latency);
 
 		/* Ensure CPU feature map updated to DSP for early WakeUp */
 		fastrpc_send_cpuinfo_to_dsp(fl);
@@ -5970,6 +6013,39 @@ bail:
 	}
 }
 
+static void init_qos_cores_list(struct device *dev, char *prop_name,
+						struct qos_cores *silvercores)
+{
+	int err = 0;
+	u32 len = 0, i = 0;
+	u32 *coreslist = NULL;
+
+	if (!of_find_property(dev->of_node, prop_name, &len))
+		goto bail;
+	if (len == 0)
+		goto bail;
+	len /= sizeof(u32);
+	VERIFY(err, NULL != (coreslist = kcalloc(len, sizeof(u32),
+						 GFP_KERNEL)));
+	if (err)
+		goto bail;
+	for (i = 0; i < len; i++) {
+		err = of_property_read_u32_index(dev->of_node, prop_name, i,
+								&coreslist[i]);
+		if (err) {
+			pr_err("adsprpc: %s: failed to read QOS cores list\n",
+								 __func__);
+			goto bail;
+		}
+	}
+	silvercores->coreno = coreslist;
+	silvercores->corecount = len;
+bail:
+	if (err) {
+		kfree(coreslist);
+	}
+}
+
 static void fastrpc_init_privileged_gids(struct device *dev, char *prop_name,
 						struct gid_list *gidlist)
 {
@@ -6068,6 +6144,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 							&gcinfo[0].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
 					&me->gidlist);
+		init_qos_cores_list(dev, "qcom,qos-cores",
+							&me->silvercores);
 
 		of_property_read_u32(dev->of_node, "qcom,rpc-latency-us",
 			&me->latency);
