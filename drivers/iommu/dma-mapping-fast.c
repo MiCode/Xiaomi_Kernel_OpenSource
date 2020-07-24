@@ -345,6 +345,8 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 		fast_smmu_sync_sg_for_device(dev, sg, nents, dir);
 
+	trace_map_sg(to_msm_iommu_domain(mapping->domain), iova, iova_len,
+		     prot);
 	return ret;
 fail:
 	iommu_dma_invalidate_sg(sg, nents);
@@ -383,6 +385,7 @@ static void fast_smmu_unmap_sg(struct device *dev,
 	spin_lock_irqsave(&mapping->lock, flags);
 	__fast_smmu_free_iova(mapping, start, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
+	trace_unmap(to_msm_iommu_domain(mapping->domain), start, len, len);
 }
 
 static void __fast_smmu_free_pages(struct page **pages, int count)
