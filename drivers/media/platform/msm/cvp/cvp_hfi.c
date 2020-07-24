@@ -3987,15 +3987,6 @@ static int __iris_power_on(struct iris_hfi_device *device)
 	device->intr_status = 0;
 	enable_irq(device->cvp_hal_data->irq);
 
-	/*
-	 * Hand off control of regulators to h/w _after_ enabling clocks.
-	 * Note that the GDSC will turn off when switching from normal
-	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
-	 * present. Since Iris isn't up yet, the GDSC will be off briefly.
-	 */
-	if (__enable_hw_power_collapse(device))
-		dprintk(CVP_ERR, "Failed to enabled inter-frame PC\n");
-
 	return rc;
 
 fail_enable_clks:
@@ -4166,7 +4157,7 @@ static void power_off_iris2(struct iris_hfi_device *device)
 static inline int __resume(struct iris_hfi_device *device)
 {
 	int rc = 0;
-	u32 flags = 0, reg_gdsc, reg_cbcr;
+	u32 flags = 0, reg_gdsc, reg_cbcr, loop = 10;
 
 	if (!device) {
 		dprintk(CVP_ERR, "Invalid params: %pK\n", device);
@@ -4201,6 +4192,29 @@ static inline int __resume(struct iris_hfi_device *device)
 	}
 
 	__setup_ucregion_memory_map(device);
+
+	/*
+	 * Hand off control of regulators to h/w _after_ enabling clocks.
+	 * Note that the GDSC will turn off when switching from normal
+	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
+	 * present. Since Iris isn't up yet, the GDSC will be off briefly.
+	 */
+	if (__enable_hw_power_collapse(device))
+		dprintk(CVP_ERR, "Failed to enabled inter-frame PC\n");
+
+	while (loop) {
+		reg_gdsc = __read_register(device, CVP_CC_MVS1_GDSCR);
+		if (reg_gdsc & 0x80000000) {
+			usleep_range(100, 200);
+			loop--;
+		} else {
+			break;
+		}
+	}
+
+	if (!loop)
+		dprintk(CVP_ERR, "fail to power off CORE during resume\n");
+
 	/* Wait for boot completion */
 	rc = __boot_firmware(device);
 	if (rc) {
