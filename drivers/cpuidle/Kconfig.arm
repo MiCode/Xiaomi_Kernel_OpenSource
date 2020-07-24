@@ -90,7 +90,7 @@ config ARM_MVEBU_V7_CPUIDLE
 config ARM_QCOM_LPM_CPUIDLE
 	depends on ARCH_QCOM || COMPILE_TEST
 	select CPU_IDLE_MULTIPLE_DRIVERS
-	select MSM_PM if QGKI
+	select MSM_PM
 	select QGKI_LPM_IPI_CHECK if QGKI
 	tristate "Qualcomm Technologies, Inc. (QTI) Power Management Drivers"
 	help
@@ -99,3 +99,10 @@ config ARM_QCOM_LPM_CPUIDLE
 	  into low power modes. It implements OS initiated scheme and
 	  determines last CPU to call into PSCI for cluster Low power
 	  modes.
+
+config QGKI_LPM_IPI_CHECK
+	depends on ARM_QCOM_LPM_CPUIDLE
+	bool "Qualcomm Technologies, Inc. (QTI) LPM IPI Check"
+	help
+	 When this option is selected, last cpu doesn't select cluster low
+	 power mode if there is any pending IPI already on any online cpu.

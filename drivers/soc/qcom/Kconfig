@@ -709,7 +709,6 @@ config QTI_RPM_STATS_LOG
 config QTI_DDR_STATS_LOG
 	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
 	depends on QCOM_RPMH
-	depends on QGKI
 	help
 	  This option enables a driver which reads DDR statistical information
 	  from AOP shared memory location such as DDR low power modes and DDR
@@ -750,7 +749,6 @@ config QCOM_FSA4480_I2C
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
-	depends on QGKI
 	help
 	  Qualcomm Technologies Inc (QTI) SoC sleep stats driver to read
 	  the shared memory exported by the remote processor related to

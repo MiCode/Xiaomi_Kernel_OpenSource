@@ -176,6 +176,7 @@ static int lpm_online_cpu(unsigned int cpu)
 }
 #endif
 
+#ifdef CONFIG_MSM_PM
 /**
  * msm_cpuidle_get_deep_idle_latency - Get deep idle latency value
  *
@@ -197,6 +198,7 @@ uint32_t register_system_pm_ops(struct system_pm_ops *pm_ops)
 	return 0;
 }
 EXPORT_SYMBOL(register_system_pm_ops);
+#endif
 
 static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 		uint32_t arg2, uint32_t arg3, uint32_t arg4)
@@ -1299,6 +1301,7 @@ static int lpm_cpuidle_select(struct cpuidle_driver *drv,
 	return cpu_power_select(dev, cpu);
 }
 
+#ifdef CONFIG_MSM_PM
 void update_ipi_history(int cpu)
 {
 	struct ipi_history *history = &per_cpu(cpu_ipi_history, cpu);
@@ -1312,6 +1315,7 @@ void update_ipi_history(int cpu)
 		history->current_ptr = 0;
 	history->cpu_idle_resched_ts = now;
 }
+#endif
 
 static void update_history(struct cpuidle_device *dev, int idx)
 {
