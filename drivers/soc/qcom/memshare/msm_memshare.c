@@ -932,6 +932,8 @@ static const struct of_device_id memshare_match_table[] = {
 	{}
 };
 
+MODULE_DEVICE_TABLE(of, memshare_match_table);
+
 static struct platform_driver memshare_pdriver = {
 	.probe          = memshare_probe,
 	.remove         = memshare_remove,
