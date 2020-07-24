@@ -1925,4 +1925,14 @@ void gmu_fault_snapshot(struct kgsl_device *device);
  * Return: 0 on success or negative error on failure
  */
 int adreno_suspend_context(struct kgsl_device *device);
+
+/*
+ * adreno_profile_submit_time - Populate profiling buffer with timestamps
+ * @time: Container for the statistics
+ *
+ * Populate the draw object user profiling buffer with the timestamps
+ * recored in the adreno_submit_time structure at the time of draw object
+ * submission.
+ */
+void adreno_profile_submit_time(struct adreno_submit_time *time);
 #endif /*__ADRENO_H */

@@ -529,6 +529,8 @@ struct hfi_submit_cmd {
 	u32 ctxt_id;
 	u32 flags;
 	u32 ts;
+	u32 profile_gpuaddr_lo;
+	u32 profile_gpuaddr_hi;
 	u32 numibs;
 } __packed;
 

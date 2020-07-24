@@ -3201,6 +3201,45 @@ void adreno_cx_misc_regrmw(struct adreno_device *adreno_dev,
 	adreno_cx_misc_regwrite(adreno_dev, offsetwords, val | bits);
 }
 
+void adreno_profile_submit_time(struct adreno_submit_time *time)
+{
+	struct kgsl_drawobj *drawobj;
+	struct kgsl_drawobj_cmd *cmdobj;
+	struct kgsl_mem_entry *entry;
+	struct kgsl_drawobj_profiling_buffer *profile_buffer;
+
+	drawobj = time->drawobj;
+	if (drawobj == NULL)
+		return;
+
+	cmdobj = CMDOBJ(drawobj);
+	entry = cmdobj->profiling_buf_entry;
+	if (!entry)
+		return;
+
+	profile_buffer = kgsl_gpuaddr_to_vaddr(&entry->memdesc,
+			cmdobj->profiling_buffer_gpuaddr);
+
+	if (profile_buffer == NULL)
+		return;
+
+	/* Return kernel clock time to the client if requested */
+	if (drawobj->flags & KGSL_DRAWOBJ_PROFILING_KTIME) {
+		u64 secs = time->ktime;
+
+		profile_buffer->wall_clock_ns =
+			do_div(secs, NSEC_PER_SEC);
+		profile_buffer->wall_clock_s = secs;
+	} else {
+		profile_buffer->wall_clock_s = time->utime.tv_sec;
+		profile_buffer->wall_clock_ns = time->utime.tv_nsec;
+	}
+
+	profile_buffer->gpu_ticks_queued = time->ticks;
+
+	kgsl_memdesc_unmap(&entry->memdesc);
+}
+
 /**
  * adreno_waittimestamp - sleep while waiting for the specified timestamp
  * @device - pointer to a KGSL device structure

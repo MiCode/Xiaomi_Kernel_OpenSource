@@ -1084,16 +1084,32 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	cmd->ts = drawobj->timestamp;
 	cmd->numibs = numibs;
 
-	if (numibs) {
-		issue_ib = (struct hfi_issue_ib *)&cmd[1];
+	if (!numibs)
+		goto skipib;
 
-		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
-			issue_ib->addr = ib->gpuaddr;
-			issue_ib->size = ib->size;
-			issue_ib++;
-		}
+	if ((drawobj->flags & KGSL_DRAWOBJ_PROFILING) &&
+		!cmdobj->profiling_buf_entry) {
+
+		time.drawobj = drawobj;
+
+		cmd->profile_gpuaddr_lo =
+			lower_32_bits(cmdobj->profiling_buffer_gpuaddr);
+		cmd->profile_gpuaddr_hi =
+			upper_32_bits(cmdobj->profiling_buffer_gpuaddr);
+
+		/* Indicate to GMU to do user profiling for this submission */
+		cmd->flags |= BIT(4);
 	}
 
+	issue_ib = (struct hfi_issue_ib *)&cmd[1];
+
+	list_for_each_entry(ib, &cmdobj->cmdlist, node) {
+		issue_ib->addr = ib->gpuaddr;
+		issue_ib->size = ib->size;
+		issue_ib++;
+	}
+
+skipib:
 	ret = a6xx_hfi_queue_write(adreno_dev,
 		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
 		(u32 *)cmd);
@@ -1113,6 +1129,9 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	/* Send interrupt to GMU to receive the message */
 	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), A6XX_GMU_HOST2GMU_INTR_SET,
 		DISPQ_IRQ_BIT(drawobj->context->gmu_dispatch_queue));
+
+	/* Put the profiling information in the user profiling buffer */
+	adreno_profile_submit_time(&time);
 
 free:
 	kvfree(cmd);
