@@ -98,12 +98,11 @@ enum MDLA_DEBUG_MASK {
 	MDLA_DBG_CMD         = (1U << 2),
 	MDLA_DBG_PMU         = (1U << 3),
 	MDLA_DBG_PERF        = (1U << 4),
-	MDLA_DBG_QOS         = (1U << 5),
-	MDLA_DBG_TIMEOUT	 = (1U << 6),
-	MDLA_DBG_DVFS        = (1U << 7),
-	MDLA_DBG_TIMEOUT_ALL = (1U << 8),
+	MDLA_DBG_PWR         = (1U << 5),
+	MDLA_DBG_TIMEOUT     = (1U << 6),
+	MDLA_DBG_RSV         = (1U << 7),
 
-	MDLA_DBG_ALL         = (1U << 9) - 1,
+	MDLA_DBG_ALL         = (1U << 8) - 1,
 };
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -121,7 +120,10 @@ enum MDLA_DEBUG_MASK {
 
 #define redirect_output(...) pr_info(__VA_ARGS__)
 
+/* log level : error */
 #define mdla_err(...) redirect_output(__VA_ARGS__)
+
+/* log level : debug */
 #define mdla_debug(mask, ...)				\
 do {							\
 	if ((mask & mdla_dbg_read_u32(FS_KLOG)))	\
@@ -133,11 +135,15 @@ do {							\
 #define mdla_cmd_debug(...) mdla_debug(MDLA_DBG_CMD, __VA_ARGS__)
 #define mdla_pmu_debug(...) mdla_debug(MDLA_DBG_PMU, __VA_ARGS__)
 #define mdla_perf_debug(...) mdla_debug(MDLA_DBG_PERF, __VA_ARGS__)
-#define mdla_qos_debug(...) mdla_debug(MDLA_DBG_QOS, __VA_ARGS__)
+#define mdla_pwr_debug(...) mdla_debug(MDLA_DBG_PWR, __VA_ARGS__)
 #define mdla_timeout_debug(...) mdla_debug(MDLA_DBG_TIMEOUT, __VA_ARGS__)
-#define mdla_dvfs_debug(...) mdla_debug(MDLA_DBG_DVFS, __VA_ARGS__)
-#define mdla_timeout_all_debug(...) \
-	mdla_debug(MDLA_DBG_TIMEOUT_ALL, __VA_ARGS__)
+
+/* log level : verbose */
+#define mdla_verbose(...)				\
+do {							\
+	if (mdla_dbg_read_u32(FS_KLOG) == MDLA_DBG_ALL)	\
+		redirect_output(__VA_ARGS__);		\
+} while (0)
 
 const char *mdla_dbg_get_reason_str(int res);
 

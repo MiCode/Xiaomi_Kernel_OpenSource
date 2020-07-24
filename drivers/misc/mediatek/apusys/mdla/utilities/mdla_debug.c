@@ -216,12 +216,12 @@ void mdla_dbg_fs_setup(struct device *dev)
 	int i;
 
 	if (!dev) {
-		mdla_drv_debug("%s(): Fail. No device!\n", __func__);
+		mdla_err("%s(): Fail. No device!\n", __func__);
 		return;
 	}
 
 	if (!mdla_dbg_root) {
-		mdla_drv_debug("%s(): dentry NOT ready\n", __func__);
+		mdla_err("%s(): dentry NOT ready\n", __func__);
 		return;
 	}
 
@@ -258,7 +258,7 @@ void mdla_dbg_fs_init(struct dentry *droot)
 {
 	mdla_dbg_root = debugfs_create_dir("mdla", droot);
 	if (IS_ERR_OR_NULL(mdla_dbg_root)) {
-		mdla_drv_debug("failed to create mdla debugfs\n");
+		mdla_err("%s: failed to create mdla debugfs\n", __func__);
 		return;
 	}
 

@@ -41,7 +41,7 @@ int mdla_init(struct apusys_core_info *info)
 		return -1;
 	}
 
-	mdla_drv_debug("%s() done!\n", __func__);
+	pr_info("%s() done\n", __func__);
 
 	return 0;
 }
@@ -51,7 +51,7 @@ void mdla_exit(void)
 	mdla_dbg_fs_exit();
 	mdla_drv_exit();
 
-	mdla_drv_debug("MDLA: Goodbye from the LKM!\n");
+	pr_info("%s()!!\n", __func__);
 }
 
 #if ONLY_MDLA_MODULE
