@@ -430,7 +430,7 @@
 			<0x1c0a000 0x26000>;
 		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
 		interrupt-names = "periph_irq";
-		interrupts = <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts-extended = <&wakegic 86 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
 		#address-cells = <2>;
