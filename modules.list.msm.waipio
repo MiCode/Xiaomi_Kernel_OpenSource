@@ -9,3 +9,6 @@ stub-regulator.ko
 debug-regulator.ko
 proxy-consumer.ko
 qti-fixed-regulator.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qrbtc-sdm845.ko
+ufs-qcom.ko
