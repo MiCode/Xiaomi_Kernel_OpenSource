@@ -4355,6 +4355,11 @@ static int __qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
 	/* Allocate kernel buffer for request and response*/
 	ret = __qseecom_alloc_coherent_buf(req.cmd_req_len + req.resp_len,
 					&va, &pa);
+	if (ret) {
+		pr_err("Failed to allocate coherent buf, ret %d\n", ret);
+		return ret;
+	}
+
 	req.cmd_req_buf = va;
 	send_cmd_req.cmd_req_buf = (void *)pa;
 
