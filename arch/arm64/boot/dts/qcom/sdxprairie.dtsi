@@ -704,6 +704,12 @@
 		qcom,net-id = <3>;
 	};
 
+	eth_dev_qrtr: qcom,eth_dev_qrtr {
+		compatible = "qcom,qrtr-ethernet-dev";
+		qcom,net-id = <4>;
+		qcom,low-latency;
+	};
+
 	qcom,glinkpkt {
 		compatible = "qcom,glinkpkt";
 
