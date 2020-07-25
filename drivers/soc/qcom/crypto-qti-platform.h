@@ -17,6 +17,9 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 			   unsigned int data_unit_mask, int capid);
 int crypto_qti_invalidate_key(struct crypto_vops_qti_entry *ice_entry,
 			      unsigned int slot);
+int crypto_qti_tz_raw_secret(const u8 *wrapped_key,
+			     unsigned int wrapped_key_size, u8 *secret,
+			     unsigned int secret_size);
 #else
 static inline int crypto_qti_program_key(
 				struct crypto_vops_qti_entry *ice_entry,
@@ -28,6 +31,12 @@ static inline int crypto_qti_program_key(
 }
 static inline int crypto_qti_invalidate_key(
 		struct crypto_vops_qti_entry *ice_entry, unsigned int slot)
+{
+	return 0;
+}
+static int crypto_qti_tz_raw_secret(u8 *wrapped_key,
+					unsigned int wrapped_key_size,
+					u8 *secret, unsigned int secret_size)
 {
 	return 0;
 }
