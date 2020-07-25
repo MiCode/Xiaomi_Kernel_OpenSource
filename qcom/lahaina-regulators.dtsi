@@ -142,12 +142,18 @@
 	rpmh-regulator-smpb12 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "smpb12";
+		qcom,regulator-type = "pmic5-hfsmps";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_RET
+			 RPMH_REGULATOR_MODE_AUTO>;
+		qcom,mode-threshold-currents = <0 200000>;
 		S12B: pm8350_s12: regulator-pm8350-s12 {
 			regulator-name = "pm8350_s12";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1360000>;
 			qcom,init-voltage = <1256000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_RET>;
 		};
 	};
 
