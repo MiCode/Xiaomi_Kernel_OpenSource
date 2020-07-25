@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,9 +13,31 @@
 #include "sdxprairie.dtsi"
 
 &mpss_adsp_mem {
-	reg = <0x90800000 0xdc00000>;
+	reg = <0x90800000 0xf800000>;
 };
 
 &pil_modem {
 	qcom,auto-boot;
+};
+
+&thermal_zones {
+	/* update Tj thresholds */
+	mdm-core-0-step {
+		trips {
+			active-config0 {
+				temperature = <95000>;
+				hysteresis = <5000>;
+			};
+
+			active-config1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+			};
+
+			active-config2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+			};
+		};
+	};
 };

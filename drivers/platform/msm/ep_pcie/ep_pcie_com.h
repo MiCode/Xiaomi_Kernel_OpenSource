@@ -372,6 +372,7 @@ struct ep_pcie_dev_t {
 	u32                          dbi_base_reg;
 	u32                          slv_space_reg;
 	u32                          phy_status_reg;
+	u32			phy_status_bit_mask_bit;
 	u32                          phy_init_len;
 	u32			     mhi_soc_reset_offset;
 	struct ep_pcie_phy_info_t    *phy_init;

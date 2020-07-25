@@ -5001,7 +5001,7 @@
 				config {
 					pins = "gpio85", "gpio86";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 		};

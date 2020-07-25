@@ -35,7 +35,6 @@
 &soc {
 	qcom,lpass@62400000 {
 		status = "ok";
-		qcom,pil-force-shutdown;
 	};
 
 	qcom,glink {

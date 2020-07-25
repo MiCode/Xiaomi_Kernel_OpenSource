@@ -2968,7 +2968,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.out_epname = "gsi-epout";
 		info.in_req_buf_len = GSI_IN_RNDIS_BUFF_SIZE;
 		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_RNDIS_BUFFERS;
+		info.in_req_num_buf = GSI_NUM_IN_RNDIS_RMNET_ECM_BUFFERS;
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_AGGR_SIZE;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
@@ -3167,7 +3167,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_IN_RMNET_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_RMNET_BUFF_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_RMNET_BUFFERS;
+		info.in_req_num_buf = GSI_NUM_IN_RNDIS_RMNET_ECM_BUFFERS;
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_RMNET_BUF_LEN;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
@@ -3200,7 +3200,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_ECM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
-		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
+		info.in_req_num_buf = GSI_NUM_IN_RNDIS_RMNET_ECM_BUFFERS;
 		gsi->d_port.out_aggr_size = GSI_ECM_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_ECM_BUF_LEN;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
@@ -3358,6 +3358,13 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	drain_workqueue(gsi->d_port.ipa_usb_wq);
 	ipa_usb_deinit_teth_prot((enum ipa_usb_teth_prot)gsi->prot_id);
+
+	/* Reset string ids */
+	rndis_gsi_string_defs[0].id = 0;
+	ecm_gsi_string_defs[0].id   = 0;
+	rmnet_gsi_string_defs[0].id = 0;
+	mbim_gsi_string_defs[0].id  = 0;
+	qdss_gsi_string_defs[0].id  = 0;
 
 skip_ipa_dinit:
 	if (gsi->prot_id == USB_PROT_RNDIS_IPA) {

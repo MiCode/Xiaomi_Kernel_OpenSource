@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,8 +74,8 @@ static struct cluster_data cluster_state[MAX_CLUSTERS];
 static unsigned int num_clusters;
 
 #define for_each_cluster(cluster, idx) \
-	for ((cluster) = &cluster_state[idx]; (idx) < num_clusters;\
-		(idx)++, (cluster) = &cluster_state[idx])
+	for (; (idx) < num_clusters && ((cluster) = &cluster_state[idx]);\
+		(idx)++)
 
 static DEFINE_SPINLOCK(state_lock);
 static void apply_need(struct cluster_data *state);
@@ -819,7 +819,7 @@ static u64 core_ctl_check_timestamp;
 int core_ctl_set_boost(bool boost)
 {
 	unsigned int index = 0;
-	struct cluster_data *cluster;
+	struct cluster_data *cluster = NULL;
 	unsigned long flags;
 	int ret = 0;
 	bool boost_state_changed = false;
@@ -850,7 +850,8 @@ int core_ctl_set_boost(bool boost)
 			apply_need(cluster);
 	}
 
-	trace_core_ctl_set_boost(cluster->boost, ret);
+	if (cluster)
+		trace_core_ctl_set_boost(cluster->boost, ret);
 
 	return ret;
 }

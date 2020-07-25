@@ -130,6 +130,9 @@ Optional Properties:
     property.
   - clock-output-names: name of the outgoing clock signal from the PHY PLL.
   - qcom,keep-powerdown-phy: If present, power down phy in probe to avoid leakage.
+  - errata: Selects the list of erratas to configure for the
+    corresponding switch port. This could be a third party switch connected to
+    the root port.
 
 =================
 Root Complex node

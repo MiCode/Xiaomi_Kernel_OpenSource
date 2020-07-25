@@ -100,11 +100,24 @@ enum wcnss_log_type {
 #define PRONTO_PMU_OFFSET       0x1004
 #define WCNSS_PMU_CFG_GC_BUS_MUX_SEL_TOP   BIT(5)
 
+enum wcnss_driver_state {
+	WCNSS_SMD_OPEN,
+	WCNSS_SMD_CLOSE,
+};
+
+struct wcnss_driver_ops {
+	char *name;
+	void *priv_data;
+	int (*driver_state)(void *priv, enum wcnss_driver_state state);
+};
+
 struct device *wcnss_wlan_get_device(void);
 void wcnss_get_monotonic_boottime(struct timespec *ts);
 struct resource *wcnss_wlan_get_memory_map(struct device *dev);
 int wcnss_wlan_get_dxe_tx_irq(struct device *dev);
 int wcnss_wlan_get_dxe_rx_irq(struct device *dev);
+int wcnss_register_driver(struct wcnss_driver_ops *ops, void *priv);
+int wcnss_unregister_driver(struct wcnss_driver_ops *ops);
 void wcnss_wlan_register_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops);
 void wcnss_wlan_unregister_pm_ops(struct device *dev,
@@ -169,6 +182,8 @@ int wcnss_get_wlan_unsafe_channel(
 				u16 *ch_count);
 struct rpmsg_endpoint *wcnss_open_channel(const char *name,
 					  rpmsg_rx_cb_t cb, void *priv);
+void wcnss_close_channel(struct rpmsg_endpoint *channel);
+int wcnss_smd_tx(struct rpmsg_endpoint *channel, void *data, int len);
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
 /* WLAN driver uses these names */

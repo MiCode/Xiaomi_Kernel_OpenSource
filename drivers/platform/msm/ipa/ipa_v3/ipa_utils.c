@@ -409,7 +409,7 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 	[IPA_4_5_MHI] = {
 		/* PCIE  DDR  DMA  QDSS  unused  N/A */
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
-		{3, 8}, {4, 11}, {1, 1}, {1, 1}, {0, 0}, {0, 0} },
+		{3, 8}, {4, 11}, {1, 6}, {1, 1}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
 		{9, 9}, {12, 12}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
@@ -435,7 +435,7 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 	[IPA_4_5_AUTO_MHI] = {
 		/* PCIE  DDR  DMA/CV2X  QDSS  unused  N/A */
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
-		{3, 8}, {4, 11}, {1, 1}, {1, 1}, {0, 0}, {0, 0} },
+		{3, 8}, {4, 11}, {1, 6}, {1, 1}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
 		{9, 9}, {12, 12}, {2, 2}, {2, 2}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
@@ -2005,6 +2005,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
 			QMB_MASTER_SELECT_DDR,
 			{ 9, 0, 8, 16, IPA_EE_UC } },
+	[IPA_4_1_APQ][IPA_CLIENT_WLAN2_PROD] = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_REP_SEQ_TYPE_2PKT_PROC_PASS_NO_DEC_UCP_DMAP,
+			QMB_MASTER_SELECT_DDR,
+			{ 7, 9, 8, 16, IPA_EE_AP } },
 	/* Only for test purpose */
 	[IPA_4_1_APQ][IPA_CLIENT_TEST_PROD]           = {
 			true, IPA_v4_0_GROUP_UL_DL,
@@ -2061,6 +2067,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 22, 1, 9, 9, IPA_EE_UC } },
+	[IPA_4_1_APQ][IPA_CLIENT_WLAN2_CONS] = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 17, 1, 8, 13, IPA_EE_AP } },
 	/* Only for test purpose */
 	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
 	[IPA_4_1_APQ][IPA_CLIENT_TEST_CONS]           = {
@@ -2608,6 +2620,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_PCIE,
 			{ 3, 5, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
+	[IPA_4_5_MHI][IPA_CLIENT_QDSS_PROD] = {
+			true, IPA_v4_5_MHI_GROUP_QDSS,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 11, 14, 10, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	/* Only for test purpose */
 	[IPA_4_5_MHI][IPA_CLIENT_TEST_PROD]           = {
 			true, QMB_MASTER_SELECT_DDR,
@@ -2701,11 +2719,11 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_PCIE,
 			{ 30, 6, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5_MHI][IPA_CLIENT_MHI_QDSS_CONS] = {
-			true, IPA_v4_5_MHI_GROUP_PCIE,
+			true, IPA_v4_5_MHI_GROUP_QDSS,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
-			{ 24, 3, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
+			{ 24, 3, 8, 14, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
 	[IPA_4_5_MHI][IPA_CLIENT_DUMMY_CONS]          = {
 			true, QMB_MASTER_SELECT_DDR,
@@ -5496,6 +5514,78 @@ success:
 }
 
 /**
+ * ipa3_force_cfg_ep_holb() - IPA end-point holb configuration
+ *			for QDSS_MHI_CONS pipe
+ *
+ * If an IPA producer pipe is full, IPA HW by default will block
+ * indefinitely till space opens up. During this time no packets
+ * including those from unrelated pipes will be processed. Enabling
+ * HOLB means IPA HW will be allowed to drop packets as/when needed
+ * and indefinite blocking is avoided.
+ *
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa3_force_cfg_ep_holb(u32 clnt_hdl,
+	struct ipa_ep_cfg_holb *ep_holb)
+{
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ep_holb == NULL) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	if (ep_holb->en == IPA_HOLB_TMR_DIS) {
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
+		goto success;
+	}
+
+	/* Follow HPG sequence to DIS_HOLB, Configure Timer, and HOLB_EN */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ep_holb->en = IPA_HOLB_TMR_DIS;
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
+	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		int res;
+
+		res = ipa3_process_timer_cfg(ep_holb->tmr_val * 1000,
+			&ep_holb->pulse_generator,
+			&ep_holb->scaled_time);
+		if (res) {
+			IPAERR("failed to process HOLB timer tmr=%u\n",
+				ep_holb->tmr_val);
+			ipa_assert();
+			return res;
+		}
+	}
+
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
+		clnt_hdl, ep_holb);
+
+	/* Enable HOLB */
+	ep_holb->en = IPA_HOLB_TMR_EN;
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+		clnt_hdl, ep_holb);
+	/* IPA4.5 issue requires HOLB_EN to be written twice */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
+
+success:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
+		ep_holb->tmr_val);
+	return 0;
+}
+
+/**
  * ipa3_cfg_ep_holb_by_client() - IPA end-point holb configuration
  *
  * Wrapper function for ipa3_cfg_ep_holb() with client name instead of
@@ -7293,6 +7383,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa3_get_prot_id;
 	api_ctrl->ipa_add_socksv5_conn = ipa3_add_socksv5_conn;
 	api_ctrl->ipa_del_socksv5_conn = ipa3_del_socksv5_conn;
+	api_ctrl->ipa_conn_qdss_pipes = ipa3_conn_qdss_pipes;
+	api_ctrl->ipa_disconn_qdss_pipes = ipa3_disconn_qdss_pipes;
 	return 0;
 }
 
@@ -7941,6 +8033,16 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 			ipa_assert();
 		}
 	} else {
+		if (IPA_CLIENT_IS_APPS_PROD(client) ||
+			(client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_idx != IPA_EP_NOT_ALLOCATED))
+			goto chan_statrt;
+		if (!atomic_read(&ep->sys->curr_polling_state)) {
+			IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+					GSI_CHAN_MODE_CALLBACK);
+		}
+chan_statrt:
 		res = gsi_start_channel(ep->gsi_chan_hdl);
 		if (res) {
 			IPAERR("failed to start LAN channel\n");
@@ -7967,12 +8069,7 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
 		if (!ipa3_gsi_channel_is_quite(ep))
 			return -EAGAIN;
-	} else if (!atomic_read(&ep->sys->curr_polling_state)) {
-		IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
-		gsi_config_channel_mode(ep->gsi_chan_hdl,
-			GSI_CHAN_MODE_CALLBACK);
 	}
-
 	return 0;
 }
 

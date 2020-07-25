@@ -1833,12 +1833,14 @@ static bool __init memblock_in_no_hotplug_area(phys_addr_t addr)
 
 static int __init early_dyn_memhotplug(char *p)
 {
-	int idx = 0;
+	unsigned long idx = 0;
+	unsigned long old_cnt;
 	phys_addr_t addr, rgn_end;
 	struct memblock_region *rgn;
 	int blk = 0;
 
 	while (idx < memblock.memory.cnt) {
+		old_cnt = memblock.memory.cnt;
 		rgn = &memblock.memory.regions[idx++];
 		addr = ALIGN(rgn->base, MIN_MEMORY_BLOCK_SIZE);
 		rgn_end = rgn->base + rgn->size;
@@ -1849,6 +1851,8 @@ static int __init early_dyn_memhotplug(char *p)
 			}
 			addr += MIN_MEMORY_BLOCK_SIZE;
 		}
+		if (old_cnt != memblock.memory.cnt)
+			idx--;
 	}
 	return 0;
 }

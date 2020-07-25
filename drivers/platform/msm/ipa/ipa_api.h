@@ -13,6 +13,7 @@
 #include <linux/ipa_mhi.h>
 #include <linux/ipa_uc_offload.h>
 #include <linux/ipa_wdi3.h>
+#include <linux/ipa_qdss.h>
 #include "ipa_common_i.h"
 
 #ifndef _IPA_API_H_
@@ -497,6 +498,11 @@ struct ipa_api_controller {
 	int (*ipa_add_socksv5_conn)(struct ipa_socksv5_info *info);
 
 	int (*ipa_del_socksv5_conn)(uint32_t handle);
+
+	int (*ipa_conn_qdss_pipes)(struct ipa_qdss_conn_in_params *in,
+		struct ipa_qdss_conn_out_params *out);
+
+	int (*ipa_disconn_qdss_pipes)(void);
 
 };
 

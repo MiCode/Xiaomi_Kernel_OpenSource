@@ -80,6 +80,9 @@ Optional properties:
 			identifier.  If this is specified, then a QMP message
 			should be sent to enable the GDSC instead of setting
 			SW_COLLAPSE=0.
+ - qcom,skip-disable-before-sw-enable: Presence denotes a hardware requirement
+					to leave the GDSC on that has been
+					enabled by an entity external to HLOS.
 
 [1]: Documentation/devicetree/bindings/arm/msm/msm_bus.txt
 

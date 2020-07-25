@@ -8,24 +8,27 @@ state of one subsytem to another. Modem can indicate different events
 Required Properties:
 - compatible:	"qcom,sdx-ext-ipc".
 
-Required named gpio properties:
-- qcom,mdm2ap-status-gpio: gpio for modem to indicate the boot status to APQ.
-
-- qcom,ap2mdm-status-gpio: gpio for APQ to indicate the boot status to modem.
-
-
-
 Optional named gpio properties:
-- qcom,mdm2ap-status2-gpio: gpio for modem to indicate to APQ that it is in
+- qcom,status-out-gpio: gpio to indicate the boot status to remote processor.
+
+- qcom,status-in-gpio: gpio for remote processor to indicate the boot status.
+
+- qcom,status-out2-gpio: gpio to indicate to remote processor that it is in
 		E911 call or doing firmware upgrade.
 
-- qcom,ap2mdm-status2-gpio: gpio for APQ to indicate graceful shutdown to modem.
+- qcom,default-policy-nop: Set default policy from PANIC to NOP.
+
+- qcom,wakeup-gpio-out: gpio to wakeup remote AP or modem.
+
+- qcom,wakeup-gpio-in: input gpio to receive wakeup signal from remote AP or
+		modem.
 
 Example:
 	sdx_ext_ipc: qcom,sdx_ext_ipc {
 		compatible = "qcom,sdx-ext-ipc";
-		qcom,ap2mdm-status-gpio = <&tlmm 64 0x00>;
-		qcom,ap2mdm-status2-gpio = <&tlmm 65 0x00>;
-		qcom,mdm2ap-status-gpio = <&tlmm 63 0x00>;
-		qcom,mdm2ap-status2-gpio = <&tlmm 66 0x00>;
+		qcom,status-in-gpio = <&tlmm 64 0x00>;
+		qcom,status-out-gpio = <&tlmm 63 0x00>;
+		qcom,status-out2-gpio = <&tlmm 66 0x00>;
+		qcom,wakeup-gpio-in = <&tlmm 67 0x00>;
+		qcom,wakeup-gpio-out = <&tlmm 68 0x00>;
 	};

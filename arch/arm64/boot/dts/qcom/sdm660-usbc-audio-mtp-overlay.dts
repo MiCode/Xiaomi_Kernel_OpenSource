@@ -26,4 +26,6 @@
 &tavil_snd {
 	qcom,msm-mbhc-usbc-audio-supported = <1>;
 	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
 };

@@ -126,7 +126,7 @@ static void rmnet_vnd_uninit(struct net_device *dev)
 	gro_cells_destroy(&priv->gro_cells);
 	free_percpu(priv->pcpu_stats);
 
-	qos = priv->qos_info;
+	qos = rcu_dereference(priv->qos_info);
 	RCU_INIT_POINTER(priv->qos_info, NULL);
 	qmi_rmnet_qos_exit_pre(qos);
 }
@@ -370,7 +370,8 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
 		rmnet_dev->rtnl_link_ops = &rmnet_link_ops;
 
 		priv->mux_id = id;
-		priv->qos_info = qmi_rmnet_qos_init(real_dev, id);
+		rcu_assign_pointer(priv->qos_info,
+				   qmi_rmnet_qos_init(real_dev, rmnet_dev, id));
 
 		netdev_dbg(rmnet_dev, "rmnet dev created\n");
 	}

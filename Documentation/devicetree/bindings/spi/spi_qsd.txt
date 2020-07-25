@@ -36,7 +36,13 @@ Optional properties:
  - qcom,rt-priority : whether spi message queue is set to run as a realtime task.
   With this spi transaction message pump with high (realtime) priority to reduce
   the transfer latency on the bus by minimising the delay between a transfer request
- - qcom,shared : whether this qup is shared with other ee's
+ - qcom,shared : whether this qup is shared with other ee's and client driver is not
+   in control of the spi driver get_sync/put_sync_suspend. Spi driver will
+   take care of resources management like clock, gpios and bam for EE switching.
+ - qcom,shared_ee : whether this qup is used by other ee's and client driver is in
+   control of the spi driver get_sync/put_sync_suspend. Resources management
+   of clock, gpios and bam for EE switching will be taken care when client calls spi
+   get_sync/put_sync_suspend APIs.
 
 Optional properties which are required for support of BAM-mode:
 - qcom,ver-reg-exists : Boolean. When present, allows driver to verify if HW

@@ -578,7 +578,7 @@ static int atl2_fw_get_phy_temperature(struct atl_hw *hw, int *temp)
 	ret = atl2_shared_buffer_read_safe(hw, phy_health_monitor,
 					   &phy_health_monitor);
 
-	*temp = (phy_health_monitor.phy_temperature & 0xffff) * 1000;
+	*temp = (int8_t)(phy_health_monitor.phy_temperature) * 1000;
 
 	atl_unlock_fw(hw);
 

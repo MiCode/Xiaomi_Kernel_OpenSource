@@ -209,7 +209,9 @@
 			<0x100 &apps_smmu 0x0201 0x1>,
 			<0x200 &apps_smmu 0x0202 0x1>,
 			<0x300 &apps_smmu 0x0203 0x1>,
-			<0x400 &apps_smmu 0x0204 0x1>;
+			<0x400 &apps_smmu 0x0204 0x1>,
+			<0x208 &apps_smmu 0x0205 0x1>,
+			<0x210 &apps_smmu 0x0206 0x1>;
 
 		qcom,msm-bus,name = "pcie0";
 		qcom,msm-bus,num-cases = <2>;
@@ -252,17 +254,20 @@
 			pcie0_bus1_dev0_fn0: pcie0_bus1_dev0_fn0 {
 				reg = <0 0 0 0 0>;
 				pci-ids = "12d8:b304";
+				errata = <0>;
 
 				/* BDF 2.1.0 */
 				pcie0_bus2_dev1_fn0: pcie0_bus2_dev1_fn0 {
 					reg = <0x800 0 0 0 0>;
 					pci-ids = "12d8:b304";
+					errata = <1>;
 				};
 
 				/* BDF 2.2.0 */
 				pcie0_bus2_dev2_fn0: pcie0_bus2_dev2_fn0 {
 					reg = <0x1000 0 0 0 0>;
 					pci-ids = "12d8:b304";
+					errata = <2>;
 				};
 			};
 		};

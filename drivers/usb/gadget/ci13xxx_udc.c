@@ -3543,6 +3543,15 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 		hw_device_state(udc->ep0out.qh.dma);
 	} else {
 		hw_device_state(0);
+		if (udc->suspended) {
+			if (udc->udc_driver->notify_event)
+				udc->udc_driver->notify_event(udc,
+					CI13XXX_CONTROLLER_RESUME_EVENT);
+			if (udc->transceiver)
+				usb_phy_set_suspend(udc->transceiver, 0);
+			udc->driver->resume(&udc->gadget);
+			udc->suspended = 0;
+		}
 		spin_unlock_irqrestore(udc->lock, flags);
 		_gadget_stop_activity(&udc->gadget);
 		spin_lock_irqsave(udc->lock, flags);

@@ -298,6 +298,13 @@ config IPA3_REGDUMP
 	  This option is to be used when the saving of IPA/GSI
 	  register state is desired upon system crash.
 
+config QCOM_ETHERNET_UTIL
+	bool "ethernet utilities"
+	depends on PCI
+	help
+	  This module will provide API's for clients to attach smmu &
+	  other functionalities
+
 choice
 	prompt "Platform whose registers are to be dumped/collected"
 	depends on IPA3_REGDUMP

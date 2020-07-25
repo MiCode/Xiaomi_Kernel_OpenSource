@@ -84,7 +84,7 @@
 	};
 
 	mdss_dp_pll: qcom,mdss_dp_pll@c011000 {
-		compatible = "qcom,mdss_dp_pll_14nm";
+		compatible = "qcom,mdss_dp_pll_sdm660";
 		status = "ok";
 		label = "MDSS DP PLL";
 		cell-index = <0>;

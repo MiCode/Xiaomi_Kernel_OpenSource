@@ -8,7 +8,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sa8155p-adp-star-lpass-overlay.dtbo \
 		sa8155-v2-adp-air-overlay.dtbo \
                 sa8155p-v2-adp-air-overlay.dtbo \
-		sa8155p-v2-adp-air-lpass-overlay.dts
+		sa8155p-v2-adp-air-lpass-overlay.dtbo
 
 sm8150-cdp-overlay.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
 sa8155-adp-star-overlay.dtbo-base := sa8155.dtb sa8155-v2.dtb
@@ -21,7 +21,7 @@ else
 dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-cdp.dtb \
 	sa8155-adp-star.dtb \
 	sa8155p-adp-star.dtb \
-	sa8155p-adp-star-lpass \
+	sa8155p-adp-star-lpass.dtb \
 	sa8155-v2-adp-star.dtb \
 	sa8155p-v2-adp-star.dtb \
 	sa8155-v2-adp-air.dtb \
@@ -40,7 +40,7 @@ sa8195p-adp-star-overlay.dtbo-base := sa8195p.dtb
 sa8195p-v2-adp-air-overlay.dtbo-base := sa8195p.dtb
 else
 dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-cdp.dtb \
-	sa8195p-adp-star.dtb
+	sa8195p-adp-star.dtb \
 	sa8195p-v2-adp-air.dtb
 endif
 
@@ -48,12 +48,12 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM6150) += \
 		sa6155-adp-star-overlay.dtbo \
 		sa6155p-adp-star-overlay.dtbo \
-		sa6155p-adp-star-lpass-overlay.dts \
+		sa6155p-adp-star-lpass-overlay.dtbo \
 		sa6155-adp-air-overlay.dtbo \
 		sa6155p-adp-air-overlay.dtbo \
 		sa6155p-v2-adp-star-overlay.dtbo \
 		sa6155p-v2-adp-air-overlay.dtbo \
-		sa6155p-v2-adp-air-lpass-overlay.dts
+		sa6155p-v2-adp-air-lpass-overlay.dtbo
 
 sa6155-adp-star-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-star-overlay.dtbo-base := sa6155p.dtb
@@ -74,7 +74,9 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sa6155-adp-star.dtb \
 	sa6155p-v2-adp-air-lpass.dtb
 
 endif
-else
+
+else # TARGET_BOARD_TYPE != auto
+
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8016-sbc.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8096-db820c.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= ipq8074-hk01.dtb
@@ -83,12 +85,14 @@ dtb-$(CONFIG_ARCH_QCOM)	+= msm8992-bullhead-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8994-angler-rev-101.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
 dtb-$(CONFIG_ARCH_QCS403) += qcs403-iot-sku1.dtb \
-			qcs403-iot-sku3.dtb \
-			qcs403-iot-sku5.dtb \
-			qcs401-iot-sku5.dtb \
-			qcs404-iot-sku3.dtb \
-			qcs404-iot-sku5.dtb \
-			qcs404-iot-sku6.dtb
+		qcs403-iot-sku3.dtb \
+		qcs403-iot-sku5.dtb \
+		qcs401-iot-sku5.dtb \
+		qcs404-iot-sku3.dtb \
+		qcs404-iot-sku5.dtb \
+		qcs404-iot-sku6.dtb \
+		sa2145p-ccard-nand-dc.dtb \
+		sa2150p-ccard-nand-dc.dtb
 
 dtb-$(CONFIG_ARCH_QCS405) += qcs405-iot-sku1.dtb \
 		qcs407-iot-sku1.dtb \
@@ -102,6 +106,8 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-iot-sku1.dtb \
 		qcs405-iot-sku12.dtb \
 		qcs407-iot-sku12.dtb \
 		sa2150p-ccard-emmc.dtb \
+		sa2145p-ccard-nand-dc.dtb \
+		sa2150p-ccard-nand-dc.dtb \
 		sa2150p-ccard-nand.dtb \
 		qcs405-iot-sku13.dtb \
 		qcs407-iot-sku13.dtb \
@@ -321,7 +327,15 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		trinket-usbc-idp-overlay.dtbo \
 		trinket-dp-idp-overlay.dtbo \
 		qcm6125-iot-idp-overlay.dtbo \
-		qcs6125-iot-idp-overlay.dtbo
+		qcs6125-iot-idp-overlay.dtbo \
+		qcm6125-iot-external-codec-idp-overlay.dtbo \
+		qcs6125-iot-external-codec-idp-overlay.dtbo \
+		qcm6125-iot-usbc-external-codec-idp-overlay.dtbo \
+		qcs6125-iot-usbc-external-codec-idp-overlay.dtbo \
+		qcm6125-iot-usbc-idp-overlay.dtbo \
+		qcs6125-iot-usbc-idp-overlay.dtbo \
+		qcm6125-iot-dp-idp-overlay.dtbo \
+		qcs6125-iot-dp-idp-overlay.dtbo
 
 trinket-rumi-overlay.dtbo-base := trinket.dtb
 trinket-idp-overlay.dtbo-base := trinket.dtb
@@ -332,6 +346,14 @@ trinket-usbc-idp-overlay.dtbo-base := trinket.dtb
 trinket-dp-idp-overlay.dtbo-base := trinket.dtb
 qcm6125-iot-idp-overlay.dtbo-base := qcm6125.dtb
 qcs6125-iot-idp-overlay.dtbo-base := qcs6125.dtb
+qcm6125-iot-external-codec-idp-overlay.dtbo-base := qcm6125.dtb
+qcs6125-iot-external-codec-idp-overlay.dtbo-base := qcs6125.dtb
+qcm6125-iot-usbc-external-codec-idp-overlay.dtbo-base := qcm6125.dtb
+qcs6125-iot-usbc-external-codec-idp-overlay.dtbo-base := qcs6125.dtb
+qcm6125-iot-usbc-idp-overlay.dtbo-base := qcm6125.dtb
+qcs6125-iot-usbc-idp-overlay.dtbo-base := qcs6125.dtb
+qcm6125-iot-dp-idp-overlay.dtbo-base := qcm6125.dtb
+qcs6125-iot-dp-idp-overlay.dtbo-base := qcs6125.dtb
 else
 dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb \
 	trinket-idp.dtb \
@@ -341,7 +363,15 @@ dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb \
 	trinket-usbc-idp.dtb \
 	trinket-dp-idp.dtb \
 	qcm6125-iot-idp.dtb \
-	qcs6125-iot-idp.dtb
+	qcs6125-iot-idp.dtb \
+	qcm6125-iot-external-codec-idp.dtb \
+	qcs6125-iot-external-codec-idp.dtb \
+	qcm6125-iot-usbc-external-codec-idp.dtb \
+	qcs6125-iot-usbc-external-codec-idp.dtb \
+	qcm6125-iot-usbc-idp.dtb \
+	qcs6125-iot-usbc-idp.dtb \
+	qcm6125-iot-dp-idp.dtb \
+	qcs6125-iot-dp-idp.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -410,20 +440,22 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-v2-mtp-v1.1.dtb \
 	sdxprairie-v2-mtp-le-cpe.dtb \
 	sdxprairie-v2-ttp-cpe.dtb \
-        sa515m-v2-ttp.dtb \
-        sa515m-v2-ttp-usb-ep.dtb \
-        sa515m-v2-ttp-pcie-ep.dtb \
-        sa515m-v2-ttp-flashless-usb-ep.dtb \
-        sa515m-v2-ttp-flashless-pcie-ep.dtb \
-        sa515m-v2-ttp-emmc.dtb \
+	sa515m-v2-ttp.dtb \
+	sa515m-v2-ttp-usb-ep.dtb \
+	sa515m-v2-ttp-pcie-ep.dtb \
+	sa515m-v2-ttp-flashless-usb-ep.dtb \
+	sa515m-v2-ttp-flashless-pcie-ep.dtb \
+	sa515m-v2-ttp-emmc.dtb \
 	sa515m-ccard.dtb \
 	sa515m-ccard-pcie-ep.dtb \
 	sa515m-ccard-usb-ep.dtb \
-        sa515m-v2-ccard-flashless-pcie-ep.dtb \
-        sa515m-v2-ccard-flashless-usb-ep.dtb \
+	sa515m-ccard-eth-ep.dtb \
+	sa515m-v2-ccard-flashless-pcie-ep.dtb \
+	sa515m-v2-ccard-flashless-usb-ep.dtb \
 	sa515m-v2-ccard.dtb \
 	sa515m-v2-ccard-pcie-ep.dtb \
-	sa515m-v2-ccard-usb-ep.dtb
+	sa515m-v2-ccard-usb-ep.dtb \
+	sa515m-v2-ccard-eth-ep.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-cdp.dtb \
         mdm9607-mtp.dtb \
@@ -519,8 +551,8 @@ dtb-$(CONFIG_ARCH_SDM429W) += sdm429-wtp.dtb\
 	sda429-bg-dvt2-wtp.dtb
 endif
 
-
 endif
+
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

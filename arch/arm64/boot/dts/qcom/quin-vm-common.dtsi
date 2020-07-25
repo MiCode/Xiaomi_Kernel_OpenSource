@@ -58,18 +58,22 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
+			boot_devices = "vdevs/1c140000.virtio_blk,vdevs/1c0b0000.virtio_blk,vdevs/1c0f0000.virtio_blk";
+
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,la_system,la_vendor";
 			};
+
 			fstab {
 				compatible = "android,fstab";
+
 				vendor {
 					compatible = "android,vendor";
-					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
+					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/la_vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 			};

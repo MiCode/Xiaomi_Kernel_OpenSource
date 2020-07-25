@@ -165,6 +165,13 @@
 
 		arm,buffer-size = <0x400000>;
 
+		qcom,qdss-ipa-support;
+		ipa-conn-data-base-pa = <0x1468B000>;
+		ipa-conn-data-size = <0x3000>;
+		ipa-conn-desc-base-pa = <0x1468E000>;
+		ipa-conn-desc-size = <0x1000>;
+		ipa-peer-evt-reg-pa = <0x6077818>;
+
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;

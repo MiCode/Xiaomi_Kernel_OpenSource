@@ -16,7 +16,7 @@
 void __cpu_soft_restart(unsigned long el2_switch, unsigned long entry,
 	unsigned long arg0, unsigned long arg1, unsigned long arg2);
 
-static inline void __noreturn cpu_soft_restart(unsigned long el2_switch,
+static inline void __noreturn cpu_soft_restart_kexec(unsigned long el2_switch,
 	unsigned long entry, unsigned long arg0, unsigned long arg1,
 	unsigned long arg2)
 {

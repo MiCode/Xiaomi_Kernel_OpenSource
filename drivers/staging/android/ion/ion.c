@@ -1130,6 +1130,7 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
 		if (heap->type == ION_HEAP_TYPE_SYSTEM ||
+		    heap->type == ION_HEAP_TYPE_CARVEOUT ||
 		    heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA ||
 		    heap->type ==
 			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE) {

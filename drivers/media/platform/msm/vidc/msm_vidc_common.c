@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3196,7 +3196,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 				HAL_BUFFER_INPUT);
 	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
 	/* batching needs minimum batch size count of input buffers */
-	if (inst->decode_batching && is_decode_session(inst) &&
+	if (is_batching_allowed(inst) &&
 		bufreq->buffer_count_min < inst->batch.size)
 		bufreq->buffer_count_min = inst->batch.size;
 	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =

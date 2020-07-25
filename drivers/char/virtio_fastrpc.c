@@ -17,6 +17,7 @@
 #include <linux/dma-buf.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
+#include <linux/ion.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -61,7 +62,6 @@
 #define DEBUGFS_SIZE			3072
 #define PID_SIZE			10
 #define UL_SIZE				25
-#define FASTRPC_STATIC_HANDLE_KERNEL	1
 
 #define VIRTIO_FASTRPC_CMD_OPEN		1
 #define VIRTIO_FASTRPC_CMD_CLOSE	2
@@ -97,6 +97,33 @@
 		else\
 			memmove((dst), (src), (size));\
 	} while (0)
+
+#define PERF_KEYS \
+	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
+#define FASTRPC_STATIC_HANDLE_KERNEL	1
+#define FASTRPC_STATIC_HANDLE_LISTENER	3
+#define FASTRPC_STATIC_HANDLE_MAX	20
+
+#define PERF_END (void)0
+
+#define PERF(enb, cnt, ff) \
+	{\
+		struct timespec startT = {0};\
+		int64_t *counter = cnt;\
+		if (enb && counter) {\
+			getnstimeofday(&startT);\
+		} \
+		ff ;\
+		if (enb && counter) {\
+			*counter += getnstimediff(&startT);\
+		} \
+	}
+
+#define GET_COUNTER(perf_ptr, offset)  \
+	(perf_ptr != NULL ?\
+		(((offset >= 0) && (offset < PERF_KEY_MAX)) ?\
+			(int64_t *)(perf_ptr + offset)\
+				: (int64_t *)NULL) : (int64_t *)NULL)
 
 struct virt_msg_hdr {
 	u32 pid;	/* GVM pid */
@@ -181,9 +208,37 @@ struct fastrpc_apps {
 	struct virt_fastrpc_msg *msgtable[FASTRPC_MSG_MAX];
 };
 
+enum fastrpc_perfkeys {
+	PERF_COUNT = 0,
+	PERF_FLUSH = 1,
+	PERF_MAP = 2,
+	PERF_COPY = 3,
+	PERF_LINK = 4,
+	PERF_GETARGS = 5,
+	PERF_PUTARGS = 6,
+	PERF_INVARGS = 7,
+	PERF_INVOKE = 8,
+	PERF_KEY_MAX = 9,
+};
+
+struct fastrpc_perf {
+	int64_t count;
+	int64_t flush;
+	int64_t map;
+	int64_t copy;
+	int64_t link;
+	int64_t getargs;
+	int64_t putargs;
+	int64_t invargs;
+	int64_t invoke;
+	int64_t tid;
+	struct hlist_node hn;
+};
+
 struct fastrpc_file {
 	spinlock_t hlock;
 	struct hlist_head maps;
+	struct hlist_head perf;
 	struct hlist_head remote_bufs;
 	uint32_t mode;
 	uint32_t profile;
@@ -195,6 +250,7 @@ struct fastrpc_file {
 	int dsp_proc_init;
 	struct fastrpc_apps *apps;
 	struct dentry *debugfs_file;
+	struct mutex perf_mutex;
 	struct mutex map_mutex;
 	/* Identifies the device (MINOR_NUM_DEV / MINOR_NUM_SECURE_DEV) */
 	int dev_minor;
@@ -240,6 +296,45 @@ static inline int64_t getnstimediff(struct timespec *start)
 	b = timespec_sub(ts, *start);
 	ns = timespec_to_ns(&b);
 	return ns;
+}
+
+static inline int64_t *getperfcounter(struct fastrpc_file *fl, int key)
+{
+	int err = 0;
+	int64_t *val = NULL;
+	struct fastrpc_perf *perf = NULL, *fperf = NULL;
+	struct hlist_node *n = NULL;
+
+	VERIFY(err, !IS_ERR_OR_NULL(fl));
+	if (err)
+		goto bail;
+
+	mutex_lock(&fl->perf_mutex);
+	hlist_for_each_entry_safe(perf, n, &fl->perf, hn) {
+		if (perf->tid == current->pid) {
+			fperf = perf;
+			break;
+		}
+	}
+
+	if (IS_ERR_OR_NULL(fperf)) {
+		fperf = kzalloc(sizeof(*fperf), GFP_KERNEL);
+
+		VERIFY(err, !IS_ERR_OR_NULL(fperf));
+		if (err) {
+			mutex_unlock(&fl->perf_mutex);
+			kfree(fperf);
+			goto bail;
+		}
+
+		fperf->tid = current->pid;
+		hlist_add_head(&fperf->hn, &fl->perf);
+	}
+
+	val = ((int64_t *)fperf) + key;
+	mutex_unlock(&fl->perf_mutex);
+bail:
+	return val;
 }
 
 static void *get_a_tx_buf(void)
@@ -418,6 +513,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_mmap *map = NULL;
 	int err = 0, sgl_index = 0;
+	unsigned long flags;
 	struct scatterlist *sgl = NULL;
 
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
@@ -441,12 +537,21 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			dev_err(me->dev, "can't get dma buf fd %d\n", fd);
 			goto bail;
 		}
+		VERIFY(err, !dma_buf_get_flags(map->buf, &flags));
+		if (err) {
+			dev_err(me->dev, "can't get dma buf flags %d\n", fd);
+			goto bail;
+		}
+
 		VERIFY(err, !IS_ERR_OR_NULL(map->attach =
 					dma_buf_attach(map->buf, me->dev)));
 		if (err) {
 			dev_err(me->dev, "can't attach dma buf\n");
 			goto bail;
 		}
+
+		if (!(flags & ION_FLAG_CACHED))
+			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 					dma_buf_map_attachment(map->attach,
 					DMA_BIDIRECTIONAL)));
@@ -486,6 +591,11 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 	struct fastrpc_mmap **maps;
 	size_t copylen = 0, size = 0;
 	char *payload;
+	struct timespec invoket = {0};
+	int64_t *perf_counter = getperfcounter(fl, PERF_COUNT);
+
+	if (fl->profile)
+		getnstimeofday(&invoket);
 
 	bufs = REMOTE_SCALARS_LENGTH(invoke->sc);
 	size = bufs * sizeof(*lpra) + bufs * sizeof(*fds)
@@ -508,6 +618,7 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 		fds = NULL;
 	}
 
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_MAP),
 	/* calculate len required for copying */
 	for (i = 0; i < inbufs + outbufs; i++) {
 		size_t len = lpra[i].buf.len;
@@ -530,6 +641,7 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 		if (i < inbufs)
 			outbufs_offset += len;
 	}
+	PERF_END);
 	size = bufs * sizeof(*rpra) + copylen + sizeof(*vmsg);
 	msg = virt_alloc_msg(size);
 	if (!msg)
@@ -551,6 +663,7 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 	rpra = (struct virt_fastrpc_buf *)vmsg->pra;
 	payload = (char *)&rpra[bufs];
 
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
 	for (i = 0; i < inbufs + outbufs; i++) {
 		size_t len = lpra[i].buf.len;
 		struct sg_table *table;
@@ -582,7 +695,16 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 			payload += len;
 		}
 	}
+	PERF_END);
 
+	if (fl->profile) {
+		int64_t *count = GET_COUNTER(perf_counter, PERF_GETARGS);
+
+		if (count)
+			*count += getnstimediff(&invoket);
+	}
+
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_LINK),
 	sg_init_one(sg, vmsg, size);
 
 	mutex_lock(&me->lock);
@@ -594,6 +716,7 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 
 	virtqueue_kick(me->svq);
 	mutex_unlock(&me->lock);
+	PERF_END);
 
 	wait_for_completion(&msg->work);
 
@@ -605,6 +728,7 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 	rpra = (struct virt_fastrpc_buf *)rsp->pra;
 	payload = (char *)&rpra[bufs] + outbufs_offset;
 
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_PUTARGS),
 	for (i = inbufs; i < inbufs + outbufs; i++) {
 		if (!maps[i]) {
 			K_COPY_TO_USER(err, kernel, lpra[i].buf.pv,
@@ -619,6 +743,7 @@ static int virt_fastrpc_invoke(struct fastrpc_file *fl, uint32_t kernel,
 		}
 		payload += rpra[i].len;
 	}
+	PERF_END);
 bail:
 	if (rsp) {
 		sg_init_one(sg, rsp, me->buf_size);
@@ -651,8 +776,11 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl,
 	int domain = fl->domain;
 	int handles, err = 0;
 	struct timespec invoket = {0};
+	int64_t *perf_counter = getperfcounter(fl, PERF_COUNT);
 
-	getnstimeofday(&invoket);
+	if (fl->profile)
+		getnstimeofday(&invoket);
+
 	if (!kernel) {
 		VERIFY(err, invoke->handle != FASTRPC_STATIC_HANDLE_KERNEL);
 		if (err) {
@@ -679,6 +807,20 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl,
 	}
 
 	err = virt_fastrpc_invoke(fl, kernel, inv);
+	if (fl->profile) {
+		if (invoke->handle != FASTRPC_STATIC_HANDLE_LISTENER) {
+			int64_t *count = GET_COUNTER(perf_counter, PERF_INVOKE);
+
+			if (count)
+				*count += getnstimediff(&invoket);
+		}
+		if (invoke->handle > FASTRPC_STATIC_HANDLE_MAX) {
+			int64_t *count = GET_COUNTER(perf_counter, PERF_COUNT);
+
+			if (count)
+				*count = *count + 1;
+		}
+	}
 bail:
 	return err;
 }
@@ -703,6 +845,8 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 	if (fl) {
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 				"\n%s %d\n", " CHANNEL =", fl->domain);
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+				"%s %9s %d\n", "profile", ":", fl->profile);
 	}
 
 	if (len > DEBUGFS_SIZE)
@@ -931,6 +1075,7 @@ static int fastrpc_open(struct inode *inode, struct file *filp)
 
 	spin_lock_init(&fl->hlock);
 	INIT_HLIST_HEAD(&fl->maps);
+	INIT_HLIST_HEAD(&fl->perf);
 	INIT_HLIST_HEAD(&fl->remote_bufs);
 	fl->tgid = current->tgid;
 	fl->apps = me;
@@ -943,12 +1088,14 @@ static int fastrpc_open(struct inode *inode, struct file *filp)
 	fl->dsp_proc_init = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->map_mutex);
+	mutex_init(&fl->perf_mutex);
 	return 0;
 }
 
 static int fastrpc_file_free(struct fastrpc_file *fl)
 {
 	struct fastrpc_mmap *map = NULL, *lmap = NULL;
+	struct fastrpc_perf *perf = NULL, *fperf = NULL;
 
 	if (!fl)
 		return 0;
@@ -974,6 +1121,21 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		fastrpc_mmap_free(lmap);
 	} while (lmap);
 	mutex_unlock(&fl->map_mutex);
+
+	mutex_lock(&fl->perf_mutex);
+	do {
+		struct hlist_node *pn = NULL;
+
+		fperf = NULL;
+		hlist_for_each_entry_safe(perf, pn, &fl->perf, hn) {
+			hlist_del_init(&perf->hn);
+			fperf = perf;
+			break;
+		}
+		kfree(fperf);
+	} while (fperf);
+	mutex_unlock(&fl->perf_mutex);
+	mutex_destroy(&fl->perf_mutex);
 
 	fastrpc_remote_buf_list_free(fl);
 	mutex_destroy(&fl->map_mutex);
@@ -1736,8 +1898,7 @@ static long fastrpc_ioctl(struct file *file, unsigned int ioctl_num,
 			fl->mode = (uint32_t)ioctl_param;
 			break;
 		case FASTRPC_MODE_PROFILE:
-			err = -ENOTTY;
-			dev_err(me->dev, "profile mode is not supported\n");
+			fl->profile = (uint32_t)ioctl_param;
 			break;
 		case FASTRPC_MODE_SESSION:
 			err = -ENOTTY;
@@ -1749,8 +1910,43 @@ static long fastrpc_ioctl(struct file *file, unsigned int ioctl_num,
 		}
 		break;
 	case FASTRPC_IOCTL_GETPERF:
-		err = -ENOTTY;
-		dev_err(me->dev, "get perf is not supported\n");
+		K_COPY_FROM_USER(err, 0, &p.perf,
+					param, sizeof(p.perf));
+		if (err)
+			goto bail;
+		p.perf.numkeys = sizeof(struct fastrpc_perf)/sizeof(int64_t);
+		if (p.perf.keys) {
+			char *keys = PERF_KEYS;
+
+			K_COPY_TO_USER(err, 0, (void *)p.perf.keys,
+						keys, strlen(keys)+1);
+			if (err)
+				goto bail;
+		}
+		if (p.perf.data) {
+			struct fastrpc_perf *perf = NULL, *fperf = NULL;
+			struct hlist_node *n = NULL;
+
+			mutex_lock(&fl->perf_mutex);
+			hlist_for_each_entry_safe(perf, n, &fl->perf, hn) {
+				if (perf->tid == current->pid) {
+					fperf = perf;
+					break;
+				}
+			}
+
+			mutex_unlock(&fl->perf_mutex);
+
+			if (fperf) {
+				K_COPY_TO_USER(err, 0,
+					(void *)p.perf.data, fperf,
+					sizeof(*fperf) -
+					sizeof(struct hlist_node));
+			}
+		}
+		K_COPY_TO_USER(err, 0, param, &p.perf, sizeof(p.perf));
+		if (err)
+			goto bail;
 		break;
 	case FASTRPC_IOCTL_CONTROL:
 		K_COPY_FROM_USER(err, 0, &p.cp, param,

@@ -4002,6 +4002,92 @@ bail:
 	return err;
 }
 
+
+static int fastrpc_cb_legacy_probe(struct device *dev)
+{
+	struct fastrpc_channel_ctx *chan;
+	struct fastrpc_session_ctx *first_sess = NULL, *sess = NULL;
+	const char *name;
+	unsigned int *sids = NULL, sids_size = 0;
+	int err = 0, ret = 0, i;
+
+	unsigned int start = 0x80000000;
+
+	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
+					 "label", NULL)));
+	if (err)
+		goto bail;
+
+	for (i = 0; i < NUM_CHANNELS; i++) {
+		if (!gcinfo[i].name)
+			continue;
+		if (!strcmp(name, gcinfo[i].name))
+			break;
+	}
+	VERIFY(err, i < NUM_CHANNELS);
+	if (err)
+		goto bail;
+
+	chan = &gcinfo[i];
+	VERIFY(err, chan->sesscount < NUM_SESSIONS);
+	if (err)
+		goto bail;
+
+	first_sess  = &chan->session[chan->sesscount];
+
+	VERIFY(err, NULL != of_get_property(dev->of_node,
+				"sids", &sids_size));
+	if (err)
+		goto bail;
+
+	VERIFY(err, NULL != (sids = kzalloc(sids_size, GFP_KERNEL)));
+	if (err)
+		goto bail;
+	ret = of_property_read_u32_array(dev->of_node, "sids", sids,
+					sids_size/sizeof(unsigned int));
+	if (ret)
+		goto bail;
+
+	VERIFY(err, !IS_ERR_OR_NULL(first_sess->smmu.mapping =
+				arm_iommu_create_mapping(&platform_bus_type,
+						start, 0x78000000)));
+	if (err)
+		goto bail;
+
+	VERIFY(err, !arm_iommu_attach_device(dev, first_sess->smmu.mapping));
+	if (err) {
+		pr_err("adsprpc: %s: attaching iommu device failed for %s with err %d",
+			__func__, dev_name(dev), err);
+		goto bail;
+	}
+
+
+	for (i = 0; i < sids_size/sizeof(unsigned int); i++) {
+		VERIFY(err, chan->sesscount < NUM_SESSIONS);
+		if (err)
+			goto bail;
+		sess = &chan->session[chan->sesscount];
+		sess->smmu.cb = sids[i];
+		sess->smmu.dev = dev;
+		sess->smmu.dev_name = dev_name(dev);
+		sess->smmu.mapping = first_sess->smmu.mapping;
+		sess->smmu.enabled = 1;
+		sess->used = 0;
+		sess->smmu.coherent = false;
+		sess->smmu.secure = false;
+		chan->sesscount++;
+		if (!sess->smmu.dev->dma_parms)
+			sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
+				sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
+		dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
+		dma_set_seg_boundary(sess->smmu.dev,
+					(unsigned long)DMA_BIT_MASK(64));
+	}
+bail:
+	kfree(sids);
+	return err;
+}
+
 static void init_secure_vmid_list(struct device *dev, char *prop_name,
 						struct secure_vm *destvm)
 {
@@ -4096,6 +4182,10 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute-cb"))
 		return fastrpc_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-fastrpc-legacy-compute-cb"))
+		return fastrpc_cb_legacy_probe(dev);
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-adsprpc-mem-region")) {
@@ -4291,7 +4381,7 @@ static struct platform_driver fastrpc_driver = {
 
 static const struct rpmsg_device_id fastrpc_rpmsg_match[] = {
 	{ FASTRPC_GLINK_GUID },
-	{ },
+	{ FASTRPC_SMD_GUID },
 };
 
 static const struct of_device_id fastrpc_rpmsg_of_match[] = {

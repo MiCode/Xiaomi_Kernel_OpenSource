@@ -525,6 +525,15 @@ config SDX_EXT_IPC
 
 	  If unsure, say N.
 
+config QTI_NOTIFY_SIDEBAND
+	tristate "QCOM sideband signalling helper"
+	help
+	  This provides helper APIs and a header file through which
+	  transport layer driver can talk to the sideband driver to
+	  assert appropriate sideband signal.
+
+	  If unsure, say N.
+
 config PANIC_ON_GLADIATOR_ERROR
 	depends on MSM_GLADIATOR_ERP
 	bool "Panic on GLADIATOR error report"
@@ -673,7 +682,7 @@ config MSM_SPCOM
 	  or server is allowed per logical channel.
 
 config MSM_TZ_SMMU
-	depends on ARCH_MSM8953 || ARCH_QCS405 || ARCH_QCS403
+	depends on ARCH_MSM8953 || ARCH_QCS405 || ARCH_QCS403 || ARCH_SDM429W
 	bool "Helper functions for SMMU configuration through TZ"
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
@@ -723,7 +732,7 @@ config QCOM_GLINK
 
 config QCOM_GLINK_PKT
 	tristate "Enable device interface for GLINK packet channels"
-	depends on QCOM_GLINK
+	depends on QCOM_GLINK || RPMSG_QCOM_GLINK_BGCOM
 	help
 	  G-link packet driver provides the interface for the userspace
 	  clients to communicate over G-Link via device nodes.
@@ -1004,6 +1013,32 @@ config MSM_BAM_DMUX
 	  BAM has a limited number of pipes.  This driver
 	  provides a means to support more logical channels
 	  via muxing than BAM could without muxing.
+
+        config MSM_BGCOM_INTERFACE
+        bool "Driver support for Blackghost Communication"
+        depends on MSM_BGCOM
+        help
+                Create a bg_com_dev device node for user space communication.
+                Single user space client can open device node for communication
+                from hardware. Hardware will provide access to read
+                registers and read/write AHB memory in the device.
+
+
+        config MSM_BGCOM
+        bool "Provide APIs to communicate with Blackghost chipset"
+        help
+                BGCOM is a thin layer above SPI. It is used whithin a SoC for
+                communication between G-Link/bg_com_dev and BG processor over SPI.
+                This handle the interrupts raised by BG and notify the G-link with
+                interrupt event and event data.
+config MSM_PIL_SSR_BG
+	tristate "MSM Subsystem Blackghost(BG) Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down Blackghost(BG) SOC which is
+	  an external SOC. This driver communicates with Blackghost(BG) SOC
+	  via pair of IPC GPIOs for inward and outward signals between MSM
+	  and Blackghost(BG) SOC.
 
 config QCOM_SOC_INFO
 	bool "Chip information for QTI SoCs"

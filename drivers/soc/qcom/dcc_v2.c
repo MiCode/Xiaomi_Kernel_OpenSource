@@ -114,6 +114,22 @@ struct rpm_trig_req {
 	uint32_t    reserved;
 };
 
+/**
+ * struct dcc_save_state - state to be preserved when dcc is without power
+ */
+struct dcc_save_state {
+	uint32_t	dcc_exec_ctrl;
+	uint32_t	dcc_cfg;
+	uint32_t	dcc_ll_lock[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_ll_cfg[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_ll_base[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_fd_base[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_ll_timeout[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_ll_int_enable[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_ll_int_status[DCC_MAX_LINK_LIST];
+	uint32_t	dcc_ll_sw_trigger[DCC_MAX_LINK_LIST];
+};
+
 struct dcc_config_entry {
 	uint32_t			base;
 	uint32_t			offset;
@@ -150,6 +166,8 @@ struct dcc_drvdata {
 	uint8_t			curr_list;
 	uint8_t			cti_trig;
 	uint8_t			loopoff;
+	struct dcc_save_state	*reg_save_state;
+	void                    *sram_save_state;
 };
 
 static int dcc_sram_writel(struct dcc_drvdata *drvdata,
@@ -1843,6 +1861,136 @@ static int dcc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dcc_v2_freeze(struct device *dev)
+{
+	int i;
+	struct dcc_save_state *state;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (!drvdata)
+		return -EINVAL;
+
+	drvdata->reg_save_state = kmalloc(sizeof(struct dcc_save_state),
+								GFP_KERNEL);
+	if (!drvdata->reg_save_state)
+		return -ENOMEM;
+
+	state = drvdata->reg_save_state;
+
+	mutex_lock(&drvdata->mutex);
+
+	state->dcc_exec_ctrl = dcc_readl(drvdata, DCC_EXEC_CTRL);
+	state->dcc_cfg = dcc_readl(drvdata, DCC_CFG);
+
+	for (i = 0; i < DCC_MAX_LINK_LIST; i++) {
+		state->dcc_ll_lock[i] = dcc_readl(drvdata,
+						DCC_LL_LOCK(i));
+		state->dcc_ll_cfg[i] = dcc_readl(drvdata,
+						DCC_LL_CFG(i));
+		state->dcc_ll_base[i] = dcc_readl(drvdata,
+						DCC_LL_BASE(i));
+		state->dcc_fd_base[i] = dcc_readl(drvdata,
+						DCC_FD_BASE(i));
+		state->dcc_ll_timeout[i] = dcc_readl(drvdata,
+						DCC_LL_TIMEOUT(i));
+		state->dcc_ll_int_enable[i] = dcc_readl(drvdata,
+						DCC_LL_INT_ENABLE(i));
+		state->dcc_ll_int_status[i] = dcc_readl(drvdata,
+						DCC_LL_INT_STATUS(i));
+	}
+
+	mutex_unlock(&drvdata->mutex);
+
+	drvdata->sram_save_state = kmalloc(drvdata->ram_size, GFP_KERNEL);
+	if (!drvdata->sram_save_state)
+		return -ENOMEM;
+
+	if (dcc_sram_memcpy(drvdata->sram_save_state, drvdata->ram_base,
+						drvdata->ram_size)) {
+		dev_info(dev, "Failed to copy DCC SRAM contents\n");
+	}
+
+	if (drvdata->enable[drvdata->curr_list])
+		drvdata->enable[drvdata->curr_list] = 0;
+
+	return 0;
+}
+
+static int dcc_v2_restore(struct device *dev)
+{
+	int i;
+	int *data;
+	struct dcc_save_state *state;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (!drvdata || !drvdata->sram_save_state || !drvdata->reg_save_state)
+		return -EINVAL;
+
+	data = drvdata->sram_save_state;
+
+	for (i = 0; i < drvdata->ram_size / 4; i++)
+		__raw_writel_no_log(data[i],
+					drvdata->ram_base + (i * 4));
+
+	state = drvdata->reg_save_state;
+
+	mutex_lock(&drvdata->mutex);
+
+	dcc_writel(drvdata, state->dcc_exec_ctrl, DCC_EXEC_CTRL);
+	dcc_writel(drvdata, state->dcc_cfg, DCC_CFG);
+
+	for (i = 0; i < DCC_MAX_LINK_LIST; i++) {
+
+		if (dcc_valid_list(drvdata, i))
+			continue;
+
+		dcc_writel(drvdata, BIT(0), DCC_LL_LOCK(i));
+		dcc_writel(drvdata, state->dcc_ll_base[i], DCC_LL_BASE(i));
+		dcc_writel(drvdata, state->dcc_fd_base[i], DCC_FD_BASE(i));
+		dcc_writel(drvdata, state->dcc_ll_timeout[i],
+							DCC_LL_TIMEOUT(i));
+		dcc_writel(drvdata, state->dcc_ll_int_enable[i],
+							DCC_LL_INT_ENABLE(i));
+		dcc_writel(drvdata, state->dcc_ll_int_status[i],
+						DCC_LL_INT_STATUS(i));
+		/* Make sure all config is written in sram */
+		mb();
+		dcc_writel(drvdata, state->dcc_ll_cfg[i], DCC_LL_CFG(i));
+	}
+
+	mutex_unlock(&drvdata->mutex);
+
+	if (drvdata->enable[drvdata->curr_list])
+		drvdata->enable[drvdata->curr_list] = 1;
+
+	kfree(drvdata->sram_save_state);
+	kfree(drvdata->reg_save_state);
+
+	return 0;
+}
+
+static int dcc_v2_thaw(struct device *dev)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (!drvdata)
+		return -EINVAL;
+
+	if (drvdata->enable[drvdata->curr_list])
+		drvdata->enable[drvdata->curr_list] = 1;
+
+	kfree(drvdata->sram_save_state);
+	kfree(drvdata->reg_save_state);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dcc_v2_pm_ops = {
+	.freeze		= dcc_v2_freeze,
+	.restore	= dcc_v2_restore,
+	.thaw		= dcc_v2_thaw,
+};
+
 static const struct of_device_id msm_dcc_match[] = {
 	{ .compatible = "qcom,dcc-v2"},
 	{}
@@ -1854,6 +2002,7 @@ static struct platform_driver dcc_driver = {
 	.driver         = {
 		.name   = "msm-dcc",
 		.owner	= THIS_MODULE,
+		.pm     = &dcc_v2_pm_ops,
 		.of_match_table	= msm_dcc_match,
 	},
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -542,7 +542,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.type = OUTPUT_PORT,
 		.defer_outputs = true,
 		.input_min_count = 4,
-		.output_min_count = 11,
+		.output_min_count = 9,
 	},
 };
 

@@ -294,6 +294,11 @@
 	status = "ok";
 };
 
+&usb2 {
+	qcom,ignore-wakeup-src-in-hostmode;
+	status = "ok";
+};
+
 &slpi_tlmm {
 	status = "ok";
 };
@@ -379,6 +384,32 @@
 	status = "ok";
 };
 
+&usb2_phy2 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&usb_qmp_phy0 {
+	vdd-supply = <&pm8195_3_l9>;
+	core-supply = <&pm8195_1_l9>;
+	status = "ok";
+};
+
+&usb2_phy3 {
+	vdd-supply = <&pm8195_3_l5>;
+	vdda18-supply = <&pm8195_1_l12>;
+	vdda33-supply = <&pm8195_3_l16>;
+	status = "ok";
+};
+
+&usb_qmp_phy1 {
+	vdd-supply = <&pm8195_3_l9>;
+	core-supply = <&pm8195_1_l9>;
+	status = "ok";
+};
+
 &mdss_dsi_phy0 {
 	vdda-0p9-supply = <&pm8195_3_l5>;
 };
@@ -425,26 +456,11 @@
 };
 
 &thermal_zones {
-	cpu-1-7-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	gpuss-0-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	camera-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
-	mdm-scl-lowf {
-		cooling-maps {
-			/delete-node/ mmcx_vdd_cdev;
-		};
-	};
+	/delete-node/ cpu-1-7-lowf;
+	/delete-node/ gpuss-0-lowf;
+	/delete-node/ camera-lowf;
+	/delete-node/ mdm-scl-lowf;
+	/delete-node/ pcie-lowf;
 
 	lmh-dcvs-01 {
 		trips {
@@ -467,7 +483,7 @@
 	quad-gpuss-max-step {
 		trips {
 			gpu-trip0 {
-				temperature = <100000>;
+				temperature = <105000>;
 			};
 		};
 	};

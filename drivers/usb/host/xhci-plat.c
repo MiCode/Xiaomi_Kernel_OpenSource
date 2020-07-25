@@ -159,7 +159,7 @@ static ssize_t config_imod_store(struct device *pdev,
 	u32 imod;
 	unsigned long flags;
 
-	if (kstrtouint(buff, 10, &imod) != 1)
+	if (kstrtouint(buff, 10, &imod) < 0)
 		return 0;
 
 	imod &= ER_IRQ_INTERVAL_MASK;

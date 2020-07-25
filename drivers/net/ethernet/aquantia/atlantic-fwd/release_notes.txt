@@ -1,3 +1,10 @@
+Version 1.1.7
+=============
+
+    [ATLDRV-1469] - AQ083: After suspend resume EAPOL frames is not received
+    [ATLDRV-1497] - Incorrect temperature is displayed in hwmon
+    [ATLDRV-1519] - AQ086: Configuring default ring size
+
 Version 1.1.6
 =============
 [ATLDRV-1355] - Sporadically unable to set EEE

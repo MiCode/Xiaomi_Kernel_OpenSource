@@ -440,6 +440,20 @@
 		};
 	};
 
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+
+		afe_pcm_rx_1: qcom,msm-dai-q6-be-afe-pcm-rx-1 {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <226>;
+		};
+
+		afe_proxy_tx_1: qcom,msm-dai-q6-afe-proxy-tx-1 {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <242>;
+		};
+	};
+
 	qcom,avtimer@170f7000 {
 		compatible = "qcom,avtimer";
 		reg = <0x170f700c 0x4>,
@@ -482,10 +496,11 @@
 				<&dai_mi2s4>, <&dai_pri_auxpcm>,
 				<&dai_sec_auxpcm>, <&dai_tert_auxpcm>,
 				<&dai_quat_auxpcm>, <&dai_quin_auxpcm>,
-				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
-				<&afe_proxy_tx>, <&incall_record_rx>,
-				<&incall_record_tx>, <&incall_music_rx>,
-				<&incall_music_2_rx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&afe_pcm_rx_1>, <&afe_proxy_tx_1>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_rx_1>,
 				<&dai_pri_tdm_rx_2>, <&dai_pri_tdm_rx_3>,
@@ -519,6 +534,7 @@
 				"msm-dai-q6-auxpcm.4", "msm-dai-q6-auxpcm.5",
 				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.226", "msm-dai-q6-dev.242",
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",

@@ -1684,17 +1684,18 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 				goto out0;
 
 			if (r->num_pending_sgs) {
-				struct dwc3_trb *trb;
+				struct dwc3_trb *trb = r->trb;
 				int i = 0;
 
 				for (i = 0; i < r->num_pending_sgs; i++) {
-					trb = r->trb + i;
 					trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
 					dwc3_ep_inc_deq(dep);
+					trb++;
+					if (trb->ctrl & DWC3_TRBCTL_LINK_TRB)
+						trb = dep->trb_pool;
 				}
 
 				if (r->unaligned || r->zero) {
-					trb = r->trb + r->num_pending_sgs + 1;
 					trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
 					dwc3_ep_inc_deq(dep);
 				}
@@ -1705,7 +1706,9 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 				dwc3_ep_inc_deq(dep);
 
 				if (r->unaligned || r->zero) {
-					trb = r->trb + 1;
+					trb++;
+					if (trb->ctrl & DWC3_TRBCTL_LINK_TRB)
+						trb = dep->trb_pool;
 					trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
 					dwc3_ep_inc_deq(dep);
 				}

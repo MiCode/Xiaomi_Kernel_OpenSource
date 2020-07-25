@@ -164,6 +164,8 @@ pm8150_1_gpios: &pm8150_gpios {
 	};
 };
 
+#include <dt-bindings/thermal/thermal.h>
+
 &thermal_zones {
 	pm8150_2_temp_alarm: pm8150_2_tz {
 		polling-delay-passive = <100>;
@@ -187,6 +189,124 @@ pm8150_1_gpios: &pm8150_gpios {
 				temperature = <145000>;
 				hysteresis = <0>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			trip1_cpu0 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8150_2_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8150_tz {
+		cooling-maps {
+			trip1_cpu0 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};

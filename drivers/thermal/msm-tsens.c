@@ -253,7 +253,7 @@ static void tsens_therm_fwk_notify(struct work_struct *work)
 			}
 			TSENS_DBG(tmdev, "Calling trip_temp for sensor %d\n",
 					i);
-			of_thermal_handle_trip_temp(tmdev->sensor[i].tzd, temp);
+			of_thermal_handle_trip(tmdev->sensor[i].tzd);
 		}
 	}
 }

@@ -80,7 +80,6 @@
 &soc {
 	qcom,lpass@17300000 {
 		status = "ok";
-		qcom,pil-force-shutdown;
 	};
 
 	qcom,ssc@5c00000 {

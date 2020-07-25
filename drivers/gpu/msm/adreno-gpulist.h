@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,6 +200,20 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_tsens = 0x00060007,
 		.max_power = 5448,
 		.regfw_name = "a530v3_seq.fw2",
+	},
+	{
+		.gpurev = ADRENO_REV_A504,
+		.core = 5,
+		.major = 0,
+		.minor = 4,
+		.patchid = ANY_ID,
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT,
+		.pm4fw_name = "a530_pm4.fw",
+		.pfpfw_name = "a530_pfp.fw",
+		.gpudev = &adreno_a5xx_gpudev,
+		.gmem_size = (SZ_128K + SZ_8K),
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A505,

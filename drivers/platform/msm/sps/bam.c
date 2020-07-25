@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1388,8 +1388,13 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 		bam_write_reg_field(base, P_FIFO_SIZES, pipe,
 				    P_DATA_FIFO_SIZE, param->data_size);
 
-		bam_write_reg(base, P_EVNT_DEST_ADDR, pipe, peer_dest_addr);
-
+		if (!(param->dummy_peer)) {
+			bam_write_reg(base, P_EVNT_DEST_ADDR, pipe,
+						peer_dest_addr);
+		} else {
+			bam_write_reg(base, P_EVNT_DEST_ADDR, pipe,
+						param->peer_phys_addr);
+		}
 		SPS_DBG2(dev,
 			"sps:bam=0x%pK(va).pipe=%d.peer_bam=0x%x.peer_pipe=%d.\n",
 			dev->base, pipe,
@@ -2169,12 +2174,15 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 	u32 pipe = pipe_index;
 	u32 desc_fifo_addr;
 	u32 desc_fifo_size;
-	u32 *desc_fifo;
+	u32 __iomem *desc_fifo;
 	int i;
 	char desc_info[MAX_MSG_LEN];
+	struct sps_bam *dev;
 
 	if (base == NULL)
 		return;
+
+	dev = to_sps_bam_dev(virt_addr);
 
 	desc_fifo_addr = bam_read_reg(base, P_DESC_FIFO_ADDR, pipe);
 	desc_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES, pipe,
@@ -2197,7 +2205,14 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 		"BAM_P_DESC_FIFO_SIZE: 0x%x (%d)\n\n",
 		desc_fifo_addr, desc_fifo_size, desc_fifo_size);
 
-	desc_fifo = (u32 *) phys_to_virt(desc_fifo_addr);
+	if (dev->props.options & SPS_BAM_SMMU_EN) {
+		struct sps_pipe *pipe_indx = dev->pipes[pipe_index];
+
+		SPS_DUMP("%s", "SMMU is enabled\n");
+		desc_fifo = pipe_indx->map->desc.base;
+	} else {
+		desc_fifo = (u32 __iomem *) phys_to_virt(desc_fifo_addr);
+	}
 
 	if (option == 100) {
 		SPS_DUMP("%s",

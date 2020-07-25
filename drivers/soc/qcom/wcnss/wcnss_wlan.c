@@ -39,6 +39,7 @@
 #include <linux/bitops.h>
 #include <linux/cdev.h>
 #include <linux/ipc_logging.h>
+#include <linux/sched/debug.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/adc-tm-clients.h>
 #include <linux/iio/consumer.h>
@@ -475,6 +476,8 @@ static struct {
 	dev_t dev_ctrl, dev_node;
 	struct class *node_class;
 	struct cdev ctrl_dev, node_dev;
+	unsigned long state;
+	struct wcnss_driver_ops *ops;
 } *penv = NULL;
 
 static void *wcnss_ipc_log;
@@ -1335,6 +1338,12 @@ struct rpmsg_endpoint *wcnss_open_channel(const char *name, rpmsg_rx_cb_t cb,
 }
 EXPORT_SYMBOL(wcnss_open_channel);
 
+void wcnss_close_channel(struct rpmsg_endpoint *channel)
+{
+	rpmsg_destroy_ept(channel);
+}
+EXPORT_SYMBOL(wcnss_close_channel);
+
 static int wcnss_ctrl_smd_callback(struct rpmsg_device *rpdev,
 				   void *data,
 				   int count,
@@ -1557,6 +1566,8 @@ static int wcnss_ctrl_probe(struct rpmsg_device *rpdev)
 	if (penv->wlan_config.is_pronto_vadc && penv->adc_channel)
 		schedule_work(&penv->wcnss_vadc_work);
 
+	penv->state = WCNSS_SMD_OPEN;
+
 	return 0;
 }
 
@@ -1575,6 +1586,8 @@ static int wcnss_rpmsg_resource_init(void)
 	}
 	INIT_LIST_HEAD(&penv->event_list);
 	spin_lock_init(&penv->event_lock);
+
+	penv->state = WCNSS_SMD_CLOSE;
 
 	return 0;
 }
@@ -1690,6 +1703,58 @@ int wcnss_wlan_get_dxe_rx_irq(struct device *dev)
 	return WCNSS_WLAN_IRQ_INVALID;
 }
 EXPORT_SYMBOL(wcnss_wlan_get_dxe_rx_irq);
+
+int wcnss_register_driver(struct wcnss_driver_ops *ops, void *priv)
+{
+	int ret = 0;
+
+	if (!penv || !penv->pdev) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	wcnss_log(ERR, "Registering driver, state: 0x%lx\n", penv->state);
+
+	if (penv->ops) {
+		wcnss_log(ERR, "Driver already registered\n");
+		ret = -EEXIST;
+		goto out;
+	}
+
+	penv->ops = ops;
+	penv->ops->priv_data = priv;
+
+	if (penv->state == WCNSS_SMD_OPEN)
+		ops->driver_state(ops->priv_data, WCNSS_SMD_OPEN);
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(wcnss_register_driver);
+
+int wcnss_unregister_driver(struct wcnss_driver_ops *ops)
+{
+	int ret;
+
+	if (!penv || !penv->pdev) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	wcnss_log(ERR, "Unregistering driver, state: 0x%lx\n", penv->state);
+
+	if (!penv->ops) {
+		wcnss_log(ERR, "Driver not registered\n");
+		ret = -ENOENT;
+		goto out;
+	}
+
+	penv->ops = NULL;
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(wcnss_unregister_driver);
 
 void wcnss_wlan_register_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops)
@@ -1963,15 +2028,16 @@ int wcnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 buffer_size,
 }
 EXPORT_SYMBOL(wcnss_get_wlan_unsafe_channel);
 
-static int wcnss_smd_tx(void *data, int len)
+int wcnss_smd_tx(struct rpmsg_endpoint *channel, void *data, int len)
 {
 	int ret = 0;
-	ret = rpmsg_send(penv->channel, data, len);
+	ret = rpmsg_send(channel, data, len);
 	if (ret < 0)
 		return ret;
 
 	return 0;
 }
+EXPORT_SYMBOL(wcnss_smd_tx);
 
 static int wcnss_get_battery_volt(u32 *result_uv)
 {
@@ -2088,7 +2154,7 @@ static void wcnss_send_vbatt_indication(struct work_struct *work)
 	wcnss_log(DBG, "send curr_volt: %d to FW\n",
 		 vbatt_msg.vbatt.curr_volt);
 
-	ret = wcnss_smd_tx(&vbatt_msg, vbatt_msg.hdr.msg_len);
+	ret = wcnss_smd_tx(penv->channel, &vbatt_msg, vbatt_msg.hdr.msg_len);
 	if (ret < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 }
@@ -2120,7 +2186,7 @@ static void wcnss_update_vbatt(struct work_struct *work)
 		return;
 	}
 	mutex_unlock(&penv->vbat_monitor_mutex);
-	ret = wcnss_smd_tx(&vbatt_msg, vbatt_msg.hdr.msg_len);
+	ret = wcnss_smd_tx(penv->channel, &vbatt_msg, vbatt_msg.hdr.msg_len);
 	if (ret < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 }
@@ -2140,7 +2206,7 @@ static void wcnss_send_cal_rsp(unsigned char fw_status)
 	rsphdr->msg_len = sizeof(struct smd_msg_hdr) + 1;
 	memcpy(msg + sizeof(struct smd_msg_hdr), &fw_status, 1);
 
-	rc = wcnss_smd_tx(msg, rsphdr->msg_len);
+	rc = wcnss_smd_tx(penv->channel, msg, rsphdr->msg_len);
 	if (rc < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 
@@ -2270,7 +2336,8 @@ static void wcnss_process_smd_msg(void *buf, int len)
 		case WCNSS_PRONTO_HW:
 			smd_msg.msg_type = WCNSS_BUILD_VER_REQ;
 			smd_msg.msg_len = sizeof(smd_msg);
-			rc = wcnss_smd_tx(&smd_msg, smd_msg.msg_len);
+			rc = wcnss_smd_tx(penv->channel, &smd_msg,
+					  smd_msg.msg_len);
 			if (rc < 0)
 				wcnss_log(ERR, "smd tx failed: %s\n", __func__);
 
@@ -2291,8 +2358,8 @@ static void wcnss_process_smd_msg(void *buf, int len)
 		break;
 
 	case WCNSS_BUILD_VER_RSP:
-		/* ToDo: WCNSS_MAX_BUILD_VER_LEN + sizeof(struct smd_msg_hdr) */
-		if (len > WCNSS_MAX_BUILD_VER_LEN) {
+		if (len > sizeof(struct smd_msg_hdr) +
+		    WCNSS_MAX_BUILD_VER_LEN) {
 			wcnss_log(ERR,
 				  "invalid build version:%d\n", len);
 			return;
@@ -2310,6 +2377,11 @@ static void wcnss_process_smd_msg(void *buf, int len)
 			 nvresp->status);
 		if (nvresp->status != WAIT_FOR_CBC_IND)
 			penv->is_cbc_done = 1;
+
+		if (penv->ops)
+			penv->ops->driver_state(penv->ops->priv_data,
+						WCNSS_SMD_OPEN);
+
 		wcnss_setup_vbat_monitoring();
 		break;
 
@@ -2357,7 +2429,7 @@ static void wcnss_send_version_req(struct work_struct *worker)
 
 	smd_msg.msg_type = WCNSS_VERSION_REQ;
 	smd_msg.msg_len = sizeof(smd_msg);
-	ret = wcnss_smd_tx(&smd_msg, smd_msg.msg_len);
+	ret = wcnss_smd_tx(penv->channel, &smd_msg, smd_msg.msg_len);
 	if (ret < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 }
@@ -2397,7 +2469,7 @@ static void wcnss_send_pm_config(struct work_struct *worker)
 	hdr->msg_type = WCNSS_PM_CONFIG_REQ;
 	hdr->msg_len = sizeof(struct smd_msg_hdr) + (prop_len * sizeof(int));
 
-	rc = wcnss_smd_tx(msg, hdr->msg_len);
+	rc = wcnss_smd_tx(penv->channel, msg, hdr->msg_len);
 	if (rc < 0)
 		wcnss_log(ERR, "smd tx failed\n");
 
@@ -2488,7 +2560,8 @@ static void wcnss_nvbin_dnld(void)
 		       (nv_blob_addr + count * NV_FRAGMENT_SIZE),
 		       cur_frag_size);
 
-		ret = wcnss_smd_tx(outbuffer, dnld_req_msg->hdr.msg_len);
+		ret = wcnss_smd_tx(penv->channel, outbuffer,
+				   dnld_req_msg->hdr.msg_len);
 
 		retry_count = 0;
 		while ((ret == -ENOSPC) && (retry_count <= 3)) {
@@ -2502,7 +2575,7 @@ static void wcnss_nvbin_dnld(void)
 			/* wait and try again */
 			msleep(20);
 			retry_count++;
-			ret = wcnss_smd_tx(outbuffer,
+			ret = wcnss_smd_tx(penv->channel, outbuffer,
 					   dnld_req_msg->hdr.msg_len);
 		}
 
@@ -2581,7 +2654,9 @@ static void wcnss_caldata_dnld(const void *cal_data,
 		       (cal_data + count * NV_FRAGMENT_SIZE),
 		       cur_frag_size);
 
-		ret = wcnss_smd_tx(outbuffer, cal_msg->hdr.msg_len);
+		ret = wcnss_smd_tx(penv->channel, outbuffer,
+				   cal_msg->hdr.msg_len);
+
 
 		retry_count = 0;
 		while ((ret == -ENOSPC) && (retry_count <= 3)) {
@@ -2595,7 +2670,7 @@ static void wcnss_caldata_dnld(const void *cal_data,
 			/* wait and try again */
 			msleep(20);
 			retry_count++;
-			ret = wcnss_smd_tx(outbuffer,
+			ret = wcnss_smd_tx(penv->channel, outbuffer,
 					   cal_msg->hdr.msg_len);
 		}
 
@@ -3395,6 +3470,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	struct notif_data *data = (struct notif_data *)ss_handle;
 	int ret, xo_mode;
+	void *priv;
 
 	if (!(code >= SUBSYS_NOTIF_MIN_INDEX) &&
 	    (code <= SUBSYS_NOTIF_MAX_INDEX)) {
@@ -3430,6 +3506,12 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 		schedule_delayed_work(&penv->wcnss_pm_qos_del_req,
 				      msecs_to_jiffies(WCNSS_PM_QOS_TIMEOUT));
 		penv->is_shutdown = 1;
+
+		if (penv->ops) {
+			priv = penv->ops->priv_data;
+			penv->ops->driver_state(priv, WCNSS_SMD_CLOSE);
+		}
+
 		wcnss_log_debug_regs_on_bite();
 	} else if (code == SUBSYS_POWERUP_FAILURE) {
 		if (pdev && pwlanconfig)

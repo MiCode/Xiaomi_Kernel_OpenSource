@@ -502,6 +502,7 @@ static struct ais_vfe_bus_ver2_hw_info vfe175_bus_hw_info = {
 		.addr_sync_cfg                = 0x0000207C,
 		.addr_sync_frame_hdr          = 0x00002080,
 		.addr_sync_no_sync            = 0x00002084,
+		.addr_fifo_status             = 0x000020A8,
 		.debug_status_cfg             = 0x0000226C,
 		.debug_status_0               = 0x00002270,
 	},

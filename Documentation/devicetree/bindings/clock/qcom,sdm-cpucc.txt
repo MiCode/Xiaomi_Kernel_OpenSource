@@ -1,0 +1,95 @@
+Qualcomm Technologies, Inc. SDM CPU clock driver
+---------------------------------------------------
+
+It is the clock controller driver which provides higher frequency
+clocks and allows CPU frequency scaling on sdm based platforms.
+
+Required properties:
+- compatible:	Shall contain following:
+		"qcom,cpu-clock-sdm"
+- clocks:	Phandle to the clock device.
+- clock-names:	Names of the used clocks. Shall contain following:
+		"xo_ao", "gpll0_ao"
+- reg:	Shall contain base register offset and size.
+- reg-names:	Names of the bases for the above registers. Shall contain following:
+		"apcs-c1-rcg-base", "apcs-cci-rcg-base", "apcs_pll", "efuse"
+- vdd_dig_ao-supply:	The regulator(active only) powering the digital logic of APSS PLL.
+- vdd_hf_pll-supply:	The regulator(active only) powering the Analog logic of APSS PLL.
+- cpu-vdd-supply:	The regulator powering the APSS C1 RCG and APSS CCI RCG.
+- qcom,speedX-bin-vY-Z:	A table of CPU frequency (Hz) to regulator voltage (uV) mapping.
+			Format: <freq uV>
+			This represents the max frequency possible for each possible
+			power configuration for a CPU that's binned as speed bin X,
+			speed bin revision Y. Version can be between [0-3]. Z
+			is the mux id c1 or cci.
+- #clock-cells:	Shall contain 1.
+
+Example:
+	clock_cpu: qcom,clock-cpu@0b011050 {
+		compatible = "qcom,cpu-clock-sdm";
+		clocks = <&rpmcc RPM_SMD_XO_A_CLK_SRC>,
+			<&gcc GPLL0_AO_OUT_MAIN>;
+		clock-names = "xo_ao", "gpll0_ao" ;
+		reg =   <0xb011050 0x8>,
+			<0xb1d1050 0x8>,
+			<0xb016000 0x34>,
+			<0x00a412c 0x8>;
+		reg-names = "apcs-c1-rcg-base",
+			"apcs-cci-rcg-base", "apcs_pll", "efuse";
+		cpu-vdd-supply = <&apc_vreg_corner>;
+		vdd_dig_ao-supply = <&L12A_AO;
+		vdd_hf_pll-supply = <&VDD_CX_LEVEL_AO>;
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>,
+			< 1958400000 5>;
+
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		qcom,speed1-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>,
+			< 1804800000 5>;
+
+		qcom,speed1-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		qcom,speed4-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>,
+			< 1958400000 5>,
+			< 2016000000 6>;
+
+		qcom,speed4-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		qcom,speed5-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1305600000 1>,
+			< 1497600000 2>,
+			< 1708800000 3>;
+
+		qcom,speed5-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		#clock-cells = <1>;
+	};
