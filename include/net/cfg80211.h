@@ -37,6 +37,9 @@
  */
 
 
+/* Indicate backport support for key configuration for Beacon protection*/
+#define CFG80211_BIGTK_CONFIGURATION_SUPPORT 1
+
 /**
  * DOC: Device registration
  *
