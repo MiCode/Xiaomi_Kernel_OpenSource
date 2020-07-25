@@ -30,6 +30,8 @@
 #define UFS_HW_VER_STEP_SHFT	(0)
 #define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
 
+#define UFS_VENDOR_MICRON	0x12C
+
 /* vendor specific pre-defined parameters */
 #define SLOW 1
 #define FAST 2

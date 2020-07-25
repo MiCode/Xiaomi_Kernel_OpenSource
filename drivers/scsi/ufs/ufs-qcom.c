@@ -1643,6 +1643,9 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 
 	ufshcd_parse_pm_levels(hba);
 
+	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM;
+
 	return err;
 }
 
