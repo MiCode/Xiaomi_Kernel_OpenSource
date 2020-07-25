@@ -998,7 +998,7 @@
 	};
 
 	nspss-0-step {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&tsens1 3>;
@@ -1032,7 +1032,7 @@
 	};
 
 	nspss-1-step {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&tsens1 4>;
@@ -1066,7 +1066,7 @@
 	};
 
 	nspss-2-step {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&tsens1 5>;
