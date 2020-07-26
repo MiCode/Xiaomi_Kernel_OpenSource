@@ -15,6 +15,7 @@
 				"tsens-critical",
 				"tsens-0C";
 		tsens-reinit-wa;
+		0C-sensor-num = <16>;
 		#thermal-sensor-cells = <1>;
 	};
 
@@ -31,6 +32,7 @@
 				"tsens-critical",
 				"tsens-0C";
 		tsens-reinit-wa;
+		0C-sensor-num = <16>;
 		#thermal-sensor-cells = <1>;
 	};
 
@@ -59,6 +61,13 @@
 				#cooling-cells = <2>;
 			};
 		};
+	};
+};
+
+&rpm_bus {
+	rpm_smd_cdev: rpm-smd-cdev {
+		compatible = "qcom,rpm-smd-cooling-device";
+		#cooling-cells = <2>;
 	};
 };
 
@@ -993,6 +1002,100 @@
 				trip = <&cpu13_config>;
 				cooling-device = <&CPU6 THERMAL_MAX_LIMIT
 							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	zeroc-0-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens0 16>;
+		thermal-governor = "step_wise";
+
+		trips {
+			zeroc_0_trip: active-config0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			rpm_smd_cdev {
+				trip = <&zeroc_0_trip>;
+				cooling-device = <&rpm_smd_cdev 2 2>;
+			};
+
+			cx_vdd_cdev {
+				trip = <&zeroc_0_trip>;
+				cooling-device = <&cx_cdev 1 1>;
+			};
+
+			mx_vdd_cdev {
+				trip = <&zeroc_0_trip>;
+				cooling-device = <&mx_cdev 1 1>;
+			};
+
+			gfx_vdd_cdev {
+				trip = <&zeroc_0_trip>;
+				cooling-device = <&gfx_cdev 1 1>;
+			};
+
+			adsp_vdd_cdev {
+				trip = <&zeroc_0_trip>;
+				cooling-device = <&adsp_vdd 1 1>;
+			};
+
+			modem_vdd_cdev {
+				trip = <&zeroc_0_trip>;
+				cooling-device = <&modem_vdd 1 1>;
+			};
+		};
+	};
+
+	zeroc-1-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 16>;
+		thermal-governor = "step_wise";
+
+		trips {
+			zeroc_1_trip: active-config0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			rpm_smd_cdev {
+				trip = <&zeroc_1_trip>;
+				cooling-device = <&rpm_smd_cdev 2 2>;
+			};
+
+			cx_vdd_cdev {
+				trip = <&zeroc_1_trip>;
+				cooling-device = <&cx_cdev 1 1>;
+			};
+
+			mx_vdd_cdev {
+				trip = <&zeroc_1_trip>;
+				cooling-device = <&mx_cdev 1 1>;
+			};
+
+			gfx_vdd_cdev {
+				trip = <&zeroc_1_trip>;
+				cooling-device = <&gfx_cdev 1 1>;
+			};
+
+			adsp_vdd_cdev {
+				trip = <&zeroc_1_trip>;
+				cooling-device = <&adsp_vdd 1 1>;
+			};
+
+			modem_vdd_cdev {
+				trip = <&zeroc_1_trip>;
+				cooling-device = <&modem_vdd 1 1>;
 			};
 		};
 	};
