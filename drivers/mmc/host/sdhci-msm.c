@@ -14,7 +14,6 @@
 #include <linux/interconnect.h>
 #include <linux/iopoll.h>
 #include <linux/regulator/consumer.h>
-#include <linux/pinctrl/consumer.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -1494,20 +1493,6 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_msm_hs400(host, &mmc->ios);
 }
 
-/* Apply active/sleep pin config based on bus on/off state */
-static int sdhci_msm_set_pincfg(struct sdhci_msm_host *msm_host, bool level)
-{
-	struct platform_device *pdev = msm_host->pdev;
-	int ret;
-
-	if (level)
-		ret = pinctrl_pm_select_default_state(&pdev->dev);
-	else
-		ret = pinctrl_pm_select_sleep_state(&pdev->dev);
-
-	return ret;
-}
-
 #define MAX_PROP_SIZE 32
 static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 		struct sdhci_msm_reg_data **vreg_data, const char *vreg_name)
@@ -2084,9 +2069,6 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		if (!ret)
 			ret = sdhci_msm_set_vdd_io_vol(msm_host,
 					VDD_IO_HIGH, 0);
-		if (!ret)
-			ret = sdhci_msm_set_pincfg(msm_host, true);
-
 		if (ret)
 			irq_ack |= CORE_PWRCTL_BUS_FAIL;
 		else
@@ -2102,9 +2084,6 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		if (!ret)
 			ret = sdhci_msm_set_vdd_io_vol(msm_host,
 					VDD_IO_LOW, 0);
-		if (!ret)
-			ret = sdhci_msm_set_pincfg(msm_host, false);
-
 		if (ret)
 			irq_ack |= CORE_PWRCTL_BUS_FAIL;
 		else
