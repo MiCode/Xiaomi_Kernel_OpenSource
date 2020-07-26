@@ -328,7 +328,7 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 {
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int cmd_id, sub_cmd_id;
-	unsigned int dev_type, devcore;
+	unsigned int dev_type, devcore, boost;
 
 	if (!buf)
 		return -ENOMEM;
@@ -341,10 +341,10 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
-		&dev_type, &devcore) == 4)
+	if (sscanf(buf, "%d %d %d %d %d", &cmd_id, &sub_cmd_id,
+		&dev_type, &devcore, &boost) == 4)
 		apu_cmd_qos_start((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore);
+			(uint64_t) sub_cmd_id, dev_type, devcore, boost);
 
 out:
 	free_page((unsigned long)buf);

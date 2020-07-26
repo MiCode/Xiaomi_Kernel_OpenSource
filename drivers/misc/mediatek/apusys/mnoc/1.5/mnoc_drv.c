@@ -41,6 +41,7 @@
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
 #include "mnoc_qos.h"
+#include "mnoc_qos_sys.h"
 #include "mnoc_dbg.h"
 #include "mnoc_pmu.h"
 #include "mnoc_option.h"
@@ -216,6 +217,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	mnoc_pwr_is_on = false;
 
 	create_debugfs();
+	mnoc_qos_create_sys(&pdev->dev);
 	spin_lock_init(&mnoc_spinlock);
 	apu_qos_counter_init();
 	mnoc_pmu_init();
@@ -293,6 +295,7 @@ static int mnoc_remove(struct platform_device *pdev)
 	apu_power_callback_device_unregister(MNOC);
 #endif
 	remove_debugfs();
+	mnoc_qos_remove_sys(&pdev->dev);
 	apu_qos_counter_destroy();
 	mnoc_pmu_exit();
 	mnoc_hw_exit();
