@@ -25,11 +25,11 @@ static int tsens_get_temp(void *data, int *temp)
 	return tmdev->ops->get_temp(s, temp);
 }
 
-static int tsens_get_min_temp(void *data, int *temp)
+static int tsens_get_zeroc_status(void *data, int *status)
 {
 	struct tsens_sensor *s = data;
 
-	return tsens_2xxx_get_min_temp(s, temp);
+	return tsens_2xxx_get_zeroc_status(s, status);
 }
 
 static int tsens_set_trip_temp(void *data, int low_temp, int high_temp)
@@ -108,7 +108,7 @@ static struct thermal_zone_of_device_ops tsens_tm_thermal_zone_ops = {
 };
 
 static struct thermal_zone_of_device_ops tsens_tm_min_thermal_zone_ops = {
-	.get_temp = tsens_get_min_temp,
+	.get_temp = tsens_get_zeroc_status,
 };
 
 static int get_device_tree_data(struct platform_device *pdev,
@@ -119,7 +119,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 	const struct tsens_data *data;
 	int rc = 0;
 	struct resource *res_tsens_mem;
-	u32 min_temp_id;
+	u32 zeroc_id;
 
 	if (!of_match_node(tsens_table, of_node)) {
 		pr_err("Need to read SoC specific fuse map\n");
@@ -195,10 +195,10 @@ static int get_device_tree_data(struct platform_device *pdev,
 		}
 	}
 
-	if (!of_property_read_u32(of_node, "0C-sensor-num", &min_temp_id))
-		tmdev->min_temp_sensor_id = (int)min_temp_id;
+	if (!of_property_read_u32(of_node, "0C-sensor-num", &zeroc_id))
+		tmdev->zeroc_sensor_id = (int)zeroc_id;
 	else
-		tmdev->min_temp_sensor_id = MIN_TEMP_DEF_OFFSET;
+		tmdev->zeroc_sensor_id = MIN_TEMP_DEF_OFFSET;
 
 	tmdev->tsens_reinit_wa =
 		of_property_read_bool(of_node, "tsens-reinit-wa");
@@ -232,14 +232,14 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 		return -ENODEV;
 	}
 
-	if (tmdev->min_temp_sensor_id != MIN_TEMP_DEF_OFFSET) {
-		tmdev->min_temp.tmdev = tmdev;
-		tmdev->min_temp.hw_id = tmdev->min_temp_sensor_id;
-		tmdev->min_temp.tzd =
+	if (tmdev->zeroc_sensor_id != MIN_TEMP_DEF_OFFSET) {
+		tmdev->zeroc.tmdev = tmdev;
+		tmdev->zeroc.hw_id = tmdev->zeroc_sensor_id;
+		tmdev->zeroc.tzd =
 			devm_thermal_zone_of_sensor_register(
-			&tmdev->pdev->dev, tmdev->min_temp_sensor_id,
-			&tmdev->min_temp, &tsens_tm_min_thermal_zone_ops);
-		if (IS_ERR(tmdev->min_temp.tzd))
+			&tmdev->pdev->dev, tmdev->zeroc_sensor_id,
+			&tmdev->zeroc, &tsens_tm_min_thermal_zone_ops);
+		if (IS_ERR(tmdev->zeroc.tzd))
 			pr_err("Error registering min temp sensor\n");
 	}
 
@@ -275,8 +275,8 @@ static void tsens_therm_fwk_notify(struct work_struct *work)
 				tmdev->sensor[i].tzd, temp);
 		}
 	}
-	if (tmdev->min_temp_sensor_id != MIN_TEMP_DEF_OFFSET) {
-		rc = tsens_get_temp(&tmdev->min_temp, &temp);
+	if (tmdev->zeroc_sensor_id != MIN_TEMP_DEF_OFFSET) {
+		rc = tsens_get_zeroc_status(&tmdev->zeroc, &temp);
 		if (rc) {
 			pr_err("%s: Error:%d reading temp sensor:%d\n",
 				   __func__, rc, i);
@@ -284,7 +284,7 @@ static void tsens_therm_fwk_notify(struct work_struct *work)
 		}
 		TSENS_DBG(tmdev, "Calling trip_temp for sensor %d\n", i);
 		of_thermal_handle_trip_temp(tmdev->dev,
-			tmdev->min_temp.tzd, temp);
+			tmdev->zeroc.tzd, temp);
 	}
 }
 
