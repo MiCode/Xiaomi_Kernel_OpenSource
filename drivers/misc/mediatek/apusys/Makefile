@@ -81,6 +81,7 @@ apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_drv.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_hw.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_pmu.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos_sys.o
 
 # power driver makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
@@ -114,4 +115,3 @@ obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top/
 src=$(srctree)/drivers/misc/mediatek/apusys
 ccflags-y += -I$(src)/mdla/
 apusys-objs += $(shell cd $(src) && find mdla -name "*.c" | sed 's/\.c/\.o/g')
-
