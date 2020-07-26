@@ -186,12 +186,19 @@ static int mnoc_probe(struct platform_device *pdev)
 	struct device_node *node;
 	struct device_node *sub_node;
 	struct platform_device *sub_pdev;
+	struct apu_mnoc *p_mnoc = NULL;
 
 	mnoc_reg_valid = false;
 	mnoc_log_level = 2;
 
 	LOG_DEBUG("+\n");
 
+	p_mnoc = kmalloc(sizeof(struct apu_mnoc), GFP_KERNEL);
+	if (!p_mnoc)
+		return -ENOMEM;
+
+	p_mnoc->dev = &pdev->dev;
+	dev_set_drvdata(&pdev->dev, p_mnoc);
 #ifdef APUSYS_OPTIONS_INF_POWERARCH
 	if (!apusys_power_check())
 		return 0;
@@ -219,7 +226,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	create_debugfs();
 	mnoc_qos_create_sys(&pdev->dev);
 	spin_lock_init(&mnoc_spinlock);
-	apu_qos_counter_init();
+	apu_qos_counter_init(&pdev->dev);
 	mnoc_pmu_init();
 	mnoc_hw_init();
 
@@ -285,6 +292,7 @@ static int mnoc_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 #endif
 	struct device_node *node = NULL;
+	struct apu_mnoc *p_mnoc = NULL;
 
 	LOG_DEBUG("+\n");
 
@@ -296,7 +304,7 @@ static int mnoc_remove(struct platform_device *pdev)
 #endif
 	remove_debugfs();
 	mnoc_qos_remove_sys(&pdev->dev);
-	apu_qos_counter_destroy();
+	apu_qos_counter_destroy(&pdev->dev);
 	mnoc_pmu_exit();
 	mnoc_hw_exit();
 
@@ -315,6 +323,9 @@ static int mnoc_remove(struct platform_device *pdev)
 	iounmap(mnoc_apu_conn_base);
 	iounmap(mnoc_slp_prot_base1);
 	iounmap(mnoc_slp_prot_base2);
+
+	p_mnoc = dev_get_drvdata(&pdev->dev);
+	kfree(p_mnoc);
 
 	LOG_DEBUG("-\n");
 
