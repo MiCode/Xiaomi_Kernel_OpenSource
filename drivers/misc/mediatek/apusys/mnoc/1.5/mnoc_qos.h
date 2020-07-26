@@ -7,6 +7,17 @@
 #define __APUSYS_MNOC_QOS_H__
 
 #include "mnoc_option.h"
+#include <linux/device.h>
+#include <linux/pm_qos.h>
+
+struct engine_pm_qos_counter {
+	struct pm_qos_request qos_req;
+	struct icc_path *emi_icc_path;
+
+	int32_t last_report_bw;
+	unsigned int last_idx;
+	unsigned int core;
+};
 
 #if MNOC_TIME_PROFILE
 extern unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
@@ -21,8 +32,8 @@ extern struct mutex apu_qos_boost_mtx;
 void apu_qos_on(void);
 void apu_qos_off(void);
 
-void apu_qos_counter_init(void);
-void apu_qos_counter_destroy(void);
+void apu_qos_counter_init(struct device *dev);
+void apu_qos_counter_destroy(struct device *dev);
 
 void print_cmd_qos_list(struct seq_file *m);
 
