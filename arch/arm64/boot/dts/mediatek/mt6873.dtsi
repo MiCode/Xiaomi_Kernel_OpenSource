@@ -2612,6 +2612,15 @@
 			interrupts = <GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
+		apusys_mnoc: apusys_mnoc {
+			compatible = "mediatek,apusys_mnoc";
+			interconnects = <&dvfsrc MT6873_MASTER_VPUSYS
+					 &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_MDLASYS
+					 &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "vpu-bw", "mdla-bw";
+		};
+
 		apu_top: apu_top@0x190f0000 {
 			compatible = "mediatek,apu_top";
 			reg = <0 0x190f0000 0 0x1000>;
