@@ -8,9 +8,12 @@
 #include <linux/of.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
+#include <linux/interconnect.h>
 
+#include "mnoc_drv.h"
 #include "mnoc_qos.h"
 #include "mnoc_api.h"
+#include "mnoc_hw.h"
 
 static ssize_t mnoc_apu_qos_boost_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -124,7 +127,34 @@ out:
 }
 static DEVICE_ATTR_RW(mnoc_cmd_qos_end);
 
+static ssize_t mnoc_apu_qos_bw_store(struct device *dev,
+				 struct device_attribute *attr, const char *buf,
+				 size_t count)
+{
+	unsigned int core_id, avg_bw, peak_bw;
+	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
+	struct icc_path *apu_icc = NULL;
+
+	if (!p_mnoc || !p_mnoc->engines) {
+		dev_info(dev, "%s not get apu_mnoc or engine counter\n", __func__);
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%d %d %d", &core_id, &avg_bw, &peak_bw) == 3)
+		if (core_id < NR_APU_QOS_ENGINE) {
+			apu_icc = p_mnoc->engines[core_id].emi_icc_path;
+			dev_info(dev, "set core %d, avb_bw %d, peak_bw %d ret %d\n",
+					core_id, avg_bw, peak_bw,
+					icc_set_bw(apu_icc, avg_bw, peak_bw));
+		}
+
+out:
+	return count;
+}
+static DEVICE_ATTR_WO(mnoc_apu_qos_bw);
+
 static struct attribute *qos_attrs[] = {
+	&dev_attr_mnoc_apu_qos_bw.attr,
 	&dev_attr_mnoc_apu_qos_boost.attr,
 	&dev_attr_mnoc_cmd_qos_start.attr,
 	&dev_attr_mnoc_cmd_qos_suspend.attr,

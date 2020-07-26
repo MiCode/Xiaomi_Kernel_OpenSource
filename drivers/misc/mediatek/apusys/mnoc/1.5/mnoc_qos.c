@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
+#include <linux/interconnect.h>
 
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
@@ -27,6 +28,8 @@
 unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
 unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #endif
+
+static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 
 #if MNOC_QOS_ENABLE
 #include <mtk_qos_bound.h>
@@ -91,14 +94,6 @@ struct qos_counter {
 	int wait_ms;
 };
 
-struct engine_pm_qos_counter {
-	struct pm_qos_request qos_req;
-
-	int32_t last_report_bw;
-	unsigned int last_idx;
-	unsigned int core;
-};
-
 struct cmd_qos {
 	uint64_t cmd_id;
 	uint64_t sub_cmd_id;
@@ -115,7 +110,6 @@ struct cmd_qos {
 
 static struct qos_counter qos_counter;
 static struct work_struct qos_work;
-static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 
 /* indicate engine running or not based on cmd cntr for pm qos */
 /* increase 1 when cmd enque, decrease 1 when cmd dequeue */
@@ -545,7 +539,7 @@ static void qos_work_func(struct work_struct *work)
 		/* update peak bw */
 		if (counter->last_report_bw != report_bw) {
 			counter->last_report_bw = report_bw;
-			update_qos_request(&counter->qos_req, report_bw);
+			icc_set_bw(counter->emi_icc_path, avg_bw, peak_bw);
 		}
 
 		LOG_DETAIL("%d: boost_val = %d, bw(%d/%d/%d)\n",
@@ -1026,12 +1020,32 @@ void apu_qos_boost_end(void)
  * create qos workqueue for count bandwidth
  * @call at module init
  */
-void apu_qos_counter_init(void)
+void apu_qos_counter_init(struct device *dev)
 {
 	int i = 0;
 	struct engine_pm_qos_counter *counter = NULL;
+	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
+	struct icc_path *apu_icc = of_icc_get(dev, "apu-bw");
+	int i = 0;
+
+	if (!p_mnoc) {
+		dev_info(dev, "%s not get struct apu_mnoc\n", __func__);
+		return;
+	}
 
 	LOG_DEBUG("+\n");
+
+	/*
+	 * put engine_pm_qos_counter to struct apu_mnoc
+	 * such that mnoc_qos_sys.c can get it from dev_get_drvdata
+	 */
+	p_mnoc->engines = engine_pm_qos_counter;
+
+	if (apu_icc) {
+		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
+			p_mnoc->engines[i].emi_icc_path = apu_icc;
+	} else
+		dev_info(dev, "%s not get apu-bw icc path\n", __func__);
 
 	qos_timer_exist = false;
 
@@ -1052,7 +1066,8 @@ void apu_qos_counter_init(void)
 		counter->last_report_bw = 0;
 		counter->last_idx = 0;
 		counter->core = i;
-		add_qos_request(&counter->qos_req);
+		//TODO
+		//add_qos_request(&counter->qos_req);
 	}
 #if MNOC_QOS_BOOST_ENABLE
 	apu_qos_boost_flag = false;
@@ -1087,7 +1102,7 @@ void apu_qos_counter_init(void)
  * delete qos request
  * @call at module exit
  */
-void apu_qos_counter_destroy(void)
+void apu_qos_counter_destroy(struct device *dev)
 {
 	int i = 0;
 	struct engine_pm_qos_counter *counter = NULL;
@@ -1115,7 +1130,8 @@ void apu_qos_counter_destroy(void)
 			LOG_ERR("get counter(%d) fail\n", i);
 			continue;
 		}
-		destroy_qos_request(&counter->qos_req);
+		//TODO
+		//destroy_qos_request(&counter->qos_req);
 	}
 #if MNOC_QOS_BOOST_ENABLE
 	pm_qos_update_request(&apu_qos_ddr_req,
@@ -1186,11 +1202,31 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 }
 EXPORT_SYMBOL(apu_cmd_qos_end);
 
-void apu_qos_counter_init(void)
+void apu_qos_counter_init(struct device *dev)
 {
+	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
+	struct icc_path *apu_icc = of_icc_get(dev, "apu-bw");
+	int i = 0;
+
+	if (!p_mnoc) {
+		dev_info(dev, "%s not get struct apu_mnoc\n", __func__);
+		return;
+	}
+
+	/*
+	 * put engine_pm_qos_counter to struct apu_mnoc
+	 * such that mnoc_qos_sys.c can get it from dev_get_drvdata
+	 */
+	p_mnoc->engines = engine_pm_qos_counter;
+
+	if (apu_icc) {
+		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
+			p_mnoc->engines[i].emi_icc_path = apu_icc;
+	} else
+		dev_info(dev, "%s not get apu-bw icc path\n", __func__);
 }
 
-void apu_qos_counter_destroy(void)
+void apu_qos_counter_destroy(struct device *dev)
 {
 }
 
