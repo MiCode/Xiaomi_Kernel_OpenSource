@@ -20,6 +20,7 @@
 #include <drm/drm_vblank.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
+#include <drm/drm_crtc.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -493,8 +494,10 @@ static int mtk_crtc_enable_vblank_thread(void *data)
 	return 0;
 }
 
-int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
+int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc)
 {
+	struct drm_device *drm = crtc->dev;
+	unsigned int pipe = crtc->index;
 	struct mtk_drm_private *priv = drm->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
@@ -789,8 +792,10 @@ static int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en)
 	return 0;
 }
 
-void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
+void mtk_drm_crtc_disable_vblank(struct drm_crtc *crtc)
 {
+	struct drm_device *drm = crtc->dev;
+	unsigned int pipe = crtc->index;
 	struct mtk_drm_private *priv = drm->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
@@ -803,13 +808,14 @@ void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
 			(unsigned long)&mtk_crtc->base);
 }
 
-bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
+bool mtk_crtc_get_vblank_timestamp(struct drm_crtc *crtc, 
 				 int *max_error,
 				 ktime_t *vblank_time,
 				 bool in_vblank_irq)
 {
+	struct drm_device *dev = crtc->dev;
 	struct mtk_drm_private *priv = dev->dev_private;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	*vblank_time = timespec64_to_ktime(mtk_crtc->vblank_time);
 	return true;
@@ -4656,6 +4662,9 @@ static const struct drm_crtc_funcs mtk_crtc_funcs = {
 	.atomic_set_property = mtk_drm_crtc_set_property,
 	.atomic_get_property = mtk_drm_crtc_get_property,
 	.gamma_set = drm_atomic_helper_legacy_gamma_set,
+	.enable_vblank = mtk_drm_crtc_enable_vblank,
+	.disable_vblank = mtk_drm_crtc_disable_vblank,
+	.get_vblank_timestamp = mtk_crtc_get_vblank_timestamp,
 };
 
 static const struct drm_crtc_helper_funcs mtk_crtc_helper_funcs = {
