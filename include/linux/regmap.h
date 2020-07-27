@@ -1241,6 +1241,9 @@ struct regmap_irq_chip {
 	bool mask_invert:1;
 	bool use_ack:1;
 	bool ack_invert:1;
+#ifdef CONFIG_AUDIO_QGKI
+	bool clear_ack:1;
+#endif
 	bool wake_invert:1;
 	bool runtime_pm:1;
 	bool type_invert:1;
