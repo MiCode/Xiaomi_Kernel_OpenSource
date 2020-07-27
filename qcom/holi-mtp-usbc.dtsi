@@ -1,3 +1,4 @@
+#include "holi-audio-overlay.dtsi"
 
 &ufsphy_mem {
 		compatible = "qcom,ufs-phy-qmp-v3";
@@ -28,4 +29,10 @@
 		qcom,vddp-ref-clk-min-uV = <0>;
 
 		status = "ok";
+};
+
+&holi_snd {
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,msm-mbhc-hphl-swh = <0>;
+	qcom,msm-mbhc-gnd-swh = <0>;
 };
