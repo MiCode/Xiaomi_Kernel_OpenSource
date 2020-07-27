@@ -82,3 +82,6 @@ obj-$(CONFIG_VIDEO_QCOM_VENUS)		+= qcom/venus/
 obj-y					+= sunxi/
 
 obj-y					+= mtk-isp/
+
+obj-$(CONFIG_VIDEO_MTK_AIE)		+= mtk-aie/
+

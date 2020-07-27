@@ -1,0 +1,10 @@
+config VIDEO_MTK_AIE
+	tristate "Mediatek AI engine function"
+	select V4L2_MEM2MEM_DEV
+	depends on VIDEOBUF2_DMA_CONTIG
+	help
+		Support the AI engine (AIE) feature
+
+		AIE driver is a V4L2 memory-to-memory device driver which
+		provides hardware accelerated face detection function,
+		it can detect different sizes of faces in a raw image.
