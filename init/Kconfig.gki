@@ -47,6 +47,7 @@ config GKI_HIDDEN_SND_SOC_CONFIGS
 	select SND_PCM_IEC958
 	select SND_SOC_COMPRESS if (SND_SOC && SND)
 	select SND_SOC_TOPOLOGY if (SND_SOC && SND)
+	select DMA_VIRTUAL_CHANNELS
 	help
 	  Dummy config option used to enable hidden SND_SOC configs.
 	  These are normally selected implicitly when a module
@@ -94,6 +95,7 @@ config GKI_HIDDEN_MEDIA_CONFIGS
 	select VIDEOBUF2_CORE
 	select MEDIA_SUPPORT
 	select FRAME_VECTOR
+	select VIDEOBUF2_DMA_CONTIG
 	help
 	  Dummy config option used to enable hidden media configs.
 	  These are normally selected implicitly when a module

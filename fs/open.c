@@ -321,7 +321,7 @@ int vfs_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	file_end_write(file);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(vfs_fallocate);
+EXPORT_SYMBOL_NS_GPL(vfs_fallocate, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 int ksys_fallocate(int fd, int mode, loff_t offset, loff_t len)
 {
@@ -932,7 +932,7 @@ struct file *dentry_open(const struct path *path, int flags,
 	}
 	return f;
 }
-EXPORT_SYMBOL(dentry_open);
+EXPORT_SYMBOL_NS(dentry_open, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 struct file *open_with_fake_path(const struct path *path, int flags,
 				struct inode *inode, const struct cred *cred)
