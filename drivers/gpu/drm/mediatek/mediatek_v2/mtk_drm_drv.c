@@ -2416,9 +2416,6 @@ static struct drm_driver mtk_drm_driver = {
 		DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 
 	/* .get_vblank_counter = drm_vblank_no_hw_counter, */
-	.enable_vblank = mtk_drm_crtc_enable_vblank,
-	.disable_vblank = mtk_drm_crtc_disable_vblank,
-	//.get_vblank_timestamp = mtk_crtc_get_vblank_timestamp,
 
 	.gem_free_object_unlocked = mtk_drm_gem_free_object,
 	.gem_vm_ops = &drm_gem_cma_vm_ops,

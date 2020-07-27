@@ -614,8 +614,8 @@ struct mtk_cmdq_cb_data {
 	unsigned int misc;
 };
 
-int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe);
-void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe);
+int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);
+void mtk_drm_crtc_disable_vblank(struct drm_crtc *crtc);
 bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 				 int *max_error,
 				 ktime_t *vblank_time,
