@@ -13,17 +13,28 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
+
 
 #include "../../../../soc/mediatek/mtk-scpsys.h"
 #include "apu_top.h"
 
+/* regulator id */
+static struct regulator *vvpu_reg_id;
 /* apu_top preclk */
 static struct clk *clk_top_dsp_sel;		/* CONN */
 static struct clk *clk_top_ipu_if_sel;		/* VCORE */
 
+static unsigned int ref_count;
+
 static int apu_top_on(void)
 {
 	pr_info("%s +\n", __func__);
+
+	if (ref_count++ > 0)
+		return 0;
+
+	regulator_enable(vvpu_reg_id);
 
 	//pr_info("%s SPM: Release IPU external buck iso\n", __func__);
 	DRV_WriteReg32(APUSYS_BUCK_ISOLATION,
@@ -68,6 +79,11 @@ static int apu_top_off(void)
 {
 	pr_info("%s +\n", __func__);
 
+	if (ref_count > 0)
+		ref_count--;
+	else
+		return 0;
+
 	//pr_info("%s bus/sleep protect CG on\n", __func__);
 	DRV_WriteReg32(APUSYS_VCORE_CG_CLR, 0xFFFFFFFF);
 	DRV_WriteReg32(APUSYS_CONN_CG_CLR, 0xFFFFFFFF);
@@ -105,6 +121,8 @@ static int apu_top_off(void)
 	DRV_WriteReg32(APUSYS_BUCK_ISOLATION,
 		DRV_Reg32(APUSYS_BUCK_ISOLATION) & 0x00000021);
 
+	regulator_disable(vvpu_reg_id);
+
 	pr_info("%s -\n", __func__);
 	return 0;
 }
@@ -136,6 +154,12 @@ static int apu_top_probe(struct platform_device *pdev)
 	if (!node) {
 		pr_info("get apu_top device node err\n");
 		return -ENODEV;
+	}
+
+	vvpu_reg_id = regulator_get(&pdev->dev, "vvpu");
+	if (!vvpu_reg_id) {
+		pr_info("regulator_get vvpu_reg_id failed\n");
+		return -ENOENT;
 	}
 
 	//pr_info("register_apu_callback start\n");
@@ -225,8 +249,21 @@ err_exit:
 	return 0;
 }
 
+static int apu_top_remove(struct platform_device *pdev)
+{
+	pr_info("%s +\n", __func__);
+
+	regulator_put(vvpu_reg_id);
+	vvpu_reg_id = NULL;
+
+	pr_info("%s -\n", __func__);
+
+	return 0;
+}
+
 static struct platform_driver apu_top_drv = {
 	.probe = apu_top_probe,
+	.remove = apu_top_remove,
 	.driver = {
 		.name = "apu_top",
 		.of_match_table = of_match_apu_top,
