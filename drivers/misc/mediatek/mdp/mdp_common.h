@@ -7,6 +7,7 @@
 #define __MDP_COMMON_H__
 
 #include "mdp_def.h"
+#include "mdp_def_ex.h"
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
 
@@ -195,6 +196,13 @@ void cmdq_mdp_resume(void);
 void cmdq_mdp_release_task_by_file_node(void *file_node);
 void cmdq_mdp_init(void);
 void cmdq_mdp_deinit_pmqos(void);
+s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out);
+s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle);
+s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
+			struct cmdqRecStruct *handle);
+s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
+	u32 sec_handle, u32 index, u32 instr_index);
+u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle);
 
 /* Platform dependent function */
 
@@ -249,9 +257,17 @@ u32 cmdq_mdp_wdma_get_reg_offset_dst_addr(void);
 
 void testcase_clkmgr_mdp(void);
 
+u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
+u32 cmdq_mdp_get_hw_port(u32 base);
+
 /* Platform virtual function setting */
 void cmdq_mdp_platform_function_setting(void);
 
 long cmdq_mdp_get_module_base_VA_MDP_WROT0(void);
+
+u32 *mdp_engine_base_get(void);
+
+u32 mdp_engine_base_count(void);
+
 
 #endif				/* __MDP_COMMON_H__ */

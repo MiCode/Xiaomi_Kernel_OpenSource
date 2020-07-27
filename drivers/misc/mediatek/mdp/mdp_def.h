@@ -21,6 +21,8 @@
 #include "mdp_engine_mt6873.h"
 #endif
 
+#define MDP_DEFAULT_MASK_BITS 35
+
 #define CMDQ_SPECIAL_SUBSYS_ADDR (99)
 
 #define CMDQ_GPR_SUPPORT

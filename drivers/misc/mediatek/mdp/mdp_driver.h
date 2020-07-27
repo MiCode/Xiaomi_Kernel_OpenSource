@@ -8,6 +8,7 @@
 
 #include <linux/kernel.h>
 #include "mdp_def.h"
+#include "mdp_def_ex.h"
 
 struct cmdqUsageInfoStruct {
 	/* [OUT] current engine ref count */
@@ -98,5 +99,12 @@ struct cmdqWriteAddressStruct {
 /* input int is same as EngineFlag. */
 /*  */
 #define CMDQ_IOCTL_NOTIFY_ENGINE _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 12, uint64_t)
+
+s32 cmdq_driver_ioctl_query_usage(struct file *pf, unsigned long param);
+s32 cmdq_driver_ioctl_query_cap_bits(unsigned long param);
+s32 cmdq_driver_ioctl_query_dts(unsigned long param);
+s32 cmdq_driver_ioctl_notify_engine(unsigned long param);
+
+void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values);
 
 #endif				/* __MDP_DRIVER_H__ */

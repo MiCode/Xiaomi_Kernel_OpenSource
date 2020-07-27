@@ -37,8 +37,12 @@ endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
+             -I$(srctree)/drivers/misc/mediatek/include/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
              -I$(srctree)/drivers/iommu
+
+ccflags-$(CONFIG_MTK_MDP_MT6873) += -I$(srctree)/drivers/misc/mediatek/mdp/mt6873
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
@@ -75,7 +79,10 @@ ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
 endif
 
 # driver module
-obj-$(CONFIG_MTK_MDP) += mdp_driver.o
+obj-$(CONFIG_MTK_MDP) += mdp_drv.o
+mdp_drv-y := mdp_driver.o \
+				mdp_ioctl_ex.o
+
 obj-$(CONFIG_MTK_MDP) += mdp_core.o
 mdp_core-y := mdp_common.o \
 				cmdq_record.o \

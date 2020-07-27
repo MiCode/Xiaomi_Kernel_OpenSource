@@ -48,6 +48,7 @@ struct device *cmdq_dev_get(void)
 {
 	return gCmdqDev.pDev;
 }
+EXPORT_SYMBOL(cmdq_dev_get);
 
 u32 cmdq_dev_get_irq_id(void)
 {
@@ -555,6 +556,8 @@ void cmdq_dev_init(struct platform_device *pDevice)
 	if (ret != 0 || !dma_mask_bit)
 		dma_mask_bit = 32;
 	gCmdqDev.dma_mask_result = dma_set_coherent_mask(
+		&pDevice->dev, DMA_BIT_MASK(dma_mask_bit));
+	gCmdqDev.dma_mask_result = dma_set_mask_and_coherent(
 		&pDevice->dev, DMA_BIT_MASK(dma_mask_bit));
 	CMDQ_LOG("set dma mask bit:%u result:%d\n",
 		dma_mask_bit, gCmdqDev.dma_mask_result);
