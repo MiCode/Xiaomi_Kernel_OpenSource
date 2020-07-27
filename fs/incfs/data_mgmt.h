@@ -20,74 +20,63 @@
 
 #define SEGMENTS_PER_FILE 3
 
-enum LOG_RECORD_TYPE {
-	FULL,
-	SAME_FILE,
-	SAME_FILE_NEXT_BLOCK,
-	SAME_FILE_NEXT_BLOCK_SHORT,
-};
+struct read_log_record {
+	u32 bitfield;
 
-struct full_record {
-	enum LOG_RECORD_TYPE type : 2; /* FULL */
-	u32 block_index : 30;
+	u64 timestamp_us;
+
 	incfs_uuid_t file_id;
-	u64 absolute_ts_us;
-} __packed; /* 28 bytes */
+} __packed;
 
-struct same_file_record {
-	enum LOG_RECORD_TYPE type : 2; /* SAME_FILE */
-	u32 block_index : 30;
-	u32 relative_ts_us; /* max 2^32 us ~= 1 hour (1:11:30) */
-} __packed; /* 12 bytes */
+#define RLR_BLOCK_INDEX_MASK 0x7fff
+#define RLR_TIMED_OUT_MASK 0x8000
 
-struct same_file_next_block {
-	enum LOG_RECORD_TYPE type : 2; /* SAME_FILE_NEXT_BLOCK */
-	u32 relative_ts_us : 30; /* max 2^30 us ~= 15 min (17:50) */
-} __packed; /* 4 bytes */
+static inline u32 get_block_index(const struct read_log_record *rlr)
+{
+	return rlr->bitfield & RLR_BLOCK_INDEX_MASK;
+}
 
-struct same_file_next_block_short {
-	enum LOG_RECORD_TYPE type : 2; /* SAME_FILE_NEXT_BLOCK_SHORT */
-	u16 relative_ts_us : 14; /* max 2^14 us ~= 16 ms */
-} __packed; /* 2 bytes */
+static inline void set_block_index(struct read_log_record *rlr,
+				  u32 block_index)
+{
+	rlr->bitfield = (rlr->bitfield & ~RLR_BLOCK_INDEX_MASK)
+			| (block_index & RLR_BLOCK_INDEX_MASK);
+}
 
-union log_record {
-	struct full_record full_record;
-	struct same_file_record same_file_record;
-	struct same_file_next_block same_file_next_block;
-	struct same_file_next_block_short same_file_next_block_short;
-};
+static inline bool get_timed_out(const struct read_log_record *rlr)
+{
+	return (rlr->bitfield & RLR_TIMED_OUT_MASK) == RLR_TIMED_OUT_MASK;
+}
+
+static inline void set_timed_out(struct read_log_record *rlr, bool timed_out)
+{
+	if (timed_out)
+		rlr->bitfield |= RLR_TIMED_OUT_MASK;
+	else
+		rlr->bitfield &= ~RLR_TIMED_OUT_MASK;
+}
 
 struct read_log_state {
-	/* Log buffer generation id, incremented on configuration changes */
-	u32 generation_id;
+	/* Next slot in rl_ring_buf to write to. */
+	u32 next_index;
 
-	/* Offset in rl_ring_buf to write into. */
-	u32 next_offset;
-
-	/* Current number of writer passes over rl_ring_buf */
+	/* Current number of writer pass over rl_ring_buf */
 	u32 current_pass_no;
-
-	/* Current full_record to diff against */
-	struct full_record base_record;
-
-	/* Current record number counting from configuration change */
-	u64 current_record_no;
 };
 
 /* A ring buffer to save records about data blocks which were recently read. */
 struct read_log {
-	void *rl_ring_buf;
+	struct read_log_record *rl_ring_buf;
+
+	struct read_log_state rl_state;
+
+	spinlock_t rl_writer_lock;
 
 	int rl_size;
 
-	struct read_log_state rl_head;
-
-	struct read_log_state rl_tail;
-
-	/* A lock to protect the above fields */
-	spinlock_t rl_lock;
-
-	/* A queue of waiters who want to be notified about reads */
+	/*
+	 * A queue of waiters who want to be notified about reads.
+	 */
 	wait_queue_head_t ml_notif_wq;
 };
 
@@ -142,12 +131,6 @@ struct mount_info {
 
 	/* Temporary buffer for read logger. */
 	struct read_log mi_log;
-
-	void *log_xattr;
-	size_t log_xattr_size;
-
-	void *pending_read_xattr;
-	size_t pending_read_xattr_size;
 };
 
 struct data_file_block {
@@ -220,20 +203,16 @@ struct data_file {
 	/* File size in bytes */
 	loff_t df_size;
 
-	/* File header flags */
-	u32 df_header_flags;
-
-	/* File size in DATA_FILE_BLOCK_SIZE blocks */
-	int df_data_block_count;
-
-	/* Total number of blocks, data + hash */
-	int df_total_block_count;
+	int df_block_count; /* File size in DATA_FILE_BLOCK_SIZE blocks */
 
 	struct file_attr n_attr;
 
 	struct mtree *df_hash_tree;
 
-	struct incfs_df_signature *df_signature;
+	struct ondisk_signature *df_signature;
+
+	/* True, if file signature has already been validated. */
+	bool df_signature_validated;
 };
 
 struct dir_file {
@@ -260,9 +239,6 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 					  struct mount_options *options,
 					  struct path *backing_dir_path);
 
-int incfs_realloc_mount_info(struct mount_info *mi,
-			     struct mount_options *options);
-
 void incfs_free_mount_info(struct mount_info *mi);
 
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf);
@@ -277,16 +253,14 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
 				   int index, int timeout_ms,
 				   struct mem_range tmp);
 
-int incfs_get_filled_blocks(struct data_file *df,
-			    struct incfs_get_filled_blocks_args *arg);
-
 int incfs_read_file_signature(struct data_file *df, struct mem_range dst);
 
 int incfs_process_new_data_block(struct data_file *df,
-				 struct incfs_fill_block *block, u8 *data);
+				 struct incfs_new_data_block *block, u8 *data);
 
 int incfs_process_new_hash_block(struct data_file *df,
-				 struct incfs_fill_block *block, u8 *data);
+				 struct incfs_new_data_block *block, u8 *data);
+
 
 bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number);
 
@@ -305,7 +279,7 @@ int incfs_collect_logged_reads(struct mount_info *mi,
 			       int reads_size);
 struct read_log_state incfs_get_log_state(struct mount_info *mi);
 int incfs_get_uncollected_logs_count(struct mount_info *mi,
-				     const struct read_log_state *state);
+				     struct read_log_state state);
 
 static inline struct inode_info *get_incfs_node(struct inode *inode)
 {
@@ -323,7 +297,7 @@ static inline struct inode_info *get_incfs_node(struct inode *inode)
 
 static inline struct data_file *get_incfs_data_file(struct file *f)
 {
-	struct inode_info *node = NULL;
+	struct inode_info *node;
 
 	if (!f)
 		return NULL;
