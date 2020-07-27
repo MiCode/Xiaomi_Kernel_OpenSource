@@ -171,7 +171,7 @@
 
 	kgsl_iommu_test_device {
 		compatible = "iommu-debug-test";
-		iommus = <&kgsl_smmu 0x7 0>;
+		iommus = <&kgsl_smmu 0x7>;
 		qcom,iommu-dma = "disabled";
 	};
 
