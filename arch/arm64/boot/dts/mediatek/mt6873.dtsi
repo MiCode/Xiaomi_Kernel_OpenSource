@@ -1170,8 +1170,6 @@
 			mediatek,gce = <&gce>;
 			mmsys_config = <&mmsys>;
 			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
-			mboxes = <&gce 21 0 CMDQ_THR_PRIO_1>,
-				 <&gce 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 		};
@@ -3055,29 +3053,26 @@
 					"MDP_IMG0_IMG_DL_ASYNC0",
 					"MDP_IMG0_IMG_DL_ASYNC1",
 					"MDP_APB_BUS";
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L2_MDP_RDMA0>,
+				<&iommu0 M4U_PORT_L2_MDP_RDMA1>,
+				<&iommu0 M4U_PORT_L2_MDP_WROT0>,
+				<&iommu0 M4U_PORT_L2_MDP_WROT1>;
+			dma_mask_bit = <35>;
 		};
 
-		mdp_mutex: mdp_mutex@1f001000 {
-			compatible = "mediatek,mdp_mutex";
-			reg = <0 0x1f001000 0 0x1000>;
-			clocks = <&mdpsys_config CLK_MDP_MUTEX0>;
-			clock-names = "MDP_MUTEX0";
-		};
-
-		mdp_rdma0: mdp_rdma0@1f003000 {
-			compatible = "mediatek,mdp_rdma0", "mediatek,mdp";
-			reg = <0 0x1f003000 0 0x1000>;
-			clocks = <&mdpsys_config CLK_MDP_RDMA0>,
-				<&infracfg CLK_INFRA_GCE2>,
-				<&infracfg CLK_INFRA_GCE_26M>;
-			clock-names = "MDP_RDMA0", "GCE", "GCE_TIMER";
-			mmsys_config = <&mdpsys_config>;
-			mm_mutex   = <&mdp_mutex>;
+		mdp: mdp@1f000000 {
+			compatible = "mediatek,mdp";
+			reg = <0 0x1f000000 0 0x1000>;
+			thread_count = <24>;
+			channel_count = <5>;
 			mboxes = <&gce 19 0 CMDQ_THR_PRIO_1>,
 				<&gce 20 0 CMDQ_THR_PRIO_1>,
 				<&gce 21 0 CMDQ_THR_PRIO_1>,
 				<&gce 22 0 CMDQ_THR_PRIO_1>,
 				<&gce 10 0 CMDQ_THR_PRIO_1>;
+			mmsys_config = <&mdpsys_config>;
+			mm_mutex   = <&mdp_mutex>;
 			mdp_rdma0  = <&mdp_rdma0>;
 			mdp_rdma1  = <&mdp_rdma1>;
 			mdp_rsz0   = <&mdp_rsz0>;
@@ -3092,8 +3087,6 @@
 			mdp_color1 = <&mdp_color1>;
 			mdp_hdr0   = <&mdp_hdr0>;
 			mdp_hdr1   = <&mdp_hdr1>;
-			thread_count = <24>;
-			mediatek,mailbox-gce = <&gce>;
 			g3d_config_base = <0x13000000 0 0xffff0000>;
 			mmsys_config_base = <0x14000000 1 0xffff0000>;
 			disp_dither_base = <0x14010000 2 0xffff0000>;
@@ -3226,6 +3219,20 @@
 			mdp_color_frame_done = <313>;
 			mdp_aal1_frame_done = <316>;
 			mdp_aal_frame_done = <317>;
+		};
+
+		mdp_mutex: mdp_mutex@1f001000 {
+			compatible = "mediatek,mdp_mutex";
+			reg = <0 0x1f001000 0 0x1000>;
+			clocks = <&mdpsys_config CLK_MDP_MUTEX0>;
+			clock-names = "MDP_MUTEX0";
+		};
+
+		mdp_rdma0: mdp_rdma0@1f003000 {
+			compatible = "mediatek,mdp_rdma0";
+			reg = <0 0x1f003000 0 0x1000>;
+			clocks = <&mdpsys_config CLK_MDP_RDMA0>;
+			clock-names = "MDP_RDMA0";
 		};
 
 		mdp_rdma1: mdp_rdma1@1f004000 {
