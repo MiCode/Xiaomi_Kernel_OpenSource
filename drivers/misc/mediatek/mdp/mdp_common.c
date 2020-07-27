@@ -1073,30 +1073,6 @@ static void cmdq_mdp_store_debug(struct cmdqCommandStruct *desc,
 }
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
-static void cmdq_mdp_setup_sec_ext(struct cmdqCommandStruct *desc,
-	struct cmdqRecStruct *handle)
-{
-	/* assign extension feature flag and read back buffer */
-	handle->secData.extension = desc->secData.extension;
-	if (!handle->secData.extension)
-		return;
-
-	handle->reg_count = desc->regValue.count;
-	handle->reg_values = cmdq_core_alloc_hw_buffer(cmdq_dev_get(),
-		desc->regValue.count * sizeof(handle->reg_values[0]),
-		&handle->reg_values_pa,
-		GFP_KERNEL);
-	if (!handle->reg_values) {
-		CMDQ_ERR(
-			"fail to allocate read back buffer count:%u\n",
-			desc->regValue.count);
-		handle->secData.extension = 0;
-	}
-
-	CMDQ_LOG("secure read back cnt:%u extension:%#llx\n",
-		handle->reg_count, handle->secData.extension);
-}
-
 #define CMDQ_ISP_MSG2(name) \
 { \
 	.va = iwc_msg2->name, \
@@ -1121,9 +1097,9 @@ const u32 isp_iwc_buf_size[] = {
 };
 
 static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
-	struct cmdqRecStruct *handle,
 	struct iwc_cq_meta *iwc_msg1,
-	struct iwc_cq_meta2 *iwc_msg2)
+	struct iwc_cq_meta2 *iwc_msg2,
+	bool from_userspace)
 {
 	u32 i;
 	struct iwc_meta_buf {
@@ -1155,9 +1131,15 @@ static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
 		}
 
 		*bufs[i].sz = meta->ispBufs[i].size;
-		memcpy(bufs[i].va,
-			(void *)(unsigned long)(meta->ispBufs[i].va),
-			meta->ispBufs[i].size);
+		if (from_userspace) {
+			if (copy_from_user(bufs[i].va,
+				CMDQ_U32_PTR(meta->ispBufs[i].va),
+				meta->ispBufs[i].size))
+				CMDQ_ERR("fail to copy ispBufs [%d]\n", i);
+		} else
+			memcpy(bufs[i].va,
+				(void *)(unsigned long)(meta->ispBufs[i].va),
+				meta->ispBufs[i].size);
 	}
 }
 #endif
@@ -1187,8 +1169,6 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	handle->pkt->cl = (void *)cl;
 	handle->pkt->dev = cl->chan->mbox->dev;
 
-	cmdq_mdp_setup_sec_ext(desc, handle);
-
 	if (desc->secData.ispMeta.ispBufs[0].size) {
 		handle->sec_isp_msg1 = vzalloc(sizeof(struct iwc_cq_meta));
 		handle->sec_isp_msg2 = vzalloc(sizeof(struct iwc_cq_meta2));
@@ -1198,8 +1178,8 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 			vfree(handle->sec_isp_msg2);
 			return -ENOMEM;
 		}
-		cmdq_mdp_fill_isp_meta(&desc->secData.ispMeta, handle,
-			handle->sec_isp_msg1, handle->sec_isp_msg2);
+		cmdq_mdp_fill_isp_meta(&desc->secData.ispMeta,
+			handle->sec_isp_msg1, handle->sec_isp_msg2, false);
 		meta_type = CMDQ_METAEX_CQ;
 		cmdq_sec_pkt_set_payload(handle->pkt, 1,
 			sizeof(struct iwc_cq_meta), handle->sec_isp_msg1);
@@ -1237,6 +1217,189 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 #endif
 	return 0;
 }
+
+s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out)
+{
+	struct cmdqRecStruct *handle = NULL;
+	s32 status;
+
+	status = cmdq_task_create(CMDQ_SCENARIO_USER_MDP, &handle);
+	if (status < 0) {
+		CMDQ_ERR("%s task create fail: %d\n", __func__, status);
+		return status;
+	}
+
+	handle->pkt->cur_pool.pool = mdp_pool.pool;
+	handle->pkt->cur_pool.cnt = mdp_pool.cnt;
+	handle->pkt->cur_pool.limit = mdp_pool.limit;
+
+	/* assign handle for mdp */
+	*handle_out = handle;
+
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_mdp_handle_create);
+
+s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
+			struct cmdqRecStruct *handle)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u64 dapc, port;
+	enum cmdq_sec_meta_type meta_type = CMDQ_METAEX_NONE;
+	void *user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
+	void *addr_meta;
+	u32 addr_meta_size;
+	struct cmdq_client *cl;
+
+	/* set secure data */
+	handle->secStatus = NULL;
+	if (!secData || !secData->is_secure)
+		return 0;
+
+	CMDQ_MSG("%s start:%d, %d\n", __func__,
+		secData->is_secure, secData->addrMetadataCount);
+	if (!secData->addrMetadataCount) {
+		CMDQ_ERR(
+			"[secData]mismatch is_secure %d and addrMetadataCount %d\n",
+			secData->is_secure,
+			secData->addrMetadataCount);
+		return -EINVAL;
+	}
+
+	dapc = cmdq_mdp_get_func()->mdpGetSecEngine(
+		secData->enginesNeedDAPC);
+	port = cmdq_mdp_get_func()->mdpGetSecEngine(
+		secData->enginesNeedPortSecurity);
+
+	cmdq_task_set_secure(handle, secData->is_secure);
+
+	/* force assign client, since backup cookie must call before flush,
+	 * and it is necessary to know client first before append backup code.
+	 */
+	cl = cmdq_helper_mbox_client(handle->thread);
+	handle->pkt->cl = (void *)cl;
+	handle->pkt->dev = cl->chan->mbox->dev;
+
+	if (secData->ispMeta.ispBufs[0].size) {
+		handle->sec_isp_msg1 = vzalloc(sizeof(struct iwc_cq_meta));
+		handle->sec_isp_msg2 = vzalloc(sizeof(struct iwc_cq_meta2));
+		if (!handle->sec_isp_msg1 || !handle->sec_isp_msg2) {
+			CMDQ_ERR("fail to alloc isp msg\n");
+			vfree(handle->sec_isp_msg1);
+			vfree(handle->sec_isp_msg2);
+			return -ENOMEM;
+		}
+		cmdq_mdp_fill_isp_meta(&secData->ispMeta,
+			handle->sec_isp_msg1, handle->sec_isp_msg2, true);
+		meta_type = CMDQ_METAEX_CQ;
+		cmdq_sec_pkt_set_payload(handle->pkt, 1,
+			sizeof(struct iwc_cq_meta), handle->sec_isp_msg1);
+		cmdq_sec_pkt_set_payload(handle->pkt, 2,
+			sizeof(struct iwc_cq_meta2), handle->sec_isp_msg2);
+	}
+
+	cmdq_sec_pkt_set_data(handle->pkt, dapc, port,
+		CMDQ_SEC_USER_MDP, meta_type);
+
+	addr_meta_size = secData->addrMetadataCount *
+		sizeof(struct cmdqSecAddrMetadataStruct);
+	addr_meta = kmalloc(addr_meta_size, GFP_KERNEL);
+	if (!addr_meta) {
+		CMDQ_ERR("%s: allocate size fail:%u\n",
+			__func__, addr_meta_size);
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(addr_meta, user_addr_meta, addr_meta_size)) {
+		CMDQ_ERR("%s: fail to copy user addr meta\n", __func__);
+		kfree(addr_meta);
+		return -EFAULT;
+	}
+	cmdq_sec_pkt_assign_metadata(handle->pkt,
+		secData->addrMetadataCount,
+		addr_meta);
+
+#ifdef CMDQ_ENG_MTEE_GROUP_BITS
+	if (handle->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS)
+		cmdq_sec_pkt_set_mtee(handle->pkt, true);
+	else
+		cmdq_sec_pkt_set_mtee(handle->pkt, false);
+	CMDQ_LOG("handle:%p mtee:%d\n", handle,
+		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee);
+#endif
+
+	kfree(addr_meta);
+	return 0;
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(cmdq_mdp_handle_sec_setup);
+
+s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
+	u32 sec_handle, u32 index, u32 instr_index)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	struct cmdq_sec_data *data = handle->pkt->sec_data;
+	struct iwcCmdqAddrMetadata_t *addr;
+
+	if (!data) {
+		CMDQ_ERR("%s invalid index %d, pkt no sec\n", __func__, index);
+		return -EINVAL;
+	}
+	if (index >= data->addrMetadataCount) {
+		CMDQ_ERR("%s invalid index %d >= %d\n", __func__,
+			index, data->addrMetadataCount);
+		return -EINVAL;
+	}
+	addr = (struct iwcCmdqAddrMetadata_t *)
+		(unsigned long)data->addrMetadatas;
+	addr[index].instrIndex = instr_index;
+	CMDQ_MSG("%s update %x[%d] to:%d\n", __func__,
+		sec_handle, index, instr_index);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_mdp_update_sec_addr_index);
+
+u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle)
+{
+	return handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
+}
+EXPORT_SYMBOL(cmdq_mdp_handle_get_instr_count);
+
+s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
+{
+	s32 status;
+
+	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
+	CMDQ_LOG("%s %llx\n", __func__, handle->engineFlag);
+	if (handle->profile_exec)
+		cmdq_pkt_perf_end(handle->pkt);
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (handle->secData.is_secure) {
+		/* insert backup cookie cmd */
+		cmdq_sec_insert_backup_cookie(handle->pkt);
+		handle->thread = CMDQ_INVALID_THREAD;
+	}
+#endif
+
+	/* finalize it */
+	CMDQ_LOG("%s finalize\n", __func__);
+	handle->finalized = true;
+	cmdq_pkt_finalize(handle->pkt);
+
+	/* Dispatch handle to get correct thread or wait in list.
+	 * Task may flush directly if no engine conflict and no waiting task
+	 * holds same engines.
+	 */
+	CMDQ_LOG("%s flush impl\n", __func__);
+	status = cmdq_mdp_flush_async_impl(handle);
+	CMDQ_TRACE_FORCE_END();
+	return status;
+}
+EXPORT_SYMBOL(cmdq_mdp_handle_flush);
 
 s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	struct cmdqRecStruct **handle_out)
@@ -1362,7 +1525,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	struct list_head *insert_pos = &mdp_ctx.tasks_wait;
 	struct cmdqRecStruct *entry;
 
-	CMDQ_MSG("dispatch handle:0x%p\n", handle);
+	CMDQ_LOG("dispatch handle:0x%p\n", handle);
 
 	/* set handle life cycle callback */
 	handle->prepare = cmdq_mdp_handle_prepare;
@@ -1378,6 +1541,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	handle->state = TASK_STATE_WAITING;
 
 	/* assign handle into waiting list by priority */
+	CMDQ_LOG("assign handle into waiting list:0x%p\n", handle);
 	mutex_lock(&mdp_task_mutex);
 	list_for_each_entry(entry, &mdp_ctx.tasks_wait, list_entry) {
 		if (entry->pkt->priority < handle->pkt->priority)
@@ -1388,6 +1552,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	mutex_unlock(&mdp_task_mutex);
 
 	/* run consume to run task in thread */
+	CMDQ_LOG("cmdq_mdp_consume_handle:0x%p\n", handle);
 	cmdq_mdp_consume_handle();
 
 	return 0;
@@ -3674,6 +3839,42 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 	return cmdq_mdp_get_func()->parseHandleErrModByEngFlag(handle);
 }
 EXPORT_SYMBOL(cmdq_mdp_parse_handle_error_module_by_hwflag);
+
+u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
+{
+	static u32 count;
+	static u32 *mdp_base;
+
+	if (!count && !mdp_base) {
+		count = mdp_engine_base_count();
+		mdp_base = mdp_engine_base_get();
+	}
+
+
+	if (offset > 0x1000) {
+		CMDQ_ERR("%s: invalid offset:%#x\n", __func__, offset);
+		return 0;
+	}
+	offset &= ~0x3;
+	if (base >= count) {
+		CMDQ_ERR("%s: invalid engine:%u, offset:%#x\n",
+			__func__, base, offset);
+		return 0;
+	}
+	return mdp_base[base] + offset;
+}
+EXPORT_SYMBOL(cmdq_mdp_get_hw_reg);
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+u32 cmdq_mdp_get_hw_port(u32 base)
+{
+	if (base >= ENGBASE_COUNT) {
+		CMDQ_ERR("%s: invalid engine:%u\n", __func__, base);
+		return 0;
+	}
+	return mdp_engine_port[base];
+}
+#endif
 
 #ifdef MDP_COMMON_ENG_SUPPORT
 void cmdq_mdp_platform_function_setting(void)

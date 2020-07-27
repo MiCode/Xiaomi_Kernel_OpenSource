@@ -2027,3 +2027,18 @@ void cmdq_mdp_platform_function_setting(void)
 #endif
 }
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
+
+#include "mdp_engine_mt6873.h"
+#include "mt6873/mdp_base.h"
+
+u32 *mdp_engine_base_get(void)
+{
+	return (u32 *)mdp_base;
+}
+EXPORT_SYMBOL(mdp_engine_base_get);
+
+u32 mdp_engine_base_count(void)
+{
+	return (u32)ENGBASE_COUNT;
+}
+EXPORT_SYMBOL(mdp_engine_base_count);

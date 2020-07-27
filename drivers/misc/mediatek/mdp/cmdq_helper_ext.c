@@ -1576,6 +1576,7 @@ void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 
 	return pVA;
 }
+EXPORT_SYMBOL(cmdq_core_alloc_hw_buffer);
 
 void cmdq_core_free_hw_buffer_clt(struct device *dev, size_t size,
 	void *cpu_addr, dma_addr_t dma_handle, enum CMDQ_CLT_ENUM clt,
@@ -1907,7 +1908,7 @@ int cmdqCoreFreeWriteAddressByNode(void *fp, enum CMDQ_CLT_ENUM clt)
 			list_node);
 		if (pid != write_addr->user) {
 			pid = write_addr->user;
-			CMDQ_LOG("free write buf by node:%p clt:%d pid:%u",
+			CMDQ_LOG("free write buf by node:%p clt:%d pid:%u\n",
 				fp, clt, pid);
 		}
 
@@ -2110,7 +2111,7 @@ const char *cmdq_core_parse_subsys_from_reg_addr(u32 reg_addr)
 s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 {
 	s32 msb;
-	s32 subsysID = -1;
+	s32 subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
 	u32 i;
 
 	for (i = 0; i < CMDQ_SUBSYS_MAX_COUNT; i++) {
@@ -2124,23 +2125,6 @@ s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 		}
 	}
 
-	if (subsysID == -1 && cmdq_adds_subsys.subsysID > 0) {
-		msb = physAddr & cmdq_adds_subsys.mask;
-		if (msb == cmdq_adds_subsys.msb)
-			subsysID = cmdq_adds_subsys.subsysID;
-	}
-
-	if (subsysID == -1) {
-		/* if not supported physAddr is GCE base address,
-		 * then tread as special address
-		 */
-		msb = physAddr & GCE_BASE_PA;
-		if (msb == GCE_BASE_PA)
-			subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
-		else
-			CMDQ_ERR("unrecognized subsys, physAddr:0x%08x\n",
-				physAddr);
-	}
 	return subsysID;
 }
 
@@ -3529,9 +3513,9 @@ EXPORT_SYMBOL(cmdq_core_resume);
 
 s32 cmdq_core_resume_notifier(void)
 {
-	s32 ref_count;
+	s32 ref_count = atomic_read(&cmdq_thread_usage);
 
-	CMDQ_LOG("%s\n", __func__);
+	CMDQ_LOG("%s ref:%d\n", __func__, ref_count);
 
 	/* TEE project limitation:
 	 * .t-base daemon process is available after process-unfreeze
@@ -3542,8 +3526,6 @@ s32 cmdq_core_resume_notifier(void)
 	 * Delay resume timing until process-unfreeze done in order to
 	 * ensure M4U driver had restore M4U port security setting
 	 */
-
-	ref_count = atomic_read(&cmdq_thread_usage);
 
 	cmdq_mdp_resume();
 
@@ -4471,9 +4453,16 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	u32 i;
 	s32 chan_id;
 	struct cmdq_client *clt;
+	u32 channel_cnt = 0;
+	s32 ret;
+
+	ret = of_property_read_u32(dev->of_node, "channel_count",
+		&channel_cnt);
+	if (ret != 0 || !channel_cnt)
+		channel_cnt = CMDQ_MAX_THREAD_COUNT;
 
 	/* for display we start from thread 0 */
-	for (i = 0; i < CMDQ_MAX_THREAD_COUNT; i++) {
+	for (i = 0; i < channel_cnt; i++) {
 		clt = cmdq_mbox_create(dev, i);
 		if (!clt || IS_ERR(clt)) {
 			CMDQ_MSG("register mbox stop:0x%p idx:%u\n", clt, i);

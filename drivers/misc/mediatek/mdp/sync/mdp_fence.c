@@ -458,4 +458,4 @@ static int __init mdp_sync_device_init(void)
 	return misc_register(&mdp_sync_dev);
 }
 device_initcall(mdp_sync_device_init);
-
+MODULE_LICENSE("GPL");

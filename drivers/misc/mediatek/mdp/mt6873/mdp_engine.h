@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #ifndef __MDP_ENGINE_H__
