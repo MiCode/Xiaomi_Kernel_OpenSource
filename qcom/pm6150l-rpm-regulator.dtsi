@@ -271,7 +271,7 @@
 		qcom,resource-name = "bobe";
 		qcom,resource-id = <1>;
 		qcom,regulator-type = <4>;
-		qcom,regulator-hw-type = "pmic5-ldo";
+		qcom,regulator-hw-type = "pmic5-bob";
 		qcom,send-defaults;
 		status = "disabled";
 
