@@ -56,5 +56,15 @@ void adreno_parse_ib(struct kgsl_device *device,
 	struct kgsl_snapshot *snapshot,
 	struct kgsl_process_private *process,
 	u64 gpuaddr, u64 dwords);
-
+/**
+ * adreno_snapshot_global - Add global buffer to snapshot
+ * @device: Pointer to the kgsl device
+ * @buf: Where the global buffer section is to be written
+ * @remain: Remaining bytes in snapshot buffer
+ * @priv: Opaque data
+ *
+ * Return: Number of bytes written to the snapshot buffer
+ */
+size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
+	size_t remain, void *priv);
 #endif /*__ADRENO_SNAPSHOT_H */

@@ -13,6 +13,9 @@
 #include "adreno_a6xx_gmu.h"
 #include "adreno_a6xx_rgmu.h"
 
+/* Snapshot section size of each CP preemption record for A6XX  */
+#define A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES (64 * 1024)
+
 extern const struct adreno_power_ops a6xx_gmu_power_ops;
 extern const struct adreno_power_ops a6xx_rgmu_power_ops;
 extern const struct adreno_power_ops a630_gmu_power_ops;

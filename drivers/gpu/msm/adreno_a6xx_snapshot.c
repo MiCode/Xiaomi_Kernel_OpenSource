@@ -12,9 +12,6 @@
 #define A6XX_NUM_XIN_AXI_BLOCKS 5
 #define A6XX_NUM_XIN_CORE_BLOCKS 4
 
-/* Snapshot section size of each CP preemption record for A6XX  */
-#define A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES (64 * 1024)
-
 static const unsigned int a6xx_gras_cluster[] = {
 	0x8000, 0x8006, 0x8010, 0x8092, 0x8094, 0x809D, 0x80A0, 0x80A6,
 	0x80AF, 0x80F1, 0x8100, 0x8107, 0x8109, 0x8109, 0x8110, 0x8110,

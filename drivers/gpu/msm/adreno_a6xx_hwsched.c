@@ -11,16 +11,127 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
+#include "adreno_snapshot.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
+static size_t adreno_hwsched_snapshot_rb(struct kgsl_device *device, u8 *buf,
+	size_t remain, void *priv)
+{
+	struct kgsl_snapshot_rb_v2 *header = (struct kgsl_snapshot_rb_v2 *)buf;
+	u32 *data = (u32 *)(buf + sizeof(*header));
+	struct kgsl_memdesc *rb = (struct kgsl_memdesc *)priv;
+
+	if (remain < rb->size + sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "RB");
+		return 0;
+	}
+
+	header->start = 0;
+	header->end = rb->size >> 2;
+	header->rptr = 0;
+	header->rbsize = rb->size >> 2;
+	header->count = rb->size >> 2;
+	header->timestamp_queued = 0;
+	header->timestamp_retired = 0;
+	header->gpuaddr = rb->gpuaddr;
+	header->id = 0;
+
+	memcpy(data, rb->hostptr, rb->size);
+
+	return rb->size + sizeof(*header);
+}
+
+static void a6xx_hwsched_snapshot_preemption_record(struct kgsl_device *device,
+	struct kgsl_snapshot *snapshot, struct kgsl_memdesc *md, u64 offset)
+{
+	struct kgsl_snapshot_section_header *section_header =
+		(struct kgsl_snapshot_section_header *)snapshot->ptr;
+	u8 *dest = snapshot->ptr + sizeof(*section_header);
+	struct kgsl_snapshot_gpu_object_v2 *header =
+		(struct kgsl_snapshot_gpu_object_v2 *)dest;
+	size_t section_size = sizeof(*section_header) + sizeof(*header) +
+		A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES;
+
+	if (snapshot->remain < section_size) {
+		SNAPSHOT_ERR_NOMEM(device, "PREEMPTION RECORD");
+		return;
+	}
+
+	section_header->magic = SNAPSHOT_SECTION_MAGIC;
+	section_header->id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2;
+	section_header->size = section_size;
+
+	header->size = A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES >> 2;
+	header->gpuaddr = md->gpuaddr + offset;
+	header->ptbase =
+		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
+	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
+
+	dest += sizeof(*header);
+
+	memcpy(dest, md->hostptr + offset,
+		A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES);
+
+	snapshot->ptr += section_header->size;
+	snapshot->remain -= section_header->size;
+	snapshot->size += section_header->size;
+}
+
+static void snapshot_preemption_records(struct kgsl_device *device,
+	struct kgsl_snapshot *snapshot, struct kgsl_memdesc *md)
+{
+	const struct adreno_a6xx_core *a6xx_core =
+		to_a6xx_core(ADRENO_DEVICE(device));
+	u64 ctxt_record_size = A6XX_CP_CTXRECORD_SIZE_IN_BYTES;
+	u64 offset;
+
+	if (a6xx_core->ctxt_record_size)
+		ctxt_record_size = a6xx_core->ctxt_record_size;
+
+	/* All preemption records exist as a single mem alloc entry */
+	for (offset = 0; offset < md->size; offset += ctxt_record_size)
+		a6xx_hwsched_snapshot_preemption_record(device, snapshot, md,
+			offset);
+}
+
 void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot)
 {
-	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	u32 i;
 
 	a6xx_gmu_snapshot(adreno_dev, snapshot);
+
+	for (i = 0; i < hw_hfi->mem_alloc_entries; i++) {
+		struct mem_alloc_entry *entry = &hw_hfi->mem_alloc_table[i];
+
+		if (entry->desc.mem_kind == MEMKIND_RB)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_RB_V2,
+				snapshot, adreno_hwsched_snapshot_rb,
+				entry->gpu_md);
+
+		if (entry->desc.mem_kind == MEMKIND_SCRATCH)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, adreno_snapshot_global,
+				entry->gpu_md);
+
+		if (entry->desc.mem_kind == MEMKIND_CSW_SMMU_INFO)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, adreno_snapshot_global,
+				entry->gpu_md);
+
+		if (entry->desc.mem_kind == MEMKIND_CSW_PRIV_NON_SECURE)
+			snapshot_preemption_records(device, snapshot,
+				entry->gpu_md);
+	}
+
+	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
 }
 
 static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)

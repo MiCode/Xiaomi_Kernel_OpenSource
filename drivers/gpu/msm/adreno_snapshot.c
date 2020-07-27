@@ -736,7 +736,7 @@ done:
 }
 
 /* Snapshot a global memory buffer */
-static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
 	struct kgsl_memdesc *memdesc = priv;
@@ -780,12 +780,12 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-		snapshot, snapshot_global, iommu->setstate);
+		snapshot, adreno_snapshot_global, iommu->setstate);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, iommu->smmu_info);
+			snapshot, adreno_snapshot_global, iommu->smmu_info);
 }
 
 static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
@@ -848,10 +848,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, device->memstore);
+			snapshot, adreno_snapshot_global, device->memstore);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global,
+			snapshot, adreno_snapshot_global,
 			adreno_dev->pwron_fixup);
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_IOMMU)
