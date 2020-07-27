@@ -15,6 +15,14 @@
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
+void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot)
+{
+	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
+
+	a6xx_gmu_snapshot(adreno_dev, snapshot);
+}
+
 static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);

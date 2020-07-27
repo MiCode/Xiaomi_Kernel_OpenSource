@@ -1773,6 +1773,13 @@ static inline void adreno_reg_offset_init(u32 *reg_offsets)
 	}
 }
 
+static inline u32 adreno_get_level(u32 priority)
+{
+	u32 level = priority / KGSL_PRIORITY_MAX_RB_LEVELS;
+
+	return min_t(u32, level, KGSL_PRIORITY_MAX_RB_LEVELS - 1);
+}
+
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);

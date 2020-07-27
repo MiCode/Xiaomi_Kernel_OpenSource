@@ -97,4 +97,27 @@ void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev);
  * @adreno_dev: A handle to adreno device
  */
 void adreno_hwsched_set_fault(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_mark_drawobj() - Get the drawobj that faulted
+ * @adreno_dev: pointer to the adreno device
+ * @ctxt_id: context id of the faulty submission
+ * @ts: timestamp of the faulty submission
+ *
+ * When we get a context bad hfi, use this function to get to the
+ * faulty submission and mark the submission for snapshot purposes
+ */
+void adreno_hwsched_mark_drawobj(struct adreno_device *adreno_dev, u32 ctxt_id,
+	u32 ts);
+
+/**
+ * adreno_hwsched_parse_fault_ib - Parse the faulty submission
+ * @adreno_dev: pointer to the adreno device
+ * @snapshot: Pointer to the snapshot structure
+ *
+ * Walk the list of active submissions to find the one that faulted and
+ * parse it so that relevant command buffers can be added to the snapshot
+ */
+void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot);
 #endif

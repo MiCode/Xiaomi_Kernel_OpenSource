@@ -151,13 +151,6 @@ static void a6xx_receive_ack_async(struct adreno_device *adreno_dev, void *rcvd)
 			MSG_HDR_GET_SEQNUM(waiters[i]));
 }
 
-static u32 get_level(u32 priority)
-{
-	u32 level = priority / KGSL_PRIORITY_MAX_RB_LEVELS;
-
-	return min_t(u32, level, KGSL_PRIORITY_MAX_RB_LEVELS - 1);
-}
-
 static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 {
 	struct hfi_ts_retire_cmd *cmd = (struct hfi_ts_retire_cmd *)rcvd;
@@ -169,7 +162,7 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 		return;
 
 	info.timestamp = cmd->ts;
-	info.rb_id = get_level(context->priority);
+	info.rb_id = adreno_get_level(context->priority);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
 	info.submitted_to_rb = cmd->submitted_to_rb;
 	info.sop = cmd->sop;
@@ -832,10 +825,12 @@ static void process_ts_retire(struct adreno_device *adreno_dev, u32 *rcvd)
 
 static void process_ctx_bad(struct adreno_device *adreno_dev, void *rcvd)
 {
+	struct hfi_context_bad_cmd *cmd = rcvd;
+
 	/* Block dispatcher to submit more commands */
 	adreno_get_gpu_halt(adreno_dev);
 
-	adreno_hwsched_set_fault(adreno_dev);
+	adreno_hwsched_mark_drawobj(adreno_dev, cmd->ctxt_id, cmd->ts);
 }
 
 static int hfi_f2h_main(void *arg)
@@ -942,7 +937,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	time_in_ns = do_div(time_in_s, 1000000000);
 
 	info.inflight = -1;
-	info.rb_id = get_level(context->priority);
+	info.rb_id = adreno_get_level(context->priority);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info, time->ticks,
@@ -985,7 +980,7 @@ static u32 get_next_dq(u32 priority)
 
 static u32 get_dq_id(u32 priority)
 {
-	u32 level = get_level(priority);
+	u32 level = adreno_get_level(priority);
 
 	return get_next_dq(level);
 }

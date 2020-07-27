@@ -39,4 +39,14 @@ int a6xx_hwsched_probe(struct platform_device *pdev,
  * @adreno_dev: Pointer to the adreno device
  */
 void a6xx_hwsched_restart(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_hwsched_snapshot - take a6xx hwsched snapshot
+ * @adreno_dev: Pointer to the adreno device
+ * @snapshot: Pointer to the snapshot instance
+ *
+ * Snapshot the faulty ib and then snapshot rest of a6xx gmu things
+ */
+void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot);
 #endif
