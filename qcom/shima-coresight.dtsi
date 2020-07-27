@@ -1195,7 +1195,7 @@
 		arm,primecell-periphid = <0x000bb968>;
 		reg = <0x6859000 0x1000>;
 		reg-names = "tpdm-base";
-		qcom,cmb_msr_skip;
+		qcom,cmb-msr-skip;
 
 		coresight-name = "coresight-tpdm-sdcc-4";
 
@@ -1357,7 +1357,7 @@
 		arm,primecell-periphid = <0x000bb968>;
 		reg = <0x684e000 0x1000>;
 		reg-names = "tpdm-base";
-		qcom,cmb_msr_skip;
+		qcom,cmb-msr-skip;
 
 		coresight-name = "coresight-tpdm-sdcc-1";
 
@@ -1379,7 +1379,7 @@
 		arm,primecell-periphid = <0x000bb968>;
 		reg = <0x684f000 0x1000>;
 		reg-names = "tpdm-base";
-		qcom,cmb_msr_skip;
+		qcom,cmb-msr-skip;
 
 		coresight-name = "coresight-tpdm-sdcc-2";
 
