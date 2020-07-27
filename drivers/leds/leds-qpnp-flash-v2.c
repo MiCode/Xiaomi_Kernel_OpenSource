@@ -14,6 +14,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
+#include <linux/of_device.h>
 #include <linux/gpio.h>
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
@@ -22,7 +23,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/leds-qpnp-flash.h>
 #include <linux/leds-qpnp-flash-v2.h>
-#include <linux/qpnp/qpnp-revid.h>
+#include <linux/iio/consumer.h>
 #include <linux/log2.h>
 #include "leds.h"
 
@@ -205,6 +206,12 @@ enum {
 	LED3,
 };
 
+enum pmic_type {
+	PM6150L,
+	PMI632,
+	PM660L
+};
+
 enum strobe_type {
 	SW_STROBE = 0,
 	HW_STROBE,
@@ -212,7 +219,7 @@ enum strobe_type {
 };
 
 enum wa_flags {
-	PM8150L_IRES_WA = BIT(0),
+	PM6150L_IRES_WA = BIT(0),
 };
 
 /*
@@ -260,7 +267,6 @@ struct flash_switch_data {
  * Flash LED configuration read from device tree
  */
 struct flash_led_platform_data {
-	struct pmic_revid_data	*pmic_rev_id;
 	int			*thermal_derate_current;
 	int			all_ramp_up_done_irq;
 	int			all_ramp_down_done_irq;
@@ -298,6 +304,22 @@ struct flash_led_platform_data {
 	bool			otst_ramp_bkup_en;
 };
 
+enum flash_iio_props {
+	RBATT,
+	OCV,
+	IBAT,
+	F_TRIGGER,
+	F_ACTIVE,
+};
+
+static char *flash_iio_prop_names[] = {
+	[RBATT] = "rbatt",
+	[OCV] = "voltage_ocv",
+	[IBAT] = "current_now",
+	[F_TRIGGER] = "flash_trigger",
+	[F_ACTIVE] = "flash_active",
+};
+
 /*
  * Flash LED data structure containing flash LED attributes
  */
@@ -307,15 +329,15 @@ struct qpnp_flash_led {
 	struct regmap			*regmap;
 	struct flash_node_data		*fnode;
 	struct flash_switch_data	*snode;
-	struct power_supply		*bms_psy;
-	struct power_supply		*main_psy;
 	struct power_supply		*usb_psy;
+	struct iio_channel		**iio_channels;
 	struct notifier_block		nb;
 	spinlock_t			lock;
 	int				num_fnodes;
 	int				num_snodes;
 	int				enable;
 	int				total_current_ma;
+	int				pmic_type;
 	u32				wa_flags;
 	u16				base;
 	bool				trigger_lmh;
@@ -793,25 +815,65 @@ static int qpnp_flash_led_regulator_enable(struct qpnp_flash_led *led,
 	return 0;
 }
 
-static int get_property_from_fg(struct qpnp_flash_led *led,
-		enum power_supply_property prop, int *val)
+static int qpnp_flash_get_iio_chan(struct qpnp_flash_led *led,
+				   enum flash_iio_props chan)
 {
-	int rc;
-	union power_supply_propval pval = {0, };
+	int rc = 0;
 
-	if (!led->bms_psy) {
-		pr_err("no bms psy found\n");
+	/*
+	 * if the channel pointer is not-NULL and has a ERR value it has
+	 * already been queried upon earlier, hence return from here.
+	 */
+	if (IS_ERR(led->iio_channels[chan]))
 		return -EINVAL;
+
+	if (!led->iio_channels[chan]) {
+		led->iio_channels[chan] = iio_channel_get(&led->pdev->dev,
+						  flash_iio_prop_names[chan]);
+		if (IS_ERR(led->iio_channels[chan])) {
+			rc = PTR_ERR(led->iio_channels[chan]);
+			if (rc == -EPROBE_DEFER) {
+				led->iio_channels[chan] = NULL;
+				return rc;
+			}
+			pr_err("%s channel unavailable %d\n",
+			       flash_iio_prop_names[chan], rc);
+			return rc;
+		}
 	}
 
-	rc = power_supply_get_property(led->bms_psy, prop, &pval);
-	if (rc) {
-		pr_err("bms psy doesn't support reading prop %d rc = %d\n",
-			prop, rc);
+	return 0;
+}
+
+static int qpnp_flash_iio_getprop(struct qpnp_flash_led *led,
+				  enum flash_iio_props chan, int *data)
+{
+	int rc = 0;
+
+	rc = qpnp_flash_get_iio_chan(led, chan);
+	if (rc < 0)
 		return rc;
-	}
 
-	*val = pval.intval;
+	rc = iio_read_channel_processed(led->iio_channels[chan], data);
+	if (rc < 0)
+		pr_err("Error in reading IIO channel data rc = %d\n", rc);
+
+	return rc;
+}
+
+static int qpnp_flash_iio_setprop(struct qpnp_flash_led *led,
+				  enum flash_iio_props chan, int data)
+{
+	int rc = 0;
+
+	rc = qpnp_flash_get_iio_chan(led, chan);
+	if (rc < 0)
+		return rc;
+
+	rc = iio_write_channel_raw(led->iio_channels[chan], data);
+	if (rc < 0)
+		pr_err("Error in writing IIO channel data rc = %d\n", rc);
+
 	return rc;
 }
 
@@ -821,7 +883,6 @@ static int get_property_from_fg(struct qpnp_flash_led *led,
 static int qpnp_flash_led_get_voltage_headroom(struct qpnp_flash_led *led)
 {
 	int i, voltage_hdrm_mv = 0, voltage_hdrm_max = 0;
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
 	for (i = 0; i < led->num_fnodes; i++) {
 		if (led->fnode[i].led_on) {
@@ -845,7 +906,7 @@ static int qpnp_flash_led_get_voltage_headroom(struct qpnp_flash_led *led)
 					voltage_hdrm_mv = 350;
 			}
 
-			if (pmic_subtype == PMI632_SUBTYPE)
+			if (led->pmic_type == PMI632)
 				voltage_hdrm_mv += BHARGER_HEADROOM_OFFSET_MV;
 
 			voltage_hdrm_max = max(voltage_hdrm_max,
@@ -854,7 +915,7 @@ static int qpnp_flash_led_get_voltage_headroom(struct qpnp_flash_led *led)
 	}
 
 	if (!voltage_hdrm_max)
-		return (pmic_subtype == PMI632_SUBTYPE) ?
+		return (led->pmic_type == PMI632) ?
 					BHARGER_VOLTAGE_HDRM_DEFAULT_MV :
 						VOLTAGE_HDRM_DEFAULT_MV;
 
@@ -875,10 +936,13 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led,
 	int64_t ibat_safe_ua, vin_flash_uv, vph_flash_uv, vph_flash_vdip;
 
 	/* RESISTANCE = esr_uohm + rslow_uohm */
-	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_RESISTANCE,
-			&rbatt_uohm);
-	if (rc < 0) {
-		pr_err("bms psy does not support resistance, rc=%d\n", rc);
+	rc = qpnp_flash_iio_getprop(led, RBATT, &rbatt_uohm);
+	/* Do not return error if the QG driver is not probed */
+	if (rc == -EPROBE_DEFER) {
+		*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
+		return 0;
+	} else if (rc < 0) {
+		pr_err("Unable to read battery resistance, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -888,16 +952,15 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led,
 		return 0;
 	}
 
-	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_VOLTAGE_OCV, &ocv_uv);
+	rc = qpnp_flash_iio_getprop(led, OCV, &ocv_uv);
 	if (rc < 0) {
-		pr_err("bms psy does not support OCV, rc=%d\n", rc);
+		pr_err("Unable to read OCV, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_CURRENT_NOW,
-			&ibat_now);
+	rc = qpnp_flash_iio_getprop(led, IBAT, &ibat_now);
 	if (rc < 0) {
-		pr_err("bms psy does not support current, rc=%d\n", rc);
+		pr_err("unable to read current_now, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -968,19 +1031,6 @@ static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led,
 	return 0;
 }
 
-static int is_main_psy_available(struct qpnp_flash_led *led)
-{
-	if (!led->main_psy) {
-		led->main_psy = power_supply_get_by_name("main");
-		if (!led->main_psy) {
-			pr_err_ratelimited("Couldn't get main_psy\n");
-			return -ENODEV;
-		}
-	}
-
-	return 0;
-}
-
 static int is_usb_psy_available(struct qpnp_flash_led *led)
 {
 	if (!led->usb_psy) {
@@ -1022,10 +1072,13 @@ static int qpnp_flash_led_calc_bharger_max_current(struct qpnp_flash_led *led,
 	otg_enable = pval.intval;
 
 	/* RESISTANCE = esr_uohm + rslow_uohm */
-	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_RESISTANCE,
-			&rbatt_uohm);
-	if (rc < 0) {
-		pr_err("bms psy does not support resistance, rc=%d\n", rc);
+	rc = qpnp_flash_iio_getprop(led, RBATT, &rbatt_uohm);
+	/* Do not return error if the QG driver is not probed */
+	if (rc == -EPROBE_DEFER) {
+		*max_current = FLASH_LED_MAX_TOTAL_CURRENT_MA;
+		return 0;
+	} else if (rc < 0) {
+		pr_err("Unable to read battery resistance, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1037,16 +1090,15 @@ static int qpnp_flash_led_calc_bharger_max_current(struct qpnp_flash_led *led,
 		return 0;
 	}
 
-	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_VOLTAGE_OCV, &ocv_uv);
+	rc = qpnp_flash_iio_getprop(led, OCV, &ocv_uv);
 	if (rc < 0) {
-		pr_err("bms psy does not support OCV, rc=%d\n", rc);
+		pr_err("Unable to read OCV, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = get_property_from_fg(led, POWER_SUPPLY_PROP_CURRENT_NOW,
-			&ibat_now);
+	rc = qpnp_flash_iio_getprop(led, IBAT, &ibat_now);
 	if (rc < 0) {
-		pr_err("bms psy does not support current, rc=%d\n", rc);
+		pr_err("Unable to read current, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1232,11 +1284,10 @@ static int qpnp_flash_led_get_max_avail_current(struct qpnp_flash_led *led,
 						int *max_avail_current)
 {
 	int thermal_current_lim = 0, rc;
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
 	led->trigger_lmh = false;
 
-	if (pmic_subtype == PMI632_SUBTYPE)
+	if (led->pmic_type == PMI632)
 		rc = qpnp_flash_led_calc_bharger_max_current(led,
 							max_avail_current);
 	else
@@ -1283,7 +1334,6 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 	int prgm_current_ma = value;
 	int min_ma = fnode->ires_ua / 1000;
 	struct qpnp_flash_led *led = dev_get_drvdata(&fnode->pdev->dev);
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
 	if (value <= 0)
 		prgm_current_ma = 0;
@@ -1306,7 +1356,7 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 			}
 		}
 	} else if (prgm_current_ma <= 20 &&
-			(led->wa_flags & PM8150L_IRES_WA)) {
+			(led->wa_flags & PM6150L_IRES_WA)) {
 		fnode->ires_idx = FLASH_LED_IRES_BASE;
 		fnode->ires_ua = FLASH_LED_IRES_MIN_UA;
 	}
@@ -1318,7 +1368,7 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 	if (prgm_current_ma)
 		fnode->led_on = true;
 
-	if (pmic_subtype != PMI632_SUBTYPE &&
+	if (led->pmic_type != PMI632 &&
 	       led->pdata->chgr_mitigation_sel == FLASH_SW_CHARGER_MITIGATION) {
 		qpnp_flash_led_aggregate_max_current(fnode);
 		led->trigger_chgr = false;
@@ -1480,51 +1530,9 @@ static int qpnp_flash_led_symmetry_config(struct flash_switch_data *snode)
 	return 0;
 }
 
-#define FLASH_LED_MODULE_EN_TIME_MS	300
-static int qpnp_flash_poll_vreg_ok(struct qpnp_flash_led *led)
-{
-	int rc, i;
-	union power_supply_propval pval = {0, };
-
-	rc = is_main_psy_available(led);
-	if (rc < 0)
-		return rc;
-
-	for (i = 0; i < 60; i++) {
-		/* wait for the flash vreg_ok to be set */
-		mdelay(5);
-
-		rc = power_supply_get_property(led->main_psy,
-					POWER_SUPPLY_PROP_FLASH_TRIGGER, &pval);
-		if (rc < 0) {
-			pr_err("main psy doesn't support reading prop %d rc = %d\n",
-				POWER_SUPPLY_PROP_FLASH_TRIGGER, rc);
-			return rc;
-		}
-
-		if (pval.intval > 0) {
-			pr_debug("Flash trigger set\n");
-			break;
-		}
-
-		if (pval.intval < 0) {
-			pr_err("Error during flash trigger %d\n", pval.intval);
-			return pval.intval;
-		}
-	}
-
-	if (!pval.intval) {
-		pr_err("Failed to enable the module\n");
-		return -ETIMEDOUT;
-	}
-
-	return 0;
-}
-
 static int qpnp_flash_led_module_enable(struct flash_switch_data *snode)
 {
 	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 	int rc = 0;
 
 	if (led->enable == 0) {
@@ -1533,19 +1541,6 @@ static int qpnp_flash_led_module_enable(struct flash_switch_data *snode)
 				FLASH_LED_MOD_CTRL_MASK, FLASH_LED_MOD_ENABLE);
 		if (rc < 0)
 			return rc;
-
-		if (pmic_subtype == PMI632_SUBTYPE) {
-			rc = qpnp_flash_poll_vreg_ok(led);
-			if (rc < 0) {
-				/* Disable the module */
-				qpnp_flash_led_masked_write(led,
-					FLASH_LED_REG_MOD_CTRL(led->base),
-					FLASH_LED_MOD_CTRL_MASK,
-					FLASH_LED_DISABLE);
-
-				return rc;
-			}
-		}
 	}
 	led->enable++;
 
@@ -1684,21 +1679,14 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 static int qpnp_flash_led_regulator_control(struct led_classdev *led_cdev,
 					int options, int *max_current)
 {
-	int rc;
-	u8 pmic_subtype;
+	int rc, val;
 	struct flash_switch_data *snode;
 	struct qpnp_flash_led *led;
-	union power_supply_propval ret = {0, };
 
 	snode = container_of(led_cdev, struct flash_switch_data, cdev);
 	led = dev_get_drvdata(&snode->pdev->dev);
-	pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
-	if (pmic_subtype == PMI632_SUBTYPE) {
-		rc = is_main_psy_available(led);
-		if (rc < 0)
-			return rc;
-
+	if (led->pmic_type == PMI632) {
 		rc = is_usb_psy_available(led);
 		if (rc < 0)
 			return rc;
@@ -1710,11 +1698,9 @@ static int qpnp_flash_led_regulator_control(struct led_classdev *led_cdev,
 	}
 
 	if (options & ENABLE_REGULATOR) {
-		if (pmic_subtype == PMI632_SUBTYPE) {
-			ret.intval = 1;
-			rc = power_supply_set_property(led->main_psy,
-					 POWER_SUPPLY_PROP_FLASH_ACTIVE,
-					 &ret);
+		if (led->pmic_type == PMI632) {
+			val = 1;
+			rc = qpnp_flash_iio_setprop(led, F_ACTIVE, val);
 			if (rc < 0) {
 				pr_err("Failed to set FLASH_ACTIVE on charger rc=%d\n",
 									rc);
@@ -1731,11 +1717,9 @@ static int qpnp_flash_led_regulator_control(struct led_classdev *led_cdev,
 	}
 
 	if (options & DISABLE_REGULATOR) {
-		if (pmic_subtype == PMI632_SUBTYPE) {
-			ret.intval = 0;
-			rc = power_supply_set_property(led->main_psy,
-					POWER_SUPPLY_PROP_FLASH_ACTIVE,
-					&ret);
+		if (led->pmic_type == PMI632) {
+			val = 0;
+			rc = qpnp_flash_iio_setprop(led, F_ACTIVE, val);
 			if (rc < 0) {
 				pr_err("Failed to set FLASH_ACTIVE on charger rc=%d\n",
 									rc);
@@ -1887,41 +1871,6 @@ static struct device_attribute qpnp_flash_led_attrs[] = {
 	__ATTR(max_current, 0664, qpnp_flash_led_max_current_show, NULL),
 	__ATTR(enable, 0664, NULL, qpnp_flash_led_prepare_store),
 };
-
-static int flash_led_psy_notifier_call(struct notifier_block *nb,
-		unsigned long ev, void *v)
-{
-	struct power_supply *psy = v;
-	struct qpnp_flash_led *led =
-			container_of(nb, struct qpnp_flash_led, nb);
-
-	if (ev != PSY_EVENT_PROP_CHANGED)
-		return NOTIFY_OK;
-
-	if (!strcmp(psy->desc->name, "bms")) {
-		led->bms_psy = power_supply_get_by_name("bms");
-		if (!led->bms_psy)
-			pr_err("Failed to get bms power_supply\n");
-		else
-			power_supply_unreg_notifier(&led->nb);
-	}
-
-	return NOTIFY_OK;
-}
-
-static int flash_led_psy_register_notifier(struct qpnp_flash_led *led)
-{
-	int rc;
-
-	led->nb.notifier_call = flash_led_psy_notifier_call;
-	rc = power_supply_reg_notifier(&led->nb);
-	if (rc < 0) {
-		pr_err("Couldn't register psy notifier, rc = %d\n", rc);
-		return rc;
-	}
-
-	return 0;
-}
 
 /* irq handler */
 static irqreturn_t qpnp_flash_led_irq_handler(int irq, void *_led)
@@ -2132,7 +2081,6 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 {
 	int rc, min_ma;
 	u32 val;
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
 	fnode->pdev = led->pdev;
 	fnode->cdev.brightness_set = qpnp_flash_led_brightness_set;
@@ -2152,7 +2100,7 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 	if (!rc) {
 		fnode->id = (u8)val;
 
-		if (pmic_subtype == PMI632_SUBTYPE && fnode->id > LED2) {
+		if (led->pmic_type == PMI632 && fnode->id > LED2) {
 			pr_err("Flash node id = %d not supported\n", fnode->id);
 			return -EINVAL;
 		}
@@ -2388,7 +2336,6 @@ static int qpnp_flash_led_parse_thermal_config_dt(struct qpnp_flash_led *led,
 {
 	int rc;
 	u32 val;
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
 	led->pdata->thermal_derate_en =
 		of_property_read_bool(node, "qcom,thermal-derate-en");
@@ -2467,7 +2414,7 @@ static int qpnp_flash_led_parse_thermal_config_dt(struct qpnp_flash_led *led,
 	led->pdata->thermal_hysteresis = -EINVAL;
 	rc = of_property_read_u32(node, "qcom,thermal-hysteresis", &val);
 	if (!rc) {
-		if (pmic_subtype == PM660L_SUBTYPE)
+		if (led->pmic_type == PM660L)
 			val = THERMAL_HYST_TEMP_TO_VAL(val, 20);
 		else
 			val = THERMAL_HYST_TEMP_TO_VAL(val, 15);
@@ -2524,7 +2471,6 @@ static int qpnp_flash_led_parse_vph_droop_config_dt(struct qpnp_flash_led *led,
 {
 	int rc;
 	u32 val;
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 
 	led->pdata->vph_droop_debounce = FLASH_LED_VPH_DROOP_DEBOUNCE_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,vph-droop-debounce-us", &val);
@@ -2541,7 +2487,7 @@ static int qpnp_flash_led_parse_vph_droop_config_dt(struct qpnp_flash_led *led,
 		return -EINVAL;
 	}
 
-	if (pmic_subtype == PMI632_SUBTYPE)
+	if (led->pmic_type == PMI632)
 		led->pdata->vph_droop_threshold =
 				    BHARGER_FLASH_LED_VPH_DROOP_THRESH_DEFAULT;
 	else
@@ -2701,11 +2647,10 @@ static int qpnp_flash_led_parse_iled_threshold_dt(struct qpnp_flash_led *led,
 static int qpnp_flash_led_parse_chgr_mitigation_dt(struct qpnp_flash_led *led,
 						    struct device_node *node)
 {
-	u8 pmic_subtype = led->pdata->pmic_rev_id->pmic_subtype;
 	int rc;
 	u32 val;
 
-	if (pmic_subtype == PMI632_SUBTYPE)
+	if (led->pmic_type == PMI632)
 		led->pdata->chgr_mitigation_sel =
 					FLASH_DISABLE_CHARGER_MITIGATION;
 	else
@@ -2826,40 +2771,6 @@ static int qpnp_flash_led_isc_delay_dt(struct qpnp_flash_led *led,
 	return 0;
 }
 
-static int qpnp_flash_led_parse_revid_dt(struct qpnp_flash_led *led,
-					 struct device_node *node)
-{
-	struct device_node *revid_node;
-
-	revid_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
-	if (!revid_node) {
-		pr_err("Missing qcom,pmic-revid property - driver failed\n");
-		return -EINVAL;
-	}
-
-	led->pdata->pmic_rev_id = get_revid_data(revid_node);
-	if (IS_ERR_OR_NULL(led->pdata->pmic_rev_id)) {
-		pr_err("Unable to get pmic_revid rc=%ld\n",
-			PTR_ERR(led->pdata->pmic_rev_id));
-		/*
-		 * the revid peripheral must be registered, any failure
-		 * here only indicates that the rev-id module has not
-		 * probed yet.
-		 */
-		return -EPROBE_DEFER;
-	}
-	of_node_put(revid_node);
-
-	pr_debug("PMIC subtype %d Digital major %d\n",
-		led->pdata->pmic_rev_id->pmic_subtype,
-		led->pdata->pmic_rev_id->rev4);
-
-	if (led->pdata->pmic_rev_id->pmic_subtype == PM8150L_SUBTYPE)
-		led->wa_flags |= PM8150L_IRES_WA;
-
-	return 0;
-}
-
 static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 						struct device_node *node)
 {
@@ -2874,10 +2785,6 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 	}
 
 	led->base = val;
-	rc = qpnp_flash_led_parse_revid_dt(led, node);
-	if (rc < 0)
-		return rc;
-
 	led->pdata->hdrm_auto_mode_en = of_property_read_bool(node,
 							"qcom,hdrm-auto-mode");
 	rc = qpnp_flash_led_isc_delay_dt(led, node);
@@ -3020,10 +2927,21 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	led->pmic_type = (u8)of_device_get_match_data(&pdev->dev);
+
+	if (led->pmic_type == PM6150L)
+		led->wa_flags |= PM6150L_IRES_WA;
+
 	led->pdev = pdev;
 	led->pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct flash_led_platform_data), GFP_KERNEL);
 	if (!led->pdata)
+		return -ENOMEM;
+
+	led->iio_channels = devm_kcalloc(&pdev->dev,
+				ARRAY_SIZE(flash_iio_prop_names),
+				sizeof(struct iio_channel *), GFP_KERNEL);
+	if (!led->iio_channels)
 		return -ENOMEM;
 
 	spin_lock_init(&led->lock);
@@ -3106,19 +3024,10 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	if (rc < 0)
 		goto error_switch_register;
 
-	led->bms_psy = power_supply_get_by_name("bms");
-	if (!led->bms_psy) {
-		rc = flash_led_psy_register_notifier(led);
-		if (rc < 0) {
-			pr_err("Couldn't register psy notifier, rc = %d\n", rc);
-			goto error_switch_register;
-		}
-	}
-
 	rc = qpnp_flash_led_init_settings(led);
 	if (rc < 0) {
 		pr_err("Failed to initialize flash LED, rc=%d\n", rc);
-		goto unreg_notifier;
+		goto error_switch_register;
 	}
 
 	for (i = 0; i < led->num_snodes; i++) {
@@ -3148,8 +3057,6 @@ sysfs_fail:
 	}
 
 	i = led->num_snodes;
-unreg_notifier:
-	power_supply_unreg_notifier(&led->nb);
 error_switch_register:
 	while (i > 0)
 		led_classdev_unregister(&led->snode[--i].cdev);
@@ -3188,7 +3095,8 @@ static int qpnp_flash_led_remove(struct platform_device *pdev)
 }
 
 const struct of_device_id qpnp_flash_led_match_table[] = {
-	{ .compatible = "qcom,qpnp-flash-led-v2",},
+	{ .compatible = "qcom,pm6150l-flash-led-v2", .data = (void *)PM6150L},
+	{ .compatible = "qcom,pmi632-flash-led-v2", .data = (void *)PMI632},
 	{ },
 };
 
