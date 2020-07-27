@@ -1524,14 +1524,7 @@ static int _mark_context(int id, void *ptr, void *data)
 	return 0;
 }
 
-/**
- * mark_guilty_context() - Mark the given context as guilty (failed recovery)
- * @device: Pointer to a KGSL device structure
- * @id: Context ID of the guilty context (or 0 to mark all as guilty)
- *
- * Mark the given (or all) context(s) as guilty (failed recovery)
- */
-static void mark_guilty_context(struct kgsl_device *device, unsigned int id)
+void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id)
 {
 	/* Mark the status for all the contexts in the device */
 
@@ -1953,7 +1946,7 @@ static void process_cmdobj_fault(struct kgsl_device *device,
 		state, drawobj->context->id, drawobj->timestamp);
 
 	/* Mark the context as failed */
-	mark_guilty_context(device, drawobj->context->id);
+	adreno_mark_guilty_context(device, drawobj->context->id);
 
 	/* Invalidate the context */
 	adreno_drawctxt_invalidate(device, drawobj->context);
@@ -1991,7 +1984,8 @@ static void recover_dispatch_q(struct kgsl_device *device,
 						dispatch_q->cmd_q[ptr];
 			struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
-			mark_guilty_context(device, drawobj->context->id);
+			adreno_mark_guilty_context(device,
+				drawobj->context->id);
 			adreno_drawctxt_invalidate(device, drawobj->context);
 			kgsl_drawobj_destroy(drawobj);
 
@@ -2064,7 +2058,7 @@ replay:
 				replay[i]->base.timestamp);
 
 			/* Mark this context as guilty (failed recovery) */
-			mark_guilty_context(device,
+			adreno_mark_guilty_context(device,
 				replay[i]->base.context->id);
 
 			adreno_drawctxt_invalidate(device,

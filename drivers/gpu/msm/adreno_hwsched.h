@@ -24,10 +24,14 @@ struct adreno_hwsched {
 	struct kthread_work work;
 	/** @cmd_list: List of objects submitted to dispatch queues */
 	struct list_head cmd_list;
+	/** @fault: Atomic to record a fault */
+	atomic_t fault;
 };
 
 enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
+	ADRENO_HWSCHED_FAULT_RESTART,
+	ADRENO_HWSCHED_FAULT_REPLAY,
 };
 
 /**
@@ -87,4 +91,10 @@ void adreno_hwsched_init(struct adreno_device *adreno_dev);
  * Free the dispatcher resources
  */
 void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_set_fault - Set hwsched fault to request recovery
+ * @adreno_dev: A handle to adreno device
+ */
+void adreno_hwsched_set_fault(struct adreno_device *adreno_dev);
 #endif

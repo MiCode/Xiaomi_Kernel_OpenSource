@@ -510,10 +510,11 @@ struct hfi_context_rule_cmd {
 
 /* F2H */
 struct hfi_context_bad_cmd {
-	uint32_t hdr;
-	uint32_t ctxt_id;
-	uint32_t status;
-	uint32_t error;
+	u32 hdr;
+	u32 ctxt_id;
+	u32 policy;
+	u32 ts;
+	u32 error;
 } __packed;
 
 /* H2F */

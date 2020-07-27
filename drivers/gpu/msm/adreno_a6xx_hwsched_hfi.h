@@ -204,4 +204,7 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
  * to ensure all submissions from this context have retired
  */
 void a6xx_hwsched_context_detach(struct adreno_context *drawctxt);
+
+/* Helper function to get to a6xx hwsched hfi device from adreno device */
+struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(struct adreno_device *adreno_dev);
 #endif

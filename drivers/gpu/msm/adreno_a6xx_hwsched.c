@@ -632,10 +632,23 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 
 	ret = a6xx_hfi_send_cmd_async(adreno_dev, &req);
 
-	if (ret)
+	if (ret) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Failed to set GPU perf idx %d, bw idx %d\n",
 			req.freq, req.bw);
+
+		/*
+		 * If this was a dcvs request along side an active gpu, request
+		 * dispatcher based reset and recovery.
+		 */
+		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
+
+			adreno_get_gpu_halt(adreno_dev);
+
+			adreno_hwsched_set_fault(adreno_dev);
+		}
+
+	}
 
 	return ret;
 }
@@ -751,6 +764,56 @@ static void a6xx_hwsched_pm_resume(struct adreno_device *adreno_dev)
 	adreno_hwsched_start(adreno_dev);
 
 	clear_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
+}
+
+static void a6xx_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
+{
+	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+	struct pending_cmd *cmd = NULL;
+
+	read_lock(&hfi->msglock);
+
+	list_for_each_entry(cmd, &hfi->msglist, node) {
+		if (MSG_HDR_GET_ID(cmd->sent_hdr) == H2F_MSG_UNREGISTER_CONTEXT)
+			complete(&cmd->complete);
+	}
+
+	read_unlock(&hfi->msglock);
+}
+
+void a6xx_hwsched_restart(struct adreno_device *adreno_dev)
+{
+	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	/*
+	 * Any pending context unregister packets will be lost
+	 * since we hard reset the GMU. This means any threads waiting
+	 * for context unregister hfi ack will timeout. Wake them
+	 * to avoid false positive ack timeout messages later.
+	 */
+	a6xx_hwsched_drain_ctxt_unregister(adreno_dev);
+
+	read_lock(&device->context_lock);
+	idr_for_each(&device->context_idr, unregister_context_hwsched, NULL);
+	read_unlock(&device->context_lock);
+
+
+	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		return;
+
+	a6xx_hwsched_hfi_stop(adreno_dev);
+
+	a6xx_disable_gpu_irq(adreno_dev);
+
+	a6xx_gmu_suspend(adreno_dev);
+
+	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+
+	ret = a6xx_hwsched_boot(adreno_dev);
+
+	BUG_ON(ret);
 }
 
 const struct adreno_power_ops a6xx_hwsched_power_ops = {

@@ -1658,12 +1658,8 @@ static inline int adreno_perfcntr_active_oob_get(
 
 	if (!ret) {
 		ret = gmu_core_dev_oob_set(device, oob_perfcntr);
-		if (ret) {
-			adreno_set_gpu_fault(adreno_dev,
-				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
-			adreno_dispatcher_schedule(device);
+		if (ret)
 			adreno_active_count_put(adreno_dev);
-		}
 	}
 
 	return ret;
@@ -1935,4 +1931,14 @@ int adreno_suspend_context(struct kgsl_device *device);
  * submission.
  */
 void adreno_profile_submit_time(struct adreno_submit_time *time);
+
+/**
+ * adreno_mark_guilty_context - Mark the given context as guilty
+ * (failed recovery)
+ * @device: Pointer to a KGSL device structure
+ * @id: Context ID of the guilty context (or 0 to mark all as guilty)
+ *
+ * Mark the given (or all) context(s) as guilty (failed recovery)
+ */
+void adreno_mark_guilty_context(struct kgsl_device *device, unsigned int id);
 #endif /*__ADRENO_H */

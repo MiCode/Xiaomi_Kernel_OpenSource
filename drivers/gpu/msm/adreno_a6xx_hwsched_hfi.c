@@ -9,6 +9,7 @@
 #include "adreno.h"
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
+#include "adreno_hwsched.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_device.h"
@@ -69,7 +70,7 @@ static const char * const memkind_strings[] = {
 	[MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
 };
 
-static struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(
+struct a6xx_hwsched_hfi *to_a6xx_hwsched_hfi(
 	struct adreno_device *adreno_dev)
 {
 	struct a6xx_device *a6xx_dev = container_of(adreno_dev,
@@ -829,6 +830,14 @@ static void process_ts_retire(struct adreno_device *adreno_dev, u32 *rcvd)
 	adreno_hwsched_trigger(adreno_dev);
 }
 
+static void process_ctx_bad(struct adreno_device *adreno_dev, void *rcvd)
+{
+	/* Block dispatcher to submit more commands */
+	adreno_get_gpu_halt(adreno_dev);
+
+	adreno_hwsched_set_fault(adreno_dev);
+}
+
 static int hfi_f2h_main(void *arg)
 {
 	struct adreno_device *adreno_dev = arg;
@@ -851,6 +860,9 @@ static int hfi_f2h_main(void *arg)
 		llist_for_each_entry_safe(pkt, tmp, list, node) {
 			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_TS_RETIRE)
 				process_ts_retire(adreno_dev, pkt->rcvd);
+
+			if (MSG_HDR_GET_ID(pkt->rcvd[0]) == F2H_MSG_CONTEXT_BAD)
+				process_ctx_bad(adreno_dev, pkt->rcvd);
 
 			kmem_cache_free(f2h_cache, pkt);
 		}
@@ -1149,7 +1161,7 @@ free:
 }
 
 static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
-	u32 ctxt_id, u32 ts)
+	struct kgsl_context *context, u32 ts)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
@@ -1160,7 +1172,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 	int rc;
 
 	CMD_MSG_HDR(cmd, H2F_MSG_UNREGISTER_CONTEXT);
-	cmd.ctxt_id = ctxt_id,
+	cmd.ctxt_id = context->id,
 	cmd.ts = ts,
 
 	seqnum = atomic_inc_return(&gmu->hfi.seqnum);
@@ -1180,10 +1192,26 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 		dev_err(&gmu->pdev->dev,
 			"Ack timeout for context unregister seq: %d ctx: %d ts: %d\n",
 			MSG_HDR_GET_SEQNUM(pending_ack.sent_hdr),
-			ctxt_id, ts);
+			context->id, ts);
 		rc = -ETIMEDOUT;
+
 		mutex_lock(&device->mutex);
+
 		gmu_fault_snapshot(device);
+
+		/*
+		 * Trigger dispatcher based reset and recovery. Invalidate the
+		 * context so that any un-finished inflight submissions are not
+		 * replayed after recovery.
+		 */
+		adreno_mark_guilty_context(device, context->id);
+
+		adreno_drawctxt_invalidate(device, context);
+
+		adreno_get_gpu_halt(adreno_dev);
+
+		adreno_hwsched_set_fault(adreno_dev);
+
 		goto done;
 	}
 
@@ -1209,7 +1237,7 @@ void a6xx_hwsched_context_detach(struct adreno_context *drawctxt)
 	/* Only send HFI if device is not in SLUMBER */
 	if (context->gmu_registered &&
 		test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
-		ret = send_context_unregister_hfi(adreno_dev, context->id,
+		ret = send_context_unregister_hfi(adreno_dev, context,
 			drawctxt->internal_timestamp);
 
 	if (!ret) {

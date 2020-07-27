@@ -272,6 +272,25 @@ static int hwsched_queue_context(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+void adreno_hwsched_set_fault(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+
+	atomic_set(&hwsched->fault, ADRENO_HWSCHED_FAULT_RESTART);
+
+	/* make sure fault is written before triggering dispatcher */
+	smp_wmb();
+
+	adreno_hwsched_trigger(adreno_dev);
+}
+
+static bool hwsched_in_fault(struct adreno_hwsched *hwsched)
+{
+	/* make sure we're reading the latest value */
+	smp_rmb();
+	return atomic_read(&hwsched->fault) != 0;
+}
+
 /**
  * sendcmd() - Send a drawobj to the GPU hardware
  * @dispatcher: Pointer to the adreno dispatcher struct
@@ -332,6 +351,14 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 		if (hwsched->inflight == 1) {
 			adreno_active_count_put(adreno_dev);
 			clear_bit(ADRENO_HWSCHED_POWER, &hwsched->flags);
+		} else if (device->gmu_fault) {
+			/*
+			 * If we encountered a GMU fault, then trigger reset and
+			 * recovery.
+			 */
+			adreno_get_gpu_halt(adreno_dev);
+
+			adreno_hwsched_set_fault(adreno_dev);
 		}
 
 		hwsched->inflight--;
@@ -556,7 +583,8 @@ static void adreno_hwsched_issuecmds(struct adreno_device *adreno_dev)
 		return;
 	}
 
-	hwsched_issuecmds(adreno_dev);
+	if (!hwsched_in_fault(hwsched))
+		hwsched_issuecmds(adreno_dev);
 
 	mutex_unlock(&hwsched->mutex);
 }
@@ -966,6 +994,85 @@ void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 	kmem_cache_destroy(obj_cache);
 }
 
+static void adreno_hwsched_init_replay(struct adreno_hwsched *hwsched)
+{
+	struct cmd_list_obj *obj, *tmp;
+
+	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
+		struct kgsl_drawobj_cmd *cmdobj = obj->cmdobj;
+
+		clear_bit(KGSL_FT_REPLAY, &cmdobj->fault_policy);
+	}
+}
+
+static void adreno_hwsched_complete_replay(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct cmd_list_obj *obj, *tmp;
+	u32 retired = 0;
+
+	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
+		struct kgsl_drawobj_cmd *cmdobj = obj->cmdobj;
+		struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+		struct kgsl_context *context = drawobj->context;
+
+		/*
+		 * Get rid of retired objects or objects that belong to detached
+		 * or invalidated contexts
+		 */
+		if ((kgsl_check_timestamp(device, context, drawobj->timestamp))
+			|| kgsl_context_invalid(context)
+			|| kgsl_context_detached(context)) {
+
+			retire_cmdobj(cmdobj);
+			retired++;
+			list_del_init(&obj->node);
+			kmem_cache_free(obj_cache, obj);
+
+			continue;
+		}
+
+		if (!test_and_set_bit(KGSL_FT_REPLAY, &cmdobj->fault_policy))
+			a6xx_hwsched_submit_cmdobj(adreno_dev, cmdobj);
+	}
+
+	/* Signal fences */
+	if (retired)
+		kgsl_process_event_groups(device);
+
+	hwsched->inflight = 0;
+
+	/*
+	 * We have nothing to replay. So clear the fault so that
+	 * dispatcher starts accepting new submissions.
+	 */
+	if (list_empty(&hwsched->cmd_list)) {
+		atomic_set(&hwsched->fault, 0);
+		adreno_clear_gpu_halt(adreno_dev);
+		adreno_hwsched_trigger(adreno_dev);
+	}
+}
+
+
+static void adreno_hwsched_recovery(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
+
+	mutex_lock(&device->mutex);
+
+	if ((atomic_cmpxchg(&hwsched->fault, ADRENO_HWSCHED_FAULT_RESTART,
+		ADRENO_HWSCHED_FAULT_REPLAY) == ADRENO_HWSCHED_FAULT_RESTART)) {
+		a6xx_hwsched_restart(adreno_dev);
+		adreno_hwsched_init_replay(hwsched);
+	}
+
+	adreno_hwsched_complete_replay(adreno_dev);
+
+	mutex_unlock(&device->mutex);
+}
+
 static void adreno_hwsched_work(struct kthread_work *work)
 {
 	struct adreno_hwsched *hwsched = container_of(work,
@@ -975,6 +1082,12 @@ static void adreno_hwsched_work(struct kthread_work *work)
 	int count = 0;
 
 	mutex_lock(&hwsched->mutex);
+
+	if (hwsched_in_fault(hwsched)) {
+		adreno_hwsched_recovery(adreno_dev);
+		mutex_unlock(&hwsched->mutex);
+		return;
+	}
 
 	/*
 	 * As long as there are inflight commands, process retired comamnds from
