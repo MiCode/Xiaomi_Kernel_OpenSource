@@ -6438,6 +6438,10 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	bool attached = false;
 	int rc;
 
+	/* IRQ not expected to be executed for uUSB, return */
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		return IRQ_HANDLED;
+
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
 	rc = smblib_read(chg, TYPE_C_STATE_MACHINE_STATUS_REG, &stat);
