@@ -9,6 +9,7 @@ dwc3-msm.ko
 phy-generic.ko
 phy-qcom-emu.ko
 pinctrl-waipio.ko
+qcom-scm.ko
 stub-regulator.ko
 debug-regulator.ko
 proxy-consumer.ko
