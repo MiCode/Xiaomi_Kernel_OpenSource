@@ -37,3 +37,27 @@
 		status = "disabled";
 	};
 };
+
+&cnss_qca6390 {
+	status = "disabled";
+};
+
+&ipa_hw {
+	qcom,use-ipa-in-mhi-mode;
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie_ep {
+	status = "ok";
+};
+
+&mhi_device {
+	status = "ok";
+};
+
+&mhi_net_device {
+	status = "ok";
+};

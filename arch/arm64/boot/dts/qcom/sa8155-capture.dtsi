@@ -1,0 +1,175 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
+/ {
+
+	model = "Qualcomm Technologies, Inc. SM8150";
+	compatible = "qcom,sa8155";
+	qcom,msm-name = "SM8150";
+	interrupt-parent = <&intc>;
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+			#cooling-cells = <0x2>;
+
+			L2_0: l2-cache {
+				compatible = "arm,arch-cache";
+				cache-level = <0x2>;
+				next-level-cache = <&L3_0>;
+				L3_0: l3-cache {
+					compatible = "arm,arch-cache";
+					cache-level = <0x3>;
+				};
+			};
+
+			L1_I_0: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x8800>;
+			};
+
+			L1_D_0: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9000>;
+			};
+
+			L2_TLB_0: l2-tlb {
+				qcom,dump-size = <0x5000>;
+			};
+		};
+	};
+
+	soc: soc { } ;
+	chosen {
+		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7";
+	};
+
+	aliases {
+		serial0 = "/soc/qcom,qup_uart@0xa90000";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x1 0x40000000 0x0 0x20000000>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+};
+
+&soc {
+	status = "ok";
+	#address-cells = <0x1>;
+	#size-cells = <0x1>;
+	ranges = <0x0 0x0 0x0 0xffffffff>;
+	compatible = "simple-bus";
+
+	intc: interrupt-controller@17a00000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#redistributor-regions = <1>;
+		redistributor-stride = <0x0 0x20000>;
+		reg = <0x17a00000 0x10000>,     /* GICD */
+		      <0x17a60000 0x100000>;    /* GICR * 8 */
+		interrupts = <1 9 4>;
+		interrupt-parent = <&intc>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,gcc-sa8155-v2", "syscon";
+		reg = <0x100000 0x1f0000>;
+		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
+		#clock-cells = <0x1>;
+		#reset-cells = <0x1>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <1 1 0xf08>,
+			     <1 2 0xf08>,
+			     <1 3 0xf08>,
+			     <1 0 0xf08>;
+		clock-frequency = <19200000>;
+	};
+
+	timer@0x17c20000 {
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0x17c20000 0x1000>;
+		clock-frequency = <0x124f800>;
+			frame@0x17c21000 {
+			frame-number = <0x0>;
+			interrupts = <0x0 0x8 0x4 0x0 0x6 0x4>;
+			reg = <0x17c21000 0x1000 0x17c22000 0x1000>;
+		};
+	};
+
+	wdog: qcom,wdt@17c10000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17c10000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 0 0>, <0 1 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <9360>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
+		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
+		0x18100 0x18100 0x18100 0x18100>;
+	};
+
+	qcom,qupv3_1_geni_se@ac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xac0000 0x6000>;
+		qcom,bus-mas-id = <0x98>;
+		qcom,bus-slv-id = <0x200>;
+	};
+
+	apps_rsc: mailbox@18220000 {
+		compatible = "qcom,tcs-drv";
+		status="ok";
+		label = "apps_rsc";
+		reg = <0x18220000 0x100>, <0x18220d00 0x3000>;
+		interrupts = <0 5 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+			  <SLEEP_TCS   3>,
+			  <WAKE_TCS    3>,
+			  <CONTROL_TCS 1>;
+	};
+};
+
+#include "sa8155-regulator.dtsi"
+#include "sm8150-pinctrl.dtsi"
+

@@ -863,6 +863,12 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 		return -EINVAL;
 	}
 
+	if (devid == USB_BRIDGE_DIAG &&
+			udev->actconfig->desc.bNumInterfaces == 1) {
+		pr_err("Invalid configuration: Only one interface\n");
+		return -EINVAL;
+	}
+
 	num_eps = iface->cur_altsetting->desc.bNumEndpoints;
 	for (i = 0; i < num_eps; i++) {
 		endpoint = iface->cur_altsetting->endpoint + i;

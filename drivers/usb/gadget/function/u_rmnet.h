@@ -22,7 +22,7 @@
 
 enum bam_dmux_func_type {
 	BAM_DMUX_FUNC_RMNET,
-	BAM_DMUX_FUNC_MBIM,
+	BAM_DMUX_FUNC_MBIM = 0,
 	BAM_DMUX_FUNC_DPL,
 	BAM_DMUX_NUM_FUNCS,
 };

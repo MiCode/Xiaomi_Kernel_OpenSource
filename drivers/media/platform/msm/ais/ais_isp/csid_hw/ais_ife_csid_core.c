@@ -577,24 +577,6 @@ static int ais_ife_csid_config_rdi_path(
 	else
 		path_cfg->pix_enable = true;
 
-	/*
-	 * RDI path config and enable the time stamp capture
-	 * Enable the measurement blocks
-	 */
-	cfg0 = (path_cfg->vc << csid_reg->cmn_reg->vc_shift_val) |
-		(path_cfg->dt << csid_reg->cmn_reg->dt_shift_val) |
-		(path_cfg->cid << csid_reg->cmn_reg->dt_id_shift_val) |
-		(path_cfg->decode_fmt << csid_reg->cmn_reg->fmt_shift_val) |
-		(path_cfg->plain_fmt << csid_reg->cmn_reg->plain_fmt_shit_val) |
-		(path_cfg->crop_enable  <<
-			csid_reg->cmn_reg->crop_h_en_shift_val) |
-		(path_cfg->crop_enable  <<
-		csid_reg->cmn_reg->crop_v_en_shift_val) |
-		(1 << 2) | 3;
-
-	cam_io_w_mb(cfg0, soc_info->reg_map[0].mem_base +
-			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
-
 	/* select the post irq sub sample strobe for time stamp capture */
 	cam_io_w_mb(CSID_TIMESTAMP_STB_POST_IRQ, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[id]->csid_rdi_cfg1_addr);
@@ -701,8 +683,18 @@ static int ais_ife_csid_config_rdi_path(
 		}
 	}
 
-	/* Enable the path */
-	cfg0 |= (1 << csid_reg->cmn_reg->path_en_shift_val);
+	/* RDI path config and enable*/
+	cfg0 = (path_cfg->vc << csid_reg->cmn_reg->vc_shift_val) |
+		(path_cfg->dt << csid_reg->cmn_reg->dt_shift_val) |
+		(path_cfg->cid << csid_reg->cmn_reg->dt_id_shift_val) |
+		(path_cfg->decode_fmt << csid_reg->cmn_reg->fmt_shift_val) |
+		(path_cfg->plain_fmt << csid_reg->cmn_reg->plain_fmt_shit_val) |
+		(path_cfg->crop_enable  <<
+			csid_reg->cmn_reg->crop_h_en_shift_val) |
+		(path_cfg->crop_enable  <<
+		csid_reg->cmn_reg->crop_v_en_shift_val) |
+		(1 << csid_reg->cmn_reg->path_en_shift_val) |
+		(1 << 2) | 3;
 
 	cam_io_w_mb(cfg0, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);

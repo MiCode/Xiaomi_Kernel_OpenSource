@@ -791,7 +791,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->usb_icl_votable, PD_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblib_get_prop_input_current_settled(chg, val);
+		rc = smblib_get_prop_input_current_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_USB_PD;
