@@ -10,6 +10,7 @@
 		#size-cells = <1>;
 		ranges;
 
+		USB3_GDSC-supply = <&gcc_usb30_prim_gdsc>;
 		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
 			<&clock_gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
 			<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
