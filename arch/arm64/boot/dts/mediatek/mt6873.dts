@@ -637,6 +637,9 @@
 					flash-max-microamp = <1500000>;
 					flash-max-timeout = <1248000>;
 					port@0 {
+						fl_core_0: endpoint {
+						remote-endpoint = <&flashlight_0>;
+						};
 					};
 				};
 				flash@1 {
@@ -646,6 +649,9 @@
 					flash-max-microamp = <1500000>;
 					flash-max-timeout = <1248000>;
 					port@1 {
+						fl_core_1: endpoint {
+						remote-endpoint = <&flashlight_1>;
+						};
 					};
 				};
 			};
@@ -751,5 +757,18 @@
 
 &mtk_gauge {
 	charger = <&mt6360_chg>;
+};
+
+&mtk_composite_v4l2_1 {
+	port@0 {
+		flashlight_0: endpoint {
+		remote-endpoint = <&fl_core_0>;
+		};
+	};
+	port@1 {
+		flashlight_1: endpoint {
+		remote-endpoint = <&fl_core_1>;
+		};
+	};
 };
 
