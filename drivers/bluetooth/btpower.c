@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/btpower.h>
 #include <linux/of_device.h>
+#include <soc/qcom/cmd-db.h>
 
 #if defined CONFIG_BT_SLIM_QCA6390 || \
 	defined CONFIG_BT_SLIM_QCA6490 || \
@@ -77,6 +78,10 @@ static const struct of_device_id bt_power_match_table[] = {
 };
 
 static int bt_power_vreg_set(enum bt_power_modes mode);
+static int btpower_get_tcs_table_info(struct platform_device *plat_dev,
+			struct bluetooth_power_platform_data *bt_power_pdata);
+static int btpower_enable_ipa_vreg(struct platform_device *plat_dev,
+			struct bluetooth_power_platform_data *bt_power_pdata);
 
 static struct bluetooth_power_platform_data *bt_power_pdata;
 static struct platform_device *btpdev;
@@ -708,6 +713,8 @@ static int bt_power_probe(struct platform_device *pdev)
 		goto free_pdata;
 
 	btpdev = pdev;
+	if (btpower_get_tcs_table_info(pdev, bt_power_pdata) < 0)
+		pr_err("%s: Failed to get TCS table info\n", __func__);
 
 	return 0;
 
@@ -787,7 +794,6 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0, pwr_cntrl = 0;
 	int chipset_version = 0;
 	long value = -1;
-
 	switch (cmd) {
 	case BT_CMD_SLIM_TEST:
 #if (defined CONFIG_BT_SLIM_QCA6390 || \
@@ -872,6 +878,10 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case BT_CMD_GETVAL_VDD_RFA2_LDO:
 		ret = get_resource_value("vdd-rfa2");
 		break;
+	case BT_CMD_SET_IPA_TCS_INFO:
+		pr_err("%s: BT_CMD_SET_IPA_TCS_INFO\n", __func__);
+		btpower_enable_ipa_vreg(btpdev, bt_power_pdata);
+		break;
 	default:
 		return -ENOIOCTLCMD;
 	}
@@ -933,6 +943,78 @@ chrdev_err:
 	platform_driver_unregister(&bt_power_driver);
 driver_err:
 	return ret;
+}
+
+static int btpower_get_tcs_table_info(struct platform_device *dev,
+			struct bluetooth_power_platform_data *bt_power_pdata)
+{
+	struct platform_device *plat_dev = dev;
+	struct btpower_tcs_table_info *tcs_table_info =
+			&bt_power_pdata->tcs_table_info;
+	struct resource *res;
+	resource_size_t addr_len;
+	void __iomem *tcs_cmd_base_addr;
+	int ret = -1;
+
+	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "tcs_cmd");
+	if (!res) {
+		pr_err("No TCS CMD entry found in DTSI\n");
+		goto out;
+	}
+
+	tcs_table_info->tcs_cmd_base_addr = res->start;
+	addr_len = resource_size(res);
+	pr_info("TCS CMD base address is %pa with length %pa\n",
+		    &tcs_table_info->tcs_cmd_base_addr, &addr_len);
+
+	tcs_cmd_base_addr = devm_ioremap_resource(&plat_dev->dev, res);
+	if (IS_ERR(tcs_cmd_base_addr)) {
+		ret = PTR_ERR(tcs_cmd_base_addr);
+		pr_err("Failed to map TCS CMD address, err = %d\n",
+			    ret);
+		goto out;
+	}
+
+	tcs_table_info->tcs_cmd_base_addr_io = tcs_cmd_base_addr;
+
+	return 0;
+
+out:
+	return ret;
+}
+
+static int btpower_enable_ipa_vreg(struct platform_device *dev,
+			struct bluetooth_power_platform_data *bt_power_pdata)
+{
+	struct platform_device *plat_dev = dev;
+	struct btpower_tcs_table_info *tcs_table_info =
+					&bt_power_pdata->tcs_table_info;
+	u32 offset, addr_val, data_val;
+	void __iomem *tcs_cmd;
+	int ret = 0;
+
+	if (!tcs_table_info->tcs_cmd_base_addr_io) {
+		pr_err("TCS command not configured\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(plat_dev->dev.of_node,
+					"qcom,tcs_offset_ipa",
+					&offset);
+	if (ret) {
+		pr_err("iPA failed to configure\n");
+		return -EINVAL;
+	}
+	tcs_cmd = tcs_table_info->tcs_cmd_base_addr_io + offset;
+	addr_val = readl_relaxed(tcs_cmd);
+	tcs_cmd += TCS_CMD_IO_ADDR_OFFSET;
+
+	writel_relaxed(1, tcs_cmd);
+
+	data_val = readl_relaxed(tcs_cmd);
+	pr_info("Configure S3E TCS Addr : %x with Data: %d\n"
+		, addr_val, data_val);
+	return 0;
 }
 
 static void __exit bluetooth_power_exit(void)

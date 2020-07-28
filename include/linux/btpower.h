@@ -40,6 +40,10 @@ struct bt_power_clk_data {
 	bool is_enabled;  /* is this clock enabled? */
 };
 
+struct btpower_tcs_table_info {
+	resource_size_t tcs_cmd_base_addr;
+	void __iomem *tcs_cmd_base_addr_io;
+};
 /*
  * Platform data for the bluetooth power driver.
  */
@@ -53,6 +57,7 @@ struct bluetooth_power_platform_data {
 	int (*bt_power_setup)(int id); /* Bluetooth power setup function */
 	char compatible[32]; /*Bluetooth SoC name */
 	int num_vregs;
+	struct btpower_tcs_table_info tcs_table_info;
 };
 
 int btpower_register_slimdev(struct device *dev);
@@ -68,4 +73,7 @@ int btpower_get_chipset_version(void);
 #define BT_CMD_GETVAL_VDD_DIG_LDO   0xbfb2
 #define BT_CMD_GETVAL_VDD_RFA1_LDO  0xbfb3
 #define BT_CMD_GETVAL_VDD_RFA2_LDO  0xbfb4
+#define BT_CMD_SET_IPA_TCS_INFO  0xbfc0
+#define TCS_CMD_IO_ADDR_OFFSET 0x4
+
 #endif /* __LINUX_BLUETOOTH_POWER_H */
