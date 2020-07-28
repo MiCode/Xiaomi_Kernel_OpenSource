@@ -157,15 +157,6 @@ struct io_pgtable_cfg {
 			u64	transtab;
 			u64	memattr;
 		} arm_mali_lpae_cfg;
-
-#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
-		struct {
-			u64	ttbr[2];
-			u64	tcr;
-			u64	mair[2];
-			void	*pmds;
-		} av8l_fast_cfg;
-#endif
 	};
 };
 

@@ -20,24 +20,6 @@
 
 #define AV8L_FAST_MAX_ADDR_BITS		48
 
-/* Struct accessors */
-#define iof_pgtable_to_data(x)						\
-	container_of((x), struct av8l_fast_io_pgtable, iop)
-
-#define iof_pgtable_ops_to_pgtable(x)					\
-	container_of((x), struct io_pgtable, ops)
-
-#define iof_pgtable_ops_to_data(x)					\
-	iof_pgtable_to_data(iof_pgtable_ops_to_pgtable(x))
-
-struct av8l_fast_io_pgtable {
-	struct io_pgtable	  iop;
-	av8l_fast_iopte		 *pgd;
-	av8l_fast_iopte		 *puds[4];
-	av8l_fast_iopte		 *pmds;
-	struct page		**pages; /* page table memory */
-};
-
 /* Page table bits */
 #define AV8L_FAST_PTE_TYPE_SHIFT	0
 #define AV8L_FAST_PTE_TYPE_MASK		0x3
@@ -588,7 +570,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 #if defined(CONFIG_ARM)
 	reg |= ARM_32_LPAE_TCR_EAE;
 #endif
-	cfg->av8l_fast_cfg.tcr = reg;
+	cfg->arm_lpae_s1_cfg.tcr = reg;
 
 	/* MAIRs */
 	reg = (AV8L_FAST_MAIR_ATTR_NC
@@ -600,18 +582,16 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	      (AV8L_FAST_MAIR_ATTR_UPSTREAM
 	       << AV8L_FAST_MAIR_ATTR_SHIFT(AV8L_FAST_MAIR_ATTR_IDX_UPSTREAM));
 
-	cfg->av8l_fast_cfg.mair[0] = reg;
-	cfg->av8l_fast_cfg.mair[1] = 0;
+	cfg->arm_lpae_s1_cfg.mair[0] = reg;
+	cfg->arm_lpae_s1_cfg.mair[1] = 0;
 
 	/* Allocate all page table memory! */
 	if (av8l_fast_prepopulate_pgtables(data, cfg, cookie))
 		goto out_free_data;
 
-	cfg->av8l_fast_cfg.pmds = data->pmds;
-
 	/* TTBRs */
-	cfg->av8l_fast_cfg.ttbr[0] = virt_to_phys(data->pgd);
-	cfg->av8l_fast_cfg.ttbr[1] = 0;
+	cfg->arm_lpae_s1_cfg.ttbr[0] = virt_to_phys(data->pgd);
+	cfg->arm_lpae_s1_cfg.ttbr[1] = 0;
 	return &data->iop;
 
 out_free_data:

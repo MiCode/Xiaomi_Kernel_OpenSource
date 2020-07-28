@@ -731,15 +731,15 @@ static void fast_smmu_dma_unmap_resource(
 }
 
 static void __fast_smmu_mapped_over_stale(struct dma_fast_smmu_mapping *fast,
-					  void *data)
+					  void *priv)
 {
-	av8l_fast_iopte *pmds, *ptep = data;
+	av8l_fast_iopte *pmds, *ptep = priv;
 	dma_addr_t iova;
 	unsigned long bitmap_idx;
-	struct io_pgtable *tbl;
+	struct av8l_fast_io_pgtable *data;
 
-	tbl  = container_of(fast->pgtbl_ops, struct io_pgtable, ops);
-	pmds = tbl->cfg.av8l_fast_cfg.pmds;
+	data  = iof_pgtable_ops_to_data(fast->pgtbl_ops);
+	pmds = data->pmds;
 
 	bitmap_idx = (unsigned long)(ptep - pmds);
 	iova = bitmap_idx << FAST_PAGE_SHIFT;
