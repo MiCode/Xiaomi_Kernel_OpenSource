@@ -284,6 +284,7 @@
 	qcom,wcn-bt = <1>;
 	qcom,ext-disp-audio-rx = <1>;
 	qcom,tdm-max-slots = <8>;
+	qcom,wcd-disabled = <0>;
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
 		"Analog Mic1", "MIC BIAS1",
