@@ -33,11 +33,15 @@
 
 // Regulator structure for QCA6390 and QCA6490 BT SoC series
 static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
-	{NULL, "qcom,bt-vdd-aon",  950000,  950000,  0, false, true},
-	{NULL, "qcom,bt-vdd-dig",  950000,  952000,  0, false, true},
-	{NULL, "qcom,bt-vdd-rfa1", 1900000, 1900000, 0, false, true},
-	{NULL, "qcom,bt-vdd-rfa2", 1900000, 1900000, 0, false, true},
-	{NULL, "qcom,bt-vdd-asd",  2800000, 2800000, 0, false, true},
+	{NULL, "qcom,bt-vdd-io",      1800000, 1800000, 0, false, true},
+	{NULL, "qcom,bt-vdd-aon",     950000,  950000,  0, false, true},
+	{NULL, "qcom,bt-vdd-rfacmn",  950000,  950000,  0, false, true},
+	/* BT_CX_MX */
+	{NULL, "qcom,bt-vdd-dig",      950000,  952000,  0, false, true},
+	{NULL, "qcom,bt-vdd-rfa-0p8",  950000,  952000,  0, false, true},
+	{NULL, "qcom,bt-vdd-rfa1",     1900000, 1900000, 0, false, true},
+	{NULL, "qcom,bt-vdd-rfa2",     1900000, 1900000, 0, false, true},
+	{NULL, "qcom,bt-vdd-asd",      2800000, 2800000, 0, false, true},
 };
 
 // Regulator structure for WCN399x BT SoC series
