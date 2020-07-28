@@ -1869,6 +1869,7 @@ _nap(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
 		/* fallthrough */
 	case KGSL_STATE_SLUMBER:
+		break;
 	case KGSL_STATE_AWARE:
 		dev_warn(device->dev,
 			"transition AWARE -> NAP is not permitted\n");
