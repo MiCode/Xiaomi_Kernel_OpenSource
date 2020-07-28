@@ -630,7 +630,7 @@ static int __init clk_debug_holi_init(void)
 {
 	return platform_driver_register(&clk_debug_driver);
 }
-arch_initcall_sync(clk_debug_holi_init);
+arch_initcall(clk_debug_holi_init);
 
 MODULE_DESCRIPTION("QTI DEBUG CC HOLI Driver");
 MODULE_LICENSE("GPL v2");
