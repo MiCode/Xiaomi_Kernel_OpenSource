@@ -28,6 +28,16 @@
 		qcom,allowed-clock-rates = <133330000 240000000 300000000
 			384000000>;
 
+		/* Bus Interconnects */
+		interconnect-names = "venus-cnoc", "venus-ddr";
+		interconnects = <&bimc MASTER_AMPSS_M0
+					&config_noc SLAVE_VENUS_CFG>,
+				<&mmnrt_virt MASTER_VIDEO_P0
+					&bimc SLAVE_EBI>;
+		/* Bus BW range (low, high) for each bus */
+		qcom,bus-range-kbps = <1000 1000
+					1000 2128000>;
+
 		/* MMUs */
 		non_secure_cb {
 			compatible = "qcom,msm-vidc,context-bank";

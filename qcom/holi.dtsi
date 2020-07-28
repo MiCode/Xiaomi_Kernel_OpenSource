@@ -1683,6 +1683,9 @@
 		qcom,ahb-freq = <240000000>;
 
 		qcom,pas-id = <9>;
+		interconnect-names = "pil-venus";
+		interconnects = <&mmnrt_virt MASTER_VIDEO_P0
+					&bimc SLAVE_EBI>;
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
