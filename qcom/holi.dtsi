@@ -2101,6 +2101,7 @@
 
 #define PMK8350_SID	6
 
+#include "holi-gpu.dtsi"
 #include "holi-pinctrl.dtsi"
 #include "pm6350.dtsi"
 #include "pm7250b.dtsi"
