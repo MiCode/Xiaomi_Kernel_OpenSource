@@ -2234,23 +2234,6 @@ void iommu_put_resv_regions(struct device *dev, struct list_head *list)
 		ops->put_resv_regions(dev, list);
 }
 
-/**
- * iommu_trigger_fault() - trigger an IOMMU fault
- * @domain: iommu domain
- *
- * Triggers a fault on the device to which this domain is attached.
- *
- * This function should only be used for debugging purposes, for obvious
- * reasons.
- */
-void iommu_trigger_fault(struct iommu_domain *domain, unsigned long flags)
-{
-	struct msm_iommu_ops *ops = to_msm_iommu_ops(domain->ops);
-
-	if (ops->trigger_fault)
-		ops->trigger_fault(domain, flags);
-}
-
 struct iommu_resv_region *iommu_alloc_resv_region(phys_addr_t start,
 						  size_t length, int prot,
 						  enum iommu_resv_type type)

@@ -4037,59 +4037,16 @@ static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
 	return ret;
 }
 
-static void arm_smmu_trigger_fault(struct iommu_domain *domain,
-					unsigned long flags)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu;
-	int idx = cfg->cbndx;
-
-	if (!smmu_domain->smmu) {
-		pr_err("Can't trigger faults on non-attached domains\n");
-		return;
-	}
-
-	smmu = smmu_domain->smmu;
-	if (arm_smmu_power_on(smmu->pwr))
-		return;
-
-	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
-		flags, cfg->cbndx);
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSRRESTORE, flags);
-	/* give the interrupt time to fire... */
-	msleep(1000);
-
-	arm_smmu_power_off(smmu, smmu->pwr);
-}
-
 static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
 {
 	arm_smmu_tlb_inv_context_s1(to_smmu_domain(domain));
-}
-
-static int arm_smmu_enable_config_clocks(struct iommu_domain *domain)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-
-	return arm_smmu_power_on(smmu_domain->smmu->pwr);
-}
-
-static void arm_smmu_disable_config_clocks(struct iommu_domain *domain)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-
-	arm_smmu_power_off(smmu_domain->smmu, smmu_domain->smmu->pwr);
 }
 
 static struct msm_iommu_ops arm_smmu_ops = {
 	.map_sg			= arm_smmu_map_sg,
 	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.is_iova_coherent	= arm_smmu_is_iova_coherent,
-	.trigger_fault		= arm_smmu_trigger_fault,
 	.tlbi_domain		= arm_smmu_tlbi_domain,
-	.enable_config_clocks	= arm_smmu_enable_config_clocks,
-	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 	.iova_to_pte		= arm_smmu_iova_to_pte,
 	.iommu_ops = {
 
