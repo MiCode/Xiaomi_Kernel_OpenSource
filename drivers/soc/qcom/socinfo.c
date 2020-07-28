@@ -650,6 +650,7 @@ static const struct soc_id soc_id[] = {
 	{ 356, "KONA" },
 	{ 415, "LAHAINA" },
 	{ 439, "LAHAINAP" },
+	{ 456, "LAHAINA-ATP" },
 	{ 450, "SHIMA" },
 	{ 454, "HOLI" },
 	{ 458, "SDXLEMUR" },
