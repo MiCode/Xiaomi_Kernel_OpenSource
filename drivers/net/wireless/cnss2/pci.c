@@ -1720,6 +1720,7 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 {
 	int i;
 	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
 	if (plat_priv->device_id != QCA6490_DEVICE_ID)
@@ -1733,8 +1734,14 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 			  &sbl_log_start);
 	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
 			  &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_WLAN_BOOT_CFG,
+			  &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_BOOTSTRAP_STATUS,
+			  &pbl_bootstrap_status);
 	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: 0x%08x 0x%08x",
 		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x",
+		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
 
 	cnss_pr_dbg("Dumping PBL log data");
 	/* cnss_pci_reg_read provides 32bit register values */
