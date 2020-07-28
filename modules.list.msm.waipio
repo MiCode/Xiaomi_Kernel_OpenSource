@@ -11,6 +11,9 @@ phy-qcom-emu.ko
 pinctrl-msm.ko
 pinctrl-waipio.ko
 qcom-scm.ko
+qcom-hwspinlock.ko
+smem.ko
+socinfo.ko
 stub-regulator.ko
 debug-regulator.ko
 proxy-consumer.ko
