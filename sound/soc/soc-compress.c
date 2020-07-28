@@ -925,7 +925,7 @@ static int soc_compr_set_next_track_param(struct snd_compr_stream *cstream,
 		component = rtdcom->component;
 
 		if (!component->driver->compr_ops ||
-			component->driver->compr_ops->set_next_track_param)
+			!component->driver->compr_ops->set_next_track_param)
 			continue;
 
 		ret = component->driver->compr_ops->set_next_track_param(
