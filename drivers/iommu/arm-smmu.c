@@ -2767,8 +2767,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 		 * Ensure the context bank is set to a valid value per dynamic
 		 * attr requirement.
 		 */
-		__arm_smmu_domain_set_attr(
-			domain, DOMAIN_ATTR_DYNAMIC, &attr);
+		set_bit(DOMAIN_ATTR_DYNAMIC,
+			to_smmu_domain(domain)->attributes);
 		val = 0;
 		__arm_smmu_domain_set_attr(
 			domain, DOMAIN_ATTR_CONTEXT_BANK, &val);
@@ -3717,18 +3717,24 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_DYNAMIC: {
 		int dynamic = *((int *)data);
 
-		if (smmu_domain->smmu != NULL) {
-			dev_err(smmu_domain->smmu->dev,
-			  "cannot change dynamic attribute while attached\n");
-			ret = -EBUSY;
-			break;
-		}
+		if (IS_ENABLED(CONFIG_IOMMU_DYNAMIC_DOMAINS)) {
+			if (smmu_domain->smmu != NULL) {
+				dev_err(smmu_domain->smmu->dev,
+				  "cannot change dynamic attribute while attached\n");
+				ret = -EBUSY;
+				break;
+			}
 
-		if (dynamic)
-			set_bit(DOMAIN_ATTR_DYNAMIC, smmu_domain->attributes);
-		else
-			clear_bit(DOMAIN_ATTR_DYNAMIC, smmu_domain->attributes);
-		ret = 0;
+			if (dynamic)
+				set_bit(DOMAIN_ATTR_DYNAMIC,
+					smmu_domain->attributes);
+			else
+				clear_bit(DOMAIN_ATTR_DYNAMIC,
+					  smmu_domain->attributes);
+			ret = 0;
+		} else {
+			ret = -ENOTSUPP;
+		}
 		break;
 	}
 	case DOMAIN_ATTR_CONTEXT_BANK:
