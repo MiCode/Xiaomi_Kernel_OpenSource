@@ -10329,12 +10329,12 @@ static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 
 	if (ufshcd_is_link_off(hba) ||
 	    (ufshcd_is_link_hibern8(hba)
-	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
+	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba))) {
 		ret = ufshcd_setup_hba_vreg(hba, true);
-
-	if (ret && (info->vdd_hba->enabled == false)) {
-		dev_err(hba->dev, "vdd_hba is not enabled\n");
-		BUG_ON(1);
+		if (ret && (info->vdd_hba->enabled == false)) {
+			dev_err(hba->dev, "vdd_hba is not enabled\n");
+			BUG_ON(1);
+		}
 	}
 }
 
