@@ -21,6 +21,8 @@ Optional properties:
 	- qcom,bt-vdd-xtal-supply: Bluetooth VDD XTAL regulator handle
 	- qcom,bt-vdd-core-supply: Bluetooth VDD CORE regulator handle
 	- qcom,bt-vdd-asd-supply: Bluetooth VDD regulator handle for antenna switch
+	- reg: Memory regions defined as starting address and size
+	- reg-names: Names of the memory regions defined in reg entry
     diversity.
 	- qcom,bt-chip-pwd-supply: Chip power down gpio is required when bluetooth
 		module and other modules like wifi co-exist in a singe chip and
@@ -29,7 +31,7 @@ Optional properties:
                           in pairs (min, max), units uV.  There can be optional
                           load in curr, unit uA. Last entry specifies if the retention
                           mode is supported for the regulator.
-
+  - qcom,tcs_offset_ipa: TCS CMD register offset for Voltage
 Example:
 	bluetooth: bt_qca6490 {
 		compatible = "qcom,qca6390", "qcom,qca6490";
