@@ -99,5 +99,6 @@ module_init(init_incfs_module);
 module_exit(cleanup_incfs_module);
 
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 MODULE_AUTHOR("Eugene Zemtsov <ezemtsov@google.com>");
 MODULE_DESCRIPTION("Incremental File System");
