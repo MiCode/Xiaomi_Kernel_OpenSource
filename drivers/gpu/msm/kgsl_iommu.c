@@ -1059,6 +1059,7 @@ static void _free_pt(struct kgsl_iommu_context *ctx, struct kgsl_pagetable *pt)
 static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu,
 		struct iommu_domain *domain)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	int attr, ret;
 	u32 val = 1;
 
@@ -1072,12 +1073,10 @@ static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu,
 
 	ret = iommu_domain_set_attr(domain, attr, &val);
 
-	/*
-	 * Warn once if the system cache will not be used for GPU
-	 * pagetable walks. This is not a fatal error.
-	 */
-	WARN_ONCE(ret, "System cache not enabled for GPU pagetable walks: %d\n",
-		ret);
+	/* Print a one time error message if system cache isn't enabled */
+	if (ret)
+		dev_err_once(device->dev,
+			"System cache no-write-alloc is disabled for GPU pagetables\n");
 }
 
 static int set_smmu_aperture(struct kgsl_device *device, int cb_num)
@@ -1302,9 +1301,15 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	ret = iommu_domain_set_attr(iommu_pt->domain,
 				DOMAIN_ATTR_DYNAMIC, &dynamic);
+
+	/*
+	 * If -ENOTSUPP then dynamic pagetables aren't supported. Quietly
+	 * return the error and the upper levels will handle it
+	 */
 	if (ret) {
-		dev_err(device->dev,
-			"set DOMAIN_ATTR_DYNAMIC failed: %d\n", ret);
+		if (ret != -ENOTSUPP)
+			dev_err(device->dev,
+				"set DOMAIN_ATTR_DYNAMIC failed: %d\n", ret);
 		goto done;
 	}
 
@@ -1383,6 +1388,7 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 		unsigned long name)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_pagetable *pt;
 
 	if (!kgsl_mmu_is_perprocess(mmu) && (name != KGSL_MMU_SECURE_PT) &&
@@ -1393,8 +1399,22 @@ static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 	}
 
 	pt = kgsl_get_pagetable(name);
-	if (pt == NULL)
+	if (pt == NULL) {
 		pt = kgsl_mmu_createpagetableobject(mmu, name);
+
+		/*
+		 * Special fallback case -if we get ENOTSUPP that means that
+		 * per-process pagetables are not supported by arm-smmu. This
+		 * should happen on the first try so we safely set the global
+		 * pagetable bit and avoid going down this path again
+		 */
+		if (PTR_ERR_OR_ZERO(pt) == -ENOTSUPP) {
+			dev_err_once(device->dev,
+				"Couldn't enable per-process pagetables. Default to global pagetables\n");
+			set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
+			return mmu->defaultpagetable;
+		}
+	}
 
 	return pt;
 }
