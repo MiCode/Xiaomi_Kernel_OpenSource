@@ -2298,6 +2298,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	INIT_LIST_HEAD(&plat_priv->clk_list);
 
 	cnss_get_wlaon_pwr_ctrl_info(plat_priv);
+	cnss_get_tcs_info(plat_priv);
 	cnss_get_cpr_info(plat_priv);
 	cnss_init_control_params(plat_priv);
 
