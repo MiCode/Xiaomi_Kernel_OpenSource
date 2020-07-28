@@ -189,7 +189,7 @@ int mtk_lpm_notifier_unregister(struct notifier_block *n)
 }
 EXPORT_SYMBOL(mtk_lpm_notifier_unregister);
 
-int mtk_lpm_system_spin_lock(unsigned long *irqflag)
+void mtk_lpm_system_spin_lock(unsigned long *irqflag)
 {
 	if (irqflag) {
 		unsigned long flag;
@@ -198,9 +198,8 @@ int mtk_lpm_system_spin_lock(unsigned long *irqflag)
 		*irqflag = flag;
 	} else
 		spin_lock(&mtk_lpm_sys_locker);
-	return 0;
 }
-int mtk_lpm_system_spin_unlock(unsigned long *irqflag)
+void mtk_lpm_system_spin_unlock(unsigned long *irqflag)
 {
 	if (irqflag) {
 		unsigned long flag = *irqflag;
@@ -208,7 +207,6 @@ int mtk_lpm_system_spin_unlock(unsigned long *irqflag)
 		spin_unlock_irqrestore(&mtk_lpm_sys_locker, flag);
 	} else
 		spin_unlock(&mtk_lpm_sys_locker);
-	return 0;
 }
 
 int mtk_lpm_module_register_blockcall(int cpu, void *p)
@@ -305,6 +303,9 @@ int mtk_lp_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	unsigned long flags;
 	const int cpuid = smp_processor_id();
 
+	if (index < 0)
+		return -1;
+
 	lpmmods = this_cpu_ptr(&mtk_lpm_mods);
 
 	if (lpmmods && lpmmods->mod[index])
@@ -345,6 +346,9 @@ void mtk_lp_cpuidle_resume(struct cpuidle_driver *drv, int index)
 	unsigned int model_flags = 0;
 	unsigned long flags;
 	const int cpuid = smp_processor_id();
+
+	if (index < 0)
+		return;
 
 	lpmmods = this_cpu_ptr(&mtk_lpm_mods);
 
@@ -433,16 +437,22 @@ int mtk_lpm_suspend_registry(const char *name, struct mtk_lpm_model *suspend)
 	spin_lock_irqsave(&mtk_lp_mod_locker, flags);
 
 	if (mtk_lpm_system.suspend.flag &
-			MTK_LP_REQ_NOSYSCORE_CB) {
+			MTK_LP_REQ_NOSYSCORE_CB)
 		mtk_lp_model_register(name, suspend);
-	} else
+	else
 		memcpy(&mtk_lpm_system.suspend, suspend,
 				sizeof(struct mtk_lpm_model));
-
 	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lpm_suspend_registry);
+
+int mtk_lpm_suspend_type_get(void)
+{
+	return (mtk_lpm_system.suspend.flag & MTK_LP_REQ_NOSYSCORE_CB)
+		? MTK_LPM_SUSPEND_S2IDLE : MTK_LPM_SUSPEND_SYSTEM;
+}
+EXPORT_SYMBOL(mtk_lpm_suspend_type_get);
 
 static struct wakeup_source *mtk_lpm_lock;
 

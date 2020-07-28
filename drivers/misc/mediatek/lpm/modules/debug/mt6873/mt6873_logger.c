@@ -14,7 +14,6 @@
 #include <linux/wakeup_reason.h>
 #include <linux/syscore_ops.h>
 
-//#include <aee.h>
 #include <mtk_lpm.h>
 
 #include <mt6873_spm_comm.h>
@@ -565,6 +564,7 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
 	if (type == MT_LPM_ISSUER_SUSPEND) {
+		pr_info("[name:spm&][SPM] %s", log_buf);
 		mt6873_suspend_show_detailed_wakeup_reason(wakesrc);
 		mt6873_suspend_spm_rsc_req_check(wakesrc);
 	} else
