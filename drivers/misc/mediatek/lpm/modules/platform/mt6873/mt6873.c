@@ -67,7 +67,7 @@ static int __init mt6873_device_initcall(void)
 static int __init mt6873_late_initcall(void)
 {
 	mtk_lp_plat_apmcu_init();
-	//mt6873_model_suspend_init();
+	mt6873_model_suspend_init();
 	return 0;
 }
 #ifndef MTK_LPM_MODE_MODULE
