@@ -6,7 +6,7 @@
 # Direct Rendering Infrastructure (DRI) in XFree86 4.1.0 and higher.
 #
 menuconfig DRM
-	tristate "Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)"
+	bool "Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)"
 	depends on (AGP || AGP=n) && !EMULATED_CMPXCHG && HAS_DMA
 	select DRM_PANEL_ORIENTATION_QUIRKS
 	select HDMI
@@ -55,7 +55,7 @@ config DRM_DEBUG_MM
 	  If in doubt, say "N".
 
 config DRM_DEBUG_SELFTEST
-	tristate "kselftests for DRM"
+	bool "kselftests for DRM"
 	depends on DRM
 	depends on DEBUG_KERNEL
 	select PRIME_NUMBERS

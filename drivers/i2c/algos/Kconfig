@@ -7,7 +7,7 @@ menu "I2C Algorithms"
 	visible if !I2C_HELPER_AUTO
 
 config I2C_ALGOBIT
-	tristate "I2C bit-banging interfaces"
+	bool "I2C bit-banging interfaces"
 
 config I2C_ALGOPCF
 	tristate "I2C PCF 8584 interfaces"

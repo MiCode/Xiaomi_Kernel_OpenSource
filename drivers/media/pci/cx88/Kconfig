@@ -31,7 +31,7 @@ config VIDEO_CX88_ALSA
 	  module will be called cx88-alsa.
 
 config VIDEO_CX88_BLACKBIRD
-	tristate "Blackbird MPEG encoder support (cx2388x + cx23416)"
+	bool "Blackbird MPEG encoder support (cx2388x + cx23416)"
 	depends on VIDEO_CX88
 	select VIDEO_CX2341X
 	help
@@ -43,7 +43,7 @@ config VIDEO_CX88_BLACKBIRD
 	  module will be called cx88-blackbird.
 
 config VIDEO_CX88_DVB
-	tristate "DVB/ATSC Support for cx2388x based TV cards"
+	bool "DVB/ATSC Support for cx2388x based TV cards"
 	depends on VIDEO_CX88 && DVB_CORE
 	select VIDEOBUF2_DVB
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT

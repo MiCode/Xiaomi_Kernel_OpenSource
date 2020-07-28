@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config DVB_USB_V2
-	tristate "Support for various USB DVB devices v2"
+	bool "Support for various USB DVB devices v2"
 	depends on DVB_CORE && USB && I2C && (RC_CORE || RC_CORE=n)
 	help
 	  By enabling this you will be able to choose the various supported
@@ -15,7 +15,7 @@ config DVB_USB_V2
 	  Say Y if you own a USB DVB device.
 
 config DVB_USB_AF9015
-	tristate "Afatech AF9015 DVB-T USB2.0 support"
+	bool "Afatech AF9015 DVB-T USB2.0 support"
 	depends on DVB_USB_V2 && I2C_MUX
 	select REGMAP
 	select DVB_AF9013
@@ -31,7 +31,7 @@ config DVB_USB_AF9015
 	  Say Y here to support the Afatech AF9015 based DVB-T USB2.0 receiver
 
 config DVB_USB_AF9035
-	tristate "Afatech AF9035 DVB-T USB2.0 support"
+	bool "Afatech AF9035 DVB-T USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_AF9033
 	select MEDIA_TUNER_TUA9001 if MEDIA_SUBDRV_AUTOSELECT
@@ -44,7 +44,7 @@ config DVB_USB_AF9035
 	  Say Y here to support the Afatech AF9035 based DVB USB receiver.
 
 config DVB_USB_ANYSEE
-	tristate "Anysee DVB-T/C USB2.0 support"
+	bool "Anysee DVB-T/C USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_MT352 if MEDIA_SUBDRV_AUTOSELECT
@@ -61,7 +61,7 @@ config DVB_USB_ANYSEE
 	  Anysee E30 C Plus DVB USB2.0 receiver.
 
 config DVB_USB_AU6610
-	tristate "Alcor Micro AU6610 USB2.0 support"
+	bool "Alcor Micro AU6610 USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_ZL10353 if MEDIA_SUBDRV_AUTOSELECT
 	select MEDIA_TUNER_QT1010 if MEDIA_SUBDRV_AUTOSELECT
@@ -69,7 +69,7 @@ config DVB_USB_AU6610
 	  Say Y here to support the Sigmatek DVB-110 DVB-T USB2.0 receiver.
 
 config DVB_USB_AZ6007
-	tristate "AzureWave 6007 and clones DVB-T/C USB2.0 support"
+	bool "AzureWave 6007 and clones DVB-T/C USB2.0 support"
 	depends on DVB_USB_V2
 	select CYPRESS_FIRMWARE
 	select DVB_DRXK if MEDIA_SUBDRV_AUTOSELECT
@@ -78,7 +78,7 @@ config DVB_USB_AZ6007
 	  Say Y here to support the AZ6007 receivers like Terratec H7.
 
 config DVB_USB_CE6230
-	tristate "Intel CE6230 DVB-T USB2.0 support"
+	bool "Intel CE6230 DVB-T USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_ZL10353
 	select MEDIA_TUNER_MXL5005S if MEDIA_SUBDRV_AUTOSELECT
@@ -86,7 +86,7 @@ config DVB_USB_CE6230
 	  Say Y here to support the Intel CE6230 DVB-T USB2.0 receiver
 
 config DVB_USB_EC168
-	tristate "E3C EC168 DVB-T USB2.0 support"
+	bool "E3C EC168 DVB-T USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_EC100
 	select MEDIA_TUNER_MXL5005S if MEDIA_SUBDRV_AUTOSELECT
@@ -94,7 +94,7 @@ config DVB_USB_EC168
 	  Say Y here to support the E3C EC168 DVB-T USB2.0 receiver.
 
 config DVB_USB_GL861
-	tristate "Genesys Logic GL861 USB2.0 support"
+	bool "Genesys Logic GL861 USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_ZL10353 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_TC90522 if MEDIA_SUBDRV_AUTOSELECT
@@ -106,7 +106,7 @@ config DVB_USB_GL861
 	  with USB ID 0x7a69:0001.
 
 config DVB_USB_LME2510
-	tristate "LME DM04/QQBOX DVB-S USB2.0 support"
+	bool "LME DM04/QQBOX DVB-S USB2.0 support"
 	depends on DVB_USB_V2
 	depends on RC_CORE
 	select DVB_TDA10086 if MEDIA_SUBDRV_AUTOSELECT
@@ -121,7 +121,7 @@ config DVB_USB_LME2510
 	  Say Y here to support the LME DM04/QQBOX DVB-S USB2.0
 
 config DVB_USB_MXL111SF
-	tristate "MxL111SF DTV USB2.0 support"
+	bool "MxL111SF DTV USB2.0 support"
 	depends on DVB_USB_V2
 	select DVB_LGDT3305 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_LG2160 if MEDIA_SUBDRV_AUTOSELECT
@@ -130,7 +130,7 @@ config DVB_USB_MXL111SF
 	  Say Y here to support the MxL111SF USB2.0 DTV receiver.
 
 config DVB_USB_RTL28XXU
-	tristate "Realtek RTL28xxU DVB USB support"
+	bool "Realtek RTL28xxU DVB USB support"
 	depends on DVB_USB_V2 && I2C_MUX
 	select DVB_MN88472 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_MN88473 if MEDIA_SUBDRV_AUTOSELECT

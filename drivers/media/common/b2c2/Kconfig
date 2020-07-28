@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config DVB_B2C2_FLEXCOP
-	tristate
+	bool
 	depends on DVB_CORE && I2C
 	depends on DVB_B2C2_FLEXCOP_PCI || DVB_B2C2_FLEXCOP_USB
 	default y
