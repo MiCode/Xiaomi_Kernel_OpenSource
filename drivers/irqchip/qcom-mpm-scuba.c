@@ -6,7 +6,7 @@
 #include <soc/qcom/mpm.h>
 
 const struct mpm_pin mpm_scuba_gic_chip_data[] = {
-	{2, 222},
+	{2, 307}, /*tsens0_tsens_upper_lower_int */
 	{5, 328}, /* lpass_irq_out_sdc */
 	{12, 454}, /* b3_lfps_rxterm_irq */
 	{24, 111}, /* bi_px_lpi_1_aoss_mx */
