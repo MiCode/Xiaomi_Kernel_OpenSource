@@ -942,6 +942,12 @@ struct mdss_panel_info {
 	/* stores initial adaptive variable refresh vtotal value */
 	u32 saved_avr_vtotal;
 
+	/*
+	 * Skip panel reset during panel on/off.
+	 * Set for some in-cell panels
+	 */
+	bool skip_panel_reset;
+
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
 

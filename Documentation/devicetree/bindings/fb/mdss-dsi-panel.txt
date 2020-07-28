@@ -510,6 +510,7 @@ the fps window.
 					in floating state(not LP00 or LP11) to turn on this property. Software
 					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
 					idle screen (footswitch control off) when this property is enabled.
+- qcom,skip-panel-reset:		Boolean. when set, will skip panel reset during panel ON/OFF.
 [[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
 					Default configuration can be chosen by specifying phandle of the
 					selected subnode in the qcom,config-select.
