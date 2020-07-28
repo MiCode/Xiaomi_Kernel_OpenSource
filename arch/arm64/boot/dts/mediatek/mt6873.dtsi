@@ -232,7 +232,8 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l
+						&mcusysoff &s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -244,7 +245,8 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l
+						&mcusysoff &s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -256,7 +258,8 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l
+						&mcusysoff &s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -268,7 +271,8 @@
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
 			dynamic-power-coefficient = <365>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l
+						&mcusysoff &s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -280,7 +284,8 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l
+						&mcusysoff &s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -292,7 +297,8 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l
+						&mcusysoff &s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -304,7 +310,8 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b
+						&mcusysoff &s2idle>;
 		};
 
 		cpu7: cpu@103 {
@@ -316,7 +323,8 @@
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b
+						&mcusysoff &s2idle>;
 		};
 
 		cpu-map {
@@ -392,6 +400,14 @@
 				entry-latency-us = <300>;
 				exit-latency-us = <1200>;
 				min-residency-us = <2600>;
+			};
+			s2idle: s2idle {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010100>;
+				local-timer-stop;
+				entry-latency-us = <500>;
+				exit-latency-us = <1400>;
+				min-residency-us = <4294967295>;
 			};
 		};
 	};
@@ -3905,7 +3921,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		suspend-method = "disabled";
+		suspend-method = "s2idle";
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 				<&level_mali0 &level_mali1>,
 				<&level_mali2 &level_mali3 &level_mali4>,
