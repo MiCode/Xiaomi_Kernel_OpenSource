@@ -602,14 +602,14 @@ static int redriver_i2c_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	ssusb_redriver_orientation_gpio_init(redriver);
+
 	redriver->panic_nb.notifier_call = ssusb_redriver_panic_notifier;
 	atomic_notifier_chain_register(&panic_notifier_list,
 			&redriver->panic_nb);
 
 	redriver->ucsi_nb.notifier_call = ssusb_redriver_ucsi_notifier;
 	register_ucsi_glink_notifier(&redriver->ucsi_nb);
-
-	ssusb_redriver_orientation_gpio_init(redriver);
 
 	ssusb_redriver_debugfs_entries(redriver);
 
