@@ -1464,7 +1464,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a702 = {
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_size = SZ_128K,
 		.busy_mask = 0xfffffffe,
-		.bus_width = 32,
+		.bus_width = 16,
 	},
 	.prim_fifo_threshold = 0x0000c000,
 	.sqefw_name = "a702_sqe.fw",

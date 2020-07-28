@@ -32,6 +32,9 @@
 #define SCHGM_TORCH_PRIORITY_CONTROL_REG	(SCHGM_FLASH_BASE + 0x63)
 #define TORCH_PRIORITY_CONTROL_BIT		BIT(0)
 
+#define SCHG_L_FLASH_FLASH_FAULT_CFG		(SCHGM_FLASH_BASE + 0x64)
+#define CFG_FLASH_USB_COLLAPSE_BIT		BIT(7)
+
 #define SCHGM_SOC_BASED_FLASH_DERATE_TH_CFG_REG	(SCHGM_FLASH_BASE + 0x67)
 
 #define SCHGM_SOC_BASED_FLASH_DISABLE_TH_CFG_REG \
@@ -45,6 +48,8 @@ enum torch_mode {
 int schgm_flashlite_get_vreg_ok(struct smb_charger *chg, int *val);
 void schgm_flashlite_torch_priority(struct smb_charger *chg,
 					enum torch_mode mode);
+int schgm_flashlite_config_usbin_collapse(struct smb_charger *chg,
+						bool enable);
 int schgm_flashlite_init(struct smb_charger *chg);
 bool is_flashlite_active(struct smb_charger *chg);
 

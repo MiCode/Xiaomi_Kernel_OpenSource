@@ -129,19 +129,10 @@ static int cqhci_crypto_qti_derive_raw_secret(struct keyslot_manager *ksm,
 {
 	int err = 0;
 
-	if (wrapped_key_size <= RAW_SECRET_SIZE) {
-		pr_err("%s: Invalid wrapped_key_size: %u\n", __func__,
-			wrapped_key_size);
-		err = -EINVAL;
-		return err;
-	}
-	if (secret_size != RAW_SECRET_SIZE) {
-		pr_err("%s: Invalid secret size: %u\n", __func__, secret_size);
-		err = -EINVAL;
-		return err;
-	}
-	memcpy(secret, wrapped_key, secret_size);
-	return 0;
+	err = crypto_qti_derive_raw_secret(wrapped_key, wrapped_key_size,
+					   secret, secret_size);
+
+	return err;
 }
 
 static const struct keyslot_mgmt_ll_ops cqhci_crypto_qti_ksm_ops = {
@@ -221,9 +212,10 @@ int cqhci_host_init_crypto_qti_spec(struct cqhci_host *host,
 	}
 
 	host->ksm = keyslot_manager_create(host->mmc->parent,
-					   cqhci_num_keyslots(host),
-					   ksm_ops, crypto_modes_supported,
-					   host);
+					   cqhci_num_keyslots(host), ksm_ops,
+					   BLK_CRYPTO_FEATURE_STANDARD_KEYS |
+					   BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
+					   crypto_modes_supported, host);
 
 	if (!host->ksm) {
 		err = -ENOMEM;

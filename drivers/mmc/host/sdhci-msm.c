@@ -1304,7 +1304,7 @@ static ssize_t store_mask_and_match(struct device *dev,
 	unsigned long value;
 	char *token;
 	int i = 0;
-	u32 mask, match, bit_shift, testbus;
+	u32 mask = 0, match = 0, bit_shift = 0, testbus = 0;
 
 	char *temp = (char *)buf;
 

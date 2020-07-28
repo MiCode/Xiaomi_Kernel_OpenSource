@@ -54,7 +54,9 @@ struct icnss_driver_ops {
 	int (*uevent)(struct device *dev, struct icnss_uevent_data *uevent);
 	int (*idle_shutdown)(struct device *dev);
 	int (*idle_restart)(struct device *dev);
-	int (*set_therm_state)(struct device *dev, unsigned long thermal_state);
+	int (*set_therm_cdev_state)(struct device *dev,
+				    unsigned long thermal_state,
+				    int tcdev_id);
 };
 
 
@@ -181,8 +183,11 @@ extern int icnss_qmi_send(struct device *dev, int type, void *cmd,
 extern int icnss_force_wake_request(struct device *dev);
 extern int icnss_force_wake_release(struct device *dev);
 extern int icnss_is_device_awake(struct device *dev);
-extern int icnss_thermal_register(struct device *dev, unsigned long max_state);
-extern void icnss_thermal_unregister(struct device *dev);
-extern int icnss_get_curr_therm_state(struct device *dev,
-				      unsigned long *thermal_state);
+extern int icnss_thermal_cdev_register(struct device *dev,
+					unsigned long max_state,
+					int tcdev_id);
+extern void icnss_thermal_cdev_unregister(struct device *dev, int tcdev_id);
+extern int icnss_get_curr_therm_cdev_state(struct device *dev,
+					    unsigned long *thermal_state,
+					    int tcdev_id);
 #endif /* _ICNSS_WLAN_H_ */

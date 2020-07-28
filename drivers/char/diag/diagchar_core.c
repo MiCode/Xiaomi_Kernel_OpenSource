@@ -1793,6 +1793,7 @@ static int diag_switch_logging_proc(struct diag_logging_mode_param_t *param,
 	uint8_t do_switch = 1;
 
 	for (proc = 0; proc < NUM_DIAG_MD_DEV; proc++) {
+		driver->proc_hdlc_disabled[proc] = 0;
 		local_proc = 1 << proc;
 		if (param->device_mask & (local_proc)) {
 			curr_mode = driver->logging_mode[proc];

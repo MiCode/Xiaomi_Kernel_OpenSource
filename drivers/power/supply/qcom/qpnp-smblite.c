@@ -585,7 +585,7 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 {
 	struct smblite *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
-	int rc = 0;
+	int rc = 0, icl_ua;
 	union power_supply_propval pval = {0, };
 
 	switch (psp) {
@@ -612,7 +612,23 @@ static int smblite_usb_main_set_prop(struct power_supply *psy,
 				/* vote 100ma when usb is not present*/
 				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
 							true, USBIN_100UA);
+			} else if (chg->flash_active) {
+				icl_ua = get_effective_result_locked(
+						chg->usb_icl_votable);
+				if (icl_ua >= USBIN_400UA) {
+					vote(chg->usb_icl_votable,
+						FLASH_ACTIVE_VOTER,
+						true, icl_ua - USBIN_300UA);
+				}
+			} else {
+				vote(chg->usb_icl_votable, FLASH_ACTIVE_VOTER,
+							false, 0);
 			}
+			pr_debug("flash_active=%d usb_present=%d icl=%d\n",
+				chg->flash_active, pval.intval,
+				get_effective_result_locked(
+				chg->usb_icl_votable));
+
 		}
 		break;
 	default:
@@ -1326,9 +1342,11 @@ static int smblite_init_hw(struct smblite *chip)
 	}
 
 	/* enable WD BARK and enable it on plugin */
-	val = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT
+	mask = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT
 		| BITE_WDOG_DISABLE_CHARGING_CFG_BIT | WDOG_TIMER_EN_BIT;
-	rc = smblite_lib_masked_write(chg, WD_CFG_REG, val, val);
+	val = WDOG_TIMER_EN_ON_PLUGIN_BIT | BARK_WDOG_INT_EN_BIT
+		| BITE_WDOG_DISABLE_CHARGING_CFG_BIT;
+	rc = smblite_lib_masked_write(chg, WD_CFG_REG, mask, val);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
 		return rc;

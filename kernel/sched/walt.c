@@ -424,22 +424,27 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock)
 {
 	struct rq *rq = cpu_rq(cpu);
-	unsigned long flags, nr_windows;
+	unsigned long nr_windows;
 	u64 cur_jiffies_ts;
 
-	raw_spin_lock_irqsave(&rq->lock, flags);
-
 	/*
-	 * cputime (wallclock) uses sched_clock so use the same here for
-	 * consistency.
+	 * We called with interrupts disabled. Take the rq lock only
+	 * if we are in idle context in which case update_task_ravg()
+	 * call is needed.
 	 */
-	delta += sched_clock() - wallclock;
-	cur_jiffies_ts = get_jiffies_64();
-
-	if (is_idle_task(curr))
+	if (is_idle_task(curr)) {
+		raw_spin_lock(&rq->lock);
+		/*
+		 * cputime (wallclock) uses sched_clock so use the same here
+		 * for consistency.
+		 */
+		delta += sched_clock() - wallclock;
 		update_task_ravg(curr, rq, IRQ_UPDATE, sched_ktime_clock(),
 				 delta);
+		raw_spin_unlock(&rq->lock);
+	}
 
+	cur_jiffies_ts = get_jiffies_64();
 	nr_windows = cur_jiffies_ts - rq->irqload_ts;
 
 	if (nr_windows) {
@@ -457,7 +462,6 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 
 	rq->cur_irqload += delta;
 	rq->irqload_ts = cur_jiffies_ts;
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
 }
 
 /*
@@ -2648,7 +2652,6 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
  * Enable colocation and frequency aggregation for all threads in a process.
  * The children inherits the group id from the parent.
  */
-unsigned int __read_mostly sysctl_sched_enable_thread_grouping;
 unsigned int __read_mostly sysctl_sched_coloc_downmigrate_ns;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
@@ -2920,34 +2923,25 @@ void add_new_task_to_grp(struct task_struct *new)
 {
 	unsigned long flags;
 	struct related_thread_group *grp;
-	struct task_struct *leader = new->group_leader;
-	unsigned int leader_grp_id = sched_get_group_id(leader);
 
-	if (!sysctl_sched_enable_thread_grouping &&
-	    leader_grp_id != DEFAULT_CGROUP_COLOC_ID)
+	/*
+	 * If the task does not belong to colocated schedtune
+	 * cgroup, nothing to do. We are checking this without
+	 * lock. Even if there is a race, it will be added
+	 * to the co-located cgroup via cgroup attach.
+	 */
+	if (!schedtune_task_colocated(new))
 		return;
 
-	if (thread_group_leader(new))
-		return;
-
-	if (leader_grp_id == DEFAULT_CGROUP_COLOC_ID) {
-		if (!same_schedtune(new, leader))
-			return;
-	}
-
+	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
 	write_lock_irqsave(&related_thread_group_lock, flags);
-
-	rcu_read_lock();
-	grp = task_related_thread_group(leader);
-	rcu_read_unlock();
 
 	/*
 	 * It's possible that someone already added the new task to the
-	 * group. A leader's thread group is updated prior to calling
-	 * this function. It's also possible that the leader has exited
-	 * the group. In either case, there is nothing else to do.
+	 * group. or it might have taken out from the colocated schedtune
+	 * cgroup. check these conditions under lock.
 	 */
-	if (!grp || new->grp) {
+	if (!schedtune_task_colocated(new) || new->grp) {
 		write_unlock_irqrestore(&related_thread_group_lock, flags);
 		return;
 	}

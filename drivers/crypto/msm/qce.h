@@ -26,6 +26,10 @@
 
 #define AES_CE_BLOCK_SIZE		16
 
+/* SHA1/256 supports 2 AUTH_BYTECNT REGISTER */
+/* SHA384/512 supports 4 AUTH_BYTECNT REGISTER */
+#define	AUTH_BYTECNT_REG_NUMBER		4
+
 /* key size in bytes */
 #define HMAC_KEY_SIZE			(SHA1_DIGESTSIZE)    /* hmac-sha1 */
 #define SHA_HMAC_KEY_SIZE		64
@@ -71,6 +75,10 @@ enum qce_hash_alg_enum {
 	QCE_HASH_SHA1_HMAC   = 2,
 	QCE_HASH_SHA256_HMAC = 3,
 	QCE_HASH_AES_CMAC = 4,
+	QCE_HASH_SHA384 = 5,
+	QCE_HASH_SHA512 = 6,
+	QCE_HASH_SHA384_HMAC = 7,
+	QCE_HASH_SHA512_HMAC = 8,
 	QCE_HASH_LAST
 };
 

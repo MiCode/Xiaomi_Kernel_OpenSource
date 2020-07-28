@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _NPU_FIRMWARE_H
@@ -68,8 +68,8 @@
 #define HOST_CTRL_STATUS_IPC_ADDRESS_READY_BIT      0
 /* Host has enabled logging during boot */
 #define HOST_CTRL_STATUS_BOOT_ENABLE_LOGGING_BIT    1
-/* Host has enabled the clk gating of CAL during boot */
-#define HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT   2
+/* Host has disabled the clk gating of CAL during boot */
+#define HOST_CTRL_STATUS_BOOT_DISABLE_CLK_GATE_BIT   2
 /* Host requests to pause fw during boot up */
 #define HOST_CTRL_STATUS_FW_PAUSE                   3
 /* Host requests to disable watchdog */
@@ -80,8 +80,8 @@
 		(1 << HOST_CTRL_STATUS_IPC_ADDRESS_READY_BIT)
 #define HOST_CTRL_STATUS_BOOT_ENABLE_LOGGING_VAL \
 		(1 << HOST_CTRL_STATUS_BOOT_ENABLE_LOGGING_BIT)
-#define HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_VAL \
-		(1 << HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_BIT)
+#define HOST_CTRL_STATUS_BOOT_DISABLE_CLK_GATE_VAL \
+		(1 << HOST_CTRL_STATUS_BOOT_DISABLE_CLK_GATE_BIT)
 #define HOST_CTRL_STATUS_FW_PAUSE_VAL \
 		(1 << HOST_CTRL_STATUS_FW_PAUSE)
 #define HOST_CTRL_STATUS_DISABLE_WDOG_VAL \

@@ -657,7 +657,7 @@ static int binderfs_fill_super(struct super_block *sb, void *data, int silent)
 	int ret;
 	struct binderfs_info *info;
 	struct inode *inode = NULL;
-	struct binderfs_device device_info = { 0 };
+	struct binderfs_device device_info = { { 0 } };
 	const char *name;
 	size_t len;
 

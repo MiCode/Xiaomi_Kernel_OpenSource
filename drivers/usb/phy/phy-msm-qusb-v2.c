@@ -54,6 +54,10 @@
 #define QUSB2PHY_3P3_VOL_MAX		3200000 /* uV */
 #define QUSB2PHY_3P3_HPM_LOAD		30000	/* uA */
 
+#define QUSB2PHY_REFGEN_VOL_MIN		1200000 /* uV */
+#define QUSB2PHY_REFGEN_VOL_MAX		1200000 /* uV */
+#define QUSB2PHY_REFGEN_HPM_LOAD	30000	/* uA */
+
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
 
@@ -106,6 +110,7 @@ struct qusb_phy {
 	struct regulator	*vdd;
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
+	struct regulator	*refgen;
 	int			vdd_levels[3]; /* none, low, high */
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
@@ -192,6 +197,24 @@ static int qusb_phy_disable_power(struct qusb_phy *qphy)
 
 	dev_dbg(qphy->phy.dev, "%s:req to turn off regulators\n",
 			__func__);
+
+	ret = regulator_disable(qphy->refgen);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable to disable refgen:%d\n", ret);
+
+	if (!regulator_is_enabled(qphy->refgen)) {
+		ret = regulator_set_voltage(qphy->refgen, 0,
+					QUSB2PHY_REFGEN_VOL_MAX);
+		if (ret)
+			dev_err(qphy->phy.dev,
+				"Unable to set (0) voltage for refgen:%d\n",
+					ret);
+
+		ret = regulator_set_load(qphy->refgen, 0);
+		if (ret < 0)
+			dev_err(qphy->phy.dev,
+					"Unable to set (0) HPM of refgen\n");
+	}
 
 	ret = regulator_disable(qphy->vdda33);
 	if (ret)
@@ -309,11 +332,46 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy)
 		goto unset_vdd33;
 	}
 
+	ret = regulator_set_load(qphy->refgen, QUSB2PHY_REFGEN_HPM_LOAD);
+	if (ret < 0) {
+		dev_err(qphy->phy.dev, "Unable to set HPM of refgen:%d\n", ret);
+		goto disable_vdd33;
+	}
+
+	ret = regulator_set_voltage(qphy->refgen, QUSB2PHY_REFGEN_VOL_MIN,
+						QUSB2PHY_REFGEN_VOL_MAX);
+	if (ret) {
+		dev_err(qphy->phy.dev,
+				"Unable to set voltage for refgen:%d\n", ret);
+		goto put_refgen_lpm;
+	}
+
+	ret = regulator_enable(qphy->refgen);
+	if (ret) {
+		dev_err(qphy->phy.dev, "Unable to enable refgen\n");
+		goto unset_refgen;
+	}
 	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 
 	mutex_unlock(&qphy->lock);
 
 	return ret;
+
+unset_refgen:
+	ret = regulator_set_voltage(qphy->refgen, 0, QUSB2PHY_REFGEN_VOL_MAX);
+	if (ret)
+		dev_err(qphy->phy.dev,
+			"Unable to set (0) voltage for refgen:%d\n", ret);
+
+put_refgen_lpm:
+	ret = regulator_set_load(qphy->refgen, 0);
+	if (ret < 0)
+		dev_err(qphy->phy.dev, "Unable to set (0) HPM of refgen\n");
+
+disable_vdd33:
+	ret = regulator_disable(qphy->vdda33);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable to disable vdda33:%d\n", ret);
 
 unset_vdd33:
 	ret = regulator_set_voltage(qphy->vdda33, 0, QUSB2PHY_3P3_VOL_MAX);
@@ -963,6 +1021,37 @@ create_err:
 	return ret;
 }
 
+static int qusb2_get_regulators(struct qusb_phy *qphy)
+{
+	struct device *dev = qphy->phy.dev;
+
+	qphy->vdd = devm_regulator_get(dev, "vdd");
+	if (IS_ERR(qphy->vdd)) {
+		dev_err(dev, "unable to get vdd supply\n");
+		return PTR_ERR(qphy->vdd);
+	}
+
+	qphy->vdda33 = devm_regulator_get(dev, "vdda33");
+	if (IS_ERR(qphy->vdda33)) {
+		dev_err(dev, "unable to get vdda33 supply\n");
+		return PTR_ERR(qphy->vdda33);
+	}
+
+	qphy->vdda18 = devm_regulator_get(dev, "vdda18");
+	if (IS_ERR(qphy->vdda18)) {
+		dev_err(dev, "unable to get vdda18 supply\n");
+		return PTR_ERR(qphy->vdda18);
+	}
+
+	qphy->refgen = devm_regulator_get(dev, "refgen");
+	if (IS_ERR(qphy->refgen)) {
+		dev_err(dev, "unable to get refgen supply\n");
+		return PTR_ERR(qphy->refgen);
+	}
+
+	return 0;
+}
+
 static int qusb_phy_probe(struct platform_device *pdev)
 {
 	struct qusb_phy *qphy;
@@ -1216,23 +1305,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	qphy->vdd = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(qphy->vdd)) {
-		dev_err(dev, "unable to get vdd supply\n");
-		return PTR_ERR(qphy->vdd);
-	}
-
-	qphy->vdda33 = devm_regulator_get(dev, "vdda33");
-	if (IS_ERR(qphy->vdda33)) {
-		dev_err(dev, "unable to get vdda33 supply\n");
-		return PTR_ERR(qphy->vdda33);
-	}
-
-	qphy->vdda18 = devm_regulator_get(dev, "vdda18");
-	if (IS_ERR(qphy->vdda18)) {
-		dev_err(dev, "unable to get vdda18 supply\n");
-		return PTR_ERR(qphy->vdda18);
-	}
+	ret = qusb2_get_regulators(qphy);
+	if (ret)
+		return ret;
 
 	mutex_init(&qphy->lock);
 	platform_set_drvdata(pdev, qphy);

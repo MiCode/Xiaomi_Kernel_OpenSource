@@ -877,6 +877,7 @@ struct task_struct {
 	u64 cpu_cycles;
 	bool misfit;
 	u32 unfilter;
+	bool low_latency;
 #endif
 
 #ifdef CONFIG_CGROUP_SCHED

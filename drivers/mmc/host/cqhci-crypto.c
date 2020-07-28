@@ -335,8 +335,10 @@ int cqhci_host_init_crypto_spec(struct cqhci_host *host,
 	cqhci_crypto_clear_all_keyslots(host);
 
 	host->ksm = keyslot_manager_create(host->mmc->parent,
-					   cqhci_num_keyslots(host),
-					   ksm_ops, crypto_modes_supported,
+					   cqhci_num_keyslots(host), ksm_ops,
+					   BLK_CRYPTO_FEATURE_STANDARD_KEYS |
+                                           BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
+					   crypto_modes_supported,
 					   host);
 
 	if (!host->ksm) {

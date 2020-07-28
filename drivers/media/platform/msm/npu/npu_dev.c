@@ -1922,7 +1922,7 @@ int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 static int npu_adjust_max_power_level(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
-	uint32_t fmax_reg_value, fmax, fmax_pwrlvl;
+	uint32_t fmax_reg_value, fmax, fmax_pwrlvl = pwr->max_pwrlevel;
 	struct npu_pwrlevel *level;
 	int i, j;
 

@@ -10,6 +10,7 @@
 #include <linux/iio/consumer.h>
 #include <asm/dma-iommu.h>
 #include <linux/kobject.h>
+#include <linux/power_supply.h>
 
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
@@ -181,6 +182,11 @@ struct icnss_clk_info {
 	const char *name;
 	u32 freq;
 	bool required;
+};
+
+struct icnss_battery_level {
+	int lower_battery_threshold;
+	int ldo_voltage;
 };
 
 struct icnss_stats {
@@ -373,6 +379,12 @@ struct icnss_priv {
 	uint16_t hang_event_data_len;
 	void *hang_event_data;
 	bool is_hyp_enabled;
+	bool psf_supported;
+	struct notifier_block psf_nb;
+	struct power_supply *batt_psy;
+	int last_updated_voltage;
+	struct work_struct soc_update_work;
+	struct workqueue_struct *soc_update_wq;
 };
 
 struct icnss_reg_info {

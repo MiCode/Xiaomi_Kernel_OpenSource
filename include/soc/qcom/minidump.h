@@ -27,14 +27,23 @@ struct md_region {
 	u64	size;
 };
 
-/* Register an entry in Minidump table
- * Returns:
- *	Zero: on successful addition
- *	Negetive error number on failures
- */
 #ifdef CONFIG_QCOM_MINIDUMP
+/*
+ * Register an entry in Minidump table
+ * Returns:
+ *	region number: entry position in minidump table.
+ *	Negetive error number on failures.
+ */
 extern int msm_minidump_add_region(const struct md_region *entry);
 extern int msm_minidump_remove_region(const struct md_region *entry);
+/*
+ * Update registered region address in Minidump table.
+ * It does not hold any locks, so strictly serialize the region updates.
+ * Returns:
+ *	Zero: on successfully update
+ *	Negetive error number on failures.
+ */
+extern int msm_minidump_update_region(int regno, const struct md_region *entry);
 extern bool msm_minidump_enabled(void);
 extern void dump_stack_minidump(u64 sp);
 #else
@@ -49,5 +58,12 @@ static inline int msm_minidump_remove_region(const struct md_region *entry)
 }
 static inline bool msm_minidump_enabled(void) { return false; }
 static inline void dump_stack_minidump(u64 sp) {}
+#endif
+
+#ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
+/* Update current stack of this cpu in Minidump table. */
+extern void update_md_current_stack(void *data);
+#else
+static inline void update_md_current_stack(void *data) {}
 #endif
 #endif

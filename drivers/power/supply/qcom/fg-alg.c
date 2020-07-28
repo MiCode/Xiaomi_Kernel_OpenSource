@@ -1545,15 +1545,18 @@ int ttf_get_time_to_empty(struct ttf *ttf, int *val)
 		return 0;
 	}
 
+	mutex_lock(&ttf->lock);
 	rc = ttf_circ_buf_median(&ttf->ibatt, &ibatt_avg);
 	if (rc < 0) {
 		/* try to get instantaneous current */
 		rc = ttf->get_ttf_param(ttf->data, TTF_IBAT, &ibatt_avg);
 		if (rc < 0) {
 			pr_err("failed to get battery current, rc=%d\n", rc);
+			mutex_unlock(&ttf->lock);
 			return rc;
 		}
 	}
+	mutex_unlock(&ttf->lock);
 
 	ibatt_avg /= MILLI_UNIT;
 	/* clamp ibatt_avg to 100mA */

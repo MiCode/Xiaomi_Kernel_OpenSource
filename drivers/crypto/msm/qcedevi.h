@@ -41,7 +41,7 @@ struct	qcedev_sha_ctxt {
 	uint32_t	auth_data[4];
 	uint8_t	digest[QCEDEV_MAX_SHA_DIGEST];
 	uint32_t	diglen;
-	uint8_t	trailing_buf[64];
+	uint8_t	trailing_buf[QCEDEV_MAX_SHA_BLOCK_SIZE];
 	uint32_t	trailing_buf_len;
 	uint8_t	first_blk;
 	uint8_t	last_blk;

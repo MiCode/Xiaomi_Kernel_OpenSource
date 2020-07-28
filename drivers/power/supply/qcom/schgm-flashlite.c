@@ -157,6 +157,13 @@ void schgm_flashlite_torch_priority(struct smb_charger *chg,
 	pr_debug("Torch priority changed to: %d\n", mode);
 }
 
+int schgm_flashlite_config_usbin_collapse(struct smb_charger *chg, bool enable)
+{
+	return smblite_lib_masked_write(chg, SCHG_L_FLASH_FLASH_FAULT_CFG,
+				CFG_FLASH_USB_COLLAPSE_BIT, enable ?
+				CFG_FLASH_USB_COLLAPSE_BIT : 0);
+}
+
 int schgm_flashlite_init(struct smb_charger *chg)
 {
 	int rc;
