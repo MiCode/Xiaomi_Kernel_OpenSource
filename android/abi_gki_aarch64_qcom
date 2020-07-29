@@ -1819,6 +1819,7 @@
   refcount_inc_checked
   refcount_inc_not_zero_checked
   __refrigerator
+  regcache_cache_bypass
   regcache_cache_only
   regcache_mark_dirty
   regcache_sync
@@ -1851,6 +1852,7 @@
   regmap_irq_get_virq
   regmap_raw_read
   regmap_read
+  regmap_register_patch
   regmap_update_bits_base
   regmap_write
   regulator_bulk_disable
@@ -2331,6 +2333,7 @@
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
   thermal_zone_device_register
+  thermal_zone_device_unregister
   thermal_zone_device_update
   thermal_zone_get_temp
   thermal_zone_get_zone_by_name
