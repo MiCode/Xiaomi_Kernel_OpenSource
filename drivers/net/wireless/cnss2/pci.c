@@ -3041,7 +3041,7 @@ int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
 	if (test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
 		return -EAGAIN;
 
-	return mhi_device_get_sync_atomic(mhi_ctrl->mhi_dev, timeout_us);
+	return mhi_device_get_sync_atomic(mhi_ctrl->mhi_dev, timeout_us, false);
 }
 EXPORT_SYMBOL(cnss_pci_force_wake_request_sync);
 
