@@ -26,94 +26,44 @@ struct fscrypt_blk_crypto_key {
 	struct request_queue *devs[];
 };
 
-static int fscrypt_get_num_devices(struct super_block *sb)
-{
-	if (sb->s_cop->get_num_devices)
-		return sb->s_cop->get_num_devices(sb);
-	return 1;
-}
-
-static void fscrypt_get_devices(struct super_block *sb, int num_devs,
-				struct request_queue **devs)
-{
-	if (num_devs == 1)
-		devs[0] = bdev_get_queue(sb->s_bdev);
-	else
-		sb->s_cop->get_devices(sb, devs);
-}
-
 /* Enable inline encryption for this file if supported. */
-int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
-				   bool is_hw_wrapped_key)
+void fscrypt_select_encryption_impl(struct fscrypt_info *ci)
 {
 	const struct inode *inode = ci->ci_inode;
 	struct super_block *sb = inode->i_sb;
-	enum blk_crypto_mode_num crypto_mode = ci->ci_mode->blk_crypto_mode;
-	struct request_queue **devs;
-	int num_devs;
-	int i;
 
 	/* The file must need contents encryption, not filenames encryption */
 	if (!S_ISREG(inode->i_mode))
-		return 0;
+		return;
 
 	/* blk-crypto must implement the needed encryption algorithm */
-	if (crypto_mode == BLK_ENCRYPTION_MODE_INVALID)
-		return 0;
+	if (ci->ci_mode->blk_crypto_mode == BLK_ENCRYPTION_MODE_INVALID)
+		return;
 
 	/* The filesystem must be mounted with -o inlinecrypt */
 	if (!sb->s_cop->inline_crypt_enabled ||
 	    !sb->s_cop->inline_crypt_enabled(sb))
-		return 0;
-
-	/*
-	 * The needed encryption settings must be supported either by
-	 * blk-crypto-fallback, or by hardware on all the filesystem's devices.
-	 */
-
-	if (IS_ENABLED(CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK) &&
-	    !is_hw_wrapped_key) {
-		ci->ci_inlinecrypt = true;
-		return 0;
-	}
-
-	num_devs = fscrypt_get_num_devices(sb);
-	devs = kmalloc_array(num_devs, sizeof(*devs), GFP_NOFS);
-	if (!devs)
-		return -ENOMEM;
-
-	fscrypt_get_devices(sb, num_devs, devs);
-
-	for (i = 0; i < num_devs; i++) {
-		if (!keyslot_manager_crypto_mode_supported(devs[i]->ksm,
-							   crypto_mode,
-							   sb->s_blocksize,
-							   is_hw_wrapped_key))
-			goto out_free_devs;
-	}
+		return;
 
 	ci->ci_inlinecrypt = true;
-out_free_devs:
-	kfree(devs);
-	return 0;
 }
 
 int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
 				     const u8 *raw_key,
 				     unsigned int raw_key_size,
-				     bool is_hw_wrapped,
 				     const struct fscrypt_info *ci)
 {
 	const struct inode *inode = ci->ci_inode;
 	struct super_block *sb = inode->i_sb;
 	enum blk_crypto_mode_num crypto_mode = ci->ci_mode->blk_crypto_mode;
-	int num_devs;
+	int num_devs = 1;
 	int queue_refs = 0;
 	struct fscrypt_blk_crypto_key *blk_key;
 	int err;
 	int i;
 
-	num_devs = fscrypt_get_num_devices(sb);
+	if (sb->s_cop->get_num_devices)
+		num_devs = sb->s_cop->get_num_devices(sb);
 	if (WARN_ON(num_devs < 1))
 		return -EINVAL;
 
@@ -122,13 +72,16 @@ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
 		return -ENOMEM;
 
 	blk_key->num_devs = num_devs;
-	fscrypt_get_devices(sb, num_devs, blk_key->devs);
+	if (num_devs == 1)
+		blk_key->devs[0] = bdev_get_queue(sb->s_bdev);
+	else
+		sb->s_cop->get_devices(sb, blk_key->devs);
 
 	BUILD_BUG_ON(FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE >
 		     BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE);
 
 	err = blk_crypto_init_key(&blk_key->base, raw_key, raw_key_size,
-				  is_hw_wrapped, crypto_mode, sb->s_blocksize);
+				  crypto_mode, sb->s_blocksize);
 	if (err) {
 		fscrypt_err(inode, "error %d initializing blk-crypto key", err);
 		goto fail;
@@ -150,7 +103,6 @@ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
 		queue_refs++;
 
 		err = blk_crypto_start_using_mode(crypto_mode, sb->s_blocksize,
-						  is_hw_wrapped,
 						  blk_key->devs[i]);
 		if (err) {
 			fscrypt_err(inode,

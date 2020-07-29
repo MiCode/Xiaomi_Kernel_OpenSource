@@ -11,7 +11,6 @@
 #include <linux/security.h>
 #include <linux/cdev.h>
 #include <linux/bootmem.h>
-#include <linux/fscrypt.h>
 #include <linux/fsnotify.h>
 #include <linux/mount.h>
 #include <linux/posix_acl.h>
@@ -2167,7 +2166,7 @@ int vfs_ioc_setflags_prepare(struct inode *inode, unsigned int oldflags,
 	    !capable(CAP_LINUX_IMMUTABLE))
 		return -EPERM;
 
-	return fscrypt_prepare_setflags(inode, oldflags, flags);
+	return 0;
 }
 EXPORT_SYMBOL(vfs_ioc_setflags_prepare);
 
