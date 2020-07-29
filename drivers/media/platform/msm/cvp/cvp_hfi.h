@@ -9,6 +9,7 @@
 #include <media/msm_media_info.h>
 #include "cvp_hfi_helper.h"
 #include "cvp_hfi_api.h"
+#include "cvp_comm_def.h"
 
 #define HFI_CMD_SESSION_CVP_START	\
 	(HFI_DOMAIN_BASE_CVP + HFI_ARCH_COMMON_OFFSET +	\
@@ -199,7 +200,11 @@ struct cvp_hal_session {
 };
 
 struct msm_cvp_fw {
+#ifdef CVP_MDT_ENABLED
+	int cookie;
+#else
 	void *cookie;
+#endif
 };
 
 int cvp_hfi_process_msg_packet(u32 device_id,
