@@ -459,7 +459,7 @@ config USB_CONFIGFS_F_UAC1_LEGACY
 	  to be present on the device.
 
 config USB_CONFIGFS_F_UAC2
-	bool "Audio Class 2.0"
+	tristate "Audio Class 2.0"
 	depends on USB_CONFIGFS
 	depends on SND
 	select USB_LIBCOMPOSITE
