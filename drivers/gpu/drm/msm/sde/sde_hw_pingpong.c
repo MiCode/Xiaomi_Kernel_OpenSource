@@ -183,7 +183,6 @@ static int sde_hw_pp_setup_te_config(struct sde_hw_pingpong *pp,
 	SDE_REG_WRITE(c, PP_SYNC_CONFIG_HEIGHT, te->sync_cfg_height);
 	SDE_REG_WRITE(c, PP_VSYNC_INIT_VAL, te->vsync_init_val);
 	SDE_REG_WRITE(c, PP_RD_PTR_IRQ, te->rd_ptr_irq);
-	SDE_REG_WRITE(c, PP_WR_PTR_IRQ, te->wr_ptr_irq);
 	SDE_REG_WRITE(c, PP_START_POS, te->start_pos);
 	SDE_REG_WRITE(c, PP_SYNC_THRESH,
 			((te->sync_threshold_continue << 16) |
