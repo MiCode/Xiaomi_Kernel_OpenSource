@@ -332,7 +332,7 @@
 			qupv3_se9_2uart_active: qupv3_se9_2uart_active {
 				mux {
 					pins = "gpio25", "gpio26";
-					function = "qup13";
+					function = "qup13_f2";
 				};
 
 				config {
