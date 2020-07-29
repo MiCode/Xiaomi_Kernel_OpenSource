@@ -1744,7 +1744,7 @@ static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_qcom_qos_req *ufs_qos_req = host->ufs_qos;
 	struct qos_cpu_group *qcg;
-	int err, i;
+	int err = 0, i;
 
 	if (!host->ufs_qos)
 		return 0;
