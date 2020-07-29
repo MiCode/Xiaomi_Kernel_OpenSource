@@ -138,6 +138,8 @@ struct cnss_bus_bw_cfg {
 struct cnss_bus_bw_info {
 	struct icc_path *cnss_path;
 	int current_bw_vote;
+	u32 num_cfg;
+	struct cnss_bus_bw_cfg *cfg_table;
 };
 
 struct cnss_fw_mem {

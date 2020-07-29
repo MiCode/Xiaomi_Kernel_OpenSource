@@ -357,21 +357,6 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 	{0, QCA6390_SYSPM_WCSSAON_SR_STATUS, 0},
 };
 
-static struct cnss_bus_bw_cfg cnss_bus_bw_table[] = {
-	/* no vote */
-	{0, 0},
-	/* idle: 0-18 Mbps, ddr freq: 100 MHz */
-	{2250, 400000},
-	/* low: 18-60 Mbps, ddr freq: 200 MHz*/
-	{7500, 800000},
-	/* medium: 60-240 Mbps, ddr freq: 451.2 MHz */
-	{30000, 1804800},
-	/* high: 240 - 800 Mbps, ddr freq: 451.2 MHz */
-	{100000, 1804800},
-	/* very high: 800 - 1400 Mbps, ddr freq: 1555.2 MHz */
-	{175000, 6220800},
-};
-
 #define WCSS_REG_SIZE ARRAY_SIZE(wcss_reg_access_seq)
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
@@ -531,7 +516,7 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 		return -ENODEV;
 
 	bus_bw_info = &plat_priv->bus_bw_info;
-	if (!bus_bw_info->cnss_path)
+	if (!bus_bw_info->cnss_path || bandwidth > bus_bw_info->num_cfg)
 		return -EINVAL;
 
 	switch (bandwidth) {
@@ -541,9 +526,10 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 	case CNSS_BUS_WIDTH_MEDIUM:
 	case CNSS_BUS_WIDTH_HIGH:
 	case CNSS_BUS_WIDTH_VERY_HIGH:
+	case CNSS_BUS_WIDTH_LOW_LATENCY:
 		ret = icc_set_bw(bus_bw_info->cnss_path,
-				 cnss_bus_bw_table[bandwidth].ab,
-				 cnss_bus_bw_table[bandwidth].ib);
+				 bus_bw_info->cfg_table[bandwidth].ab,
+				 bus_bw_info->cfg_table[bandwidth].ib);
 		if (!ret)
 			bus_bw_info->current_bw_vote = bandwidth;
 		else
@@ -2957,6 +2943,7 @@ int cnss_auto_suspend(struct device *dev)
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
 	struct cnss_plat_data *plat_priv;
+	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!pci_priv)
 		return -ENODEV;
@@ -2977,10 +2964,18 @@ int cnss_auto_suspend(struct device *dev)
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, true);
 
-	icc_set_bw(plat_priv->bus_bw_info.cnss_path,
-		   cnss_bus_bw_table[CNSS_BUS_WIDTH_NONE].ab,
-		   cnss_bus_bw_table[CNSS_BUS_WIDTH_NONE].ib);
+	bus_bw_info = &plat_priv->bus_bw_info;
+	if (!bus_bw_info->cnss_path)
+		goto out;
 
+	/* For suspend temporarily set bandwidth vote to NONE and dont save in
+	 * current_bw_vote as in resume path we should vote for last used
+	 * bandwidth vote. Also ignore error if bw voting is not setup.
+	 */
+	icc_set_bw(bus_bw_info->cnss_path,
+		   bus_bw_info->cfg_table[CNSS_BUS_WIDTH_NONE].ab,
+		   bus_bw_info->cfg_table[CNSS_BUS_WIDTH_NONE].ib);
+out:
 	return 0;
 }
 EXPORT_SYMBOL(cnss_auto_suspend);
