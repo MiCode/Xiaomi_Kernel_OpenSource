@@ -1,6 +1,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include "shima-pmic-overlay.dtsi"
+#include "display/shima-sde-display-idp.dtsi"
 
 &soc {
 	gpio_keys {
