@@ -236,6 +236,10 @@
 	pinctrl-names = "portselect";
 };
 
+&usb0 {
+	ssusb_redriver = <&redriver>;
+};
+
 &qupv3_se13_i2c {
 	status = "ok";
 
