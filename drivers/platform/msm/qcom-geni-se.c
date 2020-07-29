@@ -2026,7 +2026,8 @@ static int geni_se_probe(struct platform_device *pdev)
 		ret = devm_clk_bulk_get(dev, SSC_NUM_CLKS,
 						geni_se_dev->ssc_clks);
 		if (ret) {
-			dev_err(dev, "%s: Err getting core/2x clk:%d\n", ret);
+			dev_err(dev, "%s: Err getting core/2x clk:%d\n",
+								__func__, ret);
 			return ret;
 		}
 
