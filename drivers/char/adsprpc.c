@@ -636,8 +636,10 @@ static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 					FASTRPC_MAX_DSP_ATTRIBUTES] = {
-	1
+	1,
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
+	1
+	/* Fastrpc Driver error code changes present */
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
