@@ -1,0 +1,28 @@
+config MTK_CLK_BUFFER
+	tristate "MediaTek Clock Buffer Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek Clock Buffer
+	  driver, which support interface for  PMIC 26Mhz output to
+	  other HW component such as BB_MD/WCN/NFC/RF/UFS.
+	  It could also control FPM/LPM mode switch state.
+
+config MTK_CLKBUF_BBLPM
+	bool "MediaTek Clock Buffer BBLPM Mode Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek Clock Buffer
+	  BBLPM, which support PMIC 26Mhz output transfer to low
+	  power mode, less accurate with power consumption.
+	  But with restrict condition for some of  XO_BUFFER need to
+	  be disabled.
+
+config MTK_CLKBUF_NFC
+	bool "MediaTek Clock Buffer NFC Support"
+	select REGMAP
+	help
+	  Say yes here to support for MediaTek Clock Buffer XO_NFC,
+	  which support PMIC 26Mhz output to NFC HW component. If
+	  this config is not set, XO_NFC will be disabled when
+	  driver is probed.
+
