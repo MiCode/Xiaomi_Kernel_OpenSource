@@ -9,4 +9,5 @@ bypass_arr=(\
 "function int clocksource_mmio_init" \
 "function u64 clocksource_mmio_readl_up" \
 "function void sched_clock_register" \
+"struct cpuidle_state " \
 "struct dma_async_tx_descriptor ")
