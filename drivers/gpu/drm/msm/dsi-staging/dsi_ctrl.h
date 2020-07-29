@@ -352,7 +352,6 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  * dsi_ctrl_update_host_config() - update dsi host configuration
  * @dsi_ctrl:          DSI controller handle.
  * @config:            DSI host configuration.
- * @mode:              DSI host mode selected.
  * @flags:             dsi_mode_flags modifying the behavior
  * @clk_handle:        Clock handle for DSI clocks
  *
@@ -364,7 +363,6 @@ int dsi_ctrl_validate_timing(struct dsi_ctrl *dsi_ctrl,
  */
 int dsi_ctrl_update_host_config(struct dsi_ctrl *dsi_ctrl,
 				struct dsi_host_config *config,
-				struct dsi_display_mode *mode,
 				int flags, void *clk_handle);
 
 /**
