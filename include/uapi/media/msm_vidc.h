@@ -24,6 +24,8 @@ static inline unsigned int VENUS_EXTRADATA_SIZE(int width, int height)
 	return 16 * 1024;
 }
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD   (V4L2_CID_MPEG_MSM_VIDC_BASE+5)
+
 #define V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 22)
 enum v4l2_mpeg_vidc_video_decoder_multi_stream {
