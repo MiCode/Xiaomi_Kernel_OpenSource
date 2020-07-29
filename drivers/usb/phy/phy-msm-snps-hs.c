@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -515,9 +515,17 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 	if (suspend) { /* Bus suspend */
-		if (phy->cable_connected) {
-			/* Enable auto-resume functionality by pulsing signal */
-			if (phy->phy.flags & PHY_HOST_MODE) {
+		if (phy->cable_connected ||
+			(phy->phy.flags & PHY_HOST_MODE)) {
+			/* Enable auto-resume functionality only when
+			 * there is some peripheral connected and real
+			 * bus suspend happened
+			 */
+			if ((phy->phy.flags & PHY_HSFS_MODE) ||
+				(phy->phy.flags & PHY_LS_MODE)) {
+				/* Enable auto-resume functionality by pulsing
+				 * signal
+				 */
 				msm_usb_write_readback(phy->base,
 					USB2_PHY_USB_PHY_HS_PHY_CTRL2,
 					USB2_AUTO_RESUME, USB2_AUTO_RESUME);
