@@ -419,7 +419,6 @@
 		compatible = "qcom,dsi-ctrl-hw-v2.4";
 		label = "dsi-ctrl-0";
 		cell-index = <0>;
-		frame-threshold-time-us = <800>;
 		reg =	<0xae94000 0x400>,
 			<0xaf08000 0x4>;
 		reg-names = "dsi_ctrl", "disp_cc_base";
