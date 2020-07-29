@@ -50,6 +50,22 @@ Optional properties:
 			  "pmic4-ldo" for PMIC4.
 			  "pmic5-ldo" for PMIC5.
 
+- qcom,supported-modes
+	Usage:      optional; BOB regulators only
+	Value type: <prop-encoded-array>
+	Definition: A list of integers specifying the PMIC regulator modes
+		    supported by this regulator.  Supported values are
+		    RPMH_REGULATOR_MODE_* (i.e. 0 to 4).  Elements must be
+		    specified in order from lowest to highest.
+
+- qcom,mode-threshold-currents
+	Usage:      required if qcom,supported-modes is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers specifying minimum allowed current in
+		    microamps for each of the modes listed in
+		    qcom,supported-modes.  The first element should always be 0.
+		    Elements must be specified in order from lowest to highest.
+
 [Second Level Nodes]
 
 Required properties:
@@ -142,6 +158,11 @@ Optional properties:
 				regulator to be enabled.  Each element supports
 				the same set of values as the
 				qcom,init-pin-ctrl-enable property listed below.
+- qcom,min-dropout-voltage:    Specifies the minimum voltage level difference that the
+				parent supply regulator must output above the output of
+				this regulator.  It is only meaningful if the property
+				<regulator-name>-parent-supply has been specified in
+				the first level node.
 
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
