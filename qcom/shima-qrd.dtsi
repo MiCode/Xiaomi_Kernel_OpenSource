@@ -22,6 +22,42 @@
 	};
 };
 
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v4-lahaina";
+
+	vdda-phy-supply = <&L10C>;
+	vdda-pll-supply = <&L6B>;
+	vdda-phy-max-microamp = <97100>;
+	vdda-pll-max-microamp = <19600>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+
+	vcc-supply = <&L7B>;
+	vcc-voltage-level = <2504000 2950000>;
+	vcc-low-voltage-sup;
+	vcc-max-microamp = <800000>;
+
+	vccq-supply = <&L9B>;
+	vccq-max-microamp = <900000>;
+
+	vccq2-supply = <&S10B>;
+	vccq2-voltage-level = <1800000 1800000>;
+	vccq2-max-microamp = <800000>;
+	vccq2-min-microamp = <0>;
+
+	qcom,vddp-ref-clk-supply = <&L9B>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+	/* put vdd-ref-clk regulator to lpm */
+	qcom,vddp-ref-clk-min-uV = <0>;
+
+	status = "ok";
+};
+
 &spmi_debug_bus {
 	status = "ok";
 };
