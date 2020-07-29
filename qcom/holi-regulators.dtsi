@@ -356,10 +356,17 @@
 
 	rpm-regulator-bobe {
 		status = "okay";
+		qcom,supported-modes =
+			<RPM_SMD_REGULATOR_MODE_PASS
+			RPM_SMD_REGULATOR_MODE_LPM
+			RPM_SMD_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1000000 2000000>;
+
 		BOB: pm6150a_bob: regulator-pm6150a-bob {
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <5500000>;
 			qcom,init-voltage = <1650000>;
+			qcom,init-bob-mode = <RPM_SMD_REGULATOR_MODE_PASS>;
 			status = "okay";
 		};
 
@@ -367,6 +374,7 @@
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <5500000>;
 			qcom,init-voltage = <1650000>;
+			qcom,init-bob-mode = <RPM_SMD_REGULATOR_MODE_AUTO>;
 			status = "okay";
 		};
 	};
