@@ -50,6 +50,7 @@ struct clk_regmap {
 	struct clk_vdd_class_data vdd_data;
 	struct clk_regmap_ops *ops;
 	struct list_head list_node;
+	struct device *dev;
 };
 #define to_clk_regmap(_hw) container_of(_hw, struct clk_regmap, hw)
 
@@ -70,5 +71,8 @@ struct clk_register_data {
 	char *name;
 	u32 offset;
 };
+
+int clk_runtime_get_regmap(struct clk_regmap *rclk);
+void clk_runtime_put_regmap(struct clk_regmap *rclk);
 
 #endif
