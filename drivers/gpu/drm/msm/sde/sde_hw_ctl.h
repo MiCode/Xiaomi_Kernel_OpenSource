@@ -297,13 +297,6 @@ struct sde_hw_ctl_ops {
 	u32 (*get_reset)(struct sde_hw_ctl *ctx);
 
 	/**
-	 * get_scheduler_reset - check ctl scheduler status bit
-	 * @ctx    : ctl path ctx pointer
-	 * Returns: current value of ctl scheduler and idle status
-	 */
-	u32 (*get_scheduler_status)(struct sde_hw_ctl *ctx);
-
-	/**
 	 * hard_reset - force reset on ctl_path
 	 * @ctx    : ctl path ctx pointer
 	 * @enable : whether to enable/disable hard reset
