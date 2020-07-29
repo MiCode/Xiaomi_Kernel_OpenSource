@@ -57,6 +57,12 @@
 			reg = <0x87c00000 0x400000>;
 		};
 
+		tz_apps_mem: tz_apps_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x88000000 0x500000>;
+		};
+
 		audio_mem: audio_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -69,7 +75,7 @@
 			reusable;
 			alignment = <0x400000>;
 			size = <0x0400000>;
-			status = "disabled";
+			status = "ok";
 		};
 	};
 
@@ -1675,7 +1681,7 @@
 
 	qcom_seecom: qseecom@87a80000 {
 		compatible = "qcom,qseecom";
-		reg = <0x87a80000 0x100000>;
+		reg = <0x88000000 0x500000>;
 		reg-names = "secapp-region";
 		memory-region = <&qseecom_mem>;
 		qcom,hlos-num-ce-hw-instances = <1>;
@@ -1697,7 +1703,7 @@
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	qcom_tzlog: tz-log@8600720 {
