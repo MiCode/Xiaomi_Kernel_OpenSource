@@ -87,6 +87,7 @@ config INTERCONNECT_QCOM_SDXLEMUR
 	depends on INTERCONNECT_QCOM
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
+	select INTERCONNECT_QCOM_RPMH
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on sdxlemur-based platforms.
