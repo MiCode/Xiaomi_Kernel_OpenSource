@@ -183,7 +183,10 @@ static void _sde_encoder_phys_cmd_update_intf_cfg(
 static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys *phys_enc = arg;
-	u32 event = 0;
+	unsigned long lock_flags;
+	int new_cnt;
+	u32 event = SDE_ENCODER_FRAME_EVENT_DONE |
+			SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 
 	if (!phys_enc || !phys_enc->hw_pp)
 		return;
@@ -192,17 +195,16 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 
 	/* notify all synchronous clients first, then asynchronous clients */
 	if (phys_enc->parent_ops.handle_frame_done &&
-		atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0)) {
-		event = SDE_ENCODER_FRAME_EVENT_DONE |
-				SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
-		spin_lock(phys_enc->enc_spinlock);
+		atomic_read(&phys_enc->pending_kickoff_cnt))
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
 				phys_enc, event);
-		spin_unlock(phys_enc->enc_spinlock);
-	}
+
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, event);
+			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt, event);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
