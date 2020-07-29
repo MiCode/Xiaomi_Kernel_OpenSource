@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/mailbox_client.h>
+#include <linux/mailbox_controller.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 
 #define MAX_LEN			        96
@@ -217,10 +218,43 @@ DEFINE_CLK_AOP_QMP(qdss_qmp_clk, clock, qdss, QDSS_CLK_LEVEL_DYNAMIC,
 			QDSS_CLK_LEVEL_OFF, 0);
 DEFINE_CLK_AOP_QMP(qdss_ao_qmp_clk, clock, qdss_ao, QDSS_CLK_LEVEL_DYNAMIC,
 			QDSS_CLK_LEVEL_OFF, 0);
+DEFINE_CLK_AOP_QMP(bimc_qmp_clk, ddr, ddr_log, 1, 0, 0);
 
 static struct clk_hw *aop_qmp_clk_hws[] = {
 	[QDSS_CLK] = &qdss_qmp_clk.hw,
 	[QDSS_AO_CLK] = &qdss_ao_qmp_clk.hw,
+	[BIMC_CLK] = &bimc_qmp_clk.hw,
+};
+
+static int aop_qmp_clk_panic_callback(struct notifier_block *nfb,
+					unsigned long event, void *unused)
+{
+	struct qmp_pkt pkt;
+	struct clk_aop_qmp *clk = &bimc_qmp_clk;
+	char mbox_msg[MAX_LEN];
+	int ret;
+
+	/*
+	 * The mbox channel cannot be used in blocking mode as panic notifier
+	 * callback function is called in atomic context. So update the channel
+	 * to non-blocking mode before sending message.
+	 */
+	clk->mbox->cl->tx_block = false;
+	snprintf(mbox_msg, MAX_LEN, "{class: %s, res: %s, val: 0}",
+				clk->msg.class, clk->msg.res);
+	pkt.size = MAX_LEN;
+	pkt.data = mbox_msg;
+
+	ret = mbox_send_message(clk->mbox, &pkt);
+	if (ret < 0)
+		pr_err("BIMC logging request failed, ret %d\n", ret);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block aop_qmp_clk_panic_notifier = {
+	.notifier_call = aop_qmp_clk_panic_callback,
+	.priority = 1,
 };
 
 static int qmp_update_client(struct clk_hw *hw, struct device *dev,
@@ -319,6 +353,10 @@ static int aop_qmp_clk_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "Registered clocks with AOP\n");
+
+	if (of_property_read_bool(np, "qcom,clk-stop-bimc-log"))
+		atomic_notifier_chain_register(&panic_notifier_list,
+						&aop_qmp_clk_panic_notifier);
 
 	return ret;
 fail:
