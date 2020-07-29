@@ -71,6 +71,10 @@
 	};
 };
 
+&msm_gpu {
+	#cooling-cells = <2>;
+};
+
 &cpufreq_hw {
 	qcom,cpu-isolation {
 		compatible = "qcom,cpu-isolate";
@@ -642,7 +646,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm7250b_adc_tm ADC5_AMUX_THM1_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -657,7 +660,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm7250b_adc_tm ADC5_AMUX_THM3_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -672,7 +674,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm_iio ADC5_AMUX_THM2_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -687,7 +688,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm_iio ADC5_GPIO2_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -702,7 +702,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm ADC5_GPIO3_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -717,7 +716,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm ADC5_GPIO4_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -732,7 +730,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm ADC5_AMUX_THM3_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -747,7 +744,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm ADC5_AMUX_THM1_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -762,7 +758,6 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pmk8350_adc_tm PMK8350_ADC7_AMUX_THM1_100K_PU>;
-		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -1001,6 +996,80 @@
 			cpu13_cdev1 {
 				trip = <&cpu13_config>;
 				cooling-device = <&CPU6 THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	gpuss-max-step {
+		polling-delay-passive = <10>;
+		polling-delay = <100>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens0 13>, <&tsens0 14>;
+		sensor-aggregation = <AGGREGATE_MAX_VALUE>;
+		trips {
+			gpuss_config: active-config0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu_cdev {
+				trip = <&gpuss_config>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	q6-hvx-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 4>;
+		thermal-governor = "step_wise";
+
+		trips {
+			cdsp_trip0: cdsp-trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			cdsp_cx_mon: cdsp-cx-mon {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cdsp-cdev0 {
+				trip = <&cdsp_trip0>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+
+			cdsp-cx-cdev0 {
+				trip = <&cdsp_cx_mon>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			cdsp-cx-cdev1 {
+				trip = <&cdsp_cx_mon>;
+				cooling-device = <&modem_tj 3 3>;
+			};
+
+			cdsp-cx-cdev2 {
+				trip = <&cdsp_cx_mon>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+
+			cdsp-cx-cdev3 {
+				trip = <&cdsp_cx_mon>;
+				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
 							THERMAL_MAX_LIMIT>;
 			};
 		};
