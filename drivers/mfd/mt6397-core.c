@@ -175,6 +175,9 @@ static const struct mfd_cell mt6359p_devs[] = {
 	}, {
 		.name = "mt6359p-sound",
 		.of_compatible = "mediatek,mt6359p-sound"
+	}, {
+		.name = "mtk-clock-buffer",
+		.of_compatible = "mediatek,mt6359p-clock-buffer",
 	}
 };
 
