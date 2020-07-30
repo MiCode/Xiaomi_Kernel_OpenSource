@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #define QCA6390_DEVICE_ID		0x1101
 #define QCN7605_VENDOR_ID               0x17CB
 #define QCN7605_DEVICE_ID               0x1102
+#define QCA6490_DEVICE_ID		0x1103
 
 #define QCN7605_USB_VENDOR_ID             0x05C6
 #define QCN7605_STANDALONE_PRODUCT_ID    0x9900

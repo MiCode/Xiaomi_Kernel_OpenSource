@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,6 +83,8 @@
 #define QMI_WLFW_ATHDIAG_READ_REQ_V01 0x0030
 #define QMI_WLFW_WLAN_CFG_REQ_V01 0x0023
 #define QMI_WLFW_IND_REGISTER_RESP_V01 0x0020
+#define QMI_WLFW_PCIE_GEN_SWITCH_REQ_V01 0x0053
+#define QMI_WLFW_PCIE_GEN_SWITCH_RESP_V01 0x0053
 
 #define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
 #define QMI_WLFW_MAX_NUM_MEM_SEG_V01 32
@@ -152,6 +154,15 @@ enum wlfw_qdss_trace_mode_enum_v01 {
 	WLFW_QDSS_TRACE_MODE_ENUM_MAX_VAL_V01 = INT_MAX,
 };
 
+enum wlfw_pcie_gen_speed_v01 {
+	WLFW_PCIE_GEN_SPEED_MIN_VAL_V01 = INT_MIN,
+	QMI_PCIE_GEN_SPEED_INVALID_V01 = 0,
+	QMI_PCIE_GEN_SPEED_1_V01 = 1,
+	QMI_PCIE_GEN_SPEED_2_V01 = 2,
+	QMI_PCIE_GEN_SPEED_3_V01 = 3,
+	WLFW_PCIE_GEN_SPEED_MAX_VAL_V01 = INT_MAX,
+};
+
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
 #define QMI_WLFW_CE_ATTR_NO_SNOOP_V01 ((u32)0x01)
 #define QMI_WLFW_CE_ATTR_BYTE_SWAP_DATA_V01 ((u32)0x02)
@@ -166,6 +177,8 @@ enum wlfw_qdss_trace_mode_enum_v01 {
 #define QMI_WLFW_FW_INIT_DONE_V01 ((u64)0x10ULL)
 
 #define QMI_WLFW_FW_REJUVENATE_V01 ((u64)0x01ULL)
+
+#define QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01 ((u64)0x01ULL)
 
 struct wlfw_ce_tgt_pipe_cfg_s_v01 {
 	u32 pipe_num;
@@ -390,6 +403,9 @@ struct wlfw_cap_resp_msg_v01 {
 	u32 voltage_mv;
 	u8 time_freq_hz_valid;
 	u32 time_freq_hz;
+	u8 fw_caps_valid;
+	u64 fw_caps;
+
 };
 
 #define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 221
@@ -903,5 +919,19 @@ struct wlfw_shutdown_resp_msg_v01 {
 
 #define WLFW_SHUTDOWN_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_shutdown_resp_msg_v01_ei[];
+
+struct wlfw_pcie_gen_switch_req_msg_v01 {
+	enum wlfw_pcie_gen_speed_v01 pcie_speed;
+};
+
+#define WLFW_PCIE_GEN_SWITCH_REQ_MSG_V01_MAX_MSG_LEN 7
+extern struct qmi_elem_info wlfw_pcie_gen_switch_req_msg_v01_ei[];
+
+struct wlfw_pcie_gen_switch_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+
+#define WLFW_PCIE_GEN_SWITCH_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct qmi_elem_info wlfw_pcie_gen_switch_resp_msg_v01_ei[];
 
 #endif
