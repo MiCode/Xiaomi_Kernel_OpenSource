@@ -575,6 +575,14 @@
 		in-ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				funnel_in0_in_snoc: endpoint {
+					remote-endpoint =
+						<&snoc_out_funnel_in0>;
+				};
+			};
+
 			port@6 {
 				reg = <6>;
 				funnel_in0_in_funnel_qatb: endpoint {
@@ -3008,13 +3016,13 @@
 		clock-names = "apb_pclk";
 	};
 
-	cti_ddr_ch02: cti@6e11000 {
+	cti_ddr_ch01: cti@6e11000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb966>;
 		reg = <0x6e11000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-ddr_ch02_dl_cti_0";
+		coresight-name = "coresight-cti-ddr_ch01_dl_cti_0";
 
 		clocks = <&aopcc QDSS_CLK>;
 		clock-names = "apb_pclk";
@@ -3513,4 +3521,84 @@
 		clock-names = "apb_pclk";
 	};
 
+	cti_gpu_isdb: cti@6961000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6961000 0x1000>;
+		reg-names = "cti-base";
+
+		status = "disabled";
+		coresight-name = "coresight-cti-gpu_isdb_cti";
+
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_lpass_lpi: cti@6b41000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b41000 0x1000>;
+		reg-names = "cti-base";
+
+		status = "disabled";
+		coresight-name = "coresight-cti_lpass_lpi_cti";
+
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_lpass_q6: cti@6b4b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b4b000 0x1000>;
+		reg-names = "cti-base";
+
+		status = "disabled";
+		coresight-name = "coresight-cti-lpass_q6_cti";
+
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_mss_q6: cti@680b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x680b000 0x1000>;
+		reg-names = "cti-base";
+
+		status = "disabled";
+		coresight-name = "coresight-cti_mss_q6_cti";
+
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_mss_vq6: cti@6813000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6813000 0x1000>;
+		reg-names = "cti-base";
+
+		status = "disabled";
+		coresight-name = "coresight-cti-mss_vq6_cti";
+
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	snoc: snoc {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-snoc";
+
+		qcom,dummy-source;
+
+		out-ports {
+			port {
+				snoc_out_funnel_in0: endpoint {
+					remote-endpoint =
+					<&funnel_in0_in_snoc>;
+				};
+			};
+		};
+	};
 };
