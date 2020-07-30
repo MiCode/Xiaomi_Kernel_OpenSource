@@ -224,9 +224,9 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 		/* Fall through */
 	case MD_TX_POWER:
 		/* Fall through */
-	case MD_RF_TEMPERATURE:
+	case MD_RF_MAX_TEMPERATURE_SUB6:
 		/* Fall through */
-	case MD_RF_TEMPERATURE_3G:
+	case MD_RF_ALL_TEMPERATURE_MMW:
 		/* Fall through */
 	case MD_SW_MD1_TX_POWER_REQ:
 		/* Fall through */

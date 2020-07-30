@@ -2296,17 +2296,6 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 	case ID_GET_MD_WAKEUP_SRC:
 		receive_wakeup_src_notify(md_id, buf, len);
 		break;
-	case ID_GET_TXPOWER:
-		if (buf[0] == 0)
-			ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
-				MD_TX_POWER, 0, 0);
-		else if (buf[0] == 1)
-			ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
-				MD_RF_TEMPERATURE, 0, 0);
-		else if (buf[0] == 2)
-			ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
-				MD_RF_TEMPERATURE_3G, 0, 0);
-		break;
 	case ID_FORCE_MD_ASSERT:
 		CCCI_NORMAL_LOG(md_id, CORE, "Force MD assert called by %s\n",
 			current->comm);
@@ -2385,6 +2374,12 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 	case ID_LWA_CONTROL_MSG:
 		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
 			LWA_CONTROL_MSG, *((int *)buf), 1);
+		break;
+	case MD_TX_POWER:
+	case MD_RF_MAX_TEMPERATURE_SUB6:
+	case MD_RF_ALL_TEMPERATURE_MMW:
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+				id, 0, 0);
 		break;
 	case MD_DISPLAY_DYNAMIC_MIPI:
 		tmp_data = 0;
