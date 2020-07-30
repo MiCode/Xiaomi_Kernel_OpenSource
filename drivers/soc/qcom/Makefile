@@ -71,6 +71,7 @@ obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
 obj-$(CONFIG_SDX_EXT_IPC) += sdx_ext_ipc.o
 obj-$(CONFIG_MSM_PIL_SSR_BG) += subsys-pil-bg.o
 obj-$(CONFIG_QTI_NOTIFY_SIDEBAND) += sideband_notify.o
+obj-$(CONFIG_MSM_BGRSB) += bg_rsb.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_notif.o
