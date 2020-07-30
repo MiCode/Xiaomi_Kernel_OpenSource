@@ -494,6 +494,8 @@ seek_cancelled:
 		else
 			FMDERR("%s: received STD for tune\n", __func__);
 	}
+	/* Enable the RDS as it was disabled before scan */
+	rtc6226_rds_on(radio);
 	rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
 	rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
 	radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
@@ -1357,7 +1359,7 @@ void rtc6226_rds_handler(struct work_struct *worker)
 /*
  * rtc6226_rds_on - switch on rds reception
  */
-static int rtc6226_rds_on(struct rtc6226_device *radio)
+int rtc6226_rds_on(struct rtc6226_device *radio)
 {
 	int retval;
 
@@ -2270,6 +2272,14 @@ static int rtc6226_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 		return -EWOULDBLOCK;
 
 	radio->is_search_cancelled = false;
+
+	/* Disable the rds before seek */
+	radio->registers[SYSCFG] &= ~SYSCFG_CSR0_RDS_EN;
+	retval = rtc6226_set_register(radio, SYSCFG);
+	if (retval < 0) {
+		FMDERR("%s fail to disable RDS\n", __func__);
+		return retval;
+	}
 
 	if (radio->g_search_mode == SEEK) {
 		/* seek */
