@@ -48,14 +48,27 @@
 
 static bool qc_hyp_calls;
 static struct hh_hcall_hyp_identify_resp haven_api;
+static bool disable_uart;
 
-#if defined(CONFIG_HH_DISABLE_UART)
+#if !defined(CONFIG_HH_DISABLE_UART)
+static int __init setup_nohyp_uart(char *arg)
+{
+	disable_uart = true;
+	return 0;
+}
+early_param("nohyp_uart", setup_nohyp_uart);
+#endif
+
 static void hh_disable_uart(void)
 {
-	if (qc_hyp_calls)
-		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_DISABLE, NULL);
-}
+#if defined(CONFIG_HH_DISABLE_UART)
+	disable_uart = true;
 #endif
+	if (disable_uart) {
+		pr_info("Haven: disabling HYP UART\n");
+		arm_smccc_1_1_smc(QC_HYP_SMCCC_UART_DISABLE, NULL);
+	}
+}
 
 static ssize_t type_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buffer)
@@ -190,17 +203,18 @@ static int __init hh_ctrl_init(void)
 	    (res.a2 == QC_HYP_UID2) && (res.a3 == QC_HYP_UID3))
 		qc_hyp_calls = true;
 
-#if defined(CONFIG_HH_DISABLE_UART)
-	hh_disable_uart();
-#endif
+	if (qc_hyp_calls) {
+		hh_disable_uart();
+		ret = hh_sysfs_register();
+		if (ret)
+			return ret;
 
-	ret = hh_sysfs_register();
-	if (ret)
-		return ret;
-
-	ret = hh_dbgfs_register();
-	if (ret)
-		pr_warn("failed to register dbgfs: %d\n", ret);
+		ret = hh_dbgfs_register();
+		if (ret)
+			pr_warn("failed to register dbgfs: %d\n", ret);
+	} else {
+		pr_info("Haven: no QC HYP interface detected\n");
+	}
 
 	return 0;
 }
