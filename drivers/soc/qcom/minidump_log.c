@@ -118,6 +118,11 @@ size_t md_pageowner_dump_size = SZ_2M;
 char *md_pageowner_dump_addr;
 #endif
 
+#ifdef CONFIG_SLUB_DEBUG
+size_t md_slabowner_dump_size = SZ_2M;
+char *md_slabowner_dump_addr;
+#endif
+
 /* Modules information */
 #ifdef CONFIG_MODULES
 #define NUM_MD_MODULES	200
@@ -984,6 +989,11 @@ dump_rq:
 	if (md_slabinfo_seq_buf)
 		md_dump_slabinfo();
 
+#ifdef CONFIG_SLUB_DEBUG
+	if (md_slabowner_dump_addr)
+		md_dump_slabowner();
+#endif
+
 #ifdef CONFIG_PAGE_OWNER
 	if (md_pageowner_dump_addr)
 		md_dump_pageowner();
@@ -1079,6 +1089,10 @@ static bool md_register_memory_dump(int size, char *name)
 #ifdef CONFIG_PAGE_OWNER
 	if (!strcmp(name, "PAGEOWNER"))
 		WRITE_ONCE(md_pageowner_dump_addr, buffer_start);
+#endif
+#ifdef CONFIG_SLUB_DEBUG
+	if (!strcmp(name, "SLABOWNER"))
+		WRITE_ONCE(md_slabowner_dump_addr, buffer_start);
 #endif
 	return true;
 }
@@ -1183,6 +1197,38 @@ static const struct file_operations proc_page_owner_dump_size_ops = {
 };
 #endif
 
+#ifdef CONFIG_SLUB_DEBUG
+static ssize_t slab_owner_dump_size_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long long  size;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for size\n");
+		return -EINVAL;
+	}
+	update_dump_size("SLABOWNER", size,
+			&md_slabowner_dump_addr, &md_slabowner_dump_size);
+	return count;
+}
+
+static ssize_t slab_owner_dump_size_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[100];
+
+	snprintf(buf, sizeof(buf), "%llu MB\n", md_slabowner_dump_size/SZ_1M);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_slab_owner_dump_size_ops = {
+	.open	= simple_open,
+	.write	= slab_owner_dump_size_write,
+	.read	= slab_owner_dump_size_read,
+};
+#endif
+
 static void md_register_panic_data(void)
 {
 	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
@@ -1199,6 +1245,11 @@ static void md_register_panic_data(void)
 		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
 		debugfs_create_file("page_owner_dump_size_mb", 0400, NULL, NULL,
 			    &proc_page_owner_dump_size_ops);
+	}
+	if (is_slub_debug_enabled()) {
+		md_register_memory_dump(md_slabowner_dump_size, "SLABOWNER");
+		debugfs_create_file("slab_owner_dump_size_mb", 0400, NULL, NULL,
+			    &proc_slab_owner_dump_size_ops);
 	}
 }
 
