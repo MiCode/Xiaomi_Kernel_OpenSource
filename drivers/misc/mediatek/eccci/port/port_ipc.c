@@ -380,17 +380,6 @@ retry:
 				mtk_conn_md_bridge_send_msg(&out_ilm);
 #endif
 				break;
-			case AP_IPC_PKTTRC:
-#if defined(CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT)
-				pkt_track_md_msg_hdlr(&out_ilm);
-#endif
-				break;
-			case AP_IPC_USB:
-#if defined(CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT) \
-	|| defined(CONFIG_MTK_MD_DIRECT_LOGGING_SUPPORT)
-				rndis_md_msg_hdlr(&out_ilm);
-#endif
-				break;
 			default:
 				CCCI_ERROR_LOG(port->md_id, IPC,
 					"recv unknown task ID %d\n",

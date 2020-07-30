@@ -73,13 +73,4 @@ struct ccci_emi_info {
 int ccci_ipc_send_ilm(int md_id, struct ipc_ilm *in_ilm);
 int ccci_get_emi_info(int md_id, struct ccci_emi_info *emi_info);
 
-/* external API */
-#if defined(CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT) || \
-	defined(CONFIG_MTK_MD_DIRECT_LOGGING_SUPPORT)
-extern int rndis_md_msg_hdlr(struct ipc_ilm *ilm);
-#endif
-#if defined(CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT)
-extern int pkt_track_md_msg_hdlr(struct ipc_ilm *ilm);
-#endif
-
 #endif				/* __PORT_IPC_H__ */
