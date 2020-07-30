@@ -37,6 +37,67 @@
 			};
 		};
 
+		nfc {
+			nfc_int_active: nfc_int_active {
+				/* active state */
+				mux {
+					/* GPIO 9: NFC Read Interrupt */
+					pins = "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down;
+				};
+			};
+
+			nfc_int_suspend: nfc_int_suspend {
+				/* sleep state */
+				mux {
+					/* GPIO 9: NFC Read Interrupt */
+					pins = "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down;
+				};
+			};
+
+			nfc_enable_active: nfc_enable_active {
+				mux {
+					/* 6: Enable, 8: Firmware, 7: CLOCK */
+					pins = "gpio6", "gpio8", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio8", "gpio7";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+
+			nfc_enable_suspend: nfc_enable_suspend {
+				mux {
+					/* 6: Enable, 8: Firmware, 7: CLOCK */
+					pins = "gpio6", "gpio8", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio8", "gpio7";
+					drive-strength = <2>; /* 2 MA */
+					bias-disable;
+				};
+			};
+		};
+
+
 		qupv3_se0_spi_pins: qupv3_se0_spi_pins {
 			qupv3_se0_spi_active: qupv3_se0_spi_active {
 				mux {
