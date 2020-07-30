@@ -126,7 +126,7 @@ with commit id:$target_commit"
 
 	export PATH=\
 $PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts-master/clang/host/linux-x86/clang-r353983c/bin/:$PATH
+$PWD/prebuilts-master/clang/host/linux-x86/clang-r383902/bin/:$PATH
 	cd common
 	git checkout $target_commit
 	echo "Move gki_defconfig from arch/arm64/configs/ to \
