@@ -480,5 +480,16 @@
 		mt6359p_snd: mt6359p_snd {
 			compatible = "mediatek,mt6359p-sound";
 		};
+
+		mt6359p_clock_buffer: mt6359p_clock_buffer {
+			compatible = "mediatek,mt6359p-clock-buffer";
+			pmic-xo-exist = <1 1 1 1 0 1 1>;
+			pmic-xo-set-clr = <0 9>;
+			pmic-xo-name = "SOC", "WCN", "NFC",
+				"CEL", "AUD", "PD", "EXT";
+			pmic-auxout-xo = <6 6 6 6 0xffff 6 6>;
+			pmic-auxout-bblpm-en = <27>;
+			pmic-auxout-bblpm-o = <39>;
+		};
 	};
 };
