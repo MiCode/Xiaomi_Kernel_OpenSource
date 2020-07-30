@@ -332,7 +332,6 @@ enum MD_STATE_FOR_USER {
 
 enum KERN_FUNC_ID {
 	ID_GET_MD_WAKEUP_SRC,   /* for SPM */
-	ID_GET_TXPOWER,		/* for thermal */
 	ID_PAUSE_LTE,		/* for DVFS */
 	ID_GET_MD_STATE,	/* for DVFS */
 	ID_THROTTLING_CFG,	/* For MD SW throughput throttling */
@@ -369,8 +368,8 @@ enum {
 	MD_DORMANT_NOTIFY = 0x100, /* deprecated */
 	MD_SLP_REQUEST = 0x101, /* deprecated */
 	MD_TX_POWER = 0x102,
-	MD_RF_TEMPERATURE = 0x103,
-	MD_RF_TEMPERATURE_3G = 0x104,
+	MD_RF_MAX_TEMPERATURE_SUB6 = 0x103,
+	MD_RF_ALL_TEMPERATURE_MMW = 0x104,
 	MD_GET_BATTERY_INFO = 0x105,
 
 	MD_SIM_TYPE = 0x107,
