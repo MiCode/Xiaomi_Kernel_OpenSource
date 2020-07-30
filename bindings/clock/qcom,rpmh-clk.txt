@@ -12,6 +12,7 @@ Required properties :
 		"qcom,kona-rpmh-clk",
 		"qcom,sdm845-rpmh-clk"
 		"qcom,sm8150-rpmh-clk"
+		"qcom,sdxlemur-rpmh-clk"
 
 - #clock-cells : must contain 1
 
