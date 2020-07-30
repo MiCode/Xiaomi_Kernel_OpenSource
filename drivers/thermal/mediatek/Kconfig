@@ -49,6 +49,14 @@ config MTK_MD_THERMAL_MUTT
 	  uplink throughput throttle cooler for Mediatek
 	  platforms.
 	  The throttling levels are defined in modem.
+
+config MTK_MD_THERMAL_TX_POWER
+	tristate "Mediatek modem TX power throttle driver"
+	help
+	  Enable this option if you want use modem TX power
+	  throttle cooler for Mediatek platforms.
+	  This feature is only supported for mt6297 or later
+	  modem platforms.
 endif
 
 endif
