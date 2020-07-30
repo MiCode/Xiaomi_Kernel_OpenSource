@@ -357,6 +357,24 @@ int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 }
 EXPORT_SYMBOL(cnss_set_fw_log_mode);
 
+int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	if (plat_priv->device_id != QCA6490_DEVICE_ID ||
+	    !plat_priv->fw_pcie_gen_switch)
+		return -ENOTSUPP;
+
+	if (pcie_gen_speed < QMI_PCIE_GEN_SPEED_1_V01 ||
+	    pcie_gen_speed > QMI_PCIE_GEN_SPEED_3_V01)
+		return -EINVAL;
+
+	cnss_pr_dbg("WLAN provided PCIE gen speed: %d\n", pcie_gen_speed);
+	plat_priv->pcie_gen_speed = pcie_gen_speed;
+	return 0;
+}
+EXPORT_SYMBOL(cnss_set_pcie_gen_speed);
+
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -432,6 +450,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	del_timer(&plat_priv->fw_boot_timer);
 	set_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+
+	cnss_wlfw_send_pcie_gen_speed_sync(plat_priv);
 
 	if (test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state)) {
 		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
