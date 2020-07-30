@@ -163,6 +163,10 @@ struct kgsl_pwrctrl {
 	struct icc_path *icc_path;
 	/** cur_ab: The last ab voted by the driver */
 	u32 cur_ab;
+	/** @minbw_timer - Timer struct for entering minimum bandwidth state */
+	struct timer_list minbw_timer;
+	/** @minbw_timeout - Timeout for entering minimum bandwidth state */
+	u32 minbw_timeout;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
