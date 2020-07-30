@@ -98,6 +98,7 @@
   ipa_register_rmnet_ctl_cb
   ipa_rmnet_ctl_xmit
   ipa_unregister_rmnet_ctl_cb
+  qcom_clk_set_flags
   qcom_scm_assign_mem_regions
   qcom_scm_camera_protect_phy_lanes
   qcom_scm_dcvs_ca_available
