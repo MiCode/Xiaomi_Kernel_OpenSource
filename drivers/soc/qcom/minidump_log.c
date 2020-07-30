@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/thread_info.h>
 #include <soc/qcom/minidump.h>
+#include <soc/qcom/secure_buffer.h>
 #include <asm/page.h>
 #include <asm/memory.h>
 #include <asm/sections.h>
@@ -830,10 +831,14 @@ static void md_dump_data(unsigned long addr, int nbytes, const char *name)
 		for (j = 0; j < 8; j++) {
 			u32	data;
 
-			if (probe_kernel_address(p, data))
-				seq_buf_printf(md_cntxt_seq_buf, " ********");
+			if (__is_lm_address(p) &&
+			    kern_addr_valid((unsigned long)p) &&
+			    page_accessible(page_to_pfn(virt_to_page(p))) &&
+			    !probe_kernel_address(p, data))
+				seq_buf_printf(md_cntxt_seq_buf, " %08x",
+						data);
 			else
-				seq_buf_printf(md_cntxt_seq_buf, " %08x", data);
+				seq_buf_printf(md_cntxt_seq_buf, " ********");
 			++p;
 		}
 		seq_buf_printf(md_cntxt_seq_buf, "\n");
