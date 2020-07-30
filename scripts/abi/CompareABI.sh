@@ -116,7 +116,7 @@ then
 	cd ..
 	export PATH=$PWD\
 /prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
-$PWD/prebuilts/clang/host/linux-x86/clang-r353983c/bin/:$PATH
+$PWD/prebuilts/clang/host/linux-x86/clang-r383902/bin/:$PATH
 	cd $BASE_DIR
 	echo "Copy arch/arm64/configs/$src_defconfig to \
 arch/arm64/configs/$src_defconfig.config"
