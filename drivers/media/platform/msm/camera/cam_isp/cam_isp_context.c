@@ -905,7 +905,7 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp->num_fence_map_out != 0) {
+	if (req_isp && req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
 		CAM_DBG(CAM_REQ,
@@ -1885,7 +1885,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp->num_fence_map_out != 0) {
+	if (req_isp && req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
 		CAM_DBG(CAM_REQ, "move request %lld to active list(cnt = %d)",
@@ -1903,7 +1903,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 	 * state so change substate here.
 	 */
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
-	if (req_isp->num_fence_map_out != 1)
+	if (req_isp && req_isp->num_fence_map_out != 1)
 		goto end;
 
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger &&
@@ -2343,6 +2343,7 @@ hw_dump:
 			is_dump_only_event_record = true;
 		}
 		ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
+		memset(&cpu_addr, 0, sizeof(cpu_addr));
 		rc  = cam_mem_get_cpu_buf(dump_info->buf_handle,
 			&cpu_addr, &buf_len);
 		if (!cpu_addr || !buf_len || rc) {

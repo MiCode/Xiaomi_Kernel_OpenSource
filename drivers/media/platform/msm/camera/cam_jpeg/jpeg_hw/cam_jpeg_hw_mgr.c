@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1103,6 +1103,7 @@ hw_dump:
 		p_cfg_req->submit_timestamp.tv_usec,
 		cur_time.tv_sec,
 		cur_time.tv_usec);
+	memset(&jpeg_dump_args, 0, sizeof(jpeg_dump_args));
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&jpeg_dump_args.cpu_addr, &jpeg_dump_args.buf_len);
 	if (!jpeg_dump_args.cpu_addr || !jpeg_dump_args.buf_len || rc) {
