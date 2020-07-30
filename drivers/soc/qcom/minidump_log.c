@@ -131,6 +131,11 @@ size_t md_pageowner_dump_size = SZ_2M;
 char *md_pageowner_dump_addr;
 #endif
 
+#ifdef CONFIG_SLUB_DEBUG
+size_t md_slabowner_dump_size = SZ_2M;
+char *md_slabowner_dump_addr;
+#endif
+
 /* Modules information */
 #ifdef CONFIG_MODULES
 #define NUM_MD_MODULES	200
@@ -1086,6 +1091,11 @@ dump_rq:
 	if (md_pageowner_dump_addr)
 		md_dump_pageowner(md_pageowner_dump_addr, md_pageowner_dump_size);
 #endif
+
+#ifdef CONFIG_SLUB_DEBUG
+	if (md_slabowner_dump_addr)
+		md_dump_slabowner(md_slabowner_dump_addr, md_slabowner_dump_size);
+#endif
 	md_in_oops_handler = false;
 	return NOTIFY_DONE;
 }
@@ -1171,6 +1181,12 @@ static void md_register_panic_data(void)
 	if (is_page_owner_enabled()) {
 		md_register_memory_dump(md_pageowner_dump_size, "PAGEOWNER");
 		md_debugfs_pageowner(minidump_dir);
+	}
+#endif
+#ifdef CONFIG_SLUB_DEBUG
+	if (is_slub_debug_enabled()) {
+		md_register_memory_dump(md_slabowner_dump_size, "SLABOWNER");
+		md_debugfs_slabowner(minidump_dir);
 	}
 #endif
 }

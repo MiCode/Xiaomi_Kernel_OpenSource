@@ -17,9 +17,16 @@
 #include <linux/ctype.h>
 #include <soc/qcom/minidump.h>
 #include <linux/dma-map-ops.h>
+#include <linux/jhash.h>
 #include "minidump_memory.h"
 #include "../../../mm/slab.h"
 #include "../mm/internal.h"
+
+struct priv_buf {
+	char *buf;
+	size_t size;
+	size_t offset;
+};
 
 static void show_val_kb(struct seq_buf *m, const char *s, unsigned long num)
 {
@@ -244,6 +251,10 @@ bool md_register_memory_dump(int size, char *name)
 #ifdef CONFIG_PAGE_OWNER
 	if (!strcmp(name, "PAGEOWNER"))
 		WRITE_ONCE(md_pageowner_dump_addr, buffer_start);
+#endif
+#ifdef CONFIG_SLUB_DEBUG
+	if (!strcmp(name, "SLABOWNER"))
+		WRITE_ONCE(md_slabowner_dump_addr, buffer_start);
 #endif
 	return true;
 }
@@ -715,3 +726,294 @@ void md_debugfs_pageowner(struct dentry *minidump_dir)
 			&proc_page_owner_call_site_ops);
 }
 #endif
+
+#ifdef CONFIG_SLUB_DEBUG
+#define STACK_HASH_SEED 0x9747b28c
+
+static unsigned long slab_owner_filter;
+static unsigned long slab_owner_handles_size = SZ_16K;
+static int num_handles;
+
+bool is_slub_debug_enabled(void)
+{
+	slab_flags_t slub_debug;
+
+	slub_debug = *(slab_flags_t *)android_debug_symbol(ADS_SLUB_DEBUG);
+	if (slub_debug)
+		return true;
+	return false;
+}
+
+static bool find_stack(u32 handle,
+		 char *md_slabowner_dump_addr, char *cur)
+{
+	int *handles, i;
+
+	handles = (int *) (md_slabowner_dump_addr +
+			md_slabowner_dump_size - slab_owner_handles_size);
+
+	for (i = 0; i < num_handles; i++)
+		if (handle == handles[i])
+			return true;
+
+	if ((handles + num_handles)
+		< (int *)(md_slabowner_dump_addr +
+			md_slabowner_dump_size)) {
+		handles[num_handles] = handle;
+		num_handles += 1;
+	} else {
+		pr_err_ratelimited("Can't stores handles increase slab_owner_handle_size\n");
+	}
+	return false;
+}
+
+/* Calculate hash for a stack */
+static u32 hash_stack(const unsigned long *entries, unsigned int size)
+{
+	return jhash2((u32 *)entries,
+			       size * sizeof(unsigned long) / sizeof(u32),
+			       STACK_HASH_SEED);
+}
+
+static int dump_tracking(const struct kmem_cache *s,
+		const void *object,
+		const struct track *t, void *private)
+{
+	int ret = 0;
+	u32 handle, nr_entries;
+	struct priv_buf *priv_buf;
+	char *buf;
+	size_t size;
+
+	if (!t->addr)
+		return 0;
+
+	priv_buf = (struct priv_buf *)private;
+	buf = priv_buf->buf + priv_buf->offset;
+	size = priv_buf->size - priv_buf->offset;
+#ifdef CONFIG_STACKTRACE
+	{
+		int i;
+
+		for (i = 0; i < TRACK_ADDRS_COUNT; i++)
+			if (t->addrs[i])
+				continue;
+			else
+				break;
+		nr_entries = i;
+		handle = hash_stack(t->addrs, nr_entries);
+
+		if ((buf > (md_slabowner_dump_addr +
+			md_slabowner_dump_size - slab_owner_handles_size))
+			|| !find_stack(handle, md_slabowner_dump_addr, buf)) {
+
+			ret = scnprintf(buf, size, "%p %u %u\n",
+				object, handle, nr_entries);
+			if (ret == size - 1)
+				goto err;
+
+			for (i = 0; i < nr_entries; i++) {
+				ret += scnprintf(buf + ret, size - ret,
+						"%p\n", (void *)t->addrs[i]);
+				if (ret == size - 1)
+					goto err;
+			}
+		} else {
+			ret = scnprintf(buf, size, "%p %u %u\n",
+					object, handle, 0);
+		}
+	}
+#else
+	ret = scnprintf(buf, size, "%p %p\n", object, (void *)t->addr);
+
+#endif
+err:
+	priv_buf->offset += ret;
+	return ret;
+}
+
+void md_dump_slabowner(char *m, size_t dump_size)
+{
+	struct kmem_cache *s;
+	int node;
+	struct priv_buf buf;
+	struct kmem_cache_node *n;
+	ssize_t ret;
+	int i;
+
+	buf.buf = m;
+	buf.size = dump_size;
+	buf.offset = 0;
+
+	for (i = 0; i <= KMALLOC_SHIFT_HIGH; i++) {
+		if (!test_bit(i, &slab_owner_filter))
+			continue;
+		s = kmalloc_caches[KMALLOC_NORMAL][i];
+		if (!s)
+			continue;
+		ret = scnprintf(buf.buf, buf.size, "%s\n", s->name);
+		if (ret == buf.size - 1)
+			return;
+		buf.buf += ret;
+		for_each_kmem_cache_node(s, node, n) {
+			unsigned long flags;
+			struct page *page;
+
+			if (!atomic_long_read(&n->nr_slabs))
+				continue;
+
+			spin_lock_irqsave(&n->list_lock, flags);
+			list_for_each_entry(page, &n->partial, lru) {
+				ret  = get_each_object_track(s, page, TRACK_ALLOC,
+						dump_tracking, &buf);
+				if (buf.offset == buf.size - 1) {
+					spin_unlock_irqrestore(&n->list_lock, flags);
+					pr_err("slabowner minidump region exhausted\n");
+					return;
+				}
+			}
+			list_for_each_entry(page, &n->full, lru) {
+				ret  = get_each_object_track(s, page, TRACK_ALLOC,
+						dump_tracking, &buf);
+				if (buf.offset == buf.size - 1) {
+					spin_unlock_irqrestore(&n->list_lock, flags);
+					pr_err("slabowner minidump region exhausted\n");
+					return;
+				}
+			}
+			spin_unlock_irqrestore(&n->list_lock, flags);
+		}
+		ret = scnprintf(buf.buf, buf.size, "\n");
+		if (ret == buf.size - 1)
+			return;
+		buf.buf += ret;
+	}
+}
+
+static ssize_t slab_owner_dump_size_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long long  size;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for size\n");
+		return -EINVAL;
+	}
+	update_dump_size("SLABOWNER", size,
+			&md_slabowner_dump_addr, &md_slabowner_dump_size);
+	return count;
+}
+
+static ssize_t slab_owner_dump_size_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[100];
+
+	snprintf(buf, sizeof(buf), "%llu MB\n", md_slabowner_dump_size/SZ_1M);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_slab_owner_dump_size_ops = {
+	.open	= simple_open,
+	.write	= slab_owner_dump_size_write,
+	.read	= slab_owner_dump_size_read,
+};
+
+static ssize_t slab_owner_filter_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long filter;
+	int bit, i;
+	struct kmem_cache *s;
+
+	if (kstrtoul_from_user(ubuf, count, 0, &filter)) {
+		pr_err_ratelimited("Invalid format for filter\n");
+		return -EINVAL;
+	}
+
+	for (i = 0, bit = 1; filter >= bit; bit *= 2, i++) {
+		if (filter & bit) {
+			s = kmalloc_caches[KMALLOC_NORMAL][i];
+			if (!s) {
+				pr_err("Invalid filter : %lx kmalloc-%d doesn't exist\n",
+						filter, bit);
+				return -EINVAL;
+			}
+		}
+	}
+	slab_owner_filter = filter;
+	return count;
+}
+
+static ssize_t slab_owner_filter_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[64];
+
+	snprintf(buf, sizeof(buf), "0x%lx\n", slab_owner_filter);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_slab_owner_filter_ops = {
+	.open	= simple_open,
+	.write	= slab_owner_filter_write,
+	.read	= slab_owner_filter_read,
+};
+
+static ssize_t slab_owner_handle_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	unsigned long size;
+
+	if (kstrtoul_from_user(ubuf, count, 0, &size)) {
+		pr_err_ratelimited("Invalid format for handle size\n");
+		return -EINVAL;
+	}
+
+	if (size) {
+		if (size > (md_slabowner_dump_size / SZ_16K)) {
+			pr_err_ratelimited("size : %lu KB exceeds max size : %lu KB\n",
+				size, (md_slabowner_dump_size / SZ_16K));
+			goto err;
+		}
+		slab_owner_handles_size = size * SZ_1K;
+	}
+err:
+	return count;
+}
+
+static ssize_t slab_owner_handle_read(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *offset)
+{
+	char buf[64];
+
+	snprintf(buf, sizeof(buf), "%lu KB\n",
+			(slab_owner_handles_size / SZ_1K));
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
+}
+
+static const struct file_operations proc_slab_owner_handle_ops = {
+	.open	= simple_open,
+	.write	= slab_owner_handle_write,
+	.read	= slab_owner_handle_read,
+};
+
+void md_debugfs_slabowner(struct dentry *minidump_dir)
+{
+	int i;
+
+	debugfs_create_file("slab_owner_dump_size_mb", 0400, minidump_dir, NULL,
+		    &proc_slab_owner_dump_size_ops);
+	debugfs_create_file("slab_owner_filter", 0400, minidump_dir, NULL,
+		    &proc_slab_owner_filter_ops);
+	debugfs_create_file("slab_owner_handles_size_kb", 0400,
+			minidump_dir, NULL, &proc_slab_owner_handle_ops);
+	for (i = 0; i <= KMALLOC_SHIFT_HIGH; i++) {
+		if (kmalloc_caches[KMALLOC_NORMAL][i])
+			set_bit(i, &slab_owner_filter);
+	}
+}
+#endif	/* CONFIG_SLUB_DEBUG */
