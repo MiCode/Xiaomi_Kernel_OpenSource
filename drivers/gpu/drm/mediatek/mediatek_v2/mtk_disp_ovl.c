@@ -2511,7 +2511,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, 0, inten);
 		break;
 	}
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 	case PMQOS_SET_BW: {
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
@@ -2526,7 +2526,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		ovl_bw = *(unsigned int *)(cmdq_buf->va_base +
 					    DISP_SLOT_PMQOS_BW(slot_num));
 
-		__mtk_disp_set_module_bw(&comp->fbdc_qos_req, comp->id, ovl_bw,
+		__mtk_disp_set_module_bw(comp->fbdc_qos_req, comp->id, ovl_bw,
 					    DISP_BW_FBDC_MODE);
 
 		/* process normal */
@@ -2535,14 +2535,14 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		ovl_bw = *(unsigned int *)(cmdq_buf->va_base +
 					    DISP_SLOT_PMQOS_BW(slot_num));
 
-		__mtk_disp_set_module_bw(&comp->qos_req, comp->id, ovl_bw,
+		__mtk_disp_set_module_bw(comp->qos_req, comp->id, ovl_bw,
 					    DISP_BW_NORMAL_MODE);
 		break;
 	}
 	case PMQOS_SET_HRT_BW: {
 		u32 bw_val = *(unsigned int *)params;
 
-		__mtk_disp_set_module_hrt(&comp->hrt_qos_req, bw_val);
+		__mtk_disp_set_module_hrt(comp->hrt_qos_req, bw_val);
 
 		ret = OVL_REQ_HRT;
 		break;
@@ -3243,13 +3243,12 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_ovl *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	struct mtk_drm_private *drm_priv = drm_dev->dev_private;
-	int qos_req_port;
-#endif
 	int ret;
 	unsigned int bg_h, bg_w;
 	void __iomem *baddr;
+#ifdef MTK_DISP_MMQOS_SUPPORT
+	char buf[50];
+#endif
 
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
@@ -3258,18 +3257,18 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	qos_req_port = __mtk_disp_pmqos_port_look_up(priv->ddp_comp.id);
-	if (qos_req_port < 0) {
-		DDPPR_ERR("Failed to request QOS port\n");
-	} else {
-		mm_qos_add_request(&drm_priv->bw_request_list,
-				   &priv->ddp_comp.qos_req, qos_req_port);
-		mm_qos_add_request(&drm_priv->bw_request_list,
-				   &priv->ddp_comp.fbdc_qos_req, qos_req_port);
-		mm_qos_add_request(&drm_priv->hrt_request_list,
-				   &priv->ddp_comp.hrt_qos_req, qos_req_port);
-	}
+#ifdef MTK_DISP_MMQOS_SUPPORT
+	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+					&priv->ddp_comp, "qos");
+	priv->ddp_comp.qos_req = of_icc_get(dev, buf);
+
+	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+					&priv->ddp_comp, "fbdc_qos");
+	priv->ddp_comp.fbdc_qos_req = of_icc_get(dev, buf);
+
+	mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+					&priv->ddp_comp, "hrt_qos");
+	priv->ddp_comp.hrt_qos_req = of_icc_get(dev, buf);
 #endif
 
 	baddr = priv->ddp_comp.regs;

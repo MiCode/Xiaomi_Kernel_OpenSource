@@ -1294,7 +1294,7 @@ static void process_dbg_opt(const char *opt)
 		       idle_check_interval);
 	} else if (strncmp(opt, "hrt_bw", 6) == 0) {
 		DDPINFO("HRT test+\n");
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 		mtk_disp_hrt_bw_dbg();
 #endif
 		DDPINFO("HRT test-\n");

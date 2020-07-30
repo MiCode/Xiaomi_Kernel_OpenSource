@@ -25,7 +25,8 @@
 #define MTK_DRM_ESD_SUPPORT
 #define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
-//#define MTK_FB_MMDVFS_SUPPORT
+#define MTK_DISP_MMQOS_SUPPORT
+#define MTK_DISP_MMDVFS_SUPPORT
 #define MTK_FILL_MIPI_IMPEDANCE
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define MTK_DRM_DELAY_PRESENT_FENCE
@@ -38,8 +39,6 @@ struct drm_crtc;
 struct drm_device;
 struct drm_property;
 struct regmap;
-struct mm_qos_request;
-struct pm_qos_request;
 
 struct mtk_atomic_state {
 	struct drm_atomic_state base;
@@ -145,13 +144,8 @@ struct mtk_drm_private {
 	/* for rpo caps info */
 	unsigned int rsz_in_max[2];
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	struct plist_head bw_request_list;
-	struct plist_head hrt_request_list;
-	struct pm_qos_request ddr_opp_request;
-	struct pm_qos_request mm_freq_request;
-	struct mm_qos_request hrt_bw_request;
-#endif
+	struct icc_path *hrt_bw_request;
+
 	struct pinctrl *pctrl;
 
 #ifdef DRM_MMPATH

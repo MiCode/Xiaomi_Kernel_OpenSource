@@ -479,7 +479,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_disconnect_addon_module(crtc);
 
 	/* 3. set HRT BW to 0 */
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 	mtk_disp_set_hrt_bw(mtk_crtc, 0);
 #endif
 
@@ -553,7 +553,7 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
 	/* 9. restore HRT BW */
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 	mtk_disp_set_hrt_bw(mtk_crtc, mtk_crtc->qos_ctx->last_hrt_req);
 #endif
 

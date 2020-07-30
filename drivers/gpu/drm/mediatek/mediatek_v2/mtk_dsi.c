@@ -4118,6 +4118,7 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
  * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
  * DPHY     | data_rate x lane_num x compress_ratio / bpp
  ******************************************************************************/
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
@@ -4176,6 +4177,7 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 			data_rate, pixclk, pixclk_min);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
+#endif
 
 /******************************************************************************
  * DSI Type | PHY TYPE | HRT_BW (unit: Bytes) one frame ( Overlap * )
@@ -4545,7 +4547,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case SET_MMCLK_BY_DATARATE:
 	{
-#if IS_ENABLED(CONFIG_MTK_MMDVFS)
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
 

@@ -13,6 +13,7 @@
 #include "mtk_disp_pmqos.h"
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_runtime.h>
+#include <linux/interconnect-provider.h>
 
 struct device;
 struct device_node;
@@ -20,9 +21,7 @@ struct drm_crtc;
 struct drm_device;
 struct mtk_plane_state;
 struct drm_crtc_state;
-#ifdef MTK_FB_MMDVFS_SUPPORT
-struct mm_qos_request;
-#endif
+
 #define ALIGN_TO(x, n)  (((x) + ((n) - 1)) & ~((n) - 1))
 
 enum mtk_ddp_comp_type {
@@ -311,12 +310,9 @@ struct mtk_ddp_comp {
 #ifdef IF_ZERO
 	u8 cmdq_subsys;
 #endif
-	unsigned int qos_attr;
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	struct mm_qos_request qos_req;
-	struct mm_qos_request fbdc_qos_req;
-	struct mm_qos_request hrt_qos_req;
-#endif
+	struct icc_path *qos_req;
+	struct icc_path *fbdc_qos_req;
+	struct icc_path *hrt_qos_req;
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;

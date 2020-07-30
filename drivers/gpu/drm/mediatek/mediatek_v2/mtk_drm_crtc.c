@@ -1346,7 +1346,7 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 
 	/* Only update HRT information on path with HRT comp */
 	if (bw > mtk_crtc->qos_ctx->last_hrt_req) {
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 		mtk_disp_set_hrt_bw(mtk_crtc, bw);
 #endif
 		mtk_crtc->qos_ctx->last_hrt_req = bw;
@@ -2058,7 +2058,7 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 			cur_hrt_bw,	mtk_crtc->qos_ctx->last_hrt_req,
 			mtk_crtc->qos_ctx->last_hrt_req);
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 		mtk_disp_set_hrt_bw(mtk_crtc,
 				mtk_crtc->qos_ctx->last_hrt_req);
 #endif
@@ -3208,7 +3208,7 @@ skip:
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
 	/* 5. Set HRT BW to 0 */
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 	if (drm_crtc_index(crtc) == 0)
 		mtk_disp_set_hrt_bw(mtk_crtc, 0);
 #endif
@@ -3569,7 +3569,7 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 			DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
 		mtk_ddp_comp_io_cmd(comp, NULL, SET_MMCLK_BY_DATARATE, &en);
 		/*need enable hrt_bw for pan display*/
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
 		mtk_drm_pan_disp_set_hrt_bw(crtc, __func__);
 #endif
 	} else {
