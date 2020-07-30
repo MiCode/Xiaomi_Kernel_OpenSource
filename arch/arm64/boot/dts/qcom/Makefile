@@ -444,7 +444,7 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-v2-mtp-v1.1-cpe.dtb \
 	sdxprairie-v2-mtp-v1.1.dtb \
 	sdxprairie-v2-mtp-le-cpe.dtb \
-	sdxprairie-v2-ttp-cpe.dtb \
+	sdxprairie-v2-mtp-au-dsda.dtb \
 	sa515m-v2-ttp.dtb \
 	sa515m-v2-ttp-usb-ep.dtb \
 	sa515m-v2-ttp-pcie-ep.dtb \
