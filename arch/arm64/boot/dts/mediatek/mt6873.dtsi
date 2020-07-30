@@ -603,7 +603,7 @@
 	};
 
 	pwrap: pwrap@10026000 {
-		compatible = "mediatek,mt6873-pwrap";
+		compatible = "mediatek,mt6873-pwrap", "syscon";
 		reg = <0 0x10026000 0 0x1000>;
 		reg-names = "pwrap";
 		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -972,9 +972,43 @@
 			infracfg = <&infracfg>;
 		};
 
-		sleep@10006000 {
-			compatible = "mediatek,sleep";
+		sleep: sleep@10006000 {
+			compatible = "mediatek,sleep", "syscon";
 			reg = <0 0x10006000 0 0x100>;
+		};
+
+		srclken-ctrl@10006500 {
+			compatible = "mediatek,srclken-spm";
+			reg = <0 0x10006500 0 0x100>,
+				<0 0x10006E00 0 0x100>;
+			reg-names = "cfg", "sta";
+
+			cfg-ext = "central-4", "sw-con", "protocol-chk",
+				"dbg-cfg";
+			sta-ext = "timer-l-sta", "timer-m-sta";
+
+			trace-l-offset = <0x0 0x4 0x4 0x8 0x8 0x8 0x8 0x8>;
+			trace-m-offset = <0x0 0x4 0x8 0x8 0x8 0x8 0x8 0x8>;
+		};
+
+		srclken: srclken@10006500 {
+			compatible = "mediatek,srclken";
+			reg = <0 0x105c4000 0 0x1000>,
+				<0 0x10005000 0 0x1000>;
+			reg-names = "scpdvfs", "gpio";
+			mediatek,bring-up = "disable";
+			srclken-mode = "full-set";
+			subsys = "SUSPEND", "RF", "DPIDLE",
+				"MD", "GPS", "BT",
+				"WIFI", "MCU", "COANT",
+				"NFC", "UFS", "SCP",
+				"RSV";
+
+			scp-vreq-cfg = <0x54>;
+			scp-rc-vreq-bit = <27 28>;
+			gpio-dir-cfg = <0x0>;
+			gpio-dout-cfg = <0x100>;
+			gpio-pull-bit = <6>;
 		};
 
 		watchdog: watchdog@10007000 {
@@ -3912,6 +3946,22 @@
 			clock-names = "ccif";
 			pmic = <&pmic>;
 			memory-region = <&consys_mem>;
+		};
+
+		clock_buffer_ctrl: clock_buffer_ctrl {
+			compatible = "mediatek,clock_buffer";
+			mediatek,clkbuf-quantity = <7>;
+			mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
+			mediatek,clkbuf-output-impedance = <6 6 4 6 0 0 4>;
+			mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
+			mediatek,bring-up = "disable";
+			mediatek,bblpm-support = "enable";
+
+			pwrap-dcxo-en = <0x188 0 0x188 1 0x188 0>;
+			pwrap-dcxo-cfg = <0x18c 0x19c>;
+			spm-pwr-status = <0x180 0 0x180 1>;
+			pwrap = <&pwrap>;
+			sleep = <&sleep>;
 		};
 	};
 
