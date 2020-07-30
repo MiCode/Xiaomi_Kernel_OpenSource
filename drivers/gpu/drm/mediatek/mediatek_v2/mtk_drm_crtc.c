@@ -813,8 +813,6 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_crtc *crtc,
 				 ktime_t *vblank_time,
 				 bool in_vblank_irq)
 {
-	struct drm_device *dev = crtc->dev;
-	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	*vblank_time = timespec64_to_ktime(mtk_crtc->vblank_time);
