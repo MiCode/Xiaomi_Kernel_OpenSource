@@ -18,6 +18,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
+#include <linux/iopoll.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include "../misc/mediatek/mcupm/include/mcupm_driver.h"
@@ -25,13 +26,19 @@
 
 #define OFFS_WFI_S	0x037c
 #define DVFS_D_LEN	(4)
+#define UDATA_OFF	0x10
+#define UDATA_SIZE	0x120
+
+enum {
+	IPI_EEMSN_SHARERAM_INIT,
+};
 
 enum cpu_dvfs_ipi_type {
 	IPI_DVFS_INIT,
 	NR_DVFS_IPI,
 };
 
-struct cdvfs_data {
+struct ipi_data {
 	unsigned int cmd;
 	union {
 		struct {
@@ -46,6 +53,8 @@ struct mtk_cpu_dvfs_info {
 	struct list_head list_head;
 	struct mutex lock;
 	void __iomem *csram_base;
+	void __iomem *usram_base;
+	unsigned int cluster;
 };
 
 static LIST_HEAD(dvfs_info_list);
@@ -67,7 +76,7 @@ static int mtk_cpufreq_set_target(struct cpufreq_policy *policy,
 				  unsigned int index)
 {
 	struct mtk_cpu_dvfs_info *info = policy->driver_data;
-	unsigned int cluster_id = policy->cpu / 4;
+	unsigned int cluster_id = info->cluster;
 
 	writel_relaxed(index, info->csram_base + (OFFS_WFI_S + (cluster_id * 4))
 		       );
@@ -111,11 +120,39 @@ static void mtk_cpu_dvfs_info_release(struct mtk_cpu_dvfs_info *info)
 	dev_pm_opp_of_cpumask_remove_table(&info->cpus);
 }
 
+int mcupm_get_cpu_power(unsigned long *power, unsigned long *KHz,
+		struct device *cpu_dev)
+{
+	struct mtk_cpu_dvfs_info *info = 
+		container_of(cpu_dev, struct mtk_cpu_dvfs_info, cpu_dev);
+	unsigned long Hz;
+	int ret;
+	struct dev_pm_opp *opp;
+	int level;
+
+	if (!cpu_dev) {
+		pr_info("failed to get device\n");
+		return -ENODEV;
+	}
+
+	/* Get the power cost of the performance domain. */
+	Hz = *KHz * 1000;
+	opp = dev_pm_opp_find_freq_ceil(cpu_dev, &Hz);
+	level = dev_pm_opp_get_level(opp);
+
+	/* The EM framework specifies the frequency in KHz. */
+	*power = readl(info->usram_base + level * DVFS_D_LEN) / 1000;
+	*KHz = Hz / 1000;
+
+	return 0;
+}
+
 static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 {
 	struct mtk_cpu_dvfs_info *info;
 	struct cpufreq_frequency_table *freq_table;
-	int ret;
+	int ret, opp;
+	struct em_data_callback em_cb = EM_DATA_CB(mcupm_get_cpu_power);
 
 	info = mtk_cpu_dvfs_info_lookup(policy->cpu);
 	if (!info)
@@ -129,8 +166,9 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 	policy->driver_data = info;
 	policy->freq_table = freq_table;
 	policy->transition_delay_us = 1000; /* us */
-	dev_pm_opp_of_register_em(info->cpu_dev, policy->cpus);
-
+	opp = dev_pm_opp_get_opp_count(info->cpu_dev);
+	em_dev_register_perf_domain(info->cpu_dev, opp,
+			&em_cb, policy->cpus);
 	return 0;
 
 out_free_opp:
@@ -164,27 +202,43 @@ static int mtk_cpufreq_probe(struct platform_device *pdev)
 {
 	struct mtk_cpu_dvfs_info *info;
 	struct list_head *list, *tmp;
-	int cpu, ret;
-	struct cdvfs_data cdvfs_d;
+	int cpu, ret, sig;
+	int cluster = 0;
+	struct ipi_data cdvfs_d, eem_data;
 	uint32_t cpufreq_buf[4];
-	struct mtk_ipi_device *mcupm_ipidev;
+	struct mtk_ipi_device *mcupm_ipidev, *mcupm_eem_ipidev;
+	int ipi_ackdata;
 
 	mcupm_ipidev = (struct mtk_ipi_device *) get_mcupm_ipidev();
+	mcupm_eem_ipidev = (struct mtk_ipi_device *) get_mcupm_ipidev();
 	if (!mcupm_ipidev)
 		return -ENODEV;
+
 	ret = mtk_ipi_register(mcupm_ipidev, CH_S_CPU_DVFS, NULL, NULL,
 			 (void *) &cpufreq_buf);
 	if (ret)
 		return -EINVAL;
-
 	cdvfs_d.cmd = IPI_DVFS_INIT;
 	cdvfs_d.u.set_fv.arg[0] = 1;
 	ret = mtk_ipi_send_compl(mcupm_ipidev, CH_S_CPU_DVFS,
 				 IPI_SEND_POLLING, &cdvfs_d,
-				 sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
+				 sizeof(struct ipi_data)/MBOX_SLOT_SIZE,
 				 2000);
 	if (ret)
-		return 0;
+		return -EINVAL;
+
+	ret = mtk_ipi_register(mcupm_eem_ipidev, CH_S_EEMSN, NULL, NULL,
+		(void *)&ipi_ackdata);
+	if (ret != 0)
+		return -EINVAL;
+
+	eem_data.cmd = IPI_EEMSN_SHARERAM_INIT;
+
+	ret = mtk_ipi_send_compl(mcupm_eem_ipidev, CH_S_EEMSN,
+		IPI_SEND_POLLING, &eem_data,
+		sizeof(struct ipi_data)/MBOX_SLOT_SIZE, 2000);
+	if (ret)
+		return -EINVAL;
 
 	for_each_possible_cpu(cpu) {
 		info = mtk_cpu_dvfs_info_lookup(cpu);
@@ -206,9 +260,19 @@ static int mtk_cpufreq_probe(struct platform_device *pdev)
 		ret = mtk_cpu_dvfs_info_init(info, cpu);
 		if (ret)
 			goto release_dvfs_info_list;
+		info->cluster = cluster;
+		info->usram_base = of_iomap(pdev->dev.of_node, 1);
+		info->usram_base += (UDATA_OFF + (cluster) * UDATA_SIZE);
+		cluster++;
+		mutex_init(&info->lock);
 
 		list_add(&info->list_head, &dvfs_info_list);
 	}
+	/* using last info to check */
+	if (readl_poll_timeout(
+		(info->usram_base - (info->cluster) * UDATA_SIZE - UDATA_OFF),
+		sig, (sig == 0x5A5A5A02), 1000, 30000))
+		pr_info("volt no updated\n");
 
 	ret = cpufreq_register_driver(&mtk_cpufreq_driver);
 	if (ret)
