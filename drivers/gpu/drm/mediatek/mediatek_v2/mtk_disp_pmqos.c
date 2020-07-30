@@ -8,22 +8,33 @@
 #include "mtk_disp_pmqos.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_drv.h"
+#include "mtk_dump.h"
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
-
-#ifndef MTK_FB_MMDVFS_SUPPORT
-#define	MAX_FREQ_STEP 6
+#ifdef MTK_DISP_MMQOS_SUPPORT
+#include <dt-bindings/interconnect/mtk,mmqos.h>
+#include <soc/mediatek/mmqos.h>
 #endif
 
 static struct drm_crtc *dev_crtc;
 
 /* add for mm qos */
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
 static int g_freq_level = -1;
 static int step_size = 1;
+#endif
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef MTK_DISP_MMQOS_SUPPORT
+void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
+				struct mtk_ddp_comp *comp, char *qos_event)
+{
+	int len;
+
+	len = snprintf(buf, buf_len, "%s_%s", mtk_dump_comp_str(comp), qos_event);
+}
+
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 {
 	switch (comp_id) {
@@ -75,104 +86,26 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 	return -EINVAL;
 }
 
-int __mtk_disp_pmqos_port_look_up(int comp_id)
-{
-	switch (comp_id) {
-#if defined(CONFIG_MACH_MT6779)
-	case DDP_COMPONENT_OVL0:
-		return SMI_PORT_DISP_OVL0;
-	case DDP_COMPONENT_OVL1:
-		return SMI_PORT_DISP_OVL1;
-	case DDP_COMPONENT_OVL0_2L:
-		return SMI_PORT_DISP_OVL0_2L;
-	case DDP_COMPONENT_OVL1_2L:
-		return SMI_PORT_DISP_OVL1_2L;
-	case DDP_COMPONENT_OVL2_2L:
-		return SMI_PORT_DISP_OVL2;
-	case DDP_COMPONENT_OVL3_2L:
-		return SMI_PORT_DISP_OVL3;
-	case DDP_COMPONENT_RDMA0:
-		return SMI_PORT_DISP_RDMA0;
-	case DDP_COMPONENT_RDMA1:
-		return SMI_PORT_DISP_RDMA1;
-	case DDP_COMPONENT_WDMA0:
-		return SMI_PORT_DISP_WDMA0;
-#endif
-#if defined(CONFIG_MACH_MT6885)
-	case DDP_COMPONENT_OVL0:
-		return M4U_PORT_L0_OVL_RDMA0;
-	case DDP_COMPONENT_OVL0_2L:
-		return M4U_PORT_L1_OVL_2L_RDMA0;
-	case DDP_COMPONENT_OVL1_2L:
-		return M4U_PORT_L0_OVL_2L_RDMA1;
-	case DDP_COMPONENT_OVL2_2L:
-		return M4U_PORT_L1_OVL_2L_RDMA2;
-	case DDP_COMPONENT_RDMA0:
-		return M4U_PORT_L0_DISP_RDMA0;
-	case DDP_COMPONENT_RDMA1:
-		return M4U_PORT_L1_DISP_RDMA1;
-	case DDP_COMPONENT_WDMA0:
-		return M4U_PORT_L0_DISP_WDMA0;
-	case DDP_COMPONENT_WDMA1:
-		return M4U_PORT_L1_DISP_WDMA1;
-#endif
-#if defined(CONFIG_MACH_MT6873)
-	case DDP_COMPONENT_OVL0:
-		return M4U_PORT_L0_OVL_RDMA0;
-	case DDP_COMPONENT_OVL0_2L:
-		return M4U_PORT_L1_OVL_2L_RDMA0;
-	case DDP_COMPONENT_OVL2_2L:
-		return M4U_PORT_L1_OVL_2L_RDMA2;
-	case DDP_COMPONENT_RDMA0:
-		return M4U_PORT_L0_DISP_RDMA0;
-	case DDP_COMPONENT_RDMA4:
-		return M4U_PORT_L1_DISP_RDMA4;
-	case DDP_COMPONENT_WDMA0:
-		return M4U_PORT_L0_DISP_WDMA0;
-#endif
-
-#if defined(CONFIG_MACH_MT6853)
-	case DDP_COMPONENT_OVL0:
-		return M4U_PORT_L0_OVL_RDMA0;
-	case DDP_COMPONENT_OVL0_2L:
-		return M4U_PORT_L1_OVL_2L_RDMA0;
-	case DDP_COMPONENT_RDMA0:
-		return M4U_PORT_L1_DISP_RDMA0;
-	case DDP_COMPONENT_WDMA0:
-		return M4U_PORT_L1_DISP_WDMA0;
-#endif
-
-	default:
-		DDPPR_ERR("%s, unknown comp %d\n", __func__, comp_id);
-		break;
-	}
-
-	return -EINVAL;
-}
-
-int __mtk_disp_set_module_bw(struct mm_qos_request *request, int comp_id,
+int __mtk_disp_set_module_bw(struct icc_path *request, int comp_id,
 			     unsigned int bandwidth, unsigned int bw_mode)
 {
-	int mode;
-
-	if (bw_mode == DISP_BW_FBDC_MODE)
-		mode = BW_COMP_DEFAULT;
-	else
-		mode = BW_COMP_NONE;
-
-	DDPINFO("set module %d, bw %u\n", comp_id, bandwidth);
+	DDPINFO("%s set %d bw = %u\n", __func__, comp_id, bandwidth);
 	bandwidth = bandwidth * 133 / 100;
-	mm_qos_set_bw_request(request, bandwidth, mode);
+
+	icc_set_bw(request, MBps_to_icc(bandwidth), 0);
 
 	DRM_MMP_MARK(pmqos, comp_id, bandwidth);
 
 	return 0;
 }
 
-void __mtk_disp_set_module_hrt(struct mm_qos_request *request,
+void __mtk_disp_set_module_hrt(struct icc_path *request,
 			       unsigned int bandwidth)
 {
-	mm_qos_set_hrt_request(request, bandwidth);
+	if (bandwidth > 0)
+		icc_set_bw(request, 0, MTK_MMQOS_MAX_BW);
+	else
+		icc_set_bw(request, 0, MBps_to_icc(bandwidth));
 }
 
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
@@ -197,10 +130,9 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	if (ret == RDMA_REQ_HRT)
 		tmp = mtk_drm_primary_frame_bw(crtc);
 
-	mm_qos_set_hrt_request(&priv->hrt_bw_request, tmp);
+	icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
 	DRM_MMP_MARK(hrt_bw, 0, tmp);
 	DDPINFO("set HRT bw %u\n", tmp);
-	mm_qos_update_all_request(&priv->hrt_request_list);
 
 	return ret;
 }
@@ -292,7 +224,8 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 
 	return 0;
 }
-#if IS_ENABLED(CONFIG_MTK_MMDVFS)
+
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 {
 	int i = 0;
@@ -317,7 +250,6 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 	mtk_drm_mmdvfs_get_avail_freq(dev);
 }
 
-
 static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {
@@ -328,7 +260,7 @@ static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	if (drm_crtc_index(crtc) != 0)
 		return;
 
-	if (level < 0 || level > MAX_FREQ_STEP)
+	if (level < 0 || level > (step_size - 1))
 		level = -1;
 
 	if (level == g_freq_level)

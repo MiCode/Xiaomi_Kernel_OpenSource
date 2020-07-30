@@ -20,14 +20,13 @@
 #include "mtk_dramc.h"
 #endif
 #include "mtk_layering_rule.h"
-#ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mmdvfs_mgr.h"
-#include "mmdvfs_pmqos.h"
-#endif
 #include "mtk_log.h"
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_graphics_base.h"
+#ifdef MTK_DISP_MMQOS_SUPPORT
+#include <soc/mediatek/mmqos.h>
+#endif
 
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
@@ -121,7 +120,7 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 	unsigned int yuv_layer_gpu[12];
 	int yuv_layer_ovl = -1;
 
-	for (disp_idx = 0 ; disp_idx < HRT_TYPE_NUM ; disp_idx++) {
+	for (disp_idx = 0 ; disp_idx < HRT_DISP_TYPE_NUM ; disp_idx++) {
 		yuv_layer_ovl = -1;
 		yuv_gpu_cnt = 0;
 
@@ -165,7 +164,7 @@ static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int i, j, layer_cnt = 0;
 
-	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++) {
+	for (i = HRT_SECONDARY; i < HRT_DISP_TYPE_NUM; i++) {
 		unsigned int max_layer_cnt = SECONDARY_OVL_LAYER_NUM;
 
 		if (is_triple_disp(disp_info) && i == HRT_SECONDARY)
@@ -236,7 +235,7 @@ static void filter_by_wcg(struct drm_device *dev,
 		mtk_rollback_layer_to_GPU(disp_info, HRT_PRIMARY, i);
 	}
 
-	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++)
+	for (i = HRT_SECONDARY; i < HRT_DISP_TYPE_NUM; i++)
 		for (j = 0; j < disp_info->layer_num[i]; j++) {
 			c = &disp_info->input_config[i][j];
 			if (!is_ovl_wcg(c->dataspace) &&
@@ -274,7 +273,7 @@ static void filter_by_fbdc(struct drm_mtk_layering_info *disp_info)
 	}
 
 	/* secondary: rollback all */
-	for (i = HRT_SECONDARY; i < HRT_TYPE_NUM; i++)
+	for (i = HRT_SECONDARY; i < HRT_DISP_TYPE_NUM; i++)
 		for (j = 0; j < disp_info->layer_num[i]; j++) {
 			c = &(disp_info->input_config[i][j]);
 
@@ -486,12 +485,12 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 					struct drm_display_mode *mode)
 {
 	unsigned long long dvfs_bw = 0;
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	unsigned long long tmp;
+#ifdef MTK_DISP_MMQOS_SUPPORT
+	unsigned long long tmp = 0;
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	dvfs_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
+	dvfs_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
 	if (dvfs_bw == 0xffffffffffffffff) {
 		DDPPR_ERR("mm_hrt_get_available_hrt_bw=-1\n");
 		return 600;
@@ -518,7 +517,7 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	}
 
 	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
-		mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP)),
+		mtk_mmqos_get_avail_hrt_bw(HRT_DISP),
 		dvfs_bw, tmp);
 #else
 	dvfs_bw = 600;

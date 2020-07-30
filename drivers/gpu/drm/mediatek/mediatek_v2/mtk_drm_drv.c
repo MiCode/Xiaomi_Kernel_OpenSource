@@ -2290,7 +2290,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #endif
 	disp_dbg_init(drm);
 	PanelMaster_Init(drm);
-#if IS_ENABLED(CONFIG_MTK_MMDVFS)
+#ifdef MTK_DISP_MMDVFS_SUPPORT
 	mtk_drm_mmdvfs_init(drm->dev);
 #endif
 	DDPINFO("%s-\n", __func__);
@@ -2756,11 +2756,8 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	/* Get and enable top clk align to HW */
 	mtk_drm_get_top_clk(private);
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	plist_head_init(&private->bw_request_list);
-	plist_head_init(&private->hrt_request_list);
-	mm_qos_add_request(&private->hrt_request_list, &private->hrt_bw_request,
-			   get_virtual_port(VIRTUAL_DISP));
+#ifdef MTK_DISP_MMQOS_SUPPORT
+	private->hrt_bw_request = of_icc_get(dev, "disp_hrt_qos");
 #endif
 
 	/* Iterate over sibling DISP function blocks */

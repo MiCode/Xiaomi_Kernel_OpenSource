@@ -52,7 +52,7 @@ enum HRT_DISP_TYPE {
 	HRT_PRIMARY = 0,
 	HRT_SECONDARY,
 	HRT_THIRD,
-	HRT_TYPE_NUM,
+	HRT_DISP_TYPE_NUM,
 };
 
 enum HRT_DEBUG_LAYER_DATA {
@@ -122,7 +122,7 @@ struct hrt_sort_entry {
 
 struct layering_rule_info_t {
 	int bound_tb_idx;
-	int addon_scn[HRT_TYPE_NUM];
+	int addon_scn[HRT_DISP_TYPE_NUM];
 	int dal_enable;
 	int primary_fps;
 	int hrt_sys_state;
