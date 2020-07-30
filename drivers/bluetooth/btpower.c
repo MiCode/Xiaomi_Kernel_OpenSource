@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <linux/uaccess.h>
 #include <linux/btpower.h>
+#include <linux/of_device.h>
 
 #if defined CONFIG_BT_SLIM_QCA6390 || \
 	defined CONFIG_BT_SLIM_QCA6490 || \
@@ -30,28 +31,48 @@
 #endif
 #include <linux/fs.h>
 
+// Regulator structure for QCA6390 and QCA6490 BT SoC series
+static struct bt_power_vreg_data bt_vregs_info_qca6x9x[] = {
+	{NULL, "qcom,bt-vdd-aon",  950000,  950000,  0, false, true},
+	{NULL, "qcom,bt-vdd-dig",  950000,  952000,  0, false, true},
+	{NULL, "qcom,bt-vdd-rfa1", 1900000, 1900000, 0, false, true},
+	{NULL, "qcom,bt-vdd-rfa2", 1900000, 1900000, 0, false, true},
+	{NULL, "qcom,bt-vdd-asd",  2800000, 2800000, 0, false, true},
+};
+
+// Regulator structure for WCN399x BT SoC series
+static struct bt_power bt_vreg_info_wcn399x = {
+	.compatible = "qcom,wcn3990",
+	.vregs = (struct bt_power_vreg_data []) {
+		{NULL, "qcom,bt-vdd-io",   1700000, 1900000, 0, false, false},
+		{NULL, "qcom,bt-vdd-core", 1304000, 1304000, 0, false, false},
+		{NULL, "qcom,bt-vdd-pa",   3000000, 3312000, 0, false, false},
+		{NULL, "qcom,bt-vdd-xtal", 1700000, 1900000, 0, false, false},
+	},
+	.num_vregs = 4,
+};
+
+static struct bt_power bt_vreg_info_qca6390 = {
+	.compatible = "qcom,qca6390",
+	.vregs = bt_vregs_info_qca6x9x,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
+};
+
+static struct bt_power bt_vreg_info_qca6490 = {
+	.compatible = "qcom,qca6490",
+	.vregs = bt_vregs_info_qca6x9x,
+	.num_vregs = ARRAY_SIZE(bt_vregs_info_qca6x9x),
+};
+
 static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qcom,qca6174" },
-	{	.compatible = "qcom,wcn3990" },
-	{	.compatible = "qcom,qca6390" },
-	{	.compatible = "qcom,qca6490" },
+	{	.compatible = "qcom,wcn3990", .data = &bt_vreg_info_wcn399x},
+	{	.compatible = "qcom,qca6390", .data = &bt_vreg_info_qca6390},
+	{	.compatible = "qcom,qca6490", .data = &bt_vreg_info_qca6490},
 	{},
 };
 
-static struct bt_power_vreg_data bt_power_vreg_info[] = {
-	{NULL, "qcom,bt-vdd-aon", 950000, 950000, 0, false, true},
-	{NULL, "qcom,bt-vdd-dig", 950000, 952000, 0, false, true},
-	{NULL, "qcom,bt-vdd-rfa1", 1900000, 1900000, 0, false, true},
-	{NULL, "qcom,bt-vdd-rfa2", 1900000, 1900000, 0, false, true},
-	{NULL, "qcom,bt-vdd-asd", 2800000, 2800000, 0, false, true},
-};
-
-#define BT_VREG_INFO_SIZE ARRAY_SIZE(bt_power_vreg_info)
-
-static int bt_power_vreg_get(struct platform_device *pdev);
 static int bt_power_vreg_set(enum bt_power_modes mode);
-static void bt_power_vreg_put(void);
-static int bt_dt_parse_chipset_info(struct device *dev);
 
 static struct bluetooth_power_platform_data *bt_power_pdata;
 static struct platform_device *btpdev;
@@ -434,20 +455,29 @@ static void bluetooth_power_rfkill_remove(struct platform_device *pdev)
 
 #define MAX_PROP_SIZE 32
 static int bt_dt_parse_vreg_info(struct device *dev,
-		struct bt_power_vreg_data **vreg_data, const char *vreg_name)
+		struct bt_power_vreg_data *vreg_data)
 {
-	int len;
+	int len, ret = 0;
 	const __be32 *prop;
 	char prop_name[MAX_PROP_SIZE];
-	struct bt_power_vreg_data *vreg = *vreg_data;
+	struct bt_power_vreg_data *vreg = vreg_data;
 	struct device_node *np = dev->of_node;
+	const char *vreg_name = vreg_data->name;
 
 	pr_debug("%s: vreg dev tree parse for %s\n", __func__, vreg_name);
 
 	snprintf(prop_name, sizeof(prop_name), "%s-supply", vreg_name);
 	if (of_parse_phandle(np, prop_name, 0)) {
-		snprintf(prop_name, sizeof(prop_name), "%s-config", vreg->name);
+		vreg->reg = regulator_get(dev, vreg_name);
+		if (IS_ERR(vreg->reg)) {
+			ret = PTR_ERR(vreg->reg);
+			vreg->reg = NULL;
+			pr_warn("%s: failed to get: %s error:%d\n", __func__,
+				vreg_name, ret);
+			return ret;
+		}
 
+		snprintf(prop_name, sizeof(prop_name), "%s-config", vreg->name);
 		prop = of_get_property(dev->of_node, prop_name, &len);
 		if (!prop || len != (4 * sizeof(__be32))) {
 			pr_debug("%s: Property %s %s, use default\n",
@@ -457,17 +487,18 @@ static int bt_dt_parse_vreg_info(struct device *dev,
 			vreg->min_vol = be32_to_cpup(&prop[0]);
 			vreg->max_vol = be32_to_cpup(&prop[1]);
 			vreg->load_curr = be32_to_cpup(&prop[2]);
-			vreg->is_retention_supp = be32_to_cpup(&prop[4]);
+			vreg->is_retention_supp = be32_to_cpup(&prop[3]);
 		}
 
 		pr_debug("%s: Got regulator: %s, min_vol: %u, max_vol: %u, load_curr: %u,is_retention_supp: %u\n",
 			__func__, vreg->name, vreg->min_vol, vreg->max_vol,
 			vreg->load_curr, vreg->is_retention_supp);
-	} else
-		pr_info("%s: %s is not provided in device tree\n",
-			__func__, vreg_name);
+	} else {
+		pr_info("%s: %s is not provided in device tree\n", __func__,
+			vreg_name);
+	}
 
-	return 0;
+	return ret;
 }
 
 static int bt_dt_parse_clk_info(struct device *dev,
@@ -517,89 +548,53 @@ err:
 	return ret;
 }
 
-static int bt_dt_parse_chipset_info(struct device *dev)
-{
-	int ret = -EINVAL;
-	struct device_node *np = dev->of_node;
-
-	/* Allocated 32 byte size buffer for compatible string */
-	bt_power_pdata->compatible_chipset_version = devm_kzalloc(dev,
-					MAX_PROP_SIZE, GFP_KERNEL);
-	if (bt_power_pdata->compatible_chipset_version == NULL) {
-		ret = -ENOMEM;
-		return ret;
-	}
-	ret = of_property_read_string(np, "compatible",
-			&bt_power_pdata->compatible_chipset_version);
-	if (ret < 0) {
-		pr_err("%s: reading \"compatible\" failed\n",
-			__func__);
-	} else {
-		pr_debug("%s: compatible =%s\n", __func__,
-			bt_power_pdata->compatible_chipset_version);
-	}
-	return ret;
-}
-
 static int bt_power_vreg_get(struct platform_device *pdev)
 {
-	struct bt_power_vreg_data *vreg_info;
-	int i = 0, ret = 0;
+	int num_vregs, i = 0, ret = 0;
+	const struct bt_power *data;
 
-	bt_power_pdata->vreg_info =
-		devm_kzalloc(&(pdev->dev),
-				sizeof(bt_power_vreg_info),
-				GFP_KERNEL);
-	if (!bt_power_pdata->vreg_info) {
-		ret = -ENOMEM;
-		goto out;
-	}
-	memcpy(bt_power_pdata->vreg_info, bt_power_vreg_info,
-		sizeof(bt_power_vreg_info));
-
-	for (; i < BT_VREG_INFO_SIZE; i++) {
-		vreg_info = &bt_power_pdata->vreg_info[i];
-		ret = bt_dt_parse_vreg_info(&(pdev->dev), &vreg_info,
-							vreg_info->name);
+	data = of_device_get_match_data(&pdev->dev);
+	if (!data) {
+		pr_err("%s: failed to get dev node\n", __func__);
+		return -EINVAL;
 	}
 
-out:
+	memcpy(&bt_power_pdata->compatible, &data->compatible, MAX_PROP_SIZE);
+	bt_power_pdata->vreg_info = data->vregs;
+	num_vregs = bt_power_pdata->num_vregs = data->num_vregs;
+	for (; i < num_vregs; i++) {
+		ret = bt_dt_parse_vreg_info(&(pdev->dev),
+					    &bt_power_pdata->vreg_info[i]);
+		/* No point to go further if failed to get regulator handler */
+		if (ret)
+			break;
+	}
+
 	return ret;
 }
 
 static int bt_power_vreg_set(enum bt_power_modes mode)
 {
-	int i = 0, ret = 0;
+	int num_vregs, i = 0, ret = 0;
 	struct bt_power_vreg_data *vreg_info = NULL;
-	struct device *dev = &btpdev->dev;
 
+	num_vregs =  bt_power_pdata->num_vregs;
 	if (mode == BT_POWER_ENABLE) {
-		for (; i < BT_VREG_INFO_SIZE; i++) {
+		for (; i < num_vregs; i++) {
 			vreg_info = &bt_power_pdata->vreg_info[i];
-
-			/* set vreg handle if not already set */
-			if (!(vreg_info->reg)) {
-				vreg_info->reg = regulator_get(dev,
-							vreg_info->name);
-				if (IS_ERR(vreg_info->reg)) {
-					ret = PTR_ERR(vreg_info->reg);
-					vreg_info->reg = NULL;
-					pr_err("%s: regulator_get(%s) failed. rc=%d\n",
-						__func__, vreg_info->name, ret);
+			if (vreg_info->reg) {
+				ret = bt_vreg_enable(vreg_info);
+				if (ret < 0)
 					goto out;
-				}
 			}
-			ret = bt_vreg_enable(vreg_info);
-			if (ret < 0)
-				goto out;
 		}
 	} else if (mode == BT_POWER_DISABLE) {
-		for (; i < BT_VREG_INFO_SIZE; i++) {
+		for (; i < num_vregs; i++) {
 			vreg_info = &bt_power_pdata->vreg_info[i];
 			ret = bt_vreg_disable(vreg_info);
 		}
 	} else if (mode == BT_POWER_RETENTION) {
-		for (; i < BT_VREG_INFO_SIZE; i++) {
+		for (; i < num_vregs; i++) {
 			vreg_info = &bt_power_pdata->vreg_info[i];
 			ret = bt_vreg_enable_retention(vreg_info);
 		}
@@ -616,8 +611,9 @@ static void bt_power_vreg_put(void)
 {
 	int i = 0;
 	struct bt_power_vreg_data *vreg_info = NULL;
+	int num_vregs = bt_power_pdata->num_vregs;
 
-	for (; i < BT_VREG_INFO_SIZE; i++) {
+	for (; i < num_vregs; i++) {
 		vreg_info = &bt_power_pdata->vreg_info[i];
 		if (vreg_info->reg)
 			regulator_put(vreg_info->reg);
@@ -635,7 +631,9 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 		return -ENOMEM;
 
 	if (pdev->dev.of_node) {
-		bt_power_vreg_get(pdev);
+		rc = bt_power_vreg_get(pdev);
+		if (rc)
+			return rc;
 
 		bt_power_pdata->bt_gpio_sys_rst =
 			of_get_named_gpio(pdev->dev.of_node,
@@ -660,10 +658,6 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 					&bt_power_pdata->bt_chip_clk);
 		if (rc < 0)
 			pr_err("%s: clock not provided in device tree\n",
-				__func__);
-		rc = bt_dt_parse_chipset_info(&pdev->dev);
-		if (rc < 0)
-			pr_err("%s: compatible not provided in device tree\n",
 				__func__);
 	}
 
@@ -756,8 +750,9 @@ static long get_resource_value(char *res_name)
 	int i = 0;
 	long value = -1;
 	struct bt_power_vreg_data *vreg;
+	int num_vregs = bt_power_pdata->num_vregs;
 
-	for (; i < BT_VREG_INFO_SIZE; i++) {
+	for (; i < num_vregs; i++) {
 		vreg = &bt_power_pdata->vreg_info[i];
 
 		if (!vreg->reg)
@@ -768,7 +763,7 @@ static long get_resource_value(char *res_name)
 				break;
 		}
 	}
-	if (i < BT_VREG_INFO_SIZE) {
+	if (i < num_vregs) {
 		if (regulator_is_enabled(vreg->reg)) {
 			value = (int)regulator_get_voltage(vreg->reg);
 			pr_debug("%s:%s value(%d)\n",
@@ -830,16 +825,10 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case BT_CMD_GET_CHIPSET_ID:
-		if (bt_power_pdata->compatible_chipset_version) {
-			if (copy_to_user((void __user *)arg,
-				bt_power_pdata->compatible_chipset_version,
-				MAX_PROP_SIZE)) {
-				pr_err("%s: copy to user failed\n", __func__);
-				ret = -EFAULT;
-			}
-		} else {
-			pr_err("%s: compatible string not valid\n", __func__);
-			ret = -EINVAL;
+		if (copy_to_user((void __user *)arg, bt_power_pdata->compatible,
+		    MAX_PROP_SIZE)) {
+			pr_err("%s: copy to user failed\n", __func__);
+			ret = -EFAULT;
 		}
 		break;
 	case BT_CMD_GETVAL_RESET_GPIO:
