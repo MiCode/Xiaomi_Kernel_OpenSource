@@ -798,6 +798,14 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client);
 int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
 
 /**
+ * mhi_scan_rddm_cookie - Look for supplied cookie value in the BHI debug
+ * registers set by device to indicate rddm readiness for debugging purposes.
+ * @mhi_cntrl: MHI controller
+ * @cookie: cookie/pattern value to match
+ */
+bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie);
+
+/**
  * mhi_force_rddm_mode - Force external device into rddm mode
  * to collect device ramdump. This is useful if host driver assert
  * and we need to see device state as well.

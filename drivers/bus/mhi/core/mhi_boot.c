@@ -139,6 +139,31 @@ void mhi_dump_sfr(struct mhi_controller *mhi_cntrl)
 }
 EXPORT_SYMBOL(mhi_dump_sfr);
 
+bool mhi_scan_rddm_cookie(struct mhi_controller *mhi_cntrl, u32 cookie)
+{
+	int ret;
+	u32 val;
+
+	if (!mhi_cntrl->rddm_supported || !cookie)
+		return false;
+
+	MHI_CNTRL_LOG("Checking BHI debug register for 0x%x\n", cookie);
+
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		return false;
+
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_ERRDBG2, &val);
+	if (ret)
+		return false;
+
+	MHI_CNTRL_LOG("BHI_ERRDBG2 value:0x%x\n", val);
+	if (val == cookie)
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL(mhi_scan_rddm_cookie);
+
 /* setup rddm vector table for rddm transfer and program rxvec */
 void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 			     struct image_info *img_info)
