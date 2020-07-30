@@ -1840,6 +1840,7 @@
 		#reset-cells = <1>;
 		limit-phy-submode = <0>;
 		spm-level = <5>;
+		rpm-level = <3>;
 
 		lanes-per-direction = <1>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
