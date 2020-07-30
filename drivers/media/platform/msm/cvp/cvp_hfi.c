@@ -4376,9 +4376,12 @@ static int iris_hfi_get_core_capabilities(void *dev)
 	return 0;
 }
 
+static u32 cvp_arp_test_regs[16];
+static u32 cvp_dma_test_regs[512];
+
 static void __noc_error_info_iris2(struct iris_hfi_device *device)
 {
-	u32 val = 0;
+	u32 val = 0, regi, i;
 
 	val = __read_register(device, CVP_NOC_ERR_SWID_LOW_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_ERL_MAIN_SWID_LOW:     %#x\n", val);
@@ -4433,6 +4436,32 @@ static void __noc_error_info_iris2(struct iris_hfi_device *device)
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG3_HIGH_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_HIGH:     %#x\n", val);
+#define CVP_SS_CLK_HALT 0x8
+#define CVP_SS_CLK_EN 0xC
+#define CVP_SS_ARP_TEST_BUS_CONTROL 0x700
+#define CVP_SS_ARP_TEST_BUS_REGISTER 0x704
+#define CVP_DMA_TEST_BUS_CONTROL 0x66A0
+#define CVP_DMA_TEST_BUS_REGISTER 0x66A4
+#define CVP_VPU_WRAPPER_CORE_CONFIG 0xB0088
+	__write_register(device, CVP_SS_CLK_HALT, 0);
+	__write_register(device, CVP_SS_CLK_EN, 0x3f);
+	__write_register(device, CVP_VPU_WRAPPER_CORE_CONFIG, 0);
+
+	for (i = 0; i < 15; i++) {
+		regi = 0xC0000000 + i;
+		__write_register(device, CVP_SS_ARP_TEST_BUS_CONTROL, regi);
+		val = __read_register(device, CVP_SS_ARP_TEST_BUS_REGISTER);
+		cvp_arp_test_regs[i] = val;
+		dprintk(CVP_ERR, "ARP_CTL:%x - %x\n", regi, val);
+	}
+
+	for (i = 0; i < 512; i++) {
+		regi = 0x40000000 + i;
+		__write_register(device, CVP_DMA_TEST_BUS_CONTROL, regi);
+		val = __read_register(device, CVP_DMA_TEST_BUS_REGISTER);
+		cvp_dma_test_regs[i] = val;
+		dprintk(CVP_ERR, "DMA_CTL:%x - %x\n", regi, val);
+	}
 }
 
 static int iris_hfi_noc_error_info(void *dev)
