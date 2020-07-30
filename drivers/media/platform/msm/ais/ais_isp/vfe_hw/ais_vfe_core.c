@@ -1050,7 +1050,7 @@ static int ais_vfe_handle_sof(
 	CAM_DBG(CAM_ISP, "IFE%d SOF RDIs 0x%x", core_info->vfe_idx,
 			work_data->path);
 
-	for (path = 0; path <= AIS_IFE_PATH_MAX; path++) {
+	for (path = 0; path < AIS_IFE_PATH_MAX; path++) {
 
 		if (!(work_data->path & (1 << path)))
 			continue;
@@ -1092,7 +1092,7 @@ static int ais_vfe_handle_error(
 	bus_hw_info = core_info->vfe_hw_info->bus_hw_info;
 	bus_hw_irq_regs = bus_hw_info->common_reg.irq_reg_info.irq_reg_set;
 
-	for (path = 0; path <= AIS_IFE_PATH_MAX; path++) {
+	for (path = 0; path < AIS_IFE_PATH_MAX; path++) {
 
 		if (!(work_data->path & (1 << path)))
 			continue;
@@ -1135,7 +1135,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 	struct ais_vfe_rdi_output         *rdi_path = NULL;
 	struct ais_vfe_buffer_t           *vfe_buf = NULL;
 	struct ais_vfe_bus_ver2_hw_info   *bus_hw_info = NULL;
-	uint64_t                           frame_cnt;
+	uint64_t                           frame_cnt = 0;
 	uint64_t                           sof_ts;
 	uint64_t                           cur_sof_hw_ts;
 	bool last_addr_match = false;
