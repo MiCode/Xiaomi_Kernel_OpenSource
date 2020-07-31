@@ -82,6 +82,11 @@ ifeq ($(CONFIG_MACH_MT8173),y)
   ccflags-y += -DJPEG_PM_DOMAIN_ENABLE
 endif
 
+ifeq ($(CONFIG_MACH_MT8168),y)
+  ccflags-y += -DJPEG_ENC_DRIVER
+  ccflags-y += -DJPEG_PM_DOMAIN_ENABLE
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
