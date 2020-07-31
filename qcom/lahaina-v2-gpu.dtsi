@@ -76,8 +76,8 @@
 			qcom,bus-max-ddr7 = <10>;
 
 			qcom,bus-freq-ddr8 = <7>;
-			qcom,bus-min-ddr8 = <6>;
-			qcom,bus-max-ddr8 = <9>;
+			qcom,bus-min-ddr8 = <5>;
+			qcom,bus-max-ddr8 = <7>;
 		};
 
 		qcom,gpu-pwrlevel@5 {
@@ -91,7 +91,7 @@
 
 			qcom,bus-freq-ddr8 = <2>;
 			qcom,bus-min-ddr8 = <2>;
-			qcom,bus-max-ddr8 = <8>;
+			qcom,bus-max-ddr8 = <7>;
 		};
 	};
 };
