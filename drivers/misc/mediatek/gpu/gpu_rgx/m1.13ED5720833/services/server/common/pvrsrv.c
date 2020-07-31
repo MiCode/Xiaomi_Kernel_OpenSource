@@ -2581,7 +2581,7 @@ static PVRSRV_ERROR _LMA_DoPhyContigPagesAlloc(RA_ARENA *pArena,
                                                PG_HANDLE *psMemHandle,
                                                IMG_DEV_PHYADDR *psDevPAddr)
 {
-	RA_BASE_T uiCardAddr;
+	RA_BASE_T uiCardAddr = 0;
 	RA_LENGTH_T uiActualSize;
 	PVRSRV_ERROR eError;
 #if defined(DEBUG)
