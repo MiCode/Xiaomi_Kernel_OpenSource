@@ -611,7 +611,7 @@ static int mt_fdvt_clk_ctrl(int en)
 /*****************************************************************************
  *
  *****************************************************************************/
-#if (MTK_FD_LARB == 2)
+#if (MTK_SECURE_FD_SUPPORT == 1)
 static inline int FDVT_switchCmdqToSecure(void *handle)
 {
 	enum CMDQ_ENG_ENUM cmdq_engine;
@@ -651,7 +651,8 @@ static inline int FDVT_switchPortToNonSecure(void)
 
 	return 0;
 }
-
+#endif
+#if (MTK_FD_LARB == 2)
 /***********************************************************
  * Set FDVT Meta Data
  ************************************************************/
