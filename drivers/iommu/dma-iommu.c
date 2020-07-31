@@ -977,13 +977,13 @@ iommu_dma_alloc_fix_iova(struct device *dev, size_t size, gfp_t gfp,
 	struct page **pages;
 	struct sg_table sgt;
 	dma_addr_t iova = handle;
-	unsigned int count, min_size, alloc_sizes = domain->pgsize_bitmap;
+	unsigned int count, min_size, alloc_sizes;
 
 	if (!domain)
 		return NULL;
 	cookie = domain->iova_cookie;
 	iovad = &cookie->iovad;
-
+	alloc_sizes = domain->pgsize_bitmap;
 	min_size = alloc_sizes & -alloc_sizes;
 	if (min_size < PAGE_SIZE) {
 		min_size = PAGE_SIZE;
