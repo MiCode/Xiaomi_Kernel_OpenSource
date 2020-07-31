@@ -72,9 +72,11 @@
 		compatible = "qcom,qusb2phy-v2";
 		reg = <0x0162b000 0x400>,
 			<0x1b40268 0x4>,
-			<0x0162f014 0x4>;
+			<0x0162f014 0x4>,
+			<0x0162a000 0x4>;
 		reg-names = "qusb_phy_base", "efuse_addr",
-				"refgen_north_bg_reg_addr";
+				"refgen_north_bg_reg_addr",
+				"eud_enable_reg";
 
 		qcom,efuse-bit-pos = <25>;
 		qcom,efuse-num-bits = <3>;
