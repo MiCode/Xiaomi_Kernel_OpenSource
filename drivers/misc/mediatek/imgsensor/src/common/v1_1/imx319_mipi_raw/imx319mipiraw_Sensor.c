@@ -2492,7 +2492,7 @@ static void write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
 }
 
 
-static void write_cmos_sensor(kal_uint16 addr, kal_uint8 para)
+static void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
 {
 	char pusendcmd[4] = {
 	(char)(addr >> 8), (char)(addr & 0xFF), (char)(para >> 8), (char)(para & 0xFF) };
