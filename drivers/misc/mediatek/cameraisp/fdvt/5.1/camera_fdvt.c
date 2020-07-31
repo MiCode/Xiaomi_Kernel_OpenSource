@@ -4263,7 +4263,7 @@ static ssize_t fdvt_reg_write(struct file *file, const char __user *buffer,
 			      size_t count, loff_t *data)
 {
 	char desc[128];
-	int len = 0;
+	unsigned int len = 0;
 	/*char *pEnd;*/
 	char addrSzBuf[24];
 	char valSzBuf[24];
