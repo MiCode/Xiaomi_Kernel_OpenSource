@@ -58,6 +58,8 @@ static ssize_t ged_write(struct file *filp,
 	const char __user *buf, size_t count, loff_t *f_pos);
 static long ged_dispatch(struct file *pFile,
 	struct GED_BRIDGE_PACKAGE *psBridgePackageKM);
+static long ged_ioctl(struct file *pFile,
+	unsigned int ioctlCmd, unsigned long arg);
 #ifdef CONFIG_COMPAT
 static long ged_ioctl_compat(struct file *pFile,
 	unsigned int ioctlCmd, unsigned long arg);
@@ -115,6 +117,7 @@ static const struct proc_ops ged_proc_fops = {
 	.proc_poll = ged_poll,
 	.proc_read = ged_read,
 	.proc_write = ged_write,
+	.proc_ioctl = ged_ioctl,
 #ifdef CONFIG_COMPAT
 	.proc_compat_ioctl = ged_ioctl_compat,
 #endif
@@ -316,6 +319,29 @@ static long ged_dispatch(struct file *pFile,
 dispatch_exit:
 	kfree(pvIn);
 	kfree(pvOut);
+
+	return ret;
+}
+
+static long
+ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
+{
+	int ret = -EFAULT;
+	struct GED_BRIDGE_PACKAGE *psBridgePackageKM;
+	struct GED_BRIDGE_PACKAGE *psBridgePackageUM =
+		(struct GED_BRIDGE_PACKAGE *)arg;
+	struct GED_BRIDGE_PACKAGE sBridgePackageKM;
+
+	psBridgePackageKM = &sBridgePackageKM;
+	if (ged_copy_from_user(psBridgePackageKM, psBridgePackageUM,
+		sizeof(struct GED_BRIDGE_PACKAGE)) != 0) {
+		GED_LOGE("Failed to ged_copy_from_user\n");
+		goto unlock_and_return;
+	}
+
+	ret = ged_dispatch(pFile, psBridgePackageKM);
+
+unlock_and_return:
 
 	return ret;
 }
