@@ -620,6 +620,8 @@ void ufshcd_print_all_err_hist(struct ufs_hba *hba,
 		m, buff, size);
 	ufshcd_print_err_hist(hba, &hba->ufs_stats.perf_warn, "perf_warn",
 		m, buff, size);
+	ufshcd_print_err_hist(hba, &hba->ufs_stats.ocs_err_status,
+			      "ocs_err_status", m, buff, size);
 }
 
 static void ufshcd_print_host_regs(struct ufs_hba *hba)
@@ -5476,6 +5478,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 	struct scsi_cmnd *cmd;
 	int result;
 	int index;
+	u32 ocs_err_status;
 	/* MTK PATCH: for completion notification feature */
 
 	for_each_set_bit(index, &completed_reqs, hba->nutrs) {
@@ -5539,6 +5542,12 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		}
 		if (ufshcd_is_clkscaling_supported(hba))
 			hba->clk_scaling.active_reqs--;
+	}
+
+	ocs_err_status = ufshcd_readl(hba, REG_UFS_MTK_OCS_ERR_STATUS);
+	if (ocs_err_status) {
+		ufshcd_update_reg_hist(&hba->ufs_stats.ocs_err_status,
+				       ocs_err_status);
 	}
 
 	/* clear corresponding bits of completed commands */
