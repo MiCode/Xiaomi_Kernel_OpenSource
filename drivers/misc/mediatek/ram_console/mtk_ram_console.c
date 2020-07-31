@@ -42,6 +42,9 @@ static int thermal_num = THERMAL_RESERVED_TZS;
 
 static int mtk_cpu_num;
 
+#define ARRAY_LEN_4 4
+#define ARRAY_LEN_8 8
+
 static int ram_console_init_done;
 static unsigned int old_wdt_status;
 static int ram_console_clear;
@@ -95,14 +98,14 @@ struct last_reboot_reason {
 	uint32_t spm_common_scenario_data;
 	uint32_t mtk_cpuidle_footprint[AEE_MTK_CPU_NUMS];
 	uint32_t mcdi_footprint[AEE_MTK_CPU_NUMS];
-	uint32_t clk_data[8];
+	uint32_t clk_data[ARRAY_LEN_8];
 	uint32_t suspend_debug_flag;
 	uint32_t fiq_cache_step;
 
 	uint32_t vcore_dvfs_opp;
 	uint32_t vcore_dvfs_status;
 
-	uint32_t ppm_cluster_limit[8];
+	uint32_t ppm_cluster_limit[ARRAY_LEN_8];
 	uint8_t ppm_step;
 	uint8_t ppm_cur_state;
 	uint32_t ppm_min_pwr_bgt;
@@ -194,7 +197,7 @@ struct last_reboot_reason {
 	uint16_t idvfs_swreq_next_pct_x100;
 	uint8_t idvfs_state_manchine;
 
-	uint32_t ocp_target_limit[4];
+	uint32_t ocp_target_limit[ARRAY_LEN_4];
 	uint8_t ocp_enable;
 	uint32_t scp_pc;
 	uint32_t scp_lr;
@@ -976,6 +979,8 @@ void aee_rr_rec_last_irq_enter(int cpu, int irq, u64 jiffies)
 	if (cpu >= 0 && cpu < num_possible_cpus()) {
 		LAST_RR_SET_WITH_ID(last_irq_enter, cpu, irq);
 		LAST_RR_SET_WITH_ID(jiffies_last_irq_enter, cpu, jiffies);
+	} else {
+		pr_notice("%s invalid cpu= %d\n", __func__, cpu);
 	}
 	mb();			/*TODO:need add comments */
 }
@@ -987,6 +992,8 @@ void aee_rr_rec_last_irq_exit(int cpu, int irq, u64 jiffies)
 	if (cpu >= 0 && cpu < num_possible_cpus()) {
 		LAST_RR_SET_WITH_ID(last_irq_exit, cpu, irq);
 		LAST_RR_SET_WITH_ID(jiffies_last_irq_exit, cpu, jiffies);
+	} else {
+		pr_notice("%s invalid cpu= %d\n", __func__, cpu);
 	}
 	mb();			/*TODO:need add comments */
 }
@@ -997,6 +1004,8 @@ void aee_rr_rec_hotplug_footprint(int cpu, u8 fp)
 		return;
 	if (cpu >= 0 && cpu < num_possible_cpus())
 		LAST_RR_SET_WITH_ID(hotplug_footprint, cpu, fp);
+	else
+		pr_notice("%s invalid cpu= %d\n", __func__, cpu);
 }
 
 void aee_rr_rec_hotplug_cpu_event(u8 val)
@@ -1121,7 +1130,10 @@ void aee_rr_rec_clk(int id, u32 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
-	LAST_RR_SET_WITH_ID(clk_data, id, val);
+	if (id >= 0 && id < ARRAY_LEN_8)
+		LAST_RR_SET_WITH_ID(clk_data, id, val);
+	else
+		pr_notice("%s invalid id= %d\n", __func__, id);
 }
 
 void aee_rr_rec_deepidle_val(u32 val)
@@ -1140,7 +1152,10 @@ void aee_rr_rec_mcdi_val(int id, u32 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
-	LAST_RR_SET_WITH_ID(mcdi_footprint, id, val);
+	if (id >= 0 && id < num_possible_cpus())
+		LAST_RR_SET_WITH_ID(mcdi_footprint, id, val);
+	else
+		pr_notice("%s invalid id= %d\n", __func__, id);
 }
 
 void aee_rr_rec_mcdi_wfi_val(u32 val)
@@ -1327,7 +1342,10 @@ void aee_rr_rec_ppm_cluster_limit(int id, u32 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
-	LAST_RR_SET_WITH_ID(ppm_cluster_limit, id, val);
+	if (id >= 0 && id < ARRAY_LEN_8)
+		LAST_RR_SET_WITH_ID(ppm_cluster_limit, id, val);
+	else
+		pr_notice("%s invalid id= %d\n", __func__, id);
 }
 
 void aee_rr_rec_ppm_step(u8 val)
@@ -1965,7 +1983,7 @@ void aee_rr_rec_ocp_target_limit(int id, u32 val)
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
 
-	if (id < 0 || id >= 4) {
+	if (id < 0 || id >= ARRAY_LEN_4) {
 		pr_notice("%s: Invalid ocp id = %d\n", __func__, id);
 		return;
 	}
@@ -2300,10 +2318,12 @@ u8 aee_rr_curr_idvfs_state_manchine(void)
 
 u32 aee_rr_curr_ocp_target_limit(int id)
 {
-	if (id < 0 || id >= 4)
+	if (id < 0 || id >= ARRAY_LEN_4) {
+		pr_notice("%s invalid id= %d\n", __func__, id);
 		return 0;
-	else
-		return LAST_RR_VAL(ocp_target_limit[id]);
+	}
+
+	return LAST_RR_VAL(ocp_target_limit[id]);
 }
 
 u8 aee_rr_curr_ocp_enable(void)
@@ -2641,7 +2661,7 @@ void aee_rr_show_clk(struct seq_file *m)
 {
 	int i = 0;
 
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < ARRAY_LEN_8; i++)
 		seq_printf(m, "clk_data: 0x%x\n", LAST_RRR_VAL(clk_data[i]));
 }
 
@@ -2665,7 +2685,7 @@ void aee_rr_show_ppm_cluster_limit(struct seq_file *m)
 {
 	int i = 0;
 
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < ARRAY_LEN_8; i++)
 		seq_printf(m, "ppm_cluster_limit: 0x%08x\n",
 				LAST_RRR_VAL(ppm_cluster_limit[i]));
 }
@@ -3229,7 +3249,7 @@ void aee_rr_show_ocp_target_limit(struct seq_file *m)
 {
 	int i = 0;
 
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < ARRAY_LEN_4; i++)
 		seq_printf(m, "ocp_target_limit[%d]: %d\n", i,
 				LAST_RRR_VAL(ocp_target_limit[i]));
 }
