@@ -60,9 +60,7 @@
 #include <linux/pm_qos.h>
 #include "helio-dvfsrc-opp.h"
 #include "mtk_secure_api.h"
-#include <clk-mux.h>
-#include "clkdbg.h"
-#include "clk-mt6873-pg.h"
+#include "clk-fmeter.h"
 
 #ifdef pr_fmt
 #undef pr_fmt

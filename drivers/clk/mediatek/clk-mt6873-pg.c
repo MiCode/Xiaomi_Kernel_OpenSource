@@ -1002,7 +1002,6 @@ static void ram_console_update(void)
 
 		/* The code based on  clkdbg/clkdbg-mt6873. */
 		/* When power on/off fails, dump the related registers. */
-		//init_regbase_mt6873();
 		print_subsys_reg("topckgen");
 		print_subsys_reg("infracfg");
 		print_subsys_reg("scpsys");
@@ -4865,7 +4864,6 @@ static void __init mt_scpsys_init(struct device_node *node)
 	pr_notice("MTCMOS AO end\n");
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 #endif /* !MT_CCF_BRINGUP */
-	init_regbase_mt6873();
 	spin_lock_init(&pgcb_lock);
 }
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);

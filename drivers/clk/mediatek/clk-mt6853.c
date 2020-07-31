@@ -2436,9 +2436,6 @@ static int clk_mt6853_top_probe(struct platform_device *pdev)
 		pr_err("%s(): could not register clock provider: %d\n",
 			__func__, r);
 
-	mtk_clk_check_muxes(top_muxes, ARRAY_SIZE(top_muxes),
-			mt6853_top_clk_data);
-
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif

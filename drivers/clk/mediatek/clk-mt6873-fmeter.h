@@ -147,4 +147,8 @@
 #define ckmon3_ck	62
 #define ckmon4_ck	63
 
+extern unsigned int mt_get_ckgen_freq(unsigned int ID);
+extern unsigned int mt_get_abist_freq(unsigned int ID);
+extern const struct fmeter_clk *get_fmeter_clks(void);
+
 #endif
