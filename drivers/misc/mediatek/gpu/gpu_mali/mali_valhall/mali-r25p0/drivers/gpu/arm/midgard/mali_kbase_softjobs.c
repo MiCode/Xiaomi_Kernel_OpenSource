@@ -1363,12 +1363,14 @@ void kbase_jit_retry_pending_alloc(struct kbase_context *kctx)
 	list_for_each_safe(i, tmp, &jit_pending_alloc_list) {
 		struct kbase_jd_atom *pending_atom = list_entry(i,
 				struct kbase_jd_atom, queue);
+		KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_START(kctx->kbdev, pending_atom);
 		if (kbase_jit_allocate_process(pending_atom) == 0) {
 			/* Atom has completed */
 			INIT_WORK(&pending_atom->work,
 					kbasep_jit_finish_worker);
 			queue_work(kctx->jctx.job_done_wq, &pending_atom->work);
 		}
+		KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_END(kctx->kbdev, pending_atom);
 	}
 }
 

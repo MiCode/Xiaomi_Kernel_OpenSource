@@ -2159,6 +2159,9 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	if (0 == (reg->flags & KBASE_REG_GROWABLE))
 		goto out_unlock;
 
+	if (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC)
+		goto out_unlock;
+
 	/* Would overflow the VA region */
 	if (new_pages > reg->nr_pages)
 		goto out_unlock;
@@ -2192,11 +2195,6 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 		 */
 		downgrade_write(&current->mm->mmap_sem);
 		read_locked = true;
-
-#if MALI_JIT_PRESSURE_LIMIT
-		if (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC)
-			kbase_jit_request_phys_increase(kctx, delta);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
 
 		/* Allocate some more pages */
 		if (kbase_alloc_phy_pages_helper(reg->cpu_alloc, delta) != 0) {
@@ -2235,10 +2233,6 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	}
 
 out_unlock:
-#if MALI_JIT_PRESSURE_LIMIT
-	if ((reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC) && delta)
-		kbase_jit_done_phys_increase(kctx, delta);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
 	kbase_gpu_vm_unlock(kctx);
 	if (read_locked)
 		up_read(&current->mm->mmap_sem);

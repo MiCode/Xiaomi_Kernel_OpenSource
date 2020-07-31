@@ -205,7 +205,7 @@ static void kbase_jd_post_external_resources(struct kbase_jd_atom *katom)
  * jctx.lock must be held when this is called.
  */
 
-static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const struct base_jd_atom_v2 *user_atom)
+static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const struct base_jd_atom *user_atom)
 {
 	int err_ret_val = -EINVAL;
 	u32 res_no;
@@ -870,7 +870,7 @@ static const char *kbasep_map_core_reqs_to_string(base_jd_core_req core_req)
 #endif
 
 static bool jd_submit_atom(struct kbase_context *const kctx,
-	const struct base_jd_atom_v2 *const user_atom,
+	const struct base_jd_atom *const user_atom,
 	const struct base_jd_fragment *const user_jc_incr,
 	struct kbase_jd_atom *const katom)
 {
@@ -900,6 +900,7 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 	katom->jc = user_atom->jc;
 	katom->core_req = user_atom->core_req;
 	katom->jobslot = user_atom->jobslot;
+	katom->seq_nr = user_atom->seq_nr;
 	katom->atom_flags = 0;
 	katom->retry_count = 0;
 	katom->need_cache_flush_cores_retained = 0;
@@ -1237,6 +1238,9 @@ int kbase_jd_submit(struct kbase_context *kctx,
 	struct kbase_device *kbdev;
 	u32 latest_flush;
 
+	bool jd_atom_is_v2 = (stride == sizeof(struct base_jd_atom_v2) ||
+	                      stride == offsetof(struct base_jd_atom_v2, renderpass_id));
+
 	/*
 	 * kbase_jd_submit isn't expected to fail and so all errors with the
 	 * jobs are reported by immediately failing them (through event system)
@@ -1251,7 +1255,9 @@ int kbase_jd_submit(struct kbase_context *kctx,
 	}
 
 	if (stride != offsetof(struct base_jd_atom_v2, renderpass_id) &&
-		stride != sizeof(struct base_jd_atom_v2)) {
+		stride != sizeof(struct base_jd_atom_v2) &&
+		stride != offsetof(struct base_jd_atom, renderpass_id) &&
+		stride != sizeof(struct base_jd_atom)) {
 		dev_err(kbdev->dev,
 			"Stride %u passed to job_submit isn't supported by the kernel\n",
 			stride);
@@ -1262,16 +1268,29 @@ int kbase_jd_submit(struct kbase_context *kctx,
 	latest_flush = kbase_backend_get_current_flush_id(kbdev);
 
 	for (i = 0; i < nr_atoms; i++) {
-		struct base_jd_atom_v2 user_atom;
+		struct base_jd_atom user_atom;
 		struct base_jd_fragment user_jc_incr;
 		struct kbase_jd_atom *katom;
 
-		if (copy_from_user(&user_atom, user_addr, stride) != 0) {
-			dev_err(kbdev->dev,
-				"Invalid atom address %p passed to job_submit\n",
-				user_addr);
-			err = -EFAULT;
-			break;
+		if (unlikely(jd_atom_is_v2)) {
+			if (copy_from_user(&user_atom.jc, user_addr, sizeof(struct base_jd_atom_v2)) != 0) {
+				dev_err(kbdev->dev,
+					"Invalid atom address %p passed to job_submit\n",
+					user_addr);
+				err = -EFAULT;
+				break;
+			}
+
+			/* no seq_nr in v2 */
+			user_atom.seq_nr = 0;
+		} else {
+			if (copy_from_user(&user_atom, user_addr, stride) != 0) {
+				dev_err(kbdev->dev,
+					"Invalid atom address %p passed to job_submit\n",
+					user_addr);
+				err = -EFAULT;
+				break;
+			}
 		}
 
 		if (stride == offsetof(struct base_jd_atom_v2, renderpass_id)) {

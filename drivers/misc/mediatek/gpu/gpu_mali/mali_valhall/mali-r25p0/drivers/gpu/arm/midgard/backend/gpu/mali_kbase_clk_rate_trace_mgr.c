@@ -28,6 +28,7 @@
 #include <mali_kbase_config_defaults.h>
 #include <linux/clk.h>
 #include "mali_kbase_clk_rate_trace_mgr.h"
+#include <trace/events/power_gpu_frequency.h>
 
 #ifndef CLK_RATE_TRACE_OPS
 #define CLK_RATE_TRACE_OPS (NULL)
@@ -39,6 +40,9 @@ static void gpu_clk_rate_trace_write(struct kbase_device *kbdev,
 {
 	dev_dbg(kbdev->dev, "GPU clock %u rate changed to %lu",
 		clk_index, new_rate);
+
+	/* Raise standard `power/gpu_frequency` ftrace event */
+	trace_gpu_frequency(new_rate, clk_index);
 }
 
 static int gpu_clk_rate_change_notifier(struct notifier_block *nb,

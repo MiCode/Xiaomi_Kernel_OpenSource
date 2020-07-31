@@ -818,6 +818,58 @@ struct base_jd_atom_v2 {
 #endif
 };
 
+/**
+ * struct base_jd_atom - Same as base_jd_atom_v2, but has an extra seq_nr
+ *                          at the beginning.
+ *
+ * @seq_nr:        Sequence number of logical grouping of atoms.
+ * @jc:            GPU address of a job chain or (if BASE_JD_REQ_END_RENDERPASS
+ *                 is set in the base_jd_core_req) the CPU address of a
+ *                 base_jd_fragment object.
+ * @udata:         User data.
+ * @extres_list:   List of external resources.
+ * @nr_extres:     Number of external resources or JIT allocations.
+ * @jit_id:        Zero-terminated array of IDs of just-in-time memory
+ *                 allocations written to by the atom. When the atom
+ *                 completes, the value stored at the
+ *                 &struct_base_jit_alloc_info.heap_info_gpu_addr of
+ *                 each allocation is read in order to enforce an
+ *                 overall physical memory usage limit.
+ * @pre_dep:       Pre-dependencies. One need to use SETTER function to assign
+ *                 this field; this is done in order to reduce possibility of
+ *                 improper assignment of a dependency field.
+ * @atom_number:   Unique number to identify the atom.
+ * @prio:          Atom priority. Refer to base_jd_prio for more details.
+ * @device_nr:     Core group when BASE_JD_REQ_SPECIFIC_COHERENT_GROUP
+ *                 specified.
+ * @jobslot:       Job slot to use when BASE_JD_REQ_JOB_SLOT is specified.
+ * @core_req:      Core requirements.
+ * @renderpass_id: Renderpass identifier used to associate an atom that has
+ *                 BASE_JD_REQ_START_RENDERPASS set in its core requirements
+ *                 with an atom that has BASE_JD_REQ_END_RENDERPASS set.
+ * @padding:       Unused. Must be zero.
+ */
+typedef struct base_jd_atom {
+	u64 seq_nr;
+	u64 jc;
+	struct base_jd_udata udata;
+	u64 extres_list;
+	u16 nr_extres;
+	u8 jit_id[2];
+	struct base_dependency pre_dep[2];
+	base_atom_id atom_number;
+	base_jd_prio prio;
+	u8 device_nr;
+	u8 jobslot;
+	base_jd_core_req core_req;
+	u8 renderpass_id;
+	u8 padding[7];
+
+#if defined(MTK_GPU_BM_2)
+	u32 frame_nr;  /* frame number to the atom */
+#endif
+} base_jd_atom;
+
 /* Job chain event code bits
  * Defines the bits used to create ::base_jd_event_code
  */
@@ -1013,7 +1065,7 @@ struct base_jd_event_v2 {
  *                                     jobs.
  *
  * This structure is stored into the memory pointed to by the @jc field
- * of &struct base_jd_atom_v2.
+ * of &struct base_jd_atom.
  *
  * It must not occupy the same CPU cache line(s) as any neighboring data.
  * This is to avoid cases where access to pages containing the structure
