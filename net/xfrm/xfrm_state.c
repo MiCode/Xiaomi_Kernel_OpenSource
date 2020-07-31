@@ -843,13 +843,10 @@ static ktime_t xfrm_state_t1;
 static ktime_t xfrm_state_t2;
 static u32 spi_dump[32];
 
-static void xfrm_state_print_btrace(unsigned long data)
+static void xfrm_state_print_btrace(struct net *net, unsigned int h, struct xfrm_state *x)
 {
 	ktime_t xfrm_state_deltatime;
 	ktime_t  xfrm_state_duration;
-	int i;
-
-	data = data;
 
 	xfrm_state_deltatime = ktime_sub(xfrm_state_t2, xfrm_state_t1);
 	xfrm_state_duration = //micro-second
@@ -860,9 +857,12 @@ static void xfrm_state_print_btrace(unsigned long data)
 			trace1, trace2, trace3, trace4);
 		pr_info("[mtk_net][xfrm_state] dutation [%d]\n",
 			xfrm_state_duration);
-		for (i = 0; i < 32; i++)
-			pr_info("[mtk_net][xfrm_state] spi_dump[%d] : 0x%x\n",
-				i, spi_dump[i]);
+		pr_info("[mtk_net][xfrm_state] hmask %d lookup x_num %d net %px\n",
+			net->xfrm.state_hmask, net->xfrm.state_num, net);
+		pr_info("[mtk_net][xfrm_state] byspi %px h %d x %px\n",
+			net->xfrm.state_byspi, h, x);
+		if (xfrm_state_duration > 3000000)
+			BUG_ON(1);
 	}
 }
 
@@ -905,7 +905,7 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
 	hlist_for_each_entry_rcu(x, net->xfrm.state_byspi + h, byspi) {
 		trace1++;
 		xfrm_state_t2 = ktime_get();
-		xfrm_state_print_btrace(1);
+		xfrm_state_print_btrace(net, h, x);
 		if (trace1 < 32)
 			spi_dump[trace1] = x->id.spi;
 		if (x->props.family != family ||
