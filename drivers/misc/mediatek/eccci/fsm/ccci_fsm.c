@@ -16,6 +16,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
+#include <soc/mediatek/emi.h>
 
 #include "ccci_fsm_internal.h"
 #include "ccci_platform.h"
@@ -210,7 +211,7 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 */
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
-		/* mtk09077: mtk_clear_md_violation(); */
+		mtk_clear_md_violation();
 		count = 0;
 		while (count < MD_EX_REC_OK_TIMEOUT/EVENT_POLL_INTEVAL) {
 			spin_lock_irqsave(&ctl->event_lock, flags);
