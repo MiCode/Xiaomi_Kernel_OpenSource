@@ -3148,7 +3148,7 @@
 			reg = <0 0x1a00b000 0 0x1000>;
 		};
 
-		seninf_top@1a004000 {
+		seninf_top:seninf_top@1a004000 {
 			compatible = "mediatek,seninf_top";
 			reg = <0 0x1a004000 0 0x1000>;
 	#if 0
@@ -3308,6 +3308,263 @@
 			compatible = "mediatek,mt8192-camsys_rawc", "syscon";
 			reg = <0 0x1a08f000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		remoteproc_ccd: remoteproc_ccd {
+			compatible = "mediatek,ccd";
+			/**
+			 * 34-bits only, but it doesn't work now, so I
+			 * have to disable it.
+			 *
+			 * dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			 */
+
+			iommus = <&iommu0 M4U_PORT_L16_CAM_IMGO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RRZO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_CQI_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_BPCI_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_YUVO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_UFDI_R2_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RAWI_R2_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RAWI_R3_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_AAO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_AFO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_FLKO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_LCESO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_CRZO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_LTMSO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RSSO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_AAHO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_LSCI_R1_A>,
+				 <&iommu0 M4U_PORT_L17_CAM_IMGO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RRZO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_CQI_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_BPCI_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_YUVO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_UFDI_R2_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RAWI_R2_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RAWI_R3_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_AAO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_AFO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_FLKO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_LCESO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_CRZO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_LTMSO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RSSO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_AAHO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_LSCI_R1_B>,
+				 <&iommu0 M4U_PORT_L18_CAM_IMGO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RRZO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_CQI_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_BPCI_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_YUVO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_UFDI_R2_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RAWI_R2_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RAWI_R3_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_AAO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_AFO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_FLKO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_LCESO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_CRZO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_LTMSO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RSSO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_AAHO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_LSCI_R1_C>;
+
+			mediatek,larbs = <&larb16 &larb17 &larb18>;
+
+			reg =	<0 0x1a030000 0 0x8000>,
+				<0 0x1a050000 0 0x8000>,
+				<0 0x1a070000 0 0x8000>;
+			status = "okay";
+
+			msg_dev {
+				mtk,rpmsg-name = "mtk_ccd_msgdev";
+				status = "okay";
+			};
+		};
+
+		camisp: camisp {
+			compatible = "mediatek,camisp";
+			mediatek,ccd = <&remoteproc_ccd>;
+			reg = <0 0x1a000000 0 0x1000>;
+
+			/**
+			 * 34-bits only, but it doesn't work now, so I
+			 * have to disable it.
+			 *
+			 * dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			 */
+
+			iommus = <&iommu0 M4U_PORT_L16_CAM_IMGO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RRZO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_CQI_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_BPCI_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_YUVO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_UFDI_R2_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RAWI_R2_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RAWI_R3_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_AAO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_AFO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_FLKO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_LCESO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_CRZO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_LTMSO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_RSSO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_AAHO_R1_A>,
+				 <&iommu0 M4U_PORT_L16_CAM_LSCI_R1_A>,
+				 <&iommu0 M4U_PORT_L17_CAM_IMGO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RRZO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_CQI_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_BPCI_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_YUVO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_UFDI_R2_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RAWI_R2_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RAWI_R3_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_AAO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_AFO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_FLKO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_LCESO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_CRZO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_LTMSO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_RSSO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_AAHO_R1_B>,
+				 <&iommu0 M4U_PORT_L17_CAM_LSCI_R1_B>,
+				 <&iommu0 M4U_PORT_L18_CAM_IMGO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RRZO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_CQI_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_BPCI_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_YUVO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_UFDI_R2_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RAWI_R2_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RAWI_R3_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_AAO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_AFO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_FLKO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_LCESO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_CRZO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_LTMSO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_RSSO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_AAHO_R1_C>,
+				 <&iommu0 M4U_PORT_L18_CAM_LSCI_R1_C>;
+
+			/* SCP_SYS_MDP */
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_MDP>;
+			mediatek,larbs = <&larb16 &larb17 &larb18>;
+
+		};
+
+		cam1@1a030000 {
+			compatible = "mediatek,isp6s-cam";
+			reg = <0 0x1a030000 0 0x8000>,
+			      <0 0x1a038000 0 0x8000>;
+			reg-names = "reg";
+			mediatek,cam-id = <0>;
+			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH 0>;
+			#clock-cells = <1>;
+
+
+			/**
+			 *  Mapping to MTK's old style clk SCP_SYS_CAM_RAWA,
+			 *  connect to SCP_SYS_CAM, SCP_SYS_DIS
+			 */
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWA>;
+
+			/**
+			 *  Mapping to MTK's old style clk definition:
+			 *  CAMSYS_MAIN_CAM_CGPDN, CAMSYS_MAIN_CAMTG_CGPDN,
+			 *  CAMSYS_RAWA_LARBX_CGPDN, CAMSYS_RAWA_CAM_CGPDN,
+			 *  CAMSYS_RAWA_CAMTG_CGPDN, TOP_MUX_CAMTM
+			 */
+
+			clocks = <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAMTG>,
+				 <&camsys_rawa CLK_CAM_RAWA_LARBX>,
+				 <&camsys_rawa CLK_CAM_RAWA_CAM>,
+				 <&camsys_rawa CLK_CAM_RAWA_CAMTG>,
+				 <&topckgen CLK_TOP_CAMTM_SEL>;
+
+			clock-names = "camsys_cam_cgpdn",
+				      "camsys_camtg_cgpdn",
+				      "camsys-cama-larb-cgpdn",
+				      "camsys-cama-cgpdn",
+				      "camsys-camatg-cgpdn",
+				      "topckgen-top-muxcamtm";
+			status = "okay";
+		};
+
+		cam2@1a050000 {
+			compatible = "mediatek,isp6s-cam";
+			reg = <0 0x1a050000 0 0x8000>,
+			      <0 0x1a058000 0 0x8000>;
+			reg-names = "reg";
+			mediatek,cam-id = <1>;
+			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
+			#clock-cells = <1>;
+
+			/**
+			 *  Mapping to MTK's old style clk SCP_SYS_CAM_RAWB,
+			 *  connect to SCP_SYS_CAM, SCP_SYS_DIS
+			 */
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWB>;
+
+			/*
+			 *  Mapping to MTK's old style clk definition:
+			 *  CAMSYS_MAIN_CAM_CGPDN, CAMSYS_MAIN_CAMTG_CGPDN,
+			 *  CAMSYS_RAWB_LARBX_CGPDN, CAMSYS_RAWB_CAM_CGPDN,
+			 *  CAMSYS_RAWB_CAMTG_CGPDN, TOP_MUX_CAMTM
+			 */
+			clocks = <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAMTG>,
+				 <&camsys_rawb CLK_CAM_RAWB_LARBX>,
+				 <&camsys_rawb CLK_CAM_RAWB_CAM>,
+				 <&camsys_rawb CLK_CAM_RAWB_CAMTG>,
+				 <&topckgen CLK_TOP_CAMTM_SEL>;
+
+			clock-names = "camsys_cam_cgpdn",
+				      "camsys_camtg_cgpdn",
+				      "camsys-camb-larb-cgpdn",
+				      "camsys-camb-cgpdn",
+				      "camsys-cambtg-cgpdn",
+				      "topckgen-top-muxcamtm";
+			status = "okay";
+		};
+
+		cam3@1a070000 {
+			compatible = "mediatek,isp6s-cam";
+			reg = <0 0x1a070000 0 0x8000>,
+			      <0 0x1a078000 0 0x8000>;
+			reg-names = "reg";
+			mediatek,cam-id = <2>;
+			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH 0>;
+			#clock-cells = <1>;
+
+			/**
+			 *  Mapping to MTK's old style clk SCP_SYS_CAM_RAWB,
+			 *  connect to SCP_SYS_CAM, SCP_SYS_DIS
+			 */
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWC>;
+
+			/**
+			 *  Mapping to MTK's old style clk definition:
+			 *  CAMSYS_MAIN_CAM_CGPDN, CAMSYS_MAIN_CAMTG_CGPDN,
+			 *  CAMSYS_RAWB_LARBX_CGPDN, CAMSYS_RAWB_CAM_CGPDN,
+			 *  CAMSYS_RAWB_CAMTG_CGPDN, TOP_MUX_CAMTM
+			 */
+			clocks = <&camsys CLK_CAM_CAM>,
+				 <&camsys CLK_CAM_CAMTG>,
+				 <&camsys_rawc CLK_CAM_RAWC_LARBX>,
+				 <&camsys_rawc CLK_CAM_RAWC_CAM>,
+				 <&camsys_rawc CLK_CAM_RAWC_CAMTG>,
+				 <&topckgen CLK_TOP_CAMTM_SEL>;
+
+			clock-names = "camsys_cam_cgpdn",
+				      "camsys_camtg_cgpdn",
+				      "camsys-camc-larb-cgpdn",
+				      "camsys-camc-cgpdn",
+				      "camsys-camctg-cgpdn",
+				      "topckgen-top-muxcamtm";
+			status = "okay";
 		};
 
 		ipesys: ipesys@1b000000 {
