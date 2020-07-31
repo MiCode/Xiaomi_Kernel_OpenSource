@@ -106,7 +106,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	struct IMGSENSOR_HW_DEVICE       *pdev;
 	int                               pin_cnt = 0;
 
-	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
+/*	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
 		ppwr_seq->name != NULL) {
 		if (!strcmp(ppwr_seq->name, PLATFORM_POWER_SEQ_NAME)) {
 			if (sensor_idx == ppwr_seq->_idx)
@@ -120,6 +120,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 	if (ppwr_seq->name == NULL)
 		return IMGSENSOR_RETURN_ERROR;
+*/
 
 	ppwr_info = ppwr_seq->pwr_info;
 
