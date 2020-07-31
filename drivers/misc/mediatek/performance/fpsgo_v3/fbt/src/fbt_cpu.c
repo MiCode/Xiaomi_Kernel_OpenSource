@@ -111,12 +111,6 @@ struct fbt_pid_list {
 	struct list_head entry;
 };
 
-enum FPSGO_FREE_LIST {
-	NOT_ASKED = 0,
-	ASKED_IN = 1,
-	ASKED_OUT = 2,
-};
-
 enum FPSGO_JERK {
 	FPSGO_JERK_NO_NEED = 0,
 	FPSGO_JERK_NEED = 1,
@@ -124,10 +118,11 @@ enum FPSGO_JERK {
 	FPSGO_JERK_DISAPPEAR = 3,
 };
 
-enum FPSGO_LLF_CPU_POLICY {
-	FPSGO_LLF_CPU_NONE = 0,
-	FPSGO_LLF_CPU_AFFINITY = 1,
-	FPSGO_LLF_CPU_PREFER = 2,
+enum FPSGO_TASK_POLICY {
+	FPSGO_TPOLICY_NONE = 0,
+	FPSGO_TPOLICY_AFFINITY,
+	FPSGO_TPOLICY_PREFER,
+	FPSGO_TPOLICY_MAX,
 };
 
 static struct kobject *fbt_kobj;
@@ -584,6 +579,7 @@ static void fbt_set_ultra_rescue_locked(int input)
 	xgf_trace("fpsgo set ultra_rescue %d", input);
 }
 
+static void fbt_recal_loading(int isolate);
 static void fbt_set_isolation_locked(int input)
 {
 	int cpu = limit_cpu;
@@ -596,6 +592,8 @@ static void fbt_set_isolation_locked(int input)
 		return;
 
 	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input ? 1 : -1, cpu);
+	fbt_recal_loading(input);
+
 	set_isolation = input;
 
 	xgf_trace("fpsgo set isolation %d, cpu %d", input, cpu);
@@ -633,31 +631,46 @@ static void fbt_free_bhr(void)
 	fbt_set_isolation_locked(0);
 }
 
-static void fbt_set_llf_task(int pid, int policy, unsigned int prefer_type)
+static void fbt_set_task_policy(struct fpsgo_loading *fl,
+			int policy, unsigned int prefer_type)
 {
+	if (!fl || !fl->pid)
+		return;
+
+	if (fl->prefer_type == prefer_type && fl->policy == policy)
+		return;
+
+	/* policy changes, reset */
+	if (fl->policy != policy && fl->prefer_type != FPSGO_PREFER_NONE)
+		fbt_set_task_policy(fl, fl->policy, FPSGO_PREFER_NONE);
+
 	switch (policy) {
-	case FPSGO_LLF_CPU_PREFER:
-		fbt_set_cpu_prefer(pid, prefer_type);
+	case FPSGO_TPOLICY_PREFER:
+		fbt_set_cpu_prefer(fl->pid, prefer_type);
 		break;
-	case FPSGO_LLF_CPU_AFFINITY:
-		fbt_set_affinity(pid, prefer_type);
+	case FPSGO_TPOLICY_AFFINITY:
+		fbt_set_affinity(fl->pid, prefer_type);
 		break;
-	case FPSGO_LLF_CPU_NONE:
+	case FPSGO_TPOLICY_NONE:
 	default:
 		break;
 	}
+
+	fl->prefer_type = prefer_type;
+	fl->policy = policy;
+	fpsgo_systrace_c_fbt_gm(fl->pid, 0, prefer_type, "prefer_type");
+	fpsgo_systrace_c_fbt_gm(fl->pid, 0, policy, "task_policy");
 }
 
-static void fbt_reset_llf_setting(struct fpsgo_loading *fl)
+static void fbt_reset_task_setting(struct fpsgo_loading *fl, int reset_boost)
 {
-	if (!fl)
+	if (!fl || !fl->pid)
 		return;
 
-	if (fl->prefer_type == FPSGO_PREFER_NONE)
-		return;
+	if (reset_boost)
+		fbt_set_per_task_min_cap(fl->pid, 0);
 
-	fbt_set_llf_task(fl->pid, llf_task_policy, FPSGO_PREFER_NONE);
-	fl->prefer_type = FPSGO_PREFER_NONE;
+	fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE, FPSGO_PREFER_NONE);
 }
 
 static void fbt_dep_list_filter(struct fpsgo_loading *arr, int size)
@@ -777,10 +790,8 @@ static int fbt_get_dep_list(struct render_info *thr)
 		incr_i = incr_j = 0;
 
 		if (fl_new->pid == 0) {
-			if (i >= count && j < thr->dep_valid_size) {
-				fbt_set_per_task_min_cap(fl_old->pid, 0);
-				fbt_reset_llf_setting(fl_old);
-			}
+			if (i >= count && j < thr->dep_valid_size)
+				fbt_reset_task_setting(fl_old, 1);
 			__incr_alt(i, count, &incr_i, &incr_j);
 			continue;
 		}
@@ -793,18 +804,15 @@ static int fbt_get_dep_list(struct render_info *thr)
 		if (fl_new->pid == fl_old->pid) {
 			fl_new->loading = fl_old->loading;
 			fl_new->prefer_type = fl_old->prefer_type;
+			fl_new->policy = fl_old->policy;
 			incr_i = incr_j = 1;
 		} else if (fl_new->pid > fl_old->pid) {
-			if (j < thr->dep_valid_size) {
-				fbt_set_per_task_min_cap(fl_old->pid, 0);
-				fbt_reset_llf_setting(fl_old);
-			}
+			if (j < thr->dep_valid_size)
+				fbt_reset_task_setting(fl_old, 1);
 			__incr_alt(j, thr->dep_valid_size, &incr_j, &incr_i);
 		} else { /* new pid < old pid */
-			if (i >= count && j < thr->dep_valid_size) {
-				fbt_set_per_task_min_cap(fl_old->pid, 0);
-				fbt_reset_llf_setting(fl_old);
-			}
+			if (i >= count && j < thr->dep_valid_size)
+				fbt_reset_task_setting(fl_old, 1);
 			__incr_alt(i, count, &incr_i, &incr_j);
 		}
 	}
@@ -842,12 +850,8 @@ static void fbt_clear_min_cap(struct render_info *thr)
 	if (!thr)
 		return;
 
-	for (i = 0; i < thr->dep_valid_size; i++) {
-		if (thr->dep_arr[i].pid) {
-			fbt_set_per_task_min_cap(thr->dep_arr[i].pid, 0);
-			fbt_reset_llf_setting(&thr->dep_arr[i]);
-		}
-	}
+	for (i = 0; i < thr->dep_valid_size; i++)
+		fbt_reset_task_setting(&thr->dep_arr[i], 1);
 }
 
 static int fbt_is_light_loading(int loading)
@@ -969,15 +973,15 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			fbt_set_per_task_min_cap(fl->pid,
 				(!loading_policy) ? 0
 				: final_cap * loading_policy / 100);
-			fbt_set_llf_task(fl->pid, llf_task_policy,
+			fbt_set_task_policy(fl, llf_task_policy,
 					FPSGO_PREFER_LITTLE);
-			fl->prefer_type = FPSGO_PREFER_LITTLE;
+		} else if (heavy_pid && heavy_pid == fl->pid) {
+			fbt_set_per_task_min_cap(fl->pid, min_cap);
+			fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+						FPSGO_PREFER_BIG);
 		} else {
-			if (heavy_pid && heavy_pid == fl->pid)
-				fbt_set_per_task_min_cap(fl->pid, min_cap);
-			else
-				fbt_set_per_task_min_cap(fl->pid, final_cap);
-			fbt_reset_llf_setting(fl);
+			fbt_set_per_task_min_cap(fl->pid, final_cap);
+			fbt_reset_task_setting(fl, 0);
 		}
 
 		if (strlen(dep_str) == 0)
@@ -1411,11 +1415,12 @@ static void fbt_do_jerk(struct work_struct *work)
 				goto leave;
 
 			if (do_jerk == FPSGO_JERK_NEED) {
+				if (blc_wt > limit_cap)
+					fbt_set_isolation_locked(0);
+
 				fbt_do_jerk_boost(thr, blc_wt);
 				fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 						blc_wt,	"perf idx");
-				if (blc_wt > limit_cap)
-					fbt_set_isolation_locked(0);
 			}
 
 			if (do_jerk != FPSGO_JERK_POSTPONE) {
@@ -2153,6 +2158,69 @@ static unsigned long long fbt_est_loading(int cur_ts,
  */
 }
 
+static void fbt_recal_loading(int isolate)
+{
+	unsigned long flags, flags2;
+	unsigned long long curr_cb_ts;
+	int new_ts;
+	int i;
+	unsigned long long loading_result = 0U;
+	struct fbt_thread_loading *pos, *next;
+	int obv = 0, last;
+
+	if (limit_cluster < 0)
+		return;
+
+	curr_cb_ts = fpsgo_get_time();
+	new_ts = nsec_to_100usec(curr_cb_ts);
+
+	spin_lock_irqsave(&freq_slock, flags);
+	last = last_obv;
+
+	for (i = 0; i < cluster_num; i++) {
+		if (i == limit_cluster && isolate)
+			continue;
+
+		if (obv < clus_obv[i])
+			obv = clus_obv[i];
+	}
+	last_obv = obv;
+	fpsgo_systrace_c_fbt_gm(-100, 0, last_obv, "last_obv");
+	spin_unlock_irqrestore(&freq_slock, flags);
+
+	spin_lock_irqsave(&loading_slock, flags2);
+	list_for_each_entry_safe(pos, next, &loading_list, entry) {
+		if (atomic_read(&pos->last_cb_ts) != 0) {
+			loading_result =
+				fbt_est_loading(new_ts,
+					pos->last_cb_ts, last);
+			atomic_add_return(loading_result, &(pos->loading));
+			fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+				atomic_read(&pos->loading), "loading");
+
+			if (!adjust_loading || cluster_num == 1
+				|| !pos->loading_cl)
+				goto SKIP;
+
+			for (i = 0; i < cluster_num; i++) {
+				loading_result =
+					fbt_est_loading(new_ts,
+					pos->last_cb_ts, clus_obv[i]);
+				atomic_add_return(loading_result,
+					&(pos->loading_cl[i]));
+				fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+					atomic_read(&pos->loading_cl[i]),
+					"loading_cl[%d]", i);
+			}
+		}
+SKIP:
+		atomic_set(&pos->last_cb_ts, new_ts);
+		fpsgo_systrace_c_fbt_gm(pos->pid, pos->buffer_id,
+			atomic_read(&pos->last_cb_ts), "last_cb_ts");
+	}
+	spin_unlock_irqrestore(&loading_slock, flags2);
+}
+
 static void fbt_check_max_blc_locked(void)
 {
 	unsigned int temp_blc = 0;
@@ -2437,9 +2505,6 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 	if (cid >= cluster_num)
 		return;
 
-	if (cid == limit_cluster)
-		return;
-
 	curr_cb_ts = fpsgo_get_time();
 	new_ts = nsec_to_100usec(curr_cb_ts);
 
@@ -2494,6 +2559,9 @@ SKIP:
 	clus_obv[cid] = curr_obv;
 
 	for (i = 0; i < cluster_num; i++) {
+		if (i == limit_cluster && set_isolation)
+			continue;
+
 		if (curr_obv < clus_obv[i])
 			curr_obv = clus_obv[i];
 	}
@@ -2802,7 +2870,7 @@ void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr, int orig_policy)
 		if (fl->prefer_type == FPSGO_PREFER_NONE)
 			continue;
 
-		fbt_set_llf_task(fl->pid, orig_policy, FPSGO_PREFER_NONE);
+		fbt_reset_task_setting(fl, 0);
 	}
 }
 
@@ -3214,7 +3282,7 @@ static ssize_t table_show(struct kobject *kobj,
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
 			length = scnprintf(temp + posi,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
-				"[%d][%d] freq %d, cap %d\n",
+				"[%d][%2d] %d, %d\n",
 				cluster, opp,
 				cpu_dvfs[cluster].power[opp],
 				cpu_dvfs[cluster].capacity_ratio[opp]);
@@ -3576,7 +3644,7 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 		return count;
 	}
 
-	if (val < FPSGO_LLF_CPU_NONE || val > FPSGO_LLF_CPU_PREFER) {
+	if (val < FPSGO_TPOLICY_NONE || val >= FPSGO_TPOLICY_MAX) {
 		mutex_unlock(&fbt_mlock);
 		return count;
 	}
@@ -3658,7 +3726,7 @@ int __init fbt_cpu_init(void)
 	loading_adj_cnt = 30;
 	loading_debnc_cnt = 30;
 	loading_time_diff = TIME_2MS;
-	llf_task_policy = FPSGO_LLF_CPU_NONE;
+	llf_task_policy = FPSGO_TPOLICY_NONE;
 
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
