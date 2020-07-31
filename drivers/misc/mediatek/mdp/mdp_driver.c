@@ -648,7 +648,7 @@ static s32 cmdq_driver_copy_handle_prop_from_user(void *from, u32 size,
 		}
 
 		*to = task_prop;
-	} else {
+	} else if (to) {
 		CMDQ_LOG("Initialize prop_addr to NULL...\n");
 		*to = NULL;
 	}
