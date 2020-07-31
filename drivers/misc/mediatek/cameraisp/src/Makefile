@@ -13,26 +13,27 @@
 
 obj-y := cameraisp_dummy.o
 
-ifeq ($(CONFIG_MACH_MT6775),y)
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6775")
   obj-y += isp_50/
 endif
 
-ifeq ($(CONFIG_MACH_MT6739),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6739")
+  obj-y += $(subst ",,$(CONFIG_MTK_CAMERA_ISP_PLATFORM))/
 endif
 
-ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6885")
+  obj-y += isp_6s/
 endif
 
-ifeq ($(CONFIG_MACH_MT6873),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6873")
+  obj-y += isp_6s/
+  subdir-ccflags-y += -DCAMERA_ISP_MT6873
 endif
 
-ifeq ($(CONFIG_MACH_MT6853),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6853")
+  obj-y += isp_6s/
 endif
 
-ifeq ($(CONFIG_MACH_MT6771),y)
+ifeq ($(CONFIG_MTK_CAMERA_ISP_PLATFORM),"mt6771")
   obj-y += isp_50/
 endif

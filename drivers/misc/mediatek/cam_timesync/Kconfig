@@ -2,8 +2,9 @@
 
 config MTK_CAM_TIMESYNC
 	tristate "Specify Interface Support Cam Timesync"
-	default n
+	depends on MTK_CAMERA_ISP_SUPPORT
 	help
-	  map camera isp hwclock to boottime and monotonic time.
+	  map camera isp hwclock to boot time and monotonic
+	  time.
 	  Set Y to enable this feature.
 	  If unsure, set N to don't support this feature.

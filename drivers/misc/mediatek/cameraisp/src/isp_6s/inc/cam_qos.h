@@ -23,12 +23,12 @@ enum E_QOS_OP {
 };
 
 
-int SV_SetPMQOS(
+extern int SV_SetPMQOS(
 	enum E_QOS_OP cmd,
 	enum ISP_IRQ_TYPE_ENUM module,
 	unsigned int *pvalue);
 
-int ISP_SetPMQOS(
+extern int ISP_SetPMQOS(
 	enum E_QOS_OP cmd,
 	enum ISP_IRQ_TYPE_ENUM module,
 	unsigned int *pvalue);

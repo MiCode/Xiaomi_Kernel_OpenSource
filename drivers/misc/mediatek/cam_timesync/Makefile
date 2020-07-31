@@ -1,3 +1,3 @@
 # SPDX-License-Identifier: GPL-2.0
 
-obj-y += archcounter_timesync.o
+obj-$(CONFIG_MTK_CAM_TIMESYNC) += archcounter_timesync.o
