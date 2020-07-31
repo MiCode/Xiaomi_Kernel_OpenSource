@@ -21,6 +21,10 @@
 #if defined(CMDQ_SECURE_MTEE_SUPPORT)
 #include "cmdq_sec_mtee.h"
 #endif
+
+#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+#include "cmdq_sec_trustzone.h"
+#endif
 #endif /* CMDQ_SECURE_PATH_SUPPORT */
 
 

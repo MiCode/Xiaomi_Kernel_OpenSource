@@ -521,6 +521,7 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 		}
 	}
 
+#ifndef CMDQ_TABLET_ENABLE
 	/* do not gen irq */
 	last_inst = &iwc->command.pVABase[iwc->command.commandSize / 4 - 4];
 	if (last_inst[0] == 0x1 && last_inst[1] == 0x40000000)
@@ -528,6 +529,7 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 	else
 		CMDQ_ERR("fail to find eoc with 0x%08x%08x\n",
 			last_inst[1], last_inst[0]);
+#endif
 
 	/* cookie */
 	iwc->command.waitCookie = task->secData.waitCookie;
@@ -1576,6 +1578,7 @@ int32_t cmdq_sec_create_shared_memory(
 
 	CMDQ_LOG("%s\n", __func__);
 
+#ifndef CMDQ_TABLET_ENABLE
 	/* allocate non-cachable memory */
 	pVA = cmdq_core_alloc_hw_buffer(cmdq_dev_get(), size, &PA,
 		GFP_KERNEL);
@@ -1586,6 +1589,13 @@ int32_t cmdq_sec_create_shared_memory(
 		kfree(handle);
 		return -ENOMEM;
 	}
+#else
+	if (cmdq_sec_trustzone_create_share_memory(&pVA,
+			(u32 *)(&PA), size) != 0) {
+		kfree(handle);
+		return -ENOMEM;
+	}
+#endif
 
 	/* update memory information */
 	handle->size = size;
@@ -2151,7 +2161,7 @@ static void cmdq_sec_thread_irq_handle_by_cookie(
 		 */
 		thread->wait_cookie = 0;
 		thread->task_cnt = 0;
-		*va = 0;
+		CMDQ_REG_SET32(va, 0);
 
 		spin_unlock_irqrestore(&cmdq_sec_task_list_lock, flags);
 		return;
@@ -2387,6 +2397,10 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq_msg("cmdq device: addr:0x%p va:0x%p irq:%d",
 		dev, cmdq->base, cmdq->irq);
+
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+	cmdq_sec_alloc_iwc_buffer();
+#endif
 
 	return 0;
 }

@@ -5237,7 +5237,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	if (ret != 0) {
 		sec_thread[0] = CMDQ_MIN_SECURE_THREAD_ID;
 		sec_thread[1] = CMDQ_MIN_SECURE_THREAD_ID +
-			CMDQ_MAX_SECURE_THREAD_COUNT;
+			CMDQ_MAX_SECURE_THREAD_COUNT - 1;
 	}
 	CMDQ_LOG("sec thread index %u to %u\n", sec_thread[0], sec_thread[1]);
 #endif
@@ -5249,6 +5249,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 			CMDQ_LOG("register mbox stop:0x%p idx:%u\n", clt, i);
 			continue;
 		}
+
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 		/* if channel is not valid in normal controller, check sec */
 		if (i >= sec_thread[0] && i <= sec_thread[1])
@@ -5266,8 +5267,17 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		}
 
 		cmdq_clients[chan_id] = clt;
-		CMDQ_LOG("chan %d 0x%p dev:0x%p\n",
-			chan_id, cmdq_clients[chan_id]->chan, dev);
+		CMDQ_LOG("chan %u 0x%p dev:0x%p mbox:%p mbox->dev:%p\n",
+			chan_id, cmdq_clients[chan_id]->chan, dev,
+			cmdq_clients[chan_id]->chan->mbox,
+			cmdq_clients[chan_id]->chan->mbox->dev);
+
+		if (!cmdq_clients[chan_id]->chan->mbox ||
+			!cmdq_clients[chan_id]->chan->mbox->dev)
+			CMDQ_AEE("CMDQ",
+				"chan:%u mbox:%p or mbox->dev:%p invalid!!",
+				chan_id, cmdq_clients[chan_id]->chan->mbox,
+				cmdq_clients[chan_id]->chan->mbox->dev);
 	}
 
 	cmdq_client_base = cmdq_register_device(dev);

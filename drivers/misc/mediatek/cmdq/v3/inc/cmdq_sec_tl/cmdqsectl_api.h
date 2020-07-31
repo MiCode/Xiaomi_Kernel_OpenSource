@@ -16,6 +16,15 @@
 /* destroy globacl resource for secure path */
 #define CMD_CMDQ_TL_PATH_RES_RELEASE  5
 
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+/* create shared memory in Normal and Secure world */
+#define CMD_CMDQ_TL_INIT_SHARED_MEMORY 6
+/* register secure irq */
+#define CMD_CMDQ_TL_REGISTER_SECURE_IRQ 8
+#define CMD_CMDQ_TL_DUMP_SMI_LARB	9
+#endif
+
+
 /* entry cmdqSecTl, and do nothing */
 #define CMD_CMDQ_TL_TEST_HELLO_TL	(4000)
 /* entry cmdqSecTl and cmdqSecDr, and do nothing */

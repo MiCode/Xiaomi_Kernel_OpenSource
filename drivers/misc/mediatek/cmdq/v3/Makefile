@@ -69,6 +69,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_dr \
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 obj-y += cmdq_sec.o
 
+ifeq ($(strip $(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)),y)
+ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone
+obj-y += cmdq_sec_trustzone.o
+endif
+
 ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
 ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
 obj-y += cmdq_sec_gp.o
