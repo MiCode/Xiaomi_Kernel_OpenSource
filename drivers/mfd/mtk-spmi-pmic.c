@@ -4,13 +4,13 @@
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
 
-#include <linux/mfd/mt6315/registers.h>
 #include <linux/kernel.h>
+#include <linux/mfd/mt6315/registers.h>
 #include <linux/module.h>
-#include <linux/spmi.h>
+#include <linux/of_platform.h>
 #include <linux/pmif.h>
 #include <linux/regmap.h>
-#include <linux/of_platform.h>
+#include <linux/spmi.h>
 
 #define PMIC_VER		0x1510
 #define COMMON_SUBTYPE		0x00
@@ -21,33 +21,17 @@ static const struct of_device_id pmic_spmi_id_table[] = {
 	{ }
 };
 
-static void pmic_spmi_rw_test(struct regmap *map, struct device *dev)
-{
-	unsigned int rdata = 0, addr = 0;
-	u8 wdata = 0;
-	int ret;
-
-	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret < 0)
-		return;
-
-	wdata = 0xab;
-	ret = regmap_write(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, wdata);
-	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret < 0)
-		return;
-
-	wdata = 0xcd;
-	ret = regmap_write(map, addr, wdata);
-	ret = regmap_read(map, MT6315_PMIC_TOP_MDB_RSV1_ADDR, &rdata);
-	if (ret < 0)
-		return;
-}
-
 static const struct regmap_config spmi_regmap_config = {
 	.reg_bits	= 16,
 	.val_bits	= 8,
-	.max_register	= 0xffff,
+	.max_register	= 0x16d0,
+	.fast_io	= true,
+};
+
+static const struct regmap_config spmi_regmap_config_V2 = {
+	.reg_bits	= 16,
+	.val_bits	= 8,
+	.max_register	= 0x2000,
 	.fast_io	= true,
 };
 
@@ -55,13 +39,29 @@ static int pmic_spmi_probe(struct spmi_device *sdev)
 {
 	struct regmap *regmap;
 
-	regmap = devm_regmap_init_spmi_ext(sdev, &spmi_regmap_config);
-	if (IS_ERR(regmap))
-		return PTR_ERR(regmap);
-
 	/* Only the first slave id for a PMIC contains this information */
-	pmic_spmi_rw_test(regmap, &sdev->dev);
-
+	switch (sdev->usid) {
+	case 3:
+	case 6:
+	case 7:
+		pr_notice("%s MT6315 usid:%d\n", __func__, sdev->usid);
+		regmap = devm_regmap_init_spmi_ext(sdev,
+				&spmi_regmap_config);
+		if (IS_ERR(regmap))
+			return PTR_ERR(regmap);
+		break;
+	case 9:
+		pr_notice("%s MT6362 usid:%d\n", __func__, sdev->usid);
+		regmap = devm_regmap_init_spmi_ext(sdev,
+				&spmi_regmap_config_V2);
+		if (IS_ERR(regmap))
+			return PTR_ERR(regmap);
+		break;
+	case 8:
+	default:
+		pr_notice("%s unknown usid:%d\n", __func__, sdev->usid);
+		break;
+	}
 	return devm_of_platform_populate(&sdev->dev);
 }
 
