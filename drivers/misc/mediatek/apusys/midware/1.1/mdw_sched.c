@@ -331,7 +331,11 @@ next:
 
 static int mdw_sched_get_type(uint64_t bmp)
 {
-	return find_last_bit((unsigned long *)&bmp, APUSYS_DEVICE_MAX);
+	unsigned long tmp[BITS_TO_LONGS(APUSYS_DEVICE_MAX)];
+
+	bitmap_from_u32array(tmp, APUSYS_DEVICE_MAX, (const uint32_t *)&bmp, 2);
+
+	return find_last_bit((unsigned long *)&tmp, APUSYS_DEVICE_MAX);
 }
 
 int mdw_sched_dispatch_pack(struct mdw_apu_sc *sc)

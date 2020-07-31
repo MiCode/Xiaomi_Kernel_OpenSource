@@ -264,9 +264,9 @@ static int mdw_queue_norm_delete(struct mdw_apu_sc *sc, void *q)
 	}
 
 	/* get p item from the last of pid's pi list and delete it */
+	if (list_empty(&p->pi_list))
+		goto fail_pi_empty;
 	pi = list_last_entry(&p->pi_list, struct mdw_pid_item, p_item);
-	if (!pi)
-		goto fail_get_pi;
 
 	list_del(&pi->p_item);
 	list_del(&pi->q_item);
@@ -290,7 +290,8 @@ static int mdw_queue_norm_delete(struct mdw_apu_sc *sc, void *q)
 	/* update mdw q's bitmap */
 	mdw_rsc_update_avl_bmp(sc->type);
 
-fail_get_pi:
+fail_pi_empty:
+	mdw_drv_warn("no pid item in p(%d)\n", p->pid);
 	mdw_queue_norm_pid_put(p);
 out:
 	mutex_unlock(&nq->mtx);

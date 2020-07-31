@@ -128,7 +128,7 @@ static int mdw_rsc_get_name(int type, char *name)
 	int name_idx = 0;
 
 	name_idx = type % APUSYS_DEVICE_RT;
-	if (name_idx >= sizeof(rsc_dev_name)/sizeof(char *)) {
+	if (name_idx >= sizeof(rsc_dev_name)/sizeof(char *) - 1) {
 		mdw_drv_err("unknown dev(%d/%d) name\n", type, name_idx);
 		return -ENODEV;
 	}
@@ -668,7 +668,8 @@ static int mdw_rsc_delete_dev(struct mdw_dev_info *d)
 {
 	struct mdw_rsc_tab *tab = NULL;
 
-	if (d->type >= APUSYS_DEVICE_MAX || d->type < 0)
+	if (d->type >= APUSYS_DEVICE_MAX || d->type < 0 ||
+		d->idx >= MDW_RSC_TAB_DEV_MAX || d->idx < 0)
 		return -EINVAL;
 
 	tab = mdw_rsc_get_tab(d->type);
