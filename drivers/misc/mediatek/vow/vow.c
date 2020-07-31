@@ -2622,8 +2622,10 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 				vowserv.suspend_lock = 0;
 				/* Let AP will suspend */
 				__pm_relax(&VOW_suspend_lock);
+				/* lock 1sec for screen on */
 				VOWDRV_DEBUG("==VOW DEBUG MODE STOP==\n");
-				__pm_wakeup_event(&VOW_suspend_lock, HZ);
+				__pm_wakeup_event(&VOW_suspend_lock,
+						  jiffies_to_msecs(HZ));
 			}
 			vow_deregister_feature(VOW_DUMP_FEATURE_ID);
 			break;
@@ -2899,7 +2901,7 @@ static ssize_t VowDrv_read(struct file *fp,
 				if (vowserv.suspend_lock == 0) {
 					/* lock 1sec for screen on */
 					__pm_wakeup_event(&VOW_suspend_lock,
-							  HZ);
+							  jiffies_to_msecs(HZ));
 				}
 				vowserv.scp_command_flag = false;
 				if (vowserv.extradata_bytelen > 0)
