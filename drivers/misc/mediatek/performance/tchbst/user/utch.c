@@ -141,7 +141,7 @@ int notify_touch(int action)
 		enable_touch_boost_timer();
 
 		/* boost */
-		update_eas_boost_value(EAS_KIR_TOUCH,
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH,
 				CGROUP_TA, touch_boost_value);
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
 				perfmgr_clusters, target_freq);
@@ -151,7 +151,7 @@ int notify_touch(int action)
 		touch_event = 1;
 	} else if (touch_event == 1 && action == 3) {
 		disable_touch_boost_timer();
-		update_eas_boost_value(EAS_KIR_TOUCH, CGROUP_TA, 0);
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH, CGROUP_TA, 0);
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
 			perfmgr_clusters, reset_freq);
 		perfmgr_trace_count(3, "touch");
@@ -168,7 +168,7 @@ static void notify_touch_up_timeout(struct work_struct *work)
 {
 	mutex_lock(&notify_lock);
 
-	update_eas_boost_value(EAS_KIR_TOUCH, CGROUP_TA, 0);
+	update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH, CGROUP_TA, 0);
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
 	perfmgr_trace_count(0, "touch");
 	touch_event = 2;
