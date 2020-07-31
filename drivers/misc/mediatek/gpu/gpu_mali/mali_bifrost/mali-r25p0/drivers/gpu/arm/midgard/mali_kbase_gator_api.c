@@ -256,7 +256,7 @@ struct kbase_gator_hwcnt_handles *kbase_gator_hwcnt_init(struct kbase_gator_hwcn
 	in_out_info->nr_hwc_blocks = i;
 	in_out_info->size = dump_size;
 
-	phys_map.jm_bm = in_out_info->bitmask[JM_BLOCK];
+	phys_map.fe_bm = in_out_info->bitmask[JM_BLOCK];
 	phys_map.tiler_bm = in_out_info->bitmask[TILER_BLOCK];
 	phys_map.shader_bm = in_out_info->bitmask[SHADER_BLOCK];
 	phys_map.mmu_l2_bm = in_out_info->bitmask[MMU_L2_BLOCK];

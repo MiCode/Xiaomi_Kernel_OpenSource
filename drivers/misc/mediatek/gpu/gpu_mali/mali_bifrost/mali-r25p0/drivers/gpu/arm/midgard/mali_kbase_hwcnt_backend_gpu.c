@@ -101,7 +101,7 @@ static int kbasep_hwcnt_backend_gpu_dump_enable_nolock(
 
 	kbase_hwcnt_gpu_enable_map_to_physical(&phys, enable_map);
 
-	enable.jm_bm = phys.jm_bm;
+	enable.fe_bm = phys.fe_bm;
 	enable.shader_bm = phys.shader_bm;
 	enable.tiler_bm = phys.tiler_bm;
 	enable.mmu_l2_bm = phys.mmu_l2_bm;

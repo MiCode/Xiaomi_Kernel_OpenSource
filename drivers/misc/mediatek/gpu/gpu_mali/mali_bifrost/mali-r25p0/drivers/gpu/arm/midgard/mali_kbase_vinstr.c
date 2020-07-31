@@ -404,7 +404,7 @@ static int kbasep_vinstr_client_create(
 	if (errcode)
 		goto error;
 
-	phys_em.jm_bm = setup->jm_bm;
+	phys_em.fe_bm = setup->fe_bm;
 	phys_em.shader_bm = setup->shader_bm;
 	phys_em.tiler_bm = setup->tiler_bm;
 	phys_em.mmu_l2_bm = setup->mmu_l2_bm;

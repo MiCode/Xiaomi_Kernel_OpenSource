@@ -43,6 +43,7 @@
 #include <backend/gpu/mali_kbase_js_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <mali_kbase_dummy_job_wa.h>
+#include <backend/gpu/mali_kbase_clk_rate_trace_mgr.h>
 
 /**
  * kbase_backend_late_init - Perform any backend-specific initialization.
@@ -105,6 +106,8 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 
 	init_waitqueue_head(&kbdev->hwaccess.backend.reset_wait);
 
+	kbase_clk_rate_trace_manager_init(kbdev);
+
 	return 0;
 
 fail_update_l2_features:
@@ -135,6 +138,7 @@ fail_reset_gpu_init:
  */
 static void kbase_backend_late_term(struct kbase_device *kbdev)
 {
+	kbase_clk_rate_trace_manager_term(kbdev);
 	kbase_backend_devfreq_term(kbdev);
 	kbase_job_slot_halt(kbdev);
 	kbase_job_slot_term(kbdev);

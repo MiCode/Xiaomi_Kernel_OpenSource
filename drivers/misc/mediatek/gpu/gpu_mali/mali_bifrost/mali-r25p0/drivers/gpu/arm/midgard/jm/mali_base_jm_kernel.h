@@ -155,18 +155,23 @@
 /* Use the GPU VA chosen by the kernel client */
 #define BASE_MEM_FLAG_MAP_FIXED ((base_mem_alloc_flags)1 << 27)
 
+/* Bit 28 reserved for Kernel side cache sync ops flag */
+
+/* Force trimming of JIT allocations when creating a new allocation */
+#define BASEP_MEM_PERFORM_JIT_TRIM ((base_mem_alloc_flags)1 << 29)
+
 /* Number of bits used as flags for base memory management
  *
  * Must be kept in sync with the base_mem_alloc_flags flags
  */
-#define BASE_MEM_FLAGS_NR_BITS 28
+#define BASE_MEM_FLAGS_NR_BITS 30
 
 /* A mask of all the flags which are only valid for allocations within kbase,
  * and may not be passed from user space.
  */
 #define BASEP_MEM_FLAGS_KERNEL_ONLY \
 	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | \
-	 BASE_MEM_FLAG_MAP_FIXED)
+	 BASE_MEM_FLAG_MAP_FIXED | BASEP_MEM_PERFORM_JIT_TRIM)
 
 /* A mask for all output bits, excluding IN/OUT bits.
  */
@@ -191,6 +196,28 @@
 #define BASE_MEM_COOKIE_BASE                   (64ul  << 12)
 #define BASE_MEM_FIRST_FREE_ADDRESS            ((BITS_PER_LONG << 12) + \
 						BASE_MEM_COOKIE_BASE)
+
+/* Similar to BASE_MEM_TILER_ALIGN_TOP, memory starting from the end of the
+ * initial commit is aligned to 'extent' pages, where 'extent' must be a power
+ * of 2 and no more than BASE_MEM_TILER_ALIGN_TOP_EXTENT_MAX_PAGES
+ */
+#define BASE_JIT_ALLOC_MEM_TILER_ALIGN_TOP  (1 << 0)
+
+/**
+ * If set, the heap info address points to a u32 holding the used size in bytes;
+ * otherwise it points to a u64 holding the lowest address of unused memory.
+ */
+#define BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE  (1 << 1)
+
+/**
+ * Valid set of just-in-time memory allocation flags
+ *
+ * Note: BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE cannot be set if heap_info_gpu_addr
+ * in %base_jit_alloc_info is 0 (atom with BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE set
+ * and heap_info_gpu_addr being 0 will be rejected).
+ */
+#define BASE_JIT_ALLOC_VALID_FLAGS \
+	(BASE_JIT_ALLOC_MEM_TILER_ALIGN_TOP | BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE)
 
 /**
  * typedef base_context_create_flags - Flags to pass to ::base_context_init.

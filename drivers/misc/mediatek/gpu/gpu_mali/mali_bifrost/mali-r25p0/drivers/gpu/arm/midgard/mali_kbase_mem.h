@@ -330,7 +330,8 @@ struct kbase_va_region {
 
 /* Bit 22 is reserved.
  *
- * Do not remove, use the next unreserved bit for new flags */
+ * Do not remove, use the next unreserved bit for new flags
+ */
 #define KBASE_REG_RESERVED_BIT_22   (1ul << 22)
 
 /* The top of the initial commit is aligned to extent pages.
@@ -366,6 +367,9 @@ struct kbase_va_region {
  * otherwise it points to a u64 holding the lowest address of unused memory.
  */
 #define KBASE_REG_HEAP_INFO_IS_SIZE (1ul << 27)
+
+/* Allocation is actively used for JIT memory */
+#define KBASE_REG_ACTIVE_JIT_ALLOC (1ul << 28)
 
 #define KBASE_REG_ZONE_SAME_VA      KBASE_REG_ZONE(0)
 
@@ -1562,6 +1566,122 @@ void kbase_trace_jit_report_gpu_mem_trace_enabled(struct kbase_context *kctx,
 void kbase_jit_report_update_pressure(struct kbase_context *kctx,
 		struct kbase_va_region *reg, u64 new_used_pages,
 		unsigned int flags);
+
+/**
+ * jit_trim_necessary_pages() - calculate and trim the least pages possible to
+ * satisfy a new JIT allocation
+ *
+ * @kctx: Pointer to the kbase context
+ * @needed_pages: Number of JIT physical pages by which trimming is requested.
+ *                The actual number of pages trimmed could differ.
+ *
+ * Before allocating a new just-in-time memory region or reusing a previous
+ * one, ensure that the total JIT physical page usage also will not exceed the
+ * pressure limit.
+ *
+ * If there are no reported-on allocations, then we already guarantee this will
+ * be the case - because our current pressure then only comes from the va_pages
+ * of each JIT region, hence JIT physical page usage is guaranteed to be
+ * bounded by this.
+ *
+ * However as soon as JIT allocations become "reported on", the pressure is
+ * lowered to allow new JIT regions to be allocated. It is after such a point
+ * that the total JIT physical page usage could (either now or in the future on
+ * a grow-on-GPU-page-fault) exceed the pressure limit, but only on newly
+ * allocated JIT regions. Hence, trim any "reported on" regions.
+ *
+ * Any pages freed will go into the pool and be allocated from there in
+ * kbase_mem_alloc().
+ */
+void kbase_jit_trim_necessary_pages(struct kbase_context *kctx,
+				    size_t needed_pages);
+
+/*
+ * Same as kbase_jit_request_phys_increase(), except that Caller is supposed
+ * to take jit_evict_lock also on @kctx before calling this function.
+ */
+static inline void
+kbase_jit_request_phys_increase_locked(struct kbase_context *kctx,
+				       size_t needed_pages)
+{
+	lockdep_assert_held(&kctx->jctx.lock);
+	lockdep_assert_held(&kctx->reg_lock);
+	lockdep_assert_held(&kctx->jit_evict_lock);
+
+	kctx->jit_phys_pages_to_be_allocated += needed_pages;
+
+	kbase_jit_trim_necessary_pages(kctx,
+				       kctx->jit_phys_pages_to_be_allocated);
+}
+
+/**
+ * kbase_jit_request_phys_increase() - Increment the backing pages count and do
+ * the required trimming before allocating pages for a JIT allocation.
+ *
+ * @kctx: Pointer to the kbase context
+ * @needed_pages: Number of pages to be allocated for the JIT allocation.
+ *
+ * This function needs to be called before allocating backing pages for a
+ * just-in-time memory region. The backing pages are currently allocated when,
+ *
+ * - A new JIT region is created.
+ * - An old JIT region is reused from the cached pool.
+ * - GPU page fault occurs for the active JIT region.
+ * - Backing is grown for the JIT region through the commit ioctl.
+ *
+ * This function would ensure that the total JIT physical page usage does not
+ * exceed the pressure limit even when the backing pages get allocated
+ * simultaneously for multiple JIT allocations from different threads.
+ *
+ * There should be a matching call to kbase_jit_done_phys_increase(), after
+ * the pages have been allocated and accounted against the active JIT
+ * allocation.
+ *
+ * Caller is supposed to take reg_lock on @kctx before calling this function.
+ */
+static inline void kbase_jit_request_phys_increase(struct kbase_context *kctx,
+						   size_t needed_pages)
+{
+	lockdep_assert_held(&kctx->jctx.lock);
+	lockdep_assert_held(&kctx->reg_lock);
+
+	mutex_lock(&kctx->jit_evict_lock);
+	kbase_jit_request_phys_increase_locked(kctx, needed_pages);
+	mutex_unlock(&kctx->jit_evict_lock);
+}
+
+/**
+ * kbase_jit_done_phys_increase() - Decrement the backing pages count after the
+ * allocation of pages for a JIT allocation.
+ *
+ * @kctx: Pointer to the kbase context
+ * @needed_pages: Number of pages that were allocated for the JIT allocation.
+ *
+ * This function should be called after backing pages have been allocated and
+ * accounted against the active JIT allocation.
+ * The call should be made when the following have been satisfied:
+ *    when the allocation is on the jit_active_head.
+ *    when additional needed_pages have been allocated.
+ *    kctx->reg_lock was held during the above and has not yet been unlocked.
+ * Failure to call this function before unlocking the kctx->reg_lock when
+ * either the above have changed may result in over-accounting the memory.
+ * This ensures kbase_jit_trim_necessary_pages() gets a consistent count of
+ * the memory.
+ *
+ * A matching call to kbase_jit_request_phys_increase() should have been made,
+ * before the allocation of backing pages.
+ *
+ * Caller is supposed to take reg_lock on @kctx before calling this function.
+ */
+static inline void kbase_jit_done_phys_increase(struct kbase_context *kctx,
+						size_t needed_pages)
+{
+	lockdep_assert_held(&kctx->reg_lock);
+
+	WARN_ON(kctx->jit_phys_pages_to_be_allocated < needed_pages);
+
+	kctx->jit_phys_pages_to_be_allocated -= needed_pages;
+}
 #endif /* MALI_JIT_PRESSURE_LIMIT */
 
 /**

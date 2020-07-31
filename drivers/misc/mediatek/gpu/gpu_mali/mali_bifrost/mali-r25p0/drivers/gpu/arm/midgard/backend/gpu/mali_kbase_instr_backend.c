@@ -87,7 +87,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 					enable->dump_buffer >> 32);
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_JM_EN),
-					enable->jm_bm);
+					enable->fe_bm);
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_SHADER_EN),
 					enable->shader_bm);
