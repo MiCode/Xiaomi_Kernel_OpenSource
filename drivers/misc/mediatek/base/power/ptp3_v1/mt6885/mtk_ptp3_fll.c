@@ -215,7 +215,6 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 {
 	int str_len = 0;
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
-	unsigned int cpu;
 
 	/* check free page valid or not */
 	if (!aee_log_buf) {
