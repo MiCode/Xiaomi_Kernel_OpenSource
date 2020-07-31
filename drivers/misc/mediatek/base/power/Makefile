@@ -75,6 +75,7 @@ obj-$(CONFIG_MACH_MT6885) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6893) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT8168) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6885) += srclken_rc_v1/
+obj-$(CONFIG_MACH_MT6873) += srclken_rc_v1/
 obj-$(CONFIG_MACH_MT6853) += srclken_rc_v1/
 obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
