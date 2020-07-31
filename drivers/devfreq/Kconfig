@@ -122,12 +122,20 @@ config MTK_QOS_SUPPORT
 	  If unsure, say N.
 
 config MTK_DVFSRC_MT6833_PRETEST
-        tristate "MTK_DVFSRC_MT6833_PRETEST"
-        help
-          This is test for pre-testing for mt6833 on MT6853 phone
-          It just for test, and it will remove after mt6833 chip
-          is ready.
-          If unsure, say N.
+	tristate "MTK_DVFSRC_MT6833_PRETEST"
+	help
+	  This is test for pre-testing for mt6833 on MT6853 phone
+	  It just for test, and it will remove after mt6833 chip
+	  is ready.
+	  If unsure, say N.
+
+config MTK_DVFSRC_MT6893_PRETEST
+	tristate "MTK_DVFSRC_MT6893_PRETEST"
+	help
+	  This is test for pre-testing for mt6893 on MT6885 phone
+	  It just for test, and it will remove after mt6893 chip
+	  is ready.
+	  If unsure, say N.
 
 source "drivers/devfreq/event/Kconfig"
 
