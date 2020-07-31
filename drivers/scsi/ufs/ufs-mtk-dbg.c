@@ -75,7 +75,7 @@ void ufs_mtk_dbg_stop_trace(struct ufs_hba *hba)
 {
 #ifdef CONFIG_MTK_UFS_DEBUG
 	atomic_set(&cmd_hist_enabled, 0);
-	pr_info("ufsdbg: cmd history off\n");
+	dev_info(hba->dev, "cmd history off\n");
 #endif
 }
 
@@ -83,7 +83,7 @@ void ufs_mtk_dbg_start_trace(struct ufs_hba *hba)
 {
 #ifdef CONFIG_MTK_UFS_DEBUG
 	atomic_set(&cmd_hist_enabled, 1);
-	pr_info("ufsdbg: cmd history on\n");
+	dev_info(hba->dev, "cmd history on\n");
 #endif
 }
 
@@ -443,6 +443,8 @@ void get_ufs_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	/* retrun start location */
 	*vaddr = (unsigned long)ufs_aee_buffer;
 	*size = UFS_AEE_BUFFER_SIZE - free_size;
+
+	ufs_mtk_dbg_start_trace(ufs_mtk_hba);
 #endif
 }
 EXPORT_SYMBOL(get_ufs_aee_buffer);
@@ -561,6 +563,7 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 {
 	unsigned long op = UFS_CMD_UNKNOWN;
 	bool handled = false;
+	struct ufs_hba *hba = ufs_mtk_hba;
 
 	if (count == 0 || count > 255)
 		return -EINVAL;
@@ -580,19 +583,18 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 
 	if (op == UFS_CMD_HIST_BEGIN) {
 		atomic_set(&cmd_hist_enabled, 1);
-		pr_info("ufsdbg: cmd history on\n");
+		dev_info(hba->dev, "cmd history on\n");
 		handled = true;
 	} else if (op == UFS_CMD_HIST_STOP) {
 		atomic_set(&cmd_hist_enabled, 0);
-		pr_info("ufsdbg: cmd history off\n");
+		dev_info(hba->dev, "cmd history off\n");
 		handled = true;
 	}
 
-	if (ufs_mtk_hba)
-		ufs_mtk_dbg_add_trace(ufs_mtk_hba,
-			UFS_TRACE_DEBUG_PROC,
-			op, 0, atomic_read(&cmd_hist_enabled),
-			0, 0, 0, 0, 0, 0);
+	ufs_mtk_dbg_add_trace(hba,
+		UFS_TRACE_DEBUG_PROC,
+		op, 0, atomic_read(&cmd_hist_enabled),
+		0, 0, 0, 0, 0, 0);
 
 	if (handled)
 		cmd_buf[0] = '\0';

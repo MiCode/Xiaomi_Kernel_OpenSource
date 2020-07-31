@@ -5584,7 +5584,6 @@ static int __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 						__LINE__, DB_OPT_FS_IO_LOG,
 						"ufs_mtk_di", "crc16 fail");
 					#endif
-					ufs_mtk_dbg_start_trace(hba);
 				}
 			}
 #endif
