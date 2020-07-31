@@ -4,6 +4,7 @@
 #include "holi-pmic-overlay.dtsi"
 #include "holi-thermal-overlay.dtsi"
 #include "camera/holi-camera-sensor-qrd.dtsi"
+#include "display/holi-sde-display-qrd.dtsi"
 
 &sdhc_1 {
 	status = "ok";
