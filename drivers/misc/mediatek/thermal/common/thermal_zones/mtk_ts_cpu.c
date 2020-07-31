@@ -298,7 +298,9 @@ mt_cpufreq_thermal_protect(unsigned int limited_power)
 	bool __attribute__ ((weak))
 mtk_get_gpu_loading(unsigned int *pLoading)
 {
+#ifdef CONFIG_MTK_GPU_SUPPORT
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
+#endif
 	return 0;
 }
 
