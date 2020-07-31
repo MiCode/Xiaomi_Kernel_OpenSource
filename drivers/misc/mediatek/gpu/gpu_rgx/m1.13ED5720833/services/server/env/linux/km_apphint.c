@@ -266,9 +266,9 @@ static struct apphint_state
 	DI_GROUP *buildvar_rootdir;
 	DI_ENTRY *buildvar_entry[APPHINT_BUILDVAR_ID_MAX];
 
-	int num_devices;
+	unsigned num_devices;
 	PVRSRV_DEVICE_NODE *devices[APPHINT_DEVICES_MAX];
-	int initialized;
+	unsigned initialized;
 
 	/* Array contains value space for 1 copy of all apphint values defined
 	 * (for device 1) and N copies of device specific apphint values for
@@ -910,7 +910,7 @@ err_exit:
  * apphint_debugfs_init - Create the specified debugfs entries
  */
 static int apphint_debugfs_init(const char *sub_dir,
-		int device_num,
+		unsigned device_num,
 		unsigned init_data_size,
 		const struct apphint_init_data *init_data,
 		DI_GROUP *parentdir,
@@ -1172,7 +1172,7 @@ int pvr_apphint_device_register(PVRSRV_DEVICE_NODE *device)
 {
 	int result, i;
 	char device_num[APPHINT_BUFFER_SIZE];
-	int device_value_offset;
+	unsigned device_value_offset;
 
 	if (!apphint.initialized) {
 		result = -EAGAIN;
@@ -1184,7 +1184,7 @@ int pvr_apphint_device_register(PVRSRV_DEVICE_NODE *device)
 		goto err_out;
 	}
 
-	result = snprintf(device_num, APPHINT_BUFFER_SIZE, "%d", apphint.num_devices);
+	result = snprintf(device_num, APPHINT_BUFFER_SIZE, "%u", apphint.num_devices);
 	if (result < 0) {
 		PVR_DPF((PVR_DBG_WARNING,
 			"snprintf failed (%d)", result));
@@ -1249,6 +1249,8 @@ void pvr_apphint_device_unregister(PVRSRV_DEVICE_NODE *device)
 	                       apphint.debugfs_device_entry[i]);
 
 	apphint.devices[i] = NULL;
+
+	WARN_ON(apphint.num_devices==0);
 	apphint.num_devices--;
 }
 
