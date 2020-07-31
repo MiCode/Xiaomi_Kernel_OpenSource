@@ -62,6 +62,31 @@
 	status = "disabled";
 };
 
+&cam_smmu {
+	msm_cam_smmu_ife_cp {
+		compatible = "qcom,msm-cam-smmu-cb";
+		iommus = <&apps_smmu 0x841 0x620>,
+			<&apps_smmu 0x861 0x620>,
+			<&apps_smmu 0xA41 0x620>,
+			<&apps_smmu 0xA61 0x620>,
+			<&apps_smmu 0xC41 0x620>,
+			<&apps_smmu 0xC61 0x620>,
+			<&apps_smmu 0xE41 0x620>,
+			<&apps_smmu 0xE61 0x620>;
+		label = "ife-cp";
+		qcom,secure-pixel-cb;
+		ife_cp_iova_mem_map: iova-mem-map {
+			/* IO region is approximately 2.5 GB */
+			iova-mem-region-io {
+				iova-region-name = "io";
+				iova-region-start = <0x7400000>;
+				iova-region-len = <0x98C00000>;
+				iova-region-id = <0x3>;
+				status = "ok";
+			};
+		};
+	};
+};
 
 &soc {
 	/delete-node/ cam_isp_mgr;
