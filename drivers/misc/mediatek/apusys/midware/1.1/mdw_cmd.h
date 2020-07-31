@@ -86,6 +86,7 @@ struct mdw_apu_sc {
 	uint32_t ip_time;
 	uint32_t bw;
 	uint32_t boost;
+	int status;
 
 	/* multi */
 	uint8_t multi_total;

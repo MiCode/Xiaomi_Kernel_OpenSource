@@ -308,6 +308,7 @@ int mdw_sched_dev_routine(void *arg)
 			sc->type, d->idx);
 		sc->ip_time = sc->ip_time > h.ip_time ? sc->ip_time : h.ip_time;
 		sc->boost = h.boost_val;
+		sc->status = ret;
 		mdw_flw_debug("multi bmp(0x%llx)\n", sc->multi_bmp);
 		mutex_unlock(&sc->mtx);
 

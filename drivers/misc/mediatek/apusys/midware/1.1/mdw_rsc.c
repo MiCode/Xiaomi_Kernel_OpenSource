@@ -716,8 +716,24 @@ static struct mdw_dev_info *mdw_rsc_get_dev_sq(int type)
 	return d;
 }
 
+static int mdw_rsc_check_norm_dev_state(struct mdw_dev_info *in)
+{
+	struct mdw_rsc_tab *tab = NULL;
+
+	if (in->type < APUSYS_DEVICE_RT)
+		return 0;
+
+	tab = mdw_rsc_get_tab(in->type % APUSYS_DEVICE_RT);
+	if (!tab)
+		return 0;
+
+	return tab->array[in->idx]->state == MDW_DEV_INFO_STATE_IDLE
+		? 0 : -EBUSY;
+}
+
 static struct mdw_dev_info *mdw_rsc_get_dev_rr(int type)
 {
+	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct mdw_rsc_tab *tab = NULL;
 	struct mdw_dev_info *d = NULL;
 
@@ -725,7 +741,19 @@ static struct mdw_dev_info *mdw_rsc_get_dev_rr(int type)
 	if (!tab)
 		return NULL;
 
-	d = list_first_entry_or_null(&tab->list, struct mdw_dev_info, t_item);
+	/* check normal device state to make preempt prefer idle device */
+	list_for_each_safe(list_ptr, tmp, &tab->list) {
+		d = list_entry(list_ptr, struct mdw_dev_info, t_item);
+		if (!mdw_rsc_check_norm_dev_state(d))
+			break;
+		d = NULL;
+	}
+
+	/* no idle device, get first device */
+	if (!d)
+		d = list_first_entry_or_null(&tab->list,
+			struct mdw_dev_info, t_item);
+
 	if (d) {
 		tab->avl_num--;
 		list_del(&d->t_item);
