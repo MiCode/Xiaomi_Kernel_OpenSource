@@ -17,7 +17,7 @@
 #define CMDQ_SEC_SHARED_RESET_CNT		0x308
 
 /* commanad buffer & metadata */
-#define CMDQ_TZ_CMD_BLOCK_SIZE	 (16 * 1024)
+#define CMDQ_TZ_CMD_BLOCK_SIZE	 (79 * 1024)
 
 #define CMDQ_IWC_MAX_CMD_LENGTH (CMDQ_TZ_CMD_BLOCK_SIZE / 4)
 
@@ -93,6 +93,29 @@ enum CMDQ_SEC_ENG_ENUM {
 	CMDQ_SEC_MDP_WROT3,	/* 34 */
 	CMDQ_SEC_MDP_RDMA2,	/* 35 */
 	CMDQ_SEC_MDP_RDMA3,	/* 36 */
+
+	CMDQ_SEC_VENC_BSDMA,	    /* 37 */
+	CMDQ_SEC_VENC_CUR_LUMA,	    /* 38 */
+	CMDQ_SEC_VENC_CUR_CHROMA,	/* 39 */
+	CMDQ_SEC_VENC_REF_LUMA,     /* 40 */
+	CMDQ_SEC_VENC_REF_CHROMA,	/* 41 */
+	CMDQ_SEC_VENC_REC,          /* 42 */
+	CMDQ_SEC_VENC_SUB_R_LUMA,   /* 43 */
+	CMDQ_SEC_VENC_SUB_W_LUMA,   /* 44 */
+	CMDQ_SEC_VENC_SV_COMV,      /* 45 */
+	CMDQ_SEC_VENC_RD_COMV,      /* 46 */
+	CMDQ_SEC_VENC_NBM_RDMA,     /* 47 */
+	CMDQ_SEC_VENC_NBM_WDMA,     /* 48 */
+	CMDQ_SEC_VENC_NBM_RDMA_LITE,/* 49 */
+	CMDQ_SEC_VENC_NBM_WDMA_LITE,/* 50 */
+	CMDQ_SEC_VENC_FCS_NBM_RDMA, /* 51 */
+	CMDQ_SEC_VENC_FCS_NBM_WDMA, /* 52 */
+	CMDQ_SEC_MDP_HDR0,          /* 53 */
+	CMDQ_SEC_MDP_HDR1,          /* 54 */
+	CMDQ_SEC_MDP_AAL0,          /* 55 */
+	CMDQ_SEC_MDP_AAL1,          /* 56 */
+	CMDQ_SEC_MDP_AAL2,          /* 57 */
+	CMDQ_SEC_MDP_AAL3,          /* 58 */
 
 	CMDQ_SEC_MAX_ENG_COUNT	/* ALWAYS keep at the end */
 };
@@ -222,6 +245,14 @@ enum sec_extension_iwc {
 	IWC_MDP_TDSHP,
 };
 
+#define CMDQ_MAX_READBACK_ENG	8
+struct readback_engine {
+	uint32_t engine;
+	uint32_t start;
+	uint32_t count;
+	uint32_t param;
+};
+
 struct iwcCmdqCommand_t {
 	/* basic execution data */
 	uint32_t thread;
@@ -250,12 +281,19 @@ struct iwcCmdqCommand_t {
 
 	/* debug */
 	uint64_t hNormalTask; /* handle to reference task in normal world*/
+
+	/* SVP HDR */
+	uint32_t mdp_extension;
+	struct readback_engine readback_engs[CMDQ_MAX_READBACK_ENG];
+	uint32_t readback_cnt;
+
 };
 
 enum cmdq_sec_meta_type {
 	CMDQ_METAEX_NONE,
 	CMDQ_METAEX_FD,
 	CMDQ_METAEX_CQ,
+	CMDQ_METAEX_VENC,
 };
 
 struct iwc_cq_meta {
