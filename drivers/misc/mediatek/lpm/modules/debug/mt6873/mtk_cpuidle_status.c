@@ -451,7 +451,8 @@ static void mtk_cpuidle_set_timer(struct mtk_cpuidle_device *mtk_idle)
 	if (unlikely(!drv))
 		return;
 
-	if (index + 1 >= mtk_idle->state_count
+	if (index < 0
+		|| index + 1 >= mtk_idle->state_count
 		|| !tick_nohz_tick_stopped())
 		return;
 
