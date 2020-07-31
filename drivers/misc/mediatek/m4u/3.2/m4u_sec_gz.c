@@ -381,6 +381,8 @@ m4u_gz_sec_reinit:
 		m4u_gz_sec_context_deinit();
 		M4ULOG_HIGH("[MTEE]%s:init fail,ret=0x%x\n", __func__, ret);
 		return ret;
+	} else {
+		m4u_gz_en[mtk_iommu_sec_id] = 1;
 	}
 
 	/* don't deinit ta because of multiple init operation */
