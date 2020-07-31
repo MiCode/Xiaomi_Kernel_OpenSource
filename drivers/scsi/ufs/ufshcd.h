@@ -905,6 +905,7 @@ struct ufs_hba {
 
 	bool full_init_linereset;
 	bool force_host_reset;
+	bool invalid_resp_upiu;
 
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature ufsf;
