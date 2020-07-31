@@ -89,7 +89,6 @@ struct mdw_apu_sc {
 
 	/* multi */
 	uint8_t multi_total;
-	uint8_t multi_idx;
 	uint64_t multi_bmp;
 	struct kref multi_ref;
 
@@ -125,7 +124,7 @@ struct mdw_cmd_parser {
 	int (*get_ctx)(struct mdw_apu_sc *sc);
 	void (*put_ctx)(struct mdw_apu_sc *sc);
 	int (*exec_core_num)(struct mdw_apu_sc *sc);
-	void (*set_hnd)(struct mdw_apu_sc *sc, void *h);
+	void (*set_hnd)(struct mdw_apu_sc *sc, int d_idx, void *h);
 	bool (*is_deadline)(struct mdw_apu_sc *sc);
 };
 struct mdw_cmd_parser *mdw_cmd_get_parser(void);
