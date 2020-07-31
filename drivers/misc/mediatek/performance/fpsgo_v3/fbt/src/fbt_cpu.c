@@ -594,7 +594,7 @@ static void fbt_set_isolation_locked(int input)
 	if (cpu >= nr_cpus || cpu < 0)
 		return;
 
-	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input, cpu);
+	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input ? 1 : -1, cpu);
 	set_isolation = input;
 
 	xgf_trace("fpsgo set isolation %d, cpu %d", input, cpu);

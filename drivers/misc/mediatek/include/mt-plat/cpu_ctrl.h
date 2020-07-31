@@ -34,6 +34,7 @@ enum {
 enum {
 	CPU_ISO_KIR_PERF = 0,
 	CPU_ISO_KIR_FPSGO,
+	CPU_ISO_KIR_CPU_CTRL,
 	CPU_ISO_MAX_KIR
 };
 
