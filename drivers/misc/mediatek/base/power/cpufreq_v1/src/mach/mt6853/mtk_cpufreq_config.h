@@ -28,6 +28,8 @@ enum cpu_level {
 	CPU_LEVEL_2, /* MT6853 w MT6360 */
 	CPU_LEVEL_3, /* B24G */
 	CPU_LEVEL_4, /* B24G w MT6360 */
+	CPU_LEVEL_5, /* B26G */
+	CPU_LEVEL_6, /* B26G w MT6360 */
 
 	NUM_CPU_LEVEL,
 };
