@@ -4,6 +4,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/mailbox_controller.h>
@@ -21,6 +22,7 @@
 
 #ifdef CMDQ_GP_SUPPORT
 #include "cmdq-sec-gp.h"
+static atomic_t m4u_init = ATOMIC_INIT(0);
 #endif
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -158,6 +160,9 @@ struct cmdq_sec {
 };
 static atomic_t cmdq_path_res = ATOMIC_INIT(0);
 static atomic_t cmdq_path_res_mtee = ATOMIC_INIT(0);
+
+static u32 g_cmdq_cnt;
+static struct cmdq_sec *g_cmdq[2];
 
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
@@ -676,47 +681,43 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 			break;
 		context->state = IWC_CONTEXT_INITED;
 	case IWC_CONTEXT_INITED:
-		if (context->iwc_msg) {
-			cmdq_err("iwcMessage not NULL:%p",
-				context->iwc_msg);
-			err = -EINVAL;
-			break;
-		}
-
 #ifdef CMDQ_GP_SUPPORT
-		err = cmdq_sec_allocate_wsm(&context->tee,
-			&context->iwc_msg, CMDQ_IWC_MSG,
-			sizeof(struct iwcCmdqMessage_t));
-		if (err)
-			break;
-		err = cmdq_sec_allocate_wsm(&context->tee,
-			&context->iwc_ex1, CMDQ_IWC_MSG1,
-			sizeof(struct iwcCmdqMessageEx_t));
-		if (err)
-			break;
-		err = cmdq_sec_allocate_wsm(&context->tee,
-			&context->iwc_ex2, CMDQ_IWC_MSG2,
-			sizeof(struct iwcCmdqMessageEx2_t));
-		if (err)
-			break;
+		if (!context->iwc_msg) {
+			err = cmdq_sec_allocate_wsm(&context->tee,
+				&context->iwc_msg, CMDQ_IWC_MSG,
+				sizeof(struct iwcCmdqMessage_t));
+			if (err)
+				break;
+		}
+		if (!context->iwc_ex1) {
+			err = cmdq_sec_allocate_wsm(&context->tee,
+				&context->iwc_ex1, CMDQ_IWC_MSG1,
+				sizeof(struct iwcCmdqMessageEx_t));
+			if (err)
+				break;
+		}
+		if (!context->iwc_ex2) {
+			err = cmdq_sec_allocate_wsm(&context->tee,
+				&context->iwc_ex2, CMDQ_IWC_MSG2,
+				sizeof(struct iwcCmdqMessageEx2_t));
+			if (err)
+				break;
+		}
 #endif
 
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
-		if (context->mtee_iwc_msg) {
-			cmdq_err("mtee_iwcMessage not NULL:%p",
-				context->mtee_iwc_msg);
-			err = -EINVAL;
-			break;
+		if (!context->mtee_iwc_msg ||
+			!context->mtee_iwc_ex1 || !context->mtee_iwc_ex2) {
+			err = cmdq_sec_mtee_allocate_wsm(&context->mtee,
+				&context->mtee_iwc_msg,
+				sizeof(struct iwcCmdqMessage_t),
+				&context->mtee_iwc_ex1,
+				sizeof(struct iwcCmdqMessageEx_t),
+				&context->mtee_iwc_ex2,
+				sizeof(struct iwcCmdqMessageEx2_t));
+			if (err)
+				break;
 		}
-		err = cmdq_sec_mtee_allocate_wsm(&context->mtee,
-			&context->mtee_iwc_msg,
-			sizeof(struct iwcCmdqMessage_t),
-			&context->mtee_iwc_ex1,
-			sizeof(struct iwcCmdqMessageEx_t),
-			&context->mtee_iwc_ex2,
-			sizeof(struct iwcCmdqMessageEx2_t));
-		if (err)
-			break;
 #endif
 
 		context->state = IWC_WSM_ALLOCATED;
@@ -1062,7 +1063,7 @@ static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	const u32 iwc_cmd, const u32 thrd_idx, void *data, bool mtee)
 {
-	struct cmdq_sec_context *context;
+	struct cmdq_sec_context *context = NULL;
 	char *dispatch = "CMDQ";
 	s32 err;
 	bool dump_err = false;
@@ -1099,6 +1100,14 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 			err = -CMDQ_ERR_SEC_CTX_SETUP;
 			break;
 		}
+
+#ifdef CMDQ_GP_SUPPORT
+		/* do m4u sec init */
+		if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
+			m4u_sec_init();
+			cmdq_log("[SEC] M4U_sec_init is called\n");
+		}
+#endif
 
 		err = cmdq_sec_irq_notify_start(cmdq);
 		if (err < 0) {
@@ -1560,6 +1569,8 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 
 	cmdq_msg("cmdq:%p(%u) va:%p pa:%pa",
 		cmdq, cmdq->hwid, cmdq->base, &cmdq->base_pa);
+
+	g_cmdq[g_cmdq_cnt++] = cmdq;
 	return 0;
 }
 
@@ -1591,5 +1602,59 @@ static int __init cmdq_sec_init(void)
 		cmdq_err("platform_driver_register failed:%d", err);
 	return err;
 }
+
+#ifdef CMDQ_GP_SUPPORT
+static s32 cmdq_sec_late_init_wsm(void *data)
+{
+	struct cmdq_sec *cmdq;
+	struct cmdq_sec_context *context = NULL;
+	s32 i = 0, err = 0;
+
+	do {
+		msleep(10000);
+		cmdq = g_cmdq[i];
+		if (!cmdq)
+			break;
+		cmdq_msg("g_cmdq_cnt:%u g_cmdq:%u pa:%pa",
+			g_cmdq_cnt, i, &cmdq->base_pa);
+
+		if (!cmdq->context) {
+			context = kzalloc(sizeof(*cmdq->context),
+				GFP_ATOMIC);
+			if (!context) {
+				err = -CMDQ_ERR_NULL_SEC_CTX_HANDLE;
+				break;
+			}
+			cmdq->context = context;
+			cmdq->context->state = IWC_INIT;
+			cmdq->context->tgid = current->tgid;
+		}
+
+		mutex_lock(&cmdq->exec_lock);
+		if (cmdq->context->state == IWC_INIT)
+			cmdq_sec_setup_tee_context_base(cmdq->context);
+
+		err = cmdq_sec_session_init(cmdq->context);
+		mutex_unlock(&cmdq->exec_lock);
+		if (err) {
+			err = -CMDQ_ERR_SEC_CTX_SETUP;
+			cmdq_err("session init failed:%d", err);
+			continue;
+		}
+	} while (++i < g_cmdq_cnt);
+	return err;
+}
+
+static int __init cmdq_sec_late_init(void)
+{
+	struct task_struct *kthr =
+		kthread_run(cmdq_sec_late_init_wsm, g_cmdq, __func__);
+
+	if (IS_ERR(kthr))
+		cmdq_err("kthread_run failed:%ld", PTR_ERR(kthr));
+	return PTR_ERR(kthr);
+}
+late_initcall(cmdq_sec_late_init);
+#endif
 
 arch_initcall(cmdq_sec_init);
