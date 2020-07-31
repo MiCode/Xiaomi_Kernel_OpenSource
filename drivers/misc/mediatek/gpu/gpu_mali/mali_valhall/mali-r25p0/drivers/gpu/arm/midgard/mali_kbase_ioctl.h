@@ -166,7 +166,7 @@ struct kbase_ioctl_mem_free {
 /**
  * struct kbase_ioctl_hwcnt_reader_setup - Setup HWC dumper/reader
  * @buffer_count: requested number of dumping buffers
- * @jm_bm:        counters selection bitmask (JM)
+ * @fe_bm:        counters selection bitmask (Front end)
  * @shader_bm:    counters selection bitmask (Shader)
  * @tiler_bm:     counters selection bitmask (Tiler)
  * @mmu_l2_bm:    counters selection bitmask (MMU_L2)
@@ -175,7 +175,7 @@ struct kbase_ioctl_mem_free {
  */
 struct kbase_ioctl_hwcnt_reader_setup {
 	__u32 buffer_count;
-	__u32 jm_bm;
+	__u32 fe_bm;
 	__u32 shader_bm;
 	__u32 tiler_bm;
 	__u32 mmu_l2_bm;
@@ -187,14 +187,14 @@ struct kbase_ioctl_hwcnt_reader_setup {
 /**
  * struct kbase_ioctl_hwcnt_enable - Enable hardware counter collection
  * @dump_buffer:  GPU address to write counters to
- * @jm_bm:        counters selection bitmask (JM)
+ * @fe_bm:        counters selection bitmask (Front end)
  * @shader_bm:    counters selection bitmask (Shader)
  * @tiler_bm:     counters selection bitmask (Tiler)
  * @mmu_l2_bm:    counters selection bitmask (MMU_L2)
  */
 struct kbase_ioctl_hwcnt_enable {
 	__u64 dump_buffer;
-	__u32 jm_bm;
+	__u32 fe_bm;
 	__u32 shader_bm;
 	__u32 tiler_bm;
 	__u32 mmu_l2_bm;

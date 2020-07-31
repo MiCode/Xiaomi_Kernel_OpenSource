@@ -722,7 +722,8 @@ bool jd_done_nolock(struct kbase_jd_atom *katom,
 	KBASE_DEBUG_ASSERT(katom->status != KBASE_JD_ATOM_STATE_UNUSED);
 
 #if MALI_JIT_PRESSURE_LIMIT
-	jd_update_jit_usage(katom);
+	if (kbase_ctx_flag(kctx, KCTX_JPL_ENABLED))
+		jd_update_jit_usage(katom);
 #endif /* MALI_JIT_PRESSURE_LIMIT */
 
 	/* This is needed in case an atom is failed due to being invalid, this

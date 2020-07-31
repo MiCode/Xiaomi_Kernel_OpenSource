@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018, 2020 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -80,13 +80,13 @@ enum kbase_hwcnt_gpu_v5_block_type {
 /**
  * struct kbase_hwcnt_physical_enable_map - Representation of enable map
  *                                          directly used by GPU.
- * @jm_bm:     Job Manager counters selection bitmask.
+ * @fe_bm:     Front end (JM/CSHW) counters selection bitmask.
  * @shader_bm: Shader counters selection bitmask.
  * @tiler_bm:  Tiler counters selection bitmask.
  * @mmu_l2_bm: MMU_L2 counters selection bitmask.
  */
 struct kbase_hwcnt_physical_enable_map {
-	u32 jm_bm;
+	u32 fe_bm;
 	u32 shader_bm;
 	u32 tiler_bm;
 	u32 mmu_l2_bm;

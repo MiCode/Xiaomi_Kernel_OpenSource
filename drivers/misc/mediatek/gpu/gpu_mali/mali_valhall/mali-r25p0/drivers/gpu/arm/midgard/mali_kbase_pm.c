@@ -39,6 +39,8 @@
 #include <arbiter/mali_kbase_arbiter_pm.h>
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
+#include <mali_kbase_clk_rate_trace_mgr.h>
+
 int kbase_pm_powerup(struct kbase_device *kbdev, unsigned int flags)
 {
 	return kbase_hwaccess_pm_powerup(kbdev, flags);
@@ -101,6 +103,7 @@ int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 		kbase_arbiter_pm_vm_event(kbdev, KBASE_VM_REF_EVENT);
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
+		kbase_clk_rate_trace_manager_gpu_active(kbdev);
 	}
 
 	kbase_pm_unlock(kbdev);
@@ -128,6 +131,7 @@ void kbase_pm_context_idle(struct kbase_device *kbdev)
 	if (c == 0) {
 		/* Last context has gone idle */
 		kbase_hwaccess_pm_gpu_idle(kbdev);
+		kbase_clk_rate_trace_manager_gpu_idle(kbdev);
 
 		/* Wake up anyone waiting for this to become 0 (e.g. suspend).
 		 * The waiters must synchronize with us by locking the pm.lock

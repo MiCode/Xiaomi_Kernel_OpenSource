@@ -321,6 +321,30 @@ struct kbasep_mem_device {
 };
 
 /**
+ * struct kbase_clk_rate_trace_manager - Data stored per device for GPU clock
+ *                                       rate trace manager.
+ *
+ * @gpu_idle:           Tracks the idle state of GPU.
+ * @clks:               Array of pointer to structures storing data for every
+ *                      enumerated GPU clock.
+ * @clk_rate_trace_ops: Pointer to the platform specific GPU clock rate trace
+ *                      operations.
+ * @gpu_clk_rate_trace_write: Pointer to the function that would emit the
+ *                            tracepoint for the clock rate change.
+ * @lock:               Lock to serialize the actions of GPU clock rate trace
+ *                      manager.
+ */
+struct kbase_clk_rate_trace_manager {
+	bool gpu_idle;
+	struct kbase_clk_data *clks[BASE_MAX_NR_CLOCKS_REGULATORS];
+	struct kbase_clk_rate_trace_op_conf *clk_rate_trace_ops;
+	void (*gpu_clk_rate_trace_write)(struct kbase_device *kbdev,
+					 unsigned int clk_index,
+					 unsigned long new_rate);
+	spinlock_t lock;
+};
+
+/**
  * Data stored per device for power management.
  *
  * This structure contains data for the power management framework. There is one
@@ -385,6 +409,11 @@ struct kbase_pm_device_data {
 	 */
 	struct kbase_arbiter_vm_state *arb_vm_state;
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
+
+	/**
+	 * The state of the GPU clock rate trace manager
+	 */
+	struct kbase_clk_rate_trace_manager clk_rtm;
 };
 
 /**
@@ -1213,6 +1242,13 @@ enum kbase_context_flags {
 	KCTX_PULLED_SINCE_ACTIVE_JS1 = 1U << 13,
 	KCTX_PULLED_SINCE_ACTIVE_JS2 = 1U << 14,
 	KCTX_AS_DISABLED_ON_FAULT = 1U << 15,
+#if MALI_JIT_PRESSURE_LIMIT
+	/*
+	 * Set when JIT physical page limit is less than JIT virtual address
+	 * page limit, so we must take care to not exceed the physical limit
+	 */
+	KCTX_JPL_ENABLED = 1U << 16,
+#endif /* !MALI_JIT_PRESSURE_LIMIT */
 };
 
 struct kbase_sub_alloc {
@@ -1423,6 +1459,16 @@ struct kbase_sub_alloc {
  *                             that were used (i.e. the
  *                             &struct_kbase_va_region.used_pages for regions
  *                             that have had a usage report).
+ * @jit_phys_pages_to_be_allocated: Count of the physical pages that are being
+ *                                  now allocated for just-in-time memory
+ *                                  allocations of a context (across all the
+ *                                  threads). This is supposed to be updated
+ *                                  with @reg_lock held before allocating
+ *                                  the backing pages. This helps ensure that
+ *                                  total physical memory usage for just in
+ *                                  time memory allocation remains within the
+ *                                  @jit_phys_pages_limit in multi-threaded
+ *                                  scenarios.
  * @jit_active_head:      List containing the just-in-time memory allocations
  *                        which are in use.
  * @jit_pool_head:        List containing the just-in-time memory allocations
@@ -1572,6 +1618,7 @@ struct kbase_context {
 #if MALI_JIT_PRESSURE_LIMIT
 	u64 jit_phys_pages_limit;
 	u64 jit_current_phys_pressure;
+	u64 jit_phys_pages_to_be_allocated;
 #endif /* MALI_JIT_PRESSURE_LIMIT */
 	struct list_head jit_active_head;
 	struct list_head jit_pool_head;
