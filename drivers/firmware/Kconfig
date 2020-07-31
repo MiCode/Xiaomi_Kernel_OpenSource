@@ -27,6 +27,18 @@ config ARM_SCMI_PROTOCOL
 	  This protocol library provides interface for all the client drivers
 	  making use of the features offered by the SCMI.
 
+config QTI_SCMI_MEMLAT_PROTOCOL
+	tristate "Qualcomm Technologies, Inc. SCMI MEMLAT vendor Protocol"
+	depends on ARM || ARM64 || COMPILE_TEST
+	depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS
+	help
+	  System Control and Management Interface (SCMI) memlat vendor protocol
+	  this protocol provides interface to communicate with micro controller
+	  which is executing the hw memlat governor
+
+	  This driver defines the comands or message ID's used for this
+	  communication and also exposes the ops used by clients.
+
 config ARM_SCMI_POWER_DOMAIN
 	tristate "SCMI power domain driver"
 	depends on ARM_SCMI_PROTOCOL || (COMPILE_TEST && OF)
