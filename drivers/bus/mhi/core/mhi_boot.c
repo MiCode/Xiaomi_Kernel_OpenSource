@@ -612,12 +612,9 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 	ret = mhi_fw_load_sbl(mhi_cntrl, dma_addr, size);
 	mhi_free_coherent(mhi_cntrl, size, buf, dma_addr);
 
-	if (!mhi_cntrl->fbc_download || ret || mhi_cntrl->ee == MHI_EE_EDL)
-		release_firmware(firmware);
-
 	/* error or in edl, we're done */
 	if (ret || mhi_cntrl->ee == MHI_EE_EDL)
-		return;
+		goto release_fw;
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	mhi_cntrl->dev_state = MHI_STATE_RESET;
@@ -632,7 +629,7 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 					   firmware->size);
 		if (ret) {
 			MHI_CNTRL_ERR("Error alloc size:%zu\n", firmware->size);
-			goto error_alloc_fw_table;
+			goto release_fw;
 		}
 
 		MHI_CNTRL_LOG("Copying firmware image into vector table\n");
@@ -651,7 +648,7 @@ fw_load_ee_pthru:
 			TO_MHI_EXEC_STR(mhi_cntrl->ee), ret);
 
 	if (!mhi_cntrl->fbc_download)
-		return;
+		goto release_fw;
 
 	if (ret) {
 		MHI_CNTRL_ERR("Did not transition to READY state\n");
@@ -691,7 +688,7 @@ fw_load_ee_pthru:
 error_read:
 	mhi_free_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image);
 
-error_alloc_fw_table:
+release_fw:
 	release_firmware(firmware);
 }
 
