@@ -52,7 +52,7 @@ unsigned int RingBuf_getDataCount(const struct RingBuf *RingBuf1)
 
 /*
  *
- * function for get how free space available
+ * function for get hw free space available
  * @return how free sapce
  */
 
@@ -968,38 +968,38 @@ int set_audiobuffer_audio_irq_num(struct audio_hw_buffer *audio_hwbuf,
 }
 
 int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
-		    struct ringbuf_bridge *buf_bridge)
+			 struct ringbuf_bridge *buf_bridge)
 {
 	unsigned int datacount = 0;
 	char *readidx = NULL;
 
 	if (task_ring_buf == NULL) {
-		AUD_LOG_D("%s task_ring_buf == NULL", __func__);
+		AUD_LOG_W("%s task_ring_buf == NULL", __func__);
 		return -1;
 	} else if (buf_bridge == NULL) {
-		AUD_LOG_D("%s buf_bridge == NULL", __func__);
+		AUD_LOG_W("%s buf_bridge == NULL", __func__);
 		return -1;
 	}
 
 	/* buffer empty */
 	if (task_ring_buf->pRead == task_ring_buf->pWrite &&
 	    task_ring_buf->datacount == 0) {
-		AUD_LOG_D("%s task_ring_buf empty", __func__);
+		AUD_LOG_W("%s task_ring_buf empty", __func__);
 		return -1;
 	}
 
 	readidx = task_ring_buf->pBufBase +
 		  (buf_bridge->pRead - buf_bridge->pBufBase);
 
-	if (readidx > task_ring_buf->pRead)
+	if (readidx >= task_ring_buf->pRead)
 		datacount = readidx - task_ring_buf->pRead;
 	else
 		datacount = task_ring_buf->bufLen -
 			    (task_ring_buf->pRead - readidx);
 
 	if (datacount == 0 || datacount == task_ring_buf->bufLen) {
-		dump_ring_bufinfo(task_ring_buf);
-		dump_rbuf_bridge(buf_bridge);
+		dump_rbuf_s(__func__, task_ring_buf);
+		dump_rbuf_bridge_s(__func__, buf_bridge);
 	}
 
 	RingBuf_update_readptr(task_ring_buf, datacount);
