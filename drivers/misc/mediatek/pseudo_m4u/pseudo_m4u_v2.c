@@ -1369,6 +1369,10 @@ int m4u_switch_acp(unsigned int port,
 		unsigned long iova, size_t size, bool is_acp)
 {
 	struct device *dev = pseudo_get_larbdev(port);
+	if (!dev) {
+		M4U_MSG("%s dev NULL!\n", __func__);
+		return -EINVAL;
+	}
 
 #if 0
 	struct m4u_buf_info_t *pMvaInfo;
