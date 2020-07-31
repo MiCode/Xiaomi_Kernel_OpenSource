@@ -3106,7 +3106,7 @@ page_owner=on loop.max_part=7";
 			"PWR";
 	};
 
-	gpufreq {
+	gpufreq: gpufreq {
 		compatible = "mediatek,gpufreq";
 		clocks =
 			<&topckgen TOP_MUX_MFG>,
@@ -3143,6 +3143,11 @@ page_owner=on loop.max_part=7";
 			"mtcmos_mfg_core7_8";
 			_vgpu-supply = <&mt6315_7_vbuck1>;
 			_vsram_gpu-supply = <&mt_pmic_vsram_others_ldo_reg>;
+	};
+
+	ged: ged {
+		compatible = "mediatek,ged";
+		gpufreq-supply = <&gpufreq>;
 	};
 
 	mali_dvfs_hint@13fbb000 {
