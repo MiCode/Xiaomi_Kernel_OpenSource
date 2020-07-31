@@ -720,6 +720,19 @@ config QTI_SYSTEM_PM
 config QTI_SYSTEM_PM_RPM
 	bool
 
+config QTI_HW_MEMLAT_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
+	depends on QTI_HW_MEMLAT
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for memlat
+	  vendor protocol, and also registers with the memlat hw interface
+	  driver.
+
+	  This driver deliver the memlat vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate with
+	  memlat HW.
+
 if MSM_PM
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
