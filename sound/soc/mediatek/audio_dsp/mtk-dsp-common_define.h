@@ -61,4 +61,12 @@ enum {
 	ADSP_TASK_ATTR_NUM
 };
 
+/* dl consume param2 status */
+enum {
+	ADSP_DL_CONSUME_OK,
+	ADSP_DL_CONSUME_RESET,
+	ADSP_DL_CONSUME_UNDERFLOW,
+};
+
+
 #endif

@@ -26,6 +26,7 @@
 #include "mtk-dsp-platform-driver.h"
 #include "mtk-base-afe.h"
 
+
 static DEFINE_SPINLOCK(dsp_ringbuf_lock);
 static DEFINE_MUTEX(adsp_wakelock_lock);
 
@@ -750,6 +751,16 @@ SYNC_READINDEX:
 		&dsp_mem->ring_buf);
 #endif
 	spin_lock_irqsave(&dsp_ringbuf_lock, flags);
+
+	/* handle for underflow */
+	if (dsp_mem->underflowed) {
+		pr_info("%s id = %d return -1 because underflowed[%d] %d\n",
+			__func__, id, dsp_mem->underflowed);
+		dsp_mem->underflowed = 0;
+		spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
+		return -1;
+	}
+
 	pcm_ptr_bytes = (int)(dsp_mem->ring_buf.pRead -
 			      dsp_mem->ring_buf.pBufBase);
 	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
@@ -813,9 +824,17 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	}
 
 	/* adsp reset message */
-	if (ipi_msg && ipi_msg->param2) {
+	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_RESET) {
 		pr_info("%s adsp resert id = %d\n", __func__, id);
 		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+		/* notify subsream */
+		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
+	}
+
+	/* adsp reset message */
+	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_UNDERFLOW) {
+		pr_info("%s adsp underflowed id = %d\n", __func__, id);
+		dsp->dsp_mem[id].underflowed = true;
 		/* notify subsream */
 		return snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
 	}
