@@ -94,19 +94,16 @@
  * - The above changes are checked for safe values in usual builds
  * 11.21:
  * - v2.0 of mali_trace debugfs file, which now versions the file separately
- * 11.22
- * - Added base_jd_atom_v3, which is v2 + seq_nr.
- *   KBASE_IOCTL_JOB_SUBMIT supports both in parallel.
  */
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 22
+#define BASE_UK_VERSION_MINOR 21
 
 /**
  * struct kbase_ioctl_job_submit - Submit jobs/atoms to the kernel
  *
- * @addr: Memory address of an array of struct base_jd_atom_v2 or v3
+ * @addr: Memory address of an array of struct base_jd_atom_v2
  * @nr_atoms: Number of entries in the array
- * @stride: sizeof(struct base_jd_atom_v2) or sizeof(struct base_jd_atom_v3)
+ * @stride: sizeof(struct base_jd_atom_v2)
  */
 struct kbase_ioctl_job_submit {
 	__u64 addr;

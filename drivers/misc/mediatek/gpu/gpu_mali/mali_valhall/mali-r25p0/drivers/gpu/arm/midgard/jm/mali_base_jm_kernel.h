@@ -812,26 +812,7 @@ struct base_jd_atom_v2 {
 	base_jd_core_req core_req;
 	u8 renderpass_id;
 	u8 padding[7];
-#if defined(MTK_GPU_BM_2)
-	u32 frame_nr;  /* frame number to the atom */
-#endif
-};
 
-struct base_jd_atom_v3 {
-	u64 seq_nr;
-        u64 jc;
-        struct base_jd_udata udata;
-        u64 extres_list;
-        u16 nr_extres;
-        u8 jit_id[2];
-        struct base_dependency pre_dep[2];
-        base_atom_id atom_number;
-        base_jd_prio prio;
-        u8 device_nr;
-        u8 jobslot;
-        base_jd_core_req core_req;
-        u8 renderpass_id;
-        u8 padding[7];
 #if defined(MTK_GPU_BM_2)
 	u32 frame_nr;  /* frame number to the atom */
 #endif
