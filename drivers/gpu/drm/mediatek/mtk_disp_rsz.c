@@ -484,7 +484,8 @@ static void mtk_rsz_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_RSZ_SHADOW_CTRL, RSZ_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, RSZ_BYPASS_SHADOW,
 		DISP_REG_RSZ_SHADOW_CTRL, RSZ_BYPASS_SHADOW);
