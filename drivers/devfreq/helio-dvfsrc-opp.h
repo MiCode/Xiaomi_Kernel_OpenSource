@@ -29,7 +29,11 @@
 #elif defined(CONFIG_MACH_MT6873)
 #include <helio-dvfsrc-opp-mt6873.h>
 #elif defined(CONFIG_MACH_MT6853)
-#include <helio-dvfsrc-opp-mt6853.h>
+	#if defined(CONFIG_MTK_DVFSRC_MT6833_PRETEST)
+	#include <helio-dvfsrc-opp-mt6833.h>
+	#else
+	#include <helio-dvfsrc-opp-mt6853.h>
+	#endif
 #elif defined(CONFIG_MACH_MT6893)
 #include <helio-dvfsrc-opp-mt6893.h>
 #elif defined(CONFIG_MACH_MT6833)
