@@ -105,9 +105,11 @@ TRACE_EVENT(apupwr_dvfs,
 		__array(char, log_str, LOG_STR_LEN)
 	),
 	TP_fast_assign(
-		snprintf(__entry->log_str, LOG_STR_LEN, "%s", log_str);
+		if (snprintf(__entry->log_str,
+			LOG_STR_LEN, "%s", log_str) < 0)
+			__entry->log_str[0] = '\0';
 	),
-		TP_printk("dvfs= %s", __entry->log_str)
+	TP_printk("dvfs= %s", __entry->log_str)
 );
 
 #endif /* if !defined(_APUPWR_EVENTS_H) || defined(TRACE_HEADER_MULTI_READ) */
