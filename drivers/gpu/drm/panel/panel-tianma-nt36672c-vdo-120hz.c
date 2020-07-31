@@ -579,12 +579,11 @@ static struct mtk_panel_params ext_params = {
 	.rc_tgt_offset_lo = 3,
 	},
 	.dyn = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.data_rate = DATA_RATE,
-		.hbp = 84,
 	},
 	.dyn_fps = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.vact_timing_fps = MODE_0_FPS,
 	},
 	.data_rate = DATA_RATE,
@@ -637,13 +636,12 @@ static struct mtk_panel_params ext_params_90hz = {
 	.rc_tgt_offset_lo = 3,
 	},
 	.dyn = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.data_rate = DATA_RATE,
 
-		.hbp = 84,
 	},
 	.dyn_fps = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.vact_timing_fps = MODE_1_FPS,
 	},
 	.data_rate = DATA_RATE,
@@ -696,12 +694,11 @@ static struct mtk_panel_params ext_params_60hz = {
 	.rc_tgt_offset_lo = 3,
 	},
 	.dyn = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.data_rate = DATA_RATE,
-		.hbp = 84,
 	},
 	.dyn_fps = {
-		.switch_en = 1,
+		.switch_en = 0,
 		.vact_timing_fps = MODE_2_FPS,
 	},
 	.data_rate = DATA_RATE,
