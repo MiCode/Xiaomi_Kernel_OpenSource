@@ -194,6 +194,8 @@ struct ufs_mtk_host {
 	struct clk *crypto_clk_mux;
 	struct clk *crypto_parent_clk_normal;
 	struct clk *crypto_parent_clk_perf;
+
+	bool pm_qos_init;
 	struct pm_qos_request *req_vcore;
 	struct pm_qos_request req_cpu_dma_latency;
 

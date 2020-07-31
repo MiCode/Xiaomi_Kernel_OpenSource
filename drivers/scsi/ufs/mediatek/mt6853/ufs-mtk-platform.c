@@ -437,18 +437,7 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, true);
 		if (ret)
 			goto out;
-		if (host) {
-			ret = ufs_mtk_perf_setup(host, true);
-			if (ret)
-				goto out;
-		}
 	} else {
-		if (host) {
-			ret = ufs_mtk_perf_setup(host, false);
-			if (ret)
-				goto out;
-		}
-
 		val = VENDOR_POWERSTATE_HIBERNATE;
 		ufs_mtk_wait_link_state(hba, &val,
 			hba->clk_gating.delay_ms);
@@ -456,6 +445,8 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 		if (val == VENDOR_POWERSTATE_HIBERNATE) {
 			/* Host need turn off clock by itself */
 			ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+			if (ret)
+				goto out;
 		} else {
 			dev_info(hba->dev, "%s: power state (%d) clk not off\n",
 				__func__, val);
