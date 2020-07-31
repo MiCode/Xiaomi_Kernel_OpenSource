@@ -22,12 +22,12 @@ static u8 get_data_unit_size_mask(unsigned int data_unit_size)
 	return data_unit_size / 512;
 }
 
-static size_t get_keysize_bytes(enum mmc_crypto_key_size size)
+static size_t get_keysize_bytes(enum swcqhci_crypto_key_size size)
 {
 	switch (size) {
-	case MMC_CRYPTO_KEY_SIZE_128: return 16;
-	case MMC_CRYPTO_KEY_SIZE_192: return 24;
-	case MMC_CRYPTO_KEY_SIZE_256: return 32;
+	case SWCQHCI_CRYPTO_KEY_SIZE_128: return 16;
+	case SWCQHCI_CRYPTO_KEY_SIZE_192: return 24;
+	case SWCQHCI_CRYPTO_KEY_SIZE_256: return 32;
 	default: return 0;
 	}
 }
@@ -37,32 +37,32 @@ static u8 mmc_crypto_cap_find(void *mmc_p,
 				  unsigned int data_unit_size)
 {
 	struct mmc_host *host = mmc_p;
-	enum mmc_crypto_alg mmc_alg = MMC_CRYPTO_ALG_INVALID;
+	enum swcqhci_crypto_alg mmc_alg;
 	u8 data_unit_mask, cap_idx;
-	enum mmc_crypto_key_size mmc_key_size = MMC_CRYPTO_KEY_SIZE_INVALID;
-	union mmc_crypto_cap_entry *ccap_array = host->crypto_cap_array;
+	enum swcqhci_crypto_key_size mmc_key_size;
+	union swcqhci_crypto_cap_entry *ccap_array = host->crypto_cap_array;
 
 	if (!mmc_is_crypto_supported(host))
 		return -EINVAL;
 
 	switch (crypto_mode) {
 	case BLK_ENCRYPTION_MODE_AES_256_XTS:
-		if (host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)) {
-			mmc_alg = MMC_CRYPTO_ALG_AES_XTS;
-			mmc_key_size = MMC_CRYPTO_KEY_SIZE_256;
-		}
+		/* "4" means XTS */
+		mmc_alg = SWCQHCI_CRYPTO_ALG_AES_XTS;
+		/* "2" means 256 bits */
+		mmc_key_size = SWCQHCI_CRYPTO_KEY_SIZE_256;
 		break;
 	default:
 		return -EINVAL;
 	}
 
 	data_unit_mask = get_data_unit_size_mask(data_unit_size);
-
+	/* There is only one capability */
 	for (cap_idx = 0; cap_idx < host->crypto_capabilities.num_crypto_cap;
 	     cap_idx++) {
 		if (ccap_array[cap_idx].algorithm_id == mmc_alg &&
-			(ccap_array[cap_idx].sdus_mask & data_unit_mask) &&
-			ccap_array[cap_idx].key_size == mmc_key_size)
+		    (ccap_array[cap_idx].sdus_mask & data_unit_mask) &&
+		    ccap_array[cap_idx].key_size == mmc_key_size)
 			return cap_idx;
 	}
 	return -EINVAL;
@@ -82,9 +82,9 @@ static u8 mmc_crypto_cap_find(void *mmc_p,
  *
  * Returns 0 on success, or -EINVAL
  */
-static int mmc_crypto_cfg_entry_write_key(union mmc_crypto_cfg_entry *cfg,
+static int mmc_crypto_cfg_entry_write_key(union swcqhci_crypto_cfg_entry *cfg,
 					     const u8 *key,
-					     union mmc_crypto_cap_entry cap)
+					     union swcqhci_crypto_cap_entry cap)
 {
 	size_t key_size_bytes = get_keysize_bytes(cap.key_size);
 
@@ -92,7 +92,8 @@ static int mmc_crypto_cfg_entry_write_key(union mmc_crypto_cfg_entry *cfg,
 		return -EINVAL;
 
 	switch (cap.algorithm_id) {
-	case MMC_CRYPTO_ALG_AES_XTS:
+	case SWCQHCI_CRYPTO_ALG_INVALID: /* non-cqe */
+	case SWCQHCI_CRYPTO_ALG_AES_XTS:
 		key_size_bytes *= 2;
 		if (key_size_bytes > MMC_CRYPTO_KEY_MAX_SIZE)
 			return -EINVAL;
@@ -101,9 +102,9 @@ static int mmc_crypto_cfg_entry_write_key(union mmc_crypto_cfg_entry *cfg,
 		memcpy(cfg->crypto_key + MMC_CRYPTO_KEY_MAX_SIZE/2,
 		       key + key_size_bytes/2, key_size_bytes/2);
 		return 0;
-	case MMC_CRYPTO_ALG_BITLOCKER_AES_CBC: // fallthrough
-	case MMC_CRYPTO_ALG_AES_ECB: // fallthrough
-	case MMC_CRYPTO_ALG_ESSIV_AES_CBC:
+	case SWCQHCI_CRYPTO_ALG_BITLOCKER_AES_CBC: // fallthrough
+	case SWCQHCI_CRYPTO_ALG_AES_ECB: // fallthrough
+	case SWCQHCI_CRYPTO_ALG_ESSIV_AES_CBC:
 		memcpy(cfg->crypto_key, key, key_size_bytes);
 		return 0;
 	}
@@ -111,49 +112,16 @@ static int mmc_crypto_cfg_entry_write_key(union mmc_crypto_cfg_entry *cfg,
 	return -EINVAL;
 }
 
-static void program_key(struct mmc_host *host,
-			const union mmc_crypto_cfg_entry *cfg,
-			int slot)
-{
-	u32 aes_key[8] = {0}, aes_tkey[8] = {0};
-	size_t key_size_bytes;
-	enum mmc_crypto_key_size size;
-
-	/* please note that we used 512 rather than cfg.data_unit_size */
-	u32 aes_config = (512) << 16 |
-		host->crypto_cap_array[0].key_size << 8 |
-		host->crypto_cap_array[0].algorithm_id << 0;
-
-	/* if cqe enabled, skip program key here,
-	 * we will do it in low level driver
-	 */
-	if ((host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)))
-		return;
-
-	/* limit half_len as sizeof(u32)*8, avoid local buffer overflow */
-	size = host->crypto_cap_array[0].key_size;
-	key_size_bytes = get_keysize_bytes(size);
-
-	/* split key into key & tkey */
-	memcpy(aes_key, &cfg->crypto_key[0], key_size_bytes/2);
-	memcpy(aes_tkey,
-		&cfg->crypto_key[MMC_CRYPTO_KEY_MAX_SIZE/2], key_size_bytes/2);
-
-	if (host->crypto_vops && host->crypto_vops->host_program_key)
-		host->crypto_vops->host_program_key(host,
-			aes_key, aes_tkey, aes_config);
-}
-
 static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
-				const struct blk_crypto_key *key,
-				unsigned int slot)
+			const struct blk_crypto_key *key,
+			unsigned int slot)
 
 {
 	struct mmc_host *host = keyslot_manager_private(ksm);
 	int err = 0;
 	u8 data_unit_mask;
-	union mmc_crypto_cfg_entry cfg;
-	union mmc_crypto_cfg_entry *cfg_arr;
+	union swcqhci_crypto_cfg_entry cfg;
+	union swcqhci_crypto_cfg_entry *cfg_arr;
 	u8 cap_idx;
 
 	if (!host || !key)
@@ -175,7 +143,11 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 		return -EINVAL;
 
 	memset(&cfg, 0, sizeof(cfg));
+#ifndef CONFIG_MMC_CRYPTO_LEGACY
 	cfg.data_unit_size = data_unit_mask;
+#else
+	cfg.data_unit_size = 1;
+#endif
 	cfg.crypto_cap_idx = cap_idx;
 	cfg.config_enable |= MMC_CRYPTO_CONFIGURATION_ENABLE;
 
@@ -183,12 +155,6 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 				host->crypto_cap_array[cap_idx]);
 	if (err)
 		return err;
-
-	/* if cqe enabled, skip program key here,
-	 * we will do it in low level driver
-	 */
-	if (!(host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD)))
-		program_key(host, &cfg, slot);
 
 	memcpy(&cfg_arr[slot], &cfg, sizeof(cfg));
 	memzero_explicit(&cfg, sizeof(cfg));
@@ -201,7 +167,7 @@ static int mmc_crypto_keyslot_evict(struct keyslot_manager *ksm,
 			unsigned int slot)
 {
 	struct mmc_host *host = keyslot_manager_private(ksm);
-	union mmc_crypto_cfg_entry *cfg_arr = host->crypto_cfgs;
+	union swcqhci_crypto_cfg_entry *cfg_arr = host->crypto_cfgs;
 
 	if (!mmc_is_crypto_enabled(host) ||
 	    !mmc_keyslot_valid(host, slot))
@@ -209,18 +175,8 @@ static int mmc_crypto_keyslot_evict(struct keyslot_manager *ksm,
 
 	memset(&cfg_arr[slot], 0, sizeof(cfg_arr[slot]));
 
-	/*
-	 * Clear the crypto cfg on the device. Clearing CFGE
-	 * might not be sufficient, so just clear the entire cfg.
-	 */
-
-	if (host->crypto_vops->msdc_crypto_keyslot_evict)
-		host->crypto_vops->msdc_crypto_keyslot_evict(host);
-
 	return 0;
 }
-
-struct mmc_crypto_variant_ops crypto_var_ops;
 
 static const struct keyslot_mgmt_ll_ops swcq_ksm_ops = {
 	.keyslot_program	= mmc_crypto_keyslot_program,
@@ -235,7 +191,7 @@ static const struct keyslot_mgmt_ll_ops swcq_ksm_ops = {
  * -ENOMEM upon OOM.
  */
 static int mmc_init_crypto_spec(struct mmc_host *host,
-				const struct keyslot_mgmt_ll_ops *ksm_ops)
+		const struct keyslot_mgmt_ll_ops *ksm_ops)
 {
 	int err;
 	u32 count;
@@ -245,6 +201,9 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 		err = -ENODEV;
 		goto out;
 	}
+
+	if (host->ksm)
+		return 0;
 
 	/*
 	 * Crypto Capabilities should never be 0, because the
@@ -283,11 +242,12 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 		err = -ENOMEM;
 		goto out_free_cfg_mem;
 	}
-	/* temp */
+	/* Peng: temp */
 	crypto_modes_supported[1] = 4096;
 
-	host->ksm = keyslot_manager_create(host->parent, NUM_KEYSLOTS(host),
-		ksm_ops, BLK_CRYPTO_FEATURE_STANDARD_KEYS,
+	host->ksm = keyslot_manager_create(host->parent,
+		NUM_KEYSLOTS(host), ksm_ops,
+		BLK_CRYPTO_FEATURE_STANDARD_KEYS,
 		crypto_modes_supported, host);
 
 	if (!host->ksm) {
@@ -309,23 +269,32 @@ out:
 }
 
 static int mmc_prepare_mqr_crypto_spec(struct mmc_host *host,
-					struct mmc_queue_req *mqr)
+		struct mmc_request *mrq)
 {
 	struct bio_crypt_ctx *bc;
-	/* MTK non-standard CQE */
-	struct request *request = mqr->req;
+	struct request *request = mrq->req;
 
 	if (!request->bio ||
-	    !bio_crypt_should_process(request)) {
+	    !bio_crypt_should_process(request))
 		return 0;
-	}
+
 	bc = request->bio->bi_crypt_context;
 	if (!mmc_keyslot_valid(host, bc->bc_keyslot))
 		return -EINVAL;
 
-	mqr->brq.mrq.crypto_key_slot = bc->bc_keyslot;
-	mqr->brq.mrq.data_unit_num = bc->bc_dun[0];
-	mqr->brq.mrq.crypto_key = bc->bc_key;
+	mrq->crypto_key_slot = bc->bc_keyslot;
+	/*
+	 * OTA with ext4 (dun is 512 bytes) used LBA,
+	 * with F2FS (dun is 512 bytes), the dun[0] had
+	 * multiplied by 8.
+	 */
+	if (bc->bc_dun[0] == 0xFFFFFFFFFFFFFFFFULL &&
+		bc->bc_dun[1] == 0xFFFFFFFFFFFFFFFFULL)
+		mrq->data_unit_num =
+			(blk_rq_pos(request) & 0xFFFFFFFF);
+	else
+		mrq->data_unit_num = bc->bc_dun[0];
+	mrq->crypto_key = bc->bc_key;
 	return 0;
 }
 
@@ -336,35 +305,28 @@ int mmc_init_crypto(struct mmc_host *host)
 
 	host->caps2 |= MMC_CAP2_CRYPTO;
 
-	if (host->crypto_vops && host->crypto_vops->init_crypto)
-		return host->crypto_vops->init_crypto(host,
-							 &swcq_ksm_ops);
-
 	return mmc_init_crypto_spec(host, &swcq_ksm_ops);
 }
 
 int mmc_swcq_prepare_mqr_crypto(struct mmc_host *host,
-					struct mmc_request *mrq)
+		struct mmc_request *mrq)
 {
-	int ret, ddir, slot, tag;
+	int ret, ddir, slot;
 	struct request *req;
-	struct mmc_queue_req *mqr;
 
 	req = mrq->req;
-	mqr = req_to_mmc_queue_req(req);
 
-	ret = mmc_prepare_mqr_crypto_spec(host, mqr);
-	if (ret)
+	ret = mmc_prepare_mqr_crypto_spec(host, mrq);
+	if (ret || !mmc_request_crypto_enabled(mrq))
 		return ret;
 
 	/* non-CQE */
 	if (!(host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD))) {
 		ddir = rq_data_dir(req);
 		slot = req->bio->bi_crypt_context->bc_keyslot;
-		tag = mqr->brq.mrq.tag;
 		if (host->crypto_vops && host->crypto_vops->prepare_mqr_crypto)
 			return host->crypto_vops->prepare_mqr_crypto(host,
-			mqr->brq.mrq.data_unit_num, ddir, tag, slot);
+			mrq->data_unit_num, ddir, slot);
 	}
 
 	return 0;

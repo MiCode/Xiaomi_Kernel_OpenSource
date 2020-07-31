@@ -2679,9 +2679,14 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 	mqrq->cmdq_req.mrq.cmdq_req = &mqrq->cmdq_req;
 	mqrq->cmdq_req.mrq.data = &mqrq->cmdq_req.data;
 	mqrq->req->special = mqrq;
-
+	/*
+	 * Although keep it should work normally, but only
+	 * call it in CQHCI for safe, SWcmdq will do this in
+	 * mmc_blk_swcq_issue_rw_rq().
+	 */
+#ifndef CONFIG_MTK_EMMC_CQ_SUPPORT
 	mmc_crypto_prepare_req(mqrq);
-
+#endif
 #ifdef MMC_CQHCI_DEBUG
 	pr_debug("%s: %s: mrq: 0x%p, req: 0x%p, mqrq: 0x%p, bytes to xf: %d, tag: %d, mmc_cmdq_req: 0x%p, card-addr: 0x%08x, dir(r-1/w-0): %d\n",
 		mmc_hostname(card->host), __func__, &mqrq->cmdq_req.mrq,
@@ -3996,6 +4001,16 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 	INIT_LIST_HEAD(&md->part);
 	INIT_LIST_HEAD(&md->rpmbs);
 	md->usage = 1;
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	/* inline crypto */
+	ret = mmc_init_crypto(card->host);
+	if (ret) {
+		dev_err(mmc_dev(card->host),
+			"mmc-crypto init fail!!\n");
+		return ERR_PTR(ret);
+	}
+#endif
 
 	ret = mmc_init_queue(&md->queue, card, &md->lock, subname, area_type);
 	if (ret)
