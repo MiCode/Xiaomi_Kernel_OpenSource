@@ -23,4 +23,17 @@ config MTK_IMGSENSOR_PLATFORM
 	  When MTK_PLATFORM is not set, imgsensor
 	  will use the config.
 
+config MTK_V4L2_IMGSENSOR
+	tristate "MediaTek v4l2 image sensor support"
+	depends on CUSTOM_KERNEL_IMGSENSOR != ""
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	select I2C
+	help
+	  This is a Video4Linux2 sensor-level driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module wll be called imgsensor.
+
 source "drivers/misc/mediatek/imgsensor/src/Kconfig"
