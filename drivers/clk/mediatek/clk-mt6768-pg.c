@@ -740,6 +740,9 @@ static void ram_console_update(void)
 	static int k;
 	static bool print_once = true;
 
+	if (DBG_ID < 0 || DBG_ID >= DBG_ID_NUM)
+		return;
+
 	data[i] = ((DBG_ID << 24) & ID_MADK)
 		| ((DBG_STA << 20) & STA_MASK)
 		| (DBG_STEP & STEP_MASK);
