@@ -1,14 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef __MTK_DCM_COMMON_H__
@@ -20,18 +12,19 @@
 #define DCM_ON (1)
 
 #define TAG	"[Power/dcm] "
-#define dcm_pr_err(fmt, args...)			\
-	pr_err(TAG fmt, ##args)
-#define dcm_pr_warn(fmt, args...)			\
-	pr_warn(TAG fmt, ##args)
-#define dcm_pr_info_limit(fmt, args...)			\
-	pr_info_ratelimited(TAG fmt, ##args)
-#define dcm_pr_info(fmt, args...)			\
-	pr_info(TAG fmt, ##args)
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#define pr_fmt(fmt) TAG " : " fmt
+
+#define dcm_pr_err(fmt, args...)		pr_err(fmt, ##args)
+#define dcm_pr_warn(fmt, args...)		pr_warn(fmt, ##args)
+#define dcm_pr_info_limit(fmt, args...)		pr_info_ratelimited(fmt, ##args)
+#define dcm_pr_info(fmt, args...)		pr_info(fmt, ##args)
 #define dcm_pr_dbg(fmt, args...)			\
 	do {						\
 		if (dcm_debug)				\
-			pr_info(TAG fmt, ##args);	\
+			pr_info(fmt, ##args);	\
 	} while (0)
 
 /** macro **/

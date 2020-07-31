@@ -1,14 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/init.h>
@@ -145,7 +137,7 @@ void __attribute__((weak)) __iomem *mt_chn_emi_base_get(int chn)
  * 4. dcm_set_state(type) to set dcm state.
  * 5. dcm_dump_state(type) to show CURRENT_STATE.
  * 6. /sys/power/dcm_state interface:
- *			'restore', 'disable', 'dump', 'set'. 4 commands.
+ *	'restore', 'disable', 'dump', 'set'. 4 commands.
  *
  * spsecified APIs for workaround:
  * 1. (definitely no workaround now)
