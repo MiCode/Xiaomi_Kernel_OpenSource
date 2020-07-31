@@ -397,14 +397,20 @@ static void cat_register(char *buf)
 #ifdef CONFIG_ACCDET_SUPPORT_EINT0
 	ret = sprintf(accdet_log_buf, "[Accdet EINT0 support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #elif defined CONFIG_ACCDET_SUPPORT_EINT1
 	ret = sprintf(accdet_log_buf, "[Accdet EINT1 support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #elif defined CONFIG_ACCDET_SUPPORT_BI_EINT
 	ret = sprintf(accdet_log_buf, "[Accdet EINT support][MODE_%d] regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #else
 	strncat(buf, "ACCDET_EINT_IRQ:NO EINT configed.Error!!\n", 64);
@@ -412,6 +418,8 @@ static void cat_register(char *buf)
 #elif defined CONFIG_ACCDET_EINT
 	ret = sprintf(accdet_log_buf, "[Accdet AP EINT][MODE_%d] regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #else
 	strncat(buf, "ACCDET EINT:No configed.Error!!\n", 64);
@@ -420,21 +428,29 @@ static void cat_register(char *buf)
 	for (i = ACCDET_RSV; i <= ACCDET_EINT1_CUR_DEB; i += 2) {
 		ret = sprintf(accdet_log_buf, "ADDR[0x%x]=0x%x\n",
 				i, pmic_read(i));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		TOP_CKPDN_CON0, pmic_read(TOP_CKPDN_CON0));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		AUD_TOP_RST_CON0, pmic_read(AUD_TOP_RST_CON0));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
 		AUD_TOP_INT_CON0, pmic_read(AUD_TOP_INT_CON0),
 		AUD_TOP_INT_MASK_CON0, pmic_read(AUD_TOP_INT_MASK_CON0),
 		AUD_TOP_INT_STATUS0, pmic_read(AUD_TOP_INT_STATUS0));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf,
@@ -443,20 +459,24 @@ static void cat_register(char *buf)
 		AUDENC_ANA_CON9, pmic_read(AUDENC_ANA_CON9),
 		AUDENC_ANA_CON10, pmic_read(AUDENC_ANA_CON10),
 		AUDENC_ANA_CON11, pmic_read(AUDENC_ANA_CON11));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
 		AUXADC_RQST0, pmic_read(AUXADC_RQST0),
 		AUXADC_ACCDET, pmic_read(AUXADC_ACCDET));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
-	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	if (ret < 0)
 		pr_notice("sprintf failed\n");
+	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 }
 
 static int dbug_thread(void *unused)
