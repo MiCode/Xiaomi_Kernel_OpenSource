@@ -4404,7 +4404,7 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <27>;
 	};
 
-	mmdvfs_pmqos {
+	mmdvfs: mmdvfs_pmqos {
 		compatible = "mediatek,mmdvfs_pmqos";
 		larb_groups = <0 1 2 3 4 5 7 8 9 11 13 14 16 17 18 19 20>;
 		larb0 = <8 7 7 7 7 8 8 8 7 7 7 9 8 7 7>;
