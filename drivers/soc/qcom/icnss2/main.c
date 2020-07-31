@@ -1644,11 +1644,12 @@ event_post:
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
 
-		if (test_bit(ICNSS_FW_READY, &priv->state))
+		if (test_bit(ICNSS_FW_READY, &priv->state)) {
 			fw_down_data.crashed = event_data->crashed;
 			icnss_call_driver_uevent(priv,
 						 ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
+		}
 	}
 
 	clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
