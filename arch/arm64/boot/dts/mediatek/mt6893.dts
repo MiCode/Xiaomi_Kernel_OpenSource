@@ -7510,6 +7510,28 @@ page_owner=on loop.max_part=7";
 		drcc7_Code = <255>;
 	};
 
+	ctt: ctt {
+		compatible = "mediatek,ctt";
+		cttBitEn = <15>;
+		cttImax_0 = <8190>;
+		cttImax_1 = <8190>;
+		cttImax_2 = <8190>;
+		cttImax_3 = <8190>;
+		cttTmax_0 = <255>;
+		cttTmax_1 = <255>;
+		cttTmax_2 = <255>;
+		cttTmax_3 = <255>;
+		cttImaxDelta_0 = <200>;
+		cttImaxDelta_1 = <200>;
+		cttImaxDelta_2 = <200>;
+		cttImaxDelta_3 = <200>;
+		cttTmaxDelta_0 = <10>;
+		cttTmaxDelta_1 = <10>;
+		cttTmaxDelta_2 = <10>;
+		cttTmaxDelta_3 = <10>;
+	};
+
+
 #ifdef CONFIG_MTK_SCHED_MONITOR
 	sched_mon: sched_mon {
 		compatible = "mediatek,sched_mon";
