@@ -846,8 +846,11 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 	cmdqRecCreate(CMDQ_SCENARIO_ISP_FDVT, &handle);
 
 	LOG_DBG("FDVT isSecure: %d\n", g_isSecure);
+
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	if (g_isSecure != 0)
 		FDVT_switchCmdqToSecure(handle);
+#endif
 
 	cmdqRecSetEngine(handle, engineFlag);
 
@@ -873,6 +876,7 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 		}
 	}
 
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	if (g_isSecure == 1) {
 		unsigned int LearningData_Chosen[18];
 
@@ -1037,7 +1041,7 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 			&(g_fdvt_secmeta),
 			sizeof(FDVTSecureMeta));
 	}
-
+#endif
 	cmdqRecWrite(handle, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
@@ -1170,8 +1174,10 @@ static int FDVT_WaitIRQ(u32 *u4IRQMask)
 		return -1;
 	}
 #if (MTK_FD_LARB == 2)
+#if (MTK_SECURE_FD_SUPPORT == 1)
 	if (g_isSecure != 0)
 		FDVT_switchPortToNonSecure();
+#endif
 #endif
 	g_FDVTIRQ = 0;
 
