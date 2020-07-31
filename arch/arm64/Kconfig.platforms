@@ -428,7 +428,6 @@ config MACH_MT6885
 	select ARM_AMBA
 	select CPU_V7
 	select HAVE_SMP
-	select HIE
 	select NEED_MACH_MEMORY_H
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
@@ -494,7 +493,6 @@ config MACH_MT6873
 	select ARM_AMBA
 	select CPU_V7
 	select HAVE_SMP
-	select HIE
 	select NEED_MACH_MEMORY_H
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
@@ -563,7 +561,6 @@ config MACH_MT6833
 	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
 	select CPU_V7
 	select HAVE_SMP
-	select HIE
 	select NEED_MACH_MEMORY_H
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
@@ -611,7 +608,6 @@ config MACH_MT6853
 	select ARM_DSU_PMU if ARM64 && PERF_EVENTS
 	select CPU_V7
 	select HAVE_SMP
-	select HIE
 	select NEED_MACH_MEMORY_H
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
@@ -677,7 +673,6 @@ config MACH_MT6893
 	select ARM_AMBA
 	select CPU_V7
 	select HAVE_SMP
-	select HIE
 	select NEED_MACH_MEMORY_H
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
