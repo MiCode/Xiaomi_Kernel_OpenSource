@@ -164,9 +164,6 @@ void mdla_trace_iter(unsigned int core_id)
 /* restore trace settings after reset */
 int mdla_profile_reset(int core_id, const char *str)
 {
-	if (!cfg_apusys_trace)
-		goto out;
-out:
 	return 0;
 }
 
