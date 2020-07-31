@@ -2480,12 +2480,22 @@ static void ufs_mtk_abort_handler(struct ufs_hba *hba, int tag,
 #ifdef CONFIG_MTK_AEE_FEATURE
 	u8 cmd = 0;
 
-	if (hba->lrb[tag].cmd)
-		cmd = hba->lrb[tag].cmd->cmnd[0];
+	dev_info(hba->dev, "%s: tag: %d\n", __func__, tag);
 
-	aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
-		"[UFS] Command Timeout", "Command 0x%x timeout, %s:%d", cmd,
-		file, line);
+	if (tag == -1) {
+		aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
+			"[UFS] Host and Device Reset Event",
+			"Host and Device Reset, %s:%d",
+			file, line);
+	} else {
+		if (hba->lrb[tag].cmd)
+			cmd = hba->lrb[tag].cmd->cmnd[0];
+
+		aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
+			"[UFS] Command Timeout",
+			"Command 0x%x timeout, %s:%d",
+			cmd, file, line);
+	}
 #endif
 }
 
