@@ -1155,7 +1155,7 @@ static void ufs_mtk_vreg_lpm(struct ufs_hba *hba, bool lpm)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
-	if (!host->vreg_lpm_supported)
+	if (!host->vreg_lpm_supported || !hba->vreg_info.vcc)
 		return;
 
 	if (lpm & !hba->vreg_info.vcc->enabled)
