@@ -57,6 +57,14 @@ config MTK_MD_THERMAL_TX_POWER
 	  throttle cooler for Mediatek platforms.
 	  This feature is only supported for mt6297 or later
 	  modem platforms.
+
+config MTK_MD_THERMAL_SCG_OFF
+	tristate "Mediatek modem SCG cell off driver"
+	help
+	  Enable this option if you want use modem SCG cell
+	  throttle cooler for Mediatek platforms.
+	  This feature is only supported for mt6297 or later
+	  modem platforms.
 endif
 
 endif
