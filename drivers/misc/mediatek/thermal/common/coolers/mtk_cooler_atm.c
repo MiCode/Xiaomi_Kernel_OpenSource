@@ -26,7 +26,6 @@
 #else
 #include <linux/clk.h>
 #endif
-#include <mach/wd_api.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <tscpu_settings.h>
@@ -40,7 +39,9 @@
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"
 #else
+#ifndef CONFIG_MACH_MT8168
 #include "mt_cpufreq.h"
+#endif
 #endif
 
 #ifdef FAST_RESPONSE_ATM
@@ -459,7 +460,9 @@ mtk_eara_thermal_pb_handle(int total_pwr_budget,
 bool __attribute__((weak))
 mtk_get_gpu_loading(unsigned int *pLoading)
 {
+#ifdef CONFIG_MTK_GPU_SUPPORT
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
+#endif
 	return 0;
 }
 unsigned int  __attribute__((weak))

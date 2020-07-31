@@ -26,7 +26,6 @@
 #else
 #include <linux/clk.h>
 #endif
-#include <mach/wd_api.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <tscpu_settings.h>
@@ -35,8 +34,11 @@
 #if defined(ATM_USES_PPM)
 #include "mtk_ppm_api.h"
 #else
+#ifndef CONFIG_MACH_MT8168
 #include "mtk_cpufreq.h"
 #endif
+#endif
+
 #include <linux/uidgid.h>
 #if defined(THERMAL_VPU_SUPPORT)
 #if defined(CONFIG_MTK_APUSYS_SUPPORT)
