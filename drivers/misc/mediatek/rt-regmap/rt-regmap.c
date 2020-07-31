@@ -1,14 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /*
- *  Copyright (C) 2017 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/module.h>
@@ -121,7 +114,7 @@ struct rt_regmap_device {
 #ifdef CONFIG_DEBUG_FS
 struct dentry *rt_regmap_dir;
 
-static int get_parameters(char *buf, long int *param1, int num_of_par)
+static int get_parameters(char *buf, long *param1, int num_of_par)
 {
 	char *token;
 	int base, cnt;
@@ -149,7 +142,7 @@ static int get_datas(const char *buf, const int length,
 		     unsigned char *data_buffer, unsigned char data_length)
 {
 	int i, ptr;
-	long int value;
+	long value;
 	char token[5];
 
 	token[0] = '0';
@@ -631,6 +624,10 @@ static int rt_cache_block_read(struct rt_regmap_device *rd, u32 reg,
 	unsigned char data[100];
 	unsigned char tmp_data[32];
 
+	if (bytes > 100) {
+		dev_notice(&rd->dev, "read size out of bound\n");
+		return -EINVAL;
+	}
 	rio = find_register_index(rd, reg);
 	if (rio.index < 0) {
 		dev_err(&rd->dev, "reg 0x%02x is out of range\n", reg);
@@ -660,7 +657,7 @@ static int rt_cache_block_read(struct rt_regmap_device *rd, u32 reg,
 			"rt_regmap Error at 0x%02x\n", rm->addr);
 			return -EIO;
 		}
-		for (i = rio.offset; i < rm->size; i++) {
+		for (i = rio.offset; i < rm->size && count < 100; i++) {
 			data[count] = tmp_data[i];
 			count++;
 		}
@@ -1533,12 +1530,12 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 	struct rt_debug_st *st = file->private_data;
 	struct rt_regmap_device *rd = st->info;
 	struct reg_index_offset rio;
-	long int param[5] = {0};
+	long param[5] = {0};
 	unsigned char *reg_data = NULL;
 	int rc, size = 0, ret = 0;
 	char lbuf[128];
 	ssize_t res;
-	unsigned long int utemp = 0;
+	unsigned long utemp = 0;
 
 	pr_info("%s @ %p\n", __func__, ubuf);
 
@@ -2111,7 +2108,6 @@ struct rt_regmap_device *rt_regmap_device_register_ex
 {
 	struct rt_regmap_device *rd = NULL;
 	int ret = 0, i;
-	char device_name[32];
 	unsigned char data;
 
 	if (!props) {
@@ -2137,13 +2133,7 @@ struct rt_regmap_device *rt_regmap_device_register_ex
 	rd->client = client;
 	rd->dev.release = rt_regmap_device_release;
 	dev_set_drvdata(&rd->dev, drvdata);
-	ret = snprintf(device_name, 32, "rt_regmap_%s", props->name);
-	if ((ret < 0) || (ret >= 31)) {
-		dev_info(&rd->dev, "snprintf failed\n");
-		return NULL;
-	}
-
-	dev_set_name(&rd->dev, device_name);
+	dev_set_name(&rd->dev, "rt_regmap_%s", props->name);
 	memcpy(&rd->props, props, sizeof(struct rt_regmap_properties));
 	rd->props.cache_mode_ori = rd->props.rt_regmap_mode&RT_CACHE_MODE_MASK;
 
