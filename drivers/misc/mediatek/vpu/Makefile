@@ -17,7 +17,12 @@ obj-y += vp6/$(subst ",,$(CONFIG_MTK_PLATFORM))/
 MTK_VPU_CORE := 1
 subdir-ccflags-y += -DMTK_VPU_SMI_DEBUG_ON
 else
-obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
+PDIR = mt6885
+else
+PDIR = $(CONFIG_MTK_PLATFORM)
+endif
+obj-y += $(subst ",,$(PDIR))/
 obj-$(CONFIG_MACH_MT6771) += 2.0/
 obj-$(CONFIG_MACH_MT6785) += 3.0/
 #subdir-ccflags-y += -DMTK_VPU_EMULATOR

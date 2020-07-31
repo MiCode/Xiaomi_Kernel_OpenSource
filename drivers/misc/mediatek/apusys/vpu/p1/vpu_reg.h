@@ -79,7 +79,7 @@ uint32_t vpu_reg_read(struct vpu_device *vd, int offset)
 static inline
 void vpu_reg_write(struct vpu_device *vd, int offset, uint32_t val)
 {
-	mt_reg_sync_writel(val, (void *) (vpu_reg_base(vd) + offset));
+	iowrite32(val, (void *) (vpu_reg_base(vd) + offset));
 }
 
 static inline
