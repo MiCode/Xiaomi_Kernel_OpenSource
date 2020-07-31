@@ -178,7 +178,7 @@ out:
 	return sc;
 }
 
-static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
+static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int is_front)
 {
 	int ret = 0, prio = 0;
 	struct mdw_queue_norm *nq = (struct mdw_queue_norm *)q;
@@ -208,7 +208,7 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
 	/* add pitem to normal task queue/pid pi queue */
 	mdw_flw_debug("vzalloc pi(%p)\n", pi);
 	pi->pid = p;
-	if (type == MDW_QUEUE_INSERT_FRONT) {
+	if (is_front) {
 		list_add(&pi->q_item, &nq->pi_list);
 		list_add(&pi->p_item, &p->pi_list);
 

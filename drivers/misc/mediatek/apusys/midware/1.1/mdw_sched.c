@@ -274,7 +274,7 @@ int mdw_sched_dev_routine(void *arg)
 		}
 
 		/* construct cmd hnd */
-		mdw_queue_deadline_boost(sc);
+		mdw_queue_boost(sc);
 		cmd_parser->set_hnd(sc, d->idx, &h);
 
 		/*
@@ -409,58 +409,6 @@ out:
 	return ret;
 }
 
-static struct mdw_apu_sc *mdw_sched_pop_sc(int type)
-{
-	struct mdw_queue *mq = NULL;
-	struct mdw_apu_sc *sc = NULL;
-
-	/* get queue */
-	mq = mdw_rsc_get_queue(type);
-	if (!mq)
-		return NULL;
-
-	/* get sc */
-	if (mq->deadline.ops.len(&mq->deadline))
-		sc = mq->deadline.ops.pop(&mq->deadline);
-	else
-		sc = mq->norm.ops.pop(&mq->norm);
-
-	if (sc) {
-		getnstimeofday(&sc->ts_deque);
-		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
-			sc->parent->kid, sc->idx, sc->type, sc->period);
-	}
-	return sc;
-}
-
-static int mdw_sched_insert_sc(struct mdw_apu_sc *sc, int type)
-{
-	struct mdw_queue *mq = NULL;
-	int ret = 0;
-
-	/* get queue */
-	mq = mdw_rsc_get_queue(sc->type);
-	if (!mq) {
-		mdw_drv_err("invalid sc(%d) type\n", sc->type);
-		ret = -ENODEV;
-		goto out;
-	}
-
-	mdw_flw_debug("insert sc(0x%llx-#%d/%d/%llu)\n",
-		sc->parent->kid, sc->idx, sc->type, sc->period);
-
-	getnstimeofday(&sc->ts_enque);
-
-	if (cmd_parser->is_deadline(sc))
-		ret = mq->deadline.ops.insert(sc, &mq->deadline,
-			type);
-	else
-		ret = mq->norm.ops.insert(sc, &mq->norm, type);
-
-out:
-	return ret;
-}
-
 static int mdw_sched_routine(void *arg)
 {
 	int ret = 0;
@@ -493,11 +441,14 @@ static int mdw_sched_routine(void *arg)
 		}
 
 		/* get queue */
-		sc = mdw_sched_pop_sc(t);
+		sc = mdw_queue_pop(t);
 		if (!sc) {
 			mdw_drv_err("pop sc(%d) fail\n", t);
 			goto fail_pop_sc;
 		}
+		getnstimeofday(&sc->ts_deque);
+		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
+			sc->parent->kid, sc->idx, sc->type, sc->period);
 
 		/* dispatch cmd */
 		if (sc->hdr->pack_id)
@@ -514,7 +465,7 @@ static int mdw_sched_routine(void *arg)
 		goto next;
 
 fail_exec_sc:
-	if (mdw_sched_insert_sc(sc, MDW_QUEUE_INSERT_FRONT)) {
+	if (mdw_queue_insert(sc, true)) {
 		mdw_drv_err("sc(0x%llx-#%d) insert fail\n",
 			sc->parent->kid, sc->idx);
 	}
@@ -541,7 +492,7 @@ int mdw_sched(struct mdw_apu_sc *sc)
 	}
 
 	/* insert sc to queue */
-	ret = mdw_sched_insert_sc(sc, MDW_QUEUE_INSERT_NORM);
+	ret = mdw_queue_insert(sc, false);
 	if (ret) {
 		mdw_drv_err("sc(0x%llx-#%d) enque fail\n",
 			sc->parent->kid, sc->idx);

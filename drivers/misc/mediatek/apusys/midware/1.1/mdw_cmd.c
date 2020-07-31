@@ -506,10 +506,7 @@ static void mdw_cmd_delete_sc(struct mdw_apu_sc *sc)
 		return;
 	}
 
-	if (mdw_cmd_is_deadline(sc))
-		mq->deadline.ops.task_end(sc, &mq->deadline);
-	else
-		mq->norm.ops.task_end(sc, &mq->norm);
+	mdw_queue_task_end(sc);
 
 	mdw_cmd_show_sc_perf(sc);
 
@@ -573,10 +570,8 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 		mdw_drv_err("can't find mq(%d)\n", sc->type);
 		goto fail_get_mq;
 	}
-	if (mdw_cmd_is_deadline(sc))
-		mq->deadline.ops.task_start(sc, &mq->deadline);
-	else
-		mq->norm.ops.task_start(sc, &mq->norm);
+
+	mdw_queue_task_start(sc);
 
 	getnstimeofday(&sc->ts_create);
 

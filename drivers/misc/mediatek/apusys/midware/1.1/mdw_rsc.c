@@ -150,9 +150,7 @@ static int mdw_rsc_get_name(int type, char *name)
 
 static void mdw_rsc_delete_tab(struct mdw_rsc_tab *tab)
 {
-	tab->q.norm.ops.destroy(&tab->q.norm);
-	tab->q.deadline.ops.destroy(&tab->q.deadline);
-
+	mdw_queue_destroy(&tab->q);
 	vfree(tab);
 }
 
@@ -194,8 +192,7 @@ static struct mdw_rsc_tab *mdw_rsc_add_tab(int type)
 
 init_queue:
 	/* init queue */
-	mdw_queue_deadline_init(&tab->q.deadline);
-	mdw_queue_norm_init(&tab->q.norm);
+	mdw_queue_init(&tab->q);
 
 	return tab;
 }
@@ -269,7 +266,7 @@ void mdw_rsc_update_avl_bmp(int type)
 	if (!mq)
 		goto out;
 
-	if (mq->deadline.ops.len(&mq->deadline) || mq->norm.ops.len(&mq->norm))
+	if (mdw_queue_len(type, true) || mdw_queue_len(type, false))
 		bitmap_set(rsc_mgr.cmd_avl_bmp, type, 1);
 	else
 		bitmap_clear(rsc_mgr.cmd_avl_bmp, type, 1);
@@ -328,10 +325,10 @@ static void mdw_rsc_dump_tab(struct seq_file *s, struct mdw_rsc_tab *tab)
 				tab->avl_num,
 				" subcmd idx",
 				sc == NULL ? 0 : sc->idx);
-			mdw_con_info(s, "|%-14s(%3u/%3u) |%-18s= %-41d|\n",
+			mdw_con_info(s, "|%-14s(%3d/%3d) |%-18s= %-41d|\n",
 				" cmd queue",
-				tab->q.norm.ops.len(&tab->q.norm),
-				tab->q.deadline.ops.len(&tab->q.deadline),
+				mdw_queue_len(tab->type, false),
+				mdw_queue_len(tab->type, true),
 				" state ",
 				d->state);
 		} else {
