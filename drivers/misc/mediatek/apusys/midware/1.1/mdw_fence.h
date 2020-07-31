@@ -11,4 +11,4 @@
  * GNU General Public License for more details.
  */
 
-void apu_sync_file_create(struct mdw_apu_cmd *c);
+int apu_sync_file_create(struct mdw_apu_cmd *c);
