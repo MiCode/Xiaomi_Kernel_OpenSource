@@ -625,6 +625,8 @@ static inline int FDVT_switchCmdqToSecure(void *handle)
 	/* set engine as sec */
 	cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
 	//cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine));
+	/* Set fdvt with mtee Task */
+	cmdq_task_set_mtee(handle, true);
 
 	return 0;
 }
@@ -643,6 +645,8 @@ static inline int FDVT_switchPortToNonSecure(void)
 	cmdqRecSetEngine(handle, engineFlag);
 	//cmdq_task_secure_enable_dapc(handle, engineFlag);
 	cmdq_task_secure_enable_port_security(handle, engineFlag);
+	/* Set fdvt with mtee Task */
+	cmdq_task_set_mtee(handle, true);
 	cmdq_task_flush(handle);
 
 	return 0;
