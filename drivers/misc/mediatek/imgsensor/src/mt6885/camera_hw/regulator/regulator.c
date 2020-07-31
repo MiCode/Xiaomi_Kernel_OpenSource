@@ -41,7 +41,7 @@ static enum IMGSENSOR_RETURN regulator_init(
 	struct IMGSENSOR_HW_DEVICE_COMMON *pcommon)
 {
 	struct REGULATOR *preg = (struct REGULATOR *)pinstance;
-	int type, idx;
+	int type, idx, ret = 0;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
 
 	for (idx = IMGSENSOR_SENSOR_IDX_MIN_NUM;
@@ -52,17 +52,21 @@ static enum IMGSENSOR_RETURN regulator_init(
 			type++) {
 			memset(str_regulator_name, 0,
 				sizeof(str_regulator_name));
-			snprintf(str_regulator_name,
+			ret = snprintf(str_regulator_name,
 				sizeof(str_regulator_name),
 				"cam%d_%s",
 				idx,
 				regulator_control[type].pregulator_type);
-			preg->pregulator[idx][type] = regulator_get(
+			if (ret < 0)
+				return ret;
+			preg->pregulator[idx][type] = regulator_get_optional(
 					&pcommon->pplatform_device->dev,
 					str_regulator_name);
-			if (preg->pregulator[idx][type] == NULL)
+			if (IS_ERR(preg->pregulator[idx][type])) {
+				preg->pregulator[idx][type] = NULL;
 				PK_INFO("ERROR: regulator[%d][%d]  %s fail!\n",
 						idx, type, str_regulator_name);
+			}
 			atomic_set(&preg->enable_cnt[idx][type], 0);
 		}
 	}
@@ -109,7 +113,8 @@ static enum IMGSENSOR_RETURN regulator_set(
 	if (pin > IMGSENSOR_HW_PIN_DOVDD   ||
 	    pin < IMGSENSOR_HW_PIN_AVDD    ||
 	    pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
-	    pin_state >= IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH)
+	    pin_state >= IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH ||
+	    sensor_idx < 0)
 		return IMGSENSOR_RETURN_ERROR;
 
 	reg_type_offset = REGULATOR_TYPE_VCAMA;
@@ -177,6 +182,8 @@ static enum IMGSENSOR_RETURN regulator_dump(void *pinstance)
 		for (i = REGULATOR_TYPE_VCAMA;
 		i < REGULATOR_TYPE_MAX_NUM;
 		i++) {
+			if (!preg->pregulator[j][i])
+				continue;
 			if (regulator_is_enabled(preg->pregulator[j][i]) &&
 				atomic_read(&preg->enable_cnt[j][i]) != 0)
 				PK_DBG("index= %d %s = %d\n",
