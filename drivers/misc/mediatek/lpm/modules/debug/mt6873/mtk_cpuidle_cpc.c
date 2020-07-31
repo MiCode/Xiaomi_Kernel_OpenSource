@@ -252,12 +252,21 @@ struct notifier_block mtk_cpc_nb = {
 
 int __init mtk_cpc_init(void)
 {
+	int cx;
 	cpc.prof_en = false;
 
-	snprintf(cpc.cpu[CPU_TYPE_L].name, PROF_DEV_NAME_SIZE, "cpu_L");
-	snprintf(cpc.cpu[CPU_TYPE_B].name, PROF_DEV_NAME_SIZE, "cpu_B");
-	snprintf(cpc.cluster.name, PROF_DEV_NAME_SIZE, "cluster");
-	snprintf(cpc.mcusys.name, PROF_DEV_NAME_SIZE, "mcusys");
+	cx = snprintf(cpc.cpu[CPU_TYPE_L].name, PROF_DEV_NAME_SIZE, "cpu_L");
+	if (cx < 0 || cx >= (PROF_DEV_NAME_SIZE))
+		return cx;
+	cx = snprintf(cpc.cpu[CPU_TYPE_B].name, PROF_DEV_NAME_SIZE, "cpu_B");
+	if (cx < 0 || cx >= (PROF_DEV_NAME_SIZE))
+		return cx;
+	cx = snprintf(cpc.cluster.name, PROF_DEV_NAME_SIZE, "cluster");
+	if (cx < 0 || cx >= (PROF_DEV_NAME_SIZE))
+		return cx;
+	cx = snprintf(cpc.mcusys.name, PROF_DEV_NAME_SIZE, "mcusys");
+	if (cx < 0 || cx >= (PROF_DEV_NAME_SIZE))
+		return cx;
 
 	mtk_lpm_notifier_register(&mtk_cpc_nb);
 	return 0;
