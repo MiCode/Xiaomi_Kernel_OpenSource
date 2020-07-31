@@ -91,6 +91,35 @@
 	};
 };
 
+&qupv3_se8_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "focaltech,fts_ts";
+
+	focaltech@38 {
+		compatible = "focaltech,fts_ts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <22 0x2008>;
+		focaltech,reset-gpio = <&tlmm 21 0x00>;
+		focaltech,irq-gpio = <&tlmm 22 0x2008>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 2340>;
+
+		vdd-supply = <&L6A>;
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+				"pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&pmx_ts_release>;
+
+		panel = <&dsi_r66451_amoled_cmd &dsi_r66451_amoled_video>;
+	};
+};
+
 &wsa881x_analog_reset_gpio {
 	compatible = "qcom,msm-cdc-pinctrl";
 	pinctrl-names = "aud_active", "aud_sleep";
