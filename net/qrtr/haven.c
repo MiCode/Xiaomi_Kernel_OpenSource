@@ -4,6 +4,7 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/io.h>
+#include <linux/sizes.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/module.h>
@@ -17,6 +18,7 @@
 
 #define HAVEN_MAGIC_KEY	0x24495043 /* "$IPC" */
 #define FIFO_SIZE	0x4000
+#define FIFO_FULL_RESERVE 8
 #define FIFO_0_START	0x1000
 #define FIFO_1_START	(FIFO_0_START + FIFO_SIZE)
 #define HAVEN_MAGIC_IDX	0x0
@@ -24,11 +26,22 @@
 #define HEAD_0_IDX	0x2
 #define TAIL_1_IDX	0x3
 #define HEAD_1_IDX	0x4
+#define NOTIFY_0_IDX	0x5
+#define NOTIFY_1_IDX	0x6
 #define QRTR_DBL_MASK	0x1
+
+#define MAX_PKT_SZ	SZ_64K
+
+struct haven_ring {
+	void *buf;
+	size_t len;
+	u32 offset;
+};
 
 struct haven_pipe {
 	__le32 *tail;
 	__le32 *head;
+	__le32 *read_notify;
 
 	void *fifo;
 	size_t length;
@@ -38,7 +51,7 @@ struct haven_pipe {
  * qrtr_haven_dev - qrtr haven transport structure
  * @ep: qrtr endpoint specific info.
  * @dev: device from platform_device.
- * @buf: buf for reading from fifo.
+ * @pkt: buf for reading from fifo.
  * @res: resource of reserved mem region
  * @memparcel: memparcel handle returned from sharing mem
  * @base: Base of the shared fifo.
@@ -55,7 +68,7 @@ struct haven_pipe {
 struct qrtr_haven_dev {
 	struct qrtr_endpoint ep;
 	struct device *dev;
-	void *buf;
+	struct haven_ring ring;
 
 	struct resource res;
 	u32 memparcel;
@@ -72,6 +85,7 @@ struct qrtr_haven_dev {
 
 	struct haven_pipe tx_pipe;
 	struct haven_pipe rx_pipe;
+	wait_queue_head_t tx_avail_notify;
 };
 
 static void qrtr_haven_read(struct qrtr_haven_dev *qdev);
@@ -105,6 +119,7 @@ static void qrtr_haven_cb(int irq, void *data)
 
 static size_t haven_rx_avail(struct haven_pipe *pipe)
 {
+	size_t len;
 	u32 head;
 	u32 tail;
 
@@ -112,9 +127,14 @@ static size_t haven_rx_avail(struct haven_pipe *pipe)
 	tail = le32_to_cpu(*pipe->tail);
 
 	if (head < tail)
-		return pipe->length - tail + head;
+		len = pipe->length - tail + head;
+	else
+		len = head - tail;
 
-	return head - tail;
+	if (WARN_ON_ONCE(len > pipe->length))
+		len = 0;
+
+	return len;
 }
 
 static void haven_rx_peak(struct haven_pipe *pipe, void *data,
@@ -143,8 +163,8 @@ static void haven_rx_advance(struct haven_pipe *pipe, size_t count)
 	tail = le32_to_cpu(*pipe->tail);
 
 	tail += count;
-	if (tail > pipe->length)
-		tail -= pipe->length;
+	if (tail >= pipe->length)
+		tail %= pipe->length;
 
 	*pipe->tail = cpu_to_le32(tail);
 }
@@ -162,6 +182,11 @@ static size_t haven_tx_avail(struct haven_pipe *pipe)
 		avail = pipe->length - head + tail;
 	else
 		avail = tail - head;
+
+	if (avail < FIFO_FULL_RESERVE)
+		avail = 0;
+	else
+		avail -= FIFO_FULL_RESERVE;
 
 	return avail;
 }
@@ -191,10 +216,37 @@ static void haven_tx_write(struct haven_pipe *pipe,
 	*pipe->head = cpu_to_le32(head);
 }
 
+static void haven_set_tx_notify(struct qrtr_haven_dev *qdev)
+{
+	*qdev->tx_pipe.read_notify = cpu_to_le32(1);
+}
+
+static void haven_clr_tx_notify(struct qrtr_haven_dev *qdev)
+{
+	*qdev->tx_pipe.read_notify = 0;
+}
+
+static bool haven_get_read_notify(struct qrtr_haven_dev *qdev)
+{
+	return le32_to_cpu(*qdev->rx_pipe.read_notify);
+}
+
+static void haven_wait_for_tx_avail(struct qrtr_haven_dev *qdev)
+{
+	haven_set_tx_notify(qdev);
+	wait_event_timeout(qdev->tx_avail_notify,
+			   haven_tx_avail(&qdev->tx_pipe), 10 * HZ);
+}
+
 /* from qrtr to haven */
 static int qrtr_haven_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 {
 	struct qrtr_haven_dev *qdev;
+	size_t tx_avail;
+	int chunk_size;
+	int left_size;
+	int offset;
+
 	int rc;
 
 	qdev = container_of(ep, struct qrtr_haven_dev, ep);
@@ -205,47 +257,100 @@ static int qrtr_haven_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 		return rc;
 	}
 
-	if (haven_tx_avail(&qdev->tx_pipe) < skb->len) {
-		pr_err("No Space in haven\n");
-		return -EAGAIN;
+	left_size = skb->len;
+	offset = 0;
+	while (left_size > 0) {
+		tx_avail = haven_tx_avail(&qdev->tx_pipe);
+		if (!tx_avail) {
+			haven_wait_for_tx_avail(qdev);
+			continue;
+		}
+		if (tx_avail < left_size)
+			chunk_size = tx_avail;
+		else
+			chunk_size = left_size;
+
+		haven_tx_write(&qdev->tx_pipe, skb->data + offset, chunk_size);
+		offset += chunk_size;
+		left_size -= chunk_size;
+
+		qrtr_haven_kick(qdev);
 	}
-
-	haven_tx_write(&qdev->tx_pipe, skb->data, skb->len);
+	haven_clr_tx_notify(qdev);
 	kfree_skb(skb);
-
-	qrtr_haven_kick(qdev);
 
 	return 0;
 }
 
-static void qrtr_haven_read(struct qrtr_haven_dev *qdev)
+static void qrtr_haven_read_new(struct qrtr_haven_dev *qdev)
 {
+	struct haven_ring *ring = &qdev->ring;
 	size_t rx_avail;
 	size_t pkt_len;
 	u32 hdr[8];
 	int rc;
 	size_t hdr_len = sizeof(hdr);
 
-	while (haven_rx_avail(&qdev->rx_pipe)) {
-		haven_rx_peak(&qdev->rx_pipe, &hdr, 0, hdr_len);
-		pkt_len = qrtr_peek_pkt_size((void *)&hdr);
-		if ((int)pkt_len < 0) {
-			dev_err(qdev->dev, "invalid pkt_len %zu\n", pkt_len);
-			break;
-		}
+	haven_rx_peak(&qdev->rx_pipe, &hdr, 0, hdr_len);
+	pkt_len = qrtr_peek_pkt_size((void *)&hdr);
+	if ((int)pkt_len < 0 || pkt_len > MAX_PKT_SZ) {
+		dev_err(qdev->dev, "invalid pkt_len %zu\n", pkt_len);
+		return;
+	}
 
-		rx_avail = haven_rx_avail(&qdev->rx_pipe);
-		if (rx_avail < pkt_len) {
-			pr_err_ratelimited("Not FULL pkt in haven %zu %zu\n",
-					   rx_avail, pkt_len);
-			break;
-		}
-		haven_rx_peak(&qdev->rx_pipe, qdev->buf, 0, pkt_len);
-		haven_rx_advance(&qdev->rx_pipe, pkt_len);
+	rx_avail = haven_rx_avail(&qdev->rx_pipe);
+	if (rx_avail > pkt_len)
+		rx_avail = pkt_len;
 
-		rc = qrtr_endpoint_post(&qdev->ep, qdev->buf, pkt_len);
+	haven_rx_peak(&qdev->rx_pipe, ring->buf, 0, rx_avail);
+	haven_rx_advance(&qdev->rx_pipe, rx_avail);
+
+	if (rx_avail == pkt_len) {
+		rc = qrtr_endpoint_post(&qdev->ep, ring->buf, pkt_len);
 		if (rc == -EINVAL)
 			dev_err(qdev->dev, "invalid ipcrouter packet\n");
+	} else {
+		ring->len = pkt_len;
+		ring->offset = rx_avail;
+	}
+}
+
+static void qrtr_haven_read_frag(struct qrtr_haven_dev *qdev)
+{
+	struct haven_ring *ring = &qdev->ring;
+	size_t rx_avail;
+	int rc;
+
+	rx_avail = haven_rx_avail(&qdev->rx_pipe);
+	if (rx_avail + ring->offset > ring->len)
+		rx_avail = ring->len - ring->offset;
+
+	haven_rx_peak(&qdev->rx_pipe, ring->buf + ring->offset, 0, rx_avail);
+	haven_rx_advance(&qdev->rx_pipe, rx_avail);
+
+	if (rx_avail + ring->offset == ring->len) {
+		rc = qrtr_endpoint_post(&qdev->ep, ring->buf, ring->len);
+		if (rc == -EINVAL)
+			dev_err(qdev->dev, "invalid ipcrouter packet\n");
+		ring->offset = 0;
+		ring->len = 0;
+	} else {
+		ring->offset += rx_avail;
+	}
+}
+
+static void qrtr_haven_read(struct qrtr_haven_dev *qdev)
+{
+	wake_up_all(&qdev->tx_avail_notify);
+
+	while (haven_rx_avail(&qdev->rx_pipe)) {
+		if (qdev->ring.offset)
+			qrtr_haven_read_frag(qdev);
+		else
+			qrtr_haven_read_new(qdev);
+
+		if (haven_get_read_notify(qdev))
+			qrtr_haven_kick(qdev);
 	}
 }
 
@@ -347,25 +452,30 @@ static void qrtr_haven_fifo_init(struct qrtr_haven_dev *qdev)
 		qdev->tx_pipe.head = &descs[HEAD_0_IDX];
 		qdev->tx_pipe.fifo = qdev->base + FIFO_0_START;
 		qdev->tx_pipe.length = FIFO_SIZE;
+		qdev->tx_pipe.read_notify = &descs[NOTIFY_0_IDX];
 
 		qdev->rx_pipe.tail = &descs[TAIL_1_IDX];
 		qdev->rx_pipe.head = &descs[HEAD_1_IDX];
 		qdev->rx_pipe.fifo = qdev->base + FIFO_1_START;
 		qdev->rx_pipe.length = FIFO_SIZE;
+		qdev->rx_pipe.read_notify = &descs[NOTIFY_1_IDX];
 	} else {
 		qdev->tx_pipe.tail = &descs[TAIL_1_IDX];
 		qdev->tx_pipe.head = &descs[HEAD_1_IDX];
 		qdev->tx_pipe.fifo = qdev->base + FIFO_1_START;
 		qdev->tx_pipe.length = FIFO_SIZE;
+		qdev->tx_pipe.read_notify = &descs[NOTIFY_1_IDX];
 
 		qdev->rx_pipe.tail = &descs[TAIL_0_IDX];
 		qdev->rx_pipe.head = &descs[HEAD_0_IDX];
 		qdev->rx_pipe.fifo = qdev->base + FIFO_0_START;
 		qdev->rx_pipe.length = FIFO_SIZE;
+		qdev->rx_pipe.read_notify = &descs[NOTIFY_0_IDX];
 	}
 
 	/* Reset respective index */
 	*qdev->tx_pipe.head = 0;
+	*qdev->tx_pipe.read_notify = 0;
 	*qdev->rx_pipe.tail = 0;
 }
 
@@ -456,8 +566,8 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 	qdev->dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, qdev);
 
-	qdev->buf = devm_kzalloc(&pdev->dev, FIFO_SIZE, GFP_KERNEL);
-	if (!qdev->buf)
+	qdev->ring.buf = devm_kzalloc(&pdev->dev, MAX_PKT_SZ, GFP_KERNEL);
+	if (!qdev->ring.buf)
 		return -ENOMEM;
 
 	ret = of_property_read_u32(node, "haven-label", &qdev->label);
@@ -472,6 +582,7 @@ static int qrtr_haven_probe(struct platform_device *pdev)
 		return ret;
 
 	qrtr_haven_fifo_init(qdev);
+	init_waitqueue_head(&qdev->tx_avail_notify);
 
 	if (qdev->master) {
 		ret = of_property_read_u32(node, "peer-name", &qdev->peer_name);
