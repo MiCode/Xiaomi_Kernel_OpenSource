@@ -809,11 +809,6 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 	FDVTRegIO *pREGIO = NULL;
 	u32 i = 0;
 
-	#ifdef FDVT_USE_GCE
-	int ret = 0;
-	unsigned int secMemType2MVA = 1;
-	#endif
-
 	if (a_pstCfg == NULL) {
 		LOG_DBG("Null input argrment\n");
 		return -EINVAL;
@@ -879,6 +874,8 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 #if (MTK_SECURE_FD_SUPPORT == 1)
 	if (g_isSecure == 1) {
 		unsigned int LearningData_Chosen[18];
+		unsigned int secMemType2MVA = 1;
+		int ret = 0;
 
 		for (i = 0; i < 18; i++) {
 			LearningData_Chosen[i] =
