@@ -34,7 +34,7 @@
 /* Ring buffer part, this type log is block read, used for temp debug purpose */
 /******************************************************************************/
 #define CCCI_LOG_BUF_SIZE 4096	/* must be power of 2 */
-#define CCCI_LOG_MAX_WRITE 512
+#define CCCI_LOG_MAX_WRITE 4096
 
 /*extern u64 local_clock(void); */
 
@@ -282,13 +282,14 @@ static const struct file_operations ccci_log_fops = {
 #define CCCI_REPEAT_BUF			(4096*32)
 #define CCCI_HISTORY_BUF		(4096*128)
 #define CCCI_REG_DUMP_BUF		(4096*64 * 2)
+#define CCCI_DPMA_DRB_BUF		(1024*16)
 
-#define MD3_CCCI_INIT_SETTING_BUF   (4096*2)
-#define MD3_CCCI_BOOT_UP_BUF                (4096*16)
-#define MD3_CCCI_NORMAL_BUF                 (4096*2)
-#define MD3_CCCI_REPEAT_BUF                 (4096*32)
-#define MD3_CCCI_REG_DUMP_BUF               (4096*32)
-#define MD3_CCCI_HISTORY_BUF                (4096*32)
+#define MD3_CCCI_INIT_SETTING_BUF   (64)
+#define MD3_CCCI_BOOT_UP_BUF                (64)
+#define MD3_CCCI_NORMAL_BUF                 (64)
+#define MD3_CCCI_REPEAT_BUF                 (64)
+#define MD3_CCCI_REG_DUMP_BUF               (64)
+#define MD3_CCCI_HISTORY_BUF                (64)
 
 struct ccci_dump_buffer {
 	void *buffer;
@@ -315,6 +316,7 @@ static struct ccci_dump_buffer repeat_ctlb[2];
 static struct ccci_dump_buffer reg_dump_ctlb[2];
 static struct ccci_dump_buffer history_ctlb[2];
 static struct ccci_dump_buffer ke_dump_ctlb[2];
+static struct ccci_dump_buffer drb_dump_ctlb[2];
 static int buff_bind_md_id[5];
 static int md_id_bind_buf_id[5];
 static int buff_en_bit_map;
@@ -362,6 +364,8 @@ static struct buffer_node node_array[2][CCCI_DUMP_MAX+1] = {
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_HISTORY},
 		{&ke_dump_ctlb[0], 32*1024,
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
+		{&drb_dump_ctlb[0], CCCI_DPMA_DRB_BUF,
+		CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMA_DRB},
 	},
 	{
 		{&init_setting_ctlb[1], MD3_CCCI_INIT_SETTING_BUF,
@@ -378,6 +382,8 @@ static struct buffer_node node_array[2][CCCI_DUMP_MAX+1] = {
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_HISTORY},
 		{&ke_dump_ctlb[1], 1*1024,
 		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
+		{&drb_dump_ctlb[1], 64,
+		CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMA_DRB},
 	}
 };
 
@@ -534,6 +540,9 @@ static void format_separate_str(char str[], int type)
 		break;
 	case CCCI_DUMP_REGISTER:
 		sep_str = "[0]REGISTER LOG REGION";
+		break;
+	case CCCI_DUMP_DPMA_DRB:
+		sep_str = "[0]DPMAIF DRB REGION";
 		break;
 	default:
 		sep_str = "[0]Unsupport REGION";
