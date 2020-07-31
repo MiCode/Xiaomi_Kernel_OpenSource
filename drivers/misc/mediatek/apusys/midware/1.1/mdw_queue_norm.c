@@ -215,7 +215,10 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
 		/* add sc to pid's prority queue */
 		list_add(&sc->q_item, &p->q.list[prio]);
 	} else {
-		list_add_tail(&pi->q_item, &nq->pi_list);
+		if (pi->pid == 0)
+			list_add(&pi->q_item, &nq->pi_list);
+		else
+			list_add_tail(&pi->q_item, &nq->pi_list);
 		list_add_tail(&pi->p_item, &p->pi_list);
 
 		/* add sc to pid's prority queue */
