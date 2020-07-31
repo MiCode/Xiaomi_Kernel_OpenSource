@@ -200,5 +200,6 @@ struct plat_stmmacenet_data {
 		(struct sk_buff *skb);
 	bool early_eth;
 	bool crc_strip_en;
+	bool phy_intr_en;
 };
 #endif
