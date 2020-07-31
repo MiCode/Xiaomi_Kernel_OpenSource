@@ -735,7 +735,8 @@ static int xgf_hw_event_collect(int event_type, int tid,
 	return ret;
 }
 
-static int xgf_get_render(pid_t rpid, struct xgf_render **ret, int force)
+static int xgf_get_render(pid_t rpid, unsigned long long bufID,
+	struct xgf_render **ret, int force)
 {
 	struct xgf_render *iter;
 
@@ -743,6 +744,9 @@ static int xgf_get_render(pid_t rpid, struct xgf_render **ret, int force)
 
 	hlist_for_each_entry(iter, &xgf_renders, hlist) {
 		if (iter->render != rpid)
+			continue;
+
+		if (iter->bufID != bufID)
 			continue;
 
 		if (ret)
@@ -776,6 +780,7 @@ static int xgf_get_render(pid_t rpid, struct xgf_render **ret, int force)
 		iter->render = rpid;
 		put_task_struct(tsk);
 
+		iter->bufID = bufID;
 		iter->sector_nr = 0;
 		iter->curr_index = 0;
 		iter->curr_ts = 0;
@@ -905,7 +910,7 @@ int has_xgf_dep(pid_t tid)
 	return ret;
 }
 
-int gbe2xgf_get_dep_list_num(int pid)
+int gbe2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 {
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
@@ -922,6 +927,9 @@ int gbe2xgf_get_dep_list_num(int pid)
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
 		if (render_iter->render != pid)
+			continue;
+
+		if (render_iter->bufID != bufID)
 			continue;
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
@@ -970,7 +978,7 @@ out:
 }
 
 
-int fpsgo_fteh2xgf_get_dep_list_num(int pid)
+int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 {
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
@@ -987,6 +995,9 @@ int fpsgo_fteh2xgf_get_dep_list_num(int pid)
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
 		if (render_iter->render != pid)
+			continue;
+
+		if (render_iter->bufID != bufID)
 			continue;
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
@@ -1034,7 +1045,8 @@ out:
 	return counts;
 }
 
-int gbe2xgf_get_dep_list(int pid, int count, struct gbe_runtime *arr)
+int gbe2xgf_get_dep_list(int pid, int count,
+	struct gbe_runtime *arr, unsigned long long bufID)
 {
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
@@ -1051,6 +1063,9 @@ int gbe2xgf_get_dep_list(int pid, int count, struct gbe_runtime *arr)
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
 		if (render_iter->render != pid)
+			continue;
+
+		if (render_iter->bufID != bufID)
 			continue;
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
@@ -1109,7 +1124,8 @@ int gbe2xgf_get_dep_list(int pid, int count, struct gbe_runtime *arr)
 }
 
 
-int fpsgo_fteh2xgf_get_dep_list(int pid, int count, struct fpsgo_loading *arr)
+int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
+	struct fpsgo_loading *arr, unsigned long long bufID)
 {
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
@@ -1126,6 +1142,9 @@ int fpsgo_fteh2xgf_get_dep_list(int pid, int count, struct fpsgo_loading *arr)
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
 		if (render_iter->render != pid)
+			continue;
+
+		if (render_iter->bufID != bufID)
 			continue;
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
@@ -1487,7 +1506,7 @@ out:
 	return ret;
 }
 
-int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
+int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
 	unsigned long long ts)
 {
@@ -1511,7 +1530,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
 
 	case XGF_QUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -1521,7 +1540,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
 
 	case XGF_QUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, rrender, 1)) {
+		if (xgf_get_render(rpid, bufID, rrender, 1)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -1543,7 +1562,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
 			*run_time = r->ema_runtime;
 		}
 
-		fpsgo_systrace_c_fbt(rpid, raw_runtime, "raw_t_cpu");
+		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
 
 		/* hw event for fbt */
 		hlist_for_each_entry_safe(hr_iter, hr, &r->hw_head, hlist) {
@@ -1558,7 +1577,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
 
 	case XGF_DEQUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -1567,7 +1586,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, int cmd,
 
 	case XGF_DEQUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -1605,8 +1624,9 @@ static ssize_t deplist_show(struct kobject *kobj,
 			iter = rb_entry(n, struct xgf_dep, rb_node);
 			length = scnprintf(temp + pos,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"rtid:%d itid:%d idx:%d\n",
-				r_iter->render, iter->tid, iter->frame_idx);
+				"rtid:%d bid:0x%llx itid:%d idx:%d\n",
+				r_iter->render, r_iter->bufID,
+				iter->tid, iter->frame_idx);
 			pos += length;
 		}
 
@@ -1616,8 +1636,9 @@ static ssize_t deplist_show(struct kobject *kobj,
 
 			length = scnprintf(temp + pos,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"rtid:%d otid:%d idx:%d\n",
-				 r_iter->render, iter->tid, iter->frame_idx);
+				"rtid:%d bid:0x%llx otid:%d idx:%d\n",
+				 r_iter->render, r_iter->bufID,
+				 iter->tid, iter->frame_idx);
 			pos += length;
 		}
 
@@ -1626,8 +1647,9 @@ static ssize_t deplist_show(struct kobject *kobj,
 			iter = rb_entry(n, struct xgf_dep, rb_node);
 			length = scnprintf(temp + pos,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"rtid:%d ptid:%d idx:%d\n",
-				 r_iter->render, iter->tid, iter->frame_idx);
+				"rtid:%d bid:0x%llx ptid:%d idx:%d\n",
+				 r_iter->render, r_iter->bufID,
+				 iter->tid, iter->frame_idx);
 			pos += length;
 		}
 	}
