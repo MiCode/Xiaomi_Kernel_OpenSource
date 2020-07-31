@@ -17,5 +17,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/srclken_rc_v1
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/srclken_rc_v1/$(MTK_PLATFORM)/
 
 obj-y += mtk_srclken_rc.o
-obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+ifeq ($(CONFIG_MACH_MT6893), y)
+	obj-y += mt6885/
+else
+	obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
 
