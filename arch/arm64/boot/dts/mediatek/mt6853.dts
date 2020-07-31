@@ -6325,6 +6325,7 @@ page_owner=on";
 			safety_timer = <10>;		/* hour */
 			ircmp_resistor = <25000>;	/* uohm */
 			ircmp_vclamp = <32000>;		/* uV */
+			specta_det = <0>;
 			/* 0: disable, 1: 300ms, 2: 600ms, 3: unlimit */
 			dcdt_sel = <2>;
 			/* 0: 5.8V, 1: 6.5V, 2: 11V, 3: 14.5V */
@@ -6332,6 +6333,8 @@ page_owner=on";
 			en_te = <1>;
 			en_wdt = <1>;
 			aicc_oneshot = <1>;
+			post_aicc = <1>;
+			post_aicc_thr = <200000>;
 			shipping_dly_en = <1>;
 			batoc_notify = <0>;
 			otg_vbus: usb-otg-vbus {
@@ -6612,6 +6615,8 @@ page_owner=on";
 				      <&mt6362_adc MT6362_ADCCH_PDSBU2DIV4>;
 			wd,sbu_calib_init = <1500>;	/* mV */
 			wd,sbu_pl_bound = <200>;	/* mV */
+			wd,sbu_pl_lbound_c2c = <1100>;	/* mV */
+			wd,sbu_pl_ubound_c2c = <2600>;	/* mV */
 			wd,sbu_ph_auddev = <100>;	/* mV */
 			wd,sbu_ph_lbound = <900>;	/* mV */
 			wd,sbu_ph_lbound1_c2c = <2850>;	/* mV */
