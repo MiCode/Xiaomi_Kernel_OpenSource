@@ -1212,8 +1212,7 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	mt6362_init_wd(tdata);
 #endif /* CONFIG_WATER_DETECTION */
 
-	if (sw_reset)
-		tcpci_init_alert_mask(tcpc);
+	tcpci_init_alert_mask(tcpc);
 
 	if (tcpc->tcpc_flags & TCPC_FLAGS_WATCHDOG_EN) {
 		/* Set watchdog timer = 3.2s and enable */
