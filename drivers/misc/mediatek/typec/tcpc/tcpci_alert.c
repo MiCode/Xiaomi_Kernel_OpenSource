@@ -182,7 +182,7 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc_dev)
 			TCPC_ERR("RETRY_CRC_DISCARD\r\n");
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 		} else {
-			pd_put_hw_event(tcpc_dev, PD_HW_TX_FAILED);
+			pd_put_hw_event(tcpc_dev, PD_HW_TX_DISCARD);
 		}
 	}
 	return 0;

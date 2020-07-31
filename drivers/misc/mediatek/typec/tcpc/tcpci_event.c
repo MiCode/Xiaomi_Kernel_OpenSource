@@ -93,6 +93,28 @@ static void __pd_free_event(
 	}
 }
 
+bool __pd_is_msg_empty(struct tcpc_device *tcpc_dev)
+{
+	int i;
+	uint8_t mask;
+
+	for (i = 0, mask = 1; i < PD_MSG_BUF_SIZE; i++, mask <<= 1) {
+		if ((mask & tcpc_dev->pd_msg_buffer_allocated) != 0)
+			return false;
+	}
+	return true;
+}
+
+bool pd_is_msg_empty(struct tcpc_device *tcpc_dev)
+{
+	bool empty;
+
+	mutex_lock(&tcpc_dev->access_lock);
+	empty = __pd_is_msg_empty(tcpc_dev);
+	mutex_unlock(&tcpc_dev->access_lock);
+	return empty;
+}
+
 void pd_free_msg(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 {
 	mutex_lock(&tcpc_dev->access_lock);
@@ -910,7 +932,7 @@ bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 #ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
 	if (discard_pending) {
 		tcpc_disable_timer(tcpc_dev, PD_TIMER_DISCARD);
-		pd_put_hw_event(tcpc_dev, PD_HW_TX_FAILED);
+		pd_put_hw_event(tcpc_dev, PD_HW_TX_DISCARD);
 	}
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
@@ -1177,7 +1199,8 @@ void pd_notify_pe_cancel_pr_swap(struct pd_port *pd_port)
 	if (!tcpci_check_vbus_valid(tcpc_dev)
 		&& (pd_port->request_v >= 4000)) {
 		TCPC_DBG("cancel_pr_swap_vbus=0\r\n");
-		pd_put_tcp_pd_event(pd_port, TCP_DPM_EVT_ERROR_RECOVERY);
+		pd_put_tcp_pd_event(pd_port, TCP_DPM_EVT_ERROR_RECOVERY,
+				    PD_TCP_FROM_PE);
 	}
 }
 
@@ -1197,6 +1220,18 @@ void pd_noitfy_pe_bist_mode(struct pd_port *pd_port, uint8_t mode)
 	mutex_lock(&tcpc_dev->access_lock);
 	tcpc_dev->pd_bist_mode = mode;
 	mutex_unlock(&tcpc_dev->access_lock);
+}
+
+bool pd_is_pe_wait_pd_transmit_done(struct pd_port *pd_port)
+{
+	bool tx_wait;
+	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
+
+	mutex_lock(&tcpc_dev->access_lock);
+	tx_wait = tcpc_dev->pd_transmit_state == PD_TX_STATE_WAIT_CRC_PD;
+	mutex_unlock(&tcpc_dev->access_lock);
+
+	return tx_wait;
 }
 
 void pd_notify_pe_transmit_msg(

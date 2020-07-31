@@ -23,6 +23,7 @@
 #include "include/pmic.h"
 #include "include/pmic_api_buck.h"
 #include "include/regulator_codegen.h"
+#include <mt6362_buck_manager.h>
 
 /* VRFDIG use VPU of MT6359+ in MT6885 */
 static unsigned int g_vrfdig_vosel;
@@ -38,6 +39,8 @@ void vmd1_pmic_setting_on(void)
 {
 #if defined(CONFIG_REGULATOR_MT6315)
 	mt6315_vmd1_pmic_setting_on();
+#elif defined(CONFIG_MFD_MT6362)
+	mt6362_vmd1_pmic_setting_on();
 #endif
 	/* 1.Call PMIC driver API configure VMODEM voltage */
 	if (g_vrfdig_vosel != 0) {

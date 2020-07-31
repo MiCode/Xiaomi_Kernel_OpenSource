@@ -728,6 +728,19 @@ void pd_reset_svid_data(struct pd_port *pd_port)
 	}
 }
 
+void pd_free_unexpected_event(struct pd_port *pd_port)
+{
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+	struct pe_data *pe_data = &pd_port->pe_data;
+
+	if (!pe_data->pd_unexpected_event_pending)
+		return;
+
+	pe_data->pd_unexpected_event_pending = false;
+	pd_free_event(pd_port->tcpc_dev, &pe_data->pd_unexpected_event);
+#endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
+}
+
 #define PE_RESET_MSG_ID(pd_port, sop)	{ \
 	pd_port->pe_data.msg_id_tx[sop] = 0; \
 	pd_port->pe_data.msg_id_rx[sop] = PD_MSG_ID_MAX; \
@@ -777,6 +790,11 @@ int pd_reset_protocol_layer(struct pd_port *pd_port, bool sop_only)
 #ifdef CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP
 	pd_port->msg_id_pr_swap_last = 0xff;
 #endif	/* CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP */
+
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+	pe_data->pd_sent_ams_init_cmd = true;
+	pd_free_unexpected_event(pd_port);
+#endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
 
 	return 0;
 }

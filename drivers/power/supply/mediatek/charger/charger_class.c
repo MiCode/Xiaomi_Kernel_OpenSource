@@ -758,6 +758,18 @@ int charger_dev_enable_hidden_mode(struct charger_device *charger_dev, bool en)
 }
 EXPORT_SYMBOL(charger_dev_enable_hidden_mode);
 
+int charger_dev_enable_bleed_discharge(struct charger_device *charger_dev,
+				       bool en)
+{
+	if (charger_dev != NULL && charger_dev->ops != NULL &&
+				       charger_dev->ops->enable_bleed_discharge)
+		return charger_dev->ops->enable_bleed_discharge(charger_dev,
+								en);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_enable_bleed_discharge);
+
 static DEVICE_ATTR(name, 0444, charger_show_name, NULL);
 
 static struct attribute *charger_class_attrs[] = {

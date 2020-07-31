@@ -40,6 +40,7 @@ struct pd_event {
 
 struct pd_msg *pd_alloc_msg(struct tcpc_device *tcpc_dev);
 void pd_free_msg(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg);
+bool pd_is_msg_empty(struct tcpc_device *tcpc_dev);
 
 bool pd_get_event(struct tcpc_device *tcpc_dev, struct pd_event *pd_event);
 bool pd_put_event(struct tcpc_device *tcpc_dev,
@@ -163,8 +164,8 @@ enum pd_msg_type {
 	PD_HW_VBUS_ABSENT,
 	PD_HW_VBUS_SAFE0V,
 	PD_HW_VBUS_STABLE,
-	PD_HW_TX_FAILED,	/* no good crc or discard */
-	PD_HW_TX_DISCARD,	/* discard vdm msg */
+	PD_HW_TX_FAILED,	/* no good crc */
+	PD_HW_TX_DISCARD,	/* discard msg */
 	PD_HW_RETRY_VDM,	/* discard vdm msg (retry) */
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	PD_HW_SINK_TX_CHANGE,

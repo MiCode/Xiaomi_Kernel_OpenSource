@@ -58,6 +58,7 @@ void pe_idle1_entry(struct pd_port *pd_port)
 
 void pe_idle2_entry(struct pd_port *pd_port)
 {
+	pd_free_unexpected_event(pd_port);
 	memset(&pd_port->pe_data, 0, sizeof(struct pe_data));
 	pd_set_rx_enable(pd_port, PD_RX_CAP_PE_IDLE);
 	pd_disable_timer(pd_port, PD_TIMER_PE_IDLE_TOUT);
@@ -132,6 +133,36 @@ void pe_bist_carrier_mode_2_exit(struct pd_port *pd_port)
 	pd_disable_bist_mode2(pd_port);
 }
 
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+void pe_unexpected_tx_wait_entry(struct pd_port *pd_port)
+{
+	PE_INFO("##$$123\r\n");
+	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
+	pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
+}
+
+void pe_send_soft_reset_tx_wait_entry(struct pd_port *pd_port)
+{
+	PE_INFO("##$$124\r\n");
+	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
+	pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
+}
+
+void pe_recv_soft_reset_tx_wait_entry(struct pd_port *pd_port)
+{
+	PE_INFO("##$$125\r\n");
+	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
+	pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
+}
+
+void pe_send_soft_reset_standby_entry(struct pd_port *pd_port)
+{
+	PE_INFO("##$$126\r\n");
+	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
+	pd_put_dpm_ack_event(pd_port);
+}
+#endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
+
 /*
  * Policy Engine Share State Activity
  */
@@ -179,6 +210,10 @@ void pe_power_ready_entry(struct pd_port *pd_port)
 #ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
 	pd_port->pe_data.renegotiation_count = 0;
 #endif	/* CONFIG_USB_PD_RENEGOTIATION_COUNTER */
+
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+	pd_port->pe_data.pd_sent_ams_init_cmd = true;
+#endif /* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
 
 #ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
