@@ -35,15 +35,6 @@
 #include <linux/clk-provider.h>
 #include <linux/syscore_ops.h>
 
-#if 0
-#include <mtk_cpufreq_hybrid.h>
-#endif
-#ifdef CONFIG_MTK_GPU_SPM_DVFS_SUPPORT
-#include <mtk_kbase_spm.h>
-#endif
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include <scp_helper.h>
-#endif
 #include "mtk_secure_api.h"
 #include "i2c-mtk.h"
 
@@ -363,72 +354,6 @@ static void mt_i2c_clock_disable(struct mt_i2c *i2c)
 #endif
 }
 
-static int i2c_get_semaphore(struct mt_i2c *i2c)
-{
-#if 0
-	int count = 100;
-#endif
-	#if 0
-	if (i2c->appm) {
-		if (cpuhvfs_get_dvfsp_semaphore(SEMA_I2C_DRV) != 0) {
-			dev_info(i2c->dev, "sema time out 2ms\n");
-			if (cpuhvfs_get_dvfsp_semaphore(SEMA_I2C_DRV) != 0) {
-				dev_info(i2c->dev, "sema time out 4ms\n");
-				i2c_dump_info(i2c);
-				WARN_ON(1);
-				return -EBUSY;
-			}
-		}
-	}
-	#endif
-
-#ifdef CONFIG_MTK_GPU_SPM_DVFS_SUPPORT
-	if (i2c->gpupm) {
-		if (dvfs_gpu_pm_spin_lock_for_vgpu() != 0) {
-			dev_info(i2c->dev, "sema time out.\n");
-			return -EBUSY;
-		}
-	}
-#endif
-
-	switch (i2c->id) {
-#if 0
-	case 0:
-		while ((get_scp_semaphore(SEMAPHORE_I2C0) != 1) && count > 0)
-			count--;
-		return count > 0 ? 0 : -EBUSY;
-	case 1:
-		while ((get_scp_semaphore(SEMAPHORE_I2C1) != 1) && count > 0)
-			count--;
-		return count > 0 ? 0 : -EBUSY;
-#endif
-	default:
-		return 0;
-	}
-}
-
-static int i2c_release_semaphore(struct mt_i2c *i2c)
-{
-	#if 0
-	if (i2c->appm)
-		cpuhvfs_release_dvfsp_semaphore(SEMA_I2C_DRV);
-	#endif
-#ifdef CONFIG_MTK_GPU_SPM_DVFS_SUPPORT
-	if (i2c->gpupm)
-		dvfs_gpu_pm_spin_unlock_for_vgpu();
-#endif
-
-	switch (i2c->id) {
-#if 0
-	case 0:
-		return release_scp_semaphore(SEMAPHORE_I2C0) == 1 ? 0 : -EBUSY;
-	case 1:
-		return release_scp_semaphore(SEMAPHORE_I2C1) == 1 ? 0 : -EBUSY;
-#endif
-	default:
-		return 0;
-	}
-}
 static void free_i2c_dma_bufs(struct mt_i2c *i2c)
 {
 	dma_free_coherent(i2c->adap.dev.parent, PAGE_SIZE,
@@ -1375,21 +1300,8 @@ static int __mt_i2c_transfer(struct mt_i2c *i2c,
 			}
 		}
 
-		/* Use HW semaphore to protect device access between
-		 * AP and SPM, or SCP
-		 */
-		if (i2c_get_semaphore(i2c) != 0) {
-			dev_info(i2c->dev, "get hw semaphore failed.\n");
-			return -EBUSY;
-		}
 		ret = mt_i2c_do_transfer(i2c);
-		/* Use HW semaphore to protect device access between
-		 * AP and SPM, or SCP
-		 */
-		if (i2c_release_semaphore(i2c) != 0) {
-			dev_info(i2c->dev, "release hw semaphore failed.\n");
-			ret = -EBUSY;
-		}
+
 		if (ret < 0)
 			goto err_exit;
 		if (i2c->op == I2C_MASTER_WRRD)
