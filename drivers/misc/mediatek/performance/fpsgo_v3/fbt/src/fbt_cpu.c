@@ -48,6 +48,8 @@
 #include <linux/bsearch.h>
 #include <linux/sched/task.h>
 #include <linux/sched/topology.h>
+#include <sched/sched.h>
+#include <linux/list_sort.h>
 
 #include <mt-plat/mtk_perfobserver.h>
 #include <mt-plat/eas_ctrl.h>
@@ -104,6 +106,11 @@ struct fbt_cpu_dvfs_info {
 };
 #endif
 
+struct fbt_pid_list {
+	int pid;
+	struct list_head entry;
+};
+
 enum FPSGO_FREE_LIST {
 	NOT_ASKED = 0,
 	ASKED_IN = 1,
@@ -114,6 +121,7 @@ enum FPSGO_JERK {
 	FPSGO_JERK_NO_NEED = 0,
 	FPSGO_JERK_NEED = 1,
 	FPSGO_JERK_POSTPONE = 2,
+	FPSGO_JERK_DISAPPEAR = 3,
 };
 
 enum FPSGO_LLF_CPU_POLICY {
@@ -1101,12 +1109,181 @@ static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld, int floor)
 	return blc_wt;
 }
 
+static void fbt_pidlist_add(int pid, struct list_head *dest_list)
+{
+	struct fbt_pid_list *obj = NULL;
+
+	obj = kzalloc(sizeof(struct fbt_pid_list), GFP_ATOMIC);
+	if (!obj)
+		return;
+
+	INIT_LIST_HEAD(&obj->entry);
+	obj->pid = pid;
+	list_add_tail(&obj->entry, dest_list);
+}
+
+static int __cmp_list(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct fbt_pid_list *pa = container_of(a, struct fbt_pid_list, entry);
+	struct fbt_pid_list *pb = container_of(b, struct fbt_pid_list, entry);
+
+	return pa->pid - pb->pid;
+}
+
+static int fbt_task_running_locked(struct task_struct *tsk)
+{
+	unsigned int tsk_state = READ_ONCE(tsk->state);
+
+	if (tsk_state == TASK_RUNNING)
+		return 1;
+
+	return 0;
+}
+
+static int fbt_query_running(int tgid, struct list_head *proc_list)
+{
+	int ret = 0;
+	struct task_struct *gtsk, *tsk;
+	int hit = 0;
+	int pid;
+
+	rcu_read_lock();
+
+	gtsk = find_task_by_vpid(tgid);
+	if (!gtsk) {
+		rcu_read_unlock();
+		return 0;
+	}
+
+	get_task_struct(gtsk);
+	hit = fbt_task_running_locked(gtsk);
+	if (hit) {
+		ret = 1;
+		goto EXIT;
+	}
+
+	fbt_pidlist_add(gtsk->pid, proc_list);
+
+	list_for_each_entry(tsk, &gtsk->thread_group, thread_group) {
+		if (!tsk)
+			continue;
+
+		get_task_struct(tsk);
+		hit = fbt_task_running_locked(tsk);
+		pid = tsk->pid;
+		put_task_struct(tsk);
+
+		if (hit) {
+			ret = 1;
+			break;
+		}
+
+		fbt_pidlist_add(pid, proc_list);
+	}
+
+EXIT:
+	put_task_struct(gtsk);
+
+	rcu_read_unlock();
+
+	return ret;
+}
+
+static int fbt_query_rq(int tgid, struct list_head *proc_list)
+{
+	int ret = 0;
+	unsigned long flags;
+	struct task_struct *p;
+	int cpu;
+	struct list_head rq_list;
+	struct fbt_pid_list *rq_pos, *rq_next;
+	struct fbt_pid_list *pos, *next;
+
+	/* get rq */
+	INIT_LIST_HEAD(&rq_list);
+	for_each_possible_cpu(cpu) {
+		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
+		list_for_each_entry(p, &cpu_rq(cpu)->cfs_tasks, se.group_node)
+			fbt_pidlist_add(p->pid, &rq_list);
+		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
+	}
+
+	if (list_empty(&rq_list))
+		return 0;
+
+	list_sort(NULL, &rq_list, __cmp_list);
+
+	/* compare */
+	pos = list_first_entry_or_null(proc_list, typeof(*pos), entry);
+	if (!pos)
+		goto EXIT;
+
+	list_for_each_entry_safe(rq_pos, rq_next, &rq_list, entry) {
+		list_for_each_entry_safe_from(pos, next, proc_list, entry) {
+			if (rq_pos->pid == pos->pid) {
+				ret = 1;
+				goto EXIT;
+			}
+
+			if (rq_pos->pid < pos->pid)
+				break;
+		}
+	}
+
+EXIT:
+	list_for_each_entry_safe(rq_pos, rq_next, &rq_list, entry) {
+		list_del(&rq_pos->entry);
+		kfree(rq_pos);
+	}
+
+	return ret;
+}
+
+static int fbt_query_state(int pid, int tgid)
+{
+	int hit = 0;
+	struct list_head proc_list;
+	struct fbt_pid_list *pos, *next;
+
+	if (!tgid) {
+		tgid = fpsgo_get_tgid(pid);
+		if (!tgid)
+			return 0;
+	}
+
+	INIT_LIST_HEAD(&proc_list);
+
+	hit = fbt_query_running(tgid, &proc_list);
+	if (hit)
+		goto EXIT;
+
+	if (list_empty(&proc_list))
+		goto EXIT;
+
+	hit = fbt_query_rq(tgid, &proc_list);
+
+EXIT:
+	list_for_each_entry_safe(pos, next, &proc_list, entry) {
+		list_del(&pos->entry);
+		kfree(pos);
+	}
+
+	return hit;
+}
+
 static int fbt_check_to_jerk(
 		unsigned long long enq_start, unsigned long long enq_end,
 		unsigned long long deq_start, unsigned long long deq_end,
 		unsigned long long deq_len, int pid,
-		unsigned long long buffer_id)
+		unsigned long long buffer_id, int tgid)
 {
+	/*not running*/
+	if (!fbt_query_state(pid, tgid)) {
+		fpsgo_systrace_c_fbt(pid, buffer_id, 1, "not_running");
+		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "not_running");
+		return FPSGO_JERK_DISAPPEAR;
+	}
+
 	/*during enqueue*/
 	if (enq_start >= enq_end) {
 		fpsgo_systrace_c_fbt(pid, buffer_id, 1, "wait_enqueue");
@@ -1209,23 +1386,6 @@ static void fbt_do_jerk(struct work_struct *work)
 			if (!blc_wt)
 				goto leave;
 
-			do_jerk = fbt_check_to_jerk(
-					thr->t_enqueue_start,
-					thr->t_enqueue_end,
-					thr->t_dequeue_start,
-					thr->t_dequeue_end,
-					thr->dequeue_length,
-					thr->pid,
-					thr->buffer_id);
-
-			if (do_jerk == FPSGO_JERK_NEED) {
-				fbt_do_jerk_boost(thr, blc_wt);
-				fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
-						blc_wt,	"perf idx");
-				if (blc_wt > limit_cap)
-					fbt_set_isolation_locked(0);
-			}
-
 			{
 				struct pob_fpsgo_qtsk_info pfqi = {0};
 
@@ -1235,6 +1395,27 @@ static void fbt_do_jerk(struct work_struct *work)
 
 				pob_fpsgo_qtsk_update(
 				POB_FPSGO_QTSK_CPUCAP_UPDATE, &pfqi);
+			}
+
+			do_jerk = fbt_check_to_jerk(
+					thr->t_enqueue_start,
+					thr->t_enqueue_end,
+					thr->t_dequeue_start,
+					thr->t_dequeue_end,
+					thr->dequeue_length,
+					thr->pid,
+					thr->buffer_id,
+					thr->tgid);
+
+			if (do_jerk == FPSGO_JERK_DISAPPEAR)
+				goto leave;
+
+			if (do_jerk == FPSGO_JERK_NEED) {
+				fbt_do_jerk_boost(thr, blc_wt);
+				fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
+						blc_wt,	"perf idx");
+				if (blc_wt > limit_cap)
+					fbt_set_isolation_locked(0);
 			}
 
 			if (do_jerk != FPSGO_JERK_POSTPONE) {
