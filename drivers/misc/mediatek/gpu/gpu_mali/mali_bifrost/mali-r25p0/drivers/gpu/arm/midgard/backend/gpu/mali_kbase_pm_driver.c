@@ -42,6 +42,9 @@
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <backend/gpu/mali_kbase_l2_mmu_config.h>
 #include <mali_kbase_dummy_job_wa.h>
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include <arbiter/mali_kbase_arbiter_pm.h>
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #include <linux/of.h>
 
@@ -1016,6 +1019,10 @@ static int kbase_pm_shaders_update_state(struct kbase_device *kbdev)
 				;
 			} else if (!backend->shaders_desired) {
 				if (kbdev->pm.backend.protected_transition_override ||
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+						kbase_pm_is_suspending(kbdev) ||
+						kbase_pm_is_gpu_lost(kbdev) ||
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 						!stt->configured_ticks ||
 						WARN_ON(stt->cancel_queued)) {
 					backend->shaders_state = KBASE_SHADERS_WAIT_FINISHED_CORESTACK_ON;
@@ -1075,6 +1082,11 @@ static int kbase_pm_shaders_update_state(struct kbase_device *kbdev)
 				backend->shaders_state = KBASE_SHADERS_ON_CORESTACK_ON_RECHECK;
 			} else if (stt->remaining_ticks == 0) {
 				backend->shaders_state = KBASE_SHADERS_WAIT_FINISHED_CORESTACK_ON;
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+			} else if (kbase_pm_is_suspending(kbdev) ||
+					kbase_pm_is_gpu_lost(kbdev)) {
+				backend->shaders_state = KBASE_SHADERS_WAIT_FINISHED_CORESTACK_ON;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 			}
 			break;
 
@@ -1661,6 +1673,9 @@ bool kbase_pm_clock_off(struct kbase_device *kbdev)
 	/* The GPU power may be turned off from this point */
 	kbdev->pm.backend.gpu_powered = false;
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	kbase_arbiter_pm_vm_event(kbdev, KBASE_VM_GPU_IDLE_EVENT);
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 	if (kbdev->pm.backend.callback_power_off)
 		kbdev->pm.backend.callback_power_off(kbdev);

@@ -1024,7 +1024,6 @@ static void kbase_debug_dump_registers(struct kbase_device *kbdev)
 		kbase_reg_read(kbdev, GPU_CONTROL_REG(JM_CONFIG)));
 }
 
-
 static void kbasep_reset_timeout_worker(struct work_struct *data)
 {
 	unsigned long flags;

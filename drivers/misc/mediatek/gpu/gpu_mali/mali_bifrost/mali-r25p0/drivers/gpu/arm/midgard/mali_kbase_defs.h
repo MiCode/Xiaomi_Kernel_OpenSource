@@ -67,6 +67,9 @@
 #include <linux/devfreq.h>
 #endif /* CONFIG_MALI_DEVFREQ */
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include <arbiter/mali_kbase_arbiter_defs.h>
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
@@ -342,6 +345,10 @@ struct kbase_pm_device_data {
 	int active_count;
 	/** Flag indicating suspending/suspended */
 	bool suspending;
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	/* Flag indicating gpu lost */
+	bool gpu_lost;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	/* Wait queue set when active_count == 0 */
 	wait_queue_head_t zero_active_count_wait;
 
@@ -373,6 +380,12 @@ struct kbase_pm_device_data {
 
 	struct kbase_pm_backend_data backend;
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	/**
+	 * The state of the arbiter VM machine
+	 */
+	struct kbase_arbiter_vm_state *arb_vm_state;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 };
 
 /**
@@ -1052,6 +1065,11 @@ struct kbase_device {
 		int slot;
 		u64 flags;
 	} dummy_job_wa;
+
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+		/* Pointer to the arbiter device */
+		struct kbase_arbiter_device arb;
+#endif
 
 #if defined(MTK_GPU_BM_2)
         struct job_status_qos job_status_addr;

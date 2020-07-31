@@ -50,6 +50,20 @@
 struct kbase_device;
 
 /**
+ * KBASE_UBFX32 - Extracts bits from a 32-bit bitfield.
+ * @value:  The value from which to extract bits.
+ * @offset: The first bit to extract (0 being the LSB).
+ * @size:   The number of bits to extract.
+ *
+ * Context: @offset + @size <= 32.
+ *
+ * Return: Bits [@offset, @offset + @size) from @value.
+ */
+/* from mali_cdsb.h */
+#define KBASE_UBFX32(value, offset, size) \
+	(((u32)(value) >> (u32)(offset)) & (u32)((1ULL << (u32)(size)) - 1))
+
+/**
  * @brief Set up Kbase GPU properties.
  *
  * Set up Kbase GPU properties with information from the GPU registers
