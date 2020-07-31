@@ -385,8 +385,6 @@
 	};
 };
 
-#include "mediatek/cust_mt6873_camera.dtsi"
-/*End of this file, DO NOT ADD ANYTHING HERE*/
 
 /* CONSYS GPIO standardization */
 &pio {
@@ -427,3 +425,7 @@
 };
 
 /* CONSYS end */
+
+
+#include "mediatek/cust_mt6873_camera_v4l2.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
