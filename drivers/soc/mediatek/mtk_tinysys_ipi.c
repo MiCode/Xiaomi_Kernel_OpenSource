@@ -180,6 +180,8 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 		ipi_chan_table[index].ept =
 			rpmsg_create_ept(&(mtk_rpdev->rpdev),
 					NULL, mtk_rpchan, mtk_rpchan->info);
+		if (!ipi_chan_table[index].ept)
+			return -EINVAL;
 		ipi_chan_table[index].ipi_stage = UNUSED;
 		ipi_chan_table[index].ipi_seqno = 0;
 		atomic_set(&ipi_chan_table[index].holder, 0);
