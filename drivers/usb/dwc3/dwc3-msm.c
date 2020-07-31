@@ -5204,7 +5204,7 @@ static struct platform_driver dwc3_msm_driver = {
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DesignWare USB3 MSM Glue Layer");
-MODULE_SOFTDEP("pre: phy-generic phy-msm-snps-hs phy-msm-ssusb-qmp");
+MODULE_SOFTDEP("pre: phy-generic phy-msm-snps-hs phy-msm-ssusb-qmp eud");
 
 static int dwc3_msm_init(void)
 {
