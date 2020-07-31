@@ -583,7 +583,7 @@ void RGXTimeCorrRestartPeriodic(IMG_HANDLE hDevHandle)
 	PVRSRV_DEV_POWER_STATE ePowerState = PVRSRV_DEV_POWER_STATE_DEFAULT;
 	PVRSRV_VZ_RETN_IF_MODE(GUEST);
 
-	if (psDevInfo->psGpuDVFSTable == NULL)
+	if (psGpuDVFSTable == NULL)
 	{
 		PVR_DPF((PVR_DBG_MESSAGE, "%s: Required data not initialised yet", __func__));
 		return;
