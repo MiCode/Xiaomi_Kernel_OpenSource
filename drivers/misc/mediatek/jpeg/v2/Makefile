@@ -85,6 +85,9 @@ endif
 ifeq ($(CONFIG_MACH_MT8168),y)
   ccflags-y += -DJPEG_ENC_DRIVER
   ccflags-y += -DJPEG_PM_DOMAIN_ENABLE
+ifeq ($(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT),y)
+  ccflags-y += -DCONFIG_MTK_SEC_JPEG_SUPPORT
+endif
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
