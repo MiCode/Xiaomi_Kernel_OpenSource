@@ -6,12 +6,11 @@
 #include <linux/kernel.h>
 #include <linux/rtc.h>
 #include <linux/timer.h>
-#ifdef mtk09077
-#include <memory/mediatek/emi.h>
-#endif
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
+#include <soc/mediatek/emi.h>
+
 #include "mdee_dumper_v5.h"
 #include "ccci_config.h"
 #include "ccci_fsm_sys.h"
@@ -781,7 +780,7 @@ static struct md_ee_ops mdee_ops_v5 = {
 	.dump_ee_info = &mdee_dumper_v5_dump_ee_info,
 	.set_ee_pkg = &mdee_dumper_v5_set_ee_pkg,
 };
-#ifdef mtk09077
+
 static void mdee_dumper_v5_emimpu_callback(
 		unsigned int emi_id,
 		struct reg_info_t *dump,
@@ -825,19 +824,18 @@ static void mdee_dumper_v5_emimpu_callback(
 		}
 	}
 }
-#endif
 
 int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 {
 	struct mdee_dumper_v5 *dumper = NULL;
 	int md_id = mdee->md_id;
-#ifdef mtk09077
+
 	if (mtk_emimpu_md_handling_register(
 			&mdee_dumper_v5_emimpu_callback))
 		CCCI_ERROR_LOG(md_id, FSM,
 			"%s: mtk_emimpu_md_handling_register fail\n",
 			__func__);
-#endif
+
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v5), GFP_KERNEL);
 	if (dumper == NULL) {
