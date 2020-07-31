@@ -334,6 +334,7 @@ static int mdw_sched_get_type(uint64_t bmp)
 {
 	unsigned long tmp[BITS_TO_LONGS(APUSYS_DEVICE_MAX)];
 
+	memset(&tmp, 0, sizeof(tmp));
 	bitmap_from_u32array(tmp, APUSYS_DEVICE_MAX, (const uint32_t *)&bmp, 2);
 
 	return find_last_bit((unsigned long *)&tmp, APUSYS_DEVICE_MAX);
