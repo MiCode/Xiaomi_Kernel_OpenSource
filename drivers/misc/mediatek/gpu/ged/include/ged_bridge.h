@@ -77,6 +77,10 @@ int ged_bridge_gpu_timestamp(
 	struct GED_BRIDGE_IN_GPU_TIMESTAMP *psGpuBeginINT,
 	struct GED_BRIDGE_OUT_GPU_TIMESTAMP *psGpuBeginOUT);
 
+int ged_bridge_query_dvfs_freq_pred(
+	struct GED_BRIDGE_IN_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredIn,
+	struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredOut);
+
 int ged_bridge_ge_alloc(
 	struct GED_BRIDGE_IN_GE_ALLOC *psALLOC_IN,
 	struct GED_BRIDGE_OUT_GE_ALLOC *psALLOC_OUT);

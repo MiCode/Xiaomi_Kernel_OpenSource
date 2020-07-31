@@ -227,6 +227,14 @@ struct GED_KPI_GPU_TS {
 	struct dma_fence *psSyncFence;
 } GED_KPI_GPU_TS;
 
+/* defined struct for querying from MEOW */
+struct GED_KPI_MEOW_DVFS_FREQ_PRED {
+	int gpu_freq_cur;
+	int gpu_freq_max;
+	int gpu_freq_pred;
+};
+static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psMEOW;
+
 #define GED_KPI_TOTAL_ITEMS 64
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
 #define SCREEN_IDLE_PERIOD 500000000
@@ -1608,6 +1616,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					mt_gpufreq_get_freq_by_idx(
 					mt_gpufreq_get_cur_ceiling_idx())
 					/ 1000;
+				/* store current gpu_frep info for MEOW */
+				g_psMEOW->gpu_freq_cur = mt_gpufreq_get_cur_freq();
+				g_psMEOW->gpu_freq_max = mt_gpufreq_get_freq_by_idx(
+					mt_gpufreq_get_cur_ceiling_idx());
 
 				psHead->pre_TimeStamp2 =
 					psHead->last_TimeStamp2;
@@ -1661,10 +1673,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						util_ex.util_ta);
 
 					/* hint JS0, JS1 info to EAT */
-					ged_log_perf_trace_counter("gpu_ta_loading",
-					util_ex.util_ta, psTimeStamp->pid,
+					ged_log_perf_trace_counter(
+					"gpu_ta_loading", util_ex.util_ta,
+					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
-					ged_log_perf_trace_counter("gpu_3d_loading",
+					ged_log_perf_trace_counter(
+					"gpu_3d_loading",
 					util_ex.util_3d, psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
 #endif /* GED_ENABLE_DVFS_LOADING_MODE */
@@ -1740,6 +1754,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				psKPI->cpu_gpu_info.gpu.gpu_freq_target
 				= gpu_freq_pre;
 				last_3D_done = cur_3D_done;
+
+				/* store current gpu_frep info for MEOW */
+				g_psMEOW->gpu_freq_pred = gpu_freq_pre;
 
 				if (!g_force_gpu_dvfs_fallback)
 					ged_set_backup_timer_timeout(0);
@@ -2347,11 +2364,21 @@ GED_ERROR ged_kpi_system_init(void)
 #ifdef MTK_GED_KPI
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_KPI = ged_log_buf_alloc(GED_KPI_MAX_FPS * 10,
-		220 * GED_KPI_MAX_FPS * 10,
+		300 * GED_KPI_MAX_FPS * 10,
 		GED_LOG_BUF_TYPE_RINGBUFFER, NULL, "KPI");
 #else
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
+
+	g_psMEOW = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
+		ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
+	if (unlikely(!g_psMEOW)) {
+		GED_PR_DEBUG("[GED_KPI][Exception]:");
+		GED_PR_DEBUG(
+		"ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED)) failed\n");
+		return GED_ERROR_FAIL;
+	}
+
 	g_psWorkQueue =
 		alloc_ordered_workqueue("ged_kpi",
 			WQ_FREEZABLE | WQ_MEM_RECLAIM);
@@ -2393,6 +2420,7 @@ void ged_kpi_system_exit(void)
 	ged_log_buf_free(ghLogBuf_KPI);
 	ghLogBuf_KPI = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
+	ged_free(g_psMEOW, sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
 #endif /* MTK_GED_KPI */
 }
 /* ------------------------------------------------------------------- */
@@ -2578,3 +2606,25 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 }
 EXPORT_SYMBOL(ged_kpi_timer_based_pick_riskyBQ);
 #endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
+
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
+	, int *gpu_freq_max, int *gpu_freq_pred)
+{
+#ifdef MTK_GED_KPI
+	if (gpu_freq_cur == NULL
+			|| gpu_freq_max == NULL
+			|| gpu_freq_pred == NULL)
+		return GED_ERROR_FAIL;
+
+	*gpu_freq_cur = g_psMEOW->gpu_freq_cur;
+	*gpu_freq_max = g_psMEOW->gpu_freq_max;
+	*gpu_freq_pred = g_psMEOW->gpu_freq_pred;
+
+	return GED_OK;
+#else
+	return GED_OK;
+#endif /* MTK_GED_KPI */
+}
+EXPORT_SYMBOL(ged_kpi_query_dvfs_freq_pred);
+/* ------------------------------------------------------------------- */
