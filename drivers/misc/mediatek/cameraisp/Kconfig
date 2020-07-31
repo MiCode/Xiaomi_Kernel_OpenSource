@@ -12,8 +12,15 @@ config MTK_CAMERA_ISP_VER
 	help
 	  Control Camera ISP Version.
 
+config MTK_CAMERA_ISP_PLATFORM
+	string "set camera isp platform name"
+	help
+	  This config is set as platform name
+	  which camera isp driver used for.
+	  When MTK_PLATFORM is not set, imgsensor
+	  will use the config.
 
-#source "drivers/misc/mediatek/cameraisp/src/Kconfig"
+source "drivers/misc/mediatek/cameraisp/src/Kconfig"
 #source "drivers/misc/mediatek/cameraisp/owe/Kconfig"
 source "drivers/misc/mediatek/cameraisp/rsc/Kconfig"
 #source "drivers/misc/mediatek/cameraisp/wpe/Kconfig"
