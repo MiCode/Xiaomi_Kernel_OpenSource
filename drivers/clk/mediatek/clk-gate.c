@@ -75,19 +75,6 @@ static int mtk_cg_bit_is_set(struct clk_hw *hw)
 static int mtk_cg_is_enabled(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
-	struct clk_hw *p_hw = clk_hw_get_parent(hw);
-	struct clk_hw *mux_hw = clk_hw_get_parent(p_hw);
-
-	if (p_hw && mux_hw) {
-		const char *c_n = clk_hw_get_name(hw);
-		const char *mux_n = clk_hw_get_name(mux_hw);
-
-		pr_notice("%s: c(%s), p(%s) is %s\n", __func__, c_n, mux_n,
-		clk_hw_is_enabled(mux_hw) ? "enabled" : "disabled");
-
-		if (!clk_hw_is_enabled(mux_hw))
-			return 0;
-	}
 
 	if (!is_subsys_pwr_on(cg))
 		return 0;
@@ -98,19 +85,6 @@ static int mtk_cg_is_enabled(struct clk_hw *hw)
 static int mtk_en_is_enabled(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
-	struct clk_hw *p_hw = clk_hw_get_parent(hw);
-	struct clk_hw *mux_hw = clk_hw_get_parent(p_hw);
-
-	if (p_hw && mux_hw) {
-		const char *c_n = clk_hw_get_name(hw);
-		const char *mux_n = clk_hw_get_name(mux_hw);
-
-		pr_notice("%s: c(%s), p(%s) is %s\n", __func__, c_n, mux_n,
-			clk_hw_is_enabled(mux_hw) ? "enabled" : "disabled");
-
-		if (!clk_hw_is_enabled(mux_hw))
-			return 0;
-	}
 
 	if (!is_subsys_pwr_on(cg))
 		return 0;
@@ -304,7 +278,7 @@ struct clk *mtk_clk_register_gate(
 		return ERR_PTR(-ENOMEM);
 
 	init.name = name;
-	init.flags = flags | CLK_SET_RATE_PARENT;
+	init.flags = flags | CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE;
 	init.parent_names = parent_name ? &parent_name : NULL;
 	init.num_parents = parent_name ? 1 : 0;
 	init.ops = ops;
