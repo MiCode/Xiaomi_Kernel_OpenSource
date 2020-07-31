@@ -4342,7 +4342,7 @@ void scheduler_tick(void)
 	hook_ca_scheduler_tick(cpu);
 #endif
 #ifdef CONFIG_MTK_PERF_TRACKER
-	perf_tracker(sched_ktime_clock());
+	perf_tracker(ktime_get_ns());
 #endif
 
 #ifdef CONFIG_SMP
@@ -4359,9 +4359,6 @@ void scheduler_tick(void)
 	cal_cpu_load(cpu);
 #endif
 
-#ifdef CONFIG_MTK_SCHED_SYSHINT
-	sched_hint_check(sched_ktime_clock());
-#endif
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 }

@@ -1992,11 +1992,9 @@ extern bool walt_disabled;
 #ifdef CONFIG_MEDIATEK_SOLUTION
 extern void update_sched_hint(int sys_util, int sys_cap);
 extern void sched_hint_check(u64 wallclock);
-extern u64 sched_ktime_clock(void);
 #else
 #define update_sched_hint(sys_util, sys_cap) {}
 #define sched_hint_check(wallclock) {}
-#define sched_ktime_clock() {}
 #endif
 
 static inline void sched_rt_avg_update(struct rq *rq, u64 rt_delta)
