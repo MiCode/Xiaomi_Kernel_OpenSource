@@ -239,7 +239,7 @@ static PVRSRV_ERROR _AllocateSLC3Fence(PVRSRV_RGXDEV_INFO* psDevInfo, RGXFWIF_SY
 			&psFwSysInit->sSLC3FenceDevVAddr);
 	if (eError != PVRSRV_OK)
 	{
-		DevmemFwUnmapAndFree(psDevInfo, *ppsSLC3FenceMemDesc);
+		DevmemFree(*ppsSLC3FenceMemDesc);
 		*ppsSLC3FenceMemDesc = NULL;
 	}
 
@@ -294,9 +294,8 @@ PVRSRV_ERROR RGXSetupFwAllocation(PVRSRV_RGXDEV_INFO*  psDevInfo,
 								  IMG_UINT32           ui32DevVAFlags)
 {
 	PVRSRV_ERROR eError;
-	IMG_BOOL bClearByMemset = IMG_FALSE;
 #if defined(SUPPORT_AUTOVZ)
-	bClearByMemset = ((uiAllocFlags & PVRSRV_MEMALLOCFLAG_ZERO_ON_ALLOC) != 0);
+	IMG_BOOL bClearByMemset = ((uiAllocFlags & PVRSRV_MEMALLOCFLAG_ZERO_ON_ALLOC) != 0);
 
 	/* Under AutoVz the ZERO_ON_ALLOC flag is avoided as it causes the memory to
 	 * be allocated from a different PMR than an allocation without the flag.
@@ -340,7 +339,11 @@ PVRSRV_ERROR RGXSetupFwAllocation(PVRSRV_RGXDEV_INFO*  psDevInfo,
 		}
 	}
 
+#if defined(SUPPORT_AUTOVZ)
 	if ((bClearByMemset) || (ppvCpuPtr))
+#else
+	if (ppvCpuPtr)
+#endif
 	{
 		void *pvTempCpuPtr;
 
@@ -355,11 +358,12 @@ PVRSRV_ERROR RGXSetupFwAllocation(PVRSRV_RGXDEV_INFO*  psDevInfo,
 			goto fail_cpuva;
 		}
 
+#if defined(SUPPORT_AUTOVZ)
 		if (bClearByMemset)
 		{
 			OSDeviceMemSet(pvTempCpuPtr, 0, ui32Size);
 		}
-
+#endif
 		if (ppvCpuPtr)
 		{
 			*ppvCpuPtr = pvTempCpuPtr;
@@ -4417,7 +4421,7 @@ PVRSRV_ERROR RGXStateFlagCtrl(PVRSRV_RGXDEV_INFO *psDevInfo,
 {
 	PVRSRV_ERROR eError;
 	PVRSRV_DEV_POWER_STATE ePowerState;
-	RGXFWIF_KCCB_CMD sStateFlagCmd;
+	RGXFWIF_KCCB_CMD sStateFlagCmd = { 0 };
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 	RGXFWIF_SYSDATA *psSysData;
 	IMG_UINT32 ui32kCCBCommandSlot;
@@ -4742,7 +4746,7 @@ PVRSRV_ERROR RGXFWSetHCSDeadline(PVRSRV_RGXDEV_INFO *psDevInfo,
 		IMG_UINT32 ui32HCSDeadlineMs)
 {
 	PVRSRV_ERROR eError;
-	RGXFWIF_KCCB_CMD	sSetHCSDeadline;
+	RGXFWIF_KCCB_CMD	sSetHCSDeadline = { 0 };
 
 	sSetHCSDeadline.eCmdType                            = RGXFWIF_KCCB_CMD_HCS_SET_DEADLINE;
 	sSetHCSDeadline.uCmdData.sHCSCtrl.ui32HCSDeadlineMS = ui32HCSDeadlineMs;
@@ -4766,7 +4770,7 @@ PVRSRV_ERROR RGXFWSetHCSDeadline(PVRSRV_RGXDEV_INFO *psDevInfo,
 
 PVRSRV_ERROR RGXFWHealthCheckCmd(PVRSRV_RGXDEV_INFO *psDevInfo)
 {
-	RGXFWIF_KCCB_CMD	sCmpKCCBCmd;
+	RGXFWIF_KCCB_CMD	sCmpKCCBCmd = { 0 };
 
 	sCmpKCCBCmd.eCmdType = RGXFWIF_KCCB_CMD_HEALTH_CHECK;
 
@@ -4781,7 +4785,7 @@ PVRSRV_ERROR RGXFWSetOSIsolationThreshold(PVRSRV_RGXDEV_INFO *psDevInfo,
 		IMG_UINT32 ui32IsolationPriorityThreshold)
 {
 	PVRSRV_ERROR eError;
-	RGXFWIF_KCCB_CMD	sOSidIsoConfCmd;
+	RGXFWIF_KCCB_CMD	sOSidIsoConfCmd = { 0 };
 
 	sOSidIsoConfCmd.eCmdType = RGXFWIF_KCCB_CMD_OS_ISOLATION_GROUP_CHANGE;
 	sOSidIsoConfCmd.uCmdData.sCmdOSidIsolationData.ui32IsolationPriorityThreshold = ui32IsolationPriorityThreshold;
@@ -4807,7 +4811,7 @@ PVRSRV_ERROR RGXFWSetFwOsState(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32OSi
                                RGXFWIF_OS_STATE_CHANGE eOSOnlineState)
 {
 	PVRSRV_ERROR             eError = PVRSRV_OK;
-	RGXFWIF_KCCB_CMD         sOSOnlineStateCmd;
+	RGXFWIF_KCCB_CMD         sOSOnlineStateCmd = { 0 };
 	RGXFWIF_SYSDATA          *psFwSysData = psDevInfo->psRGXFWIfFwSysData;
 	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
 
@@ -4882,7 +4886,7 @@ PVRSRV_ERROR RGXFWChangeOSidPriority(PVRSRV_RGXDEV_INFO *psDevInfo,
 		IMG_UINT32 ui32Priority)
 {
 	PVRSRV_ERROR eError;
-	RGXFWIF_KCCB_CMD	sOSidPriorityCmd;
+	RGXFWIF_KCCB_CMD	sOSidPriorityCmd = { 0 };
 
 	sOSidPriorityCmd.eCmdType = RGXFWIF_KCCB_CMD_OSID_PRIORITY_CHANGE;
 	sOSidPriorityCmd.uCmdData.sCmdOSidPriorityData.ui32OSidNum = ui32OSid;
@@ -4913,7 +4917,7 @@ PVRSRV_ERROR ContextSetPriority(RGX_SERVER_COMMON_CONTEXT *psContext,
 {
 	IMG_UINT32				ui32CmdSize;
 	IMG_UINT8				*pui8CmdPtr;
-	RGXFWIF_KCCB_CMD		sPriorityCmd;
+	RGXFWIF_KCCB_CMD		sPriorityCmd = { 0 };
 	RGXFWIF_CCB_CMD_HEADER	*psCmdHeader;
 	RGXFWIF_CMD_PRIORITY	*psCmd;
 	PVRSRV_ERROR			eError;
@@ -5010,7 +5014,7 @@ PVRSRV_ERROR RGXFWConfigPHR(PVRSRV_RGXDEV_INFO *psDevInfo,
                             IMG_UINT32 ui32PHRMode)
 {
 	PVRSRV_ERROR eError;
-	RGXFWIF_KCCB_CMD sCfgPHRCmd;
+	RGXFWIF_KCCB_CMD sCfgPHRCmd = { 0 };
 
 	sCfgPHRCmd.eCmdType = RGXFWIF_KCCB_CMD_PHR_CFG;
 	sCfgPHRCmd.uCmdData.sPeriodicHwResetCfg.ui32PHRMode = ui32PHRMode;
@@ -5849,8 +5853,10 @@ PVRSRV_ERROR RGXFwRawHeapAllocMap(PVRSRV_DEVICE_NODE *psDeviceNode,
 
 	PDUMPCOMMENT("Allocate and map raw firmware heap for OSID: [%d]", ui32OSID);
 
+#if (RGX_NUM_OS_SUPPORTED > 1)
 	/* don't clear the heap of other guests on allocation */
 	ui32RawFwHeapAllocFlags &= (ui32OSID > RGXFW_HOST_OS) ? (~PVRSRV_MEMALLOCFLAG_ZERO_ON_ALLOC) : (~0);
+#endif
 
 	/* if the firmware is already powered up, consider the firmware heaps are pre-mapped. */
 	if (psDeviceNode->bAutoVzFwIsUp)
