@@ -306,7 +306,7 @@ static ssize_t tmem_write(struct file *file, const char __user *buffer,
 			  size_t count, loff_t *data)
 {
 	char desc[32];
-	int len = 0;
+	unsigned int len = 0;
 	long cmd;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
