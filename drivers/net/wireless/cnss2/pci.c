@@ -1623,6 +1623,17 @@ static void cnss_pci_dump_misc_reg(struct cnss_pci_data *pci_priv)
 			       pci_priv->wlaon_reg_size, "wlaon");
 }
 
+static void cnss_pci_dump_mhi_reg(struct cnss_pci_data *pci_priv)
+{
+	if (in_interrupt() || irqs_disabled())
+		return;
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	mhi_debug_reg_dump(pci_priv->mhi_ctrl);
+}
+
 static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 {
 	int i, j = 0, array_size = SHADOW_REG_COUNT + SHADOW_REG_INTER_COUNT;
@@ -4383,6 +4394,14 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 		plat_priv->use_fw_path_with_prefix = false;
 		cnss_pci_update_fw_name(pci_priv);
 		return;
+	case MHI_CB_BOOTUP_TIMEOUT:
+		if (plat_priv->device_id == QCA6490_DEVICE_ID) {
+			cnss_pci_dump_bl_sram_mem(pci_priv);
+			cnss_pci_dump_mhi_reg(pci_priv);
+		} else if (plat_priv->device_id == QCA6390_DEVICE_ID) {
+			cnss_pci_dump_mhi_reg(pci_priv);
+		}
+		break;
 	default:
 		cnss_pr_err("Unsupported MHI status cb reason: %d\n", reason);
 		return;
