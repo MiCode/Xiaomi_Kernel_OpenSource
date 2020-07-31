@@ -29,7 +29,8 @@
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6885) || \
 	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT8168) || \
-	defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT6873)
+	defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT6873) || \
+	defined(CONFIG_MACH_MT6893)
 
 #include <mtk_leds_drv.h>
 #else
@@ -61,7 +62,8 @@
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) | \
+	defined(CONFIG_MACH_MT6893)
 #include <ddp_clkmgr.h>
 #endif
 #endif
@@ -85,7 +87,7 @@
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
 	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
 #define AAL0_MODULE_NAMING (DISP_MODULE_AAL0)
 #else
 #define AAL0_MODULE_NAMING (DISP_MODULE_AAL)
@@ -97,7 +99,7 @@
 	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6885) || \
 	defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
 #define AAL0_CLK_NAMING (DISP0_DISP_AAL0)
 #else
 #define AAL0_CLK_NAMING (DISP0_DISP_AAL)
@@ -110,7 +112,8 @@
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
+	defined(CONFIG_MACH_MT6893)
 #define AAL_SUPPORT_PARTIAL_UPDATE
 #endif
 
@@ -1774,7 +1777,7 @@ static int disp_aal_write_dre_to_reg(enum DISP_MODULE_ENUM module,
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
 	DISP_REG_MASK(cmdq, DISP_AAL_DRE_FLT_FORCE(0) + offset,
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
 	DISP_REG_MASK(cmdq, DISP_AAL_DRE_FLT_FORCE(1) + offset,
@@ -2026,7 +2029,8 @@ static int aal_config(enum DISP_MODULE_ENUM module,
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
+	defined(CONFIG_MACH_MT6893)
 #define DRE_FLT_NUM	(13)
 #elif defined(CONFIG_MACH_MT6799) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6779)
@@ -2125,7 +2129,7 @@ static void ddp_aal_dre_backup(void)
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
 	g_aal_backup.DRE_FLT_FORCE[11] =
 		DISP_REG_GET(DISP_AAL_DRE_FLT_FORCE_11);
 	g_aal_backup.DRE_FLT_FORCE[12] =
@@ -2241,7 +2245,8 @@ static void ddp_aal_dre_restore(enum DISP_MODULE_ENUM module, void *cmq_handle)
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT8168) || \
-	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
+	defined(CONFIG_MACH_MT6893)
 	DISP_REG_SET(cmq_handle, DISP_AAL_DRE_FLT_FORCE_11 + offset,
 	    g_aal_backup.DRE_FLT_FORCE[11]);
 	DISP_REG_SET(cmq_handle, DISP_AAL_DRE_FLT_FORCE_12 + offset,
@@ -2310,7 +2315,8 @@ static int aal_clock_on(enum DISP_MODULE_ENUM module, void *cmq_handle)
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT8168) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
+	defined(CONFIG_MACH_MT6893)
 
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #else
@@ -2371,7 +2377,8 @@ static int aal_clock_off(enum DISP_MODULE_ENUM module, void *cmq_handle)
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
 	defined(CONFIG_MACH_MT8168) || defined(CONFIG_MACH_MT6768) || \
 	defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) || \
-	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
+	defined(CONFIG_MACH_MT6893)
 
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 #else

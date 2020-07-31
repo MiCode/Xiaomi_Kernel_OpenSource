@@ -65,19 +65,11 @@ ifeq ($(CONFIG_MACH_MT6767),y)
   ccflags-y += -DPLATFORM_MT6768
 endif
 
-ifeq ($(CONFIG_MACH_MT6885),y)
+ifeq (y, $(filter y,$(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6893)))
   ccflags-y += -DJPEG_HYBRID_DEC_DRIVER
 endif
 
-ifneq ($(CONFIG_MACH_MT6885),y)
-  ccflags-y += -DJPEG_ENC_DRIVER
-endif
-
-ifeq ($(CONFIG_MACH_MT6893),y)
-  ccflags-y += -DJPEG_HYBRID_DEC_DRIVER
-endif
-
-ifneq ($(CONFIG_MACH_MT6893),y)
+ifeq (,$(filter y,$(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6893)))
   ccflags-y += -DJPEG_ENC_DRIVER
 endif
 
