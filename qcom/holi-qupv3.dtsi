@@ -28,6 +28,7 @@
 		iommus = <&apps_smmu 0x0003 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
 		qcom,iommu-dma = "fastmap";
+		status = "ok";
 	};
 
 	/* GPI Instance */
@@ -174,6 +175,7 @@
 		iommus = <&apps_smmu 0x00c3 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
 		qcom,iommu-dma = "fastmap";
+		status = "ok";
 	};
 
 	/* GPI Instance */
