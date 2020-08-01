@@ -380,3 +380,10 @@
 		#clock-cells = <1>;
 	};
 };
+
+&adsp_loader {
+	nvmem-cells = <&adsp_variant>;
+	nvmem-cell-names = "adsp_variant";
+	adsp-fw-names = "adsp2";
+	adsp-fw-bit-values = <0xE>;
+};

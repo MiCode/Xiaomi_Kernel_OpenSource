@@ -2354,6 +2354,11 @@
 		read-only;
 		ranges;
 
+		adsp_variant: adsp_variant@1E6 {
+			reg = <0x1E6 0x2>;
+			bits = <6 9>;
+		};
+
 		feat_conf8: feat_conf8@6024 {
 			reg = <0x6024 0x2>;
 			bits = <21 1>;
