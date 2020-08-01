@@ -235,6 +235,11 @@ extern int __qcom_scm_qseecom_do(struct device *dev, u32 cmd_id,
 #define QCOM_SCM_TSENS_INIT_ID		0x5
 extern int __qcom_scm_tsens_reinit(struct device *dev, int *tsens_ret);
 
+// OEM Services and Function IDs
+#define QCOM_SCM_SVC_OEM_POWER		0x09
+#define QCOM_SCM_OEM_POWER_REBOOT	0x22
+extern int __qcom_scm_reboot(struct device *dev);
+
 // TOS Services and Function IDs
 #define QCOM_SCM_SVC_QSEELOG		0x01
 #define QCOM_SCM_QSEELOG_REGISTER	0x06

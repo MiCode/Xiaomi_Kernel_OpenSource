@@ -783,13 +783,23 @@ config QCOM_WATCHDOG
           not catch any early lockups.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
-	bool "QCOM force watchdog bite"
+	bool "QCOM force watchdog bite on panic"
 	depends on QCOM_WATCHDOG
 	help
 	  This forces a watchdog bite when the device restarts
 	  due to a kernel panic. On certain MSM SoCs,
 	  this provides additional debugging
 	  information.
+
+config QCOM_WDOG_BITE_EARLY_PANIC
+	bool "QCOM early panic watchdog bite"
+	depends on QCOM_WATCHDOG && QCOM_FORCE_WDOG_BITE_ON_PANIC
+	help
+	  This forces a watchdog bite early in panic sequence. On certain
+	  MSM SoCs, this provides us additional debugging information at the
+	  context of the crash. If this option is disabled, then bite occurs
+	  later in panic, which permits more of the restart sequence to run
+	  (e.g. more dmesg to flushed to console).
 
 config MSM_SPCOM
          depends on QCOM_GLINK
