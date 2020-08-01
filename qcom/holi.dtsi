@@ -2224,6 +2224,127 @@
 					  "qcom,smp2p-early-crash-ind";
 		};
 	};
+
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-platform-type-msm;
+		qcom,ipa-advertise-sg-support;
+		qcom,ipa-napi-enable;
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_fw_mem>;
+	};
+
+	ipa_hw: qcom,ipa@0x5800000 {
+		compatible = "qcom,ipa";
+		reg = <0x5800000 0x84000>,
+			<0x5804000 0x23000>;
+		reg-names = "ipa-base", "gsi-base";
+		interrupts = <0 257 0>, <0 259 0>;
+		interrupt-names = "ipa-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <20>; /* IPA core version = IPAv4.11 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,platform-type = <1>; /* MSM platform */
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi2_over_gsi;
+		qcom,arm-smmu;
+		qcom,use-64-bit-dma-mask;
+		qcom,lan-rx-napi;
+		qcom,wan-use-skb-page;
+		qcom,rmnet-ctl-enable;
+		qcom,tx-wrapper-cache-max-size = <400>;
+		clock-names = "core_clk";
+		clocks = <&rpmcc RPM_SMD_IPA_CLK>;
+		qcom,interconnect,num-cases = <5>;
+		qcom,interconnect,num-paths = <3>;
+		interconnects = <&system_noc MASTER_IPA &bimc SLAVE_EBI>,
+			<&system_noc MASTER_IPA &system_noc SLAVE_OCIMEM>,
+			<&bimc MASTER_AMPSS_M0 &config_noc SLAVE_IPA_CFG>;
+		interconnect-names = "ipa_to_ebi1", "ipa_to_imem", "appss_to_ipa";
+		/* No vote */
+		qcom,no-vote =
+		<0 0 0 0 0 0>;
+
+		/* SVS2 */
+		qcom,svs2 =
+		<80000 465000 80000 68570 80000 30>;
+
+		/* SVS */
+		qcom,svs =
+		<80000 2000000 80000 267461 80000 109890>;
+
+		/* NOMINAL */
+		qcom,nominal =
+		<206000 4000000 206000 712961 206000 491520>;
+
+		/* TURBO */
+		qcom,turbo =
+		<206000 5598900 206000 1436481 206000 491520>;
+
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+			"TURBO";
+
+		qcom,throughput-threshold = <310 600 1000>;
+		qcom,scaling-exceptions = <>;
+
+		/* smp2p information */
+		qcom,smp2p_map_ipa_1_out {
+			compatible = "qcom,smp2p-map-ipa-1-out";
+			qcom,smem-states = <&smp2p_ipa_1_out 0>;
+			qcom,smem-state-names = "ipa-smp2p-out";
+		};
+
+		qcom,smp2p_map_ipa_1_in {
+			compatible = "qcom,smp2p-map-ipa-1-in";
+			interrupts-extended = <&smp2p_ipa_1_in 0 0>;
+			interrupt-names = "ipa-smp2p-in";
+		};
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			iommus = <&apps_smmu 0x04A0 0x0>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
+			qcom,additional-mapping =
+			/* modem tables in IMEM */
+			<0x0C123000 0x0C123000 0x2000>;
+			dma-coherent;
+			qcom,iommu-dma = "bypass";
+			qcom,ipa-q6-smem-size = <36864>;
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			iommus = <&apps_smmu 0x04A1 0x0>;
+			qcom,iommu-dma = "bypass";
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			iommus = <&apps_smmu 0x04A2 0x0>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
+			qcom,iommu-dma = "bypass";
+		};
+
+		ipa_smmu_11ad: ipa_smmu_11ad {
+			compatible = "qcom,ipa-smmu-11ad-cb";
+			iommus = <&apps_smmu 0x04A3 0x0>;
+			dma-coherent;
+			qcom,shared-cb;
+			qcom,iommu-group = <>;
+		};
+	};
 };
 
 #define PMK8350_SID	6
