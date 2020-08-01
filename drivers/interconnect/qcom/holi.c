@@ -375,6 +375,17 @@ static struct qcom_icc_node xm_ufs_mem = {
 	.links = { A1NOC_SNOC_SLV },
 };
 
+static struct qcom_icc_node xm_usb3_0 = {
+	.name = "xm_usb3_0",
+	.id = MASTER_USB3_0,
+	.channels = 1,
+	.buswidth = 8,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = -1,
+	.num_links = 1,
+	.links = { A1NOC_SNOC_SLV },
+};
+
 static struct qcom_icc_node mas_crypto_c0 = {
 	.name = "mas_crypto_c0",
 	.id = MASTER_CRYPTO_CORE0,
@@ -1127,6 +1138,7 @@ static struct qcom_icc_node *sys_noc_nodes[] = {
 	[MASTER_QDSS_BAM] = &qhm_qdss_bam,
 	[MASTER_IPA] = &qxm_ipa,
 	[MASTER_QDSS_ETR] = &xm_qdss_etr,
+	[MASTER_USB3_0] = &xm_usb3_0,
 	[SLAVE_APPSS] = &qhs_apss,
 	[SNOC_CNOC_SLV] = &slv_snoc_cnoc,
 	[SLAVE_OCIMEM] = &qxs_imem,
