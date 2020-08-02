@@ -40,6 +40,7 @@
 #include <linux/reset.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/role.h>
+#include <linux/usb/redriver.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -3985,6 +3986,7 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 	struct dwc3 *dwc = NULL;
+	struct device_node *ssusb_redriver_node;
 
 	if (mdwc == NULL) {
 		dev_err(dev, "dwc3-msm is not initialized yet.\n");
@@ -4001,6 +4003,10 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 	/* flush any pending work */
 	flush_work(&mdwc->resume_work);
 	drain_workqueue(mdwc->sm_usb_wq);
+
+	ssusb_redriver_node =
+		of_parse_phandle(mdwc->dev->of_node, "ssusb_redriver", 0);
+	redriver_release_usb_lanes(ssusb_redriver_node);
 
 	mdwc->ss_release_called = true;
 	if (mdwc->id_state == DWC3_ID_GROUND) {
