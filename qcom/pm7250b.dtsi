@@ -1,3 +1,4 @@
+#include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
@@ -28,6 +29,8 @@
 			compatible = "qcom,spmi-temp-alarm";
 			reg = <0x2400>;
 			interrupts = <0x2 0x24 0x0 IRQ_TYPE_EDGE_BOTH>;
+			io-channels = <&pm7250b_vadc ADC5_DIE_TEMP>;
+			io-channel-names = "thermal";
 			#thermal-sensor-cells = <0>;
 			qcom,temperature-threshold-set = <1>;
 		};

@@ -125,3 +125,7 @@
 &qupv3_se9_2uart {
 	qcom,rumi_platform;
 };
+
+&qupv3_se10_i2c {
+	 status = "disabled";
+};
