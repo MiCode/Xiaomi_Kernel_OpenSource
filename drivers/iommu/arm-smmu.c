@@ -1914,7 +1914,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		&smmu_domain->pgtbl_info[1];
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	unsigned long quirks = 0;
-	struct iommu_group *group;
 	struct io_pgtable *iop;
 	bool split_tables = false;
 
@@ -2090,10 +2089,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		}
 	}
 
-	group = iommu_group_get_for_dev(smmu_domain->dev);
 	iop = container_of(smmu_domain->pgtbl_ops[0], struct io_pgtable, ops);
-	ret = iommu_logger_register(&smmu_domain->logger, domain, group, iop);
-	iommu_group_put(group);
+	ret = iommu_logger_register(&smmu_domain->logger, domain, dev, iop);
 	if (ret)
 		goto out_clear_smmu;
 
