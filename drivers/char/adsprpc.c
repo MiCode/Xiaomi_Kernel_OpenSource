@@ -1627,7 +1627,8 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	unsigned long irq_flags = 0;
 
 	spin_lock(&fl->hlock);
-	if (fl->clst.num_active_ctxs > MAX_PENDING_CTX_PER_SESSION) {
+	if (fl->clst.num_active_ctxs > MAX_PENDING_CTX_PER_SESSION &&
+		!(kernel || invoke->handle < FASTRPC_STATIC_HANDLE_MAX)) {
 		err = -EDQUOT;
 		spin_unlock(&fl->hlock);
 		goto bail;
