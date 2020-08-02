@@ -2571,6 +2571,32 @@
 			};
 		};
 	};
+
+	bluetooth: bt_qca6490 {
+		compatible = "qcom,qca6490";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpio = <&tlmm 65 0>; /* BT_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 66 0>; /* SW_CTRL */
+
+		qcom,bt-vdd-io-supply = <&S10B>;
+		qcom,bt-vdd-aon-supply = <&S2C>;
+		qcom,bt-vdd-dig-supply = <&S2C>;
+		qcom,bt-vdd-rfacmn-supply = <&S2C>;
+		qcom,bt-vdd-rfa-0p8-supply = <&S2C>;
+		qcom,bt-vdd-rfa1-supply = <&S11B>;
+		qcom,bt-vdd-rfa2-supply = <&S12B>;
+		qcom,bt-vdd-asd-supply = <&L11C>;
+
+		qcom,bt-vdd-io-config = <1800000 1800000 0 1>;
+		qcom,bt-vdd-aon-config = <950000 952000 0 1>;
+		qcom,bt-vdd-dig-config = <950000 952000 0 1>;
+		qcom,bt-vdd-rfacmn-config  = <950000 952000 0 1>;
+		qcom,bt-vdd-rfa-0p8-config  = <950000 952000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1880000 1880000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
+		qcom,bt-vdd-asd-config = <2800000 2800000 0 1>;
+	};
 };
 
 #include "shima-pinctrl.dtsi"
@@ -2779,6 +2805,11 @@
 		vio-supply = <&S10B>;
 		rtc6226,vio-supply-voltage = <1800000 1800000 >;
 	};
+};
+
+/* HS UART */
+&qupv3_se15_4uart {
+	status = "ok";
 };
 
 #include "msm-rdbg.dtsi"
