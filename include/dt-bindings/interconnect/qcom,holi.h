@@ -37,6 +37,7 @@
 #define MASTER_QDSS_BAM				28
 #define MASTER_IPA				29
 #define MASTER_QDSS_ETR				30
+#define MASTER_USB3_0				31
 
 #define SLAVE_EBI				512
 #define BIMC_SNOC_SLV				513

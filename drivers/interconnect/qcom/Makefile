@@ -9,7 +9,7 @@ qnoc-shima-objs				:= shima.o
 icc-smd-rpm-objs			:= smd-rpm.o
 icc-bcm-voter-objs			:= bcm-voter.o
 icc-rpmh-obj				:= icc-rpmh.o
-icc-rpm-objs			:= icc-rpm.o
+icc-rpm-obj			:= icc-rpm.o
 
 obj-$(CONFIG_INTERCONNECT_QCOM_HOLI) += qnoc-holi.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QCS404) += qnoc-qcs404.o
