@@ -497,8 +497,10 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 
 	speed = dwc3_msm_read_reg(mdwc->base, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
 	if ((speed & DWC3_DSTS_SUPERSPEED) ||
-			(speed & DWC3_DSTS_SUPERSPEED_PLUS))
+			(speed & DWC3_DSTS_SUPERSPEED_PLUS)) {
+		mdwc->ss_phy->flags |= DEVICE_IN_SS_MODE;
 		return true;
+	}
 
 	return false;
 }
