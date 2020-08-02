@@ -33,7 +33,7 @@ struct firmware_info {
 };
 
 static const struct firmware_info firmware_table[] = {
-	{.dev_id = 0x308, .fw_image = "sdx65m/sbl1.mbn",
+	{.dev_id = 0x308, .fw_image = "sdx65m/xbl.elf",
 	 .edl_image = "sdx65m/edl.mbn"},
 	{.dev_id = 0x307, .fw_image = "sdx60m/sbl1.mbn",
 	 .edl_image = "sdx60m/edl.mbn"},
