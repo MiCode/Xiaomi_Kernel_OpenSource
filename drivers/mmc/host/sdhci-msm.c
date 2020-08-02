@@ -430,6 +430,10 @@ struct sdhci_msm_host {
 	struct workqueue_struct *workq;	/* QoS work queue */
 	struct sdhci_msm_qos_req *sdhci_qos;
 	struct irq_affinity_notify affinity_notify;
+	struct device_attribute clk_gating;
+	struct device_attribute pm_qos;
+	u32 clk_gating_delay;
+	u32 pm_qos_delay;
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -3417,6 +3421,101 @@ out_vote_err:
 	msm_host->sdhci_qos = NULL;
 }
 
+static ssize_t show_sdhci_msm_clk_gating(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", msm_host->clk_gating_delay);
+}
+
+static ssize_t store_sdhci_msm_clk_gating(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	uint32_t value;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		msm_host->clk_gating_delay = value;
+		dev_info(dev, "set clk scaling work delay (%u)\n", value);
+	}
+
+	return count;
+}
+
+static ssize_t show_sdhci_msm_pm_qos(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", msm_host->pm_qos_delay);
+}
+
+static ssize_t store_sdhci_msm_pm_qos(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	uint32_t value;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		msm_host->pm_qos_delay = value;
+		dev_info(dev, "set pm qos work delay (%u)\n", value);
+	}
+
+	return count;
+}
+
+static void sdhci_msm_init_sysfs_gating_qos(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+
+	msm_host->clk_gating.show = show_sdhci_msm_clk_gating;
+	msm_host->clk_gating.store = store_sdhci_msm_clk_gating;
+	sysfs_attr_init(&msm_host->clk_gating.attr);
+	msm_host->clk_gating.attr.name = "clk_gating";
+	msm_host->clk_gating.attr.mode = 0644;
+	ret = device_create_file(dev, &msm_host->clk_gating);
+	if (ret) {
+		pr_err("%s: %s: failed creating clk gating attr: %d\n",
+				mmc_hostname(host->mmc), __func__, ret);
+	}
+
+	msm_host->pm_qos.show = show_sdhci_msm_pm_qos;
+	msm_host->pm_qos.store = store_sdhci_msm_pm_qos;
+	sysfs_attr_init(&msm_host->pm_qos.attr);
+	msm_host->pm_qos.attr.name = "pm_qos";
+	msm_host->pm_qos.attr.mode = 0644;
+	ret = device_create_file(dev, &msm_host->pm_qos);
+	if (ret) {
+		pr_err("%s: %s: failed creating pm qos attr: %d\n",
+				mmc_hostname(host->mmc), __func__, ret);
+	}
+}
+
+static void sdhci_msm_setup_pm(struct platform_device *pdev,
+			struct sdhci_msm_host *msm_host)
+{
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	if (!(msm_host->mmc->caps & MMC_CAP_SYNC_RUNTIME_PM)) {
+		pm_runtime_set_autosuspend_delay(&pdev->dev,
+					 MSM_MMC_AUTOSUSPEND_DELAY_MS);
+		pm_runtime_use_autosuspend(&pdev->dev);
+	}
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -3657,14 +3756,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 #if defined(CONFIG_SDC_QTI)
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 #endif
-	pm_runtime_get_noresume(&pdev->dev);
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	if (!(msm_host->mmc->caps & MMC_CAP_SYNC_RUNTIME_PM)) {
-		pm_runtime_set_autosuspend_delay(&pdev->dev,
-					 MSM_MMC_AUTOSUSPEND_DELAY_MS);
-		pm_runtime_use_autosuspend(&pdev->dev);
-	}
+	sdhci_msm_setup_pm(pdev, msm_host);
 
 	host->mmc_host_ops.execute_tuning = sdhci_msm_execute_tuning;
 
@@ -3672,8 +3764,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (!msm_host->workq)
 		dev_err(&pdev->dev, "Generic swq creation failed\n");
 
+	msm_host->clk_gating_delay = MSM_CLK_GATING_DELAY_MS;
+	msm_host->pm_qos_delay = MSM_PMQOS_UNVOTING_DELAY_MS;
 	/* Initialize pmqos */
 	sdhci_msm_qos_init(msm_host);
+	/* Initialize sysfs entries */
+	sdhci_msm_init_sysfs_gating_qos(dev);
 
 	if (of_property_read_bool(node, "supports-cqe"))
 		ret = sdhci_msm_cqe_add_host(host, pdev);
@@ -3779,12 +3875,12 @@ static __maybe_unused int sdhci_msm_runtime_suspend(struct device *dev)
 		goto skip_qos;
 	queue_delayed_work(msm_host->workq,
 			&msm_host->pmqos_unvote_work,
-			msecs_to_jiffies(MSM_PMQOS_UNVOTING_DELAY_MS));
+			msecs_to_jiffies(msm_host->pm_qos_delay));
 
 skip_qos:
 	queue_delayed_work(msm_host->workq,
 			&msm_host->clk_gating_work,
-			msecs_to_jiffies(MSM_CLK_GATING_DELAY_MS));
+			msecs_to_jiffies(msm_host->clk_gating_delay));
 
 	return 0;
 }
