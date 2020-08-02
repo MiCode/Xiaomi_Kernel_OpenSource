@@ -2383,6 +2383,7 @@
 #include "holi-thermal.dtsi"
 #include "holi-pinctrl.dtsi"
 #include "holi-qupv3.dtsi"
+#include "display/holi-sde.dtsi"
 #include "holi-audio.dtsi"
 
 &gcc_camss_top_gdsc {
