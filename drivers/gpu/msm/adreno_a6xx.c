@@ -647,27 +647,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 }
 
 /*
- * a6xx_microcode_load() - Load microcode
- * @adreno_dev: Pointer to adreno device
- */
-static int a6xx_microcode_load(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
-	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	uint64_t gpuaddr;
-
-	gpuaddr = fw->memdesc->gpuaddr;
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
-				lower_32_bits(gpuaddr));
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
-				upper_32_bits(gpuaddr));
-
-	return adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
-}
-
-
-/*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
  * be used at once of if they should be serialized
  */
@@ -862,6 +841,8 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 
 int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	uint64_t addr;
@@ -900,14 +881,21 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
-	ret = a6xx_microcode_load(adreno_dev);
-	if (ret)
-		return ret;
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
+			lower_32_bits(fw->memdesc->gpuaddr));
+
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
+			upper_32_bits(fw->memdesc->gpuaddr));
 
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 
 	ret = a6xx_send_cp_init(adreno_dev, rb);
+	if (ret)
+		return ret;
+
+	ret = adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
 	if (ret)
 		return ret;
 
@@ -917,11 +905,11 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	 */
 	if (!adreno_dev->zap_loaded)
 		kgsl_regwrite(device, A6XX_RBBM_SECVID_TRUST_CNTL, 0);
-	else
+	else {
 		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
-
-	if (ret)
-		return ret;
+		if (ret)
+			return ret;
+	}
 
 	return a6xx_post_start(adreno_dev);
 }

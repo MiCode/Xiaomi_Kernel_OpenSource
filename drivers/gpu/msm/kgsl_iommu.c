@@ -438,50 +438,6 @@ struct _mem_entry {
 	char name[32];
 };
 
-static void _get_global_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
-		struct _mem_entry *prev,
-		struct _mem_entry *next)
-{
-	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
-	struct kgsl_global_memdesc *p = NULL, *n = NULL, *md;
-	uint64_t prevaddr = 0;
-	uint64_t nextaddr = (uint64_t) -1;
-
-	list_for_each_entry(md, &device->globals, node) {
-		struct kgsl_memdesc *memdesc = &md->memdesc;
-		u64 addr;
-
-		addr = memdesc->gpuaddr;
-		if ((addr < faultaddr) && (addr > prevaddr)) {
-			prevaddr = addr;
-			p = md;
-		}
-
-		if ((addr > faultaddr) && (addr < nextaddr)) {
-			nextaddr = addr;
-			n = md;
-		}
-	}
-
-	if (p != NULL) {
-		prev->gpuaddr = p->memdesc.gpuaddr;
-		prev->size = p->memdesc.size;
-		prev->flags = p->memdesc.flags;
-		prev->priv = p->memdesc.priv;
-		prev->pid = 0;
-		strlcpy(prev->name, p->name, sizeof(prev->name));
-	}
-
-	if (n != NULL) {
-		next->gpuaddr = n->memdesc.gpuaddr;
-		next->size = n->memdesc.size;
-		next->flags = n->memdesc.flags;
-		next->priv = n->memdesc.priv;
-		next->pid = 0;
-		strlcpy(next->name, n->name, sizeof(next->name));
-	}
-}
-
 static void _get_entries(struct kgsl_process_private *private,
 		uint64_t faultaddr, struct _mem_entry *prev,
 		struct _mem_entry *next)
@@ -542,9 +498,7 @@ static void _find_mem_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
 	/* Set the maximum possible size as an initial value */
 	nextentry->gpuaddr = (uint64_t) -1;
 
-	if (ADDR_IN_GLOBAL(mmu, faultaddr)) {
-		_get_global_entries(mmu, faultaddr, preventry, nextentry);
-	} else if (private) {
+	if (private) {
 		spin_lock(&private->mem_lock);
 		_get_entries(private, faultaddr, preventry, nextentry);
 		spin_unlock(&private->mem_lock);
@@ -737,26 +691,35 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		if (!(flags & IOMMU_FAULT_PERMISSION)) {
 			_check_if_freed(ctx, addr, ptname);
 
-			dev_err(ctx->kgsldev->dev,
+			/*
+			 * Don't print any debug information if the address is
+			 * in the global region. These are rare and nobody needs
+			 * to know the addresses that are in here
+			 */
+			if (ADDR_IN_GLOBAL(mmu, addr)) {
+				dev_err(ctx->kgsldev->dev, "Fault in global memory\n");
+			} else {
+				dev_err(ctx->kgsldev->dev,
 				      "---- nearby memory ----\n");
 
-			_find_mem_entries(mmu, addr, &prev, &next, private);
-			if (prev.gpuaddr)
-				_print_entry(ctx->kgsldev, &prev);
-			else
-				dev_err(ctx->kgsldev->dev, "*EMPTY*\n");
+				_find_mem_entries(mmu, addr, &prev, &next,
+					private);
+				if (prev.gpuaddr)
+					_print_entry(ctx->kgsldev, &prev);
+				else
+					dev_err(ctx->kgsldev->dev, "*EMPTY*\n");
 
-			dev_err(ctx->kgsldev->dev,
+				dev_err(ctx->kgsldev->dev,
 				      " <- fault @ %8.8lX\n",
 				      addr);
 
-			if (next.gpuaddr != (uint64_t) -1)
-				_print_entry(ctx->kgsldev, &next);
-			else
-				dev_err(ctx->kgsldev->dev, "*EMPTY*\n");
+				if (next.gpuaddr != (uint64_t) -1)
+					_print_entry(ctx->kgsldev, &next);
+				else
+					dev_err(ctx->kgsldev->dev, "*EMPTY*\n");
+			}
 		}
 	}
-
 
 	/*
 	 * We do not want the h/w to resume fetching data from an iommu
@@ -1059,6 +1022,7 @@ static void _free_pt(struct kgsl_iommu_context *ctx, struct kgsl_pagetable *pt)
 static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu,
 		struct iommu_domain *domain)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	int attr, ret;
 	u32 val = 1;
 
@@ -1072,12 +1036,10 @@ static void _enable_gpuhtw_llc(struct kgsl_mmu *mmu,
 
 	ret = iommu_domain_set_attr(domain, attr, &val);
 
-	/*
-	 * Warn once if the system cache will not be used for GPU
-	 * pagetable walks. This is not a fatal error.
-	 */
-	WARN_ONCE(ret, "System cache not enabled for GPU pagetable walks: %d\n",
-		ret);
+	/* Print a one time error message if system cache isn't enabled */
+	if (ret)
+		dev_err_once(device->dev,
+			"System cache no-write-alloc is disabled for GPU pagetables\n");
 }
 
 static int set_smmu_aperture(struct kgsl_device *device, int cb_num)
@@ -1302,9 +1264,15 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	ret = iommu_domain_set_attr(iommu_pt->domain,
 				DOMAIN_ATTR_DYNAMIC, &dynamic);
+
+	/*
+	 * If -ENOTSUPP then dynamic pagetables aren't supported. Quietly
+	 * return the error and the upper levels will handle it
+	 */
 	if (ret) {
-		dev_err(device->dev,
-			"set DOMAIN_ATTR_DYNAMIC failed: %d\n", ret);
+		if (ret != -ENOTSUPP)
+			dev_err(device->dev,
+				"set DOMAIN_ATTR_DYNAMIC failed: %d\n", ret);
 		goto done;
 	}
 
@@ -1383,6 +1351,7 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 		unsigned long name)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_pagetable *pt;
 
 	if (!kgsl_mmu_is_perprocess(mmu) && (name != KGSL_MMU_SECURE_PT) &&
@@ -1393,8 +1362,22 @@ static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 	}
 
 	pt = kgsl_get_pagetable(name);
-	if (pt == NULL)
+	if (pt == NULL) {
 		pt = kgsl_mmu_createpagetableobject(mmu, name);
+
+		/*
+		 * Special fallback case -if we get ENOTSUPP that means that
+		 * per-process pagetables are not supported by arm-smmu. This
+		 * should happen on the first try so we safely set the global
+		 * pagetable bit and avoid going down this path again
+		 */
+		if (PTR_ERR_OR_ZERO(pt) == -ENOTSUPP) {
+			dev_err_once(device->dev,
+				"Couldn't enable per-process pagetables. Default to global pagetables\n");
+			set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
+			return mmu->defaultpagetable;
+		}
+	}
 
 	return pt;
 }

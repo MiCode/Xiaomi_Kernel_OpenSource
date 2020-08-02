@@ -517,7 +517,7 @@ static void receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd)
 {
 	struct hfi_err_cmd *cmd = rcvd;
 
-	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %s\n",
+	dev_err(&gmu->pdev->dev, "HFI Error Received: %d %d %.16s\n",
 			((cmd->error_code >> 16) & 0xFFFF),
 			(cmd->error_code & 0xFFFF),
 			(char *) cmd->data);
