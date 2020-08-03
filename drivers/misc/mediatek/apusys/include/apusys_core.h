@@ -16,6 +16,8 @@ int edma_init(struct apusys_core_info *info);
 void edma_exit(void);
 int mdla_init(struct apusys_core_info *info);
 void mdla_exit(void);
+int vpu_init(struct apusys_core_info *info);
+void vpu_exit(void);
 int mnoc_init(struct apusys_core_info *info);
 void mnoc_exit(void);
 int mdw_mem_drv_init(struct apusys_core_info *info);
@@ -35,6 +37,9 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	sample_init,
 	edma_init,
 	mdla_init,
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
+	vpu_init,
+#endif
 };
 
 /*
@@ -42,6 +47,9 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
  * call exit function in order at apusys.ko exit stage
  */
 static void (*apusys_exit_func[])(void) = {
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
+	vpu_exit,
+#endif
 	mdla_exit,
 	edma_exit,
 	sample_exit,
