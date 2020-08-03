@@ -99,17 +99,20 @@ dtbo-$(CONFIG_ARCH_SHIMA) +=    \
 	shima-rumi-overlay.dtbo \
 	shima-idp-overlay.dtbo	\
 	shima-atp-overlay.dtbo \
-	shima-qrd-overlay.dtbo
+	shima-qrd-overlay.dtbo \
+	shima-idps-digital-mics-overlay.dtbo
 
 shima-rumi-overlay.dtbo-base := shima.dtb
 shima-idp-overlay.dtbo-base := shima.dtb
 shima-atp-overlay.dtbo-base := shima.dtb
 shima-qrd-overlay.dtbo-base := shima.dtb
+shima-idps-digital-mics-overlay.dtbo-base := shima.dtb
 else
 dtb-$(CONFIG_ARCH_SHIMA) += shima-rumi.dtb  \
 			    shima-idp.dtb   \
 			    shima-atp.dtb \
-			    shima-qrd.dtb
+			    shima-qrd.dtb \
+			    shima-idps-digital-mics.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
