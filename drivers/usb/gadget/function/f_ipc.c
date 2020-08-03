@@ -297,7 +297,7 @@ retry_write_done:
 	/* Notify the GPIO driver to wakeup the host and reintialize the
 	 * completion structure.
 	 */
-	} else if (!ipc_dev->online) {
+	} else if (ipc_dev->connected && !ipc_dev->online) {
 		sb_notifier_call_chain(EVT_WAKE_UP, NULL);
 		reinit_completion(&ipc_dev->write_done);
 		goto retry_write_done;
