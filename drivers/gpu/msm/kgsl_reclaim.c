@@ -59,8 +59,6 @@ static int kgsl_memdesc_get_reclaimed_pages(struct kgsl_mem_entry *entry)
 		return ret;
 
 	memdesc->priv &= ~KGSL_MEMDESC_RECLAIMED;
-	/* Allow reclaim of memdesc again in case vmfault disabled it */
-	memdesc->priv &= ~KGSL_MEMDESC_SKIP_RECLAIM;
 
 	return 0;
 }
