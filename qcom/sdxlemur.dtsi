@@ -339,7 +339,7 @@
 
 	pdc: interrupt-controller@b210000 {
 		compatible = "qcom,sdxlemur-pdc";
-		reg = <0xb210000 0x30000>;
+		reg = <0xb210000 0x10000>;
 		qcom,pdc-ranges = <0 147 52>, <52 266 32>;
 		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
