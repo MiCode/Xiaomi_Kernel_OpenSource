@@ -775,6 +775,9 @@
   alarm_start
   alarmtimer_get_rtcdev
   devm_kasprintf
+  ns_to_timespec64
+  orderly_poweroff
+  power_supply_set_property
   regulator_force_disable
   regulator_set_current_limit
   thermal_zone_get_temp
