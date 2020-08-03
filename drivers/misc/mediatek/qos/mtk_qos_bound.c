@@ -13,7 +13,10 @@
 //#include <sspm_reservedmem.h>
 #include <sspm_reservedmem_define.h>
 
-__weak int dram_steps_freq(unsigned int step) { return 0; }
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+#include <soc/mediatek/dramc.h>
+#endif /* CONFIG_MTK_DRAMC */
+
 
 static int qos_bound_enabled;
 static int qos_bound_stress_enabled;
@@ -73,10 +76,13 @@ unsigned int get_qos_bound_count(void)
 {
 	return qos_bound_count;
 }
+EXPORT_SYMBOL(get_qos_bound_count);
+
 unsigned int *get_qos_bound_buf(void)
 {
 	return qos_bound_buf;
 }
+EXPORT_SYMBOL(get_qos_bound_buf);
 
 void qos_bound_init(void)
 {
@@ -87,10 +93,15 @@ struct qos_bound *get_qos_bound(void)
 {
 	return bound;
 }
+EXPORT_SYMBOL(get_qos_bound);
 
 int get_qos_bound_bw_threshold(int state)
 {
-	int val = dram_steps_freq(0) * 4;
+	int val = 0;
+
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+	val = mtk_dramc_get_steps_freq(0) * QOS_BOUND_EMI_CH * 2;
+#endif
 
 	if (state == QOS_BOUND_BW_FULL)
 		return val * QOS_BOUND_BW_FULL_PCT / 100;
@@ -99,6 +110,7 @@ int get_qos_bound_bw_threshold(int state)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_qos_bound_bw_threshold);
 
 unsigned short get_qos_bound_idx(void)
 {
@@ -107,18 +119,19 @@ unsigned short get_qos_bound_idx(void)
 
 	return bound->idx;
 }
+EXPORT_SYMBOL(get_qos_bound_idx);
 
 int register_qos_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_register(&qos_bound_chain_head, nb);
 }
-EXPORT_SYMBOL_GPL(register_qos_notifier);
+EXPORT_SYMBOL(register_qos_notifier);
 
 int unregister_qos_notifier(struct notifier_block *nb)
 {
 	return blocking_notifier_chain_unregister(&qos_bound_chain_head, nb);
 }
-EXPORT_SYMBOL_GPL(unregister_qos_notifier);
+EXPORT_SYMBOL(unregister_qos_notifier);
 
 int qos_notifier_call_chain(unsigned long val, void *v)
 {
