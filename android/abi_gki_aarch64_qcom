@@ -1084,6 +1084,7 @@
   iio_channel_get
   iio_channel_release
   iio_read_channel_processed
+  iio_write_channel_raw
   import_iovec
   in_egroup_p
   init_dummy_netdev
