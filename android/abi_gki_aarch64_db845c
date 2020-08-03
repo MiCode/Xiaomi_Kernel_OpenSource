@@ -45,6 +45,7 @@
   _dev_err
   dev_get_regmap
   device_init_wakeup
+  device_property_present
   device_property_read_u32_array
   device_set_wakeup_capable
   device_wakeup_enable
@@ -65,20 +66,24 @@
   __devm_of_phy_provider_register
   devm_of_platform_populate
   devm_phy_create
+  devm_phy_get
   devm_pinctrl_register
   __devm_regmap_init_mmio_clk
   devm_regulator_bulk_get
   devm_regulator_get
   devm_regulator_register
   devm_request_threaded_irq
+  devm_reset_control_array_get
   __devm_reset_control_get
   devm_reset_controller_register
+  devm_usb_get_phy_by_phandle
   devm_watchdog_register_device
   _dev_notice
   dev_pm_opp_get_level
   dev_set_name
   _dev_warn
   disable_irq
+  disable_irq_nosync
   divider_get_val
   divider_recalc_rate
   divider_round_rate_parent
@@ -114,6 +119,10 @@
   enable_irq
   eth_validate_addr
   event_triggers_call
+  extcon_get_edev_by_phandle
+  extcon_get_state
+  extcon_register_notifier
+  extcon_unregister_notifier
   fd_install
   find_next_bit
   find_next_zero_bit
@@ -156,6 +165,7 @@
   irq_domain_remove
   irq_find_mapping
   irq_find_matching_fwspec
+  irq_modify_status
   irq_of_parse_and_map
   irq_set_chained_handler_and_data
   irq_set_chip_and_handler_name
@@ -169,6 +179,7 @@
   __kmalloc
   kmalloc_caches
   kmem_cache_alloc_trace
+  kmemdup
   kstrdup
   ktime_get
   ktime_get_mono_fast_ns
@@ -196,10 +207,12 @@
   of_alias_get_id
   of_clk_add_hw_provider
   of_clk_del_provider
+  of_clk_get
   of_clk_hw_onecell_get
   of_clk_set_defaults
   of_device_get_match_data
   of_device_is_compatible
+  of_find_device_by_node
   of_find_property
   of_fwnode_ops
   of_genpd_add_provider_onecell
@@ -213,6 +226,7 @@
   of_match_node
   of_parse_phandle
   of_phy_simple_xlate
+  of_platform_depopulate
   of_platform_populate
   of_property_count_elems_of_size
   of_property_read_string
@@ -228,12 +242,22 @@
   pci_unregister_driver
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
+  phy_exit
+  phy_init
+  phy_power_off
+  phy_power_on
+  phy_set_mode_ext
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
   pinctrl_pm_select_default_state
   pinctrl_pm_select_sleep_state
   pinctrl_utils_free_map
   platform_bus_type
+  platform_device_add
+  platform_device_add_properties
+  platform_device_add_resources
+  platform_device_alloc
+  platform_device_put
   platform_device_register_full
   platform_device_unregister
   __platform_driver_register
@@ -313,6 +337,7 @@
   strcpy
   strlcpy
   strlen
+  strncmp
   strncpy
   __sw_hweight32
   __sw_hweight64
@@ -348,6 +373,7 @@
   usb_amd_quirk_pll_enable
   usb_deregister
   usb_disabled
+  usb_get_dr_mode
   usb_hcd_check_unlink_urb
   usb_hcd_giveback_urb
   usb_hc_died
@@ -692,7 +718,6 @@
   iommu_unmap
   irq_domain_xlate_onecell
   kasprintf
-  kmemdup
   kstrdup_quotable_cmdline
   kthread_create_on_node
   kthread_destroy_worker
@@ -719,7 +744,6 @@
   of_dma_configure
   of_drm_find_bridge
   of_drm_find_panel
-  of_find_device_by_node
   of_find_matching_node_and_match
   of_get_compatible_child
   of_graph_get_endpoint_by_regs
@@ -727,7 +751,6 @@
   of_graph_get_remote_port_parent
   of_graph_parse_endpoint
   of_icc_get
-  of_platform_depopulate
   of_property_read_string_helper
   param_ops_charp
   pm_runtime_get_if_in_use
@@ -904,10 +927,6 @@
   devm_nvmem_cell_get
 
 # required by phy-qcom-usb-hs.ko
-  extcon_get_edev_by_phandle
-  extcon_get_state
-  extcon_register_notifier
-  extcon_unregister_notifier
   of_property_read_variable_u8_array
   regulator_set_voltage
   reset_control_reset
@@ -942,7 +961,6 @@
   devres_release
   kfree_const
   kstrdup_const
-  strncmp
 
 # required by qcom-rpmh-regulator.ko
   of_get_regulator_init_data
@@ -965,12 +983,6 @@
   rtc_valid_tm
 
 # required by ufs-qcom.ko
-  devm_phy_get
-  phy_exit
-  phy_init
-  phy_power_off
-  phy_power_on
-  phy_set_mode_ext
   print_hex_dump
   ufshcd_dme_get_attr
   ufshcd_dme_set_attr
@@ -1022,7 +1034,6 @@
 # required by smsm.ko
   handle_nested_irq
   irq_domain_xlate_twocell
-  irq_modify_status
   qcom_smem_state_register
   qcom_smem_state_unregister
 
@@ -1065,6 +1076,35 @@
   of_device_uevent_modalias
   __request_module
 
+# required by dwc3-qcom.ko
+  devm_extcon_register_notifier
+  of_clk_get_parent_count
+
+# required by dwc3.ko
+  dev_fwnode
+  device_property_read_string
+  device_property_read_u8_array
+  devm_usb_get_phy
+  extcon_find_edev_by_node
+  extcon_get_extcon_dev
+  of_usb_get_phy_mode
+  phy_pm_runtime_get_sync
+  phy_pm_runtime_put_sync
+  platform_get_irq_byname_optional
+  system_freezable_wq
+  usb_add_gadget_udc
+  usb_decode_ctrl
+  usb_del_gadget_udc
+  usb_ep_set_maxpacket_limit
+  usb_gadget_giveback_request
+  usb_gadget_map_request_by_dev
+  usb_gadget_set_state
+  usb_gadget_udc_reset
+  usb_gadget_unmap_request_by_dev
+  usb_get_maximum_speed
+  usb_role_switch_register
+  usb_role_switch_unregister
+
 # required by ohci-hcd.ko
   flush_work
   gen_pool_dma_alloc_align
@@ -1080,8 +1120,6 @@
   usb_amd_prefetch_quirk
 
 # required by ohci-platform.ko
-  devm_reset_control_array_get
-  of_clk_get
   usb_create_hcd
 
 # required by xhci-hcd.ko
@@ -1093,11 +1131,6 @@
   pci_alloc_irq_vectors_affinity
   pci_free_irq_vectors
   pci_irq_vector
-  platform_device_add
-  platform_device_add_properties
-  platform_device_add_resources
-  platform_device_alloc
-  platform_device_put
   radix_tree_maybe_preload
   sg_pcopy_from_buffer
   sg_pcopy_to_buffer
@@ -1130,8 +1163,6 @@
   usb_enable_intel_xhci_ports
 
 # required by xhci-plat-hcd.ko
-  device_property_present
-  devm_usb_get_phy_by_phandle
   of_usb_host_tpl_support
   __usb_create_hcd
 
@@ -1242,6 +1273,8 @@
   __nla_parse
   proto_register
   proto_unregister
+  _raw_write_lock_bh
+  _raw_write_unlock_bh
   refcount_dec_and_mutex_lock
   refcount_dec_checked
   release_sock
