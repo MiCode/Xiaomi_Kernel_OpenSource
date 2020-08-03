@@ -2059,22 +2059,27 @@ void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 
 }
 
-static int a6xx_gmu_aop_send_acd_state(struct mbox_chan *channel, bool flag)
+static void a6xx_gmu_aop_send_acd_state(struct a6xx_gmu_device *gmu, bool flag)
 {
 	char msg_buf[33];
+	int ret;
 	struct {
 		u32 len;
 		void *msg;
 	} msg;
 
-	if (IS_ERR_OR_NULL(channel))
-		return 0;
+	if (IS_ERR_OR_NULL(gmu->mailbox.channel))
+		return;
 
 	msg.len = scnprintf(msg_buf, sizeof(msg_buf),
 			"{class: gpu, res: acd, value: %d}", flag);
 	msg.msg = msg_buf;
 
-	return mbox_send_message(channel, &msg);
+	ret = mbox_send_message(gmu->mailbox.channel, &msg);
+
+	if (ret < 0)
+		dev_err(&gmu->pdev->dev,
+			"AOP mbox send message failed: %d\n", ret);
 }
 
 static int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev)
@@ -2140,13 +2145,7 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_AWARE);
 
-	ret = a6xx_gmu_aop_send_acd_state(gmu->mailbox.channel,
-			adreno_dev->acd_enabled);
-	if (ret) {
-		dev_err(&gmu->pdev->dev,
-			"AOP mbox send message failed: %d\n", ret);
-		return ret;
-	}
+	a6xx_gmu_aop_send_acd_state(gmu, adreno_dev->acd_enabled);
 
 	ret = a6xx_gmu_enable_gdsc(adreno_dev);
 	if (ret)
@@ -2314,15 +2313,9 @@ gdsc_off:
 static void set_acd(struct adreno_device *adreno_dev, void *priv)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
-	int ret;
 
 	adreno_dev->acd_enabled = *((bool *)priv);
-
-	ret = a6xx_gmu_aop_send_acd_state(gmu->mailbox.channel,
-		adreno_dev->acd_enabled);
-	if (ret)
-		dev_err(&gmu->pdev->dev,
-				"AOP mbox send message failed: %d\n", ret);
+	a6xx_gmu_aop_send_acd_state(gmu, adreno_dev->acd_enabled);
 }
 
 static int a6xx_gmu_acd_set(struct kgsl_device *device, bool val)
