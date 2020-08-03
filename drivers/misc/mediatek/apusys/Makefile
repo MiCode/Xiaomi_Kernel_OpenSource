@@ -18,6 +18,7 @@ UTIL_DIR = util
 APUSYS_VERSION_MIDWARE = 1.5
 APUSYS_VERSION_SAMPLE = 1.5
 APUSYS_VERSION_MNOC = 1.5
+APUSYS_VERSION_VPU = 4.5
 APUSYS_VERSION_POWER_PLATFORM = mt6873
 
 # target object
@@ -116,3 +117,22 @@ obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apu_top/
 src=$(srctree)/drivers/misc/mediatek/apusys
 ccflags-y += -I$(src)/mdla/
 apusys-objs += $(shell cd $(src) && find mdla -name "*.c" | sed 's/\.c/\.o/g')
+
+# vpu
+VPU = vpu/$(APUSYS_VERSION_VPU)
+ccflags-y += -I$(src)/$(VPU)
+ifeq ($(CONFIG_MTK_APUSYS_VPU_DEBUG),y)
+apusys-objs += $(VPU)/vpu_debug.o
+apusys-objs += $(VPU)/vpu_tag.o
+apusys-objs += $(VPU)/vpu_dump.o
+apusys-objs += $(VPU)/vpu_met.o
+endif
+ifeq ($(CONFIG_MTK_APUSYS_VPU),y)
+apusys-objs += $(VPU)/vpu_main.o
+apusys-objs += $(VPU)/vpu_algo.o
+apusys-objs += $(VPU)/vpu_cmd.o
+apusys-objs += $(VPU)/vpu_hw.o
+apusys-objs += $(VPU)/vpu_mem.o
+apusys-objs += $(VPU)/vpu_power.o
+apusys-objs += $(VPU)/vpu_cfg.o
+endif
