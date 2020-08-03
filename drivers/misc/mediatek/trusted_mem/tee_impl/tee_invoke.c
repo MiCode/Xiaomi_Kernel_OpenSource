@@ -31,7 +31,6 @@
 #include "tee_impl/tee_ops.h"
 #include "tee_impl/tee_regions.h"
 
-#include "pmem/pmem_mock.h"
 
 #define TEE_CMD_LOCK() mutex_lock(&tee_lock)
 #define TEE_CMD_UNLOCK() mutex_unlock(&tee_lock)
@@ -47,11 +46,6 @@ tee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
 
 	if (unlikely(INVALID(invoke_params)))
 		return TMEM_PARAMETER_ERROR;
-
-	if (unlikely(INVALID(tee_ops)))
-		/* replace tee operation with pmem_mock_peer_ops */
-		get_mocked_peer_ops(&tee_ops);
-
 
 	if (tee_ops->session_open(&tee_session_data, NULL)) {
 		pr_err("%s:%d tee open session failed!\n", __func__, __LINE__);

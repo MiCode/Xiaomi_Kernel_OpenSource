@@ -32,8 +32,6 @@
 #include "mtee_impl/mtee_invoke.h"
 #endif
 
-#include "pmem/pmem_mock.h"
-
 static struct trusted_mem_configs tee_smem_general_configs = {
 	.session_keep_alive_enable = false,
 	.minimal_chunk_size = SZ_64K,
@@ -160,8 +158,6 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 		return NULL;
 	}
 
-	/* replace tee operation with pmem_mock_peer_ops */
-	get_mocked_peer_ops(&t_device->peer_ops);
 	t_device->dev_desc = dev_desc;
 
 	snprintf(t_device->name, MAX_DEVICE_NAME_LEN, "%s", dev_name);
