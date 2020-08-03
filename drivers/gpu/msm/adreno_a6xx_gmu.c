@@ -923,6 +923,32 @@ int a6xx_gmu_sptprac_enable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 
+	if (adreno_is_a619_holi(adreno_dev)) {
+		u32 val;
+		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
+				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
+				adreno_dev->gmu_wrapper_base;
+
+		if (!adreno_dev->gmu_wrapper_virt) {
+			dev_err(device->dev,
+				"invalid gmu_wrapper addr, power on SPTPRAC fail\n");
+			return -EINVAL;
+		}
+
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+			SPTPRAC_POWERON_CTRL_MASK);
+
+		if (readl_poll_timeout(addr, val,
+			(val & SPTPRAC_POWERON_STATUS_MASK) ==
+			SPTPRAC_POWERON_STATUS_MASK, 10,
+			10 * 1000)) {
+			dev_err(device->dev, "power on SPTPRAC fail\n");
+			return -EINVAL;
+		}
+		return 0;
+	}
+
 	if (!gmu_core_gpmu_isenabled(device) ||
 			!adreno_has_sptprac_gdsc(adreno_dev))
 		return 0;
@@ -951,6 +977,35 @@ void a6xx_gmu_sptprac_disable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+
+	if (adreno_is_a619_holi(adreno_dev)) {
+		u32 val;
+		void __iomem *addr = adreno_dev->gmu_wrapper_virt +
+				(A6XX_GMU_SPTPRAC_PWR_CLK_STATUS << 2) -
+				adreno_dev->gmu_wrapper_base;
+
+		if (!adreno_dev->gmu_wrapper_virt) {
+			dev_err(device->dev,
+				"invalid gmu_wrapper addr, power off SPTPRAC fail\n");
+			return;
+		}
+
+		/* Ensure that retention is on */
+		adreno_read_gmu_wrapper(adreno_dev,
+			A6XX_GPU_CC_GX_GDSCR, &val);
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GPU_CC_GX_GDSCR,
+			(val | A6XX_RETAIN_FF_ENABLE_ENABLE_MASK));
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
+			SPTPRAC_POWEROFF_CTRL_MASK);
+		if (readl_poll_timeout(addr, val,
+			(val & SPTPRAC_POWEROFF_STATUS_MASK) ==
+			SPTPRAC_POWEROFF_STATUS_MASK, 10,
+			10 * 1000))
+			dev_err(device->dev, "power off SPTPRAC fail\n");
+		return;
+	}
 
 	if (!gmu_core_gpmu_isenabled(device) ||
 			!adreno_has_sptprac_gdsc(adreno_dev))
@@ -996,10 +1051,15 @@ bool a6xx_gmu_sptprac_is_on(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 
-	if (!gmu_core_isenabled(device))
+	if (gmu_core_isenabled(device))
+		gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS,
+			&val);
+	else if (adreno_is_a619_holi(adreno_dev))
+		adreno_read_gmu_wrapper(adreno_dev,
+			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
+	else
 		return true;
 
-	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return !(val & (SPTPRAC_POWER_OFF | SP_CLK_OFF));
 }
 

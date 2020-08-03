@@ -3004,6 +3004,33 @@ static void adreno_regwrite(struct kgsl_device *device,
 	__raw_writel(value, reg);
 }
 
+void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
+		u32 offsetwords, u32 *val)
+{
+	if (!adreno_dev->gmu_wrapper_virt)
+		return;
+
+	*val = __raw_readl(adreno_dev->gmu_wrapper_virt +
+			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
+	/* Order this read with respect to the following memory accesses */
+	rmb();
+}
+
+void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
+		u32 offsetwords, u32 value)
+{
+	if (!adreno_dev->gmu_wrapper_virt)
+		return;
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->gmu_wrapper_virt +
+			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
+}
+
 /*
  * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
  * @adreno_dev: Pointer to the Adreno device that owns the GMU
@@ -3378,12 +3405,22 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 	int64_t adj = 0;
-	u64 gpu_busy;
+	u64 gpu_busy = 0;
+	unsigned int val;
 
 	memset(stats, 0, sizeof(*stats));
 
-	gpu_busy = counter_delta(device, adreno_dev->perfctr_pwr_lo,
-		&busy->gpu_busy);
+	if (adreno_is_a619_holi(adreno_dev))
+		adreno_read_gmu_wrapper(adreno_dev,
+			adreno_dev->perfctr_pwr_lo, &val);
+	else
+		kgsl_regread(device, adreno_dev->perfctr_pwr_lo, &val);
+
+	if (busy->gpu_busy)
+		gpu_busy = (val >= busy->gpu_busy) ? val - busy->gpu_busy :
+			(~0UL - busy->gpu_busy) + val;
+
+	busy->gpu_busy = val;
 
 	if (gpudev->read_throttling_counters) {
 		adj = gpudev->read_throttling_counters(adreno_dev);
