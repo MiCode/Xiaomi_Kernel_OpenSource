@@ -1227,13 +1227,16 @@
 
 	cpufreq_hw: qcom,cpufreq-hw {
 		compatible = "qcom,cpufreq-hw-epss";
-		reg = <0x0fd91000 0x1000>, <0x0fd92000 0x1000>;
-		reg-names = "freq-domain0", "freq-domain1";
+		reg = <0x0fd91000 0x1000>, <0x0fd92000 0x1000>,
+			<0x0fd04504 0x4>, <0x0fd04508 0x4>;
+		reg-names = "freq-domain0", "freq-domain1",
+			"pdmem-domain0", "pdmem-domain1";
 		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>, <&gcc GPLL0>;
 		clock-names = "xo", "alternate";
 		qcom,lut-row-size = <4>;
 		qcom,max-lut-entries = <12>;
 		qcom,skip-enable-check;
+		qcom,perf-lock-support;
 		interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "dcvsh0_int", "dcvsh1_int";
