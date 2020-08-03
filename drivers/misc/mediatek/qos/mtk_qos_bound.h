@@ -15,6 +15,8 @@
 #define QOS_BOUND_BW_CONGESTIVE_PCT	70
 #define QOS_BOUND_BW_FULL_PCT		95
 
+#define QOS_BOUND_EMI_CH		2
+
 enum qos_emibm_type {
 	QOS_EMIBM_TOTAL,
 	QOS_EMIBM_CPU,
