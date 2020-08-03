@@ -695,3 +695,4 @@ int rtc6226_cancel_seek(struct rtc6226_device *radio);
 void rtc6226_rds_handler(struct work_struct *worker);
 void rtc6226_q_event(struct rtc6226_device *radio, enum rtc6226_evt_t event);
 int rtc6226_reset_rds_data(struct rtc6226_device *radio);
+int rtc6226_rds_on(struct rtc6226_device *radio);
