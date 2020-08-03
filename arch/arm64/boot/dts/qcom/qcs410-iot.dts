@@ -14,7 +14,6 @@
 
 #include "qcs410.dtsi"
 #include "qcs410-iot.dtsi"
-#include "sm6150-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS410 IOT";
@@ -22,6 +21,3 @@
 	qcom,board-id = <32 0>;
 };
 
-&sm6150_snd {
-	/delete-property/ fsa4480-i2c-handle;
-};
