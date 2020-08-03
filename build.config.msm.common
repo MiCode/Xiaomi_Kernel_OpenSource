@@ -1,6 +1,9 @@
 CONFIG_DIR=arch/${ARCH}/configs
 CC="${ROOT_DIR}/common/scripts/gcc-wrapper.py ${CC}"
 
+BRANCH=msm-waipio
+CONFIG_TARGET=msm.${MSM_ARCH}
+
 ################################################################################
 ## DTB general support
 DTB_DIR=vendor/qcom
@@ -39,12 +42,92 @@ if [ ! -z $VARIANT ]; then
 	BRANCH+=-${VARIANT}
 fi
 
+if ( for v in "${VARIANTS[@]}"; do if [ "${v}" = "${VARIANT}" ]; then exit 1; fi; done; exit 0 ) ; then
+	echo "Unsupported variant '${VARIANT}'"
+	exit 1
+fi
+
 ################################################################################
-## menuconfig
+## defconfigs
+
+# Helper function to let build.config files merge config fragments
+# Usage: append_cmd PRE_DEFCONFIG_CMDS 'merge_defconfig_fragment ${DEFCONFIG} ${fragment_config}'
+DEFCONFIG_FRAGMENTS=""
+function merge_defconfig_fragments() {
+	if ( [ -z "${DEFCONFIG_FRAGMENTS}" ] ||
+	   [ "${DEFCONFIG_FRAGMENTS}" = "${DEFCONFIG}" ] ); then
+		echo "No defconfig fragments for ${DEFCONFIG}"
+		return
+	fi
+	KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
+		${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
+		-m -r ${DEFCONFIG_FRAGMENTS}
+}
+append_cmd PRE_DEFCONFIG_CMDS "merge_defconfig_fragments"
+
+# Wrapper function around merge_defconfig_fragment to reduce repeated logic
+# Usage: apply_defconfig_fragment ${KERNEL_DIR}/cuttlefish.fragment cuttlefish-gki_defconfig
+function apply_defconfig_fragment() {
+	FRAGMENT_CONFIG=$1
+	if [ -z "${DEFCONFIG_FRAGMENTS}" ]; then
+		DEFCONFIG_FRAGMENTS="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
+	fi
+	DEFCONFIG_FRAGMENTS="${DEFCONFIG_FRAGMENTS} $1"
+	DEFCONFIG="${2:-${DEFCONFIG}}"
+}
+
 function menuconfig() {
+	set +x
+	local orig_defconfig=$(mktemp)
+	local orig_config=$(mktemp)
+
+	cp ${OUT_DIR}/.config ${orig_config}
+	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
+	mv ${OUT_DIR}/defconfig ${orig_defconfig}
+
 	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} ${1:-menuconfig})
 	(cd ${KERNEL_DIR} && make "${TOOL_ARGS[@]}" O=${OUT_DIR} ${MAKE_ARGS} savedefconfig)
 	mv ${OUT_DIR}/defconfig ${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}
+
+	if [ -z "${FRAGMENT_CONFIG}" ]; then
+		rm "${orig_config}" "${orig_defconfig}"
+		exit
+	fi
+
+	local new_defconfig="${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}"
+	local new_config="${OUT_DIR}/.config"
+
+	# CONFIGs to be added
+	# 'defconfig' file should have been generated.
+	# Diff this with the 'defconfig_base' from the previous step and extract only the lines that were added
+	# Finally, remove the "+" from the beginning of the lines and append it to the FRAGMENT
+	diff -u ${orig_defconfig} ${new_defconfig} | grep "^+CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
+
+	# CONFIGs to be removed
+	configs_to_remove=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-CONFIG_" | sed 's/^.//'`
+	for config_del in $configs_to_remove; do
+		sed -i "/$config_del/d" ${FRAGMENT_CONFIG}
+	done
+
+	# CONFIGs that are unset in base defconfig (# CONFIG_X is not set), but enabled in fragments,
+	# the diff is shown as: -# CONFIG_X is not set. Hence, explicitly set them in the config fragments.
+	configs_to_set=`diff -u ${orig_defconfig} ${new_defconfig} | grep "^-# CONFIG_" | awk '{print $2}'`
+	for config_to_set in $configs_to_set; do
+		# The CONFIG could be set as 'm' in the previous steps. Ignore setting them to 'y'
+		if ! grep -q "$config_to_set" ${FRAGMENT_CONFIG}; then
+			echo $config_to_set=y >> ${FRAGMENT_CONFIG}
+		fi
+	done
+
+	# CONFIGs that are set in base defconfig (or lower fragment), but wanted it to be disabled in FRAG_CONFIG
+	diff -u ${orig_config} ${new_config} | grep "^+# CONFIG_" | sed 's/^.//' >> ${FRAGMENT_CONFIG}
+
+	echo
+	echo "Updated ${FRAGMENT_CONFIG}"
+	echo
+
+	rm "${orig_config}" "${orig_defconfig}"
+	exit
 }
 export -f menuconfig
 # Configuration options to build images for MSM targets
