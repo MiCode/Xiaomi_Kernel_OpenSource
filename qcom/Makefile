@@ -87,6 +87,6 @@ dtb-$(CONFIG_ARCH_QTI_VM) += trustedvm.dtb
 endif
 endif
 
-always		:= $(dtb-y)
+always-y	:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb *.dtbo
