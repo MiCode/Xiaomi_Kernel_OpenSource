@@ -1357,8 +1357,19 @@ static int ufshcd_devfreq_target(struct device *dev,
 	}
 	spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	pm_runtime_get_noresume(hba->dev);
+	if (!pm_runtime_active(hba->dev)) {
+		pm_runtime_put_noidle(hba->dev);
+		ret = -EAGAIN;
+		goto out;
+	}
+#endif
 	start = ktime_get();
 	ret = ufshcd_devfreq_scale(hba, scale_up);
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	pm_runtime_put(hba->dev);
+#endif
 
 	trace_ufshcd_profile_clk_scaling(dev_name(hba->dev),
 		(scale_up ? "up" : "down"),
