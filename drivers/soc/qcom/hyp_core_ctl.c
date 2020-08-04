@@ -792,6 +792,44 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(status);
 
+static bool freq_qos_init_done;
+static int init_freq_qos_req(void)
+{
+	int cpu, ret;
+	struct cpufreq_policy *policy;
+	struct freq_qos_request *qos_req;
+
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_err("cpufreq policy not found for cpu%d\n", cpu);
+			ret = -ESRCH;
+			goto remove_qos_req;
+		}
+
+		qos_req = &per_cpu(qos_min_req, cpu);
+		ret = freq_qos_add_request(&policy->constraints, qos_req,
+				FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("Failed to add min freq constraint (%d)\n", ret);
+			cpufreq_cpu_put(policy);
+			goto remove_qos_req;
+		}
+		cpufreq_cpu_put(policy);
+	}
+
+	return 0;
+
+remove_qos_req:
+	for_each_possible_cpu(cpu) {
+		qos_req = &per_cpu(qos_min_req, cpu);
+		if (freq_qos_request_active(qos_req))
+			freq_qos_remove_request(qos_req);
+	}
+
+	return ret;
+}
+
 static ssize_t hcc_min_freq_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -804,6 +842,12 @@ static ssize_t hcc_min_freq_store(struct device *dev,
 	if (!is_vcpu_info_populated) {
 		pr_err("VCPU info isn't populated\n");
 		goto err_out;
+	}
+
+	if (!freq_qos_init_done) {
+		if (init_freq_qos_req())
+			goto err_out;
+		freq_qos_init_done = true;
 	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
@@ -947,37 +991,15 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	int ret;
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
-	int cpu;
-	struct cpufreq_policy *policy;
-	struct freq_qos_request *qos_req;
 
 	ret = hh_rm_register_notifier(&hh_vcpu_nb);
 	if (ret)
 		return ret;
 
-	for_each_possible_cpu(cpu) {
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy) {
-			pr_err("cpufreq policy not found for cpu%d\n", cpu);
-			ret = -ESRCH;
-			goto remove_qos_req;
-		}
-
-		qos_req = &per_cpu(qos_min_req, cpu);
-		ret = freq_qos_add_request(&policy->constraints, qos_req,
-				FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
-		if (ret < 0) {
-			pr_err("Failed to add min freq constraint (%d)\n", ret);
-			cpufreq_cpu_put(policy);
-			goto remove_qos_req;
-		}
-		cpufreq_cpu_put(policy);
-	}
-
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
 	if (!hcd) {
 		ret = -ENOMEM;
-		goto remove_qos_req;
+		goto unregister_rm_notifier;
 	}
 
 	spin_lock_init(&hcd->lock);
@@ -1018,13 +1040,7 @@ stop_task:
 	kthread_stop(hcd->task);
 free_hcd:
 	kfree(hcd);
-remove_qos_req:
-	for_each_possible_cpu(cpu) {
-		qos_req = &per_cpu(qos_min_req, cpu);
-		if (freq_qos_request_active(qos_req))
-			freq_qos_remove_request(qos_req);
-	}
-
+unregister_rm_notifier:
 	hh_rm_unregister_notifier(&hh_vcpu_nb);
 
 	return ret;
