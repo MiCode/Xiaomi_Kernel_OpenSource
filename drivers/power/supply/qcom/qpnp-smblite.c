@@ -22,6 +22,8 @@
 #include "smblite-lib.h"
 #include "schgm-flashlite.h"
 
+static struct power_supply_desc usb_psy_desc;
+
 static struct smb_params smblite_params = {
 	.fcc			= {
 		.name   = "fast charge current",
@@ -382,6 +384,8 @@ static enum power_supply_property smblite_usb_props[] = {
 	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_SCOPE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 static int smblite_usb_get_prop(struct power_supply *psy,
@@ -433,6 +437,12 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblite_lib_get_prop_scope(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = get_effective_result_locked(chg->usb_icl_votable);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = 5000000;
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -445,6 +455,20 @@ static int smblite_usb_get_prop(struct power_supply *psy,
 	}
 
 	return 0;
+}
+
+void smblite_update_usb_desc(struct smb_charger *chg)
+{
+	switch (chg->real_charger_type) {
+	case POWER_SUPPLY_TYPE_USB_CDP:
+	case POWER_SUPPLY_TYPE_USB_DCP:
+	case POWER_SUPPLY_TYPE_USB:
+		usb_psy_desc.type = chg->real_charger_type;
+		break;
+	default:
+		usb_psy_desc.type = POWER_SUPPLY_TYPE_USB;
+		break;
+	}
 }
 
 #define MIN_THERMAL_VOTE_UA	500000
@@ -486,7 +510,7 @@ static int smblite_usb_prop_is_writeable(struct power_supply *psy,
 	return rc;
 }
 
-static const struct power_supply_desc usb_psy_desc = {
+static struct power_supply_desc usb_psy_desc = {
 	.name = "usb",
 	.type = POWER_SUPPLY_TYPE_USB,
 	.properties = smblite_usb_props,
