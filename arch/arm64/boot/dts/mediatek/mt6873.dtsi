@@ -1983,12 +1983,20 @@
 				reg = <0x78 0x4>;
 			};
 
+			apu_pod19: apu_efuse2 {
+				reg = <0x114 0x4>;
+			};
+
 			lvts_e_data1: data1 {
 				reg = <0x1D0 0x10>;
 			};
 
 			lvts_e_data2: data2 {
 				reg = <0x2F8 0x48>;
+			};
+
+			apu_pod26: apu_efuse3 {
+				reg = <0x344 0x4>;
 			};
 		};
 
@@ -2862,10 +2870,12 @@
 			reg-names = "apusys_pcu",
 					"apusys_rpc",
 					"apusys_vcore";
+			nvmem-cells = <&efuse_segment &apu_pod19 &apu_pod26>;
+			nvmem-cell-names = "efuse_segment", "efuse_pod19", "efuse_pod26";
 			vvpu-supply = <&mt6359p_vproc1_reg>;
 			vmdla-supply = <&mt6359p_vproc2_reg>;
-			vsram_apu-supply = <&mt6359p_vsram_proc2_reg>;
-			vcore-supply = <&mt6359p_vgpu11_reg>;
+			vsram_apu-supply = <&mt6359p_vsram_md_reg>;
+			vcore-supply = <&dvfsrc_vcore>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_APU>;
 			clocks = <&topckgen CLK_TOP_DSP_SEL>,	    /* CONN */
 				<&topckgen CLK_TOP_DSP1_SEL>,	        /* VPU_CORE0 */
