@@ -3724,7 +3724,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 		of_property_read_u32_array(pdev->dev.of_node, "qcom,bw-scale",
 				(u32 *)dev->bw_scale, size / sizeof(u32));
 
-		dev->bw_gen_max = size / sizeof(u32);
+		dev->bw_gen_max = size / sizeof(*dev->bw_scale);
 	} else {
 		PCIE_DBG(dev, "RC%d: bandwidth scaling is not supported\n",
 			dev->rc_idx);
