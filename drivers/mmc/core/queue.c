@@ -437,6 +437,9 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			/* hook for pm qos cmdq init */
 			if (card->host->cmdq_ops->init)
 				card->host->cmdq_ops->init(card->host);
+			if (host->cmdq_ops->cqe_crypto_update_queue)
+				host->cmdq_ops->cqe_crypto_update_queue(host,
+								mq->queue);
 			mq->thread = kthread_run(mmc_cmdq_thread, mq,
 						 "mmc-cmdqd/%d%s",
 						 host->index,
