@@ -2787,6 +2787,18 @@
 			#clock-cells = <1>;
 		};
 
+		edma0: edma0@19027000 {
+			compatible = "mtk,edma-sub";
+			reg = <0x0 0x19027000 0x0 0x1000>;
+			interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		edma: edma {
+			compatible = "mtk,edma";
+			sub_nr = <1>;
+			mediatek,edma-sub = <&edma0>;
+		};
+
 		apu_vcore: apu_vcore@19029000 {
 			compatible = "mediatek,mt8192-apu_vcore", "syscon";
 			reg = <0 0x19029000 0 0x1000>;
