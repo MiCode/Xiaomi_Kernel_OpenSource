@@ -1336,6 +1336,8 @@ static int clk_gfx3d_src_determine_rate(struct clk_hw *hw,
 	int ret;
 
 	xo = clk_hw_get_parent_by_index(hw, 0);
+	if (!xo)
+		return -EINVAL;
 	if (req->rate == clk_hw_get_rate(xo)) {
 		req->best_parent_hw = xo;
 		req->best_parent_rate = req->rate;
@@ -1343,7 +1345,9 @@ static int clk_gfx3d_src_determine_rate(struct clk_hw *hw,
 	}
 
 	f = qcom_find_freq(rcg->freq_tbl, req->rate);
-	if (!f || (req->rate != f->freq))
+	if (!f)
+		return -EINVAL;
+	else if (req->rate != f->freq)
 		req->rate = f->freq;
 
 	/* Indexes of source from the parent map */
