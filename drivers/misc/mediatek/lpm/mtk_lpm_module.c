@@ -101,8 +101,7 @@ static int mtk_lpm_state_enter(int type, struct cpuidle_device *dev,
 int mtk_lpm_s2idle_state_enter(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx)
 {
-	mtk_lpm_state_enter(mtk_lpm_state_s2idle, dev, drv, idx);
-	return 0;
+	return mtk_lpm_state_enter(mtk_lpm_state_s2idle, dev, drv, idx);
 }
 
 int mtk_lpm_cpuidle_state_enter(struct cpuidle_device *dev,
@@ -434,15 +433,15 @@ int mtk_lpm_suspend_registry(const char *name, struct mtk_lpm_model *suspend)
 	if (!suspend)
 		return -EINVAL;
 
-	spin_lock_irqsave(&mtk_lp_mod_locker, flags);
-
 	if (mtk_lpm_system.suspend.flag &
 			MTK_LP_REQ_NOSYSCORE_CB)
 		mtk_lp_model_register(name, suspend);
-	else
+	else {
+		spin_lock_irqsave(&mtk_lp_mod_locker, flags);
 		memcpy(&mtk_lpm_system.suspend, suspend,
 				sizeof(struct mtk_lpm_model));
-	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
+		spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
+	}
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lpm_suspend_registry);
