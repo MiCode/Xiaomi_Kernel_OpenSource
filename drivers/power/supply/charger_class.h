@@ -156,6 +156,7 @@ struct charger_ops {
 	int (*enable_force_typec_otp)(struct charger_device *dev, bool en);
 	int (*enable_hidden_mode)(struct charger_device *dev, bool en);
 	int (*get_ctd_dischg_status)(struct charger_device *dev, u8 *status);
+	int (*enable_hz)(struct charger_device *dev, bool en);
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -253,6 +254,8 @@ extern int charger_dev_reset_eoc_state(
 	struct charger_device *charger_dev);
 extern int charger_dev_safety_check(
 	struct charger_device *charger_dev, u32 polling_ieoc);
+extern int charger_dev_enable_hz(
+	struct charger_device *charger_dev, bool en);
 
 /* PE+/PE+2.0 */
 extern int charger_dev_send_ta_current_pattern(

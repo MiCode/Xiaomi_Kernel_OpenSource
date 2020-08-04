@@ -347,6 +347,16 @@ int charger_dev_enable_safety_timer(struct charger_device *chg_dev, bool en)
 }
 EXPORT_SYMBOL(charger_dev_enable_safety_timer);
 
+int charger_dev_enable_hz(struct charger_device *chg_dev, bool en)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->enable_hz)
+		return chg_dev->ops->enable_hz(chg_dev, en);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_enable_hz);
+
 int charger_dev_get_adc(struct charger_device *charger_dev,
 	enum adc_channel chan, int *min, int *max)
 {
@@ -548,6 +558,7 @@ int charger_dev_notify(struct charger_device *chg_dev, int event)
 	return srcu_notifier_call_chain(
 		&chg_dev->evt_nh, event, &chg_dev->noti);
 }
+EXPORT_SYMBOL(charger_dev_notify);
 
 int charger_dev_enable_usbid(struct charger_device *charger_dev, bool en)
 {
