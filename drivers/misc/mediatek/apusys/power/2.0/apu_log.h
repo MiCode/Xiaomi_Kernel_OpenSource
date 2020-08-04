@@ -79,12 +79,5 @@ enum {
 #define apu_aee_warn(key, format, args...)
 #endif
 
-#ifndef APUSYS_POWER_BRINGUP
-#define LOG_DUMP(format, args...) \
-	apu_dbg_print(format, ##args)
-#else
-#define LOG_DUMP(format, args...)
-#endif
-
 #endif /* BUILD_POLICY_TEST */
 #endif /* _APU_LOG_H_ */

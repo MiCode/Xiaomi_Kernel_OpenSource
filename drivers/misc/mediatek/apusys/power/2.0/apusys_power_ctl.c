@@ -27,7 +27,7 @@
 
 static struct mutex power_dvfs_mtx;
 struct apusys_dvfs_opps apusys_opps;
-static spinlock_t ipuif_lock;
+spinlock_t ipuif_lock;
 
 bool dvfs_user_support(enum DVFS_USER user)
 {
@@ -124,9 +124,6 @@ uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 	return opp;
 
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apusys_boost_value_to_opp);
-#endif
 
 enum DVFS_FREQ apusys_opp_to_freq(enum DVFS_USER user, uint8_t opp)
 {
@@ -143,9 +140,6 @@ enum DVFS_FREQ apusys_opp_to_freq(enum DVFS_USER user, uint8_t opp)
 
 	return freq;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apusys_opp_to_freq);
-#endif
 
 uint8_t apusys_freq_to_opp(enum DVFS_VOLTAGE_DOMAIN buck_domain, uint32_t freq)
 {
@@ -161,9 +155,6 @@ uint8_t apusys_freq_to_opp(enum DVFS_VOLTAGE_DOMAIN buck_domain, uint32_t freq)
 
 	return opp;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apusys_freq_to_opp);
-#endif
 
 int8_t apusys_get_opp(enum DVFS_USER user)
 {
@@ -176,9 +167,6 @@ int8_t apusys_get_opp(enum DVFS_USER user)
 
 	return apusys_opps.cur_opp_index[buck_domain];
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apusys_get_opp);
-#endif
 
 int8_t apusys_get_ceiling_opp(enum DVFS_USER user)
 {
@@ -201,9 +189,6 @@ int8_t apusys_get_ceiling_opp(enum DVFS_USER user)
 
 	return used_opp;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apusys_get_ceiling_opp);
-#endif
 
 void apusys_set_pwr_lock(enum DVFS_USER user, uint8_t min_opp, uint8_t max_opp)
 {
@@ -763,11 +748,6 @@ void apusys_dvfs_info(void)
 	trace_apupwr_dvfs(logv_str);
 	trace_apupwr_dvfs(logf_str);
 #endif
-
-	// debug ring buffer
-	LOG_DUMP("APUPWR DVFS %s\n", log_str);
-	LOG_DUMP("APUPWR DVFS %s\n", logv_str);
-	LOG_DUMP("APUPWR DVFS %s\n", logf_str);
 }
 
 

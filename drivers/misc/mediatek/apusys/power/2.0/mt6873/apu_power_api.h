@@ -44,9 +44,6 @@ struct apu_power_info_record {
 };
 
 //APU
-void pm_qos_register(void);
-void pm_qos_unregister(void);
-
 int prepare_regulator(enum DVFS_BUCK buck, struct device *dev);
 int enable_regulator(enum DVFS_BUCK buck);
 int disable_regulator(enum DVFS_BUCK buck);
