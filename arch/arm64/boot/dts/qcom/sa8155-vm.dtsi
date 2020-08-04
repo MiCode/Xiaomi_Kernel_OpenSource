@@ -1046,3 +1046,19 @@
 &tlmm {
 	dirconn-list = <37 216 1>;
 };
+
+&iommu_qupv3_0_geni_se_cb {
+	iommus = <&apps_smmu 0xd8 0x0>;
+};
+
+&iommu_qupv3_1_geni_se_cb {
+	iommus = <&apps_smmu 0x618 0x0>;
+};
+
+&iommu_qupv3_2_geni_se_cb {
+	iommus = <&apps_smmu 0x7b8 0x0>;
+};
+
+&iommu_qupv3_3_geni_se_cb {
+	iommus = <&apps_smmu 0x4f8 0x0>;
+};
