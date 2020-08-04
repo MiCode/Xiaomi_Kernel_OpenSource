@@ -1277,6 +1277,12 @@ static int cmdq_late_init(struct mmc_host *mmc)
 	return 0;
 }
 
+static void cqhci_crypto_update_queue(struct mmc_host *mmc,
+					struct request_queue *queue)
+{
+	//struct cqhci_host *cq_host = mmc->cqe_private;
+}
+
 static const struct mmc_cmdq_host_ops cmdq_host_ops = {
 	.init = cmdq_late_init,
 	.enable = cmdq_enable,
@@ -1286,6 +1292,7 @@ static const struct mmc_cmdq_host_ops cmdq_host_ops = {
 	.halt = cmdq_halt,
 	.reset	= cmdq_reset,
 	.dumpstate = cmdq_dumpstate,
+	.cqe_crypto_update_queue = cqhci_crypto_update_queue,
 };
 
 struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev)
