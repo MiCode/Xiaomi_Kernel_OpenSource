@@ -34,6 +34,10 @@
 #define MTK_SIP_KERNEL_WDT \
 	MTK_SIP_SMC_CMD(0x200)
 
+/* CCCI debug feature */
+#define MTK_SIP_KERNEL_CCCI_GET_INFO \
+	MTK_SIP_SMC_CMD(0x206)
+
 /* Security related SMC call */
 /* DEVMPU */
 #define MTK_SIP_KERNEL_DEVMPU_VIO_GET \
@@ -48,6 +52,9 @@
 #define MTK_SIP_KERNEL_CLR_SRAMROM_VIO \
 	MTK_SIP_SMC_CMD(0x26C)
 
+/* Debug related SMC call */
+#define MTK_SIP_KERNEL_CCCI_CONTROL \
+	MTK_SIP_SMC_CMD(0x505)
 
 /* AUDIO related SMC call */
 #define MTK_SIP_AUDIO_CONTROL \

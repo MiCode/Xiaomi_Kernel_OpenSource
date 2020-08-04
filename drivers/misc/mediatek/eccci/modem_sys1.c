@@ -26,7 +26,7 @@
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
 
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 #ifdef mtk09077
@@ -523,7 +523,7 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 			if (md->hw_info->plat_ptr->debug_reg)
 				md->hw_info->plat_ptr->debug_reg(md);
 			/* cldma_dump_register(CLDMA_HIF_ID);*/
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aed_md_exception_api(NULL, 0, NULL, 0,
 				"WDT IRQ occur.", DB_OPT_DEFAULT);
 #endif
@@ -571,7 +571,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 				if (md->hw_info->plat_ptr->debug_reg)
 					md->hw_info->plat_ptr->debug_reg(md);
 	/* cldma_dump_register(CLDMA_HIF_ID);*/
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aed_md_exception_api(
 				mdss_dbg->base_ap_view_vir,
 				mdss_dbg->size, NULL, 0,

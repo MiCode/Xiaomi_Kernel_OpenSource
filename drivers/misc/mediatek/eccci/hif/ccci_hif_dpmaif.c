@@ -27,7 +27,7 @@
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
 #include <linux/dma-mapping.h>
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 #include <linux/clk.h>
@@ -1972,7 +1972,7 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 				dpmaif_dump_txq_remain(dpmaif_ctrl,
 					txq->index, 0);
 				/* force dump */
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aee_kernel_warning("ccci",
 					"dpmaif: tx warning");
 #endif
@@ -3150,7 +3150,7 @@ int dpmaif_start(unsigned char hif_id)
 
 	ret = drv_dpmaif_intr_hw_init();
 	if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning("ccci",
 			"dpmaif start fail to init hw intr\n");
 #endif
@@ -3194,7 +3194,7 @@ int dpmaif_start(unsigned char hif_id)
 		ret = drv_dpmaif_dl_add_frg_bat_cnt(i,
 			(rxq->bat_frag.bat_size_cnt - 1));
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"add frag failed after dl enable\n");
 #endif
@@ -3204,7 +3204,7 @@ int dpmaif_start(unsigned char hif_id)
 		ret = drv_dpmaif_dl_add_bat_cnt(i,
 				(rxq->bat_req.bat_size_cnt - 1));
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif start failed to add bat\n");
 #endif
@@ -3214,7 +3214,7 @@ int dpmaif_start(unsigned char hif_id)
 #ifdef HW_FRG_FEATURE_ENABLE
 		ret = drv_dpmaif_dl_all_frg_queue_en(true);
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif start failed to enable frg queue\n");
 #endif
@@ -3223,7 +3223,7 @@ int dpmaif_start(unsigned char hif_id)
 #endif
 		ret = drv_dpmaif_dl_all_queue_en(true);
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif start failed to enable all dl queue\n");
 #endif
@@ -3344,7 +3344,7 @@ void dpmaif_stop_hw(void)
 		/*Disable HW arb and check idle*/
 		ret = drv_dpmaif_dl_all_queue_en(false);
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_warning("ccci",
 				"dpmaif stop failed to enable dl queue\n");
 #endif
