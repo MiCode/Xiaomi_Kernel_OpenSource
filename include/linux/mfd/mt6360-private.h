@@ -7,6 +7,8 @@
 #define __MT6360_PRIVATE_H__
 
 #include <linux/interrupt.h>
+#include <linux/of.h>
+#include <linux/regmap.h>
 
 /* PMU register defininition */
 #define MT6360_PMU_DEV_INFO			(0x00)
@@ -221,6 +223,7 @@
 struct mt6360_pmu_irq_desc {
 	const char *name;
 	irq_handler_t irq_handler;
+	int irq;
 };
 
 #define  MT6360_DT_VALPROP(name, type) \

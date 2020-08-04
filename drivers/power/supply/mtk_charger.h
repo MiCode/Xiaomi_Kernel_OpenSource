@@ -10,6 +10,7 @@
 #include "charger_class.h"
 #include "adapter_class.h"
 #include "mtk_charger_algorithm_class.h"
+#include <linux/power_supply.h>
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
