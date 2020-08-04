@@ -743,7 +743,6 @@ void dump_frequency(struct apu_power_info *info)
 	do_div(info->dsp1_freq, dump_div * KHZ);
 	do_div(info->dsp2_freq, dump_div * KHZ);
 	do_div(info->dsp5_freq, dump_div * KHZ);
-	do_div(info->npupll_freq, dump_div * KHZ);
 	do_div(dsp1_freq_mux, dump_div * KHZ);
 	do_div(dsp2_freq_mux, dump_div * KHZ);
 	do_div(dsp5_freq_mux, dump_div * KHZ);

@@ -14,6 +14,7 @@
 
 extern struct apusys_dvfs_opps apusys_opps;
 extern struct device *apu_dev;
+extern spinlock_t ipuif_lock;
 
 extern void apusys_dvfs_policy(uint64_t round_id);
 extern void apusys_set_opp(enum DVFS_USER user, uint8_t opp);

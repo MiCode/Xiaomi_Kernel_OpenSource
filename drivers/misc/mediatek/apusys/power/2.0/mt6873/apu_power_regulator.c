@@ -29,14 +29,16 @@
 #include "apusys_power_ctl.h"
 #include "apu_log.h"
 
-#ifndef APUSYS_POWER_BRINGUP //NO_MTK_DEVINFO
-#include "mtk_devinfo.h"
-#else
-static u32 get_devinfo_with_index(unsigned int index)
+
+static inline unsigned int get_devinfo_with_index(unsigned int index)
 {
-	return 0x0;
+	if (index == EFUSE_INDEX)
+		return efuse[EF_POD26];
+	else if (index == EFUSE_POD19)
+		return efuse[EF_POD19];
+	else
+		return 0;
 }
-#endif
 
 /**
  * ceil_div() - Brief description of ceil_div.
@@ -67,45 +69,9 @@ static int curr_vvpu_volt;
 static int curr_vmdla_volt;
 static int curr_vsram_volt;
 
-#ifndef APUSYS_POWER_BRINGUP //NO_HELIO_DVFSRC
-/* pm qos client */
-static struct pm_qos_request pm_qos_vcore_request[APUSYS_DVFS_USER_NUM];
-#endif
-
 /***************************************************
  * The following functions are mdla/vpu common usage
  ****************************************************/
-
-void pm_qos_register(void)
-{
-	int i;
-
-	for (i = 0 ; i < APUSYS_DVFS_USER_NUM ; i++) {
-		if (dvfs_user_support(i) == false)
-			continue;
-#ifndef APUSYS_POWER_BRINGUP //NO_HELIO_DVFSRC
-		pm_qos_add_request(&pm_qos_vcore_request[i],
-						PM_QOS_VCORE_OPP,
-						PM_QOS_VCORE_OPP_DEFAULT_VALUE);
-#endif
-	}
-}
-
-void pm_qos_unregister(void)
-{
-	int i;
-
-	for (i = 0 ; i < APUSYS_DVFS_USER_NUM ; i++) {
-		if (dvfs_user_support(i) == false)
-			continue;
-#ifndef APUSYS_POWER_BRINGUP //NO_HELIO_DVFSRC
-		pm_qos_update_request(&pm_qos_vcore_request[i],
-					PM_QOS_VCORE_OPP_DEFAULT_VALUE);
-		pm_qos_remove_request(&pm_qos_vcore_request[i]);
-#endif
-	}
-}
-
 /*
  * regulator_get: vvpu, vmdla, vcore, vsram
  */
@@ -563,14 +529,30 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	return ret;
 }
 
-// buck vcore is shared resource so we need to notify pm_qos for voting.
+/*
+ * buck vcore is shared resource so we need to vote to regulator of dvfsrc_vocre.
+ * VPU0 user use for vol constraint and MDLA0 use for ipuif vol.
+ */
 int config_vcore(enum DVFS_USER user, int vcore_opp)
 {
 	int ret = 0;
+	static unsigned int vpu0_vcore_opp, mdla0_vcore_opp;
 
-#ifndef APUSYS_POWER_BRINGUP //NO_HELIO_DVFSRC
-	pm_qos_update_request(&pm_qos_vcore_request[user], vcore_opp);
-#endif
+	if ((user != VPU0) && (user != MDLA0))
+		return 0;
+
+	spin_lock(&ipuif_lock);
+	if (user == VPU0)
+		vpu0_vcore_opp = vcore_opp;
+	else if (user == MDLA0)
+		mdla0_vcore_opp = vcore_opp;
+	vcore_opp = MIN(vpu0_vcore_opp, mdla0_vcore_opp);
+
+	LOG_DBG("%s vcore_opp: %d = MIN( v0: %d, m0: %d)\n",
+				__func__, vcore_opp, vpu0_vcore_opp, mdla0_vcore_opp);
+	spin_unlock(&ipuif_lock);
+
+	ret = regulator_set_voltage(vcore_reg_id, vcore_opp_mapping[vcore_opp], INT_MAX);
 
 	return ret;
 }

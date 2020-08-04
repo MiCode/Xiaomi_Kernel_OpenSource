@@ -37,7 +37,12 @@
 #include "apu_power_tag.h"
 #endif
 
+#ifdef APUSYS_POWER_BRINGUP
+int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
+#else
 int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
+#endif
+
 int g_pm_procedure;
 int power_on_off_stress;
 static int apu_power_counter;
@@ -176,9 +181,6 @@ uint64_t apu_get_power_info(int force)
 
 	return ret;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_get_power_info);
-#endif
 
 void apu_power_reg_dump(void)
 {
@@ -187,17 +189,10 @@ void apu_power_reg_dump(void)
 	hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
 	mutex_unlock(&power_ctl_mtx);
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_power_reg_dump);
-#endif
 
 void apu_set_vcore_boost(bool enable)
 {
-
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_set_vcore_boost);
-#endif
 
 void apu_qos_set_vcore(int target_volt)
 {
@@ -223,9 +218,6 @@ void apu_qos_set_vcore(int target_volt)
 
 #endif
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_qos_set_vcore);
-#endif
 
 static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 {
@@ -259,9 +251,6 @@ bool apu_get_power_on_status(enum DVFS_USER user)
 
 	return power_on_status;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_get_power_on_status);
-#endif
 
 #if !BYPASS_POWER_CTL
 static void power_callback_caller(int power_on)
@@ -408,17 +397,11 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 #endif
 	return 0;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_device_power_suspend);
-#endif
 
 int apu_device_power_off(enum DVFS_USER user)
 {
 	return apu_device_power_suspend(user, 0);
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_device_power_off);
-#endif
 
 int apu_device_power_on(enum DVFS_USER user)
 {
@@ -504,9 +487,6 @@ int apu_device_power_on(enum DVFS_USER user)
 #endif
 	return 0;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_device_power_on);
-#endif
 
 int apu_power_device_register(enum DVFS_USER user, struct platform_device *pdev)
 {
@@ -536,9 +516,6 @@ int apu_power_device_register(enum DVFS_USER user, struct platform_device *pdev)
 
 	return 0;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_power_device_register);
-#endif
 
 int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
 void (*power_on_callback)(void *para), void (*power_off_callback)(void *para))
@@ -567,9 +544,6 @@ void (*power_on_callback)(void *para), void (*power_off_callback)(void *para))
 
 	return 0;
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_power_callback_device_register);
-#endif
 
 void apu_power_device_unregister(enum DVFS_USER user)
 {
@@ -589,9 +563,6 @@ void apu_power_device_unregister(enum DVFS_USER user)
 
 	LOG_INF("%s remove dvfs user %d success\n", __func__, user);
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_power_device_unregister);
-#endif
 
 void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user)
 {
@@ -608,9 +579,6 @@ void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user)
 
 	LOG_INF("%s remove power callback user %d success\n", __func__, user);
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_power_callback_device_unregister);
-#endif
 
 static void d_work_power_info_func(struct work_struct *work)
 {
@@ -737,9 +705,6 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 
 #endif
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_device_set_opp);
-#endif
 
 /**
  * apu_profiling() - Brief description of apu_profiling.
@@ -760,9 +725,6 @@ void apu_profiling(struct profiling_timestamp *profile, const char *tag)
 	pr_info("%s: %s take %lu (us)\n", __func__, tag,
 		((unsigned long)nanosec / 1000));
 }
-#ifndef APUSYS_POWER_BRINGUP
-EXPORT_SYMBOL(apu_profiling);
-#endif
 
 void event_trigger_dvfs_policy(void)
 {

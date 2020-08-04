@@ -86,6 +86,13 @@ enum SEGMENT_INFO {
 	SEGMENT_2 = 2,	// 5G_A+(defalut)
 };
 
+enum EFUSE_INOF {
+	EF_SEGMENT = 0,	// 30
+	EF_POD19 = 1,	// 69
+	EF_POD26 = 2,	// 209
+	APUSYS_EFUSE_NUM,
+};
+
 
 enum DVFS_VPU0_PWR_PATH {
 	VPU0_VPU = 0,
@@ -160,6 +167,7 @@ struct apusys_dvfs_opps {
 #endif
 };
 
+extern uint32_t efuse[APUSYS_EFUSE_NUM];
 extern char *user_str[APUSYS_DVFS_USER_NUM];
 extern char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM];
 extern char *buck_str[APUSYS_BUCK_NUM];

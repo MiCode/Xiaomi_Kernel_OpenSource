@@ -21,15 +21,6 @@
 #include "apupwr_events.h"
 #endif
 
-#ifndef APUSYS_POWER_BRINGUP //NO_MTK_DEVINFO
-#include "mtk_devinfo.h"
-#else
-static u32 get_devinfo_with_index(unsigned int index)
-{
-	return 0x1;
-}
-#endif
-
 #if SUPPORT_VCORE_TO_IPUIF
 #define NUM_OF_IPUIF_OPP VCORE_OPP_NUM
 #endif
@@ -56,6 +47,13 @@ void *g_APU_MDLA0_BASE;
 void *g_APU_SPM_BASE;
 void *g_APU_APMIXED_BASE;
 
+static inline unsigned int get_devinfo_with_index(unsigned int index)
+{
+	if (index == 30)
+		return efuse[EF_SEGMENT];
+	else
+		return 0;
+}
 /************************************
  * platform related power APIs
  ************************************/
@@ -302,19 +300,12 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 		prepare_regulator(SRAM_BUCK, dev);
 		prepare_regulator(VPU_BUCK, dev);
 		prepare_regulator(MDLA_BUCK, dev);
-
-		// register pm_qos notifier here,
-		// vcore need to use pm_qos for voltage voting
-		pm_qos_register();
 	} else {
 		// release regulator handle
 		unprepare_regulator(MDLA_BUCK);
 		unprepare_regulator(VPU_BUCK);
 		unprepare_regulator(SRAM_BUCK);
 		unprepare_regulator(VCORE_BUCK);
-
-		// unregister pm_qos notifier here,
-		pm_qos_unregister();
 	}
 }
 
@@ -340,10 +331,6 @@ static int init_power_resource(void *param)
 {
 	struct hal_param_init_power *init_data = NULL;
 	struct device *dev = NULL;
-
-#ifdef APUSYS_POWER_BRINGUP
-	g_pwr_log_level = APUSYS_PWR_LOG_DEBUG;
-#endif
 
 	init_data = (struct hal_param_init_power *)param;
 
