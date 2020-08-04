@@ -109,7 +109,8 @@ int blk_crypto_submit_bio(struct bio **bio_ptr)
 	/* Get device keyslot if supported */
 	if (keyslot_manager_crypto_mode_supported(q->ksm,
 						  bc->bc_key->crypto_mode,
-						  bc->bc_key->data_unit_size)) {
+						  bc->bc_key->data_unit_size,
+						  bc->bc_key->is_hw_wrapped)) {
 		err = bio_crypt_ctx_acquire_keyslot(bc, q->ksm);
 		if (!err)
 			return 0;
@@ -175,7 +176,9 @@ bool blk_crypto_endio(struct bio *bio)
  * @raw_key_size: Size of raw key.  Must be at least the required size for the
  *                chosen @crypto_mode; see blk_crypto_modes[].  (It's allowed
  *                to be longer than the mode's actual key size, in order to
- *                support inline encryption hardware that accepts wrapped keys.)
+ *                support inline encryption hardware that accepts wrapped keys.
+ *                @is_hw_wrapped has to be set for such keys)
+ * @is_hw_wrapped: Denotes @raw_key is wrapped.
  * @crypto_mode: identifier for the encryption algorithm to use
  * @data_unit_size: the data unit size to use for en/decryption
  *
@@ -184,6 +187,7 @@ bool blk_crypto_endio(struct bio *bio)
  */
 int blk_crypto_init_key(struct blk_crypto_key *blk_key,
 			const u8 *raw_key, unsigned int raw_key_size,
+			bool is_hw_wrapped,
 			enum blk_crypto_mode_num crypto_mode,
 			unsigned int data_unit_size)
 {
@@ -198,9 +202,14 @@ int blk_crypto_init_key(struct blk_crypto_key *blk_key,
 	BUILD_BUG_ON(BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE < BLK_CRYPTO_MAX_KEY_SIZE);
 
 	mode = &blk_crypto_modes[crypto_mode];
-	if (raw_key_size < mode->keysize ||
-	    raw_key_size > BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE)
-		return -EINVAL;
+	if (is_hw_wrapped) {
+		if (raw_key_size < mode->keysize ||
+		    raw_key_size > BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE)
+			return -EINVAL;
+	} else {
+		if (raw_key_size != mode->keysize)
+			return -EINVAL;
+	}
 
 	if (!is_power_of_2(data_unit_size))
 		return -EINVAL;
@@ -209,6 +218,7 @@ int blk_crypto_init_key(struct blk_crypto_key *blk_key,
 	blk_key->data_unit_size = data_unit_size;
 	blk_key->data_unit_size_bits = ilog2(data_unit_size);
 	blk_key->size = raw_key_size;
+	blk_key->is_hw_wrapped = is_hw_wrapped;
 	memcpy(blk_key->raw, raw_key, raw_key_size);
 
 	/*
@@ -222,6 +232,38 @@ int blk_crypto_init_key(struct blk_crypto_key *blk_key,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(blk_crypto_init_key);
+
+/**
+ * blk_crypto_start_using_mode() - Start using blk-crypto on a device
+ * @crypto_mode: the crypto mode that will be used
+ * @data_unit_size: the data unit size that will be used
+ * @is_hw_wrapped_key: whether the key will be hardware-wrapped
+ * @q: the request queue for the device
+ *
+ * Upper layers must call this function to ensure that either the hardware
+ * supports the needed crypto settings, or the crypto API fallback has
+ * transforms for the needed mode allocated and ready to go.
+ *
+ * Return: 0 on success; -ENOPKG if the hardware doesn't support the crypto
+ *	   settings and blk-crypto-fallback is either disabled or the needed
+ *	   algorithm is disabled in the crypto API; or another -errno code.
+ */
+int blk_crypto_start_using_mode(enum blk_crypto_mode_num crypto_mode,
+				unsigned int data_unit_size,
+				bool is_hw_wrapped_key,
+				struct request_queue *q)
+{
+	if (keyslot_manager_crypto_mode_supported(q->ksm, crypto_mode,
+						  data_unit_size,
+						  is_hw_wrapped_key))
+		return 0;
+	if (is_hw_wrapped_key) {
+		pr_warn_once("hardware doesn't support wrapped keys\n");
+		return -EOPNOTSUPP;
+	}
+	return blk_crypto_fallback_start_using_mode(crypto_mode);
+}
+EXPORT_SYMBOL_GPL(blk_crypto_start_using_mode);
 
 /**
  * blk_crypto_evict_key() - Evict a key from any inline encryption hardware
@@ -243,7 +285,8 @@ int blk_crypto_evict_key(struct request_queue *q,
 {
 	if (q->ksm &&
 	    keyslot_manager_crypto_mode_supported(q->ksm, key->crypto_mode,
-						  key->data_unit_size))
+						  key->data_unit_size,
+						  key->is_hw_wrapped))
 		return keyslot_manager_evict_key(q->ksm, key);
 
 	return blk_crypto_fallback_evict_key(key);
