@@ -28,7 +28,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 
@@ -1933,7 +1933,7 @@ void cldma_stop_for_ee(unsigned char hif_id)
 				 * Only call before EE
 				 */
 				dump_emi_latency();
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aed_md_exception_api(NULL, 0, NULL, 0,
 					"md1:\nUNKNOWN Exception\nstop Rx CLDMA for EE failed.\n",
 					DB_OPT_DEFAULT);

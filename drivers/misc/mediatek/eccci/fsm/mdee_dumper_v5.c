@@ -6,7 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/rtc.h>
 #include <linux/timer.h>
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 #include <soc/mediatek/emi.h>
@@ -32,7 +32,7 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	int md_img_len = 0;
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	char buf_fail[] = "Fail alloc mem for exception\n";
 #endif
 	char *img_inf = NULL;
@@ -42,7 +42,7 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		ccci_md_get_smem_by_user_id(mdee->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
 	struct ccci_mem_layout *mem_layout = ccci_md_get_mem(mdee->md_id);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 #endif
@@ -88,7 +88,7 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	}
 	if (buff == NULL) {
 		fsm_sys_mdee_info_notify(aed_str);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
 				md_img_addr, md_img_len, buf_fail, db_opt);
@@ -98,7 +98,7 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 #endif
 	} else {
 		fsm_sys_mdee_info_notify(aed_str);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM))
 			aed_md_exception_api(ex_log_addr, ex_log_len,
 				md_img_addr, md_img_len, buff, db_opt);

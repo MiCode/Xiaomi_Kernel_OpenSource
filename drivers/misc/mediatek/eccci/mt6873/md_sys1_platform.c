@@ -357,14 +357,14 @@ static void md_cd_lock_modem_clock_src(int locked)
 
 	/* spm_ap_mdsrc_req(locked); */
 	mt_secure_call(MD_CLOCK_REQUEST,
-			MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, 0);
+			MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0);
 	if (locked) {
 		int settle = mt_secure_call(MD_CLOCK_REQUEST,
-				MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0, 0);
+				MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0);
 
 		mdelay(settle);
 		ret = mt_secure_call(MD_CLOCK_REQUEST,
-				MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0, 0);
+				MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0);
 
 		CCCI_NOTICE_LOG(-1, TAG,
 				"settle = %d; ret = %lu\n", settle, ret);

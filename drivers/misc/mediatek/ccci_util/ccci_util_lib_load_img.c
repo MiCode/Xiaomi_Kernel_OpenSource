@@ -33,7 +33,7 @@
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_util_log.h"
 #include "ccci_util_lib_main.h"
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 #define ENABLE_MEM_SIZE_CHECK
@@ -273,7 +273,7 @@ static int check_md_header_v3(int md_id, void *parse_addr,
 					"MD%d mem size(0x%x)<header size(0x%x),please check memory config in <chip>.dtsi",
 					md_id + 1, image->size,
 					head->md_img_size);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aed_md_exception_api(NULL, 0,
 					(const int *)info,
 					sizeof(info),
@@ -541,7 +541,7 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 					"MD%d mem cfg size(0x%x)<header size(0x%x),please check memory config in <chip>.dtsi",
 					md_id + 1, image->size,
 					head->md_img_size);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aed_md_exception_api(NULL, 0,
 					(const int *)info, sizeof(info),
 					(const char *)title,
@@ -1019,7 +1019,7 @@ TRY_LOAD_IMG:
 		} else {
 			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 			     "Try to load all md image failed:ret=%d!\n", ret);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aed_md_exception_api(NULL, 0, NULL, 0,
 				"Try to load all md image failed!",
 				DB_OPT_DEFAULT);

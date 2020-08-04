@@ -5,7 +5,7 @@
 
 #include "ccci_fsm_internal.h"
 #include "modem_sys.h"
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 
@@ -86,7 +86,7 @@ void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage)
 		struct ccci_modem *md = ccci_md_get_modem_by_id(ee_ctl->md_id);
 
 		CCCI_ERROR_LOG(md_id, FSM, "MD exception stage 1!\n");
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		tracing_off();
 #endif
 		CCCI_MEM_LOG_TAG(md_id, FSM,
@@ -307,7 +307,7 @@ void fsm_ee_message_handler(struct ccci_fsm_ee *ee_ctl, struct sk_buff *skb)
 	} else if (ccci_h->data[1] == CCCI_DRV_VER_ERROR) {
 		CCCI_ERROR_LOG(ee_ctl->md_id, FSM,
 			"AP/MD driver version mis-match\n");
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aed_md_exception_api(NULL, 0, NULL,
 			0, "AP/MD driver version mis-match\n",
 			DB_OPT_DEFAULT);
@@ -349,7 +349,7 @@ int fsm_check_ee_done(struct ccci_fsm_ee *ee_ctl, int timeout)
 				DUMP_FLAG_SMEM_CCB_CTRL |
 				DUMP_FLAG_SMEM_CCB_DATA,
 				NULL, 0);
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			/*
 			 * aee_kernel_warning("ccci_EE_timeout",
 			 *	"MD EE debug: wait dump done timeout");
