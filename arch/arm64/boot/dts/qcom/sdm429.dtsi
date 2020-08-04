@@ -1420,6 +1420,17 @@
 			< 1708800 MHZ_TO_MBPS( 749, 8) >;
 	};
 
+	tsens0: tsens@4a8000 {
+		compatible = "qcom,msm8937-tsens";
+		reg = <0x4a8000 0x1000>,
+			<0x4a9000 0x1000>,
+			<0xa4000  0x1000>;
+		reg-names = "tsens_srot_physical",
+			"tsens_tm_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		#thermal-sensor-cells = <1>;
+	};
 };
 
 #include "sdm429-gdsc.dtsi"
@@ -1428,6 +1439,7 @@
 #include "sdm429-mdss.dtsi"
 #include "sdm429-mdss-pll.dtsi"
 #include "sdm429-audio.dtsi"
+#include "sdm429-thermal.dtsi"
 
 &venus_gdsc {
 	clock-names = "bus_clk", "core_clk";
