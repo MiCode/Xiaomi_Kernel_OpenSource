@@ -1620,6 +1620,29 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 		hba->spm_lvl = spm_lvl;
 }
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+static void ufs_qcom_override_pa_h8time(struct ufs_hba *hba)
+{
+	int ret;
+	u32 loc_tx_h8time_cap = 0;
+
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAPABILITY,
+				UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+				&loc_tx_h8time_cap);
+	if (ret) {
+		dev_err(hba->dev, "Failed getting max h8 time: %d\n", ret);
+		return;
+	}
+
+	/* 1 implies 100 us */
+	ret = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME),
+				loc_tx_h8time_cap + 1);
+	if (ret)
+		dev_err(hba->dev, "Failed updating PA_HIBERN8TIME: %d\n", ret);
+
+}
+#endif
+
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
 	unsigned long flags;
@@ -1646,6 +1669,10 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 	if (hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
 		hba->dev_quirks |= UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM;
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_HIBER8TIME)
+		ufs_qcom_override_pa_h8time(hba);
+#endif
 	return err;
 }
 
