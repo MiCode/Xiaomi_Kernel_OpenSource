@@ -106,12 +106,6 @@ SoCs:
 - SDA429W
   compatible = "qcom,sda429w"
 
-- QCM6125
-  compatible = "qcom,qcm6125"
-
-- QCS6125
-  compatible = "qcom,qcs6125"
-
 - SA2145P
   compatible = "qcom,sa2145p"
 
@@ -311,7 +305,3 @@ compatible = "qcom,sda429w-wdp"
 compatible = "qcom,sda429-wdp"
 compatible = "qcom,sdm429w-wdp"
 compatible = "qcom,sdm429-wdp"
-compatible = "qcom,qcm6125"
-compatible = "qcom,qcs6125"
-compatible = "qcom,qcm6125-idp"
-compatible = "qcom,qcs6125-idp"

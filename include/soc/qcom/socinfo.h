@@ -117,10 +117,6 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm429w")
 #define early_machine_is_sda429w()       \
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda429w")
-#define early_machine_is_qcm6125()       \
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcm6125")
-#define early_machine_is_qcs6125()       \
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs6125")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -168,8 +164,6 @@
 #define early_machine_is_sda660()	0
 #define early_machine_is_sdm429w()	0
 #define early_machine_is_sda429w()	0
-#define early_machine_is_qcm6125()	0
-#define early_machine_is_qcs6125()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -220,8 +214,6 @@ enum msm_cpu {
 	MSM_CPU_SDA660,
 	MSM_CPU_SDM429W,
 	MSM_CPU_SDA429W,
-	MSM_CPU_QCM6125,
-	MSM_CPU_QCS6125,
 };
 
 struct msm_soc_info {
