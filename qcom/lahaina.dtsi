@@ -3189,7 +3189,7 @@
 	};
 
 	pdc: interrupt-controller@b220000 {
-		compatible = "qcom,lahaina-pdc";
+		compatible = "qcom,lahaina-pdc", "qcom,pdc";
 		reg = <0xb220000 0x30000>, <0x17c000f0 0x60>;
 		qcom,pdc-ranges = <0 480 40>, <40 140 14>, <54 263 1>, <55 306 4>,
 				  <59 312 3>, <62 374 2>, <64 434 2>, <66 438 3>,
