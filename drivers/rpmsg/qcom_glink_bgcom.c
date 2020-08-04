@@ -2016,6 +2016,51 @@ static void glink_bgcom_linkup(struct glink_bgcom *glink)
 		GLINK_ERR(glink, "Failed to link up %d\n", ret);
 }
 
+static int glink_bgcom_remove_device(struct device *dev, void *data)
+{
+	device_unregister(dev);
+
+	return 0;
+}
+
+static int glink_bgcom_cleanup(struct glink_bgcom *glink)
+{
+	struct glink_bgcom_channel *channel;
+	int cid;
+	int ret;
+
+	GLINK_INFO(glink, "\n");
+
+	atomic_set(&glink->in_reset, 1);
+
+	kthread_flush_worker(&glink->kworker);
+	cancel_work_sync(&glink->rx_defer_work);
+
+	ret = device_for_each_child(glink->dev, NULL,
+					glink_bgcom_remove_device);
+	if (ret)
+		dev_warn(glink->dev, "Can't remove GLINK devices: %d\n", ret);
+
+	mutex_lock(&glink->idr_lock);
+	/* Release any defunct local channels, waiting for close-ack */
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		/* Wakeup threads waiting for intent*/
+		complete(&channel->intent_req_comp);
+		kref_put(&channel->refcount, glink_bgcom_channel_release);
+		idr_remove(&glink->lcids, cid);
+	}
+
+	/* Release any defunct local channels, waiting for close-req */
+	idr_for_each_entry(&glink->rcids, channel, cid) {
+		kref_put(&channel->refcount, glink_bgcom_channel_release);
+		idr_remove(&glink->rcids, cid);
+	}
+
+	mutex_unlock(&glink->idr_lock);
+
+	return ret;
+}
+
 static void glink_bgcom_event_handler(void *handle,
 		void *priv_data, enum bgcom_event_type event,
 		union bgcom_event_data_type *data)
@@ -2066,7 +2111,7 @@ static void glink_bgcom_event_handler(void *handle,
 		break;
 	case BGCOM_EVENT_RESET_OCCURRED:
 		glink->bgcom_status = BGCOM_RESET;
-		atomic_set(&glink->in_reset, 1);
+		glink_bgcom_cleanup(glink);
 		break;
 	case BGCOM_EVENT_ERROR_WRITE_FIFO_OVERRUN:
 	case BGCOM_EVENT_ERROR_WRITE_FIFO_BUS_ERR:
@@ -2195,18 +2240,9 @@ err_put_dev:
 }
 EXPORT_SYMBOL(glink_bgcom_probe);
 
-static int glink_bgcom_remove_device(struct device *dev, void *data)
-{
-	device_unregister(dev);
-
-	return 0;
-}
-
 static int glink_bgcom_remove(struct platform_device *pdev)
 {
 	struct glink_bgcom *glink = platform_get_drvdata(pdev);
-	struct glink_bgcom_channel *channel;
-	int cid;
 	int ret;
 
 	GLINK_INFO(glink, "\n");
@@ -2215,30 +2251,11 @@ static int glink_bgcom_remove(struct platform_device *pdev)
 
 	bgcom_close(glink->bgcom_handle);
 
-	kthread_flush_worker(&glink->kworker);
-	kthread_stop(glink->rx_task);
-	cancel_work_sync(&glink->rx_defer_work);
+	ret = glink_bgcom_cleanup(glink);
 
-	ret = device_for_each_child(glink->dev, NULL,
-					glink_bgcom_remove_device);
-	if (ret)
-		dev_warn(glink->dev, "Can't remove GLINK devices: %d\n", ret);
+	kthread_stop(glink->rx_task);
 
 	mutex_lock(&glink->idr_lock);
-	/* Release any defunct local channels, waiting for close-ack */
-	idr_for_each_entry(&glink->lcids, channel, cid) {
-		/* Wakeup threads waiting for intent*/
-		complete(&channel->intent_req_comp);
-		kref_put(&channel->refcount, glink_bgcom_channel_release);
-		idr_remove(&glink->lcids, cid);
-	}
-
-	/* Release any defunct local channels, waiting for close-req */
-	idr_for_each_entry(&glink->rcids, channel, cid) {
-		kref_put(&channel->refcount, glink_bgcom_channel_release);
-		idr_remove(&glink->rcids, cid);
-	}
-
 	idr_destroy(&glink->lcids);
 	idr_destroy(&glink->rcids);
 	mutex_unlock(&glink->idr_lock);
