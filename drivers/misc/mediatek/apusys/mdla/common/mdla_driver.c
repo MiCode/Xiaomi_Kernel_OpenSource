@@ -110,7 +110,7 @@ static int apusys_mdla_rt_handler(int type,
 		return -EINVAL;
 
 	if (type != APUSYS_CMD_EXECUTE)
-		return -EINVAL;
+		return 0;
 
 	ret = mdla_cmd_ops_get()->run_sync(
 			cmd_data,
