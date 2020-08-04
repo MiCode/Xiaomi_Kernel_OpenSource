@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2012,2014-2017,2019 The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2012,2014-2017,2019,2020 The Linux Foundation. All rights reserved. */
 
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/seq_file.h>
 #include <linux/err.h>
 #include <linux/stacktrace.h>
 #include <linux/spinlock.h>
-#include <linux/debugfs.h>
+#include <linux/sysfs.h>
 #ifdef CONFIG_WCNSS_SKB_PRE_ALLOC
 #include <linux/skbuff.h>
 #endif
@@ -19,10 +18,7 @@ static DEFINE_SPINLOCK(alloc_lock);
 #define WCNSS_MAX_STACK_TRACE			64
 #endif
 
-#define PRE_ALLOC_DEBUGFS_DIR		"cnss-prealloc"
-#define PRE_ALLOC_DEBUGFS_FILE_OBJ	"status"
-
-static struct dentry *debug_base;
+static struct kobject  *prealloc_kobject;
 
 struct wcnss_prealloc {
 	int occupied;
@@ -199,30 +195,38 @@ int wcnss_pre_alloc_reset(void)
 		wcnss_allocs[i].occupied = 0;
 		n++;
 	}
-
 	return n;
 }
 EXPORT_SYMBOL(wcnss_pre_alloc_reset);
 
-static int prealloc_memory_stats_show(struct seq_file *fp, void *data)
+static ssize_t status_show(struct kobject *kobj, struct kobj_attribute *attr,
+			   char *buffer)
 {
 	int i = 0;
 	int used_slots = 0, free_slots = 0;
 	unsigned int tsize = 0, tused = 0, size = 0;
+	int len = 0;
+	char *buf;
 
-	seq_puts(fp, "\nSlot_Size(Kb)\t\t[Used : Free]\n");
+	buf = buffer;
+	len += scnprintf(&buf[len], PAGE_SIZE - len,
+			"\nSlot_Size(Kb)\t\t[Used : Free]\n");
 	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
 		tsize += wcnss_allocs[i].size;
 		if (size != wcnss_allocs[i].size) {
 			if (size) {
-				seq_printf(fp, "[%d : %d]\n",
-					   used_slots, free_slots);
+				len += scnprintf(&buf[len], PAGE_SIZE - len,
+						"[%d : %d]\n", used_slots,
+						free_slots);
+
 			}
 
 			size = wcnss_allocs[i].size;
 			used_slots = 0;
 			free_slots = 0;
-			seq_printf(fp, "%d Kb\t\t\t", size / 1024);
+			len += scnprintf(&buf[len], PAGE_SIZE - len,
+					"%d Kb\t\t\t", size / 1024);
+
 		}
 
 		if (wcnss_allocs[i].occupied) {
@@ -232,31 +236,56 @@ static int prealloc_memory_stats_show(struct seq_file *fp, void *data)
 			++free_slots;
 		}
 	}
-	seq_printf(fp, "[%d : %d]\n", used_slots, free_slots);
+	len += scnprintf(&buf[len], PAGE_SIZE - len,
+			"[%d : %d]\n", used_slots, free_slots);
 
 	/* Convert byte to Kb */
 	if (tsize)
 		tsize = tsize / 1024;
 	if (tused)
 		tused = tused / 1024;
-	seq_printf(fp, "\nMemory Status:\nTotal Memory: %dKb\n", tsize);
-	seq_printf(fp, "Used: %dKb\nFree: %dKb\n", tused, tsize - tused);
+		len += scnprintf(&buf[len], PAGE_SIZE - len,
+				"\nMemory Status:\nTotal Memory: %dKb\n",
+				tsize);
+		len += scnprintf(&buf[len], PAGE_SIZE - len,
+				"Used: %dKb\nFree: %dKb\n", tused,
+				tsize - tused);
 
-	return 0;
+	return len;
 }
 
-static int prealloc_memory_stats_open(struct inode *inode, struct file *file)
+static struct kobj_attribute status_attribute = __ATTR_RO(status);
+
+static int create_prealloc_status_sysfs(void)
 {
-	return single_open(file, prealloc_memory_stats_show, NULL);
+	int ret;
+
+	prealloc_kobject = kobject_create_and_add("cnss-prealloc",
+						  kernel_kobj);
+	if (!prealloc_kobject) {
+		pr_err("Failed to create cnss-prealloc kernel object\n");
+		return -ENOMEM;
+	}
+
+	ret = sysfs_create_file(prealloc_kobject,
+				&status_attribute.attr);
+	if (ret) {
+		pr_err("%s: Failed to create sysfs cnss-prealloc file\n",
+		       __func__);
+		kobject_put(prealloc_kobject);
+	}
+
+	return ret;
 }
 
-static const struct file_operations prealloc_memory_stats_fops = {
-	.owner = THIS_MODULE,
-	.open = prealloc_memory_stats_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
+static void remove_prealloc_status_sysfs(void)
+{
+	if (prealloc_kobject) {
+		sysfs_remove_file(prealloc_kobject,
+				  &status_attribute.attr);
+		kobject_put(prealloc_kobject);
+	}
+}
 
 static int __init wcnss_pre_alloc_init(void)
 {
@@ -268,16 +297,7 @@ static int __init wcnss_pre_alloc_init(void)
 		return ret;
 	}
 
-	debug_base = debugfs_create_dir(PRE_ALLOC_DEBUGFS_DIR, NULL);
-	if (IS_ERR_OR_NULL(debug_base)) {
-		pr_err("%s: Failed to create debugfs dir\n", __func__);
-	} else if (IS_ERR_OR_NULL(debugfs_create_file
-				  (PRE_ALLOC_DEBUGFS_FILE_OBJ,
-				   0644, debug_base, NULL,
-				   &prealloc_memory_stats_fops))) {
-		pr_err("%s: Failed to create debugfs file\n", __func__);
-		debugfs_remove_recursive(debug_base);
-	}
+	create_prealloc_status_sysfs();
 
 	return ret;
 }
@@ -285,7 +305,7 @@ static int __init wcnss_pre_alloc_init(void)
 static void __exit wcnss_pre_alloc_exit(void)
 {
 	wcnss_prealloc_deinit();
-	debugfs_remove_recursive(debug_base);
+	remove_prealloc_status_sysfs();
 }
 
 module_init(wcnss_pre_alloc_init);
