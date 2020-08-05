@@ -222,10 +222,6 @@
   cma_alloc
   cma_get_name
   cma_release
-  cmd_db_read_addr
-  cmd_db_read_aux_data
-  cmd_db_read_slave_id
-  cmd_db_ready
   compat_alloc_user_space
   complete
   complete_all
@@ -482,6 +478,7 @@
   dev_pm_opp_find_freq_ceil
   dev_pm_opp_find_freq_exact
   dev_pm_opp_find_freq_floor
+  dev_pm_opp_get_level
   dev_pm_opp_get_opp_count
   dev_pm_opp_get_opp_table
   dev_pm_opp_get_voltage
@@ -1206,6 +1203,7 @@
   irq_domain_xlate_twocell
   irq_find_mapping
   irq_find_matching_fwspec
+  irq_get_irqchip_state
   irq_get_irq_data
   irq_modify_status
   irq_of_parse_and_map
@@ -1941,12 +1939,6 @@
   rndis_signal_connect
   rndis_uninit
   round_jiffies
-  rpmh_flush
-  rpmh_invalidate
-  rpmh_mode_solver_set
-  rpmh_write
-  rpmh_write_async
-  rpmh_write_batch
   rpmsg_create_ept
   rpmsg_destroy_ept
   rpmsg_get_signals
@@ -2751,7 +2743,6 @@
   wiphy_new_nm
   wiphy_register
   wiphy_unregister
-  wireless_send_event
   woken_wake_function
   work_busy
   would_dump

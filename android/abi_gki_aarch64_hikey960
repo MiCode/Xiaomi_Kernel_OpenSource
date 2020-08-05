@@ -474,7 +474,6 @@
   usb_calc_bus_time
   usb_create_hcd
   usb_disabled
-  usb_gadget_set_state
   usb_get_dr_mode
   usb_hc_died
   usb_hub_clear_tt_buffer
@@ -1051,51 +1050,6 @@
   serial8250_resume_port
   serial8250_suspend_port
   serial8250_unregister_port
-
-# required by dwc3-haps.ko
-  pcim_enable_device
-
-# required by dwc3-of-simple.ko
-  clk_bulk_get_all
-  clk_bulk_put_all
-  of_reset_control_array_get
-  reset_control_put
-  reset_control_reset
-
-# required by dwc3-qcom.ko
-  devm_extcon_register_notifier
-  irq_modify_status
-  of_clk_get_parent_count
-
-# required by dwc3.ko
-  bpf_trace_run4
-  device_property_read_u8_array
-  devm_clk_bulk_get_all
-  devm_phy_get
-  devm_usb_get_phy
-  extcon_find_edev_by_node
-  extcon_get_extcon_dev
-  extcon_register_notifier
-  extcon_unregister_notifier
-  of_usb_get_phy_mode
-  phy_exit
-  phy_init
-  phy_pm_runtime_get_sync
-  phy_pm_runtime_put_sync
-  phy_power_off
-  phy_power_on
-  phy_set_mode_ext
-  platform_get_irq_byname_optional
-  system_freezable_wq
-  usb_add_gadget_udc
-  usb_decode_ctrl
-  usb_del_gadget_udc
-  usb_ep_set_maxpacket_limit
-  usb_gadget_giveback_request
-  usb_gadget_map_request_by_dev
-  usb_gadget_udc_reset
-  usb_gadget_unmap_request_by_dev
-  usb_get_maximum_speed
 
 # required by gadgetfs.ko
   _copy_to_iter
