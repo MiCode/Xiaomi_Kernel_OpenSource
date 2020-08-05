@@ -3805,7 +3805,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	PCIE_DBG(dev, "PCIe: RC%d: entry\n", dev->rc_idx);
 
 	dev->icc_path = of_icc_get(&pdev->dev, "icc_path");
-	if (IS_ERR_OR_NULL(dev->icc_path)) {
+	if (IS_ERR(dev->icc_path)) {
 		ret = dev->icc_path ? PTR_ERR(dev->icc_path) : -EINVAL;
 
 		PCIE_ERR(dev, "PCIe: RC%d: failed to get ICC path: %d\n",
