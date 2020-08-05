@@ -540,20 +540,16 @@ int ipa_uc_ntn_conn_pipes(struct ipa_ntn_conn_in_params *inp,
 		goto fail;
 	}
 
-	if (ntn_ctx->conn.dl.smmu_enabled) {
-		result = ipa_uc_ntn_alloc_conn_smmu_info(&ntn_ctx->conn.dl,
-			&inp->dl);
-		if (result) {
-			IPA_UC_OFFLOAD_ERR("alloc failure on TX\n");
-			goto fail;
-		}
-		result = ipa_uc_ntn_alloc_conn_smmu_info(&ntn_ctx->conn.ul,
-			&inp->ul);
-		if (result) {
-			ipa_uc_ntn_free_conn_smmu_info(&ntn_ctx->conn.dl);
-			IPA_UC_OFFLOAD_ERR("alloc failure on RX\n");
-			goto fail;
-		}
+	result = ipa_uc_ntn_alloc_conn_smmu_info(&ntn_ctx->conn.dl, &inp->dl);
+	if (result) {
+		IPA_UC_OFFLOAD_ERR("alloc failure on TX\n");
+		goto fail;
+	}
+	result = ipa_uc_ntn_alloc_conn_smmu_info(&ntn_ctx->conn.ul, &inp->ul);
+	if (result) {
+		ipa_uc_ntn_free_conn_smmu_info(&ntn_ctx->conn.dl);
+		IPA_UC_OFFLOAD_ERR("alloc failure on RX\n");
+		goto fail;
 	}
 
 fail:
