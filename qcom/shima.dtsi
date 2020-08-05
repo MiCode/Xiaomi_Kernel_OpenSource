@@ -417,6 +417,7 @@
 	firmware: firmware {
 		scm {
 			compatible = "qcom,scm";
+			qcom,dload-mode = <&tcsr 0x13000>;
 		};
 
 		android {
@@ -985,6 +986,11 @@
 		compatible = "qcom,tcsr-mutex";
 		syscon = <&tcsr_mutex_block 0 0x1000>;
 		#hwlock-cells = <1>;
+	};
+
+	tcsr: syscon@1fc0000 {
+		compatible = "syscon";
+		reg = <0x1fc0000 0x30000>;
 	};
 
 	smem: qcom,smem {
@@ -1787,10 +1793,8 @@
 				0x18040060 0x18050060 0x18060060 0x18070060>;
 	};
 
-	restart: restart@c264000 {
-		compatible = "qcom,pshold";
-		reg = <0xc264000 0x4>, <0x1fd3000 0x4>;
-		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	dload_mode {
+		compatible = "qcom,dload-mode";
 	};
 
 	cache-controller@9200000 {

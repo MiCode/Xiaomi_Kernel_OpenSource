@@ -501,3 +501,11 @@
 	io-channels = <&pmk8350_vadc PMR735B_ADC7_DIE_TEMP>;
 	io-channel-names = "thermal";
 };
+
+&soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
+};
