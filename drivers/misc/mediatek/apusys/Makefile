@@ -82,9 +82,11 @@ apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_dbg.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_drv.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_hw.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_pmu.o
+ifneq (, $(CONFIG_MTK_QOS_FRAMEWORK))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos_sys.o
-
+endif
 # power driver makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include/
