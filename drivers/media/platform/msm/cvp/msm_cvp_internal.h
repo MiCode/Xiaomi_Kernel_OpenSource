@@ -23,6 +23,7 @@
 #include <media/msm_media_info.h>
 #include <media/msm_cvp_private.h>
 #include "cvp_hfi_api.h"
+#include "cvp_hfi_helper.h"
 #include <synx_api.h>
 
 #define MAX_SUPPORTED_INSTANCES 16
@@ -192,7 +193,7 @@ enum msm_cvp_modes {
 
 struct cvp_session_msg {
 	struct list_head node;
-	struct cvp_hfi_msg_session_hdr pkt;
+	struct cvp_hfi_msg_session_hdr_ext pkt;
 };
 
 struct cvp_session_queue {
@@ -201,6 +202,23 @@ struct cvp_session_queue {
 	unsigned int msg_count;
 	struct list_head msgs;
 	wait_queue_head_t wq;
+};
+
+#define CVP_CYCLE_STAT_SIZE		8
+struct cvp_cycle_stat {
+	u32 busy[CVP_CYCLE_STAT_SIZE];
+	u32 total;
+	u32 idx;
+	u32 size;
+};
+
+struct cvp_cycle_info {
+	u32 sum_fps[HFI_MAX_HW_THREADS];
+	u32 hi_ctrl_lim[HFI_MAX_HW_THREADS];
+	u32 lo_ctrl_lim[HFI_MAX_HW_THREADS];
+	struct cvp_cycle_stat cycle[HFI_MAX_HW_THREADS];
+	unsigned long conf_freq;
+	struct mutex lock;
 };
 
 struct cvp_session_prop {
@@ -224,6 +242,7 @@ struct cvp_session_prop {
 	u32 ddr_op_bw;
 	u32 ddr_cache;
 	u32 ddr_op_cache;
+	u32 fps[HFI_MAX_HW_THREADS];
 };
 
 enum cvp_event_t {
@@ -265,6 +284,7 @@ struct msm_cvp_core {
 	u32 last_fault_addr;
 	bool trigger_ssr;
 	unsigned long curr_freq;
+	struct cvp_cycle_info dyn_clk;
 	atomic64_t kernel_trans_id;
 };
 

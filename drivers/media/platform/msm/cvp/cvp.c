@@ -107,6 +107,17 @@ static int read_platform_resources(struct msm_cvp_core *core,
 	return rc;
 }
 
+static void init_cycle_info(struct cvp_cycle_info *info)
+{
+	memset(info->sum_fps, 0, HFI_MAX_HW_THREADS*sizeof(u32));
+	memset(info->hi_ctrl_lim, 0, HFI_MAX_HW_THREADS*sizeof(u32));
+	memset(info->lo_ctrl_lim, 0, HFI_MAX_HW_THREADS*sizeof(u32));
+	memset(info->cycle, 0,
+		HFI_MAX_HW_THREADS*sizeof(struct cvp_cycle_stat));
+	info->conf_freq = 0;
+	mutex_init(&info->lock);
+}
+
 static int msm_cvp_initialize_core(struct platform_device *pdev,
 				struct msm_cvp_core *core)
 {
@@ -132,6 +143,7 @@ static int msm_cvp_initialize_core(struct platform_device *pdev,
 
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_cvp_fw_unload_handler);
 	INIT_WORK(&core->ssr_work, msm_cvp_ssr_handler);
+	init_cycle_info(&core->dyn_clk);
 
 	return rc;
 }
@@ -490,6 +502,7 @@ static int msm_cvp_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
 	mutex_destroy(&core->lock);
+	mutex_destroy(&core->dyn_clk.lock);
 	kfree(core);
 	return rc;
 }
