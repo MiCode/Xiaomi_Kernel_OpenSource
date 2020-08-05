@@ -27,21 +27,16 @@
 #include <linux/cpumask.h>
 #include <uapi/linux/sched/types.h>
 
-#define WDT0_ACCSCSSNBARK_INT 0
-#define TCSR_WDT_CFG	0x30
 #define WDT0_RST	0x04
 #define WDT0_EN		0x08
 #define WDT0_STS	0x0C
 #define WDT0_BARK_TIME	0x10
 #define WDT0_BITE_TIME	0x14
 
-#define WDOG_ABSENT	0
-
 #define EN		0
 #define UNMASKED_INT_EN 1
 
 #define MASK_SIZE		32
-#define MAX_CPU_CTX_SIZE	2048
 #define WDT_HZ			32765
 
 static struct msm_watchdog_data *wdog_data;
