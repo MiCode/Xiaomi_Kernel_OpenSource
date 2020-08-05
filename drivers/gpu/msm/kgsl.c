@@ -1904,6 +1904,9 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 		return -ENOMEM;
 	}
 
+	trace_kgsl_aux_command(context->id, param->numcmds, param->flags,
+		param->timestamp);
+
 	if (param->flags & KGSL_GPU_AUX_COMMAND_SYNC) {
 		struct kgsl_drawobj_sync *syncobj =
 			kgsl_drawobj_sync_create(device, context);
