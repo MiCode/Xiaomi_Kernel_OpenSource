@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1182,6 +1182,8 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
+
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 
 	/*
 	 * This is based on the assumption that GMU is the only one controlling
