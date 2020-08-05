@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include "md_cooling.h"
+#include "thermal_trace.h"
 
 #define DEFAULT_THROTTLE_TX_PWR_LV1	(4)
 #define DEFAULT_THROTTLE_TX_PWR_LV2	(6)
@@ -56,6 +57,7 @@ static int md_cooling_tx_pwr_set_cur_state(
 		dev_info(dev, "skip tx pwr control due to MD is inactive\n");
 		if (is_md_off(status))
 			md_cdev->target_level = MD_COOLING_UNLIMITED_LV;
+		trace_md_tx_pwr_limit(md_cdev, status);
 		return -EACCES;
 	}
 
@@ -67,6 +69,7 @@ static int md_cooling_tx_pwr_set_cur_state(
 		md_cdev->target_level = state;
 
 	dev_dbg(dev, "%s: set lv = %ld done\n", md_cdev->name, state);
+	trace_md_tx_pwr_limit(md_cdev, status);
 
 	return ret;
 }
