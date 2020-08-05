@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include "md_cooling.h"
+#include "thermal_trace.h"
 
 #define SCG_OFF_MAX_LEVEL	(1)
 
@@ -62,6 +63,7 @@ static int md_cooling_scg_off_set_cur_state(
 		 */
 		if (is_md_off(status))
 			md_cdev->target_level = MD_COOLING_UNLIMITED_LV;
+		trace_md_scg_off(md_cdev, status);
 		return -EACCES;
 	}
 
@@ -72,6 +74,7 @@ static int md_cooling_scg_off_set_cur_state(
 		md_cdev->target_level = state;
 
 	dev_dbg(dev, "%s: set lv = %ld done\n", md_cdev->name, state);
+	trace_md_scg_off(md_cdev, status);
 
 	return ret;
 }

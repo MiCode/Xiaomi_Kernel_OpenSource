@@ -13,6 +13,7 @@
 
 #include "../thermal_core.h"
 #include "md_cooling.h"
+#include "thermal_trace.h"
 
 /**
  * struct mutt_platform_data - platform data for MD cooling MUTT driver
@@ -149,6 +150,7 @@ static int md_cooling_mutt_set_cur_state(
 		mutex_lock(&drv_data->lock);
 		drv_data->current_level = MD_COOLING_UNLIMITED_LV;
 		mutex_unlock(&drv_data->lock);
+		trace_md_mutt_limit(md_cdev, status);
 		return 0;
 	}
 
@@ -201,6 +203,7 @@ static int md_cooling_mutt_set_cur_state(
 	mutex_unlock(&drv_data->lock);
 
 	dev_dbg(dev, "%s: set lv = %ld done\n", md_cdev->name, state);
+	trace_md_mutt_limit(md_cdev, new_status);
 
 	return ret;
 }

@@ -8,7 +8,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include <md_cooling.h>
+#include "md_cooling.h"
 
 #define MD_COOLING_DEBUGFS_ENTRY_RO(name) \
 static int md_cooling_##name##_open(struct inode *i, struct file *file) \

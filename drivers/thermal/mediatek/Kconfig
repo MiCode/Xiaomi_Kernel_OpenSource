@@ -76,4 +76,14 @@ config MTK_MD_THERMAL_DEBUGFS
 	  evaluation purpose.
 endif
 
+config MTK_THERMAL_TRACE
+	tristate "Mediatek thermal ftrace driver"
+	depends on FTRACE
+	depends on NET
+	help
+	  Enable this option if you want use ftrace for thermal
+	  driver debugging on Mediatek platforms.
+	  This driver creates trace points and a periodical timer
+	  for network throughput calculation.
+
 endif
