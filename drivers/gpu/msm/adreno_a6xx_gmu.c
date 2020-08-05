@@ -2197,6 +2197,15 @@ static int a6xx_gmu_first_boot(struct adreno_device *adreno_dev)
 			goto err;
 	}
 
+	if (!test_bit(GMU_PRIV_PDC_RSC_LOADED, &gmu->flags)) {
+		ret = a6xx_load_pdc_ucode(adreno_dev);
+		if (ret)
+			goto err;
+
+		a6xx_load_rsc_ucode(adreno_dev);
+		set_bit(GMU_PRIV_PDC_RSC_LOADED, &gmu->flags);
+	}
+
 	ret = a6xx_gmu_hfi_start(adreno_dev);
 	if (ret)
 		goto err;
@@ -2984,14 +2993,6 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	ret = a6xx_gpu_boot(adreno_dev);
 	if (ret)
 		return ret;
-
-	ret = a6xx_load_pdc_ucode(adreno_dev);
-	if (ret) {
-		a6xx_gmu_power_off(adreno_dev);
-		return ret;
-	}
-
-	a6xx_load_rsc_ucode(adreno_dev);
 
 	adreno_get_bus_counters(adreno_dev);
 
