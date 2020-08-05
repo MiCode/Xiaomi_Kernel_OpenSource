@@ -104,3 +104,27 @@
 &blsp1_uart4_hs {
 	status = "disabled";
 };
+
+&wlan_fw_mem {
+	reg = <0x0 0x86400000 0x0 0x100000>;
+};
+
+&reserved_mem {
+	linux,cma {
+		size = <0 0x400000>;
+	};
+};
+
+&qseecom_mem {
+	size = <0 0x400000>;
+};
+
+&soc {
+	/delete-node/ qcom,wlan_dsp@7000000;
+	/delete-node/ qcom,icnss@18800000;
+};
+
+&reserved_mem {
+	/delete-node/ wlan_msa_region@88E0000;
+	/delete-node/ wlan_fw_mem@86400000;
+};
