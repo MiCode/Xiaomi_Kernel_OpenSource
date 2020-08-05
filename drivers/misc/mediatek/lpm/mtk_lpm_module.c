@@ -481,16 +481,18 @@ static int __init mtk_lpm_init(void)
 			mtk_lpm_system.suspend.flag &=
 						~MTK_LP_REQ_NOSUSPEND;
 
-			if (!strcmp(pMethod, "s2idle"))
-				mtk_lpm_system.suspend.flag |=
-						MTK_LP_REQ_NOSYSCORE_CB;
-			else if (!strcmp(pMethod, "system"))
-				mtk_lpm_system.suspend.flag &=
-						~MTK_LP_REQ_NOSYSCORE_CB;
-			else
+			if (!strcmp(pMethod, "enable")) {
+				if (pm_suspend_default_s2idle()) {
+					mtk_lpm_system.suspend.flag |=
+					MTK_LP_REQ_NOSYSCORE_CB;
+				} else {
+					mtk_lpm_system.suspend.flag &=
+					(~MTK_LP_REQ_NOSYSCORE_CB);
+				}
+			} else {
 				mtk_lpm_system.suspend.flag |=
 						MTK_LP_REQ_NOSUSPEND;
-
+			}
 			pr_info("[name:mtk_lpm][P] - suspend-method:%s (%s:%d)\n",
 						pMethod, __func__, __LINE__);
 		}
