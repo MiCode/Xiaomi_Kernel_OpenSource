@@ -452,16 +452,18 @@ static int platform_serdev_register_devices(struct serdev_controller *ctrl)
 	return err;
 }
 
+
 /**
- * serdev_controller_add() - Add an serdev controller
+ * serdev_controller_add_platform() - Add an serdev controller
  * @ctrl:	controller to be registered.
+ * @platform:	whether to permit fallthrough to platform device probe
  *
  * Register a controller previously allocated via serdev_controller_alloc() with
- * the serdev core.
+ * the serdev core. Optionally permit probing via a platform device fallback.
  */
-int serdev_controller_add(struct serdev_controller *ctrl)
+int serdev_controller_add_platform(struct serdev_controller *ctrl, bool platform)
 {
-	int ret_of, ret_platform, ret;
+	int ret, ret_of, ret_platform = -ENODEV;
 
 	/* Can't register until after driver model init */
 	if (WARN_ON(!is_registered))
@@ -471,8 +473,9 @@ int serdev_controller_add(struct serdev_controller *ctrl)
 	if (ret)
 		return ret;
 
-	ret_platform = platform_serdev_register_devices(ctrl);
 	ret_of = of_serdev_register_devices(ctrl);
+	if (platform)
+		ret_platform = platform_serdev_register_devices(ctrl);
 	if (ret_of && ret_platform) {
 		dev_dbg(&ctrl->dev, "no devices registered: of:%d "
 				    "platform:%d\n",
@@ -489,7 +492,7 @@ out_dev_del:
 	device_del(&ctrl->dev);
 	return ret;
 };
-EXPORT_SYMBOL_GPL(serdev_controller_add);
+EXPORT_SYMBOL_GPL(serdev_controller_add_platform);
 
 /* Remove a device associated with a controller */
 static int serdev_remove_device(struct device *dev, void *data)

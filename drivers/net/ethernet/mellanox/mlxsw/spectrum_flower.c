@@ -112,9 +112,11 @@ static int mlxsw_sp_flower_parse_actions(struct mlxsw_sp *mlxsw_sp,
 			u8 prio = tcf_vlan_push_prio(a);
 			u16 vid = tcf_vlan_push_vid(a);
 
-			return mlxsw_sp_acl_rulei_act_vlan(mlxsw_sp, rulei,
-							   action, vid,
-							   proto, prio);
+			err = mlxsw_sp_acl_rulei_act_vlan(mlxsw_sp, rulei,
+							  action, vid,
+							  proto, prio);
+			if (err)
+				return err;
 		} else {
 			dev_err(mlxsw_sp->bus_info->dev, "Unsupported action\n");
 			return -EOPNOTSUPP;

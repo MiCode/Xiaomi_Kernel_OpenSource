@@ -581,7 +581,7 @@ static int mvebu_uart_probe(struct platform_device *pdev)
 
 	port->membase = devm_ioremap_resource(&pdev->dev, reg);
 	if (IS_ERR(port->membase))
-		return -PTR_ERR(port->membase);
+		return PTR_ERR(port->membase);
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct mvebu_uart_data),
 			    GFP_KERNEL);
