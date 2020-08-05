@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -10,6 +10,7 @@
 
 #include "main.h"
 #include "debug.h"
+#include "bus.h"
 
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
 	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
@@ -832,21 +833,49 @@ void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
 	plat_priv->pin_result.host_pin_result = pin_status;
 }
 
-int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
+int cnss_get_tcs_info(struct cnss_plat_data *plat_priv)
 {
 	struct platform_device *plat_dev = plat_priv->plat_dev;
-	struct cnss_cpr_info *cpr_info = &plat_priv->cpr_info;
 	struct resource *res;
 	resource_size_t addr_len;
 	void __iomem *tcs_cmd_base_addr;
-	const char *cmd_db_name;
-	u32 cpr_pmic_addr = 0;
 	int ret = 0;
 
 	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "tcs_cmd");
 	if (!res) {
 		cnss_pr_dbg("TCS CMD address is not present for CPR\n");
 		goto out;
+	}
+
+	plat_priv->tcs_info.cmd_base_addr = res->start;
+	addr_len = resource_size(res);
+	cnss_pr_dbg("TCS CMD base address is %pa with length %pa\n",
+		    &plat_priv->tcs_info.cmd_base_addr, &addr_len);
+
+	tcs_cmd_base_addr = devm_ioremap_resource(&plat_dev->dev, res);
+	if (IS_ERR(tcs_cmd_base_addr)) {
+		ret = PTR_ERR(tcs_cmd_base_addr);
+		cnss_pr_err("Failed to map TCS CMD address, err = %d\n",
+			    ret);
+		goto out;
+	}
+	plat_priv->tcs_info.cmd_base_addr_io = tcs_cmd_base_addr;
+	return 0;
+out:
+	return ret;
+}
+
+int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
+{
+	struct platform_device *plat_dev = plat_priv->plat_dev;
+	struct cnss_cpr_info *cpr_info = &plat_priv->cpr_info;
+	const char *cmd_db_name;
+	u32 cpr_pmic_addr = 0;
+	int ret = 0;
+
+	if (plat_priv->tcs_info.cmd_base_addr == 0) {
+		cnss_pr_dbg("TCS CMD not configured\n");
+		return 0;
 	}
 
 	ret = of_property_read_string(plat_dev->dev.of_node,
@@ -873,24 +902,7 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 		ret = -EINVAL;
 		goto out;
 	}
-
-	cpr_info->tcs_cmd_base_addr = res->start;
-	addr_len = resource_size(res);
-	cnss_pr_dbg("TCS CMD base address is %pa with length %pa\n",
-		    &cpr_info->tcs_cmd_base_addr, &addr_len);
-
-	tcs_cmd_base_addr = devm_ioremap_resource(&plat_dev->dev, res);
-	if (IS_ERR(tcs_cmd_base_addr)) {
-		ret = PTR_ERR(tcs_cmd_base_addr);
-		cnss_pr_err("Failed to map TCS CMD address, err = %d\n",
-			    ret);
-		goto out;
-	}
-
-	cpr_info->tcs_cmd_base_addr_io = tcs_cmd_base_addr;
-
 	return 0;
-
 out:
 	return ret;
 }
@@ -902,8 +914,8 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 	void __iomem *tcs_cmd_addr, *tcs_cmd_data_addr;
 	int i, j;
 
-	if (cpr_info->tcs_cmd_base_addr == 0) {
-		cnss_pr_dbg("CPR is not enabled\n");
+	if (plat_priv->tcs_info.cmd_base_addr == 0) {
+		cnss_pr_dbg("TCS CMD not configured\n");
 		return 0;
 	}
 
@@ -919,7 +931,8 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 	for (i = 0; i < MAX_TCS_NUM; i++) {
 		for (j = 0; j < MAX_TCS_CMD_NUM; j++) {
 			offset = i * TCS_OFFSET + j * TCS_CMD_OFFSET;
-			tcs_cmd_addr = cpr_info->tcs_cmd_base_addr_io + offset;
+			tcs_cmd_addr = plat_priv->tcs_info.cmd_base_addr_io +
+									offset;
 			pmic_addr = readl_relaxed(tcs_cmd_addr);
 			if (pmic_addr == cpr_info->cpr_pmic_addr) {
 				tcs_cmd_data_addr = tcs_cmd_addr +
@@ -931,9 +944,8 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 				if (voltage_tmp > voltage) {
 					voltage = voltage_tmp;
 					cpr_info->tcs_cmd_data_addr =
-						cpr_info->tcs_cmd_base_addr +
-						offset +
-						TCS_CMD_DATA_ADDR_OFFSET;
+					plat_priv->tcs_info.cmd_base_addr +
+					offset + TCS_CMD_DATA_ADDR_OFFSET;
 					cpr_info->tcs_cmd_data_addr_io =
 						tcs_cmd_data_addr;
 				}
@@ -953,5 +965,39 @@ update_cpr:
 		    &cpr_info->tcs_cmd_data_addr, cpr_info->voltage);
 	writel_relaxed(cpr_info->voltage, cpr_info->tcs_cmd_data_addr_io);
 
+	return 0;
+}
+
+int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
+{
+	struct platform_device *plat_dev = plat_priv->plat_dev;
+	u32 offset, addr_val, data_val;
+	void __iomem *tcs_cmd;
+	int ret;
+
+	if (!plat_priv->tcs_info.cmd_base_addr_io) {
+		cnss_pr_err("TCS CMD not configured\n");
+		return -EINVAL;
+	}
+
+	if (plat_priv->device_id != QCA6490_DEVICE_ID)
+		return -EINVAL;
+
+	ret = of_property_read_u32(plat_dev->dev.of_node,
+				   "qcom,tcs_offset_int_pow_amp_vreg",
+				   &offset);
+	if (ret) {
+		cnss_pr_dbg("Internal Power Amp Vreg not configured\n");
+		return -EINVAL;
+	}
+	tcs_cmd = plat_priv->tcs_info.cmd_base_addr_io + offset;
+	addr_val = readl_relaxed(tcs_cmd);
+	tcs_cmd += TCS_CMD_DATA_ADDR_OFFSET;
+
+	/* 1 = enable Vreg */
+	writel_relaxed(1, tcs_cmd);
+
+	data_val = readl_relaxed(tcs_cmd);
+	cnss_pr_dbg("Setup S3E TCS Addr: %x Data: %d\n", addr_val, data_val);
 	return 0;
 }

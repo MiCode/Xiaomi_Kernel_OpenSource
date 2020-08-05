@@ -307,10 +307,13 @@ struct cnss_control_params {
 	unsigned int time_sync_period;
 };
 
+struct cnss_tcs_info {
+	resource_size_t cmd_base_addr;
+	void __iomem *cmd_base_addr_io;
+};
+
 struct cnss_cpr_info {
-	resource_size_t tcs_cmd_base_addr;
 	resource_size_t tcs_cmd_data_addr;
-	void __iomem *tcs_cmd_base_addr_io;
 	void __iomem *tcs_cmd_data_addr_io;
 	u32 cpr_pmic_addr;
 	u32 voltage;
@@ -403,6 +406,7 @@ struct cnss_plat_data {
 	bool cbc_enabled;
 	u8 use_nv_mac;
 	u8 set_wlaon_pwr_ctrl;
+	struct cnss_tcs_info tcs_info;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -460,5 +464,7 @@ int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 				enum cnss_fw_dump_type type, int seg_no,
 				void *va, phys_addr_t pa, size_t size);
+int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv);
+int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

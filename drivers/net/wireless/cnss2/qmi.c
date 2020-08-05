@@ -632,6 +632,12 @@ bypass_bdf:
 	if (bdf_type != CNSS_BDF_DUMMY)
 		release_firmware(fw_entry);
 
+	/* QCA6490 enable S3E regulator for IPA configuration only */
+	if (resp->host_bdf_data_valid) {
+		if (!(resp->host_bdf_data & QMI_WLFW_HW_XPA_V01))
+			cnss_enable_int_pow_amp_vreg(plat_priv);
+	}
+
 	kfree(req);
 	kfree(resp);
 	return 0;
