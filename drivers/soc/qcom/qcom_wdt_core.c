@@ -12,7 +12,6 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
-#include <linux/irq.h>
 #include <linux/percpu.h>
 #include <linux/of.h>
 #include <linux/cpu_pm.h>
@@ -57,7 +56,6 @@ struct msm_watchdog_data {
 	unsigned long long last_pet;
 	cpumask_t alive_mask;
 	struct mutex disable_lock;
-	bool irq_ppi;
 	bool in_panic;
 	struct msm_watchdog_data __percpu **wdog_cpu_dd;
 	struct notifier_block panic_blk;
@@ -184,11 +182,7 @@ static void wdog_disable(struct msm_watchdog_data *wdog_dd)
 	__raw_writel(0, wdog_dd->base + WDT0_EN);
 	/* Make sure watchdog is disabled before proceeding */
 	mb();
-	if (wdog_dd->irq_ppi) {
-		disable_percpu_irq(wdog_dd->bark_irq);
-		free_percpu_irq(wdog_dd->bark_irq, wdog_dd->wdog_cpu_dd);
-	} else
-		devm_free_irq(wdog_dd->dev, wdog_dd->bark_irq, wdog_dd);
+	devm_free_irq(wdog_dd->dev, wdog_dd->bark_irq, wdog_dd);
 	enable = 0;
 	/*Ensure all cpus see update to enable*/
 	smp_mb();
@@ -452,8 +446,6 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 
 	mutex_unlock(&wdog_dd->disable_lock);
 	device_remove_file(wdog_dd->dev, &dev_attr_disable);
-	if (wdog_dd->irq_ppi)
-		free_percpu(wdog_dd->wdog_cpu_dd);
 	irq_dispose_mapping(wdog_dd->bark_irq);
 	dev_info(wdog_dd->dev, "MSM Watchdog Exit - Deactivated\n");
 	del_timer_sync(&wdog_dd->pet_timer);
@@ -514,12 +506,6 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t wdog_ppi_bark(int irq, void *dev_id)
-{
-	struct msm_watchdog_data *wdog_dd = dev_id;
-	return wdog_bark_handler(irq, wdog_dd);
-}
-
 static int init_watchdog_sysfs(struct msm_watchdog_data *wdog_dd)
 {
 	int error = 0;
@@ -546,29 +532,12 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	u64 timeout;
 	int ret;
 
-	if (wdog_dd->irq_ppi) {
-		wdog_dd->wdog_cpu_dd = alloc_percpu(struct msm_watchdog_data *);
-		if (!wdog_dd->wdog_cpu_dd) {
-			dev_err(wdog_dd->dev, "fail to allocate cpu data\n");
-			return;
-		}
-		*raw_cpu_ptr(wdog_dd->wdog_cpu_dd) = wdog_dd;
-		ret = request_percpu_irq(wdog_dd->bark_irq, wdog_ppi_bark,
-					"apps_wdog_bark",
-					wdog_dd->wdog_cpu_dd);
-		if (ret) {
-			dev_err(wdog_dd->dev, "failed to request bark irq\n");
-			free_percpu(wdog_dd->wdog_cpu_dd);
-			return;
-		}
-	} else {
-		ret = devm_request_irq(wdog_dd->dev, wdog_dd->bark_irq,
+	ret = devm_request_irq(wdog_dd->dev, wdog_dd->bark_irq,
 				wdog_bark_handler, IRQF_TRIGGER_RISING,
 						"apps_wdog_bark", wdog_dd);
-		if (ret) {
-			dev_err(wdog_dd->dev, "failed to request bark irq\n");
-			return;
-		}
+	if (ret) {
+		dev_err(wdog_dd->dev, "failed to request bark irq\n");
+		return;
 	}
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
@@ -602,8 +571,6 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 
 	init_watchdog_sysfs(wdog_dd);
 
-	if (wdog_dd->irq_ppi)
-		enable_percpu_irq(wdog_dd->bark_irq, 0);
 	if (!IPI_CORES_IN_LPM)
 		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
@@ -665,7 +632,6 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	}
 	pdata->wakeup_irq_enable = of_property_read_bool(node,
 							 "qcom,wakeup-enable");
-	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);
 	return 0;
 }
