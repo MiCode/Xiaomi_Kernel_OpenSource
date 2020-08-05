@@ -17,6 +17,8 @@ static int dspVMperm[DSP_VM_NUM] = { PERM_READ | PERM_WRITE | PERM_EXEC,
 				PERM_READ | PERM_WRITE | PERM_EXEC };
 static int hlosVMperm[HLOS_VM_NUM] = { PERM_READ | PERM_WRITE | PERM_EXEC };
 
+static int cvp_reinit_dsp(void);
+
 static int cvp_dsp_send_cmd(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
 {
 	int rc = 0;
@@ -40,7 +42,8 @@ exit:
 	return rc;
 }
 
-static int cvp_dsp_send_cmd_sync(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
+static int cvp_dsp_send_cmd_sync(struct cvp_dsp_cmd_msg *cmd,
+		uint32_t len, struct cvp_dsp_rsp_msg *rsp)
 {
 	int rc = 0;
 	struct cvp_dsp_apps *me = &gfa_cv;
@@ -63,12 +66,15 @@ static int cvp_dsp_send_cmd_sync(struct cvp_dsp_cmd_msg *cmd, uint32_t len)
 	}
 
 exit:
+	rsp->ret = me->pending_dsp2cpu_rsp.ret;
+	rsp->dsp_state = me->pending_dsp2cpu_rsp.dsp_state;
 	me->pending_dsp2cpu_rsp.type = CVP_INVALID_RPMSG_TYPE;
 	return rc;
 }
 
 static int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
-					uint32_t size_in_bytes)
+				uint32_t size_in_bytes,
+				struct cvp_dsp_rsp_msg *rsp)
 {
 	int rc = 0;
 	struct cvp_dsp_cmd_msg cmd;
@@ -88,7 +94,7 @@ static int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 		"%s: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
 		__func__, phys_addr, size_in_bytes, cmd.ddr_type);
 
-	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg), rsp);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed rc = %d\n",
@@ -224,6 +230,8 @@ int cvp_dsp_suspend(uint32_t session_flag)
 	int rc = 0;
 	struct cvp_dsp_cmd_msg cmd;
 	struct cvp_dsp_apps *me = &gfa_cv;
+	struct cvp_dsp_rsp_msg rsp;
+	bool retried = false;
 
 	cmd.type = CPU2DSP_SUSPEND;
 
@@ -231,8 +239,11 @@ int cvp_dsp_suspend(uint32_t session_flag)
 	if (me->state != DSP_READY)
 		goto exit;
 
+retry:
 	/* Use cvp_dsp_send_cmd_sync after dsp driver is ready */
-	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+	rc = cvp_dsp_send_cmd_sync(&cmd,
+			sizeof(struct cvp_dsp_cmd_msg),
+			&rsp);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed rc = %d\n",
@@ -240,8 +251,31 @@ int cvp_dsp_suspend(uint32_t session_flag)
 		goto exit;
 	}
 
-	me->state = DSP_SUSPEND;
+	if (rsp.ret == CPU2DSP_EUNAVAILABLE)
+		goto fatal_exit;
 
+	if (rsp.ret == CPU2DSP_EFATAL) {
+		if (!retried) {
+			mutex_unlock(&me->lock);
+			retried = true;
+			rc = cvp_reinit_dsp();
+			mutex_lock(&me->lock);
+			if (rc)
+				goto fatal_exit;
+			else
+				goto retry;
+		} else {
+			goto fatal_exit;
+		}
+	}
+
+	me->state = DSP_SUSPEND;
+	goto exit;
+
+fatal_exit:
+	me->state = DSP_INVALID;
+	cvp_hyp_assign_from_dsp();
+	rc = -ENOTSUPP;
 exit:
 	mutex_unlock(&me->lock);
 	return rc;
@@ -252,6 +286,7 @@ int cvp_dsp_resume(uint32_t session_flag)
 	int rc = 0;
 	struct cvp_dsp_cmd_msg cmd;
 	struct cvp_dsp_apps *me = &gfa_cv;
+	struct cvp_dsp_rsp_msg rsp;
 
 	cmd.type = CPU2DSP_RESUME;
 
@@ -260,7 +295,9 @@ int cvp_dsp_resume(uint32_t session_flag)
 		goto exit;
 
 	/* Use cvp_dsp_send_cmd_sync after dsp driver is ready */
-	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+	rc = cvp_dsp_send_cmd_sync(&cmd,
+			sizeof(struct cvp_dsp_cmd_msg),
+			&rsp);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed rc = %d\n",
@@ -280,6 +317,7 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 	struct cvp_dsp_apps *me = &gfa_cv;
 	int rc = 0;
 	struct cvp_dsp_cmd_msg cmd;
+	struct cvp_dsp_rsp_msg rsp;
 
 	cmd.type = CPU2DSP_SHUTDOWN;
 
@@ -288,7 +326,7 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 		goto exit;
 
 	me->state = DSP_INACTIVE;
-	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg), &rsp);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: cvp_dsp_send_cmd failed with rc = %d\n",
@@ -312,6 +350,8 @@ int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
 	struct cvp_dsp_cmd_msg cmd;
 	int rc;
 	struct cvp_dsp_apps *me = &gfa_cv;
+	struct cvp_dsp_rsp_msg rsp;
+	bool retried = false;
 
 	cmd.type = CPU2DSP_REGISTER_BUFFER;
 	cmd.session_id = session_id;
@@ -330,12 +370,43 @@ int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
 		__func__, cmd.buff_size, cmd.session_id);
 
 	mutex_lock(&me->lock);
-	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+retry:
+	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg), &rsp);
 	if (rc) {
 		dprintk(CVP_ERR, "%s send failed rc = %d\n", __func__, rc);
 		goto exit;
 	}
 
+	if (rsp.ret == CPU2DSP_EFAIL || rsp.ret == CPU2DSP_EUNSUPPORTED) {
+		dprintk(CVP_WARN, "%s, DSP return err %d\n", __func__, rsp.ret);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (rsp.ret == CPU2DSP_EUNAVAILABLE)
+		goto fatal_exit;
+
+	if (rsp.ret == CPU2DSP_EFATAL) {
+		if (!retried) {
+			mutex_unlock(&me->lock);
+			retried = true;
+			rc = cvp_reinit_dsp();
+			mutex_lock(&me->lock);
+			if (rc)
+				goto fatal_exit;
+			else
+				goto retry;
+		} else {
+			goto fatal_exit;
+		}
+	}
+
+	goto exit;
+
+fatal_exit:
+	me->state = DSP_INVALID;
+	cvp_hyp_assign_from_dsp();
+	rc = -ENOTSUPP;
 exit:
 	mutex_unlock(&me->lock);
 	return rc;
@@ -349,6 +420,8 @@ int cvp_dsp_deregister_buffer(uint32_t session_id, uint32_t buff_fd,
 	struct cvp_dsp_cmd_msg cmd;
 	int rc;
 	struct cvp_dsp_apps *me = &gfa_cv;
+	struct cvp_dsp_rsp_msg rsp;
+	bool retried = false;
 
 	cmd.type = CPU2DSP_DEREGISTER_BUFFER;
 	cmd.session_id = session_id;
@@ -367,12 +440,43 @@ int cvp_dsp_deregister_buffer(uint32_t session_id, uint32_t buff_fd,
 		__func__, cmd.buff_size, cmd.session_id);
 
 	mutex_lock(&me->lock);
-	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg));
+retry:
+	rc = cvp_dsp_send_cmd_sync(&cmd, sizeof(struct cvp_dsp_cmd_msg), &rsp);
 	if (rc) {
 		dprintk(CVP_ERR, "%s send failed rc = %d\n", __func__, rc);
 		goto exit;
 	}
 
+	if (rsp.ret == CPU2DSP_EFAIL || rsp.ret == CPU2DSP_EUNSUPPORTED) {
+		dprintk(CVP_WARN, "%s, DSP return err %d\n", __func__, rsp.ret);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (rsp.ret == CPU2DSP_EUNAVAILABLE)
+		goto fatal_exit;
+
+	if (rsp.ret == CPU2DSP_EFATAL) {
+		if (!retried) {
+			mutex_unlock(&me->lock);
+			retried = true;
+			rc = cvp_reinit_dsp();
+			mutex_lock(&me->lock);
+			if (rc)
+				goto fatal_exit;
+			else
+				goto retry;
+		} else {
+			goto fatal_exit;
+		}
+	}
+
+	goto exit;
+
+fatal_exit:
+	me->state = DSP_INVALID;
+	cvp_hyp_assign_from_dsp();
+	rc = -ENOTSUPP;
 exit:
 	mutex_unlock(&me->lock);
 	return rc;
@@ -455,11 +559,94 @@ void cvp_dsp_init_hfi_queue_hdr(struct iris_hfi_device *device)
 	q_hdr->qhdr_rx_req = 0;
 }
 
+static int __reinit_dsp(void)
+{
+	int rc;
+	uint32_t flag = 0;
+	uint64_t addr;
+	uint32_t size;
+	struct cvp_dsp_apps *me = &gfa_cv;
+	struct cvp_dsp_rsp_msg rsp;
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *device;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core && core->device)
+		device = core->device->hfi_device_data;
+	else
+		return -EINVAL;
+
+	if (!device) {
+		dprintk(CVP_ERR, "%s: NULL device\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Force shutdown DSP */
+	rc = cvp_dsp_shutdown(flag);
+	if (rc)
+		return rc;
+
+	/* Resend HFI queue */
+	mutex_lock(&me->lock);
+	if (!device->dsp_iface_q_table.align_virtual_addr) {
+		dprintk(CVP_ERR, "%s: DSP HFI queue released\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	addr = (uint64_t)device->dsp_iface_q_table.mem_data.dma_handle;
+	size = device->dsp_iface_q_table.mem_data.size;
+
+	if (!addr || !size) {
+		dprintk(CVP_DSP, "%s: HFI queue is not ready\n", __func__);
+		goto exit;
+	}
+
+	rc = cvp_hyp_assign_to_dsp(addr, size);
+	if (rc) {
+		dprintk(CVP_ERR, "%s: cvp_hyp_assign_to_dsp. rc=%d\n",
+			__func__, rc);
+		goto exit;
+	}
+
+	rc = cvp_dsp_send_cmd_hfi_queue((phys_addr_t *)addr, size, &rsp);
+	if (rc) {
+		dprintk(CVP_WARN, "%s: Send HFI Queue failed rc = %d\n",
+			__func__, rc);
+
+		goto exit;
+	}
+	if (rsp.ret) {
+		dprintk(CVP_ERR, "%s: DSP error %d %d\n", __func__,
+				rsp.ret, rsp.dsp_state);
+		rc = -ENODEV;
+	}
+exit:
+	mutex_unlock(&me->lock);
+	return rc;
+}
+
+static int cvp_reinit_dsp(void)
+{
+	int rc;
+	struct cvp_dsp_apps *me = &gfa_cv;
+
+	rc = __reinit_dsp();
+	if (rc)	{
+		mutex_lock(&me->lock);
+		me->state = DSP_INVALID;
+		cvp_hyp_assign_from_dsp();
+		mutex_unlock(&me->lock);
+	}
+	return rc;
+}
+
 void cvp_dsp_send_hfi_queue(void)
 {
 	struct msm_cvp_core *core;
 	struct iris_hfi_device *device;
 	struct cvp_dsp_apps *me = &gfa_cv;
+	struct cvp_dsp_rsp_msg rsp;
 	uint64_t addr;
 	uint32_t size;
 	int rc;
@@ -511,12 +698,36 @@ void cvp_dsp_send_hfi_queue(void)
 			"%s: Done init of HFI queue headers\n", __func__);
 	}
 
-	rc = cvp_dsp_send_cmd_hfi_queue((phys_addr_t *)addr, size);
+	rc = cvp_dsp_send_cmd_hfi_queue((phys_addr_t *)addr, size, &rsp);
 	if (rc) {
 		dprintk(CVP_WARN, "%s: Send HFI Queue failed rc = %d\n",
 			__func__, rc);
 
 		goto exit;
+	}
+
+	if (rsp.ret == CPU2DSP_EUNSUPPORTED) {
+		dprintk(CVP_WARN, "%s unsupported cmd %d\n",
+			__func__, rsp.type);
+		goto exit;
+	}
+
+	if (rsp.ret == CPU2DSP_EFATAL || rsp.ret == CPU2DSP_EUNAVAILABLE) {
+		dprintk(CVP_ERR, "%s fatal error returned %d\n",
+				__func__, rsp.dsp_state);
+		me->state = DSP_INVALID;
+		cvp_hyp_assign_from_dsp();
+		goto exit;
+	} else if (rsp.ret == CPU2DSP_EINVALSTATE) {
+		dprintk(CVP_ERR, "%s dsp invalid state %d\n",
+				__func__, rsp.dsp_state);
+		mutex_unlock(&me->lock);
+		if (cvp_reinit_dsp()) {
+			dprintk(CVP_ERR, "%s reinit dsp fail\n", __func__);
+			mutex_unlock(&device->lock);
+			return;
+		}
+		mutex_lock(&me->lock);
 	}
 
 	dprintk(CVP_DSP, "%s: dsp initialized\n", __func__);
