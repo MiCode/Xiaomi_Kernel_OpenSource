@@ -114,3 +114,5 @@
 		panel = <&dsi_rm69299_visionox_amoled_video>;
 	};
 };
+
+#include "camera/holi-camera-sensor-mtp.dtsi"
