@@ -47,18 +47,14 @@ static struct msm_watchdog_data *wdog_data;
  *	Disabled by default on boot.
  */
 struct msm_watchdog_data {
-	unsigned int __iomem phys_base;
-	size_t size;
 	void __iomem *base;
 	struct device *dev;
 	unsigned int pet_time;
 	unsigned int bark_time;
 	unsigned int bark_irq;
-	unsigned int bite_irq;
 	bool do_ipi_ping;
 	bool wakeup_irq_enable;
 	unsigned long long last_pet;
-	void *scm_regsave;
 	cpumask_t alive_mask;
 	struct mutex disable_lock;
 	bool irq_ppi;
@@ -646,7 +642,6 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	}
 
 	pdata->bark_irq = platform_get_irq(pdev, 0);
-	pdata->bite_irq = platform_get_irq(pdev, 1);
 	ret = of_property_read_u32(node, "qcom,bark-time", &pdata->bark_time);
 	if (ret) {
 		dev_err(&pdev->dev, "reading bark time failed\n");
