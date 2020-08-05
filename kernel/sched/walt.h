@@ -451,15 +451,20 @@ static int in_sched_bug;
 	}						\
 })
 
-static inline bool prefer_spread_on_idle(int cpu)
+static inline bool prefer_spread_on_idle(int cpu, bool new_ilb)
 {
-	if (likely(!sysctl_sched_prefer_spread))
+	switch (sysctl_sched_prefer_spread) {
+	case 1:
+		return is_min_capacity_cpu(cpu);
+	case 2:
+		return true;
+	case 3:
+		return (new_ilb && is_min_capacity_cpu(cpu));
+	case 4:
+		return new_ilb;
+	default:
 		return false;
-
-	if (is_min_capacity_cpu(cpu))
-		return sysctl_sched_prefer_spread >= 1;
-
-	return sysctl_sched_prefer_spread > 1;
+	}
 }
 
 #else /* CONFIG_SCHED_WALT */
