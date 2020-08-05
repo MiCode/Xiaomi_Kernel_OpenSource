@@ -32,6 +32,7 @@
 #include <linux/posix-timers.h>
 #include <linux/rseq.h>
 #include <linux/android_kabi.h>
+#include <linux/android_vendor.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -1290,6 +1291,8 @@ struct task_struct {
 	unsigned long			lowest_stack;
 	unsigned long			prev_lowest_stack;
 #endif
+
+	ANDROID_VENDOR_DATA_ARRAY(1, 2);
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
