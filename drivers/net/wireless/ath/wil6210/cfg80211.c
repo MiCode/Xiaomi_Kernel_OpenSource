@@ -2760,8 +2760,9 @@ static int wil_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	enum wmi_ps_profile_type ps_profile;
 
-	if (wil->vr_profile != WMI_VR_PROFILE_DISABLED)
-		/* disallow in VR mode */
+	if (wil->vr_profile != WMI_VR_PROFILE_DISABLED &&
+	    wil->vr_profile != WMI_VR_PROFILE_COMMON_STA_PS)
+		/* disallow in non-power management VR mode */
 		return -EINVAL;
 
 	wil_dbg_misc(wil, "enabled=%d, timeout=%d\n",

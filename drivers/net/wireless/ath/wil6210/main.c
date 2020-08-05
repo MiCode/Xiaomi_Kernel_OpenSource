@@ -1607,7 +1607,8 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 		return rc;
 
 	/* VR default configuration */
-	wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
+	if (profile != WMI_VR_PROFILE_COMMON_STA_PS)
+		wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
 	tx_ring_order = WIL6210_VR_TX_RING_ORDER;
 	drop_if_ring_full = true;
 	wil->rx_max_burst_duration = WIL6210_ITR_VR_RX_MAX_BURST_DURATION;
