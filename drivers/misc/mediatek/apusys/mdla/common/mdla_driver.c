@@ -92,6 +92,9 @@ static int apusys_mdla_rt_handler(int type,
 	struct mdla_dev *mdla_info;
 	struct mdla_run_cmd_sync *cmd_data;
 
+	if (type != APUSYS_CMD_EXECUTE)
+		return 0;
+
 	cmd_hnd = hnd;
 
 	if (unlikely(!cmd_hnd || !dev))
@@ -108,9 +111,6 @@ static int apusys_mdla_rt_handler(int type,
 
 	if (unlikely(mdla_info->mdla_id >= mdla_util_get_core_num()))
 		return -EINVAL;
-
-	if (type != APUSYS_CMD_EXECUTE)
-		return 0;
 
 	ret = mdla_cmd_ops_get()->run_sync(
 			cmd_data,
