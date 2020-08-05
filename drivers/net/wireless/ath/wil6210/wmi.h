@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: ISC */
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2006-2012 Wilocity
  */
@@ -4212,6 +4212,7 @@ enum wmi_vr_profile {
 	WMI_VR_PROFILE_DISABLED		= 0,
 	WMI_VR_PROFILE_COMMON_AP	= 1,
 	WMI_VR_PROFILE_COMMON_STA	= 2,
+	WMI_VR_PROFILE_COMMON_STA_PS	= 3,
 	WMI_VR_PROFILE_RESERVED0	= 250,
 	WMI_VR_PROFILE_RESERVED1	= 251,
 	WMI_VR_PROFILE_RESERVED2	= 252,
