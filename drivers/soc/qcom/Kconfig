@@ -1061,4 +1061,10 @@ config QCOM_HYP_CORE_CTL
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
 
+config RENAME_BLOCK_DEVICE
+	bool "Rename block device node in /dev"
+	help
+	  This driver is used to rename the block device node assigned by generic driver
+	  to a name that is needed.
+
 source "drivers/soc/qcom/wcnss/Kconfig"
