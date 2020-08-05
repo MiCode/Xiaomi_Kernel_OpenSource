@@ -335,6 +335,7 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0000>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 0>;
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
@@ -348,6 +349,7 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0100>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 0>;
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
@@ -361,6 +363,7 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0200>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 0>;
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
@@ -374,6 +377,7 @@
 			compatible = "arm,cortex-a55";
 			reg = <0x0300>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 0>;
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
@@ -387,6 +391,7 @@
 			compatible = "arm,cortex-a76";
 			reg = <0x0400>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 1>;
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
@@ -400,6 +405,7 @@
 			compatible = "arm,cortex-a76";
 			reg = <0x0500>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 1>;
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
@@ -413,6 +419,7 @@
 			compatible = "arm,cortex-a76";
 			reg = <0x0600>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 1>;
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
@@ -426,6 +433,7 @@
 			compatible = "arm,cortex-a76";
 			reg = <0x0700>;
 			enable-method = "psci";
+			mtk-freq-domain = <&cpufreq_hw 1>;
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
@@ -863,6 +871,14 @@
 		#size-cells = <2>;
 		compatible = "simple-bus";
 		ranges;
+
+		cpufreq_hw: cpufreq@0011bc00 {
+			compatible = "mediatek,cpufreq-hw";
+			reg = <0 0x0011bc10 0 0x8c>, <0 0x0011bca0 0 0x8c>,
+				<0 0x00115c10 0 0x90>, <0 0x00115d30 0 0x90>;
+			reg-names = "freq-domain0", "freq-domain1", "em-domain0", "em-domain1";
+			#freq-domain-cells = <1>;
+		};
 
 		dvfsp: dvfsp@0011bc00 {
 			compatible = "mediatek,mt6873-mcupm-dvfs";
