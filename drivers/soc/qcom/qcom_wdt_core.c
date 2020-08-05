@@ -63,8 +63,6 @@ struct msm_watchdog_data {
 	bool do_ipi_ping;
 	bool wakeup_irq_enable;
 	unsigned long long last_pet;
-	unsigned int min_slack_ticks;
-	unsigned long long min_slack_ns;
 	void *scm_regsave;
 	cpumask_t alive_mask;
 	struct mutex disable_lock;
@@ -341,32 +339,6 @@ static ssize_t wdog_pet_time_get(struct device *dev,
 
 static DEVICE_ATTR(pet_time, 0400, wdog_pet_time_get, NULL);
 
-static void pet_watchdog(struct msm_watchdog_data *wdog_dd)
-{
-	int slack, i, count, prev_count = 0;
-	unsigned long long bark_time_ns = wdog_dd->bark_time * 1000000ULL;
-	unsigned long long slack_ns;
-	unsigned long long time_ns;
-
-	for (i = 0; i < 2; i++) {
-		count =
-		(__raw_readl(wdog_dd->base + WDT0_STS) >> 1) & 0xFFFFF;
-		if (count != prev_count) {
-			prev_count = count;
-			i = 0;
-		}
-	}
-	slack = ((wdog_dd->bark_time * WDT_HZ) / 1000) - count;
-	if (slack < wdog_dd->min_slack_ticks)
-		wdog_dd->min_slack_ticks = slack;
-	__raw_writel(1, wdog_dd->base + WDT0_RST);
-	time_ns = sched_clock();
-	slack_ns = (wdog_dd->last_pet + bark_time_ns) - time_ns;
-	if (slack_ns < wdog_dd->min_slack_ns)
-		wdog_dd->min_slack_ns = slack_ns;
-	wdog_dd->last_pet = time_ns;
-}
-
 static void keep_alive_response(void *info)
 {
 	struct msm_watchdog_data *wdog_dd = info;
@@ -438,7 +410,10 @@ static __ref int watchdog_kthread(void *arg)
 
 		if (enable) {
 			delay_time = msecs_to_jiffies(wdog_dd->pet_time);
-			pet_watchdog(wdog_dd);
+			__raw_writel(1, wdog_dd->base + WDT0_RST);
+			/* Make sure register write is complete */
+			mb();
+			wdog_dd->last_pet = sched_clock();
 		}
 		/* Check again before scheduling
 		 * Could have been changed on other cpu
@@ -605,8 +580,6 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 		}
 	}
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
-	wdog_dd->min_slack_ticks = UINT_MAX;
-	wdog_dd->min_slack_ns = ULLONG_MAX;
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
 	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
