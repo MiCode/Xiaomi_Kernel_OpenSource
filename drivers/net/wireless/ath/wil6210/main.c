@@ -22,6 +22,7 @@
 #define WIL_BOARD_FILE_MAX_NAMELEN 128
 #define WIL6210_ITR_VR_RX_MAX_BURST_DURATION (5) /* usec */
 #define WIL6210_VR_TX_RING_ORDER 10
+#define WIL6210_VR_AGG_WSIZE 16
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -1603,6 +1604,7 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 		drop_if_ring_full = false;
 		wil->rx_max_burst_duration =
 			WIL6210_ITR_RX_MAX_BURST_DURATION_DEFAULT;
+		agg_wsize = 0;
 
 		return 0;
 	}
@@ -1617,6 +1619,7 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 	tx_ring_order = WIL6210_VR_TX_RING_ORDER;
 	drop_if_ring_full = true;
 	wil->rx_max_burst_duration = WIL6210_ITR_VR_RX_MAX_BURST_DURATION;
+	agg_wsize = WIL6210_VR_AGG_WSIZE;
 
 	return 0;
 }
