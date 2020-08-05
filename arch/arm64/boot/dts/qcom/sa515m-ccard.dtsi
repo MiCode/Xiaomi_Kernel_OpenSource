@@ -643,3 +643,17 @@
 		};
 	};
 };
+
+&tlmm {
+	wakeup_gpio_default: wakeup_gpio_default {
+		mux {
+			pins = "gpio96";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio96";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};

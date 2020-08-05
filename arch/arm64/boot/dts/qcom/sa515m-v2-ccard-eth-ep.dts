@@ -41,3 +41,16 @@
 &usb {
 	qcom,smmu-s1-bypass;
 };
+
+&sdx_ext_ipc {
+	compatible = "qcom,sa515m-ccard";
+	qcom,status-in-gpio = <&tlmm 76 0x00>;
+	qcom,status-out-gpio = <&tlmm 33 0x00>;
+	qcom,status-out2-gpio = <&tlmm 31 0x00>;
+	qcom,wakeup-gpio-in = <&tlmm 77 0x00>;
+	qcom,wakeup-gpio-out = <&tlmm 96 0x00>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wakeup_gpio_default>;
+	qcom,default-policy-nop;
+	status = "okay";
+};

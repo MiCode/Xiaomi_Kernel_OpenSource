@@ -1607,10 +1607,6 @@
 		qcom,status-in-gpio = <&tlmm 64 0x00>;
 		qcom,status-out-gpio = <&tlmm 63 0x00>;
 		qcom,status-out2-gpio = <&tlmm 66 0x00>;
-		qcom,wakeup-gpio-in = <&tlmm 87 0x00>;
-		qcom,wakeup-gpio-out = <&tlmm 22 0x00>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&wakeup_gpio_default>;
 		status = "disabled";
 	};
 };
