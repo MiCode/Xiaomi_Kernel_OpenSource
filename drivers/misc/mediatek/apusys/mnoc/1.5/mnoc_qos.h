@@ -29,6 +29,7 @@ extern bool apu_qos_boost_flag;
 extern struct mutex apu_qos_boost_mtx;
 #endif
 
+#ifdef CONFIG_MTK_QOS_FRAMEWORK
 void apu_qos_on(void);
 void apu_qos_off(void);
 
@@ -43,4 +44,20 @@ void apu_qos_resume(void);
 void apu_qos_boost_start(void);
 void apu_qos_boost_end(void);
 
+#else /* !CONFIG_MTK_QOS_FRAMEWORK */
+static inline void apu_qos_on(void) {}
+static inline void apu_qos_off(void) {}
+
+static inline void apu_qos_counter_init(struct device *dev) {}
+static inline void apu_qos_counter_destroy(struct device *dev) {}
+
+static inline void print_cmd_qos_list(struct seq_file *m) {}
+
+static inline void apu_qos_suspend(void) {}
+static inline void apu_qos_resume(void) {}
+
+static inline void apu_qos_boost_start(void) {}
+static inline void apu_qos_boost_end(void) {}
+
+#endif
 #endif

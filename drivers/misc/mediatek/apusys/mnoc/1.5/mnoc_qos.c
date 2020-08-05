@@ -31,7 +31,6 @@ unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 
 static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 
-#if MNOC_QOS_ENABLE
 #include <mtk_qos_bound.h>
 #include <mtk_qos_sram.h>
 #include "apusys_power.h"
@@ -1163,75 +1162,3 @@ void print_cmd_qos_list(struct seq_file *m)
 	}
 	mutex_unlock(&(qos_counter.list_mtx));
 }
-
-#else
-
-void apu_qos_on(void)
-{
-}
-
-void apu_qos_off(void)
-{
-}
-
-void apu_qos_suspend(void)
-{
-}
-
-void apu_qos_resume(void)
-{
-}
-
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
-	int dev_type, int dev_core, uint32_t boost_val)
-{
-	return 0;
-}
-EXPORT_SYMBOL(apu_cmd_qos_start);
-
-int apu_cmd_qos_suspend(uint64_t cmd_id,
-	uint64_t sub_cmd_id)
-{
-	return 0;
-}
-EXPORT_SYMBOL(apu_cmd_qos_suspend);
-
-int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
-{
-	return 0;
-}
-EXPORT_SYMBOL(apu_cmd_qos_end);
-
-void apu_qos_counter_init(struct device *dev)
-{
-	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
-	struct icc_path *apu_icc = of_icc_get(dev, "apu-bw");
-	int i = 0;
-
-	if (!p_mnoc) {
-		dev_info(dev, "%s not get struct apu_mnoc\n", __func__);
-		return;
-	}
-
-	/*
-	 * put engine_pm_qos_counter to struct apu_mnoc
-	 * such that mnoc_qos_sys.c can get it from dev_get_drvdata
-	 */
-	p_mnoc->engines = engine_pm_qos_counter;
-
-	if (apu_icc) {
-		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
-			p_mnoc->engines[i].emi_icc_path = apu_icc;
-	} else
-		dev_info(dev, "%s not get apu-bw icc path\n", __func__);
-}
-
-void apu_qos_counter_destroy(struct device *dev)
-{
-}
-
-void print_cmd_qos_list(struct seq_file *m)
-{
-}
-
-#endif /* MNOC_QOS_ENABLE */
