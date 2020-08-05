@@ -550,32 +550,41 @@
 		compatible = "mediatek,memory-ssmr-features";
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
-	defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		svp-size = <0 0x10000000>;
 #endif
-#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
+#if defined(CONFIG_MTK_CAM_SECURITY_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		2d_fr-size = <0 0x8000000>;
 #endif
 #if defined(CONFIG_TRUSTONIC_TRUSTED_UI) || \
-	defined(CONFIG_BLOWFISH_TUI_SUPPORT)
+	defined(CONFIG_BLOWFISH_TUI_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		tui-size = <0 0x4000000>;
 #endif
-#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		wfd-size = <0 0x4000000>;
 #endif
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if defined(CONFIG_MTK_PROT_MEM_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		prot-sharedmem-size = <0 0x8000000>;
 #endif
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if defined(CONFIG_MTK_HAPP_MEM_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		ta-elf-size = <0 0x1000000>;
 #endif
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if defined(CONFIG_MTK_HAPP_MEM_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		ta-stack-heap-size = <0 0x6000000>;
 #endif
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		sdsp-tee-sharedmem-size = <0 0x1000000>;
 #endif
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+#if defined(CONFIG_MTK_SDSP_MEM_SUPPORT) || \
+	defined(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 		sdsp-firmware-size = <0 0x1000000>;
 #endif
 		};
