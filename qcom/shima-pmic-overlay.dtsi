@@ -16,7 +16,9 @@
 			power-source = <1>;
 		};
 	};
+};
 
+&pmr735b_gpios {
 	pmr735b_smb_skin {
 		pmr735b_smb_skin_default: pmr735b_smb_skin_default {
 			pins = "gpio3";
