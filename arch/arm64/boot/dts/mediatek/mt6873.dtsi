@@ -4008,7 +4008,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		suspend-method = "s2idle";
+		suspend-method = "enable";
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 				<&level_mali0 &level_mali1>,
 				<&level_mali2 &level_mali3 &level_mali4>,
