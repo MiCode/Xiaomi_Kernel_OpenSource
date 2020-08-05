@@ -505,6 +505,19 @@ static int qti_handle_key_unwrap_import(const struct hwkm_cmd *cmd_in,
 		return -EINVAL;
 	}
 
+	/*
+	 * Unwrap in HWKM does not do an integrity check for the last byte
+	 * (68th byte) as it is a noop. However, we need to make sure no
+	 * part of the keyblob provided was tampered with, even though it
+	 * is a noop. Adding an explicit check for the last byte before
+	 * providing to unwrap command.
+	 */
+	if ((cmd_in->unwrap.wkb[EXPECTED_UNWRAP_KEY_SIZE - 1]) != 0x00) {
+		pr_err("%s: Last byte corrupted, expecting zero value\n",
+								__func__);
+		return -EINVAL;
+	}
+
 	memcpy(cmd, &operation, OPERATION_INFO_LENGTH);
 	memcpy(cmd + COMMAND_WRAPPED_KEY_IDX, cmd_in->unwrap.wkb,
 			cmd_in->unwrap.sz);
