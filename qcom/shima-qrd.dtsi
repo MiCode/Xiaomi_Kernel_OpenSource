@@ -44,17 +44,14 @@
 
 	vccq-supply = <&L9B>;
 	vccq-max-microamp = <900000>;
+	vccq-min-microamp = <0>;
 
 	vccq2-supply = <&S10B>;
 	vccq2-voltage-level = <1800000 1800000>;
-	vccq2-max-microamp = <800000>;
-	vccq2-min-microamp = <0>;
 
 	qcom,vddp-ref-clk-supply = <&L9B>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
-	/* put vdd-ref-clk regulator to lpm */
-	qcom,vddp-ref-clk-min-uV = <0>;
-
+	qcom,vddp-ref-clk-min-microamp = <0>;
 	status = "ok";
 };
 
