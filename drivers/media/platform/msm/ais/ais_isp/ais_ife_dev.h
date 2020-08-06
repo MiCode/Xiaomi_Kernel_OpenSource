@@ -40,7 +40,6 @@ struct ais_ife_dev {
 	int iommu_hdl;
 	int iommu_hdl_secure;
 
-	spinlock_t eventq_lock;
 	struct mutex mutex;
 	int32_t open_cnt;
 };
