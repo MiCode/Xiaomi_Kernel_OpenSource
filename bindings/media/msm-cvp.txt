@@ -6,6 +6,7 @@ cvp
 Required properties:
 - compatible : one of:
 	- "qcom,msm-cvp"
+	- "qcom,shima-cvp" : Invokes driver specific data for shima.
 	- "qcom,lahaina-cvp" : Invokes driver specific data for Lahaina.
 	- "qcom,kona-cvp" : Invokes driver specific data for kona.
 

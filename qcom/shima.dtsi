@@ -359,6 +359,14 @@
 			linux,cma-default;
 		};
 
+		cdsp_mem: cdsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x400000>;
+		};
+
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
@@ -1155,6 +1163,16 @@
 		compatible = "qcom,debugfs-qmp-client";
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "aop";
+	};
+
+	qcom,evass@abb0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xabb0000 0x2000>;
+		status = "ok";
+		qcom,pas-id = <26>;
+		qcom,firmware-name = "evass";
+
+		memory-region = <&pil_cvp_mem>;
 	};
 
 	qcom,rmtfs_sharedmem@0 {
@@ -2620,6 +2638,7 @@
 #include "ipcc-test-shima.dtsi"
 #include "msm-arm-smmu-shima.dtsi"
 #include "shima-vidc.dtsi"
+#include "shima-cvp.dtsi"
 #include "shima-thermal.dtsi"
 #include "shima-gpu.dtsi"
 #include "shima-audio.dtsi"
