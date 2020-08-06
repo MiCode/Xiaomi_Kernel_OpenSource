@@ -2859,10 +2859,8 @@
 		apusys_mnoc: apusys_mnoc {
 			compatible = "mediatek,apusys_mnoc";
 			interconnects = <&dvfsrc MT6873_MASTER_VPUSYS
-					 &dvfsrc MT6873_SLAVE_DDR_EMI>,
-					<&dvfsrc MT6873_MASTER_MDLASYS
 					 &dvfsrc MT6873_SLAVE_DDR_EMI>;
-			interconnect-names = "vpu-bw", "mdla-bw";
+			interconnect-names = "apu-bw";
 		};
 
 		apu_top: apu_top@0x190f0000 {
