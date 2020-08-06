@@ -351,6 +351,30 @@
 			alignment = <0 0x400000>;
 			size = <0 0x800000>;
 		};
+
+		user_contig_mem: user_contig_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
 	};
 
 	soc: soc { };
@@ -369,7 +393,7 @@
 					dev = "/dev/block/platform/soc/4744000.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect,avb";
+					fsmgr_flags = "wait,slotselect";
 					status = "ok";
 				};
 			};
@@ -1864,8 +1888,9 @@
 
 	ufshc_mem: ufshc@4804000 {
 		compatible = "qcom,ufshc";
-		reg = <0x4804000 0x3000>;
-		reg-names = "ufs_mem";
+		reg = <0x4804000 0x3000>,
+		      <0x4808000 0x8000>;
+		reg-names = "ufs_mem", "ufs_ice";
 		interrupts = <GIC_SPI 356 IRQ_TYPE_LEVEL_HIGH>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
@@ -2186,6 +2211,145 @@
 		/* Outputs to mss */
 		qcom,smem-states = <&modem_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
+	};
+
+	qcom_qseecom: qseecom@c1800000 {
+		compatible = "qcom,qseecom";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,fde-key-size;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		interconnect-names = "data_path";
+		interconnects = <&system_noc MASTER_CRYPTO_CORE0 &bimc SLAVE_EBI>;
+		clock-names =
+			"core_clk_src", "core_clk",
+			"iface_clk", "bus_clk";
+		clocks =
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>;
+		qcom,ce-opp-freq = <192000000>;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_cedev: qcedev@1b20000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1b20000 0x20000>,
+			<0x1b04000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bam-pipe-pair = <3>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+		qcom,bam-ee = <0>;
+		clock-names =
+			"core_clk_src", "core_clk",
+			"iface_clk", "bus_clk";
+		clocks =
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>;
+		qcom,ce-opp-freq = <192000000>;
+		qcom,smmu-s1-enable;
+		interconnect-names = "data_path";
+		interconnects = <&system_noc MASTER_CRYPTO_CORE0 &bimc SLAVE_EBI>;
+		iommus = <&apps_smmu 0x0486 0x0011>;
+		qcom,iommu-dma = "atomic";
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x492 0>,
+				 <&apps_smmu 0x498 0x0001>,
+				 <&apps_smmu 0x49F 0>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x493 0>,
+				 <&apps_smmu 0x49C 0x0001>,
+				 <&apps_smmu 0x49E 0>;
+			qcom,iommu-vmid = <0x9>; /* VMID_CP_BITSTREAM */
+			qcom,secure-context-bank;
+		};
+	};
+
+	qcom_crypto: qcrypto@1b20000 {
+		compatible = "qcom,qcrypto";
+		reg = <0x1b20000 0x20000>,
+			<0x1b04000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
+		clock-names =
+			"core_clk_src", "core_clk",
+			"iface_clk", "bus_clk";
+		clocks =
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>,
+			<&rpmcc RPM_SMD_CE1_CLK>;
+		qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
+		qcom,use-sw-ahash-algo;
+		qcom,use-sw-aead-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,smmu-s1-enable;
+		interconnect-names = "data_path";
+		interconnects = <&system_noc MASTER_CRYPTO_CORE0 &bimc SLAVE_EBI>;
+		iommus = <&apps_smmu 0x0484 0x0011>;
+		qcom,iommu-dma = "atomic";
+	};
+
+	qcom_rng: qrng@4453000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x4453000 0x1000>;
+		qcom,no-qrng-config;
+		interconnect-names = "data_path";
+		interconnects = <&bimc MASTER_AMPSS_M0 &config_noc SLAVE_HWKM>;
+		clock-names = "km_clk_src";
+		clocks = <&rpmcc RPM_SMD_HWKM_CLK>;
+	};
+
+	qcom_hwkm: hwkm@4440000 {
+		compatible = "qcom,hwkm";
+		reg = <0x4440000 0x9000>, <0x04810000 0x9000>;
+		reg-names = "km_master", "ice_slave";
+		qcom,enable-hwkm-clk;
+		clock-names = "km_clk_src";
+		clocks = <&rpmcc RPM_SMD_HWKM_CLK>;
+		qcom,op-freq-hz = <75000000>;
+	};
+
+	qcom_tzlog: tz-log@c125720       {
+		compatible = "qcom,tz-log";
+		reg = <0xc125720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+	};
+
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
 	};
 
 	eud: qcom,msm-eud@1628000 {
