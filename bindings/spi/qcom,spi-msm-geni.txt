@@ -31,6 +31,12 @@ Optional properties:
 		controller device should have "real-time" priority.
 - qcom,disable-autosuspend: Specifies to disable runtime PM auto suspend.
 - qcom,disable-dma: Set this flag to use FIFO mode only.
+- qcom,shared_ee: 	Specifies that this serial engine is shared between
+			execution environments.
+- qcom,shared_se: 	Specifies that this serial engine is shared simultaneously
+			between execution environments. A true multi-EE usecase.
+- qcom,le_vm:		Specifies that this serial engine is operating in a trusted VM.
+
 
 SPI slave nodes must be children of the SPI master node and can contain
 the following properties.
