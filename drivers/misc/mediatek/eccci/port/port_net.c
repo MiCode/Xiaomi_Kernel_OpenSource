@@ -323,6 +323,7 @@ struct ccmni_ccci_ops eccci_ccmni_ops = {
 	.napi_poll = ccmni_napi_poll,
 	.get_ccmni_ch = ccci_get_ccmni_channel,
 	.ccci_net_init = mtk_ccci_net_port_init,
+	.ccci_handle_port_list = mtk_ccci_handle_port_list,
 };
 
 struct ccmni_ccci_ops eccci_cc3mni_ops = {

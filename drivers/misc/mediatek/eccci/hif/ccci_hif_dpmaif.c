@@ -56,9 +56,6 @@
 #ifdef PIT_USING_CACHE_MEM
 #include <asm/cacheflush.h>
 #endif
-#ifdef USING_BATCHING
-#define BATCHING_PUSH_THRESH 176
-#endif
 
 #ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
