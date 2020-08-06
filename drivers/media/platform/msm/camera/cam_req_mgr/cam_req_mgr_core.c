@@ -2295,6 +2295,8 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 			CAM_DBG(CAM_REQ,
 				"No pending req to apply to lower pd devices");
 			rc = 0;
+			__cam_req_mgr_inc_idx(&in_q->rd_idx,
+				1, in_q->num_slots);
 			goto release_lock;
 		}
 		__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
@@ -3422,6 +3424,8 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 
 	struct cam_req_mgr_connected_device *dev = NULL;
 	struct cam_req_mgr_link_evt_data     evt_data;
+	struct cam_req_mgr_req_queue        *in_q = NULL;
+	struct cam_req_mgr_slot             *slot = NULL;
 
 	if (!control) {
 		CAM_ERR(CAM_CRM, "Control command is NULL");
@@ -3485,6 +3489,18 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 				if (dev->ops && dev->ops->process_evt)
 					dev->ops->process_evt(&evt_data);
 			}
+			in_q = link->req.in_q;
+			/* reset all slots */
+			for (j = 0; j < in_q->num_slots; j++) {
+				slot = &in_q->slot[j];
+				slot->req_id = -1;
+				slot->sync_mode =
+					CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
+				slot->skip_idx = 1;
+				slot->status = CRM_SLOT_STATUS_NO_REQ;
+			}
+			in_q->wr_idx = 0;
+			in_q->rd_idx = 0;
 		} else {
 			CAM_ERR(CAM_CRM, "Invalid link control command");
 			rc = -EINVAL;
