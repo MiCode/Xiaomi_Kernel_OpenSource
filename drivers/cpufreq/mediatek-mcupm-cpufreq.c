@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/iopoll.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>
 #include "../misc/mediatek/mcupm/include/mcupm_driver.h"
@@ -55,6 +56,10 @@ struct mtk_cpu_dvfs_info {
 	void __iomem *csram_base;
 	void __iomem *usram_base;
 	unsigned int cluster;
+};
+
+struct mtk_cpufreq_match_data {
+	int (*get_version)(struct platform_device *pdev, unsigned int *arr);
 };
 
 static LIST_HEAD(dvfs_info_list);
@@ -102,15 +107,10 @@ static int mtk_cpufreq_set_target(struct cpufreq_policy *policy,
 
 static int mtk_cpu_dvfs_info_init(struct mtk_cpu_dvfs_info *info, int cpu)
 {
-	struct device *cpu_dev;
 	int ret;
 
-	cpu_dev = get_cpu_device(cpu);
-	if (!cpu_dev)
-		return -ENODEV;
-
 	/* Get OPP-sharing information from "operating-points-v2" bindings */
-	ret = dev_pm_opp_of_get_sharing_cpus(cpu_dev, &info->cpus);
+	ret = dev_pm_opp_of_get_sharing_cpus(info->cpu_dev, &info->cpus);
 	if (ret)
 		goto out_free_resources;
 
@@ -118,7 +118,6 @@ static int mtk_cpu_dvfs_info_init(struct mtk_cpu_dvfs_info *info, int cpu)
 	if (ret)
 		goto out_free_resources;
 
-	info->cpu_dev = cpu_dev;
 	mutex_init(&info->lock);
 
 	return 0;
@@ -211,16 +210,38 @@ static struct cpufreq_driver mtk_cpufreq_driver = {
 	.attr = cpufreq_generic_attr,
 };
 
+static int mt6873_get_version(struct platform_device *pdev, unsigned int *arr)
+{
+	const char *nvmem_name_arr[2] = {"seg_code", "level_code1"};
+	int  ret, i, version;
+	unsigned int seg_reg[2];
+
+	for (i = 0; i < 2; i++) {
+		ret = nvmem_cell_read_u32(&pdev->dev, nvmem_name_arr[i], &seg_reg[i]);
+		if (ret)
+			break;
+	}
+
+	arr[0] = seg_reg[0] << 4 | 1;
+	arr[1] = (seg_reg[1] & 0xFF) > 2 ? 0x10 : 0x1;
+	arr[2] = (seg_reg[1] & 0x80000000) ? 0x10 : 0x1;
+	return 3;
+}
+
 static int mtk_cpufreq_probe(struct platform_device *pdev)
 {
 	struct mtk_cpu_dvfs_info *info;
 	struct list_head *list, *tmp;
-	int cpu, ret, sig;
+	int cpu, ret, sig, count;
 	int cluster = 0;
 	struct ipi_data cdvfs_d, eem_data;
 	uint32_t cpufreq_buf[4];
 	struct mtk_ipi_device *mcupm_ipidev, *mcupm_eem_ipidev;
 	int ipi_ackdata;
+	struct device *cpu_dev;
+	unsigned int version[3];
+	const struct of_device_id *match;
+	struct mtk_cpufreq_match_data *data;
 
 	mcupm_ipidev = (struct mtk_ipi_device *) get_mcupm_ipidev();
 	mcupm_eem_ipidev = (struct mtk_ipi_device *) get_mcupm_ipidev();
@@ -253,6 +274,13 @@ static int mtk_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		return -EINVAL;
 
+	data = (struct mtk_cpufreq_match_data *)of_device_get_match_data(&pdev->dev);
+	count = 0;
+	if (data) {
+		if (data->get_version)
+			count = data->get_version(pdev, version);
+	}
+
 	for_each_possible_cpu(cpu) {
 		info = mtk_cpu_dvfs_info_lookup(cpu);
 		if (info)
@@ -270,6 +298,13 @@ static int mtk_cpufreq_probe(struct platform_device *pdev)
 			goto release_dvfs_info_list;
 		}
 
+		cpu_dev = get_cpu_device(cpu);
+		if (!cpu_dev)
+			return -ENODEV;
+		info->cpu_dev = cpu_dev;
+
+		if (count)
+			dev_pm_opp_set_supported_hw(cpu_dev, version, count);
 		ret = mtk_cpu_dvfs_info_init(info, cpu);
 		if (ret)
 			goto release_dvfs_info_list;
@@ -303,9 +338,13 @@ release_dvfs_info_list:
 	return ret;
 }
 
+static const struct mtk_cpufreq_match_data mt6873_cpufreq_data = {
+	.get_version = mt6873_get_version,
+};
+
 /* List of machines supported by this driver */
 static const struct of_device_id mtk_cpufreq_machines[] = {
-	{ .compatible = "mediatek,mcupm-dvfsp", },
+	{ .compatible = "mediatek,mt6873-mcupm-dvfs", .data = &mt6873_cpufreq_data },
 	{ }
 };
 
