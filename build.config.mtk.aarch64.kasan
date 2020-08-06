@@ -6,3 +6,5 @@ LLVM_IAS=1
 # DEFCONFIG=defconfig
 KERNEL_DIR=kernel-mainline
 CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r383902/bin
+BUILDTOOLS_PREBUILT_BIN=prebuilts/build-tools/linux-x86/bin
+SKIP_MRPROPER=1 # do not remove this
