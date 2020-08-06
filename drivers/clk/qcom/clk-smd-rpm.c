@@ -827,6 +827,8 @@ DEFINE_CLK_SMD_RPM(holi, snoc_lpass_clk, snoc_lpass_a_clk,
 						QCOM_SMD_RPM_BUS_CLK, 5);
 DEFINE_CLK_SMD_RPM(holi, hwkm_clk, hwkm_a_clk, QCOM_SMD_RPM_HWKM_CLK, 0);
 DEFINE_CLK_SMD_RPM(holi, pka_clk, pka_a_clk, QCOM_SMD_RPM_PKA_CLK, 0);
+DEFINE_CLK_SMD_RPM_BRANCH(holi, bimc_freq_log, bimc_freq_log_a,
+					QCOM_SMD_RPM_MISC_CLK, 4, 1);
 
 /* SMD_XO_BUFFER */
 DEFINE_CLK_SMD_RPM_XO_BUFFER(holi, ln_bb_clk2, ln_bb_clk2_a,
@@ -872,6 +874,7 @@ static struct clk_hw *holi_clks[] = {
 	[RPM_SMD_HWKM_A_CLK] = &holi_hwkm_a_clk.hw,
 	[RPM_SMD_PKA_CLK] = &holi_pka_clk.hw,
 	[RPM_SMD_PKA_A_CLK] = &holi_pka_a_clk.hw,
+	[RPM_SMD_BIMC_FREQ_LOG] = &holi_bimc_freq_log.hw,
 };
 
 static const struct rpm_smd_clk_desc rpm_clk_holi = {
@@ -889,6 +892,34 @@ static const struct of_device_id rpm_smd_clk_match_table[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, rpm_smd_clk_match_table);
+
+static int smd_rpm_clk_panic_callback(struct notifier_block *nfb,
+					unsigned long event, void *unused)
+{
+	struct clk_hw *hw = &holi_bimc_freq_log.hw;
+	struct clk_smd_rpm *r = to_clk_smd_rpm(hw);
+	uint32_t rate = 1;
+	void *ret;
+
+	struct msm_rpm_kvp req = {
+		.key = r->rpm_key,
+		.data = (void *)&rate,
+		.length = sizeof(rate),
+	};
+
+	ret = msm_rpm_send_message_noack(QCOM_SMD_RPM_ACTIVE_STATE,
+		 r->rpm_res_type, r->rpm_clk_id, &req, 1);
+
+	if (IS_ERR(ret))
+		pr_err("BIMC Stop logging request failed\n");
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block smd_rpm_clk_panic_notifier = {
+	.notifier_call = smd_rpm_clk_panic_callback,
+	.priority = 1,
+};
 
 static struct clk_hw *qcom_smdrpm_clk_hw_get(struct of_phandle_args *clkspec,
 						void *data)
@@ -979,6 +1010,10 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
 		clk_prepare_enable(holi_snoc_a_clk.hw.clk);
 	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,bimc-log-stop"))
+		atomic_notifier_chain_register(&panic_notifier_list,
+						&smd_rpm_clk_panic_notifier);
 
 	dev_info(&pdev->dev, "Registered RPM clocks\n");
 
