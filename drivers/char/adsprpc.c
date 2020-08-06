@@ -2627,7 +2627,8 @@ static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
 }
 
 static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
-		 int *ptr_interrupted, uint32_t kernel, uint32_t async)
+			int *ptr_interrupted, uint32_t kernel, uint32_t async,
+			bool *ptr_isworkdone)
 {
 	int interrupted = 0, err = 0;
 	int jj;
@@ -2639,6 +2640,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 	if (!ctx) {
 		/* This failure is not expected */
 		err = *ptr_interrupted = EFAULT;
+		*ptr_isworkdone = false;
 		ADSPRPC_ERR("ctx is NULL, cannot wait for response err %d\n",
 					err);
 		return;
@@ -2663,8 +2665,11 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 			preempt_enable();
 			if (async) {
 				spin_lock_irqsave(&ctx->fl->aqlock, flags);
-				if (!ctx->is_work_done)
+				if (!ctx->is_work_done) {
 					ctx->is_early_wakeup = false;
+					*ptr_isworkdone = false;
+				} else
+					*ptr_isworkdone = true;
 				spin_unlock_irqrestore(&ctx->fl->aqlock, flags);
 				goto bail;
 			} else if (!wait_resp) {
@@ -2684,14 +2689,18 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 			/* Wait for completion if poll on memory timoeut */
 			if (!err) {
 				ctx->is_work_done = true;
+				*ptr_isworkdone = true;
 				goto bail;
 			}
 			ADSPRPC_INFO("poll timeout for handle 0x%x, sc 0x%x\n",
 				ctx->handle, ctx->sc);
 			if (async) {
 				spin_lock_irqsave(&ctx->fl->aqlock, flags);
-				if (!ctx->is_work_done)
+				if (!ctx->is_work_done) {
 					ctx->is_early_wakeup = false;
+					*ptr_isworkdone = false;
+				} else
+					*ptr_isworkdone = true;
 				spin_unlock_irqrestore(&ctx->fl->aqlock, flags);
 				goto bail;
 			} else if (!ctx->is_work_done) {
@@ -2713,14 +2722,18 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 					goto bail;
 			} else {
 				spin_lock_irqsave(&ctx->fl->aqlock, flags);
-				if (!ctx->is_work_done)
+				if (!ctx->is_work_done) {
 					ctx->is_early_wakeup = false;
+					*ptr_isworkdone = false;
+				} else
+					*ptr_isworkdone = true;
 				spin_unlock_irqrestore(&ctx->fl->aqlock, flags);
 				goto bail;
 			}
 			break;
 		default:
 			*ptr_interrupted = EBADR;
+			*ptr_isworkdone = false;
 			ADSPRPC_ERR(
 				"unsupported response flags 0x%x for handle 0x%x, sc 0x%x\n",
 				ctx->rsp_flags, ctx->handle, ctx->sc);
@@ -2758,7 +2771,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int err = 0, interrupted = 0, cid = -1;
 	struct timespec64 invoket = {0};
 	int64_t *perf_counter = NULL;
-	bool isasyncinvoke = false;
+	bool isasyncinvoke = false, isworkdone = false;
 
 	cid = fl->cid;
 	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS &&
@@ -2832,7 +2845,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (isasyncinvoke)
 		goto invoke_end;
  wait:
-	fastrpc_wait_for_completion(ctx, &interrupted, kernel, 0);
+	fastrpc_wait_for_completion(ctx, &interrupted, kernel, 0, &isworkdone);
 	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
@@ -2884,6 +2897,7 @@ static int fastrpc_wait_on_async_queue(
 	struct smq_invoke_ctx *ctx = NULL, *ictx = NULL, *n = NULL;
 	unsigned long flags;
 	int64_t *perf_counter = NULL;
+	bool isworkdone = false;
 
 read_async_job:
 	interrupted = wait_event_interruptible(fl->async_wait_queue,
@@ -2905,8 +2919,9 @@ read_async_job:
 	}
 	spin_unlock_irqrestore(&fl->aqlock, flags);
 	if (ctx) {
-		fastrpc_wait_for_completion(ctx, &interrupted, 0, 1);
-		if (!ctx->is_work_done) {//In valid workdone state
+		fastrpc_wait_for_completion(ctx, &interrupted, 0, 1,
+							&isworkdone);
+		if (!isworkdone) {//In valid workdone state
 			ADSPRPC_DEBUG(
 				"Async early wake response did not reach on time for thread %d handle 0x%x, sc 0x%x\n",
 				ctx->pid, ctx->handle, ctx->sc);
