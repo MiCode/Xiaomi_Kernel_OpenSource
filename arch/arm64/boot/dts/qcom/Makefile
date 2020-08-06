@@ -206,6 +206,7 @@ dtb-$(CONFIG_QTI_GVM) += sa8155-vm-la.dtb \
 	sa8195-vm-la.dtb \
 	sa8195-vm-la-mt.dtb \
 	sa8195-vm-lv.dtb \
+	sa8195-vm-lv-lxc.dtb \
 	sa8195-vm-lv-mt.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
