@@ -268,51 +268,6 @@ out:
 	return count;
 }
 
-#if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
-static int mnoc_apu_qos_boost_show(struct seq_file *m, void *v)
-{
-	seq_printf(m, "apu_qos_boost_flag = %d\n", apu_qos_boost_flag);
-
-	return 0;
-}
-
-static ssize_t mnoc_apu_qos_boost_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	char *buf = (char *) __get_free_page(GFP_USER);
-	unsigned int val;
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	if (kstrtoint(buf, 10, &val) == 0) {
-		if (val == 0) {
-			mutex_lock(&apu_qos_boost_mtx);
-			apu_qos_boost_flag = false;
-			apu_qos_boost_end();
-			mutex_unlock(&apu_qos_boost_mtx);
-		} else if (val == 1) {
-			mutex_lock(&apu_qos_boost_mtx);
-			apu_qos_boost_flag = true;
-			apu_qos_boost_start();
-			mutex_unlock(&apu_qos_boost_mtx);
-		}
-	}
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-}
-#endif
-
 #if MNOC_DBG_ENABLE
 static int mnoc_cmd_qos_start_show(struct seq_file *m, void *v)
 {
@@ -528,9 +483,6 @@ DBG_FOPS_RW(mnoc_log_level);
 DBG_FOPS_RW(mnoc_reg_rw);
 DBG_FOPS_RW(mnoc_pmu_reg);
 DBG_FOPS_RW(mnoc_pmu_timer_en);
-#if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
-DBG_FOPS_RW(mnoc_apu_qos_boost);
-#endif
 #if MNOC_DBG_ENABLE
 DBG_FOPS_RW(mnoc_cmd_qos_start);
 DBG_FOPS_RW(mnoc_cmd_qos_suspend);
@@ -559,9 +511,6 @@ int create_debugfs(void)
 	CREATE_DBGFS(mnoc_reg_rw);
 	CREATE_DBGFS(mnoc_pmu_reg);
 	CREATE_DBGFS(mnoc_pmu_timer_en);
-#if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
-	CREATE_DBGFS(mnoc_apu_qos_boost);
-#endif
 #if MNOC_DBG_ENABLE
 	CREATE_DBGFS(mnoc_cmd_qos_start);
 	CREATE_DBGFS(mnoc_cmd_qos_suspend);
