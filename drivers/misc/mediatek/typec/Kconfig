@@ -1,0 +1,14 @@
+#
+# MediaTek USB TYPEC Driver
+#
+
+config MTK_USB_TYPEC
+	tristate "Mediatek USB TYPE-C Driver"
+	help
+	  Enables to support usb-c. So the usb device and host driver register
+	  the callback func to the usb-c driver. When the usb-c driver detect
+	  a device/host plugged in/out, it will notify the device/host driver
+	  by callback func.
+	  If unsure, say N.
+
+source "drivers/misc/mediatek/typec/tcpc/Kconfig"
