@@ -102,3 +102,18 @@ endmenu # Performance
 menu "SCP"
 source "drivers/misc/mediatek/scp/Kconfig"
 endmenu # SCP
+
+menu "Config File"
+config BUILD_CONFIG_FILE
+	string "build config file"
+	help
+	  Specify the build.config file which record toolchain environment
+	  Such as "build.config.mtk.aarch64"
+
+config EXT_MODULES
+	string "out-of-tree kernel modules"
+	help
+	  Specify out-of-tree kernel modules to build in order
+	  The value must be kernel module repo list, such as
+	  "vendor/mediatek/kernel_modules/connectivity/common vendor/mediatek/kernel_modules/connectivity/gps"
+endmenu # Config
