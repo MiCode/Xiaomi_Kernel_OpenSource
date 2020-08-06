@@ -21,7 +21,6 @@
 #include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/qcom_scm.h>
 #include <linux/soc/qcom/smem.h>
-#include <soc/qcom/subsystem_restart.h>
 #include <linux/dma-mapping.h>
 #include <linux/reset.h>
 #include "hfi_packetization.h"
@@ -3623,11 +3622,6 @@ static void __deinit_resources(struct iris_hfi_device *device)
 	device->sys_init_capabilities = NULL;
 }
 
-static int __protect_cp_mem(struct iris_hfi_device *device)
-{
-	return device ? 0 : -EINVAL;
-}
-
 static int __disable_regulator(struct regulator_info *rinfo,
 				struct iris_hfi_device *device)
 {
@@ -4305,31 +4299,13 @@ static int __load_fw(struct iris_hfi_device *device)
 
 	if ((!device->res->use_non_secure_pil && !device->res->firmware_base)
 			|| device->res->use_non_secure_pil) {
-		if (!device->resources.fw.cookie)
-			device->resources.fw.cookie =
-				subsystem_get_with_fwname("evass",
-				device->res->fw_name);
-
-		if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
-			dprintk(CVP_ERR, "Failed to download firmware\n");
-			device->resources.fw.cookie = NULL;
-			rc = -ENOMEM;
+		rc = load_cvp_fw_impl(device);
+		if (rc)
 			goto fail_load_fw;
-		}
 	}
 
-	if (!device->res->firmware_base) {
-		rc = __protect_cp_mem(device);
-		if (rc) {
-			dprintk(CVP_ERR, "Failed to protect memory\n");
-			goto fail_protect_mem;
-		}
-	}
 	return rc;
-fail_protect_mem:
-	if (device->resources.fw.cookie)
-		subsystem_put(device->resources.fw.cookie);
-	device->resources.fw.cookie = NULL;
+
 fail_load_fw:
 	call_iris_op(device, power_off, device);
 fail_iris_power_on:
@@ -4348,10 +4324,9 @@ static void __unload_fw(struct iris_hfi_device *device)
 	if (device->state != IRIS_STATE_DEINIT)
 		flush_workqueue(device->iris_pm_workq);
 
-	subsystem_put(device->resources.fw.cookie);
+	unload_cvp_fw_impl(device);
 	__interface_queues_release(device);
 	call_iris_op(device, power_off, device);
-	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 
 	dprintk(CVP_WARN, "Firmware unloaded\n");
