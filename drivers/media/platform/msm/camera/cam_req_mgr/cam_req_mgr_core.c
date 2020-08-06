@@ -2257,6 +2257,42 @@ end:
 	return rc;
 }
 
+static void cam_req_mgr_process_reset_for_dual_link(
+	struct cam_req_mgr_core_link *link,
+	struct cam_req_mgr_trigger_notify *trigger_data)
+{
+	int32_t                             idx = -1;
+	int32_t                             sync_idx = -1;
+	struct cam_req_mgr_req_queue        *in_q = NULL;
+	struct cam_req_mgr_req_queue        *sync_in_q = NULL;
+
+	in_q = link->req.in_q;
+	sync_in_q = link->sync_link->req.in_q;
+
+	sync_idx = __cam_req_mgr_find_slot_for_req(sync_in_q,
+			trigger_data->req_id);
+	if (link->is_master)
+		__cam_req_mgr_dec_idx(&sync_idx,
+			(link->max_delay - link->sync_link->max_delay),
+			sync_in_q->num_slots);
+	else
+		__cam_req_mgr_inc_idx(&sync_idx,
+			(link->sync_link->max_delay - link->max_delay),
+			sync_in_q->num_slots);
+	if (sync_idx != -1 &&
+		(sync_in_q->slot[sync_in_q->rd_idx].status ==
+		CRM_SLOT_STATUS_REQ_APPLIED)) {
+		idx = __cam_req_mgr_find_slot_for_req(in_q,
+			trigger_data->req_id);
+		CAM_DBG(CAM_CRM, "Reset req: %lld idx: %d link_hdl: %x",
+			trigger_data->req_id, idx,
+			link->link_hdl);
+		if (idx == in_q->last_applied_idx)
+			in_q->last_applied_idx = -1;
+		__cam_req_mgr_reset_req_slot(link, idx);
+	}
+}
+
 /**
  * cam_req_mgr_process_trigger()
  *
@@ -2295,12 +2331,18 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 	mutex_lock(&link->req.lock);
 
 	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF) {
-		idx = __cam_req_mgr_find_slot_for_req(in_q,
-			trigger_data->req_id);
-		if (idx >= 0) {
-			if (idx == in_q->last_applied_idx)
-				in_q->last_applied_idx = -1;
-			__cam_req_mgr_reset_req_slot(link, idx);
+		if (link->sync_link &&
+			(link->is_master || link->sync_link->is_master)) {
+			cam_req_mgr_process_reset_for_dual_link(link,
+				trigger_data);
+		} else {
+			idx = __cam_req_mgr_find_slot_for_req(in_q,
+				trigger_data->req_id);
+			if (idx >= 0) {
+				if (idx == in_q->last_applied_idx)
+					in_q->last_applied_idx = -1;
+				__cam_req_mgr_reset_req_slot(link, idx);
+			}
 		}
 	}
 
