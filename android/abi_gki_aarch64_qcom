@@ -2580,6 +2580,8 @@
   usb_remove_phy
   usb_reset_device
   usb_reset_endpoint
+  usb_role_switch_get
+  usb_role_switch_put
   usb_role_switch_register
   usb_role_switch_set_role
   usb_role_switch_unregister
