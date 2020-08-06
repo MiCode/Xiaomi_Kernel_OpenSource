@@ -2256,7 +2256,7 @@ static void dwc3_msm_block_reset(struct dwc3_msm *mdwc, bool core_reset)
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	u32 val, val1;
+	u32 val = 0, val1 = 0;
 	int ret;
 
 	/* Configure AHB2PHY for one wait state read/write */
