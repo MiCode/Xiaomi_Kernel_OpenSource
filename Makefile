@@ -499,6 +499,8 @@ export RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o    \
 export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn \
 			 --exclude CVS --exclude .pc --exclude .hg --exclude .git
 
+KBUILD_CFLAGS	+= $(call cc-option,-Wno-misleading-indentation)
+
 # ===========================================================================
 # Rules shared between *config targets and build targets
 
