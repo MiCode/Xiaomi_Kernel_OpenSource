@@ -962,6 +962,11 @@
 		qcom,proc-img-to-load = "cdsp";
 	};
 
+	qcom,eth_dev_qrtr {
+		compatible = "qcom,qrtr-ethernet-dev";
+		qcom,low-latency;
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		#address-cells = <1>;
