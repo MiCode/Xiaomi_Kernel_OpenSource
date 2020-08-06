@@ -3865,8 +3865,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		goto link_fail;
 	}
 
-	if (dev->enumerated)
+	if (dev->enumerated) {
+		msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
 		msm_pcie_config_link_pm(dev, true);
+	}
 
 	goto out;
 
@@ -3906,6 +3908,9 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev)
 		mutex_unlock(&dev->setup_lock);
 		return;
 	}
+
+	/* suspend access to MSI register. resume access in msm_msi_config */
+	msm_msi_config_access(dev_get_msi_domain(&dev->dev->dev), false);
 
 	dev->link_status = MSM_PCIE_LINK_DISABLED;
 	dev->power_on = false;
