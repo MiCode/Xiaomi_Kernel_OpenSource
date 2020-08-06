@@ -23,6 +23,9 @@ struct av8l_fast_io_pgtable {
 	av8l_fast_iopte		 *puds[4];
 	av8l_fast_iopte		 *pmds;
 	struct page		**pages; /* page table memory */
+	int			  nr_pages;
+	dma_addr_t		  base;
+	dma_addr_t		  end;
 };
 
 /* Struct accessors */
@@ -99,7 +102,8 @@ av8l_fast_iova_to_phys_public(struct io_pgtable_ops *ops,
  */
 #define AV8L_FAST_PTE_UNMAPPED_NEED_TLBI 0xa
 
-void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, bool skip_sync);
+void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, u64 base, u64 end,
+				bool skip_sync);
 void av8l_register_notify(struct notifier_block *nb);
 
 #else  /* !CONFIG_IOMMU_IO_PGTABLE_FAST_PROVE_TLB */
@@ -107,6 +111,8 @@ void av8l_register_notify(struct notifier_block *nb);
 #define AV8L_FAST_PTE_UNMAPPED_NEED_TLBI 0
 
 static inline void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops,
+					      u64 base,
+					      u64 end,
 					      bool skip_sync)
 {
 }

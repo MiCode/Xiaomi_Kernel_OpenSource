@@ -1740,71 +1740,169 @@ static void arm_smmu_free_asid(struct iommu_domain *domain)
 	mutex_unlock(&smmu->idr_mutex);
 }
 
-/*
- * Checks for "qcom,iommu-dma-addr-pool" property to specify the IOVA range
- * for the domain. If not present, and the domain doesn't use fastmap,
- * the domain geometry is unmodified.
- */
-static int arm_smmu_adjust_domain_geometry(struct device *dev,
-					   struct iommu_domain *domain)
+static int get_range_prop(struct device *dev, const char *prop,
+			  dma_addr_t *ret_base, dma_addr_t *ret_end)
 {
 	struct device_node *np;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int naddr, nsize, len;
-	u64 dma_base, dma_size, dma_end;
+	u64 base, end, size;
 	const __be32 *ranges;
-	dma_addr_t hw_base = domain->geometry.aperture_start;
-	dma_addr_t hw_end = domain->geometry.aperture_end;
-	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
 
 	if (!dev->of_node)
-		return 0;
+		return -ENOENT;
 
 	np = of_parse_phandle(dev->of_node, "qcom,iommu-group", 0);
 	if (!np)
 		np = dev->of_node;
 
-	ranges = of_get_property(np, "qcom,iommu-dma-addr-pool", &len);
+	ranges = of_get_property(np, prop, &len);
 
-	if (!ranges && !is_fast)
-		return 0;
+	if (!ranges)
+		return -ENOENT;
 
-	if (ranges) {
-		len /= sizeof(u32);
-		naddr = of_n_addr_cells(np);
-		nsize = of_n_size_cells(np);
-		if (len < naddr + nsize) {
-			dev_err(dev, "Invalid length for qcom,iommu-dma-addr-pool, expected %d cells\n",
-				naddr + nsize);
-			return -EINVAL;
-		}
-		if (naddr == 0 || nsize == 0) {
-			dev_err(dev, "Invalid #address-cells %d or #size-cells %d\n",
-				naddr, nsize);
-			return -EINVAL;
-		}
-
-		dma_base = of_read_number(ranges, naddr);
-		dma_size = of_read_number(ranges + naddr, nsize);
-		dma_end = dma_base + dma_size - 1;
-	} else {
-		/*
-		 * This domain uses fastmap, but doesn't have any domain
-		 * geometry limitations, as implied by the absence of the
-		 * qcom,iommu-dma-addr-pool property, so impose the default
-		 * fastmap geometry requirement.
-		 */
-		dma_base = 0;
-		dma_end = SZ_4G - 1;
+	len /= sizeof(u32);
+	naddr = of_n_addr_cells(np);
+	nsize = of_n_size_cells(np);
+	if (len < naddr + nsize) {
+		dev_err(dev, "Invalid length for %s, expected %d cells\n",
+			prop, naddr + nsize);
+		return -EINVAL;
+	}
+	if (naddr == 0 || nsize == 0) {
+		dev_err(dev, "Invalid #address-cells %d or #size-cells %d for %s\n",
+			prop, naddr, nsize);
+		return -EINVAL;
 	}
 
-	/*
-	 * The original geometry describes the IOVA limitations of the hardware,
-	 * so lets make sure that the IOVA range for this device is at least
-	 * within those bounds.
-	 */
+	base = of_read_number(ranges, naddr);
+	size = of_read_number(ranges + naddr, nsize);
+	end = base + size - 1;
+
+	*ret_base = base;
+	*ret_end = end;
+	return 0;
+}
+
+static int arm_smmu_get_domain_dma_range(struct device *dev,
+					 struct iommu_domain *domain,
+					 dma_addr_t hw_base,
+					 dma_addr_t hw_end,
+					 dma_addr_t *ret_base,
+					 dma_addr_t *ret_end)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	dma_addr_t dma_base, dma_end;
+	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
+	int ret;
+
+	ret = get_range_prop(dev, "qcom,iommu-dma-addr-pool", &dma_base,
+			     &dma_end);
+	if (ret == -ENOENT) {
+		if (is_fast) {
+			/*
+			 * This domain uses fastmap, but doesn't have any domain
+			 * geometry limitations, as implied by the absence of
+			 * the qcom,iommu-dma-addr-pool property, so impose the
+			 * default fastmap geometry requirement.
+			 */
+			dma_base = 0;
+			dma_end = SZ_4G - 1;
+		} else {
+			dma_base = hw_base;
+			dma_end = hw_end;
+		}
+	} else if (ret) {
+		return ret;
+	}
+
 	if (!((hw_base <= dma_base) && (dma_end <= hw_end)))
 		return -EINVAL;
+
+	*ret_base = dma_base;
+	*ret_end = dma_end;
+	return 0;
+}
+
+/*
+ * Get the supported IOVA range for the domain, this can be larger than the
+ * configured DMA layer IOVA range.
+ */
+static int arm_smmu_get_domain_iova_range(struct device *dev,
+					   struct iommu_domain *domain,
+					   unsigned long ias,
+					   dma_addr_t *ret_base,
+					   dma_addr_t *ret_end)
+{
+	dma_addr_t iova_base, iova_end;
+	dma_addr_t dma_base, dma_end, geometry_start, geometry_end;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	dma_addr_t hw_base = 0;
+	dma_addr_t hw_end = (1UL << ias) - 1;
+	bool is_fast = test_bit(DOMAIN_ATTR_FAST, smmu_domain->attributes);
+	int ret;
+
+	if (!is_fast) {
+		iova_base = hw_base;
+		iova_end = hw_end;
+		goto end;
+	}
+
+	ret = arm_smmu_get_domain_dma_range(dev, domain, hw_base, hw_end,
+					    &dma_base, &dma_end);
+	if (ret)
+		return ret;
+
+	ret = get_range_prop(dev, "qcom,iommu-geometry", &geometry_start,
+			     &geometry_end);
+	if (!ret) {
+		if (geometry_start >= SZ_1G * 4ULL ||
+		    geometry_end >= SZ_1G * 4ULL) {
+			pr_err("fastmap geometry does not support IOVAs >= 4GB\n");
+			return -EINVAL;
+		}
+
+		if (geometry_start < dma_base)
+			iova_base = geometry_start;
+		else
+			iova_base = dma_base;
+
+		if (geometry_end > dma_end)
+			iova_end = geometry_end;
+		else
+			iova_end = dma_end;
+	} else if (ret == -ENOENT) {
+		iova_base = 0;
+		iova_end = SZ_4G - 1;
+	} else {
+		return ret;
+	}
+
+	if (!((hw_base <= iova_base) && (iova_end <= hw_end)))
+		return -EINVAL;
+
+end:
+	*ret_base = iova_base;
+	*ret_end = iova_end;
+	return 0;
+}
+
+/*
+ * Checks for "qcom,iommu-dma-addr-pool" property to specify the DMA layer IOVA
+ * range for the domain. If not present, and the domain doesn't use fastmap,
+ * the domain geometry is unmodified.
+ */
+static int arm_smmu_adjust_domain_geometry(struct device *dev,
+					   struct iommu_domain *domain)
+{
+	dma_addr_t dma_base, dma_end;
+	int ret;
+
+	ret = arm_smmu_get_domain_dma_range(dev, domain,
+					    domain->geometry.aperture_start,
+					    domain->geometry.aperture_end,
+					    &dma_base, &dma_end);
+	if (ret)
+		return ret;
 
 	domain->geometry.aperture_start = dma_base;
 	domain->geometry.aperture_end = dma_end;
@@ -2060,6 +2158,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			goto out_clear_smmu;
 	}
 
+	ret = arm_smmu_get_domain_iova_range(dev, domain, ias,
+					     &ttbr0_pgtbl_info->iova_base,
+					     &ttbr0_pgtbl_info->iova_end);
+	if (ret) {
+		dev_err(dev, "Failed to get domain IOVA range\n");
+		goto out_clear_smmu;
+	}
+
 	ttbr0_pgtbl_info->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.quirks		= quirks,
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
@@ -2079,6 +2185,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_clear_smmu;
 	}
 	if (split_tables) {
+		ttbr1_pgtbl_info->iova_base = ttbr0_pgtbl_info->iova_base;
+		ttbr1_pgtbl_info->iova_end = ttbr0_pgtbl_info->iova_end;
 		ttbr1_pgtbl_info->pgtbl_cfg = ttbr0_pgtbl_info->pgtbl_cfg;
 		smmu_domain->pgtbl_ops[1] = alloc_io_pgtable_ops(fmt,
 						&ttbr1_pgtbl_info->pgtbl_cfg,
