@@ -367,6 +367,21 @@
 			st,trusted-touch-io-sizes = <0x1000 0x1000 0x1000 0x1000 0x4000 0x4000>;
 		};
 	};
+
+	qupv3_se4_spi: spi@990000 {
+		compatible = "qcom,spi-geni";
+		reg = <0x990000 0x4000>;
+		reg-names = "se_phys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dmas = <&gpi_dma0 0 4 1 64 0>,
+			<&gpi_dma0 1 4 1 64 0>;
+		dma-names = "tx", "rx";
+		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
+		qcom,le-vm;
+		status = "disabled";
+	};
 };
 
 #include "trustedvm-ion.dtsi"
