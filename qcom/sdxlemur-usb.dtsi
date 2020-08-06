@@ -4,9 +4,13 @@
 		reg = <0x0a600000 0x100000>;
 		reg-names = "core_base";
 
+		iommus = <&apps_smmu 0x1a0 0x0>;
+		qcom,iommu-dma = "bypass";
+		qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
+		dma-ranges;
 
 		interrupts = <0 130 0>;
 		interrupt-names = "pwr_event_irq";
