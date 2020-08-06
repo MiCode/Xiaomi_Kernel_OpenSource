@@ -12,7 +12,6 @@ enum {
 	MT6360_SLAVE_PMU = 0,
 	MT6360_SLAVE_PMIC,
 	MT6360_SLAVE_LDO,
-	MT6360_SLAVE_TCPC,
 	MT6360_SLAVE_MAX,
 };
 
@@ -27,6 +26,7 @@ struct mt6360_pmu_data {
 	struct regmap *regmap;
 	struct regmap_irq_chip_data *irq_data;
 	unsigned int chip_rev;
+	struct mutex io_lock;
 };
 
 /* PMU register defininition */

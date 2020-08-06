@@ -230,7 +230,7 @@ static struct regmap_irq_chip mt6360_pmu_irq_chip = {
 	.handle_post_irq = mt6360_pmu_handle_post_irq,
 };
 
-static const struct regmap_config mt6360_pmu_regmap_config = {
+static struct regmap_config mt6360_pmu_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = MT6360_PMU_MAXREG,
@@ -242,12 +242,16 @@ static const struct resource mt6360_adc_resources[] = {
 
 static const struct resource mt6360_chg_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_TREG_EVT, "chg_treg_evt"),
+	DEFINE_RES_IRQ_NAMED(MT6360_CHG_MIVR_EVT, "chg_mivr_evt"),
 	DEFINE_RES_IRQ_NAMED(MT6360_PWR_RDY_EVT, "pwr_rdy_evt"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_BATSYSUV_EVT, "chg_batsysuv_evt"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_VSYSUV_EVT, "chg_vsysuv_evt"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_VSYSOV_EVT, "chg_vsysov_evt"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_VBATOV_EVT, "chg_vbatov_evt"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_VBUSOV_EVT, "chg_vbusov_evt"),
+	DEFINE_RES_IRQ_NAMED(MT6360_WD_PMU_DET, "wd_pmu_det"),
+	DEFINE_RES_IRQ_NAMED(MT6360_WD_PMU_DONE, "wd_pmu_done"),
+	DEFINE_RES_IRQ_NAMED(MT6360_CHG_TMRI, "chg_tmri"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_AICCMEASL, "chg_aiccmeasl"),
 	DEFINE_RES_IRQ_NAMED(MT6360_WDTMRI, "wdtmri"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_RECHGI, "chg_rechgi"),
@@ -255,6 +259,8 @@ static const struct resource mt6360_chg_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6360_CHG_IEOCI, "chg_ieoci"),
 	DEFINE_RES_IRQ_NAMED(MT6360_PUMPX_DONEI, "pumpx_donei"),
 	DEFINE_RES_IRQ_NAMED(MT6360_ATTACH_I, "attach_i"),
+	DEFINE_RES_IRQ_NAMED(MT6360_HVDCP_DET, "hvdcp_det"),
+	DEFINE_RES_IRQ_NAMED(MT6360_DCDTI, "dcdti"),
 	DEFINE_RES_IRQ_NAMED(MT6360_CHRDET_EXT_EVT, "chrdet_ext_evt"),
 };
 
@@ -306,13 +312,14 @@ static const struct mfd_cell mt6360_devs[] = {
 		    NULL, 0, 0, "mediatek,mt6360_ldo"),
 	OF_MFD_CELL("mt6360_tcpc", NULL,
 		    NULL, 0, 0, "mediatek,mt6360_tcpc"),
+	/* debug dev */
+	{ .name = "mt6360_dbg", },
 };
 
 static const unsigned short mt6360_slave_addr[MT6360_SLAVE_MAX] = {
 	MT6360_PMU_SLAVEID,
 	MT6360_PMIC_SLAVEID,
 	MT6360_LDO_SLAVEID,
-	MT6360_TCPC_SLAVEID,
 };
 
 static int mt6360_pmu_probe(struct i2c_client *client)
