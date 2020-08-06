@@ -340,7 +340,7 @@ static int mt6360_pmu_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	mpd->chip_rev = reg_data & CHIP_REV_MASK;
+	mpd->chip_rev = reg_data & CHIP_VEN_MASK;
 	if (mpd->chip_rev != CHIP_VEN_MT6360) {
 		dev_err(&client->dev, "Device not supported\n");
 		return -ENODEV;
