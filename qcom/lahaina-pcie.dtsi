@@ -330,6 +330,7 @@
 		qcom,boot-option = <0x1>;
 		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
+		qcom,wr-halt-size = <0x8>;
 		qcom,no-l0s-supported;
 		qcom,slv-addr-space-size = <0x20000000>;
 		qcom,ep-latency = <10>;
