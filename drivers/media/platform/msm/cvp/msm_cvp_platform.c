@@ -185,6 +185,10 @@ static struct msm_cvp_platform_data sm8350_data = {
 
 static const struct of_device_id msm_cvp_dt_match[] = {
 	{
+		.compatible = "qcom,shima-cvp",
+		.data = &sm8350_data,
+	},
+	{
 		.compatible = "qcom,lahaina-cvp",
 		.data = &sm8350_data,
 	},
