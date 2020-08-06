@@ -51,11 +51,13 @@ static int tegra114_idle_power_down(struct cpuidle_device *dev,
 	return index;
 }
 
-static void tegra114_idle_enter_s2idle(struct cpuidle_device *dev,
+static int tegra114_idle_enter_s2idle(struct cpuidle_device *dev,
 				       struct cpuidle_driver *drv,
 				       int index)
 {
        tegra114_idle_power_down(dev, drv, index);
+
+       return 0;
 }
 #endif
 

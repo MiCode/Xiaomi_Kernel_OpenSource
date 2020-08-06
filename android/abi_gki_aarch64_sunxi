@@ -39,20 +39,6 @@
   iommu_group_alloc
   iommu_group_register_notifier
 
-# required by uas.ko
-  int_to_scsilun
-  scmd_printk
-  scsi_block_requests
-  scsi_change_queue_depth
-  scsi_print_command
-  scsi_unblock_requests
-  usb_alloc_streams
-  usb_free_streams
-  usb_kill_anchored_urbs
-  usb_unanchor_urb
-  usb_wait_anchor_empty_timeout
-  usb_set_interface 
-
 # required by ums-realtek.ko
   usb_bulk_msg
 
