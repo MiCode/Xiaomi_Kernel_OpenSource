@@ -1355,6 +1355,8 @@
 			qcom,cpulist = <&CPU6>;
 			qcom,target-dev = <&cpu6_cpu_l3_lat>;
 			qcom,cachemiss-ev = <0x17>;
+			qcom,access-ev = <0x2B>;
+			qcom,wb-ev = <0x18>;
 			qcom,core-dev-table = <&cpu6_cpu_l3_tbl>;
 		};
 
@@ -1363,6 +1365,8 @@
 			qcom,cpulist = <&CPU7>;
 			qcom,target-dev = <&cpu7_cpu_l3_lat>;
 			qcom,cachemiss-ev = <0x17>;
+			qcom,access-ev = <0x2B>;
+			qcom,wb-ev = <0x18>;
 			qcom,core-dev-table = <&cpu6_cpu_l3_tbl>;
 		};
 
