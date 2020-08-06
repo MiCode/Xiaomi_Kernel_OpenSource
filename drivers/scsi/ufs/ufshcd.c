@@ -4943,6 +4943,10 @@ static void ufshcd_slave_destroy(struct scsi_device *sdev)
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	return;
+#endif
+
 	ufshcd_crypto_destroy_rq_keyslot_manager(hba, q);
 }
 
@@ -8954,6 +8958,9 @@ EXPORT_SYMBOL(ufshcd_runtime_idle);
 int ufshcd_shutdown(struct ufs_hba *hba)
 {
 	int ret = 0;
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	struct scsi_device *sdev;
+#endif
 
 	if (!hba->is_powered)
 		goto out;
@@ -8961,11 +8968,30 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba))
 		goto out;
 
+#if defined(CONFIG_SCSI_UFSHCD_QTI)
+	pm_runtime_get_sync(hba->dev);
+
+	/*
+	 * I/O requests could be still submitted to SCSI devices
+	 * when we are here. Quiesce the scsi device of UFS Device
+	 * well known LU but remove all the other scsi devices.
+	 * After the scsi device is quiesced, only PM requests can
+	 * pass through SCSI layer, which well serves the purpose
+	 * of sending the SSU cmd during ufshcd_suspend().
+	 */
+	shost_for_each_device(sdev, hba->host) {
+		if (sdev == hba->sdev_ufs_device)
+			scsi_device_quiesce(sdev);
+		else
+			scsi_remove_device(sdev);
+	}
+#else
 	if (pm_runtime_suspended(hba->dev)) {
 		ret = ufshcd_runtime_resume(hba);
 		if (ret)
 			goto out;
 	}
+#endif
 
 	ret = ufshcd_suspend(hba, UFS_SHUTDOWN_PM);
 out:
