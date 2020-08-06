@@ -243,7 +243,11 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		 * if (!pm_runtime_active(data->dev))
 		 *	continue;
 		 */
-		mtk_iommu_rpm_get(data->dev);
+		if (data->plat_data->is_apu && !pm_runtime_active(data->dev))
+			continue;
+
+		if (!data->plat_data->is_apu)
+			mtk_iommu_rpm_get(data->dev);
 		spin_lock_irqsave(&data->tlb_lock, flags);
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
@@ -267,7 +271,8 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		/* Clear the CPE status */
 		writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
 		spin_unlock_irqrestore(&data->tlb_lock, flags);
-		mtk_iommu_rpm_put(data->dev);
+		if (!data->plat_data->is_apu)
+			mtk_iommu_rpm_put(data->dev);
 	}
 }
 
@@ -740,9 +745,28 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 			return PTR_ERR(data->bclk);
 	}
 
-	if (data->plat_data->is_apu)
-		goto skip_smi;
+	if (data->plat_data->is_apu) {
+		struct device_node *apunode;
+		struct platform_device *apudev;
+		struct device_link *link;
 
+		apunode = of_parse_phandle(dev->of_node, "mediatek,apu_power", 0);
+		if (!apunode) {
+			dev_warn(dev, "Can't find apu power node!\n");
+			return -EINVAL;
+		}
+		apudev = of_find_device_by_node(apunode);
+		if (!apudev) {
+			of_node_put(apunode);
+			dev_warn(dev, "Find apudev fail!\n");
+			return -EPROBE_DEFER;
+		}
+		link = device_link_add(&apudev->dev, dev, DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+		if (!link)
+			dev_err(dev, "Unable link %s.\n", apudev->name);
+
+		goto skip_smi;
+	}
 	larb_nr = of_count_phandle_with_args(dev->of_node,
 					     "mediatek,larbs", NULL);
 	if (larb_nr < 0)
