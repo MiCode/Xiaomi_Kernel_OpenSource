@@ -2006,6 +2006,10 @@ static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 	bus_bw_info->cfg_table = kcalloc(bus_bw_info->num_cfg,
 					 sizeof(*bus_bw_info->cfg_table),
 					 GFP_KERNEL);
+	if (!bus_bw_info->cfg_table) {
+		cnss_pr_err("No mem for Bus BW config table\n");
+		return -ENOMEM;
+	}
 	for (i = 0, j = 0; i < bus_bw_info->num_cfg; i++, j += 2) {
 		bus_bw_info->cfg_table[i].ab = be32_to_cpu(cfg_arr[j]);
 		bus_bw_info->cfg_table[i].ib = be32_to_cpu(cfg_arr[j + 1]);
@@ -2013,7 +2017,6 @@ static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 			    i, bus_bw_info->cfg_table[i].ab,
 			    bus_bw_info->cfg_table[i].ib);
 	}
-
 	return 0;
 out:
 	return ret;
