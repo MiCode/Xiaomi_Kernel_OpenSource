@@ -163,6 +163,7 @@
 			label = "backlight";
 			qcom,pmic-revid = <&pm660l_revid>;
 			qcom,auto-calibration;
+			qcom,sync-dly = <800>;
 			status = "ok";
 		};
 
