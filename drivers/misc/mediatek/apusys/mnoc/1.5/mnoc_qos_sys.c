@@ -8,24 +8,31 @@
 #include <linux/of.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
+#include <linux/kobject.h>
 #include <linux/interconnect.h>
 
-#include "mnoc_drv.h"
 #include "mnoc_qos.h"
 #include "mnoc_api.h"
+#include "mnoc_drv.h"
 #include "mnoc_hw.h"
 
-static ssize_t mnoc_apu_qos_boost_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t mnoc_apu_qos_boost_show(struct kobject *kobj,
+				       struct kobj_attribute *attr,
+				       char *buf)
 {
-#if MNOC_TIME_PROFILE && MNOC_QOS_BOOST_ENABLE
-	return sprintf(buf, "apu_qos_boost_flag = %d\n", apu_qos_boost_flag);
+	int ret = 0;
+#if MNOC_QOS_BOOST_ENABLE
+	ret = sprintf(buf, "apu_qos_boost_flag = %d\n", apu_qos_boost_flag);
 #endif
+	return ret;
 }
 
-static ssize_t mnoc_apu_qos_boost_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
+static ssize_t mnoc_apu_qos_boost_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t count)
 {
 	unsigned int val;
 
@@ -43,20 +50,25 @@ static ssize_t mnoc_apu_qos_boost_store(struct device *dev,
 			mutex_unlock(&apu_qos_boost_mtx);
 		}
 #endif
-		dev_dbg(dev, "set boost %d\n", val);
+		LOG_DEBUG("set boost %d\n", val);
 	}
 
 	return count;
 }
-static DEVICE_ATTR_RW(mnoc_apu_qos_boost);
+
+static const struct kobj_attribute apu_qos_boost_attr =
+	__ATTR(mnoc_apu_qos_boost, 0660, mnoc_apu_qos_boost_show,
+	       mnoc_apu_qos_boost_store);
 
 static ssize_t mnoc_cmd_qos_start_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+			struct device_attribute *attr, char *buf)
 {
+	int ret = 0;
 #if MNOC_TIME_PROFILE
-	return sprintf(buf, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
-		sum_start, cnt_start, sum_start/cnt_start);
+	ret = sprintf(buf, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
+		      sum_start, cnt_start, sum_start / cnt_start);
 #endif
+	return ret;
 }
 
 static ssize_t mnoc_cmd_qos_start_store(struct device *dev,
@@ -67,21 +79,28 @@ static ssize_t mnoc_cmd_qos_start_store(struct device *dev,
 	unsigned int dev_type, devcore, boost;
 
 	if (sscanf(buf, "%d %d %d %d %d", &cmd_id, &sub_cmd_id,
-		&dev_type, &devcore, &boost) == 4)
-		apu_cmd_qos_start((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore, boost);
-out:
+		&dev_type, &devcore, &boost) == 4) {
+		apu_cmd_qos_start((uint64_t)cmd_id, (uint64_t)sub_cmd_id,
+				  dev_type, devcore, boost);
+	} else {
+		LOG_ERR("%s input order is wrong\n", __func__);
+		return -EINVAL;
+	}
+
 	return count;
 }
 static DEVICE_ATTR_RW(mnoc_cmd_qos_start);
 
 static ssize_t mnoc_cmd_qos_suspend_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+			struct device_attribute *attr, char *buf)
 {
+	int ret = 0;
+
 #if MNOC_TIME_PROFILE
-	return sprintf(buf, "sum_suspend = %lu, cnt_suspend = %d, avg = %lu\n",
-		sum_suspend, cnt_suspend, sum_suspend/cnt_suspend);
+	ret = sprintf(buf, "sum_suspend = %lu, cnt_suspend = %d, avg = %lu\n",
+		      sum_suspend, cnt_suspend, sum_suspend / cnt_suspend);
 #endif
+	return ret;
 }
 
 static ssize_t mnoc_cmd_qos_suspend_store(struct device *dev,
@@ -92,22 +111,27 @@ static ssize_t mnoc_cmd_qos_suspend_store(struct device *dev,
 	unsigned int dev_type, devcore;
 
 	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
-		&dev_type, &devcore) == 4)
-		apu_cmd_qos_suspend((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore);
+		   &dev_type, &devcore) == 4) {
+		apu_cmd_qos_suspend((uint64_t)cmd_id, (uint64_t)sub_cmd_id,
+				    dev_type, devcore);
+	} else {
+		LOG_ERR("%s input order is wrong\n", __func__);
+		return -EINVAL;
+	}
 
-out:
 	return count;
 }
 static DEVICE_ATTR_RW(mnoc_cmd_qos_suspend);
 
 static ssize_t mnoc_cmd_qos_end_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+				     struct device_attribute *attr, char *buf)
 {
+	int ret = 0;
 #if MNOC_TIME_PROFILE
-	return sprintf(buf, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
-		sum_end, cnt_end, sum_end/cnt_end);
+	ret = sprintf(buf, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
+		      sum_end, cnt_end, sum_end / cnt_end);
 #endif
+	return ret;
 }
 
 static ssize_t mnoc_cmd_qos_end_store(struct device *dev,
@@ -118,34 +142,37 @@ static ssize_t mnoc_cmd_qos_end_store(struct device *dev,
 	unsigned int dev_type, devcore;
 
 	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
-		&dev_type, &devcore) == 4)
-		apu_cmd_qos_end((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore);
-
-out:
+		&dev_type, &devcore) == 4) {
+		apu_cmd_qos_end((uint64_t)cmd_id, (uint64_t)sub_cmd_id,
+				dev_type, devcore);
+	} else {
+		LOG_ERR("%s input order is wrong\n", __func__);
+		return -EINVAL;
+	}
 	return count;
 }
 static DEVICE_ATTR_RW(mnoc_cmd_qos_end);
 
 static ssize_t mnoc_apu_qos_bw_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t count)
 {
 	unsigned int core_id, avg_bw, peak_bw;
 	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
-	struct icc_path *apu_icc = NULL;
 
 	if (!p_mnoc || !p_mnoc->engines) {
-		dev_info(dev, "%s not get apu_mnoc or engine counter\n", __func__);
+		dev_info(dev, "%s not get apu_mnoc or engine counter\n",
+			 __func__);
 		return -EINVAL;
 	}
 
 	if (sscanf(buf, "%d %d %d", &core_id, &avg_bw, &peak_bw) == 3)
 		if (core_id < NR_APU_QOS_ENGINE) {
-			apu_icc = p_mnoc->engines[core_id].emi_icc_path;
 			dev_info(dev, "set core %d, avb_bw %d, peak_bw %d ret %d\n",
 					core_id, avg_bw, peak_bw,
-					icc_set_bw(apu_icc, avg_bw, peak_bw));
+					icc_set_bw(p_mnoc->engines[core_id].emi_icc_path,
+						   avg_bw, peak_bw));
 		}
 
 out:
@@ -155,7 +182,6 @@ static DEVICE_ATTR_WO(mnoc_apu_qos_bw);
 
 static struct attribute *qos_attrs[] = {
 	&dev_attr_mnoc_apu_qos_bw.attr,
-	&dev_attr_mnoc_apu_qos_boost.attr,
 	&dev_attr_mnoc_cmd_qos_start.attr,
 	&dev_attr_mnoc_cmd_qos_suspend.attr,
 	&dev_attr_mnoc_cmd_qos_end.attr,
@@ -169,15 +195,43 @@ static struct attribute_group mnoc_qos_attr_group = {
 
 int mnoc_qos_create_sys(struct device *dev)
 {
-	int rc = 0;
+	int ret = 0;
+	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
 
-	rc = sysfs_create_group(&dev->kobj, &mnoc_qos_attr_group);
-	if (!rc)
-		dev_info(dev, "%s fail, ret %d\n", __func__, rc);
-	return rc;
+	/* create /sys/kernel/apusys */
+	p_mnoc->root_dir = kobject_create_and_add("apusys", kernel_kobj);
+	if (!p_mnoc->root_dir)
+		return -EINVAL;
+
+	/* create /sys/kernel/apusys/mnoc_apu_qos_boost */
+	ret = sysfs_create_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
+	if (ret) {
+		LOG_ERR("%s create boost attribute fail, ret %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = kobject_uevent(p_mnoc->root_dir, KOBJ_ADD);
+	if (ret) {
+		LOG_ERR("%s kobject_uevent boost fail, ret %d\n", __func__, ret);
+		goto out;
+	}
+
+	/* create /sys/devices/platform/xxxx/qos */
+	ret = sysfs_create_group(&dev->kobj, &mnoc_qos_attr_group);
+	if (ret) {
+		LOG_ERR("%s create qos attribute fail, ret %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = kobject_uevent(&dev->kobj, KOBJ_CHANGE);
+out:
+	return ret;
 }
 
 void mnoc_qos_remove_sys(struct device *dev)
 {
+	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
+
+	sysfs_remove_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
 	sysfs_remove_group(&dev->kobj, &mnoc_qos_attr_group);
 }

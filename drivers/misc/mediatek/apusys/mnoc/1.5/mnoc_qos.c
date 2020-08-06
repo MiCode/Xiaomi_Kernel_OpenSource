@@ -685,7 +685,6 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 #endif
 
 	core = apusys_dev_to_core_id(dev_type, dev_core);
-
 	if (core == -1) {
 		LOG_ERR("Invalid device(%d/%d)", dev_type, dev_core);
 		return -1;
@@ -946,10 +945,8 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	if (!qos_timer_exist) {
 		/* make sure no work_func running after timer delete */
 		cancel_work_sync(&qos_work);
-		for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
-			update_qos_request(&(engine_pm_qos_counter[i].qos_req),
-				PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
-		}
+		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
+			icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
 	}
 #endif
 
@@ -1017,16 +1014,15 @@ void apu_qos_boost_end(void)
  */
 void apu_qos_counter_init(struct device *dev)
 {
-	int i = 0;
 	struct engine_pm_qos_counter *counter = NULL;
 	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
 	struct icc_path *apu_icc = of_icc_get(dev, "apu-bw");
+	int i = 0;
 
 	if (!p_mnoc) {
 		dev_info(dev, "%s not get struct apu_mnoc\n", __func__);
 		return;
 	}
-
 	LOG_DEBUG("+\n");
 
 	/*
@@ -1035,12 +1031,10 @@ void apu_qos_counter_init(struct device *dev)
 	 */
 	p_mnoc->engines = engine_pm_qos_counter;
 
-	if (apu_icc) {
-		for (i = 0; i < NR_APU_QOS_ENGINE; i++)
-			p_mnoc->engines[i].emi_icc_path = apu_icc;
-	} else
+	if (!apu_icc) {
 		dev_info(dev, "%s not get apu-bw icc path\n", __func__);
-
+		return;
+	}
 	qos_timer_exist = false;
 
 	/* init counter's list */
@@ -1060,8 +1054,7 @@ void apu_qos_counter_init(struct device *dev)
 		counter->last_report_bw = 0;
 		counter->last_idx = 0;
 		counter->core = i;
-		//TODO
-		//add_qos_request(&counter->qos_req);
+		counter->emi_icc_path = apu_icc;
 	}
 #if MNOC_QOS_BOOST_ENABLE
 	apu_qos_boost_flag = false;
@@ -1122,9 +1115,9 @@ void apu_qos_counter_destroy(struct device *dev)
 			LOG_ERR("get counter(%d) fail\n", i);
 			continue;
 		}
-		//TODO
-		//destroy_qos_request(&counter->qos_req);
 	}
+	/* relese bw icc path */
+	icc_put(counter->emi_icc_path);
 #if MNOC_QOS_BOOST_ENABLE
 	cpu_latency_qos_update_request(&apu_qos_ddr_req,
 		PM_QOS_DEFAULT_VALUE);
@@ -1133,7 +1126,6 @@ void apu_qos_counter_destroy(struct device *dev)
 		PM_QOS_DEFAULT_VALUE);
 	cpu_latency_qos_remove_request(&apu_qos_cpu_dma_req);
 #endif
-
 	LOG_DEBUG("-\n");
 }
 
