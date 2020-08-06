@@ -1229,13 +1229,6 @@ exit:
 	return ret;
 }
 
-typedef int (*dma_buf_destructor)(struct dma_buf *dmabuf, void *dtor_data);
-static void dma_buf_set_destructor(struct dma_buf *dmabuf,
-				dma_buf_destructor dtor,
-				void *dtor_data)
-{
-}
-
 static int qseecom_destroy_bridge_callback(
 				struct dma_buf *dmabuf, void *dtor_data)
 {

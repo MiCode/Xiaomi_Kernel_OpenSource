@@ -351,6 +351,18 @@ struct dma_buf_ops {
 };
 
 /**
+ * dma_buf_destructor - dma-buf destructor function
+ * @dmabuf:	[in]	pointer to dma-buf
+ * @dtor_data:	[in]	destructor data associated with this buffer
+ *
+ * The dma-buf destructor which is called when the dma-buf is freed.
+ *
+ * If the destructor returns an error the dma-buf's exporter release function
+ * won't be called.
+ */
+typedef int (*dma_buf_destructor)(struct dma_buf *dmabuf, void *dtor_data);
+
+/**
  * struct dma_buf - shared buffer object
  * @size: size of the buffer
  * @file: file pointer used for sharing buffers across, and for refcounting.
@@ -395,6 +407,10 @@ struct dma_buf {
 	struct list_head list_node;
 	void *priv;
 	struct dma_resv *resv;
+#ifdef CONFIG_DMABUF_DESTRUCTOR_SUPPORT
+	dma_buf_destructor dtor;
+	void *dtor_data;
+#endif
 
 	/* poll support */
 	wait_queue_head_t poll;
@@ -538,4 +554,27 @@ void dma_buf_vunmap(struct dma_buf *, void *vaddr);
 int dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags);
 int dma_buf_get_uuid(struct dma_buf *dmabuf, uuid_t *uuid);
 
+#ifdef CONFIG_DMABUF_DESTRUCTOR_SUPPORT
+/**
+ * dma_buf_set_destructor - set the dma-buf's destructor
+ * @dmabuf:		[in]	pointer to dma-buf
+ * @dma_buf_destructor	[in]	the destructor function
+ * @dtor_data:		[in]	destructor data associated with this buffer
+ */
+static inline int dma_buf_set_destructor(struct dma_buf *dmabuf,
+					 dma_buf_destructor dtor,
+					 void *dtor_data)
+{
+	dmabuf->dtor = dtor;
+	dmabuf->dtor_data = dtor_data;
+	return 0;
+}
+#else
+static inline int dma_buf_set_destructor(struct dma_buf *dmabuf,
+					 dma_buf_destructor dtor,
+					 void *dtor_data)
+{
+	return -ENOTSUPP;
+}
+#endif
 #endif /* __DMA_BUF_H__ */
