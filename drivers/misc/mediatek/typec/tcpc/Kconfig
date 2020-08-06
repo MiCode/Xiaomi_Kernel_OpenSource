@@ -1,0 +1,134 @@
+#
+# TypeC Port Controller Device Configuration
+#
+
+config TCPC_CLASS
+	tristate "TypeC Port Controller Device Class"
+	select MTK_USB_TYPEC
+	select RT_REGMAP
+	select TYPEC
+	help
+	  Say Y to enable
+	  Typec Port
+	  Controller Device
+	  Class
+
+config TCPC_LATE_SYNC
+	tristate "TypeC Late Sync Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  TypeC
+	  Late Sync
+	  Driver
+
+config USB_POWER_DELIVERY
+	tristate "Support USB power delivery Function"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  USB
+	  Power Delivery
+	  support
+
+config TCPC_RT1711H
+	tristate "Richtek RT1711H TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  Richtek RT1711H
+	  TypeC port Controller
+	  Driver
+
+config TCPC_RT5081
+	tristate "Richtek RT5081 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable Richtek RT5081
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6360
+	tristate "MediaTek MT6360 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	select TCPC_ALERT_V20
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6362
+	tristate "MT6362 SPMI TCPC driver"
+	depends on TCPC_CLASS
+	depends on MFD_MT6362
+	select TCPC_ALERT_V20
+	help
+	  Say yes here to have support for the MT6362 TCPC
+	  Support TypeC port Controller and Power Delivery
+
+	  The driver can also be build as a module.
+	  If so, the module will be called tcpci_mt6362
+
+config TCPC_MT6370
+	tristate "MediaTek MT6370 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config USB_PD_VBUS_STABLE_TOUT
+	int "PD VBUS Stable Timeout"
+	depends on USB_POWER_DELIVERY
+	range 0 1000                       # >= 0,  <= 1000
+	default 125
+	help
+	  Setup a timeout value (ms)
+	  for
+	  VBUS change
+	  stable
+
+config PD_DBG_INFO
+	tristate "PD debug information"
+	depends on TCPC_CLASS
+	default y
+	help
+	  Say Y to enable PD debug
+	  for PD DBG
+	  information
+	  Say N to disable
+
+config TCPC_ALERT_V20
+	tristate "TCPCI Alert v2.0"
+	depends on TCPC_CLASS
+	help
+	  Say Y to use tcpci_alert_v20
+	  Vendor defined interrupts
+	  should be handled by
+	  tcpc driver itself
+
+config MTK_TYPEC_WATER_DETECT
+	tristate "Water detection function for type-c connector"
+	depends on TCPC_CLASS
+	help
+	  Say Yes to enable water detection on type-c connector.
+	  If water is detected on the connector, it will show
+	  warning to notify end user.
+	  If unsure, say N.
+
+config MTK_TYPEC_WATER_DETECT_BY_PCB
+	tristate "Let PCB decides enabling water detection or not"
+	depends on MTK_TYPEC_WATER_DETECT
+	help
+	  Query GPIO on PCB to judge whether type-c water detection
+	  need to be enabled.
+	  Say Yes to let PCB decides enabling water detection or not.
+	  If unsure, say N.
