@@ -11,7 +11,6 @@
 #include <linux/pm_qos.h>
 
 struct engine_pm_qos_counter {
-	struct pm_qos_request qos_req;
 	struct icc_path *emi_icc_path;
 
 	int32_t last_report_bw;
@@ -44,7 +43,7 @@ void apu_qos_resume(void);
 void apu_qos_boost_start(void);
 void apu_qos_boost_end(void);
 
-#else /* !CONFIG_MTK_QOS_FRAMEWORK */
+#else /* !ENABLED CONFIG_MTK_QOS_FRAMEWORK */
 static inline void apu_qos_on(void) {}
 static inline void apu_qos_off(void) {}
 

@@ -11,6 +11,10 @@
  */
 struct apu_mnoc {
 	struct device *dev;
+
+	/* below is kboject for /sys/kernel/apumnoc */
+	struct kobject *root_dir;
+
 	struct engine_pm_qos_counter *engines;
 };
 
