@@ -226,38 +226,6 @@ static inline void get_monotonic_boottime(struct timespec64 *ts)
 	*ts = ktime_to_timespec64(ktime_get_boottime());
 }
 
-static int mtk_lp_plat_wait_depd_condition(void *arg)
-{
-	struct timespec64 uptime;
-	bool mcupm_rdy = false;
-	bool boot_time_pass = false;
-
-	mtk_wait_mbox_init_done();
-	mtk_notify_subsys_ap_ready();
-
-	do {
-		msleep(1000);
-
-		if (!mcupm_rdy && mtk_mcupm_is_ready())
-			mcupm_rdy = true;
-
-		if (!boot_time_pass) {
-			get_monotonic_boottime(&uptime);
-
-			if ((unsigned int)uptime.tv_sec > BOOT_TIME_LIMIT)
-				boot_time_pass = true;
-		}
-
-	} while (!(mcupm_rdy && boot_time_pass));
-
-	mtk_cpu_off_allow();
-	mtk_lp_plat_cpuhp_init();
-	mtk_lpm_smc_cpu_pm_lp(VALIDATE_PWR_STATE_CTRL, MT_LPM_SMC_ACT_SET,
-			      PSCI_E_SUCCESS, 0);
-
-	return 0;
-}
-
 static void __init mtk_lp_plat_pwr_dev_init(void)
 {
 	struct mtk_lp_device *dev;
@@ -317,14 +285,8 @@ int __init mtk_lp_plat_apmcu_init(void)
 	}
 
 	mtk_lp_plat_pwr_dev_init();
-
-	mtk_lp_plat_task = kthread_create(mtk_lp_plat_wait_depd_condition,
-					NULL, "mtk_lp_plat_wait_rdy");
-
-	if (!IS_ERR(mtk_lp_plat_task))
-		wake_up_process(mtk_lp_plat_task);
-	else
-		pr_notice("Create thread fail @ %s()\n", __func__);
+	mtk_cpu_off_allow();
+	mtk_lp_plat_cpuhp_init();
 
 	return 0;
 }
