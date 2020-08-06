@@ -985,7 +985,7 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 
 		//enq curr
 		sof.sof_ts = work_data->ts;
-		sof.cur_sof_hw_ts = prev_sof_hw_ts;
+		sof.cur_sof_hw_ts = cur_sof_hw_ts;
 		sof.frame_cnt = p_rdi->frame_cnt;
 
 		ais_vfe_q_sof(core_info, path, &sof);
