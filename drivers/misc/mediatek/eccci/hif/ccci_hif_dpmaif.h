@@ -510,18 +510,4 @@ extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_dump_status(int irq);
 #endif
 
-/* =======================================================
- *
- * Test feature list
- *
- * ========================================================
- */
-/* #define USING_BATCHING */
-
-#ifdef USING_BATCHING
-extern int ccmni_header(int md_id, int ccmni_idx, struct sk_buff *skb);
-extern int ccmni_rx_list_push(int md_id, int ccmni_idx, struct list_head *head,
-			bool is_gro);
-#endif
-
 #endif				/* __MODEM_DPMA_H__ */
