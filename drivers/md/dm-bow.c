@@ -658,6 +658,7 @@ static int dm_bow_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		bc->dev->bdev->bd_queue->limits.max_discard_sectors = 1 << 15;
 		bc->forward_trims = false;
 	} else {
+		bc->dev->bdev->bd_queue->limits.discard_granularity = 1 << 12;
 		bc->forward_trims = true;
 	}
 
@@ -792,6 +793,7 @@ static int prepare_unchanged_range(struct bow_context *bc, struct bow_range *br,
 	 */
 	original_type = br->type;
 	sector0 = backup_br->sector;
+	bc->trims_total -= range_size(backup_br);
 	if (backup_br->type == TRIMMED)
 		list_del(&backup_br->trimmed_list);
 	backup_br->type = br->type == SECTOR0_CURRENT ? SECTOR0_CURRENT

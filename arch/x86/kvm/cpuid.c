@@ -291,13 +291,18 @@ static int __do_cpuid_ent_emulated(struct kvm_cpuid_entry2 *entry,
 {
 	switch (func) {
 	case 0:
-		entry->eax = 1;		/* only one leaf currently */
+		entry->eax = 7;
 		++*nent;
 		break;
 	case 1:
 		entry->ecx = F(MOVBE);
 		++*nent;
 		break;
+	case 7:
+		entry->flags |= KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
+		if (index == 0)
+			entry->ecx = F(RDPID);
+		++*nent;
 	default:
 		break;
 	}
@@ -489,7 +494,8 @@ static inline int __do_cpuid_ent(struct kvm_cpuid_entry2 *entry, u32 function,
 				entry->edx |= F(SPEC_CTRL);
 			if (boot_cpu_has(X86_FEATURE_STIBP))
 				entry->edx |= F(INTEL_STIBP);
-			if (boot_cpu_has(X86_FEATURE_SSBD))
+			if (boot_cpu_has(X86_FEATURE_SPEC_CTRL_SSBD) ||
+			    boot_cpu_has(X86_FEATURE_AMD_SSBD))
 				entry->edx |= F(SPEC_CTRL_SSBD);
 			/*
 			 * We emulate ARCH_CAPABILITIES in software even

@@ -310,7 +310,7 @@ static void xive_native_put_ipi(unsigned int cpu, struct xive_cpu *xc)
 	s64 rc;
 
 	/* Free the IPI */
-	if (!xc->hw_ipi)
+	if (xc->hw_ipi == XIVE_BAD_IRQ)
 		return;
 	for (;;) {
 		rc = opal_xive_free_irq(xc->hw_ipi);
@@ -318,7 +318,7 @@ static void xive_native_put_ipi(unsigned int cpu, struct xive_cpu *xc)
 			msleep(1);
 			continue;
 		}
-		xc->hw_ipi = 0;
+		xc->hw_ipi = XIVE_BAD_IRQ;
 		break;
 	}
 }

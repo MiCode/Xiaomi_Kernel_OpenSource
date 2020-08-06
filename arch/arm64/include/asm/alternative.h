@@ -37,7 +37,7 @@ void apply_alternatives(void *start, size_t length);
 	" .byte 662b-661b\n"				/* source len      */ \
 	" .byte 664f-663f\n"				/* replacement len */
 
-#define ALTINSTR_ENTRY_CB(feature,cb)					      \
+#define ALTINSTR_ENTRY_CB(feature, cb)					      \
 	" .word 661b - .\n"				/* label           */ \
 	" .word " __stringify(cb) "- .\n"		/* callback */	      \
 	" .hword " __stringify(feature) "\n"		/* feature bit     */ \
@@ -83,7 +83,7 @@ void apply_alternatives(void *start, size_t length);
 	oldinstr "\n"							\
 	"662:\n"							\
 	".pushsection .altinstructions,\"a\"\n"				\
-	ALTINSTR_ENTRY_CB(feature,cb)					\
+	ALTINSTR_ENTRY_CB(feature, cb)					\
 	".popsection\n"							\
 	"663:\n\t"							\
 	"664:\n\t"							\
@@ -216,7 +216,7 @@ alternative_endif
 
 .macro user_alt, label, oldinstr, newinstr, cond
 9999:	alternative_insn "\oldinstr", "\newinstr", \cond
-	_ASM_EXTABLE 9999b, \label
+	_asm_extable 9999b, \label
 .endm
 
 /*

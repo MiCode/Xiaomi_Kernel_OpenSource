@@ -7,11 +7,14 @@
 #include <linux/jump_label.h>
 
 #define IA32_L3_QOS_CFG		0xc81
+#define IA32_L2_QOS_CFG		0xc82
 #define IA32_L3_CBM_BASE	0xc90
 #define IA32_L2_CBM_BASE	0xd10
 #define IA32_MBA_THRTL_BASE	0xd50
 
 #define L3_QOS_CDP_ENABLE	0x01ULL
+
+#define L2_QOS_CDP_ENABLE	0x01ULL
 
 /*
  * Event IDs are used to program IA32_QM_EVTSEL before reading event
@@ -354,6 +357,8 @@ enum {
 	RDT_RESOURCE_L3DATA,
 	RDT_RESOURCE_L3CODE,
 	RDT_RESOURCE_L2,
+	RDT_RESOURCE_L2DATA,
+	RDT_RESOURCE_L2CODE,
 	RDT_RESOURCE_MBA,
 
 	/* Must be the last */
@@ -437,5 +442,6 @@ void cqm_setup_limbo_handler(struct rdt_domain *dom, unsigned long delay_ms);
 void cqm_handle_limbo(struct work_struct *work);
 bool has_busy_rmid(struct rdt_resource *r, struct rdt_domain *d);
 void __check_limbo(struct rdt_domain *d, bool force_free);
+void rdt_domain_reconfigure_cdp(struct rdt_resource *r);
 
 #endif /* _ASM_X86_INTEL_RDT_H */

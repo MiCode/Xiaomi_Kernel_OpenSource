@@ -271,7 +271,7 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 }
 
 #ifdef CONFIG_X86_64
-__visible void do_syscall_64(struct pt_regs *regs)
+__nocfi __visible void do_syscall_64(struct pt_regs *regs)
 {
 	struct thread_info *ti = current_thread_info();
 	unsigned long nr = regs->orig_ax;
@@ -305,7 +305,7 @@ __visible void do_syscall_64(struct pt_regs *regs)
  * extremely hot in workloads that use it, and it's usually called from
  * do_fast_syscall_32, so forcibly inline it to improve performance.
  */
-static __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
+static __nocfi __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 {
 	struct thread_info *ti = current_thread_info();
 	unsigned int nr = (unsigned int)regs->orig_ax;

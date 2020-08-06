@@ -231,6 +231,7 @@ struct qcom_glink *qcom_glink_smem_register(struct device *parent,
 	ret = device_register(dev);
 	if (ret) {
 		pr_err("failed to register glink edge\n");
+		put_device(dev);
 		kfree(dev);
 		return ERR_PTR(ret);
 	}
