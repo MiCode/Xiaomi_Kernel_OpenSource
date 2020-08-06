@@ -2478,7 +2478,9 @@ static int cnss_pci_suspend(struct device *dev)
 		goto clear_flag;
 
 	if (!pci_priv->disable_pc) {
+		mutex_lock(&pci_priv->bus_lock);
 		ret = cnss_pci_suspend_bus(pci_priv);
+		mutex_unlock(&pci_priv->bus_lock);
 		if (ret)
 			goto resume_driver;
 	}
@@ -2517,7 +2519,9 @@ static int cnss_pci_resume(struct device *dev)
 		goto out;
 
 	if (!pci_priv->disable_pc) {
+		mutex_lock(&pci_priv->bus_lock);
 		ret = cnss_pci_resume_bus(pci_priv);
+		mutex_unlock(&pci_priv->bus_lock);
 		if (ret)
 			goto out;
 	}
