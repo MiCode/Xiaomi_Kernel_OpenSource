@@ -45,7 +45,19 @@
 #include "modem_reg_base.h"
 #include "ap_md_reg_dump.h"
 
-static struct regulator *reg_vmodem, *reg_vsram;
+struct ccci_md_regulator {
+	struct regulator *reg_ref;
+	unsigned char *reg_name;
+	unsigned long reg_vol0;
+	unsigned long reg_vol1;
+};
+static struct ccci_md_regulator md_reg_table[] = {
+	{ NULL, "md_vmodem", 825000, 825000},
+	{ NULL, "md_vsram", 825000, 825000},
+	{ NULL, "md_vnr", 825000, 825000},
+	{ NULL, "md_vdigrf", 700000, 700000},
+};
+
 static struct ccci_plat_val md_cd_plat_val_ptr;
 
 static struct ccci_clk_node clk_table[] = {
@@ -497,30 +509,64 @@ static void md_cd_check_emi_state(struct ccci_modem *md, int polling)
 {
 }
 
-static void md1_pmic_setting_on(void)
+static void md1_pmic_setting_init(struct platform_device *plat_dev)
 {
-	int ret = 0;
+	int idx, ret;
 
-	ret = regulator_set_voltage(reg_vmodem, 875000, 875000);
-	if (ret)
-		CCCI_ERROR_LOG(-1, TAG, "pmic_vmodem setting on fail\n");
-	ret = regulator_sync_voltage(reg_vmodem);
-	if (ret)
-		CCCI_ERROR_LOG(-1, TAG, "pmic_vmodem setting on fail\n");
+	CCCI_BOOTUP_LOG(-1, TAG, "get pmic setting\n");
+	for (idx = 0; idx < ARRAY_SIZE(md_reg_table); idx++) {
+		md_reg_table[idx].reg_ref =
+			devm_regulator_get_optional(&plat_dev->dev,
+			md_reg_table[idx].reg_name);
+		if (IS_ERR(md_reg_table[idx].reg_ref)) {
+			ret = PTR_ERR(md_reg_table[idx].reg_ref);
+			if ((ret != -ENODEV) && plat_dev->dev.of_node) {
+				CCCI_ERROR_LOG(-1, TAG,
+					"get regulator(%s) fail: ret = %d\n",
+					md_reg_table[idx].reg_name, ret);
+				//return -1;
+			} else
+				CCCI_ERROR_LOG(-1, TAG,
+					"get regulator(%s) fail 1: ret = %d\n",
+					md_reg_table[idx].reg_name, ret);
 
-	ret = regulator_set_voltage(reg_vsram, 993750, 993750);
-	if (ret)
-		CCCI_ERROR_LOG(-1, TAG, "pmic_vsram setting on fail\n");
-	ret = regulator_sync_voltage(reg_vsram);
-	if (ret)
-		CCCI_ERROR_LOG(-1, TAG, "pmic_vsram setting on fail\n");
-
+			md_reg_table[idx].reg_ref = NULL;
+			//return -1;
+		} else
+			CCCI_BOOTUP_LOG(-1, TAG,
+					"get regulator(%s) successfully\n",
+					md_reg_table[idx].reg_name);
+	}
 }
 
-//xuxin-pbm//void __attribute__((weak)) kicker_pbm_by_md(enum pbm_kicker kicker,
-//xuxin-pbm//	bool status)
-//xuxin-pbm//{
-//xuxin-pbm//}
+static void md1_pmic_setting_on(void)
+{
+	int ret = -1, idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(md_reg_table); idx++) {
+		if (md_reg_table[idx].reg_ref) {
+			ret = regulator_set_voltage(md_reg_table[idx].reg_ref,
+				md_reg_table[idx].reg_vol0,
+				md_reg_table[idx].reg_vol1);
+			if (ret) {
+				CCCI_ERROR_LOG(-1, TAG, "pmic_%s set fail\n",
+					md_reg_table[idx].reg_name);
+				continue;
+			}
+			ret = regulator_sync_voltage(
+				md_reg_table[idx].reg_ref);
+			if (ret)
+				CCCI_ERROR_LOG(-1, TAG, "pmic_%s sync fail\n",
+					md_reg_table[idx].reg_name);
+			else
+				CCCI_BOOTUP_LOG(-1, TAG, "pmic_%s set\n",
+					md_reg_table[idx].reg_name);
+		} else
+			CCCI_BOOTUP_LOG(-1, TAG, "bypass pmic_%s set\n",
+					md_reg_table[idx].reg_name);
+	}
+
+}
 
 static int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode)
 {
@@ -551,24 +597,7 @@ static int md_start_platform(struct ccci_modem *md)
 	if ((md->per_md_data.config.setting&MD_SETTING_FIRST_BOOT) == 0)
 		return 0;
 
-	reg_vmodem = devm_regulator_get_optional(&md->plat_dev->dev, "vmodem");
-	if (IS_ERR(reg_vmodem)) {
-		ret = PTR_ERR(reg_vmodem);
-		if ((ret != -ENODEV) && md->plat_dev->dev.of_node) {
-			CCCI_ERROR_LOG(md->index, TAG,
-				"get regulator(PMIC) fail: ret = %d\n", ret);
-			return -1;
-		}
-	}
-	reg_vsram = devm_regulator_get_optional(&md->plat_dev->dev, "vsram");
-	if (IS_ERR(reg_vsram)) {
-		ret = PTR_ERR(reg_vsram);
-		if ((ret != -ENODEV) && md->plat_dev->dev.of_node) {
-			CCCI_ERROR_LOG(md->index, TAG,
-				"get regulator(PMIC1) fail: ret = %d\n", ret);
-			return -1;
-		}
-	}
+	md1_pmic_setting_init(md->plat_dev);
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,security_ao");
 	if (node) {
