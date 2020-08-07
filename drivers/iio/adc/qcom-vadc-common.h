@@ -144,6 +144,8 @@ struct vadc_prescale_ratio {
  *	The hardware applies offset/slope to adc code. This is for PMIC7.
  * SCALE_HW_CALIB_PM7_SMB_TEMP: Returns result in millidegrees for PMIC7
  *	SMB139x temperature.
+ * SCALE_HW_CALIB_PM7_CHG_TEMP: Returns result in millidegrees for PMIC7
+ *	charger temperature.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -165,6 +167,7 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_THERM_100K_PU_PM7,
 	SCALE_HW_CALIB_PMIC_THERM_PM7,
 	SCALE_HW_CALIB_PM7_SMB_TEMP,
+	SCALE_HW_CALIB_PM7_CHG_TEMP,
 	SCALE_HW_CALIB_INVALID,
 };
 
