@@ -24,9 +24,12 @@
 #include "mtk_drm_gem.h"
 #include "mtk_dump.h"
 
-#ifdef CONFIG_MTK_SMI_EXT
-#include "smi_public.h"
+
+#define MTK_SMI_CLK_CTRL
+#ifdef MTK_SMI_CLK_CTRL
+#include <soc/mediatek/smi.h>
 #endif
+
 
 #define DISP_OD_EN 0x0000
 #define DISP_OD_INTEN 0x0008
@@ -595,8 +598,8 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 		return;
 
 	if (comp->larb_dev)
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(comp->larb_id, MTK_DDP_COMP_USER);
+#ifdef MTK_SMI_CLK_CTRL
+		mtk_smi_larb_get(comp->larb_dev);
 #else
 		pm_runtime_get_sync(comp->dev);
 #endif
@@ -619,8 +622,8 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 
 
 	if (comp->larb_dev)
-#ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_disable_unprepare(comp->larb_id, MTK_DDP_COMP_USER);
+#ifdef MTK_SMI_CLK_CTRL
+		mtk_smi_larb_put(comp->larb_dev);
 #else
 		pm_runtime_put_sync(comp->dev);
 #endif
