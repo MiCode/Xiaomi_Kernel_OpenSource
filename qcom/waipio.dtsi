@@ -584,28 +584,54 @@
 	};
 
 	/* VIDEO_CC GDSCs */
-	video_cc_mvs0_gdsc: qcom,gdsc@abf809c {
-		compatible = "qcom,stub-regulator";
+	video_cc_mvs0_gdsc: qcom,gdsc@aaf809c {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf809C 0x4>;
 		regulator-name = "video_cc_mvs0_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
-	video_cc_mvs0c_gdsc: qcom,gdsc@abf804c {
-		compatible = "qcom,stub-regulator";
+	video_cc_mvs0c_gdsc: qcom,gdsc@aaf804c {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf804c 0x4>;
 		regulator-name = "video_cc_mvs0c_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
-	video_cc_mvs1_gdsc: qcom,gdsc@abf80c0 {
-		compatible = "qcom,stub-regulator";
+	video_cc_mvs1_gdsc: qcom,gdsc@aaf80c0 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf80c0 0x4>;
 		regulator-name = "video_cc_mvs1_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
-	video_cc_mvs1c_gdsc: qcom,gdsc@abf8074 {
-		compatible = "qcom,stub-regulator";
+	video_cc_mvs1c_gdsc: qcom,gdsc@aaf8074 {
+		compatible = "qcom,gdsc";
+		reg = <0xaaf8074 0x4>;
 		regulator-name = "video_cc_mvs1c_gdsc";
 		qcom,gds-timeout = <500>;
+		clock-names = "ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
+		parent-supply = <&VDD_MM_LEVEL>;
+		vdd_parent-supply = <&VDD_MM_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	clock_rpmh: qcom,rpmhclk {
@@ -629,9 +655,14 @@
 		#reset-cells = <1>;
 	};
 
-	clock_videocc: qcom,videocc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "videocc_clocks";
+	clock_videocc: qcom,videocc@aaf0000 {
+		compatible = "qcom,waipio-videocc", "syscon";
+		reg = <0xaaf0000 0x10000>;
+		reg-name = "cc_base";
+		vdd_mm-supply = <&VDD_MM_LEVEL>;
+		vdd_mxc-supply = <&VDD_MXC_LEVEL>;
+		clock-names = "cfg_ahb_clk";
+		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
