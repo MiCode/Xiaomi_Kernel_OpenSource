@@ -2500,7 +2500,6 @@
 			qcom,additional-mapping =
 			/* modem tables in IMEM */
 			<0x0C123000 0x0C123000 0x2000>;
-			dma-coherent;
 			qcom,iommu-dma = "bypass";
 			qcom,ipa-q6-smem-size = <36864>;
 		};
@@ -2521,7 +2520,6 @@
 		ipa_smmu_11ad: ipa_smmu_11ad {
 			compatible = "qcom,ipa-smmu-11ad-cb";
 			iommus = <&apps_smmu 0x04A3 0x0>;
-			dma-coherent;
 			qcom,shared-cb;
 			qcom,iommu-group = <>;
 		};
