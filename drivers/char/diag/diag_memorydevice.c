@@ -208,7 +208,7 @@ void diag_md_clear_tbl_entries(int id)
 
 int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 {
-	int i, peripheral, pid = 0;
+	int i, peripheral, pid = 0, type = 0;
 	uint8_t found = 0;
 	unsigned long flags, flags_sec;
 	struct diag_md_info *ch = NULL;
@@ -226,6 +226,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	} else {
 		peripheral = 0;
 	}
+	type = GET_BUF_TYPE(ctx);
 	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_peripheral(id, peripheral);
 	if (!session_info) {
@@ -244,7 +245,8 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	spin_lock_irqsave(&ch->lock, flags);
 	if (peripheral == APPS_DATA) {
 		spin_lock_irqsave(&driver->diagmem_lock, flags_sec);
-		if (!hdlc_data.allocated && !non_hdlc_data.allocated) {
+		if (type == TYPE_DATA &&
+		!hdlc_data.allocated && !non_hdlc_data.allocated) {
 			spin_unlock_irqrestore(&driver->diagmem_lock,
 				flags_sec);
 			spin_unlock_irqrestore(&ch->lock, flags);
