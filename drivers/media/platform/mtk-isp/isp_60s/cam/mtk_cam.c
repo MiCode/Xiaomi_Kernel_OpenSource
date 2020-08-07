@@ -133,7 +133,7 @@ void mtk_cam_dequeue_req_frame(struct mtk_cam_device *cam,
 			cam->running_job_count--;
 			/* Pass to user space for frame drop */
 			mtk_cam_dev_job_done(cam, req, VB2_BUF_STATE_ERROR);
-			dev_warn(cam->dev, "frame_seq:%d drop\n",
+			dev_dbg(cam->dev, "frame_seq:%d drop\n",
 				 req->frame_seq_no);
 			list_del(&req->list);
 		}
@@ -189,7 +189,7 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 	if (node->desc.dma_port == MTKCAM_IPI_RAW_IMGO &&
 	    (cfg_fmt->fmt.pix_mp.width > sd_width ||
 			cfg_fmt->fmt.pix_mp.height > sd_height)) {
-		dev_err(cam->dev, "ctx: %d cfg size is larger than sensor\n",
+		dev_dbg(cam->dev, "ctx: %d cfg size is larger than sensor\n",
 			node->ctx->stream_id);
 		return -EINVAL;
 	} else if ((node->desc.dma_port == MTKCAM_IPI_RAW_RRZO) &&
@@ -197,7 +197,7 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 			MTK_ISP_MIN_RESIZE_RATIO) ||
 			((cfg_fmt->fmt.pix_mp.height * 100 / sd_height) <
 			MTK_ISP_MIN_RESIZE_RATIO))) {
-		dev_err(cam->dev, "ctx: %d resize ratio is less than %d%%\n",
+		dev_dbg(cam->dev, "ctx: %d resize ratio is less than %d%%\n",
 			node->ctx->stream_id, MTK_ISP_MIN_RESIZE_RATIO);
 		return -EINVAL;
 	}
@@ -205,7 +205,7 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 	out_fmt->fmt.format =
 		mtk_cam_get_img_fmt(cfg_fmt->fmt.pix_mp.pixelformat);
 	if (out_fmt->fmt.format == MTK_CAM_IMG_FMT_UNKNOWN) {
-		dev_err(cam->dev, "ctx: %d, node:%d unknown pixel fmt:%d\n",
+		dev_dbg(cam->dev, "ctx: %d, node:%d unknown pixel fmt:%d\n",
 			node->ctx->stream_id, node->desc.dma_port,
 			cfg_fmt->fmt.pix_mp.pixelformat);
 		return -EINVAL;
@@ -288,9 +288,47 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			sd_height = sd_fmt.format.height;
 
 			out_fmt = &req->frame_params
-					.img_outs[node->desc.id - 1];
+					.img_outs[node->desc.id-MTK_RAW_SOURCE_BEGIN];
 			out_fmt->uid.pipe_id = node->uid.pipe_id;
 			out_fmt->uid.id = MTKCAM_IPI_RAW_IMGO;
+			ret = config_img_fmt(cam, node, out_fmt,
+						sd_width, sd_height);
+			if (ret)
+				return ret;
+			break;
+
+		case MTKCAM_IPI_RAW_RRZO:
+			sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+			sd_fmt.pad = PAD_SRC_RAW0;
+			ret = v4l2_subdev_call(node->ctx->seninf, pad,
+						get_fmt, NULL, &sd_fmt);
+			if (ret) {
+				dev_dbg(cam->dev,
+					"seninf(%s) g_fmt failed:%d\n",
+					node->ctx->seninf->name, ret);
+				return ret;
+			}
+
+			fd = node->pending_fmt.request_fd;
+			if (fd > 0) {
+				request = media_request_get_by_fd(
+					&cam->media_dev, fd);
+
+				if (request == &req->req) {
+					fmt = &node->pending_fmt;
+					video_try_fmt(node, fmt);
+					node->active_fmt = *fmt;
+					node->pending_fmt.request_fd = 0;
+				}
+			}
+
+			sd_width = sd_fmt.format.width;
+			sd_height = sd_fmt.format.height;
+
+			out_fmt = &req->frame_params
+					.img_outs[node->desc.id-MTK_RAW_SOURCE_BEGIN];
+			out_fmt->uid.pipe_id = node->uid.pipe_id;
+			out_fmt->uid.id = MTKCAM_IPI_RAW_RRZO;
 			ret = config_img_fmt(cam, node, out_fmt,
 					     sd_width, sd_height);
 			if (ret)
@@ -397,7 +435,7 @@ static int mtk_cam_of_rproc(struct mtk_cam_device *cam)
 	ret = of_property_read_u32(dev->of_node, "mediatek,ccd",
 				   &cam->rproc_phandle);
 	if (ret) {
-		dev_err(dev, "fail to get rproc_phandle:%d\n", ret);
+		dev_dbg(dev, "fail to get rproc_phandle:%d\n", ret);
 		return -EINVAL;
 	}
 
@@ -448,7 +486,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 		return -EINVAL;
 
 	if (len < offsetofend(struct mtkcam_ipi_event, ack_data)) {
-		dev_err(dev, "wrong IPI len:%d\n", len);
+		dev_dbg(dev, "wrong IPI len:%d\n", len);
 		return -EINVAL;
 	}
 
@@ -496,7 +534,7 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 
 			dev = mtk_cam_find_raw_dev(cam, req->ctx_used);
 			if (!dev) {
-				dev_warn(dev, "frm#1 raw device not found\n");
+				dev_dbg(dev, "frm#1 raw device not found\n");
 				return -EINVAL;
 			}
 
@@ -668,7 +706,7 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 
 	ret = mtk_cam_raw_select(pipe, cfg_in_param);
 	if (ret) {
-		dev_err(raw->cam_dev, "failed select raw: %d\n",
+		dev_dbg(raw->cam_dev, "failed select raw: %d\n",
 			ctx->stream_id);
 		return ret;
 	}
@@ -678,7 +716,7 @@ mtk_cam_raw_pipeline_config(struct mtk_cam_ctx *ctx,
 			pm_runtime_get_sync(raw->devs[i]);
 
 	if (ret < 0) {
-		dev_err(raw->cam_dev,
+		dev_dbg(raw->cam_dev,
 			"failed at pm_runtime_get_sync: %s\n",
 			dev_driver_string(raw->devs[i]));
 		for (i = i - 1; i >= 0; i--)
@@ -727,7 +765,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 	cfg_in_param->fmt = mtk_cam_get_sensor_fmt(mf->code);
 	if (cfg_in_param->fmt == MTK_CAM_IMG_FMT_UNKNOWN ||
 	    cfg_in_param->raw_pixel_id == MTK_CAM_RAW_PXL_ID_UNKNOWN) {
-		dev_err(dev, "unknown sd code:%d\n", mf->code);
+		dev_dbg(dev, "unknown sd code:%d\n", mf->code);
 		return -EINVAL;
 	}
 
@@ -741,7 +779,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 
 	dev_raw = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 	if (!dev_raw) {
-		dev_warn(dev, "config raw device not found\n");
+		dev_dbg(dev, "config raw device not found\n");
 		return -EINVAL;
 	}
 	raw_dev = dev_get_drvdata(dev_raw);
@@ -770,19 +808,19 @@ static int isp_composer_init(struct mtk_cam_device *cam)
 
 	cam->rproc_handle = rproc_get_by_phandle(cam->rproc_phandle);
 	if (!cam->rproc_handle) {
-		dev_err(dev, "fail to get rproc_handle\n");
+		dev_dbg(dev, "fail to get rproc_handle\n");
 		return -EINVAL;
 	}
 
 	ret = rproc_boot(cam->rproc_handle);
 	if (ret) {
-		dev_err(dev, "failed to rproc_boot:%d\n", ret);
+		dev_dbg(dev, "failed to rproc_boot:%d\n", ret);
 		goto fail_rproc_put;
 	}
 
 	ret = mtk_cam_working_buf_pool_init(cam);
 	if (ret) {
-		dev_err(dev, "failed to reserve DMA memory:%d\n", ret);
+		dev_dbg(dev, "failed to reserve DMA memory:%d\n", ret);
 		goto fail_shutdown;
 	}
 
@@ -810,7 +848,7 @@ static int isp_composer_init(struct mtk_cam_device *cam)
 					__WQ_LEGACY | WQ_MEM_RECLAIM |
 					WQ_FREEZABLE);
 	if (!cam->composer_wq) {
-		dev_err(dev, "failed to alloc composer workqueue\n");
+		dev_dbg(dev, "failed to alloc composer workqueue\n");
 		ret = -ENOMEM;
 		goto fail_mem_uninit;
 	}
@@ -820,7 +858,7 @@ static int isp_composer_init(struct mtk_cam_device *cam)
 					__WQ_LEGACY | WQ_MEM_RECLAIM |
 					WQ_FREEZABLE);
 	if (!cam->link_change_wq) {
-		dev_err(dev, "failed to alloc composer workqueue\n");
+		dev_dbg(dev, "failed to alloc composer workqueue\n");
 		destroy_workqueue(cam->composer_wq);
 		ret = -ENOMEM;
 		goto fail_mem_uninit;
@@ -850,7 +888,7 @@ static int mtk_cam_pm_suspend(struct device *dev)
 
 	ret = pm_runtime_force_suspend(dev);
 	if (ret)
-		dev_err(dev, "failed to force suspend:%d\n", ret);
+		dev_dbg(dev, "failed to force suspend:%d\n", ret);
 
 	return ret;
 }
@@ -919,7 +957,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 	ret = media_pipeline_start(entity, &ctx->pipeline);
 	if (ret) {
-		dev_err(cam->dev, "failed to start pipeline:%d\n", ret);
+		dev_dbg(cam->dev, "failed to start pipeline:%d\n", ret);
 		goto fail_uninit_composer;
 	}
 
@@ -958,7 +996,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 			continue;
 
 		if (*target_sd) {
-			dev_err(cam->dev, "duplicated subdevs!!!\n");
+			dev_dbg(cam->dev, "duplicated subdevs!!!\n");
 			goto fail_stop_pipeline;
 		}
 
@@ -1007,7 +1045,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 				ret = v4l2_subdev_call(sd, video, s_stream, 0);
 				if (ret)
-					dev_err(cam->dev,
+					dev_dbg(cam->dev,
 						"failed to streamoff %s:%d\n",
 						sd->name, ret);
 				sd->entity.stream_count = 0;
@@ -1050,7 +1088,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	dev_info(cam->dev, "ctx %d stream on\n", ctx->stream_id);
 
 	if (ctx->streaming) {
-		dev_warn(cam->dev, "ctx-%d is already streaming on\n",
+		dev_dbg(cam->dev, "ctx-%d is already streaming on\n",
 			 ctx->stream_id);
 		return 0;
 	}
@@ -1058,10 +1096,12 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	cam->composer_cnt++;
 
 	mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0, ctx->stream_id);
-
+	/* todo: backend support one pixel mode only */
+	dev_info(cam->dev, "only support pixel mode 0");
+	mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0, 0x0);
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
 	if (ret) {
-		dev_err(cam->dev, "failed to stream on seninf %s:%d\n",
+		dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
 			ctx->seninf->name, ret);
 		return ret;
 	}
@@ -1070,7 +1110,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
 				       s_stream, 1);
 		if (ret) {
-			dev_err(cam->dev, "failed to stream on %d: %d\n",
+			dev_dbg(cam->dev, "failed to stream on %d: %d\n",
 				ctx->pipe_subdevs[i]->name, ret);
 			goto fail_pipe_off;
 		}
@@ -1086,7 +1126,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 
 	dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 	if (!dev) {
-		dev_warn(cam->dev, "streamon raw device not found\n");
+		dev_dbg(cam->dev, "streamon raw device not found\n");
 		goto fail_pipe_off;
 	}
 	raw_dev = dev_get_drvdata(dev);
@@ -1129,7 +1169,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	int ret;
 
 	if (!ctx->streaming) {
-		dev_warn(cam->dev, "ctx-%d is already streaming off\n",
+		dev_dbg(cam->dev, "ctx-%d is already streaming off\n",
 			 ctx->stream_id);
 		return 0;
 	}
@@ -1140,7 +1180,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 	if (ret) {
-		dev_err(cam->dev, "failed to stream off %s:%d\n",
+		dev_dbg(cam->dev, "failed to stream off %s:%d\n",
 			ctx->seninf->name, ret);
 		return -EPERM;
 	}
@@ -1149,7 +1189,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
 				       s_stream, 0);
 		if (ret) {
-			dev_err(cam->dev, "failed to stream off %d: %d\n",
+			dev_dbg(cam->dev, "failed to stream off %d: %d\n",
 				ctx->pipe_subdevs[i]->name, ret);
 			return -EPERM;
 		}
@@ -1157,7 +1197,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 	if (!dev) {
-		dev_warn(cam->dev, "streamoff raw device not found\n");
+		dev_dbg(cam->dev, "streamoff raw device not found\n");
 		goto fail_stream_off;
 	}
 	raw_dev = dev_get_drvdata(dev);
@@ -1192,7 +1232,7 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 					    MEDIA_LNK_FL_DYNAMIC);
 
 		if (ret) {
-			dev_err(cam->dev,
+			dev_dbg(cam->dev,
 				"failed to create pad link %s %s err:%d\n",
 				seninf->entity.name, pipe_entity->name,
 				ret);
@@ -1241,26 +1281,26 @@ static int mtk_cam_master_bind(struct device *dev)
 	cam_dev->v4l2_dev.mdev = media_dev;
 	ret = v4l2_device_register(cam_dev->dev, &cam_dev->v4l2_dev);
 	if (ret) {
-		dev_err(dev, "Failed to register V4L2 device: %d\n", ret);
+		dev_dbg(dev, "Failed to register V4L2 device: %d\n", ret);
 		goto fail_media_device_cleanup;
 	}
 
 	ret = media_device_register(media_dev);
 	if (ret) {
-		dev_err(dev, "Failed to register media device: %d\n",
+		dev_dbg(dev, "Failed to register media device: %d\n",
 			ret);
 		goto fail_v4l2_device_unreg;
 	}
 
 	ret = component_bind_all(dev, cam_dev);
 	if (ret) {
-		dev_err(dev, "Failed to bind all component: %d\n", ret);
+		dev_dbg(dev, "Failed to bind all component: %d\n", ret);
 		goto fail_media_device_unreg;
 	}
 
 	ret = mtk_raw_register_entities(&cam_dev->raw, &cam_dev->v4l2_dev);
 	if (ret) {
-		dev_err(dev, "Failed to init raw subdevs: %d\n", ret);
+		dev_dbg(dev, "Failed to init raw subdevs: %d\n", ret);
 		goto fail_unbind_all;
 	}
 
@@ -1271,7 +1311,7 @@ static int mtk_cam_master_bind(struct device *dev)
 	/* Expose all subdev's nodes */
 	ret = v4l2_device_register_subdev_nodes(&cam_dev->v4l2_dev);
 	if (ret) {
-		dev_err(dev, "Failed to register subdev nodes\n");
+		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_entities;
 	}
 	mtk_cam_pmqos_add_req(cam_dev);
@@ -1402,6 +1442,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 {
 	struct mtk_cam_device *cam_dev;
 	struct device *dev = &pdev->dev;
+	struct resource *res;
 	struct component_match *match = NULL;
 	int ret, i;
 
@@ -1417,8 +1458,20 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	 * so I have to disable it now.
 	 *
 	 * if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-	 *	dev_err(dev, "%s: No suitable DMA available\n", __func__);
+	 *	dev_dbg(dev, "%s: No suitable DMA available\n", __func__);
 	 */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_dbg(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	cam_dev->base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(cam_dev->base)) {
+		dev_dbg(dev, "failed to map register base\n");
+		return PTR_ERR(cam_dev->base);
+	}
+	dev_dbg(dev, "cam_dev, map_addr=0x%pK\n", cam_dev->base);
 
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/isp_60/cam \
+ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/isp_60s/cam \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs \
 	     -I$(srctree)/drivers/misc/mediatek/smi/
 

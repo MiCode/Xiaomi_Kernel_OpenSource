@@ -28,9 +28,9 @@
 #define MTK_ISP_CQ_ADDRESS_OFFSET		0xfc8
 
 #define CAM_SUB_FRM_DATA_NUM 32
-#define WORKING_BUF_SIZE  0x1000
+#define WORKING_BUF_SIZE  0x4000
 
-#define MTK_ISP_MIN_RESIZE_RATIO 6
+#define MTK_ISP_MIN_RESIZE_RATIO 25
 
 struct platform_device;
 struct mtk_rpmsg_device;
@@ -142,7 +142,7 @@ struct mtk_cam_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_async_notifier notifier;
 	struct media_device media_dev;
-
+	void __iomem *base;
 	//TODO: for real SCP
 	//struct device *smem_dev;
 	//struct platform_device *scp_pdev; /* only for scp case? */
