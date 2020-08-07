@@ -332,6 +332,9 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 			(KGSL_MEMDESC_MAPPED & memdesc->priv))
 		return -EINVAL;
 
+	if (memdesc->flags & KGSL_MEMFLAGS_VBO)
+		return -EINVAL;
+
 	size = kgsl_memdesc_footprint(memdesc);
 
 	if (PT_OP_VALID(pagetable, mmu_map)) {
@@ -346,6 +349,58 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				&pagetable->stats.max_mapped);
 
 		memdesc->priv |= KGSL_MEMDESC_MAPPED;
+	}
+
+	return 0;
+}
+
+int kgsl_mmu_map_child(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 offset,
+		struct kgsl_memdesc *child, u64 child_offset,
+		u64 length)
+{
+	/* This only makes sense for virtual buffer objects */
+	if (!(memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
+	if (!memdesc->gpuaddr)
+		return -EINVAL;
+
+	if (PT_OP_VALID(pt, mmu_map_child)) {
+		int ret;
+
+		ret = pt->pt_ops->mmu_map_child(pt, memdesc,
+			offset, child, child_offset, length);
+		if (ret)
+			return ret;
+
+		KGSL_STATS_ADD(length, &pt->stats.mapped,
+				&pt->stats.max_mapped);
+	}
+
+	return 0;
+}
+
+int kgsl_mmu_map_zero_page_to_range(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 start, u64 length)
+{
+	int ret = -EINVAL;
+
+	/* This only makes sense for virtual buffer objects */
+	if (!(memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
+	if (!memdesc->gpuaddr)
+		return -EINVAL;
+
+	if (PT_OP_VALID(pt, mmu_map_zero_page_to_range)) {
+		ret = pt->pt_ops->mmu_map_zero_page_to_range(pt,
+			memdesc, start, length);
+		if (ret)
+			return ret;
+
+		KGSL_STATS_ADD(length, &pt->stats.mapped,
+				&pt->stats.max_mapped);
 	}
 
 	return 0;
@@ -414,6 +469,9 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	if (memdesc->size == 0)
 		return -EINVAL;
 
+	if ((memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
 	/* Only global mappings should be mapped multiple times */
 	if (!(KGSL_MEMDESC_MAPPED & memdesc->priv))
 		return -EINVAL;
@@ -430,6 +488,26 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 		if (!kgsl_memdesc_is_global(memdesc))
 			memdesc->priv &= ~KGSL_MEMDESC_MAPPED;
+	}
+
+	return ret;
+}
+
+int
+kgsl_mmu_unmap_range(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc, u64 offset, u64 length)
+{
+	int ret = 0;
+
+	/* Only allow virtual buffer objects to use this function */
+	if (!(memdesc->flags & KGSL_MEMFLAGS_VBO))
+		return -EINVAL;
+
+	if (PT_OP_VALID(pagetable, mmu_unmap_range)) {
+		ret = pagetable->pt_ops->mmu_unmap_range(pagetable, memdesc,
+			offset, length);
+
+		atomic_long_sub(length, &pagetable->stats.mapped);
 	}
 
 	return ret;

@@ -113,8 +113,16 @@ struct kgsl_mmu_ops {
 struct kgsl_mmu_pt_ops {
 	int (*mmu_map)(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc);
+	int (*mmu_map_child)(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 offset,
+		struct kgsl_memdesc *child, u64 child_offset,
+		u64 length);
+	int (*mmu_map_zero_page_to_range)(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 start, u64 length);
 	int (*mmu_unmap)(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc);
+	int (*mmu_unmap_range)(struct kgsl_pagetable *pt,
+			struct kgsl_memdesc *memdesc, u64 offset, u64 length);
 	void (*mmu_destroy_pagetable)(struct kgsl_pagetable *pt);
 	u64 (*get_ttbr0)(struct kgsl_pagetable *pt);
 	int (*get_context_bank)(struct kgsl_pagetable *pt);
@@ -152,6 +160,8 @@ enum kgsl_mmu_feature {
 	 * available. Implies split address space and per-process pagetables
 	 */
 	KGSL_MMU_IOPGTABLE,
+	/** @KGSL_MMU_SUPPORT_VBO: Non-secure VBOs are supported */
+	KGSL_MMU_SUPPORT_VBO,
 };
 
 #include "kgsl_iommu.h"
@@ -194,8 +204,16 @@ int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
+int kgsl_mmu_map_child(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 offset,
+		struct kgsl_memdesc *child, u64 child_offset,
+		u64 length);
+int kgsl_mmu_map_zero_page_to_range(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 start, u64 length);
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
+int kgsl_mmu_unmap_range(struct kgsl_pagetable *pt,
+		struct kgsl_memdesc *memdesc, u64 offset, u64 length);
 void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);
