@@ -179,6 +179,7 @@ int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 	struct files_struct *f = NULL;
 	struct sighand_struct *sighand;
 	spinlock_t siglock;
+	int target_fd = 0;
 
 	if (dmabuf == NULL || dmabuf->file == NULL)
 		return 0;
@@ -192,13 +193,26 @@ int mtk_ccd_get_dmabuf_fd(struct mtk_ccd *ccd,
 	dev_dbg(ccd->dev, "Master pid:%d, tgid:%d; current pid:%d, tgid:%d",
 		task->pid, task->tgid, current->pid, current->tgid);
 
-	if (ori_fd <= 0 || task->tgid != current->tgid) {
+	if (task->tgid != current->tgid) {
 		dev_err(ccd->dev,
 			"User process(%d) must be the same as CCD(%d)\n",
-			current->tgid, current->tgid);
+			task->tgid, current->tgid);
+		return -EINVAL;
 	}
 
-	return ori_fd;
+	if (ori_fd > 0)
+		return ori_fd;
+
+	get_file(dmabuf->file);
+	target_fd = get_unused_fd_flags(O_CLOEXEC);
+	if (target_fd < 0) {
+		dev_dbg(ccd->dev, "failed to get fd: %d\n");
+		return -EMFILE;
+	}
+
+	fd_install(target_fd, dmabuf->file);
+
+	return target_fd;
 }
 EXPORT_SYMBOL_GPL(mtk_ccd_get_dmabuf_fd);
 
