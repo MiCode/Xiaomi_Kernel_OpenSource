@@ -1801,10 +1801,10 @@ retry:
 			if (sched_cpu_high_irqload(cpu))
 				continue;
 
-			util = cpu_util(cpu);
-
-			if (__cpu_overutilized(cpu, util + tutil))
+			if (__cpu_overutilized(cpu, tutil))
 				continue;
+
+			util = cpu_util(cpu);
 
 			/* Find the least loaded CPU */
 			if (util > best_cpu_util)
