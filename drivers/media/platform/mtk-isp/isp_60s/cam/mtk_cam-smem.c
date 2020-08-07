@@ -57,14 +57,14 @@ dma_addr_t mtk_cam_smem_iova_to_scp_addr(struct device *dev,
 
 	domain = iommu_get_domain_for_dev(dev);
 	if (!domain) {
-		dev_warn(dev, "No iommu group domain\n");
+		dev_dbg(dev, "No iommu group domain\n");
 		return 0;
 	}
 
 	addr = iommu_iova_to_phys(domain, iova);
 	limit = smem_dev->smem_base + smem_dev->smem_size;
 	if (addr < smem_dev->smem_base || addr >= limit) {
-		dev_err(dev,
+		dev_dbg(dev,
 			"Unexpected scp_addr:%pad must >= %pad and < %pad)\n",
 			&addr, &smem_dev->smem_base, &limit);
 		return 0;
@@ -100,7 +100,7 @@ static void *mtk_cam_smem_get_cpu_addr(struct mtk_cam_smem_dev *smem_dev,
 
 	if (addr < smem_dev->smem_base ||
 	    addr > smem_dev->smem_base + smem_dev->smem_size) {
-		dev_err(dev, "Invalid scp_addr %pad from sg\n", &addr);
+		dev_dbg(dev, "Invalid scp_addr %pad from sg\n", &addr);
 		return NULL;
 	}
 	return dma_mem->virt_base + (addr - smem_dev->smem_base);
@@ -180,14 +180,14 @@ static int mtk_cam_reserved_drm_sg_init(struct mtk_cam_smem_dev *smem_dev)
 	ret = sg_alloc_table_from_pages(sgt, pages, n_pages, 0,
 					size_align, GFP_KERNEL);
 	if (ret) {
-		dev_err(dev, "failed to alloca sg table:%d\n", ret);
+		dev_dbg(dev, "failed to alloca sg table:%d\n", ret);
 		goto fail_table_alloc;
 	}
 	sgt->nents = dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents,
 				      DMA_BIDIRECTIONAL,
 				      DMA_ATTR_SKIP_CPU_SYNC);
 	if (!sgt->nents) {
-		dev_err(dev, "failed to dma sg map\n");
+		dev_dbg(dev, "failed to dma sg map\n");
 		goto fail_map;
 	}
 
@@ -196,7 +196,7 @@ static int mtk_cam_reserved_drm_sg_init(struct mtk_cam_smem_dev *smem_dev)
 					  dma_addr, size_align,
 					  DMA_MEMORY_EXCLUSIVE);
 	if (ret) {
-		dev_err(dev, "Unable to declare smem  memory:%d\n", ret);
+		dev_dbg(dev, "Unable to declare smem  memory:%d\n", ret);
 		goto fail_map;
 	}
 

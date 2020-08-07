@@ -8,6 +8,7 @@
 
 #include "mtk_cam.h"
 #include "mtk_cam-video.h"
+#include "mtk_cam-meta.h"
 
 static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int *num_buffers,
@@ -67,7 +68,7 @@ static int mtk_cam_vb2_buf_init(struct vb2_buffer *vb)
 	addr = dma_map_resource(dev, buf->daddr, vb->planes[0].length,
 				DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 	if (dma_mapping_error(dev, addr)) {
-		dev_err(dev, "failed to map meta addr:%pad\n", &buf->daddr);
+		dev_dbg(dev, "failed to map meta addr:%pad\n", &buf->daddr);
 		return -EFAULT;
 	}
 	buf->scp_addr = buf->daddr;
@@ -99,7 +100,8 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 		if (vb2_get_plane_payload(vb, 0) != size) {
 			dev_dbg(vb->vb2_queue->dev, "plane payload is mismatch:%lu:%u\n",
 				vb2_get_plane_payload(vb, 0), size);
-			return -EINVAL;
+			/* todo: user must set correct byteused */
+			/* return -EINVAL;*/
 		}
 		return 0;
 	}
@@ -138,7 +140,7 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 
 	/* check entity is linked */
 	if (!node->enabled) {
-		dev_err(cam->dev,
+		dev_dbg(cam->dev,
 			"%s: stream on failed, node is not enabled\n",
 			node->desc.name);
 		ret = -ENOLINK;
@@ -220,6 +222,49 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	mutex_unlock(&cam->op_lock);
 }
 
+static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
+			unsigned int size, unsigned long *offset)
+{
+	buf->offset = *offset;
+	buf->size = size;
+	*offset += size;
+}
+
+static void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr)
+{
+	struct mtk_cam_uapi_meta_raw_stats_0 *stats0;
+	struct mtk_cam_uapi_meta_raw_stats_1 *stats1;
+	struct mtk_cam_uapi_meta_raw_stats_2 *stats2;
+	unsigned long offset;
+
+	switch (dma_port) {
+	case MTKCAM_IPI_RAW_META_STATS_0:
+		stats0 = (struct mtk_cam_uapi_meta_raw_stats_0 *)vaddr;
+		offset = sizeof(*stats0);
+		set_payload(&stats0->ae_awb_stats.aao_buf, MTK_CAM_UAPI_AAO_MAX_BUF_SIZE, &offset);
+		set_payload(&stats0->ae_awb_stats.aaho_buf,
+			MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE, &offset);
+		set_payload(&stats0->ltm_stats.ltmso_buf, MTK_CAM_UAPI_LTMSO_SIZE, &offset);
+		set_payload(&stats0->flk_stats.flko_buf, MTK_CAM_UAPI_FLK_MAX_BUF_SIZE, &offset);
+		set_payload(&stats0->tsf_stats.tsfo_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
+		break;
+	case MTKCAM_IPI_RAW_META_STATS_1:
+		stats1 = (struct mtk_cam_uapi_meta_raw_stats_1 *)vaddr;
+		offset = sizeof(*stats1);
+		set_payload(&stats1->af_stats.afo_buf, MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, &offset);
+		break;
+	case MTKCAM_IPI_RAW_META_STATS_2:
+		stats2 = (struct mtk_cam_uapi_meta_raw_stats_2 *)vaddr;
+		offset = sizeof(*stats2);
+		set_payload(&stats2->lce_stats.lceso_buf, MTK_CAM_UAPI_LCESO_SIZE, &offset);
+		set_payload(&stats2->lceh_stats.lcesho_buf, MTK_CAM_UAPI_LCESHO_SIZE, &offset);
+		break;
+	default:
+		pr_debug("%s: dma_port err\n", __func__);
+		break;
+	}
+}
+
 static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vb->vb2_queue);
@@ -228,6 +273,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct device *dev = cam->dev;
 	unsigned long flags;
+	unsigned int desc_id;
+	void *vaddr;
 
 	dev_dbg(dev, "%s: node:%d fd:%d idx:%d\n", __func__,
 		node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index);
@@ -242,11 +289,40 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	/* update buffer internal address */
 	switch (node->desc.dma_port) {
 	case MTKCAM_IPI_RAW_IMGO:
+	case MTKCAM_IPI_RAW_RRZO:
 		/* TODO: support sub-sampling multi-plane buffer */
-		req->frame_params.img_outs[node->desc.id - MTK_RAW_SINK_NUM]
+		desc_id = node->desc.id-MTK_RAW_SOURCE_BEGIN;
+		req->frame_params.img_outs[desc_id]
 			.buf[0].iova = buf->daddr;
 		/* un-processed raw frame */
 		req->frame_params.raw_param.main_path_sel = 0;
+		break;
+
+	case MTKCAM_IPI_RAW_META_STATS_CFG:
+		desc_id = node->desc.id-MTK_RAW_SINK_NUM;
+		req->frame_params.meta_inputs[desc_id]
+			.buf.ccd_fd = vb->planes[0].m.fd;
+		/* vb->planes[0].bytesused; todo: vb2_q byteused is zero before stream on */
+		req->frame_params.meta_inputs[desc_id]
+			.buf.size = 80000;
+		req->frame_params.meta_inputs[desc_id]
+			.buf.iova = buf->daddr;
+		req->frame_params.meta_inputs[desc_id].uid.id = node->desc.dma_port;
+		break;
+
+	case MTKCAM_IPI_RAW_META_STATS_0:
+	case MTKCAM_IPI_RAW_META_STATS_1:
+	case MTKCAM_IPI_RAW_META_STATS_2:
+		desc_id = node->desc.id-MTK_RAW_META_OUT_BEGIN;
+		req->frame_params.meta_outputs[desc_id]
+			.buf.ccd_fd = vb->planes[0].m.fd;
+		req->frame_params.meta_outputs[desc_id]
+			.buf.size = vb->planes[0].bytesused;
+		req->frame_params.meta_outputs[desc_id]
+			.buf.iova = buf->daddr;
+		req->frame_params.meta_outputs[desc_id].uid.id = node->desc.dma_port;
+		vaddr = vb2_plane_vaddr(vb, 0);
+		mtk_cam_set_meta_stats_info(node->desc.dma_port, vaddr);
 		break;
 
 	default:
@@ -459,7 +535,7 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 static void cal_image_pix_mp(unsigned int node_id,
 			     struct v4l2_pix_format_mplane *mp)
 {
-	unsigned int bpl; /* , ppl; */
+	unsigned int bpl, ppl;
 	unsigned int pixel_bits = mtk_cam_get_pixel_bits(mp->pixelformat);
 	unsigned int width = mp->width;
 
@@ -467,8 +543,7 @@ static void cal_image_pix_mp(unsigned int node_id,
 	if (node_id == MTK_RAW_MAIN_STREAM_OUT) {
 		/* Bayer encoding format & 2 bytes alignment */
 		bpl = ALIGN(DIV_ROUND_UP(width * pixel_bits, 8), 2);
-#ifdef MTK_CAMSYS_RRZO_READY /* TODO for rrzo bpl */
-	} else if (node_id == MTK_CAM_P1_PACKED_BIN_OUT) {
+	} else if (node_id == MTK_RAW_PACKED_BIN_OUT) {
 		/*
 		 * The FULL-G encoding format
 		 * 1 G component per pixel
@@ -485,11 +560,7 @@ static void cal_image_pix_mp(unsigned int node_id,
 		else
 			bpl = ALIGN(bpl, 8);
 	}
-#else
-	} else {
-		pr_debug("Support only MAIN_STREAM_OUT in init ver\n");
-	}
-#endif
+
 	/*
 	 * This image output buffer will be input buffer of MTK CAM DIP HW
 	 * For MTK CAM DIP HW constrained, it needs 4 bytes alignment
@@ -546,7 +617,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	unsigned int output = V4L2_TYPE_IS_OUTPUT(video->desc.buf_type);
 	int ret;
 
-	if (video->desc.link_flags & MEDIA_LNK_FL_IMMUTABLE)
+	if (video->desc.link_flags & MEDIA_LNK_FL_ENABLED)
 		video->enabled = true;
 	else
 		video->enabled = false;
@@ -556,7 +627,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	/* initialize vb2_queue */
 	q->type = video->desc.buf_type;
 	if (q->type == V4L2_BUF_TYPE_META_OUTPUT)
-		q->io_modes = VB2_MMAP;
+		q->io_modes = VB2_MMAP | VB2_DMABUF;
 	else
 		q->io_modes = VB2_MMAP | VB2_DMABUF;
 	if (video->desc.smem_alloc) {
@@ -585,21 +656,21 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 
 	ret = vb2_queue_init(q);
 	if (ret < 0) {
-		dev_err(v4l2_dev->dev, "Failed to init vb2 queue: %d\n", ret);
+		dev_dbg(v4l2_dev->dev, "Failed to init vb2 queue: %d\n", ret);
 		goto error_vb2_init;
 	}
 
 	pad->flags = output ? MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
 	ret = media_entity_pads_init(&vdev->entity, 1, pad);
 	if (ret < 0) {
-		dev_err(v4l2_dev->dev, "Failed to init video entity: %d\n",
+		dev_dbg(v4l2_dev->dev, "Failed to init video entity: %d\n",
 			ret);
 		goto error_media_init;
 	}
 
 	ret = mtk_video_init_format(video);
 	if (ret < 0) {
-		dev_err(v4l2_dev->dev, "Failed to init format: %d\n", ret);
+		dev_dbg(v4l2_dev->dev, "Failed to init format: %d\n", ret);
 		goto error_video_register;
 	}
 
@@ -619,7 +690,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 
 	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
 	if (ret < 0) {
-		dev_err(v4l2_dev->dev, "Failed to register video device: %d\n",
+		dev_dbg(v4l2_dev->dev, "Failed to register video device: %d\n",
 			ret);
 		goto error_video_register;
 	}

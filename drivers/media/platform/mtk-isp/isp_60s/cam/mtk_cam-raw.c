@@ -366,7 +366,186 @@ void reset(struct mtk_raw_device *dev)
 		usleep_range(10, 20);
 	}
 
-	dev_warn(dev->dev, "s%: hw timeout\n", __func__);
+	dev_dbg(dev->dev, "s%: hw timeout\n", __func__);
+}
+
+static void init_dma_fifosize(struct mtk_raw_device *dev)
+{
+	struct mtk_cam_device *cam_dev;
+
+	cam_dev = dev->cam;
+	/* IMGO */
+	writel_relaxed(0x80000800, dev->base + REG_IMGO_CON);
+	writel_relaxed(0x04000300, dev->base + REG_IMGO_CON2);
+	writel_relaxed(0x02000100, dev->base + REG_IMGO_CON3);
+	writel_relaxed(0x85550455, dev->base + REG_IMGO_DRS);
+	/* RRZO */
+	writel_relaxed(0x80000500, dev->base + REG_RRZO_CON);
+	writel_relaxed(0x028001E0, dev->base + REG_RRZO_CON2);
+	writel_relaxed(0x014000A0, dev->base + REG_RRZO_CON3);
+	writel_relaxed(0x835502B5, dev->base + REG_RRZO_DRS);
+	/* PDO */
+	writel_relaxed(0x80000060, dev->base + REG_PDO_CON);
+	writel_relaxed(0x00300024, dev->base + REG_PDO_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_PDO_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_PDO_DRS);
+	/* TSFSO */
+	writel_relaxed(0x80000080, dev->base + REG_TSFSO_CON);
+	writel_relaxed(0x00400030, dev->base + REG_TSFSO_CON2);
+	writel_relaxed(0x00200010, dev->base + REG_TSFSO_CON3);
+	writel_relaxed(0x80550045, dev->base + REG_TSFSO_DRS);
+	/* AAO */
+	writel_relaxed(0x80000100, dev->base + REG_AAO_CON);
+	writel_relaxed(0x00800060, dev->base + REG_AAO_CON2);
+	writel_relaxed(0x00400020, dev->base + REG_AAO_CON3);
+	writel_relaxed(0x80AA008A, dev->base + REG_AAO_DRS);
+	/* AAHO */
+	writel_relaxed(0x80000080, dev->base + REG_AAHO_CON);
+	writel_relaxed(0x00000000, dev->base + REG_AAHO_CON2);
+	writel_relaxed(0x00000000, dev->base + REG_AAHO_CON3);
+	writel_relaxed(0x80000000, dev->base + REG_AAHO_DRS);
+	/* AFO */
+	writel_relaxed(0x80000180, dev->base + REG_AFO_CON);
+	writel_relaxed(0x00C00090, dev->base + REG_AFO_CON2);
+	writel_relaxed(0x00600030, dev->base + REG_AFO_CON3);
+	writel_relaxed(0x809000D0, dev->base + REG_AFO_DRS);
+	/* FLKO */
+	writel_relaxed(0x80000020, dev->base + REG_FLKO_CON);
+	writel_relaxed(0x0010000C, dev->base + REG_FLKO_CON2);
+	writel_relaxed(0x00080004, dev->base + REG_FLKO_CON3);
+	writel_relaxed(0x800C0011, dev->base + REG_FLKO_DRS);
+	/* LTMSO */
+	writel_relaxed(0x80000040, dev->base + REG_LTMSO_CON);
+	writel_relaxed(0x00400030, dev->base + REG_LTMSO_CON2);
+	writel_relaxed(0x00200010, dev->base + REG_LTMSO_CON3);
+	writel_relaxed(0x80550045, dev->base + REG_LTMSO_DRS);
+	/* LCESO */
+	writel_relaxed(0x80000040, dev->base + REG_LCESO_CON);
+	writel_relaxed(0x00200018, dev->base + REG_LCESO_CON2);
+	writel_relaxed(0x00100008, dev->base + REG_LCESO_CON3);
+	writel_relaxed(0x802A0022, dev->base + REG_LCESO_DRS);
+	/* LCESHO */
+	writel_relaxed(0x80000040, dev->base + REG_LCESHO_CON);
+	writel_relaxed(0x00200018, dev->base + REG_LCESHO_CON2);
+	writel_relaxed(0x00100008, dev->base + REG_LCESHO_CON3);
+	writel_relaxed(0x802A0022, dev->base + REG_LCESHO_DRS);
+	/* RSSO */
+	writel_relaxed(0x80000060, dev->base + REG_RSSO_CON);
+	writel_relaxed(0x00300024, dev->base + REG_RSSO_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_RSSO_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_RSSO_DRS);
+	/* LMVO */
+	writel_relaxed(0x80000020, dev->base + REG_LMVO_CON);
+	writel_relaxed(0x0010000C, dev->base + REG_LMVO_CON2);
+	writel_relaxed(0x00080004, dev->base + REG_LMVO_CON3);
+	writel_relaxed(0x800C0011, dev->base + REG_LMVO_DRS);
+	/* UFEO */
+	writel_relaxed(0x80000020, dev->base + REG_UFEO_CON);
+	writel_relaxed(0x0010000C, dev->base + REG_UFEO_CON2);
+	writel_relaxed(0x00080004, dev->base + REG_UFEO_CON3);
+	writel_relaxed(0x800C0011, dev->base + REG_UFEO_DRS);
+	/* UFGO */
+	writel_relaxed(0x80000020, dev->base + REG_UFGO_CON);
+	writel_relaxed(0x0010000C, dev->base + REG_UFGO_CON2);
+	writel_relaxed(0x00080004, dev->base + REG_UFGO_CON3);
+	writel_relaxed(0x800C0011, dev->base + REG_UFGO_DRS);
+	/* YUVO */
+	writel_relaxed(0x80000280, dev->base + REG_YUVO_CON);
+	writel_relaxed(0x014000F0, dev->base + REG_YUVO_CON2);
+	writel_relaxed(0x00A00050, dev->base + REG_YUVO_CON3);
+	writel_relaxed(0x81AA015A, dev->base + REG_YUVO_DRS);
+	/* YUVBO */
+	writel_relaxed(0x80000140, dev->base + REG_YUVBO_CON);
+	writel_relaxed(0x00A00078, dev->base + REG_YUVBO_CON2);
+	writel_relaxed(0x00500028, dev->base + REG_YUVBO_CON3);
+	writel_relaxed(0x80D500AD, dev->base + REG_YUVBO_DRS);
+	/* YUVCO */
+	writel_relaxed(0x800000A0, dev->base + REG_YUVCO_CON);
+	writel_relaxed(0x0050003C, dev->base + REG_YUVCO_CON2);
+	writel_relaxed(0x00280014, dev->base + REG_YUVCO_CON3);
+	writel_relaxed(0x806A0056, dev->base + REG_YUVCO_DRS);
+	/* CRZO */
+	writel_relaxed(0x80000040, dev->base + REG_CRZO_CON);
+	writel_relaxed(0x00200018, dev->base + REG_CRZO_CON2);
+	writel_relaxed(0x00100008, dev->base + REG_CRZO_CON3);
+	writel_relaxed(0x802A0022, dev->base + REG_CRZO_DRS);
+	/* CRZBO */
+	writel_relaxed(0x80000020, dev->base + REG_CRZBO_CON);
+	writel_relaxed(0x0010000C, dev->base + REG_CRZBO_CON2);
+	writel_relaxed(0x00080004, dev->base + REG_CRZBO_CON3);
+	writel_relaxed(0x800C0011, dev->base + REG_CRZBO_DRS);
+	/* CRZO_R2 */
+	writel_relaxed(0x80000040, dev->base + REG_CRZO_R2_CON);
+	writel_relaxed(0x00400030, dev->base + REG_CRZO_R2_CON2);
+	writel_relaxed(0x00200010, dev->base + REG_CRZO_R2_CON3);
+	writel_relaxed(0x80550045, dev->base + REG_CRZO_R2_DRS);
+	/* RSSO_R2 */
+	writel_relaxed(0x80000060, dev->base + REG_RSSO_R2_CON);
+	writel_relaxed(0x00300024, dev->base + REG_RSSO_R2_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_RSSO_R2_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_RSSO_R2_DRS);
+	/* RAWI_R2 */
+	writel_relaxed(0x80000300, dev->base + REG_RAWI_R2_CON);
+	writel_relaxed(0x01800120, dev->base + REG_RAWI_R2_CON2);
+	writel_relaxed(0x00C00060, dev->base + REG_RAWI_R2_CON3);
+	writel_relaxed(0x820001A0, dev->base + REG_RAWI_R2_DRS);
+	/* RAWI_R3 */
+	writel_relaxed(0x80000300, dev->base + REG_RAWI_R3_CON);
+	writel_relaxed(0x01800120, dev->base + REG_RAWI_R3_CON2);
+	writel_relaxed(0x00C00060, dev->base + REG_RAWI_R3_CON3);
+	writel_relaxed(0x820001A0, dev->base + REG_RAWI_R3_DRS);
+	/* UFDI_R2 */
+	writel_relaxed(0x80000020, dev->base + REG_UFDI_R2_CON);
+	writel_relaxed(0x0010000C, dev->base + REG_UFDI_R2_CON2);
+	writel_relaxed(0x00080004, dev->base + REG_UFDI_R2_CON3);
+	writel_relaxed(0x800C0011, dev->base + REG_UFDI_R2_DRS);
+	/* PDI */
+	writel_relaxed(0x80000060, dev->base + REG_PDI_CON);
+	writel_relaxed(0x00300024, dev->base + REG_PDI_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_PDI_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_PDI_DRS);
+	/* BPCI */
+	writel_relaxed(0x80000060, dev->base + REG_BPCI_CON);
+	writel_relaxed(0x00300024, dev->base + REG_BPCI_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_BPCI_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_BPCI_DRS);
+	/* BPCI_R2 */
+	writel_relaxed(0x80000060, dev->base + REG_BPCI_R2_CON);
+	writel_relaxed(0x00300024, dev->base + REG_BPCI_R2_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_BPCI_R2_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_BPCI_R2_DRS);
+	/* BPCI_R3 */
+	writel_relaxed(0x80000060, dev->base + REG_BPCI_R3_CON);
+	writel_relaxed(0x00300024, dev->base + REG_BPCI_R3_CON2);
+	writel_relaxed(0x0018000C, dev->base + REG_BPCI_R3_CON3);
+	writel_relaxed(0x80400034, dev->base + REG_BPCI_R3_DRS);
+	/* LCSI */
+	writel_relaxed(0x80000040, dev->base + REG_LSCI_CON);
+	writel_relaxed(0x00400030, dev->base + REG_LSCI_CON2);
+	writel_relaxed(0x00200010, dev->base + REG_LSCI_CON3);
+	writel_relaxed(0x80550045, dev->base + REG_LSCI_DRS);
+	/* CQI_R1 */
+	writel_relaxed(0x80000040, dev->base + REG_CQI_R1_CON);
+	writel_relaxed(0x00200018, dev->base + REG_CQI_R1_CON2);
+	writel_relaxed(0x00100008, dev->base + REG_CQI_R1_CON3);
+	writel_relaxed(0x802A0022, dev->base + REG_CQI_R1_DRS);
+	/* CQI_R2 */
+	writel_relaxed(0x80000040, dev->base + REG_CQI_R2_CON);
+	writel_relaxed(0x00200018, dev->base + REG_CQI_R2_CON2);
+	writel_relaxed(0x00100008, dev->base + REG_CQI_R2_CON3);
+	writel_relaxed(0x802A0022, dev->base + REG_CQI_R2_DRS);
+	/* Enable urgent FIFO (DRS) setting */
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT1_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT2_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT3_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT4_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT1_SEC_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT2_SEC_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT3_SEC_EN);
+	writel_relaxed(0x00000001, cam_dev->base + REG_HALT4_SEC_EN);
+	wmb(); /* TBC */
+	dev_dbg(dev->dev, "try read REG_CQI_R2_DRS:0x%x\n",
+			readl_relaxed(dev->base + REG_CQI_R2_DRS));
 }
 
 void initialize(struct mtk_raw_device *dev)
@@ -383,6 +562,7 @@ void initialize(struct mtk_raw_device *dev)
 		       dev->base + REG_CQ_THR0_CTL);
 	wmb(); /* TBC */
 	dev->sof_count = 0;
+	init_dma_fifosize(dev);
 	dev_dbg(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CQ_THR0_CTL:0x%8x\n",
 		__func__,
 			readl_relaxed(dev->base + REG_CQ_EN),
@@ -662,11 +842,17 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
 	dev_dbg(dev,
-		"%i status 0x%x(err 0x%x) dmao/dmai_done:0x%x/0x%x drop:0x%x dma_err:0x%x cq_done:0x%x scq_deadline/trig_time/cq_ctrl:0x%x/0x%x/0x%x\n",
+		"%i status 0x%x(err 0x%x) dmao/dmai_done:0x%x/0x%x drop:0x%x\n",
 		raw_dev->id,
 		irq_status, err_status,
-		dma_done_status, dmai_done_status, drop_status, dma_err_status,
+		dma_done_status, dmai_done_status, drop_status);
+
+	dev_dbg(dev,
+		"dma_err:0x%x cq_done:0x%x scq_deadline/trig_time/cq_ctrl:0x%x/0x%x/0x%x\n",
+		dma_err_status,
 		cq_done_status, scq_deadline, trig_time, cq_ctl);
+
+
 	/*
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
 	 * If these two ISRs come together, print warning msg to hint.
@@ -676,7 +862,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	irq_info.frame_inner_idx = dequeued_frame_seq_no_inner;
 	irq_info.irq_type = 0;
 	if ((irq_status & SOF_INT_ST) && (irq_status & HW_PASS1_DON_ST))
-		dev_warn(dev, "sof_done block cnt:%d\n", raw_dev->sof_count);
+		dev_dbg(dev, "sof_done block cnt:%d\n", raw_dev->sof_count);
 	/* CQ done */
 	if (cq_done_status & CAMCTL_CQ_THR0_DONE_ST)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
@@ -694,7 +880,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		goto ctx_not_found;
 	/* Check ISP error status */
 	if (err_status) {
-		dev_err(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
+		dev_dbg(dev, "int_err:0x%x 0x%x\n", irq_status, err_status);
 		/* Show DMA errors in detail */
 		if (err_status & DMA_ERR_ST)
 			raw_irq_handle_dma_err(raw_dev);
@@ -719,7 +905,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 	val2 = val2 | TG_CMOS_RDY_SEL;
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);
 	wmb(); /* TBC */
-	dev_err_ratelimited(raw_dev->dev,
+	dev_dbg_ratelimited(raw_dev->dev,
 			    "TG_PATH_CFG:0x%x, TG_SEN_MODE:0x%xTG_FRMSIZE_ST:0x%8x, TG_FRMSIZE_ST_R:0x%8xTG_SEN_GRAB_PXL:0x%8x, TG_SEN_GRAB_LIN:0x%8x\n",
 		readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
@@ -731,14 +917,14 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
 {
-	dev_err_ratelimited(raw_dev->dev,
+	dev_dbg_ratelimited(raw_dev->dev,
 			    "IMGO:0x%x, RRZO:0x%x, AAO=0x%x, AFO=0x%x, LMVO=0x%x\n",
 		readl_relaxed(raw_dev->base + REG_IMGO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_RRZO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_AAO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_AFO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_LMVO_ERR_STAT));
-	dev_err_ratelimited(raw_dev->dev,
+	dev_dbg_ratelimited(raw_dev->dev,
 			    "LCSO=0x%x, PSO=0x%x, FLKO=0x%x, BPCI:0x%x, LSCI=0x%x\n",
 		readl_relaxed(raw_dev->base + REG_LCSO_ERR_STAT),
 		readl_relaxed(raw_dev->base + REG_FLKO_ERR_STAT),
@@ -777,7 +963,7 @@ static inline int m4u_control_iommu_port(unsigned int raw_id)
 		s_port.Direction = 0;
 		ret = m4u_config_port(&s_port);
 		if (ret) {
-			pr_warn("config M4U Port %s to %s FAIL(ret=%d)\n",
+			pr_debug("config M4U Port %s to %s FAIL(ret=%d)\n",
 				iommu_get_port_name(port_begin + i),
 				use_m4u ? "virtual" : "physical", ret);
 			ret = -1;
@@ -800,47 +986,47 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
 	if (ret) {
-		dev_err(dev, "missing camid property\n");
+		dev_dbg(dev, "missing camid property\n");
 		return ret;
 	}
 	raw_res = raw_resources + raw->id;
 	/* base outer register */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		dev_err(dev, "failed to get mem\n");
+		dev_dbg(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
 
 	raw->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(raw->base)) {
-		dev_err(dev, "failed to map register base\n");
+		dev_dbg(dev, "failed to map register base\n");
 		return PTR_ERR(raw->base);
 	}
 	dev_dbg(dev, "raw, map_addr=0x%pK\n", raw->base);
 	/* base inner register */
 	res_inner = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res_inner) {
-		dev_err(dev, "failed to get mem\n");
+		dev_dbg(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
 
 	raw->base_inner = devm_ioremap_resource(dev, res_inner);
 	if (IS_ERR(raw->base_inner)) {
-		dev_err(dev, "failed to map register inner base\n");
+		dev_dbg(dev, "failed to map register inner base\n");
 		return PTR_ERR(raw->base_inner);
 	}
 	dev_dbg(dev, "raw, map_addr(inner)=0x%pK\n", raw->base_inner);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		dev_err(dev, "failed to get irq\n");
+		dev_dbg(dev, "failed to get irq\n");
 		return -ENODEV;
 	}
 
 	ret = devm_request_irq(dev, irq, mtk_irq_raw, 0,
 			       dev_name(dev), raw);
 	if (ret) {
-		dev_err(dev, "failed to request irq=%d\n", irq);
+		dev_dbg(dev, "failed to request irq=%d\n", irq);
 		return ret;
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
@@ -849,7 +1035,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	while (raw_res->clock[raw->num_clks] && raw->num_clks < MAX_NUM_CLOCKS)
 		raw->num_clks++;
 	if (!raw->num_clks) {
-		dev_err(dev, "no clock\n");
+		dev_dbg(dev, "no clock\n");
 		return -ENODEV;
 	}
 
@@ -863,7 +1049,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 
 	ret = devm_clk_bulk_get(dev, raw->num_clks, raw->clks);
 	if (ret) {
-		dev_err(dev, "failed to get raw clock:%d\n", ret);
+		dev_dbg(dev, "failed to get raw clock:%d\n", ret);
 		return ret;
 	}
 
@@ -924,12 +1110,6 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
 			pipe->enabled_dmas |= pipe->vdev_nodes[i].desc.dma_port;
-		}
-
-		if (ctx->used_raw_dmas != pipe->enabled_dmas) {
-			dev_info(raw->cam_dev,
-				 "ctx used raw DMA port != raw pipeline enabled DMA port\n");
-			return -EINVAL;
 		}
 	} else {
 		for (i = 0; i < ARRAY_SIZE(raw->devs); i++) {
@@ -1286,31 +1466,25 @@ static const struct v4l2_format meta_fmts[] = { /* FIXME for ISP6 meta format */
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_PARAMS,
-			.buffersize = 512 * SZ_1K,
+			.buffersize = 200 * SZ_1K,
 		},
 	},
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_3A,
-			.buffersize = 1200 * SZ_1K,
+			.buffersize = 12000 * SZ_1K,
 		},
 	},
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_AF,
-			.buffersize = 640 * SZ_1K,
+			.buffersize = 800 * SZ_1K,
 		},
 	},
 	{
 		.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_LCS,
-			.buffersize = 288 * SZ_1K,
-		},
-	},
-	{
-		.fmt.meta = {
-			.dataformat = V4L2_META_FMT_MTISP_LMV,
-			.buffersize = 256,
+			.buffersize = 800 * SZ_1K,
 		},
 	},
 };
@@ -1546,7 +1720,7 @@ static const struct v4l2_format bin_out_fmts[] = {
 	},
 };
 
-#define MTK_RAW_TOTAL_OUTPUT_QUEUES 1
+#define MTK_RAW_TOTAL_OUTPUT_QUEUES 4
 
 static const struct
 mtk_cam_dev_node_desc output_queues[] = {
@@ -1562,30 +1736,112 @@ mtk_cam_dev_node_desc output_queues[] = {
 #else
 		.smem_alloc = false,
 #endif
+		.dma_port = MTKCAM_IPI_RAW_META_STATS_CFG,
 		.fmts = meta_fmts,
 		.default_fmt_idx = 0,
 		.max_buf_count = 10,
 		.ioctl_ops = &mtk_cam_v4l2_meta_out_ioctl_ops,
 	},
+	{
+		.id = MTK_RAW_RAWI_2_IN,
+		.name = "rawi 2",
+		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_RAWI_2,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_UFDI_2_IN,
+		.name = "ufdi 2",
+		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_UFDI_2,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_RAWI_3_IN,
+		.name = "rawi 3",
+		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_RAWI_3,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
 };
 
-static const char *
-	output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUEUES] = {
-	{"mtk-cam raw-0 meta-input"},
-	{"mtk-cam raw-1 meta-input"},
-	{"mtk-cam raw-2 meta-input"},
+static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUEUES] = {
+	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2",
+	 "mtk-cam raw-0 ufdi-2", "mtk-cam raw-0 rawi-3"},
+	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2",
+	 "mtk-cam raw-1 ufdi-2", "mtk-cam raw-1 rawi 3"},
+	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2",
+	 "mtk-cam raw-2 ufdi-2", "mtk-cam raw-2 rawi-3"},
 };
 
-#define MTK_RAW_TOTAL_CAPTURE_QUEUES 2
+
+#define MTK_RAW_TOTAL_CAPTURE_QUEUES 15
 
 static const struct
 mtk_cam_dev_node_desc capture_queues[] = {
 	{
 		.id = MTK_RAW_MAIN_STREAM_OUT,
-		.name = "main stream",
+		.name = "imgo",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED,
+		.link_flags = 0,
 		.image = true,
 		.smem_alloc = false,
 		.dma_port = MTKCAM_IPI_RAW_IMGO,
@@ -1607,7 +1863,293 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_META_OUT,
+		.id = MTK_RAW_UFEO_OUT,
+		.name = "ufeo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_UFEO,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_PACKED_BIN_OUT,
+		.name = "rrzo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0, /*MEDIA_LNK_FL_ENABLED,*/
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_RRZO,
+		.fmts = bin_out_fmts,
+		.num_fmts = ARRAY_SIZE(bin_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_UFGO_OUT,
+		.name = "ufgo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_UFGO,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_YUVO_OUT,
+		.name = "yuvo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_YUVO,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_YUVBO_OUT,
+		.name = "yuvbo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_YUVBO,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_YUVCO_OUT,
+		.name = "yuvco",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_YUVCO,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_RSSO_1_OUT,
+		.name = "rsso 1",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_RSSO_1,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_RSSO_2_OUT,
+		.name = "rsso 2",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_RSSO_2,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_CRZO_1_OUT,
+		.name = "crzo 1",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_CRZO_1,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_CRZO_2_OUT,
+		.name = "crzo 2",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_CRZO_2,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_CRZBO_OUT,
+		.name = "crzbo",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = 0,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_CRZBO,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
+	{
+		.id = MTK_RAW_META_OUT_0,
 		.name = "partial meta 0",
 		.cap = V4L2_CAP_META_CAPTURE,
 		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
@@ -1620,13 +2162,61 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.max_buf_count = 5,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
+	{
+		.id = MTK_RAW_META_OUT_1,
+		.name = "partial meta 1",
+		.cap = V4L2_CAP_META_CAPTURE,
+		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
+		.link_flags = 0,
+		.image = false,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_META_STATS_1,
+		.fmts = meta_fmts,
+		.default_fmt_idx = 1,
+		.max_buf_count = 5,
+		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
+	},
+	{
+		.id = MTK_RAW_META_OUT_2,
+		.name = "partial meta 2",
+		.cap = V4L2_CAP_META_CAPTURE,
+		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
+		.link_flags = 0,
+		.image = false,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_RAW_META_STATS_2,
+		.fmts = meta_fmts,
+		.default_fmt_idx = 1,
+		.max_buf_count = 5,
+		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
+	},
 };
 
-static const char *
-	capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_QUEUES] = {
-	{"mtk-cam raw-0 main-stream", "mtk-cam raw-0 partial-meta-0"},
-	{"mtk-cam raw-1 main-stream", "mtk-cam raw-1 partial-meta-0"},
-	{"mtk-cam raw-2 main-stream", "mtk-cam raw-2 partial-meta-0"},
+static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_QUEUES] = {
+	{"mtk-cam raw-0 main-stream", "mtk-cam raw-0 ufeo",
+	 "mtk-cam raw-0 packed-out", "mtk-cam raw-0 ufgo",
+	 "mtk-cam raw-0 yuvo", "mtk-cam raw-0 yuvbo",
+	 "mtk-cam raw-0 yuvc", "mtk-cam raw-0 rsso-1",
+	 "mtk-cam raw-0 rsso-2", "mtk-cam raw-0 crzo-1",
+	 "mtk-cam raw-0 crzo-2", "mtk-cam raw-0 crzbo",
+	 "mtk-cam raw-0 partial-meta-0", "mtk-cam raw-0 partial-meta-1",
+	 "mtk-cam raw-0 partial-meta-2"},
+	{"mtk-cam raw-1 main-stream", "mtk-cam raw-1 ufeo",
+	 "mtk-cam raw-1 packed-out", "mtk-cam raw-1 ufgo",
+	 "mtk-cam raw-1 yuvo", "mtk-cam raw-1 yuvbo",
+	 "mtk-cam raw-1 yuvc", "mtk-cam raw-1 rsso-1",
+	 "mtk-cam raw-1 rsso-2", "mtk-cam raw-1 crzo-1",
+	 "mtk-cam raw-1 crzo-2", "mtk-cam raw-1 crzbo",
+	 "mtk-cam raw-1 partial-meta-0", "mtk-cam raw-1 partial-meta-1",
+	 "mtk-cam raw-1 partial-meta-2"},
+	{"mtk-cam raw-2 main-stream", "mtk-cam raw-2 ufeo",
+	 "mtk-cam raw-2 packed-out", "mtk-cam raw-2 ufgo",
+	 "mtk-cam raw-2 yuvo", "mtk-cam raw-2 yuvbo",
+	 "mtk-cam raw-2 yuvc", "mtk-cam raw-2 rsso-1",
+	 "mtk-cam raw-2 rsso-2", "mtk-cam raw-2 crzo-1",
+	 "mtk-cam raw-2 crzo-2", "mtk-cam raw-2 crzbo",
+	 "mtk-cam raw-2 partial-meta-0", "mtk-cam raw-2 partial-meta-1",
+	 "mtk-cam raw-2 partial-meta-2"}
 };
 
 /* The helper to configure the device context */
@@ -1664,7 +2254,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl_hdlr = &pipe->ctrl_handler;
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 4);
 	if (ret) {
-		dev_err(dev, "v4l2_ctrl_handler init failed\n");
+		dev_dbg(dev, "v4l2_ctrl_handler init failed\n");
 		return;
 	}
 	mutex_init(&pipe->res_config.resource_lock);
@@ -1731,7 +2321,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 			video->uid.pipe_id = pipe->id;
 			break;
 		default:
-			dev_err(dev, "invalid pipe id\n");
+			dev_dbg(dev, "invalid pipe id\n");
 			return -EINVAL;
 		}
 
@@ -1898,7 +2488,7 @@ static int mtk_raw_pm_suspend(struct device *dev)
 					(val & TG_CS_MASK) == TG_IDLE_ST,
 					USEC_PER_MSEC, MTK_RAW_STOP_HW_TIMEOUT);
 	if (ret)
-		dev_warn(dev, "can't stop HW:%d:0x%x\n", ret, val);
+		dev_dbg(dev, "can't stop HW:%d:0x%x\n", ret, val);
 
 	/* Disable CMOS */
 	val = readl(raw_dev->base + REG_TG_SEN_MODE);
@@ -1956,7 +2546,7 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 			ret = smi_bus_disable_unprepare(raw_dev_port->smi_id,
 							raw_dev_port->port[i]);
 			if (ret != 0)
-				dev_err(dev,
+				dev_dbg(dev,
 					"smi_bus_disable_unprepare:%d, %s\n",
 					raw_dev_port->smi_id,
 					raw_dev_port->port[i]);
@@ -1976,7 +2566,7 @@ static int mtk_raw_runtime_resume(struct device *dev)
 	pm_runtime_get_sync(raw_dev->cam->dev);
 	ret = clk_bulk_prepare_enable(raw_dev->num_clks, raw_dev->clks);
 	if (ret) {
-		dev_err(dev, "failed to enable clock:%d\n", ret);
+		dev_dbg(dev, "failed to enable clock:%d\n", ret);
 		return ret;
 	}
 
@@ -1990,7 +2580,7 @@ static int mtk_raw_runtime_resume(struct device *dev)
 			ret = smi_bus_prepare_enable(raw_dev_port->smi_id,
 						     raw_dev_port->port[i]);
 			if (ret != 0)
-				dev_err(dev, "smi_bus_prepare_enable:%d, %s\n",
+				dev_dbg(dev, "smi_bus_prepare_enable:%d, %s\n",
 					raw_dev_port->smi_id,
 					raw_dev_port->port[i]);
 		}

@@ -128,7 +128,7 @@ static void mtk_cam_link_try_change(struct mtk_cam_request *req)
 				ret = v4l2_subdev_call(ctx->seninf, video,
 						       s_stream, 1);
 				if (ret) {
-					dev_err(cam->dev,
+					dev_dbg(cam->dev,
 						"failed to stream on seninf %s:%d\n",
 						ctx->seninf->name, ret);
 					break;
@@ -678,7 +678,7 @@ int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			CAMSYS_ENGINE_RAW_BEGIN];
 		ctx = mtk_cam_find_ctx(cam, &raw_dev->pipeline->subdev.entity);
 		if (!ctx) {
-			dev_warn(raw_dev->dev, "cannot find ctx\n");
+			dev_dbg(raw_dev->dev, "cannot find ctx\n");
 			ret = -EINVAL;
 			break;
 		}
@@ -751,7 +751,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 						__WQ_LEGACY | WQ_MEM_RECLAIM |
 						WQ_FREEZABLE);
 		if (!camsys_sensor_ctrl->sensorsetting_wq) {
-			dev_err(ctx->cam->dev,
+			dev_dbg(ctx->cam->dev,
 				"failed to alloc sensor setting workqueue\n");
 			return -ENOMEM;
 		}
