@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -74,6 +74,7 @@ struct gdsc {
 	int			reset_count;
 	int			root_clk_idx;
 	u32			gds_timeout;
+	bool			skip_disable_before_enable;
 };
 
 enum gdscr_status {
@@ -145,6 +146,9 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 	if (!sc->toggle_logic)
 		return !sc->resets_asserted;
 
+	if (sc->skip_disable_before_enable)
+		return false;
+
 	if (sc->parent_regulator) {
 		/*
 		 * The parent regulator for the GDSC is required to be on to
@@ -207,6 +211,9 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret = 0;
+
+	if (sc->skip_disable_before_enable)
+		return 0;
 
 	if (sc->parent_regulator) {
 		ret = regulator_set_voltage(sc->parent_regulator,
@@ -366,6 +373,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	sc->is_gdsc_enabled = true;
+	sc->skip_disable_before_enable = false;
 end:
 	if (ret && sc->bus_handle) {
 		msm_bus_scale_client_update_request(sc->bus_handle, 0);
@@ -383,6 +391,16 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
+
+	/*
+	 * Protect GDSC against late_init disabling when the GDSC is enabled
+	 * by an entity outside external to HLOS.
+	 */
+	if (sc->skip_disable_before_enable) {
+		dev_dbg(&rdev->dev, "Skip Disabling: %s\n", sc->rdesc.name);
+		sc->skip_disable_before_enable = false;
+		return 0;
+	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -570,6 +588,19 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 */
 		gdsc_mb(sc);
 		udelay(1);
+
+		/*
+		 * While switching from HW to SW mode, HW may be busy
+		 * updating internal required signals. Polling for PWR_ON
+		 * ensures that the GDSC switches to SW mode before software
+		 * starts to use SW mode.
+		 */
+		if (sc->is_gdsc_enabled) {
+			ret = poll_gdsc_status(sc, ENABLED);
+			if (ret)
+				dev_err(&rdev->dev, "%s enable timed out\n",
+					sc->rdesc.name);
+		}
 		break;
 	default:
 		ret = -EINVAL;
@@ -670,6 +701,8 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 					"qcom,no-status-check-on-disable");
 	sc->retain_ff_enable = of_property_read_bool(dev->of_node,
 						"qcom,retain-regs");
+	sc->skip_disable_before_enable = of_property_read_bool(dev->of_node,
+					"qcom,skip-disable-before-sw-enable");
 
 	sc->toggle_logic = !of_property_read_bool(dev->of_node,
 						"qcom,skip-logic-collapse");

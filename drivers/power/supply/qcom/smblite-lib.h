@@ -470,7 +470,7 @@ int smblite_lib_get_irq_status(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblite_lib_set_prop_usb_type(struct smb_charger *chg,
 				const union power_supply_propval *val);
-
+void smblite_update_usb_desc(struct smb_charger *chg);
 int smblite_lib_init(struct smb_charger *chg);
 int smblite_lib_deinit(struct smb_charger *chg);
 #endif /* __SMBLITE_LIB_H */

@@ -145,7 +145,8 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 	/* LP DDR4 highest bank bit is different and needs to be overridden */
 	if (adreno_is_a650(adreno_dev) && of_fdt_get_ddrtype() == 0x7)
 		adreno_dev->highest_bank_bit = 15;
-	else if (adreno_is_a610(adreno_dev) && of_fdt_get_ddrtype() == 0x5) {
+	else if ((adreno_is_a610(adreno_dev) || adreno_is_a702(adreno_dev))
+			&& of_fdt_get_ddrtype() == 0x5) {
 		/*
 		 * LPDDR3 has multiple different highest bank bit value
 		 * based on different DDR density. Query this value from
