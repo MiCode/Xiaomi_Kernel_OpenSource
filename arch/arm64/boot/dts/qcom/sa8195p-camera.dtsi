@@ -532,14 +532,22 @@
 
 		msm_cam_smmu_ife {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0xAA0 0x4E0>,
-				<&apps_smmu 0xA20 0x4E0>,
-				<&apps_smmu 0xA00 0x4E0>,
+			iommus = <&apps_smmu 0xA00 0x4E0>,
+				<&apps_smmu 0xAA0 0x4E0>,
+				<&apps_smmu 0xA40 0x4E0>,
+				<&apps_smmu 0xA60 0x4E0>,
 				<&apps_smmu 0xA80 0x4E0>,
-				<&apps_smmu 0xEA0 0x4E0>,
-				<&apps_smmu 0xE20 0x4E0>,
+				<&apps_smmu 0xA20 0x4E0>,
+				<&apps_smmu 0xAC0 0x4E0>,
+				<&apps_smmu 0xAE0 0x4E0>,
 				<&apps_smmu 0xE00 0x4E0>,
-				<&apps_smmu 0xE80 0x4E0>;
+				<&apps_smmu 0xEA0 0x4E0>,
+				<&apps_smmu 0xE40 0x4E0>,
+				<&apps_smmu 0xE60 0x4E0>,
+				<&apps_smmu 0xE80 0x4E0>,
+				<&apps_smmu 0xE20 0x4E0>,
+				<&apps_smmu 0xEC0 0x4E0>,
+				<&apps_smmu 0xEE0 0x4E0>;
 			label = "ife";
 			ife_iova_mem_map: iova-mem-map {
 				/* IO region is approximately 3.4 GB */
@@ -547,6 +555,38 @@
 					iova-region-name = "io";
 					iova-region-start = <0x7400000>;
 					iova-region-len = <0xd8c00000>;
+					iova-region-id = <0x3>;
+					status = "ok";
+				};
+			};
+		};
+
+		msm_cam_smmu_ife_cp {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&apps_smmu 0xA01 0x5E0>,
+				<&apps_smmu 0xAA1 0x5E0>,
+				<&apps_smmu 0xA41 0x5E0>,
+				<&apps_smmu 0xA61 0x5E0>,
+				<&apps_smmu 0xA81 0x5E0>,
+				<&apps_smmu 0xA21 0x5E0>,
+				<&apps_smmu 0xAC1 0x5E0>,
+				<&apps_smmu 0xAE1 0x5E0>,
+				<&apps_smmu 0xE01 0x5E0>,
+				<&apps_smmu 0xEA1 0x5E0>,
+				<&apps_smmu 0xE41 0x5E0>,
+				<&apps_smmu 0xE61 0x5E0>,
+				<&apps_smmu 0xE81 0x5E0>,
+				<&apps_smmu 0xE21 0x5E0>,
+				<&apps_smmu 0xEC1 0x5E0>,
+				<&apps_smmu 0xEE1 0x5E0>;
+			label = "ife-cp";
+			qcom,secure-pixel-cb;
+			ife_cp_iova_mem_map: iova-mem-map {
+				/* IO region is approximately 2.5 GB */
+				iova-mem-region-io {
+					iova-region-name = "io";
+					iova-region-start = <0x7400000>;
+					iova-region-len = <0x98C00000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};

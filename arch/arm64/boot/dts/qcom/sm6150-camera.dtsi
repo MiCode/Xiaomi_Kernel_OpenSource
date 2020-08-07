@@ -227,7 +227,7 @@
 		};
 	};
 
-	qcom,cam_smmu {
+	cam_smmu: qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
 

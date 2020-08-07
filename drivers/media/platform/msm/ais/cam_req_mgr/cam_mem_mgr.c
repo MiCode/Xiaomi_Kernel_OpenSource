@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,6 +217,7 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 			tbl.bufq[idx].fd,
 			iova_ptr,
 			len_ptr);
+
 	if (rc) {
 		CAM_ERR(CAM_MEM,
 			"fail to map buf_hdl:0x%x, mmu_hdl: 0x%x for fd:%d",
@@ -511,6 +512,9 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 	} else if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
 		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_CAMERA;
+	} else if (cmd->flags & CAM_MEM_FLAG_CP_PIXEL) {
+		heap_id = ION_HEAP(ION_SECURE_HEAP_ID);
+		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_PIXEL;
 	} else {
 		heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID) |
 			ION_HEAP(ION_CAMERA_HEAP_ID);
@@ -540,8 +544,9 @@ static int cam_mem_util_check_alloc_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
-		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
+	if (((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
+			(cmd->flags & CAM_MEM_FLAG_CP_PIXEL)) &&
+		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS)) {
 		CAM_ERR(CAM_MEM, "Kernel mapping in secure mode not allowed");
 		return -EINVAL;
 	}
@@ -562,8 +567,9 @@ static int cam_mem_util_check_map_flags(struct cam_mem_mgr_map_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
-		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
+	if (((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
+			(cmd->flags & CAM_MEM_FLAG_CP_PIXEL)) &&
+		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS)) {
 		CAM_ERR(CAM_MEM,
 			"Kernel mapping in secure mode not allowed, flags=0x%x",
 			cmd->flags);
