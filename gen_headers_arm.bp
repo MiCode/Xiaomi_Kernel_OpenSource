@@ -246,6 +246,7 @@ gen_headers_out_arm = [
     "linux/gsmmux.h",
     "linux/gtp.h",
     "linux/hash_info.h",
+    "linux/hbtp_input.h",
     "linux/hdlc.h",
     "linux/hdlcdrv.h",
     "linux/hdreg.h",
