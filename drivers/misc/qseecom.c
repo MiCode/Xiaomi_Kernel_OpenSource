@@ -52,7 +52,6 @@
 #include <linux/ion_kernel.h>
 #include <linux/compat.h>
 #include "compat_qseecom.h"
-#include <linux/pfk.h>
 #include <linux/kthread.h>
 
 #define QSEECOM_DEV			"qseecom"
@@ -8113,19 +8112,6 @@ static long qseecom_ioctl(struct file *file,
 			return -EFAULT;
 		}
 		qcom_ice_set_fde_flag(ice_data.flag);
-		break;
-	}
-	case QSEECOM_IOCTL_FBE_CLEAR_KEY: {
-		struct qseecom_ice_key_data_t key_data;
-
-		ret = copy_from_user(&key_data, argp, sizeof(key_data));
-		if (ret) {
-			pr_err("copy from user failed\n");
-			return -EFAULT;
-		}
-		pfk_fbe_clear_key((const unsigned char *) key_data.key,
-				key_data.key_len, (const unsigned char *)
-				key_data.salt, key_data.salt_len);
 		break;
 	}
 	default:

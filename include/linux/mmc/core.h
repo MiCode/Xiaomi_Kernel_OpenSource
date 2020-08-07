@@ -12,6 +12,7 @@
 #include <linux/completion.h>
 #include <linux/types.h>
 #include <linux/ktime.h>
+#include <linux/blkdev.h>
 
 struct mmc_data;
 struct mmc_request;
@@ -169,8 +170,8 @@ struct mmc_request {
 	void			(*recovery_notifier)(struct mmc_request *);
 	struct mmc_host		*host;
 	struct mmc_cmdq_req	*cmdq_req;
-	struct request *req;
 
+	struct request		*req;
 	/* Allow other commands during this ongoing data transfer or busy wait */
 	bool			cap_cmd_during_tfr;
 	ktime_t			io_start;

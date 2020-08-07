@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,7 +376,6 @@ static int cmdq_enable(struct mmc_host *mmc)
 {
 	int err = 0;
 	u32 cqcfg;
-	u32 cqcap = 0;
 	bool dcmd_enable;
 	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
 
@@ -404,24 +403,6 @@ static int cmdq_enable(struct mmc_host *mmc)
 
 	cqcfg = ((cq_host->caps & CMDQ_TASK_DESC_SZ_128 ? CQ_TASK_DESC_SZ : 0) |
 			(dcmd_enable ? CQ_DCMD : 0));
-
-	cqcap = cmdq_readl(cq_host, CQCAP);
-	if (cqcap & CQCAP_CS) {
-		/*
-		 * In case host controller supports cryptographic operations
-		 * then, it uses 128bit task descriptor. Upper 64 bits of task
-		 * descriptor would be used to pass crypto specific informaton.
-		 */
-		cq_host->caps |= CMDQ_CAP_CRYPTO_SUPPORT |
-				 CMDQ_TASK_DESC_SZ_128;
-		cqcfg |= CQ_ICE_ENABLE;
-		/*
-		 * For SDHC v5.0 onwards, ICE 3.0 specific registers are added
-		 * in CQ register space, due to which few CQ registers are
-		 * shifted. Set offset_changed boolean to use updated address.
-		 */
-		cq_host->offset_changed = true;
-	}
 
 	cmdq_writel(cq_host, cqcfg, CQCFG);
 	/* enable CQ_HOST */
@@ -738,30 +719,6 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 		upper_32_bits(*task_desc));
 }
 
-static inline
-void cmdq_prep_crypto_desc(struct cmdq_host *cq_host, u64 *task_desc,
-			u64 ice_ctx)
-{
-	u64 *ice_desc = NULL;
-
-	if (cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) {
-		/*
-		 * Get the address of ice context for the given task descriptor.
-		 * ice context is present in the upper 64bits of task descriptor
-		 * ice_conext_base_address = task_desc + 8-bytes
-		 */
-		ice_desc = (__le64 *)((u8 *)task_desc +
-						CQ_TASK_DESC_TASK_PARAMS_SIZE);
-		memset(ice_desc, 0, CQ_TASK_DESC_ICE_PARAMS_SIZE);
-
-		/*
-		 *  Assign upper 64bits data of task descritor with ice context
-		 */
-		if (ice_ctx)
-			*ice_desc = cpu_to_le64(ice_ctx);
-	}
-}
-
 static void cmdq_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -785,7 +742,6 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 tag = mrq->cmdq_req->tag;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	struct sdhci_host *host = mmc_priv(mmc);
-	u64 ice_ctx = 0;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: CMDQ host not enabled yet !!!\n",
@@ -804,23 +760,11 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		goto ring_doorbell;
 	}
 
-	if (cq_host->ops->crypto_cfg) {
-		err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
-		if (err) {
-			mmc->err_stats[MMC_ERR_ICE_CFG]++;
-			pr_err("%s: failed to configure crypto: err %d tag %d\n",
-					mmc_hostname(mmc), err, tag);
-			goto ice_err;
-		}
-	}
-
 	task_desc = (__le64 __force *)get_desc(cq_host, tag);
 
 	cmdq_prep_task_desc(mrq, &data, 1,
 			    (mrq->cmdq_req->cmdq_req_flags & QBR));
 	*task_desc = cpu_to_le64(data);
-
-	cmdq_prep_crypto_desc(cq_host, task_desc, ice_ctx);
 
 	cmdq_log_task_desc_history(cq_host, *task_desc, false);
 
@@ -828,7 +772,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (err) {
 		pr_err("%s: %s: failed to setup tx desc: %d\n",
 		       mmc_hostname(mmc), __func__, err);
-		goto desc_err;
+		goto out;
 	}
 
 	cq_host->mrq_slot[tag] = mrq;
@@ -848,20 +792,6 @@ ring_doorbell:
 	/* Commit the doorbell write immediately */
 	wmb();
 
-	return err;
-
-desc_err:
-	if (cq_host->ops->crypto_cfg_end) {
-		err = cq_host->ops->crypto_cfg_end(mmc, mrq);
-		if (err) {
-			pr_err("%s: failed to end ice config: err %d tag %d\n",
-					mmc_hostname(mmc), err, tag);
-		}
-	}
-	if (!(cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) &&
-			cq_host->ops->crypto_cfg_reset)
-		cq_host->ops->crypto_cfg_reset(mmc, tag);
-ice_err:
 	if (err)
 		cmdq_runtime_pm_put(cq_host);
 out:
@@ -873,7 +803,6 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	struct mmc_request *mrq;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	int offset = 0;
-	int err = 0;
 
 	if (cq_host->offset_changed)
 		offset = CQ_V5_VENDOR_CFG;
@@ -888,18 +817,6 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 
 	cmdq_runtime_pm_put(cq_host);
 
-	if (!(mrq->cmdq_req->cmdq_req_flags & DCMD)) {
-		if (cq_host->ops->crypto_cfg_end) {
-			err = cq_host->ops->crypto_cfg_end(mmc, mrq);
-			if (err) {
-				pr_err("%s: failed to end ice config: err %d tag %d\n",
-						mmc_hostname(mmc), err, tag);
-			}
-		}
-	}
-	if (!(cq_host->caps & CMDQ_CAP_CRYPTO_SUPPORT) &&
-			cq_host->ops->crypto_cfg_reset)
-		cq_host->ops->crypto_cfg_reset(mmc, tag);
 	mrq->done(mrq);
 }
 

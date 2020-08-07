@@ -344,8 +344,6 @@ void ext4_io_submit(struct ext4_io_submit *io)
 		int io_op_flags = io->io_wbc->sync_mode == WB_SYNC_ALL ?
 				  REQ_SYNC : 0;
 		io->io_bio->bi_write_hint = io->io_end->inode->i_write_hint;
-		if (io->io_flags & EXT4_IO_ENCRYPTED)
-			io_op_flags |= REQ_NOENCRYPT;
 		bio_set_op_attrs(io->io_bio, REQ_OP_WRITE, io_op_flags);
 		submit_bio(io->io_bio);
 	}
@@ -355,7 +353,6 @@ void ext4_io_submit(struct ext4_io_submit *io)
 void ext4_io_submit_init(struct ext4_io_submit *io,
 			 struct writeback_control *wbc)
 {
-	io->io_flags = 0;
 	io->io_wbc = wbc;
 	io->io_bio = NULL;
 	io->io_end = NULL;
@@ -483,24 +480,22 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 		if (io->io_bio)
 			gfp_flags = GFP_NOWAIT | __GFP_NOWARN;
 	retry_encrypt:
-		if (!fscrypt_using_hardware_encryption(inode)) {
-			bounce_page = fscrypt_encrypt_pagecache_blocks(page,
-				      PAGE_SIZE, 0, gfp_flags);
-			if (IS_ERR(bounce_page)) {
-				ret = PTR_ERR(bounce_page);
-				if (ret == -ENOMEM && (io->io_bio ||
-				     wbc->sync_mode == WB_SYNC_ALL)) {
-					gfp_flags = GFP_NOFS;
-					if (io->io_bio)
-						ext4_io_submit(io);
-					else
-						gfp_flags |= __GFP_NOFAIL;
-					congestion_wait(BLK_RW_ASYNC, HZ/50);
-					goto retry_encrypt;
-				}
-				bounce_page = NULL;
-				goto out;
+		bounce_page = fscrypt_encrypt_pagecache_blocks(page,
+			      PAGE_SIZE, 0, gfp_flags);
+		if (IS_ERR(bounce_page)) {
+			ret = PTR_ERR(bounce_page);
+			if (ret == -ENOMEM && (io->io_bio ||
+			     wbc->sync_mode == WB_SYNC_ALL)) {
+				gfp_flags = GFP_NOFS;
+				if (io->io_bio)
+					ext4_io_submit(io);
+				else
+					gfp_flags |= __GFP_NOFAIL;
+				congestion_wait(BLK_RW_ASYNC, HZ/50);
+				goto retry_encrypt;
 			}
+			bounce_page = NULL;
+			goto out;
 		}
 	}
 
@@ -508,8 +503,6 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 	do {
 		if (!buffer_async_write(bh))
 			continue;
-		if (bounce_page)
-			io->io_flags |= EXT4_IO_ENCRYPTED;
 		ret = io_submit_add_bh(io, inode, bounce_page ?: page, bh);
 		if (ret) {
 			/*

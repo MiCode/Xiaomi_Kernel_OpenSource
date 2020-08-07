@@ -13,7 +13,6 @@
 
 #include <linux/fscrypt.h>
 #include <crypto/hash.h>
-#include <linux/pfk.h>
 
 #define CONST_STRLEN(str)	(sizeof(str) - 1)
 
@@ -160,8 +159,10 @@ struct fscrypt_symlink_data {
  * inode is evicted.
  */
 struct fscrypt_info {
-
 	/* The actual crypto transform used for encryption and decryption */
+	u8 ci_data_mode;
+	u8 ci_filename_mode;
+	u8 ci_flags;
 	struct crypto_skcipher *ci_ctfm;
 
 	/* True if the key should be freed when this fscrypt_info is freed */
@@ -216,10 +217,6 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 		return true;
 
 	if (contents_mode == FSCRYPT_MODE_AES_256_XTS &&
-	    filenames_mode == FSCRYPT_MODE_AES_256_CTS)
-		return true;
-
-	if (contents_mode == FSCRYPT_MODE_PRIVATE &&
 	    filenames_mode == FSCRYPT_MODE_AES_256_CTS)
 		return true;
 
