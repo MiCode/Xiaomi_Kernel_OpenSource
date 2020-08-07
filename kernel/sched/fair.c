@@ -4136,16 +4136,11 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 						TASK_BOOST_STRICT_MAX)
 				vruntime -= sysctl_sched_latency;
 #ifdef CONFIG_SCHED_WALT
-			else if (unlikely(task_of(se)->low_latency)) {
+			else if (task_of(se)->low_latency ||
+					task_rtg_high_prio(task_of(se))) {
 				vruntime -= sysctl_sched_latency;
 				vruntime -= thresh;
-				se->vruntime = min_vruntime(vruntime,
-							se->vruntime);
-				return;
-			} else if (task_rtg_high_prio(task_of(se))) {
-				vruntime -= thresh;
-				se->vruntime = min_vruntime(vruntime,
-							se->vruntime);
+				se->vruntime = vruntime;
 				return;
 			}
 #endif
