@@ -148,11 +148,11 @@ static inline void prepare_a2d(struct emi_cen *cen)
 {
 	const unsigned int mask_4b = 0xf, mask_2b = 0x3;
 	void __iomem *emi_cen_base;
-	unsigned int emi_cona;
-	unsigned int emi_conf;
-	unsigned int emi_conh;
-	unsigned int emi_conh_2nd;
-	unsigned int emi_conk;
+	unsigned long emi_cona;
+	unsigned long emi_conf;
+	unsigned long emi_conh;
+	unsigned long emi_conh_2nd;
+	unsigned long emi_conk;
 	unsigned long tmp;
 
 	if (!cen)
@@ -177,8 +177,7 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	cen->magics[6] = (emi_conf >> 24) & mask_4b;
 	cen->magics[7] = (emi_conf >> 28) & mask_4b;
 
-	cen->dw32 = test_bit(EMI_CONA_DW32_EN, (unsigned long *)&emi_cona) ?
-			1 : 0;
+	cen->dw32 = test_bit(EMI_CONA_DW32_EN, &emi_cona) ?  1 : 0;
 
 	cen->channels = (emi_cona >> EMI_CONA_CHN_EN) & mask_2b;
 
@@ -188,19 +187,16 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	cen->cas = cen->cas << 28;
 	cen->cas = cen->cas << cen->channels;
 
-	cen->dualrk_ch0 = test_bit(EMI_CONA_DUAL_RANK_EN,
-				(unsigned long *)&emi_cona) ? 1 : 0;
+	cen->dualrk_ch0 = test_bit(EMI_CONA_DUAL_RANK_EN, &emi_cona) ? 1 : 0;
 	cen->dualrk_ch1 = test_bit(EMI_CONA_DUAL_RANK_EN_CHN1,
-				(unsigned long *)&emi_cona) ? 1 : 0;
+				&emi_cona) ? 1 : 0;
 
 	cen->chn_hash_lsb = 7 + (cen->hash & (~(cen->hash) + 1));
 	if (cen->hash)
 		cen->chnpos = cen->chn_hash_lsb;
 	else {
-		cen->chnpos = test_bit(EMI_CONA_CHN_POS_1,
-				(unsigned long *)&emi_cona) ? 2 : 0;
-		cen->chnpos |= test_bit(EMI_CONA_CHN_POS_0,
-				(unsigned long *)&emi_cona) ? 1 : 0;
+		cen->chnpos = test_bit(EMI_CONA_CHN_POS_1, &emi_cona) ? 2 : 0;
+		cen->chnpos |= test_bit(EMI_CONA_CHN_POS_0, &emi_cona) ? 1 : 0;
 	}
 
 	tmp = (emi_conh >> EMI_CONH_CHNAB_RANK0_SIZE) & mask_4b;
@@ -210,8 +206,7 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	else {
 		tmp = (emi_cona >> EMI_CONA_COL) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_ROW) & mask_2b;
-		tmp += test_bit(EMI_CONA_ROW_EXT0, (unsigned long *)&emi_cona)
-			? 4 : 0;
+		tmp += test_bit(EMI_CONA_ROW_EXT0, &emi_cona) ? 4 : 0;
 		tmp += cen->dw32;
 		tmp += 7;
 		cen->chab_rk0_sz = 1 << tmp;
@@ -221,13 +216,12 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	tmp += ((emi_conk >> EMI_CONK_CHNAB_RANK1_SIZE_EXT) & mask_4b) << 4;
 	if (tmp)
 		cen->chab_rk1_sz = tmp << 8;
-	else if (!test_bit(EMI_CONA_DUAL_RANK_EN, (unsigned long *)&emi_cona))
+	else if (!test_bit(EMI_CONA_DUAL_RANK_EN, &emi_cona))
 		cen->chab_rk1_sz = 0;
 	else {
 		tmp = (emi_cona >> EMI_CONA_COL2ND) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_ROW2ND) & mask_2b;
-		tmp += test_bit(EMI_CONA_ROW2ND_EXT0,
-			(unsigned long *)&emi_cona) ? 4 : 0;
+		tmp += test_bit(EMI_CONA_ROW2ND_EXT0, &emi_cona) ? 4 : 0;
 		tmp += cen->dw32;
 		tmp += 7;
 		cen->chab_rk1_sz = 1 << tmp;
@@ -240,8 +234,7 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	else {
 		tmp = (emi_cona >> EMI_CONA_CHN1_COL) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_CHN1_ROW) & mask_2b;
-		tmp += test_bit(EMI_CONH_CHN1_ROW_EXT0,
-			(unsigned long *)&emi_conh) ? 4 : 0;
+		tmp += test_bit(EMI_CONH_CHN1_ROW_EXT0, &emi_conh) ? 4 : 0;
 		tmp += cen->dw32;
 		tmp += 7;
 		cen->chcd_rk0_sz = 1 << tmp;
@@ -251,14 +244,12 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	tmp += ((emi_conk >> EMI_CONK_CHNCD_RANK1_SIZE_EXT) & mask_4b) << 4;
 	if (tmp)
 		cen->chcd_rk1_sz = tmp << 8;
-	else if (!test_bit(EMI_CONA_DUAL_RANK_EN_CHN1,
-			(unsigned long *)&emi_cona))
+	else if (!test_bit(EMI_CONA_DUAL_RANK_EN_CHN1, &emi_cona))
 		cen->chcd_rk1_sz = 0;
 	else {
 		tmp = (emi_cona >> EMI_CONA_CHN1_COL2ND) & mask_2b;
 		tmp += (emi_cona >> EMI_CONA_CHN1_ROW2ND) & mask_2b;
-		tmp += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0,
-			(unsigned long *)&emi_conh) ? 4 : 0;
+		tmp += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0, &emi_conh) ? 4 : 0;
 		tmp += cen->dw32;
 		tmp += 7;
 		cen->chcd_rk1_sz = 1 << tmp;
@@ -272,20 +263,20 @@ static inline void prepare_a2d(struct emi_cen *cen)
 
 	cen->chab_row_mask[0] = (emi_cona >> EMI_CONA_ROW) & mask_2b;
 	cen->chab_row_mask[0] += test_bit(EMI_CONA_ROW_EXT0,
-			(unsigned long *)&emi_cona) ? 4 : 0;
+					&emi_cona) ? 4 : 0;
 	cen->chab_row_mask[0] += 13;
 	cen->chab_row_mask[1] = (emi_cona >> EMI_CONA_ROW2ND) & mask_2b;
 	cen->chab_row_mask[1] += test_bit(EMI_CONA_ROW2ND_EXT0,
-			(unsigned long *)&emi_cona) ? 4 : 0;
+					&emi_cona) ? 4 : 0;
 	cen->chab_row_mask[1] += 13;
 
 	cen->chcd_row_mask[0] = (emi_cona >> EMI_CONA_CHN1_ROW) & mask_2b;
 	cen->chcd_row_mask[0] += test_bit(EMI_CONH_CHN1_ROW_EXT0,
-			(unsigned long *)&emi_conh) ? 4 : 0;
+					&emi_conh) ? 4 : 0;
 	cen->chcd_row_mask[0] += 13;
 	cen->chcd_row_mask[1] = (emi_cona >> EMI_CONA_CHN1_ROW2ND) & mask_2b;
 	cen->chcd_row_mask[1] += test_bit(EMI_CONH_CHN1_ROW2ND_EXT0,
-			(unsigned long *)&emi_conh) ? 4 : 0;
+					&emi_conh) ? 4 : 0;
 	cen->chcd_row_mask[1] += 13;
 
 	cen->chab_col_mask[0] = (emi_cona >> EMI_CONA_COL) & mask_2b;
@@ -299,7 +290,7 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	cen->chcd_col_mask[1] += 9;
 
 	cen->chn_4bank_mode = test_bit(EMI_CONH_2ND_CHN_4BANK_MODE,
-			(unsigned long *)&emi_conh_2nd) ? 1 : 0;
+					&emi_conh_2nd) ? 1 : 0;
 }
 
 /*
