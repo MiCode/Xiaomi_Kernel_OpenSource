@@ -38,6 +38,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(APUSYS_VERSION_
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/$(UTIL_DIR)/
 
 apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
+apusys-objs += $(UTIL_DIR)/apu_bmap.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_drv.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_usr.o
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_dbg.o
