@@ -55,7 +55,7 @@ enum COLOR_IOCTL_CMD {
 };
 
 struct mtk_disp_dither_data {
-	bool support_shadow;
+	bool need_bypass_shadow;
 };
 
 struct mtk_disp_dither {
@@ -203,30 +203,15 @@ static void mtk_dither_bypass(struct mtk_ddp_comp *comp,
 
 static void mtk_dither_prepare(struct mtk_ddp_comp *comp)
 {
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_dither *priv = dev_get_drvdata(comp->dev);
-#endif
 
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_dither_is_clock_on, 1);
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (priv->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0,
-			DITHER_REG(0), DITHER_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
+	/* Bypass shadow register and read shadow register */
+	if (priv->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, DITHER_BYPASS_SHADOW,
 			DITHER_REG(0), DITHER_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, DITHER_BYPASS_SHADOW,
-		DITHER_REG(0), DITHER_BYPASS_SHADOW);
-#endif
-#endif
 }
 
 static void mtk_dither_unprepare(struct mtk_ddp_comp *comp)
@@ -419,6 +404,8 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
+
 	priv->pwr_sta = 0;
 	priv->cfg_reg = 0x80000100;
 
@@ -447,19 +434,19 @@ static int mtk_disp_dither_remove(struct platform_device *pdev)
 }
 
 static const struct mtk_disp_dither_data mt6779_dither_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_dither_data mt6885_dither_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_dither_data mt6873_dither_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 };
 
 static const struct mtk_disp_dither_data mt6853_dither_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 };
 
 

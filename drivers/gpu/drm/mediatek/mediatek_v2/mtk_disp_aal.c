@@ -136,7 +136,7 @@ struct dre3_node {
 };
 
 struct mtk_disp_aal_data {
-	bool support_shadow;
+	bool need_bypass_shadow;
 	int aal_dre_hist_start;
 	int aal_dre_hist_end;
 	int aal_dre_gain_start;
@@ -993,8 +993,7 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	const int *gain;
 
 	gain = param->DREGainFltStatus;
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
@@ -1035,7 +1034,7 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 
 	return 0;
 }
-#endif /* CONFIG_MTK_DRE30_SUPPORT */
+
 #if defined(CONFIG_MTK_DRE30_SUPPORT) || !defined(NOT_SUPPORT_CABC_HW)
 static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
@@ -2028,23 +2027,10 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 	if (!first_restore && !debug_skip_first_br)
 		return;
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (aal_data->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0,
-			DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
+	/* Bypass shadow register and read shadow register */
+	if (aal_data->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
 			DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
-		DISP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
-#endif
-#endif
 
 	ddp_aal_restore(comp);
 
@@ -2334,7 +2320,7 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 }
 
 static const struct mtk_disp_aal_data mt6885_aal_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 	.aal_dre_hist_start = 1152,
 	.aal_dre_hist_end   = 4220,
 	.aal_dre_gain_start = 4224,
@@ -2343,7 +2329,7 @@ static const struct mtk_disp_aal_data mt6885_aal_driver_data = {
 };
 
 static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 	.aal_dre_hist_start = 1536,
 	.aal_dre_hist_end   = 4604,
 	.aal_dre_gain_start = 4608,
@@ -2352,7 +2338,7 @@ static const struct mtk_disp_aal_data mt6873_aal_driver_data = {
 };
 
 static const struct mtk_disp_aal_data mt6853_aal_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 	.aal_dre_hist_start = 1536,
 	.aal_dre_hist_end   = 4604,
 	.aal_dre_gain_start = 4608,

@@ -110,12 +110,10 @@ void mtk_wb_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc)
 	drm_framebuffer_remove(wdma->fb);
 
 	if (wdma->id == mtk_wb_main[1]) {
-		mtk_ddp_remove_comp_from_path(mtk_crtc->config_regs,
-					      mtk_crtc->mmsys_reg_data,
+		mtk_ddp_remove_comp_from_path(mtk_crtc,
 					      mtk_wb_main[0], mtk_wb_main[1]);
 	} else if (wdma->id == mtk_wb_ext[1]) {
-		mtk_ddp_remove_comp_from_path(mtk_crtc->config_regs,
-					      mtk_crtc->mmsys_reg_data,
+		mtk_ddp_remove_comp_from_path(mtk_crtc,
 					      mtk_wb_ext[0], mtk_wb_ext[1]);
 	} else {
 		return;

@@ -528,10 +528,10 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 3. start trigger loop first to keep gce alive */
 	if (crtc_id == 0) {
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-		if (!mtk_crtc_is_frame_trigger_mode(crtc))
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
-#endif
+
 		mtk_crtc_start_trig_loop(crtc);
 		mtk_crtc_hw_block_ready(crtc);
 	}

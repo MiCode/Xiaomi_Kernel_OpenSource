@@ -1466,8 +1466,6 @@ static struct clk_ops mtk_mipi_tx_pll_ops = {
 
 static int mtk_mipi_tx_power_on_signal(struct phy *phy)
 {
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) && \
-	!defined(CONFIG_MACH_MT6853)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 
@@ -1477,7 +1475,7 @@ static int mtk_mipi_tx_power_on_signal(struct phy *phy)
 
 	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_DSI_TOP_CON,
 			       RG_DSI_PAD_TIE_LOW_EN);
-#endif
+
 	return 0;
 }
 
@@ -1572,93 +1570,6 @@ static void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 		}
 	}
 #endif /* mipitx impedance print */
-
-#if defined(CONFIG_MACH_MT6885)
-#ifdef IF_ZERO /* Second mipi tx is not currently in use */
-	/* backup second mipitx impedance */
-	for (i = 0; i < 2; i++) {
-		if (i == 0) {
-			for (j = 0; j < 5; j++)
-				for (k = 0; k < 5; k++) {
-					rt_code_backup0[1][j*5 + k] =
-						readl(mipi_tx->regs +
-						SECOND_PHY_OFFSET +
-						MIPITX_D2P_RTCODE0 +
-						k * 0x4 + j * 0x100);
-					rt_code_backup1[1][j*5 + k] =
-						readl(mipi_tx->regs +
-						SECOND_PHY_OFFSET +
-						MIPITX_D2N_RTCODE0 +
-						k * 0x4 + j * 0x100);
-				}
-		} else {
-			for (j = 0; j < 5; j++) {
-				rt_dem_code_backup0[1][j] =
-					readl(mipi_tx->regs +
-					SECOND_PHY_OFFSET +
-					MIPITX_D2P_RT_DEM_CODE +
-					j * 0x100);
-				rt_dem_code_backup1[1][j] =
-					readl(mipi_tx->regs +
-					SECOND_PHY_OFFSET +
-					MIPITX_D2N_RT_DEM_CODE +
-					j * 0x100);
-			}
-		}
-	}
-#endif /* sedond mipi tx is not currently in use */
-
-#ifdef IF_ZERO /* Verification log */
-	for (i = 0; i < 10; i++) {
-		if (i < 5)
-			k = i * 0x100;
-		else
-			k = (i - 5) * 0x100;
-
-		if (i < 5) {
-			DDPDUMP("MIPI_TX ");
-			DDPDUMP("[0x%08x]:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0x4)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0x8)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0xC)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0x10)));
-			DDPDUMP("MIPI_TX2");
-			DDPDUMP("[0x%08x]:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0x4)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0x8)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0xC)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0x10)));
-		} else {
-			DDPDUMP("MIPI_TX[0x%08x]: 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RT_DEM_CODE + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RT_DEM_CODE + k)));
-			DDPDUMP("MIPI_TX[0x%08x]: 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RT_DEM_CODE + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RT_DEM_CODE + k)));
-		}
-	}
-#endif /* second mipitx impedance print */
-#endif /* end define MACH_MT6885 */
 }
 
 static void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
@@ -1745,93 +1656,6 @@ static void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 		}
 	}
 #endif /* mipitx impedance print */
-
-#if defined(CONFIG_MACH_MT6885)
-#ifdef IF_ZERO /* Second mipi tx is not currently in use */
-	/* refill second mipitx impedance */
-	for (i = 0; i < 2; i++) {
-		if (i == 0) {
-			for (j = 0; j < 5; j++)
-				for (k = 0; k < 5; k++) {
-					writel(rt_code_backup0[1][j*5 + k],
-						(mipi_tx->regs +
-						 SECOND_PHY_OFFSET +
-						 MIPITX_D2P_RTCODE0 +
-						 k * 0x4 + j * 0x100));
-					writel(rt_code_backup1[1][j*5 + k],
-						(mipi_tx->regs +
-						 SECOND_PHY_OFFSET +
-						 MIPITX_D2N_RTCODE0 +
-						 k * 0x4 + j * 0x100));
-				}
-		} else {
-			for (j = 0; j < 5; j++) {
-				writel(rt_dem_code_backup0[1][j],
-					(mipi_tx->regs +
-					 SECOND_PHY_OFFSET +
-					 MIPITX_D2P_RT_DEM_CODE +
-					 j * 0x100));
-				writel(rt_dem_code_backup1[1][j],
-					(mipi_tx->regs +
-					 SECOND_PHY_OFFSET +
-					 MIPITX_D2N_RT_DEM_CODE +
-					 j * 0x100));
-			}
-		}
-	}
-#endif /* Second mipi tx is not currently in use */
-
-#ifdef IF_ZERO /* Verification log */
-	for (i = 0; i < 10; i++) {
-		if (i < 5)
-			k = i * 0x100;
-		else
-			k = (i - 5) * 0x100;
-
-		if (i < 5) {
-			DDPDUMP("MIPI_TX ");
-			DDPDUMP("[0x%08x]:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0x4)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0x8)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0xC)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RTCODE0 + k + 0x10)));
-			DDPDUMP("MIPI_TX2");
-			DDPDUMP("[0x%08x]:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0x4)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0x8)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0xC)),
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RTCODE0 + k + 0x10)));
-		} else {
-			DDPDUMP("MIPI_TX[0x%08x]: 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RT_DEM_CODE + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2P_RT_DEM_CODE + k)));
-			DDPDUMP("MIPI_TX[0x%08x]: 0x%08x\n",
-				mipi_tx->regs_pa + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RT_DEM_CODE + k,
-				readl((mipi_tx->regs + SECOND_PHY_OFFSET +
-					MIPITX_D2N_RT_DEM_CODE + k)));
-		}
-	}
-#endif /* second mipitx impedance print */
-#endif /* end define MACH_MT6885 */
 }
 #endif
 
@@ -1856,28 +1680,9 @@ static int mtk_mipi_tx_power_on(struct phy *phy)
 	return 0;
 }
 
-static void mtk_mipi_tx_power_off_signal(struct phy *phy)
-{
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) && \
-	!defined(CONFIG_MACH_MT6853)
-	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
-	u32 reg;
-
-	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_DSI_TOP_CON,
-			     RG_DSI_PAD_TIE_LOW_EN);
-
-	for (reg = MIPITX_DSI_CLOCK_LANE; reg <= MIPITX_DSI_DATA_LANE3;
-	     reg += 4)
-		mtk_mipi_tx_clear_bits(mipi_tx, reg, RG_DSI_LNTx_LDOOUT_EN);
-#endif
-}
-
 static int mtk_mipi_tx_power_off(struct phy *phy)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
-
-	/* Enable pad tie low, disable DSI Lane LDO outputs */
-	mtk_mipi_tx_power_off_signal(phy);
 
 	/* Disable PLL and power down core */
 	clk_disable_unprepare(mipi_tx->pll);

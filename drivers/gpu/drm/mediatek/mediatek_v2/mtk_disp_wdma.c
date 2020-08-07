@@ -173,9 +173,17 @@ enum GS_WDMA_FLD {
 };
 
 struct mtk_disp_wdma_data {
+	/* golden setting */
+	unsigned int fifo_size_1plane;
+	unsigned int fifo_size_uv_1plane;
+	unsigned int fifo_size_2plane;
+	unsigned int fifo_size_uv_2plane;
+	unsigned int fifo_size_3plane;
+	unsigned int fifo_size_uv_3plane;
+
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
-	bool support_shadow;
+	bool need_bypass_shadow;
 };
 
 struct mtk_wdma_cfg_info {
@@ -304,29 +312,14 @@ static int mtk_wdma_is_busy(struct mtk_ddp_comp *comp)
 
 static void mtk_wdma_prepare(struct mtk_ddp_comp *comp)
 {
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
-#endif
 
 	mtk_ddp_comp_clk_prepare(comp);
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (wdma->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0,
-			DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
+	/* Bypass shadow register and read shadow register */
+	if (wdma->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, WDMA_BYPASS_SHADOW,
 			DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, WDMA_BYPASS_SHADOW,
-		DISP_REG_WDMA_SHADOW_CTRL, WDMA_BYPASS_SHADOW);
-#endif
-#endif
 }
 
 static void mtk_wdma_unprepare(struct mtk_ddp_comp *comp)
@@ -335,10 +328,12 @@ static void mtk_wdma_unprepare(struct mtk_ddp_comp *comp)
 }
 
 static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
-					 unsigned int format,
+					 struct mtk_ddp_comp *comp,
 					 unsigned int is_primary_flag,
 					 unsigned int *gs)
 {
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+	unsigned int format = comp->fb->format->format;
 	unsigned int preultra_low_us = 7, preultra_high_us = 6;
 	unsigned int ultra_low_us = 6, ultra_high_us = 4;
 	unsigned int dvfs_offset = 2;
@@ -348,14 +343,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int res = 0;
 	unsigned int frame_rate = 0;
 	unsigned long long consume_rate = 0;
-#if defined(CONFIG_MACH_MT6885)
-	unsigned int fifo_size = 325;
-	unsigned int fifo_size_uv = 31;
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	unsigned int fifo_size = 578;
-	unsigned int fifo_size_uv = 29;
-#endif
+	unsigned int fifo_size = wdma->data->fifo_size_1plane;
+	unsigned int fifo_size_uv = wdma->data->fifo_size_uv_1plane;
 	unsigned int fifo;
 	unsigned int factor1 = 4;
 	unsigned int factor2 = 4;
@@ -385,14 +374,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YUV420:
 		/* 3 plane */
-#if defined(CONFIG_MACH_MT6885)
-		fifo_size = 228;
-		fifo_size_uv = 50;
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-		fifo_size = 402;
-		fifo_size_uv = 99;
-#endif
+		fifo_size = wdma->data->fifo_size_3plane;
+		fifo_size_uv = wdma->data->fifo_size_uv_3plane;
 		fifo = fifo_size_uv;
 		factor1 = 4;
 		factor2 = 4;
@@ -402,14 +385,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 		/* 2 plane */
-#if defined(CONFIG_MACH_MT6885)
-		fifo_size = 228;
-		fifo_size_uv = 109;
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-		fifo_size = 402;
-		fifo_size_uv = 201;
-#endif
+		fifo_size = wdma->data->fifo_size_2plane;
+		fifo_size_uv = wdma->data->fifo_size_uv_2plane;
 		fifo = fifo_size_uv;
 		factor1 = 2;
 		factor2 = 4;
@@ -573,7 +550,7 @@ static void mtk_wdma_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int gs[GS_WDMA_FLD_NUM];
 	unsigned int value = 0;
 
-	mtk_wdma_calc_golden_setting(gsc, comp->fb->format->format, true, gs);
+	mtk_wdma_calc_golden_setting(gsc, comp, true, gs);
 
 #ifdef IF_ZERO
 	mtk_ddp_write(comp, 0x800000ff, 0x2C, handle);
@@ -1280,22 +1257,40 @@ static int mtk_disp_wdma_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_wdma_data mt6779_wdma_driver_data = {
 	.sodi_config = mt6779_mtk_sodi_config,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_wdma_data mt6885_wdma_driver_data = {
+	.fifo_size_1plane = 325,
+	.fifo_size_uv_1plane = 31,
+	.fifo_size_2plane = 228,
+	.fifo_size_uv_2plane = 109,
+	.fifo_size_3plane = 228,
+	.fifo_size_uv_3plane = 50,
 	.sodi_config = mt6885_mtk_sodi_config,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_wdma_data mt6873_wdma_driver_data = {
+	.fifo_size_1plane = 578,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 402,
+	.fifo_size_uv_2plane = 201,
+	.fifo_size_3plane = 402,
+	.fifo_size_uv_3plane = 99,
 	.sodi_config = mt6873_mtk_sodi_config,
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 };
 
 static const struct mtk_disp_wdma_data mt6853_wdma_driver_data = {
+	.fifo_size_1plane = 578,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 402,
+	.fifo_size_uv_2plane = 201,
+	.fifo_size_3plane = 402,
+	.fifo_size_uv_3plane = 99,
 	.sodi_config = mt6853_mtk_sodi_config,
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 };
 
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {

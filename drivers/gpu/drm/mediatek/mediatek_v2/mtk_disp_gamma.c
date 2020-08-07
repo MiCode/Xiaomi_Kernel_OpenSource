@@ -47,14 +47,9 @@ enum GAMMA_IOCTL_CMD {
 	SET_GAMMALUT = 0,
 };
 
-struct mtk_disp_gamma_data {
-	bool support_shadow;
-};
-
 struct mtk_disp_gamma {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
-	const struct mtk_disp_gamma_data *data;
 };
 
 static void mtk_gamma_init(struct mtk_ddp_comp *comp,
@@ -414,32 +409,11 @@ static int mtk_disp_gamma_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct mtk_disp_gamma_data mt6779_gamma_driver_data = {
-	.support_shadow = false,
-};
-
-static const struct mtk_disp_gamma_data mt6885_gamma_driver_data = {
-	.support_shadow = false,
-};
-
-static const struct mtk_disp_gamma_data mt6873_gamma_driver_data = {
-	.support_shadow = false,
-};
-
-static const struct mtk_disp_gamma_data mt6853_gamma_driver_data = {
-	.support_shadow = false,
-};
-
-
 static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6779-disp-gamma",
-	  .data = &mt6779_gamma_driver_data},
-	{ .compatible = "mediatek,mt6885-disp-gamma",
-	  .data = &mt6885_gamma_driver_data},
-	{ .compatible = "mediatek,mt6873-disp-gamma",
-	  .data = &mt6873_gamma_driver_data},
-	{ .compatible = "mediatek,mt6853-disp-gamma",
-	  .data = &mt6853_gamma_driver_data},
+	{ .compatible = "mediatek,mt6779-disp-gamma",},
+	{ .compatible = "mediatek,mt6885-disp-gamma",},
+	{ .compatible = "mediatek,mt6873-disp-gamma",},
+	{ .compatible = "mediatek,mt6853-disp-gamma",},
 	{},
 };
 

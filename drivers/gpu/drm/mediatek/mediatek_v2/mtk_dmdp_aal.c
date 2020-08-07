@@ -32,7 +32,7 @@
 #define AAL_EN BIT(0)
 
 struct mtk_dmdp_aal_data {
-	bool support_shadow;
+	bool need_bypass_shadow;
 	u32 block_info_00_mask;
 };
 
@@ -273,30 +273,15 @@ static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)
 
 static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 {
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_dmdp_aal *dmdp_aal = comp_to_dmdp_aal(comp);
-#endif
 
 	pr_notice("%s\n", __func__);
 	mtk_ddp_comp_clk_prepare(comp);
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (dmdp_aal->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0,
-			DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
+	/* Bypass shadow register and read shadow register */
+	if (dmdp_aal->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
 			DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873)
-	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, AAL_BYPASS_SHADOW,
-		DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
-#endif
-#endif
 
 	mtk_dmdp_aal_restore(comp);
 }
@@ -412,12 +397,12 @@ static int mtk_dmdp_aal_remove(struct platform_device *pdev)
 }
 
 static const struct mtk_dmdp_aal_data mt6885_dmdp_aal_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 	.block_info_00_mask = 0x3FFFFFF,
 };
 
 static const struct mtk_dmdp_aal_data mt6873_dmdp_aal_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 	.block_info_00_mask = 0x3FFF3FFF,
 };
 
