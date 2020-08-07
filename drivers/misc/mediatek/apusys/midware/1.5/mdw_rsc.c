@@ -1002,7 +1002,7 @@ void mdw_rsc_set_thd_group(void)
 			if (snprintf(buf, sizeof(buf)-1, "%d", d->thd->pid) < 0)
 				goto fail_set_name;
 
-			vfs_write(fd, (__force const char __user *)buf,
+			kernel_write(fd, (__force const char __user *)buf,
 				sizeof(buf), &fd->f_pos);
 			mdw_drv_debug("dev(%s%d) set thd(%d/%s)\n",
 				d->name, d->idx, d->thd->pid, buf);
