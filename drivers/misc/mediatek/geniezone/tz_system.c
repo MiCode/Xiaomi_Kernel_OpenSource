@@ -1287,3 +1287,4 @@ int tz_system_std_call32(u32 smcnr, u32 a0, u32 a1, u32 a2)
 				smcnr, a0, a1, a2);
 }
 
+MODULE_LICENSE("GPL v2");
