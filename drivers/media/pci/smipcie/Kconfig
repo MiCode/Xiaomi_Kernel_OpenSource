@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config DVB_SMIPCIE
-	tristate "SMI PCIe DVBSky cards"
+	bool "SMI PCIe DVBSky cards"
 	depends on DVB_CORE && PCI && I2C
 	select I2C_ALGOBIT
 	select DVB_M88DS3103 if MEDIA_SUBDRV_AUTOSELECT

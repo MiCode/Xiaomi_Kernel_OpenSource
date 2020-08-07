@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config MANTIS_CORE
-	tristate "Mantis/Hopper PCI bridge based devices"
+	bool "Mantis/Hopper PCI bridge based devices"
 	depends on PCI && I2C && INPUT && RC_CORE
 
 	help
@@ -9,7 +9,7 @@ config MANTIS_CORE
 	  Say Y if you own such a device and want to use it.
 
 config DVB_MANTIS
-	tristate "MANTIS based cards"
+	bool "MANTIS based cards"
 	depends on MANTIS_CORE && DVB_CORE && PCI && I2C
 	select DVB_MB86A16 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_ZL10353 if MEDIA_SUBDRV_AUTOSELECT
@@ -28,7 +28,7 @@ config DVB_MANTIS
 	  If unsure say N.
 
 config DVB_HOPPER
-	tristate "HOPPER based cards"
+	bool "HOPPER based cards"
 	depends on MANTIS_CORE && DVB_CORE && PCI && I2C
 	select DVB_ZL10353 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_PLL

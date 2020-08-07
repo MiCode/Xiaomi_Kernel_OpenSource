@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config DVB_AS102
-	tristate "Abilis AS102 DVB receiver"
+	bool "Abilis AS102 DVB receiver"
 	depends on DVB_CORE && USB && I2C && INPUT
 	select FW_LOADER
 	help

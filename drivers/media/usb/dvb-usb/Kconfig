@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config DVB_USB
-	tristate "Support for various USB DVB devices"
+	bool "Support for various USB DVB devices"
 	depends on DVB_CORE && USB && I2C && RC_CORE
 	help
 	  By enabling this you will be able to choose the various supported
@@ -41,7 +41,7 @@ config DVB_USB_A800
 	  Say Y here to support the AVerMedia AverTV DVB-T USB 2.0 (A800) receiver.
 
 config DVB_USB_DIBUSB_MB
-	tristate "DiBcom USB DVB-T devices (based on the DiB3000M-B) (see help for device list)"
+	bool "DiBcom USB DVB-T devices (based on the DiB3000M-B) (see help for device list)"
 	depends on DVB_USB
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_DIB3000MB
@@ -64,7 +64,7 @@ config DVB_USB_DIBUSB_MB_FAULTY
 	  Support for faulty USB IDs due to an invalid EEPROM on some Artec devices.
 
 config DVB_USB_DIBUSB_MC
-	tristate "DiBcom USB DVB-T devices (based on the DiB3000M-C/P) (see help for device list)"
+	bool "DiBcom USB DVB-T devices (based on the DiB3000M-C/P) (see help for device list)"
 	depends on DVB_USB
 	select DVB_USB_DIB3000MC
 	select MEDIA_TUNER_MT2060 if MEDIA_SUBDRV_AUTOSELECT
@@ -79,7 +79,7 @@ config DVB_USB_DIBUSB_MC
 	  a module.
 
 config DVB_USB_DIB0700
-	tristate "DiBcom DiB0700 USB DVB devices (see help for supported devices)"
+	bool "DiBcom DiB0700 USB DVB devices (see help for supported devices)"
 	depends on DVB_USB
 	select DVB_DIB7000P if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_DIB7000M if MEDIA_SUBDRV_AUTOSELECT
@@ -110,7 +110,7 @@ config DVB_USB_DIB0700
 	  a module.
 
 config DVB_USB_UMT_010
-	tristate "HanfTek UMT-010 DVB-T USB2.0 support"
+	bool "HanfTek UMT-010 DVB-T USB2.0 support"
 	depends on DVB_USB
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_USB_DIB3000MC
@@ -120,7 +120,7 @@ config DVB_USB_UMT_010
 	  Say Y here to support the HanfTek UMT-010 USB2.0 stick-sized DVB-T receiver.
 
 config DVB_USB_CXUSB
-	tristate "Conexant USB2.0 hybrid reference design support"
+	bool "Conexant USB2.0 hybrid reference design support"
 	depends on DVB_USB
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_CX22702 if MEDIA_SUBDRV_AUTOSELECT
@@ -158,7 +158,7 @@ config DVB_USB_CXUSB_ANALOG
 	  Currently this mode is supported only on a Medion MD95700 device.
 
 config DVB_USB_M920X
-	tristate "Uli m920x DVB-T USB2.0 support"
+	bool "Uli m920x DVB-T USB2.0 support"
 	depends on DVB_USB
 	select DVB_MT352 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_TDA1004X if MEDIA_SUBDRV_AUTOSELECT
@@ -172,7 +172,7 @@ config DVB_USB_M920X
 	  Firmware required.
 
 config DVB_USB_DIGITV
-	tristate "Nebula Electronics uDigiTV DVB-T USB2.0 support"
+	bool "Nebula Electronics uDigiTV DVB-T USB2.0 support"
 	depends on DVB_USB
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_NXT6000 if MEDIA_SUBDRV_AUTOSELECT
@@ -207,7 +207,7 @@ config DVB_USB_VP702X
 	  DVB-S USB2.0 receivers.
 
 config DVB_USB_GP8PSK
-	tristate "GENPIX 8PSK->USB module support"
+	bool "GENPIX 8PSK->USB module support"
 	depends on DVB_USB
 	help
 	  Say Y here to support the
@@ -225,7 +225,7 @@ config DVB_USB_NOVA_T_USB2
 	  Say Y here to support the Hauppauge WinTV-NOVA-T usb2 DVB-T USB2.0 receiver.
 
 config DVB_USB_TTUSB2
-	tristate "Pinnacle 400e DVB-S USB2.0 support"
+	bool "Pinnacle 400e DVB-S USB2.0 support"
 	depends on DVB_USB
 	select DVB_TDA10086 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_LNBP21 if MEDIA_SUBDRV_AUTOSELECT
@@ -250,7 +250,7 @@ config DVB_USB_DTT200U
 	  The WT-220U and its clones are pen-sized.
 
 config DVB_USB_OPERA1
-	tristate "Opera1 DVB-S USB2.0 receiver"
+	bool "Opera1 DVB-S USB2.0 receiver"
 	depends on DVB_USB
 	select DVB_STV0299 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
@@ -258,7 +258,7 @@ config DVB_USB_OPERA1
 	  Say Y here to support the Opera DVB-S USB2.0 receiver.
 
 config DVB_USB_AF9005
-	tristate "Afatech AF9005 DVB-T USB1.1 support"
+	bool "Afatech AF9005 DVB-T USB1.1 support"
 	depends on DVB_USB
 	select MEDIA_TUNER_MT2060 if MEDIA_SUBDRV_AUTOSELECT
 	select MEDIA_TUNER_QT1010 if MEDIA_SUBDRV_AUTOSELECT
@@ -274,7 +274,7 @@ config DVB_USB_AF9005_REMOTE
 	  Afatech AF9005 based receiver.
 
 config DVB_USB_PCTV452E
-	tristate "Pinnacle PCTV HDTV Pro USB device/TT Connect S2-3600"
+	bool "Pinnacle PCTV HDTV Pro USB device/TT Connect S2-3600"
 	depends on DVB_USB
 	select TTPCI_EEPROM
 	select DVB_LNBP22 if MEDIA_SUBDRV_AUTOSELECT
@@ -287,7 +287,7 @@ config DVB_USB_PCTV452E
 	  Say Y if you own such a device and want to use it.
 
 config DVB_USB_DW2102
-	tristate "DvbWorld & TeVii DVB-S/S2 USB2.0 support"
+	bool "DvbWorld & TeVii DVB-S/S2 USB2.0 support"
 	depends on DVB_USB
 	select DVB_PLL if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_STV0299 if MEDIA_SUBDRV_AUTOSELECT
@@ -318,7 +318,7 @@ config DVB_USB_CINERGY_T2
 	  Say Y if you own such a device and want to use it.
 
 config DVB_USB_DTV5100
-	tristate "AME DTV-5100 USB2.0 DVB-T support"
+	bool "AME DTV-5100 USB2.0 DVB-T support"
 	depends on DVB_USB
 	select DVB_ZL10353 if MEDIA_SUBDRV_AUTOSELECT
 	select MEDIA_TUNER_QT1010 if MEDIA_SUBDRV_AUTOSELECT
@@ -334,7 +334,7 @@ config DVB_USB_AZ6027
 	  Say Y here to support the AZ6027 device
 
 config DVB_USB_TECHNISAT_USB2
-	tristate "Technisat DVB-S/S2 USB2.0 support"
+	bool "Technisat DVB-S/S2 USB2.0 support"
 	depends on DVB_USB
 	select DVB_STV090x if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_STV6110x if MEDIA_SUBDRV_AUTOSELECT

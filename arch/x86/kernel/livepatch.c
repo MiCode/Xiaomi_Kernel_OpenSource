@@ -24,12 +24,12 @@ void arch_klp_init_object_loaded(struct klp_patch *patch,
 	objname = obj->name ? obj->name : "vmlinux";
 
 	/* See livepatch core code for BUILD_BUG_ON() explanation */
-	BUILD_BUG_ON(MODULE_NAME_LEN < 56 || KSYM_NAME_LEN != 128);
+	BUILD_BUG_ON(MODULE_NAME_LEN < 56 || KSYM_NAME_LEN != 192);
 
 	for (s = info->sechdrs; s < info->sechdrs + info->hdr.e_shnum; s++) {
 		/* Apply per-object .klp.arch sections */
 		cnt = sscanf(info->secstrings + s->sh_name,
-			     ".klp.arch.%55[^.].%127s",
+			     ".klp.arch.%55[^.].%191s",
 			     sec_objname, secname);
 		if (cnt != 2)
 			continue;

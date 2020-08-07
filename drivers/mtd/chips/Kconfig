@@ -3,7 +3,7 @@ menu "RAM/ROM/Flash chip drivers"
 	depends on MTD!=n
 
 config MTD_CFI
-	tristate "Detect flash chips by Common Flash Interface (CFI) probe"
+	bool "Detect flash chips by Common Flash Interface (CFI) probe"
 	select MTD_GEN_PROBE
 	select MTD_CFI_UTIL
 	help
@@ -15,7 +15,7 @@ config MTD_CFI
 	  for more information on CFI.
 
 config MTD_JEDECPROBE
-	tristate "Detect non-CFI AMD/JEDEC-compatible flash chips"
+	bool "Detect non-CFI AMD/JEDEC-compatible flash chips"
 	select MTD_GEN_PROBE
 	select MTD_CFI_UTIL
 	help
@@ -27,7 +27,7 @@ config MTD_JEDECPROBE
 	  Intel chips.
 
 config MTD_GEN_PROBE
-	tristate
+	bool
 
 config MTD_CFI_ADV_OPTIONS
 	bool "Flash chip driver advanced configuration options"

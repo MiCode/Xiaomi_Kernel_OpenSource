@@ -5,7 +5,7 @@ config DVB_AV7110_IR
 	default DVB_AV7110
 
 config DVB_AV7110
-	tristate "AV7110 cards"
+	bool "AV7110 cards"
 	depends on DVB_CORE && PCI && I2C
 	select TTPCI_EEPROM
 	select VIDEO_SAA7146_VV
@@ -40,7 +40,7 @@ config DVB_AV7110
 config DVB_AV7110_OSD
 	bool "AV7110 OSD support"
 	depends on DVB_AV7110
-	default y if DVB_AV7110=y || DVB_AV7110=m
+	default y if DVB_AV7110=y
 	help
 	  The AV7110 firmware provides some code to generate an OnScreenDisplay
 	  on the video output. This is kind of nonstandard and not guaranteed to
@@ -52,7 +52,7 @@ config DVB_AV7110_OSD
 	  All other people say N.
 
 config DVB_BUDGET_CORE
-	tristate "SAA7146 DVB cards (aka Budget, Nova-PCI)"
+	bool "SAA7146 DVB cards (aka Budget, Nova-PCI)"
 	depends on DVB_CORE && PCI && I2C
 	select VIDEO_SAA7146
 	select TTPCI_EEPROM
@@ -62,7 +62,7 @@ config DVB_BUDGET_CORE
 	  MPEG2 decoder.
 
 config DVB_BUDGET
-	tristate "Budget cards"
+	bool "Budget cards"
 	depends on DVB_BUDGET_CORE && I2C
 	select DVB_STV0299 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_VES1X93 if MEDIA_SUBDRV_AUTOSELECT
@@ -88,7 +88,7 @@ config DVB_BUDGET
 	  module will be called budget.
 
 config DVB_BUDGET_CI
-	tristate "Budget cards with onboard CI connector"
+	bool "Budget cards with onboard CI connector"
 	depends on DVB_BUDGET_CORE && I2C
 	select DVB_STV0297 if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_STV0299 if MEDIA_SUBDRV_AUTOSELECT
@@ -115,7 +115,7 @@ config DVB_BUDGET_CI
 	  module will be called budget-ci.
 
 config DVB_BUDGET_AV
-	tristate "Budget cards with analog video inputs"
+	bool "Budget cards with analog video inputs"
 	depends on DVB_BUDGET_CORE && I2C
 	select VIDEO_SAA7146_VV
 	depends on VIDEO_DEV	# dependencies of VIDEO_SAA7146_VV
@@ -138,7 +138,7 @@ config DVB_BUDGET_AV
 	  module will be called budget-av.
 
 config DVB_BUDGET_PATCH
-	tristate "AV7110 cards with Budget Patch"
+	bool "AV7110 cards with Budget Patch"
 	depends on DVB_BUDGET_CORE && I2C
 	depends on DVB_AV7110
 	select DVB_STV0299 if MEDIA_SUBDRV_AUTOSELECT

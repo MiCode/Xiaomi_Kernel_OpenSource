@@ -175,6 +175,7 @@ config DELL_LAPTOP
 	depends on RFKILL || RFKILL = n
 	depends on SERIO_I8042
 	depends on DELL_SMBIOS
+	depends on BROKEN
 	select POWER_SUPPLY
 	select LEDS_CLASS
 	select NEW_LEDS
@@ -1016,7 +1017,7 @@ config INTEL_MFLD_THERMAL
          platform.
 
 config INTEL_IPS
-	tristate "Intel Intelligent Power Sharing"
+	bool "Intel Intelligent Power Sharing"
 	depends on ACPI && PCI
 	---help---
 	  Intel Calpella platforms support dynamic power sharing between the

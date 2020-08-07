@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config VIDEO_CX231XX
-	tristate "Conexant cx231xx USB video capture support"
+	bool "Conexant cx231xx USB video capture support"
 	depends on VIDEO_DEV && I2C && I2C_MUX
 	select VIDEO_TUNER
 	select VIDEO_TVEEPROM
@@ -39,7 +39,7 @@ config VIDEO_CX231XX_ALSA
 	  module will be called cx231xx-alsa
 
 config VIDEO_CX231XX_DVB
-	tristate "DVB/ATSC Support for Cx231xx based TV cards"
+	bool "DVB/ATSC Support for Cx231xx based TV cards"
 	depends on VIDEO_CX231XX && DVB_CORE
 	select MEDIA_TUNER_XC5000 if MEDIA_SUBDRV_AUTOSELECT
 	select MEDIA_TUNER_TDA18271 if MEDIA_SUBDRV_AUTOSELECT

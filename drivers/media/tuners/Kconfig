@@ -39,7 +39,7 @@ config MEDIA_TUNER_TDA18250
 	  Say Y here to include support for TDA18250 tuner.
 
 config MEDIA_TUNER_TDA8290
-	tristate "TDA 8290/8295 + 8275(a)/18271 tuner combo"
+	bool "TDA 8290/8295 + 8275(a)/18271 tuner combo"
 	depends on MEDIA_SUPPORT && I2C
 	select MEDIA_TUNER_TDA827X
 	select MEDIA_TUNER_TDA18271
