@@ -177,7 +177,7 @@ static inline void prepare_a2d(struct emi_cen *cen)
 	cen->magics[6] = (emi_conf >> 24) & mask_4b;
 	cen->magics[7] = (emi_conf >> 28) & mask_4b;
 
-	cen->dw32 = test_bit(EMI_CONA_DW32_EN, &emi_cona) ?  1 : 0;
+	cen->dw32 = test_bit(EMI_CONA_DW32_EN, &emi_cona) ? 1 : 0;
 
 	cen->channels = (emi_cona >> EMI_CONA_CHN_EN) & mask_2b;
 
