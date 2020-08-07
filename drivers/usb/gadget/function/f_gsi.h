@@ -209,6 +209,7 @@ struct gsi_ctrl_port {
 	atomic_t ctrl_online;
 
 	bool is_open;
+	bool is_suspended;
 
 	wait_queue_head_t read_wq;
 
