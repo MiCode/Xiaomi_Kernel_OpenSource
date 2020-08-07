@@ -1475,8 +1475,6 @@ union security_list_options {
 					size_t *len);
 	int (*inode_create)(struct inode *dir, struct dentry *dentry,
 				umode_t mode);
-	int (*inode_post_create)(struct inode *dir, struct dentry *dentry,
-				umode_t mode);
 	int (*inode_link)(struct dentry *old_dentry, struct inode *dir,
 				struct dentry *new_dentry);
 	int (*inode_unlink)(struct inode *dir, struct dentry *dentry);
@@ -1790,7 +1788,6 @@ struct security_hook_heads {
 	struct list_head inode_free_security;
 	struct list_head inode_init_security;
 	struct list_head inode_create;
-	struct list_head inode_post_create;
 	struct list_head inode_link;
 	struct list_head inode_unlink;
 	struct list_head inode_symlink;

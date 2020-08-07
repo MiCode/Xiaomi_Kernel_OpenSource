@@ -20,10 +20,6 @@
 
 #define FS_CRYPTO_BLOCK_SIZE		16
 
-/* iv sector for security/pfe/pfk_fscrypt.c and f2fs */
-#define PG_DUN(i, p)                                            \
-	(((((u64)(i)->i_ino) & 0xffffffff) << 32) | ((p)->index & 0xffffffff))
-
 struct fscrypt_info;
 
 struct fscrypt_str {
@@ -744,33 +740,6 @@ static inline int fscrypt_encrypt_symlink(struct inode *inode,
 		return __fscrypt_encrypt_symlink(inode, target, len, disk_link);
 	return 0;
 }
-
-/* fscrypt_ice.c */
-#ifdef CONFIG_PFK
-extern int fscrypt_using_hardware_encryption(const struct inode *inode);
-extern void fscrypt_set_ice_dun(const struct inode *inode,
-		struct bio *bio, u64 dun);
-extern void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip);
-extern bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted,
-		int bi_crypt_skip);
-#else
-static inline int fscrypt_using_hardware_encryption(const struct inode *inode)
-{
-	return 0;
-}
-
-static inline void fscrypt_set_ice_dun(const struct inode *inode,
-		struct bio *bio, u64 dun){}
-
-static inline void fscrypt_set_ice_skip(struct bio *bio, int bi_crypt_skip)
-{}
-
-static inline bool fscrypt_mergeable_bio(struct bio *bio,
-		u64 dun, bool bio_encrypted, int bi_crypt_skip)
-{
-	return true;
-}
-#endif
 
 /* If *pagep is a bounce page, free it and set *pagep to the pagecache page */
 static inline void fscrypt_finalize_bounce_page(struct page **pagep)

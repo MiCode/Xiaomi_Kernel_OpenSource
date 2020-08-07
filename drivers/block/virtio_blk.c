@@ -15,7 +15,9 @@
 #include <linux/blk-mq.h>
 #include <linux/blk-mq-virtio.h>
 #include <linux/numa.h>
+#ifdef CONFIG_PFK
 #include <linux/pfk.h>
+#endif
 #include <crypto/ice.h>
 
 #define PART_BITS 4

@@ -12,7 +12,6 @@
 #include <linux/key.h>
 
 #include "fscrypt_private.h"
-#include "fscrypt_ice.h"
 
 static struct fscrypt_mode available_modes[] = {
 	[FSCRYPT_MODE_AES_256_XTS] = {
@@ -51,12 +50,6 @@ static struct fscrypt_mode available_modes[] = {
 		.keysize = 64,
 	},
 };
-
-static int fscrypt_data_encryption_mode(struct inode *inode)
-{
-	return fscrypt_should_be_processed_by_ice(inode) ?
-		FSCRYPT_MODE_PRIVATE : FSCRYPT_MODE_AES_256_XTS;
-}
 
 static struct fscrypt_mode *
 select_encryption_mode(const union fscrypt_policy *policy,
@@ -393,7 +386,7 @@ int fscrypt_get_encryption_info(struct inode *inode)
 		/* Fake up a context for an unencrypted directory */
 		memset(&ctx, 0, sizeof(ctx));
 		ctx.version = FSCRYPT_CONTEXT_V1;
-		ctx.v1.contents_encryption_mode = fscrypt_data_encryption_mode(inode);
+		ctx.v1.contents_encryption_mode = FSCRYPT_MODE_AES_256_XTS;
 		ctx.v1.filenames_encryption_mode = FSCRYPT_MODE_AES_256_CTS;
 		memset(ctx.v1.master_key_descriptor, 0x42,
 		       FSCRYPT_KEY_DESCRIPTOR_SIZE);
@@ -486,11 +479,6 @@ void fscrypt_put_encryption_info(struct inode *inode)
 	inode->i_crypt_info = NULL;
 }
 EXPORT_SYMBOL(fscrypt_put_encryption_info);
-
-int fscrypt_get_mode_key_size(int mode)
-{
-	return available_modes[mode].keysize;
-}
 
 /**
  * fscrypt_free_inode - free an inode's fscrypt data requiring RCU delay

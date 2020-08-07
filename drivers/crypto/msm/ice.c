@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1443,9 +1443,9 @@ static void qcom_ice_debug(struct platform_device *pdev)
 
 	qcom_ice_dump_test_bus(ice_dev);
 	pr_err("%s: ICE reset start time: %llu ICE reset done time: %llu\n",
-			ice_dev->ice_instance_type,
-		(unsigned long long)ice_dev->ice_reset_start_time,
-		(unsigned long long)ice_dev->ice_reset_complete_time);
+		ice_dev->ice_instance_type,
+		(unsigned long long)ice_dev->ice_reset_start_time.tv64,
+		(unsigned long long)ice_dev->ice_reset_complete_time.tv64);
 
 	if (ktime_to_us(ktime_sub(ice_dev->ice_reset_complete_time,
 				  ice_dev->ice_reset_start_time)) > 0)

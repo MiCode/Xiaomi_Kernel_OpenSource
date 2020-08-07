@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,12 +171,6 @@ struct sdhci_msm_bus_vote {
 	struct device_attribute max_bus_bw;
 };
 
-struct sdhci_msm_ice_data {
-	struct qcom_ice_variant_ops *vops;
-	struct platform_device *pdev;
-	int state;
-};
-
 struct sdhci_msm_regs_restore {
 	bool is_supported;
 	bool is_valid;
@@ -221,8 +215,6 @@ struct sdhci_msm_debug_data {
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
 	void __iomem *core_mem;    /* MSM SDCC mapped address */
-	void __iomem *cryptoio;    /* ICE HCI mapped address */
-	bool ice_hci_support;
 	int	pwr_irq;	/* power irq */
 	struct clk	 *clk;     /* main SD/MMC bus clock */
 	struct clk	 *pclk;    /* SDHC peripheral bus clock */
@@ -256,7 +248,6 @@ struct sdhci_msm_host {
 	bool enhanced_strobe;
 	bool rclk_delay_fix;
 	u32 caps_0;
-	struct sdhci_msm_ice_data ice;
 	u32 ice_clk_rate;
 	struct sdhci_msm_pm_qos_group *pm_qos;
 	int pm_qos_prev_cpu;
