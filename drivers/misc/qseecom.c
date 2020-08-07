@@ -9546,7 +9546,7 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 		pr_err("unable to acquire memory-region of heap %d\n", heapid);
 		return -EINVAL;
 	}
-	ret = of_reserved_mem_device_init_by_idx(ion_dev, node, 0);
+	ret = of_reserved_mem_device_init_by_idx(ion_dev, ion_dev->of_node, 0);
 	of_node_put(node);
 	if (ret) {
 		pr_err("Failed to initialize reserved mem, ret %d\n", ret);
