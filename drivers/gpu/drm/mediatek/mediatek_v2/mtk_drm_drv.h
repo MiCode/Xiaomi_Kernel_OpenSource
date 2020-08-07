@@ -27,9 +27,7 @@
 #define CONFIG_MTK_DISPLAY_CMDQ
 //#define MTK_FB_MMDVFS_SUPPORT
 #define MTK_FILL_MIPI_IMPEDANCE
-#if (defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
-	|| defined(CONFIG_MACH_MT6853)) &&\
-	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define MTK_DRM_DELAY_PRESENT_FENCE
 #endif
 
@@ -70,6 +68,7 @@ struct mtk_mmsys_driver_data {
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			struct cmdq_pkt *handle, void *data);
 	const struct mtk_fake_eng_data *fake_eng_data;
+	bool has_smi_limitation;
 };
 
 struct mtk_drm_lyeblob_ids {

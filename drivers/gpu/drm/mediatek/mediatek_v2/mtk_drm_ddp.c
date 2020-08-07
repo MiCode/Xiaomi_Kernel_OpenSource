@@ -3784,7 +3784,7 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 		break;
 
 	default:
-		pr_info("%s mtk drm not support mmsys id %d\n",
+		DDPINFO("%s mtk drm not support mmsys id %d\n",
 			__func__, priv->data->mmsys_id);
 		break;
 	}
@@ -3898,57 +3898,62 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		break;
 
 	default:
-		pr_info("%s mtk drm not support mmsys id %d\n",
+		DDPINFO("%s mtk drm not support mmsys id %d\n",
 			__func__, priv->data->mmsys_id);
 		break;
 	}
 
 }
 
-void mtk_ddp_remove_comp_from_path(void __iomem *config_regs,
-				   const struct mtk_mmsys_reg_data *reg_data,
+void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 				   enum mtk_ddp_comp_id cur,
 				   enum mtk_ddp_comp_id next)
 {
 	unsigned int addr, reg;
 	int value;
+	void __iomem *config_regs = mtk_crtc->config_regs;
+	const struct mtk_mmsys_reg_data *reg_data  = mtk_crtc->mmsys_reg_data;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 
-#if defined(CONFIG_MACH_MT6885)
-	value = mtk_ddp_mout_en_MT6885(reg_data, cur, next, &addr);
-	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
-		writel_relaxed(reg, config_regs + addr);
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6885:
+		value = mtk_ddp_mout_en_MT6885(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+		break;
+	case MMSYS_MT6873:
+		value = mtk_ddp_mout_en_MT6873(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+
+		value = mtk_ddp_ovl_bg_blend_en_MT6873(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+		break;
+	case MMSYS_MT6853:
+		value = mtk_ddp_mout_en_MT6853(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+
+		value = mtk_ddp_ovl_bg_blend_en_MT6853(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+		break;
+	default:
+		DDPINFO("%s mtk drm not support mmsys id %d\n",
+			__func__, priv->data->mmsys_id);
+		break;
 	}
-#endif
-
-#if defined(CONFIG_MACH_MT6873)
-	value = mtk_ddp_mout_en_MT6873(reg_data, cur, next, &addr);
-	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
-		writel_relaxed(reg, config_regs + addr);
-	}
-
-	value = mtk_ddp_ovl_bg_blend_en_MT6873(reg_data, cur, next, &addr);
-	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
-		writel_relaxed(reg, config_regs + addr);
-	}
-#endif
-
-#if defined(CONFIG_MACH_MT6853)
-	value = mtk_ddp_mout_en_MT6853(reg_data, cur, next, &addr);
-	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~value;
-		writel_relaxed(reg, config_regs + addr);
-	}
-
-	value = mtk_ddp_ovl_bg_blend_en_MT6853(reg_data, cur, next, &addr);
-	if (value >= 0) {
-		reg = readl_relaxed(config_regs + addr) & ~value;
-		writel_relaxed(reg, config_regs + addr);
-	}
-#endif
-
 }
 
 void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
@@ -3958,46 +3963,50 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 {
 	unsigned int addr;
 	int value;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 
-#if defined(CONFIG_MACH_MT6885)
-	value = mtk_ddp_mout_en_MT6885(mtk_crtc->mmsys_reg_data,
-				cur, next, &addr);
-	if (value >= 0)
-		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr,
-			       ~(unsigned int)value, value);
-#endif
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6885:
+		value = mtk_ddp_mout_en_MT6885(mtk_crtc->mmsys_reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       mtk_crtc->config_regs_pa + addr,
+				       ~(unsigned int)value, value);
+		break;
+	case MMSYS_MT6873:
+		value = mtk_ddp_mout_en_MT6873(mtk_crtc->mmsys_reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       mtk_crtc->config_regs_pa + addr,
+				       ~(unsigned int)value, value);
 
-#if defined(CONFIG_MACH_MT6873)
-	value = mtk_ddp_mout_en_MT6873(mtk_crtc->mmsys_reg_data,
-				cur, next, &addr);
-	if (value >= 0)
-		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr,
-			       ~(unsigned int)value, value);
+		value = mtk_ddp_ovl_bg_blend_en_MT6873(mtk_crtc->mmsys_reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       mtk_crtc->config_regs_pa + addr,
+				       ~(unsigned int)value, value);
+		break;
+	case MMSYS_MT6853:
+		value = mtk_ddp_mout_en_MT6853(mtk_crtc->mmsys_reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       mtk_crtc->config_regs_pa + addr, ~value, value);
 
-	value = mtk_ddp_ovl_bg_blend_en_MT6873(mtk_crtc->mmsys_reg_data,
-				cur, next, &addr);
-	if (value >= 0)
-		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr,
-			       ~(unsigned int)value, value);
-#endif
-
-#if defined(CONFIG_MACH_MT6853)
-	value = mtk_ddp_mout_en_MT6853(mtk_crtc->mmsys_reg_data,
-				cur, next, &addr);
-	if (value >= 0)
-		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr, ~value, value);
-
-	value = mtk_ddp_ovl_bg_blend_en_MT6853(mtk_crtc->mmsys_reg_data,
-				cur, next, &addr);
-	if (value >= 0)
-		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			       mtk_crtc->config_regs_pa + addr, ~value, value);
-#endif
-
+		value = mtk_ddp_ovl_bg_blend_en_MT6853(mtk_crtc->mmsys_reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       mtk_crtc->config_regs_pa + addr, ~value, value);
+		break;
+	default:
+		DDPINFO("%s mtk drm not support mmsys id %d\n",
+			__func__, priv->data->mmsys_id);
+		break;
+	}
 }
 
 void mtk_ddp_insert_dsc_prim_MT6853(struct mtk_drm_crtc *mtk_crtc,

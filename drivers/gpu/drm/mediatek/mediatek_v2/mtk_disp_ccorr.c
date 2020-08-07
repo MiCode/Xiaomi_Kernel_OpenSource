@@ -94,7 +94,7 @@ enum CCORR_IOCTL_CMD {
 };
 
 struct mtk_disp_ccorr_data {
-	bool support_shadow;
+	bool need_bypass_shadow;
 };
 
 struct mtk_disp_ccorr {
@@ -221,13 +221,10 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		ccorr->offset[2] = g_disp_ccorr_coef[id]->offset[2];
 	}
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
 	// For 6885 need to left shift one bit
 	for (i = 0; i < 3; i++)
 		for (j = 0; j < 3; j++)
 			ccorr->coef[i][j] = ccorr->coef[i][j]<<1;
-#endif
 
 	if (handle == NULL) {
 		/* use CPU to write */
@@ -600,8 +597,6 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		}
 	}
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
 	// offset part
 	if ((matrix[12] != 0) || (matrix[13] != 0) || (matrix[14] != 0))
 		need_offset = true;
@@ -611,7 +606,6 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << 14;
 	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << 14;
 	g_disp_ccorr_coef[id]->offset[2] = (matrix[14] << 1) << 14;
-#endif
 
 	for (i = 0; i < 3; i += 1) {
 		DDPDBG("g_ccorr_color_matrix[%d][0-2] = {%d, %d, %d}\n",
@@ -739,8 +733,6 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 
 	color_transform = data;
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
 	// Support matrix:
 	// AOSP is 4x3 matrix. Offset is located at 4th row (not zero)
 
@@ -761,16 +753,6 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	}
 	if (support_matrix)
 		ret = 0; //Zero: support color matrix.
-#else
-	// 3x3 support
-	for (i = 0 ; i < 3; i++) {
-		if (color_transform->matrix[3][i] != 0 ||
-			color_transform->matrix[i][3] != 0) {
-			DDPINFO("unsupported matrix");
-			ret = -EFAULT;
-		}
-	}
-#endif
 
 	return ret;
 }
@@ -874,32 +856,17 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 
 static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
 {
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
-#endif
 
 	DDPINFO("%s\n", __func__);
 
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_ccorr_is_clock_on[index_of_ccorr(comp->id)], 1);
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (ccorr->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0,
-			DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
+	/* Bypass shadow register and read shadow register */
+	if (ccorr->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, CCORR_BYPASS_SHADOW,
 			DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, CCORR_BYPASS_SHADOW,
-		DISP_REG_CCORR_SHADOW, CCORR_BYPASS_SHADOW);
-#endif
-#endif
 }
 
 static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
@@ -1004,6 +971,8 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->data = of_device_get_match_data(dev);
+
 	platform_set_drvdata(pdev, priv);
 
 	ret = devm_request_irq(dev, irq, mtk_disp_ccorr_irq_handler,
@@ -1035,19 +1004,19 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 }
 
 static const struct mtk_disp_ccorr_data mt6779_ccorr_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_ccorr_data mt6885_ccorr_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_ccorr_data mt6873_ccorr_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 };
 
 static const struct mtk_disp_ccorr_data mt6853_ccorr_driver_data = {
-	.support_shadow = false,
+	.need_bypass_shadow = true,
 };
 
 

@@ -403,10 +403,11 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 
 		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
 		mtk_crtc_stop_trig_loop(crtc);
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-		if (!mtk_crtc_is_frame_trigger_mode(crtc))
+
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_stop_sodi_loop(crtc);
-#endif
+
 		if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 			mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
 			mtk_disp_mutex_src_set(mtk_crtc, false);
@@ -443,10 +444,11 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 			mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
 			mtk_disp_mutex_src_set(mtk_crtc, true);
 		}
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-		if (!mtk_crtc_is_frame_trigger_mode(crtc))
+
+		if (mtk_crtc_with_sodi_loop(crtc) &&
+			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
-#endif
+
 		mtk_crtc_start_trig_loop(crtc);
 		cmdq_mbox_disable(client->chan); /* GCE clk refcnt - 1 */
 
@@ -1443,18 +1445,21 @@ static const struct mtk_mmsys_driver_data mt2701_mmsys_driver_data = {
 	.ext_path_data = &mt2701_mtk_ext_path_data,
 	.mmsys_id = MMSYS_MT2701,
 	.shadow_register = true,
+	.has_smi_limitation = false,
 };
 
 static const struct mtk_mmsys_driver_data mt2712_mmsys_driver_data = {
 	.main_path_data = &mt2712_mtk_main_path_data,
 	.ext_path_data = &mt2712_mtk_ext_path_data,
 	.mmsys_id = MMSYS_MT2712,
+	.has_smi_limitation = false,
 };
 
 static const struct mtk_mmsys_driver_data mt8173_mmsys_driver_data = {
 	.main_path_data = &mt8173_mtk_main_path_data,
 	.ext_path_data = &mt8173_mtk_ext_path_data,
 	.mmsys_id = MMSYS_MT8173,
+	.has_smi_limitation = false,
 };
 
 static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
@@ -1465,6 +1470,7 @@ static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
 	.mode_tb = mt6779_mode_tb,
 	.sodi_config = mt6779_mtk_sodi_config,
 	.fake_eng_data = &mt6779_fake_eng_data,
+	.has_smi_limitation = false,
 };
 
 static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
@@ -1475,6 +1481,7 @@ static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6885,
 	.mode_tb = mt6885_mode_tb,
 	.sodi_config = mt6885_mtk_sodi_config,
+	.has_smi_limitation = false,
 };
 
 static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {
@@ -1485,6 +1492,7 @@ static const struct mtk_mmsys_driver_data mt6873_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6873,
 	.mode_tb = mt6873_mode_tb,
 	.sodi_config = mt6873_mtk_sodi_config,
+	.has_smi_limitation = false,
 };
 
 static const struct mtk_mmsys_driver_data mt6853_mmsys_driver_data = {
@@ -1495,6 +1503,7 @@ static const struct mtk_mmsys_driver_data mt6853_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6853,
 	.mode_tb = mt6853_mode_tb,
 	.sodi_config = mt6853_mtk_sodi_config,
+	.has_smi_limitation = true,
 };
 
 

@@ -102,14 +102,9 @@
 #define DISP_POSTMASK_GRAD_VAL_0 0xA00
 #define DISP_POSTMASK_GRAD_VAL(n) (DISP_POSTMASK_GRAD_VAL_0 + (0x4 * (n)))
 
-struct mtk_disp_postmask_data {
-	bool support_shadow;
-};
-
 struct mtk_disp_postmask {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
-	const struct mtk_disp_postmask_data *data;
 	unsigned int underflow_cnt;
 	unsigned int abnormal_cnt;
 };
@@ -546,31 +541,11 @@ static int mtk_disp_postmask_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct mtk_disp_postmask_data mt6779_postmask_driver_data = {
-	.support_shadow = false,
-};
-
-static const struct mtk_disp_postmask_data mt6885_postmask_driver_data = {
-	.support_shadow = false,
-};
-
-static const struct mtk_disp_postmask_data mt6873_postmask_driver_data = {
-	.support_shadow = false,
-};
-
-static const struct mtk_disp_postmask_data mt6853_postmask_driver_data = {
-	.support_shadow = false,
-};
-
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6779-disp-postmask",
-	  .data = &mt6779_postmask_driver_data},
-	{ .compatible = "mediatek,mt6885-disp-postmask",
-	  .data = &mt6885_postmask_driver_data},
-	{ .compatible = "mediatek,mt6873-disp-postmask",
-	  .data = &mt6873_postmask_driver_data},
-	{ .compatible = "mediatek,mt6853-disp-postmask",
-	  .data = &mt6853_postmask_driver_data},
+	{ .compatible = "mediatek,mt6779-disp-postmask",},
+	{ .compatible = "mediatek,mt6885-disp-postmask",},
+	{ .compatible = "mediatek,mt6873-disp-postmask",},
+	{ .compatible = "mediatek,mt6853-disp-postmask",},
 	{},
 };
 

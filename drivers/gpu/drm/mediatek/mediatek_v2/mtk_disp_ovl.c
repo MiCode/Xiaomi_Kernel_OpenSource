@@ -222,9 +222,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_EL0_CLR(n) (0x390UL + 0x4 * (n))
 #define DISP_REG_OVL_ADDR_MT2701 0x0040
 #define DISP_REG_OVL_ADDR_MT6779 0x0f40
-#define DISP_REG_OVL_ADDR_MT6885 0x0f40
-#define DISP_REG_OVL_ADDR_MT6873 0x0f40
-#define DISP_REG_OVL_ADDR_MT6853 0x0f40
+#define DISP_REG_OVL_ADDR_BASE 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
 
@@ -385,7 +383,14 @@ struct mtk_disp_ovl_data {
 	unsigned int fmt_uyvy;
 	unsigned int fmt_yuyv;
 	const struct compress_info *compr_info;
-	bool support_shadow;
+	bool need_bypass_shadow;
+	/* golden setting */
+	unsigned int preultra_th_dc;
+	unsigned int fifo_size;
+	unsigned int issue_req_th_dl;
+	unsigned int issue_req_th_urg_dl;
+	unsigned int greq_num_dl;
+	unsigned int pre_ultra_low_th_dc;
 };
 
 #define MAX_LAYER_NUM 4
@@ -694,12 +699,10 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 		       value, mask);
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Enable feedback real BW consumed from OVL */
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_OVL_GDRDY_PRD,
 		0xFFFFFFFF, 0xFFFFFFFF);
-#endif
 
 	DDPDBG("%s-\n", __func__);
 }
@@ -2205,33 +2208,37 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 				       DISP_OVL_BGCLR_IN_SEL, 0);
 }
 
-void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
+void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg,
+				struct mtk_ddp_comp *comp, unsigned int *gs)
 {
 	bool is_dc = cfg->p_golden_setting_context->is_dc;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	const struct mtk_disp_ovl_data *data = ovl->data;
 
 	DDPDBG("%s,is_dc:%d\n", __func__, is_dc);
 
-#if defined(CONFIG_MACH_MT6885)
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
-	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0x15e;
+	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : data->preultra_th_dc;
 
 	/* OVL_RDMA_FIFO_CTRL */
 	gs[GS_OVL_RDMA_FIFO_THRD] = 0;
-	gs[GS_OVL_RDMA_FIFO_SIZE] = 384;
+	gs[GS_OVL_RDMA_FIFO_SIZE] = data->fifo_size;
 
 	/* OVL_RDMA_MEM_GMC_SETTING_2 */
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? 255 : 15;
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? 127 : 15;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? data->issue_req_th_dl : 15;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? data->issue_req_th_urg_dl
+							: 15;
 	gs[GS_OVL_RDMA_REQ_TH_PRE_ULTRA] = 0;
 	gs[GS_OVL_RDMA_REQ_TH_ULTRA] = 1;
 	gs[GS_OVL_RDMA_FORCE_REQ_TH] = 0;
 
 	/* OVL_RDMA_GREQ_NUM */
-	gs[GS_OVL_RDMA_GREQ_NUM] = (!is_dc) ? 0xF1FF7777 : 0xF1FF0000;
+	gs[GS_OVL_RDMA_GREQ_NUM] = (!is_dc) ? (0xF1FF0000 | data->greq_num_dl)
+						: 0xF1FF0000;
 
 	/* OVL_RDMA_GREQURG_NUM */
-	gs[GS_OVL_RDMA_GREQ_URG_NUM] = (!is_dc) ? 0x7777 : 0x0;
+	gs[GS_OVL_RDMA_GREQ_URG_NUM] = (!is_dc) ? data->greq_num_dl : 0x0;
 
 	/* OVL_RDMA_ULTRA_SRC */
 	gs[GS_OVL_RDMA_ULTRA_SRC] = (!is_dc) ? 0x8040 : 0xA040;
@@ -2249,46 +2256,6 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 	/* OVL_EN */
 	gs[GS_OVL_BLOCK_EXT_ULTRA] = (!is_dc) ? 0 : 1;
 	gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] = (!is_dc) ? 0 : 1;
-#endif
-
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* OVL_RDMA_MEM_GMC_SETTING_1 */
-	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
-	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0xe0;
-
-	/* OVL_RDMA_FIFO_CTRL */
-	gs[GS_OVL_RDMA_FIFO_THRD] = 0;
-	gs[GS_OVL_RDMA_FIFO_SIZE] = 288;
-
-	/* OVL_RDMA_MEM_GMC_SETTING_2 */
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? 191 : 15;
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? 95 : 15;
-	gs[GS_OVL_RDMA_REQ_TH_PRE_ULTRA] = 0;
-	gs[GS_OVL_RDMA_REQ_TH_ULTRA] = 1;
-	gs[GS_OVL_RDMA_FORCE_REQ_TH] = 0;
-
-	/* OVL_RDMA_GREQ_NUM */
-	gs[GS_OVL_RDMA_GREQ_NUM] = (!is_dc) ? 0xF1FF5555 : 0xF1FF0000;
-
-	/* OVL_RDMA_GREQURG_NUM */
-	gs[GS_OVL_RDMA_GREQ_URG_NUM] = (!is_dc) ? 0x5555 : 0x0;
-
-	/* OVL_RDMA_ULTRA_SRC */
-	gs[GS_OVL_RDMA_ULTRA_SRC] = (!is_dc) ? 0x8040 : 0xA040;
-
-	/* OVL_RDMA_BUF_LOW_TH */
-	gs[GS_OVL_RDMA_ULTRA_LOW_TH] = 0;
-	gs[GS_OVL_RDMA_PRE_ULTRA_LOW_TH] = (!is_dc) ? 0 : 24;
-
-	/* OVL_RDMA_BUF_HIGH_TH */
-	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_TH] = (!is_dc) ?
-				0 : (gs[GS_OVL_RDMA_FIFO_SIZE] * 6 / 8);
-	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_DIS] = 1;
-
-	/* OVL_EN */
-	gs[GS_OVL_BLOCK_EXT_ULTRA] = (!is_dc) ? 0 : 1;
-	gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] = (!is_dc) ? 0 : 1;
-#endif
 }
 
 static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
@@ -2304,7 +2271,7 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 	layer_num = mtk_ovl_layer_num(comp);
 
 	/* calculate ovl golden setting */
-	mtk_ovl_cal_golden_setting(cfg, gs);
+	mtk_ovl_cal_golden_setting(cfg, comp, gs);
 
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	regval =
@@ -3007,14 +2974,8 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 		Lx_base += (DISP_REG_OVL_EL_CON(0) - DISP_REG_OVL_CON(0));
 
 		Lx_addr_base = baddr + layer * 0x4;
-#if defined(CONFIG_MACH_MT6885)
 		Lx_addr_base +=
-			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6885);
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-		Lx_addr_base +=
-			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6873);
-#endif
+			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_BASE);
 	} else {
 		Lx_base = baddr + layer * OVL_LAYER_OFFSET;
 		Lx_addr_base = baddr + layer * OVL_LAYER_OFFSET;
@@ -3024,12 +2985,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	offset = readl(DISP_REG_OVL_L0_OFFSET + Lx_base);
 	src_size = readl(DISP_REG_OVL_L0_SRC_SIZE + Lx_base);
 	pitch = readl(DISP_REG_OVL_L0_PITCH + Lx_base);
-#if defined(CONFIG_MACH_MT6885)
-	addr = readl(DISP_REG_OVL_ADDR_MT6885 + Lx_addr_base);
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	addr = readl(DISP_REG_OVL_ADDR_MT6873 + Lx_addr_base);
-#endif
+	addr = readl(DISP_REG_OVL_ADDR_BASE + Lx_addr_base);
 	clip = readl(DISP_REG_OVL_CLIP(0) + Lx_base);
 
 	/* TODO
@@ -3126,9 +3082,7 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_ovl *priv = dev_get_drvdata(comp->dev);
 	int ret;
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
-#endif
 	struct mtk_drm_private *dev_priv = NULL;
 
 	mtk_ddp_comp_clk_prepare(comp);
@@ -3140,23 +3094,10 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 				mtk_dump_comp_str(comp));
 	}
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (ovl->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0, DISP_REG_OVL_EN,
-			DISP_OVL_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
+	/* Bypass shadow register and read shadow register */
+	if (ovl->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
 			DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
-		DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
-#endif
-#endif
 
 	dev_priv = comp->mtk_crtc->base.dev->dev_private;
 	if (mtk_drm_helper_get_opt(dev_priv->helper_opt, MTK_DRM_OPT_LAYER_REC))
@@ -3428,7 +3369,7 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.fmt_rgb565_is_0 = false,
 	.fmt_uyvy = 9U << 12,
 	.fmt_yuyv = 8U << 12,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct compress_info compr_info_mt6779  = {
@@ -3442,7 +3383,7 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6779,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct compress_info compr_info_mt6885  = {
@@ -3451,12 +3392,17 @@ static const struct compress_info compr_info_mt6885  = {
 };
 
 static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
-	.addr = DISP_REG_OVL_ADDR_MT6885,
+	.addr = DISP_REG_OVL_ADDR_BASE,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6885,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x15e,
+	.fifo_size = 384,
+	.issue_req_th_dl = 255,
+	.issue_req_th_urg_dl = 127,
+	.greq_num_dl = 0x7777,
 };
 
 static const struct compress_info compr_info_mt6873  = {
@@ -3465,12 +3411,17 @@ static const struct compress_info compr_info_mt6873  = {
 };
 
 static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
-	.addr = DISP_REG_OVL_ADDR_MT6873,
+	.addr = DISP_REG_OVL_ADDR_BASE,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6873,
-	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.preultra_th_dc = 0xe0,
+	.fifo_size = 288,
+	.issue_req_th_dl = 191,
+	.issue_req_th_urg_dl = 95,
+	.greq_num_dl = 0x5555,
 };
 
 static const struct compress_info compr_info_mt6853  = {
@@ -3479,12 +3430,17 @@ static const struct compress_info compr_info_mt6853  = {
 };
 
 static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
-	.addr = DISP_REG_OVL_ADDR_MT6853,
+	.addr = DISP_REG_OVL_ADDR_BASE,
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6853,
-	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.preultra_th_dc = 0xe0,
+	.fifo_size = 288,
+	.issue_req_th_dl = 191,
+	.issue_req_th_urg_dl = 95,
+	.greq_num_dl = 0x5555,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
@@ -3492,7 +3448,7 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {

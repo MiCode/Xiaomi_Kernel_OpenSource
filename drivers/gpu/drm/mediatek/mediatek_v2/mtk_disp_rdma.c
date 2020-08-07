@@ -87,14 +87,9 @@ int disp_met_set(void *data, u64 val);
 #define RDMA_THRESHOLD_FOR_DVFS_FLD_HIGH REG_FLD_MSB_LSB(29, 16)
 #define DISP_REG_RDMA_SRAM_SEL 0x00b0
 #define DISP_REG_RDMA_STALL_CG_CON 0x00b4
-#ifdef CONFIG_MACH_MT6885
-#define DISP_REG_RDMA_SHADOW_UPDATE 0x00b8
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-#define DISP_REG_RDMA_SHADOW_UPDATE 0x00bc
+#define DISP_REG_RDMA_SHADOW_UPDATE(module) ((module)->data->shadow_update_reg)
 #define RDMA_BYPASS_SHADOW BIT(1)
 #define RDMA_READ_WORK_REG BIT(2)
-#endif
 #define DISP_RDMA_SRAM_CASCADE 0x00c8
 #define RG_DISP_RDMA_FIFO_SIZE REG_FLD_MSB_LSB(13, 0)
 #define RG_DISP_RDMA_RSZ_FIFO_SIZE REG_FLD_MSB_LSB(29, 16)
@@ -208,10 +203,19 @@ enum GS_RDMA_FLD {
 };
 
 struct mtk_disp_rdma_data {
+	/* golden setting */
 	unsigned int fifo_size;
+	unsigned int pre_ultra_low_us;
+	unsigned int pre_ultra_high_us;
+	unsigned int ultra_low_us;
+	unsigned int ultra_high_us;
+	unsigned int urgent_low_us;
+	unsigned int urgent_high_us;
+
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
-	bool support_shadow;
+	unsigned int shadow_update_reg;
+	bool need_bypass_shadow;
 };
 
 struct mtk_rdma_backup_info {
@@ -431,16 +435,13 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int mmsys_clk = 208;
 	unsigned int FP = 1000;
 	unsigned int fifo_size = 2240;
-#if defined(CONFIG_MACH_MT6885)
-	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
-	unsigned int ultra_low_us = 230, ultra_high_us = 245;
-	unsigned int urgent_low_us = 113, urgent_high_us = 117;
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
-	unsigned int pre_ultra_low_us = 250, pre_ultra_high_us = 260;
-	unsigned int ultra_low_us = 230, ultra_high_us = 250;
-	unsigned int urgent_low_us = 110, urgent_high_us = 120;
-#endif
+	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+	unsigned int pre_ultra_low_us = rdma->data->pre_ultra_low_us;
+	unsigned int pre_ultra_high_us = rdma->data->pre_ultra_high_us;
+	unsigned int ultra_low_us = rdma->data->ultra_low_us;
+	unsigned int ultra_high_us = rdma->data->ultra_high_us;
+	unsigned int urgent_low_us = rdma->data->urgent_low_us;
+	unsigned int urgent_high_us = rdma->data->urgent_high_us;
 
 	/* input variable */
 	struct golden_setting_context *gsc = cfg->p_golden_setting_context;
@@ -940,6 +941,7 @@ void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
+	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	if (mtk_ddp_comp_helper_get_opt(comp,
@@ -1009,13 +1011,9 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_SRAM_SEL + baddr));
 		DDPDUMP("(0x0b4)DISP_REG_RDMA_STALL_CG_CON=0x%x\n",
 			readl(DISP_REG_RDMA_STALL_CG_CON + baddr));
-#if defined(CONFIG_MACH_MT6885)
-		DDPDUMP("(0x0b8)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
-			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
-#else
-		DDPDUMP("(0x0bc)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
-			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
-#endif
+		DDPDUMP("(0x%03x)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
+			DISP_REG_RDMA_SHADOW_UPDATE(rdma),
+			readl(DISP_REG_RDMA_SHADOW_UPDATE(rdma) + baddr));
 		DDPDUMP("(0x0c8)DISP_RDMA_SRAM_CASCADE=0x%x\n",
 			readl(DISP_RDMA_SRAM_CASCADE + baddr));
 		DDPDUMP("(0x0d0)DISP_REG_RDMA_DVFS_SETTING_PRE=0x%x\n",
@@ -1105,29 +1103,14 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_rdma_prepare(struct mtk_ddp_comp *comp)
 {
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
-#endif
 
 	mtk_ddp_comp_clk_prepare(comp);
 
-#if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
-	if (rdma->data->support_shadow) {
-		/* Enable shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, 0x0,
-			DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
-	} else {
-		/* Bypass shadow register and read shadow register */
-		mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
-			DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
-	}
-#else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
-	mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
-		DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
-#endif
-#endif
+	if (rdma->data->need_bypass_shadow)
+		mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
+			DISP_REG_RDMA_SHADOW_UPDATE(rdma), RDMA_BYPASS_SHADOW);
 }
 
 static void mtk_rdma_unprepare(struct mtk_ddp_comp *comp)
@@ -1360,36 +1343,57 @@ static int mtk_disp_rdma_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_rdma_data mt2701_rdma_driver_data = {
 	.fifo_size = SZ_4K,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt6779_rdma_driver_data = {
 	.fifo_size = SZ_8K + SZ_16K,
 	.sodi_config = mt6779_mtk_sodi_config,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
 	.fifo_size = SZ_8K,
-	.support_shadow = false,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.pre_ultra_low_us = 245,
+	.pre_ultra_high_us = 255,
+	.ultra_low_us = 230,
+	.ultra_high_us = 245,
+	.urgent_low_us = 113,
+	.urgent_high_us = 117,
 	.sodi_config = mt6885_mtk_sodi_config,
-	.support_shadow = false,
+	.shadow_update_reg = 0x00b8,
+	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.pre_ultra_low_us = 250,
+	.pre_ultra_high_us = 260,
+	.ultra_low_us = 230,
+	.ultra_high_us = 250,
+	.urgent_low_us = 110,
+	.urgent_high_us = 120,
 	.sodi_config = mt6873_mtk_sodi_config,
-	.support_shadow = false,
+	.shadow_update_reg = 0x00bc,
+	.need_bypass_shadow = true,
 };
 
 static const struct mtk_disp_rdma_data mt6853_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.pre_ultra_low_us = 250,
+	.pre_ultra_high_us = 260,
+	.ultra_low_us = 230,
+	.ultra_high_us = 250,
+	.urgent_low_us = 110,
+	.urgent_high_us = 120,
 	.sodi_config = mt6853_mtk_sodi_config,
-	.support_shadow = false,
+	.shadow_update_reg = 0x00bc,
+	.need_bypass_shadow = true,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {

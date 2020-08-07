@@ -48,10 +48,6 @@
 #define IF_ONE
 #endif
 
-#ifndef CONFIG_MACH_MT6873
-#define CONFIG_MACH_MT6873
-#endif
-
 /* TODO: BW report module should not hardcode */
 enum DISP_PMQOS_SLOT {
 	DISP_PMQOS_OVL0_BW = 0,
@@ -145,12 +141,10 @@ enum DISP_PMQOS_SLOT {
 	(_MTK_CRTC_COLOR_FMT_bpp_SHIFT + _MTK_CRTC_COLOR_FMT_bpp_WIDTH)
 #define _MTK_CRTC_COLOR_FMT_RGB_WIDTH 1
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 #define GCE_BASE_ADDR 0x10228000
 #define GCE_GCTL_VALUE 0x48
 #define GCE_DEBUG_START_ADDR 0x1104
 #define GCE_DDR_EN BIT(16)
-#endif
 
 #define _MASK_SHIFT(val, width, shift)                                         \
 	(((val) >> (shift)) & ((1 << (width)) - 1))
@@ -411,9 +405,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_VDO_EOF,
 	EVENT_STREAM_EOF,
 	EVENT_STREAM_DIRTY,
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	EVENT_SYNC_TOKEN_SODI,
-#endif
 	EVENT_TE,
 	EVENT_ESD_EOF,
 	EVENT_RDMA0_EOF,
@@ -522,9 +514,7 @@ struct mtk_drm_crtc {
 	struct drm_pending_vblank_event *event;
 	struct mtk_crtc_gce_obj gce_obj;
 	struct cmdq_pkt *trig_loop_cmdq_handle;
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	struct cmdq_pkt *sodi_loop_cmdq_handle;
-#endif
 	struct mtk_drm_plane *planes;
 	unsigned int layer_nr;
 	bool pending_planes;
@@ -709,11 +699,9 @@ bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc);
 void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc);
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc);
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc);
-#endif
 
 void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en);
 int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
