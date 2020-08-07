@@ -396,6 +396,18 @@ struct sdhci_msm_host {
 	struct sdhci_msm_regs_restore regs_restore;
 };
 
+#define	ANDROID_BOOT_DEV_MAX	30
+static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+
+#ifndef MODULE
+static int __init get_android_boot_dev(char *str)
+{
+	strlcpy(android_boot_dev, str, ANDROID_BOOT_DEV_MAX);
+	return 1;
+}
+__setup("androidboot.bootdevice=", get_android_boot_dev);
+#endif
+
 static struct sdhci_msm_host *sdhci_slot[2];
 
 static void sdhci_msm_bus_voting(struct sdhci_host *host, bool enable);
@@ -3103,6 +3115,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "get slot index failed %d\n", ret);
 		else if (ret <= 2)
 			sdhci_slot[ret-1] = msm_host;
+
+		if (of_property_read_bool(dev->of_node, "non-removable") &&
+				strlen(android_boot_dev) &&
+				strcmp(android_boot_dev, dev_name(dev))) {
+			ret = -ENODEV;
+			goto pltfm_free;
+		}
 	}
 
 	/*
