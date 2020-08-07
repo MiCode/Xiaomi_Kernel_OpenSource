@@ -633,7 +633,7 @@ void mdw_sched_set_thd_group(void)
 	memset(buf, 0, sizeof(buf));
 	if (snprintf(buf, sizeof(buf)-1, "%d", ms_mgr.task->pid) < 0)
 		goto fail_set_name;
-	vfs_write(fd, (__force const char __user *)buf,
+	kernel_write(fd, (__force const char __user *)buf,
 		sizeof(buf), &fd->f_pos);
 	mdw_drv_debug("setup worker(%d/%s) to group\n",
 		ms_mgr.task->pid, buf);
