@@ -1422,52 +1422,52 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		descr = "14-bit Bayer RGGB MTISP Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR8F:
-		descr = "8-bit Enhanced Bayer BGGR Packed";
+		descr = "8-bit Enhanced BGGR Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGBRG8F:
-		descr = "8-bit Enhanced Bayer GBRG Packed";
+		descr = "8-bit Enhanced GBRG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGRBG8F:
-		descr = "8-bit Enhanced Bayer GRBG Packed";
+		descr = "8-bit Enhanced GRBG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SRGGB8F:
-		descr = "8-bit Enhanced Bayer RGGB Packed";
+		descr = "8-bit Enhanced RGGB Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR10F:
-		descr = "10-bit Enhanced Bayer BGGR Packed";
+		descr = "10-bit Enhanced BGGR Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGBRG10F:
-		descr = "10-bit Enhanced Bayer GBRG Packed";
+		descr = "10-bit Enhanced GBRG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGRBG10F:
-		descr = "10-bit Enhanced Bayer GRBG Packed";
+		descr = "10-bit Enhanced GRBG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SRGGB10F:
-		descr = "10-bit Enhanced Bayer RGGB Packed";
+		descr = "10-bit Enhanced RGGB Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR12F:
-		descr = "12-bit Enhanced Bayer BGGR Packed";
+		descr = "12-bit Enhanced BGGR Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGBRG12F:
-		descr = "12-bit Enhanced Bayer GBRG Packed";
+		descr = "12-bit Enhanced GBRG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGRBG12F:
-		descr = "12-bit Enhanced Bayer GRBG Packed";
+		descr = "12-bit Enhanced GRBG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SRGGB12F:
-		descr = "12-bit Enhanced Bayer RGGB Packed";
+		descr = "12-bit Enhanced RGGB Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR14F:
-		descr = "14-bit Enhanced Bayer BGGR Packed";
+		descr = "14-bit Enhanced BGGR Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGBRG14F:
-		descr = "14-bit Enhanced Bayer GBRG Packed";
+		descr = "14-bit Enhanced GBRG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SGRBG14F:
-		descr = "14-bit Enhanced Bayer GRBG Packed";
+		descr = "14-bit Enhanced GRBG Packed";
 		break;
 	case V4L2_PIX_FMT_MTISP_SRGGB14F:
-		descr = "14-bit Enhanced Bayer RGGB Packed";
+		descr = "14-bit Enhanced RGGB Packed";
 		break;
 	case V4L2_SDR_FMT_CU8:		descr = "Complex U8"; break;
 	case V4L2_SDR_FMT_CU16LE:	descr = "Complex U16LE"; break;
