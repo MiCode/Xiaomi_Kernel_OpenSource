@@ -20,10 +20,19 @@
 
 		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			 <&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
-			 <&clock_gpucc GPU_CC_AHB_CLK>;
+			 <&clock_gpucc GPU_CC_AHB_CLK>,
+			 <&clock_gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>,
+			 <&clock_gpucc GPU_CC_CX_GMU_CLK>,
+			 <&clock_gpucc GPU_CC_HUB_CX_INT_CLK>,
+			 <&clock_gpucc GPU_CC_HUB_AON_CLK>;
+
 		clock-names = "gcc_gpu_memnoc_gfx",
 			      "gcc_gpu_snoc_dvm_gfx",
-			      "gpu_cc_ahb";
+			      "gpu_cc_ahb",
+			      "gpu_cc_hlos1_vote_gpu_smmu_clk",
+			      "gpu_cc_cx_gmu_clk",
+			      "gpu_cc_hub_cx_int_clk",
+			      "gpu_cc_hub_aon_clk";
 
 		interconnects = <&gem_noc MASTER_GPU_TCU &mc_virt SLAVE_EBI1>;
 
