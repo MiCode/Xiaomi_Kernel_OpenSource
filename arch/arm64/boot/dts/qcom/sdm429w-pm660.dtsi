@@ -131,7 +131,6 @@
 	/delete-property/ qcom,lra-allow-variable-play;
 	/delete-property/ qcom,lra-allow-variable-play-rate;
 	qcom,actuator-type = "erm";
-	qcom,ilim-ma = <400>;
 	qcom,play-rate-us = <10000>;
 
 	wf_0 {
