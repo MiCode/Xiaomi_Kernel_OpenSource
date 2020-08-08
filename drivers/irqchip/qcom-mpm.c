@@ -400,6 +400,7 @@ static int msm_mpm_gic_chip_alloc(struct irq_domain *domain,
 	parent_fwspec.param_count = 3;
 	parent_fwspec.param[0]    = 0;
 	parent_fwspec.param[1]    = parent_hwirq;
+	parent_fwspec.param[2]    = type;
 
 	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
 					    &parent_fwspec);
