@@ -3108,6 +3108,9 @@ static void gmu_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
+	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
+		goto done;
+
 	if (!atomic_read(&device->active_cnt)) {
 		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 			a6xx_power_off(adreno_dev);
@@ -3116,6 +3119,7 @@ static void gmu_idle_check(struct work_struct *work)
 			jiffies + device->pwrctrl.interval_timeout);
 	}
 
+done:
 	mutex_unlock(&device->mutex);
 }
 

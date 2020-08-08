@@ -849,12 +849,16 @@ static void rgmu_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
+	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
+		goto done;
+
 	if (!atomic_read(&device->active_cnt))
 		a6xx_power_off(adreno_dev);
 	else
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
 
+done:
 	mutex_unlock(&device->mutex);
 }
 
