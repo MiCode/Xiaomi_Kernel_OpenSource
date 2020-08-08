@@ -3048,6 +3048,8 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_SLUMBER);
 
+	adreno_suspend_context(device);
+
 	ret = a6xx_gmu_oob_set(device, oob_gpu);
 	if (ret) {
 		a6xx_gmu_oob_clear(device, oob_gpu);

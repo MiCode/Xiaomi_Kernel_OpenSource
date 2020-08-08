@@ -1912,4 +1912,15 @@ void adreno_clear_dcvs_counters(struct adreno_device *adreno_dev);
  * Set the gmu fault and take snapshot when we hit a gmu fault
  */
 void gmu_fault_snapshot(struct kgsl_device *device);
+
+/**
+ * adreno_suspend_context - Make sure device is idle
+ * @device: Pointer to the kgsl device
+ *
+ * This function processes the profiling results and checks if the
+ * device is idle so that it can be turned off safely
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int adreno_suspend_context(struct kgsl_device *device);
 #endif /*__ADRENO_H */

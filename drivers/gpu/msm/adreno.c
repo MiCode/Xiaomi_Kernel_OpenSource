@@ -2927,7 +2927,7 @@ static int adreno_drain(struct kgsl_device *device)
 }
 
 /* Caller must hold the device mutex. */
-static int adreno_suspend_context(struct kgsl_device *device)
+int adreno_suspend_context(struct kgsl_device *device)
 {
 	/* process any profiling results that are available */
 	adreno_profile_process_results(ADRENO_DEVICE(device));
