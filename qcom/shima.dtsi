@@ -333,6 +333,30 @@
 			reg = <0x0 0xd0000000 0x0 0xa600000>;
 		};
 
+		user_contig_mem: user_contig_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
+
 		secure_display_memory: secure_display_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
@@ -829,6 +853,112 @@
 		#freq-domain-cells = <2>;
 	};
 
+	qcom_tzlog: tz-log@0x146aa720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146aa720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
+	qcom_qseecom: qseecom@c1800000 {
+		compatible = "qcom,qseecom";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
+		qcom,no-clock-support;
+		qcom,fde-key-size;
+		qcom,appsbl-qseecom-support;
+		qcom,commonlib64-loaded-by-uefi;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	qcom_rng: qrng@10d3000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x10d3000 0x1000>;
+		qcom,no-qrng-config;
+		interconnect-names = "data_path";
+		interconnects = <&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_HWKM>;
+		clock-names = "km_clk_src";
+		clocks = <&rpmhcc RPMH_HWKM_CLK>;
+	};
+
+	qcom_cedev: qcedev@1de0000 {
+		compatible = "qcom,qcedev";
+		reg = <0x1de0000 0x20000>,
+			<0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bam-pipe-pair = <3>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+		qcom,bam-ee = <0>;
+		qcom,smmu-s1-enable;
+		qcom,no-clock-support;
+		interconnect-names = "data_path";
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x0526 0x0011>;
+		qcom,iommu-dma = "atomic";
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x532 0>,
+				 <&apps_smmu 0x538 0>,
+				 <&apps_smmu 0x539 0>,
+				 <&apps_smmu 0x53F 0>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x533 0>,
+				 <&apps_smmu 0x53C 0>,
+				 <&apps_smmu 0x53D 0>,
+				 <&apps_smmu 0x53E 0>;
+			qcom,iommu-vmid = <0x9>; /* VMID_CP_BITSTREAM */
+			qcom,secure-context-bank;
+		};
+	};
+
+	qcom_crypto: qcrypto@1de0000 {
+		compatible = "qcom,qcrypto";
+		reg = <0x1de0000 0x20000>,
+			 <0x1dc4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
+		qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
+		qcom,use-sw-ahash-algo;
+		qcom,use-sw-aead-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,smmu-s1-enable;
+		qcom,no-clock-support;
+		interconnect-names = "data_path";
+		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x0524 0x0011>;
+		qcom,iommu-dma = "atomic";
+	};
+
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+	};
+
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
 	ipcc_mproc: qcom,ipcc@408000 {
 		compatible = "qcom,ipcc";
 		reg = <0x408000 0x1000>;
@@ -1182,6 +1312,16 @@
 		qcom,client-id = <0x00000001>;
 	};
 
+	qcom_hwkm: hwkm@10c0000 {
+		compatible = "qcom,hwkm";
+		reg = <0x10c0000 0x9000>, <0x1d90000 0x9000>;
+		reg-names = "km_master", "ice_slave";
+		qcom,enable-hwkm-clk;
+		clock-names = "km_clk_src";
+		clocks = <&rpmhcc RPMH_HWKM_CLK>;
+		qcom,op-freq-hz = <75000000>;
+	};
+
 	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d87000 0xe10>;
 		reg-names = "phy_mem";
@@ -1201,8 +1341,9 @@
 
 	ufshc_mem: ufshc@1d84000 {
 		compatible = "qcom,ufshc";
-		reg = <0x1d84000 0x3000>;
-		reg-names = "ufs_mem";
+		reg = <0x1d84000 0x3000>,
+		      <0x1d88000 0x8000>;
+		reg-names = "ufs_mem", "ufs_ice";
 		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";

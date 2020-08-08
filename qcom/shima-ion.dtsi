@@ -21,5 +21,23 @@
 			memory-region = <&secure_display_memory>;
 			qcom,ion-heap-type = "HYP_CMA";
 		};
+
+		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
+			reg = <ION_QSECOM_TA_HEAP_ID>;
+			memory-region = <&qseecom_ta_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@26 { /* USER CONTIG HEAP */
+			reg = <ION_USER_CONTIG_HEAP_ID>;
+			memory-region = <&user_contig_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@27 { /* QSEECOM HEAP */
+			reg = <ION_QSECOM_HEAP_ID>;
+			memory-region = <&qseecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
 	};
 };
