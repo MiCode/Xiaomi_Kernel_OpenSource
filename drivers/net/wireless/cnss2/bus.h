@@ -37,6 +37,7 @@ int cnss_bus_qmi_send_put(struct cnss_plat_data *plat_priv);
 void cnss_bus_fw_boot_timeout_hdlr(struct timer_list *t);
 void cnss_bus_collect_dump_info(struct cnss_plat_data *plat_priv,
 				bool in_panic);
+void cnss_bus_device_crashed(struct cnss_plat_data *plat_priv);
 int cnss_bus_call_driver_probe(struct cnss_plat_data *plat_priv);
 int cnss_bus_call_driver_remove(struct cnss_plat_data *plat_priv);
 int cnss_bus_dev_powerup(struct cnss_plat_data *plat_priv);
