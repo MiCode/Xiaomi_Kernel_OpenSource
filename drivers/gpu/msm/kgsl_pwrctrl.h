@@ -228,4 +228,12 @@ int kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
  * off state if the active_cnt is 0 and the hardware is idle.
  */
 void kgsl_idle_check(struct work_struct *work);
+
+/**
+ * kgsl_pwrctrl_irq - Enable or disable gpu interrupts
+ * @device: Handle to the kgsl device
+ * @state: Variable to decide whether interrupts need to be enabled or disabled
+ *
+ */
+void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
 #endif /* __KGSL_PWRCTRL_H */

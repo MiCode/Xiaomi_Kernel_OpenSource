@@ -2821,25 +2821,21 @@ error:
 void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 
 	adreno_irqctrl(adreno_dev, 1);
-	enable_irq(pwr->interrupt_num);
-
-	trace_kgsl_irq(device, 1);
 }
 
 void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
-	disable_irq(pwr->interrupt_num);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 	if (a6xx_gmu_gx_is_on(device))
 		adreno_irqctrl(adreno_dev, 0);
 
-	trace_kgsl_irq(device, 0);
 }
 
 static int a6xx_gpu_boot(struct adreno_device *adreno_dev)

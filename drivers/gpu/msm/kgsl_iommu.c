@@ -649,7 +649,12 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		 * The device mutex must be held to change power state
 		 */
 		mutex_lock(&device->mutex);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
+
+		if (gmu_core_isenabled(device))
+			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+		else
+			kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
+
 		mutex_unlock(&device->mutex);
 	}
 
