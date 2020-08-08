@@ -33,6 +33,10 @@
 #include <soc/qcom/boot_stats.h>
 #endif
 #include "dwmac-qcom-ipa-offload.h"
+#include <linux/udp.h>
+#include <linux/if_ether.h>
+#include <linux/if_arp.h>
+#include <linux/icmp.h>
 
 struct stmmac_resources {
 	void __iomem *addr;
@@ -149,6 +153,7 @@ struct stmmac_priv {
 	void __iomem *ptpaddr;
 	u32 mss;
 	bool boot_kpi;
+	int current_loopback;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 	struct dentry *dbgfs_rings_status;
@@ -198,5 +203,7 @@ int stmmac_dvr_probe(struct device *device,
 void stmmac_disable_eee_mode(struct stmmac_priv *priv);
 bool stmmac_eee_init(struct stmmac_priv *priv);
 bool qcom_ethqos_ipa_enabled(void);
-
+u16 icmp_fast_csum(u16 old_csum);
+void swap_ip_port(struct sk_buff *skb, unsigned int eth_type);
+unsigned int dwmac_qcom_get_eth_type(unsigned char *buf);
 #endif /* __STMMAC_H__ */
