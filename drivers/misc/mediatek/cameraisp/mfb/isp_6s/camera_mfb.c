@@ -18,6 +18,8 @@
 #include <linux/mm.h>
 #include <linux/seq_file.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
+#include <linux/dma-buf.h>
 
 #include "camera_mfb.h"
 #include "engine_request.h"
@@ -26,23 +28,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#ifdef CONFIG_MTK_IOMMU_V2
-#include <mach/mt_iommu.h>
-#include "mach/pseudo_m4u.h"
-#else /* CONFIG_MTK_IOMMU_V2 */
-#ifdef CONFIG_MTK_M4U
-#include <m4u.h>
-#endif /* CONFIG_MTK_IOMMU_V2 */
-#endif
-
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 //YWtodo #include <cmdq-util.h>
 #endif
-
-#ifdef CONFIG_MTK_SMI_EXT
-#include <smi_public.h>
-#endif
+#include <soc/mediatek/smi.h>
 
 #define TODO
 #ifndef TODO
@@ -82,8 +72,8 @@
 #define CHECK_SERVICE_IF_0	0
 #define CHECK_SERVICE_IF_1	1
 
-/*#define CMDQ_COMMON*/
-/*#define CLK_COMMON*/
+#define CMDQ_COMMON
+#define CLK_COMMON
 
 /* CCF */
 #ifndef __MFB_EP_NO_CLKMGR__
@@ -102,6 +92,7 @@ struct MFB_CLK_STRUCT {
 	struct clk *CG_IMG2_LARB11;
 	struct clk *CG_IMG2_MSS;
 	struct clk *CG_IMG2_MFB;
+	struct clk *CG_IMG2_GALS;
 };
 struct MFB_CLK_STRUCT mfb_clk;
 #else
@@ -242,13 +233,14 @@ static DEFINE_MUTEX(gMfbMsfMutex);
 static DEFINE_MUTEX(gMfbMsfDequeMutex);
 
 static DEFINE_MUTEX(MutexMFBRef);
-
+static DEFINE_MUTEX(Mutexgkibuf); //gki
 #ifdef CONFIG_OF
 
 struct MFB_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
+	struct device *larb;
 };
 
 static struct MFB_device *MFB_devs;
@@ -261,8 +253,8 @@ static u16 mss_token_id, msf_token_id;
 
 
 /* Get HW modules' base address from device nodes */
-#define MSS_DEV_NODE_IDX 0
-#define MSF_DEV_NODE_IDX 1
+#define MSS_DEV_NODE_IDX 1
+#define MSF_DEV_NODE_IDX 0
 #define IMGSYS_DEV_MODE_IDX 2
 
 /* static unsigned long gISPSYS_Reg[MFB_IRQ_TYPE_AMOUNT]; */
@@ -286,6 +278,7 @@ static unsigned int g_SuspendCnt;
 /* maximum number for supporting user to do interrupt operation */
 /* index 0 is for all the user that do not do register irq first */
 #define IRQ_USER_NUM_MAX 31
+#define GKI_BUF_NUM_MAX 4000
 
 #ifdef MFB_PMQOS
 static struct pm_qos_request mfb_pmqos_request;
@@ -320,9 +313,16 @@ static struct engine_requests msf_reqs;
 static struct engine_requests vmsf_reqs;
 static struct MFB_MSFRequest kMsfReq;
 
-#ifdef CONFIG_MTK_IOMMU_V2
-static int MFB_MEM_USE_VIRTUL = 1;
-#endif
+//gki
+struct gki_buf {
+	unsigned int isUse;
+	unsigned int bfd;
+	struct dma_buf *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+};
+static int qq_get_cnt;
+static int qq_put_cnt;
 
 /******************************************************************************
  *
@@ -341,6 +341,7 @@ struct  MFB_USER_INFO_STRUCT {
 	pid_t Tid;
 	struct engine_requests *reqs;
 	enum MFB_PROCESS_ID_ENUM streamtag;
+	struct gki_buf gkiBuf[GKI_BUF_NUM_MAX]; /* gki */
 };
 
 /******************************************************************************
@@ -884,6 +885,41 @@ static int cmdq_sec_base(struct cmdqRecStruct *handle, unsigned int dma_sec,
 	return 0;
 }
 #endif
+
+static int mfb_get_dma_buf(struct gki_buf *gbf, int fd)
+{
+	struct dma_buf *buf;
+
+	buf = dma_buf_get(fd);
+	if (IS_ERR(buf))
+		return -1;
+
+	gbf->dma_buf = buf;
+	gbf->attach = dma_buf_attach(gbf->dma_buf, MFB_devs[0].dev);
+	if (IS_ERR(gbf->attach))
+		goto err_attach;
+
+	gbf->sgt = dma_buf_map_attachment(gbf->attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(gbf->sgt))
+		goto err_map;
+	LOG_DBG("QQ get_dma: dma_buf=%p, attach=%p, sgt=%p", gbf->dma_buf, gbf->attach, gbf->sgt);
+	return 0;
+
+err_map:
+	dma_buf_detach(gbf->dma_buf, gbf->attach);
+err_attach:
+	dma_buf_put(gbf->dma_buf);
+
+	return -1;
+}
+
+static void mfb_put_dma_buf(struct gki_buf *gbf)
+{
+	LOG_DBG("QX put_dma: dma_buf=%p, attach=%p, sgt=%p", gbf->dma_buf, gbf->attach, gbf->sgt);
+	dma_buf_unmap_attachment(gbf->attach, gbf->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach(gbf->dma_buf, gbf->attach);
+	dma_buf_put(gbf->dma_buf);
+}
 
 static void mss_pkt_tcmds(struct cmdq_pkt *handle,
 				struct MFB_MSSConfig *pMssConfig)
@@ -1674,10 +1710,12 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> MFB clk
 	 */
+	pm_runtime_get_sync(MFB_devs[0].dev);
+	ret = mtk_smi_larb_get(MFB_devs[0].larb);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get error\n");
 #if (MTK_MFB_REG_VERSION == 3)
-#ifdef CONFIG_MTK_SMI_EXT
-	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
-#endif
+	//smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
@@ -1694,9 +1732,7 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG1_GALS clock\n");
 #elif (MTK_MFB_REG_VERSION == 2)
-#ifdef CONFIG_MTK_SMI_EXT
-	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
-#endif
+	//smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
@@ -1708,10 +1744,12 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MFB);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_GALS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_GALS clock\n");
 #else
-#ifdef CONFIG_MTK_SMI_EXT
-	smi_bus_prepare_enable(SMI_LARB9, MFB_DEV_NAME);
-#endif
+	//smi_bus_prepare_enable(SMI_LARB9, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMG1_LARB9);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG1_LARB9 clock\n");
@@ -1731,89 +1769,28 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
-#ifdef CONFIG_MTK_SMI_EXT
 #if (MTK_MFB_REG_VERSION == 3)
 	clk_disable_unprepare(mfb_clk.CG_IMG1_GALS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
-	smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);
+	/*smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);*/
 #elif (MTK_MFB_REG_VERSION == 2)
+	clk_disable_unprepare(mfb_clk.CG_IMG2_GALS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
-	smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);
+	/*smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);*/
 #else
 	clk_disable_unprepare(mfb_clk.CG_IMG1_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG1_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG1_LARB9);
-	smi_bus_disable_unprepare(SMI_LARB9, MFB_DEV_NAME);
+	/*smi_bus_disable_unprepare(SMI_LARB9, MFB_DEV_NAME);*/
 #endif
-#endif
+	mtk_smi_larb_put(MFB_devs[0].larb);
+	pm_runtime_put_sync(MFB_devs[0].dev);
 }
 #endif
-#endif
-
-/******************************************************************************
- *
- ******************************************************************************/
-#ifdef CONFIG_MTK_IOMMU_V2
-static inline int m4u_control_iommu_port(void)
-{
-	struct M4U_PORT_STRUCT sPort;
-	int ret = 0;
-	int count_of_ports = 0;
-	int i = 0;
-
-#if (MTK_MFB_REG_VERSION >= 2)
-	/* LARB11 */
-	count_of_ports = M4U_PORT_L11_IMG_MFB_WDMA1 -
-		M4U_PORT_L11_IMG_MFB_RDMA0 + 1;
-	for (i = 0; i < count_of_ports; i++) {
-		sPort.ePortID = M4U_PORT_L11_IMG_MFB_RDMA0+i;
-		sPort.Virtuality = MFB_MEM_USE_VIRTUL;
-		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
-		ret = m4u_config_port(&sPort);
-
-		if (ret == 0) {
-			LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
-			MFB_MEM_USE_VIRTUL ? "virtual" : "physical");
-		} else {
-			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
-			MFB_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
-			ret = -1;
-		}
-#endif
-	}
-#else
-	/* LARB9 */
-	count_of_ports = M4U_PORT_L9_IMG_MFB_WDMA1_MDP -
-		M4U_PORT_L9_IMG_MFB_RDMA0_MDP + 1;
-	for (i = 0; i < count_of_ports; i++) {
-		sPort.ePortID = M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i;
-		sPort.Virtuality = MFB_MEM_USE_VIRTUL;
-		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
-		ret = m4u_config_port(&sPort);
-
-		if (ret == 0) {
-			LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
-			MFB_MEM_USE_VIRTUL ? "virtual" : "physical");
-		} else {
-			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
-			MFB_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
-			ret = -1;
-		}
-#endif
-	}
-#endif
-	return ret;
-}
 #endif
 
 /******************************************************************************
@@ -1821,10 +1798,6 @@ static inline int m4u_control_iommu_port(void)
  ******************************************************************************/
 static void MFB_EnableClock(bool En)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
-	int ret = 0;
-#endif
-
 	if (En) {/* Enable clock. */
 		/* LOG_DBG("Mfb clock enbled. g_u4EnableClockCount: %d.", */
 		/* g_u4EnableClockCount); */
@@ -1854,14 +1827,6 @@ static void MFB_EnableClock(bool En)
 		spin_lock(&(MFBInfo.SpinLockMFB));
 		g_u4EnableClockCount++;
 		spin_unlock(&(MFBInfo.SpinLockMFB));
-
-#ifdef CONFIG_MTK_IOMMU_V2
-		if (g_u4EnableClockCount == 1) {
-			ret = m4u_control_iommu_port();
-			if (ret)
-				LOG_ERR("cannot config M4U IOMMU PORTS\n");
-		}
-#endif
 
 	} else {		/* Disable clock. */
 
@@ -2741,6 +2706,8 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	int dequeNum;
 	unsigned long flags; /* old: unsigned int flags;*/
 			     /* FIX to avoid build warning */
+	struct MFB_MapTable mfb_maptable;
+	unsigned int dma_addr = 0, i = 0;
 
 	if (pFile->private_data == NULL) {
 		LOG_WRN(
@@ -3304,6 +3271,83 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 			break;
 		}
+	case MFB_MAP:
+		{
+		if (copy_from_user(&mfb_maptable, (void *)Param,
+			sizeof(struct MFB_MapTable)) == 0) {
+
+			if (mfb_maptable.buf_fd == 0) {
+				LOG_ERR("buf_fd equal 0\n");
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+			mutex_lock(&(Mutexgkibuf));
+			for (i = 0; i < GKI_BUF_NUM_MAX; i++) {
+				if (pUserInfo->gkiBuf[i].isUse == 0) {
+					pUserInfo->gkiBuf[i].isUse = 1;
+					break;
+				}
+			}
+			if (i == GKI_BUF_NUM_MAX) {
+				LOG_ERR("gkiBuf full\n");
+				mutex_unlock(&(Mutexgkibuf));
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+			pUserInfo->gkiBuf[i].bfd = mfb_maptable.buf_fd;
+			if (mfb_get_dma_buf(&pUserInfo->gkiBuf[i], mfb_maptable.buf_fd) != 0) {
+				LOG_ERR("get_dma fail\n");
+				mutex_unlock(&(Mutexgkibuf));
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+			mfb_maptable.buf_pa =
+				(unsigned int)sg_dma_address((pUserInfo->gkiBuf[i].sgt)->sgl);
+			qq_get_cnt++;
+			LOG_DBG("qq_get_cnt = %d pa = 0x%lx\n", qq_get_cnt, mfb_maptable.buf_pa);
+			mutex_unlock(&(Mutexgkibuf));
+		} else {
+			LOG_ERR("MFB_MAP copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		return mfb_maptable.buf_pa;
+			break;
+		}
+	case MFB_UNMAP:
+		{
+		if (copy_from_user(&mfb_maptable, (void *)Param,
+			sizeof(struct MFB_MapTable)) == 0) {
+
+			if (mfb_maptable.buf_fd == 0) {
+				LOG_ERR("buf_fd equal 0\n");
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+			mutex_lock(&(Mutexgkibuf));
+			for (i = 0; i < GKI_BUF_NUM_MAX; i++) {
+				if (pUserInfo->gkiBuf[i].bfd == mfb_maptable.buf_fd) {
+					if (pUserInfo->gkiBuf[i].isUse == 1) {
+						pUserInfo->gkiBuf[i].isUse = 0;
+						break;
+					}
+				}
+			}
+			if (i == GKI_BUF_NUM_MAX) {
+				LOG_ERR("gkiBuf full\n");
+				mutex_unlock(&(Mutexgkibuf));
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+			mfb_put_dma_buf(&pUserInfo->gkiBuf[i]);
+			mutex_unlock(&(Mutexgkibuf));
+			qq_put_cnt++;
+			LOG_DBG("qq_put_cnt = %d\n", qq_put_cnt);
+		} else {
+			LOG_ERR("MFB_MAP copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+			break;
+		}
 	default:
 		{
 			LOG_ERR("Unknown Cmd(%d)", Cmd);
@@ -3784,6 +3828,11 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		}
 		MFBInfo.IrqInfo.MssIrqUse[0] = 1;
 		pUserInfo->Pid = 0;
+		//gki
+		for (i = 0; i < GKI_BUF_NUM_MAX; i++)
+			pUserInfo->gkiBuf[i].isUse = 0;
+		qq_get_cnt = 0;
+		qq_put_cnt = 0;
 
 		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
 		mfb_set_engine_ops(&mss_reqs, &mss_ops);
@@ -3980,7 +4029,8 @@ static signed int MFB_probe(struct platform_device *pDev)
 	unsigned int irq_info[3];/* Record interrupts info from device tree */
 	struct device *dev = NULL;
 	struct MFB_device *_mfb_dev = NULL;
-
+	struct device_node *node;
+	struct platform_device *pdev;
 
 #ifdef CONFIG_OF
 	struct MFB_device *MFB_dev;
@@ -4026,7 +4076,6 @@ static signed int MFB_probe(struct platform_device *pDev)
 			MFB_dev->dev->coherent_dma_mask =
 				(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
 #endif
-
 	LOG_INF("nr_MFB_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_MFB_devs,
 		pDev->dev.of_node->name, (unsigned long)MFB_dev->regs);
 
@@ -4086,7 +4135,7 @@ static signed int MFB_probe(struct platform_device *pDev)
 #ifdef CMDQ_COMMON
 	/*cmdq*/
 	MFB_cmdq_dev = &pDev->dev;
-	if (nr_MFB_devs == 1) {
+	if (nr_MFB_devs == 2) {
 		mss_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
 		LOG_INF("mss_clt: 0x%p\n", mss_clt);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
@@ -4095,7 +4144,7 @@ static signed int MFB_probe(struct platform_device *pDev)
 				"mss_token", &mss_token_id);
 
 	}
-	if (nr_MFB_devs == 2) {
+	if (nr_MFB_devs == 1) {
 		msf_clt = cmdq_mbox_create(MFB_cmdq_dev, 0);
 		LOG_INF("msf_clt: 0x%p\n", msf_clt);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
@@ -4107,7 +4156,7 @@ static signed int MFB_probe(struct platform_device *pDev)
 #endif
 
 	/* Only register char driver in the 1st time */
-	if (nr_MFB_devs == 2) {/*YWtodo*/
+	if (nr_MFB_devs == 1) {/*YWtodo*/
 
 		/* Register char driver */
 		Ret = MFB_RegCharDev();
@@ -4152,6 +4201,8 @@ static signed int MFB_probe(struct platform_device *pDev)
 				"MFB_CG_IMG2_MSS");
 		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
 				"MFB_CG_IMG2_MFB");
+		mfb_clk.CG_IMG2_GALS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_GALS");
 
 		if (IS_ERR(mfb_clk.CG_IMG2_LARB11)) {
 			LOG_ERR("cannot get CG_IMG2_LARB11 clock\n");
@@ -4164,6 +4215,10 @@ static signed int MFB_probe(struct platform_device *pDev)
 		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
 			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
 			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_GALS)) {
+			LOG_ERR("cannot get CG_IMG2_GALS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_GALS);
 		}
 #else
 		mfb_clk.CG_IMG1_LARB9 = devm_clk_get(&pDev->dev,
@@ -4189,6 +4244,23 @@ static signed int MFB_probe(struct platform_device *pDev)
 #endif
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 #endif
+		/*gki iommu*/
+		dma_set_mask_and_coherent(MFB_dev->dev, DMA_BIT_MASK(34));
+		/*gki pm*/
+		pm_runtime_enable(MFB_dev->dev);
+		if (!pm_runtime_enabled(MFB_dev->dev))
+			goto EXIT;
+		/*gki smi larb*/
+		node = of_parse_phandle(MFB_dev->dev->of_node, "mediatek,larb", 0);
+		if (!node)
+			return -EINVAL;
+		pdev = of_find_device_by_node(node);
+		if (WARN_ON(!pdev)) {
+			of_node_put(node);
+			return -EINVAL;
+		}
+		of_node_put(node);
+		MFB_dev->larb = &pdev->dev;
 
 		/* Create class register */
 		pMFBClass = class_create(THIS_MODULE, "MFBdrv");
@@ -4422,15 +4494,15 @@ int MFB_pm_restore_noirq(struct device *device)
  */
 #if (MTK_MFB_REG_VERSION >= 2)
 static const struct of_device_id MFB_of_ids[] = {
-	{.compatible = "mediatek,mss_b",},
 	{.compatible = "mediatek,msf_b",},
+	{.compatible = "mediatek,mss_b",},
 	{.compatible = "mediatek,imgsys_mfb_b",},
 	{}
 };
 #else
 static const struct of_device_id MFB_of_ids[] = {
-	{.compatible = "mediatek,mss",},
 	{.compatible = "mediatek,msf",},
+	{.compatible = "mediatek,mss",},
 	{.compatible = "mediatek,imgsys_mfb",},
 	{}
 };
