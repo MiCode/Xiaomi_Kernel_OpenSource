@@ -63,5 +63,8 @@
 /* MTK LPM */
 #define MTK_SIP_MTK_LPM_CONTROL \
 	MTK_SIP_SMC_CMD(0x507)
+/* for APUSYS SMC call */
+#define MTK_SIP_APUSYS_CONTROL \
+	MTK_SIP_SMC_CMD(0x51E)
 
 #endif
