@@ -3311,6 +3311,45 @@
 			#clock-cells = <1>;
 		};
 
+#ifdef CONFIG_VIDEO_MEDIATEK_ISP_RSC_SUPPORT
+		rsc@1b003000 {
+			compatible = "mediatek,rsc";
+			mediatek,larb = <&larb20>;
+			mediatek,hcp = <&hcp>;
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_IPE>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L20_IPE_RSC_RDMA0>,
+				 <&iommu0 M4U_PORT_L20_IPE_RSC_WDMA>;
+			reg = <0 0x1b003000 0 0x1000>;
+			interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH 0>;
+			mboxes = <&gce 13 0 CMDQ_THR_PRIO_1>;
+			gce-event-names = "rsc_eof";
+			gce-events = <&gce CMDQ_EVENT_RSC_DONE>;
+			clocks = <&ipesys CLK_IPE_RSC>,
+				 <&ipesys CLK_IPE_LARB20>;
+			clock-names = "RSC_CLK_IPE_RSC",
+				      "RSC_CLK_IPE_LARB20";
+		};
+#else
+		rsc@1b003000 {
+			compatible = "mediatek,rsc";
+			mediatek,larb = <&larb20>;
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_IPE>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L20_IPE_RSC_RDMA0>,
+				 <&iommu0 M4U_PORT_L20_IPE_RSC_WDMA>;
+			reg = <0 0x1b003000 0 0x1000>;
+			interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH 0>;
+			mboxes = <&gce 13 0 CMDQ_THR_PRIO_1>;
+			gce-event-names = "rsc_eof";
+			gce-events = <&gce CMDQ_EVENT_RSC_DONE>;
+			clocks = <&ipesys CLK_IPE_RSC>,
+				 <&ipesys CLK_IPE_LARB20>;
+			clock-names = "RSC_CLK_IPE_RSC",
+				      "RSC_CLK_IPE_LARB20";
+		};
+#endif
+
 		ipe_smi_subcom@1b00e000 {
 			compatible = "mediatek,ipe_smi_subcom",
 				     "mediatek,mt6873-smi-common";
