@@ -1,0 +1,20 @@
+config MTK_IOMMU_MISC
+	tristate "misc iommu driver for enhanced feature"
+	depends on MTK_IOMMU
+	help
+	  Choose this option to enable mediatek misc iommu driver.
+	  Misc iommu includes the enhanced features about iommu hardware.
+	  For example, it can implement iommu secure driver for secure
+	  feature or debug feature.
+
+config MTK_IOMMU_MISC_DBG
+	tristate "Enable Mediatek IOMMU debug feature"
+	depends on MTK_IOMMU_MISC
+	help
+	  Choose this option to enable mediatek iommu debug driver.
+	  According to the characteristic of hardware, we need to add
+	  some debug information. For example translation fault, hardware
+	  dump information and so on. In addition, for ion buffer, we can
+	  use dma_buf information to monitor iova, but if user use
+	  "dma_alloc_attrs" to allocate buffer, we can not monitor iova.
+	  So we can use list to save all iova node and dump it.
