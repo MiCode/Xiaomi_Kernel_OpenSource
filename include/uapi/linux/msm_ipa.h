@@ -127,6 +127,8 @@
 #define IPA_IOCTL_APP_CLOCK_VOTE                79
 #define IPA_IOCTL_PDN_CONFIG                    80
 #define IPA_IOCTL_SET_MAC_FLT                   81
+#define IPA_IOCTL_ADD_UC_ACT_ENTRY              82
+#define IPA_IOCTL_DEL_UC_ACT_ENTRY              83
 
 /**
  * max size of the header to be inserted
@@ -2515,6 +2517,73 @@ struct ipa_wan_msg {
 	uint32_t ipv6_addr_gw[IPA_WAN_MSG_IPv6_ADDR_GW_LEN];
 };
 
+/* uc activation command Ids */
+#define IPA_SOCKSV5_ADD_COM_ID		15
+#define IPA_IPv6_NAT_COM_ID		16
+
+/**
+ * ipa_kernel_tests_socksv5_uc_tmpl - uc activation entry info
+ * @cmd_id: uc command id
+ * @cmd_param: uC command param
+ * @ipa_kernel_tests_ip_hdr_temp: ip header
+ * @src_port: source port
+ * @dst_port: destination port
+ * @ipa_sockv5_mask: uc attribute mask for options/etc
+ * @out_irs: 4B/4B Seq/Ack/SACK
+ * @out_iss
+ * @in_irs
+ * @in_iss
+ * @out_ircv_tsval: timestamp attributes
+ * @in_ircv_tsecr
+ * @out_ircv_tsecr
+ * @in_ircv_tsval
+ * @in_isnd_wscale: window scale attributes
+ * @out_isnd_wscale
+ * @in_ircv_wscale
+ * @out_ircv_wscale
+ * @direction: 1 for UL 0 for DL
+ * @handle: uc activation table index
+ */
+struct ipa_kernel_tests_socksv5_uc_tmpl {
+	uint16_t cmd_id;
+	uint32_t cmd_param;
+	__be32 ip_src_addr;
+	__be32 ip_dst_addr;
+	__be32 ipv6_src_addr[4];
+	__be32 ipv6_dst_addr[4];
+
+	/* 2B src/dst port */
+	uint16_t src_port;
+	uint16_t dst_port;
+
+	/* attribute mask */
+	uint32_t ipa_sockv5_mask;
+
+	/* required update 4B/4B Seq/Ack/SACK */
+	uint32_t out_irs;
+	uint32_t out_iss;
+	uint32_t in_irs;
+	uint32_t in_iss;
+
+	/* option 10B: time-stamp */
+	uint32_t out_ircv_tsval;
+	uint32_t in_ircv_tsecr;
+	uint32_t out_ircv_tsecr;
+	uint32_t in_ircv_tsval;
+
+	/* option 2B: window-scaling/dynamic */
+	uint16_t in_isnd_wscale : 4;
+	uint16_t out_isnd_wscale : 4;
+	uint16_t in_ircv_wscale : 4;
+	uint16_t out_ircv_wscale : 4;
+
+	/* direction 1 = UL, 0 = DL */
+	uint8_t direction;
+
+	/* output: handle (index) */
+	uint16_t handle;
+};
+
 /**
  * struct ipacm_socksv5_info - To hold information about socksv5 connections
  * @ip_type: ip type
@@ -2564,6 +2633,41 @@ struct ipa_socksv5_msg {
 	/* handle (index) */
 	uint16_t handle;
 };
+
+/**
+ * struct ipa_ioc_ipv6_nat_uc_act_entry - To hold information about IPv6 NAT
+ *	uC entry
+ * @cmd_id[in]: IPv6 NAT uC CMD ID - used for identifying uc activation type
+ * @private_address_lsb[in]: client private address lsb
+ * @private_address_msb[in]: client private address msb
+ * @public_address_lsb[in]: client public address lsb
+ * @public_address_msb[in]: client public address msb
+ * @private_port[in]: client private port
+ * @public_port[in]: client public port
+ * @index[out]: uC activation entry index
+ */
+struct ipa_ioc_ipv6_nat_uc_act_entry {
+	uint16_t cmd_id;
+	uint64_t private_address_lsb;
+	uint64_t private_address_msb;
+	uint64_t public_address_lsb;
+	uint64_t public_address_msb;
+	uint32_t private_port;
+	uint32_t public_port;
+	uint16_t index;
+};
+
+/**
+ * union ipa_ioc_uc_activation_entry - To hold information about uC activation
+ *	entry
+ * @socks[in]: fill here if entry is Socksv5 entry
+ * @ipv6_nat[in]: fill here if entry is IPv6 NAT entry
+ */
+union ipa_ioc_uc_activation_entry {
+	struct ipa_kernel_tests_socksv5_uc_tmpl socks;
+	struct ipa_ioc_ipv6_nat_uc_act_entry ipv6_nat;
+};
+
 
 /**
  * struct ipa_ioc_rm_dependency - parameters for add/delete dependency
@@ -3083,6 +3187,14 @@ struct ipa_ioc_mac_client_list_type {
 #define IPA_IOC_SET_MAC_FLT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_SET_MAC_FLT, \
 				struct ipa_ioc_mac_client_list_type)
+
+#define IPA_IOC_ADD_UC_ACT_ENTRY _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_UC_ACT_ENTRY, \
+				union ipa_ioc_uc_activation_entry)
+
+#define IPA_IOC_DEL_UC_ACT_ENTRY _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_UC_ACT_ENTRY, \
+				uint16_t)
 
 /*
  * unique magic number of the Tethering bridge ioctls
