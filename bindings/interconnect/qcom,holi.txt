@@ -15,6 +15,12 @@ reg : specifies the physical base address and size of registers
 clocks : list of phandles and specifiers to all interconnect bus clocks
 clock-names : clock names should include both "bus" and "bus_a"
 
+The following are optional properties:
+
+qcom,util-factor : Parameter that represents the DDR utilization factor
+		to be used in aggregation scheme. It is represented as
+		actual util-factor * 100.
+
 Examples:
 
 soc {
@@ -22,6 +28,7 @@ soc {
 	system_noc: interconnect@1880000 {
 		reg = <0x1880000 0x5f080>;
 		compatible = "qcom,holi-system_noc";
+		qcom,util-factor = <142>;
 		#interconnect-cells = <1>;
 		clock-names = "bus", "bus_a";
 		clocks = <&rpmcc RPM_SMD_SNOC_CLK>,
