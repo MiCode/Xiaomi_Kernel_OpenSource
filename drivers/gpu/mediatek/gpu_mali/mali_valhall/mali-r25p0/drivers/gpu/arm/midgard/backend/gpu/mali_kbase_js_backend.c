@@ -196,12 +196,8 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
 
-#ifdef GPUFREQ_SUPPORT
 					/* MTK add for gpu_freq information */
 					mt_gpufreq_dump_infra_status();
-#else
-	pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
@@ -209,14 +205,12 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 
-#ifdef GPUFREQ_SUPPORT
 					if (mt_gpufreq_is_dfd_force_dump() == 1 ||
 						mt_gpufreq_is_dfd_force_dump() == 2) {
 						pr_info("gpu dfd force dump\n");
 						mt_gpufreq_software_trigger_dfd();
 						BUG_ON(1);
 					}
-#endif
 #endif
 				} else if (ticks == gpu_reset_ticks) {
 					/* Job has been scheduled for at least
@@ -251,12 +245,8 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
 
-#ifdef GPUFREQ_SUPPORT
 					/* MTK add for gpu_freq information */
 					mt_gpufreq_dump_infra_status();
-#else
-	pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
@@ -264,14 +254,12 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 
-#ifdef GPUFREQ_SUPPORT
 					if (mt_gpufreq_is_dfd_force_dump() == 1 ||
 						mt_gpufreq_is_dfd_force_dump() == 2) {
 						pr_info("gpu dfd force dump\n");
 						mt_gpufreq_software_trigger_dfd();
 						BUG_ON(1);
 					}
-#endif
 #endif
 				} else if (ticks ==
 					js_devdata->gpu_reset_ticks_dumping) {

@@ -4089,16 +4089,13 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	/* make sure gpufreq driver is ready */
 	pr_info("%s start\n", __func__);
 
-#ifdef GPUFREQ_SUPPORT
 	/* MTK */
 	/* make sure gpufreq driver is ready */
 	if (mt_gpufreq_not_ready()) {
 		pr_info("gpufreq driver is not ready: %d\n", -EPROBE_DEFER);
 		RETURN_ERROR(-EPROBE_DEFER);
 	}
-#else
-		pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
+
 	/********/
 
 	mali_kbase_print_cs_experimental();

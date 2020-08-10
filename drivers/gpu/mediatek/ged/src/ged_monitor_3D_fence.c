@@ -77,7 +77,6 @@ static void ged_monitor_3D_fence_work_cb(struct work_struct *psWork)
 
 
 	if (atomic_sub_return(1, &g_i32Count) < 1) {
-#ifdef GPUFREQ_SUPPORT
 		unsigned int uiFreqLevelID;
 		if (mtk_get_bottom_gpu_freq(&uiFreqLevelID)) {
 			if (uiFreqLevelID > 0 && ged_monitor_3D_fence_switch) {
@@ -89,7 +88,6 @@ static void ged_monitor_3D_fence_work_cb(struct work_struct *psWork)
 
 			}
 		}
-#endif
 	}
 
 	if (ged_monitor_3D_fence_debug > 0)
@@ -162,7 +160,6 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 		int iCount = atomic_add_return(1, &g_i32Count);
 
 		if (iCount > 1) {
-#ifdef GPUFREQ_SUPPORT
 			unsigned int uiFreqLevelID;
 			if (mtk_get_bottom_gpu_freq(&uiFreqLevelID)) {
 				if (uiFreqLevelID !=
@@ -174,7 +171,6 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 						- 1);
 				}
 			}
-#endif
 		}
 	}
 

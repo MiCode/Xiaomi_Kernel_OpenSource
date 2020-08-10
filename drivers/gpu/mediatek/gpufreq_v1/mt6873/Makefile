@@ -27,5 +27,3 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 ccflags-y += -Wno-unused-variable
 ccflags-y += -Wno-unused-function
 
-obj-y += mtk_gpufreq_plat.o
-

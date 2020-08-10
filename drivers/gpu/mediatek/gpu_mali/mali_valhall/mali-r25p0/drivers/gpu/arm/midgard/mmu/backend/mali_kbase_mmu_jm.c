@@ -129,12 +129,8 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx,
 	access_type = (fault->status >> 8) & 0x3;
 	source_id = (fault->status >> 16);
 
-#ifdef GPUFREQ_SUPPORT
 	/* MTK add for gpu_freq information */
 	mt_gpufreq_dump_infra_status();
-#else
-	pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 
 	/* terminal fault, print info about the fault */
 	dev_err(kbdev->dev,

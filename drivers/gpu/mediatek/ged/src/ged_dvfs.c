@@ -74,11 +74,9 @@ static unsigned int gpu_cust_upbound_freq;
 
 static unsigned int g_ui32PreFreqID;
 
-#ifdef GPUFREQ_SUPPORT
 static unsigned int g_bottom_freq_id;
 static unsigned int g_last_def_commit_freq_id;
 static unsigned int g_cust_upbound_freq_id;
-#endif
 
 static unsigned int g_cust_boost_freq_id;
 static unsigned int g_computed_freq_id;
@@ -206,7 +204,6 @@ module_param(gx_tb_dvfs_margin, int, 0644);
 
 static void _init_loading_ud_table(void)
 {
-#ifdef GPUFREQ_SUPPORT
 	int i;
 	int num = (int)mt_gpufreq_get_dvfs_table_num();
 
@@ -239,7 +236,6 @@ static void _init_loading_ud_table(void)
 
 	if (num >= 2)
 		loading_ud_table[num-1].down = loading_ud_table[num-2].down;
-#endif
 }
 
 unsigned long ged_query_info(GED_INFO eType)
@@ -263,47 +259,23 @@ unsigned long ged_query_info(GED_INFO eType)
 		mtk_get_gpu_block(&gpu_block);
 		return gpu_block;
 	case GED_PRE_FREQ:
-#ifdef GPUFREQ_SUPPORT
 		return mt_gpufreq_get_freq_by_idx(g_ui32PreFreqID);
-#else
-		return 0;
-#endif
 	case GED_PRE_FREQ_IDX:
 		return g_ui32PreFreqID;
 	case GED_CUR_FREQ:
-#ifdef GPUFREQ_SUPPORT
 		return mt_gpufreq_get_freq_by_idx(
 			mt_gpufreq_get_cur_freq_index());
-#else
-		return 0;
-#endif
 	case GED_CUR_FREQ_IDX:
-#ifdef GPUFREQ_SUPPORT
 		return mt_gpufreq_get_cur_freq_index();
-#else
-		return 0;
-#endif
 	case GED_MAX_FREQ_IDX:
-#ifdef GPUFREQ_SUPPORT
 		return mt_gpufreq_get_dvfs_table_num()-1;
-#else
-		return 0;
-#endif
 	case GED_MAX_FREQ_IDX_FREQ:
-#ifdef GPUFREQ_SUPPORT
 		return mt_gpufreq_get_freq_by_idx(
 			mt_gpufreq_get_dvfs_table_num()-1);
-#else
-		return 0;
-#endif
 	case GED_MIN_FREQ_IDX:
 		return 0;
 	case GED_MIN_FREQ_IDX_FREQ:
-#ifdef GPUFREQ_SUPPORT
 		return mt_gpufreq_get_freq_by_idx(0);
-#else
-		return 0;
-#endif
 	case GED_EVENT_GAS_MODE:
 		return ged_gas_query_mode();
 	case GED_3D_FENCE_DONE_TIME:
@@ -550,13 +522,13 @@ unsigned long ged_dvfs_get_last_commit_idx(void)
 {
 	return g_ged_dvfs_commit_idx;
 }
+EXPORT_SYMBOL(ged_dvfs_get_last_commit_idx);
 
 bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 	unsigned long ui32NewFreq, GED_DVFS_COMMIT_TYPE eCommitType)
 {
 	int bCommited = false;
 
-#ifdef GPUFREQ_SUPPORT
 	unsigned long ui32CurFreqID;
 
 	ui32CurFreqID = mt_gpufreq_get_cur_freq_index();
@@ -640,7 +612,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			mt_gpufreq_get_cur_ceiling_idx()) / 1000),
 			5566, 0, 0);
 	}
-#endif
+
 	return bCommited;
 }
 
@@ -1975,12 +1947,10 @@ EXIT_ged_dvfs_run:
 void ged_dvfs_sw_vsync_query_data(struct GED_DVFS_UM_QUERY_PACK *psQueryData)
 {
 	psQueryData->ui32GPULoading = gpu_loading;
-#ifdef GPUFREQ_SUPPORT
 	psQueryData->ui32GPUFreqID =  mt_gpufreq_get_cur_freq_index();
 	psQueryData->gpu_cur_freq =
 		mt_gpufreq_get_freq_by_idx(psQueryData->ui32GPUFreqID);
 	psQueryData->gpu_pre_freq = mt_gpufreq_get_freq_by_idx(g_ui32PreFreqID);
-#endif
 	psQueryData->nsOffset = ged_dvfs_vsync_offset_level_get();
 
 	psQueryData->ulWorkingPeriod_us = gL_ulWorkingPeriod_us;
@@ -2055,18 +2025,14 @@ unsigned int ged_dvfs_get_gpu_idle(void)
 
 void ged_dvfs_get_gpu_cur_freq(struct GED_DVFS_FREQ_DATA *psData)
 {
-#ifdef GPUFREQ_SUPPORT
 	psData->ui32Idx = mt_gpufreq_get_cur_freq_index();
 	psData->ulFreq = mt_gpufreq_get_freq_by_idx(psData->ui32Idx);
-#endif
 }
 
 void ged_dvfs_get_gpu_pre_freq(struct GED_DVFS_FREQ_DATA *psData)
 {
-#ifdef GPUFREQ_SUPPORT
 	psData->ui32Idx = g_ui32PreFreqID;
 	psData->ulFreq = mt_gpufreq_get_freq_by_idx(g_ui32PreFreqID);
-#endif
 }
 
 void ged_get_gpu_dvfs_cal_freq(unsigned long *p_policy_tar_freq, int *pmode)

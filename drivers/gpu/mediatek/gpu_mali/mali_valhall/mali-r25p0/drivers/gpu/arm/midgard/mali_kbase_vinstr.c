@@ -1174,7 +1174,7 @@ void MTK_update_gpu_swpm(void)
 	phys_addr_t *ptr = NULL;
 	struct gpu_swpm_rec_data *gpu_ptr;
 
-	//mtk_get_gpu_loading(&pm_gpu_loading);
+	mtk_get_gpu_loading(&pm_gpu_loading);
 	swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
 	gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
 	gpu_ptr->gpu_counter[gfreq] = mt_gpufreq_get_cur_freq();
@@ -1220,13 +1220,9 @@ void MTK_update_gpu_LTR(void)
 	unsigned int pm_gpu_loading;
 	struct mtk_gpu_perf gpu_perf_counter;
 	unsigned int stall_counter[4] = {0};
-	//mtk_get_gpu_loading(&pm_gpu_loading);
-#ifdef GPUFREQ_SUPPORT
+	mtk_get_gpu_loading(&pm_gpu_loading);
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
-#else
-		pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 	gpu_perf_counter.counter[VINSTR_GPU_LOADING] = pm_gpu_loading;
 #if defined(CONFIG_MACH_MT6853)
 	gpu_perf_counter.counter[VINSTR_GPU_ACTIVE] = kernel_dump[6];

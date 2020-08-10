@@ -19,7 +19,7 @@
  * (0, 1) -> DVFS disable but init to CUST_INIT_OPP (do DVFS only onces)
  * (0, 0) -> DVFS disable
  **************************************************/
-#define MT_GPUFREQ_DVFS_ENABLE          1
+#define MT_GPUFREQ_DVFS_ENABLE          0
 #define MT_GPUFREQ_CUST_CONFIG          0
 #define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment_1[0].gpufreq_khz)
 
@@ -87,7 +87,7 @@
 /**************************************************
  * Battery Over Current Protect
  **************************************************/
-#define MT_GPUFREQ_BATT_OC_PROTECT              1
+#define MT_GPUFREQ_BATT_OC_PROTECT              0
 #define MT_GPUFREQ_BATT_OC_LIMIT_FREQ           (485000)        /* KHz */
 
 /**************************************************
@@ -99,7 +99,7 @@
 /**************************************************
  * Low Battery Volume Protect
  **************************************************/
-#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        1
+#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        0
 #define MT_GPUFREQ_LOW_BATT_VOLT_LIMIT_FREQ     (485000)        /* KHz */
 
 /**************************************************
@@ -293,13 +293,6 @@ struct g_clk_info {
 	struct clk *clk_main_parent;
 	struct clk *clk_sub_parent;
 	struct clk *subsys_bg3d;
-	struct clk *mtcmos_mfg0;
-	struct clk *mtcmos_mfg1;
-	struct clk *mtcmos_mfg2;
-	struct clk *mtcmos_mfg3;
-	struct clk *mtcmos_mfg4;
-	struct clk *mtcmos_mfg5;
-	struct clk *mtcmos_mfg6;
 };
 struct g_pmic_info {
 	struct regulator *reg_vgpu;
