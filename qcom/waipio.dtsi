@@ -8,6 +8,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <dt-bindings/interconnect/qcom,waipio.h>
+#include <dt-bindings/soc/qcom,rpmh-rsc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Waipio";
@@ -146,6 +147,7 @@
 		};
 
 		aop_cmd_db_mem: aop_cmd_db_region@0x80860000 {
+			compatible = "qcom,cmd-db";
 			no-map;
 			reg = <0x0 0x80860000 0x0 0x20000>;
 		};
@@ -596,8 +598,53 @@
 
 		status = "disabled";
 	};
-};
 
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,pdc";
+		reg = <0xb220000 0x30000>, <0x174000f0 0x64>;
+		reg-names = "pdc-interrupt-base", "apss-shared-spi-cfg";
+		qcom,pdc-ranges = <0 480 12>, <14 494 24>, <40 520 54>,
+				  <94 609 31>, <125 63 1>, <126 716 12>;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
+
+	apps_rsc: rsc@17a00000 {
+		label = "apps_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0x17a00000 0x10000>,
+		      <0x17a10000 0x10000>,
+		      <0x17a20000 0x10000>,
+		      <0x17a30000 0x10000>;
+		reg-names = "drv-0", "drv-1", "drv-2", "drv-3";
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+			     /* No interrupt into GIC for DRV3 */
+		qcom,tcs-offset = <0xd00>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS  2>, /* TODO:1 for fastpath */
+				  <SLEEP_TCS   3>,
+				  <WAKE_TCS    3>,
+				  <CONTROL_TCS 0>; /* PDC wakeup values will be written from TZ */
+	};
+
+	disp_rsc: rsc@af20000 {
+		status = "disabled"; /* TODO: Remove after initializing SDE clock in UEFI */
+		label = "disp_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0xaf20000 0x10000>;
+		reg-names = "drv-0";
+		interrupts = <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,tcs-offset = <0x1c00>;
+		qcom,drv-id = <0>;
+		qcom,tcs-config = <ACTIVE_TCS  0>,
+				  <SLEEP_TCS   1>,
+				  <WAKE_TCS    1>,
+				  <CONTROL_TCS 0>;
+	};
+};
 
 #include "waipio-qupv3.dtsi"
 #include "waipio-pinctrl.dtsi"
