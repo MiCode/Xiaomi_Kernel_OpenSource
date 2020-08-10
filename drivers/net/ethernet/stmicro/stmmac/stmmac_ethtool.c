@@ -544,6 +544,9 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
 	int i, j = 0;
 
+	/* enable reset on read for mmc counter */
+	writel_relaxed(MMC_CONFIG, priv->mmcaddr);
+
 	/* Update the DMA HW counters for dwmac10/100 */
 	if (priv->hw->dma->dma_diagnostic_fr)
 		priv->hw->dma->dma_diagnostic_fr(&dev->stats,

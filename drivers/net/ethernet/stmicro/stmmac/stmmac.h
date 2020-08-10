@@ -180,6 +180,8 @@ extern struct stmmac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx;
 
 #define MICREL_PHY_ID 0x00221620
 
+#define MMC_CONFIG 0x24
+
 int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 int ethqos_init_pps(struct stmmac_priv *priv);
 
