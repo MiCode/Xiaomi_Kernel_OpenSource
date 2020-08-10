@@ -60,6 +60,18 @@
 			#cooling-cells = <2>;
 		};
 	};
+
+	qcom,cpu-voltage-cdev {
+		compatible = "qcom,cc-cooling-devices";
+		apc1_cluster: qcom,apc1-cluster {
+			qcom,cpus = <&CPU4 &CPU7>;
+			#cooling-cells = <2>;
+		};
+	};
+};
+
+&msm_gpu {
+	#cooling-cells = <2>;
 };
 
 &thermal_zones {
@@ -643,99 +655,6 @@
 		};
 	};
 
-	nspss-0-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&tsens1 3>;
-		thermal-governor = "step_wise";
-		trips {
-			nspss0_trip0: nspss0-trip0 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-		};
-
-		cooling-maps {
-			cdsp-cdev {
-				trip = <&nspss0_trip0>;
-				cooling-device = <&cdsp_sw 3 3>;
-			};
-
-			modem-pa-cdev {
-				trip = <&nspss0_trip0>;
-				cooling-device = <&modem_pa 3 3>;
-			};
-
-			modem-tj-cdev {
-				trip = <&nspss0_trip0>;
-				cooling-device = <&modem_tj 3 3>;
-			};
-		};
-	};
-
-	nspss-1-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&tsens1 4>;
-		thermal-governor = "step_wise";
-		trips {
-			nspss1_trip0: nspss1-trip0 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-		};
-
-		cooling-maps {
-			cdsp-cdev {
-				trip = <&nspss1_trip0>;
-				cooling-device = <&cdsp_sw 3 3>;
-			};
-
-			modem-pa-cdev {
-				trip = <&nspss1_trip0>;
-				cooling-device = <&modem_pa 3 3>;
-			};
-
-			modem-tj-cdev {
-				trip = <&nspss1_trip0>;
-				cooling-device = <&modem_tj 3 3>;
-			};
-		};
-	};
-
-	nspss-2-step {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&tsens1 5>;
-		thermal-governor = "step_wise";
-		trips {
-			nspss2_trip0: nspss2-trip0 {
-				temperature = <100000>;
-				hysteresis = <5000>;
-				type = "passive";
-			};
-		};
-
-		cooling-maps {
-			cdsp-cdev {
-				trip = <&nspss2_trip0>;
-				cooling-device = <&cdsp_sw 3 3>;
-			};
-
-			modem-pa-cdev {
-				trip = <&nspss2_trip0>;
-				cooling-device = <&modem_pa 3 3>;
-			};
-
-			modem-tj-cdev {
-				trip = <&nspss2_trip0>;
-				cooling-device = <&modem_tj 3 3>;
-			};
-		};
-	};
-
 	cpu-0-0-step {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
@@ -1033,8 +952,166 @@
 		trips {
 			gpuss_config: active-config0 {
 				temperature = <95000>;
-				hysteresis = <20000>;
+				hysteresis = <0>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu_cdev {
+				trip = <&gpuss_config>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	nspss-0-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens1 3>;
+		trips {
+			nspss0_trip0: nspss0-trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			nspss0_trip1: nspss0-trip1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cdsp-cdev0 {
+				trip = <&nspss0_trip0>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+
+			cdsp-cdev1 {
+				trip = <&nspss0_trip1>;
+				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			gpu_cdev {
+				trip = <&nspss0_trip1>;
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-1)
+							(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			modem-pa-cdev {
+				trip = <&nspss0_trip1>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+
+			modem-tj-cdev {
+				trip = <&nspss0_trip1>;
+				cooling-device = <&modem_tj 3 3>;
+			};
+		};
+	};
+
+	nspss-1-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens1 4>;
+		trips {
+			nspss1_trip0: nspss1-trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			nspss1_trip1: nspss1-trip1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cdsp-cdev0 {
+				trip = <&nspss1_trip0>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+
+			cdsp-cdev1 {
+				trip = <&nspss1_trip1>;
+				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			gpu_cdev {
+				trip = <&nspss1_trip1>;
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-1)
+							(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			modem-pa-cdev {
+				trip = <&nspss1_trip1>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+
+			modem-tj-cdev {
+				trip = <&nspss1_trip1>;
+				cooling-device = <&modem_tj 3 3>;
+			};
+		};
+	};
+
+	nspss-2-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens1 5>;
+		trips {
+			nspss2_trip0: nspss2-trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			nspss2_trip1: nspss2-trip1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cdsp-cdev0 {
+				trip = <&nspss2_trip0>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+
+			cdsp-cdev1 {
+				trip = <&nspss2_trip1>;
+				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+
+			gpu_cdev {
+				trip = <&nspss2_trip1>;
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-1)
+							(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			modem-pa-cdev {
+				trip = <&nspss2_trip1>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+
+			modem-tj-cdev {
+				trip = <&nspss2_trip1>;
+				cooling-device = <&modem_tj 3 3>;
 			};
 		};
 	};

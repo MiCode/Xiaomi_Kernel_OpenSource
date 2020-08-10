@@ -3464,10 +3464,10 @@
 #include "msm-arm-smmu-shima.dtsi"
 #include "shima-vidc.dtsi"
 #include "shima-cvp.dtsi"
-#include "shima-thermal.dtsi"
 #include "shima-gpu.dtsi"
 #include "display/shima-sde.dtsi"
 #include "shima-audio.dtsi"
+#include "shima-thermal.dtsi"
 
 &pcie0_rp {
 	#address-cells = <5>;

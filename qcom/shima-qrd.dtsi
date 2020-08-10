@@ -1,6 +1,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include "shima-pmic-overlay.dtsi"
+#include "shima-thermal-overlay.dtsi"
 
 &soc {
 	gpio_keys {
