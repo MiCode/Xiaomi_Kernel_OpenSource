@@ -18,11 +18,8 @@ $(info MTK_GPU_VERSION = $(MTK_GPU_VERSION))
 ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
 	obj-y += ged/
 	obj-y += hal/
-	#obj-y += gpufreq_v1/
+	obj-y += gpufreq_v1/
 	#obj-y += gpu_bm/
-
-#ccflags-y += -DGPUFREQ_SUPPORT
-#ccflags-y += -DGED_SUPPORT
 
 # GPU R5P0
 ifeq ($(CONFIG_MTK_GPU_R5P0),y)

@@ -31,14 +31,14 @@ static struct mtk_gpu_meminfo_type g_mtk_gpu_meminfo[MTK_MEMINFO_SIZE];
 
 void mtk_kbase_gpu_memory_debug_init(void)
 {
-	//mtk_dump_gpu_memory_usage_fp = mtk_kbase_dump_gpu_memory_usage;
-	//mtk_get_gpu_memory_usage_fp = mtk_kbase_report_gpu_memory_usage;
+	mtk_dump_gpu_memory_usage_fp = mtk_kbase_dump_gpu_memory_usage;
+	mtk_get_gpu_memory_usage_fp = mtk_kbase_report_gpu_memory_usage;
 }
 
 void mtk_kbase_gpu_memory_debug_remove(void)
 {
-	//mtk_dump_gpu_memory_usage_fp = NULL;
-	//mtk_get_gpu_memory_usage_fp = NULL;
+	mtk_dump_gpu_memory_usage_fp = NULL;
+	mtk_get_gpu_memory_usage_fp = NULL;
 }
 
 void mtk_kbase_reset_gpu_meminfo(void)
@@ -175,13 +175,9 @@ static int proc_gpu_utilization_show(struct seq_file *m, void *v)
 {
 #ifdef ENABLE_COMMON_DVFS
 	unsigned long gl, cl0, cl1;
-	unsigned int iCurrentFreq = 0;
+	unsigned int iCurrentFreq;
 
-#ifdef GPUFREQ_SUPPORT
 	iCurrentFreq = mt_gpufreq_get_cur_freq_index();
-#else
-	pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 
 	gl = kbasep_get_gl_utilization();
 	cl0 = kbasep_get_cl_js0_utilization();
@@ -212,13 +208,9 @@ static const struct proc_ops kbasep_gpu_utilization_proc_fops = {
 static int proc_gpu_frequency_show(struct seq_file *m, void *v)
 {
 #ifdef ENABLE_COMMON_DVFS
-	unsigned int iCurrentFreq = 0;
+	unsigned int iCurrentFreq;
 
-#ifdef GPUFREQ_SUPPORT
 	iCurrentFreq = mt_gpufreq_get_cur_freq_index();
-#else
-	pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 
 	seq_printf(m, "GPU Frequency Index: %u\n", iCurrentFreq);
 #else
@@ -476,7 +468,6 @@ int mtk_set_vgpu_power_on_flag(int power_on_id)
 int mtk_set_mt_gpufreq_target(int freq_id)
 {
 #ifdef ENABLE_COMMON_DVFS
-#ifdef GPUFREQ_SUPPORT
 	int ret = 0;
 
 	mutex_lock(&g_flag_lock);
@@ -488,10 +479,7 @@ int mtk_set_mt_gpufreq_target(int freq_id)
 
 	return ret;
 #else
-	pr_info("MALI: GPUFREQ doesn't support\n");
-#endif /* GPUFREQ_SUPPORT */
-#else
-	pr_info("MALI: GPU DVFS doesn't support\n");
+	pr_debug("MALI: GPU DVFS doesn't support\n");
 #endif /* ENABLE_COMMON_DVFS */
 
 	return 0;
@@ -499,9 +487,7 @@ int mtk_set_mt_gpufreq_target(int freq_id)
 
 unsigned long mtk_get_ged_dvfs_last_commit_idx(void)
 {
-#ifdef GED_SUPPORT
 	return ged_dvfs_get_last_commit_idx();
-#endif
 }
 
 int mtk_common_init(struct kbase_device *kbdev)

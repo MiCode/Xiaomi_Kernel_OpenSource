@@ -160,12 +160,8 @@ static int kbase_gpuprops_get_props(struct base_gpu_props * const gpu_props,
 		((u64) regdump.shader_present_hi << 32) +
 		regdump.shader_present_lo;
 
-#ifdef GPUFREQ_SUPPORT
 	/* MTK Modify: Force to set current shader_present. */
 	force_shader_present = (u64)mt_gpufreq_get_shader_present();
-#else
-		pr_info("MALI: GPUFREQ doesn't support\n");
-#endif
 
 	if (force_shader_present != 0 &&
 		(force_shader_present != gpu_props->raw_props.shader_present) &&

@@ -29,9 +29,7 @@
 
 DEFINE_MUTEX(g_mfg_lock);
 
-#ifdef GPUFREQ_SUPPORT
 static int g_curFreqID;
-#endif
 
 //FIXME
 static int g_is_suspend;
@@ -56,7 +54,7 @@ enum gpu_dvfs_status_step {
 
 static inline void gpu_dvfs_status_footprint(enum gpu_dvfs_status_step step)
 {
-#ifdef CONFIG_MTK_AEE_IPANIC
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	aee_rr_rec_gpu_dvfs_status(step |
 				(aee_rr_curr_gpu_dvfs_status() & 0xF0));
 #endif
@@ -64,14 +62,13 @@ static inline void gpu_dvfs_status_footprint(enum gpu_dvfs_status_step step)
 
 static inline void gpu_dvfs_status_reset_footprint(void)
 {
-#ifdef CONFIG_MTK_AEE_IPANIC
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	aee_rr_rec_gpu_dvfs_status(0);
 #endif
 }
 
 static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 {
-#ifdef GPUFREQ_SUPPORT
 	if (mt_gpufreq_bringup()) {
 		mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
 		return 1;
@@ -117,14 +114,12 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 #endif
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_5);
-#endif
 
 	return 1;
 }
 
 static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 {
-#ifdef GPUFREQ_SUPPORT
 	if (mt_gpufreq_bringup())
 		return;
 
@@ -163,7 +158,6 @@ static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 	mt_gpufreq_power_control(POWER_OFF, CG_OFF, MTCMOS_OFF, BUCK_OFF);
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_B);
-#endif
 }
 
 static int pm_callback_power_on(struct kbase_device *kbdev)
