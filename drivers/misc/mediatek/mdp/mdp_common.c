@@ -29,13 +29,17 @@
 
 #include "cmdq_helper_ext.h"
 
+#include <linux/dmapool.h>
 #include <linux/kernel.h>
 #include <linux/uaccess.h>
 #include <linux/iopoll.h>
-#include <linux/notifier.h>
-#include <linux/sched/clock.h>
-#include <linux/dmapool.h>
 #include <linux/mailbox_controller.h>
+#include <linux/notifier.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
+#include <linux/pm_runtime.h>
+#include <linux/sched/clock.h>
+#include <soc/mediatek/smi.h>
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #include <cmdq-sec.h>
@@ -144,6 +148,8 @@ struct mdp_context {
 
 	/* smi clock usage */
 	atomic_t mdp_smi_usage;
+
+	struct device *larb;
 };
 static struct mdp_context mdp_ctx;
 static struct cmdq_buf_pool mdp_pool;
@@ -1929,7 +1935,33 @@ static void cmdq_mdp_init_pmqos(void)
 #endif	/* CONFIG_MTK_SMI_EXT */
 }
 
-void cmdq_mdp_init(void)
+static int cmdq_mdp_init_larb(struct platform_device *pdev)
+{
+	struct device_node *node;
+	struct platform_device *larb_pdev;
+
+	/* get larb node from dts */
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", 0);
+	if (!node) {
+		CMDQ_ERR("%s fail to parse mediatek,larb\n", __func__);
+		return -EINVAL;
+	}
+
+	larb_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!larb_pdev)) {
+		of_node_put(node);
+		return -EINVAL;
+	}
+	of_node_put(node);
+
+	mdp_ctx.larb = &larb_pdev->dev;
+
+	CMDQ_LOG("%s success\n", __func__);
+
+	return 0;
+}
+
+void cmdq_mdp_init(struct platform_device *pdev)
 {
 	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
 
@@ -1977,6 +2009,7 @@ void cmdq_mdp_init(void)
 	mdp_pool.cnt = &mdp_pool_cnt;
 
 	cmdq_mdp_pool_create();
+	cmdq_mdp_init_larb(pdev);
 }
 EXPORT_SYMBOL(cmdq_mdp_init);
 
@@ -2330,6 +2363,23 @@ long cmdq_mdp_get_module_base_VA_MMSYS_CONFIG(void)
 static void cmdq_mdp_enable_common_clock_virtual(bool enable)
 {
 #ifdef CMDQ_PWR_AWARE
+#if IS_ENABLED(CONFIG_MTK_SMI)
+	int ret;
+
+	if (!mdp_ctx.larb) {
+		CMDQ_ERR("%s smi larb not support\n", __func__);
+		return;
+	}
+
+	if (enable)
+		ret = mtk_smi_larb_get(mdp_ctx.larb);
+	else
+		mtk_smi_larb_put(mdp_ctx.larb);
+
+	if (ret)
+		CMDQ_ERR("%s %s fail ret:%d\n",
+			__func__, enable ? "enable" : "disable", ret);
+#else
 #ifdef CONFIG_MTK_SMI_EXT
 	if (enable) {
 		/* Use SMI clock API */
@@ -2339,6 +2389,7 @@ static void cmdq_mdp_enable_common_clock_virtual(bool enable)
 		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
 	}
 #endif	/* CONFIG_MTK_SMI_EXT */
+#endif	/* CONFIG_MTK_SMI */
 #endif	/* CMDQ_PWR_AWARE */
 }
 
@@ -3883,6 +3934,12 @@ void cmdq_mdp_platform_function_setting(void)
 EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 #endif
 
+struct device *mdp_larb_dev_get(void)
+{
+	return mdp_ctx.larb;
+}
+
+
 static int mdp_loglevel_set(const char *val, const struct kernel_param *kp)
 {
 	int result, level;
@@ -3958,6 +4015,5 @@ static struct kernel_param_ops mdp_profile_ops = {
 };
 
 module_param_cb(profile, &mdp_profile_ops, NULL, 0644);
-
 
 MODULE_LICENSE("GPL v2");

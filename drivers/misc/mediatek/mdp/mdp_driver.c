@@ -1175,7 +1175,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	cmdq_core_initialize();
 
 	/* init cmdq context */
-	cmdq_mdp_init();
+	cmdq_mdp_init(pDevice);
 
 	status = alloc_chrdev_region(&gMdpDevNo, 0, 1,
 		MDP_DRIVER_DEVICE_NAME);
@@ -1204,6 +1204,8 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 	/* proc debug access point */
 	cmdq_create_debug_entries();
+
+	mdp_limit_dev_create(pDevice);
 
 	CMDQ_LOG("MDP driver probe end\n");
 
@@ -1289,6 +1291,8 @@ static int __init cmdq_init(void)
 		return -ENODEV;
 	}
 
+	mdpsyscon_init();
+
 	CMDQ_LOG("MDP driver init end\n");
 
 	return 0;
@@ -1330,6 +1334,7 @@ static void __exit cmdq_exit(void)
 
 	/* De-Initialize cmdq dev related data */
 	cmdq_dev_deinit();
+	mdpsyscon_deinit();
 
 	CMDQ_LOG("MDP driver exit end\n");
 }

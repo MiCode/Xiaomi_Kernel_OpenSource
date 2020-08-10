@@ -21,6 +21,8 @@
 #include <cmdq-sec-iwc-common.h>
 #endif
 
+#include <soc/mediatek/smi.h>
+
 #ifdef CONFIG_MTK_SMI_EXT
 #include <mmdvfs_pmqos.h>
 #include "smi_public.h"
@@ -1927,21 +1929,29 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 
 static void cmdq_mdp_enable_common_clock(bool enable)
 {
-#ifdef CMDQ_PWR_AWARE
-#ifdef CONFIG_MTK_SMI_EXT
+#if IS_ENABLED(CONFIG_MTK_SMI)
+	struct device *larb = mdp_larb_dev_get();
+
+
+	if (!larb) {
+		CMDQ_ERR("%s smi larb not support\n", __func__);
+		return;
+	}
+
 	if (enable) {
-		/* Use SMI clock API */
-		smi_bus_prepare_enable(SMI_LARB2, "MDP");
+		int ret = mtk_smi_larb_get(larb);
 		cmdq_mdp_enable_clock_APB(enable);
 		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
+
+		if (ret)
+			CMDQ_ERR("%s enable fail ret:%d\n",
+				__func__, ret);
 	} else {
-		/* disable, reverse the sequence */
 		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
 		cmdq_mdp_enable_clock_APB(enable);
-		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
+		mtk_smi_larb_put(larb);
 	}
 #endif
-#endif	/* CMDQ_PWR_AWARE */
 }
 
 

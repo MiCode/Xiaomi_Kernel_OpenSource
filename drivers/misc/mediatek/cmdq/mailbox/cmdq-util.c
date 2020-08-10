@@ -502,6 +502,8 @@ struct cmdq_util_helper_fp helper_fp = {
 	.hw_name = cmdq_util_hw_name,
 	.set_first_err_mod = cmdq_util_set_first_err_mod,
 	.track = cmdq_util_track,
+	.event_module_dispatch = cmdq_event_module_dispatch,
+	.thread_module_dispatch = cmdq_thread_module_dispatch,
 };
 
 static int __init cmdq_util_init(void)
