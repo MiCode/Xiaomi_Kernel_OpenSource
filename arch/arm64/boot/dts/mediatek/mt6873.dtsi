@@ -2215,20 +2215,21 @@
 		};
 
 		mali: mali@13000000 {
-		compatible = "mediatek,mali", "arm,mali-valhall";
-		reg = <0 0x13000000 0 0x4000>;
-		interrupts =
-			<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH 0>;
-		interrupt-names =
-			"GPU",
-			"MMU",
-			"JOB",
-			"EVENT",
-			"PWR";
+			compatible = "mediatek,mali", "arm,mali-valhall";
+			reg = <0 0x13000000 0 0x4000>;
+			interrupts =
+				<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupt-names =
+				"GPU",
+				"MMU",
+				"JOB",
+				"EVENT",
+				"PWR";
+			ged-supply = <&ged>;
 		};
 
 		mali_dvfs_hint@13fbb000 {
@@ -2252,6 +2253,51 @@
 			compatible = "mediatek,g3d_config", "syscon";
 			reg = <0 0x13fbf000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		gpufreq: gpufreq {
+			compatible = "mediatek,gpufreq";
+			clocks =
+				<&topckgen CLK_TOP_MFG_PLL_SEL>,
+				<&apmixedsys CLK_APMIXED_MFGPLL>,
+				<&topckgen CLK_TOP_MFG_REF_SEL>,
+				<&mfgcfg CLK_MFG_BG3D>;
+			clock-names =
+				"clk_mux",		/* switch main/sub */
+				"clk_main_parent",	/* main pll freq */
+				"clk_sub_parent",	/* default 218.4 MHz */
+				"subsys_bg3d";
+		};
+
+		gpufreq_mfg2: gpufreq_mfg2 {
+			compatible = "mediatek,mt6873-mfg2",
+						"mediatek,gpufreq";
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_MFG2>;
+		};
+		gpufreq_mfg3: gpufreq_mfg3 {
+			compatible = "mediatek,mt6873-mfg3",
+						"mediatek,gpufreq";
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_MFG3>;
+		};
+		gpufreq_mfg4: gpufreq_mfg4 {
+			compatible = "mediatek,mt6873-mfg4",
+						"mediatek,gpufreq";
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_MFG4>;
+		};
+		gpufreq_mfg5: gpufreq_mfg5 {
+			compatible = "mediatek,mt6873-mfg5",
+						"mediatek,gpufreq";
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_MFG5>;
+		};
+		gpufreq_mfg6: gpufreq_mfg6 {
+			compatible = "mediatek,mt6873-mfg6",
+						"mediatek,gpufreq";
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_MFG6>;
+		};
+
+		ged: ged {
+			compatible = "mediatek,ged";
+			gpufreq-supply = <&gpufreq>;
 		};
 
 		mfgcfg: mfgcfg@13fbf000 {
