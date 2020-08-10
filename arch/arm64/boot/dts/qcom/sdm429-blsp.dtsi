@@ -198,6 +198,7 @@
 		interrupts = <0 97 IRQ_TYPE_LEVEL_HIGH>,
 				<0 238 IRQ_TYPE_LEVEL_HIGH>;
 		spi-max-frequency = <50000000>;
+		qcom,use-bam;
 		qcom,ver-reg-exists;
 		qcom,bam-consumer-pipe-index = <8>;
 		qcom,bam-producer-pipe-index = <9>;
