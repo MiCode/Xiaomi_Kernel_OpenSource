@@ -171,7 +171,7 @@ struct spi_geni_master {
 	int num_xfers;
 	bool slave_cross_connected;
 	void *ipc;
-	bool shared_se;
+	bool gsi_mode; /* GSI Mode */
 	bool dis_autosuspend;
 	bool cmd_done;
 	struct spi_geni_ssr spi_ssr;
@@ -878,7 +878,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 
 	/* Adjust the IB based on the max speed of the slave.*/
 	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
-	if (mas->shared_se) {
+	if (mas->gsi_mode) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
 
@@ -945,10 +945,10 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 		mas->tx_wm = 1;
 
 
-		mas->shared_se =
+		mas->gsi_mode =
 			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
 							FIFO_IF_DISABLE);
-		if (mas->shared_se) {
+		if (mas->gsi_mode) {
 			mas->tx = dma_request_slave_channel(mas->dev, "tx");
 			if (IS_ERR_OR_NULL(mas->tx)) {
 				dev_info(mas->dev,
@@ -1044,7 +1044,7 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 	}
 	mutex_unlock(&mas->spi_ssr.ssr_lock);
 
-	if (mas->shared_se) {
+	if (mas->gsi_mode) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
 
@@ -1836,7 +1836,7 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
 	disable_irq(geni_mas->irq);
-	if (geni_mas->shared_se) {
+	if (geni_mas->gsi_mode) {
 		ret = se_geni_clks_off(&geni_mas->spi_rsc);
 		if (ret)
 			GENI_SE_ERR(geni_mas->ipc, false, NULL,
@@ -1859,7 +1859,7 @@ static int spi_geni_runtime_resume(struct device *dev)
 		return -EAGAIN;
 	}
 
-	if (geni_mas->shared_se) {
+	if (geni_mas->gsi_mode) {
 		ret = se_geni_clks_on(&geni_mas->spi_rsc);
 		if (ret)
 			GENI_SE_ERR(geni_mas->ipc, false, NULL,
