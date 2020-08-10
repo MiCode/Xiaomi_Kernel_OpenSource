@@ -1056,8 +1056,9 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	flash->blksize  = onfi_param_page_ptr->number_of_pages_per_block *
 					flash->pagesize;
 	flash->oobsize  = onfi_param_page_ptr->number_of_spare_bytes_per_page;
-	flash->density  = onfi_param_page_ptr->number_of_blocks_per_logical_unit
-					* flash->blksize;
+	flash->density  = onfi_param_page_ptr->number_of_logical_units *
+		onfi_param_page_ptr->number_of_blocks_per_logical_unit *
+					flash->blksize;
 	flash->ecc_correctability =
 			onfi_param_page_ptr->number_of_bits_ecc_correctability;
 
