@@ -20,6 +20,8 @@
 #define RPM_CLK_MAX_LEVEL		INT_MAX
 #define RPM_CLK_MIN_LEVEL               19200000
 
+#define DEFAULT_UTIL_FACTOR		100
+
 #define to_qcom_provider(_provider) \
 	container_of(_provider, struct qcom_icc_provider, provider)
 
@@ -57,6 +59,7 @@ struct qcom_icc_provider {
 	struct list_head probe_list;
 	struct clk_bulk_data *bus_clks;
 	int num_clks;
+	u32 util_factor;
 	u64 bus_clk_cur_rate[RPM_NUM_CXT];
 	bool keepalive;
 	bool init;

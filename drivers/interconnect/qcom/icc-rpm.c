@@ -118,6 +118,10 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 		qn = n->data;
 		for (i = 0; i < RPM_NUM_CXT; i++) {
 			sum_avg = icc_units_to_bps(qn->sum_avg[i]);
+
+			sum_avg *= qp->util_factor;
+			do_div(sum_avg, DEFAULT_UTIL_FACTOR);
+
 			do_div(sum_avg, qn->channels);
 			max_peak = icc_units_to_bps(qn->max_peak[i]);
 
