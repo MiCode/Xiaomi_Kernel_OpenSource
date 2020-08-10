@@ -37,6 +37,8 @@
 		v = le32_to_cpu(readl_relaxed(base + itr));	\
 		pr_debug("Addr:%p val:%#x\n", base + itr, v);	\
 		itr += sizeof(u32);				\
+		/* Barrier to enssure sequential read */	\
+		smp_rmb();					\
 		v;						\
 		})
 
