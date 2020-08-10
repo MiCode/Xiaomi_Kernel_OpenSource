@@ -194,7 +194,7 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space);
 void cmdq_mdp_suspend(void);
 void cmdq_mdp_resume(void);
 void cmdq_mdp_release_task_by_file_node(void *file_node);
-void cmdq_mdp_init(void);
+void cmdq_mdp_init(struct platform_device *pdev);
 void cmdq_mdp_deinit_pmqos(void);
 s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out);
 s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle);
@@ -259,6 +259,9 @@ void testcase_clkmgr_mdp(void);
 
 u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_port(u32 base);
+
+struct device *mdp_larb_dev_get(void);
+
 
 /* Platform virtual function setting */
 void cmdq_mdp_platform_function_setting(void);

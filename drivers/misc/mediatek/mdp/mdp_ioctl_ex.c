@@ -277,7 +277,12 @@ static unsigned long translate_fd(struct op_meta *meta,
 			mapping_job->sgts[i] = sgt;
 			mapping_job->mvas[i] = ion_addr;
 			mapping_job->handle_count++;
+
+			CMDQ_MSG("%s fd:%d -> iova:%#llx\n",
+				__func__, meta->fd, (u64)ion_addr);
 		} else {
+			CMDQ_ERR("%s fail to get iova for fd:%d\n",
+				__func__, meta->fd);
 			mdp_ion_free_dma_buf(buf, attach, sgt);
 			return 0;
 		}
@@ -920,9 +925,14 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 }
 EXPORT_SYMBOL(mdp_ioctl_free_readback_slots_by_node);
 
+int mdp_limit_dev_create(struct platform_device *device)
+{
+	INIT_LIST_HEAD(&job_mapping_list);
+}
+
 static int mdpsys_con_probe(struct platform_device *pdev)
 {
-	struct device *dev;
+	struct device *dev = &pdev->dev;
 	u32 dma_mask_bit = 0;
 	s32 ret;
 
@@ -966,5 +976,21 @@ static struct platform_driver mdpsyscon = {
 		.of_match_table = mdpsyscon_of_ids,
 	}
 };
+
+void mdpsyscon_init(void)
+{
+	int status;
+
+	status = platform_driver_register(&mdpsyscon);
+	if (status != 0) {
+		CMDQ_ERR("Failed to register the CMDQ driver(%d)\n", status);
+		return;
+	}
+}
+
+void mdpsyscon_deinit(void)
+{
+	platform_driver_unregister(&mdpsyscon);
+}
 
 MODULE_LICENSE("GPL");
