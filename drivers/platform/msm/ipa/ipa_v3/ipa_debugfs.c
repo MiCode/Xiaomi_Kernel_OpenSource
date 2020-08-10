@@ -324,7 +324,7 @@ static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 
 		*ppos = pos;
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
-					      nbytes);
+						  nbytes);
 		if (ret < 0) {
 			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return ret;
@@ -503,12 +503,12 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 	if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
 		pr_err("src_port_range:%u %u ",
 				   attrib->src_port_lo,
-			     attrib->src_port_hi);
+				 attrib->src_port_hi);
 	}
 	if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
 		pr_err("dst_port_range:%u %u ",
 				   attrib->dst_port_lo,
-			     attrib->dst_port_hi);
+				 attrib->dst_port_hi);
 	}
 	if (attrib->attrib_mask & IPA_FLT_TYPE)
 		pr_err("type:%d ", attrib->type);
@@ -2646,6 +2646,125 @@ static ssize_t ipa3_enable_ipc_low(struct file *file,
 	return count;
 }
 
+static ssize_t ipa3_read_uc_act_tbl(struct file *file,
+	char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+	int i;
+	struct ipa_ipv6_nat_uc_tmpl *uc_entry_nat;
+	struct ipa_socksv5_uc_tmpl *uc_entry_socks;
+	struct iphdr_rsv *socks_iphdr;
+	struct ipv6hdr *socks_ipv6hdr;
+
+	/* IPA version check */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+
+	if (!ipa3_ctx->uc_act_tbl_valid) {
+		IPAERR("uC act tbl wasn't allocated\n");
+		return -ENOENT;
+	}
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+
+	mutex_lock(&ipa3_ctx->act_tbl_lock);
+
+	uc_entry_nat = (struct ipa_ipv6_nat_uc_tmpl *)
+		(ipa3_ctx->uc_act_tbl.base);
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+		"uc_act_tbl_total %d, uc_act_tbl_ipv6_nat_total %d uc_act_tbl_socksv5_total %d, uc_act_tbl_next_index %d\n"
+		"uC activation entries:"
+		, ipa3_ctx->uc_act_tbl_total,
+		ipa3_ctx->uc_act_tbl_ipv6_nat_total,
+		ipa3_ctx->uc_act_tbl_socksv5_total,
+		ipa3_ctx->uc_act_tbl_next_index);
+	cnt += nbytes;
+	for (i = 0; i < IPA_UC_ACT_TBL_SIZE; i++) {
+		if (uc_entry_nat[i].cmd_id == IPA_IPv6_NAT_COM_ID) {
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+				"\nentry %d:\n"
+				"cmd_id = IPV6_NAT\n"
+				"private_address_msb 0x%llX\n"
+				"private_address_lsb 0x%llX\n"
+				"private_port %u\n"
+				"public_address_msb 0x%llX\n"
+				"public_address_lsb 0x%llX\n"
+				"public_port %u\n",
+				i,
+				uc_entry_nat[i].private_address_msb,
+				uc_entry_nat[i].private_address_lsb,
+				uc_entry_nat[i].private_port,
+				uc_entry_nat[i].public_address_msb,
+				uc_entry_nat[i].public_address_lsb,
+				uc_entry_nat[i].public_port);
+			cnt += nbytes;
+		} else if (uc_entry_nat[i].cmd_id == IPA_SOCKSV5_ADD_COM_ID) {
+			uc_entry_socks = (struct ipa_socksv5_uc_tmpl *)
+				(uc_entry_nat);
+			nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN,
+				"\nentry %d:\n"
+				"cmd_id = SOCKSv5\n"
+				"cmd_param: %u\n"
+				"source_port: %u\n"
+				"dest_port: %u\n"
+				"ipa_socksv5_mask: %x\n",
+				i,
+				uc_entry_socks[i].cmd_param,
+				uc_entry_socks[i].src_port,
+				uc_entry_socks[i].dst_port,
+				uc_entry_socks[i].ipa_sockv5_mask);
+			cnt += nbytes;
+
+			if (uc_entry_socks[i].cmd_param ==
+					IPA_SOCKsv5_ADD_V6_V4_COM_PM) {
+				socks_iphdr =
+					&uc_entry_socks[i].ip_hdr.ipv4_rsv;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN,
+					"ipv4_src_addr: 0x%X\n"
+					"ipv4_dst_addr: 0x%X\n",
+					socks_iphdr->ipv4_temp.saddr,
+					socks_iphdr->ipv4_temp.daddr);
+				cnt += nbytes;
+			} else {
+				socks_ipv6hdr =
+					&uc_entry_socks[i].ip_hdr.ipv6_temp;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN,
+					"ipv6_src_addr[0]: 0x%X\n"
+					"ipv6_src_addr[1]: 0x%X\n"
+					"ipv6_src_addr[2]: 0x%X\n"
+					"ipv6_src_addr[3]: 0x%X\n"
+					"ipv6_dts_addr[0]: 0x%X\n"
+					"ipv6_dts_addr[1]: 0x%X\n"
+					"ipv6_dts_addr[2]: 0x%X\n"
+					"ipv6_dts_addr[3]: 0x%X\n",
+					socks_ipv6hdr->saddr.s6_addr32[0],
+					socks_ipv6hdr->saddr.s6_addr32[1],
+					socks_ipv6hdr->saddr.s6_addr32[2],
+					socks_ipv6hdr->saddr.s6_addr32[3],
+					socks_ipv6hdr->daddr.s6_addr32[0],
+					socks_ipv6hdr->daddr.s6_addr32[1],
+					socks_ipv6hdr->daddr.s6_addr32[2],
+					socks_ipv6hdr->daddr.s6_addr32[3]);
+				cnt += nbytes;
+			}
+		}
+	}
+	mutex_unlock(&ipa3_ctx->act_tbl_lock);
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+
+}
+
 static const struct ipa3_debugfs_file debugfs_files[] = {
 	{
 		"gen_reg", IPA_READ_ONLY_MODE, NULL, {
@@ -2811,7 +2930,11 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 		"app_clk_vote_cnt", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_app_clk_vote,
 		}
-	},
+	}, {
+		"uc_act_table", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_uc_act_tbl,
+		}
+	}
 };
 
 void ipa3_debugfs_pre_init(void)
