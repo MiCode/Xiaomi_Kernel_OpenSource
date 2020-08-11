@@ -40,6 +40,8 @@ static const struct snd_pcm_hardware no_host_hardware = {
 				  SNDRV_PCM_INFO_PAUSE |
 				  SNDRV_PCM_INFO_RESUME,
 	.formats		= SNDRV_PCM_FMTBIT_S16_LE |
+				  SNDRV_PCM_FMTBIT_S24_LE |
+				  SNDRV_PCM_FMTBIT_S24_3LE |
 				  SNDRV_PCM_FMTBIT_S32_LE,
 	.period_bytes_min	= PAGE_SIZE >> 2,
 	.period_bytes_max	= PAGE_SIZE >> 1,

@@ -8,6 +8,7 @@
  *  This file is based on the old console.c, vga.c and vesa_blank.c drivers.
  *
  *	Copyright (C) 1991, 1992  Linus Torvalds
+ *	Copyright (C) 2020 XiaoMi, Inc.
  *			    1995  Jay Estabrook
  *
  *	User definable mapping table and font loading by Eugene G. Crosser,
@@ -1316,6 +1317,9 @@ static int vgacon_font_get(struct vc_data *c, struct console_font *font)
 static int vgacon_resize(struct vc_data *c, unsigned int width,
 			 unsigned int height, unsigned int user)
 {
+	if ((width << 1) * height > vga_vram_size)
+		return -EINVAL;
+
 	if (width % 2 || width > screen_info.orig_video_cols ||
 	    height > (screen_info.orig_video_lines * vga_default_font_height)/
 	    c->vc_font.height)

@@ -68,6 +68,7 @@
 #include <linux/bpf.h>
 #include <linux/mount.h>
 #include <linux/pipe_fs_i.h>
+#include <linux/mi_sysctl.h>
 
 #include <linux/uaccess.h>
 #include <asm/processor.h>
@@ -405,6 +406,13 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= sched_boost_handler,
 		.extra1		= &neg_three,
 		.extra2		= &three,
+	},
+	{
+		.procname	= "mi_iolimit",
+		.data		= &sysctl_mi_iolimit,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= mi_iolimit_handler,
 	},
 	{
 		.procname	= "sched_conservative_pl",

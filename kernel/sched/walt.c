@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/syscore_ops.h>
@@ -107,7 +108,8 @@ static __read_mostly unsigned int sched_io_is_busy = 1;
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
-unsigned int sysctl_sched_ravg_window_nr_ticks = (HZ / NR_WINDOWS_PER_SEC);
+__read_mostly unsigned int sysctl_sched_ravg_window_nr_ticks =
+	(HZ / NR_WINDOWS_PER_SEC);
 
 static unsigned int display_sched_ravg_window_nr_ticks =
 	(HZ / NR_WINDOWS_PER_SEC);

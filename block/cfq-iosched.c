@@ -5,6 +5,7 @@
  *  scheduler (round robin per-process disk scheduling) and Andrea Arcangeli.
  *
  *  Copyright (C) 2003 Jens Axboe <axboe@kernel.dk>
+ *  Copyright (C) 2020 XiaoMi, Inc.
  */
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -4282,6 +4283,8 @@ static void cfq_completed_request(struct request_queue *q, struct request *rq)
 	struct cfq_data *cfqd = cfqq->cfqd;
 	const int sync = rq_is_sync(rq);
 	u64 now = ktime_get_ns();
+	u64 io_start_time = 0;
+	u64 start_time = 0;
 
 	cfq_log_cfqq(cfqd, cfqq, "complete rqnoidle %d", req_noidle(rq));
 
@@ -4296,6 +4299,17 @@ static void cfq_completed_request(struct request_queue *q, struct request *rq)
 				     rq->io_start_time_ns, rq->cmd_flags);
 
 	cfqd->rq_in_flight[cfq_cfqq_sync(cfqq)]--;
+
+	if (sysctl_mi_iolimit) {
+		io_start_time = rq->io_start_time_ns;
+		if (time_after64(now, io_start_time))
+			atomic64_set(&q->io_stime, (now - io_start_time) / NSEC_PER_MSEC);
+		if (sync) {
+			start_time = rq->start_time_ns;
+			if (time_after64(io_start_time, start_time))
+				atomic64_set(&q->io_wtime, (io_start_time - start_time) / NSEC_PER_MSEC);
+		}
+	}
 
 	if (sync) {
 		struct cfq_rb_root *st;

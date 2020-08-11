@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
@@ -501,7 +502,7 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
-	bool ring_db = true;
+        bool ring_db = true;
 	int n_free_tre, n_queued_tre;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
@@ -542,18 +543,18 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 		mhi_tre->dword[0] =
 			MHI_RSCTRE_DATA_DWORD0(buf_ring->wp - buf_ring->base);
 		mhi_tre->dword[1] = MHI_RSCTRE_DATA_DWORD1;
-		/*
-		 * on RSC channel IPA HW has a minimum credit requirement before
-		 * switching to DB mode
-		 */
+	        /*
+	        * on RSC channel IPA HW has a minimum credit requirement before
+	        * switching to DB mode
+	        */
 		n_free_tre = mhi_get_no_free_descriptors(mhi_dev,
 				DMA_FROM_DEVICE);
 		n_queued_tre = tre_ring->elements - n_free_tre;
-		read_lock_bh(&mhi_chan->lock);
+	        read_lock_bh(&mhi_chan->lock);
 		if (mhi_chan->db_cfg.db_mode &&
 				n_queued_tre < MHI_RSC_MIN_CREDITS)
-			ring_db = false;
-		read_unlock_bh(&mhi_chan->lock);
+	                ring_db = false;
+	        read_unlock_bh(&mhi_chan->lock);
 	} else {
 		mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 		mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
@@ -975,17 +976,17 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		mhi_chan->db_cfg.db_mode = true;
 		mhi_chan->mode_change++;
 
-		/*
-		 * on RSC channel IPA HW has a minimum credit requirement before
-		 * switching to DB mode
-		 */
-		if (mhi_chan->xfer_type == MHI_XFER_RSC_DMA) {
+	        /*
+                * on RSC channel IPA HW has a minimum credit requirement before
+                * switching to DB mode
+                */
+                if (mhi_chan->xfer_type == MHI_XFER_RSC_DMA) {
 			n_free_tre = mhi_get_no_free_descriptors(
 					mhi_chan->mhi_dev, DMA_FROM_DEVICE);
 			n_queued_tre = tre_ring->elements - n_free_tre;
 			if (n_queued_tre < MHI_RSC_MIN_CREDITS)
-				ring_db = false;
-		}
+                        ring_db = false;
+                }
 
 		MHI_VERB("OOB_MODE chan %d ring_db %d\n", mhi_chan->chan,
 			ring_db);
@@ -1429,6 +1430,7 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 		goto exit_no_lock;
 	}
 
+
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
 		goto exit_no_lock;
@@ -1760,6 +1762,20 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 		cmd_db_not_set = true;
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	spin_unlock_bh(&mhi_cmd->lock);
+
+	if (cmd_db_not_set) {
+		ret = wait_event_timeout(mhi_cntrl->state_event,
+		MHI_DB_ACCESS_VALID(mhi_cntrl) ||
+		MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
+		msecs_to_jiffies(MHI_RESUME_TIME));
+		if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+			MHI_ERR(
+				"Did not enter M0, cur_state:%s pm_state:%s\n",
+				TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+				to_mhi_pm_state_str(mhi_cntrl->pm_state));
+		return -EIO;
+		}
+	}
 
 	if (cmd_db_not_set) {
 		ret = wait_event_timeout(mhi_cntrl->state_event,

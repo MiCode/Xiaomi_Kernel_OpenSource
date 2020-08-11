@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -8,6 +9,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/sched.h>
+#include <linux/sched/task.h>
 #include <linux/ratelimit.h>
 #include <linux/workqueue.h>
 #include <linux/diagchar.h>
@@ -330,7 +332,10 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	int peripheral = 0;
 	struct diag_md_session_t *session_info = NULL;
 	struct pid *pid_struct = NULL;
+	struct task_struct *task_s = NULL;
 
+	if (!info)
+		return -EINVAL;
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
 		ch = &diag_md[i];
 		if (!ch->md_info_inited)
@@ -353,11 +358,11 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			if (!session_info)
 				goto drop_data;
 
-			if (session_info && info &&
+			if (session_info &&
 				(session_info->pid != info->pid))
 				continue;
-			if ((info && (info->peripheral_mask[i] &
-			    MD_PERIPHERAL_MASK(peripheral)) == 0))
+			if ((info->peripheral_mask[i] &
+			    MD_PERIPHERAL_MASK(peripheral)) == 0)
 				goto drop_data;
 			pid_struct = find_get_pid(session_info->pid);
 			if (!pid_struct) {
@@ -386,35 +391,57 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			}
 			if (i > 0) {
 				remote_token = diag_get_remote(i);
-				if (get_pid_task(pid_struct, PIDTYPE_PID)) {
+				task_s = get_pid_task(pid_struct, PIDTYPE_PID);
+				if (task_s) {
 					err = copy_to_user(buf + ret,
 							&remote_token,
 							sizeof(int));
-					if (err)
+					if (err) {
+						put_task_struct(task_s);
 						goto drop_data;
+					}
 					ret += sizeof(int);
+					put_task_struct(task_s);
 				}
 			}
 
-			/* Copy the length of data being passed */
-			if (get_pid_task(pid_struct, PIDTYPE_PID)) {
-				err = copy_to_user(buf + ret,
-						(void *)&(entry->len),
-						sizeof(int));
-				if (err)
-					goto drop_data;
-				ret += sizeof(int);
+			task_s = get_pid_task(pid_struct, PIDTYPE_PID);
+			if (task_s) {
+				spin_lock_irqsave(&ch->lock, flags);
+				entry = &ch->tbl[j];
+				if (entry->len <= 0 || entry->buf == NULL) {
+					spin_unlock_irqrestore(&ch->lock,
+						flags);
+					continue;
+				}
+				spin_unlock_irqrestore(&ch->lock,
+						flags);
+				/* Copy the length of data being passed */
+				if (entry->len) {
+					err = copy_to_user(buf + ret,
+							(void *)&(entry->len),
+							sizeof(int));
+					if (err) {
+						put_task_struct(task_s);
+						goto drop_data;
+					}
+					ret += sizeof(int);
+				}
+
+				/* Copy the actual data being passed */
+				if (entry->buf) {
+					err = copy_to_user(buf + ret,
+							(void *)entry->buf,
+							entry->len);
+					if (err) {
+						put_task_struct(task_s);
+						goto drop_data;
+					}
+					ret += entry->len;
+				}
+				put_task_struct(task_s);
 			}
 
-			/* Copy the actual data being passed */
-			if (get_pid_task(pid_struct, PIDTYPE_PID)) {
-				err = copy_to_user(buf + ret,
-						(void *)entry->buf,
-						entry->len);
-				if (err)
-					goto drop_data;
-				ret += entry->len;
-			}
 			/*
 			 * The data is now copied to the user space client,
 			 * Notify that the write is complete and delete its
@@ -423,6 +450,11 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			num_data++;
 drop_data:
 			spin_lock_irqsave(&ch->lock, flags);
+			entry = &ch->tbl[j];
+			if (entry->len <= 0 || entry->buf == NULL) {
+				spin_unlock_irqrestore(&ch->lock, flags);
+				continue;
+			}
 			if (ch->ops && ch->ops->write_done)
 				ch->ops->write_done(entry->buf, entry->len,
 						    entry->ctx,
@@ -432,14 +464,22 @@ drop_data:
 			entry->len = 0;
 			entry->ctx = 0;
 			spin_unlock_irqrestore(&ch->lock, flags);
+
+			put_pid(pid_struct);
 		}
 	}
 
 	*pret = ret;
-	if (pid_struct && get_pid_task(pid_struct, PIDTYPE_PID)) {
-		err = copy_to_user(buf + sizeof(int),
+	pid_struct = find_get_pid(info->pid);
+	if (pid_struct) {
+		task_s = get_pid_task(pid_struct, PIDTYPE_PID);
+		if (task_s) {
+			err = copy_to_user(buf + sizeof(int),
 				(void *)&num_data,
 				sizeof(int));
+			put_task_struct(task_s);
+		}
+		put_pid(pid_struct);
 	}
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	if (drain_again)

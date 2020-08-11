@@ -2,6 +2,7 @@
  *  linux/mm/memory.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2020 XiaoMi, Inc.
  */
 
 /*
@@ -1318,7 +1319,6 @@ again:
 		pte_t ptent = *pte;
 		if (pte_none(ptent))
 			continue;
-
 		if (need_resched())
 			break;
 

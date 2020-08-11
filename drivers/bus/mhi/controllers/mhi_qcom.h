@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.*/
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #ifndef _MHI_QCOM_
 #define _MHI_QCOM_
@@ -119,6 +120,10 @@ static inline int mhi_arch_link_lpm_disable(struct mhi_controller *mhi_cntrl)
 static inline int mhi_arch_link_lpm_enable(struct mhi_controller *mhi_cntrl)
 {
 	return 0;
+}
+
+static inline void mhi_arch_mission_mode_enter(struct mhi_controller *mhi_cntrl)
+{
 }
 
 #endif

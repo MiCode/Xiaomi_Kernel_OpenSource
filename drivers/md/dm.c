@@ -1259,6 +1259,8 @@ static blk_qc_t __map_bio(struct dm_target_io *tio)
 	struct mapped_device *md = io->md;
 	struct dm_target *ti = tio->ti;
 	blk_qc_t ret = BLK_QC_T_NONE;
+	u64 io_stime = 0;
+	u64 io_wtime = 0;
 
 	clone->bi_end_io = clone_endio;
 
@@ -1271,6 +1273,14 @@ static blk_qc_t __map_bio(struct dm_target_io *tio)
 	sector = clone->bi_iter.bi_sector;
 
 	r = ti->type->map(ti, clone);
+
+	if (sysctl_mi_iolimit &&
+			NULL != tio->clone.bi_disk->queue && NULL != tio->io->md->queue) {
+		io_stime = atomic64_read(&tio->clone.bi_disk->queue->io_stime);
+		io_wtime = atomic64_read(&tio->clone.bi_disk->queue->io_wtime);
+		atomic64_set(&tio->io->md->queue->io_stime, io_stime);
+		atomic64_set(&tio->io->md->queue->io_wtime, io_wtime);
+	}
 	switch (r) {
 	case DM_MAPIO_SUBMITTED:
 		break;

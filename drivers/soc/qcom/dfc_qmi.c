@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <net/pkt_sched.h>
@@ -978,10 +979,12 @@ static u32 dfc_adjust_grant(struct rmnet_bearer_map *bearer,
 	return grant;
 }
 
+
 static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 			     u8 ack_req, u32 ancillary,
 			     struct dfc_flow_status_info_type_v01 *fc_info,
 			     bool is_query)
+
 {
 	struct rmnet_bearer_map *itm = NULL;
 	int rc = 0;

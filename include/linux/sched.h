@@ -1299,6 +1299,11 @@ struct task_struct {
 	int				nr_dirtied_pause;
 	/* Start of a write-and-pause period: */
 	unsigned long			dirty_paused_when;
+	int					nr_access;
+	bool				read_throttling;
+	bool				write_throttling;
+
+
 
 #ifdef CONFIG_LATENCYTOP
 	int				latency_record_count;

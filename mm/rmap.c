@@ -2,6 +2,7 @@
  * mm/rmap.c - physical to virtual reverse mappings
  *
  * Copyright 2001, Rik van Riel <riel@conectiva.com.br>
+ * Copyright (C) 2020 XiaoMi, Inc.
  * Released under the General Public License (GPL).
  *
  * Simple, low overhead reverse mapping scheme.
@@ -221,6 +222,35 @@ int __anon_vma_prepare(struct vm_area_struct *vma)
 }
 
 /*
+ * This is a useful helper function for try locking the anon_vma root as
+ * we traverse the vma->anon_vma_chain, looping over anon_vma's that
+ * have the same vma.
+ *
+ * Such anon_vma's should have the same root, so you'd expect to see
+ * just a single mutex_lock for the whole traversal.
+ */
+static inline struct anon_vma *try_lock_anon_vma_root(struct anon_vma *root, struct anon_vma *anon_vma)
+{
+	struct anon_vma *new_root = anon_vma->root;
+	if (new_root != root) {
+		if (WARN_ON_ONCE(root)) {
+			preempt_disable();
+			up_write(&root->rwsem);
+		}
+		root = new_root;
+		while (1) {
+			preempt_disable();
+			if (down_write_trylock(&root->rwsem)) {
+				break;
+			}
+			preempt_enable();
+			schedule();
+		}
+	}
+	return root;
+}
+
+/*
  * This is a useful helper function for locking the anon_vma root as
  * we traverse the vma->anon_vma_chain, looping over anon_vma's that
  * have the same vma.
@@ -246,6 +276,13 @@ static inline void unlock_anon_vma_root(struct anon_vma *root)
 		up_write(&root->rwsem);
 }
 
+static inline void unlock_try_anon_vma_root(struct anon_vma *root)
+{
+	if (root) {
+		up_write(&root->rwsem);
+		preempt_enable();
+	}
+}
 /*
  * Attach the anon_vmas from src to dst.
  * Returns 0 on success, -ENOMEM on failure.
@@ -385,7 +422,7 @@ void unlink_anon_vmas(struct vm_area_struct *vma)
 	list_for_each_entry_safe(avc, next, &vma->anon_vma_chain, same_vma) {
 		struct anon_vma *anon_vma = avc->anon_vma;
 
-		root = lock_anon_vma_root(root, anon_vma);
+		root = try_lock_anon_vma_root(root, anon_vma);
 		anon_vma_interval_tree_remove(avc, &anon_vma->rb_root);
 
 		/*
@@ -402,7 +439,7 @@ void unlink_anon_vmas(struct vm_area_struct *vma)
 	}
 	if (vma->anon_vma)
 		vma->anon_vma->degree--;
-	unlock_anon_vma_root(root);
+	unlock_try_anon_vma_root(root);
 
 	/*
 	 * Iterate the list once more, it now only contains empty and unlinked

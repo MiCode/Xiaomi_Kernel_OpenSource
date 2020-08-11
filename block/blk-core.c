@@ -468,7 +468,9 @@ inline void __blk_run_queue_uncond(struct request_queue *q)
 	 * can wait until all these request_fn calls have finished.
 	 */
 	q->request_fn_active++;
+	preempt_disable();
 	q->request_fn(q);
+	preempt_enable();
 	q->request_fn_active--;
 }
 EXPORT_SYMBOL_GPL(__blk_run_queue_uncond);
@@ -2980,8 +2982,10 @@ static void blk_dequeue_request(struct request *rq)
 	 * and to it is freed is accounted as io that is in progress at
 	 * the driver side.
 	 */
-	if (blk_account_rq(rq))
+	if (blk_account_rq(rq)) {
 		q->in_flight[rq_is_sync(rq)]++;
+		rq->io_start_time_ns = ktime_get_ns();
+	}
 }
 
 /**

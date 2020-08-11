@@ -3,6 +3,7 @@
  * Android IPC Subsystem
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -3080,6 +3081,22 @@ static void binder_transaction(struct binder_proc *proc,
 		target_proc = target_thread->proc;
 		target_proc->tmp_ref++;
 		binder_inner_proc_unlock(target_thread->proc);
+#ifdef CONFIG_MILLET
+		if (target_proc
+			&& target_proc->tsk
+			&& (target_proc->tsk->cred->uid.val <= frozen_uid_min)) {
+			struct millet_data data;
+
+			memset(&data, 0, sizeof(struct millet_data));
+			data.pri[0] =  BINDER_REPLY;
+			data.mod.k_priv.binder.trans.src_task = proc->tsk;
+			data.mod.k_priv.binder.trans.caller_tid = thread->pid;
+			data.mod.k_priv.binder.trans.dst_task = target_proc->tsk;
+			data.mod.k_priv.binder.trans.tf_oneway = tr->flags & TF_ONE_WAY;
+			data.mod.k_priv.binder.trans.code = tr->code;
+			millet_sendmsg(BINDER_TYPE, target_proc->tsk, &data);
+		}
+#endif
 	} else {
 		if (tr->target.handle) {
 			struct binder_ref *ref;
@@ -4181,6 +4198,10 @@ static int binder_wait_for_work(struct binder_thread *thread,
 {
 	DEFINE_WAIT(wait);
 	struct binder_proc *proc = thread->proc;
+#ifdef CONFIG_MILLET
+	struct binder_transaction *t;
+	struct binder_proc *target_proc;
+#endif
 	int ret = 0;
 
 	freezer_do_not_count();
@@ -4189,6 +4210,29 @@ static int binder_wait_for_work(struct binder_thread *thread,
 		prepare_to_wait(&thread->wait, &wait, TASK_INTERRUPTIBLE);
 		if (binder_has_work_ilocked(thread, do_proc_work))
 			break;
+#ifdef CONFIG_MILLET
+		target_proc = NULL;
+		t = thread->transaction_stack;
+		if (t)
+			target_proc = t->to_proc;
+
+		if ((!(t->flags & TF_ONE_WAY))
+			&& target_proc
+			&& target_proc->tsk
+			&& (target_proc->tsk->cred->uid.val <= frozen_uid_min)
+			&& (proc->pid != target_proc->pid)) {
+			struct millet_data data;
+
+			memset(&data, 0, sizeof(struct millet_data));
+			data.pri[0] =  BINDER_THREAD_HAS_WORK;
+			data.mod.k_priv.binder.trans.src_task = proc->tsk;
+			data.mod.k_priv.binder.trans.caller_tid = thread->pid;
+			data.mod.k_priv.binder.trans.dst_task = target_proc->tsk;
+			data.mod.k_priv.binder.trans.tf_oneway = t->flags & TF_ONE_WAY;
+			data.mod.k_priv.binder.trans.code = t->code;
+			millet_sendmsg(BINDER_TYPE, target_proc->tsk, &data);
+		}
+#endif
 		if (do_proc_work)
 			list_add(&thread->waiting_thread_node,
 				 &proc->waiting_threads);
@@ -6167,6 +6211,18 @@ err_alloc_device_names_failed:
 }
 
 device_initcall(binder_init);
+
+#ifdef CONFIG_MILLET
+struct task_struct *binder_buff_owner(struct binder_alloc *alloc)
+{
+	struct binder_proc *proc = NULL;
+	if (!alloc)
+		return NULL;
+
+	proc = container_of(alloc, struct binder_proc, alloc);
+	return proc->tsk;
+}
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"

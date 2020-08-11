@@ -13,6 +13,7 @@
 #include <linux/workqueue.h>
 #include <linux/kref.h>
 #include <linux/refcount.h>
+#include <linux/mi_iolimit_step.h>
 
 struct page;
 struct device;
@@ -205,6 +206,7 @@ struct backing_dev_info {
 	struct dentry *debug_dir;
 	struct dentry *debug_stats;
 #endif
+	mi_throttle_t mi_throttle;
 };
 
 enum {

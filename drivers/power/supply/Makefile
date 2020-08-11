@@ -86,3 +86,6 @@ obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 obj-$(CONFIG_CHARGER_CROS_USBPD)	+= cros_usbpd-charger.o
 obj-$(CONFIG_ARCH_QCOM)		+= qcom/
+obj-$(CONFIG_ARCH_QCOM)         += ti/
+obj-$(CONFIG_ARCH_QCOM)         += maxim/
+obj-$(CONFIG_ARCH_CAS_QCOM)	+= cas_qcom/

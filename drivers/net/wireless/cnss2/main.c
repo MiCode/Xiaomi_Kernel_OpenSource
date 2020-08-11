@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -66,6 +67,9 @@ struct cnss_driver_event {
 	int ret;
 	void *data;
 };
+
+static bool disable_nv_mac;
+module_param(disable_nv_mac, bool, 0444);
 
 static void cnss_set_plat_priv(struct platform_device *plat_dev,
 			       struct cnss_plat_data *plat_priv)
@@ -1978,6 +1982,7 @@ static ssize_t shutdown_store(struct kobject *kobj,
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 		del_timer(&plat_priv->fw_boot_timer);
 		complete_all(&plat_priv->power_up_complete);
+		complete_all(&plat_priv->cal_complete);
 	}
 
 	cnss_pr_dbg("Received shutdown notification\n");
@@ -2119,6 +2124,7 @@ static int cnss_reboot_notifier(struct notifier_block *nb,
 	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
 	del_timer(&plat_priv->fw_boot_timer);
 	complete_all(&plat_priv->power_up_complete);
+	complete_all(&plat_priv->cal_complete);
 	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
 
 	return NOTIFY_DONE;
@@ -2257,6 +2263,11 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
 	plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
+	if (disable_nv_mac) {
+		plat_priv->use_nv_mac = false;
+	} else {
+		plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
+	}
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);

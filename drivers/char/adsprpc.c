@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
@@ -2322,13 +2323,13 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	inv_args(ctx);
 	PERF_END);
 
-	VERIFY(err, 0 == (err = ctx->retval));
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_PUTARGS),
+	VERIFY(err, 0 == (err = put_args(kernel, ctx, invoke->pra)));
+	PERF_END);
 	if (err)
 		goto bail;
 
-	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_PUTARGS),
-	VERIFY(err, 0 == put_args(kernel, ctx, invoke->pra));
-	PERF_END);
+	VERIFY(err, 0 == (err = ctx->retval));
 	if (err)
 		goto bail;
  bail:

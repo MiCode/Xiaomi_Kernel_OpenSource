@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
+#include <soc/qcom/socinfo.h>
 
 #include "bus.h"
 #include "debug.h"
@@ -12,13 +14,26 @@
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
-#define MAX_BDF_FILE_NAME		13
+#define MAX_BDF_FILE_NAME		14
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
+
+#define ELF_BDF_FILE_NAME_J11		"bd_j11.elf"
+#define ELF_BDF_FILE_NAME_J11_B_BOM		"bd_j11_b.elf"
+#define ELF_BDF_FILE_NAME_J11_INDIA		"bd_j11in.elf"
+#define ELF_BDF_FILE_NAME_J11_GLOBAL		"bd_j11gl.elf"
+
+#define ELF_BDF_FILE_NAME_GLOBAL	 "bd_j1gl.elf"
+#define ELF_BDF_FILE_NAME_INDIA		 "bd_j1in.elf"
+#define ELF_BDF_FILE_NAME_B_BOM		 "bd_j1_b.elf"
+
+#define ELF_BDF_FILE_NAME_J1S		 "bd_j1s.elf"
+
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
+#define REGDB_FILE_NAME_J11		"regdb_j11.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
@@ -460,11 +475,41 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				  u32 filename_len)
 {
 	int ret = 0;
+	int hw_platform_ver = -1;
+	uint32_t hw_country_ver = 0;
+
+	hw_platform_ver = get_hw_version_platform();
+	hw_country_ver = get_hw_country_version();
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
-		if (plat_priv->board_info.board_id == 0xFF)
-			snprintf(filename, filename_len, ELF_BDF_FILE_NAME);
+		if (plat_priv->board_info.board_id == 0xFF) {
+			if (hw_platform_ver == HARDWARE_PLATFORM_LMI) {
+				if (get_hw_country_version() == (uint32_t)CountryGlobal)
+				    snprintf(filename, filename_len, ELF_BDF_FILE_NAME_J11_GLOBAL);
+				else if (get_hw_country_version() == (uint32_t)CountryIndia)
+				    snprintf(filename, filename_len, ELF_BDF_FILE_NAME_J11_INDIA);
+				else {
+					if ((get_hw_version_minor() == (uint32_t)HW_MINOR_VERSION_B) && (get_hw_version_major() == (uint32_t)HW_MAJOR_VERSION_B))
+						snprintf(filename, filename_len, ELF_BDF_FILE_NAME_J11_B_BOM);
+					else
+						snprintf(filename, filename_len, ELF_BDF_FILE_NAME_J11);
+				}
+			} else if (hw_platform_ver == HARDWARE_PLATFORM_CAS) {
+				snprintf(filename, filename_len, ELF_BDF_FILE_NAME_J1S);
+			} else {
+				if (hw_country_ver == (uint32_t)CountryGlobal)
+					snprintf(filename, filename_len, ELF_BDF_FILE_NAME_GLOBAL);
+				else if (hw_country_ver == (uint32_t)CountryIndia)
+					snprintf(filename, filename_len, ELF_BDF_FILE_NAME_INDIA);
+				else {
+					if ((get_hw_version_minor() == (uint32_t)HW_MINOR_VERSION_B) && (get_hw_version_major() == (uint32_t)HW_MAJOR_VERSION_B))
+						snprintf(filename, filename_len, ELF_BDF_FILE_NAME_B_BOM);
+					else
+						snprintf(filename, filename_len, ELF_BDF_FILE_NAME);
+				}
+			}
+		}
 		else if (plat_priv->board_info.board_id < 0xFF)
 			snprintf(filename, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
@@ -489,7 +534,10 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				 plat_priv->board_info.board_id & 0xFF);
 		break;
 	case CNSS_BDF_REGDB:
-		snprintf(filename, filename_len, REGDB_FILE_NAME);
+		if (hw_platform_ver == HARDWARE_PLATFORM_LMI)
+			snprintf(filename, filename_len, REGDB_FILE_NAME_J11);
+		else
+			snprintf(filename, filename_len, REGDB_FILE_NAME);
 		break;
 	case CNSS_BDF_DUMMY:
 		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
@@ -793,6 +841,10 @@ static int cnss_wlfw_wlan_mac_req_send_sync(struct cnss_plat_data *plat_priv,
 	}
 
 	cnss_pr_dbg("WLAN mac req completed\n");
+
+	kfree(req);
+	kfree(resp);
+	return 0;
 
 out:
 	kfree(req);
@@ -2091,6 +2143,12 @@ int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data)
 
 	if (!plat_priv)
 		return -ENODEV;
+
+	if (test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state)) {
+		cnss_pr_err("Unexpected WLFW server arrive\n");
+		CNSS_ASSERT(0);
+		return -EINVAL;
+	}
 
 	ret = cnss_wlfw_connect_to_server(plat_priv, data);
 	if (ret < 0)

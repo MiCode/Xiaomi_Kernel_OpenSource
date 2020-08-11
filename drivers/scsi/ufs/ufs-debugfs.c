@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1700,7 +1701,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_state =
-		debugfs_create_file("err_state", 0600,
+		debugfs_create_file("err_state", 0644,
 			hba->debugfs_files.debugfs_root, hba,
 			&ufsdbg_err_state);
 	if (!hba->debugfs_files.err_state) {

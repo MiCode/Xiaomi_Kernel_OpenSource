@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2020 XiaoMi, Inc. */
 
 #ifndef _MHI_H_
 #define _MHI_H_
@@ -221,6 +222,7 @@ struct reg_write_info {
  * @rddm_size: RAM dump size that host should allocate for debugging purpose
  * @sbl_size: SBL image size
  * @seg_len: BHIe vector size
+ * @img_pre_alloc: allocate rddm and fbc image buffers one time
  * @fbc_image: Points to firmware image buffer
  * @rddm_image: Points to RAM dump buffer
  * @max_chan: Maximum number of channels controller support
@@ -291,6 +293,8 @@ struct mhi_controller {
 	size_t seg_len;
 	u32 session_id;
 	u32 sequence_id;
+
+	bool img_pre_alloc;
 	struct image_info *fbc_image;
 	struct image_info *rddm_image;
 

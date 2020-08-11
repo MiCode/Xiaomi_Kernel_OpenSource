@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/of.h>
@@ -909,10 +910,17 @@ int fg_get_msoc(struct fg_dev *fg, int *msoc)
 	 * of the values 1-254 will be scaled to 1-99. DIV_ROUND_UP will not
 	 * be suitable here as it rounds up any value higher than 252 to 100.
 	 */
-	if (*msoc == FULL_SOC_RAW)
+	if ((*msoc >= FULL_SOC_REPORT_THR - 2)
+				&& (*msoc < FULL_SOC_RAW) && fg->report_full) {
+		*msoc = DIV_ROUND_CLOSEST(*msoc * FULL_CAPACITY, FULL_SOC_RAW) + 1;
+		if (*msoc >= FULL_CAPACITY)
+			*msoc = FULL_CAPACITY;
+	} else if (*msoc == FULL_SOC_RAW)
 		*msoc = 100;
 	else if (*msoc == 0)
 		*msoc = 0;
+	else if (*msoc >= FULL_SOC_REPORT_THR - 4 && *msoc <= FULL_SOC_REPORT_THR - 3 && fg->report_full)
+		*msoc = DIV_ROUND_CLOSEST(*msoc * FULL_CAPACITY, FULL_SOC_RAW);
 	else
 		*msoc = DIV_ROUND_CLOSEST((*msoc - 1) * (FULL_CAPACITY - 2),
 				FULL_SOC_RAW - 2) + 1;

@@ -2,6 +2,7 @@
  *  linux/kernel/signal.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2020 XiaoMi, Inc.
  *
  *  1997-11-02  Modified for POSIX.1b signals by Richard Henderson
  *
@@ -1078,6 +1079,14 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	assert_spin_locked(&t->sighand->siglock);
 
 	result = TRACE_SIGNAL_IGNORED;
+
+	if ((sig == SIGKILL || sig == SIGABRT || sig == SIGSEGV
+			|| sig == SIGSTOP || sig == SIGTERM || sig == SIGCONT)
+			&& (!strcmp(t->comm, "sensors@1.0-ser"))) {
+		pr_err("Process %d:%s kill sig:%d %d:%s\n", current->pid,
+			current->comm, sig, t->pid, t->comm);
+	}
+
 	if (!prepare_signal(sig, t,
 			from_ancestor_ns || (info == SEND_SIG_PRIV) || (info == SEND_SIG_FORCED)))
 		goto ret;
@@ -3287,7 +3296,12 @@ SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
 	info.si_code = SI_USER;
 	info.si_pid = task_tgid_vnr(current);
 	info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
-
+	//MIUI ADD:
+	if ((sig == 9) && (info.si_uid != 1000)) {
+		printk("killer(PID:%d TID:%d UID:%u) killed Process(PID:%d) by sig:%d \n",
+		       info.si_pid, task_pid_nr(current), info.si_uid, pid, sig);
+	}
+	//END
 	return kill_something_info(sig, &info, pid);
 }
 
@@ -3331,7 +3345,12 @@ static int do_tkill(pid_t tgid, pid_t pid, int sig)
 	info.si_code = SI_TKILL;
 	info.si_pid = task_tgid_vnr(current);
 	info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
-
+	//MIUI ADD:
+	if ((sig == 9) && (info.si_uid != 1000)) {
+		printk("(do_tkill):killer(PID:%d TID:%d UID:%u) killed Process(PID:%d) by sig:%d \n",
+			   info.si_pid, task_pid_nr(current), info.si_uid, pid, sig);
+	}
+	//END
 	return do_send_specific(tgid, pid, sig, &info);
 }
 

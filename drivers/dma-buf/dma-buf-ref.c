@@ -6,7 +6,7 @@
 #include <linux/stacktrace.h>
 #include <linux/seq_file.h>
 
-#define DMA_BUF_STACK_DEPTH (16)
+#define DMA_BUF_STACK_DEPTH (32)
 
 struct dma_buf_ref {
 	struct list_head list;
@@ -64,17 +64,25 @@ void dma_buf_ref_mod(struct dma_buf *dmabuf, int nr)
 	struct stack_trace trace = {
 		.nr_entries = 0,
 		.entries = entries,
+#ifdef CONFIG_USER_STACKTRACE_SUPPORT
+		.max_entries = DMA_BUF_STACK_DEPTH/2,
+#else
 		.max_entries = DMA_BUF_STACK_DEPTH,
+#endif
 		.skip = 1
 	};
 	depot_stack_handle_t handle;
 
 	save_stack_trace(&trace);
+#ifdef CONFIG_USER_STACKTRACE_SUPPORT
+	trace.max_entries = DMA_BUF_STACK_DEPTH;
+	save_stack_trace_user(&trace);
+#endif
 	if (trace.nr_entries != 0 &&
 	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
 		trace.nr_entries--;
 
-	handle = depot_save_stack(&trace, GFP_KERNEL);
+	handle = depot_save_stack(&trace, GFP_KERNEL, current->pid);
 	if (!handle)
 		return;
 
