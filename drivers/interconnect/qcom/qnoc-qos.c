@@ -6,6 +6,7 @@
 
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
+#include <linux/module.h>
 
 #include "icc-rpmh.h"
 #include "qnoc-qos.h"
@@ -26,6 +27,7 @@ const u8 icc_qnoc_qos_regs[][QOSGEN_OFF_MAX_REGS] = {
 		[QOSGEN_OFF_REGUL0BW_LO] = 0x48,
 	},
 };
+EXPORT_SYMBOL(icc_qnoc_qos_regs);
 
 /**
  * qcom_icc_set_qos - initialize static QoS configurations
@@ -59,3 +61,5 @@ const struct qcom_icc_noc_ops qcom_qnoc4_ops = {
 	.set_qos = qcom_icc_set_qos,
 };
 EXPORT_SYMBOL(qcom_qnoc4_ops);
+
+MODULE_LICENSE("GPL v2");
