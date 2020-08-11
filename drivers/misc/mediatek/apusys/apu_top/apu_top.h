@@ -6,18 +6,6 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 
-#define ENABLE_CLK(clk) \
-	{ \
-		if (clk_prepare_enable(clk)) { \
-			pr_notice("fail to prepare & enable clk:%s\n", #clk); \
-		} \
-	}
-
-#define DISABLE_CLK(clk) \
-	{ \
-		clk_disable_unprepare(clk); \
-	}
-
 /*
  * BIT Operation
  */
@@ -30,21 +18,40 @@
 #define GET_BITS_VAL(_bits_, _val_) (((_val_) & \
 (BITMASK(_bits_))) >> ((0) ? _bits_))
 
-#define mt_reg_sync_writel(v, a) \
-do {    \
-	__raw_writel((v), (void __force __iomem *)((a)));   \
-	mb();  /*make sure register access in order */ \
-} while (0)
+/*
+ * Clock Operation
+ */
+#define PREPARE_CLK(clk) \
+	{ \
+		clk = devm_clk_get(&pdev->dev, #clk); \
+		if (IS_ERR(clk)) { \
+			ret = -ENOENT; \
+			pr_notice("can not find clk: %s\n", #clk); \
+		} \
+		ret_clk |= ret; \
+	}
 
-static inline void DRV_WriteReg32(void *addr, uint32_t value)
-{
-	mt_reg_sync_writel(value, addr);
+#define UNPREPARE_CLK(clk) \
+	{ \
+		if (clk != NULL) \
+			clk = NULL; \
+	}
+
+#define ENABLE_CLK(clk) \
+	{ \
+		ret = clk_prepare_enable(clk); \
+		if (ret) { \
+			pr_notice("fail to prepare & enable clk:%s\n", #clk); \
+			clk_disable_unprepare(clk); \
+		} \
+		ret_clk |= ret; \
 }
 
-static inline u32 DRV_Reg32(void *addr)
-{
-	return ioread32(addr);
+#define DISABLE_CLK(clk) \
+	{ \
+		clk_disable_unprepare(clk); \
 }
+
 
 void *g_APUSYS_RPCTOP_BASE;
 void *g_APUSYS_VCORE_BASE;
