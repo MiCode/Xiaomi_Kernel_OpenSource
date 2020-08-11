@@ -16,6 +16,7 @@
 #include <dt-bindings/gce/mt6873-gce.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "mediatek,mt6873";
@@ -326,8 +327,10 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
+			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu1: cpu@001 {
@@ -338,8 +341,10 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
+			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu2: cpu@002 {
@@ -350,8 +355,10 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
+			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu3: cpu@003 {
@@ -362,8 +369,10 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
+			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu4: cpu@100 {
@@ -374,8 +383,10 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu5: cpu@101 {
@@ -386,8 +397,10 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu6: cpu@102 {
@@ -398,8 +411,10 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu7: cpu@103 {
@@ -410,8 +425,10 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
+			#cooling-cells = <2>;
 		};
 
 		cpu-map {
@@ -707,15 +724,47 @@
 
 	thermal-zones {
 		soc_max {
-			polling-delay = <1000>; /* milliseconds */
-			polling-delay-passive = <1000>; /* milliseconds */
+			polling-delay = <100>; /* milliseconds */
+			polling-delay-passive = <25>; /* milliseconds */
 			thermal-sensors = <&lvts 0>;
+			sustainable-power = <3000>; /* milliwatts */
 
 			trips {
+				threshold: trip-point@0 {
+					temperature = <75000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				target: trip-point@1 {
+					temperature = <85000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
 				soc_max_crit: soc_max_crit@0 {
 					temperature = <115000>;
 					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&target>;
+					cooling-device =
+						<&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					contribution = <2048>;
+				};
+				map1 {
+					trip = <&target>;
+					cooling-device =
+						<&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					contribution = <1024>;
 				};
 			};
 		};
