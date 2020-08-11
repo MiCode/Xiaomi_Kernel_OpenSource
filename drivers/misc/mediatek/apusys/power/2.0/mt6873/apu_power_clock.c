@@ -98,7 +98,7 @@ int enable_apu_mtcmos(int enable)
 		LOG_DBG("%s pm_runtime_get_sync -\n", __func__);
 	} else {
 		LOG_DBG("%s pm_runtime_put_sync +\n", __func__);
-		pm_runtime_put_sync(apu_dev);
+		pm_runtime_put(apu_dev);
 		LOG_DBG("%s pm_runtime_put_sync -\n", __func__);
 	}
 #endif

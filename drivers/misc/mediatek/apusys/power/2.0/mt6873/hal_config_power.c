@@ -332,6 +332,10 @@ static int init_power_resource(void *param)
 	struct hal_param_init_power *init_data = NULL;
 	struct device *dev = NULL;
 
+#ifdef APUSYS_POWER_BRINGUP
+	g_pwr_log_level = APUSYS_PWR_LOG_DEBUG;
+#endif
+
 	init_data = (struct hal_param_init_power *)param;
 
 	dev = init_data->dev;
@@ -628,6 +632,10 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	unsigned int check_round = 0;
 	int fail_type = 0;
 	int rpc_alive = 0;
+
+	// Async APU_TOP off
+	if (domain_idx == 0 && mode == 0)
+		return 0;
 
 	// check SPM_CROSS_WAKE_M01_REQ
 	spmValue = check_spm_register(NULL, 0);
