@@ -1107,21 +1107,26 @@ static int ais_vfe_handle_error(
 		if (p_rdi->state != AIS_ISP_RESOURCE_STATE_STREAMING)
 			continue;
 
+		CAM_ERR(CAM_ISP, "IFE%d Turn off RDI %d",
+			core_info->vfe_idx, path);
+
 		p_rdi->state = AIS_ISP_RESOURCE_STATE_ERROR;
 
 		client_regs = &bus_hw_info->bus_client_reg[path];
-
-		/* Disable WM and reg-update */
-		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
-		cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
-				top_hw_info->common_reg->reg_update_cmd);
-		cam_io_w_mb((1 << path), core_info->mem_base +
-					bus_hw_info->common_reg.sw_reset);
 
 		core_info->bus_wr_mask1 &= ~(1 << path);
 		cam_io_w_mb(core_info->bus_wr_mask1,
 			core_info->mem_base +
 			bus_hw_irq_regs[1].mask_reg_offset);
+
+		/* Disable WM and reg-update */
+		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
+		cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
+				top_hw_info->common_reg->reg_update_cmd);
+
+		cam_io_w_mb((1 << path), core_info->mem_base +
+			bus_hw_info->common_reg.sw_reset);
+
 
 		core_info->event.type = AIS_IFE_MSG_OUTPUT_ERROR;
 		core_info->event.path = path;
@@ -1557,9 +1562,10 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 				AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_SHFT) &
 				AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_MSK;
 
-				CAM_ERR(CAM_ISP, "IFE%d Overflow 0x%x",
-						core_info->vfe_idx,
-						work_data.path);
+				CAM_ERR_RATE_LIMIT(CAM_ISP,
+					"IFE%d Overflow 0x%x",
+					core_info->vfe_idx,
+					work_data.path);
 				work_data.evt_type = AIS_VFE_HW_IRQ_EVENT_ERROR;
 				ais_vfe_dispatch_irq(vfe_hw, &work_data);
 			}
