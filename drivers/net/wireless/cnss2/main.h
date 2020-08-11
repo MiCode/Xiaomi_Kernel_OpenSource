@@ -407,6 +407,8 @@ struct cnss_plat_data {
 	u8 use_nv_mac;
 	u8 set_wlaon_pwr_ctrl;
 	struct cnss_tcs_info tcs_info;
+	bool fw_pcie_gen_switch;
+	u8 pcie_gen_speed;
 };
 
 #ifdef CONFIG_ARCH_QCOM

@@ -49,6 +49,7 @@
   cnss_get_user_msi_assignment
   cnss_get_msi_irq
   cnss_get_msi_address
+  cnss_set_pcie_gen_speed
   register_cld_cmd_cb
   deregister_cld_cmd_cb
   cld80211_get_genl_family

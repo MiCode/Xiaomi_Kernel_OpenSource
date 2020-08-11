@@ -237,5 +237,5 @@ extern int cnss_athdiag_write(struct device *dev, uint32_t offset,
 			      uint32_t mem_type, uint32_t data_len,
 			      uint8_t *input);
 extern int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode);
-
+extern int cnss_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed);
 #endif /* _NET_CNSS2_H */
