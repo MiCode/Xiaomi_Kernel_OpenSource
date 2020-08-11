@@ -869,6 +869,9 @@ struct v4l2_pix_format {
 #define V4L2_META_FMT_MTISP_LMV    v4l2_fourcc('M', 'T', 'f', 'm')
 /* Local motion vector histogram */
 
+/* Vendor specific - Mediatek Face Detection meta buffer format for firmware */
+#define V4L2_META_FMT_MTFD_RESULT  v4l2_fourcc('M', 'T', 'f', 'd') /* FD meta capture buffer */
+
 /* priv field value to indicates that subsequent fields are valid. */
 #define V4L2_PIX_FMT_PRIV_MAGIC		0xfeedcafe
 
