@@ -11,6 +11,7 @@ obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 obj-$(CONFIG_MSM_SUBSYSTEM_RESTART) += subsystem_restart.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += qdsp6v2/
 subsystem_restart-y := msm_subsystem_restart.o subsystem_notif.o ramdump.o sysmon-qmi.o
+obj-$(CONFIG_MSM_QUIN_SUBSYSTEM_NOTIF_VIRT) += subsystem_notif_virt.o
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
 obj-$(CONFIG_MSM_SERVICE_NOTIFIER) += service-notifier.o
