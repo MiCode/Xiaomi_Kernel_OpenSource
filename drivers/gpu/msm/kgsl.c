@@ -4301,6 +4301,8 @@ kgsl_mmap_memstore(struct file *file, struct kgsl_device *device,
 	if (vma->vm_flags & VM_WRITE)
 		return -EPERM;
 
+	vma->vm_flags &= ~VM_MAYWRITE;
+
 	if (memdesc->size  != vma_size) {
 		dev_err(device->dev, "Cannot partially map the memstore\n");
 		return -EINVAL;
