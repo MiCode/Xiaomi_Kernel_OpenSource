@@ -781,6 +781,7 @@ static struct pcie_drv_sta {
 	struct rpmsg_device *rpdev;
 	struct work_struct drv_connect; /* connect worker */
 	struct mutex drv_lock;
+	struct mutex rpmsg_lock;
 } pcie_drv;
 
 #define PCIE_RC_DRV_ENABLED(rc_idx) test_bit((rc_idx), &pcie_drv.rc_drv_enabled)
@@ -6000,8 +6001,10 @@ static struct platform_driver msm_pcie_driver = {
 
 static int msm_pcie_drv_rpmsg_probe(struct rpmsg_device *rpdev)
 {
+	mutex_lock(&pcie_drv.rpmsg_lock);
 	pcie_drv.rpdev = rpdev;
 	dev_set_drvdata(&rpdev->dev, &pcie_drv);
+	mutex_unlock(&pcie_drv.rpmsg_lock);
 
 	/* start drv connection */
 	schedule_work(&pcie_drv.drv_connect);
@@ -6042,8 +6045,11 @@ static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
 {
 	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
 
+	mutex_lock(&pcie_drv->rpmsg_lock);
 	pcie_drv->rc_drv_enabled = 0;
 	pcie_drv->rpdev = NULL;
+	mutex_unlock(&pcie_drv->rpmsg_lock);
+
 	flush_work(&pcie_drv->drv_connect);
 
 	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_DRV_DISCONNECT);
@@ -6209,6 +6215,7 @@ static int __init pcie_init(void)
 
 	pcie_drv.rc_num = 0;
 	mutex_init(&pcie_drv.drv_lock);
+	mutex_init(&pcie_drv.rpmsg_lock);
 
 	for (i = 0; i < MAX_RC_NUM; i++) {
 		scnprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d-short", i);
@@ -6572,11 +6579,16 @@ DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 				 msm_pcie_fixup_resume_early);
 
 static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
-				struct rpmsg_device *rpdev,
-				struct msm_pcie_drv_msg *msg)
+				   struct msm_pcie_drv_msg *msg)
 {
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	int ret;
+
+	mutex_lock(&pcie_drv.rpmsg_lock);
+	if (!pcie_drv.rpdev) {
+		mutex_unlock(&pcie_drv.rpmsg_lock);
+		return -EIO;
+	}
 
 	reinit_completion(&drv_info->completion);
 
@@ -6589,12 +6601,14 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: DRV: sending rpmsg: command: 0x%x\n",
 		pcie_dev->rc_idx, msg->pkt.dword[0]);
 
-	ret = rpmsg_trysend(rpdev->ept, msg, sizeof(*msg));
+	ret = rpmsg_trysend(pcie_drv.rpdev->ept, msg, sizeof(*msg));
 	if (ret) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to send rpmsg\n",
 			pcie_dev->rc_idx);
+		mutex_unlock(&pcie_drv.rpmsg_lock);
 		return ret;
 	}
+	mutex_unlock(&pcie_drv.rpmsg_lock);
 
 	ret = wait_for_completion_timeout(&drv_info->completion,
 					msecs_to_jiffies(drv_info->timeout_ms));
@@ -6613,23 +6627,19 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 
 static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 {
-	struct rpmsg_device *rpdev = pcie_drv.rpdev;
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
 	u32 current_link_speed, clkreq_override_en = 0;
-	int ret, i;
+	int ret, i, rpmsg_ret = 0;
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	mutex_lock(&pcie_dev->setup_lock);
 
 	/* if DRV hand-off was done and DRV subsystem is powered up */
 	if (PCIE_RC_DRV_ENABLED(pcie_dev->rc_idx) &&
-	    !drv_info->l1ss_sleep_disable && rpdev) {
-		ret = msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
+	    !drv_info->l1ss_sleep_disable)
+		rpmsg_ret = msm_pcie_drv_send_rpmsg(pcie_dev,
 					&drv_info->drv_disable_l1ss_sleep);
-		if (ret)
-			rpdev = NULL;
-	}
 
 	msm_pcie_vreg_init(pcie_dev);
 
@@ -6657,7 +6667,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	 * if DRV subsystem did not respond to previous rpmsg command, check if
 	 * PCIe CLKREQ override is still enabled
 	 */
-	if (!rpdev) {
+	if (rpmsg_ret) {
 		clkreq_override_en = readl_relaxed(pcie_dev->parf +
 					PCIE20_PARF_CLKREQ_OVERRIDE) &
 					PCIE20_PARF_CLKREQ_IN_ENABLE;
@@ -6711,9 +6721,8 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	}
 
 	/* if DRV hand-off was done and DRV subsystem is powered up */
-	if (PCIE_RC_DRV_ENABLED(pcie_dev->rc_idx) && rpdev) {
-		msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
-					&drv_info->drv_disable);
+	if (PCIE_RC_DRV_ENABLED(pcie_dev->rc_idx) && !rpmsg_ret) {
+		msm_pcie_drv_send_rpmsg(pcie_dev, &drv_info->drv_disable);
 		clear_bit(pcie_dev->rc_idx, &pcie_drv.rc_drv_enabled);
 	}
 
@@ -6742,16 +6751,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 				u32 options)
 {
-	struct rpmsg_device *rpdev = pcie_drv.rpdev;
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_clk_info_t *clk_info;
 	int ret, i;
-
-	if (!rpdev) {
-		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: no rpmsg device\n",
-			pcie_dev->rc_idx);
-		return -EBUSY;
-	}
 
 	if (!drv_info->ep_connected) {
 		PCIE_ERR(pcie_dev,
@@ -6765,7 +6767,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	/* disable global irq - no more linkdown/aer detection */
 	disable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
-	ret = msm_pcie_drv_send_rpmsg(pcie_dev, rpdev, &drv_info->drv_enable);
+	ret = msm_pcie_drv_send_rpmsg(pcie_dev, &drv_info->drv_enable);
 	if (ret) {
 		ret = -EBUSY;
 		goto out;
@@ -6808,7 +6810,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	/* enable L1ss sleep if client allows it */
 	if (!drv_info->l1ss_sleep_disable &&
 		!(options & MSM_PCIE_CONFIG_NO_L1SS_TO))
-		msm_pcie_drv_send_rpmsg(pcie_dev, rpdev,
+		msm_pcie_drv_send_rpmsg(pcie_dev,
 					&drv_info->drv_enable_l1ss_sleep);
 
 	mutex_unlock(&pcie_dev->setup_lock);
