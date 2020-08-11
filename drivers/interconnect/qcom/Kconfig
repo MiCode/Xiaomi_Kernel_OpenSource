@@ -130,3 +130,6 @@ config INTERCONNECT_QCOM_SM8350
 
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate
+
+config INTERCONNECT_QCOM_QOS
+	tristate
