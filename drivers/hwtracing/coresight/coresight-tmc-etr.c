@@ -1013,7 +1013,7 @@ static void __tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 
 	writel_relaxed(TMC_FFCR_EN_FMT | TMC_FFCR_EN_TI |
 		       TMC_FFCR_FON_FLIN | TMC_FFCR_FON_TRIG_EVT |
-		       TMC_FFCR_TRIGON_TRIGIN,
+		       TMC_FFCR_TRIGON_TRIGIN | TMC_FFCR_STOP_ON_FLUSH,
 		       drvdata->base + TMC_FFCR);
 	writel_relaxed(drvdata->trigger_cntr, drvdata->base + TMC_TRG);
 	tmc_enable_hw(drvdata);
@@ -1471,7 +1471,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			if (IS_ERR(new_buf))
 				return -ENOMEM;
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
@@ -2053,7 +2053,7 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 			flush_workqueue(drvdata->byte_cntr->usb_wq);
 			drvdata->usbch = NULL;
 		}
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 	}
 out:
