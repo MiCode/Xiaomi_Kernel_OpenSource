@@ -152,7 +152,7 @@ void apu_bmap_free(struct apu_bmap *ab, uint32_t addr, unsigned int size)
 	mdw_mem_debug("%s: %s: addr: 0x%x, size: 0x%x, nr_bits: %d\n",
 		__func__, ab->name, addr, size, nr);
 
-	if (is_au_align(ab, offset)) {
+	if (!is_au_align(ab, offset)) {
 		mdw_drv_warn("%s: %s: addr 0x%x, offset 0x%x is un-aligned to AU 0x%x\n",
 			__func__, ab->name, addr, offset, ab->au);
 		return;
