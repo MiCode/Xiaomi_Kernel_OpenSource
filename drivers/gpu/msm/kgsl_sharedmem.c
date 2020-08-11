@@ -484,17 +484,12 @@ static int kgsl_page_alloc_vmfault(struct kgsl_memdesc *memdesc,
 	pgoff = offset >> PAGE_SHIFT;
 
 	spin_lock(&memdesc->lock);
-	if (memdesc->pages[pgoff])
-		get_page(memdesc->pages[pgoff]);
+	if (memdesc->pages[pgoff]) {
+		page = memdesc->pages[pgoff];
+		get_page(page);
+	}
 	else {
-		/*
-		 * We are here because the page is reclaimed.
-		 * Mark the memdesc as non reclaimable to make
-		 * sure that the page obtained here does not
-		 * get reclaimed back leaving us with invalid
-		 * page.
-		 */
-		memdesc->priv |= KGSL_MEMDESC_SKIP_RECLAIM;
+		/* We are here because page was reclaimed */
 		spin_unlock(&memdesc->lock);
 
 		page = shmem_read_mapping_page_gfp(
@@ -518,7 +513,7 @@ static int kgsl_page_alloc_vmfault(struct kgsl_memdesc *memdesc,
 	}
 	spin_unlock(&memdesc->lock);
 
-	vmf->page = memdesc->pages[pgoff];
+	vmf->page = page;
 
 	atomic_long_add(PAGE_SIZE, &memdesc->mapsize);
 
