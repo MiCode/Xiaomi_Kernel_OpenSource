@@ -98,16 +98,30 @@ struct RSC_Config {
 	unsigned int RSC_CTRL;
 	unsigned int RSC_SIZE;
 	unsigned int RSC_IMGI_C_BASE_ADDR;
+	unsigned int RSC_IMGI_C_FD;
+	unsigned int RSC_IMGI_C_OFFSET;
 	unsigned int RSC_IMGI_C_STRIDE;
 	unsigned int RSC_IMGI_P_BASE_ADDR;
+	unsigned int RSC_IMGI_P_FD;
+	unsigned int RSC_IMGI_P_OFFSET;
 	unsigned int RSC_IMGI_P_STRIDE;
 	unsigned int RSC_MVI_BASE_ADDR;
+	unsigned int RSC_MVI_FD;
+	unsigned int RSC_MVI_OFFSET;
 	unsigned int RSC_MVI_STRIDE;
 	unsigned int RSC_APLI_C_BASE_ADDR;
+	unsigned int RSC_APLI_C_FD;
+	unsigned int RSC_APLI_C_OFFSET;
 	unsigned int RSC_APLI_P_BASE_ADDR;
+	unsigned int RSC_APLI_P_FD;
+	unsigned int RSC_APLI_P_OFFSET;
 	unsigned int RSC_MVO_BASE_ADDR;
+	unsigned int RSC_MVO_FD;
+	unsigned int RSC_MVO_OFFSET;
 	unsigned int RSC_MVO_STRIDE;
 	unsigned int RSC_BVO_BASE_ADDR;
+	unsigned int RSC_BVO_FD;
+	unsigned int RSC_BVO_OFFSET;
 	unsigned int RSC_BVO_STRIDE;
 #define RSC_TUNABLE
 #ifdef RSC_TUNABLE
