@@ -120,8 +120,6 @@ static bool qos_timer_exist;
 #if MNOC_QOS_BOOST_ENABLE
 bool apu_qos_boost_flag;
 static bool apusys_on_flag;
-static unsigned int apu_qos_boost_ddr_opp;
-static struct pm_qos_request apu_qos_ddr_req;
 static struct pm_qos_request apu_qos_cpu_dma_req;
 struct mutex apu_qos_boost_mtx;
 #endif
@@ -534,7 +532,8 @@ static void qos_work_func(struct work_struct *work)
 		/* update peak bw */
 		if (counter->last_report_bw != report_bw) {
 			counter->last_report_bw = report_bw;
-			icc_set_bw(counter->emi_icc_path, avg_bw, peak_bw);
+			icc_set_bw(counter->emi_icc_path,
+				   MBps_to_icc(avg_bw), MBps_to_icc(peak_bw));
 		}
 
 		LOG_DETAIL("%d: boost_val = %d, bw(%d/%d/%d)\n",
@@ -843,9 +842,7 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	struct timespec begin, end;
 	unsigned long val;
 #endif
-
 	LOG_DEBUG("+\n");
-
 #if MNOC_TIME_PROFILE
 	getnstimeofday(&begin);
 #endif
@@ -890,7 +887,6 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	if (list_empty(&counter->list))
 		apu_qos_timer_end();
 #endif
-
 
 #ifdef PREEMPTION
 	/* due to preemption,
@@ -938,9 +934,7 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 		}
 	}
 #endif
-
 	mutex_unlock(&counter->list_mtx);
-
 #ifndef MNOC_QOS_DEBOUNCE
 	if (!qos_timer_exist) {
 		/* make sure no work_func running after timer delete */
@@ -949,7 +943,6 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 			icc_set_bw(engine_pm_qos_counter[i].emi_icc_path, 0, 0);
 	}
 #endif
-
 	LOG_DEBUG("-\n");
 
 #if MNOC_TIME_PROFILE
@@ -962,7 +955,6 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	cnt_end += 1;
 	mutex_unlock(&counter->list_mtx);
 #endif
-
 	/* return 1 if bw = 0 (eara requirement) */
 	return bw == 0 ? 1 : bw;
 }
@@ -970,17 +962,15 @@ EXPORT_SYMBOL(apu_cmd_qos_end);
 
 void apu_qos_boost_start(void)
 {
+	struct engine_pm_qos_counter *counter = NULL;
+
 	LOG_DEBUG("+\n");
+	counter = &engine_pm_qos_counter[0];
 #if MNOC_QOS_BOOST_ENABLE
 /* 6885: ~16G, 6873/6853: ~8G */
-	if (apu_qos_boost_flag == true && apusys_on_flag == true &&
-		apu_qos_boost_ddr_opp ==
-		PM_QOS_DEFAULT_VALUE) {
-		apu_qos_boost_ddr_opp = 0;
-		cpu_latency_qos_update_request(&apu_qos_ddr_req, 1);
+	if (apu_qos_boost_flag == true && apusys_on_flag == true) {
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req, 2);
 #ifdef APU_QOS_IPUIF_ADJUST
-		apu_bw_vcore_opp = 2;
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
 	}
@@ -990,17 +980,18 @@ void apu_qos_boost_start(void)
 
 void apu_qos_boost_end(void)
 {
+	struct engine_pm_qos_counter *counter = NULL;
+
 	LOG_DEBUG("+\n");
+	counter = &engine_pm_qos_counter[0];
+
 #if MNOC_QOS_BOOST_ENABLE
-	if (apu_qos_boost_ddr_opp == 0 && apusys_on_flag == true) {
-#ifdef APU_QOS_IPUIF_ADJUST
+	if (apusys_on_flag) {
 		apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
+
+#ifdef APU_QOS_IPUIF_ADJUST
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
-		apu_qos_boost_ddr_opp =
-			PM_QOS_DEFAULT_VALUE;
-		cpu_latency_qos_update_request(&apu_qos_ddr_req,
-			PM_QOS_DEFAULT_VALUE);
 		cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
 			PM_QOS_DEFAULT_VALUE);
 	}
@@ -1060,9 +1051,7 @@ void apu_qos_counter_init(struct device *dev)
 	apu_qos_boost_flag = false;
 	apusys_on_flag = false;
 	mutex_init(&apu_qos_boost_mtx);
-	cpu_latency_qos_add_request(&apu_qos_ddr_req, PM_QOS_DEFAULT_VALUE);
 	cpu_latency_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_DEFAULT_VALUE);
-	apu_qos_boost_ddr_opp = PM_QOS_DEFAULT_VALUE;
 #endif
 
 #ifdef APU_QOS_IPUIF_ADJUST
@@ -1119,9 +1108,6 @@ void apu_qos_counter_destroy(struct device *dev)
 	/* relese bw icc path */
 	icc_put(counter->emi_icc_path);
 #if MNOC_QOS_BOOST_ENABLE
-	cpu_latency_qos_update_request(&apu_qos_ddr_req,
-		PM_QOS_DEFAULT_VALUE);
-	cpu_latency_qos_remove_request(&apu_qos_ddr_req);
 	cpu_latency_qos_update_request(&apu_qos_cpu_dma_req,
 		PM_QOS_DEFAULT_VALUE);
 	cpu_latency_qos_remove_request(&apu_qos_cpu_dma_req);
