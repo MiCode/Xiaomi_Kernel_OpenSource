@@ -37,6 +37,15 @@ config MTK_BATTERY_PERCENT_THROTTLING
 	  feature
 	  Select "n" if unsure.
 
+config MTK_BATTERY_PERCENT_THROTTLING_DEBUG
+	tristate "MTK battery percent power throttle debug"
+	help
+	  For MediaTek battery percent throttling debug.
+	  This option shuold be enable only for battery percent throttling debug
+	  Select "y" if you want to enable battery percent throttling debug
+	  feature
+	  Select "n" if unsure.
+
 config MTK_LOW_BATTERY_POWER_THROTTLING
 	tristate "MTK low battery throttle"
 	select MTK_POWER_THROTTLING_COMMON
