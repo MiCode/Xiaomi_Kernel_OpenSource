@@ -396,20 +396,27 @@ static long dma_buf_set_name(struct dma_buf *dmabuf, const char __user *buf)
 		return PTR_ERR(name);
 
 	mutex_lock(&dmabuf->lock);
+	spin_lock(&dmabuf->name_lock);
 	if (!list_empty(&dmabuf->attachments)) {
 		ret = -EBUSY;
 		kfree(name);
 		goto out_unlock;
 	}
-	spin_lock(&dmabuf->name_lock);
 	kfree(dmabuf->name);
 	dmabuf->name = name;
-	spin_unlock(&dmabuf->name_lock);
 
 out_unlock:
+	spin_unlock(&dmabuf->name_lock);
 	mutex_unlock(&dmabuf->lock);
 	return ret;
 }
+
+static int dma_buf_begin_cpu_access_umapped(struct dma_buf *dmabuf,
+					    enum dma_data_direction direction);
+
+
+static int dma_buf_end_cpu_access_umapped(struct dma_buf *dmabuf,
+					  enum dma_data_direction direction);
 
 static long dma_buf_ioctl(struct file *file,
 			  unsigned int cmd, unsigned long arg)
@@ -621,7 +628,6 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	dmabuf->size = exp_info->size;
 	dmabuf->exp_name = exp_info->exp_name;
 	dmabuf->owner = exp_info->owner;
-	spin_lock_init(&dmabuf->name_lock);
 	init_waitqueue_head(&dmabuf->poll);
 	dmabuf->cb_excl.poll = dmabuf->cb_shared.poll = &dmabuf->poll;
 	dmabuf->cb_excl.active = dmabuf->cb_shared.active = 0;
@@ -646,6 +652,7 @@ struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 	dmabuf->file = file;
 
 	mutex_init(&dmabuf->lock);
+	spin_lock_init(&dmabuf->name_lock);
 	INIT_LIST_HEAD(&dmabuf->attachments);
 
 	dma_buf_ref_init(dmabuf);
@@ -1049,6 +1056,7 @@ static int dma_buf_begin_cpu_access_umapped(struct dma_buf *dmabuf,
 
 	return ret;
 }
+
 int dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 				     enum dma_data_direction direction,
 				     unsigned int offset, unsigned int len)
@@ -1071,7 +1079,7 @@ int dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 
 	return ret;
 }
-EXPORT_SYMBOL(dma_buf_begin_cpu_access_partial);
+EXPORT_SYMBOL_GPL(dma_buf_begin_cpu_access_partial);
 
 /**
  * dma_buf_end_cpu_access - Must be called after accessing a dma_buf from the
@@ -1099,7 +1107,7 @@ int dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 }
 EXPORT_SYMBOL_GPL(dma_buf_end_cpu_access);
 
-int dma_buf_end_cpu_access_umapped(struct dma_buf *dmabuf,
+static int dma_buf_end_cpu_access_umapped(struct dma_buf *dmabuf,
 			   enum dma_data_direction direction)
 {
 	int ret = 0;
@@ -1126,7 +1134,7 @@ int dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 
 	return ret;
 }
-EXPORT_SYMBOL(dma_buf_end_cpu_access_partial);
+EXPORT_SYMBOL_GPL(dma_buf_end_cpu_access_partial);
 
 /**
  * dma_buf_kmap - Map a page of the buffer object into kernel address space. The
@@ -1293,7 +1301,7 @@ int dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
 {
 	int ret = 0;
 
-	if (WARN_ON(!dmabuf))
+	if (WARN_ON(!dmabuf) || !flags)
 		return -EINVAL;
 
 	if (dmabuf->ops->get_flags)
@@ -1301,7 +1309,7 @@ int dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
 
 	return ret;
 }
-EXPORT_SYMBOL(dma_buf_get_flags);
+EXPORT_SYMBOL_GPL(dma_buf_get_flags);
 
 #ifdef CONFIG_DEBUG_FS
 static int dma_buf_debug_show(struct seq_file *s, void *unused)

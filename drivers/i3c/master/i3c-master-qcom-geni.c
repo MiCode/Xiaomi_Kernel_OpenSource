@@ -806,10 +806,10 @@ static int _i3c_geni_execute_command
 		if (gi3c->err) {
 			if (rnw == READ_TRANSACTION)
 				writel_relaxed(1, gi3c->se.base +
-					SE_DMA_TX_FSM_RST);
+					SE_DMA_RX_FSM_RST);
 			else
 				writel_relaxed(1, gi3c->se.base +
-					SE_DMA_RX_FSM_RST);
+					SE_DMA_TX_FSM_RST);
 			wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
 		}
 		geni_se_rx_dma_unprep(gi3c->se.i3c_rsc.wrapper_dev,
@@ -868,8 +868,8 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 	while (1) {
 		u8 rx_buf[8], tx_buf[8];
 		struct i3c_xfer_params xfer = { FIFO_MODE };
-		struct i3c_dev_boardinfo *i3cboardinfo;
-		struct i3c_dev_desc *i3cdev;
+		struct i3c_dev_boardinfo *i3cboardinfo = NULL;
+		struct i3c_dev_desc *i3cdev = NULL;
 		u64 pid;
 		u8 bcr, dcr, init_dyn_addr = 0, addr = 0;
 		bool enum_slv = false;
@@ -895,6 +895,9 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			((u64)rx_buf[5]);
 
 		list_for_each_entry(i3cboardinfo, &m->boardinfo.i3c, node) {
+			if (i3cboardinfo == NULL)
+				break;
+
 			if (pid == i3cboardinfo->pid) {
 				GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
 				"PID 0x:%x matched with boardinfo\n", pid);
@@ -902,11 +905,14 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			}
 		}
 
-		if (i3cboardinfo)
-			addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
+		if (i3cboardinfo == NULL) {
+			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+					"Invalid i3cboardinfo\n");
+			goto daa_err;
+		}
 
+		addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
 		addr = ret = i3c_master_get_free_addr(m, addr);
-
 		if (ret < 0) {
 			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
 			"error during get_free_addr ret:%d for pid:0x:%x\n"

@@ -337,7 +337,7 @@ struct cpr3_regulator {
 	struct regulator_dev	*rdev;
 	struct regulator	*mem_acc_regulator;
 	struct regulator	*ldo_regulator;
-	enum msm_ldo_supply_mode ldo_regulator_bypass
+	enum msm_ldo_supply_mode ldo_regulator_bypass;
 	struct regulator	*ldo_ret_regulator;
 	struct cpr3_corner	*corner;
 	int			corner_count;

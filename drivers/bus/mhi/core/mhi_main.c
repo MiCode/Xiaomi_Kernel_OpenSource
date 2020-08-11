@@ -1939,7 +1939,8 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	return 0;
 
 error_dec_pendpkt:
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 error_pm_state:
 	if (!mhi_chan->offload_ch)
 		mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);

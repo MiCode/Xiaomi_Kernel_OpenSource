@@ -378,6 +378,7 @@ static void smblite_lib_update_usb_type(struct smb_charger *chg,
 					enum power_supply_type type)
 {
 	chg->real_charger_type = type;
+	smblite_update_usb_desc(chg);
 }
 
 static int smblite_lib_notifier_call(struct notifier_block *nb,
@@ -2658,6 +2659,10 @@ irqreturn_t smblite_typec_attach_detach_irq_handler(int irq, void *data)
 	u8 stat;
 	bool attached = false;
 	int rc;
+
+	/* IRQ not expected to be executed for uUSB, return */
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		return IRQ_HANDLED;
 
 	smblite_lib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 

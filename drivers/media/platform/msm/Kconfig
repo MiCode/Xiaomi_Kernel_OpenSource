@@ -10,6 +10,20 @@ menuconfig SPECTRA_CAMERA
       IFE and postprocessing drivers.
 
 source "drivers/media/platform/msm/vidc_3x/Kconfig"
+
+menuconfig MSMB_CAMERA
+     bool "QTI MSM camera and video capture 2.0 support"
+     depends on ARCH_QCOM && VIDEO_V4L2 && I2C
+     help
+       Say Y here to enable selecting the video adapters for
+       QTI msm camera and video capture 2.0, enabling this
+       adds support for the camera driver stack including sensor, isp
+       and postprocessing drivers.
+
+if MSMB_CAMERA
+       source "drivers/media/platform/msm/camera_v2/Kconfig"
+endif # MSMB_CAMERA
+
 source "drivers/media/platform/msm/cvp/Kconfig"
 source "drivers/media/platform/msm/npu/Kconfig"
 source "drivers/media/platform/msm/synx/Kconfig"

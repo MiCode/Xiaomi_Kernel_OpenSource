@@ -1932,7 +1932,9 @@ static int ufshcd_devfreq_target(struct device *dev,
 	spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
 
 	start = ktime_get();
+	pm_runtime_get_sync(hba->dev);
 	ret = ufshcd_devfreq_scale(hba, scale_up);
+	pm_runtime_put_sync(hba->dev);
 	trace_ufshcd_profile_clk_scaling(dev_name(hba->dev),
 		(scale_up ? "up" : "down"),
 		ktime_to_us(ktime_sub(ktime_get(), start)), ret);
@@ -3336,7 +3338,7 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		lrbp->utr_descriptor_ptr->prd_table_length = 0;
 	}
 
-	return 0;
+	return ufshcd_map_sg_crypto(hba, lrbp);
 }
 
 /**
@@ -10327,12 +10329,12 @@ static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 
 	if (ufshcd_is_link_off(hba) ||
 	    (ufshcd_is_link_hibern8(hba)
-	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba)))
+	     && ufshcd_is_power_collapse_during_hibern8_allowed(hba))) {
 		ret = ufshcd_setup_hba_vreg(hba, true);
-
-	if (ret && (info->vdd_hba->enabled == false)) {
-		dev_err(hba->dev, "vdd_hba is not enabled\n");
-		BUG_ON(1);
+		if (ret && (info->vdd_hba->enabled == false)) {
+			dev_err(hba->dev, "vdd_hba is not enabled\n");
+			BUG_ON(1);
+		}
 	}
 }
 
@@ -10434,6 +10436,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			goto enable_gating;
 	}
 
+	flush_work(&hba->eeh_work);
 	ret = ufshcd_link_state_transition(hba, req_link_state, 1);
 	if (ret)
 		goto set_dev_active;

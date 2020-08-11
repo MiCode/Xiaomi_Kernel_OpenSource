@@ -543,3 +543,15 @@ config QM_DEBUGCC_SCUBA
 	  Support for the debug clock controller on Qualcomm Technologies, Inc
 	  SCUBA devices.
 	  Say Y if you want to support the clock measurement functionality.
+
+config CLOCK_CPU_OSM_660
+	tristate "OSM CPU Clock Controller for SDM660"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the OSM clock controller for SDM660.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support OSM clocks.

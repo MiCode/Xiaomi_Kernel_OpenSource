@@ -676,6 +676,14 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 				resp->fw_version_info.fw_build_timestamp,
 				WLFW_MAX_TIMESTAMP_LEN + 1);
 	}
+
+	if (resp->voltage_mv_valid) {
+		priv->cpr_info.voltage = resp->voltage_mv;
+		icnss_pr_dbg("Voltage for CPR: %dmV\n",
+			    priv->cpr_info.voltage);
+		icnss_update_cpr_info(priv);
+	}
+
 	if (resp->fw_build_id_valid)
 		strlcpy(priv->fw_build_id, resp->fw_build_id,
 			QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1);
@@ -2314,7 +2322,8 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	req->cal_done = priv->cal_done;
 	icnss_pr_dbg("Calibration done is %d\n", priv->cal_done);
 
-	if (!icnss_get_iova(priv, &iova_start, &iova_size) &&
+	if (priv->smmu_s1_enable &&
+	    !icnss_get_iova(priv, &iova_start, &iova_size) &&
 	    !icnss_get_iova_ipa(priv, &iova_ipa_start,
 				&iova_ipa_size)) {
 		req->ddr_range_valid = 1;

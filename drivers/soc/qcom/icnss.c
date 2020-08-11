@@ -1220,7 +1220,7 @@ out:
 
 static int icnss_pd_restart_complete(struct icnss_priv *priv)
 {
-	int ret;
+	int ret = 0;
 
 	icnss_pm_relax(priv);
 
@@ -1260,7 +1260,6 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 		goto out_power_off;
 	}
 
-out:
 	icnss_block_shutdown(false);
 	clear_bit(ICNSS_SHUTDOWN_DONE, &penv->state);
 	return 0;
@@ -1271,6 +1270,7 @@ call_probe:
 out_power_off:
 	icnss_hw_power_off(priv);
 
+out:
 	return ret;
 }
 
@@ -2078,10 +2078,9 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 
 	icnss_pr_dbg("Unregistering driver, state: 0x%lx\n", penv->state);
 
-	if (!penv->ops || (!test_bit(ICNSS_DRIVER_PROBED, &penv->state))) {
-		icnss_pr_err("Driver not registered/probed\n");
+	if (!penv->ops) {
+		icnss_pr_err("Driver not registered\n");
 		ret = -ENOENT;
-		penv->ops = NULL;
 		goto out;
 	}
 
@@ -2577,6 +2576,9 @@ int icnss_trigger_recovery(struct device *dev)
 	if (!ret)
 		set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
 
+	icnss_pr_warn("PD restart request completed, ret: %d state: 0x%lx\n",
+		      ret, priv->state);
+
 out:
 	return ret;
 }
@@ -2741,6 +2743,9 @@ static int icnss_fw_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "  VAL: 1 (WLAN FW test)\n");
 	seq_puts(s, "  VAL: 2 (CCPM test)\n");
 	seq_puts(s, "  VAL: 3 (Trigger Recovery)\n");
+	seq_puts(s, "  VAL: 4 (Allow Recursive Recovery)\n");
+	seq_puts(s, "  VAL: 5 (Disallow Recursive Recovery)\n");
+	seq_puts(s, "  VAL: 6 (Trigger power supply callback)\n");
 
 	seq_puts(s, "\nCMD: dynamic_feature_mask\n");
 	seq_puts(s, "  VAL: (64 bit feature mask)\n");
@@ -2916,6 +2921,9 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 			break;
 		case 5:
 			icnss_disallow_recursive_recovery(&priv->pdev->dev);
+			break;
+		case 6:
+			power_supply_changed(priv->batt_psy);
 			break;
 		default:
 			return -EINVAL;

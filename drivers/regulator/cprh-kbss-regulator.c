@@ -908,7 +908,6 @@ static int cprh_msm8998_partial_binning_override(struct cpr3_regulator *vreg)
 {
 	struct cprh_kbss_fuses *fuse = vreg->platform_fuses;
 	struct cpr3_corner *corner;
-	struct cpr4_sdelta *sdelta;
 	int i;
 	u32 proc_freq;
 

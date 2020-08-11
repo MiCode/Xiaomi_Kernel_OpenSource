@@ -918,8 +918,13 @@ static int alpha_pll_huayra_determine_rate(struct clk_hw *hw,
 {
 	unsigned long rrate, prate;
 	u32 l, a;
+	struct clk_hw *parent_hw;
 
-	prate = clk_hw_get_rate(clk_hw_get_parent(hw));
+	parent_hw = clk_hw_get_parent(hw);
+	if (!parent_hw)
+		return -EINVAL;
+
+	prate = clk_hw_get_rate(parent_hw);
 	rrate = alpha_huayra_pll_round_rate(req->rate, prate, &l, &a);
 
 	req->best_parent_hw = clk_hw_get_parent(hw);

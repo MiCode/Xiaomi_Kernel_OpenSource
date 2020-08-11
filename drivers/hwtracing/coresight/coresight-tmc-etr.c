@@ -45,6 +45,9 @@ struct etr_perf_buffer {
 /* Lower limit for ETR hardware buffer */
 #define TMC_ETR_PERF_MIN_BUF_SIZE	SZ_1M
 
+/* SW USB reserved memory size */
+#define TMC_ETR_SW_USB_BUF_SIZE SZ_32M
+
 /*
  * The TMC ETR SG has a page size of 4K. The SG table contains pointers
  * to 4KB buffers. However, the OS may use a PAGE_SIZE different from
@@ -1088,7 +1091,12 @@ ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 static struct etr_buf *
 tmc_etr_setup_sysfs_buf(struct tmc_drvdata *drvdata)
 {
-	return tmc_alloc_etr_buf(drvdata, drvdata->size,
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
+		&& drvdata->byte_cntr->sw_usb)
+		return tmc_alloc_etr_buf(drvdata, TMC_ETR_SW_USB_BUF_SIZE,
+				 0, cpu_to_node(0), NULL);
+	else
+		return tmc_alloc_etr_buf(drvdata, drvdata->size,
 				 0, cpu_to_node(0), NULL);
 }
 
@@ -1447,7 +1455,9 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			|| !drvdata->usbch) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ||
+			(drvdata->byte_cntr->sw_usb &&
+			drvdata->out_mode == TMC_ETR_OUT_MODE_USB)) {
 			/*
 			 * ETR DDR memory is not allocated until user enables
 			 * tmc at least once. If user specifies different ETR
@@ -1463,38 +1473,13 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 			}
 			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
 			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
-		} else if (drvdata->byte_cntr->sw_usb) {
-			if (!drvdata->etr_buf) {
-				free_buf = new_buf =
-				tmc_etr_setup_sysfs_buf(drvdata);
-				if (IS_ERR(new_buf)) {
-					return -ENOMEM;
-				}
-			}
-			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
-
-			drvdata->usbch = usb_qdss_open("qdss_mdm",
-						drvdata->byte_cntr,
-						usb_bypass_notifier);
-			if (IS_ERR_OR_NULL(drvdata->usbch)) {
-				dev_err(drvdata->dev, "usb_qdss_open failed\n");
-				return -ENODEV;
-			}
-		} else {
-			drvdata->usbch = usb_qdss_open("qdss", drvdata,
-							usb_notifier);
-			if (IS_ERR_OR_NULL(drvdata->usbch)) {
-				dev_err(drvdata->dev, "usb_qdss_open failed\n");
-				return -ENODEV;
-			}
 		}
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
 
 	if (drvdata->reading || drvdata->mode == CS_MODE_PERF) {
 		ret = -EBUSY;
-		goto out;
+		goto unlock_out;
 	}
 
 	/*
@@ -1504,7 +1489,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 */
 	if (drvdata->mode == CS_MODE_SYSFS) {
 		atomic_inc(csdev->refcnt);
-		goto out;
+		goto unlock_out;
 	}
 
 	/*
@@ -1522,16 +1507,40 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	     && drvdata->byte_cntr->sw_usb)) {
 		ret = tmc_etr_enable_hw(drvdata, drvdata->sysfs_buf);
 		if (ret)
-			goto out;
+			goto unlock_out;
 	}
 
 	drvdata->mode = CS_MODE_SYSFS;
-	atomic_inc(csdev->refcnt);
-
 	drvdata->enable = true;
-out:
+
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		if (drvdata->byte_cntr->sw_usb)
+			drvdata->usbch = usb_qdss_open("qdss_mdm",
+					drvdata->byte_cntr,
+					usb_bypass_notifier);
+		else
+			drvdata->usbch = usb_qdss_open("qdss", drvdata,
+						usb_notifier);
+
+		if (IS_ERR_OR_NULL(drvdata->usbch)) {
+			dev_err(&csdev->dev, "usb_qdss_open failed\n");
+			drvdata->enable = false;
+			drvdata->mode = CS_MODE_DISABLED;
+			if (drvdata->byte_cntr->sw_usb)
+				tmc_etr_disable_hw(drvdata);
+			ret = -ENODEV;
+			goto out;
+		}
+	}
+
+	atomic_inc(csdev->refcnt);
+	goto out;
+
+unlock_out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
+out:
 	/* Free memory outside the spinlock if need be */
 	if (free_buf)
 		tmc_etr_free_sysfs_buf(free_buf);
@@ -2036,29 +2045,18 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB
-		&& drvdata->byte_cntr->sw_usb) {
-		usb_bypass_stop(drvdata->byte_cntr);
-		flush_workqueue(drvdata->byte_cntr->usb_wq);
-		drvdata->usbch = NULL;
+	if ((drvdata->out_mode == TMC_ETR_OUT_MODE_USB
+		&& drvdata->byte_cntr->sw_usb)
+		|| drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
+			tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+		else {
+			usb_bypass_stop(drvdata->byte_cntr);
+			flush_workqueue(drvdata->byte_cntr->usb_wq);
+			drvdata->usbch = NULL;
+		}
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		/* Free memory outside the spinlock if need be */
-		if (drvdata->etr_buf) {
-			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
-			drvdata->etr_buf = NULL;
-		}
-	}
-
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
-		tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
-		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		/* Free memory outside the spinlock if need be */
-		if (drvdata->etr_buf) {
-			tmc_etr_free_sysfs_buf(drvdata->etr_buf);
-			drvdata->etr_buf = NULL;
-		}
 	}
 out:
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");

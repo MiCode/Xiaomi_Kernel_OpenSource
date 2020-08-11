@@ -337,6 +337,12 @@ static inline bool walt_should_kick_upmigrate(struct task_struct *p, int cpu)
 	return false;
 }
 
+static inline unsigned int walt_nr_rtg_high_prio(int cpu)
+{
+	return cpu_rq(cpu)->walt_stats.nr_rtg_high_prio_tasks;
+}
+
+
 extern bool is_rtgb_active(void);
 extern u64 get_rtgb_active_time(void);
 #define SCHED_PRINT(arg)        printk_deferred("%s=%llu", #arg, arg)
@@ -445,15 +451,20 @@ static int in_sched_bug;
 	}						\
 })
 
-static inline bool prefer_spread_on_idle(int cpu)
+static inline bool prefer_spread_on_idle(int cpu, bool new_ilb)
 {
-	if (likely(!sysctl_sched_prefer_spread))
+	switch (sysctl_sched_prefer_spread) {
+	case 1:
+		return is_min_capacity_cpu(cpu);
+	case 2:
+		return true;
+	case 3:
+		return (new_ilb && is_min_capacity_cpu(cpu));
+	case 4:
+		return new_ilb;
+	default:
 		return false;
-
-	if (is_min_capacity_cpu(cpu))
-		return sysctl_sched_prefer_spread >= 1;
-
-	return sysctl_sched_prefer_spread > 1;
+	}
 }
 
 #else /* CONFIG_SCHED_WALT */
@@ -548,6 +559,11 @@ static inline bool walt_should_kick_upmigrate(struct task_struct *p, int cpu)
 }
 
 static inline u64 get_rtgb_active_time(void)
+{
+	return 0;
+}
+
+static inline unsigned int walt_nr_rtg_high_prio(int cpu)
 {
 	return 0;
 }
