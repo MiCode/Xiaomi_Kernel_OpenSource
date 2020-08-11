@@ -86,7 +86,8 @@ struct adaptor_ctx {
 	struct adaptor_hw_ops hw_ops[HW_ID_MAXCNT];
 
 	/* sensor */
-	struct imgsensor_subdrv_entry *sensor;
+	struct subdrv_entry *subdrv;
+	struct subdrv_ctx subctx;
 	struct sensor_mode mode[MODE_MAXCNT];
 	struct sensor_mode *cur_mode;
 	int mode_cnt;

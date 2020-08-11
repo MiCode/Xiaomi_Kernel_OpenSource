@@ -22,6 +22,9 @@
 #include "kd_imgsensor_errcode.h"
 #include "imx350_eeprom.h"
 
+#include "adaptor-subdrv.h"
+#include "adaptor-i2c.h"
+
 #define USHORT             unsigned short
 #define BYTE               unsigned char
 #define Sleep(ms) mdelay(ms)
@@ -45,26 +48,25 @@ static bool get_done_spc;
 static int last_size_spc;
 static int last_offset_spc;
 
-static bool imx350_selective_read_eeprom(kal_uint16 addr, BYTE *data)
+static bool imx350_selective_read_eeprom(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data)
 {
-	char pu_send_cmd[2] = { (char)(addr >> 8), (char)(addr & 0xFF) };
-
 	if (addr > imx350_MAX_OFFSET)
 		return false;
-	if (iReadRegI2C(pu_send_cmd, 2, (u8 *) data,
-			1, imx350_EEPROM_READ_ID) < 0)
+	if (adaptor_i2c_rd_u8(ctx->i2c_client,
+		imx350_EEPROM_READ_ID >> 1, addr, data) < 0)
 		return false;
 	return true;
 }
 
-static bool imx350_read_eeprom(kal_uint16 addr, BYTE *data, int size)
+static bool imx350_read_eeprom(struct subdrv_ctx *ctx, kal_uint16 addr, BYTE *data, int size)
 {
 	int i = 0;
 	int offset = addr;
 
 	LOG_INF("enter _read_eeprom size = %d\n", size);
 	for (i = 0; i < size; i++) {
-		if (!imx350_selective_read_eeprom(offset, &data[i]))
+		if (!imx350_selective_read_eeprom(ctx, offset, &data[i]))
 			return false;
 		/* LOG_INF("read_eeprom 0x%0x %d\n",offset, data[i]); */
 		offset++;
@@ -82,14 +84,14 @@ static bool imx350_read_eeprom(kal_uint16 addr, BYTE *data, int size)
 	return true;
 }
 
-void imx350_read_SPC(BYTE *data)
+void imx350_read_SPC(struct subdrv_ctx *ctx, BYTE *data)
 {
 
 	int addr = SPC_START_ADDR;
 	int size = 352;
 
 	if (!get_done_spc || last_size_spc != size) {
-		if (!imx350_read_eeprom(addr, data, size)) {
+		if (!imx350_read_eeprom(ctx, addr, data, size)) {
 			get_done_spc = 0;
 			last_size_spc = 0;
 			last_offset_spc = 0;
@@ -100,13 +102,14 @@ void imx350_read_SPC(BYTE *data)
 	/* return true; */
 }
 
-void imx350_read_DCC(kal_uint16 addr, BYTE *data, kal_uint32 size)
+void imx350_read_DCC(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data, kal_uint32 size)
 {
 	/* int i; */
 	addr = DCC_START_ADDR;
 	size = 384;
 	if (!get_done_dcc || last_size_dcc != size) {
-		if (!imx350_read_eeprom(addr, imx350_DCC_data, size)) {
+		if (!imx350_read_eeprom(ctx, addr, imx350_DCC_data, size)) {
 			get_done_dcc = 0;
 			last_size_dcc = 0;
 			last_offset_dcc = 0;

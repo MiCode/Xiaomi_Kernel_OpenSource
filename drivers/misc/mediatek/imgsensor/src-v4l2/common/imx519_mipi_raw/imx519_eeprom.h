@@ -8,13 +8,15 @@
 
 #include "kd_camera_typedef.h"
 
+#include "adaptor-subdrv.h"
+
 /*
  * LRC
  *
  * @param data Buffer
  * @return size of data
  */
-unsigned int read_imx519_LRC(BYTE *data);
+unsigned int read_imx519_LRC(struct subdrv_ctx *ctx, u8 *data);
 
 /*
  * DCC
@@ -22,7 +24,7 @@ unsigned int read_imx519_LRC(BYTE *data);
  * @param data Buffer
  * @return size of data
  */
-unsigned int read_imx519_DCC(BYTE *data);
+unsigned int read_imx519_DCC(struct subdrv_ctx *ctx, u8 *data);
 
 #endif
 

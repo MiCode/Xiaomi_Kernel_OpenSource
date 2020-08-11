@@ -25,6 +25,8 @@
 #include "kd_imgsensor_errcode.h"
 #include "imx398_eeprom.h"
 
+#include "adaptor-subdrv.h"
+#include "adaptor-i2c.h"
 
 #define USHORT             unsigned short
 #define BYTE               unsigned char
@@ -45,22 +47,22 @@ static bool get_done;
 static int last_size;
 static int last_offset;
 
-static bool selective_read_eeprom(kal_uint16 addr, BYTE *data)
+static bool selective_read_eeprom(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data)
 {
-	char pu_send_cmd[2] = {(char)(addr >> 8), (char)(addr & 0xFF)};
-
 	if (addr > imx398_MAX_OFFSET)
 		return false;
 
-if (iReadRegI2C(pu_send_cmd, 2, (u8 *) data, 1, imx398_EEPROM_READ_ID) < 0) {
-	/* 20171116 ken : fix coding style */
-	return false;
-}
+	if (adaptor_i2c_rd_u8(ctx->i2c_client,
+		imx398_EEPROM_READ_ID >> 1,
+		addr, data) < 0)
+		return false;
 
 	return true;
 }
 
-static bool _read_imx398_eeprom(kal_uint16 addr, BYTE *data, int size)
+static bool _read_imx398_eeprom(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data, int size)
 {
 	int i = 0;
 	int offset = addr;
@@ -68,7 +70,7 @@ static bool _read_imx398_eeprom(kal_uint16 addr, BYTE *data, int size)
 	pr_debug("enter _read_eeprom size = %d\n", size);
 
 	for (i = 0; i < size; i++) {
-		if (!selective_read_eeprom(offset, &data[i]))
+		if (!selective_read_eeprom(ctx, offset, &data[i]))
 			return false;
 
 		pr_debug("read_eeprom 0x%0x %d\n", offset, data[i]);
@@ -81,14 +83,14 @@ static bool _read_imx398_eeprom(kal_uint16 addr, BYTE *data, int size)
 }
 
 
-void read_imx398_SPC(BYTE *data)
+void read_imx398_SPC(struct subdrv_ctx *ctx, BYTE *data)
 {
 	int size = 252;
 
 	pr_debug("read imx398 SPC, size = %d\n", size);
 	/**********************************************************
 	 * if(!get_done || last_size != size || last_offset != addr) {
-	 * if(!_read_imx398_eeprom(addr, imx398_SPC_data, size)){
+	 * if(!_read_imx398_eeprom(ctx, addr, imx398_SPC_data, size)){
 	 * get_done = 0;
 	 * last_size = 0;
 	 * last_offset = 0;
@@ -100,7 +102,8 @@ void read_imx398_SPC(BYTE *data)
 }
 
 
-void read_imx398_DCC(kal_uint16 addr, BYTE *data, kal_uint32 size)
+void read_imx398_DCC(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data, kal_uint32 size)
 {
 
 	addr = 0x960;
@@ -109,7 +112,7 @@ void read_imx398_DCC(kal_uint16 addr, BYTE *data, kal_uint32 size)
 	pr_debug("read imx398 DCC, size = %d\n", size);
 
 	if (!get_done || last_size != size || last_offset != addr) {
-		if (!_read_imx398_eeprom(addr, imx398_DCC_data, size)) {
+		if (!_read_imx398_eeprom(ctx, addr, imx398_DCC_data, size)) {
 			get_done = 0;
 			last_size = 0;
 			last_offset = 0;
@@ -120,5 +123,3 @@ void read_imx398_DCC(kal_uint16 addr, BYTE *data, kal_uint32 size)
 	memcpy(data, imx398_DCC_data, size);
 
 }
-
-

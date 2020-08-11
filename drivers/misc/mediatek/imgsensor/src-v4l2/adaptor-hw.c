@@ -211,7 +211,7 @@ static int reinit_pinctrl(struct adaptor_ctx *ctx)
 int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 {
 	int i;
-	struct imgsensor_pw_seq_entry *ent;
+	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
 
 	/* may be released for mipi switch */
@@ -222,8 +222,8 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 	if (op->set)
 		op->set(ctx, op->data, 0);
 
-	for (i = 0; i < ctx->sensor->pw_seq_cnt; i++) {
-		ent = &ctx->sensor->pw_seq[i];
+	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
+		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
 		if (!op->set) {
 			dev_warn(ctx->dev, "cannot set comp %d val %d\n",
@@ -243,11 +243,11 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
 	int i;
-	struct imgsensor_pw_seq_entry *ent;
+	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
 
-	for (i = ctx->sensor->pw_seq_cnt - 1; i >= 0; i--) {
-		ent = &ctx->sensor->pw_seq[i];
+	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
+		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
 		if (!op->unset)
 			continue;
