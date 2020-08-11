@@ -770,7 +770,7 @@ static int __init init_watchdog(void)
 {
 	return platform_driver_register(&msm_watchdog_driver);
 }
-#if IS_MODULE(CONFIG_QCOM_WATCHDOG)
+#if IS_MODULE(CONFIG_QCOM_WDT_CORE)
 module_init(init_watchdog);
 #else
 pure_initcall(init_watchdog);

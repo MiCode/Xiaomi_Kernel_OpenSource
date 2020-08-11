@@ -18,7 +18,7 @@
 #define WDOG_BITE_EARLY_PANIC 0
 #endif
 
-#if IS_ENABLED(CONFIG_QCOM_WATCHDOG)
+#if IS_ENABLED(CONFIG_QCOM_WDT_CORE)
 void msm_trigger_wdog_bite(void);
 #else
 static inline void msm_trigger_wdog_bite(void) { }

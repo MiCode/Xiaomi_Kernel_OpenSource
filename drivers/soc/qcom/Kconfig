@@ -783,9 +783,18 @@ config CDSPRM_VTCM_DYNAMIC_DEBUG
 	  enabled, the vtcm partition details are sent to the CDSP via rpmsg
 	  channel.
 
+config QCOM_WDT_CORE
+	tristate "Qualcomm Technologies, Inc. Watchdog Support"
+	depends on ARCH_QCOM
+	help
+          This enables the watchdog module. It causes kernel panic if the
+          watchdog times out. It allows for detection of cpu hangs and
+          deadlocks. It does not run during the bootup process, so it will
+          not catch any early lockups.
+
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"
-	depends on QCOM_WATCHDOG
+	depends on QCOM_WDT_CORE
 	help
 	  This forces a watchdog bite when the device restarts
 	  due to a kernel panic. On certain MSM SoCs,
@@ -794,7 +803,7 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 
 config QCOM_WDOG_BITE_EARLY_PANIC
 	bool "QCOM early panic watchdog bite"
-	depends on QCOM_WATCHDOG && QCOM_FORCE_WDOG_BITE_ON_PANIC
+	depends on QCOM_WDT_CORE && QCOM_FORCE_WDOG_BITE_ON_PANIC
 	help
 	  This forces a watchdog bite early in panic sequence. On certain
 	  MSM SoCs, this provides us additional debugging information at the
