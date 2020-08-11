@@ -494,19 +494,18 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	case USBIN_500UA:
 		icl_options = USB51_MODE_BIT;
 		break;
-	/* USB900 mode is not present use ICL configuration register */
-	case USBIN_900UA:
+	default:
+		/* Use ICL configuration register for HC_MODE*/
 		icl_override = SW_OVERRIDE_HC_MODE;
 		icl_options = USBIN_MODE_CHG_BIT;
-		rc = smblite_lib_set_charge_param(chg, &chg->param.usb_icl,
-						USBIN_900UA);
-		if (rc < 0) {
-			smblite_lib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
-			return rc;
-		}
 		break;
-	default:
-		return -EINVAL;
+	}
+
+	rc = smblite_lib_set_charge_param(chg, &chg->param.usb_icl,
+						icl_ua);
+	if (rc < 0) {
+		smblite_lib_err(chg, "Couldn't set HC ICL rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblite_lib_masked_write(chg,
