@@ -877,8 +877,6 @@
   idr_preload
   idr_remove
   idr_replace
-  ieee80211_frequency_to_channel
-  ieee80211_get_channel
   ieee80211_hdrlen
   iio_channel_get
   iio_channel_release
