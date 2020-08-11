@@ -522,7 +522,7 @@ static int gWrDmaIonCt[ISP_CAMSV0_IDX - ISP_CAM_A_IDX]
 static int gWrDmaIonFd[ISP_CAMSV0_IDX - ISP_CAM_A_IDX]
 			[_dma_max_wr_ * _ion_keep_max_];
 
-static int gWrDmaIonBuf[ISP_CAMSV0_IDX - ISP_CAM_A_IDX]
+static struct ION_BUFFER *gWrDmaIonBuf[ISP_CAMSV0_IDX - ISP_CAM_A_IDX]
 			[_dma_max_wr_ * _ion_keep_max_];
 /* protect G_WRDMA_IonFd */
 static spinlock_t spinLockIonFd[ISP_CAMSV0_IDX - ISP_CAM_A_IDX][_dma_max_wr_];
@@ -534,6 +534,19 @@ struct ION_BUFFER {
 	struct sg_table *sgt;
 	dma_addr_t dmaAddr;
 };
+
+/* A list to store the ION_BUFFER which mapped the dmaAddr(PA) by the ioctl,
+ * "ISP_ION_MAP_PA". When "ISP_ION_UNMAP_PA", it could be traversed to unmap
+ * the proper ION_BUFFER.
+ */
+struct ION_BUFFER_LIST {
+	struct list_head list;
+	struct dma_buf        *dmaBuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	dma_addr_t dmaAddr;
+};
+static struct ION_BUFFER_LIST g_ion_buf_list;
 
 struct T_ION_TBL {
 	enum ISP_DEV_NODE_ENUM node;
@@ -1556,12 +1569,12 @@ static void ISP_DumpDmaDbgPort(enum ISP_DEV_NODE_ENUM module,
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_4 + off_set);
 	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(module));
 
-	//smi debug
+	/* smi debug */
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_5);
-	// case 0
+	/* case 0 */
 	smi_dbg_data = ISP_RD32(CAM_REG_DBG_PORT(module));
 
-	//fifo debug
+	/* fifo debug */
 	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(module), addr_dbg_sel_6 + 0x10000);
 	fifo_case_1 = ISP_RD32(CAM_REG_DBG_PORT(module));
 
@@ -3558,6 +3571,51 @@ static void isp_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 #endif
 }
 
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void isp_ion_unmap_pa_by_module(unsigned int module)
+{
+	int i, j;
+	int nFd;
+	struct ION_BUFFER *p_IonBuf;
+	struct T_ION_TBL *ptbl = &gION_TBL[module];
+
+	if (IspInfo.DebugMask & ISP_DBG_ION_CTRL)
+		LOG_INF("[ion_unmap_pa_by_module] %d\n", module);
+
+	for (i = 0; i < _dma_max_wr_; i++) {
+		unsigned int jump = i * _ion_keep_max_;
+
+		for (j = 0; j < _ion_keep_max_; j++) {
+			spin_lock(&(ptbl->pLock[i]));
+			/* */
+			if (ptbl->pIonFd[jump + j] == 0) {
+				spin_unlock(&(ptbl->pLock[i]));
+				continue;
+			}
+			nFd = ptbl->pIonFd[jump + j];
+			p_IonBuf = ptbl->pIonBuf[jump + j];
+
+			isp_mmu_put_dma_buffer(p_IonBuf);
+
+			ptbl->pIonFd[jump + j] = 0;
+			ptbl->pIonBuf[jump + j]->dmaBuf = NULL;
+			ptbl->pIonBuf[jump + j]->attach = NULL;
+			ptbl->pIonBuf[jump + j]->sgt = NULL;
+			ptbl->pIonBuf[jump + j]->dmaAddr = 0;
+			ptbl->pIonBuf[jump + j] = NULL;
+			ptbl->pIonCt[jump + j] = 0;
+			spin_unlock(&(ptbl->pLock[i]));
+			/* */
+			if (IspInfo.DebugMask & ISP_DBG_ION_CTRL) {
+				LOG_INF(
+					"ion_free: dev(%d)dma(%d)j(%d)fd(%d)pIonBuf(%p)\n",
+					module, i, j, nFd, p_IonBuf);
+			}
+		}
+	}
+}
 #endif
 
 /*******************************************************************************
@@ -4781,7 +4839,107 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_ION_MAP_PA:
 		if (copy_from_user(&IonNode, (void *)Param,
 			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
+			dma_addr_t dmaPa;
+			/* tmp ION_BUFFER_LIST to add into the list. */
+			struct ION_BUFFER_LIST *tmp;
+			struct ION_BUFFER mmu = {NULL, NULL, NULL, 0};
 
+			if (IonNode.memID <= 0) {
+				LOG_NOTICE(
+					"[ISP_ION_MAP_PA] invalid ion fd(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+
+			if (isp_mmu_get_dma_buffer(&mmu,
+				IonNode.memID) == false) {
+				LOG_NOTICE(
+					"[ISP_ION_MAP_PA]map pa failed\n");
+				Ret = -EFAULT;
+				break;
+			}
+			/* get iova */
+			dmaPa = sg_dma_address(mmu.sgt->sgl);
+			if (!dmaPa) {
+				Ret = -EFAULT;
+				break;
+			}
+
+			IonNode.dma_pa = mmu.dmaAddr;
+
+			/* Add an entry to global ION_BUFFER list. */
+			tmp = kmalloc(
+				sizeof(struct ION_BUFFER_LIST), GFP_KERNEL);
+			if (tmp == NULL) {
+				LOG_NOTICE("[ISP_ION_MAP_PA] alloc ION_BUFFER_LIST fail\n");
+				Ret = -EFAULT;
+				break;
+			}
+
+			tmp->attach = mmu.attach;
+			tmp->dmaAddr = mmu.dmaAddr;
+			tmp->dmaBuf = mmu.dmaBuf;
+			tmp->sgt = mmu.sgt;
+			list_add(&(tmp->list), &(g_ion_buf_list.list));
+
+			if (copy_to_user((void *)Param, &IonNode,
+				sizeof(struct ISP_DEV_ION_NODE_STRUCT)) != 0) {
+				LOG_NOTICE("copy to user fail\n");
+				kfree(tmp);
+				Ret = -EFAULT;
+			}
+		} else {
+			LOG_NOTICE(
+				"[ISP_ION_MAP_PA]copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+	case ISP_ION_UNMAP_PA:
+		if (copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
+			struct ION_BUFFER_LIST *tmp;
+			struct list_head *pos, *q;
+			struct ION_BUFFER pIonBuf = {NULL, NULL, NULL, 0};
+			bool foundPA = false;
+
+			if (IonNode.memID <= 0) {
+				LOG_NOTICE("[ISP_ION_UNMAP_PA] invalid ion fd(%d)\n",
+					IonNode.memID);
+				Ret = -EFAULT;
+				break;
+			}
+
+			list_for_each_safe(pos, q, &g_ion_buf_list.list) {
+				tmp = list_entry(pos, struct ION_BUFFER_LIST, list);
+				/* Should we compare ion fd with memID? */
+				if (tmp->dmaAddr == IonNode.dma_pa) {
+					pIonBuf.dmaBuf = tmp->dmaBuf;
+					pIonBuf.attach = tmp->attach;
+					pIonBuf.sgt = tmp->sgt;
+
+					/*can't in spin_lock */
+					isp_mmu_put_dma_buffer(&pIonBuf);
+					IonNode.dma_pa = 0;
+					list_del(pos);
+					kfree(tmp);
+					foundPA = true;
+					break;
+				}
+			}
+			if (!foundPA) {
+				LOG_NOTICE("Error: No PA(0x%lx) is found. fd=%d\n",
+					IonNode.dma_pa, IonNode.memID);
+				Ret = -EFAULT;
+			}
+		} else {
+			LOG_NOTICE("[ISP_ION_UNMAP_PA]copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+	case ISP_ION_MAP_PA_CHK_ION_TBL:
+		if (copy_from_user(&IonNode, (void *)Param,
+			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
 			struct T_ION_TBL *ptbl = NULL;
 			dma_addr_t dmaPa;
 			unsigned int jump;
@@ -4853,7 +5011,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				Ret = -EFAULT;
 				break;
 			}
-			// get iova
+			/* get iova */
 			dmaPa = sg_dma_address(
 				ptbl->pIonBuf[jump + i]->sgt->sgl);
 			if (!dmaPa) {
@@ -4911,7 +5069,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			Ret = -EFAULT;
 		}
 		break;
-	case ISP_ION_UNMAP_PA:
+	case ISP_ION_UNMAP_PA_CHK_ION_TBL:
 		if (copy_from_user(&IonNode, (void *)Param,
 			sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
 			struct T_ION_TBL *ptbl = NULL;
@@ -5007,8 +5165,32 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
 			/*can't in spin_lock */
 			isp_mmu_put_dma_buffer(pIonBuf);
+			IonNode.dma_pa = 0;
 		} else {
 			LOG_NOTICE("[ISP_ION_UNMAP_PA]copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+	case ISP_ION_UNMAP_PA_BY_HWMODULE:
+		if (copy_from_user(&module, (void *)Param,
+				sizeof(unsigned int)) == 0) {
+			if (module >= ISP_DEV_NODE_NUM) {
+				LOG_NOTICE(
+					"module should be smaller than ISP_DEV_NODE_NUM");
+				Ret = -EFAULT;
+				break;
+			}
+			if (gION_TBL[module].node != module) {
+				LOG_NOTICE("module error(%d)\n", module);
+				Ret = -EFAULT;
+				break;
+			}
+
+			isp_ion_unmap_pa_by_module(module);
+		} else {
+			LOG_NOTICE(
+				"[ion unmap pa by module] copy_from_user failed\n");
+
 			Ret = -EFAULT;
 		}
 		break;
@@ -5619,6 +5801,9 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 	case ISP_GET_CUR_HWP1DONE:
 	case ISP_ION_MAP_PA:
 	case ISP_ION_UNMAP_PA:
+	case ISP_ION_MAP_PA_CHK_ION_TBL:
+	case ISP_ION_UNMAP_PA_CHK_ION_TBL:
+	case ISP_ION_UNMAP_PA_BY_HWMODULE:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
@@ -6786,8 +6971,6 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get ISP_TOP_MUX_CAMTM clock\n");
 			return PTR_ERR(isp_clk.ISP_TOP_MUX_CAMTM);
 		}
-
-		// register_pg_callback(&cam_clk_subsys_handle);
 #endif
 		/*  */
 		for (i = 0; i < ISP_IRQ_TYPE_AMOUNT; i++)
@@ -7649,6 +7832,10 @@ static int __init ISP_Init(void)
 		SV_SetPMQOS(E_BW_ADD, j, NULL);
 
 	SV_SetPMQOS(E_CLK_ADD, ISP_IRQ_TYPE_INT_CAMSV_0_ST, NULL);
+
+#ifdef ENABLE_AOSP_ION
+	INIT_LIST_HEAD(&g_ion_buf_list.list);
+#endif
 
 	LOG_DBG("- E. Ret: %d.", Ret);
 	return Ret;
