@@ -130,6 +130,12 @@ enum {
 					 LED_FAULT_INPUT_VOLTAGE |\
 					 LED_FAULT_TIMEOUT)
 
+/* debug info */
+#define MT6360_PMU_CHG_CTRL1	(0x11)
+#define MT6360_PMU_CHG_CTRL2	(0x12)
+#define MT6360_MASK_HZ_EN	(0x04)
+#define MT6360_MASK_CFO_EN	(0x02)
+
 struct mt6360_led_platform_data {
 	u32 rgbon_sync;
 	u32 fled1_ultraistrb;
@@ -409,7 +415,8 @@ static int mt6360_fled_strobe_set(
 	struct led_classdev *led_cdev = &fled_cdev->led_cdev;
 	struct mt6360_led_info *mli = dev_get_drvdata(led_cdev->dev->parent);
 	struct mt6360_fled_classdev *mtfled_cdev = (void *)fled_cdev;
-	int id = mtfled_cdev->index, ret;
+	int id = mtfled_cdev->index, ret, regval = 0;
+	bool hz_en = false, cfo_en = false;
 
 	dev_dbg(led_cdev->dev, "%s: id[%d], state %d\n", __func__, id, state);
 	if (!(state ^ test_bit(id, &mli->fl_strobe_flags))) {
@@ -422,6 +429,23 @@ static int mt6360_fled_strobe_set(
 			"Disable all leds torch [%lu]\n", mli->fl_torch_flags);
 		return -EINVAL;
 	}
+
+	if (state == true) {
+		ret = regmap_read(mli->regmap, MT6360_PMU_CHG_CTRL1, &regval);
+		if (ret < 0)
+			return ret;
+		if (regval & MT6360_MASK_HZ_EN)
+			dev_notice(led_cdev->dev,
+				   "%s: strobe with hz mode\n", __func__);
+
+		ret = regmap_read(mli->regmap, MT6360_PMU_CHG_CTRL2, &regval);
+		if (ret < 0)
+			return ret;
+		if (regval & MT6360_MASK_CFO_EN)
+			dev_notice(led_cdev->dev,
+				   "%s: strobe with cfo_en=0\n", __func__);
+	}
+
 	ret = regmap_update_bits(mli->regmap, mtfled_cdev->cs_enable_reg,
 				 mtfled_cdev->cs_enable_mask, state ? 0xff : 0);
 	if (ret < 0) {
