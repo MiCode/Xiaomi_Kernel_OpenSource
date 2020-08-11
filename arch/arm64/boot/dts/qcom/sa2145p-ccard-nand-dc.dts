@@ -73,3 +73,11 @@
 &sdx_ext_ipc {
 	qcom,wakeup-gpio-out = <&tlmm 77 0x00>;
 };
+
+&ethqos_hw {
+	rxc-skew-ps = <720>;
+	io-macro-info {
+		rx-prog-swap;
+		rx-dll-bypass;
+	};
+};
