@@ -18,6 +18,7 @@
 struct mdw_mem_dev {
 	struct device *dev;
 	spinlock_t lock;
+	struct device_dma_parameters dma_parms;
 };
 
 static struct mdw_mem_dev md;
@@ -315,18 +316,43 @@ struct mdw_mem_ops *mdw_mops_aosp(void)
 
 static int mdw_mem_probe(struct platform_device *pdev)
 {
-	mdw_drv_info("%s: %s\n", __func__, pdev->name);
-	md.dev = &pdev->dev;
+	struct device *dev = &pdev->dev;
+	int ret = 0;
+
+	if (md.dev) {
+		dev_info(dev, "Ignore redundant device.\n");
+		return -ENODEV;
+	}
+
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+	memset(&md.dma_parms, 0, sizeof(struct device_dma_parameters));
+	dev->dma_parms = &md.dma_parms;
+	ret = dma_set_max_seg_size(dev, (unsigned int)DMA_BIT_MASK(32));
+	if (ret) {
+		dev_info(dev, "%s: Unable to set DMA segment size: %d\n",
+			__func__, ret);
+		goto out;
+	}
+	dev_info(dev, "%s: DMA segment size: 0x%x\n",
+		__func__, dma_get_max_seg_size(dev));
 	spin_lock_init(&md.lock);
 	platform_set_drvdata(pdev, &md);
-	dma_set_mask_and_coherent(md.dev, DMA_BIT_MASK(34));
+	md.dev = dev;
 
-	return 0;
+out:
+	return ret;
 }
 
 static int mdw_mem_remove(struct platform_device *pdev)
 {
+	unsigned long flags;
+
+	mdw_drv_info("%s: %s\n", __func__, pdev->name);
+	spin_lock_irqsave(&md.lock, flags);
+	pdev->dev.dma_parms = NULL;
 	md.dev = NULL;
+	spin_unlock_irqrestore(&md.lock, flags);
+
 	return 0;
 }
 
@@ -365,5 +391,4 @@ void mdw_mem_drv_exit(void)
 {
 	platform_driver_unregister(&mdw_mem_drv);
 }
-
 
