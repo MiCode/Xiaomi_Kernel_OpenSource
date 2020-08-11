@@ -28,6 +28,10 @@
 #include <linux/sched/clock.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
+#include <linux/pm_runtime.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-buf.h>
+#include <soc/mediatek/smi.h>
 
 /*#include <linux/xlog.h>		 For xlog_printk(). */
 
@@ -42,6 +46,7 @@
 /* #endif */
 #define CHECK_SERVICE_IF_0	0
 #define CHECK_SERVICE_IF_1	1
+#define NUM_BASEADDR 7
 
 #if CHECK_SERVICE_IF_0
 #include <mt-plat/sync_write.h> /* For mt65xx_reg_sync_writel(). */
@@ -136,6 +141,7 @@ struct RSC_CLK_STRUCT {
 	struct clk *CG_MM_LARB5;
 	struct clk *CG_IPESYS_LARB;
 #endif
+	struct clk *CG_IPESYS_LARB20;
 	struct clk *CG_IPESYS_RSC;
 };
 struct RSC_CLK_STRUCT rsc_clk;
@@ -280,6 +286,7 @@ struct RSC_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
+	struct device *larb;
 };
 
 static struct RSC_device *RSC_devs;
@@ -288,7 +295,7 @@ static struct cmdq_base       *cmdq_base;
 static struct cmdq_client     *cmdq_clt;
 static s32                    cmdq_event_id;
 /* Get HW modules' base address from device nodes */
-#define RSC_DEV_NODE_IDX 1
+#define RSC_DEV_NODE_IDX 0
 #define IPESYS_DEV_MODE_IDX 0
 
 
@@ -324,6 +331,14 @@ enum RSC_REQUEST_STATE_ENUM {
 	RSC_REQUEST_STATE_RUNNING,  /* 2 */
 	RSC_REQUEST_STATE_FINISHED, /* 3 */
 	RSC_REQUEST_STATE_TOTAL
+};
+
+/* tee_mmu */
+struct tee_mmu {
+	/* ION case only */
+	struct dma_buf        *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 };
 
 struct RSC_REQUEST_STRUCT {
@@ -1004,14 +1019,63 @@ signed int rsc_deque_cb(struct frame *frames, void *req)
 	return 0;
 }
 
+
+static bool mmu_get_dma_buffer(struct tee_mmu *mmu, int va)
+{
+
+	struct dma_buf *buf;
+
+	buf = dma_buf_get(va);
+	LOG_INF("RSC_mmu_get_buffer:%x /BUF:%x\n", va, buf);
+	if (IS_ERR(buf)) {
+		LOG_INF("[error buf]");
+		return false;
+	}
+	mmu->dma_buf = buf;
+	mmu->attach = dma_buf_attach(mmu->dma_buf, RSC_devs->dev);
+	if (IS_ERR(mmu->attach))
+		goto err_attach;
+
+	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(mmu->sgt))
+		goto err_map;
+
+	return true;
+
+err_map:
+	dma_buf_detach(mmu->dma_buf, mmu->attach);
+	LOG_INF("[error MAP]");
+
+err_attach:
+	dma_buf_put(mmu->dma_buf);
+	LOG_INF("[error Attach]");
+
+	return false;
+}
+
+static void mmu_release(struct tee_mmu *mmu)
+{
+	if (mmu->dma_buf) {
+		dma_buf_unmap_attachment(mmu->attach, mmu->sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach(mmu->dma_buf, mmu->attach);
+		dma_buf_put(mmu->dma_buf);
+	}
+}
+
 void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 {
-	//cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
+	for (int i = 0; i < NUM_BASEADDR; i++)
+		mmu_release(((struct tee_mmu *)(data.data))+i);
+
+	unsigned long *pkt_ptr = (unsigned long *)(((struct tee_mmu *)data.data)+NUM_BASEADDR);
+
+	cmdq_pkt_destroy((struct cmdq_pkt *)(*pkt_ptr));
+	kfree((struct tee_mmu *)data.data);
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 	pm_qos_update_request(&rsc_pm_qos_request, 0);
 #endif
 }
-
+unsigned long FD_OFFSET_ADDR[NUM_BASEADDR];
 signed int CmdqRSCHW(struct frame *frame)
 {
 	struct RSC_Config *pRscConfig;
@@ -1059,40 +1123,81 @@ signed int CmdqRSCHW(struct frame *frame)
 					pRscConfig->RSC_APLI_P_BASE_ADDR);
 
 #if CHECK_SERVICE_IF_1 // support cmdq mailmox
-#if CHECK_SERVICE_IF_0
+
 	pkt = cmdq_pkt_create(cmdq_clt);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_INT_CTL_HW, 0x1, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_CTRL_HW, pRscConfig->RSC_CTRL, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_SIZE_HW, pRscConfig->RSC_SIZE, ~0);
-	cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_C_BASE_ADDR_HW,
+
+	struct tee_mmu mmu;
+
+	struct tee_mmu *records = kzalloc(sizeof(struct tee_mmu) * NUM_BASEADDR
+					+ sizeof(unsigned long), GFP_KERNEL);
+
+	unsigned int hw_array[NUM_BASEADDR] = {RSC_APLI_C_BASE_ADDR_HW,
+						RSC_APLI_P_BASE_ADDR_HW,
+						RSC_IMGI_C_BASE_ADDR_HW,
+						RSC_IMGI_P_BASE_ADDR_HW,
+						RSC_MVI_BASE_ADDR_HW,
+						RSC_MVO_BASE_ADDR_HW,
+						RSC_BVO_BASE_ADDR_HW};
+
+	unsigned int fd_array[NUM_BASEADDR] = {pRscConfig->RSC_APLI_C_FD,
+						pRscConfig->RSC_APLI_P_FD,
+						pRscConfig->RSC_IMGI_C_FD,
+						pRscConfig->RSC_IMGI_P_FD,
+						pRscConfig->RSC_MVI_FD,
+						pRscConfig->RSC_MVO_FD,
+						pRscConfig->RSC_BVO_FD};
+
+	unsigned int offset_array[NUM_BASEADDR] = {pRscConfig->RSC_APLI_C_OFFSET,
+						pRscConfig->RSC_APLI_P_OFFSET,
+						pRscConfig->RSC_IMGI_C_OFFSET,
+						pRscConfig->RSC_IMGI_P_OFFSET,
+						pRscConfig->RSC_MVI_OFFSET,
+						pRscConfig->RSC_MVO_OFFSET,
+						pRscConfig->RSC_BVO_OFFSET};
+	for (int i = 0; i < NUM_BASEADDR; i++) {
+		unsigned int success = mmu_get_dma_buffer(&mmu, fd_array[i]);
+
+		if (success) {
+			dma_addr_t dma_addr;
+
+			dma_addr = sg_dma_address(mmu.sgt->sgl);
+			cmdq_pkt_write(pkt, cmdq_base, hw_array[i], dma_addr + offset_array[i], ~0);
+			FD_OFFSET_ADDR[i] = dma_addr + offset_array[i];
+			memcpy(&records[i], &mmu, sizeof(struct tee_mmu));
+		}
+	}
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_C_BASE_ADDR_HW, \
 			pRscConfig->RSC_APLI_C_BASE_ADDR, ~0);
-	cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_P_BASE_ADDR_HW,
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_APLI_P_BASE_ADDR_HW, \
 			pRscConfig->RSC_APLI_P_BASE_ADDR, ~0);
-	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_BASE_ADDR_HW,
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_BASE_ADDR_HW, \
 			pRscConfig->RSC_IMGI_C_BASE_ADDR, ~0);
-	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_BASE_ADDR_HW,
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_BASE_ADDR_HW, \
 			pRscConfig->RSC_IMGI_P_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_C_STRIDE_HW,
 			pRscConfig->RSC_IMGI_C_STRIDE, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_IMGI_P_STRIDE_HW,
 			pRscConfig->RSC_IMGI_P_STRIDE, ~0);
 
-	cmdq_pkt_write(pkt, cmdq_base, RSC_MVI_BASE_ADDR_HW,
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_MVI_BASE_ADDR_HW, \
 			pRscConfig->RSC_MVI_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_MVI_STRIDE_HW,
 			pRscConfig->RSC_MVI_STRIDE, ~0);
 
-	cmdq_pkt_write(pkt, cmdq_base, RSC_MVO_BASE_ADDR_HW,
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_MVO_BASE_ADDR_HW, \
 			pRscConfig->RSC_MVO_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_MVO_STRIDE_HW,
 			pRscConfig->RSC_MVO_STRIDE, ~0);
-	cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_BASE_ADDR_HW,
+	//cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_BASE_ADDR_HW, \
 			pRscConfig->RSC_BVO_BASE_ADDR, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_BVO_STRIDE_HW,
 			pRscConfig->RSC_BVO_STRIDE, ~0);
-#endif
+
 #ifdef RSC_TUNABLE
-#if CHECK_SERVICE_IF_0
+
 	cmdq_pkt_write(pkt, cmdq_base, RSC_MV_OFFSET_HW,
 			pRscConfig->RSC_MV_OFFSET, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_GMV_OFFSET_HW,
@@ -1119,14 +1224,14 @@ signed int CmdqRSCHW(struct frame *frame)
 			pRscConfig->RSC_RAND_PNLTY_GAIN_CTRL0, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_RAND_PNLTY_GAIN_CTRL_1_HW,
 			pRscConfig->RSC_RAND_PNLTY_GAIN_CTRL1, ~0);
-#endif
-#endif
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_DCM_CTL_HW, 0x1111, ~0);
 
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_START_HW, 0x1, ~0);
+#endif
+	cmdq_pkt_write(pkt, cmdq_base, RSC_DCM_CTL_HW, 0x1111, ~0);
+
+	cmdq_pkt_write(pkt, cmdq_base, RSC_START_HW, 0x1, ~0);
 	/* RSC Interrupt read-clear mode */
-	//cmdq_pkt_wfe(pkt, cmdq_event_id);
-	//cmdq_pkt_write(pkt, cmdq_base, RSC_START_HW, 0x0, ~0);
+	cmdq_pkt_wfe(pkt, cmdq_event_id);
+	cmdq_pkt_write(pkt, cmdq_base, RSC_START_HW, 0x0, ~0);
 	/* RSC Interrupt read-clear mode */
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 	trig_num = (pRscConfig->RSC_CTRL & 0x00000F00) >> 8;
@@ -1148,8 +1253,9 @@ signed int CmdqRSCHW(struct frame *frame)
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 	//cmdq_task_flush_async_destroy(handle);
 	/* flush and destroy in cmdq */
-
-	//cmdq_pkt_flush_threaded(pkt,rsc_cmdq_cb_destroy, (void *)pkt);
+	unsigned long *pkt_addr = (unsigned long *)&records[NUM_BASEADDR];
+	*pkt_addr = pkt;
+	cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
 
 #else  // old cmdq function
 	cmdqRecCreate(CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL, &handle);
@@ -1337,9 +1443,6 @@ static signed int RSC_DumpReg(void)
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(RSC_BVO_STRIDE_HW),
 		(unsigned int)RSC_RD32(RSC_BVO_STRIDE_REG));
 
-
-
-
 	LOG_INF("RSC Debug Info\n");
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(RSC_DBG_INFO_00_HW),
 		(unsigned int)RSC_RD32(RSC_DBG_INFO_00_REG));
@@ -1386,6 +1489,16 @@ static inline void RSC_Prepare_Enable_ccf_clock(void)
 #ifdef SMI_CLK
 	//smi_bus_prepare_enable(SMI_LARB20, "camera_rsc");
 #endif
+	pm_runtime_get_sync(RSC_devs->dev);
+
+	ret = mtk_smi_larb_get(RSC_devs->larb);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get larbvdec fail %d\n", ret);
+
+	ret = clk_prepare_enable(rsc_clk.CG_IPESYS_LARB20);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IPESYS_LARB20 clock\n");
+
 	ret = clk_prepare_enable(rsc_clk.CG_IPESYS_RSC);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IPESYS_RSC clock\n");
@@ -1396,8 +1509,11 @@ static inline void RSC_Disable_Unprepare_ccf_clock(void)
 {
 	/* close order:RSC clk>CG_SCP_SYS_ISP>CG_MM_SMI_COMMON>CG_SCP_SYS_MM0 */
 	clk_disable_unprepare(rsc_clk.CG_IPESYS_RSC);
+	clk_disable_unprepare(rsc_clk.CG_IPESYS_LARB20);
+	mtk_smi_larb_put(RSC_devs->larb);
 #ifdef SMI_CLK
 	//smi_bus_disable_unprepare(SMI_LARB20, "camera_rsc");
+	pm_runtime_put_sync(RSC_devs->dev);
 #endif
 }
 #endif
@@ -1420,15 +1536,15 @@ static inline int m4u_control_iommu_port(void)
 		sPort.Virtuality = RSC_MEM_USE_VIRTUL;
 		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
 		#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
-		ret = m4u_config_port(&sPort);
+		//ret = m4u_config_port(&sPort);
 		if (ret == 0) {
 			LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i),
-			RSC_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//iommu_get_port_name(M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i),
+						RSC_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i),
-			RSC_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+			//iommu_get_port_name(M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i),
+						RSC_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
 			ret = -1;
 		}
 		#endif
@@ -1457,6 +1573,7 @@ static void RSC_EnableClock(bool En)
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
+
 			RSC_Prepare_Enable_ccf_clock();
 #else
 			/* Enable clock by hardcode:
@@ -1482,6 +1599,7 @@ static void RSC_EnableClock(bool En)
 		}
 		g_u4EnableClockCount++;
 		mutex_unlock(&gRscClkMutex);
+		//dma_set_mask_and_coherent(RSC_devs->dev, DMA_BIT_MASK(34));
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (g_u4EnableClockCount == 1) {
 			ret = m4u_control_iommu_port();
@@ -2917,7 +3035,6 @@ static signed int RSC_probe(struct platform_device *pDev)
 	struct device *dev = NULL;
 	struct RSC_device *_rsc_dev;
 
-
 #ifdef CONFIG_OF
 	struct RSC_device *RSC_dev;
 #endif
@@ -2943,7 +3060,7 @@ static signed int RSC_probe(struct platform_device *pDev)
 
 	RSC_dev = &(RSC_devs[nr_RSC_devs - 1]);
 	RSC_dev->dev = &pDev->dev;
-
+	dma_set_mask_and_coherent(RSC_devs->dev, DMA_BIT_MASK(34));
 	/* iomap registers */
 	RSC_dev->regs = of_iomap(pDev->dev.of_node, 0);
 
@@ -2953,6 +3070,21 @@ static signed int RSC_probe(struct platform_device *pDev)
 			nr_RSC_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+	/*temperate: power for larb20*/
+	struct device_node *node;
+	struct platform_device *pdev;
+
+	node = of_parse_phandle(RSC_dev->dev->of_node, "mediatek,larb", 0);
+	if (!node)
+		return -EINVAL;
+	pdev = of_find_device_by_node(node);
+	if (WARN_ON(!pdev)) {
+		of_node_put(node);
+		return -EINVAL;
+	}
+	of_node_put(node);
+
+	RSC_devs->larb = &pdev->dev;
 
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -3022,7 +3154,7 @@ static signed int RSC_probe(struct platform_device *pDev)
 #endif
 
 	/* Only register char driver in the 1st time */
-	if (nr_RSC_devs == 2) {
+	if (nr_RSC_devs == 1) {
 
 		/* Register char driver */
 		Ret = RSC_RegCharDev();
@@ -3033,8 +3165,14 @@ static signed int RSC_probe(struct platform_device *pDev)
 #ifndef EP_NO_CLKMGR
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 		    /*CCF: Grab clock pointer (struct clk*) */
-		rsc_clk.CG_IPESYS_RSC = devm_clk_get(&pDev->dev,
-							"RSC_CLK_IPE_RSC");
+		rsc_clk.CG_IPESYS_LARB20 = devm_clk_get(&pDev->dev, "RSC_CLK_IPE_LARB20");
+
+		if (IS_ERR(rsc_clk.CG_IPESYS_LARB20)) {
+			LOG_ERR("cannot get CG_IPESYS_LARB20 clock\n");
+			return PTR_ERR(rsc_clk.CG_IPESYS_LARB20);
+		}
+
+		rsc_clk.CG_IPESYS_RSC = devm_clk_get(&pDev->dev, "RSC_CLK_IPE_RSC");
 
 		if (IS_ERR(rsc_clk.CG_IPESYS_RSC)) {
 			LOG_ERR("cannot get CG_IPESYS_RSC clock\n");
@@ -3059,6 +3197,7 @@ static signed int RSC_probe(struct platform_device *pDev)
 				RSC_DEV_NAME, Ret);
 			goto EXIT;
 		}
+		pm_runtime_enable(RSC_devs->dev);
 
 		/* Init spinlocks */
 		spin_lock_init(&(RSCInfo.SpinLockRSCRef));
@@ -3101,11 +3240,11 @@ static signed int RSC_probe(struct platform_device *pDev)
 
 		/* init cmdq */
 		cmdq_base = NULL;
-#if CHECK_SERVICE_IF_0
+
 		cmdq_base = cmdq_register_device(&pDev->dev);
 		cmdq_clt = cmdq_mbox_create(&pDev->dev, 0);
 		cmdq_event_id = cmdq_dev_get_event(&pDev->dev, "rsc_eof");
-#endif
+
 	}
 
 EXIT:
@@ -3277,7 +3416,7 @@ int RSC_pm_restore_noirq(struct device *device)
 
 
 static const struct of_device_id RSC_of_ids[] = {
-	{.compatible = "mediatek,ipesys_config",},
+/*	{.compatible = "mediatek,ipesys_config",},*/
 	{.compatible = "mediatek,rsc",},
 	{}
 };
