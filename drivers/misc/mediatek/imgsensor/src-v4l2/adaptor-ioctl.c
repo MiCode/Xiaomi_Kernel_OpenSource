@@ -166,7 +166,7 @@ static int g_def_fps_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = (u64)&info->fps;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO,
 		para.u8, &len);
 
@@ -182,7 +182,7 @@ static int g_pclk_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = (u64)&info->pclk;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO,
 		para.u8, &len);
 
@@ -198,7 +198,7 @@ static int g_llp_fll_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = (u64)&tmp;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO,
 		para.u8, &len);
 
@@ -218,7 +218,7 @@ static int g_gain_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[1] = 0;
 	para.u64[2] = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO,
 		para.u8, &len);
 
@@ -237,7 +237,7 @@ static int g_min_shutter_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO,
 		para.u8, &len);
 
@@ -258,7 +258,7 @@ static int g_crop_by_scenario(struct adaptor_ctx *ctx, void *arg)
 
 	memset(&winsize, 0, sizeof(winsize));
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_CROP_INFO,
 		para.u8, &len);
 
@@ -280,7 +280,7 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 
 	memset(&vcinfo2, 0, sizeof(vcinfo2));
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_VC_INFO2,
 		para.u8, &len);
 
@@ -289,7 +289,7 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 
 		para.u64[1] = (u64)&vcinfo;
 		memset(&vcinfo, 0, sizeof(vcinfo));
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_GET_VC_INFO,
 			para.u8, &len);
 		vcinfo_to_vcinfo2(&vcinfo, &vcinfo2);
@@ -313,7 +313,7 @@ static int g_pdaf_info_by_scenario(struct adaptor_ctx *ctx, void *arg)
 
 	memset(&pd, 0, sizeof(pd));
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PDAF_INFO,
 		para.u8, &len);
 
@@ -332,7 +332,7 @@ static int g_llp_fll(struct adaptor_ctx *ctx, void *arg)
 	para.u16[0] = 0;
 	para.u16[1] = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PERIOD,
 		para.u8, &len);
 
@@ -350,7 +350,7 @@ static int g_pclk(struct adaptor_ctx *ctx, void *arg)
 
 	para.u32[0] = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ,
 		para.u8, &len);
 
@@ -369,7 +369,7 @@ static int g_binning_type(struct adaptor_ctx *ctx, void *arg)
 	para.u64[1] = info->scenario_id;
 	para.u64[2] = info->HDRMode;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_BINNING_TYPE,
 		para.u8, &len);
 
@@ -384,7 +384,7 @@ static int g_test_pattern_checksum(struct adaptor_ctx *ctx, void *arg)
 	union feature_para para;
 	u32 len;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE,
 		para.u8, &len);
 
@@ -403,7 +403,7 @@ static int g_base_gain_iso_n_step(struct adaptor_ctx *ctx, void *arg)
 	para.u64[1] =
 	para.u64[2] = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP,
 		para.u8, &len);
 
@@ -423,7 +423,7 @@ static int g_offset_to_start_of_exposure(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = 0;
 	para.u64[1] = (u64)&tmp;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE,
 		para.u8, &len);
 
@@ -441,7 +441,7 @@ static int g_ana_gain_table_size(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = 0;
 	para.u64[1] = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_ANA_GAIN_TABLE,
 		para.u8, &len);
 
@@ -471,7 +471,7 @@ static int g_ana_gain_table(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->size;
 	para.u64[1] = (u64)workbuf.kbuf;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_ANA_GAIN_TABLE,
 		para.u8, &len);
 
@@ -498,7 +498,7 @@ static int g_pdaf_data(struct adaptor_ctx *ctx, void *arg)
 	para.u64[1] = (u64)workbuf.kbuf;
 	para.u64[2] = info->size;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PDAF_DATA,
 		para.u8, &len);
 
@@ -518,7 +518,7 @@ static int g_pdaf_cap(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = (u64)&tmp;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY,
 		para.u8, &len);
 
@@ -537,7 +537,7 @@ static int g_pdaf_regs(struct adaptor_ctx *ctx, void *arg)
 	if (ret)
 		return ret;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PDAF_REG_SETTING,
 		workbuf.kbuf, &info->size);
 
@@ -557,7 +557,7 @@ static int g_mipi_pixel_rate(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = (u64)&tmp;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_MIPI_PIXEL_RATE,
 		para.u8, &len);
 
@@ -575,7 +575,7 @@ static int g_hdr_cap(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = (u64)&tmp;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_SENSOR_HDR_CAPACITY,
 		para.u8, &len);
 
@@ -592,7 +592,7 @@ static int g_delay_info(struct adaptor_ctx *ctx, void *arg)
 
 	para.u64[0] = (u64)info;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_DELAY_INFO,
 		para.u8, &len);
 
@@ -610,7 +610,7 @@ static int g_resolution(struct adaptor_ctx *ctx, void *arg)
 	if (ret)
 		return ret;
 
-	ctx->sensor->ops->SensorGetResolution(workbuf.kbuf);
+	subdrv_call(ctx, get_resolution, workbuf.kbuf);
 
 	ret = workbuf_put(&workbuf);
 	if (ret)
@@ -639,7 +639,7 @@ static int g_feature_info(struct adaptor_ctx *ctx, void *arg)
 		return ret;
 	}
 
-	ctx->sensor->ops->SensorGetInfo(
+	subdrv_call(ctx, get_info,
 		info->scenario_id, workbuf1.kbuf, workbuf2.kbuf);
 
 	ret = workbuf_put(&workbuf1);
@@ -669,7 +669,7 @@ static int g_4cell_data(struct adaptor_ctx *ctx, void *arg)
 
 	para.u64[0] = info->type;
 	para.u64[1] = (u64)workbuf.kbuf;
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_4CELL_DATA,
 		para.u8, &len);
 
@@ -682,7 +682,7 @@ static int g_4cell_data(struct adaptor_ctx *ctx, void *arg)
 
 static int g_ae_frame_mode_for_le(struct adaptor_ctx *ctx, void *arg)
 {
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE,
 		0, arg);
 
@@ -691,7 +691,7 @@ static int g_ae_frame_mode_for_le(struct adaptor_ctx *ctx, void *arg)
 
 static int g_ae_effective_frame_for_le(struct adaptor_ctx *ctx, void *arg)
 {
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE,
 		0, arg);
 
@@ -760,12 +760,13 @@ static int g_sensor_info(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_sensor_info *info = arg;
 
-	snprintf(info->name, sizeof(info->name), "%s", ctx->sensor->name);
-	info->id = ctx->sensor->id;
+	snprintf(info->name, sizeof(info->name), "%s", ctx->subdrv->name);
+	info->id = ctx->subdrv->id;
 
 	/* read property */
 	of_property_read_u32(ctx->dev->of_node, "dir", &info->dir);
-	of_property_read_u32(ctx->dev->of_node, "orientation", &info->orientation);
+	of_property_read_u32(ctx->dev->of_node, "orientation",
+			&info->orientation);
 	of_property_read_u32(ctx->dev->of_node, "h_fov", &info->horizontalFov);
 	of_property_read_u32(ctx->dev->of_node, "v_fov", &info->verticalFov);
 
@@ -779,7 +780,7 @@ static int s_video_framerate(struct adaptor_ctx *ctx, void *arg)
 	u32 len;
 
 	para.u64[0] = *info;
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_VIDEO_MODE,
 		para.u8, &len);
 
@@ -795,7 +796,7 @@ static int s_max_fps_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = info->fps;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO,
 		para.u8, &len);
 
@@ -810,7 +811,7 @@ static int s_framerate(struct adaptor_ctx *ctx, void *arg)
 
 	para.u32[0] = *info;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_FRAMERATE,
 		para.u8, &len);
 
@@ -825,7 +826,7 @@ static int s_hdr(struct adaptor_ctx *ctx, void *arg)
 
 	para.u32[0] = *info;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_HDR,
 		para.u8, &len);
 
@@ -842,7 +843,7 @@ static int s_pdaf_regs(struct adaptor_ctx *ctx, void *arg)
 	if (ret)
 		return ret;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_PDAF_REG_SETTING,
 		workbuf.kbuf, &info->size);
 
@@ -861,7 +862,7 @@ static int s_pdaf(struct adaptor_ctx *ctx, void *arg)
 
 	para.u32[0] = *info;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_PDAF,
 		para.u8, &len);
 
@@ -877,7 +878,7 @@ static int s_min_max_fps(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->min_fps;
 	para.u64[1] = info->max_fps;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_MIN_MAX_FPS,
 		para.u8, &len);
 
@@ -897,7 +898,7 @@ static int s_lsc_tbl(struct adaptor_ctx *ctx, void *arg)
 	/* store index in last byte */
 	*(((u8 *)workbuf.kbuf) + info->size) = info->index;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_LSC_TBL,
 		workbuf.kbuf, &info->size);
 
@@ -924,7 +925,7 @@ static int s_control(struct adaptor_ctx *ctx, void *arg)
 	if (ret)
 		return ret;
 
-	ctx->sensor->ops->SensorControl(
+	subdrv_call(ctx, control,
 		info->scenario_id, workbuf1.kbuf, workbuf2.kbuf);
 
 	ret = workbuf_put(&workbuf1);
@@ -964,7 +965,8 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_BINNING_TYPE, g_binning_type},
 	{VIDIOC_MTK_G_TEST_PATTERN_CHECKSUM, g_test_pattern_checksum},
 	{VIDIOC_MTK_G_BASE_GAIN_ISO_N_STEP, g_base_gain_iso_n_step},
-	{VIDIOC_MTK_G_OFFSET_TO_START_OF_EXPOSURE, g_offset_to_start_of_exposure},
+	{VIDIOC_MTK_G_OFFSET_TO_START_OF_EXPOSURE,
+		g_offset_to_start_of_exposure},
 	{VIDIOC_MTK_G_ANA_GAIN_TABLE_SIZE, g_ana_gain_table_size},
 	{VIDIOC_MTK_G_ANA_GAIN_TABLE, g_ana_gain_table},
 	{VIDIOC_MTK_G_PDAF_DATA, g_pdaf_data},
@@ -1000,10 +1002,7 @@ long adaptor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	/* dispatch ioctl request */
 	for (i = 0; i < ARRAY_SIZE(ioctl_list); i++) {
 		if (ioctl_list[i].cmd == cmd) {
-			adaptor_legacy_lock();
-			adaptor_legacy_set_i2c_client(ctx->i2c_client);
 			ret = ioctl_list[i].func(ctx, arg);
-			adaptor_legacy_unlock();
 			break;
 		}
 	}

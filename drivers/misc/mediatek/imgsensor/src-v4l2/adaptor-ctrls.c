@@ -28,7 +28,7 @@ static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
 
 	memset(&pd, 0, sizeof(pd));
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PDAF_INFO,
 		para.u8, &len);
 
@@ -60,12 +60,13 @@ static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
 }
 #endif
 
-static int g_volatile_temperature(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
+static int g_volatile_temperature(struct adaptor_ctx *ctx,
+		struct v4l2_ctrl *ctrl)
 {
 	union feature_para para;
 	u32 len = 0;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_TEMPERATURE_VALUE,
 		para.u8, &len);
 
@@ -80,9 +81,6 @@ static int imgsensor_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 	int ret = 0;
 	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
 
-	adaptor_legacy_lock();
-	adaptor_legacy_set_i2c_client(ctx->i2c_client);
-
 	switch (ctrl->id) {
 #ifdef V4L2_CID_PD_PIXEL_REGION
 	case V4L2_CID_PD_PIXEL_REGION:
@@ -93,8 +91,6 @@ static int imgsensor_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 		ret = g_volatile_temperature(ctx, ctrl);
 		break;
 	}
-
-	adaptor_legacy_unlock();
 
 	return ret;
 }
@@ -124,26 +120,23 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	if (pm_runtime_get_if_in_use(dev) == 0)
 		return 0;
 
-	adaptor_legacy_lock();
-	adaptor_legacy_set_i2c_client(ctx->i2c_client);
-
 	switch (ctrl->id) {
 	case V4L2_CID_ANALOGUE_GAIN:
 		para.u64[0] = ctrl->val;
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_GAIN,
 			para.u8, &len);
 		break;
 	case V4L2_CID_EXPOSURE:
 		para.u64[0] = ctrl->val;
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_ESHUTTER,
 			para.u8, &len);
 		break;
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		para.u64[0] = ctrl->val * 100000;
 		do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_ESHUTTER,
 			para.u8, &len);
 		break;
@@ -151,20 +144,20 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		para.u64[0] = ctx->exposure->val;
 		para.u64[1] = ctx->cur_mode->height + ctrl->val;
 		para.u64[0] = 0;
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME,
 			para.u8, &len);
 		break;
 	case V4L2_CID_TEST_PATTERN:
 		para.u8[0] = ctrl->val;
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_TEST_PATTERN,
 			para.u8, &len);
 		break;
 	case V4L2_CID_MTK_ANTI_FLICKER:
 		para.u16[0] = ctrl->val;
 		para.u16[1] = 0;
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_AUTO_FLICKER_MODE,
 			para.u8, &len);
 		break;
@@ -183,7 +176,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				.ABS_GAIN_GB = info->abs_gain_gb,
 			};
 
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_AWB_GAIN,
 				(u8 *)&awb_gain, &len);
 		}
@@ -193,11 +186,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			struct mtk_shutter_gain_sync *info = ctrl->p_new.p;
 
 			para.u64[0] = info->shutter;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_ESHUTTER,
 				para.u8, &len);
 			para.u64[0] = info->gain;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_GAIN,
 				para.u8, &len);
 		}
@@ -208,7 +201,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			para.u64[0] = info->le_gain;
 			para.u64[1] = info->se_gain;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_DUAL_GAIN,
 				para.u8, &len);
 		}
@@ -220,7 +213,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->le_shutter;
 			para.u64[1] = info->se_shutter;
 			para.u64[2] = info->gain;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_IHDR_SHUTTER_GAIN,
 				para.u8, &len);
 		}
@@ -231,7 +224,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			para.u64[0] = info->le_shutter;
 			para.u64[1] = info->se_shutter;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_HDR_SHUTTER,
 				para.u8, &len);
 		}
@@ -243,7 +236,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->shutter;
 			para.u64[1] = info->frame_length;
 			para.u64[2] = info->auto_extend_en;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME,
 				para.u8, &len);
 		}
@@ -254,7 +247,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			para.u64[0] = info->pos;
 			para.u64[1] = info->size;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_PDFOCUS_AREA,
 				para.u8, &len);
 		}
@@ -266,7 +259,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->limit_gain;
 			para.u64[1] = info->ltc_rate;
 			para.u64[2] = info->post_gain;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_HDR_ATR,
 				para.u8, &len);
 		}
@@ -278,7 +271,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->le_shutter;
 			para.u64[1] = info->me_shutter;
 			para.u64[2] = info->se_shutter;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_HDR_TRI_SHUTTER,
 				para.u8, &len);
 		}
@@ -290,7 +283,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->le_gain;
 			para.u64[1] = info->me_gain;
 			para.u64[2] = info->se_gain;
-			ctx->sensor->ops->SensorFeatureControl(
+			subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_HDR_TRI_GAIN,
 				para.u8, &len);
 		}
@@ -306,8 +299,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = -EINVAL;
 		break;
 	}
-
-	adaptor_legacy_unlock();
 
 	pm_runtime_put(dev);
 
@@ -532,15 +523,15 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 
 	/* vblank */
 	min = def = cur_mode->fll - cur_mode->height;
-	max = ctx->sensor->max_frame_length - cur_mode->height;
+	max = ctx->subctx.max_frame_length - cur_mode->height;
 	ctx->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 				V4L2_CID_VBLANK, min, max, 1, def);
 
 	/* exposure */
-	min = ctx->sensor->exposure_min;
-	max = ctx->sensor->exposure_max;
-	step = ctx->sensor->exposure_step;
-	def = ctx->sensor->exposure_def;
+	min = ctx->subctx.exposure_min;
+	max = ctx->subctx.exposure_max;
+	step = ctx->subctx.exposure_step;
+	def = ctx->subctx.exposure_def;
 	ctx->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_EXPOSURE, min, max, step, def);
 
@@ -557,10 +548,10 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	/* analog gain */
 	v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_ANALOGUE_GAIN,
-			ctx->sensor->ana_gain_min,
-			ctx->sensor->ana_gain_max,
-			ctx->sensor->ana_gain_step,
-			ctx->sensor->ana_gain_def);
+			ctx->subctx.ana_gain_min,
+			ctx->subctx.ana_gain_max,
+			ctx->subctx.ana_gain_step,
+			ctx->subctx.ana_gain_def);
 
 	/* test pattern */
 	v4l2_ctrl_new_std_menu_items(ctrl_hdlr, &ctrl_ops,
@@ -569,21 +560,22 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 			0, 0, test_pattern_menu);
 
 	/* hflip */
-	def = ctx->sensor->is_hflip;
+	def = ctx->subctx.is_hflip;
 	ctx->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_HFLIP, 0, 1, 1, def);
 	if (ctx->hflip)
 		ctx->hflip->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	/* vflip */
-	def = ctx->sensor->is_vflip;
+	def = ctx->subctx.is_vflip;
 	ctx->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 			V4L2_CID_VFLIP, 0, 1, 1, def);
 	if (ctx->vflip)
 		ctx->vflip->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 #ifdef V4L2_CID_PD_PIXEL_REGION
-	ctx->pd_pixel_region = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pd_pixel_region, NULL);
+	ctx->pd_pixel_region =
+		v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pd_pixel_region, NULL);
 	if (ctx->pd_pixel_region) {
 		ctx->pd_pixel_region->flags |=
 			V4L2_CTRL_FLAG_READ_ONLY |
@@ -626,13 +618,13 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 		&cfg_shutter_gain_sync, NULL);
 
 	/* custom dual-gain */
-	if (ctx->sensor->hdr_cap & (HDR_CAP_MVHDR | HDR_CAP_ZHDR)) {
+	if (ctx->subctx.hdr_cap & (HDR_CAP_MVHDR | HDR_CAP_ZHDR)) {
 		ctx->dual_gain = v4l2_ctrl_new_custom(&ctx->ctrls,
 			&cfg_dual_gain, NULL);
 	}
 
 	/* custom ihdr-shutter-gain */
-	if (ctx->sensor->hdr_cap & HDR_CAP_IHDR) {
+	if (ctx->subctx.hdr_cap & HDR_CAP_IHDR) {
 		ctx->ihdr_shutter_gain = v4l2_ctrl_new_custom(&ctx->ctrls,
 			&cfg_ihdr_shutter_gain, NULL);
 	}
@@ -646,19 +638,19 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 		&cfg_shutter_frame_length, NULL);
 
 	/* custom pdfocus-area */
-	if (ctx->sensor->pdaf_cap & PDAF_CAP_PDFOCUS_AREA) {
+	if (ctx->subctx.pdaf_cap & PDAF_CAP_PDFOCUS_AREA) {
 		ctx->pdfocus_area = v4l2_ctrl_new_custom(&ctx->ctrls,
 			&cfg_pdfocus_area, NULL);
 	}
 
 	/* custom hdr-atr */
-	if (ctx->sensor->hdr_cap & HDR_CAP_ATR) {
+	if (ctx->subctx.hdr_cap & HDR_CAP_ATR) {
 		ctx->hdr_atr = v4l2_ctrl_new_custom(
 			&ctx->ctrls, &cfg_hdr_atr, NULL);
 	}
 
 	/* custom hdr-tri-shutter/gain */
-	if (ctx->sensor->hdr_cap & HDR_CAP_3HDR) {
+	if (ctx->subctx.hdr_cap & HDR_CAP_3HDR) {
 		ctx->hdr_tri_shutter = v4l2_ctrl_new_custom(&ctx->ctrls,
 			&cfg_hdr_tri_shutter, NULL);
 		ctx->hdr_tri_gain = v4l2_ctrl_new_custom(&ctx->ctrls,

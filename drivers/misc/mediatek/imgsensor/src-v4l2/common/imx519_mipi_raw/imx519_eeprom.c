@@ -21,6 +21,8 @@
 #include "kd_imgsensor_errcode.h"
 #include "imx519mipiraw_Sensor.h"
 
+#include "adaptor-subdrv.h"
+#include "adaptor-i2c.h"
 
 #define Sleep(ms) mdelay(ms)
 
@@ -64,28 +66,28 @@ static struct EEPROM_PDAF_INFO eeprom_pdaf_info[] = {
 
 static DEFINE_MUTEX(gimx519_eeprom_mutex);
 
-static bool selective_read_eeprom(kal_uint16 addr, BYTE *data)
+static bool selective_read_eeprom(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data)
 {
-	char pu_send_cmd[2] = { (char)(addr >> 8), (char)(addr & 0xFF) };
-
 	if (addr > IMX519_MAX_OFFSET)
 		return false;
 
-	if (iReadRegI2C(pu_send_cmd, 2, (u8 *) data,
-			1, IMX519_EEPROM_READ_ID) < 0) {
+	if (adaptor_i2c_rd_u8(ctx->i2c_client, IMX519_EEPROM_READ_ID >> 1,
+			addr, data) < 0)
 		return false;
-	}
+
 	return true;
 }
 
-static bool read_imx519_eeprom(kal_uint16 addr, BYTE *data, int size)
+static bool read_imx519_eeprom(struct subdrv_ctx *ctx,
+		kal_uint16 addr, BYTE *data, int size)
 {
 	int i = 0;
 	int offset = addr;
 
 	/*LOG_INF("enter read_eeprom size = %d\n", size);*/
 	for (i = 0; i < size; i++) {
-		if (!selective_read_eeprom(offset, &data[i]))
+		if (!selective_read_eeprom(ctx, offset, &data[i]))
 			return false;
 		/*LOG_INF("read_eeprom 0x%0x %d\n", offset, data[i]);*/
 		offset++;
@@ -93,14 +95,14 @@ static bool read_imx519_eeprom(kal_uint16 addr, BYTE *data, int size)
 	return true;
 }
 
-static struct EEPROM_PDAF_INFO *get_eeprom_pdaf_info(void)
+static struct EEPROM_PDAF_INFO *get_eeprom_pdaf_info(struct subdrv_ctx *ctx)
 {
 	static struct EEPROM_PDAF_INFO *pinfo;
 	BYTE read_data[4];
 
 	mutex_lock(&gimx519_eeprom_mutex);
 	if (pinfo == NULL) {
-		read_imx519_eeprom(0x1, read_data, 4);
+		read_imx519_eeprom(ctx, 0x1, read_data, 4);
 		if (((read_data[3] << 24) |
 		     (read_data[2] << 16) |
 		     (read_data[1] << 8) |
@@ -115,18 +117,18 @@ static struct EEPROM_PDAF_INFO *get_eeprom_pdaf_info(void)
 	return pinfo;
 }
 
-unsigned int read_imx519_LRC(BYTE *data)
+unsigned int read_imx519_LRC(struct subdrv_ctx *ctx, BYTE *data)
 {
 	static BYTE IMX519_LRC_data[LRC_SIZE] = { 0 };
 	static unsigned int readed_size;
-	struct EEPROM_PDAF_INFO *pinfo = get_eeprom_pdaf_info();
+	struct EEPROM_PDAF_INFO *pinfo = get_eeprom_pdaf_info(ctx);
 
 	LOG_INF("read imx519 LRC, addr = %d, size = %u\n",
 		pinfo->LRC_addr, pinfo->LRC_size);
 
 	mutex_lock(&gimx519_eeprom_mutex);
 	if ((readed_size == 0) &&
-	    read_imx519_eeprom(pinfo->LRC_addr,
+	    read_imx519_eeprom(ctx, pinfo->LRC_addr,
 			       IMX519_LRC_data, pinfo->LRC_size)) {
 		readed_size = pinfo->LRC_size;
 	}
@@ -137,18 +139,18 @@ unsigned int read_imx519_LRC(BYTE *data)
 }
 
 
-unsigned int read_imx519_DCC(BYTE *data)
+unsigned int read_imx519_DCC(struct subdrv_ctx *ctx, BYTE *data)
 {
 	static BYTE IMX519_DCC_data[DCC_SIZE] = { 0 };
 	static unsigned int readed_size;
-	struct EEPROM_PDAF_INFO *pinfo = get_eeprom_pdaf_info();
+	struct EEPROM_PDAF_INFO *pinfo = get_eeprom_pdaf_info(ctx);
 
 	LOG_INF("read imx519 DCC, addr = %d, size = %u\n",
 		pinfo->DCC_addr, pinfo->DCC_size);
 
 	mutex_lock(&gimx519_eeprom_mutex);
 	if ((readed_size == 0) &&
-	    read_imx519_eeprom(pinfo->DCC_addr,
+	    read_imx519_eeprom(ctx, pinfo->DCC_addr,
 			       IMX519_DCC_data, pinfo->DCC_size)) {
 		readed_size = pinfo->DCC_size;
 	}

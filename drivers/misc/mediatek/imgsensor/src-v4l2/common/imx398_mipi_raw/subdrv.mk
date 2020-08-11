@@ -3,5 +3,5 @@
 
 imgsensor-objs += \
 	$(subdrv-rpath)/imx398mipiraw_Sensor.o \
-	$(subdrv-rpath)/imx398_eeprom.o \
+	$(subdrv-rpath)/imx398_eeprom.o
 

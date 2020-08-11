@@ -3,5 +3,5 @@
 
 imgsensor-objs += \
 	$(subdrv-rpath)/s5k3m5sxmipiraw_Sensor.o \
-	$(subdrv-rpath)/s5k3m5sx_eeprom.o \
+	$(subdrv-rpath)/s5k3m5sx_eeprom.o
 

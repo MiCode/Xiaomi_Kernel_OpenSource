@@ -11,7 +11,6 @@ ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 subdir-ccflags-y += \
 	-I$(MTK_DRIVER_PATH)/imgsensor/inc \
 	-I$(IMGSENSOR_DRIVER_PATH)/ \
-	-I$(srctree)/drivers/i2c/busses \
 
 imgsensor-objs := \
 	adaptor-hw.o \

@@ -2,223 +2,357 @@
 // Copyright (c) 2019 MediaTek Inc.
 
 #include <linux/i2c.h>
-
-#ifdef HAVE_MTK_I2C_TRANSFER
-#include "i2c-mtk.h"
-#endif
+#include <linux/slab.h>
 
 #include "adaptor-i2c.h"
 
-#define IMGSENSOR_I2C_SPEED 400
-#define IMGSENSOR_I2C_CMD_LENGTH_MAX 255
+#define MAX_BUF_SIZE 255
+#define MAX_MSG_NUM_U8 (MAX_BUF_SIZE / 3)
+#define MAX_MSG_NUM_U16 (MAX_BUF_SIZE / 4)
+#define MAX_VAL_NUM_U8 (MAX_BUF_SIZE - 2)
+#define MAX_VAL_NUM_U16 ((MAX_BUF_SIZE - 2) >> 1)
 
-DEFINE_MUTEX(legacy_lock);
-
-static struct IMGSENSOR_I2C_INST legacy_i2c_inst = {
-	.pi2c_client = NULL,
+struct cache_wr_regs_u8 {
+	u8 buf[MAX_BUF_SIZE];
+	struct i2c_msg msg[MAX_MSG_NUM_U8];
 };
 
-static struct IMGSENSOR_I2C_CFG legacy_i2c_cfg = {
-	.pinst = &legacy_i2c_inst,
-	.i2c_mutex = __MUTEX_INITIALIZER(legacy_i2c_cfg.i2c_mutex),
+struct cache_wr_regs_u16 {
+	u8 buf[MAX_BUF_SIZE];
+	struct i2c_msg msg[MAX_MSG_NUM_U16];
 };
 
-int imgsensor_i2c_read(
-		struct IMGSENSOR_I2C_CFG *pi2c_cfg,
-		u8 *pwrite_data,
-		u16 write_length,
-		u8 *pread_data,
-		u16 read_length,
-		u16 id,
-		int speed)
+int adaptor_i2c_rd_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *val)
 {
 	int ret;
-	struct IMGSENSOR_I2C_INST *pinst = pi2c_cfg->pinst;
+	u8 buf[2];
+	struct i2c_msg msg[2];
 
-	if (pinst->pi2c_client == NULL) {
-		pr_err("no i2c_client\n");
-		return -EINVAL;
-	}
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
 
-	if (speed < 0 || speed > 1000)
-		speed = IMGSENSOR_I2C_SPEED;
+	msg[0].addr = addr;
+	msg[0].flags = i2c_client->flags;
+	msg[0].buf = buf;
+	msg[0].len = sizeof(buf);
 
-	mutex_lock(&pi2c_cfg->i2c_mutex);
+	msg[1].addr = addr;
+	msg[1].flags = i2c_client->flags | I2C_M_RD;
+	msg[1].buf = buf;
+	msg[1].len = 1;
 
-	pinst->msg[0].addr  = id >> 1;
-	pinst->msg[0].flags = 0;
-	pinst->msg[0].len   = write_length;
-	pinst->msg[0].buf   = pwrite_data;
+	ret = i2c_transfer(i2c_client->adapter, msg, 2);
+	if (ret < 0)
+		return ret;
 
-	pinst->msg[1].addr  = id >> 1;
-	pinst->msg[1].flags = I2C_M_RD;
-	pinst->msg[1].len   = read_length;
-	pinst->msg[1].buf   = pread_data;
-
-#ifdef HAVE_MTK_I2C_TRANSFER
-	ret = mtk_i2c_transfer(
-		pinst->pi2c_client->adapter,
-		pinst->msg, 2,
-		pi2c_cfg->pinst->status.filter_msg ? I2C_A_FILTER_MSG : 0,
-		speed * 1000);
-#else
-	ret = i2c_transfer(
-		pinst->pi2c_client->adapter,
-		pinst->msg, 2);
-#endif
-
-	mutex_unlock(&pi2c_cfg->i2c_mutex);
-
-	if (ret != 2)
-		return -EIO;
+	*val = buf[0];
 
 	return 0;
 }
 
-int imgsensor_i2c_write(
-		struct IMGSENSOR_I2C_CFG *pi2c_cfg,
-		u8 *pwrite_data,
-		u16 write_length,
-		u16 write_per_cycle,
-		u16 id,
-		int speed)
+int adaptor_i2c_rd_u16(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u16 *val)
 {
-	int i, ret;
-	u8 *pdata = pwrite_data;
-	u8 *pend  = pwrite_data + write_length;
-	struct IMGSENSOR_I2C_INST *pinst = pi2c_cfg->pinst;
-	struct i2c_msg *pmsg  = pinst->msg;
+	int ret;
+	u8 buf[2];
+	struct i2c_msg msg[2];
 
-	if (pinst->pi2c_client == NULL) {
-		pr_err("no i2c_client\n");
-		return -EINVAL;
-	}
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
 
-	if (speed < 0 || speed > 1000)
-		speed = IMGSENSOR_I2C_SPEED;
+	msg[0].addr = addr;
+	msg[0].flags = i2c_client->flags;
+	msg[0].buf = buf;
+	msg[0].len = sizeof(buf);
 
-	mutex_lock(&pi2c_cfg->i2c_mutex);
+	msg[1].addr  = addr;
+	msg[1].flags = i2c_client->flags | I2C_M_RD;
+	msg[1].buf = buf;
+	msg[1].len = 2;
 
-	i = 0;
-	while (pdata < pend && i < IMGSENSOR_I2C_CMD_LENGTH_MAX) {
-		pmsg->addr  = id >> 1;
-		pmsg->flags = 0;
-		pmsg->len   = write_per_cycle;
-		pmsg->buf   = pdata;
-		i++;
-		pmsg++;
-		pdata += write_per_cycle;
-	}
+	ret = i2c_transfer(i2c_client->adapter, msg, 2);
+	if (ret < 0)
+		return ret;
 
-#ifdef HAVE_MTK_I2C_TRANSFER
-	ret = mtk_i2c_transfer(
-		pinst->pi2c_client->adapter,
-		pinst->msg, i,
-		pi2c_cfg->pinst->status.filter_msg ? I2C_A_FILTER_MSG : 0,
-		speed * 1000);
-#else
-	ret = i2c_transfer(
-		pinst->pi2c_client->adapter,
-		pinst->msg, i);
-#endif
-
-	mutex_unlock(&pi2c_cfg->i2c_mutex);
-
-	if (ret != i)
-		return -EIO;
+	*val = ((u16)buf[0] << 8) | buf[1];
 
 	return 0;
 }
 
-void kdSetI2CSpeed(u16 i2cSpeed)
+int adaptor_i2c_rd_p8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *p_vals, u32 n_vals)
 {
+	u8 buf[2];
+	struct i2c_msg msg[2];
 
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
+
+	msg[0].addr = addr;
+	msg[0].flags = i2c_client->flags;
+	msg[0].buf = buf;
+	msg[0].len = sizeof(buf);
+
+	msg[1].addr = addr;
+	msg[1].flags = i2c_client->flags | I2C_M_RD;
+	msg[1].buf = p_vals;
+	msg[1].len = n_vals;
+
+	return i2c_transfer(i2c_client->adapter, msg, 2);
 }
 
-int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
-		u8 *a_pRecvData, u16 a_sizeRecvData,
-		u16 i2cId)
+int adaptor_i2c_wr_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 val)
 {
-	return imgsensor_i2c_read(
-			&legacy_i2c_cfg,
-			a_pSendData,
-			a_sizeSendData,
-			a_pRecvData,
-			a_sizeRecvData,
-			i2cId,
-			IMGSENSOR_I2C_SPEED);
+	u8 buf[3];
+	struct i2c_msg msg;
+
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
+	buf[2] = val;
+
+	msg.addr = addr;
+	msg.flags = i2c_client->flags;
+	msg.buf = buf;
+	msg.len = sizeof(buf);
+
+	return i2c_transfer(i2c_client->adapter, &msg, 1);
 }
 
-int iReadRegI2CTiming(u8 *a_pSendData, u16 a_sizeSendData, u8 *a_pRecvData,
-			u16 a_sizeRecvData, u16 i2cId, u16 timing)
+int adaptor_i2c_wr_u16(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u16 val)
 {
-	return imgsensor_i2c_read(
-			&legacy_i2c_cfg,
-			a_pSendData,
-			a_sizeSendData,
-			a_pRecvData,
-			a_sizeRecvData,
-			i2cId,
-			timing);
+	u8 buf[4];
+	struct i2c_msg msg;
+
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
+	buf[2] = val >> 8;
+	buf[3] = val & 0xff;
+
+	msg.addr = addr;
+	msg.flags = i2c_client->flags;
+	msg.buf = buf;
+	msg.len = sizeof(buf);
+
+	return i2c_transfer(i2c_client->adapter, &msg, 1);
 }
 
-int iWriteRegI2C(u8 *a_pSendData, u16 a_sizeSendData, u16 i2cId)
+int adaptor_i2c_wr_p8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *p_vals, u32 n_vals)
 {
-	return imgsensor_i2c_write(
-			&legacy_i2c_cfg,
-			a_pSendData,
-			a_sizeSendData,
-			a_sizeSendData,
-			i2cId,
-			IMGSENSOR_I2C_SPEED);
+	u8 *buf, *pbuf, *pdata;
+	struct i2c_msg msg;
+	int ret, sent, total, cnt;
+
+	buf = kmalloc(MAX_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	sent = 0;
+	total = n_vals;
+	pdata = p_vals;
+
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
+
+	msg.addr = addr;
+	msg.flags = i2c_client->flags;
+	msg.buf = buf;
+
+	while (sent < total) {
+
+		cnt = total - sent;
+		if (cnt > MAX_VAL_NUM_U8)
+			cnt = MAX_VAL_NUM_U8;
+
+		pbuf = buf + 2;
+		memcpy(pbuf, pdata, cnt);
+
+		msg.len = 2 + cnt;
+
+		ret = i2c_transfer(i2c_client->adapter, &msg, 1);
+		if (ret < 0) {
+			kfree(buf);
+			return -EIO;
+		}
+
+		sent += cnt;
+		pdata += cnt;
+	}
+
+	kfree(buf);
+
+	return 0;
 }
 
-int iWriteRegI2CTiming(u8 *a_pSendData, u16 a_sizeSendData,
-			u16 i2cId, u16 timing)
+int adaptor_i2c_wr_p16(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u16 *p_vals, u32 n_vals)
 {
-	return imgsensor_i2c_write(
-			&legacy_i2c_cfg,
-			a_pSendData,
-			a_sizeSendData,
-			a_sizeSendData,
-			i2cId,
-			timing);
+	u8 *buf, *pbuf;
+	u16 *pdata;
+	struct i2c_msg msg;
+	int i, ret, sent, total, cnt;
+
+	buf = kmalloc(MAX_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	sent = 0;
+	total = n_vals;
+	pdata = p_vals;
+
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xff;
+
+	msg.addr = addr;
+	msg.flags = i2c_client->flags;
+	msg.buf = buf;
+
+	while (sent < total) {
+
+		cnt = total - sent;
+		if (cnt > MAX_VAL_NUM_U16)
+			cnt = MAX_VAL_NUM_U16;
+
+		pbuf = buf + 2;
+
+		for (i = 0; i < cnt; i++) {
+			pbuf[0] = pdata[0] >> 8;
+			pbuf[1] = pdata[0] & 0xff;
+			pdata++;
+			pbuf += 2;
+		}
+
+		msg.len = 2 + (cnt << 1);
+
+		ret = i2c_transfer(i2c_client->adapter, &msg, 1);
+		if (ret < 0) {
+			kfree(buf);
+			return -EIO;
+		}
+
+		sent += cnt;
+	}
+
+	kfree(buf);
+
+	return 0;
 }
 
-int iBurstWriteReg(u8 *pData, u32 bytes, u16 i2cId)
+int adaptor_i2c_wr_regs_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len)
 {
-	return imgsensor_i2c_write(
-			&legacy_i2c_cfg,
-			pData,
-			bytes,
-			bytes,
-			i2cId,
-			IMGSENSOR_I2C_SPEED);
+	struct cache_wr_regs_u8 *pmem;
+	struct i2c_msg *pmsg;
+	u8 *pbuf;
+	u16 *plist;
+	int i, ret, sent, total, cnt;
+
+	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
+	if (!pmem)
+		return -ENOMEM;
+
+	/* each msg contains 3 bytes: addr(u16) + val(u8) */
+	sent = 0;
+	total = len >> 1;
+	plist = list;
+
+	while (sent < total) {
+
+		cnt = total - sent;
+		if (cnt > ARRAY_SIZE(pmem->msg))
+			cnt = ARRAY_SIZE(pmem->msg);
+
+		pbuf = pmem->buf;
+		pmsg = pmem->msg;
+
+		for (i = 0; i < cnt; i++) {
+
+			pbuf[0] = plist[0] >> 8;
+			pbuf[1] = plist[0] & 0xff;
+			pbuf[2] = plist[1] & 0xff;
+
+			pmsg->addr = addr;
+			pmsg->flags = i2c_client->flags;
+			pmsg->len = 3;
+			pmsg->buf = pbuf;
+
+			plist += 2;
+			pbuf += 3;
+			pmsg++;
+		}
+
+		ret = i2c_transfer(i2c_client->adapter, pmem->msg, cnt);
+		if (ret != cnt) {
+			kfree(pmem);
+			return -EIO;
+		}
+
+		sent += cnt;
+	}
+
+	kfree(pmem);
+
+	return 0;
 }
 
-int iBurstWriteReg_multi(u8 *pData, u32 bytes, u16 i2cId,
-				u16 transfer_length, u16 timing)
+int adaptor_i2c_wr_regs_u16(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len)
 {
-	return imgsensor_i2c_write(
-			&legacy_i2c_cfg,
-			pData,
-			bytes,
-			transfer_length,
-			i2cId,
-			timing);
+	struct cache_wr_regs_u16 *pmem;
+	struct i2c_msg *pmsg;
+	u8 *pbuf;
+	u16 *plist;
+	int i, ret, sent, total, cnt;
+
+	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
+	if (!pmem)
+		return -ENOMEM;
+
+	/* each msg contains 4 bytes: addr(u16) + val(u16) */
+	sent = 0;
+	total = len >> 1;
+	plist = list;
+
+	while (sent < total) {
+
+		cnt = total - sent;
+		if (cnt > ARRAY_SIZE(pmem->msg))
+			cnt = ARRAY_SIZE(pmem->msg);
+
+		pbuf = pmem->buf;
+		pmsg = pmem->msg;
+
+		for (i = 0; i < cnt; i++) {
+
+			pbuf[0] = plist[0] >> 8;
+			pbuf[1] = plist[0] & 0xff;
+			pbuf[2] = plist[1] >> 8;
+			pbuf[3] = plist[1] & 0xff;
+
+			pmsg->addr = addr;
+			pmsg->flags = i2c_client->flags;
+			pmsg->len = 4;
+			pmsg->buf = pbuf;
+
+			plist += 2;
+			pbuf += 4;
+			pmsg++;
+		}
+
+		ret = i2c_transfer(i2c_client->adapter, pmem->msg, cnt);
+		if (ret != cnt) {
+			kfree(pmem);
+			return -EIO;
+		}
+
+		sent += cnt;
+	}
+
+	kfree(pmem);
+
+	return 0;
 }
 
-void adaptor_legacy_set_i2c_client(struct i2c_client *client)
-{
-	legacy_i2c_inst.pi2c_client = client;
-}
-
-void adaptor_legacy_lock(void)
-{
-	mutex_lock(&legacy_lock);
-}
-
-void adaptor_legacy_unlock(void)
-{
-	mutex_unlock(&legacy_lock);
-}

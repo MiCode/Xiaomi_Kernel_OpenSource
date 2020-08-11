@@ -22,13 +22,13 @@
 
 #undef E
 #define E(__x__) (__x__##_entry)
-#define EXTERN_IMGSENSOR_SUBDRVS extern struct imgsensor_subdrv_entry \
+#define EXTERN_IMGSENSOR_SUBDRVS extern struct subdrv_entry \
 	IMGSENSOR_SUBDRVS
 EXTERN_IMGSENSOR_SUBDRVS;
 
 #undef E
 #define E(__x__) (&__x__##_entry)
-static struct imgsensor_subdrv_entry *imgsensor_subdrvs[] = {
+static struct subdrv_entry *imgsensor_subdrvs[] = {
 	IMGSENSOR_SUBDRVS
 };
 
@@ -98,7 +98,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	para.u64[0] = id;
 	para.u64[1] = (u64)&val;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO,
 		para.u8, &len);
 
@@ -108,19 +108,19 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	if (!mode->llp || !mode->fll)
 		return;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_MIPI_PIXEL_RATE,
 		para.u8, &len);
 
 	mode->mipi_pixel_rate = val;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO,
 		para.u8, &len);
 
 	mode->max_framerate = val;
 
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO,
 		para.u8, &len);
 
@@ -146,7 +146,7 @@ static int init_sensor_mode(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT res;
 
-	ctx->sensor->ops->SensorGetResolution(&res);
+	subdrv_call(ctx, get_resolution, &res);
 
 	// preview
 	if (res.SensorPreviewWidth && res.SensorPreviewHeight) {
@@ -238,7 +238,7 @@ static int set_sensor_mode(struct adaptor_ctx *ctx, struct sensor_mode *mode)
 
 	ctx->cur_mode = mode;
 
-	ctx->sensor->ops->SensorGetInfo(
+	subdrv_call(ctx, get_info,
 			mode->id,
 			&ctx->sensor_info,
 			&ctx->sensor_cfg);
@@ -257,10 +257,8 @@ static int init_sensor_info(struct adaptor_ctx *ctx)
 static int search_sensor(struct adaptor_ctx *ctx)
 {
 	int ret, i, j, of_sensor_names_cnt, subdrvs_cnt;
-	struct imgsensor_subdrv_entry **subdrvs, *sensor;
-	struct imgsensor_subdrv_entry *of_subdrvs[OF_SENSOR_NAMES_MAXCNT];
-	u64 data[4];
-	u32 len;
+	struct subdrv_entry **subdrvs, *subdrv;
+	struct subdrv_entry *of_subdrvs[OF_SENSOR_NAMES_MAXCNT];
 	const char *of_sensor_names[OF_SENSOR_NAMES_MAXCNT];
 
 	of_sensor_names_cnt = of_property_read_string_array(ctx->dev->of_node,
@@ -272,10 +270,10 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		subdrvs_cnt = 0;
 		for (i = 0; i < of_sensor_names_cnt; i++) {
 			for (j = 0; j < ARRAY_SIZE(imgsensor_subdrvs); j++) {
-				sensor = imgsensor_subdrvs[j];
-				if (!strcmp(sensor->name,
+				subdrv = imgsensor_subdrvs[j];
+				if (!strcmp(subdrv->name,
 					of_sensor_names[i])) {
-					of_subdrvs[subdrvs_cnt++] = sensor;
+					of_subdrvs[subdrvs_cnt++] = subdrv;
 					break;
 				}
 			}
@@ -290,19 +288,18 @@ static int search_sensor(struct adaptor_ctx *ctx)
 	}
 
 	for (i = 0; i < subdrvs_cnt; i++) {
-		sensor = subdrvs[i];
-		ctx->sensor = sensor;
+		u32 sensor_id;
+
+		ctx->subdrv = subdrvs[i];
+		ctx->subctx.i2c_client = ctx->i2c_client;
 		adaptor_hw_power_on(ctx);
-		adaptor_legacy_lock();
-		adaptor_legacy_set_i2c_client(ctx->i2c_client);
-		ret = sensor->ops->SensorFeatureControl(
-				SENSOR_FEATURE_CHECK_SENSOR_ID,
-				(u8 *)data, &len);
-		adaptor_legacy_unlock();
+		ret = subdrv_call(ctx, get_id, &sensor_id);
 		adaptor_hw_power_off(ctx);
-		if (!ret && ((u32 *)data)[0] != 0xffffffff) {
-			dev_info(ctx->dev, "sensor %s 0x%x found\n",
-					sensor->name, ((u32 *)data)[0]);
+		if (!ret) {
+			dev_info(ctx->dev, "sensor %s found\n",
+				ctx->subdrv->name);
+			subdrv_call(ctx, init_ctx, ctx->i2c_client,
+				ctx->subctx.i2c_write_id);
 			return 0;
 		}
 	}
@@ -328,10 +325,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	pm_runtime_get_sync(ctx->dev);
 
 	if (!ctx->is_sensor_init) {
-		adaptor_legacy_lock();
-		adaptor_legacy_set_i2c_client(ctx->i2c_client);
-		ctx->sensor->ops->SensorOpen();
-		adaptor_legacy_unlock();
+		subdrv_call(ctx, open);
 		ctx->is_sensor_init = 1;
 	}
 #endif
@@ -485,7 +479,7 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 
 		/* vblank */
 		min = def = mode->fll - mode->height;
-		max = ctx->sensor->max_frame_length - mode->height;
+		max = ctx->subdrv->max_frame_length - mode->height;
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
 		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
 	}
@@ -540,19 +534,15 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 
-	adaptor_legacy_lock();
-	adaptor_legacy_set_i2c_client(ctx->i2c_client);
-
 	if (!ctx->is_sensor_init) {
-		ctx->sensor->ops->SensorOpen();
+		subdrv_call(ctx, open);
 		ctx->is_sensor_init = 1;
 	}
 
-	ctx->sensor->ops->SensorControl(ctx->cur_mode->id,
+	subdrv_call(ctx, control,
+			ctx->cur_mode->id,
 			&image_window,
 			&sensor_config_data);
-
-	adaptor_legacy_unlock();
 
 #ifdef APPLY_CUSTOMIZED_VALUES_FROM_USER
 	/* Apply customized values from user */
@@ -561,15 +551,10 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 		dev_info(ctx->dev, "failed to apply customized values\n");
 #endif
 
-	adaptor_legacy_lock();
-	adaptor_legacy_set_i2c_client(ctx->i2c_client);
-
 	data[0] = 0; // shutter
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
-
-	adaptor_legacy_unlock();
 
 	return 0;
 }
@@ -580,14 +565,9 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
-	adaptor_legacy_lock();
-	adaptor_legacy_set_i2c_client(ctx->i2c_client);
-
-	ctx->sensor->ops->SensorFeatureControl(
+	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_SUSPEND,
 		(u8 *)data, &len);
-
-	adaptor_legacy_unlock();
 
 	return 0;
 }
@@ -683,14 +663,9 @@ static int imgsensor_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 	int ret;
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
-	if (!ctx->sensor->get_frame_desc) {
-		dev_warn(ctx->dev, "%s not support get_frame_desc\n",
-			ctx->sensor->name);
-		return -1;
-	}
-
-	ret = ctx->sensor->get_frame_desc(
-		ctx->cur_mode->id, fd);
+	ret = subdrv_call(ctx, get_frame_desc,
+			ctx->cur_mode->id,
+			fd);
 
 	if (ret) {
 		dev_warn(ctx->dev, "get_frame_desc ret %d (scenario_id %d)\n",
@@ -725,7 +700,7 @@ static int imgsensor_set_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 
 	if (b3HDR) {
 		para.u32[0] = 1;
-		ctx->sensor->ops->SensorFeatureControl(
+		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_HDR,
 			para.u8, &len);
 	}
