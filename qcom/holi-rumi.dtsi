@@ -46,7 +46,7 @@
 };
 
 &sdhc_1 {
-	status = "ok";
+	status = "disabled";
 
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&sdc1_on>;
