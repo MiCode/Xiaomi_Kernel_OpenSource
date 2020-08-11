@@ -74,7 +74,6 @@ ifdef CONFIG_MSM_RPM_SMD
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_master_stat.o
 endif
 obj-$(CONFIG_QPNP_PBS) += qpnp-pbs.o
-obj-$(CONFIG_QCOM_WATCHDOG) += qcom_watchdog.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
