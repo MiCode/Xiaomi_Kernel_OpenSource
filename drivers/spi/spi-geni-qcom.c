@@ -158,7 +158,7 @@ struct spi_geni_master {
 	int num_rx_eot;
 	int num_xfers;
 	void *ipc;
-	bool shared_se; /* GSI Mode */
+	bool gsi_mode; /* GSI Mode */
 	bool shared_ee; /* Dual EE use case */
 	bool dis_autosuspend;
 	bool cmd_done;
@@ -864,7 +864,7 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 
 	/* Adjust the IB based on the max speed of the slave.*/
 	rsc->ib = max_speed * DEFAULT_BUS_WIDTH;
-	if (mas->shared_se && !mas->shared_ee) {
+	if (mas->gsi_mode && !mas->shared_ee) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
 
@@ -913,10 +913,10 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 		/* Transmit an entire FIFO worth of data per IRQ */
 		mas->tx_wm = 1;
 
-		mas->shared_se =
+		mas->gsi_mode =
 			(geni_read_reg(mas->base, GENI_IF_FIFO_DISABLE_RO) &
 							FIFO_IF_DISABLE);
-		if (mas->shared_se) {
+		if (mas->gsi_mode) {
 			mas->tx = dma_request_slave_channel(mas->dev, "tx");
 			if (IS_ERR_OR_NULL(mas->tx)) {
 				dev_info(mas->dev,
@@ -1007,7 +1007,7 @@ static int spi_geni_unprepare_transfer_hardware(struct spi_master *spi)
 	if (mas->shared_ee)
 		return 0;
 
-	if (mas->shared_se) {
+	if (mas->gsi_mode) {
 		struct se_geni_rsc *rsc;
 		int ret = 0;
 
@@ -1625,7 +1625,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 				"qcom,disable-autosuspend");
 	/*
 	 * This property will be set when spi is being used from
-	 * dual Execution Environments unlike shared_se flag
+	 * dual Execution Environments unlike gsi_mode flag
 	 * which is set if SE is in GSI mode.
 	 */
 	geni_mas->shared_ee =
@@ -1721,7 +1721,7 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	if (geni_mas->shared_ee)
 		goto exit_rt_suspend;
 
-	if (geni_mas->shared_se) {
+	if (geni_mas->gsi_mode) {
 		ret = se_geni_clks_off(&geni_mas->spi_rsc);
 		if (ret)
 			GENI_SE_ERR(geni_mas->ipc, false, NULL,
@@ -1743,7 +1743,7 @@ static int spi_geni_runtime_resume(struct device *dev)
 	if (geni_mas->shared_ee)
 		goto exit_rt_resume;
 
-	if (geni_mas->shared_se) {
+	if (geni_mas->gsi_mode) {
 		ret = se_geni_clks_on(&geni_mas->spi_rsc);
 		if (ret)
 			GENI_SE_ERR(geni_mas->ipc, false, NULL,
