@@ -241,13 +241,12 @@ static irqreturn_t mt6360_pmu_adc_donei_handler(int irq, void *data)
 
 static int mt6360_adc_scan_task_threadfn(void *data)
 {
-	struct mt6360_adc_info *mai = data;
-	struct iio_dev *indio_dev = iio_priv_to_dev(mai);
+	struct iio_dev *indio_dev = data;
 	int channel_vals[MT6360_CHAN_MAX];
 	int i, bit, var = 0;
 	int ret;
 
-	dev_dbg(mai->dev, "%s ++\n", __func__);
+	dev_dbg(&indio_dev->dev, "%s ++\n", __func__);
 	while (!kthread_should_stop()) {
 		memset(channel_vals, 0, sizeof(channel_vals));
 		i = 0;
@@ -258,7 +257,7 @@ static int mt6360_adc_scan_task_threadfn(void *data)
 						  &var, NULL,
 						  IIO_CHAN_INFO_PROCESSED);
 			if (ret < 0)
-				dev_err(mai->dev, "get adc[%d] fail\n", bit);
+				dev_err(&indio_dev->dev, "get adc[%d] fail\n", bit);
 			channel_vals[i++] = var;
 			if (kthread_should_stop())
 				goto out;
@@ -267,7 +266,7 @@ static int mt6360_adc_scan_task_threadfn(void *data)
 						   iio_get_time_ns(indio_dev));
 	}
 out:
-	dev_dbg(mai->dev, "%s --\n", __func__);
+	dev_dbg(&indio_dev->dev, "%s --\n", __func__);
 	do_exit(0);
 	return 0;
 }
@@ -277,7 +276,7 @@ static int mt6360_adc_iio_post_enable(struct iio_dev *iio_dev)
 	struct mt6360_adc_info *mai = iio_priv(iio_dev);
 
 	dev_dbg(&iio_dev->dev, "%s ++\n", __func__);
-	mai->scan_task = kthread_run(mt6360_adc_scan_task_threadfn, mai,
+	mai->scan_task = kthread_run(mt6360_adc_scan_task_threadfn, iio_dev,
 				     "scan_thread.%s", dev_name(&iio_dev->dev));
 	dev_dbg(&iio_dev->dev, "%s --\n", __func__);
 	return PTR_ERR_OR_ZERO(mai->scan_task);
