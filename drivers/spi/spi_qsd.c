@@ -44,9 +44,20 @@
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/ipc_logging.h>
 #include "spi_qsd.h"
 
 #define SPI_MAX_BYTES_PER_WORD			(4)
+
+#define spi_ipc(log_ctx, print, dev, x...) do { \
+ipc_log_string(log_ctx, x); \
+if (print) { \
+	if (dev) \
+		dev_err((dev), x); \
+	else \
+		pr_err(x); \
+} \
+} while (0)
 
 static int msm_spi_pm_resume_runtime(struct device *device);
 static int msm_spi_pm_suspend_runtime(struct device *device);
@@ -955,6 +966,8 @@ static inline irqreturn_t msm_spi_qup_irq(int irq, void *dev_id)
 	 * processing of interrupt.
 	 */
 	mb();
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s op_stat = 0x%x\n", __func__,
+								op);
 	if (op & SPI_OP_INPUT_SERVICE_FLAG)
 		ret |= msm_spi_input_irq(irq, dev_id);
 
@@ -1098,6 +1111,8 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 	msm_spi_ack_clk_err(dd);
 	/* Ensure clearing of QUP_ERROR_FLAGS was completed */
 	mb();
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s spi_err = 0x%x\n",
+							__func__, spi_err);
 	return IRQ_HANDLED;
 }
 
@@ -1415,6 +1430,11 @@ static int msm_spi_process_transfer(struct msm_spi *dd)
 			return ret;
 		}
 	}
+
+	spi_ipc(dd->ipc_logs, false, dd->dev,
+	"%s(): bpw:%d speed:%d msg_len:%d timeout:%u xfer_mode:%d\n",
+	__func__, bpw, max_speed, dd->cur_msg_len, timeout, dd->tx_mode);
+
 	msm_spi_set_qup_io_modes(dd);
 	msm_spi_set_spi_config(dd, bpw);
 	msm_spi_set_qup_config(dd, bpw);
@@ -1539,6 +1559,7 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 
 	pm_runtime_mark_last_busy(dd->dev);
 	pm_runtime_put_autosuspend(dd->dev);
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s(): End\n", __func__);
 }
 
 static void reset_core(struct msm_spi *dd)
@@ -1589,13 +1610,13 @@ static int get_local_resources(struct msm_spi *dd)
 			dev_err(dd->dev,
 					"%s: error configuring GPIOs\n",
 					__func__);
-			return ret;
+			goto ret_err;
 		}
 	}
 
 	ret = msm_spi_request_gpios(dd);
 	if (ret)
-		return ret;
+		goto ret_err;
 
 	ret = clk_prepare_enable(dd->clk);
 	if (ret)
@@ -1611,6 +1632,8 @@ clk1_err:
 	clk_disable_unprepare(dd->clk);
 clk0_err:
 	msm_spi_free_gpios(dd);
+ret_err:
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s: ret %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1630,6 +1653,8 @@ static int msm_spi_transfer_one(struct spi_master *master,
 	u32	status_error = 0;
 
 	dd = spi_master_get_devdata(master);
+
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s START\n", __func__);
 
 	/* Check message parameters */
 	if (xfer->speed_hz > dd->pdata->max_clock_speed ||
@@ -1701,6 +1726,9 @@ static int msm_spi_transfer_one(struct spi_master *master,
 	mutex_unlock(&dd->core_lock);
 	if (dd->suspended)
 		wake_up_interruptible(&dd->continue_suspend);
+
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s ret = %d END\n",
+						__func__, status_error);
 	return status_error;
 }
 
@@ -1780,10 +1808,13 @@ static int msm_spi_prepare_transfer_hardware(struct spi_master *master)
 		}
 	}
 
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s() End\n", __func__);
 	return 0;
 
 spi_finalize:
 	spi_finalize_current_message(master);
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s(): resume_state = %d\n",
+						__func__, resume_state);
 	return resume_state;
 }
 
@@ -1885,6 +1916,8 @@ no_resources:
 	pm_runtime_put_autosuspend(dd->dev);
 
 err_setup_exit:
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s: ret %d End\n",
+							__func__, rc);
 	return rc;
 }
 
@@ -2639,6 +2672,12 @@ skip_dma_resources:
 		goto err_attrs;
 	}
 	spi_debugfs_init(dd);
+	dd->ipc_logs = ipc_log_context_create(4, dev_name(dd->dev), 0);
+	if (!dd->ipc_logs)
+		dev_info(&pdev->dev, "%s: failed to create ipc log cntxt\n",
+							__func__);
+
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s: success\n", __func__);
 
 	return 0;
 
@@ -2665,10 +2704,10 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 		goto suspend_exit;
 	dd = spi_master_get_devdata(master);
 	if (!dd)
-		goto suspend_exit;
+		return 0;
 
 	if (dd->suspended)
-		return 0;
+		goto suspend_exit;
 
 	/*
 	 * Make sure nothing is added to the queue while we're
@@ -2695,6 +2734,7 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 	mutex_unlock(&dd->core_lock);
 
 suspend_exit:
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s(): End\n", __func__);
 	return 0;
 }
 
@@ -2710,14 +2750,18 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 		goto resume_exit;
 	dd = spi_master_get_devdata(master);
 	if (!dd)
-		goto resume_exit;
+		return 0;
 
 	if (!dd->suspended)
-		return 0;
+		goto resume_exit;
+
 	if (!dd->is_init_complete) {
 		ret = init_resources(pdev);
-		if (ret != 0)
+		if (ret != 0) {
+			spi_ipc(dd->ipc_logs, false, dd->dev,
+			"%s: resume err with init_res %d\n", __func__, ret);
 			return ret;
+		}
 
 		dd->is_init_complete = true;
 	}
@@ -2726,8 +2770,11 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 
 	if (!dd->pdata->is_shared) {
 		ret = get_local_resources(dd);
-		if (ret)
+		if (ret) {
+			spi_ipc(dd->ipc_logs, false, dd->dev,
+			"%s: resume err with local_res %d\n", __func__, ret);
 			return ret;
+		}
 	}
 	if (!dd->pdata->is_shared && dd->use_dma) {
 		msm_spi_bam_pipe_connect(dd, &dd->bam.prod,
@@ -2738,23 +2785,26 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 	dd->suspended = false;
 
 resume_exit:
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s(): End\n", __func__);
 	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
 static int msm_spi_suspend(struct device *device)
 {
-	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
-		struct platform_device *pdev = to_platform_device(device);
-		struct spi_master *master = platform_get_drvdata(pdev);
-		struct msm_spi   *dd;
+	struct platform_device *pdev = to_platform_device(device);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct msm_spi   *dd;
 
-		dev_dbg(device, "system suspend\n");
-		if (!master)
-			goto suspend_exit;
-		dd = spi_master_get_devdata(master);
-		if (!dd)
-			goto suspend_exit;
+	dev_dbg(device, "system suspend\n");
+	if (!master)
+		goto suspend_exit;
+	dd = spi_master_get_devdata(master);
+	if (!dd)
+		goto suspend_exit;
+
+	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
+
 		msm_spi_pm_suspend_runtime(device);
 
 		/*
@@ -2764,18 +2814,35 @@ static int msm_spi_suspend(struct device *device)
 		pm_runtime_set_suspended(device);
 		pm_runtime_enable(device);
 	}
+
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s(): End\n", __func__);
+
 suspend_exit:
 	return 0;
 }
 
 static int msm_spi_resume(struct device *device)
 {
+	struct platform_device *pdev = to_platform_device(device);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct msm_spi   *dd;
+
+	dev_dbg(device, "system resume\n");
+	if (!master)
+		goto resume_exit;
+	dd = spi_master_get_devdata(master);
+	if (!dd)
+		goto resume_exit;
+
 	/*
 	 * Rely on runtime-PM to call resume in case it is enabled
 	 * Even if it's not enabled, rely on 1st client transaction to do
 	 * clock ON and gpio configuration
 	 */
-	dev_dbg(device, "system resume\n");
+
+	spi_ipc(dd->ipc_logs, false, dd->dev, "%s(): End\n", __func__);
+
+resume_exit:
 	return 0;
 }
 #else
@@ -2788,6 +2855,7 @@ static int msm_spi_remove(struct platform_device *pdev)
 {
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct msm_spi    *dd = spi_master_get_devdata(master);
+	int ret = 0;
 
 	spi_debugfs_exit(dd);
 	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
@@ -2796,6 +2864,8 @@ static int msm_spi_remove(struct platform_device *pdev)
 		dd->dma_teardown(dd);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
+	if (dd->ipc_logs)
+		ret = ipc_log_context_destroy(dd->ipc_logs);
 	clk_put(dd->clk);
 	clk_put(dd->pclk);
 	msm_spi_clk_path_teardown(dd);
@@ -2803,7 +2873,7 @@ static int msm_spi_remove(struct platform_device *pdev)
 	spi_unregister_master(master);
 	spi_master_put(master);
 
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id msm_spi_dt_match[] = {
