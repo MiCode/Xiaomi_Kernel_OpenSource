@@ -99,13 +99,13 @@ then
 	#Check Terminal server support "mosesq" or "dockerq"
 	echo "Start to test sever queue..."
 	test_queue=$(mosesq ls 2>&1)
-	if [[ "$test_queue" != \
-		*"Host or host group is not used by the queue."* ]];
-	then
-		SERVER_QUEUE=mosesq
-	else
-		SERVER_QUEUE=dockerq
-	fi
+        if [[ "$test_queue" =~ \
+                [Hh]ost\ group ]];
+        then
+                SERVER_QUEUE=dockerq
+        else
+                SERVER_QUEUE=mosesq
+        fi
 	echo "This sever is using queue: $SERVER_QUEUE"
 
 	#Build libabigail first

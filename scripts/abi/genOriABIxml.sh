@@ -46,7 +46,7 @@ mode=m ./scripts/abi/genOriABIxml.sh"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_commit=491f0e3 \
 src_defconfig=k6873k_64_gki_defconfig \
-target_branch=common-android-5.4 target_commit=f232ce6 mode=m \
+target_branch=common-android11-5.4 target_commit=f232ce6 mode=m \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
@@ -62,7 +62,7 @@ for preflight based on src_defconfig ${eol}"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}src_defconfig=\
 k6873v1_64_gki_defconfig \
-target_branch=common-android-5.4 mode=p \
+target_branch=common-android11-5.4 mode=p \
 ./scripts/abi/genOriABIxml.sh 2>&1 | tee buildOriABI.log${eol}"
 	echo ""
 	echo -e "${red}Command for delete temp files:${eol}"
@@ -103,12 +103,12 @@ then
 	#Check Terminal server support "mosesq" or "dockerq"
 	echo "Start to test sever queue..."
 	test_queue=$(mosesq ls 2>&1)
-	if [[ "$test_queue" != \
-		*"Host or host group is not used by the queue."* ]];
+	if [[ "$test_queue" =~ \
+		[Hh]ost\ group ]];
 	then
-		SERVER_QUEUE=mosesq
-	else
 		SERVER_QUEUE=dockerq
+	else
+		SERVER_QUEUE=mosesq
 	fi
 	echo "This sever is using queue: $SERVER_QUEUE"
 	#Build libabigail first
