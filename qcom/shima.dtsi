@@ -2624,6 +2624,141 @@
 		qcom,bt-vdd-rfa2-config = <1350000 1350000 0 1>;
 		qcom,bt-vdd-asd-config = <2800000 2800000 0 1>;
 	};
+
+	qcom,msm_gsi {
+		compatible = "qcom,msm_gsi";
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-platform-type-msm;
+		qcom,ipa-advertise-sg-support;
+		qcom,ipa-napi-enable;
+	};
+
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+		qcom,pil-force-shutdown;
+		memory-region = <&pil_ipa_gsi_mem>;
+	};
+
+	ipa_hw: qcom,ipa@1e00000 {
+		compatible = "qcom,ipa";
+		mboxes = <&qmp_aop 0>;
+		reg =
+			<0x1e00000 0x84000>,
+			<0x1e04000 0x23000>;
+		reg-names = "ipa-base", "gsi-base";
+		interrupts =
+			<0 654 IRQ_TYPE_LEVEL_HIGH>,
+			<0 432 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ipa-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <19>; /* IPA core version = IPAv4.9 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,platform-type = <1>; /* MSM platform */
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi3-over-gsi;
+		qcom,arm-smmu;
+		qcom,smmu-fast-map;
+		qcom,use-64-bit-dma-mask;
+		qcom,ipa-endp-delay-wa;
+		qcom,lan-rx-napi;
+		qcom,tx-napi;
+		qcom,wan-use-skb-page;
+		qcom,rmnet-ctl-enable;
+		qcom,ipa-uc-holb-monitor;
+		qcom,ipa-holb-monitor-poll-period = <5>;
+		qcom,ipa-holb-monitor-max-cnt-wlan = <10>;
+		qcom,ipa-holb-monitor-max-cnt-usb = <10>;
+		qcom,ipa-holb-monitor-max-cnt-11ad = <10>;
+		qcom,tx-wrapper-cache-max-size = <400>;
+		qcom,ipa-gpi-event-rp-ddr;
+		clock-names = "core_clk";
+		clocks = <&rpmhcc RPMH_IPA_CLK>;
+		qcom,interconnect,num-cases = <5>;
+		qcom,interconnect,num-paths = <3>;
+		interconnects = <&aggre2_noc MASTER_IPA &gem_noc SLAVE_LLCC>,
+			<&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>,
+			<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_IPA_CFG>;
+		interconnect-names = "ipa_to_llcc", "llcc_to_ebi1", "appss_to_ipa";
+		/* No vote */
+		qcom,no-vote =
+		<0 0 0 0 0 0>;
+
+		/* SVS2 */
+		qcom,svs2 =
+		<150000 600000 150000 1804000 0 74000>;
+
+		/* SVS */
+		qcom,svs =
+		<625000 1200000 625000 3072000 0 150000>;
+
+		/* NOMINAL */
+		qcom,nominal =
+		<1250000 2400000 1250000 6220800 0 400000>;
+
+		/* TURBO */
+		qcom,turbo =
+		<2000000 3500000 2000000 7219200 0 400000>;
+
+		qcom,bus-vector-names = "MIN", "SVS2", "SVS", "NOMINAL",
+			"TURBO";
+		qcom,throughput-threshold = <600 2500 5000>;
+		qcom,scaling-exceptions = <>;
+
+		/* smp2p information */
+		qcom,smp2p_map_ipa_1_out {
+			compatible = "qcom,smp2p-map-ipa-1-out";
+			qcom,smem-states = <&smp2p_ipa_1_out 0>;
+			qcom,smem-state-names = "ipa-smp2p-out";
+		};
+
+		qcom,smp2p_map_ipa_1_in {
+			compatible = "qcom,smp2p-map-ipa-1-in";
+			interrupts-extended = <&smp2p_ipa_1_in 0 0>;
+			interrupt-names = "ipa-smp2p-in";
+		};
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			iommus = <&apps_smmu 0x480 0x0>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
+			qcom,additional-mapping =
+				/* modem tables in IMEM */
+				<0x146A8000 0x146A8000 0x2000>;
+			dma-coherent;
+			qcom,iommu-dma = "fastmap";
+			qcom,ipa-q6-smem-size = <36864>;
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			iommus = <&apps_smmu 0x481 0x0>;
+			qcom,iommu-dma = "atomic";
+			dma-coherent;
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			iommus = <&apps_smmu 0x482 0x0>;
+			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
+			qcom,iommu-dma = "atomic";
+		};
+
+		ipa_smmu_11ad: ipa_smmu_11ad {
+			compatible = "qcom,ipa-smmu-11ad-cb";
+			iommus = <&apps_smmu 0x483 0x0>;
+			dma-coherent;
+			qcom,shared-cb;
+			qcom,iommu-group = <>;
+		};
+
+	};
 };
 
 #include "shima-pinctrl.dtsi"
