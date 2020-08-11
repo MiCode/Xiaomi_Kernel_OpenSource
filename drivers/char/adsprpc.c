@@ -460,6 +460,7 @@ struct fastrpc_apps {
 	struct wakeup_source *wake_source;
 	uint32_t duplicate_rsp_err_cnt;
 	struct qos_cores silvercores;
+	uint32_t max_size_limit;
 };
 
 struct fastrpc_mmap {
@@ -1280,8 +1281,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		}
 		trace_fastrpc_dma_map(fl->cid, fd, map->phys, map->size,
 			len, mflags, map->attach->dma_map_attrs);
-		if (map->size < len) {
+
+		VERIFY(err, map->size >= len && map->size < me->max_size_limit);
+		if (err) {
 			err = -EFAULT;
+			pr_err("adsprpc: %s: invalid map size 0x%zx len 0x%zx\n",
+				__func__, map->size, len);
 			goto bail;
 		}
 
@@ -1384,7 +1389,16 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 			int buf_type, struct fastrpc_buf **obuf)
 {
 	int err = 0, vmid;
+	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_buf *buf = NULL;
+
+	VERIFY(err, size > 0 && size < me->max_size_limit);
+	if (err) {
+		err = -EFAULT;
+		pr_err("adsprpc: %s: invalid allocation size 0x%zx\n",
+			__func__, size);
+		goto bail;
+	}
 
 	VERIFY(err, fl->sctx != NULL);
 	if (err) {
@@ -5925,9 +5939,11 @@ static int fastrpc_cb_probe(struct device *dev)
 	struct fastrpc_channel_ctx *chan;
 	struct fastrpc_session_ctx *sess;
 	struct of_phandle_args iommuspec;
+	struct fastrpc_apps *me = &gfa;
 	const char *name;
 	int err = 0, cid = -1, i = 0;
 	u32 sharedcb_count = 0, j = 0;
+	uint32_t dma_addr_pool[2] = {0, 0};
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
 					 "label", NULL)));
@@ -5982,6 +5998,11 @@ static int fastrpc_cb_probe(struct device *dev)
 
 	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
+
+	of_property_read_u32_array(dev->of_node, "qcom,iommu-dma-addr-pool",
+			dma_addr_pool, 2);
+	me->max_size_limit = (dma_addr_pool[1] == 0 ? 0x78000000 :
+			dma_addr_pool[1]);
 
 	if (of_get_property(dev->of_node, "shared-cb", NULL) != NULL) {
 		err = of_property_read_u32(dev->of_node, "shared-cb",
