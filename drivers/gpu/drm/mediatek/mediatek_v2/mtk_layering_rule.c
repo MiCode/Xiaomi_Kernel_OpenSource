@@ -465,9 +465,9 @@ unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 			params->dyn_fps.vact_timing_fps != 0)
 			vact_fps = params->dyn_fps.vact_timing_fps;
 		else
-			vact_fps = mode->vrefresh;
+			vact_fps = drm_mode_vrefresh(mode);
 	} else
-		vact_fps = mode->vrefresh;
+		vact_fps = drm_mode_vrefresh(mode);
 	DDPINFO("%s,vrefresh = %d", __func__, vact_fps);
 
 	if (fps == vact_fps)

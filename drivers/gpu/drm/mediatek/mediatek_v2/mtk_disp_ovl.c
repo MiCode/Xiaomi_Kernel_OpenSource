@@ -1500,7 +1500,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
 
-		vrefresh = crtc->state->adjusted_mode.vrefresh;
+		vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
 
 		if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
 				(output_comp->id == DDP_COMPONENT_DSI1))

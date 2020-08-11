@@ -1511,10 +1511,9 @@ static const struct mtk_mmsys_driver_data mt6853_mmsys_driver_data = {
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
 static int mtk_drm_fence_release_thread(void *data)
 {
-	struct sched_param param = {.sched_priority = 87};
 	struct mtk_drm_private *private = (struct mtk_drm_private *)data;
 
-	sched_setscheduler(current, SCHED_RR, &param);
+	sched_set_normal(current, 19);
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(_mtk_fence_wq,

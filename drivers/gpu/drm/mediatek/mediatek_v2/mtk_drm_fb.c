@@ -93,7 +93,7 @@ static void mtk_drm_fb_destroy(struct drm_framebuffer *fb)
 	struct mtk_drm_fb *mtk_fb = to_mtk_fb(fb);
 
 	drm_framebuffer_cleanup(fb);
-	drm_gem_object_put_unlocked(mtk_fb->gem_obj);
+	drm_gem_object_put(mtk_fb->gem_obj);
 
 	kfree(mtk_fb);
 }
@@ -223,6 +223,6 @@ fb_init:
 	return &mtk_fb->base;
 
 unreference:
-	drm_gem_object_put_unlocked(gem);
+	drm_gem_object_put(gem);
 	return ERR_PTR(ret);
 }
