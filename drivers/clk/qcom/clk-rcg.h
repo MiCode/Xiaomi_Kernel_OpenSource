@@ -159,6 +159,7 @@ struct clk_rcg2 {
 	u8			flags;
 #define FORCE_ENABLE_RCG	BIT(0)
 #define HW_CLK_CTRL_MODE	BIT(1)
+#define RCG_UPDATE_BEFORE_PLL	BIT(2)
 };
 
 #define to_clk_rcg2(_hw) container_of(to_clk_regmap(_hw), struct clk_rcg2, clkr)
