@@ -1535,7 +1535,8 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 			cfg.w = crtc->state->adjusted_mode.hdisplay;
 			cfg.h = crtc->state->adjusted_mode.vdisplay;
-			cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+			cfg.vrefresh =
+				drm_mode_vrefresh(&crtc->state->adjusted_mode);
 			cfg.bpc = mtk_crtc->bpc;
 			cfg.p_golden_setting_context =
 				__get_golden_setting_context(mtk_crtc);
@@ -2426,8 +2427,8 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	}
 
 	mtk_crtc->fps_change_index = fps_chg_index;
-	DDPINFO("%s,chg %d->%d\n", __func__, old_mode->vrefresh,
-		adjust_mode->vrefresh);
+	DDPINFO("%s,chg %d->%d\n", __func__, drm_mode_vrefresh(old_mode),
+		drm_mode_vrefresh(adjust_mode));
 	DDPINFO("%s,mipi_hopping_sta %d,chg solution:0x%x\n", __func__,
 		dsi->mipi_hopping_sta, fps_chg_index);
 	return 0;
@@ -4162,7 +4163,8 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
 	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
 	unsigned int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-	unsigned int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
+	unsigned int vrefresh =
+		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
@@ -4221,7 +4223,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
 	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
 	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-	int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
+	int vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 
 	//For CMD mode to calculate HRT BW
 	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
@@ -4352,8 +4354,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		mode = (struct drm_display_mode **)params;
 		list_for_each_entry(tmp, &dsi->conn.modes, head) {
-			if (tmp->vrefresh > vrefresh) {
-				vrefresh = tmp->vrefresh;
+			if (drm_mode_vrefresh(tmp) > vrefresh) {
+				vrefresh = drm_mode_vrefresh(tmp);
 				*mode = tmp;
 			}
 		}
