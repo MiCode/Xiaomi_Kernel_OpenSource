@@ -271,6 +271,7 @@ static int bgrsb_tx_msg(struct bgrsb_priv *dev, void  *msg, size_t len)
 		pr_err("bgrsb-rpmsg is not probed yet, waiting for it to be probed\n");
 		goto err_ret;
 	}
+	rc = bgrsb_rpmsg_tx_msg(msg, len);
 	if (rc != 0)
 		pr_err("bgrsb_rpmsg_tx_msg failed %d\n", rc);
 
