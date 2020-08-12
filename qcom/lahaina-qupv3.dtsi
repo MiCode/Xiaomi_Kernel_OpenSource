@@ -202,8 +202,8 @@
 		interrupts = <GIC_SPI 605 IRQ_TYPE_LEVEL_HIGH>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_0>;
-		dmas = <&gpi_dma0 0 4 1 64 0>,
-			<&gpi_dma0 1 4 1 64 0>;
+		dmas = <&gpi_dma0 0 4 1 64 2>,
+			<&gpi_dma0 1 4 1 64 2>;
 		dma-names = "tx", "rx";
 		status = "disabled";
 	};
