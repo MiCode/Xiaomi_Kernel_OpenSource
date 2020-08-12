@@ -2663,6 +2663,10 @@
 			interconnect-names = "icc-bw", "icc-hrt-bw";
 		};
 
+		mtk_iommu_debug {
+			compatible = "mediatek,mt6873-iommu-debug";
+		};
+
 		iommu0: iommu@1401d000 {
 			compatible = "mediatek,mt6873-m4u";
 			reg = <0 0x1401d000 0 0x1000>;
