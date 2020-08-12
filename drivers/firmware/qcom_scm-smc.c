@@ -11,6 +11,7 @@
 #include <linux/qcom_scm.h>
 #include <linux/arm-smccc.h>
 #include <linux/dma-mapping.h>
+#include <linux/qtee_shmbridge.h>
 
 #include "qcom_scm.h"
 
@@ -53,11 +54,12 @@ static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 }
 
 static void __scm_smc_do(const struct arm_smccc_args *smc,
-			 struct arm_smccc_res *res, bool atomic)
+			 struct arm_smccc_res *res,
+			 enum qcom_scm_call_type call_type)
 {
 	int retry_count = 0;
 
-	if (atomic) {
+	if (call_type == QCOM_SCM_CALL_ATOMIC) {
 		__scm_smc_do_quirk(smc, res);
 		return;
 	}
@@ -70,7 +72,8 @@ static void __scm_smc_do(const struct arm_smccc_args *smc,
 		mutex_unlock(&qcom_scm_lock);
 
 		if (res->a0 == QCOM_SCM_V2_EBUSY) {
-			if (retry_count++ > QCOM_SCM_EBUSY_MAX_RETRY)
+			if (retry_count++ > QCOM_SCM_EBUSY_MAX_RETRY ||
+				(call_type == QCOM_SCM_CALL_NORETRY))
 				break;
 			msleep(QCOM_SCM_EBUSY_WAIT_MS);
 		}
@@ -78,14 +81,15 @@ static void __scm_smc_do(const struct arm_smccc_args *smc,
 }
 
 int scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
-		 struct qcom_scm_res *res, bool atomic)
+		 struct qcom_scm_res *res, enum qcom_scm_call_type call_type)
 {
 	int arglen = desc->arginfo & 0xf;
-	int i;
-	dma_addr_t args_phys = 0;
-	void *args_virt = NULL;
+	int i, ret;
+	struct qtee_shm shm = {0};
+	bool use_qtee_shmbridge;
 	size_t alloc_len;
-	gfp_t flag = atomic ? GFP_ATOMIC : GFP_KERNEL;
+	const bool atomic = (call_type == QCOM_SCM_CALL_ATOMIC);
+	gfp_t flag = atomic ? GFP_ATOMIC : GFP_NOIO;
 	u32 smccc_call_type = atomic ? ARM_SMCCC_FAST_CALL : ARM_SMCCC_STD_CALL;
 	u32 qcom_smccc_convention =
 			(qcom_scm_convention == SMC_CONVENTION_ARM_32) ?
@@ -104,41 +108,54 @@ int scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 
 	if (unlikely(arglen > SCM_SMC_N_REG_ARGS)) {
 		alloc_len = SCM_SMC_N_EXT_ARGS * sizeof(u64);
-		args_virt = kzalloc(PAGE_ALIGN(alloc_len), flag);
+		use_qtee_shmbridge = qtee_shmbridge_is_enabled();
+		if (use_qtee_shmbridge) {
+			ret = qtee_shmbridge_allocate_shm(alloc_len, &shm);
+			if (ret)
+				return ret;
+		} else {
+			shm.vaddr = kzalloc(PAGE_ALIGN(alloc_len), flag);
+			if (!shm.vaddr)
+				return -ENOMEM;
+		}
 
-		if (!args_virt)
-			return -ENOMEM;
 
 		if (qcom_smccc_convention == ARM_SMCCC_SMC_32) {
-			__le32 *args = args_virt;
+			__le32 *args = shm.vaddr;
 
 			for (i = 0; i < SCM_SMC_N_EXT_ARGS; i++)
 				args[i] = cpu_to_le32(desc->args[i +
 						      SCM_SMC_FIRST_EXT_IDX]);
 		} else {
-			__le64 *args = args_virt;
+			__le64 *args = shm.vaddr;
 
 			for (i = 0; i < SCM_SMC_N_EXT_ARGS; i++)
 				args[i] = cpu_to_le64(desc->args[i +
 						      SCM_SMC_FIRST_EXT_IDX]);
 		}
 
-		args_phys = dma_map_single(dev, args_virt, alloc_len,
+		shm.paddr = dma_map_single(dev, shm.vaddr, alloc_len,
 					   DMA_TO_DEVICE);
 
-		if (dma_mapping_error(dev, args_phys)) {
-			kfree(args_virt);
+		if (dma_mapping_error(dev, shm.paddr)) {
+			if (use_qtee_shmbridge)
+				qtee_shmbridge_free_shm(&shm);
+			else
+				kfree(shm.vaddr);
 			return -ENOMEM;
 		}
 
-		smc.args[SCM_SMC_LAST_REG_IDX] = args_phys;
+		smc.args[SCM_SMC_LAST_REG_IDX] = shm.paddr;
 	}
 
-	__scm_smc_do(&smc, &smc_res, atomic);
+	__scm_smc_do(&smc, &smc_res, call_type);
 
-	if (args_virt) {
-		dma_unmap_single(dev, args_phys, alloc_len, DMA_TO_DEVICE);
-		kfree(args_virt);
+	if (shm.vaddr) {
+		dma_unmap_single(dev, shm.paddr, alloc_len, DMA_TO_DEVICE);
+		if (use_qtee_shmbridge)
+			qtee_shmbridge_free_shm(&shm);
+		else
+			kfree(shm.vaddr);
 	}
 
 	if (res) {
