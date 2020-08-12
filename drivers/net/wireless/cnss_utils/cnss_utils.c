@@ -10,7 +10,7 @@
 #include <linux/debugfs.h>
 #include <net/cnss_utils.h>
 
-#define CNSS_MAX_CH_NUM 45
+#define CNSS_MAX_CH_NUM 157
 struct cnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[CNSS_MAX_CH_NUM];
