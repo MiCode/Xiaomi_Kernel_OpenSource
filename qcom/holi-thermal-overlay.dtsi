@@ -1,5 +1,9 @@
 #include <dt-bindings/thermal/thermal_qti.h>
 
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
 &thermal_zones {
 	socd {
 		cooling-maps {
