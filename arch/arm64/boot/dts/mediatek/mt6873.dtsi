@@ -2843,6 +2843,7 @@
 			compatible = "mediatek,mt6873-apu-iommu";
 			reg = <0 0x19010000 0 0x1000>;
 			interrupts = <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,apu_power = <&apusys_power>;
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_APU>;
 			#iommu-cells = <1>;
 		};
