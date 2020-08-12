@@ -57,6 +57,8 @@
 #include <linux/of_address.h>
 #include <linux/reboot.h>
 
+#include <asm/setup.h>
+
 #include "mtk_charger.h"
 
 struct tag_bootmode {
@@ -65,6 +67,42 @@ struct tag_bootmode {
 	u32 bootmode;
 	u32 boottype;
 };
+
+#ifdef MODULE
+static char __chg_cmdline[COMMAND_LINE_SIZE];
+static char *chg_cmdline = __chg_cmdline;
+
+const char *chg_get_cmd(void)
+{
+	struct file *fd;
+	mm_segment_t fs;
+	loff_t pos = 0;
+
+	if (__chg_cmdline[0] != 0)
+		return chg_cmdline;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = filp_open("/proc/cmdline", O_RDONLY, 0);
+	if (IS_ERR(fd)) {
+		chr_info("kedump: Unable to open /proc/cmdline (%ld)",
+			PTR_ERR(fd));
+		set_fs(fs);
+		return chg_cmdline;
+	}
+	vfs_read(fd, (void *)chg_cmdline, COMMAND_LINE_SIZE, &pos);
+	filp_close(fd, NULL);
+	fd = NULL;
+	set_fs(fs);
+	return chg_cmdline;
+}
+
+#else
+const char *chg_get_cmd(void)
+{
+	return saved_command_line;
+}
+#endif
 
 int chr_get_debug_level(void)
 {
@@ -89,6 +127,7 @@ int chr_get_debug_level(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(chr_get_debug_level);
 
 void _wake_up_charger(struct mtk_charger *info)
 {
@@ -1019,6 +1058,7 @@ int mtk_chg_enable_vbus_ovp(bool enable)
 			    __func__, enable, sw_ovp);
 	return ret;
 }
+EXPORT_SYMBOL(mtk_chg_enable_vbus_ovp);
 
 /* return false if vbus is over max_charger_voltage */
 static bool mtk_chg_check_vbus(struct mtk_charger *info)
@@ -1641,7 +1681,7 @@ void mtk_charger_get_atm_mode(struct mtk_charger *info)
 
 	info->atm_enabled = false;
 
-	ptr = strstr(saved_command_line, keyword);
+	ptr = strstr(chg_get_cmd(), keyword);
 	if (ptr != 0) {
 		ptr_e = strstr(ptr, " ");
 		if (ptr_e == 0)
@@ -2018,7 +2058,7 @@ static int __init mtk_charger_init(void)
 {
 	return platform_driver_register(&mtk_charger_driver);
 }
-late_initcall(mtk_charger_init);
+module_init(mtk_charger_init);
 
 static void __exit mtk_charger_exit(void)
 {

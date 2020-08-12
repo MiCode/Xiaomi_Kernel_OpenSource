@@ -914,7 +914,7 @@ static int __init mtk_pe_init(void)
 {
 	return platform_driver_register(&pe_driver);
 }
-late_initcall(mtk_pe_init);
+module_init(mtk_pe_init);
 
 static void __exit mtk_pe_exit(void)
 {
