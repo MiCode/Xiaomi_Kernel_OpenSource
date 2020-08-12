@@ -13,6 +13,7 @@
 #include <linux/rtc.h>
 #include <linux/wakeup_reason.h>
 #include <linux/syscore_ops.h>
+#include <linux/ctype.h>
 
 #include <mtk_lpm.h>
 
@@ -25,13 +26,21 @@
 #include <mtk_lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
 
-#define MT6873_LOG_MONITOR_STATE_NAME	"mcusysoff"
 #define MT6873_LOG_DEFAULT_MS		5000
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
 
 #define aee_sram_printk pr_info
+
+#define TO_UPPERCASE(Str) ({ \
+	char buf_##Cnt[sizeof(Str)+4]; \
+	char *str_##Cnt = Str; \
+	int ix_##Cnt = 0; \
+	for (; *str_##Cnt; str_##Cnt++, ix_##Cnt++) \
+		if (ix_##Cnt < sizeof(buf_##Cnt)-1) \
+			buf_##Cnt[ix_##Cnt] = toupper(*str_##Cnt); \
+	buf_##Cnt; })
 
 static struct mt6873_spm_wake_status mt6873_wake;
 void __iomem *mt6873_spm_base;
@@ -164,9 +173,13 @@ struct mt6873_logger_timer {
 	struct mt_lpm_timer tm;
 	unsigned int fired;
 };
+#define	STATE_NUM	10
+#define	STATE_NAME_SIZE	15
 struct mt6873_logger_fired_info {
 	unsigned int fired;
-	int state_index;
+	unsigned int state_index;
+	char state_name[STATE_NUM][STATE_NAME_SIZE];
+	int fired_index;
 };
 
 static struct mt6873_logger_timer mt6873_log_timer;
@@ -607,6 +620,7 @@ static void mt6873_suspend_save_sleep_info_func(void)
 static struct syscore_ops mt6873_suspend_save_sleep_info_syscore_ops = {
 	.resume = mt6873_suspend_save_sleep_info_func,
 };
+
 static int mt6873_log_timer_func(unsigned long long dur, void *priv)
 {
 	struct mt6873_logger_timer *timer =
@@ -621,7 +635,8 @@ static int mt6873_log_timer_func(unsigned long long dur, void *priv)
 			mt6873_get_wakeup_status(&mt6873_logger_help);
 		mt6873_show_message(mt6873_logger_help.wakesrc,
 					MT_LPM_ISSUER_CPUIDLE,
-					"MCUSYSOFF", NULL);
+					info->state_name[info->fired_index],
+					NULL);
 		mt6873_logger_help.prev = mt6873_logger_help.cur;
 	} else
 		pr_info("[name:spm&][SPM] MCUSYSOFF Didn't enter low power scenario\n");
@@ -635,10 +650,13 @@ static int mt6873_logger_nb_func(struct notifier_block *nb,
 {
 	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
 	struct mt6873_logger_fired_info *info = &mt6873_logger_fired;
+	unsigned int tar_state = (1 << nb_data->index);
 
 	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT)
-	    && (nb_data->index == info->state_index))
+	    && (tar_state & (info->state_index))) {
 		info->fired++;
+		info->fired_index = nb_data->index;
+	}
 
 	return NOTIFY_OK;
 }
@@ -710,6 +728,9 @@ int __init mt6873_logger_init(void)
 {
 	struct device_node *node = NULL;
 	struct cpuidle_driver *drv = NULL;
+	struct property *prop;
+	const char *logger_enable_name;
+	struct mt6873_logger_fired_info *info = &mt6873_logger_fired;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
@@ -730,19 +751,36 @@ int __init mt6873_logger_init(void)
 	mt6873_logger_timer_debugfs_init();
 
 	drv = cpuidle_get_driver();
-	mt6873_logger_fired.state_index = -1;
 
-	if (drv) {
+	info->state_index = 0;
+
+	node = of_find_compatible_node(NULL, NULL,
+					MTK_LPM_DTS_COMPATIBLE);
+	if (drv && node) {
 		int idx;
 
 		for (idx = 0; idx < drv->state_count; ++idx) {
-			if (!strcmp(MT6873_LOG_MONITOR_STATE_NAME,
-					drv->states[idx].name)) {
-				mt6873_logger_fired.state_index = idx;
-				break;
+			of_property_for_each_string(node,
+					"logger-enable-states",
+					prop, logger_enable_name) {
+				if (!strcmp(logger_enable_name,
+						drv->states[idx].name)) {
+					info->state_index |= (1 << idx);
+
+					memset(info->state_name[idx], 0,
+					sizeof(info->state_name[idx]));
+
+					strncat(info->state_name[idx],
+					TO_UPPERCASE(drv->states[idx].name),
+					(min(strlen(drv->states[idx].name),
+					STATE_NAME_SIZE)));
+				}
 			}
 		}
 	}
+
+	if (node)
+		of_node_put(node);
 
 	mtk_lpm_notifier_register(&mt6873_logger_nb);
 	mtk_lpm_notifier_register(&mt6873_idle_save_sleep_info_nb);
