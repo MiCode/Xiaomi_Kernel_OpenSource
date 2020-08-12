@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2014 Sony Mobile Communications AB
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -52,8 +52,8 @@ struct qcom_adsp {
 	struct clk *xo;
 	struct clk *aggre2_clk;
 
-	struct regulator *cx_supply;
-	struct regulator *px_supply;
+	struct regulator **regs;
+	int reg_cnt;
 
 	struct device *active_pds[1];
 	struct device *proxy_pds[3];
@@ -124,6 +124,34 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 
 }
 
+static void disable_regulators(struct qcom_adsp *adsp)
+{
+	int i;
+
+	for (i = 0; i < adsp->reg_cnt; i++)
+		regulator_disable(adsp->regs[i]);
+}
+
+static int enable_regulators(struct qcom_adsp *adsp)
+{
+	int i, rc;
+
+	for (i = 0; i < adsp->reg_cnt; i++) {
+		rc = regulator_enable(adsp->regs[i]);
+		if (rc) {
+			dev_err(adsp->dev, "Regulator enable failed(rc:%d)\n",
+				rc);
+			goto err_enable;
+		}
+	}
+	return rc;
+
+err_enable:
+	for (i--; i >= 0; i--)
+		regulator_disable(adsp->regs[i]);
+	return rc;
+}
+
 static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
@@ -147,34 +175,28 @@ static int adsp_start(struct rproc *rproc)
 	if (ret)
 		goto disable_xo_clk;
 
-	ret = regulator_enable(adsp->cx_supply);
+	ret = enable_regulators(adsp);
 	if (ret)
 		goto disable_aggre2_clk;
-
-	ret = regulator_enable(adsp->px_supply);
-	if (ret)
-		goto disable_cx_supply;
 
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret) {
 		dev_err(adsp->dev,
 			"failed to authenticate image and release reset\n");
-		goto disable_px_supply;
+		goto disable_regs;
 	}
 
 	ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
 	if (ret == -ETIMEDOUT) {
 		dev_err(adsp->dev, "start timed out\n");
 		qcom_scm_pas_shutdown(adsp->pas_id);
-		goto disable_px_supply;
+		goto disable_regs;
 	}
 
 	return 0;
 
-disable_px_supply:
-	regulator_disable(adsp->px_supply);
-disable_cx_supply:
-	regulator_disable(adsp->cx_supply);
+disable_regs:
+	disable_regulators(adsp);
 disable_aggre2_clk:
 	clk_disable_unprepare(adsp->aggre2_clk);
 disable_xo_clk:
@@ -193,8 +215,7 @@ static void qcom_pas_handover(struct qcom_q6v5 *q6v5)
 {
 	struct qcom_adsp *adsp = container_of(q6v5, struct qcom_adsp, q6v5);
 
-	regulator_disable(adsp->px_supply);
-	regulator_disable(adsp->cx_supply);
+	disable_regulators(adsp);
 	clk_disable_unprepare(adsp->aggre2_clk);
 	clk_disable_unprepare(adsp->xo);
 	adsp_pds_disable(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
@@ -278,14 +299,55 @@ static int adsp_init_clock(struct qcom_adsp *adsp)
 
 static int adsp_init_regulator(struct qcom_adsp *adsp)
 {
-	adsp->cx_supply = devm_regulator_get(adsp->dev, "cx");
-	if (IS_ERR(adsp->cx_supply))
-		return PTR_ERR(adsp->cx_supply);
+	int len;
+	int i, rc;
+	char uv_ua[50];
+	u32 uv_ua_vals[2];
+	const char *reg_name;
 
-	regulator_set_load(adsp->cx_supply, 100000);
+	adsp->reg_cnt = of_property_count_strings(adsp->dev->of_node,
+						  "reg-names");
+	if (adsp->reg_cnt <= 0) {
+		dev_err(adsp->dev, "No regulators added!\n");
+		return 0;
+	}
 
-	adsp->px_supply = devm_regulator_get(adsp->dev, "px");
-	return PTR_ERR_OR_ZERO(adsp->px_supply);
+	adsp->regs = devm_kzalloc(adsp->dev,
+				  sizeof(struct regulator *) * adsp->reg_cnt,
+				  GFP_KERNEL);
+	if (!adsp->regs)
+		return -ENOMEM;
+
+	for (i = 0; i < adsp->reg_cnt; i++) {
+		of_property_read_string_index(adsp->dev->of_node, "reg-names",
+					      i, &reg_name);
+
+		adsp->regs[i] = devm_regulator_get(adsp->dev, reg_name);
+		if (IS_ERR(adsp->regs[i])) {
+			dev_err(adsp->dev, "failed to get %s reg\n", reg_name);
+			return PTR_ERR(adsp->regs[i]);
+		}
+
+		/* Read current(uA) and voltage(uV) value */
+		snprintf(uv_ua, sizeof(uv_ua), "%s-uV-uA", reg_name);
+		if (!of_find_property(adsp->dev->of_node, uv_ua, &len))
+			continue;
+
+		rc = of_property_read_u32_array(adsp->dev->of_node, uv_ua,
+						uv_ua_vals,
+						ARRAY_SIZE(uv_ua_vals));
+		if (rc) {
+			dev_err(adsp->dev, "Failed to read uVuA value(rc:%d)\n",
+				rc);
+			return rc;
+		}
+		if (uv_ua_vals[0] > 0)
+			regulator_set_voltage(adsp->regs[i], uv_ua_vals[0],
+					      INT_MAX);
+		if (uv_ua_vals[1] > 0)
+			regulator_set_load(adsp->regs[i], uv_ua_vals[1]);
+	}
+	return 0;
 }
 
 static int adsp_pds_attach(struct device *dev, struct device **devs,
