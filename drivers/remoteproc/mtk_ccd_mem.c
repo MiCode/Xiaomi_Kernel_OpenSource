@@ -21,14 +21,6 @@ struct mtk_ccd_memory *mtk_ccd_mem_init(struct device *dev)
 {
 	struct mtk_ccd_memory *ccd_memory;
 
-	/**
-	 * To suppor 34 bits iova. It has not been ready so I have to
-	 * disable it now.
-	 *
-	 * if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-	 *	dev_err(dev, No suitable DMA available\n");
-	 */
-
 	ccd_memory = kzalloc(sizeof(*ccd_memory), GFP_KERNEL);
 	if (!ccd_memory)
 		return NULL;

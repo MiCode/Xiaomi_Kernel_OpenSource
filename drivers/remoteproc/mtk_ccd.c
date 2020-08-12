@@ -418,6 +418,9 @@ static int ccd_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+		dev_dbg(dev, "No suitable DMA available\n");
+
 #ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	*dev->dma_mask = DMA_BIT_MASK(34);
