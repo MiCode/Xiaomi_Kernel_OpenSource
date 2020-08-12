@@ -19,6 +19,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 
+#include <soc/mediatek/smi.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
@@ -545,7 +547,7 @@ static void init_dma_fifosize(struct mtk_raw_device *dev)
 	writel_relaxed(0x00000001, cam_dev->base + REG_HALT4_SEC_EN);
 	wmb(); /* TBC */
 	dev_dbg(dev->dev, "try read REG_CQI_R2_DRS:0x%x\n",
-			readl_relaxed(dev->base + REG_CQI_R2_DRS));
+		readl_relaxed(dev->base + REG_CQI_R2_DRS));
 }
 
 void initialize(struct mtk_raw_device *dev)
@@ -852,7 +854,6 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		dma_err_status,
 		cq_done_status, scq_deadline, trig_time, cq_ctl);
 
-
 	/*
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
 	 * If these two ISRs come together, print warning msg to hint.
@@ -964,7 +965,7 @@ static inline int m4u_control_iommu_port(unsigned int raw_id)
 		ret = m4u_config_port(&s_port);
 		if (ret) {
 			pr_debug("config M4U Port %s to %s FAIL(ret=%d)\n",
-				iommu_get_port_name(port_begin + i),
+				 iommu_get_port_name(port_begin + i),
 				use_m4u ? "virtual" : "physical", ret);
 			ret = -1;
 		}
@@ -977,6 +978,8 @@ static inline int m4u_control_iommu_port(unsigned int raw_id)
 static int mtk_raw_of_probe(struct platform_device *pdev,
 			    struct mtk_raw_device *raw)
 {
+	struct device_node *node;
+	struct platform_device *larb_pdev;
 	struct device *dev = &pdev->dev;
 	const struct raw_resource *raw_res;
 	struct resource *res, *res_inner;
@@ -1030,6 +1033,24 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		return ret;
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
+
+	/**
+	 * Before common kernel 5.4 iommu's device link ready.
+	 * we need to use SMI API to power on bus directly.
+	 */
+	node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
+	if (!node) {
+		dev_dbg(dev, "can't find raw:%d's larb node\n", raw->id);
+		return -EINVAL;
+	}
+
+	larb_pdev = of_find_device_by_node(node);
+	if (!larb_pdev) {
+		dev_dbg(dev, "can't find raw:%d's larb pdev\n", raw->id);
+		return -EINVAL;
+	}
+
+	raw->larb = &larb_pdev->dev;
 
 	raw->num_clks = 0;
 	while (raw_res->clock[raw->num_clks] && raw->num_clks < MAX_NUM_CLOCKS)
@@ -1831,7 +1852,6 @@ static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUE
 	 "mtk-cam raw-2 ufdi-2", "mtk-cam raw-2 rawi-3"},
 };
 
-
 #define MTK_RAW_TOTAL_CAPTURE_QUEUES 15
 
 static const struct
@@ -2536,6 +2556,12 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 	clk_bulk_disable_unprepare(raw_dev->num_clks, raw_dev->clks);
 	pm_runtime_put(raw_dev->cam->dev);
 
+	if (raw_dev->larb)
+		mtk_smi_larb_put(raw_dev->larb);
+	else
+		dev_dbg(dev, "power off smi bus failed, raw:%d larb is NULL!\n",
+			raw_dev->id);
+
 #ifdef CONFIG_MTK_SMI_EXT
 	{
 		const struct raw_port *raw_dev_port;
@@ -2561,6 +2587,16 @@ static int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *raw_dev = dev_get_drvdata(dev);
 	int ret;
+
+	if (raw_dev->larb) {
+		ret = mtk_smi_larb_get(raw_dev->larb);
+		if (ret)
+			dev_dbg(dev, "raw:%d mtk_smi_larb_get fail%d\n",
+				raw_dev->id, ret);
+	} else {
+		dev_dbg(dev, "power off smi bus failed, raw:%d larb is NULL!\n",
+			raw_dev->id);
+	}
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 	pm_runtime_get_sync(raw_dev->cam->dev);

@@ -1453,13 +1453,9 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	if (!cam_dev)
 		return -ENOMEM;
 
-	/**
-	 * This is to support 34 bits iova, but it has not been ready,
-	 * so I have to disable it now.
-	 *
-	 * if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-	 *	dev_dbg(dev, "%s: No suitable DMA available\n", __func__);
-	 */
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+		dev_dbg(dev, "%s: No suitable DMA available\n", __func__);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_dbg(dev, "failed to get mem\n");
