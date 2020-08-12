@@ -3069,10 +3069,12 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 	if (adreno_is_a630(adreno_dev))
 		a630_vbif_halt(adreno_dev);
 
+	adreno_irqctrl(adreno_dev, 0);
+
 	a6xx_gmu_oob_clear(device, oob_gpu);
 
 no_gx_power:
-	a6xx_disable_gpu_irq(adreno_dev);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 	a6xx_gmu_power_off(adreno_dev);
 
