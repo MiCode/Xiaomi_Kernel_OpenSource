@@ -1453,15 +1453,29 @@
 		"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2", "HS_RB_G4_L2",
 		"MAX";
 
-		 reset-gpios = <&tlmm 204 GPIO_ACTIVE_LOW>;
-		 resets = <&gcc GCC_UFS_PHY_BCR>;
-		 reset-names = "rst";
+		reset-gpios = <&tlmm 204 GPIO_ACTIVE_LOW>;
+		resets = <&gcc GCC_UFS_PHY_BCR>;
+		reset-names = "rst";
 
-		 iommus = <&apps_smmu 0x80 0x0>;
-		 qcom,iommu-dma = "bypass";
-		 dma-coherent;
+		iommus = <&apps_smmu 0x80 0x0>;
+		qcom,iommu-dma = "bypass";
+		dma-coherent;
 
-		 status = "disabled";
+		rpm-level = <3>;
+		spm-level = <5>;
+
+		status = "disabled";
+
+		qos0 {
+			mask = <0xf0>;
+			vote = <59>;
+		};
+
+		qos1 {
+			mask = <0x0f>;
+			vote = <65>;
+		};
+
 	};
 
 	sdhc_1: sdhci@7C4000 {
