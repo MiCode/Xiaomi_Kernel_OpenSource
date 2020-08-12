@@ -85,6 +85,8 @@
 #define MT6359P_BM_TOP_INT_STATUS1            0xc4c
 #define MT6359P_FGADC_R_CON0                  0xd88
 #define MT6359P_FGADC_CON1                    0xd0a
+#define MT6359P_FGADC_CUR_CON1                0xd8c
+#define MT6359P_FGADC_CUR_CON2                0xd8e
 #define MT6359P_HK_TOP_ID		      0xf80
 #define MT6359P_HK_TOP_REV0                   0xf82
 #define MT6359P_HK_TOP_DBI                    0xf84

@@ -4,7 +4,7 @@ ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
 GCOV_PROFILE_mtk_bp_thl.o := y
 endif
 
-#obj-$(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING) += mtk_battery_oc_throttling.o
+obj-$(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING) += mtk_battery_oc_throttling.o
 obj-$(CONFIG_MTK_BATTERY_PERCENT_THROTTLING) += mtk_bp_thl.o
 obj-$(CONFIG_MTK_BATTERY_PERCENT_THROTTLING_DEBUG) += mtk_bp_thl_dbg.o
 #obj-$(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING) += mtk_low_battery_throttling.o
