@@ -2436,7 +2436,8 @@
 		reg = <0x5800000 0x84000>,
 			<0x5804000 0x23000>;
 		reg-names = "ipa-base", "gsi-base";
-		interrupts = <0 257 0>, <0 259 0>;
+		interrupts = <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "ipa-irq", "gsi-irq";
 		qcom,ipa-hw-ver = <20>; /* IPA core version = IPAv4.11 */
 		qcom,ipa-hw-mode = <0>;
