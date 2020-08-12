@@ -294,11 +294,11 @@
 		"VA DMIC3", "Digital Mic3",
 		"VA DMIC4", "Digital Mic4",
 		"VA DMIC5", "Digital Mic5",
-		"VA DMIC0", "VA MIC BIAS3",
+		"VA DMIC0", "VA MIC BIAS1",
 		"VA DMIC1", "VA MIC BIAS3",
-		"VA DMIC2", "VA MIC BIAS1",
+		"VA DMIC2", "VA MIC BIAS4",
 		"VA DMIC3", "VA MIC BIAS1",
-		"VA DMIC4", "VA MIC BIAS4",
+		"VA DMIC4", "VA MIC BIAS3",
 		"VA DMIC5", "VA MIC BIAS4";
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
@@ -315,6 +315,12 @@
 			   "wsa-codec1", "wsa-codec2",
 			   "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
+	qcom,cps_reg_phy_addr = <0x3250300 0x3250304 0x3250318>;
+	qcom,cps_wsa_vbatt_temp_reg_addr = <0x0000429 0x0000422>;
+	qcom,cps_threshold_levels = <148 168>;
+	qcom,cps_normal_values = <0x8E 0x8F 0x8F>;
+	qcom,cps_lower1_values = <0x10 0xD0 0xD0>;
+	qcom,cps_lower2_values = <0x0F 0x0F 0x18>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
 				  <&bolero>;
 };
