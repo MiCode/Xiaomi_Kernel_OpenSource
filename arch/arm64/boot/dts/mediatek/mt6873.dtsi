@@ -3628,12 +3628,8 @@
 
 		remoteproc_ccd: remoteproc_ccd {
 			compatible = "mediatek,ccd";
-			/**
-			 * 34-bits only, but it doesn't work now, so I
-			 * have to disable it.
-			 *
-			 * dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-			 */
+
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 
 			iommus = <&iommu0 M4U_PORT_L16_CAM_IMGO_R1_A>,
 				 <&iommu0 M4U_PORT_L16_CAM_RRZO_R1_A>,
@@ -3705,12 +3701,7 @@
 			mediatek,ccd = <&remoteproc_ccd>;
 			reg = <0 0x1a000000 0 0x1000>;
 
-			/**
-			 * 34-bits only, but it doesn't work now, so I
-			 * have to disable it.
-			 *
-			 * dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-			 */
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 
 			iommus = <&iommu0 M4U_PORT_L16_CAM_IMGO_R1_A>,
 				 <&iommu0 M4U_PORT_L16_CAM_RRZO_R1_A>,
@@ -3779,12 +3770,12 @@
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH 0>;
 			#clock-cells = <1>;
 
-
 			/**
 			 *  Mapping to MTK's old style clk SCP_SYS_CAM_RAWA,
 			 *  connect to SCP_SYS_CAM, SCP_SYS_DIS
 			 */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWA>;
+			mediatek,larb = <&larb16>;
 
 			/**
 			 *  Mapping to MTK's old style clk definition:
@@ -3823,6 +3814,7 @@
 			 *  connect to SCP_SYS_CAM, SCP_SYS_DIS
 			 */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWB>;
+			mediatek,larb = <&larb17>;
 
 			/*
 			 *  Mapping to MTK's old style clk definition:
@@ -3860,6 +3852,7 @@
 			 *  connect to SCP_SYS_CAM, SCP_SYS_DIS
 			 */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM_RAWC>;
+			mediatek,larb = <&larb18>;
 
 			/**
 			 *  Mapping to MTK's old style clk definition:
