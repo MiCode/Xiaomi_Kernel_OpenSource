@@ -1216,6 +1216,9 @@
 		phy-names = "ufsphy";
 		#reset-cells = <1>;
 
+		/* UFS gear4 cfgReady bypass WA */
+		bypass-g4-cfgready;
+
 		lanes-per-direction = <2>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 		clock-names =
