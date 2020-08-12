@@ -168,8 +168,16 @@ enum ufs_qcom_phy_init_type {
 
 /* QUniPro Vendor specific attributes */
 #define PA_VS_CONFIG_REG1	0x9000
-#define SAVECONFIGTIME_MODE_MASK	0x6000
-#define DME_VS_CORE_CLK_CTRL	0xD002
+#define BIT_TX_EOB_COND         BIT(23)
+#define PA_VS_CONFIG_REG2       0x9005
+#define H8_ENTER_COND_OFFSET 0x6
+#define H8_ENTER_COND_MASK GENMASK(6, 7)
+#define BIT_RX_EOB_COND		BIT(5)
+#define BIT_LINKCFG_WAIT_LL1_RX_CFG_RDY BIT(26)
+#define SAVECONFIGTIME_MODE_MASK        0x6000
+#define DME_VS_CORE_CLK_CTRL    0xD002
+
+
 /* bit and mask definitions for DME_VS_CORE_CLK_CTRL attribute */
 #define DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT		BIT(8)
 #define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK	0xFF
@@ -367,6 +375,7 @@ struct ufs_qcom_host {
 	atomic_t scale_up;
 	atomic_t clks_on;
 	struct ufs_qcom_qos_req *ufs_qos;
+	bool bypass_g4_cfgready;
 };
 
 static inline u32
