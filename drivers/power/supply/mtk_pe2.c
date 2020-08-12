@@ -1426,7 +1426,7 @@ static int __init mtk_pe2_init(void)
 {
 	return platform_driver_register(&pe2_driver);
 }
-late_initcall(mtk_pe2_init);
+module_init(mtk_pe2_init);
 
 static void __exit mtk_pe2_exit(void)
 {

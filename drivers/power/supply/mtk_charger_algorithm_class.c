@@ -265,7 +265,7 @@ static int __init charger_algorithm_class_init(void)
 	return 0;
 }
 
-subsys_initcall(charger_algorithm_class_init);
+module_init(charger_algorithm_class_init);
 module_exit(charger_algorithm_class_exit);
 
 MODULE_DESCRIPTION("Charger Algorithm Class Device");

@@ -2005,7 +2005,7 @@ static int __init mtk_pe4_init(void)
 {
 	return platform_driver_register(&pe4_driver);
 }
-late_initcall(mtk_pe4_init);
+module_init(mtk_pe4_init);
 
 static void __exit mtk_pe4_exit(void)
 {

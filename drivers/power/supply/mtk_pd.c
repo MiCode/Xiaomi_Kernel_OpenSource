@@ -1328,7 +1328,7 @@ static int __init mtk_pd_init(void)
 {
 	return platform_driver_register(&pd_driver);
 }
-late_initcall(mtk_pd_init);
+module_init(mtk_pd_init);
 
 static void __exit mtk_pd_exit(void)
 {

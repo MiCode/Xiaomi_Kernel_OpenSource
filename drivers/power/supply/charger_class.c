@@ -541,6 +541,7 @@ int charger_dev_safety_check(struct charger_device *chg_dev, u32 polling_ieoc)
 
 	return -ENOTSUPP;
 }
+EXPORT_SYMBOL(charger_dev_safety_check);
 
 int charger_dev_notify(struct charger_device *chg_dev, int event)
 {
@@ -771,7 +772,7 @@ static int __init charger_class_init(void)
 	return 0;
 }
 
-subsys_initcall(charger_class_init);
+module_init(charger_class_init);
 module_exit(charger_class_exit);
 
 MODULE_DESCRIPTION("Switching Charger Class Device");

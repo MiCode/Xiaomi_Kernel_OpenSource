@@ -241,7 +241,7 @@ static int __init adapter_class_init(void)
 	return 0;
 }
 
-subsys_initcall(adapter_class_init);
+module_init(adapter_class_init);
 module_exit(adapter_class_exit);
 
 MODULE_DESCRIPTION("Adapter Class Device");
