@@ -105,6 +105,7 @@ int dpm_check_supported_modes(void)
 	found_error |= is_disorder;
 	return found_error ? -EFAULT : 0;
 }
+EXPORT_SYMBOL(dpm_check_supported_modes);
 
 /*
  * DPM Init
@@ -1518,7 +1519,8 @@ void pd_dpm_drs_change_role(struct pd_port *pd_port, uint8_t role)
 
 #ifdef CONFIG_USB_PD_PR_SWAP
 
-static bool __maybe_unused pd_dpm_evaluate_source_cap_match(pd_port_t *pd_port)
+static bool __maybe_unused pd_dpm_evaluate_source_cap_match(
+							struct pd_port *pd_port)
 {
 	int i, j;
 	bool find_cap = false;
@@ -1535,8 +1537,9 @@ static bool __maybe_unused pd_dpm_evaluate_source_cap_match(pd_port_t *pd_port)
 		for (i = 0; (i < src_cap->nr) && (!find_cap); i++) {
 			dpm_extract_pdo_info(src_cap->pdos[i], &source);
 
-			find_cap = dpm_is_valid_pdo_pair(
-				&sink, &source, pd_port->dpm_caps);
+			/* TODO: need check argument policy */
+			find_cap = dpm_is_valid_pdo_pair(&sink, &source,
+					DPM_CHARGING_POLICY_MAX_POWER_HV);
 		}
 	}
 
@@ -2224,6 +2227,7 @@ struct svdm_svid_data *dpm_get_svdm_svid_data(
 
 	return NULL;
 }
+EXPORT_SYMBOL(dpm_get_svdm_svid_data);
 
 bool svdm_reset_state(struct pd_port *pd_port)
 {

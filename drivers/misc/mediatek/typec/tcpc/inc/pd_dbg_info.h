@@ -10,7 +10,7 @@
 #include <linux/module.h>
 #include "tcpci_config.h"
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 extern int pd_dbg_info(const char *fmt, ...);
 extern void pd_dbg_info_lock(void);
 extern void pd_dbg_info_unlock(void);

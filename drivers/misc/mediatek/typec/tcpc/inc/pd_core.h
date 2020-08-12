@@ -1529,7 +1529,7 @@ int pd_send_svdm_request(struct pd_port *pd_port,
 int pd_reply_svdm_request(struct pd_port *pd_port,
 	uint8_t reply, uint8_t cnt, uint32_t *data_obj);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 static inline int pd_send_vdm_discover_id(
 	struct pd_port *pd_port, uint8_t sop_type)

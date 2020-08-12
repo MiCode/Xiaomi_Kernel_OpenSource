@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/regmap.h>
 #include <linux/platform_device.h>
 #include <linux/kthread.h>
@@ -500,7 +501,7 @@ static int mt6362_init_alert_mask(struct mt6362_tcpc_data *tdata)
 		   TCPC_V10_REG_ALERT_POWER_STATUS |
 		   TCPC_V10_REG_ALERT_VENDOR_DEFINED;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	mask |= TCPC_V10_REG_ALERT_TX_SUCCESS |
 		TCPC_V10_REG_ALERT_TX_DISCARDED |
 		TCPC_V10_REG_ALERT_TX_FAILED |
@@ -1521,7 +1522,7 @@ static int mt6362_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 }
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static int mt6362_set_msg_header(struct tcpc_device *tcpc, u8 power_role,
 				 u8 data_role)
 {
@@ -1815,7 +1816,7 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 	.set_low_power_mode = mt6362_set_low_power_mode,
 #endif	/* CONFIG_TCPC_LOW_POWER_MODE */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	.set_msg_header = mt6362_set_msg_header,
 	.set_rx_enable = mt6362_set_rx_enable,
 	.protocol_reset = mt6362_protocol_reset,
@@ -2108,7 +2109,7 @@ static void check_printk_performance(void)
 	u64 t1, t2;
 	u32 nsrem;
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 	for (i = 0; i < 10; i++) {
 		t1 = local_clock();
 		pd_dbg_info("%d\n", i);

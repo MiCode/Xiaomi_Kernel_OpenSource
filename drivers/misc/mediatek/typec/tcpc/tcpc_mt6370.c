@@ -428,7 +428,7 @@ static int mt6370_init_alert_mask(struct tcpc_device *tcpc)
 
 	mask = TCPC_V10_REG_ALERT_CC_STATUS | TCPC_V10_REG_ALERT_POWER_STATUS;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* Need to handle RX overflow */
 	mask |= TCPC_V10_REG_ALERT_TX_SUCCESS | TCPC_V10_REG_ALERT_TX_DISCARDED
 			| TCPC_V10_REG_ALERT_TX_FAILED
@@ -691,7 +691,7 @@ static inline int mt6370_init_cc_params(
 {
 	int rv = 0;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_USB_PD_SNK_DFT_NO_GOOD_CRC
 	uint8_t en, sel;
 
@@ -995,7 +995,7 @@ static int mt6370_set_cc(struct tcpc_device *tcpc, int pull)
 			ret = mt6370_command(tcpc, TCPM_CMD_LOOK_CONNECTION);
 		}
 	} else {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 		if (pull == TYPEC_CC_RD && tcpc->pd_wait_pr_swap_complete)
 			mt6370_init_cc_params(tcpc, TYPEC_CC_VOLT_SNK_DFT);
 #endif	/* CONFIG_USB_POWER_DELIVERY */
@@ -1146,7 +1146,7 @@ static int mt6370_tcpc_deinit(struct tcpc_device *tcpc_dev)
 	return 0;
 }
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static int mt6370_set_msg_header(
 	struct tcpc_device *tcpc, uint8_t power_role, uint8_t data_role)
 {
@@ -1308,7 +1308,7 @@ static struct tcpc_ops mt6370_tcpc_ops = {
 	.set_intrst = mt6370_set_intrst,
 #endif	/* CONFIG_TCPC_INTRST_EN */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	.set_msg_header = mt6370_set_msg_header,
 	.set_rx_enable = mt6370_set_rx_enable,
 	.protocol_reset = mt6370_protocol_reset,
@@ -1366,7 +1366,7 @@ static void check_printk_performance(void)
 	u64 t1, t2;
 	u32 nsrem;
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 	for (i = 0; i < 10; i++) {
 		t1 = local_clock();
 		pd_dbg_info("%d\n", i);
@@ -1651,7 +1651,7 @@ static int mt6370_i2c_suspend(struct device *dev)
 	if (client) {
 		chip = i2c_get_clientdata(client);
 		if (chip) {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 			if (chip->tcpc->pd_wait_hard_reset_complete) {
 				pr_info("%s WAITING HRESET(%d) - NO SUSPEND\n",
 				    __func__,

@@ -21,11 +21,11 @@
 
 #include "tcpci_core.h"
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 #include "pd_dbg_info.h"
 #endif /* CONFIG_PD_DBG_INFO */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "pd_core.h"
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
@@ -104,7 +104,7 @@ int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
 int tcpci_notify_cable_type(struct tcpc_device *tcpc);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 int tcpci_set_msg_header(struct tcpc_device *tcpc,
 	uint8_t power_role, uint8_t data_role);
@@ -147,7 +147,7 @@ int __tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
 int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
 int tcpci_disable_force_discharge(struct tcpc_device *tcpc);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 int tcpci_notify_hard_reset_state(struct tcpc_device *tcpc, uint8_t state);
 

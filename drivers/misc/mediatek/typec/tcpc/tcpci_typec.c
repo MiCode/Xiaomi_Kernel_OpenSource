@@ -598,7 +598,7 @@ static void typec_unattach_wait_pe_idle_entry(struct tcpc_device *tcpc_dev)
 {
 	tcpc_dev->typec_attach_new = TYPEC_UNATTACHED;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc_dev->pd_pe_running) {
 		TYPEC_NEW_STATE(typec_unattachwait_pe);
 		return;
@@ -840,7 +840,7 @@ static inline void typec_trywait_snk_pe_entry(struct tcpc_device *tcpc_dev)
 {
 	tcpc_dev->typec_attach_new = TYPEC_UNATTACHED;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc_dev->typec_attach_old) {
 		TYPEC_NEW_STATE(typec_trywait_snk_pe);
 		return;
@@ -1529,12 +1529,12 @@ static inline bool typec_handle_cc_changed_entry(struct tcpc_device *tcpc_dev)
 static inline void typec_attach_wait_entry(struct tcpc_device *tcpc_dev)
 {
 	bool as_sink;
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	struct pd_port *pd_port = &tcpc_dev->pd_port;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
 	if (tcpc_dev->typec_attach_old == TYPEC_ATTACHED_SNK) {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 		if (pd_port->pe_data.pd_connected && pd_check_rev30(pd_port))
 			pd_put_sink_tx_event(tcpc_dev, typec_get_cc_res());
 #endif	/* CONFIG_USB_POWER_DELIVERY */
@@ -1575,7 +1575,7 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc_dev)
 		return;
 #endif	/* CONFIG_TYPEC_CAP_TRY_SINK */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	case typec_unattachwait_pe:
 		TYPEC_INFO("Force PE Idle\r\n");
 		tcpc_dev->pd_wait_pe_idle = false;
@@ -1613,7 +1613,7 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc_dev)
 static inline int typec_attached_snk_cc_detach(struct tcpc_device *tcpc_dev)
 {
 	tcpc_reset_typec_debounce_timer(tcpc_dev);
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/*
 	 * For Source detach during HardReset,
 	 * However Apple TA may keep cc_open about 150 ms during HardReset
@@ -1960,7 +1960,7 @@ static inline bool typec_is_ignore_cc_change(
 	}
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc_dev->typec_state == typec_attachwait_snk &&
 		typec_get_rp_present_flag(tcpc_dev) == rp_present) {
 		TYPEC_DBG("[AttachWait] Ignore RpLvl Alert\r\n");
@@ -2128,7 +2128,7 @@ static inline int typec_handle_debounce_timeout(struct tcpc_device *tcpc_dev)
 static inline int typec_handle_error_recovery_timeout(
 						struct tcpc_device *tcpc_dev)
 {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	tcpc_dev->pd_wait_pe_idle = false;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
@@ -2137,7 +2137,7 @@ static inline int typec_handle_error_recovery_timeout(
 	return 0;
 }
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static inline int typec_handle_pe_idle(struct tcpc_device *tcpc_dev)
 {
 	switch (tcpc_dev->typec_state) {
@@ -2280,7 +2280,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 		return 0;
 	}
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc_dev->pd_wait_pr_swap_complete) {
 		TYPEC_DBG("[PR.Swap] Ignore timer_evt\r\n");
 		return 0;
@@ -2288,7 +2288,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
 	switch (timer_id) {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
 	case TYPEC_TIMER_APPLE_CC_OPEN:
 #endif /* CONFIG_COMPATIBLE_APPLE_TA */
@@ -2304,7 +2304,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 		ret = typec_handle_debounce_timeout(tcpc_dev);
 		break;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	case TYPEC_RT_TIMER_PE_IDLE:
 		ret = typec_handle_pe_idle(tcpc_dev);
 		break;
@@ -2425,7 +2425,7 @@ static inline int typec_handle_vbus_present(struct tcpc_device *tcpc_dev)
 static inline int typec_attached_snk_vbus_absent(struct tcpc_device *tcpc_dev)
 {
 #ifdef TYPEC_EXIT_ATTACHED_SNK_VIA_VBUS
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_USB_PD_DIRECT_CHARGE
 	if (tcpc_dev->pd_during_direct_charge &&
 		!tcpci_check_vsafe0v(tcpc_dev, true)) {
@@ -2458,7 +2458,7 @@ static inline int typec_attached_snk_vbus_absent(struct tcpc_device *tcpc_dev)
 
 static inline int typec_handle_vbus_absent(struct tcpc_device *tcpc_dev)
 {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc_dev->pd_wait_pr_swap_complete) {
 		TYPEC_DBG("[PR.Swap] Ignore vbus_absent\r\n");
 		return 0;
@@ -2516,7 +2516,7 @@ int tcpc_typec_handle_ps_change(struct tcpc_device *tcpc_dev, int vbus_level)
  * [BLOCK] Handle PE event
  */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 int tcpc_typec_handle_pe_pr_swap(struct tcpc_device *tcpc_dev)
 {
@@ -2544,6 +2544,7 @@ int tcpc_typec_handle_pe_pr_swap(struct tcpc_device *tcpc_dev)
 	mutex_unlock(&tcpc_dev->typec_lock);
 	return ret;
 }
+EXPORT_SYMBOL(tcpc_typec_handle_pe_pr_swap);
 
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
@@ -2649,6 +2650,7 @@ int tcpc_typec_error_recovery(struct tcpc_device *tcpc_dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(tcpc_typec_error_recovery);
 
 int tcpc_typec_disable(struct tcpc_device *tcpc_dev)
 {
@@ -2875,6 +2877,7 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 	tcpci_notify_cable_type(tcpc_dev);
 	return 0;
 }
+EXPORT_SYMBOL(tcpc_typec_handle_ctd);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 int tcpc_get_charger_type(struct tcpc_device *tcpc_dev)

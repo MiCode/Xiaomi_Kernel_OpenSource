@@ -39,7 +39,7 @@ extern int tcpc_typec_enable(struct tcpc_device *tcpc_dev);
 extern int tcpc_typec_change_role(
 	struct tcpc_device *tcpc_dev, uint8_t typec_role);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 extern int tcpc_typec_handle_pe_pr_swap(struct tcpc_device *tcpc_dev);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 

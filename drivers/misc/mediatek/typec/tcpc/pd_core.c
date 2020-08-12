@@ -574,6 +574,7 @@ int pd_core_init(struct tcpc_device *tcpc_dev)
 	PE_INFO("%s\r\n", __func__);
 	return 0;
 }
+EXPORT_SYMBOL(pd_core_init);
 
 void pd_extract_rdo_power(uint32_t rdo, uint32_t pdo,
 			uint32_t *op_curr, uint32_t *max_curr)
@@ -645,6 +646,7 @@ uint32_t pd_get_cable_curr_lvl(struct pd_port *pd_port)
 	return PD_VDO_CABLE_CURR(
 		pd_port->pe_data.cable_vdos[VDO_DISCOVER_ID_CABLE]);
 }
+EXPORT_SYMBOL(pd_get_cable_curr_lvl);
 
 uint32_t pd_get_cable_current_limit(struct pd_port *pd_port)
 {
@@ -1500,5 +1502,6 @@ struct pd_battery_info *pd_get_battery_info(
 	/* TODO: for swap battery */
 	return NULL;
 }
+EXPORT_SYMBOL(pd_get_battery_info);
 
 #endif	/* CONFIG_USB_PD_REV30 */
