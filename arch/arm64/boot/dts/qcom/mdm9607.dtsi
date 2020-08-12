@@ -1679,7 +1679,7 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@87a80000 {
+	qcom_seecom: qseecom@88000000 {
 		compatible = "qcom,qseecom";
 		reg = <0x88000000 0x500000>;
 		reg-names = "secapp-region";
@@ -1687,6 +1687,7 @@
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
 		qcom,qsee-ce-hw-instance = <0>;
+		qcom,support-bus-scaling;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
