@@ -35,7 +35,6 @@
 #include "dwmac-qcom-ipa-offload.h"
 #include <linux/udp.h>
 #include <linux/if_ether.h>
-#include <linux/if_arp.h>
 #include <linux/icmp.h>
 
 struct stmmac_resources {

@@ -23,10 +23,6 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/rtnetlink.h>
-#include <linux/route.h>
-#include <linux/if_arp.h>
-#include <linux/inet.h>
-#include <net/inet_common.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
@@ -44,7 +40,6 @@ static int phy_digital_loopback_config(
 	struct qcom_ethqos *ethqos, int speed, int config);
 
 bool phy_intr_en;
-static char buf[2000];
 
 static struct ethqos_emac_por emac_por[] = {
 	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x0 },
@@ -970,44 +965,6 @@ static int ethqos_mdio_read(struct stmmac_priv  *priv, int phyaddr, int phyreg)
 	return data;
 }
 
-static int ethqos_mdio_write(struct stmmac_priv  *priv, int phyaddr, int phyreg,
-			     u16 phydata)
-{
-	unsigned int mii_address = priv->hw->mii.addr;
-	unsigned int mii_data = priv->hw->mii.data;
-	u32 v;
-	u32 value = MII_BUSY;
-	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
-
-	if (ethqos->phy_state == PHY_IS_OFF) {
-		ETHQOSINFO("Phy is in off state writing is not possible\n");
-		return -EOPNOTSUPP;
-	}
-	value |= (phyaddr << priv->hw->mii.addr_shift)
-		& priv->hw->mii.addr_mask;
-	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
-
-	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
-		& priv->hw->mii.clk_csr_mask;
-	if (priv->plat->has_gmac4)
-		value |= MII_GMAC4_WRITE;
-	else
-		value |= MII_WRITE;
-
-	/* Wait until any existing MII operation is complete */
-	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
-			       100, 10000))
-		return -EBUSY;
-
-	/* Set the MII address register to write */
-	writel_relaxed(phydata, priv->ioaddr + mii_data);
-	writel_relaxed(value, priv->ioaddr + mii_address);
-
-	/* Wait until any existing MII operation is complete */
-	return readl_poll_timeout(priv->ioaddr + mii_address, v,
-			!(v & MII_BUSY), 100, 10000);
-}
-
 static int ethqos_phy_intr_config(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
@@ -1269,7 +1226,17 @@ static ssize_t read_phy_off(struct file *file,
 			    size_t count, loff_t *ppos)
 {
 	unsigned int len = 0, buf_len = 2000;
+	char *buf;
+	ssize_t ret_cnt;
 	struct qcom_ethqos *ethqos = file->private_data;
+
+	if (!ethqos) {
+		ETHQOSERR("NULL Pointer\n");
+		return -EINVAL;
+	}
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
 	if (ethqos->current_phy_mode == DISABLE_PHY_IMMEDIATELY)
 		len += scnprintf(buf + len, buf_len - len,
@@ -1295,10 +1262,14 @@ static ssize_t read_phy_off(struct file *file,
 		len += scnprintf(buf + len, buf_len - len,
 					"Invalid Phy State\n");
 
-	if (len > buf_len)
+	if (len > buf_len) {
+		ETHQOSERR("(len > buf_len) buffer not sufficient\n");
 		len = buf_len;
+	}
 
-	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+	ret_cnt = simple_read_from_buffer(user_buf, count, ppos, buf, len);
+	kfree(buf);
+	return ret_cnt;
 }
 
 static ssize_t phy_off_config(
@@ -1436,9 +1407,12 @@ static int phy_digital_loopback_config(
 		return -EINVAL;
 	}
 	if (phydata != 0) {
-		ethqos_mdio_write(
-			priv, priv->plat->phy_addr, MII_BMCR, phydata);
-		ETHQOSINFO("write done for phy loopback\n");
+		if (priv->phydev) {
+			phy_write(priv->phydev, MII_BMCR, phydata);
+			ETHQOSINFO("write done for phy loopback\n");
+		} else {
+			ETHQOSINFO("Phy dev is NULL\n");
+		}
 	}
 	return 0;
 }
@@ -1694,6 +1668,16 @@ static ssize_t read_loopback_config(struct file *file,
 {
 	unsigned int len = 0, buf_len = 2000;
 	struct qcom_ethqos *ethqos = file->private_data;
+	char *buf;
+	ssize_t ret_cnt;
+
+	if (!ethqos) {
+		ETHQOSERR("NULL Pointer\n");
+		return -EINVAL;
+	}
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
 
 	if (ethqos->current_loopback == DISABLE_LOOPBACK)
 		len += scnprintf(buf + len, buf_len - len,
@@ -1713,7 +1697,9 @@ static ssize_t read_loopback_config(struct file *file,
 	if (len > buf_len)
 		len = buf_len;
 
-	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+	ret_cnt = simple_read_from_buffer(user_buf, count, ppos, buf, len);
+	kfree(buf);
+	return ret_cnt;
 }
 
 static const struct file_operations fops_phy_reg_dump = {
@@ -2662,9 +2648,10 @@ static int qcom_ethqos_resume(struct device *dev)
 		ethqos_reset_phy_enable_interrupt(ethqos);
 	if (ethqos->backup_autoneg == AUTONEG_DISABLE) {
 		priv->phydev->autoneg = ethqos->backup_autoneg;
-		ethqos_mdio_write(
-			priv, priv->plat->phy_addr,
-			MII_BMCR, ethqos->backup_bmcr);
+		if (priv->phydev)
+			phy_write(priv->phydev, MII_BMCR, ethqos->backup_bmcr);
+		} else {
+			ETHQOSINFO("Phy dev is NULL\n");
 		}
 	}
 
