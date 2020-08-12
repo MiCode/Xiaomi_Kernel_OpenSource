@@ -1,5 +1,6 @@
 &soc {
 	qcom,lpm-levels {
+		status = "disabled";
 		compatible = "qcom,lpm-levels";
 		#address-cells = <1>;
 		#size-cells = <0>;
