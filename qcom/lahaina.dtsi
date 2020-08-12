@@ -5389,7 +5389,7 @@
 				mhi,num-elements = <32>;
 				mhi,intmod = <0>;
 				mhi,msi = <1>;
-				mhi,priority = <1>;
+				mhi,priority = <0>;
 				mhi,brstmode = <2>;
 				mhi,data-type = <1>;
 			};
