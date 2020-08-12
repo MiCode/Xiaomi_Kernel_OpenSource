@@ -12,6 +12,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
 #include <mali_kbase_config.h>
+#include <mt-plat/mboot_params.h>
 #include "mali_kbase_cpu_mt6873.h"
 #include "mali_kbase_config_platform.h"
 #include "platform/mtk_platform_common.h"

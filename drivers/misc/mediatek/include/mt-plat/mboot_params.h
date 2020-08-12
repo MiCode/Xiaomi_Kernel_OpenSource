@@ -195,9 +195,11 @@ extern void aee_rr_rec_ppm_min_pwr_bgt(u32 val);
 extern void aee_rr_rec_ppm_policy_mask(u32 val);
 extern void aee_rr_rec_ppm_waiting_for_pbm(u8 val);
 extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);
+extern u8 aee_rr_curr_gpu_dvfs_vgpu(void);
 extern void aee_rr_rec_gpu_dvfs_oppidx(u8 val);
 extern void aee_rr_rec_gpu_dvfs_status(u8 val);
 extern u8 aee_rr_curr_gpu_dvfs_status(void);
+extern void aee_rr_rec_gpu_dvfs_power_count(int val);
 extern void aee_rr_rec_hang_detect_timeout_count(unsigned int val);
 extern int aee_rr_curr_fiq_step(void);
 extern void aee_rr_rec_fiq_step(u8 i);
@@ -234,7 +236,6 @@ extern void aee_rr_rec_cpu_down_prepare_ktime(u64 val);
 extern void aee_rr_rec_cpu_dying_ktime(u64 val);
 extern void aee_rr_rec_cpu_dead_ktime(u64 val);
 extern void aee_rr_rec_cpu_post_dead_ktime(u64 val);
-extern void aee_rr_rec_hang_detect_timeout_count(unsigned int timeout);
 extern void aee_sram_fiq_log(const char *msg);
 extern void aee_sram_fiq_save_bin(const char *buffer, size_t len);
 
@@ -845,6 +846,11 @@ static inline void aee_rr_rec_gpu_dvfs_vgpu(u8 val)
 {
 }
 
+static inline u8 aee_rr_curr_gpu_dvfs_vgpu(void)
+{
+	return 0;
+}
+
 static inline void aee_rr_rec_gpu_dvfs_oppidx(u8 val)
 {
 }
@@ -856,6 +862,10 @@ static inline void aee_rr_rec_gpu_dvfs_status(u8 val)
 static inline u8 aee_rr_curr_gpu_dvfs_status(void)
 {
 	return 0;
+}
+
+static inline void aee_rr_rec_gpu_dvfs_power_count(int val)
+{
 }
 
 static inline void aee_rr_rec_hang_detect_timeout_count(unsigned int val)
@@ -1004,11 +1014,6 @@ static inline void aee_rr_rec_cpu_dead_ktime(u64 val)
 }
 
 static inline void aee_rr_rec_cpu_post_dead_ktime(u64 val)
-{
-}
-
-static inline void aee_rr_rec_hang_detect_timeout_count(
-		unsigned int timeout)
 {
 }
 
