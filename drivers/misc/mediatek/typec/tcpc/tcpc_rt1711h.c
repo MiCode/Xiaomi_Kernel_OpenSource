@@ -410,7 +410,7 @@ static int rt1711_init_alert_mask(struct tcpc_device *tcpc)
 
 	mask = TCPC_V10_REG_ALERT_CC_STATUS | TCPC_V10_REG_ALERT_POWER_STATUS;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* Need to handle RX overflow */
 	mask |= TCPC_V10_REG_ALERT_TX_SUCCESS | TCPC_V10_REG_ALERT_TX_DISCARDED
 			| TCPC_V10_REG_ALERT_TX_FAILED
@@ -676,7 +676,7 @@ static inline int rt1711h_init_cc_params(
 {
 	int rv = 0;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_USB_PD_SNK_DFT_NO_GOOD_CRC
 	uint8_t en, sel;
 	struct rt1711_chip *chip = tcpc_get_dev_data(tcpc);
@@ -971,7 +971,7 @@ static int rt1711_set_cc(struct tcpc_device *tcpc, int pull)
 			ret = rt1711_command(tcpc, TCPM_CMD_LOOK_CONNECTION);
 		}
 	} else {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 		if (pull == TYPEC_CC_RD && tcpc->pd_wait_pr_swap_complete)
 			rt1711h_init_cc_params(tcpc, TYPEC_CC_VOLT_SNK_DFT);
 #endif	/* CONFIG_USB_POWER_DELIVERY */
@@ -1118,7 +1118,7 @@ static int rt1711_tcpc_deinit(struct tcpc_device *tcpc_dev)
 	return 0;
 }
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static int rt1711_set_msg_header(
 	struct tcpc_device *tcpc, uint8_t power_role, uint8_t data_role)
 {
@@ -1286,7 +1286,7 @@ static struct tcpc_ops rt1711_tcpc_ops = {
 	.set_intrst = rt1711h_set_intrst,
 #endif	/* CONFIG_TCPC_INTRST_EN */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	.set_msg_header = rt1711_set_msg_header,
 	.set_rx_enable = rt1711_set_rx_enable,
 	.protocol_reset = rt1711_protocol_reset,
@@ -1344,7 +1344,7 @@ static void check_printk_performance(void)
 	u64 t1, t2;
 	u32 nsrem;
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 	for (i = 0; i < 10; i++) {
 		t1 = local_clock();
 		pd_dbg_info("%d\n", i);

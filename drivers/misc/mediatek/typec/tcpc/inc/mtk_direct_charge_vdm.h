@@ -38,7 +38,7 @@ static inline bool mtk_check_pe_ready_snk(void)
 	return false;
 }
 
-#ifdef CONFIG_TCPC_CLASS
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
 
 /* tcpc_is_usb_connect
  * return PD_USB_NOT_SUPPORT : not support

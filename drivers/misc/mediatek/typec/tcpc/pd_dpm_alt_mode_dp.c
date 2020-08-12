@@ -10,7 +10,7 @@
 #include "inc/pd_dpm_core.h"
 #include "pd_dpm_prv.h"
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_USB_PD_ALT_MODE
 
 /* Display Port DFP_U / UFP_U */

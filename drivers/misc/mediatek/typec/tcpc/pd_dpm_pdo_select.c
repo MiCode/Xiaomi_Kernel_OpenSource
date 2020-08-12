@@ -5,7 +5,7 @@
 
 #include "inc/pd_dpm_pdo_select.h"
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 struct dpm_select_info_t {
 	uint8_t pos;
@@ -71,6 +71,7 @@ void dpm_extract_pdo_info(
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 	}
 }
+EXPORT_SYMBOL(dpm_extract_pdo_info);
 
 #ifndef MIN
 #define MIN(a, b)	((a < b) ? (a) : (b))

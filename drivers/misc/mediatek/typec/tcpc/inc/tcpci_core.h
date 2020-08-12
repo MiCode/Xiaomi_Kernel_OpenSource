@@ -20,7 +20,7 @@
 #include "tcpci_timer.h"
 #include "tcpci_config.h"
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "pd_core.h"
 #ifdef CONFIG_TYPEC_WAIT_BC12
 #include <mtk_charger.h>
@@ -236,7 +236,7 @@ struct tcpc_ops {
 #endif	/* CONFIG_TCPC_AUTO_DISCHARGE_IC */
 #endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	int (*set_msg_header)(struct tcpc_device *tcpc,
 			uint8_t power_role, uint8_t data_role);
 	int (*set_rx_enable)(struct tcpc_device *tcpc, uint8_t enable);
@@ -412,7 +412,7 @@ struct tcpc_device {
 	struct typec_partner *partner;
 	bool pd_capable;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* Event */
 	uint8_t pd_event_count;
 	uint8_t pd_event_head_index;
@@ -499,7 +499,7 @@ struct tcpc_device {
 
 #define to_tcpc_device(obj) container_of(obj, struct tcpc_device, dev)
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 #define RT_DBG_INFO	pd_dbg_info
 #else
 #define RT_DBG_INFO	pr_info

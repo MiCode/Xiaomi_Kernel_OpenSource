@@ -9,7 +9,7 @@
 #include "inc/pd_dpm_core.h"
 #include "pd_dpm_prv.h"
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_USB_PD_ALT_MODE_RTDC
 
 #define RTDC_UVDM_EN_UNLOCK		0x2024

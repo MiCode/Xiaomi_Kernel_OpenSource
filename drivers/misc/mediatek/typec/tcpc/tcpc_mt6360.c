@@ -67,9 +67,6 @@ struct mt6360_chip {
 	struct wakeup_source *irq_wake_lock;
 	struct wakeup_source *i2c_wake_lock;
 
-	atomic_t poll_count;
-	struct delayed_work poll_work;
-
 	int irq_gpio;
 	int irq;
 	int chip_id;
@@ -673,7 +670,7 @@ static int __mt6360_init_alert_mask(struct tcpc_device *tcpc)
 		   TCPC_V10_REG_ALERT_POWER_STATUS |
 		   TCPC_V10_REG_ALERT_VENDOR_DEFINED;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	mask |= TCPC_V10_REG_ALERT_TX_SUCCESS |
 		TCPC_V10_REG_ALERT_TX_DISCARDED |
 		TCPC_V10_REG_ALERT_TX_FAILED |
@@ -708,25 +705,12 @@ static int mt6360_init_alert_mask(struct tcpc_device *tcpc)
 	return 0;
 }
 
-static inline void mt6360_poll_ctrl(struct mt6360_chip *chip)
-{
-	cancel_delayed_work_sync(&chip->poll_work);
-
-	if (atomic_read(&chip->poll_count) == 0) {
-		atomic_inc(&chip->poll_count);
-		cpu_idle_poll_ctrl(true);
-	}
-
-	schedule_delayed_work(&chip->poll_work, msecs_to_jiffies(40));
-}
-
 static void mt6360_irq_work_handler(struct kthread_work *work)
 {
 	int regval, gpio_val;
 	struct mt6360_chip *chip = container_of(work, struct mt6360_chip,
 						irq_work);
 
-	mt6360_poll_ctrl(chip);
 	tcpci_lock_typec(chip->tcpc);
 
 #ifdef DEBUG_GPIO
@@ -745,15 +729,6 @@ static void mt6360_irq_work_handler(struct kthread_work *work)
 #ifdef DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 1);
 #endif /* DEBUG_GPIO */
-}
-
-static void mt6360_poll_work(struct work_struct *work)
-{
-	struct mt6360_chip *chip = container_of(work, struct mt6360_chip,
-						poll_work.work);
-
-	if (atomic_dec_and_test(&chip->poll_count))
-		cpu_idle_poll_ctrl(false);
 }
 
 static irqreturn_t mt6360_intr_handler(int irq, void *data)
@@ -2009,7 +1984,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	return 0;
 }
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static int mt6360_set_msg_header(
 	struct tcpc_device *tcpc, u8 power_role, u8 data_role)
 {
@@ -2155,7 +2130,7 @@ static struct tcpc_ops mt6360_tcpc_ops = {
 
 	.set_watchdog = mt6360_set_watchdog,
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	.set_msg_header = mt6360_set_msg_header,
 	.set_rx_enable = mt6360_set_rx_enable,
 	.protocol_reset = mt6360_protocol_reset,
@@ -2213,7 +2188,8 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 {
 	struct device_node *np = dev->of_node;
 	struct resource *res;
-	int res_cnt, ret;
+	int res_cnt = 0, ret;
+	struct of_phandle_args irq;
 
 	pr_info("%s\n", __func__);
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
@@ -2269,7 +2245,8 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 	}
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB */
 
-	res_cnt = of_irq_count(np);
+	while (of_irq_parse_one(np, res_cnt, &irq) == 0)
+		res_cnt++;
 	if (!res_cnt) {
 		dev_info(dev, "%s no irqs specified\n", __func__);
 		return 0;
@@ -2296,7 +2273,7 @@ static void check_printk_performance(void)
 	u64 t1, t2;
 	u32 nsrem;
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 	for (i = 0; i < 10; i++) {
 		t1 = local_clock();
 		pd_dbg_info("%d\n", i);
@@ -2509,7 +2486,6 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	sema_init(&chip->io_lock, 1);
 	sema_init(&chip->suspend_lock, 1);
 	i2c_set_clientdata(client, chip);
-	INIT_DELAYED_WORK(&chip->poll_work, mt6360_poll_work);
 	chip->irq_wake_lock =
 		wakeup_source_register(chip->dev, "mt6360_irq_wakelock");
 	chip->i2c_wake_lock =
@@ -2595,7 +2571,6 @@ static int mt6360_i2c_remove(struct i2c_client *client)
 	struct mt6360_chip *chip = i2c_get_clientdata(client);
 
 	if (chip) {
-		cancel_delayed_work_sync(&chip->poll_work);
 #ifdef CONFIG_WD_SBU_POLLING
 		cancel_work_sync(&chip->wd_work);
 #ifdef CONFIG_WD_POLLING_ONLY

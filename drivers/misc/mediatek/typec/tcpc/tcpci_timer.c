@@ -131,7 +131,7 @@ static inline void tcpc_set_timer_tick(struct tcpc_device *tcpc, int nr)
 
 #if TCPC_TIMER_DBG_EN || TCPC_TIMER_INFO_EN
 static const char *const tcpc_timer_name[] = {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	"PD_TIMER_DISCOVER_ID",
 	"PD_TIMER_BIST_CONT_MODE",
 	"PD_TIMER_HARD_RESET_COMPLETE",
@@ -201,7 +201,7 @@ static const char *const tcpc_timer_name[] = {
 	"TYPEC_RT_TIMER_LEGACY_RECYCLE",
 	"TYPEC_RT_TIMER_AUTO_DISCHARGE",
 	"TYPEC_RT_TIMER_LOW_POWER_MODE",
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	"TYPEC_RT_TIMER_PE_IDLE",
 #ifdef CONFIG_TYPEC_WAIT_BC12
 	"TYPEC_RT_TIMER_SINK_WAIT_BC12",
@@ -250,7 +250,7 @@ static const char *const tcpc_timer_name[] = {
 	TIMEOUT_RANGE(min, max)
 
 static const uint32_t tcpc_timer_timeout[PD_TIMER_NR] = {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_DISCOVER_ID, 30, 60),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_BIST_CONT_MODE, 40, 50),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_HARD_RESET_COMPLETE, 4, 5),
@@ -342,7 +342,7 @@ DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_AUTO_DISCHARGE,
 	CONFIG_TYPEC_CAP_AUTO_DISCHARGE_TOUT),
 DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_LOW_POWER_MODE, 500),
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_PE_IDLE, 1),
 #ifdef CONFIG_TYPEC_WAIT_BC12
 DECL_TCPC_TIMEOUT(TYPEC_RT_TIMER_SINK_WAIT_BC12, 50),
@@ -370,7 +370,7 @@ DECL_TCPC_TIMEOUT(TYPEC_TIMER_NORP_SRC, 300),
 
 typedef enum hrtimer_restart (*tcpc_hrtimer_call)(struct hrtimer *timer);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static inline void on_pe_timer_timeout(
 		struct tcpc_device *tcpc_dev, uint32_t timer_id)
 {
@@ -445,7 +445,7 @@ static inline void on_pe_timer_timeout(
 	wake_up_interruptible(&tcpc_dev->timer_wait_que);	\
 } while (0)
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static enum hrtimer_restart tcpc_timer_bist_cont_mode(struct hrtimer *timer)
 {
 	int index = PD_TIMER_BIST_CONT_MODE;
@@ -947,7 +947,7 @@ static enum hrtimer_restart tcpc_timer_rt_low_power_mode(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static enum hrtimer_restart tcpc_timer_rt_pe_idle(struct hrtimer *timer)
 {
 	int index = TYPEC_RT_TIMER_PE_IDLE;
@@ -1105,7 +1105,7 @@ static enum hrtimer_restart tcpc_timer_norp_src(struct hrtimer *timer)
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 
 static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	tcpc_timer_discover_id,
 	tcpc_timer_bist_cont_mode,
 	tcpc_timer_hard_reset_complete,
@@ -1175,7 +1175,7 @@ static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
 	tcpc_timer_rt_legacy_recycle,
 	tcpc_timer_rt_auto_discharge,
 	tcpc_timer_rt_low_power_mode,
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	tcpc_timer_rt_pe_idle,
 #ifdef CONFIG_TYPEC_WAIT_BC12
 	tcpc_timer_rt_sink_wait_bc12,
@@ -1254,6 +1254,7 @@ void tcpc_restart_timer(struct tcpc_device *tcpc, uint32_t timer_id)
 
 	tcpc_enable_timer(tcpc, timer_id);
 }
+EXPORT_SYMBOL(tcpc_restart_timer);
 
 void tcpc_enable_wakeup_timer(struct tcpc_device *tcpc, bool en)
 {
@@ -1261,6 +1262,7 @@ void tcpc_enable_wakeup_timer(struct tcpc_device *tcpc, bool en)
 	__tcpc_enable_wakeup_timer(tcpc, en);
 	mutex_unlock(&tcpc->timer_lock);
 }
+EXPORT_SYMBOL(tcpc_enable_wakeup_timer);
 
 void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id)
 {
@@ -1292,6 +1294,7 @@ void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id)
 	hrtimer_start(&tcpc->tcpc_timer[timer_id],
 				ktime_set(r, mod*1000), HRTIMER_MODE_REL);
 }
+EXPORT_SYMBOL(tcpc_enable_timer);
 
 void tcpc_disable_timer(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 {
@@ -1308,6 +1311,7 @@ void tcpc_disable_timer(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 		tcpc_clear_timer_enable_mask(tcpc_dev, timer_id);
 	}
 }
+EXPORT_SYMBOL(tcpc_disable_timer);
 
 void tcpc_timer_reset(struct tcpc_device *tcpc_dev)
 {
@@ -1322,14 +1326,16 @@ void tcpc_timer_reset(struct tcpc_device *tcpc_dev)
 
 	tcpc_reset_timer_enable_mask(tcpc_dev);
 }
+EXPORT_SYMBOL(tcpc_timer_reset);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 void tcpc_reset_pe_timer(struct tcpc_device *tcpc_dev)
 {
 	mutex_lock(&tcpc_dev->timer_lock);
 	tcpc_reset_timer_range(tcpc_dev, 0, PD_PE_TIMER_END_ID);
 	mutex_unlock(&tcpc_dev->timer_lock);
 }
+EXPORT_SYMBOL(tcpc_reset_pe_timer);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 void tcpc_reset_typec_debounce_timer(struct tcpc_device *tcpc)
@@ -1356,7 +1362,7 @@ static void tcpc_handle_timer_triggered(struct tcpc_device *tcpc_dev)
 	triggered_timer = tcpc_get_timer_tick(tcpc_dev);
 	enable_mask = tcpc_get_timer_enable_mask(tcpc_dev);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	for (i = 0; i < PD_PE_TIMER_END_ID; i++) {
 		if (triggered_timer & RT_MASK64(i)) {
 			TCPC_TIMER_DBG(tcpc_dev, i);

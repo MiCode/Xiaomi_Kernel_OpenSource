@@ -13,16 +13,6 @@ config TCPC_CLASS
 	  Controller Device
 	  Class
 
-config TCPC_LATE_SYNC
-	tristate "TypeC Late Sync Driver"
-	depends on TCPC_CLASS
-	default n
-	help
-	  Say Y to enable
-	  TypeC
-	  Late Sync
-	  Driver
-
 config USB_POWER_DELIVERY
 	tristate "Support USB power delivery Function"
 	depends on TCPC_CLASS

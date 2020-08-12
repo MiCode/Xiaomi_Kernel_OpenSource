@@ -65,6 +65,7 @@ struct pd_msg *pd_alloc_msg(struct tcpc_device *tcpc_dev)
 
 	return pd_msg;
 }
+EXPORT_SYMBOL(pd_alloc_msg);
 
 static void __pd_free_msg(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 {
@@ -112,6 +113,7 @@ void pd_free_msg(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 	__pd_free_msg(tcpc_dev, pd_msg);
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_free_msg);
 
 void pd_free_event(struct tcpc_device *tcpc_dev, struct pd_event *pd_event)
 {
@@ -190,6 +192,7 @@ bool pd_put_event(struct tcpc_device *tcpc_dev, const struct pd_event *pd_event,
 
 	return ret;
 }
+EXPORT_SYMBOL(pd_put_event);
 
 /*----------------------------------------------------------------------------*/
 
@@ -392,6 +395,7 @@ bool pd_put_vdm_event(struct tcpc_device *tcpc_dev,
 
 	return true;
 }
+EXPORT_SYMBOL(pd_put_vdm_event);
 
 bool pd_put_last_vdm_event(struct tcpc_device *tcpc_dev)
 {
@@ -434,6 +438,7 @@ bool pd_put_last_vdm_event(struct tcpc_device *tcpc_dev)
 	mutex_unlock(&tcpc_dev->access_lock);
 	return true;
 }
+EXPORT_SYMBOL(pd_put_last_vdm_event);
 
 /*----------------------------------------------------------------------------*/
 
@@ -548,6 +553,7 @@ unlock_out:
 
 	return ret;
 }
+EXPORT_SYMBOL(pd_put_deferred_tcp_event);
 
 void pd_notify_tcp_vdm_event_2nd_result(struct pd_port *pd_port, uint8_t ret)
 {
@@ -609,6 +615,7 @@ void pd_notify_tcp_event_2nd_result(struct pd_port *pd_port, int ret)
 	pd_port->tcp_event_id_2nd = TCP_DPM_EVT_UNKONW;
 #endif	/* CONFIG_USB_PD_TCPM_CB_2ND */
 }
+EXPORT_SYMBOL(pd_notify_tcp_event_2nd_result);
 
 void pd_notify_tcp_event_1st_result(struct pd_port *pd_port, int ret)
 {
@@ -688,6 +695,7 @@ void pd_event_buf_reset(struct tcpc_device *tcpc_dev)
 	__pd_event_buf_reset(tcpc_dev, TCP_DPM_RET_DROP_CC_DETACH);
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_event_buf_reset);
 
 /*----------------------------------------------------------------------------*/
 
@@ -751,7 +759,7 @@ bool pd_put_cc_attached_event(
 
 	mutex_lock(&tcpc_dev->access_lock);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_TYPEC_WAIT_BC12
 	if (type == TYPEC_ATTACHED_SNK &&
 	    tcpc_get_charger_type(tcpc_dev) == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
@@ -771,12 +779,13 @@ bool pd_put_cc_attached_event(
 
 	return ret;
 }
+EXPORT_SYMBOL(pd_put_cc_attached_event);
 
 void pd_put_cc_detached_event(struct tcpc_device *tcpc_dev)
 {
 	mutex_lock(&tcpc_dev->access_lock);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_TYPEC_WAIT_BC12
 	tcpc_dev->sink_wait_bc12_count = 0;
 	tcpc_disable_timer(tcpc_dev, TYPEC_RT_TIMER_SINK_WAIT_BC12);
@@ -807,6 +816,7 @@ void pd_put_cc_detached_event(struct tcpc_device *tcpc_dev)
 
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_put_cc_detached_event);
 
 void pd_put_recv_hard_reset_event(struct tcpc_device *tcpc_dev)
 {
@@ -837,6 +847,7 @@ void pd_put_recv_hard_reset_event(struct tcpc_device *tcpc_dev)
 
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_put_recv_hard_reset_event);
 
 void pd_put_sent_hard_reset_event(struct tcpc_device *tcpc_dev)
 {
@@ -852,6 +863,7 @@ void pd_put_sent_hard_reset_event(struct tcpc_device *tcpc_dev)
 
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_put_sent_hard_reset_event);
 
 bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 {
@@ -937,6 +949,7 @@ bool pd_put_pd_msg_event(struct tcpc_device *tcpc_dev, struct pd_msg *pd_msg)
 
 	return true;
 }
+EXPORT_SYMBOL(pd_put_pd_msg_event);
 
 static void pd_report_vbus_present(struct tcpc_device *tcpc_dev)
 {
@@ -977,6 +990,7 @@ void pd_put_vbus_changed_event(struct tcpc_device *tcpc_dev, bool from_ic)
 		tcpc_enable_timer(tcpc_dev, PD_TIMER_VBUS_PRESENT);
 #endif	/* CONFIG_USB_PD_VBUS_PRESENT_TOUT */
 }
+EXPORT_SYMBOL(pd_put_vbus_changed_event);
 
 void pd_put_vbus_safe0v_event(struct tcpc_device *tcpc_dev)
 {
@@ -994,6 +1008,7 @@ void pd_put_vbus_safe0v_event(struct tcpc_device *tcpc_dev)
 	}
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_put_vbus_safe0v_event);
 
 void pd_put_vbus_stable_event(struct tcpc_device *tcpc_dev)
 {
@@ -1009,6 +1024,7 @@ void pd_put_vbus_stable_event(struct tcpc_device *tcpc_dev)
 	}
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_put_vbus_stable_event);
 
 void pd_put_vbus_present_event(struct tcpc_device *tcpc_dev)
 {
@@ -1016,6 +1032,7 @@ void pd_put_vbus_present_event(struct tcpc_device *tcpc_dev)
 	pd_report_vbus_present(tcpc_dev);
 	mutex_unlock(&tcpc_dev->access_lock);
 }
+EXPORT_SYMBOL(pd_put_vbus_present_event);
 
 /* ---- PD Notify TCPC ---- */
 
@@ -1366,6 +1383,7 @@ int tcpci_event_init(struct tcpc_device *tcpc_dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(tcpci_event_init);
 
 int tcpci_event_deinit(struct tcpc_device *tcpc_dev)
 {
@@ -1376,3 +1394,4 @@ int tcpci_event_deinit(struct tcpc_device *tcpc_dev)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(tcpci_event_deinit);

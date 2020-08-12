@@ -875,7 +875,7 @@ enum dpm_charging_policy {
 		DPM_CHARGING_POLICY_IGNORE_MISMATCH_CURR,
 };
 
-#ifdef CONFIG_TCPC_CLASS
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
 
 extern struct tcpc_device
 		*tcpc_dev_get_by_name(const char *name);
@@ -919,7 +919,7 @@ extern int tcpm_typec_error_recovery(struct tcpc_device *tcpc_dev);
 extern int tcpm_typec_disable_function(
 	struct tcpc_device *tcpc_dev, bool disable);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 extern bool tcpm_inquire_pd_connected(
 	struct tcpc_device *tcpc_dev);
@@ -1262,10 +1262,10 @@ extern int tcpm_update_pd_status_event(
 #define USB_PD_REV30_BAT_INFO_NA
 #define USB_PD_REV30_STATUS_NA
 
-#ifdef CONFIG_TCPC_CLASS
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
 #undef TCPC_CLASS_NA
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #undef USB_POWER_DELIVERY_NA
 
 #ifdef CONFIG_USB_PD_REV30

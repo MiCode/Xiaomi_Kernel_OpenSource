@@ -14,7 +14,7 @@
 #include <linux/kthread.h>
 #include "inc/pd_dbg_info.h"
 
-#ifdef CONFIG_PD_DBG_INFO
+#if IS_ENABLED(CONFIG_PD_DBG_INFO)
 
 #define PD_INFO_BUF_SIZE	(2048*256)
 #define MSG_POLLING_MS		20
@@ -36,11 +36,13 @@ void pd_dbg_info_lock(void)
 {
 	atomic_inc(&busy);
 }
+EXPORT_SYMBOL(pd_dbg_info_lock);
 
 void pd_dbg_info_unlock(void)
 {
 	atomic_dec_if_positive(&busy);
 }
+EXPORT_SYMBOL(pd_dbg_info_unlock);
 
 static inline bool pd_dbg_print_out(void)
 {
@@ -130,6 +132,7 @@ int pd_dbg_info(const char *fmt, ...)
 	va_end(args);
 	return r;
 }
+EXPORT_SYMBOL(pd_dbg_info);
 
 static struct task_struct *print_out_tsk;
 

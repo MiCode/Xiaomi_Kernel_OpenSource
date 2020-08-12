@@ -14,7 +14,7 @@
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "inc/tcpci_event.h"
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
@@ -33,7 +33,7 @@ static inline int tcpci_alert_vsafe0v(struct tcpc_device *tcpc_dev)
 {
 	tcpc_typec_handle_vsafe0v(tcpc_dev);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_USB_PD_SAFE0V_DELAY
 	tcpc_enable_timer(tcpc_dev, PD_TIMER_VSAFE0V_DELAY);
 #else
@@ -88,7 +88,7 @@ static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc_dev)
 	if (rv < 0)
 		return rv;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	pd_put_vbus_changed_event(tcpc_dev, true);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
@@ -100,7 +100,7 @@ static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc_dev)
 	return rv;
 }
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static int tcpci_alert_tx_success(struct tcpc_device *tcpc_dev)
 {
 	uint8_t tx_state;
@@ -277,7 +277,7 @@ struct tcpci_alert_handler {
 	}
 
 static const struct tcpci_alert_handler tcpci_alert_handlers[] = {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	DECL_TCPCI_ALERT_HANDLER(4, tcpci_alert_tx_failed),
 	DECL_TCPCI_ALERT_HANDLER(5, tcpci_alert_tx_discard),
 	DECL_TCPCI_ALERT_HANDLER(6, tcpci_alert_tx_success),
@@ -301,7 +301,7 @@ static const struct tcpci_alert_handler tcpci_alert_handlers[] = {
 	DECL_TCPCI_ALERT_HANDLER(1, tcpci_alert_power_status_changed),
 };
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 static inline bool tcpci_check_hard_reset_complete(
 	struct tcpc_device *tcpc_dev, uint32_t alert_status)
 {
@@ -351,7 +351,7 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 	if (alert_status & TCPC_REG_ALERT_EXT_VBUS_80)
 		alert_status |= TCPC_REG_ALERT_POWER_STATUS;
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc_dev->pd_transmit_state == PD_TX_STATE_WAIT_HARD_RESET) {
 		tcpci_check_hard_reset_complete(tcpc_dev, alert_status);
 		alert_status &= ~TCPC_REG_ALERT_TX_MASK;
@@ -386,6 +386,7 @@ int tcpci_alert(struct tcpc_device *tcpc_dev)
 
 	return ret;
 }
+EXPORT_SYMBOL(tcpci_alert);
 
 /*
  * [BLOCK] TYPEC device changed
@@ -496,7 +497,7 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 
 	tcpci_set_wake_lock_pd(tcpc, true);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 
 #ifdef CONFIG_USB_PD_DISABLE_PE
 	if (tcpc->disable_pe)
@@ -526,7 +527,7 @@ static inline int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 	typec_set_vconn_role(tcpc->typec_port, TYPEC_SINK);
 	typec_set_pwr_opmode(tcpc->typec_port, TYPEC_PWR_MODE_USB);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* MTK Only */
 	if (tcpc->pd_inited_flag)
 		pd_put_cc_detached_event(tcpc);
@@ -587,7 +588,7 @@ int tcpci_report_power_control_off(struct tcpc_device *tcpc)
 {
 	mutex_lock(&tcpc->access_lock);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #ifdef CONFIG_TYPEC_CAP_FORCE_DISCHARGE
 #ifdef CONFIG_TCPC_FORCE_DISCHARGE_IC
 	__tcpci_enable_force_discharge(tcpc, false, 0);

@@ -15,7 +15,7 @@
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "pd_dpm_prv.h"
 #include "inc/tcpm.h"
 #if defined(CONFIG_RECV_BAT_ABSENT_NOTIFY) && defined(CONFIG_MTK_BATTERY)
@@ -87,14 +87,14 @@ static ssize_t tcpc_show_property(struct device *dev,
 	struct tcpc_device *tcpc = to_tcpc_device(dev);
 	const ptrdiff_t offset = attr - tcpc_device_attributes;
 	int i = 0;
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	struct pe_data *pe_data;
 	struct pd_port *pd_port;
 	struct tcpm_power_cap_val cap;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
 	switch (offset) {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	case TCPC_DESC_CAP_INFO:
 		pd_port = &tcpc->pd_port;
 		pe_data = &pd_port->pe_data;
@@ -172,7 +172,7 @@ static ssize_t tcpc_show_property(struct device *dev,
 		else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0)
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "3.0");
 		break;
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	case TCPC_DESC_PE_READY:
 		pd_port = &tcpc->pd_port;
 		if (pd_port->pe_data.pe_ready)
@@ -216,7 +216,7 @@ static ssize_t tcpc_store_property(struct device *dev,
 				   struct device_attribute *attr,
 				   const char *buf, size_t count)
 {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	uint8_t role;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
@@ -241,7 +241,7 @@ static ssize_t tcpc_store_property(struct device *dev,
 			dev_err(dev, "get parameters fail\n");
 			return -EINVAL;
 		}
-		#ifdef CONFIG_USB_POWER_DELIVERY
+		#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 		if (val > 0 && val <= PD_PE_TIMER_END_ID)
 			pd_enable_timer(&tcpc->pd_port, val);
 		else if (val > PD_PE_TIMER_END_ID && val < PD_TIMER_NR)
@@ -251,7 +251,7 @@ static ssize_t tcpc_store_property(struct device *dev,
 			tcpc_enable_timer(tcpc, val);
 		#endif /* CONFIG_USB_POWER_DELIVERY */
 		break;
-	#ifdef CONFIG_USB_POWER_DELIVERY
+	#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	case TCPC_DESC_PD_TEST:
 		ret = get_parameters((char *)buf, &val, 1);
 		if (ret < 0) {
@@ -335,7 +335,7 @@ static void tcpc_device_release(struct device *dev)
 	pr_info("%s : %s device release\n", __func__, dev_name(dev));
 	PD_BUG_ON(tcpc_dev == NULL);
 	/* Un-init pe thread */
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	tcpci_event_deinit(tcpc_dev);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 	/* Un-init timer thread */
@@ -406,7 +406,7 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 		wakeup_source_register(&tcpc->dev, "tcpc_detach_wakelock");
 
 	tcpci_timer_init(tcpc);
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	pd_core_init(tcpc);
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
@@ -510,7 +510,7 @@ static int bat_nb_call_func(
 
 static void tcpc_event_init_work(struct work_struct *work)
 {
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	struct tcpc_device *tcpc = container_of(
 			work, struct tcpc_device, event_init_work.work);
 #ifdef CONFIG_USB_PD_REV30
@@ -573,6 +573,7 @@ int tcpc_schedule_init_work(struct tcpc_device *tcpc)
 #endif
 	return 0;
 }
+EXPORT_SYMBOL(tcpc_schedule_init_work);
 
 struct tcp_notifier_block_wrapper {
 	struct notifier_block stub_nb;
@@ -796,11 +797,13 @@ void tcpci_lock_typec(struct tcpc_device *tcpc)
 {
 	mutex_lock(&tcpc->typec_lock);
 }
+EXPORT_SYMBOL(tcpci_lock_typec);
 
 void tcpci_unlock_typec(struct tcpc_device *tcpc)
 {
 	mutex_unlock(&tcpc->typec_lock);
 }
+EXPORT_SYMBOL(tcpci_unlock_typec);
 
 static void tcpc_init_attrs(struct device_type *dev_type)
 {
@@ -815,7 +818,7 @@ static int __init tcpc_class_init(void)
 {
 	pr_info("%s (%s)\n", __func__, TCPC_CORE_VERSION);
 
-#ifdef CONFIG_USB_POWER_DELIVERY
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	dpm_check_supported_modes();
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
