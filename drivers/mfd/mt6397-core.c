@@ -72,6 +72,11 @@ static const struct resource mt6359p_auxadc_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_AUXADC_IMP, "imp"),
 };
 
+static const struct resource mt6359p_battery_oc_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_CUR_H, "fg_cur_h"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_CUR_L, "fg_cur_l"),
+};
+
 static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
@@ -167,6 +172,11 @@ static const struct mfd_cell mt6359p_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359p_gauge_resources),
 		.resources = mt6359p_gauge_resources,
 		.of_compatible = "mediatek,mt6359p-gauge",
+	}, {
+		.name = "mtk-battery-oc-throttling",
+		.of_compatible = "mediatek,mt6359p-battery_oc_throttling",
+		.num_resources = ARRAY_SIZE(mt6359p_battery_oc_resources),
+		.resources = mt6359p_battery_oc_resources,
 	}, {
 		.name = "mtk-pmic-keys",
 		.num_resources = ARRAY_SIZE(mt6359p_keys_resources),
