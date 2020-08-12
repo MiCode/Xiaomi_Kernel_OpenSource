@@ -860,6 +860,11 @@ static void uaudio_dev_cleanup(struct uaudio_dev *dev)
 {
 	int if_idx;
 
+	if (!dev->udev) {
+		uaudio_dbg("USB audio device memory is already freed.\n");
+		return;
+	}
+
 	/* free xfer buffer and unmap xfer ring and buf per interface */
 	for (if_idx = 0; if_idx < dev->num_intf; if_idx++) {
 		if (!dev->info[if_idx].in_use)
