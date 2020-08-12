@@ -27,6 +27,7 @@
 #include <linux/random.h>
 #include <linux/pm_runtime.h>
 
+#include <mboot_params.h>
 #include "mtk_gpufreq.h"
 #include "mtk_gpufreq_internal.h"
 #include "mtk_gpufreq_common.h"

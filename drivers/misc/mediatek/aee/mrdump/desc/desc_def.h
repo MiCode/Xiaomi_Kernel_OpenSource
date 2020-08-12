@@ -45,6 +45,7 @@
 	DF(gpu_dvfs_vgpu, "gpu_dvfs_vgpu: 0x%x\n"),
 	DF(gpu_dvfs_oppidx, "gpu_dvfs_oppidx: 0x%x\n"),
 	DF(gpu_dvfs_status, "gpu_dvfs_status: 0x%x\n"),
+	DF(gpu_dvfs_power_count, "gpu_dvfs_power_count: %d\n"),
 	DF(drcc_0, "drcc_0 = 0x%X\n"),
 	DF(drcc_1, "drcc_1 = 0x%X\n"),
 	DF(drcc_2, "drcc_2 = 0x%X\n"),
