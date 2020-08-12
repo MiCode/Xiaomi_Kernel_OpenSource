@@ -3115,6 +3115,7 @@ static void gmu_idle_check(struct work_struct *work)
 		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 			a6xx_power_off(adreno_dev);
 	} else {
+		kgsl_pwrscale_update(device);
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
 	}
