@@ -55,6 +55,9 @@ enum {
 #define MT6360_LDO_LDO1_CTRL3		(0x1B)
 #define MT6360_LDO_REGMAX		(0x1C)
 
+/* mask and shift definition */
+#define MT6360_MASK_SDCARD_DET_EN	BIT(6)
+
 #define MT6360_OPMODE_LP		(2)
 #define MT6360_OPMODE_ULP		(3)
 #define MT6360_OPMODE_NORMAL		(0)
@@ -306,10 +309,50 @@ static const struct mt6360_regulator_desc mt6360_pmic_descs[] =  {
 			 MT6360_PMIC_LDO7_EN_CTRL2, 0x30, 0x03),
 };
 
+static int mt6360_ldo_enable(struct regulator_dev *rdev)
+{
+	struct mt6360_regulator_info *mri = rdev_get_drvdata(rdev);
+	const struct regulator_desc *desc = rdev->desc;
+	int id = rdev_get_id(rdev), ret;
+
+	ret = regmap_update_bits(mri->regmap, desc->enable_reg,
+				 desc->enable_mask, 0xff);
+	if (ret < 0) {
+		dev_notice(mri->dev, "%s: fail\n", __func__);
+		return ret;
+	}
+
+	/* when LDO5 enable, enable SDCARD_DET */
+	if (id == MT6360_LDO_LDO5)
+		ret = regmap_update_bits(mri->regmap, MT6360_LDO_LDO5_CTRL0,
+					 MT6360_MASK_SDCARD_DET_EN, 0xff);
+	return ret;
+}
+
+static int mt6360_ldo_disable(struct regulator_dev *rdev)
+{
+	struct mt6360_regulator_info *mri = rdev_get_drvdata(rdev);
+	const struct regulator_desc *desc = rdev->desc;
+	int id = rdev_get_id(rdev), ret;
+
+	ret = regmap_update_bits(mri->regmap, desc->enable_reg,
+				 desc->enable_mask, 0);
+	if (ret < 0) {
+		dev_notice(mri->dev, "%s: fail\n", __func__);
+		return ret;
+	}
+
+	/* when LDO5 disable, disable SDCARD_DET */
+	if (id == MT6360_LDO_LDO5)
+		ret = regmap_update_bits(mri->regmap, MT6360_LDO_LDO5_CTRL0,
+					 MT6360_MASK_SDCARD_DET_EN, 0);
+	return ret;
+}
+
 static const struct regulator_ops mt6360_ldo_regulator_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
-	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.enable = mt6360_ldo_enable,
+	.disable = mt6360_ldo_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
