@@ -778,6 +778,35 @@ static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
+				const char *str)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int rptr, wptr;
+	unsigned int status, status3, intstatus;
+	unsigned int hwfault;
+
+	dev_err(device->dev, str);
+
+	kgsl_regread(device, A6XX_CP_RB_RPTR, &rptr);
+	kgsl_regread(device, A6XX_CP_RB_WPTR, &wptr);
+
+	kgsl_regread(device, A6XX_RBBM_STATUS, &status);
+	kgsl_regread(device, A6XX_RBBM_STATUS3, &status3);
+	kgsl_regread(device, A6XX_RBBM_INT_0_STATUS, &intstatus);
+	kgsl_regread(device, A6XX_CP_HW_FAULT, &hwfault);
+
+
+	dev_err(device->dev,
+		"rb=%d pos=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
+		adreno_dev->cur_rb->id, rptr, wptr, status, status3, intstatus);
+
+	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
+
+	kgsl_device_snapshot(device, NULL, false);
+
+}
+
 /*
  * a6xx_send_cp_init() - Initialize ringbuffer
  * @adreno_dev: Pointer to adreno device
@@ -800,7 +829,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret) {
-		adreno_spin_idle_debug(adreno_dev,
+		a6xx_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
 		kgsl_sharedmem_writel(device->scratch,
@@ -872,7 +901,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret)
-		adreno_spin_idle_debug(adreno_dev,
+		a6xx_spin_idle_debug(adreno_dev,
 			"hw preemption initialization failed to idle\n");
 
 	return ret;
@@ -886,6 +915,7 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	struct adreno_ringbuffer *rb;
 	uint64_t addr;
 	int ret, i;
+	unsigned int *cmds;
 
 	/* Clear all the ringbuffers */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
@@ -945,9 +975,19 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	if (!adreno_dev->zap_loaded)
 		kgsl_regwrite(device, A6XX_RBBM_SECVID_TRUST_CNTL, 0);
 	else {
-		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
-		if (ret)
+		cmds = adreno_ringbuffer_allocspace(rb, 2);
+		if (IS_ERR(cmds))
+			return PTR_ERR(cmds);
+
+		*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
+		*cmds++ = 0;
+
+		ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+		if (ret) {
+			a6xx_spin_idle_debug(adreno_dev,
+				"Switch to unsecure failed to idle\n");
 			return ret;
+		}
 	}
 
 	return a6xx_post_start(adreno_dev);
@@ -2495,7 +2535,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_WPTR, A6XX_CP_RB_WPTR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_CNTL, A6XX_CP_RB_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_CNTL, A6XX_CP_SQE_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A6XX_CP_HW_FAULT),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE, A6XX_CP_IB1_BASE),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BASE_HI, A6XX_CP_IB1_BASE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_IB1_BUFSZ, A6XX_CP_IB1_REM_SIZE),
