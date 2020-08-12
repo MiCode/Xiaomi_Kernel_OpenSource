@@ -28,3 +28,11 @@ msm-geni-se.ko
 msm_geni_serial.ko
 msm_ion_heaps.ko
 msm_dma_iommu_mapping.ko
+qcom_smem.ko
+qcom_smd.ko
+mdt_loader.ko
+qmi_helpers.ko
+qcom_q6v5_pas.ko
+qcom_sysmon.ko
+qcom_q6v5.ko
+qcom_common.ko
