@@ -1813,7 +1813,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, snapshot_preemption_record,
-				&rb->preemption_desc);
+				rb->preemption_desc);
 		}
 	}
 }
