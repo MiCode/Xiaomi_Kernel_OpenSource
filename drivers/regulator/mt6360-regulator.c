@@ -21,6 +21,7 @@ enum {
 	MT6360_PMIC_BUCK2,
 	MT6360_PMIC_LDO6,
 	MT6360_PMIC_LDO7,
+	MT6360_PMIC_MAX,
 };
 
 enum {
@@ -33,6 +34,7 @@ enum {
 #define MT6360_MAX_REGULATOR		(4)
 
 /* PMIC register defininition */
+#define MT6360_PMIC_BUCK1_SEQOFFDLY	(0x07)
 #define MT6360_PMIC_BUCK1_VOSEL		(0x10)
 #define MT6360_PMIC_BUCK1_EN_CTRL2	(0x17)
 #define MT6360_PMIC_BUCK2_VOSEL		(0x20)
@@ -601,6 +603,28 @@ static int mt6360_regulator_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void mt6360_regulator_shutdown(struct platform_device *pdev)
+{
+	struct mt6360_regulator_info *mri = platform_get_drvdata(pdev);
+	int i, ret;
+	u8 pwr_off_seq[MT6360_PMIC_MAX] = { 0x06, 0x04, 0x00, 0x02 };
+
+	dev_dbg(mri->dev, "%s\n", __func__);
+	if (mri == NULL)
+		return;
+	if (mri->i2c->addr == MT6360_PMIC_SLAVEID) {
+		for (i = 0; i < MT6360_PMIC_MAX; i++) {
+			ret = regmap_write(mri->regmap,
+					   MT6360_PMIC_BUCK1_SEQOFFDLY + i,
+					   pwr_off_seq[i]);
+			if (ret < 0)
+				dev_notice(mri->dev,
+					   "%s: set pwr off seq buck(%d) fail\n",
+					   __func__, i);
+		}
+	}
+}
+
 static const struct platform_device_id mt6360_regulator_id[] = {
 	{ "mt6360_pmic", (kernel_ulong_t)&mt6360_pmic_devdata },
 	{ "mt6360_ldo", (kernel_ulong_t)&mt6360_ldo_devdata },
@@ -614,6 +638,7 @@ static struct platform_driver mt6360_regulator_driver = {
 		.of_match_table = of_match_ptr(mt6360_regulator_of_id),
 	},
 	.probe = mt6360_regulator_probe,
+	.shutdown = mt6360_regulator_shutdown,
 	.id_table = mt6360_regulator_id,
 };
 module_platform_driver(mt6360_regulator_driver);
