@@ -3484,6 +3484,7 @@ static void handle_disconnect(struct usbpd *pd)
 	pd->forced_pr = POWER_SUPPLY_TYPEC_PR_NONE;
 
 	pd->current_state = PE_UNKNOWN;
+	pd_reset_protocol(pd);
 
 	kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 	typec_unregister_partner(pd->partner);
