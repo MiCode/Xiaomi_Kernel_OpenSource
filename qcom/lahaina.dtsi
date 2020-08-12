@@ -5503,8 +5503,12 @@
 
 	bluetooth: bt_qca6490 {
 		compatible = "qcom,qca6490";
+		reg = <0xb2e5510 0x690>;
+		reg-names = "tcs_cmd";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_sleep>;
+		/* offset=(0xC8*6) + (0x10*2) */
+		qcom,tcs_offset_ipa = <0x4D0>;
 		qcom,bt-reset-gpio = <&tlmm 65 0>; /* BT_EN */
 		qcom,bt-sw-ctrl-gpio = <&tlmm 153 0>; /* SW_CTRL */
 		qcom,bt-vdd-aon-supply = <&S11B>;
