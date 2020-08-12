@@ -123,6 +123,7 @@ struct mtk_raw_pipeline {
 struct mtk_raw_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;
+	struct device *larb;
 	unsigned int id;
 	void __iomem *base;
 	void __iomem *base_inner;
