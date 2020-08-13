@@ -150,6 +150,10 @@ static void trusty_task_adjust_pri_cpu(struct trusty_ctx *tctx,
 
 		cpumask_clear(&task_cmask);
 		for_each_possible_cpu(cpu) {
+			if (cpu > 31) {
+				dev_info(tctx->dev, "%s not support cpu# > 32\n", __func__);
+				continue;
+			}
 			if (mask[task_id] & (1<<cpu))
 				cpumask_set_cpu(cpu, &task_cmask);
 		}
@@ -193,18 +197,20 @@ static void trusty_task_adjust_pri_cpu(struct trusty_ctx *tctx,
 static int trusty_callback_notifier(struct notifier_block *nb,
 			      unsigned long action, void *data)
 {
-	struct trusty_ctx *tctx;
-	struct trusty_task_attr *task_attr = (struct trusty_task_attr *)data;
+	if (action == TRUSTY_CALLBACK_VIRTIO_WQ_ATTR) {
+		struct trusty_ctx *tctx;
+		struct trusty_task_attr *task_attr = (struct trusty_task_attr *)data;
 
-	uint32_t task_mask[TRUSTY_TASK_MAX_ID];
-	int32_t task_pri[TRUSTY_TASK_MAX_ID];
+		uint32_t task_mask[TRUSTY_TASK_MAX_ID];
+		int32_t task_pri[TRUSTY_TASK_MAX_ID];
 
-	tctx = container_of(nb, struct trusty_ctx, callback_notifier);
+		tctx = container_of(nb, struct trusty_ctx, callback_notifier);
 
-	memcpy(task_mask, task_attr->mask, sizeof(task_mask));
-	memcpy(task_pri, task_attr->pri, sizeof(task_pri));
+		memcpy(task_mask, task_attr->mask, sizeof(task_mask));
+		memcpy(task_pri, task_attr->pri, sizeof(task_pri));
 
-	trusty_task_adjust_pri_cpu(tctx, task_mask, task_pri);
+		trusty_task_adjust_pri_cpu(tctx, task_mask, task_pri);
+	}
 
 	return NOTIFY_OK;
 }
@@ -818,6 +824,7 @@ static int trusty_task_kick(void *data)
 {
 	int task_idx;
 	struct trusty_ctx *tctx = (struct trusty_ctx *)data;
+	long timeout = MAX_SCHEDULE_TIMEOUT;
 
 	if (!tctx)
 		return -ENOMEM;
@@ -827,24 +834,25 @@ static int trusty_task_kick(void *data)
 	if (task_idx > TRUSTY_TASK_KICK_NUM)
 		return -EINVAL;
 	complete(&tctx->task_info[TRUSTY_TASK_KICK_ID].rdy[task_idx-1]);
+	pr_info("tee%d/%s_%d ->\n", tctx->tee_id, __func__, task_idx);
 
-	while (1) {
-		wait_for_completion_interruptible(
-				&tctx->task_info[TRUSTY_TASK_KICK_ID].run);
+	while (!kthread_should_stop()) {
+		wait_for_completion_interruptible_timeout(
+				&tctx->task_info[TRUSTY_TASK_KICK_ID].run, timeout);
 		if (atomic_read(&tctx->task_info[TRUSTY_TASK_KICK_ID].task_num))
 			kick_vqs(tctx);
 		else
-			break;
+			timeout = msecs_to_jiffies(1000);
 	}
-	kthread_should_stop();
-	dev_info(tctx->dev, "tee%d/%s_%d <-\n", tctx->tee_id, __func__, task_idx);
-	return 0;
+	pr_info("tee%d/%s_%d -<\n", tctx->tee_id, __func__, task_idx);
+	return 2;
 }
 
 static int trusty_task_chk(void *data)
 {
 	int task_idx = 0;
 	struct trusty_ctx *tctx = (struct trusty_ctx *)data;
+	long timeout = MAX_SCHEDULE_TIMEOUT;
 
 	if (!tctx)
 		return -ENOMEM;
@@ -854,18 +862,18 @@ static int trusty_task_chk(void *data)
 	if (task_idx > TRUSTY_TASK_CHK_NUM)
 		return -EINVAL;
 	complete(&tctx->task_info[TRUSTY_TASK_CHK_ID].rdy[task_idx-1]);
+	pr_info("tee%d/%s_%d ->\n", tctx->tee_id, __func__, task_idx);
 
-	while (1) {
-		wait_for_completion_interruptible(
-					&tctx->task_info[TRUSTY_TASK_CHK_ID].run);
+	while (!kthread_should_stop()) {
+		wait_for_completion_interruptible_timeout(
+					&tctx->task_info[TRUSTY_TASK_CHK_ID].run, timeout);
 		if (atomic_read(&tctx->task_info[TRUSTY_TASK_CHK_ID].task_num))
 			check_all_vqs(tctx);
 		else
-			break;
+			timeout = msecs_to_jiffies(1000);
 	}
-	kthread_should_stop();
-	dev_info(tctx->dev, "tee%d/%s_%d <-\n", tctx->tee_id, __func__, task_idx);
-	return 0;
+	pr_info("tee%d/%s_%d -<\n", tctx->tee_id, __func__, task_idx);
+	return 2;
 }
 
 static void trusty_task_default_bind(struct trusty_ctx *tctx, int mode)
@@ -911,14 +919,16 @@ static void free_trusty_kthread(struct trusty_ctx *tctx)
 		complete_all(&task_info->run);
 
 		for (task_cnt = 0 ; task_cnt < task_max ; task_cnt++) {
-			if (!task_info->fd[task_cnt])
+			if (IS_ERR(task_info->fd[task_cnt]))
 				continue;
 
-			ret =  kthread_stop(task_info->fd[task_cnt]);
-			if (ret)
-				dev_info(tctx->dev, "%s tee%d task[%d][%d] no stop\n",
-					__func__, tctx->tee_id, task_id, task_cnt);
+			dev_info(tctx->dev, "%s tee%d task[%d][%d] stop\n",
+				__func__, tctx->tee_id, task_id, task_cnt);
+			ret = kthread_stop(task_info->fd[task_cnt]);
+			dev_info(tctx->dev, "%s tee%d task[%d][%d] ret=%d\n",
+				__func__, tctx->tee_id, task_id, task_cnt, ret);
 		}
+
 		kfree(task_info->rdy);
 		kfree(task_info->fd);
 	}
@@ -959,8 +969,10 @@ static int trusty_thread_create(struct trusty_ctx *tctx)
 
 		for (task_cnt = 0 ; task_cnt < task_max ; task_cnt++) {
 			memset(task_name, '\0', 16);
-			snprintf(task_name, 15, "id%d_trusty_%c/%d",
-				tctx->tee_id, prefix, task_cnt);
+			ret = snprintf(task_name, 15, "id%d_trusty_%c/%d",
+						tctx->tee_id, prefix, task_cnt);
+			if (ret <= 0)
+				return ret;
 
 			init_completion(&task_info->rdy[task_cnt]);
 			task_info->fd[task_cnt] =
