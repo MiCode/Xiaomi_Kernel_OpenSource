@@ -249,6 +249,7 @@ enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 
 	return (ret) ? MHI_EE_MAX : mhi_translate_dev_ee(mhi_cntrl, exec);
 }
+EXPORT_SYMBOL(mhi_get_exec_env);
 
 enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl)
 {
@@ -258,6 +259,7 @@ enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl)
 				     MHISTATUS_MHISTATE_SHIFT, &state);
 	return ret ? MHI_STATE_MAX : state;
 }
+EXPORT_SYMBOL(mhi_get_mhi_state);
 
 int mhi_queue_sclist(struct mhi_device *mhi_dev,
 		     struct mhi_chan *mhi_chan,
