@@ -55,7 +55,8 @@
 #define GPIO_PULL_SHFT			(hw->val[GPIO_PULL_BIT])
 #endif
 
-#define TRACE_NUM				8
+#define TRACE_NUM			8
+#define MAX_BUF_LEN			1024
 
 static bool srclken_debug;
 static bool is_rc_bringup;
@@ -426,7 +427,7 @@ static int __srclken_dump_sta(char *buf, u8 id)
 
 int srclken_hw_dump_sta_log(void)
 {
-	char buf[1024];
+	char buf[MAX_BUF_LEN];
 	int ret = 0;
 	u8 id = 0;
 
@@ -474,7 +475,7 @@ ERROR:
 
 int srclken_hw_dump_cfg_log(void)
 {
-	char buf[256];
+	char buf[MAX_BUF_LEN];
 	int ret = 0;
 
 	ret = __srclken_dump_cfg(buf);
@@ -529,7 +530,7 @@ done:
 
 int srclken_hw_dump_last_sta_log(void)
 {
-	char buf[1024];
+	char buf[MAX_BUF_LEN];
 	u32 len = 0;
 	int ret = 0;
 	u8 i;
@@ -1193,7 +1194,7 @@ int srclken_dts_map(struct platform_device *pdev)
 	} else
 		goto no_property;
 
-	hw = kzalloc(sizeof(hw), GFP_KERNEL);
+	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
 	if (!hw)
 		goto hw_no_mem;
 	hw->base = devm_kmalloc_array(&pdev->dev, MAX_BASE_NUM,

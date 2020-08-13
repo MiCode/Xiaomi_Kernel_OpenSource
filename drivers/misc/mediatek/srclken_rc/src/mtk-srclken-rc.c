@@ -55,7 +55,7 @@ int __attribute__((weak)) srclken_hw_dump_last_sta_log(void)
 
 static bool _srclken_check(void)
 {
-	if (is_srclken_initiated)
+	if (!is_srclken_initiated)
 		return false;
 
 	if (srclken_get_bringup_sta())
