@@ -2015,7 +2015,14 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 	struct cam_cci_ctrl *cci_ctrl)
 {
 	int32_t rc = 0;
-	struct cci_device *cci_dev = v4l2_get_subdevdata(sd);
+	struct cci_device *cci_dev;
+
+	if (sd == NULL || cci_ctrl == NULL) {
+		CAM_ERR(CAM_CCI, "cci_ctrl or sd null");
+		rc = -ENODEV;
+		return rc;
+	}
+	cci_dev = v4l2_get_subdevdata(sd);
 
 	CAM_DBG(CAM_CCI, "cmd %d", cci_ctrl->cmd);
 
@@ -2073,12 +2080,10 @@ int32_t cam_cci_core_cam_ctrl(struct v4l2_subdev *sd,
 
 	CAM_DBG(CAM_CCI, "cmd %d", cmd->op_code);
 
-	if (cmd->op_code != AIS_SENSOR_I2C_POWER_DOWN) {
-		if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
-			CAM_ERR(CAM_CCI, "Invalid handle type: %d",
+	if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_CCI, "Invalid handle type: %d",
 				cmd->handle_type);
-			return -EINVAL;
-		}
+		return -EINVAL;
 	}
 
 	cci_ctrl.cci_info = kzalloc(sizeof(struct cam_sensor_cci_client),
@@ -2092,7 +2097,7 @@ int32_t cam_cci_core_cam_ctrl(struct v4l2_subdev *sd,
 
 		sensor_cap.slot_info = cci_dev->soc_info.index;
 		if (copy_to_user(u64_to_user_ptr(cmd->handle),
-			&sensor_cap, sizeof(struct  cam_sensor_query_cap))) {
+			&sensor_cap, sizeof(sensor_cap))) {
 			CAM_ERR(CAM_CCI, "Failed Copy to User");
 			rc = -EFAULT;
 		}
