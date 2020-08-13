@@ -1958,7 +1958,7 @@
 
 		clocks = <&rpmcc RPM_SMD_QDSS_CLK>;
 		clock-names = "apb_pclk";
-
+		coresight-ctis = <&cti0 &cti6>;
 		in-ports {
 			port {
 				tmc_etf_in_funnel_merge: endpoint {
