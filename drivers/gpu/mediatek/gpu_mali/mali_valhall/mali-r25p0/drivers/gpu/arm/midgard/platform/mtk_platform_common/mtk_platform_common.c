@@ -26,7 +26,7 @@ DEFINE_MUTEX(g_flag_lock);
 int g_mtk_gpu_efuse_set_already;
 
 #ifdef ENABLE_MTK_MEMINFO
-unsigned int g_mtk_gpu_total_memory_usage_in_pages_debugfs;
+unsigned int g_mtk_gpu_total_memory_usage_in_pages_proc;
 static struct mtk_gpu_meminfo_type g_mtk_gpu_meminfo[MTK_MEMINFO_SIZE];
 
 void mtk_kbase_gpu_memory_debug_init(void)
@@ -74,7 +74,7 @@ bool mtk_kbase_dump_gpu_memory_usage(void)
 	pr_info("============================\n");
 	pr_info("%10s\t%16u\n",
 			"Total",
-			g_mtk_gpu_total_memory_usage_in_pages_debugfs);
+			g_mtk_gpu_total_memory_usage_in_pages_proc);
 	pr_info("============================\n");
 	return true;
 }
@@ -82,7 +82,7 @@ bool mtk_kbase_dump_gpu_memory_usage(void)
 KBASE_EXPORT_TEST_API(mtk_kbase_report_gpu_memory_usage)
 unsigned int mtk_kbase_report_gpu_memory_usage(void)
 {
-	return (g_mtk_gpu_total_memory_usage_in_pages_debugfs * 4096);
+	return (g_mtk_gpu_total_memory_usage_in_pages_proc * 4096);
 }
 #endif /* ENABLE_MTK_MEMINFO */
 
@@ -117,16 +117,16 @@ static int proc_gpu_help_show(struct seq_file *m, void *v)
 		return 0;
 }
 
-static int kbasep_gpu_help_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_help_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_help_show, NULL);
 }
 
-static const struct file_operations kbasep_gpu_help_debugfs_fops = {
-	.open	 = kbasep_gpu_help_debugfs_open,
-	.read	 = seq_read,
-	.llseek	 = seq_lseek,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_help_proc_fops = {
+	.proc_open	 = kbasep_gpu_help_proc_open,
+	.proc_read	 = seq_read,
+	.proc_lseek	 = seq_lseek,
+	.proc_release = single_release,
 };
 
 /* 1. For GPU memory usage */
@@ -151,23 +151,23 @@ static int proc_gpu_memoryusage_show(struct seq_file *m, void *v)
 
 	seq_puts(m, "============================\n");
 	seq_printf(m, "%10s\t%16u(%u bytes)\n", "Total",
-			g_mtk_gpu_total_memory_usage_in_pages_debugfs, total_size_in_bytes);
+			g_mtk_gpu_total_memory_usage_in_pages_proc, total_size_in_bytes);
 	seq_puts(m, "============================\n");
 #endif /* ENABLE_MTK_MEMINFO */
 
 	return ret;
 }
 
-static int kbasep_gpu_memoryusage_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_memoryusage_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_memoryusage_show, NULL);
 }
 
-static const struct file_operations kbasep_gpu_memory_usage_debugfs_open = {
-	.open	 = kbasep_gpu_memoryusage_debugfs_open,
-	.read	 = seq_read,
-	.llseek	 = seq_lseek,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_memory_usage_proc_open = {
+	.proc_open	 = kbasep_gpu_memoryusage_proc_open,
+	.proc_read	 = seq_read,
+	.proc_lseek	 = seq_lseek,
+	.proc_release = single_release,
 };
 
 /* 2. For GL/CL utilization */
@@ -196,16 +196,16 @@ static int proc_gpu_utilization_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int kbasep_gpu_utilization_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_utilization_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_utilization_show, NULL);
 }
 
-static const struct file_operations kbasep_gpu_utilization_debugfs_fops = {
-	.open	 = kbasep_gpu_utilization_debugfs_open,
-	.read	 = seq_read,
-	.llseek	 = seq_lseek,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_utilization_proc_fops = {
+	.proc_open	 = kbasep_gpu_utilization_proc_open,
+	.proc_read	 = seq_read,
+	.proc_lseek	 = seq_lseek,
+	.proc_release = single_release,
 };
 
 /* 3. For query GPU frequency index */
@@ -228,16 +228,16 @@ static int proc_gpu_frequency_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int kbasep_gpu_frequency_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_frequency_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_frequency_show, NULL);
 }
 
-static const struct file_operations kbasep_gpu_frequency_debugfs_fops = {
-	.open	 = kbasep_gpu_frequency_debugfs_open,
-	.read	 = seq_read,
-	.llseek	 = seq_lseek,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_frequency_proc_fops = {
+	.proc_open	 = kbasep_gpu_frequency_proc_open,
+	.proc_read	 = seq_read,
+	.proc_lseek	 = seq_lseek,
+	.proc_release = single_release,
 };
 
 /* 4. For query GPU dynamically enable DVFS */
@@ -257,7 +257,7 @@ static int proc_gpu_dvfs_enabled_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int kbasep_gpu_dvfs_enable_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_dvfs_enable_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_dvfs_enabled_show, NULL);
 }
@@ -284,11 +284,11 @@ static ssize_t kbasep_gpu_dvfs_enable_write(struct file *file, const char __user
 	return count;
 }
 
-static const struct file_operations kbasep_gpu_dvfs_enable_debugfs_fops = {
-	.open	 = kbasep_gpu_dvfs_enable_debugfs_open,
-	.read	 = seq_read,
-	.write	 = kbasep_gpu_dvfs_enable_write,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_dvfs_enable_proc_fops = {
+	.proc_open	 = kbasep_gpu_dvfs_enable_proc_open,
+	.proc_read	 = seq_read,
+	.proc_write	 = kbasep_gpu_dvfs_enable_write,
+	.proc_release = single_release,
 };
 
 /* 5. For GPU Always On */
@@ -308,7 +308,7 @@ static int proc_gpu_always_on_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int kbasep_gpu_always_on_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_always_on_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_always_on_show, NULL);
 }
@@ -333,11 +333,11 @@ static ssize_t kbasep_gpu_always_on_write(struct file *file, const char __user *
 	return count;
 }
 
-static const struct file_operations kbasep_gpu_always_on_debugfs_fops = {
-	.open	 = kbasep_gpu_always_on_debugfs_open,
-	.read	 = seq_read,
-	.write	 = kbasep_gpu_always_on_write,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_always_on_proc_fops = {
+	.proc_open	 = kbasep_gpu_always_on_proc_open,
+	.proc_read	 = seq_read,
+	.proc_write	 = kbasep_gpu_always_on_write,
+	.proc_release = single_release,
 };
 
 /* 6. For GPU Debug Log */
@@ -357,7 +357,7 @@ static int proc_gpu_debug_log_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int kbasep_gpu_debug_log_debugfs_open(struct inode *in, struct file *file)
+static int kbasep_gpu_debug_log_proc_open(struct inode *in, struct file *file)
 {
 	return single_open(file, proc_gpu_debug_log_show, NULL);
 }
@@ -382,11 +382,11 @@ static ssize_t kbasep_gpu_debug_log_write(struct file *file, const char __user *
 	return count;
 }
 
-static const struct file_operations kbasep_gpu_debug_log_debugfs_fops = {
-	.open	 = kbasep_gpu_debug_log_debugfs_open,
-	.read	 = seq_read,
-	.write	 = kbasep_gpu_debug_log_write,
-	.release = single_release,
+static const struct proc_ops kbasep_gpu_debug_log_proc_fops = {
+	.proc_open	 = kbasep_gpu_debug_log_proc_open,
+	.proc_read	 = seq_read,
+	.proc_write	 = kbasep_gpu_debug_log_write,
+	.proc_release = single_release,
 };
 
 
@@ -432,13 +432,13 @@ void proc_mali_register(void)
 	INIT_WORK(&g_aee_work, aee_Handle);
 	INIT_WORK(&g_pa_work, pa_Handle);
 
-	proc_create("help", 0, mali_pentry, &kbasep_gpu_help_debugfs_fops);
-	proc_create("memory_usage", 0, mali_pentry, &kbasep_gpu_memory_usage_debugfs_open);
-	proc_create("utilization", 0, mali_pentry, &kbasep_gpu_utilization_debugfs_fops);
-	proc_create("frequency", 0, mali_pentry, &kbasep_gpu_frequency_debugfs_fops);
-	proc_create("dvfs_enable", S_IRUGO | S_IWUSR, mali_pentry, &kbasep_gpu_dvfs_enable_debugfs_fops);
-	proc_create("always_on", S_IRUGO | S_IWUSR, mali_pentry, &kbasep_gpu_always_on_debugfs_fops);
-	proc_create("debug_log", S_IRUGO | S_IWUSR, mali_pentry, &kbasep_gpu_debug_log_debugfs_fops);
+	proc_create("help", 0, mali_pentry, &kbasep_gpu_help_proc_fops);
+	proc_create("memory_usage", 0, mali_pentry, &kbasep_gpu_memory_usage_proc_open);
+	proc_create("utilization", 0, mali_pentry, &kbasep_gpu_utilization_proc_fops);
+	proc_create("frequency", 0, mali_pentry, &kbasep_gpu_frequency_proc_fops);
+	proc_create("dvfs_enable", S_IRUGO | S_IWUSR, mali_pentry, &kbasep_gpu_dvfs_enable_proc_fops);
+	proc_create("always_on", S_IRUGO | S_IWUSR, mali_pentry, &kbasep_gpu_always_on_proc_fops);
+	proc_create("debug_log", S_IRUGO | S_IWUSR, mali_pentry, &kbasep_gpu_debug_log_proc_fops);
 }
 
 void proc_mali_unregister(void)
