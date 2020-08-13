@@ -7,6 +7,8 @@
 
 #include "pelt.h"
 
+#include <trace/hooks/sched.h>
+
 #ifdef CONFIG_SCHED_WALT
 #include <linux/interrupt.h>
 
@@ -1557,6 +1559,12 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 #ifdef CONFIG_SCHED_WALT
 	bool may_not_preempt;
 #endif
+	int target_cpu = -1;
+
+	trace_android_rvh_select_task_rq_rt(p, cpu, sd_flag,
+					flags, &target_cpu);
+	if (target_cpu >= 0)
+		return target_cpu;
 
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
@@ -1961,6 +1969,11 @@ static int find_lowest_rq(struct task_struct *task)
 	int cpu = -1;
 #endif
 	int ret;
+	int lowest_cpu = -1;
+
+	trace_android_rvh_find_lowest_rq(task, lowest_mask, &lowest_cpu);
+	if (lowest_cpu >= 0)
+		return lowest_cpu;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))

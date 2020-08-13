@@ -18,16 +18,15 @@ static const struct ufs_crypto_alg_entry {
 };
 
 static int ufshcd_program_key(struct ufs_hba *hba,
-			      const union ufs_crypto_cfg_entry *cfg,
-			      int slot)
+			      const union ufs_crypto_cfg_entry *cfg, int slot)
 {
 	int i;
 	u32 slot_offset = hba->crypto_cfg_register + slot * sizeof(*cfg);
-	int err;
+	int err = 0;
 
 	ufshcd_hold(hba, false);
 
-	if (hba->vops->program_key) {
+	if (hba->vops && hba->vops->program_key) {
 		err = hba->vops->program_key(hba, cfg, slot);
 		goto out;
 	}
@@ -44,7 +43,6 @@ static int ufshcd_program_key(struct ufs_hba *hba,
 	/* Dword 16 must be written last */
 	ufshcd_writel(hba, le32_to_cpu(cfg->reg_val[16]),
 		      slot_offset + 16 * sizeof(cfg->reg_val[0]));
-	err = 0;
 out:
 	ufshcd_release(hba);
 	return err;
@@ -93,22 +91,18 @@ static int ufshcd_crypto_keyslot_program(struct blk_keyslot_manager *ksm,
 	err = ufshcd_program_key(hba, &cfg, slot);
 
 	memzero_explicit(&cfg, sizeof(cfg));
-
 	return err;
 }
 
-
-static void ufshcd_clear_keyslot(struct ufs_hba *hba, int slot)
+static int ufshcd_clear_keyslot(struct ufs_hba *hba, int slot)
 {
-	union ufs_crypto_cfg_entry cfg = { 0 };
-	int err;
-
 	/*
 	 * Clear the crypto cfg on the device. Clearing CFGE
 	 * might not be sufficient, so just clear the entire cfg.
 	 */
-	err = ufshcd_program_key(hba, &cfg, slot);
-	WARN_ON_ONCE(err);
+	union ufs_crypto_cfg_entry cfg = { 0 };
+
+	return ufshcd_program_key(hba, &cfg, slot);
 }
 
 static int ufshcd_crypto_keyslot_evict(struct blk_keyslot_manager *ksm,
@@ -117,13 +111,10 @@ static int ufshcd_crypto_keyslot_evict(struct blk_keyslot_manager *ksm,
 {
 	struct ufs_hba *hba = container_of(ksm, struct ufs_hba, ksm);
 
-	ufshcd_clear_keyslot(hba, slot);
-
-	return 0;
+	return ufshcd_clear_keyslot(hba, slot);
 }
 
-/* Functions implementing UFSHCI v2.1 specification behaviour */
-bool ufshcd_crypto_enable_spec(struct ufs_hba *hba)
+bool ufshcd_crypto_enable(struct ufs_hba *hba)
 {
 	if (!(hba->caps & UFSHCD_CAP_CRYPTO))
 		return false;
@@ -132,7 +123,6 @@ bool ufshcd_crypto_enable_spec(struct ufs_hba *hba)
 	blk_ksm_reprogram_all_keys(&hba->ksm);
 	return true;
 }
-EXPORT_SYMBOL(ufshcd_crypto_enable_spec);
 
 static const struct blk_ksm_ll_ops ufshcd_ksm_ops = {
 	.keyslot_program	= ufshcd_crypto_keyslot_program,
@@ -155,19 +145,17 @@ ufshcd_find_blk_crypto_mode(union ufs_crypto_cap_entry cap)
 }
 
 /**
- * ufshcd_hba_init_crypto - Read crypto capabilities, init crypto fields in hba
+ * ufshcd_hba_init_crypto_capabilities - Read crypto capabilities, init crypto
+ *					 fields in hba
  * @hba: Per adapter instance
  *
  * Return: 0 if crypto was initialized or is not supported, else a -errno value.
  */
-int ufshcd_hba_init_crypto_spec(struct ufs_hba *hba,
-				const struct blk_ksm_ll_ops *ksm_ops)
+int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba)
 {
-	int cap_idx = 0;
+	int cap_idx;
 	int err = 0;
 	enum blk_crypto_mode_num blk_mode_num;
-	int slot = 0;
-	int num_keyslots;
 
 	/*
 	 * Don't use crypto if either the hardware doesn't advertise the
@@ -191,12 +179,12 @@ int ufshcd_hba_init_crypto_spec(struct ufs_hba *hba,
 	}
 
 	/* The actual number of configurations supported is (CFGC+1) */
-	num_keyslots = hba->crypto_capabilities.config_count + 1;
-	err = blk_ksm_init(&hba->ksm, num_keyslots);
+	err = blk_ksm_init(&hba->ksm,
+			   hba->crypto_capabilities.config_count + 1);
 	if (err)
 		goto out_free_caps;
 
-	hba->ksm.ksm_ll_ops = *ksm_ops;
+	hba->ksm.ksm_ll_ops = ufshcd_ksm_ops;
 	/* UFS only supports 8 bytes for any DUN */
 	hba->ksm.max_dun_bytes_supported = 8;
 	hba->ksm.features = BLK_CRYPTO_FEATURE_STANDARD_KEYS;
@@ -219,9 +207,6 @@ int ufshcd_hba_init_crypto_spec(struct ufs_hba *hba,
 				hba->crypto_cap_array[cap_idx].sdus_mask * 512;
 	}
 
-	for (slot = 0; slot < num_keyslots; slot++)
-		ufshcd_clear_keyslot(hba, slot);
-
 	return 0;
 
 out_free_caps:
@@ -231,118 +216,31 @@ out:
 	hba->caps &= ~UFSHCD_CAP_CRYPTO;
 	return err;
 }
-EXPORT_SYMBOL(ufshcd_hba_init_crypto_spec);
 
-void ufshcd_crypto_setup_rq_keyslot_manager_spec(struct ufs_hba *hba,
-						 struct request_queue *q)
+/**
+ * ufshcd_init_crypto - Initialize crypto hardware
+ * @hba: Per adapter instance
+ */
+void ufshcd_init_crypto(struct ufs_hba *hba)
 {
-	if (hba->caps & UFSHCD_CAP_CRYPTO)
-		blk_ksm_register(&hba->ksm, q);
-}
-EXPORT_SYMBOL(ufshcd_crypto_setup_rq_keyslot_manager_spec);
+	int slot;
 
-void ufshcd_crypto_destroy_keyslot_manager_spec(struct ufs_hba *hba)
-{
-	blk_ksm_destroy(&hba->ksm);
-}
-EXPORT_SYMBOL(ufshcd_crypto_destroy_keyslot_manager_spec);
+	if (!(hba->caps & UFSHCD_CAP_CRYPTO))
+		return;
 
-/* Crypto Variant Ops Support */
-
-bool ufshcd_crypto_enable(struct ufs_hba *hba)
-{
-	if (hba->crypto_vops && hba->crypto_vops->enable)
-		return hba->crypto_vops->enable(hba);
-
-	return ufshcd_crypto_enable_spec(hba);
-}
-
-int ufshcd_hba_init_crypto(struct ufs_hba *hba)
-{
-	if (hba->crypto_vops && hba->crypto_vops->hba_init_crypto)
-		return hba->crypto_vops->hba_init_crypto(hba,
-							 &ufshcd_ksm_ops);
-
-	return ufshcd_hba_init_crypto_spec(hba, &ufshcd_ksm_ops);
+	/* Clear all keyslots - the number of keyslots is (CFGC + 1) */
+	for (slot = 0; slot < hba->crypto_capabilities.config_count + 1; slot++)
+		ufshcd_clear_keyslot(hba, slot);
 }
 
 void ufshcd_crypto_setup_rq_keyslot_manager(struct ufs_hba *hba,
 					    struct request_queue *q)
 {
-	if (hba->crypto_vops && hba->crypto_vops->setup_rq_keyslot_manager) {
-		hba->crypto_vops->setup_rq_keyslot_manager(hba, q);
-		return;
-	}
-
-	ufshcd_crypto_setup_rq_keyslot_manager_spec(hba, q);
+	if (hba->caps & UFSHCD_CAP_CRYPTO)
+		blk_ksm_register(&hba->ksm, q);
 }
 
 void ufshcd_crypto_destroy_keyslot_manager(struct ufs_hba *hba)
 {
-	if (hba->crypto_vops && hba->crypto_vops->destroy_keyslot_manager) {
-		hba->crypto_vops->destroy_keyslot_manager(hba);
-		return;
-	}
-
-	ufshcd_crypto_destroy_keyslot_manager_spec(hba);
-}
-
-void ufshcd_prepare_lrbp_crypto(struct ufs_hba *hba,
-				struct scsi_cmnd *cmd,
-				struct ufshcd_lrb *lrbp)
-{
-	if (hba->crypto_vops && hba->crypto_vops->prepare_lrbp_crypto) {
-		hba->crypto_vops->prepare_lrbp_crypto(hba, cmd, lrbp);
-		return;
-	}
-
-	ufshcd_prepare_lrbp_crypto_spec(hba, cmd, lrbp);
-}
-
-int ufshcd_map_sg_crypto(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
-{
-	if (hba->crypto_vops && hba->crypto_vops->map_sg_crypto)
-		return hba->crypto_vops->map_sg_crypto(hba, lrbp);
-
-	return 0;
-}
-
-int ufshcd_complete_lrbp_crypto(struct ufs_hba *hba,
-				struct scsi_cmnd *cmd,
-				struct ufshcd_lrb *lrbp)
-{
-	if (hba->crypto_vops && hba->crypto_vops->complete_lrbp_crypto)
-		return hba->crypto_vops->complete_lrbp_crypto(hba, cmd, lrbp);
-
-	return 0;
-}
-
-void ufshcd_crypto_debug(struct ufs_hba *hba)
-{
-	if (hba->crypto_vops && hba->crypto_vops->debug)
-		hba->crypto_vops->debug(hba);
-}
-
-int ufshcd_crypto_suspend(struct ufs_hba *hba,
-			  enum ufs_pm_op pm_op)
-{
-	if (hba->crypto_vops && hba->crypto_vops->suspend)
-		return hba->crypto_vops->suspend(hba, pm_op);
-
-	return 0;
-}
-
-int ufshcd_crypto_resume(struct ufs_hba *hba,
-			 enum ufs_pm_op pm_op)
-{
-	if (hba->crypto_vops && hba->crypto_vops->resume)
-		return hba->crypto_vops->resume(hba, pm_op);
-
-	return 0;
-}
-
-void ufshcd_crypto_set_vops(struct ufs_hba *hba,
-			    struct ufs_hba_crypto_variant_ops *crypto_vops)
-{
-	hba->crypto_vops = crypto_vops;
+	blk_ksm_destroy(&hba->ksm);
 }

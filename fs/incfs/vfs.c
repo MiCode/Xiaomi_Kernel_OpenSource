@@ -469,7 +469,9 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
 	int new_max_sn = last_known_read_sn;
 	int reads_collected = 0;
 	ssize_t result = 0;
-	int i = 0;
+
+	if (!mi)
+		return -EFAULT;
 
 	if (!incfs_fresh_pending_reads_exist(mi, last_known_read_sn))
 		return 0;
@@ -482,15 +484,11 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
 		min_t(size_t, PAGE_SIZE / sizeof(*reads_buf), reads_to_collect);
 
 	reads_collected = incfs_collect_pending_reads(
-		mi, last_known_read_sn, reads_buf, reads_to_collect);
+		mi, last_known_read_sn, reads_buf, reads_to_collect, &new_max_sn);
 	if (reads_collected < 0) {
 		result = reads_collected;
 		goto out;
 	}
-
-	for (i = 0; i < reads_collected; i++)
-		if (reads_buf[i].serial_number > new_max_sn)
-			new_max_sn = reads_buf[i].serial_number;
 
 	/*
 	 * Just to make sure that we don't accidentally copy more data
@@ -799,13 +797,17 @@ static int read_single_page(struct file *f, struct page *page)
 	ssize_t read_result = 0;
 	struct data_file *df = get_incfs_data_file(f);
 	int result = 0;
-	void *page_start = kmap(page);
+	void *page_start;
 	int block_index;
 	int timeout_ms;
 
-	if (!df)
+	if (!df) {
+		SetPageError(page);
+		unlock_page(page);
 		return -EBADF;
+	}
 
+	page_start = kmap(page);
 	offset = page_offset(page);
 	block_index = offset / INCFS_DATA_FILE_BLOCK_SIZE;
 	size = df->df_size;
@@ -817,6 +819,10 @@ static int read_single_page(struct file *f, struct page *page)
 		};
 
 		tmp.data = (u8 *)__get_free_pages(GFP_NOFS, get_order(tmp.len));
+		if (!tmp.data) {
+			read_result = -ENOMEM;
+			goto err;
+		}
 		bytes_to_read = min_t(loff_t, size - offset, PAGE_SIZE);
 		read_result = incfs_read_data_file_block(
 			range(page_start, bytes_to_read), f, block_index,
@@ -828,6 +834,7 @@ static int read_single_page(struct file *f, struct page *page)
 		read_result = 0;
 	}
 
+err:
 	if (read_result < 0)
 		result = read_result;
 	else if (read_result < PAGE_SIZE)
@@ -1507,6 +1514,9 @@ static struct dentry *dir_lookup(struct inode *dir_inode, struct dentry *dentry,
 			range((u8 *)dentry->d_name.name, dentry->d_name.len);
 	int err = 0;
 
+	if (!mi || !dir_info || !dir_info->n_backing_inode)
+		return ERR_PTR(-EBADF);
+
 	if (d_inode(mi->mi_backing_dir_path.dentry) ==
 		dir_info->n_backing_inode) {
 		/* We do lookup in the FS root. Show pseudo files. */
@@ -1622,7 +1632,7 @@ static int dir_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 
 	if (!backing_dentry) {
 		err = -EBADF;
-		goto out;
+		goto path_err;
 	}
 
 	if (backing_dentry->d_parent == mi->mi_index_dir) {
@@ -1654,6 +1664,8 @@ out:
 	if (d_really_is_negative(dentry))
 		d_drop(dentry);
 	path_put(&backing_path);
+
+path_err:
 	mutex_unlock(&mi->mi_dir_struct_mutex);
 	if (err)
 		pr_debug("incfs: %s err:%d\n", __func__, err);
@@ -1709,6 +1721,9 @@ static int dir_unlink(struct inode *dir, struct dentry *dentry)
 	struct kstat stat;
 	int err = 0;
 
+	if (!mi)
+		return -EBADF;
+
 	err = mutex_lock_interruptible(&mi->mi_dir_struct_mutex);
 	if (err)
 		return err;
@@ -1716,7 +1731,7 @@ static int dir_unlink(struct inode *dir, struct dentry *dentry)
 	get_incfs_backing_path(dentry, &backing_path);
 	if (!backing_path.dentry) {
 		err = -EBADF;
-		goto out;
+		goto path_err;
 	}
 
 	if (backing_path.dentry->d_parent == mi->mi_index_dir) {
@@ -1744,6 +1759,7 @@ static int dir_unlink(struct inode *dir, struct dentry *dentry)
 	d_drop(dentry);
 out:
 	path_put(&backing_path);
+path_err:
 	if (err)
 		pr_debug("incfs: %s err:%d\n", __func__, err);
 	mutex_unlock(&mi->mi_dir_struct_mutex);
@@ -1757,6 +1773,9 @@ static int dir_link(struct dentry *old_dentry, struct inode *dir,
 	struct path backing_old_path = {};
 	struct path backing_new_path = {};
 	int error = 0;
+
+	if (!mi)
+		return -EBADF;
 
 	error = mutex_lock_interruptible(&mi->mi_dir_struct_mutex);
 	if (error)
@@ -1804,6 +1823,9 @@ static int dir_rmdir(struct inode *dir, struct dentry *dentry)
 	struct path backing_path = {};
 	int err = 0;
 
+	if (!mi)
+		return -EBADF;
+
 	err = mutex_lock_interruptible(&mi->mi_dir_struct_mutex);
 	if (err)
 		return err;
@@ -1811,7 +1833,7 @@ static int dir_rmdir(struct inode *dir, struct dentry *dentry)
 	get_incfs_backing_path(dentry, &backing_path);
 	if (!backing_path.dentry) {
 		err = -EBADF;
-		goto out;
+		goto path_err;
 	}
 
 	if (backing_path.dentry == mi->mi_index_dir) {
@@ -1825,6 +1847,8 @@ static int dir_rmdir(struct inode *dir, struct dentry *dentry)
 		d_drop(dentry);
 out:
 	path_put(&backing_path);
+
+path_err:
 	if (err)
 		pr_debug("incfs: %s err:%d\n", __func__, err);
 	mutex_unlock(&mi->mi_dir_struct_mutex);
@@ -1907,10 +1931,17 @@ static int file_open(struct inode *inode, struct file *file)
 	struct file *backing_file = NULL;
 	struct path backing_path = {};
 	int err = 0;
+	int flags = O_NOATIME | O_LARGEFILE |
+		(S_ISDIR(inode->i_mode) ? O_RDONLY : O_RDWR);
+
+	if (!mi)
+		return -EBADF;
 
 	get_incfs_backing_path(file->f_path.dentry, &backing_path);
-	backing_file = dentry_open(
-		&backing_path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
+	if (!backing_path.dentry)
+		return -EBADF;
+
+	backing_file = dentry_open(&backing_path, flags, mi->mi_owner);
 	path_put(&backing_path);
 
 	if (IS_ERR(backing_file)) {
@@ -2181,7 +2212,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	sb->s_op = &incfs_super_ops;
 	sb->s_d_op = &incfs_dentry_ops;
 	sb->s_flags |= S_NOATIME;
-	sb->s_magic = INCFS_MAGIC_NUMBER;
+	sb->s_magic = (long)INCFS_MAGIC_NUMBER;
 	sb->s_time_gran = 1;
 	sb->s_blocksize = INCFS_DATA_FILE_BLOCK_SIZE;
 	sb->s_blocksize_bits = blksize_bits(sb->s_blocksize);

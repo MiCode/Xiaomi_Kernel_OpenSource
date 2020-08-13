@@ -10,9 +10,11 @@
 #include <linux/types.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
+#include <linux/rcupdate.h>
 #include <linux/completion.h>
 #include <linux/wait.h>
 #include <crypto/hash.h>
+#include <linux/rwsem.h>
 
 #include <uapi/linux/incrementalfs.h>
 
@@ -123,13 +125,13 @@ struct mount_info {
 	wait_queue_head_t mi_pending_reads_notif_wq;
 
 	/*
-	 * Protects:
+	 * Protects - RCU safe:
 	 *  - reads_list_head
 	 *  - mi_pending_reads_count
 	 *  - mi_last_pending_read_number
 	 *  - data_file_segment.reads_list_head
 	 */
-	struct mutex mi_pending_reads_mutex;
+	spinlock_t pending_read_lock;
 
 	/* List of active pending_read objects */
 	struct list_head mi_reads_list_head;
@@ -175,14 +177,15 @@ struct pending_read {
 	struct list_head mi_reads_list;
 
 	struct list_head segment_reads_list;
+
+	struct rcu_head rcu;
 };
 
 struct data_file_segment {
 	wait_queue_head_t new_data_arrival_wq;
 
 	/* Protects reads and writes from the blockmap */
-	/* Good candidate for read/write mutex */
-	struct mutex blockmap_mutex;
+	struct rw_semaphore rwsem;
 
 	/* List of active pending_read objects belonging to this segment */
 	/* Protected by mount_info.pending_reads_mutex */
@@ -300,7 +303,7 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number);
  */
 int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
 				struct incfs_pending_read_info *reads,
-				int reads_size);
+				int reads_size, int *new_max_sn);
 
 int incfs_collect_logged_reads(struct mount_info *mi,
 			       struct read_log_state *start_state,
