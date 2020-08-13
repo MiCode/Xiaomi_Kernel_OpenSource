@@ -103,7 +103,7 @@
 				};
 			};
 
-			cluster2 {
+			cluster1 {
 				core0 {
 					cpu = <&CPU4>;
 				};
