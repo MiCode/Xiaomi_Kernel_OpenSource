@@ -6575,6 +6575,9 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			long spare_cap;
 			int idle_idx = INT_MAX;
 
+			if (!cpumask_test_cpu(i, &p->cpus_mask))
+				continue;
+
 			trace_sched_cpu_util(i);
 
 			if (!cpu_active(i) || cpu_isolated(i))
