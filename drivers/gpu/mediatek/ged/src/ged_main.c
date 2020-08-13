@@ -58,8 +58,6 @@ static ssize_t ged_write(struct file *filp,
 	const char __user *buf, size_t count, loff_t *f_pos);
 static long ged_dispatch(struct file *pFile,
 	struct GED_BRIDGE_PACKAGE *psBridgePackageKM);
-static long ged_ioctl(struct file *pFile,
-	unsigned int ioctlCmd, unsigned long arg);
 #ifdef CONFIG_COMPAT
 static long ged_ioctl_compat(struct file *pFile,
 	unsigned int ioctlCmd, unsigned long arg);
@@ -111,16 +109,14 @@ static struct platform_driver g_ged_pdrv = {
 	},
 };
 
-static const struct file_operations ged_fops = {
-	.owner = THIS_MODULE,
-	.open = ged_open,
-	.release = ged_release,
-	.poll = ged_poll,
-	.read = ged_read,
-	.write = ged_write,
-	.unlocked_ioctl = ged_ioctl,
+static const struct proc_ops ged_proc_fops = {
+	.proc_open = ged_open,
+	.proc_release = ged_release,
+	.proc_poll = ged_poll,
+	.proc_read = ged_read,
+	.proc_write = ged_write,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = ged_ioctl_compat,
+	.proc_compat_ioctl = ged_ioctl_compat,
 #endif
 };
 
@@ -324,29 +320,6 @@ dispatch_exit:
 	return ret;
 }
 
-static long
-ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
-{
-	int ret = -EFAULT;
-	struct GED_BRIDGE_PACKAGE *psBridgePackageKM;
-	struct GED_BRIDGE_PACKAGE *psBridgePackageUM =
-		(struct GED_BRIDGE_PACKAGE *)arg;
-	struct GED_BRIDGE_PACKAGE sBridgePackageKM;
-
-	psBridgePackageKM = &sBridgePackageKM;
-	if (ged_copy_from_user(psBridgePackageKM, psBridgePackageUM,
-		sizeof(struct GED_BRIDGE_PACKAGE)) != 0) {
-		GED_LOGE("Failed to ged_copy_from_user\n");
-		goto unlock_and_return;
-	}
-
-	ret = ged_dispatch(pFile, psBridgePackageKM);
-
-unlock_and_return:
-
-	return ret;
-}
-
 #ifdef CONFIG_COMPAT
 static long
 ged_ioctl_compat(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
@@ -474,7 +447,7 @@ static int ged_init(void)
 	GED_ERROR err = GED_ERROR_FAIL;
 
 	GED_LOGI("@%s: start to initialize ged driver\n", __func__);
-	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_fops)
+	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_proc_fops)
 		== NULL) {
 		err = GED_ERROR_FAIL;
 		GED_LOGE("Failed to register ged proc entry!\n");
