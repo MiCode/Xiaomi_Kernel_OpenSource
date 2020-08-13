@@ -651,7 +651,7 @@
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
 			reusable;
 			alignment = <0 0x400000>;
-			size = <0 0x2000000>;
+			size = <0 0x2800000>;
 			linux,cma-default;
 		};
 	};

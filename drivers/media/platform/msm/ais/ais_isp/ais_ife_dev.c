@@ -498,7 +498,8 @@ static void ais_ife_dev_iommu_fault_handler(
 
 	p_ife_dev = (struct ais_ife_dev *)token;
 
-	CAM_ERR(CAM_ISP, "IFE%d Pagefault at %lu", p_ife_dev->hw_idx, iova);
+	CAM_ERR(CAM_ISP, "IFE%d Pagefault at iova 0x%x %s",
+		p_ife_dev->hw_idx, iova, domain->name);
 }
 
 static int ais_ife_dev_remove(struct platform_device *pdev)
@@ -549,7 +550,6 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&p_ife_dev->mutex);
-	spin_lock_init(&p_ife_dev->eventq_lock);
 
 	/*
 	 *  for now, we only support one iommu handle. later
@@ -571,10 +571,16 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 		goto attach_fail;
 	}
 
-	rc = cam_smmu_get_handle("cam-secure",
+	rc = cam_smmu_get_handle("ife-cp",
 		&p_ife_dev->iommu_hdl_secure);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Failed to get secure iommu handle %d", rc);
+		goto secure_fail;
+	}
+
+	rc = cam_smmu_ops(p_ife_dev->iommu_hdl_secure, CAM_SMMU_ATTACH);
+	if (rc && rc != -EALREADY) {
+		CAM_ERR(CAM_ISP, "Attach secure iommu handle failed %d", rc);
 		goto secure_fail;
 	}
 
@@ -583,6 +589,9 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 		p_ife_dev->iommu_hdl_secure);
 
 	cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl,
+			ais_ife_dev_iommu_fault_handler, p_ife_dev);
+
+	cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl_secure,
 			ais_ife_dev_iommu_fault_handler, p_ife_dev);
 
 	hw_init.hw_idx = p_ife_dev->hw_idx;
@@ -594,14 +603,14 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 	rc = ais_ife_csid_hw_init(&p_ife_dev->p_csid_drv, &hw_init);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "IFE%d no CSID dev", p_ife_dev->hw_idx, rc);
-		goto secure_fail;
+		goto secure_attach_fail;
 	}
 
 	rc = ais_vfe_hw_init(&p_ife_dev->p_vfe_drv, &hw_init,
 			p_ife_dev->p_csid_drv);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "IFE%d no VFE dev", p_ife_dev->hw_idx, rc);
-		goto secure_fail;
+		goto secure_attach_fail;
 	}
 
 	CAM_INFO(CAM_ISP, "IFE%d probe complete", p_ife_dev->hw_idx);
@@ -610,6 +619,9 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 
 	return 0;
 
+secure_attach_fail:
+	cam_smmu_ops(p_ife_dev->iommu_hdl_secure,
+		CAM_SMMU_DETACH);
 secure_fail:
 	cam_smmu_ops(p_ife_dev->iommu_hdl,
 		CAM_SMMU_DETACH);

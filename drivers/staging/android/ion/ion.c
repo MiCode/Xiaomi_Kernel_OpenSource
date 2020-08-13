@@ -1133,7 +1133,8 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
 		    heap->type == ION_HEAP_TYPE_CARVEOUT ||
 		    heap->type == (enum ion_heap_type)ION_HEAP_TYPE_HYP_CMA ||
 		    heap->type ==
-			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE) {
+			(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE ||
+		    heap->type == (enum ion_heap_type)ION_HEAP_TYPE_DMA) {
 			type_valid = true;
 		} else {
 			pr_warn("%s: heap type not supported, type:%d\n",

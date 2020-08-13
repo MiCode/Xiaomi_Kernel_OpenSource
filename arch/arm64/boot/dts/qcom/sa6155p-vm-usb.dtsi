@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,7 @@
 			 0x1a4>; /* GSI_IF_STS */
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,pm-qos-latency = <61>;
+		qcom,ignore-wakeup-src-in-hostmode;
 		status = "disabled";
 		dwc3@a600000 {
 			compatible = "snps,dwc3";

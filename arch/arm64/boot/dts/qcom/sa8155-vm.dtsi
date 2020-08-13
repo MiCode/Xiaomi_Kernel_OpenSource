@@ -998,7 +998,7 @@
 		compatible = "qcom,smem";
 		memory-region = <&smem_region>;
 		hwlocks = <&tcsr_mutex 3>;
-		smem-host-id = <10>;
+		smem-host-id = <12>;
 	};
 
 	gvm_intr: mailbox@17c00000 {

@@ -8033,6 +8033,16 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 			ipa_assert();
 		}
 	} else {
+		if (IPA_CLIENT_IS_APPS_PROD(client) ||
+			(client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_idx != IPA_EP_NOT_ALLOCATED))
+			goto chan_statrt;
+		if (!atomic_read(&ep->sys->curr_polling_state)) {
+			IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+					GSI_CHAN_MODE_CALLBACK);
+		}
+chan_statrt:
 		res = gsi_start_channel(ep->gsi_chan_hdl);
 		if (res) {
 			IPAERR("failed to start LAN channel\n");
@@ -8059,12 +8069,7 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
 		if (!ipa3_gsi_channel_is_quite(ep))
 			return -EAGAIN;
-	} else if (!atomic_read(&ep->sys->curr_polling_state)) {
-		IPADBG("switch ch %ld to callback\n", ep->gsi_chan_hdl);
-		gsi_config_channel_mode(ep->gsi_chan_hdl,
-			GSI_CHAN_MODE_CALLBACK);
 	}
-
 	return 0;
 }
 

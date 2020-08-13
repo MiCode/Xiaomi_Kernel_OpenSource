@@ -13,6 +13,7 @@
 /dts-v1/;
 /plugin/;
 #include <dt-bindings/clock/qcom,mmcc-sdm660.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
 
 #include "sdm660-mtp.dtsi"
 #include "sdm660-external-codec.dtsi"

@@ -480,6 +480,16 @@
 		qcom,smem-states = <&modem_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
 
+		/* GPIO intput to mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qcom,gpio-shutdown-ack = <&smp2pgpio_ssr_smp2p_1_in 7 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+
 		status = "ok";
 	};
 
@@ -692,6 +702,12 @@
 	mhi_dev_qrtr: qcom,mhi_dev_qrtr {
 		compatible = "qcom,qrtr-mhi-dev";
 		qcom,net-id = <3>;
+	};
+
+	eth_dev_qrtr: qcom,eth_dev_qrtr {
+		compatible = "qcom,qrtr-ethernet-dev";
+		qcom,net-id = <4>;
+		qcom,low-latency;
 	};
 
 	qcom,glinkpkt {
@@ -1597,10 +1613,6 @@
 		qcom,status-in-gpio = <&tlmm 64 0x00>;
 		qcom,status-out-gpio = <&tlmm 63 0x00>;
 		qcom,status-out2-gpio = <&tlmm 66 0x00>;
-		qcom,wakeup-gpio-in = <&tlmm 87 0x00>;
-		qcom,wakeup-gpio-out = <&tlmm 22 0x00>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&wakeup_gpio_default>;
 		status = "disabled";
 	};
 };
@@ -1619,6 +1631,7 @@
 #include "sdxprairie-aqc.dtsi"
 #include "sdxprairie-thermal.dtsi"
 #include "sdxprairie-qcom-smmu.dtsi"
+#include "sdxprairie-smp2p.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";

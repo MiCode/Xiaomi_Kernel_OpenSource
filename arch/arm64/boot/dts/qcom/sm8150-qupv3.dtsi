@@ -20,6 +20,7 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		status = "ok";
 
 		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -385,6 +386,7 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		status = "ok";
 
 		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -713,6 +715,7 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_2>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		status = "ok";
 
 		iommu_qupv3_2_geni_se_cb: qcom,iommu_qupv3_2_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -981,6 +984,11 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_SENSORS_AHB>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		qcom,subsys-name = "slpi";
+		clock-names = "corex", "core2x";
+		clocks = <&clock_scc SCC_QUPV3_CORE_CLK>,
+			<&clock_scc SCC_QUPV3_2XCORE_CLK>;
+		status = "disabled";
 
 		iommu_qupv3_3_geni_se_cb: qcom,iommu_qupv3_3_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";

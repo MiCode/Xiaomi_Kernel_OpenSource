@@ -26,6 +26,8 @@
 #include <linux/iio/consumer.h>
 
 /* Status register definition */
+#define PERPH0_REVISION4		0x2603
+
 #define INPUT_STATUS_REG		0x2609
 #define INPUT_USB_IN			BIT(1)
 #define INPUT_WLS_IN			BIT(0)
@@ -97,6 +99,7 @@
 #define MISC_CFG0_REG			0x2634
 #define DIS_SYNC_DRV_BIT		BIT(5)
 #define SW_EN_SWITCHER_BIT		BIT(3)
+#define CFG_DIS_FPF_IREV_BIT		BIT(1)
 
 #define MISC_CFG1_REG			0x2635
 #define MISC_CFG1_MASK			GENMASK(7, 0)
@@ -113,6 +116,7 @@
 #define MISC_CFG2_REG			0x2636
 
 #define NOLOCK_SPARE_REG		0x2637
+#define EN_SLAVE_OWN_FREQ_BIT		BIT(5)
 #define DIV2_WIN_UV_SEL_BIT		BIT(4)
 #define DIV2_WIN_UV_25MV		0
 #define COMBO_WIN_LO_EXIT_SEL_MASK	GENMASK(3, 2)
@@ -177,6 +181,10 @@
 #define PERPH0_CFG_SDCDC_REG		0x267A
 #define EN_WIN_UV_BIT			BIT(7)
 
+#define PERPH0_SSUPPLY_CFG0_REG		0x2682
+#define EN_HV_OV_OPTION2_BIT		BIT(7)
+#define EN_MV_OV_OPTION2_BIT		BIT(5)
+
 #define SSUPLY_TEMP_CTRL_REG		0x2683
 #define SEL_OUT_TEMP_MAX_MASK		GENMASK(7, 5)
 #define SEL_OUT_TEMP_MAX_SHFT		5
@@ -190,6 +198,10 @@
 #define DIV2_WIN_UV_STS			BIT(6)
 #define DIV2_ILIM_STS			BIT(5)
 #define DIV2_CFLY_SS_DONE_STS		BIT(1)
+
+#define PERPH1_LOCK_SPARE_REG		0x27C3
+#define CFG_LOCK_SPARE1_MASK		GENMASK(7, 6)
+#define CFG_LOCK_SPARE1_SHIFT		6
 
 /* available voters */
 #define ILIM_VOTER			"ILIM_VOTER"
@@ -230,6 +242,13 @@ enum isns_mode {
 	ISNS_MODE_OFF = 0,
 	ISNS_MODE_ACTIVE,
 	ISNS_MODE_STANDBY,
+};
+
+enum ovp {
+	OVP_17P7V = 0,
+	OVP_14V,
+	OVP_22P2V,
+	OVP_7P3,
 };
 
 enum {
@@ -879,6 +898,24 @@ static int div2_cp_master_get_prop_suspended(struct smb1398_chip *chip,
 	return 0;
 }
 
+#define DEFAULT_HVDCP3_MIN_ICL_UA 1000000
+static int smb1398_div2_cp_get_min_icl(struct smb1398_chip *chip)
+{
+	union power_supply_propval pval;
+	int rc;
+
+	/* Use max(dt_min_icl, 1A) for HVDCP3 */
+	if (chip->usb_psy) {
+		rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+		if (rc >= 0 && (pval.intval == POWER_SUPPLY_TYPE_USB_HVDCP_3))
+			return max(chip->div2_cp_min_ilim_ua,
+				DEFAULT_HVDCP3_MIN_ICL_UA);
+	}
+
+	return chip->div2_cp_min_ilim_ua;
+}
+
 static int div2_cp_master_get_prop(struct power_supply *psy,
 				enum power_supply_property prop,
 				union power_supply_propval *val)
@@ -979,7 +1016,7 @@ static int div2_cp_master_get_prop(struct power_supply *psy,
 		val->intval = chip->pl_output_mode;
 		break;
 	case POWER_SUPPLY_PROP_MIN_ICL:
-		val->intval = chip->div2_cp_min_ilim_ua;
+		val->intval = smb1398_div2_cp_get_min_icl(chip);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1223,16 +1260,6 @@ static int smb1398_div2_cp_slave_disable_vote_cb(struct votable *votable,
 	if (!is_cps_available(chip))
 		return -ENODEV;
 
-	/* Enable/disable SYNC driver before enabling/disabling slave */
-	reg = MISC_CFG0_REG;
-	val = !!disable ? DIS_SYNC_DRV_BIT : 0;
-	rc = smb1398_masked_write(chip, reg, DIS_SYNC_DRV_BIT, val);
-	if (rc < 0) {
-		dev_err(chip->dev, "%s slave SYNC_DRV failed, rc=%d\n",
-				!!disable ? "disable" : "enable", rc);
-		return rc;
-	}
-
 	reg = MISC_SL_SWITCH_EN_REG;
 	val = !!disable ? 0 : EN_SLAVE;
 	rc = smb1398_masked_write(chip, reg, EN_SLAVE, val);
@@ -1278,7 +1305,7 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 {
 	struct smb1398_chip *chip = (struct smb1398_chip *)data;
 	union power_supply_propval pval = {0};
-	int rc = 0, max_ilim_ua;
+	int rc = 0, max_ilim_ua, min_ilim_ua;
 	bool slave_dis, split_ilim = false;
 
 	if (!is_psy_voter_available(chip) || chip->in_suspend)
@@ -1287,19 +1314,21 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 	if (!client)
 		return -EINVAL;
 
+	min_ilim_ua = smb1398_div2_cp_get_min_icl(chip);
+
 	ilim_ua = (ilim_ua * DIV2_ILIM_CFG_PCT) / 100;
 
 	max_ilim_ua = is_cps_available(chip) ?
 		DIV2_MAX_ILIM_DUAL_CP_UA : DIV2_MAX_ILIM_UA;
 	ilim_ua = min(ilim_ua, max_ilim_ua);
-	if (ilim_ua < chip->div2_cp_min_ilim_ua) {
+	if (ilim_ua < min_ilim_ua) {
 		dev_dbg(chip->dev, "ilim %duA is too low to config CP charging\n",
 				ilim_ua);
 		vote(chip->div2_cp_disable_votable, ILIM_VOTER, true, 0);
 	} else {
 		if (is_cps_available(chip)) {
 			split_ilim = true;
-			slave_dis = ilim_ua < (2 * chip->div2_cp_min_ilim_ua);
+			slave_dis = ilim_ua < (2 * min_ilim_ua);
 			vote(chip->div2_cp_slave_disable_votable, ILIM_VOTER,
 					slave_dis, 0);
 			slave_dis = !!get_effective_result(
@@ -1726,7 +1755,7 @@ static void smb1398_taper_work(struct work_struct *work)
 	struct smb1398_chip *chip = container_of(work,
 			struct smb1398_chip, taper_work);
 	union power_supply_propval pval = {0};
-	int rc, fcc_ua, fv_uv, stepper_ua, main_fcc_ua = 0;
+	int rc, fcc_ua, fv_uv, stepper_ua, main_fcc_ua = 0, min_ilim_ua;
 	bool slave_en;
 
 	if (!is_psy_voter_available(chip))
@@ -1737,6 +1766,8 @@ static void smb1398_taper_work(struct work_struct *work)
 
 	if (chip->fcc_main_votable)
 		main_fcc_ua = get_effective_result(chip->fcc_main_votable);
+
+	min_ilim_ua = smb1398_div2_cp_get_min_icl(chip);
 
 	chip->taper_entry_fv = get_effective_result(chip->fv_votable);
 	while (true) {
@@ -1773,7 +1804,7 @@ static void smb1398_taper_work(struct work_struct *work)
 			 * If total FCC is less than the minimum ILIM to
 			 * keep CP master and slave online, disable CP.
 			 */
-			if (fcc_ua < (chip->div2_cp_min_ilim_ua * 2)) {
+			if (fcc_ua < (min_ilim_ua * 2)) {
 				vote(chip->div2_cp_disable_votable,
 						TAPER_VOTER, true, 0);
 				/*
@@ -1822,15 +1853,66 @@ out:
 	chip->taper_work_running = false;
 }
 
+static int smb1398_update_ovp(struct smb1398_chip *chip)
+{
+	int rc = 0;
+	u8 reg = 0;
+
+	rc = smb1398_read(chip, PERPH0_REVISION4, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read PERPH0_REVISION4 rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Ignore for REV2 and below */
+	if (reg <= 2)
+		return 0;
+
+	rc = smb1398_masked_write(chip, PERPH0_SSUPPLY_CFG0_REG,
+			EN_HV_OV_OPTION2_BIT | EN_MV_OV_OPTION2_BIT,
+			EN_HV_OV_OPTION2_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set PERPH0_SSUPPLY_CFG0_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smb1398_masked_write(chip, PERPH1_LOCK_SPARE_REG,
+				CFG_LOCK_SPARE1_MASK,
+				OVP_14V << CFG_LOCK_SPARE1_SHIFT);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set PERPH1_LOCK_SPARE_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 {
 	int rc = 0;
+
+	rc = smb1398_update_ovp(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't update OVP threshold rc=%d\n", rc);
+		return rc;
+	}
 
 	/* Configure window (Vin/2 - Vout) OV level to 500mV */
 	rc = smb1398_masked_write(chip, DIV2_PROTECTION_REG,
 			DIV2_WIN_OV_SEL_MASK, WIN_OV_500_MV);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set WIN_OV_500_MV rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Configure window (Vin/2 - Vout) UV level to 10mV */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			DIV2_WIN_UV_SEL_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set WIN_UV_10_MV rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1871,6 +1953,14 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 	rc = smb1398_masked_write(chip, MISC_CFG1_REG, MISC_CFG1_MASK, 0x02);
 	if (rc < 0) {
 		dev_err(chip->dev, "set OP_MODE_COMBO failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Do not disable FP_FET during IREV conditions */
+	rc = smb1398_masked_write(chip, MISC_CFG0_REG, CFG_DIS_FPF_IREV_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set CFG_DIS_FPF_IREV_BIT, rc=%d\n",
+				rc);
 		return rc;
 	}
 
@@ -2146,10 +2236,24 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 	int rc;
 	u8 status;
 
+	rc = smb1398_update_ovp(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't update OVP threshold rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = smb1398_read(chip, MODE_STATUS_REG, &status);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read slave MODE_STATUS_REG, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	/* Configure window (Vin/2 - Vout) UV level to 10mV */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			DIV2_WIN_UV_SEL_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set WIN_UV_10_MV rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2187,6 +2291,15 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 			SW_EN_SWITCHER_BIT, SW_EN_SWITCHER_BIT);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set MISC_CFG0_REG, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/* Enable slave clock on its own */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			EN_SLAVE_OWN_FREQ_BIT, EN_SLAVE_OWN_FREQ_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't enable slave clock, rc=%d\n",
 				rc);
 		return rc;
 	}

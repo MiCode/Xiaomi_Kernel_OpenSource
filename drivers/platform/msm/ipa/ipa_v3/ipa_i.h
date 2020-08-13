@@ -1059,6 +1059,8 @@ struct ipa3_sys_context {
 	struct workqueue_struct *repl_wq;
 	struct ipa3_status_stats *status_stat;
 	u32 pm_hdl;
+	unsigned int napi_sch_cnt;
+	unsigned int napi_comp_cnt;
 	/* ordering is important - other immutable fields go below */
 };
 
@@ -1986,6 +1988,7 @@ struct ipa3_context {
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
 	bool use_ipa_pm;
+	bool vlan_mode_set;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
 	u32 entire_ipa_block_size;

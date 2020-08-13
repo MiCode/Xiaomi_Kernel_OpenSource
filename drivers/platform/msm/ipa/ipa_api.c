@@ -381,7 +381,7 @@ int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 		}
 
 		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
-			nents*sizeof((*out_ch_ptr)->sgl));
+				nents*sizeof(struct scatterlist));
 		(*out_ch_ptr)->nents = nents;
 		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
 	}

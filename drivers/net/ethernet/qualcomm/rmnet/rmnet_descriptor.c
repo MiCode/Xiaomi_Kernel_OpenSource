@@ -103,6 +103,7 @@ EXPORT_SYMBOL(rmnet_descriptor_add_frag);
 int rmnet_frag_ipv6_skip_exthdr(struct rmnet_frag_descriptor *frag_desc,
 				int start, u8 *nexthdrp, __be16 *fragp)
 {
+	u32 frag_size = skb_frag_size(&frag_desc->frag);
 	u8 nexthdr = *nexthdrp;
 
 	*fragp = 0;
@@ -114,10 +115,16 @@ int rmnet_frag_ipv6_skip_exthdr(struct rmnet_frag_descriptor *frag_desc,
 		if (nexthdr == NEXTHDR_NONE)
 			return -EINVAL;
 
-		hp = rmnet_frag_data_ptr(frag_desc) + start;
+		if (start >= frag_size)
+			return -EINVAL;
 
+		hp = rmnet_frag_data_ptr(frag_desc) + start;
 		if (nexthdr == NEXTHDR_FRAGMENT) {
 			__be16 *fp;
+
+			if (start + offsetof(struct frag_hdr, frag_off) >=
+			    frag_size)
+				return -EINVAL;
 
 			fp = rmnet_frag_data_ptr(frag_desc) + start +
 			     offsetof(struct frag_hdr, frag_off);

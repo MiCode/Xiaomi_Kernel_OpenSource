@@ -250,6 +250,13 @@ static struct hap_addr_val twm_ext_cfg[] = {
 	{REG_HAP_EN_CTL1, 0x80}, /* Enable haptics driver */
 };
 
+static struct hap_addr_val twm_cfg[] = {
+	{REG_HAP_PLAY, 0x00}, /* Stop playing haptics waveform */
+	{REG_HAP_SEL, 0x00}, /* Configure for cmd mode */
+	{REG_HAP_EN_CTL1, 0x00}, /* Enable haptics driver */
+	{REG_HAP_PERPH_RESET_CTL3, 0x0D}, /* Disable SHUTDOWN1_RB reset */
+};
+
 static int wf_repeat[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 static int wf_s_repeat[4] = {1, 2, 4, 8};
 
@@ -1060,20 +1067,30 @@ static void qti_haptics_set_gain(struct input_dev *dev, u16 gain)
 	qti_haptics_config_vmax(chip, play->vmax_mv);
 }
 
-static int qti_haptics_twm_config(struct qti_hap_chip *chip)
+static int qti_haptics_twm_config(struct qti_hap_chip *chip, bool ext_pin)
 {
-	int rc, i;
+	int rc = 0, i;
 
-	for (i = 0; i < ARRAY_SIZE(twm_ext_cfg); i++) {
-		rc = qti_haptics_write(chip, twm_ext_cfg[i].addr,
-					&twm_ext_cfg[i].value, 1);
-		if (rc < 0) {
-			dev_err(chip->dev, "Haptics TWM config failed, rc=%d\n",
-				rc);
-			return rc;
+	if (ext_pin) {
+		for (i = 0; i < ARRAY_SIZE(twm_ext_cfg); i++) {
+			rc = qti_haptics_write(chip, twm_ext_cfg[i].addr,
+						&twm_ext_cfg[i].value, 1);
+			if (rc < 0)
+				break;
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(twm_cfg); i++) {
+			rc = qti_haptics_write(chip, twm_cfg[i].addr,
+						&twm_cfg[i].value, 1);
+			if (rc < 0)
+				break;
 		}
 	}
-	pr_debug("Enabled haptics for TWM mode\n");
+
+	if (rc < 0)
+		pr_err("Failed to write twm_config rc=%d\n", rc);
+	else
+		pr_debug("Enabled haptics for TWM mode\n");
 
 	return 0;
 }
@@ -2032,7 +2049,6 @@ static void qti_haptics_shutdown(struct platform_device *pdev)
 {
 	struct qti_hap_chip *chip = dev_get_drvdata(&pdev->dev);
 	int rc;
-	bool enable_haptics_twm;
 
 	dev_dbg(chip->dev, "Shutdown!\n");
 
@@ -2048,10 +2064,8 @@ static void qti_haptics_shutdown(struct platform_device *pdev)
 		chip->vdd_enabled = false;
 	}
 
-	enable_haptics_twm = chip->haptics_ext_pin_twm && twm_sys_enable;
-
-	if (chip->twm_state == PMIC_TWM_ENABLE && enable_haptics_twm) {
-		rc = qti_haptics_twm_config(chip);
+	if (chip->twm_state == PMIC_TWM_ENABLE && twm_sys_enable) {
+		rc = qti_haptics_twm_config(chip, chip->haptics_ext_pin_twm);
 		if (rc < 0)
 			pr_err("Haptics TWM config failed rc=%d\n", rc);
 	}

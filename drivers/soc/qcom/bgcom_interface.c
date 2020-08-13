@@ -45,7 +45,6 @@
 
 #define MPPS_DOWN_EVENT_TO_BG_TIMEOUT 3000
 #define ADSP_DOWN_EVENT_TO_BG_TIMEOUT 3000
-#define SLEEP_FOR_SPI_BUS 2000
 
 enum {
 	SSR_DOMAIN_BG,
@@ -401,8 +400,6 @@ static long bg_com_ioctl(struct file *filp,
 		break;
 	case SET_SPI_BUSY:
 		ret = bgcom_set_spi_state(BGCOM_SPI_BUSY);
-		/* Add sleep for  SPI Bus to release*/
-		msleep(SLEEP_FOR_SPI_BUS);
 		break;
 	case BG_SOFT_RESET:
 		ret = bg_soft_reset();
@@ -619,8 +616,6 @@ static int ssr_bg_cb(struct notifier_block *this,
 		send_uevent(&bge);
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
-		/* Add sleep for  SPI Bus to release*/
-		msleep(SLEEP_FOR_SPI_BUS);
 		if (dev->pending_bg_twm_wear_load) {
 			/* Load bg-twm-wear */
 			dev->pending_bg_twm_wear_load = false;

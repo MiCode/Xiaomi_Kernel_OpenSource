@@ -13,6 +13,10 @@
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
 #include "sa6155-cnss.dtsi"
 
+&qupv3_2 {
+	status = "ok";
+};
+
 &bluetooth_ext {
 	status = "ok";
 };

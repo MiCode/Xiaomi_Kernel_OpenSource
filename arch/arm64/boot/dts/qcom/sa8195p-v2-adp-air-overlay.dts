@@ -23,3 +23,8 @@
 	qcom,board-id = <0x02010019 0>;
 };
 
+&qupv3_se0_spi {
+	can-controller@0 {
+		status = "disabled";
+	};
+};

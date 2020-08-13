@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include "sdm429-wtp.dtsi"
 #include "sdm429-mdss-panels.dtsi"
+#include "sdm429-spyro-qrd-evt-audio.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM429 QRD BG WTP Overlay";

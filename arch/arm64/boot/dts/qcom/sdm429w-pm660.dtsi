@@ -122,7 +122,7 @@
 	qcom,fg-bmd-en-delay-ms = <300>;
 	qcom,fg-force-load-profile;
 	qcom,fg-jeita-thresholds = <0 20 45 60>;
-	status = "disabled";
+	status = "ok";
 };
 
 &pm660_haptics {
@@ -131,7 +131,6 @@
 	/delete-property/ qcom,lra-allow-variable-play;
 	/delete-property/ qcom,lra-allow-variable-play-rate;
 	qcom,actuator-type = "erm";
-	qcom,ilim-ma = <400>;
 	qcom,play-rate-us = <10000>;
 
 	wf_0 {
@@ -164,6 +163,8 @@
 		/delete-property/ qcom,lra-auto-resonance-disable;
 	};
 };
+
+#include <dt-bindings/thermal/thermal.h>
 
 &thermal_zones {
 	xo-therm-adc {
@@ -242,6 +243,164 @@
 				temperature = <65000>;
 				hysteresis = <1000>;
 				type = "passive";
+			};
+		};
+	};
+
+	quiet-therm-step {
+		polling-delay-passive = <1000>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x51>;
+		thermal-governor = "step_wise";
+		wake-capable-sensor;
+
+		trips {
+			quiet_batt_439_trip1: quiet-batt-trip1 {
+				temperature = <38000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_batt_439_trip2: quiet-batt-trip2 {
+				temperature = <40000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_batt_439_trip3: quiet-batt-trip3 {
+				temperature = <42000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_batt_439_trip4: quiet-batt-trip4 {
+				temperature = <44000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_modem_439_trip1: quiet-modem-trip0 {
+				temperature = <44000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			quiet_modem_439_trip2: quiet-modem-trip1 {
+				temperature = <46000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			quiet_batt_439_trip5: quiet-batt-trip5 {
+				temperature = <46000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_modem_439_trip3: quiet-modem-trp3 {
+				temperature = <48000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_cpus_439_trip: quiet-cpus-trip {
+				temperature = <48000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			quiet_batt_439_trip6: quiet-batt-trip6 {
+				temperature = <55000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			quiet_modem_439_trip4: quiet-modem-trip3 {
+				temperature = <55000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			skin_cpu0 {
+				trip = <&quiet_cpus_439_trip>;
+				/* throttle from fmax to 1497600KHz */
+				cooling-device = <&CPU0 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-3)>;
+			};
+
+			skin_cpu1 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU1 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-3)>;
+			};
+
+			skin_cpu2 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU2 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-3)>;
+			};
+
+			skin_cpu3 {
+				trip = <&quiet_cpus_439_trip>;
+				cooling-device = <&CPU3 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-3)>;
+			};
+
+			modem_proc_lvl1 {
+				trip = <&quiet_modem_439_trip1>;
+				cooling-device = <&modem_proc 1 1>;
+			};
+
+			modem_proc_lvl2 {
+				trip = <&quiet_modem_439_trip4>;
+				cooling-device = <&modem_proc 3 3>;
+			};
+
+			modem_lvl1 {
+				trip = <&quiet_modem_439_trip2>;
+				cooling-device = <&modem_pa 1 1>;
+			};
+
+			modem_lvl2 {
+				trip = <&quiet_modem_439_trip3>;
+				cooling-device = <&modem_pa 2 2>;
+			};
+
+			modem_lvl3 {
+				trip = <&quiet_modem_439_trip4>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+
+			battery_lvl1 {
+				trip = <&quiet_batt_439_trip1>;
+				cooling-device = <&pm660_charger 1 1>;
+			};
+
+			battery_lvl2 {
+				trip = <&quiet_batt_439_trip2>;
+				cooling-device = <&pm660_charger 2 2>;
+			};
+
+			battery_lvl3 {
+				trip = <&quiet_batt_439_trip3>;
+				cooling-device = <&pm660_charger 3 3>;
+			};
+
+			battery_lvl4 {
+				trip = <&quiet_batt_439_trip4>;
+				cooling-device = <&pm660_charger 4 4>;
+			};
+
+			battery_lvl5 {
+				trip = <&quiet_batt_439_trip5>;
+				cooling-device = <&pm660_charger 5 5>;
+			};
+
+			battery_lvl6 {
+				trip = <&quiet_batt_439_trip6>;
+				cooling-device = <&pm660_charger 6 6>;
 			};
 		};
 	};

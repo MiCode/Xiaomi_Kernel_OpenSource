@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,18 +84,18 @@
 		};
 
 		wcnss_mem: wcnss@89300000 {
-			reg = <0x0 0x89300000 0x0 0x700000>;
+			reg = <0x0 0x89300000 0x0 0x600000>;
 			no-map;
 		};
 
 		venus_mem: venus@89900000 {
-			reg = <0x0 0x89A00000 0x0 0x600000>;
+			reg = <0x0 0x89900000 0x0 0x600000>;
 			no-map;
 		};
 
 		mba_mem: mba@8ea00000 {
 			no-map;
-			reg = <0 0x8A000000 0 0x100000>;
+			reg = <0 0x8ea00000 0 0x100000>;
 		};
 	};
 

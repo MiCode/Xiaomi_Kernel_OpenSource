@@ -29,7 +29,3 @@
 &pm660_fg {
 	qcom,fg-disable-in-twm;
 };
-
-&pm660_haptics {
-	qcom,haptics-ext-pin-twm;
-};

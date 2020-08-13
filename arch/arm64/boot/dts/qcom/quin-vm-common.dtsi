@@ -79,6 +79,16 @@
 			};
 		};
 	};
+
+	rename_blk: rename_blk {
+		compatible = "qcom,blkdev-rename";
+		actual-dev = "vda", "vdb", "vdc",
+				"vdd", "vde", "vdf",
+				"vdg", "vdh";
+		rename-dev = "la_system", "la_userdata", "la_vendor",
+				"la_persist", "modem", "bluetooth",
+				"la_misc", "vbmeta";
+	};
 };
 
 &soc {
@@ -123,6 +133,11 @@
 			reg = <19>;
 			memory-region = <&qseecom_ta_mem>;
 			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@9 {
+			reg = <9>;
+			qcom,ion-heap-type = "SYSTEM_SECURE";
 		};
 	};
 

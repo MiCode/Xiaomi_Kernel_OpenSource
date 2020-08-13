@@ -16,6 +16,10 @@
 #include "sa8155-pmic-overlay.dtsi"
 #include "sa8155-cnss.dtsi"
 
+&qupv3_3 {
+	status = "ok";
+};
+
 &qupv3_se0_spi {
 	status = "ok";
 

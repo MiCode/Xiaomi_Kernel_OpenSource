@@ -25,8 +25,8 @@
 
 #define MAX_INST_NAME_LEN	40
 
-#define IPC_BRIDGE_MAX_READ_SZ	(8 * 1024)
-#define IPC_BRIDGE_MAX_WRITE_SZ	(8 * 1024)
+#define IPC_BRIDGE_MAX_READ_SZ	(24 * 1024)
+#define IPC_BRIDGE_MAX_WRITE_SZ	(24 * 1024)
 
 #define IPC_WRITE_WAIT_TIMEOUT	10000
 
@@ -297,7 +297,7 @@ retry_write_done:
 	/* Notify the GPIO driver to wakeup the host and reintialize the
 	 * completion structure.
 	 */
-	} else if (!ipc_dev->online) {
+	} else if (ipc_dev->connected && !ipc_dev->online) {
 		sb_notifier_call_chain(EVT_WAKE_UP, NULL);
 		reinit_completion(&ipc_dev->write_done);
 		goto retry_write_done;

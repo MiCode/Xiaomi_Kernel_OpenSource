@@ -1019,20 +1019,9 @@ static struct drm_dp_mst_port *drm_dp_mst_get_port_ref_locked(struct drm_dp_mst_
 static struct drm_dp_mst_port *drm_dp_get_validated_port_ref(struct drm_dp_mst_topology_mgr *mgr, struct drm_dp_mst_port *port)
 {
 	struct drm_dp_mst_port *rport = NULL;
-
 	mutex_lock(&mgr->lock);
-	/*
-	 * Port may or may not be 'valid' but we don't care about that when
-	 * destroying the port and we are guaranteed that the port pointer
-	 * will be valid until we've finished
-	 */
-	if (current_work() == &mgr->destroy_connector_work) {
-		kref_get(&port->kref);
-		rport = port;
-	} else if (mgr->mst_primary) {
-		rport = drm_dp_mst_get_port_ref_locked(mgr->mst_primary,
-						       port);
-	}
+	if (mgr->mst_primary)
+		rport = drm_dp_mst_get_port_ref_locked(mgr->mst_primary, port);
 	mutex_unlock(&mgr->lock);
 	return rport;
 }
@@ -2173,6 +2162,7 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 	u8 buf;
 	u32 offset = DP_DPCD_REV;
 
+	mutex_lock(&mgr->payload_lock);
 	mutex_lock(&mgr->lock);
 	if (mst_state == mgr->mst_state)
 		goto out_unlock;
@@ -2244,7 +2234,10 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 		/* this can fail if the device is gone */
 		drm_dp_dpcd_writeb(mgr->aux, DP_MSTM_CTRL, 0);
 		ret = 0;
-		memset(mgr->payloads, 0, mgr->max_payloads * sizeof(struct drm_dp_payload));
+		memset(mgr->payloads, 0,
+		       mgr->max_payloads * sizeof(mgr->payloads[0]));
+		memset(mgr->proposed_vcpis, 0,
+		       mgr->max_payloads * sizeof(mgr->proposed_vcpis[0]));
 		mgr->payload_mask = 0;
 		set_bit(0, &mgr->payload_mask);
 		mgr->vcpi_mask = 0;
@@ -2252,6 +2245,7 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 
 out_unlock:
 	mutex_unlock(&mgr->lock);
+	mutex_unlock(&mgr->payload_lock);
 	if (mstb)
 		drm_dp_put_mst_branch_device(mstb);
 	return ret;

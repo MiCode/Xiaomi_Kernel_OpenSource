@@ -12,13 +12,12 @@
 
 /dts-v1/;
 
-#include "sdxprairie-v2-mtp-cpe.dtsi"
+#include "sa8155-capture.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDXPRAIRIE V2 TTP (CPE)";
-	compatible = "qcom,sdxprairie-ttp",
-		"qcom,sdxprairie", "qcom,ttp";
-	qcom,board-id = <0x08010008 0x0>;
+	model = "Qualcomm Technologies, Inc. SA8155P V2 ADP STAR Capture";
+	compatible = "qcom,sa8155p-adp-star", "qcom,sa8155p", "qcom,adp-star";
+	qcom,board-id = <25 0>;
+	qcom,msm-id = <367 0x20000>;
 };
-
 

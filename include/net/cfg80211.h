@@ -65,6 +65,9 @@
 /* Indicate backport support for key configuration for Beacon protection*/
 #define CFG80211_BIGTK_CONFIGURATION_SUPPORT 1
 
+/* Indicate backport support for sband iftype data */
+#define CFG80211_SBAND_IFTYPE_DATA_BACKPORT 1
+
 /**
  * DOC: Introduction
  *

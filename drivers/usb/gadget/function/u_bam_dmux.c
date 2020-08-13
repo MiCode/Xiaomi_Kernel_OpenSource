@@ -36,7 +36,6 @@ static unsigned int n_tx_req_queued;
 
 static unsigned int bam_ch_ids[BAM_DMUX_NUM_FUNCS] = {
 	BAM_DMUX_USB_RMNET_0,
-	BAM_DMUX_USB_RMNET_0,
 	BAM_DMUX_USB_DPL
 };
 
@@ -1026,11 +1025,12 @@ static void gbam_port_free(enum bam_dmux_func_type func)
 	struct gbam_port *port = bam_ports[func].port;
 	struct platform_driver *pdrv = &bam_ports[func].pdrv;
 
-	if (port)
+	if (port) {
 		platform_driver_unregister(pdrv);
 
-	kfree(port);
-	bam_ports[func].port = NULL;
+		kfree(port);
+		bam_ports[func].port = NULL;
+	}
 }
 
 static int gbam_port_alloc(enum bam_dmux_func_type func)
@@ -1217,6 +1217,9 @@ static void gbam_debugfs_init(void)
 }
 static void gbam_debugfs_remove(void)
 {
+	if (!gbam_dent)
+		return;
+
 	debugfs_remove_recursive(gbam_dent);
 	debugfs_remove(gbam_dent);
 	gbam_dent = NULL;
@@ -1451,7 +1454,8 @@ int gbam_mbim_setup(void)
 {
 	int ret = 0;
 
-	ret = gbam_setup(BAM_DMUX_FUNC_MBIM);
+	if (!bam_ports[BAM_DMUX_FUNC_RMNET].port)
+		ret = gbam_setup(BAM_DMUX_FUNC_MBIM);
 
 	return ret;
 }

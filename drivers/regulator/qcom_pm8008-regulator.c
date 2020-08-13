@@ -53,8 +53,6 @@
 
 #define LDO_VSET_LB_REG(base)		(base + 0x40)
 
-#define LDO_VSET_VALID_LB_REG(base)	(base + 0x42)
-
 #define LDO_MODE_CTL1_REG(base)		(base + 0x45)
 #define MODE_PRIMARY_MASK		GENMASK(2, 0)
 #define LDO_MODE_NPM			7
@@ -156,7 +154,7 @@ static int pm8008_regulator_get_voltage(struct regulator_dev *rdev)
 	int rc;
 
 	rc = pm8008_read(pm8008_reg->regmap,
-			LDO_VSET_VALID_LB_REG(pm8008_reg->base),
+			LDO_VSET_LB_REG(pm8008_reg->base),
 			vset_raw, 2);
 	if (rc < 0) {
 		pm8008_err(pm8008_reg,

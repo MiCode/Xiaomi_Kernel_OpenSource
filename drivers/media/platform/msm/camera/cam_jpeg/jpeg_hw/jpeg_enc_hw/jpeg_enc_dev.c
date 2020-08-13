@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -185,7 +185,7 @@ static int cam_jpeg_enc_probe(struct platform_device *pdev)
 	mutex_init(&jpeg_enc_dev->hw_mutex);
 	spin_lock_init(&jpeg_enc_dev->hw_lock);
 	init_completion(&jpeg_enc_dev->hw_complete);
-
+	CAM_DBG(CAM_JPEG, "JPEG-Encoder component bound successfully");
 	return rc;
 
 error_reg_cpas:

@@ -388,6 +388,7 @@ static int smb5_configure_internal_pull(struct smb_charger *chg, int type,
 #define MICRO_P1A				100000
 #define MICRO_1PA				1000000
 #define MICRO_3PA				3000000
+#define MICRO_4PA				4000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS		50
 #define DEFAULT_WD_BARK_TIME			64
 #define DEFAULT_WD_SNARL_TIME_8S		0x07
@@ -657,6 +658,12 @@ static int smb5_parse_dt(struct smb5 *chip)
 	if (chg->chg_param.hvdcp3_max_icl_ua <= 0)
 		chg->chg_param.hvdcp3_max_icl_ua = MICRO_3PA;
 
+	/* Used only in Adapter CV mode of operation */
+	of_property_read_u32(node, "qcom,qc4-max-icl-ua",
+				&chg->chg_param.qc4_max_icl_ua);
+	if (chg->chg_param.qc4_max_icl_ua <= 0)
+		chg->chg_param.qc4_max_icl_ua = MICRO_4PA;
+
 	chg->wls_icl_ua = DCIN_ICL_MAX_UA;
 	rc = of_property_read_u32(node, "qcom,wls-current-max-ua",
 			&tmp);
@@ -784,7 +791,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->usb_icl_votable, PD_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smblib_get_prop_input_current_settled(chg, val);
+		rc = smblib_get_prop_input_current_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_USB_PD;

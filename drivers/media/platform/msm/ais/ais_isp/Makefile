@@ -8,5 +8,6 @@ ccflags-y += -Idrivers/media/platform/msm/ais/cam_cdm/
 
 obj-$(CONFIG_MSM_AIS) += csid_hw/
 obj-$(CONFIG_MSM_AIS) += vfe_hw/
+obj-$(CONFIG_MSM_AIS) += utils/
 
 obj-$(CONFIG_MSM_AIS) += ais_ife_dev.o

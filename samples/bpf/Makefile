@@ -184,7 +184,7 @@ all: $(LIBBPF)
 
 clean:
 	$(MAKE) -C ../../ M=$(CURDIR) clean
-	@rm -f *~
+	@find $(CURDIR) -type f -name '*~' -delete
 
 $(LIBBPF): FORCE
 	$(MAKE) -C $(dir $@) $(notdir $@)

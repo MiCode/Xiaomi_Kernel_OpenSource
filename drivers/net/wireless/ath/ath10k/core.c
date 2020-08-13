@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
  * Copyright (c) 2011-2017 Qualcomm Atheros, Inc.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -538,6 +539,7 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_ops = &wcn3990_ops,
 		.decap_align_bytes = 1,
 		.num_peers = TARGET_HL_10_TLV_NUM_PEERS,
+		.n_cipher_suites = 11,
 		.ast_skid_limit = TARGET_HL_10_TLV_AST_SKID_LIMIT,
 		.num_wds_entries = TARGET_HL_10_TLV_NUM_WDS_ENTRIES,
 		.target_64bit = true,
@@ -2100,6 +2102,7 @@ static void ath10k_core_restart(struct work_struct *work)
 	complete(&ar->offchan_tx_completed);
 	complete(&ar->install_key_done);
 	complete(&ar->vdev_setup_done);
+	complete(&ar->vdev_delete_done);
 	complete(&ar->thermal.wmi_sync);
 	complete(&ar->bss_survey_done);
 	wake_up(&ar->htt.empty_tx_wq);
@@ -3002,8 +3005,10 @@ struct ath10k *ath10k_core_create(size_t priv_size, struct device *dev,
 
 	init_completion(&ar->install_key_done);
 	init_completion(&ar->vdev_setup_done);
+	init_completion(&ar->vdev_delete_done);
 	init_completion(&ar->thermal.wmi_sync);
 	init_completion(&ar->bss_survey_done);
+	init_completion(&ar->peer_delete_done);
 
 	INIT_DELAYED_WORK(&ar->scan.timeout, ath10k_scan_timeout_work);
 

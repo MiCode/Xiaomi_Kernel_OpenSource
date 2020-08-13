@@ -110,6 +110,7 @@ const char *ipa3_hdr_proc_type_name[] = {
 	__stringify(IPA_HDR_PROC_ETHII_TO_ETHII_EX),
 	__stringify(IPA_HDR_PROC_L2TP_UDP_HEADER_ADD),
 	__stringify(IPA_HDR_PROC_L2TP_UDP_HEADER_REMOVE),
+	__stringify(IPA_HDR_PROC_SET_DSCP),
 };
 
 static struct dentry *dent;

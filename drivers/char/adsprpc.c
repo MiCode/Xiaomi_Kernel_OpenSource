@@ -648,11 +648,19 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size,
 					unsigned long dma_attr)
 {
+	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 
 	if (me->dev == NULL) {
 		pr_err("device adsprpc-mem is not initialized\n");
 		return -ENODEV;
+	}
+	VERIFY(err, size > 0 && size < MAX_SIZE_LIMIT);
+	if (err) {
+		err = -EFAULT;
+		pr_err("adsprpc: %s: invalid allocation size 0x%zx\n",
+			__func__, size);
+		return err;
 	}
 	*vaddr = dma_alloc_attrs(me->dev, size, region_phys,
 					GFP_KERNEL, dma_attr);
@@ -1599,9 +1607,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	PERF_END);
 	for (i = bufs; i < bufs + handles; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
-
-		pages[i].addr = map->phys;
-		pages[i].size = map->size;
+		if (map) {
+			pages[i].addr = map->phys;
+			pages[i].size = map->size;
+		}
 	}
 	fdlist = (uint64_t *)&pages[bufs + handles];
 	for (i = 0; i < M_FDLIST; i++)
@@ -1679,7 +1688,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	}
 	PERF_END);
 	for (i = bufs; rpra && lrpra && i < bufs + handles; i++) {
-		rpra[i].dma.fd = lrpra[i].dma.fd = ctx->fds[i];
+		if (ctx->fds)
+			rpra[i].dma.fd = lrpra[i].dma.fd = ctx->fds[i];
 		rpra[i].dma.len = lrpra[i].dma.len = (uint32_t)lpra[i].buf.len;
 		rpra[i].dma.offset = lrpra[i].dma.offset =
 			 (uint32_t)(uintptr_t)lpra[i].buf.pv;
@@ -3733,8 +3743,6 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		ctx->ssrcount++;
 		ctx->issubsystemup = 0;
 		mutex_unlock(&me->channel[cid].smd_mutex);
-		if (cid == 0)
-			me->staticpd_flags = 0;
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
 		if (me->channel[0].remoteheap_ramdump_dev &&
 				notifdata->enable_ramdump) {

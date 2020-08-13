@@ -4664,6 +4664,7 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 	int i;
 	int rc = 0;
 
+	memset(&isp_hw_dump_args, 0, sizeof(isp_hw_dump_args));
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&isp_hw_dump_args.cpu_addr,
 		&isp_hw_dump_args.buf_len);

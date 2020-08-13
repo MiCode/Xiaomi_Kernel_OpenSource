@@ -519,6 +519,7 @@ struct mipi_panel_info {
 	char traffic_mode;
 	char frame_rate;
 	/* command mode */
+	char frame_rate_idle;
 	char interleave_max;
 	char insert_dcs_cmd;
 	char wr_mem_continue;
@@ -942,6 +943,12 @@ struct mdss_panel_info {
 	/* stores initial adaptive variable refresh vtotal value */
 	u32 saved_avr_vtotal;
 
+	/*
+	 * Skip panel reset during panel on/off.
+	 * Set for some in-cell panels
+	 */
+	bool skip_panel_reset;
+
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
 
@@ -1003,6 +1010,7 @@ struct mdss_panel_data {
 	 */
 	int (*event_handler)(struct mdss_panel_data *pdata, int e, void *arg);
 	struct device_node *(*get_fb_node)(struct platform_device *pdev);
+	bool (*get_idle)(struct mdss_panel_data *pdata);
 
 	struct list_head timings_list;
 	struct mdss_panel_timing *current_timing;
@@ -1038,6 +1046,10 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 {
 	u32 frame_rate, pixel_total;
 	u64 rate;
+	struct mdss_panel_data *panel_data =
+			container_of(panel_info, typeof(*panel_data),
+					panel_info);
+	bool idle = false;
 
 	if (panel_info == NULL)
 		return DEFAULT_FRAME_RATE;
@@ -1046,6 +1058,12 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 	case MIPI_VIDEO_PANEL:
 	case MIPI_CMD_PANEL:
 		frame_rate = panel_info->mipi.frame_rate;
+		if (panel_data->get_idle)
+			idle = panel_data->get_idle(panel_data);
+		if (idle)
+			frame_rate = panel_info->mipi.frame_rate_idle;
+		else
+			frame_rate = panel_info->mipi.frame_rate;
 		break;
 	case EDP_PANEL:
 		frame_rate = panel_info->edp.frame_rate;

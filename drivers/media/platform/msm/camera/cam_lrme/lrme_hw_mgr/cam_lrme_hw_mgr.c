@@ -695,6 +695,7 @@ static int cam_lrme_mgr_hw_dump(void *hw_mgr_priv, void *hw_dump_args)
 		CAM_ERR(CAM_LRME, "Failed to get hw device");
 		return rc;
 	}
+	memset(&lrme_dump_args, 0, sizeof(lrme_dump_args));
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&lrme_dump_args.cpu_addr,
 		&lrme_dump_args.buf_len);

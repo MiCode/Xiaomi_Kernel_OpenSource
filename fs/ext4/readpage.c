@@ -250,7 +250,7 @@ ext4_submit_bio_read(struct bio *bio)
 
 int ext4_mpage_readpages(struct address_space *mapping,
 			 struct list_head *pages, struct page *page,
-			 unsigned nr_pages)
+			 unsigned nr_pages, bool is_readahead)
 {
 	struct bio *bio = NULL;
 	sector_t last_block_in_bio = 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -249,7 +249,8 @@ int hab_mem_export(struct uhab_context *ctx,
 	int page_count;
 	int compressed = 0;
 
-	if (!ctx || !param || !param->buffer)
+	if (!ctx || !param || !param->buffer || !param->sizebytes
+		|| ((param->sizebytes % PAGE_SIZE) != 0))
 		return -EINVAL;
 
 	vchan = hab_get_vchan_fromvcid(param->vcid, ctx, 0);

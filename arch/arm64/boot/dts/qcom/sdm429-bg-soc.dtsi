@@ -26,6 +26,7 @@
 
 	spi_3: spi@78b7000 {  /* BLSP1 QUP3*/
 		status = "ok";
+		qcom,shared_ee;
 		qcom,bg-spi {
 			compatible = "qcom,bg-spi";
 			reg = <0>;

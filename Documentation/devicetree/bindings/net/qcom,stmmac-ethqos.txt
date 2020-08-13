@@ -114,6 +114,8 @@ Optional properties:
 			- snps,high_credit: max write outstanding req. limit
 			- snps,low_credit: max read outstanding req. limit
 		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
+- rx-prog-swap: boolean value to enable RX_PROG_SWAP for 10/100M
+- rx-dll-bypass: boolean value to indicate RX DLL in bypass mode.
 Examples:
 
 	stmmac_axi_setup: stmmac-axi-config {

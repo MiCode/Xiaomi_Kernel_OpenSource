@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		status = "ok";
 
 		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -147,6 +148,7 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		status = "ok";
 
 		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -350,6 +352,11 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_LPASS_ANOC>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
+		qcom,subsys-name = "adsp";
+		clock-names = "corex", "core2x";
+		clocks = <&clock_scc SCC_QUPV3_CORE_CLK>,
+			<&clock_scc SCC_QUPV3_2XCORE_CLK>;
+		status = "disabled";
 
 		iommu_qupv3_2_geni_se_cb: qcom,iommu_qupv3_2_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";

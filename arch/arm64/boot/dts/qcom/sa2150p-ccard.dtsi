@@ -300,3 +300,21 @@
 		};
 	};
 };
+
+&pms405_vadc {
+	pa_therm1 {
+			/delete-property/ qcom,ratiometric;
+			/delete-property/ qcom,hw-settle-time;
+			label = "pa_therm1";
+			reg = <ADC_AMUX_THM1>;
+			qcom,pre-scaling = <1 1>;
+	};
+
+	pa_therm3 {
+			/delete-property/ qcom,ratiometric;
+			/delete-property/ qcom,hw-settle-time;
+			label = "pa_therm3";
+			reg = <ADC_AMUX_THM3>;
+			qcom,pre-scaling = <1 1>;
+	};
+};
