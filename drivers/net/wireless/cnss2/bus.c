@@ -19,18 +19,39 @@ enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
 		return CNSS_BUS_NONE;
 }
 
-enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id)
+enum cnss_dev_bus_type cnss_get_bus_type(struct cnss_plat_data *plat_priv)
 {
-	switch (device_id) {
+	int ret;
+	struct device *dev;
+	enum cnss_dev_bus_type bus_type = CNSS_BUS_NONE;
+
+	if (plat_priv->is_converged_dt) {
+		dev = &plat_priv->plat_dev->dev;
+		ret = of_property_read_u32(dev->of_node, "qcom,bus-type",
+					   &bus_type);
+		if (!ret && bus_type <= CNSS_BUS_USB)
+			cnss_pr_dbg("Got bus type[%u] from dt\n", bus_type);
+		else
+			cnss_pr_err("No bus type for converged dt\n");
+
+		return bus_type;
+	}
+
+	/* Get bus type according to device id if it's not converged DT */
+	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-		return CNSS_BUS_PCI;
+		bus_type = CNSS_BUS_PCI;
+		break;
 	default:
-		cnss_pr_err("Unknown device_id: 0x%lx\n", device_id);
-		return CNSS_BUS_NONE;
+		cnss_pr_err("Unknown device: 0x%lx\n", plat_priv->device_id);
+		break;
 	}
+
+	return bus_type;
 }
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev)
@@ -538,6 +559,29 @@ int cnss_bus_get_iova_ipa(struct cnss_plat_data *plat_priv, u64 *addr,
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_get_iova_ipa(plat_priv->bus_priv, addr, size);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_get_msi_assignment(struct cnss_plat_data *plat_priv,
+				char *msi_name,
+				int *num_vectors,
+				u32 *user_base_data,
+				u32 *base_vector)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_get_user_msi_assignment(plat_priv->bus_priv,
+						    msi_name,
+						    num_vectors,
+						    user_base_data,
+						    base_vector);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
