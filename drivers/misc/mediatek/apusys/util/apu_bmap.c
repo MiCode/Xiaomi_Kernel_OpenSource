@@ -26,7 +26,7 @@
  * @param[in,out] ab The apu bitmap object
  * @param[in] name The name of this bitmap object
  * @return 0: Success.<br>
- *   EINVAL: start, end, or size is not aligned to allocation unit.<br>
+ *   EINVAL: start, end, or size is not aligned to allocation unit.
  */
 int apu_bmap_init(struct apu_bmap *ab, const char *name)
 {
@@ -70,11 +70,12 @@ void apu_bmap_exit(struct apu_bmap *ab)
  * Allocate addresses from bitmap
  * @param[in] ab The apu bitmap object to be allocated from.
  * @param[in] size Desired allocation size in bytes.
- * @param[in] given_addr Allocate on the given address,
- *            0 = dyanmic allocation.
+ * @param[in] given_addr Search begin from the given address,
+ *            0 = Searches from ab->start
  * @return 0: Allocation failed.<br>
  *    Others: Allocated address.<br>
- * @remark: Searches free addresses from begin(ab->start).
+ * @remark: Searches free addresses from begin (ab->start).<br>
+ *    You have to check the returned address for static iova mapping
  */
 uint32_t apu_bmap_alloc(struct apu_bmap *ab, unsigned int size,
 	uint32_t given_addr)
@@ -105,27 +106,20 @@ uint32_t apu_bmap_alloc(struct apu_bmap *ab, unsigned int size,
 		nr, ab->align_mask);
 
 	if (offset >= ab->nbits) {
-		mdw_drv_warn("%s: %s: size: 0x%x, given addr: 0x%x, offset %d is out of limit %d\n",
+		mdw_drv_warn("%s: %s: Out of memory: size: 0x%x, given addr: 0x%x, offset: %d, nbits: %d\n",
 			__func__, ab->name, size, addr, offset, ab->nbits);
 		goto out;
 	}
 
 	addr = offset * ab->au + ab->start;
-	if (given_addr && (addr != given_addr)) {
-		/* the given address had been occupied */
-		mdw_drv_warn("%s: %s: size: 0x%x, allocated addr: 0x%x, expected addr: 0x%x\n",
-			__func__, ab->name, size, addr, given_addr);
-		goto out;
-	}
 	__bitmap_set(ab->b, offset, nr);
 
 out:
 	spin_unlock_irqrestore(&ab->lock, flags);
 
 	if (addr)
-		mdw_mem_debug("%s: %s: size: 0x%x, allocated addr: 0x%x (%s)\n",
-		__func__, ab->name, size, addr,
-		given_addr ? "static" : "dynamic");
+		mdw_mem_debug("%s: %s: size: 0x%x, given_addr: 0x%x, allocated addr: 0x%x\n",
+		__func__, ab->name, size, given_addr, addr);
 
 	return addr;
 }

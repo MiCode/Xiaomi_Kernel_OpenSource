@@ -244,7 +244,7 @@ static int vpu_alg_add(struct vpu_algo_list *al, struct apusys_firmware_hnd *fw)
 
 	alg->prog.bin = VPU_MEM_ALLOC;
 	alg->prog.size = fw->size;
-	alg->a.mva = mops->alloc(to_platform_device(vd->dev), &alg->prog);
+	alg->a.mva = mops->alloc(vd->dev, &alg->prog);
 	if (!alg->a.mva) {
 		ret = -ENOMEM;
 		goto algo_free;

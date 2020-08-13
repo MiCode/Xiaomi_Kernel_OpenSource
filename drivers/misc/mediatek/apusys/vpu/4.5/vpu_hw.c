@@ -282,8 +282,8 @@ out:
 	return ret;
 }
 
-static void vpu_exit_dev_algo_general(struct platform_device *pdev,
-	struct vpu_device *vd, struct vpu_algo_list *al)
+static void vpu_exit_dev_algo_general(struct vpu_device *vd,
+	struct vpu_algo_list *al)
 {
 	struct __vpu_algo *alg, *tmp;
 
@@ -398,7 +398,7 @@ static int preload_iova_check(struct vpu_iova *i)
 	return 0;
 }
 
-static dma_addr_t preload_iova_alloc(struct platform_device *pdev,
+static dma_addr_t preload_iova_alloc(
 	struct vpu_device *vd, struct vpu_iova *vi,
 	uint32_t addr, uint32_t size, uint32_t bin)
 {
@@ -411,7 +411,7 @@ static dma_addr_t preload_iova_alloc(struct platform_device *pdev,
 	if (preload_iova_check(vi))
 		return 0;
 
-	mva = vd_mops(vd)->alloc(pdev, vi);
+	mva = vd_mops(vd)->alloc(vd->dev, vi);
 
 	if (!mva)
 		pr_info("%s: vpu%d: iova allcation failed\n", __func__, vd->id);
@@ -427,7 +427,7 @@ static dma_addr_t preload_iova_alloc(struct platform_device *pdev,
 #define PRELOAD_IRAM 0xFFFFFFFF
 
 static uint32_t vpu_init_dev_algo_preload_entry(
-	struct platform_device *pdev, struct vpu_device *vd,
+	struct vpu_device *vd,
 	struct vpu_algo_list *al, struct vpu_pre_info *info,
 	uint32_t bin)
 {
@@ -446,7 +446,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 		if (info->pAddr == PRELOAD_IRAM) {
 			addr = 0;  /* dynamic alloc iova */
 			vi = &alg->iram;
-			mva = preload_iova_alloc(pdev, vd, vi, addr,
+			mva = preload_iova_alloc(vd, vi, addr,
 				size, info->off);
 			alg->a.iram_mva = mva;
 			goto added;
@@ -478,7 +478,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 			__func__, vd->id, info->flag);
 	}
 
-	mva = preload_iova_alloc(pdev, vd, vi, addr, size, info->off);
+	mva = preload_iova_alloc(vd, vi, addr, size, info->off);
 	alg->a.mva = mva;
 
 	if (!alg->a.mva)
@@ -496,7 +496,7 @@ out:
 	return bin + size;
 }
 
-static int vpu_init_dev_algo_preload(struct platform_device *pdev,
+static int vpu_init_dev_algo_preload(
 	struct vpu_device *vd, struct vpu_algo_list *al)
 {
 	int i, j, ret = 0;
@@ -522,14 +522,14 @@ static int vpu_init_dev_algo_preload(struct platform_device *pdev,
 				continue;
 
 			offset = vpu_init_dev_algo_preload_entry(
-				pdev, vd, al, info, offset);
+				vd, al, info, offset);
 		}
 	}
 
 	return ret;
 }
 
-static int vpu_init_dev_algo_normal(struct platform_device *pdev,
+static int vpu_init_dev_algo_normal(
 	struct vpu_device *vd, struct vpu_algo_list *al)
 {
 	int i, j;
@@ -592,12 +592,12 @@ int vpu_init_dev_algo(struct platform_device *pdev, struct vpu_device *vd)
 {
 	int ret;
 
-	ret = vpu_init_dev_algo_normal(pdev, vd, &vd->aln);
+	ret = vpu_init_dev_algo_normal(vd, &vd->aln);
 	if (ret)
 		goto out;
 
 	if (bin_type(vd) == VPU_IMG_PRELOAD)
-		ret = vpu_init_dev_algo_preload(pdev, vd, &vd->alp);
+		ret = vpu_init_dev_algo_preload(vd, &vd->alp);
 out:
 	return ret;
 }
@@ -605,10 +605,10 @@ out:
 /* called by vpu_remove() */
 void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *vd)
 {
-	vpu_exit_dev_algo_general(pdev, vd, &vd->aln);
+	vpu_exit_dev_algo_general(vd, &vd->aln);
 
 	if (bin_type(vd) == VPU_IMG_PRELOAD)
-		vpu_exit_dev_algo_general(pdev, vd, &vd->alp);
+		vpu_exit_dev_algo_general(vd, &vd->alp);
 }
 
 static wait_queue_head_t *vpu_isr_check_cmd_xos(struct vpu_device *vd,
@@ -1005,7 +1005,7 @@ int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 	if (sops->xos_unlock)
 		sops->xos_unlock(vd);
 
-	ret = vpu_cmd_init(pdev, vd);
+	ret = vpu_cmd_init(vd);
 	if (ret) {
 		pr_info("%s: %s: fail to init commands: %d\n",
 			__func__, vd->name, ret);

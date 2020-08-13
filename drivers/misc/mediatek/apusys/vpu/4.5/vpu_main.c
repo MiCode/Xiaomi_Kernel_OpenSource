@@ -242,8 +242,6 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
  */
 int vpu_kbuf_alloc(struct vpu_device *vd)
 {
-	struct platform_device *pdev
-		= container_of(vd->dev, struct platform_device, dev);
 	dma_addr_t iova = 0;
 	struct timespec start, end;
 	uint64_t period;
@@ -253,7 +251,7 @@ int vpu_kbuf_alloc(struct vpu_device *vd)
 		return 0;
 
 	ktime_get_ts(&start);
-	iova = mops->alloc(pdev, &vd->iova_kernel);
+	iova = mops->alloc(vd->dev, &vd->iova_kernel);
 	ktime_get_ts(&end);
 
 	if (!iova) {
@@ -436,9 +434,9 @@ static int vpu_shared_get(struct platform_device *pdev,
 	if (!vpu_drv->mva_algo) {
 		cops->emi_mpu_set(vpu_drv->bin_pa, vpu_drv->bin_size);
 
-		if (mops->dts(pdev, "algo", &vpu_drv->iova_algo))
+		if (mops->dts(vd->dev, "algo", &vpu_drv->iova_algo))
 			goto error;
-		iova = mops->alloc(pdev, &vpu_drv->iova_algo);
+		iova = mops->alloc(vd->dev, &vpu_drv->iova_algo);
 		if (!iova)
 			goto error;
 		vpu_drv->mva_algo = iova;
@@ -502,6 +500,7 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	int ret = 0;
 	struct vpu_mem_ops *mops = vd_mops(vd);
 	struct vpu_config *cfg = vd_cfg(vd);
+	struct device *dev = vd->dev;
 
 	/* registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -514,11 +513,11 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	}
 
 	/* iova */
-	if (mops->dts(pdev, "reset-vector", &vd->iova_reset) ||
-		mops->dts(pdev, "main-prog", &vd->iova_main) ||
-		mops->dts(pdev, "kernel-lib", &vd->iova_kernel) ||
-		mops->dts(pdev, "iram-data", &vd->iova_iram) ||
-		mops->dts(pdev, "work-buf", &vd->iova_work)) {
+	if (mops->dts(dev, "reset-vector", &vd->iova_reset) ||
+		mops->dts(dev, "main-prog", &vd->iova_main) ||
+		mops->dts(dev, "kernel-lib", &vd->iova_kernel) ||
+		mops->dts(dev, "iram-data", &vd->iova_iram) ||
+		mops->dts(dev, "work-buf", &vd->iova_work)) {
 		goto error;
 	}
 
@@ -531,16 +530,16 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	ret = vpu_shared_get(pdev, vd);
 	if (ret)
 		goto error;
-	iova = mops->alloc(pdev, &vd->iova_reset);
+	iova = mops->alloc(dev, &vd->iova_reset);
 	if (!iova)
 		goto error;
-	iova = mops->alloc(pdev, &vd->iova_main);
+	iova = mops->alloc(dev, &vd->iova_main);
 	if (!iova)
 		goto error;
-	iova = mops->alloc(pdev, &vd->iova_work);
+	iova = mops->alloc(dev, &vd->iova_work);
 	if (!iova)
 		goto error;
-	iova = mops->alloc(pdev, &vd->iova_iram);
+	iova = mops->alloc(dev, &vd->iova_iram);
 	vd->mva_iram = iova;
 	vd->iova_iram.addr = iova;
 

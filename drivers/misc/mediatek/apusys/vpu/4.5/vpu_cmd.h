@@ -12,7 +12,7 @@
 
 struct vpu_device;
 
-int vpu_cmd_init(struct platform_device *pdev, struct vpu_device *vd);
+int vpu_cmd_init(struct vpu_device *vd);
 void vpu_cmd_exit(struct vpu_device *vd);
 void vpu_cmd_clear(struct vpu_device *vd);
 

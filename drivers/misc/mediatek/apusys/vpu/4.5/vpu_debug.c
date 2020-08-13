@@ -724,15 +724,15 @@ static int vpu_debug_iova_seq(struct seq_file *s,
 {
 	if (i->bin == VPU_MEM_ALLOC) {
 		if (i->addr)
-			seq_printf(s, "<%s> iova: 0x%x, size: 0x%x (static alloc)\n",
-				prefix,	i->addr, i->size);
+			seq_printf(s, "<%s> iova: 0x%llx, size: 0x%x (static alloc)\n",
+				prefix,	i->iova, i->size);
 		else {
-			seq_printf(s, "<%s> iova: 0x%x, size: 0x%x (dynamic alloc)\n",
-				prefix,	i->m.pa, i->size);
+			seq_printf(s, "<%s> iova: 0x%llx, size: 0x%x (dynamic alloc)\n",
+				prefix,	i->iova, i->size);
 		}
 	} else if (i->size) {
-		seq_printf(s, "<%s> iova: 0x%x, size: 0x%x, bin offset: 0x%x\n",
-			prefix, i->addr, i->size, i->bin);
+		seq_printf(s, "<%s> iova: 0x%llx, size: 0x%x, bin offset: 0x%x\n",
+			prefix, i->iova, i->size, i->bin);
 	}
 	return 0;
 }
@@ -816,6 +816,11 @@ static int vpu_debug_info(struct seq_file *s)
 	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
 		vd = list_entry(ptr, struct vpu_device, list);
 		vpu_debug_info_dev(s, vd);
+	}
+
+	if (vpu_drv->vp && vpu_drv->vp->mops && vpu_drv->vp->mops->show) {
+		seq_puts(s, "======== IOVA Info ========\n");
+		vpu_drv->vp->mops->show(s);
 	}
 	mutex_unlock(&vpu_drv->lock);
 	seq_puts(s, "\n");
