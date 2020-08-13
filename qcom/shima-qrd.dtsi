@@ -4,6 +4,7 @@
 #include "shima-thermal-overlay.dtsi"
 #include "shima-audio-overlay.dtsi"
 #include "display/shima-sde-display-qrd.dtsi"
+#include "camera/shima-camera-sensor-qrd.dtsi"
 
 &soc {
 	gpio_keys {
