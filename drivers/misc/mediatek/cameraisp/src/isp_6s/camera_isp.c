@@ -44,7 +44,7 @@
 
 /* #define EP_STAGE */
 #ifdef EP_STAGE
-#define EP_MARK_SMI /* disable SMI related for EP */
+//#define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
 
 /* Clkmgr is not ready in early porting, en/disable clock by hardcode */
@@ -233,73 +233,76 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
 	{ISP_Irq_CAMSV_6, 0, "camsv7-dummy"},
 	{ISP_Irq_CAMSV_7, 0, "camsv8-dummy"}
 #else
-	{ISP_Irq_CAM_A, 0, "cam1"},     {ISP_Irq_CAM_B, 0, "cam2"},
-	{ISP_Irq_CAM_C, 0, "cam3"},     {ISP_Irq_CAMSV_0, 0, "camsv1"},
-	{ISP_Irq_CAMSV_1, 0, "camsv2"}, {ISP_Irq_CAMSV_2, 0, "camsv3"},
-	{ISP_Irq_CAMSV_3, 0, "camsv4"}, {ISP_Irq_CAMSV_4, 0, "camsv5"},
-	{ISP_Irq_CAMSV_5, 0, "camsv6"}, {ISP_Irq_CAMSV_6, 0, "camsv7"},
-	{ISP_Irq_CAMSV_7, 0, "camsv8"}
+	/* device_name definded in IRQ_CB_TBL must be match with the node name
+	 * defined in dts.
+	 */
+	{ISP_Irq_CAM_A, 0, "cam1_legacy"},     {ISP_Irq_CAM_B, 0, "cam2_legacy"},
+	{ISP_Irq_CAM_C, 0, "cam3_legacy"},     {ISP_Irq_CAMSV_0, 0, "camsv1_legacy"},
+	{ISP_Irq_CAMSV_1, 0, "camsv2_legacy"}, {ISP_Irq_CAMSV_2, 0, "camsv3_legacy"},
+	{ISP_Irq_CAMSV_3, 0, "camsv4_legacy"}, {ISP_Irq_CAMSV_4, 0, "camsv5_legacy"},
+	{ISP_Irq_CAMSV_5, 0, "camsv6_legacy"}, {ISP_Irq_CAMSV_6, 0, "camsv7_legacy"},
+	{ISP_Irq_CAMSV_7, 0, "camsv8_legacy"}
 #endif
 };
 
 /*
  * Note!!! The order and member of .compatible must be the same with that in
- *  "ISP_DEV_NODE_ENUM" in camera_isp.h
+ *  dts file.
  */
 static const struct of_device_id isp_of_ids[] = {
 	{
-		.compatible = "mediatek,camsys",
+		.compatible = "mediatek,camisp_legacy",
 	},
 	{
-		.compatible = "mediatek,camsys_rawa",
+		.compatible = "mediatek,cam1_legacy",
 	},
 	{
-		.compatible = "mediatek,camsys_rawb",
+		.compatible = "mediatek,cam1_inner_legacy",
 	},
 	{
-		.compatible = "mediatek,camsys_rawc",
+		.compatible = "mediatek,camsys_rawa_legacy",
 	},
 	{
-		.compatible = "mediatek,cam1_inner",
+		.compatible = "mediatek,cam2_legacy",
 	},
 	{
-		.compatible = "mediatek,cam2_inner",
+		.compatible = "mediatek,cam2_inner_legacy",
 	},
 	{
-		.compatible = "mediatek,cam3_inner",
+		.compatible = "mediatek,camsys_rawb_legacy",
 	},
 	{
-		.compatible = "mediatek,cam1",
+		.compatible = "mediatek,cam3_legacy",
 	},
 	{
-		.compatible = "mediatek,cam2",
+		.compatible = "mediatek,cam3_inner_legacy",
 	},
 	{
-		.compatible = "mediatek,cam3",
+		.compatible = "mediatek,camsys_rawc_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv1",
+		.compatible = "mediatek,camsv1_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv2",
+		.compatible = "mediatek,camsv2_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv3",
+		.compatible = "mediatek,camsv3_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv4",
+		.compatible = "mediatek,camsv4_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv5",
+		.compatible = "mediatek,camsv5_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv6",
+		.compatible = "mediatek,camsv6_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv7",
+		.compatible = "mediatek,camsv7_legacy",
 	},
 	{
-		.compatible = "mediatek,camsv8",
+		.compatible = "mediatek,camsv8_legacy",
 	},
 	{} };
 
@@ -371,8 +374,7 @@ struct isp_sec_dapc_reg {
 	unsigned int CAM_REG_CTL_SEL2[ISP_DEV_NODE_NUM];
 };
 
-static struct isp_device *isp_devs;
-static int nr_isp_devs;
+static struct isp_device isp_devs[ISP_DEV_NODE_NUM];
 static unsigned int m_CurrentPPB;
 static struct isp_sec_dapc_reg lock_reg;
 static unsigned int sec_on;
@@ -1861,16 +1863,16 @@ static inline void Prepare_Enable_ccf_clock(void)
 	/* ISP PM domain -> CAMTG/CAMSV clock */
 
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAMSYS_CONFIG_IDX mtcmos\n");
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAM_A_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAM_A_IDX mtcmos\n");
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAM_B_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAM_B_IDX mtcmos\n");
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAM_C_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAM_C_IDX mtcmos\n");
 
 	ret = clk_prepare_enable(isp_clk.CAMSYS_LARB13_CGPDN);
@@ -1982,16 +1984,16 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB14_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB13_CGPDN);
 	ret = pm_runtime_put_sync(isp_devs[ISP_CAM_C_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAM_C_IDX mtcmos\n");
 	ret = pm_runtime_put_sync(isp_devs[ISP_CAM_B_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAM_B_IDX mtcmos\n");
 	ret = pm_runtime_put_sync(isp_devs[ISP_CAM_A_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAM_A_IDX mtcmos\n");
 	ret = pm_runtime_put_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
-	if (ret)
+	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAMSYS_CONFIG_IDX mtcmos\n");
 
 }
@@ -6410,6 +6412,55 @@ EXIT:
 /*******************************************************************************
  *
  ******************************************************************************/
+static unsigned int NodeName_to_DevIdx(const char *name)
+{
+	/* Note:
+	 * The following compared string should be the same as the node name
+	 * defined in dts.
+	 */
+	if (strncmp(name, "camisp_legacy", 13) == 0)
+		return ISP_CAMSYS_CONFIG_IDX;
+	else if (strncmp(name, "camsys_rawa_legacy", 18) == 0)
+		return ISP_CAMSYS_RAWA_CONFIG_IDX;
+	else if (strncmp(name, "camsys_rawb_legacy", 18) == 0)
+		return ISP_CAMSYS_RAWB_CONFIG_IDX;
+	else if (strncmp(name, "camsys_rawc_legacy", 18) == 0)
+		return ISP_CAMSYS_RAWC_CONFIG_IDX;
+	else if (strncmp(name, "cam1_inner_legacy", 17) == 0)
+		return ISP_CAM_A_INNER_IDX;
+	else if (strncmp(name, "cam2_inner_legacy", 17) == 0)
+		return ISP_CAM_B_INNER_IDX;
+	else if (strncmp(name, "cam3_inner_legacy", 17) == 0)
+		return ISP_CAM_C_INNER_IDX;
+	else if (strncmp(name, "cam1_legacy", 11) == 0)
+		return ISP_CAM_A_IDX;
+	else if (strncmp(name, "cam2_legacy", 11) == 0)
+		return ISP_CAM_B_IDX;
+	else if (strncmp(name, "cam3_legacy", 11) == 0)
+		return ISP_CAM_C_IDX;
+	else if (strncmp(name, "camsv1_legacy", 13) == 0)
+		return ISP_CAMSV0_IDX;
+	else if (strncmp(name, "camsv2_legacy", 13) == 0)
+		return ISP_CAMSV1_IDX;
+	else if (strncmp(name, "camsv3_legacy", 13) == 0)
+		return ISP_CAMSV2_IDX;
+	else if (strncmp(name, "camsv4_legacy", 13) == 0)
+		return ISP_CAMSV3_IDX;
+	else if (strncmp(name, "camsv5_legacy", 13) == 0)
+		return ISP_CAMSV4_IDX;
+	else if (strncmp(name, "camsv6_legacy", 13) == 0)
+		return ISP_CAMSV5_IDX;
+	else if (strncmp(name, "camsv7_legacy", 13) == 0)
+		return ISP_CAMSV6_IDX;
+	else if (strncmp(name, "camsv8_legacy", 13) == 0)
+		return ISP_CAMSV7_IDX;
+	else
+		return ISP_DEV_NODE_NUM;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
 static int ISP_probe(struct platform_device *pDev)
 {
 	int Ret = 0;
@@ -6417,10 +6468,9 @@ static int ISP_probe(struct platform_device *pDev)
 	int i = 0, j = 0;
 	unsigned char n;
 	unsigned int irq_info[3]; /* Record interrupts info from device tree */
-	struct isp_device *_ispdev = NULL;
+	unsigned int dev_idx = (unsigned int)ISP_DEV_NODE_NUM;
 
 #ifdef CONFIG_OF
-	struct isp_device *isp_dev;
 	struct device *dev = NULL;
 #endif
 
@@ -6433,51 +6483,54 @@ static int ISP_probe(struct platform_device *pDev)
 		return -ENXIO;
 	}
 
-	nr_isp_devs += 1;
 	atomic_inc(&G_u4DevNodeCt);
 
-	_ispdev = krealloc(isp_devs, sizeof(struct isp_device) * nr_isp_devs,
-			   GFP_KERNEL);
-
-	if (!_ispdev) {
-		LOG_NOTICE("Error: Unable to allocate isp_devs\n");
-		return -ENOMEM;
+	dev_idx = NodeName_to_DevIdx(pDev->dev.of_node->name);
+	if ((dev_idx >= ISP_DEV_NODE_NUM) || (dev_idx < ISP_CAMSYS_CONFIG_IDX)) {
+		LOG_NOTICE(
+			"Error: device idx is wrong. G_u4DevNodeCt=%d, devnode(%s).\n",
+			atomic_read(&G_u4DevNodeCt), pDev->dev.of_node->name);
+		return -ENODEV;
 	}
-	isp_devs = _ispdev;
+	LOG_INF("device idx= %d.\n", dev_idx);
 
-	isp_dev = &(isp_devs[nr_isp_devs - 1]);
-	isp_dev->dev = &pDev->dev;
+	/* Assign the device into isp_devs[] by the order of dev_idx (defined
+	 * in ISP_DEV_NODE_ENUM).
+	 */
+	isp_devs[dev_idx].dev = &pDev->dev;
 
 	/* iomap registers */
-	isp_dev->regs = of_iomap(pDev->dev.of_node, 0);
-	if (!isp_dev->regs) {
+	isp_devs[dev_idx].regs = of_iomap(pDev->dev.of_node, 0);
 
+	if (!(isp_devs[dev_idx].regs)) {
 		LOG_NOTICE(
-			"Error: Unable to ioremap registers, of_iomap fail, nr_isp_devs=%d, devnode(%s).\n",
-			nr_isp_devs, pDev->dev.of_node->name);
+			"Error: Unable to ioremap registers, of_iomap fail, G_u4DevNodeCt=%d, devnode(%s).\n",
+			atomic_read(&G_u4DevNodeCt), pDev->dev.of_node->name);
 
 		return -ENOMEM;
 	}
 
 #ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-	*(isp_dev->dev->dma_mask) = (u64)DMA_BIT_MASK(34);
-	isp_dev->dev->coherent_dma_mask = (u64)DMA_BIT_MASK(34);
+	*(isp_devs[dev_idx].dev->dma_mask) = (u64)DMA_BIT_MASK(34);
+	isp_devs[dev_idx].dev->coherent_dma_mask = (u64)DMA_BIT_MASK(34);
 #endif
 #endif
-	LOG_INF("nr_isp_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_isp_devs,
-		pDev->dev.of_node->name, (unsigned long)isp_dev->regs);
+	LOG_INF("G_u4DevNodeCt=%d, devnode(%s), map_addr=0x%lx\n",
+		atomic_read(&G_u4DevNodeCt),
+		pDev->dev.of_node->name,
+		(unsigned long)isp_devs[dev_idx].regs);
 #ifndef EP_NO_CLKMGR /* MTCMOS */
-	if ((strncmp(pDev->dev.of_node->name, "mediatek,cam1", 13) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "mediatek,cam2", 13) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "mediatek,cam3", 13) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "mediatek,camsys", 15) == 0))
+	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam2_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam3_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "camisp_legacy", 13) == 0))
 		pm_runtime_enable(&pDev->dev);
 #endif
 	/* get IRQ ID and request IRQ */
-	isp_dev->irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
+	isp_devs[dev_idx].irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
 
-	if (isp_dev->irq > 0) {
+	if (isp_devs[dev_idx].irq > 0) {
 		/* Get IRQ Flag from device node */
 		if (of_property_read_u32_array(pDev->dev.of_node, "interrupts",
 					       irq_info,
@@ -6493,7 +6546,7 @@ static int ISP_probe(struct platform_device *pDev)
 			    (IRQ_CB_TBL[i].isr_fp != NULL)) {
 
 				Ret = request_irq(
-					isp_dev->irq,
+					isp_devs[dev_idx].irq,
 					(irq_handler_t)IRQ_CB_TBL[i].isr_fp,
 					irq_info[2],
 					(const char *)IRQ_CB_TBL[i].device_name,
@@ -6501,19 +6554,19 @@ static int ISP_probe(struct platform_device *pDev)
 
 				if (Ret) {
 					LOG_NOTICE(
-					"Error: request_irq fail, nr_isp_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
-					nr_isp_devs,
+					"Error: request_irq fail, G_u4DevNodeCt=%d, devnode(%s), irq=%d, ISR: %s\n",
+					atomic_read(&G_u4DevNodeCt),
 					pDev->dev.of_node->name,
-					isp_dev->irq,
+					isp_devs[dev_idx].irq,
 					IRQ_CB_TBL[i].device_name);
 
 					return Ret;
 				}
 
 				LOG_INF(
-				"nr_isp_devs=%d, devnode(%s), irq=%d, ISR: %s\n",
-					nr_isp_devs, pDev->dev.of_node->name,
-					isp_dev->irq,
+				"G_u4DevNodeCt=%d, devnode(%s), irq=%d, ISR: %s\n",
+					atomic_read(&G_u4DevNodeCt), pDev->dev.of_node->name,
+					isp_devs[dev_idx].irq,
 					IRQ_CB_TBL[i].device_name);
 
 				break;
@@ -6521,17 +6574,19 @@ static int ISP_probe(struct platform_device *pDev)
 		}
 
 		if (i >= ISP_IRQ_TYPE_AMOUNT)
-			LOG_INF("No ISR: devs=%d, node(%s), irq=%d\n",
-				nr_isp_devs, pDev->dev.of_node->name,
-				isp_dev->irq);
+			LOG_INF("No ISR: G_u4DevNodeCt=%d, node(%s), irq=%d\n",
+				atomic_read(&G_u4DevNodeCt), pDev->dev.of_node->name,
+				isp_devs[dev_idx].irq);
 
 	} else {
-		LOG_INF("No IRQ!!: nr_isp_devs=%d, devnode(%s), irq=%d\n",
-			nr_isp_devs, pDev->dev.of_node->name, isp_dev->irq);
+		LOG_INF("No IRQ!!: G_u4DevNodeCt=%d, devnode(%s), irq=%d\n",
+			atomic_read(&G_u4DevNodeCt),
+			pDev->dev.of_node->name,
+			isp_devs[dev_idx].irq);
 	}
 
 	/* Only register char driver in the 1st time */
-	if (nr_isp_devs == 1) {
+	if (atomic_read(&G_u4DevNodeCt) == 1) {
 		/* Register char driver */
 		Ret = ISP_RegCharDev();
 		if ((Ret)) {
@@ -6900,10 +6955,10 @@ static int ISP_remove(struct platform_device *pDev)
 	/*  */
 	LOG_DBG("- E.");
 #ifndef EP_NO_CLKMGR /* CCF */
-	if ((strncmp(pDev->dev.of_node->name, "mediatek,cam1", 13) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "mediatek,cam2", 13) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "mediatek,cam3", 13) == 0) ||
-		(strncmp(pDev->dev.of_node->name, "mediatek,camsys", 15) == 0))
+	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam2_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam3_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "camisp_legacy", 13) == 0))
 		pm_runtime_disable(&pDev->dev);
 #endif
 	/* unregister char driver. */
@@ -7422,40 +7477,37 @@ static int __init ISP_Init(void)
 /* Otherwise, probe() of Seninf driver cannot be called. */
 #if (SMI_LARB_MMU_CTL == 1)
 	do {
-		char *comp_str = NULL;
+		unsigned int larb_id = 0;
 
-		comp_str = kmalloc(64, GFP_KERNEL);
-		if (comp_str == NULL) {
-			LOG_NOTICE("kmalloc failed for finding compatible\n");
-			break;
-		}
+		for (i = 0; i < ARRAY_SIZE(SMI_LARB_BASE); i++)
+			SMI_LARB_BASE[i] = 0;
 
 		for (i = 0; i < ARRAY_SIZE(SMI_LARB_BASE); i++) {
-
-			snprintf(comp_str, 64, "mediatek,smi_larb%d", i);
-			LOG_INF("Finding SMI_LARB compatible: %s\n", comp_str);
-
-			node = of_find_compatible_node(NULL, NULL, comp_str);
+			node = of_find_compatible_node(node, NULL, "mediatek,mt6873-smi-larb");
 			if (!node) {
+				if (i == 0) {
+					LOG_NOTICE("find no larb node\n");
+					break;
+				}
 
-				LOG_NOTICE("find %s node failed!!!\n",
-					   comp_str);
-
-				SMI_LARB_BASE[i] = 0;
-				continue;
-			}
-			SMI_LARB_BASE[i] = of_iomap(node, 0);
-			if (!SMI_LARB_BASE[i]) {
-
-				LOG_NOTICE(
-					"unable to map SMI_LARB_BASE registers!!!\n");
+				LOG_NOTICE("Found %d larb and Search done\n", i);
 				break;
 			}
-			LOG_INF("SMI_LARB%d_BASE: %pK\n", i, SMI_LARB_BASE[i]);
-		}
 
-		/* if (comp_str) coverity: no need if, kfree is safe */
-		kfree(comp_str);
+			if (of_property_read_u32(node, "mediatek,larb-id", &larb_id)) {
+				LOG_NOTICE("Error: get larb id from DTS fail!!\n");
+				break;
+			} else {
+				SMI_LARB_BASE[larb_id] = of_iomap(node, 0);
+
+				if (!SMI_LARB_BASE[larb_id]) {
+					LOG_NOTICE(
+						"unable to map SMI_LARB_BASE registers!!!\n");
+					break;
+				}
+				LOG_INF("SMI_LARB%d_BASE: 0x%p\n", larb_id, SMI_LARB_BASE[larb_id]);
+			}
+		}
 	} while (0);
 #endif
 
