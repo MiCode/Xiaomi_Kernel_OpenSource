@@ -1,1 +1,63 @@
 #include "lahaina-qrd-common.dtsi"
+
+&lahaina_snd {
+	qcom,model = "lahaina-hdk-snd-card";
+
+	qcom,audio-routing =
+		"AMIC1", "Analog Mic1",
+		"Analog Mic1", "MIC BIAS1",
+		"AMIC2", "Analog Mic2",
+		"Analog Mic2", "MIC BIAS2",
+		"AMIC3", "Analog Mic3",
+		"Analog Mic3", "MIC BIAS3",
+		"AMIC4", "Analog Mic4",
+		"Analog Mic4", "MIC BIAS3",
+		"AMIC5", "Analog Mic5",
+		"Analog Mic5", "MIC BIAS4",
+		"TX DMIC0", "Digital Mic0",
+		"Digital Mic0", "MIC BIAS1",
+		"TX DMIC1", "Digital Mic1",
+		"Digital Mic1", "MIC BIAS1",
+		"TX DMIC2", "Digital Mic2",
+		"Digital Mic2", "MIC BIAS3",
+		"TX DMIC3", "Digital Mic3",
+		"Digital Mic3", "MIC BIAS3",
+		"TX DMIC4", "Digital Mic4",
+		"Digital Mic4", "MIC BIAS4",
+		"TX DMIC5", "Digital Mic5",
+		"Digital Mic5", "MIC BIAS4",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"HAP_IN", "PCM_OUT",
+		"WSA SRC0_INP", "SRC0",
+		"WSA_TX DEC0_INP", "TX DEC0 MUX",
+		"WSA_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"SpkrLeft IN", "WSA_SPK1 OUT",
+		"TX SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA SWR_INPUT", "VA_SWR_CLK",
+		"VA SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK",
+		"VA DMIC0", "Digital Mic0",
+		"VA DMIC1", "Digital Mic1",
+		"VA DMIC2", "Digital Mic2",
+		"VA DMIC3", "Digital Mic3",
+		"VA DMIC4", "Digital Mic4",
+		"VA DMIC5", "Digital Mic5",
+		"Digital Mic0", "VA MIC BIAS1",
+		"Digital Mic1", "VA MIC BIAS1",
+		"Digital Mic2", "VA MIC BIAS3",
+		"Digital Mic3", "VA MIC BIAS3",
+		"Digital Mic4", "VA MIC BIAS4",
+		"Digital Mic5", "VA MIC BIAS4";
+
+	qcom,msm-mbhc-usbc-audio-supported = <0>;
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+};
