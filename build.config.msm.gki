@@ -7,7 +7,7 @@ if [ -z "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
 fi
 
 ABI_DEFINITION=abi_gki_aarch64.xml
-KMI_WHITELIST=abi_gki_qcom_whitelist
+KMI_SYMBOL_LIST=abi_gki_aarch64_qcom
 
 function build_defconfig_fragments() {
 	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
