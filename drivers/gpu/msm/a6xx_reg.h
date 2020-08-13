@@ -1123,7 +1123,7 @@
  * now we are using a separate section for RSCC regsiters. Add the
  * offset for backward compatibility.
  */
-#define RSCC_OFFSET_LEGACY			0x23000
+#define RSCC_OFFSET_LEGACY			0x23400
 
 /* RGMU(PCC) registers in A6X_GMU_CX_0_NON_CONTEXT_DEC domain */
 #define A6XX_RGMU_CX_INTR_GEN_EN		0x1F80F
