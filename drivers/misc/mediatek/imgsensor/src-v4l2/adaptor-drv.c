@@ -9,6 +9,7 @@
 #include <media/v4l2-subdev.h>
 #include <linux/of.h>
 #include <linux/of_graph.h>
+#include <linux/thermal.h>
 
 #include "kd_imgsensor_define.h"
 
@@ -786,6 +787,24 @@ static const struct v4l2_subdev_internal_ops imgsensor_internal_ops = {
 	.close = imgsensor_close,
 };
 
+static int imgsensor_get_temp(void *data, int *temperature)
+{
+	struct adaptor_ctx *ctx = data;
+
+	if (pm_runtime_get_if_in_use(ctx->dev) == 0)
+		return THERMAL_TEMP_INVALID;
+
+	subdrv_call(ctx, get_temp, temperature);
+
+	pm_runtime_put(ctx->dev);
+
+	return 0;
+}
+
+static const struct thermal_zone_of_device_ops imgsensor_tz_ops = {
+	.get_temp = imgsensor_get_temp,
+};
+
 static int imgsensor_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -873,6 +892,16 @@ static int imgsensor_probe(struct i2c_client *client)
 	}
 
 	pm_runtime_enable(dev);
+
+	/* register thermal device */
+	if (ctx->subdrv->ops->get_temp) {
+		struct thermal_zone_device *tzdev;
+
+		tzdev = devm_thermal_zone_of_sensor_register(
+			       dev, 0, ctx, &imgsensor_tz_ops);
+		if (IS_ERR(tzdev))
+			dev_info(dev, "failed to register tz\n");
+	}
 
 	return 0;
 
