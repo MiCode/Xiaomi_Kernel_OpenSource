@@ -112,6 +112,7 @@ struct subdrv_ops {
 	int (*get_frame_desc)(struct subdrv_ctx *ctx,
 			int scenario_id,
 			struct v4l2_mbus_frame_desc *fd);
+	int (*get_temp)(struct subdrv_ctx *ctx, int *temp);
 };
 
 struct subdrv_entry {

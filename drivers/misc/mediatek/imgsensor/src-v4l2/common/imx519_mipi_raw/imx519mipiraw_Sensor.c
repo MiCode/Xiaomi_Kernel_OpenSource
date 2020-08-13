@@ -4695,6 +4695,12 @@ static int init_ctx(struct subdrv_ctx *ctx,
 	return 0;
 }
 
+static int get_temp(struct subdrv_ctx *ctx, int *temp)
+{
+	*temp = get_sensor_temperature(ctx) * 1000;
+	return 0;
+}
+
 static struct subdrv_ops ops = {
 	.get_id = get_imgsensor_id,
 	.init_ctx = init_ctx,
@@ -4704,6 +4710,7 @@ static struct subdrv_ops ops = {
 	.control = control,
 	.feature_control = feature_control,
 	.close = close,
+	.get_temp = get_temp,
 };
 
 const struct subdrv_entry imx519_mipi_raw_entry = {
