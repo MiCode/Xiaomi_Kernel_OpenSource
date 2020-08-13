@@ -1705,6 +1705,7 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 {
 	int i;
 	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
 	if (plat_priv->device_id != QCA6490_DEVICE_ID)
@@ -1718,8 +1719,14 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 			  &sbl_log_start);
 	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
 			  &sbl_log_size);
-	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: 0x%08x 0x%08x",
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_WLAN_BOOT_CFG,
+			  &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_BOOTSTRAP_STATUS,
+			  &pbl_bootstrap_status);
+	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x",
 		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x",
+		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
 
 	cnss_pr_dbg("Dumping PBL log data");
 	/* cnss_pci_reg_read provides 32bit register values */
@@ -1730,28 +1737,30 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
 
-	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-		if (sbl_log_start > QCA6490_V2_SBL_DATA_START &&
-		    (sbl_log_start + sbl_log_size) < QCA6490_V2_SBL_DATA_END)
-			goto dump_sbl_log;
-	} else {
-		if (sbl_log_start > QCA6490_V1_SBL_DATA_START &&
-		    (sbl_log_start + sbl_log_size) < QCA6490_V1_SBL_DATA_END)
-			goto dump_sbl_log;
-	}
-	cnss_pr_err("Invalid SBL log data");
-	return;
-
-dump_sbl_log:
-	cnss_pr_dbg("Dumping SBL log data");
 	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
 			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
+		if (sbl_log_start < QCA6490_V2_SBL_DATA_START ||
+		    sbl_log_start > QCA6490_V2_SBL_DATA_END ||
+		    (sbl_log_start + sbl_log_size) > QCA6490_V2_SBL_DATA_END)
+			goto out;
+	} else {
+		if (sbl_log_start < QCA6490_V1_SBL_DATA_START ||
+		    sbl_log_start > QCA6490_V1_SBL_DATA_END ||
+		    (sbl_log_start + sbl_log_size) > QCA6490_V1_SBL_DATA_END)
+			goto out;
+	}
+
+	cnss_pr_dbg("Dumping SBL log data");
 	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
 		mem_addr = sbl_log_start + i;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
 			break;
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
+	return;
+out:
+	cnss_pr_err("Invalid SBL log data");
 }
 
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
@@ -3918,7 +3927,6 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
-	cnss_pci_dump_bl_sram_mem(pci_priv);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
