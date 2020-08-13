@@ -4,6 +4,9 @@
    Copyright (C) 2001 Rusty Russell, 2002, 2010 Rusty Russell IBM.
 
 */
+
+#define INCLUDE_VERMAGIC
+
 #include <linux/export.h>
 #include <linux/extable.h>
 #include <linux/moduleloader.h>
@@ -1515,7 +1518,7 @@ struct module_sect_attr {
 struct module_sect_attrs {
 	struct attribute_group grp;
 	unsigned int nsections;
-	struct module_sect_attr attrs[0];
+	struct module_sect_attr attrs[];
 };
 
 static ssize_t module_sect_show(struct module_attribute *mattr,
@@ -1608,7 +1611,7 @@ static void remove_sect_attrs(struct module *mod)
 struct module_notes_attrs {
 	struct kobject *dir;
 	unsigned int notes;
-	struct bin_attribute attrs[0];
+	struct bin_attribute attrs[];
 };
 
 static ssize_t module_notes_read(struct file *filp, struct kobject *kobj,
@@ -1943,7 +1946,6 @@ static void mod_sysfs_teardown(struct module *mod)
 	mod_sysfs_fini(mod);
 }
 
-#ifdef CONFIG_ARCH_HAS_STRICT_MODULE_RWX
 /*
  * LKM RO/NX protection: protect module's text/ro-data
  * from modification and any data from execution.
@@ -1957,6 +1959,14 @@ static void mod_sysfs_teardown(struct module *mod)
  *
  * These values are always page-aligned (as is base)
  */
+
+/*
+ * Since some arches are moving towards PAGE_KERNEL module allocations instead
+ * of PAGE_KERNEL_EXEC, keep frob_text() and module_enable_x() outside of the
+ * CONFIG_STRICT_MODULE_RWX block below because they are needed regardless of
+ * whether we are strict.
+ */
+#ifdef CONFIG_ARCH_HAS_STRICT_MODULE_RWX
 static void frob_text(const struct module_layout *layout,
 		      int (*set_memory)(unsigned long start, int num_pages))
 {
@@ -1965,6 +1975,15 @@ static void frob_text(const struct module_layout *layout,
 	set_memory((unsigned long)layout->base,
 		   layout->text_size >> PAGE_SHIFT);
 }
+
+static void module_enable_x(const struct module *mod)
+{
+	frob_text(&mod->core_layout, set_memory_x);
+	frob_text(&mod->init_layout, set_memory_x);
+}
+#else /* !CONFIG_ARCH_HAS_STRICT_MODULE_RWX */
+static void module_enable_x(const struct module *mod) { }
+#endif /* CONFIG_ARCH_HAS_STRICT_MODULE_RWX */
 
 #ifdef CONFIG_STRICT_MODULE_RWX
 static void frob_rodata(const struct module_layout *layout,
@@ -1997,20 +2016,7 @@ static void frob_writable_data(const struct module_layout *layout,
 		   (layout->size - layout->ro_after_init_size) >> PAGE_SHIFT);
 }
 
-/* livepatching wants to disable read-only so it can frob module. */
-void module_disable_ro(const struct module *mod)
-{
-	if (!rodata_enabled)
-		return;
-
-	frob_text(&mod->core_layout, set_memory_rw);
-	frob_rodata(&mod->core_layout, set_memory_rw);
-	frob_ro_after_init(&mod->core_layout, set_memory_rw);
-	frob_text(&mod->init_layout, set_memory_rw);
-	frob_rodata(&mod->init_layout, set_memory_rw);
-}
-
-void module_enable_ro(const struct module *mod, bool after_init)
+static void module_enable_ro(const struct module *mod, bool after_init)
 {
 	if (!rodata_enabled)
 		return;
@@ -2036,19 +2042,29 @@ static void module_enable_nx(const struct module *mod)
 	frob_writable_data(&mod->init_layout, set_memory_nx);
 }
 
+static int module_enforce_rwx_sections(Elf_Ehdr *hdr, Elf_Shdr *sechdrs,
+				       char *secstrings, struct module *mod)
+{
+	const unsigned long shf_wx = SHF_WRITE|SHF_EXECINSTR;
+	int i;
+
+	for (i = 0; i < hdr->e_shnum; i++) {
+		if ((sechdrs[i].sh_flags & shf_wx) == shf_wx)
+			return -ENOEXEC;
+	}
+
+	return 0;
+}
+
 #else /* !CONFIG_STRICT_MODULE_RWX */
 static void module_enable_nx(const struct module *mod) { }
-#endif /*  CONFIG_STRICT_MODULE_RWX */
-static void module_enable_x(const struct module *mod)
+static void module_enable_ro(const struct module *mod, bool after_init) {}
+static int module_enforce_rwx_sections(Elf_Ehdr *hdr, Elf_Shdr *sechdrs,
+				       char *secstrings, struct module *mod)
 {
-	frob_text(&mod->core_layout, set_memory_x);
-	frob_text(&mod->init_layout, set_memory_x);
+	return 0;
 }
-#else /* !CONFIG_ARCH_HAS_STRICT_MODULE_RWX */
-static void module_enable_nx(const struct module *mod) { }
-static void module_enable_x(const struct module *mod) { }
-#endif /* CONFIG_ARCH_HAS_STRICT_MODULE_RWX */
-
+#endif /*  CONFIG_STRICT_MODULE_RWX */
 
 #ifdef CONFIG_LIVEPATCH
 /*
@@ -2339,11 +2355,13 @@ static int apply_relocations(struct module *mod, const struct load_info *info)
 		if (!(info->sechdrs[infosec].sh_flags & SHF_ALLOC))
 			continue;
 
-		/* Livepatch relocation sections are applied by livepatch */
 		if (info->sechdrs[i].sh_flags & SHF_RELA_LIVEPATCH)
-			continue;
-
-		if (info->sechdrs[i].sh_type == SHT_REL)
+			err = klp_apply_section_relocs(mod, info->sechdrs,
+						       info->secstrings,
+						       info->strtab,
+						       info->index.sym, i,
+						       NULL);
+		else if (info->sechdrs[i].sh_type == SHT_REL)
 			err = apply_relocate(info->sechdrs, info->strtab,
 					     info->index.sym, i, mod);
 		else if (info->sechdrs[i].sh_type == SHT_RELA)
@@ -2405,7 +2423,7 @@ static void layout_sections(struct module *mod, struct load_info *info)
 			if ((s->sh_flags & masks[m][0]) != masks[m][0]
 			    || (s->sh_flags & masks[m][1])
 			    || s->sh_entsize != ~0UL
-			    || strstarts(sname, ".init"))
+			    || module_init_section(sname))
 				continue;
 			s->sh_entsize = get_offset(mod, &mod->core_layout.size, s, i);
 			pr_debug("\t%s\n", sname);
@@ -2438,7 +2456,7 @@ static void layout_sections(struct module *mod, struct load_info *info)
 			if ((s->sh_flags & masks[m][0]) != masks[m][0]
 			    || (s->sh_flags & masks[m][1])
 			    || s->sh_entsize != ~0UL
-			    || !strstarts(sname, ".init"))
+			    || !module_init_section(sname))
 				continue;
 			s->sh_entsize = (get_offset(mod, &mod->init_layout.size, s, i)
 					 | INIT_OFFSET_MASK);
@@ -2770,7 +2788,14 @@ static void dynamic_debug_remove(struct module *mod, struct _ddebug *debug)
 
 void * __weak module_alloc(unsigned long size)
 {
-	return vmalloc_exec(size);
+	return __vmalloc_node_range(size, 1, VMALLOC_START, VMALLOC_END,
+			GFP_KERNEL, PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS,
+			NUMA_NO_NODE, __builtin_return_address(0));
+}
+
+bool __weak module_init_section(const char *name)
+{
+	return strstarts(name, ".init");
 }
 
 bool __weak module_exit_section(const char *name)
@@ -2951,8 +2976,7 @@ static int copy_module_from_user(const void __user *umod, unsigned long len,
 		return err;
 
 	/* Suck in entire file: we'll want most of it. */
-	info->hdr = __vmalloc(info->len,
-			GFP_KERNEL | __GFP_NOWARN, PAGE_KERNEL);
+	info->hdr = __vmalloc(info->len, GFP_KERNEL | __GFP_NOWARN);
 	if (!info->hdr)
 		return -ENOMEM;
 
@@ -3155,6 +3179,9 @@ static int find_module_sections(struct module *mod, struct load_info *info)
 	}
 #endif
 
+	mod->noinstr_text_start = section_objs(info, ".noinstr.text", 1,
+						&mod->noinstr_text_size);
+
 #ifdef CONFIG_TRACEPOINTS
 	mod->tracepoints_ptrs = section_objs(info, "__tracepoints_ptrs",
 					     sizeof(*mod->tracepoints_ptrs),
@@ -3198,6 +3225,13 @@ static int find_module_sections(struct module *mod, struct load_info *info)
 	mod->ei_funcs = section_objs(info, "_error_injection_whitelist",
 					    sizeof(*mod->ei_funcs),
 					    &mod->num_ei_funcs);
+#endif
+#ifdef CONFIG_KPROBES
+	mod->kprobes_text_start = section_objs(info, ".kprobes.text", 1,
+						&mod->kprobes_text_size);
+	mod->kprobe_blacklist = section_objs(info, "_kprobe_blacklist",
+						sizeof(unsigned long),
+						&mod->num_kprobe_blacklist);
 #endif
 	mod->extable = section_objs(info, "__ex_table",
 				    sizeof(*mod->extable), &mod->num_exentries);
@@ -3317,12 +3351,6 @@ static int check_module_license_and_versions(struct module *mod)
 
 static void flush_module_icache(const struct module *mod)
 {
-	mm_segment_t old_fs;
-
-	/* flush the icache in correct context */
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
 	/*
 	 * Flush the instruction cache, since we've played with text.
 	 * Do it before processing of module parameters, so the module
@@ -3334,8 +3362,6 @@ static void flush_module_icache(const struct module *mod)
 				   + mod->init_layout.size);
 	flush_icache_range((unsigned long)mod->core_layout.base,
 			   (unsigned long)mod->core_layout.base + mod->core_layout.size);
-
-	set_fs(old_fs);
 }
 
 int __weak module_frob_arch_sections(Elf_Ehdr *hdr,
@@ -3380,6 +3406,11 @@ static struct module *layout_and_allocate(struct load_info *info, int flags)
 	/* Allow arches to frob section contents and sizes.  */
 	err = module_frob_arch_sections(info->hdr, info->sechdrs,
 					info->secstrings, info->mod);
+	if (err < 0)
+		return ERR_PTR(err);
+
+	err = module_enforce_rwx_sections(info->hdr, info->sechdrs,
+					  info->secstrings, info->mod);
 	if (err < 0)
 		return ERR_PTR(err);
 
@@ -4383,6 +4414,7 @@ static int modules_open(struct inode *inode, struct file *file)
 }
 
 static const struct proc_ops modules_proc_ops = {
+	.proc_flags	= PROC_ENTRY_PERMANENT,
 	.proc_open	= modules_open,
 	.proc_read	= seq_read,
 	.proc_lseek	= seq_lseek,

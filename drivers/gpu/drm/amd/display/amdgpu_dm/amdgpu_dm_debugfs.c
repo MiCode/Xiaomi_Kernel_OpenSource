@@ -32,6 +32,19 @@
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_debugfs.h"
 #include "dm_helpers.h"
+#include "dmub/dmub_srv.h"
+
+struct dmub_debugfs_trace_header {
+	uint32_t entry_count;
+	uint32_t reserved[3];
+};
+
+struct dmub_debugfs_trace_entry {
+	uint32_t trace_code;
+	uint32_t tick_count;
+	uint32_t param0;
+	uint32_t param1;
+};
 
 /* function description
  * get/ set DP configuration: lane_count, link_rate, spread_spectrum
@@ -675,6 +688,73 @@ static ssize_t dp_phy_test_pattern_debugfs_write(struct file *f, const char __us
 	return bytes_from_user;
 }
 
+/**
+ * Returns the DMCUB tracebuffer contents.
+ * Example usage: cat /sys/kernel/debug/dri/0/amdgpu_dm_dmub_tracebuffer
+ */
+static int dmub_tracebuffer_show(struct seq_file *m, void *data)
+{
+	struct amdgpu_device *adev = m->private;
+	struct dmub_srv_fb_info *fb_info = adev->dm.dmub_fb_info;
+	struct dmub_debugfs_trace_entry *entries;
+	uint8_t *tbuf_base;
+	uint32_t tbuf_size, max_entries, num_entries, i;
+
+	if (!fb_info)
+		return 0;
+
+	tbuf_base = (uint8_t *)fb_info->fb[DMUB_WINDOW_5_TRACEBUFF].cpu_addr;
+	if (!tbuf_base)
+		return 0;
+
+	tbuf_size = fb_info->fb[DMUB_WINDOW_5_TRACEBUFF].size;
+	max_entries = (tbuf_size - sizeof(struct dmub_debugfs_trace_header)) /
+		      sizeof(struct dmub_debugfs_trace_entry);
+
+	num_entries =
+		((struct dmub_debugfs_trace_header *)tbuf_base)->entry_count;
+
+	num_entries = min(num_entries, max_entries);
+
+	entries = (struct dmub_debugfs_trace_entry
+			   *)(tbuf_base +
+			      sizeof(struct dmub_debugfs_trace_header));
+
+	for (i = 0; i < num_entries; ++i) {
+		struct dmub_debugfs_trace_entry *entry = &entries[i];
+
+		seq_printf(m,
+			   "trace_code=%u tick_count=%u param0=%u param1=%u\n",
+			   entry->trace_code, entry->tick_count, entry->param0,
+			   entry->param1);
+	}
+
+	return 0;
+}
+
+/**
+ * Returns the DMCUB firmware state contents.
+ * Example usage: cat /sys/kernel/debug/dri/0/amdgpu_dm_dmub_fw_state
+ */
+static int dmub_fw_state_show(struct seq_file *m, void *data)
+{
+	struct amdgpu_device *adev = m->private;
+	struct dmub_srv_fb_info *fb_info = adev->dm.dmub_fb_info;
+	uint8_t *state_base;
+	uint32_t state_size;
+
+	if (!fb_info)
+		return 0;
+
+	state_base = (uint8_t *)fb_info->fb[DMUB_WINDOW_6_FW_STATE].cpu_addr;
+	if (!state_base)
+		return 0;
+
+	state_size = fb_info->fb[DMUB_WINDOW_6_FW_STATE].size;
+
+	return seq_write(m, state_base, state_size);
+}
+
 /*
  * Returns the current and maximum output bpc for the connector.
  * Example usage: cat /sys/kernel/debug/dri/0/DP-1/output_bpc
@@ -758,6 +838,44 @@ static int vrr_range_show(struct seq_file *m, void *data)
 	return 0;
 }
 
+#ifdef CONFIG_DRM_AMD_DC_HDCP
+/*
+ * Returns the HDCP capability of the Display (1.4 for now).
+ *
+ * NOTE* Not all HDMI displays report their HDCP caps even when they are capable.
+ * Since its rare for a display to not be HDCP 1.4 capable, we set HDMI as always capable.
+ *
+ * Example usage: cat /sys/kernel/debug/dri/0/DP-1/hdcp_sink_capability
+ *		or cat /sys/kernel/debug/dri/0/HDMI-A-1/hdcp_sink_capability
+ */
+static int hdcp_sink_capability_show(struct seq_file *m, void *data)
+{
+	struct drm_connector *connector = m->private;
+	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
+	bool hdcp_cap, hdcp2_cap;
+
+	if (connector->status != connector_status_connected)
+		return -ENODEV;
+
+	seq_printf(m, "%s:%d HDCP version: ", connector->name, connector->base.id);
+
+	hdcp_cap = dc_link_is_hdcp14(aconnector->dc_link);
+	hdcp2_cap = dc_link_is_hdcp22(aconnector->dc_link);
+
+
+	if (hdcp_cap)
+		seq_printf(m, "%s ", "HDCP1.4");
+	if (hdcp2_cap)
+		seq_printf(m, "%s ", "HDCP2.2");
+
+	if (!hdcp_cap && !hdcp2_cap)
+		seq_printf(m, "%s ", "None");
+
+	seq_puts(m, "\n");
+
+	return 0;
+}
+#endif
 /* function description
  *
  * generic SDP message access for testing
@@ -880,8 +998,13 @@ static ssize_t dp_dpcd_data_read(struct file *f, char __user *buf,
 	return read_size - r;
 }
 
+DEFINE_SHOW_ATTRIBUTE(dmub_fw_state);
+DEFINE_SHOW_ATTRIBUTE(dmub_tracebuffer);
 DEFINE_SHOW_ATTRIBUTE(output_bpc);
 DEFINE_SHOW_ATTRIBUTE(vrr_range);
+#ifdef CONFIG_DRM_AMD_DC_HDCP
+DEFINE_SHOW_ATTRIBUTE(hdcp_sink_capability);
+#endif
 
 static const struct file_operations dp_link_settings_debugfs_fops = {
 	.owner = THIS_MODULE,
@@ -935,14 +1058,24 @@ static const struct {
 		{"link_settings", &dp_link_settings_debugfs_fops},
 		{"phy_settings", &dp_phy_settings_debugfs_fop},
 		{"test_pattern", &dp_phy_test_pattern_fops},
-		{"output_bpc", &output_bpc_fops},
 		{"vrr_range", &vrr_range_fops},
+#ifdef CONFIG_DRM_AMD_DC_HDCP
+		{"hdcp_sink_capability", &hdcp_sink_capability_fops},
+#endif
 		{"sdp_message", &sdp_message_fops},
 		{"aux_dpcd_address", &dp_dpcd_address_debugfs_fops},
 		{"aux_dpcd_size", &dp_dpcd_size_debugfs_fops},
 		{"aux_dpcd_data", &dp_dpcd_data_debugfs_fops}
 };
 
+#ifdef CONFIG_DRM_AMD_DC_HDCP
+static const struct {
+	char *name;
+	const struct file_operations *fops;
+} hdmi_debugfs_entries[] = {
+		{"hdcp_sink_capability", &hdcp_sink_capability_fops}
+};
+#endif
 /*
  * Force YUV420 output if available from the given mode
  */
@@ -1008,6 +1141,21 @@ void connector_debugfs_init(struct amdgpu_dm_connector *connector)
 	debugfs_create_file_unsafe("force_yuv420_output", 0644, dir, connector,
 				   &force_yuv420_output_fops);
 
+	debugfs_create_file("output_bpc", 0644, dir, connector,
+			    &output_bpc_fops);
+
+	connector->debugfs_dpcd_address = 0;
+	connector->debugfs_dpcd_size = 0;
+
+#ifdef CONFIG_DRM_AMD_DC_HDCP
+	if (connector->base.connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+		for (i = 0; i < ARRAY_SIZE(hdmi_debugfs_entries); i++) {
+			debugfs_create_file(hdmi_debugfs_entries[i].name,
+					    0644, dir, connector,
+					    hdmi_debugfs_entries[i].fops);
+		}
+	}
+#endif
 }
 
 /*
@@ -1082,8 +1230,9 @@ static int current_backlight_read(struct seq_file *m, void *data)
 	struct drm_info_node *node = (struct drm_info_node *)m->private;
 	struct drm_device *dev = node->minor->dev;
 	struct amdgpu_device *adev = dev->dev_private;
-	struct dc *dc = adev->dm.dc;
-	unsigned int backlight = dc_get_current_backlight_pwm(dc);
+	struct amdgpu_display_manager *dm = &adev->dm;
+
+	unsigned int backlight = dc_link_get_backlight_level(dm->backlight_link);
 
 	seq_printf(m, "0x%x\n", backlight);
 	return 0;
@@ -1099,8 +1248,9 @@ static int target_backlight_read(struct seq_file *m, void *data)
 	struct drm_info_node *node = (struct drm_info_node *)m->private;
 	struct drm_device *dev = node->minor->dev;
 	struct amdgpu_device *adev = dev->dev_private;
-	struct dc *dc = adev->dm.dc;
-	unsigned int backlight = dc_get_target_backlight_pwm(dc);
+	struct amdgpu_display_manager *dm = &adev->dm;
+
+	unsigned int backlight = dc_link_get_target_backlight_pwm(dm->backlight_link);
 
 	seq_printf(m, "0x%x\n", backlight);
 	return 0;
@@ -1187,6 +1337,12 @@ int dtn_debugfs_init(struct amdgpu_device *adev)
 
 	debugfs_create_file_unsafe("amdgpu_dm_visual_confirm", 0644, root, adev,
 				   &visual_confirm_fops);
+
+	debugfs_create_file_unsafe("amdgpu_dm_dmub_tracebuffer", 0644, root,
+				   adev, &dmub_tracebuffer_fops);
+
+	debugfs_create_file_unsafe("amdgpu_dm_dmub_fw_state", 0644, root,
+				   adev, &dmub_fw_state_fops);
 
 	return 0;
 }

@@ -33,11 +33,12 @@ TARGETS += memory-hotplug
 TARGETS += mount
 TARGETS += mqueue
 TARGETS += net
+TARGETS += net/forwarding
 TARGETS += net/mptcp
 TARGETS += netfilter
-TARGETS += networking/timestamping
 TARGETS += nsfs
 TARGETS += pidfd
+TARGETS += pid_namespace
 TARGETS += powerpc
 TARGETS += proc
 TARGETS += pstore
@@ -91,7 +92,7 @@ override LDFLAGS =
 override MAKEFLAGS =
 endif
 
-# Append kselftest to KBUILD_OUTPUT to avoid cluttering
+# Append kselftest to KBUILD_OUTPUT and O to avoid cluttering
 # KBUILD_OUTPUT with selftest objects and headers installed
 # by selftests Makefile or lib.mk.
 ifdef building_out_of_srctree
@@ -99,7 +100,7 @@ override LDFLAGS =
 endif
 
 ifneq ($(O),)
-	BUILD := $(O)
+	BUILD := $(O)/kselftest
 else
 	ifneq ($(KBUILD_OUTPUT),)
 		BUILD := $(KBUILD_OUTPUT)/kselftest
@@ -248,10 +249,17 @@ else
 	$(error Error: set INSTALL_PATH to use install)
 endif
 
+FORMAT ?= .gz
+TAR_PATH = $(abspath ${INSTALL_PATH}/kselftest-packages/kselftest.tar${FORMAT})
+gen_tar: install
+	@mkdir -p ${INSTALL_PATH}/kselftest-packages/
+	@tar caf ${TAR_PATH} --exclude=kselftest-packages -C ${INSTALL_PATH} .
+	@echo "Created ${TAR_PATH}"
+
 clean:
 	@for TARGET in $(TARGETS); do \
 		BUILD_TARGET=$$BUILD/$$TARGET;	\
 		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET clean;\
 	done;
 
-.PHONY: khdr all run_tests hotplug run_hotplug clean_hotplug run_pstore_crash install clean
+.PHONY: khdr all run_tests hotplug run_hotplug clean_hotplug run_pstore_crash install clean gen_tar

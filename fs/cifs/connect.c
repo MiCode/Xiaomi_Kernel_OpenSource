@@ -21,6 +21,7 @@
 #include <linux/fs.h>
 #include <linux/net.h>
 #include <linux/string.h>
+#include <linux/sched/mm.h>
 #include <linux/sched/signal.h>
 #include <linux/list.h>
 #include <linux/wait.h>
@@ -57,7 +58,6 @@
 #include "smb2proto.h"
 #include "smbdirect.h"
 #include "dns_resolve.h"
-#include "cifsfs.h"
 #ifdef CONFIG_CIFS_DFS_UPCALL
 #include "dfs_cache.h"
 #endif
@@ -75,7 +75,7 @@ enum {
 	Opt_forceuid, Opt_noforceuid,
 	Opt_forcegid, Opt_noforcegid,
 	Opt_noblocksend, Opt_noautotune, Opt_nolease,
-	Opt_hard, Opt_soft, Opt_perm, Opt_noperm,
+	Opt_hard, Opt_soft, Opt_perm, Opt_noperm, Opt_nodelete,
 	Opt_mapposix, Opt_nomapposix,
 	Opt_mapchars, Opt_nomapchars, Opt_sfu,
 	Opt_nosfu, Opt_nodfs, Opt_posixpaths,
@@ -141,6 +141,7 @@ static const match_table_t cifs_mount_option_tokens = {
 	{ Opt_soft, "soft" },
 	{ Opt_perm, "perm" },
 	{ Opt_noperm, "noperm" },
+	{ Opt_nodelete, "nodelete" },
 	{ Opt_mapchars, "mapchars" }, /* SFU style */
 	{ Opt_nomapchars, "nomapchars" },
 	{ Opt_mapposix, "mapposix" }, /* SFM style */
@@ -375,8 +376,10 @@ static int reconn_set_ipaddr(struct TCP_Server_Info *server)
 		return rc;
 	}
 
+	spin_lock(&cifs_tcp_ses_lock);
 	rc = cifs_convert_address((struct sockaddr *)&server->dstaddr, ipaddr,
 				  strlen(ipaddr));
+	spin_unlock(&cifs_tcp_ses_lock);
 	kfree(ipaddr);
 
 	return !rc ? -1 : 0;
@@ -389,54 +392,7 @@ static inline int reconn_set_ipaddr(struct TCP_Server_Info *server)
 #endif
 
 #ifdef CONFIG_CIFS_DFS_UPCALL
-struct super_cb_data {
-	struct TCP_Server_Info *server;
-	struct super_block *sb;
-};
-
 /* These functions must be called with server->srv_mutex held */
-
-static void super_cb(struct super_block *sb, void *arg)
-{
-	struct super_cb_data *d = arg;
-	struct cifs_sb_info *cifs_sb;
-	struct cifs_tcon *tcon;
-
-	if (d->sb)
-		return;
-
-	cifs_sb = CIFS_SB(sb);
-	tcon = cifs_sb_master_tcon(cifs_sb);
-	if (tcon->ses->server == d->server)
-		d->sb = sb;
-}
-
-static struct super_block *get_tcp_super(struct TCP_Server_Info *server)
-{
-	struct super_cb_data d = {
-		.server = server,
-		.sb = NULL,
-	};
-
-	iterate_supers_type(&cifs_fs_type, super_cb, &d);
-
-	if (unlikely(!d.sb))
-		return ERR_PTR(-ENOENT);
-	/*
-	 * Grab an active reference in order to prevent automounts (DFS links)
-	 * of expiring and then freeing up our cifs superblock pointer while
-	 * we're doing failover.
-	 */
-	cifs_sb_active(d.sb);
-	return d.sb;
-}
-
-static inline void put_tcp_super(struct super_block *sb)
-{
-	if (!IS_ERR_OR_NULL(sb))
-		cifs_sb_deactive(sb);
-}
-
 static void reconn_inval_dfs_target(struct TCP_Server_Info *server,
 				    struct cifs_sb_info *cifs_sb,
 				    struct dfs_cache_tgt_list *tgt_list,
@@ -471,8 +427,7 @@ static void reconn_inval_dfs_target(struct TCP_Server_Info *server,
 }
 
 static inline int reconn_setup_dfs_targets(struct cifs_sb_info *cifs_sb,
-					   struct dfs_cache_tgt_list *tl,
-					   struct dfs_cache_tgt_iterator **it)
+					   struct dfs_cache_tgt_list *tl)
 {
 	if (!cifs_sb->origin_fullpath)
 		return -EOPNOTSUPP;
@@ -508,7 +463,7 @@ cifs_reconnect(struct TCP_Server_Info *server)
 	server->nr_targets = 1;
 #ifdef CONFIG_CIFS_DFS_UPCALL
 	spin_unlock(&GlobalMid_Lock);
-	sb = get_tcp_super(server);
+	sb = cifs_get_tcp_super(server);
 	if (IS_ERR(sb)) {
 		rc = PTR_ERR(sb);
 		cifs_dbg(FYI, "%s: will not do DFS failover: rc = %d\n",
@@ -517,7 +472,7 @@ cifs_reconnect(struct TCP_Server_Info *server)
 	} else {
 		cifs_sb = CIFS_SB(sb);
 
-		rc = reconn_setup_dfs_targets(cifs_sb, &tgt_list, &tgt_it);
+		rc = reconn_setup_dfs_targets(cifs_sb, &tgt_list);
 		if (rc && (rc != -EOPNOTSUPP)) {
 			cifs_server_dbg(VFS, "%s: no target servers for DFS failover\n",
 				 __func__);
@@ -535,8 +490,9 @@ cifs_reconnect(struct TCP_Server_Info *server)
 		spin_unlock(&GlobalMid_Lock);
 #ifdef CONFIG_CIFS_DFS_UPCALL
 		dfs_cache_free_tgts(&tgt_list);
-		put_tcp_super(sb);
+		cifs_put_tcp_super(sb);
 #endif
+		wake_up(&server->response_q);
 		return rc;
 	} else
 		server->tcpStatus = CifsNeedReconnect;
@@ -616,26 +572,26 @@ cifs_reconnect(struct TCP_Server_Info *server)
 		try_to_freeze();
 
 		mutex_lock(&server->srv_mutex);
+#ifdef CONFIG_CIFS_DFS_UPCALL
 		/*
 		 * Set up next DFS target server (if any) for reconnect. If DFS
 		 * feature is disabled, then we will retry last server we
 		 * connected to before.
 		 */
+		reconn_inval_dfs_target(server, cifs_sb, &tgt_list, &tgt_it);
+#endif
+		rc = reconn_set_ipaddr(server);
+		if (rc) {
+			cifs_dbg(FYI, "%s: failed to resolve hostname: %d\n",
+				 __func__, rc);
+		}
+
 		if (cifs_rdma_enabled(server))
 			rc = smbd_reconnect(server);
 		else
 			rc = generic_ip_connect(server);
 		if (rc) {
 			cifs_dbg(FYI, "reconnect error %d\n", rc);
-#ifdef CONFIG_CIFS_DFS_UPCALL
-			reconn_inval_dfs_target(server, cifs_sb, &tgt_list,
-						&tgt_it);
-#endif
-			rc = reconn_set_ipaddr(server);
-			if (rc) {
-				cifs_dbg(FYI, "%s: failed to resolve hostname: %d\n",
-					 __func__, rc);
-			}
 			mutex_unlock(&server->srv_mutex);
 			msleep(3000);
 		} else {
@@ -666,11 +622,12 @@ cifs_reconnect(struct TCP_Server_Info *server)
 
 	}
 
-	put_tcp_super(sb);
+	cifs_put_tcp_super(sb);
 #endif
 	if (server->tcpStatus == CifsNeedNegotiate)
 		mod_delayed_work(cifsiod_wq, &server->echo, 0);
 
+	wake_up(&server->response_q);
 	return rc;
 }
 
@@ -765,7 +722,6 @@ server_unresponsive(struct TCP_Server_Info *server)
 		cifs_server_dbg(VFS, "has not responded in %lu seconds. Reconnecting...\n",
 			 (3 * server->echo_interval) / HZ);
 		cifs_reconnect(server);
-		wake_up(&server->response_q);
 		return true;
 	}
 
@@ -898,7 +854,6 @@ is_smb_response(struct TCP_Server_Info *server, unsigned char type)
 		 */
 		cifs_set_port((struct sockaddr *)&server->dstaddr, CIFS_PORT);
 		cifs_reconnect(server);
-		wake_up(&server->response_q);
 		break;
 	default:
 		cifs_server_dbg(VFS, "RFC 1002 unknown response type 0x%x\n", type);
@@ -924,8 +879,7 @@ dequeue_mid(struct mid_q_entry *mid, bool malformed)
 	 * function has finished processing it is a bug.
 	 */
 	if (mid->mid_flags & MID_DELETED)
-		printk_once(KERN_WARNING
-			    "trying to dequeue a deleted mid\n");
+		pr_warn_once("trying to dequeue a deleted mid\n");
 	else {
 		list_del_init(&mid->qhead);
 		mid->mid_flags |= MID_DELETED;
@@ -1070,7 +1024,6 @@ standard_receive3(struct TCP_Server_Info *server, struct mid_q_entry *mid)
 		server->vals->header_preamble_size) {
 		cifs_server_dbg(VFS, "SMB response too long (%u bytes)\n", pdu_length);
 		cifs_reconnect(server);
-		wake_up(&server->response_q);
 		return -ECONNABORTED;
 	}
 
@@ -1118,7 +1071,6 @@ cifs_handle_standard(struct TCP_Server_Info *server, struct mid_q_entry *mid)
 	if (server->ops->is_session_expired &&
 	    server->ops->is_session_expired(buf)) {
 		cifs_reconnect(server);
-		wake_up(&server->response_q);
 		return -1;
 	}
 
@@ -1164,8 +1116,9 @@ cifs_demultiplex_thread(void *p)
 	struct task_struct *task_to_wake = NULL;
 	struct mid_q_entry *mids[MAX_COMPOUND];
 	char *bufs[MAX_COMPOUND];
+	unsigned int noreclaim_flag;
 
-	current->flags |= PF_MEMALLOC;
+	noreclaim_flag = memalloc_noreclaim_save();
 	cifs_dbg(FYI, "Demultiplex PID: %d\n", task_pid_nr(current));
 
 	length = atomic_inc_return(&tcpSesAllocCount);
@@ -1212,7 +1165,6 @@ next_pdu:
 			cifs_server_dbg(VFS, "SMB response too short (%u bytes)\n",
 				 server->pdu_size);
 			cifs_reconnect(server);
-			wake_up(&server->response_q);
 			continue;
 		}
 
@@ -1276,9 +1228,8 @@ next_pdu:
 				smb2_add_credits_from_hdr(bufs[i], server);
 				cifs_dbg(FYI, "Received oplock break\n");
 			} else {
-				cifs_server_dbg(VFS, "No task to wake, unknown frame "
-					 "received! NumMids %d\n",
-					 atomic_read(&midCount));
+				cifs_server_dbg(VFS, "No task to wake, unknown frame received! NumMids %d\n",
+						atomic_read(&midCount));
 				cifs_dump_mem("Received Data is: ", bufs[i],
 					      HEADER_SIZE(server));
 				smb2_add_credits_from_hdr(bufs[i], server);
@@ -1320,6 +1271,7 @@ next_pdu:
 		set_current_state(TASK_RUNNING);
 	}
 
+	memalloc_noreclaim_restore(noreclaim_flag);
 	module_put_and_exit(0);
 }
 
@@ -1522,6 +1474,7 @@ cifs_parse_smb_version(char *value, struct smb_vol *vol, bool is_smb3)
 			cifs_dbg(VFS, "vers=1.0 (cifs) not permitted when mounting with smb3\n");
 			return 1;
 		}
+		cifs_dbg(VFS, "Use of the less secure dialect vers=1.0 is not recommended unless required for access to very old servers\n");
 		vol->ops = &smb1_operations;
 		vol->vals = &smb1_values;
 		break;
@@ -1588,7 +1541,7 @@ cifs_parse_devname(const char *devname, struct smb_vol *vol)
 	size_t len;
 
 	if (unlikely(!devname || !*devname)) {
-		cifs_dbg(VFS, "Device name not specified.\n");
+		cifs_dbg(VFS, "Device name not specified\n");
 		return -EINVAL;
 	}
 
@@ -1738,13 +1691,13 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 	case 0:
 		break;
 	case -ENOMEM:
-		cifs_dbg(VFS, "Unable to allocate memory for devname.\n");
+		cifs_dbg(VFS, "Unable to allocate memory for devname\n");
 		goto cifs_parse_mount_err;
 	case -EINVAL:
-		cifs_dbg(VFS, "Malformed UNC in devname.\n");
+		cifs_dbg(VFS, "Malformed UNC in devname\n");
 		goto cifs_parse_mount_err;
 	default:
-		cifs_dbg(VFS, "Unknown error parsing devname.\n");
+		cifs_dbg(VFS, "Unknown error parsing devname\n");
 		goto cifs_parse_mount_err;
 	}
 
@@ -1803,6 +1756,9 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			break;
 		case Opt_noperm:
 			vol->noperm = 1;
+			break;
+		case Opt_nodelete:
+			vol->nodelete = 1;
 			break;
 		case Opt_mapchars:
 			vol->sfu_remap = true;
@@ -1952,7 +1908,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			vol->seal = 1;
 			break;
 		case Opt_noac:
-			pr_warn("CIFS: Mount option noac not supported. Instead set /proc/fs/cifs/LookupCacheEnabled to 0\n");
+			pr_warn("Mount option noac not supported. Instead set /proc/fs/cifs/LookupCacheEnabled to 0\n");
 			break;
 		case Opt_fsc:
 #ifndef CONFIG_CIFS_FSCACHE
@@ -2008,9 +1964,13 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			break;
 		case Opt_multichannel:
 			vol->multichannel = true;
+			/* if number of channels not specified, default to 2 */
+			if (vol->max_channels < 2)
+				vol->max_channels = 2;
 			break;
 		case Opt_nomultichannel:
 			vol->multichannel = false;
+			vol->max_channels = 1;
 			break;
 		case Opt_compress:
 			vol->compression = UNKNOWN_TYPE;
@@ -2199,7 +2159,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 
 			if (strnlen(string, CIFS_MAX_USERNAME_LEN) >
 							CIFS_MAX_USERNAME_LEN) {
-				pr_warn("CIFS: username too long\n");
+				pr_warn("username too long\n");
 				goto cifs_parse_mount_err;
 			}
 
@@ -2265,7 +2225,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			temp_len = strlen(value);
 			vol->password = kzalloc(temp_len+1, GFP_KERNEL);
 			if (vol->password == NULL) {
-				pr_warn("CIFS: no memory for password\n");
+				pr_warn("no memory for password\n");
 				goto cifs_parse_mount_err;
 			}
 
@@ -2289,7 +2249,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 
 			if (!cifs_convert_address(dstaddr, string,
 					strlen(string))) {
-				pr_err("CIFS: bad ip= option (%s).\n", string);
+				pr_err("bad ip= option (%s)\n", string);
 				goto cifs_parse_mount_err;
 			}
 			got_ip = true;
@@ -2301,14 +2261,14 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 
 			if (strnlen(string, CIFS_MAX_DOMAINNAME_LEN)
 					== CIFS_MAX_DOMAINNAME_LEN) {
-				pr_warn("CIFS: domain name too long\n");
+				pr_warn("domain name too long\n");
 				goto cifs_parse_mount_err;
 			}
 
 			kfree(vol->domainname);
 			vol->domainname = kstrdup(string, GFP_KERNEL);
 			if (!vol->domainname) {
-				pr_warn("CIFS: no memory for domainname\n");
+				pr_warn("no memory for domainname\n");
 				goto cifs_parse_mount_err;
 			}
 			cifs_dbg(FYI, "Domain name set\n");
@@ -2321,7 +2281,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			if (!cifs_convert_address(
 					(struct sockaddr *)&vol->srcaddr,
 					string, strlen(string))) {
-				pr_warn("CIFS: Could not parse srcaddr: %s\n",
+				pr_warn("Could not parse srcaddr: %s\n",
 					string);
 				goto cifs_parse_mount_err;
 			}
@@ -2332,7 +2292,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 				goto out_nomem;
 
 			if (strnlen(string, 1024) >= 65) {
-				pr_warn("CIFS: iocharset name too long.\n");
+				pr_warn("iocharset name too long\n");
 				goto cifs_parse_mount_err;
 			}
 
@@ -2341,7 +2301,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 				vol->iocharset = kstrdup(string,
 							 GFP_KERNEL);
 				if (!vol->iocharset) {
-					pr_warn("CIFS: no memory for charset\n");
+					pr_warn("no memory for charset\n");
 					goto cifs_parse_mount_err;
 				}
 			}
@@ -2372,7 +2332,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			 * set at top of the function
 			 */
 			if (i == RFC1001_NAME_LEN && string[i] != 0)
-				pr_warn("CIFS: netbiosname longer than 15 truncated.\n");
+				pr_warn("netbiosname longer than 15 truncated\n");
 			break;
 		case Opt_servern:
 			/* servernetbiosname specified override *SMBSERVER */
@@ -2398,7 +2358,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			/* The string has 16th byte zero still from
 			   set at top of the function  */
 			if (i == RFC1001_NAME_LEN && string[i] != 0)
-				pr_warn("CIFS: server netbiosname longer than 15 truncated.\n");
+				pr_warn("server netbiosname longer than 15 truncated\n");
 			break;
 		case Opt_ver:
 			/* version of mount userspace tools, not dialect */
@@ -2409,17 +2369,15 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 			/* If interface changes in mount.cifs bump to new ver */
 			if (strncasecmp(string, "1", 1) == 0) {
 				if (strlen(string) > 1) {
-					pr_warn("Bad mount helper ver=%s. Did "
-						"you want SMB1 (CIFS) dialect "
-						"and mean to type vers=1.0 "
-						"instead?\n", string);
+					pr_warn("Bad mount helper ver=%s. Did you want SMB1 (CIFS) dialect and mean to type vers=1.0 instead?\n",
+						string);
 					goto cifs_parse_mount_err;
 				}
 				/* This is the default */
 				break;
 			}
 			/* For all other value, error */
-			pr_warn("CIFS: Invalid mount helper version specified\n");
+			pr_warn("Invalid mount helper version specified\n");
 			goto cifs_parse_mount_err;
 		case Opt_vers:
 			/* protocol version (dialect) */
@@ -2462,7 +2420,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 	}
 
 	if (!sloppy && invalid) {
-		pr_err("CIFS: Unknown mount option \"%s\"\n", invalid);
+		pr_err("Unknown mount option \"%s\"\n", invalid);
 		goto cifs_parse_mount_err;
 	}
 
@@ -2498,7 +2456,7 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 		slash = strchr(&vol->UNC[2], '\\');
 		len = slash - &vol->UNC[2];
 		if (!cifs_convert_address(dstaddr, &vol->UNC[2], len)) {
-			pr_err("Unable to determine destination address.\n");
+			pr_err("Unable to determine destination address\n");
 			goto cifs_parse_mount_err;
 		}
 	}
@@ -2509,19 +2467,15 @@ cifs_parse_mount_options(const char *mountdata, const char *devname,
 	if (uid_specified)
 		vol->override_uid = override_uid;
 	else if (override_uid == 1)
-		pr_notice("CIFS: ignoring forceuid mount option specified with no uid= option.\n");
+		pr_notice("ignoring forceuid mount option specified with no uid= option\n");
 
 	if (gid_specified)
 		vol->override_gid = override_gid;
 	else if (override_gid == 1)
-		pr_notice("CIFS: ignoring forcegid mount option specified with no gid= option.\n");
+		pr_notice("ignoring forcegid mount option specified with no gid= option\n");
 
 	if (got_version == false)
-		pr_warn("No dialect specified on mount. Default has changed to "
-			"a more secure dialect, SMB2.1 or later (e.g. SMB3), from CIFS "
-			"(SMB1). To use the less secure SMB1 dialect to access "
-			"old servers which do not support SMB3 (or SMB2.1) specify vers=1.0"
-			" on mount.\n");
+		pr_warn_once("No dialect specified on mount. Default has changed to a more secure dialect, SMB2.1 or later (e.g. SMB3.1.1), from CIFS (SMB1). To use the less secure SMB1 dialect to access old servers which do not support SMB3.1.1 (or even SMB3 or SMB2.1) specify vers=1.0 on mount.\n");
 
 	kfree(mountdata_copy);
 	return 0;
@@ -2538,8 +2492,8 @@ cifs_parse_mount_err:
  * specified, or if srcaddr is specified and
  * matches the IP address of the rhs argument.
  */
-static bool
-srcip_matches(struct sockaddr *srcaddr, struct sockaddr *rhs)
+bool
+cifs_match_ipaddr(struct sockaddr *srcaddr, struct sockaddr *rhs)
 {
 	switch (srcaddr->sa_family) {
 	case AF_UNSPEC:
@@ -2630,7 +2584,7 @@ match_address(struct TCP_Server_Info *server, struct sockaddr *addr,
 		return false; /* don't expect to be here */
 	}
 
-	if (!srcip_matches(srcaddr, (struct sockaddr *)&server->srcaddr))
+	if (!cifs_match_ipaddr(srcaddr, (struct sockaddr *)&server->srcaddr))
 		return false;
 
 	return true;
@@ -3239,8 +3193,8 @@ cifs_set_cifscreds(struct smb_vol *vol, struct cifs_ses *ses)
 					   strlen(ses->domainName),
 					   GFP_KERNEL);
 		if (!vol->domainname) {
-			cifs_dbg(FYI, "Unable to allocate %zd bytes for "
-				 "domain\n", len);
+			cifs_dbg(FYI, "Unable to allocate %zd bytes for domain\n",
+				 len);
 			rc = -ENOMEM;
 			kfree(vol->username);
 			vol->username = NULL;
@@ -3405,6 +3359,8 @@ static int match_tcon(struct cifs_tcon *tcon, struct smb_vol *volume_info)
 		return 0;
 	if (tcon->no_lease != volume_info->no_lease)
 		return 0;
+	if (tcon->nodelete != volume_info->nodelete)
+		return 0;
 	return 1;
 }
 
@@ -3417,6 +3373,10 @@ cifs_find_tcon(struct cifs_ses *ses, struct smb_vol *volume_info)
 	spin_lock(&cifs_tcp_ses_lock);
 	list_for_each(tmp, &ses->tcon_list) {
 		tcon = list_entry(tmp, struct cifs_tcon, tcon_list);
+#ifdef CONFIG_CIFS_DFS_UPCALL
+		if (tcon->dfs_path)
+			continue;
+#endif
 		if (!match_tcon(tcon, volume_info))
 			continue;
 		++tcon->tc_count;
@@ -3557,10 +3517,9 @@ cifs_get_tcon(struct cifs_ses *ses, struct smb_vol *volume_info)
 	if (volume_info->linux_ext) {
 		if (ses->server->posix_ext_supported) {
 			tcon->posix_extensions = true;
-			printk_once(KERN_WARNING
-				"SMB3.11 POSIX Extensions are experimental\n");
+			pr_warn_once("SMB3.11 POSIX Extensions are experimental\n");
 		} else {
-			cifs_dbg(VFS, "Server does not support mounting with posix SMB3.11 extensions.\n");
+			cifs_dbg(VFS, "Server does not support mounting with posix SMB3.11 extensions\n");
 			rc = -EOPNOTSUPP;
 			goto out_fail;
 		}
@@ -3618,6 +3577,16 @@ cifs_get_tcon(struct cifs_ses *ses, struct smb_vol *volume_info)
 			cifs_dbg(VFS, "cache=singleclient requested on mount but NO_CACHING flag set on share\n");
 	}
 
+	if (volume_info->no_lease) {
+		if (ses->server->vals->protocol_id == 0) {
+			cifs_dbg(VFS,
+				"SMB2 or later required for nolease option\n");
+			rc = -EOPNOTSUPP;
+			goto out_fail;
+		} else
+			tcon->no_lease = volume_info->no_lease;
+	}
+
 	/*
 	 * We can have only one retry value for a connection to a share so for
 	 * resources mounted more than once to the same server share the last
@@ -3626,8 +3595,8 @@ cifs_get_tcon(struct cifs_ses *ses, struct smb_vol *volume_info)
 	tcon->retry = volume_info->retry;
 	tcon->nocase = volume_info->nocase;
 	tcon->nohandlecache = volume_info->nohandlecache;
+	tcon->nodelete = volume_info->nodelete;
 	tcon->local_lease = volume_info->local_lease;
-	tcon->no_lease = volume_info->no_lease;
 	INIT_LIST_HEAD(&tcon->pending_opens);
 
 	spin_lock(&cifs_tcp_ses_lock);
@@ -3967,14 +3936,8 @@ generic_ip_connect(struct TCP_Server_Info *server)
 			socket->sk->sk_rcvbuf = 140 * 1024;
 	}
 
-	if (server->tcp_nodelay) {
-		int val = 1;
-		rc = kernel_setsockopt(socket, SOL_TCP, TCP_NODELAY,
-				(char *)&val, sizeof(val));
-		if (rc)
-			cifs_dbg(FYI, "set TCP_NODELAY socket option error %d\n",
-				 rc);
-	}
+	if (server->tcp_nodelay)
+		tcp_sock_set_nodelay(socket->sk);
 
 	cifs_dbg(FYI, "sndbuf %d rcvbuf %d rcvtimeo 0x%lx\n",
 		 socket->sk->sk_sndbuf,
@@ -4780,8 +4743,7 @@ static int is_path_remote(struct cifs_sb_info *cifs_sb, struct smb_vol *vol,
 		rc = cifs_are_all_path_components_accessible(server, xid, tcon,
 			cifs_sb, full_path, tcon->Flags & SMB_SHARE_IS_IN_DFS);
 		if (rc != 0) {
-			cifs_server_dbg(VFS, "cannot query dirs between root and final path, "
-				 "enabling CIFS_MOUNT_USE_PREFIX_PATH\n");
+			cifs_server_dbg(VFS, "cannot query dirs between root and final path, enabling CIFS_MOUNT_USE_PREFIX_PATH\n");
 			cifs_sb->mnt_cifs_flags |= CIFS_MOUNT_USE_PREFIX_PATH;
 			rc = 0;
 		}
@@ -4999,6 +4961,15 @@ int cifs_mount(struct cifs_sb_info *cifs_sb, struct smb_vol *vol)
 	 * dentry revalidation to think the dentry are stale (ESTALE).
 	 */
 	cifs_autodisable_serverino(cifs_sb);
+	/*
+	 * Force the use of prefix path to support failover on DFS paths that
+	 * resolve to targets that have different prefix paths.
+	 */
+	cifs_sb->mnt_cifs_flags |= CIFS_MOUNT_USE_PREFIX_PATH;
+	kfree(cifs_sb->prepath);
+	cifs_sb->prepath = vol->prepath;
+	vol->prepath = NULL;
+
 out:
 	free_xid(xid);
 	cifs_try_adding_channels(ses);
@@ -5335,9 +5306,15 @@ cifs_construct_tcon(struct cifs_sb_info *cifs_sb, kuid_t fsuid)
 	vol_info->nocase = master_tcon->nocase;
 	vol_info->nohandlecache = master_tcon->nohandlecache;
 	vol_info->local_lease = master_tcon->local_lease;
+	vol_info->no_lease = master_tcon->no_lease;
+	vol_info->resilient = master_tcon->use_resilient;
+	vol_info->persistent = master_tcon->use_persistent;
+	vol_info->handle_timeout = master_tcon->handle_timeout;
 	vol_info->no_linux_ext = !master_tcon->unix_ext;
+	vol_info->linux_ext = master_tcon->posix_extensions;
 	vol_info->sectype = master_tcon->ses->sectype;
 	vol_info->sign = master_tcon->ses->sign;
+	vol_info->seal = master_tcon->seal;
 
 	rc = cifs_set_vol_auth(vol_info, master_tcon->ses);
 	if (rc) {
@@ -5362,10 +5339,6 @@ cifs_construct_tcon(struct cifs_sb_info *cifs_sb, kuid_t fsuid)
 		cifs_put_smb_ses(ses);
 		goto out;
 	}
-
-	/* if new SMB3.11 POSIX extensions are supported do not remap / and \ */
-	if (tcon->posix_extensions)
-		cifs_sb->mnt_cifs_flags |= CIFS_MOUNT_POSIX_PATHS;
 
 	if (cap_unix(ses))
 		reset_cifs_unix_caps(0, tcon, NULL, vol_info);

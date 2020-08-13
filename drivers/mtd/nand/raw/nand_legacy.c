@@ -225,7 +225,8 @@ static void nand_wait_status_ready(struct nand_chip *chip, unsigned long timeo)
 	do {
 		u8 status;
 
-		ret = nand_read_data_op(chip, &status, sizeof(status), true);
+		ret = nand_read_data_op(chip, &status, sizeof(status), true,
+					false);
 		if (ret)
 			return;
 
@@ -331,8 +332,7 @@ static void nand_command(struct nand_chip *chip, unsigned int command,
 		 */
 		if (column == -1 && page_addr == -1)
 			return;
-		/* fall through */
-
+		fallthrough;
 	default:
 		/*
 		 * If we don't have access to the busy pin, we apply the given
@@ -483,8 +483,7 @@ static void nand_command_lp(struct nand_chip *chip, unsigned int command,
 				      NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
 		chip->legacy.cmd_ctrl(chip, NAND_CMD_NONE,
 				      NAND_NCE | NAND_CTRL_CHANGE);
-
-		/* fall through - This applies to read commands */
+		fallthrough;	/* This applies to read commands */
 	default:
 		/*
 		 * If we don't have access to the busy pin, we apply the given
@@ -554,7 +553,8 @@ static int nand_wait(struct nand_chip *chip)
 					break;
 			} else {
 				ret = nand_read_data_op(chip, &status,
-							sizeof(status), true);
+							sizeof(status), true,
+							false);
 				if (ret)
 					return ret;
 
@@ -565,7 +565,7 @@ static int nand_wait(struct nand_chip *chip)
 		} while (time_before(jiffies, timeo));
 	}
 
-	ret = nand_read_data_op(chip, &status, sizeof(status), true);
+	ret = nand_read_data_op(chip, &status, sizeof(status), true, false);
 	if (ret)
 		return ret;
 

@@ -302,7 +302,7 @@ static void deferred_unmap_destructor(struct sk_buff *skb)
 
 /**
  *	free_tx_desc - reclaims Tx descriptors and their buffers
- *	@adapter: the adapter
+ *	@adap: the adapter
  *	@q: the Tx queue to reclaim descriptors from
  *	@n: the number of descriptors to reclaim
  *	@unmap: whether the buffers should be unmapped for DMA
@@ -722,6 +722,7 @@ static inline unsigned int flits_to_desc(unsigned int n)
 /**
  *	is_eth_imm - can an Ethernet packet be sent as immediate data?
  *	@skb: the packet
+ *	@chip_ver: chip version
  *
  *	Returns whether an Ethernet packet is small enough to fit as
  *	immediate data. Return value corresponds to headroom required.
@@ -749,6 +750,7 @@ static inline int is_eth_imm(const struct sk_buff *skb, unsigned int chip_ver)
 /**
  *	calc_tx_flits - calculate the number of flits for a packet Tx WR
  *	@skb: the packet
+ *	@chip_ver: chip version
  *
  *	Returns the number of flits needed for a Tx WR for the given Ethernet
  *	packet, including the needed WR and CPL headers.
@@ -804,6 +806,7 @@ static inline unsigned int calc_tx_flits(const struct sk_buff *skb,
 /**
  *	calc_tx_descs - calculate the number of Tx descriptors for a packet
  *	@skb: the packet
+ *	@chip_ver: chip version
  *
  *	Returns the number of Tx descriptors needed for the given Ethernet
  *	packet, including the needed WR and CPL headers.
@@ -1307,8 +1310,9 @@ static inline void *write_tso_wr(struct adapter *adap, struct sk_buff *skb,
 int t4_sge_eth_txq_egress_update(struct adapter *adap, struct sge_eth_txq *eq,
 				 int maxreclaim)
 {
+	unsigned int reclaimed, hw_cidx;
 	struct sge_txq *q = &eq->q;
-	unsigned int reclaimed;
+	int hw_in_use;
 
 	if (!q->in_use || !__netif_tx_trylock(eq->txq))
 		return 0;
@@ -1316,12 +1320,17 @@ int t4_sge_eth_txq_egress_update(struct adapter *adap, struct sge_eth_txq *eq,
 	/* Reclaim pending completed TX Descriptors. */
 	reclaimed = reclaim_completed_tx(adap, &eq->q, maxreclaim, true);
 
+	hw_cidx = ntohs(READ_ONCE(q->stat->cidx));
+	hw_in_use = q->pidx - hw_cidx;
+	if (hw_in_use < 0)
+		hw_in_use += q->size;
+
 	/* If the TX Queue is currently stopped and there's now more than half
 	 * the queue available, restart it.  Otherwise bail out since the rest
 	 * of what we want do here is with the possibility of shipping any
 	 * currently buffered Coalesced TX Work Request.
 	 */
-	if (netif_tx_queue_stopped(eq->txq) && txq_avail(q) > (q->size / 2)) {
+	if (netif_tx_queue_stopped(eq->txq) && hw_in_use < (q->size / 2)) {
 		netif_tx_wake_queue(eq->txq);
 		eq->q.restarts++;
 	}
@@ -1412,14 +1421,17 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 		return adap->uld[CXGB4_ULD_CRYPTO].tx_handler(skb, dev);
 #endif /* CHELSIO_IPSEC_INLINE */
 
+#ifdef CONFIG_CHELSIO_TLS_DEVICE
+	if (skb->decrypted)
+		return adap->uld[CXGB4_ULD_CRYPTO].tx_handler(skb, dev);
+#endif /* CHELSIO_TLS_DEVICE */
+
 	qidx = skb_get_queue_mapping(skb);
 	if (ptp_enabled) {
-		spin_lock(&adap->ptp_lock);
 		if (!(adap->ptp_tx_skb)) {
 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 			adap->ptp_tx_skb = skb_get(skb);
 		} else {
-			spin_unlock(&adap->ptp_lock);
 			goto out_free;
 		}
 		q = &adap->sge.ptptxq;
@@ -1433,11 +1445,8 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 
 #ifdef CONFIG_CHELSIO_T4_FCOE
 	ret = cxgb_fcoe_offload(skb, adap, pi, &cntrl);
-	if (unlikely(ret == -ENOTSUPP)) {
-		if (ptp_enabled)
-			spin_unlock(&adap->ptp_lock);
+	if (unlikely(ret == -EOPNOTSUPP))
 		goto out_free;
-	}
 #endif /* CONFIG_CHELSIO_T4_FCOE */
 
 	chip_ver = CHELSIO_CHIP_VERSION(adap->params.chip);
@@ -1450,8 +1459,6 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 		dev_err(adap->pdev_dev,
 			"%s: Tx ring %u full while queue awake!\n",
 			dev->name, qidx);
-		if (ptp_enabled)
-			spin_unlock(&adap->ptp_lock);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -1470,8 +1477,6 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 	    unlikely(cxgb4_map_skb(adap->pdev_dev, skb, sgl_sdesc->addr) < 0)) {
 		memset(sgl_sdesc->addr, 0, sizeof(sgl_sdesc->addr));
 		q->mapping_err++;
-		if (ptp_enabled)
-			spin_unlock(&adap->ptp_lock);
 		goto out_free;
 	}
 
@@ -1486,16 +1491,7 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 		 * has opened up.
 		 */
 		eth_txq_stop(q);
-
-		/* If we're using the SGE Doorbell Queue Timer facility, we
-		 * don't need to ask the Firmware to send us Egress Queue CIDX
-		 * Updates: the Hardware will do this automatically.  And
-		 * since we send the Ingress Queue CIDX Updates to the
-		 * corresponding Ethernet Response Queue, we'll get them very
-		 * quickly.
-		 */
-		if (!q->dbqt)
-			wr_mid |= FW_WR_EQUEQ_F | FW_WR_EQUIQ_F;
+		wr_mid |= FW_WR_EQUEQ_F | FW_WR_EQUIQ_F;
 	}
 
 	wr = (void *)&q->q.desc[q->q.pidx];
@@ -1531,8 +1527,7 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 			if (iph->version == 4) {
 				iph->check = 0;
 				iph->tot_len = 0;
-				iph->check = (u16)(~ip_fast_csum((u8 *)iph,
-								 iph->ihl));
+				iph->check = ~ip_fast_csum((u8 *)iph, iph->ihl);
 			}
 			if (skb->ip_summed == CHECKSUM_PARTIAL)
 				cntrl = hwcsum(adap->params.chip, skb);
@@ -1628,8 +1623,6 @@ static netdev_tx_t cxgb4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
 	txq_advance(&q->q, ndesc);
 
 	cxgb4_ring_tx_db(adap, &q->q, ndesc);
-	if (ptp_enabled)
-		spin_unlock(&adap->ptp_lock);
 	return NETDEV_TX_OK;
 
 out_free:
@@ -1805,16 +1798,7 @@ static netdev_tx_t cxgb4_vf_eth_xmit(struct sk_buff *skb,
 		 * has opened up.
 		 */
 		eth_txq_stop(txq);
-
-		/* If we're using the SGE Doorbell Queue Timer facility, we
-		 * don't need to ask the Firmware to send us Egress Queue CIDX
-		 * Updates: the Hardware will do this automatically.  And
-		 * since we send the Ingress Queue CIDX Updates to the
-		 * corresponding Ethernet Response Queue, we'll get them very
-		 * quickly.
-		 */
-		if (!txq->dbqt)
-			wr_mid |= FW_WR_EQUEQ_F | FW_WR_EQUIQ_F;
+		wr_mid |= FW_WR_EQUEQ_F | FW_WR_EQUIQ_F;
 	}
 
 	/* Start filling in our Work Request.  Note that we do _not_ handle
@@ -2098,10 +2082,9 @@ static inline u8 ethofld_calc_tx_flits(struct adapter *adap,
 	return flits + nsgl;
 }
 
-static inline void *write_eo_wr(struct adapter *adap,
-				struct sge_eosw_txq *eosw_txq,
-				struct sk_buff *skb, struct fw_eth_tx_eo_wr *wr,
-				u32 hdr_len, u32 wrlen)
+static void *write_eo_wr(struct adapter *adap, struct sge_eosw_txq *eosw_txq,
+			 struct sk_buff *skb, struct fw_eth_tx_eo_wr *wr,
+			 u32 hdr_len, u32 wrlen)
 {
 	const struct skb_shared_info *ssi = skb_shinfo(skb);
 	struct cpl_tx_pkt_core *cpl;
@@ -2120,7 +2103,8 @@ static inline void *write_eo_wr(struct adapter *adap,
 	immd_len += hdr_len;
 
 	if (!eosw_txq->ncompl ||
-	    eosw_txq->last_compl >= adap->params.ofldq_wr_cred / 2) {
+	    (eosw_txq->last_compl + wrlen16) >=
+	    (adap->params.ofldq_wr_cred / 2)) {
 		compl = true;
 		eosw_txq->ncompl++;
 		eosw_txq->last_compl = 0;
@@ -2160,8 +2144,8 @@ static inline void *write_eo_wr(struct adapter *adap,
 	return cpl;
 }
 
-static void ethofld_hard_xmit(struct net_device *dev,
-			      struct sge_eosw_txq *eosw_txq)
+static int ethofld_hard_xmit(struct net_device *dev,
+			     struct sge_eosw_txq *eosw_txq)
 {
 	struct port_info *pi = netdev2pinfo(dev);
 	struct adapter *adap = netdev2adap(dev);
@@ -2174,8 +2158,8 @@ static void ethofld_hard_xmit(struct net_device *dev,
 	bool skip_eotx_wr = false;
 	struct tx_sw_desc *d;
 	struct sk_buff *skb;
+	int left, ret = 0;
 	u8 flits, ndesc;
-	int left;
 
 	eohw_txq = &adap->sge.eohw_txq[eosw_txq->hwqid];
 	spin_lock(&eohw_txq->lock);
@@ -2205,15 +2189,26 @@ static void ethofld_hard_xmit(struct net_device *dev,
 	wrlen = flits * 8;
 	wrlen16 = DIV_ROUND_UP(wrlen, 16);
 
-	/* If there are no CPL credits, then wait for credits
-	 * to come back and retry again
+	left = txq_avail(&eohw_txq->q) - ndesc;
+
+	/* If there are no descriptors left in hardware queues or no
+	 * CPL credits left in software queues, then wait for them
+	 * to come back and retry again. Note that we always request
+	 * for credits update via interrupt for every half credits
+	 * consumed. So, the interrupt will eventually restore the
+	 * credits and invoke the Tx path again.
 	 */
-	if (unlikely(wrlen16 > eosw_txq->cred))
+	if (unlikely(left < 0 || wrlen16 > eosw_txq->cred)) {
+		ret = -ENOMEM;
 		goto out_unlock;
+	}
 
 	if (unlikely(skip_eotx_wr)) {
 		start = (u64 *)wr;
 		eosw_txq->state = next_state;
+		eosw_txq->cred -= wrlen16;
+		eosw_txq->ncompl++;
+		eosw_txq->last_compl = 0;
 		goto write_wr_headers;
 	}
 
@@ -2235,7 +2230,8 @@ write_wr_headers:
 	sgl = (u64 *)inline_tx_skb_header(skb, &eohw_txq->q, (void *)start,
 					  hdr_len);
 	if (data_len) {
-		if (unlikely(cxgb4_map_skb(adap->pdev_dev, skb, d->addr))) {
+		ret = cxgb4_map_skb(adap->pdev_dev, skb, d->addr);
+		if (unlikely(ret)) {
 			memset(d->addr, 0, sizeof(d->addr));
 			eohw_txq->mapping_err++;
 			goto out_unlock;
@@ -2281,12 +2277,13 @@ write_wr_headers:
 
 out_unlock:
 	spin_unlock(&eohw_txq->lock);
+	return ret;
 }
 
 static void ethofld_xmit(struct net_device *dev, struct sge_eosw_txq *eosw_txq)
 {
 	struct sk_buff *skb;
-	int pktcount;
+	int pktcount, ret;
 
 	switch (eosw_txq->state) {
 	case CXGB4_EO_STATE_ACTIVE:
@@ -2311,7 +2308,9 @@ static void ethofld_xmit(struct net_device *dev, struct sge_eosw_txq *eosw_txq)
 			continue;
 		}
 
-		ethofld_hard_xmit(dev, eosw_txq);
+		ret = ethofld_hard_xmit(dev, eosw_txq);
+		if (ret)
+			break;
 	}
 }
 
@@ -2369,14 +2368,52 @@ netdev_tx_t t4_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (unlikely(qid >= pi->nqsets))
 		return cxgb4_ethofld_xmit(skb, dev);
 
+	if (is_ptp_enabled(skb, dev)) {
+		struct adapter *adap = netdev2adap(dev);
+		netdev_tx_t ret;
+
+		spin_lock(&adap->ptp_lock);
+		ret = cxgb4_eth_xmit(skb, dev);
+		spin_unlock(&adap->ptp_lock);
+		return ret;
+	}
+
 	return cxgb4_eth_xmit(skb, dev);
+}
+
+static void eosw_txq_flush_pending_skbs(struct sge_eosw_txq *eosw_txq)
+{
+	int pktcount = eosw_txq->pidx - eosw_txq->last_pidx;
+	int pidx = eosw_txq->pidx;
+	struct sk_buff *skb;
+
+	if (!pktcount)
+		return;
+
+	if (pktcount < 0)
+		pktcount += eosw_txq->ndesc;
+
+	while (pktcount--) {
+		pidx--;
+		if (pidx < 0)
+			pidx += eosw_txq->ndesc;
+
+		skb = eosw_txq->desc[pidx].skb;
+		if (skb) {
+			dev_consume_skb_any(skb);
+			eosw_txq->desc[pidx].skb = NULL;
+			eosw_txq->inuse--;
+		}
+	}
+
+	eosw_txq->pidx = eosw_txq->last_pidx + 1;
 }
 
 /**
  * cxgb4_ethofld_send_flowc - Send ETHOFLD flowc request to bind eotid to tc.
- * @dev - netdevice
- * @eotid - ETHOFLD tid to bind/unbind
- * @tc - traffic class. If set to FW_SCHED_CLS_NONE, then unbinds the @eotid
+ * @dev: netdevice
+ * @eotid: ETHOFLD tid to bind/unbind
+ * @tc: traffic class. If set to FW_SCHED_CLS_NONE, then unbinds the @eotid
  *
  * Send a FLOWC work request to bind an ETHOFLD TID to a traffic class.
  * If @tc is set to FW_SCHED_CLS_NONE, then the @eotid is unbound from
@@ -2447,9 +2484,11 @@ int cxgb4_ethofld_send_flowc(struct net_device *dev, u32 eotid, u32 tc)
 					    FW_FLOWC_MNEM_EOSTATE_CLOSING :
 					    FW_FLOWC_MNEM_EOSTATE_ESTABLISHED);
 
-	eosw_txq->cred -= len16;
-	eosw_txq->ncompl++;
-	eosw_txq->last_compl = 0;
+	/* Free up any pending skbs to ensure there's room for
+	 * termination FLOWC.
+	 */
+	if (tc == FW_SCHED_CLS_NONE)
+		eosw_txq_flush_pending_skbs(eosw_txq);
 
 	ret = eosw_txq_enqueue(eosw_txq, skb);
 	if (ret) {
@@ -2653,7 +2692,6 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
 
 /**
  *	txq_stop_maperr - stop a Tx queue due to I/O MMU exhaustion
- *	@adap: the adapter
  *	@q: the queue to stop
  *
  *	Mark a Tx queue stopped due to I/O MMU exhaustion and resulting
@@ -2702,6 +2740,7 @@ static void ofldtxq_stop(struct sge_uld_txq *q, struct fw_wr_hdr *wr)
  *	is ever running at a time ...
  */
 static void service_ofldq(struct sge_uld_txq *q)
+	__must_hold(&q->sendq.lock)
 {
 	u64 *pos, *before, *end;
 	int credits;
@@ -3247,7 +3286,7 @@ enum {
 
 /**
  *     t4_systim_to_hwstamp - read hardware time stamp
- *     @adap: the adapter
+ *     @adapter: the adapter
  *     @skb: the packet
  *
  *     Read Time Stamp from MPS packet and insert in skb which
@@ -3274,15 +3313,16 @@ static noinline int t4_systim_to_hwstamp(struct adapter *adapter,
 
 	hwtstamps = skb_hwtstamps(skb);
 	memset(hwtstamps, 0, sizeof(*hwtstamps));
-	hwtstamps->hwtstamp = ns_to_ktime(be64_to_cpu(*((u64 *)data)));
+	hwtstamps->hwtstamp = ns_to_ktime(get_unaligned_be64(data));
 
 	return RX_PTP_PKT_SUC;
 }
 
 /**
  *     t4_rx_hststamp - Recv PTP Event Message
- *     @adap: the adapter
+ *     @adapter: the adapter
  *     @rsp: the response queue descriptor holding the RX_PKT message
+ *     @rxq: the response queue holding the RX_PKT message
  *     @skb: the packet
  *
  *     PTP enabled and MPS packet, read HW timestamp
@@ -3306,7 +3346,7 @@ static int t4_rx_hststamp(struct adapter *adapter, const __be64 *rsp,
 
 /**
  *      t4_tx_hststamp - Loopback PTP Transmit Event Message
- *      @adap: the adapter
+ *      @adapter: the adapter
  *      @skb: the packet
  *      @dev: the ingress net device
  *
@@ -3370,26 +3410,6 @@ static void t4_tx_completion_handler(struct sge_rspq *rspq,
 	}
 
 	txq = &s->ethtxq[pi->first_qset + rspq->idx];
-
-	/* We've got the Hardware Consumer Index Update in the Egress Update
-	 * message.  If we're using the SGE Doorbell Queue Timer mechanism,
-	 * these Egress Update messages will be our sole CIDX Updates we get
-	 * since we don't want to chew up PCIe bandwidth for both Ingress
-	 * Messages and Status Page writes.  However, The code which manages
-	 * reclaiming successfully DMA'ed TX Work Requests uses the CIDX value
-	 * stored in the Status Page at the end of the TX Queue.  It's easiest
-	 * to simply copy the CIDX Update value from the Egress Update message
-	 * to the Status Page.  Also note that no Endian issues need to be
-	 * considered here since both are Big Endian and we're just copying
-	 * bytes consistently ...
-	 */
-	if (txq->dbqt) {
-		struct cpl_sge_egr_update *egr;
-
-		egr = (struct cpl_sge_egr_update *)rsp;
-		WRITE_ONCE(txq->q.stat->cidx, egr->cidx);
-	}
-
 	t4_sge_eth_txq_egress_update(adapter, txq, -1);
 }
 

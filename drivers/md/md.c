@@ -58,8 +58,10 @@
 #include <linux/delay.h>
 #include <linux/raid/md_p.h>
 #include <linux/raid/md_u.h>
+#include <linux/raid/detect.h>
 #include <linux/slab.h>
 #include <linux/percpu-refcount.h>
+#include <linux/part_stat.h>
 
 #include <trace/events/block.h>
 #include "md.h"
@@ -87,6 +89,7 @@ static struct module *md_cluster_mod;
 static DECLARE_WAIT_QUEUE_HEAD(resync_wait);
 static struct workqueue_struct *md_wq;
 static struct workqueue_struct *md_misc_wq;
+static struct workqueue_struct *md_rdev_misc_wq;
 
 static int remove_and_add_spares(struct mddev *mddev,
 				 struct md_rdev *this);
@@ -225,13 +228,13 @@ void mddev_create_serial_pool(struct mddev *mddev, struct md_rdev *rdev,
 		goto abort;
 
 	if (mddev->serial_info_pool == NULL) {
-		unsigned int noio_flag;
-
-		noio_flag = memalloc_noio_save();
+		/*
+		 * already in memalloc noio context by
+		 * mddev_suspend()
+		 */
 		mddev->serial_info_pool =
 			mempool_create_kmalloc_pool(NR_SERIAL_INFOS,
 						sizeof(struct serial_info));
-		memalloc_noio_restore(noio_flag);
 		if (!mddev->serial_info_pool) {
 			rdevs_uninit_serial(mddev);
 			pr_err("can't alloc memory pool for serialization\n");
@@ -464,7 +467,7 @@ static blk_qc_t md_make_request(struct request_queue *q, struct bio *bio)
 {
 	const int rw = bio_data_dir(bio);
 	const int sgrp = op_stat_group(bio_op(bio));
-	struct mddev *mddev = q->queuedata;
+	struct mddev *mddev = bio->bi_disk->private_data;
 	unsigned int sectors;
 
 	if (unlikely(test_bit(MD_BROKEN, &mddev->flags)) && (rw == WRITE)) {
@@ -525,11 +528,15 @@ void mddev_suspend(struct mddev *mddev)
 	wait_event(mddev->sb_wait, !test_bit(MD_UPDATING_SB, &mddev->flags));
 
 	del_timer_sync(&mddev->safemode_timer);
+	/* restrict memory reclaim I/O during raid array is suspend */
+	mddev->noio_flag = memalloc_noio_save();
 }
 EXPORT_SYMBOL_GPL(mddev_suspend);
 
 void mddev_resume(struct mddev *mddev)
 {
+	/* entred the memalloc scope from mddev_suspend() */
+	memalloc_noio_restore(mddev->noio_flag);
 	lockdep_assert_held(&mddev->reconfig_mutex);
 	if (--mddev->suspended)
 		return;
@@ -2452,7 +2459,7 @@ static int bind_rdev_to_array(struct md_rdev *rdev, struct mddev *mddev)
 	return err;
 }
 
-static void md_delayed_delete(struct work_struct *ws)
+static void rdev_delayed_delete(struct work_struct *ws)
 {
 	struct md_rdev *rdev = container_of(ws, struct md_rdev, del_work);
 	kobject_del(&rdev->kobj);
@@ -2477,9 +2484,9 @@ static void unbind_rdev_from_array(struct md_rdev *rdev)
 	 * to delay it due to rcu usage.
 	 */
 	synchronize_rcu();
-	INIT_WORK(&rdev->del_work, md_delayed_delete);
+	INIT_WORK(&rdev->del_work, rdev_delayed_delete);
 	kobject_get(&rdev->kobj);
-	queue_work(md_misc_wq, &rdev->del_work);
+	queue_work(md_rdev_misc_wq, &rdev->del_work);
 }
 
 /*
@@ -2491,12 +2498,12 @@ static int lock_rdev(struct md_rdev *rdev, dev_t dev, int shared)
 {
 	int err = 0;
 	struct block_device *bdev;
-	char b[BDEVNAME_SIZE];
 
 	bdev = blkdev_get_by_dev(dev, FMODE_READ|FMODE_WRITE|FMODE_EXCL,
 				 shared ? (struct md_rdev *)lock_rdev : rdev);
 	if (IS_ERR(bdev)) {
-		pr_warn("md: could not open %s.\n", __bdevname(dev, b));
+		pr_warn("md: could not open device unknown-block(%u,%u).\n",
+			MAJOR(dev), MINOR(dev));
 		return PTR_ERR(bdev);
 	}
 	rdev->bdev = bdev;
@@ -3189,8 +3196,7 @@ slot_store(struct md_rdev *rdev, const char *buf, size_t len)
 			rdev->saved_raid_disk = -1;
 		clear_bit(In_sync, &rdev->flags);
 		clear_bit(Bitmap_sync, &rdev->flags);
-		err = rdev->mddev->pers->
-			hot_add_disk(rdev->mddev, rdev);
+		err = rdev->mddev->pers->hot_add_disk(rdev->mddev, rdev);
 		if (err) {
 			rdev->raid_disk = -1;
 			return err;
@@ -4512,6 +4518,20 @@ null_show(struct mddev *mddev, char *page)
 	return -EINVAL;
 }
 
+/* need to ensure rdev_delayed_delete() has completed */
+static void flush_rdev_wq(struct mddev *mddev)
+{
+	struct md_rdev *rdev;
+
+	rcu_read_lock();
+	rdev_for_each_rcu(rdev, mddev)
+		if (work_pending(&rdev->del_work)) {
+			flush_workqueue(md_rdev_misc_wq);
+			break;
+		}
+	rcu_read_unlock();
+}
+
 static ssize_t
 new_dev_store(struct mddev *mddev, const char *buf, size_t len)
 {
@@ -4539,8 +4559,7 @@ new_dev_store(struct mddev *mddev, const char *buf, size_t len)
 	    minor != MINOR(dev))
 		return -EOVERFLOW;
 
-	flush_workqueue(md_misc_wq);
-
+	flush_rdev_wq(mddev);
 	err = mddev_lock(mddev);
 	if (err)
 		return err;
@@ -4778,7 +4797,8 @@ action_store(struct mddev *mddev, const char *page, size_t len)
 			clear_bit(MD_RECOVERY_FROZEN, &mddev->recovery);
 		if (test_bit(MD_RECOVERY_RUNNING, &mddev->recovery) &&
 		    mddev_lock(mddev) == 0) {
-			flush_workqueue(md_misc_wq);
+			if (work_pending(&mddev->del_work))
+				flush_workqueue(md_misc_wq);
 			if (mddev->sync_thread) {
 				set_bit(MD_RECOVERY_INTR, &mddev->recovery);
 				md_reap_sync_thread(mddev);
@@ -5621,12 +5641,10 @@ static int md_alloc(dev_t dev, char *name)
 		mddev->hold_active = UNTIL_STOP;
 
 	error = -ENOMEM;
-	mddev->queue = blk_alloc_queue(GFP_KERNEL);
+	mddev->queue = blk_alloc_queue(md_make_request, NUMA_NO_NODE);
 	if (!mddev->queue)
 		goto abort;
-	mddev->queue->queuedata = mddev;
 
-	blk_queue_make_request(mddev->queue, md_make_request);
 	blk_set_stacking_limits(&mddev->queue->limits);
 
 	disk = alloc_disk(1 << shift);
@@ -6146,7 +6164,8 @@ static void md_clean(struct mddev *mddev)
 static void __md_stop_writes(struct mddev *mddev)
 {
 	set_bit(MD_RECOVERY_FROZEN, &mddev->recovery);
-	flush_workqueue(md_misc_wq);
+	if (work_pending(&mddev->del_work))
+		flush_workqueue(md_misc_wq);
 	if (mddev->sync_thread) {
 		set_bit(MD_RECOVERY_INTR, &mddev->recovery);
 		md_reap_sync_thread(mddev);
@@ -6184,7 +6203,7 @@ EXPORT_SYMBOL_GPL(md_stop_writes);
 static void mddev_detach(struct mddev *mddev)
 {
 	md_bitmap_wait_behind_writes(mddev);
-	if (mddev->pers && mddev->pers->quiesce) {
+	if (mddev->pers && mddev->pers->quiesce && !mddev->suspended) {
 		mddev->pers->quiesce(mddev, 1);
 		mddev->pers->quiesce(mddev, 0);
 	}
@@ -6199,7 +6218,8 @@ static void __md_stop(struct mddev *mddev)
 	md_bitmap_destroy(mddev);
 	mddev_detach(mddev);
 	/* Ensure ->event_work is done */
-	flush_workqueue(md_misc_wq);
+	if (mddev->event_work.func)
+		flush_workqueue(md_misc_wq);
 	spin_lock(&mddev->lock);
 	mddev->pers = NULL;
 	spin_unlock(&mddev->lock);
@@ -7494,9 +7514,8 @@ static int md_ioctl(struct block_device *bdev, fmode_t mode,
 
 	}
 
-	if (cmd == ADD_NEW_DISK)
-		/* need to ensure md_delayed_delete() has completed */
-		flush_workqueue(md_misc_wq);
+	if (cmd == ADD_NEW_DISK || cmd == HOT_ADD_DISK)
+		flush_rdev_wq(mddev);
 
 	if (cmd == HOT_REMOVE_DISK)
 		/* need to ensure recovery thread has run */
@@ -7751,7 +7770,8 @@ static int md_open(struct block_device *bdev, fmode_t mode)
 		 */
 		mddev_put(mddev);
 		/* Wait until bdev->bd_disk is definitely gone */
-		flush_workqueue(md_misc_wq);
+		if (work_pending(&mddev->del_work))
+			flush_workqueue(md_misc_wq);
 		/* Then retry the open from the top */
 		return -ERESTARTSYS;
 	}
@@ -9039,8 +9059,7 @@ static int remove_and_add_spares(struct mddev *mddev,
 
 			rdev->recovery_offset = 0;
 		}
-		if (mddev->pers->
-		    hot_add_disk(mddev, rdev) == 0) {
+		if (mddev->pers->hot_add_disk(mddev, rdev) == 0) {
 			if (sysfs_link_rdev(mddev, rdev))
 				/* failure here is OK */;
 			if (!test_bit(Journal, &rdev->flags))
@@ -9468,6 +9487,10 @@ static int __init md_init(void)
 	if (!md_misc_wq)
 		goto err_misc_wq;
 
+	md_rdev_misc_wq = alloc_workqueue("md_rdev_misc", 0, 0);
+	if (!md_misc_wq)
+		goto err_rdev_misc_wq;
+
 	if ((ret = register_blkdev(MD_MAJOR, "md")) < 0)
 		goto err_md;
 
@@ -9489,6 +9512,8 @@ static int __init md_init(void)
 err_mdp:
 	unregister_blkdev(MD_MAJOR, "md");
 err_md:
+	destroy_workqueue(md_rdev_misc_wq);
+err_rdev_misc_wq:
 	destroy_workqueue(md_misc_wq);
 err_misc_wq:
 	destroy_workqueue(md_wq);
@@ -9775,6 +9800,7 @@ static __exit void md_exit(void)
 		 * destroy_workqueue() below will wait for that to complete.
 		 */
 	}
+	destroy_workqueue(md_rdev_misc_wq);
 	destroy_workqueue(md_misc_wq);
 	destroy_workqueue(md_wq);
 }
@@ -9784,7 +9810,7 @@ module_exit(md_exit)
 
 static int get_ro(char *buffer, const struct kernel_param *kp)
 {
-	return sprintf(buffer, "%d", start_readonly);
+	return sprintf(buffer, "%d\n", start_readonly);
 }
 static int set_ro(const char *val, const struct kernel_param *kp)
 {

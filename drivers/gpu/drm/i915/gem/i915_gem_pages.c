@@ -83,10 +83,12 @@ void __i915_gem_object_set_pages(struct drm_i915_gem_object *obj,
 
 int ____i915_gem_object_get_pages(struct drm_i915_gem_object *obj)
 {
+	struct drm_i915_private *i915 = to_i915(obj->base.dev);
 	int err;
 
 	if (unlikely(obj->mm.madv != I915_MADV_WILLNEED)) {
-		DRM_DEBUG("Attempting to obtain a purgeable object\n");
+		drm_dbg(&i915->drm,
+			"Attempting to obtain a purgeable object\n");
 		return -EFAULT;
 	}
 
@@ -196,8 +198,6 @@ int __i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 
 	if (i915_gem_object_has_pinned_pages(obj))
 		return -EBUSY;
-
-	GEM_BUG_ON(atomic_read(&obj->bind_count));
 
 	/* May be called by shrinker from within get_pages() (on another bo) */
 	mutex_lock(&obj->mm.lock);
@@ -391,6 +391,7 @@ void __i915_gem_object_flush_map(struct drm_i915_gem_object *obj,
 	GEM_BUG_ON(range_overflows_t(typeof(obj->base.size),
 				     offset, size, obj->base.size));
 
+	wmb(); /* let all previous writes be visible to coherent partners */
 	obj->mm.dirty = true;
 
 	if (obj->cache_coherent & I915_BO_CACHE_COHERENT_FOR_WRITE)

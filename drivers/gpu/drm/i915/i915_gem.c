@@ -26,7 +26,6 @@
  */
 
 #include <drm/drm_vma_manager.h>
-#include <drm/i915_drm.h>
 #include <linux/dma-fence-array.h>
 #include <linux/kthread.h>
 #include <linux/dma-resv.h>
@@ -119,7 +118,7 @@ int i915_gem_object_unbind(struct drm_i915_gem_object *obj,
 	struct i915_vma *vma;
 	int ret;
 
-	if (!atomic_read(&obj->bind_count))
+	if (list_empty(&obj->vma.list))
 		return 0;
 
 	/*
@@ -141,6 +140,11 @@ try_again:
 		list_move_tail(&vma->obj_link, &still_in_list);
 		if (!i915_vma_is_bound(vma, I915_VMA_BIND_MASK))
 			continue;
+
+		if (flags & I915_GEM_OBJECT_UNBIND_TEST) {
+			ret = -EBUSY;
+			break;
+		}
 
 		ret = -EAGAIN;
 		if (!i915_vm_tryopen(vm))
@@ -941,9 +945,6 @@ i915_gem_object_ggtt_pin(struct drm_i915_gem_object *obj,
 	struct i915_vma *vma;
 	int ret;
 
-	if (i915_gem_object_never_bind_ggtt(obj))
-		return ERR_PTR(-ENODEV);
-
 	if (flags & PIN_MAPPABLE &&
 	    (!view || view->type == I915_GGTT_VIEW_NORMAL)) {
 		/*
@@ -997,17 +998,21 @@ i915_gem_object_ggtt_pin(struct drm_i915_gem_object *obj,
 			return ERR_PTR(ret);
 	}
 
-	if (vma->fence && !i915_gem_object_is_tiled(obj)) {
-		mutex_lock(&ggtt->vm.mutex);
-		ret = i915_vma_revoke_fence(vma);
-		mutex_unlock(&ggtt->vm.mutex);
-		if (ret)
-			return ERR_PTR(ret);
-	}
-
 	ret = i915_vma_pin(vma, size, alignment, flags | PIN_GLOBAL);
 	if (ret)
 		return ERR_PTR(ret);
+
+	if (vma->fence && !i915_gem_object_is_tiled(obj)) {
+		mutex_lock(&ggtt->vm.mutex);
+		i915_vma_revoke_fence(vma);
+		mutex_unlock(&ggtt->vm.mutex);
+	}
+
+	ret = i915_vma_wait_for_bind(vma);
+	if (ret) {
+		i915_vma_unpin(vma);
+		return ERR_PTR(ret);
+	}
 
 	return vma;
 }
@@ -1153,8 +1158,7 @@ err_unlock:
 
 		/* Minimal basic recovery for KMS */
 		ret = i915_ggtt_enable_hw(dev_priv);
-		i915_gem_restore_gtt_mappings(dev_priv);
-		i915_gem_restore_fences(&dev_priv->ggtt);
+		i915_ggtt_resume(&dev_priv->ggtt);
 		intel_init_clock_gating(dev_priv);
 	}
 
@@ -1201,7 +1205,7 @@ void i915_gem_driver_release(struct drm_i915_private *dev_priv)
 
 	i915_gem_drain_freed_objects(dev_priv);
 
-	WARN_ON(!list_empty(&dev_priv->gem.contexts.list));
+	drm_WARN_ON(&dev_priv->drm, !list_empty(&dev_priv->gem.contexts.list));
 }
 
 static void i915_gem_init__mm(struct drm_i915_private *i915)
@@ -1229,7 +1233,7 @@ void i915_gem_cleanup_early(struct drm_i915_private *dev_priv)
 	i915_gem_drain_freed_objects(dev_priv);
 	GEM_BUG_ON(!llist_empty(&dev_priv->mm.free_list));
 	GEM_BUG_ON(atomic_read(&dev_priv->mm.free_count));
-	WARN_ON(dev_priv->mm.shrink_count);
+	drm_WARN_ON(&dev_priv->drm, dev_priv->mm.shrink_count);
 }
 
 int i915_gem_freeze(struct drm_i915_private *dev_priv)
@@ -1269,7 +1273,8 @@ int i915_gem_freeze_late(struct drm_i915_private *i915)
 
 	list_for_each_entry(obj, &i915->mm.shrink_list, mm.link) {
 		i915_gem_object_lock(obj);
-		WARN_ON(i915_gem_object_set_to_cpu_domain(obj, true));
+		drm_WARN_ON(&i915->drm,
+			    i915_gem_object_set_to_cpu_domain(obj, true));
 		i915_gem_object_unlock(obj);
 	}
 

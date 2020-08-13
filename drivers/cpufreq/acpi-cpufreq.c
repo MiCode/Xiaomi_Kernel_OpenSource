@@ -30,6 +30,7 @@
 #include <asm/msr.h>
 #include <asm/processor.h>
 #include <asm/cpufeature.h>
+#include <asm/cpu_device_id.h>
 
 MODULE_AUTHOR("Paul Diefenbaugh, Dominik Brodowski");
 MODULE_DESCRIPTION("ACPI Processor P-States Driver");
@@ -125,12 +126,12 @@ static void boost_set_msr_each(void *p_en)
 	boost_set_msr(enable);
 }
 
-static int set_boost(int val)
+static int set_boost(struct cpufreq_policy *policy, int val)
 {
-	get_online_cpus();
-	on_each_cpu(boost_set_msr_each, (void *)(long)val, 1);
-	put_online_cpus();
-	pr_debug("Core Boosting %sabled.\n", val ? "en" : "dis");
+	on_each_cpu_mask(policy->cpus, boost_set_msr_each,
+			 (void *)(long)val, 1);
+	pr_debug("CPU %*pbl: Core Boosting %sabled.\n",
+		 cpumask_pr_args(policy->cpus), val ? "en" : "dis");
 
 	return 0;
 }
@@ -161,7 +162,9 @@ static ssize_t store_cpb(struct cpufreq_policy *policy, const char *buf,
 	if (ret || val > 1)
 		return -EINVAL;
 
-	set_boost(val);
+	get_online_cpus();
+	set_boost(policy, val);
+	put_online_cpus();
 
 	return count;
 }
@@ -991,8 +994,8 @@ late_initcall(acpi_cpufreq_init);
 module_exit(acpi_cpufreq_exit);
 
 static const struct x86_cpu_id acpi_cpufreq_ids[] = {
-	X86_FEATURE_MATCH(X86_FEATURE_ACPI),
-	X86_FEATURE_MATCH(X86_FEATURE_HW_PSTATE),
+	X86_MATCH_FEATURE(X86_FEATURE_ACPI, NULL),
+	X86_MATCH_FEATURE(X86_FEATURE_HW_PSTATE, NULL),
 	{}
 };
 MODULE_DEVICE_TABLE(x86cpu, acpi_cpufreq_ids);

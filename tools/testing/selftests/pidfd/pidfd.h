@@ -13,6 +13,8 @@
 #include <string.h>
 #include <syscall.h>
 #include <sys/mount.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "../kselftest.h"
 
@@ -91,6 +93,11 @@ static inline int sys_pidfd_send_signal(int pidfd, int sig, siginfo_t *info,
 static inline int sys_pidfd_getfd(int pidfd, int fd, int flags)
 {
 	return syscall(__NR_pidfd_getfd, pidfd, fd, flags);
+}
+
+static inline int sys_memfd_create(const char *name, unsigned int flags)
+{
+	return syscall(__NR_memfd_create, name, flags);
 }
 
 #endif /* __PIDFD_H */

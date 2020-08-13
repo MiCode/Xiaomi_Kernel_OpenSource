@@ -436,7 +436,7 @@ static void mhi_sat_process_cmds(struct mhi_sat_cntrl *sat_cntrl,
 		{
 			struct mhi_buf *buf;
 			struct mhi_controller *mhi_cntrl = sat_cntrl->mhi_cntrl;
-			dma_addr_t iova = DMA_ERROR_CODE;
+			dma_addr_t iova = DMA_MAPPING_ERROR;
 
 			buf = kmalloc(sizeof(*buf), GFP_ATOMIC);
 			if (!buf)

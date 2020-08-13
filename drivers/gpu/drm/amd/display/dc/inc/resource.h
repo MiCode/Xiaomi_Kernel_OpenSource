@@ -138,9 +138,6 @@ struct pipe_ctx *find_idle_secondary_pipe(
 		const struct resource_pool *pool,
 		const struct pipe_ctx *primary_pipe);
 
-bool resource_is_stream_unchanged(
-	struct dc_state *old_context, struct dc_stream_state *stream);
-
 bool resource_validate_attach_surfaces(
 		const struct dc_validation_set set[],
 		int set_count,
@@ -179,4 +176,9 @@ unsigned int resource_pixel_format_to_bpp(enum surface_pixel_format format);
 
 void get_audio_check(struct audio_info *aud_modes,
 	struct audio_check *aud_chk);
+
+int get_num_mpc_splits(struct pipe_ctx *pipe);
+
+int get_num_odm_splits(struct pipe_ctx *pipe);
+
 #endif /* DRIVERS_GPU_DRM_AMD_DC_DEV_DC_INC_RESOURCE_H_ */

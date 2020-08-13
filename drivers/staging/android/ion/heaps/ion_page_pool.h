@@ -81,6 +81,7 @@ void ion_page_pool_free_immediate(struct ion_page_pool *pool,
 				  struct page *page);
 int ion_page_pool_total(struct ion_page_pool *pool, bool high);
 size_t ion_system_heap_secure_page_pool_total(struct ion_heap *heap, int vmid);
+int ion_page_pool_nr_pages(struct ion_page_pool *pool);
 
 /** ion_page_pool_shrink - shrinks the size of the memory cached in the pool
  * @pool:		the pool

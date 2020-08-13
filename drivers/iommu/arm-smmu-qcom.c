@@ -9,6 +9,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/of_device.h>
 #include <linux/qcom_scm.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -32,9 +33,13 @@ static int qcom_sdm845_smmu500_cfg_probe(struct arm_smmu_device *smmu)
 		smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
 		smmu->smrs[i].id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 		if (smmu->features & ARM_SMMU_FEAT_EXIDS)
-			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_S2CR_EXIDVALID, s2cr);
+			smmu->smrs[i].valid = FIELD_GET(
+						ARM_SMMU_S2CR_EXIDVALID,
+						s2cr);
 		else
-			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
+			smmu->smrs[i].valid = FIELD_GET(
+						ARM_SMMU_SMR_VALID,
+						smr);
 
 		smmu->s2crs[i].group = NULL;
 		smmu->s2crs[i].count = 0;
@@ -52,11 +57,28 @@ static int qcom_sdm845_smmu500_cfg_probe(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static const struct of_device_id qcom_smmu_client_of_match[] = {
+	{ .compatible = "qcom,adreno" },
+	{ .compatible = "qcom,mdp4" },
+	{ .compatible = "qcom,mdss" },
+	{ .compatible = "qcom,sc7180-mdss" },
+	{ .compatible = "qcom,sc7180-mss-pil" },
+	{ .compatible = "qcom,sdm845-mdss" },
+	{ .compatible = "qcom,sdm845-mss-pil" },
+	{ }
+};
+
+static int qcom_smmu_def_domain_type(struct device *dev)
+{
+	const struct of_device_id *match =
+		of_match_device(qcom_smmu_client_of_match, dev);
+
+	return match ? IOMMU_DOMAIN_IDENTITY : 0;
+}
+
 static int qcom_sdm845_smmu500_reset(struct arm_smmu_device *smmu)
 {
 	int ret;
-
-	arm_mmu500_reset(smmu);
 
 	/*
 	 * To address performance degradation in non-real time clients,
@@ -71,9 +93,22 @@ static int qcom_sdm845_smmu500_reset(struct arm_smmu_device *smmu)
 	return ret;
 }
 
+static int qcom_smmu500_reset(struct arm_smmu_device *smmu)
+{
+	const struct device_node *np = smmu->dev->of_node;
+
+	arm_mmu500_reset(smmu);
+
+	if (of_device_is_compatible(np, "qcom,sdm845-smmu-500"))
+		return qcom_sdm845_smmu500_reset(smmu);
+
+	return 0;
+}
+
 static const struct arm_smmu_impl qcom_smmu_impl = {
+	.def_domain_type = qcom_smmu_def_domain_type,
 	.cfg_probe = qcom_sdm845_smmu500_cfg_probe,
-	.reset = qcom_sdm845_smmu500_reset,
+	.reset = qcom_smmu500_reset,
 };
 
 #define TCU_HW_VERSION_HLOS1		(0x18)
@@ -339,13 +374,14 @@ static void qsmmuv500_device_remove(struct arm_smmu_device *smmu)
 }
 
 static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
+				      struct arm_smmu_master_cfg *cfg,
 				      struct arm_smmu_smr *smr)
 {
 	struct arm_smmu_smr *smr2;
-	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+	struct arm_smmu_device *smmu = cfg->smmu;
 	int i, idx;
 
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		smr2 = &smmu->smrs[idx];
 		/* Continue if table entry does not match */
 		if ((smr->id ^ smr2->id) & ~(smr->mask | smr2->mask))
@@ -712,7 +748,8 @@ static int qsmmuv500_device_group(struct device *dev,
 				struct iommu_group *group)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
+	struct arm_smmu_device *smmu = cfg->smmu;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_group_iommudata *iommudata;
 	u32 actlr, i;
@@ -732,7 +769,7 @@ static int qsmmuv500_device_group(struct device *dev,
 		smr = &data->actlrs[i].smr;
 		actlr = data->actlrs[i].actlr;
 
-		if (!arm_smmu_fwspec_match_smr(fwspec, smr))
+		if (!arm_smmu_fwspec_match_smr(fwspec, cfg, smr))
 			continue;
 
 		if (!iommudata->has_actlr) {

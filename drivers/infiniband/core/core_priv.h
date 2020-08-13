@@ -338,6 +338,20 @@ static inline struct ib_qp *_ib_create_qp(struct ib_device *dev,
 	qp->pd = pd;
 	qp->uobject = uobj;
 	qp->real_qp = qp;
+
+	qp->qp_type = attr->qp_type;
+	qp->rwq_ind_tbl = attr->rwq_ind_tbl;
+	qp->send_cq = attr->send_cq;
+	qp->recv_cq = attr->recv_cq;
+	qp->srq = attr->srq;
+	qp->rwq_ind_tbl = attr->rwq_ind_tbl;
+	qp->event_handler = attr->event_handler;
+
+	atomic_set(&qp->usecnt, 0);
+	spin_lock_init(&qp->mr_lock);
+	INIT_LIST_HEAD(&qp->rdma_mrs);
+	INIT_LIST_HEAD(&qp->sig_mrs);
+
 	/*
 	 * We don't track XRC QPs for now, because they don't have PD
 	 * and more importantly they are created internaly by driver,
@@ -399,5 +413,8 @@ struct rdma_umap_priv {
 void rdma_umap_priv_init(struct rdma_umap_priv *priv,
 			 struct vm_area_struct *vma,
 			 struct rdma_user_mmap_entry *entry);
+
+void ib_cq_pool_init(struct ib_device *dev);
+void ib_cq_pool_destroy(struct ib_device *dev);
 
 #endif /* _CORE_PRIV_H */

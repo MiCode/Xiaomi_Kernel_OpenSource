@@ -7,14 +7,7 @@
 #include <linux/of_net.h>
 #include "enetc_pf.h"
 
-#define ENETC_DRV_VER_MAJ 1
-#define ENETC_DRV_VER_MIN 0
-
-#define ENETC_DRV_VER_STR __stringify(ENETC_DRV_VER_MAJ) "." \
-			  __stringify(ENETC_DRV_VER_MIN)
-static const char enetc_drv_ver[] = ENETC_DRV_VER_STR;
 #define ENETC_DRV_NAME_STR "ENETC PF driver"
-static const char enetc_drv_name[] = ENETC_DRV_NAME_STR;
 
 static void enetc_pf_get_primary_mac_addr(struct enetc_hw *hw, int si, u8 *addr)
 {
@@ -55,21 +48,6 @@ static void enetc_set_vlan_promisc(struct enetc_hw *hw, char si_map)
 
 	val &= ~ENETC_PSIPVMR_SET_VP(ENETC_VLAN_PROMISC_MAP_ALL);
 	enetc_port_wr(hw, ENETC_PSIPVMR, ENETC_PSIPVMR_SET_VP(si_map) | val);
-}
-
-static bool enetc_si_vlan_promisc_is_on(struct enetc_pf *pf, int si_idx)
-{
-	return pf->vlan_promisc_simap & BIT(si_idx);
-}
-
-static bool enetc_vlan_filter_is_on(struct enetc_pf *pf)
-{
-	int i;
-
-	for_each_set_bit(i, pf->active_vlans, VLAN_N_VID)
-		return true;
-
-	return false;
 }
 
 static void enetc_enable_si_vlan_promisc(struct enetc_pf *pf, int si_idx)
@@ -211,6 +189,7 @@ static void enetc_pf_set_rx_mode(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	char vlan_promisc_simap = pf->vlan_promisc_simap;
 	struct enetc_hw *hw = &priv->si->hw;
 	bool uprom = false, mprom = false;
 	struct enetc_mac_filter *filter;
@@ -223,15 +202,15 @@ static void enetc_pf_set_rx_mode(struct net_device *ndev)
 		psipmr = ENETC_PSIPMR_SET_UP(0) | ENETC_PSIPMR_SET_MP(0);
 		uprom = true;
 		mprom = true;
-		/* enable VLAN promisc mode for SI0 */
-		if (!enetc_si_vlan_promisc_is_on(pf, 0))
-			enetc_enable_si_vlan_promisc(pf, 0);
-
+		/* Enable VLAN promiscuous mode for SI0 (PF) */
+		vlan_promisc_simap |= BIT(0);
 	} else if (ndev->flags & IFF_ALLMULTI) {
 		/* enable multi cast promisc mode for SI0 (PF) */
 		psipmr = ENETC_PSIPMR_SET_MP(0);
 		mprom = true;
 	}
+
+	enetc_set_vlan_promisc(&pf->si->hw, vlan_promisc_simap);
 
 	/* first 2 filter entries belong to PF */
 	if (!uprom) {
@@ -313,9 +292,6 @@ static int enetc_vlan_rx_add_vid(struct net_device *ndev, __be16 prot, u16 vid)
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	int idx;
 
-	if (enetc_si_vlan_promisc_is_on(pf, 0))
-		enetc_disable_si_vlan_promisc(pf, 0);
-
 	__set_bit(vid, pf->active_vlans);
 
 	idx = enetc_vid_hash_idx(vid);
@@ -332,9 +308,6 @@ static int enetc_vlan_rx_del_vid(struct net_device *ndev, __be16 prot, u16 vid)
 
 	__clear_bit(vid, pf->active_vlans);
 	enetc_sync_vlan_ht_filter(pf, true);
-
-	if (!enetc_vlan_filter_is_on(pf))
-		enetc_enable_si_vlan_promisc(pf, 0);
 
 	return 0;
 }
@@ -676,13 +649,14 @@ static int enetc_pf_set_features(struct net_device *ndev,
 	netdev_features_t changed = ndev->features ^ features;
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 
-	if (changed & NETIF_F_HW_VLAN_CTAG_RX)
-		enetc_enable_rxvlan(&priv->si->hw, 0,
-				    !!(features & NETIF_F_HW_VLAN_CTAG_RX));
+	if (changed & NETIF_F_HW_VLAN_CTAG_FILTER) {
+		struct enetc_pf *pf = enetc_si_priv(priv->si);
 
-	if (changed & NETIF_F_HW_VLAN_CTAG_TX)
-		enetc_enable_txvlan(&priv->si->hw, 0,
-				    !!(features & NETIF_F_HW_VLAN_CTAG_TX));
+		if (!!(features & NETIF_F_HW_VLAN_CTAG_FILTER))
+			enetc_disable_si_vlan_promisc(pf, 0);
+		else
+			enetc_enable_si_vlan_promisc(pf, 0);
+	}
 
 	if (changed & NETIF_F_LOOPBACK)
 		enetc_set_loopback(ndev, !!(features & NETIF_F_LOOPBACK));
@@ -726,12 +700,11 @@ static void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 
 	ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
 			    NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
-			    NETIF_F_LOOPBACK;
+			    NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_LOOPBACK;
 	ndev->features = NETIF_F_HIGHDMA | NETIF_F_SG |
 			 NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
 			 NETIF_F_HW_VLAN_CTAG_TX |
-			 NETIF_F_HW_VLAN_CTAG_RX |
-			 NETIF_F_HW_VLAN_CTAG_FILTER;
+			 NETIF_F_HW_VLAN_CTAG_RX;
 
 	if (si->num_rss)
 		ndev->hw_features |= NETIF_F_RXHASH;
@@ -745,6 +718,12 @@ static void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 
 	if (si->hw_features & ENETC_SI_F_QBV)
 		priv->active_offloads |= ENETC_F_QBV;
+
+	if (si->hw_features & ENETC_SI_F_PSFP && !enetc_psfp_enable(priv)) {
+		priv->active_offloads |= ENETC_F_QCI;
+		ndev->features |= NETIF_F_HW_TC;
+		ndev->hw_features |= NETIF_F_HW_TC;
+	}
 
 	/* pick up primary MAC address from SI */
 	enetc_get_primary_mac_addr(&si->hw, ndev->dev_addr);
@@ -802,11 +781,6 @@ static int enetc_of_get_phy(struct enetc_ndev_priv *priv)
 	struct device_node *np = priv->dev->of_node;
 	struct device_node *mdio_np;
 	int err;
-
-	if (!np) {
-		dev_err(priv->dev, "missing ENETC port node\n");
-		return -ENODEV;
-	}
 
 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
 	if (!priv->phy_node) {
@@ -929,9 +903,6 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 
 	netif_carrier_off(ndev);
 
-	netif_info(priv, probe, ndev, "%s v%s\n",
-		   enetc_drv_name, enetc_drv_ver);
-
 	return 0;
 
 err_reg_netdev:
@@ -959,9 +930,6 @@ static void enetc_pf_remove(struct pci_dev *pdev)
 		enetc_sriov_configure(pdev, 0);
 
 	priv = netdev_priv(si->ndev);
-	netif_info(priv, drv, si->ndev, "%s v%s remove\n",
-		   enetc_drv_name, enetc_drv_ver);
-
 	unregister_netdev(si->ndev);
 
 	enetc_mdio_remove(pf);
@@ -995,4 +963,3 @@ module_pci_driver(enetc_pf_driver);
 
 MODULE_DESCRIPTION(ENETC_DRV_NAME_STR);
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_VERSION(ENETC_DRV_VER_STR);

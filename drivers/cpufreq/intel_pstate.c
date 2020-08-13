@@ -922,6 +922,7 @@ static void intel_pstate_update_limits(unsigned int cpu)
 	 */
 	if (global.turbo_disabled_mf != global.turbo_disabled) {
 		global.turbo_disabled_mf = global.turbo_disabled;
+		arch_set_max_freq_ratio(global.turbo_disabled);
 		for_each_possible_cpu(cpu)
 			intel_pstate_update_max_freq(cpu);
 	} else {
@@ -1058,7 +1059,7 @@ static ssize_t store_no_turbo(struct kobject *a, struct kobj_attribute *b,
 
 	update_turbo_state();
 	if (global.turbo_disabled) {
-		pr_warn("Turbo disabled by BIOS or unavailable on processor\n");
+		pr_notice_once("Turbo disabled by BIOS or unavailable on processor\n");
 		mutex_unlock(&intel_pstate_limits_lock);
 		mutex_unlock(&intel_pstate_driver_lock);
 		return -EPERM;
@@ -1908,51 +1909,51 @@ static const struct pstate_funcs knl_funcs = {
 	.get_val = core_get_val,
 };
 
-#define ICPU(model, policy) \
-	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_APERFMPERF,\
-			(unsigned long)&policy }
+#define X86_MATCH(model, policy)					 \
+	X86_MATCH_VENDOR_FAM_MODEL_FEATURE(INTEL, 6, INTEL_FAM6_##model, \
+					   X86_FEATURE_APERFMPERF, &policy)
 
 static const struct x86_cpu_id intel_pstate_cpu_ids[] = {
-	ICPU(INTEL_FAM6_SANDYBRIDGE,		core_funcs),
-	ICPU(INTEL_FAM6_SANDYBRIDGE_X,		core_funcs),
-	ICPU(INTEL_FAM6_ATOM_SILVERMONT,	silvermont_funcs),
-	ICPU(INTEL_FAM6_IVYBRIDGE,		core_funcs),
-	ICPU(INTEL_FAM6_HASWELL,		core_funcs),
-	ICPU(INTEL_FAM6_BROADWELL,		core_funcs),
-	ICPU(INTEL_FAM6_IVYBRIDGE_X,		core_funcs),
-	ICPU(INTEL_FAM6_HASWELL_X,		core_funcs),
-	ICPU(INTEL_FAM6_HASWELL_L,		core_funcs),
-	ICPU(INTEL_FAM6_HASWELL_G,		core_funcs),
-	ICPU(INTEL_FAM6_BROADWELL_G,		core_funcs),
-	ICPU(INTEL_FAM6_ATOM_AIRMONT,		airmont_funcs),
-	ICPU(INTEL_FAM6_SKYLAKE_L,		core_funcs),
-	ICPU(INTEL_FAM6_BROADWELL_X,		core_funcs),
-	ICPU(INTEL_FAM6_SKYLAKE,		core_funcs),
-	ICPU(INTEL_FAM6_BROADWELL_D,		core_funcs),
-	ICPU(INTEL_FAM6_XEON_PHI_KNL,		knl_funcs),
-	ICPU(INTEL_FAM6_XEON_PHI_KNM,		knl_funcs),
-	ICPU(INTEL_FAM6_ATOM_GOLDMONT,		core_funcs),
-	ICPU(INTEL_FAM6_ATOM_GOLDMONT_PLUS,     core_funcs),
-	ICPU(INTEL_FAM6_SKYLAKE_X,		core_funcs),
+	X86_MATCH(SANDYBRIDGE,		core_funcs),
+	X86_MATCH(SANDYBRIDGE_X,	core_funcs),
+	X86_MATCH(ATOM_SILVERMONT,	silvermont_funcs),
+	X86_MATCH(IVYBRIDGE,		core_funcs),
+	X86_MATCH(HASWELL,		core_funcs),
+	X86_MATCH(BROADWELL,		core_funcs),
+	X86_MATCH(IVYBRIDGE_X,		core_funcs),
+	X86_MATCH(HASWELL_X,		core_funcs),
+	X86_MATCH(HASWELL_L,		core_funcs),
+	X86_MATCH(HASWELL_G,		core_funcs),
+	X86_MATCH(BROADWELL_G,		core_funcs),
+	X86_MATCH(ATOM_AIRMONT,		airmont_funcs),
+	X86_MATCH(SKYLAKE_L,		core_funcs),
+	X86_MATCH(BROADWELL_X,		core_funcs),
+	X86_MATCH(SKYLAKE,		core_funcs),
+	X86_MATCH(BROADWELL_D,		core_funcs),
+	X86_MATCH(XEON_PHI_KNL,		knl_funcs),
+	X86_MATCH(XEON_PHI_KNM,		knl_funcs),
+	X86_MATCH(ATOM_GOLDMONT,	core_funcs),
+	X86_MATCH(ATOM_GOLDMONT_PLUS,	core_funcs),
+	X86_MATCH(SKYLAKE_X,		core_funcs),
 	{}
 };
 MODULE_DEVICE_TABLE(x86cpu, intel_pstate_cpu_ids);
 
 static const struct x86_cpu_id intel_pstate_cpu_oob_ids[] __initconst = {
-	ICPU(INTEL_FAM6_BROADWELL_D, core_funcs),
-	ICPU(INTEL_FAM6_BROADWELL_X, core_funcs),
-	ICPU(INTEL_FAM6_SKYLAKE_X, core_funcs),
+	X86_MATCH(BROADWELL_D,		core_funcs),
+	X86_MATCH(BROADWELL_X,		core_funcs),
+	X86_MATCH(SKYLAKE_X,		core_funcs),
 	{}
 };
 
 static const struct x86_cpu_id intel_pstate_cpu_ee_disable_ids[] = {
-	ICPU(INTEL_FAM6_KABYLAKE, core_funcs),
+	X86_MATCH(KABYLAKE,		core_funcs),
 	{}
 };
 
 static const struct x86_cpu_id intel_pstate_hwp_boost_ids[] = {
-	ICPU(INTEL_FAM6_SKYLAKE_X, core_funcs),
-	ICPU(INTEL_FAM6_SKYLAKE, core_funcs),
+	X86_MATCH(SKYLAKE_X,		core_funcs),
+	X86_MATCH(SKYLAKE,		core_funcs),
 	{}
 };
 
@@ -2155,15 +2156,19 @@ static void intel_pstate_adjust_policy_max(struct cpudata *cpu,
 	}
 }
 
-static int intel_pstate_verify_policy(struct cpufreq_policy_data *policy)
+static void intel_pstate_verify_cpu_policy(struct cpudata *cpu,
+					   struct cpufreq_policy_data *policy)
 {
-	struct cpudata *cpu = all_cpu_data[policy->cpu];
-
 	update_turbo_state();
 	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
 				     intel_pstate_get_max_freq(cpu));
 
 	intel_pstate_adjust_policy_max(cpu, policy);
+}
+
+static int intel_pstate_verify_policy(struct cpufreq_policy_data *policy)
+{
+	intel_pstate_verify_cpu_policy(all_cpu_data[policy->cpu], policy);
 
 	return 0;
 }
@@ -2243,10 +2248,11 @@ static int intel_pstate_cpu_init(struct cpufreq_policy *policy)
 	if (ret)
 		return ret;
 
-	if (IS_ENABLED(CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE))
-		policy->policy = CPUFREQ_POLICY_PERFORMANCE;
-	else
-		policy->policy = CPUFREQ_POLICY_POWERSAVE;
+	/*
+	 * Set the policy to powersave to provide a valid fallback value in case
+	 * the default cpufreq governor is neither powersave nor performance.
+	 */
+	policy->policy = CPUFREQ_POLICY_POWERSAVE;
 
 	return 0;
 }
@@ -2268,12 +2274,7 @@ static int intel_cpufreq_verify_policy(struct cpufreq_policy_data *policy)
 {
 	struct cpudata *cpu = all_cpu_data[policy->cpu];
 
-	update_turbo_state();
-	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-				     intel_pstate_get_max_freq(cpu));
-
-	intel_pstate_adjust_policy_max(cpu, policy);
-
+	intel_pstate_verify_cpu_policy(cpu, policy);
 	intel_pstate_update_perf_limits(cpu, policy->min, policy->max);
 
 	return 0;
@@ -2676,6 +2677,8 @@ static struct acpi_platform_list plat_info[] __initdata = {
 	{ } /* End */
 };
 
+#define BITMASK_OOB	(BIT(8) | BIT(18))
+
 static bool __init intel_pstate_platform_pwr_mgmt_exists(void)
 {
 	const struct x86_cpu_id *id;
@@ -2685,8 +2688,9 @@ static bool __init intel_pstate_platform_pwr_mgmt_exists(void)
 	id = x86_match_cpu(intel_pstate_cpu_oob_ids);
 	if (id) {
 		rdmsrl(MSR_MISC_PWR_MGMT, misc_pwr);
-		if (misc_pwr & (1 << 8)) {
-			pr_debug("Bit 8 in the MISC_PWR_MGMT MSR set\n");
+		if (misc_pwr & BITMASK_OOB) {
+			pr_debug("Bit 8 or 18 in the MISC_PWR_MGMT MSR set\n");
+			pr_debug("P states are controlled in Out of Band mode by the firmware/hardware\n");
 			return true;
 		}
 	}
@@ -2725,13 +2729,14 @@ static inline void intel_pstate_request_control_from_smm(void) {}
 
 #define INTEL_PSTATE_HWP_BROADWELL	0x01
 
-#define ICPU_HWP(model, hwp_mode) \
-	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_HWP, hwp_mode }
+#define X86_MATCH_HWP(model, hwp_mode)					\
+	X86_MATCH_VENDOR_FAM_MODEL_FEATURE(INTEL, 6, INTEL_FAM6_##model, \
+					   X86_FEATURE_HWP, hwp_mode)
 
 static const struct x86_cpu_id hwp_support_ids[] __initconst = {
-	ICPU_HWP(INTEL_FAM6_BROADWELL_X, INTEL_PSTATE_HWP_BROADWELL),
-	ICPU_HWP(INTEL_FAM6_BROADWELL_D, INTEL_PSTATE_HWP_BROADWELL),
-	ICPU_HWP(X86_MODEL_ANY, 0),
+	X86_MATCH_HWP(BROADWELL_X,	INTEL_PSTATE_HWP_BROADWELL),
+	X86_MATCH_HWP(BROADWELL_D,	INTEL_PSTATE_HWP_BROADWELL),
+	X86_MATCH_HWP(ANY,		0),
 	{}
 };
 
@@ -2769,6 +2774,8 @@ static int __init intel_pstate_init(void)
 		pr_info("Invalid MSRs\n");
 		return -ENODEV;
 	}
+	/* Without HWP start in the passive mode. */
+	default_driver = &intel_cpufreq;
 
 hwp_cpu_matched:
 	/*
@@ -2814,7 +2821,6 @@ static int __init intel_pstate_setup(char *str)
 	if (!strcmp(str, "disable")) {
 		no_load = 1;
 	} else if (!strcmp(str, "passive")) {
-		pr_info("Passive mode enabled\n");
 		default_driver = &intel_cpufreq;
 		no_hwp = 1;
 	}

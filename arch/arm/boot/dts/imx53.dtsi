@@ -222,7 +222,7 @@
 			clock-names = "core_clk", "mem_iface_clk";
 		};
 
-		aips@50000000 { /* AIPS1 */
+		bus@50000000 { /* AIPS1 */
 			compatible = "fsl,aips-bus", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -588,9 +588,10 @@
 				status = "disabled";
 			};
 
-			src: src@53fd0000 {
+			src: reset-controller@53fd0000 {
 				compatible = "fsl,imx53-src", "fsl,imx51-src";
 				reg = <0x53fd0000 0x4000>;
+				interrupts = <75>;
 				#reset-cells = <1>;
 			};
 
@@ -654,7 +655,7 @@
 			};
 		};
 
-		aips@60000000 {	/* AIPS2 */
+		bus@60000000 {	/* AIPS2 */
 			compatible = "fsl,aips-bus", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;

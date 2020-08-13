@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2012,2017-2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -62,13 +62,11 @@ void tmc_flush_and_stop(struct tmc_drvdata *drvdata)
 
 void tmc_enable_hw(struct tmc_drvdata *drvdata)
 {
-	drvdata->enable = true;
 	writel_relaxed(TMC_CTL_CAPT_EN, drvdata->base + TMC_CTL);
 }
 
 void tmc_disable_hw(struct tmc_drvdata *drvdata)
 {
-	drvdata->enable = false;
 	writel_relaxed(0x0, drvdata->base + TMC_CTL);
 }
 
@@ -103,9 +101,6 @@ u32 tmc_get_memwidth_mask(struct tmc_drvdata *drvdata)
 static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 {
 	int ret = 0;
-
-	if (!drvdata->enable)
-		return -EPERM;
 
 	switch (drvdata->config_type) {
 	case TMC_CONFIG_TYPE_ETB:
@@ -184,24 +179,19 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 	ssize_t actual;
 	struct tmc_drvdata *drvdata = container_of(file->private_data,
 						   struct tmc_drvdata, miscdev);
-	mutex_lock(&drvdata->mem_lock);
 	actual = tmc_get_sysfs_trace(drvdata, *ppos, len, &bufp);
-	if (actual <= 0) {
-		mutex_unlock(&drvdata->mem_lock);
+	if (actual <= 0)
 		return 0;
-	}
 
 	if (copy_to_user(data, bufp, actual)) {
 		dev_dbg(&drvdata->csdev->dev,
 			"%s: copy_to_user failed\n", __func__);
-		mutex_unlock(&drvdata->mem_lock);
 		return -EFAULT;
 	}
 
 	*ppos += actual;
 	dev_dbg(&drvdata->csdev->dev, "%zu bytes copied\n", actual);
 
-	mutex_unlock(&drvdata->mem_lock);
 	return actual;
 }
 
@@ -340,129 +330,30 @@ static ssize_t buffer_size_store(struct device *dev,
 	unsigned long val;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (drvdata->enable) {
-		pr_err("ETR is in use, disable it to change the mem_size\n");
-		return -EINVAL;
-	}
 	/* Only permitted for TMC-ETRs */
 	if (drvdata->config_type != TMC_CONFIG_TYPE_ETR)
 		return -EPERM;
+
 	ret = kstrtoul(buf, 0, &val);
 	if (ret)
 		return ret;
 	/* The buffer size should be page aligned */
 	if (val & (PAGE_SIZE - 1))
 		return -EINVAL;
-
 	drvdata->size = val;
 	return size;
 }
 
 static DEVICE_ATTR_RW(buffer_size);
 
-static ssize_t block_size_show(struct device *dev,
-			     struct device_attribute *attr,
-			     char *buf)
-{
-	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	uint32_t val = 0;
-
-	if (drvdata->byte_cntr)
-		val = drvdata->byte_cntr->block_size;
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n",
-			val);
-}
-
-static ssize_t block_size_store(struct device *dev,
-			      struct device_attribute *attr,
-			      const char *buf,
-			      size_t size)
-{
-	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (kstrtoul(buf, 0, &val))
-		return -EINVAL;
-
-	if (!drvdata->byte_cntr)
-		return -EINVAL;
-
-	if (val && val < 4096) {
-		pr_err("Assign minimum block size of 4096 bytes\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&drvdata->byte_cntr->byte_cntr_lock);
-	drvdata->byte_cntr->block_size = val;
-	mutex_unlock(&drvdata->byte_cntr->byte_cntr_lock);
-
-	return size;
-}
-static DEVICE_ATTR_RW(block_size);
-
-static ssize_t out_mode_show(struct device *dev,
-			     struct device_attribute *attr, char *buf)
-{
-	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
-
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			str_tmc_etr_out_mode[drvdata->out_mode]);
-}
-
-static ssize_t out_mode_store(struct device *dev,
-			      struct device_attribute *attr,
-			      const char *buf, size_t size)
-{
-	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	char str[10] = "";
-	int ret;
-
-	if (strlen(buf) >= 10)
-		return -EINVAL;
-	if (sscanf(buf, "%10s", str) != 1)
-		return -EINVAL;
-	ret = tmc_etr_switch_mode(drvdata, str);
-	return ret ? ret : size;
-}
-static DEVICE_ATTR_RW(out_mode);
-
-static ssize_t available_out_modes_show(struct device *dev,
-				       struct device_attribute *attr,
-				       char *buf)
-{
-	ssize_t len = 0;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(str_tmc_etr_out_mode); i++)
-		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
-				str_tmc_etr_out_mode[i]);
-
-	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
-	return len;
-}
-static DEVICE_ATTR_RO(available_out_modes);
-
-static struct attribute *coresight_tmc_etf_attrs[] = {
-	&dev_attr_trigger_cntr.attr,
-	NULL,
-};
-
-static struct attribute *coresight_tmc_etr_attrs[] = {
+static struct attribute *coresight_tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	&dev_attr_buffer_size.attr,
-	&dev_attr_block_size.attr,
-	&dev_attr_out_mode.attr,
-	&dev_attr_available_out_modes.attr,
 	NULL,
 };
 
-static const struct attribute_group coresight_tmc_etf_group = {
-	.attrs = coresight_tmc_etf_attrs,
-};
-
-static const struct attribute_group coresight_tmc_etr_group = {
-	.attrs = coresight_tmc_etr_attrs,
+static const struct attribute_group coresight_tmc_group = {
+	.attrs = coresight_tmc_attrs,
 };
 
 static const struct attribute_group coresight_tmc_mgmt_group = {
@@ -470,14 +361,8 @@ static const struct attribute_group coresight_tmc_mgmt_group = {
 	.name = "mgmt",
 };
 
-static const struct attribute_group *coresight_tmc_etf_groups[] = {
-	&coresight_tmc_etf_group,
-	&coresight_tmc_mgmt_group,
-	NULL,
-};
-
-static const struct attribute_group *coresight_tmc_etr_groups[] = {
-	&coresight_tmc_etr_group,
+static const struct attribute_group *coresight_tmc_groups[] = {
+	&coresight_tmc_group,
 	&coresight_tmc_mgmt_group,
 	NULL,
 };
@@ -557,7 +442,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	struct resource *res = &adev->res;
 	struct coresight_desc desc = { 0 };
 	struct coresight_dev_list *dev_list = NULL;
-	struct coresight_cti_data *ctidata;
 
 	ret = -ENOMEM;
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
@@ -576,7 +460,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->base = base;
 
 	spin_lock_init(&drvdata->spinlock);
-	mutex_init(&drvdata->mem_lock);
 
 	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
@@ -584,61 +467,27 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	/* This device is not associated with a session */
 	drvdata->pid = -1;
 
-	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
 		drvdata->size = tmc_etr_get_default_buffer_size(dev);
-	} else {
+	else
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
-	}
-
-	ret = of_get_coresight_csr_name(adev->dev.of_node, &drvdata->csr_name);
-	if (ret)
-		dev_dbg(dev, "No csr data\n");
-	else {
-		drvdata->csr = coresight_csr_get(drvdata->csr_name);
-		if (IS_ERR(drvdata->csr)) {
-			dev_dbg(dev, "failed to get csr, defer probe\n");
-			return -EPROBE_DEFER;
-		}
-	}
-
-	ctidata = of_get_coresight_cti_data(dev, adev->dev.of_node);
-	if (IS_ERR(ctidata)) {
-		dev_err(dev, "invalid cti data\n");
-	} else if (ctidata && ctidata->nr_ctis == 2) {
-		drvdata->cti_flush = coresight_cti_get(ctidata->names[0]);
-		if (IS_ERR(drvdata->cti_flush)) {
-			dev_err(dev, "failed to get flush cti, defer probe\n");
-			return -EPROBE_DEFER;
-		}
-
-		drvdata->cti_reset = coresight_cti_get(ctidata->names[1]);
-		if (IS_ERR(drvdata->cti_reset)) {
-			dev_err(dev, "failed to get reset cti, defer probe\n");
-			return -EPROBE_DEFER;
-		}
-	}
 
 	desc.dev = dev;
+	desc.groups = coresight_tmc_groups;
+
 	switch (drvdata->config_type) {
 	case TMC_CONFIG_TYPE_ETB:
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
-		desc.groups = coresight_tmc_etf_groups;
 		desc.ops = &tmc_etb_cs_ops;
 		dev_list = &etb_devs;
 		break;
 	case TMC_CONFIG_TYPE_ETR:
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
-		desc.groups = coresight_tmc_etr_groups;
 		desc.ops = &tmc_etr_cs_ops;
 		ret = tmc_etr_setup_caps(dev, devid,
 					 coresight_get_uci_data(id));
-		if (ret)
-			goto out;
-		drvdata->byte_cntr = byte_cntr_init(adev, drvdata);
-		ret = tmc_etr_bam_init(adev, drvdata);
 		if (ret)
 			goto out;
 		idr_init(&drvdata->idr);
@@ -648,7 +497,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	case TMC_CONFIG_TYPE_ETF:
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
 		desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
-		desc.groups = coresight_tmc_etf_groups;
 		desc.ops = &tmc_etf_cs_ops;
 		dev_list = &etf_devs;
 		break;

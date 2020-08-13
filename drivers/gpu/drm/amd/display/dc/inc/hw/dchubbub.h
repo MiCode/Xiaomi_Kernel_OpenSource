@@ -134,7 +134,7 @@ struct hubbub_funcs {
 			unsigned int dccg_ref_freq_inKhz,
 			unsigned int *dchub_ref_freq_inKhz);
 
-	void (*program_watermarks)(
+	bool (*program_watermarks)(
 			struct hubbub *hubbub,
 			struct dcn_watermark_set *watermarks,
 			unsigned int refclk_mhz,
@@ -144,6 +144,8 @@ struct hubbub_funcs {
 	void (*allow_self_refresh_control)(struct hubbub *hubbub, bool allow);
 
 	void (*apply_DEDCN21_147_wa)(struct hubbub *hubbub);
+
+	void (*force_wm_propagate_to_pipes)(struct hubbub *hubbub);
 };
 
 struct hubbub {

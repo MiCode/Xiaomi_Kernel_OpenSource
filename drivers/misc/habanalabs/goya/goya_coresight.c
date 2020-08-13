@@ -266,7 +266,7 @@ static int goya_config_stm(struct hl_device *hdev,
 		WREG32(base_reg + 0xDF4, 0x80);
 		WREG32(base_reg + 0xE8C, input->frequency);
 		WREG32(base_reg + 0xE90, 0x7FF);
-		WREG32(base_reg + 0xE80, 0x7 | (input->id << 16));
+		WREG32(base_reg + 0xE80, 0x27 | (input->id << 16));
 	} else {
 		WREG32(base_reg + 0xE80, 4);
 		WREG32(base_reg + 0xD64, 0);
@@ -364,8 +364,8 @@ static int goya_etr_validate_address(struct hl_device *hdev, u64 addr,
 	u64 range_start, range_end;
 
 	if (hdev->mmu_enable) {
-		range_start = prop->va_space_dram_start_address;
-		range_end = prop->va_space_dram_end_address;
+		range_start = prop->dmmu.start_addr;
+		range_end = prop->dmmu.end_addr;
 	} else {
 		range_start = prop->dram_user_base_address;
 		range_end = prop->dram_end_address;

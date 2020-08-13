@@ -191,10 +191,11 @@ static const struct edid_quirk {
 	{ "HVR", 0xaa01, EDID_QUIRK_NON_DESKTOP },
 	{ "HVR", 0xaa02, EDID_QUIRK_NON_DESKTOP },
 
-	/* Oculus Rift DK1, DK2, and CV1 VR Headsets */
+	/* Oculus Rift DK1, DK2, CV1 and Rift S VR Headsets */
 	{ "OVR", 0x0001, EDID_QUIRK_NON_DESKTOP },
 	{ "OVR", 0x0003, EDID_QUIRK_NON_DESKTOP },
 	{ "OVR", 0x0004, EDID_QUIRK_NON_DESKTOP },
+	{ "OVR", 0x0012, EDID_QUIRK_NON_DESKTOP },
 
 	/* Windows Mixed Reality Headsets */
 	{ "ACR", 0x7fce, EDID_QUIRK_NON_DESKTOP },
@@ -1583,8 +1584,6 @@ module_param_named(edid_fixup, edid_fixup, int, 0400);
 MODULE_PARM_DESC(edid_fixup,
 		 "Minimum number of valid EDID header bytes (0-8, default 6)");
 
-static void drm_get_displayid(struct drm_connector *connector,
-			      struct edid *edid);
 static int validate_displayid(u8 *displayid, int length, int idx);
 
 static int drm_edid_block_checksum(const u8 *raw_edid)
@@ -2002,18 +2001,13 @@ EXPORT_SYMBOL(drm_probe_ddc);
 struct edid *drm_get_edid(struct drm_connector *connector,
 			  struct i2c_adapter *adapter)
 {
-	struct edid *edid;
-
 	if (connector->force == DRM_FORCE_OFF)
 		return NULL;
 
 	if (connector->force == DRM_FORCE_UNSPECIFIED && !drm_probe_ddc(adapter))
 		return NULL;
 
-	edid = drm_do_get_edid(connector, drm_do_probe_ddc_edid, adapter);
-	if (edid)
-		drm_get_displayid(connector, edid);
-	return edid;
+	return drm_do_get_edid(connector, drm_do_probe_ddc_edid, adapter);
 }
 EXPORT_SYMBOL(drm_get_edid);
 
@@ -2196,14 +2190,28 @@ struct drm_display_mode *drm_mode_find_dmt(struct drm_device *dev,
 }
 EXPORT_SYMBOL(drm_mode_find_dmt);
 
+static bool is_display_descriptor(const u8 d[18], u8 tag)
+{
+	return d[0] == 0x00 && d[1] == 0x00 &&
+		d[2] == 0x00 && d[3] == tag;
+}
+
+static bool is_detailed_timing_descriptor(const u8 d[18])
+{
+	return d[0] != 0x00 || d[1] != 0x00;
+}
+
 typedef void detailed_cb(struct detailed_timing *timing, void *closure);
 
 static void
 cea_for_each_detailed_block(u8 *ext, detailed_cb *cb, void *closure)
 {
-	int i, n = 0;
+	int i, n;
 	u8 d = ext[0x02];
 	u8 *det_base = ext + d;
+
+	if (d < 4 || d > 127)
+		return;
 
 	n = (127 - d) / 18;
 	for (i = 0; i < n; i++)
@@ -2254,9 +2262,12 @@ static void
 is_rb(struct detailed_timing *t, void *data)
 {
 	u8 *r = (u8 *)t;
-	if (r[3] == EDID_DETAIL_MONITOR_RANGE)
-		if (r[15] & 0x10)
-			*(bool *)data = true;
+
+	if (!is_display_descriptor(r, EDID_DETAIL_MONITOR_RANGE))
+		return;
+
+	if (r[15] & 0x10)
+		*(bool *)data = true;
 }
 
 /* EDID 1.4 defines this explicitly.  For EDID 1.3, we guess, badly. */
@@ -2276,7 +2287,11 @@ static void
 find_gtf2(struct detailed_timing *t, void *data)
 {
 	u8 *r = (u8 *)t;
-	if (r[3] == EDID_DETAIL_MONITOR_RANGE && r[10] == 0x02)
+
+	if (!is_display_descriptor(r, EDID_DETAIL_MONITOR_RANGE))
+		return;
+
+	if (r[10] == 0x02)
 		*(u8 **)data = r;
 }
 
@@ -2348,6 +2363,14 @@ bad_std_timing(u8 a, u8 b)
 	return (a == 0x00 && b == 0x00) ||
 	       (a == 0x01 && b == 0x01) ||
 	       (a == 0x20 && b == 0x20);
+}
+
+static int drm_mode_hsync(const struct drm_display_mode *mode)
+{
+	if (mode->htotal <= 0)
+		return 0;
+
+	return DIV_ROUND_CLOSEST(mode->clock, mode->htotal);
 }
 
 /**
@@ -2815,13 +2838,13 @@ do_inferred_modes(struct detailed_timing *timing, void *c)
 	struct detailed_non_pixel *data = &timing->data.other_data;
 	struct detailed_data_monitor_range *range = &data->data.range;
 
-	if (data->type != EDID_DETAIL_MONITOR_RANGE)
+	if (!is_display_descriptor((const u8 *)timing, EDID_DETAIL_MONITOR_RANGE))
 		return;
 
 	closure->modes += drm_dmt_modes_for_range(closure->connector,
 						  closure->edid,
 						  timing);
-	
+
 	if (!version_greater(closure->edid, 1, 1))
 		return; /* GTF not defined yet */
 
@@ -2894,10 +2917,11 @@ static void
 do_established_modes(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
-	struct detailed_non_pixel *data = &timing->data.other_data;
 
-	if (data->type == EDID_DETAIL_EST_TIMINGS)
-		closure->modes += drm_est3_modes(closure->connector, timing);
+	if (!is_display_descriptor((const u8 *)timing, EDID_DETAIL_EST_TIMINGS))
+		return;
+
+	closure->modes += drm_est3_modes(closure->connector, timing);
 }
 
 /**
@@ -2946,19 +2970,19 @@ do_standard_modes(struct detailed_timing *timing, void *c)
 	struct detailed_non_pixel *data = &timing->data.other_data;
 	struct drm_connector *connector = closure->connector;
 	struct edid *edid = closure->edid;
+	int i;
 
-	if (data->type == EDID_DETAIL_STD_MODES) {
-		int i;
-		for (i = 0; i < 6; i++) {
-			struct std_timing *std;
-			struct drm_display_mode *newmode;
+	if (!is_display_descriptor((const u8 *)timing, EDID_DETAIL_STD_MODES))
+		return;
 
-			std = &data->data.timings[i];
-			newmode = drm_mode_std(connector, edid, std);
-			if (newmode) {
-				drm_mode_probed_add(connector, newmode);
-				closure->modes++;
-			}
+	for (i = 0; i < 6; i++) {
+		struct std_timing *std = &data->data.timings[i];
+		struct drm_display_mode *newmode;
+
+		newmode = drm_mode_std(connector, edid, std);
+		if (newmode) {
+			drm_mode_probed_add(connector, newmode);
+			closure->modes++;
 		}
 	}
 }
@@ -3053,15 +3077,16 @@ static void
 do_cvt_mode(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
-	struct detailed_non_pixel *data = &timing->data.other_data;
 
-	if (data->type == EDID_DETAIL_CVT_3BYTE)
-		closure->modes += drm_cvt_modes(closure->connector, timing);
+	if (!is_display_descriptor((const u8 *)timing, EDID_DETAIL_CVT_3BYTE))
+		return;
+
+	closure->modes += drm_cvt_modes(closure->connector, timing);
 }
 
 static int
 add_cvt_modes(struct drm_connector *connector, struct edid *edid)
-{	
+{
 	struct detailed_mode_closure closure = {
 		.connector = connector,
 		.edid = edid,
@@ -3083,27 +3108,28 @@ do_detailed_mode(struct detailed_timing *timing, void *c)
 	struct detailed_mode_closure *closure = c;
 	struct drm_display_mode *newmode;
 
-	if (timing->pixel_clock) {
-		newmode = drm_mode_detailed(closure->connector->dev,
-					    closure->edid, timing,
-					    closure->quirks);
-		if (!newmode)
-			return;
+	if (!is_detailed_timing_descriptor((const u8 *)timing))
+		return;
 
-		if (closure->preferred)
-			newmode->type |= DRM_MODE_TYPE_PREFERRED;
+	newmode = drm_mode_detailed(closure->connector->dev,
+				    closure->edid, timing,
+				    closure->quirks);
+	if (!newmode)
+		return;
 
-		/*
-		 * Detailed modes are limited to 10kHz pixel clock resolution,
-		 * so fix up anything that looks like CEA/HDMI mode, but the clock
-		 * is just slightly off.
-		 */
-		fixup_detailed_cea_mode_clock(newmode);
+	if (closure->preferred)
+		newmode->type |= DRM_MODE_TYPE_PREFERRED;
 
-		drm_mode_probed_add(closure->connector, newmode);
-		closure->modes++;
-		closure->preferred = false;
-	}
+	/*
+	 * Detailed modes are limited to 10kHz pixel clock resolution,
+	 * so fix up anything that looks like CEA/HDMI mode, but the clock
+	 * is just slightly off.
+	 */
+	fixup_detailed_cea_mode_clock(newmode);
+
+	drm_mode_probed_add(closure->connector, newmode);
+	closure->modes++;
+	closure->preferred = false;
 }
 
 /*
@@ -3172,16 +3198,33 @@ static u8 *drm_find_edid_extension(const struct edid *edid, int ext_id)
 }
 
 
-static u8 *drm_find_displayid_extension(const struct edid *edid)
+static u8 *drm_find_displayid_extension(const struct edid *edid,
+					int *length, int *idx)
 {
-	return drm_find_edid_extension(edid, DISPLAYID_EXT);
+	u8 *displayid = drm_find_edid_extension(edid, DISPLAYID_EXT);
+	struct displayid_hdr *base;
+	int ret;
+
+	if (!displayid)
+		return NULL;
+
+	/* EDID extensions block checksum isn't for us */
+	*length = EDID_LENGTH - 1;
+	*idx = 1;
+
+	ret = validate_displayid(displayid, *length, *idx);
+	if (ret)
+		return NULL;
+
+	base = (struct displayid_hdr *)&displayid[*idx];
+	*length = *idx + sizeof(*base) + base->bytes;
+
+	return displayid;
 }
 
 static u8 *drm_find_cea_extension(const struct edid *edid)
 {
-	int ret;
-	int idx = 1;
-	int length = EDID_LENGTH;
+	int length, idx;
 	struct displayid_block *block;
 	u8 *cea;
 	u8 *displayid;
@@ -3192,12 +3235,8 @@ static u8 *drm_find_cea_extension(const struct edid *edid)
 		return cea;
 
 	/* CEA blocks can also be found embedded in a DisplayID block */
-	displayid = drm_find_displayid_extension(edid);
+	displayid = drm_find_displayid_extension(edid, &length, &idx);
 	if (!displayid)
-		return NULL;
-
-	ret = validate_displayid(displayid, length, idx);
-	if (ret)
 		return NULL;
 
 	idx += sizeof(struct displayid_hdr);
@@ -3953,6 +3992,13 @@ cea_db_tag(const u8 *db)
 static int
 cea_revision(const u8 *cea)
 {
+	/*
+	 * FIXME is this correct for the DispID variant?
+	 * The DispID spec doesn't really specify whether
+	 * this is the revision of the CEA extension or
+	 * the DispID CEA data block. And the only value
+	 * given as an example is 0.
+	 */
 	return cea[1];
 }
 
@@ -3977,6 +4023,10 @@ cea_db_offsets(const u8 *cea, int *start, int *end)
 	 *   no non-DTD data.
 	 */
 	if (cea[0] == DATA_BLOCK_CTA) {
+		/*
+		 * for_each_displayid_db() has already verified
+		 * that these stay within expected bounds.
+		 */
 		*start = 3;
 		*end = *start + cea[2];
 	} else if (cea[0] == CEA_EXT) {
@@ -4282,8 +4332,10 @@ drm_parse_hdmi_vsdb_audio(struct drm_connector *connector, const u8 *db)
 static void
 monitor_name(struct detailed_timing *t, void *data)
 {
-	if (t->data.other_data.type == EDID_DETAIL_MONITOR_NAME)
-		*(u8 **)data = t->data.other_data.data.str.str;
+	if (!is_display_descriptor((const u8 *)t, EDID_DETAIL_MONITOR_NAME))
+		return;
+
+	*(u8 **)data = t->data.other_data.data.str.str;
 }
 
 static int get_monitor_name(struct edid *edid, char name[13])
@@ -4316,7 +4368,7 @@ void drm_edid_get_monitor_name(struct edid *edid, char *name, int bufsize)
 {
 	int name_length;
 	char buf[13];
-	
+
 	if (bufsize <= 0)
 		return;
 
@@ -4381,6 +4433,7 @@ static void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
 
 	if (cea_revision(cea) >= 3) {
 		int i, start, end;
+		int sad_count;
 
 		if (cea_db_offsets(cea, &start, &end)) {
 			start = 0;
@@ -4392,8 +4445,6 @@ static void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
 			dbl = cea_db_payload_len(db);
 
 			switch (cea_db_tag(db)) {
-				int sad_count;
-
 			case AUDIO_BLOCK:
 				/* Audio Data Block, contains SADs */
 				sad_count = min(dbl / 3, 15 - total_sad_count);
@@ -4593,6 +4644,9 @@ EXPORT_SYMBOL(drm_av_sync_delay);
  * @edid: monitor EDID information
  *
  * Parse the CEA extension according to CEA-861-B.
+ *
+ * Drivers that have added the modes parsed from EDID to drm_display_info
+ * should use &drm_display_info.is_hdmi instead of calling this function.
  *
  * Return: True if the monitor is HDMI, false if not or unknown.
  */
@@ -4828,6 +4882,8 @@ drm_parse_hdmi_vsdb_video(struct drm_connector *connector, const u8 *db)
 	struct drm_display_info *info = &connector->display_info;
 	u8 len = cea_db_payload_len(db);
 
+	info->is_hdmi = true;
+
 	if (len >= 6)
 		info->dvi_dual = db[6] & 1;
 	if (len >= 7)
@@ -4880,6 +4936,47 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
 	}
 }
 
+static
+void get_monitor_range(struct detailed_timing *timing,
+		       void *info_monitor_range)
+{
+	struct drm_monitor_range_info *monitor_range = info_monitor_range;
+	const struct detailed_non_pixel *data = &timing->data.other_data;
+	const struct detailed_data_monitor_range *range = &data->data.range;
+
+	if (!is_display_descriptor((const u8 *)timing, EDID_DETAIL_MONITOR_RANGE))
+		return;
+
+	/*
+	 * Check for flag range limits only. If flag == 1 then
+	 * no additional timing information provided.
+	 * Default GTF, GTF Secondary curve and CVT are not
+	 * supported
+	 */
+	if (range->flags != DRM_EDID_RANGE_LIMITS_ONLY_FLAG)
+		return;
+
+	monitor_range->min_vfreq = range->min_vfreq;
+	monitor_range->max_vfreq = range->max_vfreq;
+}
+
+static
+void drm_get_monitor_range(struct drm_connector *connector,
+			   const struct edid *edid)
+{
+	struct drm_display_info *info = &connector->display_info;
+
+	if (!version_greater(edid, 1, 1))
+		return;
+
+	drm_for_each_detailed_block((u8 *)edid, get_monitor_range,
+				    &info->monitor_range);
+
+	DRM_DEBUG_KMS("Supported Monitor Refresh rate range is %d Hz - %d Hz\n",
+		      info->monitor_range.min_vfreq,
+		      info->monitor_range.max_vfreq);
+}
+
 /* A connector has no EDID information, so we've got no EDID to compute quirks from. Reset
  * all of the values which would have been set from EDID
  */
@@ -4896,11 +4993,13 @@ drm_reset_display_info(struct drm_connector *connector)
 	info->cea_rev = 0;
 	info->max_tmds_clock = 0;
 	info->dvi_dual = false;
+	info->is_hdmi = false;
 	info->has_hdmi_infoframe = false;
 	info->rgb_quant_range_selectable = false;
 	memset(&info->hdmi, 0, sizeof(info->hdmi));
 
 	info->non_desktop = 0;
+	memset(&info->monitor_range, 0, sizeof(info->monitor_range));
 }
 
 u32 drm_add_display_info(struct drm_connector *connector, const struct edid *edid)
@@ -4915,6 +5014,8 @@ u32 drm_add_display_info(struct drm_connector *connector, const struct edid *edi
 	info->height_mm = edid->height_cm * 10;
 
 	info->non_desktop = !!(quirks & EDID_QUIRK_NON_DESKTOP);
+
+	drm_get_monitor_range(connector, edid);
 
 	DRM_DEBUG_KMS("non_desktop set to %d\n", info->non_desktop);
 
@@ -4982,7 +5083,7 @@ u32 drm_add_display_info(struct drm_connector *connector, const struct edid *edi
 
 static int validate_displayid(u8 *displayid, int length, int idx)
 {
-	int i;
+	int i, dispid_length;
 	u8 csum = 0;
 	struct displayid_hdr *base;
 
@@ -4991,15 +5092,18 @@ static int validate_displayid(u8 *displayid, int length, int idx)
 	DRM_DEBUG_KMS("base revision 0x%x, length %d, %d %d\n",
 		      base->rev, base->bytes, base->prod_id, base->ext_count);
 
-	if (base->bytes + 5 > length - idx)
+	/* +1 for DispID checksum */
+	dispid_length = sizeof(*base) + base->bytes + 1;
+	if (dispid_length > length - idx)
 		return -EINVAL;
-	for (i = idx; i <= base->bytes + 5; i++) {
-		csum += displayid[i];
-	}
+
+	for (i = 0; i < dispid_length; i++)
+		csum += displayid[idx + i];
 	if (csum) {
 		DRM_NOTE("DisplayID checksum invalid, remainder is %d\n", csum);
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -5009,7 +5113,7 @@ static struct drm_display_mode *drm_mode_displayid_detailed(struct drm_device *d
 	struct drm_display_mode *mode;
 	unsigned pixel_clock = (timings->pixel_clock[0] |
 				(timings->pixel_clock[1] << 8) |
-				(timings->pixel_clock[2] << 16));
+				(timings->pixel_clock[2] << 16)) + 1;
 	unsigned hactive = (timings->hactive[0] | timings->hactive[1] << 8) + 1;
 	unsigned hblank = (timings->hblank[0] | timings->hblank[1] << 8) + 1;
 	unsigned hsync = (timings->hsync[0] | (timings->hsync[1] & 0x7f) << 8) + 1;
@@ -5078,18 +5182,12 @@ static int add_displayid_detailed_modes(struct drm_connector *connector,
 					struct edid *edid)
 {
 	u8 *displayid;
-	int ret;
-	int idx = 1;
-	int length = EDID_LENGTH;
+	int length, idx;
 	struct displayid_block *block;
 	int num_modes = 0;
 
-	displayid = drm_find_displayid_extension(edid);
+	displayid = drm_find_displayid_extension(edid, &length, &idx);
 	if (!displayid)
-		return 0;
-
-	ret = validate_displayid(displayid, length, idx);
-	if (ret)
 		return 0;
 
 	idx += sizeof(struct displayid_hdr);
@@ -5396,14 +5494,11 @@ drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
 {
 	enum hdmi_picture_aspect picture_aspect;
 	u8 vic, hdmi_vic;
-	int err;
 
 	if (!frame || !mode)
 		return -EINVAL;
 
-	err = hdmi_avi_infoframe_init(frame);
-	if (err < 0)
-		return err;
+	hdmi_avi_infoframe_init(frame);
 
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		frame->pixel_repeat = 1;
@@ -5683,9 +5778,9 @@ drm_hdmi_vendor_infoframe_from_display_mode(struct hdmi_vendor_infoframe *frame,
 EXPORT_SYMBOL(drm_hdmi_vendor_infoframe_from_display_mode);
 
 static int drm_parse_tiled_block(struct drm_connector *connector,
-				 struct displayid_block *block)
+				 const struct displayid_block *block)
 {
-	struct displayid_tiled_block *tile = (struct displayid_tiled_block *)block;
+	const struct displayid_tiled_block *tile = (struct displayid_tiled_block *)block;
 	u16 w, h;
 	u8 tile_v_loc, tile_h_loc;
 	u8 num_v_tile, num_h_tile;
@@ -5736,21 +5831,11 @@ static int drm_parse_tiled_block(struct drm_connector *connector,
 	return 0;
 }
 
-static int drm_parse_display_id(struct drm_connector *connector,
-				u8 *displayid, int length,
-				bool is_edid_extension)
+static int drm_displayid_parse_tiled(struct drm_connector *connector,
+				     const u8 *displayid, int length, int idx)
 {
-	/* if this is an EDID extension the first byte will be 0x70 */
-	int idx = 0;
-	struct displayid_block *block;
+	const struct displayid_block *block;
 	int ret;
-
-	if (is_edid_extension)
-		idx = 1;
-
-	ret = validate_displayid(displayid, length, idx);
-	if (ret)
-		return ret;
 
 	idx += sizeof(struct displayid_hdr);
 	for_each_displayid_db(displayid, block, idx, length) {
@@ -5763,12 +5848,6 @@ static int drm_parse_display_id(struct drm_connector *connector,
 			if (ret)
 				return ret;
 			break;
-		case DATA_BLOCK_TYPE_1_DETAILED_TIMING:
-			/* handled in mode gathering code. */
-			break;
-		case DATA_BLOCK_CTA:
-			/* handled in the cea parser code. */
-			break;
 		default:
 			DRM_DEBUG_KMS("found DisplayID tag 0x%x, unhandled\n", block->tag);
 			break;
@@ -5777,19 +5856,21 @@ static int drm_parse_display_id(struct drm_connector *connector,
 	return 0;
 }
 
-static void drm_get_displayid(struct drm_connector *connector,
-			      struct edid *edid)
+void drm_update_tile_info(struct drm_connector *connector,
+			  const struct edid *edid)
 {
-	void *displayid = NULL;
+	const void *displayid = NULL;
+	int length, idx;
 	int ret;
+
 	connector->has_tile = false;
-	displayid = drm_find_displayid_extension(edid);
+	displayid = drm_find_displayid_extension(edid, &length, &idx);
 	if (!displayid) {
 		/* drop reference to any tile group we had */
 		goto out_drop_ref;
 	}
 
-	ret = drm_parse_display_id(connector, displayid, EDID_LENGTH, true);
+	ret = drm_displayid_parse_tiled(connector, displayid, length, idx);
 	if (ret < 0)
 		goto out_drop_ref;
 	if (!connector->has_tile)

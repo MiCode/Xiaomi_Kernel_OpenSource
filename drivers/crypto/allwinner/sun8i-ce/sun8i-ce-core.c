@@ -7,7 +7,7 @@
  *
  * Core file which registers crypto algorithms supported by the CryptoEngine.
  *
- * You could find a link for the datasheet in Documentation/arm/sunxi/README
+ * You could find a link for the datasheet in Documentation/arm/sunxi.rst
  */
 #include <linux/clk.h>
 #include <linux/crypto.h>
@@ -565,10 +565,8 @@ static int sun8i_ce_probe(struct platform_device *pdev)
 
 	/* Get Non Secure IRQ */
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(ce->dev, "Cannot get CryptoEngine Non-secure IRQ\n");
+	if (irq < 0)
 		return irq;
-	}
 
 	ce->reset = devm_reset_control_get(&pdev->dev, NULL);
 	if (IS_ERR(ce->reset)) {

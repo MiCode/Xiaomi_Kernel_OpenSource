@@ -120,6 +120,7 @@ int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
 		sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(dma_common_get_sgtable);
 
 /*
  * The whole dma_get_sgtable() idea is fundamentally unsafe - it seems
@@ -154,6 +155,8 @@ EXPORT_SYMBOL(dma_get_sgtable_attrs);
  */
 pgprot_t dma_pgprot(struct device *dev, pgprot_t prot, unsigned long attrs)
 {
+	if (force_dma_unencrypted(dev))
+		prot = pgprot_decrypted(prot);
 	if (dev_is_dma_coherent(dev) ||
 	    (IS_ENABLED(CONFIG_DMA_NONCOHERENT_CACHE_SYNC) &&
              (attrs & DMA_ATTR_NON_CONSISTENT)))
@@ -194,6 +197,7 @@ int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
 	return -ENXIO;
 #endif /* CONFIG_MMU */
 }
+EXPORT_SYMBOL_GPL(dma_common_mmap);
 
 /**
  * dma_can_mmap - check if a given device supports dma_mmap_*

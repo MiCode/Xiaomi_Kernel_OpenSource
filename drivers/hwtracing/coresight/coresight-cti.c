@@ -1,1608 +1,963 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 Linaro Limited, All rights reserved.
+ * Author: Mike Leach <mike.leach@linaro.org>
  */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/device.h>
-#include <linux/platform_device.h>
-#include <linux/io.h>
-#include <linux/err.h>
-#include <linux/slab.h>
-#include <linux/mutex.h>
 #include <linux/amba/bus.h>
-#include <linux/cpu_pm.h>
-#include <linux/topology.h>
-#include <linux/of.h>
+#include <linux/atomic.h>
+#include <linux/bits.h>
 #include <linux/coresight.h>
-#include <linux/coresight-cti.h>
+#include <linux/cpu_pm.h>
+#include <linux/cpuhotplug.h>
+#include <linux/device.h>
+#include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/list.h>
+#include <linux/mutex.h>
+#include <linux/pm_runtime.h>
+#include <linux/property.h>
+#include <linux/spinlock.h>
 
 #include "coresight-priv.h"
+#include "coresight-cti.h"
 
-#define cti_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
-#define cti_readl(drvdata, off)		__raw_readl(drvdata->base + off)
+/**
+ * CTI devices can be associated with a PE, or be connected to CoreSight
+ * hardware. We have a list of all CTIs irrespective of CPU bound or
+ * otherwise.
+ *
+ * We assume that the non-CPU CTIs are always powered as we do with sinks etc.
+ *
+ * We leave the client to figure out if all the CTIs are interconnected with
+ * the same CTM, in general this is the case but does not always have to be.
+ */
 
-#define CTI_LOCK(drvdata)						\
-do {									\
-	mb(); /* ensure configuration take effect before we lock it */	\
-	cti_writel(drvdata, 0x0, CORESIGHT_LAR);			\
-} while (0)
-#define CTI_UNLOCK(drvdata)						\
-do {									\
-	cti_writel(drvdata, CORESIGHT_UNLOCK, CORESIGHT_LAR);		\
-	mb(); /* ensure unlock take effect before we configure */	\
-} while (0)
+/* net of CTI devices connected via CTM */
+static LIST_HEAD(ect_net);
 
-#define CTICONTROL		(0x000)
-#define CTIINTACK		(0x010)
-#define CTIAPPSET		(0x014)
-#define CTIAPPCLEAR		(0x018)
-#define CTIAPPPULSE		(0x01C)
-#define CTIINEN(n)		(0x020 + (n * 4))
-#define CTIOUTEN(n)		(0x0A0 + (n * 4))
-#define CTITRIGINSTATUS		(0x130)
-#define CTITRIGOUTSTATUS	(0x134)
-#define CTICHINSTATUS		(0x138)
-#define CTICHOUTSTATUS		(0x13C)
-#define CTIGATE			(0x140)
-#define ASICCTL			(0x144)
-#define ITCHINACK		(0xEDC)
-#define ITTRIGINACK		(0xEE0)
-#define ITCHOUT			(0xEE4)
-#define ITTRIGOUT		(0xEE8)
-#define ITCHOUTACK		(0xEEC)
-#define ITTRIGOUTACK		(0xEF0)
-#define ITCHIN			(0xEF4)
-#define ITTRIGIN		(0xEF8)
+/* protect the list */
+static DEFINE_MUTEX(ect_mutex);
 
-#define CTI_MAX_TRIGGERS	(32)
-#define CTI_MAX_CHANNELS	(4)
-#define AFFINITY_LEVEL_L2	1
+#define csdev_to_cti_drvdata(csdev)	\
+	dev_get_drvdata(csdev->dev.parent)
 
-#define to_cti_drvdata(c) container_of(c, struct cti_drvdata, cti)
+/* power management handling */
+static int nr_cti_cpu;
 
-struct cti_state {
-	unsigned int cticontrol;
-	unsigned int ctiappset;
-	unsigned int ctigate;
-	unsigned int ctiinen[CTI_MAX_TRIGGERS];
-	unsigned int ctiouten[CTI_MAX_TRIGGERS];
-};
+/* quick lookup list for CPU bound CTIs when power handling */
+static struct cti_drvdata *cti_cpu_drvdata[NR_CPUS];
 
-struct cti_pctrl {
-	struct pinctrl			*pctrl;
-	int				trig;
-};
+/*
+ * CTI naming. CTI bound to cores will have the name cti_cpu<N> where
+ * N is the CPU ID. System CTIs will have the name cti_sys<I> where I
+ * is an index allocated by order of discovery.
+ *
+ * CTI device name list - for CTI not bound to cores.
+ */
+DEFINE_CORESIGHT_DEVLIST(cti_sys_devs, "cti_sys");
 
-struct cti_drvdata {
-	void __iomem			*base;
-	struct device			*dev;
-	struct coresight_device		*csdev;
-	struct clk			*clk;
-	spinlock_t			spinlock;
-	struct mutex			mutex;
-	struct coresight_cti		cti;
-	int				refcnt;
-	int				cpu;
-	bool				cti_save;
-	bool				cti_hwclk;
-	bool				l2_off;
-	struct cti_state		*state;
-	struct cti_pctrl		*gpio_trigin;
-	struct cti_pctrl		*gpio_trigout;
-};
-
-static struct notifier_block cti_cpu_pm_notifier;
-static int registered;
-
-DEFINE_CORESIGHT_DEVLIST(cti_devs, "cti");
-static LIST_HEAD(cti_list);
-static DEFINE_MUTEX(cti_lock);
-#ifdef CONFIG_CORESIGHT_CTI_SAVE_DISABLE
-static int cti_save_disable = 1;
-#else
-static int cti_save_disable;
-#endif
-
-static int cti_verify_trigger_bound(int trig)
+/* write set of regs to hardware - call with spinlock claimed */
+void cti_write_all_hw_regs(struct cti_drvdata *drvdata)
 {
-	if (trig < 0 || trig >= CTI_MAX_TRIGGERS)
-		return -EINVAL;
+	struct cti_config *config = &drvdata->config;
+	int i;
 
-	return 0;
-}
+	CS_UNLOCK(drvdata->base);
 
-static int cti_verify_channel_bound(int ch)
-{
-	if (ch < 0 || ch >= CTI_MAX_CHANNELS)
-		return -EINVAL;
+	/* disable CTI before writing registers */
+	writel_relaxed(0, drvdata->base + CTICONTROL);
 
-	return 0;
-}
-
-static int cti_cpu_verify_access(struct cti_drvdata *drvdata)
-{
-	if (drvdata->cti_save && drvdata->l2_off)
-		return -EPERM;
-
-	return 0;
-}
-
-void coresight_cti_ctx_save(void)
-{
-	struct cti_drvdata *drvdata;
-	struct coresight_cti *cti;
-	int trig, cpuid, cpu;
-	unsigned long flag;
-
-	/*
-	 * Explicitly check and return to avoid latency associated with
-	 * traversing the linked list of all CTIs and checking for their
-	 * respective cti_save flag.
-	 */
-	if (cti_save_disable)
-		return;
-
-	cpu = raw_smp_processor_id();
-
-	list_for_each_entry(cti, &cti_list, link) {
-		drvdata = to_cti_drvdata(cti);
-		if (!drvdata->cti_save)
-			continue;
-
-		for_each_cpu(cpuid, topology_core_cpumask(cpu)) {
-			if (drvdata->cpu == cpuid)
-				goto out;
-		}
-		continue;
-out:
-		spin_lock_irqsave(&drvdata->spinlock, flag);
-		drvdata->l2_off = true;
-		drvdata->state->cticontrol = cti_readl(drvdata, CTICONTROL);
-		drvdata->state->ctiappset = cti_readl(drvdata, CTIAPPSET);
-		drvdata->state->ctigate = cti_readl(drvdata, CTIGATE);
-		for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-			drvdata->state->ctiinen[trig] =
-				cti_readl(drvdata, CTIINEN(trig));
-			drvdata->state->ctiouten[trig] =
-				cti_readl(drvdata, CTIOUTEN(trig));
-		}
-		spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	}
-}
-EXPORT_SYMBOL(coresight_cti_ctx_save);
-
-void coresight_cti_ctx_restore(void)
-{
-	struct cti_drvdata *drvdata;
-	struct coresight_cti *cti;
-	int trig, cpuid, cpu;
-	unsigned long flag;
-
-	/*
-	 * Explicitly check and return to avoid latency associated with
-	 * traversing the linked list of all CTIs and checking for their
-	 * respective cti_save flag.
-	 */
-	if (cti_save_disable)
-		return;
-
-	cpu = raw_smp_processor_id();
-
-	list_for_each_entry(cti, &cti_list, link) {
-		drvdata = to_cti_drvdata(cti);
-		if (!drvdata->cti_save)
-			continue;
-
-		for_each_cpu(cpuid, topology_core_cpumask(cpu)) {
-			if (drvdata->cpu == cpuid)
-				goto out;
-		}
-		continue;
-out:
-		spin_lock_irqsave(&drvdata->spinlock, flag);
-		CTI_UNLOCK(drvdata);
-		cti_writel(drvdata, drvdata->state->ctiappset, CTIAPPSET);
-		cti_writel(drvdata, drvdata->state->ctigate, CTIGATE);
-		for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-			cti_writel(drvdata, drvdata->state->ctiinen[trig],
-				   CTIINEN(trig));
-			cti_writel(drvdata, drvdata->state->ctiouten[trig],
-				   CTIOUTEN(trig));
-		}
-		cti_writel(drvdata, drvdata->state->cticontrol, CTICONTROL);
-		CTI_LOCK(drvdata);
-		drvdata->l2_off = false;
-		spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	}
-}
-EXPORT_SYMBOL(coresight_cti_ctx_restore);
-
-static void cti_enable(struct cti_drvdata *drvdata)
-{
-	CTI_UNLOCK(drvdata);
-
-	cti_writel(drvdata, 0x1, CTICONTROL);
-
-	CTI_LOCK(drvdata);
-}
-
-int cti_trigin_gpio_enable(struct cti_drvdata *drvdata)
-{
-	int ret;
-	struct pinctrl *pctrl;
-	struct pinctrl_state *pctrl_state;
-
-	if (drvdata->gpio_trigin->pctrl)
-		return 0;
-
-	pctrl = devm_pinctrl_get(drvdata->dev);
-	if (IS_ERR(pctrl)) {
-		dev_err(drvdata->dev, "pinctrl get failed\n");
-		return PTR_ERR(pctrl);
+	/* write the CTI trigger registers */
+	for (i = 0; i < config->nr_trig_max; i++) {
+		writel_relaxed(config->ctiinen[i], drvdata->base + CTIINEN(i));
+		writel_relaxed(config->ctiouten[i],
+			       drvdata->base + CTIOUTEN(i));
 	}
 
-	pctrl_state = pinctrl_lookup_state(pctrl, "cti-trigin-pctrl");
-	if (IS_ERR(pctrl_state)) {
-		dev_err(drvdata->dev,
-			"pinctrl get state failed\n");
-		ret = PTR_ERR(pctrl_state);
-		goto err;
-	}
+	/* other regs */
+	writel_relaxed(config->ctigate, drvdata->base + CTIGATE);
+	writel_relaxed(config->asicctl, drvdata->base + ASICCTL);
+	writel_relaxed(config->ctiappset, drvdata->base + CTIAPPSET);
 
-	ret = pinctrl_select_state(pctrl, pctrl_state);
-	if (ret) {
-		dev_err(drvdata->dev,
-			"pinctrl enable state failed\n");
-		goto err;
-	}
+	/* re-enable CTI */
+	writel_relaxed(1, drvdata->base + CTICONTROL);
 
-	drvdata->gpio_trigin->pctrl = pctrl;
-	return 0;
-err:
-	devm_pinctrl_put(pctrl);
-	return ret;
+	CS_LOCK(drvdata->base);
 }
 
-int cti_trigout_gpio_enable(struct cti_drvdata *drvdata)
+static void cti_enable_hw_smp_call(void *info)
 {
-	int ret;
-	struct pinctrl *pctrl;
-	struct pinctrl_state *pctrl_state;
+	struct cti_drvdata *drvdata = info;
 
-	if (drvdata->gpio_trigout->pctrl)
-		return 0;
-
-	pctrl = devm_pinctrl_get(drvdata->dev);
-	if (IS_ERR(pctrl)) {
-		dev_err(drvdata->dev, "pinctrl get failed\n");
-		return PTR_ERR(pctrl);
-	}
-
-	pctrl_state = pinctrl_lookup_state(pctrl, "cti-trigout-pctrl");
-	if (IS_ERR(pctrl_state)) {
-		dev_err(drvdata->dev,
-			"pinctrl get state failed\n");
-		ret = PTR_ERR(pctrl_state);
-		goto err;
-	}
-
-	ret = pinctrl_select_state(pctrl, pctrl_state);
-	if (ret) {
-		dev_err(drvdata->dev,
-			"pinctrl enable state failed\n");
-		goto err;
-	}
-
-	drvdata->gpio_trigout->pctrl = pctrl;
-	return 0;
-err:
-	devm_pinctrl_put(pctrl);
-	return ret;
+	cti_write_all_hw_regs(drvdata);
 }
 
-void cti_trigin_gpio_disable(struct cti_drvdata *drvdata)
+/* write regs to hardware and enable */
+static int cti_enable_hw(struct cti_drvdata *drvdata)
 {
-	if (!drvdata->gpio_trigin->pctrl)
-		return;
+	struct cti_config *config = &drvdata->config;
+	struct device *dev = &drvdata->csdev->dev;
+	int rc = 0;
 
-	devm_pinctrl_put(drvdata->gpio_trigin->pctrl);
-	drvdata->gpio_trigin->pctrl = NULL;
+	pm_runtime_get_sync(dev->parent);
+	spin_lock(&drvdata->spinlock);
+
+	/* no need to do anything if enabled or unpowered*/
+	if (config->hw_enabled || !config->hw_powered)
+		goto cti_state_unchanged;
+
+	/* claim the device */
+	rc = coresight_claim_device(drvdata->base);
+	if (rc)
+		goto cti_err_not_enabled;
+
+	if (drvdata->ctidev.cpu >= 0) {
+		rc = smp_call_function_single(drvdata->ctidev.cpu,
+					      cti_enable_hw_smp_call,
+					      drvdata, 1);
+		if (rc)
+			goto cti_err_not_enabled;
+	} else {
+		cti_write_all_hw_regs(drvdata);
+	}
+
+	config->hw_enabled = true;
+	atomic_inc(&drvdata->config.enable_req_count);
+	spin_unlock(&drvdata->spinlock);
+	return rc;
+
+cti_state_unchanged:
+	atomic_inc(&drvdata->config.enable_req_count);
+
+	/* cannot enable due to error */
+cti_err_not_enabled:
+	spin_unlock(&drvdata->spinlock);
+	pm_runtime_put(dev->parent);
+	return rc;
 }
 
-void cti_trigout_gpio_disable(struct cti_drvdata *drvdata)
+/* re-enable CTI on CPU when using CPU hotplug */
+static void cti_cpuhp_enable_hw(struct cti_drvdata *drvdata)
 {
-	if (!drvdata->gpio_trigout->pctrl)
-		return;
+	struct cti_config *config = &drvdata->config;
+	struct device *dev = &drvdata->csdev->dev;
 
-	devm_pinctrl_put(drvdata->gpio_trigout->pctrl);
-	drvdata->gpio_trigout->pctrl = NULL;
-}
+	pm_runtime_get_sync(dev->parent);
+	spin_lock(&drvdata->spinlock);
+	config->hw_powered = true;
 
-static void __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
-{
-	uint32_t ctien;
+	/* no need to do anything if no enable request */
+	if (!atomic_read(&drvdata->config.enable_req_count))
+		goto cti_hp_not_enabled;
 
-	if (drvdata->refcnt == 0)
-		cti_enable(drvdata);
+	/* try to claim the device */
+	if (coresight_claim_device(drvdata->base))
+		goto cti_hp_not_enabled;
 
-	CTI_UNLOCK(drvdata);
-
-	ctien = cti_readl(drvdata, CTIINEN(trig));
-	if (ctien & (0x1 << ch))
-		goto out;
-	cti_writel(drvdata, (ctien | 0x1 << ch), CTIINEN(trig));
-
-	CTI_LOCK(drvdata);
-
-	drvdata->refcnt++;
+	cti_write_all_hw_regs(drvdata);
+	config->hw_enabled = true;
+	spin_unlock(&drvdata->spinlock);
 	return;
-out:
-	CTI_LOCK(drvdata);
+
+	/* did not re-enable due to no claim / no request */
+cti_hp_not_enabled:
+	spin_unlock(&drvdata->spinlock);
+	pm_runtime_put(dev->parent);
 }
 
-int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
+/* disable hardware */
+static int cti_disable_hw(struct cti_drvdata *drvdata)
 {
-	struct cti_drvdata *drvdata;
-	int ret;
-	unsigned long flag;
+	struct cti_config *config = &drvdata->config;
+	struct device *dev = &drvdata->csdev->dev;
 
-	if (IS_ERR_OR_NULL(cti))
-		return -EINVAL;
-	ret = cti_verify_trigger_bound(trig);
-	if (ret)
-		return ret;
-	ret = cti_verify_channel_bound(ch);
-	if (ret)
-		return ret;
+	spin_lock(&drvdata->spinlock);
 
-	drvdata = to_cti_drvdata(cti);
+	/* check refcount - disable on 0 */
+	if (atomic_dec_return(&drvdata->config.enable_req_count) > 0)
+		goto cti_not_disabled;
 
-	mutex_lock(&drvdata->mutex);
+	/* no need to do anything if disabled or cpu unpowered */
+	if (!config->hw_enabled || !config->hw_powered)
+		goto cti_not_disabled;
 
-	if (drvdata->gpio_trigin->trig == trig) {
-		ret = cti_trigin_gpio_enable(drvdata);
-		if (ret)
-			goto err0;
-	}
+	CS_UNLOCK(drvdata->base);
 
-	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
-	 */
-	if (drvdata->refcnt == 0) {
-		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret < 0)
-			goto err1;
-		ret = coresight_enable_reg_clk(drvdata->csdev);
-		if (ret)
-			goto err2;
-	}
+	/* disable CTI */
+	writel_relaxed(0, drvdata->base + CTICONTROL);
+	config->hw_enabled = false;
 
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	ret = cti_cpu_verify_access(drvdata);
-	if (ret)
-		goto err3;
-
-	__cti_map_trigin(drvdata, trig, ch);
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-	mutex_unlock(&drvdata->mutex);
+	coresight_disclaim_device_unlocked(drvdata->base);
+	CS_LOCK(drvdata->base);
+	spin_unlock(&drvdata->spinlock);
+	pm_runtime_put(dev);
 	return 0;
-err3:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
-	if (drvdata->refcnt == 0)
-		coresight_disable_reg_clk(drvdata->csdev);
-err2:
-	/*
-	 * We come here before refcnt is potentially modified in
-	 * __cti_map_trigin so it is safe to check it against 0 without
-	 * adjusting its value.
-	 */
-	if (drvdata->refcnt == 0)
-		pm_runtime_put(drvdata->dev);
-err1:
-	cti_trigin_gpio_disable(drvdata);
-err0:
-	mutex_unlock(&drvdata->mutex);
-	return ret;
-}
-EXPORT_SYMBOL(coresight_cti_map_trigin);
-
-static void __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
-{
-	uint32_t ctien;
-
-	if (drvdata->refcnt == 0)
-		cti_enable(drvdata);
-
-	CTI_UNLOCK(drvdata);
-
-	ctien = cti_readl(drvdata, CTIOUTEN(trig));
-	if (ctien & (0x1 << ch))
-		goto out;
-	cti_writel(drvdata, (ctien | 0x1 << ch), CTIOUTEN(trig));
-
-	CTI_LOCK(drvdata);
-
-	drvdata->refcnt++;
-	return;
-out:
-	CTI_LOCK(drvdata);
-}
-
-int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
-{
-	struct cti_drvdata *drvdata;
-	int ret;
-	unsigned long flag;
-
-	if (IS_ERR_OR_NULL(cti))
-		return -EINVAL;
-	ret = cti_verify_trigger_bound(trig);
-	if (ret)
-		return ret;
-	ret = cti_verify_channel_bound(ch);
-	if (ret)
-		return ret;
-
-	drvdata = to_cti_drvdata(cti);
-
-	mutex_lock(&drvdata->mutex);
-
-	if (drvdata->gpio_trigout->trig == trig) {
-		ret = cti_trigout_gpio_enable(drvdata);
-		if (ret)
-			goto err0;
-	}
-
-	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
-	 */
-	if (drvdata->refcnt == 0) {
-		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret < 0)
-			goto err1;
-		ret = coresight_enable_reg_clk(drvdata->csdev);
-		if (ret)
-			goto err2;
-	}
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	ret = cti_cpu_verify_access(drvdata);
-	if (ret)
-		goto err3;
-
-	__cti_map_trigout(drvdata, trig, ch);
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-	mutex_unlock(&drvdata->mutex);
+	/* not disabled this call */
+cti_not_disabled:
+	spin_unlock(&drvdata->spinlock);
 	return 0;
-err3:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-	if (drvdata->refcnt == 0)
-		coresight_disable_reg_clk(drvdata->csdev);
-err2:
-	/*
-	 * We come here before refcnt is potentially incremented in
-	 * __cti_map_trigout so it is safe to check it against 0.
-	 */
-	if (drvdata->refcnt == 0)
-		pm_runtime_put(drvdata->dev);
-err1:
-	cti_trigout_gpio_disable(drvdata);
-err0:
-	mutex_unlock(&drvdata->mutex);
-	return ret;
-}
-EXPORT_SYMBOL(coresight_cti_map_trigout);
-
-static void cti_disable(struct cti_drvdata *drvdata)
-{
-	CTI_UNLOCK(drvdata);
-
-	/* Clear any pending triggers and ensure gate is enabled */
-	cti_writel(drvdata, BM(0, (CTI_MAX_CHANNELS - 1)), CTIAPPCLEAR);
-	cti_writel(drvdata, BM(0, (CTI_MAX_CHANNELS - 1)), CTIGATE);
-
-	cti_writel(drvdata, 0x0, CTICONTROL);
-
-	CTI_LOCK(drvdata);
 }
 
-static void __cti_unmap_trigin(struct cti_drvdata *drvdata, int trig, int ch)
+void cti_write_single_reg(struct cti_drvdata *drvdata, int offset, u32 value)
 {
-	uint32_t ctien;
-
-	CTI_UNLOCK(drvdata);
-
-	ctien = cti_readl(drvdata, CTIINEN(trig));
-	if (!(ctien & (0x1 << ch)))
-		goto out;
-	cti_writel(drvdata, (ctien & ~(0x1 << ch)), CTIINEN(trig));
-
-	CTI_LOCK(drvdata);
-
-	drvdata->refcnt--;
-
-	if (drvdata->refcnt == 0)
-		cti_disable(drvdata);
-	return;
-out:
-	CTI_LOCK(drvdata);
+	CS_UNLOCK(drvdata->base);
+	writel_relaxed(value, drvdata->base + offset);
+	CS_LOCK(drvdata->base);
 }
 
-void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
+void cti_write_intack(struct device *dev, u32 ackval)
 {
-	struct cti_drvdata *drvdata;
-	unsigned long flag;
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_config *config = &drvdata->config;
 
-	if (IS_ERR_OR_NULL(cti))
-		return;
-	if (cti_verify_trigger_bound(trig))
-		return;
-	if (cti_verify_channel_bound(ch))
-		return;
+	spin_lock(&drvdata->spinlock);
+	/* write if enabled */
+	if (cti_active(config))
+		cti_write_single_reg(drvdata, CTIINTACK, ackval);
+	spin_unlock(&drvdata->spinlock);
+}
 
-	drvdata = to_cti_drvdata(cti);
+/*
+ * Look at the HW DEVID register for some of the HW settings.
+ * DEVID[15:8] - max number of in / out triggers.
+ */
+#define CTI_DEVID_MAXTRIGS(devid_val) ((int) BMVAL(devid_val, 8, 15))
 
-	mutex_lock(&drvdata->mutex);
+/* DEVID[19:16] - number of CTM channels */
+#define CTI_DEVID_CTMCHANNELS(devid_val) ((int) BMVAL(devid_val, 16, 19))
 
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (cti_cpu_verify_access(drvdata))
-		goto err;
-	/*
-	 * This is required to avoid clk_disable_unprepare call from being made
-	 * when unmap is called without the corresponding map function call.
-	 */
-	if (!drvdata->refcnt)
-		goto err;
+static void cti_set_default_config(struct device *dev,
+				   struct cti_drvdata *drvdata)
+{
+	struct cti_config *config = &drvdata->config;
+	u32 devid;
 
-	__cti_unmap_trigin(drvdata, trig, ch);
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
+	config->nr_trig_max = CTI_DEVID_MAXTRIGS(devid);
 
 	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
+	 * no current hardware should exceed this, but protect the driver
+	 * in case of fault / out of spec hw
 	 */
-	if (drvdata->refcnt == 0) {
-		pm_runtime_put(drvdata->dev);
-		coresight_disable_reg_clk(drvdata->csdev);
+	if (config->nr_trig_max > CTIINOUTEN_MAX) {
+		dev_warn_once(dev,
+			"Limiting HW MaxTrig value(%d) to driver max(%d)\n",
+			config->nr_trig_max, CTIINOUTEN_MAX);
+		config->nr_trig_max = CTIINOUTEN_MAX;
 	}
 
-	if (drvdata->gpio_trigin->trig == trig)
-		cti_trigin_gpio_disable(drvdata);
+	config->nr_ctm_channels = CTI_DEVID_CTMCHANNELS(devid);
 
-	mutex_unlock(&drvdata->mutex);
-	return;
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	mutex_unlock(&drvdata->mutex);
-}
-EXPORT_SYMBOL(coresight_cti_unmap_trigin);
-
-static void __cti_unmap_trigout(struct cti_drvdata *drvdata, int trig, int ch)
-{
-	uint32_t ctien;
-
-	CTI_UNLOCK(drvdata);
-
-	ctien = cti_readl(drvdata, CTIOUTEN(trig));
-	if (!(ctien & (0x1 << ch)))
-		goto out;
-	cti_writel(drvdata, (ctien & ~(0x1 << ch)), CTIOUTEN(trig));
-
-	CTI_LOCK(drvdata);
-
-	drvdata->refcnt--;
-
-	if (drvdata->refcnt == 0)
-		cti_disable(drvdata);
-	return;
-out:
-	CTI_LOCK(drvdata);
+	/* Most regs default to 0 as zalloc'ed except...*/
+	config->trig_filter_enable = true;
+	config->ctigate = GENMASK(config->nr_ctm_channels - 1, 0);
+	atomic_set(&config->enable_req_count, 0);
 }
 
-void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
+/*
+ * Add a connection entry to the list of connections for this
+ * CTI device.
+ */
+int cti_add_connection_entry(struct device *dev, struct cti_drvdata *drvdata,
+			     struct cti_trig_con *tc,
+			     struct coresight_device *csdev,
+			     const char *assoc_dev_name)
 {
-	struct cti_drvdata *drvdata;
-	unsigned long flag;
+	struct cti_device *cti_dev = &drvdata->ctidev;
 
-	if (IS_ERR_OR_NULL(cti))
-		return;
-	if (cti_verify_trigger_bound(trig))
-		return;
-	if (cti_verify_channel_bound(ch))
-		return;
-
-	drvdata = to_cti_drvdata(cti);
-
-	mutex_lock(&drvdata->mutex);
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (cti_cpu_verify_access(drvdata))
-		goto err;
+	tc->con_dev = csdev;
 	/*
-	 * This is required to avoid clk_disable_unprepare call from being made
-	 * when unmap is called without the corresponding map function call.
+	 * Prefer actual associated CS device dev name to supplied value -
+	 * which is likely to be node name / other conn name.
 	 */
-	if (!drvdata->refcnt)
-		goto err;
-
-	__cti_unmap_trigout(drvdata, trig, ch);
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
-	 */
-	if (drvdata->refcnt == 0) {
-		pm_runtime_put(drvdata->dev);
-		coresight_disable_reg_clk(drvdata->csdev);
+	if (csdev)
+		tc->con_dev_name = dev_name(&csdev->dev);
+	else if (assoc_dev_name != NULL) {
+		tc->con_dev_name = devm_kstrdup(dev,
+						assoc_dev_name, GFP_KERNEL);
+		if (!tc->con_dev_name)
+			return -ENOMEM;
 	}
+	list_add_tail(&tc->node, &cti_dev->trig_cons);
+	cti_dev->nr_trig_con++;
 
-	if (drvdata->gpio_trigout->trig == trig)
-		cti_trigout_gpio_disable(drvdata);
-
-	mutex_unlock(&drvdata->mutex);
-	return;
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	mutex_unlock(&drvdata->mutex);
-}
-EXPORT_SYMBOL(coresight_cti_unmap_trigout);
-
-static void __cti_reset(struct cti_drvdata *drvdata)
-{
-	int trig;
-
-	if (!drvdata->refcnt)
-		return;
-
-	CTI_UNLOCK(drvdata);
-
-	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-		cti_writel(drvdata, 0, CTIINEN(trig));
-		cti_writel(drvdata, 0, CTIOUTEN(trig));
-	}
-
-	CTI_LOCK(drvdata);
-
-	cti_disable(drvdata);
-	drvdata->refcnt = 0;
-}
-
-void coresight_cti_reset(struct coresight_cti *cti)
-{
-	struct cti_drvdata *drvdata;
-	unsigned long flag;
-	int trig;
-	int refcnt;
-
-	if (IS_ERR_OR_NULL(cti))
-		return;
-
-	drvdata = to_cti_drvdata(cti);
-
-	mutex_lock(&drvdata->mutex);
-
-	refcnt = drvdata->refcnt;
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (cti_cpu_verify_access(drvdata))
-		goto err;
-
-	__cti_reset(drvdata);
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-		if (drvdata->gpio_trigin->trig == trig)
-			cti_trigin_gpio_disable(drvdata);
-		if (drvdata->gpio_trigout->trig == trig)
-			cti_trigout_gpio_disable(drvdata);
-	}
-
-	if (refcnt) {
-		pm_runtime_put(drvdata->dev);
-		coresight_disable_reg_clk(drvdata->csdev);
-	}
-	mutex_unlock(&drvdata->mutex);
-	return;
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	mutex_unlock(&drvdata->mutex);
-}
-EXPORT_SYMBOL(coresight_cti_reset);
-
-static int __cti_set_trig(struct cti_drvdata *drvdata, int ch)
-{
-	if (!drvdata->refcnt)
-		return -EINVAL;
-
-	CTI_UNLOCK(drvdata);
-
-	cti_writel(drvdata, (1 << ch), CTIAPPSET);
-
-	CTI_LOCK(drvdata);
+	/* add connection usage bit info to overall info */
+	drvdata->config.trig_in_use |= tc->con_in->used_mask;
+	drvdata->config.trig_out_use |= tc->con_out->used_mask;
 
 	return 0;
 }
 
-int coresight_cti_set_trig(struct coresight_cti *cti, int ch)
+/* create a trigger connection with appropriately sized signal groups */
+struct cti_trig_con *cti_allocate_trig_con(struct device *dev, int in_sigs,
+					   int out_sigs)
 {
-	struct cti_drvdata *drvdata;
-	int ret;
-	unsigned long flag;
+	struct cti_trig_con *tc = NULL;
+	struct cti_trig_grp *in = NULL, *out = NULL;
 
-	if (IS_ERR_OR_NULL(cti))
-		return -EINVAL;
-	ret = cti_verify_channel_bound(ch);
-	if (ret)
-		return ret;
+	tc = devm_kzalloc(dev, sizeof(struct cti_trig_con), GFP_KERNEL);
+	if (!tc)
+		return tc;
 
-	drvdata = to_cti_drvdata(cti);
+	in = devm_kzalloc(dev,
+			  offsetof(struct cti_trig_grp, sig_types[in_sigs]),
+			  GFP_KERNEL);
+	if (!in)
+		return NULL;
 
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	ret = cti_cpu_verify_access(drvdata);
-	if (ret)
-		goto err;
+	out = devm_kzalloc(dev,
+			   offsetof(struct cti_trig_grp, sig_types[out_sigs]),
+			   GFP_KERNEL);
+	if (!out)
+		return NULL;
 
-	ret = __cti_set_trig(drvdata, ch);
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	return ret;
-}
-EXPORT_SYMBOL(coresight_cti_set_trig);
-
-static void __cti_clear_trig(struct cti_drvdata *drvdata, int ch)
-{
-	if (!drvdata->refcnt)
-		return;
-
-	CTI_UNLOCK(drvdata);
-
-	cti_writel(drvdata, (1 << ch), CTIAPPCLEAR);
-
-	CTI_LOCK(drvdata);
+	tc->con_in = in;
+	tc->con_out = out;
+	tc->con_in->nr_sigs = in_sigs;
+	tc->con_out->nr_sigs = out_sigs;
+	return tc;
 }
 
-void coresight_cti_clear_trig(struct coresight_cti *cti, int ch)
+/*
+ * Add a default connection if nothing else is specified.
+ * single connection based on max in/out info, no assoc device
+ */
+int cti_add_default_connection(struct device *dev, struct cti_drvdata *drvdata)
 {
-	struct cti_drvdata *drvdata;
-	unsigned long flag;
+	int ret = 0;
+	int n_trigs = drvdata->config.nr_trig_max;
+	u32 n_trig_mask = GENMASK(n_trigs - 1, 0);
+	struct cti_trig_con *tc = NULL;
 
-	if (IS_ERR_OR_NULL(cti))
-		return;
-	if (cti_verify_channel_bound(ch))
-		return;
-
-	drvdata = to_cti_drvdata(cti);
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (cti_cpu_verify_access(drvdata))
-		goto err;
-
-	__cti_clear_trig(drvdata, ch);
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-}
-EXPORT_SYMBOL(coresight_cti_clear_trig);
-
-static int __cti_pulse_trig(struct cti_drvdata *drvdata, int ch)
-{
-	if (!drvdata->refcnt)
-		return -EINVAL;
-
-	CTI_UNLOCK(drvdata);
-
-	cti_writel(drvdata, (1 << ch), CTIAPPPULSE);
-
-	CTI_LOCK(drvdata);
-
-	return 0;
-}
-
-int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch)
-{
-	struct cti_drvdata *drvdata;
-	int ret;
-	unsigned long flag;
-
-	if (IS_ERR_OR_NULL(cti))
-		return -EINVAL;
-	ret = cti_verify_channel_bound(ch);
-	if (ret)
-		return ret;
-
-	drvdata = to_cti_drvdata(cti);
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	ret = cti_cpu_verify_access(drvdata);
-	if (ret)
-		goto err;
-
-	ret = __cti_pulse_trig(drvdata, ch);
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	return ret;
-}
-EXPORT_SYMBOL(coresight_cti_pulse_trig);
-
-static int __cti_ack_trig(struct cti_drvdata *drvdata, int trig)
-{
-	if (!drvdata->refcnt)
-		return -EINVAL;
-
-	CTI_UNLOCK(drvdata);
-
-	cti_writel(drvdata, (0x1 << trig), CTIINTACK);
-
-	CTI_LOCK(drvdata);
-
-	return 0;
-}
-
-int coresight_cti_ack_trig(struct coresight_cti *cti, int trig)
-{
-	struct cti_drvdata *drvdata;
-	int ret;
-	unsigned long flag;
-
-	if (IS_ERR_OR_NULL(cti))
-		return -EINVAL;
-	ret = cti_verify_trigger_bound(trig);
-	if (ret)
-		return ret;
-
-	drvdata = to_cti_drvdata(cti);
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	ret = cti_cpu_verify_access(drvdata);
-	if (ret)
-		goto err;
-
-	ret = __cti_ack_trig(drvdata, trig);
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	return ret;
-}
-EXPORT_SYMBOL(coresight_cti_ack_trig);
-
-static int __cti_enable_gate(struct cti_drvdata *drvdata, int ch)
-{
-	uint32_t ctigate;
-
-	if (!drvdata->refcnt)
-		return -EINVAL;
-
-	CTI_UNLOCK(drvdata);
-
-	ctigate = cti_readl(drvdata, CTIGATE);
-	cti_writel(drvdata, (ctigate & ~(1 << ch)), CTIGATE);
-
-	CTI_LOCK(drvdata);
-
-	return 0;
-}
-
-int coresight_cti_enable_gate(struct coresight_cti *cti, int ch)
-{
-	struct cti_drvdata *drvdata;
-	int ret;
-	unsigned long flag;
-
-	if (IS_ERR_OR_NULL(cti))
-		return -EINVAL;
-	ret = cti_verify_channel_bound(ch);
-	if (ret)
-		return ret;
-
-	drvdata = to_cti_drvdata(cti);
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	ret = cti_cpu_verify_access(drvdata);
-	if (ret)
-		goto err;
-
-	ret = __cti_enable_gate(drvdata, ch);
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-	return ret;
-}
-EXPORT_SYMBOL(coresight_cti_enable_gate);
-
-static void __cti_disable_gate(struct cti_drvdata *drvdata, int ch)
-{
-	uint32_t ctigate;
-
-	if (!drvdata->refcnt)
-		return;
-
-	CTI_UNLOCK(drvdata);
-
-	ctigate = cti_readl(drvdata, CTIGATE);
-	cti_writel(drvdata, (ctigate | (1 << ch)), CTIGATE);
-
-	CTI_LOCK(drvdata);
-}
-
-void coresight_cti_disable_gate(struct coresight_cti *cti, int ch)
-{
-	struct cti_drvdata *drvdata;
-	unsigned long flag;
-
-	if (IS_ERR_OR_NULL(cti))
-		return;
-	if (cti_verify_channel_bound(ch))
-		return;
-
-	drvdata = to_cti_drvdata(cti);
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (cti_cpu_verify_access(drvdata))
-		goto err;
-
-	__cti_disable_gate(drvdata, ch);
-err:
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-}
-EXPORT_SYMBOL(coresight_cti_disable_gate);
-
-struct coresight_cti *coresight_cti_get(const char *name)
-{
-	struct coresight_cti *cti;
-
-	mutex_lock(&cti_lock);
-	list_for_each_entry(cti, &cti_list, link) {
-		if (!strcmp(cti->name, name)) {
-			mutex_unlock(&cti_lock);
-			return cti;
-		}
-	}
-	mutex_unlock(&cti_lock);
-
-	return ERR_PTR(-EINVAL);
-}
-EXPORT_SYMBOL(coresight_cti_get);
-
-void coresight_cti_put(struct coresight_cti *cti)
-{
-}
-EXPORT_SYMBOL(coresight_cti_put);
-
-static ssize_t show_trigin_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long trig, ch, flag;
-	uint32_t ctien;
-	ssize_t size = 0;
-
-	mutex_lock(&drvdata->mutex);
 	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
+	 * Assume max trigs for in and out,
+	 * all used, default sig types allocated
 	 */
-	if (!drvdata->refcnt)
-		goto err;
+	tc = cti_allocate_trig_con(dev, n_trigs, n_trigs);
+	if (!tc)
+		return -ENOMEM;
 
-	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-		spin_lock_irqsave(&drvdata->spinlock, flag);
-		if (!cti_cpu_verify_access(drvdata))
-			ctien = cti_readl(drvdata, CTIINEN(trig));
-		else
-			ctien = drvdata->state->ctiinen[trig];
-		spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	tc->con_in->used_mask = n_trig_mask;
+	tc->con_out->used_mask = n_trig_mask;
+	ret = cti_add_connection_entry(dev, drvdata, tc, NULL, "default");
+	return ret;
+}
 
-		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
-			if (ctien & (1 << ch)) {
-				/* Ensure we do not write more than PAGE_SIZE
-				 * bytes of data including \n character and null
-				 * terminator
-				 */
-				size += scnprintf(&buf[size], PAGE_SIZE - size -
-						  1, " %#lx %#lx,", trig, ch);
-				if (size >= PAGE_SIZE - 2) {
-					dev_err(dev, "show buffer full\n");
-					goto err;
-				}
+/** cti channel api **/
+/* attach/detach channel from trigger - write through if enabled. */
+int cti_channel_trig_op(struct device *dev, enum cti_chan_op op,
+			enum cti_trig_dir direction, u32 channel_idx,
+			u32 trigger_idx)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_config *config = &drvdata->config;
+	u32 trig_bitmask;
+	u32 chan_bitmask;
+	u32 reg_value;
+	int reg_offset;
 
-			}
-		}
+	/* ensure indexes in range */
+	if ((channel_idx >= config->nr_ctm_channels) ||
+	   (trigger_idx >= config->nr_trig_max))
+		return -EINVAL;
+
+	trig_bitmask = BIT(trigger_idx);
+
+	/* ensure registered triggers and not out filtered */
+	if (direction == CTI_TRIG_IN)	{
+		if (!(trig_bitmask & config->trig_in_use))
+			return -EINVAL;
+	} else {
+		if (!(trig_bitmask & config->trig_out_use))
+			return -EINVAL;
+
+		if ((config->trig_filter_enable) &&
+		    (config->trig_out_filter & trig_bitmask))
+			return -EINVAL;
 	}
-err:
-	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&drvdata->mutex);
-	return size;
-}
-static DEVICE_ATTR_RO(show_trigin);
 
-static ssize_t show_trigout_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long trig, ch, flag;
-	uint32_t ctien;
-	ssize_t size = 0;
+	/* update the local register values */
+	chan_bitmask = BIT(channel_idx);
+	reg_offset = (direction == CTI_TRIG_IN ? CTIINEN(trigger_idx) :
+		      CTIOUTEN(trigger_idx));
 
-	mutex_lock(&drvdata->mutex);
-	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
-	 */
-	if (!drvdata->refcnt)
-		goto err;
+	spin_lock(&drvdata->spinlock);
 
-	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-		spin_lock_irqsave(&drvdata->spinlock, flag);
-		if (!cti_cpu_verify_access(drvdata))
-			ctien = cti_readl(drvdata, CTIOUTEN(trig));
-		else
-			ctien = drvdata->state->ctiouten[trig];
-		spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
-			if (ctien & (1 << ch)) {
-				/* Ensure we do not write more than PAGE_SIZE
-				 * bytes of data including \n character and null
-				 * terminator
-				 */
-				size += scnprintf(&buf[size], PAGE_SIZE - size -
-						  1, " %#lx %#lx,", trig, ch);
-				if (size >= PAGE_SIZE - 2) {
-					dev_err(dev, "show buffer full\n");
-					goto err;
-				}
-
-			}
-		}
-	}
-err:
-	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&drvdata->mutex);
-	return size;
-}
-static DEVICE_ATTR_RO(show_trigout);
-
-static ssize_t map_trigin_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val1, val2;
-	int ret;
-
-	if (sscanf(buf, "%lx %lx", &val1, &val2) != 2)
-		return -EINVAL;
-
-	ret = coresight_cti_map_trigin(&drvdata->cti, val1, val2);
-
-	if (ret)
-		return ret;
-	return size;
-}
-static DEVICE_ATTR_WO(map_trigin);
-
-static ssize_t map_trigout_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val1, val2;
-	int ret;
-
-	if (sscanf(buf, "%lx %lx", &val1, &val2) != 2)
-		return -EINVAL;
-
-	ret = coresight_cti_map_trigout(&drvdata->cti, val1, val2);
-
-	if (ret)
-		return ret;
-	return size;
-}
-static DEVICE_ATTR_WO(map_trigout);
-
-static ssize_t unmap_trigin_store(struct device *dev,
-				      struct device_attribute *attr,
-				      const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val1, val2;
-
-	if (sscanf(buf, "%lx %lx", &val1, &val2) != 2)
-		return -EINVAL;
-
-	coresight_cti_unmap_trigin(&drvdata->cti, val1, val2);
-
-	return size;
-}
-static DEVICE_ATTR_WO(unmap_trigin);
-
-static ssize_t unmap_trigout_store(struct device *dev,
-				       struct device_attribute *attr,
-				       const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val1, val2;
-
-	if (sscanf(buf, "%lx %lx", &val1, &val2) != 2)
-		return -EINVAL;
-
-	coresight_cti_unmap_trigout(&drvdata->cti, val1, val2);
-
-	return size;
-}
-static DEVICE_ATTR_WO(unmap_trigout);
-
-static ssize_t reset_store(struct device *dev,
-			       struct device_attribute *attr,
-			       const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-
-	if (!val)
-		return -EINVAL;
-
-	coresight_cti_reset(&drvdata->cti);
-	return size;
-}
-static DEVICE_ATTR_WO(reset);
-
-static ssize_t show_trig_show(struct device *dev, struct device_attribute *attr,
-			     char *buf)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long ch, flag;
-	uint32_t ctiset;
-	ssize_t size = 0;
-
-	mutex_lock(&drvdata->mutex);
-	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
-	 */
-	if (!drvdata->refcnt)
-		goto err;
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (!cti_cpu_verify_access(drvdata))
-		ctiset = cti_readl(drvdata, CTIAPPSET);
+	/* read - modify write - the trigger / channel enable value */
+	reg_value = direction == CTI_TRIG_IN ? config->ctiinen[trigger_idx] :
+		     config->ctiouten[trigger_idx];
+	if (op == CTI_CHAN_ATTACH)
+		reg_value |= chan_bitmask;
 	else
-		ctiset = drvdata->state->ctiappset;
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+		reg_value &= ~chan_bitmask;
 
-	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
-		if (ctiset & (1 << ch)) {
-			/* Ensure we do not write more than PAGE_SIZE
-			 * bytes of data including \n character and null
-			 * terminator
-			 */
-			size += scnprintf(&buf[size], PAGE_SIZE - size -
-					  1, " %#lx,", ch);
-			if (size >= PAGE_SIZE - 2) {
-				dev_err(dev, "show buffer full\n");
-				goto err;
-			}
-
-		}
-	}
-err:
-	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&drvdata->mutex);
-	return size;
-}
-static DEVICE_ATTR_RO(show_trig);
-
-static ssize_t set_trig_store(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-	int ret;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-
-	ret = coresight_cti_set_trig(&drvdata->cti, val);
-
-	if (ret)
-		return ret;
-	return size;
-}
-static DEVICE_ATTR_WO(set_trig);
-
-static ssize_t clear_trig_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-
-	coresight_cti_clear_trig(&drvdata->cti, val);
-
-	return size;
-}
-static DEVICE_ATTR_WO(clear_trig);
-
-static ssize_t pulse_trig_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-	int ret;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-
-	ret = coresight_cti_pulse_trig(&drvdata->cti, val);
-
-	if (ret)
-		return ret;
-	return size;
-}
-static DEVICE_ATTR_WO(pulse_trig);
-
-static ssize_t ack_trig_store(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t size)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-	int ret;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-
-	ret = coresight_cti_ack_trig(&drvdata->cti, val);
-
-	if (ret)
-		return ret;
-	return size;
-}
-static DEVICE_ATTR_WO(ack_trig);
-
-static ssize_t show_gate_show(struct device *dev, struct device_attribute *attr,
-			     char *buf)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long ch, flag;
-	uint32_t ctigate;
-	ssize_t size = 0;
-
-	mutex_lock(&drvdata->mutex);
-	/*
-	 * refcnt can be used here since in all cases its value is modified only
-	 * within the mutex lock region in addition to within the spinlock.
-	 */
-	if (!drvdata->refcnt)
-		goto err;
-
-	spin_lock_irqsave(&drvdata->spinlock, flag);
-	if (!cti_cpu_verify_access(drvdata))
-		ctigate = cti_readl(drvdata, CTIGATE);
+	/* write local copy */
+	if (direction == CTI_TRIG_IN)
+		config->ctiinen[trigger_idx] = reg_value;
 	else
-		ctigate = drvdata->state->ctigate;
-	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+		config->ctiouten[trigger_idx] = reg_value;
 
-	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
-		if (ctigate & (1 << ch)) {
-			/* Ensure we do not write more than PAGE_SIZE
-			 * bytes of data including \n character and null
-			 * terminator
-			 */
-			size += scnprintf(&buf[size], PAGE_SIZE - size -
-					  1, " %#lx,", ch);
-			if (size >= PAGE_SIZE - 2) {
-				dev_err(dev, "show buffer full\n");
-				goto err;
+	/* write through if enabled */
+	if (cti_active(config))
+		cti_write_single_reg(drvdata, reg_offset, reg_value);
+	spin_unlock(&drvdata->spinlock);
+	return 0;
+}
+
+int cti_channel_gate_op(struct device *dev, enum cti_chan_gate_op op,
+			u32 channel_idx)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_config *config = &drvdata->config;
+	u32 chan_bitmask;
+	u32 reg_value;
+	int err = 0;
+
+	if (channel_idx >= config->nr_ctm_channels)
+		return -EINVAL;
+
+	chan_bitmask = BIT(channel_idx);
+
+	spin_lock(&drvdata->spinlock);
+	reg_value = config->ctigate;
+	switch (op) {
+	case CTI_GATE_CHAN_ENABLE:
+		reg_value |= chan_bitmask;
+		break;
+
+	case CTI_GATE_CHAN_DISABLE:
+		reg_value &= ~chan_bitmask;
+		break;
+
+	default:
+		err = -EINVAL;
+		break;
+	}
+	if (err == 0) {
+		config->ctigate = reg_value;
+		if (cti_active(config))
+			cti_write_single_reg(drvdata, CTIGATE, reg_value);
+	}
+	spin_unlock(&drvdata->spinlock);
+	return err;
+}
+
+int cti_channel_setop(struct device *dev, enum cti_chan_set_op op,
+		      u32 channel_idx)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_config *config = &drvdata->config;
+	u32 chan_bitmask;
+	u32 reg_value;
+	u32 reg_offset;
+	int err = 0;
+
+	if (channel_idx >= config->nr_ctm_channels)
+		return -EINVAL;
+
+	chan_bitmask = BIT(channel_idx);
+
+	spin_lock(&drvdata->spinlock);
+	reg_value = config->ctiappset;
+	switch (op) {
+	case CTI_CHAN_SET:
+		config->ctiappset |= chan_bitmask;
+		reg_value  = config->ctiappset;
+		reg_offset = CTIAPPSET;
+		break;
+
+	case CTI_CHAN_CLR:
+		config->ctiappset &= ~chan_bitmask;
+		reg_value = chan_bitmask;
+		reg_offset = CTIAPPCLEAR;
+		break;
+
+	case CTI_CHAN_PULSE:
+		config->ctiappset &= ~chan_bitmask;
+		reg_value = chan_bitmask;
+		reg_offset = CTIAPPPULSE;
+		break;
+
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	if ((err == 0) && cti_active(config))
+		cti_write_single_reg(drvdata, reg_offset, reg_value);
+	spin_unlock(&drvdata->spinlock);
+
+	return err;
+}
+
+static bool cti_add_sysfs_link(struct cti_drvdata *drvdata,
+			       struct cti_trig_con *tc)
+{
+	struct coresight_sysfs_link link_info;
+	int link_err = 0;
+
+	link_info.orig = drvdata->csdev;
+	link_info.orig_name = tc->con_dev_name;
+	link_info.target = tc->con_dev;
+	link_info.target_name = dev_name(&drvdata->csdev->dev);
+
+	link_err = coresight_add_sysfs_link(&link_info);
+	if (link_err)
+		dev_warn(&drvdata->csdev->dev,
+			 "Failed to set CTI sysfs link %s<=>%s\n",
+			 link_info.orig_name, link_info.target_name);
+	return !link_err;
+}
+
+static void cti_remove_sysfs_link(struct cti_trig_con *tc)
+{
+	struct coresight_sysfs_link link_info;
+
+	link_info.orig_name = tc->con_dev_name;
+	link_info.target = tc->con_dev;
+	coresight_remove_sysfs_link(&link_info);
+}
+
+/*
+ * Look for a matching connection device name in the list of connections.
+ * If found then swap in the csdev name, set trig con association pointer
+ * and return found.
+ */
+static bool
+cti_match_fixup_csdev(struct cti_device *ctidev, const char *node_name,
+		      struct coresight_device *csdev)
+{
+	struct cti_trig_con *tc;
+	struct cti_drvdata *drvdata = container_of(ctidev, struct cti_drvdata,
+						   ctidev);
+
+	list_for_each_entry(tc, &ctidev->trig_cons, node) {
+		if (tc->con_dev_name) {
+			if (!strcmp(node_name, tc->con_dev_name)) {
+				/* match: so swap in csdev name & dev */
+				tc->con_dev_name = dev_name(&csdev->dev);
+				tc->con_dev = csdev;
+				/* try to set sysfs link */
+				if (cti_add_sysfs_link(drvdata, tc))
+					return true;
+				/* link failed - remove CTI reference */
+				tc->con_dev = NULL;
+				break;
 			}
-
 		}
 	}
-err:
-	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&drvdata->mutex);
-	return size;
+	return false;
 }
-static DEVICE_ATTR_RO(show_gate);
 
-static ssize_t enable_gate_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t size)
+/*
+ * Search the cti list to add an associated CTI into the supplied CS device
+ * This will set the association if CTI declared before the CS device.
+ * (called from coresight_register() with coresight_mutex locked).
+ */
+void cti_add_assoc_to_csdev(struct coresight_device *csdev)
 {
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-	int ret;
+	struct cti_drvdata *ect_item;
+	struct cti_device *ctidev;
+	const char *node_name = NULL;
 
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
+	/* protect the list */
+	mutex_lock(&ect_mutex);
 
-	ret = coresight_cti_enable_gate(&drvdata->cti, val);
+	/* exit if current is an ECT device.*/
+	if ((csdev->type == CORESIGHT_DEV_TYPE_ECT) || list_empty(&ect_net))
+		goto cti_add_done;
 
-	if (ret)
-		return ret;
-	return size;
+	/* if we didn't find the csdev previously we used the fwnode name */
+	node_name = cti_plat_get_node_name(dev_fwnode(csdev->dev.parent));
+	if (!node_name)
+		goto cti_add_done;
+
+	/* for each CTI in list... */
+	list_for_each_entry(ect_item, &ect_net, node) {
+		ctidev = &ect_item->ctidev;
+		if (cti_match_fixup_csdev(ctidev, node_name, csdev)) {
+			/*
+			 * if we found a matching csdev then update the ECT
+			 * association pointer for the device with this CTI.
+			 */
+			csdev->ect_dev = ect_item->csdev;
+			break;
+		}
+	}
+cti_add_done:
+	mutex_unlock(&ect_mutex);
 }
-static DEVICE_ATTR_WO(enable_gate);
+EXPORT_SYMBOL_GPL(cti_add_assoc_to_csdev);
 
-static ssize_t disable_gate_store(struct device *dev,
-				      struct device_attribute *attr,
-				      const char *buf, size_t size)
+/*
+ * Removing the associated devices is easier.
+ * A CTI will not have a value for csdev->ect_dev.
+ */
+void cti_remove_assoc_from_csdev(struct coresight_device *csdev)
 {
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
+	struct cti_drvdata *ctidrv;
+	struct cti_trig_con *tc;
+	struct cti_device *ctidev;
 
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-
-	coresight_cti_disable_gate(&drvdata->cti, val);
-
-	return size;
+	mutex_lock(&ect_mutex);
+	if (csdev->ect_dev) {
+		ctidrv = csdev_to_cti_drvdata(csdev->ect_dev);
+		ctidev = &ctidrv->ctidev;
+		list_for_each_entry(tc, &ctidev->trig_cons, node) {
+			if (tc->con_dev == csdev->ect_dev) {
+				cti_remove_sysfs_link(tc);
+				tc->con_dev = NULL;
+				break;
+			}
+		}
+		csdev->ect_dev = NULL;
+	}
+	mutex_unlock(&ect_mutex);
 }
-static DEVICE_ATTR_WO(disable_gate);
+EXPORT_SYMBOL_GPL(cti_remove_assoc_from_csdev);
 
-static struct attribute *cti_attrs[] = {
-	&dev_attr_show_trigin.attr,
-	&dev_attr_show_trigout.attr,
-	&dev_attr_map_trigin.attr,
-	&dev_attr_map_trigout.attr,
-	&dev_attr_unmap_trigin.attr,
-	&dev_attr_unmap_trigout.attr,
-	&dev_attr_reset.attr,
-	&dev_attr_show_trig.attr,
-	&dev_attr_set_trig.attr,
-	&dev_attr_clear_trig.attr,
-	&dev_attr_pulse_trig.attr,
-	&dev_attr_ack_trig.attr,
-	&dev_attr_show_gate.attr,
-	&dev_attr_enable_gate.attr,
-	&dev_attr_disable_gate.attr,
-	NULL,
-};
-
-static struct attribute_group cti_attr_grp = {
-	.attrs = cti_attrs,
-};
-
-static const struct attribute_group *cti_attr_grps[] = {
-	&cti_attr_grp,
-	NULL,
-};
-
-static int cti_cpu_pm_callback(struct notifier_block *self,
-			       unsigned long cmd, void *v)
+/*
+ * Update the cross references where the associated device was found
+ * while we were building the connection info. This will occur if the
+ * assoc device was registered before the CTI.
+ */
+static void cti_update_conn_xrefs(struct cti_drvdata *drvdata)
 {
-	unsigned long aff_level = (unsigned long) v;
+	struct cti_trig_con *tc;
+	struct cti_device *ctidev = &drvdata->ctidev;
+
+	list_for_each_entry(tc, &ctidev->trig_cons, node) {
+		if (tc->con_dev) {
+			/* if we can set the sysfs link */
+			if (cti_add_sysfs_link(drvdata, tc))
+				/* set the CTI/csdev association */
+				coresight_set_assoc_ectdev_mutex(tc->con_dev,
+							 drvdata->csdev);
+			else
+				/* otherwise remove reference from CTI */
+				tc->con_dev = NULL;
+		}
+	}
+}
+
+static void cti_remove_conn_xrefs(struct cti_drvdata *drvdata)
+{
+	struct cti_trig_con *tc;
+	struct cti_device *ctidev = &drvdata->ctidev;
+
+	list_for_each_entry(tc, &ctidev->trig_cons, node) {
+		if (tc->con_dev) {
+			coresight_set_assoc_ectdev_mutex(tc->con_dev,
+							 NULL);
+			cti_remove_sysfs_link(tc);
+			tc->con_dev = NULL;
+		}
+	}
+}
+
+/** cti PM callbacks **/
+static int cti_cpu_pm_notify(struct notifier_block *nb, unsigned long cmd,
+			     void *v)
+{
+	struct cti_drvdata *drvdata;
+	unsigned int cpu = smp_processor_id();
+	int notify_res = NOTIFY_OK;
+
+	if (!cti_cpu_drvdata[cpu])
+		return NOTIFY_OK;
+
+	drvdata = cti_cpu_drvdata[cpu];
+
+	if (WARN_ON_ONCE(drvdata->ctidev.cpu != cpu))
+		return NOTIFY_BAD;
+
+	spin_lock(&drvdata->spinlock);
 
 	switch (cmd) {
-	case CPU_CLUSTER_PM_ENTER:
-		if (aff_level == AFFINITY_LEVEL_L2)
-			coresight_cti_ctx_save();
+	case CPU_PM_ENTER:
+		/* CTI regs all static - we have a copy & nothing to save */
+		drvdata->config.hw_powered = false;
+		if (drvdata->config.hw_enabled)
+			coresight_disclaim_device(drvdata->base);
 		break;
-	case CPU_CLUSTER_PM_ENTER_FAILED:
-	case CPU_CLUSTER_PM_EXIT:
-		if (aff_level == AFFINITY_LEVEL_L2)
-			coresight_cti_ctx_restore();
+
+	case CPU_PM_ENTER_FAILED:
+		drvdata->config.hw_powered = true;
+		if (drvdata->config.hw_enabled) {
+			if (coresight_claim_device(drvdata->base))
+				drvdata->config.hw_enabled = false;
+		}
+		break;
+
+	case CPU_PM_EXIT:
+		/* write hardware registers to re-enable. */
+		drvdata->config.hw_powered = true;
+		drvdata->config.hw_enabled = false;
+
+		/* check enable reference count to enable HW */
+		if (atomic_read(&drvdata->config.enable_req_count)) {
+			/* check we can claim the device as we re-power */
+			if (coresight_claim_device(drvdata->base))
+				goto cti_notify_exit;
+
+			drvdata->config.hw_enabled = true;
+			cti_write_all_hw_regs(drvdata);
+		}
+		break;
+
+	default:
+		notify_res = NOTIFY_DONE;
 		break;
 	}
 
-	return NOTIFY_OK;
+cti_notify_exit:
+	spin_unlock(&drvdata->spinlock);
+	return notify_res;
 }
 
-static struct notifier_block cti_cpu_pm_notifier = {
-	.notifier_call = cti_cpu_pm_callback,
+static struct notifier_block cti_cpu_pm_nb = {
+	.notifier_call = cti_cpu_pm_notify,
 };
 
-static int cti_parse_gpio(struct cti_drvdata *drvdata, struct amba_device *adev)
+/* CPU HP handlers */
+static int cti_starting_cpu(unsigned int cpu)
 {
-	int ret;
-	int trig;
+	struct cti_drvdata *drvdata = cti_cpu_drvdata[cpu];
 
-	drvdata->gpio_trigin = devm_kzalloc(&adev->dev,
-			sizeof(struct cti_pctrl), GFP_KERNEL);
-	if (!drvdata->gpio_trigin)
-		return -ENOMEM;
+	if (!drvdata)
+		return 0;
 
-	drvdata->gpio_trigin->trig = -1;
-	ret = of_property_read_u32(adev->dev.of_node,
-			"qcom,cti-gpio-trigin", &trig);
-	if (!ret)
-		drvdata->gpio_trigin->trig = trig;
-	else if (ret != -EINVAL)
-		return ret;
-
-	drvdata->gpio_trigout = devm_kzalloc(&adev->dev,
-			sizeof(struct cti_pctrl), GFP_KERNEL);
-	if (!drvdata->gpio_trigout)
-		return -ENOMEM;
-
-	drvdata->gpio_trigout->trig = -1;
-	ret = of_property_read_u32(adev->dev.of_node,
-			"qcom,cti-gpio-trigout", &trig);
-	if (!ret)
-		drvdata->gpio_trigout->trig = trig;
-	else if (ret != -EINVAL)
-		return ret;
-
+	cti_cpuhp_enable_hw(drvdata);
 	return 0;
 }
 
-static int cti_init_save(struct cti_drvdata *drvdata,
-		struct amba_device *adev, bool cti_save_disable)
+static int cti_dying_cpu(unsigned int cpu)
 {
-	int ret;
+	struct cti_drvdata *drvdata = cti_cpu_drvdata[cpu];
 
-	if (!cti_save_disable)
-		drvdata->cti_save = of_property_read_bool(adev->dev.of_node,
-							"qcom,cti-save");
-	if (drvdata->cti_save) {
-		drvdata->state = devm_kzalloc(&adev->dev,
-					sizeof(struct cti_state), GFP_KERNEL);
-		if (!drvdata->state)
-			return -ENOMEM;
+	if (!drvdata)
+		return 0;
 
-		drvdata->cti_hwclk = of_property_read_bool(adev->dev.of_node,
-							"qcom,cti-hwclk");
-	}
-	if (drvdata->cti_save && !drvdata->cti_hwclk) {
-		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret < 0)
-			return ret;
-	}
-
+	spin_lock(&drvdata->spinlock);
+	drvdata->config.hw_powered = false;
+	coresight_disclaim_device(drvdata->base);
+	spin_unlock(&drvdata->spinlock);
 	return 0;
 }
 
-struct coresight_cti_data *of_get_coresight_cti_data(
-				struct device *dev, struct device_node *node)
+/* release PM registrations */
+static void cti_pm_release(struct cti_drvdata *drvdata)
 {
-	int i, ret;
-	uint32_t ctis_len;
-	struct device_node *child_node;
-	struct coresight_cti_data *ctidata;
+	if (drvdata->ctidev.cpu >= 0) {
+		if (--nr_cti_cpu == 0) {
+			cpu_pm_unregister_notifier(&cti_cpu_pm_nb);
 
-	ctidata = devm_kzalloc(dev, sizeof(*ctidata), GFP_KERNEL);
-	if (!ctidata)
-		return ERR_PTR(-ENOMEM);
+			cpuhp_remove_state_nocalls(
+				CPUHP_AP_ARM_CORESIGHT_CTI_STARTING);
+		}
+		cti_cpu_drvdata[drvdata->ctidev.cpu] = NULL;
+	}
+}
 
-	if (of_get_property(node, "coresight-ctis", &ctis_len))
-		ctidata->nr_ctis = ctis_len/sizeof(uint32_t);
-	else
-		return ERR_PTR(-EINVAL);
+/** cti ect operations **/
+int cti_enable(struct coresight_device *csdev)
+{
+	struct cti_drvdata *drvdata = csdev_to_cti_drvdata(csdev);
 
-	if (ctidata->nr_ctis) {
-		ctidata->names = devm_kzalloc(dev, ctidata->nr_ctis *
-					      sizeof(*ctidata->names),
-					      GFP_KERNEL);
-		if (!ctidata->names)
-			return ERR_PTR(-ENOMEM);
+	return cti_enable_hw(drvdata);
+}
 
-		for (i = 0; i < ctidata->nr_ctis; i++) {
-			child_node = of_parse_phandle(node, "coresight-ctis",
-						      i);
-			if (!child_node)
-				return ERR_PTR(-EINVAL);
+int cti_disable(struct coresight_device *csdev)
+{
+	struct cti_drvdata *drvdata = csdev_to_cti_drvdata(csdev);
 
-			ret = of_property_read_string(child_node,
-						      "coresight-name",
-						      &ctidata->names[i]);
-			of_node_put(child_node);
-			if (ret)
-				return ERR_PTR(ret);
+	return cti_disable_hw(drvdata);
+}
+
+static const struct coresight_ops_ect cti_ops_ect = {
+	.enable = cti_enable,
+	.disable = cti_disable,
+};
+
+static const struct coresight_ops cti_ops = {
+	.ect_ops = &cti_ops_ect,
+};
+
+/*
+ * Free up CTI specific resources
+ * called by dev->release, need to call down to underlying csdev release.
+ */
+static void cti_device_release(struct device *dev)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_drvdata *ect_item, *ect_tmp;
+
+	mutex_lock(&ect_mutex);
+	cti_remove_conn_xrefs(drvdata);
+	cti_pm_release(drvdata);
+
+	/* remove from the list */
+	list_for_each_entry_safe(ect_item, ect_tmp, &ect_net, node) {
+		if (ect_item == drvdata) {
+			list_del(&ect_item->node);
+			break;
 		}
 	}
-	return ctidata;
+	mutex_unlock(&ect_mutex);
+
+	if (drvdata->csdev_release)
+		drvdata->csdev_release(dev);
 }
-EXPORT_SYMBOL(of_get_coresight_cti_data);
 
 static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 {
-	int ret;
+	int ret = 0;
+	void __iomem *base;
 	struct device *dev = &adev->dev;
-	struct coresight_platform_data *pdata;
-	struct cti_drvdata *drvdata;
-	struct coresight_desc desc = { 0 };
-	struct device_node *cpu_node;
+	struct cti_drvdata *drvdata = NULL;
+	struct coresight_desc cti_desc;
+	struct coresight_platform_data *pdata = NULL;
+	struct resource *res = &adev->res;
 
-	desc.name = coresight_alloc_device_name(&cti_devs, dev);
-	if (!desc.name)
-		return -ENOMEM;
-	pdata = coresight_get_platform_data(dev);
-	if (IS_ERR(pdata))
-		return PTR_ERR(pdata);
-	adev->dev.platform_data = pdata;
-
+	/* driver data*/
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
-	if (!drvdata)
-		return -ENOMEM;
-	/* Store the driver data pointer for use in exported functions */
-	drvdata->dev = &adev->dev;
+	if (!drvdata) {
+		ret = -ENOMEM;
+		dev_info(dev, "%s, mem err\n", __func__);
+		goto err_out;
+	}
+
+	/* Validity for the resource is already checked by the AMBA core */
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base)) {
+		ret = PTR_ERR(base);
+		dev_err(dev, "%s, remap err\n", __func__);
+		goto err_out;
+	}
+	drvdata->base = base;
+
 	dev_set_drvdata(dev, drvdata);
 
-	drvdata->base = devm_ioremap_resource(dev, &adev->res);
-	if (!drvdata->base)
-		return -ENOMEM;
-	cpu_node = of_parse_phandle(adev->dev.of_node, "cpu", 0);
-	if (cpu_node) {
-		drvdata->cpu = coresight_get_cpu(dev);
-		if (drvdata->cpu < 0)
-			return drvdata->cpu;
-	}
-	of_node_put(cpu_node);
+	/* default CTI device info  */
+	drvdata->ctidev.cpu = -1;
+	drvdata->ctidev.nr_trig_con = 0;
+	drvdata->ctidev.ctm_id = 0;
+	INIT_LIST_HEAD(&drvdata->ctidev.trig_cons);
+
 	spin_lock_init(&drvdata->spinlock);
 
-	mutex_init(&drvdata->mutex);
+	/* initialise CTI driver config values */
+	cti_set_default_config(dev, drvdata);
 
-	ret = cti_parse_gpio(drvdata, adev);
-	if (ret)
-		return ret;
+	pdata = coresight_cti_get_platform_data(dev);
+	if (IS_ERR(pdata)) {
+		dev_err(dev, "coresight_cti_get_platform_data err\n");
+		ret =  PTR_ERR(pdata);
+		goto err_out;
+	}
 
-	ret = cti_init_save(drvdata, adev, cti_save_disable);
-	if (ret)
-		return ret;
+	/* default to powered - could change on PM notifications */
+	drvdata->config.hw_powered = true;
 
-	mutex_lock(&cti_lock);
-	drvdata->cti.name = desc.name;
-	list_add_tail(&drvdata->cti.link, &cti_list);
-	mutex_unlock(&cti_lock);
+	/* set up device name - will depend if cpu bound or otherwise */
+	if (drvdata->ctidev.cpu >= 0)
+		cti_desc.name = devm_kasprintf(dev, GFP_KERNEL, "cti_cpu%d",
+					       drvdata->ctidev.cpu);
+	else
+		cti_desc.name = coresight_alloc_device_name(&cti_sys_devs, dev);
+	if (!cti_desc.name) {
+		ret = -ENOMEM;
+		goto err_out;
+	}
 
-	desc.type = CORESIGHT_DEV_TYPE_NONE;
-	desc.pdata = adev->dev.platform_data;
-	desc.dev = &adev->dev;
-	desc.groups = cti_attr_grps;
-	drvdata->csdev = coresight_register(&desc);
+	/* setup CPU power management handling for CPU bound CTI devices. */
+	if (drvdata->ctidev.cpu >= 0) {
+		cti_cpu_drvdata[drvdata->ctidev.cpu] = drvdata;
+		if (!nr_cti_cpu++) {
+			cpus_read_lock();
+			ret = cpuhp_setup_state_nocalls_cpuslocked(
+				CPUHP_AP_ARM_CORESIGHT_CTI_STARTING,
+				"arm/coresight_cti:starting",
+				cti_starting_cpu, cti_dying_cpu);
+
+			if (!ret)
+				ret = cpu_pm_register_notifier(&cti_cpu_pm_nb);
+			cpus_read_unlock();
+			if (ret)
+				goto err_out;
+		}
+	}
+
+	/* create dynamic attributes for connections */
+	ret = cti_create_cons_sysfs(dev, drvdata);
+	if (ret) {
+		dev_err(dev, "%s: create dynamic sysfs entries failed\n",
+			cti_desc.name);
+		goto err_out;
+	}
+
+	/* set up coresight component description */
+	cti_desc.pdata = pdata;
+	cti_desc.type = CORESIGHT_DEV_TYPE_ECT;
+	cti_desc.subtype.ect_subtype = CORESIGHT_DEV_SUBTYPE_ECT_CTI;
+	cti_desc.ops = &cti_ops;
+	cti_desc.groups = drvdata->ctidev.con_groups;
+	cti_desc.dev = dev;
+	drvdata->csdev = coresight_register(&cti_desc);
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
-		goto err;
+		goto err_out;
 	}
 
-	if (drvdata->cti_save) {
-		if (!registered)
-			cpu_pm_register_notifier(&cti_cpu_pm_notifier);
-		registered++;
-	}
+	/* add to list of CTI devices */
+	mutex_lock(&ect_mutex);
+	list_add(&drvdata->node, &ect_net);
+	/* set any cross references */
+	cti_update_conn_xrefs(drvdata);
+	mutex_unlock(&ect_mutex);
+
+	/* set up release chain */
+	drvdata->csdev_release = drvdata->csdev->dev.release;
+	drvdata->csdev->dev.release = cti_device_release;
+
+	/* all done - dec pm refcount */
 	pm_runtime_put(&adev->dev);
-	dev_dbg(dev, "CTI initialized\n");
+	dev_info(&drvdata->csdev->dev, "CTI initialized\n");
 	return 0;
-err:
-	if (drvdata->cti_save && !drvdata->cti_hwclk)
-		pm_runtime_put(&adev->dev);
+
+err_out:
+	cti_pm_release(drvdata);
 	return ret;
 }
 
-static struct amba_id cti_ids[] = {
+static struct amba_cs_uci_id uci_id_cti[] = {
 	{
-		.id     = 0x0003b966,
-		.mask   = 0x0003ffff,
-		.data	= "CTI",
-	},
+		/*  CTI UCI data */
+		.devarch	= 0x47701a14, /* CTI v2 */
+		.devarch_mask	= 0xfff0ffff,
+		.devtype	= 0x00000014, /* maj(0x4-debug) min(0x1-ECT) */
+	}
+};
+
+static const struct amba_id cti_ids[] = {
+	CS_AMBA_ID(0x000bb906), /* Coresight CTI (SoC 400), C-A72, C-A57 */
+	CS_AMBA_ID(0x000bb922), /* CTI - C-A8 */
+	CS_AMBA_ID(0x000bb9a8), /* CTI - C-A53 */
+	CS_AMBA_ID(0x000bb9aa), /* CTI - C-A73 */
+	CS_AMBA_UCI_ID(0x000bb9da, uci_id_cti), /* CTI - C-A35 */
+	CS_AMBA_UCI_ID(0x000bb9ed, uci_id_cti), /* Coresight CTI (SoC 600) */
 	{ 0, 0},
 };
 
 static struct amba_driver cti_driver = {
 	.drv = {
-		.name   = "coresight-cti",
-		.owner	= THIS_MODULE,
+		.name	= "coresight-cti",
+		.owner = THIS_MODULE,
 		.suppress_bind_attrs = true,
 	},
-	.probe          = cti_probe,
+	.probe		= cti_probe,
 	.id_table	= cti_ids,
 };
-
 builtin_amba_driver(cti_driver);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("CoreSight CTI driver");

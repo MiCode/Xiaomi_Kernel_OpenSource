@@ -527,10 +527,43 @@ enum sk_pacing {
 	SK_PACING_FQ		= 2,
 };
 
+/* Pointer stored in sk_user_data might not be suitable for copying
+ * when cloning the socket. For instance, it can point to a reference
+ * counted object. sk_user_data bottom bit is set if pointer must not
+ * be copied.
+ */
+#define SK_USER_DATA_NOCOPY	1UL
+#define SK_USER_DATA_PTRMASK	~(SK_USER_DATA_NOCOPY)
+
+/**
+ * sk_user_data_is_nocopy - Test if sk_user_data pointer must not be copied
+ * @sk: socket
+ */
+static inline bool sk_user_data_is_nocopy(const struct sock *sk)
+{
+	return ((uintptr_t)sk->sk_user_data & SK_USER_DATA_NOCOPY);
+}
+
 #define __sk_user_data(sk) ((*((void __rcu **)&(sk)->sk_user_data)))
 
-#define rcu_dereference_sk_user_data(sk)	rcu_dereference(__sk_user_data((sk)))
-#define rcu_assign_sk_user_data(sk, ptr)	rcu_assign_pointer(__sk_user_data((sk)), ptr)
+#define rcu_dereference_sk_user_data(sk)				\
+({									\
+	void *__tmp = rcu_dereference(__sk_user_data((sk)));		\
+	(void *)((uintptr_t)__tmp & SK_USER_DATA_PTRMASK);		\
+})
+#define rcu_assign_sk_user_data(sk, ptr)				\
+({									\
+	uintptr_t __tmp = (uintptr_t)(ptr);				\
+	WARN_ON_ONCE(__tmp & ~SK_USER_DATA_PTRMASK);			\
+	rcu_assign_pointer(__sk_user_data((sk)), __tmp);		\
+})
+#define rcu_assign_sk_user_data_nocopy(sk, ptr)				\
+({									\
+	uintptr_t __tmp = (uintptr_t)(ptr);				\
+	WARN_ON_ONCE(__tmp & ~SK_USER_DATA_PTRMASK);			\
+	rcu_assign_pointer(__sk_user_data((sk)),			\
+			   __tmp | SK_USER_DATA_NOCOPY);		\
+})
 
 /*
  * SK_CAN_REUSE and SK_NO_REUSE on a socket mean that the socket is OK
@@ -1123,7 +1156,9 @@ struct proto {
 	int			(*sendpage)(struct sock *sk, struct page *page,
 					int offset, size_t size, int flags);
 	int			(*bind)(struct sock *sk,
-					struct sockaddr *uaddr, int addr_len);
+					struct sockaddr *addr, int addr_len);
+	int			(*bind_add)(struct sock *sk,
+					struct sockaddr *addr, int addr_len);
 
 	int			(*backlog_rcv) (struct sock *sk,
 						struct sk_buff *skb);
@@ -1626,6 +1661,7 @@ void sock_rfree(struct sk_buff *skb);
 void sock_efree(struct sk_buff *skb);
 #ifdef CONFIG_INET
 void sock_edemux(struct sk_buff *skb);
+void sock_pfree(struct sk_buff *skb);
 #else
 #define sock_edemux sock_efree
 #endif
@@ -1812,7 +1848,6 @@ static inline int sk_rx_queue_get(const struct sock *sk)
 
 static inline void sk_set_socket(struct sock *sk, struct socket *sock)
 {
-	sk_tx_queue_clear(sk);
 	sk->sk_socket = sock;
 }
 
@@ -2493,16 +2528,14 @@ void sock_net_set(struct sock *sk, struct net *net)
 	write_pnet(&sk->sk_net, net);
 }
 
-static inline struct sock *skb_steal_sock(struct sk_buff *skb)
+static inline bool
+skb_sk_is_prefetched(struct sk_buff *skb)
 {
-	if (skb->sk) {
-		struct sock *sk = skb->sk;
-
-		skb->destructor = NULL;
-		skb->sk = NULL;
-		return sk;
-	}
-	return NULL;
+#ifdef CONFIG_INET
+	return skb->destructor == sock_pfree;
+#else
+	return false;
+#endif /* CONFIG_INET */
 }
 
 /* This helper checks if a socket is a full socket,
@@ -2511,6 +2544,35 @@ static inline struct sock *skb_steal_sock(struct sk_buff *skb)
 static inline bool sk_fullsock(const struct sock *sk)
 {
 	return (1 << sk->sk_state) & ~(TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV);
+}
+
+static inline bool
+sk_is_refcounted(struct sock *sk)
+{
+	/* Only full sockets have sk->sk_flags. */
+	return !sk_fullsock(sk) || !sock_flag(sk, SOCK_RCU_FREE);
+}
+
+/**
+ * skb_steal_sock - steal a socket from an sk_buff
+ * @skb: sk_buff to steal the socket from
+ * @refcounted: is set to true if the socket is reference-counted
+ */
+static inline struct sock *
+skb_steal_sock(struct sk_buff *skb, bool *refcounted)
+{
+	if (skb->sk) {
+		struct sock *sk = skb->sk;
+
+		*refcounted = true;
+		if (skb_sk_is_prefetched(skb))
+			*refcounted = sk_is_refcounted(sk);
+		skb->destructor = NULL;
+		skb->sk = NULL;
+		return sk;
+	}
+	*refcounted = false;
+	return NULL;
 }
 
 /* Checks if this SKB belongs to an HW offloaded socket
@@ -2626,5 +2688,17 @@ static inline bool sk_dev_equal_l3scope(struct sock *sk, int dif)
 }
 
 void sock_def_readable(struct sock *sk);
+
+int sock_bindtoindex(struct sock *sk, int ifindex, bool lock_sk);
+void sock_enable_timestamps(struct sock *sk);
+void sock_no_linger(struct sock *sk);
+void sock_set_keepalive(struct sock *sk);
+void sock_set_priority(struct sock *sk, u32 priority);
+void sock_set_rcvbuf(struct sock *sk, int val);
+void sock_set_reuseaddr(struct sock *sk);
+void sock_set_reuseport(struct sock *sk);
+void sock_set_sndtimeo(struct sock *sk, s64 secs);
+
+int sock_bind_add(struct sock *sk, struct sockaddr *addr, int addr_len);
 
 #endif	/* _SOCK_H */

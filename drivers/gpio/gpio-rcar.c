@@ -116,7 +116,7 @@ static void gpio_rcar_config_interrupt_input_mode(struct gpio_rcar_priv *p,
 
 	spin_lock_irqsave(&p->lock, flags);
 
-	/* Configure postive or negative logic in POSNEG */
+	/* Configure positive or negative logic in POSNEG */
 	gpio_rcar_modify_bit(p, POSNEG, hwirq, !active_high_rising_edge);
 
 	/* Configure edge or level trigger in EDGLEVEL */
@@ -228,7 +228,7 @@ static void gpio_rcar_config_general_input_output_mode(struct gpio_chip *chip,
 
 	spin_lock_irqsave(&p->lock, flags);
 
-	/* Configure postive logic in POSNEG */
+	/* Configure positive logic in POSNEG */
 	gpio_rcar_modify_bit(p, POSNEG, gpio, false);
 
 	/* Select "General Input/Output Mode" in IOINTSEL */
@@ -250,8 +250,10 @@ static int gpio_rcar_request(struct gpio_chip *chip, unsigned offset)
 	int error;
 
 	error = pm_runtime_get_sync(p->dev);
-	if (error < 0)
+	if (error < 0) {
+		pm_runtime_put(p->dev);
 		return error;
+	}
 
 	error = pinctrl_gpio_request(chip->base + offset);
 	if (error)

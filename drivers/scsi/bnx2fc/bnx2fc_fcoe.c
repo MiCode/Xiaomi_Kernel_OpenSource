@@ -660,7 +660,10 @@ static int bnx2fc_percpu_io_thread(void *arg)
 
 			list_for_each_entry_safe(work, tmp, &work_list, list) {
 				list_del_init(&work->list);
-				bnx2fc_process_cq_compl(work->tgt, work->wqe);
+				bnx2fc_process_cq_compl(work->tgt, work->wqe,
+							work->rq_data,
+							work->num_rq,
+							work->task);
 				kfree(work);
 			}
 
@@ -942,7 +945,7 @@ static void bnx2fc_indicate_netevent(void *context, unsigned long event,
 				 */
 				if (interface->enabled)
 					fcoe_ctlr_link_up(ctlr);
-			};
+			}
 		} else if (fcoe_ctlr_link_down(ctlr)) {
 			switch (cdev->enabled) {
 			case FCOE_CTLR_DISABLED:
@@ -962,7 +965,7 @@ static void bnx2fc_indicate_netevent(void *context, unsigned long event,
 				put_cpu();
 				fcoe_clean_pending_queue(lport);
 				wait_for_upload = 1;
-			};
+			}
 		}
 	}
 	mutex_unlock(&bnx2fc_dev_lock);
@@ -2655,7 +2658,8 @@ static int bnx2fc_cpu_offline(unsigned int cpu)
 	/* Free all work in the list */
 	list_for_each_entry_safe(work, tmp, &p->work_list, list) {
 		list_del_init(&work->list);
-		bnx2fc_process_cq_compl(work->tgt, work->wqe);
+		bnx2fc_process_cq_compl(work->tgt, work->wqe, work->rq_data,
+					work->num_rq, work->task);
 		kfree(work);
 	}
 

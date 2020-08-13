@@ -40,9 +40,11 @@ MODULE_PARM_DESC(reset_on_lockup,
 #define PCI_VENDOR_ID_HABANALABS	0x1da3
 
 #define PCI_IDS_GOYA			0x0001
+#define PCI_IDS_GAUDI			0x1000
 
 static const struct pci_device_id ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HABANALABS, PCI_IDS_GOYA), },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HABANALABS, PCI_IDS_GAUDI), },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, ids);
@@ -62,6 +64,9 @@ static enum hl_asic_type get_asic_type(u16 device)
 	switch (device) {
 	case PCI_IDS_GOYA:
 		asic_type = ASIC_GOYA;
+		break;
+	case PCI_IDS_GAUDI:
+		asic_type = ASIC_GAUDI;
 		break;
 	default:
 		asic_type = ASIC_INVALID;
@@ -167,6 +172,7 @@ out_err:
 	put_pid(hpriv->taskpid);
 
 	kfree(hpriv);
+
 	return rc;
 }
 
@@ -226,8 +232,15 @@ static void set_driver_behavior_per_device(struct hl_device *hdev)
 	hdev->fw_loading = 1;
 	hdev->cpu_queues_enable = 1;
 	hdev->heartbeat = 1;
+	hdev->clock_gating = 1;
 
 	hdev->reset_pcilink = 0;
+	hdev->axi_drain = 0;
+	hdev->sram_scrambler_enable = 1;
+	hdev->dram_scrambler_enable = 1;
+	hdev->rl_enable = 1;
+	hdev->bmc_enable = 1;
+	hdev->hard_reset_on_fw_events = 1;
 }
 
 /*

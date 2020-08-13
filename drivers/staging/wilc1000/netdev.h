@@ -24,12 +24,8 @@
 #define PMKID_FOUND				1
 #define NUM_STA_ASSOCIATED			8
 
-#define NUM_REG_FRAME				2
-
 #define TCP_ACK_FILTER_LINK_SPEED_THRESH	54
 #define DEFAULT_LINK_SPEED			72
-
-#define GET_PKT_OFFSET(a) (((a) >> 22) & 0x1ff)
 
 struct wilc_wfi_stats {
 	unsigned long rx_packets;
@@ -64,12 +60,6 @@ struct wilc_wfi_p2p_listen_params {
 	struct ieee80211_channel *listen_ch;
 	u32 listen_duration;
 	u64 listen_cookie;
-};
-
-struct wilc_p2p_var {
-	u8 local_random;
-	u8 recv_random;
-	bool is_wilc_ie;
 };
 
 static const u32 wilc_cipher_suites[] = {
@@ -155,14 +145,8 @@ struct wilc_priv {
 	struct mutex scan_req_lock;
 	bool p2p_listen_state;
 	int scanned_cnt;
-	struct wilc_p2p_var p2p;
 
 	u64 inc_roc_cookie;
-};
-
-struct frame_reg {
-	u16 type;
-	bool reg;
 };
 
 #define MAX_TCP_SESSION                25
@@ -196,7 +180,7 @@ struct wilc_vif {
 	u8 iftype;
 	int monitor_flag;
 	int mac_opened;
-	struct frame_reg frame_reg[NUM_REG_FRAME];
+	u32 mgmt_reg_stypes;
 	struct net_device_stats netstats;
 	struct wilc *wilc;
 	u8 bssid[ETH_ALEN];
@@ -218,7 +202,6 @@ struct wilc {
 	const struct wilc_hif_func *hif_func;
 	int io_type;
 	s8 mac_status;
-	struct gpio_desc *gpio_irq;
 	struct clk *rtc_clk;
 	bool initialized;
 	int dev_irq_num;

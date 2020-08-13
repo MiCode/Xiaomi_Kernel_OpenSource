@@ -154,7 +154,7 @@ static struct bpf_map *reuseport_array_alloc(union bpf_attr *attr)
 	struct bpf_map_memory mem;
 	u64 array_size;
 
-	if (!capable(CAP_SYS_ADMIN))
+	if (!bpf_capable())
 		return ERR_PTR(-EPERM);
 
 	array_size = sizeof(*array);
@@ -303,11 +303,6 @@ int bpf_fd_reuseport_array_update_elem(struct bpf_map *map, void *key,
 					  lockdep_is_held(&reuseport_lock));
 	err = reuseport_array_update_check(array, nsk, osk, reuse, map_flags);
 	if (err)
-		goto put_file_unlock;
-
-	/* Ensure reuse->reuseport_id is set */
-	err = reuseport_get_id(reuse);
-	if (err < 0)
 		goto put_file_unlock;
 
 	WRITE_ONCE(nsk->sk_user_data, &array->ptrs[index]);

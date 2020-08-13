@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/**
+/*
  * host.c - DesignWare USB3 DRD Controller Host Glue
  *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com
@@ -7,6 +7,7 @@
  * Authors: Felipe Balbi <balbi@ti.com>,
  */
 
+#include <linux/acpi.h>
 #include <linux/platform_device.h>
 
 #include "core.h"
@@ -76,6 +77,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 	}
 
 	xhci->dev.parent	= dwc->dev;
+	ACPI_COMPANION_SET(&xhci->dev, ACPI_COMPANION(dwc->dev));
 
 	dwc->xhci = xhci;
 
@@ -113,7 +115,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 	 *
 	 * This following flag tells XHCI to do just that.
 	 */
-	if (dwc->revision <= DWC3_REVISION_300A)
+	if (DWC3_VER_IS_WITHIN(DWC3, ANY, 300A))
 		props[prop_idx++] = PROPERTY_ENTRY_BOOL("quirk-broken-port-ped");
 
 	if (dwc->host_poweroff_in_pm_suspend)

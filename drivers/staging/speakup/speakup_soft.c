@@ -10,7 +10,7 @@
  */
 
 #include <linux/unistd.h>
-#include <linux/miscdevice.h>	/* for misc_register, and SYNTH_MINOR */
+#include <linux/miscdevice.h>	/* for misc_register, and MISC_DYNAMIC_MINOR */
 #include <linux/poll.h>		/* for poll_wait() */
 
 /* schedule(), signal_pending(), TASK_INTERRUPTIBLE */
@@ -20,8 +20,6 @@
 #include "speakup.h"
 
 #define DRV_VERSION "2.6"
-#define SOFTSYNTH_MINOR 26 /* might as well give it one more than /dev/synth */
-#define SOFTSYNTHU_MINOR 27 /* might as well give it one more than /dev/synth */
 #define PROCSPEECH 0x0d
 #define CLEAR_SYNTH 0x18
 
@@ -40,6 +38,7 @@ static struct var_t vars[] = {
 	{ PAUSE, .u.n = {"\x01P" } },
 	{ RATE, .u.n = {"\x01%ds", 2, 0, 9, 0, 0, NULL } },
 	{ PITCH, .u.n = {"\x01%dp", 5, 0, 9, 0, 0, NULL } },
+	{ INFLECTION, .u.n = {"\x01%dr", 5, 0, 9, 0, 0, NULL } },
 	{ VOL, .u.n = {"\x01%dv", 5, 0, 9, 0, 0, NULL } },
 	{ TONE, .u.n = {"\x01%dx", 1, 0, 2, 0, 0, NULL } },
 	{ PUNCT, .u.n = {"\x01%db", 0, 0, 2, 0, 0, NULL } },
@@ -59,6 +58,8 @@ static struct kobj_attribute freq_attribute =
 	__ATTR(freq, 0644, spk_var_show, spk_var_store);
 static struct kobj_attribute pitch_attribute =
 	__ATTR(pitch, 0644, spk_var_show, spk_var_store);
+static struct kobj_attribute inflection_attribute =
+	__ATTR(inflection, 0644, spk_var_show, spk_var_store);
 static struct kobj_attribute punct_attribute =
 	__ATTR(punct, 0644, spk_var_show, spk_var_store);
 static struct kobj_attribute rate_attribute =
@@ -98,6 +99,7 @@ static struct attribute *synth_attrs[] = {
 	&freq_attribute.attr,
 /*	&lang_attribute.attr, */
 	&pitch_attribute.attr,
+	&inflection_attribute.attr,
 	&punct_attribute.attr,
 	&rate_attribute.attr,
 	&tone_attribute.attr,
@@ -375,7 +377,7 @@ static int softsynth_probe(struct spk_synth *synth)
 	if (misc_registered != 0)
 		return 0;
 	memset(&synth_device, 0, sizeof(synth_device));
-	synth_device.minor = SOFTSYNTH_MINOR;
+	synth_device.minor = MISC_DYNAMIC_MINOR;
 	synth_device.name = "softsynth";
 	synth_device.fops = &softsynth_fops;
 	if (misc_register(&synth_device)) {
@@ -384,17 +386,19 @@ static int softsynth_probe(struct spk_synth *synth)
 	}
 
 	memset(&synthu_device, 0, sizeof(synthu_device));
-	synthu_device.minor = SOFTSYNTHU_MINOR;
+	synthu_device.minor = MISC_DYNAMIC_MINOR;
 	synthu_device.name = "softsynthu";
 	synthu_device.fops = &softsynthu_fops;
 	if (misc_register(&synthu_device)) {
-		pr_warn("Couldn't initialize miscdevice /dev/softsynth.\n");
+		pr_warn("Couldn't initialize miscdevice /dev/softsynthu.\n");
 		return -ENODEV;
 	}
 
 	misc_registered = 1;
-	pr_info("initialized device: /dev/softsynth, node (MAJOR 10, MINOR 26)\n");
-	pr_info("initialized device: /dev/softsynthu, node (MAJOR 10, MINOR 27)\n");
+	pr_info("initialized device: /dev/softsynth, node (MAJOR 10, MINOR %d)\n",
+		synth_device.minor);
+	pr_info("initialized device: /dev/softsynthu, node (MAJOR 10, MINOR %d)\n",
+		synthu_device.minor);
 	return 0;
 }
 

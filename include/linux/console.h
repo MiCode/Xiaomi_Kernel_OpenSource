@@ -134,7 +134,7 @@ static inline int con_debug_leave(void)
  */
 
 #define CON_PRINTBUFFER	(1)
-#define CON_CONSDEV	(2) /* Last on the command line */
+#define CON_CONSDEV	(2) /* Preferred console, /dev/console */
 #define CON_ENABLED	(4)
 #define CON_BOOT	(8)
 #define CON_ANYTIME	(16) /* Safe to call when cpu is offline */
@@ -148,6 +148,7 @@ struct console {
 	struct tty_driver *(*device)(struct console *, int *);
 	void	(*unblank)(void);
 	int	(*setup)(struct console *, char *);
+	int	(*exit)(struct console *);
 	int	(*match)(struct console *, char *name, int idx, char *options);
 	short	flags;
 	short	index;

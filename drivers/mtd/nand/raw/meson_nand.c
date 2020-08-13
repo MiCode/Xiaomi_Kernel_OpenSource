@@ -118,7 +118,7 @@ struct meson_nfc_nand_chip {
 	u8 *data_buf;
 	__le64 *info_buf;
 	u32 nsels;
-	u8 sels[0];
+	u8 sels[];
 };
 
 struct meson_nand_ecc {
@@ -899,6 +899,9 @@ static int meson_nfc_exec_op(struct nand_chip *nand,
 	u32 op_id, delay_idle, cmd;
 	int i;
 
+	if (check_only)
+		return 0;
+
 	meson_nfc_select_chip(nand, op->cs);
 	for (op_id = 0; op_id < op->ninstrs; op_id++) {
 		instr = &op->instrs[op_id];
@@ -1266,7 +1269,7 @@ meson_nfc_nand_chip_init(struct device *dev,
 	nand_set_flash_node(nand, np);
 	nand_set_controller_data(nand, nfc);
 
-	nand->options |= NAND_USE_BOUNCE_BUFFER;
+	nand->options |= NAND_USES_DMA;
 	mtd = nand_to_mtd(nand);
 	mtd->owner = THIS_MODULE;
 	mtd->dev.parent = dev;

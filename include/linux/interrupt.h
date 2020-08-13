@@ -248,6 +248,8 @@ extern void enable_percpu_nmi(unsigned int irq, unsigned int type);
 extern int prepare_percpu_nmi(unsigned int irq);
 extern void teardown_percpu_nmi(unsigned int irq);
 
+extern int irq_inject_interrupt(unsigned int irq);
+
 /* The following three functions are for the core kernel use only. */
 extern void suspend_device_irqs(void);
 extern void resume_device_irqs(void);
@@ -765,8 +767,10 @@ extern int arch_early_irq_init(void);
 /*
  * We want to know which function is an entrypoint of a hardirq or a softirq.
  */
-#define __irq_entry		 __attribute__((__section__(".irqentry.text")))
-#define __softirq_entry  \
-	__attribute__((__section__(".softirqentry.text")))
+#ifndef __irq_entry
+# define __irq_entry	 __attribute__((__section__(".irqentry.text")))
+#endif
+
+#define __softirq_entry  __attribute__((__section__(".softirqentry.text")))
 
 #endif

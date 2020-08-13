@@ -569,6 +569,23 @@ static void kfd_cwsr_init(struct kfd_dev *kfd)
 	}
 }
 
+static int kfd_gws_init(struct kfd_dev *kfd)
+{
+	int ret = 0;
+
+	if (kfd->dqm->sched_policy == KFD_SCHED_POLICY_NO_HWS)
+		return 0;
+
+	if (hws_gws_support
+		|| (kfd->device_info->asic_family >= CHIP_VEGA10
+			&& kfd->device_info->asic_family <= CHIP_RAVEN
+			&& kfd->mec2_fw_version >= 0x1b3))
+		ret = amdgpu_amdkfd_alloc_gws(kfd->kgd,
+				amdgpu_amdkfd_get_num_gws(kfd->kgd), &kfd->gws);
+
+	return ret;
+}
+
 bool kgd2kfd_device_init(struct kfd_dev *kfd,
 			 struct drm_device *ddev,
 			 const struct kgd2kfd_shared_resources *gpu_resources)
@@ -578,6 +595,8 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
 	kfd->ddev = ddev;
 	kfd->mec_fw_version = amdgpu_amdkfd_get_fw_version(kfd->kgd,
 			KGD_ENGINE_MEC1);
+	kfd->mec2_fw_version = amdgpu_amdkfd_get_fw_version(kfd->kgd,
+			KGD_ENGINE_MEC2);
 	kfd->sdma_fw_version = amdgpu_amdkfd_get_fw_version(kfd->kgd,
 			KGD_ENGINE_SDMA1);
 	kfd->shared_resources = *gpu_resources;
@@ -598,13 +617,6 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
 	} else
 		kfd->max_proc_per_quantum = hws_max_conc_proc;
 
-	/* Allocate global GWS that is shared by all KFD processes */
-	if (hws_gws_support && amdgpu_amdkfd_alloc_gws(kfd->kgd,
-			amdgpu_amdkfd_get_num_gws(kfd->kgd), &kfd->gws)) {
-		dev_err(kfd_device, "Could not allocate %d gws\n",
-			amdgpu_amdkfd_get_num_gws(kfd->kgd));
-		goto out;
-	}
 	/* calculate max size of mqds needed for queues */
 	size = max_num_of_queues_per_device *
 			kfd->device_info->mqd_size_aligned;
@@ -648,6 +660,9 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
 	if (kfd->kfd2kgd->get_hive_id)
 		kfd->hive_id = kfd->kfd2kgd->get_hive_id(kfd->kgd);
 
+	if (kfd->kfd2kgd->get_unique_id)
+		kfd->unique_id = kfd->kfd2kgd->get_unique_id(kfd->kgd);
+
 	if (kfd_interrupt_init(kfd)) {
 		dev_err(kfd_device, "Error initializing interrupts\n");
 		goto kfd_interrupt_error;
@@ -657,6 +672,15 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
 	if (!kfd->dqm) {
 		dev_err(kfd_device, "Error initializing queue manager\n");
 		goto device_queue_manager_error;
+	}
+
+	/* If supported on this device, allocate global GWS that is shared
+	 * by all KFD processes
+	 */
+	if (kfd_gws_init(kfd)) {
+		dev_err(kfd_device, "Could not allocate %d gws\n",
+			amdgpu_amdkfd_get_num_gws(kfd->kgd));
+		goto gws_error;
 	}
 
 	if (kfd_iommu_device_init(kfd)) {
@@ -688,6 +712,7 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
 kfd_topology_add_device_error:
 kfd_resume_error:
 device_iommu_error:
+gws_error:
 	device_queue_manager_uninit(kfd->dqm);
 device_queue_manager_error:
 	kfd_interrupt_exit(kfd);
@@ -698,7 +723,7 @@ kfd_doorbell_error:
 kfd_gtt_sa_init_error:
 	amdgpu_amdkfd_free_gtt_mem(kfd->kgd, kfd->gtt_mem);
 alloc_gtt_mem_failure:
-	if (hws_gws_support)
+	if (kfd->gws)
 		amdgpu_amdkfd_free_gws(kfd->kgd, kfd->gws);
 	dev_err(kfd_device,
 		"device %x:%x NOT added due to errors\n",
@@ -710,14 +735,14 @@ out:
 void kgd2kfd_device_exit(struct kfd_dev *kfd)
 {
 	if (kfd->init_complete) {
-		kgd2kfd_suspend(kfd);
+		kgd2kfd_suspend(kfd, false);
 		device_queue_manager_uninit(kfd->dqm);
 		kfd_interrupt_exit(kfd);
 		kfd_topology_remove_device(kfd);
 		kfd_doorbell_fini(kfd);
 		kfd_gtt_sa_fini(kfd);
 		amdgpu_amdkfd_free_gtt_mem(kfd->kgd, kfd->gtt_mem);
-		if (hws_gws_support)
+		if (kfd->gws)
 			amdgpu_amdkfd_free_gws(kfd->kgd, kfd->gws);
 	}
 
@@ -731,7 +756,7 @@ int kgd2kfd_pre_reset(struct kfd_dev *kfd)
 
 	kfd->dqm->ops.pre_reset(kfd->dqm);
 
-	kgd2kfd_suspend(kfd);
+	kgd2kfd_suspend(kfd, false);
 
 	kfd_signal_reset_event(kfd);
 	return 0;
@@ -765,21 +790,23 @@ bool kfd_is_locked(void)
 	return  (atomic_read(&kfd_locked) > 0);
 }
 
-void kgd2kfd_suspend(struct kfd_dev *kfd)
+void kgd2kfd_suspend(struct kfd_dev *kfd, bool run_pm)
 {
 	if (!kfd->init_complete)
 		return;
 
-	/* For first KFD device suspend all the KFD processes */
-	if (atomic_inc_return(&kfd_locked) == 1)
-		kfd_suspend_all_processes();
+	/* for runtime suspend, skip locking kfd */
+	if (!run_pm) {
+		/* For first KFD device suspend all the KFD processes */
+		if (atomic_inc_return(&kfd_locked) == 1)
+			kfd_suspend_all_processes();
+	}
 
 	kfd->dqm->ops.stop(kfd->dqm);
-
 	kfd_iommu_suspend(kfd);
 }
 
-int kgd2kfd_resume(struct kfd_dev *kfd)
+int kgd2kfd_resume(struct kfd_dev *kfd, bool run_pm)
 {
 	int ret, count;
 
@@ -790,10 +817,13 @@ int kgd2kfd_resume(struct kfd_dev *kfd)
 	if (ret)
 		return ret;
 
-	count = atomic_dec_return(&kfd_locked);
-	WARN_ONCE(count < 0, "KFD suspend / resume ref. error");
-	if (count == 0)
-		ret = kfd_resume_all_processes();
+	/* for runtime resume, skip unlocking kfd */
+	if (!run_pm) {
+		count = atomic_dec_return(&kfd_locked);
+		WARN_ONCE(count < 0, "KFD suspend / resume ref. error");
+		if (count == 0)
+			ret = kfd_resume_all_processes();
+	}
 
 	return ret;
 }
@@ -1104,9 +1134,9 @@ kfd_gtt_out:
 	return 0;
 
 kfd_gtt_no_free_chunk:
-	pr_debug("Allocation failed with mem_obj = %p\n", mem_obj);
+	pr_debug("Allocation failed with mem_obj = %p\n", *mem_obj);
 	mutex_unlock(&kfd->gtt_sa_lock);
-	kfree(mem_obj);
+	kfree(*mem_obj);
 	return -ENOMEM;
 }
 

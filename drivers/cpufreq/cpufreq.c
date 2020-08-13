@@ -29,7 +29,9 @@
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
 #include <linux/tick.h>
+#ifdef CONFIG_SCHED_WALT
 #include <linux/sched/sysctl.h>
+#endif
 #include <trace/events/power.h>
 
 static LIST_HEAD(cpufreq_policy_list);
@@ -161,12 +163,6 @@ __weak void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 {
 }
 EXPORT_SYMBOL_GPL(arch_set_freq_scale);
-
-__weak void arch_set_max_freq_scale(struct cpumask *cpus,
-				    unsigned long policy_max_freq)
-{
-}
-EXPORT_SYMBOL_GPL(arch_set_max_freq_scale);
 
 /*
  * This is a generic cpufreq init() routine which can be used by cpufreq
@@ -689,10 +685,14 @@ static ssize_t show_##file_name				\
 }
 
 show_one(cpuinfo_min_freq, cpuinfo.min_freq);
+#ifndef CONFIG_SCHED_WALT
+show_one(cpuinfo_max_freq, cpuinfo.max_freq);
+#endif
 show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
 
+#ifdef CONFIG_SCHED_WALT
 unsigned int cpuinfo_max_freq_cached;
 
 static bool should_use_cached_freq(int cpu)
@@ -717,7 +717,7 @@ static ssize_t show_cpuinfo_max_freq(struct cpufreq_policy *policy, char *buf)
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", freq);
 }
-
+#endif
 __weak unsigned int arch_freq_get_on_cpu(int cpu)
 {
 	return 0;
@@ -1142,8 +1142,12 @@ static int cpufreq_add_policy_cpu(struct cpufreq_policy *policy, unsigned int cp
 	if (has_target()) {
 		ret = cpufreq_start_governor(policy);
 		if (ret)
+#ifndef CONFIG_SCHED_WALT
+			pr_err("%s: Failed to start governor\n", __func__);
+#else
 			pr_err("%s: Failed to start governor for CPU%u, policy CPU%u\n",
 			       __func__, cpu, policy->cpu);
+#endif
 	}
 	up_write(&policy->rwsem);
 	return ret;
@@ -1768,6 +1772,26 @@ unsigned int cpufreq_quick_get_max(unsigned int cpu)
 }
 EXPORT_SYMBOL(cpufreq_quick_get_max);
 
+/**
+ * cpufreq_get_hw_max_freq - get the max hardware frequency of the CPU
+ * @cpu: CPU number
+ *
+ * The default return value is the max_freq field of cpuinfo.
+ */
+__weak unsigned int cpufreq_get_hw_max_freq(unsigned int cpu)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	unsigned int ret_freq = 0;
+
+	if (policy) {
+		ret_freq = policy->cpuinfo.max_freq;
+		cpufreq_cpu_put(policy);
+	}
+
+	return ret_freq;
+}
+EXPORT_SYMBOL(cpufreq_get_hw_max_freq);
+
 static unsigned int __cpufreq_get(struct cpufreq_policy *policy)
 {
 	if (unlikely(policy_is_inactive(policy)))
@@ -2066,9 +2090,12 @@ unsigned int cpufreq_driver_fast_switch(struct cpufreq_policy *policy,
 	target_freq = clamp_val(target_freq, policy->min, policy->max);
 
 	ret = cpufreq_driver->fast_switch(policy, target_freq);
+
 	if (ret) {
 		cpufreq_times_record_transition(policy, ret);
+#ifdef CONFIG_SCHED_WALT
 		cpufreq_stats_record_transition(policy, ret);
+#endif
 	}
 
 	return ret;
@@ -2173,6 +2200,17 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 
 	pr_debug("target for CPU %u: %u kHz, relation %u, requested %u kHz\n",
 		 policy->cpu, target_freq, relation, old_target_freq);
+
+#ifndef CONFIG_SCHED_WALT
+	/*
+	 * This might look like a redundant call as we are checking it again
+	 * after finding index. But it is left intentionally for cases where
+	 * exactly same freq is called again and so we can save on few function
+	 * calls.
+	 */
+	if (target_freq == policy->cur)
+		return 0;
+#endif
 
 	/* Save last value to restore later on errors */
 	policy->restore_freq = policy->cur;
@@ -2443,8 +2481,6 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	policy->max = new_data.max;
 	trace_cpu_frequency_limits(policy);
 
-	arch_set_max_freq_scale(policy->cpus, policy->max);
-
 	policy->cached_target_freq = UINT_MAX;
 
 	pr_debug("new min and max freqs are %u - %u kHz\n",
@@ -2479,6 +2515,9 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 		ret = cpufreq_start_governor(policy);
 		if (!ret) {
 			pr_debug("governor change\n");
+#ifdef CONFIG_SCHED_WALT
+			sched_cpufreq_governor_change(policy, old_gov);
+#endif
 			return 0;
 		}
 		cpufreq_exit_governor(policy);
@@ -2547,33 +2586,29 @@ EXPORT_SYMBOL_GPL(cpufreq_update_limits);
 /*********************************************************************
  *               BOOST						     *
  *********************************************************************/
-static int cpufreq_boost_set_sw(int state)
+static int cpufreq_boost_set_sw(struct cpufreq_policy *policy, int state)
 {
-	struct cpufreq_policy *policy;
-	int ret = -EINVAL;
+	int ret;
 
-	for_each_active_policy(policy) {
-		if (!policy->freq_table)
-			continue;
+	if (!policy->freq_table)
+		return -ENXIO;
 
-		ret = cpufreq_frequency_table_cpuinfo(policy,
-						      policy->freq_table);
-		if (ret) {
-			pr_err("%s: Policy frequency update failed\n",
-			       __func__);
-			break;
-		}
-
-		ret = freq_qos_update_request(policy->max_freq_req, policy->max);
-		if (ret < 0)
-			break;
+	ret = cpufreq_frequency_table_cpuinfo(policy, policy->freq_table);
+	if (ret) {
+		pr_err("%s: Policy frequency update failed\n", __func__);
+		return ret;
 	}
 
-	return ret;
+	ret = freq_qos_update_request(policy->max_freq_req, policy->max);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 int cpufreq_boost_trigger_state(int state)
 {
+	struct cpufreq_policy *policy;
 	unsigned long flags;
 	int ret = 0;
 
@@ -2584,15 +2619,25 @@ int cpufreq_boost_trigger_state(int state)
 	cpufreq_driver->boost_enabled = state;
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
-	ret = cpufreq_driver->set_boost(state);
-	if (ret) {
-		write_lock_irqsave(&cpufreq_driver_lock, flags);
-		cpufreq_driver->boost_enabled = !state;
-		write_unlock_irqrestore(&cpufreq_driver_lock, flags);
-
-		pr_err("%s: Cannot %s BOOST\n",
-		       __func__, state ? "enable" : "disable");
+	get_online_cpus();
+	for_each_active_policy(policy) {
+		ret = cpufreq_driver->set_boost(policy, state);
+		if (ret)
+			goto err_reset_state;
 	}
+	put_online_cpus();
+
+	return 0;
+
+err_reset_state:
+	put_online_cpus();
+
+	write_lock_irqsave(&cpufreq_driver_lock, flags);
+	cpufreq_driver->boost_enabled = !state;
+	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
+
+	pr_err("%s: Cannot %s BOOST\n",
+	       __func__, state ? "enable" : "disable");
 
 	return ret;
 }

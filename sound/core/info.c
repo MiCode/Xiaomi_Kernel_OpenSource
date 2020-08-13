@@ -662,7 +662,7 @@ int snd_info_card_free(struct snd_card *card)
  */
 int snd_info_get_line(struct snd_info_buffer *buffer, char *line, int len)
 {
-	int c = -1;
+	int c;
 
 	if (snd_BUG_ON(!buffer || !buffer->buffer))
 		return 1;

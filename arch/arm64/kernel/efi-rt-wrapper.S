@@ -5,7 +5,7 @@
 
 #include <linux/linkage.h>
 
-ENTRY(__efi_rt_asm_wrapper)
+SYM_FUNC_START(__efi_rt_asm_wrapper)
 	stp	x29, x30, [sp, #-32]!
 	mov	x29, sp
 
@@ -35,13 +35,13 @@ ENTRY(__efi_rt_asm_wrapper)
 	b.ne	0f
 	ret
 0:
-#ifdef CONFIG_SHADOW_CALL_STACK
 	/*
-	 * Restore x18 before returning to instrumented code. This is
-	 * safe because the wrapper is called with preemption disabled and
-	 * a separate shadow stack is used for interrupts.
+	 * With CONFIG_SHADOW_CALL_STACK, the kernel uses x18 to store a
+	 * shadow stack pointer, which we need to restore before returning to
+	 * potentially instrumented code. This is safe because the wrapper is
+	 * called with preemption disabled and a separate shadow stack is used
+	 * for interrupts.
 	 */
 	mov	x18, x2
-#endif
 	b	efi_handle_corrupted_x18	// tail call
-ENDPROC(__efi_rt_asm_wrapper)
+SYM_FUNC_END(__efi_rt_asm_wrapper)

@@ -42,7 +42,7 @@ struct i915_vma_coredump {
 	int num_pages;
 	int page_count;
 	int unused;
-	u32 *pages[0];
+	u32 *pages[];
 };
 
 struct i915_request_coredump {
@@ -50,7 +50,6 @@ struct i915_request_coredump {
 	pid_t pid;
 	u32 context;
 	u32 seqno;
-	u32 start;
 	u32 head;
 	u32 tail;
 	struct i915_sched_attr sched_attr;
@@ -75,6 +74,7 @@ struct intel_engine_coredump {
 	u32 hws;
 	u32 ipeir;
 	u32 ipehr;
+	u32 esr;
 	u32 bbstate;
 	u32 instpm;
 	u32 instps;
@@ -87,6 +87,10 @@ struct intel_engine_coredump {
 
 	struct i915_gem_context_coredump {
 		char comm[TASK_COMM_LEN];
+
+		u64 total_runtime;
+		u32 avg_runtime;
+
 		pid_t pid;
 		int active;
 		int guilty;

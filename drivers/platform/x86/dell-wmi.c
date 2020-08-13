@@ -3,7 +3,7 @@
  * Dell WMI hotkeys
  *
  * Copyright (C) 2008 Red Hat <mjg@redhat.com>
- * Copyright (C) 2014-2015 Pali Rohár <pali.rohar@gmail.com>
+ * Copyright (C) 2014-2015 Pali Rohár <pali@kernel.org>
  *
  * Portions based on wistron_btns.c:
  * Copyright (C) 2005 Miloslav Trmac <mitr@volny.cz>
@@ -29,7 +29,7 @@
 #include "dell-wmi-descriptor.h"
 
 MODULE_AUTHOR("Matthew Garrett <mjg@redhat.com>");
-MODULE_AUTHOR("Pali Rohár <pali.rohar@gmail.com>");
+MODULE_AUTHOR("Pali Rohár <pali@kernel.org>");
 MODULE_DESCRIPTION("Dell laptop WMI hotkeys driver");
 MODULE_LICENSE("GPL");
 
@@ -309,6 +309,16 @@ static const struct key_entry dell_wmi_keymap_type_0011[] = {
 
 	/* Battery inserted */
 	{ KE_IGNORE, 0xfff1, { KEY_RESERVED } },
+
+	/*
+	 * Detachable keyboard detached / undocked
+	 * Note SW_TABLET_MODE is already reported through the intel_vbtn
+	 * driver for this, so we ignore it.
+	 */
+	{ KE_IGNORE, 0xfff2, { KEY_RESERVED } },
+
+	/* Detachable keyboard attached / docked */
+	{ KE_IGNORE, 0xfff3, { KEY_RESERVED } },
 
 	/* Keyboard backlight level changed */
 	{ KE_IGNORE, KBD_LED_OFF_TOKEN,      { KEY_RESERVED } },

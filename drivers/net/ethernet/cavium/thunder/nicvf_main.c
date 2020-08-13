@@ -126,8 +126,7 @@ static void nicvf_write_to_mbx(struct nicvf *nic, union nic_mbx *mbx)
 
 int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
 {
-	int timeout = NIC_MBOX_MSG_TIMEOUT;
-	int sleep = 10;
+	unsigned long timeout;
 	int ret = 0;
 
 	mutex_lock(&nic->rx_mode_mtx);
@@ -137,6 +136,7 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
 
 	nicvf_write_to_mbx(nic, mbx);
 
+	timeout = jiffies + msecs_to_jiffies(NIC_MBOX_MSG_TIMEOUT);
 	/* Wait for previous message to be acked, timeout 2sec */
 	while (!nic->pf_acked) {
 		if (nic->pf_nacked) {
@@ -146,11 +146,10 @@ int nicvf_send_msg_to_pf(struct nicvf *nic, union nic_mbx *mbx)
 			ret = -EINVAL;
 			break;
 		}
-		msleep(sleep);
+		usleep_range(8000, 10000);
 		if (nic->pf_acked)
 			break;
-		timeout -= sleep;
-		if (!timeout) {
+		if (time_after(jiffies, timeout)) {
 			netdev_err(nic->netdev,
 				   "PF didn't ACK to mbox msg 0x%02x from VF%d\n",
 				   (mbx->msg.msg & 0xFF), nic->vf_id);
@@ -553,6 +552,7 @@ static inline bool nicvf_xdp_rx(struct nicvf *nic, struct bpf_prog *prog,
 	xdp_set_data_meta_invalid(&xdp);
 	xdp.data_end = xdp.data + len;
 	xdp.rxq = &rq->xdp_rxq;
+	xdp.frame_sz = RCV_FRAG_LEN + XDP_PACKET_HEADROOM;
 	orig_data = xdp.data;
 
 	rcu_read_lock();

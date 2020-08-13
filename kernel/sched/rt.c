@@ -7,12 +7,16 @@
 
 #include "pelt.h"
 
+#ifdef CONFIG_SCHED_WALT
 #include <linux/interrupt.h>
 
 #include "walt.h"
+#endif
 
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
+/* More than 4 hours if BW_SHIFT equals 20. */
+static const u64 max_rt_runtime = MAX_BW;
 
 static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun);
 
@@ -266,12 +270,17 @@ static void pull_rt_task(struct rq *this_rq);
 
 static inline bool need_pull_rt_task(struct rq *rq, struct task_struct *prev)
 {
+#ifndef CONFIG_SCHED_WALT
+	/* Try to pull RT tasks here if we lower this rq's prio */
+	return rq->rt.highest_prio.curr > prev->prio;
+#else
 	/*
 	 * Try to pull RT tasks here if we lower this rq's prio and cpu is not
 	 * isolated
 	 */
 	return rq->rt.highest_prio.curr > prev->prio &&
 	       !cpu_isolated(cpu_of(rq));
+#endif
 }
 
 static inline int rt_overloaded(struct rq *rq)
@@ -952,6 +961,7 @@ static inline int rt_se_prio(struct sched_rt_entity *rt_se)
 	return rt_task_of(rt_se)->prio;
 }
 
+#ifdef CONFIG_SCHED_WALT
 static void dump_throttled_rt_tasks(struct rt_rq *rt_rq)
 {
 	struct rt_prio_array *array = &rt_rq->active;
@@ -1012,6 +1022,7 @@ out:
 	printk_deferred("%s\n", buf);
 #endif
 }
+#endif /* CONFIG_SCHED_WALT */
 
 static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 {
@@ -1036,6 +1047,10 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 		 * but accrue some time due to boosting.
 		 */
 		if (likely(rt_b->rt_runtime)) {
+#ifndef CONFIG_SCHED_WALT
+			rt_rq->rt_throttled = 1;
+			printk_deferred_once("sched: RT throttling activated\n");
+#else
 			static bool once;
 
 			rt_rq->rt_throttled = 1;
@@ -1044,6 +1059,7 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 				once = true;
 				dump_throttled_rt_tasks(rt_rq);
 			}
+#endif
 		} else {
 			/*
 			 * In case we did anyway, make it go away,
@@ -1448,7 +1464,9 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 		rt_se->timeout = 0;
 
 	enqueue_rt_entity(rt_se, flags);
+#ifdef CONFIG_SCHED_WALT
 	walt_inc_cumulative_runnable_avg(rq, p);
+#endif
 
 	if (!task_current(rq, p) && p->nr_cpus_allowed > 1)
 		enqueue_pushable_task(rq, p);
@@ -1460,7 +1478,9 @@ static void dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 
 	update_curr_rt(rq);
 	dequeue_rt_entity(rt_se, flags);
+#ifdef CONFIG_SCHED_WALT
 	walt_dec_cumulative_runnable_avg(rq, p);
+#endif
 
 	dequeue_pushable_task(rq, p);
 }
@@ -1502,6 +1522,7 @@ static void yield_task_rt(struct rq *rq)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
+#ifdef CONFIG_SCHED_WALT
 /*
  * Return whether the task on the given cpu is currently non-preemptible
  * while handling a potentially long softint, or if the task is likely
@@ -1519,19 +1540,23 @@ task_may_not_preempt(struct task_struct *task, int cpu)
 		(task == cpu_ksoftirqd ||
 		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK));
 }
+#endif
 
+#ifndef CONFIG_SCHED_WALT
 static int
-#ifdef CONFIG_SCHED_WALT
+select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
+#else
+static int
 select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 		 int sibling_count_hint)
-#else
-select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 #endif
 {
 	struct task_struct *curr;
 	struct rq *rq;
 	bool test;
+#ifdef CONFIG_SCHED_WALT
 	bool may_not_preempt;
+#endif
 
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
@@ -1543,17 +1568,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	curr = READ_ONCE(rq->curr); /* unlocked access */
 
 	/*
-	 * If the current task on @p's runqueue is a softirq task,
-	 * it may run without preemption for a time that is
-	 * ill-suited for a waiting RT task. Therefore, try to
-	 * wake this RT task on another runqueue.
-	 *
-	 * Also, if the current task on @p's runqueue is an RT task, then
-	 * it may run without preemption for a time that is
-	 * ill-suited for a waiting RT task. Therefore, try to
-	 * wake this RT task on another runqueue.
-	 *
-	 * Also, if the current task on @p's runqueue is an RT task, then
+	 * If the current task on @p's runqueue is an RT task, then
 	 * try to see if we can wake this RT task up on another
 	 * runqueue. Otherwise simply start this RT task
 	 * on its current runqueue.
@@ -1578,6 +1593,41 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	 * requirement of the task - which is only important on heterogeneous
 	 * systems like big.LITTLE.
 	 */
+#ifndef CONFIG_SCHED_WALT
+	test = curr &&
+	       unlikely(rt_task(curr)) &&
+	       (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio);
+
+	if (test || !rt_task_fits_capacity(p, cpu)) {
+		int target = find_lowest_rq(p);
+
+		/*
+		 * Bail out if we were forcing a migration to find a better
+		 * fitting CPU but our search failed.
+		 */
+		if (!test && target != -1 && !rt_task_fits_capacity(p, target))
+			goto out_unlock;
+
+		/*
+		 * Don't bother moving it if the destination CPU is
+		 * not running a lower priority task.
+		 */
+		if (target != -1 &&
+		    p->prio < cpu_rq(target)->rt.highest_prio.curr)
+			cpu = target;
+	}
+#else /* CONFIG_SCHED_WALT */
+	/*
+	 * If the current task on @p's runqueue is a softirq task,
+	 * it may run without preemption for a time that is
+	 * ill-suited for a waiting RT task. Therefore, try to
+	 * wake this RT task on another runqueue.
+	 *
+	 * Also, if the current task on @p's runqueue is an RT task, then
+	 * it may run without preemption for a time that is
+	 * ill-suited for a waiting RT task. Therefore, try to
+	 * wake this RT task on another runqueue.
+	 */
 	may_not_preempt = task_may_not_preempt(curr, cpu);
 	test = curr &&
 	       unlikely(rt_task(curr)) &&
@@ -1598,6 +1648,8 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 		     p->prio < cpu_rq(target)->rt.highest_prio.curr))
 			cpu = target;
 	}
+#endif /* CONFIG_SCHED_WALT */
+out_unlock:
 	rcu_read_unlock();
 
 out:
@@ -1611,7 +1663,7 @@ static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 	 * let's hope p can move out.
 	 */
 	if (rq->curr->nr_cpus_allowed == 1 ||
-	    !cpupri_find(&rq->rd->cpupri, rq->curr, NULL, NULL))
+	    !cpupri_find(&rq->rd->cpupri, rq->curr, NULL))
 		return;
 
 	/*
@@ -1619,7 +1671,7 @@ static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 	 * see if it is pushed or pulled somewhere else.
 	 */
 	if (p->nr_cpus_allowed != 1 &&
-	    cpupri_find(&rq->rd->cpupri, p, NULL, NULL))
+	    cpupri_find(&rq->rd->cpupri, p, NULL))
 		return;
 
 	/*
@@ -1763,8 +1815,7 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 static int pick_rt_task(struct rq *rq, struct task_struct *p, int cpu)
 {
 	if (!task_running(rq, p) &&
-	    cpumask_test_cpu(cpu, p->cpus_ptr) &&
-	    rt_task_fits_capacity(p, cpu))
+	    cpumask_test_cpu(cpu, p->cpus_ptr))
 		return 1;
 
 	return 0;
@@ -1904,7 +1955,12 @@ static int find_lowest_rq(struct task_struct *task)
 	struct sched_domain *sd;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
+#ifndef CONFIG_SCHED_WALT
+	int cpu      = task_cpu(task);
+#else
 	int cpu = -1;
+#endif
+	int ret;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1913,15 +1969,31 @@ static int find_lowest_rq(struct task_struct *task)
 	if (task->nr_cpus_allowed == 1)
 		return -1; /* No other targets possible */
 
-	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask,
-			 rt_task_fits_capacity))
+	/*
+	 * If we're on asym system ensure we consider the different capacities
+	 * of the CPUs when searching for the lowest_mask.
+	 */
+	if (static_branch_unlikely(&sched_asym_cpucapacity)) {
+
+		ret = cpupri_find_fitness(&task_rq(task)->rd->cpupri,
+					  task, lowest_mask,
+					  rt_task_fits_capacity);
+	} else {
+
+		ret = cpupri_find(&task_rq(task)->rd->cpupri,
+				  task, lowest_mask);
+	}
+
+	if (!ret)
 		return -1; /* No targets found */
 
+#ifdef CONFIG_SCHED_WALT
 	if (sched_energy_enabled())
 		cpu = rt_energy_aware_wake_cpu(task);
 
 	if (cpu == -1)
 		cpu = task_cpu(task);
+#endif
 
 	/*
 	 * At this point we have built a mask of CPUs representing the
@@ -2129,9 +2201,15 @@ retry:
 	}
 
 	deactivate_task(rq, next_task, 0);
+
+#ifndef CONFIG_SCHED_WALT
+	set_task_cpu(next_task, lowest_rq->cpu);
+#else
 	next_task->on_rq = TASK_ON_RQ_MIGRATING;
 	set_task_cpu(next_task, lowest_rq->cpu);
 	next_task->on_rq = TASK_ON_RQ_QUEUED;
+#endif
+
 	activate_task(lowest_rq, next_task, 0);
 	ret = 1;
 
@@ -2403,9 +2481,13 @@ static void pull_rt_task(struct rq *this_rq)
 			resched = true;
 
 			deactivate_task(src_rq, p, 0);
+#ifndef CONFIG_SCHED_WALT
+			set_task_cpu(p, this_cpu);
+#else
 			p->on_rq = TASK_ON_RQ_MIGRATING;
 			set_task_cpu(p, this_cpu);
 			p->on_rq = TASK_ON_RQ_QUEUED;
+#endif
 			activate_task(this_rq, p, 0);
 			/*
 			 * We continue with the search, just in
@@ -2435,7 +2517,7 @@ static void task_woken_rt(struct rq *rq, struct task_struct *p)
 			    (rq->curr->nr_cpus_allowed < 2 ||
 			     rq->curr->prio <= p->prio);
 
-	if (need_to_push || !rt_task_fits_capacity(p, cpu_of(rq)))
+	if (need_to_push)
 		push_rt_tasks(rq);
 }
 
@@ -2474,8 +2556,12 @@ static void switched_from_rt(struct rq *rq, struct task_struct *p)
 	 * we may need to handle the pulling of RT tasks
 	 * now.
 	 */
+#ifndef CONFIG_SCHED_WALT
+	if (!task_on_rq_queued(p) || rq->rt.rt_nr_running)
+#else
 	if (!task_on_rq_queued(p) || rq->rt.rt_nr_running ||
 		cpu_isolated(cpu_of(rq)))
+#endif
 		return;
 
 	rt_queue_pull_task(rq);
@@ -2508,10 +2594,7 @@ static void switched_to_rt(struct rq *rq, struct task_struct *p)
 	 */
 	if (task_on_rq_queued(p) && rq->curr != p) {
 #ifdef CONFIG_SMP
-		bool need_to_push = rq->rt.overloaded ||
-				    !rt_task_fits_capacity(p, cpu_of(rq));
-
-		if (p->nr_cpus_allowed > 1 && need_to_push)
+		if (p->nr_cpus_allowed > 1 && rq->rt.overloaded)
 			rt_queue_push_tasks(rq);
 #endif /* CONFIG_SMP */
 		if (p->prio < rq->curr->prio && cpu_online(cpu_of(rq)))
@@ -2683,10 +2766,11 @@ const struct sched_class rt_sched_class = {
  */
 static DEFINE_MUTEX(rt_constraints_mutex);
 
-/* Must be called with tasklist_lock held */
 static inline int tg_has_rt_tasks(struct task_group *tg)
 {
-	struct task_struct *g, *p;
+	struct task_struct *task;
+	struct css_task_iter it;
+	int ret = 0;
 
 	/*
 	 * Autogroups do not have RT tasks; see autogroup_create().
@@ -2694,12 +2778,12 @@ static inline int tg_has_rt_tasks(struct task_group *tg)
 	if (task_group_is_autogroup(tg))
 		return 0;
 
-	for_each_process_thread(g, p) {
-		if (rt_task(p) && task_group(p) == tg)
-			return 1;
-	}
+	css_task_iter_start(&tg->css, 0, &it);
+	while (!ret && (task = css_task_iter_next(&it)))
+		ret |= rt_task(task);
+	css_task_iter_end(&it);
 
-	return 0;
+	return ret;
 }
 
 struct rt_schedulable_data {
@@ -2730,9 +2814,10 @@ static int tg_rt_schedulable(struct task_group *tg, void *data)
 		return -EINVAL;
 
 	/*
-	 * Ensure we don't starve existing RT tasks.
+	 * Ensure we don't starve existing RT tasks if runtime turns zero.
 	 */
-	if (rt_bandwidth_enabled() && !runtime && tg_has_rt_tasks(tg))
+	if (rt_bandwidth_enabled() && !runtime &&
+	    tg->rt_bandwidth.rt_runtime && tg_has_rt_tasks(tg))
 		return -EBUSY;
 
 	total = to_ratio(period, runtime);
@@ -2797,8 +2882,13 @@ static int tg_set_rt_bandwidth(struct task_group *tg,
 	if (rt_period == 0)
 		return -EINVAL;
 
+	/*
+	 * Bound quota to defend quota against overflow during bandwidth shift.
+	 */
+	if (rt_runtime != RUNTIME_INF && rt_runtime > max_rt_runtime)
+		return -EINVAL;
+
 	mutex_lock(&rt_constraints_mutex);
-	read_lock(&tasklist_lock);
 	err = __rt_schedulable(tg, rt_period, rt_runtime);
 	if (err)
 		goto unlock;
@@ -2816,7 +2906,6 @@ static int tg_set_rt_bandwidth(struct task_group *tg,
 	}
 	raw_spin_unlock_irq(&tg->rt_bandwidth.rt_runtime_lock);
 unlock:
-	read_unlock(&tasklist_lock);
 	mutex_unlock(&rt_constraints_mutex);
 
 	return err;
@@ -2875,9 +2964,7 @@ static int sched_rt_global_constraints(void)
 	int ret = 0;
 
 	mutex_lock(&rt_constraints_mutex);
-	read_lock(&tasklist_lock);
 	ret = __rt_schedulable(NULL, 0, 0);
-	read_unlock(&tasklist_lock);
 	mutex_unlock(&rt_constraints_mutex);
 
 	return ret;
@@ -2918,7 +3005,9 @@ static int sched_rt_global_validate(void)
 		return -EINVAL;
 
 	if ((sysctl_sched_rt_runtime != RUNTIME_INF) &&
-		(sysctl_sched_rt_runtime > sysctl_sched_rt_period))
+		((sysctl_sched_rt_runtime > sysctl_sched_rt_period) ||
+		 ((u64)sysctl_sched_rt_runtime *
+			NSEC_PER_USEC > max_rt_runtime)))
 		return -EINVAL;
 
 	return 0;
@@ -2930,9 +3019,8 @@ static void sched_rt_do_global(void)
 	def_rt_bandwidth.rt_period = ns_to_ktime(global_rt_period());
 }
 
-int sched_rt_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *lenp,
-		loff_t *ppos)
+int sched_rt_handler(struct ctl_table *table, int write, void *buffer,
+		size_t *lenp, loff_t *ppos)
 {
 	int old_period, old_runtime;
 	static DEFINE_MUTEX(mutex);
@@ -2970,9 +3058,8 @@ undo:
 	return ret;
 }
 
-int sched_rr_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *lenp,
-		loff_t *ppos)
+int sched_rr_handler(struct ctl_table *table, int write, void *buffer,
+		size_t *lenp, loff_t *ppos)
 {
 	int ret;
 	static DEFINE_MUTEX(mutex);

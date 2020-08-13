@@ -93,11 +93,10 @@
 #include <linux/livepatch.h>
 #include <linux/thread_info.h>
 #include <linux/stackleak.h>
-#include <linux/scs.h>
 #include <linux/kasan.h>
+#include <linux/scs.h>
 #include <linux/cpufreq_times.h>
 
-#include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -283,7 +282,7 @@ static inline void free_thread_stack(struct task_struct *tsk)
 					     MEMCG_KERNEL_STACK_KB,
 					     -(int)(PAGE_SIZE / 1024));
 
-			memcg_kmem_uncharge(vm->pages[i], 0);
+			memcg_kmem_uncharge_page(vm->pages[i], 0);
 		}
 
 		for (i = 0; i < NR_CACHED_STACKS; i++) {
@@ -363,6 +362,7 @@ struct vm_area_struct *vm_area_dup(struct vm_area_struct *orig)
 	if (new) {
 		*new = *orig;
 		INIT_LIST_HEAD(&new->anon_vma_chain);
+		new->vm_next = new->vm_prev = NULL;
 	}
 	return new;
 }
@@ -399,8 +399,8 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
 		mod_zone_page_state(page_zone(first_page), NR_KERNEL_STACK_KB,
 				    THREAD_SIZE / 1024 * account);
 
-		mod_memcg_page_state(first_page, MEMCG_KERNEL_STACK_KB,
-				     account * (THREAD_SIZE / 1024));
+		mod_memcg_obj_state(stack, MEMCG_KERNEL_STACK_KB,
+				    account * (THREAD_SIZE / 1024));
 	}
 }
 
@@ -415,12 +415,13 @@ static int memcg_charge_kernel_stack(struct task_struct *tsk)
 
 		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
 			/*
-			 * If memcg_kmem_charge() fails, page->mem_cgroup
-			 * pointer is NULL, and both memcg_kmem_uncharge()
+			 * If memcg_kmem_charge_page() fails, page->mem_cgroup
+			 * pointer is NULL, and both memcg_kmem_uncharge_page()
 			 * and mod_memcg_page_state() in free_thread_stack()
 			 * will ignore this page. So it's safe.
 			 */
-			ret = memcg_kmem_charge(vm->pages[i], GFP_KERNEL, 0);
+			ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL,
+						     0);
 			if (ret)
 				return ret;
 
@@ -493,7 +494,7 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	LIST_HEAD(uf);
 
 	uprobe_start_dup_mmap();
-	if (down_write_killable(&oldmm->mmap_sem)) {
+	if (mmap_write_lock_killable(oldmm)) {
 		retval = -EINTR;
 		goto fail_uprobe_end;
 	}
@@ -502,7 +503,7 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	/*
 	 * Not linked in yet - no deadlock potential:
 	 */
-	down_write_nested(&mm->mmap_sem, SINGLE_DEPTH_NESTING);
+	mmap_write_lock_nested(mm, SINGLE_DEPTH_NESTING);
 
 	/* No ordering required: file already has been exposed. */
 	RCU_INIT_POINTER(mm->exe_file, get_mm_exe_file(oldmm));
@@ -557,14 +558,15 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 		if (retval)
 			goto fail_nomem_anon_vma_fork;
 		if (tmp->vm_flags & VM_WIPEONFORK) {
-			/* VM_WIPEONFORK gets a clean slate in the child. */
+			/*
+			 * VM_WIPEONFORK gets a clean slate in the child.
+			 * Don't prepare anon_vma until fault since we don't
+			 * copy page for current vma.
+			 */
 			tmp->anon_vma = NULL;
-			if (anon_vma_prepare(tmp))
-				goto fail_nomem_anon_vma_fork;
 		} else if (anon_vma_fork(tmp, mpnt))
 			goto fail_nomem_anon_vma_fork;
 		tmp->vm_flags &= ~(VM_LOCKED | VM_LOCKONFAULT);
-		tmp->vm_next = tmp->vm_prev = NULL;
 		file = tmp->vm_file;
 		if (file) {
 			struct inode *inode = file_inode(file);
@@ -617,9 +619,9 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	/* a new mm has just been created */
 	retval = arch_dup_mmap(oldmm, mm);
 out:
-	up_write(&mm->mmap_sem);
+	mmap_write_unlock(mm);
 	flush_tlb_mm(oldmm);
-	up_write(&oldmm->mmap_sem);
+	mmap_write_unlock(oldmm);
 	dup_userfaultfd_complete(&uf);
 fail_uprobe_end:
 	uprobe_end_dup_mmap();
@@ -649,9 +651,9 @@ static inline void mm_free_pgd(struct mm_struct *mm)
 #else
 static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 {
-	down_write(&oldmm->mmap_sem);
+	mmap_write_lock(oldmm);
 	RCU_INIT_POINTER(mm->exe_file, get_mm_exe_file(oldmm));
-	up_write(&oldmm->mmap_sem);
+	mmap_write_unlock(oldmm);
 	return 0;
 }
 #define mm_alloc_pgd(mm)	(0)
@@ -1022,7 +1024,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	mm->vmacache_seqnum = 0;
 	atomic_set(&mm->mm_users, 1);
 	atomic_set(&mm->mm_count, 1);
-	init_rwsem(&mm->mmap_sem);
+	mmap_init_lock(mm);
 	INIT_LIST_HEAD(&mm->mmlist);
 	mm->core_state = NULL;
 	mm_pgtables_bytes_init(mm);
@@ -1235,7 +1237,7 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 	struct mm_struct *mm;
 	int err;
 
-	err =  mutex_lock_killable(&task->signal->cred_guard_mutex);
+	err =  mutex_lock_killable(&task->signal->exec_update_mutex);
 	if (err)
 		return ERR_PTR(err);
 
@@ -1245,7 +1247,7 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 		mmput(mm);
 		mm = ERR_PTR(-EACCES);
 	}
-	mutex_unlock(&task->signal->cred_guard_mutex);
+	mutex_unlock(&task->signal->exec_update_mutex);
 
 	return mm;
 }
@@ -1519,7 +1521,7 @@ static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 		return 0;
 	}
 	sig = kmem_cache_alloc(sighand_cachep, GFP_KERNEL);
-	rcu_assign_pointer(tsk->sighand, sig);
+	RCU_INIT_POINTER(tsk->sighand, sig);
 	if (!sig)
 		return -ENOMEM;
 
@@ -1605,6 +1607,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	sig->oom_score_adj_min = current->signal->oom_score_adj_min;
 
 	mutex_init(&sig->cred_guard_mutex);
+	mutex_init(&sig->exec_update_mutex);
 
 	return 0;
 }
@@ -1690,6 +1693,11 @@ static inline void rcu_copy_process(struct task_struct *p)
 	INIT_LIST_HEAD(&p->rcu_tasks_holdout_list);
 	p->rcu_tasks_idle_cpu = -1;
 #endif /* #ifdef CONFIG_TASKS_RCU */
+#ifdef CONFIG_TASKS_TRACE_RCU
+	p->trc_reader_nesting = 0;
+	p->trc_reader_special.s = 0;
+	INIT_LIST_HEAD(&p->trc_holdout_list);
+#endif /* #ifdef CONFIG_TASKS_TRACE_RCU */
 }
 
 struct pid *pidfd_pid(const struct file *file)
@@ -1752,7 +1760,7 @@ static void pidfd_show_fdinfo(struct seq_file *m, struct file *f)
 	pid_t nr = -1;
 
 	if (likely(pid_has_task(pid, PIDTYPE_PID))) {
-		ns = proc_pid_ns(file_inode(m->file));
+		ns = proc_pid_ns(file_inode(m->file)->i_sb);
 		nr = pid_nr_ns(pid, ns);
 	}
 
@@ -1973,7 +1981,7 @@ static __latent_entropy struct task_struct *copy_process(
 	 * to stop root fork bombs.
 	 */
 	retval = -EAGAIN;
-	if (nr_threads >= max_threads)
+	if (data_race(nr_threads >= max_threads))
 		goto bad_fork_cleanup_count;
 
 	delayacct_tsk_init(p);	/* Must remain after dup_task_struct() */
@@ -2187,16 +2195,15 @@ static __latent_entropy struct task_struct *copy_process(
 	INIT_LIST_HEAD(&p->thread_group);
 	p->task_works = NULL;
 
-	cgroup_threadgroup_change_begin(current);
 	/*
 	 * Ensure that the cgroup subsystem policies allow the new process to be
 	 * forked. It should be noted the the new process's css_set can be changed
 	 * between here and cgroup_post_fork() if an organisation operation is in
 	 * progress.
 	 */
-	retval = cgroup_can_fork(p);
+	retval = cgroup_can_fork(p, args);
 	if (retval)
-		goto bad_fork_cgroup_threadgroup_change_end;
+		goto bad_fork_put_pidfd;
 
 	/*
 	 * From this point on we must avoid any synchronous user-space
@@ -2301,8 +2308,7 @@ static __latent_entropy struct task_struct *copy_process(
 	write_unlock_irq(&tasklist_lock);
 
 	proc_fork_connector(p);
-	cgroup_post_fork(p);
-	cgroup_threadgroup_change_end(current);
+	cgroup_post_fork(p, args);
 	perf_event_fork(p);
 
 	trace_task_newtask(p, clone_flags);
@@ -2313,9 +2319,7 @@ static __latent_entropy struct task_struct *copy_process(
 bad_fork_cancel_cgroup:
 	spin_unlock(&current->sighand->siglock);
 	write_unlock_irq(&tasklist_lock);
-	cgroup_cancel_fork(p);
-bad_fork_cgroup_threadgroup_change_end:
-	cgroup_threadgroup_change_end(current);
+	cgroup_cancel_fork(p, args);
 bad_fork_put_pidfd:
 	if (clone_flags & CLONE_PIDFD) {
 		fput(pidfile);
@@ -2502,11 +2506,11 @@ long do_fork(unsigned long clone_flags,
 	      int __user *child_tidptr)
 {
 	struct kernel_clone_args args = {
-		.flags		= (clone_flags & ~CSIGNAL),
+		.flags		= (lower_32_bits(clone_flags) & ~CSIGNAL),
 		.pidfd		= parent_tidptr,
 		.child_tid	= child_tidptr,
 		.parent_tid	= parent_tidptr,
-		.exit_signal	= (clone_flags & CSIGNAL),
+		.exit_signal	= (lower_32_bits(clone_flags) & CSIGNAL),
 		.stack		= stack_start,
 		.stack_size	= stack_size,
 	};
@@ -2524,8 +2528,9 @@ long do_fork(unsigned long clone_flags,
 pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 {
 	struct kernel_clone_args args = {
-		.flags		= ((flags | CLONE_VM | CLONE_UNTRACED) & ~CSIGNAL),
-		.exit_signal	= (flags & CSIGNAL),
+		.flags		= ((lower_32_bits(flags) | CLONE_VM |
+				    CLONE_UNTRACED) & ~CSIGNAL),
+		.exit_signal	= (lower_32_bits(flags) & CSIGNAL),
 		.stack		= (unsigned long)fn,
 		.stack_size	= (unsigned long)arg,
 	};
@@ -2586,11 +2591,11 @@ SYSCALL_DEFINE5(clone, unsigned long, clone_flags, unsigned long, newsp,
 #endif
 {
 	struct kernel_clone_args args = {
-		.flags		= (clone_flags & ~CSIGNAL),
+		.flags		= (lower_32_bits(clone_flags) & ~CSIGNAL),
 		.pidfd		= parent_tidptr,
 		.child_tid	= child_tidptr,
 		.parent_tid	= parent_tidptr,
-		.exit_signal	= (clone_flags & CSIGNAL),
+		.exit_signal	= (lower_32_bits(clone_flags) & CSIGNAL),
 		.stack		= newsp,
 		.tls		= tls,
 	};
@@ -2621,6 +2626,14 @@ noinline static int copy_clone_args_from_user(struct kernel_clone_args *kargs,
 	struct clone_args args;
 	pid_t *kset_tid = kargs->set_tid;
 
+	BUILD_BUG_ON(offsetofend(struct clone_args, tls) !=
+		     CLONE_ARGS_SIZE_VER0);
+	BUILD_BUG_ON(offsetofend(struct clone_args, set_tid_size) !=
+		     CLONE_ARGS_SIZE_VER1);
+	BUILD_BUG_ON(offsetofend(struct clone_args, cgroup) !=
+		     CLONE_ARGS_SIZE_VER2);
+	BUILD_BUG_ON(sizeof(struct clone_args) != CLONE_ARGS_SIZE_VER2);
+
 	if (unlikely(usize > PAGE_SIZE))
 		return -E2BIG;
 	if (unlikely(usize < CLONE_ARGS_SIZE_VER0))
@@ -2647,6 +2660,10 @@ noinline static int copy_clone_args_from_user(struct kernel_clone_args *kargs,
 		     !valid_signal(args.exit_signal)))
 		return -EINVAL;
 
+	if ((args.flags & CLONE_INTO_CGROUP) &&
+	    (args.cgroup > INT_MAX || usize < CLONE_ARGS_SIZE_VER2))
+		return -EINVAL;
+
 	*kargs = (struct kernel_clone_args){
 		.flags		= args.flags,
 		.pidfd		= u64_to_user_ptr(args.pidfd),
@@ -2657,6 +2674,7 @@ noinline static int copy_clone_args_from_user(struct kernel_clone_args *kargs,
 		.stack_size	= args.stack_size,
 		.tls		= args.tls,
 		.set_tid_size	= args.set_tid_size,
+		.cgroup		= args.cgroup,
 	};
 
 	if (args.set_tid &&
@@ -2700,7 +2718,8 @@ static inline bool clone3_stack_valid(struct kernel_clone_args *kargs)
 static bool clone3_args_valid(struct kernel_clone_args *kargs)
 {
 	/* Verify that no unknown flags are passed along. */
-	if (kargs->flags & ~(CLONE_LEGACY_FLAGS | CLONE_CLEAR_SIGHAND))
+	if (kargs->flags &
+	    ~(CLONE_LEGACY_FLAGS | CLONE_CLEAR_SIGHAND | CLONE_INTO_CGROUP))
 		return false;
 
 	/*

@@ -893,7 +893,7 @@ int simple_attr_open(struct inode *inode, struct file *file,
 {
 	struct simple_attr *attr;
 
-	attr = kmalloc(sizeof(*attr), GFP_KERNEL);
+	attr = kzalloc(sizeof(*attr), GFP_KERNEL);
 	if (!attr)
 		return -ENOMEM;
 
@@ -933,9 +933,11 @@ ssize_t simple_attr_read(struct file *file, char __user *buf,
 	if (ret)
 		return ret;
 
-	if (*ppos) {		/* continued read */
+	if (*ppos && attr->get_buf[0]) {
+		/* continued read */
 		size = strlen(attr->get_buf);
-	} else {		/* first read */
+	} else {
+		/* first read */
 		u64 val;
 		ret = attr->get(attr->data, &val);
 		if (ret)
@@ -1113,7 +1115,7 @@ int generic_file_fsync(struct file *file, loff_t start, loff_t end,
 	err = __generic_file_fsync(file, start, end, datasync);
 	if (err)
 		return err;
-	return blkdev_issue_flush(inode->i_sb->s_bdev, GFP_KERNEL, NULL);
+	return blkdev_issue_flush(inode->i_sb->s_bdev, GFP_KERNEL);
 }
 EXPORT_SYMBOL(generic_file_fsync);
 
@@ -1380,10 +1382,26 @@ int generic_ci_d_compare(const struct dentry *dentry, unsigned int len,
 	const struct super_block *sb = dentry->d_sb;
 	const struct unicode_map *um = sb->s_encoding;
 	struct qstr entry = QSTR_INIT(str, len);
+	char strbuf[DNAME_INLINE_LEN];
 	int ret;
 
 	if (!inode || !needs_casefold(inode))
 		goto fallback;
+
+	/*
+	 * If the dentry name is stored in-line, then it may be concurrently
+	 * modified by a rename.  If this happens, the VFS will eventually retry
+	 * the lookup, so it doesn't matter what ->d_compare() returns.
+	 * However, it's unsafe to call utf8_strncasecmp() with an unstable
+	 * string.  Therefore, we have to copy the name into a temporary buffer.
+	 */
+	if (len <= DNAME_INLINE_LEN - 1) {
+		memcpy(strbuf, str, len);
+		strbuf[len] = 0;
+		entry.name = strbuf;
+		/* prevent compiler from optimizing out the temporary buffer */
+		barrier();
+	}
 
 	ret = utf8_strncasecmp(um, name, &entry);
 	if (ret >= 0)

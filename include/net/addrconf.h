@@ -6,8 +6,6 @@
 #define RTR_SOLICITATION_INTERVAL	(4*HZ)
 #define RTR_SOLICITATION_MAX_INTERVAL	(3600*HZ)	/* 1 hour */
 
-#define MIN_VALID_LIFETIME		(2*3600)	/* 2 hours */
-
 #define TEMP_VALID_LIFETIME		(7*86400)
 #define TEMP_PREFERRED_LIFETIME		(86400)
 #define REGEN_MAX_RETRY			(3)
@@ -89,6 +87,9 @@ int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
 #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
 int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr);
 #endif
+
+int ipv6_chk_rpl_srh_loop(struct net *net, const struct in6_addr *segs,
+			  unsigned char nsegs);
 
 bool ipv6_chk_custom_prefix(const struct in6_addr *addr,
 				   const unsigned int prefix_len,

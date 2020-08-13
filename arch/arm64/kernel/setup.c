@@ -319,6 +319,10 @@ void __init setup_arch(char **cmdline_p)
 
 	xen_early_init();
 	efi_init();
+
+	if (!efi_enabled(EFI_BOOT) && ((u64)_text % MIN_KIMG_ALIGN) != 0)
+	     pr_warn(FW_BUG "Kernel image misaligned at boot, please fix your bootloader!");
+
 	arm64_memblock_init();
 
 	paging_init();
@@ -344,7 +348,7 @@ void __init setup_arch(char **cmdline_p)
 	else
 		psci_acpi_init();
 
-	cpu_read_bootcpu_ops();
+	init_bootcpu_ops();
 	smp_init_cpus();
 	smp_build_mpidr_hash();
 
@@ -371,8 +375,10 @@ void __init setup_arch(char **cmdline_p)
 static inline bool cpu_can_disable(unsigned int cpu)
 {
 #ifdef CONFIG_HOTPLUG_CPU
-	if (cpu_ops[cpu] && cpu_ops[cpu]->cpu_can_disable)
-		return cpu_ops[cpu]->cpu_can_disable(cpu);
+	const struct cpu_operations *ops = get_cpu_ops(cpu);
+
+	if (ops && ops->cpu_can_disable)
+		return ops->cpu_can_disable(cpu);
 #endif
 	return false;
 }

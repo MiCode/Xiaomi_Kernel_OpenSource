@@ -13,13 +13,13 @@
 #include <linux/bcd.h>
 #include <linux/highmem.h>
 #include <linux/kprobes.h>
+#include <linux/pgtable.h>
 
 #include <asm/bug.h>
 #include <asm/paravirt.h>
 #include <asm/debugreg.h>
 #include <asm/desc.h>
 #include <asm/setup.h>
-#include <asm/pgtable.h>
 #include <asm/time.h>
 #include <asm/pgalloc.h>
 #include <asm/irq.h>
@@ -30,6 +30,7 @@
 #include <asm/timer.h>
 #include <asm/special_insns.h>
 #include <asm/tlb.h>
+#include <asm/io_bitmap.h>
 
 /*
  * nop stub, which must not clobber anything *including the stack* to
@@ -157,25 +158,6 @@ unsigned paravirt_patch_insns(void *insn_buff, unsigned len,
 	memcpy(insn_buff, start, insn_len);
 
 	return insn_len;
-}
-
-static void native_flush_tlb(void)
-{
-	__native_flush_tlb();
-}
-
-/*
- * Global pages have to be flushed a bit differently. Not a real
- * performance problem because this does not happen often.
- */
-static void native_flush_tlb_global(void)
-{
-	__native_flush_tlb_global();
-}
-
-static void native_flush_tlb_one_user(unsigned long addr)
-{
-	__native_flush_tlb_one_user(addr);
 }
 
 struct static_key paravirt_steal_enabled;
@@ -341,6 +323,10 @@ struct paravirt_patch_template pv_ops = {
 	.cpu.iret		= native_iret,
 	.cpu.swapgs		= native_swapgs,
 
+#ifdef CONFIG_X86_IOPL_IOPERM
+	.cpu.update_io_bitmap	= native_tss_update_io_bitmap,
+#endif
+
 	.cpu.start_context_switch	= paravirt_nop,
 	.cpu.end_context_switch		= paravirt_nop,
 
@@ -354,7 +340,7 @@ struct paravirt_patch_template pv_ops = {
 #endif /* CONFIG_PARAVIRT_XXL */
 
 	/* Mmu ops. */
-	.mmu.flush_tlb_user	= native_flush_tlb,
+	.mmu.flush_tlb_user	= native_flush_tlb_local,
 	.mmu.flush_tlb_kernel	= native_flush_tlb_global,
 	.mmu.flush_tlb_one_user	= native_flush_tlb_one_user,
 	.mmu.flush_tlb_others	= native_flush_tlb_others,

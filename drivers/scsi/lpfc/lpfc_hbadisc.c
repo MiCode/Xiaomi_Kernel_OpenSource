@@ -1,7 +1,7 @@
 /*******************************************************************
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
- * Copyright (C) 2017-2019 Broadcom. All Rights Reserved. The term *
+ * Copyright (C) 2017-2020 Broadcom. All Rights Reserved. The term *
  * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.     *
  * Copyright (C) 2004-2016 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
@@ -35,8 +35,6 @@
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_transport_fc.h>
 #include <scsi/fc/fc_fs.h>
-
-#include <linux/nvme-fc-driver.h>
 
 #include "lpfc_hw4.h"
 #include "lpfc_hw.h"
@@ -825,6 +823,12 @@ lpfc_cleanup_rpis(struct lpfc_vport *vport, int remove)
 		if ((phba->sli_rev < LPFC_SLI_REV4) &&
 		    (!remove && ndlp->nlp_type & NLP_FABRIC))
 			continue;
+
+		/* Notify transport of connectivity loss to trigger cleanup. */
+		if (phba->nvmet_support &&
+		    ndlp->nlp_state == NLP_STE_UNMAPPED_NODE)
+			lpfc_nvmet_invalidate_host(phba, ndlp);
+
 		lpfc_disc_state_machine(vport, ndlp, NULL,
 					remove
 					? NLP_EVT_DEVICE_RM
@@ -1163,13 +1167,16 @@ lpfc_mbx_cmpl_local_config_link(struct lpfc_hba *phba, LPFC_MBOXQ_t *pmb)
 	}
 
 	/* Start discovery by sending a FLOGI. port_state is identically
-	 * LPFC_FLOGI while waiting for FLOGI cmpl
+	 * LPFC_FLOGI while waiting for FLOGI cmpl. Check if sending
+	 * the FLOGI is being deferred till after MBX_READ_SPARAM completes.
 	 */
-	if (vport->port_state != LPFC_FLOGI)
-		lpfc_initial_flogi(vport);
-	else if (vport->fc_flag & FC_PT2PT)
-		lpfc_disc_start(vport);
-
+	if (vport->port_state != LPFC_FLOGI) {
+		if (!(phba->hba_flag & HBA_DEFER_FLOGI))
+			lpfc_initial_flogi(vport);
+	} else {
+		if (vport->fc_flag & FC_PT2PT)
+			lpfc_disc_start(vport);
+	}
 	return;
 
 out:
@@ -1353,14 +1360,14 @@ lpfc_vlan_id_match(uint16_t curr_vlan_id, uint16_t new_vlan_id)
 }
 
 /**
- * lpfc_update_fcf_record - Update driver fcf record
  * __lpfc_update_fcf_record_pri - update the lpfc_fcf_pri record.
  * @phba: pointer to lpfc hba data structure.
  * @fcf_index: Index for the lpfc_fcf_record.
  * @new_fcf_record: pointer to hba fcf record.
  *
  * This routine updates the driver FCF priority record from the new HBA FCF
- * record. This routine is called with the host lock held.
+ * record. The hbalock is asserted held in the code path calling this
+ * routine.
  **/
 static void
 __lpfc_update_fcf_record_pri(struct lpfc_hba *phba, uint16_t fcf_index,
@@ -1368,8 +1375,6 @@ __lpfc_update_fcf_record_pri(struct lpfc_hba *phba, uint16_t fcf_index,
 				 )
 {
 	struct lpfc_fcf_pri *fcf_pri;
-
-	lockdep_assert_held(&phba->hbalock);
 
 	fcf_pri = &phba->fcf.fcf_pri[fcf_index];
 	fcf_pri->fcf_rec.fcf_index = fcf_index;
@@ -1448,7 +1453,7 @@ lpfc_copy_fcf_record(struct lpfc_fcf_rec *fcf_rec,
  *
  * This routine updates the driver FCF record from the new HBA FCF record
  * together with the address mode, vlan_id, and other informations. This
- * routine is called with the host lock held.
+ * routine is called with the hbalock held.
  **/
 static void
 __lpfc_update_fcf_record(struct lpfc_hba *phba, struct lpfc_fcf_rec *fcf_rec,
@@ -3094,6 +3099,14 @@ lpfc_mbx_cmpl_read_sparam(struct lpfc_hba *phba, LPFC_MBOXQ_t *pmb)
 	lpfc_mbuf_free(phba, mp->virt, mp->phys);
 	kfree(mp);
 	mempool_free(pmb, phba->mbox_mem_pool);
+
+	/* Check if sending the FLOGI is being deferred to after we get
+	 * up to date CSPs from MBX_READ_SPARAM.
+	 */
+	if (phba->hba_flag & HBA_DEFER_FLOGI) {
+		lpfc_initial_flogi(vport);
+		phba->hba_flag &= ~HBA_DEFER_FLOGI;
+	}
 	return;
 
 out:
@@ -3224,6 +3237,23 @@ lpfc_mbx_process_link_up(struct lpfc_hba *phba, struct lpfc_mbx_read_top *la)
 	}
 
 	lpfc_linkup(phba);
+	sparam_mbox = NULL;
+
+	if (!(phba->hba_flag & HBA_FCOE_MODE)) {
+		cfglink_mbox = mempool_alloc(phba->mbox_mem_pool, GFP_KERNEL);
+		if (!cfglink_mbox)
+			goto out;
+		vport->port_state = LPFC_LOCAL_CFG_LINK;
+		lpfc_config_link(phba, cfglink_mbox);
+		cfglink_mbox->vport = vport;
+		cfglink_mbox->mbox_cmpl = lpfc_mbx_cmpl_local_config_link;
+		rc = lpfc_sli_issue_mbox(phba, cfglink_mbox, MBX_NOWAIT);
+		if (rc == MBX_NOT_FINISHED) {
+			mempool_free(cfglink_mbox, phba->mbox_mem_pool);
+			goto out;
+		}
+	}
+
 	sparam_mbox = mempool_alloc(phba->mbox_mem_pool, GFP_KERNEL);
 	if (!sparam_mbox)
 		goto out;
@@ -3244,20 +3274,7 @@ lpfc_mbx_process_link_up(struct lpfc_hba *phba, struct lpfc_mbx_read_top *la)
 		goto out;
 	}
 
-	if (!(phba->hba_flag & HBA_FCOE_MODE)) {
-		cfglink_mbox = mempool_alloc(phba->mbox_mem_pool, GFP_KERNEL);
-		if (!cfglink_mbox)
-			goto out;
-		vport->port_state = LPFC_LOCAL_CFG_LINK;
-		lpfc_config_link(phba, cfglink_mbox);
-		cfglink_mbox->vport = vport;
-		cfglink_mbox->mbox_cmpl = lpfc_mbx_cmpl_local_config_link;
-		rc = lpfc_sli_issue_mbox(phba, cfglink_mbox, MBX_NOWAIT);
-		if (rc == MBX_NOT_FINISHED) {
-			mempool_free(cfglink_mbox, phba->mbox_mem_pool);
-			goto out;
-		}
-	} else {
+	if (phba->hba_flag & HBA_FCOE_MODE) {
 		vport->port_state = LPFC_VPORT_UNKNOWN;
 		/*
 		 * Add the driver's default FCF record at FCF index 0 now. This
@@ -3314,6 +3331,10 @@ lpfc_mbx_process_link_up(struct lpfc_hba *phba, struct lpfc_mbx_read_top *la)
 		}
 		/* Reset FCF roundrobin bmask for new discovery */
 		lpfc_sli4_clear_fcf_rr_bmask(phba);
+	} else {
+		if (phba->bbcredit_support && phba->cfg_enable_bbcr &&
+		    !(phba->link_flag & LS_LOOPBACK_MODE))
+			phba->hba_flag |= HBA_DEFER_FLOGI;
 	}
 
 	/* Prepare for LINK up registrations */
@@ -4070,7 +4091,9 @@ out:
 				    FC_TYPE_NVME);
 
 		/* Issue SCR just before NameServer GID_FT Query */
-		lpfc_issue_els_scr(vport, SCR_DID, 0);
+		lpfc_issue_els_scr(vport, 0);
+
+		lpfc_issue_els_rdf(vport, 0);
 	}
 
 	vport->fc_ns_retry = 0;

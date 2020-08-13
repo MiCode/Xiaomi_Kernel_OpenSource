@@ -1,3 +1,5 @@
+.. SPDX-License-Identifier: GPL-2.0
+
 
 .. The Linux Kernel documentation master file, created by
    sphinx-quickstart on Fri Feb 12 13:51:46 2016.
@@ -46,6 +48,7 @@ platform firmwares.
    :maxdepth: 2
 
    firmware-guide/index
+   devicetree/index
 
 Application-developer documentation
 -----------------------------------
@@ -99,6 +102,7 @@ needed).
    accounting/index
    block/index
    cdrom/index
+   cpu-freq/index
    ide/index
    fb/index
    fpga/index
@@ -108,7 +112,6 @@ needed).
    isdn/index
    infiniband/index
    leds/index
-   media/index
    netlabel/index
    networking/index
    pcmcia/index
@@ -130,9 +133,10 @@ needed).
    bpf/index
    usb/index
    PCI/index
+   scsi/index
    misc-devices/index
-   mic/index
    scheduler/index
+   mhi/index
 
 Architecture-agnostic documentation
 -----------------------------------

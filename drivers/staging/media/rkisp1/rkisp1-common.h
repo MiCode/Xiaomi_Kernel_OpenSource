@@ -52,13 +52,6 @@ enum rkisp1_stream_id {
 	RKISP1_SELFPATH,
 };
 
-enum rkisp1_fmt_pix_type {
-	RKISP1_FMT_YUV,
-	RKISP1_FMT_RGB,
-	RKISP1_FMT_BAYER,
-	RKISP1_FMT_JPEG,
-};
-
 enum rkisp1_fmt_raw_pat_type {
 	RKISP1_RAW_RGGB = 0,
 	RKISP1_RAW_GRBG,
@@ -80,8 +73,9 @@ enum rkisp1_isp_pad {
  */
 struct rkisp1_sensor_async {
 	struct v4l2_async_subdev asd;
-	struct v4l2_mbus_config mbus;
 	unsigned int lanes;
+	enum v4l2_mbus_type mbus_type;
+	unsigned int mbus_flags;
 	struct v4l2_subdev *sd;
 	struct v4l2_ctrl *pixel_rate_ctrl;
 	struct phy *dphy;
@@ -96,6 +90,7 @@ struct rkisp1_sensor_async {
  * @sink_crop: crop for sink pad
  * @src_fmt: output format
  * @src_crop: output size
+ * @ops_lock: ops serialization
  *
  * @is_dphy_errctrl_disabled : if dphy errctrl is disabled (avoid endless interrupt)
  * @frame_sequence: used to synchronize frame_id between video devices.
@@ -107,6 +102,7 @@ struct rkisp1_isp {
 	struct v4l2_subdev_pad_config pad_cfg[RKISP1_ISP_PAD_MAX];
 	const struct rkisp1_isp_mbus_info *sink_fmt;
 	const struct rkisp1_isp_mbus_info *src_fmt;
+	struct mutex ops_lock;
 	bool is_dphy_errctrl_disabled;
 	atomic_t frame_sequence;
 };
@@ -223,7 +219,8 @@ struct rkisp1_resizer {
 	struct media_pad pads[RKISP1_ISP_PAD_MAX];
 	struct v4l2_subdev_pad_config pad_cfg[RKISP1_ISP_PAD_MAX];
 	const struct rkisp1_rsz_config *config;
-	enum rkisp1_fmt_pix_type fmt_type;
+	enum v4l2_pixel_encoding pixel_enc;
+	struct mutex ops_lock;
 };
 
 struct rkisp1_debug {
@@ -244,6 +241,7 @@ struct rkisp1_debug {
  * @rkisp1_capture: capture video device
  * @stats: ISP statistics output device
  * @params: ISP input parameters device
+ * @stream_lock: lock to serialize start/stop streaming in capture devices.
  */
 struct rkisp1_device {
 	void __iomem *base_addr;
@@ -263,6 +261,7 @@ struct rkisp1_device {
 	struct rkisp1_params params;
 	struct media_pipeline pipe;
 	struct vb2_alloc_ctx *alloc_ctx;
+	struct mutex stream_lock;
 	struct rkisp1_debug debug;
 };
 
@@ -275,7 +274,7 @@ struct rkisp1_device {
  */
 struct rkisp1_isp_mbus_info {
 	u32 mbus_code;
-	enum rkisp1_fmt_pix_type fmt_type;
+	enum v4l2_pixel_encoding pixel_enc;
 	u32 mipi_dt;
 	u32 yuv_seq;
 	u8 bus_width;

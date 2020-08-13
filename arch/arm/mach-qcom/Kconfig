@@ -3,6 +3,11 @@
 if ARCH_QCOM
 menu "QCOM SoC Type"
 
+config ARCH_IPQ40XX
+	bool "Enable support for IPQ40XX"
+	select CLKSRC_QCOM
+	select HAVE_ARM_ARCH_TIMER
+
 config ARCH_MSM8X60
 	bool "Enable support for MSM8X60"
 	select ARCH_SUPPORTS_BIG_ENDIAN

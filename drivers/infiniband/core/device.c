@@ -677,8 +677,20 @@ static int add_client_context(struct ib_device *device,
 	if (ret)
 		goto out;
 	downgrade_write(&device->client_data_rwsem);
-	if (client->add)
-		client->add(device);
+	if (client->add) {
+		if (client->add(device)) {
+			/*
+			 * If a client fails to add then the error code is
+			 * ignored, but we won't call any more ops on this
+			 * client.
+			 */
+			xa_erase(&device->client_data, client->client_id);
+			up_read(&device->client_data_rwsem);
+			ib_device_put(device);
+			ib_client_put(client);
+			return 0;
+		}
+	}
 
 	/* Readers shall not see a client until add has been completed */
 	xa_set_mark(&device->client_data, client->client_id,
@@ -896,7 +908,9 @@ static int add_one_compat_dev(struct ib_device *device,
 	cdev->dev.parent = device->dev.parent;
 	rdma_init_coredev(cdev, device, read_pnet(&rnet->net));
 	cdev->dev.release = compatdev_release;
-	dev_set_name(&cdev->dev, "%s", dev_name(&device->dev));
+	ret = dev_set_name(&cdev->dev, "%s", dev_name(&device->dev));
+	if (ret)
+		goto add_err;
 
 	ret = device_add(&cdev->dev);
 	if (ret)
@@ -1379,6 +1393,7 @@ int ib_register_device(struct ib_device *device, const char *name)
 		goto dev_cleanup;
 	}
 
+	ib_cq_pool_init(device);
 	ret = enable_device_and_get(device);
 	dev_set_uevent_suppress(&device->dev, false);
 	/* Mark for userspace that device is ready */
@@ -1433,6 +1448,7 @@ static void __ib_unregister_device(struct ib_device *ib_dev)
 		goto out;
 
 	disable_device(ib_dev);
+	ib_cq_pool_destroy(ib_dev);
 
 	/* Expedite removing unregistered pointers from the hash table */
 	free_netdevs(ib_dev);
@@ -2555,7 +2571,6 @@ void ib_set_device_ops(struct ib_device *dev, const struct ib_device_ops *ops)
 	SET_DEVICE_OP(dev_ops, add_gid);
 	SET_DEVICE_OP(dev_ops, advise_mr);
 	SET_DEVICE_OP(dev_ops, alloc_dm);
-	SET_DEVICE_OP(dev_ops, alloc_fmr);
 	SET_DEVICE_OP(dev_ops, alloc_hw_stats);
 	SET_DEVICE_OP(dev_ops, alloc_mr);
 	SET_DEVICE_OP(dev_ops, alloc_mr_integrity);
@@ -2582,7 +2597,6 @@ void ib_set_device_ops(struct ib_device *dev, const struct ib_device_ops *ops)
 	SET_DEVICE_OP(dev_ops, create_wq);
 	SET_DEVICE_OP(dev_ops, dealloc_dm);
 	SET_DEVICE_OP(dev_ops, dealloc_driver);
-	SET_DEVICE_OP(dev_ops, dealloc_fmr);
 	SET_DEVICE_OP(dev_ops, dealloc_mw);
 	SET_DEVICE_OP(dev_ops, dealloc_pd);
 	SET_DEVICE_OP(dev_ops, dealloc_ucontext);
@@ -2626,7 +2640,6 @@ void ib_set_device_ops(struct ib_device *dev, const struct ib_device_ops *ops)
 	SET_DEVICE_OP(dev_ops, iw_rem_ref);
 	SET_DEVICE_OP(dev_ops, map_mr_sg);
 	SET_DEVICE_OP(dev_ops, map_mr_sg_pi);
-	SET_DEVICE_OP(dev_ops, map_phys_fmr);
 	SET_DEVICE_OP(dev_ops, mmap);
 	SET_DEVICE_OP(dev_ops, mmap_free);
 	SET_DEVICE_OP(dev_ops, modify_ah);
@@ -2660,7 +2673,6 @@ void ib_set_device_ops(struct ib_device *dev, const struct ib_device_ops *ops)
 	SET_DEVICE_OP(dev_ops, resize_cq);
 	SET_DEVICE_OP(dev_ops, set_vf_guid);
 	SET_DEVICE_OP(dev_ops, set_vf_link_state);
-	SET_DEVICE_OP(dev_ops, unmap_fmr);
 
 	SET_OBJ_SIZE(dev_ops, ib_ah);
 	SET_OBJ_SIZE(dev_ops, ib_cq);

@@ -21,13 +21,26 @@
 
 #ifndef __ASSEMBLY__
 
+#include <asm/cpufeature.h>
 #include <asm/pgtable-types.h>
+
+extern bool arm64_use_ng_mappings;
 
 #define _PROT_DEFAULT		(PTE_TYPE_PAGE | PTE_AF | PTE_SHARED)
 #define _PROT_SECT_DEFAULT	(PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S)
 
-#define PTE_MAYBE_NG		(arm64_kernel_unmapped_at_el0() ? PTE_NG : 0)
-#define PMD_MAYBE_NG		(arm64_kernel_unmapped_at_el0() ? PMD_SECT_NG : 0)
+#define PTE_MAYBE_NG		(arm64_use_ng_mappings ? PTE_NG : 0)
+#define PMD_MAYBE_NG		(arm64_use_ng_mappings ? PMD_SECT_NG : 0)
+
+/*
+ * If we have userspace only BTI we don't want to mark kernel pages
+ * guarded even if the system does support BTI.
+ */
+#ifdef CONFIG_ARM64_BTI_KERNEL
+#define PTE_MAYBE_GP		(system_supports_bti() ? PTE_GP : 0)
+#else
+#define PTE_MAYBE_GP		0
+#endif
 
 #define PROT_DEFAULT		(_PROT_DEFAULT | PTE_MAYBE_NG)
 #define PROT_SECT_DEFAULT	(_PROT_SECT_DEFAULT | PMD_MAYBE_NG)

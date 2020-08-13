@@ -37,6 +37,7 @@
 #include <drm/drm_print.h>
 
 #include "display/intel_atomic.h"
+#include "display/intel_csr.h"
 #include "display/intel_overlay.h"
 
 #include "gem/i915_gem_context.h"
@@ -47,7 +48,6 @@
 #include "i915_gpu_error.h"
 #include "i915_memcpy.h"
 #include "i915_scatterlist.h"
-#include "intel_csr.h"
 
 #define ALLOW_FAIL (GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN)
 #define ATOMIC_MAYFAIL (GFP_ATOMIC | __GFP_NOWARN)
@@ -450,6 +450,14 @@ static void error_print_instdone(struct drm_i915_error_state_buf *m,
 		err_printf(m, "  ROW_INSTDONE[%d][%d]: 0x%08x\n",
 			   slice, subslice,
 			   ee->instdone.row[slice][subslice]);
+
+	if (INTEL_GEN(m->i915) < 12)
+		return;
+
+	err_printf(m, "  SC_INSTDONE_EXTRA: 0x%08x\n",
+		   ee->instdone.slice_common_extra[0]);
+	err_printf(m, "  SC_INSTDONE_EXTRA2: 0x%08x\n",
+		   ee->instdone.slice_common_extra[1]);
 }
 
 static void error_print_request(struct drm_i915_error_state_buf *m,
@@ -459,23 +467,27 @@ static void error_print_request(struct drm_i915_error_state_buf *m,
 	if (!erq->seqno)
 		return;
 
-	err_printf(m, "%s pid %d, seqno %8x:%08x%s%s, prio %d, start %08x, head %08x, tail %08x\n",
+	err_printf(m, "%s pid %d, seqno %8x:%08x%s%s, prio %d, head %08x, tail %08x\n",
 		   prefix, erq->pid, erq->context, erq->seqno,
 		   test_bit(DMA_FENCE_FLAG_SIGNALED_BIT,
 			    &erq->flags) ? "!" : "",
 		   test_bit(DMA_FENCE_FLAG_ENABLE_SIGNAL_BIT,
 			    &erq->flags) ? "+" : "",
 		   erq->sched_attr.priority,
-		   erq->start, erq->head, erq->tail);
+		   erq->head, erq->tail);
 }
 
 static void error_print_context(struct drm_i915_error_state_buf *m,
 				const char *header,
 				const struct i915_gem_context_coredump *ctx)
 {
-	err_printf(m, "%s%s[%d] prio %d, guilty %d active %d\n",
+	const u32 period = RUNTIME_INFO(m->i915)->cs_timestamp_period_ns;
+
+	err_printf(m, "%s%s[%d] prio %d, guilty %d active %d, runtime total %lluns, avg %lluns\n",
 		   header, ctx->comm, ctx->pid, ctx->sched_attr.priority,
-		   ctx->guilty, ctx->active);
+		   ctx->guilty, ctx->active,
+		   ctx->total_runtime * period,
+		   mul_u32_u32(ctx->avg_runtime, period));
 }
 
 static struct i915_vma_coredump *
@@ -515,6 +527,7 @@ static void error_print_engine(struct drm_i915_error_state_buf *m,
 		   (u32)(ee->acthd>>32), (u32)ee->acthd);
 	err_printf(m, "  IPEIR: 0x%08x\n", ee->ipeir);
 	err_printf(m, "  IPEHR: 0x%08x\n", ee->ipehr);
+	err_printf(m, "  ESR:   0x%08x\n", ee->esr);
 
 	error_print_instdone(m, ee);
 
@@ -1102,6 +1115,7 @@ static void engine_record_registers(struct intel_engine_coredump *ee)
 	}
 
 	if (INTEL_GEN(i915) >= 4) {
+		ee->esr = ENGINE_READ(engine, RING_ESR);
 		ee->faddr = ENGINE_READ(engine, RING_DMA_FADD);
 		ee->ipeir = ENGINE_READ(engine, RING_IPEIR);
 		ee->ipehr = ENGINE_READ(engine, RING_IPEHR);
@@ -1193,21 +1207,22 @@ static void engine_record_registers(struct intel_engine_coredump *ee)
 static void record_request(const struct i915_request *request,
 			   struct i915_request_coredump *erq)
 {
-	const struct i915_gem_context *ctx;
-
 	erq->flags = request->fence.flags;
 	erq->context = request->fence.context;
 	erq->seqno = request->fence.seqno;
 	erq->sched_attr = request->sched.attr;
-	erq->start = i915_ggtt_offset(request->ring->vma);
 	erq->head = request->head;
 	erq->tail = request->tail;
 
 	erq->pid = 0;
 	rcu_read_lock();
-	ctx = rcu_dereference(request->context->gem_context);
-	if (ctx)
-		erq->pid = pid_nr(ctx->pid);
+	if (!intel_context_is_closed(request->context)) {
+		const struct i915_gem_context *ctx;
+
+		ctx = rcu_dereference(request->context->gem_context);
+		if (ctx)
+			erq->pid = pid_nr(ctx->pid);
+	}
 	rcu_read_unlock();
 }
 
@@ -1228,7 +1243,7 @@ static bool record_context(struct i915_gem_context_coredump *e,
 {
 	struct i915_gem_context *ctx;
 	struct task_struct *task;
-	bool capture;
+	bool simulated;
 
 	rcu_read_lock();
 	ctx = rcu_dereference(rq->context->gem_context);
@@ -1236,7 +1251,7 @@ static bool record_context(struct i915_gem_context_coredump *e,
 		ctx = NULL;
 	rcu_read_unlock();
 	if (!ctx)
-		return false;
+		return true;
 
 	rcu_read_lock();
 	task = pid_task(ctx->pid, PIDTYPE_PID);
@@ -1250,10 +1265,13 @@ static bool record_context(struct i915_gem_context_coredump *e,
 	e->guilty = atomic_read(&ctx->guilty_count);
 	e->active = atomic_read(&ctx->active_count);
 
-	capture = i915_gem_context_no_error_capture(ctx);
+	e->total_runtime = rq->context->runtime.total;
+	e->avg_runtime = ewma_runtime_read(&rq->context->runtime.avg);
+
+	simulated = i915_gem_context_no_error_capture(ctx);
 
 	i915_gem_context_put(ctx);
-	return capture;
+	return simulated;
 }
 
 struct intel_engine_capture_vma {
@@ -1300,26 +1318,6 @@ capture_user(struct intel_engine_capture_vma *capture,
 		capture = capture_vma(capture, c->vma, "user", gfp);
 
 	return capture;
-}
-
-static struct i915_vma_coredump *
-capture_object(const struct intel_gt *gt,
-	       struct drm_i915_gem_object *obj,
-	       const char *name,
-	       struct i915_vma_compress *compress)
-{
-	if (obj && i915_gem_object_has_pages(obj)) {
-		struct i915_vma fake = {
-			.node = { .start = U64_MAX, .size = obj->base.size },
-			.size = obj->base.size,
-			.pages = obj->mm.pages,
-			.obj = obj,
-		};
-
-		return i915_vma_coredump_create(gt, &fake, name, compress);
-	} else {
-		return NULL;
-	}
 }
 
 static void add_vma(struct intel_engine_coredump *ee,
@@ -1410,12 +1408,6 @@ intel_engine_coredump_add_vma(struct intel_engine_coredump *ee,
 					 engine->wa_ctx.vma,
 					 "WA context",
 					 compress));
-
-	add_vma(ee,
-		capture_object(engine->gt,
-			       engine->default_state,
-			       "NULL context",
-			       compress));
 }
 
 static struct intel_engine_coredump *
@@ -1841,7 +1833,7 @@ void i915_error_state_store(struct i915_gpu_coredump *error)
 		return;
 
 	i915 = error->i915;
-	dev_info(i915->drm.dev, "%s\n", error_msg(error));
+	drm_info(&i915->drm, "%s\n", error_msg(error));
 
 	if (error->simulated ||
 	    cmpxchg(&i915->gpu_error.first_error, NULL, error))

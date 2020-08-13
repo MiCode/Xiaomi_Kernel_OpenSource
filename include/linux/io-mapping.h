@@ -10,13 +10,14 @@
 #include <linux/slab.h>
 #include <linux/bug.h>
 #include <linux/io.h>
+#include <linux/pgtable.h>
 #include <asm/page.h>
 
 /*
  * The io_mapping mechanism provides an abstraction for mapping
  * individual pages from an io device to the CPU in an efficient fashion.
  *
- * See Documentation/io-mapping.txt
+ * See Documentation/driver-api/io-mapping.rst
  */
 
 struct io_mapping {
@@ -99,7 +100,6 @@ io_mapping_unmap(void __iomem *vaddr)
 #else
 
 #include <linux/uaccess.h>
-#include <asm/pgtable.h>
 
 /* Create the io_mapping object*/
 static inline struct io_mapping *

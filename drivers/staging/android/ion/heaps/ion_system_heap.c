@@ -484,10 +484,13 @@ static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 	return nr_total;
 }
 
+//static long ion_system_get_pool_size(struct ion_heap *heap);
+
 static struct ion_heap_ops system_heap_ops = {
 	.allocate = ion_system_heap_allocate,
 	.free = ion_system_heap_free,
 	.shrink = ion_system_heap_shrink,
+	// Not needed .get_pool_size = ion_system_get_pool_size,
 };
 
 static int ion_system_heap_debug_show(struct ion_heap *heap,
@@ -592,6 +595,21 @@ static int ion_system_heap_debug_show(struct ion_heap *heap,
 static struct msm_ion_heap_ops msm_system_heap_ops = {
 	.debug_show = ion_system_heap_debug_show,
 };
+
+/*static long ion_system_get_pool_size(struct ion_heap *heap)
+{
+	struct ion_system_heap *sys_heap;
+	long total_pages = 0;
+	int i;
+
+	sys_heap = container_of(heap, struct ion_system_heap, heap);
+	for (i = 0; i < NUM_ORDERS; i++) {
+		total_pages += ion_page_pool_nr_pages(sys_heap->uncached_pools[i]);
+		total_pages += ion_page_pool_nr_pages(sys_heap->cached_pools[i]);
+	}
+
+	return total_pages;
+}*/
 
 static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
 {

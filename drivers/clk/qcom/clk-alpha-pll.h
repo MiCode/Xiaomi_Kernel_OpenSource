@@ -102,14 +102,14 @@ struct alpha_pll_config {
 	u32 cal_l;
 	u32 alpha;
 	u32 alpha_hi;
-	u32 user_ctl_hi1_val;
 	u32 config_ctl_val;
 	u32 config_ctl_hi_val;
+	u32 config_ctl_hi1_val;
 	u32 user_ctl_val;
 	u32 user_ctl_hi_val;
+	u32 user_ctl_hi1_val;
 	u32 test_ctl_val;
 	u32 test_ctl_hi_val;
-	u32 config_ctl_hi1_val;
 	u32 test_ctl_hi1_val;
 	u32 main_output_mask;
 	u32 aux_output_mask;
@@ -175,4 +175,8 @@ int clk_zonda_5lpe_pll_configure(struct clk_alpha_pll *pll,
 int clk_lucid_evo_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
+
+extern const struct clk_ops clk_trion_fixed_pll_ops;
+extern const struct clk_ops clk_trion_pll_postdiv_ops;
+
 #endif

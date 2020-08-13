@@ -13,6 +13,7 @@
 #include <linux/reset-controller.h>
 #include <linux/interconnect.h>
 #include <linux/phy/phy-qcom-ufs.h>
+#include <linux/devfreq.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -844,9 +845,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 		 * completed.
 		 */
 		if (ufshcd_get_local_unipro_ver(hba) != UFS_UNIPRO_VER_1_41)
-			err = ufshcd_dme_set(hba,
-					UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE),
-					0);
+			err = ufshcd_disable_host_tx_lcc(hba);
 		if (err)
 			goto out;
 		break;
@@ -1334,11 +1333,27 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		/*
 		 * If we are here to disable this clock it might be immediately
 		 * after entering into hibern8 in which case we need to make
-		 * sure that device ref_clk is active for a given time after
-		 * enter hibern8
+		 * sure that device ref_clk is active for specific time after
+		 * hibern8 enter.
 		 */
-		if (!enable)
-			udelay(50);
+		if (!enable) {
+			unsigned long gating_wait;
+
+			gating_wait = host->hba->dev_info.clk_gating_wait_us;
+			if (!gating_wait) {
+				udelay(1);
+			} else {
+				/*
+				 * bRefClkGatingWaitTime defines the minimum
+				 * time for which the reference clock is
+				 * required by device during transition from
+				 * HS-MODE to LS-MODE or HIBERN8 state. Give it
+				 * more delay to be on the safe side.
+				 */
+				gating_wait += 10;
+				usleep_range(gating_wait, gating_wait + 10);
+			}
+		}
 
 		writel_relaxed(temp, host->dev_ref_clk_ctrl_mmio);
 
@@ -1564,12 +1579,6 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
-	/*
-	 * Inline crypto is currently broken with ufs-qcom at least because the
-	 * device tree doesn't include the crypto registers.  There are likely
-	 * to be other issues that will need to be addressed too.
-	 */
-	hba->quirks |= UFSHCD_QUIRK_BROKEN_CRYPTO;
 }
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
@@ -1578,9 +1587,10 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
-			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-			UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
-			UFSHCD_CAP_RPM_AUTOSUSPEND;
+		UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
+		UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND |
+		UFSHCD_CAP_RPM_AUTOSUSPEND;
+		hba->caps |= UFSHCD_CAP_WB_EN;
 	}
 
 	if (host->hw_ver.major >= 0x2) {
@@ -1957,7 +1967,7 @@ ufs_qcom_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 			goto out_einval;
 		}
 		err = ufshcd_query_flag(hba, ioctl_data->opcode,
-					ioctl_data->idn, &flag);
+					ioctl_data->idn, 0, &flag);
 		break;
 	default:
 		goto out_einval;
@@ -2755,9 +2765,9 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 
 	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
-	usleep_range(1000, 1100);
+	udelay(1000);
 	ufs_qcom_testbus_read(hba);
-	usleep_range(1000, 1100);
+	udelay(1000);
 	ufs_qcom_print_unipro_testbus(hba);
 	usleep_range(1000, 1100);
 	ufs_qcom_print_utp_hci_testbus(hba);
@@ -2828,6 +2838,29 @@ static void ufs_qcom_device_reset(struct ufs_hba *hba)
 	usleep_range(10, 15);
 }
 
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
+static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
+					  struct devfreq_dev_profile *p,
+					  void *data)
+{
+	static struct devfreq_simple_ondemand_data *d;
+
+	if (!data)
+		return;
+
+	d = (struct devfreq_simple_ondemand_data *)data;
+	p->polling_ms = 60;
+	d->upthreshold = 70;
+	d->downdifferential = 5;
+}
+#else
+static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
+					  struct devfreq_dev_profile *p,
+					  void *data)
+{
+}
+#endif
+
 /**
  * struct ufs_hba_qcom_vops - UFS QCOM specific variant operations
  *
@@ -2849,6 +2882,7 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.resume			= ufs_qcom_resume,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 	.device_reset		= ufs_qcom_device_reset,
+	.config_scaling_param = ufs_qcom_config_scaling_param,
 };
 
 /**

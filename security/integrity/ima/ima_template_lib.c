@@ -9,8 +9,6 @@
  *      Library of supported template fields.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include "ima_template_lib.h"
 
 static bool ima_template_hash_algo_allowed(u8 algo)
@@ -285,6 +283,24 @@ int ima_eventdigest_init(struct ima_event_data *event_data,
 	if (ima_template_hash_algo_allowed(event_data->iint->ima_hash->algo)) {
 		cur_digest = event_data->iint->ima_hash->digest;
 		cur_digestsize = event_data->iint->ima_hash->length;
+		goto out;
+	}
+
+	if ((const char *)event_data->filename == boot_aggregate_name) {
+		if (ima_tpm_chip) {
+			hash.hdr.algo = HASH_ALGO_SHA1;
+			result = ima_calc_boot_aggregate(&hash.hdr);
+
+			/* algo can change depending on available PCR banks */
+			if (!result && hash.hdr.algo != HASH_ALGO_SHA1)
+				result = -EINVAL;
+
+			if (result < 0)
+				memset(&hash, 0, sizeof(hash));
+		}
+
+		cur_digest = hash.hdr.digest;
+		cur_digestsize = hash_digest_size[HASH_ALGO_SHA1];
 		goto out;
 	}
 

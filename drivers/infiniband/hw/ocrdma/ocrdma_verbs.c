@@ -99,8 +99,6 @@ int ocrdma_query_device(struct ib_device *ibdev, struct ib_device_attr *attr,
 	attr->max_mw = dev->attr.max_mw;
 	attr->max_pd = dev->attr.max_pd;
 	attr->atomic_cap = 0;
-	attr->max_fmr = 0;
-	attr->max_map_per_fmr = 0;
 	attr->max_qp_rd_atom =
 	    min(dev->attr.max_ord_per_qp, dev->attr.max_ird_per_qp);
 	attr->max_qp_init_rd_atom = dev->attr.max_ord_per_qp;
@@ -1111,7 +1109,7 @@ static int ocrdma_check_qp_params(struct ib_pd *ibpd, struct ocrdma_dev *dev,
 	    (attrs->qp_type != IB_QPT_UD)) {
 		pr_err("%s(%d) unsupported qp type=0x%x requested\n",
 		       __func__, dev->id, attrs->qp_type);
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 	/* Skip the check for QP1 to support CM size of 128 */
 	if ((attrs->qp_type != IB_QPT_GSI) &&

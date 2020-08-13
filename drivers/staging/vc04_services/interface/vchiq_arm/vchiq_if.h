@@ -13,7 +13,6 @@
 #define VCHIQ_MAKE_FOURCC(x0, x1, x2, x3) \
 			(((x0) << 24) | ((x1) << 16) | ((x2) << 8) | (x3))
 #define VCHIQ_GET_SERVICE_USERDATA(service) vchiq_get_service_userdata(service)
-#define VCHIQ_GET_SERVICE_FOURCC(service)   vchiq_get_service_fourcc(service)
 
 enum vchiq_reason {
 	VCHIQ_SERVICE_OPENED,         /* service, -, -             */
@@ -106,12 +105,8 @@ extern enum vchiq_status vchiq_close_service(unsigned int service);
 extern enum vchiq_status vchiq_remove_service(unsigned int service);
 extern enum vchiq_status vchiq_use_service(unsigned int service);
 extern enum vchiq_status vchiq_release_service(unsigned int service);
-extern enum vchiq_status
-vchiq_queue_message(unsigned int handle,
-		    ssize_t (*copy_callback)(void *context, void *dest,
-					     size_t offset, size_t maxsize),
-		    void *context,
-		    size_t size);
+extern enum vchiq_status vchiq_queue_kernel_message(unsigned int handle,
+						    void *context, size_t size);
 extern void           vchiq_release_message(unsigned int service,
 	struct vchiq_header *header);
 extern enum vchiq_status vchiq_bulk_transmit(unsigned int service,
@@ -128,7 +123,6 @@ extern enum vchiq_status vchiq_bulk_receive_handle(unsigned int service,
 	enum vchiq_bulk_mode mode);
 extern int   vchiq_get_client_id(unsigned int service);
 extern void *vchiq_get_service_userdata(unsigned int service);
-extern int   vchiq_get_service_fourcc(unsigned int service);
 extern void vchiq_get_config(struct vchiq_config *config);
 extern enum vchiq_status vchiq_set_service_option(unsigned int service,
 	enum vchiq_service_option option, int value);

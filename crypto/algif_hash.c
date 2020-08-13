@@ -83,7 +83,7 @@ static int hash_sendmsg(struct socket *sock, struct msghdr *msg,
 			goto unlock;
 	}
 
-	ctx->more = 0;
+	ctx->more = false;
 
 	while (msg_data_left(msg)) {
 		int len = msg_data_left(msg);
@@ -211,7 +211,7 @@ static int hash_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 	}
 
 	if (!result || ctx->more) {
-		ctx->more = 0;
+		ctx->more = false;
 		err = crypto_wait_req(crypto_ahash_final(&ctx->req),
 				      &ctx->wait);
 		if (err)
@@ -301,7 +301,7 @@ static int hash_check_key(struct socket *sock)
 	struct alg_sock *ask = alg_sk(sk);
 
 	lock_sock(sk);
-	if (ask->refcnt)
+	if (!atomic_read(&ask->nokey_refcnt))
 		goto unlock_child;
 
 	psk = ask->parent;
@@ -313,11 +313,8 @@ static int hash_check_key(struct socket *sock)
 	if (crypto_ahash_get_flags(tfm) & CRYPTO_TFM_NEED_KEY)
 		goto unlock;
 
-	if (!pask->refcnt++)
-		sock_hold(psk);
-
-	ask->refcnt = 1;
-	sock_put(psk);
+	atomic_dec(&pask->nokey_refcnt);
+	atomic_set(&ask->nokey_refcnt, 0);
 
 	err = 0;
 
@@ -436,7 +433,7 @@ static int hash_accept_parent_nokey(void *private, struct sock *sk)
 
 	ctx->result = NULL;
 	ctx->len = len;
-	ctx->more = 0;
+	ctx->more = false;
 	crypto_init_wait(&ctx->wait);
 
 	ask->private = ctx;

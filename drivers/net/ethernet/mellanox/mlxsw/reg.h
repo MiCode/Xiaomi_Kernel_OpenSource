@@ -621,7 +621,7 @@ static inline void mlxsw_reg_sfn_pack(char *payload)
 {
 	MLXSW_REG_ZERO(sfn, payload);
 	mlxsw_reg_sfn_swid_set(payload, 0);
-	mlxsw_reg_sfn_end_set(payload, 1);
+	mlxsw_reg_sfn_end_set(payload, 0);
 	mlxsw_reg_sfn_num_rec_set(payload, MLXSW_REG_SFN_REC_MAX_COUNT);
 }
 
@@ -3203,7 +3203,7 @@ MLXSW_ITEM32_INDEXED(reg, iedr, rec_type, MLXSW_REG_IEDR_BASE_LEN, 24, 8,
  * Size of entries do be deleted. The unit is 1 entry, regardless of entry type.
  * Access: OP
  */
-MLXSW_ITEM32_INDEXED(reg, iedr, rec_size, MLXSW_REG_IEDR_BASE_LEN, 0, 11,
+MLXSW_ITEM32_INDEXED(reg, iedr, rec_size, MLXSW_REG_IEDR_BASE_LEN, 0, 13,
 		     MLXSW_REG_IEDR_REC_LEN, 0x00, false);
 
 /* reg_iedr_rec_index_start
@@ -3295,6 +3295,12 @@ MLXSW_ITEM32(reg, qpcr, g, 0x00, 14, 2);
  * Access: Index
  */
 MLXSW_ITEM32(reg, qpcr, pid, 0x00, 0, 14);
+
+/* reg_qpcr_clear_counter
+ * Clear counters.
+ * Access: OP
+ */
+MLXSW_ITEM32(reg, qpcr, clear_counter, 0x04, 31, 1);
 
 /* reg_qpcr_color_aware
  * Is the policer aware of colors.
@@ -3392,6 +3398,17 @@ enum mlxsw_reg_qpcr_action {
  * Access: RW for unbounded policer. RO for bounded policer.
  */
 MLXSW_ITEM32(reg, qpcr, violate_action, 0x18, 0, 4);
+
+/* reg_qpcr_violate_count
+ * Counts the number of times violate_action happened on this PID.
+ * Access: RW
+ */
+MLXSW_ITEM64(reg, qpcr, violate_count, 0x20, 0, 64);
+
+#define MLXSW_REG_QPCR_LOWEST_CIR	1
+#define MLXSW_REG_QPCR_HIGHEST_CIR	(2 * 1000 * 1000 * 1000) /* 2Gpps */
+#define MLXSW_REG_QPCR_LOWEST_CBS	4
+#define MLXSW_REG_QPCR_HIGHEST_CBS	24
 
 static inline void mlxsw_reg_qpcr_pack(char *payload, u16 pid,
 				       enum mlxsw_reg_qpcr_ir_units ir_units,
@@ -3572,7 +3589,7 @@ MLXSW_ITEM32(reg, qeec, mase, 0x10, 31, 1);
  * When in bytes mode, value is specified in units of 1000bps.
  * Access: RW
  */
-MLXSW_ITEM32(reg, qeec, max_shaper_rate, 0x10, 0, 28);
+MLXSW_ITEM32(reg, qeec, max_shaper_rate, 0x10, 0, 31);
 
 /* reg_qeec_de
  * DWRR configuration enable. Enables configuration of the dwrr and
@@ -5440,15 +5457,29 @@ enum mlxsw_reg_pmtm_module_type {
 	/* Backplane with 4 lanes */
 	MLXSW_REG_PMTM_MODULE_TYPE_BP_4X,
 	/* QSFP */
-	MLXSW_REG_PMTM_MODULE_TYPE_BP_QSFP,
+	MLXSW_REG_PMTM_MODULE_TYPE_QSFP,
 	/* SFP */
-	MLXSW_REG_PMTM_MODULE_TYPE_BP_SFP,
+	MLXSW_REG_PMTM_MODULE_TYPE_SFP,
 	/* Backplane with single lane */
 	MLXSW_REG_PMTM_MODULE_TYPE_BP_1X = 4,
 	/* Backplane with two lane */
 	MLXSW_REG_PMTM_MODULE_TYPE_BP_2X = 8,
-	/* Chip2Chip */
-	MLXSW_REG_PMTM_MODULE_TYPE_C2C = 10,
+	/* Chip2Chip4x */
+	MLXSW_REG_PMTM_MODULE_TYPE_C2C4X = 10,
+	/* Chip2Chip2x */
+	MLXSW_REG_PMTM_MODULE_TYPE_C2C2X,
+	/* Chip2Chip1x */
+	MLXSW_REG_PMTM_MODULE_TYPE_C2C1X,
+	/* QSFP-DD */
+	MLXSW_REG_PMTM_MODULE_TYPE_QSFP_DD = 14,
+	/* OSFP */
+	MLXSW_REG_PMTM_MODULE_TYPE_OSFP,
+	/* SFP-DD */
+	MLXSW_REG_PMTM_MODULE_TYPE_SFP_DD,
+	/* DSFP */
+	MLXSW_REG_PMTM_MODULE_TYPE_DSFP,
+	/* Chip2Chip8x */
+	MLXSW_REG_PMTM_MODULE_TYPE_C2C8X,
 };
 
 /* reg_pmtm_module_type
@@ -5495,40 +5526,37 @@ MLXSW_ITEM32(reg, htgt, type, 0x00, 8, 4);
 
 enum mlxsw_reg_htgt_trap_group {
 	MLXSW_REG_HTGT_TRAP_GROUP_EMAD,
-	MLXSW_REG_HTGT_TRAP_GROUP_SX2_RX,
-	MLXSW_REG_HTGT_TRAP_GROUP_SX2_CTRL,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_STP,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_LACP,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_LLDP,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_IGMP,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_MC_SNOOPING,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_BGP,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_ARP,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_HOST_MISS,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_NEIGH_DISCOVERY,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IP2ME,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_DHCP,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_EVENT,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_LBERROR,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_PTP0,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_PTP1,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_VRRP,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_PKT_SAMPLE,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_FLOW_LOGGING,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_FID_MISS,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_BFD,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_DUMMY,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_L2_DISCARDS,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_L3_DISCARDS,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_L3_EXCEPTIONS,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_TUNNEL_DISCARDS,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_ACL_DISCARDS,
 
 	__MLXSW_REG_HTGT_TRAP_GROUP_MAX,
 	MLXSW_REG_HTGT_TRAP_GROUP_MAX = __MLXSW_REG_HTGT_TRAP_GROUP_MAX - 1
-};
-
-enum mlxsw_reg_htgt_discard_trap_group {
-	MLXSW_REG_HTGT_DISCARD_TRAP_GROUP_BASE = MLXSW_REG_HTGT_TRAP_GROUP_MAX,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_L2_DISCARDS,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_L3_DISCARDS,
-	MLXSW_REG_HTGT_TRAP_GROUP_SP_TUNNEL_DISCARDS,
 };
 
 /* reg_htgt_trap_group

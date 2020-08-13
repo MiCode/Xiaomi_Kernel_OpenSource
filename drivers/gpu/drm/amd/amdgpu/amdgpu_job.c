@@ -33,6 +33,7 @@ static void amdgpu_job_timedout(struct drm_sched_job *s_job)
 	struct amdgpu_ring *ring = to_amdgpu_ring(s_job->sched);
 	struct amdgpu_job *job = to_amdgpu_job(s_job);
 	struct amdgpu_task_info ti;
+	struct amdgpu_device *adev = ring->adev;
 
 	memset(&ti, 0, sizeof(struct amdgpu_task_info));
 
@@ -49,10 +50,13 @@ static void amdgpu_job_timedout(struct drm_sched_job *s_job)
 	DRM_ERROR("Process information: process %s pid %d thread %s pid %d\n",
 		  ti.process_name, ti.tgid, ti.task_name, ti.pid);
 
-	if (amdgpu_device_should_recover_gpu(ring->adev))
+	if (amdgpu_device_should_recover_gpu(ring->adev)) {
 		amdgpu_device_gpu_recover(ring->adev, job);
-	else
+	} else {
 		drm_sched_suspend_timeout(&ring->sched);
+		if (amdgpu_sriov_vf(adev))
+			adev->virt.tdr_debug = true;
+	}
 }
 
 int amdgpu_job_alloc(struct amdgpu_device *adev, unsigned num_ibs,
@@ -87,7 +91,8 @@ int amdgpu_job_alloc(struct amdgpu_device *adev, unsigned num_ibs,
 }
 
 int amdgpu_job_alloc_with_ib(struct amdgpu_device *adev, unsigned size,
-			     struct amdgpu_job **job)
+		enum amdgpu_ib_pool_type pool_type,
+		struct amdgpu_job **job)
 {
 	int r;
 
@@ -95,7 +100,7 @@ int amdgpu_job_alloc_with_ib(struct amdgpu_device *adev, unsigned size,
 	if (r)
 		return r;
 
-	r = amdgpu_ib_get(adev, NULL, size, &(*job)->ibs[0]);
+	r = amdgpu_ib_get(adev, NULL, size, pool_type, &(*job)->ibs[0]);
 	if (r)
 		kfree(*job);
 
@@ -117,12 +122,10 @@ void amdgpu_job_free_resources(struct amdgpu_job *job)
 
 static void amdgpu_job_free_cb(struct drm_sched_job *s_job)
 {
-	struct amdgpu_ring *ring = to_amdgpu_ring(s_job->sched);
 	struct amdgpu_job *job = to_amdgpu_job(s_job);
 
 	drm_sched_job_cleanup(s_job);
 
-	amdgpu_ring_priority_put(ring, s_job->s_priority);
 	dma_fence_put(job->fence);
 	amdgpu_sync_free(&job->sync);
 	amdgpu_sync_free(&job->sched_sync);
@@ -142,8 +145,6 @@ void amdgpu_job_free(struct amdgpu_job *job)
 int amdgpu_job_submit(struct amdgpu_job *job, struct drm_sched_entity *entity,
 		      void *owner, struct dma_fence **f)
 {
-	enum drm_sched_priority priority;
-	struct amdgpu_ring *ring;
 	int r;
 
 	if (!f)
@@ -155,11 +156,7 @@ int amdgpu_job_submit(struct amdgpu_job *job, struct drm_sched_entity *entity,
 
 	*f = dma_fence_get(&job->base.s_fence->finished);
 	amdgpu_job_free_resources(job);
-	priority = job->base.s_priority;
 	drm_sched_entity_push_job(&job->base, entity);
-
-	ring = to_amdgpu_ring(entity->rq->sched);
-	amdgpu_ring_priority_get(ring, priority);
 
 	return 0;
 }

@@ -281,7 +281,6 @@ static struct dm_dev_internal *find_device(struct list_head *l, dev_t dev)
 static int device_area_is_invalid(struct dm_target *ti, struct dm_dev *dev,
 				  sector_t start, sector_t len, void *data)
 {
-	struct request_queue *q;
 	struct queue_limits *limits = data;
 	struct block_device *bdev = dev->bdev;
 	sector_t dev_size =
@@ -289,22 +288,6 @@ static int device_area_is_invalid(struct dm_target *ti, struct dm_dev *dev,
 	unsigned short logical_block_size_sectors =
 		limits->logical_block_size >> SECTOR_SHIFT;
 	char b[BDEVNAME_SIZE];
-
-	/*
-	 * Some devices exist without request functions,
-	 * such as loop devices not yet bound to backing files.
-	 * Forbid the use of such devices.
-	 */
-	q = bdev_get_queue(bdev);
-	if (!q || !q->make_request_fn) {
-		DMWARN("%s: %s is not yet initialised: "
-		       "start=%llu, len=%llu, dev_size=%llu",
-		       dm_device_name(ti->table->md), bdevname(bdev, b),
-		       (unsigned long long)start,
-		       (unsigned long long)len,
-		       (unsigned long long)dev_size);
-		return 1;
-	}
 
 	if (!dev_size)
 		return 0;
@@ -1624,10 +1607,10 @@ static int device_intersect_crypto_modes(struct dm_target *ti,
 					 struct dm_dev *dev, sector_t start,
 					 sector_t len, void *data)
 {
-	struct keyslot_manager *parent = data;
-	struct keyslot_manager *child = bdev_get_queue(dev->bdev)->ksm;
+	struct blk_keyslot_manager *parent = data;
+	struct blk_keyslot_manager *child = bdev_get_queue(dev->bdev)->ksm;
 
-	keyslot_manager_intersect_modes(parent, child);
+	blk_ksm_intersect_modes(parent, child);
 	return 0;
 }
 
@@ -1651,7 +1634,7 @@ static void dm_calculate_supported_crypto_modes(struct dm_table *t,
 		ti = dm_table_get_target(t, i);
 
 		if (!ti->may_passthrough_inline_crypto) {
-			keyslot_manager_intersect_modes(q->ksm, NULL);
+			blk_ksm_intersect_modes(q->ksm, NULL);
 			return;
 		}
 		if (!ti->type->iterate_devices)

@@ -64,7 +64,8 @@ static int i40iw_query_device(struct ib_device *ibdev,
 		return -EINVAL;
 	memset(props, 0, sizeof(*props));
 	ether_addr_copy((u8 *)&props->sys_image_guid, iwdev->netdev->dev_addr);
-	props->fw_ver = I40IW_FW_VERSION;
+	props->fw_ver = i40iw_fw_major_ver(&iwdev->sc_dev) << 32 |
+			i40iw_fw_minor_ver(&iwdev->sc_dev);
 	props->device_cap_flags = iwdev->device_cap_flags;
 	props->vendor_id = iwdev->ldev->pcidev->vendor;
 	props->vendor_part_id = iwdev->ldev->pcidev->device;
@@ -82,7 +83,6 @@ static int i40iw_query_device(struct ib_device *ibdev,
 	props->max_qp_rd_atom = I40IW_MAX_IRD_SIZE;
 	props->max_qp_init_rd_atom = props->max_qp_rd_atom;
 	props->atomic_cap = IB_ATOMIC_NONE;
-	props->max_map_per_fmr = 1;
 	props->max_fast_reg_page_list_len = I40IW_MAX_PAGES_PER_FMR;
 	return 0;
 }
@@ -617,7 +617,7 @@ static struct ib_qp *i40iw_create_qp(struct ib_pd *ibpd,
 	iwqp->ctx_info.qp_compl_ctx = (uintptr_t)qp;
 
 	if (init_attr->qp_type != IB_QPT_RC) {
-		err_code = -EINVAL;
+		err_code = -EOPNOTSUPP;
 		goto error;
 	}
 	if (iwdev->push_mode)
@@ -2534,10 +2534,11 @@ static const char * const i40iw_hw_stat_names[] = {
 
 static void i40iw_get_dev_fw_str(struct ib_device *dev, char *str)
 {
-	u32 firmware_version = I40IW_FW_VERSION;
+	struct i40iw_device *iwdev = to_iwdev(dev);
 
-	snprintf(str, IB_FW_VERSION_NAME_MAX, "%u.%u", firmware_version,
-		 (firmware_version & 0x000000ff));
+	snprintf(str, IB_FW_VERSION_NAME_MAX, "%llu.%llu",
+		 i40iw_fw_major_ver(&iwdev->sc_dev),
+		 i40iw_fw_minor_ver(&iwdev->sc_dev));
 }
 
 /**

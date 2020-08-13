@@ -90,7 +90,11 @@ static inline void hyp_core_ctl_print_status(char *msg)
 		cpumask_pr_args(&the_hcd->final_reserved_cpus),
 		cpumask_pr_args(&the_hcd->our_isolated_cpus),
 		cpumask_pr_args(cpu_online_mask),
+#ifdef CONFIG_SCHED_WALT
 		cpumask_pr_args(cpu_isolated_mask),
+#else
+		0,
+#endif
 		cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
 }
 
@@ -736,10 +740,11 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 			   "online_cpus=%*pbl\n",
 			   cpumask_pr_args(cpu_online_mask));
 
+#ifdef CONFIG_SCHED_WALT
 	count += scnprintf(buf + count, PAGE_SIZE - count,
 			   "isolated_cpus=%*pbl\n",
 			   cpumask_pr_args(cpu_isolated_mask));
-
+#endif
 	count += scnprintf(buf + count, PAGE_SIZE - count,
 		   "thermal_cpus=%*pbl\n",
 		   cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));

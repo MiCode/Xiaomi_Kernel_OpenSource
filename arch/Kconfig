@@ -248,11 +248,18 @@ config ARCH_HAS_SET_DIRECT_MAP
 	bool
 
 #
-# Select if arch has an uncached kernel segment and provides the
-# uncached_kernel_address / cached_kernel_address symbols to use it
+# Select if the architecture provides the arch_dma_set_uncached symbol to
+# either provide an uncached segement alias for a DMA allocation, or
+# to remap the page tables in place.
 #
-config ARCH_HAS_UNCACHED_SEGMENT
-	select ARCH_HAS_DMA_PREP_COHERENT
+config ARCH_HAS_DMA_SET_UNCACHED
+	bool
+
+#
+# Select if the architectures provides the arch_dma_clear_uncached symbol
+# to undo an in-place page table remap for uncached access.
+#
+config ARCH_HAS_DMA_CLEAR_UNCACHED
 	bool
 
 # Select if arch init_task must go in the __init_task_data section
@@ -320,12 +327,6 @@ config HAVE_FUNCTION_ARG_ACCESS_API
 	  This symbol should be selected by an architecure if it supports
 	  the API needed to access function arguments from pt_regs,
 	  declared in asm/ptrace.h
-
-config HAVE_CLK
-	bool
-	help
-	  The <linux/clk.h> calls support software clock gating and
-	  thus are a key power management tool on many systems.
 
 config HAVE_HW_BREAKPOINT
 	bool
@@ -530,82 +531,27 @@ config ARCH_SUPPORTS_SHADOW_CALL_STACK
 	bool
 	help
 	  An architecture should select this if it supports Clang's Shadow
-	  Call Stack, has asm/scs.h, and implements runtime support for shadow
-	  stack switching.
+	  Call Stack and implements runtime support for shadow stack
+	  switching.
 
 config SHADOW_CALL_STACK
 	bool "Clang Shadow Call Stack"
-	depends on ARCH_SUPPORTS_SHADOW_CALL_STACK
+	depends on CC_IS_CLANG && ARCH_SUPPORTS_SHADOW_CALL_STACK
+	depends on DYNAMIC_FTRACE_WITH_REGS || !FUNCTION_GRAPH_TRACER
 	help
 	  This option enables Clang's Shadow Call Stack, which uses a
 	  shadow stack to protect function return addresses from being
-	  overwritten by an attacker. More information can be found from
+	  overwritten by an attacker. More information can be found in
 	  Clang's documentation:
 
 	    https://clang.llvm.org/docs/ShadowCallStack.html
 
-	  Note that security guarantees in the kernel differ from the ones
-	  documented for user space. The kernel must store addresses of shadow
-	  stacks used by other tasks and interrupt handlers in memory, which
-	  means an attacker capable reading and writing arbitrary memory may
-	  be able to locate them and hijack control flow by modifying shadow
-	  stacks that are not currently in use.
+	  Note that security guarantees in the kernel differ from the
+	  ones documented for user space. The kernel must store addresses
+	  of shadow stacks in memory, which means an attacker capable of
+	  reading and writing arbitrary memory may be able to locate them
+	  and hijack control flow by modifying the stacks.
 
-config SHADOW_CALL_STACK_VMAP
-	bool "Use virtually mapped shadow call stacks"
-	depends on SHADOW_CALL_STACK
-	help
-	  Use virtually mapped shadow call stacks. Selecting this option
-	  provides better stack exhaustion protection, but increases per-thread
-	  memory consumption as a full page is allocated for each shadow stack.
-
-config LTO
-	bool
-
-config ARCH_SUPPORTS_LTO_CLANG
-	bool
-	help
-	  An architecture should select this option if it supports:
-	  - compiling with Clang,
-	  - compiling inline assembly with Clang's integrated assembler,
-	  - and linking with LLD.
-
-config ARCH_SUPPORTS_THINLTO
-	bool
-	help
-	  An architecture should select this if it supports Clang ThinLTO.
-
-config THINLTO
-	bool "Use Clang's ThinLTO (EXPERIMENTAL)"
-	depends on LTO_CLANG && ARCH_SUPPORTS_THINLTO
-	default y
-	help
-	  Use ThinLTO to speed up Link Time Optimization.
-
-choice
-	prompt "Link-Time Optimization (LTO) (EXPERIMENTAL)"
-	default LTO_NONE
-	help
-	  This option turns on Link-Time Optimization (LTO).
-
-config LTO_NONE
-	bool "None"
-
-config LTO_CLANG
-	bool "Use Clang's Link Time Optimization (LTO) (EXPERIMENTAL)"
-	depends on ARCH_SUPPORTS_LTO_CLANG
-	depends on !KASAN
-	depends on !FTRACE_MCOUNT_RECORD || HAVE_C_RECORDMCOUNT
-	depends on CC_IS_CLANG && CLANG_VERSION >= 100000 && LD_IS_LLD
-	select LTO
-	help
-          This option enables Clang's Link Time Optimization (LTO), which allows
-          the compiler to optimize the kernel globally at link time. If you
-          enable this option, the compiler generates LLVM IR instead of object
-          files, and the actual compilation from IR occurs at the LTO link step,
-          which may take several minutes.
-
-endchoice
 
 config CFI_CLANG
 	bool "Use Clang's Control Flow Integrity (CFI)"
@@ -644,11 +590,17 @@ config HAVE_CONTEXT_TRACKING
 	help
 	  Provide kernel/user boundaries probes necessary for subsystems
 	  that need it, such as userspace RCU extended quiescent state.
-	  Syscalls need to be wrapped inside user_exit()-user_enter() through
-	  the slow path using TIF_NOHZ flag. Exceptions handlers must be
-	  wrapped as well. Irqs are already protected inside
-	  rcu_irq_enter/rcu_irq_exit() but preemption or signal handling on
-	  irq exit still need to be protected.
+	  Syscalls need to be wrapped inside user_exit()-user_enter(), either
+	  optimized behind static key or through the slow path using TIF_NOHZ
+	  flag. Exceptions handlers must be wrapped as well. Irqs are already
+	  protected inside rcu_irq_enter/rcu_irq_exit() but preemption or signal
+	  handling on irq exit still need to be protected.
+
+config HAVE_TIF_NOHZ
+	bool
+	help
+	  Arch relies on TIF_NOHZ and syscall slow path to implement context
+	  tracking calls to user_enter()/user_exit().
 
 config HAVE_VIRT_CPU_ACCOUNTING
 	bool
@@ -842,8 +794,9 @@ config HAVE_STACK_VALIDATION
 config HAVE_RELIABLE_STACKTRACE
 	bool
 	help
-	  Architecture has a save_stack_trace_tsk_reliable() function which
-	  only returns a stack trace if it can guarantee the trace is reliable.
+	  Architecture has either save_stack_trace_tsk_reliable() or
+	  arch_stack_walk_reliable() function which only returns a stack trace
+	  if it can guarantee the trace is reliable.
 
 config HAVE_ARCH_HASH
 	bool
@@ -947,7 +900,7 @@ config VMAP_STACK
 	bool "Use a virtually-mapped stack"
 	depends on HAVE_ARCH_VMAP_STACK
 	depends on !KASAN || KASAN_VMALLOC
-	---help---
+	help
 	  Enable this if you want the use virtually-mapped kernel stacks
 	  with guard pages.  This causes kernel stack overflows to be
 	  caught immediately rather than causing difficult-to-diagnose
@@ -1019,7 +972,7 @@ config ARCH_USE_MEMREMAP_PROT
 config LOCK_EVENT_COUNTS
 	bool "Locking event counts collection"
 	depends on DEBUG_FS
-	---help---
+	help
 	  Enable light-weight counting of various locking related events
 	  in the system with minimal performance impact. This reduces
 	  the chance of application behavior change because of timing

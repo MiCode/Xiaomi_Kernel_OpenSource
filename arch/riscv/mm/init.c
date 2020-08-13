@@ -12,12 +12,14 @@
 #include <linux/sizes.h>
 #include <linux/of_fdt.h>
 #include <linux/libfdt.h>
+#include <linux/set_memory.h>
 
 #include <asm/fixmap.h>
 #include <asm/tlbflush.h>
 #include <asm/sections.h>
-#include <asm/pgtable.h>
+#include <asm/soc.h>
 #include <asm/io.h>
+#include <asm/ptdump.h>
 
 #include "../kernel/head.h"
 
@@ -38,7 +40,7 @@ static void __init zone_sizes_init(void)
 #endif
 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
 
-	free_area_init_nodes(max_zone_pfns);
+	free_area_init(max_zone_pfns);
 }
 
 static void setup_zero_page(void)
@@ -46,7 +48,7 @@ static void setup_zero_page(void)
 	memset((void *)empty_zero_page, 0, PAGE_SIZE);
 }
 
-#ifdef CONFIG_DEBUG_VM
+#if defined(CONFIG_MMU) && defined(CONFIG_DEBUG_VM)
 static inline void print_mlk(char *name, unsigned long b, unsigned long t)
 {
 	pr_notice("%12s : 0x%08lx - 0x%08lx   (%4ld kB)\n", name, b, t,
@@ -131,7 +133,7 @@ void __init setup_bootmem(void)
 	for_each_memblock(memory, reg) {
 		phys_addr_t end = reg->base + reg->size;
 
-		if (reg->base <= vmlinux_end && vmlinux_end <= end) {
+		if (reg->base <= vmlinux_start && vmlinux_end <= end) {
 			mem_size = min(reg->size, (phys_addr_t)-PAGE_OFFSET);
 
 			/*
@@ -149,7 +151,8 @@ void __init setup_bootmem(void)
 	memblock_reserve(vmlinux_start, vmlinux_end - vmlinux_start);
 
 	set_max_mapnr(PFN_DOWN(mem_size));
-	max_low_pfn = PFN_DOWN(memblock_end_of_DRAM());
+	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
+	max_low_pfn = max_pfn;
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	setup_initrd();
@@ -232,12 +235,12 @@ static void __init create_pte_mapping(pte_t *ptep,
 				      uintptr_t va, phys_addr_t pa,
 				      phys_addr_t sz, pgprot_t prot)
 {
-	uintptr_t pte_index = pte_index(va);
+	uintptr_t pte_idx = pte_index(va);
 
 	BUG_ON(sz != PAGE_SIZE);
 
-	if (pte_none(ptep[pte_index]))
-		ptep[pte_index] = pfn_pte(PFN_DOWN(pa), prot);
+	if (pte_none(ptep[pte_idx]))
+		ptep[pte_idx] = pfn_pte(PFN_DOWN(pa), prot);
 }
 
 #ifndef __PAGETABLE_PMD_FOLDED
@@ -280,21 +283,21 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 {
 	pte_t *ptep;
 	phys_addr_t pte_phys;
-	uintptr_t pmd_index = pmd_index(va);
+	uintptr_t pmd_idx = pmd_index(va);
 
 	if (sz == PMD_SIZE) {
-		if (pmd_none(pmdp[pmd_index]))
-			pmdp[pmd_index] = pfn_pmd(PFN_DOWN(pa), prot);
+		if (pmd_none(pmdp[pmd_idx]))
+			pmdp[pmd_idx] = pfn_pmd(PFN_DOWN(pa), prot);
 		return;
 	}
 
-	if (pmd_none(pmdp[pmd_index])) {
+	if (pmd_none(pmdp[pmd_idx])) {
 		pte_phys = alloc_pte(va);
-		pmdp[pmd_index] = pfn_pmd(PFN_DOWN(pte_phys), PAGE_TABLE);
+		pmdp[pmd_idx] = pfn_pmd(PFN_DOWN(pte_phys), PAGE_TABLE);
 		ptep = get_pte_virt(pte_phys);
 		memset(ptep, 0, PAGE_SIZE);
 	} else {
-		pte_phys = PFN_PHYS(_pmd_pfn(pmdp[pmd_index]));
+		pte_phys = PFN_PHYS(_pmd_pfn(pmdp[pmd_idx]));
 		ptep = get_pte_virt(pte_phys);
 	}
 
@@ -322,21 +325,21 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 {
 	pgd_next_t *nextp;
 	phys_addr_t next_phys;
-	uintptr_t pgd_index = pgd_index(va);
+	uintptr_t pgd_idx = pgd_index(va);
 
 	if (sz == PGDIR_SIZE) {
-		if (pgd_val(pgdp[pgd_index]) == 0)
-			pgdp[pgd_index] = pfn_pgd(PFN_DOWN(pa), prot);
+		if (pgd_val(pgdp[pgd_idx]) == 0)
+			pgdp[pgd_idx] = pfn_pgd(PFN_DOWN(pa), prot);
 		return;
 	}
 
-	if (pgd_val(pgdp[pgd_index]) == 0) {
+	if (pgd_val(pgdp[pgd_idx]) == 0) {
 		next_phys = alloc_pgd_next(va);
-		pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
+		pgdp[pgd_idx] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
 		nextp = get_pgd_next_virt(next_phys);
 		memset(nextp, 0, PAGE_SIZE);
 	} else {
-		next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
+		next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_idx]));
 		nextp = get_pgd_next_virt(next_phys);
 	}
 
@@ -480,13 +483,39 @@ static void __init setup_vm_final(void)
 #else
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
+#ifdef CONFIG_BUILTIN_DTB
+	dtb_early_va = soc_lookup_builtin_dtb();
+	if (!dtb_early_va) {
+		/* Fallback to first available DTS */
+		dtb_early_va = (void *) __dtb_start;
+	}
+#else
 	dtb_early_va = (void *)dtb_pa;
+#endif
 }
 
 static inline void setup_vm_final(void)
 {
 }
 #endif /* CONFIG_MMU */
+
+#ifdef CONFIG_STRICT_KERNEL_RWX
+void mark_rodata_ro(void)
+{
+	unsigned long text_start = (unsigned long)_text;
+	unsigned long text_end = (unsigned long)_etext;
+	unsigned long rodata_start = (unsigned long)__start_rodata;
+	unsigned long data_start = (unsigned long)_data;
+	unsigned long max_low = (unsigned long)(__va(PFN_PHYS(max_low_pfn)));
+
+	set_memory_ro(text_start, (text_end - text_start) >> PAGE_SHIFT);
+	set_memory_ro(rodata_start, (data_start - rodata_start) >> PAGE_SHIFT);
+	set_memory_nx(rodata_start, (data_start - rodata_start) >> PAGE_SHIFT);
+	set_memory_nx(data_start, (max_low - data_start) >> PAGE_SHIFT);
+
+	debug_checkwx();
+}
+#endif
 
 void __init paging_init(void)
 {

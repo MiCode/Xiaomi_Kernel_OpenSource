@@ -91,6 +91,12 @@
 #define EFX_RX_BUF_ALIGNMENT	4
 #endif
 
+/* Non-standard XDP_PACKET_HEADROOM and tailroom to satisfy XDP_REDIRECT and
+ * still fit two standard MTU size packets into a single 4K page.
+ */
+#define EFX_XDP_HEADROOM	128
+#define EFX_XDP_TAILROOM	SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
+
 /* Forward declare Precision Time Protocol (PTP) support structure. */
 struct efx_ptp_data;
 struct hwtstamp_config;
@@ -208,8 +214,6 @@ struct efx_tx_buffer {
  *	avoid cache-line ping-pong between the xmit path and the
  *	completion path.
  * @merge_events: Number of TX merged completion events
- * @completed_desc_ptr: Most recent completed pointer - only used with
- *      timestamping.
  * @completed_timestamp_major: Top part of the most recent tx timestamp.
  * @completed_timestamp_minor: Low part of the most recent tx timestamp.
  * @insert_count: Current insert pointer
@@ -269,7 +273,6 @@ struct efx_tx_queue {
 	unsigned int merge_events;
 	unsigned int bytes_compl;
 	unsigned int pkts_compl;
-	unsigned int completed_desc_ptr;
 	u32 completed_timestamp_major;
 	u32 completed_timestamp_minor;
 
@@ -336,7 +339,7 @@ struct efx_rx_buffer {
 struct efx_rx_page_state {
 	dma_addr_t dma_addr;
 
-	unsigned int __pad[0] ____cacheline_aligned;
+	unsigned int __pad[] ____cacheline_aligned;
 };
 
 /**
@@ -884,8 +887,10 @@ struct efx_async_filter_insertion {
  * @rss_context: Main RSS context.  Its @list member is the head of the list of
  *	RSS contexts created by user requests
  * @rss_lock: Protects custom RSS context software state in @rss_context.list
+ * @vport_id: The function's vport ID, only relevant for PFs
  * @int_error_count: Number of internal errors seen recently
  * @int_error_expire: Time at which error count will be expired
+ * @must_realloc_vis: Flag: VIs have yet to be reallocated after MC reboot
  * @irq_soft_enabled: Are IRQs soft-enabled? If not, IRQ handler will
  *	acknowledge but do nothing else.
  * @irq_status: Interrupt status buffer
@@ -1041,10 +1046,12 @@ struct efx_nic {
 	bool rx_scatter;
 	struct efx_rss_context rss_context;
 	struct mutex rss_lock;
+	u32 vport_id;
 
 	unsigned int_error_count;
 	unsigned long int_error_expire;
 
+	bool must_realloc_vis;
 	bool irq_soft_enabled;
 	struct efx_buffer irq_status;
 	unsigned irq_zero_count;
@@ -1289,6 +1296,7 @@ struct efx_udp_tunnel {
  * @udp_tnl_add_port: Add a UDP tunnel port
  * @udp_tnl_has_port: Check if a port has been added as UDP tunnel
  * @udp_tnl_del_port: Remove a UDP tunnel port
+ * @print_additional_fwver: Dump NIC-specific additional FW version info
  * @revision: Hardware architecture revision
  * @txd_ptr_tbl_base: TX descriptor ring base address
  * @rxd_ptr_tbl_base: RX descriptor ring base address
@@ -1349,6 +1357,9 @@ struct efx_nic_type {
 	void (*get_wol)(struct efx_nic *efx, struct ethtool_wolinfo *wol);
 	int (*set_wol)(struct efx_nic *efx, u32 type);
 	void (*resume_wol)(struct efx_nic *efx);
+	unsigned int (*check_caps)(const struct efx_nic *efx,
+				   u8 flag,
+				   u32 offset);
 	int (*test_chip)(struct efx_nic *efx, struct efx_self_tests *tests);
 	int (*test_nvram)(struct efx_nic *efx);
 	void (*mcdi_request)(struct efx_nic *efx,
@@ -1459,6 +1470,8 @@ struct efx_nic_type {
 	int (*udp_tnl_add_port)(struct efx_nic *efx, struct efx_udp_tunnel tnl);
 	bool (*udp_tnl_has_port)(struct efx_nic *efx, __be16 port);
 	int (*udp_tnl_del_port)(struct efx_nic *efx, struct efx_udp_tunnel tnl);
+	size_t (*print_additional_fwver)(struct efx_nic *efx, char *buf,
+					 size_t len);
 
 	int revision;
 	unsigned int txd_ptr_tbl_base;

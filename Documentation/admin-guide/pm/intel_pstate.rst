@@ -62,9 +62,10 @@ on the capabilities of the processor.
 Active Mode
 -----------
 
-This is the default operation mode of ``intel_pstate``.  If it works in this
-mode, the ``scaling_driver`` policy attribute in ``sysfs`` for all ``CPUFreq``
-policies contains the string "intel_pstate".
+This is the default operation mode of ``intel_pstate`` for processors with
+hardware-managed P-states (HWP) support.  If it works in this mode, the
+``scaling_driver`` policy attribute in ``sysfs`` for all ``CPUFreq`` policies
+contains the string "intel_pstate".
 
 In this mode the driver bypasses the scaling governors layer of ``CPUFreq`` and
 provides its own scaling algorithms for P-state selection.  Those algorithms
@@ -138,12 +139,13 @@ internal P-state selection logic to be less performance-focused.
 Active Mode Without HWP
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-This is the default operation mode for processors that do not support the HWP
-feature.  It also is used by default with the ``intel_pstate=no_hwp`` argument
-in the kernel command line.  However, in this mode ``intel_pstate`` may refuse
-to work with the given processor if it does not recognize it.  [Note that
-``intel_pstate`` will never refuse to work with any processor with the HWP
-feature enabled.]
+This operation mode is optional for processors that do not support the HWP
+feature or when the ``intel_pstate=no_hwp`` argument is passed to the kernel in
+the command line.  The active mode is used in those cases if the
+``intel_pstate=active`` argument is passed to the kernel in the command line.
+In this mode ``intel_pstate`` may refuse to work with processors that are not
+recognized by it.  [Note that ``intel_pstate`` will never refuse to work with
+any processor with the HWP feature enabled.]
 
 In this mode ``intel_pstate`` registers utilization update callbacks with the
 CPU scheduler in order to run a P-state selection algorithm, either
@@ -188,10 +190,14 @@ is not set.
 Passive Mode
 ------------
 
-This mode is used if the ``intel_pstate=passive`` argument is passed to the
-kernel in the command line (it implies the ``intel_pstate=no_hwp`` setting too).
-Like in the active mode without HWP support, in this mode ``intel_pstate`` may
-refuse to work with the given processor if it does not recognize it.
+This is the default operation mode of ``intel_pstate`` for processors without
+hardware-managed P-states (HWP) support.  It is always used if the
+``intel_pstate=passive`` argument is passed to the kernel in the command line
+regardless of whether or not the given processor supports HWP.  [Note that the
+``intel_pstate=no_hwp`` setting implies ``intel_pstate=passive`` if it is used
+without ``intel_pstate=active``.]  Like in the active mode without HWP support,
+in this mode ``intel_pstate`` may refuse to work with processors that are not
+recognized by it.
 
 If the driver works in this mode, the ``scaling_driver`` policy attribute in
 ``sysfs`` for all ``CPUFreq`` policies contains the string "intel_cpufreq".
@@ -734,10 +740,10 @@ References
 ==========
 
 .. [1] Kristen Accardi, *Balancing Power and Performance in the Linux Kernel*,
-       http://events.linuxfoundation.org/sites/events/files/slides/LinuxConEurope_2015.pdf
+       https://events.static.linuxfound.org/sites/events/files/slides/LinuxConEurope_2015.pdf
 
 .. [2] *Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 3: System Programming Guide*,
-       http://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-system-programming-manual-325384.html
+       https://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-system-programming-manual-325384.html
 
 .. [3] *Advanced Configuration and Power Interface Specification*,
        https://uefi.org/sites/default/files/resources/ACPI_6_3_final_Jan30.pdf

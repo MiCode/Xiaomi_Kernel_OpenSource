@@ -73,6 +73,7 @@ struct enetc_bdr {
 
 	dma_addr_t bd_dma_base;
 	u8 tsd_enable; /* Time specific departure */
+	bool ext_en; /* enable h/w descriptor extensions */
 } ____cacheline_aligned_in_smp;
 
 static inline void enetc_bdr_idx_inc(struct enetc_bdr *bdr, int *i)
@@ -104,7 +105,37 @@ struct enetc_cbdr {
 };
 
 #define ENETC_TXBD(BDR, i) (&(((union enetc_tx_bd *)((BDR).bd_base))[i]))
-#define ENETC_RXBD(BDR, i) (&(((union enetc_rx_bd *)((BDR).bd_base))[i]))
+
+static inline union enetc_rx_bd *enetc_rxbd(struct enetc_bdr *rx_ring, int i)
+{
+	int hw_idx = i;
+
+#ifdef CONFIG_FSL_ENETC_PTP_CLOCK
+	if (rx_ring->ext_en)
+		hw_idx = 2 * i;
+#endif
+	return &(((union enetc_rx_bd *)rx_ring->bd_base)[hw_idx]);
+}
+
+static inline union enetc_rx_bd *enetc_rxbd_next(struct enetc_bdr *rx_ring,
+						 union enetc_rx_bd *rxbd,
+						 int i)
+{
+	rxbd++;
+#ifdef CONFIG_FSL_ENETC_PTP_CLOCK
+	if (rx_ring->ext_en)
+		rxbd++;
+#endif
+	if (unlikely(++i == rx_ring->bd_count))
+		rxbd = rx_ring->bd_base;
+
+	return rxbd;
+}
+
+static inline union enetc_rx_bd *enetc_rxbd_ext(union enetc_rx_bd *rxbd)
+{
+	return ++rxbd;
+}
 
 struct enetc_msg_swbd {
 	void *vaddr;
@@ -120,6 +151,7 @@ enum enetc_errata {
 };
 
 #define ENETC_SI_F_QBV BIT(0)
+#define ENETC_SI_F_PSFP BIT(1)
 
 /* PCI IEP device data */
 struct enetc_si {
@@ -163,7 +195,7 @@ struct enetc_int_vector {
 	char name[ENETC_INT_NAME_MAX];
 
 	struct enetc_bdr rx_ring ____cacheline_aligned_in_smp;
-	struct enetc_bdr tx_ring[0];
+	struct enetc_bdr tx_ring[];
 };
 
 struct enetc_cls_rule {
@@ -172,12 +204,20 @@ struct enetc_cls_rule {
 };
 
 #define ENETC_MAX_BDR_INT	2 /* fixed to max # of available cpus */
+struct psfp_cap {
+	u32 max_streamid;
+	u32 max_psfp_filter;
+	u32 max_psfp_gate;
+	u32 max_psfp_gatelist;
+	u32 max_psfp_meter;
+};
 
 /* TODO: more hardware offloads */
 enum enetc_active_offloads {
 	ENETC_F_RX_TSTAMP	= BIT(0),
 	ENETC_F_TX_TSTAMP	= BIT(1),
 	ENETC_F_QBV             = BIT(2),
+	ENETC_F_QCI		= BIT(3),
 };
 
 struct enetc_ndev_priv {
@@ -199,6 +239,8 @@ struct enetc_ndev_priv {
 	struct enetc_bdr *rx_ring[16];
 
 	struct enetc_cls_rule *cls_rules;
+
+	struct psfp_cap psfp_cap;
 
 	struct device_node *phy_node;
 	phy_interface_t if_mode;
@@ -258,9 +300,84 @@ int enetc_setup_tc_taprio(struct net_device *ndev, void *type_data);
 void enetc_sched_speed_set(struct net_device *ndev);
 int enetc_setup_tc_cbs(struct net_device *ndev, void *type_data);
 int enetc_setup_tc_txtime(struct net_device *ndev, void *type_data);
+int enetc_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
+			    void *cb_priv);
+int enetc_setup_tc_psfp(struct net_device *ndev, void *type_data);
+int enetc_psfp_init(struct enetc_ndev_priv *priv);
+int enetc_psfp_clean(struct enetc_ndev_priv *priv);
+
+static inline void enetc_get_max_cap(struct enetc_ndev_priv *priv)
+{
+	u32 reg;
+
+	reg = enetc_port_rd(&priv->si->hw, ENETC_PSIDCAPR);
+	priv->psfp_cap.max_streamid = reg & ENETC_PSIDCAPR_MSK;
+	/* Port stream filter capability */
+	reg = enetc_port_rd(&priv->si->hw, ENETC_PSFCAPR);
+	priv->psfp_cap.max_psfp_filter = reg & ENETC_PSFCAPR_MSK;
+	/* Port stream gate capability */
+	reg = enetc_port_rd(&priv->si->hw, ENETC_PSGCAPR);
+	priv->psfp_cap.max_psfp_gate = (reg & ENETC_PSGCAPR_SGIT_MSK);
+	priv->psfp_cap.max_psfp_gatelist = (reg & ENETC_PSGCAPR_GCL_MSK) >> 16;
+	/* Port flow meter capability */
+	reg = enetc_port_rd(&priv->si->hw, ENETC_PFMCAPR);
+	priv->psfp_cap.max_psfp_meter = reg & ENETC_PFMCAPR_MSK;
+}
+
+static inline int enetc_psfp_enable(struct enetc_ndev_priv *priv)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	int err;
+
+	enetc_get_max_cap(priv);
+
+	err = enetc_psfp_init(priv);
+	if (err)
+		return err;
+
+	enetc_wr(hw, ENETC_PPSFPMR, enetc_rd(hw, ENETC_PPSFPMR) |
+		 ENETC_PPSFPMR_PSFPEN | ENETC_PPSFPMR_VS |
+		 ENETC_PPSFPMR_PVC | ENETC_PPSFPMR_PVZC);
+
+	return 0;
+}
+
+static inline int enetc_psfp_disable(struct enetc_ndev_priv *priv)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	int err;
+
+	err = enetc_psfp_clean(priv);
+	if (err)
+		return err;
+
+	enetc_wr(hw, ENETC_PPSFPMR, enetc_rd(hw, ENETC_PPSFPMR) &
+		 ~ENETC_PPSFPMR_PSFPEN & ~ENETC_PPSFPMR_VS &
+		 ~ENETC_PPSFPMR_PVC & ~ENETC_PPSFPMR_PVZC);
+
+	memset(&priv->psfp_cap, 0, sizeof(struct psfp_cap));
+
+	return 0;
+}
+
 #else
 #define enetc_setup_tc_taprio(ndev, type_data) -EOPNOTSUPP
 #define enetc_sched_speed_set(ndev) (void)0
 #define enetc_setup_tc_cbs(ndev, type_data) -EOPNOTSUPP
 #define enetc_setup_tc_txtime(ndev, type_data) -EOPNOTSUPP
+#define enetc_setup_tc_psfp(ndev, type_data) -EOPNOTSUPP
+#define enetc_setup_tc_block_cb NULL
+
+#define enetc_get_max_cap(p)		\
+	memset(&((p)->psfp_cap), 0, sizeof(struct psfp_cap))
+
+static inline int enetc_psfp_enable(struct enetc_ndev_priv *priv)
+{
+	return 0;
+}
+
+static inline int enetc_psfp_disable(struct enetc_ndev_priv *priv)
+{
+	return 0;
+}
 #endif

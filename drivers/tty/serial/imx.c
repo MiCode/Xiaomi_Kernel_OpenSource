@@ -195,6 +195,8 @@ struct imx_port {
 	unsigned int		have_rtscts:1;
 	unsigned int		have_rtsgpio:1;
 	unsigned int		dte_mode:1;
+	unsigned int		inverted_tx:1;
+	unsigned int		inverted_rx:1;
 	struct clk		*clk_ipg;
 	struct clk		*clk_per;
 	const struct imx_uart_data *devdata;
@@ -907,6 +909,8 @@ static irqreturn_t imx_uart_int(int irq, void *dev_id)
 		usr2 &= ~USR2_ORE;
 
 	if (usr1 & (USR1_RRDY | USR1_AGTIM)) {
+		imx_uart_writel(sport, USR1_AGTIM, USR1);
+
 		__imx_uart_rxint(irq, dev_id);
 		ret = IRQ_HANDLED;
 	}
@@ -1335,7 +1339,7 @@ static int imx_uart_startup(struct uart_port *port)
 	int retval, i;
 	unsigned long flags;
 	int dma_is_inited = 0;
-	u32 ucr1, ucr2, ucr4;
+	u32 ucr1, ucr2, ucr3, ucr4;
 
 	retval = clk_prepare_enable(sport->clk_per);
 	if (retval)
@@ -1387,10 +1391,28 @@ static int imx_uart_startup(struct uart_port *port)
 
 	imx_uart_writel(sport, ucr1, UCR1);
 
-	ucr4 = imx_uart_readl(sport, UCR4) & ~UCR4_OREN;
+	ucr4 = imx_uart_readl(sport, UCR4) & ~(UCR4_OREN | UCR4_INVR);
 	if (!sport->dma_is_enabled)
 		ucr4 |= UCR4_OREN;
+	if (sport->inverted_rx)
+		ucr4 |= UCR4_INVR;
 	imx_uart_writel(sport, ucr4, UCR4);
+
+	ucr3 = imx_uart_readl(sport, UCR3) & ~UCR3_INVT;
+	/*
+	 * configure tx polarity before enabling tx
+	 */
+	if (sport->inverted_tx)
+		ucr3 |= UCR3_INVT;
+
+	if (!imx_uart_is_imx1(sport)) {
+		ucr3 |= UCR3_DTRDEN | UCR3_RI | UCR3_DCD;
+
+		if (sport->dte_mode)
+			/* disable broken interrupts */
+			ucr3 &= ~(UCR3_RI | UCR3_DCD);
+	}
+	imx_uart_writel(sport, ucr3, UCR3);
 
 	ucr2 = imx_uart_readl(sport, UCR2) & ~UCR2_ATEN;
 	ucr2 |= (UCR2_RXEN | UCR2_TXEN);
@@ -1403,20 +1425,6 @@ static int imx_uart_startup(struct uart_port *port)
 	if (!imx_uart_is_imx1(sport))
 		ucr2 &= ~UCR2_RTSEN;
 	imx_uart_writel(sport, ucr2, UCR2);
-
-	if (!imx_uart_is_imx1(sport)) {
-		u32 ucr3;
-
-		ucr3 = imx_uart_readl(sport, UCR3);
-
-		ucr3 |= UCR3_DTRDEN | UCR3_RI | UCR3_DCD;
-
-		if (sport->dte_mode)
-			/* disable broken interrupts */
-			ucr3 &= ~(UCR3_RI | UCR3_DCD);
-
-		imx_uart_writel(sport, ucr3, UCR3);
-	}
 
 	/*
 	 * Enable modem status interrupts
@@ -2184,6 +2192,12 @@ static int imx_uart_probe_dt(struct imx_port *sport,
 	if (of_get_property(np, "rts-gpios", NULL))
 		sport->have_rtsgpio = 1;
 
+	if (of_get_property(np, "fsl,inverted-tx", NULL))
+		sport->inverted_tx = 1;
+
+	if (of_get_property(np, "fsl,inverted-rx", NULL))
+		sport->inverted_rx = 1;
+
 	return 0;
 }
 #else
@@ -2240,6 +2254,8 @@ static int imx_uart_probe(struct platform_device *pdev)
 		return PTR_ERR(base);
 
 	rxirq = platform_get_irq(pdev, 0);
+	if (rxirq < 0)
+		return rxirq;
 	txirq = platform_get_irq_optional(pdev, 1);
 	rtsirq = platform_get_irq_optional(pdev, 2);
 
@@ -2290,7 +2306,11 @@ static int imx_uart_probe(struct platform_device *pdev)
 	sport->ucr4 = readl(sport->port.membase + UCR4);
 	sport->ufcr = readl(sport->port.membase + UFCR);
 
-	uart_get_rs485_mode(&pdev->dev, &sport->port.rs485);
+	ret = uart_get_rs485_mode(&sport->port);
+	if (ret) {
+		clk_disable_unprepare(sport->clk_ipg);
+		return ret;
+	}
 
 	if (sport->port.rs485.flags & SER_RS485_ENABLED &&
 	    (!sport->have_rtscts && !sport->have_rtsgpio))
@@ -2385,6 +2405,9 @@ static int imx_uart_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	/* We need to initialize lock even for non-registered console */
+	spin_lock_init(&sport->port.lock);
 
 	imx_uart_ports[sport->port.line] = sport;
 

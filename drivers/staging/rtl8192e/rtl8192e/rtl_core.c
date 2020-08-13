@@ -81,8 +81,8 @@ static int _rtl92e_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static void _rtl92e_tx_cmd(struct net_device *dev, struct sk_buff *skb);
 static short _rtl92e_tx(struct net_device *dev, struct sk_buff *skb);
 static short _rtl92e_pci_initdescring(struct net_device *dev);
-static void _rtl92e_irq_tx_tasklet(struct r8192_priv *priv);
-static void _rtl92e_irq_rx_tasklet(struct r8192_priv *priv);
+static void _rtl92e_irq_tx_tasklet(unsigned long data);
+static void _rtl92e_irq_rx_tasklet(unsigned long data);
 static void _rtl92e_cancel_deferred_work(struct r8192_priv *priv);
 static int _rtl92e_up(struct net_device *dev, bool is_silent_reset);
 static int _rtl92e_try_up(struct net_device *dev);
@@ -145,21 +145,21 @@ bool rtl92e_set_rf_state(struct net_device *dev,
 	unsigned long flag;
 
 	RT_TRACE((COMP_PS | COMP_RF),
-		 "===>rtl92e_set_rf_state(): StateToSet(%d)\n", StateToSet);
+		 "===>%s: StateToSet(%d)\n", __func__, StateToSet);
 
 	while (true) {
 		spin_lock_irqsave(&priv->rf_ps_lock, flag);
 		if (priv->RFChangeInProgress) {
 			spin_unlock_irqrestore(&priv->rf_ps_lock, flag);
 			RT_TRACE((COMP_PS | COMP_RF),
-				 "rtl92e_set_rf_state(): RF Change in progress! Wait to set..StateToSet(%d).\n",
-				 StateToSet);
+				 "%s: RF Change in progress! Wait to set..StateToSet(%d).\n",
+				 __func__, StateToSet);
 
 			while (priv->RFChangeInProgress) {
 				RFWaitCounter++;
 				RT_TRACE((COMP_PS | COMP_RF),
-					 "rtl92e_set_rf_state(): Wait 1 ms (%d times)...\n",
-					 RFWaitCounter);
+					 "%s: Wait 1 ms (%d times)...\n",
+					 __func__, RFWaitCounter);
 				mdelay(1);
 
 				if (RFWaitCounter > 100) {
@@ -195,8 +195,8 @@ bool rtl92e_set_rf_state(struct net_device *dev,
 				bConnectBySSID = true;
 		} else {
 			RT_TRACE((COMP_PS | COMP_RF),
-				 "rtl92e_set_rf_state - eRfon reject pMgntInfo->RfOffReason= 0x%x, ChangeSource=0x%X\n",
-				  priv->rtllib->RfOffReason, ChangeSource);
+				 "%s - eRfon reject pMgntInfo->RfOffReason= 0x%x, ChangeSource=0x%X\n",
+				 __func__, priv->rtllib->RfOffReason, ChangeSource);
 	}
 
 		break;
@@ -232,8 +232,8 @@ bool rtl92e_set_rf_state(struct net_device *dev,
 
 	if (bActionAllowed) {
 		RT_TRACE((COMP_PS | COMP_RF),
-			 "rtl92e_set_rf_state(): Action is allowed.... StateToSet(%d), RfOffReason(%#X)\n",
-			 StateToSet, priv->rtllib->RfOffReason);
+			 "%s: Action is allowed.... StateToSet(%d), RfOffReason(%#X)\n",
+			 __func__, StateToSet, priv->rtllib->RfOffReason);
 		PHY_SetRFPowerState(dev, StateToSet);
 		if (StateToSet == eRfOn) {
 
@@ -245,15 +245,15 @@ bool rtl92e_set_rf_state(struct net_device *dev,
 		}
 	} else {
 		RT_TRACE((COMP_PS | COMP_RF),
-			 "rtl92e_set_rf_state(): Action is rejected.... StateToSet(%d), ChangeSource(%#X), RfOffReason(%#X)\n",
-			 StateToSet, ChangeSource, priv->rtllib->RfOffReason);
+			 "%s: Action is rejected.... StateToSet(%d), ChangeSource(%#X), RfOffReason(%#X)\n",
+			 __func__, StateToSet, ChangeSource, priv->rtllib->RfOffReason);
 	}
 
 	spin_lock_irqsave(&priv->rf_ps_lock, flag);
 	priv->RFChangeInProgress = false;
 	spin_unlock_irqrestore(&priv->rf_ps_lock, flag);
 
-	RT_TRACE((COMP_PS | COMP_RF), "<===rtl92e_set_rf_state()\n");
+	RT_TRACE((COMP_PS | COMP_RF), "<===%s\n", __func__);
 	return bActionAllowed;
 }
 
@@ -516,8 +516,9 @@ static int _rtl92e_handle_assoc_response(struct net_device *dev,
 	return 0;
 }
 
-static void _rtl92e_prepare_beacon(struct r8192_priv *priv)
+static void _rtl92e_prepare_beacon(unsigned long data)
 {
+	struct r8192_priv *priv = (struct r8192_priv *)data;
 	struct net_device *dev = priv->rtllib->dev;
 	struct sk_buff *pskb = NULL, *pnewskb = NULL;
 	struct cb_desc *tcb_desc = NULL;
@@ -732,7 +733,7 @@ static int _rtl92e_sta_up(struct net_device *dev, bool is_silent_reset)
 	struct r8192_priv *priv = rtllib_priv(dev);
 	struct rt_pwr_save_ctrl *pPSC = (struct rt_pwr_save_ctrl *)
 					(&priv->rtllib->PowerSaveControl);
-	bool init_status = true;
+	bool init_status;
 
 	priv->bDriverIsGoingToUnload = false;
 	priv->bdisable_nic = false;
@@ -1007,14 +1008,11 @@ static void _rtl92e_init_priv_task(struct net_device *dev)
 			      (void *)rtl92e_hw_wakeup_wq, dev);
 	INIT_DELAYED_WORK_RSL(&priv->rtllib->hw_sleep_wq,
 			      (void *)rtl92e_hw_sleep_wq, dev);
-	tasklet_init(&priv->irq_rx_tasklet,
-		     (void(*)(unsigned long))_rtl92e_irq_rx_tasklet,
+	tasklet_init(&priv->irq_rx_tasklet, _rtl92e_irq_rx_tasklet,
 		     (unsigned long)priv);
-	tasklet_init(&priv->irq_tx_tasklet,
-		     (void(*)(unsigned long))_rtl92e_irq_tx_tasklet,
+	tasklet_init(&priv->irq_tx_tasklet, _rtl92e_irq_tx_tasklet,
 		     (unsigned long)priv);
-	tasklet_init(&priv->irq_prepare_beacon_tasklet,
-		     (void(*)(unsigned long))_rtl92e_prepare_beacon,
+	tasklet_init(&priv->irq_prepare_beacon_tasklet, _rtl92e_prepare_beacon,
 		     (unsigned long)priv);
 }
 
@@ -2113,13 +2111,17 @@ static void _rtl92e_tx_resume(struct net_device *dev)
 	}
 }
 
-static void _rtl92e_irq_tx_tasklet(struct r8192_priv *priv)
+static void _rtl92e_irq_tx_tasklet(unsigned long data)
 {
+	struct r8192_priv *priv = (struct r8192_priv *)data;
+
 	_rtl92e_tx_resume(priv->rtllib->dev);
 }
 
-static void _rtl92e_irq_rx_tasklet(struct r8192_priv *priv)
+static void _rtl92e_irq_rx_tasklet(unsigned long data)
 {
+	struct r8192_priv *priv = (struct r8192_priv *)data;
+
 	_rtl92e_rx_normal(priv->rtllib->dev);
 
 	rtl92e_writel(priv->rtllib->dev, INTA_MASK,

@@ -39,7 +39,7 @@ struct wmi_cmd_hdr {
 
 struct wmi_tlv {
 	u32 header;
-	u8 value[0];
+	u8 value[];
 } __packed;
 
 #define WMI_TLV_LEN	GENMASK(15, 0)
@@ -442,6 +442,10 @@ enum wmi_tlv_cmd_id {
 	WMI_DBGLOG_TIME_STAMP_SYNC_CMDID,
 	WMI_SET_MULTIPLE_MCAST_FILTER_CMDID,
 	WMI_READ_DATA_FROM_FLASH_CMDID,
+	WMI_THERM_THROT_SET_CONF_CMDID,
+	WMI_RUNTIME_DPD_RECAL_CMDID,
+	WMI_GET_TPC_POWER_CMDID,
+	WMI_IDLE_TRIGGER_MONITOR_CMDID,
 	WMI_GPIO_CONFIG_CMDID = WMI_TLV_CMD(WMI_GRP_GPIO),
 	WMI_GPIO_OUTPUT_CMDID,
 	WMI_TXBF_CMDID,
@@ -484,6 +488,7 @@ enum wmi_tlv_cmd_id {
 	WMI_SAR_LIMITS_CMDID,
 	WMI_OBSS_SCAN_ENABLE_CMDID = WMI_TLV_CMD(WMI_GRP_OBSS_OFL),
 	WMI_OBSS_SCAN_DISABLE_CMDID,
+	WMI_OBSS_COLOR_COLLISION_DET_CONFIG_CMDID,
 	WMI_LPI_MGMT_SNOOPING_CONFIG_CMDID = WMI_TLV_CMD(WMI_GRP_LPI),
 	WMI_LPI_START_SCAN_CMDID,
 	WMI_LPI_STOP_SCAN_CMDID,
@@ -1971,6 +1976,43 @@ enum wmi_tlv_service {
 	WMI_TLV_SERVICE_TX_DATA_MGMT_ACK_RSSI = 174,
 	WMI_TLV_SERVICE_NAN_DISABLE_SUPPORT = 175,
 	WMI_TLV_SERVICE_HTT_H2T_NO_HTC_HDR_LEN_IN_MSG_LEN = 176,
+	WMI_TLV_SERVICE_COEX_SUPPORT_UNEQUAL_ISOLATION = 177,
+	WMI_TLV_SERVICE_HW_DB2DBM_CONVERSION_SUPPORT = 178,
+	WMI_TLV_SERVICE_SUPPORT_EXTEND_ADDRESS = 179,
+	WMI_TLV_SERVICE_BEACON_RECEPTION_STATS = 180,
+	WMI_TLV_SERVICE_FETCH_TX_PN = 181,
+	WMI_TLV_SERVICE_PEER_UNMAP_RESPONSE_SUPPORT = 182,
+	WMI_TLV_SERVICE_TX_PER_PEER_AMPDU_SIZE = 183,
+	WMI_TLV_SERVICE_BSS_COLOR_SWITCH_COUNT = 184,
+	WMI_TLV_SERVICE_HTT_PEER_STATS_SUPPORT = 185,
+	WMI_TLV_SERVICE_UL_RU26_ALLOWED = 186,
+	WMI_TLV_SERVICE_GET_MWS_COEX_STATE = 187,
+	WMI_TLV_SERVICE_GET_MWS_DPWB_STATE = 188,
+	WMI_TLV_SERVICE_GET_MWS_TDM_STATE = 189,
+	WMI_TLV_SERVICE_GET_MWS_IDRX_STATE = 190,
+	WMI_TLV_SERVICE_GET_MWS_ANTENNA_SHARING_STATE = 191,
+	WMI_TLV_SERVICE_ENHANCED_TPC_CONFIG_EVENT = 192,
+	WMI_TLV_SERVICE_WLM_STATS_REQUEST = 193,
+	WMI_TLV_SERVICE_EXT_PEER_TID_CONFIGS_SUPPORT = 194,
+	WMI_TLV_SERVICE_WPA3_FT_SAE_SUPPORT = 195,
+	WMI_TLV_SERVICE_WPA3_FT_SUITE_B_SUPPORT = 196,
+	WMI_TLV_SERVICE_VOW_ENABLE = 197,
+	WMI_TLV_SERVICE_CFR_CAPTURE_IND_EVT_TYPE_1 = 198,
+	WMI_TLV_SERVICE_BROADCAST_TWT = 199,
+	WMI_TLV_SERVICE_RAP_DETECTION_SUPPORT = 200,
+	WMI_TLV_SERVICE_PS_TDCC = 201,
+	WMI_TLV_SERVICE_THREE_WAY_COEX_CONFIG_LEGACY   = 202,
+	WMI_TLV_SERVICE_THREE_WAY_COEX_CONFIG_OVERRIDE = 203,
+	WMI_TLV_SERVICE_TX_PWR_PER_PEER = 204,
+	WMI_TLV_SERVICE_STA_PLUS_STA_SUPPORT = 205,
+	WMI_TLV_SERVICE_WPA3_FT_FILS = 206,
+	WMI_TLV_SERVICE_ADAPTIVE_11R_ROAM = 207,
+	WMI_TLV_SERVICE_CHAN_RF_CHARACTERIZATION_INFO = 208,
+	WMI_TLV_SERVICE_FW_IFACE_COMBINATION_SUPPORT = 209,
+	WMI_TLV_SERVICE_TX_COMPL_TSF64 = 210,
+	WMI_TLV_SERVICE_DSM_ROAM_FILTER = 211,
+	WMI_TLV_SERVICE_PACKET_CAPTURE_SUPPORT = 212,
+	WMI_TLV_SERVICE_PER_PEER_HTT_STATS_RESET = 213,
 
 	WMI_MAX_EXT_SERVICE
 
@@ -2340,7 +2382,7 @@ struct wmi_mac_addr {
 	} __packed;
 } __packed;
 
-struct wmi_ready_event {
+struct wmi_ready_event_min {
 	struct wmi_abi_version fw_abi_vers;
 	struct wmi_mac_addr mac_addr;
 	u32 status;
@@ -2348,6 +2390,12 @@ struct wmi_ready_event {
 	u32 num_extra_mac_addr;
 	u32 num_total_peers;
 	u32 num_extra_peers;
+} __packed;
+
+struct wmi_ready_event {
+	struct wmi_ready_event_min ready_event_min;
+	u32 max_ast_index;
+	u32 pktlog_defs_checksum;
 } __packed;
 
 struct wmi_service_available_event {
@@ -3300,6 +3348,12 @@ struct wmi_request_stats_cmd {
 	u32 pdev_id;
 } __packed;
 
+struct wmi_get_pdev_temperature_cmd {
+	u32 tlv_header;
+	u32 param;
+	u32 pdev_id;
+} __packed;
+
 #define WMI_BEACON_TX_BUFFER_SIZE	512
 
 struct wmi_bcn_tmpl_cmd {
@@ -3603,6 +3657,70 @@ struct wmi_init_country_cmd {
 		u32 regdom_id;
 		u32 alpha2;
 	} cc_info;
+} __packed;
+
+#define THERMAL_LEVELS  1
+struct tt_level_config {
+	u32 tmplwm;
+	u32 tmphwm;
+	u32 dcoffpercent;
+	u32 priority;
+};
+
+struct thermal_mitigation_params {
+	u32 pdev_id;
+	u32 enable;
+	u32 dc;
+	u32 dc_per_event;
+	struct tt_level_config levelconf[THERMAL_LEVELS];
+};
+
+struct wmi_therm_throt_config_request_cmd {
+	u32 tlv_header;
+	u32 pdev_id;
+	u32 enable;
+	u32 dc;
+	u32 dc_per_event;
+	u32 therm_throt_levels;
+} __packed;
+
+struct wmi_therm_throt_level_config_info {
+	u32 tlv_header;
+	u32 temp_lwm;
+	u32 temp_hwm;
+	u32 dc_off_percent;
+	u32 prio;
+} __packed;
+
+struct wmi_delba_send_cmd {
+	u32 tlv_header;
+	u32 vdev_id;
+	struct wmi_mac_addr peer_macaddr;
+	u32 tid;
+	u32 initiator;
+	u32 reasoncode;
+} __packed;
+
+struct wmi_addba_setresponse_cmd {
+	u32 tlv_header;
+	u32 vdev_id;
+	struct wmi_mac_addr peer_macaddr;
+	u32 tid;
+	u32 statuscode;
+} __packed;
+
+struct wmi_addba_send_cmd {
+	u32 tlv_header;
+	u32 vdev_id;
+	struct wmi_mac_addr peer_macaddr;
+	u32 tid;
+	u32 buffersize;
+} __packed;
+
+struct wmi_addba_clear_resp_cmd {
+	u32 tlv_header;
+	u32 vdev_id;
+	struct wmi_mac_addr peer_macaddr;
 } __packed;
 
 struct wmi_pdev_pktlog_filter_info {
@@ -4095,6 +4213,12 @@ struct wmi_pdev_radar_ev {
 	s32 sidx;
 } __packed;
 
+struct wmi_pdev_temperature_event {
+	/* temperature value in Celcius degree */
+	s32 temp;
+	u32 pdev_id;
+} __packed;
+
 #define WMI_RX_STATUS_OK			0x00
 #define WMI_RX_STATUS_ERR_CRC			0x01
 #define WMI_RX_STATUS_ERR_DECRYPT		0x08
@@ -4481,6 +4605,9 @@ enum wmi_sta_ps_param_rx_wake_policy {
 	WMI_STA_PS_RX_WAKE_POLICY_POLL_UAPSD = 1,
 };
 
+/* Do not change existing values! Used by ath11k_frame_mode parameter
+ * module parameter.
+ */
 enum ath11k_hw_txrx_mode {
 	ATH11K_HW_TXRX_RAW = 0,
 	ATH11K_HW_TXRX_NATIVE_WIFI = 1,
@@ -4569,6 +4696,42 @@ struct wmi_obss_spatial_reuse_params_cmd {
 	s32 obss_min;
 	s32 obss_max;
 	u32 vdev_id;
+} __packed;
+
+#define ATH11K_BSS_COLOR_COLLISION_SCAN_PERIOD_MS		200
+#define ATH11K_OBSS_COLOR_COLLISION_DETECTION_DISABLE		0
+#define ATH11K_OBSS_COLOR_COLLISION_DETECTION			1
+
+#define ATH11K_BSS_COLOR_COLLISION_DETECTION_STA_PERIOD_MS	10000
+#define ATH11K_BSS_COLOR_COLLISION_DETECTION_AP_PERIOD_MS	5000
+
+struct wmi_obss_color_collision_cfg_params_cmd {
+	u32 tlv_header;
+	u32 vdev_id;
+	u32 flags;
+	u32 evt_type;
+	u32 current_bss_color;
+	u32 detection_period_ms;
+	u32 scan_period_ms;
+	u32 free_slot_expiry_time_ms;
+} __packed;
+
+struct wmi_bss_color_change_enable_params_cmd {
+	u32 tlv_header;
+	u32 vdev_id;
+	u32 enable;
+} __packed;
+
+#define ATH11K_IPV4_TH_SEED_SIZE 5
+#define ATH11K_IPV6_TH_SEED_SIZE 11
+
+struct ath11k_wmi_pdev_lro_config_cmd {
+	u32 tlv_header;
+	u32 lro_enable;
+	u32 res;
+	u32 th_4[ATH11K_IPV4_TH_SEED_SIZE];
+	u32 th_6[ATH11K_IPV6_TH_SEED_SIZE];
+	u32 pdev_id;
 } __packed;
 
 struct target_resource_config {
@@ -4726,6 +4889,7 @@ int ath11k_wmi_pdev_bss_chan_info_request(struct ath11k *ar,
 					  enum wmi_bss_chan_info_req_type type);
 int ath11k_wmi_send_stats_request_cmd(struct ath11k *ar,
 				      struct stats_request_params *param);
+int ath11k_wmi_send_pdev_temperature_cmd(struct ath11k *ar);
 int ath11k_wmi_send_peer_flush_tids_cmd(struct ath11k *ar,
 					u8 peer_addr[ETH_ALEN],
 					struct peer_flush_params *param);
@@ -4735,11 +4899,21 @@ int ath11k_wmi_send_scan_chan_list_cmd(struct ath11k *ar,
 				       struct scan_chan_list_params *chan_list);
 int ath11k_wmi_send_dfs_phyerr_offload_enable_cmd(struct ath11k *ar,
 						  u32 pdev_id);
+int ath11k_wmi_addba_clear_resp(struct ath11k *ar, u32 vdev_id, const u8 *mac);
+int ath11k_wmi_addba_send(struct ath11k *ar, u32 vdev_id, const u8 *mac,
+			  u32 tid, u32 buf_size);
+int ath11k_wmi_addba_set_resp(struct ath11k *ar, u32 vdev_id, const u8 *mac,
+			      u32 tid, u32 status);
+int ath11k_wmi_delba_send(struct ath11k *ar, u32 vdev_id, const u8 *mac,
+			  u32 tid, u32 initiator, u32 reason);
 int ath11k_wmi_send_bcn_offload_control_cmd(struct ath11k *ar,
 					    u32 vdev_id, u32 bcn_ctrl_op);
 int
 ath11k_wmi_send_init_country_cmd(struct ath11k *ar,
 				 struct wmi_init_country_params init_cc_param);
+int
+ath11k_wmi_send_thermal_mitigation_param_cmd(struct ath11k *ar,
+					     struct thermal_mitigation_params *param);
 int ath11k_wmi_pdev_pktlog_enable(struct ath11k *ar, u32 pktlog_filter);
 int ath11k_wmi_pdev_pktlog_disable(struct ath11k *ar);
 int ath11k_wmi_pdev_peer_pktlog_filter(struct ath11k *ar, u8 *addr, u8 enable);
@@ -4761,4 +4935,10 @@ int ath11k_wmi_send_twt_enable_cmd(struct ath11k *ar, u32 pdev_id);
 int ath11k_wmi_send_twt_disable_cmd(struct ath11k *ar, u32 pdev_id);
 int ath11k_wmi_send_obss_spr_cmd(struct ath11k *ar, u32 vdev_id,
 				 struct ieee80211_he_obss_pd *he_obss_pd);
+int ath11k_wmi_send_obss_color_collision_cfg_cmd(struct ath11k *ar, u32 vdev_id,
+						 u8 bss_color, u32 period,
+						 bool enable);
+int ath11k_wmi_send_bss_color_change_enable_cmd(struct ath11k *ar, u32 vdev_id,
+						bool enable);
+int ath11k_wmi_pdev_lro_cfg(struct ath11k *ar, int pdev_id);
 #endif

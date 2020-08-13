@@ -86,8 +86,6 @@
 #define TCR_RXMSK	BIT(19)
 #define TCR_TXMSK	BIT(18)
 
-static int clkdivs[] = {1, 2, 4, 8, 16, 32, 64, 128};
-
 struct lpspi_config {
 	u8 bpw;
 	u8 chip_select;
@@ -125,7 +123,7 @@ struct fsl_lpspi_data {
 	struct completion dma_rx_completion;
 	struct completion dma_tx_completion;
 
-	int chipselect[0];
+	int chipselect[];
 };
 
 static const struct of_device_id fsl_lpspi_dt_ids[] = {
@@ -188,14 +186,13 @@ static bool fsl_lpspi_can_dma(struct spi_controller *controller,
 
 	bytes_per_word = fsl_lpspi_bytes_per_word(transfer->bits_per_word);
 
-	switch (bytes_per_word)
-	{
-		case 1:
-		case 2:
-		case 4:
-			break;
-		default:
-			return false;
+	switch (bytes_per_word) {
+	case 1:
+	case 2:
+	case 4:
+		break;
+	default:
+		return false;
 	}
 
 	return true;
@@ -331,15 +328,14 @@ static int fsl_lpspi_set_bitrate(struct fsl_lpspi_data *fsl_lpspi)
 	}
 
 	for (prescale = 0; prescale < 8; prescale++) {
-		scldiv = perclk_rate /
-			 (clkdivs[prescale] * config.speed_hz) - 2;
+		scldiv = perclk_rate / config.speed_hz / (1 << prescale) - 2;
 		if (scldiv < 256) {
 			fsl_lpspi->config.prescale = prescale;
 			break;
 		}
 	}
 
-	if (prescale == 8 && scldiv >= 256)
+	if (scldiv >= 256)
 		return -EINVAL;
 
 	writel(scldiv | (scldiv << 8) | ((scldiv >> 1) << 16),
@@ -944,7 +940,7 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 	ret = pm_runtime_get_sync(fsl_lpspi->dev);
 	if (ret < 0) {
 		dev_err(fsl_lpspi->dev, "failed to enable clock\n");
-		goto out_controller_put;
+		goto out_pm_get;
 	}
 
 	temp = readl(fsl_lpspi->base + IMX7ULP_PARAM);
@@ -953,13 +949,15 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 
 	ret = fsl_lpspi_dma_init(&pdev->dev, fsl_lpspi, controller);
 	if (ret == -EPROBE_DEFER)
-		goto out_controller_put;
+		goto out_pm_get;
 
 	if (ret < 0)
 		dev_err(&pdev->dev, "dma setup error %d, use pio\n", ret);
 
 	return 0;
 
+out_pm_get:
+	pm_runtime_put_noidle(fsl_lpspi->dev);
 out_controller_put:
 	spi_controller_put(controller);
 

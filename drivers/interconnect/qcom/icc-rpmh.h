@@ -1,7 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __DRIVERS_INTERCONNECT_QCOM_ICC_RPMH_H__
@@ -14,7 +13,8 @@
 	container_of(_provider, struct qcom_icc_provider, provider)
 
 /**
- * struct qcom_icc_provider - QTI specific interconnect provider
+ * struct qcom_icc_provider - Qualcomm specific interconnect provider
+ * @provider: generic interconnect provider
  * @dev: reference to the NoC device
  * @bcms: list of bcms that maps to the provider
  * @num_bcms: number of @bcms
@@ -82,7 +82,7 @@ struct qcom_icc_node {
 };
 
 /**
- * struct qcom_icc_bcm - QTI specific hardware accelerator nodes
+ * struct qcom_icc_bcm - Qualcomm specific hardware accelerator nodes
  * known as Bus Clock Manager (BCM)
  * @name: the bcm node name used to fetch BCM data from command db
  * @type: latency or bandwidth bcm
@@ -131,21 +131,18 @@ struct qcom_icc_desc {
 	size_t num_voters;
 };
 
-#define DEFINE_QNODE(_name, _id, _channels, _buswidth,			\
-			_qosbox, _numlinks, ...)			\
+#define DEFINE_QNODE(_name, _id, _channels, _buswidth, ...)		\
 		static struct qcom_icc_node _name = {			\
 		.id = _id,						\
 		.name = #_name,						\
 		.channels = _channels,					\
 		.buswidth = _buswidth,					\
-		.qosbox = _qosbox,					\
-		.noc_ops = &qcom_qnoc4_ops,				\
-		.num_links = _numlinks,					\
+		.num_links = ARRAY_SIZE(((int[]){ __VA_ARGS__ })),	\
 		.links = { __VA_ARGS__ },				\
 	}
 
 int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
-			      u32 peak_bw, u32 *agg_avg, u32 *agg_peak);
+		       u32 peak_bw, u32 *agg_avg, u32 *agg_peak);
 int qcom_icc_set(struct icc_node *src, struct icc_node *dst);
 int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev);
 void qcom_icc_pre_aggregate(struct icc_node *node);

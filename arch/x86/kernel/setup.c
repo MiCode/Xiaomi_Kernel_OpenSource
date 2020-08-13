@@ -16,6 +16,7 @@
 #include <linux/pci.h>
 #include <linux/root_dev.h>
 #include <linux/sfi.h>
+#include <linux/hugetlb.h>
 #include <linux/tboot.h>
 #include <linux/usb/xhci-dbgp.h>
 
@@ -64,7 +65,6 @@ RESERVE_BRK(dmi_alloc, 65536);
  * at link time, with RESERVE_BRK*() facility reserving additional
  * chunks.
  */
-static __initdata
 unsigned long _brk_start = (unsigned long)__brk_base;
 unsigned long _brk_end   = (unsigned long)__brk_base;
 
@@ -237,6 +237,9 @@ static u64 __init get_ramdisk_image(void)
 
 	ramdisk_image |= (u64)boot_params.ext_ramdisk_image << 32;
 
+	if (ramdisk_image == 0)
+		ramdisk_image = phys_initrd_start;
+
 	return ramdisk_image;
 }
 static u64 __init get_ramdisk_size(void)
@@ -244,6 +247,9 @@ static u64 __init get_ramdisk_size(void)
 	u64 ramdisk_size = boot_params.hdr.ramdisk_size;
 
 	ramdisk_size |= (u64)boot_params.ext_ramdisk_size << 32;
+
+	if (ramdisk_size == 0)
+		ramdisk_size = phys_initrd_size;
 
 	return ramdisk_size;
 }
@@ -1157,6 +1163,9 @@ void __init setup_arch(char **cmdline_p)
 
 	initmem_init();
 	dma_contiguous_reserve(max_pfn_mapped << PAGE_SHIFT);
+
+	if (boot_cpu_has(X86_FEATURE_GBPAGES))
+		hugetlb_cma_reserve(PUD_SHIFT - PAGE_SHIFT);
 
 	/*
 	 * Reserve memory for crash kernel after SRAT is parsed so that it

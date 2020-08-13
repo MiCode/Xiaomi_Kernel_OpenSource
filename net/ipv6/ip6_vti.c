@@ -296,7 +296,8 @@ static void vti6_dev_uninit(struct net_device *dev)
 	dev_put(dev);
 }
 
-static int vti6_rcv(struct sk_buff *skb)
+static int vti6_input_proto(struct sk_buff *skb, int nexthdr, __be32 spi,
+			    int encap_type)
 {
 	struct ip6_tnl *t;
 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
@@ -311,7 +312,7 @@ static int vti6_rcv(struct sk_buff *skb)
 
 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
 			rcu_read_unlock();
-			return 0;
+			goto discard;
 		}
 
 		ipv6h = ipv6_hdr(skb);
@@ -323,13 +324,23 @@ static int vti6_rcv(struct sk_buff *skb)
 
 		rcu_read_unlock();
 
-		return xfrm6_rcv_tnl(skb, t);
+		XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = t;
+		XFRM_SPI_SKB_CB(skb)->family = AF_INET6;
+		XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
+		return xfrm_input(skb, nexthdr, spi, encap_type);
 	}
 	rcu_read_unlock();
 	return -EINVAL;
 discard:
 	kfree_skb(skb);
 	return 0;
+}
+
+static int vti6_rcv(struct sk_buff *skb)
+{
+	int nexthdr = skb_network_header(skb)[IP6CB(skb)->nhoff];
+
+	return vti6_input_proto(skb, nexthdr, 0, 0);
 }
 
 static int vti6_rcv_cb(struct sk_buff *skb, int err)
@@ -450,15 +461,33 @@ vti6_xmit(struct sk_buff *skb, struct net_device *dev, struct flowi *fl)
 	int mtu;
 
 	if (!dst) {
-		fl->u.ip6.flowi6_oif = dev->ifindex;
-		fl->u.ip6.flowi6_flags |= FLOWI_FLAG_ANYSRC;
-		dst = ip6_route_output(dev_net(dev), NULL, &fl->u.ip6);
-		if (dst->error) {
-			dst_release(dst);
-			dst = NULL;
+		switch (skb->protocol) {
+		case htons(ETH_P_IP): {
+			struct rtable *rt;
+
+			fl->u.ip4.flowi4_oif = dev->ifindex;
+			fl->u.ip4.flowi4_flags |= FLOWI_FLAG_ANYSRC;
+			rt = __ip_route_output_key(dev_net(dev), &fl->u.ip4);
+			if (IS_ERR(rt))
+				goto tx_err_link_failure;
+			dst = &rt->dst;
+			skb_dst_set(skb, dst);
+			break;
+		}
+		case htons(ETH_P_IPV6):
+			fl->u.ip6.flowi6_oif = dev->ifindex;
+			fl->u.ip6.flowi6_flags |= FLOWI_FLAG_ANYSRC;
+			dst = ip6_route_output(dev_net(dev), NULL, &fl->u.ip6);
+			if (dst->error) {
+				dst_release(dst);
+				dst = NULL;
+				goto tx_err_link_failure;
+			}
+			skb_dst_set(skb, dst);
+			break;
+		default:
 			goto tx_err_link_failure;
 		}
-		skb_dst_set(skb, dst);
 	}
 
 	dst_hold(dst);
@@ -1167,6 +1196,7 @@ static struct pernet_operations vti6_net_ops = {
 
 static struct xfrm6_protocol vti_esp6_protocol __read_mostly = {
 	.handler	=	vti6_rcv,
+	.input_handler	=	vti6_input_proto,
 	.cb_handler	=	vti6_rcv_cb,
 	.err_handler	=	vti6_err,
 	.priority	=	100,
@@ -1174,6 +1204,7 @@ static struct xfrm6_protocol vti_esp6_protocol __read_mostly = {
 
 static struct xfrm6_protocol vti_ah6_protocol __read_mostly = {
 	.handler	=	vti6_rcv,
+	.input_handler	=	vti6_input_proto,
 	.cb_handler	=	vti6_rcv_cb,
 	.err_handler	=	vti6_err,
 	.priority	=	100,
@@ -1181,6 +1212,7 @@ static struct xfrm6_protocol vti_ah6_protocol __read_mostly = {
 
 static struct xfrm6_protocol vti_ipcomp6_protocol __read_mostly = {
 	.handler	=	vti6_rcv,
+	.input_handler	=	vti6_input_proto,
 	.cb_handler	=	vti6_rcv_cb,
 	.err_handler	=	vti6_err,
 	.priority	=	100,

@@ -15,13 +15,12 @@
 #include <trace/events/writeback.h>
 
 struct backing_dev_info noop_backing_dev_info = {
-	.name		= "noop",
 	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
 };
 EXPORT_SYMBOL_GPL(noop_backing_dev_info);
 
 static struct class *bdi_class;
-const char *bdi_unknown_name = "(unknown)";
+static const char *bdi_unknown_name = "(unknown)";
 
 /*
  * bdi_lock protects bdi_tree and updates to bdi_list. bdi_list has RCU
@@ -491,8 +490,8 @@ static void cgwb_release_workfn(struct work_struct *work)
 	css_put(wb->blkcg_css);
 	mutex_unlock(&wb->bdi->cgwb_release_mutex);
 
-	/* triggers blkg destruction if cgwb_refcnt becomes zero */
-	blkcg_cgwb_put(blkcg);
+	/* triggers blkg destruction if no online users left */
+	blkcg_unpin_online(blkcg);
 
 	fprop_local_destroy_percpu(&wb->memcg_completions);
 	percpu_ref_exit(&wb->refcnt);
@@ -592,7 +591,7 @@ static int cgwb_create(struct backing_dev_info *bdi,
 			list_add_tail_rcu(&wb->bdi_node, &bdi->wb_list);
 			list_add(&wb->memcg_node, memcg_cgwb_list);
 			list_add(&wb->blkcg_node, blkcg_cgwb_list);
-			blkcg_cgwb_get(blkcg);
+			blkcg_pin_online(blkcg);
 			css_get(memcg_css);
 			css_get(blkcg_css);
 		}
@@ -865,12 +864,11 @@ static int bdi_init(struct backing_dev_info *bdi)
 	return ret;
 }
 
-struct backing_dev_info *bdi_alloc_node(gfp_t gfp_mask, int node_id)
+struct backing_dev_info *bdi_alloc(int node_id)
 {
 	struct backing_dev_info *bdi;
 
-	bdi = kmalloc_node(sizeof(struct backing_dev_info),
-			   gfp_mask | __GFP_ZERO, node_id);
+	bdi = kzalloc_node(sizeof(*bdi), GFP_KERNEL, node_id);
 	if (!bdi)
 		return NULL;
 
@@ -880,7 +878,7 @@ struct backing_dev_info *bdi_alloc_node(gfp_t gfp_mask, int node_id)
 	}
 	return bdi;
 }
-EXPORT_SYMBOL(bdi_alloc_node);
+EXPORT_SYMBOL(bdi_alloc);
 
 static struct rb_node **bdi_lookup_rb_node(u64 id, struct rb_node **parentp)
 {
@@ -938,7 +936,8 @@ int bdi_register_va(struct backing_dev_info *bdi, const char *fmt, va_list args)
 	if (bdi->dev)	/* The driver needs to use separate queues per device */
 		return 0;
 
-	dev = device_create_vargs(bdi_class, NULL, MKDEV(0, 0), bdi, fmt, args);
+	vsnprintf(bdi->dev_name, sizeof(bdi->dev_name), fmt, args);
+	dev = device_create(bdi_class, NULL, MKDEV(0, 0), bdi, bdi->dev_name);
 	if (IS_ERR(dev))
 		return PTR_ERR(dev);
 
@@ -963,7 +962,6 @@ int bdi_register_va(struct backing_dev_info *bdi, const char *fmt, va_list args)
 	trace_writeback_bdi_register(bdi);
 	return 0;
 }
-EXPORT_SYMBOL(bdi_register_va);
 
 int bdi_register(struct backing_dev_info *bdi, const char *fmt, ...)
 {
@@ -977,20 +975,12 @@ int bdi_register(struct backing_dev_info *bdi, const char *fmt, ...)
 }
 EXPORT_SYMBOL(bdi_register);
 
-int bdi_register_owner(struct backing_dev_info *bdi, struct device *owner)
+void bdi_set_owner(struct backing_dev_info *bdi, struct device *owner)
 {
-	int rc;
-
-	rc = bdi_register(bdi, "%u:%u", MAJOR(owner->devt), MINOR(owner->devt));
-	if (rc)
-		return rc;
-	/* Leaking owner reference... */
-	WARN_ON(bdi->owner);
+	WARN_ON_ONCE(bdi->owner);
 	bdi->owner = owner;
 	get_device(owner);
-	return 0;
 }
-EXPORT_SYMBOL(bdi_register_owner);
 
 /*
  * Remove bdi from bdi_list, and ensure that it is no longer visible
@@ -1042,6 +1032,14 @@ void bdi_put(struct backing_dev_info *bdi)
 	kref_put(&bdi->refcnt, release_bdi);
 }
 EXPORT_SYMBOL(bdi_put);
+
+const char *bdi_dev_name(struct backing_dev_info *bdi)
+{
+	if (!bdi || !bdi->dev)
+		return bdi_unknown_name;
+	return bdi->dev_name;
+}
+EXPORT_SYMBOL_GPL(bdi_dev_name);
 
 static wait_queue_head_t congestion_wqh[2] = {
 		__WAIT_QUEUE_HEAD_INITIALIZER(congestion_wqh[0]),

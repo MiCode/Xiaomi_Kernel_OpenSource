@@ -59,7 +59,11 @@ TRACE_EVENT(hyp_core_ctl_status,
 		scnprintf(__entry->online, sizeof(__entry->reserve), "%*pbl",
 			  cpumask_pr_args(cpu_online_mask));
 		scnprintf(__entry->isolated, sizeof(__entry->reserve), "%*pbl",
+#ifdef CONFIG_SCHED_WALT
 			  cpumask_pr_args(cpu_isolated_mask));
+#else
+			  0);
+#endif
 		scnprintf(__entry->thermal, sizeof(__entry->reserve), "%*pbl",
 			  cpumask_pr_args(cpu_cooling_get_max_level_cpumask()));
 	),

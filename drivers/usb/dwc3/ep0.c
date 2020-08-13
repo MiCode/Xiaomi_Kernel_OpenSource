@@ -628,10 +628,10 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 			/* Read ep0IN related TXFIFO size */
 			dep = dwc->eps[1];
 			size = dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0));
-			if (dwc3_is_usb31(dwc))
-				dep->fifo_depth = DWC31_GTXFIFOSIZ_TXFDEF(size);
+			if (!DWC3_IP_IS(DWC3))
+				dep->fifo_depth = DWC31_GTXFIFOSIZ_TXFDEP(size);
 			else
-				dep->fifo_depth = DWC3_GTXFIFOSIZ_TXFDEF(size);
+				dep->fifo_depth = DWC3_GTXFIFOSIZ_TXFDEP(size);
 
 			dwc->last_fifo_depth = dep->fifo_depth;
 			/* Clear existing TXFIFO for all IN eps except ep0 */
@@ -640,7 +640,7 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 				dep = dwc->eps[num];
 				size = 0;
 				/* Don't change TXFRAMNUM on usb31 version */
-				if (dwc3_is_usb31(dwc))
+				if (!DWC3_IP_IS(DWC3))
 					size = dwc3_readl(dwc->regs,
 						DWC3_GTXFIFOSIZ(num >> 1)) &
 						DWC31_GTXFIFOSIZ_TXFRAMNUM;

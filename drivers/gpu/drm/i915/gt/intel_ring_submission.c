@@ -29,11 +29,10 @@
 
 #include <linux/log2.h>
 
-#include <drm/i915_drm.h>
-
 #include "gem/i915_gem_context.h"
 
 #include "gen6_ppgtt.h"
+#include "gen7_renderclear.h"
 #include "i915_drv.h"
 #include "i915_trace.h"
 #include "intel_context.h"
@@ -43,6 +42,7 @@
 #include "intel_reset.h"
 #include "intel_ring.h"
 #include "intel_workarounds.h"
+#include "shmem_utils.h"
 
 /* Rough estimate of the typical request size, performing a flush,
  * set-context and then emitting the batch.
@@ -568,7 +568,8 @@ static void flush_cs_tlb(struct intel_engine_cs *engine)
 		return;
 
 	/* ring should be idle before issuing a sync flush*/
-	WARN_ON((ENGINE_READ(engine, RING_MI_MODE) & MODE_IDLE) == 0);
+	drm_WARN_ON(&dev_priv->drm,
+		    (ENGINE_READ(engine, RING_MI_MODE) & MODE_IDLE) == 0);
 
 	ENGINE_WRITE(engine, RING_INSTPM,
 		     _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
@@ -577,8 +578,9 @@ static void flush_cs_tlb(struct intel_engine_cs *engine)
 				    RING_INSTPM(engine->mmio_base),
 				    INSTPM_SYNC_FLUSH, 0,
 				    1000))
-		DRM_ERROR("%s: wait for SyncFlush to complete for TLB invalidation timed out\n",
-			  engine->name);
+		drm_err(&dev_priv->drm,
+			"%s: wait for SyncFlush to complete for TLB invalidation timed out\n",
+			engine->name);
 }
 
 static void ring_setup_status_page(struct intel_engine_cs *engine)
@@ -601,8 +603,9 @@ static bool stop_ring(struct intel_engine_cs *engine)
 					    MODE_IDLE,
 					    MODE_IDLE,
 					    1000)) {
-			DRM_ERROR("%s : timed out trying to stop ring\n",
-				  engine->name);
+			drm_err(&dev_priv->drm,
+				"%s : timed out trying to stop ring\n",
+				engine->name);
 
 			/*
 			 * Sometimes we observe that the idle flag is not
@@ -626,6 +629,27 @@ static bool stop_ring(struct intel_engine_cs *engine)
 	return (ENGINE_READ(engine, RING_HEAD) & HEAD_ADDR) == 0;
 }
 
+static struct i915_address_space *vm_alias(struct i915_address_space *vm)
+{
+	if (i915_is_ggtt(vm))
+		vm = &i915_vm_to_ggtt(vm)->alias->vm;
+
+	return vm;
+}
+
+static void set_pp_dir(struct intel_engine_cs *engine)
+{
+	struct i915_address_space *vm = vm_alias(engine->gt->vm);
+
+	if (vm) {
+		struct i915_ppgtt *ppgtt = i915_vm_to_ppgtt(vm);
+
+		ENGINE_WRITE(engine, RING_PP_DIR_DCLV, PP_DIR_DCLV_2G);
+		ENGINE_WRITE(engine, RING_PP_DIR_BASE,
+			     px_base(ppgtt->pd)->ggtt_offset << 10);
+	}
+}
+
 static int xcs_resume(struct intel_engine_cs *engine)
 {
 	struct drm_i915_private *dev_priv = engine->i915;
@@ -640,22 +664,23 @@ static int xcs_resume(struct intel_engine_cs *engine)
 	/* WaClearRingBufHeadRegAtInit:ctg,elk */
 	if (!stop_ring(engine)) {
 		/* G45 ring initialization often fails to reset head to zero */
-		DRM_DEBUG_DRIVER("%s head not reset to zero "
+		drm_dbg(&dev_priv->drm, "%s head not reset to zero "
+			"ctl %08x head %08x tail %08x start %08x\n",
+			engine->name,
+			ENGINE_READ(engine, RING_CTL),
+			ENGINE_READ(engine, RING_HEAD),
+			ENGINE_READ(engine, RING_TAIL),
+			ENGINE_READ(engine, RING_START));
+
+		if (!stop_ring(engine)) {
+			drm_err(&dev_priv->drm,
+				"failed to set %s head to zero "
 				"ctl %08x head %08x tail %08x start %08x\n",
 				engine->name,
 				ENGINE_READ(engine, RING_CTL),
 				ENGINE_READ(engine, RING_HEAD),
 				ENGINE_READ(engine, RING_TAIL),
 				ENGINE_READ(engine, RING_START));
-
-		if (!stop_ring(engine)) {
-			DRM_ERROR("failed to set %s head to zero "
-				  "ctl %08x head %08x tail %08x start %08x\n",
-				  engine->name,
-				  ENGINE_READ(engine, RING_CTL),
-				  ENGINE_READ(engine, RING_HEAD),
-				  ENGINE_READ(engine, RING_TAIL),
-				  ENGINE_READ(engine, RING_START));
 			ret = -EIO;
 			goto out;
 		}
@@ -684,6 +709,8 @@ static int xcs_resume(struct intel_engine_cs *engine)
 	GEM_BUG_ON(!intel_ring_offset_valid(ring, ring->tail));
 	intel_ring_update_space(ring);
 
+	set_pp_dir(engine);
+
 	/* First wake the ring up to an empty/idle ring */
 	ENGINE_WRITE(engine, RING_HEAD, ring->head);
 	ENGINE_WRITE(engine, RING_TAIL, ring->head);
@@ -696,7 +723,7 @@ static int xcs_resume(struct intel_engine_cs *engine)
 				    RING_CTL(engine->mmio_base),
 				    RING_VALID, RING_VALID,
 				    50)) {
-		DRM_ERROR("%s initialization failed "
+		drm_err(&dev_priv->drm, "%s initialization failed "
 			  "ctl %08x (valid? %d) head %08x [%08x] tail %08x [%08x] start %08x [expected %08x]\n",
 			  engine->name,
 			  ENGINE_READ(engine, RING_CTL),
@@ -857,43 +884,6 @@ static int rcs_resume(struct intel_engine_cs *engine)
 		intel_uncore_write(uncore, ECOSKPD,
 			   _MASKED_BIT_ENABLE(ECO_CONSTANT_BUFFER_SR_DISABLE));
 
-	/* WaTimedSingleVertexDispatch:cl,bw,ctg,elk,ilk,snb */
-	if (IS_GEN_RANGE(i915, 4, 6))
-		intel_uncore_write(uncore, MI_MODE,
-				   _MASKED_BIT_ENABLE(VS_TIMER_DISPATCH));
-
-	/* We need to disable the AsyncFlip performance optimisations in order
-	 * to use MI_WAIT_FOR_EVENT within the CS. It should already be
-	 * programmed to '1' on all products.
-	 *
-	 * WaDisableAsyncFlipPerfMode:snb,ivb,hsw,vlv
-	 */
-	if (IS_GEN_RANGE(i915, 6, 7))
-		intel_uncore_write(uncore, MI_MODE,
-				   _MASKED_BIT_ENABLE(ASYNC_FLIP_PERF_DISABLE));
-
-	/* Required for the hardware to program scanline values for waiting */
-	/* WaEnableFlushTlbInvalidationMode:snb */
-	if (IS_GEN(i915, 6))
-		intel_uncore_write(uncore, GFX_MODE,
-			   _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_EXPLICIT));
-
-	/* WaBCSVCSTlbInvalidationMode:ivb,vlv,hsw */
-	if (IS_GEN(i915, 7))
-		intel_uncore_write(uncore, GFX_MODE_GEN7,
-			   _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_EXPLICIT) |
-			   _MASKED_BIT_ENABLE(GFX_REPLAY_MODE));
-
-	if (IS_GEN(i915, 6)) {
-		/* From the Sandybridge PRM, volume 1 part 3, page 24:
-		 * "If this bit is set, STCunit will have LRA as replacement
-		 *  policy. [...] This bit must be reset.  LRA replacement
-		 *  policy is not supported."
-		 */
-		intel_uncore_write(uncore, CACHE_MODE_0,
-			   _MASKED_BIT_DISABLE(CM0_STC_EVICT_DISABLE_LRA_SNB));
-	}
-
 	if (IS_GEN_RANGE(i915, 6, 7))
 		intel_uncore_write(uncore, INSTPM,
 				   _MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
@@ -910,9 +900,7 @@ static void reset_cancel(struct intel_engine_cs *engine)
 
 	/* Mark all submitted requests as skipped. */
 	list_for_each_entry(request, &engine->active.requests, sched.link) {
-		if (!i915_request_signaled(request))
-			dma_fence_set_error(&request->fence, -EIO);
-
+		i915_request_set_error_once(request, -EIO);
 		i915_request_mark_complete(request);
 	}
 
@@ -1197,23 +1185,12 @@ static void ring_context_destroy(struct kref *ref)
 	intel_context_free(ce);
 }
 
-static struct i915_address_space *vm_alias(struct intel_context *ce)
-{
-	struct i915_address_space *vm;
-
-	vm = ce->vm;
-	if (i915_is_ggtt(vm))
-		vm = &i915_vm_to_ggtt(vm)->alias->vm;
-
-	return vm;
-}
-
 static int __context_pin_ppgtt(struct intel_context *ce)
 {
 	struct i915_address_space *vm;
 	int err = 0;
 
-	vm = vm_alias(ce);
+	vm = vm_alias(ce->vm);
 	if (vm)
 		err = gen6_ppgtt_pin(i915_vm_to_ppgtt((vm)));
 
@@ -1224,7 +1201,7 @@ static void __context_unpin_ppgtt(struct intel_context *ce)
 {
 	struct i915_address_space *vm;
 
-	vm = vm_alias(ce);
+	vm = vm_alias(ce->vm);
 	if (vm)
 		gen6_ppgtt_unpin(i915_vm_to_ppgtt(vm));
 }
@@ -1265,7 +1242,7 @@ alloc_context_vma(struct intel_engine_cs *engine)
 		i915_gem_object_set_cache_coherency(obj, I915_CACHE_L3_LLC);
 
 	if (engine->default_state) {
-		void *defaults, *vaddr;
+		void *vaddr;
 
 		vaddr = i915_gem_object_pin_map(obj, I915_MAP_WB);
 		if (IS_ERR(vaddr)) {
@@ -1273,15 +1250,8 @@ alloc_context_vma(struct intel_engine_cs *engine)
 			goto err_obj;
 		}
 
-		defaults = i915_gem_object_pin_map(engine->default_state,
-						   I915_MAP_WB);
-		if (IS_ERR(defaults)) {
-			err = PTR_ERR(defaults);
-			goto err_map;
-		}
-
-		memcpy(vaddr, defaults, engine->context_size);
-		i915_gem_object_unpin_map(engine->default_state);
+		shmem_read(engine->default_state, 0,
+			   vaddr, engine->context_size);
 
 		i915_gem_object_flush_map(obj);
 		i915_gem_object_unpin_map(obj);
@@ -1295,8 +1265,6 @@ alloc_context_vma(struct intel_engine_cs *engine)
 
 	return vma;
 
-err_map:
-	i915_gem_object_unpin_map(obj);
 err_obj:
 	i915_gem_object_put(obj);
 	return ERR_PTR(err);
@@ -1384,7 +1352,9 @@ static int load_pd_dir(struct i915_request *rq,
 	return rq->engine->emit_flush(rq, EMIT_FLUSH);
 }
 
-static inline int mi_set_context(struct i915_request *rq, u32 flags)
+static inline int mi_set_context(struct i915_request *rq,
+				 struct intel_context *ce,
+				 u32 flags)
 {
 	struct drm_i915_private *i915 = rq->i915;
 	struct intel_engine_cs *engine = rq->engine;
@@ -1459,7 +1429,7 @@ static inline int mi_set_context(struct i915_request *rq, u32 flags)
 
 	*cs++ = MI_NOOP;
 	*cs++ = MI_SET_CONTEXT;
-	*cs++ = i915_ggtt_offset(rq->context->state) | flags;
+	*cs++ = i915_ggtt_offset(ce->state) | flags;
 	/*
 	 * w/a: MI_SET_CONTEXT must always be followed by MI_NOOP
 	 * WaMiSetContext_Hang:snb,ivb,vlv
@@ -1574,21 +1544,64 @@ static int switch_mm(struct i915_request *rq, struct i915_address_space *vm)
 	return rq->engine->emit_flush(rq, EMIT_INVALIDATE);
 }
 
+static int clear_residuals(struct i915_request *rq)
+{
+	struct intel_engine_cs *engine = rq->engine;
+	int ret;
+
+	ret = switch_mm(rq, vm_alias(engine->kernel_context->vm));
+	if (ret)
+		return ret;
+
+	if (engine->kernel_context->state) {
+		ret = mi_set_context(rq,
+				     engine->kernel_context,
+				     MI_MM_SPACE_GTT | MI_RESTORE_INHIBIT);
+		if (ret)
+			return ret;
+	}
+
+	ret = engine->emit_bb_start(rq,
+				    engine->wa_ctx.vma->node.start, 0,
+				    0);
+	if (ret)
+		return ret;
+
+	ret = engine->emit_flush(rq, EMIT_FLUSH);
+	if (ret)
+		return ret;
+
+	/* Always invalidate before the next switch_mm() */
+	return engine->emit_flush(rq, EMIT_INVALIDATE);
+}
+
 static int switch_context(struct i915_request *rq)
 {
+	struct intel_engine_cs *engine = rq->engine;
 	struct intel_context *ce = rq->context;
+	void **residuals = NULL;
 	int ret;
 
 	GEM_BUG_ON(HAS_EXECLISTS(rq->i915));
 
-	ret = switch_mm(rq, vm_alias(ce));
+	if (engine->wa_ctx.vma && ce != engine->kernel_context) {
+		if (engine->wa_ctx.vma->private != ce) {
+			ret = clear_residuals(rq);
+			if (ret)
+				return ret;
+
+			residuals = &engine->wa_ctx.vma->private;
+		}
+	}
+
+	ret = switch_mm(rq, vm_alias(ce->vm));
 	if (ret)
 		return ret;
 
 	if (ce->state) {
 		u32 flags;
 
-		GEM_BUG_ON(rq->engine->id != RCS0);
+		GEM_BUG_ON(engine->id != RCS0);
 
 		/* For resource streamer on HSW+ and power context elsewhere */
 		BUILD_BUG_ON(HSW_MI_RS_SAVE_STATE_EN != MI_SAVE_EXT_STATE_EN);
@@ -1600,7 +1613,7 @@ static int switch_context(struct i915_request *rq)
 		else
 			flags |= MI_RESTORE_INHIBIT;
 
-		ret = mi_set_context(rq, flags);
+		ret = mi_set_context(rq, ce, flags);
 		if (ret)
 			return ret;
 	}
@@ -1608,6 +1621,20 @@ static int switch_context(struct i915_request *rq)
 	ret = remap_l3(rq);
 	if (ret)
 		return ret;
+
+	/*
+	 * Now past the point of no return, this request _will_ be emitted.
+	 *
+	 * Or at least this preamble will be emitted, the request may be
+	 * interrupted prior to submitting the user payload. If so, we
+	 * still submit the "empty" request in order to preserve global
+	 * state tracking such as this, our tracking of the current
+	 * dirty context.
+	 */
+	if (residuals) {
+		intel_context_put(*residuals);
+		*residuals = intel_context_get(ce);
+	}
 
 	return 0;
 }
@@ -1662,7 +1689,8 @@ static void gen6_bsd_submit_request(struct i915_request *request)
 					 GEN6_BSD_SLEEP_INDICATOR,
 					 0,
 					 1000, 0, NULL))
-		DRM_ERROR("timed out waiting for the BSD ring to wake up\n");
+		drm_err(&uncore->i915->drm,
+			"timed out waiting for the BSD ring to wake up\n");
 
 	/* Now that the ring is fully powered up, update the tail */
 	i9xx_submit_request(request);
@@ -1787,10 +1815,15 @@ static void ring_release(struct intel_engine_cs *engine)
 {
 	struct drm_i915_private *dev_priv = engine->i915;
 
-	WARN_ON(INTEL_GEN(dev_priv) > 2 &&
-		(ENGINE_READ(engine, RING_MI_MODE) & MODE_IDLE) == 0);
+	drm_WARN_ON(&dev_priv->drm, INTEL_GEN(dev_priv) > 2 &&
+		    (ENGINE_READ(engine, RING_MI_MODE) & MODE_IDLE) == 0);
 
 	intel_engine_cleanup_common(engine);
+
+	if (engine->wa_ctx.vma) {
+		intel_context_put(engine->wa_ctx.vma->private);
+		i915_vma_unpin_and_release(&engine->wa_ctx.vma, 0);
+	}
 
 	intel_ring_unpin(engine->legacy.ring);
 	intel_ring_put(engine->legacy.ring);
@@ -1939,6 +1972,64 @@ static void setup_vecs(struct intel_engine_cs *engine)
 	engine->emit_fini_breadcrumb = gen7_xcs_emit_breadcrumb;
 }
 
+static int gen7_ctx_switch_bb_setup(struct intel_engine_cs * const engine,
+				    struct i915_vma * const vma)
+{
+	return gen7_setup_clear_gpr_bb(engine, vma);
+}
+
+static int gen7_ctx_switch_bb_init(struct intel_engine_cs *engine)
+{
+	struct drm_i915_gem_object *obj;
+	struct i915_vma *vma;
+	int size;
+	int err;
+
+	size = gen7_ctx_switch_bb_setup(engine, NULL /* probe size */);
+	if (size <= 0)
+		return size;
+
+	size = ALIGN(size, PAGE_SIZE);
+	obj = i915_gem_object_create_internal(engine->i915, size);
+	if (IS_ERR(obj))
+		return PTR_ERR(obj);
+
+	vma = i915_vma_instance(obj, engine->gt->vm, NULL);
+	if (IS_ERR(vma)) {
+		err = PTR_ERR(vma);
+		goto err_obj;
+	}
+
+	vma->private = intel_context_create(engine); /* dummy residuals */
+	if (IS_ERR(vma->private)) {
+		err = PTR_ERR(vma->private);
+		goto err_obj;
+	}
+
+	err = i915_vma_pin(vma, 0, 0, PIN_USER | PIN_HIGH);
+	if (err)
+		goto err_private;
+
+	err = i915_vma_sync(vma);
+	if (err)
+		goto err_unpin;
+
+	err = gen7_ctx_switch_bb_setup(engine, vma);
+	if (err)
+		goto err_unpin;
+
+	engine->wa_ctx.vma = vma;
+	return 0;
+
+err_unpin:
+	i915_vma_unpin(vma);
+err_private:
+	intel_context_put(vma->private);
+err_obj:
+	i915_gem_object_put(obj);
+	return err;
+}
+
 int intel_ring_submission_setup(struct intel_engine_cs *engine)
 {
 	struct intel_timeline *timeline;
@@ -1992,11 +2083,19 @@ int intel_ring_submission_setup(struct intel_engine_cs *engine)
 
 	GEM_BUG_ON(timeline->hwsp_ggtt != engine->status_page.vma);
 
+	if (IS_HASWELL(engine->i915) && engine->class == RENDER_CLASS) {
+		err = gen7_ctx_switch_bb_init(engine);
+		if (err)
+			goto err_ring_unpin;
+	}
+
 	/* Finally, take ownership and responsibility for cleanup! */
 	engine->release = ring_release;
 
 	return 0;
 
+err_ring_unpin:
+	intel_ring_unpin(ring);
 err_ring:
 	intel_ring_put(ring);
 err_timeline_unpin:
@@ -2007,3 +2106,7 @@ err:
 	intel_engine_cleanup_common(engine);
 	return err;
 }
+
+#if IS_ENABLED(CONFIG_DRM_I915_SELFTEST)
+#include "selftest_ring_submission.c"
+#endif

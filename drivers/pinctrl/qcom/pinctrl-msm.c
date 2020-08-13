@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -22,8 +22,7 @@
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/log2.h>
-
-#include <linux/soc/qcom/irq.h>
+#include <linux/qcom_scm.h>
 
 #include <linux/soc/qcom/irq.h>
 
@@ -62,6 +61,8 @@ struct msm_pinctrl {
 	struct irq_chip irq_chip;
 	int irq;
 
+	bool intr_target_use_scm;
+
 	raw_spinlock_t lock;
 
 	DECLARE_BITMAP(dual_edge_irqs, MAX_NR_GPIO);
@@ -70,6 +71,7 @@ struct msm_pinctrl {
 
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs[MAX_NR_TILES];
+	u32 phys_base[MAX_NR_TILES];
 };
 
 #define MSM_ACCESSOR(name) \
@@ -491,8 +493,8 @@ static int msm_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
 
 	val = msm_readl_ctl(pctrl, g);
 
-	/* 0 = output, 1 = input */
-	return val & BIT(g->oe_bit) ? 0 : 1;
+	return val & BIT(g->oe_bit) ? GPIO_LINE_DIRECTION_OUT :
+				      GPIO_LINE_DIRECTION_IN;
 }
 
 static int msm_gpio_get(struct gpio_chip *chip, unsigned offset)
@@ -694,7 +696,7 @@ static void msm_gpio_update_dual_edge_pos(struct msm_pinctrl *pctrl,
 
 		pol = msm_readl_intr_cfg(pctrl, g);
 		pol ^= BIT(g->intr_polarity_bit);
-		msm_writel_intr_cfg(val, pctrl, g);
+		msm_writel_intr_cfg(pol, pctrl, g);
 
 		val2 = msm_readl_io(pctrl, g) & BIT(g->in_bit);
 		intstat = msm_readl_intr_status(pctrl, g);
@@ -796,9 +798,6 @@ static void msm_gpio_irq_clear_unmask(struct irq_data *d, bool status_clear)
 
 static void msm_gpio_irq_enable(struct irq_data *d)
 {
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
-
 	/*
 	 * Clear the interrupt that may be pending before we enable
 	 * the line.
@@ -812,9 +811,6 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 		irq_chip_set_parent_state(d, IRQCHIP_STATE_PENDING, 0);
 		irq_chip_enable_parent(d);
 	}
-
-	if (test_bit(d->hwirq, pctrl->skip_wake_irqs))
-		return;
 
 	msm_gpio_irq_clear_unmask(d, true);
 }
@@ -890,11 +886,30 @@ static int msm_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	else
 		clear_bit(d->hwirq, pctrl->dual_edge_irqs);
 
-	/* Route interrupts to application cpu */
-	val = msm_readl_intr_target(pctrl, g);
-	val &= ~(7 << g->intr_target_bit);
-	val |= g->intr_target_kpss_val << g->intr_target_bit;
-	msm_writel_intr_target(val, pctrl, g);
+	/* Route interrupts to application cpu.
+	 * With intr_target_use_scm interrupts are routed to
+	 * application cpu using scm calls.
+	 */
+	if (pctrl->intr_target_use_scm) {
+		u32 addr = pctrl->phys_base[0] + g->intr_target_reg;
+		int ret;
+
+		qcom_scm_io_readl(addr, &val);
+
+		val &= ~(7 << g->intr_target_bit);
+		val |= g->intr_target_kpss_val << g->intr_target_bit;
+
+		ret = qcom_scm_io_writel(addr, val);
+		if (ret)
+			dev_err(pctrl->dev,
+				"Failed routing %lu interrupt to Apps proc",
+				d->hwirq);
+	} else {
+		val = msm_readl_intr_target(pctrl, g);
+		val &= ~(7 << g->intr_target_bit);
+		val |= g->intr_target_kpss_val << g->intr_target_bit;
+		msm_writel_intr_target(val, pctrl, g);
+	}
 
 	/* Update configuration for gpio.
 	 * RAW_STATUS_EN is left on for all gpio irqs. Due to the
@@ -979,6 +994,64 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 		irq_chip_set_wake_parent(d, on);
 
 	irq_set_irq_wake(pctrl->irq, on);
+
+	return 0;
+}
+
+static int msm_gpio_irq_reqres(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+	int ret;
+
+	if (!try_module_get(gc->owner))
+		return -ENODEV;
+
+	ret = msm_pinmux_request_gpio(pctrl->pctrl, NULL, d->hwirq);
+	if (ret)
+		goto out;
+	msm_gpio_direction_input(gc, d->hwirq);
+
+	if (gpiochip_lock_as_irq(gc, d->hwirq)) {
+		dev_err(gc->parent,
+			"unable to lock HW IRQ %lu for IRQ\n",
+			d->hwirq);
+		ret = -EINVAL;
+		goto out;
+	}
+	return 0;
+out:
+	module_put(gc->owner);
+	return ret;
+}
+
+static void msm_gpio_irq_relres(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+
+	gpiochip_unlock_as_irq(gc, d->hwirq);
+	module_put(gc->owner);
+}
+
+static int msm_gpio_irq_set_affinity(struct irq_data *d,
+				const struct cpumask *dest, bool force)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+
+	if (d->parent_data && test_bit(d->hwirq, pctrl->skip_wake_irqs))
+		return irq_chip_set_affinity_parent(d, dest, force);
+
+	return 0;
+}
+
+static int msm_gpio_irq_set_vcpu_affinity(struct irq_data *d, void *vcpu_info)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+
+	if (d->parent_data && test_bit(d->hwirq, pctrl->skip_wake_irqs))
+		return irq_chip_set_vcpu_affinity_parent(d, vcpu_info);
 
 	return 0;
 }
@@ -1077,9 +1150,12 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	pctrl->irq_chip.irq_mask = msm_gpio_irq_mask;
 	pctrl->irq_chip.irq_unmask = msm_gpio_irq_unmask;
 	pctrl->irq_chip.irq_ack = msm_gpio_irq_ack;
-	pctrl->irq_chip.irq_eoi = irq_chip_eoi_parent;
 	pctrl->irq_chip.irq_set_type = msm_gpio_irq_set_type;
 	pctrl->irq_chip.irq_set_wake = msm_gpio_irq_set_wake;
+	pctrl->irq_chip.irq_request_resources = msm_gpio_irq_reqres;
+	pctrl->irq_chip.irq_release_resources = msm_gpio_irq_relres;
+	pctrl->irq_chip.irq_set_affinity = msm_gpio_irq_set_affinity;
+	pctrl->irq_chip.irq_set_vcpu_affinity = msm_gpio_irq_set_vcpu_affinity;
 
 	np = of_parse_phandle(pctrl->dev->of_node, "wakeup-parent", 0);
 	if (np) {
@@ -1089,7 +1165,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 		if (!chip->irq.parent_domain)
 			return -EPROBE_DEFER;
 		chip->irq.child_to_parent_hwirq = msm_gpio_wakeirq;
-
+		pctrl->irq_chip.irq_eoi = irq_chip_eoi_parent;
 		/*
 		 * Let's skip handling the GPIOs, if the parent irqchip
 		 * is handling the direct connect IRQ of the GPIO.
@@ -1106,7 +1182,6 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	girq->parent_handler = msm_gpio_irq_handler;
 	girq->fwnode = pctrl->dev->fwnode;
 	girq->num_parents = 1;
-	girq->fwnode = pctrl->dev->fwnode;
 	girq->parents = devm_kcalloc(pctrl->dev, 1, sizeof(*girq->parents),
 				     GFP_KERNEL);
 	if (!girq->parents)
@@ -1213,6 +1288,9 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	pctrl->dev = &pdev->dev;
 	pctrl->soc = soc_data;
 	pctrl->chip = msm_gpio_template;
+	pctrl->intr_target_use_scm = of_device_is_compatible(
+					pctrl->dev->of_node,
+					"qcom,ipq8064-pinctrl");
 
 	raw_spin_lock_init(&pctrl->lock);
 
@@ -1225,9 +1303,12 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 				return PTR_ERR(pctrl->regs[i]);
 		}
 	} else {
-		pctrl->regs[0] = devm_platform_ioremap_resource(pdev, 0);
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		pctrl->regs[0] = devm_ioremap_resource(&pdev->dev, res);
 		if (IS_ERR(pctrl->regs[0]))
 			return PTR_ERR(pctrl->regs[0]);
+
+		pctrl->phys_base[0] = res->start;
 	}
 
 	msm_pinctrl_setup_pm_reset(pctrl);
@@ -1274,4 +1355,6 @@ int msm_pinctrl_remove(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(msm_pinctrl_remove);
 
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. pinctrl-msm driver");
 MODULE_LICENSE("GPL v2");
+

@@ -434,7 +434,6 @@ void rtw_seccalctkipmic(u8 *key, u8 *header, u8 *data, u32 data_len, u8 *mic_cod
 			rtw_secmicappend(&micdata, &header[16], 6);
 		else
 			rtw_secmicappend(&micdata, &header[10], 6);
-
 	}
 	rtw_secmicappend(&micdata, &priority[0], 4);
 
@@ -723,7 +722,6 @@ u32 rtw_tkip_encrypt(struct adapter *padapter, u8 *pxmitframe)
 
 			TKIP_SW_ENC_CNT_INC(psecuritypriv, pattrib->ra);
 		}
-
 	}
 	return res;
 }
@@ -758,7 +756,7 @@ u32 rtw_tkip_decrypt(struct adapter *padapter, u8 *precvframe)
 				static u32 no_gkey_bc_cnt;
 				static u32 no_gkey_mc_cnt;
 
-				if (psecuritypriv->binstallGrpkey == false) {
+				if (!psecuritypriv->binstallGrpkey) {
 					res = _FAIL;
 
 					if (start == 0)
@@ -829,11 +827,9 @@ u32 rtw_tkip_decrypt(struct adapter *padapter, u8 *precvframe)
 			RT_TRACE(_module_rtl871x_security_c_, _drv_err_, ("%s: stainfo == NULL!!!\n", __func__));
 			res = _FAIL;
 		}
-
 	}
 exit:
 	return res;
-
 }
 
 
@@ -1219,7 +1215,6 @@ static void construct_mic_header2(
 		if (!qc_exists && a4_exists) {
 			for (i = 0; i < 6; i++)
 				mic_header2[8+i] = mpdu[24+i];   /* A4 */
-
 		}
 
 		if (qc_exists && !a4_exists) {
@@ -1234,7 +1229,6 @@ static void construct_mic_header2(
 			mic_header2[14] = mpdu[30] & 0x0f;
 			mic_header2[15] = mpdu[31] & 0x00;
 		}
-
 }
 
 /************************************************/
@@ -1413,7 +1407,6 @@ static sint aes_cipher(u8 *key, uint	hdrlen,
 		}
 		bitwise_xor(aes_out, padded_buffer, chain_buffer);
 		aes128k128d(key, chain_buffer, aes_out);
-
 	}
 
 	for (j = 0 ; j < 8; j++)
@@ -1719,7 +1712,6 @@ static sint aes_decipher(u8 *key, uint	hdrlen,
 		}
 		bitwise_xor(aes_out, padded_buffer, chain_buffer);
 		aes128k128d(key, chain_buffer, aes_out);
-
 	}
 
 	for (j = 0; j < 8; j++)
@@ -1845,7 +1837,7 @@ u32 rtw_aes_decrypt(struct adapter *padapter, u8 *precvframe)
 				static u32 no_gkey_bc_cnt;
 				static u32 no_gkey_mc_cnt;
 
-				if (psecuritypriv->binstallGrpkey == false) {
+				if (!psecuritypriv->binstallGrpkey) {
 					res = _FAIL;
 
 					if (start == 0)
@@ -2377,7 +2369,7 @@ u8 rtw_handle_tkip_countermeasure(struct adapter *adapter, const char *caller)
 	struct security_priv *securitypriv = &(adapter->securitypriv);
 	u8 status = _SUCCESS;
 
-	if (securitypriv->btkip_countermeasure == true) {
+	if (securitypriv->btkip_countermeasure) {
 		unsigned long passing_ms = jiffies_to_msecs(jiffies - securitypriv->btkip_countermeasure_time);
 		if (passing_ms > 60*1000) {
 			DBG_871X_LEVEL(_drv_always_, "%s("ADPT_FMT") countermeasure time:%lus > 60s\n",

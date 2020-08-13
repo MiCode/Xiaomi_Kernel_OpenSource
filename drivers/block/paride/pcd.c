@@ -276,7 +276,7 @@ static const struct block_device_operations pcd_bdops = {
 	.release	= pcd_block_release,
 	.ioctl		= pcd_block_ioctl,
 #ifdef CONFIG_COMPAT
-	.ioctl		= blkdev_compat_ptr_ioctl,
+	.compat_ioctl	= blkdev_compat_ptr_ioctl,
 #endif
 	.check_events	= pcd_block_check_events,
 };
@@ -1032,7 +1032,7 @@ static int __init pcd_init(void)
 
 	for (unit = 0, cd = pcd; unit < PCD_UNITS; unit++, cd++) {
 		if (cd->present) {
-			register_cdrom(&cd->info);
+			register_cdrom(cd->disk, &cd->info);
 			cd->disk->private_data = cd;
 			add_disk(cd->disk);
 		}

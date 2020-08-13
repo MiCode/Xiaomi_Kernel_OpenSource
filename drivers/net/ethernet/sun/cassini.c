@@ -237,12 +237,6 @@ static inline void cas_lock_tx(struct cas *cp)
 		spin_lock_nested(&cp->tx_lock[i], i);
 }
 
-static inline void cas_lock_all(struct cas *cp)
-{
-	spin_lock_irq(&cp->lock);
-	cas_lock_tx(cp);
-}
-
 /* WTZ: QA was finding deadlock problems with the previous
  * versions after long test runs with multiple cards per machine.
  * See if replacing cas_lock_all with safer versions helps. The
@@ -264,12 +258,6 @@ static inline void cas_unlock_tx(struct cas *cp)
 
 	for (i = N_TX_RINGS; i > 0; i--)
 		spin_unlock(&cp->tx_lock[i - 1]);
-}
-
-static inline void cas_unlock_all(struct cas *cp)
-{
-	cas_unlock_tx(cp);
-	spin_unlock_irq(&cp->lock);
 }
 
 #define cas_unlock_all_restore(cp, flags) \
@@ -1716,34 +1704,26 @@ static int cas_pci_interrupt(struct net_device *dev, struct cas *cp,
 	pr_cont("\n");
 
 	if (stat & PCI_ERR_OTHER) {
-		u16 cfg;
+		int pci_errs;
 
 		/* Interrogate PCI config space for the
 		 * true cause.
 		 */
-		pci_read_config_word(cp->pdev, PCI_STATUS, &cfg);
-		netdev_err(dev, "Read PCI cfg space status [%04x]\n", cfg);
-		if (cfg & PCI_STATUS_PARITY)
-			netdev_err(dev, "PCI parity error detected\n");
-		if (cfg & PCI_STATUS_SIG_TARGET_ABORT)
-			netdev_err(dev, "PCI target abort\n");
-		if (cfg & PCI_STATUS_REC_TARGET_ABORT)
-			netdev_err(dev, "PCI master acks target abort\n");
-		if (cfg & PCI_STATUS_REC_MASTER_ABORT)
-			netdev_err(dev, "PCI master abort\n");
-		if (cfg & PCI_STATUS_SIG_SYSTEM_ERROR)
-			netdev_err(dev, "PCI system error SERR#\n");
-		if (cfg & PCI_STATUS_DETECTED_PARITY)
-			netdev_err(dev, "PCI parity error\n");
+		pci_errs = pci_status_get_and_clear_errors(cp->pdev);
 
-		/* Write the error bits back to clear them. */
-		cfg &= (PCI_STATUS_PARITY |
-			PCI_STATUS_SIG_TARGET_ABORT |
-			PCI_STATUS_REC_TARGET_ABORT |
-			PCI_STATUS_REC_MASTER_ABORT |
-			PCI_STATUS_SIG_SYSTEM_ERROR |
-			PCI_STATUS_DETECTED_PARITY);
-		pci_write_config_word(cp->pdev, PCI_STATUS, cfg);
+		netdev_err(dev, "PCI status errors[%04x]\n", pci_errs);
+		if (pci_errs & PCI_STATUS_PARITY)
+			netdev_err(dev, "PCI parity error detected\n");
+		if (pci_errs & PCI_STATUS_SIG_TARGET_ABORT)
+			netdev_err(dev, "PCI target abort\n");
+		if (pci_errs & PCI_STATUS_REC_TARGET_ABORT)
+			netdev_err(dev, "PCI master acks target abort\n");
+		if (pci_errs & PCI_STATUS_REC_MASTER_ABORT)
+			netdev_err(dev, "PCI master abort\n");
+		if (pci_errs & PCI_STATUS_SIG_SYSTEM_ERROR)
+			netdev_err(dev, "PCI system error SERR#\n");
+		if (pci_errs & PCI_STATUS_DETECTED_PARITY)
+			netdev_err(dev, "PCI parity error\n");
 	}
 
 	/* For all PCI errors, we should reset the chip. */
@@ -4971,7 +4951,7 @@ static int cas_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 					  cas_cacheline_size)) {
 			dev_err(&pdev->dev, "Could not set PCI cache "
 			       "line size\n");
-			goto err_write_cacheline;
+			goto err_out_free_res;
 		}
 	}
 #endif
@@ -5067,7 +5047,7 @@ static int cas_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (cp->cas_flags & CAS_FLAG_SATURN)
 		cas_saturn_firmware_init(cp);
 
-	cp->init_block = (struct cas_init_block *)
+	cp->init_block =
 		pci_alloc_consistent(pdev, sizeof(struct cas_init_block),
 				     &cp->block_dvma);
 	if (!cp->init_block) {
@@ -5144,7 +5124,6 @@ err_out_iounmap:
 err_out_free_res:
 	pci_release_regions(pdev);
 
-err_write_cacheline:
 	/* Try to restore it in case the error occurred after we
 	 * set it.
 	 */

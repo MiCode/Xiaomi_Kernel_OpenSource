@@ -18,13 +18,13 @@
 int ovl_want_write(struct dentry *dentry)
 {
 	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
-	return mnt_want_write(ofs->upper_mnt);
+	return mnt_want_write(ovl_upper_mnt(ofs));
 }
 
 void ovl_drop_write(struct dentry *dentry)
 {
 	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
-	mnt_drop_write(ofs->upper_mnt);
+	mnt_drop_write(ovl_upper_mnt(ofs));
 }
 
 struct dentry *ovl_workdir(struct dentry *dentry)
@@ -101,8 +101,24 @@ struct ovl_entry *ovl_alloc_entry(unsigned int numlower)
 bool ovl_dentry_remote(struct dentry *dentry)
 {
 	return dentry->d_flags &
-		(DCACHE_OP_REVALIDATE | DCACHE_OP_WEAK_REVALIDATE |
-		 DCACHE_OP_REAL);
+		(DCACHE_OP_REVALIDATE | DCACHE_OP_WEAK_REVALIDATE);
+}
+
+void ovl_dentry_update_reval(struct dentry *dentry, struct dentry *upperdentry,
+			     unsigned int mask)
+{
+	struct ovl_entry *oe = OVL_E(dentry);
+	unsigned int i, flags = 0;
+
+	if (upperdentry)
+		flags |= upperdentry->d_flags;
+	for (i = 0; i < oe->numlower; i++)
+		flags |= oe->lowerstack[i].dentry->d_flags;
+
+	spin_lock(&dentry->d_lock);
+	dentry->d_flags &= ~mask;
+	dentry->d_flags |= flags & mask;
+	spin_unlock(&dentry->d_lock);
 }
 
 bool ovl_dentry_weird(struct dentry *dentry)
@@ -142,7 +158,7 @@ void ovl_path_upper(struct dentry *dentry, struct path *path)
 {
 	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
 
-	path->mnt = ofs->upper_mnt;
+	path->mnt = ovl_upper_mnt(ofs);
 	path->dentry = ovl_dentry_upper(dentry);
 }
 
@@ -394,24 +410,6 @@ void ovl_dentry_set_redirect(struct dentry *dentry, const char *redirect)
 	oi->redirect = redirect;
 }
 
-void ovl_inode_init(struct inode *inode, struct dentry *upperdentry,
-		    struct dentry *lowerdentry, struct dentry *lowerdata)
-{
-	struct inode *realinode = d_inode(upperdentry ?: lowerdentry);
-
-	if (upperdentry)
-		OVL_I(inode)->__upperdentry = upperdentry;
-	if (lowerdentry)
-		OVL_I(inode)->lower = igrab(d_inode(lowerdentry));
-	if (lowerdata)
-		OVL_I(inode)->lowerdata = igrab(d_inode(lowerdata));
-
-	ovl_copyattr(realinode, inode);
-	ovl_copyflags(realinode, inode);
-	if (!inode->i_ino)
-		inode->i_ino = realinode->i_ino;
-}
-
 void ovl_inode_update(struct inode *inode, struct dentry *upperdentry)
 {
 	struct inode *upperinode = d_inode(upperdentry);
@@ -424,8 +422,6 @@ void ovl_inode_update(struct inode *inode, struct dentry *upperdentry)
 	smp_wmb();
 	OVL_I(inode)->__upperdentry = upperdentry;
 	if (inode_unhashed(inode)) {
-		if (!inode->i_ino)
-			inode->i_ino = upperinode->i_ino;
 		inode->i_private = upperinode;
 		__insert_inode_hash(inode, (unsigned long) upperinode);
 	}
@@ -471,7 +467,32 @@ bool ovl_is_whiteout(struct dentry *dentry)
 
 struct file *ovl_path_open(struct path *path, int flags)
 {
-	return dentry_open(path, flags | O_NOATIME, current_cred());
+	struct inode *inode = d_inode(path->dentry);
+	int err, acc_mode;
+
+	if (flags & ~(O_ACCMODE | O_LARGEFILE))
+		BUG();
+
+	switch (flags & O_ACCMODE) {
+	case O_RDONLY:
+		acc_mode = MAY_READ;
+		break;
+	case O_WRONLY:
+		acc_mode = MAY_WRITE;
+		break;
+	default:
+		BUG();
+	}
+
+	err = inode_permission(inode, acc_mode | MAY_OPEN);
+	if (err)
+		return ERR_PTR(err);
+
+	/* O_NOATIME is an optimization, don't fail if not permitted */
+	if (inode_owner_or_capable(inode))
+		flags |= O_NOATIME;
+
+	return dentry_open(path, flags, current_cred());
 }
 
 /* Caller should hold ovl_inode->lock */
@@ -517,7 +538,7 @@ int ovl_copy_up_start(struct dentry *dentry, int flags)
 	struct inode *inode = d_inode(dentry);
 	int err;
 
-	err = ovl_inode_lock(inode);
+	err = ovl_inode_lock_interruptible(inode);
 	if (!err && ovl_already_copied_up_locked(dentry, flags)) {
 		err = 1; /* Already copied up */
 		ovl_inode_unlock(inode);
@@ -719,7 +740,8 @@ static void ovl_cleanup_index(struct dentry *dentry)
 		index = NULL;
 	} else if (ovl_index_all(dentry->d_sb)) {
 		/* Whiteout orphan index to block future open by handle */
-		err = ovl_cleanup_and_whiteout(indexdir, dir, index);
+		err = ovl_cleanup_and_whiteout(OVL_FS(dentry->d_sb),
+					       dir, index);
 	} else {
 		/* Cleanup orphan index entries */
 		err = ovl_cleanup(dir, index);
@@ -772,7 +794,7 @@ int ovl_nlink_start(struct dentry *dentry)
 			return err;
 	}
 
-	err = ovl_inode_lock(inode);
+	err = ovl_inode_lock_interruptible(inode);
 	if (err)
 		return err;
 

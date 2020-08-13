@@ -49,12 +49,9 @@
 #include <linux/bpf_trace.h>
 #include "ena_pci_id_tbl.h"
 
-static char version[] = DEVICE_NAME " v" DRV_MODULE_VERSION "\n";
-
 MODULE_AUTHOR("Amazon.com, Inc. or its affiliates");
 MODULE_DESCRIPTION(DEVICE_NAME);
 MODULE_LICENSE("GPL");
-MODULE_VERSION(DRV_MODULE_VERSION);
 
 /* Time in jiffies before concluding the transmitter is hung. */
 #define TX_TIMEOUT  (5 * HZ)
@@ -266,7 +263,7 @@ static int ena_xdp_tx_map_buff(struct ena_ring *xdp_ring,
 	dma_addr_t dma = 0;
 	u32 size;
 
-	tx_info->xdpf = convert_to_xdp_frame(xdp);
+	tx_info->xdpf = xdp_convert_buff_to_frame(xdp);
 	size = tx_info->xdpf->len;
 	ena_buf = tx_info->bufs;
 
@@ -358,7 +355,7 @@ error_unmap_dma:
 	ena_unmap_tx_buff(xdp_ring, tx_info);
 	tx_info->xdpf = NULL;
 error_drop_packet:
-
+	__free_page(tx_info->xdp_rx_page);
 	return NETDEV_TX_OK;
 }
 
@@ -460,10 +457,9 @@ static void ena_xdp_unregister_rxq_info(struct ena_ring *rx_ring)
 	xdp_rxq_info_unreg(&rx_ring->xdp_rxq);
 }
 
-void ena_xdp_exchange_program_rx_in_range(struct ena_adapter *adapter,
-					  struct bpf_prog *prog,
-					  int first,
-					  int count)
+static void ena_xdp_exchange_program_rx_in_range(struct ena_adapter *adapter,
+						 struct bpf_prog *prog,
+						 int first, int count)
 {
 	struct ena_ring *rx_ring;
 	int i = 0;
@@ -481,8 +477,8 @@ void ena_xdp_exchange_program_rx_in_range(struct ena_adapter *adapter,
 	}
 }
 
-void ena_xdp_exchange_program(struct ena_adapter *adapter,
-			      struct bpf_prog *prog)
+static void ena_xdp_exchange_program(struct ena_adapter *adapter,
+				     struct bpf_prog *prog)
 {
 	struct bpf_prog *old_bpf_prog = xchg(&adapter->xdp_bpf_prog, prog);
 
@@ -1018,12 +1014,8 @@ static int ena_refill_rx_bufs(struct ena_ring *rx_ring, u32 num)
 		struct ena_rx_buffer *rx_info;
 
 		req_id = rx_ring->free_ids[next_to_use];
-		rc = validate_rx_req_id(rx_ring, req_id);
-		if (unlikely(rc < 0))
-			break;
 
 		rx_info = &rx_ring->rx_buffer_info[req_id];
-
 
 		rc = ena_alloc_rx_page(rx_ring, rx_info,
 				       GFP_ATOMIC | __GFP_COMP);
@@ -1379,9 +1371,15 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
 	struct ena_rx_buffer *rx_info;
 	u16 len, req_id, buf = 0;
 	void *va;
+	int rc;
 
 	len = ena_bufs[buf].len;
 	req_id = ena_bufs[buf].req_id;
+
+	rc = validate_rx_req_id(rx_ring, req_id);
+	if (unlikely(rc < 0))
+		return NULL;
+
 	rx_info = &rx_ring->rx_buffer_info[req_id];
 
 	if (unlikely(!rx_info->page)) {
@@ -1437,6 +1435,8 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
 
 		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_info->page,
 				rx_info->page_offset, len, ENA_PAGE_SIZE);
+		/* The offset is non zero only for the first buffer */
+		rx_info->page_offset = 0;
 
 		netif_dbg(rx_ring->adapter, rx_status, rx_ring->netdev,
 			  "rx skb updated. len %d. data_len %d\n",
@@ -1454,6 +1454,11 @@ static struct sk_buff *ena_rx_skb(struct ena_ring *rx_ring,
 		buf++;
 		len = ena_bufs[buf].len;
 		req_id = ena_bufs[buf].req_id;
+
+		rc = validate_rx_req_id(rx_ring, req_id);
+		if (unlikely(rc < 0))
+			return NULL;
+
 		rx_info = &rx_ring->rx_buffer_info[req_id];
 	} while (1);
 
@@ -1548,7 +1553,7 @@ static void ena_set_rx_hash(struct ena_ring *rx_ring,
 	}
 }
 
-int ena_xdp_handle_buff(struct ena_ring *rx_ring, struct xdp_buff *xdp)
+static int ena_xdp_handle_buff(struct ena_ring *rx_ring, struct xdp_buff *xdp)
 {
 	struct ena_rx_buffer *rx_info;
 	int ret;
@@ -1587,6 +1592,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 {
 	u16 next_to_clean = rx_ring->next_to_clean;
 	struct ena_com_rx_ctx ena_rx_ctx;
+	struct ena_rx_buffer *rx_info;
 	struct ena_adapter *adapter;
 	u32 res_budget, work_done;
 	int rx_copybreak_pkt = 0;
@@ -1603,6 +1609,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 		  "%s qid %d\n", __func__, rx_ring->qid);
 	res_budget = budget;
 	xdp.rxq = &rx_ring->xdp_rxq;
+	xdp.frame_sz = ENA_PAGE_SIZE;
 
 	do {
 		xdp_verdict = XDP_PASS;
@@ -1610,6 +1617,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 		ena_rx_ctx.ena_bufs = rx_ring->ena_bufs;
 		ena_rx_ctx.max_bufs = rx_ring->sgl_size;
 		ena_rx_ctx.descs = 0;
+		ena_rx_ctx.pkt_offset = 0;
 		rc = ena_com_rx_pkt(rx_ring->ena_com_io_cq,
 				    rx_ring->ena_com_io_sq,
 				    &ena_rx_ctx);
@@ -1618,6 +1626,9 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 
 		if (unlikely(ena_rx_ctx.descs == 0))
 			break;
+
+		rx_info = &rx_ring->rx_buffer_info[rx_ring->ena_bufs[0].req_id];
+		rx_info->page_offset = ena_rx_ctx.pkt_offset;
 
 		netif_dbg(rx_ring->adapter, rx_status, rx_ring->netdev,
 			  "rx_poll: q %d got packet from ena. descs #: %d l3 proto %d l4 proto %d hash: %x\n",
@@ -1635,11 +1646,9 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 					 &next_to_clean);
 
 		if (unlikely(!skb)) {
-			if (xdp_verdict == XDP_TX) {
+			if (xdp_verdict == XDP_TX)
 				ena_free_rx_page(rx_ring,
 						 &rx_ring->rx_buffer_info[rx_ring->ena_bufs[0].req_id]);
-				res_budget--;
-			}
 			for (i = 0; i < ena_rx_ctx.descs; i++) {
 				rx_ring->free_ids[next_to_clean] =
 					rx_ring->ena_bufs[i].req_id;
@@ -1647,8 +1656,10 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 					ENA_RX_RING_IDX_NEXT(next_to_clean,
 							     rx_ring->ring_size);
 			}
-			if (xdp_verdict == XDP_TX || xdp_verdict == XDP_DROP)
+			if (xdp_verdict != XDP_PASS) {
+				res_budget--;
 				continue;
+			}
 			break;
 		}
 
@@ -1680,7 +1691,7 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 
 	rx_ring->next_to_clean = next_to_clean;
 
-	refill_required = ena_com_free_desc(rx_ring->ena_com_io_sq);
+	refill_required = ena_com_free_q_entries(rx_ring->ena_com_io_sq);
 	refill_threshold =
 		min_t(int, rx_ring->ring_size / ENA_RX_REFILL_THRESH_DIVIDER,
 		      ENA_RX_REFILL_THRESH_PACKET);
@@ -1759,6 +1770,9 @@ static void ena_unmask_interrupt(struct ena_ring *tx_ring,
 				tx_ring->smoothed_interval,
 				true);
 
+	u64_stats_update_begin(&tx_ring->syncp);
+	tx_ring->tx_stats.unmask_interrupt++;
+	u64_stats_update_end(&tx_ring->syncp);
 	/* It is a shared MSI-X.
 	 * Tx and Rx CQ have pointer to it.
 	 * So we use one of them to reach the intr reg
@@ -1968,7 +1982,7 @@ static int ena_enable_msix(struct ena_adapter *adapter)
 	}
 
 	/* Reserved the max msix vectors we might need */
-	msix_vecs = ENA_MAX_MSIX_VEC(adapter->num_io_queues);
+	msix_vecs = ENA_MAX_MSIX_VEC(adapter->max_num_io_queues);
 	netif_dbg(adapter, probe, adapter->netdev,
 		  "trying to enable MSI-X, vectors %d\n", msix_vecs);
 
@@ -2068,6 +2082,7 @@ static int ena_request_mgmnt_irq(struct ena_adapter *adapter)
 
 static int ena_request_io_irq(struct ena_adapter *adapter)
 {
+	u32 io_queue_count = adapter->num_io_queues + adapter->xdp_num_queues;
 	unsigned long flags = 0;
 	struct ena_irq *irq;
 	int rc = 0, i, k;
@@ -2078,7 +2093,7 @@ static int ena_request_io_irq(struct ena_adapter *adapter)
 		return -EINVAL;
 	}
 
-	for (i = ENA_IO_IRQ_FIRST_IDX; i < adapter->msix_vecs; i++) {
+	for (i = ENA_IO_IRQ_FIRST_IDX; i < ENA_MAX_MSIX_VEC(io_queue_count); i++) {
 		irq = &adapter->irq_tbl[i];
 		rc = request_irq(irq->vector, irq->handler, flags, irq->name,
 				 irq->data);
@@ -2119,6 +2134,7 @@ static void ena_free_mgmnt_irq(struct ena_adapter *adapter)
 
 static void ena_free_io_irq(struct ena_adapter *adapter)
 {
+	u32 io_queue_count = adapter->num_io_queues + adapter->xdp_num_queues;
 	struct ena_irq *irq;
 	int i;
 
@@ -2129,7 +2145,7 @@ static void ena_free_io_irq(struct ena_adapter *adapter)
 	}
 #endif /* CONFIG_RFS_ACCEL */
 
-	for (i = ENA_IO_IRQ_FIRST_IDX; i < adapter->msix_vecs; i++) {
+	for (i = ENA_IO_IRQ_FIRST_IDX; i < ENA_MAX_MSIX_VEC(io_queue_count); i++) {
 		irq = &adapter->irq_tbl[i];
 		irq_set_affinity_hint(irq->vector, NULL);
 		free_irq(irq->vector, irq->data);
@@ -2144,12 +2160,13 @@ static void ena_disable_msix(struct ena_adapter *adapter)
 
 static void ena_disable_io_intr_sync(struct ena_adapter *adapter)
 {
+	u32 io_queue_count = adapter->num_io_queues + adapter->xdp_num_queues;
 	int i;
 
 	if (!netif_running(adapter->netdev))
 		return;
 
-	for (i = ENA_IO_IRQ_FIRST_IDX; i < adapter->msix_vecs; i++)
+	for (i = ENA_IO_IRQ_FIRST_IDX; i < ENA_MAX_MSIX_VEC(io_queue_count); i++)
 		synchronize_irq(adapter->irq_tbl[i].vector);
 }
 
@@ -2225,7 +2242,7 @@ static int ena_rss_configure(struct ena_adapter *adapter)
 		rc = ena_rss_init_default(adapter);
 		if (rc && (rc != -EOPNOTSUPP)) {
 			netif_err(adapter, ifup, adapter->netdev,
-					"Failed to init RSS rc: %d\n", rc);
+				  "Failed to init RSS rc: %d\n", rc);
 			return rc;
 		}
 	}
@@ -2298,7 +2315,7 @@ static int ena_create_io_tx_queue(struct ena_adapter *adapter, int qid)
 	if (rc) {
 		netif_err(adapter, ifup, adapter->netdev,
 			  "Failed to create I/O TX queue num %d rc: %d\n",
-			   qid, rc);
+			  qid, rc);
 		return rc;
 	}
 
@@ -2447,7 +2464,7 @@ static int create_queues_with_size_backoff(struct ena_adapter *adapter)
 	 * ones due to past queue allocation failures.
 	 */
 	set_io_rings_size(adapter, adapter->requested_tx_ring_size,
-			adapter->requested_rx_ring_size);
+			  adapter->requested_rx_ring_size);
 
 	while (1) {
 		if (ena_xdp_present(adapter)) {
@@ -2488,7 +2505,7 @@ err_setup_tx:
 		if (rc != -ENOMEM) {
 			netif_err(adapter, ifup, adapter->netdev,
 				  "Queue creation failed with error code %d\n",
-				   rc);
+				  rc);
 			return rc;
 		}
 
@@ -2511,7 +2528,7 @@ err_setup_tx:
 			new_rx_ring_size = cur_rx_ring_size / 2;
 
 		if (new_tx_ring_size < ENA_MIN_RING_SIZE ||
-				new_rx_ring_size < ENA_MIN_RING_SIZE) {
+		    new_rx_ring_size < ENA_MIN_RING_SIZE) {
 			netif_err(adapter, ifup, adapter->netdev,
 				  "Queue creation failed with the smallest possible queue size of %d for both queues. Not retrying with smaller queues\n",
 				  ENA_MIN_RING_SIZE);
@@ -3070,8 +3087,7 @@ static u16 ena_select_queue(struct net_device *dev, struct sk_buff *skb,
 	return qid;
 }
 
-static void ena_config_host_info(struct ena_com_dev *ena_dev,
-				 struct pci_dev *pdev)
+static void ena_config_host_info(struct ena_com_dev *ena_dev, struct pci_dev *pdev)
 {
 	struct ena_admin_host_info *host_info;
 	int rc;
@@ -3094,13 +3110,14 @@ static void ena_config_host_info(struct ena_com_dev *ena_dev,
 	strncpy(host_info->os_dist_str, utsname()->release,
 		sizeof(host_info->os_dist_str) - 1);
 	host_info->driver_version =
-		(DRV_MODULE_VER_MAJOR) |
-		(DRV_MODULE_VER_MINOR << ENA_ADMIN_HOST_INFO_MINOR_SHIFT) |
-		(DRV_MODULE_VER_SUBMINOR << ENA_ADMIN_HOST_INFO_SUB_MINOR_SHIFT) |
+		(DRV_MODULE_GEN_MAJOR) |
+		(DRV_MODULE_GEN_MINOR << ENA_ADMIN_HOST_INFO_MINOR_SHIFT) |
+		(DRV_MODULE_GEN_SUBMINOR << ENA_ADMIN_HOST_INFO_SUB_MINOR_SHIFT) |
 		("K"[0] << ENA_ADMIN_HOST_INFO_MODULE_TYPE_SHIFT);
 	host_info->num_cpus = num_online_cpus();
 
 	host_info->driver_supported_features =
+		ENA_ADMIN_HOST_INFO_RX_OFFSET_MASK |
 		ENA_ADMIN_HOST_INFO_INTERRUPT_MODERATION_MASK;
 
 	rc = ena_com_set_host_attributes(ena_dev);
@@ -3163,6 +3180,7 @@ static void ena_get_stats64(struct net_device *netdev,
 	struct ena_ring *rx_ring, *tx_ring;
 	unsigned int start;
 	u64 rx_drops;
+	u64 tx_drops;
 	int i;
 
 	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
@@ -3197,9 +3215,11 @@ static void ena_get_stats64(struct net_device *netdev,
 	do {
 		start = u64_stats_fetch_begin_irq(&adapter->syncp);
 		rx_drops = adapter->dev_stats.rx_drops;
+		tx_drops = adapter->dev_stats.tx_drops;
 	} while (u64_stats_fetch_retry_irq(&adapter->syncp, start));
 
 	stats->rx_dropped = rx_drops;
+	stats->tx_dropped = tx_drops;
 
 	stats->multicast = 0;
 	stats->collisions = 0;
@@ -3427,6 +3447,7 @@ static void ena_destroy_device(struct ena_adapter *adapter, bool graceful)
 
 	ena_com_mmio_reg_read_request_destroy(ena_dev);
 
+	/* return reset reason to default value */
 	adapter->reset_reason = ENA_REGS_RESET_NORMAL;
 
 	clear_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
@@ -3476,9 +3497,8 @@ static int ena_restore_device(struct ena_adapter *adapter)
 		netif_carrier_on(adapter->netdev);
 
 	mod_timer(&adapter->timer_service, round_jiffies(jiffies + HZ));
-	dev_err(&pdev->dev,
-		"Device reset completed successfully, Driver info: %s\n",
-		version);
+	dev_err(&pdev->dev, "Device reset completed successfully\n");
+	adapter->last_keep_alive_jiffies = jiffies;
 
 	return rc;
 err_disable_msix:
@@ -3673,8 +3693,7 @@ static void check_for_empty_rx_ring(struct ena_adapter *adapter)
 	for (i = 0; i < adapter->num_io_queues; i++) {
 		rx_ring = &adapter->rx_ring[i];
 
-		refill_required =
-			ena_com_free_desc(rx_ring->ena_com_io_sq);
+		refill_required = ena_com_free_q_entries(rx_ring->ena_com_io_sq);
 		if (unlikely(refill_required == (rx_ring->ring_size - 1))) {
 			rx_ring->empty_rx_queue++;
 
@@ -3812,11 +3831,11 @@ static void ena_timer_service(struct timer_list *t)
 	mod_timer(&adapter->timer_service, round_jiffies(jiffies + HZ));
 }
 
-static int ena_calc_max_io_queue_num(struct pci_dev *pdev,
+static u32 ena_calc_max_io_queue_num(struct pci_dev *pdev,
 				     struct ena_com_dev *ena_dev,
 				     struct ena_com_dev_get_features_ctx *get_feat_ctx)
 {
-	int io_tx_sq_num, io_tx_cq_num, io_rx_num, max_num_io_queues;
+	u32 io_tx_sq_num, io_tx_cq_num, io_rx_num, max_num_io_queues;
 
 	if (ena_dev->supported_features & BIT(ENA_ADMIN_MAX_QUEUES_EXT)) {
 		struct ena_admin_queue_ext_feature_fields *max_queue_ext =
@@ -3986,7 +4005,7 @@ static int ena_rss_init_default(struct ena_adapter *adapter)
 		}
 	}
 
-	rc = ena_com_fill_hash_function(ena_dev, ENA_ADMIN_CRC32, NULL,
+	rc = ena_com_fill_hash_function(ena_dev, ENA_ADMIN_TOEPLITZ, NULL,
 					ENA_HASH_KEY_SIZE, 0xFFFFFFFF);
 	if (unlikely(rc && (rc != -EOPNOTSUPP))) {
 		dev_err(dev, "Cannot fill hash function\n");
@@ -4102,8 +4121,8 @@ static int ena_calc_io_queue_size(struct ena_calc_queue_size_ctx *ctx)
  */
 static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
-	struct ena_com_dev_get_features_ctx get_feat_ctx;
 	struct ena_calc_queue_size_ctx calc_queue_ctx = { 0 };
+	struct ena_com_dev_get_features_ctx get_feat_ctx;
 	struct ena_llq_configurations llq_config;
 	struct ena_com_dev *ena_dev = NULL;
 	struct ena_adapter *adapter;
@@ -4115,8 +4134,6 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	int bars, rc;
 
 	dev_dbg(&pdev->dev, "%s\n", __func__);
-
-	dev_info_once(&pdev->dev, "%s", version);
 
 	rc = pci_enable_device_mem(pdev);
 	if (rc) {
@@ -4149,6 +4166,8 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_free_region;
 	}
 
+	ena_dev->ena_min_poll_delay_us = ENA_ADMIN_POLL_DELAY_US;
+
 	ena_dev->dmadev = &pdev->dev;
 
 	rc = ena_device_init(ena_dev, pdev, &get_feat_ctx, &wd_state);
@@ -4172,7 +4191,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	calc_queue_ctx.get_feat_ctx = &get_feat_ctx;
 	calc_queue_ctx.pdev = pdev;
 
-	/* Initial Tx and RX interrupt delay. Assumes 1 usec granularity.
+	/* Initial TX and RX interrupt delay. Assumes 1 usec granularity.
 	 * Updated during device initialization with the real granularity
 	 */
 	ena_dev->intr_moder_tx_interval = ENA_INTR_INITIAL_TX_INTERVAL_USECS;
@@ -4216,11 +4235,10 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	adapter->num_io_queues = max_num_io_queues;
 	adapter->max_num_io_queues = max_num_io_queues;
+	adapter->last_monitored_tx_qid = 0;
 
 	adapter->xdp_first_ring = 0;
 	adapter->xdp_num_queues = 0;
-
-	adapter->last_monitored_tx_qid = 0;
 
 	adapter->rx_copybreak = ENA_DEFAULT_RX_COPYBREAK;
 	adapter->wd_state = wd_state;
@@ -4325,13 +4343,15 @@ err_disable_device:
 
 /*****************************************************************************/
 
-/* ena_remove - Device Removal Routine
+/* __ena_shutoff - Helper used in both PCI remove/shutdown routines
  * @pdev: PCI device information struct
+ * @shutdown: Is it a shutdown operation? If false, means it is a removal
  *
- * ena_remove is called by the PCI subsystem to alert the driver
- * that it should release a PCI device.
+ * __ena_shutoff is a helper routine that does the real work on shutdown and
+ * removal paths; the difference between those paths is with regards to whether
+ * dettach or unregister the netdevice.
  */
-static void ena_remove(struct pci_dev *pdev)
+static void __ena_shutoff(struct pci_dev *pdev, bool shutdown)
 {
 	struct ena_adapter *adapter = pci_get_drvdata(pdev);
 	struct ena_com_dev *ena_dev;
@@ -4350,13 +4370,18 @@ static void ena_remove(struct pci_dev *pdev)
 
 	cancel_work_sync(&adapter->reset_task);
 
-	rtnl_lock();
+	rtnl_lock(); /* lock released inside the below if-else block */
+	adapter->reset_reason = ENA_REGS_RESET_SHUTDOWN;
 	ena_destroy_device(adapter, true);
-	rtnl_unlock();
-
-	unregister_netdev(netdev);
-
-	free_netdev(netdev);
+	if (shutdown) {
+		netif_device_detach(netdev);
+		dev_close(netdev);
+		rtnl_unlock();
+	} else {
+		rtnl_unlock();
+		unregister_netdev(netdev);
+		free_netdev(netdev);
+	}
 
 	ena_com_rss_destroy(ena_dev);
 
@@ -4369,6 +4394,30 @@ static void ena_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 
 	vfree(ena_dev);
+}
+
+/* ena_remove - Device Removal Routine
+ * @pdev: PCI device information struct
+ *
+ * ena_remove is called by the PCI subsystem to alert the driver
+ * that it should release a PCI device.
+ */
+
+static void ena_remove(struct pci_dev *pdev)
+{
+	__ena_shutoff(pdev, false);
+}
+
+/* ena_shutdown - Device Shutdown Routine
+ * @pdev: PCI device information struct
+ *
+ * ena_shutdown is called by the PCI subsystem to alert the driver that
+ * a shutdown/reboot (or kexec) is happening and device must be disabled.
+ */
+
+static void ena_shutdown(struct pci_dev *pdev)
+{
+	__ena_shutoff(pdev, true);
 }
 
 #ifdef CONFIG_PM
@@ -4420,6 +4469,7 @@ static struct pci_driver ena_pci_driver = {
 	.id_table	= ena_pci_tbl,
 	.probe		= ena_probe,
 	.remove		= ena_remove,
+	.shutdown	= ena_shutdown,
 #ifdef CONFIG_PM
 	.suspend    = ena_suspend,
 	.resume     = ena_resume,
@@ -4429,8 +4479,6 @@ static struct pci_driver ena_pci_driver = {
 
 static int __init ena_init(void)
 {
-	pr_info("%s", version);
-
 	ena_wq = create_singlethread_workqueue(DRV_MODULE_NAME);
 	if (!ena_wq) {
 		pr_err("Failed to create workqueue\n");
@@ -4482,14 +4530,17 @@ static void ena_keep_alive_wd(void *adapter_data,
 	struct ena_adapter *adapter = (struct ena_adapter *)adapter_data;
 	struct ena_admin_aenq_keep_alive_desc *desc;
 	u64 rx_drops;
+	u64 tx_drops;
 
 	desc = (struct ena_admin_aenq_keep_alive_desc *)aenq_e;
 	adapter->last_keep_alive_jiffies = jiffies;
 
 	rx_drops = ((u64)desc->rx_drops_high << 32) | desc->rx_drops_low;
+	tx_drops = ((u64)desc->tx_drops_high << 32) | desc->tx_drops_low;
 
 	u64_stats_update_begin(&adapter->syncp);
 	adapter->dev_stats.rx_drops = rx_drops;
+	adapter->dev_stats.tx_drops = tx_drops;
 	u64_stats_update_end(&adapter->syncp);
 }
 

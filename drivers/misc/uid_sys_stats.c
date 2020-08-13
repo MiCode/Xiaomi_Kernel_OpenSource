@@ -14,7 +14,6 @@
  */
 
 #include <linux/atomic.h>
-#include <linux/cpufreq_times.h>
 #include <linux/err.h>
 #include <linux/hashtable.h>
 #include <linux/init.h>
@@ -126,7 +125,7 @@ static void get_full_task_comm(struct task_entry *task_entry,
 	int i = 0, offset = 0, len = 0;
 	/* save one byte for terminating null character */
 	int unused_len = MAX_TASK_COMM_LEN - TASK_COMM_LEN - 1;
-	char buf[unused_len];
+	char buf[MAX_TASK_COMM_LEN - TASK_COMM_LEN - 1];
 	struct mm_struct *mm = task->mm;
 
 	/* fill the first TASK_COMM_LEN bytes with thread name */
@@ -137,7 +136,7 @@ static void get_full_task_comm(struct task_entry *task_entry,
 
 	/* next the executable file name */
 	if (mm) {
-		down_read(&mm->mmap_sem);
+		mmap_write_lock(mm);
 		if (mm->exe_file) {
 			char *pathname = d_path(&mm->exe_file->f_path, buf,
 					unused_len);
@@ -150,7 +149,7 @@ static void get_full_task_comm(struct task_entry *task_entry,
 				unused_len--;
 			}
 		}
-		up_read(&mm->mmap_sem);
+		mmap_write_unlock(mm);
 	}
 	unused_len -= len;
 
@@ -423,9 +422,6 @@ static ssize_t uid_remove_write(struct file *file,
 		kstrtol(end_uid, 10, &uid_end) != 0) {
 		return -EINVAL;
 	}
-
-	/* Also remove uids from /proc/uid_time_in_state */
-	cpufreq_task_times_remove_uids(uid_start, uid_end);
 
 	rt_mutex_lock(&uid_lock);
 

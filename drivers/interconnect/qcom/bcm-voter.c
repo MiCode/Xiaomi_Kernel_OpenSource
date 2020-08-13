@@ -1,13 +1,13 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
+
+#include <asm/div64.h>
 #include <linux/interconnect-provider.h>
 #include <linux/list_sort.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 
 #include <soc/qcom/rpmh.h>
@@ -17,6 +17,7 @@
 #include "icc-rpmh.h"
 
 static LIST_HEAD(bcm_voters);
+static DEFINE_MUTEX(bcm_voter_lock);
 
 /**
  * struct bcm_voter - Bus Clock Manager voter
@@ -64,24 +65,21 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm, bool init)
 
 	for (bucket = 0; bucket < QCOM_ICC_NUM_BUCKETS; bucket++) {
 		for (i = 0; i < bcm->num_nodes; i++) {
-			temp = bcm->nodes[i]->sum_avg[bucket] *
-				le16_to_cpu(bcm->aux_data.width);
-			do_div(temp, bcm->nodes[i]->buswidth *
-				bcm->nodes[i]->channels);
+			temp = bcm->nodes[i]->sum_avg[bucket] * bcm->aux_data.width;
+			do_div(temp, bcm->nodes[i]->buswidth * bcm->nodes[i]->channels);
 			agg_avg[bucket] = max(agg_avg[bucket], temp);
 
-			temp = bcm->nodes[i]->max_peak[bucket] *
-				le16_to_cpu(bcm->aux_data.width);
+			temp = bcm->nodes[i]->max_peak[bucket] * bcm->aux_data.width;
 			do_div(temp, bcm->nodes[i]->buswidth);
 			agg_peak[bucket] = max(agg_peak[bucket], temp);
 		}
 
 		temp = agg_avg[bucket] * bcm->vote_scale;
-		do_div(temp, le32_to_cpu(bcm->aux_data.unit));
+		do_div(temp, bcm->aux_data.unit);
 		bcm->vote_x[bucket] = temp;
 
 		temp = agg_peak[bucket] * bcm->vote_scale;
-		do_div(temp, le32_to_cpu(bcm->aux_data.unit));
+		do_div(temp, bcm->aux_data.unit);
 		bcm->vote_y[bucket] = temp;
 	}
 
@@ -102,7 +100,7 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm, bool init)
 }
 
 static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
-			u32 addr, bool commit, bool wait)
+			       u32 addr, bool commit, bool wait)
 {
 	bool valid = true;
 
@@ -131,24 +129,23 @@ static inline void tcs_cmd_gen(struct tcs_cmd *cmd, u64 vote_x, u64 vote_y,
 }
 
 static void tcs_list_gen(struct bcm_voter *voter, int bucket,
-			 struct tcs_cmd tcs_list[MAX_VCD],
-			 int n[MAX_VCD])
+			 struct tcs_cmd tcs_list[MAX_BCMS],
+			 int n[MAX_VCD + 1])
 {
 	struct qcom_icc_bcm *bcm;
 	struct list_head *bcm_list = &voter->commit_list;
 	bool commit, wait;
 	size_t idx = 0, batch = 0, cur_vcd_size = 0;
 
-	memset(n, 0, sizeof(int) * MAX_VCD);
+	memset(n, 0, sizeof(int) * (MAX_VCD + 1));
 
 	list_for_each_entry(bcm, bcm_list, list) {
 		commit = false;
 		cur_vcd_size++;
 		if ((list_is_last(&bcm->list, bcm_list)) ||
-		    bcm->aux_data.vcd !=
-			list_next_entry(bcm, list)->aux_data.vcd) {
-			cur_vcd_size = 0;
+		    bcm->aux_data.vcd != list_next_entry(bcm, list)->aux_data.vcd) {
 			commit = true;
+			cur_vcd_size = 0;
 		}
 
 		wait = commit && (voter->tcs_wait & BIT(bucket));
@@ -165,7 +162,7 @@ static void tcs_list_gen(struct bcm_voter *voter, int bucket,
 		 */
 		if (n[batch] >= MAX_RPMH_PAYLOAD) {
 			if (!commit) {
-				n[batch] = cur_vcd_size;
+				n[batch] -= cur_vcd_size;
 				n[batch + 1] = cur_vcd_size;
 			}
 			batch++;
@@ -197,24 +194,25 @@ struct bcm_voter *of_bcm_voter_get(struct device *dev, const char *name)
 	np = dev->of_node;
 
 	if (name) {
-		idx = of_property_match_string(np, "qcom,bcm-voter-names",
-						name);
+		idx = of_property_match_string(np, "qcom,bcm-voter-names", name);
 		if (idx < 0)
 			return ERR_PTR(idx);
 	}
 
 	node = of_parse_phandle(np, "qcom,bcm-voters", idx);
 
+	mutex_lock(&bcm_voter_lock);
 	list_for_each_entry(temp, &bcm_voters, voter_node) {
 		if (temp->np == node) {
 			voter = temp;
 			break;
 		}
 	}
+	mutex_unlock(&bcm_voter_lock);
 
 	return voter;
 }
-EXPORT_SYMBOL(of_bcm_voter_get);
+EXPORT_SYMBOL_GPL(of_bcm_voter_get);
 
 /**
  * qcom_icc_bcm_voter_add - queues up the bcm nodes that require updates
@@ -235,7 +233,7 @@ void qcom_icc_bcm_voter_add(struct bcm_voter *voter, struct qcom_icc_bcm *bcm)
 
 	mutex_unlock(&voter->lock);
 }
-EXPORT_SYMBOL(qcom_icc_bcm_voter_add);
+EXPORT_SYMBOL_GPL(qcom_icc_bcm_voter_add);
 
 /**
  * qcom_icc_bcm_voter_commit - generates and commits tcs cmds based on bcms
@@ -253,7 +251,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 {
 	struct qcom_icc_bcm *bcm;
 	struct qcom_icc_bcm *bcm_tmp;
-	int commit_idx[MAX_VCD];
+	int commit_idx[MAX_VCD + 1];
 	struct tcs_cmd cmds[MAX_BCMS];
 	int ret = 0;
 
@@ -310,8 +308,6 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 	list_for_each_entry_safe(bcm, bcm_tmp, &voter->commit_list, list)
 		list_del_init(&bcm->list);
 
-	INIT_LIST_HEAD(&voter->commit_list);
-
 	list_for_each_entry_safe(bcm, bcm_tmp, &voter->ws_list, ws_list) {
 		/*
 		 * Only generate WAKE and SLEEP commands if a resource's
@@ -334,8 +330,7 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 
 	tcs_list_gen(voter, QCOM_ICC_BUCKET_WAKE, cmds, commit_idx);
 
-	ret = rpmh_write_batch(voter->dev, RPMH_WAKE_ONLY_STATE, cmds,
-				commit_idx);
+	ret = rpmh_write_batch(voter->dev, RPMH_WAKE_ONLY_STATE, cmds, commit_idx);
 	if (ret) {
 		pr_err("Error sending WAKE RPMH requests (%d)\n", ret);
 		goto out;
@@ -353,11 +348,10 @@ out:
 	list_for_each_entry_safe(bcm, bcm_tmp, &voter->commit_list, list)
 		list_del_init(&bcm->list);
 
-	INIT_LIST_HEAD(&voter->commit_list);
 	mutex_unlock(&voter->lock);
 	return ret;
 }
-EXPORT_SYMBOL(qcom_icc_bcm_voter_commit);
+EXPORT_SYMBOL_GPL(qcom_icc_bcm_voter_commit);
 
 /**
  * qcom_icc_bcm_voter_clear_init - clear init flag used during boot up
@@ -393,36 +387,28 @@ static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 	mutex_init(&voter->lock);
 	INIT_LIST_HEAD(&voter->commit_list);
 	INIT_LIST_HEAD(&voter->ws_list);
+
+	mutex_lock(&bcm_voter_lock);
 	list_add_tail(&voter->voter_node, &bcm_voters);
+	mutex_unlock(&bcm_voter_lock);
 
 	return 0;
 }
 
 static const struct of_device_id bcm_voter_of_match[] = {
-	{ .compatible = "qcom,sdm845-bcm-voter" },
 	{ .compatible = "qcom,bcm-voter" },
-	{ },
+	{ }
 };
 
 static struct platform_driver qcom_icc_bcm_voter_driver = {
 	.probe = qcom_icc_bcm_voter_probe,
 	.driver = {
-		.name		= "sdm845_bcm_voter",
+		.name		= "bcm_voter",
 		.of_match_table = bcm_voter_of_match,
 	},
 };
+module_platform_driver(qcom_icc_bcm_voter_driver);
 
-static int __init bcm_voter_driver_init(void)
-{
-	return platform_driver_register(&qcom_icc_bcm_voter_driver);
-}
-core_initcall(bcm_voter_driver_init);
-
-static void __exit bcm_voter_driver_exit(void)
-{
-	platform_driver_unregister(&qcom_icc_bcm_voter_driver);
-}
-module_exit(bcm_voter_driver_exit);
-
-MODULE_DESCRIPTION("QTI BCM Voter interconnect driver");
+MODULE_AUTHOR("David Dai <daidavid1@codeaurora.org>");
+MODULE_DESCRIPTION("Qualcomm BCM Voter interconnect driver");
 MODULE_LICENSE("GPL v2");

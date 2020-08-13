@@ -263,7 +263,7 @@ static void nvm_authenticate_start_dma_port(struct tb_switch *sw)
 	 * itself. To be on the safe side keep the root port in D0 during
 	 * the whole upgrade process.
 	 */
-	root_port = pci_find_pcie_root_port(sw->tb->nhi->pdev);
+	root_port = pcie_find_root_port(sw->tb->nhi->pdev);
 	if (root_port)
 		pm_runtime_get_noresume(&root_port->dev);
 }
@@ -272,7 +272,7 @@ static void nvm_authenticate_complete_dma_port(struct tb_switch *sw)
 {
 	struct pci_dev *root_port;
 
-	root_port = pci_find_pcie_root_port(sw->tb->nhi->pdev);
+	root_port = pcie_find_root_port(sw->tb->nhi->pdev);
 	if (root_port)
 		pm_runtime_put(&root_port->dev);
 }
@@ -348,12 +348,6 @@ out:
 	return ret;
 }
 
-static int tb_switch_nvm_no_read(void *priv, unsigned int offset, void *val,
-				 size_t bytes)
-{
-	return -EPERM;
-}
-
 static int tb_switch_nvm_write(void *priv, unsigned int offset, void *val,
 			       size_t bytes)
 {
@@ -399,7 +393,6 @@ static struct nvmem_device *register_nvmem(struct tb_switch *sw, int id,
 		config.read_only = true;
 	} else {
 		config.name = "nvm_non_active";
-		config.reg_read = tb_switch_nvm_no_read;
 		config.reg_write = tb_switch_nvm_write;
 		config.root_only = true;
 	}
@@ -954,7 +947,7 @@ static bool tb_port_is_width_supported(struct tb_port *port, int width)
 	ret = tb_port_read(port, &phy, TB_CFG_PORT,
 			   port->cap_phy + LANE_ADP_CS_0, 1);
 	if (ret)
-		return ret;
+		return false;
 
 	widths = (phy & LANE_ADP_CS_0_SUPPORTED_WIDTH_MASK) >>
 		LANE_ADP_CS_0_SUPPORTED_WIDTH_SHIFT;

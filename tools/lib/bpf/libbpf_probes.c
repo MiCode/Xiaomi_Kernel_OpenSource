@@ -108,6 +108,7 @@ probe_load(enum bpf_prog_type prog_type, const struct bpf_insn *insns,
 	case BPF_PROG_TYPE_TRACING:
 	case BPF_PROG_TYPE_STRUCT_OPS:
 	case BPF_PROG_TYPE_EXT:
+	case BPF_PROG_TYPE_LSM:
 	default:
 		break;
 	}
@@ -236,6 +237,11 @@ bool bpf_probe_map_type(enum bpf_map_type map_type, __u32 ifindex)
 		btf_fd = load_sk_storage_btf();
 		if (btf_fd < 0)
 			return false;
+		break;
+	case BPF_MAP_TYPE_RINGBUF:
+		key_size = 0;
+		value_size = 0;
+		max_entries = 4096;
 		break;
 	case BPF_MAP_TYPE_UNSPEC:
 	case BPF_MAP_TYPE_HASH:

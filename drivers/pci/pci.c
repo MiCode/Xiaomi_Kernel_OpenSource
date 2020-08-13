@@ -173,6 +173,29 @@ unsigned char pci_bus_max_busnr(struct pci_bus *bus)
 }
 EXPORT_SYMBOL_GPL(pci_bus_max_busnr);
 
+/**
+ * pci_status_get_and_clear_errors - return and clear error bits in PCI_STATUS
+ * @pdev: the PCI device
+ *
+ * Returns error bits set in PCI_STATUS and clears them.
+ */
+int pci_status_get_and_clear_errors(struct pci_dev *pdev)
+{
+	u16 status;
+	int ret;
+
+	ret = pci_read_config_word(pdev, PCI_STATUS, &status);
+	if (ret != PCIBIOS_SUCCESSFUL)
+		return -EIO;
+
+	status &= PCI_STATUS_ERROR_BITS;
+	if (status)
+		pci_write_config_word(pdev, PCI_STATUS, status);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(pci_status_get_and_clear_errors);
+
 #ifdef CONFIG_HAS_IOMEM
 void __iomem *pci_ioremap_bar(struct pci_dev *pdev, int bar)
 {
@@ -557,6 +580,40 @@ int pci_find_ext_capability(struct pci_dev *dev, int cap)
 }
 EXPORT_SYMBOL_GPL(pci_find_ext_capability);
 
+/**
+ * pci_get_dsn - Read and return the 8-byte Device Serial Number
+ * @dev: PCI device to query
+ *
+ * Looks up the PCI_EXT_CAP_ID_DSN and reads the 8 bytes of the Device Serial
+ * Number.
+ *
+ * Returns the DSN, or zero if the capability does not exist.
+ */
+u64 pci_get_dsn(struct pci_dev *dev)
+{
+	u32 dword;
+	u64 dsn;
+	int pos;
+
+	pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_DSN);
+	if (!pos)
+		return 0;
+
+	/*
+	 * The Device Serial Number is two dwords offset 4 bytes from the
+	 * capability position. The specification says that the first dword is
+	 * the lower half, and the second dword is the upper half.
+	 */
+	pos += 4;
+	pci_read_config_dword(dev, pos, &dword);
+	dsn = (u64)dword;
+	pci_read_config_dword(dev, pos + 4, &dword);
+	dsn |= ((u64)dword) << 32;
+
+	return dsn;
+}
+EXPORT_SYMBOL_GPL(pci_get_dsn);
+
 static int __pci_find_next_ht_cap(struct pci_dev *dev, int pos, int ht_cap)
 {
 	int rc, ttl = PCI_FIND_CAP_TTL;
@@ -695,30 +752,6 @@ struct resource *pci_find_resource(struct pci_dev *dev, struct resource *res)
 EXPORT_SYMBOL(pci_find_resource);
 
 /**
- * pci_find_pcie_root_port - return PCIe Root Port
- * @dev: PCI device to query
- *
- * Traverse up the parent chain and return the PCIe Root Port PCI Device
- * for a given PCI Device.
- */
-struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
-{
-	struct pci_dev *bridge, *highest_pcie_bridge = dev;
-
-	bridge = pci_upstream_bridge(dev);
-	while (bridge && pci_is_pcie(bridge)) {
-		highest_pcie_bridge = bridge;
-		bridge = pci_upstream_bridge(bridge);
-	}
-
-	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-		return NULL;
-
-	return highest_pcie_bridge;
-}
-EXPORT_SYMBOL(pci_find_pcie_root_port);
-
-/**
  * pci_wait_for_pending - wait for @mask bit(s) to clear in status word @pos
  * @dev: the PCI device to operate on
  * @pos: config space offset of status word
@@ -811,7 +844,9 @@ static inline bool platform_pci_need_resume(struct pci_dev *dev)
 
 static inline bool platform_pci_bridge_d3(struct pci_dev *dev)
 {
-	return pci_platform_pm ? pci_platform_pm->bridge_d3(dev) : false;
+	if (pci_platform_pm && pci_platform_pm->bridge_d3)
+		return pci_platform_pm->bridge_d3(dev);
+	return false;
 }
 
 /**
@@ -1503,7 +1538,7 @@ void pci_restore_state(struct pci_dev *dev)
 	pci_restore_rebar_state(dev);
 	pci_restore_dpc_state(dev);
 
-	pci_cleanup_aer_error_status_regs(dev);
+	pci_aer_clear_status(dev);
 	pci_restore_aer_state(dev);
 
 	pci_restore_config_space(dev);
@@ -1521,7 +1556,7 @@ EXPORT_SYMBOL(pci_restore_state);
 
 struct pci_saved_state {
 	u32 config_space[16];
-	struct pci_cap_saved_data cap[0];
+	struct pci_cap_saved_data cap[];
 };
 
 /**
@@ -4603,7 +4638,8 @@ static int pci_pm_reset(struct pci_dev *dev, int probe)
  * pcie_wait_for_link_delay - Wait until link is active or inactive
  * @pdev: Bridge device
  * @active: waiting for active or inactive?
- * @delay: Delay to wait after link has become active (in ms)
+ * @delay: Delay to wait after link has become active (in ms). Specify %0
+ *	   for no delay.
  *
  * Use this to wait till link becomes active or inactive.
  */
@@ -4616,10 +4652,10 @@ static bool pcie_wait_for_link_delay(struct pci_dev *pdev, bool active,
 
 	/*
 	 * Some controllers might not implement link active reporting. In this
-	 * case, we wait for 1000 + 100 ms.
+	 * case, we wait for 1000 ms + any delay requested by the caller.
 	 */
 	if (!pdev->link_active_reporting) {
-		msleep(1100);
+		msleep(timeout + delay);
 		return true;
 	}
 
@@ -4644,7 +4680,7 @@ static bool pcie_wait_for_link_delay(struct pci_dev *pdev, bool active,
 		msleep(10);
 		timeout -= 10;
 	}
-	if (active && ret)
+	if (active && ret && delay)
 		msleep(delay);
 	else if (ret != active)
 		pci_info(pdev, "Data Link Layer Link Active not %s in 1000 msec\n",
@@ -4765,17 +4801,28 @@ void pci_bridge_wait_for_secondary_bus(struct pci_dev *dev)
 	if (!pcie_downstream_port(dev))
 		return;
 
-	if (pcie_get_speed_cap(dev) <= PCIE_SPEED_5_0GT) {
-		pci_dbg(dev, "waiting %d ms for downstream link\n", delay);
-		msleep(delay);
-	} else {
-		pci_dbg(dev, "waiting %d ms for downstream link, after activation\n",
-			delay);
-		if (!pcie_wait_for_link_delay(dev, true, delay)) {
+	/*
+	 * Per PCIe r5.0, sec 6.6.1, for downstream ports that support
+	 * speeds > 5 GT/s, we must wait for link training to complete
+	 * before the mandatory delay.
+	 *
+	 * We can only tell when link training completes via DLL Link
+	 * Active, which is required for downstream ports that support
+	 * speeds > 5 GT/s (sec 7.5.3.6).  Unfortunately some common
+	 * devices do not implement Link Active reporting even when it's
+	 * required, so we'll check for that directly instead of checking
+	 * the supported link speed.  We assume devices without Link Active
+	 * reporting can train in 100 ms regardless of speed.
+	 */
+	if (dev->link_active_reporting) {
+		pci_dbg(dev, "waiting for link to train\n");
+		if (!pcie_wait_for_link_delay(dev, true, 0)) {
 			/* Did not train, no need to wait any further */
 			return;
 		}
 	}
+	pci_dbg(child, "waiting %d ms to become accessible\n", delay);
+	msleep(delay);
 
 	if (!pci_device_is_present(child)) {
 		pci_dbg(child, "waiting additional %d ms to become accessible\n", delay);
@@ -5784,19 +5831,10 @@ enum pci_bus_speed pcie_get_speed_cap(struct pci_dev *dev)
 	 * where only 2.5 GT/s and 5.0 GT/s speeds were defined.
 	 */
 	pcie_capability_read_dword(dev, PCI_EXP_LNKCAP2, &lnkcap2);
-	if (lnkcap2) { /* PCIe r3.0-compliant */
-		if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_32_0GB)
-			return PCIE_SPEED_32_0GT;
-		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_16_0GB)
-			return PCIE_SPEED_16_0GT;
-		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_8_0GB)
-			return PCIE_SPEED_8_0GT;
-		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_5_0GB)
-			return PCIE_SPEED_5_0GT;
-		else if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_2_5GB)
-			return PCIE_SPEED_2_5GT;
-		return PCI_SPEED_UNKNOWN;
-	}
+
+	/* PCIe r3.0-compliant */
+	if (lnkcap2)
+		return PCIE_LNKCAP2_SLS2SPEED(lnkcap2);
 
 	pcie_capability_read_dword(dev, PCI_EXP_LNKCAP, &lnkcap);
 	if ((lnkcap & PCI_EXP_LNKCAP_SLS) == PCI_EXP_LNKCAP_SLS_5_0GB)
@@ -5872,14 +5910,14 @@ void __pcie_print_link_status(struct pci_dev *dev, bool verbose)
 	if (bw_avail >= bw_cap && verbose)
 		pci_info(dev, "%u.%03u Gb/s available PCIe bandwidth (%s x%d link)\n",
 			 bw_cap / 1000, bw_cap % 1000,
-			 PCIE_SPEED2STR(speed_cap), width_cap);
+			 pci_speed_string(speed_cap), width_cap);
 	else if (bw_avail < bw_cap)
 		pci_info(dev, "%u.%03u Gb/s available PCIe bandwidth, limited by %s x%d link at %s (capable of %u.%03u Gb/s with %s x%d link)\n",
 			 bw_avail / 1000, bw_avail % 1000,
-			 PCIE_SPEED2STR(speed), width,
+			 pci_speed_string(speed), width,
 			 limiting_dev ? pci_name(limiting_dev) : "<unknown>",
 			 bw_cap / 1000, bw_cap % 1000,
-			 PCIE_SPEED2STR(speed_cap), width_cap);
+			 pci_speed_string(speed_cap), width_cap);
 }
 
 /**

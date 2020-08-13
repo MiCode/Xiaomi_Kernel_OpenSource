@@ -2205,9 +2205,9 @@ static void dce_v8_0_hide_cursor(struct drm_crtc *crtc)
 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
 	struct amdgpu_device *adev = crtc->dev->dev_private;
 
-	WREG32_IDX(mmCUR_CONTROL + amdgpu_crtc->crtc_offset,
-		   (CURSOR_24_8_PRE_MULT << CUR_CONTROL__CURSOR_MODE__SHIFT) |
-		   (CURSOR_URGENT_1_2 << CUR_CONTROL__CURSOR_URGENT_CONTROL__SHIFT));
+	WREG32(mmCUR_CONTROL + amdgpu_crtc->crtc_offset,
+	       (CURSOR_24_8_PRE_MULT << CUR_CONTROL__CURSOR_MODE__SHIFT) |
+	       (CURSOR_URGENT_1_2 << CUR_CONTROL__CURSOR_URGENT_CONTROL__SHIFT));
 }
 
 static void dce_v8_0_show_cursor(struct drm_crtc *crtc)
@@ -2220,10 +2220,10 @@ static void dce_v8_0_show_cursor(struct drm_crtc *crtc)
 	WREG32(mmCUR_SURFACE_ADDRESS + amdgpu_crtc->crtc_offset,
 	       lower_32_bits(amdgpu_crtc->cursor_addr));
 
-	WREG32_IDX(mmCUR_CONTROL + amdgpu_crtc->crtc_offset,
-		   CUR_CONTROL__CURSOR_EN_MASK |
-		   (CURSOR_24_8_PRE_MULT << CUR_CONTROL__CURSOR_MODE__SHIFT) |
-		   (CURSOR_URGENT_1_2 << CUR_CONTROL__CURSOR_URGENT_CONTROL__SHIFT));
+	WREG32(mmCUR_CONTROL + amdgpu_crtc->crtc_offset,
+	       CUR_CONTROL__CURSOR_EN_MASK |
+	       (CURSOR_24_8_PRE_MULT << CUR_CONTROL__CURSOR_MODE__SHIFT) |
+	       (CURSOR_URGENT_1_2 << CUR_CONTROL__CURSOR_URGENT_CONTROL__SHIFT));
 }
 
 static int dce_v8_0_cursor_move_locked(struct drm_crtc *crtc,
@@ -2395,6 +2395,10 @@ static const struct drm_crtc_funcs dce_v8_0_crtc_funcs = {
 	.set_config = amdgpu_display_crtc_set_config,
 	.destroy = dce_v8_0_crtc_destroy,
 	.page_flip_target = amdgpu_display_crtc_page_flip_target,
+	.get_vblank_counter = amdgpu_get_vblank_counter_kms,
+	.enable_vblank = amdgpu_enable_vblank_kms,
+	.disable_vblank = amdgpu_disable_vblank_kms,
+	.get_vblank_timestamp = drm_crtc_vblank_helper_get_vblank_timestamp,
 };
 
 static void dce_v8_0_crtc_dpms(struct drm_crtc *crtc, int mode)
@@ -2593,6 +2597,7 @@ static const struct drm_crtc_helper_funcs dce_v8_0_crtc_helper_funcs = {
 	.prepare = dce_v8_0_crtc_prepare,
 	.commit = dce_v8_0_crtc_commit,
 	.disable = dce_v8_0_crtc_disable,
+	.get_scanout_position = amdgpu_crtc_get_scanout_position,
 };
 
 static int dce_v8_0_crtc_init(struct amdgpu_device *adev, int index)

@@ -3,6 +3,7 @@
  *
  * This code is licenced under the GPL.
  */
+#include <linux/sched/mm.h>
 #include <linux/proc_fs.h>
 #include <linux/smp.h>
 #include <linux/init.h>
@@ -31,8 +32,10 @@
 #include <linux/relay.h>
 #include <linux/slab.h>
 #include <linux/percpu-rwsem.h>
+#ifdef CONFIG_SCHED_WALT
 #include <uapi/linux/sched/types.h>
 #include <linux/cpuset.h>
+#endif
 
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
@@ -334,12 +337,12 @@ void lockdep_assert_cpus_held(void)
 
 static void lockdep_acquire_cpus_lock(void)
 {
-	rwsem_acquire(&cpu_hotplug_lock.rw_sem.dep_map, 0, 0, _THIS_IP_);
+	rwsem_acquire(&cpu_hotplug_lock.dep_map, 0, 0, _THIS_IP_);
 }
 
 static void lockdep_release_cpus_lock(void)
 {
-	rwsem_release(&cpu_hotplug_lock.rw_sem.dep_map, _THIS_IP_);
+	rwsem_release(&cpu_hotplug_lock.dep_map, _THIS_IP_);
 }
 
 /*
@@ -435,7 +438,7 @@ static inline bool cpu_smt_allowed(unsigned int cpu)
 	/*
 	 * On x86 it's required to boot all logical CPUs at least once so
 	 * that the init code can get a chance to set CR4.MCE on each
-	 * CPU. Otherwise, a broadacasted MCE observing CR4.MCE=0b on any
+	 * CPU. Otherwise, a broadcasted MCE observing CR4.MCE=0b on any
 	 * core will shutdown the machine.
 	 */
 	return !cpumask_test_cpu(cpu, &cpus_booted_once_mask);
@@ -565,6 +568,21 @@ static int bringup_cpu(unsigned int cpu)
 	if (ret)
 		return ret;
 	return bringup_wait_for_ap(cpu);
+}
+
+static int finish_cpu(unsigned int cpu)
+{
+	struct task_struct *idle = idle_thread_get(cpu);
+	struct mm_struct *mm = idle->active_mm;
+
+	/*
+	 * idle_task_exit() will have switched to &init_mm, now
+	 * clean up any remaining active_mm state.
+	 */
+	if (mm != &init_mm)
+		idle->active_mm = &init_mm;
+	mmdrop(mm);
+	return 0;
 }
 
 /*
@@ -989,8 +1007,10 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 	if (!cpu_present(cpu))
 		return -EINVAL;
 
+#ifdef CONFIG_SCHED_WALT
 	if (!tasks_frozen && !cpu_isolated(cpu) && num_online_uniso_cpus() == 1)
 		return -EBUSY;
+#endif
 
 	cpus_write_lock();
 	if (trace_cpuhp_latency_enabled())
@@ -1051,10 +1071,11 @@ static int cpu_down_maps_locked(unsigned int cpu, enum cpuhp_state target)
 	return _cpu_down(cpu, 0, target);
 }
 
-static int do_cpu_down(unsigned int cpu, enum cpuhp_state target)
+static int cpu_down(unsigned int cpu, enum cpuhp_state target)
 {
 	int err;
 
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * When cpusets are enabled, the rebuilding of the scheduling
 	 * domains is deferred to a workqueue context. Make sure
@@ -1066,6 +1087,7 @@ static int do_cpu_down(unsigned int cpu, enum cpuhp_state target)
 	 * happens on from other CPUs in the root domain.
 	 */
 	cpuset_wait_for_hotplug();
+#endif
 
 	cpu_maps_update_begin();
 	err = cpu_down_maps_locked(cpu, target);
@@ -1073,11 +1095,72 @@ static int do_cpu_down(unsigned int cpu, enum cpuhp_state target)
 	return err;
 }
 
-int cpu_down(unsigned int cpu)
+/**
+ * cpu_device_down - Bring down a cpu device
+ * @dev: Pointer to the cpu device to offline
+ *
+ * This function is meant to be used by device core cpu subsystem only.
+ *
+ * Other subsystems should use remove_cpu() instead.
+ */
+int cpu_device_down(struct device *dev)
 {
-	return do_cpu_down(cpu, CPUHP_OFFLINE);
+	return cpu_down(dev->id, CPUHP_OFFLINE);
 }
-EXPORT_SYMBOL(cpu_down);
+
+int remove_cpu(unsigned int cpu)
+{
+	int ret;
+
+	lock_device_hotplug();
+	ret = device_offline(get_cpu_device(cpu));
+	unlock_device_hotplug();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(remove_cpu);
+
+void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
+{
+	unsigned int cpu;
+	int error;
+
+	cpu_maps_update_begin();
+
+	/*
+	 * Make certain the cpu I'm about to reboot on is online.
+	 *
+	 * This is inline to what migrate_to_reboot_cpu() already do.
+	 */
+	if (!cpu_online(primary_cpu))
+		primary_cpu = cpumask_first(cpu_online_mask);
+
+	for_each_online_cpu(cpu) {
+		if (cpu == primary_cpu)
+			continue;
+
+		error = cpu_down_maps_locked(cpu, CPUHP_OFFLINE);
+		if (error) {
+			pr_err("Failed to offline CPU%d - error=%d",
+				cpu, error);
+			break;
+		}
+	}
+
+	/*
+	 * Ensure all but the reboot CPU are offline.
+	 */
+	BUG_ON(num_online_cpus() > 1);
+
+	/*
+	 * Make sure the CPUs won't be enabled by someone else after this
+	 * point. Kexec will reboot to a new kernel shortly resetting
+	 * everything along the way.
+	 */
+	cpu_hotplug_disabled++;
+
+	cpu_maps_update_done();
+}
 
 #else
 #define takedown_cpu		NULL
@@ -1149,8 +1232,8 @@ static int _cpu_up(unsigned int cpu, int tasks_frozen, enum cpuhp_state target)
 	}
 
 	/*
-	 * The caller of do_cpu_up might have raced with another
-	 * caller. Ignore it for now.
+	 * The caller of cpu_up() might have raced with another
+	 * caller. Nothing to do.
 	 */
 	if (st->state >= target)
 		goto out;
@@ -1195,6 +1278,7 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_SCHED_WALT
 static int switch_to_rt_policy(void)
 {
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
@@ -1221,11 +1305,14 @@ static int switch_to_fair_policy(void)
 
 	return sched_setscheduler_nocheck(current, SCHED_NORMAL, &param);
 }
+#endif /* CONFIG_SCHED_WALT */
 
-static int do_cpu_up(unsigned int cpu, enum cpuhp_state target)
+static int cpu_up(unsigned int cpu, enum cpuhp_state target)
 {
 	int err = 0;
+#ifdef CONFIG_SCHED_WALT
 	int switch_err = 0;
+#endif
 
 	if (!cpu_possible(cpu)) {
 		pr_err("can't online cpu %d because it is not configured as may-hotadd at boot time\n",
@@ -1236,11 +1323,13 @@ static int do_cpu_up(unsigned int cpu, enum cpuhp_state target)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_SCHED_WALT
 	cpuset_wait_for_hotplug();
 
 	switch_err = switch_to_rt_policy();
 	if (switch_err < 0)
 		return switch_err;
+#endif
 
 	err = try_online_node(cpu_to_node(cpu));
 	if (err)
@@ -1261,21 +1350,77 @@ static int do_cpu_up(unsigned int cpu, enum cpuhp_state target)
 out:
 	cpu_maps_update_done();
 
+#ifdef CONFIG_SCHED_WALT
 	if (!switch_err) {
 		switch_err = switch_to_fair_policy();
 		if (switch_err)
 			pr_err("Hotplug policy switch err=%d Task %s pid=%d\n",
 				switch_err, current->comm, current->pid);
 	}
+#endif
 
 	return err;
 }
 
-int cpu_up(unsigned int cpu)
+/**
+ * cpu_device_up - Bring up a cpu device
+ * @dev: Pointer to the cpu device to online
+ *
+ * This function is meant to be used by device core cpu subsystem only.
+ *
+ * Other subsystems should use add_cpu() instead.
+ */
+int cpu_device_up(struct device *dev)
 {
-	return do_cpu_up(cpu, CPUHP_ONLINE);
+	return cpu_up(dev->id, CPUHP_ONLINE);
 }
-EXPORT_SYMBOL_GPL(cpu_up);
+
+int add_cpu(unsigned int cpu)
+{
+	int ret;
+
+	lock_device_hotplug();
+	ret = device_online(get_cpu_device(cpu));
+	unlock_device_hotplug();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(add_cpu);
+
+/**
+ * bringup_hibernate_cpu - Bring up the CPU that we hibernated on
+ * @sleep_cpu: The cpu we hibernated on and should be brought up.
+ *
+ * On some architectures like arm64, we can hibernate on any CPU, but on
+ * wake up the CPU we hibernated on might be offline as a side effect of
+ * using maxcpus= for example.
+ */
+int bringup_hibernate_cpu(unsigned int sleep_cpu)
+{
+	int ret;
+
+	if (!cpu_online(sleep_cpu)) {
+		pr_info("Hibernated on a CPU that is offline! Bringing CPU up.\n");
+		ret = cpu_up(sleep_cpu, CPUHP_ONLINE);
+		if (ret) {
+			pr_err("Failed to bring hibernate-CPU up!\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
+void bringup_nonboot_cpus(unsigned int setup_max_cpus)
+{
+	unsigned int cpu;
+
+	for_each_present_cpu(cpu) {
+		if (num_online_cpus() >= setup_max_cpus)
+			break;
+		if (!cpu_online(cpu))
+			cpu_up(cpu, CPUHP_ONLINE);
+	}
+}
 
 #ifdef CONFIG_PM_SLEEP_SMP
 static cpumask_var_t frozen_cpus;
@@ -1329,8 +1474,8 @@ int freeze_secondary_cpus(int primary)
 
 	/*
 	 * Make sure the CPUs won't be enabled by someone else. We need to do
-	 * this even in case of failure as all disable_nonboot_cpus() users are
-	 * supposed to do enable_nonboot_cpus() on the failure path.
+	 * this even in case of failure as all freeze_secondary_cpus() users are
+	 * supposed to do thaw_secondary_cpus() on the failure path.
 	 */
 	cpu_hotplug_disabled++;
 
@@ -1338,15 +1483,15 @@ int freeze_secondary_cpus(int primary)
 	return error;
 }
 
-void __weak arch_enable_nonboot_cpus_begin(void)
+void __weak arch_thaw_secondary_cpus_begin(void)
 {
 }
 
-void __weak arch_enable_nonboot_cpus_end(void)
+void __weak arch_thaw_secondary_cpus_end(void)
 {
 }
 
-void enable_nonboot_cpus(void)
+void thaw_secondary_cpus(void)
 {
 	int cpu, error;
 	struct device *cpu_device;
@@ -1359,7 +1504,7 @@ void enable_nonboot_cpus(void)
 
 	pr_info("Enabling non-boot CPUs ...\n");
 
-	arch_enable_nonboot_cpus_begin();
+	arch_thaw_secondary_cpus_begin();
 
 	for_each_cpu(cpu, frozen_cpus) {
 		trace_suspend_resume(TPS("CPU_ON"), cpu, true);
@@ -1378,7 +1523,7 @@ void enable_nonboot_cpus(void)
 		pr_warn("Error taking CPU%d up: %d\n", cpu, error);
 	}
 
-	arch_enable_nonboot_cpus_end();
+	arch_thaw_secondary_cpus_end();
 
 	cpumask_clear(frozen_cpus);
 out:
@@ -1509,7 +1654,7 @@ static struct cpuhp_step cpuhp_hp_states[] = {
 	[CPUHP_BRINGUP_CPU] = {
 		.name			= "cpu:bringup",
 		.startup.single		= bringup_cpu,
-		.teardown.single	= NULL,
+		.teardown.single	= finish_cpu,
 		.cant_stop		= true,
 	},
 	/* Final state before CPU kills itself */
@@ -2103,9 +2248,9 @@ static ssize_t write_cpuhp_target(struct device *dev,
 		goto out;
 
 	if (st->state < target)
-		ret = do_cpu_up(dev->id, target);
+		ret = cpu_up(dev->id, target);
 	else
-		ret = do_cpu_down(dev->id, target);
+		ret = cpu_down(dev->id, target);
 out:
 	unlock_device_hotplug();
 	return ret ? ret : count;
@@ -2386,8 +2531,10 @@ EXPORT_SYMBOL(__cpu_present_mask);
 struct cpumask __cpu_active_mask __read_mostly;
 EXPORT_SYMBOL(__cpu_active_mask);
 
+#ifdef CONFIG_SCHED_WALT
 struct cpumask __cpu_isolated_mask __read_mostly;
 EXPORT_SYMBOL(__cpu_isolated_mask);
+#endif
 
 atomic_t __num_online_cpus __read_mostly;
 EXPORT_SYMBOL(__num_online_cpus);
@@ -2407,10 +2554,12 @@ void init_cpu_online(const struct cpumask *src)
 	cpumask_copy(&__cpu_online_mask, src);
 }
 
+#ifdef CONFIG_SCHED_WALT
 void init_cpu_isolated(const struct cpumask *src)
 {
 	cpumask_copy(&__cpu_isolated_mask, src);
 }
+#endif
 
 void set_cpu_online(unsigned int cpu, bool online)
 {

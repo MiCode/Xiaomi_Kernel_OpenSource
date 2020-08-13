@@ -2909,49 +2909,18 @@ static bool binder_proc_transaction(struct binder_transaction *t,
 	struct binder_priority node_prio;
 	bool oneway = !!(t->flags & TF_ONE_WAY);
 	bool pending_async = false;
-	bool retry = false;
 
 	BUG_ON(!node);
-
-set_thread_prio:
+	binder_node_lock(node);
 	node_prio.prio = node->min_priority;
 	node_prio.sched_policy = node->sched_policy;
-	if (thread) {
-		/*
-		 * Priority must be set outside of lock, but must be
-		 * done before enqueuing the transaction.
-		 */
-		binder_transaction_priority(thread->task, t, node_prio,
-					    node->inherit_rt);
-	}
-
-retry_after_prio_restore:
-	binder_node_lock(node);
 
 	if (oneway) {
-		BUG_ON(!retry && thread);
+		BUG_ON(thread);
 		if (node->has_async_transaction) {
 			pending_async = true;
 		} else {
 			node->has_async_transaction = true;
-		}
-		if (thread && pending_async) {
-			/*
-			 * The node state has changed since we selected
-			 * the thread. Return the thread to the
-			 * waiting_threads list. We have to drop
-			 * the node lock to restore priority so we
-			 * have to re-check the node state.
-			 */
-			binder_node_unlock(node);
-			binder_restore_priority(thread->task,
-						proc->default_priority);
-			binder_inner_proc_lock(proc);
-			list_add(&thread->waiting_thread_node,
-				 &proc->waiting_threads);
-			binder_inner_proc_unlock(proc);
-			thread = NULL;
-			goto retry_after_prio_restore;
 		}
 	}
 
@@ -2963,24 +2932,18 @@ retry_after_prio_restore:
 		return false;
 	}
 
-	if (!thread && !pending_async) {
+	if (!thread && !pending_async)
 		thread = binder_select_thread_ilocked(proc);
-		if (thread) {
-			if (oneway)
-				node->has_async_transaction = false;
-			binder_inner_proc_unlock(proc);
-			binder_node_unlock(node);
-			retry = true;
-			goto set_thread_prio;
-		}
-	}
 
-	if (thread)
+	if (thread) {
+		binder_transaction_priority(thread->task, t, node_prio,
+					    node->inherit_rt);
 		binder_enqueue_thread_work_ilocked(thread, &t->work);
-	else if (!pending_async)
+	} else if (!pending_async) {
 		binder_enqueue_work_ilocked(&t->work, &proc->todo);
-	else
+	} else {
 		binder_enqueue_work_ilocked(&t->work, &node->async_todo);
+	}
 
 	if (!pending_async)
 		binder_wakeup_thread_ilocked(proc, thread, !oneway /* sync */);
@@ -4892,8 +4855,15 @@ static struct binder_thread *binder_get_thread(struct binder_proc *proc)
 
 static void binder_free_proc(struct binder_proc *proc)
 {
+	struct binder_device *device;
+
 	BUG_ON(!list_empty(&proc->todo));
 	BUG_ON(!list_empty(&proc->delivered_death));
+	device = container_of(proc->context, struct binder_device, context);
+	if (refcount_dec_and_test(&device->ref)) {
+		kfree(proc->context->name);
+		kfree(device);
+	}
 	binder_alloc_deferred_release(&proc->alloc);
 	put_task_struct(proc->tsk);
 	binder_stats_deleted(BINDER_STAT_PROC);
@@ -5442,6 +5412,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 		binder_dev = container_of(filp->private_data,
 					  struct binder_device, miscdev);
 	}
+	refcount_inc(&binder_dev->ref);
 	proc->context = &binder_dev->context;
 	binder_alloc_init(&proc->alloc);
 
@@ -6293,6 +6264,7 @@ static int __init init_binder_device(const char *name)
 	binder_device->miscdev.minor = MISC_DYNAMIC_MINOR;
 	binder_device->miscdev.name = name;
 
+	refcount_set(&binder_device->ref, 1);
 	binder_device->context.binder_context_mgr_uid = INVALID_UID;
 	binder_device->context.name = name;
 	mutex_init(&binder_device->context.context_mgr_node_lock);

@@ -492,7 +492,7 @@ struct iio_buffer_setup_ops {
  * @buffer:		[DRIVER] any buffer present
  * @buffer_list:	[INTERN] list of all buffers currently attached
  * @scan_bytes:		[INTERN] num bytes captured to be fed to buffer demux
- * @mlock:		[DRIVER] lock used to prevent simultaneous device state
+ * @mlock:		[INTERN] lock used to prevent simultaneous device state
  *			changes
  * @available_scan_masks: [DRIVER] optional array of allowed bitmasks
  * @masklength:		[INTERN] the length of the mask established from
@@ -568,6 +568,8 @@ struct iio_dev {
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry			*debugfs_dentry;
 	unsigned			cached_reg_addr;
+	char				read_buf[20];
+	unsigned int			read_buf_len;
 #endif
 };
 
@@ -591,17 +593,13 @@ void iio_device_unregister(struct iio_dev *indio_dev);
  * calls iio_device_register() internally. Refer to that function for more
  * information.
  *
- * If an iio_dev registered with this function needs to be unregistered
- * separately, devm_iio_device_unregister() must be used.
- *
  * RETURNS:
  * 0 on success, negative error number on failure.
  */
 #define devm_iio_device_register(dev, indio_dev) \
-	__devm_iio_device_register((dev), (indio_dev), THIS_MODULE);
+	__devm_iio_device_register((dev), (indio_dev), THIS_MODULE)
 int __devm_iio_device_register(struct device *dev, struct iio_dev *indio_dev,
 			       struct module *this_mod);
-void devm_iio_device_unregister(struct device *dev, struct iio_dev *indio_dev);
 int iio_push_event(struct iio_dev *indio_dev, u64 ev_code, s64 timestamp);
 int iio_device_claim_direct_mode(struct iio_dev *indio_dev);
 void iio_device_release_direct_mode(struct iio_dev *indio_dev);
@@ -626,6 +624,8 @@ static inline clockid_t iio_device_get_clock(const struct iio_dev *indio_dev)
 {
 	return indio_dev->clock_id;
 }
+
+int iio_device_set_clock(struct iio_dev *indio_dev, clockid_t clock_id);
 
 /**
  * dev_to_iio_dev() - Get IIO device struct from a device struct
@@ -690,13 +690,9 @@ static inline struct iio_dev *iio_priv_to_dev(void *priv)
 }
 
 void iio_device_free(struct iio_dev *indio_dev);
-int devm_iio_device_match(struct device *dev, void *res, void *data);
 struct iio_dev *devm_iio_device_alloc(struct device *dev, int sizeof_priv);
-void devm_iio_device_free(struct device *dev, struct iio_dev *indio_dev);
 struct iio_trigger *devm_iio_trigger_alloc(struct device *dev,
 						const char *fmt, ...);
-void devm_iio_trigger_free(struct device *dev, struct iio_trigger *iio_trig);
-
 /**
  * iio_buffer_enabled() - helper function to test if the buffer is enabled
  * @indio_dev:		IIO device structure for device

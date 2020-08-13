@@ -15,7 +15,7 @@
 #include <linux/memblock.h>
 #include <linux/err.h>
 #include <linux/clk.h>
-#include <linux/clk-provider.h>
+#include <linux/of_clk.h>
 #include <linux/of_fdt.h>
 #include <linux/irqchip.h>
 
@@ -153,8 +153,7 @@ static void __init ath79_detect_sys_type(void)
 	case REV_ID_MAJOR_QCA9533_V2:
 		ver = 2;
 		ath79_soc_rev = 2;
-		/* fall through */
-
+		fallthrough;
 	case REV_ID_MAJOR_QCA9533:
 		ath79_soc = ATH79_SOC_QCA9533;
 		chip = "9533";

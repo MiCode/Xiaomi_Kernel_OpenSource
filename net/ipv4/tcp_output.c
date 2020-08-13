@@ -184,10 +184,10 @@ static inline void tcp_event_ack_sent(struct sock *sk, unsigned int pkts,
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
-	if (unlikely(tp->compressed_ack > TCP_FASTRETRANS_THRESH)) {
+	if (unlikely(tp->compressed_ack)) {
 		NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPACKCOMPRESSED,
-			      tp->compressed_ack - TCP_FASTRETRANS_THRESH);
-		tp->compressed_ack = TCP_FASTRETRANS_THRESH;
+			      tp->compressed_ack);
+		tp->compressed_ack = 0;
 		if (hrtimer_try_to_cancel(&tp->compressed_ack_timer) == 1)
 			__sock_put(sk);
 	}
@@ -1109,6 +1109,10 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 
 		if (unlikely(!skb))
 			return -ENOBUFS;
+		/* retransmit skbs might have a non zero value in skb->dev
+		 * because skb->dev is aliased with skb->rbnode.rb_left
+		 */
+		skb->dev = NULL;
 	}
 
 	inet = inet_sk(sk);
@@ -2589,8 +2593,7 @@ bool tcp_schedule_loss_probe(struct sock *sk, bool advancing_rto)
 	if (rto_delta_us > 0)
 		timeout = min_t(u32, timeout, usecs_to_jiffies(rto_delta_us));
 
-	tcp_reset_xmit_timer(sk, ICSK_TIME_LOSS_PROBE, timeout,
-			     TCP_RTO_MAX, NULL);
+	tcp_reset_xmit_timer(sk, ICSK_TIME_LOSS_PROBE, timeout, TCP_RTO_MAX);
 	return true;
 }
 
@@ -2768,8 +2771,12 @@ u32 __tcp_select_window(struct sock *sk)
 	int mss = icsk->icsk_ack.rcv_mss;
 	int free_space = tcp_space(sk);
 	int allowed_space = tcp_full_space(sk);
-	int full_space = min_t(int, tp->window_clamp, allowed_space);
-	int window;
+	int full_space, window;
+
+	if (sk_is_mptcp(sk))
+		mptcp_space(sk, &free_space, &allowed_space);
+
+	full_space = min_t(int, tp->window_clamp, allowed_space);
 
 	if (unlikely(mss > full_space)) {
 		mss = full_space;
@@ -3037,8 +3044,12 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
 
 		tcp_skb_tsorted_save(skb) {
 			nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
-			err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
-				     -ENOBUFS;
+			if (nskb) {
+				nskb->dev = NULL;
+				err = tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC);
+			} else {
+				err = -ENOBUFS;
+			}
 		} tcp_skb_tsorted_restore(skb);
 
 		if (!err) {
@@ -3101,6 +3112,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	struct sk_buff *skb, *rtx_head, *hole = NULL;
 	struct tcp_sock *tp = tcp_sk(sk);
+	bool rearm_timer = false;
 	u32 max_segs;
 	int mib_idx;
 
@@ -3123,7 +3135,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 
 		segs = tp->snd_cwnd - tcp_packets_in_flight(tp);
 		if (segs <= 0)
-			return;
+			break;
 		sacked = TCP_SKB_CB(skb)->sacked;
 		/* In case tcp_shift_skb_data() have aggregated large skbs,
 		 * we need to make sure not sending too bigs TSO packets
@@ -3148,10 +3160,10 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 			continue;
 
 		if (tcp_small_queue_check(sk, skb, 1))
-			return;
+			break;
 
 		if (tcp_retransmit_skb(sk, skb, segs))
-			return;
+			break;
 
 		NET_ADD_STATS(sock_net(sk), mib_idx, tcp_skb_pcount(skb));
 
@@ -3160,11 +3172,13 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 
 		if (skb == rtx_head &&
 		    icsk->icsk_pending != ICSK_TIME_REO_TIMEOUT)
-			tcp_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
-					     inet_csk(sk)->icsk_rto,
-					     TCP_RTO_MAX,
-					     skb);
+			rearm_timer = true;
+
 	}
+	if (rearm_timer)
+		tcp_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+				     inet_csk(sk)->icsk_rto,
+				     TCP_RTO_MAX);
 }
 
 /* We allow to exceed memory limits for FIN packets to expedite
@@ -3895,7 +3909,7 @@ void tcp_send_probe0(struct sock *sk)
 		 */
 		timeout = TCP_RESOURCE_PROBE_INTERVAL;
 	}
-	tcp_reset_xmit_timer(sk, ICSK_TIME_PROBE0, timeout, TCP_RTO_MAX, NULL);
+	tcp_reset_xmit_timer(sk, ICSK_TIME_PROBE0, timeout, TCP_RTO_MAX);
 }
 
 int tcp_rtx_synack(const struct sock *sk, struct request_sock *req)

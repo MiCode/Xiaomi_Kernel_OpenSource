@@ -1839,6 +1839,10 @@ static int __init init_hw_perf_events(void)
 		err = amd_pmu_init();
 		x86_pmu.name = "HYGON";
 		break;
+	case X86_VENDOR_ZHAOXIN:
+	case X86_VENDOR_CENTAUR:
+		err = zhaoxin_pmu_init();
+		break;
 	default:
 		err = -ENOTSUPP;
 	}
@@ -2162,11 +2166,6 @@ static int x86_pmu_event_init(struct perf_event *event)
 	return err;
 }
 
-static void refresh_pce(void *ignored)
-{
-	load_mm_cr4_irqsoff(this_cpu_read(cpu_tlbstate.loaded_mm));
-}
-
 static void x86_pmu_event_mapped(struct perf_event *event, struct mm_struct *mm)
 {
 	if (!(event->hw.flags & PERF_X86_EVENT_RDPMC_ALLOWED))
@@ -2179,13 +2178,13 @@ static void x86_pmu_event_mapped(struct perf_event *event, struct mm_struct *mm)
 	 * userspace with CR4.PCE clear while another task is still
 	 * doing on_each_cpu_mask() to propagate CR4.PCE.
 	 *
-	 * For now, this can't happen because all callers hold mmap_sem
+	 * For now, this can't happen because all callers hold mmap_lock
 	 * for write.  If this changes, we'll need a different solution.
 	 */
-	lockdep_assert_held_write(&mm->mmap_sem);
+	mmap_assert_write_locked(mm);
 
 	if (atomic_inc_return(&mm->context.perf_rdpmc_allowed) == 1)
-		on_each_cpu_mask(mm_cpumask(mm), refresh_pce, NULL, 1);
+		on_each_cpu_mask(mm_cpumask(mm), cr4_update_pce, NULL, 1);
 }
 
 static void x86_pmu_event_unmapped(struct perf_event *event, struct mm_struct *mm)
@@ -2195,7 +2194,7 @@ static void x86_pmu_event_unmapped(struct perf_event *event, struct mm_struct *m
 		return;
 
 	if (atomic_dec_and_test(&mm->context.perf_rdpmc_allowed))
-		on_each_cpu_mask(mm_cpumask(mm), refresh_pce, NULL, 1);
+		on_each_cpu_mask(mm_cpumask(mm), cr4_update_pce, NULL, 1);
 }
 
 static int x86_pmu_event_idx(struct perf_event *event)
@@ -2253,7 +2252,7 @@ static ssize_t set_attr_rdpmc(struct device *cdev,
 		else if (x86_pmu.attr_rdpmc == 2)
 			static_branch_dec(&rdpmc_always_available_key);
 
-		on_each_cpu(refresh_pce, NULL, 1);
+		on_each_cpu(cr4_update_pce, NULL, 1);
 		x86_pmu.attr_rdpmc = val;
 	}
 
@@ -2490,7 +2489,7 @@ perf_callchain_user32(struct pt_regs *regs, struct perf_callchain_entry_ctx *ent
 	/* 32-bit process in 64-bit kernel. */
 	unsigned long ss_base, cs_base;
 	struct stack_frame_ia32 frame;
-	const void __user *fp;
+	const struct stack_frame_ia32 __user *fp;
 
 	if (!test_thread_flag(TIF_IA32))
 		return 0;
@@ -2501,18 +2500,12 @@ perf_callchain_user32(struct pt_regs *regs, struct perf_callchain_entry_ctx *ent
 	fp = compat_ptr(ss_base + regs->bp);
 	pagefault_disable();
 	while (entry->nr < entry->max_stack) {
-		unsigned long bytes;
-		frame.next_frame     = 0;
-		frame.return_address = 0;
-
 		if (!valid_user_frame(fp, sizeof(frame)))
 			break;
 
-		bytes = __copy_from_user_nmi(&frame.next_frame, fp, 4);
-		if (bytes != 0)
+		if (__get_user(frame.next_frame, &fp->next_frame))
 			break;
-		bytes = __copy_from_user_nmi(&frame.return_address, fp+4, 4);
-		if (bytes != 0)
+		if (__get_user(frame.return_address, &fp->return_address))
 			break;
 
 		perf_callchain_store(entry, cs_base + frame.return_address);
@@ -2533,7 +2526,7 @@ void
 perf_callchain_user(struct perf_callchain_entry_ctx *entry, struct pt_regs *regs)
 {
 	struct stack_frame frame;
-	const unsigned long __user *fp;
+	const struct stack_frame __user *fp;
 
 	if (perf_guest_cbs && perf_guest_cbs->is_in_guest()) {
 		/* TODO: We don't support guest os callchain now */
@@ -2546,7 +2539,7 @@ perf_callchain_user(struct perf_callchain_entry_ctx *entry, struct pt_regs *regs
 	if (regs->flags & (X86_VM_MASK | PERF_EFLAGS_VM))
 		return;
 
-	fp = (unsigned long __user *)regs->bp;
+	fp = (void __user *)regs->bp;
 
 	perf_callchain_store(entry, regs->ip);
 
@@ -2558,19 +2551,12 @@ perf_callchain_user(struct perf_callchain_entry_ctx *entry, struct pt_regs *regs
 
 	pagefault_disable();
 	while (entry->nr < entry->max_stack) {
-		unsigned long bytes;
-
-		frame.next_frame	     = NULL;
-		frame.return_address = 0;
-
 		if (!valid_user_frame(fp, sizeof(frame)))
 			break;
 
-		bytes = __copy_from_user_nmi(&frame.next_frame, fp, sizeof(*fp));
-		if (bytes != 0)
+		if (__get_user(frame.next_frame, &fp->next_frame))
 			break;
-		bytes = __copy_from_user_nmi(&frame.return_address, fp + 1, sizeof(*fp));
-		if (bytes != 0)
+		if (__get_user(frame.return_address, &fp->return_address))
 			break;
 
 		perf_callchain_store(entry, frame.return_address);

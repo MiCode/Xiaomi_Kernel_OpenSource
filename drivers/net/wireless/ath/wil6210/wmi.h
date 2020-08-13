@@ -478,7 +478,7 @@ struct wmi_start_scan_cmd {
 	struct {
 		u8 channel;
 		u8 reserved;
-	} channel_list[0];
+	} channel_list[];
 } __packed;
 
 #define WMI_MAX_PNO_SSID_NUM	(16)
@@ -534,7 +534,7 @@ struct wmi_update_ft_ies_cmd {
 	/* Length of the FT IEs */
 	__le16 ie_len;
 	u8 reserved[2];
-	u8 ie_info[0];
+	u8 ie_info[];
 } __packed;
 
 /* WMI_SET_PROBED_SSID_CMDID */
@@ -579,7 +579,7 @@ struct wmi_set_appie_cmd {
 	u8 reserved;
 	/* Length of the IE to be added to MGMT frame */
 	__le16 ie_len;
-	u8 ie_info[0];
+	u8 ie_info[];
 } __packed;
 
 /* WMI_PXMT_RANGE_CFG_CMDID */
@@ -859,7 +859,7 @@ struct wmi_pcp_start_cmd {
 struct wmi_sw_tx_req_cmd {
 	u8 dst_mac[WMI_MAC_LEN];
 	__le16 len;
-	u8 payload[0];
+	u8 payload[];
 } __packed;
 
 /* WMI_SW_TX_REQ_EXT_CMDID */
@@ -870,7 +870,7 @@ struct wmi_sw_tx_req_ext_cmd {
 	/* Channel to use, 0xFF for currently active channel */
 	u8 channel;
 	u8 reserved[5];
-	u8 payload[0];
+	u8 payload[];
 } __packed;
 
 /* WMI_VRING_SWITCH_TIMING_CONFIG_CMDID */
@@ -1432,7 +1432,7 @@ struct wmi_rf_xpm_write_cmd {
 	u8 verify;
 	u8 reserved1[3];
 	/* actual size=num_bytes */
-	u8 data_bytes[0];
+	u8 data_bytes[];
 } __packed;
 
 /* Possible modes for temperature measurement */
@@ -1581,7 +1581,7 @@ struct wmi_tof_session_start_cmd {
 	u8 aoa_type;
 	__le16 num_of_dest;
 	u8 reserved[4];
-	struct wmi_ftm_dest_info ftm_dest_info[0];
+	struct wmi_ftm_dest_info ftm_dest_info[];
 } __packed;
 
 /* WMI_TOF_CFG_RESPONDER_CMDID */
@@ -1782,7 +1782,7 @@ struct wmi_internal_fw_ioctl_cmd {
 	/* payload max size is WMI_MAX_IOCTL_PAYLOAD_SIZE
 	 * Must be the last member of the struct
 	 */
-	__le32 payload[0];
+	__le32 payload[];
 } __packed;
 
 /* WMI_INTERNAL_FW_IOCTL_EVENTID */
@@ -1794,7 +1794,7 @@ struct wmi_internal_fw_ioctl_event {
 	/* payload max size is WMI_MAX_IOCTL_REPLY_PAYLOAD_SIZE
 	 * Must be the last member of the struct
 	 */
-	__le32 payload[0];
+	__le32 payload[];
 } __packed;
 
 /* WMI_INTERNAL_FW_EVENT_EVENTID */
@@ -1804,7 +1804,7 @@ struct wmi_internal_fw_event_event {
 	/* payload max size is WMI_MAX_INTERNAL_EVENT_PAYLOAD_SIZE
 	 * Must be the last member of the struct
 	 */
-	__le32 payload[0];
+	__le32 payload[];
 } __packed;
 
 /* WMI_SET_VRING_PRIORITY_WEIGHT_CMDID */
@@ -1834,7 +1834,7 @@ struct wmi_set_vring_priority_cmd {
 	 */
 	u8 num_of_vrings;
 	u8 reserved[3];
-	struct wmi_vring_priority vring_priority[0];
+	struct wmi_vring_priority vring_priority[];
 } __packed;
 
 /* WMI_BF_CONTROL_CMDID - deprecated */
@@ -1926,7 +1926,7 @@ struct wmi_bf_control_ex_cmd {
 	u8 each_mcs_cfg_size;
 	u8 reserved1;
 	/* Configuration for each MCS */
-	struct wmi_bf_control_ex_mcs each_mcs_cfg[0];
+	struct wmi_bf_control_ex_mcs each_mcs_cfg[];
 } __packed;
 
 /* WMI_LINK_STATS_CMD */
@@ -2210,7 +2210,7 @@ struct wmi_fw_ver_event {
 	/* FW capabilities info
 	 * Must be the last member of the struct
 	 */
-	__le32 fw_capabilities[0];
+	__le32 fw_capabilities[];
 } __packed;
 
 /* WMI_GET_RF_STATUS_EVENTID */
@@ -2288,7 +2288,7 @@ struct wmi_mac_addr_resp_event {
 struct wmi_eapol_rx_event {
 	u8 src_mac[WMI_MAC_LEN];
 	__le16 eapol_len;
-	u8 eapol[0];
+	u8 eapol[];
 } __packed;
 
 /* WMI_READY_EVENTID */
@@ -2361,7 +2361,7 @@ struct wmi_connect_event {
 	u8 aid;
 	u8 reserved2[2];
 	/* not in use */
-	u8 assoc_info[0];
+	u8 assoc_info[];
 } __packed;
 
 /* disconnect_reason */
@@ -2394,7 +2394,7 @@ struct wmi_disconnect_event {
 	/* last assoc req may passed to host - not in used */
 	u8 assoc_resp_len;
 	/* last assoc req may passed to host - not in used */
-	u8 assoc_info[0];
+	u8 assoc_info[];
 } __packed;
 
 /* WMI_SCAN_COMPLETE_EVENTID */
@@ -2418,7 +2418,7 @@ struct wmi_ft_auth_status_event {
 	u8 reserved[3];
 	u8 mac_addr[WMI_MAC_LEN];
 	__le16 ie_len;
-	u8 ie_info[0];
+	u8 ie_info[];
 } __packed;
 
 /* WMI_FT_REASSOC_STATUS_EVENTID */
@@ -2436,7 +2436,7 @@ struct wmi_ft_reassoc_status_event {
 	__le16 reassoc_req_ie_len;
 	__le16 reassoc_resp_ie_len;
 	u8 reserved[4];
-	u8 ie_info[0];
+	u8 ie_info[];
 } __packed;
 
 /* wmi_rx_mgmt_info */
@@ -2479,7 +2479,7 @@ struct wmi_stop_sched_scan_event {
 
 struct wmi_sched_scan_result_event {
 	struct wmi_rx_mgmt_info info;
-	u8 payload[0];
+	u8 payload[];
 } __packed;
 
 /* WMI_ACS_PASSIVE_SCAN_COMPLETE_EVENT */
@@ -2510,7 +2510,7 @@ struct wmi_acs_passive_scan_complete_event {
 	__le16 filled;
 	u8 num_scanned_channels;
 	u8 reserved;
-	struct scan_acs_info scan_info_list[0];
+	struct scan_acs_info scan_info_list[];
 } __packed;
 
 /* WMI_BA_STATUS_EVENTID */
@@ -2769,7 +2769,7 @@ struct wmi_rf_xpm_read_result_event {
 	u8 status;
 	u8 reserved[3];
 	/* requested num_bytes of data */
-	u8 data_bytes[0];
+	u8 data_bytes[];
 } __packed;
 
 /* EVENT: WMI_RF_XPM_WRITE_RESULT_EVENTID */
@@ -2787,7 +2787,7 @@ struct wmi_tx_mgmt_packet_event {
 /* WMI_RX_MGMT_PACKET_EVENTID */
 struct wmi_rx_mgmt_packet_event {
 	struct wmi_rx_mgmt_info info;
-	u8 payload[0];
+	u8 payload[];
 } __packed;
 
 /* WMI_ECHO_RSP_EVENTID */
@@ -2987,7 +2987,7 @@ struct wmi_rs_cfg_ex_cmd {
 	u8 each_mcs_cfg_size;
 	u8 reserved[3];
 	/* Configuration for each MCS */
-	struct wmi_rs_cfg_ex_mcs each_mcs_cfg[0];
+	struct wmi_rs_cfg_ex_mcs each_mcs_cfg[];
 } __packed;
 
 /* WMI_RS_CFG_EX_EVENTID */
@@ -3196,7 +3196,7 @@ struct wmi_get_detailed_rs_res_ex_event {
 	u8 each_mcs_results_size;
 	u8 reserved1[3];
 	/* Results for each MCS */
-	struct wmi_rs_results_ex_mcs each_mcs_results[0];
+	struct wmi_rs_results_ex_mcs each_mcs_results[];
 } __packed;
 
 /* BRP antenna limit mode */
@@ -3338,7 +3338,7 @@ struct wmi_set_link_monitor_cmd {
 	u8 rssi_hyst;
 	u8 reserved[12];
 	u8 rssi_thresholds_list_size;
-	s8 rssi_thresholds_list[0];
+	s8 rssi_thresholds_list[];
 } __packed;
 
 /* wmi_link_monitor_event_type */
@@ -3655,7 +3655,7 @@ struct wmi_tof_ftm_per_dest_res_event {
 	/* Measurments are from RFs, defined by the mask */
 	__le32 meas_rf_mask;
 	u8 reserved0[3];
-	struct wmi_responder_ftm_res responder_ftm_res[0];
+	struct wmi_responder_ftm_res responder_ftm_res[];
 } __packed;
 
 /* WMI_TOF_CFG_RESPONDER_EVENTID */
@@ -3687,7 +3687,7 @@ struct wmi_tof_channel_info_event {
 	/* data report length */
 	u8 len;
 	/* data report payload */
-	u8 report[0];
+	u8 report[];
 } __packed;
 
 /* WMI_TOF_SET_TX_RX_OFFSET_EVENTID */
@@ -4103,7 +4103,7 @@ struct wmi_link_stats_event {
 	u8 has_next;
 	u8 reserved[5];
 	/* a stream of wmi_link_stats_record_s */
-	u8 payload[0];
+	u8 payload[];
 } __packed;
 
 /* WMI_LINK_STATS_EVENT */
@@ -4112,7 +4112,7 @@ struct wmi_link_stats_record {
 	u8 record_type_id;
 	u8 reserved;
 	__le16 record_size;
-	u8 record[0];
+	u8 record[];
 } __packed;
 
 /* WMI_LINK_STATS_TYPE_BASIC */

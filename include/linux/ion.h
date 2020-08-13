@@ -53,6 +53,7 @@ struct ion_buffer {
  * struct ion_heap_ops - ops to operate on a given heap
  * @allocate:		allocate memory
  * @free:		free memory
+ * @get_pool_size:	get pool size in pages
  *
  * allocate returns 0 on success, -errno on error.
  * map_dma and map_kernel return pointer on success, ERR_PTR on
@@ -67,6 +68,7 @@ struct ion_heap_ops {
 			unsigned long flags);
 	void (*free)(struct ion_buffer *buffer);
 	int (*shrink)(struct ion_heap *heap, gfp_t gfp_mask, int nr_to_scan);
+	long (*get_pool_size)(struct ion_heap *heap);
 };
 
 /**
@@ -143,6 +145,19 @@ struct ion_heap {
 };
 
 #define ion_device_add_heap(heap) __ion_device_add_heap(heap, THIS_MODULE)
+
+/**
+ * struct ion_dma_buf_attachment - hold device-table attachment data for buffer
+ * @dev:	device attached to the buffer.
+ * @table:	cached mapping.
+ * @list:	list of ion_dma_buf_attachment.
+ */
+struct ion_dma_buf_attachment {
+	struct device *dev;
+	struct sg_table *table;
+	struct list_head list;
+	bool mapped:1;
+};
 
 #ifdef CONFIG_ION
 
@@ -309,6 +324,21 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
  */
 int ion_free(struct ion_buffer *buffer);
 
+/**
+ * ion_query_heaps_kernel - Returns information about available heaps to
+ * in-kernel clients.
+ *
+ * @hdata:             pointer to array of struct ion_heap_data.
+ * @size:             size of @hdata array.
+ *
+ * Returns the number of available heaps and populates @hdata with information
+ * regarding the same. When invoked with @size as 0, the function with return
+ * the number of available heaps without modifying @hdata. When the number of
+ * available heaps is higher than @size, @size is returned instead of the
+ * actual number of available heaps.
+ */
+
+size_t ion_query_heaps_kernel(struct ion_heap_data *hdata, size_t size);
 #else
 
 static inline int __ion_device_add_heap(struct ion_heap *heap,
@@ -380,5 +410,10 @@ static inline int ion_free(struct ion_buffer *buffer)
 	return 0;
 }
 
+static inline size_t ion_query_heaps_kernel(struct ion_heap_data *hdata,
+					 size_t size)
+{
+	return 0;
+}
 #endif /* CONFIG_ION */
 #endif /* _ION_KERNEL_H */

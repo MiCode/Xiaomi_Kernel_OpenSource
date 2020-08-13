@@ -147,7 +147,6 @@ struct dentry_operations {
 	struct vfsmount *(*d_automount)(struct path *);
 	int (*d_manage)(const struct path *, bool);
 	struct dentry *(*d_real)(struct dentry *, const struct inode *);
-	void (*d_canonical_path)(const struct path *, struct path *);
 } ____cacheline_aligned;
 
 /*
@@ -177,6 +176,8 @@ struct dentry_operations {
       * typically using d_splice_alias. */
 
 #define DCACHE_REFERENCED		0x00000040 /* Recently used, don't discard. */
+
+#define DCACHE_DONTCACHE		0x00000080 /* Purge from memory on final dput() */
 
 #define DCACHE_CANT_MOUNT		0x00000100
 #define DCACHE_GENOCIDE			0x00000200

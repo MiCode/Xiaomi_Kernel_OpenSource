@@ -779,6 +779,28 @@ int drm_gem_dmabuf_mmap(struct dma_buf *dma_buf, struct vm_area_struct *vma)
 }
 EXPORT_SYMBOL(drm_gem_dmabuf_mmap);
 
+/**
+ * drm_gem_dmabuf_get_uuid - dma_buf get_uuid implementation for GEM
+ * @dma_buf: buffer to query
+ * @uuid: uuid outparam
+ *
+ * Queries the buffer's virtio UUID. This can be used as the
+ * &dma_buf_ops.get_uuid callback. Calls into &drm_driver.gem_prime_get_uuid.
+ *
+ * Returns 0 on success or a negative error code on failure.
+ */
+int drm_gem_dmabuf_get_uuid(struct dma_buf *dma_buf, uuid_t *uuid)
+{
+	struct drm_gem_object *obj = dma_buf->priv;
+	struct drm_device *dev = obj->dev;
+
+	if (!dev->driver->gem_prime_get_uuid)
+		return -ENODEV;
+
+	return dev->driver->gem_prime_get_uuid(obj, uuid);
+}
+EXPORT_SYMBOL(drm_gem_dmabuf_get_uuid);
+
 static const struct dma_buf_ops drm_gem_prime_dmabuf_ops =  {
 	.cache_sgt_mapping = true,
 	.attach = drm_gem_map_attach,
@@ -789,6 +811,7 @@ static const struct dma_buf_ops drm_gem_prime_dmabuf_ops =  {
 	.mmap = drm_gem_dmabuf_mmap,
 	.vmap = drm_gem_dmabuf_vmap,
 	.vunmap = drm_gem_dmabuf_vunmap,
+	.get_uuid = drm_gem_dmabuf_get_uuid,
 };
 
 /**
@@ -962,27 +985,40 @@ int drm_prime_sg_to_page_addr_arrays(struct sg_table *sgt, struct page **pages,
 	unsigned count;
 	struct scatterlist *sg;
 	struct page *page;
-	u32 len, index;
+	u32 page_len, page_index;
 	dma_addr_t addr;
+	u32 dma_len, dma_index;
 
-	index = 0;
+	/*
+	 * Scatterlist elements contains both pages and DMA addresses, but
+	 * one shoud not assume 1:1 relation between them. The sg->length is
+	 * the size of the physical memory chunk described by the sg->page,
+	 * while sg_dma_len(sg) is the size of the DMA (IO virtual) chunk
+	 * described by the sg_dma_address(sg).
+	 */
+	page_index = 0;
+	dma_index = 0;
 	for_each_sg(sgt->sgl, sg, sgt->nents, count) {
-		len = sg->length;
+		page_len = sg->length;
 		page = sg_page(sg);
+		dma_len = sg_dma_len(sg);
 		addr = sg_dma_address(sg);
 
-		while (len > 0) {
-			if (WARN_ON(index >= max_entries))
+		while (pages && page_len > 0) {
+			if (WARN_ON(page_index >= max_entries))
 				return -1;
-			if (pages)
-				pages[index] = page;
-			if (addrs)
-				addrs[index] = addr;
-
+			pages[page_index] = page;
 			page++;
+			page_len -= PAGE_SIZE;
+			page_index++;
+		}
+		while (addrs && dma_len > 0) {
+			if (WARN_ON(dma_index >= max_entries))
+				return -1;
+			addrs[dma_index] = addr;
 			addr += PAGE_SIZE;
-			len -= PAGE_SIZE;
-			index++;
+			dma_len -= PAGE_SIZE;
+			dma_index++;
 		}
 	}
 	return 0;

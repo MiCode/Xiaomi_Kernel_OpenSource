@@ -42,6 +42,13 @@
 
 #include <linux/pci_ids.h>
 
+#define PCI_STATUS_ERROR_BITS (PCI_STATUS_DETECTED_PARITY  | \
+			       PCI_STATUS_SIG_SYSTEM_ERROR | \
+			       PCI_STATUS_REC_MASTER_ABORT | \
+			       PCI_STATUS_REC_TARGET_ABORT | \
+			       PCI_STATUS_SIG_TARGET_ABORT | \
+			       PCI_STATUS_PARITY)
+
 /*
  * The PCI interface treats multi-function devices as independent
  * devices.  The slot/function address of each device is encoded
@@ -93,9 +100,21 @@ enum {
 	PCI_IOV_RESOURCE_END = PCI_IOV_RESOURCES + PCI_SRIOV_NUM_BARS - 1,
 #endif
 
-	/* Resources assigned to buses behind the bridge */
+/* PCI-to-PCI (P2P) bridge windows */
+#define PCI_BRIDGE_IO_WINDOW		(PCI_BRIDGE_RESOURCES + 0)
+#define PCI_BRIDGE_MEM_WINDOW		(PCI_BRIDGE_RESOURCES + 1)
+#define PCI_BRIDGE_PREF_MEM_WINDOW	(PCI_BRIDGE_RESOURCES + 2)
+
+/* CardBus bridge windows */
+#define PCI_CB_BRIDGE_IO_0_WINDOW	(PCI_BRIDGE_RESOURCES + 0)
+#define PCI_CB_BRIDGE_IO_1_WINDOW	(PCI_BRIDGE_RESOURCES + 1)
+#define PCI_CB_BRIDGE_MEM_0_WINDOW	(PCI_BRIDGE_RESOURCES + 2)
+#define PCI_CB_BRIDGE_MEM_1_WINDOW	(PCI_BRIDGE_RESOURCES + 3)
+
+/* Total number of bridge resources for P2P and CardBus */
 #define PCI_BRIDGE_RESOURCE_NUM 4
 
+	/* Resources assigned to buses behind the bridge */
 	PCI_BRIDGE_RESOURCES,
 	PCI_BRIDGE_RESOURCE_END = PCI_BRIDGE_RESOURCES +
 				  PCI_BRIDGE_RESOURCE_NUM - 1,
@@ -236,7 +255,7 @@ enum pcie_link_width {
 	PCIE_LNK_WIDTH_UNKNOWN	= 0xff,
 };
 
-/* Based on the PCI Hotplug Spec, but some values are made up by us */
+/* See matching string table in pci_speed_string() */
 enum pci_bus_speed {
 	PCI_SPEED_33MHz			= 0x00,
 	PCI_SPEED_66MHz			= 0x01,
@@ -272,7 +291,7 @@ struct pci_cap_saved_data {
 	u16		cap_nr;
 	bool		cap_extended;
 	unsigned int	size;
-	u32		data[0];
+	u32		data[];
 };
 
 struct pci_cap_saved_state {
@@ -413,8 +432,6 @@ struct pci_dev {
 	 * mappings to make sure they cannot access arbitrary memory.
 	 */
 	unsigned int	untrusted:1;
-	unsigned int	__aer_firmware_first_valid:1;
-	unsigned int	__aer_firmware_first:1;
 	unsigned int	broken_intx_masking:1;	/* INTx masking can't be used */
 	unsigned int	io_window_1k:1;		/* Intel bridge 1K I/O windows */
 	unsigned int	irq_managed:1;
@@ -444,6 +461,11 @@ struct pci_dev {
 	const struct attribute_group **msi_irq_groups;
 #endif
 	struct pci_vpd *vpd;
+#ifdef CONFIG_PCIE_DPC
+	u16		dpc_cap;
+	unsigned int	dpc_rp_extensions:1;
+	u8		dpc_rp_log_size;
+#endif
 #ifdef CONFIG_PCI_ATS
 	union {
 		struct pci_sriov	*sriov;		/* PF: SR-IOV info */
@@ -510,7 +532,9 @@ struct pci_host_bridge {
 	unsigned int	native_shpc_hotplug:1;	/* OS may use SHPC hotplug */
 	unsigned int	native_pme:1;		/* OS may use PCIe PME */
 	unsigned int	native_ltr:1;		/* OS may use PCIe LTR */
+	unsigned int	native_dpc:1;		/* OS may use PCIe DPC */
 	unsigned int	preserve_config:1;	/* Preserve FW resource setup */
+	unsigned int	size_windows:1;		/* Enable root bus sizing */
 
 	/* Resource alignment requirements */
 	resource_size_t (*align_resource)(struct pci_dev *dev,
@@ -518,7 +542,7 @@ struct pci_host_bridge {
 			resource_size_t start,
 			resource_size_t size,
 			resource_size_t align);
-	unsigned long	private[0] ____cacheline_aligned;
+	unsigned long	private[] ____cacheline_aligned;
 };
 
 #define	to_pci_host_bridge(n) container_of(n, struct pci_host_bridge, dev)
@@ -1011,7 +1035,6 @@ void pci_bus_add_device(struct pci_dev *dev);
 void pci_read_bridge_bases(struct pci_bus *child);
 struct resource *pci_find_parent_resource(const struct pci_dev *dev,
 					  struct resource *res);
-struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev);
 u8 pci_swizzle_interrupt_pin(const struct pci_dev *dev, u8 pin);
 int pci_get_interrupt_pin(struct pci_dev *dev, struct pci_dev **bridge);
 u8 pci_common_swizzle(struct pci_dev *dev, u8 *pinp);
@@ -1044,6 +1067,8 @@ int pci_find_next_ext_capability(struct pci_dev *dev, int pos, int cap);
 int pci_find_ht_capability(struct pci_dev *dev, int ht_cap);
 int pci_find_next_ht_capability(struct pci_dev *dev, int pos, int ht_cap);
 struct pci_bus *pci_find_next_bus(const struct pci_bus *from);
+
+u64 pci_get_dsn(struct pci_dev *dev);
 
 struct pci_dev *pci_get_device(unsigned int vendor, unsigned int device,
 			       struct pci_dev *from);
@@ -1203,6 +1228,7 @@ int pci_select_bars(struct pci_dev *dev, unsigned long flags);
 bool pci_device_is_present(struct pci_dev *pdev);
 void pci_ignore_hotplug(struct pci_dev *dev);
 struct pci_dev *pci_real_dma_dev(struct pci_dev *dev);
+int pci_status_get_and_clear_errors(struct pci_dev *pdev);
 
 int __printf(6, 7) pci_request_irq(struct pci_dev *dev, unsigned int nr,
 		irq_handler_t handler, irq_handler_t thread_fn, void *dev_id,
@@ -1214,7 +1240,6 @@ int pci_enable_rom(struct pci_dev *pdev);
 void pci_disable_rom(struct pci_dev *pdev);
 void __iomem __must_check *pci_map_rom(struct pci_dev *pdev, size_t *size);
 void pci_unmap_rom(struct pci_dev *pdev, void __iomem *rom);
-void __iomem __must_check *pci_platform_rom(struct pci_dev *pdev, size_t *size);
 
 /* Power management related routines */
 int pci_save_state(struct pci_dev *dev);
@@ -1699,6 +1724,9 @@ static inline int pci_find_next_capability(struct pci_dev *dev, u8 post,
 static inline int pci_find_ext_capability(struct pci_dev *dev, int cap)
 { return 0; }
 
+static inline u64 pci_get_dsn(struct pci_dev *dev)
+{ return 0; }
+
 /* Power management related routines */
 static inline int pci_save_state(struct pci_dev *dev) { return 0; }
 static inline void pci_restore_state(struct pci_dev *dev) { }
@@ -2029,6 +2057,8 @@ int pci_iov_virtfn_devfn(struct pci_dev *dev, int id);
 
 int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
 void pci_disable_sriov(struct pci_dev *dev);
+
+int pci_iov_sysfs_link(struct pci_dev *dev, struct pci_dev *virtfn, int id);
 int pci_iov_add_virtfn(struct pci_dev *dev, int id);
 void pci_iov_remove_virtfn(struct pci_dev *dev, int id);
 int pci_num_vf(struct pci_dev *dev);
@@ -2054,6 +2084,12 @@ static inline int pci_iov_virtfn_devfn(struct pci_dev *dev, int id)
 }
 static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
 { return -ENODEV; }
+
+static inline int pci_iov_sysfs_link(struct pci_dev *dev,
+				     struct pci_dev *virtfn, int id)
+{
+	return -ENODEV;
+}
 static inline int pci_iov_add_virtfn(struct pci_dev *dev, int id)
 {
 	return -ENOSYS;
@@ -2124,17 +2160,22 @@ static inline int pci_pcie_type(const struct pci_dev *dev)
 	return (pcie_caps_reg(dev) & PCI_EXP_FLAGS_TYPE) >> 4;
 }
 
+/**
+ * pcie_find_root_port - Get the PCIe root port device
+ * @dev: PCI device
+ *
+ * Traverse up the parent chain and return the PCIe Root Port PCI Device
+ * for a given PCI/PCIe Device.
+ */
 static inline struct pci_dev *pcie_find_root_port(struct pci_dev *dev)
 {
-	while (1) {
-		if (!pci_is_pcie(dev))
-			break;
-		if (pci_pcie_type(dev) == PCI_EXP_TYPE_ROOT_PORT)
+	while (dev) {
+		if (pci_is_pcie(dev) &&
+		    pci_pcie_type(dev) == PCI_EXP_TYPE_ROOT_PORT)
 			return dev;
-		if (!dev->bus->self)
-			break;
-		dev = dev->bus->self;
+		dev = pci_upstream_bridge(dev);
 	}
+
 	return NULL;
 }
 
@@ -2171,6 +2212,7 @@ int pci_enable_atomic_ops_to_root(struct pci_dev *dev, u32 cap_mask);
 #define PCI_VPD_INFO_FLD_HDR_SIZE	3
 
 #define PCI_VPD_RO_KEYWORD_PARTNO	"PN"
+#define PCI_VPD_RO_KEYWORD_SERIALNO	"SN"
 #define PCI_VPD_RO_KEYWORD_MFR_ID	"MN"
 #define PCI_VPD_RO_KEYWORD_VENDOR0	"V0"
 #define PCI_VPD_RO_KEYWORD_CHKSUM	"RV"

@@ -190,12 +190,14 @@ static const struct {
 enum {
 	QEDE_PRI_FLAG_CMT,
 	QEDE_PRI_FLAG_SMART_AN_SUPPORT, /* MFW supports SmartAN */
+	QEDE_PRI_FLAG_RECOVER_ON_ERROR,
 	QEDE_PRI_FLAG_LEN,
 };
 
 static const char qede_private_arr[QEDE_PRI_FLAG_LEN][ETH_GSTRING_LEN] = {
 	"Coupled-Function",
 	"SmartAN capable",
+	"Recover on error",
 };
 
 enum qede_ethtool_tests {
@@ -417,7 +419,28 @@ static u32 qede_get_priv_flags(struct net_device *dev)
 	if (edev->dev_info.common.smart_an)
 		flags |= BIT(QEDE_PRI_FLAG_SMART_AN_SUPPORT);
 
+	if (edev->err_flags & BIT(QEDE_ERR_IS_RECOVERABLE))
+		flags |= BIT(QEDE_PRI_FLAG_RECOVER_ON_ERROR);
+
 	return flags;
+}
+
+static int qede_set_priv_flags(struct net_device *dev, u32 flags)
+{
+	struct qede_dev *edev = netdev_priv(dev);
+	u32 cflags = qede_get_priv_flags(dev);
+	u32 dflags = flags ^ cflags;
+
+	/* can only change RECOVER_ON_ERROR flag */
+	if (dflags & ~BIT(QEDE_PRI_FLAG_RECOVER_ON_ERROR))
+		return -EINVAL;
+
+	if (flags & BIT(QEDE_PRI_FLAG_RECOVER_ON_ERROR))
+		set_bit(QEDE_ERR_IS_RECOVERABLE, &edev->err_flags);
+	else
+		clear_bit(QEDE_ERR_IS_RECOVERABLE, &edev->err_flags);
+
+	return 0;
 }
 
 struct qede_link_mode_mapping {
@@ -1566,7 +1589,7 @@ static int qede_selftest_transmit_traffic(struct qede_dev *edev,
 
 static int qede_selftest_receive_traffic(struct qede_dev *edev)
 {
-	u16 hw_comp_cons, sw_comp_cons, sw_rx_index, len;
+	u16 sw_rx_index, len;
 	struct eth_fast_path_rx_reg_cqe *fp_cqe;
 	struct qede_rx_queue *rxq = NULL;
 	struct sw_rx_data *sw_rx_data;
@@ -1595,17 +1618,6 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
 			usleep_range(100, 200);
 			continue;
 		}
-
-		hw_comp_cons = le16_to_cpu(*rxq->hw_cons_ptr);
-		sw_comp_cons = qed_chain_get_cons_idx(&rxq->rx_comp_ring);
-
-		/* Memory barrier to prevent the CPU from doing speculative
-		 * reads of CQE/BD before reading hw_comp_cons. If the CQE is
-		 * read before it is written by FW, then FW writes CQE and SB,
-		 * and then the CPU reads the hw_comp_cons, it will use an old
-		 * CQE.
-		 */
-		rmb();
 
 		/* Get the CQE from the completion ring */
 		cqe = (union eth_rx_cqe *)qed_chain_consume(&rxq->rx_comp_ring);
@@ -2087,6 +2099,7 @@ err:
 }
 
 static const struct ethtool_ops qede_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS,
 	.get_link_ksettings = qede_get_link_ksettings,
 	.set_link_ksettings = qede_set_link_ksettings,
 	.get_drvinfo = qede_get_drvinfo,
@@ -2108,6 +2121,7 @@ static const struct ethtool_ops qede_ethtool_ops = {
 	.set_phys_id = qede_set_phys_id,
 	.get_ethtool_stats = qede_get_ethtool_stats,
 	.get_priv_flags = qede_get_priv_flags,
+	.set_priv_flags = qede_set_priv_flags,
 	.get_sset_count = qede_get_sset_count,
 	.get_rxnfc = qede_get_rxnfc,
 	.set_rxnfc = qede_set_rxnfc,
@@ -2133,6 +2147,7 @@ static const struct ethtool_ops qede_ethtool_ops = {
 };
 
 static const struct ethtool_ops qede_vf_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS,
 	.get_link_ksettings = qede_get_link_ksettings,
 	.get_drvinfo = qede_get_drvinfo,
 	.get_msglevel = qede_get_msglevel,

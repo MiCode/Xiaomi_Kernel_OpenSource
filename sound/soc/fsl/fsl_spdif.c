@@ -370,7 +370,7 @@ static int spdif_set_sample_rate(struct snd_pcm_substream *substream,
 				int sample_rate)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct spdif_mixer_control *ctrl = &spdif_priv->fsl_spdif_control;
 	struct regmap *regmap = spdif_priv->regmap;
 	struct platform_device *pdev = spdif_priv->pdev;
@@ -458,7 +458,7 @@ static int fsl_spdif_startup(struct snd_pcm_substream *substream,
 			     struct snd_soc_dai *cpu_dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct platform_device *pdev = spdif_priv->pdev;
 	struct regmap *regmap = spdif_priv->regmap;
 	u32 scr, mask;
@@ -466,7 +466,7 @@ static int fsl_spdif_startup(struct snd_pcm_substream *substream,
 	int ret;
 
 	/* Reset module and interrupts only for first initialization */
-	if (!cpu_dai->active) {
+	if (!snd_soc_dai_active(cpu_dai)) {
 		ret = clk_prepare_enable(spdif_priv->coreclk);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to enable core clock\n");
@@ -534,7 +534,7 @@ static void fsl_spdif_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *cpu_dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct regmap *regmap = spdif_priv->regmap;
 	u32 scr, mask, i;
 
@@ -554,7 +554,7 @@ static void fsl_spdif_shutdown(struct snd_pcm_substream *substream,
 	regmap_update_bits(regmap, REG_SPDIF_SCR, mask, scr);
 
 	/* Power down SPDIF module only if tx&rx are both inactive */
-	if (!cpu_dai->active) {
+	if (!snd_soc_dai_active(cpu_dai)) {
 		spdif_intr_status_clear(spdif_priv);
 		regmap_update_bits(regmap, REG_SPDIF_SCR,
 				SCR_LOW_POWER, SCR_LOW_POWER);
@@ -569,7 +569,7 @@ static int fsl_spdif_hw_params(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct spdif_mixer_control *ctrl = &spdif_priv->fsl_spdif_control;
 	struct platform_device *pdev = spdif_priv->pdev;
 	u32 sample_rate = params_rate(params);
@@ -597,7 +597,7 @@ static int fsl_spdif_trigger(struct snd_pcm_substream *substream,
 				int cmd, struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+	struct fsl_spdif_priv *spdif_priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
 	struct regmap *regmap = spdif_priv->regmap;
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	u32 intr = SIE_INTR_FOR(tx);

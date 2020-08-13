@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012, 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_CORESIGHT_H
@@ -41,6 +41,7 @@ enum coresight_dev_type {
 	CORESIGHT_DEV_TYPE_LINKSINK,
 	CORESIGHT_DEV_TYPE_SOURCE,
 	CORESIGHT_DEV_TYPE_HELPER,
+	CORESIGHT_DEV_TYPE_ECT,
 };
 
 enum coresight_dev_subtype_sink {
@@ -68,6 +69,12 @@ enum coresight_dev_subtype_helper {
 	CORESIGHT_DEV_SUBTYPE_HELPER_CATU,
 };
 
+/* Embedded Cross Trigger (ECT) sub-types */
+enum coresight_dev_subtype_ect {
+	CORESIGHT_DEV_SUBTYPE_ECT_NONE,
+	CORESIGHT_DEV_SUBTYPE_ECT_CTI,
+};
+
 /**
  * union coresight_dev_subtype - further characterisation of a type
  * @sink_subtype:	type of sink this component is, as defined
@@ -78,6 +85,8 @@ enum coresight_dev_subtype_helper {
  *			by @coresight_dev_subtype_source.
  * @helper_subtype:	type of helper this component is, as defined
  *			by @coresight_dev_subtype_helper.
+ * @ect_subtype:        type of cross trigger this component is, as
+ *			defined by @coresight_dev_subtype_ect
  */
 union coresight_dev_subtype {
 	/* We have some devices which acts as LINK and SINK */
@@ -87,36 +96,21 @@ union coresight_dev_subtype {
 	};
 	enum coresight_dev_subtype_source source_subtype;
 	enum coresight_dev_subtype_helper helper_subtype;
+	enum coresight_dev_subtype_ect ect_subtype;
 };
 
 /**
- * struct coresight_reg_clk - regulators and clocks need by coresight
- * @nr_reg:	number of regulators
- * @nr_clk:	number of clocks
- * @reg:	regulator list
- * @clk:	clock list
- */
-struct coresight_reg_clk {
-	int nr_reg;
-	int nr_clk;
-	struct regulator **reg;
-	struct clk **clk;
-};
-
-/**
- * struct coresight_platform_data - data harvested from the DT specification
- * @nr_inport:	number of input ports for this component.
- * @nr_outport:	number of output ports for this component.
- * @conns:	Array of nr_outport connections from this component
- * @reg_clk:	The clock this component is associated to.
+ * struct coresight_platform_data - data harvested from the firmware
+ * specification.
+ *
+ * @nr_inport:	Number of elements for the input connections.
+ * @nr_outport:	Number of elements for the output connections.
+ * @conns:	Sparse array of nr_outport connections from this component.
  */
 struct coresight_platform_data {
 	int nr_inport;
 	int nr_outport;
 	struct coresight_connection *conns;
-#ifdef CONFIG_CORESIGHT_QGKI
-	struct coresight_reg_clk *reg_clk;
-#endif
 };
 
 /**
@@ -145,19 +139,31 @@ struct coresight_desc {
  * struct coresight_connection - representation of a single connection
  * @outport:	a connection's output port number.
  * @child_port:	remote component's port number @output is connected to.
- * @source_name:source component's name.
  * @chid_fwnode: remote component's fwnode handle.
  * @child_dev:	a @coresight_device representation of the component
 		connected to @outport.
+ * @link: Representation of the connection as a sysfs link.
  */
 struct coresight_connection {
 	int outport;
 	int child_port;
-#ifdef CONFIG_CORESIGHT_QGKI
-	const char *source_name;
-#endif
 	struct fwnode_handle *child_fwnode;
 	struct coresight_device *child_dev;
+	struct coresight_sysfs_link *link;
+};
+
+/**
+ * struct coresight_sysfs_link - representation of a connection in sysfs.
+ * @orig:		Originating (master) coresight device for the link.
+ * @orig_name:		Name to use for the link orig->target.
+ * @target:		Target (slave) coresight device for the link.
+ * @target_name:	Name to use for the link target->orig.
+ */
+struct coresight_sysfs_link {
+	struct coresight_device *orig;
+	const char *orig_name;
+	struct coresight_device *target;
+	const char *target_name;
 };
 
 /**
@@ -175,7 +181,11 @@ struct coresight_connection {
  *		activated but not yet enabled.  Enabling for a _sink_
  *		appens when a source has been selected for that it.
  * @ea:		Device attribute for sink representation under PMU directory.
- * @reg_clk:	clock for this component, as defined by @coresight_reg_clk.
+ * @ect_dev:	Associated cross trigger device. Not part of the trace data
+ *		path or connections.
+ * @nr_links:   number of sysfs links created to other components from this
+ *		device. These will appear in the "connections" group.
+ * @has_conns_grp: Have added a "connections" group for sysfs links.
  */
 struct coresight_device {
 	struct coresight_platform_data *pdata;
@@ -189,9 +199,11 @@ struct coresight_device {
 	/* sink specific fields */
 	bool activated;	/* true only if a sink is part of a path */
 	struct dev_ext_attribute *ea;
-#ifdef CONFIG_CORESIGHT_QGKI
-	struct coresight_reg_clk *reg_clk;
-#endif
+	/* cross trigger handling */
+	struct coresight_device *ect_dev;
+	/* sysfs links between components */
+	int nr_links;
+	bool has_conns_grp;
 };
 
 /*
@@ -222,6 +234,7 @@ static struct coresight_dev_list (var) = {				\
 #define sink_ops(csdev)		csdev->ops->sink_ops
 #define link_ops(csdev)		csdev->ops->link_ops
 #define helper_ops(csdev)	csdev->ops->helper_ops
+#define ect_ops(csdev)		csdev->ops->ect_ops
 
 /**
  * struct coresight_ops_sink - basic operations for a sink
@@ -288,11 +301,23 @@ struct coresight_ops_helper {
 	int (*disable)(struct coresight_device *csdev, void *data);
 };
 
+/**
+ * struct coresight_ops_ect - Ops for an embedded cross trigger device
+ *
+ * @enable	: Enable the device
+ * @disable	: Disable the device
+ */
+struct coresight_ops_ect {
+	int (*enable)(struct coresight_device *csdev);
+	int (*disable)(struct coresight_device *csdev);
+};
+
 struct coresight_ops {
 	const struct coresight_ops_sink *sink_ops;
 	const struct coresight_ops_link *link_ops;
 	const struct coresight_ops_source *source_ops;
 	const struct coresight_ops_helper *helper_ops;
+	const struct coresight_ops_ect *ect_ops;
 };
 
 #ifdef CONFIG_CORESIGHT
@@ -309,14 +334,10 @@ extern int coresight_claim_device_unlocked(void __iomem *base);
 
 extern void coresight_disclaim_device(void __iomem *base);
 extern void coresight_disclaim_device_unlocked(void __iomem *base);
-extern const char *coresight_alloc_device_name(struct coresight_dev_list *devs,
+extern char *coresight_alloc_device_name(struct coresight_dev_list *devs,
 					 struct device *dev);
 
 extern bool coresight_loses_context_with_cpu(struct device *dev);
-extern void coresight_disable_reg_clk(struct coresight_device *csdev);
-extern int coresight_enable_reg_clk(struct coresight_device *csdev);
-extern void coresight_disable_all_source_link(void);
-extern void coresight_enable_all_source_link(void);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -343,13 +364,6 @@ static inline bool coresight_loses_context_with_cpu(struct device *dev)
 {
 	return false;
 }
-static inline void coresight_disable_reg_clk(struct coresight_device *csdev) {}
-static inline int coresight_enable_reg_clk(struct coresight_device *csdev)
-{
-	return -EINVAL;
-}
-static void coresight_disable_all_source_link(void) {};
-static void coresight_enable_all_source_link(void) {};
 #endif
 
 extern int coresight_get_cpu(struct device *dev);

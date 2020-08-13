@@ -480,10 +480,6 @@ struct snd_pcm_substream {
 	/* misc flags */
 	unsigned int hw_opened: 1;
 	unsigned int managed_buffer_alloc:1;
-#ifdef CONFIG_AUDIO_QGKI
-	spinlock_t runtime_lock;
-#endif
-	unsigned int hw_no_buffer: 1; /* substream may not have a buffer */
 };
 
 #define SUBSTREAM_BUSY(substream) ((substream)->ref_count > 0)
@@ -507,10 +503,6 @@ struct snd_pcm_str {
 #endif
 #endif
 	struct snd_kcontrol *chmap_kctl; /* channel-mapping controls */
-#ifdef CONFIG_AUDIO_QGKI
-	struct snd_kcontrol *vol_kctl; /* volume controls */
-	struct snd_kcontrol *usr_kctl; /* user controls */
-#endif
 	struct device dev;
 };
 
@@ -651,6 +643,11 @@ void snd_pcm_stream_unlock_irqrestore(struct snd_pcm_substream *substream,
  */
 #define snd_pcm_group_for_each_entry(s, substream) \
 	list_for_each_entry(s, &substream->group->substreams, link_list)
+
+#define for_each_pcm_streams(stream)			\
+	for (stream  = SNDRV_PCM_STREAM_PLAYBACK;	\
+	     stream <= SNDRV_PCM_STREAM_LAST;		\
+	     stream++)
 
 /**
  * snd_pcm_running - Check whether the substream is in a running state
@@ -1130,7 +1127,14 @@ snd_pcm_kernel_readv(struct snd_pcm_substream *substream,
 	return __snd_pcm_lib_xfer(substream, bufs, false, frames, true);
 }
 
-int snd_pcm_limit_hw_rates(struct snd_pcm_runtime *runtime);
+int snd_pcm_hw_limit_rates(struct snd_pcm_hardware *hw);
+
+static inline int
+snd_pcm_limit_hw_rates(struct snd_pcm_runtime *runtime)
+{
+	return snd_pcm_hw_limit_rates(&runtime->hw);
+}
+
 unsigned int snd_pcm_rate_to_rate_bit(unsigned int rate);
 unsigned int snd_pcm_rate_bit_to_rate(unsigned int rate_bit);
 unsigned int snd_pcm_rate_mask_intersect(unsigned int rates_a,
@@ -1423,55 +1427,15 @@ static inline u64 pcm_format_to_bits(snd_pcm_format_t pcm_format)
 	return 1ULL << (__force int) pcm_format;
 }
 
-#ifdef CONFIG_AUDIO_QGKI
-/*
- * PCM Volume control API
+/**
+ * pcm_for_each_format - helper to iterate for each format type
+ * @f: the iterator variable in snd_pcm_format_t type
  */
-/* array element of volume */
-struct snd_pcm_volume_elem {
-	int volume;
-};
+#define pcm_for_each_format(f)						\
+	for ((f) = SNDRV_PCM_FORMAT_FIRST;				\
+	     (__force int)(f) <= (__force int)SNDRV_PCM_FORMAT_LAST;	\
+	     (f) = (__force snd_pcm_format_t)((__force int)(f) + 1))
 
-/* pp information; retrieved via snd_kcontrol_chip() */
-struct snd_pcm_volume {
-	struct snd_pcm *pcm;	/* assigned PCM instance */
-	int stream;		/* PLAYBACK or CAPTURE */
-	struct snd_kcontrol *kctl;
-	const struct snd_pcm_volume_elem *volume;
-	int max_length;
-	void *private_data;	/* optional: private data pointer */
-};
-
-int snd_pcm_add_volume_ctls(struct snd_pcm *pcm, int stream,
-			   const struct snd_pcm_volume_elem *volume,
-			   int max_length,
-			   unsigned long private_value,
-			   struct snd_pcm_volume **info_ret);
-
-/*
- * PCM User control API
- */
-/* array element of usr elem */
-struct snd_pcm_usr_elem {
-	int val[128];
-};
-
-/* pp information; retrieved via snd_kcontrol_chip() */
-struct snd_pcm_usr {
-	struct snd_pcm *pcm;	/* assigned PCM instance */
-	int stream;		/* PLAYBACK or CAPTURE */
-	struct snd_kcontrol *kctl;
-	const struct snd_pcm_usr_elem *usr;
-	int max_length;
-	void *private_data;	/* optional: private data pointer */
-};
-
-int snd_pcm_add_usr_ctls(struct snd_pcm *pcm, int stream,
-			 const struct snd_pcm_usr_elem *usr,
-			 int max_length, int max_control_str_len,
-			 unsigned long private_value,
-			 struct snd_pcm_usr **info_ret);
-#endif
 /* printk helpers */
 #define pcm_err(pcm, fmt, args...) \
 	dev_err((pcm)->card->dev, fmt, ##args)

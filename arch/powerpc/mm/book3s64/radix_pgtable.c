@@ -17,7 +17,6 @@
 #include <linux/string_helpers.h>
 #include <linux/stop_machine.h>
 
-#include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <asm/mmu_context.h>
 #include <asm/dma.h>
@@ -26,6 +25,7 @@
 #include <asm/firmware.h>
 #include <asm/powernv.h>
 #include <asm/sections.h>
+#include <asm/smp.h>
 #include <asm/trace.h>
 #include <asm/uaccess.h>
 #include <asm/ultravisor.h>
@@ -64,17 +64,19 @@ static int early_map_kernel_page(unsigned long ea, unsigned long pa,
 {
 	unsigned long pfn = pa >> PAGE_SHIFT;
 	pgd_t *pgdp;
+	p4d_t *p4dp;
 	pud_t *pudp;
 	pmd_t *pmdp;
 	pte_t *ptep;
 
 	pgdp = pgd_offset_k(ea);
-	if (pgd_none(*pgdp)) {
+	p4dp = p4d_offset(pgdp, ea);
+	if (p4d_none(*p4dp)) {
 		pudp = early_alloc_pgtable(PUD_TABLE_SIZE, nid,
 						region_start, region_end);
-		pgd_populate(&init_mm, pgdp, pudp);
+		p4d_populate(&init_mm, p4dp, pudp);
 	}
-	pudp = pud_offset(pgdp, ea);
+	pudp = pud_offset(p4dp, ea);
 	if (map_page_size == PUD_SIZE) {
 		ptep = (pte_t *)pudp;
 		goto set_the_pte;
@@ -114,6 +116,7 @@ static int __map_kernel_page(unsigned long ea, unsigned long pa,
 {
 	unsigned long pfn = pa >> PAGE_SHIFT;
 	pgd_t *pgdp;
+	p4d_t *p4dp;
 	pud_t *pudp;
 	pmd_t *pmdp;
 	pte_t *ptep;
@@ -136,7 +139,8 @@ static int __map_kernel_page(unsigned long ea, unsigned long pa,
 	 * boot.
 	 */
 	pgdp = pgd_offset_k(ea);
-	pudp = pud_alloc(&init_mm, pgdp, ea);
+	p4dp = p4d_offset(pgdp, ea);
+	pudp = pud_alloc(&init_mm, p4dp, ea);
 	if (!pudp)
 		return -ENOMEM;
 	if (map_page_size == PUD_SIZE) {
@@ -173,6 +177,7 @@ void radix__change_memory_range(unsigned long start, unsigned long end,
 {
 	unsigned long idx;
 	pgd_t *pgdp;
+	p4d_t *p4dp;
 	pud_t *pudp;
 	pmd_t *pmdp;
 	pte_t *ptep;
@@ -185,7 +190,8 @@ void radix__change_memory_range(unsigned long start, unsigned long end,
 
 	for (idx = start; idx < end; idx += PAGE_SIZE) {
 		pgdp = pgd_offset_k(idx);
-		pudp = pud_alloc(&init_mm, pgdp, idx);
+		p4dp = p4d_offset(pgdp, idx);
+		pudp = pud_alloc(&init_mm, p4dp, idx);
 		if (!pudp)
 			continue;
 		if (pud_is_leaf(*pudp)) {
@@ -253,14 +259,14 @@ static unsigned long next_boundary(unsigned long addr, unsigned long end)
 
 static int __meminit create_physical_mapping(unsigned long start,
 					     unsigned long end,
-					     int nid)
+					     int nid, pgprot_t _prot)
 {
 	unsigned long vaddr, addr, mapping_size = 0;
 	bool prev_exec, exec = false;
 	pgprot_t prot;
 	int psize;
 
-	start = _ALIGN_UP(start, PAGE_SIZE);
+	start = ALIGN(start, PAGE_SIZE);
 	for (addr = start; addr < end; addr += mapping_size) {
 		unsigned long gap, previous_size;
 		int rc;
@@ -289,7 +295,7 @@ static int __meminit create_physical_mapping(unsigned long start,
 			prot = PAGE_KERNEL_X;
 			exec = true;
 		} else {
-			prot = PAGE_KERNEL;
+			prot = _prot;
 			exec = false;
 		}
 
@@ -333,7 +339,7 @@ static void __init radix_init_pgtable(void)
 
 		WARN_ON(create_physical_mapping(reg->base,
 						reg->base + reg->size,
-						-1));
+						-1, PAGE_KERNEL));
 	}
 
 	/* Find out how many PID bits are supported */
@@ -712,8 +718,10 @@ static int __meminit stop_machine_change_mapping(void *data)
 
 	spin_unlock(&init_mm.page_table_lock);
 	pte_clear(&init_mm, params->aligned_start, params->pte);
-	create_physical_mapping(__pa(params->aligned_start), __pa(params->start), -1);
-	create_physical_mapping(__pa(params->end), __pa(params->aligned_end), -1);
+	create_physical_mapping(__pa(params->aligned_start),
+				__pa(params->start), -1, PAGE_KERNEL);
+	create_physical_mapping(__pa(params->end), __pa(params->aligned_end),
+				-1, PAGE_KERNEL);
 	spin_lock(&init_mm.page_table_lock);
 	return 0;
 }
@@ -847,6 +855,7 @@ static void __meminit remove_pagetable(unsigned long start, unsigned long end)
 	unsigned long addr, next;
 	pud_t *pud_base;
 	pgd_t *pgd;
+	p4d_t *p4d;
 
 	spin_lock(&init_mm.page_table_lock);
 
@@ -854,15 +863,16 @@ static void __meminit remove_pagetable(unsigned long start, unsigned long end)
 		next = pgd_addr_end(addr, end);
 
 		pgd = pgd_offset_k(addr);
-		if (!pgd_present(*pgd))
+		p4d = p4d_offset(pgd, addr);
+		if (!p4d_present(*p4d))
 			continue;
 
-		if (pgd_is_leaf(*pgd)) {
-			split_kernel_mapping(addr, end, PGDIR_SIZE, (pte_t *)pgd);
+		if (p4d_is_leaf(*p4d)) {
+			split_kernel_mapping(addr, end, P4D_SIZE, (pte_t *)p4d);
 			continue;
 		}
 
-		pud_base = (pud_t *)pgd_page_vaddr(*pgd);
+		pud_base = (pud_t *)p4d_page_vaddr(*p4d);
 		remove_pud_table(pud_base, addr, next);
 	}
 
@@ -870,14 +880,16 @@ static void __meminit remove_pagetable(unsigned long start, unsigned long end)
 	radix__flush_tlb_kernel_range(start, end);
 }
 
-int __meminit radix__create_section_mapping(unsigned long start, unsigned long end, int nid)
+int __meminit radix__create_section_mapping(unsigned long start,
+					    unsigned long end, int nid,
+					    pgprot_t prot)
 {
 	if (end >= RADIX_VMALLOC_START) {
 		pr_warn("Outside the supported range\n");
 		return -1;
 	}
 
-	return create_physical_mapping(__pa(start), __pa(end), nid);
+	return create_physical_mapping(__pa(start), __pa(end), nid, prot);
 }
 
 int __meminit radix__remove_section_mapping(unsigned long start, unsigned long end)
@@ -957,7 +969,13 @@ pmd_t radix__pmdp_collapse_flush(struct vm_area_struct *vma, unsigned long addre
 	pmd = *pmdp;
 	pmd_clear(pmdp);
 
-	/*FIXME!!  Verify whether we need this kick below */
+	/*
+	 * pmdp collapse_flush need to ensure that there are no parallel gup
+	 * walk after this call. This is needed so that we can have stable
+	 * page ref count when collapsing a page. We don't allow a collapse page
+	 * if we have gup taken on the page. We can ensure that by sending IPI
+	 * because gup walk happens with IRQ disabled.
+	 */
 	serialize_against_pte_lookup(vma->vm_mm);
 
 	radix__flush_tlb_collapsed_pmd(vma->vm_mm, address);
@@ -1018,17 +1036,6 @@ pmd_t radix__pmdp_huge_get_and_clear(struct mm_struct *mm,
 
 	old = radix__pmd_hugepage_update(mm, addr, pmdp, ~0UL, 0);
 	old_pmd = __pmd(old);
-	/*
-	 * Serialize against find_current_mm_pte which does lock-less
-	 * lookup in page tables with local interrupts disabled. For huge pages
-	 * it casts pmd_t to pte_t. Since format of pte_t is different from
-	 * pmd_t we want to prevent transit from pmd pointing to page table
-	 * to pmd pointing to huge page (and back) while interrupts are disabled.
-	 * We clear pmd to possibly replace it with page table pointer in
-	 * different code paths. So make sure we wait for the parallel
-	 * find_current_mm_pte to finish.
-	 */
-	serialize_against_pte_lookup(mm);
 	return old_pmd;
 }
 

@@ -349,7 +349,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
 		smc->peer_diagnosis = ntohl(dclc->peer_diagnosis);
 		if (((struct smc_clc_msg_decline *)buf)->hdr.flag) {
 			smc->conn.lgr->sync_err = 1;
-			smc_lgr_terminate(smc->conn.lgr, true);
+			smc_lgr_terminate_sched(smc->conn.lgr);
 		}
 	}
 
@@ -372,7 +372,8 @@ int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info)
 	dclc.hdr.length = htons(sizeof(struct smc_clc_msg_decline));
 	dclc.hdr.version = SMC_CLC_V1;
 	dclc.hdr.flag = (peer_diag_info == SMC_CLC_DECL_SYNCERR) ? 1 : 0;
-	if (smc->conn.lgr && !smc->conn.lgr->is_smcd)
+	if ((!smc->conn.lgr || !smc->conn.lgr->is_smcd) &&
+	    smc_ib_is_valid_local_systemid())
 		memcpy(dclc.id_for_peer, local_systemid,
 		       sizeof(local_systemid));
 	dclc.peer_diagnosis = htonl(peer_diag_info);
@@ -495,7 +496,7 @@ int smc_clc_send_confirm(struct smc_sock *smc)
 		       sizeof(SMCD_EYECATCHER));
 	} else {
 		/* SMC-R specific settings */
-		link = &conn->lgr->lnk[SMC_SINGLE_LINK];
+		link = conn->lnk;
 		memcpy(cclc.hdr.eyecatcher, SMC_EYECATCHER,
 		       sizeof(SMC_EYECATCHER));
 		cclc.hdr.path = SMC_TYPE_R;
@@ -507,13 +508,13 @@ int smc_clc_send_confirm(struct smc_sock *smc)
 		       ETH_ALEN);
 		hton24(cclc.qpn, link->roce_qp->qp_num);
 		cclc.rmb_rkey =
-			htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
+			htonl(conn->rmb_desc->mr_rx[link->link_idx]->rkey);
 		cclc.rmbe_idx = 1; /* for now: 1 RMB = 1 RMBE */
 		cclc.rmbe_alert_token = htonl(conn->alert_token_local);
 		cclc.qp_mtu = min(link->path_mtu, link->peer_mtu);
 		cclc.rmbe_size = conn->rmbe_size_short;
 		cclc.rmb_dma_addr = cpu_to_be64((u64)sg_dma_address
-				(conn->rmb_desc->sgt[SMC_SINGLE_LINK].sgl));
+				(conn->rmb_desc->sgt[link->link_idx].sgl));
 		hton24(cclc.psn, link->psn_initial);
 		memcpy(cclc.smcr_trl.eyecatcher, SMC_EYECATCHER,
 		       sizeof(SMC_EYECATCHER));
@@ -571,7 +572,7 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
 		memcpy(aclc.hdr.eyecatcher, SMC_EYECATCHER,
 		       sizeof(SMC_EYECATCHER));
 		aclc.hdr.path = SMC_TYPE_R;
-		link = &conn->lgr->lnk[SMC_SINGLE_LINK];
+		link = conn->lnk;
 		memcpy(aclc.lcl.id_for_peer, local_systemid,
 		       sizeof(local_systemid));
 		memcpy(&aclc.lcl.gid, link->gid, SMC_GID_SIZE);
@@ -579,13 +580,13 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
 		       ETH_ALEN);
 		hton24(aclc.qpn, link->roce_qp->qp_num);
 		aclc.rmb_rkey =
-			htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
+			htonl(conn->rmb_desc->mr_rx[link->link_idx]->rkey);
 		aclc.rmbe_idx = 1;		/* as long as 1 RMB = 1 RMBE */
 		aclc.rmbe_alert_token = htonl(conn->alert_token_local);
 		aclc.qp_mtu = link->path_mtu;
 		aclc.rmbe_size = conn->rmbe_size_short,
 		aclc.rmb_dma_addr = cpu_to_be64((u64)sg_dma_address
-				(conn->rmb_desc->sgt[SMC_SINGLE_LINK].sgl));
+				(conn->rmb_desc->sgt[link->link_idx].sgl));
 		hton24(aclc.psn, link->psn_initial);
 		memcpy(aclc.smcr_trl.eyecatcher, SMC_EYECATCHER,
 		       sizeof(SMC_EYECATCHER));

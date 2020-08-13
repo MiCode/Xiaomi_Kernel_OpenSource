@@ -63,6 +63,7 @@
 #include <linux/debugobjects.h>
 #include <linux/lockdep.h>
 #include <linux/kmemleak.h>
+#include <linux/padata.h>
 #include <linux/pid_namespace.h>
 #include <linux/device/driver.h>
 #include <linux/kthread.h>
@@ -94,6 +95,7 @@
 #include <linux/rodata_test.h>
 #include <linux/jump_label.h>
 #include <linux/mem_encrypt.h>
+#include <linux/kcsan.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -257,6 +259,47 @@ static int __init loglevel(char *str)
 
 early_param("loglevel", loglevel);
 
+#ifdef CONFIG_BLK_DEV_INITRD
+static void * __init get_boot_config_from_initrd(u32 *_size, u32 *_csum)
+{
+	u32 size, csum;
+	char *data;
+	u32 *hdr;
+
+	if (!initrd_end)
+		return NULL;
+
+	data = (char *)initrd_end - BOOTCONFIG_MAGIC_LEN;
+	if (memcmp(data, BOOTCONFIG_MAGIC, BOOTCONFIG_MAGIC_LEN))
+		return NULL;
+
+	hdr = (u32 *)(data - 8);
+	size = hdr[0];
+	csum = hdr[1];
+
+	data = ((void *)hdr) - size;
+	if ((unsigned long)data < initrd_start) {
+		pr_err("bootconfig size %d is greater than initrd size %ld\n",
+			size, initrd_end - initrd_start);
+		return NULL;
+	}
+
+	/* Remove bootconfig from initramfs/initrd */
+	initrd_end = (unsigned long)data;
+	if (_size)
+		*_size = size;
+	if (_csum)
+		*_csum = csum;
+
+	return data;
+}
+#else
+static void * __init get_boot_config_from_initrd(u32 *_size, u32 *_csum)
+{
+	return NULL;
+}
+#endif
+
 #ifdef CONFIG_BOOT_CONFIG
 
 char xbc_namebuf[XBC_KEYLEN_MAX] __initdata;
@@ -268,7 +311,6 @@ static int __init xbc_snprint_cmdline(char *buf, size_t size,
 {
 	struct xbc_node *knode, *vnode;
 	char *end = buf + size;
-	char c = '\"';
 	const char *val;
 	int ret;
 
@@ -279,25 +321,20 @@ static int __init xbc_snprint_cmdline(char *buf, size_t size,
 			return ret;
 
 		vnode = xbc_node_get_child(knode);
-		ret = snprintf(buf, rest(buf, end), "%s%c", xbc_namebuf,
-				vnode ? '=' : ' ');
-		if (ret < 0)
-			return ret;
-		buf += ret;
-		if (!vnode)
-			continue;
-
-		c = '\"';
-		xbc_array_for_each_value(vnode, val) {
-			ret = snprintf(buf, rest(buf, end), "%c%s", c, val);
+		if (!vnode) {
+			ret = snprintf(buf, rest(buf, end), "%s ", xbc_namebuf);
 			if (ret < 0)
 				return ret;
 			buf += ret;
-			c = ',';
+			continue;
 		}
-		if (rest(buf, end) > 2)
-			strcpy(buf, "\" ");
-		buf += 2;
+		xbc_array_for_each_value(vnode, val) {
+			ret = snprintf(buf, rest(buf, end), "%s=\"%s\" ",
+				       xbc_namebuf, val);
+			if (ret < 0)
+				return ret;
+			buf += ret;
+		}
 	}
 
 	return buf - (end - size);
@@ -335,7 +372,7 @@ static char * __init xbc_make_cmdline(const char *key)
 	return new_cmdline;
 }
 
-u32 boot_config_checksum(unsigned char *p, u32 size)
+static u32 boot_config_checksum(unsigned char *p, u32 size)
 {
 	u32 ret = 0;
 
@@ -359,10 +396,14 @@ static int __init bootconfig_params(char *param, char *val,
 static void __init setup_boot_config(const char *cmdline)
 {
 	static char tmp_cmdline[COMMAND_LINE_SIZE] __initdata;
+	const char *msg;
+	int pos;
 	u32 size, csum;
 	char *data, *copy;
-	u32 *hdr;
 	int ret;
+
+	/* Cut out the bootconfig data even if we have no bootconfig option */
+	data = get_boot_config_from_initrd(&size, &csum);
 
 	strlcpy(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
 	parse_args("bootconfig", tmp_cmdline, NULL, 0, 0, 0, NULL,
@@ -371,22 +412,16 @@ static void __init setup_boot_config(const char *cmdline)
 	if (!bootconfig_found)
 		return;
 
-	if (!initrd_end)
-		goto not_found;
-
-	hdr = (u32 *)(initrd_end - 8);
-	size = hdr[0];
-	csum = hdr[1];
+	if (!data) {
+		pr_err("'bootconfig' found on command line, but no bootconfig found\n");
+		return;
+	}
 
 	if (size >= XBC_DATA_MAX) {
 		pr_err("bootconfig size %d greater than max size %d\n",
 			size, XBC_DATA_MAX);
 		return;
 	}
-
-	data = ((void *)hdr) - size;
-	if ((unsigned long)data < initrd_start)
-		goto not_found;
 
 	if (boot_config_checksum((unsigned char *)data, size) != csum) {
 		pr_err("bootconfig checksum failed\n");
@@ -402,10 +437,14 @@ static void __init setup_boot_config(const char *cmdline)
 	memcpy(copy, data, size);
 	copy[size] = '\0';
 
-	ret = xbc_init(copy);
-	if (ret < 0)
-		pr_err("Failed to parse bootconfig\n");
-	else {
+	ret = xbc_init(copy, &msg, &pos);
+	if (ret < 0) {
+		if (pos < 0)
+			pr_err("Failed to init bootconfig: %s.\n", msg);
+		else
+			pr_err("Failed to parse bootconfig: %s at %d.\n",
+				msg, pos);
+	} else {
 		pr_info("Load bootconfig: %d bytes %d nodes\n", size, ret);
 		/* keys starting with "kernel." are passed via cmdline */
 		extra_command_line = xbc_make_cmdline("kernel");
@@ -413,11 +452,23 @@ static void __init setup_boot_config(const char *cmdline)
 		extra_init_args = xbc_make_cmdline("init");
 	}
 	return;
-not_found:
-	pr_err("'bootconfig' found on command line, but no bootconfig found\n");
 }
+
 #else
-#define setup_boot_config(cmdline)	do { } while (0)
+
+static void __init setup_boot_config(const char *cmdline)
+{
+	/* Remove bootconfig data from initrd */
+	get_boot_config_from_initrd(NULL, NULL);
+}
+
+static int __init warn_bootconfig(char *str)
+{
+	pr_warn("WARNING: 'bootconfig' found on the kernel command line but CONFIG_BOOTCONFIG is not set.\n");
+	return 0;
+}
+early_param("bootconfig", warn_bootconfig);
+
 #endif
 
 /* Change NUL term back to "=", to make "param" the whole string. */
@@ -901,7 +952,6 @@ asmlinkage __visible void __init start_kernel(void)
 	boot_init_stack_canary();
 
 	time_init();
-	printk_safe_init();
 	perf_event_init();
 	profile_init();
 	call_function_init();
@@ -987,9 +1037,12 @@ asmlinkage __visible void __init start_kernel(void)
 	acpi_subsystem_init();
 	arch_post_acpi_subsys_init();
 	sfi_init_late();
+	kcsan_init();
 
 	/* Do the rest non-__init'ed, we're now alive */
 	arch_call_rest_init();
+
+	prevent_tail_call_optimization();
 }
 
 /* Call all constructor functions linked into the kernel. */
@@ -1361,6 +1414,8 @@ static int __ref kernel_init(void *unused)
 
 	rcu_end_inkernel_boot();
 
+	do_sysctl_args();
+
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
 		if (!ret)
@@ -1382,6 +1437,16 @@ static int __ref kernel_init(void *unused)
 		panic("Requested init %s failed (error %d).",
 		      execute_command, ret);
 	}
+
+	if (CONFIG_DEFAULT_INIT[0] != '\0') {
+		ret = run_init_process(CONFIG_DEFAULT_INIT);
+		if (ret)
+			pr_err("Default init %s failed (error %d)\n",
+			       CONFIG_DEFAULT_INIT, ret);
+		else
+			return 0;
+	}
+
 	if (!try_to_run_init_process("/sbin/init") ||
 	    !try_to_run_init_process("/etc/init") ||
 	    !try_to_run_init_process("/bin/init") ||
@@ -1432,6 +1497,7 @@ static noinline void __init kernel_init_freeable(void)
 	smp_init();
 	sched_init_smp();
 
+	padata_init();
 	page_alloc_init_late();
 	/* Initialize page ext after all struct pages are initialized. */
 	page_ext_init();

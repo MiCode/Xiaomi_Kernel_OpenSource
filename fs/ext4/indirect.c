@@ -467,7 +467,9 @@ static int ext4_splice_branch(handle_t *handle,
 		/*
 		 * OK, we spliced it into the inode itself on a direct block.
 		 */
-		ext4_mark_inode_dirty(handle, ar->inode);
+		err = ext4_mark_inode_dirty(handle, ar->inode);
+		if (unlikely(err))
+			goto err_out;
 		jbd_debug(5, "splicing direct\n");
 	}
 	return err;
@@ -1019,7 +1021,7 @@ static void ext4_free_branches(handle_t *handle, struct inode *inode,
 			 * (should be rare).
 			 */
 			if (!bh) {
-				EXT4_ERROR_INODE_BLOCK(inode, nr,
+				ext4_error_inode_block(inode, nr, EIO,
 						       "Read failure");
 				continue;
 			}

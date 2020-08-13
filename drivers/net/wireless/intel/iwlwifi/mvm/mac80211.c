@@ -193,6 +193,8 @@ static const struct cfg80211_pmsr_capabilities iwl_mvm_pmsr_capa = {
 		.non_asap = 1,
 		.request_lci = 1,
 		.request_civicloc = 1,
+		.trigger_based = 1,
+		.non_trigger_based = 1,
 		.max_bursts_exponent = -1, /* all supported */
 		.max_ftms_per_burst = 0, /* no limits */
 		.bandwidths = BIT(NL80211_CHAN_WIDTH_20_NOHT) |
@@ -201,7 +203,8 @@ static const struct cfg80211_pmsr_capabilities iwl_mvm_pmsr_capa = {
 			      BIT(NL80211_CHAN_WIDTH_80),
 		.preambles = BIT(NL80211_PREAMBLE_LEGACY) |
 			     BIT(NL80211_PREAMBLE_HT) |
-			     BIT(NL80211_PREAMBLE_VHT),
+			     BIT(NL80211_PREAMBLE_VHT) |
+			     BIT(NL80211_PREAMBLE_HE),
 	},
 };
 
@@ -472,23 +475,23 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 		hw->wiphy->n_cipher_suites++;
 	}
 
-	/* Enable 11w if software crypto is not enabled (as the
-	 * firmware will interpret some mgmt packets, so enabling it
-	 * with software crypto isn't safe).
-	 */
-	if (!iwlwifi_mod_params.swcrypto) {
-		ieee80211_hw_set(hw, MFP_CAPABLE);
+	if (iwlwifi_mod_params.swcrypto)
+		IWL_ERR(mvm,
+			"iwlmvm doesn't allow to disable HW crypto, check swcrypto module parameter\n");
+	if (!iwlwifi_mod_params.bt_coex_active)
+		IWL_ERR(mvm,
+			"iwlmvm doesn't allow to disable BT Coex, check bt_coex_active module parameter\n");
+
+	ieee80211_hw_set(hw, MFP_CAPABLE);
+	mvm->ciphers[hw->wiphy->n_cipher_suites] = WLAN_CIPHER_SUITE_AES_CMAC;
+	hw->wiphy->n_cipher_suites++;
+	if (iwl_mvm_has_new_rx_api(mvm)) {
 		mvm->ciphers[hw->wiphy->n_cipher_suites] =
-			WLAN_CIPHER_SUITE_AES_CMAC;
+			WLAN_CIPHER_SUITE_BIP_GMAC_128;
 		hw->wiphy->n_cipher_suites++;
-		if (iwl_mvm_has_new_rx_api(mvm)) {
-			mvm->ciphers[hw->wiphy->n_cipher_suites] =
-				WLAN_CIPHER_SUITE_BIP_GMAC_128;
-			hw->wiphy->n_cipher_suites++;
-			mvm->ciphers[hw->wiphy->n_cipher_suites] =
-				WLAN_CIPHER_SUITE_BIP_GMAC_256;
-			hw->wiphy->n_cipher_suites++;
-		}
+		mvm->ciphers[hw->wiphy->n_cipher_suites] =
+			WLAN_CIPHER_SUITE_BIP_GMAC_256;
+		hw->wiphy->n_cipher_suites++;
 	}
 
 	/* currently FW API supports only one optional cipher scheme */
@@ -614,7 +617,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 
 	hw->wiphy->max_sched_scan_reqs = 1;
 	hw->wiphy->max_sched_scan_ssids = PROBE_OPTION_MAX;
-	hw->wiphy->max_match_sets = IWL_SCAN_MAX_PROFILES;
+	hw->wiphy->max_match_sets = iwl_umac_scan_get_max_profiles(mvm->fw);
 	/* we create the 802.11 header and zero length SSID IE. */
 	hw->wiphy->max_sched_scan_ie_len =
 		SCAN_OFFLOAD_PROBE_REQ_SIZE - 24 - 2;
@@ -694,15 +697,15 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 				     WIPHY_WOWLAN_EAP_IDENTITY_REQ |
 				     WIPHY_WOWLAN_RFKILL_RELEASE |
 				     WIPHY_WOWLAN_NET_DETECT;
-		if (!iwlwifi_mod_params.swcrypto)
-			mvm->wowlan.flags |= WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
-					     WIPHY_WOWLAN_GTK_REKEY_FAILURE |
-					     WIPHY_WOWLAN_4WAY_HANDSHAKE;
+		mvm->wowlan.flags |= WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
+				     WIPHY_WOWLAN_GTK_REKEY_FAILURE |
+				     WIPHY_WOWLAN_4WAY_HANDSHAKE;
 
 		mvm->wowlan.n_patterns = IWL_WOWLAN_MAX_PATTERNS;
 		mvm->wowlan.pattern_min_len = IWL_WOWLAN_MIN_PATTERN_LEN;
 		mvm->wowlan.pattern_max_len = IWL_WOWLAN_MAX_PATTERN_LEN;
-		mvm->wowlan.max_nd_match_sets = IWL_SCAN_MAX_PROFILES;
+		mvm->wowlan.max_nd_match_sets =
+			iwl_umac_scan_get_max_profiles(mvm->fw);
 		hw->wiphy->wowlan = &mvm->wowlan;
 	}
 #endif
@@ -1205,13 +1208,12 @@ void __iwl_mvm_mac_stop(struct iwl_mvm *mvm)
 	 */
 	flush_work(&mvm->roc_done_wk);
 
+	iwl_mvm_rm_aux_sta(mvm);
+
 	iwl_mvm_stop_device(mvm);
 
 	iwl_mvm_async_handlers_purge(mvm);
 	/* async_handlers_list is empty and will stay empty: HW is stopped */
-
-	/* the fw is stopped, the aux sta is dead: clean up driver state */
-	iwl_mvm_del_aux_sta(mvm);
 
 	/*
 	 * Clear IN_HW_RESTART and HW_RESTART_REQUESTED flag when stopping the
@@ -1260,7 +1262,6 @@ static void iwl_mvm_mac_stop(struct ieee80211_hw *hw)
 
 	cancel_delayed_work_sync(&mvm->cs_tx_unblock_dwork);
 	cancel_delayed_work_sync(&mvm->scan_timeout_dwork);
-	iwl_fw_free_dump_desc(&mvm->fwrt);
 
 	mutex_lock(&mvm->mutex);
 	__iwl_mvm_mac_stop(mvm);
@@ -2019,7 +2020,7 @@ static void iwl_mvm_cfg_he_sta(struct iwl_mvm *mvm,
 	struct iwl_he_sta_context_cmd sta_ctxt_cmd = {
 		.sta_id = sta_id,
 		.tid_limit = IWL_MAX_TID_COUNT,
-		.bss_color = vif->bss_conf.bss_color,
+		.bss_color = vif->bss_conf.he_bss_color.color,
 		.htc_trig_based_pkt_ext = vif->bss_conf.htc_trig_based_pkt_ext,
 		.frame_time_rts_th =
 			cpu_to_le16(vif->bss_conf.frame_time_rts_th),
@@ -2177,6 +2178,15 @@ static void iwl_mvm_cfg_he_sta(struct iwl_mvm *mvm,
 			flags |= STA_CTXT_HE_PACKET_EXT;
 		}
 	}
+
+	if (sta->he_cap.he_cap_elem.mac_cap_info[2] &
+	    IEEE80211_HE_MAC_CAP2_32BIT_BA_BITMAP)
+		flags |= STA_CTXT_HE_32BIT_BA_BITMAP;
+
+	if (sta->he_cap.he_cap_elem.mac_cap_info[2] &
+	    IEEE80211_HE_MAC_CAP2_ACK_EN)
+		flags |= STA_CTXT_HE_ACK_ENABLED;
+
 	rcu_read_unlock();
 
 	/* Mark MU EDCA as enabled, unless none detected on some AC */
@@ -2201,11 +2211,6 @@ static void iwl_mvm_cfg_he_sta(struct iwl_mvm *mvm,
 			cpu_to_le16(mu_edca->mu_edca_timer);
 	}
 
-	if (vif->bss_conf.multi_sta_back_32bit)
-		flags |= STA_CTXT_HE_32BIT_BA_BITMAP;
-
-	if (vif->bss_conf.ack_enabled)
-		flags |= STA_CTXT_HE_ACK_ENABLED;
 
 	if (vif->bss_conf.uora_exists) {
 		flags |= STA_CTXT_HE_TRIG_RND_ALLOC;
@@ -3362,11 +3367,6 @@ static int __iwl_mvm_mac_set_key(struct ieee80211_hw *hw,
 	int keyidx = key->keyidx;
 	int ret, i;
 	u8 key_offset;
-
-	if (iwlwifi_mod_params.swcrypto) {
-		IWL_DEBUG_MAC80211(mvm, "leave - hwcrypto disabled\n");
-		return -EOPNOTSUPP;
-	}
 
 	switch (key->cipher) {
 	case WLAN_CIPHER_SUITE_TKIP:

@@ -27,6 +27,8 @@ cpuidle_psci-$(CONFIG_PM_GENERIC_DOMAINS_OF) += cpuidle-psci-domain.o
 obj-$(CONFIG_ARM_PSCI_CPUIDLE)		+= cpuidle-psci.o
 obj-$(CONFIG_ARM_QCOM_LPM_CPUIDLE)	+= lpm-levels.o
 obj-$(CONFIG_ARM_QCOM_LPM_CPUIDLE)	+= lpm-levels-of.o
+obj-$(CONFIG_ARM_TEGRA_CPUIDLE)		+= cpuidle-tegra.o
+obj-$(CONFIG_ARM_QCOM_SPM_CPUIDLE)	+= cpuidle-qcom-spm.o
 
 ###############################################################################
 # MIPS drivers

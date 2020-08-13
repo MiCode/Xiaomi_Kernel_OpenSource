@@ -342,6 +342,14 @@ static const struct dmi_system_id i2c_hid_dmi_desc_override_table[] = {
 		.driver_data = (void *)&sipodev_desc
 	},
 	{
+		.ident = "Trekstor SURFBOOK E11B",
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "TREKSTOR"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "SURFBOOK E11B"),
+		},
+		.driver_data = (void *)&sipodev_desc
+	},
+	{
 		.ident = "Direkt-Tek DTLAPY116-2",
 		.matches = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Direkt-Tek"),
@@ -378,6 +386,14 @@ static const struct dmi_system_id i2c_hid_dmi_desc_override_table[] = {
 		.matches = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "iBall"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Aer3"),
+		},
+		.driver_data = (void *)&sipodev_desc
+	},
+	{
+		.ident = "Schneider SCL142ALM",
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "SCHNEIDER"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "SCL142ALM"),
 		},
 		.driver_data = (void *)&sipodev_desc
 	},

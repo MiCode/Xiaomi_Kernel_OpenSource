@@ -571,13 +571,7 @@ static void pmic_glink_add_debugfs(struct pmic_glink_dev *pgdev)
 		return;
 	}
 
-	file = debugfs_create_u32("filter", 0600, dir, &pgdev->log_filter);
-	if (IS_ERR(file)) {
-		pr_err("Failed to create filter debugfs file rc=%d\n",
-			PTR_ERR(file));
-		debugfs_remove_recursive(dir);
-		return;
-	}
+	debugfs_create_u32("filter", 0600, dir, &pgdev->log_filter);
 
 	file = debugfs_create_bool("enable", 0600, dir, &pgdev->log_enable);
 	if (IS_ERR(file)) {

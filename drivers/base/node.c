@@ -442,10 +442,10 @@ static ssize_t node_read_meminfo(struct device *dev,
 		       nid, K(i.sharedram),
 		       nid, sum_zone_node_page_state(nid, NR_KERNEL_STACK_KB),
 #ifdef CONFIG_SHADOW_CALL_STACK
-		       nid, sum_zone_node_page_state(nid, NR_KERNEL_SCS_BYTES) / 1024,
+		       nid, sum_zone_node_page_state(nid, NR_KERNEL_SCS_KB),
 #endif
 		       nid, K(sum_zone_node_page_state(nid, NR_PAGETABLE)),
-		       nid, K(node_page_state(pgdat, NR_UNSTABLE_NFS)),
+		       nid, 0UL,
 		       nid, K(sum_zone_node_page_state(nid, NR_BOUNCE)),
 		       nid, K(node_page_state(pgdat, NR_WRITEBACK_TEMP)),
 		       nid, K(sreclaimable +
@@ -778,7 +778,7 @@ static int register_mem_sect_under_node(struct memory_block *mem_blk,
 		 * memory block could have several absent sections from start.
 		 * skip pfn range from absent section
 		 */
-		if (!pfn_present(pfn)) {
+		if (!pfn_in_present_section(pfn)) {
 			pfn = round_down(pfn + PAGES_PER_SECTION,
 					 PAGES_PER_SECTION) - 1;
 			continue;

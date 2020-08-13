@@ -153,7 +153,8 @@ static struct sk_buff *ocelot_xmit(struct sk_buff *skb,
 
 	memset(injection, 0, OCELOT_TAG_LEN);
 
-	src = dsa_upstream_port(ds, port);
+	/* Set the source port as the CPU port module and not the NPI port */
+	src = ocelot->num_phys_ports;
 	dest = BIT(port);
 	bypass = true;
 	qos_class = skb->priority;
@@ -227,7 +228,7 @@ static struct sk_buff *ocelot_rcv(struct sk_buff *skb,
 	return skb;
 }
 
-static struct dsa_device_ops ocelot_netdev_ops = {
+static const struct dsa_device_ops ocelot_netdev_ops = {
 	.name			= "ocelot",
 	.proto			= DSA_TAG_PROTO_OCELOT,
 	.xmit			= ocelot_xmit,

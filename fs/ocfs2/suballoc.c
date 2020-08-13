@@ -2509,9 +2509,6 @@ static int _ocfs2_free_suballoc_bits(handle_t *handle,
 
 bail:
 	brelse(group_bh);
-
-	if (status)
-		mlog_errno(status);
 	return status;
 }
 
@@ -2582,8 +2579,6 @@ static int _ocfs2_free_clusters(handle_t *handle,
 					 num_clusters);
 
 out:
-	if (status)
-		mlog_errno(status);
 	return status;
 }
 
@@ -2830,9 +2825,12 @@ int ocfs2_test_inode_bit(struct ocfs2_super *osb, u64 blkno, int *res)
 		goto bail;
 	}
 
-	inode_alloc_inode =
-		ocfs2_get_system_file_inode(osb, INODE_ALLOC_SYSTEM_INODE,
-					    suballoc_slot);
+	if (suballoc_slot == (u16)OCFS2_INVALID_SLOT)
+		inode_alloc_inode = ocfs2_get_system_file_inode(osb,
+			GLOBAL_INODE_ALLOC_SYSTEM_INODE, suballoc_slot);
+	else
+		inode_alloc_inode = ocfs2_get_system_file_inode(osb,
+			INODE_ALLOC_SYSTEM_INODE, suballoc_slot);
 	if (!inode_alloc_inode) {
 		/* the error code could be inaccurate, but we are not able to
 		 * get the correct one. */

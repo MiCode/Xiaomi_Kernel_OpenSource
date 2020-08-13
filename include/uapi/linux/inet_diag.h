@@ -64,9 +64,11 @@ struct inet_diag_req_raw {
 enum {
 	INET_DIAG_REQ_NONE,
 	INET_DIAG_REQ_BYTECODE,
+	INET_DIAG_REQ_SK_BPF_STORAGES,
+	__INET_DIAG_REQ_MAX,
 };
 
-#define INET_DIAG_REQ_MAX INET_DIAG_REQ_BYTECODE
+#define INET_DIAG_REQ_MAX (__INET_DIAG_REQ_MAX - 1)
 
 /* Bytecode is sequence of 4 byte commands followed by variable arguments.
  * All the commands identified by "code" are conditional jumps forward:
@@ -94,6 +96,7 @@ enum {
 	INET_DIAG_BC_MARK_COND,
 	INET_DIAG_BC_S_EQ,
 	INET_DIAG_BC_D_EQ,
+	INET_DIAG_BC_CGROUP_COND,   /* u64 cgroup v2 ID */
 };
 
 struct inet_diag_hostcond {
@@ -154,6 +157,8 @@ enum {
 	INET_DIAG_CLASS_ID,	/* request as INET_DIAG_TCLASS */
 	INET_DIAG_MD5SIG,
 	INET_DIAG_ULP_INFO,
+	INET_DIAG_SK_BPF_STORAGES,
+	INET_DIAG_CGROUP_ID,
 	__INET_DIAG_MAX,
 };
 
@@ -163,6 +168,7 @@ enum {
 	INET_ULP_INFO_UNSPEC,
 	INET_ULP_INFO_NAME,
 	INET_ULP_INFO_TLS,
+	INET_ULP_INFO_MPTCP,
 	__INET_ULP_INFO_MAX,
 };
 #define INET_ULP_INFO_MAX (__INET_ULP_INFO_MAX - 1)

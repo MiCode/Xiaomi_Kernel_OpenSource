@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2017 Facebook
  */
+#define _GNU_SOURCE
 #include "test_progs.h"
 #include "cgroup_helpers.h"
 #include "bpf_rlimit.h"
 #include <argp.h>
+#include <pthread.h>
+#include <sched.h>
+#include <signal.h>
 #include <string.h>
+#include <execinfo.h> /* backtrace */
 
 /* defined in test_progs.h */
 struct test_env env = {};
@@ -26,6 +31,20 @@ struct prog_test_def {
 	/* store counts before subtest started */
 	int old_error_cnt;
 };
+
+/* Override C runtime library's usleep() implementation to ensure nanosleep()
+ * is always called. Usleep is frequently used in selftests as a way to
+ * trigger kprobe and tracepoints.
+ */
+int usleep(useconds_t usec)
+{
+	struct timespec ts = {
+		.tv_sec = usec / 1000000,
+		.tv_nsec = (usec % 1000000) * 1000,
+	};
+
+	return syscall(__NR_nanosleep, &ts, NULL);
+}
 
 static bool should_run(struct test_selector *sel, int num, const char *name)
 {
@@ -74,6 +93,34 @@ static void skip_account(void)
 	}
 }
 
+static void stdio_restore(void);
+
+/* A bunch of tests set custom affinity per-thread and/or per-process. Reset
+ * it after each test/sub-test.
+ */
+static void reset_affinity() {
+
+	cpu_set_t cpuset;
+	int i, err;
+
+	CPU_ZERO(&cpuset);
+	for (i = 0; i < env.nr_cpus; i++)
+		CPU_SET(i, &cpuset);
+
+	err = sched_setaffinity(0, sizeof(cpuset), &cpuset);
+	if (err < 0) {
+		stdio_restore();
+		fprintf(stderr, "Failed to reset process affinity: %d!\n", err);
+		exit(-1);
+	}
+	err = pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
+	if (err < 0) {
+		stdio_restore();
+		fprintf(stderr, "Failed to reset thread affinity: %d!\n", err);
+		exit(-1);
+	}
+}
+
 void test__end_subtest()
 {
 	struct prog_test_def *test = env.test;
@@ -90,6 +137,8 @@ void test__end_subtest()
 	fprintf(env.stdout, "#%d/%d %s:%s\n",
 	       test->test_num, test->subtest_num,
 	       test->subtest_name, sub_error_cnt ? "FAIL" : "OK");
+
+	reset_affinity();
 
 	free(test->subtest_name);
 	test->subtest_name = NULL;
@@ -173,30 +222,13 @@ int test__join_cgroup(const char *path)
 	return fd;
 }
 
-struct ipv4_packet pkt_v4 = {
-	.eth.h_proto = __bpf_constant_htons(ETH_P_IP),
-	.iph.ihl = 5,
-	.iph.protocol = IPPROTO_TCP,
-	.iph.tot_len = __bpf_constant_htons(MAGIC_BYTES),
-	.tcp.urg_ptr = 123,
-	.tcp.doff = 5,
-};
-
-struct ipv6_packet pkt_v6 = {
-	.eth.h_proto = __bpf_constant_htons(ETH_P_IPV6),
-	.iph.nexthdr = IPPROTO_TCP,
-	.iph.payload_len = __bpf_constant_htons(MAGIC_BYTES),
-	.tcp.urg_ptr = 123,
-	.tcp.doff = 5,
-};
-
 int bpf_find_map(const char *test, struct bpf_object *obj, const char *name)
 {
 	struct bpf_map *map;
 
 	map = bpf_object__find_map_by_name(obj, name);
 	if (!map) {
-		printf("%s:FAIL:map '%s' not found\n", test, name);
+		fprintf(stdout, "%s:FAIL:map '%s' not found\n", test, name);
 		test__fail();
 		return -1;
 	}
@@ -302,23 +334,11 @@ int extract_build_id(char *build_id, size_t size)
 		len = size;
 	memcpy(build_id, line, len);
 	build_id[len] = '\0';
+	free(line);
 	return 0;
 err:
 	fclose(fp);
 	return -1;
-}
-
-void *spin_lock_thread(void *arg)
-{
-	__u32 duration, retval;
-	int err, prog_fd = *(u32 *) arg;
-
-	err = bpf_prog_test_run(prog_fd, 10000, &pkt_v4, sizeof(pkt_v4),
-				NULL, NULL, &retval, &duration);
-	CHECK(err || retval, "",
-	      "err %d errno %d retval %d duration %d\n",
-	      err, errno, retval, duration);
-	pthread_exit(arg);
 }
 
 /* extern declarations for test funcs */
@@ -367,8 +387,20 @@ static int libbpf_print_fn(enum libbpf_print_level level,
 {
 	if (env.verbosity < VERBOSE_VERY && level == LIBBPF_DEBUG)
 		return 0;
-	vprintf(format, args);
+	vfprintf(stdout, format, args);
 	return 0;
+}
+
+static void free_str_set(const struct str_set *set)
+{
+	int i;
+
+	if (!set)
+		return;
+
+	for (i = 0; i < set->cnt; i++)
+		free((void *)set->strs[i]);
+	free(set->strs);
 }
 
 static int parse_str_list(const char *s, struct str_set *set)
@@ -406,66 +438,6 @@ err:
 	return -ENOMEM;
 }
 
-int parse_num_list(const char *s, struct test_selector *sel)
-{
-	int i, set_len = 0, num, start = 0, end = -1;
-	bool *set = NULL, *tmp, parsing_end = false;
-	char *next;
-
-	while (s[0]) {
-		errno = 0;
-		num = strtol(s, &next, 10);
-		if (errno)
-			return -errno;
-
-		if (parsing_end)
-			end = num;
-		else
-			start = num;
-
-		if (!parsing_end && *next == '-') {
-			s = next + 1;
-			parsing_end = true;
-			continue;
-		} else if (*next == ',') {
-			parsing_end = false;
-			s = next + 1;
-			end = num;
-		} else if (*next == '\0') {
-			parsing_end = false;
-			s = next;
-			end = num;
-		} else {
-			return -EINVAL;
-		}
-
-		if (start > end)
-			return -EINVAL;
-
-		if (end + 1 > set_len) {
-			set_len = end + 1;
-			tmp = realloc(set, set_len);
-			if (!tmp) {
-				free(set);
-				return -ENOMEM;
-			}
-			set = tmp;
-		}
-		for (i = start; i <= end; i++) {
-			set[i] = true;
-		}
-
-	}
-
-	if (!set)
-		return -EINVAL;
-
-	sel->num_set = set;
-	sel->num_set_len = set_len;
-
-	return 0;
-}
-
 extern int extra_prog_load_log_flags;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
@@ -479,13 +451,15 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 		if (subtest_str) {
 			*subtest_str = '\0';
 			if (parse_num_list(subtest_str + 1,
-					   &env->subtest_selector)) {
+					   &env->subtest_selector.num_set,
+					   &env->subtest_selector.num_set_len)) {
 				fprintf(stderr,
 					"Failed to parse subtest numbers.\n");
 				return -EINVAL;
 			}
 		}
-		if (parse_num_list(arg, &env->test_selector)) {
+		if (parse_num_list(arg, &env->test_selector.num_set,
+				   &env->test_selector.num_set_len)) {
 			fprintf(stderr, "Failed to parse test numbers.\n");
 			return -EINVAL;
 		}
@@ -613,8 +587,25 @@ int cd_flavor_subdir(const char *exec_name)
 	if (!flavor)
 		return 0;
 	flavor++;
-	printf("Switching to flavor '%s' subdirectory...\n", flavor);
+	fprintf(stdout, "Switching to flavor '%s' subdirectory...\n", flavor);
 	return chdir(flavor);
+}
+
+#define MAX_BACKTRACE_SZ 128
+void crash_handler(int signum)
+{
+	void *bt[MAX_BACKTRACE_SZ];
+	size_t sz;
+
+	sz = backtrace(bt, ARRAY_SIZE(bt));
+
+	if (env.test)
+		dump_test_log(env.test, true);
+	if (env.stdout)
+		stdio_restore();
+
+	fprintf(stderr, "Caught signal #%d!\nStack trace:\n", signum);
+	backtrace_symbols_fd(bt, sz, STDERR_FILENO);
 }
 
 int main(int argc, char **argv)
@@ -624,7 +615,13 @@ int main(int argc, char **argv)
 		.parser = parse_arg,
 		.doc = argp_program_doc,
 	};
+	struct sigaction sigact = {
+		.sa_handler = crash_handler,
+		.sa_flags = SA_RESETHAND,
+	};
 	int err, i;
+
+	sigaction(SIGSEGV, &sigact, NULL);
 
 	err = argp_parse(&argp, argc, argv, 0, NULL, &env);
 	if (err)
@@ -639,6 +636,12 @@ int main(int argc, char **argv)
 	srand(time(NULL));
 
 	env.jit_enabled = is_jit_enabled();
+	env.nr_cpus = libbpf_num_possible_cpus();
+	if (env.nr_cpus < 0) {
+		fprintf(stderr, "Failed to get number of CPUs: %d!\n",
+			env.nr_cpus);
+		return -1;
+	}
 
 	stdio_hijack();
 	for (i = 0; i < prog_test_cnt; i++) {
@@ -669,18 +672,19 @@ int main(int argc, char **argv)
 			test->test_num, test->test_name,
 			test->error_cnt ? "FAIL" : "OK");
 
+		reset_affinity();
 		if (test->need_cgroup_cleanup)
 			cleanup_cgroup_environment();
 	}
 	stdio_restore();
-	printf("Summary: %d/%d PASSED, %d SKIPPED, %d FAILED\n",
-	       env.succ_cnt, env.sub_succ_cnt, env.skip_cnt, env.fail_cnt);
+	fprintf(stdout, "Summary: %d/%d PASSED, %d SKIPPED, %d FAILED\n",
+		env.succ_cnt, env.sub_succ_cnt, env.skip_cnt, env.fail_cnt);
 
-	free(env.test_selector.blacklist.strs);
-	free(env.test_selector.whitelist.strs);
+	free_str_set(&env.test_selector.blacklist);
+	free_str_set(&env.test_selector.whitelist);
 	free(env.test_selector.num_set);
-	free(env.subtest_selector.blacklist.strs);
-	free(env.subtest_selector.whitelist.strs);
+	free_str_set(&env.subtest_selector.blacklist);
+	free_str_set(&env.subtest_selector.whitelist);
 	free(env.subtest_selector.num_set);
 
 	return env.fail_cnt ? EXIT_FAILURE : EXIT_SUCCESS;

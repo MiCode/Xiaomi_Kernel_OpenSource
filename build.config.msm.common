@@ -8,6 +8,8 @@ CONFIG_TARGET=msm.${MSM_ARCH}
 ## DTB general support
 DTB_DIR=vendor/qcom
 
+MAKE_GOALS+=" dtbs"
+
 function clean_dtbs() {
 	rm -rf ${OUT_DIR}/arch/${ARCH}/boot/dts
 }

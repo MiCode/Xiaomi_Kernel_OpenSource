@@ -1923,15 +1923,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			if (map->attr & FASTRPC_ATTR_NOVA) {
 				offset = 0;
 			} else {
-				down_read(&current->mm->mmap_sem);
+				down_read(&current->mm->mmap_lock);
 				VERIFY(err, NULL != (vma = find_vma(current->mm,
 								map->va)));
 				if (err) {
-					up_read(&current->mm->mmap_sem);
+					up_read(&current->mm->mmap_lock);
 					goto bail;
 				}
 				offset = buf_page_start(buf) - vma->vm_start;
-				up_read(&current->mm->mmap_sem);
+				up_read(&current->mm->mmap_lock);
 				VERIFY(err, offset < (uintptr_t)map->size);
 				if (err)
 					goto bail;
@@ -2030,11 +2030,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					uint64_t flush_len;
 					struct vm_area_struct *vma;
 
-					down_read(&current->mm->mmap_sem);
+					down_read(&current->mm->mmap_lock);
 					VERIFY(err, NULL != (vma = find_vma(
 						current->mm, rpra[i].buf.pv)));
 					if (err) {
-						up_read(&current->mm->mmap_sem);
+						up_read(&current->mm->mmap_lock);
 						goto bail;
 					}
 					if (ctx->overps[oix]->do_cmo) {
@@ -2049,7 +2049,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 						ctx->overps[oix]->mend -
 						ctx->overps[oix]->mstart;
 					}
-					up_read(&current->mm->mmap_sem);
+					up_read(&current->mm->mmap_lock);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
 						flush_len);
@@ -2184,12 +2184,12 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 					uint64_t inv_len;
 					struct vm_area_struct *vma;
 
-					down_read(&current->mm->mmap_sem);
+					down_read(&current->mm->mmap_lock);
 					VERIFY(err, NULL != (vma = find_vma(
 						current->mm,
 						rpra[over].buf.pv)));
 					if (err) {
-						up_read(&current->mm->mmap_sem);
+						up_read(&current->mm->mmap_lock);
 						goto bail;
 					}
 					if (ctx->overps[i]->do_cmo) {
@@ -2204,7 +2204,7 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 							ctx->overps[i]->mend -
 							ctx->overps[i]->mstart;
 					}
-					up_read(&current->mm->mmap_sem);
+					up_read(&current->mm->mmap_lock);
 					dma_buf_begin_cpu_access_partial(
 						map->buf, DMA_TO_DEVICE, offset,
 						inv_len);
@@ -4296,8 +4296,9 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 
 	if (fl) {
-		if (fl->qos_request && pm_qos_request_active(&fl->pm_qos_req))
-			pm_qos_remove_request(&fl->pm_qos_req);
+		if (fl->qos_request &&
+		    cpu_latency_qos_request_active(&fl->pm_qos_req))
+			cpu_latency_qos_remove_request(&fl->pm_qos_req);
 		debugfs_remove(fl->debugfs_file);
 		fastrpc_file_free(fl);
 		file->private_data = NULL;
@@ -4765,11 +4766,11 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		if (!fl->qos_request) {
-			pm_qos_add_request(&fl->pm_qos_req,
-				PM_QOS_CPU_DMA_LATENCY, latency);
+			cpu_latency_qos_add_request(&fl->pm_qos_req, latency);
 			fl->qos_request = 1;
 		} else
-			pm_qos_update_request(&fl->pm_qos_req, latency);
+			cpu_latency_qos_update_request(&fl->pm_qos_req,
+						       latency);
 
 		/* Ensure CPU feature map updated to DSP for early WakeUp */
 		fastrpc_send_cpuinfo_to_dsp(fl);

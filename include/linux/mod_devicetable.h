@@ -434,7 +434,7 @@ struct virtio_device_id {
  * For Hyper-V devices we use the device guid as the id.
  */
 struct hv_vmbus_device_id {
-	uuid_le guid;
+	guid_t guid;
 	kernel_ulong_t driver_data;	/* Data private to the driver */
 };
 
@@ -531,6 +531,8 @@ enum dmi_field {
 	DMI_BIOS_VENDOR,
 	DMI_BIOS_VERSION,
 	DMI_BIOS_DATE,
+	DMI_BIOS_RELEASE,
+	DMI_EC_FIRMWARE_RELEASE,
 	DMI_SYS_VENDOR,
 	DMI_PRODUCT_NAME,
 	DMI_PRODUCT_VERSION,
@@ -662,16 +664,16 @@ struct x86_cpu_id {
 	__u16 vendor;
 	__u16 family;
 	__u16 model;
+	__u16 steppings;
 	__u16 feature;	/* bit index */
 	kernel_ulong_t driver_data;
 };
 
-#define X86_FEATURE_MATCH(x) \
-	{ X86_VENDOR_ANY, X86_FAMILY_ANY, X86_MODEL_ANY, x }
-
+/* Wild cards for x86_cpu_id::vendor, family, model and feature */
 #define X86_VENDOR_ANY 0xffff
 #define X86_FAMILY_ANY 0
 #define X86_MODEL_ANY  0
+#define X86_STEPPING_ANY 0
 #define X86_FEATURE_ANY 0	/* Same as FPU, you can't test for that */
 
 /*
@@ -820,6 +822,7 @@ struct wmi_device_id {
 	const void *context;
 };
 
+#define MHI_DEVICE_MODALIAS_FMT "mhi:%s"
 #define MHI_NAME_SIZE 32
 
 /**
@@ -827,7 +830,6 @@ struct wmi_device_id {
  * @chan: MHI channel name
  * @driver_data: driver data;
  */
-
 struct mhi_device_id {
 	const char chan[MHI_NAME_SIZE];
 	kernel_ulong_t driver_data;

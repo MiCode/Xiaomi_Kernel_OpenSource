@@ -80,19 +80,9 @@ xfs_dir_fsync(
 	int			datasync)
 {
 	struct xfs_inode	*ip = XFS_I(file->f_mapping->host);
-	struct xfs_mount	*mp = ip->i_mount;
-	xfs_lsn_t		lsn = 0;
 
 	trace_xfs_dir_fsync(ip);
-
-	xfs_ilock(ip, XFS_ILOCK_SHARED);
-	if (xfs_ipincount(ip))
-		lsn = ip->i_itemp->ili_last_lsn;
-	xfs_iunlock(ip, XFS_ILOCK_SHARED);
-
-	if (!lsn)
-		return 0;
-	return xfs_log_force_lsn(mp, lsn, XFS_LOG_SYNC, NULL);
+	return xfs_log_force_inode(ip);
 }
 
 STATIC int
@@ -1069,7 +1059,11 @@ xfs_file_remap_range(
 
 	ret = xfs_reflink_update_dest(dest, pos_out + len, cowextsize,
 			remap_flags);
+	if (ret)
+		goto out_unlock;
 
+	if (mp->m_flags & XFS_MOUNT_WSYNC)
+		xfs_log_force_inode(dest);
 out_unlock:
 	xfs_reflink_remap_unlock(file_in, file_out);
 	if (ret)
@@ -1108,7 +1102,7 @@ xfs_dir_open(
 	 * certain to have the next operation be a read there.
 	 */
 	mode = xfs_ilock_data_map_shared(ip);
-	if (ip->i_d.di_nextents > 0)
+	if (ip->i_df.if_nextents > 0)
 		error = xfs_dir3_data_readahead(ip, 0, 0);
 	xfs_iunlock(ip, mode);
 	return error;
@@ -1179,7 +1173,7 @@ xfs_file_llseek(
  * Locking for serialisation of IO during page faults. This results in a lock
  * ordering of:
  *
- * mmap_sem (MM)
+ * mmap_lock (MM)
  *   sb_start_pagefault(vfs, freeze)
  *     i_mmaplock (XFS - truncate serialisation)
  *       page_lock (MM)

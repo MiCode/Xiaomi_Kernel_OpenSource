@@ -9,14 +9,14 @@ thermal_sys-y			+= thermal_core.o thermal_sysfs.o \
 
 # interface to/from other layers providing sensors
 thermal_sys-$(CONFIG_THERMAL_HWMON)		+= thermal_hwmon.o
-thermal_sys-$(CONFIG_THERMAL_OF)		+= of-thermal.o
+thermal_sys-$(CONFIG_THERMAL_OF)		+= thermal_of.o
 
 # governors
-thermal_sys-$(CONFIG_THERMAL_GOV_FAIR_SHARE)	+= fair_share.o
+thermal_sys-$(CONFIG_THERMAL_GOV_FAIR_SHARE)	+= gov_fair_share.o
 thermal_sys-$(CONFIG_THERMAL_GOV_BANG_BANG)	+= gov_bang_bang.o
-thermal_sys-$(CONFIG_THERMAL_GOV_STEP_WISE)	+= step_wise.o
-thermal_sys-$(CONFIG_THERMAL_GOV_USER_SPACE)	+= user_space.o
-thermal_sys-$(CONFIG_THERMAL_GOV_POWER_ALLOCATOR)	+= power_allocator.o
+thermal_sys-$(CONFIG_THERMAL_GOV_STEP_WISE)	+= gov_step_wise.o
+thermal_sys-$(CONFIG_THERMAL_GOV_USER_SPACE)	+= gov_user_space.o
+thermal_sys-$(CONFIG_THERMAL_GOV_POWER_ALLOCATOR)	+= gov_power_allocator.o
 
 # cpufreq cooling
 thermal_sys-$(CONFIG_CPU_FREQ_THERMAL)	+= cpufreq_cooling.o
@@ -31,6 +31,7 @@ thermal_sys-$(CONFIG_DEVFREQ_THERMAL) += devfreq_cooling.o
 # debugfs support
 thermal_sys-$(CONFIG_QTI_THERMAL) += thermal_debugfs.o
 
+obj-$(CONFIG_K3_THERMAL)	+= k3_bandgap.o
 # platform thermal drivers
 obj-y				+= broadcom/
 obj-$(CONFIG_THERMAL_MMIO)		+= thermal_mmio.o
@@ -46,6 +47,8 @@ obj-$(CONFIG_DB8500_THERMAL)	+= db8500_thermal.o
 obj-$(CONFIG_ARMADA_THERMAL)	+= armada_thermal.o
 obj-$(CONFIG_TANGO_THERMAL)	+= tango_thermal.o
 obj-$(CONFIG_IMX_THERMAL)	+= imx_thermal.o
+obj-$(CONFIG_IMX_SC_THERMAL)	+= imx_sc_thermal.o
+obj-$(CONFIG_IMX8MM_THERMAL)	+= imx8mm_thermal.o
 obj-$(CONFIG_MAX77620_THERMAL)	+= max77620_thermal.o
 obj-$(CONFIG_QORIQ_THERMAL)	+= qoriq_thermal.o
 obj-$(CONFIG_DA9062_THERMAL)	+= da9062-thermal.o
@@ -62,3 +65,4 @@ obj-$(CONFIG_UNIPHIER_THERMAL)	+= uniphier_thermal.o
 obj-$(CONFIG_AMLOGIC_THERMAL)     += amlogic_thermal.o
 obj-$(CONFIG_THERMAL_TSENS)     += msm-tsens-driver.o
 msm-tsens-driver-objs     := msm-tsens.o tsens2xxx.o tsens-dbg.o tsens-mtc.o tsens1xxx.o tsens-calib.o
+obj-$(CONFIG_SPRD_THERMAL)	+= sprd_thermal.o

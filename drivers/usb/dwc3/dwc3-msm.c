@@ -2551,7 +2551,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 							__func__, ret);
 
 	/* Get initial P3 status and enable IN_P3 event */
-	if (dwc3_is_usb31(dwc))
+	if (!DWC3_IP_IS(DWC3))
 		val = dwc3_msm_read_reg_field(mdwc->base,
 			DWC31_LINK_GDBGLTSSM,
 			DWC3_GDBGLTSSM_LINKSTATE_MASK);
@@ -3117,7 +3117,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	 */
 	dwc3_pwr_event_handler(mdwc);
 
-	if (pm_qos_request_active(&mdwc->pm_qos_req_dma))
+	if (cpu_latency_qos_request_active(&mdwc->pm_qos_req_dma))
 		schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 
@@ -3314,7 +3314,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 		u32 ls;
 
 		/* Can't tell if entered or exit P3, so check LINKSTATE */
-		if (dwc3_is_usb31(dwc))
+		if (!DWC3_IP_IS(DWC3))
 			ls = dwc3_msm_read_reg_field(mdwc->base,
 				DWC31_LINK_GDBGLTSSM,
 				DWC3_GDBGLTSSM_LINKSTATE_MASK);
@@ -3647,9 +3647,10 @@ static inline const char *usb_role_string(enum usb_role role)
 	return "Invalid";
 }
 
-static enum usb_role dwc3_msm_usb_get_role(struct device *dev)
+
+static enum usb_role dwc3_msm_usb_get_role(struct usb_role_switch *sw)
 {
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	enum usb_role role;
 
@@ -3664,13 +3665,13 @@ static enum usb_role dwc3_msm_usb_get_role(struct device *dev)
 	return role;
 }
 
-static int dwc3_msm_usb_set_role(struct device *dev, enum usb_role role)
+static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 {
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	enum usb_role cur_role = USB_ROLE_NONE;
 
-	cur_role = dwc3_msm_usb_get_role(dev);
+	cur_role = dwc3_msm_usb_get_role(sw);
 
 	switch (role) {
 	case USB_ROLE_HOST:
@@ -3705,12 +3706,6 @@ static int dwc3_msm_usb_set_role(struct device *dev, enum usb_role role)
 	dwc3_ext_event_notify(mdwc);
 	return 0;
 }
-
-static struct usb_role_switch_desc role_desc = {
-	.set = dwc3_msm_usb_set_role,
-	.get = dwc3_msm_usb_get_role,
-	.allow_userspace_control = true,
-};
 
 static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
@@ -4242,6 +4237,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
+		struct usb_role_switch_desc role_desc = {
+			.set = dwc3_msm_usb_set_role,
+			.get = dwc3_msm_usb_get_role,
+			.driver_data = mdwc,
+			.allow_userspace_control = true,
+		};
+
 		role_desc.fwnode = dev_fwnode(&pdev->dev);
 		mdwc->role_switch = usb_role_switch_register(mdwc->dev,
 								&role_desc);
@@ -4472,9 +4474,9 @@ static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 		return;
 
 	if (perf_mode)
-		pm_qos_update_request(&mdwc->pm_qos_req_dma, latency);
+		cpu_latency_qos_update_request(&mdwc->pm_qos_req_dma, latency);
 	else
-		pm_qos_update_request(&mdwc->pm_qos_req_dma,
+		cpu_latency_qos_update_request(&mdwc->pm_qos_req_dma,
 						PM_QOS_DEFAULT_VALUE);
 
 	curr_perf_mode = perf_mode;
@@ -4592,7 +4594,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		/* Reduce the U3 exit handshake timer from 8us to approximately
 		 * 300ns to avoid lfps handshake interoperability issues
 		 */
-		if (dwc->revision == DWC3_USB31_REVISION_170A) {
+		if (DWC3_VER_IS(DWC31, 170A)) {
 			dwc3_msm_write_reg_field(mdwc->base,
 					DWC31_LINK_LU3LFPSRXTIM(0),
 					GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
@@ -4609,8 +4611,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			atomic_read(&mdwc->dev->power.usage_count));
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
-		pm_qos_add_request(&mdwc->pm_qos_req_dma,
-				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
+					    PM_QOS_DEFAULT_VALUE);
 		/* start in perf mode for better performance initially */
 		msm_dwc3_perf_vote_update(mdwc, true);
 		schedule_delayed_work(&mdwc->perf_vote_work,
@@ -4627,7 +4629,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
-		pm_qos_remove_request(&mdwc->pm_qos_req_dma);
+		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
@@ -4711,7 +4713,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		/* Reduce the U3 exit handshake timer from 8us to approximately
 		 * 300ns to avoid lfps handshake interoperability issues
 		 */
-		if (dwc->revision == DWC3_USB31_REVISION_170A) {
+		if (DWC3_VER_IS(DWC31, 170A)) {
 			dwc3_msm_write_reg_field(mdwc->base,
 					DWC31_LINK_LU3LFPSRXTIM(0),
 					GEN2_U3_EXIT_RSP_RX_CLK_MASK, 6);
@@ -4724,8 +4726,8 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		}
 
 		usb_gadget_vbus_connect(&dwc->gadget);
-		pm_qos_add_request(&mdwc->pm_qos_req_dma,
-				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
+					    PM_QOS_DEFAULT_VALUE);
 		/* start in perf mode for better performance initially */
 		msm_dwc3_perf_vote_update(mdwc, true);
 		schedule_delayed_work(&mdwc->perf_vote_work,
@@ -4735,7 +4737,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 					__func__, dwc->gadget.name);
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
-		pm_qos_remove_request(&mdwc->pm_qos_req_dma);
+		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		mdwc->in_device_mode = false;
 		usb_gadget_vbus_disconnect(&dwc->gadget);

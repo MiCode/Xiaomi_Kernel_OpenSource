@@ -986,7 +986,8 @@ static void mcde_dsi_bridge_disable(struct drm_bridge *bridge)
 	clk_disable_unprepare(d->lp_clk);
 }
 
-static int mcde_dsi_bridge_attach(struct drm_bridge *bridge)
+static int mcde_dsi_bridge_attach(struct drm_bridge *bridge,
+				  enum drm_bridge_attach_flags flags)
 {
 	struct mcde_dsi *d = bridge_to_mcde_dsi(bridge);
 	struct drm_device *drm = bridge->dev;
@@ -998,7 +999,7 @@ static int mcde_dsi_bridge_attach(struct drm_bridge *bridge)
 	}
 
 	/* Attach the DSI bridge to the output (panel etc) bridge */
-	ret = drm_bridge_attach(bridge->encoder, d->bridge_out, bridge);
+	ret = drm_bridge_attach(bridge->encoder, d->bridge_out, bridge, flags);
 	if (ret) {
 		dev_err(d->dev, "failed to attach the DSI bridge\n");
 		return ret;
@@ -1019,7 +1020,7 @@ static int mcde_dsi_bind(struct device *dev, struct device *master,
 			 void *data)
 {
 	struct drm_device *drm = data;
-	struct mcde *mcde = drm->dev_private;
+	struct mcde *mcde = to_mcde(drm);
 	struct mcde_dsi *d = dev_get_drvdata(dev);
 	struct device_node *child;
 	struct drm_panel *panel = NULL;
@@ -1072,10 +1073,9 @@ static int mcde_dsi_bind(struct device *dev, struct device *master,
 			panel = NULL;
 
 			bridge = of_drm_find_bridge(child);
-			if (IS_ERR(bridge)) {
-				dev_err(dev, "failed to find bridge (%ld)\n",
-					PTR_ERR(bridge));
-				return PTR_ERR(bridge);
+			if (!bridge) {
+				dev_err(dev, "failed to find bridge\n");
+				return -EINVAL;
 			}
 		}
 	}

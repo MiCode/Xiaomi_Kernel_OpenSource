@@ -33,7 +33,6 @@
 #include "../perf.h"
 #include "arch/common.h"
 #include <internal/lib.h>
-#include <linux/err.h>
 
 #ifdef HAVE_ZSTD_SUPPORT
 static int perf_session__process_compressed_event(struct perf_session *session,
@@ -471,6 +470,8 @@ void perf_tool__fill_defaults(struct perf_tool *tool)
 		tool->comm = process_event_stub;
 	if (tool->namespaces == NULL)
 		tool->namespaces = process_event_stub;
+	if (tool->cgroup == NULL)
+		tool->cgroup = process_event_stub;
 	if (tool->fork == NULL)
 		tool->fork = process_event_stub;
 	if (tool->exit == NULL)
@@ -1007,6 +1008,7 @@ static void callchain__lbr_callstack_printf(struct perf_sample *sample)
 {
 	struct ip_callchain *callchain = sample->callchain;
 	struct branch_stack *lbr_stack = sample->branch_stack;
+	struct branch_entry *entries = perf_sample__branch_entries(sample);
 	u64 kernel_callchain_nr = callchain->nr;
 	unsigned int i;
 
@@ -1043,10 +1045,10 @@ static void callchain__lbr_callstack_printf(struct perf_sample *sample)
 			       i, callchain->ips[i]);
 
 		printf("..... %2d: %016" PRIx64 "\n",
-		       (int)(kernel_callchain_nr), lbr_stack->entries[0].to);
+		       (int)(kernel_callchain_nr), entries[0].to);
 		for (i = 0; i < lbr_stack->nr; i++)
 			printf("..... %2d: %016" PRIx64 "\n",
-			       (int)(i + kernel_callchain_nr + 1), lbr_stack->entries[i].from);
+			       (int)(i + kernel_callchain_nr + 1), entries[i].from);
 	}
 }
 
@@ -1056,7 +1058,7 @@ static void callchain__printf(struct evsel *evsel,
 	unsigned int i;
 	struct ip_callchain *callchain = sample->callchain;
 
-	if (perf_evsel__has_branch_callstack(evsel))
+	if (evsel__has_branch_callstack(evsel))
 		callchain__lbr_callstack_printf(sample);
 
 	printf("... FP chain: nr:%" PRIu64 "\n", callchain->nr);
@@ -1068,6 +1070,7 @@ static void callchain__printf(struct evsel *evsel,
 
 static void branch_stack__printf(struct perf_sample *sample, bool callstack)
 {
+	struct branch_entry *entries = perf_sample__branch_entries(sample);
 	uint64_t i;
 
 	printf("%s: nr:%" PRIu64 "\n",
@@ -1075,7 +1078,7 @@ static void branch_stack__printf(struct perf_sample *sample, bool callstack)
 		sample->branch_stack->nr);
 
 	for (i = 0; i < sample->branch_stack->nr; i++) {
-		struct branch_entry *e = &sample->branch_stack->entries[i];
+		struct branch_entry *e = &entries[i];
 
 		if (!callstack) {
 			printf("..... %2"PRIu64": %016" PRIx64 " -> %016" PRIx64 " %hu cycles %s%s%s%s %x\n",
@@ -1100,7 +1103,7 @@ static void regs_dump__printf(u64 mask, u64 *regs)
 	for_each_set_bit(rid, (unsigned long *) &mask, sizeof(mask) * 8) {
 		u64 val = regs[i++];
 
-		printf(".... %-5s 0x%" PRIx64 "\n",
+		printf(".... %-5s 0x%016" PRIx64 "\n",
 		       perf_reg_name(rid), val);
 	}
 }
@@ -1239,8 +1242,8 @@ static void dump_sample(struct evsel *evsel, union perf_event *event,
 	if (evsel__has_callchain(evsel))
 		callchain__printf(evsel, sample);
 
-	if (sample_type & PERF_SAMPLE_BRANCH_STACK)
-		branch_stack__printf(sample, perf_evsel__has_branch_callstack(evsel));
+	if (evsel__has_br_stack(evsel))
+		branch_stack__printf(sample, evsel__has_branch_callstack(evsel));
 
 	if (sample_type & PERF_SAMPLE_REGS_USER)
 		regs_user__printf(sample);
@@ -1276,8 +1279,7 @@ static void dump_read(struct evsel *evsel, union perf_event *event)
 		return;
 
 	printf(": %d %d %s %" PRI_lu64 "\n", event->read.pid, event->read.tid,
-	       perf_evsel__name(evsel),
-	       event->read.value);
+	       evsel__name(evsel), event->read.value);
 
 	if (!evsel)
 		return;
@@ -1434,6 +1436,8 @@ static int machines__deliver_event(struct machines *machines,
 		return tool->comm(tool, event, sample, machine);
 	case PERF_RECORD_NAMESPACES:
 		return tool->namespaces(tool, event, sample, machine);
+	case PERF_RECORD_CGROUP:
+		return tool->cgroup(tool, event, sample, machine);
 	case PERF_RECORD_FORK:
 		return tool->fork(tool, event, sample, machine);
 	case PERF_RECORD_EXIT:
@@ -1537,8 +1541,13 @@ static s64 perf_session__process_user_event(struct perf_session *session,
 		 */
 		return 0;
 	case PERF_RECORD_HEADER_TRACING_DATA:
-		/* setup for reading amidst mmap */
-		lseek(fd, file_offset, SEEK_SET);
+		/*
+		 * Setup for reading amidst mmap, but only when we
+		 * are in 'file' mode. The 'pipe' fd is in proper
+		 * place already.
+		 */
+		if (!perf_data__is_pipe(session->data))
+			lseek(fd, file_offset, SEEK_SET);
 		return tool->tracing_data(session, event);
 	case PERF_RECORD_HEADER_BUILD_ID:
 		return tool->build_id(session, event);

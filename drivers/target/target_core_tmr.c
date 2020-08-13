@@ -78,7 +78,7 @@ static int target_check_cdb_and_preempt(struct list_head *list,
 }
 
 static bool __target_check_io_state(struct se_cmd *se_cmd,
-				    struct se_session *tmr_sess, int tas)
+				    struct se_session *tmr_sess, bool tas)
 {
 	struct se_session *sess = se_cmd->se_sess;
 
@@ -148,8 +148,8 @@ void core_tmr_abort_task(
 		 * code.
 		 */
 		if (!tmr->tmr_dev)
-			WARN_ON_ONCE(transport_lookup_tmr_lun(tmr->task_cmd,
-						se_cmd->orig_fe_lun) < 0);
+			WARN_ON_ONCE(transport_lookup_tmr_lun(tmr->task_cmd) <
+					0);
 
 		target_put_cmd_and_wait(se_cmd);
 
@@ -251,7 +251,7 @@ static void core_tmr_drain_state_list(
 	struct se_device *dev,
 	struct se_cmd *prout_cmd,
 	struct se_session *tmr_sess,
-	int tas,
+	bool tas,
 	struct list_head *preempt_and_abort_list)
 {
 	LIST_HEAD(drain_task_list);
@@ -334,7 +334,7 @@ int core_tmr_lun_reset(
 	struct se_node_acl *tmr_nacl = NULL;
 	struct se_portal_group *tmr_tpg = NULL;
 	struct se_session *tmr_sess = NULL;
-	int tas;
+	bool tas;
         /*
 	 * TASK_ABORTED status bit, this is configurable via ConfigFS
 	 * struct se_device attributes.  spc4r17 section 7.4.6 Control mode page

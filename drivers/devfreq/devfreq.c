@@ -60,12 +60,12 @@ static struct devfreq *find_device_devfreq(struct device *dev)
 {
 	struct devfreq *tmp_devfreq;
 
+	lockdep_assert_held(&devfreq_list_lock);
+
 	if (IS_ERR_OR_NULL(dev)) {
 		pr_err("DEVFREQ: %s: Invalid parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	WARN(!mutex_is_locked(&devfreq_list_lock),
-	     "devfreq_list_lock must be locked.");
 
 	list_for_each_entry(tmp_devfreq, &devfreq_list, node) {
 		if (tmp_devfreq->dev.parent == dev)
@@ -258,12 +258,12 @@ static struct devfreq_governor *find_devfreq_governor(const char *name)
 {
 	struct devfreq_governor *tmp_governor;
 
+	lockdep_assert_held(&devfreq_list_lock);
+
 	if (IS_ERR_OR_NULL(name)) {
 		pr_err("DEVFREQ: %s: Invalid parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	WARN(!mutex_is_locked(&devfreq_list_lock),
-	     "devfreq_list_lock must be locked.");
 
 	list_for_each_entry(tmp_governor, &devfreq_governor_list, node) {
 		if (!strncmp(tmp_governor->name, name, DEVFREQ_NAME_LEN))
@@ -289,12 +289,12 @@ static struct devfreq_governor *try_then_request_governor(const char *name)
 	struct devfreq_governor *governor;
 	int err = 0;
 
+	lockdep_assert_held(&devfreq_list_lock);
+
 	if (IS_ERR_OR_NULL(name)) {
 		pr_err("DEVFREQ: %s: Invalid parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	WARN(!mutex_is_locked(&devfreq_list_lock),
-	     "devfreq_list_lock must be locked.");
 
 	governor = find_devfreq_governor(name);
 	if (IS_ERR(governor)) {
@@ -392,10 +392,7 @@ int update_devfreq(struct devfreq *devfreq)
 	int err = 0;
 	u32 flags = 0;
 
-	if (!mutex_is_locked(&devfreq->lock)) {
-		WARN(true, "devfreq->lock must be locked by the caller.\n");
-		return -EINVAL;
-	}
+	lockdep_assert_held(&devfreq->lock);
 
 	if (!devfreq->governor)
 		return -EINVAL;
@@ -550,14 +547,14 @@ out:
 EXPORT_SYMBOL(devfreq_monitor_resume);
 
 /**
- * devfreq_interval_update() - Update device devfreq monitoring interval
+ * devfreq_update_interval() - Update device devfreq monitoring interval
  * @devfreq:    the devfreq instance.
  * @delay:      new polling interval to be set.
  *
  * Helper function to set new load monitoring polling interval. Function
- * to be called from governor in response to DEVFREQ_GOV_INTERVAL event.
+ * to be called from governor in response to DEVFREQ_GOV_UPDATE_INTERVAL event.
  */
-void devfreq_interval_update(struct devfreq *devfreq, unsigned int *delay)
+void devfreq_update_interval(struct devfreq *devfreq, unsigned int *delay)
 {
 	unsigned int cur_delay = devfreq->profile->polling_ms;
 	unsigned int new_delay = *delay;
@@ -597,7 +594,7 @@ void devfreq_interval_update(struct devfreq *devfreq, unsigned int *delay)
 out:
 	mutex_unlock(&devfreq->lock);
 }
-EXPORT_SYMBOL(devfreq_interval_update);
+EXPORT_SYMBOL(devfreq_update_interval);
 
 /**
  * devfreq_notifier_call() - Notify that the device frequency requirements
@@ -705,13 +702,13 @@ static void devfreq_dev_release(struct device *dev)
 
 	if (dev_pm_qos_request_active(&devfreq->user_max_freq_req)) {
 		err = dev_pm_qos_remove_request(&devfreq->user_max_freq_req);
-		if (err)
+		if (err < 0)
 			dev_warn(dev->parent,
 				"Failed to remove max_freq request: %d\n", err);
 	}
 	if (dev_pm_qos_request_active(&devfreq->user_min_freq_req)) {
 		err = dev_pm_qos_remove_request(&devfreq->user_min_freq_req);
-		if (err)
+		if (err < 0)
 			dev_warn(dev->parent,
 				"Failed to remove min_freq request: %d\n", err);
 	}
@@ -720,7 +717,9 @@ static void devfreq_dev_release(struct device *dev)
 		devfreq->profile->exit(devfreq->dev.parent);
 
 	mutex_destroy(&devfreq->lock);
+#ifdef CONFIG_SCHED_WALT
 	event_mutex_destroy(devfreq);
+#endif
 	kfree(devfreq);
 }
 
@@ -763,14 +762,16 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	}
 
 	mutex_init(&devfreq->lock);
+#ifdef CONFIG_SCHED_WALT
 	event_mutex_init(devfreq);
+#endif
 	mutex_lock(&devfreq->lock);
 	devfreq->dev.parent = dev;
 	devfreq->dev.class = devfreq_class;
 	devfreq->dev.release = devfreq_dev_release;
 	INIT_LIST_HEAD(&devfreq->node);
 	devfreq->profile = profile;
-	strncpy(devfreq->governor_name, governor_name, DEVFREQ_NAME_LEN);
+	strscpy(devfreq->governor_name, governor_name, DEVFREQ_NAME_LEN);
 	devfreq->previous_freq = profile->initial_freq;
 	devfreq->last_status.current_frequency = profile->initial_freq;
 	devfreq->data = data;
@@ -1043,10 +1044,14 @@ int devfreq_suspend_device(struct devfreq *devfreq)
 		return 0;
 
 	if (devfreq->governor) {
+#ifdef CONFIG_SCHED_WALT
 		event_mutex_lock(devfreq);
+#endif
 		ret = devfreq->governor->event_handler(devfreq,
 					DEVFREQ_GOV_SUSPEND, NULL);
+#ifdef CONFIG_SCHED_WALT
 		event_mutex_unlock(devfreq);
+#endif
 		if (ret)
 			return ret;
 	}
@@ -1090,10 +1095,14 @@ int devfreq_resume_device(struct devfreq *devfreq)
 	}
 
 	if (devfreq->governor) {
+#ifdef CONFIG_SCHED_WALT
 		event_mutex_lock(devfreq);
+#endif
 		ret = devfreq->governor->event_handler(devfreq,
 					DEVFREQ_GOV_RESUME, NULL);
+#ifdef CONFIG_SCHED_WALT
 		event_mutex_unlock(devfreq);
+#endif
 		if (ret)
 			return ret;
 	}
@@ -1310,13 +1319,19 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 		goto out;
 	}
 
+#ifdef CONFIG_SCHED_WALT
 	event_mutex_lock(df);
+#endif
 	if (df->governor) {
 		ret = df->governor->event_handler(df, DEVFREQ_GOV_STOP, NULL);
 		if (ret) {
 			dev_warn(dev, "%s: Governor %s not stopped(%d)\n",
 				 __func__, df->governor->name, ret);
+#ifdef CONFIG_SCHED_WALT
 			goto gov_stop_out;
+#else
+			goto out;
+#endif
 		}
 	}
 	prev_governor = df->governor;
@@ -1338,8 +1353,10 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 		}
 	}
 
+#ifdef CONFIG_SCHED_WALT
 gov_stop_out:
 	event_mutex_unlock(df);
+#endif
 out:
 	mutex_unlock(&devfreq_list_lock);
 
@@ -1434,10 +1451,14 @@ static ssize_t polling_interval_store(struct device *dev,
 	if (ret != 1)
 		return -EINVAL;
 
+#ifdef CONFIG_SCHED_WALT
 	event_mutex_lock(df);
-	df->governor->event_handler(df, DEVFREQ_GOV_INTERVAL, &value);
+#endif
+	df->governor->event_handler(df, DEVFREQ_GOV_UPDATE_INTERVAL, &value);
 	ret = count;
+#ifdef CONFIG_SCHED_WALT
 	event_mutex_unlock(df);
+#endif
 
 	return ret;
 }

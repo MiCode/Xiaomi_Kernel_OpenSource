@@ -54,8 +54,10 @@ int cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy,
 	policy->min = policy->cpuinfo.min_freq = min_freq;
 	policy->max = policy->cpuinfo.max_freq = max_freq;
 
+#ifdef CONFIG_SCHED_WALT
 	if (max_freq > cpuinfo_max_freq_cached)
 		cpuinfo_max_freq_cached = max_freq;
+#endif
 
 	if (policy->min == ~0)
 		return -EINVAL;

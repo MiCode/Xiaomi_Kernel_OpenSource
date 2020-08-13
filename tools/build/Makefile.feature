@@ -40,7 +40,6 @@ FEATURE_TESTS_BASIC :=                  \
         glibc                           \
         gtk2                            \
         gtk2-infobar                    \
-        libaudit                        \
         libbfd                          \
         libcap                          \
         libelf                          \
@@ -72,7 +71,8 @@ FEATURE_TESTS_BASIC :=                  \
         setns				\
         libaio				\
         libzstd				\
-        disassembler-four-args
+        disassembler-four-args		\
+        file-handle
 
 # FEATURE_TESTS_BASIC + FEATURE_TESTS_EXTRA is the complete list
 # of all feature tests
@@ -97,7 +97,8 @@ FEATURE_TESTS_EXTRA :=                  \
          llvm                           \
          llvm-version                   \
          clang                          \
-         libbpf
+         libbpf                         \
+         libpfm4
 
 FEATURE_TESTS ?= $(FEATURE_TESTS_BASIC)
 
@@ -110,7 +111,6 @@ FEATURE_DISPLAY ?=              \
          dwarf_getlocations     \
          glibc                  \
          gtk2                   \
-         libaudit               \
          libbfd                 \
          libcap                 \
          libelf                 \

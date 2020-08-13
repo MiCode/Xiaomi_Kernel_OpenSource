@@ -135,7 +135,6 @@
 
 #define SPI_AUTOSUSPEND_TIMEOUT		3000
 enum mode_type {GQSPI_MODE_IO, GQSPI_MODE_DMA};
-static const struct zynqmp_eemi_ops *eemi_ops;
 
 /**
  * struct zynqmp_qspi - Defines qspi driver instance
@@ -400,9 +399,6 @@ static void zynqmp_qspi_chipselect(struct spi_device *qspi, bool is_high)
 	}
 
 	zynqmp_gqspi_write(xqspi, GQSPI_GEN_FIFO_OFST, genfifoentry);
-
-	/* Dummy generic FIFO entry */
-	zynqmp_gqspi_write(xqspi, GQSPI_GEN_FIFO_OFST, 0x0);
 
 	/* Manually start the generic FIFO command */
 	zynqmp_gqspi_write(xqspi, GQSPI_CONFIG_OFST,
@@ -1017,10 +1013,6 @@ static int zynqmp_qspi_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct zynqmp_qspi *xqspi;
 	struct device *dev = &pdev->dev;
-
-	eemi_ops = zynqmp_pm_get_eemi_ops();
-	if (IS_ERR(eemi_ops))
-		return PTR_ERR(eemi_ops);
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*xqspi));
 	if (!master)

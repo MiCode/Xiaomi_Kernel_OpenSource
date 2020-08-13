@@ -810,7 +810,7 @@ mv64xxx_of_config(struct mv64xxx_i2c_data *drv_data,
 	tclk = clk_get_rate(drv_data->clk);
 
 	if (of_property_read_u32(np, "clock-frequency", &bus_freq))
-		bus_freq = 100000; /* 100kHz by default */
+		bus_freq = I2C_MAX_STANDARD_MODE_FREQ; /* 100kHz by default */
 
 	if (of_device_is_compatible(np, "allwinner,sun4i-a10-i2c") ||
 	    of_device_is_compatible(np, "allwinner,sun6i-a31-i2c"))
@@ -846,14 +846,14 @@ mv64xxx_of_config(struct mv64xxx_i2c_data *drv_data,
 	if (of_device_is_compatible(np, "marvell,mv78230-i2c")) {
 		drv_data->offload_enabled = true;
 		/* The delay is only needed in standard mode (100kHz) */
-		if (bus_freq <= 100000)
+		if (bus_freq <= I2C_MAX_STANDARD_MODE_FREQ)
 			drv_data->errata_delay = true;
 	}
 
 	if (of_device_is_compatible(np, "marvell,mv78230-a0-i2c")) {
 		drv_data->offload_enabled = false;
 		/* The delay is only needed in standard mode (100kHz) */
-		if (bus_freq <= 100000)
+		if (bus_freq <= I2C_MAX_STANDARD_MODE_FREQ)
 			drv_data->errata_delay = true;
 	}
 
@@ -877,7 +877,6 @@ mv64xxx_i2c_probe(struct platform_device *pd)
 {
 	struct mv64xxx_i2c_data		*drv_data;
 	struct mv64xxx_i2c_pdata	*pdata = dev_get_platdata(&pd->dev);
-	struct resource	*r;
 	int	rc;
 
 	if ((!pdata && !pd->dev.of_node))
@@ -888,8 +887,7 @@ mv64xxx_i2c_probe(struct platform_device *pd)
 	if (!drv_data)
 		return -ENOMEM;
 
-	r = platform_get_resource(pd, IORESOURCE_MEM, 0);
-	drv_data->reg_base = devm_ioremap_resource(&pd->dev, r);
+	drv_data->reg_base = devm_platform_ioremap_resource(pd, 0);
 	if (IS_ERR(drv_data->reg_base))
 		return PTR_ERR(drv_data->reg_base);
 

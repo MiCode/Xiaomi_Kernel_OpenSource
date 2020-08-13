@@ -344,6 +344,12 @@ struct gpio_desc *gpiod_get_from_of_node(struct device_node *node,
 	if (transitory)
 		lflags |= GPIO_TRANSITORY;
 
+	if (flags & OF_GPIO_PULL_UP)
+		lflags |= GPIO_PULL_UP;
+
+	if (flags & OF_GPIO_PULL_DOWN)
+		lflags |= GPIO_PULL_DOWN;
+
 	ret = gpiod_configure_flags(desc, propname, lflags, dflags);
 	if (ret < 0) {
 		gpiod_put(desc);
@@ -460,6 +466,24 @@ static struct gpio_desc *of_find_arizona_gpio(struct device *dev,
 	return of_get_named_gpiod_flags(dev->of_node, con_id, 0, of_flags);
 }
 
+static struct gpio_desc *of_find_usb_gpio(struct device *dev,
+					  const char *con_id,
+					  enum of_gpio_flags *of_flags)
+{
+	/*
+	 * Currently this USB quirk is only for the Fairchild FUSB302 host which is using
+	 * an undocumented DT GPIO line named "fcs,int_n" without the compulsory "-gpios"
+	 * suffix.
+	 */
+	if (!IS_ENABLED(CONFIG_TYPEC_FUSB302))
+		return ERR_PTR(-ENOENT);
+
+	if (!con_id || strcmp(con_id, "fcs,int_n"))
+		return ERR_PTR(-ENOENT);
+
+	return of_get_named_gpiod_flags(dev->of_node, con_id, 0, of_flags);
+}
+
 struct gpio_desc *of_find_gpio(struct device *dev, const char *con_id,
 			       unsigned int idx, unsigned long *flags)
 {
@@ -503,6 +527,9 @@ struct gpio_desc *of_find_gpio(struct device *dev, const char *con_id,
 
 	if (PTR_ERR(desc) == -ENOENT)
 		desc = of_find_arizona_gpio(dev, con_id, &of_flags);
+
+	if (PTR_ERR(desc) == -ENOENT)
+		desc = of_find_usb_gpio(dev, con_id, &of_flags);
 
 	if (IS_ERR(desc))
 		return desc;
@@ -585,6 +612,10 @@ static struct gpio_desc *of_parse_own_gpio(struct device_node *np,
 		*lflags |= GPIO_ACTIVE_LOW;
 	if (xlate_flags & OF_GPIO_TRANSITORY)
 		*lflags |= GPIO_TRANSITORY;
+	if (xlate_flags & OF_GPIO_PULL_UP)
+		*lflags |= GPIO_PULL_UP;
+	if (xlate_flags & OF_GPIO_PULL_DOWN)
+		*lflags |= GPIO_PULL_DOWN;
 
 	if (of_property_read_bool(np, "input"))
 		*dflags |= GPIOD_IN;
@@ -605,6 +636,39 @@ static struct gpio_desc *of_parse_own_gpio(struct device_node *np,
 }
 
 /**
+ * of_gpiochip_add_hog - Add all hogs in a hog device node
+ * @chip:	gpio chip to act on
+ * @hog:	device node describing the hogs
+ *
+ * Returns error if it fails otherwise 0 on success.
+ */
+static int of_gpiochip_add_hog(struct gpio_chip *chip, struct device_node *hog)
+{
+	enum gpiod_flags dflags;
+	struct gpio_desc *desc;
+	unsigned long lflags;
+	const char *name;
+	unsigned int i;
+	int ret;
+
+	for (i = 0;; i++) {
+		desc = of_parse_own_gpio(hog, chip, i, &name, &lflags, &dflags);
+		if (IS_ERR(desc))
+			break;
+
+		ret = gpiod_hog(desc, name, lflags, dflags);
+		if (ret < 0)
+			return ret;
+
+#ifdef CONFIG_OF_DYNAMIC
+		desc->hog = hog;
+#endif
+	}
+
+	return 0;
+}
+
+/**
  * of_gpiochip_scan_gpios - Scan gpio-controller for gpio definitions
  * @chip:	gpio chip to act on
  *
@@ -614,34 +678,108 @@ static struct gpio_desc *of_parse_own_gpio(struct device_node *np,
  */
 static int of_gpiochip_scan_gpios(struct gpio_chip *chip)
 {
-	struct gpio_desc *desc = NULL;
 	struct device_node *np;
-	const char *name;
-	unsigned long lflags;
-	enum gpiod_flags dflags;
-	unsigned int i;
 	int ret;
 
 	for_each_available_child_of_node(chip->of_node, np) {
 		if (!of_property_read_bool(np, "gpio-hog"))
 			continue;
 
-		for (i = 0;; i++) {
-			desc = of_parse_own_gpio(np, chip, i, &name, &lflags,
-						 &dflags);
-			if (IS_ERR(desc))
-				break;
-
-			ret = gpiod_hog(desc, name, lflags, dflags);
-			if (ret < 0) {
-				of_node_put(np);
-				return ret;
-			}
+		ret = of_gpiochip_add_hog(chip, np);
+		if (ret < 0) {
+			of_node_put(np);
+			return ret;
 		}
+
+		of_node_set_flag(np, OF_POPULATED);
 	}
 
 	return 0;
 }
+
+#ifdef CONFIG_OF_DYNAMIC
+/**
+ * of_gpiochip_remove_hog - Remove all hogs in a hog device node
+ * @chip:	gpio chip to act on
+ * @hog:	device node describing the hogs
+ */
+static void of_gpiochip_remove_hog(struct gpio_chip *chip,
+				   struct device_node *hog)
+{
+	struct gpio_desc *descs = chip->gpiodev->descs;
+	unsigned int i;
+
+	for (i = 0; i < chip->ngpio; i++) {
+		if (test_bit(FLAG_IS_HOGGED, &descs[i].flags) &&
+		    descs[i].hog == hog)
+			gpiochip_free_own_desc(&descs[i]);
+	}
+}
+
+static int of_gpiochip_match_node(struct gpio_chip *chip, void *data)
+{
+	return chip->gpiodev->dev.of_node == data;
+}
+
+static struct gpio_chip *of_find_gpiochip_by_node(struct device_node *np)
+{
+	return gpiochip_find(np, of_gpiochip_match_node);
+}
+
+static int of_gpio_notify(struct notifier_block *nb, unsigned long action,
+			  void *arg)
+{
+	struct of_reconfig_data *rd = arg;
+	struct gpio_chip *chip;
+	int ret;
+
+	/*
+	 * This only supports adding and removing complete gpio-hog nodes.
+	 * Modifying an existing gpio-hog node is not supported (except for
+	 * changing its "status" property, which is treated the same as
+	 * addition/removal).
+	 */
+	switch (of_reconfig_get_state_change(action, arg)) {
+	case OF_RECONFIG_CHANGE_ADD:
+		if (!of_property_read_bool(rd->dn, "gpio-hog"))
+			return NOTIFY_OK;	/* not for us */
+
+		if (of_node_test_and_set_flag(rd->dn, OF_POPULATED))
+			return NOTIFY_OK;
+
+		chip = of_find_gpiochip_by_node(rd->dn->parent);
+		if (chip == NULL)
+			return NOTIFY_OK;	/* not for us */
+
+		ret = of_gpiochip_add_hog(chip, rd->dn);
+		if (ret < 0) {
+			pr_err("%s: failed to add hogs for %pOF\n", __func__,
+			       rd->dn);
+			of_node_clear_flag(rd->dn, OF_POPULATED);
+			return notifier_from_errno(ret);
+		}
+		break;
+
+	case OF_RECONFIG_CHANGE_REMOVE:
+		if (!of_node_check_flag(rd->dn, OF_POPULATED))
+			return NOTIFY_OK;	/* already depopulated */
+
+		chip = of_find_gpiochip_by_node(rd->dn->parent);
+		if (chip == NULL)
+			return NOTIFY_OK;	/* not for us */
+
+		of_gpiochip_remove_hog(chip, rd->dn);
+		of_node_clear_flag(rd->dn, OF_POPULATED);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block gpio_of_notifier = {
+	.notifier_call = of_gpio_notify,
+};
+#endif /* CONFIG_OF_DYNAMIC */
 
 /**
  * of_gpio_simple_xlate - translate gpiospec to the GPIO number and flags

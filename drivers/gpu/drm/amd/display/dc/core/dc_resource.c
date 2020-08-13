@@ -46,12 +46,12 @@
 #include "dce100/dce100_resource.h"
 #include "dce110/dce110_resource.h"
 #include "dce112/dce112_resource.h"
+#include "dce120/dce120_resource.h"
 #if defined(CONFIG_DRM_AMD_DC_DCN)
 #include "dcn10/dcn10_resource.h"
-#endif
 #include "dcn20/dcn20_resource.h"
 #include "dcn21/dcn21_resource.h"
-#include "dce120/dce120_resource.h"
+#endif
 
 #define DC_LOGGER_INIT(logger)
 
@@ -532,6 +532,64 @@ static inline void get_vp_scan_direction(
 		*flip_horz_scan_dir = !*flip_horz_scan_dir;
 }
 
+int get_num_mpc_splits(struct pipe_ctx *pipe)
+{
+	int mpc_split_count = 0;
+	struct pipe_ctx *other_pipe = pipe->bottom_pipe;
+
+	while (other_pipe && other_pipe->plane_state == pipe->plane_state) {
+		mpc_split_count++;
+		other_pipe = other_pipe->bottom_pipe;
+	}
+	other_pipe = pipe->top_pipe;
+	while (other_pipe && other_pipe->plane_state == pipe->plane_state) {
+		mpc_split_count++;
+		other_pipe = other_pipe->top_pipe;
+	}
+
+	return mpc_split_count;
+}
+
+int get_num_odm_splits(struct pipe_ctx *pipe)
+{
+	int odm_split_count = 0;
+	struct pipe_ctx *next_pipe = pipe->next_odm_pipe;
+	while (next_pipe) {
+		odm_split_count++;
+		next_pipe = next_pipe->next_odm_pipe;
+	}
+	pipe = pipe->prev_odm_pipe;
+	while (pipe) {
+		odm_split_count++;
+		pipe = pipe->prev_odm_pipe;
+	}
+	return odm_split_count;
+}
+
+static void calculate_split_count_and_index(struct pipe_ctx *pipe_ctx, int *split_count, int *split_idx)
+{
+	*split_count = get_num_odm_splits(pipe_ctx);
+	*split_idx = 0;
+	if (*split_count == 0) {
+		/*Check for mpc split*/
+		struct pipe_ctx *split_pipe = pipe_ctx->top_pipe;
+
+		*split_count = get_num_mpc_splits(pipe_ctx);
+		while (split_pipe && split_pipe->plane_state == pipe_ctx->plane_state) {
+			(*split_idx)++;
+			split_pipe = split_pipe->top_pipe;
+		}
+	} else {
+		/*Get odm split index*/
+		struct pipe_ctx *split_pipe = pipe_ctx->prev_odm_pipe;
+
+		while (split_pipe) {
+			(*split_idx)++;
+			split_pipe = split_pipe->prev_odm_pipe;
+		}
+	}
+}
+
 static void calculate_viewport(struct pipe_ctx *pipe_ctx)
 {
 	const struct dc_plane_state *plane_state = pipe_ctx->plane_state;
@@ -541,16 +599,16 @@ static void calculate_viewport(struct pipe_ctx *pipe_ctx)
 	struct rect clip, dest;
 	int vpc_div = (data->format == PIXEL_FORMAT_420BPP8
 			|| data->format == PIXEL_FORMAT_420BPP10) ? 2 : 1;
-	bool pri_split = pipe_ctx->bottom_pipe &&
-			pipe_ctx->bottom_pipe->plane_state == pipe_ctx->plane_state;
-	bool sec_split = pipe_ctx->top_pipe &&
-			pipe_ctx->top_pipe->plane_state == pipe_ctx->plane_state;
+	int split_count = 0;
+	int split_idx = 0;
 	bool orthogonal_rotation, flip_y_start, flip_x_start;
+
+	calculate_split_count_and_index(pipe_ctx, &split_count, &split_idx);
 
 	if (stream->view_format == VIEW_3D_FORMAT_SIDE_BY_SIDE ||
 		stream->view_format == VIEW_3D_FORMAT_TOP_AND_BOTTOM) {
-		pri_split = false;
-		sec_split = false;
+		split_count = 0;
+		split_idx = 0;
 	}
 
 	/* The actual clip is an intersection between stream
@@ -609,23 +667,32 @@ static void calculate_viewport(struct pipe_ctx *pipe_ctx)
 	data->viewport.height = clip.height * surf_src.height / dest.height;
 
 	/* Handle split */
-	if (pri_split || sec_split) {
+	if (split_count) {
+		/* extra pixels in the division remainder need to go to pipes after
+		 * the extra pixel index minus one(epimo) defined here as:
+		 */
+		int epimo = 0;
+
 		if (orthogonal_rotation) {
-			if (flip_y_start != pri_split)
-				data->viewport.height /= 2;
-			else {
-				data->viewport.y +=  data->viewport.height / 2;
-				/* Ceil offset pipe */
-				data->viewport.height = (data->viewport.height + 1) / 2;
-			}
+			if (flip_y_start)
+				split_idx = split_count - split_idx;
+
+			epimo = split_count - data->viewport.height % (split_count + 1);
+
+			data->viewport.y += (data->viewport.height / (split_count + 1)) * split_idx;
+			if (split_idx > epimo)
+				data->viewport.y += split_idx - epimo - 1;
+			data->viewport.height = data->viewport.height / (split_count + 1) + (split_idx > epimo ? 1 : 0);
 		} else {
-			if (flip_x_start != pri_split)
-				data->viewport.width /= 2;
-			else {
-				data->viewport.x +=  data->viewport.width / 2;
-				/* Ceil offset pipe */
-				data->viewport.width = (data->viewport.width + 1) / 2;
-			}
+			if (flip_x_start)
+				split_idx = split_count - split_idx;
+
+			epimo = split_count - data->viewport.width % (split_count + 1);
+
+			data->viewport.x += (data->viewport.width / (split_count + 1)) * split_idx;
+			if (split_idx > epimo)
+				data->viewport.x += split_idx - epimo - 1;
+			data->viewport.width = data->viewport.width / (split_count + 1) + (split_idx > epimo ? 1 : 0);
 		}
 	}
 
@@ -638,64 +705,67 @@ static void calculate_viewport(struct pipe_ctx *pipe_ctx)
 	/* Round up, assume original video size always even dimensions */
 	data->viewport_c.width = (data->viewport.width + vpc_div - 1) / vpc_div;
 	data->viewport_c.height = (data->viewport.height + vpc_div - 1) / vpc_div;
+
+	data->viewport_unadjusted = data->viewport;
+	data->viewport_c_unadjusted = data->viewport_c;
 }
 
 static void calculate_recout(struct pipe_ctx *pipe_ctx)
 {
 	const struct dc_plane_state *plane_state = pipe_ctx->plane_state;
 	const struct dc_stream_state *stream = pipe_ctx->stream;
+	struct scaler_data *data = &pipe_ctx->plane_res.scl_data;
 	struct rect surf_clip = plane_state->clip_rect;
-	bool pri_split = pipe_ctx->bottom_pipe &&
-			pipe_ctx->bottom_pipe->plane_state == pipe_ctx->plane_state;
-	bool sec_split = pipe_ctx->top_pipe &&
-			pipe_ctx->top_pipe->plane_state == pipe_ctx->plane_state;
-	bool top_bottom_split = stream->view_format == VIEW_3D_FORMAT_TOP_AND_BOTTOM;
+	bool pri_split_tb = pipe_ctx->bottom_pipe &&
+			pipe_ctx->bottom_pipe->plane_state == pipe_ctx->plane_state &&
+			stream->view_format == VIEW_3D_FORMAT_TOP_AND_BOTTOM;
+	bool sec_split_tb = pipe_ctx->top_pipe &&
+			pipe_ctx->top_pipe->plane_state == pipe_ctx->plane_state &&
+			stream->view_format == VIEW_3D_FORMAT_TOP_AND_BOTTOM;
+	int split_count = 0;
+	int split_idx = 0;
 
-	pipe_ctx->plane_res.scl_data.recout.x = stream->dst.x;
+	calculate_split_count_and_index(pipe_ctx, &split_count, &split_idx);
+
+	data->recout.x = stream->dst.x;
 	if (stream->src.x < surf_clip.x)
-		pipe_ctx->plane_res.scl_data.recout.x += (surf_clip.x
-			- stream->src.x) * stream->dst.width
+		data->recout.x += (surf_clip.x - stream->src.x) * stream->dst.width
 						/ stream->src.width;
 
-	pipe_ctx->plane_res.scl_data.recout.width = surf_clip.width *
-			stream->dst.width / stream->src.width;
-	if (pipe_ctx->plane_res.scl_data.recout.width + pipe_ctx->plane_res.scl_data.recout.x >
-			stream->dst.x + stream->dst.width)
-		pipe_ctx->plane_res.scl_data.recout.width =
-			stream->dst.x + stream->dst.width
-						- pipe_ctx->plane_res.scl_data.recout.x;
+	data->recout.width = surf_clip.width * stream->dst.width / stream->src.width;
+	if (data->recout.width + data->recout.x > stream->dst.x + stream->dst.width)
+		data->recout.width = stream->dst.x + stream->dst.width - data->recout.x;
 
-	pipe_ctx->plane_res.scl_data.recout.y = stream->dst.y;
+	data->recout.y = stream->dst.y;
 	if (stream->src.y < surf_clip.y)
-		pipe_ctx->plane_res.scl_data.recout.y += (surf_clip.y
-			- stream->src.y) * stream->dst.height
+		data->recout.y += (surf_clip.y - stream->src.y) * stream->dst.height
 						/ stream->src.height;
 
-	pipe_ctx->plane_res.scl_data.recout.height = surf_clip.height *
-			stream->dst.height / stream->src.height;
-	if (pipe_ctx->plane_res.scl_data.recout.height + pipe_ctx->plane_res.scl_data.recout.y >
-			stream->dst.y + stream->dst.height)
-		pipe_ctx->plane_res.scl_data.recout.height =
-			stream->dst.y + stream->dst.height
-						- pipe_ctx->plane_res.scl_data.recout.y;
+	data->recout.height = surf_clip.height * stream->dst.height / stream->src.height;
+	if (data->recout.height + data->recout.y > stream->dst.y + stream->dst.height)
+		data->recout.height = stream->dst.y + stream->dst.height - data->recout.y;
 
 	/* Handle h & v split, handle rotation using viewport */
-	if (sec_split && top_bottom_split) {
-		pipe_ctx->plane_res.scl_data.recout.y +=
-				pipe_ctx->plane_res.scl_data.recout.height / 2;
+	if (sec_split_tb) {
+		data->recout.y += data->recout.height / 2;
 		/* Floor primary pipe, ceil 2ndary pipe */
-		pipe_ctx->plane_res.scl_data.recout.height =
-				(pipe_ctx->plane_res.scl_data.recout.height + 1) / 2;
-	} else if (pri_split && top_bottom_split)
-		pipe_ctx->plane_res.scl_data.recout.height /= 2;
-	else if (sec_split) {
-		pipe_ctx->plane_res.scl_data.recout.x +=
-				pipe_ctx->plane_res.scl_data.recout.width / 2;
-		/* Ceil offset pipe */
-		pipe_ctx->plane_res.scl_data.recout.width =
-				(pipe_ctx->plane_res.scl_data.recout.width + 1) / 2;
-	} else if (pri_split)
-		pipe_ctx->plane_res.scl_data.recout.width /= 2;
+		data->recout.height = (data->recout.height + 1) / 2;
+	} else if (pri_split_tb)
+		data->recout.height /= 2;
+	else if (split_count) {
+		/* extra pixels in the division remainder need to go to pipes after
+		 * the extra pixel index minus one(epimo) defined here as:
+		 */
+		int epimo = split_count - data->recout.width % (split_count + 1);
+
+		/*no recout offset due to odm */
+		if (!pipe_ctx->next_odm_pipe && !pipe_ctx->prev_odm_pipe) {
+			data->recout.x += (data->recout.width / (split_count + 1)) * split_idx;
+			if (split_idx > epimo)
+				data->recout.x += split_idx - epimo - 1;
+		}
+		data->recout.width = data->recout.width / (split_count + 1) + (split_idx > epimo ? 1 : 0);
+	}
 }
 
 static void calculate_scaling_ratios(struct pipe_ctx *pipe_ctx)
@@ -832,12 +902,14 @@ static void calculate_inits_and_adj_vp(struct pipe_ctx *pipe_ctx)
 {
 	const struct dc_plane_state *plane_state = pipe_ctx->plane_state;
 	const struct dc_stream_state *stream = pipe_ctx->stream;
+	struct pipe_ctx *odm_pipe = pipe_ctx->prev_odm_pipe;
 	struct scaler_data *data = &pipe_ctx->plane_res.scl_data;
 	struct rect src = pipe_ctx->plane_state->src_rect;
 	int recout_skip_h, recout_skip_v, surf_size_h, surf_size_v;
 	int vpc_div = (data->format == PIXEL_FORMAT_420BPP8
 			|| data->format == PIXEL_FORMAT_420BPP10) ? 2 : 1;
 	bool orthogonal_rotation, flip_vert_scan_dir, flip_horz_scan_dir;
+	int odm_idx = 0;
 
 	/*
 	 * Need to calculate the scan direction for viewport to make adjustments
@@ -869,6 +941,14 @@ static void calculate_inits_and_adj_vp(struct pipe_ctx *pipe_ctx)
 					* stream->dst.width / stream->src.width -
 					src.x * plane_state->dst_rect.width / src.width
 					* stream->dst.width / stream->src.width);
+	/*modified recout_skip_h calculation due to odm having no recout offset*/
+	while (odm_pipe) {
+		odm_idx++;
+		odm_pipe = odm_pipe->prev_odm_pipe;
+	}
+	if (odm_idx)
+		recout_skip_h += odm_idx * data->recout.width;
+
 	recout_skip_v = data->recout.y - (stream->dst.y + (plane_state->dst_rect.y - stream->src.y)
 					* stream->dst.height / stream->src.height -
 					src.y * plane_state->dst_rect.height / src.height
@@ -997,8 +1077,8 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 
 	calculate_viewport(pipe_ctx);
 
-	if (pipe_ctx->plane_res.scl_data.viewport.height < 16 ||
-		pipe_ctx->plane_res.scl_data.viewport.width < 16) {
+	if (pipe_ctx->plane_res.scl_data.viewport.height < 12 ||
+		pipe_ctx->plane_res.scl_data.viewport.width < 12) {
 		if (store_h_border_left) {
 			restore_border_left_from_dst(pipe_ctx,
 				store_h_border_left);
@@ -1013,6 +1093,7 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 	 * on certain displays, such as the Sharp 4k
 	 */
 	pipe_ctx->plane_res.scl_data.lb_params.depth = LB_PIXEL_DEPTH_30BPP;
+	pipe_ctx->plane_res.scl_data.lb_params.alpha_en = plane_state->per_pixel_alpha;
 
 	pipe_ctx->plane_res.scl_data.recout.x += timing->h_border_left;
 	pipe_ctx->plane_res.scl_data.recout.y += timing->v_border_top;
@@ -1021,6 +1102,8 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 		store_h_border_left + timing->h_border_right;
 	pipe_ctx->plane_res.scl_data.v_active = timing->v_addressable +
 		timing->v_border_top + timing->v_border_bottom;
+	if (pipe_ctx->next_odm_pipe || pipe_ctx->prev_odm_pipe)
+		pipe_ctx->plane_res.scl_data.h_active /= get_num_odm_splits(pipe_ctx) + 1;
 
 	/* Taps calculations */
 	if (pipe_ctx->plane_res.xfm != NULL)
@@ -1291,9 +1374,6 @@ bool dc_add_plane_to_context(
 	dc_plane_state_retain(plane_state);
 
 	while (head_pipe) {
-		tail_pipe = resource_get_tail_pipe(&context->res_ctx, head_pipe);
-		ASSERT(tail_pipe);
-
 		free_pipe = acquire_free_pipe_for_head(context, pool, head_pipe);
 
 	#if defined(CONFIG_DRM_AMD_DC_DCN)
@@ -1311,6 +1391,8 @@ bool dc_add_plane_to_context(
 		free_pipe->plane_state = plane_state;
 
 		if (head_pipe != free_pipe) {
+			tail_pipe = resource_get_tail_pipe(&context->res_ctx, head_pipe);
+			ASSERT(tail_pipe);
 			free_pipe->stream_res.tg = tail_pipe->stream_res.tg;
 			free_pipe->stream_res.abm = tail_pipe->stream_res.abm;
 			free_pipe->stream_res.opp = tail_pipe->stream_res.opp;
@@ -1478,35 +1560,6 @@ bool dc_add_all_planes_for_stream(
 	return add_all_planes_for_stream(dc, stream, &set, 1, context);
 }
 
-
-static bool is_hdr_static_meta_changed(struct dc_stream_state *cur_stream,
-	struct dc_stream_state *new_stream)
-{
-	if (cur_stream == NULL)
-		return true;
-
-	if (memcmp(&cur_stream->hdr_static_metadata,
-			&new_stream->hdr_static_metadata,
-			sizeof(struct dc_info_packet)) != 0)
-		return true;
-
-	return false;
-}
-
-static bool is_vsc_info_packet_changed(struct dc_stream_state *cur_stream,
-		struct dc_stream_state *new_stream)
-{
-	if (cur_stream == NULL)
-		return true;
-
-	if (memcmp(&cur_stream->vsc_infopacket,
-			&new_stream->vsc_infopacket,
-			sizeof(struct dc_info_packet)) != 0)
-		return true;
-
-	return false;
-}
-
 static bool is_timing_changed(struct dc_stream_state *cur_stream,
 		struct dc_stream_state *new_stream)
 {
@@ -1541,13 +1594,7 @@ static bool are_stream_backends_same(
 	if (is_timing_changed(stream_a, stream_b))
 		return false;
 
-	if (is_hdr_static_meta_changed(stream_a, stream_b))
-		return false;
-
 	if (stream_a->dpms_off != stream_b->dpms_off)
-		return false;
-
-	if (is_vsc_info_packet_changed(stream_a, stream_b))
 		return false;
 
 	return true;
@@ -1687,21 +1734,6 @@ static struct audio *find_first_free_audio(
 		}
 	}
 	return 0;
-}
-
-bool resource_is_stream_unchanged(
-	struct dc_state *old_context, struct dc_stream_state *stream)
-{
-	int i;
-
-	for (i = 0; i < old_context->stream_count; i++) {
-		struct dc_stream_state *old_stream = old_context->streams[i];
-
-		if (are_stream_backends_same(old_stream, stream))
-				return true;
-	}
-
-	return false;
 }
 
 /**
@@ -1958,17 +1990,6 @@ enum dc_status resource_map_pool_resources(
 	int pipe_idx = -1;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 
-	/* TODO Check if this is needed */
-	/*if (!resource_is_stream_unchanged(old_context, stream)) {
-			if (stream != NULL && old_context->streams[i] != NULL) {
-				stream->bit_depth_params =
-						old_context->streams[i]->bit_depth_params;
-				stream->clamping = old_context->streams[i]->clamping;
-				continue;
-			}
-		}
-	*/
-
 	calculate_phy_pix_clks(stream);
 
 	/* TODO: Check Linux */
@@ -2034,7 +2055,7 @@ enum dc_status resource_map_pool_resources(
 	for (i = 0; i < context->stream_count; i++)
 		if (context->streams[i] == stream) {
 			context->stream_status[i].primary_otg_inst = pipe_ctx->stream_res.tg->inst;
-			context->stream_status[i].stream_enc_inst = pipe_ctx->stream_res.stream_enc->id;
+			context->stream_status[i].stream_enc_inst = pipe_ctx->stream_res.stream_enc->stream_enc_inst;
 			context->stream_status[i].audio_inst =
 				pipe_ctx->stream_res.audio ? pipe_ctx->stream_res.audio->inst : -1;
 
@@ -2108,10 +2129,10 @@ enum dc_status dc_validate_global_state(
 			if (pipe_ctx->stream != stream)
 				continue;
 
-			if (dc->res_pool->funcs->get_default_swizzle_mode &&
+			if (dc->res_pool->funcs->patch_unknown_plane_state &&
 					pipe_ctx->plane_state &&
 					pipe_ctx->plane_state->tiling_info.gfx9.swizzle == DC_SW_UNKNOWN) {
-				result = dc->res_pool->funcs->get_default_swizzle_mode(pipe_ctx->plane_state);
+				result = dc->res_pool->funcs->patch_unknown_plane_state(pipe_ctx->plane_state);
 				if (result != DC_OK)
 					return result;
 			}
@@ -2651,17 +2672,14 @@ bool pipe_need_reprogram(
 	if (is_timing_changed(pipe_ctx_old->stream, pipe_ctx->stream))
 		return true;
 
-	if (is_hdr_static_meta_changed(pipe_ctx_old->stream, pipe_ctx->stream))
-		return true;
-
 	if (pipe_ctx_old->stream->dpms_off != pipe_ctx->stream->dpms_off)
-		return true;
-
-	if (is_vsc_info_packet_changed(pipe_ctx_old->stream, pipe_ctx->stream))
 		return true;
 
 	if (false == pipe_ctx_old->stream->link->link_state_valid &&
 		false == pipe_ctx_old->stream->dpms_off)
+		return true;
+
+	if (pipe_ctx_old->stream_res.dsc != pipe_ctx->stream_res.dsc)
 		return true;
 
 	return false;

@@ -2,6 +2,7 @@ proxy-consumer.ko
 fixed.ko
 cmd-db.ko
 rpmhpd.ko
+qcom-scm.ko
 qcom_rpmh.ko
 rpmsg_char.ko
 rpmsg_core.ko
@@ -19,6 +20,7 @@ icc-bcm-voter.ko
 pinctrl-msm.ko
 pinctrl-lahaina.ko
 qcom-scm.ko
+qcom-pdc.ko
 iommu-logger.ko
 arm_smmu.ko
 qcom-arm-smmu-mod.ko

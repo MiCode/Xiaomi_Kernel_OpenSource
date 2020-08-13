@@ -45,7 +45,7 @@
 
 #define HW_CONS_IDX(sq)                 be16_to_cpu(*(u16 *)((sq)->hw_ci_addr))
 
-#define MIN_SKB_LEN                     17
+#define MIN_SKB_LEN			32
 
 #define	MAX_PAYLOAD_OFFSET	        221
 #define TRANSPORT_OFFSET(l4_hdr, skb)	((u32)((l4_hdr) - (skb)->data))
@@ -622,6 +622,8 @@ static int free_tx_poll(struct napi_struct *napi, int budget)
 	do {
 		hw_ci = HW_CONS_IDX(sq) & wq->mask;
 
+		dma_rmb();
+
 		/* Reading a WQEBB to get real WQE size and consumer index. */
 		sq_wqe = hinic_sq_read_wqebb(sq, &skb, &wqe_size, &sw_ci);
 		if ((!sq_wqe) ||
@@ -671,9 +673,11 @@ static int free_tx_poll(struct napi_struct *napi, int budget)
 
 	if (pkts < budget) {
 		napi_complete(napi);
-		hinic_hwdev_set_msix_state(nic_dev->hwdev,
-					   sq->msix_entry,
-					   HINIC_MSIX_ENABLE);
+		if (!HINIC_IS_VF(nic_dev->hwdev->hwif))
+			hinic_hwdev_set_msix_state(nic_dev->hwdev,
+						   sq->msix_entry,
+						   HINIC_MSIX_ENABLE);
+
 		return pkts;
 	}
 
@@ -699,10 +703,11 @@ static irqreturn_t tx_irq(int irq, void *data)
 
 	nic_dev = netdev_priv(txq->netdev);
 
-	/* Disable the interrupt until napi will be completed */
-	hinic_hwdev_set_msix_state(nic_dev->hwdev,
-				   txq->sq->msix_entry,
-				   HINIC_MSIX_DISABLE);
+	if (!HINIC_IS_VF(nic_dev->hwdev->hwif))
+		/* Disable the interrupt until napi will be completed */
+		hinic_hwdev_set_msix_state(nic_dev->hwdev,
+					   txq->sq->msix_entry,
+					   HINIC_MSIX_DISABLE);
 
 	hinic_hwdev_msix_cnt_set(nic_dev->hwdev, txq->sq->msix_entry);
 

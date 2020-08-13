@@ -1394,7 +1394,7 @@ int geni_se_iommu_map_buf(struct device *wrapper_dev, dma_addr_t *iova,
 	if (!wrapper_dev || !iova || !buf || !size)
 		return -EINVAL;
 
-	*iova = DMA_ERROR_CODE;
+	*iova = DMA_MAPPING_ERROR;
 	geni_se_dev = dev_get_drvdata(wrapper_dev);
 	if (!geni_se_dev || !geni_se_dev->cb_dev)
 		return -ENODEV;
@@ -1431,7 +1431,7 @@ void *geni_se_iommu_alloc_buf(struct device *wrapper_dev, dma_addr_t *iova,
 	if (!wrapper_dev || !iova || !size)
 		return ERR_PTR(-EINVAL);
 
-	*iova = DMA_ERROR_CODE;
+	*iova = DMA_MAPPING_ERROR;
 	geni_se_dev = dev_get_drvdata(wrapper_dev);
 	if (!geni_se_dev || !geni_se_dev->cb_dev)
 		return ERR_PTR(-ENODEV);

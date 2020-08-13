@@ -7,8 +7,6 @@
  *	- initialize default measure policy rules
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/fs.h>
@@ -206,7 +204,7 @@ static struct ima_rule_entry *arch_policy_entry __ro_after_init;
 static LIST_HEAD(ima_default_rules);
 static LIST_HEAD(ima_policy_rules);
 static LIST_HEAD(ima_temp_rules);
-static struct list_head *ima_rules;
+static struct list_head *ima_rules = &ima_default_rules;
 
 /* Pre-allocated buffer used for matching keyrings. */
 static char *ima_keyrings;
@@ -646,9 +644,12 @@ static void add_rules(struct ima_rule_entry *entries, int count,
 			list_add_tail(&entry->list, &ima_policy_rules);
 		}
 		if (entries[i].action == APPRAISE) {
-			temp_ima_appraise |= ima_appraise_flag(entries[i].func);
-			if (entries[i].func == POLICY_CHECK)
-				temp_ima_appraise |= IMA_APPRAISE_POLICY;
+			if (entries != build_appraise_rules)
+				temp_ima_appraise |=
+					ima_appraise_flag(entries[i].func);
+			else
+				build_ima_appraise |=
+					ima_appraise_flag(entries[i].func);
 		}
 	}
 }
@@ -767,7 +768,6 @@ void __init ima_init_policy(void)
 			  ARRAY_SIZE(default_appraise_rules),
 			  IMA_DEFAULT_POLICY);
 
-	ima_rules = &ima_default_rules;
 	ima_update_policy_flag();
 }
 

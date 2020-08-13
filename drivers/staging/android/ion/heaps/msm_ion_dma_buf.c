@@ -89,13 +89,6 @@ static void free_duped_table(struct sg_table *table)
 	kfree(table);
 }
 
-struct ion_dma_buf_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-	bool dma_mapped;
-};
-
 static int msm_ion_dma_buf_attach(struct dma_buf *dmabuf,
 			      struct dma_buf_attachment *attachment)
 {
@@ -115,7 +108,7 @@ static int msm_ion_dma_buf_attach(struct dma_buf *dmabuf,
 
 	a->table = table;
 	a->dev = attachment->dev;
-	a->dma_mapped = false;
+	a->mapped = false;
 	INIT_LIST_HEAD(&a->list);
 
 	attachment->priv = a;
@@ -194,7 +187,7 @@ static struct sg_table
 		return ERR_PTR(-ENOMEM);
 	}
 
-	a->dma_mapped = true;
+	a->mapped = true;
 	mutex_unlock(&buffer->lock);
 	return table;
 }
@@ -257,7 +250,7 @@ static void msm_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	else
 		dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
 				   direction, map_attrs);
-	a->dma_mapped = false;
+	a->mapped = false;
 	mutex_unlock(&buffer->lock);
 }
 
@@ -433,7 +426,7 @@ static int msm_ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->dma_mapped) {
+		if (!a->mapped) {
 			trace_ion_begin_cpu_access_notmapped(a->dev,
 							     ino,
 							     true, true,
@@ -489,7 +482,7 @@ static int msm_ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 	}
 
 	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->dma_mapped) {
+		if (!a->mapped) {
 			trace_ion_end_cpu_access_notmapped(a->dev,
 							   ino,
 							   true, true,
@@ -554,7 +547,7 @@ static int msm_ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 	list_for_each_entry(a, &buffer->attachments, list) {
 		int tmp = 0;
 
-		if (!a->dma_mapped) {
+		if (!a->mapped) {
 			trace_ion_begin_cpu_access_notmapped(a->dev,
 							     ino,
 							     true, true,
@@ -629,7 +622,7 @@ static int msm_ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 	list_for_each_entry(a, &buffer->attachments, list) {
 		int tmp = 0;
 
-		if (!a->dma_mapped) {
+		if (!a->mapped) {
 			trace_ion_end_cpu_access_notmapped(a->dev,
 							   ino,
 							   true, true,

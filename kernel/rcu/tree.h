@@ -68,6 +68,8 @@ struct rcu_node {
 				/* Online CPUs for next expedited GP. */
 				/*  Any CPU that has ever been online will */
 				/*  have its bit set. */
+	unsigned long cbovldmask;
+				/* CPUs experiencing callback overload. */
 	unsigned long ffmask;	/* Fully functional CPUs. */
 	unsigned long grpmask;	/* Mask to apply to parent qsmask. */
 				/*  Only one bit will be set in this mask. */
@@ -321,6 +323,8 @@ struct rcu_state {
 	atomic_t expedited_need_qs;		/* # CPUs left to check in. */
 	struct swait_queue_head expedited_wq;	/* Wait for check-ins. */
 	int ncpus_snap;				/* # CPUs seen last time. */
+	u8 cbovld;				/* Callback overload now? */
+	u8 cbovldnext;				/* ^        ^  next time? */
 
 	unsigned long jiffies_force_qs;		/* Time at which to invoke */
 						/*  force_quiescent_state(). */
@@ -355,6 +359,7 @@ struct rcu_state {
 /* Values for rcu_state structure's gp_flags field. */
 #define RCU_GP_FLAG_INIT 0x1	/* Need grace-period initialization. */
 #define RCU_GP_FLAG_FQS  0x2	/* Need grace-period quiescent-state forcing. */
+#define RCU_GP_FLAG_OVLD 0x4	/* Experiencing callback overload. */
 
 /* Values for rcu_state structure's gp_state field. */
 #define RCU_GP_IDLE	 0	/* Initial state and no GP in progress. */
@@ -450,6 +455,8 @@ static void rcu_bind_gp_kthread(void);
 static bool rcu_nohz_full_cpu(void);
 static void rcu_dynticks_task_enter(void);
 static void rcu_dynticks_task_exit(void);
+static void rcu_dynticks_task_trace_enter(void);
+static void rcu_dynticks_task_trace_exit(void);
 
 /* Forward declarations for tree_stall.h */
 static void record_gp_stall_check_time(void);

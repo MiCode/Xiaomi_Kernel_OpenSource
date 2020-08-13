@@ -1094,7 +1094,8 @@ static int swdev_port_obj_del(struct net_device *netdev,
 
 static int
 ethsw_switchdev_port_attr_set_event(struct net_device *netdev,
-		struct switchdev_notifier_port_attr_info *port_attr_info)
+				    struct switchdev_notifier_port_attr_info
+				    *port_attr_info)
 {
 	int err;
 
@@ -1277,7 +1278,8 @@ err_addr_alloc:
 
 static int
 ethsw_switchdev_port_obj_event(unsigned long event, struct net_device *netdev,
-			struct switchdev_notifier_port_obj_info *port_obj_info)
+			       struct switchdev_notifier_port_obj_info
+			       *port_obj_info)
 {
 	int err = -EOPNOTSUPP;
 
@@ -1492,7 +1494,8 @@ static void ethsw_unregister_notifier(struct device *dev)
 	err = unregister_switchdev_blocking_notifier(nb);
 	if (err)
 		dev_err(dev,
-			"Failed to unregister switchdev blocking notifier (%d)\n", err);
+			"Failed to unregister switchdev blocking notifier (%d)\n",
+			err);
 
 	err = unregister_switchdev_notifier(&ethsw->port_switchdev_nb);
 	if (err)

@@ -348,7 +348,7 @@ static int byt_rt5651_aif1_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
 	snd_pcm_format_t format = params_format(params);
 	int rate = params_rate(params);
 	int bclk_ratio;
@@ -540,7 +540,7 @@ static int byt_rt5651_add_codec_device_props(struct device *i2c_dev)
 static int byt_rt5651_init(struct snd_soc_pcm_runtime *runtime)
 {
 	struct snd_soc_card *card = runtime->card;
-	struct snd_soc_component *codec = runtime->codec_dai->component;
+	struct snd_soc_component *codec = asoc_rtd_to_codec(runtime, 0)->component;
 	struct byt_rt5651_private *priv = snd_soc_card_get_drvdata(card);
 	const struct snd_soc_dapm_route *custom_map;
 	int num_routes;
@@ -601,8 +601,6 @@ static int byt_rt5651_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(card->dev, "unable to add card controls\n");
 		return ret;
 	}
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Headphone");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Speaker");
 
 	if (byt_rt5651_quirk & BYT_RT5651_MCLK_EN) {
 		/*
@@ -685,7 +683,7 @@ static int byt_rt5651_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	 * with explicit setting to I2S 2ch. The word length is set with
 	 * dai_set_tdm_slot() since there is no other API exposed
 	 */
-	ret = snd_soc_dai_set_fmt(rtd->cpu_dai,
+	ret = snd_soc_dai_set_fmt(asoc_rtd_to_cpu(rtd, 0),
 				  SND_SOC_DAIFMT_I2S     |
 				  SND_SOC_DAIFMT_NB_NF   |
 				  SND_SOC_DAIFMT_CBS_CFS
@@ -696,7 +694,7 @@ static int byt_rt5651_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 		return ret;
 	}
 
-	ret = snd_soc_dai_set_tdm_slot(rtd->cpu_dai, 0x3, 0x3, 2, bits);
+	ret = snd_soc_dai_set_tdm_slot(asoc_rtd_to_cpu(rtd, 0), 0x3, 0x3, 2, bits);
 	if (ret < 0) {
 		dev_err(rtd->dev, "can't set I2S config, err %d\n", ret);
 		return ret;
@@ -775,7 +773,6 @@ static struct snd_soc_dai_link byt_rt5651_dais[] = {
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
 						| SND_SOC_DAIFMT_CBS_CFS,
 		.be_hw_params_fixup = byt_rt5651_codec_fixup,
-		.ignore_suspend = 1,
 		.nonatomic = true,
 		.dpcm_playback = 1,
 		.dpcm_capture = 1,
@@ -1100,6 +1097,9 @@ static int snd_byt_rt5651_mc_probe(struct platform_device *pdev)
 static struct platform_driver snd_byt_rt5651_mc_driver = {
 	.driver = {
 		.name = "bytcr_rt5651",
+#if IS_ENABLED(CONFIG_SND_SOC_SOF_BAYTRAIL)
+		.pm = &snd_soc_pm_ops,
+#endif
 	},
 	.probe = snd_byt_rt5651_mc_probe,
 };

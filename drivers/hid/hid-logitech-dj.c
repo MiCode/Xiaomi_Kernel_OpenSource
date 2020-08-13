@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- *  HID driver for Logitech Unifying receivers
+ *  HID driver for Logitech receivers
  *
  *  Copyright (c) 2011 Logitech
  */
@@ -16,11 +16,11 @@
 #include <asm/unaligned.h>
 #include "hid-ids.h"
 
-#define DJ_MAX_PAIRED_DEVICES			6
+#define DJ_MAX_PAIRED_DEVICES			7
 #define DJ_MAX_NUMBER_NOTIFS			8
 #define DJ_RECEIVER_INDEX			0
 #define DJ_DEVICE_INDEX_MIN			1
-#define DJ_DEVICE_INDEX_MAX			6
+#define DJ_DEVICE_INDEX_MAX			7
 
 #define DJREPORT_SHORT_LENGTH			15
 #define DJREPORT_LONG_LENGTH			32
@@ -701,7 +701,7 @@ static void logi_dj_recv_add_djhid_device(struct dj_receiver_dev *djrcv_dev,
 			type_str, dj_hiddev->product);
 	} else {
 		snprintf(dj_hiddev->name, sizeof(dj_hiddev->name),
-			"Logitech Unifying Device. Wireless PID:%04x",
+			"Logitech Wireless Device PID:%04x",
 			dj_hiddev->product);
 	}
 
@@ -978,6 +978,11 @@ static void logi_hidpp_recv_queue_notif(struct hid_device *hdev,
 		logi_hidpp_dev_conn_notif_equad(hdev, hidpp_report, &workitem);
 		workitem.reports_supported |= STD_KEYBOARD;
 		break;
+	}
+
+	/* custom receiver device (eg. powerplay) */
+	if (hidpp_report->device_index == 7) {
+		workitem.reports_supported |= HIDPP;
 	}
 
 	if (workitem.type == WORKITEM_TYPE_EMPTY) {
@@ -1368,6 +1373,8 @@ static int logi_dj_ll_parse(struct hid_device *hid)
 	}
 
 	if (djdev->reports_supported & HIDPP) {
+		dbg_hid("%s: sending a HID++ descriptor, reports_supported: %llx\n",
+			__func__, djdev->reports_supported);
 		rdcat(rdesc, &rsize, hidpp_descriptor,
 		      sizeof(hidpp_descriptor));
 	}

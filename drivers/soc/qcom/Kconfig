@@ -86,15 +86,6 @@ config OVERRIDE_MEMORY_LIMIT
 	  hot-plugging.
 	  If unsure, say N
 
-config QCOM_GLINK_SSR
-	tristate "Qualcomm Glink SSR driver"
-	depends on RPMSG
-	depends on QCOM_RPROC_COMMON
-	help
-	  Say y here to enable GLINK SSR support. The GLINK SSR driver
-	  implements the SSR protocol for notifying the remote processor about
-	  neighboring subsystems going up or down.
-
 config MSM_SPSS_UTILS
 	depends on MSM_PIL
 	tristate "Secure Processor Utilities"
@@ -137,17 +128,6 @@ config QCOM_GSBI
 	  functions for connecting the underlying serial UART, SPI, and I2C
 	  devices to the output pins.
 
-config QCOM_IPCC
-       tristate "Qualcomm Technologies, Inc. IPCC driver"
-       depends on MAILBOX
-       help
-         Qualcomm Technologies, Inc. IPCC driver for MSM devices. The drivers
-         acts as an interrupt controller for the clients interested in
-         talking to the IPCC (inbound-communication). On the other hand, the
-         driver also provides a mailbox channel for outbound-communications.
-         Say Y here to compile the driver as a part of kernel or M to compile
-         as a module.
-
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -189,15 +169,9 @@ config QPNP_PBS
 	  the APIs to the client drivers that wants to send the PBS trigger
 	  event to the PBS RAM.
 
-config QCOM_PM
-	bool "Qualcomm Power Management"
-	depends on ARCH_QCOM && !ARM64
-	select ARM_CPU_SUSPEND
-	select QCOM_SCM
-	help
-	  QCOM Platform specific power driver to manage cores and L2 low power
-	  modes. It interface with various system drivers to put the cores in
-	  low power modes.
+config QCOM_PDR_HELPERS
+	tristate
+	select QCOM_QMI_HELPERS
 
 config MSM_PIL
 	tristate "Peripheral image loader"
@@ -305,7 +279,6 @@ config MSM_BOOT_STATS
 
 config QCOM_QMI_HELPERS
 	tristate
-	depends on ARCH_QCOM || COMPILE_TEST
 	depends on NET
 
 source "drivers/soc/qcom/memshare/Kconfig"
@@ -473,6 +446,8 @@ config QCOM_APR
 	tristate "Qualcomm APR Bus (Asynchronous Packet Router)"
 	depends on ARCH_QCOM || COMPILE_TEST
 	depends on RPMSG
+	depends on NET
+	select QCOM_PDR_HELPERS
 	help
 	  Enable APR IPC protocol support between
 	  application processor and QDSP6. APR is
@@ -790,7 +765,7 @@ config QCOM_GUESTVM
 
 config QCOM_HYP_CORE_CTL
 	bool "CPU reservation scheme for Hypervisor"
-	depends on QCOM_GUESTVM
+	depends on QCOM_GUESTVM && SCHED_WALT
 	help
 	  This driver reserve the specified CPUS by isolating them. The reserved
 	  CPUs can be assigned to the other guest OS by the hypervisor.

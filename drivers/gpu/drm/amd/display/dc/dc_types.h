@@ -229,7 +229,9 @@ struct dc_panel_patch {
 	unsigned int extra_t12_ms;
 	unsigned int extra_delay_backlight_off;
 	unsigned int extra_t7_ms;
-	unsigned int manage_secondary_link;
+	unsigned int skip_scdc_overwrite;
+	unsigned int delay_ignore_msa;
+	unsigned int disable_fec;
 };
 
 struct dc_edid_caps {
@@ -858,6 +860,11 @@ struct dsc_dec_dpcd_caps {
 	uint32_t branch_overall_throughput_0_mps; /* In MPs */
 	uint32_t branch_overall_throughput_1_mps; /* In MPs */
 	uint32_t branch_max_line_width;
+};
+
+enum dc_psr_version {
+	DC_PSR_VERSION_1			= 0,
+	DC_PSR_VERSION_UNSUPPORTED		= 0xFFFFFFFF,
 };
 
 #endif /* DC_TYPES_H_ */

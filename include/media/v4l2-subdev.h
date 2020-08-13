@@ -1028,6 +1028,23 @@ static inline void *v4l2_get_subdev_hostdata(const struct v4l2_subdev *sd)
 #ifdef CONFIG_MEDIA_CONTROLLER
 
 /**
+ * v4l2_subdev_get_fwnode_pad_1_to_1 - Get pad number from a subdev fwnode
+ *                                     endpoint, assuming 1:1 port:pad
+ *
+ * @entity - Pointer to the subdev entity
+ * @endpoint - Pointer to a parsed fwnode endpoint
+ *
+ * This function can be used as the .get_fwnode_pad operation for
+ * subdevices that map port numbers and pad indexes 1:1. If the endpoint
+ * is owned by the subdevice, the function returns the endpoint port
+ * number.
+ *
+ * Returns the endpoint port number on success or a negative error code.
+ */
+int v4l2_subdev_get_fwnode_pad_1_to_1(struct media_entity *entity,
+				      struct fwnode_endpoint *endpoint);
+
+/**
  * v4l2_subdev_link_validate_default - validates a media link
  *
  * @sd: pointer to &struct v4l2_subdev
@@ -1093,7 +1110,7 @@ extern const struct v4l2_subdev_ops v4l2_subdev_call_wrappers;
  * @f: callback function to be called.
  *     The callback functions are defined in groups, according to
  *     each element at &struct v4l2_subdev_ops.
- * @args...: arguments for @f.
+ * @args: arguments for @f.
  *
  * Example: err = v4l2_subdev_call(sd, video, s_std, norm);
  */

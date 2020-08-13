@@ -37,7 +37,7 @@
 
 #include <linux/mm.h>
 
-struct start_info _xen_start_info;
+static struct start_info _xen_start_info;
 struct start_info *xen_start_info = &_xen_start_info;
 EXPORT_SYMBOL(xen_start_info);
 
@@ -249,7 +249,6 @@ static int __init fdt_find_hyper_node(unsigned long node, const char *uname,
  * see Documentation/devicetree/bindings/arm/xen.txt for the
  * documentation of the Xen Device Tree format.
  */
-#define GRANT_TABLE_PHYSADDR 0
 void __init xen_early_init(void)
 {
 	of_scan_flat_dt(fdt_find_hyper_node, NULL);

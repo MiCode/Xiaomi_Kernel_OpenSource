@@ -34,7 +34,7 @@ struct sym_entry {
 	unsigned int len;
 	unsigned int start_pos;
 	unsigned int percpu_absolute;
-	unsigned char sym[0];
+	unsigned char sym[];
 };
 
 struct addr_range {
@@ -195,12 +195,12 @@ static struct sym_entry *read_symbol(FILE *in)
 		return NULL;
 	}
 
-	if (is_ignored_symbol(name, type))
-		return NULL;
-
-	/* Ignore most absolute/undefined (?) symbols. */
 	if (strcmp(name, "_text") == 0)
 		_text = addr;
+
+	/* Ignore most absolute/undefined (?) symbols. */
+	if (is_ignored_symbol(name, type))
+		return NULL;
 
 	check_symbol_range(name, addr, text_ranges, ARRAY_SIZE(text_ranges));
 	check_symbol_range(name, addr, &percpu_range, 1);

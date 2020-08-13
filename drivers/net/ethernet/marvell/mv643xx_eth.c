@@ -666,11 +666,6 @@ static inline unsigned int has_tiny_unaligned_frags(struct sk_buff *skb)
 	return 0;
 }
 
-static inline __be16 sum16_as_be(__sum16 sum)
-{
-	return (__force __be16)sum;
-}
-
 static int skb_tx_csum(struct mv643xx_eth_private *mp, struct sk_buff *skb,
 		       u16 *l4i_chk, u32 *command, int length)
 {
@@ -1737,6 +1732,7 @@ static int mv643xx_eth_get_sset_count(struct net_device *dev, int sset)
 }
 
 static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS,
 	.get_drvinfo		= mv643xx_eth_get_drvinfo,
 	.nway_reset		= phy_ethtool_nway_reset,
 	.get_link		= ethtool_op_get_link,

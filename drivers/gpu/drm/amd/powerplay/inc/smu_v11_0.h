@@ -27,16 +27,16 @@
 
 #define SMU11_DRIVER_IF_VERSION_INV 0xFFFFFFFF
 #define SMU11_DRIVER_IF_VERSION_VG20 0x13
-#define SMU11_DRIVER_IF_VERSION_ARCT 0x12
-#define SMU11_DRIVER_IF_VERSION_NV10 0x33
-#define SMU11_DRIVER_IF_VERSION_NV14 0x34
+#define SMU11_DRIVER_IF_VERSION_ARCT 0x14
+#define SMU11_DRIVER_IF_VERSION_NV10 0x36
+#define SMU11_DRIVER_IF_VERSION_NV12 0x33
+#define SMU11_DRIVER_IF_VERSION_NV14 0x36
 
 /* MP Apertures */
 #define MP0_Public			0x03800000
 #define MP0_SRAM			0x03900000
 #define MP1_Public			0x03b00000
 #define MP1_SRAM			0x03c00004
-#define MP1_SMC_SIZE		0x40000
 
 /* address block */
 #define smnMP1_FIRMWARE_FLAGS		0x3010024
@@ -182,9 +182,8 @@ int smu_v11_0_system_features_control(struct smu_context *smu,
 int
 smu_v11_0_send_msg_with_param(struct smu_context *smu,
 			      enum smu_message_type msg,
-			      uint32_t param);
-
-int smu_v11_0_read_arg(struct smu_context *smu, uint32_t *arg);
+			      uint32_t param,
+			      uint32_t *read_arg);
 
 int smu_v11_0_init_display_count(struct smu_context *smu, uint32_t count);
 
@@ -266,5 +265,8 @@ uint32_t smu_v11_0_get_max_power_limit(struct smu_context *smu);
 
 int smu_v11_0_set_performance_level(struct smu_context *smu,
 				    enum amd_dpm_forced_level level);
+
+int smu_v11_0_set_power_source(struct smu_context *smu,
+			       enum smu_power_src_type power_src);
 
 #endif

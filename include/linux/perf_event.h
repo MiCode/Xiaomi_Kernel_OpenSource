@@ -61,7 +61,7 @@ struct perf_guest_info_callbacks {
 
 struct perf_callchain_entry {
 	__u64				nr;
-	__u64				ip[0]; /* /proc/sys/kernel/perf_event_max_stack */
+	__u64				ip[]; /* /proc/sys/kernel/perf_event_max_stack */
 };
 
 struct perf_callchain_entry_ctx {
@@ -93,15 +93,27 @@ struct perf_raw_record {
 /*
  * branch stack layout:
  *  nr: number of taken branches stored in entries[]
+ *  hw_idx: The low level index of raw branch records
+ *          for the most recent branch.
+ *          -1ULL means invalid/unknown.
  *
  * Note that nr can vary from sample to sample
  * branches (to, from) are stored from most recent
  * to least recent, i.e., entries[0] contains the most
  * recent branch.
+ * The entries[] is an abstraction of raw branch records,
+ * which may not be stored in age order in HW, e.g. Intel LBR.
+ * The hw_idx is to expose the low level index of raw
+ * branch record for the most recent branch aka entries[0].
+ * The hw_idx index is between -1 (unknown) and max depth,
+ * which can be retrieved in /sys/devices/cpu/caps/branches.
+ * For the architectures whose raw branch records are
+ * already stored in age order, the hw_idx should be 0.
  */
 struct perf_branch_stack {
 	__u64				nr;
-	struct perf_branch_entry	entries[0];
+	__u64				hw_idx;
+	struct perf_branch_entry	entries[];
 };
 
 struct task_struct;
@@ -850,6 +862,13 @@ struct perf_cpu_context {
 	int				sched_cb_usage;
 
 	int				online;
+	/*
+	 * Per-CPU storage for iterators used in visit_groups_merge. The default
+	 * storage is of size 2 to hold the CPU and any CPU event iterators.
+	 */
+	int				heap_size;
+	struct perf_event		**heap;
+	struct perf_event		*heap_default[2];
 };
 
 struct perf_output_handle {
@@ -1001,6 +1020,7 @@ struct perf_sample_data {
 	u64				stack_user_size;
 
 	u64				phys_addr;
+	u64				cgroup;
 } ____cacheline_aligned;
 
 /* default value for data source */
@@ -1260,20 +1280,12 @@ extern int sysctl_perf_cpu_time_max_percent;
 
 extern void perf_sample_event_took(u64 sample_len_ns);
 
-extern int perf_proc_update_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *lenp,
-		loff_t *ppos);
-extern int perf_cpu_time_max_percent_handler(struct ctl_table *table, int write,
-		void __user *buffer, size_t *lenp,
-		loff_t *ppos);
-
+int perf_proc_update_handler(struct ctl_table *table, int write,
+		void *buffer, size_t *lenp, loff_t *ppos);
+int perf_cpu_time_max_percent_handler(struct ctl_table *table, int write,
+		void *buffer, size_t *lenp, loff_t *ppos);
 int perf_event_max_stack_handler(struct ctl_table *table, int write,
-				 void __user *buffer, size_t *lenp, loff_t *ppos);
-
-static inline bool perf_paranoid_any(void)
-{
-	return sysctl_perf_event_paranoid > 2;
-}
+		void *buffer, size_t *lenp, loff_t *ppos);
 
 /* Access to perf_event_open(2) syscall. */
 #define PERF_SECURITY_OPEN		0
@@ -1290,7 +1302,7 @@ static inline int perf_is_paranoid(void)
 
 static inline int perf_allow_kernel(struct perf_event_attr *attr)
 {
-	if (sysctl_perf_event_paranoid > 1 && !capable(CAP_SYS_ADMIN))
+	if (sysctl_perf_event_paranoid > 1 && !perfmon_capable())
 		return -EACCES;
 
 	return security_perf_event_open(attr, PERF_SECURITY_KERNEL);
@@ -1298,7 +1310,7 @@ static inline int perf_allow_kernel(struct perf_event_attr *attr)
 
 static inline int perf_allow_cpu(struct perf_event_attr *attr)
 {
-	if (sysctl_perf_event_paranoid > 0 && !capable(CAP_SYS_ADMIN))
+	if (sysctl_perf_event_paranoid > 0 && !perfmon_capable())
 		return -EACCES;
 
 	return security_perf_event_open(attr, PERF_SECURITY_CPU);
@@ -1306,7 +1318,7 @@ static inline int perf_allow_cpu(struct perf_event_attr *attr)
 
 static inline int perf_allow_tracepoint(struct perf_event_attr *attr)
 {
-	if (sysctl_perf_event_paranoid > -1 && !capable(CAP_SYS_ADMIN))
+	if (sysctl_perf_event_paranoid > -1 && !perfmon_capable())
 		return -EPERM;
 
 	return security_perf_event_open(attr, PERF_SECURITY_TRACEPOINT);

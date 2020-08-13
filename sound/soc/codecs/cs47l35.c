@@ -1504,24 +1504,23 @@ static struct snd_soc_dai_driver cs47l35_dai[] = {
 	},
 };
 
-static int cs47l35_open(struct snd_compr_stream *stream)
+static int cs47l35_open(struct snd_soc_component *component,
+			struct snd_compr_stream *stream)
 {
 	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct snd_soc_component *component =
-		snd_soc_rtdcom_lookup(rtd, DRV_NAME);
 	struct cs47l35 *cs47l35 = snd_soc_component_get_drvdata(component);
 	struct madera_priv *priv = &cs47l35->core;
 	struct madera *madera = priv->madera;
 	int n_adsp;
 
-	if (strcmp(rtd->codec_dai->name, "cs47l35-dsp-voicectrl") == 0) {
+	if (strcmp(asoc_rtd_to_codec(rtd, 0)->name, "cs47l35-dsp-voicectrl") == 0) {
 		n_adsp = 2;
-	} else if (strcmp(rtd->codec_dai->name, "cs47l35-dsp-trace") == 0) {
+	} else if (strcmp(asoc_rtd_to_codec(rtd, 0)->name, "cs47l35-dsp-trace") == 0) {
 		n_adsp = 0;
 	} else {
 		dev_err(madera->dev,
 			"No suitable compressed stream for DAI '%s'\n",
-			rtd->codec_dai->name);
+			asoc_rtd_to_codec(rtd, 0)->name);
 		return -EINVAL;
 	}
 
@@ -1622,7 +1621,7 @@ static unsigned int cs47l35_digital_vu[] = {
 	MADERA_DAC_DIGITAL_VOLUME_5R,
 };
 
-static const struct snd_compr_ops cs47l35_compr_ops = {
+static const struct snd_compress_ops cs47l35_compress_ops = {
 	.open = &cs47l35_open,
 	.free = &wm_adsp_compr_free,
 	.set_params = &wm_adsp_compr_set_params,
@@ -1638,7 +1637,7 @@ static const struct snd_soc_component_driver soc_component_dev_cs47l35 = {
 	.set_sysclk		= &madera_set_sysclk,
 	.set_pll		= &cs47l35_set_fll,
 	.name			= DRV_NAME,
-	.compr_ops		= &cs47l35_compr_ops,
+	.compress_ops		= &cs47l35_compress_ops,
 	.controls		= cs47l35_snd_controls,
 	.num_controls		= ARRAY_SIZE(cs47l35_snd_controls),
 	.dapm_widgets		= cs47l35_dapm_widgets,

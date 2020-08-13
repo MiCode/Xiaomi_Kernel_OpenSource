@@ -198,7 +198,7 @@ static ssize_t dfscache_proc_write(struct file *file, const char __user *buffer,
 	if (c != '0')
 		return -EINVAL;
 
-	cifs_dbg(FYI, "clearing dfs cache");
+	cifs_dbg(FYI, "clearing dfs cache\n");
 
 	down_write(&htable_rw_lock);
 	flush_cache_ents();
@@ -234,8 +234,8 @@ static inline void dump_tgts(const struct cache_entry *ce)
 
 static inline void dump_ce(const struct cache_entry *ce)
 {
-	cifs_dbg(FYI, "cache entry: path=%s,type=%s,ttl=%d,etime=%ld,"
-		 "interlink=%s,path_consumed=%d,expired=%s\n", ce->path,
+	cifs_dbg(FYI, "cache entry: path=%s,type=%s,ttl=%d,etime=%ld,interlink=%s,path_consumed=%d,expired=%s\n",
+		 ce->path,
 		 ce->srvtype == DFS_TYPE_ROOT ? "root" : "link", ce->ttl,
 		 ce->etime.tv_nsec,
 		 IS_INTERLINK_SET(ce->flags) ? "yes" : "no",
@@ -453,11 +453,11 @@ static void remove_oldest_entry(void)
 	}
 
 	if (!to_del) {
-		cifs_dbg(FYI, "%s: no entry to remove", __func__);
+		cifs_dbg(FYI, "%s: no entry to remove\n", __func__);
 		return;
 	}
 
-	cifs_dbg(FYI, "%s: removing entry", __func__);
+	cifs_dbg(FYI, "%s: removing entry\n", __func__);
 	dump_ce(to_del);
 	flush_cache_ent(to_del);
 }
@@ -696,8 +696,8 @@ static int __dfs_cache_find(const unsigned int xid, struct cifs_ses *ses,
 	}
 
 	if (atomic_read(&cache_count) >= CACHE_MAX_ENTRIES) {
-		cifs_dbg(FYI, "%s: reached max cache size (%d)", __func__,
-			 CACHE_MAX_ENTRIES);
+		cifs_dbg(FYI, "%s: reached max cache size (%d)\n",
+			 __func__, CACHE_MAX_ENTRIES);
 		down_write(&htable_rw_lock);
 		remove_oldest_entry();
 		up_write(&htable_rw_lock);
@@ -1258,6 +1258,44 @@ void dfs_cache_del_vol(const char *fullpath)
 	spin_unlock(&vol_list_lock);
 
 	kref_put(&vi->refcnt, vol_release);
+}
+
+/**
+ * dfs_cache_get_tgt_share - parse a DFS target
+ *
+ * @it: DFS target iterator.
+ * @share: tree name.
+ * @share_len: length of tree name.
+ * @prefix: prefix path.
+ * @prefix_len: length of prefix path.
+ *
+ * Return zero if target was parsed correctly, otherwise non-zero.
+ */
+int dfs_cache_get_tgt_share(const struct dfs_cache_tgt_iterator *it,
+			    const char **share, size_t *share_len,
+			    const char **prefix, size_t *prefix_len)
+{
+	char *s, sep;
+
+	if (!it || !share || !share_len || !prefix || !prefix_len)
+		return -EINVAL;
+
+	sep = it->it_name[0];
+	if (sep != '\\' && sep != '/')
+		return -EINVAL;
+
+	s = strchr(it->it_name + 1, sep);
+	if (!s)
+		return -EINVAL;
+
+	s = strchrnul(s + 1, sep);
+
+	*share = it->it_name;
+	*share_len = s - it->it_name;
+	*prefix = *s ? s + 1 : s;
+	*prefix_len = &it->it_name[strlen(it->it_name)] - *prefix;
+
+	return 0;
 }
 
 /* Get all tcons that are within a DFS namespace and can be refreshed */

@@ -65,14 +65,7 @@ static struct mutex sps_debugfs_lock;
 static struct dentry *dent;
 static struct dentry *dfile_info;
 static struct dentry *dfile_logging_option;
-static struct dentry *dfile_debug_level_option;
-static struct dentry *dfile_print_limit_option;
-static struct dentry *dfile_reg_dump_option;
-static struct dentry *dfile_testbus_sel;
-static struct dentry *dfile_bam_pipe_sel;
-static struct dentry *dfile_desc_option;
 static struct dentry *dfile_bam_addr;
-static struct dentry *dfile_log_level_sel;
 
 static struct sps_bam *phy2bam(phys_addr_t phys_addr);
 
@@ -529,47 +522,19 @@ static void sps_debugfs_init(void)
 		goto cleanup;
 	}
 
-	dfile_debug_level_option = debugfs_create_u8("debug_level_option",
+	debugfs_create_u8("debug_level_option",
 					0664, dent, &debug_level_option);
-	if (!dfile_debug_level_option || IS_ERR(dfile_debug_level_option)) {
-		pr_err("sps:fail to create debug_fs for debug_level_option\n");
-		goto cleanup;
-	}
 
-	dfile_print_limit_option = debugfs_create_u8("print_limit_option",
+	debugfs_create_u8("print_limit_option",
 					0664, dent, &print_limit_option);
-	if (!dfile_print_limit_option || IS_ERR(dfile_print_limit_option)) {
-		pr_err("sps:fail to create debug_fs for print_limit_option\n");
-		goto cleanup;
-	}
 
-	dfile_reg_dump_option = debugfs_create_u8("reg_dump_option", 0664,
-						dent, &reg_dump_option);
-	if (!dfile_reg_dump_option || IS_ERR(dfile_reg_dump_option)) {
-		pr_err("sps:fail to create debug_fs for reg_dump_option\n");
-		goto cleanup;
-	}
+	debugfs_create_u8("reg_dump_option", 0664, dent, &reg_dump_option);
 
-	dfile_testbus_sel = debugfs_create_u32("testbus_sel", 0664,
-						dent, &testbus_sel);
-	if (!dfile_testbus_sel || IS_ERR(dfile_testbus_sel)) {
-		pr_err("sps:fail to create debug_fs file for testbus_sel\n");
-		goto cleanup;
-	}
+	debugfs_create_u32("testbus_sel", 0664, dent, &testbus_sel);
 
-	dfile_bam_pipe_sel = debugfs_create_u32("bam_pipe_sel", 0664,
-						dent, &bam_pipe_sel);
-	if (!dfile_bam_pipe_sel || IS_ERR(dfile_bam_pipe_sel)) {
-		pr_err("sps:fail to create debug_fs file for bam_pipe_sel\n");
-		goto cleanup;
-	}
+	debugfs_create_u32("bam_pipe_sel", 0664, dent, &bam_pipe_sel);
 
-	dfile_desc_option = debugfs_create_u32("desc_option", 0664,
-						dent, &desc_option);
-	if (!dfile_desc_option || IS_ERR(dfile_desc_option)) {
-		pr_err("sps:fail to create debug_fs file for desc_option\n");
-		goto cleanup;
-	}
+	debugfs_create_u32("desc_option", 0664, dent, &desc_option);
 
 	dfile_bam_addr = debugfs_create_file("bam_addr", 0664,
 			dent, NULL, &sps_bam_addr_ops);
@@ -578,12 +543,7 @@ static void sps_debugfs_init(void)
 		goto cleanup;
 	}
 
-	dfile_log_level_sel = debugfs_create_u32("log_level_sel", 0664,
-						dent, &log_level_sel);
-	if (!dfile_log_level_sel || IS_ERR(dfile_log_level_sel)) {
-		pr_err("sps:fail to create debug_fs file for log_level_sel\n");
-		goto cleanup;
-	}
+	debugfs_create_u32("log_level_sel", 0664, dent, &log_level_sel);
 
 	mutex_init(&sps_debugfs_lock);
 

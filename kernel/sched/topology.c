@@ -33,14 +33,6 @@ static int sched_domain_debug_one(struct sched_domain *sd, int cpu, int level,
 	cpumask_clear(groupmask);
 
 	printk(KERN_DEBUG "%*s domain-%d: ", level, "", level);
-
-	if (!(sd->flags & SD_LOAD_BALANCE)) {
-		printk("does not load-balance\n");
-		if (sd->parent)
-			printk(KERN_ERR "ERROR: !SD_LOAD_BALANCE domain has parent");
-		return -1;
-	}
-
 	printk(KERN_CONT "span=%*pbl level=%s\n",
 	       cpumask_pr_args(sched_domain_span(sd)), sd->name);
 
@@ -151,8 +143,7 @@ static int sd_degenerate(struct sched_domain *sd)
 		return 1;
 
 	/* Following flags need at least 2 groups */
-	if (sd->flags & (SD_LOAD_BALANCE |
-			 SD_BALANCE_NEWIDLE |
+	if (sd->flags & (SD_BALANCE_NEWIDLE |
 			 SD_BALANCE_FORK |
 			 SD_BALANCE_EXEC |
 			 SD_SHARE_CPUCAPACITY |
@@ -183,15 +174,14 @@ sd_parent_degenerate(struct sched_domain *sd, struct sched_domain *parent)
 
 	/* Flags needing groups don't count if only 1 group in parent */
 	if (parent->groups == parent->groups->next) {
-		pflags &= ~(SD_LOAD_BALANCE |
-				SD_BALANCE_NEWIDLE |
-				SD_BALANCE_FORK |
-				SD_BALANCE_EXEC |
-				SD_ASYM_CPUCAPACITY |
-				SD_SHARE_CPUCAPACITY |
-				SD_SHARE_PKG_RESOURCES |
-				SD_PREFER_SIBLING |
-				SD_SHARE_POWERDOMAIN);
+		pflags &= ~(SD_BALANCE_NEWIDLE |
+			    SD_BALANCE_FORK |
+			    SD_BALANCE_EXEC |
+			    SD_ASYM_CPUCAPACITY |
+			    SD_SHARE_CPUCAPACITY |
+			    SD_SHARE_PKG_RESOURCES |
+			    SD_PREFER_SIBLING |
+			    SD_SHARE_POWERDOMAIN);
 		if (nr_node_ids == 1)
 			pflags &= ~SD_SERIALIZE;
 	}
@@ -201,7 +191,7 @@ sd_parent_degenerate(struct sched_domain *sd, struct sched_domain *parent)
 	return 1;
 }
 
-#if defined(CONFIG_ENERGY_MODEL)
+#if defined(CONFIG_ENERGY_MODEL) && (defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) || defined(CONFIG_SCHED_WALT))
 DEFINE_STATIC_KEY_FALSE(sched_energy_present);
 unsigned int sysctl_sched_energy_aware = 1;
 DEFINE_MUTEX(sched_energy_mutex);
@@ -209,7 +199,7 @@ bool sched_energy_update;
 
 #ifdef CONFIG_PROC_SYSCTL
 int sched_energy_aware_handler(struct ctl_table *table, int write,
-			 void __user *buffer, size_t *lenp, loff_t *ppos)
+		void *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret, state;
 
@@ -317,7 +307,8 @@ static void sched_energy_set(bool has_eas)
  * EAS can be used on a root domain if it meets all the following conditions:
  *    1. an Energy Model (EM) is available;
  *    2. the SD_ASYM_CPUCAPACITY flag is set in the sched_domain hierarchy.
- *    3. the EM complexity is low enough to keep scheduling overheads low;
+ *    3. no SMT is detected.
+ *    4. the EM complexity is low enough to keep scheduling overheads low;
  *
  * The complexity of the Energy Model is defined as:
  *
@@ -336,7 +327,6 @@ static void sched_energy_set(bool has_eas)
  * with per-CPU DVFS and less than 8 capacity states each, for example.
  */
 #define EM_MAX_COMPLEXITY 2048
-
 static bool build_perf_domains(const struct cpumask *cpu_map)
 {
 	int i, nr_pd = 0, nr_cs = 0, nr_cpus = cpumask_weight(cpu_map);
@@ -353,6 +343,13 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 			pr_info("rd %*pbl: CPUs do not have asymmetric capacities\n",
 					cpumask_pr_args(cpu_map));
 		}
+		goto free;
+	}
+
+	/* EAS definitely does *not* handle SMT */
+	if (sched_smt_active()) {
+		pr_warn("rd %*pbl: Disabling EAS, SMT is not supported\n",
+			cpumask_pr_args(cpu_map));
 		goto free;
 	}
 
@@ -404,7 +401,7 @@ free:
 }
 #else
 static void free_pd(struct perf_domain *pd) { }
-#endif /* CONFIG_ENERGY_MODEL */
+#endif /* CONFIG_ENERGY_MODEL && (CONFIG_CPU_FREQ_GOV_SCHEDUTIL||CONFIG_SCHED_WALT)*/
 
 static void free_rootdomain(struct rcu_head *rcu)
 {
@@ -493,13 +490,10 @@ static int init_rootdomain(struct root_domain *rd)
 
 	if (cpupri_init(&rd->cpupri) != 0)
 		goto free_cpudl;
-
 #ifdef CONFIG_SCHED_WALT
 	rd->max_cap_orig_cpu = rd->min_cap_orig_cpu = -1;
 	rd->mid_cap_orig_cpu = -1;
 #endif
-
-	init_max_cpu_capacity(&rd->max_cpu_capacity);
 
 	return 0;
 
@@ -641,6 +635,7 @@ static void update_top_cache_domain(int cpu)
 	rcu_assign_pointer(per_cpu(sd_asym_packing, cpu), sd);
 
 	sd = lowest_flag_domain(cpu, SD_ASYM_CPUCAPACITY);
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * EAS gets disabled when there are no asymmetric capacity
 	 * CPUs in the system. For example, all big CPUs are
@@ -656,6 +651,7 @@ static void update_top_cache_domain(int cpu)
 	 */
 	if (!sd)
 		sd = cpu_rq(cpu)->sd;
+#endif
 
 	rcu_assign_pointer(per_cpu(sd_asym_cpucapacity, cpu), sd);
 }
@@ -1151,19 +1147,29 @@ build_sched_groups(struct sched_domain *sd, int cpu)
  * group having more cpu_capacity will pickup more load compared to the
  * group having less cpu_capacity.
  */
+#ifndef CONFIG_SCHED_WALT
+static void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
+#else
 void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
+#endif
 {
 	struct sched_group *sg = sd->groups;
+#ifdef CONFIG_SCHED_WALT
 	cpumask_t avail_mask;
+#endif
 
 	WARN_ON(!sg);
 
 	do {
 		int cpu, max_cpu = -1;
 
+#ifndef CONFIG_SCHED_WALT
+		sg->group_weight = cpumask_weight(sched_group_span(sg));
+#else
 		cpumask_andnot(&avail_mask, sched_group_span(sg),
 							cpu_isolated_mask);
 		sg->group_weight = cpumask_weight(&avail_mask);
+#endif
 
 		if (!(sd->flags & SD_ASYM_PACKING))
 			goto next;
@@ -1353,8 +1359,7 @@ sd_init(struct sched_domain_topology_level *tl,
 
 		.cache_nice_tries	= 0,
 
-		.flags			= 1*SD_LOAD_BALANCE
-					| 1*SD_BALANCE_NEWIDLE
+		.flags			= 1*SD_BALANCE_NEWIDLE
 					| 1*SD_BALANCE_EXEC
 					| 1*SD_BALANCE_FORK
 					| 0*SD_BALANCE_WAKE
@@ -1412,11 +1417,23 @@ sd_init(struct sched_domain_topology_level *tl,
 		sd->cache_nice_tries = 1;
 	}
 
+#ifndef CONFIG_SCHED_WALT
+	/*
+	 * For all levels sharing cache; connect a sched_domain_shared
+	 * instance.
+	 */
+	if (sd->flags & SD_SHARE_PKG_RESOURCES) {
+		sd->shared = *per_cpu_ptr(sdd->sds, sd_id);
+		atomic_inc(&sd->shared->ref);
+		atomic_set(&sd->shared->nr_busy_cpus, sd_weight);
+	}
+#else
 	sd->shared = *per_cpu_ptr(sdd->sds, sd_id);
 	atomic_inc(&sd->shared->ref);
 
 	if (sd->flags & SD_SHARE_PKG_RESOURCES)
 		atomic_set(&sd->shared->nr_busy_cpus, sd_weight);
+#endif /* CONFIG_SCHED_WALT */
 
 	sd->private = sdd;
 
@@ -1981,6 +1998,7 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	enum s_alloc alloc_state = sa_none;
 	struct sched_domain *sd;
 	struct s_data d;
+	struct rq *rq = NULL;
 	int i, ret = -ENOMEM;
 	struct sched_domain_topology_level *tl_asym;
 	bool has_asym = false;
@@ -2053,8 +2071,12 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
 		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
 #endif
-
+		rq = cpu_rq(i);
 		sd = *per_cpu_ptr(d.sd, i);
+
+		/* Use READ_ONCE()/WRITE_ONCE() to avoid load/store tearing: */
+		if (rq->cpu_capacity_orig > READ_ONCE(d.rd->max_cpu_capacity))
+			WRITE_ONCE(d.rd->max_cpu_capacity, rq->cpu_capacity_orig);
 
 #ifdef CONFIG_SCHED_WALT
 		if ((max_cpu < 0) || (arch_scale_cpu_capacity(i) >
@@ -2100,6 +2122,11 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 
 	if (has_asym)
 		static_branch_inc_cpuslocked(&sched_asym_cpucapacity);
+
+	if (rq && sched_debug_enabled) {
+		pr_info("root domain span: %*pbl (max cpu_capacity = %lu)\n",
+			cpumask_pr_args(cpu_map), rq->rd->max_cpu_capacity);
+	}
 
 	ret = 0;
 error:
@@ -2317,10 +2344,14 @@ match2:
 		;
 	}
 
-#ifdef CONFIG_ENERGY_MODEL
+#if defined(CONFIG_ENERGY_MODEL) && (defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) || defined(CONFIG_SCHED_WALT))
 	/* Build perf. domains: */
 	for (i = 0; i < ndoms_new; i++) {
+#ifndef CONFIG_SCHED_WALT
+		for (j = 0; j < n && !sched_energy_update; j++) {
+#else
 		for (j = 0; j < n; j++) {
+#endif
 			if (cpumask_equal(doms_new[i], doms_cur[j]) &&
 			    cpu_rq(cpumask_first(doms_cur[j]))->rd->pd) {
 				has_eas = true;

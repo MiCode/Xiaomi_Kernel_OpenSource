@@ -57,16 +57,6 @@ list_lru_from_memcg_idx(struct list_lru_node *nlru, int idx)
 	return &nlru->lru;
 }
 
-static __always_inline struct mem_cgroup *mem_cgroup_from_kmem(void *ptr)
-{
-	struct page *page;
-
-	if (!memcg_kmem_enabled())
-		return NULL;
-	page = virt_to_head_page(ptr);
-	return memcg_from_slab_page(page);
-}
-
 static inline struct list_lru_one *
 list_lru_from_kmem(struct list_lru_node *nlru, void *ptr,
 		   struct mem_cgroup **memcg_ptr)
@@ -77,7 +67,7 @@ list_lru_from_kmem(struct list_lru_node *nlru, void *ptr,
 	if (!nlru->memcg_lrus)
 		goto out;
 
-	memcg = mem_cgroup_from_kmem(ptr);
+	memcg = mem_cgroup_from_obj(ptr);
 	if (!memcg)
 		goto out;
 
@@ -223,7 +213,7 @@ restart:
 
 		/*
 		 * decrement nr_to_walk first so that we don't livelock if we
-		 * get stuck on large numbesr of LRU_RETRY items
+		 * get stuck on large numbers of LRU_RETRY items
 		 */
 		if (!*nr_to_walk)
 			break;
@@ -233,7 +223,7 @@ restart:
 		switch (ret) {
 		case LRU_REMOVED_RETRY:
 			assert_spin_locked(&nlru->lock);
-			/* fall through */
+			fallthrough;
 		case LRU_REMOVED:
 			isolated++;
 			nlru->nr_items--;

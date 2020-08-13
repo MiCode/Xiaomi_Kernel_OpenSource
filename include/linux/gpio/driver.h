@@ -87,7 +87,7 @@ struct gpio_irq_chip {
 	 * @need_valid_mask to make these GPIO lines unavailable for
 	 * translation.
 	 */
-	int (*child_to_parent_hwirq)(struct gpio_chip *chip,
+	int (*child_to_parent_hwirq)(struct gpio_chip *gc,
 				     unsigned int child_hwirq,
 				     unsigned int child_type,
 				     unsigned int *parent_hwirq,
@@ -102,7 +102,7 @@ struct gpio_irq_chip {
 	 * variant named &gpiochip_populate_parent_fwspec_fourcell is also
 	 * available.
 	 */
-	void *(*populate_parent_alloc_arg)(struct gpio_chip *chip,
+	void *(*populate_parent_alloc_arg)(struct gpio_chip *gc,
 				       unsigned int parent_hwirq,
 				       unsigned int parent_type);
 
@@ -114,7 +114,7 @@ struct gpio_irq_chip {
 	 * callback. If this is not specified, then a default callback will be
 	 * provided that returns the line offset.
 	 */
-	unsigned int (*child_offset_to_irq)(struct gpio_chip *chip,
+	unsigned int (*child_offset_to_irq)(struct gpio_chip *gc,
 					    unsigned int pin);
 
 	/**
@@ -209,7 +209,7 @@ struct gpio_irq_chip {
 	 * a particular driver wants to clear IRQ related registers
 	 * in order to avoid undesired events.
 	 */
-	int (*init_hw)(struct gpio_chip *chip);
+	int (*init_hw)(struct gpio_chip *gc);
 
 	/**
 	 * @init_valid_mask: optional routine to initialize @valid_mask, to be
@@ -220,7 +220,7 @@ struct gpio_irq_chip {
 	 * then directly set some bits to "0" if they cannot be used for
 	 * interrupts.
 	 */
-	void (*init_valid_mask)(struct gpio_chip *chip,
+	void (*init_valid_mask)(struct gpio_chip *gc,
 				unsigned long *valid_mask,
 				unsigned int ngpios);
 
@@ -253,6 +253,19 @@ struct gpio_irq_chip {
 	 * Store old irq_chip irq_disable callback
 	 */
 	void		(*irq_disable)(struct irq_data *data);
+	/**
+	 * @irq_unmask:
+	 *
+	 * Store old irq_chip irq_unmask callback
+	 */
+	void		(*irq_unmask)(struct irq_data *data);
+
+	/**
+	 * @irq_mask:
+	 *
+	 * Store old irq_chip irq_mask callback
+	 */
+	void		(*irq_mask)(struct irq_data *data);
 };
 
 /**
@@ -267,9 +280,9 @@ struct gpio_irq_chip {
  * @free: optional hook for chip-specific deactivation, such as
  *	disabling module power and clock; may sleep
  * @get_direction: returns direction for signal "offset", 0=out, 1=in,
- *	(same as GPIOF_DIR_XXX), or negative error.
- *	It is recommended to always implement this function, even on
- *	input-only or output-only gpio chips.
+ *	(same as GPIO_LINE_DIRECTION_OUT / GPIO_LINE_DIRECTION_IN),
+ *	or negative error. It is recommended to always implement this
+ *	function, even on input-only or output-only gpio chips.
  * @direction_input: configures signal "offset" as input, or returns error
  *	This can be omitted on input-only or output-only gpio chips.
  * @direction_output: configures signal "offset" as output, or returns error
@@ -348,40 +361,40 @@ struct gpio_chip {
 	struct device		*parent;
 	struct module		*owner;
 
-	int			(*request)(struct gpio_chip *chip,
-						unsigned offset);
-	void			(*free)(struct gpio_chip *chip,
-						unsigned offset);
-	int			(*get_direction)(struct gpio_chip *chip,
-						unsigned offset);
-	int			(*direction_input)(struct gpio_chip *chip,
-						unsigned offset);
-	int			(*direction_output)(struct gpio_chip *chip,
-						unsigned offset, int value);
-	int			(*get)(struct gpio_chip *chip,
-						unsigned offset);
-	int			(*get_multiple)(struct gpio_chip *chip,
+	int			(*request)(struct gpio_chip *gc,
+						unsigned int offset);
+	void			(*free)(struct gpio_chip *gc,
+						unsigned int offset);
+	int			(*get_direction)(struct gpio_chip *gc,
+						unsigned int offset);
+	int			(*direction_input)(struct gpio_chip *gc,
+						unsigned int offset);
+	int			(*direction_output)(struct gpio_chip *gc,
+						unsigned int offset, int value);
+	int			(*get)(struct gpio_chip *gc,
+						unsigned int offset);
+	int			(*get_multiple)(struct gpio_chip *gc,
 						unsigned long *mask,
 						unsigned long *bits);
-	void			(*set)(struct gpio_chip *chip,
-						unsigned offset, int value);
-	void			(*set_multiple)(struct gpio_chip *chip,
+	void			(*set)(struct gpio_chip *gc,
+						unsigned int offset, int value);
+	void			(*set_multiple)(struct gpio_chip *gc,
 						unsigned long *mask,
 						unsigned long *bits);
-	int			(*set_config)(struct gpio_chip *chip,
-					      unsigned offset,
+	int			(*set_config)(struct gpio_chip *gc,
+					      unsigned int offset,
 					      unsigned long config);
-	int			(*to_irq)(struct gpio_chip *chip,
-						unsigned offset);
+	int			(*to_irq)(struct gpio_chip *gc,
+						unsigned int offset);
 
 	void			(*dbg_show)(struct seq_file *s,
-						struct gpio_chip *chip);
+						struct gpio_chip *gc);
 
-	int			(*init_valid_mask)(struct gpio_chip *chip,
+	int			(*init_valid_mask)(struct gpio_chip *gc,
 						   unsigned long *valid_mask,
 						   unsigned int ngpios);
 
-	int			(*add_pin_ranges)(struct gpio_chip *chip);
+	int			(*add_pin_ranges)(struct gpio_chip *gc);
 
 	int			base;
 	u16			ngpio;
@@ -458,11 +471,11 @@ struct gpio_chip {
 #endif /* CONFIG_OF_GPIO */
 };
 
-extern const char *gpiochip_is_requested(struct gpio_chip *chip,
-			unsigned offset);
+extern const char *gpiochip_is_requested(struct gpio_chip *gc,
+			unsigned int offset);
 
 /* add/remove chips */
-extern int gpiochip_add_data_with_key(struct gpio_chip *chip, void *data,
+extern int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 				      struct lock_class_key *lock_key,
 				      struct lock_class_key *request_key);
 
@@ -490,43 +503,43 @@ extern int gpiochip_add_data_with_key(struct gpio_chip *chip, void *data,
  * Otherwise it returns zero as a success code.
  */
 #ifdef CONFIG_LOCKDEP
-#define gpiochip_add_data(chip, data) ({		\
+#define gpiochip_add_data(gc, data) ({		\
 		static struct lock_class_key lock_key;	\
 		static struct lock_class_key request_key;	  \
-		gpiochip_add_data_with_key(chip, data, &lock_key, \
+		gpiochip_add_data_with_key(gc, data, &lock_key, \
 					   &request_key);	  \
 	})
 #else
-#define gpiochip_add_data(chip, data) gpiochip_add_data_with_key(chip, data, NULL, NULL)
+#define gpiochip_add_data(gc, data) gpiochip_add_data_with_key(gc, data, NULL, NULL)
 #endif /* CONFIG_LOCKDEP */
 
-static inline int gpiochip_add(struct gpio_chip *chip)
+static inline int gpiochip_add(struct gpio_chip *gc)
 {
-	return gpiochip_add_data(chip, NULL);
+	return gpiochip_add_data(gc, NULL);
 }
-extern void gpiochip_remove(struct gpio_chip *chip);
-extern int devm_gpiochip_add_data(struct device *dev, struct gpio_chip *chip,
+extern void gpiochip_remove(struct gpio_chip *gc);
+extern int devm_gpiochip_add_data(struct device *dev, struct gpio_chip *gc,
 				  void *data);
 
 extern struct gpio_chip *gpiochip_find(void *data,
-			      int (*match)(struct gpio_chip *chip, void *data));
+			      int (*match)(struct gpio_chip *gc, void *data));
 
-bool gpiochip_line_is_irq(struct gpio_chip *chip, unsigned int offset);
-int gpiochip_reqres_irq(struct gpio_chip *chip, unsigned int offset);
-void gpiochip_relres_irq(struct gpio_chip *chip, unsigned int offset);
-void gpiochip_disable_irq(struct gpio_chip *chip, unsigned int offset);
-void gpiochip_enable_irq(struct gpio_chip *chip, unsigned int offset);
+bool gpiochip_line_is_irq(struct gpio_chip *gc, unsigned int offset);
+int gpiochip_reqres_irq(struct gpio_chip *gc, unsigned int offset);
+void gpiochip_relres_irq(struct gpio_chip *gc, unsigned int offset);
+void gpiochip_disable_irq(struct gpio_chip *gc, unsigned int offset);
+void gpiochip_enable_irq(struct gpio_chip *gc, unsigned int offset);
 
 /* Line status inquiry for drivers */
-bool gpiochip_line_is_open_drain(struct gpio_chip *chip, unsigned int offset);
-bool gpiochip_line_is_open_source(struct gpio_chip *chip, unsigned int offset);
+bool gpiochip_line_is_open_drain(struct gpio_chip *gc, unsigned int offset);
+bool gpiochip_line_is_open_source(struct gpio_chip *gc, unsigned int offset);
 
 /* Sleep persistence inquiry for drivers */
-bool gpiochip_line_is_persistent(struct gpio_chip *chip, unsigned int offset);
-bool gpiochip_line_is_valid(const struct gpio_chip *chip, unsigned int offset);
+bool gpiochip_line_is_persistent(struct gpio_chip *gc, unsigned int offset);
+bool gpiochip_line_is_valid(const struct gpio_chip *gc, unsigned int offset);
 
 /* get driver data */
-void *gpiochip_get_data(struct gpio_chip *chip);
+void *gpiochip_get_data(struct gpio_chip *gc);
 
 struct bgpio_pdata {
 	const char *label;
@@ -536,23 +549,23 @@ struct bgpio_pdata {
 
 #ifdef CONFIG_IRQ_DOMAIN_HIERARCHY
 
-void *gpiochip_populate_parent_fwspec_twocell(struct gpio_chip *chip,
+void *gpiochip_populate_parent_fwspec_twocell(struct gpio_chip *gc,
 					     unsigned int parent_hwirq,
 					     unsigned int parent_type);
-void *gpiochip_populate_parent_fwspec_fourcell(struct gpio_chip *chip,
+void *gpiochip_populate_parent_fwspec_fourcell(struct gpio_chip *gc,
 					      unsigned int parent_hwirq,
 					      unsigned int parent_type);
 
 #else
 
-static inline void *gpiochip_populate_parent_fwspec_twocell(struct gpio_chip *chip,
+static inline void *gpiochip_populate_parent_fwspec_twocell(struct gpio_chip *gc,
 						    unsigned int parent_hwirq,
 						    unsigned int parent_type)
 {
 	return NULL;
 }
 
-static inline void *gpiochip_populate_parent_fwspec_fourcell(struct gpio_chip *chip,
+static inline void *gpiochip_populate_parent_fwspec_fourcell(struct gpio_chip *gc,
 						     unsigned int parent_hwirq,
 						     unsigned int parent_type)
 {
@@ -572,6 +585,7 @@ int bgpio_init(struct gpio_chip *gc, struct device *dev,
 #define BGPIOF_BIG_ENDIAN_BYTE_ORDER	BIT(3)
 #define BGPIOF_READ_OUTPUT_REG_SET	BIT(4) /* reg_set stores output value */
 #define BGPIOF_NO_OUTPUT		BIT(5) /* only input */
+#define BGPIOF_NO_SET_ON_INPUT		BIT(6)
 
 int gpiochip_irq_map(struct irq_domain *d, unsigned int irq,
 		     irq_hw_number_t hwirq);
@@ -582,11 +596,11 @@ int gpiochip_irq_domain_activate(struct irq_domain *domain,
 void gpiochip_irq_domain_deactivate(struct irq_domain *domain,
 				    struct irq_data *data);
 
-void gpiochip_set_nested_irqchip(struct gpio_chip *gpiochip,
+void gpiochip_set_nested_irqchip(struct gpio_chip *gc,
 		struct irq_chip *irqchip,
 		unsigned int parent_irq);
 
-int gpiochip_irqchip_add_key(struct gpio_chip *gpiochip,
+int gpiochip_irqchip_add_key(struct gpio_chip *gc,
 			     struct irq_chip *irqchip,
 			     unsigned int first_irq,
 			     irq_flow_handler_t handler,
@@ -595,8 +609,11 @@ int gpiochip_irqchip_add_key(struct gpio_chip *gpiochip,
 			     struct lock_class_key *lock_key,
 			     struct lock_class_key *request_key);
 
-bool gpiochip_irqchip_irq_valid(const struct gpio_chip *gpiochip,
+bool gpiochip_irqchip_irq_valid(const struct gpio_chip *gc,
 				unsigned int offset);
+
+int gpiochip_irqchip_add_domain(struct gpio_chip *gc,
+				struct irq_domain *domain);
 
 #ifdef CONFIG_LOCKDEP
 
@@ -606,7 +623,7 @@ bool gpiochip_irqchip_irq_valid(const struct gpio_chip *gpiochip,
  * boilerplate static inlines provides such a key for each
  * unique instance.
  */
-static inline int gpiochip_irqchip_add(struct gpio_chip *gpiochip,
+static inline int gpiochip_irqchip_add(struct gpio_chip *gc,
 				       struct irq_chip *irqchip,
 				       unsigned int first_irq,
 				       irq_flow_handler_t handler,
@@ -615,12 +632,12 @@ static inline int gpiochip_irqchip_add(struct gpio_chip *gpiochip,
 	static struct lock_class_key lock_key;
 	static struct lock_class_key request_key;
 
-	return gpiochip_irqchip_add_key(gpiochip, irqchip, first_irq,
+	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
 					handler, type, false,
 					&lock_key, &request_key);
 }
 
-static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gpiochip,
+static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gc,
 			  struct irq_chip *irqchip,
 			  unsigned int first_irq,
 			  irq_flow_handler_t handler,
@@ -630,35 +647,35 @@ static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gpiochip,
 	static struct lock_class_key lock_key;
 	static struct lock_class_key request_key;
 
-	return gpiochip_irqchip_add_key(gpiochip, irqchip, first_irq,
+	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
 					handler, type, true,
 					&lock_key, &request_key);
 }
 #else /* ! CONFIG_LOCKDEP */
-static inline int gpiochip_irqchip_add(struct gpio_chip *gpiochip,
+static inline int gpiochip_irqchip_add(struct gpio_chip *gc,
 				       struct irq_chip *irqchip,
 				       unsigned int first_irq,
 				       irq_flow_handler_t handler,
 				       unsigned int type)
 {
-	return gpiochip_irqchip_add_key(gpiochip, irqchip, first_irq,
+	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
 					handler, type, false, NULL, NULL);
 }
 
-static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gpiochip,
+static inline int gpiochip_irqchip_add_nested(struct gpio_chip *gc,
 			  struct irq_chip *irqchip,
 			  unsigned int first_irq,
 			  irq_flow_handler_t handler,
 			  unsigned int type)
 {
-	return gpiochip_irqchip_add_key(gpiochip, irqchip, first_irq,
+	return gpiochip_irqchip_add_key(gc, irqchip, first_irq,
 					handler, type, true, NULL, NULL);
 }
 #endif /* CONFIG_LOCKDEP */
 
-int gpiochip_generic_request(struct gpio_chip *chip, unsigned offset);
-void gpiochip_generic_free(struct gpio_chip *chip, unsigned offset);
-int gpiochip_generic_config(struct gpio_chip *chip, unsigned offset,
+int gpiochip_generic_request(struct gpio_chip *gc, unsigned int offset);
+void gpiochip_generic_free(struct gpio_chip *gc, unsigned int offset);
+int gpiochip_generic_config(struct gpio_chip *gc, unsigned int offset,
 			    unsigned long config);
 
 /**
@@ -675,25 +692,25 @@ struct gpio_pin_range {
 
 #ifdef CONFIG_PINCTRL
 
-int gpiochip_add_pin_range(struct gpio_chip *chip, const char *pinctl_name,
+int gpiochip_add_pin_range(struct gpio_chip *gc, const char *pinctl_name,
 			   unsigned int gpio_offset, unsigned int pin_offset,
 			   unsigned int npins);
-int gpiochip_add_pingroup_range(struct gpio_chip *chip,
+int gpiochip_add_pingroup_range(struct gpio_chip *gc,
 			struct pinctrl_dev *pctldev,
 			unsigned int gpio_offset, const char *pin_group);
-void gpiochip_remove_pin_ranges(struct gpio_chip *chip);
+void gpiochip_remove_pin_ranges(struct gpio_chip *gc);
 
 #else /* ! CONFIG_PINCTRL */
 
 static inline int
-gpiochip_add_pin_range(struct gpio_chip *chip, const char *pinctl_name,
+gpiochip_add_pin_range(struct gpio_chip *gc, const char *pinctl_name,
 		       unsigned int gpio_offset, unsigned int pin_offset,
 		       unsigned int npins)
 {
 	return 0;
 }
 static inline int
-gpiochip_add_pingroup_range(struct gpio_chip *chip,
+gpiochip_add_pingroup_range(struct gpio_chip *gc,
 			struct pinctrl_dev *pctldev,
 			unsigned int gpio_offset, const char *pin_group)
 {
@@ -701,27 +718,27 @@ gpiochip_add_pingroup_range(struct gpio_chip *chip,
 }
 
 static inline void
-gpiochip_remove_pin_ranges(struct gpio_chip *chip)
+gpiochip_remove_pin_ranges(struct gpio_chip *gc)
 {
 }
 
 #endif /* CONFIG_PINCTRL */
 
-struct gpio_desc *gpiochip_request_own_desc(struct gpio_chip *chip,
+struct gpio_desc *gpiochip_request_own_desc(struct gpio_chip *gc,
 					    unsigned int hwnum,
 					    const char *label,
 					    enum gpio_lookup_flags lflags,
 					    enum gpiod_flags dflags);
 void gpiochip_free_own_desc(struct gpio_desc *desc);
 
-void devprop_gpiochip_set_names(struct gpio_chip *chip,
+void devprop_gpiochip_set_names(struct gpio_chip *gc,
 				const struct fwnode_handle *fwnode);
 
 #ifdef CONFIG_GPIOLIB
 
 /* lock/unlock as IRQ */
-int gpiochip_lock_as_irq(struct gpio_chip *chip, unsigned int offset);
-void gpiochip_unlock_as_irq(struct gpio_chip *chip, unsigned int offset);
+int gpiochip_lock_as_irq(struct gpio_chip *gc, unsigned int offset);
+void gpiochip_unlock_as_irq(struct gpio_chip *gc, unsigned int offset);
 
 
 struct gpio_chip *gpiod_to_chip(const struct gpio_desc *desc);
@@ -735,14 +752,14 @@ static inline struct gpio_chip *gpiod_to_chip(const struct gpio_desc *desc)
 	return ERR_PTR(-ENODEV);
 }
 
-static inline int gpiochip_lock_as_irq(struct gpio_chip *chip,
+static inline int gpiochip_lock_as_irq(struct gpio_chip *gc,
 				       unsigned int offset)
 {
 	WARN_ON(1);
 	return -EINVAL;
 }
 
-static inline void gpiochip_unlock_as_irq(struct gpio_chip *chip,
+static inline void gpiochip_unlock_as_irq(struct gpio_chip *gc,
 					  unsigned int offset)
 {
 	WARN_ON(1);

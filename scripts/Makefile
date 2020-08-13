@@ -2,10 +2,6 @@
 ###
 # scripts contains sources for various helper programs used throughout
 # the kernel for the build process.
-# ---------------------------------------------------------------------------
-# kallsyms:      Find all symbols in vmlinux
-
-HOST_EXTRACFLAGS += -I$(srctree)/tools/include
 
 always-$(CONFIG_BUILD_BIN2C)			+= bin2c
 always-$(CONFIG_KALLSYMS)			+= kallsyms
@@ -34,6 +30,8 @@ hostprogs := $(always-y) $(always-m)
 
 # The following programs are only built on demand
 hostprogs += unifdef
+
+extra-$(CONFIG_LTO_CLANG)   += module-lto.lds
 
 subdir-$(CONFIG_GCC_PLUGINS) += gcc-plugins
 subdir-$(CONFIG_MODVERSIONS) += genksyms

@@ -56,13 +56,14 @@ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp
 
 DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
 
+#ifdef CONFIG_SCHED_WALT
 /*
  * active_softirqs -- per cpu, a mask of softirqs that are being handled,
  * with the expectation that approximate answers are acceptable and therefore
  * no synchronization.
  */
 DEFINE_PER_CPU(__u32, active_softirqs);
-
+#endif
 const char * const softirq_to_name[NR_SOFTIRQS] = {
 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL",
 	"TASKLET", "SCHED", "HRTIMER", "RCU"
@@ -82,6 +83,24 @@ static void wakeup_softirqd(void)
 	if (tsk && tsk->state != TASK_RUNNING)
 		wake_up_process(tsk);
 }
+
+#ifndef CONFIG_SCHED_WALT
+/*
+ * If ksoftirqd is scheduled, we do not want to process pending softirqs
+ * right now. Let ksoftirqd handle this at its own rate, to get fairness,
+ * unless we're doing some of the synchronous softirqs.
+ */
+#define SOFTIRQ_NOW_MASK ((1 << HI_SOFTIRQ) | (1 << TASKLET_SOFTIRQ))
+static bool ksoftirqd_running(unsigned long pending)
+{
+	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+
+	if (pending & SOFTIRQ_NOW_MASK)
+		return false;
+	return tsk && (tsk->state == TASK_RUNNING) &&
+		!__kthread_should_park(tsk);
+}
+#endif
 
 /*
  * preempt_count and SOFTIRQ_OFFSET usage:
@@ -117,7 +136,7 @@ void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 	 * Were softirqs turned off above:
 	 */
 	if (softirq_count() == (cnt & SOFTIRQ_MASK))
-		trace_softirqs_off(ip);
+		lockdep_softirqs_off(ip);
 	raw_local_irq_restore(flags);
 
 	if (preempt_count() == cnt) {
@@ -138,7 +157,7 @@ static void __local_bh_enable(unsigned int cnt)
 		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
 
 	if (softirq_count() == (cnt & SOFTIRQ_MASK))
-		trace_softirqs_on(_RET_IP_);
+		lockdep_softirqs_on(_RET_IP_);
 
 	__preempt_count_sub(cnt);
 }
@@ -165,7 +184,7 @@ void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)
 	 * Are softirqs going to be turned on now:
 	 */
 	if (softirq_count() == SOFTIRQ_DISABLE_OFFSET)
-		trace_softirqs_on(ip);
+		lockdep_softirqs_on(ip);
 	/*
 	 * Keep preemption disabled until we are done with
 	 * softirq processing:
@@ -215,9 +234,9 @@ static inline bool lockdep_softirq_start(void)
 {
 	bool in_hardirq = false;
 
-	if (trace_hardirq_context(current)) {
+	if (lockdep_hardirq_context(current)) {
 		in_hardirq = true;
-		trace_hardirq_exit();
+		lockdep_hardirq_exit();
 	}
 
 	lockdep_softirq_enter();
@@ -230,13 +249,14 @@ static inline void lockdep_softirq_end(bool in_hardirq)
 	lockdep_softirq_exit();
 
 	if (in_hardirq)
-		trace_hardirq_enter();
+		lockdep_hardirq_enter();
 }
 #else
 static inline bool lockdep_softirq_start(void) { return false; }
 static inline void lockdep_softirq_end(bool in_hardirq) { }
 #endif
 
+#ifdef CONFIG_SCHED_WALT
 #define softirq_deferred_for_rt(pending)		\
 ({							\
 	__u32 deferred = 0;				\
@@ -246,7 +266,7 @@ static inline void lockdep_softirq_end(bool in_hardirq) { }
 	}						\
 	deferred;					\
 })
-
+#endif
 asmlinkage __visible void __softirq_entry __do_softirq(void)
 {
 	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
@@ -254,7 +274,9 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
 	int max_restart = MAX_SOFTIRQ_RESTART;
 	struct softirq_action *h;
 	bool in_hardirq;
+#ifdef CONFIG_SCHED_WALT
 	__u32 deferred;
+#endif
 	__u32 pending;
 	int softirq_bit;
 
@@ -266,16 +288,21 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
 	current->flags &= ~PF_MEMALLOC;
 
 	pending = local_softirq_pending();
+#ifdef CONFIG_SCHED_WALT
 	deferred = softirq_deferred_for_rt(pending);
+#endif
 	account_irq_enter_time(current);
 	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_OFFSET);
 	in_hardirq = lockdep_softirq_start();
 
 restart:
 	/* Reset the pending bitmask before enabling irqs */
+#ifndef CONFIG_SCHED_WALT
+	set_softirq_pending(0);
+#else
 	set_softirq_pending(deferred);
 	__this_cpu_write(active_softirqs, pending);
-
+#endif
 	local_irq_enable();
 
 	h = softirq_vec;
@@ -304,22 +331,29 @@ restart:
 		pending >>= softirq_bit;
 	}
 
+#ifdef CONFIG_SCHED_WALT
 	__this_cpu_write(active_softirqs, 0);
+#endif
 	if (__this_cpu_read(ksoftirqd) == current)
 		rcu_softirq_qs();
 	local_irq_disable();
 
 	pending = local_softirq_pending();
+#ifdef CONFIG_SCHED_WALT
 	deferred = softirq_deferred_for_rt(pending);
-
+#endif
 	if (pending) {
 		if (time_before(jiffies, end) && !need_resched() &&
 		    --max_restart)
 			goto restart;
+#ifdef CONFIG_SCHED_WALT
+		wakeup_softirqd();
+#endif
 	}
-
+#ifdef CONFIG_SCHED_WALT
 	if (pending | deferred)
 		wakeup_softirqd();
+#endif
 	lockdep_softirq_end(in_hardirq);
 	account_irq_exit_time(current);
 	__local_bh_enable(SOFTIRQ_OFFSET);
@@ -339,18 +373,21 @@ asmlinkage __visible void do_softirq(void)
 
 	pending = local_softirq_pending();
 
+#ifndef CONFIG_SCHED_WALT
+	if (pending && !ksoftirqd_running(pending))
+#else
 	if (pending)
+#endif
 		do_softirq_own_stack();
 
 	local_irq_restore(flags);
 }
 
-/*
- * Enter an interrupt context.
+/**
+ * irq_enter_rcu - Enter an interrupt context with RCU watching
  */
-void irq_enter(void)
+void irq_enter_rcu(void)
 {
-	rcu_irq_enter();
 	if (is_idle_task(current) && !in_interrupt()) {
 		/*
 		 * Prevent raise_softirq from needlessly waking up ksoftirqd
@@ -360,12 +397,24 @@ void irq_enter(void)
 		tick_irq_enter();
 		_local_bh_enable();
 	}
-
 	__irq_enter();
+}
+
+/**
+ * irq_enter - Enter an interrupt context including RCU update
+ */
+void irq_enter(void)
+{
+	rcu_irq_enter();
+	irq_enter_rcu();
 }
 
 static inline void invoke_softirq(void)
 {
+#ifndef CONFIG_SCHED_WALT
+	if (ksoftirqd_running(local_softirq_pending()))
+		return;
+#endif
 	if (!force_irqthreads) {
 #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
 		/*
@@ -400,10 +449,7 @@ static inline void tick_irq_exit(void)
 #endif
 }
 
-/*
- * Exit an interrupt context. Process softirqs if needed and possible:
- */
-void irq_exit(void)
+static inline void __irq_exit_rcu(void)
 {
 #ifndef __ARCH_IRQ_EXIT_IRQS_DISABLED
 	local_irq_disable();
@@ -416,8 +462,31 @@ void irq_exit(void)
 		invoke_softirq();
 
 	tick_irq_exit();
+}
+
+/**
+ * irq_exit_rcu() - Exit an interrupt context without updating RCU
+ *
+ * Also processes softirqs if needed and possible.
+ */
+void irq_exit_rcu(void)
+{
+	__irq_exit_rcu();
+	 /* must be last! */
+	lockdep_hardirq_exit();
+}
+
+/**
+ * irq_exit - Exit an interrupt context, update RCU and lockdep
+ *
+ * Also processes softirqs if needed and possible.
+ */
+void irq_exit(void)
+{
+	__irq_exit_rcu();
 	rcu_irq_exit();
-	trace_hardirq_exit(); /* must be last! */
+	 /* must be last! */
+	lockdep_hardirq_exit();
 }
 
 /*
@@ -523,9 +592,13 @@ static void tasklet_action_common(struct softirq_action *a,
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
+#ifndef CONFIG_SCHED_WALT
+				t->func(t->data);
+#else
 				trace_tasklet_entry(t->func);
 				t->func(t->data);
 				trace_tasklet_exit(t->func);
+#endif
 				tasklet_unlock(t);
 				continue;
 			}

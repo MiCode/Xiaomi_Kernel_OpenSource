@@ -1834,21 +1834,6 @@ ahc_handle_scsiint(struct ahc_softc *ahc, u_int intstat)
 				printerror = 0;
 			} else if (ahc_sent_msg(ahc, AHCMSG_1B,
 						MSG_BUS_DEV_RESET, TRUE)) {
-#ifdef __FreeBSD__
-				/*
-				 * Don't mark the user's request for this BDR
-				 * as completing with CAM_BDR_SENT.  CAM3
-				 * specifies CAM_REQ_CMP.
-				 */
-				if (scb != NULL
-				 && scb->io_ctx->ccb_h.func_code== XPT_RESET_DEV
-				 && ahc_match_scb(ahc, scb, target, channel,
-						  CAM_LUN_WILDCARD,
-						  SCB_LIST_NULL,
-						  ROLE_INITIATOR)) {
-					ahc_set_transaction_status(scb, CAM_REQ_CMP);
-				}
-#endif
 				ahc_compile_devinfo(&devinfo,
 						    initiator_role_id,
 						    target,
@@ -2193,8 +2178,7 @@ ahc_free_tstate(struct ahc_softc *ahc, u_int scsi_id, char channel, int force)
 	if (channel == 'B')
 		scsi_id += 8;
 	tstate = ahc->enabled_targets[scsi_id];
-	if (tstate != NULL)
-		kfree(tstate);
+	kfree(tstate);
 	ahc->enabled_targets[scsi_id] = NULL;
 }
 #endif
@@ -4399,22 +4383,16 @@ ahc_alloc(void *platform_arg, char *name)
 	struct  ahc_softc *ahc;
 	int	i;
 
-#ifndef	__FreeBSD__
-	ahc = kmalloc(sizeof(*ahc), GFP_ATOMIC);
+	ahc = kzalloc(sizeof(*ahc), GFP_ATOMIC);
 	if (!ahc) {
 		printk("aic7xxx: cannot malloc softc!\n");
 		kfree(name);
 		return NULL;
 	}
-#else
-	ahc = device_get_softc((device_t)platform_arg);
-#endif
-	memset(ahc, 0, sizeof(*ahc));
+
 	ahc->seep_config = kmalloc(sizeof(*ahc->seep_config), GFP_ATOMIC);
 	if (ahc->seep_config == NULL) {
-#ifndef	__FreeBSD__
 		kfree(ahc);
-#endif
 		kfree(name);
 		return (NULL);
 	}
@@ -4474,8 +4452,7 @@ ahc_set_unit(struct ahc_softc *ahc, int unit)
 void
 ahc_set_name(struct ahc_softc *ahc, char *name)
 {
-	if (ahc->name != NULL)
-		kfree(ahc->name);
+	kfree(ahc->name);
 	ahc->name = name;
 }
 
@@ -4536,13 +4513,9 @@ ahc_free(struct ahc_softc *ahc)
 		kfree(ahc->black_hole);
 	}
 #endif
-	if (ahc->name != NULL)
-		kfree(ahc->name);
-	if (ahc->seep_config != NULL)
-		kfree(ahc->seep_config);
-#ifndef __FreeBSD__
+	kfree(ahc->name);
+	kfree(ahc->seep_config);
 	kfree(ahc);
-#endif
 	return;
 }
 
@@ -4950,8 +4923,7 @@ ahc_fini_scbdata(struct ahc_softc *ahc)
 	case 0:
 		break;
 	}
-	if (scb_data->scbarray != NULL)
-		kfree(scb_data->scbarray);
+	kfree(scb_data->scbarray);
 }
 
 static void

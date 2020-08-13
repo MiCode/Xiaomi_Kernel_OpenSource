@@ -91,11 +91,11 @@ static int hibmc_kms_init(struct hibmc_drm_private *priv)
 	priv->dev->mode_config.min_width = 0;
 	priv->dev->mode_config.min_height = 0;
 	priv->dev->mode_config.max_width = 1920;
-	priv->dev->mode_config.max_height = 1440;
+	priv->dev->mode_config.max_height = 1200;
 
 	priv->dev->mode_config.fb_base = priv->fb_base;
-	priv->dev->mode_config.preferred_depth = 24;
-	priv->dev->mode_config.prefer_shadow = 0;
+	priv->dev->mode_config.preferred_depth = 32;
+	priv->dev->mode_config.prefer_shadow = 1;
 
 	priv->dev->mode_config.funcs = (void *)&hibmc_mode_funcs;
 
@@ -307,11 +307,7 @@ static int hibmc_load(struct drm_device *dev)
 	/* reset all the states of crtc/plane/encoder/connector */
 	drm_mode_config_reset(dev);
 
-	ret = drm_fbdev_generic_setup(dev, 16);
-	if (ret) {
-		DRM_ERROR("failed to initialize fbdev: %d\n", ret);
-		goto err;
-	}
+	drm_fbdev_generic_setup(dev, dev->mode_config.preferred_depth);
 
 	return 0;
 
@@ -326,6 +322,11 @@ static int hibmc_pci_probe(struct pci_dev *pdev,
 {
 	struct drm_device *dev;
 	int ret;
+
+	ret = drm_fb_helper_remove_conflicting_pci_framebuffers(pdev,
+								"hibmcdrmfb");
+	if (ret)
+		return ret;
 
 	dev = drm_dev_alloc(&hibmc_driver, &pdev->dev);
 	if (IS_ERR(dev)) {

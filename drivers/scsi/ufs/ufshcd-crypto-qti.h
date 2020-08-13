@@ -14,7 +14,7 @@ void ufshcd_crypto_qti_enable(struct ufs_hba *hba);
 void ufshcd_crypto_qti_disable(struct ufs_hba *hba);
 
 int ufshcd_crypto_qti_init_crypto(struct ufs_hba *hba,
-	const struct keyslot_mgmt_ll_ops *ksm_ops);
+	const struct blk_ksm_ll_ops *ksm_ops);
 
 void ufshcd_crypto_qti_setup_rq_keyslot_manager(struct ufs_hba *hba,
 					    struct request_queue *q);

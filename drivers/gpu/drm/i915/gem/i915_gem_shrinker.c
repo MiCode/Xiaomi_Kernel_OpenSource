@@ -12,7 +12,6 @@
 #include <linux/pci.h>
 #include <linux/dma-buf.h>
 #include <linux/vmalloc.h>
-#include <drm/i915_drm.h>
 
 #include "i915_trace.h"
 
@@ -25,18 +24,6 @@ static bool can_release_pages(struct drm_i915_gem_object *obj)
 {
 	/* Consider only shrinkable ojects. */
 	if (!i915_gem_object_is_shrinkable(obj))
-		return false;
-
-	/*
-	 * Only report true if by unbinding the object and putting its pages
-	 * we can actually make forward progress towards freeing physical
-	 * pages.
-	 *
-	 * If the pages are pinned for any other reason than being bound
-	 * to the GPU, simply unbinding from the GPU is not going to succeed
-	 * in releasing our pin count on the pages themselves.
-	 */
-	if (atomic_read(&obj->mm.pages_pin_count) > atomic_read(&obj->bind_count))
 		return false;
 
 	/*
@@ -55,6 +42,8 @@ static bool unsafe_drop_pages(struct drm_i915_gem_object *obj,
 	flags = 0;
 	if (shrink & I915_SHRINK_ACTIVE)
 		flags = I915_GEM_OBJECT_UNBIND_ACTIVE;
+	if (!(shrink & I915_SHRINK_BOUND))
+		flags = I915_GEM_OBJECT_UNBIND_TEST;
 
 	if (i915_gem_object_unbind(obj, flags) == 0)
 		__i915_gem_object_put_pages(obj);
@@ -195,10 +184,6 @@ i915_gem_shrink(struct drm_i915_private *i915,
 			    i915_gem_object_is_framebuffer(obj))
 				continue;
 
-			if (!(shrink & I915_SHRINK_BOUND) &&
-			    atomic_read(&obj->bind_count))
-				continue;
-
 			if (!can_release_pages(obj))
 				continue;
 
@@ -256,8 +241,7 @@ unsigned long i915_gem_shrink_all(struct drm_i915_private *i915)
 	with_intel_runtime_pm(&i915->runtime_pm, wakeref) {
 		freed = i915_gem_shrink(i915, -1UL, NULL,
 					I915_SHRINK_BOUND |
-					I915_SHRINK_UNBOUND |
-					I915_SHRINK_ACTIVE);
+					I915_SHRINK_UNBOUND);
 	}
 
 	return freed;
@@ -336,7 +320,6 @@ i915_gem_shrinker_oom(struct notifier_block *nb, unsigned long event, void *ptr)
 	freed_pages = 0;
 	with_intel_runtime_pm(&i915->runtime_pm, wakeref)
 		freed_pages += i915_gem_shrink(i915, -1UL, NULL,
-					       I915_SHRINK_ACTIVE |
 					       I915_SHRINK_BOUND |
 					       I915_SHRINK_UNBOUND |
 					       I915_SHRINK_WRITEBACK);
@@ -403,19 +386,22 @@ void i915_gem_driver_register__shrinker(struct drm_i915_private *i915)
 	i915->mm.shrinker.count_objects = i915_gem_shrinker_count;
 	i915->mm.shrinker.seeks = DEFAULT_SEEKS;
 	i915->mm.shrinker.batch = 4096;
-	WARN_ON(register_shrinker(&i915->mm.shrinker));
+	drm_WARN_ON(&i915->drm, register_shrinker(&i915->mm.shrinker));
 
 	i915->mm.oom_notifier.notifier_call = i915_gem_shrinker_oom;
-	WARN_ON(register_oom_notifier(&i915->mm.oom_notifier));
+	drm_WARN_ON(&i915->drm, register_oom_notifier(&i915->mm.oom_notifier));
 
 	i915->mm.vmap_notifier.notifier_call = i915_gem_shrinker_vmap;
-	WARN_ON(register_vmap_purge_notifier(&i915->mm.vmap_notifier));
+	drm_WARN_ON(&i915->drm,
+		    register_vmap_purge_notifier(&i915->mm.vmap_notifier));
 }
 
 void i915_gem_driver_unregister__shrinker(struct drm_i915_private *i915)
 {
-	WARN_ON(unregister_vmap_purge_notifier(&i915->mm.vmap_notifier));
-	WARN_ON(unregister_oom_notifier(&i915->mm.oom_notifier));
+	drm_WARN_ON(&i915->drm,
+		    unregister_vmap_purge_notifier(&i915->mm.vmap_notifier));
+	drm_WARN_ON(&i915->drm,
+		    unregister_oom_notifier(&i915->mm.oom_notifier));
 	unregister_shrinker(&i915->mm.shrinker);
 }
 

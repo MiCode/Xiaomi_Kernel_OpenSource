@@ -334,8 +334,10 @@ static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 	int status;
 
 	status = pm_runtime_get_sync(&bp->pdev->dev);
-	if (status < 0)
+	if (status < 0) {
+		pm_runtime_put_noidle(&bp->pdev->dev);
 		goto mdio_pm_exit;
+	}
 
 	status = macb_mdio_wait_for_idle(bp);
 	if (status < 0)
@@ -386,8 +388,10 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 	int status;
 
 	status = pm_runtime_get_sync(&bp->pdev->dev);
-	if (status < 0)
+	if (status < 0) {
+		pm_runtime_put_noidle(&bp->pdev->dev);
 		goto mdio_pm_exit;
+	}
 
 	status = macb_mdio_wait_for_idle(bp);
 	if (status < 0)
@@ -571,36 +575,19 @@ static void macb_mac_config(struct phylink_config *config, unsigned int mode,
 
 	old_ctrl = ctrl = macb_or_gem_readl(bp, NCFGR);
 
-	/* Clear all the bits we might set later */
-	ctrl &= ~(MACB_BIT(SPD) | MACB_BIT(FD) | MACB_BIT(PAE));
-
 	if (bp->caps & MACB_CAPS_MACB_IS_EMAC) {
 		if (state->interface == PHY_INTERFACE_MODE_RMII)
 			ctrl |= MACB_BIT(RM9200_RMII);
 	} else {
-		ctrl &= ~(GEM_BIT(GBE) | GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL));
-
-		/* We do not support MLO_PAUSE_RX yet */
-		if (state->pause & MLO_PAUSE_TX)
-			ctrl |= MACB_BIT(PAE);
+		ctrl &= ~(GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL));
 
 		if (state->interface == PHY_INTERFACE_MODE_SGMII)
 			ctrl |= GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL);
 	}
 
-	if (state->speed == SPEED_1000)
-		ctrl |= GEM_BIT(GBE);
-	else if (state->speed == SPEED_100)
-		ctrl |= MACB_BIT(SPD);
-
-	if (state->duplex)
-		ctrl |= MACB_BIT(FD);
-
 	/* Apply the new configuration, if any */
 	if (old_ctrl ^ ctrl)
 		macb_or_gem_writel(bp, NCFGR, ctrl);
-
-	bp->speed = state->speed;
 
 	spin_unlock_irqrestore(&bp->lock, flags);
 }
@@ -626,16 +613,42 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
 	netif_tx_stop_all_queues(ndev);
 }
 
-static void macb_mac_link_up(struct phylink_config *config, unsigned int mode,
-			     phy_interface_t interface, struct phy_device *phy)
+static void macb_mac_link_up(struct phylink_config *config,
+			     struct phy_device *phy,
+			     unsigned int mode, phy_interface_t interface,
+			     int speed, int duplex,
+			     bool tx_pause, bool rx_pause)
 {
 	struct net_device *ndev = to_net_dev(config->dev);
 	struct macb *bp = netdev_priv(ndev);
 	struct macb_queue *queue;
+	unsigned long flags;
 	unsigned int q;
+	u32 ctrl;
+
+	spin_lock_irqsave(&bp->lock, flags);
+
+	ctrl = macb_or_gem_readl(bp, NCFGR);
+
+	ctrl &= ~(MACB_BIT(SPD) | MACB_BIT(FD));
+
+	if (speed == SPEED_100)
+		ctrl |= MACB_BIT(SPD);
+
+	if (duplex)
+		ctrl |= MACB_BIT(FD);
 
 	if (!(bp->caps & MACB_CAPS_MACB_IS_EMAC)) {
-		macb_set_tx_clk(bp->tx_clk, bp->speed, ndev);
+		ctrl &= ~(GEM_BIT(GBE) | MACB_BIT(PAE));
+
+		if (speed == SPEED_1000)
+			ctrl |= GEM_BIT(GBE);
+
+		/* We do not support MLO_PAUSE_RX yet */
+		if (tx_pause)
+			ctrl |= MACB_BIT(PAE);
+
+		macb_set_tx_clk(bp->tx_clk, speed, ndev);
 
 		/* Initialize rings & buffers as clearing MACB_BIT(TE) in link down
 		 * cleared the pipeline and control registers.
@@ -647,6 +660,10 @@ static void macb_mac_link_up(struct phylink_config *config, unsigned int mode,
 			queue_writel(queue, IER,
 				     bp->rx_intr_mask | MACB_TX_INT_FLAGS | MACB_BIT(HRESP));
 	}
+
+	macb_or_gem_writel(bp, NCFGR, ctrl);
+
+	spin_unlock_irqrestore(&bp->lock, flags);
 
 	/* Enable Rx and Tx */
 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(RE) | MACB_BIT(TE));
@@ -723,6 +740,9 @@ static int macb_mii_probe(struct net_device *dev)
 static int macb_mdiobus_register(struct macb *bp)
 {
 	struct device_node *child, *np = bp->pdev->dev.of_node;
+
+	if (of_phy_is_fixed_link(np))
+		return mdiobus_register(bp->mii_bus);
 
 	/* Only create the PHY from the device tree if at least one PHY is
 	 * described. Otherwise scan the entire MDIO bus. We do this to support
@@ -2538,19 +2558,23 @@ static int macb_open(struct net_device *dev)
 
 	err = macb_phylink_connect(bp);
 	if (err)
-		goto pm_exit;
+		goto reset_hw;
 
 	netif_tx_start_all_queues(dev);
 
 	if (bp->ptp_info)
 		bp->ptp_info->ptp_init(dev);
 
-pm_exit:
-	if (err) {
-		pm_runtime_put_sync(&bp->pdev->dev);
-		return err;
-	}
 	return 0;
+
+reset_hw:
+	macb_reset_hw(bp);
+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue)
+		napi_disable(&queue->napi);
+	macb_free_consistent(bp);
+pm_exit:
+	pm_runtime_put_sync(&bp->pdev->dev);
+	return err;
 }
 
 static int macb_close(struct net_device *dev)
@@ -3738,15 +3762,9 @@ static int macb_init(struct platform_device *pdev)
 
 static struct sifive_fu540_macb_mgmt *mgmt;
 
-/* Initialize and start the Receiver and Transmit subsystems */
-static int at91ether_start(struct net_device *dev)
+static int at91ether_alloc_coherent(struct macb *lp)
 {
-	struct macb *lp = netdev_priv(dev);
 	struct macb_queue *q = &lp->queues[0];
-	struct macb_dma_desc *desc;
-	dma_addr_t addr;
-	u32 ctl;
-	int i;
 
 	q->rx_ring = dma_alloc_coherent(&lp->pdev->dev,
 					 (AT91ETHER_MAX_RX_DESCR *
@@ -3767,6 +3785,43 @@ static int at91ether_start(struct net_device *dev)
 		q->rx_ring = NULL;
 		return -ENOMEM;
 	}
+
+	return 0;
+}
+
+static void at91ether_free_coherent(struct macb *lp)
+{
+	struct macb_queue *q = &lp->queues[0];
+
+	if (q->rx_ring) {
+		dma_free_coherent(&lp->pdev->dev,
+				  AT91ETHER_MAX_RX_DESCR *
+				  macb_dma_desc_get_size(lp),
+				  q->rx_ring, q->rx_ring_dma);
+		q->rx_ring = NULL;
+	}
+
+	if (q->rx_buffers) {
+		dma_free_coherent(&lp->pdev->dev,
+				  AT91ETHER_MAX_RX_DESCR *
+				  AT91ETHER_MAX_RBUFF_SZ,
+				  q->rx_buffers, q->rx_buffers_dma);
+		q->rx_buffers = NULL;
+	}
+}
+
+/* Initialize and start the Receiver and Transmit subsystems */
+static int at91ether_start(struct macb *lp)
+{
+	struct macb_queue *q = &lp->queues[0];
+	struct macb_dma_desc *desc;
+	dma_addr_t addr;
+	u32 ctl;
+	int i, ret;
+
+	ret = at91ether_alloc_coherent(lp);
+	if (ret)
+		return ret;
 
 	addr = q->rx_buffers_dma;
 	for (i = 0; i < AT91ETHER_MAX_RX_DESCR; i++) {
@@ -3789,30 +3844,6 @@ static int at91ether_start(struct net_device *dev)
 	ctl = macb_readl(lp, NCR);
 	macb_writel(lp, NCR, ctl | MACB_BIT(RE) | MACB_BIT(TE));
 
-	return 0;
-}
-
-/* Open the ethernet interface */
-static int at91ether_open(struct net_device *dev)
-{
-	struct macb *lp = netdev_priv(dev);
-	u32 ctl;
-	int ret;
-
-	ret = pm_runtime_get_sync(&lp->pdev->dev);
-	if (ret < 0)
-		return ret;
-
-	/* Clear internal statistics */
-	ctl = macb_readl(lp, NCR);
-	macb_writel(lp, NCR, ctl | MACB_BIT(CLRSTAT));
-
-	macb_set_hwaddr(lp);
-
-	ret = at91ether_start(dev);
-	if (ret)
-		return ret;
-
 	/* Enable MAC interrupts */
 	macb_writel(lp, IER, MACB_BIT(RCOMP)	|
 			     MACB_BIT(RXUBR)	|
@@ -3822,25 +3853,12 @@ static int at91ether_open(struct net_device *dev)
 			     MACB_BIT(ISR_ROVR)	|
 			     MACB_BIT(HRESP));
 
-	ret = macb_phylink_connect(lp);
-	if (ret)
-		return ret;
-
-	netif_start_queue(dev);
-
 	return 0;
 }
 
-/* Close the interface */
-static int at91ether_close(struct net_device *dev)
+static void at91ether_stop(struct macb *lp)
 {
-	struct macb *lp = netdev_priv(dev);
-	struct macb_queue *q = &lp->queues[0];
 	u32 ctl;
-
-	/* Disable Receiver and Transmitter */
-	ctl = macb_readl(lp, NCR);
-	macb_writel(lp, NCR, ctl & ~(MACB_BIT(TE) | MACB_BIT(RE)));
 
 	/* Disable MAC interrupts */
 	macb_writel(lp, IDR, MACB_BIT(RCOMP)	|
@@ -3851,21 +3869,63 @@ static int at91ether_close(struct net_device *dev)
 			     MACB_BIT(ISR_ROVR) |
 			     MACB_BIT(HRESP));
 
+	/* Disable Receiver and Transmitter */
+	ctl = macb_readl(lp, NCR);
+	macb_writel(lp, NCR, ctl & ~(MACB_BIT(TE) | MACB_BIT(RE)));
+
+	/* Free resources. */
+	at91ether_free_coherent(lp);
+}
+
+/* Open the ethernet interface */
+static int at91ether_open(struct net_device *dev)
+{
+	struct macb *lp = netdev_priv(dev);
+	u32 ctl;
+	int ret;
+
+	ret = pm_runtime_get_sync(&lp->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&lp->pdev->dev);
+		return ret;
+	}
+
+	/* Clear internal statistics */
+	ctl = macb_readl(lp, NCR);
+	macb_writel(lp, NCR, ctl | MACB_BIT(CLRSTAT));
+
+	macb_set_hwaddr(lp);
+
+	ret = at91ether_start(lp);
+	if (ret)
+		goto pm_exit;
+
+	ret = macb_phylink_connect(lp);
+	if (ret)
+		goto stop;
+
+	netif_start_queue(dev);
+
+	return 0;
+
+stop:
+	at91ether_stop(lp);
+pm_exit:
+	pm_runtime_put_sync(&lp->pdev->dev);
+	return ret;
+}
+
+/* Close the interface */
+static int at91ether_close(struct net_device *dev)
+{
+	struct macb *lp = netdev_priv(dev);
+
 	netif_stop_queue(dev);
 
 	phylink_stop(lp->phylink);
 	phylink_disconnect_phy(lp->phylink);
 
-	dma_free_coherent(&lp->pdev->dev,
-			  AT91ETHER_MAX_RX_DESCR *
-			  macb_dma_desc_get_size(lp),
-			  q->rx_ring, q->rx_ring_dma);
-	q->rx_ring = NULL;
-
-	dma_free_coherent(&lp->pdev->dev,
-			  AT91ETHER_MAX_RX_DESCR * AT91ETHER_MAX_RBUFF_SZ,
-			  q->rx_buffers, q->rx_buffers_dma);
-	q->rx_buffers = NULL;
+	at91ether_stop(lp);
 
 	return pm_runtime_put(&lp->pdev->dev);
 }
@@ -4156,15 +4216,9 @@ static int fu540_c000_clk_init(struct platform_device *pdev, struct clk **pclk,
 
 static int fu540_c000_init(struct platform_device *pdev)
 {
-	struct resource *res;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res)
-		return -ENODEV;
-
-	mgmt->reg = ioremap(res->start, resource_size(res));
-	if (!mgmt->reg)
-		return -ENOMEM;
+	mgmt->reg = devm_platform_ioremap_resource(pdev, 1);
+	if (IS_ERR(mgmt->reg))
+		return PTR_ERR(mgmt->reg);
 
 	return macb_init(pdev);
 }
@@ -4428,8 +4482,6 @@ static int macb_probe(struct platform_device *pdev)
 		bp->phy_interface = PHY_INTERFACE_MODE_MII;
 	else
 		bp->phy_interface = interface;
-
-	bp->speed = SPEED_UNKNOWN;
 
 	/* IP specific init */
 	err = init(pdev);

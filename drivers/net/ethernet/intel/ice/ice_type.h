@@ -118,7 +118,8 @@ enum ice_media_type {
 
 enum ice_vsi_type {
 	ICE_VSI_PF = 0,
-	ICE_VSI_VF,
+	ICE_VSI_VF = 1,
+	ICE_VSI_CTRL = 3,	/* equates to ICE_VSI_PF with 1 queue pair */
 	ICE_VSI_LB = 6,
 };
 
@@ -161,6 +162,38 @@ struct ice_phy_info {
 	u8 get_link_info;
 };
 
+/* protocol enumeration for filters */
+enum ice_fltr_ptype {
+	/* NONE - used for undef/error */
+	ICE_FLTR_PTYPE_NONF_NONE = 0,
+	ICE_FLTR_PTYPE_NONF_IPV4_UDP,
+	ICE_FLTR_PTYPE_NONF_IPV4_TCP,
+	ICE_FLTR_PTYPE_NONF_IPV4_SCTP,
+	ICE_FLTR_PTYPE_NONF_IPV4_OTHER,
+	ICE_FLTR_PTYPE_FRAG_IPV4,
+	ICE_FLTR_PTYPE_NONF_IPV6_UDP,
+	ICE_FLTR_PTYPE_NONF_IPV6_TCP,
+	ICE_FLTR_PTYPE_NONF_IPV6_SCTP,
+	ICE_FLTR_PTYPE_NONF_IPV6_OTHER,
+	ICE_FLTR_PTYPE_MAX,
+};
+
+enum ice_fd_hw_seg {
+	ICE_FD_HW_SEG_NON_TUN = 0,
+	ICE_FD_HW_SEG_TUN,
+	ICE_FD_HW_SEG_MAX,
+};
+
+/* 2 VSI = 1 ICE_VSI_PF + 1 ICE_VSI_CTRL */
+#define ICE_MAX_FDIR_VSI_PER_FILTER	2
+
+struct ice_fd_hw_prof {
+	struct ice_flow_seg_info *fdir_seg[ICE_FD_HW_SEG_MAX];
+	int cnt;
+	u64 entry_h[ICE_MAX_FDIR_VSI_PER_FILTER][ICE_FD_HW_SEG_MAX];
+	u16 vsi_h[ICE_MAX_FDIR_VSI_PER_FILTER];
+};
+
 /* Common HW capabilities for SW use */
 struct ice_hw_common_caps {
 	u32 valid_functions;
@@ -197,6 +230,8 @@ struct ice_hw_func_caps {
 	u32 num_allocd_vfs;		/* Number of allocated VFs */
 	u32 vf_base_id;			/* Logical ID of the first VF */
 	u32 guar_num_vsi;
+	u32 fd_fltr_guar;		/* Number of filters guaranteed */
+	u32 fd_fltr_best_effort;	/* Number of best effort filters */
 };
 
 /* Device wide capabilities */
@@ -204,6 +239,7 @@ struct ice_hw_dev_caps {
 	struct ice_hw_common_caps common_cap;
 	u32 num_vfs_exposed;		/* Total number of VFs exposed */
 	u32 num_vsi_allocd_to_host;	/* Excluding EMP VSI */
+	u32 num_flow_director_fltr;	/* Number of FD filters available */
 	u32 num_funcs;
 };
 
@@ -239,16 +275,35 @@ struct ice_fc_info {
 	enum ice_fc_mode req_mode;	/* FC mode requested by caller */
 };
 
+/* Option ROM version information */
+struct ice_orom_info {
+	u8 major;			/* Major version of OROM */
+	u8 patch;			/* Patch version of OROM */
+	u16 build;			/* Build version of OROM */
+};
+
 /* NVM Information */
 struct ice_nvm_info {
-	u32 eetrack;              /* NVM data version */
-	u32 oem_ver;              /* OEM version info */
-	u16 sr_words;             /* Shadow RAM size in words */
-	u16 ver;                  /* NVM package version */
+	struct ice_orom_info orom;	/* Option ROM version info */
+	u32 eetrack;			/* NVM data version */
+	u16 sr_words;			/* Shadow RAM size in words */
+	u32 flash_size;			/* Size of available flash in bytes */
+	u8 major_ver;			/* major version of NVM package */
+	u8 minor_ver;			/* minor version of dev starter */
 	u8 blank_nvm_mode;        /* is NVM empty (no FW present) */
 };
 
 #define ICE_NVM_VER_LEN	32
+
+/* netlist version information */
+struct ice_netlist_ver_info {
+	u32 major;			/* major high/low */
+	u32 minor;			/* minor high/low */
+	u32 type;			/* type high/low */
+	u32 rev;			/* revision high/low */
+	u32 hash;			/* SHA-1 hash word */
+	u16 cust_ver;			/* customer version */
+};
 
 /* Max number of port to queue branches w.r.t topology */
 #define ICE_MAX_TRAFFIC_CLASS 8
@@ -470,6 +525,8 @@ struct ice_hw {
 	u64 debug_mask;		/* bitmap for debug mask */
 	enum ice_mac_type mac_type;
 
+	u16 fd_ctr_base;	/* FD counter base index */
+
 	/* pci info */
 	u16 device_id;
 	u16 vendor_id;
@@ -482,8 +539,8 @@ struct ice_hw {
 	u16 max_burst_size;	/* driver sets this value */
 
 	/* Tx Scheduler values */
-	u16 num_tx_sched_layers;
-	u16 num_tx_sched_phys_layers;
+	u8 num_tx_sched_layers;
+	u8 num_tx_sched_phys_layers;
 	u8 flattened_layers;
 	u8 max_cgds;
 	u8 sw_entry_point_layer;
@@ -497,6 +554,7 @@ struct ice_hw {
 	struct ice_nvm_info nvm;
 	struct ice_hw_dev_caps dev_caps;	/* device capabilities */
 	struct ice_hw_func_caps func_caps;	/* function capabilities */
+	struct ice_netlist_ver_info netlist_ver; /* netlist version info */
 
 	struct ice_switch_info *switch_info;	/* switch filter lists */
 
@@ -539,6 +597,7 @@ struct ice_hw {
 
 	/* Active package version (currently active) */
 	struct ice_pkg_ver active_pkg_ver;
+	u32 active_track_id;
 	u8 active_pkg_name[ICE_PKG_NAME_SIZE];
 	u8 active_pkg_in_nvm;
 
@@ -559,10 +618,29 @@ struct ice_hw {
 	u8 *pkg_copy;
 	u32 pkg_size;
 
+	/* tunneling info */
+	struct mutex tnl_lock;
+	struct ice_tunnel_table tnl;
+
 	/* HW block tables */
 	struct ice_blk_info blk[ICE_BLK_COUNT];
 	struct mutex fl_profs_locks[ICE_BLK_COUNT];	/* lock fltr profiles */
 	struct list_head fl_profs[ICE_BLK_COUNT];
+
+	/* Flow Director filter info */
+	int fdir_active_fltr;
+
+	struct mutex fdir_fltr_lock;	/* protect Flow Director */
+	struct list_head fdir_list_head;
+
+	/* Book-keeping of side-band filter count per flow-type.
+	 * This is used to detect and handle input set changes for
+	 * respective flow-type.
+	 */
+	u16 fdir_fltr_cnt[ICE_FLTR_PTYPE_MAX];
+
+	struct ice_fd_hw_prof **fdir_prof;
+	DECLARE_BITMAP(fdir_perfect_fltr, ICE_FLTR_PTYPE_MAX);
 	struct mutex rss_locks;	/* protect RSS configuration */
 	struct list_head rss_list_head;
 };
@@ -582,6 +660,8 @@ struct ice_eth_stats {
 	u64 tx_discards;		/* tdpc */
 	u64 tx_errors;			/* tepc */
 };
+
+#define ICE_MAX_UP	8
 
 /* Statistics collected by the MAC */
 struct ice_hw_port_stats {
@@ -622,11 +702,15 @@ struct ice_hw_port_stats {
 	u64 tx_size_1023;		/* ptc1023 */
 	u64 tx_size_1522;		/* ptc1522 */
 	u64 tx_size_big;		/* ptc9522 */
+	/* flow director stats */
+	u32 fd_sb_status;
+	u64 fd_sb_match;
 };
 
 /* Checksum and Shadow RAM pointers */
 #define ICE_SR_BOOT_CFG_PTR		0x132
-#define ICE_NVM_OEM_VER_OFF		0x02
+#define ICE_NVM_OROM_VER_OFF		0x02
+#define ICE_SR_PBA_BLOCK_PTR		0x16
 #define ICE_SR_NVM_DEV_STARTER_VER	0x18
 #define ICE_SR_NVM_EETRACK_LO		0x2D
 #define ICE_SR_NVM_EETRACK_HI		0x2E
@@ -634,12 +718,12 @@ struct ice_hw_port_stats {
 #define ICE_NVM_VER_LO_MASK		(0xff << ICE_NVM_VER_LO_SHIFT)
 #define ICE_NVM_VER_HI_SHIFT		12
 #define ICE_NVM_VER_HI_MASK		(0xf << ICE_NVM_VER_HI_SHIFT)
-#define ICE_OEM_VER_PATCH_SHIFT		0
-#define ICE_OEM_VER_PATCH_MASK		(0xff << ICE_OEM_VER_PATCH_SHIFT)
-#define ICE_OEM_VER_BUILD_SHIFT		8
-#define ICE_OEM_VER_BUILD_MASK		(0xffff << ICE_OEM_VER_BUILD_SHIFT)
-#define ICE_OEM_VER_SHIFT		24
-#define ICE_OEM_VER_MASK		(0xff << ICE_OEM_VER_SHIFT)
+#define ICE_OROM_VER_PATCH_SHIFT	0
+#define ICE_OROM_VER_PATCH_MASK		(0xff << ICE_OROM_VER_PATCH_SHIFT)
+#define ICE_OROM_VER_BUILD_SHIFT	8
+#define ICE_OROM_VER_BUILD_MASK		(0xffff << ICE_OROM_VER_BUILD_SHIFT)
+#define ICE_OROM_VER_SHIFT		24
+#define ICE_OROM_VER_MASK		(0xff << ICE_OROM_VER_SHIFT)
 #define ICE_SR_PFA_PTR			0x40
 #define ICE_SR_SECTOR_SIZE_IN_WORDS	0x800
 #define ICE_SR_WORDS_IN_1KB		512

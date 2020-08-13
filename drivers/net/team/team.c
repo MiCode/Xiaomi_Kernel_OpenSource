@@ -468,6 +468,9 @@ static const struct team_mode *team_mode_get(const char *kind)
 	struct team_mode_item *mitem;
 	const struct team_mode *mode = NULL;
 
+	if (!try_module_get(THIS_MODULE))
+		return NULL;
+
 	spin_lock(&mode_list_lock);
 	mitem = __find_mode(kind);
 	if (!mitem) {
@@ -483,6 +486,7 @@ static const struct team_mode *team_mode_get(const char *kind)
 	}
 
 	spin_unlock(&mode_list_lock);
+	module_put(THIS_MODULE);
 	return mode;
 }
 
@@ -1643,6 +1647,7 @@ static int team_init(struct net_device *dev)
 
 	lockdep_register_key(&team->team_lock_key);
 	__mutex_init(&team->lock, "team->team_lock_key", &team->team_lock_key);
+	netdev_lockdep_set_classes(dev);
 
 	return 0;
 
@@ -2240,6 +2245,8 @@ team_nl_option_policy[TEAM_ATTR_OPTION_MAX + 1] = {
 	[TEAM_ATTR_OPTION_CHANGED]		= { .type = NLA_FLAG },
 	[TEAM_ATTR_OPTION_TYPE]			= { .type = NLA_U8 },
 	[TEAM_ATTR_OPTION_DATA]			= { .type = NLA_BINARY },
+	[TEAM_ATTR_OPTION_PORT_IFINDEX]		= { .type = NLA_U32 },
+	[TEAM_ATTR_OPTION_ARRAY_INDEX]		= { .type = NLA_U32 },
 };
 
 static int team_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)

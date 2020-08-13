@@ -6,7 +6,7 @@
 #ifndef _CRYPTO_QTI_PLATFORM_H
 #define _CRYPTO_QTI_PLATFORM_H
 
-#include <linux/bio-crypt-ctx.h>
+#include <linux/blk-crypto.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/device.h>

@@ -38,8 +38,8 @@
 #include <linux/irq.h>
 #include <linux/irq_work.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
-#include <linux/of.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -1390,6 +1390,12 @@ static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 
 	mutex_lock(&data->lock);
 
+	err = iio_triggered_buffer_postenable(indio_dev);
+	if (err < 0) {
+		mutex_unlock(&data->lock);
+		return err;
+	}
+
 	/*
 	 * Enable triggers according to the scan_mask. Enabling either
 	 * LIGHT_CLEAR or LIGHT_IR scan mode results in enabling ALS
@@ -1420,14 +1426,12 @@ static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 		goto error_unlock;
 
 	data->buffer = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
-	if (!data->buffer) {
+	if (!data->buffer)
 		err = -ENOMEM;
-		goto error_unlock;
-	}
-
-	err = iio_triggered_buffer_postenable(indio_dev);
 
 error_unlock:
+	if (err < 0)
+		iio_triggered_buffer_predisable(indio_dev);
 	mutex_unlock(&data->lock);
 
 	return err;
@@ -1436,13 +1440,9 @@ error_unlock:
 static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	int i, err;
+	int i, err = 0;
 
 	mutex_lock(&data->lock);
-
-	err = iio_triggered_buffer_predisable(indio_dev);
-	if (err < 0)
-		goto error_unlock;
 
 	for_each_set_bit(i, indio_dev->active_scan_mask,
 		indio_dev->masklength) {
@@ -1465,7 +1465,8 @@ static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 	if (err == 0)
 		kfree(data->buffer);
 
-error_unlock:
+	iio_triggered_buffer_predisable(indio_dev);
+
 	mutex_unlock(&data->lock);
 
 	return err;
@@ -1616,18 +1617,16 @@ static const struct i2c_device_id gp2ap020a00f_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, gp2ap020a00f_id);
 
-#ifdef CONFIG_OF
 static const struct of_device_id gp2ap020a00f_of_match[] = {
 	{ .compatible = "sharp,gp2ap020a00f" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gp2ap020a00f_of_match);
-#endif
 
 static struct i2c_driver gp2ap020a00f_driver = {
 	.driver = {
 		.name	= GP2A_I2C_NAME,
-		.of_match_table = of_match_ptr(gp2ap020a00f_of_match),
+		.of_match_table = gp2ap020a00f_of_match,
 	},
 	.probe		= gp2ap020a00f_probe,
 	.remove		= gp2ap020a00f_remove,

@@ -247,7 +247,7 @@ check2ndT2(char *buf)
 	/* check for plausible wct, bcc and t2 data and parm sizes */
 	/* check for parm and data offset going beyond end of smb */
 	if (pSMB->WordCount != 10) { /* coalesce_t2 depends on this */
-		cifs_dbg(FYI, "invalid transact2 word count\n");
+		cifs_dbg(FYI, "Invalid transact2 word count\n");
 		return -EINVAL;
 	}
 
@@ -766,7 +766,7 @@ smb_set_file_info(struct inode *inode, const char *full_path,
 	struct cifs_tcon *tcon;
 
 	/* if the file is already open for write, just use that fileid */
-	open_file = find_writable_file(cinode, true);
+	open_file = find_writable_file(cinode, FIND_WR_FSUID_ONLY);
 	if (open_file) {
 		fid.netfid = open_file->fid.netfid;
 		netpid = open_file->pid;

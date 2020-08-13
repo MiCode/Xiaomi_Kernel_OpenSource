@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2018-2019 Netronome Systems, Inc.
@@ -318,6 +318,11 @@ may be interested in:
   of eBPF maps are used with a given helper function.
 * *kernel/bpf/* directory contains other files in which additional helpers are
   defined (for cgroups, sockmaps, etc.).
+* The bpftool utility can be used to probe the availability of helper functions
+  on the system (as well as supported program and map types, and a number of
+  other parameters). To do so, run **bpftool feature probe** (see
+  **bpftool-feature**\ (8) for details). Add the **unprivileged** keyword to
+  list features available to unprivileged users.
 
 Compatibility between helper functions and program types can generally be found
 in the files where helper functions are defined. Look for the **struct
@@ -338,6 +343,7 @@ SEE ALSO
 ========
 
 **bpf**\ (2),
+**bpftool**\ (8),
 **cgroups**\ (7),
 **ip**\ (8),
 **perf_event_open**\ (2),
@@ -400,6 +406,7 @@ class PrinterHelpers(Printer):
             'struct bpf_fib_lookup',
             'struct bpf_perf_event_data',
             'struct bpf_perf_event_value',
+            'struct bpf_pidns_info',
             'struct bpf_sock',
             'struct bpf_sock_addr',
             'struct bpf_sock_ops',
@@ -413,6 +420,7 @@ class PrinterHelpers(Printer):
             'struct sk_reuseport_md',
             'struct sockaddr',
             'struct tcphdr',
+            'struct seq_file',
 
             'struct __sk_buff',
             'struct sk_msg_md',
@@ -435,6 +443,7 @@ class PrinterHelpers(Printer):
             'struct bpf_fib_lookup',
             'struct bpf_perf_event_data',
             'struct bpf_perf_event_value',
+            'struct bpf_pidns_info',
             'struct bpf_sock',
             'struct bpf_sock_addr',
             'struct bpf_sock_ops',
@@ -448,6 +457,7 @@ class PrinterHelpers(Printer):
             'struct sk_reuseport_md',
             'struct sockaddr',
             'struct tcphdr',
+            'struct seq_file',
     }
     mapped_types = {
             'u8': '__u8',

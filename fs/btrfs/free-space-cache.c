@@ -82,7 +82,7 @@ static struct inode *__lookup_free_space_inode(struct btrfs_root *root,
 	 * sure NOFS is set to keep us from deadlocking.
 	 */
 	nofs_flag = memalloc_nofs_save();
-	inode = btrfs_iget_path(fs_info->sb, &location, root, path);
+	inode = btrfs_iget_path(fs_info->sb, location.objectid, root, path);
 	btrfs_release_path(path);
 	memalloc_nofs_restore(nofs_flag);
 	if (IS_ERR(inode))
@@ -371,10 +371,10 @@ static void io_ctl_drop_pages(struct btrfs_io_ctl *io_ctl)
 	}
 }
 
-static int io_ctl_prepare_pages(struct btrfs_io_ctl *io_ctl, struct inode *inode,
-				int uptodate)
+static int io_ctl_prepare_pages(struct btrfs_io_ctl *io_ctl, bool uptodate)
 {
 	struct page *page;
+	struct inode *inode = io_ctl->inode;
 	gfp_t mask = btrfs_alloc_write_mask(inode->i_mapping);
 	int i;
 
@@ -732,7 +732,7 @@ static int __load_free_space_cache(struct btrfs_root *root, struct inode *inode,
 
 	readahead_cache(inode);
 
-	ret = io_ctl_prepare_pages(&io_ctl, inode, 1);
+	ret = io_ctl_prepare_pages(&io_ctl, true);
 	if (ret)
 		goto out;
 
@@ -1067,6 +1067,7 @@ fail:
 }
 
 static noinline_for_stack int write_pinned_extent_entries(
+			    struct btrfs_trans_handle *trans,
 			    struct btrfs_block_group *block_group,
 			    struct btrfs_io_ctl *io_ctl,
 			    int *entries)
@@ -1085,7 +1086,7 @@ static noinline_for_stack int write_pinned_extent_entries(
 	 * We shouldn't have switched the pinned extents yet so this is the
 	 * right one
 	 */
-	unpin = block_group->fs_info->pinned_extents;
+	unpin = &trans->transaction->pinned_extents;
 
 	start = block_group->start;
 
@@ -1189,13 +1190,10 @@ out:
 	if (ret) {
 		invalidate_inode_pages2(inode->i_mapping);
 		BTRFS_I(inode)->generation = 0;
-		if (block_group) {
-#ifdef DEBUG
-			btrfs_err(root->fs_info,
-				  "failed to write free space cache for block group %llu",
-				  block_group->start);
-#endif
-		}
+		if (block_group)
+			btrfs_debug(root->fs_info,
+	  "failed to write free space cache for block group %llu error %d",
+				  block_group->start, ret);
 	}
 	btrfs_update_inode(trans, root, inode);
 
@@ -1291,7 +1289,7 @@ static int __btrfs_write_out_cache(struct btrfs_root *root, struct inode *inode,
 	}
 
 	/* Lock all pages first so we can lock the extent safely. */
-	ret = io_ctl_prepare_pages(io_ctl, inode, 0);
+	ret = io_ctl_prepare_pages(io_ctl, false);
 	if (ret)
 		goto out_unlock;
 
@@ -1317,7 +1315,7 @@ static int __btrfs_write_out_cache(struct btrfs_root *root, struct inode *inode,
 	 * If this changes while we are working we'll get added back to
 	 * the dirty list and redo it.  No locking needed
 	 */
-	ret = write_pinned_extent_entries(block_group, io_ctl, &entries);
+	ret = write_pinned_extent_entries(trans, block_group, io_ctl, &entries);
 	if (ret)
 		goto out_nospc_locked;
 
@@ -1366,18 +1364,6 @@ static int __btrfs_write_out_cache(struct btrfs_root *root, struct inode *inode,
 
 	return 0;
 
-out:
-	io_ctl->inode = NULL;
-	io_ctl_free(io_ctl);
-	if (ret) {
-		invalidate_inode_pages2(inode->i_mapping);
-		BTRFS_I(inode)->generation = 0;
-	}
-	btrfs_update_inode(trans, root, inode);
-	if (must_iput)
-		iput(inode);
-	return ret;
-
 out_nospc_locked:
 	cleanup_bitmap_list(&bitmap_list);
 	spin_unlock(&ctl->tree_lock);
@@ -1390,7 +1376,17 @@ out_unlock:
 	if (block_group && (block_group->flags & BTRFS_BLOCK_GROUP_DATA))
 		up_write(&block_group->data_rwsem);
 
-	goto out;
+out:
+	io_ctl->inode = NULL;
+	io_ctl_free(io_ctl);
+	if (ret) {
+		invalidate_inode_pages2(inode->i_mapping);
+		BTRFS_I(inode)->generation = 0;
+	}
+	btrfs_update_inode(trans, root, inode);
+	if (must_iput)
+		iput(inode);
+	return ret;
 }
 
 int btrfs_write_out_cache(struct btrfs_trans_handle *trans,
@@ -1416,11 +1412,9 @@ int btrfs_write_out_cache(struct btrfs_trans_handle *trans,
 	ret = __btrfs_write_out_cache(fs_info->tree_root, inode, ctl,
 				block_group, &block_group->io_ctl, trans);
 	if (ret) {
-#ifdef DEBUG
-		btrfs_err(fs_info,
-			  "failed to write free space cache for block group %llu",
-			  block_group->start);
-#endif
+		btrfs_debug(fs_info,
+	  "failed to write free space cache for block group %llu error %d",
+			  block_group->start, ret);
 		spin_lock(&block_group->lock);
 		block_group->disk_cache_state = BTRFS_DC_ERROR;
 		spin_unlock(&block_group->lock);
@@ -3763,46 +3757,6 @@ out:
 	return ret;
 }
 
-void btrfs_get_block_group_trimming(struct btrfs_block_group *cache)
-{
-	atomic_inc(&cache->trimming);
-}
-
-void btrfs_put_block_group_trimming(struct btrfs_block_group *block_group)
-{
-	struct btrfs_fs_info *fs_info = block_group->fs_info;
-	struct extent_map_tree *em_tree;
-	struct extent_map *em;
-	bool cleanup;
-
-	spin_lock(&block_group->lock);
-	cleanup = (atomic_dec_and_test(&block_group->trimming) &&
-		   block_group->removed);
-	spin_unlock(&block_group->lock);
-
-	if (cleanup) {
-		mutex_lock(&fs_info->chunk_mutex);
-		em_tree = &fs_info->mapping_tree;
-		write_lock(&em_tree->lock);
-		em = lookup_extent_mapping(em_tree, block_group->start,
-					   1);
-		BUG_ON(!em); /* logic error, can't happen */
-		remove_extent_mapping(em_tree, em);
-		write_unlock(&em_tree->lock);
-		mutex_unlock(&fs_info->chunk_mutex);
-
-		/* once for us and once for the tree */
-		free_extent_map(em);
-		free_extent_map(em);
-
-		/*
-		 * We've left one free space entry and other tasks trimming
-		 * this block group have left 1 entry each one. Free them.
-		 */
-		__btrfs_remove_free_space_cache(block_group->free_space_ctl);
-	}
-}
-
 int btrfs_trim_block_group(struct btrfs_block_group *block_group,
 			   u64 *trimmed, u64 start, u64 end, u64 minlen)
 {
@@ -3817,7 +3771,7 @@ int btrfs_trim_block_group(struct btrfs_block_group *block_group,
 		spin_unlock(&block_group->lock);
 		return 0;
 	}
-	btrfs_get_block_group_trimming(block_group);
+	btrfs_freeze_block_group(block_group);
 	spin_unlock(&block_group->lock);
 
 	ret = trim_no_bitmap(block_group, trimmed, start, end, minlen, false);
@@ -3830,7 +3784,7 @@ int btrfs_trim_block_group(struct btrfs_block_group *block_group,
 	if (rem)
 		reset_trimming_bitmap(ctl, offset_to_bitmap(ctl, end));
 out:
-	btrfs_put_block_group_trimming(block_group);
+	btrfs_unfreeze_block_group(block_group);
 	return ret;
 }
 
@@ -3847,11 +3801,11 @@ int btrfs_trim_block_group_extents(struct btrfs_block_group *block_group,
 		spin_unlock(&block_group->lock);
 		return 0;
 	}
-	btrfs_get_block_group_trimming(block_group);
+	btrfs_freeze_block_group(block_group);
 	spin_unlock(&block_group->lock);
 
 	ret = trim_no_bitmap(block_group, trimmed, start, end, minlen, async);
-	btrfs_put_block_group_trimming(block_group);
+	btrfs_unfreeze_block_group(block_group);
 
 	return ret;
 }
@@ -3869,13 +3823,13 @@ int btrfs_trim_block_group_bitmaps(struct btrfs_block_group *block_group,
 		spin_unlock(&block_group->lock);
 		return 0;
 	}
-	btrfs_get_block_group_trimming(block_group);
+	btrfs_freeze_block_group(block_group);
 	spin_unlock(&block_group->lock);
 
 	ret = trim_bitmaps(block_group, trimmed, start, end, minlen, maxlen,
 			   async);
 
-	btrfs_put_block_group_trimming(block_group);
+	btrfs_unfreeze_block_group(block_group);
 
 	return ret;
 }
@@ -4036,11 +3990,9 @@ int btrfs_write_out_ino_cache(struct btrfs_root *root,
 		if (release_metadata)
 			btrfs_delalloc_release_metadata(BTRFS_I(inode),
 					inode->i_size, true);
-#ifdef DEBUG
-		btrfs_err(fs_info,
-			  "failed to write free ino cache for root %llu",
-			  root->root_key.objectid);
-#endif
+		btrfs_debug(fs_info,
+			  "failed to write free ino cache for root %llu error %d",
+			  root->root_key.objectid, ret);
 	}
 
 	return ret;

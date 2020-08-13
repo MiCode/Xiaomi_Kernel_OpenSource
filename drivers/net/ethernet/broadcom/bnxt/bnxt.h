@@ -12,8 +12,10 @@
 #define BNXT_H
 
 #define DRV_MODULE_NAME		"bnxt_en"
-#define DRV_MODULE_VERSION	"1.10.1"
 
+/* DO NOT CHANGE DRV_VER_* defines
+ * FIXME: Delete them
+ */
 #define DRV_VER_MAJ	1
 #define DRV_VER_MIN	10
 #define DRV_VER_UPD	1
@@ -535,6 +537,9 @@ struct nqe_cn {
 #define DBR_TYPE_NQ_ARM					(0xbULL << 60)
 #define DBR_TYPE_NULL					(0xfULL << 60)
 
+#define DB_PF_OFFSET_P5					0x10000
+#define DB_VF_OFFSET_P5					0x4000
+
 #define INVALID_HW_RING_ID	((u16)-1)
 
 /* The hardware supports certain page sizes.  Use the supported page sizes
@@ -654,11 +659,6 @@ struct nqe_cn {
 #define HWRM_CMD_TIMEOUT		(bp->hwrm_cmd_timeout)
 #define HWRM_RESET_TIMEOUT		((HWRM_CMD_TIMEOUT) * 4)
 #define HWRM_COREDUMP_TIMEOUT		((HWRM_CMD_TIMEOUT) * 12)
-#define HWRM_RESP_ERR_CODE_MASK		0xffff
-#define HWRM_RESP_LEN_OFFSET		4
-#define HWRM_RESP_LEN_MASK		0xffff0000
-#define HWRM_RESP_LEN_SFT		16
-#define HWRM_RESP_VALID_MASK		0xff000000
 #define BNXT_HWRM_REQ_MAX_SIZE		128
 #define BNXT_HWRM_REQS_PER_PAGE		(BNXT_PAGE_SIZE /	\
 					 BNXT_HWRM_REQ_MAX_SIZE)
@@ -905,6 +905,20 @@ struct bnxt_rx_ring_info {
 	struct page_pool	*page_pool;
 };
 
+struct bnxt_rx_sw_stats {
+	u64			rx_l4_csum_errors;
+	u64			rx_buf_errors;
+};
+
+struct bnxt_cmn_sw_stats {
+	u64			missed_irqs;
+};
+
+struct bnxt_sw_stats {
+	struct bnxt_rx_sw_stats rx;
+	struct bnxt_cmn_sw_stats cmn;
+};
+
 struct bnxt_cp_ring_info {
 	struct bnxt_napi	*bnapi;
 	u32			cp_raw_cons;
@@ -932,9 +946,8 @@ struct bnxt_cp_ring_info {
 	struct ctx_hw_stats	*hw_stats;
 	dma_addr_t		hw_stats_map;
 	u32			hw_stats_ctx_id;
-	u64			rx_l4_csum_errors;
-	u64			rx_buf_errors;
-	u64			missed_irqs;
+
+	struct bnxt_sw_stats	sw_stats;
 
 	struct bnxt_ring_struct	cp_ring_struct;
 
@@ -1064,7 +1077,6 @@ struct bnxt_vf_info {
 #define BNXT_VF_LINK_FORCED	0x4
 #define BNXT_VF_LINK_UP		0x8
 #define BNXT_VF_TRUST		0x10
-	u32	func_flags; /* func cfg flags */
 	u32	min_tx_rate;
 	u32	max_tx_rate;
 	void	*hwrm_cmd_req_addr;
@@ -1355,6 +1367,7 @@ struct bnxt_ctx_mem_info {
 	u16	mrav_num_entries_units;
 	u8	tqm_entries_multiple;
 	u8	ctx_kind_initializer;
+	u8	tqm_fp_rings_count;
 
 	u32	flags;
 	#define BNXT_CTX_FLAG_INITED	0x01
@@ -1497,6 +1510,10 @@ struct bnxt {
 	((chip_num) == CHIP_NUM_58802 ||	\
 	 (chip_num) == CHIP_NUM_58804 ||        \
 	 (chip_num) == CHIP_NUM_58808)
+
+#define BNXT_VPD_FLD_LEN	32
+	char			board_partno[BNXT_VPD_FLD_LEN];
+	char			board_serialno[BNXT_VPD_FLD_LEN];
 
 	struct net_device	*dev;
 	struct pci_dev		*pdev;
@@ -1716,7 +1733,7 @@ struct bnxt {
 	u16			fw_rx_stats_ext_size;
 	u16			fw_tx_stats_ext_size;
 	u16			hw_ring_stats_size;
-	u8			pri2cos[8];
+	u8			pri2cos_idx[8];
 	u8			pri2cos_valid;
 
 	u16			hwrm_max_req_len;
@@ -1728,6 +1745,12 @@ struct bnxt {
 #define BC_HWRM_STR_LEN		21
 #define PHY_VER_STR_LEN         (FW_VER_STR_LEN - BC_HWRM_STR_LEN)
 	char			fw_ver_str[FW_VER_STR_LEN];
+	char			hwrm_ver_supp[FW_VER_STR_LEN];
+	u64			fw_ver_code;
+#define BNXT_FW_VER_CODE(maj, min, bld, rsv)			\
+	((u64)(maj) << 48 | (u64)(min) << 32 | (u64)(bld) << 16 | (rsv))
+#define BNXT_FW_MAJ(bp)		((bp)->fw_ver_code >> 48)
+
 	__be16			vxlan_port;
 	u8			vxlan_port_cnt;
 	__le16			vxlan_fw_dst_port_id;
@@ -1809,6 +1832,7 @@ struct bnxt {
 	/* ensure atomic 64-bit doorbell writes on 32-bit systems. */
 	spinlock_t		db_lock;
 #endif
+	int			db_size;
 
 #define BNXT_NTP_FLTR_MAX_FLTR	4096
 #define BNXT_NTP_FLTR_HASH_SIZE	512
@@ -1851,7 +1875,6 @@ struct bnxt {
 	u8			dsn[8];
 	struct bnxt_tc_info	*tc_info;
 	struct list_head	tc_indr_block_list;
-	struct notifier_block	tc_netdev_nb;
 	struct dentry		*debugfs_pdev;
 	struct device		*hwmon_dev;
 };

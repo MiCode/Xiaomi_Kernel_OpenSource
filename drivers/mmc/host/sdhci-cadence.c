@@ -11,6 +11,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 
 #include "sdhci-pltfm.h"
 
@@ -67,7 +68,7 @@ struct sdhci_cdns_priv {
 	void __iomem *hrs_addr;
 	bool enhanced_strobe;
 	unsigned int nr_phy_params;
-	struct sdhci_cdns_phy_param phy_params[0];
+	struct sdhci_cdns_phy_param phy_params[];
 };
 
 struct sdhci_cdns_phy_cfg {
@@ -96,6 +97,11 @@ static int sdhci_cdns_write_phy_reg(struct sdhci_cdns_priv *priv,
 	u32 tmp;
 	int ret;
 
+	ret = readl_poll_timeout(reg, tmp, !(tmp & SDHCI_CDNS_HRS04_ACK),
+				 0, 10);
+	if (ret)
+		return ret;
+
 	tmp = FIELD_PREP(SDHCI_CDNS_HRS04_WDATA, data) |
 	      FIELD_PREP(SDHCI_CDNS_HRS04_ADDR, addr);
 	writel(tmp, reg);
@@ -110,7 +116,10 @@ static int sdhci_cdns_write_phy_reg(struct sdhci_cdns_priv *priv,
 	tmp &= ~SDHCI_CDNS_HRS04_WR;
 	writel(tmp, reg);
 
-	return 0;
+	ret = readl_poll_timeout(reg, tmp, !(tmp & SDHCI_CDNS_HRS04_ACK),
+				 0, 10);
+
+	return ret;
 }
 
 static unsigned int sdhci_cdns_phy_param_count(struct device_node *np)
@@ -235,6 +244,11 @@ static const struct sdhci_ops sdhci_cdns_ops = {
 	.set_uhs_signaling = sdhci_cdns_set_uhs_signaling,
 };
 
+static const struct sdhci_pltfm_data sdhci_cdns_uniphier_pltfm_data = {
+	.ops = &sdhci_cdns_ops,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+};
+
 static const struct sdhci_pltfm_data sdhci_cdns_pltfm_data = {
 	.ops = &sdhci_cdns_ops,
 };
@@ -334,6 +348,7 @@ static void sdhci_cdns_hs400_enhanced_strobe(struct mmc_host *mmc,
 static int sdhci_cdns_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
+	const struct sdhci_pltfm_data *data;
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_cdns_priv *priv;
 	struct clk *clk;
@@ -350,8 +365,12 @@ static int sdhci_cdns_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	data = of_device_get_match_data(dev);
+	if (!data)
+		data = &sdhci_cdns_pltfm_data;
+
 	nr_phy_params = sdhci_cdns_phy_param_count(dev->of_node);
-	host = sdhci_pltfm_init(pdev, &sdhci_cdns_pltfm_data,
+	host = sdhci_pltfm_init(pdev, data,
 				struct_size(priv, phy_params, nr_phy_params));
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);
@@ -431,7 +450,10 @@ static const struct dev_pm_ops sdhci_cdns_pm_ops = {
 };
 
 static const struct of_device_id sdhci_cdns_match[] = {
-	{ .compatible = "socionext,uniphier-sd4hc" },
+	{
+		.compatible = "socionext,uniphier-sd4hc",
+		.data = &sdhci_cdns_uniphier_pltfm_data,
+	},
 	{ .compatible = "cdns,sd4hc" },
 	{ /* sentinel */ }
 };

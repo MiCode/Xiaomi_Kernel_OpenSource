@@ -311,28 +311,6 @@ struct brcmf_skbuff_cb {
 /* How long to defer borrowing in jiffies */
 #define BRCMF_FWS_BORROW_DEFER_PERIOD		(HZ / 10)
 
-/**
- * enum brcmf_fws_fifo - fifo indices used by dongle firmware.
- *
- * @BRCMF_FWS_FIFO_FIRST: first fifo, ie. background.
- * @BRCMF_FWS_FIFO_AC_BK: fifo for background traffic.
- * @BRCMF_FWS_FIFO_AC_BE: fifo for best-effort traffic.
- * @BRCMF_FWS_FIFO_AC_VI: fifo for video traffic.
- * @BRCMF_FWS_FIFO_AC_VO: fifo for voice traffic.
- * @BRCMF_FWS_FIFO_BCMC: fifo for broadcast/multicast (AP only).
- * @BRCMF_FWS_FIFO_ATIM: fifo for ATIM (AP only).
- * @BRCMF_FWS_FIFO_COUNT: number of fifos.
- */
-enum brcmf_fws_fifo {
-	BRCMF_FWS_FIFO_FIRST,
-	BRCMF_FWS_FIFO_AC_BK = BRCMF_FWS_FIFO_FIRST,
-	BRCMF_FWS_FIFO_AC_BE,
-	BRCMF_FWS_FIFO_AC_VI,
-	BRCMF_FWS_FIFO_AC_VO,
-	BRCMF_FWS_FIFO_BCMC,
-	BRCMF_FWS_FIFO_ATIM,
-	BRCMF_FWS_FIFO_COUNT
-};
 
 /**
  * enum brcmf_fws_txstatus - txstatus flag values.
@@ -404,7 +382,7 @@ struct brcmf_fws_mac_descriptor {
 	u8 traffic_lastreported_bmp;
 };
 
-#define BRCMF_FWS_HANGER_MAXITEMS	1024
+#define BRCMF_FWS_HANGER_MAXITEMS	3072
 
 /**
  * enum brcmf_fws_hanger_item_state - state of hanger item.
@@ -2130,8 +2108,10 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 	skcb->if_flags = 0;
 	skcb->state = BRCMF_FWS_SKBSTATE_NEW;
 	brcmf_skb_if_flags_set_field(skb, INDEX, ifp->ifidx);
+
+	/* mapping from 802.1d priority to firmware fifo index */
 	if (!multicast)
-		fifo = brcmf_fws_prio2fifo[skb->priority];
+		fifo = brcmf_map_prio_to_aci(drvr->config, skb->priority);
 
 	brcmf_fws_lock(fws);
 	if (fifo != BRCMF_FWS_FIFO_AC_BE && fifo < BRCMF_FWS_FIFO_BCMC)
@@ -2145,8 +2125,7 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 		brcmf_fws_enq(fws, BRCMF_FWS_SKBSTATE_DELAYED, fifo, skb);
 		brcmf_fws_schedule_deq(fws);
 	} else {
-		bphy_err(drvr, "drop skb: no hanger slot\n");
-		brcmf_txfinalize(ifp, skb, false);
+		bphy_err(drvr, "no hanger slot available\n");
 		rc = -ENOMEM;
 	}
 	brcmf_fws_unlock(fws);
@@ -2357,7 +2336,7 @@ struct brcmf_fws_info *brcmf_fws_attach(struct brcmf_pub *drvr)
 	fws->drvr = drvr;
 	fws->fcmode = drvr->settings->fcmode;
 
-	if ((drvr->bus_if->always_use_fws_queue == false) &&
+	if (!drvr->bus_if->always_use_fws_queue &&
 	    (fws->fcmode == BRCMF_FWS_FCMODE_NONE)) {
 		fws->avoid_queueing = true;
 		brcmf_dbg(INFO, "FWS queueing will be avoided\n");

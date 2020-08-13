@@ -14,13 +14,13 @@
 #include <linux/sched.h>
 #include <linux/sched/hotplug.h>
 #include <linux/mm_types.h>
+#include <linux/pgtable.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cpufeature.h>
 #include <asm/proc-fns.h>
 #include <asm-generic/mm_hooks.h>
 #include <asm/cputype.h>
-#include <asm/pgtable.h>
 #include <asm/sysreg.h>
 #include <asm/tlbflush.h>
 
@@ -45,6 +45,8 @@ static inline void cpu_set_reserved_ttbr0(void)
 	write_sysreg(ttbr, ttbr0_el1);
 	isb();
 }
+
+void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm);
 
 static inline void cpu_switch_mm(pgd_t *pgd, struct mm_struct *mm)
 {

@@ -980,7 +980,7 @@ int qed_llh_add_mac_filter(struct qed_dev *cdev,
 	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
 	struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
 	union qed_llh_filter filter = {};
-	u8 filter_idx, abs_ppfid;
+	u8 filter_idx, abs_ppfid = 0;
 	u32 high, low, ref_cnt;
 	int rc = 0;
 
@@ -1368,6 +1368,8 @@ static void qed_dbg_user_data_free(struct qed_hwfn *p_hwfn)
 
 void qed_resc_free(struct qed_dev *cdev)
 {
+	struct qed_rdma_info *rdma_info;
+	struct qed_hwfn *p_hwfn;
 	int i;
 
 	if (IS_VF(cdev)) {
@@ -1385,7 +1387,8 @@ void qed_resc_free(struct qed_dev *cdev)
 	qed_llh_free(cdev);
 
 	for_each_hwfn(cdev, i) {
-		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
+		p_hwfn = cdev->hwfns + i;
+		rdma_info = p_hwfn->p_rdma_info;
 
 		qed_cxt_mngr_free(p_hwfn);
 		qed_qm_info_free(p_hwfn);
@@ -1404,8 +1407,10 @@ void qed_resc_free(struct qed_dev *cdev)
 			qed_ooo_free(p_hwfn);
 		}
 
-		if (QED_IS_RDMA_PERSONALITY(p_hwfn))
+		if (QED_IS_RDMA_PERSONALITY(p_hwfn) && rdma_info) {
+			qed_spq_unregister_async_cb(p_hwfn, rdma_info->proto);
 			qed_rdma_info_free(p_hwfn);
+		}
 
 		qed_iov_free(p_hwfn);
 		qed_l2_free(p_hwfn);
@@ -1972,7 +1977,7 @@ static int qed_init_qm_sanity(struct qed_hwfn *p_hwfn)
 		return 0;
 
 	if (QED_IS_ROCE_PERSONALITY(p_hwfn)) {
-		p_hwfn->hw_info.multi_tc_roce_en = 0;
+		p_hwfn->hw_info.multi_tc_roce_en = false;
 		DP_NOTICE(p_hwfn,
 			  "multi-tc roce was disabled to reduce requested amount of pqs\n");
 		if (qed_init_qm_get_num_pqs(p_hwfn) <= RESC_NUM(p_hwfn, QED_PQ))
@@ -2269,6 +2274,7 @@ int qed_resc_alloc(struct qed_dev *cdev)
 		/* EQ */
 		n_eqes = qed_chain_get_capacity(&p_hwfn->p_spq->chain);
 		if (QED_IS_RDMA_PERSONALITY(p_hwfn)) {
+			u32 n_srq = qed_cxt_get_total_srq_count(p_hwfn);
 			enum protocol_type rdma_proto;
 
 			if (QED_IS_ROCE_PERSONALITY(p_hwfn))
@@ -2279,7 +2285,10 @@ int qed_resc_alloc(struct qed_dev *cdev)
 			num_cons = qed_cxt_get_proto_cid_count(p_hwfn,
 							       rdma_proto,
 							       NULL) * 2;
-			n_eqes += num_cons + 2 * MAX_NUM_VFS_BB;
+			/* EQ should be able to get events from all SRQ's
+			 * at the same time
+			 */
+			n_eqes += num_cons + 2 * MAX_NUM_VFS_BB + n_srq;
 		} else if (p_hwfn->hw_info.personality == QED_PCI_ISCSI) {
 			num_cons =
 			    qed_cxt_get_proto_cid_count(p_hwfn,
@@ -3085,7 +3094,9 @@ int qed_hw_init(struct qed_dev *cdev, struct qed_hw_init_params *p_params)
 			rc = qed_final_cleanup(p_hwfn, p_hwfn->p_main_ptt,
 					       p_hwfn->rel_pf_id, false);
 			if (rc) {
-				DP_NOTICE(p_hwfn, "Final cleanup failed\n");
+				qed_hw_err_notify(p_hwfn, p_hwfn->p_main_ptt,
+						  QED_HW_ERR_RAMROD_FAIL,
+						  "Final cleanup failed\n");
 				goto load_err;
 			}
 		}
@@ -4392,7 +4403,7 @@ qed_get_hw_info(struct qed_hwfn *p_hwfn,
 	}
 
 	if (QED_IS_ROCE_PERSONALITY(p_hwfn))
-		p_hwfn->hw_info.multi_tc_roce_en = 1;
+		p_hwfn->hw_info.multi_tc_roce_en = true;
 
 	p_hwfn->hw_info.num_hw_tc = NUM_PHYS_TCS_4PORT_K2;
 	p_hwfn->hw_info.num_active_tc = 1;
@@ -4691,26 +4702,20 @@ static void qed_chain_free_single(struct qed_dev *cdev,
 
 static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
 {
-	void **pp_virt_addr_tbl = p_chain->pbl.pp_virt_addr_tbl;
+	struct addr_tbl_entry *pp_addr_tbl = p_chain->pbl.pp_addr_tbl;
 	u32 page_cnt = p_chain->page_cnt, i, pbl_size;
-	u8 *p_pbl_virt = p_chain->pbl_sp.p_virt_table;
 
-	if (!pp_virt_addr_tbl)
+	if (!pp_addr_tbl)
 		return;
 
-	if (!p_pbl_virt)
-		goto out;
-
 	for (i = 0; i < page_cnt; i++) {
-		if (!pp_virt_addr_tbl[i])
+		if (!pp_addr_tbl[i].virt_addr || !pp_addr_tbl[i].dma_map)
 			break;
 
 		dma_free_coherent(&cdev->pdev->dev,
 				  QED_CHAIN_PAGE_SIZE,
-				  pp_virt_addr_tbl[i],
-				  *(dma_addr_t *)p_pbl_virt);
-
-		p_pbl_virt += QED_CHAIN_PBL_ENTRY_SIZE;
+				  pp_addr_tbl[i].virt_addr,
+				  pp_addr_tbl[i].dma_map);
 	}
 
 	pbl_size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
@@ -4720,9 +4725,9 @@ static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
 				  pbl_size,
 				  p_chain->pbl_sp.p_virt_table,
 				  p_chain->pbl_sp.p_phys_table);
-out:
-	vfree(p_chain->pbl.pp_virt_addr_tbl);
-	p_chain->pbl.pp_virt_addr_tbl = NULL;
+
+	vfree(p_chain->pbl.pp_addr_tbl);
+	p_chain->pbl.pp_addr_tbl = NULL;
 }
 
 void qed_chain_free(struct qed_dev *cdev, struct qed_chain *p_chain)
@@ -4823,19 +4828,19 @@ qed_chain_alloc_pbl(struct qed_dev *cdev,
 {
 	u32 page_cnt = p_chain->page_cnt, size, i;
 	dma_addr_t p_phys = 0, p_pbl_phys = 0;
-	void **pp_virt_addr_tbl = NULL;
+	struct addr_tbl_entry *pp_addr_tbl;
 	u8 *p_pbl_virt = NULL;
 	void *p_virt = NULL;
 
-	size = page_cnt * sizeof(*pp_virt_addr_tbl);
-	pp_virt_addr_tbl = vzalloc(size);
-	if (!pp_virt_addr_tbl)
+	size = page_cnt * sizeof(*pp_addr_tbl);
+	pp_addr_tbl =  vzalloc(size);
+	if (!pp_addr_tbl)
 		return -ENOMEM;
 
 	/* The allocation of the PBL table is done with its full size, since it
 	 * is expected to be successive.
 	 * qed_chain_init_pbl_mem() is called even in a case of an allocation
-	 * failure, since pp_virt_addr_tbl was previously allocated, and it
+	 * failure, since tbl was previously allocated, and it
 	 * should be saved to allow its freeing during the error flow.
 	 */
 	size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
@@ -4849,8 +4854,7 @@ qed_chain_alloc_pbl(struct qed_dev *cdev,
 		p_chain->b_external_pbl = true;
 	}
 
-	qed_chain_init_pbl_mem(p_chain, p_pbl_virt, p_pbl_phys,
-			       pp_virt_addr_tbl);
+	qed_chain_init_pbl_mem(p_chain, p_pbl_virt, p_pbl_phys, pp_addr_tbl);
 	if (!p_pbl_virt)
 		return -ENOMEM;
 
@@ -4869,7 +4873,8 @@ qed_chain_alloc_pbl(struct qed_dev *cdev,
 		/* Fill the PBL table with the physical address of the page */
 		*(dma_addr_t *)p_pbl_virt = p_phys;
 		/* Keep the virtual address of the page */
-		p_chain->pbl.pp_virt_addr_tbl[i] = p_virt;
+		p_chain->pbl.pp_addr_tbl[i].virt_addr = p_virt;
+		p_chain->pbl.pp_addr_tbl[i].dma_map = p_phys;
 
 		p_pbl_virt += QED_CHAIN_PBL_ENTRY_SIZE;
 	}

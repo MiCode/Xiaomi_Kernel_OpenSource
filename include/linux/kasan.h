@@ -11,8 +11,8 @@ struct task_struct;
 
 #ifdef CONFIG_KASAN
 
+#include <linux/pgtable.h>
 #include <asm/kasan.h>
-#include <asm/pgtable.h>
 
 extern unsigned char kasan_early_shadow_page[PAGE_SIZE];
 extern pte_t kasan_early_shadow_pte[PTRS_PER_PTE];
@@ -190,7 +190,7 @@ void kasan_init_tags(void);
 
 void *kasan_reset_tag(const void *addr);
 
-void kasan_report(unsigned long addr, size_t size,
+bool kasan_report(unsigned long addr, size_t size,
 		bool is_write, unsigned long ip);
 
 #else /* CONFIG_KASAN_SW_TAGS */

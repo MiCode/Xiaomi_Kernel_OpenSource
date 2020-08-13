@@ -59,7 +59,9 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	const struct cpumask *affinity;
 	bool brokeaff = false;
 	int err;
+#ifdef CONFIG_SCHED_WALT
 	struct cpumask available_cpus;
+#endif
 
 	/*
 	 * IRQ chip might be already torn down, but the irq descriptor is
@@ -112,12 +114,16 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	if (maskchip && chip->irq_mask)
 		chip->irq_mask(d);
 
+#ifdef CONFIG_SCHED_WALT
 	cpumask_copy(&available_cpus, affinity);
 	cpumask_andnot(&available_cpus, &available_cpus, cpu_isolated_mask);
 	affinity = &available_cpus;
+#endif
 
 	if (cpumask_any_and(affinity, cpu_online_mask) >= nr_cpu_ids) {
+#ifdef CONFIG_SCHED_WALT
 		const struct cpumask *default_affinity;
+#endif
 
 		/*
 		 * If the interrupt is managed, then shut it down and leave
@@ -129,6 +135,7 @@ static bool migrate_one_irq(struct irq_desc *desc)
 			return false;
 		}
 
+#ifdef CONFIG_SCHED_WALT
 		default_affinity = desc->affinity_hint ? : irq_default_affinity;
 		/*
 		 * The order of preference for selecting a fallback CPU is
@@ -156,6 +163,9 @@ static bool migrate_one_irq(struct irq_desc *desc)
 		 * prepared mask while overriding the user affinity.
 		 */
 		affinity = cpumask_of(cpumask_any(affinity));
+#else
+		affinity = cpu_online_mask;
+#endif
 		brokeaff = true;
 	}
 	/*

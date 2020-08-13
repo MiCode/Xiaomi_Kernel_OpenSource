@@ -15,7 +15,6 @@
 #include <linux/aer.h>
 #include <linux/skbuff.h>
 #include <linux/sctp.h>
-#include <linux/vermagic.h>
 #include <net/gre.h>
 #include <net/ip6_checksum.h>
 #include <net/pkt_cls.h>
@@ -41,10 +40,8 @@
 	} while (0)
 
 static void hns3_clear_all_ring(struct hnae3_handle *h, bool force);
-static void hns3_remove_hw_addr(struct net_device *netdev);
 
 static const char hns3_driver_name[] = "hns3";
-const char hns3_driver_version[] = VERMAGIC_STRING;
 static const char hns3_driver_string[] =
 			"Hisilicon Ethernet Network Driver for Hip08 Family";
 static const char hns3_copyright[] = "Copyright (c) 2017 Huawei Corporation.";
@@ -550,6 +547,13 @@ static int hns3_nic_uc_unsync(struct net_device *netdev,
 {
 	struct hnae3_handle *h = hns3_get_handle(netdev);
 
+	/* need ignore the request of removing device address, because
+	 * we store the device address and other addresses of uc list
+	 * in the function's mac filter list.
+	 */
+	if (ether_addr_equal(addr, netdev->dev_addr))
+		return 0;
+
 	if (h->ae_algo->ops->rm_uc_addr)
 		return h->ae_algo->ops->rm_uc_addr(h, addr);
 
@@ -597,34 +601,25 @@ static void hns3_nic_set_rx_mode(struct net_device *netdev)
 {
 	struct hnae3_handle *h = hns3_get_handle(netdev);
 	u8 new_flags;
-	int ret;
 
 	new_flags = hns3_get_netdev_flags(netdev);
 
-	ret = __dev_uc_sync(netdev, hns3_nic_uc_sync, hns3_nic_uc_unsync);
-	if (ret) {
-		netdev_err(netdev, "sync uc address fail\n");
-		if (ret == -ENOSPC)
-			new_flags |= HNAE3_OVERFLOW_UPE;
-	}
-
-	if (netdev->flags & IFF_MULTICAST) {
-		ret = __dev_mc_sync(netdev, hns3_nic_mc_sync,
-				    hns3_nic_mc_unsync);
-		if (ret) {
-			netdev_err(netdev, "sync mc address fail\n");
-			if (ret == -ENOSPC)
-				new_flags |= HNAE3_OVERFLOW_MPE;
-		}
-	}
+	__dev_uc_sync(netdev, hns3_nic_uc_sync, hns3_nic_uc_unsync);
+	__dev_mc_sync(netdev, hns3_nic_mc_sync, hns3_nic_mc_unsync);
 
 	/* User mode Promisc mode enable and vlan filtering is disabled to
-	 * let all packets in. MAC-VLAN Table overflow Promisc enabled and
-	 * vlan fitering is enabled
+	 * let all packets in.
 	 */
-	hns3_enable_vlan_filter(netdev, new_flags & HNAE3_VLAN_FLTR);
 	h->netdev_flags = new_flags;
-	hns3_update_promisc_mode(netdev, new_flags);
+	hns3_request_update_promisc_mode(h);
+}
+
+void hns3_request_update_promisc_mode(struct hnae3_handle *handle)
+{
+	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
+
+	if (ops->request_update_promisc_mode)
+		ops->request_update_promisc_mode(handle);
 }
 
 int hns3_update_promisc_mode(struct net_device *netdev, u8 promisc_flags)
@@ -1107,6 +1102,10 @@ static int hns3_fill_desc(struct hns3_enet_ring *ring, void *priv,
 			return ret;
 
 		dma = dma_map_single(dev, skb->data, size, DMA_TO_DEVICE);
+	} else if (type == DESC_TYPE_FRAGLIST_SKB) {
+		struct sk_buff *skb = (struct sk_buff *)priv;
+
+		dma = dma_map_single(dev, skb->data, size, DMA_TO_DEVICE);
 	} else {
 		frag = (skb_frag_t *)priv;
 		dma = skb_frag_dma_map(dev, frag, 0, size, DMA_TO_DEVICE);
@@ -1144,8 +1143,9 @@ static int hns3_fill_desc(struct hns3_enet_ring *ring, void *priv,
 		/* The txbd's baseinfo of DESC_TYPE_PAGE & DESC_TYPE_SKB */
 		desc_cb->priv = priv;
 		desc_cb->dma = dma + HNS3_MAX_BD_SIZE * k;
-		desc_cb->type = (type == DESC_TYPE_SKB && !k) ?
-				DESC_TYPE_SKB : DESC_TYPE_PAGE;
+		desc_cb->type = ((type == DESC_TYPE_FRAGLIST_SKB ||
+				  type == DESC_TYPE_SKB) && !k) ?
+				type : DESC_TYPE_PAGE;
 
 		/* now, fill the descriptor */
 		desc->addr = cpu_to_le64(dma + HNS3_MAX_BD_SIZE * k);
@@ -1354,7 +1354,9 @@ static void hns3_clear_desc(struct hns3_enet_ring *ring, int next_to_use_orig)
 		ring_ptr_move_bw(ring, next_to_use);
 
 		/* unmap the descriptor dma address */
-		if (ring->desc_cb[ring->next_to_use].type == DESC_TYPE_SKB)
+		if (ring->desc_cb[ring->next_to_use].type == DESC_TYPE_SKB ||
+		    ring->desc_cb[ring->next_to_use].type ==
+		    DESC_TYPE_FRAGLIST_SKB)
 			dma_unmap_single(dev,
 					 ring->desc_cb[ring->next_to_use].dma,
 					ring->desc_cb[ring->next_to_use].length,
@@ -1447,17 +1449,15 @@ netdev_tx_t hns3_nic_net_xmit(struct sk_buff *skb, struct net_device *netdev)
 
 	bd_num += ret;
 
-	if (!skb_has_frag_list(skb))
-		goto out;
-
 	skb_walk_frags(skb, frag_skb) {
-		ret = hns3_fill_skb_to_desc(ring, frag_skb, DESC_TYPE_PAGE);
+		ret = hns3_fill_skb_to_desc(ring, frag_skb,
+					    DESC_TYPE_FRAGLIST_SKB);
 		if (unlikely(ret < 0))
 			goto fill_err;
 
 		bd_num += ret;
 	}
-out:
+
 	pre_ntu = ring->next_to_use ? (ring->next_to_use - 1) :
 					(ring->desc_num - 1);
 	ring->desc[pre_ntu].tx.bdtp_fe_sc_vld_ra_ri |=
@@ -1546,12 +1546,6 @@ static int hns3_nic_set_features(struct net_device *netdev,
 		ret = h->ae_algo->ops->set_gro_en(h, enable);
 		if (ret)
 			return ret;
-	}
-
-	if ((changed & NETIF_F_HW_VLAN_CTAG_FILTER) &&
-	    h->ae_algo->ops->enable_vlan_filter) {
-		enable = !!(features & NETIF_F_HW_VLAN_CTAG_FILTER);
-		h->ae_algo->ops->enable_vlan_filter(h, enable);
 	}
 
 	if ((changed & NETIF_F_HW_VLAN_CTAG_RX) &&
@@ -1715,7 +1709,7 @@ static int hns3_setup_tc(struct net_device *netdev, void *type_data)
 	netif_dbg(h, drv, netdev, "setup tc: num_tc=%u\n", tc);
 
 	return (kinfo->dcb_ops && kinfo->dcb_ops->setup_tc) ?
-		kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : -EOPNOTSUPP;
+		kinfo->dcb_ops->setup_tc(h, tc ? tc : 1, prio_tc) : -EOPNOTSUPP;
 }
 
 static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
@@ -2103,7 +2097,6 @@ static int hns3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	ae_dev->pdev = pdev;
 	ae_dev->flag = ent->driver_data;
-	ae_dev->reset_type = HNAE3_NONE_RESET;
 	hns3_get_dev_capability(pdev, ae_dev);
 	pci_set_drvdata(pdev, ae_dev);
 
@@ -2232,7 +2225,7 @@ static void hns3_reset_prepare(struct pci_dev *pdev)
 {
 	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(pdev);
 
-	dev_info(&pdev->dev, "hns3 flr prepare\n");
+	dev_info(&pdev->dev, "FLR prepare\n");
 	if (ae_dev && ae_dev->ops && ae_dev->ops->flr_prepare)
 		ae_dev->ops->flr_prepare(ae_dev);
 }
@@ -2241,7 +2234,7 @@ static void hns3_reset_done(struct pci_dev *pdev)
 {
 	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(pdev);
 
-	dev_info(&pdev->dev, "hns3 flr done\n");
+	dev_info(&pdev->dev, "FLR done\n");
 	if (ae_dev && ae_dev->ops && ae_dev->ops->flr_done)
 		ae_dev->ops->flr_done(ae_dev);
 }
@@ -2360,7 +2353,7 @@ static int hns3_map_buffer(struct hns3_enet_ring *ring, struct hns3_desc_cb *cb)
 static void hns3_unmap_buffer(struct hns3_enet_ring *ring,
 			      struct hns3_desc_cb *cb)
 {
-	if (cb->type == DESC_TYPE_SKB)
+	if (cb->type == DESC_TYPE_SKB || cb->type == DESC_TYPE_FRAGLIST_SKB)
 		dma_unmap_single(ring_to_dev(ring), cb->dma, cb->length,
 				 ring_to_dma_dir(ring));
 	else if (cb->length)
@@ -3905,9 +3898,11 @@ static int hns3_init_mac_addr(struct net_device *netdev)
 		eth_hw_addr_random(netdev);
 		dev_warn(priv->dev, "using random MAC address %pM\n",
 			 netdev->dev_addr);
-	} else {
+	} else if (!ether_addr_equal(netdev->dev_addr, mac_addr_temp)) {
 		ether_addr_copy(netdev->dev_addr, mac_addr_temp);
 		ether_addr_copy(netdev->perm_addr, mac_addr_temp);
+	} else {
+		return 0;
 	}
 
 	if (h->ae_algo->ops->set_mac_addr)
@@ -3933,17 +3928,6 @@ static void hns3_uninit_phy(struct net_device *netdev)
 
 	if (h->ae_algo->ops->mac_disconnect_phy)
 		h->ae_algo->ops->mac_disconnect_phy(h);
-}
-
-static int hns3_restore_fd_rules(struct net_device *netdev)
-{
-	struct hnae3_handle *h = hns3_get_handle(netdev);
-	int ret = 0;
-
-	if (h->ae_algo->ops->restore_fd_rules)
-		ret = h->ae_algo->ops->restore_fd_rules(h);
-
-	return ret;
 }
 
 static void hns3_del_all_fd_rules(struct net_device *netdev, bool clear_list)
@@ -4117,8 +4101,6 @@ static void hns3_client_uninit(struct hnae3_handle *handle, bool reset)
 	struct hns3_nic_priv *priv = netdev_priv(netdev);
 	int ret;
 
-	hns3_remove_hw_addr(netdev);
-
 	if (netdev->reg_state != NETREG_UNINITIALIZED)
 		unregister_netdev(netdev);
 
@@ -4187,56 +4169,6 @@ static int hns3_client_setup_tc(struct hnae3_handle *handle, u8 tc)
 		return -ENODEV;
 
 	return hns3_nic_set_real_num_queue(ndev);
-}
-
-static int hns3_recover_hw_addr(struct net_device *ndev)
-{
-	struct netdev_hw_addr_list *list;
-	struct netdev_hw_addr *ha, *tmp;
-	int ret = 0;
-
-	netif_addr_lock_bh(ndev);
-	/* go through and sync uc_addr entries to the device */
-	list = &ndev->uc;
-	list_for_each_entry_safe(ha, tmp, &list->list, list) {
-		ret = hns3_nic_uc_sync(ndev, ha->addr);
-		if (ret)
-			goto out;
-	}
-
-	/* go through and sync mc_addr entries to the device */
-	list = &ndev->mc;
-	list_for_each_entry_safe(ha, tmp, &list->list, list) {
-		ret = hns3_nic_mc_sync(ndev, ha->addr);
-		if (ret)
-			goto out;
-	}
-
-out:
-	netif_addr_unlock_bh(ndev);
-	return ret;
-}
-
-static void hns3_remove_hw_addr(struct net_device *netdev)
-{
-	struct netdev_hw_addr_list *list;
-	struct netdev_hw_addr *ha, *tmp;
-
-	hns3_nic_uc_unsync(netdev, netdev->dev_addr);
-
-	netif_addr_lock_bh(netdev);
-	/* go through and unsync uc_addr entries to the device */
-	list = &netdev->uc;
-	list_for_each_entry_safe(ha, tmp, &list->list, list)
-		hns3_nic_uc_unsync(netdev, ha->addr);
-
-	/* go through and unsync mc_addr entries to the device */
-	list = &netdev->mc;
-	list_for_each_entry_safe(ha, tmp, &list->list, list)
-		if (ha->refcount > 1)
-			hns3_nic_mc_unsync(netdev, ha->addr);
-
-	netif_addr_unlock_bh(netdev);
 }
 
 static void hns3_clear_tx_ring(struct hns3_enet_ring *ring)
@@ -4397,22 +4329,12 @@ static void hns3_restore_coal(struct hns3_nic_priv *priv)
 
 static int hns3_reset_notify_down_enet(struct hnae3_handle *handle)
 {
-	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(handle->pdev);
 	struct hnae3_knic_private_info *kinfo = &handle->kinfo;
 	struct net_device *ndev = kinfo->netdev;
 	struct hns3_nic_priv *priv = netdev_priv(ndev);
 
 	if (test_and_set_bit(HNS3_NIC_STATE_RESETTING, &priv->state))
 		return 0;
-
-	/* it is cumbersome for hardware to pick-and-choose entries for deletion
-	 * from table space. Hence, for function reset software intervention is
-	 * required to delete the entries
-	 */
-	if (hns3_dev_ongoing_func_reset(ae_dev)) {
-		hns3_remove_hw_addr(ndev);
-		hns3_del_all_fd_rules(ndev, false);
-	}
 
 	if (!netif_running(ndev))
 		return 0;
@@ -4480,6 +4402,9 @@ static int hns3_reset_notify_init_enet(struct hnae3_handle *handle)
 		goto err_init_irq_fail;
 	}
 
+	if (!hns3_is_phys_func(handle->pdev))
+		hns3_init_mac_addr(netdev);
+
 	ret = hns3_client_start(handle);
 	if (ret) {
 		dev_err(priv->dev, "hns3_client_start fail! ret=%d\n", ret);
@@ -4503,33 +4428,6 @@ err_put_ring:
 	hns3_put_ring_config(priv);
 
 	return ret;
-}
-
-static int hns3_reset_notify_restore_enet(struct hnae3_handle *handle)
-{
-	struct net_device *netdev = handle->kinfo.netdev;
-	bool vlan_filter_enable;
-	int ret;
-
-	ret = hns3_init_mac_addr(netdev);
-	if (ret)
-		return ret;
-
-	ret = hns3_recover_hw_addr(netdev);
-	if (ret)
-		return ret;
-
-	ret = hns3_update_promisc_mode(netdev, handle->netdev_flags);
-	if (ret)
-		return ret;
-
-	vlan_filter_enable = netdev->flags & IFF_PROMISC ? false : true;
-	hns3_enable_vlan_filter(netdev, vlan_filter_enable);
-
-	if (handle->ae_algo->ops->restore_vlan_table)
-		handle->ae_algo->ops->restore_vlan_table(handle);
-
-	return hns3_restore_fd_rules(netdev);
 }
 
 static int hns3_reset_notify_uninit_enet(struct hnae3_handle *handle)
@@ -4580,9 +4478,6 @@ static int hns3_reset_notify(struct hnae3_handle *handle,
 		break;
 	case HNAE3_UNINIT_CLIENT:
 		ret = hns3_reset_notify_uninit_enet(handle);
-		break;
-	case HNAE3_RESTORE_CLIENT:
-		ret = hns3_reset_notify_restore_enet(handle);
 		break;
 	default:
 		break;
@@ -4761,4 +4656,3 @@ MODULE_DESCRIPTION("HNS3: Hisilicon Ethernet Driver");
 MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("pci:hns-nic");
-MODULE_VERSION(HNS3_MOD_VERSION);

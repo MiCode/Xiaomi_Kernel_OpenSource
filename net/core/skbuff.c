@@ -102,7 +102,7 @@ EXPORT_SYMBOL(sysctl_max_skb_frags);
 static void skb_panic(struct sk_buff *skb, unsigned int sz, void *addr,
 		      const char msg[])
 {
-	pr_emerg("%s: text:%p len:%d put:%d head:%p data:%p tail:%#lx end:%#lx dev:%s\n",
+	pr_emerg("%s: text:%px len:%d put:%d head:%px data:%px tail:%#lx end:%#lx dev:%s\n",
 		 msg, addr, skb->len, sz, skb->head, skb->data,
 		 (unsigned long)skb->tail, (unsigned long)skb->end,
 		 skb->dev ? skb->dev->name : "<NULL>");
@@ -3668,6 +3668,7 @@ struct sk_buff *skb_segment_list(struct sk_buff *skb,
 
 		skb_push(nskb, -skb_network_offset(nskb) + offset);
 
+		skb_release_head_state(nskb);
 		 __copy_skb_header(nskb, skb);
 
 		skb_headers_offset_update(nskb, skb_headroom(nskb) - skb_headroom(skb));
@@ -3726,7 +3727,6 @@ int skb_gro_receive_list(struct sk_buff *p, struct sk_buff *skb)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(skb_gro_receive_list);
 
 /**
  *	skb_segment - Perform protocol segmentation on skb.
@@ -3926,14 +3926,21 @@ normal:
 			goto perform_csum_check;
 
 		if (!sg) {
-			if (!nskb->remcsum_offload)
-				nskb->ip_summed = CHECKSUM_NONE;
-			SKB_GSO_CB(nskb)->csum =
-				skb_copy_and_csum_bits(head_skb, offset,
-						       skb_put(nskb, len),
-						       len, 0);
-			SKB_GSO_CB(nskb)->csum_start =
-				skb_headroom(nskb) + doffset;
+			if (!csum) {
+				if (!nskb->remcsum_offload)
+					nskb->ip_summed = CHECKSUM_NONE;
+				SKB_GSO_CB(nskb)->csum =
+					skb_copy_and_csum_bits(head_skb, offset,
+							       skb_put(nskb,
+								       len),
+							       len, 0);
+				SKB_GSO_CB(nskb)->csum_start =
+					skb_headroom(nskb) + doffset;
+			} else {
+				skb_copy_bits(head_skb, offset,
+					      skb_put(nskb, len),
+					      len);
+			}
 			continue;
 		}
 
@@ -4183,7 +4190,6 @@ done:
 	NAPI_GRO_CB(skb)->same_flow = 1;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(skb_gro_receive);
 
 #ifdef CONFIG_SKB_EXTENSIONS
 #define SKB_EXT_ALIGN_VALUE	8
@@ -6079,13 +6085,15 @@ static void *skb_ext_get_ptr(struct skb_ext *ext, enum skb_ext_id id)
 /**
  * __skb_ext_alloc - allocate a new skb extensions storage
  *
+ * @flags: See kmalloc().
+ *
  * Returns the newly allocated pointer. The pointer can later attached to a
  * skb via __skb_ext_set().
  * Note: caller must handle the skb_ext as an opaque data.
  */
-struct skb_ext *__skb_ext_alloc(void)
+struct skb_ext *__skb_ext_alloc(gfp_t flags)
 {
-	struct skb_ext *new = kmem_cache_alloc(skbuff_ext_cache, GFP_ATOMIC);
+	struct skb_ext *new = kmem_cache_alloc(skbuff_ext_cache, flags);
 
 	if (new) {
 		memset(new->offset, 0, sizeof(new->offset));
@@ -6180,7 +6188,7 @@ void *skb_ext_add(struct sk_buff *skb, enum skb_ext_id id)
 	} else {
 		newoff = SKB_EXT_CHUNKSIZEOF(*new);
 
-		new = __skb_ext_alloc();
+		new = __skb_ext_alloc(GFP_ATOMIC);
 		if (!new)
 			return NULL;
 	}

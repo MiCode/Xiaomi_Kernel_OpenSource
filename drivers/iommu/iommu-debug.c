@@ -740,14 +740,14 @@ static int __tlb_stress_sweep(struct device *dev, struct seq_file *s)
 	/* fill the whole 4GB space */
 	for (iova = 0, i = 0; iova < max; iova += SZ_8K, ++i) {
 		dma_addr = dma_map_single(dev, virt, SZ_8K, DMA_TO_DEVICE);
-		if (dma_addr == DMA_ERROR_CODE) {
+		if (dma_addr == DMA_MAPPING_ERROR) {
 			dev_err_ratelimited(dev, "Failed map on iter %d\n", i);
 			ret = -EINVAL;
 			goto out;
 		}
 	}
 
-	if (dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE) != DMA_ERROR_CODE) {
+	if (dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE) != DMA_MAPPING_ERROR) {
 		dev_err_ratelimited(dev,
 			"dma_map_single unexpectedly (VA should have been exhausted)\n");
 		ret = -EINVAL;
@@ -789,7 +789,7 @@ static int __tlb_stress_sweep(struct device *dev, struct seq_file *s)
 		goto out;
 	}
 
-	if (dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE) != DMA_ERROR_CODE) {
+	if (dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE) != DMA_MAPPING_ERROR) {
 		dev_err_ratelimited(dev,
 			"dma_map_single unexpectedly after remaps (VA should have been exhausted)\n");
 		ret = -EINVAL;
@@ -851,7 +851,7 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 	/* fill the whole 4GB space */
 	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
 		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
-		if (dma_addr == DMA_ERROR_CODE) {
+		if (dma_addr == DMA_MAPPING_ERROR) {
 			dev_err_ratelimited(dev, "Failed map on iter %d\n", i);
 			ret = -EINVAL;
 			goto out;
@@ -880,7 +880,7 @@ static int __rand_va_sweep(struct device *dev, struct seq_file *s,
 	/* and map until everything fills back up */
 	for (remapped = 0; ; ++remapped) {
 		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
-		if (dma_addr == DMA_ERROR_CODE)
+		if (dma_addr == DMA_MAPPING_ERROR)
 			break;
 	}
 
@@ -980,7 +980,7 @@ static int __full_va_sweep(struct device *dev, struct seq_file *s,
 
 	/* at this point, our VA space should be full */
 	dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
-	if (dma_addr != DMA_ERROR_CODE) {
+	if (dma_addr != DMA_MAPPING_ERROR) {
 		dev_err_ratelimited(dev,
 				    "dma_map_single succeeded when it should have failed. Got iova: 0x%lx\n",
 				    (unsigned long)dma_addr);

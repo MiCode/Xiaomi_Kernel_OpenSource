@@ -1,17 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
- *
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
-#include <asm/div64.h>
-#include <dt-bindings/interconnect/qcom,sdm845.h>
 #include <linux/clk.h>
 #include <linux/interconnect.h>
 #include <linux/interconnect-provider.h>
+#include <linux/module.h>
 
-#include "icc-rpmh.h"
 #include "bcm-voter.h"
+#include "icc-rpmh.h"
 #include "qnoc-qos.h"
 
 /**
@@ -30,7 +28,7 @@ void qcom_icc_pre_aggregate(struct icc_node *node)
 		qn->max_peak[i] = 0;
 	}
 }
-EXPORT_SYMBOL(qcom_icc_pre_aggregate);
+EXPORT_SYMBOL_GPL(qcom_icc_pre_aggregate);
 
 /**
  * qcom_icc_aggregate - aggregate bw for buckets indicated by tag
@@ -70,7 +68,7 @@ int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 
 	return 0;
 }
-EXPORT_SYMBOL(qcom_icc_aggregate);
+EXPORT_SYMBOL_GPL(qcom_icc_aggregate);
 
 /**
  * qcom_icc_set - set the constraints based on path
@@ -108,7 +106,7 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 
 	return 0;
 }
-EXPORT_SYMBOL(qcom_icc_set);
+EXPORT_SYMBOL_GPL(qcom_icc_set);
 
 /**
  * qcom_icc_bcm_init - populates bcm aux data and connect qnodes
@@ -123,6 +121,10 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 	const struct bcm_db *data;
 	size_t data_count;
 	int i;
+
+	/* BCM is already initialised*/
+	if (bcm->addr)
+		return 0;
 
 	bcm->addr = cmd_db_read_addr(bcm->name);
 	if (!bcm->addr) {
@@ -143,8 +145,8 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 		return -EINVAL;
 	}
 
-	bcm->aux_data.unit = data->unit;
-	bcm->aux_data.width = data->width;
+	bcm->aux_data.unit = le32_to_cpu(data->unit);
+	bcm->aux_data.width = le16_to_cpu(data->width);
 	bcm->aux_data.vcd = data->vcd;
 	bcm->aux_data.reserved = data->reserved;
 	INIT_LIST_HEAD(&bcm->list);
@@ -153,9 +155,7 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 	if (!bcm->vote_scale)
 		bcm->vote_scale = 1000;
 
-	/*
-	 * Link Qnodes to their respective BCMs
-	 */
+	/* Link Qnodes to their respective BCMs */
 	for (i = 0; i < bcm->num_nodes; i++) {
 		qn = bcm->nodes[i];
 		qn->bcms[qn->num_bcms] = bcm;
@@ -164,4 +164,6 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL(qcom_icc_bcm_init);
+EXPORT_SYMBOL_GPL(qcom_icc_bcm_init);
+
+MODULE_LICENSE("GPL v2");

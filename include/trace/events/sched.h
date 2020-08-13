@@ -8,7 +8,9 @@
 #include <linux/sched/numa_balancing.h>
 #include <linux/tracepoint.h>
 #include <linux/binfmts.h>
+#ifdef CONFIG_SCHED_WALT
 #include <linux/sched/idle.h>
+#endif
 
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
@@ -52,6 +54,7 @@ TRACE_EVENT(sched_kthread_stop_ret,
 	TP_printk("ret=%d", __entry->ret)
 );
 
+#ifdef CONFIG_SCHED_WALT
 /*
  * Tracepoint for task enqueue/dequeue:
  */
@@ -97,6 +100,7 @@ TRACE_EVENT(sched_enq_deq_task,
 			__entry->cpus_allowed, __entry->demand,
 			__entry->pred_demand)
 );
+#endif
 
 /*
  * Tracepoint for waking up a task:
@@ -203,11 +207,19 @@ TRACE_EVENT(sched_switch,
 	TP_fast_assign(
 		memcpy(__entry->next_comm, next->comm, TASK_COMM_LEN);
 		__entry->prev_pid	= prev->pid;
+#ifndef CONFIG_SCHED_WALT
+		__entry->prev_prio	= prev->prio;
+#else
 		__entry->prev_prio	= prev->prio == -1 ? 150 : prev->prio;
+#endif
 		__entry->prev_state	= __trace_sched_switch_state(preempt, prev);
 		memcpy(__entry->prev_comm, prev->comm, TASK_COMM_LEN);
 		__entry->next_pid	= next->pid;
+#ifndef CONFIG_SCHED_WALT
+		__entry->next_prio	= next->prio;
+#else
 		__entry->next_prio	= next->prio == -1 ? 150 : next->prio;
+#endif
 		/* XXX SCHED_DEADLINE */
 	),
 
@@ -260,6 +272,7 @@ TRACE_EVENT(sched_migrate_task,
 		  __entry->orig_cpu, __entry->dest_cpu)
 );
 
+#ifdef CONFIG_SCHED_WALT
 /*
  * Tracepoint for load balancing:
  */
@@ -392,18 +405,19 @@ TRACE_EVENT(sched_load_balance_sg_stats,
 		__entry->group_mask, __entry->group_type,
 		__entry->group_idle_cpus, __entry->sum_nr_running,
 		__entry->group_load, __entry->group_capacity,
-		__entry->misfit_task_load, __entry->busiest)
+		__entry->group_util,  __entry->misfit_task_load,
+		__entry->busiest)
 );
 
 TRACE_EVENT(sched_load_balance_stats,
 
 	TP_PROTO(unsigned long busiest, int bgroup_type,
-		unsigned long bavg_load, unsigned long local,
-		int lgroup_type, unsigned long lavg_load,
+		unsigned long bavg_load, unsigned long bload_per_task,
+		unsigned long local, int lgroup_type, unsigned long lavg_load,
 		unsigned long sds_avg_load, unsigned long imbalance),
 
-	TP_ARGS(busiest, bgroup_type, bavg_load, local, lgroup_type,
-		lavg_load, sds_avg_load, imbalance),
+	TP_ARGS(busiest, bgroup_type, bavg_load, bload_per_task, local,
+		lgroup_type, lavg_load, sds_avg_load, imbalance),
 
 	TP_STRUCT__entry(
 		__field(unsigned long,		busiest)
@@ -436,7 +450,6 @@ TRACE_EVENT(sched_load_balance_stats,
 #endif /* NR_CPUS > BITS_PER_LONG */
 #endif /* CONFIG_SMP */
 
-#ifdef CONFIG_SCHED_WALT
 TRACE_EVENT(sched_load_balance_skip_tasks,
 
 	TP_PROTO(int scpu, int dcpu, int pid, unsigned long h_load,
@@ -473,7 +486,7 @@ TRACE_EVENT(sched_load_balance_skip_tasks,
 		__entry->dst_util_cum, __entry->pid, __entry->affinity,
 		__entry->task_util, __entry->h_load)
 );
-#endif
+#endif /* CONFIG_SCHED_WALT */
 
 DECLARE_EVENT_CLASS(sched_process_template,
 
@@ -749,7 +762,11 @@ TRACE_EVENT(sched_process_hang,
 );
 #endif /* CONFIG_DETECT_HUNG_TASK */
 
-DECLARE_EVENT_CLASS(sched_move_task_template,
+/*
+ * Tracks migration of tasks from one runqueue to another. Can be used to
+ * detect if automatic NUMA balancing is bouncing between nodes.
+ */
+TRACE_EVENT(sched_move_numa,
 
 	TP_PROTO(struct task_struct *tsk, int src_cpu, int dst_cpu),
 
@@ -781,23 +798,7 @@ DECLARE_EVENT_CLASS(sched_move_task_template,
 			__entry->dst_cpu, __entry->dst_nid)
 );
 
-/*
- * Tracks migration of tasks from one runqueue to another. Can be used to
- * detect if automatic NUMA balancing is bouncing between nodes
- */
-DEFINE_EVENT(sched_move_task_template, sched_move_numa,
-	TP_PROTO(struct task_struct *tsk, int src_cpu, int dst_cpu),
-
-	TP_ARGS(tsk, src_cpu, dst_cpu)
-);
-
-DEFINE_EVENT(sched_move_task_template, sched_stick_numa,
-	TP_PROTO(struct task_struct *tsk, int src_cpu, int dst_cpu),
-
-	TP_ARGS(tsk, src_cpu, dst_cpu)
-);
-
-TRACE_EVENT(sched_swap_numa,
+DECLARE_EVENT_CLASS(sched_numa_pair_template,
 
 	TP_PROTO(struct task_struct *src_tsk, int src_cpu,
 		 struct task_struct *dst_tsk, int dst_cpu),
@@ -823,11 +824,11 @@ TRACE_EVENT(sched_swap_numa,
 		__entry->src_ngid	= task_numa_group_id(src_tsk);
 		__entry->src_cpu	= src_cpu;
 		__entry->src_nid	= cpu_to_node(src_cpu);
-		__entry->dst_pid	= task_pid_nr(dst_tsk);
-		__entry->dst_tgid	= task_tgid_nr(dst_tsk);
-		__entry->dst_ngid	= task_numa_group_id(dst_tsk);
+		__entry->dst_pid	= dst_tsk ? task_pid_nr(dst_tsk) : 0;
+		__entry->dst_tgid	= dst_tsk ? task_tgid_nr(dst_tsk) : 0;
+		__entry->dst_ngid	= dst_tsk ? task_numa_group_id(dst_tsk) : 0;
 		__entry->dst_cpu	= dst_cpu;
-		__entry->dst_nid	= cpu_to_node(dst_cpu);
+		__entry->dst_nid	= dst_cpu >= 0 ? cpu_to_node(dst_cpu) : -1;
 	),
 
 	TP_printk("src_pid=%d src_tgid=%d src_ngid=%d src_cpu=%d src_nid=%d dst_pid=%d dst_tgid=%d dst_ngid=%d dst_cpu=%d dst_nid=%d",
@@ -836,6 +837,23 @@ TRACE_EVENT(sched_swap_numa,
 			__entry->dst_pid, __entry->dst_tgid, __entry->dst_ngid,
 			__entry->dst_cpu, __entry->dst_nid)
 );
+
+DEFINE_EVENT(sched_numa_pair_template, sched_stick_numa,
+
+	TP_PROTO(struct task_struct *src_tsk, int src_cpu,
+		 struct task_struct *dst_tsk, int dst_cpu),
+
+	TP_ARGS(src_tsk, src_cpu, dst_tsk, dst_cpu)
+);
+
+DEFINE_EVENT(sched_numa_pair_template, sched_swap_numa,
+
+	TP_PROTO(struct task_struct *src_tsk, int src_cpu,
+		 struct task_struct *dst_tsk, int dst_cpu),
+
+	TP_ARGS(src_tsk, src_cpu, dst_tsk, dst_cpu)
+);
+
 
 /*
  * Tracepoint for waking a polling cpu without an IPI.
@@ -875,6 +893,10 @@ DECLARE_TRACE(pelt_dl_tp,
 	TP_PROTO(struct rq *rq),
 	TP_ARGS(rq));
 
+DECLARE_TRACE(pelt_thermal_tp,
+	TP_PROTO(struct rq *rq),
+	TP_ARGS(rq));
+
 DECLARE_TRACE(pelt_irq_tp,
 	TP_PROTO(struct rq *rq),
 	TP_ARGS(rq));
@@ -887,6 +909,7 @@ DECLARE_TRACE(sched_overutilized_tp,
 	TP_PROTO(struct root_domain *rd, bool overutilized),
 	TP_ARGS(rd, overutilized));
 
+#ifdef CONFIG_SCHED_WALT
 #ifdef CONFIG_SMP
 TRACE_EVENT(sched_cpu_util,
 
@@ -1025,18 +1048,10 @@ TRACE_EVENT(sched_task_util,
 		__entry->is_rtg                 = is_rtg;
 		__entry->rtg_skip_min           = rtg_skip_min;
 		__entry->start_cpu              = start_cpu;
-#ifdef CONFIG_SCHED_WALT
 		__entry->unfilter               = p->unfilter;
-#else
-		__entry->unfilter               = 0;
-#endif
 		__entry->cpus_allowed		=
 					cpumask_bits(&p->cpus_mask)[0];
-#ifdef CONFIG_SCHED_WALT
 		__entry->task_boost		= per_task_boost(p);
-#else
-		__entry->task_boost		= 0;
-#endif
 	),
 
 	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affinity=%lx task_boost=%d",
@@ -1107,7 +1122,6 @@ TRACE_EVENT(sched_find_best_target,
 /*
  * Tracepoint for system overutilized flag
  */
-#ifdef CONFIG_SCHED_WALT
 struct sched_domain;
 TRACE_EVENT_CONDITION(sched_overutilized,
 
@@ -1130,8 +1144,7 @@ TRACE_EVENT_CONDITION(sched_overutilized,
 	TP_printk("overutilized=%d sd_span=%s",
 		__entry->overutilized ? 1 : 0, __entry->cpulist)
 );
-#endif
-
+#endif /* CONFIG_SCHED_WALT */
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

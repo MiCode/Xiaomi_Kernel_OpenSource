@@ -3,12 +3,15 @@
 #define _ASM_X86_EFI_H
 
 #include <asm/fpu/api.h>
-#include <asm/pgtable.h>
 #include <asm/processor-flags.h>
 #include <asm/tlb.h>
 #include <asm/nospec-branch.h>
 #include <asm/mmu_context.h>
 #include <linux/build_bug.h>
+#include <linux/kernel.h>
+#include <linux/pgtable.h>
+
+extern unsigned long efi_fw_vendor, efi_config_table;
 
 /*
  * We map the EFI regions needed for runtime services non-contiguously,
@@ -33,8 +36,6 @@ static inline bool efi_have_uv1_memmap(void)
 
 #define EFI32_LOADER_SIGNATURE	"EL32"
 #define EFI64_LOADER_SIGNATURE	"EL64"
-
-#define MAX_CMDLINE_ADDRESS	UINT_MAX
 
 #define ARCH_EFI_IRQ_FLAGS_MASK	X86_EFLAGS_IF
 
@@ -178,9 +179,10 @@ extern void efi_free_boot_services(void);
 extern pgd_t * __init efi_uv1_memmap_phys_prolog(void);
 extern void __init efi_uv1_memmap_phys_epilog(pgd_t *save_pgd);
 
+/* kexec external ABI */
 struct efi_setup_data {
 	u64 fw_vendor;
-	u64 runtime;
+	u64 __unused;
 	u64 tables;
 	u64 smbios;
 	u64 reserved[8];
@@ -219,17 +221,25 @@ extern void efi_thunk_runtime_setup(void);
 efi_status_t efi_set_virtual_address_map(unsigned long memory_map_size,
 					 unsigned long descriptor_size,
 					 u32 descriptor_version,
-					 efi_memory_desc_t *virtual_map);
+					 efi_memory_desc_t *virtual_map,
+					 unsigned long systab_phys);
 
 /* arch specific definitions used by the stub code */
 
-__attribute_const__ bool efi_is_64bit(void);
+#ifdef CONFIG_EFI_MIXED
+
+#define ARCH_HAS_EFISTUB_WRAPPERS
+
+static inline bool efi_is_64bit(void)
+{
+	extern const bool efi_is64;
+
+	return efi_is64;
+}
 
 static inline bool efi_is_native(void)
 {
 	if (!IS_ENABLED(CONFIG_X86_64))
-		return true;
-	if (!IS_ENABLED(CONFIG_EFI_MIXED))
 		return true;
 	return efi_is_64bit();
 }
@@ -270,6 +280,11 @@ static inline void *efi64_zero_upper(void *p)
 	return p;
 }
 
+static inline u32 efi64_convert_status(efi_status_t status)
+{
+	return (u32)(status | (u64)status >> 32);
+}
+
 #define __efi64_argmap_free_pages(addr, size)				\
 	((addr), 0, (size))
 
@@ -279,16 +294,39 @@ static inline void *efi64_zero_upper(void *p)
 #define __efi64_argmap_allocate_pool(type, size, buffer)		\
 	((type), (size), efi64_zero_upper(buffer))
 
+#define __efi64_argmap_create_event(type, tpl, f, c, event)		\
+	((type), (tpl), (f), (c), efi64_zero_upper(event))
+
+#define __efi64_argmap_set_timer(event, type, time)			\
+	((event), (type), lower_32_bits(time), upper_32_bits(time))
+
+#define __efi64_argmap_wait_for_event(num, event, index)		\
+	((num), (event), efi64_zero_upper(index))
+
 #define __efi64_argmap_handle_protocol(handle, protocol, interface)	\
 	((handle), (protocol), efi64_zero_upper(interface))
 
 #define __efi64_argmap_locate_protocol(protocol, reg, interface)	\
 	((protocol), (reg), efi64_zero_upper(interface))
 
+#define __efi64_argmap_locate_device_path(protocol, path, handle)	\
+	((protocol), (path), efi64_zero_upper(handle))
+
+#define __efi64_argmap_exit(handle, status, size, data)			\
+	((handle), efi64_convert_status(status), (size), (data))
+
 /* PCI I/O */
 #define __efi64_argmap_get_location(protocol, seg, bus, dev, func)	\
 	((protocol), efi64_zero_upper(seg), efi64_zero_upper(bus),	\
 	 efi64_zero_upper(dev), efi64_zero_upper(func))
+
+/* LoadFile */
+#define __efi64_argmap_load_file(protocol, path, policy, bufsize, buf)	\
+	((protocol), (path), (policy), efi64_zero_upper(bufsize), (buf))
+
+/* Graphics Output Protocol */
+#define __efi64_argmap_query_mode(gop, mode, size, info)		\
+	((gop), (mode), efi64_zero_upper(size), efi64_zero_upper(info))
 
 /*
  * The macros below handle the plumbing for the argument mapping. To add a
@@ -318,15 +356,26 @@ static inline void *efi64_zero_upper(void *p)
 
 #define efi_bs_call(func, ...)						\
 	(efi_is_native()						\
-		? efi_system_table()->boottime->func(__VA_ARGS__)	\
-		: __efi64_thunk_map(efi_table_attr(efi_system_table(),	\
-				boottime), func, __VA_ARGS__))
+		? efi_system_table->boottime->func(__VA_ARGS__)		\
+		: __efi64_thunk_map(efi_table_attr(efi_system_table,	\
+						   boottime),		\
+				    func, __VA_ARGS__))
 
 #define efi_rt_call(func, ...)						\
 	(efi_is_native()						\
-		? efi_system_table()->runtime->func(__VA_ARGS__)	\
-		: __efi64_thunk_map(efi_table_attr(efi_system_table(),	\
-				runtime), func, __VA_ARGS__))
+		? efi_system_table->runtime->func(__VA_ARGS__)		\
+		: __efi64_thunk_map(efi_table_attr(efi_system_table,	\
+						   runtime),		\
+				    func, __VA_ARGS__))
+
+#else /* CONFIG_EFI_MIXED */
+
+static inline bool efi_is_64bit(void)
+{
+	return IS_ENABLED(CONFIG_X86_64);
+}
+
+#endif /* CONFIG_EFI_MIXED */
 
 extern bool efi_reboot_required(void);
 extern bool efi_is_table_address(unsigned long phys_addr);

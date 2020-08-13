@@ -7,7 +7,6 @@
 
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
-#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -258,8 +257,6 @@ static int pwm_backlight_parse_dt(struct device *dev,
 			     &data->post_pwm_on_delay);
 	of_property_read_u32(node, "pwm-off-delay-ms", &data->pwm_off_delay);
 
-	data->enable_gpio = -EINVAL;
-
 	/*
 	 * Determine the number of brightness levels, if this property is not
 	 * set a default table of brightness levels will be used.
@@ -503,22 +500,6 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * Compatibility fallback for drivers still using the integer GPIO
-	 * platform data. Must go away soon.
-	 */
-	if (!pb->enable_gpio && gpio_is_valid(data->enable_gpio)) {
-		ret = devm_gpio_request_one(&pdev->dev, data->enable_gpio,
-					    GPIOF_OUT_INIT_HIGH, "enable");
-		if (ret < 0) {
-			dev_err(&pdev->dev, "failed to request GPIO#%d: %d\n",
-				data->enable_gpio, ret);
-			goto err_alloc;
-		}
-
-		pb->enable_gpio = gpio_to_desc(data->enable_gpio);
-	}
-
-	/*
 	 * If the GPIO is not known to be already configured as output, that
 	 * is, if gpiod_get_direction returns either 1 or -EINVAL, change the
 	 * direction to output and set the GPIO as active.
@@ -625,8 +606,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 		pb->scale = data->max_brightness;
 	}
 
-	pb->lth_brightness = data->lth_brightness * (div_u64(state.period,
-				pb->scale));
+	pb->lth_brightness = data->lth_brightness * (state.period / pb->scale);
 
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = data->max_brightness;

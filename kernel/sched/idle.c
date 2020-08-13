@@ -17,11 +17,18 @@ extern char __cpuidle_text_start[], __cpuidle_text_end[];
  * sched_idle_set_state - Record idle state for the current CPU.
  * @idle_state: State to record.
  */
+#ifndef CONFIG_SCHED_WALT
+void sched_idle_set_state(struct cpuidle_state *idle_state)
+{
+	idle_set_state(this_rq(), idle_state);
+}
+#else
 void sched_idle_set_state(struct cpuidle_state *idle_state, int index)
 {
 	idle_set_state(this_rq(), idle_state);
 	idle_set_state_idx(this_rq(), index);
 }
+#endif
 
 static int __read_mostly cpu_idle_force_poll;
 
@@ -61,8 +68,12 @@ static noinline int __cpuidle cpu_idle_poll(void)
 	stop_critical_timings();
 
 	while (!tif_need_resched() &&
+#ifndef CONFIG_SCHED_WALT
+		(cpu_idle_force_poll || tick_check_broadcast_expired()))
+#else
 		(cpu_idle_force_poll || tick_check_broadcast_expired() ||
 		is_reserved(smp_processor_id())))
+#endif
 		cpu_relax();
 	start_critical_timings();
 	trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, smp_processor_id());
@@ -96,6 +107,15 @@ void __cpuidle default_idle_call(void)
 		arch_cpu_idle();
 		start_critical_timings();
 	}
+}
+
+static int call_cpuidle_s2idle(struct cpuidle_driver *drv,
+			       struct cpuidle_device *dev)
+{
+	if (current_clr_polling_and_test())
+		return -EBUSY;
+
+	return cpuidle_enter_s2idle(drv, dev);
 }
 
 static int call_cpuidle(struct cpuidle_driver *drv, struct cpuidle_device *dev,
@@ -173,11 +193,9 @@ static void cpuidle_idle_call(void)
 		if (idle_should_enter_s2idle()) {
 			rcu_idle_enter();
 
-			entered_state = cpuidle_enter_s2idle(drv, dev);
-			if (entered_state > 0) {
-				local_irq_enable();
+			entered_state = call_cpuidle_s2idle(drv, dev);
+			if (entered_state > 0)
 				goto exit_idle;
-			}
 
 			rcu_idle_exit();
 
@@ -264,8 +282,12 @@ static void do_idle(void)
 		 * broadcast device expired for us, we don't want to go deep
 		 * idle as we know that the IPI is going to arrive right away.
 		 */
+#ifndef CONFIG_SCHED_WALT
+		if (cpu_idle_force_poll || tick_check_broadcast_expired()) {
+#else
 		if (cpu_idle_force_poll || tick_check_broadcast_expired() ||
 				is_reserved(smp_processor_id())) {
+#endif
 			tick_nohz_idle_restart_tick();
 			cpu_idle_poll();
 		} else {
@@ -292,7 +314,11 @@ static void do_idle(void)
 	 */
 	smp_mb__after_atomic();
 
-	sched_ttwu_pending();
+	/*
+	 * RCU relies on this call to be done outside of an RCU read-side
+	 * critical section.
+	 */
+	flush_smp_call_function_from_idle();
 	schedule_idle();
 
 	if (unlikely(klp_patch_pending(current)))
@@ -369,12 +395,13 @@ void cpu_startup_entry(enum cpuhp_state state)
  */
 
 #ifdef CONFIG_SMP
+#ifndef CONFIG_SCHED_WALT
 static int
-#ifdef CONFIG_SCHED_WALT
+select_task_rq_idle(struct task_struct *p, int cpu, int sd_flag, int flags)
+#else
+static int
 select_task_rq_idle(struct task_struct *p, int cpu, int sd_flag, int flags,
 		    int sibling_count_hint)
-#else
-select_task_rq_idle(struct task_struct *p, int cpu, int sd_flag, int flags)
 #endif
 {
 	return task_cpu(p); /* IDLE tasks as never migrated */

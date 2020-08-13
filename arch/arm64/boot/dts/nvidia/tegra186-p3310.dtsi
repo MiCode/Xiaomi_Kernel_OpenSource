@@ -171,6 +171,7 @@
 			compatible = "atmel,24c02";
 			reg = <0x50>;
 
+			vcc-supply = <&vdd_1v8>;
 			address-bits = <8>;
 			page-size = <8>;
 			size = <256>;
@@ -220,7 +221,8 @@
 				compatible = "maxim,max77620";
 				reg = <0x3c>;
 
-				interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-parent = <&pmc>;
+				interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
 				#interrupt-cells = <2>;
 				interrupt-controller;
 

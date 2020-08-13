@@ -457,7 +457,7 @@ static dma_addr_t msm_slim_iommu_map(struct msm_slim_ctrl *dev, void *buf_addr,
 	ret = dma_map_single(devp, buf_addr, len, DMA_BIDIRECTIONAL);
 
 	if (dma_mapping_error(devp, ret))
-		return DMA_ERROR_CODE;
+		return DMA_MAPPING_ERROR;
 
 	return ret;
 }
@@ -504,7 +504,7 @@ int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, void *buf,
 		return -ENOTCONN;
 
 	dma_buf =  msm_slim_iommu_map(dev, buf, len);
-	if (dma_buf == DMA_ERROR_CODE) {
+	if (dma_buf == DMA_MAPPING_ERROR) {
 		dev_err(dev->dev, "error DMA mapping buffers\n");
 		return -ENOMEM;
 	}

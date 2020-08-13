@@ -388,6 +388,9 @@ static struct siw_device *siw_device_create(struct net_device *netdev)
 		{ .max_segment_size = SZ_2G };
 	base_dev->num_comp_vectors = num_possible_cpus();
 
+	xa_init_flags(&sdev->qp_xa, XA_FLAGS_ALLOC1);
+	xa_init_flags(&sdev->mem_xa, XA_FLAGS_ALLOC1);
+
 	ib_set_device_ops(base_dev, &siw_device_ops);
 	rv = ib_device_set_netdev(base_dev, netdev, 1);
 	if (rv)
@@ -410,13 +413,9 @@ static struct siw_device *siw_device_create(struct net_device *netdev)
 	sdev->attrs.max_mr = SIW_MAX_MR;
 	sdev->attrs.max_pd = SIW_MAX_PD;
 	sdev->attrs.max_mw = SIW_MAX_MW;
-	sdev->attrs.max_fmr = SIW_MAX_FMR;
 	sdev->attrs.max_srq = SIW_MAX_SRQ;
 	sdev->attrs.max_srq_wr = SIW_MAX_SRQ_WR;
 	sdev->attrs.max_srq_sge = SIW_MAX_SGE;
-
-	xa_init_flags(&sdev->qp_xa, XA_FLAGS_ALLOC1);
-	xa_init_flags(&sdev->mem_xa, XA_FLAGS_ALLOC1);
 
 	INIT_LIST_HEAD(&sdev->cep_list);
 	INIT_LIST_HEAD(&sdev->qp_list);

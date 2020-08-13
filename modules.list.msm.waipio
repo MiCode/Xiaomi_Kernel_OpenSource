@@ -8,6 +8,7 @@ dwc3.ko
 dwc3-msm.ko
 phy-generic.ko
 phy-qcom-emu.ko
+pinctrl-msm.ko
 pinctrl-waipio.ko
 qcom-scm.ko
 stub-regulator.ko

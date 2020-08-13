@@ -1795,7 +1795,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 EXPORT_SYMBOL_GPL(musb_interrupt);
 
 #ifndef CONFIG_MUSB_PIO_ONLY
-static bool use_dma = 1;
+static bool use_dma = true;
 
 /* "modprobe ... use_dma=0" etc */
 module_param(use_dma, bool, 0644);
@@ -2877,6 +2877,13 @@ static int musb_resume(struct device *dev)
 	musb_enable_interrupts(musb);
 	musb_platform_enable(musb);
 
+	/* session might be disabled in suspend */
+	if (musb->port_mode == MUSB_HOST &&
+	    !(musb->ops->quirks & MUSB_PRESERVE_SESSION)) {
+		devctl |= MUSB_DEVCTL_SESSION;
+		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+	}
+
 	spin_lock_irqsave(&musb->lock, flags);
 	error = musb_run_resume_work(musb);
 	if (error)
@@ -2945,7 +2952,7 @@ static const struct dev_pm_ops musb_dev_pm_ops = {
 
 static struct platform_driver musb_driver = {
 	.driver = {
-		.name		= (char *)musb_driver_name,
+		.name		= musb_driver_name,
 		.bus		= &platform_bus_type,
 		.pm		= MUSB_DEV_PM_OPS,
 		.dev_groups	= musb_groups,

@@ -53,7 +53,6 @@
 #define	DMA_ADDR_INVALID	(~(dma_addr_t)0)
 
 static const char driver_name[] = "fsl-usb2-udc";
-static const char driver_desc[] = DRIVER_DESC;
 
 static struct usb_dr_device __iomem *dr_regs;
 
@@ -2441,8 +2440,8 @@ static int fsl_udc_probe(struct platform_device *pdev)
 	udc_controller->max_ep = (dccparams & DCCPARAMS_DEN_MASK) * 2;
 
 	udc_controller->irq = platform_get_irq(pdev, 0);
-	if (!udc_controller->irq) {
-		ret = -ENODEV;
+	if (udc_controller->irq <= 0) {
+		ret = udc_controller->irq ? : -ENODEV;
 		goto err_iounmap;
 	}
 

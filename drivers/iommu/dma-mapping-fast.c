@@ -154,7 +154,7 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 			mapping->bitmap, mapping->num_4k_pages, 0, nbits,
 			align);
 		if (unlikely(bit > mapping->num_4k_pages))
-			return DMA_ERROR_CODE;
+			return DMA_MAPPING_ERROR;
 	}
 
 	bitmap_set(mapping->bitmap, bit, nbits);
@@ -333,7 +333,7 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 
 	iova = __fast_smmu_alloc_iova(mapping, attrs, len);
 
-	if (unlikely(iova == DMA_ERROR_CODE))
+	if (unlikely(iova == DMA_MAPPING_ERROR))
 		goto fail;
 
 	if (unlikely(av8l_fast_map_public(mapping->pgtbl_ops, iova,
@@ -350,7 +350,7 @@ fail_free_iova:
 	__fast_smmu_free_iova(mapping, iova, size);
 fail:
 	spin_unlock_irqrestore(&mapping->lock, flags);
-	return DMA_ERROR_CODE;
+	return DMA_MAPPING_ERROR;
 }
 
 static void fast_smmu_unmap_page(struct device *dev, dma_addr_t iova,
@@ -468,7 +468,7 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	iova = __fast_smmu_alloc_iova(mapping, attrs, iova_len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	if (unlikely(iova == DMA_ERROR_CODE))
+	if (unlikely(iova == DMA_MAPPING_ERROR))
 		goto fail;
 
 	av8l_fast_map_sg_public(mapping->pgtbl_ops, iova, sg, nents, prot,
@@ -550,7 +550,7 @@ static void *fast_smmu_alloc_atomic(struct dma_fast_smmu_mapping *mapping,
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, size);
-	if (dma_addr == DMA_ERROR_CODE) {
+	if (dma_addr == DMA_MAPPING_ERROR) {
 		dev_err(mapping->dev, "no iova\n");
 		spin_unlock_irqrestore(&mapping->lock, flags);
 		goto out_free_page;
@@ -623,7 +623,7 @@ static void *__fast_smmu_alloc_contiguous(struct device *dev, size_t size,
 	spin_lock_irqsave(&mapping->lock, flags);
 	iova = __fast_smmu_alloc_iova(mapping, attrs, size);
 	spin_unlock_irqrestore(&mapping->lock, flags);
-	if (iova == DMA_ERROR_CODE)
+	if (iova == DMA_MAPPING_ERROR)
 		goto release_page;
 
 	if (av8l_fast_map_public(mapping->pgtbl_ops, iova, page_to_phys(page),
@@ -685,7 +685,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	if (!(attrs & DMA_ATTR_SKIP_ZEROING))
 		gfp |= __GFP_ZERO;
 
-	*handle = DMA_ERROR_CODE;
+	*handle = DMA_MAPPING_ERROR;
 	size = ALIGN(size, SZ_4K);
 
 	if (!gfpflags_allow_blocking(gfp))
@@ -720,7 +720,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, size);
-	if (dma_addr == DMA_ERROR_CODE) {
+	if (dma_addr == DMA_MAPPING_ERROR) {
 		dev_err(dev, "no iova\n");
 		spin_unlock_irqrestore(&mapping->lock, flags);
 		goto out_free_sg;
@@ -832,7 +832,7 @@ static dma_addr_t fast_smmu_dma_map_resource(
 	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	if (dma_addr == DMA_ERROR_CODE)
+	if (dma_addr == DMA_MAPPING_ERROR)
 		return dma_addr;
 
 	prot = dma_info_to_prot(dir, false, attrs);
@@ -843,7 +843,7 @@ static dma_addr_t fast_smmu_dma_map_resource(
 		spin_lock_irqsave(&mapping->lock, flags);
 		__fast_smmu_free_iova(mapping, dma_addr, len);
 		spin_unlock_irqrestore(&mapping->lock, flags);
-		return DMA_ERROR_CODE;
+		return DMA_MAPPING_ERROR;
 	}
 	return dma_addr + offset;
 }

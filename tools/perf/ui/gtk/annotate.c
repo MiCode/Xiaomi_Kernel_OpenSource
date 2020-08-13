@@ -130,7 +130,7 @@ static int perf_gtk__annotate_symbol(GtkWidget *window, struct map_symbol *ms,
 
 		gtk_list_store_append(store, &iter);
 
-		if (perf_evsel__is_group_event(evsel)) {
+		if (evsel__is_group_event(evsel)) {
 			for (i = 0; i < evsel->core.nr_members; i++) {
 				ret += perf_gtk__get_percent(s + ret,
 							     sizeof(s) - ret,
@@ -174,7 +174,7 @@ static int symbol__gtk_annotate(struct map_symbol *ms, struct evsel *evsel,
 	if (ms->map->dso->annotate_warned)
 		return -1;
 
-	err = symbol__annotate(ms, evsel, 0, &annotation__default_options, NULL);
+	err = symbol__annotate(ms, evsel, &annotation__default_options, NULL);
 	if (err) {
 		char msg[BUFSIZ];
 		symbol__strerror_disassemble(ms, err, msg, sizeof(msg));

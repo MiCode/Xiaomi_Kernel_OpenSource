@@ -11,6 +11,8 @@
 
 #define WILC_FALSE_FRMWR_CHANNEL		100
 
+#define WILC_SCAN_WID_LIST_SIZE		6
+
 struct wilc_rcvd_mac_info {
 	u8 status;
 };
@@ -151,7 +153,7 @@ int wilc_scan(struct wilc_vif *vif, u8 scan_source, u8 scan_type,
 	      void *user_arg, struct cfg80211_scan_request *request)
 {
 	int result = 0;
-	struct wid wid_list[5];
+	struct wid wid_list[WILC_SCAN_WID_LIST_SIZE];
 	u32 index = 0;
 	u32 i, scan_timeout;
 	u8 *buffer;
@@ -801,7 +803,7 @@ static void wilc_hif_pack_sta_param(u8 *cur_byte, const u8 *mac,
 
 	if (params->ht_capa) {
 		*cur_byte++ = true;
-		memcpy(cur_byte, &params->ht_capa,
+		memcpy(cur_byte, params->ht_capa,
 		       sizeof(struct ieee80211_ht_cap));
 	} else {
 		*cur_byte++ = false;
@@ -861,9 +863,8 @@ static int wilc_handle_roc_expired(struct wilc_vif *vif, u64 cookie)
 	struct wid wid;
 	int result;
 	struct host_if_drv *hif_drv = vif->hif_drv;
-	struct wilc_priv *priv = wdev_priv(vif->ndev->ieee80211_ptr);
 
-	if (priv->p2p_listen_state) {
+	if (vif->priv.p2p_listen_state) {
 		remain_on_chan_flag = false;
 		wid.id = WID_REMAIN_ON_CHAN;
 		wid.type = WID_STR;

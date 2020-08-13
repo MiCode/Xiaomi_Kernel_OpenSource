@@ -93,6 +93,7 @@ void ionic_devlink_unregister(struct ionic *ionic)
 {
 	struct devlink *dl = priv_to_devlink(ionic);
 
-	devlink_port_unregister(&ionic->dl_port);
+	if (ionic->dl_port.registered)
+		devlink_port_unregister(&ionic->dl_port);
 	devlink_unregister(dl);
 }

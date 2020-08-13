@@ -119,18 +119,31 @@ int cpudl_find(struct cpudl *cp, struct task_struct *p,
 {
 	const struct sched_dl_entity *dl_se = &p->dl;
 
+#ifndef CONFIG_SCHED_WALT
+	if (later_mask &&
+	    cpumask_and(later_mask, cp->free_cpus, p->cpus_ptr)) {
+		return 1;
+	} else {
+#else
 	if (later_mask &&
 	    cpumask_and(later_mask, cp->free_cpus, p->cpus_ptr) &&
 	    cpumask_and(later_mask, later_mask, cpu_active_mask)) {
 		return 1;
 	} else {
+#endif
 		int best_cpu = cpudl_maximum(cp);
 
 		WARN_ON(best_cpu != -1 && !cpu_present(best_cpu));
 
+#ifndef CONFIG_SCHED_WALT
+		if (cpumask_test_cpu(best_cpu, p->cpus_ptr) &&
+		    dl_time_before(dl_se->deadline, cp->elements[0].dl)) {
+#else
 		if (cpumask_test_cpu(best_cpu, p->cpus_ptr) &&
 		    cpumask_test_cpu(best_cpu, cpu_active_mask) &&
 		    dl_time_before(dl_se->deadline, cp->elements[0].dl)) {
+#endif
+
 			if (later_mask)
 				cpumask_set_cpu(best_cpu, later_mask);
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause)
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
 //
 // This file is provided under a dual BSD/GPLv2 license.  When using or
 // redistributing this file, you may do so under either license.
@@ -16,6 +16,9 @@
 #include "sof-priv.h"
 #include "sof-audio.h"
 #include "ops.h"
+#if IS_ENABLED(CONFIG_SND_SOC_SOF_DEBUG_PROBES)
+#include "compress.h"
+#endif
 
 /* Create DMA buffer page table for DSP */
 static int create_page_table(struct snd_soc_component *component,
@@ -54,7 +57,7 @@ static int sof_pcm_dsp_params(struct snd_sof_pcm *spcm, struct snd_pcm_substream
 /*
  * sof pcm period elapse work
  */
-static void sof_pcm_period_elapsed_work(struct work_struct *work)
+void snd_sof_pcm_period_elapsed_work(struct work_struct *work)
 {
 	struct snd_sof_pcm_stream *sps =
 		container_of(work, struct snd_sof_pcm_stream,
@@ -372,7 +375,7 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 		stream.hdr.cmd |= SOF_IPC_STREAM_TRIG_START;
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		if (sdev->s0_suspend &&
+		if (sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
 		    spcm->stream[substream->stream].d0i3_compatible) {
 			/*
 			 * trap the event, not sending trigger stop to
@@ -472,8 +475,6 @@ static int sof_pcm_open(struct snd_soc_component *component,
 	dev_dbg(component->dev, "pcm: open stream %d dir %d\n",
 		spcm->pcm.pcm_id, substream->stream);
 
-	INIT_WORK(&spcm->stream[substream->stream].period_elapsed_work,
-		  sof_pcm_period_elapsed_work);
 
 	caps = &spcm->pcm.caps[substream->stream];
 
@@ -598,8 +599,7 @@ static int sof_pcm_new(struct snd_soc_component *component,
 
 	snd_pcm_set_managed_buffer(pcm->streams[stream].substream,
 				   SNDRV_DMA_TYPE_DEV_SG, sdev->dev,
-				   le32_to_cpu(caps->buffer_size_min),
-				   le32_to_cpu(caps->buffer_size_max));
+				   0, le32_to_cpu(caps->buffer_size_max));
 capture:
 	stream = SNDRV_PCM_STREAM_CAPTURE;
 
@@ -621,8 +621,7 @@ capture:
 
 	snd_pcm_set_managed_buffer(pcm->streams[stream].substream,
 				   SNDRV_DMA_TYPE_DEV_SG, sdev->dev,
-				   le32_to_cpu(caps->buffer_size_min),
-				   le32_to_cpu(caps->buffer_size_max));
+				   0, le32_to_cpu(caps->buffer_size_max));
 
 	return 0;
 }
@@ -640,6 +639,7 @@ static int sof_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd,
 		snd_soc_rtdcom_lookup(rtd, SOF_AUDIO_PCM_DRV_NAME);
 	struct snd_sof_dai *dai =
 		snd_sof_find_dai(component, (char *)rtd->dai_link->name);
+	struct snd_soc_dpcm *dpcm;
 
 	/* no topology exists for this BE, try a common configuration */
 	if (!dai) {
@@ -703,7 +703,16 @@ static int sof_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd,
 		}
 		break;
 	case SOF_DAI_INTEL_HDA:
-		/* do nothing for HDA dai_link */
+		/*
+		 * HDaudio does not follow the default trigger
+		 * sequence due to firmware implementation
+		 */
+		for_each_dpcm_fe(rtd, SNDRV_PCM_STREAM_PLAYBACK, dpcm) {
+			struct snd_soc_pcm_runtime *fe = dpcm->fe;
+
+			fe->dai_link->trigger[SNDRV_PCM_STREAM_PLAYBACK] =
+				SND_SOC_DPCM_TRIGGER_POST;
+		}
 		break;
 	case SOF_DAI_INTEL_ALH:
 		/* do nothing for ALH dai_link */
@@ -786,7 +795,11 @@ void snd_sof_new_platform_drv(struct snd_sof_dev *sdev)
 	pd->pointer = sof_pcm_pointer;
 
 #if IS_ENABLED(CONFIG_SND_SOC_SOF_COMPRESS)
-	pd->compr_ops = &sof_compressed_ops;
+	pd->compress_ops = &sof_compressed_ops;
+#endif
+#if IS_ENABLED(CONFIG_SND_SOC_SOF_DEBUG_PROBES)
+	/* override cops when probe support is enabled */
+	pd->compress_ops = &sof_probe_compressed_ops;
 #endif
 	pd->pcm_construct = sof_pcm_new;
 	pd->ignore_machine = drv_name;

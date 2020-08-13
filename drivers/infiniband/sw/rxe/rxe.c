@@ -77,6 +77,7 @@ static void rxe_init_device_param(struct rxe_dev *rxe)
 {
 	rxe->max_inline_data			= RXE_MAX_INLINE_DATA;
 
+	rxe->attr.vendor_id			= RXE_VENDOR_ID;
 	rxe->attr.max_mr_size			= RXE_MAX_MR_SIZE;
 	rxe->attr.page_size_cap			= RXE_PAGE_SIZE_CAP;
 	rxe->attr.max_qp			= RXE_MAX_QP;
@@ -103,6 +104,8 @@ static void rxe_init_device_param(struct rxe_dev *rxe)
 	rxe->attr.max_fast_reg_page_list_len	= RXE_MAX_FMR_PAGE_LIST_LEN;
 	rxe->attr.max_pkeys			= RXE_MAX_PKEYS;
 	rxe->attr.local_ca_ack_delay		= RXE_LOCAL_CA_ACK_DELAY;
+	addrconf_addr_eui48((unsigned char *)&rxe->attr.sys_image_guid,
+			rxe->ndev->dev_addr);
 
 	rxe->max_ucontext			= RXE_MAX_UCONTEXT;
 }

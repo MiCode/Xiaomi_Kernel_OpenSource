@@ -453,7 +453,7 @@ static int arm_smmu_register_legacy_master(struct device *dev,
  * With the legacy DT binding in play, we have no guarantees about
  * probe order, but then we're also not doing default domains, so we can
  * delay setting bus ops until we're sure every possible SMMU is ready,
- * and that way ensure that no add_device() calls get missed.
+ * and that way ensure that no probe_device() calls get missed.
  */
 static int arm_smmu_legacy_bus_init(void)
 {
@@ -474,12 +474,13 @@ static int __arm_smmu_alloc_cb(struct arm_smmu_device *smmu, int start,
 			       struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
 	unsigned long *map = smmu->context_map;
 	int end = smmu->num_context_banks;
 	int idx;
 	int i;
 
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (smmu->s2crs[idx].pinned)
 			return smmu->s2crs[idx].cbndx;
 	}
@@ -1845,7 +1846,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out_clear_smmu;
 	}
 
-	group = iommu_group_get_for_dev(smmu_domain->dev);
+	group = iommu_group_get(smmu_domain->dev);
 	iop = container_of(smmu_domain->pgtbl_ops, struct io_pgtable, ops);
 	ret = iommu_logger_register(&smmu_domain->logger, domain, group, iop);
 	iommu_group_put(group);
@@ -2127,7 +2128,7 @@ static int arm_smmu_find_sme(struct arm_smmu_device *smmu, u16 id, u16 mask)
 static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 {
 	bool pinned = smmu->s2crs[idx].pinned;
-	u8 cbndx = smmu->s2crs[idx].cbndx;;
+	u8 cbndx = smmu->s2crs[idx].cbndx;
 
 	if (--smmu->s2crs[idx].count)
 		return false;
@@ -2146,16 +2147,15 @@ static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 static int arm_smmu_master_alloc_smes(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct arm_smmu_master_cfg *cfg = fwspec->iommu_priv;
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
 	struct arm_smmu_device *smmu = cfg->smmu;
 	struct arm_smmu_smr *smrs = smmu->smrs;
-	struct iommu_group *group;
 	int i, idx, ret;
 
 	mutex_lock(&smmu->iommu_group_mutex);
 	mutex_lock(&smmu->stream_map_mutex);
 	/* Figure out a viable stream map entry allocation */
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		u16 sid = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[i]);
 		u16 mask = FIELD_GET(ARM_SMMU_SMR_MASK, fwspec->ids[i]);
 
@@ -2179,22 +2179,9 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
 
-	group = iommu_group_get_for_dev(dev);
-	if (IS_ERR(group)) {
-		ret = PTR_ERR(group);
-		goto iommu_group_err;
-	}
-	iommu_group_put(group);
-
-	/* It worked! Don't poke the actual hardware until we've attached */
-	for_each_cfg_sme(fwspec, i, idx)
-		smmu->s2crs[idx].group = group;
-
+	/* It worked! Now, poke the actual hardware */
 	mutex_unlock(&smmu->iommu_group_mutex);
 	return 0;
-
-iommu_group_err:
-	mutex_lock(&smmu->stream_map_mutex);
 
 sme_err:
 	while (i--) {
@@ -2206,14 +2193,14 @@ sme_err:
 	return ret;
 }
 
-static void arm_smmu_master_free_smes(struct iommu_fwspec *fwspec)
+static void arm_smmu_master_free_smes(struct arm_smmu_master_cfg *cfg,
+				      struct iommu_fwspec *fwspec)
 {
-	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
-	struct arm_smmu_master_cfg *cfg = fwspec->iommu_priv;
+	struct arm_smmu_device *smmu = cfg->smmu;
 	int i, idx;
 
 	mutex_lock(&smmu->stream_map_mutex);
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (arm_smmu_free_sme(smmu, idx))
 			arm_smmu_write_sme(smmu, idx);
 		cfg->smendx[i] = INVALID_SMENDX;
@@ -2222,6 +2209,7 @@ static void arm_smmu_master_free_smes(struct iommu_fwspec *fwspec)
 }
 
 static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
+					  struct arm_smmu_master_cfg *cfg,
 					  struct iommu_fwspec *fwspec)
 {
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
@@ -2232,7 +2220,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	tlb = smmu_domain->pgtbl_cfg.tlb;
 
 	mutex_lock(&smmu->stream_map_mutex);
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (WARN_ON(s2cr[idx].attach_count == 0)) {
 			mutex_unlock(&smmu->stream_map_mutex);
 			return;
@@ -2252,6 +2240,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 }
 
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
+				      struct arm_smmu_master_cfg *cfg,
 				      struct iommu_fwspec *fwspec)
 {
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
@@ -2266,8 +2255,12 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 		type = S2CR_TYPE_TRANS;
 
 	mutex_lock(&smmu->stream_map_mutex);
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (s2cr[idx].attach_count++ > 0)
+			continue;
+
+		/* Don't bypasss pinned streams; leave them as they are */
+		if (type == S2CR_TYPE_BYPASS && s2cr[idx].pinned)
 			continue;
 
 		s2cr[idx].type = type;
@@ -2287,6 +2280,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	bool dynamic = is_dynamic_domain(domain);
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
 	bool atomic_domain = test_bit(DOMAIN_ATTR_ATOMIC,
 				      smmu_domain->attributes);
 
@@ -2303,7 +2297,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 	else
 		arm_smmu_power_on(smmu->pwr);
 
-	arm_smmu_domain_remove_master(smmu_domain, fwspec);
+	arm_smmu_domain_remove_master(smmu_domain, cfg, fwspec);
 	arm_smmu_power_off(smmu, smmu->pwr);
 }
 
@@ -2561,10 +2555,11 @@ static struct iommu_group *of_get_device_group(struct device *dev)
 
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
-	int ret;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct arm_smmu_master_cfg *cfg;
+	struct arm_smmu_device *smmu;
+	int ret;
 	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops) {
@@ -2574,15 +2569,16 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	/*
 	 * FIXME: The arch/arm DMA API code tries to attach devices to its own
-	 * domains between of_xlate() and add_device() - we have no way to cope
+	 * domains between of_xlate() and probe_device() - we have no way to cope
 	 * with that, so until ARM gets converted to rely on groups and default
 	 * domains, just say no (but more politely than by dereferencing NULL).
 	 * This should be at least a WARN_ON once that's sorted.
 	 */
-	if (!fwspec->iommu_priv)
+	cfg = dev_iommu_priv_get(dev);
+	if (!cfg)
 		return -ENODEV;
 
-	smmu = fwspec_smmu(fwspec);
+	smmu = cfg->smmu;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
@@ -2624,7 +2620,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	/* Looks ok, so add the device to the domain */
-	ret = arm_smmu_domain_add_master(smmu_domain, fwspec);
+	ret = arm_smmu_domain_add_master(smmu_domain, cfg, fwspec);
 
 	/*
 	 * Setup an autosuspend delay to avoid bouncing runpm state.
@@ -2893,9 +2889,9 @@ struct arm_smmu_device *arm_smmu_get_by_fwnode(struct fwnode_handle *fwnode)
 	return dev ? dev_get_drvdata(dev) : NULL;
 }
 
-static int arm_smmu_add_device(struct device *dev)
+static struct iommu_device * arm_smmu_probe_device(struct device *dev)
 {
-	struct arm_smmu_device *smmu;
+	struct arm_smmu_device *smmu = NULL;
 	struct arm_smmu_master_cfg *cfg;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct device_link *link;
@@ -2915,9 +2911,9 @@ static int arm_smmu_add_device(struct device *dev)
 	} else if (fwspec && fwspec->ops == &arm_smmu_ops) {
 		smmu = arm_smmu_get_by_fwnode(fwspec->iommu_fwnode);
 		if (!smmu)
-			return -ENODEV;
+			return ERR_PTR(-ENODEV);
 	} else {
-		return -ENODEV;
+		return ERR_PTR(-ENODEV);
 	}
 
 	ret = arm_smmu_power_on(smmu->pwr);
@@ -2948,7 +2944,7 @@ static int arm_smmu_add_device(struct device *dev)
 		goto out_pwr_off;
 
 	cfg->smmu = smmu;
-	fwspec->iommu_priv = cfg;
+	dev_iommu_priv_set(dev, cfg);
 	while (i--)
 		cfg->smendx[i] = INVALID_SMENDX;
 
@@ -2964,7 +2960,7 @@ static int arm_smmu_add_device(struct device *dev)
 	if (ret)
 		goto out_dev_link_free;
 	arm_smmu_power_off(smmu, smmu->pwr);
-	return 0;
+	return &smmu->iommu;
 
 out_dev_link_free:
 	device_link_del(link);
@@ -2974,12 +2970,13 @@ out_pwr_off:
 	arm_smmu_power_off(smmu, smmu->pwr);
 out_free:
 	iommu_fwspec_free(dev);
-	return ret;
+	return ERR_PTR(ret);
 }
 
-static void arm_smmu_remove_device(struct device *dev)
+static void arm_smmu_release_device(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct arm_smmu_master_cfg *cfg;
 	struct arm_smmu_device *smmu;
 	struct device_link *link;
 	int ret;
@@ -2987,7 +2984,8 @@ static void arm_smmu_remove_device(struct device *dev)
 	if (!fwspec || fwspec->ops != &arm_smmu_ops)
 		return;
 
-	smmu = fwspec_smmu(fwspec);
+	cfg  = dev_iommu_priv_get(dev);
+	smmu = cfg->smmu;
 
 	ret = arm_smmu_rpm_get(smmu);
 	if (ret < 0)
@@ -3005,23 +3003,26 @@ static void arm_smmu_remove_device(struct device *dev)
 			device_link_del(link);
 	}
 
-	arm_smmu_master_free_smes(fwspec);
-	iommu_group_remove_device(dev);
-	kfree(fwspec->iommu_priv);
-	iommu_fwspec_free(dev);
+	arm_smmu_master_free_smes(cfg, fwspec);
+
 	arm_smmu_power_off(smmu, smmu->pwr);
 	arm_smmu_rpm_put(smmu);
+
+	dev_iommu_priv_set(dev, NULL);
+	kfree(cfg);
+	iommu_fwspec_free(dev);
 }
 
 static struct iommu_group *arm_smmu_device_group(struct device *dev)
 {
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
+	struct arm_smmu_device *smmu = cfg->smmu;
 	struct iommu_group *group = NULL;
 	int i, idx;
 
 	group = of_get_device_group(dev);
-	for_each_cfg_sme(fwspec, i, idx) {
+	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (group && smmu->s2crs[idx].group &&
 		    group != smmu->s2crs[idx].group) {
 			dev_err(dev, "ID:%x IDX:%x is already in a group!\n",
@@ -3494,6 +3495,17 @@ static void arm_smmu_get_resv_regions(struct device *dev,
 	iommu_dma_get_resv_regions(dev, head);
 }
 
+static int arm_smmu_def_domain_type(struct device *dev)
+{
+	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
+	const struct arm_smmu_impl *impl = cfg->smmu->impl;
+
+	if (impl && impl->def_domain_type)
+		return impl->def_domain_type(dev);
+
+	return 0;
+}
+
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 {
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -3525,14 +3537,15 @@ static struct iommu_ops arm_smmu_ops = {
 	.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
 	.iotlb_sync		= arm_smmu_iotlb_sync,
 	.iova_to_phys		= arm_smmu_iova_to_phys,
-	.add_device		= arm_smmu_add_device,
-	.remove_device		= arm_smmu_remove_device,
+	.probe_device		= arm_smmu_probe_device,
+	.release_device		= arm_smmu_release_device,
 	.device_group		= arm_smmu_device_group,
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.of_xlate		= arm_smmu_of_xlate,
 	.get_resv_regions	= arm_smmu_get_resv_regions,
 	.put_resv_regions	= generic_iommu_put_resv_regions,
+	.def_domain_type	= arm_smmu_def_domain_type,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 };
 
@@ -4201,6 +4214,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 {
 	const struct arm_smmu_match_data *data;
 	struct resource *res;
+	resource_size_t ioaddr;
 	struct arm_smmu_device *smmu;
 	struct device *dev = &pdev->dev;
 	int num_irqs, i, err;
@@ -4241,6 +4255,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	mutex_init(&smmu->idr_mutex);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	ioaddr = res->start;
 	if (res == NULL) {
 		dev_err(dev, "no MEM resource info\n");
 		return -EINVAL;
@@ -4316,7 +4331,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 				"found %d context interrupt(s) but have %d context banks. assuming %d context interrupts.\n",
 				smmu->num_context_irqs, smmu->num_context_banks,
 				smmu->num_context_banks);
-			return -ENODEV;
+			err = -ENODEV;
+			goto out_power_off;
 		}
 		/* Ignore superfluous interrupts */
 		smmu->num_context_irqs = smmu->num_context_banks;
@@ -4334,6 +4350,13 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		}
 	}
 
+	err = iommu_device_sysfs_add(&smmu->iommu, smmu->dev, NULL,
+				     "smmu.%pa", &ioaddr);
+	if (err) {
+		dev_err(dev, "Failed to register iommu in sysfs\n");
+		goto out_power_off;
+	}
+
 	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops);
 	iommu_device_set_fwnode(&smmu->iommu, dev->fwnode);
 
@@ -4341,7 +4364,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	if (err) {
 		dev_err(dev, "Failed to register iommu\n");
-		return err;
+		goto out_power_off;
 	}
 	platform_set_drvdata(pdev, smmu);
 	arm_smmu_device_reset(smmu);
@@ -4390,7 +4413,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 		return -EINVAL;
 
 	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS))
-		dev_err(&pdev->dev, "removing device with active domains!\n");
+		dev_notice(&pdev->dev, "disabling translation\n");
 
 	arm_smmu_bus_init(NULL);
 	iommu_device_unregister(&smmu->iommu);

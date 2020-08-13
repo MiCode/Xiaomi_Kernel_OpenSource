@@ -205,6 +205,7 @@ static inline bool policy_is_shared(struct cpufreq_policy *policy)
 unsigned int cpufreq_get(unsigned int cpu);
 unsigned int cpufreq_quick_get(unsigned int cpu);
 unsigned int cpufreq_quick_get_max(unsigned int cpu);
+unsigned int cpufreq_get_hw_max_freq(unsigned int cpu);
 void disable_cpufreq(void);
 
 u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy);
@@ -229,6 +230,10 @@ static inline unsigned int cpufreq_quick_get(unsigned int cpu)
 	return 0;
 }
 static inline unsigned int cpufreq_quick_get_max(unsigned int cpu)
+{
+	return 0;
+}
+static inline unsigned int cpufreq_get_hw_max_freq(unsigned int cpu)
 {
 	return 0;
 }
@@ -325,7 +330,7 @@ struct cpufreq_driver {
 	 *
 	 * get_intermediate should return a stable intermediate frequency
 	 * platform wants to switch to and target_intermediate() should set CPU
-	 * to to that frequency, before jumping to the frequency corresponding
+	 * to that frequency, before jumping to the frequency corresponding
 	 * to 'index'. Core will take care of sending notifications and driver
 	 * doesn't have to handle them in target_intermediate() or
 	 * target_index().
@@ -362,7 +367,7 @@ struct cpufreq_driver {
 
 	/* platform specific boost support code */
 	bool		boost_enabled;
-	int		(*set_boost)(int state);
+	int		(*set_boost)(struct cpufreq_policy *policy, int state);
 };
 
 /* flags */
@@ -974,21 +979,11 @@ static inline bool policy_has_boost_freq(struct cpufreq_policy *policy)
 }
 #endif
 
-#if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
-void sched_cpufreq_governor_change(struct cpufreq_policy *policy,
-			struct cpufreq_governor *old_gov);
-#else
-static inline void sched_cpufreq_governor_change(struct cpufreq_policy *policy,
-			struct cpufreq_governor *old_gov) { }
-#endif
-
 extern void arch_freq_prepare_all(void);
 extern unsigned int arch_freq_get_on_cpu(int cpu);
 
 extern void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 				unsigned long max_freq);
-extern void arch_set_max_freq_scale(struct cpumask *cpus,
-				    unsigned long policy_max_freq);
 
 /* the following are really really optional */
 extern struct freq_attr cpufreq_freq_attr_scaling_available_freqs;

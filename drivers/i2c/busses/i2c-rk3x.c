@@ -539,9 +539,9 @@ out:
  */
 static const struct i2c_spec_values *rk3x_i2c_get_spec(unsigned int speed)
 {
-	if (speed <= 100000)
+	if (speed <= I2C_MAX_STANDARD_MODE_FREQ)
 		return &standard_mode_spec;
-	else if (speed <= 400000)
+	else if (speed <= I2C_MAX_FAST_MODE_FREQ)
 		return &fast_mode_spec;
 	else
 		return &fast_mode_plus_spec;
@@ -578,8 +578,8 @@ static int rk3x_i2c_v0_calc_timings(unsigned long clk_rate,
 	int ret = 0;
 
 	/* Only support standard-mode and fast-mode */
-	if (WARN_ON(t->bus_freq_hz > 400000))
-		t->bus_freq_hz = 400000;
+	if (WARN_ON(t->bus_freq_hz > I2C_MAX_FAST_MODE_FREQ))
+		t->bus_freq_hz = I2C_MAX_FAST_MODE_FREQ;
 
 	/* prevent scl_rate_khz from becoming 0 */
 	if (WARN_ON(t->bus_freq_hz < 1000))
@@ -758,8 +758,8 @@ static int rk3x_i2c_v1_calc_timings(unsigned long clk_rate,
 	int ret = 0;
 
 	/* Support standard-mode, fast-mode and fast-mode plus */
-	if (WARN_ON(t->bus_freq_hz > 1000000))
-		t->bus_freq_hz = 1000000;
+	if (WARN_ON(t->bus_freq_hz > I2C_MAX_FAST_MODE_PLUS_FREQ))
+		t->bus_freq_hz = I2C_MAX_FAST_MODE_PLUS_FREQ;
 
 	/* prevent scl_rate_khz from becoming 0 */
 	if (WARN_ON(t->bus_freq_hz < 1000))
@@ -1193,7 +1193,6 @@ static int rk3x_i2c_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *match;
 	struct rk3x_i2c *i2c;
-	struct resource *mem;
 	int ret = 0;
 	int bus_nr;
 	u32 value;
@@ -1223,8 +1222,7 @@ static int rk3x_i2c_probe(struct platform_device *pdev)
 	spin_lock_init(&i2c->lock);
 	init_waitqueue_head(&i2c->wait);
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	i2c->regs = devm_ioremap_resource(&pdev->dev, mem);
+	i2c->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(i2c->regs))
 		return PTR_ERR(i2c->regs);
 
@@ -1262,10 +1260,8 @@ static int rk3x_i2c_probe(struct platform_device *pdev)
 
 	/* IRQ setup */
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "cannot find rk3x IRQ\n");
+	if (irq < 0)
 		return irq;
-	}
 
 	ret = devm_request_irq(&pdev->dev, irq, rk3x_i2c_irq,
 			       0, dev_name(&pdev->dev), i2c);

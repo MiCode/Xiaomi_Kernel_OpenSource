@@ -44,7 +44,7 @@
 			opp-hz = /bits/ 64 <792000000>;
 			opp-microvolt = <1000000>;
 			clock-latency-ns = <150000>;
-			opp-supported-hw = <0xd>, <0xf>;
+			opp-supported-hw = <0xd>, <0x7>;
 			opp-suspend;
 		};
 
@@ -52,7 +52,7 @@
 			opp-hz = /bits/ 64 <996000000>;
 			opp-microvolt = <1100000>;
 			clock-latency-ns = <150000>;
-			opp-supported-hw = <0xc>, <0xf>;
+			opp-supported-hw = <0xc>, <0x7>;
 			opp-suspend;
 		};
 
@@ -60,7 +60,7 @@
 			opp-hz = /bits/ 64 <1200000000>;
 			opp-microvolt = <1225000>;
 			clock-latency-ns = <150000>;
-			opp-supported-hw = <0x8>, <0xf>;
+			opp-supported-hw = <0x8>, <0x3>;
 			opp-suspend;
 		};
 	};
@@ -153,6 +153,7 @@
 			"enet_clk_ref", "enet_out";
 		fsl,num-tx-queues = <3>;
 		fsl,num-rx-queues = <3>;
+		fsl,stop-mode = <&gpr 0x10 4>;
 		status = "disabled";
 	};
 

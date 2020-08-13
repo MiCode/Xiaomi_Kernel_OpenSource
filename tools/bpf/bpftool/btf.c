@@ -15,7 +15,6 @@
 #include <linux/hashtable.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "json_writer.h"
 #include "main.h"
@@ -389,6 +388,9 @@ static int dump_btf_c(const struct btf *btf,
 	if (IS_ERR(d))
 		return PTR_ERR(d);
 
+	printf("#ifndef __VMLINUX_H__\n");
+	printf("#define __VMLINUX_H__\n");
+	printf("\n");
 	printf("#ifndef BPF_NO_PRESERVE_ACCESS_INDEX\n");
 	printf("#pragma clang attribute push (__attribute__((preserve_access_index)), apply_to = record)\n");
 	printf("#endif\n\n");
@@ -412,6 +414,8 @@ static int dump_btf_c(const struct btf *btf,
 	printf("#ifndef BPF_NO_PRESERVE_ACCESS_INDEX\n");
 	printf("#pragma clang attribute pop\n");
 	printf("#endif\n");
+	printf("\n");
+	printf("#endif /* __VMLINUX_H__ */\n");
 
 done:
 	btf_dump__free(d);
@@ -549,7 +553,7 @@ static int do_dump(int argc, char **argv)
 			btf = btf__parse_elf(*argv, NULL);
 
 		if (IS_ERR(btf)) {
-			err = PTR_ERR(btf);
+			err = -PTR_ERR(btf);
 			btf = NULL;
 			p_err("failed to load BTF from %s: %s",
 			      *argv, strerror(err));
@@ -947,9 +951,9 @@ static int do_help(int argc, char **argv)
 	}
 
 	fprintf(stderr,
-		"Usage: %s btf { show | list } [id BTF_ID]\n"
-		"       %s btf dump BTF_SRC [format FORMAT]\n"
-		"       %s btf help\n"
+		"Usage: %1$s %2$s { show | list } [id BTF_ID]\n"
+		"       %1$s %2$s dump BTF_SRC [format FORMAT]\n"
+		"       %1$s %2$s help\n"
 		"\n"
 		"       BTF_SRC := { id BTF_ID | prog PROG | map MAP [{key | value | kv | all}] | file FILE }\n"
 		"       FORMAT  := { raw | c }\n"
@@ -957,7 +961,7 @@ static int do_help(int argc, char **argv)
 		"       " HELP_SPEC_PROGRAM "\n"
 		"       " HELP_SPEC_OPTIONS "\n"
 		"",
-		bin_name, bin_name, bin_name);
+		bin_name, "btf");
 
 	return 0;
 }

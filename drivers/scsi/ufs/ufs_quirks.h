@@ -127,6 +127,13 @@ struct ufs_dev_fix {
  */
 #define UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME	(1 << 9)
 
+/*
+ * Some pre-3.1 UFS devices can support extended features by upgrading
+ * the firmware. Enable this quirk to make UFS core driver probe and enable
+ * supported features on such devices.
+ */
+#define UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES (1 << 10)
+
 #ifdef CONFIG_SCSI_UFSHCD_QTI
 /*
  * Some UFS devices may stop responding after switching from HS-G1 to HS-G3.
@@ -134,7 +141,7 @@ struct ufs_dev_fix {
  * HS-G1 to HS-G2 followed by HS-G2 to HS-G3. Enabling this quirk for such
  * device would apply this 2 steps gear switch workaround.
  */
-#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH		(1 << 10)
+#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH		(1 << 11)
 
 /*
  * Some UFS devices need more delay after device reference clk is turned on
@@ -142,7 +149,7 @@ struct ufs_dev_fix {
  * from the HIBERN8 state. Enable this quirk to give UFS devices 50us delay
  * instead of the default delay.
  */
-#define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 11)
+#define UFS_DEVICE_QUIRK_WAIT_AFTER_REF_CLK_UNGATE	(1 << 12)
 
 /*
  * Some UFS devices may not work properly after resume if the link was kept

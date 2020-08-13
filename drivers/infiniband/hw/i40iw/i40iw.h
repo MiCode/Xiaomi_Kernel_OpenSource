@@ -67,7 +67,7 @@
 #include "i40iw_user.h"
 #include "i40iw_puda.h"
 
-#define I40IW_FW_VERSION  2
+#define I40IW_FW_VER_DEFAULT 2
 #define I40IW_HW_VERSION  2
 
 #define I40IW_ARP_ADD     1
@@ -326,6 +326,26 @@ struct i40iw_handler {
 };
 
 /**
+ * i40iw_fw_major_ver - get firmware major version
+ * @dev: iwarp device
+ **/
+static inline u64 i40iw_fw_major_ver(struct i40iw_sc_dev *dev)
+{
+	return RS_64(dev->feature_info[I40IW_FEATURE_FW_INFO],
+		     I40IW_FW_VER_MAJOR);
+}
+
+/**
+ * i40iw_fw_minor_ver - get firmware minor version
+ * @dev: iwarp device
+ **/
+static inline u64 i40iw_fw_minor_ver(struct i40iw_sc_dev *dev)
+{
+	return RS_64(dev->feature_info[I40IW_FEATURE_FW_INFO],
+		     I40IW_FW_VER_MINOR);
+}
+
+/**
  * to_iwdev - get device
  * @ibdev: ib device
  **/
@@ -359,15 +379,6 @@ static inline struct i40iw_pd *to_iwpd(struct ib_pd *ibpd)
 static inline struct i40iw_mr *to_iwmr(struct ib_mr *ibmr)
 {
 	return container_of(ibmr, struct i40iw_mr, ibmr);
-}
-
-/**
- * to_iwmr_from_ibfmr - get device memory region
- * @ibfmr: ib fmr
- **/
-static inline struct i40iw_mr *to_iwmr_from_ibfmr(struct ib_fmr *ibfmr)
-{
-	return container_of(ibfmr, struct i40iw_mr, ibfmr);
 }
 
 /**

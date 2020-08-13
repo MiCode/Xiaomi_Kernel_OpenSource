@@ -17,7 +17,9 @@
  */
 #include "sched.h"
 #include "pelt.h"
+#ifdef CONFIG_SCHED_WALT
 #include "walt.h"
+#endif
 
 struct dl_bandwidth def_dl_bandwidth;
 
@@ -154,7 +156,7 @@ void sub_running_bw(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 		__sub_running_bw(dl_se->dl_bw, dl_rq);
 }
 
-void dl_change_utilization(struct task_struct *p, u64 new_bw)
+static void dl_change_utilization(struct task_struct *p, u64 new_bw)
 {
 	struct rq *rq;
 
@@ -334,6 +336,8 @@ static inline int is_leftmost(struct task_struct *p, struct dl_rq *dl_rq)
 
 	return dl_rq->root.rb_leftmost == &dl_se->rb_node;
 }
+
+static void init_dl_rq_bw_ratio(struct dl_rq *dl_rq);
 
 void init_dl_bandwidth(struct dl_bandwidth *dl_b, u64 period, u64 runtime)
 {
@@ -1381,7 +1385,9 @@ void inc_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_prio(prio));
 	dl_rq->dl_nr_running++;
 	add_nr_running(rq_of_dl_rq(dl_rq), 1);
+#ifdef CONFIG_SCHED_WALT
 	walt_inc_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
+#endif
 
 	inc_dl_deadline(dl_rq, deadline);
 	inc_dl_migration(dl_se, dl_rq);
@@ -1396,7 +1402,10 @@ void dec_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_rq->dl_nr_running);
 	dl_rq->dl_nr_running--;
 	sub_nr_running(rq_of_dl_rq(dl_rq), 1);
+
+#ifdef CONFIG_SCHED_WALT
 	walt_dec_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
+#endif
 
 	dec_dl_deadline(dl_rq, dl_se->deadline);
 	dec_dl_migration(dl_se, dl_rq);
@@ -1601,12 +1610,14 @@ static void yield_task_dl(struct rq *rq)
 
 static int find_later_rq(struct task_struct *task);
 
+
+#ifndef CONFIG_SCHED_WALT
 static int
-#ifdef CONFIG_SCHED_WALT
+select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags)
+#else
+static int
 select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags,
 		  int sibling_count_hint)
-#else
-select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags)
 #endif
 {
 	struct task_struct *curr;
@@ -2109,9 +2120,13 @@ retry:
 	}
 
 	deactivate_task(rq, next_task, 0);
+#ifdef CONFIG_SCHED_WALT
 	next_task->on_rq = TASK_ON_RQ_MIGRATING;
+#endif
 	set_task_cpu(next_task, later_rq->cpu);
+#ifdef CONFIG_SCHED_WALT
 	next_task->on_rq = TASK_ON_RQ_QUEUED;
+#endif
 
 	/*
 	 * Update the later_rq clock here, because the clock is used
@@ -2205,9 +2220,13 @@ static void pull_dl_task(struct rq *this_rq)
 			resched = true;
 
 			deactivate_task(src_rq, p, 0);
+#ifdef CONFIG_SCHED_WALT
 			p->on_rq = TASK_ON_RQ_MIGRATING;
+#endif
 			set_task_cpu(p, this_cpu);
+#ifdef CONFIG_SCHED_WALT
 			p->on_rq = TASK_ON_RQ_QUEUED;
+#endif
 			activate_task(this_rq, p, 0);
 			dmin = p->dl.deadline;
 
@@ -2508,7 +2527,7 @@ int sched_dl_global_validate(void)
 	return ret;
 }
 
-void init_dl_rq_bw_ratio(struct dl_rq *dl_rq)
+static void init_dl_rq_bw_ratio(struct dl_rq *dl_rq)
 {
 	if (global_rt_runtime() == RUNTIME_INF) {
 		dl_rq->bw_ratio = 1 << RATIO_SHIFT;
@@ -2702,6 +2721,7 @@ void __dl_clear_params(struct task_struct *p)
 	dl_se->dl_bw			= 0;
 	dl_se->dl_density		= 0;
 
+	dl_se->dl_boosted		= 0;
 	dl_se->dl_throttled		= 0;
 	dl_se->dl_yielded		= 0;
 	dl_se->dl_non_contending	= 0;

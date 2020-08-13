@@ -106,7 +106,8 @@ static int jpeg_v2_0_sw_init(void *handle)
 	ring->use_doorbell = true;
 	ring->doorbell_index = (adev->doorbell_index.vcn.vcn_ring0_1 << 1) + 1;
 	sprintf(ring->name, "jpeg_dec");
-	r = amdgpu_ring_init(adev, ring, 512, &adev->jpeg.inst->irq, 0);
+	r = amdgpu_ring_init(adev, ring, 512, &adev->jpeg.inst->irq,
+			     0, AMDGPU_RING_PRIO_DEFAULT);
 	if (r)
 		return r;
 
@@ -169,13 +170,10 @@ static int jpeg_v2_0_hw_init(void *handle)
 static int jpeg_v2_0_hw_fini(void *handle)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
-	struct amdgpu_ring *ring = &adev->jpeg.inst->ring_dec;
 
 	if (adev->jpeg.cur_state != AMD_PG_STATE_GATE &&
 	      RREG32_SOC15(JPEG, 0, mmUVD_JRBC_STATUS))
 		jpeg_v2_0_set_powergating_state(adev, AMD_PG_STATE_GATE);
-
-	ring->sched.ready = false;
 
 	return 0;
 }
@@ -693,7 +691,7 @@ static int jpeg_v2_0_set_clockgating_state(void *handle,
 	bool enable = (state == AMD_CG_STATE_GATE);
 
 	if (enable) {
-		if (jpeg_v2_0_is_idle(handle))
+		if (!jpeg_v2_0_is_idle(handle))
 			return -EBUSY;
 		jpeg_v2_0_enable_clock_gating(adev);
 	} else {

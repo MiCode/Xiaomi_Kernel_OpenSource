@@ -459,11 +459,10 @@ EXPORT_SYMBOL(cdsprm_unregister_cdspl3gov);
 static void set_qos_latency(int latency)
 {
 	if (!gcdsprm.qos_request) {
-		pm_qos_add_request(&gcdsprm.pm_qos_req,
-			PM_QOS_CPU_DMA_LATENCY, latency);
+		cpu_latency_qos_add_request(&gcdsprm.pm_qos_req, latency);
 		gcdsprm.qos_request = true;
 	} else {
-		pm_qos_update_request(&gcdsprm.pm_qos_req,
+		cpu_latency_qos_update_request(&gcdsprm.pm_qos_req,
 			latency);
 	}
 }
