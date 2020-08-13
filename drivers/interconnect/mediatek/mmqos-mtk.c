@@ -256,7 +256,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	struct common_port_node *comm_port_node;
 	struct larb_node *larb_node;
 	struct larb_port_node *larb_port_node;
-	struct mtk_iommu_data smi_imu;
+	struct mtk_iommu_data smi_imu = {};
 	int i, id, num_larbs = 0, num_volts, ret;
 	const struct mtk_mmqos_desc *mmqos_desc;
 	const struct mtk_node_desc *node_desc;
