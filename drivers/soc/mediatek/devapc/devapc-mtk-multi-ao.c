@@ -1178,10 +1178,9 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static const struct file_operations devapc_dbg_fops = {
-	.owner = THIS_MODULE,
-	.write = mtk_devapc_dbg_write,
-	.read = mtk_devapc_dbg_read,
+static const struct proc_ops devapc_dbg_fops = {
+	.proc_write = mtk_devapc_dbg_write,
+	.proc_read = mtk_devapc_dbg_read,
 };
 
 #ifdef CONFIG_DEVAPC_SWP_SUPPORT
