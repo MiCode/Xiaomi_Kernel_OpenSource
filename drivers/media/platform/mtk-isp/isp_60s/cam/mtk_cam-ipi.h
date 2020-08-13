@@ -6,6 +6,9 @@
 #ifndef __MTK_CAM_IPI_H__
 #define __MTK_CAM_IPI_H__
 
+#define MTK_CAM_IPI_VERSION_MAJOR 0
+#define MTK_CAM_IPI_VERSION_MINOR 1
+
 #ifndef BUILD_COPROCESSOR
 #include <linux/types.h>
 #include "mtk_cam-defs.h"
@@ -164,7 +167,7 @@ struct mtkcam_ipi_input_param {
 } __attribute__ ((__packed__));
 
 struct mtkcam_ipi_raw_frame_param {
-	__u8 main_path_sel; /* pure/processed/... */
+	__u8	main_path_sel; /* pure/processed/... */
 	__u8	hardware_scenario;
 	__u32	bin_flag;
 	struct mtkcam_ipi_fract	frz_ratio;
