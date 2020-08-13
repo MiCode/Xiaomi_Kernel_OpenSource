@@ -3,6 +3,7 @@
 #include "shima-pmic-overlay.dtsi"
 #include "shima-thermal-overlay.dtsi"
 #include "shima-audio-overlay.dtsi"
+#include "display/shima-sde-display-qrd.dtsi"
 
 &soc {
 	gpio_keys {
