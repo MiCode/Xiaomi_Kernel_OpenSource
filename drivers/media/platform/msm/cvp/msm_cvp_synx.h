@@ -48,7 +48,7 @@ int cvp_import_synx(struct msm_cvp_inst *inst, struct cvp_fence_command *fc,
 		u32 *fence);
 int cvp_release_synx(struct msm_cvp_inst *inst, struct cvp_fence_command *fc);
 int cvp_cancel_synx(struct msm_cvp_inst *inst, enum cvp_synx_type type,
-		struct cvp_fence_command *fc);
+		struct cvp_fence_command *fc, int synx_state);
 int cvp_synx_ops(struct msm_cvp_inst *inst, enum cvp_synx_type type,
 		struct cvp_fence_command *fc, u32 *synx_state);
 void cvp_dump_fence_queue(struct msm_cvp_inst *inst);

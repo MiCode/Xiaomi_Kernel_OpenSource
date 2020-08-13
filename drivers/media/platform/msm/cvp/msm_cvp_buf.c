@@ -498,6 +498,10 @@ static void msm_cvp_unmap_frame_buf(struct msm_cvp_inst *inst,
 		} else if (atomic_dec_and_test(&smem->refcount)) {
 			clear_bit(smem->bitmap_index,
 				&inst->dma_cache.usage_bitmap);
+			dprintk(CVP_MEM, "smem %x %d iova %#x to be reused\n",
+					hash32_ptr(inst->session),
+					smem->size,
+					smem->device_addr);
 		}
 	}
 
@@ -515,7 +519,8 @@ void msm_cvp_unmap_frame(struct msm_cvp_inst *inst, u64 ktid)
 	}
 
 	ktid &= (FENCE_BIT - 1);
-	dprintk(CVP_MEM, "%s: unmap frame %llu\n", __func__, ktid);
+	dprintk(CVP_MEM, "%s: (%#x) unmap frame %llu\n",
+			__func__, hash32_ptr(inst->session), ktid);
 
 	found = false;
 	mutex_lock(&inst->frames.lock);

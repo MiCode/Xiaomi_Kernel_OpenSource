@@ -73,8 +73,8 @@ int cvp_import_synx(struct msm_cvp_inst *inst, struct cvp_fence_command *fc,
 			rc = synx_import(ssid, &params);
 			if (rc) {
 				dprintk(CVP_ERR,
-					"%s: synx_import failed\n",
-					__func__);
+					"%s: %d synx_import failed\n",
+					__func__, h_synx);
 				return rc;
 			}
 		}
@@ -102,8 +102,8 @@ int cvp_release_synx(struct msm_cvp_inst *inst, struct cvp_fence_command *fc)
 			rc = synx_release(ssid, h_synx);
 			if (rc)
 				dprintk(CVP_ERR,
-				"%s: synx_release %d failed\n",
-				__func__, i);
+				"%s: synx_release %d, %d failed\n",
+				__func__, h_synx, i);
 		}
 	}
 	return rc;
@@ -111,14 +111,14 @@ int cvp_release_synx(struct msm_cvp_inst *inst, struct cvp_fence_command *fc)
 
 static int cvp_cancel_synx_impl(struct msm_cvp_inst *inst,
 			enum cvp_synx_type type,
-			struct cvp_fence_command *fc)
+			struct cvp_fence_command *fc,
+			int synx_state)
 {
 	int rc = 0;
 	int i;
 	int h_synx;
 	struct synx_session ssid;
 	int start = 0, end = 0;
-	int synx_state = SYNX_STATE_SIGNALED_CANCEL;
 
 	ssid = inst->synx_session_id;
 
@@ -137,11 +137,12 @@ static int cvp_cancel_synx_impl(struct msm_cvp_inst *inst,
 		h_synx = fc->synx[i];
 		if (h_synx) {
 			rc = synx_signal(ssid, h_synx, synx_state);
-			if (rc) {
-				dprintk(CVP_ERR, "%s: synx_signal %d failed\n",
-				__func__, i);
-				synx_state = SYNX_STATE_SIGNALED_ERROR;
-			}
+			dprintk(CVP_SYNX, "Cancel synx %d session %llx\n",
+					h_synx, inst);
+			if (rc)
+				dprintk(CVP_ERR,
+					"%s: synx_signal %d %d %d failed\n",
+				__func__, h_synx, i, synx_state);
 		}
 	}
 
@@ -151,14 +152,14 @@ static int cvp_cancel_synx_impl(struct msm_cvp_inst *inst,
 }
 
 int cvp_cancel_synx(struct msm_cvp_inst *inst, enum cvp_synx_type type,
-		struct cvp_fence_command *fc)
+		struct cvp_fence_command *fc, int synx_state)
 {
 	if (fc->signature != 0xFEEDFACE) {
 		dprintk(CVP_ERR, "%s deprecated synx path\n", __func__);
 			return -EINVAL;
 		}
 
-	return cvp_cancel_synx_impl(inst, type, fc);
+	return cvp_cancel_synx_impl(inst, type, fc, synx_state);
 }
 
 static int cvp_wait_synx(struct synx_session ssid, u32 *synx, u32 num_synx,
@@ -186,6 +187,8 @@ static int cvp_wait_synx(struct synx_session ssid, u32 *synx, u32 num_synx,
 				}
 				return rc;
 			}
+			dprintk(CVP_SYNX, "Wait synx %d returned succes\n",
+					h_synx);
 		}
 		++i;
 	}
@@ -203,10 +206,12 @@ static int cvp_signal_synx(struct synx_session ssid, u32 *synx, u32 num_synx,
 		if (h_synx) {
 			rc = synx_signal(ssid, h_synx, synx_state);
 			if (rc) {
-				dprintk(CVP_ERR, "%s: synx_signal %d failed\n",
-				current->comm, i);
+				dprintk(CVP_ERR,
+					"%s: synx_signal %d %d failed\n",
+					current->comm, h_synx, i);
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
+			dprintk(CVP_SYNX, "Signaled synx %d\n", h_synx);
 		}
 		++i;
 	}
