@@ -366,19 +366,20 @@ int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 	u16 device_id;
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
-		cnss_pr_dbg("PCIe link is suspended\n");
+		cnss_pr_dbg("%ps: PCIe link is suspended\n", (void *)_RET_IP_);
 		return -EACCES;
 	}
 
 	if (pci_priv->pci_link_down_ind) {
-		cnss_pr_err("PCIe link is down\n");
+		cnss_pr_err("%ps: PCIe link is down\n", (void *)_RET_IP_);
 		return -EIO;
 	}
 
 	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
 	if (device_id != pci_priv->device_id)  {
-		cnss_fatal_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
-			       device_id, pci_priv->device_id);
+		cnss_fatal_err("%ps: PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
+			       (void *)_RET_IP_, device_id,
+			       pci_priv->device_id);
 		return -EIO;
 	}
 
@@ -3970,6 +3971,13 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 		return -EINVAL;
 
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
+	/* If link is still down here, directly trigger link down recovery */
+	ret = cnss_pci_check_link_status(pci_priv);
+	if (ret) {
+		cnss_pci_link_down(&pci_priv->pci_dev->dev);
+		return 0;
+	}
+
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 
