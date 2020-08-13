@@ -311,6 +311,7 @@ struct vpu_config vpu_cfg_mt68xx = {
 	.host_ver = HOST_VERSION,
 	.iova_bank = 0x300000000ULL,
 	.iova_start = 0x70000000,
+	.iova_heap = 0x80000000,
 	.iova_end = 0x82600000,
 
 	.bin_type = VPU_IMG_PRELOAD,  // VPU_IMG_LEGACY, VPU_IMG_PRELOAD
@@ -360,6 +361,7 @@ struct vpu_config vpu_cfg_mt67xx = {
 	.host_ver = HOST_VERSION,
 	.iova_bank = 0,
 	.iova_start = 0x70000000,
+	.iova_heap = 0x70000000,
 	.iova_end = 0x80000000,
 
 	.bin_type = VPU_IMG_LEGACY,  // VPU_IMG_LEGACY, VPU_IMG_PRELOAD

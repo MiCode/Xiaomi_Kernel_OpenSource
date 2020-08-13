@@ -13,20 +13,24 @@
 struct vpu_mem {
 	void *handle;
 	unsigned long va;
-	uint32_t pa;
+	uint64_t pa;
 	uint32_t length;
 };
 
 struct vpu_iova {
 	/* settings from dts */
-	uint32_t addr;  /* iova */
-	uint32_t size;
+	uint32_t addr;  /* iova settng from dts */
+	uint32_t size;  /* iova size from dts */
 	uint32_t bin;   /* offset in binary */
 	/* allocated memory */
 	struct vpu_mem m;
 	/* allocated iova */
 	struct sg_table sgt;
 	struct page **pages;
+	uint64_t time;  /* allocated time */
+	uint64_t iova;  /* allocated iova */
+	/* link in vpu driver */
+	struct list_head list;
 };
 
 extern struct vpu_mem_ops vpu_mops_v1;

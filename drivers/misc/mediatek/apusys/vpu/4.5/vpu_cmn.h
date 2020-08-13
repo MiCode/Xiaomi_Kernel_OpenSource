@@ -14,6 +14,7 @@
 #include <linux/scatterlist.h>
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
+#include <linux/seq_file.h>
 
 #include "apusys_device.h"
 #include "apu_bmap.h"
@@ -121,7 +122,9 @@ struct vpu_driver {
 	uint64_t mva_algo;
 
 	/* memory */
-	struct apu_bmap ab;
+	struct apu_bmap ab;  /* bitmap used by v2 allocator */
+	struct list_head vi; /* list of all mapped vpu_iova */
+	struct mutex vi_lock;
 
 	/* list of devices */
 	struct list_head devs;
@@ -189,16 +192,17 @@ struct vpu_sys_ops {
 struct vpu_mem_ops {
 	int (*init)(void);
 	void (*exit)(void);
-	dma_addr_t (*alloc)(struct platform_device *pdev, struct vpu_iova *i);
+	dma_addr_t (*alloc)(struct device *dev, struct vpu_iova *i);
 	void (*free)(struct device *dev, struct vpu_iova *i);
-	dma_addr_t (*map_sg_to_iova)(struct platform_device *pdev,
+	dma_addr_t (*map_sg_to_iova)(struct device *dev,
 		struct scatterlist *sg,	unsigned int nents,
 		size_t len, dma_addr_t given_iova);
 	void (*unmap_iova_from_sg)(struct device *dev, struct vpu_iova *i);
 	void (*sync_for_device)(struct device *dev,	struct vpu_iova *i);
 	void (*sync_for_cpu)(struct device *dev, struct vpu_iova *i);
-	int (*dts)(struct platform_device *pdev,
+	int (*dts)(struct device *dev,
 		const char *name, struct vpu_iova *i);
+	void (*show)(struct seq_file *s);
 };
 
 struct vpu_misc_ops {
@@ -337,6 +341,7 @@ struct vpu_config {
 	uint32_t host_ver;
 	uint64_t iova_bank;
 	uint32_t iova_start;
+	uint32_t iova_heap; // Heap begin address for dynamic allocated iova
 	uint32_t iova_end;
 
 	uint32_t bin_type;  // VPU_IMG_LEGACY, VPU_IMG_PRELOAD

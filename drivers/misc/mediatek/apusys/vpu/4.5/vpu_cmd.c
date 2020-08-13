@@ -24,7 +24,7 @@ static unsigned int vpu_prio(int p)
  * vpu_cmd_init - Initialize command control
  * @vd: the pointer of vpu_device.
  */
-int vpu_cmd_init(struct platform_device *pdev, struct vpu_device *vd)
+int vpu_cmd_init(struct vpu_device *vd)
 {
 	int i;
 	int ret = 0;
@@ -47,7 +47,7 @@ int vpu_cmd_init(struct platform_device *pdev, struct vpu_device *vd)
 		c->vi.bin = VPU_MEM_ALLOC;
 		c->vi.size = VPU_CMD_SIZE;
 		c->exe_cnt = 0;
-		iova = mops->alloc(pdev, &c->vi);
+		iova = mops->alloc(vd->dev, &c->vi);
 		if (!iova) {
 			vd->cmd_prio_max = i;
 			vpu_cmd_exit(vd);
@@ -315,7 +315,7 @@ static void *vpu_cmd_buf_va(struct vpu_device *vd, int prio)
  */
 uint32_t vpu_cmd_buf_iova(struct vpu_device *vd, int prio)
 {
-	return vd->cmd[vpu_prio(prio)].vi.m.pa;
+	return (uint32_t)vd->cmd[vpu_prio(prio)].vi.m.pa;
 }
 
 /**
