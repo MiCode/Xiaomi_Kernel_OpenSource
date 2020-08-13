@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
 
 #include "cam_sensor_cmn_header.h"
 #include "cam_sensor_i2c.h"
-#include "cam_cci_dev.h"
+#include "cam_cci_core.h"
 
 int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 	uint32_t addr, uint32_t *data,
@@ -36,8 +36,8 @@ int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 	cci_ctrl.cfg.cci_i2c_read_cfg.data_type = data_type;
 	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
 	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte = data_type;
-	rc = v4l2_subdev_call(cci_client->cci_subdev,
-		core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
+
+	rc = cam_cci_core_cfg(cci_client->cci_subdev, &cci_ctrl);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "rc = %d", rc);
 		return rc;
@@ -88,14 +88,18 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
 	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte = num_byte;
 	cci_ctrl.status = -EFAULT;
-	rc = v4l2_subdev_call(cci_client->cci_subdev,
-		core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
-	rc = cci_ctrl.status;
+
+	rc = cam_cci_core_cfg(cci_client->cci_subdev, &cci_ctrl);
 	CAM_DBG(CAM_SENSOR, "addr = 0x%x, rc = %d", addr, rc);
-	for (i = 0; i < num_byte; i++) {
-		data[i] = buf[i];
-		CAM_DBG(CAM_SENSOR, "Byte %d: Data: 0x%x\n", i, data[i]);
+
+	if (!rc) {
+		for (i = 0; i < num_byte; i++) {
+			data[i] = buf[i];
+			CAM_DBG(CAM_SENSOR, "Byte %d: Data: 0x%x",
+				i, data[i]);
+		}
 	}
+
 	kfree(buf);
 	return rc;
 }
@@ -124,13 +128,13 @@ static int32_t cam_cci_i2c_write_table_cmd(
 	cci_ctrl.cfg.cci_i2c_write_cfg.data_type = write_setting->data_type;
 	cci_ctrl.cfg.cci_i2c_write_cfg.addr_type = write_setting->addr_type;
 	cci_ctrl.cfg.cci_i2c_write_cfg.size = write_setting->size;
-	rc = v4l2_subdev_call(cci_client->cci_subdev,
-		core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
+
+	rc = cam_cci_core_cfg(cci_client->cci_subdev, &cci_ctrl);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "Failed rc = %d", rc);
 		return rc;
 	}
-	rc = cci_ctrl.status;
+
 	if (write_setting->delay > 20)
 		msleep(write_setting->delay);
 	else if (write_setting->delay)
@@ -229,11 +233,11 @@ int32_t cam_sensor_cci_i2c_util(struct cam_sensor_cci_client *cci_client,
 
 	cci_ctrl.cmd = cci_cmd;
 	cci_ctrl.cci_info = cci_client;
-	rc = v4l2_subdev_call(cci_client->cci_subdev,
-		core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
+
+	rc = cam_cci_core_cfg(cci_client->cci_subdev, &cci_ctrl);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "Failed rc = %d", rc);
-		return rc;
 	}
-	return cci_ctrl.status;
+
+	return rc;
 }
