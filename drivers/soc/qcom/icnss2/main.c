@@ -806,6 +806,8 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 	else
 		ret = icnss_call_driver_probe(priv);
 
+	icnss_vreg_unvote(priv);
+
 out:
 	return ret;
 }
