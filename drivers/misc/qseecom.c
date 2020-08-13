@@ -1286,14 +1286,14 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 		pr_debug("bridge exists\n");
 		return 0;
 	}
-/*
- *	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
- *	if (nelems == 0) {
- *		pr_err("failed to get vm num from flag = %x\n", dma_buf_flags);
- *		ret = -EINVAL;
- *		goto exit;
- *	}
- */
+
+	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
+	if (nelems == 0) {
+		pr_err("failed to get vm num from flag = %x\n", dma_buf_flags);
+		ret = -EINVAL;
+		goto exit;
+	}
+
 
 	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
 	if (!vmid_list) {
@@ -1301,11 +1301,11 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 		goto exit;
 	}
 
-/*
- *	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
- *	if (ret)
- *		goto exit_free_vmid_list;
- */
+
+	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
+	if (ret)
+		goto exit_free_vmid_list;
+
 
 	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
 	if (!perms_list) {
