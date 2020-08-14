@@ -2746,14 +2746,6 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	int ret = 0;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	struct mtk_crtc_state *state;
-	struct mtk_panel_ext *panel_ext;
-	bool doze_enabled;
-	unsigned int i;
-	unsigned int doze_wait = 0;
-#endif
-
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || \
@@ -2793,21 +2785,10 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				     mtk_crtc->gce_obj.event[EVENT_TE]);
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		if (mtk_drm_lcm_is_connect()) {
-			state = to_mtk_crtc_state(crtc->state);
-			doze_enabled = state->prop_val[CRTC_PROP_DOZE_ACTIVE];
-			panel_ext = mtk_crtc->panel_ext;
-			if (panel_ext->params->doze_delay && doze_enabled) {
-				doze_wait = panel_ext->params->doze_delay;
-				for (i = 0; i < doze_wait; i++)
-					cmdq_pkt_wfe(cmdq_handle,
-					mtk_crtc->gce_obj.event[EVENT_TE]
-					);
-			} else
-				cmdq_pkt_wfe(cmdq_handle,
-					mtk_crtc->gce_obj.event[EVENT_TE]
-					);
-		}
+
+		if (mtk_drm_lcm_is_connect())
+			cmdq_pkt_wfe(cmdq_handle,
+					 mtk_crtc->gce_obj.event[EVENT_TE]);
 
 		/* The STREAM BLOCK EVENT is used for stopping frame trigger if
 		 * the engine is stopped
@@ -3412,6 +3393,8 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int index = 0;
+	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_panel_ext *panel_ext;
 
 	if (!mtk_crtc) {
 		DDPPR_ERR("%s:%d, invalid crtc:0x%p\n",
@@ -3440,6 +3423,14 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 	if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		DDPINFO("%s:%d, not in trigger mode\n", __func__, __LINE__);
 		CRTC_MMP_MARK(index, kick_trigger, 0, 3);
+		goto err;
+	}
+
+	panel_ext = mtk_crtc->panel_ext;
+	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
+		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
+		panel_ext && panel_ext->params->doze_delay > 1){
+		DDPINFO("%s:%d, doze not to trigger\n", __func__, __LINE__);
 		goto err;
 	}
 
