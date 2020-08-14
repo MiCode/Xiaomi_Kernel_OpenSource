@@ -46,6 +46,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "img_defs.h"
 
 #include "rgxhwperf.h"
+#include "rgx_fwif_km.h"
+
 
 #include "common_rgxhwperf_bridge.h"
 
@@ -103,7 +105,7 @@ PVRSRVBridgeRGXConfigEnableHWPerfCounters(IMG_UINT32 ui32DispatchTableEntry,
 
 	if (unlikely
 	    (psRGXConfigEnableHWPerfCountersIN->ui32ArrayLen >
-	     RGX_HWPERF_MAX_DEFINED_BLKS))
+	     RGXFWIF_HWPERF_CTRL_BLKS_MAX))
 	{
 		psRGXConfigEnableHWPerfCountersOUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
@@ -216,7 +218,7 @@ PVRSRVBridgeRGXCtrlHWPerfCounters(IMG_UINT32 ui32DispatchTableEntry,
 
 	if (unlikely
 	    (psRGXCtrlHWPerfCountersIN->ui32ArrayLen >
-	     RGX_HWPERF_MAX_DEFINED_BLKS))
+	     RGXFWIF_HWPERF_CTRL_BLKS_MAX))
 	{
 		psRGXCtrlHWPerfCountersOUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
