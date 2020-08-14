@@ -36,7 +36,7 @@ void mtk_common_deinit(struct kbase_device *kbdev);
 int mtk_platform_init(struct kbase_device *kbdev);
 
 #ifdef ENABLE_MTK_MEMINFO
-#define MTK_MEMINFO_SIZE 150
+#define MTK_MEMINFO_SIZE 300
 
 /*
 * Add by mediatek, Hook the memory query function pointer to (*mtk_get_gpu_memory_usage_fp) in order to
