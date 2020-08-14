@@ -1054,7 +1054,7 @@ void apu_qos_boost_end(void)
  * create qos workqueue for count bandwidth
  * @call at module init
  */
-void apu_qos_counter_init(void)
+void apu_qos_counter_init(struct device *dev)
 {
 	int i = 0;
 	struct engine_pm_qos_counter *counter = NULL;
@@ -1115,7 +1115,7 @@ void apu_qos_counter_init(void)
  * delete qos request
  * @call at module exit
  */
-void apu_qos_counter_destroy(void)
+void apu_qos_counter_destroy(struct device *dev)
 {
 	int i = 0;
 	struct engine_pm_qos_counter *counter = NULL;
