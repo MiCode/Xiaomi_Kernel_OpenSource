@@ -2461,9 +2461,18 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"Clock switch failing: %d -> %d (target: %d)\n",
+			freq_old, g_cur_opp_freq, freq_new);
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"Clock switch failing: %d -> %d (target: %d)\n",
+			freq_old, g_cur_opp_freq, freq_new);
 
 		while (g_cur_opp_vgpu != vgpu_new) {
 			sb_idx = g_opp_sb_idx_down[g_cur_opp_idx] > idx_new ?
