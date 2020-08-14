@@ -6,8 +6,8 @@
 ################################################################################
 ## Variant setup
 MSM_ARCH=waipio
-VARIANTS=(gki)
-[ -z "${VARIANT}" ] && VARIANT=gki
+VARIANTS=(consolidate gki)
+[ -z "${VARIANT}" ] && VARIANT=consolidate
 
 BOOT_IMAGE_HEADER_VERSION=2
 BASE_ADDRESS=0x80000000

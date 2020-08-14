@@ -13,15 +13,21 @@ fi
 ABI_DEFINITION=abi_gki_aarch64.xml
 KMI_WHITELIST=abi_gki_qcom_whitelist
 
-case "${VARIANT}" in
-gki)
-	apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_GKI.config vendor/${MSM_ARCH}-gki_defconfig
-	;;
-gki-ack)
-	# In gki-only, then using ACK's GKI config directly
-	. ${KERNEL_DIR}/build.config.gki
-	;;
-*)
-	echo "Unsupported variant '${VARIANT}'"
-	;;
-esac
+function build_defconfig_fragments() {
+	if [[ "${VARIANT}" =~ ^(gki|consolidate)$ ]]; then
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_GKI.config vendor/${MSM_ARCH}-gki_defconfig
+		if [ "${VARIANT}" = gki ]; then
+			return
+		fi
+		# ABI comparison isn't applicable on consolidate variant
+		unset ABI_DEFINITION
+		apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/vendor/${MSM_ARCH}_consolidate.config vendor/${MSM_ARCH}-consolidate_defconfig
+	elif [ "${VARIANT}" = gki-ack ]; then
+		# In gki-only, then using ACK's GKI config directly
+		. ${KERNEL_DIR}/build.config.gki
+	else
+		echo "Variant '${VARIANT}' unsupported by gki"
+		exit 1
+	fi
+}
+build_defconfig_fragments
