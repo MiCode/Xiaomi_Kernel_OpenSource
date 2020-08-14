@@ -35,6 +35,14 @@ config MTK_COMBO_CHIP_MT7668
 	  is
 	  MT7668
 
+config MTK_COMBO_CHIP_MT7663
+	bool "MT7663"
+	help
+	  this config is used to decided combo chip version
+	  in current platform
+	  is
+	  MT7663
+
 config MTK_COMBO_CHIP_MT6630
 	bool "MT6630"
 	help
@@ -195,6 +203,7 @@ config MTK_COMBO_CHIP
 	default "MT6630" if MTK_COMBO_CHIP_MT6630
 	default "MT6632" if MTK_COMBO_CHIP_MT6632
 	default "MT7668" if MTK_COMBO_CHIP_MT7668
+	default "MT7663" if MTK_COMBO_CHIP_MT7663
 	default "CONSYS_6757" if MTK_COMBO_CHIP_CONSYS_6757
 	default "CONSYS_6763" if MTK_COMBO_CHIP_CONSYS_6763
 	default "CONSYS_6758" if MTK_COMBO_CHIP_CONSYS_6758
