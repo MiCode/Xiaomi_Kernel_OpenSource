@@ -805,6 +805,43 @@ static const struct thermal_zone_of_device_ops imgsensor_tz_ops = {
 	.get_temp = imgsensor_get_temp,
 };
 
+static int notify_fsync_mgr(struct adaptor_ctx *ctx)
+{
+	int ret, seninf_idx = 0;
+	const char *seninf_port = NULL;
+	char c_ab;
+	struct device_node *seninf_np;
+	struct device *dev = ctx->dev;
+
+	seninf_np = of_graph_get_remote_node(dev->of_node, 0, 0);
+	if (!seninf_np) {
+		dev_info(dev, "no remote device node\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_string(seninf_np, "csi-port", &seninf_port);
+
+	of_node_put(seninf_np);
+
+	if (ret || !seninf_port) {
+		dev_info(dev, "no seninf csi-port\n");
+		return -EINVAL;
+	}
+
+	/* convert seninf-port to seninf-idx */
+	ret = sscanf(seninf_port, "%d%c", &seninf_idx, &c_ab);
+	seninf_idx <<= 1;
+	seninf_idx += (ret == 2 && (c_ab == 'b' || c_ab == 'B'));
+
+	dev_info(dev, "sensor_idx %d seninf_port \'%s\' seninf_idx %d\n",
+		ctx->idx, seninf_port, seninf_idx);
+
+	/* notify frame-sync mgr of sensor-idx and seninf-idx */
+	//TODO
+
+	return 0;
+}
+
 static int imgsensor_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -900,8 +937,10 @@ static int imgsensor_probe(struct i2c_client *client)
 		tzdev = devm_thermal_zone_of_sensor_register(
 			       dev, 0, ctx, &imgsensor_tz_ops);
 		if (IS_ERR(tzdev))
-			dev_info(dev, "failed to register tz\n");
+			dev_info(dev, "failed to register thermal zone\n");
 	}
+
+	notify_fsync_mgr(ctx);
 
 	return 0;
 
