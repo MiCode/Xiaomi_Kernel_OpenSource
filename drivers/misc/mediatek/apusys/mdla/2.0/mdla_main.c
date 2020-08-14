@@ -757,6 +757,8 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(cmd_data))) {
 			return -EFAULT;
 		}
+		if (cmd_data.mdla_id >= MTK_MDLA_MAX_NUM)
+			return -EFAULT;
 		mdla_cmd_debug("%s: RUN_CMD_SYNC: mva=0x%08x, phys_to_virt=%p\n",
 			__func__,
 			cmd_data.req.mva,
@@ -923,6 +925,8 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 			return -EFAULT;
 		}
 		if (perf_data.mdlaid >= MTK_MDLA_MAX_NUM)
+			return -EFAULT;
+		if (perf_data.mode >= CMD_MODE_MAX)
 			return -EFAULT;
 		mutex_lock(&mdla_devices[perf_data.mdlaid].cmd_lock);
 		mutex_lock(&mdla_devices[perf_data.mdlaid].power_lock);
