@@ -4438,4 +4438,9 @@
 	};
 	aud_gpio_i2s9_on: aud_gpio_i2s9_on {
 	};
+
+	/* ATF logger */
+	atf_logger {
+		compatible = "mediatek,atf_logger";
+	};
 };
