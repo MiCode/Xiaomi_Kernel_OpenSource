@@ -1428,6 +1428,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		IPAWANDBG_LOW("Rx packet was received");
 		skb->dev = IPA_NETDEV();
 		skb->protocol = htons(ETH_P_MAP);
+		skb_set_mac_header(skb, 0);
 
 		if (ipa3_rmnet_res.ipa_napi_enable) {
 			trace_rmnet_ipa_netif_rcv_skb3(dev->stats.rx_packets);
