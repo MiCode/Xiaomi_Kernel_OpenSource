@@ -271,6 +271,7 @@ static void mdee_info_dump_v5(struct ccci_fsm_ee *mdee)
 	case MD_EE_CASE_WDT:
 		strncpy(ex_info, mdee_more_inf_str[dumper->more_info],
 			EE_BUF_LEN_UMOLY);
+		ex_info[EE_BUF_LEN_UMOLY] = '\0';
 		break;
 	default:
 		mdee_output_debug_info_to_buf(mdee, debug_info, ex_info);
