@@ -839,16 +839,62 @@ int32_t cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 #endif				/* CMDQ_GPR_SUPPORT */
 }
 
-s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
-	CMDQ_VARIABLE argument, u32 mask)
+s32 cmdq_handle_flush_cmd_buf(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf)
 {
-	return cmdq_op_write_reg(handle, addr, argument, mask);
+	return 0;
+}
+
+s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 addr,
+	CMDQ_VARIABLE value, u32 mask)
+{
+	return cmdq_op_poll(handle, addr, value, mask);
+}
+
+s32 cmdq_op_read_reg_to_mem_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf,
+	cmdqBackupSlotHandle backup_slot, u32 slot_index, u32 addr)
+{
+	return cmdq_op_read_reg_to_mem(handle, backup_slot, slot_index, addr);
+}
+
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 addr,
+	CMDQ_VARIABLE value, u32 mask)
+{
+	return cmdq_op_write_reg(handle, addr, value, mask);
+}
+
+s32 cmdq_op_wait_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum CMDQ_EVENT_ENUM event)
+{
+	return cmdq_op_wait(handle, event);
+}
+
+s32 cmdq_op_wait_no_clear_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum CMDQ_EVENT_ENUM event)
+{
+	return cmdq_op_wait_no_clear(handle, event);
+}
+
+s32 cmdq_op_clear_event_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum CMDQ_EVENT_ENUM event)
+{
+	return cmdq_op_clear_event(handle, event);
+}
+
+s32 cmdq_op_set_event_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum CMDQ_EVENT_ENUM event)
+{
+	return cmdq_op_set_event(handle, event);
 }
 
 #define CMDQ_WFE_UPDATE			BIT(31)
 #define CMDQ_WFE_UPDATE_VALUE		BIT(16)
 #define CMDQ_WFE_WAIT			BIT(15)
-s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum CMDQ_EVENT_ENUM event)
+s32 cmdq_op_acquire_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum CMDQ_EVENT_ENUM event)
 {
 	int32_t status;
 	uint32_t *p_command;
@@ -877,8 +923,8 @@ s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum CMDQ_EVENT_ENUM event)
 	return 0;
 }
 
-s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
-	u32 write_reg, u32 from_reg)
+s32 cmdq_op_write_from_reg_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 write_reg, u32 from_reg)
 {
 	s32 status;
 
