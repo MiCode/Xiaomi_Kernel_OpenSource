@@ -133,6 +133,7 @@ static void helio_dvfsrc_sspm_init(int dvfsrc_en)
 
 void helio_dvfsrc_enable(int dvfsrc_en)
 {
+	int ret = 0;
 	if (dvfsrc_en > 1 || dvfsrc_en < 0)
 		return;
 
@@ -149,8 +150,12 @@ void helio_dvfsrc_enable(int dvfsrc_en)
 
 	dvfsrc->dvfsrc_enabled = dvfsrc_en;
 	dvfsrc->opp_forced = 0;
-	sprintf(dvfsrc->force_start, "0");
-	sprintf(dvfsrc->force_end, "0");
+	ret = sprintf(dvfsrc->force_start, "0");
+	if (ret < 0)
+		pr_info("sprintf fail\n");
+	ret = sprintf(dvfsrc->force_end, "0");
+	if (ret < 0)
+		pr_info("sprintf fail\n");
 
 	dvfsrc_restore();
 	if (dvfsrc_en)
