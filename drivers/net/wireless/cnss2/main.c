@@ -1195,7 +1195,7 @@ void cnss_schedule_recovery(struct device *dev,
 }
 EXPORT_SYMBOL(cnss_schedule_recovery);
 
-int cnss_force_fw_assert(struct device *dev)
+int cnss_force_fw_assert_async(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
@@ -1219,7 +1219,44 @@ int cnss_force_fw_assert(struct device *dev)
 		return 0;
 	}
 
-	if (in_interrupt() || irqs_disabled())
+	cnss_pr_info("Force assert (async)\n");
+
+	cnss_driver_event_post(plat_priv,
+			       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
+			       0, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_force_fw_assert_async);
+
+int cnss_force_fw_assert(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	bool post = (in_interrupt() || irqs_disabled());
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
+		cnss_pr_info("Forced FW assert is not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (cnss_bus_is_device_down(plat_priv)) {
+		cnss_pr_info("Device is already in bad state, ignore force assert\n");
+		return 0;
+	}
+
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+		cnss_pr_info("Recovery is already in progress, ignore forced FW assert\n");
+		return 0;
+	}
+
+	cnss_pr_info("Force assert (%s)\n", post ? "async" : "sync");
+
+	if (post)
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
 				       0, NULL);

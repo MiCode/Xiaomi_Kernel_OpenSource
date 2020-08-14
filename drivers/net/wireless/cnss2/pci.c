@@ -1098,6 +1098,10 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 out:
 	cnss_pr_err("Failed to set MHI state: %s(%d)\n",
 		    cnss_mhi_state_to_str(mhi_state), mhi_state);
+
+	if (mhi_state == CNSS_MHI_RESUME)
+		cnss_force_fw_assert_async(&pci_priv->pci_dev->dev);
+
 	return ret;
 }
 
@@ -2477,7 +2481,9 @@ static int cnss_pci_suspend(struct device *dev)
 		goto clear_flag;
 
 	if (!pci_priv->disable_pc) {
+		mutex_lock(&pci_priv->bus_lock);
 		ret = cnss_pci_suspend_bus(pci_priv);
+		mutex_unlock(&pci_priv->bus_lock);
 		if (ret)
 			goto resume_driver;
 	}
@@ -2516,7 +2522,9 @@ static int cnss_pci_resume(struct device *dev)
 		goto out;
 
 	if (!pci_priv->disable_pc) {
+		mutex_lock(&pci_priv->bus_lock);
 		ret = cnss_pci_resume_bus(pci_priv);
+		mutex_unlock(&pci_priv->bus_lock);
 		if (ret)
 			goto out;
 	}
