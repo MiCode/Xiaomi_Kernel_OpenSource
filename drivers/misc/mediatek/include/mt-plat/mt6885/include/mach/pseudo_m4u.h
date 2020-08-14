@@ -56,7 +56,6 @@
 /* Notice: mt6885 can use it in normal world, but from mt6873,
  * 0xf80 is not support in normal world.
  */
-#define SMI_LARB_SEC_CON_EN
 
 #define M4U_PAGE_SIZE	0x1000
 
@@ -67,6 +66,8 @@
 #ifndef SMI_LARB_NR
 #define SMI_LARB_NR (21)
 #endif
+
+#define ONE_SMI_PORT_NR (32)
 
 #define M4U_PAGE_MASK	0xfff
 
