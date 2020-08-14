@@ -1550,8 +1550,15 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			return DDP_COMPONENT_OVL0_2L;
 		else
 			return DDP_COMPONENT_OVL0;
-	} else
+	}
+#if defined(CONFIG_MACH_MT6885)
+	else if (disp_idx == 1)
 		return DDP_COMPONENT_OVL2_2L;
+	else
+		return DDP_COMPONENT_OVL1_2L;
+#else
+	return DDP_COMPONENT_OVL2_2L;
+#endif
 }
 
 static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
@@ -2309,7 +2316,7 @@ static int get_crtc_num(
 		crtc_num = 2;
 		break;
 	case MTK_DRM_SESSION_TRIPLE_DL:
-		crtc_num = 1;
+		crtc_num = 3;
 		break;
 	default:
 		crtc_num = 0;

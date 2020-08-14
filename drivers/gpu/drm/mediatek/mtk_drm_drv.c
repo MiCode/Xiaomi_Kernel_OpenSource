@@ -65,10 +65,12 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
-atomic_t _mtk_fence_idx[2] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1)};
+atomic_t _mtk_fence_idx[3] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1),
+	ATOMIC_INIT(-1)};
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
-atomic_t _mtk_fence_update_event[2] = {ATOMIC_INIT(0), ATOMIC_INIT(0)};
-wait_queue_head_t _mtk_fence_wq[2];
+atomic_t _mtk_fence_update_event[3] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1),
+	ATOMIC_INIT(-1)};
+wait_queue_head_t _mtk_fence_wq[3];
 #endif
 
 static atomic_t top_isr_ref; /* irq power status protection */
@@ -977,7 +979,8 @@ static const enum mtk_ddp_comp_id mt6885_dual_data_ext[] = {
 	DDP_COMPONENT_DSC0,
 };
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_third[] = {
-	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_WDMA0,
+	DDP_COMPONENT_OVL1_2L, DDP_COMPONENT_OVL1_2L_VIRTUAL0,
+	DDP_COMPONENT_WDMA1,
 };
 
 static const struct mtk_addon_module_data addon_rsz_data[] = {
@@ -1380,7 +1383,7 @@ const struct mtk_session_mode_tb mt6885_mode_tb[MTK_DRM_SESSION_NUM] = {
 		[MTK_DRM_SESSION_TRIPLE_DL] = {
 
 				.en = 1,
-				.ddp_mode = {DDP_MAJOR, DDP_MINOR, DDP_MAJOR},
+				.ddp_mode = {DDP_MAJOR, DDP_MAJOR, DDP_MAJOR},
 			},
 };
 
@@ -1585,7 +1588,8 @@ void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index)
 	atomic_set(&_mtk_fence_idx[index], fence_idx);
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	atomic_set(&_mtk_fence_update_event[index], 1);
-	wake_up_interruptible(&_mtk_fence_wq[index]);
+	if (index != 2)
+		wake_up_interruptible(&_mtk_fence_wq[index]);
 #endif
 
 	CRTC_MMP_MARK(0, update_present_fence, 0, fence_idx);
