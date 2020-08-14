@@ -426,6 +426,8 @@ struct fastrpc_channel_ctx {
 	void *rh_dump_dev;
 	/* Indicates, if channel is restricted to secure node only */
 	int secure;
+	/* Indicates whether the channel supports unsigned PD */
+	bool unsigned_support;
 	struct fastrpc_dsp_capabilities dsp_cap_kernel;
 	/* cpu capabilities shared to DSP */
 	uint64_t cpuinfo_todsp;
@@ -2599,12 +2601,14 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].sesscount = 0;
 		/* All channels are secure by default except CDSP */
 		me->channel[i].secure = SECURE_CHANNEL;
+		me->channel[i].unsigned_support = false;
 		mutex_init(&me->channel[i].smd_mutex);
 		mutex_init(&me->channel[i].rpmsg_mutex);
 		spin_lock_init(&me->channel[i].ctxlock);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
+	me->channel[CDSP_DOMAIN_ID].unsigned_support = true;
 }
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type)
@@ -5234,13 +5238,17 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		/* Check to see if the device node is non-secure */
 		if (fl->dev_minor == MINOR_NUM_DEV) {
 			/*
-			 * For non secure device node check and make sure that
-			 * the channel allows non-secure access
-			 * If not, bail. Session will not start.
-			 * cid will remain -1 and client will not be able to
-			 * invoke any other methods without failure
+			 * If an app is trying to offload to a secure remote
+			 * channel by opening the non-secure device node, allow
+			 * the access if the subsystem supports unsigned
+			 * offload. Untrusted apps will be restricted from
+			 * offloading to signed PD using DSP HAL.
 			 */
-			if (fl->apps->channel[cid].secure == SECURE_CHANNEL) {
+			if (fl->apps->channel[cid].secure == SECURE_CHANNEL
+			&& !fl->apps->channel[cid].unsigned_support) {
+				ADSPRPC_ERR(
+				"cannot use domain %d with non-secure device\n",
+				cid);
 				err = -EACCES;
 				goto bail;
 			}
@@ -6169,6 +6177,7 @@ static void configure_secure_channels(uint32_t secure_domains)
 		int secure = (secure_domains >> ii) & 0x01;
 
 		me->channel[ii].secure = secure;
+		ADSPRPC_INFO("domain %d configured as secure %d\n", ii, secure);
 	}
 }
 
