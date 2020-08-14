@@ -114,7 +114,7 @@ void ccci_sib_init(void)
 {
 	struct proc_dir_entry *ccci_sib_proc;
 
-	ccci_sib_proc = proc_create("ccci_sib", 0444, NULL, &ccci_sib_fops);
+	ccci_sib_proc = proc_create("ccci_sib", 0440, NULL, &ccci_sib_fops);
 	if (ccci_sib_proc == NULL) {
 		pr_notice("[ccci0/util]fail to create proc entry for sib dump\n");
 		return;

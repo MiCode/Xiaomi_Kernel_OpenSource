@@ -1866,7 +1866,7 @@ static void ccci_proc_init(void)
 {
 	struct proc_dir_entry *ccci_dbm_proc;
 
-	ccci_dbm_proc = proc_create("ccci_lp_mem", 0444, NULL, &ccci_dbm_ops);
+	ccci_dbm_proc = proc_create("ccci_lp_mem", 0440, NULL, &ccci_dbm_ops);
 	if (ccci_dbm_proc == NULL)
 		CCCI_ERROR_LOG(-1, TAG, "fail to create ccci dbm proc\n");
 	spin_lock_init(&file_lock);
