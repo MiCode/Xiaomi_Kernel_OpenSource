@@ -34,6 +34,7 @@ static struct mdw_cmd_parser *cmd_parser;
 int mdw_queue_task_start(struct mdw_apu_sc *sc)
 {
 	struct mdw_queue *mq = NULL;
+	int ret = 0;
 
 	mdw_flw_debug("\n");
 
@@ -55,15 +56,29 @@ int mdw_queue_task_start(struct mdw_apu_sc *sc)
 		}
 	}
 
-	if (cmd_parser->is_deadline(sc))
-		return mq->deadline.ops.task_start(sc, &mq->deadline);
+	if (cmd_parser->is_deadline(sc)) {
+		ret = mq->deadline.ops.task_start(sc, &mq->deadline);
+		if (!ret) {
+			mutex_lock(&mq->mtx);
+			mq->deadline_task_num++;
+			mutex_unlock(&mq->mtx);
+		}
+	} else {
+		ret = mq->norm.ops.task_start(sc, &mq->norm);
+		if (!ret) {
+			mutex_lock(&mq->mtx);
+			mq->normal_task_num++;
+			mutex_unlock(&mq->mtx);
+		}
+	}
 
-	return mq->norm.ops.task_start(sc, &mq->norm);
+	return ret;
 }
 
 int mdw_queue_task_end(struct mdw_apu_sc *sc)
 {
 	struct mdw_queue *mq = NULL;
+	int ret = 0;
 
 	mdw_flw_debug("\n");
 
@@ -72,10 +87,21 @@ int mdw_queue_task_end(struct mdw_apu_sc *sc)
 	if (!mq)
 		return -ENODEV;
 
-	if (cmd_parser->is_deadline(sc))
-		return mq->deadline.ops.task_end(sc, &mq->deadline);
+	if (cmd_parser->is_deadline(sc)) {
+		ret = mq->deadline.ops.task_end(sc, &mq->deadline);
+		if (!ret) {
+			mutex_lock(&mq->mtx);
+			mq->deadline_task_num--;
+			mutex_unlock(&mq->mtx);
+		}
+	} else {
+		ret = mq->norm.ops.task_end(sc, &mq->norm);
+		mutex_lock(&mq->mtx);
+		mq->normal_task_num--;
+		mutex_unlock(&mq->mtx);
+	}
 
-	return mq->norm.ops.task_end(sc, &mq->norm);
+	return ret;
 }
 
 struct mdw_apu_sc *mdw_queue_pop(int type)
@@ -202,6 +228,10 @@ int mdw_queue_init(struct mdw_queue *mq)
 	cmd_parser = mdw_cmd_get_parser();
 	if (!cmd_parser)
 		return -ENODEV;
+
+	memset(mq, 0, sizeof(struct mdw_queue));
+
+	mutex_init(&mq->mtx);
 
 	ret = mdw_queue_deadline_init(&mq->deadline);
 	if (ret)

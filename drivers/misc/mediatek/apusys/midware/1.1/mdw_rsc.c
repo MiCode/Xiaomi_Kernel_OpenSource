@@ -187,8 +187,8 @@ static struct mdw_rsc_tab *mdw_rsc_add_tab(int type)
 	tab->dbg_dir = debugfs_create_dir(name,
 		mdw_dbg_device);
 
-	/* create queue */
-	debugfs_create_u32("queue", 0444, tab->dbg_dir, &tab->q.norm.cnt);
+	/* create debugfs */
+	debugfs_create_u32("queue", 0444, tab->dbg_dir, &tab->q.normal_task_num);
 
 init_queue:
 	/* init queue */

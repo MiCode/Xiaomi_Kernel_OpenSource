@@ -42,7 +42,7 @@
 static dev_t mdw_devt;
 static struct cdev *mdw_cdev;
 static struct class *mdw_class;
-struct device *g_mdw_device;
+struct device *mdw_device;
 
 /* function declaration */
 static int mdw_open(struct inode *, struct file *);
@@ -92,7 +92,7 @@ static int mdw_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	g_mdw_device = &pdev->dev;
+	mdw_device = &pdev->dev;
 
 	/* get major */
 	ret = alloc_chrdev_region(&mdw_devt, 0, 1, APUSYS_DEV_NAME);
@@ -145,8 +145,8 @@ static int mdw_probe(struct platform_device *pdev)
 	mdw_drv_info("-\n");
 
 	return 0;
-out:
 
+out:
 	/* Release device */
 	if (dev != NULL)
 		device_destroy(mdw_class, mdw_devt);
@@ -556,7 +556,7 @@ static void mdw_dev_release(struct device *dev)
 
 static struct platform_device mdw_dev = {
 	.name = APUSYS_DEV_NAME,
-	.id = 0,
+	.id = -1,
 	.dev = {
 			.release = mdw_dev_release,
 		},
