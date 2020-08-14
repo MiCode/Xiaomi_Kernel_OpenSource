@@ -143,12 +143,12 @@ static void _print_hnd(int type, void *hnd)
 }
 
 //----------------------------------------------
-static uint32_t _get_time_diff_from_system(struct timespec *duration)
+static uint32_t _get_time_diff_from_system(struct timespec64 *duration)
 {
-	struct timespec now;
+	struct timespec64 now;
 	uint32_t diff = 0;
 
-	getnstimeofday(&now);
+	ktime_get_ts64(&now);
 	diff = (now.tv_sec - duration->tv_sec)*1000000000 +
 		(now.tv_nsec - duration->tv_nsec); //ns
 	if (diff)
@@ -210,7 +210,7 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 {
 	struct sample_request *req = NULL;
 	struct sample_dev_info *info = NULL;
-	struct timespec duration;
+	struct timespec64 duration;
 	uint32_t tdiff = 0;
 
 	if (hnd == NULL || dev == NULL)
@@ -267,7 +267,7 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 		req->driver_done);
 	spl_drv_dbg("|----------------------------------------------------|\n");
 
-	memset(&duration, 0, sizeof(struct timeval));
+	memset(&duration, 0, sizeof(struct timespec64));
 	tdiff = _get_time_diff_from_system(&duration);
 
 	if (req->delay_ms) {

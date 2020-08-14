@@ -123,7 +123,7 @@ struct apusys_subcmd {
 };
 
 /* general functions */
-uint32_t get_time_diff_from_system(struct timespec *duration);
+uint32_t get_time_diff_from_system(struct timespec64 *duration);
 uint8_t get_cmdformat_version(void);
 uint64_t get_cmdformat_magic(void);
 

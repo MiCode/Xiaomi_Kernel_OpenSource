@@ -292,12 +292,12 @@ static unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 	return pack_idx;
 }
 
-uint32_t get_time_diff_from_system(struct timespec *duration)
+uint32_t get_time_diff_from_system(struct timespec64 *duration)
 {
-	struct timespec now;
+	struct timespec64 now;
 	uint32_t diff = 0;
 
-	getnstimeofday(&now);
+	ktime_get_ts64(&now);
 	diff = (now.tv_sec - duration->tv_sec)*1000000000 +
 		(now.tv_nsec - duration->tv_nsec); //ns
 	if (diff)

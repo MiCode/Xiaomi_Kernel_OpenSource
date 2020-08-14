@@ -655,7 +655,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
 	int ret = 0;
 	uint32_t t_diff = 0;
-	struct timespec driver_time;
+	struct timespec64 driver_time;
 
 	if (isc == NULL || idev_info == NULL) {
 		ret = -EINVAL;
