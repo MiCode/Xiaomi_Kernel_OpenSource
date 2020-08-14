@@ -186,7 +186,7 @@ void cm_mgr_update_met(void)
 }
 
 #include <linux/cpu_pm.h>
-static int cm_mgr_idle_mask = CLUSTER0_MASK | CLUSTER1_MASK;
+static unsigned int cm_mgr_idle_mask = CLUSTER0_MASK | CLUSTER1_MASK;
 
 void __iomem *mcucfg_mp0_counter_base;
 void __iomem *mcucfg_mp2_counter_base;

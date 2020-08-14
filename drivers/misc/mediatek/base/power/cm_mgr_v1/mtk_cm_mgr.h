@@ -55,12 +55,12 @@ struct cm_mgr_data {
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;
 extern int cm_mgr_blank_status;
-extern int cpu_power_ratio_up[CM_MGR_EMI_OPP];
-extern int cpu_power_ratio_down[CM_MGR_EMI_OPP];
-extern int vcore_power_ratio_up[CM_MGR_EMI_OPP];
-extern int vcore_power_ratio_down[CM_MGR_EMI_OPP];
-extern int debounce_times_up_adb[CM_MGR_EMI_OPP];
-extern int debounce_times_down_adb[CM_MGR_EMI_OPP];
+extern unsigned int cpu_power_ratio_up[CM_MGR_EMI_OPP];
+extern unsigned int cpu_power_ratio_down[CM_MGR_EMI_OPP];
+extern unsigned int vcore_power_ratio_up[CM_MGR_EMI_OPP];
+extern unsigned int vcore_power_ratio_down[CM_MGR_EMI_OPP];
+extern unsigned int debounce_times_up_adb[CM_MGR_EMI_OPP];
+extern unsigned int debounce_times_down_adb[CM_MGR_EMI_OPP];
 extern int debounce_times_reset_adb;
 extern int debounce_times_perf_down;
 extern int debounce_times_perf_force_down;
