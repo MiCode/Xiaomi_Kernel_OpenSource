@@ -192,7 +192,7 @@ char *iommu_get_port_name(int port)
 	if (idx >= M4U_PORT_NR ||
 	    idx < 0) {
 		pr_info("[MTK_IOMMU] %s fail, port=%d\n", __func__, port);
-		return NULL;
+		return "m4u_port_unknown";
 	}
 	return iommu_port[idx].name;
 }
