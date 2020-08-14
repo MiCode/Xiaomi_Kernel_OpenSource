@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,6 +22,7 @@
 #include "scp_ipi.h"
 #include "audio_task_manager.h"
 #include "audio_ipi_queue.h"
+#include "vow_assert.h"
 #endif
 
 
@@ -44,8 +45,13 @@ unsigned int vow_check_scp_status(void)
 #endif
 }
 
+static void vow_Task_Unloaded_Handling(void)
+{
+	VOWDRV_DEBUG("%s()\n", __func__);
+}
+
 void vow_ipi_register(void (*ipi_rx_call)(unsigned int, void *),
-		      bool (*ipi_tx_ack_call)(unsigned int, void *))
+		      bool (*ipi_tx_ack_call)(unsigned int, unsigned int))
 {
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 	audio_load_task(TASK_SCENE_VOW);
@@ -55,11 +61,6 @@ void vow_ipi_register(void (*ipi_rx_call)(unsigned int, void *),
 #endif
 	ipi_rx_handle = ipi_rx_call;
 	ipi_tx_ack_handle = ipi_tx_ack_call;
-}
-
-static void vow_Task_Unloaded_Handling(void)
-{
-	VOWDRV_DEBUG("%s()\n", __func__);
 }
 
 static void vow_IPICmd_Received(struct ipi_msg_t *ipi_msg)
@@ -91,7 +92,6 @@ bool vow_ipi_send(unsigned int msg_id,
 	uint8_t ack_type;
 	uint32_t param1;
 	uint32_t param2;
-	char *payload;
 
 	if (!vow_check_scp_status()) {
 		VOWDRV_DEBUG("SCP is off, bypass send ipi id(%d)\n", msg_id);
