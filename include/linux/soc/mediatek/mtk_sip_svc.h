@@ -33,6 +33,10 @@
 /* Debug feature and ATF related */
 #define MTK_SIP_KERNEL_WDT \
 	MTK_SIP_SMC_CMD(0x200)
+#define MTK_SIP_KERNEL_TIME_SYNC \
+	MTK_SIP_SMC_CMD(0x202)
+#define MTK_SIP_KERNEL_ATF_DEBUG \
+	MTK_SIP_SMC_CMD(0x204)
 
 /* CCCI debug feature */
 #define MTK_SIP_KERNEL_CCCI_GET_INFO \
