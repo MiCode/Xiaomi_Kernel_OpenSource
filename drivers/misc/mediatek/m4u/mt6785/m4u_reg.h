@@ -426,17 +426,14 @@
 #define F_MMU0_INT_ID_TF_MSK_SEC	F_MSK(11, 2)
 
 /* ================================================================ */
-/* SMI larb */
+/* SMI larb                                                         */
+/* DON NOT read/write secure register in kernel                     */
 /* ================================================================ */
 
-#define SMI_LARB_NON_SEC_CONx(larb_port)	(0x380 + ((larb_port)<<2))
-#define F_SMI_NON_SEC_MMU_EN(en)	F_BIT_VAL(en, 0)
-#define F_SMI_MMU_EN          F_BIT_SET(0)
+#define SMI_LARB_NON_SEC_CONx(larb_port)    (0x380 + ((larb_port)<<2))
+#define F_SMI_NON_SEC_MMU_EN(en)            F_BIT_VAL(en, 0)
+#define F_SMI_MMU_EN                        F_BIT_SET(0)
 
-#define SMI_LARB_SEC_CONx(larb_port)	(0xf80 + ((larb_port)<<2))
-#define F_SMI_SEC_MMU_EN(en)	F_BIT_VAL(en, 0)
-#define F_SMI_SEC_EN(sec)	F_BIT_VAL(sec, 1)
-#define F_SMI_DOMN(domain)	F_VAL(domain, 8, 4)
 /* ========================================================================= */
 /* peripheral system */
 /* ========================================================================= */

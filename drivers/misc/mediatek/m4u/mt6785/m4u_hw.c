@@ -1406,12 +1406,7 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 	larb_port = m4u_port_2_larb_port(PortID);
-#if 0
-	 mmu_en = !!(m4uHw_get_field_by_mask(gLarbBaseAddr[larb],
-		SMI_LARB_MMU_EN, F_SMI_MMU_EN(larb_port, 1)));
-	sec_en = !!(m4uHw_get_field_by_mask(gLarbBaseAddr[larb],
-		SMI_LARB_SEC_EN, F_SMI_SEC_EN(larb_port, 1)));
-#endif
+
 	M4ULOG_HIGH(
 		"%s: %s, m4u_tee_en:%d, mmu_en: %d -> %d, sec_en:%d -> %d\n",
 			__func__,
@@ -1841,10 +1836,6 @@ static void larb_backup(unsigned int larb_idx)
 		for (i = 0; i < 32; i++)
 			__M4U_BACKUP(larb_base, SMI_LARB_NON_SEC_CONx(i),
 				larb_reg_backup_buf[larb_idx][i]);
-
-		for (i = 0; i < 32; i++)
-			__M4U_BACKUP(larb_base, SMI_LARB_SEC_CONx(i),
-				larb_reg_backup_buf[larb_idx][i + 32]);
 	}
 }
 
@@ -1868,10 +1859,6 @@ static void larb_restore(unsigned int larb_idx)
 		for (i = 0; i < 32; i++)
 			__M4U_RESTORE(larb_base, SMI_LARB_NON_SEC_CONx(i),
 				larb_reg_backup_buf[larb_idx][i]);
-
-		for (i = 0; i < 32; i++)
-			__M4U_RESTORE(larb_base, SMI_LARB_SEC_CONx(i),
-				larb_reg_backup_buf[larb_idx][i + 32]);
 	}
 }
 
@@ -1991,7 +1978,7 @@ void m4u_print_port_status(struct seq_file *seq, int only_print_active,
 
 void m4u_print_port_status_ext(struct seq_file *seq, int tf_port)
 {
-	int mmu_en = 0, mmu_en_sec = 0, sec_en = 0;
+	int mmu_en = 0;
 	int m4u_index, larb, l_port;
 	unsigned long larb_base;
 
@@ -2011,18 +1998,12 @@ void m4u_print_port_status_ext(struct seq_file *seq, int tf_port)
 		mmu_en = m4uHw_get_field_by_mask(larb_base,
 						 SMI_LARB_NON_SEC_CONx(l_port),
 						 F_SMI_NON_SEC_MMU_EN(1));
-		mmu_en_sec = m4uHw_get_field_by_mask(larb_base,
-						 SMI_LARB_SEC_CONx(l_port),
-						 F_SMI_SEC_MMU_EN(1));
-		sec_en = m4uHw_get_field_by_mask(larb_base,
-						 SMI_LARB_SEC_CONx(l_port),
-						 F_SMI_SEC_EN(1));
 	}
 
 	M4U_PRINT_SEQ(seq,
-			"%s larb:%d, port:%s, mmu_en:%d mmu_en_sec:%d, sec:%d\n",
-			__func__, larb, m4u_get_port_name(tf_port),
-			!!mmu_en, !!mmu_en_sec, !!sec_en);
+		      "%s larb:%d, port:%s, mmu_en:%d\n",
+		      __func__,
+		      larb, m4u_get_port_name(tf_port), !!mmu_en);
 }
 
 
