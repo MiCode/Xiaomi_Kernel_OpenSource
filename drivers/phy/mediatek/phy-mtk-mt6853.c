@@ -244,7 +244,7 @@ static int phy_slew_rate_calibration(struct mtk_phy_instance *instance)
 }
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
-static bFirstUartCheck = true;
+static bool bFirstUartCheck = true;
 static bool phy_check_in_uart_mode(struct mtk_phy_instance *instance);
 #endif
 
