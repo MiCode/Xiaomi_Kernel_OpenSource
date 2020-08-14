@@ -118,13 +118,19 @@ void init_drm_mmp_event(void)
 void init_crtc_mmp_event(void)
 {
 	int i = 0;
+	int r = 0;
 
 	for (i = 0; i < MMP_CRTC_NUM; i++) {
 		char name[32];
 		mmp_event crtc_mmp_root;
 
 		/* create i th root of CRTC mmp events */
-		snprintf(name, sizeof(name), "crtc%d", i);
+		r = snprintf(name, sizeof(name), "crtc%d", i);
+		if (r < 0) {
+			/* Handle snprintf() error */
+			DDPPR_ERR("%s:snprintf error\n", __func__);
+			return;
+		}
 		crtc_mmp_root =
 			mmprofile_register_event(g_DRM_MMP_Events.drm, name);
 		g_DRM_MMP_Events.crtc[i] = crtc_mmp_root;

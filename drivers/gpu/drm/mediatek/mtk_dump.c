@@ -18,6 +18,10 @@ static const char * const ddp_comp_str[] = {DECLARE_DDP_COMP(DECLARE_STR)};
 
 const char *mtk_dump_comp_str(struct mtk_ddp_comp *comp)
 {
+	if (comp->id < 0) {
+		DDPPR_ERR("%s: Invalid ddp comp id:%d\n", __func__, comp->id);
+		comp->id = 0;
+	}
 	return ddp_comp_str[comp->id];
 }
 
@@ -187,6 +191,10 @@ void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
 			break;
 		s = snprintf(buf + l, max_size, "0x%03x:0x%08x ", off[i],
 			     readl(base + off[i]));
+		if (s < 0) {
+			/* Handle snprintf() error */
+			return;
+		}
 		l += s;
 	}
 
