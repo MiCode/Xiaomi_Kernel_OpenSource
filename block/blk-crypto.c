@@ -304,3 +304,9 @@ int blk_crypto_evict_key(struct request_queue *q,
 	return blk_crypto_fallback_evict_key(key);
 }
 EXPORT_SYMBOL_GPL(blk_crypto_evict_key);
+
+inline void blk_crypto_flock(struct keyslot_manager *ksm, unsigned int flags)
+{
+	ksm_flock(ksm, flags);
+}
+EXPORT_SYMBOL_GPL(blk_crypto_flock);
