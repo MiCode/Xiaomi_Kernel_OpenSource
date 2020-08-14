@@ -220,6 +220,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 	unsigned int ret_vc = 0;
 	int get_vcore_val = 0;
 
+#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MTK_DVFSRC_MT6893_PRETEST)
 	if (cur_freq == CLK_OPP0) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_3);
 	} else if (cur_freq == CLK_OPP1) {
@@ -228,7 +229,19 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_1);
 	}  else if (cur_freq == CLK_OPP3 || cur_freq == CLK_OPP4) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_0);
-	} else {
+	}
+#else
+	if (cur_freq == CLK_OPP0) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_4);
+	} else if (cur_freq == CLK_OPP1) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_3);
+	} else if (cur_freq == CLK_OPP2) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_2);
+	}  else if (cur_freq == CLK_OPP3 || cur_freq == CLK_OPP4) {
+		get_vcore_val = get_vcore_uv_table(VCORE_OPP_1);
+	}
+#endif
+	else {
 		ret = -2;
 		pr_err("ERROR: %s: cur_freq=%d is not supported\n",
 			__func__, cur_freq);
@@ -350,20 +363,25 @@ void scp_vcore_request(unsigned int clk_opp)
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x3);
 #endif
 
-	/* SCP to SPM voltage level
-	 * 2'b0000_0000_1000: scp request 0.575v
-	 * 2'b0001_0000_0100: scp request 0.6v
-	 * 2'b0010_0000_0010: scp request 0.65v
-	 * 2'b0011_0000_0001: scp request 0.725v
-	 */
+#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MTK_DVFSRC_MT6893_PRETEST)
 	if (clk_opp == CLK_OPP0)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x8);
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0008);
 	else if (clk_opp == CLK_OPP1)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x104);
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0104);
 	else if (clk_opp == CLK_OPP2)
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x202);
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0202);
 	else
-		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x301);
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0301);
+#else
+	if (clk_opp == CLK_OPP0)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0010);
+	else if (clk_opp == CLK_OPP1)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0108);
+	else if (clk_opp == CLK_OPP2)
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0204);
+	else
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, 0x0302);
+#endif
 }
 
 /* scp_request_freq
