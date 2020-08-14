@@ -573,7 +573,7 @@ static int mt6360_regmap_init(struct mt6360_chip *chip)
 {
 	struct rt_regmap_properties *props;
 	char name[32];
-	int len;
+	int len, ret;
 
 	props = devm_kzalloc(chip->dev, sizeof(*props), GFP_KERNEL);
 	if (!props)
@@ -584,7 +584,9 @@ static int mt6360_regmap_init(struct mt6360_chip *chip)
 	props->rt_regmap_mode = RT_MULTI_BYTE | RT_CACHE_DISABLE |
 				RT_IO_PASS_THROUGH | RT_DBG_GENERAL;
 
-	snprintf(name, sizeof(name), "mt6360-%02x", chip->client->addr);
+	ret = snprintf(name, sizeof(name), "mt6360-%02x", chip->client->addr);
+	if (ret < 0)
+		return -EINVAL;
 	len = strlen(name);
 	props->name = kzalloc(len + 1, GFP_KERNEL);
 	props->aliases = kzalloc(len + 1, GFP_KERNEL);
