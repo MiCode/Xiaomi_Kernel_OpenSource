@@ -150,6 +150,7 @@ static int loading_time_diff;
 static int adjust_loading;
 static int rescue_percent_90;
 static int rescue_percent_120;
+static int fps_level_range;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -174,6 +175,7 @@ module_param(loading_time_diff, int, 0644);
 module_param(adjust_loading, int, 0644);
 module_param(rescue_percent_90, int, 0644);
 module_param(rescue_percent_120, int, 0644);
+module_param(fps_level_range, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1917,40 +1919,64 @@ static int fbt_maybe_vsync_aligned(unsigned long long queue_start)
 	return 1;
 }
 
-static unsigned long long fbt_get_t2wnt(long long t_cpu_target,
+#define FPS_LEVEL 3
+static const int fbt_fps_level[FPS_LEVEL] = {60, 90, 120};
+static int fbt_get_fps_level(int target_fps)
+{
+	int tol_fps;
+	int i;
+
+	if (_gdfrc_fps_limit && _gdfrc_fps_limit <= fbt_fps_level[0])
+		return fbt_fps_level[0];
+
+	for (i = 0; i < FPS_LEVEL - 1; i++) {
+		tol_fps = fbt_fps_level[i] * (100+fps_level_range) / 100;
+		if (target_fps < tol_fps)
+			return fbt_fps_level[i];
+	}
+
+	return fbt_fps_level[FPS_LEVEL - 1];
+}
+
+static unsigned long long fbt_get_t2wnt(int target_fps,
 		unsigned long long queue_start, int always_running)
 {
 	unsigned long long next_vsync, queue_end, rescue_length;
 	unsigned long long t2wnt = 0ULL;
 	unsigned long long ts = fpsgo_get_time();
 	int fps_rescue_percent, fps_short_rescue_ns, fps_min_rescue_percent;
+	unsigned long long t_cpu_target;
+	int target_fps_level;
 
 	mutex_lock(&fbt_mlock);
 
-	switch (_gdfrc_fps_limit) {
-	case 60:
+	target_fps = min_t(int, target_fps, TARGET_UNLIMITED_FPS);
+
+	target_fps_level = fbt_get_fps_level(target_fps);
+
+	t_cpu_target = (unsigned long long)FBTCPU_SEC_DIVIDER;
+	t_cpu_target = div64_u64(t_cpu_target,
+		(unsigned long long)target_fps);
+
+	if (target_fps_level == fbt_fps_level[0]) {
 		fps_rescue_percent = rescue_percent;
 		fps_short_rescue_ns = short_rescue_ns;
 		fps_min_rescue_percent = min_rescue_percent;
-		break;
-	case 90:
+	} else if (target_fps_level == fbt_fps_level[1]) {
 		fps_rescue_percent = rescue_percent_90;
 		fps_min_rescue_percent = rescue_percent_90;
 		fps_short_rescue_ns =
 			(rescue_percent_90 == DEF_RESCUE_PERCENT)
 			? DEF_RESCUE_NS_TH : vsync_period;
-		break;
-	case 120:
-	default:
+	} else {
 		fps_rescue_percent = rescue_percent_120;
 		fps_min_rescue_percent = rescue_percent_120;
 		fps_short_rescue_ns =
 			(rescue_percent_120 == DEF_RESCUE_PERCENT)
 			? DEF_RESCUE_NS_TH : vsync_period;
-		break;
 	}
 
-	xgf_trace("fps=%d, rescue@(%d, %d, %d)", _gdfrc_fps_limit,
+	xgf_trace("fps=%d, rescue@(%d, %d, %d)", target_fps_level,
 			fps_rescue_percent, fps_min_rescue_percent,
 			fps_short_rescue_ns);
 
@@ -2096,15 +2122,7 @@ static int fbt_boost_policy(
 	fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "perf idx");
 
 	if (blc_wt) {
-		unsigned long long targettime_by_fps;
-		int temp_target_fps = min_t(int, target_fps,
-						TARGET_UNLIMITED_FPS);
-
-		targettime_by_fps = (unsigned long long)FBTCPU_SEC_DIVIDER;
-		targettime_by_fps = div64_u64(targettime_by_fps,
-			(unsigned long long)temp_target_fps);
-
-		t2wnt = (u64) fbt_get_t2wnt(targettime_by_fps, ts,
+		t2wnt = (u64) fbt_get_t2wnt(target_fps, ts,
 			fbt_is_always_running(t_cpu_cur, target_time));
 		fpsgo_systrace_c_fbt(pid, buffer_id, t2wnt, "t2wnt");
 
@@ -3729,6 +3747,7 @@ int __init fbt_cpu_init(void)
 	loading_debnc_cnt = 30;
 	loading_time_diff = TIME_2MS;
 	llf_task_policy = FPSGO_TPOLICY_NONE;
+	fps_level_range = 10;
 
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
