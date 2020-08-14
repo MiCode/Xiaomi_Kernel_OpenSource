@@ -51,6 +51,8 @@
 //#define IRQ_TYPE_EDGE_FALLING 2
 #define INT_TRIGGER_TYPE IRQ_TYPE_EDGE_RISING
 
+//---GPIO pin mode---
+#define PINCTRL_STATE_SPI_DEFAULT   "gt9896s_spi_mode"
 
 //---SPI driver info.---
 #define NVT_SPI_NAME "novatek,NVT-ts-spi"
@@ -68,7 +70,7 @@
 
 //---Touch info.---
 #define TOUCH_DEFAULT_MAX_WIDTH 1080
-#define TOUCH_DEFAULT_MAX_HEIGHT 2520
+#define TOUCH_DEFAULT_MAX_HEIGHT 2400
 #define TOUCH_MAX_FINGER_NUM 10
 #define TOUCH_KEY_NUM 0
 #if TOUCH_KEY_NUM > 0

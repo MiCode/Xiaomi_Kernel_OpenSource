@@ -49,6 +49,9 @@ uint8_t esd_retry;
 #endif				/* #if NVT_TOUCH_ESD_PROTECT */
 
 struct nvt_ts_data *ts;
+/* For SPI mode */
+static struct pinctrl *nt36672_pinctrl;
+static struct pinctrl_state *nt36672_spi_mode_default;
 
 #if defined(CONFIG_FB)
 #ifdef _MSM_DRM_NOTIFY_H_
@@ -118,13 +121,13 @@ const struct mt_chip_conf spi_ctrdata = {
 const struct mtk_chip_config spi_ctrdata = {
 	.rx_mlsb = 1,
 	.tx_mlsb = 1,
-	.cs_pol = 0,
 	.sample_sel = 0,
 
 	.cs_setuptime = 0,
 	.cs_holdtime = 0,
 	.cs_idletime = 0,
-	.deassert_mode = 0,
+	.deassert_mode = false,
+	.tick_delay = 0,
 };
 #endif
 
@@ -1520,6 +1523,31 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		goto err_gpio_config_failed;
 	}
 
+	/* get pinctrl handler from of node */
+	nt36672_pinctrl = devm_pinctrl_get(
+		ts->client->controller->dev.parent);
+	if (IS_ERR_OR_NULL(nt36672_pinctrl)) {
+		NVT_ERR("Failed to get pinctrl handler[need confirm]");
+		nt36672_pinctrl = NULL;
+		goto err_gpio_config_failed;
+	}
+
+	/* default spi mode */
+	nt36672_spi_mode_default = pinctrl_lookup_state(
+				nt36672_pinctrl, PINCTRL_STATE_SPI_DEFAULT);
+	if (IS_ERR_OR_NULL(nt36672_spi_mode_default)) {
+		ret = PTR_ERR(nt36672_spi_mode_default);
+		NVT_ERR("Failed to get pinctrl state:%s, r:%d",
+				PINCTRL_STATE_SPI_DEFAULT, ret);
+		nt36672_spi_mode_default = NULL;
+		goto err_pinctrl_failed;
+	}
+
+	ret = pinctrl_select_state(nt36672_pinctrl,
+					nt36672_spi_mode_default);
+	if (ret < 0)
+		NVT_ERR("Failed to select default pinstate, r:%d", ret);
+
 	mutex_init(&ts->lock);
 	mutex_init(&ts->xbuf_lock);
 
@@ -1770,6 +1798,9 @@ err_chipvertrim_failed:
 	mutex_destroy(&ts->lock);
 	nvt_gpio_deconfig(ts);
 err_gpio_config_failed:
+err_pinctrl_failed:
+	pinctrl_put(nt36672_pinctrl);
+	nt36672_pinctrl = NULL;
 err_spi_setup:
 err_ckeck_full_duplex:
 	spi_set_drvdata(client, NULL);
