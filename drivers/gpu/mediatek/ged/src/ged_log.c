@@ -186,16 +186,16 @@ GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 
 	/* record the user time */
 	if (attrs & GED_LOG_ATTR_TIME_TPT) {
-		struct timeval time;
+		struct timespec64 time;
 		unsigned long local_time;
 
 		/* TODO: porting*/
-		/* do_gettimeofday(&time); */
+		ktime_get_ts64(&time);
 		local_time = (u32)(time.tv_sec - (sys_tz.tz_minuteswest * 60));
 
 		curline->tattrs = GED_LOG_ATTR_TIME_TPT;
 		curline->time = local_time;
-		curline->time_usec = time.tv_usec;
+		curline->time_usec = time.tv_nsec / 1000;
 		curline->pid = current->tgid;
 		curline->tid = current->pid;
 	}
@@ -383,7 +383,7 @@ static int ged_log_buf_seq_show_print(struct seq_file *psSeqFile,
 			struct rtc_time tm;
 
 			local_time = line->time;
-			rtc_time_to_tm(local_time, &tm);
+			rtc_time64_to_tm(local_time, &tm);
 
 			seq_printf(psSeqFile,
 				"%02d-%02d %02d:%02d:%02d.%06lu %5d %5d ",
@@ -1067,7 +1067,7 @@ static int ged_log_buf_dump(struct GED_LOG_BUF *psGEDLogBuf, int i)
 			struct rtc_time tm;
 
 			local_time = line->time;
-			rtc_time_to_tm(local_time, &tm);
+			rtc_time64_to_tm(local_time, &tm);
 
 			pr_debug("%02d-%02d %02d:%02d:%02d.%06lu %5d %5d ",
 					tm.tm_mon + 1, tm.tm_mday,
