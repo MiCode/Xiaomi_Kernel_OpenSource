@@ -4123,7 +4123,7 @@ KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE
 			reg->flags & KBASE_REG_GPU_WR ? FOLL_WRITE : 0,
 			pages, NULL);
 #else
-	pinned_pages = get_user_pages_remote(NULL, mm,
+	pinned_pages = get_user_pages_remote(mm,
 			address,
 			alloc->imported.user_buf.nr_pages,
 			reg->flags & KBASE_REG_GPU_WR ? FOLL_WRITE : 0,
