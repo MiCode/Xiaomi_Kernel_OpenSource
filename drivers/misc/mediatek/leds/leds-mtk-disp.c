@@ -122,7 +122,8 @@ static void led_debug_log(struct mtk_led_data *s_led,
 	cur_time_mod = do_div(cur_time_display, 1000);
 
 	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		4096, "T:%lld.%ld,L:%d L:%d map:%d    ",
+		4095 - strlen(s_led->debug.buffer),
+		"T:%lld.%ld,L:%d L:%d map:%d    ",
 		cur_time_display, cur_time_mod,
 		s_led->conf.cdev.brightness, level, mappingLevel);
 
@@ -303,7 +304,8 @@ static int led_data_init(struct device *dev, struct mtk_led_data *s_led)
 	pr_info("%s devm_led_classdev_register ok! ", s_led->conf.cdev.name);
 
 	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		4096, "[Light] Set %s directly ", s_led->conf.cdev.name);
+		4095 - strlen(s_led->debug.buffer),
+		"[Light] Set %s directly ", s_led->conf.cdev.name);
 	if (ret < 0 || ret >= 4096)
 		pr_info("print log init error!");
 

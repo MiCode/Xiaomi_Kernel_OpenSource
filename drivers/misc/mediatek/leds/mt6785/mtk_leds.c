@@ -130,7 +130,7 @@ static void backlight_debug_log(int level, int mappingLevel)
 	cur_time_mod = do_div(cur_time_display, 1000);
 
 	ret = snprintf(buffer + strlen(buffer),
-		4096, "T:%lld.%ld,L:%d map:%d    ",
+		4095 - strlen(buffer), "T:%lld.%ld,L:%d map:%d    ",
 		cur_time_display, cur_time_mod, level, mappingLevel);
 
 	count++;
