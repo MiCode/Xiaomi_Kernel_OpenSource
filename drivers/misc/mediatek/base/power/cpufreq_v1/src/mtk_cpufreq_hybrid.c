@@ -143,11 +143,13 @@ spinlock_t cpudvfs_lock;
 static struct task_struct *Ripi_cpu_dvfs_task;
 #ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 struct ipi_action cpufreq_act;
+#else
+static DECLARE_COMPLETION(cpuhvfs_setup_done);
 #endif
 uint32_t cpufreq_buf[4];
 int Ripi_cpu_dvfs_thread(void *data)
 {
-	int i, ret;
+	int i;
 	struct mt_cpu_dvfs *p;
 	unsigned long flags;
 	uint32_t pwdata[4];
@@ -161,15 +163,15 @@ int Ripi_cpu_dvfs_thread(void *data)
 	unsigned int buf_freq;
 	unsigned long long tf_sum, t_diff, avg_f;
 	int j = 0;
-
+#ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+	int ret;
+#endif
 	memset(pwdata, 0, sizeof(pwdata));
 	/* tag_pr_info("CPU DVFS received thread\n"); */
 #ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 	cpufreq_act.data = (void *)cpufreq_buf;
 	ret = sspm_ipi_recv_registration_ex(IPI_ID_CPU_DVFS,
 						&cpudvfs_lock, &cpufreq_act);
-#endif
-
 	if (ret != 0) {
 		tag_pr_notice
 		("Error: ipi_recv_registration CPU DVFS error: %d\n", ret);
@@ -180,7 +182,9 @@ int Ripi_cpu_dvfs_thread(void *data)
 	}
 	/* tag_pr_info("sspm_ipi_recv_registration */
 	/*IPI_ID_CPU_DVFS pass!!(%d)\n", ret); */
-
+#else
+	wait_for_completion(&cpuhvfs_setup_done);
+#endif
 	/* an endless loop in which we are doing our work */
 	do {
 		/* tag_pr_info("sspm_ipi_recv_wait IPI_ID_CPU_DVFS\n"); */
@@ -1059,6 +1063,7 @@ int cpuhvfs_set_init_sta(void)
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 	cdvfs_d.u.set_fv.arg[0] = _mt_cpufreq_get_cpu_level();
 	dvfs_to_mcupm_command(IPI_DVFS_INIT, &cdvfs_d);
+	complete_all(&cpuhvfs_setup_done);
 #else
 	dvfs_to_spm2_command(IPI_DVFS_INIT, &cdvfs_d);
 #endif
