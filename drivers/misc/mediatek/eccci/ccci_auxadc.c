@@ -24,19 +24,14 @@
 
 #define TAG "ccci_adc"
 
-static struct iio_channel *md_channel;
 static int adc_num;
 static int adc_val;
 
 static int ccci_get_adc_info(struct device *dev)
 {
 	int ret, val;
+	struct iio_channel *md_channel;
 
-	md_channel = devm_kzalloc(dev, sizeof(struct iio_channel), GFP_KERNEL);
-	if (!md_channel) {
-		CCCI_ERROR_LOG(-1, TAG, "allocate md channel fail");
-		return -1;
-	}
 	md_channel = iio_channel_get(dev, "md-channel");
 
 	ret = IS_ERR(md_channel);
@@ -46,6 +41,7 @@ static int ccci_get_adc_info(struct device *dev)
 	}
 	adc_num = md_channel->channel->channel;
 	ret = iio_read_channel_processed(md_channel, &val);
+	iio_channel_release(md_channel);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_processed fail");
 		goto Fail;
@@ -56,7 +52,6 @@ static int ccci_get_adc_info(struct device *dev)
 	return ret;
 Fail:
 	return -1;
-
 }
 
 int ccci_get_adc_num(void)
