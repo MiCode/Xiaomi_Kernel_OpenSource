@@ -236,6 +236,27 @@ static int dsp_ktv_default_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int dsp_capture_raw_default_set(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	int val = ucontrol->value.integer.value[0];
+
+	set_task_attr(AUDIO_TASK_CAPTURE_RAW_ID, ADSP_TASK_ATTR_DEFAULT, val);
+	return 0;
+}
+
+static int dsp_capture_raw_default_get(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	int val = get_task_attr(AUDIO_TASK_CAPTURE_RAW_ID,
+				ADSP_TASK_ATTR_DEFAULT);
+	if (val > 0)
+		ucontrol->value.integer.value[0] = 1;
+	else
+		ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
 static int dsp_primary_runtime_set(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_value *ucontrol)
 {
@@ -434,6 +455,27 @@ static int dsp_ktv_runtime_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int dsp_capture_raw_runtime_set(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	int val = ucontrol->value.integer.value[0];
+
+	set_task_attr(AUDIO_TASK_CAPTURE_RAW_ID, ADSP_TASK_ATTR_RUMTIME, val);
+	return 0;
+}
+
+static int dsp_capture_raw_runtime_get(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	int val = get_task_attr(AUDIO_TASK_CAPTURE_RAW_ID,
+				ADSP_TASK_ATTR_RUMTIME);
+	if (val > 0)
+		ucontrol->value.integer.value[0] = 1;
+	else
+		ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
 static int dsp_wakelock_set(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
@@ -567,6 +609,9 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_fast_default_get, dsp_fast_default_set),
 	SOC_SINGLE_EXT("dsp_ktv_default_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_ktv_default_get, dsp_ktv_default_set),
+	SOC_SINGLE_EXT("dsp_captureraw_default_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_capture_raw_default_get,
+		       dsp_capture_raw_default_set),
 	SOC_SINGLE_EXT("dsp_primary_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_primary_runtime_get, dsp_primary_runtime_set),
 	SOC_SINGLE_EXT("dsp_deepbuf_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
@@ -590,6 +635,9 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 		       dsp_fast_runtime_get, dsp_fast_runtime_set),
 	SOC_SINGLE_EXT("dsp_ktv_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_ktv_runtime_get, dsp_ktv_runtime_set),
+	SOC_SINGLE_EXT("dsp_captureraw_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
+		       dsp_capture_raw_runtime_get,
+		       dsp_capture_raw_runtime_set),
 	SOC_SINGLE_EXT("audio_dsp_wakelock", SND_SOC_NOPM, 0, 0x1, 0,
 		       dsp_wakelock_get, dsp_wakelock_set),
 	SOC_SINGLE_EXT("dsp_call_final_runtime_en", SND_SOC_NOPM, 0, 0x1, 0,
