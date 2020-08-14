@@ -433,12 +433,12 @@ static int mt_bootprof_open(struct inode *inode, struct file *file)
 	return single_open(file, mt_bootprof_show, inode->i_private);
 }
 
-static const struct file_operations mt_bootprof_fops = {
-	.open = mt_bootprof_open,
-	.write = mt_bootprof_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops mt_bootprof_fops = {
+	.proc_open = mt_bootprof_open,
+	.proc_write = mt_bootprof_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static int __init bootprof_init(void)
