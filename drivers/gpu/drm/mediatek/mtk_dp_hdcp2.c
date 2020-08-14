@@ -570,7 +570,6 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 		switch (g_stHdcpHandler.u8SubState) {
 		case HDCP2_MSG_ZERO:
 			if (mtk_dp->info.hdcp2_info.bEnable) {
-				mtk_dp->info.bAuthStatus = AUTH_INIT;
 				HDCPTx_Hdcp2Init(mtk_dp);
 				HDCPTx_Hdcp2SetState(HDCP2_MS_A1F1,
 					HDCP2_MSG_ZERO);
@@ -594,7 +593,6 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 		case HDCP2_MSG_ZERO:
 			if (mtk_dp->info.hdcp2_info.uRetryCount
 				< HDCP2_TX_RETRY_CNT) {
-				mtk_dp->info.bAuthStatus = AUTH_PRE;
 				tee_hdcp2_setKey(t_kpubdcp_real,
 					g_u8LC128_real);
 				mtk_dp->info.hdcp2_info.uRetryCount++;
@@ -840,7 +838,6 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 				HDCPTx_Hdcp2SetState(HDCP2_MS_A4F4,
 					HDCP2_MSG_ZERO);
 				//HDCPTx_Hdcp2EnableAuth(mtk_dp, true);
-				mtk_dp->info.bAuthStatus = AUTH_ENCRYPT;
 			}
 			break;
 
@@ -854,7 +851,6 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 	case HDCP2_MS_A4F4:
 		switch (g_stHdcpHandler.u8SubState) {
 		case HDCP2_MSG_ZERO:
-			mtk_dp->info.bAuthStatus = AUTH_AFT;
 			if (!mtk_dp->info.hdcp2_info.bRepeater)
 				HDCPTx_Hdcp2SetState(HDCP2_MS_A5F5,
 					HDCP2_MSG_AUTH_DONE);
@@ -1023,8 +1019,8 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 					enErrCode = HDCP_ERR_RESPONSE_TIMEROUT;
 					HDCPTx_ERRHandle(enErrCode, __LINE__);
 					break;
-				}
-				g_stHdcpHandler.u8RetryCnt++;
+				} else
+					g_stHdcpHandler.u8RetryCnt++;
 
 				HDCPTx_Hdcp2SetState(HDCP2_MS_A9F9,
 					HDCP2_MSG_REPAUTH_STREAM_READY);
@@ -1059,15 +1055,16 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 void mdrv_DPTx_HDCP2_SetStartAuth(struct mtk_dp *mtk_dp, bool bEnable)
 {
 	mtk_dp->info.hdcp2_info.bEnable = bEnable;
-	if (bEnable)
+	if (bEnable) {
+		mtk_dp->info.bAuthStatus = AUTH_INIT;
 		HDCPTx_Hdcp2SetState(HDCP2_MS_A0F0, HDCP2_MSG_ZERO);
-	else {
+	} else {
+		mtk_dp->info.bAuthStatus = AUTH_ZERO;
 		HDCPTx_Hdcp2SetState(HDCP2_MS_H1P1, HDCP2_MSG_ZERO);
 		HDCPTx_Hdcp2EnableAuth(mtk_dp, false);
 	}
 
 	mtk_dp->info.hdcp2_info.uRetryCount = 0;
-	mtk_dp->info.bAuthStatus = AUTH_ZERO;
 }
 
 bool mdrv_DPTx_HDCP2_Support(struct mtk_dp *mtk_dp)
@@ -1129,6 +1126,7 @@ bool mdrv_DPTx_HDCP2_irq(struct mtk_dp *mtk_dp)
 	if (RxStatus & BIT4 || RxStatus & BIT3) {
 		DPTXMSG("Re-Auth HDCP2X!\n");
 		mdrv_DPTx_HDCP2_SetStartAuth(mtk_dp, true);
+		mdrv_DPTx_reAuthentication(mtk_dp);
 	}
 
 	drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00201, &ClearCpirq, 0x1);

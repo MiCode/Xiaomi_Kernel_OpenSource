@@ -251,13 +251,12 @@ struct mtk_dp {
 	struct DPTX_TRAINING_INFO training_info;
 	int training_state;
 	int training_state_pre;
-	wait_queue_head_t irq_wq;
 	wait_queue_head_t control_wq;
-	wait_queue_head_t notify_wq;
-	u8 irq_status;
-	struct task_struct *task;
 	struct task_struct *control_task;
-	struct task_struct *notify_task;
+
+	struct workqueue_struct *dptx_wq;
+	struct work_struct hdcp_work;
+	struct work_struct dptx_work;
 
 	u32 min_clock;
 	u32 max_clock;
@@ -267,7 +266,8 @@ struct mtk_dp {
 	void __iomem *regs;
 	struct clk *dp_tx_clk;
 
-	bool bUsbPlug;
+	bool bUeventToHwc;
+	int disp_status;  //for DDP
 	bool bPowerOn;
 	bool audio_enable;
 	bool video_enable;
