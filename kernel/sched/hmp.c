@@ -1281,8 +1281,7 @@ static unsigned int hmp_idle_pull(int this_cpu)
 	/* first select a task */
 	for_each_cpu(cpu, &hmp_domain->cpus) {
 		rq = cpu_rq(cpu);
-		if (!raw_spin_trylock_irqsave(&rq->lock, flags))
-			continue;
+		raw_spin_lock_irqsave(&rq->lock, flags);
 		curr = rq->cfs.curr;
 		if (!curr) {
 			raw_spin_unlock_irqrestore(&rq->lock, flags);
