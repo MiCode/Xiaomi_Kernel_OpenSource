@@ -74,6 +74,11 @@
 #define SCP_ATF_RESOURCE_REQUEST	1
 #define SCP_VCORE_REQ_TO_DVFSRC		1
 
+struct ipi_tx_data_t {
+	unsigned int arg1;
+	unsigned int arg2;
+};
+
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 int scp_dvfs_flag = 1;
 
@@ -653,13 +658,17 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 					loff_t *data)
 {
 	char desc[64], cmd[32];
-	int len = 0;
+	unsigned int len = 0;
 	int dvfs_opp;
 	int n;
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
 	desc[len] = '\0';
 
 	n = sscanf(desc, "%31s %d", cmd, &dvfs_opp);
@@ -702,11 +711,12 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 static int mt_scp_sleep_ctrl0_proc_show(struct seq_file *m, void *v)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_FLAG;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
+	ipi_data.arg1 = SLP_DBG_CMD_GET_FLAG;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
@@ -735,8 +745,12 @@ static ssize_t mt_scp_sleep_ctrl0_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -749,10 +763,11 @@ static ssize_t mt_scp_sleep_ctrl0_proc_write(
 	if (kstrtouint(desc, 10, &val) == 0) {
 		if (val >= SCP_SLEEP_OFF &&
 			val <= SCP_SLEEP_NO_CONDITION) {
+			ipi_data.arg1 = val;
 			ret = mtk_ipi_send_compl(&scp_ipidev,
 						IPI_OUT_C_SLEEP_0,
 						IPI_SEND_WAIT,
-						&val,
+						&ipi_data,
 						PIN_OUT_C_SIZE_SLEEP_0,
 						500);
 			if (ret)
@@ -774,11 +789,12 @@ static ssize_t mt_scp_sleep_ctrl0_proc_write(
 static int mt_scp_sleep_ctrl1_proc_show(struct seq_file *m, void *v)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_FLAG;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
+	ipi_data.arg1 = SLP_DBG_CMD_GET_FLAG;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
 	if (ret != IPI_ACTION_DONE)
@@ -807,11 +823,15 @@ static ssize_t mt_scp_sleep_ctrl1_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -821,10 +841,11 @@ static ssize_t mt_scp_sleep_ctrl1_proc_write(
 	if (kstrtouint(desc, 10, &val) == 0) {
 		if (val >= SCP_SLEEP_OFF &&
 			val <= SCP_SLEEP_NO_CONDITION) {
+			ipi_data.arg1 = val;
 			ret = mtk_ipi_send_compl(&scp_ipidev,
 						IPI_OUT_C_SLEEP_1,
 						IPI_SEND_WAIT,
-						&val,
+						&ipi_data,
 						PIN_OUT_C_SIZE_SLEEP_1,
 						500);
 			if (ret != IPI_ACTION_DONE)
@@ -846,11 +867,12 @@ static ssize_t mt_scp_sleep_ctrl1_proc_write(
 static int mt_scp_sleep_cnt0_proc_show(struct seq_file *m, void *v)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
+	ipi_data.arg1 = SLP_DBG_CMD_GET_CNT;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
@@ -872,11 +894,15 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -884,8 +910,7 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 	desc[len] = '\0';
 
 	if (kstrtouint(desc, 10, &val) == 0) {
-		unsigned int ipi_data = SLP_DBG_CMD_RESET;
-
+		ipi_data.arg1 = SLP_DBG_CMD_RESET;
 		ret = mtk_ipi_send_compl(&scp_ipidev,
 					IPI_OUT_C_SLEEP_0,
 					IPI_SEND_WAIT,
@@ -908,11 +933,12 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 static int mt_scp_sleep_cnt1_proc_show(struct seq_file *m, void *v)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
+	ipi_data.arg1 = SLP_DBG_CMD_GET_CNT;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
 	if (ret != IPI_ACTION_DONE)
@@ -934,11 +960,15 @@ static ssize_t mt_scp_sleep_cnt1_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -946,8 +976,7 @@ static ssize_t mt_scp_sleep_cnt1_proc_write(
 	desc[len] = '\0';
 
 	if (kstrtouint(desc, 10, &val) == 0) {
-		unsigned int ipi_data = SLP_DBG_CMD_RESET;
-
+		ipi_data.arg1 = SLP_DBG_CMD_RESET;
 		ret = mtk_ipi_send_compl(&scp_ipidev,
 					IPI_OUT_C_SLEEP_1,
 					IPI_SEND_WAIT,
