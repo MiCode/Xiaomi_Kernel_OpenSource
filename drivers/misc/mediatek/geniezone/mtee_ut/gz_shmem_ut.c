@@ -54,6 +54,7 @@
 #define test_case_discontinuous 1
 
 #define debugFg 0
+#define enableFg 0
 
 /*declaration fun*/
 
@@ -148,12 +149,15 @@ int _shmem_verify_data_detail(char *buf, int size, char ch)
 
 int _shmem_verify_data(int test_case, char ch)
 {
+#if enableFg
 	int m, ret;
+#endif
 
 	switch (test_case) {
 	case test_case_continuous:
 		return _shmem_verify_data_detail(con_buf, con_size, ch);
 
+#if enableFg
 	case test_case_discontinuous:
 		for (m = 0; m < _num_Group; m++) {
 			ret =
@@ -163,6 +167,8 @@ int _shmem_verify_data(int test_case, char ch)
 				return ret;
 		}
 		break;
+#endif
+
 	default:
 		KREE_DEBUG("[%s]Wrong test case:%d\n", __func__, test_case);
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -299,8 +305,12 @@ TZ_RESULT _get_region(int test_case, KREE_SHAREDMEM_PARAM *shm_param,
 	switch (test_case) {
 	case test_case_continuous:
 		return _get_region_continuous(shm_param, _shm_size, _num_PA);
+
+#if enableFg
 	case test_case_discontinuous:
 		return _get_region_discontinuous(shm_param, _shm_size, _num_PA);
+#endif
+
 	default:
 		KREE_DEBUG("[%s]Wrong test case:%d\n", __func__, test_case);
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -334,8 +344,12 @@ TZ_RESULT _free_region(int test_case)
 	switch (test_case) {
 	case test_case_continuous:
 		return _free_region_continuous();
+
+#if enableFg
 	case test_case_discontinuous:
 		return _free_region_discontinuous();
+#endif
+
 	default:
 		KREE_DEBUG("[%s]Wrong test case:%d\n", __func__, test_case);
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -424,11 +438,14 @@ out:
 
 int gz_test_shm(void *arg)
 {
+#if enableFg
 	/*case 1: continuous region */
 	_shmem_test_main(test_case_continuous);
 
+
 	/*case 2: discontinuous region */
 	_shmem_test_main(test_case_discontinuous);
+#endif
 
 	return TZ_RESULT_SUCCESS;
 }
