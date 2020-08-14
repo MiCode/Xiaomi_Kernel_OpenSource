@@ -62,6 +62,9 @@ struct mtu3_request;
 #define MTU3_U3_IP_SLOT_DEFAULT 2
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
+#define MTU3_SW_ID_GROUND	BIT(0)
+#define MTU3_SW_VBUS_VALID	BIT(1)
+
 /**
  * IP TRUNK version
  * from 0x1003 version, USB3 Gen2 is supported, two changes affect driver:
@@ -219,6 +222,7 @@ struct otg_switch_mtk {
 	bool role_sw_used;
 	bool is_u3_drd;
 	bool manual_drd_enabled;
+	u32 sw_state;
 };
 
 /**
