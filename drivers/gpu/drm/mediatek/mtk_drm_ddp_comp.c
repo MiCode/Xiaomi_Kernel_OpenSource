@@ -647,9 +647,9 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #ifdef CONFIG_MTK_IOMMU_V2
 static enum mtk_iommu_callback_ret_t
 	mtk_ddp_m4u_callback(int port, unsigned long mva,
-				struct mtk_ddp_comp *data)
+				void *data)
 {
-	struct mtk_ddp_comp *comp = data;
+	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
 
 	DDPPR_ERR("fault call port=%d, mva=0x%lx, data=0x%p\n", port, mva,
 		  data);
@@ -683,7 +683,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 #ifdef CONFIG_MTK_IOMMU_V2
 		mtk_iommu_register_fault_callback(
 			port, (mtk_iommu_fault_callback_t)mtk_ddp_m4u_callback,
-			comp);
+			(void *)comp);
 #endif
 
 		port &= (unsigned int)GET_M4U_PORT;
