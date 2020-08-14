@@ -84,6 +84,14 @@ ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
 endif	# end of CONFIG_TRUSTONIC_TEE_SUPPORT or CONFIG_MICROTRUST_TEE_SUPPORT
 
+ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
+ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
+ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
+endif
+endif
+endif
+
 # platform dependent definition
 ifneq ($(strip $(CONFIG_MTK_GMO_RAM_OPTIMIZE)),y)
 ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
