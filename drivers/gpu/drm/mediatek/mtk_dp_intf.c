@@ -155,6 +155,8 @@ static int irq_intsa;
 static int irq_vdesa;
 static int irq_underflowsa;
 static int irq_tl;
+static struct mtk_dp_intf *g_dp_intf;
+
 
 static inline struct mtk_dp_intf *comp_to_dp_intf(struct mtk_ddp_comp *comp)
 {
@@ -178,176 +180,6 @@ static void mtk_dp_intf_mask(struct mtk_dp_intf *dp_intf, u32 offset,
 
 	writel((temp & ~mask) | (data & mask), dp_intf->regs + offset);
 }
-
-#if defined(AAAA)
-static void mtk_dp_intf_encoder_destroy(struct drm_encoder *encoder)
-{
-	drm_encoder_cleanup(encoder);
-	kfree(encoder);
-}
-
-static const struct drm_encoder_funcs mtk_dp_intf_encoder_funcs = {
-	.destroy = mtk_dp_intf_encoder_destroy,
-};
-
-static bool mtk_dp_intf_encoder_mode_fixup(struct drm_encoder *encoder,
-				       const struct drm_display_mode *mode,
-				       struct drm_display_mode *adjusted_mode)
-{
-	return true;
-}
-
-static void mtk_dp_intf_encoder_mode_set(struct drm_encoder *encoder,
-				     struct drm_display_mode *mode,
-				     struct drm_display_mode *adjusted)
-{
-
-}
-
-static void mtk_dp_intf_encoder_disable(struct drm_encoder *encoder)
-{
-
-}
-
-static void mtk_dp_intf_encoder_enable(struct drm_encoder *encoder)
-{
-
-}
-
-static int mtk_dp_intf_atomic_check(struct drm_encoder *encoder,
-				struct drm_crtc_state *crtc_state,
-				struct drm_connector_state *conn_state)
-{
-
-	return 0;
-}
-
-static const struct drm_encoder_helper_funcs mtk_dp_intf_encoder_helper_funcs
-	= {
-	.mode_fixup   = mtk_dp_intf_encoder_mode_fixup,
-	.mode_set     = mtk_dp_intf_encoder_mode_set,
-	.disable      = mtk_dp_intf_encoder_disable,
-	.enable       = mtk_dp_intf_encoder_enable,
-	.atomic_check = mtk_dp_intf_atomic_check,
-};
-
-static enum drm_connector_status
-mtk_dp_intf_connector_detect(struct drm_connector *connector, bool force)
-{
-	return connector_status_connected;
-}
-
-static const struct drm_connector_funcs mtk_dp_intf_connector_funcs = {
-	//.dpms = drm_atomic_helper_connector_dpms,
-	.dpms       = drm_helper_connector_dpms,
-	.detect     = mtk_dp_intf_connector_detect,
-	.fill_modes = drm_helper_probe_single_connector_modes,
-	.destroy    = drm_connector_cleanup,
-	.reset      = drm_atomic_helper_connector_reset,
-	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state   = drm_atomic_helper_connector_destroy_state,
-};
-
-static int mtk_dp_intf_connector_get_modes(struct drm_connector *connector)
-{
-	/*struct mtk_dp_intf *dp_intf = connector_to_dp_intf(connector);*/
-
-	/*return drm_panel_get_modes(dp_intf->panel);*/
-	return 0;
-}
-
-static const struct drm_connector_helper_funcs mtk_dp_intf_conn_helper_funcs = {
-	.get_modes = mtk_dp_intf_connector_get_modes,
-};
-
-static int mtk_drm_attach_bridge(struct drm_bridge *bridge,
-				 struct drm_encoder *encoder)
-{
-	int ret;
-
-	if (!bridge)
-		return -ENOENT;
-
-	encoder->bridge = bridge;
-	bridge->encoder = encoder;
-	ret = drm_bridge_attach(encoder, bridge, NULL);
-	if (ret) {
-		DRM_ERROR("Failed to attach bridge to drm\n");
-		encoder->bridge = NULL;
-		bridge->encoder = NULL;
-	}
-
-	return ret;
-}
-
-static int mtk_dp_intf_create_connector(struct drm_device *drm,
-	struct mtk_dp_intf *dp_intf)
-{
-	int ret;
-
-	ret = drm_connector_init(drm, &dp_intf->conn,
-		&mtk_dp_intf_connector_func,
-		DRM_MODE_CONNECTOR_DisplayPort);
-	if (ret) {
-		DRM_ERROR("Failed to connector init to drm\n");
-		return ret;
-	}
-
-	drm_connector_helper_add(&dp_intf->conn,
-		&mtk_dp_intf_conn_helper_funcs);
-
-	dp_intf->conn.dpms = DRM_MODE_DPMS_OFF;
-	drm_mode_connector_attach_encoder(&dp_intf->conn, &dp_intf->encoder);
-
-#if 0//Ref: drivers/gpu/drm/radeon/radeon_dp_mst.c
-	if (dp_intf->panel) {
-		ret = drm_panel_attach(djp_intf->panel, &dp_intf->conn);
-		if (ret) {
-			DRM_ERROR("Failed to attach panel to drm\n");
-			goto err_connector_cleanup;
-		}
-	}
-#endif
-	return 0;
-
-/*err_connector_cleanup:*/
-	drm_connector_cleanup(&dp_intf->conn);
-	return ret;
-}
-
-static int mtk_dp_intf_create_conn_enc(struct drm_device *drm,
-	struct mtk_dp_intf *dp_intf)
-{
-	int ret;
-
-	ret = drm_encoder_init(drm, &dp_intf->encoder,
-		&mtk_dp_intf_encoder_func,
-		DRM_MODE_ENCODER_DPMST, NULL);
-	if (ret) {
-		DRM_ERROR("Failed to encoder init to drm\n");
-		return ret;
-	}
-	drm_encoder_helper_add(&dp_intf->encoder,
-		&mtk_dp_intf_encoder_helper_func);
-
-	dp_intf->encoder.possible_crtcs = 1;
-
-	/* If there's a bridge, attach to it and let it create the connector */
-	ret = mtk_drm_attach_bridge(dp_intf->bridge, &dp_intf->encoder);
-	if (ret) {
-		/* Otherwise create our own connector and attach to a panel */
-		ret = mtk_dp_intf_create_connector(drm, dp_intf);
-		if (ret)
-			goto err_encoder_cleanup;
-	}
-
-	return 0;
-
-err_encoder_cleanup:
-	drm_encoder_cleanup(&dp_intf->encoder);
-	return ret;
-}
-#endif
 
 static void mtk_dp_intf_destroy_conn_enc(struct mtk_dp_intf *dp_intf)
 {
@@ -467,7 +299,7 @@ enum TVDPLL_CLK {
 	TVDPLL_D16 = 4,
 };
 
-void mhal_DPTx_VideoClock(struct mtk_dp_intf *dp_intf)
+void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 {
 	unsigned int clksrc = TVDPLL_D2;
 	unsigned int con1 = 0;
@@ -475,31 +307,31 @@ void mhal_DPTx_VideoClock(struct mtk_dp_intf *dp_intf)
 	struct device_node *node;
 
 	switch (dp_intf->res) {
-	case SINK_480P: /* pix clk: 6.3M, dpi clk: 6.3*4M */
+	case SINK_640_480: /* pix clk: 6.3M, dpi clk: 6.3*4M */
 		clksrc = TVDPLL_D16;
 		con1 = 0x840F81F8;
 		break;
-	case SINK_720P60: /* pix clk: 18.5625M, dpi clk: 18.5625*4M */
+	case SINK_1280_720: /* pix clk: 18.5625M, dpi clk: 18.5625*4M */
 		clksrc = TVDPLL_D8; // 18.585*4M
 		con1 = 0x8416DFB4;
 		break;
-	case SINK_1080P60: /* pix clk: 37.125M, dpi clk: 37.125*4M */
+	case SINK_1920_1080: /* pix clk: 37.125M, dpi clk: 37.125*4M */
 		clksrc = TVDPLL_D16;
 		con1 = 0x8216D89D;
 		break;
-	case SINK_1080P60_2460: /* pix clk: 43.5275M, dpi clk: 43.5275*4M */
+	case SINK_1080_2460: /* pix clk: 43.5275M, dpi clk: 43.5275*4M */
 		clksrc = TVDPLL_D16;
 		con1 = 0x821AC941;
 		break;
-	case SINK_1200P60_1920: /* pix clk: 43.5275M, dpi clk: 43.5275*4M */
+	case SINK_1920_1200: /* pix clk: 43.5275M, dpi clk: 43.5275*4M */
 		clksrc = TVDPLL_D16;
 		con1 = 0x8217B645;
 		break;
-	case SINK_4K2K30: /* pix clk: 74.25M, dpi clk: 74.25*4M */
+	case SINK_3840_2160_30: /* pix clk: 74.25M, dpi clk: 74.25*4M */
 		clksrc = TVDPLL_D8;
 		con1 = 0x8216D89D;
 		break;
-	case SINK_4K2K60R:  /* pix clk: 74.25M, dpi clk: 74.25*4M */
+	case SINK_3840_2160:  /* pix clk: 74.25M, dpi clk: 74.25*4M */
 		//clksrc = TVDPLL_D8;
 		//con1 = 0x8216D89D;
 		clksrc = TVDPLL_D4;
@@ -537,6 +369,15 @@ void mhal_DPTx_VideoClock(struct mtk_dp_intf *dp_intf)
 
 }
 
+void mhal_DPTx_VideoClock(bool enable, int resolution)
+{
+	if (enable) {
+		g_dp_intf->res = resolution;
+		mtk_dp_inf_video_clock(g_dp_intf);
+	} else
+		clk_disable_unprepare(g_dp_intf->pclk);
+}
+
 static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 				 struct mtk_ddp_config *cfg,
 				 struct cmdq_pkt *handle)
@@ -557,7 +398,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 	hsize = cfg->w;
 	vsize = cfg->h;
 	if ((cfg->w == 640) && (cfg->h == 480)) {
-		dp_intf->res = SINK_480P;
+		dp_intf->res = SINK_640_480;
 		hpw = 24;
 		hfp = 4;
 		hbp = 12;
@@ -566,7 +407,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 33;
 	} else if ((cfg->w == 1280) && (cfg->h == 720)
 	    && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_720P60;
+		dp_intf->res = SINK_1280_720;
 		hpw = 10;
 		hfp = 28;
 		hbp = 55;
@@ -575,7 +416,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 20;
 	} else if ((cfg->w == 1920) && (cfg->h == 1080)
 		   && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1080P60;
+		dp_intf->res = SINK_1920_1080;
 		hpw = 11;
 		hfp = 22;
 		hbp = 37;
@@ -584,7 +425,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 36;
 	} else if ((cfg->w == 1080) && (cfg->h == 2460)
 			  && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1080P60_2460;
+		dp_intf->res = SINK_1080_2460;
 		hpw = 8;
 		hfp = 8; //30/4
 		hbp = 7; //30/4
@@ -593,7 +434,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 5;
 	} else if ((cfg->w == 1920) && (cfg->h == 1200)
 			  && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1200P60_1920;
+		dp_intf->res = SINK_1920_1200;
 		hpw = 8;
 		hfp = 12;
 		hbp = 20;
@@ -602,7 +443,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 26;
 	} else if ((cfg->w == 3840) && (cfg->h == 2160)
 		   && (cfg->vrefresh == 30)) {
-		dp_intf->res = SINK_4K2K30;
+		dp_intf->res = SINK_3840_2160_30;
 		hpw = 22;
 		hfp = 44;
 		hbp = 74;
@@ -611,7 +452,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 72;
 	} else if ((cfg->w == 3840) && (cfg->h == 2160)
 		   && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_4K2K60R;
+		dp_intf->res = SINK_3840_2160;
 		hpw = 10; //22;
 		hfp = 25; //134;
 		hbp = 20; //74;
@@ -626,7 +467,7 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 			__func__, cfg->w, cfg->h, cfg->vrefresh);
 
 
-	mhal_DPTx_VideoClock(dp_intf);
+	mtk_dp_inf_video_clock(dp_intf);
 
 	mtk_ddp_write_relaxed(comp, vsize << 16 | hsize,
 			DP_SIZE, handle);
@@ -794,22 +635,9 @@ static int mtk_dp_intf_bind(struct device *dev, struct device *master,
 			dev->of_node->full_name, ret);
 		return ret;
 	}
-#if defined(AAAA)
-	ret = mtk_dp_intf_create_conn_enc(drm_dev, dp_intf);
-	if (ret) {
-		DRM_ERROR("Encoder create failed with %d\n", ret);
-		goto err_unregister;
-	}
-#endif
 
 	DDPINFO("%s-\n", __func__);
 	return 0;
-
-#if defined(AAAA)
-err_unregister:
-	mtk_ddp_comp_unregister(drm_dev, &dp_intf->ddp_comp);
-	return ret;
-#endif
 }
 
 static void mtk_dp_intf_unbind(struct device *dev, struct device *master,
@@ -915,7 +743,7 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 	DDPMSG("%s:%d\n", __func__, __LINE__);
 	/* Get dp intf irq num and request irq */
 	dp_intf->irq = platform_get_irq(pdev, 0);
-	dp_intf->res = SINK_UNKNOWN;
+	dp_intf->res = SINK_MAX;
 	if (dp_intf->irq <= 0) {
 		dev_err(dev, "Failed to get irq: %d\n", dp_intf->irq);
 		return -EINVAL;
@@ -942,6 +770,7 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 	}
 
+	g_dp_intf = dp_intf;
 	DDPMSG("%s-\n", __func__);
 	return ret;
 }

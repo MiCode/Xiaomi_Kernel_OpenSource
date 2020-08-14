@@ -79,253 +79,6 @@ static const struct drm_display_mode dptx_est_modes[] = {
 		DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC), .vrefresh = 60, }
 };
 
-struct DPTX_DRV_TIMING_PARAMETER DPTX_TIMING;
-WORD gbPGSetting[DPTx_PATTERN_RGB_MAX][22] = {
-#if DPTx_PATTERN_RGB_640_480_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB640_480
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x10 >> 0x2), (0x60 >> 0x2), (0x30 >> 0x2), (0x280 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE(V active)
-		0x10, 0x2, 0x21, (0x1E0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode, init value
-		0x0100, 0x0001, 0x83FF, 0x0800,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x320, 0x90, (0x60<<1), 0x280,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x20D, 0x23, (0x2<<1), 0x1E0,
-		//Hpolarity, Vpolarity,
-		1, 1 },
-#endif
-
-#if DPTx_PATTERN_RGB_720_480_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB720_480  (480P)
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x10 >> 0x2), (0x3E >> 0x2), (0x3C >> 0x2), (0x2D0 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x09, 0x6, 0x1B, (0x1E0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode, init value
-		0x0100, 0x0001, 0x83FF, 0x0800,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x35A, 0x7A, (0x3E<<1), 0x2D0,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x20D, 0x24, (0x6<<1), 0x1E0,
-		//Hpolarity, Vpolarity,
-		1, 1 },
-#endif
-
-#if DPTx_PATTERN_RGB_800_600_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB800_600
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x28 >> 0x2), (0x80 >> 0x2), (0x58 >> 0x2), (0x320 >> 0x2),
-		//Vsync frontporch,  Vsync Width, Vsync backporch, VDE(V active)
-		0x10, 0x4, 0x17, (0x258+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0600,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x420, 0xD8, (0x80<<1), 0x320,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x274, 0x1B, (0x4<<1), 0x258,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_1280_720_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB1280_720  (720P)
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x104 >> 0x2), (0x28 >> 0x2), (0x46 >> 0x2), (0x500 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE(V active)
-		0x16, 0x05, 0x03, (0x02D0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0600,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x0672, 0x006E, (0x0028<<1), 0x0500,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x02EE, 0x0008, (0x0005<<1), 0x02D0,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_1280_1024_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB1280_1024
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x58 >> 0x2), (0x2C >> 0x2), (0x94 >> 0x2), (0x500 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x04, 0x05, 0x24, (0x400+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0600,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x0618, 0x00C0, (0x002C<<1), 0x0500,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x042D, 0x0029, (0x0005<<1), 0x0400,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_1920_1080_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB1920_1080  (1080P)
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x58 >> 0x2), (0x2C >> 0x2), (0x94 >> 0x2), (0x780 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x04, 0x05, 0x24, (0x438+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0300,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x898, 0xC0, (0x2C<<1), 0x780,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x465, 0x29, (0x05<<1), 0x438,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_3840_2160_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB3840_2160
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x0058 >> 2), (0x002C >> 2), (0x001C >> 2), (0x0F00 >> 2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x000A, 0x0005, 0x002F, (0x0870+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0300,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x0FA0, 0x0048, (0x002C<<1), 0x0F00,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x08AE, 0x0034, (0x0005<<1), 0x0870,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_4096_2160_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB4096_2160
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x0030 >> 2), (0x0020 >> 2), (0x0050 >> 2), (0x1000 >> 2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x0003, 0x000A, 0x0031, (0x0870+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0300,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x10A0, 0x0070, (0x0020<<1), 0x1000,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x08AE, 0x003B, (0x000A<<1), 0x0870},
-#endif
-
-#if DPTx_PATTERN_RGB_7680_4320_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB_7680_4320
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch, HDE (H active)
-	{(0x0018 >> 2), (0x0060 >> 2), (0x00F0 >> 2), (0x1E00 >> 2),
-		//Vsync frontporch, Vsync Width, Vsync backporch,VDE (V active)
-		0x002F, 0x0008, 0x0006, (0x10E0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0300,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x1F68, 0x0150, (0x0060<<1), 0x1E00,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x111D, 0x000E, (0x0008<<1), 0x10E0},
-#endif
-
-#if DPTx_PATTERN_RGB_848_480_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB848 480
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x10 >> 0x2), (0x60 >> 0x2), (0x30 >> 0x2), (0x350 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x6, 0x8, 0x17, (0x1E0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode, init value
-		0x0100, 0x0001, 0x83FF, 0x0800,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x440, 0x90, (0x60<<1), 0x280,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x205, 0x23, (0x2<<1), 0x1E0,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_1280_960_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB1280_960  (720P)
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x60 >> 0x2), (0x70 >> 0x2), (0x138 >> 0x2), (0x500 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x1, 0x03, 0x24, (0x3C0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0600,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0x0708, 0x006E, (0x0028<<1), 0x0500,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x03E8, 0x0008, (0x0005<<1), 0x02D0,
-		//Hpolarity, Vpolarity,
-		0, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_1920_1440_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB1920_1440  (1080P)
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{(0x80 >> 0x2), (0xD0 >> 0x2), (0x158 >> 0x2), (0x780 >> 0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		0x01, 0x03, 0x38, (0x5a0+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode
-		0x0100, 0x0001, 0x83FF, 0x0300,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		0xA28, 0xC0, (0x2C<<1), 0x780,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		0x5DC, 0x29, (0x05<<1), 0x438,
-		//Hpolarity, Vpolarity,
-		1, 0 },
-#endif
-
-#if DPTx_PATTERN_RGB_DEFINERES_EN
-	/*****************************************
-	 * DPTx_PATTERN_RGB_DEFINERES_EN
-	 *****************************************/
-	// Hsync frontporch,  Hsync Width,   Hsync backporch,  HDE (H active)
-	{((DPTXMSA_HFP)>>2), ((DPTXMSA_HSW)>>2), ((DPTXMSA_HBP)>>2),
-		((DPTXMSA_Hwidth)>>0x2),
-		//Vsync frontporch, Vsync Width, Vsync backporch, VDE (V active)
-		DPTXMSA_VFP, DPTXMSA_VSW, DPTXMSA_VBP, (DPTXMSA_Vheight+1),
-		// horizontal increase(2 fields), vertical increase,
-		//MSA sw overwrite mode, init value
-		0x0fff, 0x0001, 0x83FF, 0x0300,
-		//Htotal, Hsync Start, Hsync Width,  HDE
-		DPTXMSA_Htotal, DPTXMSA_HStart, (DPTXMSA_HSW<<1),
-		DPTXMSA_Hwidth,
-		//Vtotal, Vsync Start, Vsync Width,  VDE
-		DPTXMSA_Vtotal, DPTXMSA_VStart, (DPTXMSA_VSW<<1),
-		DPTXMSA_Vheight},
-#endif
-};
-
 enum DPTX_STATE {
 	DPTX_STATE_NO_DEVICE,
 	DPTX_STATE_ACTIVE,
@@ -465,11 +218,6 @@ int notify_uevent_user(struct notify_dev *sdev, int state)
 	kobject_uevent_env(&sdev->dev->kobj, KOBJ_CHANGE, envp);
 
 	return 0;
-}
-
-static inline struct mtk_dp *mtk_dp_ctx_from_conn(struct drm_connector *c)
-{
-	return container_of(c, struct mtk_dp, conn);
 }
 
 bool mdrv_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
@@ -638,17 +386,17 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->state = DPTXSTATE_INITIAL;
 	mtk_dp->state_pre = DPTXSTATE_INITIAL;
 
-	mtk_dp->info.ubDPTXInPutTypeSel = DPTXInputSrc_DPINTF;
-	mtk_dp->info.ubDPTX_PatternIdx = DPTx_PATTERN_RGB_1920_1080;
-	mtk_dp->info.ubDPTXColorFormatSel = DP_COLOR_FORMAT_RGB_444;
-	mtk_dp->info.ubDPTXColorDepthSel = DP_COLOR_DEPTH_8BIT;
-	mtk_dp->info.bUseTopTimingTBL = false;
-	mtk_dp->info.bFixFrameRate = false;
-	mtk_dp->info.bSetFreeSync = false;
+	mtk_dp->info.input_src = DPTX_SRC_DPINTF;
+	mtk_dp->info.format = DP_COLOR_FORMAT_RGB_444;
+	mtk_dp->info.depth = DP_COLOR_DEPTH_8BIT;
+	if (!mtk_dp->info.bPatternGen)
+		mtk_dp->info.resolution = SINK_1920_1080;
 	mtk_dp->info.bSetAudioMute = false;
 	mtk_dp->info.bSetVideoMute = false;
-	mtk_dp->info.uiVideoConfig = 0;
+	memset(&mtk_dp->info.DPTX_OUTBL, 0,
+		sizeof(struct DPTX_TIMING_PARAMETER));
 	mtk_dp->info.DPTX_OUTBL.FrameRate = 60;
+
 	mtk_dp->bPowerOn = false;
 	mtk_dp->video_enable = false;
 	mtk_dp->dp_ready = false;
@@ -659,29 +407,6 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mdrv_DPTx_CheckMaxLinkRate(mtk_dp);
 }
 
-void mdrv_DPTx_LoadOutputTimingTBL(struct mtk_dp *mtk_dp)
-{
-	mtk_dp->info.DPTX_OUTBL.Video_ip_mode =
-		DPTX_TIMING.Video_ip_mode;
-
-	mtk_dp->info.DPTX_OUTBL.Htt = DPTX_TIMING.Htt;
-	mtk_dp->info.DPTX_OUTBL.Hde = DPTX_TIMING.Hde;
-	mtk_dp->info.DPTX_OUTBL.Hfp = DPTX_TIMING.Hfp;
-	mtk_dp->info.DPTX_OUTBL.Hsw = DPTX_TIMING.Hsw;
-	mtk_dp->info.DPTX_OUTBL.bHsp = DPTX_TIMING.bHsp;
-	mtk_dp->info.DPTX_OUTBL.Hbp = DPTX_TIMING.Hbp;
-	mtk_dp->info.DPTX_OUTBL.Hbk = DPTX_TIMING.Htt - DPTX_TIMING.Hde;
-	mtk_dp->info.DPTX_OUTBL.Vtt = DPTX_TIMING.Vtt;
-	mtk_dp->info.DPTX_OUTBL.Vde = DPTX_TIMING.Vde;
-	mtk_dp->info.DPTX_OUTBL.Vfp = DPTX_TIMING.Vfp;
-	mtk_dp->info.DPTX_OUTBL.Vsw = DPTX_TIMING.Vsw;
-	mtk_dp->info.DPTX_OUTBL.bVsp = DPTX_TIMING.bVsp;
-	mtk_dp->info.DPTX_OUTBL.Vbp = DPTX_TIMING.Vbp;
-	if (!mtk_dp->info.bFixFrameRate)
-		mtk_dp->info.DPTX_OUTBL.FrameRate = DPTX_TIMING.FrameRate;
-	mtk_dp->info.DPTX_OUTBL.PixRateKhz = DPTX_TIMING.PixRateKhz;
-}
-
 void mdrv_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp,
 	u16 Sram_Read_Start)
 {
@@ -689,9 +414,9 @@ void mdrv_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp,
 	u8 ucDCOffset;
 
 	if (mtk_dp->info.DPTX_OUTBL.PixRateKhz > 0)
-		SDP_Down_Cnt_Init = (Sram_Read_Start*
-			((mtk_dp->training_info.ubLinkRate*2700*8))) /
-			((mtk_dp->info.DPTX_OUTBL.PixRateKhz*4));
+		SDP_Down_Cnt_Init = (Sram_Read_Start *
+			mtk_dp->training_info.ubLinkRate * 2700 * 8)
+			/ (mtk_dp->info.DPTX_OUTBL.PixRateKhz * 4);
 
 	switch (mtk_dp->training_info.ubLinkLaneCount) {
 	case DP_LANECOUNT_1:
@@ -726,8 +451,7 @@ void mdrv_DPTx_SetSDP_DownCntinitInHblanking(struct mtk_dp *mtk_dp)
 	int PixClkMhz;
 	u8 ucDCOffset;
 
-	PixClkMhz =
-		(mtk_dp->info.ubDPTXColorFormatSel == DP_COLOR_FORMAT_YUV_420) ?
+	PixClkMhz = (mtk_dp->info.format == DP_COLOR_FORMAT_YUV_420) ?
 		mtk_dp->info.DPTX_OUTBL.PixRateKhz/2000 :
 		mtk_dp->info.DPTX_OUTBL.PixRateKhz/1000;
 
@@ -763,9 +487,7 @@ void mdrv_DPTx_SetTU(struct mtk_dp *mtk_dp)
 	u8 ColorBpp;
 	u16 Sram_Read_Start = DPTX_TBC_BUF_ReadStartAdrThrd;
 
-	ColorBpp = mhal_DPTx_GetColorBpp(mtk_dp,
-			mtk_dp->info.ubDPTXColorDepthSel,
-			mtk_dp->info.ubDPTXColorFormatSel);
+	ColorBpp = mhal_DPTx_GetColorBpp(mtk_dp);
 	PixRateMhz = mtk_dp->info.DPTX_OUTBL.PixRateKhz/1000;
 	TU_size = (640*(PixRateMhz)*ColorBpp)/
 			(mtk_dp->training_info.ubLinkRate * 27 *
@@ -774,7 +496,7 @@ void mdrv_DPTx_SetTU(struct mtk_dp *mtk_dp)
 	NValue = TU_size / 10;
 	FValue = TU_size-NValue * 10;
 
-	DPTXMSG("TU_size %d,\n", TU_size);
+	DPTXDBG("TU_size %d,\n", TU_size);
 	if (mtk_dp->training_info.ubLinkLaneCount > 0) {
 		Sram_Read_Start = mtk_dp->info.DPTX_OUTBL.Hde /
 			(mtk_dp->training_info.ubLinkLaneCount*4*2*2);
@@ -793,40 +515,20 @@ void mdrv_DPTx_CalculateMN(struct mtk_dp *mtk_dp)
 {
 	int ubTargetFrameRate = 60;
 	int ulTargetPixelclk = 148500000; // default set FHD
-	int ulPll_PixelRate; //Base = 1Khz
-	int ulCalcPixelRate;
-
-	mtk_dp->info.DPTX_VPLLx_N = 0x8000;
-	mtk_dp->info.DPTX_Video_N  = 0x8000;
-
-	ulPll_PixelRate = (0x00D8<<2)*10;
 
 	if (mtk_dp->info.DPTX_OUTBL.FrameRate > 0) {
 		ubTargetFrameRate = mtk_dp->info.DPTX_OUTBL.FrameRate;
 		ulTargetPixelclk = (int)mtk_dp->info.DPTX_OUTBL.Htt*
-			(int)mtk_dp->info.DPTX_OUTBL.Vtt*(int)ubTargetFrameRate;
+			(int)mtk_dp->info.DPTX_OUTBL.Vtt*ubTargetFrameRate;
 	} else if (mtk_dp->info.DPTX_OUTBL.PixRateKhz > 0) {
-		ubTargetFrameRate = 60;
-		ulTargetPixelclk = mtk_dp->info.DPTX_OUTBL.PixRateKhz*1000;
+		ulTargetPixelclk = mtk_dp->info.DPTX_OUTBL.PixRateKhz * 1000;
 	} else {
-		ubTargetFrameRate = 60;
-		ulTargetPixelclk = (int)mtk_dp->info.DPTX_OUTBL.Htt*
-			(int)mtk_dp->info.DPTX_OUTBL.Vtt*(int)ubTargetFrameRate;
+		ulTargetPixelclk = (int)mtk_dp->info.DPTX_OUTBL.Htt *
+			(int)mtk_dp->info.DPTX_OUTBL.Vtt * ubTargetFrameRate;
 	}
 
-	ulCalcPixelRate = ulTargetPixelclk / (100000);
-	if (ulTargetPixelclk > 0) {
-		mtk_dp->info.DPTX_VPLLx_M =
-			((ulCalcPixelRate*mtk_dp->info.DPTX_VPLLx_N)/
-			ulPll_PixelRate);
-
+	if (ulTargetPixelclk > 0)
 		mtk_dp->info.DPTX_OUTBL.PixRateKhz = ulTargetPixelclk / 1000;
-	}
-
-	if (mtk_dp->training_info.ubLinkRate > 0)
-		mtk_dp->info.DPTX_Video_M =
-			(ulCalcPixelRate*mtk_dp->info.DPTX_Video_N)/
-			(mtk_dp->training_info.ubLinkRate * 270);
 }
 
 void mdrv_DPTx_Set_MISC(struct mtk_dp *mtk_dp)
@@ -834,8 +536,8 @@ void mdrv_DPTx_Set_MISC(struct mtk_dp *mtk_dp)
 	u8 format, depth;
 	union MISC_T DPTX_MISC;
 
-	format = mtk_dp->info.ubDPTXColorFormatSel;
-	depth = mtk_dp->info.ubDPTXColorDepthSel;
+	format = mtk_dp->info.format;
+	depth = mtk_dp->info.depth;
 
 	// MISC 0/1 refernce to spec 1.4a p143 Table 2-96
 	// MISC0[7:5] color depth
@@ -887,20 +589,20 @@ void mdrv_DPTx_SetDPTXOut(struct mtk_dp *mtk_dp)
 	mhal_DPTx_EnableBypassMSA(mtk_dp, false);
 	mdrv_DPTx_CalculateMN(mtk_dp);
 
-	switch (mtk_dp->info.ubDPTXInPutTypeSel) {
-	case DPTXInputSrc_PG:
-		mdrv_DPTx_Set_MISC(mtk_dp);
+	switch (mtk_dp->info.input_src) {
+	case DPTX_SRC_PG:
+		mhal_DPTx_VideoClock(true, mtk_dp->info.resolution);
 		mhal_DPTx_PGEnable(mtk_dp, true);
 		mhal_DPTx_Set_MVIDx2(mtk_dp, false);
-		DPTXMSG("Using PG input video\n");
+		DPTXMSG("Set Pattern Gen output\n");
 		break;
 
-	case DPTXInputSrc_DPINTF:
+	case DPTX_SRC_DPINTF:
 		mhal_DPTx_PGEnable(mtk_dp, false);
-		DPTXMSG("Using DPI input video\n");
+		DPTXMSG("Set dpintf output\n");
 		break;
 
-	default: // PG case
+	default:
 		mhal_DPTx_PGEnable(mtk_dp, true);
 		break;
 	}
@@ -1244,50 +946,43 @@ bool mdrv_DPTx_Video_PG_AutoTest(struct mtk_dp *mtk_dp)//, BYTE ubDPCD_201)
 	DPTXMSG("req.test_refresh_rate_numerator = %d\n",
 		cts_req.test_refresh_rate_numerator);
 
-	DPTX_TIMING.Htt = cts_req.test_h_total;
-	DPTX_TIMING.Hde = cts_req.test_h_width;
-	DPTX_TIMING.Hfp = cts_req.test_h_total - cts_req.test_h_start -
-		cts_req.test_h_width;
-	DPTX_TIMING.Hsw = cts_req.test_hsync_width;
-	DPTX_TIMING.bHsp = cts_req.test_hsync_polarity;
-	DPTX_TIMING.Hbp = cts_req.test_h_start - cts_req.test_hsync_width;
+	mtk_dp->info.DPTX_OUTBL.Htt = cts_req.test_h_total;
+	mtk_dp->info.DPTX_OUTBL.Hde = cts_req.test_h_width;
+	mtk_dp->info.DPTX_OUTBL.Hfp = cts_req.test_h_total
+		- cts_req.test_h_start - cts_req.test_h_width;
+	mtk_dp->info.DPTX_OUTBL.Hsw = cts_req.test_hsync_width;
+	mtk_dp->info.DPTX_OUTBL.bHsp = cts_req.test_hsync_polarity;
+	mtk_dp->info.DPTX_OUTBL.Hbp = cts_req.test_h_start
+		- cts_req.test_hsync_width;
+	mtk_dp->info.DPTX_OUTBL.Vtt = cts_req.test_v_total;
+	mtk_dp->info.DPTX_OUTBL.Vde = cts_req.test_v_height;
+	mtk_dp->info.DPTX_OUTBL.Vfp = cts_req.test_v_total
+		- cts_req.test_v_start - cts_req.test_v_height;
+	mtk_dp->info.DPTX_OUTBL.Vsw = cts_req.test_vsync_width;
+	mtk_dp->info.DPTX_OUTBL.bVsp = cts_req.test_vsync_polarity;
+	mtk_dp->info.DPTX_OUTBL.Vbp = cts_req.test_v_start
+		- cts_req.test_vsync_width;
+	mtk_dp->info.DPTX_OUTBL.Hbk = cts_req.test_h_total
+		- cts_req.test_h_width;
+	mtk_dp->info.DPTX_OUTBL.FrameRate = cts_req.test_refresh_rate_numerator;
+	mtk_dp->info.DPTX_OUTBL.PixRateKhz = 0;
+	mtk_dp->info.DPTX_OUTBL.Video_ip_mode = DPTX_VIDEO_PROGRESSIVE;
+	if (cts_req.test_interlaced)
+		DPTXMSG("Warning: not support interlace\n");
 
-	DPTX_TIMING.Vtt = cts_req.test_v_total;
-	DPTX_TIMING.Vde = cts_req.test_v_height;
-	DPTX_TIMING.Vfp = cts_req.test_v_total - cts_req.test_v_start -
-		cts_req.test_v_height;
-	DPTX_TIMING.Vsw = cts_req.test_vsync_width;
-	DPTX_TIMING.bVsp = cts_req.test_vsync_polarity;
-	DPTX_TIMING.Vbp = cts_req.test_v_start - cts_req.test_vsync_width;
-
-	DPTX_TIMING.Hbk = DPTX_TIMING.Htt - DPTX_TIMING.Hde;
-	DPTX_TIMING.FrameRate = cts_req.test_refresh_rate_numerator;//0;
-	DPTX_TIMING.PixRateKhz = 0;
-	DPTX_TIMING.Video_ip_mode = DPTX_VIDEO_PROGRESSIVE; // force P mode
-	DPTXMSG("interlace = %d\n", cts_req.test_interlaced);
-
-	DPTXMSG("Htt= %d, Hde = %d, Hfp = %d, Hsw = %d, Hbp = %d\n",
-			DPTX_TIMING.Htt,
-			DPTX_TIMING.Hde,
-			DPTX_TIMING.Hfp,
-			DPTX_TIMING.Hsw,
-			DPTX_TIMING.Hbp);
-	DPTXMSG("Vtt= %d, Vde = %d, Vfp = %d, Vsw = %d, Vbp = %d\n",
-			DPTX_TIMING.Vtt,
-			DPTX_TIMING.Vde,
-			DPTX_TIMING.Vfp,
-			DPTX_TIMING.Vsw,
-			DPTX_TIMING.Vbp);
 	//Clear MISC1&0 except [2:1]Colorfmt & [7:5]ColorDepth
 	mhal_DPTx_SetMISC(mtk_dp, ucMISC);
 
-	mtk_dp->info.ubDPTXColorFormatSel = cts_req.test_color_fmt;
-	mtk_dp->info.ubDPTXColorDepthSel = cts_req.test_bit_depth;
-	mtk_dp->info.DPTX_MISC.dp_misc.spec_def1 = cts_req.test_dynamic_range;
+	mtk_dp->info.format = cts_req.test_color_fmt;
+	mtk_dp->info.depth = cts_req.test_bit_depth;
+	//mtk_dp->info.DPTX_MISC.dp_misc.spec_def1 = cts_req.test_dynamic_range;
 
-	mdrv_DPTx_LoadOutputTimingTBL(mtk_dp);
+	mhal_DPTx_SetColorFormat(mtk_dp, mtk_dp->info.format);
+	mhal_DPTx_SetColorDepth(mtk_dp, mtk_dp->info.depth);
+	mhal_DPTx_SetMSA(mtk_dp);
 	mdrv_DPTx_SetDPTXOut(mtk_dp);
 	mdrv_DPTx_VideoMute(mtk_dp, false);
+
 	return 0;
 }
 
@@ -1308,7 +1003,6 @@ void mdrv_DPTx_Audio_PG_AutoTest(struct mtk_dp *mtk_dp)
 
 	mdrv_DPTx_SPKG_SDP(mtk_dp, 1, 4, SDP_HB, SDP_DB);
 }
-
 
 bool mdrv_DPTx_PHY_AutoTest(struct mtk_dp *mtk_dp, BYTE ubDPCD_201)
 {
@@ -1378,7 +1072,11 @@ DPTX_TEST_PHY80B_EN)
 			DPTXMSG("TEST_PATTERN\n");
 			mtk_dp->training_info.bDPTxAutoTest_EN = true;
 			mdrv_DPTx_Video_PG_AutoTest(mtk_dp);
-
+/*
+ *			ubTempBuffer[0x0] = 0x01;
+ *			drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00260,
+ *				ubTempBuffer, 0x1);
+ */
 			return true;
 #else
 			ubTempBuffer[0x0] = 0x01;
@@ -1618,66 +1316,52 @@ void mdrv_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, u8 ucSDPType,
 	mhal_DPTx_SPKG_SDP(mtk_dp, bEnable, ucSDPType, pHB, pDB);
 }
 
-void mdrv_DPTx_SetPatternGenTimingTBL(struct mtk_dp *mtk_dp,
-	u8 ucDPTx_PATTERN_NUM)
+void mdrv_DPTx_PatternSet(bool enable, int resolution)
 {
-	u8 ucMISC[2] = {0x00};
-
-	mtk_dp->info.ubDPTX_PatternIdx =
-		(ucDPTx_PATTERN_NUM < DPTx_PATTERN_RGB_MAX) ?
-		ucDPTx_PATTERN_NUM : DPTx_PATTERN_RGB_DEFINERES;
-
-	DPTX_TIMING.Htt = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][12];
-	DPTX_TIMING.Hde = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][3]<<2;
-	DPTX_TIMING.Hfp = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][0]<<2;
-	DPTX_TIMING.Hsw = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][1]<<2;
-	DPTX_TIMING.bHsp = 0;
-	DPTX_TIMING.Hbp = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][2]<<2;
-
-	DPTX_TIMING.Vtt = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][16];
-	DPTX_TIMING.Vde = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][7]-1;
-	DPTX_TIMING.Vfp = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][4];
-	DPTX_TIMING.Vsw = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][5];
-	DPTX_TIMING.bVsp = 0;
-	DPTX_TIMING.Vbp = gbPGSetting[mtk_dp->info.ubDPTX_PatternIdx][6];
-	DPTX_TIMING.Hbk = DPTX_TIMING.Htt - DPTX_TIMING.Hde;
-	DPTX_TIMING.FrameRate = 0;
-	DPTX_TIMING.PixRateKhz = 0;
-	DPTX_TIMING.Video_ip_mode = DPTX_VIDEO_PROGRESSIVE;
-
-	DPTXMSG("%s, %d, mtk_dp 0x%p\n", __func__, __LINE__, mtk_dp);
-	mhal_DPTx_SetMISC(mtk_dp, ucMISC);
+	g_mtk_dp->info.bPatternGen = enable;
+	g_mtk_dp->info.resolution = resolution;
 }
 
-void mdrv_DPTx_SetPatternGenMode(struct mtk_dp *mtk_dp,	u8 ucDPTx_PATTERN_NUM)
+void mdrv_DPTx_PatternGenTypeSel(struct mtk_dp *mtk_dp, int patternType,
+	BYTE BGR, DWORD ColorDepth, BYTE Location)
 {
-	mtk_dp->info.ubDPTXInPutTypeSel = DPTXInputSrc_PG;
+	WORD Hde, Vde;
 
-	mtk_dp->info.ubDPTX_PatternIdx =
-		(ucDPTx_PATTERN_NUM < DPTx_PATTERN_RGB_MAX) ?
-		ucDPTx_PATTERN_NUM : DPTx_PATTERN_RGB_DEFINERES;
+	Hde = mtk_dp->info.DPTX_OUTBL.Hde;
+	Vde = mtk_dp->info.DPTX_OUTBL.Vde;
 
-	if (!mtk_dp->info.bUseTopTimingTBL)
-		mdrv_DPTx_SetPatternGenTimingTBL(mtk_dp, ucDPTx_PATTERN_NUM);
-
-	mdrv_DPTx_LoadOutputTimingTBL(mtk_dp);
-
-	DPTXFUNC("%d\n", ucDPTx_PATTERN_NUM);
-}
-
-void mdrv_DPTx_SetOutPutMode(struct mtk_dp *mtk_dp)
-{
-	switch (mtk_dp->info.ubDPTXInPutTypeSel) {
-	case DPTXInputSrc_PG:
-		mdrv_DPTx_SetPatternGenMode(mtk_dp,
-			mtk_dp->info.ubDPTX_PatternIdx);
-		mdrv_DPTx_SetDPTXOut(mtk_dp);
-		DPTXMSG("Set Pattern Gen output\n");
+	switch (patternType) {
+	case DPTX_PG_PURE_COLOR:
+		mhal_DPTx_PG_Pure_Color(mtk_dp, BGR, ColorDepth);
 		break;
 
-	case DPTXInputSrc_DPINTF:
-		mdrv_DPTx_SetDPTXOut(mtk_dp);
-		DPTXMSG("Set dp_intf output\n");
+	case DPTX_PG_VERTICAL_RAMPING:
+		mhal_DPTx_PG_VerticalRamping(mtk_dp, BGR, ColorDepth, Location);
+		break;
+
+	case DPTX_PG_HORIZONTAL_RAMPING:
+		mhal_DPTx_PG_HorizontalRamping(mtk_dp, BGR,
+			ColorDepth, Location);
+		break;
+
+	case DPTX_PG_VERTICAL_COLOR_BAR:
+		mhal_DPTx_PG_VerticalColorBar(mtk_dp, Location);
+		break;
+
+	case DPTX_PG_HORIZONTAL_COLOR_BAR:
+		mhal_DPTx_PG_HorizontalColorBar(mtk_dp, Location);
+		break;
+
+	case DPTX_PG_CHESSBOARD_PATTERN:
+		mhal_DPTx_PG_Chessboard(mtk_dp, Location, Hde, Vde);
+		break;
+
+	case DPTX_PG_SUB_PIXEL_PATTERN:
+		mhal_DPTx_PG_SubPixel(mtk_dp, Location);
+		break;
+
+	case DPTX_PG_FRAME_PATTERN:
+		mhal_DPTx_PG_Frame(mtk_dp, Location, Hde, Vde);
 		break;
 
 	default:
@@ -1739,6 +1423,9 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 
 			DPTXMSG("Power OFF %d", mtk_dp->bPowerOn);
 			clk_disable_unprepare(mtk_dp->dp_tx_clk);
+			if (mtk_dp->info.bPatternGen)
+				mhal_DPTx_VideoClock(false,
+					mtk_dp->info.resolution);
 
 			fakecablein = false;
 			fakeres = FAKE_DEFAULT_RES;
@@ -2515,13 +2202,6 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 	case DPTX_NTSTATE_CHECKTIMING:
 		mtk_dp->training_state = DPTX_NTSTATE_NORMAL;
 
-#ifndef DPTX_HDCP_ENABLE
-		if (mtk_dp->bUsbPlug) {
-			mtk_dp_hotplug_uevent(1);
-			mtk_dp->bUsbPlug = false;
-		} else
-			DPTXMSG("Skip Uevent(1)\n");
-#endif
 		break;
 	case DPTX_NTSTATE_NORMAL:
 		break;
@@ -2649,15 +2329,19 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 		break;
 #endif
 	case DPTXSTATE_PREPARE:
-#ifdef DPTX_HDCP_ENABLE
 		if (mtk_dp->bUsbPlug) {
 			mtk_dp_hotplug_uevent(1);
 			mtk_dp->bUsbPlug = false;
 		} else
 			DPTXMSG("Skip Uevent(1)\n");
-#endif
+
+		if (mtk_dp->info.bPatternGen) {
+			mtk_dp->video_enable = true;
+			mtk_dp->info.input_src = DPTX_SRC_PG;
+		}
+
 		if (mtk_dp->video_enable) {
-			mtk_dp_video_config(mtk_dp, mtk_dp->info.uiVideoConfig);
+			mtk_dp_video_config(mtk_dp);
 			mdrv_DPTx_Video_Enable(mtk_dp, true);
 		}
 
@@ -2774,20 +2458,18 @@ void mdrv_DPTx_Video_Enable(struct mtk_dp *mtk_dp, bool bEnable)
 	DPTXMSG("Output Video %s!\n", bEnable ? "enable" : "disable");
 
 	if (bEnable) {
-		mtk_dp->info.ubDPTXInPutTypeSel = DPTXInputSrc_DPINTF;
-		mdrv_DPTx_SetOutPutMode(mtk_dp);
+		mdrv_DPTx_SetDPTXOut(mtk_dp);
 		mdrv_DPTx_VideoMute(mtk_dp, false);
 		mhal_DPTx_Verify_Clock(mtk_dp);
-	} else {
+	} else
 		mdrv_DPTx_VideoMute(mtk_dp, true);
-	}
 }
 
 void mdrv_DPTx_Set_Color_Format(struct mtk_dp *mtk_dp, u8 ucColorFormat)
 {
 	DPTXMSG("Set Color Format = 0x%x\n", ucColorFormat);
 
-	mtk_dp->info.ubDPTXColorFormatSel = ucColorFormat;
+	mtk_dp->info.format = ucColorFormat;
 	mhal_DPTx_SetColorFormat(mtk_dp, ucColorFormat);
 }
 
@@ -2795,17 +2477,8 @@ void mdrv_DPTx_Set_Color_Depth(struct mtk_dp *mtk_dp, u8 ucColorDepth)
 {
 	DPTXMSG("Set Color Depth = %d (1~4=6/8/10/12bpp)\n", ucColorDepth + 1);
 
-	mtk_dp->info.ubDPTXColorDepthSel = ucColorDepth;
+	mtk_dp->info.depth = ucColorDepth;
 	mhal_DPTx_SetColorDepth(mtk_dp, ucColorDepth);
-}
-
-void mdrv_DPTx_Set_MSA(struct mtk_dp *mtk_dp, void *ucInput)
-{
-	struct DPTX_TIMING_PARAMETER *ucOUTBL
-		= (struct DPTX_TIMING_PARAMETER *) ucInput;
-
-	mtk_dp->info.DPTX_OUTBL = *ucOUTBL;
-	mhal_DPTx_SetMSA(mtk_dp, ucOUTBL);
 }
 
 void mdrv_DPTx_I2S_Audio_Enable(struct mtk_dp *mtk_dp, bool bEnable)
@@ -3024,13 +2697,6 @@ void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
 	}
 }
 
-void mapi_DPTx_Set_MISC(struct mtk_dp *mtk_dp, u8 format, u8 depth)
-{
-	mtk_dp->info.ubDPTXColorFormatSel = format;
-	mtk_dp->info.ubDPTXColorDepthSel = depth;
-	mdrv_DPTx_Set_MISC(mtk_dp);
-}
-
 DWORD getTimeDiff(DWORD dwPreTime)
 {
 	DWORD dwPostTime = getSystemTime();
@@ -3097,117 +2763,142 @@ u8 PPS_4k60[128] = {
 };
 
 
-void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config)
+void mtk_dp_video_config(struct mtk_dp *mtk_dp)
 {
-	struct DPTX_TIMING_PARAMETER DPTX_TBL;
-	u8 color_depth;
-	u8 color_format;
-	u8 video_timing;
+	struct DPTX_TIMING_PARAMETER *DPTX_TBL = &mtk_dp->info.DPTX_OUTBL;
 	u32 mvid = 0;
+	bool overwrite = false;
 
 	if (!mtk_dp->dp_ready) {
 		DPTXERR("%s, DP is not ready!\n", __func__);
 		return;
 	}
 
-	video_timing = (config & DP_VIDEO_TIMING_MASK) >> DP_VIDEO_TIMING_SFT;
-	mhal_DPTx_OverWrite_MN(mtk_dp, false, mvid, 0x8000);
-
-	switch (video_timing) {
-	case SINK_8K4K60R:
-		DPTX_TBL.FrameRate = 60;
-		DPTX_TBL.Htt = 8040; DPTX_TBL.Hbp = 240; DPTX_TBL.Hsw = 96;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 24; DPTX_TBL.Hde = 7680;
-		DPTX_TBL.Vtt = 4381; DPTX_TBL.Vbp = 6; DPTX_TBL.Vsw = 8;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 47; DPTX_TBL.Vde = 4320;
-		break;
-	case SINK_4K2K60R:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = true;
-		DPTX_TBL.Htt = 4400; DPTX_TBL.Hbp = 296; DPTX_TBL.Hsw = 88;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 176; DPTX_TBL.Hde = 3840;
-		DPTX_TBL.Vtt = 2250; DPTX_TBL.Vbp = 72; DPTX_TBL.Vsw = 10;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 8; DPTX_TBL.Vde = 2160;
-		break;
-	case SINK_4K2K30:
-		DPTX_TBL.FrameRate = 30;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 4400; DPTX_TBL.Hbp = 296; DPTX_TBL.Hsw = 88;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 176; DPTX_TBL.Hde = 3840;
-		DPTX_TBL.Vtt = 2250; DPTX_TBL.Vbp = 72; DPTX_TBL.Vsw = 10;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 8; DPTX_TBL.Vde = 2160;
-		break;
-	case SINK_2K2K60:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 2080; DPTX_TBL.Hbp = 44; DPTX_TBL.Hsw = 44;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 72; DPTX_TBL.Hde = 1920;
-		DPTX_TBL.Vtt = 2250; DPTX_TBL.Vbp = 3; DPTX_TBL.Vsw = 5;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 82; DPTX_TBL.Vde = 2160;
-		break;
-	case SINK_1080P60:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 2200; DPTX_TBL.Hbp = 148; DPTX_TBL.Hsw = 44;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 88; DPTX_TBL.Hde = 1920;
-		DPTX_TBL.Vtt = 1125; DPTX_TBL.Vbp = 36; DPTX_TBL.Vsw = 5;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 4; DPTX_TBL.Vde = 1080;
-		break;
-	case SINK_1200P60_1920:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 2080; DPTX_TBL.Hbp = 80; DPTX_TBL.Hsw = 32;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 48; DPTX_TBL.Hde = 1920;
-		DPTX_TBL.Vtt = 1235; DPTX_TBL.Vbp = 26; DPTX_TBL.Vsw = 6;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 3; DPTX_TBL.Vde = 1200;
-		break;
-	case SINK_1080P60_2460:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 1172; DPTX_TBL.Hbp = 30; DPTX_TBL.Hsw = 32;
-		DPTX_TBL.bHsp = 1; DPTX_TBL.Hfp = 30; DPTX_TBL.Hde = 1080;
-		DPTX_TBL.Vtt = 2476; DPTX_TBL.Vbp = 5; DPTX_TBL.Vsw = 2;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 9; DPTX_TBL.Vde = 2460;
-		break;
-	case SINK_720P60:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 1650; DPTX_TBL.Hbp = 220; DPTX_TBL.Hsw = 40;
-		DPTX_TBL.bHsp = 0; DPTX_TBL.Hfp = 110; DPTX_TBL.Hde = 1280;
-		DPTX_TBL.Vtt = 750; DPTX_TBL.Vbp = 20; DPTX_TBL.Vsw = 5;
-		DPTX_TBL.bVsp = 0; DPTX_TBL.Vfp = 5; DPTX_TBL.Vde = 720;
-		break;
-	case SINK_480P:
-	default:
-		DPTX_TBL.FrameRate = 60;
-		mtk_dp->dsc_enable = false;
-		DPTX_TBL.Htt = 800; DPTX_TBL.Hbp = 48; DPTX_TBL.Hsw = 96;
-		DPTX_TBL.bHsp = 1; DPTX_TBL.Hfp = 16; DPTX_TBL.Hde = 640;
-		DPTX_TBL.Vtt = 525; DPTX_TBL.Vbp = 33; DPTX_TBL.Vsw = 2;
-		DPTX_TBL.bVsp = 1; DPTX_TBL.Vfp = 10; DPTX_TBL.Vde = 480;
-		break;
+	if (mtk_dp->info.resolution >= SINK_MAX) {
+		DPTXERR("DPTX doesn't support this resolution(%d)!\n",
+			mtk_dp->info.resolution);
+		return;
 	}
 
-	if (fakecablein && video_timing == SINK_720P60) {
-		// patch for LLCTS 4.4.4.5
-		switch (mtk_dp->training_info.ubLinkRate) {
-		case DP_LINKRATE_RBR:
-			mvid = 0x3AAB;
-			break;
-		case DP_LINKRATE_HBR:
-			mvid = 0x2333;
-			break;
-		case DP_LINKRATE_HBR2:
-			mvid = 0x1199;
-			break;
-		case DP_LINKRATE_HBR3:
-			mvid = 0xBBB;
-			break;
+	if (fakecablein) {
+		if (mtk_dp->info.resolution == SINK_1280_720) {
+			// patch for LLCTS 4.4.4.5
+			switch (mtk_dp->training_info.ubLinkRate) {
+			case DP_LINKRATE_RBR:
+				mvid = 0x3AAB;
+				break;
+			case DP_LINKRATE_HBR:
+				mvid = 0x2333;
+				break;
+			case DP_LINKRATE_HBR2:
+				mvid = 0x1199;
+				break;
+			case DP_LINKRATE_HBR3:
+				mvid = 0xBBB;
+				break;
+			}
+			overwrite = true;
 		}
-		mhal_DPTx_OverWrite_MN(mtk_dp, true, mvid, 0x8000);
+		mtk_dp->info.depth = fakebpc;
 	}
 
-	if (video_timing == SINK_4K2K60R) {
+	switch (mtk_dp->info.resolution) {
+	case SINK_7680_4320:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 8040; DPTX_TBL->Hbp = 240; DPTX_TBL->Hsw = 96;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 24; DPTX_TBL->Hde = 7680;
+		DPTX_TBL->Vtt = 4381; DPTX_TBL->Vbp = 6; DPTX_TBL->Vsw = 8;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 47; DPTX_TBL->Vde = 4320;
+		break;
+	case SINK_3840_2160:
+		DPTX_TBL->FrameRate = 60;
+		mtk_dp->dsc_enable = true;
+		DPTX_TBL->Htt = 4400; DPTX_TBL->Hbp = 296; DPTX_TBL->Hsw = 88;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 176; DPTX_TBL->Hde = 3840;
+		DPTX_TBL->Vtt = 2250; DPTX_TBL->Vbp = 72; DPTX_TBL->Vsw = 10;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 8; DPTX_TBL->Vde = 2160;
+		break;
+	case SINK_3840_2160_30:
+		DPTX_TBL->FrameRate = 30;
+		DPTX_TBL->Htt = 4400; DPTX_TBL->Hbp = 296; DPTX_TBL->Hsw = 88;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 176; DPTX_TBL->Hde = 3840;
+		DPTX_TBL->Vtt = 2250; DPTX_TBL->Vbp = 72; DPTX_TBL->Vsw = 10;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 8; DPTX_TBL->Vde = 2160;
+		break;
+	case SINK_2560_1600:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 2720; DPTX_TBL->Hbp = 80; DPTX_TBL->Hsw = 32;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 48; DPTX_TBL->Hde = 2560;
+		DPTX_TBL->Vtt = 1646; DPTX_TBL->Vbp = 3; DPTX_TBL->Vsw = 6;
+		DPTX_TBL->bVsp = 1; DPTX_TBL->Vfp = 37; DPTX_TBL->Vde = 1600;
+		break;
+	case SINK_1920_1440:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 2600; DPTX_TBL->Hbp = 344; DPTX_TBL->Hsw = 208;
+		DPTX_TBL->bHsp = 1; DPTX_TBL->Hfp = 128; DPTX_TBL->Hde = 1920;
+		DPTX_TBL->Vtt = 1500; DPTX_TBL->Vbp = 56; DPTX_TBL->Vsw = 3;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 1; DPTX_TBL->Vde = 1440;
+		break;
+	case SINK_1920_1200:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 2080; DPTX_TBL->Hbp = 80; DPTX_TBL->Hsw = 32;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 48; DPTX_TBL->Hde = 1920;
+		DPTX_TBL->Vtt = 1235; DPTX_TBL->Vbp = 26; DPTX_TBL->Vsw = 6;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 3; DPTX_TBL->Vde = 1200;
+		break;
+	case SINK_1920_1080:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 2200; DPTX_TBL->Hbp = 148; DPTX_TBL->Hsw = 44;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 88; DPTX_TBL->Hde = 1920;
+		DPTX_TBL->Vtt = 1125; DPTX_TBL->Vbp = 36; DPTX_TBL->Vsw = 5;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 4; DPTX_TBL->Vde = 1080;
+		break;
+	case SINK_1080_2460:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 1172; DPTX_TBL->Hbp = 30; DPTX_TBL->Hsw = 32;
+		DPTX_TBL->bHsp = 1; DPTX_TBL->Hfp = 30; DPTX_TBL->Hde = 1080;
+		DPTX_TBL->Vtt = 2476; DPTX_TBL->Vbp = 5; DPTX_TBL->Vsw = 2;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 9; DPTX_TBL->Vde = 2460;
+		break;
+	case SINK_1280_1024:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 1560; DPTX_TBL->Hbp = 148; DPTX_TBL->Hsw = 44;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 88; DPTX_TBL->Hde = 1280;
+		DPTX_TBL->Vtt = 1069; DPTX_TBL->Vbp = 36; DPTX_TBL->Vsw = 5;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 4; DPTX_TBL->Vde = 1024;
+		break;
+	case SINK_1280_960:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 1800; DPTX_TBL->Hbp = 312; DPTX_TBL->Hsw = 112;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 96; DPTX_TBL->Hde = 1280;
+		DPTX_TBL->Vtt = 1000; DPTX_TBL->Vbp = 36; DPTX_TBL->Vsw = 3;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 1; DPTX_TBL->Vde = 960;
+		break;
+	case SINK_1280_720:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 1650; DPTX_TBL->Hbp = 220; DPTX_TBL->Hsw = 40;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 110; DPTX_TBL->Hde = 1280;
+		DPTX_TBL->Vtt = 750; DPTX_TBL->Vbp = 20; DPTX_TBL->Vsw = 5;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 5; DPTX_TBL->Vde = 720;
+		break;
+	case SINK_800_600:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 1056; DPTX_TBL->Hbp = 88; DPTX_TBL->Hsw = 128;
+		DPTX_TBL->bHsp = 0; DPTX_TBL->Hfp = 40; DPTX_TBL->Hde = 800;
+		DPTX_TBL->Vtt = 628; DPTX_TBL->Vbp = 23; DPTX_TBL->Vsw = 4;
+		DPTX_TBL->bVsp = 0; DPTX_TBL->Vfp = 16; DPTX_TBL->Vde = 600;
+		break;
+	case SINK_640_480:
+	default:
+		DPTX_TBL->FrameRate = 60;
+		DPTX_TBL->Htt = 800; DPTX_TBL->Hbp = 48; DPTX_TBL->Hsw = 96;
+		DPTX_TBL->bHsp = 1; DPTX_TBL->Hfp = 16; DPTX_TBL->Hde = 640;
+		DPTX_TBL->Vtt = 525; DPTX_TBL->Vbp = 33; DPTX_TBL->Vsw = 2;
+		DPTX_TBL->bVsp = 1; DPTX_TBL->Vfp = 10; DPTX_TBL->Vde = 480;
+		break;
+	}
+
+	if (mtk_dp->info.resolution == SINK_3840_2160) {
 		// patch for 4k@60 with DSC 3 times compress
 		switch (mtk_dp->training_info.ubLinkRate) {
 		case DP_LINKRATE_HBR3:
@@ -3217,8 +2908,10 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config)
 			mvid = 0x8CCD;
 			break;
 		}
-		mhal_DPTx_OverWrite_MN(mtk_dp, true, mvid, 0x8000);
+		overwrite = true;
 	}
+
+	mhal_DPTx_OverWrite_MN(mtk_dp, overwrite, mvid, 0x8000);
 
 	if (mtk_dp->has_dsc) {
 		uint8_t Data[1];
@@ -3227,20 +2920,25 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config)
 		drm_dp_dpcd_write(&mtk_dp->aux, 0x160, Data, 0x1);
 	}
 
-
-	DPTX_TBL.PixRateKhz =
-		DPTX_TBL.Htt * DPTX_TBL.Vtt * DPTX_TBL.FrameRate / 1000;
 	//interlace not support
-	DPTX_TBL.Video_ip_mode = DPTX_VIDEO_PROGRESSIVE;
-	mdrv_DPTx_Set_MSA(mtk_dp, (void *)&DPTX_TBL);
+	DPTX_TBL->Video_ip_mode = DPTX_VIDEO_PROGRESSIVE;
+	mhal_DPTx_SetMSA(mtk_dp);
 
-	color_depth = (config & DP_COLOR_DEPTH_MASK) >> DP_COLOR_DEPTH_SFT;
-	color_format = (config & DP_COLOR_FORMAT_MASK) >> DP_COLOR_FORMAT_SFT;
-	mapi_DPTx_Set_MISC(mtk_dp, color_format, color_depth);
+	if (mtk_dp->info.bPatternGen) {
+		BYTE ucMISC[2] = {0x00};
+
+		mhal_DPTx_SetMISC(mtk_dp, ucMISC);
+		mdrv_DPTx_PatternGenTypeSel(mtk_dp,
+			DPTX_PG_HORIZONTAL_COLOR_BAR,
+			DPTX_PG_PURECOLOR_BLUE,
+			0xFFF,
+			DPTX_PG_LOCATION_ALL);
+	} else
+		mdrv_DPTx_Set_MISC(mtk_dp);
 
 	if (!mtk_dp->dsc_enable) {
-		mdrv_DPTx_Set_Color_Depth(mtk_dp, color_depth);
-		mdrv_DPTx_Set_Color_Format(mtk_dp, color_format);
+		mdrv_DPTx_Set_Color_Depth(mtk_dp, mtk_dp->info.depth);
+		mdrv_DPTx_Set_Color_Format(mtk_dp, mtk_dp->info.format);
 	} else {
 		mtk_dp_dsc_pps_send(PPS_4k60);
 		mhal_DPTx_EnableDSC(mtk_dp, true);
@@ -3292,7 +2990,6 @@ static int mtk_dp_control_kthread(void *data)
 	struct mtk_dp *mtk_dp = data;
 	unsigned int videomute = 0;
 	unsigned int res = 0;
-	unsigned int format = 0;
 
 	init_waitqueue_head(&mtk_dp->control_wq);
 
@@ -3304,15 +3001,12 @@ static int mtk_dp_control_kthread(void *data)
 		res = atomic_read(&dp_comm_event) & 0xff;
 		atomic_set(&dp_comm_event, 0);
 
-		format = res | fakebpc << DP_COLOR_DEPTH_SFT
-			| DP_COLOR_FORMAT_RGB_444 << DP_COLOR_FORMAT_SFT;
-
 		if (videomute & video_unmute) {
 			if (!fakecablein && mtk_dp->state > DPTXSTATE_PREPARE)
 				mtk_dp->state = DPTXSTATE_PREPARE;
 
 			mtk_dp->video_enable = true;
-			mtk_dp->info.uiVideoConfig = format;
+			mtk_dp->info.resolution = res;
 			mtk_dp->irq_status = 1;
 			wake_up_interruptible(&mtk_dp->irq_wq);
 
@@ -3386,14 +3080,14 @@ int mtk_drm_dp_get_dev_info(struct drm_device *dev, void *data,
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
 	info->display_id = mtk_dp->id;
-	info->displayFormat = mtk_dp->info.ubDPTXColorFormatSel;
+	info->displayFormat = mtk_dp->info.format;
 	info->displayHeight = mtk_dp->info.DPTX_OUTBL.Vde;
 	info->displayWidth = mtk_dp->info.DPTX_OUTBL.Hde;
 	info->displayMode = DISPIF_MODE_VIDEO;
 	info->displayType = DISPLAYPORT;
 	info->isConnected = (mtk_dp->state == DPTXSTATE_NORMAL) ? true : false;
 	info->isHwVsyncAvailable = true;
-	info->vsyncFPS = 6000; //should equals to frame rate * 100
+	info->vsyncFPS = mtk_dp->info.DPTX_OUTBL.FrameRate;
 	DPTXMSG("%s, %d, fake %d\n", __func__, __LINE__, fakecablein);
 
 	return 0;
@@ -3470,7 +3164,7 @@ int mtk_drm_dp_get_info(struct drm_device *dev,
 	DPTXDBG("%s, %d\n", __func__, __LINE__);
 	info->physicalWidthUm = 900;
 	info->physicalHeightUm = 1000;
-	info->vsyncFPS = 6000;
+	info->vsyncFPS = g_mtk_dp->info.DPTX_OUTBL.FrameRate;
 
 	return 0;
 }
@@ -3561,6 +3255,11 @@ error:
 	return 0;
 }
 
+static inline struct mtk_dp *mtk_dp_ctx_from_conn(struct drm_connector *c)
+{
+	return container_of(c, struct mtk_dp, conn);
+}
+
 static enum drm_connector_status mtk_dp_conn_detect(struct drm_connector *conn,
 	bool force)
 {
@@ -3576,9 +3275,6 @@ static enum drm_connector_status mtk_dp_conn_detect(struct drm_connector *conn,
 
 static void mtk_dp_conn_destroy(struct drm_connector *conn)
 {
-	///struct mtk_dp *mtk_dp = mtk_dp_ctx_from_conn(conn);
-
-	//mtk_dp_set_hpd_event(mtk_dp->dev, NULL, NULL);
 	drm_connector_cleanup(conn);
 }
 
@@ -3610,13 +3306,13 @@ static int mtk_dp_conn_get_modes(struct drm_connector *conn)
 		conn->display_info.max_tmds_clock = 0;
 		conn->display_info.dvi_dual = false;
 
-		if (fakeres == SINK_4K2K60R)
+		if (fakeres == SINK_3840_2160)
 			mode = drm_mode_duplicate(dev, &dptx_est_modes[0]);
-		else if (fakeres == SINK_4K2K30)
+		else if (fakeres == SINK_3840_2160_30)
 			mode = drm_mode_duplicate(dev, &dptx_est_modes[1]);
-		else if (fakeres == SINK_1080P60)
+		else if (fakeres == SINK_1920_1080)
 			mode = drm_mode_duplicate(dev, &dptx_est_modes[2]);
-		else if (fakeres == SINK_720P60)
+		else if (fakeres == SINK_1280_720)
 			mode = drm_mode_duplicate(dev, &dptx_est_modes[3]);
 		else
 			mode = drm_mode_duplicate(dev, &dptx_est_modes[4]);
@@ -3732,18 +3428,10 @@ static int mtk_dp_conn_mode_valid(struct drm_connector *conn,
 	DPTXDBG("%s xres=%d, yres=%d, refresh=%d, clock=%d\n",
 			__func__, mode->hdisplay, mode->vdisplay,
 			mode->vrefresh,
-			mode->clock * 1000);
+			mode->clock);
 
 	return drm_mode_validate_size(mode, 0x1fff, 0x1fff);
 }
-
-/*
- *  static struct drm_encoder *mtk_dp_conn_best_enc(struct drm_connector *conn)
- *  {
- *  struct mtk_dp *mtk_dp = mtk_dp_ctx_from_conn(conn);
- *  return mtk_dp->conn.encoder;
- *  }
- */
 
 static const struct drm_connector_helper_funcs mtk_dp_connector_helper_funcs = {
 	.get_modes = mtk_dp_conn_get_modes,
@@ -3897,6 +3585,9 @@ void mtk_dp_set_adjust_phy(uint8_t c0, uint8_t cp1)
 
 void mtk_dp_hotplug_uevent(unsigned int event)
 {
+	if (g_mtk_dp->info.bPatternGen)
+		return;
+
 	DPTXFUNC("fake:%d, event:%d\n", fakecablein, event);
 	atomic_set(&dp_notify_event, event + NOTIFY_OFFSET);
 	wake_up_interruptible(&g_mtk_dp->notify_wq);
@@ -3924,7 +3615,7 @@ void mtk_dp_force_res(unsigned int res, unsigned int bpc)
 
 void mtk_dp_fake_plugin(unsigned int status, unsigned int bpc)
 {
-	if (g_mtk_dp->bUsbPlug == true) {
+	if (g_mtk_dp->bPowerOn) {
 		mdrv_DPTx_VideoMute(g_mtk_dp, true);
 		mdrv_DPTx_AudioMute(g_mtk_dp, true);
 	}
@@ -3936,7 +3627,7 @@ void mtk_dp_fake_plugin(unsigned int status, unsigned int bpc)
 	kfree(g_mtk_dp->edid);
 	g_mtk_dp->edid = NULL;
 
-	if (fakeres == SINK_4K2K60R)
+	if (fakeres == SINK_3840_2160)
 		mtk_dp_enable_4k60(true);
 	else
 		mtk_dp_enable_4k60(false);

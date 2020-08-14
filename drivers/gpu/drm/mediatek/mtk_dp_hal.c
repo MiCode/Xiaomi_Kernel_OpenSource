@@ -191,7 +191,6 @@ void mhal_DPTx_Set_VideoInterlance(struct mtk_dp *mtk_dp, bool bENABLE)
 			BIT4, BIT5|BIT4);
 		DPTXMSG("DPTX pmode force-ov\n");
 	}
-
 }
 
 void mhal_DPTx_EnableBypassMSA(struct mtk_dp *mtk_dp, bool bENABLE)
@@ -204,53 +203,47 @@ void mhal_DPTx_EnableBypassMSA(struct mtk_dp *mtk_dp, bool bENABLE)
 			0x03FF, 0x03FF);
 }
 
-void mhal_DPTx_SetMSA(struct mtk_dp *mtk_dp,
-	struct DPTX_TIMING_PARAMETER *DPTX_TBL)
+void mhal_DPTx_SetMSA(struct mtk_dp *mtk_dp)
 {
-	DPTXFUNC();
+	struct DPTX_TIMING_PARAMETER *DPTX_TBL = &mtk_dp->info.DPTX_OUTBL;
 
 	msWrite2Byte(mtk_dp, REG_3010_DP_ENCODER0_P0, DPTX_TBL->Htt);
 	msWrite2Byte(mtk_dp, REG_3018_DP_ENCODER0_P0,
-		DPTX_TBL->Hsw+DPTX_TBL->Hbp);
+		DPTX_TBL->Hsw + DPTX_TBL->Hbp);
 	msWrite2ByteMask(mtk_dp, REG_3028_DP_ENCODER0_P0,
-		((DPTX_TBL->Hsw) << HSW_SW_DP_ENCODER0_P0_FLDMASK_POS),
+		DPTX_TBL->Hsw << HSW_SW_DP_ENCODER0_P0_FLDMASK_POS,
 		HSW_SW_DP_ENCODER0_P0_FLDMASK);
 	msWrite2ByteMask(mtk_dp, REG_3028_DP_ENCODER0_P0,
-		((DPTX_TBL->bHsp) << HSP_SW_DP_ENCODER0_P0_FLDMASK_POS),
+		DPTX_TBL->bHsp << HSP_SW_DP_ENCODER0_P0_FLDMASK_POS,
 		HSP_SW_DP_ENCODER0_P0_FLDMASK);
 	msWrite2Byte(mtk_dp, REG_3020_DP_ENCODER0_P0, DPTX_TBL->Hde);
 	msWrite2Byte(mtk_dp, REG_3014_DP_ENCODER0_P0, DPTX_TBL->Vtt);
 	msWrite2Byte(mtk_dp, REG_301C_DP_ENCODER0_P0,
-		DPTX_TBL->Vsw+DPTX_TBL->Vbp);
+		DPTX_TBL->Vsw + DPTX_TBL->Vbp);
 	msWrite2ByteMask(mtk_dp, REG_302C_DP_ENCODER0_P0,
-		((DPTX_TBL->Vsw) << VSW_SW_DP_ENCODER0_P0_FLDMASK_POS),
+		DPTX_TBL->Vsw << VSW_SW_DP_ENCODER0_P0_FLDMASK_POS,
 		VSW_SW_DP_ENCODER0_P0_FLDMASK);
 	msWrite2ByteMask(mtk_dp, REG_302C_DP_ENCODER0_P0,
-		((DPTX_TBL->bVsp) << VSP_SW_DP_ENCODER0_P0_FLDMASK_POS),
+		DPTX_TBL->bVsp << VSP_SW_DP_ENCODER0_P0_FLDMASK_POS,
 		VSP_SW_DP_ENCODER0_P0_FLDMASK);
 	msWrite2Byte(mtk_dp, REG_3024_DP_ENCODER0_P0, DPTX_TBL->Vde);
 	msWrite2Byte(mtk_dp, REG_3064_DP_ENCODER0_P0, DPTX_TBL->Hde);
-
-
 	msWrite2Byte(mtk_dp, REG_3154_DP_ENCODER0_P0, (DPTX_TBL->Htt));
 	msWrite2Byte(mtk_dp, REG_3158_DP_ENCODER0_P0, (DPTX_TBL->Hfp));
 	msWrite2Byte(mtk_dp, REG_315C_DP_ENCODER0_P0, (DPTX_TBL->Hsw));
 	msWrite2Byte(mtk_dp, REG_3160_DP_ENCODER0_P0,
-		(DPTX_TBL->Hbp)+(DPTX_TBL->Hsw)); // H start > rising + sw
+		DPTX_TBL->Hbp + DPTX_TBL->Hsw);
 	msWrite2Byte(mtk_dp, REG_3164_DP_ENCODER0_P0, (DPTX_TBL->Hde));
-
 	msWrite2Byte(mtk_dp, REG_3168_DP_ENCODER0_P0, DPTX_TBL->Vtt);
 	msWrite2Byte(mtk_dp, REG_316C_DP_ENCODER0_P0, DPTX_TBL->Vfp);
 	msWrite2Byte(mtk_dp, REG_3170_DP_ENCODER0_P0, DPTX_TBL->Vsw);
 	msWrite2Byte(mtk_dp, REG_3174_DP_ENCODER0_P0,
-		(DPTX_TBL->Vbp)+(DPTX_TBL->Vsw)); // Vstart > rising + sw
+		DPTX_TBL->Vbp + DPTX_TBL->Vsw);
 	msWrite2Byte(mtk_dp, REG_3178_DP_ENCODER0_P0, DPTX_TBL->Vde);
 
-
-	DPTXMSG("MSA : Htt=%d Vtt=%d  Hact=%d  Vact=%d\n",
+	DPTXMSG("MSA:Htt=%d Vtt=%d Hact=%d Vact=%d, fps=%d\n",
 			DPTX_TBL->Htt, DPTX_TBL->Vtt,
-			DPTX_TBL->Hde, DPTX_TBL->Vde);
-
+			DPTX_TBL->Hde, DPTX_TBL->Vde, DPTX_TBL->FrameRate);
 }
 
 void mhal_DPTx_SetColorFormat(struct mtk_dp *mtk_dp, BYTE  enOutColorFormat)
@@ -375,10 +368,11 @@ bool mhal_DPTx_OverWrite_MN(struct mtk_dp *mtk_dp,
 	return true;
 }
 
-BYTE mhal_DPTx_GetColorBpp(struct mtk_dp *mtk_dp,
-	BYTE ubDPTXColorDepth, BYTE ubDPTXColorFormat)
+BYTE mhal_DPTx_GetColorBpp(struct mtk_dp *mtk_dp)
 {
 	BYTE ColorBpp;
+	BYTE ubDPTXColorDepth = mtk_dp->info.depth;
+	BYTE ubDPTXColorFormat = mtk_dp->info.format;
 
 	switch (ubDPTXColorDepth) {
 	case DP_COLOR_DEPTH_6BIT:
@@ -452,8 +446,6 @@ void mhal_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp, WORD uwValue)
 
 void mhal_DPTx_SetTU_SetEncoder(struct mtk_dp *mtk_dp)
 {
-	DPTXFUNC();
-
 	msWriteByteMask(mtk_dp, REG_303C_DP_ENCODER0_P0 + 1, BIT7, BIT7);
 	msWrite2Byte(mtk_dp, REG_3040_DP_ENCODER0_P0, 0x2020);
 	msWrite2ByteMask(mtk_dp, REG_3364_DP_ENCODER1_P0, 0x2020, 0x0FFF);
@@ -478,6 +470,343 @@ void mhal_DPTx_PGEnable(struct mtk_dp *mtk_dp, bool bENABLE)
 	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT6, BIT6);
 }
 
+void mhal_DPTx_PG_Pure_Color(struct mtk_dp *mtk_dp, BYTE BGR, DWORD ColorDepth)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, 0, MASKBIT(6:4));
+
+	switch (BGR) {
+	case DPTX_PG_PURECOLOR_BLUE:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		break;
+
+	case DPTX_PG_PURECOLOR_GREEN:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		break;
+
+	case DPTX_PG_PURECOLOR_RED:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		break;
+
+	default:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		break;
+	}
+}
+
+void mhal_DPTx_PG_VerticalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
+	DWORD ColorDepth, BYTE Location)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT4, MASKBIT(6:4));
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT7, BIT7);
+
+	switch (Location) {
+	case DPTX_PG_LOCATION_ALL:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
+		break;
+
+	case DPTX_PG_LOCATION_TOP:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x40);
+		break;
+
+	case DPTX_PG_LOCATION_BOTTOM:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x2FFF);
+		break;
+
+	default:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			ColorDepth, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
+
+		break;
+	}
+}
+
+void mhal_DPTx_PG_HorizontalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
+	DWORD ColorDepth, BYTE Location)
+{
+	DWORD Ramp = 0x3FFF;
+
+	ColorDepth = 0x0000;
+
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT5, MASKBIT(6:4));
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT7, BIT7);
+	msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, Ramp);
+
+	switch (Location) {
+	case DPTX_PG_LOCATION_ALL:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_LEFT_OF_TOP:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
+		break;
+
+	case DPTX_PG_LOCATION_LEFT_OF_BOTTOM:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+			BGR, MASKBIT(2:0));
+		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
+		break;
+
+	default:
+		break;
+
+	}
+}
+
+void mhal_DPTx_PG_VerticalColorBar(struct mtk_dp *mtk_dp, BYTE Location)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+		BIT5|BIT4, MASKBIT(6:4));
+
+	switch (Location) {
+	case DPTX_PG_LOCATION_ALL:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_LEFT:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_RIGHT:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT2, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_LEFT_OF_LEFT:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT5|BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_RIGHT_OF_LEFT:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT5|BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT1, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_LEFT_OF_RIGHT:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT5|BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT2, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_RIGHT_OF_RIGHT:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT5|BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT2|BIT1, MASKBIT(2:0));
+		break;
+
+	default:
+		break;
+	}
+}
+
+void mhal_DPTx_PG_HorizontalColorBar(struct mtk_dp *mtk_dp, BYTE Location)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT6, MASKBIT(6:4));
+	switch (Location) {
+	case DPTX_PG_LOCATION_ALL:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_TOP:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			0, MASKBIT(2:0));
+		break;
+
+	case DPTX_PG_LOCATION_BOTTOM:
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT4, MASKBIT(5:4));
+		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
+			BIT2, MASKBIT(2:0));
+		break;
+
+	default:
+		break;
+	}
+}
+
+void mhal_DPTx_PG_Chessboard(struct mtk_dp *mtk_dp, BYTE Location,
+	WORD Hde, WORD Vde)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT6|BIT4,
+		MASKBIT(6:4));
+
+	switch (Location) {
+	case DPTX_PG_LOCATION_ALL:
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3194_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3198_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_319C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_31A8_DP_ENCODER0_P0,
+			(Hde/8), MASKBIT(13:0));
+		msWrite2ByteMask(mtk_dp, REG_31AC_DP_ENCODER0_P0,
+			(Vde/8), MASKBIT(13:0));
+		break;
+
+	default:
+		break;
+	}
+}
+
+void mhal_DPTx_PG_SubPixel(struct mtk_dp *mtk_dp, BYTE Location)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
+		BIT6|BIT5, MASKBIT(6:4));
+
+	switch (Location) {
+	case DPTX_PG_PIXEL_ODD_MASK:
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0 + 1, 0, BIT5);
+		break;
+
+	case DPTX_PG_PIXEL_EVEN_MASK:
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0 + 1,
+			BIT5, BIT5);
+		break;
+
+	default:
+		break;
+	}
+}
+
+void mhal_DPTx_PG_Frame(struct mtk_dp *mtk_dp, BYTE Location,
+	WORD Hde, WORD Vde)
+{
+	msWriteByteMask(mtk_dp, REG_3038_DP_ENCODER0_P0 + 1, BIT3, BIT3);
+	msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0, BIT6|BIT5|BIT4,
+		MASKBIT(6:4));
+
+	switch (Location) {
+	case DPTX_PG_PIXEL_ODD_MASK:
+		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0 + 1,
+			0, BIT5);
+		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3180_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3194_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_3198_DP_ENCODER0_P0,
+			0xFFF, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_319C_DP_ENCODER0_P0,
+			0, MASKBIT(11:0));
+		msWrite2ByteMask(mtk_dp, REG_31A8_DP_ENCODER0_P0,
+			((Hde/8)-12), MASKBIT(13:0));
+		msWrite2ByteMask(mtk_dp, REG_31AC_DP_ENCODER0_P0,
+			((Vde/8)-12), MASKBIT(13:0));
+		msWriteByteMask(mtk_dp, REG_31B4_DP_ENCODER0_P0,
+			0x0B, MASKBIT(3:0));
+		break;
+
+	default:
+		break;
+	}
+}
 
 void mhal_DPTx_Audio_Setting(struct mtk_dp *mtk_dp, BYTE Channel, BYTE bEnable)
 {

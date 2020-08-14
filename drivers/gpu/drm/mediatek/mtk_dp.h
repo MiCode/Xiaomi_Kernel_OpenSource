@@ -44,9 +44,9 @@
 #define DPTX_TRAIN_RETRY_LIMIT		0x8
 #define DPTX_TRAIN_MAX_ITERATION	0x5
 
-enum DPTx_InPutSrcType {
-	DPTXInputSrc_PG	= 0x00,
-	DPTXInputSrc_DPINTF = 0x01,
+enum DPTx_SOURCE_TYPE {
+	DPTX_SRC_DPINTF = 0,
+	DPTX_SRC_PG	= 1,
 };
 
 enum DPTx_State {
@@ -119,27 +119,6 @@ struct DP_CTS_AUTO_REQ {
 	unsigned int test_aduio_samling_rate;
 };
 
-struct DPTX_DRV_TIMING_PARAMETER {
-	int Video_ip_mode;
-	WORD Htt;
-	WORD Hde;
-	WORD Hbk;
-	WORD Hfp;
-	WORD Hsw;
-	bool bHsp;
-	WORD Hbp;
-	WORD Vtt;
-	WORD Vde;
-	WORD Vbk;
-	WORD Vfp;
-	WORD Vsw;
-	bool bVsp;
-	WORD Vbp;
-	BYTE FrameRate;
-	DWORD PixRateKhz;
-	BYTE MISC[2];
-};
-
 enum DPTx_PG_Sel {
 	DPTx_PG_20bit	= 0,
 	DPTx_PG_80bit	= 1,
@@ -194,27 +173,22 @@ enum DPTx_PREEMPHASIS_NUM {
 	DPTx_PREEMPHASIS3	= 0x03,
 };
 
+//SINK_WIDTH_HIGHT_FPS
 enum DP_VIDEO_TIMING_TYPE {
-	SINK_480P           = 0,
-	SINK_720P60         = 1,
-	SINK_1080P60        = 2,
-	SINK_480P_1440      = 3,
-	SINK_480P_2880      = 4,
-	SINK_1080P30        = 5,
-	SINK_576P           = 6,
-	SINK_720P50         = 7,
-	SINK_1080P50        = 8,
-	SINK_576P_1440      = 9,
-	SINK_576P_2880      = 10,
-	SINK_1080P25        = 11,
-	SINK_1080P24        = 12,
-	SINK_2K2K60         = 13,
-	SINK_4K2K30         = 14,
-	SINK_4K2K60R        = 15,
-	SINK_8K4K60R        = 16,
-	SINK_1080P60_2460   = 17,
-	SINK_1200P60_1920   = 18,
-	SINK_UNKNOWN        = 19,
+	SINK_640_480        = 0,
+	SINK_800_600        = 1,
+	SINK_1280_720       = 2,
+	SINK_1280_960       = 3,
+	SINK_1280_1024      = 4,
+	SINK_1920_1080      = 5,
+	SINK_1080_2460      = 6,
+	SINK_1920_1200      = 7,
+	SINK_1920_1440      = 8,
+	SINK_2560_1600      = 9,
+	SINK_3840_2160_30   = 10,//4K30
+	SINK_3840_2160      = 11,//4k60
+	SINK_7680_4320      = 12,
+	SINK_MAX,
 };
 
 enum DP_VIDEO_MUTE {
@@ -264,167 +238,6 @@ enum DPTX_VIDEO_MODE {
 #define DP_CAPABILITY_BITWIDTH_MASK             0x07
 #define DP_CAPABILITY_BITWIDTH_SFT              16
 
-#define DPTx_PATTERN_RGB_640_480_EN		0x1
-#define DPTx_PATTERN_RGB_720_480_EN		0x1
-#define DPTx_PATTERN_RGB_800_600_EN		0x1
-#define DPTx_PATTERN_RGB_1280_720_EN		0x1
-#define DPTx_PATTERN_RGB_1280_1024_EN		0x1
-#define DPTx_PATTERN_RGB_1920_1080_EN		0x1
-#define DPTx_PATTERN_RGB_3840_2160_EN		0x1
-#define DPTx_PATTERN_RGB_4096_2160_EN		0x1
-#define DPTx_PATTERN_RGB_7680_4320_EN		0x1
-#define DPTx_PATTERN_RGB_848_480_EN		0x1
-#define DPTx_PATTERN_RGB_1280_960_EN		0x1
-#define DPTx_PATTERN_RGB_1920_1440_EN		0x1
-#define DPTx_PATTERN_RGB_1280_800_EN		0x1
-#define DPTx_PATTERN_RGB_DEFINERES_EN		0x1
-
-enum DPTx_PATTERN_NUM {
-#if DPTx_PATTERN_RGB_640_480_EN
-	DPTx_PATTERN_RGB_640_480 = 0x00,
-#endif
-#if DPTx_PATTERN_RGB_720_480_EN
-	DPTx_PATTERN_RGB_720_480 = 0x01,
-#endif
-#if DPTx_PATTERN_RGB_800_600_EN
-	DPTx_PATTERN_RGB_800_600 = 0x02,
-#endif
-#if DPTx_PATTERN_RGB_1280_720_EN
-	DPTx_PATTERN_RGB_1280_720 = 0x03,
-#endif
-#if DPTx_PATTERN_RGB_1280_1024_EN
-	DPTx_PATTERN_RGB_1280_1024 = 0x04,
-#endif
-#if DPTx_PATTERN_RGB_1920_1080_EN
-	DPTx_PATTERN_RGB_1920_1080 = 0x05,
-#endif
-#if DPTx_PATTERN_RGB_3840_2160_EN
-	DPTx_PATTERN_RGB_3840_2160 = 0x06,
-#endif
-#if DPTx_PATTERN_RGB_4096_2160_EN
-	DPTx_PATTERN_RGB_4096_2160 = 0x07,
-#endif
-#if DPTx_PATTERN_RGB_7680_4320_EN
-	DPTx_PATTERN_RGB_7680_4320 = 0x08,
-#endif
-#if DPTx_PATTERN_RGB_848_480_EN
-	DPTx_PATTERN_RGB_848_480 = 0x09,
-#endif
-#if DPTx_PATTERN_RGB_1280_960_EN
-	DPTx_PATTERN_RGB_1280_960 = 0x0A,
-#endif
-#if DPTx_PATTERN_RGB_1920_1440_EN
-	DPTx_PATTERN_RGB_1920_1440 = 0x0B,
-#endif
-#if DPTx_PATTERN_RGB_1280_800_EN
-	DPTx_PATTERN_RGB_1280_800 = 0x0C,
-#endif
-#if DPTx_PATTERN_RGB_DEFINERES_EN
-	DPTx_PATTERN_RGB_DEFINERES = 0x0D,
-#endif
-
-	DPTx_PATTERN_RGB_MAX,
-	DPTx_PATTERN_YCbCr422_MAX,
-	DPTx_PATTERN_YCbCr444_MAX,
-	DPTx_PATTERN_MAX,
-};
-
-#if DPTx_PATTERN_RGB_DEFINERES_EN
-#define DPTX480P		0
-#define DPTX720P		1
-#define DPTX1080P		2
-#define DPTX2K2K		3
-#define DPTX2K2KR		4
-#define DPTX4K2KR		5
-#define DPTX8K4KR		6
-#define DPTX1080i		7
-#define DPTXPanelDefine	8
-#define DPTX_Timing		DPTX1080P
-#if (DPTX_Timing == DPTX8K4KR)
-#define DPTXMSA_Htotal		8040
-#define DPTXMSA_HStart		336		// HStart  == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1		// HSP   [15]=Polarity
-#define DPTXMSA_HSW		96		//19 //38//22//24
-#define DPTXMSA_Vtotal		4381	//2185 //2180 //2200 //2250
-#define DPTXMSA_VStart		14		// Vstart  8 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		0	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		8		// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		7680
-#define DPTXMSA_Vheight		4320
-#elif (DPTX_Timing == DPTX4K2KR)
-#define DPTXMSA_Htotal		4400	//(2048*2)//(2080*2) //(2200*2) //4400
-#define DPTXMSA_HStart		(28+40)	// HStart  == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1		// HSP   [15]=Polarity
-#define DPTXMSA_HSW		28		//19 //38//22//24
-#define DPTXMSA_Vtotal		2250	//2185 //2180 //2200 //2250
-#define DPTXMSA_VStart		(3+12)	// Vstart  8 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		0	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		0x0003	// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		(1920*2)	//3840
-#define DPTXMSA_Vheight		2160
-#elif (DPTX_Timing == DPTX2K2K)
-#define DPTXMSA_Htotal		0x0820	// Htotal 2080
-#define DPTXMSA_HStart		0x0058	// HStart 88 == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1		// HSP   [15]=Polarity
-#define DPTXMSA_HSW		0x002C	// Hsw 44  [15]=Polarity
-#define DPTXMSA_Vtotal		0x08CA	// Vtotal  2250
-#define DPTXMSA_VStart		0x0008	// Vstart  8 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		0	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		0x0005	// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		0x0780	// Hactive 1920
-#define DPTXMSA_Vheight		0x0870	// Vactive 2160
-#elif (DPTX_Timing == DPTX1080i) // i-mode => V 4 parameters divide by 2
-#define DPTXMSA_Htotal		0x0898	// Htotal 2200
-#define DPTXMSA_HStart		0x0058	// HStart 88 == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1	// HSP   [15]=Polarity
-#define DPTXMSA_HSW		0x002C	// Hsw 44  [15]=Polarity
-#define DPTXMSA_Vtotal		0x0232	// Vtotal  1125
-#define DPTXMSA_VStart		0x0008	// Vstart  16 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		0	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		0x0002	// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		0x0780	// Hactive 1920
-#define DPTXMSA_Vheight		0x021C	// Vactive 1080
-#elif (DPTX_Timing == DPTX1080P)
-#define DPTXMSA_Htotal		0x0898	// Htotal 2200
-#define DPTXMSA_HStart		0x0058	// HStart 88 == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1	// HSP   [15]=Polarity
-#define DPTXMSA_HSW		0x002C	// Hsw 44  [15]=Polarity
-#define DPTXMSA_Vtotal		0x0465	// Vtotal  1125
-#define DPTXMSA_VStart		0x0010	// Vstart  16 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		0	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		0x0005	// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		0x0780	// Hactive 1920
-#define DPTXMSA_Vheight		0x0438	// Vactive 1080
-#elif (DPTX_Timing == DPTX720P)
-#define DPTXMSA_Htotal		0x0672	// Htotal 1650
-#define DPTXMSA_HStart		0x006E	// HStart 110 == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1	// HSP   [15]=Polarity
-#define DPTXMSA_HSW		0x0028	// Hsw 40  [15]=Polarity
-#define DPTXMSA_Vtotal		0x02EE	// Vtotal  750
-#define DPTXMSA_VStart		0x0008	// Vstart  8 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		0	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		0x0005	// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		0x0500	// Hactive 1280
-#define DPTXMSA_Vheight		0x02D0	// Vactive  720
-#elif (DPTX_Timing == DPTX480P)
-#define DPTXMSA_Htotal		0x035A	// Htotal 858
-#define DPTXMSA_HStart		0x007A	// HStart 122 == HSW+HBACKPORCH
-#define DPTXMSA_HSP		1	// HSP   [15]=Polarity
-#define DPTXMSA_HSW		0x003E	// Hsw 62  [15]=Polarity
-#define DPTXMSA_Vtotal		0x020D	// Vtotal  525
-#define DPTXMSA_VStart		0x0024	// Vstart  36 == VSW+VBACKPORCH
-#define DPTXMSA_VSP		1	// VSP   [15]=Polarity
-#define DPTXMSA_VSW		0x0006	// Vsw   [15]=Polarity
-#define DPTXMSA_Hwidth		0x02D0	// Hactive 720
-#define DPTXMSA_Vheight		0x01E0	// Vactive  480
-#endif
-#define DPTXMSA_HB	((DPTXMSA_Htotal) - (DPTXMSA_Hwidth))
-#define DPTXMSA_VB	((DPTXMSA_Vtotal) - (DPTXMSA_Vheight))
-#define DPTXMSA_HFP	((DPTXMSA_HB) - (DPTXMSA_HStart))
-#define DPTXMSA_VFP	((DPTXMSA_VB) - (DPTXMSA_VStart))
-#define DPTXMSA_HBP	((DPTXMSA_HStart) - (DPTXMSA_HSW))
-#define DPTXMSA_VBP	((DPTXMSA_VStart) - (DPTXMSA_VSW))
-#endif
 
 void mtk_dp_poweroff(void);
 void mtk_dp_poweron(void);
@@ -432,8 +245,7 @@ void mtk_dp_video_trigger(int res);
 struct edid *mtk_dp_handle_edid(struct mtk_dp *mtk_dp);
 int mdrv_DPTx_SetTrainingStart(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_CheckMaxLinkRate(struct mtk_dp *mtk_dp);
-void mdrv_DPTx_SetPatternGenMode(struct mtk_dp *mtk_dp, u8 ucDPTx_PATTERN_NUM);
-void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config);
+void mtk_dp_video_config(struct mtk_dp *mtk_dp);
 void mtk_dp_force_res(unsigned int res, unsigned int bpc);
 void mtk_dp_hotplug_uevent(unsigned int status);
 void mtk_dp_enable_4k60(int enable);
@@ -465,5 +277,7 @@ void mtk_dp_force_hdcp1x(bool enable);
 void mtk_dp_set_adjust_phy(uint8_t c0, uint8_t cp1);
 int mtk_dp_hdcp_getInfo(char *buffer, int size);
 int mdrv_DPTx_set_reTraining(struct mtk_dp *mtk_dp);
+void mdrv_DPTx_PatternSet(bool enable, int resolution);
+extern void mhal_DPTx_VideoClock(bool enable, int resolution);
 
 #endif //__MTK_DP__H__
