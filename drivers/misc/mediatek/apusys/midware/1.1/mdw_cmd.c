@@ -24,7 +24,6 @@
 #include "mdw_dbg.h"
 #include "mdw_sched.h"
 #include "mdw_rsc.h"
-#include "midware_trace.h"
 #include "reviser_export.h"
 #include "mdw_fence.h"
 
@@ -90,17 +89,6 @@ static void mdw_cmd_show_sc_perf(struct mdw_apu_sc *sc)
 		mdw_cmn_get_time_diff(&sc->ts_enque, &sc->ts_deque));
 	mdw_pef_debug(" exec time       = %u\n",
 		mdw_cmn_get_time_diff(&sc->ts_start, &sc->ts_end));
-	mdw_pef_debug(" life time       = %u\n",
-		mdw_cmn_get_time_diff(&sc->ts_create, &sc->ts_delete));
-	mdw_pef_debug("-------------------------\n");
-}
-
-static void mdw_cmd_show_cmd_perf(struct mdw_apu_cmd *c)
-{
-	mdw_pef_debug("-------------------------\n");
-	mdw_pef_debug(" apusys cmd(0x%llx)\n", c->kid);
-	mdw_pef_debug(" life time       = %u\n",
-		mdw_cmn_get_time_diff(&c->ts_create, &c->ts_delete));
 	mdw_pef_debug("-------------------------\n");
 }
 
@@ -442,9 +430,6 @@ static int mdw_cmd_delete_cmd(struct mdw_apu_cmd *c)
 		return -EBUSY;
 	}
 
-	getnstimeofday(&c->ts_delete);
-	mdw_cmd_show_cmd_perf(c);
-
 	mdw_drv_debug("cmd(0x%llx/0x%llx) destroy\n", c->hdr->uid, c->kid);
 	mdw_mem_unmap_kva(c->cmdbuf);
 	vfree(c->cmdbuf);
@@ -523,7 +508,6 @@ static void mdw_cmd_delete_sc(struct mdw_apu_sc *sc)
 
 	mdw_queue_task_end(sc);
 
-	getnstimeofday(&sc->ts_delete);
 	mdw_cmd_show_sc_perf(sc);
 
 	mutex_lock(&sc->mtx);
@@ -746,10 +730,8 @@ int mdw_cmd_get_ctx(struct mdw_apu_sc *sc)
 	tcm_usage = sc->hdr->tcm_usage == 0 ?
 		mdw_dbg_get_prop(MDW_DBG_PROP_TCM_DEFAULT) : sc->hdr->tcm_usage;
 
-	trace_tag_begin("reviser get vlm");
 	ret = reviser_get_vlm(tcm_usage, sc->hdr->tcm_force,
 		&sc->ctx, &sc->real_tcm_usage);
-	trace_tag_end();
 	c->ctx_repo[sc->hdr->mem_ctx] = sc->ctx;
 	mdw_flw_debug("sc(0x%llx-#%d) get ctx(%lu/%u/%u)\n",
 		c->kid, sc->idx, sc->ctx, sc->hdr->mem_ctx, tcm_usage);
@@ -765,9 +747,7 @@ void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 
 	mutex_lock(&c->mtx);
 	if (sc->hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
-		trace_tag_begin("reviser free vlm");
 		reviser_free_vlm(sc->ctx);
-		trace_tag_end();
 		mdw_flw_debug("sc(0x%llx-#%d) put ctx(%lu/%u)\n",
 			c->kid, sc->idx, sc->ctx, sc->hdr->mem_ctx);
 		goto out;
@@ -775,9 +755,7 @@ void mdw_cmd_put_ctx(struct mdw_apu_sc *sc)
 
 	c->ctx_cnt[sc->hdr->mem_ctx]--;
 	if (!c->ctx_cnt[sc->hdr->mem_ctx]) {
-		trace_tag_begin("reviser free vlm");
 		reviser_free_vlm(sc->ctx);
-		trace_tag_end();
 		c->ctx_repo[sc->hdr->mem_ctx] = MDW_CMD_EMPTY_NUM;
 		mdw_flw_debug("sc(0x%llx-#%d) put ctx(%lu/%u)\n",
 			c->kid, sc->idx, sc->ctx, sc->hdr->mem_ctx);
