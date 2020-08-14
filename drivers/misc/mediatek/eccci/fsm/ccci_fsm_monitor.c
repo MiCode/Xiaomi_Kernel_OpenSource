@@ -148,6 +148,11 @@ int fsm_monitor_send_message(int md_id, enum CCCI_MD_MSG msg, u32 resv)
 	}
 
 	skb = ccci_alloc_skb(sizeof(struct ccci_header), 1, 1);
+	if (skb == NULL) {
+		CCCI_ERROR_LOG(monitor_ctl->md_id, FSM,
+			"%s:ccci_alloc_skb fail\n", __func__);
+		return -CCCI_ERR_ASSERT_ERR;
+	}
 	ccci_h =
 	(struct ccci_header *)skb_put(skb, sizeof(struct ccci_header));
 	ccci_h->data[0] = CCCI_MAGIC_NUM;
