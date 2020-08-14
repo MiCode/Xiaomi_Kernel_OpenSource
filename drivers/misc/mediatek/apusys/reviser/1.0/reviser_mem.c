@@ -24,11 +24,10 @@
 #include "reviser_ioctl.h"
 #include "reviser_reg.h"
 
-static struct page **g_pages;
-
-static struct page **__reviser_get_sgt(const char *buf,
+static int __reviser_get_sgt(const char *buf,
 		size_t len, struct sg_table *sgt)
 {
+	struct page **pages = NULL;
 	unsigned int nr_pages;
 	unsigned int index;
 	const char *p;
@@ -36,10 +35,10 @@ static struct page **__reviser_get_sgt(const char *buf,
 
 	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
 		- ((unsigned long)buf / PAGE_SIZE);
-	g_pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
+	pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
 
-	if (!g_pages)
-		return ERR_PTR(-ENOMEM);
+	if (!pages)
+		return -ENOMEM;
 
 	p = buf - offset_in_page(buf);
 	LOG_DEBUG("start p: %llx buf: %llx\n",
@@ -47,13 +46,13 @@ static struct page **__reviser_get_sgt(const char *buf,
 
 	for (index = 0; index < nr_pages; index++) {
 		if (is_vmalloc_addr(p))
-			g_pages[index] = vmalloc_to_page(p);
+			pages[index] = vmalloc_to_page(p);
 		else
-			g_pages[index] = kmap_to_page((void *)p);
-		if (!g_pages[index]) {
-			kfree(g_pages);
+			pages[index] = kmap_to_page((void *)p);
+		if (!pages[index]) {
+			kfree(pages);
 			LOG_ERR("map failed\n");
-			return ERR_PTR(-EFAULT);
+			return -EFAULT;
 		}
 		p += PAGE_SIZE;
 		LOG_DEBUG("p: %llx PAGE_SIZE: %llx\n",
@@ -61,19 +60,20 @@ static struct page **__reviser_get_sgt(const char *buf,
 	}
 
 
-	ret = sg_alloc_table_from_pages(sgt, g_pages, index,
+	ret = sg_alloc_table_from_pages(sgt, pages, index,
 		offset_in_page(buf), len, GFP_KERNEL);
-
+	kfree(pages);
 	if (ret) {
 		LOG_ERR("sg_alloc_table_from_pages: %d\n", ret);
-		kfree(g_pages);
-		return ERR_PTR(ret);
+		return ret;
 	}
+
+
 
 	LOG_DEBUG("buf: %p, len: %lx, sgt: %p nr_pages: %d\n",
 		buf, len, sgt, nr_pages);
 
-	return g_pages;
+	return 0;
 }
 
 static dma_addr_t __reviser_get_iova(struct device *dev,
@@ -112,9 +112,7 @@ static dma_addr_t __reviser_get_iova(struct device *dev,
 
 int reviser_mem_free(struct reviser_mem *mem)
 {
-	kfree(g_pages);
-	kfree((void *)(void *) mem->kva);
-
+	kfree((void *) mem->kva);
 	LOG_DEBUG("Done\n");
 	return 0;
 }
@@ -124,7 +122,6 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	int ret = 0;
 	void *kva;
 	dma_addr_t iova;
-	struct page **pages;
 
 	kva = kvmalloc(mem->size, GFP_KERNEL);
 
@@ -136,10 +133,10 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	}
 	memset((void *)kva, 0, mem->size);
 
-	pages = __reviser_get_sgt(kva, mem->size, &mem->sgt);
-
-	if (IS_ERR_OR_NULL(pages)) {
-		ret = IS_ERR(pages) ? PTR_ERR(pages) : -ENOMEM;
+	if (__reviser_get_sgt(kva, mem->size, &mem->sgt)) {
+		dev_info(dev, "%s: __reviser_get_sgt: failed\n",
+					__func__);
+		ret = -ENOMEM;
 		goto error;
 	}
 
@@ -157,7 +154,6 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	 * but it will be used by other apusys HW
 	 */
 	kmemleak_no_scan(kva);
-	kmemleak_no_scan(g_pages);
 
 	mem->kva = (uint64_t)kva;
 	mem->iova = (uint32_t)iova;
