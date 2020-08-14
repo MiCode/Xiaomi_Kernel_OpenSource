@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/compat.h>
 
 #include <linux/init.h>
 
