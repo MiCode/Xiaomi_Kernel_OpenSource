@@ -117,6 +117,11 @@
 #define MT_GPUFREQ_DFD_DEBUG 0
 
 /**************************************************
+ * Hopping Setting
+ **************************************************/
+#define MT_GPUFREQ_DVFS_HOPPING_ENABLE 1
+
+/**************************************************
  * Register Manipulations
  **************************************************/
 #define READ_REGISTER_UINT32(reg)	\

@@ -2609,7 +2609,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
 	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
 
-#ifndef CONFIG_MTK_FREQ_HOPPING
+#if (!defined(CONFIG_MTK_FREQ_HOPPING)) || !MT_GPUFREQ_DVFS_HOPPING_ENABLE
 	/* force parking if FHCTL not ready */
 	parking = true;
 #else
