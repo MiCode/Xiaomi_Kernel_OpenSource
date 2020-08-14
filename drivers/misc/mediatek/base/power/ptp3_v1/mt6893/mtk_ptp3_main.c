@@ -287,14 +287,14 @@ static int ptp3_probe(struct platform_device *pdev)
 	/* probe trigger for ptp3 features */
 	brisket2_probe(pdev);
 	fll_probe(pdev);
+	pdp_probe(pdev);
+	dt_probe(pdev);
 
 /* TO BE FIXED: avoid system reboot */
 #if 0
 	cinst_probe(pdev);
 	drcc_probe(pdev);
 	ctt_probe(pdev);
-	pdp_probe(pdev);
-	dt_probe(pdev);
 	adcc_probe(pdev);
 #endif
 	return 0;
