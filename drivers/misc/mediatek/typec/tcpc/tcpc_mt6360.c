@@ -994,7 +994,9 @@ static int mt6360_init_alert(struct tcpc_device *tcpc)
 	name = devm_kzalloc(chip->dev, len + 5, GFP_KERNEL);
 	if (!name)
 		return -ENOMEM;
-	snprintf(name, PAGE_SIZE, "%s-IRQ", chip->tcpc_desc->name);
+	ret = snprintf(name, PAGE_SIZE, "%s-IRQ", chip->tcpc_desc->name);
+	if ((ret < 0) || (ret >= PAGE_SIZE - 1))
+		return -EINVAL;
 	dev_info(chip->dev, "%s name = %s, gpio = %d\n", __func__,
 		 chip->tcpc_desc->name, chip->irq_gpio);
 	ret = devm_gpio_request(chip->dev, chip->irq_gpio, name);
