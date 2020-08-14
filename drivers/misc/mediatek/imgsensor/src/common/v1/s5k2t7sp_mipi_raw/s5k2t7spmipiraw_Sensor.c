@@ -620,12 +620,30 @@ static void check_streamoff(void)
 	pr_debug("%s exit! %d\n", __func__, i);
 }
 
+static void check_stream_is_on(void)
+{
+	int i = 0;
+	UINT32 framecnt;
+
+	for (i = 0; i < 100; i++) {
+
+		framecnt = read_cmos_sensor_8(0x0005);
+		if (framecnt != 0xFF) {
+			pr_debug("stream is on, %d\n", framecnt);
+			break;
+		}
+		pr_debug("stream is not on %d\n", framecnt);
+		mdelay(1);
+	}
+}
+
 static kal_uint32 streaming_control(kal_bool enable)
 {
 	pr_debug("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
 
 	if (enable) {
 		write_cmos_sensor_8(0x0100, 0x01);
+		check_stream_is_on();
 	} else {
 		write_cmos_sensor_8(0x0100, 0x00);
 		check_streamoff();
