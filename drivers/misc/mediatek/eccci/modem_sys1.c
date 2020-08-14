@@ -1289,6 +1289,11 @@ static ssize_t md_cd_dump_show(struct ccci_modem *md, char *buf)
 
 	count = snprintf(buf, 256,
 		"support: ccif cldma register smem image layout\n");
+	if (count < 0 || count >= 256) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,count = %d\n", __func__, __LINE__, count);
+		return -1;
+	}
 	return count;
 }
 
