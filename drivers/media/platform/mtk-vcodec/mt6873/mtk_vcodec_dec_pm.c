@@ -228,10 +228,6 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	} else if (hw_id == MTK_VDEC_LAT) {
 		larb_port_num = SMI_LARB5_PORT_NUM;
 		larb_id = 5;
-	} else {
-		larb_port_num = 0;
-		larb_id = 0;
-		mtk_v4l2_err("invalid hw_id %d", hw_id);
 	}
 
 	//enable 34bits port configs & sram settings
