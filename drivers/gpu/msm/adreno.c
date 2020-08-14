@@ -1639,7 +1639,8 @@ int adreno_clear_pending_transactions(struct kgsl_device *device)
 	if (adreno_has_gbif(adreno_dev)) {
 
 		/* Halt GBIF GX traffic and poll for halt ack */
-		if (adreno_is_a615_family(adreno_dev)) {
+		if (adreno_is_a615_family(adreno_dev) &&
+			!adreno_is_a619_holi(adreno_dev)) {
 			adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_GPR0_CNTL,
 				GBIF_HALT_REQUEST);
