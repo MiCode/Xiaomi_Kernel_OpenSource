@@ -772,7 +772,7 @@ static int vpu_open(struct inode *inode, struct file *flip)
 {
 	int ret = 0, i = 0;
 	bool not_support_vpu = true;
-	struct vpu_user *user;
+	struct vpu_user *user = NULL;
 
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 		if (vpu_device->vpu_hw_support[i]) {
@@ -1416,6 +1416,12 @@ static int vpu_probe(struct platform_device *pdev)
 		LOG_INF("%s(%d), core(%d) = core(%d)+2 in FPGA, return\n",
 			"vpu_num_devs", vpu_num_devs, core, MTK_VPU_CORE);
 		return ret;
+	}
+
+	if (core < 0) {
+		LOG_ERR("%s(%d), wrong core(%d) = vpu_num_devs(%d), return\n",
+			"vpu_num_devs", core, vpu_num_devs);
+		return -1;
 	}
 
 	node = pdev->dev.of_node;
