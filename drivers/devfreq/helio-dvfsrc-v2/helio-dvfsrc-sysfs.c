@@ -231,10 +231,11 @@ static ssize_t dvfsrc_dump_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	char *p = buf;
+	u32 index;
 
-	p = dvfsrc_dump_reg(p);
+	index = dvfsrc_dump_reg(p, PAGE_SIZE);
 
-	return p - buf;
+	return index;
 }
 
 static DEVICE_ATTR(dvfsrc_dump, 0444, dvfsrc_dump_show, NULL);

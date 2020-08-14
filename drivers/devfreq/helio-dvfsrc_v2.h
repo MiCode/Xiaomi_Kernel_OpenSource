@@ -138,7 +138,7 @@ extern struct reg_config *dvfsrc_get_init_conf(void);
 extern void helio_dvfsrc_enable(int dvfsrc_en);
 extern void helio_dvfsrc_flag_set(int flag);
 extern int helio_dvfsrc_flag_get(void);
-extern char *dvfsrc_dump_reg(char *ptr);
+extern u32 dvfsrc_dump_reg(char *ptr, u32 count);
 extern u32 dvfsrc_read(u32 offset);
 extern void dvfsrc_write(u32 offset, u32 val);
 extern u32 dvfsrc_sram_read(u32 offset);

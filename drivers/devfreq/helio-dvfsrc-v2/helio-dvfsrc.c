@@ -299,7 +299,7 @@ static int commit_data(int type, int data, int check_spmfw)
 				if (vcore_uv < opp_uv) {
 					pr_info("DVFS FAIL = %d %d 0x%x\n",
 				vcore_uv, opp_uv, dvfsrc_read(DVFSRC_LEVEL));
-					dvfsrc_dump_reg(NULL);
+					dvfsrc_dump_reg(NULL, 0);
 					aee_kernel_warning("DVFSRC",
 						"%s: failed.", __func__);
 				}
@@ -377,7 +377,7 @@ static int commit_data(int type, int data, int check_spmfw)
 	if (ret < 0) {
 		pr_info("%s: type: 0x%x, data: 0x%x, opp: %d, level: %d\n",
 				__func__, type, data, opp, level);
-		dvfsrc_dump_reg(NULL);
+		dvfsrc_dump_reg(NULL, 0);
 		aee_kernel_warning("DVFSRC", "%s: failed.", __func__);
 	}
 
@@ -574,46 +574,52 @@ static void get_pm_qos_info(char *p)
 			"Force End Timestamp", dvfsrc->force_end);
 }
 
-char *dvfsrc_dump_reg(char *ptr)
+u32 dvfsrc_dump_reg(char *ptr, u32 count)
 {
 	char buf[1024];
+	u32 index = 0;
 
 	memset(buf, '\0', sizeof(buf));
 	get_opp_info(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_dvfsrc_reg(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_dvfsrc_record(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_spm_reg(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_pm_qos_info(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
-	return ptr;
+	return index;
 }
 
 static struct devfreq_dev_profile helio_devfreq_profile = {
