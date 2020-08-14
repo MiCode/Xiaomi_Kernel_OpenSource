@@ -148,6 +148,8 @@ int xhci_mtk_init_sram(struct xhci_hcd *xhci)
 			(unsigned char **) &xhci->msram_virt_addr,
 			xhci_sram_size, &xhci_sram)) {
 
+		xhci->msram_virt_addr = NULL;
+
 		for (i = 0; i < XHCI_SRAM_BLOCK_NUM; i++)
 			xhci_sram[i].state = STATE_NOMEM;
 
