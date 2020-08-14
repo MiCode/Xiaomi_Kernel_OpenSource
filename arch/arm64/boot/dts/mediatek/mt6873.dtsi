@@ -3883,6 +3883,20 @@
 			status = "okay";
 		};
 
+		ccu: ccu@1a101000 {
+			compatible = "mediatek,ccu";
+			power-domains = <&scpsys MT6873_POWER_DOMAIN_CAM>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			iommus = <&iommu0 M4U_PORT_L13_CAM_CCUI>,
+				<&iommu0 M4U_PORT_L13_CAM_CCUO>;
+			reg = <0 0x1a101000 0 0x1000>;
+			interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&camsys CLK_CAM_CCU0>,
+				<&topckgen CLK_TOP_CCU_SEL>;
+			clock-names = "CCU_CLK_CAM_CCU",
+					"CCU_CLK_TOP_MUX";
+		};
+
 		ipesys: ipesys@1b000000 {
 			compatible = "mediatek,mt8192-ipesys", "syscon";
 			reg = <0 0x1b000000 0 0x1000>;
