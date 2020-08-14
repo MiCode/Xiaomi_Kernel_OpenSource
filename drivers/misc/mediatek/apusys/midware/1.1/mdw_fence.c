@@ -42,7 +42,6 @@ static const struct file_operations apu_sync_file_fops = {
 	.poll = apu_file_poll,
 };
 
-
 int apu_sync_file_create(struct mdw_apu_cmd *c)
 {
 	int ret = 0;
