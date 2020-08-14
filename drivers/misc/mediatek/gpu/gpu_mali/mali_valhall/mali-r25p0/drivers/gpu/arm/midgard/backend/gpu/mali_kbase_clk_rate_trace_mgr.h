@@ -23,22 +23,28 @@
 #ifndef _KBASE_CLK_RATE_TRACE_MGR_
 #define _KBASE_CLK_RATE_TRACE_MGR_
 
+#include <mali_kbase_ccswe.h>
+
 /**
  * struct kbase_clk_data - Data stored per enumerated GPU clock.
  *
  * @clk_rtm:            Pointer to clock rate trace manager object.
  * @gpu_clk_handle:     Handle unique to the enumerated GPU clock.
+ * @plat_private:       Private data for the platform to store into
  * @clk_rate_change_nb: notifier block containing the pointer to callback
  *                      function that is invoked whenever the rate of
  *                      enumerated GPU clock changes.
  * @clock_val:          Current rate of the enumerated GPU clock.
+ * @ccswe:              Cycle count software estimator.
  * @index:              Index at which the GPU clock was enumerated.
  */
 struct kbase_clk_data {
 	struct kbase_clk_rate_trace_manager *clk_rtm;
 	void *gpu_clk_handle;
+	void *plat_private;
 	struct notifier_block clk_rate_change_nb;
 	unsigned long clock_val;
+	struct kbase_ccswe ccswe;
 	u8 index;
 };
 

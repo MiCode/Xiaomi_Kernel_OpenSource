@@ -148,6 +148,7 @@ struct kbase_mem_phy_alloc {
 
 	union {
 		struct {
+			struct kbase_context *kctx;
 			struct dma_buf *dma_buf;
 			struct dma_buf_attachment *dma_attachment;
 			unsigned int current_mapping_usage_count;
@@ -413,7 +414,7 @@ struct kbase_va_region {
 	struct list_head jit_node;
 	u16 jit_usage_id;
 	u8 jit_bin_id;
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	/* Pointer to an object in GPU memory defining an end of an allocated
 	 * region
 	 *
@@ -438,7 +439,7 @@ struct kbase_va_region {
 	 * gpu_alloc->nents)
 	 */
 	size_t used_pages;
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	int    va_refcnt;
 };
@@ -1512,7 +1513,7 @@ bool kbase_jit_evict(struct kbase_context *kctx);
  */
 void kbase_jit_term(struct kbase_context *kctx);
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /**
  * kbase_trace_jit_report_gpu_mem_trace_enabled - variant of
  * kbase_trace_jit_report_gpu_mem() that should only be called once the
@@ -1523,7 +1524,7 @@ void kbase_jit_term(struct kbase_context *kctx);
  */
 void kbase_trace_jit_report_gpu_mem_trace_enabled(struct kbase_context *kctx,
 		struct kbase_va_region *reg, unsigned int flags);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 /**
  * kbase_trace_jit_report_gpu_mem - Trace information about the GPU memory used
@@ -1545,7 +1546,7 @@ void kbase_trace_jit_report_gpu_mem_trace_enabled(struct kbase_context *kctx,
  * been included. Also gives no opportunity for the compiler to mess up
  * inlining it.
  */
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 #define kbase_trace_jit_report_gpu_mem(kctx, reg, flags) \
 	do { \
 		if (trace_mali_jit_report_gpu_mem_enabled()) \
@@ -1555,9 +1556,9 @@ void kbase_trace_jit_report_gpu_mem_trace_enabled(struct kbase_context *kctx,
 #else
 #define kbase_trace_jit_report_gpu_mem(kctx, reg, flags) \
 	CSTD_NOP(kctx, reg, flags)
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /**
  * kbase_jit_report_update_pressure - safely update the JIT physical page
  * pressure and JIT region's estimate of used_pages
@@ -1693,7 +1694,7 @@ static inline void kbase_jit_done_phys_increase(struct kbase_context *kctx,
 
 	kctx->jit_phys_pages_to_be_allocated -= needed_pages;
 }
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 /**
  * kbase_has_exec_va_zone - EXEC_VA zone predicate
@@ -1872,7 +1873,6 @@ void kbase_mem_umm_unmap(struct kbase_context *kctx,
  */
 int kbase_mem_do_sync_imported(struct kbase_context *kctx,
 		struct kbase_va_region *reg, enum kbase_sync_type sync_fn);
-
 
 /**
  * kbase_mem_copy_to_pinned_user_pages - Memcpy from source input page to
