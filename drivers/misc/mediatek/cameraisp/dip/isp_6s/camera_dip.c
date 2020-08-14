@@ -7473,11 +7473,10 @@ static int proc_dip_p2_ke_dump_open(
 {
 	return single_open(file, dip_p2_ke_dump_read, NULL);
 }
-static const struct file_operations dip_p2_ke_dump_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = proc_dip_p2_ke_dump_open,
-	.read = seq_read,
-	.release = single_release,
+static const struct proc_ops dip_p2_ke_dump_proc_fops = {
+	.proc_open = proc_dip_p2_ke_dump_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
 };
 
 /**************************************************************
@@ -7632,11 +7631,10 @@ static int proc_dip_p2_dump_open(
 	return single_open(file, dip_p2_dump_read, NULL);
 }
 
-static const struct file_operations dip_p2_dump_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = proc_dip_p2_dump_open,
-	.read = seq_read,
-	.release = single_release,
+static const struct proc_ops dip_p2_dump_proc_fops = {
+	.proc_open = proc_dip_p2_dump_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
 };
 /**************************************************************
  *
@@ -7714,11 +7712,10 @@ static int proc_dip_dump_open(
 	return single_open(file, dip_dump_read, NULL);
 }
 
-static const struct file_operations dip_dump_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = proc_dip_dump_open,
-	.read = seq_read,
-	.release = single_release,
+static const struct proc_ops dip_dump_proc_fops = {
+	.proc_open = proc_dip_dump_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
 };
 /**************************************************************
  *
