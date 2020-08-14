@@ -128,7 +128,7 @@ static bool kbase_capture_dma_buf_mapping(struct kbase_context *kctx,
 
 	if (unique_buf_imported) {
 		struct kbase_dma_buf *buf_node =
-			kzalloc(sizeof(struct kbase_dma_buf *), GFP_KERNEL);
+			kzalloc(sizeof(struct kbase_dma_buf), GFP_KERNEL);
 
 		if (buf_node == NULL) {
 			dev_err(kctx->kbdev->dev, "Error allocating memory for kbase_dma_buf\n");
