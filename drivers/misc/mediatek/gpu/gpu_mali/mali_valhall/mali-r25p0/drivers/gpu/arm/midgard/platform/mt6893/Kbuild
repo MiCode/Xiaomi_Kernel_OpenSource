@@ -22,8 +22,8 @@
 include $(src)/Kbuild-mtk-custom-env
 
 mali_kbase-y += \
-	$(MALI_PLATFORM_DIR)/mali_kbase_config_mt6885.o \
-	$(MALI_PLATFORM_DIR)/mali_kbase_cpu_mt6885.o \
+	$(MALI_PLATFORM_DIR)/mali_kbase_config_mt6893.o \
+	$(MALI_PLATFORM_DIR)/mali_kbase_cpu_mt6893.o \
 #	mali_kbase_platform_fake.o
 
 ccflags-y += \
