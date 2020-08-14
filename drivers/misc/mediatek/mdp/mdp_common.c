@@ -457,7 +457,7 @@ void cmdq_mdp_enable_res(u64 engine_flag, bool enable)
 		if (!(res->engine_flag & engine_flag))
 			continue;
 
-		CMDQ_LOG("[Res]resource clock engine:0x%llx enable:%s\n",
+		CMDQ_MSG("[Res]resource clock engine:0x%llx enable:%s\n",
 			engine_flag, enable ? "true" : "false");
 		cmdq_mdp_get_func()->enableMdpClock(enable, res->engine_id);
 		break;
