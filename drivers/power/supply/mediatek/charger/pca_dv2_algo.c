@@ -24,7 +24,7 @@
 #include <mt-plat/prop_chgalgo_class.h>
 #include <mt-plat/mtk_battery.h>
 
-#define PCA_DV2_ALGO_VERSION	"1.0.12_G"
+#define PCA_DV2_ALGO_VERSION	"1.0.14_G"
 #define MS_TO_NS(msec) ((msec) * 1000 * 1000)
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
 #define MAX(A, B) (((A) > (B)) ? (A) : (B))
@@ -186,6 +186,7 @@ struct dv2_algo_data {
 	bool ignore_ibusucpf;
 	bool force_ta_cv;
 	bool tried_dual_dvchg;
+	bool suspect_ta_cc;
 	struct prop_chgalgo_ta_auth_data ta_auth_data;
 	u32 vta_setting;
 	u32 ita_setting;
@@ -604,7 +605,7 @@ static inline int __dv2_set_ta_cap_cc(struct dv2_algo_info *info, u32 vta,
 
 		ret = __dv2_get_adc(info, PCA_ADCCHAN_IBUS, &ita_meas,
 				    &ita_meas);
-		PCA_ERR("Not in cc mode, ibat_gauge = %dma, ibus = %dmA\n",
+		PCA_ERR("Not in cc mode, ibat_gauge = %dmA, ibus = %dmA\n",
 			bat_current, ita_meas);
 		set_opt_vta = false;
 		data->vta_comp += auth_data->vta_step;
@@ -1237,6 +1238,7 @@ static inline void __dv2_init_algo_data(struct dv2_algo_info *info)
 	data->is_swchg_en = false;
 	data->is_dvchg_en[DV2_DVCHG_MASTER] = false;
 	data->is_dvchg_en[DV2_DVCHG_SLAVE] = false;
+	data->suspect_ta_cc = false;
 	data->aicr_setting = 0;
 	data->ichg_setting = 0;
 	data->vta_setting = DV2_VTA_INIT;
@@ -1305,7 +1307,7 @@ static int __dv2_earily_restart(struct dv2_algo_info *info)
  */
 static inline int __dv2_start(struct dv2_algo_info *info)
 {
-	int ret, ibus, vbat, vbus, ita;
+	int ret, ibus, vbat, vbus, ita, i;
 	struct dv2_algo_data *data = info->data;
 	struct dv2_algo_desc *desc = info->desc;
 	struct prop_chgalgo_ta_auth_data *auth_data = &data->ta_auth_data;
@@ -1373,6 +1375,18 @@ start:
 		return ret;
 	}
 	msleep(1000); /* wait for battery to recovery */
+
+	/* Check DVCHG registers stat first */
+	for (i = DV2_DVCHG_MASTER; i < DV2_DVCHG_MAX; i++) {
+		if (!data->pca_dvchg[i])
+			continue;
+		ret = prop_chgalgo_init_chip(data->pca_dvchg[i]);
+		if (ret < 0) {
+			PCA_ERR("(%s) init chip fail(%d)\n",
+				__dv2_dvchg_role_name[i], ret);
+			return ret;
+		}
+	}
 
 	/* Parameters that only reset by restarting from outside */
 	mutex_lock(&data->ext_lock);
@@ -2477,12 +2491,12 @@ static int __dv2_algo_ss_swchg(struct dv2_algo_info *info)
 out:
 	ret = __dv2_get_adc(info, PCA_ADCCHAN_VBAT, &vbat, &vbat);
 	if (ret < 0) {
-		PCA_ERR("get vbat fail (%d)\n", ret);
+		PCA_ERR("get vbat fail(%d)\n", ret);
 		goto err;
 	}
 	ret = __dv2_check_swchg_off(info, &sinfo);
 	if (ret < 0) {
-		PCA_ERR("check swchg off fail (%d)\n", ret);
+		PCA_ERR("check swchg off fail(%d)\n", ret);
 		goto err;
 	}
 	if (!data->is_swchg_en || vbat >= desc->swchg_off_vbat ||
@@ -2597,6 +2611,7 @@ static int __dv2_algo_cc_cv_with_ta_cv(struct dv2_algo_info *info)
 	u32 ita_gap_per_vstep = data->ita_gap_per_vstep > 0 ?
 				data->ita_gap_per_vstep :
 				auth_data->ita_gap_per_vstep;
+	u32 vta_measure, ita_measure, suspect_ta_cc = false;
 	struct dv2_stop_info sinfo = {
 		.reset_ta = true,
 		.hardreset_ta = false,
@@ -2648,11 +2663,13 @@ cc_cv:
 			 idvchg_lmt);
 	} else if (!data->is_vbat_over_cv && vbat <= data->cv_lower_bound &&
 		   data->ita_measure <= (idvchg_lmt - ita_gap_per_vstep) &&
-		   vta < auth_data->vcap_max) {
+		   vta < auth_data->vcap_max && !data->suspect_ta_cc) {
 		vta += auth_data->vta_step;
 		vta = MIN(vta, auth_data->vcap_max);
 		ita += ita_gap_per_vstep;
 		ita = MIN(ita, idvchg_lmt);
+		if (ita == data->ita_setting)
+			suspect_ta_cc = true;
 		PCA_INFO("++vta, ita(meas,lmt)=(%d,%d)\n", data->ita_measure,
 			 idvchg_lmt);
 	} else if (data->is_vbat_over_cv)
@@ -2664,6 +2681,14 @@ cc_cv:
 		sinfo.hardreset_ta = true;
 		goto out;
 	}
+	ret = __dv2_get_ta_cap_by_supportive(info, &vta_measure, &ita_measure);
+	if (ret < 0) {
+		PCA_ERR("get ta cap fail(%d)\n", ret);
+		sinfo.hardreset_ta = auth_data->support_meas_cap;
+		goto out;
+	}
+	data->suspect_ta_cc = (suspect_ta_cc &&
+			       data->ita_measure == ita_measure);
 	return 0;
 out:
 	return __dv2_stop(info, &sinfo);
@@ -3418,11 +3443,11 @@ static int __dv2_dump_charging_info(struct dv2_algo_info *info)
 	/* vbat */
 	ret = __dv2_get_adc(info, PCA_ADCCHAN_VBAT, &vbat, &vbat);
 	if (ret < 0)
-		PCA_ERR("get vbat fail\n");
+		PCA_ERR("get vbat fail(%d)\n", ret);
 	/* ibat */
 	ret = __dv2_get_adc(info, PCA_ADCCHAN_IBAT, &ibat, &ibat);
 	if (ret < 0)
-		PCA_ERR("get ibat fail\n");
+		PCA_ERR("get ibat fail(%d)\n", ret);
 
 	if (auth_data->support_meas_cap) {
 		ret = __dv2_get_ta_cap(info);
@@ -4116,6 +4141,13 @@ MODULE_VERSION(PCA_DV2_ALGO_VERSION);
 MODULE_LICENSE("GPL");
 
 /*
+ * 1.0.14
+ * (1) For TA CV mode, not to increase vta if ita reaches ita_lmt and
+ *     there is no difference in ita's measurement
+ *
+ * 1.0.13
+ * (1) Init DVCHG chip in __dv2_start
+ *
  * 1.0.12
  * (1) For TA CV mode, compatible with TA which only accepts request current
  *     greater than a certain value

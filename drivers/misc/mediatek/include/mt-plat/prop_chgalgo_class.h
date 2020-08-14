@@ -149,6 +149,7 @@ struct prop_chgalgo_chg_ops {
 	int (*get_adc_accuracy)(struct prop_chgalgo_device *pca,
 				enum prop_chgalgo_adc_channel chan, int *min,
 				int *max);
+	int (*init_chip)(struct prop_chgalgo_device *pca);
 };
 
 struct prop_chgalgo_algo_ops {
@@ -270,6 +271,7 @@ extern int prop_chgalgo_is_vbuslowerr(struct prop_chgalgo_device *pca,
 extern int prop_chgalgo_get_adc_accuracy(struct prop_chgalgo_device *pca,
 					 enum prop_chgalgo_adc_channel chan,
 					 int *min, int *max);
+extern int prop_chgalgo_init_chip(struct prop_chgalgo_device *pca);
 
 /* Richtek pca algorithm interface */
 #ifdef CONFIG_RT_PROP_CHGALGO

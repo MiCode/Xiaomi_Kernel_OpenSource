@@ -20,7 +20,7 @@
 
 #include <mt-plat/prop_chgalgo_class.h>
 
-#define PROP_CHGALGO_CLASS_VERSION	"1.0.6_G"
+#define PROP_CHGALGO_CLASS_VERSION	"1.0.7_G"
 
 #define to_pca_device(obj) container_of(obj, struct prop_chgalgo_device, dev)
 
@@ -447,6 +447,16 @@ int prop_chgalgo_get_adc_accuracy(struct prop_chgalgo_device *pca,
 }
 EXPORT_SYMBOL(prop_chgalgo_get_adc_accuracy);
 
+int prop_chgalgo_init_chip(struct prop_chgalgo_device *pca)
+{
+	if (pca_check_devtype(pca, PCA_DEVTYPE_CHARGER) < 0)
+		return -EINVAL;
+	if (!pca->chg_ops->init_chip)
+		return -ENOTSUPP;
+	return pca->chg_ops->init_chip(pca);
+}
+EXPORT_SYMBOL(prop_chgalgo_init_chip);
+
 /*
  * Algorithm released interface
  */
@@ -564,7 +574,7 @@ prop_chgalgo_device_register(struct device *parent,
 	pca->dev.release = pca_device_release;
 	dev_set_drvdata(&pca->dev, pca);
 	pca->drv_data = drv_data;
-	dev_set_name(&pca->dev, pca_desc->name);
+	dev_set_name(&pca->dev, "%s", pca_desc->name);
 	pca->desc = pca_desc;
 	pca->ta_ops = ta_ops;
 	pca->chg_ops = chg_ops;
@@ -655,6 +665,9 @@ MODULE_LICENSE("GPL");
 
 /*
  * Revision Note
+ * 1.0.7
+ * (1) Add init_chip ops
+ *
  * 1.0.6
  * (1) Fix is_algo_running & is_algo_ready build error
  *
