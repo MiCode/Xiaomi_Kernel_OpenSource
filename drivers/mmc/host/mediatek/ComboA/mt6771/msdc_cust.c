@@ -1302,6 +1302,11 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	else if (host->id == 1)
 		device_rename(mmc->parent, "externdevice");
 
+	/* fix uaf(use afer free) issue:backup pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev->name = pdev->dev.kobj.name;
+
 	/* Register PMIC Interrupt for VMCH OC */
 #ifdef POWER_READY
 	if (host->id == 1)
