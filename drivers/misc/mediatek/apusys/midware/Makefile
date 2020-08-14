@@ -58,6 +58,7 @@ apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_pack.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_mem.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_fence.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_sysfs.o
 apusys-$(CONFIG_MTK_APUSYS_DEBUG) += $(APUSYS_VERSION_MIDWARE)/mdw_tag.o
 else
 apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o

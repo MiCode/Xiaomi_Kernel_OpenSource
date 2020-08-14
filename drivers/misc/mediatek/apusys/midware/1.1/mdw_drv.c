@@ -34,6 +34,7 @@
 #include "mdw_rsc.h"
 #include "mdw_sched.h"
 #include "mdw_tag.h"
+#include "mdw_sysfs.h"
 
 /* define */
 #define APUSYS_DEV_NAME "apusys"
@@ -138,6 +139,7 @@ static int mdw_probe(struct platform_device *pdev)
 	}
 
 	mdw_dbg_init();
+	mdw_sysfs_init(mdw_device);
 	mdw_tag_init();
 	mdw_mem_init();
 	mdw_rsc_init();
@@ -173,6 +175,7 @@ static int mdw_remove(struct platform_device *pdev)
 	mdw_rsc_exit();
 	mdw_mem_exit();
 	mdw_tag_exit();
+	mdw_sysfs_exit();
 	mdw_dbg_exit();
 
 	/* Release device */
