@@ -4362,7 +4362,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				Ret = -1;
 				break;
 			}
-			RegUserKey.userName[sizeof(RegUserKey.userName)] = '\0';
+			RegUserKey.userName[sizeof(RegUserKey.userName)-1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,
@@ -7753,7 +7753,7 @@ static int __init ISP_Init(void)
 
 		for (i = 0; i < ARRAY_SIZE(SMI_LARB_BASE); i++) {
 
-			if (snprintf(comp_str, sizeof(comp_str),
+			if (snprintf(comp_str, 64,
 					"mediatek,smi_larb%d", i) < 0) {
 				LOG_NOTICE("[Error] %s: snprintf failed",
 					    __func__);
