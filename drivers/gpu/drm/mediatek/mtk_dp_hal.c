@@ -1555,7 +1555,7 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 					|| (ubCmd == DP_AUX_I2C_READ))
 					udelay(500);
 				else
-					udelay(AUX_WRITE_READ_WAIT_TIME);
+					udelay(100);
 
 				*(pRxBuf + ubRdCount)
 					= msReadByte(mtk_dp,
