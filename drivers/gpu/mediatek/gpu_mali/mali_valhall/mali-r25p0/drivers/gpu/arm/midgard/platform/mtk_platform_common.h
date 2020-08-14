@@ -61,7 +61,7 @@ void mtk_kbase_reset_gpu_meminfo(void);
 void mtk_kbase_set_gpu_meminfo(ssize_t index, int pid, int used_pages);
 bool mtk_kbase_dump_gpu_memory_usage(void);
 unsigned int mtk_kbase_report_gpu_memory_usage(void);
-extern unsigned int g_mtk_gpu_total_memory_usage_in_pages_debugfs;
+extern unsigned int g_mtk_gpu_total_memory_usage_in_pages_proc;
 #endif /* ENABLE_MTK_MEMINFO */
 
 #ifdef CONFIG_PROC_FS

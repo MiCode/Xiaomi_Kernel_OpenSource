@@ -64,7 +64,7 @@ static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 				atomic_read(&(kbdev->memdev.used_pages)));
 
 #ifdef ENABLE_MTK_MEMINFO
-		g_mtk_gpu_total_memory_usage_in_pages_debugfs = atomic_read(&(kbdev->memdev.used_pages));
+		g_mtk_gpu_total_memory_usage_in_pages_proc = atomic_read(&(kbdev->memdev.used_pages));
 #endif /* ENABLE_MTK_MEMINFO */
 
 		mutex_lock(&kbdev->kctx_list_lock);
