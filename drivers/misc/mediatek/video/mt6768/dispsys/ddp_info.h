@@ -392,6 +392,7 @@ struct rx_data {
 struct ddp_lcm_read_cmd_table {
 	unsigned char cmd[3];
 	struct rx_data data[3];
+	struct rx_data data1[3];
 };
 
 struct ddp_lcm_write_cmd_table {

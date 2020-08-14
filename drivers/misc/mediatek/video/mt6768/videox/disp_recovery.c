@@ -368,7 +368,8 @@ int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table)
 	int ret = 0;
 	int i = 0;
 	struct cmdqRecStruct *handle;
-	static cmdqBackupSlotHandle read_Slot;
+	static cmdqBackupSlotHandle read_Slot[2] = {0, 0};
+	int h = 0;
 
 	primary_display_manual_lock();
 
@@ -380,10 +381,11 @@ int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table)
 
 	/* 0.create esd check cmdq */
 	cmdqRecCreate(CMDQ_SCENARIO_DISP_ESD_CHECK, &handle);
-	cmdqBackupAllocateSlot(&read_Slot, 3);
-	for (i = 0; i < 3; i++)
-		cmdqBackupWriteSlot(read_Slot, i, 0xff00ff00);
-
+	for (h = 0; h < 2; h++) {
+		cmdqBackupAllocateSlot(&read_Slot[h], 3);
+		for (i = 0; i < 3; i++)
+			cmdqBackupWriteSlot(read_Slot[h], i, 0xff00ff00);
+	}
 	/* 1.use cmdq to read from lcm */
 	if (primary_display_is_video_mode()) {
 
@@ -400,7 +402,7 @@ int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table)
 
 		/* 3.read from lcm */
 		ddp_dsi_read_lcm_cmdq(DISP_MODULE_DSI0,
-		&read_Slot, handle, read_table);
+		read_Slot, handle, read_table);
 
 		/* 4.start dsi vdo mode */
 		dpmgr_path_build_cmdq(primary_get_dpmgr_handle(),
@@ -436,16 +438,34 @@ int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table)
 		goto DISPTORY;
 	}
 
-	for (i = 0; i < 3; i++)
-		cmdqBackupReadSlot(read_Slot, i,
-		(uint32_t *)&read_table->data[i]);
+	for (i = 0; i < 3; i++) {
+		cmdqBackupReadSlot(read_Slot[0], i,
+			(uint32_t *)&read_table->data[i]);
 
-DISPTORY:
-	if (read_Slot) {
-		cmdqBackupFreeSlot(read_Slot);
-		read_Slot = 0;
+		cmdqBackupReadSlot(read_Slot[1], i,
+			(uint32_t *)&read_table->data1[i]);
+
+		DISPERR("%s: read_table->data1[%d] byte0~1=0x%x~0x%x\n",
+			__func__, i,
+			read_table->data[i].byte0, read_table->data[i].byte1);
+		DISPERR("%s: read_table->data1[%d] byte2~3=0x%x~0x%x\n",
+			__func__, i,
+			read_table->data[i].byte2, read_table->data[i].byte3);
+		DISPERR("%s: read_table->data1[%d] byte0~1=0x%x~0x%x\n",
+			__func__, i,
+			read_table->data1[i].byte0, read_table->data1[i].byte1);
+		DISPERR("%s: read_table->data1[%d] byte2~3=0x%x~0x%x\n",
+			__func__, i,
+			read_table->data1[i].byte2, read_table->data1[i].byte3);
 	}
 
+DISPTORY:
+	for (h = 0; h < 2; h++) {
+		if (read_Slot[h]) {
+			cmdqBackupFreeSlot(read_Slot[h]);
+			read_Slot[h] = 0;
+		}
+	}
 	/* 7.destroy esd config thread */
 	cmdqRecDestroy(handle);
 	primary_display_manual_unlock();
