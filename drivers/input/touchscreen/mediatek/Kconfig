@@ -155,4 +155,16 @@ config TOUCHSCREEN_MTK_FOCALTECH_FHD
 	  Say Y here if you have Focaltech touch panel.
 	  If unsure, say N.
 
+config TOUCHSCREEN_MTK_GT9157
+	bool "GT9157 for Mediatek package"
+	help
+	  Say Y here if you have GT9157 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called
+
+source "drivers/input/touchscreen/mediatek/GT9157/Kconfig"
+
 endif
