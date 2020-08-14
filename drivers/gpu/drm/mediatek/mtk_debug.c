@@ -34,8 +34,10 @@
 #include "mtk_drm_helper.h"
 #include "mtk_layering_rule.h"
 #include "mtk_drm_lowpower.h"
+#if defined(CONFIG_MTK_IOMMU_V2)
 #include "mt_iommu.h"
 #include "mtk_iommu_ext.h"
+#endif
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_drm_fbdev.h"

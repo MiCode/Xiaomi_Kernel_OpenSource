@@ -90,8 +90,7 @@
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #define DISP_REG_DSC_SHADOW			0x0200
 	#define DSC_FORCE_COMMIT BIT(1)
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#elif defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 #define DISP_REG_DSC_SHADOW			0x0200
 #define DSC_FORCE_COMMIT	BIT(0)
 #define DSC_BYPASS_SHADOW	BIT(1)
@@ -123,8 +122,11 @@ static void mtk_dsc_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	void __iomem *baddr = comp->regs;
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
 
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	mtk_ddp_write_mask(comp, DSC_FORCE_COMMIT,
 		DISP_REG_DSC_SHADOW, DSC_FORCE_COMMIT, handle);
+#endif
 
 	if (dsc->enable) {
 		mtk_ddp_write_mask(comp, DSC_EN, DISP_REG_DSC_CON,
@@ -160,6 +162,7 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 
 	mtk_ddp_comp_clk_prepare(comp);
 
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	if (dsc->data->support_shadow) {
 		/* Enable shadow register and read shadow register */
@@ -171,7 +174,6 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
 		DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
@@ -354,11 +356,12 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_mask(comp, DSC_CKSM_CAL_EN,
 					DISP_REG_DSC_DBG_CON, DSC_CKSM_CAL_EN,
 					handle);
-
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		mtk_ddp_write_mask(comp,
 			(((dsc_params->ver & 0xf) == 2) ? 0x40 : 0x20),
 			DISP_REG_DSC_SHADOW, 0x60, handle);
-
+#endif
 		if (dsc_params->dsc_line_buf_depth == 0)
 			reg_val = 0x9;
 		else
@@ -487,10 +490,13 @@ void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 		readl(baddr + DISP_REG_DSC_SLICE_W));
 	DDPDUMP("(0x024)DSC_SLICE_HIGHT=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SLICE_H));
-	DDPDUMP("(0x018)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
-	DDPDUMP("(0x01C)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
-	DDPDUMP("(0x200)DSC_SHADOW=0x%x\n",
+	DDPDUMP("(0x000)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
+	DDPDUMP("(0x000)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	DDPDUMP("(0x000)DSC_SHADOW=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SHADOW));
+#endif
 	DDPDUMP("-- Start dump dsc registers --\n");
 	for (i = 0; i < 204; i += 16) {
 		DDPDUMP("DSC+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),

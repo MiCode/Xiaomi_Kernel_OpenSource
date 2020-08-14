@@ -63,6 +63,9 @@
 #define BLEND_CFG_FLD_A_EN REG_FLD_MSB_LSB(0, 0)
 #define DISP_POSTMASK_ROI_BGCLR 0x54
 #define DISP_POSTMASK_MASK_CLR 0x58
+#define DISP_REG_POSTMASK_SODI 0x60
+#define PM_MASK_THRESHOLD_LOW_FOR_SODI  REG_FLD_MSB_LSB(13, 0)
+#define PM_MASK_THRESHOLD_HIGH_FOR_SODI REG_FLD_MSB_LSB(29, 16)
 #define DISP_POSTMASK_STATUS 0xA0
 #define DISP_POSTMASK_INPUT_COUNT 0xA4
 #define DISP_POSTMASK_MEM_ADDR 0x100
@@ -570,6 +573,10 @@ static const struct mtk_disp_postmask_data mt6853_postmask_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6779-disp-postmask",
 	  .data = &mt6779_postmask_driver_data},
@@ -579,6 +586,8 @@ static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	  .data = &mt6873_postmask_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-postmask",
 	  .data = &mt6853_postmask_driver_data},
+	{ .compatible = "mediatek,mt6833-disp-postmask",
+	  .data = &mt6833_postmask_driver_data},
 	{},
 };
 

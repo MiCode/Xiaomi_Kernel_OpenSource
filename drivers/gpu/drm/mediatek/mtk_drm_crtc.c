@@ -81,8 +81,10 @@ bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
 static struct pm_qos_request mm_freq_request;
+#ifdef MTK_FB_MMDVFS_SUPPORT
 static u64 freq_steps[MAX_FREQ_STEP];
 static u32 step_size;
+#endif
 
 struct drm_crtc *_get_context(void)
 {
@@ -183,6 +185,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		break;
 	case MMSYS_MT6873:
 	case MMSYS_MT6853:
+	case MMSYS_MT6833:
 		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
 		break;
@@ -272,6 +275,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6853:
 		mmsys_config_dump_analysis_mt6853(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6853(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6833:
+		mmsys_config_dump_analysis_mt6833(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6833(mtk_crtc->mutex[0]);
 		break;
 	default:
 		pr_info("%s mtk drm not support mmsys id %d\n",
@@ -2730,11 +2737,13 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	int ret = 0;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_crtc_state *state;
 	struct mtk_panel_ext *panel_ext;
 	bool doze_enabled;
 	unsigned int i;
 	unsigned int doze_wait = 0;
+#endif
 
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -3002,7 +3011,7 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 #if defined(CONFIG_MACH_MT6873)
 		mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
 #endif
-#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6853)
 		mtk_ddp_remove_dsc_prim_MT6853(mtk_crtc, handle);
 #endif
 		mtk_disp_mutex_remove_comp_with_cmdq(mtk_crtc, dsc_comp->id,
@@ -3081,7 +3090,7 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 #if defined(CONFIG_MACH_MT6873)
 		mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
 #endif
-#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6853)
 		mtk_ddp_insert_dsc_prim_MT6853(mtk_crtc, handle);
 #endif
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, dsc_comp->id,
@@ -5501,7 +5510,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	int pipe = priv->num_pipes;
 	int ret;
 	int i, j, p_mode;
+#ifdef MTK_FB_MMDVFS_SUPPORT
 	u32 result;
+#endif
 	enum mtk_ddp_comp_id comp_id;
 
 	DDPMSG("%s+\n", __func__);

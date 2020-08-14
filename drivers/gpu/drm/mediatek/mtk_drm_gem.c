@@ -277,12 +277,14 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 			       mtk_gem->dma_addr, mtk_gem->dma_attrs,
 			       __func__, __LINE__);
 
+#if defined(CONFIG_MTK_IOMMU_V2)
 	/* No ion handle in dumb buffer */
 	if (mtk_gem->handle && priv->client)
 		mtk_drm_gem_ion_free_handle(priv->client, mtk_gem->handle,
 				__func__, __LINE__);
 	else if (!mtk_gem->is_dumb)
 		DDPPR_ERR("invaild ion handle or client\n");
+#endif
 
 	/* release file pointer to gem object. */
 	drm_gem_object_release(obj);
@@ -574,6 +576,7 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 		return obj;
 
 	mtk_gem = to_mtk_gem_obj(obj);
+#if defined(CONFIG_MTK_IOMMU_V2)
 	mtk_gem->handle = handle;
 
 	DDPDBG("%s:%d client:0x%p, handle=0x%p obj:0x%p, gem:0x%p -\n",
@@ -582,6 +585,7 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 		   handle,
 		   obj,
 		   mtk_gem);
+#endif
 
 	return obj;
 }

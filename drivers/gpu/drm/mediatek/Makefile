@@ -95,10 +95,15 @@ ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/m
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion/ \
 		    -I$(srctree)/drivers/staging/android/ion/mtk
 
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6893) $(CONFIG_MACH_MT6873) $(CONFIG_MACH_MT6853) $(CONFIG_MACH_MT6833)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6893) $(CONFIG_MACH_MT6873) $(CONFIG_MACH_MT6853)))
 ccflags-y += -DDRM_MMPATH
 ccflags-y += -DNOT_SUPPORT_CABC_HW
 ccflags-y += -DDISP_MDP_COLOR_ON
 ccflags-y += -DCCORR_SUPPORT
 endif
 
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+ccflags-y += -DNOT_SUPPORT_CABC_HW
+ccflags-y += -DDISP_MDP_COLOR_ON
+ccflags-y += -DCCORR_SUPPORT
+endif
