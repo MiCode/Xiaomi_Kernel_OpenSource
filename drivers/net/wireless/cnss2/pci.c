@@ -2590,6 +2590,8 @@ int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv)
 		goto out;
 	}
 
+	pci_priv->pci_link_state = PCI_LINK_UP;
+
 	if (pci_priv->drv_connected_last)
 		goto skip_enable_pci;
 
@@ -2607,7 +2609,6 @@ int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv)
 
 skip_enable_pci:
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
-	pci_priv->pci_link_state = PCI_LINK_UP;
 out:
 	return ret;
 }
