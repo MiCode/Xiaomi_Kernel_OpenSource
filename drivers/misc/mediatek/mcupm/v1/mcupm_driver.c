@@ -30,6 +30,8 @@
 #include <linux/of_reserved_mem.h>
 #define MCUPM_MEM_RESERVED_KEY "mediatek,reserve-memory-mcupm_share"
 #endif
+/* debug API */
+#include <memory/mediatek/emi.h>
 
 /* MCUPM RESERVED MEM */
 static phys_addr_t mcupm_mem_base_phys;
@@ -738,6 +740,26 @@ int mcupm_thread(void *data)
 	return 0;
 }
 #endif
+
+static char *pin_name[MCUPM_IPI_COUNT] = {
+	"PLATFORM",
+	"CPU_DVFS",
+	"FHCTL",
+	"MCDI",
+	"SUSPEND",
+};
+
+/* platform callback when ipi timeout */
+void mcupm_ipi_timeout_cb(int ipi_id)
+{
+	pr_info("Error: possible error IPI %d pin=%s\n",
+		ipi_id, pin_name[ipi_id]);
+
+	ipi_monitor_dump(&mcupm_ipidev);
+	mtk_emidbg_dump();
+
+	BUG_ON(1);
+}
 
 static const struct of_device_id mcupm_of_match[] = {
 	{ .compatible = "mediatek,mcupm", },
