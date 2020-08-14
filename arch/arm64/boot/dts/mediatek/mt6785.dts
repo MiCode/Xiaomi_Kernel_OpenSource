@@ -5115,7 +5115,7 @@ page_owner=on loop.max_part=7";
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
-		/* enable_pe_plus; */
+		enable_pe_plus;
 		enable_pd20_reset;
 		power_path_support;
 		max_charger_voltage = <6500000>;
@@ -5140,10 +5140,10 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,charger";
 		algorithm_name = "SwitchCharging";
 		/* enable_sw_jeita; */
-		/* enable_pe_plus; */
-		/* enable_pe_2; */
+		enable_pe_plus;
+		enable_pe_2;
 		/* enable_pe_3; */
-		/* enable_pe_4; */
+		enable_pe_4;
 		enable_type_c;
 		power_path_support;
 		enable_dynamic_mivr;
