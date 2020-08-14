@@ -157,6 +157,7 @@ int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
 	 * but it will be used by other apusys HW
 	 */
 	kmemleak_no_scan(kva);
+	kmemleak_no_scan(g_pages);
 
 	mem->kva = (uint64_t)kva;
 	mem->iova = (uint32_t)iova;
