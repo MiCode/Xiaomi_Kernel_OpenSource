@@ -5256,6 +5256,215 @@ static void testcase_general_handling(int32_t testID)
 	case 114:
 		testcase_append_task_verify();
 		break;
+#if 0
+	case 113:
+		testcase_trigger_engine_dispatch_check();
+		break;
+	case 112:
+		testcase_complicated_engine_thread();
+		break;
+	case 111:
+		testcase_module_full_mdp_engine();
+		break;
+	case 110:
+		testcase_nonsuspend_irq();
+		break;
+	case 109:
+		testcase_estimate_command_exec_time();
+		break;
+	case 108:
+		testcase_profile_marker();
+		break;
+	case 107:
+		testcase_prefetch_multiple_command();
+		break;
+	case 106:
+		testcase_concurrency_for_normal_path_and_secure_path();
+		break;
+	case 105:
+		testcase_async_write_stress_test();
+		break;
+	case 104:
+		testcase_submit_after_error_happened();
+		break;
+	case 103:
+		testcase_secure_meta_data();
+		break;
+	case 102:
+		testcase_secure_disp_scenario();
+		break;
+	case 101:
+		testcase_write_stress_test();
+		break;
+	case 100:
+		testcase_secure_basic();
+		break;
+	case 99:
+		testcase_write();
+		testcase_write_with_mask();
+		break;
+	case 98:
+		testcase_errors();
+		break;
+	case 97:
+		testcase_scenario();
+		break;
+	case 96:
+		testcase_sync_token();
+		break;
+	case 95:
+		testcase_write_address();
+		break;
+	case 94:
+		testcase_async_request();
+		break;
+	case 93:
+		testcase_async_suspend_resume();
+		break;
+	case 92:
+		testcase_async_request_partial_engine();
+		break;
+	case 91:
+		testcase_prefetch_scenarios();
+		break;
+	case 90:
+		testcase_loop();
+		break;
+	case 89:
+		testcase_trigger_thread();
+		break;
+	case 88:
+		testcase_multiple_async_request();
+		break;
+	case 87:
+		testcase_get_result();
+		break;
+	case 86:
+		testcase_read_to_data_reg();
+		break;
+	case 85:
+		testcase_dram_access();
+		break;
+	case 84:
+		testcase_backup_register();
+		break;
+	case 83:
+		testcase_fire_and_forget();
+		break;
+	case 82:
+		testcase_sync_token_threaded();
+		break;
+	case 81:
+		testcase_long_command();
+		break;
+	case 80:
+		testcase_clkmgr();
+		break;
+	case 79:
+		testcase_perisys_apb();
+		break;
+	case 78:
+		testcase_backup_reg_to_slot();
+		break;
+	case 77:
+		testcase_thread_dispatch();
+		break;
+	case 75:
+		testcase_full_thread_array();
+		break;
+	case 74:
+		testcase_module_full_dump();
+		break;
+	case 73:
+		testcase_write_from_data_reg();
+		break;
+	case 72:
+		testcase_update_value_to_slot();
+		break;
+	case 71:
+		testcase_poll();
+		break;
+	case 70:
+		testcase_write_reg_from_slot();
+		break;
+	case CMDQ_TESTCASE_FPGA:
+		testcase_write();
+		testcase_write_with_mask();
+		testcase_poll();
+		testcase_scenario();
+		testcase_estimate_command_exec_time();
+		testcase_prefetch_multiple_command();
+		testcase_write_stress_test();
+		testcase_async_suspend_resume();
+		testcase_async_request_partial_engine();
+		testcase_prefetch_scenarios();
+		testcase_loop();
+		testcase_trigger_thread();
+		testcase_multiple_async_request();
+		testcase_get_result();
+		testcase_dram_access();
+		testcase_backup_register();
+		testcase_fire_and_forget();
+		testcase_long_command();
+		testcase_backup_reg_to_slot();
+		testcase_write_from_data_reg();
+		testcase_update_value_to_slot();
+		break;
+	case CMDQ_TESTCASE_ERROR:
+		testcase_errors();
+		testcase_async_request();
+		testcase_module_full_dump();
+		break;
+	case CMDQ_TESTCASE_BASIC:
+		testcase_write();
+		testcase_write_with_mask();
+		testcase_poll();
+		testcase_scenario();
+		break;
+	case CMDQ_TESTCASE_READ_REG_REQUEST:
+		testcase_get_result();
+		break;
+	case CMDQ_TESTCASE_GPR:
+		testcase_read_to_data_reg();	/* must verify! */
+		testcase_dram_access();
+		break;
+	case CMDQ_TESTCASE_DEFAULT:
+		testcase_multiple_async_request();
+		testcase_read_to_data_reg();
+		testcase_get_result();
+		testcase_scenario();
+		testcase_write();
+		testcase_poll();
+		testcase_write_address();
+		testcase_async_suspend_resume();
+		testcase_async_request_partial_engine();
+		testcase_prefetch_scenarios();
+		testcase_loop();
+		testcase_trigger_thread();
+		testcase_prefetch();
+		testcase_long_command();
+		testcase_dram_access();
+		testcase_backup_register();
+		testcase_fire_and_forget();
+		testcase_backup_reg_to_slot();
+		testcase_thread_dispatch();
+		testcase_full_thread_array();
+		break;
+#endif
+	default:
+		CMDQ_LOG("CONF Not Found:gCmdqTestSecure:%d,testType: %lld in %s\n",
+			 gCmdqTestSecure, gCmdqTestConfig[0], __func__);
+		break;
+	}
+	/* Turn off GCE clock */
+	cmdq_dev_enable_gce_clock(false);
+}
+
+static void testcase_general_handling_ex1(int32_t testID)
+{
+	/* Turn on GCE clock to make sure GPR is always alive */
+	cmdq_dev_enable_gce_clock(true);
+	switch (testID) {
 	case 113:
 		testcase_trigger_engine_dispatch_check();
 		break;
@@ -5450,13 +5659,15 @@ static void testcase_general_handling(int32_t testID)
 		testcase_full_thread_array();
 		break;
 	default:
-		CMDQ_LOG("CONF Not Found:gCmdqTestSecure:%d,testType: %lld\n",
-			 gCmdqTestSecure, gCmdqTestConfig[0]);
+		CMDQ_LOG("CONF Not Found:gCmdqTestSecure:%d,testType: %lld in %s\n",
+			 gCmdqTestSecure, gCmdqTestConfig[0], __func__);
 		break;
 	}
 	/* Turn off GCE clock */
 	cmdq_dev_enable_gce_clock(false);
 }
+
+
 
 ssize_t cmdq_test_proc(struct file *fp, char __user *u,
 	size_t s, loff_t *l)
@@ -5485,6 +5696,7 @@ ssize_t cmdq_test_proc(struct file *fp, char __user *u,
 	case CMDQ_TEST_TYPE_NORMAL:
 	case CMDQ_TEST_TYPE_SECURE:
 		testcase_general_handling((int32_t)testParameter[1]);
+		testcase_general_handling_ex1((int32_t)testParameter[1]);
 		break;
 	case CMDQ_TEST_TYPE_MONITOR_EVENT:
 		/* (wait type, event ID or back register) */
