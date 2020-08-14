@@ -25,6 +25,9 @@
 #include "cmdq_engine.h"
 #endif
 
+#include "cmdq_event_common.h"
+#include "cmdq_subsys_common.h"
+
 #define CMDQ_SPECIAL_SUBSYS_ADDR (99)
 
 #define CMDQ_GPR_SUPPORT
@@ -230,6 +233,7 @@ enum CMDQ_MDP_PA_BASE_ENUM {
 	CMDQ_MAX_MDP_PA_BASE_COUNT,		/* ALWAYS keep at the end */
 };
 
+#if 0
 /* CMDQ Events */
 #undef DECLARE_CMDQ_EVENT
 #define DECLARE_CMDQ_EVENT(name_struct, val, dts_name) name_struct = val,
@@ -248,6 +252,7 @@ enum CMDQ_SUBSYS_ENUM {
 	CMDQ_SUBSYS_MAX_COUNT
 };
 #undef DECLARE_CMDQ_SUBSYS
+#endif
 
 #define CMDQ_SUBSYS_GRPNAME_MAX		(30)
 /* GCE subsys information */

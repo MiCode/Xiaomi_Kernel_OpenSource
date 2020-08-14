@@ -23,6 +23,7 @@
 #include <linux/printk.h>
 #include <linux/sched.h>
 #include "cmdq_def.h"
+#include "cmdq_event_common.h"
 
 /*  */
 /* address conversion for 4GB ram support: */
@@ -136,6 +137,8 @@ struct DumpFirstErrorStruct {
 	struct timeval savetv;
 };
 #endif
+
+#define CMDQ_EVENT_ENUM cmdq_event
 
 #define CMDQ_LOG(string, args...) \
 do {			\
