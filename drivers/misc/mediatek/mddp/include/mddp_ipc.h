@@ -1,16 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * mddp_ipc.h - Structure used for AP/MD communication.
  *
- * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #ifndef __MDDP_IPC_H
@@ -99,36 +91,6 @@ struct mdfpm_ctrl_msg_t {
 	uint32_t                        buf_len;
 	uint8_t	                        buf[MDFPM_TTY_BUF_SZ];
 } __packed;
-
-#if 0
-struct mddp_ilm_enable_t {
-	u8 ref_count;
-	u8 lp_reserved;
-	u16 msg_len;
-	struct ufpm_enable_md_func_req_t req;
-} __packed;
-
-struct mddp_ilm_disable_t {
-	u8 ref_count;
-	u8 lp_reserved;
-	u16 msg_len;
-	struct ufpm_md_fast_path_common_req_t req;
-} __packed;
-
-struct mddp_ilm_act_t {
-	u8 ref_count;
-	u8 lp_reserved;
-	u16 msg_len;
-	struct ufpm_activate_md_func_req_t req;
-} __packed;
-
-struct mddp_ilm_deact_t {
-	u8 ref_count;
-	u8 lp_reserved;
-	u16 msg_len;
-	struct ufpm_md_fast_path_common_req_t req;
-} __packed;
-#endif
 
 struct mddp_ilm_common_rsp_t {
 	u8 ref_count;

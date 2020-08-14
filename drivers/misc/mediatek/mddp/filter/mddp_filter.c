@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #include <linux/module.h>
@@ -83,7 +75,7 @@ static uint32_t mddp_nfhook_postrouting
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 
 //------------------------------------------------------------------------------
-// Registed callback function.
+// Registered callback function.
 //------------------------------------------------------------------------------
 static struct nf_hook_ops mddp_nf_ops[] __read_mostly = {
 	{
@@ -1075,8 +1067,8 @@ void mddp_f_out_nf_ipv4(
 	unsigned int tuple_hit_cnt = 0;
 	unsigned char mddp_md_version = mddp_get_md_version();
 	int ret;
-
 	struct ip4header *ip = (struct ip4header *) offset2;
+
 	memset(&t, 0, sizeof(struct tuple));
 
 	MDDP_DEBUG("%s: IPv4 add rule, skb[%p], cb->proto[%d], ip->ip_p[%d], offset2[%p], ip_id[%x], checksum[%x].\n",
