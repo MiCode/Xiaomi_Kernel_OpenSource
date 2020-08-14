@@ -430,6 +430,49 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_AAL_INIT_DRE30	0x34
 #define DRM_MTK_AAL_GET_SIZE	0x35
 
+#define DRM_MTK_HDMI_GET_DEV_INFO	0x3A
+#define DRM_MTK_HDMI_AUDIO_ENABLE	0x3B
+#define DRM_MTK_HDMI_AUDIO_CONFIG	0x3C
+#define DRM_MTK_HDMI_GET_CAPABILITY	0x3D
+
+enum MTKFB_DISPIF_TYPE {
+	DISPIF_TYPE_DBI = 0,
+	DISPIF_TYPE_DPI,
+	DISPIF_TYPE_DSI,
+	DISPIF_TYPE_DPI0,
+	DISPIF_TYPE_DPI1,
+	DISPIF_TYPE_DSI0,
+	DISPIF_TYPE_DSI1,
+	HDMI = 7,
+	HDMI_SMARTBOOK,
+	MHL,
+	DISPIF_TYPE_EPD,
+	DISPLAYPORT,
+	SLIMPORT
+};
+
+
+enum MTKFB_DISPIF_MODE {
+	DISPIF_MODE_VIDEO = 0,
+	DISPIF_MODE_COMMAND
+};
+
+struct mtk_dispif_info {
+	unsigned int display_id;
+	unsigned int isHwVsyncAvailable;
+	enum MTKFB_DISPIF_TYPE displayType;
+	unsigned int displayWidth;
+	unsigned int displayHeight;
+	unsigned int displayFormat;
+	enum MTKFB_DISPIF_MODE displayMode;
+	unsigned int vsyncFPS;
+	unsigned int physicalWidth;
+	unsigned int physicalHeight;
+	unsigned int isConnected;
+	unsigned int lcmOriginalWidth;
+	unsigned int lcmOriginalHeight;
+};
+
 #define DRM_IOCTL_MTK_SET_DDP_MODE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_DDP_MODE, unsigned int)
 
@@ -766,6 +809,17 @@ struct DISP_AAL_HIST {
 
 #define DRM_IOCTL_MTK_AAL_GET_SIZE	DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_AAL_GET_SIZE, struct DISP_AAL_DISPLAY_SIZE)
+
+#define DRM_IOCTL_MTK_HDMI_GET_DEV_INFO     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_GET_DEV_INFO, struct mtk_dispif_info)
+#define DRM_IOCTL_MTK_HDMI_AUDIO_ENABLE     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_AUDIO_ENABLE, unsigned int)
+
+#define DRM_IOCTL_MTK_HDMI_AUDIO_CONFIG     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_AUDIO_CONFIG, unsigned int)
+
+#define DRM_IOCTL_MTK_HDMI_GET_CAPABILITY     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_HDMI_GET_CAPABILITY, unsigned int)
 
 #define MTK_DRM_ADVANCE
 #define MTK_DRM_FORMAT_DIM		fourcc_code('D', ' ', '0', '0')
