@@ -68,8 +68,8 @@ static inline void trace_tee_smc(struct tee_smc_xfer_ctl *ctl, int rv,
 }
 
 static inline void trace_tee_smc_done(struct tee_smc_xfer_ctl *ctl,
-				      s64 time_start,
-				      s64 time_end)
+				s64 time_start,
+				s64 time_end)
 {
 	s64 duration = time_end - time_start;
 
@@ -90,7 +90,7 @@ static int handle_nonpreempt_rpc(struct smc_param *p)
 		return 0;
 	}
 
-	if (func_id != T6SMC_RPC_NONPREEMPT_CMD)
+	if ((func_id & 0xff) != T6SMC_RPC_NONPREEMPT_CMD)
 		return 1;
 
 	switch (T6SMC_RPC_NONPREEMPT_GET_FUNC(p->a0)) {

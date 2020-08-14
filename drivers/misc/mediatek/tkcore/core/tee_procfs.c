@@ -804,8 +804,8 @@ static int register_klog_irq(struct klog *klog)
 #endif
 
 	if (irq_num < 0) {
-		pr_warn("tkcoredrv: unknown tee_log_irq id\n");
-		return -1;
+		pr_warn("tkcoredrv: unknown tee log irq id\n");
+		return 0;
 	}
 
 	pr_info("tkcoredrv: tee_log_irq id = %d\n",
@@ -938,6 +938,8 @@ static int init_klog(struct klog *klog, struct tee *tee)
 	BUILD_BUG_ON(sizeof(union tee_log_ctrl)
 			!= TEE_LOG_CTL_BUF_SIZE);
 
+	klog->notify_irq = -1;
+
 	if (init_klog_shm_args(tee, &shm_pa,
 						&shm_len) < 0) {
 		return -1;
@@ -955,7 +957,6 @@ static int init_klog(struct klog *klog, struct tee *tee)
 
 	if (register_klog_irq(klog) < 0)
 		goto err_unmap_shm;
-
 
 	klog->ts = kthread_run(logd,
 				(void *) klog, "tee-log");

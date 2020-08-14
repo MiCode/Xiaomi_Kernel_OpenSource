@@ -22,7 +22,7 @@ config TRUSTKERNEL_TEE_SUPPORT
 config TRUSTKERNEL_TEE_FP_SUPPORT
 	bool "TrustKernel Trusted Execution Environment Finger Print Support"
 	depends on TRUSTKERNEL_TEE_SUPPORT
-	default y
+	default n
 	---help---
 	  Enable TrustKernel TEE clock management mechanism.
 	  This feature allows TEE OS to manage clock already
