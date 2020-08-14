@@ -482,6 +482,7 @@ config MACH_MT6885
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select ARM64_ERRATUM_1542418
+	select MTK_CPU_KORO
         help
 	  This enables support for MediaTek MT6885
 	  Support for aarch64 Architecture
@@ -549,6 +550,7 @@ config MACH_MT6873
 	select MTK_CACHE_PARITY_CHECK
 	select MTK_DRAMC_WA
 	select MTK_SECURITY_SW_SUPPORT
+	select MTK_CPU_KORO
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
@@ -662,6 +664,7 @@ config MACH_MT6853
 	select HW_RANDOM_MT67XX
 	select MTK_DFD_INTERNAL_DUMP
 	select MTK_UNIFIED_DEBUG_INTERFACE
+	select MTK_CPU_KORO
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
@@ -727,6 +730,7 @@ config MACH_MT6893
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select ARM64_ERRATUM_1542418
+	select MTK_CPU_KORO
         help
 	  This enables support for MediaTek MT6893
 	  Support for aarch64 Architecture
