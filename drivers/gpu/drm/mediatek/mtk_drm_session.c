@@ -32,6 +32,12 @@ int mtk_drm_session_create(struct drm_device *dev,
 		MAKE_MTK_SESSION(config->type, config->device_id);
 	int i, idx = -1;
 
+	if (config->type < MTK_SESSION_PRIMARY ||
+			config->type > MTK_SESSION_MEMORY) {
+		DDPPR_ERR("%s create session type abnormal: %u,\n",
+			__func__, config->type);
+		return -EINVAL;
+	}
 	/* 1.To check if this session exists already */
 	mutex_lock(&disp_session_lock);
 	for (i = 0; i < MAX_SESSION_COUNT; i++) {
@@ -49,12 +55,9 @@ int mtk_drm_session_create(struct drm_device *dev,
 		goto done;
 	}
 
-	for (i = 0; i < MAX_SESSION_COUNT; i++) {
-		if (private->session_id[i] == 0 && idx == -1) {
-			idx = i;
-			break;
-		}
-	}
+	if (idx == -1)
+		idx = config->type - 1;
+
 	/* 1.To check if support this session (mode,type,dev) */
 	/* 2. Create this session */
 	if (idx != -1) {
