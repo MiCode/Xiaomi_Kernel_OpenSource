@@ -2323,6 +2323,17 @@ static int get_crtc_num(
 		break;
 	}
 
+	/*
+	 * when CRTC 0 disabled, disp_mode[0] would be 0,
+	 * but it might still exist other display.
+	 * Thus traverse each CRTC's disp_mode for
+	 * active CRTC number
+	 */
+	if (crtc_num == 0) {
+		for (i = 0 ; i < 3; i++)
+			crtc_num += !!disp_info_user->disp_mode[i];
+	}
+
 	/* check input config number */
 	input_config_num = 0;
 	*crtc_mask = 0;
