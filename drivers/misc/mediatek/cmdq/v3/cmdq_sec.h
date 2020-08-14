@@ -10,7 +10,7 @@
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
 #include "cmdq_sec_iwc_common.h"
-#if defined(CMDQ_SECURE_TEE_SUPPORT)
+#if defined(CMDQ_SECURE_TEE_SUPPORT) && !defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
 #include "tee_client_api.h"
 #endif
 #if defined(CONFIG_MTK_TEE_GP_SUPPORT)
