@@ -537,36 +537,32 @@ static void cal_image_pix_mp(unsigned int node_id,
 {
 	unsigned int bpl, ppl;
 	unsigned int pixel_bits = mtk_cam_get_pixel_bits(mp->pixelformat);
+	unsigned int img_fmt = mtk_cam_get_img_fmt(mp->pixelformat);
 	unsigned int width = mp->width;
 
 	bpl = 0;
-	if (node_id == MTK_RAW_MAIN_STREAM_OUT) {
-		/* Bayer encoding format & 2 bytes alignment */
+	switch (img_fmt) {
+	case MTKCAM_IPI_IMG_FMT_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_BAYER10:
+	case MTKCAM_IPI_IMG_FMT_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_BAYER14:
 		bpl = ALIGN(DIV_ROUND_UP(width * pixel_bits, 8), 2);
-	} else if (node_id == MTK_RAW_PACKED_BIN_OUT) {
-		/*
-		 * The FULL-G encoding format
-		 * 1 G component per pixel
-		 * 1 R component per 4 pixel
-		 * 1 B component per 4 pixel
-		 * Total 4G/1R/1B in 4 pixel (pixel per line:ppl)
-		 */
-		ppl = DIV_ROUND_UP(width * 6, 4);
-		bpl = DIV_ROUND_UP(ppl * pixel_bits, 8);
-
-		/* 4 bytes alignment for 10 bit & others are 8 bytes */
-		if (pixel_bits == 10)
-			bpl = ALIGN(bpl, 4);
-		else
-			bpl = ALIGN(bpl, 8);
+		break;
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
+		bpl = 0xFF00 & DIV_ROUND_UP(width * pixel_bits * 3 / 2, 8) + 0xFF;
+		break;
+	default:
+		bpl = 0;
+		break;
 	}
-
 	/*
 	 * This image output buffer will be input buffer of MTK CAM DIP HW
 	 * For MTK CAM DIP HW constrained, it needs 4 bytes alignment
 	 */
 	bpl = ALIGN(bpl, 4);
-
 	mp->plane_fmt[0].bytesperline = bpl;
 	mp->plane_fmt[0].sizeimage = bpl * mp->height;
 }

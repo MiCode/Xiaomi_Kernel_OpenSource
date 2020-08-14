@@ -274,7 +274,7 @@ struct mtk_cam_uapi_wb_param {
  *	A U T O  F O C U S
  */
 
-#define MTK_CAM_UAPI_AFO_BLK_SIZ		44
+#define MTK_CAM_UAPI_AFO_BLK_SIZ		48
 #define MTK_CAM_UAPI_AFO_MAX_BLK_NUM		(128 * 128)
 #define MTK_CAM_UAPI_AFO_MAX_BUF_SIZE		(MTK_CAM_UAPI_AFO_BLK_SIZ \
 						* MTK_CAM_UAPI_AFO_MAX_BLK_NUM)
