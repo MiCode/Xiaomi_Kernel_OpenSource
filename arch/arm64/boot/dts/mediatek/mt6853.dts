@@ -6034,6 +6034,14 @@ page_owner=on";
 	};
 };
 
+#ifdef CONFIG_MFD_MT6360_PMU
+&mt6360_pmic {
+	buck2 {
+		/delete-property/ regulator-always-on;
+	};
+};
+#endif
+
 &pio {
 	aud_clk_mosi_off: aud_clk_mosi_off {
 		pins_cmd0_dat {
