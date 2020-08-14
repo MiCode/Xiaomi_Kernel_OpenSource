@@ -283,7 +283,7 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 	unsigned long flags;
 
 	if (check_mux_pdn(ID)) {
-		pr_notice("ID-%d: MUX PDN, return 0.\n", ID);
+		/* pr_notice("ID-%d: MUX PDN, return 0.\n", ID); */
 		return 0;
 	}
 

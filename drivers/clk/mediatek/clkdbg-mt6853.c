@@ -683,7 +683,7 @@ void print_subsys_reg(enum dbg_sys_id id)
 		return;
 
 	if (id >= dbg_sys_num || id < 0) {
-		pr_info("wrong id:%s\n", id);
+		pr_info("wrong id:%d\n", id);
 		return;
 	}
 
