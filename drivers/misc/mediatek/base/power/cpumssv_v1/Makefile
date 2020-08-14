@@ -11,5 +11,9 @@
 # GNU General Public License for more details.
 #
 export MSSV_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/mssv
+ifeq ($(CONFIG_MACH_MT6893),y)
+obj-y += mt6893/
+else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
 
