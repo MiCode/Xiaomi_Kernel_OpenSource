@@ -432,6 +432,15 @@
 		#hwlock-cells = <1>;
 	};
 
+	cache-controller@9200000 {
+		compatible = "qcom,sdxlemur-llcc", "qcom,llcc-v2";
+		reg = <0x9200000 0x50000>;
+		reg-names = "llcc_base";
+		cap-based-alloc-and-pwr-collapse;
+		clocks = <&aopcc QDSS_CLK>;
+		clock-names = "aopcc_closks";
+	};
+
 	smem: qcom,smem {
 		compatible = "qcom,smem";
 		memory-region = <&smem_mem>;
