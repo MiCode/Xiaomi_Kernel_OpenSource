@@ -4440,6 +4440,9 @@ int save_modules(char *mbuf, int mbufsize)
 	char buf[MODULE_FLAGS_BUF_SIZE];
 	/*int off = 0;*/
 	int sz = 0;
+	unsigned long text_addr = 0;
+	unsigned long init_addr = 0;
+	int i, search_nm;
 
 	if (mbuf == NULL || mbufsize <= 0) {
 		pr_cont("mrdump: module info buffer wrong(sz:%d)\n", mbufsize);
@@ -4456,10 +4459,25 @@ int save_modules(char *mbuf, int mbufsize)
 				mbufsize);
 			break;
 		}
+		text_addr = (unsigned long)mod->core_layout.base;
+		init_addr = (unsigned long)mod->init_layout.base;
+		search_nm = 2;
+		for (i = 0; i < mod->sect_attrs->nsections; i++) {
+			if (!strcmp(mod->sect_attrs->attrs[i].name, ".text")) {
+				text_addr = mod->sect_attrs->attrs[i].address;
+				search_nm--;
+			} else if (!strcmp(mod->sect_attrs->attrs[i].name,
+					   ".init.text")) {
+				init_addr = mod->sect_attrs->attrs[i].address;
+				search_nm--;
+			}
+			if (!search_nm)
+				break;
+		}
 		sz += snprintf(mbuf + sz, mbufsize - sz, " %s %px %px %d %d %s",
 				mod->name,
-				mod->core_layout.base,
-				mod->init_layout.base,
+				text_addr,
+				init_addr,
 				mod->core_layout.size,
 				mod->init_layout.size,
 				module_flags(mod, buf));
