@@ -46,7 +46,9 @@
 
 static u32 debug_level = (255 - K_DEBUG);
 static struct usbtypc *g_exttypec;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *root;
+#endif
 
 static int usb3_switch_en(struct usbtypc *typec, int on)
 {
@@ -233,6 +235,7 @@ end:
 	return retval;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 /*Print U3 switch & Redriver*/
 static int usb_gpio_debugfs_show(struct seq_file *s, void *unused)
 {
@@ -395,7 +398,7 @@ static int usb_cc_smt_status(void *data, u64 *val)
 	return 0;
 }
 #else
-static int usb_check_cc_smt_status(void *data, u64 *val)
+static int usb_cc_smt_status(void *data, u64 *val)
 {
 	return 0;
 }
@@ -406,6 +409,7 @@ static int usb_typec_pinctrl_debugfs(struct usbtypc *typec)
 {
 	struct dentry *file;
 
+	root = debugfs_create_dir("usb_c", NULL);
 	if (!root)
 		return -ENOMEM;
 
@@ -413,22 +417,12 @@ static int usb_typec_pinctrl_debugfs(struct usbtypc *typec)
 			typec, &usb_gpio_debugfs_fops);
 	file = debugfs_create_file("smt", 0200, root, typec,
 			&usb_debugfs_fops);
-
-	return 0;
-}
-
-static int usb_typec_cc_debugfs(struct usbtypc *typec)
-{
-	struct dentry *file;
-
-	if (!root)
-		return -ENOMEM;
-
 	file = debugfs_create_file("smt_u2_cc_mode", 0400, root, typec,
 			&usb_cc_smt_fops);
 
 	return 0;
 }
+#endif
 
 struct usbtypc *get_usbtypec(void)
 {
@@ -768,7 +762,10 @@ static int usbc_pinctrl_probe(struct platform_device *pdev)
 	usb_redriver_init(typec);
 	usb3_switch_init(typec);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	usb_typec_pinctrl_debugfs(typec);
+#endif
+
 	g_exttypec = typec;
 
 	return ret;
@@ -792,15 +789,6 @@ static struct platform_driver usb_switch_pinctrl_driver = {
 int __init usbc_pinctrl_init(void)
 {
 	int ret = 0;
-	struct usbtypc *typec;
-
-	typec = get_usbtypec();
-
-	root = debugfs_create_dir("usb_c", NULL);
-	if (!root)
-		ret = -ENOMEM;
-
-	usb_typec_cc_debugfs(typec);
 
 	if (!platform_driver_register(&usb_switch_pinctrl_driver))
 		usbc_dbg(K_DEBUG, "register usbc pinctrl succeed!!\n");
