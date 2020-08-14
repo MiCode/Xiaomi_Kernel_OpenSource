@@ -2656,9 +2656,12 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DIP_RD32(dipRegBasAddr + 0x994));
 
 		/* LCEI DMA*/
-		cmdq_util_err("lcei: 0x%x14D0(0x%x)-0x%x14DC(0x%x)",
+		cmdq_util_err("lcei: 0x%x14D0(0x%x)-0x%x14D4(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x04D0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04D4));
+		cmdq_util_err("lcei: 0x%x14DC(0x%x)",
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x04DC));
 		cmdq_util_err("lcei: 0x%x14E0(0x%x)-0x%x14E4(0x%x)",
