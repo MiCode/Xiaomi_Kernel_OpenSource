@@ -4,9 +4,12 @@
  */
 
 #include <linux/backlight.h>
-#include <drm/drmP.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
+#include <drm/drm_modes.h>
+#include <linux/delay.h>
+#include <drm/drm_connector.h>
+#include <drm/drm_device.h>
 
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
@@ -713,15 +716,15 @@ static void change_drm_disp_mode_params(struct drm_display_mode *mode)
 	}
 }
 
-static int lcm_get_modes(struct drm_panel *panel)
+static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 
 	if (need_fake_resolution)
 		change_drm_disp_mode_params(&default_mode);
-	mode = drm_mode_duplicate(panel->drm, &default_mode);
+	mode = drm_mode_duplicate(connector->dev, &default_mode);
 	if (!mode) {
-		dev_err(panel->drm->dev, "failed to add mode %ux%ux@%u\n",
+		dev_err(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
 			default_mode.hdisplay, default_mode.vdisplay,
 			default_mode.vrefresh);
 		return -ENOMEM;
@@ -729,10 +732,10 @@ static int lcm_get_modes(struct drm_panel *panel)
 
 	drm_mode_set_name(mode);
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-	drm_mode_probed_add(panel->connector, mode);
+	drm_mode_probed_add(connector, mode);
 
-	panel->connector->display_info.width_mm = 64;
-	panel->connector->display_info.height_mm = 129;
+	connector->display_info.width_mm = 64;
+	connector->display_info.height_mm = 129;
 
 	return 1;
 }
@@ -817,7 +820,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->prepared = true;
 	ctx->enabled = true;
 
-	drm_panel_init(&ctx->panel);
+	drm_panel_init(&ctx->panel, dev, &lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 	ctx->panel.dev = dev;
 	ctx->panel.funcs = &lcm_drm_funcs;
 
