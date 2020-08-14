@@ -1175,29 +1175,6 @@ static const struct mtk_pin_field_calc mt6853_pin_eh_range[] = {
 	PIN_FIELD_BASE(142, 142, 5, 0x0040, 0x10, 21, 3),
 };
 
-static const struct mtk_pin_field_calc mt6853_pin_rsel_range[] = {
-	PIN_FIELD_BASE(97, 97, 6, 0x0090, 0x10, 0, 2),
-	PIN_FIELD_BASE(98, 98, 6, 0x0090, 0x10, 2, 2),
-	PIN_FIELD_BASE(99, 99, 5, 0x00e0, 0x10, 24, 2),
-	PIN_FIELD_BASE(100, 100, 5, 0x00e0, 0x10, 26, 2),
-	PIN_FIELD_BASE(101, 101, 5, 0x00e0, 0x10, 0, 2),
-	PIN_FIELD_BASE(102, 102, 5, 0x00e0, 0x10, 8, 2),
-	PIN_FIELD_BASE(103, 103, 7, 0x0090, 0x10, 0, 2),
-	PIN_FIELD_BASE(104, 104, 7, 0x0090, 0x10, 2, 2),
-	PIN_FIELD_BASE(105, 105, 5, 0x00e0, 0x10, 2, 2),
-	PIN_FIELD_BASE(106, 106, 5, 0x00e0, 0x10, 10, 2),
-	PIN_FIELD_BASE(107, 107, 5, 0x00e0, 0x10, 16, 2),
-	PIN_FIELD_BASE(108, 108, 5, 0x00e0, 0x10, 20, 2),
-	PIN_FIELD_BASE(109, 109, 8, 0x00d0, 0x10, 0, 2),
-	PIN_FIELD_BASE(110, 110, 8, 0x00d0, 0x10, 2, 2),
-	PIN_FIELD_BASE(111, 111, 5, 0x00e0, 0x10, 18, 2),
-	PIN_FIELD_BASE(112, 112, 5, 0x00e0, 0x10, 22, 2),
-	PIN_FIELD_BASE(113, 113, 5, 0x00e0, 0x10, 4, 2),
-	PIN_FIELD_BASE(114, 114, 5, 0x00e0, 0x10, 12, 2),
-	PIN_FIELD_BASE(141, 141, 5, 0x00e0, 0x10, 6, 2),
-	PIN_FIELD_BASE(142, 142, 5, 0x00e0, 0x10, 14, 2),
-};
-
 static const struct mtk_eh_pin_pinmux mt6853_eh_pin_pinmux_list[] = {
 	/* pin number, pinmux number */
 	{97, 1},
@@ -1260,6 +1237,7 @@ static const struct mtk_pin_soc mt6853_data = {
 	.eint_hw = &mt6853_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
+	.race_free_access = true,
 	.eh_pin_pinmux = mt6853_eh_pin_pinmux_list,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
