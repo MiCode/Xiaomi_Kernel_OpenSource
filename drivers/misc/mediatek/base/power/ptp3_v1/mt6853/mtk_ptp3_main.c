@@ -106,7 +106,7 @@
 
 #define ptp3_read(addr)		__raw_readl((void __iomem *)(addr))
 #define ptp3_write(addr, val)	mt_reg_sync_writel(val, addr)
-#define EEM_TEMPSPARE0		0x112788F0
+#define EEM_TEMPSPARE0		0x11278F20
 #define PTP3_MEM_SIZE 0x80000
 #define PTP3_FLL_MEM_OFFSET 0x0
 #define PTP3_CINST_MEM_OFFSET 0x10000
