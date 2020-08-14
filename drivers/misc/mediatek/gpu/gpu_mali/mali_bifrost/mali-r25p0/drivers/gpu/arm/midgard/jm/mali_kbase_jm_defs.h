@@ -608,6 +608,9 @@ struct kbase_jd_atom {
 
 	atomic_t blocked;
 
+	/* user-space sequence number, to order atoms in some temporal order */
+	u64 seq_nr;
+
 	struct kbase_jd_atom *pre_dep;
 	struct kbase_jd_atom *post_dep;
 
