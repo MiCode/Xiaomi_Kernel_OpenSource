@@ -19,6 +19,7 @@
 #include "mdw_cmd.h"
 
 struct mdw_usr {
+	uint64_t id;
 	pid_t pid;
 	pid_t tgid;
 	char comm[TASK_COMM_LEN];
@@ -55,4 +56,7 @@ int mdw_usr_run_cmd_sync(struct mdw_usr *u, struct apusys_ioctl_cmd *in);
 int mdw_usr_init(void);
 void mdw_usr_exit(void);
 
+
+void mdw_usr_print_mem_usage(void);
+void mdw_usr_aee_mem(void *s_file);
 #endif
