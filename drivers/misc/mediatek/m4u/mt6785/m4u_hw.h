@@ -20,6 +20,11 @@
 #define MVA_DOMAIN_NR           TOTAL_M4U_NUM
 #define M4U_SEC_MVA_DOMAIN      0
 
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+/* bank count: exclude normal and secure banks */
+#define MTK_M4U_BANK_NODE_COUNT  (3)
+#endif
+
 /*0x7FC00000 ~ (0x8010 0000 - 1) not use in vpu_iommu*/
 #define VPU_IOMMU_MVA_START     0x7FC00000
 #define VPU_IOMMU_MVA_END       0x80100000

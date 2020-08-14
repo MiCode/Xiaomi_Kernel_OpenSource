@@ -13,17 +13,24 @@
 
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 
 #include "m4u_priv.h"
 #include "m4u_platform.h"
 #include "m4u_hw.h"
+/* for macro M4U_NONSEC_MVA_START */
+#include "tz_m4u.h"
 
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#include <mt-plat/mtk_lpae.h>
-#include <mt-plat/mtk_secure_api.h>
+//#include <mt-plat/mtk_lpae.h>
+
+//smccc related include
+//#include <mt-plat/mtk_secure_api.h> //old
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/arm-smccc.h>
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -38,8 +45,17 @@ static unsigned long gLarbBaseAddr[SMI_LARB_NR];
 static unsigned long gM4UtfAddr[TOTAL_M4U_NUM];
 static unsigned long gPericfgBaseAddr;
 static unsigned int gM4UTagCount[] = { 64 };
-static unsigned long gM4USecAddr;
-static unsigned int M4USecIrq;
+static unsigned long gM4USecAddr[TOTAL_M4U_NUM];
+static unsigned int M4USecIrq[TOTAL_M4U_NUM];
+
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+static unsigned int m4u_irq_bank[TOTAL_M4U_NUM][MTK_M4U_BANK_NODE_COUNT];
+static unsigned long gM4UBankAddr[TOTAL_M4U_NUM][MTK_M4U_BANK_NODE_COUNT];
+static char *m4u_bank_of_ids[TOTAL_M4U_NUM][MTK_M4U_BANK_NODE_COUNT] = {
+	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
+	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"}
+};
+#endif
 
 /* static struct M4U_RANGE_DES_T gM4u0_seq[M4U0_SEQ_NR] = {{0}}; */
 
@@ -101,8 +117,35 @@ int m4u_invalid_tlb(int m4u_id, int L2_en,
 	}
 
 	if (!isInvAll) {
-		while (!M4U_ReadReg32(m4u_base, REG_MMU_CPE_DONE))
-			;
+		u32 tmp;
+		int ret;
+
+		/* tlb sync */
+		ret = readl_poll_timeout_atomic(
+				(void __iomem *)(m4u_base + REG_MMU_CPE_DONE),
+				tmp, tmp != 0, 10, 1000);
+		if (ret) {
+			int i;
+
+			M4UMSG(
+				"m4u%d, Partial TLB flush timeout, do full flush, 0x20:0x%x\n",
+				m4u_id, M4U_ReadReg32(m4u_base, REG_MMU_INVLD));
+			m4u_call_atf_debug(M4U_ATF_SECURITY_DEBUG_EN);
+			for (i = 0; i < 16; i++)
+				M4UMSG("m4u dump reg 0x%x = 0x%x\n",
+					(0x200 + i * 4),
+					M4U_ReadReg32(m4u_base,
+						(0x200 + i * 4)));
+
+			/* Use aee to notify M4U owner to check this issue */
+			m4u_aee_print("M4U TLB timeout\n");
+
+			//clear
+			M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
+			/* falling back flush all */
+			M4U_WriteReg32(m4u_base, REG_INVLID_SEL, reg);
+			M4U_WriteReg32(m4u_base, REG_MMU_INVLD, F_MMU_INV_ALL);
+		}
 		M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
 	}
 
@@ -2379,45 +2422,81 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 void m4u_call_atf_debug(int m4u_debug_id)
 {
-	size_t tf_port = 0;
-	size_t tf_en = 0;
+	struct arm_smccc_res res;
+	unsigned long tf_port = 0;
+	unsigned long tf_en = 0;
 
-	M4UMSG("M4U CALL ATF ID:%d\n", m4u_debug_id);
-	tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-				m4u_debug_id, 0, 0, 0, &tf_port);
+	m4u_debug("%s[%lx:%d]\n", __func__, MTK_M4U_DEBUG_DUMP, m4u_debug_id);
+	arm_smccc_smc(MTK_M4U_DEBUG_DUMP, m4u_debug_id,
+			      0, 0, 0, 0, 0, 0, &res);
+	tf_en = res.a0;
+	tf_port = res.a1;
+	if (tf_en)
+		m4u_info("%s:has_tf:%d, tf_port:0x%x\n",
+			 __func__, tf_en, tf_port);
 }
 
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 {
+	size_t tf_en = 0;
+	size_t tf_port = 0;
+	size_t m4u_id = 0;
+	unsigned int tf_mva, tf_pa, tf_va;
+	int write, layer, tf_pa_33_32;
+	struct arm_smccc_res res;
 
-	int larb_id;
-	int larb_port;
-
-	if (irq == M4USecIrq) {
-		size_t tf_en = 0;
-		size_t tf_port = 0;
-		M4UMSG(
-			"secure bank(MM_IOMMU) irq in normal world!\n");
-		tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-				0, 0, 0, 0, &tf_port);
-		M4UMSG(
-			"secure bank(MM_IOMMU) go back form secure world! en:%zu\n",
-				tf_en);
-		if (tf_en)
-			m4u_aee_print(
-				"CRDISPATCH_KEY:M4U_%s translation fault(secure): port=%s\n",
-					 m4u_get_port_name(tf_port),
-					m4u_get_port_name(tf_port));
-			larb_id = m4u_port_2_larbid(tf_port);
-			larb_port = m4u_port_2_larb_port(tf_port);
-			M4UMSG("port[%s] larb_id(%d) larb_port(%d)\n",
-				m4u_get_port_name(tf_port), larb_id, larb_port);
+	if (irq == M4USecIrq[0]) {
+		m4u_id = 0;
+		M4UMSG("This is secure MM_IOMMU domian\n");
+	} else if (irq == M4USecIrq[1]) {
+		m4u_id = 1;
+		M4UMSG("This is secure VPU_IOMMU domian\n");
 	} else {
-		M4UMSG(
-			"%s(), Invalid irq number %d\n",
-			__func__, irq);
+		M4UMSG("%s(), Invalid secure irq number %d\n", __func__, irq);
 		return -1;
 	}
+
+	M4UMSG("secure bank irq in normal world!\n");
+	arm_smccc_smc(MTK_M4U_DEBUG_DUMP, m4u_id,
+			      0, 0, 0, 0, 0, 0, &res);
+	tf_en = res.a0;
+	tf_port = res.a1;
+	tf_va = res.a2;
+	tf_pa = res.a3;
+
+	M4UMSG("secure bank go back form secure world! en:%zu\n", tf_en);
+	if (tf_en) {
+		tf_mva = tf_va & F_MMU_FAULT_VA_MSK_SEC;
+		layer = !!(tf_va & F_MMU_FAULT_VA_LAYER_BIT_SEC);
+		write = !!(tf_va & F_MMU_FAULT_VA_WRITE_BIT_SEC);
+		tf_pa_33_32 = F_MMU_FAULT_PA_33_32(tf_va);
+
+		/*call user's callback to dump user registers*/
+		if (tf_port < M4U_PORT_UNKNOWN &&
+		    tf_port >= 0) {
+			if (gM4uPort[tf_port].fault_fn &&
+			    gM4uPort[tf_port].enable_tf == 1) {
+				gM4uPort[tf_port].fault_fn(tf_port, tf_mva,
+					gM4uPort[tf_port].fault_data);
+			}
+		}
+		/* 6785 only support 32bit mva, use '%x' here */
+		M4UMSG("[%s %d]tf_pa:0x%x_%x, tf_va:0x%x, write:%d, layer:%d\n",
+		       __func__, __LINE__,
+		       tf_pa_33_32, tf_pa, tf_va, write, layer);
+		if (tf_mva >= M4U_NONSEC_MVA_START)
+			m4u_dump_buf_info(NULL, m4u_id);
+
+		if (m4u_id == 0) {
+			m4u_aee_print(
+				"CRDISPATCH_KEY:M4U_%s [mva:0x%x] tf(mm secure)\n",
+				m4u_get_port_name(tf_port), tf_mva);
+		} else if (m4u_id == 1)
+			m4u_aee_print(
+				"CRDISPATCH_KEY:M4U_VPU_PORT [mva:0x%x] tf(vpu secure)\n",
+				tf_mva);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -2479,8 +2558,8 @@ int m4u_reg_init(struct m4u_domain_t *m4u_domain,
 
 			gLarbBaseAddr[i] = (unsigned long)of_iomap(node, 0);
 
-			M4UINFO("%s init: 0x%lx\n",
-				gM4U_SMILARB[i], gLarbBaseAddr[i]);
+			m4u_debug("%s init: 0x%lx\n",
+				  gM4U_SMILARB[i], gLarbBaseAddr[i]);
 		}
 	}
 	/* ========================================= */
@@ -2606,6 +2685,13 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 	unsigned long pProtectVA;
 	phys_addr_t ProtectPA;
 	struct device_node *node = NULL;
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+	int i;
+#endif
+	if (m4u_id < 0 || m4u_id >= TOTAL_M4U_NUM) {
+		M4UMSG("%s:ERROR m4u_id:%d\n", __func__, m4u_id);
+		return -EINVAL;
+	}
 
 #ifdef M4U_4GBDRAM
 	gM4U_4G_DRAM_Mode = enable_4G();
@@ -2650,6 +2736,7 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 
 	m4u_reg_init(&gM4uDomain[m4u_id], ProtectPA, m4u_id);
 
+	/* register normal bank irq */
 	if (request_irq(m4u_dev->irq_num[m4u_id], MTK_M4U_isr,
 			IRQF_TRIGGER_NONE, "m4u", NULL)) {
 		M4UERR("request M4U%d IRQ line failed\n", m4u_id);
@@ -2662,26 +2749,65 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 
 	m4u_monitor_start(m4u_id);
 
+	/* register secure bank irq */
 	if (m4u_id == 0) {
 		node = of_find_compatible_node(NULL, NULL,
-							   "mediatek,sec_m4u");
-		if (node == NULL)
-			M4UMSG(
-				"ERR, unable to find node, dt_name=mediatek,sec_m4u\n");
+				"mediatek,sec_m4u");
+	} else if (m4u_id == 1) {
+		node = of_find_compatible_node(NULL, NULL,
+				"mediatek,sec_vpu_m4u");
+	} else {
+		M4UMSG("m4u_id is error, id:%d\n", m4u_id);
+	}
 
-		gM4USecAddr = (unsigned long)of_iomap(node, 0);
-		M4USecIrq = irq_of_parse_and_map(node, 0);
+	if (node != NULL) {
+		gM4USecAddr[m4u_id] = (unsigned long)of_iomap(node, 0);
+		M4USecIrq[m4u_id] = irq_of_parse_and_map(node, 0);
 
-		M4UMSG("secure bank, of_iomap: 0x%lx, irq_num: %d\n",
-				gM4USecAddr, M4USecIrq);
+		m4u_info("secure bank, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
+			 gM4USecAddr[m4u_id], M4USecIrq[m4u_id], m4u_id);
 
-		if (request_irq(M4USecIrq, MTK_M4U_isr_sec,
+		if (request_irq(M4USecIrq[m4u_id], MTK_M4U_isr_sec,
 				IRQF_TRIGGER_NONE, "secure_m4u", NULL)) {
 			M4UERR("request secure m4u%d IRQ line failed\n",
 				m4u_id);
 			return -ENODEV;
 		}
+	} else {
+		M4UERR("ERR, unable to find node, m4u_id:%d\n", m4u_id);
 	}
+
+#ifdef __MTK_M4U_BANK_IRQ_SUPPORT__
+	/* register bank irq */
+	for (i = 0; i < MTK_M4U_BANK_NODE_COUNT; i++) {
+		node = of_find_compatible_node(NULL, NULL,
+					m4u_bank_of_ids[m4u_id][i]);
+		if (!node) {
+			m4u_info("%s, WARN: didn't find bank node of m4u%d_%d\n",
+				 __func__, m4u_id, (i + 1));
+			continue;
+		}
+
+		gM4UBankAddr[m4u_id][i] = (unsigned long)of_iomap(node, 0);
+		m4u_irq_bank[m4u_id][i] = irq_of_parse_and_map(node, 0);
+
+		m4u_info("%s, bank:%d, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
+			 __func__, (i + 1), gM4UBankAddr[m4u_id][i],
+			 m4u_irq_bank[m4u_id][i], m4u_id);
+
+		/* binding to normal irq func */
+		if (request_irq(m4u_irq_bank[m4u_id][i], MTK_M4U_isr,
+				IRQF_TRIGGER_NONE, "bank_m4u", NULL)) {
+			m4u_info("request bank%d m4u%d IRQ line failed\n",
+				 (i + 1), m4u_id);
+			continue;
+		}
+
+		/* bank hw init part should be executed in MTEE */
+	}
+
+#endif
+
 
 #if 0
 	mau_start_monitor(0, 0, 0, 1, 1, 0, 0, 0x0,
