@@ -55,6 +55,7 @@
 #include <mali_kbase_reset_gpu.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include "mali_kbase_ioctl.h"
+#include "mali_kbase_kinstr_jm.h"
 #include "mali_kbase_hwcnt_context.h"
 #include "mali_kbase_hwcnt_virtualizer.h"
 #include "mali_kbase_hwcnt_legacy.h"
@@ -114,12 +115,90 @@
 #include <device/mali_kbase_device.h>
 #include <context/mali_kbase_context.h>
 
+#include <mali_kbase_caps.h>
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
 #define GPU_IRQ_TAG	2
 
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
+
+/**
+ * Kernel min/maj <=> API Version
+ */
+#define KBASE_API_VERSION(major, minor) ((((major) & 0xFFF) << 20)  | \
+					 (((minor) & 0xFFF) << 8) | \
+					 ((0 & 0xFF) << 0))
+
+#define KBASE_API_MIN(api_version) ((api_version >> 8) & 0xFFF)
+#define KBASE_API_MAJ(api_version) ((api_version >> 20) & 0xFFF)
+
+/**
+ * mali_kbase_api_version_to_maj_min - convert an api_version to a min/maj pair
+ *
+ * @api_version: API version to convert
+ * @major:  Major version number (must not exceed 12 bits)
+ * @minor:  Major version number (must not exceed 12 bits)
+ */
+void mali_kbase_api_version_to_maj_min(unsigned long api_version, u16 *maj, u16 *min)
+{
+	if (WARN_ON(!maj))
+		return;
+
+	if (WARN_ON(!min))
+		return;
+
+	*maj = KBASE_API_MAJ(api_version);
+	*min = KBASE_API_MIN(api_version);
+}
+
+/**
+ * kbase capabilities table
+ */
+typedef struct mali_kbase_capability_def {
+	u16 required_major;
+	u16 required_minor;
+} mali_kbase_capability_def;
+
+/**
+ * This must be kept in-sync with mali_kbase_cap
+ *
+ * TODO: The alternative approach would be to embed the cap enum values
+ * in the table. Less efficient but potentially safer.
+ */
+static mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CAPS] = {
+	{ 11, 15 },             /* SYSTEM_MONITOR 	*/
+	{ 11, 25 },             /* JIT_PRESSURE_LIMIT	*/
+	{ 11,  2 },             /* MEM_GROW_ON_GPF	*/
+	{ 11,  2 }              /* MEM_PROTECTED	*/
+};
+
+/**
+ * mali_kbase_supports_cap - Query whether a kbase capability is supported
+ *
+ * @api_version: 	API version to convert
+ * @cap:		Capability to query for - see mali_kbase_caps.h
+ */
+bool mali_kbase_supports_cap(unsigned long api_version, mali_kbase_cap cap)
+{
+	bool supported = false;
+	unsigned long required_ver;
+
+	mali_kbase_capability_def const *cap_def;
+
+	if (WARN_ON(cap < 0))
+		return false;
+
+	if (WARN_ON(cap >= MALI_KBASE_NUM_CAPS))
+		return false;
+
+	cap_def = &kbase_caps_table[(int)cap];
+	required_ver = KBASE_API_VERSION(cap_def->required_major, cap_def->required_minor);
+	supported = (api_version >= required_ver);
+
+	return supported;
+}
 
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -235,7 +314,7 @@ static struct kbase_file *kbase_file_new(struct kbase_device *const kbdev,
 }
 
 /**
- * kbase_file_get_api_version - Set the application programmer interface version
+ * kbase_file_set_api_version - Set the application programmer interface version
  *
  * @kfile:  A device file created by kbase_file_new()
  * @major:  Major version number (must not exceed 12 bits)
@@ -409,7 +488,7 @@ static int kbase_api_handshake(struct kbase_file *kfile,
 	 * the flags have been set. Originally it was created on file open
 	 * (with job submission disabled) but we don't support that usage.
 	 */
-	if (kbase_file_get_api_version(kfile) < KBASE_API_VERSION(11, 15))
+	if (!mali_kbase_supports_system_monitor(kbase_file_get_api_version(kfile)))
 		err = kbase_file_create_kctx(kfile,
 			BASE_CONTEXT_SYSTEM_MONITOR_SUBMIT_DISABLED);
 
@@ -746,7 +825,7 @@ static int kbase_api_set_flags(struct kbase_file *kfile,
 	/* For backward compatibility, the context may have been created before
 	 * the flags were set.
 	 */
-	if (api_version >= KBASE_API_VERSION(11, 15)) {
+	if (mali_kbase_supports_system_monitor(api_version)) {
 		err = kbase_file_create_kctx(kfile, flags->create_flags);
 	} else {
 		struct kbasep_js_kctx_info *js_kctx_info = NULL;
@@ -871,6 +950,12 @@ static int kbase_api_mem_free(struct kbase_context *kctx,
 		struct kbase_ioctl_mem_free *free)
 {
 	return kbase_mem_free(kctx, free->gpu_addr);
+}
+
+static int kbase_api_kinstr_jm_fd(struct kbase_context *kctx,
+				  union kbase_kinstr_jm_fd *arg)
+{
+	return kbase_kinstr_jm_get_fd(kctx->kinstr_jm, arg);
 }
 
 static int kbase_api_hwcnt_reader_setup(struct kbase_context *kctx,
@@ -1619,6 +1704,12 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	/* Instrumentation. */
+	case KBASE_IOCTL_KINSTR_JM_FD:
+		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_KINSTR_JM_FD,
+				kbase_api_kinstr_jm_fd,
+				union kbase_kinstr_jm_fd,
+				kctx);
+		break;
 	case KBASE_IOCTL_HWCNT_READER_SETUP:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_HWCNT_READER_SETUP,
 				kbase_api_hwcnt_reader_setup,

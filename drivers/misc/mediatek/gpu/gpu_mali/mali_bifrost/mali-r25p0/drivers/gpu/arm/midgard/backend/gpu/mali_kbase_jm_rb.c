@@ -33,6 +33,7 @@
 #include <tl/mali_kbase_tracepoints.h>
 #include <mali_kbase_hwcnt_context.h>
 #include <mali_kbase_reset_gpu.h>
+#include <mali_kbase_kinstr_jm.h>
 #include <backend/gpu/mali_kbase_cache_policy_backend.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>
@@ -278,6 +279,7 @@ static void kbase_gpu_release_atom(struct kbase_device *kbdev,
 		break;
 
 	case KBASE_ATOM_GPU_RB_SUBMITTED:
+		kbase_kinstr_jm_atom_hw_release(katom);
 		/* Inform power management at start/finish of atom so it can
 		 * update its GPU utilisation metrics. Mark atom as not
 		 * submitted beforehand. */

@@ -45,6 +45,21 @@ static void gpu_clk_rate_trace_write(struct kbase_device *kbdev,
 	trace_gpu_frequency(new_rate, clk_index);
 }
 
+static void gpu_clk_rate_update(
+	struct kbase_clk_rate_trace_manager *clk_rtm,
+	struct kbase_clk_data *clk_data,
+	unsigned long new_rate)
+{
+	struct kbase_device *kbdev =
+		container_of(clk_rtm, struct kbase_device, pm.clk_rtm);
+	u64 timestamp_ns = ktime_get_raw_ns();
+
+	kbase_ccswe_freq_change(&clk_data->ccswe, timestamp_ns, (u32)new_rate);
+
+	clk_rtm->gpu_clk_rate_trace_write(
+		kbdev, clk_data->index, new_rate);
+}
+
 static int gpu_clk_rate_change_notifier(struct notifier_block *nb,
 			unsigned long event, void *data)
 {
@@ -52,8 +67,6 @@ static int gpu_clk_rate_change_notifier(struct notifier_block *nb,
 	struct kbase_clk_data *clk_data =
 		container_of(nb, struct kbase_clk_data, clk_rate_change_nb);
 	struct kbase_clk_rate_trace_manager *clk_rtm = clk_data->clk_rtm;
-	struct kbase_device *kbdev =
-		container_of(clk_rtm, struct kbase_device, pm.clk_rtm);
 
 	if (WARN_ON_ONCE(clk_data->gpu_clk_handle != ndata->gpu_clk_handle))
 		return NOTIFY_BAD;
@@ -62,9 +75,8 @@ static int gpu_clk_rate_change_notifier(struct notifier_block *nb,
 	if (event == POST_RATE_CHANGE) {
 		if (!clk_rtm->gpu_idle &&
 		    (clk_data->clock_val != ndata->new_rate)) {
-			clk_rtm->gpu_clk_rate_trace_write(kbdev,
-							  clk_data->index,
-							  ndata->new_rate);
+			gpu_clk_rate_update(
+				clk_rtm, clk_data, ndata->new_rate);
 		}
 
 		clk_data->clock_val = ndata->new_rate;
@@ -80,6 +92,7 @@ static int gpu_clk_data_init(struct kbase_device *kbdev,
 	struct kbase_clk_rate_trace_op_conf *callbacks =
 		(struct kbase_clk_rate_trace_op_conf *)CLK_RATE_TRACE_OPS;
 	struct kbase_clk_data *clk_data;
+	struct kbase_clk_rate_trace_manager *clk_rtm = &kbdev->pm.clk_rtm;
 	int ret = 0;
 
 	if (WARN_ON(!callbacks) ||
@@ -93,16 +106,18 @@ static int gpu_clk_data_init(struct kbase_device *kbdev,
 		return -ENOMEM;
 	}
 
+	kbase_ccswe_init(&clk_data->ccswe);
+
 	clk_data->index = (u8)index;
 	clk_data->gpu_clk_handle = gpu_clk_handle;
 	/* Store the initial value of clock */
 	clk_data->clock_val =
 		callbacks->get_gpu_clk_rate(kbdev, gpu_clk_handle);
 	/* GPU is idle */
-	kbdev->pm.clk_rtm.gpu_clk_rate_trace_write(kbdev, clk_data->index, 0);
+	gpu_clk_rate_update(clk_rtm, clk_data, 0);
 
-	clk_data->clk_rtm = &kbdev->pm.clk_rtm;
-	kbdev->pm.clk_rtm.clks[index] = clk_data;
+	clk_data->clk_rtm = clk_rtm;
+	clk_rtm->clks[index] = clk_data;
 
 	clk_data->clk_rate_change_nb.notifier_call =
 			gpu_clk_rate_change_notifier;
@@ -128,13 +143,6 @@ int kbase_clk_rate_trace_manager_init(struct kbase_device *kbdev)
 	/* Return early if no callbacks provided for clock rate tracing */
 	if (!callbacks)
 		return 0;
-
-	/* GPU shall be idle at this point and shall remain idle whilst this
-	 * function is executing as /dev/mali0 file won't be visible yet to the
-	 * userspace and so the gpu active/idle transitions also won't happen.
-	 */
-	if (WARN_ON(kbase_pm_is_active(kbdev)))
-		return -EINVAL;
 
 	spin_lock_init(&clk_rtm->lock);
 	clk_rtm->gpu_idle = true;
@@ -209,15 +217,15 @@ void kbase_clk_rate_trace_manager_gpu_active(struct kbase_device *kbdev)
 	spin_lock(&clk_rtm->lock);
 
 	for (i = 0; i < BASE_MAX_NR_CLOCKS_REGULATORS; i++) {
-		if (!clk_rtm->clks[i])
+		struct kbase_clk_data *clk_data = clk_rtm->clks[i];
+
+		if (!clk_data)
 			break;
 
-		if (unlikely(!clk_rtm->clks[i]->clock_val))
+		if (unlikely(!clk_data->clock_val))
 			continue;
 
-		clk_rtm->gpu_clk_rate_trace_write(kbdev,
-						  clk_rtm->clks[i]->index,
-						  clk_rtm->clks[i]->clock_val);
+		gpu_clk_rate_update(clk_rtm, clk_data, clk_data->clock_val);
 	}
 
 	clk_rtm->gpu_idle = false;
@@ -235,14 +243,15 @@ void kbase_clk_rate_trace_manager_gpu_idle(struct kbase_device *kbdev)
 	spin_lock(&clk_rtm->lock);
 
 	for (i = 0; i < BASE_MAX_NR_CLOCKS_REGULATORS; i++) {
-		if (!clk_rtm->clks[i])
+		struct kbase_clk_data *clk_data = clk_rtm->clks[i];
+
+		if (!clk_data)
 			break;
 
-		if (unlikely(!clk_rtm->clks[i]->clock_val))
+		if (unlikely(!clk_data->clock_val))
 			continue;
 
-		clk_rtm->gpu_clk_rate_trace_write(kbdev,
-						  clk_rtm->clks[i]->index, 0);
+		gpu_clk_rate_update(clk_rtm, clk_data, 0);
 	}
 
 	clk_rtm->gpu_idle = true;

@@ -33,6 +33,7 @@
 #include <mali_kbase_hwaccess_jm.h>
 #include <mali_kbase_reset_gpu.h>
 #include <mali_kbase_ctx_sched.h>
+#include <mali_kbase_kinstr_jm.h>
 #include <mali_kbase_hwcnt_context.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
@@ -277,6 +278,7 @@ void kbase_job_hw_submit(struct kbase_device *kbdev,
 			katom,
 			&kbdev->gpu_props.props.raw_props.js_features[js],
 			"ctx_nr,atom_nr");
+	kbase_kinstr_jm_atom_hw_submit(katom);
 #ifdef CONFIG_GPU_TRACEPOINTS
 	if (!kbase_backend_nr_atoms_submitted(kbdev, js)) {
 		/* If this is the only job on the slot, trace it as starting */
