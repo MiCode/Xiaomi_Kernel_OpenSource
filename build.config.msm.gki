@@ -6,10 +6,6 @@ if [ -z "${GKI_RAMDISK_PREBUILT_BINARY}" ]; then
 	GKI_RAMDISK_PREBUILT_BINARY=prebuilts/boot-artifacts/${ARCH}/gki-ramdisk.cpio
 fi
 
-if [ "${BOOT_IMAGE_HEADER_VERSION}" -lt "3" ]; then
-	VENDOR_RAMDISK_BINARY="${GKI_RAMDISK_PREBUILT_BINARY} ${VENDOR_RAMDISK_BINARY}"
-fi
-
 ABI_DEFINITION=abi_gki_aarch64.xml
 KMI_WHITELIST=abi_gki_qcom_whitelist
 
