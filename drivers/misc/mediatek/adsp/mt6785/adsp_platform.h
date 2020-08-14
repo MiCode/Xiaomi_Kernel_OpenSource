@@ -46,6 +46,7 @@ void adsp_mt_clr_spm(u32 cid);
 void adsp_mt_disable_wdt(u32 cid);
 void adsp_mt_set_sw_int(u32 cid);
 u32 adsp_mt_check_sw_int(u32 cid);
+void adsp_mt_set_bootup_mark(u32 cid);
 
 bool check_hifi_status(u32 mask);
 bool is_adsp_axibus_idle(void);

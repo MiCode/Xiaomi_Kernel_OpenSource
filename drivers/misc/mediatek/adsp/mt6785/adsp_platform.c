@@ -28,6 +28,8 @@
 #define adsp_reg_read(addr)             __raw_readl(IOMEM(addr))
 #define adsp_reg_sync_write(addr, val)  mt_reg_sync_writel(val, addr)
 
+#define MAGIC_PATTERN                   (0xfafafafa)
+
 static void __iomem *mt_base;
 
 static void __iomem *infracfg_ao;
@@ -84,6 +86,7 @@ void adsp_mt_clear(void)
 {
 	writel(0x0, ADSP_CFGREG_SW_RSTN);
 	writel(0xC0001002, ADSP_HIFI3_IO_CONFIG);
+	writel(0, ADSP_CREG_BOOTUP_MARK);
 	writel(0xdf, ADSP_CLK_CTRL_BASE);
 	writel(0x0, ADSP_IRQ_EN);
 	writel(0x0, ADSP_A_WDT_REG);
@@ -120,8 +123,16 @@ bool check_hifi_status(u32 mask)
 
 bool is_adsp_axibus_idle(void)
 {
-	/* only one transation currently: AP read pending counter */
-	return (readl(ADSP_DBG_PEND_CNT) == 0x000100);
+	/* no pending counter found when ap read this reg in mt6785 */
+	return (readl(ADSP_DBG_PEND_CNT) == 0x000000);
+}
+
+void adsp_mt_set_bootup_mark(u32 cid)
+{
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return;
+
+	writel(MAGIC_PATTERN, ADSP_CREG_BOOTUP_MARK);
 }
 
 u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask)

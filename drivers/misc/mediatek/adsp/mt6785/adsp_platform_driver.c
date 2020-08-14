@@ -192,6 +192,10 @@ int adsp_core0_resume(void)
 		switch_adsp_power(true);
 		adsp_mt_sw_reset(pdata->id);
 
+#if ADSP_BUS_MONITOR_INIT_ENABLE
+		adsp_bus_monitor_init(pdata);
+#endif
+		adsp_mt_set_bootup_mark(pdata->id);
 		timesync_to_adsp(pdata, APTIME_UNFREEZE);
 
 		reinit_completion(&pdata->done);
@@ -482,19 +486,6 @@ static void adsp_syscore_resume(void)
 	if (!is_adsp_system_running()) {
 		spm_adsp_mem_unprotect();
 		adsp_bus_sleep_protect(false);
-		/* release adsp sw_reset,
-		 * let ap is able to write adsp cfg/dtcm
-		 * no matter adsp is suspend.
-		 */
-		adsp_enable_clock();
-		adsp_mt_sw_reset(ADSP_A_ID);
-		timesync_to_adsp(adsp_cores[ADSP_A_ID], APTIME_FREEZE);
-		pr_info("%s, time sync freeze", __func__);
-
-#if ADSP_BUS_MONITOR_INIT_ENABLE
-		adsp_bus_monitor_init(adsp_cores[ADSP_A_ID]); /* reinit bus monitor hw */
-#endif
-		adsp_disable_clock();
 	}
 }
 
