@@ -12,7 +12,21 @@
  * GNU General Public License for more details.
  */
 
+#ifdef CONFIG_PM_DEVFREQ
+#include <linux/pm_qos.h>
+#ifdef CONFIG_MACH_MT8168
+#include "helio-dvfsrc-opp-mt8168.h"
+#else
+#ifdef CONFIG_MACH_MT8183
+#include "helio-dvfsrc-opp-mt8183.h"
+#endif
+#endif
+#endif
+
 #define MAX_BD_NUM          1024
+
+/* ddr208 mode used by SDIO3.0 plus */
+#define MSDC_SDIO_DDR208    (1 << 7)
 
 /*--------------------------------------------------------------------------*/
 /* Common Definition                                                        */
@@ -24,7 +38,7 @@
 #define MSDC_BURST_64B          0x6
 
 /*--------------------------------------------------------------------------*/
-/* Register Offset                                                          */
+/* Base Register Offset                                                          */
 /*--------------------------------------------------------------------------*/
 #define MSDC_CFG         0x0
 #define MSDC_IOCON       0x04
@@ -43,8 +57,10 @@
 #define SDC_RESP2        0x48
 #define SDC_RESP3        0x4c
 #define SDC_BLK_NUM      0x50
+#define SDC_ADV_CFG0     0x64
 #define EMMC_IOCON       0x7c
 #define SDC_ACMD_RESP    0x80
+#define DMA_SA_H4BIT     0x8c
 #define MSDC_DMA_SA      0x90
 #define MSDC_DMA_CTRL    0x98
 #define MSDC_DMA_CFG     0x9c
@@ -52,52 +68,54 @@
 #define MSDC_DBG_OUT	 0xa4
 #define MSDC_DMA_LEN	 0xa8
 #define MSDC_PATCH_BIT0	 0xb0
-#define MSDC_PATCH_BIT1	 0xb4
-#define MSDC_PATCH_BIT2	 0xb8
+#define MSDC_PATCH_BIT1  0xb4
+#define MSDC_PATCH_BIT2  0xb8
 #define DAT0_TUNE_CRC	 0xc0
 #define DAT1_TUNE_CRC	 0xc4
 #define DAT2_TUNE_CRC	 0xc8
 #define DAT3_TUNE_CRC	 0xcc
 #define CMD_TUNE_CRC	 0xd0
 #define SDIO_TUNE_WIND	 0xd4
-#define MSDC_PAD_TUNE0	 0xf0
-#define MSDC_PAD_TUNE1	 0xf4
-#define MSDC_DAT_RDDLY0	 0xf8
-#define MSDC_DAT_RDDLY1	 0xfc
-#define MSDC_DAT_RDDLY2	 0x100
-#define MSDC_DAT_RDDLY3	 0x104
+#define MSDC_PAD_TUNE0   0xf0
 #define MSDC_HW_DBG	 0x110
-#define MSDC_VERSION		0x114
-#define MSDC_ECO_VER		0x118
-#define EMMC50_PAD_CTL0		0x180
-#define EMMC50_PAD_DS_CTL0	0x184
-#define EMMC50_PAD_DS_TUNE	0x188
-#define EMMC50_PAD_CMD_TUNE	0x18c
+#define MSDC_VERSION	 0x114
+#define MSDC_ECO_VER	 0x118
+#define SDC_FIFO_CFG     0x228
+
+/*--------------------------------------------------------------------------*/
+/* for mt8173 mt8135 Only                                                   */
+/*--------------------------------------------------------------------------*/
+#define MSDC_PAD_TUNE    0xec
+
+/*--------------------------------------------------------------------------*/
+/* for IC with no top register                                              */
+/*--------------------------------------------------------------------------*/
+#define MSDC_PAD_TUNE1	 0xf4
+#define PAD_DS_TUNE      0x188
+#define PAD_CMD_TUNE     0x18c
 #define EMMC50_PAD_DAT01_TUNE	0x190
 #define EMMC50_PAD_DAT23_TUNE	0x194
 #define EMMC50_PAD_DAT45_TUNE	0x198
 #define EMMC50_PAD_DAT67_TUNE	0x19c
-#define EMMC51_CFG0		0x204
 #define EMMC50_CFG0		0x208
 #define EMMC50_CFG1		0x20c
 #define EMMC50_CFG2		0x21c
 #define EMMC50_CFG3		0x220
 #define EMMC50_CFG4		0x224
-#define MSDC_SDC_FIFO_CFG	0x228
 
 #define MAX_REGISTER_ADDR	0x228
 
 /*--------------------------------------------------------------------------*/
-/*Top Register Offset                                                       */
+/* Top Register Offset                                                      */
 /*--------------------------------------------------------------------------*/
-#define MSDC_TOP_CONTROL	(0x00)
-#define MSDC_TOP_CMD		(0x04)
-#define MSDC_TOP_PAD_CTRL0	(0x08)
-#define MSDC_TOP_PAD_DS_TUNE	(0x0c)
-#define MSDC_TOP_PAD_DAT0_TUNE	(0x10)
-#define MSDC_TOP_PAD_DAT1_TUNE	(0x14)
-#define MSDC_TOP_PAD_DAT2_TUNE	(0x18)
-#define MSDC_TOP_PAD_DAT3_TUNE	(0x1c)
+#define SD_TOP_CONTROL		(0x00)
+#define SD_TOP_CMD			(0x04)
+#define SD_PAD_CTRL0		(0x08)
+#define SD50_PAD_DAT0_TUNE	(0x10)
+#define SD50_PAD_DAT1_TUNE	(0x14)
+#define SD50_PAD_DAT2_TUNE	(0x18)
+#define SD50_PAD_DAT3_TUNE	(0x1c)
+
 
 /*--------------------------------------------------------------------------*/
 /* Register Mask                                                            */
@@ -112,43 +130,36 @@
 #define MSDC_CFG_BV18SDT        (0x1 << 5)	/* RW */
 #define MSDC_CFG_BV18PSS        (0x1 << 6)	/* R  */
 #define MSDC_CFG_CKSTB          (0x1 << 7)	/* R  */
-#define MSDC_CFG_CKDIV          (0xfff << 8)	/* RW */
-#define MSDC_CFG_CKDIV_BITS             (12)
-#define MSDC_CFG_CKMOD          (0x3 << 20)	/* RW */
-#define MSDC_CFG_CKMOD_BITS             (2)
-#define MSDC_CFG_HS400_CK_MODE  (0x1 << 22)	/* RW */
-#define MSDC_CFG_START_BIT              (0x3  << 23)    /* RW */
-#define MSDC_CFG_SCLK_STOP_DDR          (0x1  << 25)    /* RW */
-#define MSDC_CFG_DVFS_EN                (0x1  << 30)    /* RW */
+#define MSDC_CFG_CKDIV          (0xff << 8)	/* RW */
+#define MSDC_CFG_CKMOD          (0x3 << 16)	/* RW */
+#define MSDC_CFG_HS400_CK_MODE  (0x1 << 18)	/* RW */
+#define MSDC_CFG_HS400_CK_MODE_EXTRA  (0x1 << 22)	/* RW */
+#define MSDC_CFG_CKDIV_EXTRA    (0xfff << 8)	/* RW */
+#define MSDC_CFG_CKMOD_EXTRA    (0x3 << 20)	/* RW */
 
 /* MSDC_IOCON mask */
 #define MSDC_IOCON_SDR104CKS    (0x1 << 0)	/* RW */
 #define MSDC_IOCON_RSPL         (0x1 << 1)	/* RW */
-#define MSDC_IOCON_R_D_SMPL             (0x1  << 2)     /* RW */
-#define MSDC_IOCON_DDLSEL               (0x1  << 3)     /* RW */
-#define MSDC_IOCON_DDR50CKD             (0x1  << 4)     /* RW */
-#define MSDC_IOCON_R_D_SMPL_SEL         (0x1  << 5)     /* RW */
-#define MSDC_IOCON_W_D_SMPL             (0x1  << 8)     /* RW */
-#define MSDC_IOCON_W_D_SMPL_SEL         (0x1  << 9)     /* RW */
-#define MSDC_IOCON_W_D0SPL              (0x1  << 10)    /* RW */
-#define MSDC_IOCON_W_D1SPL              (0x1  << 11)    /* RW */
-#define MSDC_IOCON_W_D2SPL              (0x1  << 12)    /* RW */
-#define MSDC_IOCON_W_D3SPL              (0x1  << 13)    /* RW */
-#define MSDC_IOCON_R_D0SPL              (0x1  << 16)    /* RW */
-#define MSDC_IOCON_R_D1SPL              (0x1  << 17)    /* RW */
-#define MSDC_IOCON_R_D2SPL              (0x1  << 18)    /* RW */
-#define MSDC_IOCON_R_D3SPL              (0x1  << 19)    /* RW */
-#define MSDC_IOCON_R_D4SPL              (0x1  << 20)    /* RW */
-#define MSDC_IOCON_R_D5SPL              (0x1  << 21)    /* RW */
-#define MSDC_IOCON_R_D6SPL              (0x1  << 22)    /* RW */
-#define MSDC_IOCON_R_D7SPL              (0x1  << 23)    /* RW */
+#define MSDC_IOCON_DSPL         (0x1 << 2)	/* RW */
+#define MSDC_IOCON_DDLSEL       (0x1 << 3)	/* RW */
+#define MSDC_IOCON_DDR50CKD     (0x1 << 4)	/* RW */
+#define MSDC_IOCON_DSPLSEL      (0x1 << 5)	/* RW */
+#define MSDC_IOCON_W_DSPL       (0x1 << 8)	/* RW */
+#define MSDC_IOCON_D0SPL        (0x1 << 16)	/* RW */
+#define MSDC_IOCON_D1SPL        (0x1 << 17)	/* RW */
+#define MSDC_IOCON_D2SPL        (0x1 << 18)	/* RW */
+#define MSDC_IOCON_D3SPL        (0x1 << 19)	/* RW */
+#define MSDC_IOCON_D4SPL        (0x1 << 20)	/* RW */
+#define MSDC_IOCON_D5SPL        (0x1 << 21)	/* RW */
+#define MSDC_IOCON_D6SPL        (0x1 << 22)	/* RW */
+#define MSDC_IOCON_D7SPL        (0x1 << 23)	/* RW */
+#define MSDC_IOCON_RISCSZ       (0x3 << 24)	/* RW */
 
 /* MSDC_PS mask */
 #define MSDC_PS_CDEN            (0x1 << 0)	/* RW */
 #define MSDC_PS_CDSTS           (0x1 << 1)	/* R  */
 #define MSDC_PS_CDDEBOUNCE      (0xf << 12)	/* RW */
 #define MSDC_PS_DAT             (0xff << 16)	/* R  */
-#define MSDC_PS_DATA1           (0x1 << 17)	/* R  */
 #define MSDC_PS_CMD             (0x1 << 24)	/* R  */
 #define MSDC_PS_WP              (0x1 << 31)	/* R  */
 
@@ -213,6 +224,13 @@
 #define SDC_STS_CMDBUSY         (0x1 << 1)	/* RW */
 #define SDC_STS_SWR_COMPL       (0x1 << 31)	/* RW */
 
+/* SDC_ADV_CFG0 mask */
+#define SDC_CMD_RESP_CRC        (0x7f  << 0) /* RW */
+#define SDC_RX_ENHANCE_EN	(0x1 << 20)	/* RW */
+
+/* DMA_SA_H4BIT mask */
+#define DMA_ADDR_HIGH_4BIT      (0xf << 0)      /* RW */
+
 /* MSDC_DMA_CTRL mask */
 #define MSDC_DMA_CTRL_START     (0x1 << 0)	/* W */
 #define MSDC_DMA_CTRL_STOP      (0x1 << 1)	/* W */
@@ -258,6 +276,7 @@
 #define MSDC_PB1_BIAS_EN18IO_28NM       (0x1 << 12)
 #define MSDC_PB1_BIAS_EXT_28NM          (0x1 << 13)
 #define MSDC_PB1_RESV2                  (0x1 << 14)
+#define MSDC_PB1_DDR_CMD_FIX_SEL	(0x1 << 14)
 #define MSDC_PB1_RESET_GDMA             (0x1 << 15)
 #define MSDC_PB1_SINGLE_BURST           (0x1 << 16)
 #define MSDC_PB1_FROCE_STOP             (0x1 << 17)
@@ -284,6 +303,7 @@
 #define MSDC_PB2_INTCRESPSEL            (0x1 << 11)
 #define MSDC_PB2_CFGRESPCNT             (0x7 << 12)
 #define MSDC_PB2_CFGRESP                (0x1 << 15)
+#define MSDC_PB2_DDR50_SEL		(0x1 << 19)   /* RW */
 #define MSDC_PB2_RESPSTENSEL            (0x7 << 16)
 #define MSDC_PB2_POPENCNT               (0xf << 20)
 #define MSDC_PB2_CFG_CRCSTS_SEL         (0x1 << 24)
@@ -340,217 +360,55 @@
 #define MSDC_HW_DBG3_SEL                (0x3F << 24)
 #define MSDC_HW_DBG_WRAPTYPE_SEL        (0x1  << 30)
 
-/* MSDC_PATCH_BIT mask */
-#define MSDC_PATCH_BIT_ODDSUPP    (0x1 <<  1)	/* RW */
-#define MSDC_INT_DAT_LATCH_CK_SEL (0x7 <<  7)
-#define MSDC_CKGEN_MSDC_DLY_SEL   (0x1f << 10)
-#define MSDC_PATCH_BIT_IODSSEL    (0x1 << 16)	/* RW */
-#define MSDC_PATCH_BIT_IOINTSEL   (0x1 << 17)	/* RW */
-#define MSDC_PATCH_BIT_BUSYDLY    (0xf << 18)	/* RW */
-#define MSDC_PATCH_BIT_WDOD       (0xf << 22)	/* RW */
-#define MSDC_PATCH_BIT_IDRTSEL    (0x1 << 26)	/* RW */
-#define MSDC_PATCH_BIT_CMDFSEL    (0x1 << 27)	/* RW */
-#define MSDC_PATCH_BIT_INTDLSEL   (0x1 << 28)	/* RW */
-#define MSDC_PATCH_BIT_SPCPUSH    (0x1 << 29)	/* RW */
-#define MSDC_PATCH_BIT_DECRCTMO   (0x1 << 30)	/* RW */
 
-/* MSDC_PATCH_BIT1 mask */
-#define MSDC_PATCH_BIT1_WRDAT_CRCS  (0x7 << 0)
-#define MSDC_PATCH_BIT1_CMD_RSP     (0x7 << 3)
+#define MSDC_PAD_TUNE_DATWRDLY	  (0x1f <<  0)	/* RW */
+#define MSDC_PAD_TUNE_DATRRDLY	  (0x1f <<  8)	/* RW */
+#define MSDC_PAD_TUNE_CMDRDLY	  (0x1f << 16)  /* RW */
+#define MSDC_PAD_TUNE_CMDRRDLY	  (0x1f << 22)	/* RW */
+#define MSDC_PAD_TUNE_CLKTDLY	  (0x1f << 27)  /* RW */
+#define MSDC_PAD_TUNE_RXDLYSEL	  (0x1 << 15)   /* RW */
+#define MSDC_PAD_TUNE_RD_SEL	  (0x1 << 13)   /* RW */
+#define MSDC_PAD_TUNE_CMD_SEL	  (0x1 << 21)   /* RW */
 
-/* MSDC_PAD_TUNE mask */
-#define MSDC_PAD_TUNE_DATWRDLY  (0x1f << 0)	/* RW */
-#define MSDC_PAD_TUNE_DATRRDLY  (0x1f << 8)	/* RW */
-#define MSDC_PAD_TUNE_CMDRDLY   (0x1f << 16)	/* RW */
-#define MSDC_PAD_TUNE_CMDRRDLY  (0x1f << 22)	/* RW */
-#define MSDC_PAD_TUNE_CLKTXDLY  (0x1f << 27)	/* RW */
+#define PAD_DS_TUNE_DLY1	  (0x1f << 2)   /* RW */
+#define PAD_DS_TUNE_DLY2	  (0x1f << 7)   /* RW */
+#define PAD_DS_TUNE_DLY3	  (0x1f << 12)  /* RW */
 
-#define PAD_DS_TUNE_DLY1          (0x1f << 2)   /* RW */
-#define PAD_DS_TUNE_DLY2          (0x1f << 7)   /* RW */
-#define PAD_DS_TUNE_DLY3          (0x1f << 12)  /* RW */
-
-/* MSDC_EMMC50_PAD_CTL0 mask*/
-#define MSDC_EMMC50_PAD_CTL0_DCCSEL     (0x1 << 0)
-#define MSDC_EMMC50_PAD_CTL0_HLSEL      (0x1 << 1)
-#define MSDC_EMMC50_PAD_CTL0_DLP0       (0x3 << 2)
-#define MSDC_EMMC50_PAD_CTL0_DLN0       (0x3 << 4)
-#define MSDC_EMMC50_PAD_CTL0_DLP1       (0x3 << 6)
-#define MSDC_EMMC50_PAD_CTL0_DLN1       (0x3 << 8)
-
-/* MSDC_EMMC50_PAD_DS_CTL0 mask */
-#define MSDC_EMMC50_PAD_DS_CTL0_SR      (0x1 << 0)
-#define MSDC_EMMC50_PAD_DS_CTL0_R0      (0x1 << 1)
-#define MSDC_EMMC50_PAD_DS_CTL0_R1      (0x1 << 2)
-#define MSDC_EMMC50_PAD_DS_CTL0_PUPD    (0x1 << 3)
-#define MSDC_EMMC50_PAD_DS_CTL0_IES     (0x1 << 4)
-#define MSDC_EMMC50_PAD_DS_CTL0_SMT     (0x1 << 5)
-#define MSDC_EMMC50_PAD_DS_CTL0_RDSEL   (0x3F << 6)
-#define MSDC_EMMC50_PAD_DS_CTL0_TDSEL   (0xf << 12)
-#define MSDC_EMMC50_PAD_DS_CTL0_DRV     (0x7 << 16)
-
-/* EMMC50_PAD_DS_TUNE mask */
-#define MSDC_EMMC50_PAD_DS_TUNE_DLYSEL  (0x1 << 0)
-#define MSDC_EMMC50_PAD_DS_TUNE_DLY2SEL (0x1 << 1)
-#define MSDC_EMMC50_PAD_DS_TUNE_DLY1    (0x1F << 2)
-#define MSDC_EMMC50_PAD_DS_TUNE_DLY2    (0x1F << 7)
-#define MSDC_EMMC50_PAD_DS_TUNE_DLY3    (0x1F << 12)
-
-/* EMMC50_PAD_CMD_TUNE mask */
-#define MSDC_EMMC50_PAD_CMD_TUNE_DLY3SEL (0x1 << 0)
-#define MSDC_EMMC50_PAD_CMD_TUNE_RXDLY3 (0x1F << 1)
-#define MSDC_EMMC50_PAD_CMD_TUNE_TXDLY  (0x1F << 6)
-
-/* EMMC50_PAD_DAT01_TUNE mask */
-#define MSDC_EMMC50_PAD_DAT0_RXDLY3SEL  (0x1 << 0)
-#define MSDC_EMMC50_PAD_DAT0_RXDLY3     (0x1F << 1)
-#define MSDC_EMMC50_PAD_DAT0_TXDLY      (0x1F << 6)
-#define MSDC_EMMC50_PAD_DAT1_RXDLY3SEL  (0x1 << 16)
-#define MSDC_EMMC50_PAD_DAT1_RXDLY3     (0x1F << 17)
-#define MSDC_EMMC50_PAD_DAT1_TXDLY      (0x1F << 22)
-
-/* EMMC50_PAD_DAT23_TUNE mask */
-#define MSDC_EMMC50_PAD_DAT2_RXDLY3SEL  (0x1 << 0)
-#define MSDC_EMMC50_PAD_DAT2_RXDLY3     (0x1F << 1)
-#define MSDC_EMMC50_PAD_DAT2_TXDLY      (0x1F << 6)
-#define MSDC_EMMC50_PAD_DAT3_RXDLY3SEL  (0x1 << 16)
-#define MSDC_EMMC50_PAD_DAT3_RXDLY3     (0x1F << 17)
-#define MSDC_EMMC50_PAD_DAT3_TXDLY      (0x1F << 22)
-
-/* EMMC50_PAD_DAT45_TUNE mask */
-#define MSDC_EMMC50_PAD_DAT4_RXDLY3SEL  (0x1 << 0)
-#define MSDC_EMMC50_PAD_DAT4_RXDLY3     (0x1F << 1)
-#define MSDC_EMMC50_PAD_DAT4_TXDLY      (0x1F << 6)
-#define MSDC_EMMC50_PAD_DAT5_RXDLY3SEL  (0x1 << 16)
-#define MSDC_EMMC50_PAD_DAT5_RXDLY3     (0x1F << 17)
-#define MSDC_EMMC50_PAD_DAT5_TXDLY      (0x1F << 22)
-
-/* EMMC50_PAD_DAT67_TUNE mask */
-#define MSDC_EMMC50_PAD_DAT6_RXDLY3SEL  (0x1 << 0)
-#define MSDC_EMMC50_PAD_DAT6_RXDLY3     (0x1F << 1)
-#define MSDC_EMMC50_PAD_DAT6_TXDLY      (0x1F << 6)
-#define MSDC_EMMC50_PAD_DAT7_RXDLY3SEL  (0x1 << 16)
-#define MSDC_EMMC50_PAD_DAT7_RXDLY3     (0x1F << 17)
-#define MSDC_EMMC50_PAD_DAT7_TXDLY      (0x1F << 22)
-
-/* EMMC51_CFG0 mask */
-#define MSDC_EMMC51_CFG_CMDQEN          (0x1    <<  0)
-#define MSDC_EMMC51_CFG_NUM             (0x3F   <<  1)
-#define MSDC_EMMC51_CFG_RSPTYPE         (0x7    <<  7)
-#define MSDC_EMMC51_CFG_DTYPE           (0x3    << 10)
-#define MSDC_EMMC51_CFG_RDATCNT         (0x3FF  << 12)
-#define MSDC_EMMC51_CFG_WDATCNT         (0x3FF  << 22)
-
-/* EMMC50_CFG0 mask */
-#define MSDC_EMMC50_CFG_PADCMD_LATCHCK  (0x1 << 0)
-#define MSDC_EMMC50_CFG_CRC_STS_CNT     (0x3 << 1)
-#define MSDC_EMMC50_CFG_CRC_STS_EDGE    (0x1 << 3)
-#define MSDC_EMMC50_CFG_CRC_STS_SEL     (0x1 << 4)
-#define MSDC_EMMC50_CFG_END_BIT_CHK_CNT (0xf << 5)
-#define MSDC_EMMC50_CFG_CMD_RESP_SEL    (0x1 << 9)
-#define MSDC_EMMC50_CFG_CMD_EDGE_SEL    (0x1 << 10)
-#define MSDC_EMMC50_CFG_ENDBIT_CNT      (0x3FF << 11)
-#define MSDC_EMMC50_CFG_READ_DAT_CNT    (0x7 << 21)
-#define MSDC_EMMC50_CFG_EMMC50_MON_SEL  (0x1 << 24)
-#define MSDC_EMMC50_CFG_MSDC_WR_VALID   (0x1 << 25)
-#define MSDC_EMMC50_CFG_MSDC_RD_VALID   (0x1 << 26)
-#define MSDC_EMMC50_CFG_MSDC_WR_VALID_SEL (0x1 << 27)
-#define MSDC_EMMC50_CFG_MSDC_RD_VALID_SEL (0x1 << 28)
-#define MSDC_EMMC50_CFG_TXSKEW_SEL      (0x1 << 29)
-
-/* EMMC50_CFG1 mask */
-#define MSDC_EMMC50_CFG1_WRPTR_MARGIN   (0xFF << 0)
-#define MSDC_EMMC50_CFG1_CKSWITCH_CNT   (0x7  << 8)
-#define MSDC_EMMC50_CFG1_RDDAT_STOP     (0x1  << 11)
-#define MSDC_EMMC50_CFG1_WAITCLK_CNT    (0xF  << 12)
-#define MSDC_EMMC50_CFG1_DBG_SEL        (0xFF << 16)
-#define MSDC_EMMC50_CFG1_PSHCNT         (0x7  << 24)
-#define MSDC_EMMC50_CFG1_PSHPSSEL       (0x1  << 27)
-#define MSDC_EMMC50_CFG1_DSCFG          (0x1  << 28)
-#define MSDC_EMMC50_CFG1_SPARE1         (0x7UL << 29)
-
-/* EMMC50_CFG2_mask */
-/*#define MSDC_EMMC50_CFG2_AXI_GPD_UP             (0x1 << 0)*/
-#define MSDC_EMMC50_CFG2_AXI_IOMMU_WR_EMI       (0x1 << 1)
-#define MSDC_EMMC50_CFG2_AXI_SHARE_EN_WR_EMI    (0x1 << 2)
-#define MSDC_EMMC50_CFG2_AXI_IOMMU_RD_EMI       (0x1 << 7)
-#define MSDC_EMMC50_CFG2_AXI_SHARE_EN_RD_EMI    (0x1 << 8)
-#define MSDC_EMMC50_CFG2_AXI_BOUND_128B         (0x1 << 13)
-#define MSDC_EMMC50_CFG2_AXI_BOUND_256B         (0x1 << 14)
-#define MSDC_EMMC50_CFG2_AXI_BOUND_512B         (0x1 << 15)
-#define MSDC_EMMC50_CFG2_AXI_BOUND_1K           (0x1 << 16)
-#define MSDC_EMMC50_CFG2_AXI_BOUND_2K           (0x1 << 17)
-#define MSDC_EMMC50_CFG2_AXI_BOUND_4K           (0x1 << 18)
-#define MSDC_EMMC50_CFG2_AXI_RD_OUTS_NUM        (0x1F << 19)
-#define MSDC_EMMC50_CFG2_AXI_SET_LEN            (0xf << 24)
-#define MSDC_EMMC50_CFG2_AXI_RESP_ERR_TYPE      (0x3 << 28)
-#define MSDC_EMMC50_CFG2_AXI_BUSY               (0x1 << 30)
-
-/* EMMC50_CFG3_mask */
-#define MSDC_EMMC50_CFG3_OUTS_WR                (0x1F << 0)
-#define MSDC_EMMC50_CFG3_ULTRA_SET_WR           (0x3F << 5)
-#define MSDC_EMMC50_CFG3_PREULTRA_SET_WR        (0x3F << 11)
-#define MSDC_EMMC50_CFG3_ULTRA_SET_RD           (0x3F << 17)
-#define MSDC_EMMC50_CFG3_PREULTRA_SET_RD        (0x3F << 23)
-
-/* EMMC50_CFG4_mask */
-#define MSDC_EMMC50_CFG4_IMPR_ULTRA_SET_WR      (0xFF << 0)
-#define MSDC_EMMC50_CFG4_IMPR_ULTRA_SET_RD      (0xFF << 8)
-#define MSDC_EMMC50_CFG4_ULTRA_EN               (0x3  << 16)
-#define MSDC_EMMC50_CFG4_AXI_WRAP_DBG_SEL       (0x1F << 18)
-
-/* EMMC50_BLOCK_LENGTH mask */
-#define MSDC_EMMC50_BLOCK_LENGTH_MASK           (0x1FF << 0)
+#define PAD_CMD_TUNE_RX_DLY3	  (0x1f << 1)  /* RW */
 
 #define EMMC50_CFG_PADCMD_LATCHCK (0x1 << 0)   /* RW */
 #define EMMC50_CFG_CRCSTS_EDGE    (0x1 << 3)   /* RW */
 #define EMMC50_CFG_CFCSTS_SEL     (0x1 << 4)   /* RW */
 
-/* EMMC_TOP_CONTROL mask */
+#define EMMC50_CFG3_OUTS_WR       (0x1f << 0)  /* RW */
+
+#define SDC_FIFO_CFG_WRVALIDSEL   (0x1 << 24)  /* RW */
+#define SDC_FIFO_CFG_RDVALIDSEL   (0x1 << 25)  /* RW */
+
+/* SD_TOP_CONTROL mask */
 #define PAD_RXDLY_SEL           (0x1 << 0)      /* RW */
+#define DELAY_EN                (0x1 << 1)      /* RW */
 #define PAD_DAT_RD_RXDLY2       (0x1F << 2)     /* RW */
 #define PAD_DAT_RD_RXDLY        (0x1F << 7)     /* RW */
 #define PAD_DAT_RD_RXDLY2_SEL   (0x1 << 12)     /* RW */
 #define PAD_DAT_RD_RXDLY_SEL    (0x1 << 13)     /* RW */
 #define DATA_K_VALUE_SEL        (0x1 << 14)     /* RW */
+#define SDC_RX_ENH_EN           (0x1 << 15)     /* TW */
 
-/* EMMC_TOP_CMD mask */
+/* SD_TOP_CMD mask */
 #define PAD_CMD_RXDLY2          (0x1F << 0)     /* RW */
 #define PAD_CMD_RXDLY           (0x1F << 5)     /* RW */
 #define PAD_CMD_RD_RXDLY2_SEL   (0x1 << 10)     /* RW */
 #define PAD_CMD_RD_RXDLY_SEL    (0x1 << 11)     /* RW */
-
-/* TOP_EMMC50_PAD_CTL0 mask */
-#define MSDC_PAD_CLK_TXDLY           (0x1F << 10)    /* RW */
-
-/* TOP_EMMC50_PAD_DS_TUNE mask */
+#define PAD_CMD_TX_DLY          (0x1F << 12)    /* RW */
+/* TOP_SD50_PAD_CTL0 mask */
+#define MSDC_PAD_CLK_TXDLY      (0x1F << 10)    /* RW */
+/* TOP_SD50_PAD_DS_TUNE mask */
 #define PAD_DS_DLY3             (0x1F << 0)     /* RW */
 #define PAD_DS_DLY2             (0x1F << 5)     /* RW */
 #define PAD_DS_DLY1             (0x1F << 10)    /* RW */
 #define PAD_DS_DLY2_SEL         (0x1 << 15)     /* RW */
 #define PAD_DS_DLY_SEL          (0x1 << 16)     /* RW */
-
-#ifdef CONFIG_MMC_MTK_SDIO
-#define SUPPORT_LEGACY_SDIO
-#endif
-
-#ifdef SUPPORT_LEGACY_SDIO
-#define SDIO_USE_PORT0 0
-#define SDIO_USE_PORT1 1
-#define SDIO_USE_PORT2 2
-#define SDIO_USE_PORT3 3
-#define SDIO_USE_PORT SDIO_USE_PORT2
-
-typedef void (*sdio_irq_handler_t)(void *);  /* external irq handler */
-typedef void (*pm_callback_t)(pm_message_t state, void *data);
-
-struct sdio_ops {
-	void (*sdio_request_eirq)(sdio_irq_handler_t irq_handler, void *data);
-	void (*sdio_enable_eirq)(void);
-	void (*sdio_disable_eirq)(void);
-	void (*sdio_register_pm)(pm_callback_t pm_cb, void *data);
-};
-extern struct sdio_ops mt_sdio_ops[4];
-#endif
 
 #define REQ_CMD_EIO  (0x1 << 0)
 #define REQ_CMD_TMO  (0x1 << 1)
@@ -569,8 +427,10 @@ extern struct sdio_ops mt_sdio_ops[4];
 
 #define PAD_DELAY_MAX	32 /* PAD delay cells */
 
-#define AUTOK_RECOVERABLE_ERROR		-1
-#define AUTOK_NONE_RECOVERABLE_ERROR	-2
+/* SDIO3.0 PLUS mask */
+#define SDIO_CCCR_MTK_DDR208	0xF2
+#define SDIO_MTK_DDR208		0x3
+#define SDIO_MTK_DDR208_SUPPORT	0x2
 
 /*--------------------------------------------------------------------------*/
 /* Descriptor Structure                                                     */
@@ -581,6 +441,8 @@ struct mt_gpdma_desc {
 #define GPDMA_DESC_BDP		(0x1 << 1)
 #define GPDMA_DESC_CHECKSUM	(0xff << 8) /* bit8 ~ bit15 */
 #define GPDMA_DESC_INT		(0x1 << 16)
+#define GPDMA_DESC_NEXT_H4	(0xf << 24)
+#define GPDMA_DESC_PTR_H4	(0xf << 28)
 	u32 next;
 	u32 ptr;
 	u32 gpd_data_len;
@@ -597,6 +459,8 @@ struct mt_bdma_desc {
 #define BDMA_DESC_CHECKSUM	(0xff << 8) /* bit8 ~ bit15 */
 #define BDMA_DESC_BLKPAD	(0x1 << 17)
 #define BDMA_DESC_DWPAD		(0x1 << 18)
+#define BDMA_DESC_NEXT_H4	(0xf << 24)
+#define BDMA_DESC_PTR_H4	(0xf << 28)
 	u32 next;
 	u32 ptr;
 	u32 bd_data_len;
@@ -613,22 +477,42 @@ struct msdc_dma {
 
 struct msdc_save_para {
 	u32 msdc_cfg;
+	u32 msdc_inten;
 	u32 iocon;
 	u32 sdc_cfg;
-	u32 pad_tune0;
-	u32 pad_tune1;
+	u32 pad_tune;
 	u32 patch_bit0;
 	u32 patch_bit1;
 	u32 patch_bit2;
 	u32 pad_ds_tune;
+	u32 pad_cmd_tune;
 	u32 emmc50_cfg0;
-	u32 msdc_inten;
+	u32 emmc50_cfg3;
+	u32 sdc_fifo_cfg;
+	u32 sd_top_control;
+	u32 sd_top_cmd;
+};
+
+struct mtk_mmc_compatible {
+	u8 clk_div_bits;
+	bool hs400_tune; /* only used for MT8173 */
+	u32 pad_tune_reg;
+	bool async_fifo;
+	bool data_tune;
+	bool busy_check;
+	bool stop_clk_fix;
+	bool enhance_rx;
+	bool support_64g;
+	bool tune_resp_data_together;
+	bool v3_plus;
 };
 
 struct msdc_tune_para {
 	u32 iocon;
-	u32 pad_tune0;
-	u32 pad_tune1;
+	u32 pad_tune;
+	u32 pad_cmd_tune;
+	u32 sd_top_control;
+	u32 sd_top_cmd;
 };
 
 struct msdc_delay_phase {
@@ -637,76 +521,213 @@ struct msdc_delay_phase {
 	u8 final_phase;
 };
 
-struct mt81xx_sdio_compatible {
-	bool v3_plus;
-	bool top_reg;
-};
-
 struct msdc_host {
 	struct device *dev;
+	const struct mtk_mmc_compatible *dev_comp;
 	struct mmc_host *mmc;	/* mmc structure */
 	int cmd_rsp;
 
 	spinlock_t lock;
-	spinlock_t irqlock;
 	struct mmc_request *mrq;
 	struct mmc_command *cmd;
 	struct mmc_data *data;
 	int error;
 
 	void __iomem *base;		/* host base address */
-	void __iomem *base_top;		/* host top base address */
-	void __iomem *base_gpio;		/* host top base address */
-	void __iomem *infra_reset;      /* infra reset 0x10001030 */
+	void __iomem *top_base;		/* host top register base address */
 
 	struct msdc_dma dma;	/* dma channel */
 	u64 dma_mask;
 
 	u32 timeout_ns;		/* data timeout ns */
 	u32 timeout_clks;	/* data timeout clks */
-	u32 tune_latch_ck_cnt;
 
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_uhs;
+	struct pinctrl_state *pins_eint;
 	struct pinctrl_state *pins_dat1;
-	struct pinctrl_state *pins_dat1_eint;
 	struct delayed_work req_timeout;
 	int irq;		/* host interrupt */
-	int eint_irq;
-	int sdio_clk_cnt;
+	int eint_irq;	/* device interrupt */
 	int sdio_irq_cnt; /* irq enable cnt */
-	bool irq_thread_alive;
 
+	struct clk *ext_clk;	/* msdc0 AP clock */
+	struct clk *bus_clk;	/* msdc bus clock */
 	struct clk *src_clk;	/* msdc source clock */
-	struct clk *h_clk;      /* msdc bus_clk */
-	struct clk *src_clk_cg;
+	struct clk *h_clk;      /* msdc h_clk */
+	struct clk *src_clk_cg; /* msdc source clock control gate */
 	u32 mclk;		/* mmc subsystem clock frequency */
 	u32 src_clk_freq;	/* source clock frequency */
 	u32 sclk;		/* SD/MS bus clock frequency */
-	bool clock_on;
 	unsigned char timing;
 	bool vqmmc_enabled;
+	u32 latch_ck;
 	u32 hs400_ds_delay;
-	u32 module_reset_bit;
+	u32 hs200_cmd_int_delay; /* cmd internal delay for HS200/SDR104 */
+	u32 hs400_cmd_int_delay; /* cmd internal delay for HS400 */
+	bool hs400_cmd_resp_sel_rising;
+				 /* cmd response sample selection for HS400 */
 	bool hs400_mode;	/* current eMMC will run at hs400 mode */
+	bool is_ddr208;
 	struct msdc_save_para save_para; /* used when gate HCLK */
 	struct msdc_tune_para def_tune_para; /* default tune setting */
 	struct msdc_tune_para saved_tune_para; /* tune result of CMD21/CMD19 */
-	bool autok_done;
-	int autok_error;
-
-#ifdef SUPPORT_LEGACY_SDIO
-	bool cap_eirq;
-	int suspend;
-	/* external sdio irq operations */
-	void (*request_sdio_eirq)(sdio_irq_handler_t sdio_irq_handler,
-				  void *data);
-	void (*enable_sdio_eirq)(void);
-	void (*disable_sdio_eirq)(void);
-
-	/* power management callback for external module */
-	void (*register_pm)(pm_callback_t pm_cb, void *data);
+#ifdef CONFIG_PM_DEVFREQ
+	struct pm_qos_request pm_qos;
 #endif
-	const struct mt81xx_sdio_compatible *dev_comp;
+};
+
+static const struct mtk_mmc_compatible mt8135_compat = {
+	.clk_div_bits = 8,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE,
+	.async_fifo = false,
+	.data_tune = false,
+	.busy_check = false,
+	.stop_clk_fix = false,
+	.enhance_rx = false,
+	.support_64g = false,
+	.tune_resp_data_together = false,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt8173_compat = {
+	.clk_div_bits = 8,
+	.hs400_tune = true,
+	.pad_tune_reg = MSDC_PAD_TUNE,
+	.async_fifo = false,
+	.data_tune = false,
+	.busy_check = false,
+	.stop_clk_fix = false,
+	.enhance_rx = false,
+	.support_64g = false,
+	.tune_resp_data_together = false,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt8167_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.tune_resp_data_together = true,
+	.v3_plus = false,
+};
+
+static const struct mtk_mmc_compatible mt8168_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.tune_resp_data_together = true,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt2701_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = false,
+	.stop_clk_fix = false,
+	.enhance_rx = false,
+	.support_64g = false,
+	.tune_resp_data_together = false,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt2712_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.tune_resp_data_together = true,
+	.v3_plus = false,
+};
+
+static const struct mtk_mmc_compatible mt8695_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = false,
+	.tune_resp_data_together = true,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt8512_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = false,
+	.tune_resp_data_together = true,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt8518_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = false,
+	.tune_resp_data_together = true,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt7622_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = false,
+	.tune_resp_data_together = false,
+	.v3_plus = true,
+};
+
+static const struct mtk_mmc_compatible mt8183_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.tune_resp_data_together = true,
+	.v3_plus = true,
 };
