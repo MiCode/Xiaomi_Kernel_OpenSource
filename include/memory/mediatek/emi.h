@@ -114,6 +114,7 @@ int mtk_emimpu_postclear_register(void (*clear_func)
 int mtk_emimpu_md_handling_register(void (*md_handling_func)
 	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
 void mtk_clear_md_violation(void);
-
+int mtk_emimpu_register_callback(irqreturn_t (*debug_dump)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int len));
 #endif /* __EMI_H__ */
 
