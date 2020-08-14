@@ -7501,7 +7501,7 @@ static ssize_t mt6358_debugfs_write(struct file *f, const char __user *buf,
 	char *command = NULL;
 	char *str_begin = NULL;
 	char delim[] = " ,";
-	const struct command_function *cf;
+	const struct command_function *cf = NULL;
 
 	if (!count) {
 		dev_info(priv->dev, "%s(), count is 0, return directly\n",
@@ -7670,7 +7670,7 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 {
 	struct mt6358_priv *priv;
 #ifdef CONFIG_MTK_PMIC_WRAP
-	struct device_node *pwrap_node;
+	struct device_node *pwrap_node = NULL;
 #endif
 
 	priv = devm_kzalloc(&pdev->dev,

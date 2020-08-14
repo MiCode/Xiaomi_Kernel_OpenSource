@@ -240,7 +240,7 @@ static struct snd_soc_dai_driver mtk_dai_pcm_driver[] = {
 
 int mt6768_dai_pcm_register(struct mtk_base_afe *afe)
 {
-	struct mtk_base_afe_dai *dai;
+	struct mtk_base_afe_dai *dai = NULL;
 
 	dev_info(afe->dev, "%s()\n", __func__);
 
