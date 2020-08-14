@@ -1205,7 +1205,7 @@ static const struct mtk_eh_pin_pinmux mt6853_eh_pin_pinmux_list[] = {
 	{0xffff, 0}, /* indicate end of array */
 };
 
-static const char * const mt6873_pinctrl_register_base_names[] = {
+static const char * const mt6853_pinctrl_register_base_names[] = {
 	"gpio", "iocfg_rb", "iocfg_rm", "iocfg_bm", "iocfg_bl",
 	"iocfg_br", "iocfg_lm", "iocfg_rt", "iocfg_lt",
 };
