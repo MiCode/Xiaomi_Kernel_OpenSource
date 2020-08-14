@@ -226,7 +226,7 @@ struct mtk_panel_dsc_params *mtk_dsc_default_setting(void)
 
 	mtk_dp_get_dsc_capability(dsc_cap);
 	dsc_params.bp_enable = dsc_cap[6];
-	dsc_params.ver = dsc_cap[1];
+	//dsc_params.ver = dsc_cap[1];
 
 	return &dsc_params;
 }
