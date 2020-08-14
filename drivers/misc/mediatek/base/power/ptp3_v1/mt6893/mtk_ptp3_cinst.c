@@ -165,7 +165,7 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 				VX_DIDT_CONTROL_OFFSET, cinst_n);
 		str_len += snprintf(aee_log_buf + str_len,
 				(unsigned long long)cinst_mem_size - str_len,
-				"[CINST[CPU%d] ", cinst_n);
+				"[CINST][CPU%d] ", cinst_n);
 		str_len += snprintf(aee_log_buf + str_len,
 				(unsigned long long)cinst_mem_size - str_len,
 				"rg_ls_ctrl_en:0x%x, ", cinst_b.cinst_rg_ls_ctrl_en);
@@ -544,7 +544,7 @@ static int cinst_cfg_proc_show(struct seq_file *m, void *v)
 	unsigned int value;
 
 	value = cinst_smc_handle(CINST_GROUP_CFG, 0, CINST_CPU_START_ID);
-	seq_printf(m, "%x\n", value);
+	seq_printf(m, "%08x\n", value);
 
 	return 0;
 }
@@ -563,7 +563,7 @@ static int cinst_dump_proc_show(struct seq_file *m, void *v)
 			LS_DIDT_CONTROL_OFFSET, cinst_n);
 		value_b[2] = cinst_smc_handle(cinst_group,
 			VX_DIDT_CONTROL_OFFSET, cinst_n);
-		seq_printf(m, "[CINST[CPU%d] ", cinst_n);
+		seq_printf(m, "[CINST][CPU%d] ", cinst_n);
 		seq_printf(m, "rg_ls_ctrl_en:0x%x, ",
 			cinst_b.cinst_rg_ls_ctrl_en);
 		seq_printf(m, "rg_vx_ctrl_en:0x%x, ",
@@ -672,7 +672,7 @@ int cinst_probe(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32(node,
-		"cinst_doe_ls_enable", &cinst_doe_init);
+		"cinst_doe_enable", &cinst_doe_init);
 
 	if (!rc) {
 		cinst_msg(
@@ -712,7 +712,7 @@ int cinst_probe(struct platform_device *pdev)
 			cinst_doe_ls_credit);
 
 		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
-			cinst_smc_handle(CINST_GROUP_LS_PERIOD,
+			cinst_smc_handle(CINST_GROUP_LS_CREDIT,
 				cinst_doe_ls_credit, cinst_n);
 		}
 	}
@@ -758,7 +758,7 @@ int cinst_probe(struct platform_device *pdev)
 			cinst_doe_vx_credit);
 
 		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
-			cinst_smc_handle(CINST_GROUP_VX_PERIOD,
+			cinst_smc_handle(CINST_GROUP_VX_CREDIT,
 				cinst_doe_vx_credit, cinst_n);
 		}
 	}
@@ -773,7 +773,7 @@ int cinst_probe(struct platform_device *pdev)
 			cinst_doe_vx_period);
 
 		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
-			cinst_smc_handle(CINST_GROUP_LS_PERIOD,
+			cinst_smc_handle(CINST_GROUP_VX_PERIOD,
 				cinst_doe_vx_period, cinst_n);
 		}
 	}

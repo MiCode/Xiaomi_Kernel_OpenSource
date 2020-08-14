@@ -1010,7 +1010,7 @@ static int drcc_cfg_proc_show(struct seq_file *m, void *v)
 	const unsigned int drcc_group = DRCC_GROUP_CFG;
 
 	value = drcc_smc_handle(drcc_group, 0, 0);
-	seq_printf(m, "0x%x\n", value);
+	seq_printf(m, "%08x\n", value);
 
 	return 0;
 }
@@ -1037,7 +1037,7 @@ static int drcc_dump_proc_show(struct seq_file *m, void *v)
 					drcc_l.drcc_hwgatepct);
 				seq_printf(m, "drcc_verffilt:0x%x, ",
 					drcc_l.drcc_verffilt);
-				seq_printf(m, "drcc_autocalibdelay:0x%x\n ",
+				seq_printf(m, "drcc_autocalibdelay:0x%x\n",
 					drcc_l.drcc_autocalibdelay);
 		} else {
 			// DRFC_V101~V106
@@ -1084,7 +1084,7 @@ static int drcc_dump_proc_show(struct seq_file *m, void *v)
 				drcc_b.drcc_EventFreeze);
 			seq_printf(m, "EventCount0:0x%x, ",
 				drcc_b.drcc_EventCount0);
-			seq_printf(m, "EventCount1:0x%x,\n ",
+			seq_printf(m, "EventCount1:0x%x,\n",
 				drcc_b.drcc_EventCount1);
 		}
 	}
