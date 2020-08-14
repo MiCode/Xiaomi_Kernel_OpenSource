@@ -14,7 +14,12 @@
 #include "mtk_dp_debug.h"
 #include "mtk_dp.h"
 #include "mtk_dp_api.h"
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 
 static bool g_dptx_log;
 
