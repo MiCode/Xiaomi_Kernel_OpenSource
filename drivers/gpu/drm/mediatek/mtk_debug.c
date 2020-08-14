@@ -38,6 +38,7 @@
 #include "mtk_iommu_ext.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
+#include "mtk_drm_fbdev.h"
 #include "mtk_disp_aal.h"
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 #include "mtk_dp_debug.h"
@@ -1569,7 +1570,18 @@ static void process_dbg_opt(const char *opt)
 			mtk_dp_intf_dump(comp);
 		}
 #endif
+	} else if (strncmp(opt, "pan_disp_test:", 13) == 0) {
+		int frame_num, bpp, ret;
+
+		ret = sscanf(opt, "pan_disp_test:%d,%d\n", &frame_num, &bpp);
+		if (ret != 2) {
+			DDPMSG("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		pan_display_test(frame_num, bpp);
 	}
+
 }
 
 static void process_dbg_cmd(char *cmd)
