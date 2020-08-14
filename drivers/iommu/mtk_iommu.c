@@ -158,23 +158,6 @@ static LIST_HEAD(m4ulist);	/* List all the M4U HWs */
 
 #define for_each_m4u(data)	list_for_each_entry(data, &m4ulist, list)
 
-struct mtk_iommu_iova_region {
-	dma_addr_t		iova_base;
-	size_t			size;
-};
-
-static const struct mtk_iommu_iova_region single_domain[] = {
-	{.iova_base = 0, .size = SZ_4G},
-};
-
-static const struct mtk_iommu_iova_region mt6873_multi_dom[] = {
-	{ .iova_base = 0x0, .size = SZ_4G},	      /* disp : 0 ~ 4G */
-	{ .iova_base = SZ_4G, .size = SZ_4G},     /* vdec : 4G ~ 8G */
-	{ .iova_base = SZ_4G * 2, .size = SZ_4G}, /* CAM/MDP: 8G ~ 12G */
-	{ .iova_base = 0x240000000ULL, .size = 0x4000000}, /* CCU0 */
-	{ .iova_base = 0x244000000ULL, .size = 0x4000000}, /* CCU1 */
-};
-
 /*
  * There may be 1 or 2 M4U HWs, But we always expect they are in the same domain
  * for the performance.
@@ -321,11 +304,7 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 	for (i = 0; i < fwspec->num_ids; ++i) {
 		larbid = MTK_M4U_TO_LARB(fwspec->ids[i]);
 		portid = MTK_M4U_TO_PORT(fwspec->ids[i]);
-		domid = MTK_M4U_TO_DOM(fwspec->ids[i]);
-
 		larb_mmu = &data->larb_imu[larbid];
-		region = data->plat_data->iova_region + domid;
-		larb_mmu->bank[portid] = upper_32_bits(region->iova_base);
 
 		dev_dbg(dev, "%s iommu port: %d\n",
 			enable ? "enable" : "disable", portid);
@@ -340,14 +319,6 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom)
 {
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
-
-	/* Use the exist domain as there is one m4u pgtable here. */
-	if (data->m4u_dom) {
-		dom->iop = data->m4u_dom->iop;
-		dom->cfg = data->m4u_dom->cfg;
-		dom->domain.pgsize_bitmap = data->m4u_dom->cfg.pgsize_bitmap;
-		return 0;
-	}
 
 	dom->cfg = (struct io_pgtable_cfg) {
 		.quirks = IO_PGTABLE_QUIRK_ARM_NS |
@@ -389,10 +360,8 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned type)
 	if (mtk_iommu_domain_finalise(dom))
 		goto  put_dma_cookie;
 
-	region = data->plat_data->iova_region + data->cur_domid;
-	dom->domain.geometry.aperture_start = region->iova_base;
-	dom->domain.geometry.aperture_end = region->iova_base +
-						region->size - 1;
+	dom->domain.geometry.aperture_start = 0;
+	dom->domain.geometry.aperture_end = DMA_BIT_MASK(32);
 	dom->domain.geometry.force_aperture = true;
 
 	return &dom->domain;
@@ -560,31 +529,19 @@ static void mtk_iommu_release_device(struct device *dev)
 static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 {
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-	struct iommu_group *group;
-	int domid;
 
 	if (!data)
 		return ERR_PTR(-ENODEV);
 
-	domid = MTK_M4U_TO_DOM(fwspec->ids[0]);
-	if (domid >= data->plat_data->iova_region_cnt) {
-		dev_err(data->dev, "domain id(%d/%d) is error.\n",
-			domid, data->plat_data->iova_region_cnt);
-		return ERR_PTR(-EINVAL);
-	}
-
-	group = data->m4u_group[domid];
-	if (!group) {
-		group = iommu_group_alloc();
-		if (IS_ERR(group))
+	/* All the client devices are in the same m4u iommu-group */
+	if (!data->m4u_group) {
+		data->m4u_group = iommu_group_alloc();
+		if (IS_ERR(data->m4u_group))
 			dev_err(dev, "Failed to allocate M4U IOMMU group\n");
-		data->m4u_group[domid] = group;
 	} else {
-		iommu_group_ref_get(group);
+		iommu_group_ref_get(data->m4u_group);
 	}
-	data->cur_domid = domid;
-	return group;
+	return data->m4u_group;
 }
 
 static int mtk_iommu_of_xlate(struct device *dev, struct of_phandle_args *args)
@@ -609,43 +566,6 @@ static int mtk_iommu_of_xlate(struct device *dev, struct of_phandle_args *args)
 	return iommu_fwspec_add_ids(dev, args->args, 1);
 }
 
-static void mtk_iommu_get_resv_regions(struct device *dev,
-				       struct list_head *head)
-{
-	struct mtk_iommu_data *data = dev_iommu_priv_get(dev);
-	const struct mtk_iommu_iova_region *resv, *curdom;
-	struct iommu_resv_region *region;
-	int prot = IOMMU_WRITE | IOMMU_READ;
-	unsigned int i;
-
-	curdom = data->plat_data->iova_region + data->cur_domid;
-	for (i = 0; i < data->plat_data->iova_region_cnt; i++) {
-		resv = data->plat_data->iova_region + i;
-
-		if (resv->iova_base <= curdom->iova_base ||
-		    resv->iova_base + resv->size >=
-					curdom->iova_base + curdom->size)
-			continue;
-
-		/* Only reserve when the region is in the current domain */
-		region = iommu_alloc_resv_region(resv->iova_base, resv->size,
-						 prot, IOMMU_RESV_RESERVED);
-		if (!region)
-			return;
-
-		list_add_tail(&region->list, head);
-	}
-}
-
-static void mtk_iommu_put_resv_regions(struct device *dev,
-				       struct list_head *head)
-{
-	struct iommu_resv_region *entry, *next;
-
-	list_for_each_entry_safe(entry, next, head, list)
-		kfree(entry);
-}
-
 static const struct iommu_ops mtk_iommu_ops = {
 	.domain_alloc	= mtk_iommu_domain_alloc,
 	.domain_free	= mtk_iommu_domain_free,
@@ -660,8 +580,6 @@ static const struct iommu_ops mtk_iommu_ops = {
 	.release_device	= mtk_iommu_release_device,
 	.device_group	= mtk_iommu_device_group,
 	.of_xlate	= mtk_iommu_of_xlate,
-	.get_resv_regions = mtk_iommu_get_resv_regions,
-	.put_resv_regions = mtk_iommu_put_resv_regions,
 	.pgsize_bitmap	= SZ_4K | SZ_64K | SZ_1M | SZ_16M,
 };
 
@@ -939,8 +857,6 @@ static const struct mtk_iommu_plat_data mt2712_data = {
 	.flags        = HAS_4GB_MODE | HAS_BCLK | HAS_VLD_PA_RNG,
 	.inv_sel_reg  = REG_MMU_INV_SEL_GEN1,
 	.larbid_remap = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
-	.iova_region  = single_domain,
-	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct mtk_iommu_plat_data mt6779_data = {
@@ -950,17 +866,12 @@ static const struct mtk_iommu_plat_data mt6779_data = {
 	.larbid_remap  = {{0}, {1}, {2}, {3}, {5}, {7, 8}, {10}, {9}},
 };
 
-static const struct mtk_iommu_plat_data mt6873_data_mm = {
+static const struct mtk_iommu_plat_data mt6873_data = {
 	.m4u_plat = M4U_MT6873,
+	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN | HAS_BCLK,
+	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
 	.larbid_remap = {{0}, {1}, {4, 5}, {7}, {2}, {9, 11, 19, 20},
 			 {0, 14, 16}, {0, 13, 18, 17}},
-	.has_sub_comm = true,
-	.has_wr_len = true,
-	.has_misc_ctrl = true,
-	.has_bclk     = true,
-	.inv_sel_reg = REG_MMU_INV_SEL_GEN2,
-	.iova_region  = mt6873_multi_dom,
-	.iova_region_cnt = ARRAY_SIZE(mt6873_multi_dom),
 };
 
 static const struct mtk_iommu_plat_data mt8173_data = {
@@ -968,8 +879,6 @@ static const struct mtk_iommu_plat_data mt8173_data = {
 	.flags	      = HAS_4GB_MODE | HAS_BCLK | RESET_AXI,
 	.inv_sel_reg  = REG_MMU_INV_SEL_GEN1,
 	.larbid_remap = {{0}, {1}, {2}, {3}, {4}, {5}}, /* Linear mapping. */
-	.iova_region  = single_domain,
-	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct mtk_iommu_plat_data mt8183_data = {
@@ -977,14 +886,12 @@ static const struct mtk_iommu_plat_data mt8183_data = {
 	.flags        = RESET_AXI,
 	.inv_sel_reg  = REG_MMU_INV_SEL_GEN1,
 	.larbid_remap = {{0}, {4}, {5}, {6}, {7}, {2}, {3}, {1}},
-	.iova_region  = single_domain,
-	.iova_region_cnt = ARRAY_SIZE(single_domain),
 };
 
 static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-m4u", .data = &mt2712_data},
 	{ .compatible = "mediatek,mt6779-m4u", .data = &mt6779_data},
-	{ .compatible = "mediatek,mt6873-m4u", .data = &mt6873_data_mm},
+	{ .compatible = "mediatek,mt6873-m4u", .data = &mt6873_data},
 	{ .compatible = "mediatek,mt8173-m4u", .data = &mt8173_data},
 	{ .compatible = "mediatek,mt8183-m4u", .data = &mt8183_data},
 	{}
