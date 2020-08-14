@@ -647,11 +647,9 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->info.bSetFreeSync = false;
 	mtk_dp->info.bSetAudioMute = false;
 	mtk_dp->info.bSetVideoMute = false;
-	mtk_dp->info.uiAudioConfig = 0;
 	mtk_dp->info.uiVideoConfig = 0;
 	mtk_dp->info.DPTX_OUTBL.FrameRate = 60;
 	mtk_dp->bPowerOn = false;
-	mtk_dp->audio_enable = false;
 	mtk_dp->video_enable = false;
 	mtk_dp->dp_ready = false;
 	mtk_dp->has_dsc = false;
@@ -1714,6 +1712,9 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 			DPTXMSG("HPD_CON\n");
 		} else {
 			DPTXMSG("HPD_DISCON\n");
+			mdrv_DPTx_VideoMute(mtk_dp, true);
+			mdrv_DPTx_AudioMute(mtk_dp, true);
+
 			if (mtk_dp->bUsbPlug) {
 				mtk_dp_hotplug_uevent(0);
 				mtk_dp->bUsbPlug = false;
@@ -1851,35 +1852,35 @@ bool mdrv_DPTx_TrainingCheckSwingPre(struct mtk_dp *mtk_dp,
 	return true;
 }
 
-void mdrv_DPTx_Print_TrainingState(int dpTx_ID, u8 state)
+void mdrv_DPTx_Print_TrainingState(u8 state)
 {
 	switch (state) {
 	case DPTX_NTSTATE_STARTUP:
-		DPTXMSG("[DPTX%d] NTSTATE_STARTUP!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_STARTUP!\n");
 		break;
 	case DPTX_NTSTATE_CHECKCAP:
-		DPTXMSG("[DPTX%d] NTSTATE_CHECKCAP!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_CHECKCAP!\n");
 		break;
 	case DPTX_NTSTATE_CHECKEDID:
-		DPTXMSG("[DPTX%d] NTSTATE_CHECKEDID!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_CHECKEDID!\n");
 		break;
 	case DPTX_NTSTATE_TRAINING_PRE:
-		DPTXMSG("[DPTX%d] NTSTATE_TRAINING_PRE!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_TRAINING_PRE!\n");
 		break;
 	case DPTX_NTSTATE_TRAINING:
-		DPTXMSG("[DPTX%d] NTSTATE_TRAINING!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_TRAINING!\n");
 		break;
 	case DPTX_NTSTATE_CHECKTIMING:
-		DPTXMSG("[DPTX%d] NTSTATE_CHECKTIMING!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_CHECKTIMING!\n");
 		break;
 	case DPTX_NTSTATE_NORMAL:
-		DPTXMSG("[DPTX%d] NTSTATE_NORMAL!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_NORMAL!\n");
 		break;
 	case DPTX_NTSTATE_POWERSAVE:
-		DPTXMSG("[DPTX%d] NTSTATE_POWERSAVE!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_POWERSAVE!\n");
 		break;
 	case DPTX_NTSTATE_DPIDLE:
-		DPTXMSG("[DPTX%d] NTSTATE_DPIDLE!\n", dpTx_ID);
+		DPTXMSG("NTSTATE_DPIDLE!\n");
 		break;
 	}
 }
@@ -1991,7 +1992,7 @@ int mdrv_DPTx_TrainingFlow(struct mtk_dp *mtk_dp, u8 ubLaneRate, u8 ubLaneCount)
 			if (drm_dp_clock_recovery_ok(ubTempValue,
 				ubTargetLaneCount)) {
 				DPTXMSG("CR Training Success\n");
-				mtk_dp->cr_done = true;
+				mtk_dp->training_info.cr_done = true;
 				bPassTPS1 = true;
 				ubTrainRetryTimes = 0x0;
 				ubIterationCount = 0x1;
@@ -2065,14 +2066,14 @@ int mdrv_DPTx_TrainingFlow(struct mtk_dp *mtk_dp, u8 ubLaneRate, u8 ubLaneCount)
 
 			if (!drm_dp_clock_recovery_ok(ubTempValue,
 				ubTargetLaneCount)) {
-				mtk_dp->cr_done = false;
-				mtk_dp->eq_done = false;
+				mtk_dp->training_info.cr_done = false;
+				mtk_dp->training_info.eq_done = false;
 				break;
 			}
 
 			if (drm_dp_channel_eq_ok(ubTempValue,
 				ubTargetLaneCount)) {
-				mtk_dp->eq_done = true;
+				mtk_dp->training_info.eq_done = true;
 				bPassTPS2_3 = true;
 				DPTXMSG("EQ Training Success\n");
 				break;
@@ -2241,11 +2242,11 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 }
 
 unsigned int force_ch, force_fs, force_len;
-unsigned int mdrv_DPTx_GetAudioCapability(struct mtk_dp *mtk_dp)
+unsigned int mdrv_DPTx_getAudioCaps(struct mtk_dp *mtk_dp)
 {
 	struct cea_sad *sads;
 	int sad_count, i, j;
-	unsigned int config = 0;
+	unsigned int caps = 0;
 
 	if (mtk_dp->edid == NULL) {
 		DPTXERR("EDID not found!\n");
@@ -2261,23 +2262,22 @@ unsigned int mdrv_DPTx_GetAudioCapability(struct mtk_dp *mtk_dp)
 	for (i = 0; i < sad_count; i++) {
 		if (sads[i].format == 0x01)	{
 			for (j = 0; j < sads[i].channels; j++)
-				config |= ((1 << j) <<
+				caps |= ((1 << j) <<
 					DP_CAPABILITY_CHANNEL_SFT) &
 					(DP_CAPABILITY_CHANNEL_MASK <<
 					DP_CAPABILITY_CHANNEL_SFT);
-			config |= (sads[i].freq <<
-				DP_CAPABILITY_SAMPLERATE_SFT) &
+
+			caps |= (sads[i].freq << DP_CAPABILITY_SAMPLERATE_SFT) &
 				(DP_CAPABILITY_SAMPLERATE_MASK <<
 				DP_CAPABILITY_SAMPLERATE_SFT);
-			config |= (sads[i].byte2 <<
-				DP_CAPABILITY_BITWIDTH_SFT) &
+			caps |= (sads[i].byte2 << DP_CAPABILITY_BITWIDTH_SFT) &
 				(DP_CAPABILITY_BITWIDTH_MASK <<
 				DP_CAPABILITY_BITWIDTH_SFT);
 		}
 	}
 
-	DPTXFUNC("Config:0x%x", config);
-	return config;
+	DPTXMSG("audio caps:0x%x", caps);
+	return caps;
 }
 
 bool mdrv_DPTx_TrainingChangeMode(struct mtk_dp *mtk_dp)
@@ -2371,15 +2371,15 @@ int mdrv_DPTx_SetTrainingStart(struct mtk_dp *mtk_dp)
 	do {
 		DPTXMSG("LinkRate:0x%x, LaneCount:%x", ubLinkRate, ubLaneCount);
 
-		mtk_dp->cr_done = false;
-		mtk_dp->eq_done = false;
+		mtk_dp->training_info.cr_done = false;
+		mtk_dp->training_info.eq_done = false;
 
 		mdrv_DPTx_TrainingChangeMode(mtk_dp);
 		ret = mdrv_DPTx_TrainingFlow(mtk_dp, ubLinkRate, ubLaneCount);
 		if (ret == DPTX_PLUG_OUT || ret == DPTX_TRANING_STATE_CHANGE)
 			return ret;
 
-		if (!mtk_dp->cr_done) {
+		if (!mtk_dp->training_info.cr_done) {
 #if !ENABLE_DPTX_FIX_LRLC
 			switch (ubLinkRate) {
 			case DP_LINKRATE_RBR:
@@ -2405,7 +2405,7 @@ int mdrv_DPTx_SetTrainingStart(struct mtk_dp *mtk_dp)
 			};
 #endif
 			ubTrainTimeLimits--;
-		} else if (!mtk_dp->eq_done) {
+		} else if (!mtk_dp->training_info.eq_done) {
 #if !ENABLE_DPTX_FIX_LRLC
 			if (ubLaneCount == DP_LANECOUNT_4)
 				ubLaneCount = DP_LANECOUNT_2;
@@ -2436,8 +2436,7 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 		return ret;
 
 	if (mtk_dp->training_state_pre != mtk_dp->training_state) {
-		mdrv_DPTx_Print_TrainingState(mtk_dp->id,
-			mtk_dp->training_state);
+		mdrv_DPTx_Print_TrainingState(mtk_dp->training_state);
 
 		mtk_dp->training_state_pre = mtk_dp->training_state;
 	}
@@ -2487,12 +2486,8 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 				}
 			}
 
-			mtk_dp->info.uiAudioConfig
-				= mdrv_DPTx_GetAudioCapability(mtk_dp);
-			if (mtk_dp->info.uiAudioConfig == 0)
-				mtk_dp->info.bSetAudioMute = true;
-			else
-				mtk_dp->info.bSetAudioMute = false;
+			mtk_dp->info.audio_caps
+				= mdrv_DPTx_getAudioCaps(mtk_dp);
 		} else
 			DPTXMSG("Read EDID Fail!\n");
 
@@ -2506,7 +2501,8 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 	case DPTX_NTSTATE_TRAINING:
 		ret = mdrv_DPTx_SetTrainingStart(mtk_dp);
 		if (ret == DPTX_NOERR) {
-			mdrv_DPTx_OutPutMute(mtk_dp, true);
+			mdrv_DPTx_VideoMute(mtk_dp, true);
+			mdrv_DPTx_AudioMute(mtk_dp, true);
 			mtk_dp->training_state = DPTX_NTSTATE_CHECKTIMING;
 			mtk_dp->dp_ready = true;
 			mhal_DPTx_EnableFEC(mtk_dp, mtk_dp->has_fec);
@@ -2552,7 +2548,7 @@ int mdrv_DPTx_HDCP_Handle(struct mtk_dp *mtk_dp)
 		&& !mtk_dp->info.hdcp2_info.bEnable) {
 		if (mtk_dp->info.bAuthStatus == AUTH_FAIL) {
 			if (mtk_dp->video_enable)
-				mdrv_DPTx_OutPutMute(mtk_dp, true);
+				mdrv_DPTx_VideoMute(mtk_dp, true);
 
 			ret = DPTX_AUTH_FAIL;
 			return ret;
@@ -2568,16 +2564,16 @@ int mdrv_DPTx_HDCP_Handle(struct mtk_dp *mtk_dp)
 	switch (mtk_dp->info.bAuthStatus) {
 	case AUTH_INIT:
 		if (mtk_dp->video_enable)
-			mdrv_DPTx_OutPutMute(mtk_dp, true);
+			mdrv_DPTx_VideoMute(mtk_dp, true);
 		break;
 	case AUTH_ENCRYPT:
 		if (mtk_dp->video_enable)
-			mdrv_DPTx_OutPutMute(mtk_dp, false);
+			mdrv_DPTx_VideoMute(mtk_dp, false);
 		break;
 	case AUTH_FAIL:
 		ret = DPTX_AUTH_FAIL;
 		if (mtk_dp->video_enable)
-			mdrv_DPTx_OutPutMute(mtk_dp, true);
+			mdrv_DPTx_VideoMute(mtk_dp, true);
 		break;
 	default:
 		break;
@@ -2620,7 +2616,8 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 
 	switch (mtk_dp->state) {
 	case DPTXSTATE_INITIAL:
-		mdrv_DPTx_OutPutMute(mtk_dp, true);
+		mdrv_DPTx_VideoMute(mtk_dp, true);
+		mdrv_DPTx_AudioMute(mtk_dp, true);
 		mtk_dp->state = DPTXSTATE_IDLE;
 		break;
 
@@ -2664,12 +2661,18 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 			mdrv_DPTx_Video_Enable(mtk_dp, true);
 		}
 
+		if (mtk_dp->audio_enable && (mtk_dp->info.audio_caps != 0)) {
+			mdrv_DPTx_I2S_Audio_Config(mtk_dp);
+			mdrv_DPTx_I2S_Audio_Enable(mtk_dp, true);
+		}
+
 		mtk_dp->state = DPTXSTATE_NORMAL;
 		break;
 
 	case DPTXSTATE_NORMAL:
 		if (mtk_dp->training_state != DPTX_NTSTATE_NORMAL) {
-			mdrv_DPTx_OutPutMute(mtk_dp, true);
+			mdrv_DPTx_VideoMute(mtk_dp, true);
+			mdrv_DPTx_AudioMute(mtk_dp, true);
 			mdrv_DPTx_StopSentSDP(mtk_dp);
 			mtk_dp->state = DPTXSTATE_IDLE;
 			DPTXMSG("DPTX Link Status Change!\n");
@@ -2766,13 +2769,6 @@ void mdrv_DPTx_InitPort(struct mtk_dp *mtk_dp)
 	//mhal_DPTx_Set_Efuse_Value(mtk_dp);
 }
 
-void mdrv_DPTx_OutPutMute(struct mtk_dp *mtk_dp, bool bEnable)
-{
-	mdrv_DPTx_VideoMute(mtk_dp, bEnable);
-	mdrv_DPTx_AudioMute(mtk_dp, bEnable);
-	mhal_DPTx_VideoMuteSW(mtk_dp, bEnable);
-}
-
 void mdrv_DPTx_Video_Enable(struct mtk_dp *mtk_dp, bool bEnable)
 {
 	DPTXMSG("Output Video %s!\n", bEnable ? "enable" : "disable");
@@ -2780,10 +2776,10 @@ void mdrv_DPTx_Video_Enable(struct mtk_dp *mtk_dp, bool bEnable)
 	if (bEnable) {
 		mtk_dp->info.ubDPTXInPutTypeSel = DPTXInputSrc_DPINTF;
 		mdrv_DPTx_SetOutPutMode(mtk_dp);
-		mdrv_DPTx_OutPutMute(mtk_dp, false);
+		mdrv_DPTx_VideoMute(mtk_dp, false);
 		mhal_DPTx_Verify_Clock(mtk_dp);
 	} else {
-		mdrv_DPTx_OutPutMute(mtk_dp, true);
+		mdrv_DPTx_VideoMute(mtk_dp, true);
 	}
 }
 
@@ -2831,8 +2827,82 @@ void mdrv_DPTx_I2S_Audio_Set_MDiv(struct mtk_dp *mtk_dp, u8 ucDiv)
 	mhal_DPTx_Audio_M_Divider_Setting(mtk_dp, ucDiv);
 }
 
-void mdrv_DPTx_I2S_Audio_Config(struct mtk_dp *mtk_dp, u8 ucChannel, u8 ucFs)
+void mdrv_DPTx_I2S_Audio_Config(struct mtk_dp *mtk_dp)
 {
+	u8 ucChannel, ucFs, ucWordlength;
+	unsigned int tmp = mtk_dp->info.audio_config;
+
+	if (!mtk_dp->dp_ready) {
+		DPTXERR("%s, DP is not ready!\n", __func__);
+		return;
+	}
+
+	if (fakecablein) {
+		ucChannel = BIT(force_ch);
+		ucFs = BIT(force_fs);
+		ucWordlength = BIT(force_len);
+	} else {
+		ucChannel = (tmp >> DP_CAPABILITY_CHANNEL_SFT)
+			& DP_CAPABILITY_CHANNEL_MASK;
+		ucFs = (tmp >> DP_CAPABILITY_SAMPLERATE_SFT)
+			& DP_CAPABILITY_SAMPLERATE_MASK;
+		ucWordlength = (tmp >> DP_CAPABILITY_BITWIDTH_SFT)
+				& DP_CAPABILITY_BITWIDTH_MASK;
+	}
+
+	switch (ucChannel) {
+	case DP_CHANNEL_2:
+		ucChannel = 2;
+		break;
+	case DP_CHANNEL_8:
+		ucChannel = 8;
+		break;
+	default:
+		ucChannel = 2;
+		break;
+	}
+
+	switch (ucFs) {
+	case DP_SAMPLERATE_32:
+		ucFs = FS_32K;
+		break;
+	case DP_SAMPLERATE_44:
+		ucFs = FS_44K;
+		break;
+	case DP_SAMPLERATE_48:
+		ucFs = FS_48K;
+		break;
+	case DP_SAMPLERATE_96:
+		ucFs = FS_96K;
+		break;
+	case DP_SAMPLERATE_192:
+		ucFs = FS_192K;
+		break;
+	default:
+		ucFs = FS_48K;
+		break;
+	}
+
+	switch (ucWordlength) {
+	case DP_BITWIDTH_16:
+		ucWordlength = WL_16bit;
+		break;
+	case DP_BITWIDTH_20:
+		ucWordlength = WL_20bit;
+		break;
+	case DP_BITWIDTH_24:
+		ucWordlength = WL_24bit;
+		break;
+	default:
+		ucWordlength = WL_24bit;
+		break;
+	}
+
+	mdrv_DPTx_I2S_Audio_SDP_Channel_Setting(mtk_dp, ucChannel,
+		ucFs, ucWordlength);
+	mdrv_DPTx_I2S_Audio_Ch_Status_Set(mtk_dp, ucChannel,
+		ucFs, ucWordlength);
+
 	mhal_DPTx_Audio_PG_EN(mtk_dp, ucChannel, ucFs, false);
 	mdrv_DPTx_I2S_Audio_Set_MDiv(mtk_dp, 5);
 }
@@ -3300,7 +3370,7 @@ static int mtk_dp_notify_kthread(void *data)
 				DPTX_STATE_NO_DEVICE);
 		}
 
-		if (!g_mtk_dp->info.bSetAudioMute)
+		if (mtk_dp->info.audio_caps != 0)
 			extcon_set_state_sync(dptx_extcon, EXTCON_DISP_HDMI,
 				event > 0 ? true : false);
 	}
@@ -3332,17 +3402,15 @@ int mtk_drm_dp_get_dev_info(struct drm_device *dev, void *data,
 int mtk_drm_dp_audio_enable(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
-	unsigned int *audio_enable = data;
 	struct mtk_dp *mtk_dp = g_mtk_dp;
 
 	if (!mtk_dp->dp_ready) {
-		DPTXMSG("%s, DP is not ready!\n", __func__);
+		DPTXERR("%s, DP is not ready!\n", __func__);
 		return 0;
 	}
 
-	DPTXFUNC("audio_enable 0x%x\n", *audio_enable);
-
-	mdrv_DPTx_I2S_Audio_Enable(mtk_dp, (*audio_enable == 1));
+	mtk_dp->audio_enable = *(bool *)data;
+	mdrv_DPTx_I2S_Audio_Enable(mtk_dp, mtk_dp->audio_enable);
 
 	return 0;
 }
@@ -3350,81 +3418,17 @@ int mtk_drm_dp_audio_enable(struct drm_device *dev, void *data,
 int mtk_drm_dp_audio_config(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
-	unsigned int *audio_config = data;
 	struct mtk_dp *mtk_dp = g_mtk_dp;
-	u8 ucChannel = (*audio_config >> DP_CAPABILITY_CHANNEL_SFT) &
-		DP_CAPABILITY_CHANNEL_MASK;
-	u8 ucFs = (*audio_config >> DP_CAPABILITY_SAMPLERATE_SFT) &
-		DP_CAPABILITY_SAMPLERATE_MASK;
-	u8 ucWordlength = (*audio_config >> DP_CAPABILITY_BITWIDTH_SFT) &
-		DP_CAPABILITY_BITWIDTH_MASK;
 
 	if (!mtk_dp->dp_ready) {
-		DPTXFUNC("DP is not ready!\n");
+		DPTXERR("%s, DP is not ready!\n", __func__);
 		return 0;
 	}
 
-	DPTXFUNC("audio_config 0x%x\n", *audio_config);
+	mtk_dp->info.audio_config = *(unsigned int *)data;
+	DPTXMSG("audio_config 0x%x\n", mtk_dp->info.audio_config);
 
-	if (fakecablein) {
-		ucChannel = BIT(force_ch);
-		ucFs = BIT(force_fs);
-		ucWordlength = BIT(force_len);
-	}
-
-	switch (ucChannel) {
-	case DP_CHANNEL_2:
-		ucChannel = 2;
-		break;
-	case DP_CHANNEL_8:
-		ucChannel = 8;
-		break;
-	default:
-		ucChannel = 2;
-		break;
-	}
-
-	switch (ucFs) {
-	case DP_SAMPLERATE_32:
-		ucFs = FS_32K;
-		break;
-	case DP_SAMPLERATE_44:
-		ucFs = FS_44K;
-		break;
-	case DP_SAMPLERATE_48:
-		ucFs = FS_48K;
-		break;
-	case DP_SAMPLERATE_96:
-		ucFs = FS_96K;
-		break;
-	case DP_SAMPLERATE_192:
-		ucFs = FS_192K;
-		break;
-	default:
-		ucFs = FS_48K;
-		break;
-	}
-
-	switch (ucWordlength) {
-	case DP_BITWIDTH_16:
-		ucWordlength = WL_16bit;
-		break;
-	case DP_BITWIDTH_20:
-		ucWordlength = WL_20bit;
-		break;
-	case DP_BITWIDTH_24:
-		ucWordlength = WL_24bit;
-		break;
-	default:
-		ucWordlength = WL_24bit;
-		break;
-	}
-
-	mdrv_DPTx_I2S_Audio_SDP_Channel_Setting(mtk_dp, ucChannel,
-		ucFs, ucWordlength);
-	mdrv_DPTx_I2S_Audio_Ch_Status_Set(mtk_dp, ucChannel,
-		ucFs, ucWordlength);
-	mdrv_DPTx_I2S_Audio_Config(mtk_dp, ucChannel, ucFs);
+	mdrv_DPTx_I2S_Audio_Config(mtk_dp);
 
 	return 0;
 }
@@ -3447,14 +3451,15 @@ int mtk_drm_dp_get_cap(struct drm_device *dev, void *data,
 	}
 
 	if (g_mtk_dp->dp_ready)
-		*dp_cap = g_mtk_dp->info.uiAudioConfig;
+		*dp_cap = g_mtk_dp->info.audio_caps;
 
-	if (*dp_cap == 0)
+#if 0
+	if (*dp_cap == 0) //not support audio
 		*dp_cap = ((DP_CHANNEL_2 << DP_CAPABILITY_CHANNEL_SFT)
 			| (DP_SAMPLERATE_192 << DP_CAPABILITY_SAMPLERATE_SFT)
 			| (DP_BITWIDTH_24 << DP_CAPABILITY_BITWIDTH_SFT));
+#endif
 
-	DPTXFUNC("dp_cap 0x%x\n", *dp_cap);
 	return 0;
 
 }
@@ -4175,7 +4180,8 @@ static int mtk_drm_dp_remove(struct platform_device *pdev)
 	struct mtk_dp *mtk_dp = platform_get_drvdata(pdev);
 	int ret;
 
-	mdrv_DPTx_OutPutMute(mtk_dp, true);
+	mdrv_DPTx_VideoMute(mtk_dp, true);
+	mdrv_DPTx_AudioMute(mtk_dp, true);
 
 	drm_connector_cleanup(&mtk_dp->conn);
 

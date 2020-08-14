@@ -186,21 +186,18 @@ struct DPTX_TIMING_PARAMETER {
 };
 
 struct DPTX_TRAINING_INFO {
-	bool bCPReady : 1;
 	bool bSinkEXTCAP_En : 1;
 	bool bTPS3 : 1;
 	bool bTPS4 : 1;
 	bool bSinkSSC_En : 1;
 	bool bDPTxAutoTest_EN : 1;
-	bool bSinkCountCheck : 1;
-
-	bool bCablePlugIn;
-	bool bCableStateChange;
-	bool bDPMstCAP;
-	bool bDPMstBranch;
-	bool bDWN_STRM_PORT_PRESENT;
-	bool bHDCPReapter;
-	bool bHDCPCap;
+	bool bCablePlugIn : 1;
+	bool bCableStateChange : 1;
+	bool bDPMstCAP : 1;
+	bool bDPMstBranch : 1;
+	bool bDWN_STRM_PORT_PRESENT : 1;
+	bool cr_done : 1;
+	bool eq_done : 1;
 
 	BYTE ubDPSysVersion;
 	BYTE ubSysMaxLinkRate;
@@ -213,15 +210,12 @@ struct DPTX_TRAINING_INFO {
 };
 
 struct DPTX_INFO {
-	bool bSinkSSC_En : 1;
 	int  ubDPTXInPutTypeSel;
 	union MISC_T DPTX_MISC;
 	BYTE ubDPTXColorDepthSel;
 	BYTE ubDPTXColorFormatSel;
-
-	bool bUseTopTimingTBL : 1;
-	bool bFixFrameRate : 1;
-	bool bSetFreeSync : 1;
+	unsigned int audio_caps;
+	unsigned int audio_config;
 	struct DPTX_TIMING_PARAMETER DPTX_OUTBL;
 	BYTE ubDPTX_PatternIdx;
 	DWORD DPTX_VPLLx_M;
@@ -229,18 +223,18 @@ struct DPTX_INFO {
 	DWORD DPTX_Video_M;
 	DWORD DPTX_Video_N;
 
+	bool bUseTopTimingTBL : 1;
+	bool bFixFrameRate : 1;
+	bool bSetFreeSync : 1;
+	bool bSinkSSC_En : 1;
 	bool bSetAudioMute : 1;
 	bool bSetVideoMute : 1;
 	bool bAudioMute : 1;
 	bool bVideoMute : 1;
+	bool bForceHDCP1x : 1;
 
 	unsigned int uiVideoConfig;
-	unsigned int uiAudioConfig;
 
-	BYTE ubEDIDBlockIdx;
-	BYTE DPTX_EDID[EDID_SIZE];
-
-	bool bForceHDCP1x;
 #ifdef DPTX_HDCP_ENABLE
 	BYTE bAuthStatus;
 	struct HDCP1X_INFO hdcp1x_info;
@@ -290,8 +284,6 @@ struct mtk_dp {
 	bool has_dsc;
 	bool has_fec;
 	bool dsc_enable;
-	bool cr_done;
-	bool eq_done;
 	struct mtk_drm_private *priv;
 };
 
