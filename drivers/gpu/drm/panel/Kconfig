@@ -581,3 +581,14 @@ config DRM_PANEL_SC_NT36672C_VDO_60HZ
 	  vdo mode Full HD Plus 60HZ panel. The panel has a 1080x2400
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
+
+config DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD
+	tristate "samsung s68fc01 fhdp vdo aod panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for samsung s68fc01
+	  fhdp vdo aod panel. The panel has a 1080x2340 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
