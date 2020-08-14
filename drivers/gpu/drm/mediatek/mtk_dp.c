@@ -657,7 +657,6 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 	mtk_dp->has_dsc = false;
 	mtk_dp->has_fec = false;
 	mtk_dp->dsc_enable = false;
-	mtk_dp->fec_enable = false;
 
 	mdrv_DPTx_CheckMaxLinkRate(mtk_dp);
 }
@@ -1732,7 +1731,8 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 
 			mdrv_DPTx_InitVariable(mtk_dp);
 			mhal_DPTx_PHY_SetIdlePattern(mtk_dp, true);
-			mdrv_DPTx_FEC_ENABLE(mtk_dp, false);
+			if (mtk_dp->has_fec)
+				mhal_DPTx_EnableFEC(mtk_dp, false);
 			mdrv_DPTx_StopSentSDP(mtk_dp);
 			mhal_DPTx_AnalogPowerOnOff(mtk_dp, false);
 
@@ -2149,13 +2149,13 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_00000, bTempBuffer, 0x10);
 
-	mtk_dp->training_info.ubDPCD_REV = bTempBuffer[0x0];
-	DPTXMSG("SINK DPCD version:0x%x\n", mtk_dp->training_info.ubDPCD_REV);
-
 	mtk_dp->training_info.bSinkEXTCAP_En = (bTempBuffer[0x0E]&BIT7) ?
 		true : false;
 	if (mtk_dp->training_info.bSinkEXTCAP_En)
 		drm_dp_dpcd_read(&mtk_dp->aux, DPCD_02200, bTempBuffer, 0x10);
+
+	mtk_dp->training_info.ubDPCD_REV = bTempBuffer[0x0];
+	DPTXMSG("SINK DPCD version:0x%x\n", mtk_dp->training_info.ubDPCD_REV);
 
 	memcpy(mtk_dp->rx_cap, bTempBuffer, 0x10);
 	mtk_dp->rx_cap[0xe] &= 0x7F;
@@ -2164,6 +2164,9 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 		mdrv_DPTx_FEC_Ready(mtk_dp, FEC_BIT_ERROR_COUNT);
 		mdrv_DPTx_DSC_Support(mtk_dp);
 	}
+
+	if (!mtk_dp->has_dsc || !mtk_dp->has_fec)
+		mtk_dp_enable_4k60(false);
 
 #if !ENABLE_DPTX_FIX_LRLC
 	mtk_dp->training_info.ubLinkRate =
@@ -2506,6 +2509,7 @@ int mdrv_DPTx_Training_Handler(struct mtk_dp *mtk_dp)
 			mdrv_DPTx_OutPutMute(mtk_dp, true);
 			mtk_dp->training_state = DPTX_NTSTATE_CHECKTIMING;
 			mtk_dp->dp_ready = true;
+			mhal_DPTx_EnableFEC(mtk_dp, mtk_dp->has_fec);
 		} else if (ret != DPTX_TRANING_STATE_CHANGE)
 			mtk_dp->training_state = DPTX_NTSTATE_DPIDLE;
 
@@ -2912,6 +2916,7 @@ void mdrv_DPTx_DSC_SetPPS(struct mtk_dp *mtk_dp, u8 *PPS, bool enable)
 
 void mdrv_DPTx_DSC_Support(struct mtk_dp *mtk_dp)
 {
+#if DPTX_SUPPORT_DSC
 	u8 Data[3];
 
 	drm_dp_dpcd_read(&mtk_dp->aux, 0x60, Data, 1);
@@ -2919,11 +2924,9 @@ void mdrv_DPTx_DSC_Support(struct mtk_dp *mtk_dp)
 		mtk_dp->has_dsc = true;
 	else
 		mtk_dp->has_dsc = false;
-}
 
-void mdrv_DPTx_DSC_ENABLE(struct mtk_dp *mtk_dp, bool bENABLE)
-{
-	mhal_DPTx_EnableDSC(mtk_dp, bENABLE);
+	DPTXMSG("DSC enable = %d\n", mtk_dp->has_dsc);
+#endif
 }
 
 void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
@@ -2931,7 +2934,7 @@ void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
 	u8 i, Data[3];
 
 	drm_dp_dpcd_read(&mtk_dp->aux, 0x90, Data, 0x1);
-	DPTXMSG("FEC Capable[0], [0:3] should be 1: 0x%x \t", Data[0]);
+	DPTXMSG("FEC Capable[0], [0:3] should be 1: 0x%x\n", Data[0]);
 
 	/* FEC error count select 120[3:1]:         *
 	 * 000b: FEC_ERROR_COUNT_DIS                *
@@ -2950,13 +2953,6 @@ void mdrv_DPTx_FEC_Ready(struct mtk_dp *mtk_dp, u8 err_cnt_sel)
 			DPTXMSG("FEC status & error Count: 0x%x\n", Data[i]);
 	}
 }
-
-void mdrv_DPTx_FEC_ENABLE(struct mtk_dp *mtk_dp, bool bENABLE)
-{
-	mtk_dp->fec_enable = bENABLE;
-	mhal_DPTx_EnableFEC(mtk_dp, bENABLE);
-}
-
 
 void mapi_DPTx_Set_MISC(struct mtk_dp *mtk_dp, u8 format, u8 depth)
 {
@@ -3038,7 +3034,6 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config)
 	u8 color_format;
 	u8 video_timing;
 	u32 mvid = 0;
-	u8 Data[1];
 
 	if (!mtk_dp->dp_ready) {
 		DPTXERR("%s, DP is not ready!\n", __func__);
@@ -3156,6 +3151,8 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config)
 	}
 
 	if (mtk_dp->has_dsc) {
+		uint8_t Data[1];
+
 		Data[0] = (u8) mtk_dp->dsc_enable;
 		drm_dp_dpcd_write(&mtk_dp->aux, 0x160, Data, 0x1);
 	}
@@ -3176,18 +3173,16 @@ void mtk_dp_video_config(struct mtk_dp *mtk_dp, unsigned int config)
 		mdrv_DPTx_Set_Color_Format(mtk_dp, color_format);
 	} else {
 		mtk_dp_dsc_pps_send(PPS_4k60);
-		mtk_dp_dsc_enable(mtk_dp, true);
+		mhal_DPTx_EnableDSC(mtk_dp, true);
 	}
-
-	mdrv_DPTx_FEC_ENABLE(mtk_dp, mtk_dp->has_fec);
 }
 
 void mtk_dp_fec_enable(unsigned int status)
 {
 	if (status)
-		mdrv_DPTx_FEC_ENABLE(g_mtk_dp, true);
+		mhal_DPTx_EnableFEC(g_mtk_dp, true);
 	else
-		mdrv_DPTx_FEC_ENABLE(g_mtk_dp, false);
+		mhal_DPTx_EnableFEC(g_mtk_dp, false);
 }
 
 void mtk_dp_power_save(unsigned int status)
@@ -3510,21 +3505,6 @@ void mtk_dp_dsc_pps_send(u8 *PPS_128)
 	mdrv_DPTx_DSC_SetParam(g_mtk_dp, pic_width/slice_width, chunk_size);
 }
 
-void mtk_dp_dsc_enable(struct mtk_dp *mtk_dp, bool enable)
-{
-	DPTXMSG("%s enable = %d\n", __func__, enable);
-	if (!mtk_dp->dp_ready)
-		DPTXERR("%s, DP is not ready for DSC enable!\n");
-
-	if (enable) {
-		mdrv_DPTx_FEC_ENABLE(mtk_dp, enable);
-		mdrv_DPTx_DSC_ENABLE(mtk_dp, enable);
-	} else {
-		mdrv_DPTx_DSC_ENABLE(mtk_dp, enable);
-		mdrv_DPTx_FEC_ENABLE(mtk_dp, enable);
-	}
-}
-
 struct edid *mtk_dp_handle_edid(struct mtk_dp *mtk_dp)
 {
 	struct drm_connector *connector = &mtk_dp->conn;
@@ -3668,7 +3648,7 @@ struct drm_display_limit_mode {
 };
 
 static struct drm_display_limit_mode dp_plat_limit[] = {
-	{3840, 2160, 60, 594000, 0},
+	{3840, 2160, 60, 594000, 1},
 	{3840, 2160, 30, 297000, 1},
 	{1080, 2460, 60, 174110, 1},
 	{1920, 1200, 60, 152128, 1},
@@ -3679,12 +3659,16 @@ static struct drm_display_limit_mode dp_plat_limit[] = {
 
 void mtk_dp_enable_4k60(int enable)
 {
+#if DPTX_SUPPORT_DSC
 	if (enable > 0)
 		dp_plat_limit[0].valid = 1;
 	else
 		dp_plat_limit[0].valid = 0;
+#else
+	dp_plat_limit[0].valid = 0;
+#endif
 
-	DPTXMSG("%s %d\n", __func__, enable);
+	DPTXFUNC("enable = %d\n", dp_plat_limit[0].valid);
 }
 
 static int mtk_dp_conn_mode_valid(struct drm_connector *conn,

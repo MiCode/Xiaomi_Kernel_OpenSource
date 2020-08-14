@@ -50,6 +50,7 @@
 #define ENABLE_DPTX_SSC_OUTPUT		1
 #define ENABLE_DPTX_FIX_TPS2		0
 #define AUX_WRITE_READ_WAIT_TIME        20 //us
+#define DPTX_SUPPORT_DSC                1
 
 #define DPTX_AutoTest_ENABLE		0x1
 #if DPTX_AutoTest_ENABLE
@@ -289,7 +290,6 @@ struct mtk_dp {
 	bool has_dsc;
 	bool has_fec;
 	bool dsc_enable;
-	bool fec_enable;
 	bool cr_done;
 	bool eq_done;
 	struct mtk_drm_private *priv;

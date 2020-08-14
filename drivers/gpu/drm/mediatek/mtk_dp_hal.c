@@ -1440,7 +1440,7 @@ void mhal_DPTx_ISR(struct mtk_dp *mtk_dp)
 
 void mhal_DPTx_EnableFEC(struct mtk_dp *mtk_dp, bool bENABLE)
 {
-	DPTXFUNC();
+	DPTXFUNC("enable = %d\n", bENABLE);
 	if (bENABLE)
 		msWriteByteMask(mtk_dp,
 			REG_3540_DP_TRANS_P0, BIT0, BIT0); // [0] : FEC Enable
