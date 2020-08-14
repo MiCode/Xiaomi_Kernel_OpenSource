@@ -4160,18 +4160,18 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, false);
 
-	/* 4. disable vblank */
-	drm_crtc_vblank_off(crtc);
-
-	/* 5. stop CRTC */
+	/* 4. stop CRTC */
 	mtk_crtc_stop(mtk_crtc, need_wait);
 	CRTC_MMP_MARK(crtc_id, disable, 1, 1);
 
-	/* 6. disconnect addon module and recover config */
+	/* 5. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
 
-	/* 7. disconnect path */
+	/* 6. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
+
+	/* 7. disable vblank */
+	drm_crtc_vblank_off(crtc);
 
 	/* 8. power off cmdq client */
 	if (crtc_id == 2) {
@@ -4239,11 +4239,10 @@ static void mtk_drm_crtc_release_fence(struct drm_crtc *crtc)
 					MTK_TIMELINE_OUTPUT_TIMELINE_ID);
 	}
 
-	/* if primary display, release present fence */
-	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY) {
-		DDPMSG("CRTC%u release present fence\n", id);
-		mtk_drm_suspend_release_present_fence(crtc->dev->dev);
-	}
+	/* release present fence */
+	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY ||
+			MTK_SESSION_TYPE(session_id) == MTK_SESSION_EXTERNAL)
+		mtk_drm_suspend_release_present_fence(crtc->dev->dev, id);
 }
 #endif
 
