@@ -236,7 +236,7 @@ static void get_picachu_efuse(void)
 	val = (int *)&eem_devinfo;
 
 	picachu_mem_size = 0x80000;
-	picachu_mem_base_phys = eem_read(EEM_TEMPSPARE0);
+	picachu_mem_base_phys = eem_read(EEMSPARE0);
 	if ((void __iomem *)picachu_mem_base_phys != NULL)
 		picachu_mem_base_virt =
 			(phys_addr_t)(uintptr_t)ioremap_wc(

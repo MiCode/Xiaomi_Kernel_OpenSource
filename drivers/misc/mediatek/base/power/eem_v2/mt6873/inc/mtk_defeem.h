@@ -19,7 +19,7 @@
 
 extern void __iomem *eem_base;
 #define EEM_BASEADDR eem_base
-#define EEM_TEMPSPARE0		(EEM_BASEADDR + 0x8F0)
+#define EEM_TEMPSPARE0		(EEM_BASEADDR + 0xF20)
 
 #define EEMSN_CSRAM_BASE	0x0011BC00  /* EB View:0x0011BC00 */
 #define OFFS_SN_VOLT_S_4B	(EEMSN_CSRAM_BASE + 0x0250) /* 148 */
