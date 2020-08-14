@@ -210,13 +210,18 @@ int ged_bridge_query_dvfs_freq_pred(
 	struct GED_BRIDGE_IN_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredIn,
 	struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredOut)
 {
-	// int pid = in->pid;
-	// int hint = in->hint;
-	QueryDVFSFreqPredOut->eError = ged_kpi_query_dvfs_freq_pred(
-		&QueryDVFSFreqPredOut->gpu_freq_cur,
-		&QueryDVFSFreqPredOut->gpu_freq_max,
-		&QueryDVFSFreqPredOut->gpu_freq_dvfs_pred);
-
+	/* GiFT hint status to GED */
+	if (QueryDVFSFreqPredIn->hint) {
+		QueryDVFSFreqPredOut->eError =
+			ged_kpi_set_gift_status(QueryDVFSFreqPredIn->hint);
+	}
+	/* GiFT query gpu_freq info from GED */
+	else {
+		QueryDVFSFreqPredOut->eError = ged_kpi_query_dvfs_freq_pred(
+			&QueryDVFSFreqPredOut->gpu_freq_cur,
+			&QueryDVFSFreqPredOut->gpu_freq_max,
+			&QueryDVFSFreqPredOut->gpu_freq_dvfs_pred);
+	}
 	return 0;
 }
 //-----------------------------------------------------------------------------

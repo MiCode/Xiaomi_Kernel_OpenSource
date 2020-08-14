@@ -232,6 +232,7 @@ struct GED_KPI_MEOW_DVFS_FREQ_PRED {
 	int gpu_freq_cur;
 	int gpu_freq_max;
 	int gpu_freq_pred;
+	int is_GIFT_on;
 };
 static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psMEOW;
 
@@ -813,7 +814,7 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 #endif /* GED_ENABLE_DVFS_LOADING_MODE */
 	/* statistics */
 	ged_log_buf_print(ghLogBuf_KPI,
-		"%d,%llu,%lu,%lu,%lu,%llu,%llu,%llu,%llu,%llu,%llu,%lu,%d,%d,%lld,%d,%lld,%lld,%lu,%lu,%lu,%d,%lu,%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d",
+		"%d,%llu,%lu,%lu,%lu,%llu,%llu,%llu,%llu,%llu,%llu,%lu,%d,%d,%lld,%d,%lld,%d,%lu,%lu,%lu,%d,%lu,%lu,%lu,%u,%u,%u,%d,%d,%d,%d,%d,%d",
 		psHead->pid,
 		psHead->ullWnd,
 		psKPI->i32QueueID,
@@ -831,7 +832,7 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 		psKPI->t_gpu,
 		psKPI->gpu_done_interval,
 		vsync_period,
-		psKPI->QedBufferDelay,
+		g_psMEOW->is_GIFT_on,
 #ifdef GED_ENABLE_FB_DVFS
 		psKPI->cpu_gpu_info.gpu.gpu_dvfs,
 		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
@@ -853,6 +854,8 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 #else
 		0, 0, 0, 0, 0, 0
 #endif/* MTK_CPUFREQ */
+#else
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #endif/* GED_ENABLE_FB_DVFS */
 		);
 }
@@ -1681,6 +1684,13 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					"gpu_3d_loading",
 					util_ex.util_3d, psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
+
+					/* hint GiFT on/off status to EAT */
+					ged_log_perf_trace_counter(
+					"is_gift_on", g_psMEOW->is_GIFT_on,
+					psTimeStamp->pid,
+					psTimeStamp->i32FrameID, ulID);
+
 #endif /* GED_ENABLE_DVFS_LOADING_MODE */
 					time_spent =
 					(int)(cur_3D_done - last_3D_done)
@@ -2627,4 +2637,18 @@ GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
 #endif /* MTK_GED_KPI */
 }
 EXPORT_SYMBOL(ged_kpi_query_dvfs_freq_pred);
+
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_set_gift_status(int mode)
+{
+#ifdef MTK_GED_KPI
+	if (mode == 1)
+		g_psMEOW->is_GIFT_on = 1;
+	else
+		g_psMEOW->is_GIFT_on = 0;
+	return GED_OK;
+#endif /* MTK_GED_KPI */
+	return GED_OK;
+}
+EXPORT_SYMBOL(ged_kpi_set_gift_status);
 /* ------------------------------------------------------------------- */

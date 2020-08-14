@@ -65,6 +65,7 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 #endif
 GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
 	, int *gpu_freq_max, int *gpu_freq_pred);
+GED_ERROR ged_kpi_set_gift_status(int mode);
 
 extern int linear_real_boost(int linear_boost);
 #ifdef GED_KPI_CPU_INFO
