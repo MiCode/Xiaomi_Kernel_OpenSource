@@ -69,5 +69,10 @@ obj-y += mtk_cm_mgr.o
 else
 obj-y += mtk_cm_mgr_mt8168.o
 endif
+
+ifeq ($(CONFIG_MACH_MT6893),y)
+obj-y += mt6893/
+else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
 
