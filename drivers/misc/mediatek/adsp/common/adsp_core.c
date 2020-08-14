@@ -69,6 +69,24 @@ bool is_adsp_system_running(void)
 	return false;
 }
 
+void __iomem *adsp_get_sharedmem_base(struct adsp_priv *pdata, int id)
+{
+	void __iomem *dst = NULL;
+	const struct sharedmem_info *item;
+
+	if (unlikely(id >= ADSP_SHAREDMEM_NUM))
+		return NULL;
+
+	item = pdata->mapping_table + id;
+	if (item->offset)
+		dst = pdata->dtcm + pdata->dtcm_size - item->offset;
+
+	if (unlikely(!dst))
+		return NULL;
+
+	return dst;
+}
+
 int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 			   int count)
 {
@@ -136,8 +154,10 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait,
 			unsigned int core_id)
 {
-	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
+#if (MTK_ADSP_HW_VER == 1)
 	struct mtk_ipi_msg msg;
+#endif
+	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
 
 	if (get_adsp_state(pdata) != ADSP_RUNNING) {
 		pr_notice("%s, adsp not enabled, id=%d", __func__, id);
@@ -148,7 +168,7 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 		pr_info("%s(), %s buffer error", __func__, "adsp");
 		return ADSP_IPI_ERROR;
 	}
-
+#if (MTK_ADSP_HW_VER == 1)
 	msg.ipihd.id = id;
 	msg.ipihd.len = len;
 	msg.ipihd.options = 0xffff0000;
@@ -156,6 +176,9 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 	msg.data = buf;
 
 	return adsp_mbox_send(pdata->send_mbox, &msg, wait);
+#else
+	return adsp_ipi_send_ipc(id, buf, len, wait, core_id);
+#endif
 }
 
 static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
@@ -177,13 +200,15 @@ int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler, void *data)
 
 	if (unlikely(!pdata))
 		return -EACCES;
+	if (irq_id >= ADSP_IRQ_NUM)
+		return -EINVAL;
 
 	pdata->irq[irq_id].cid = core_id;
 	pdata->irq[irq_id].irq_cb = handler;
 	pdata->irq[irq_id].data = data;
 	ret = request_irq(pdata->irq[irq_id].seq,
 			  (irq_handler_t)adsp_irq_dispatcher,
-			  IRQF_TRIGGER_HIGH,
+			  IRQF_TRIGGER_NONE,
 			  pdata->name,
 			  &pdata->irq[irq_id]);
 	return ret;
@@ -347,7 +372,6 @@ static int __init adsp_init(void)
 
 	adsp_platform_init();
 
-	//register_syscore_ops(&adsp_syscore_ops);
 	adsp_ipi_registration(ADSP_IPI_ADSP_A_READY,
 			      adsp_ready_ipi_handler,
 			      "adsp_ready");
@@ -390,7 +414,6 @@ static int __init adsp_module_init(void)
 		adsp_mt_run(cid);
 
 		ret = wait_for_completion_timeout(&pdata->done, HZ);
-
 		if (unlikely(ret == 0)) {
 			pr_warn("%s, core %d boot_up timeout\n", __func__, cid);
 			ret = -ETIME;

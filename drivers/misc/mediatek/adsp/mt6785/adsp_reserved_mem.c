@@ -1,88 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2011-2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 as published by the
- * Free Software Foundation.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program.
- * If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #include <linux/io.h>
-#include "adsp_reserved_mem.h"
-#include "adsp_helper.h"
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #endif
+#include "adsp_reserved_mem.h"
+#include "adsp_feature_define.h"
+#include "adsp_platform.h"
+#include "adsp_core.h"
 
-#define ADSP_RESERVE_MEMORY_BLOCK(xsize) {.phys_addr = 0x0, .virt_addr = NULL, \
-					  .size = xsize}
+#if ADSP_EMI_PROTECTION_ENABLE
+#include <mt_emi_api.h>
+#endif
+
+#define ADSP_RESERVE_MEMORY_BLOCK(xname) \
+		{.phys_addr = 0x0, .virt_addr = NULL, \
+		 .size = 0, .name = xname}
 
 static struct adsp_reserve_mblock adsp_reserve_mem = {0};
 
 static struct adsp_reserve_mblock adsp_reserve_mblocks[] = {
-#ifdef FPGA_EARLY_DEVELOPMENT
-	[ADSP_A_SYSTEM_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x40000),
-	[ADSP_A_IPI_MEM_ID]         = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_DEBUG_DUMP_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_CORE_DUMP_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x400),
-#else
-	[ADSP_A_SYSTEM_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x700000),
-	[ADSP_A_IPI_MEM_ID]         = ADSP_RESERVE_MEMORY_BLOCK(0x500000),
-	[ADSP_A_LOGGER_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x200000),
-	[ADSP_A_TRAX_MEM_ID]        = ADSP_RESERVE_MEMORY_BLOCK(0x1000),
-	[ADSP_SPK_PROTECT_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x20000),
-	[ADSP_VOIP_MEM_ID]          = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_A2DP_PLAYBACK_MEM_ID] = ADSP_RESERVE_MEMORY_BLOCK(0x40000),
-	[ADSP_OFFLOAD_MEM_ID]       = ADSP_RESERVE_MEMORY_BLOCK(0x400000),
-	[ADSP_EFFECT_MEM_ID]        = ADSP_RESERVE_MEMORY_BLOCK(0x60000),
-	[ADSP_VOICE_CALL_MEM_ID]    = ADSP_RESERVE_MEMORY_BLOCK(0x60000),
-	[ADSP_AFE_MEM_ID]           = ADSP_RESERVE_MEMORY_BLOCK(0x40000),
-	[ADSP_PLAYBACK_MEM_ID]      = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_DEEPBUF_MEM_ID]       = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_PRIMARY_MEM_ID]       = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_CAPTURE_UL1_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x20000),
-	[ADSP_DATAPROVIDER_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_CALL_FINAL_MEM_ID]    = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_KTV_MEM_ID]	    = ADSP_RESERVE_MEMORY_BLOCK(0x30000),
-	[ADSP_A_DEBUG_DUMP_MEM_ID]  = ADSP_RESERVE_MEMORY_BLOCK(0x80000),
-	[ADSP_A_CORE_DUMP_MEM_ID]   = ADSP_RESERVE_MEMORY_BLOCK(0x400),
+	[ADSP_A_IPI_DMA_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-ipidma-a"),
+	[ADSP_A_LOGGER_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-logger-a"),
+	[ADSP_A_DEBUG_DUMP_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-dbg-dump-a"),
+	[ADSP_A_CORE_DUMP_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-core-dump-a"),
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	[ADSP_AUDIO_COMMON_MEM_ID]
+		= ADSP_RESERVE_MEMORY_BLOCK("adsp-rsv-audio"),
 #endif
 };
 
 static struct adsp_reserve_mblock *adsp_get_reserve_mblock(
 					enum adsp_reserve_mem_id_t id)
 {
+	void *va_start = adsp_reserve_mblocks[0].virt_addr;
+
 	if (id >= ADSP_NUMS_MEM_ID) {
-		pr_info("[ADSP] no reserve memory for %d", id);
+		pr_info("%s no reserve memory for %d\n", __func__, id);
+		return NULL;
+	}
+	if (!va_start) {
+		pr_info("%s va_start is NULL\n", __func__);
 		return NULL;
 	}
 
 	return &adsp_reserve_mblocks[id];
-}
-
-int adsp_set_reserve_mblock(
-		enum adsp_reserve_mem_id_t id, phys_addr_t phys_addr,
-		void *virt_addr, size_t size)
-{
-	if (id >= ADSP_NUMS_MEM_ID) {
-		pr_info("[ADSP] no reserve memory for %d", id);
-		return -1;
-	}
-
-	adsp_reserve_mblocks[id].phys_addr = phys_addr;
-	adsp_reserve_mblocks[id].virt_addr = virt_addr;
-	adsp_reserve_mblocks[id].size = size;
-
-	return 0;
 }
 
 phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id)
@@ -106,35 +76,73 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 	return mblk ? mblk->size : 0;
 }
 
-void *adsp_reserve_memory_ioremap(phys_addr_t phys_addr, size_t size)
+void adsp_set_emimpu_shared_region(void)
+{
+#if ADSP_EMI_PROTECTION_ENABLE
+	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
+	struct emi_region_info_t region_info;
+
+	region_info.start = mem->phys_addr;
+	region_info.end = mem->phys_addr + mem->size - 0x1;
+	region_info.region = MPU_PROCT_REGION_ADSP_SHARED;
+	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
+			      FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
+			      FORBIDDEN, NO_PROTECTION, FORBIDDEN, FORBIDDEN,
+			      FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
+			      FORBIDDEN, FORBIDDEN, FORBIDDEN, NO_PROTECTION);
+	emi_mpu_set_protection(&region_info);
+#endif
+}
+
+int adsp_mem_device_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	int i;
+	uint32_t size;
+	struct device *dev = &pdev->dev;
+
+	for (i = 0; i < ADSP_NUMS_MEM_ID; i++) {
+		ret = of_property_read_u32(dev->of_node,
+		      adsp_reserve_mblocks[i].name, &size);
+		if (!ret)
+			adsp_reserve_mblocks[i].size = (size_t)size;
+	}
+	return 0;
+}
+
+void adsp_init_reserve_memory(void)
 {
 	enum adsp_reserve_mem_id_t id;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	size_t acc_size = 0;
 
-	if (!phys_addr || !size) {
-		pr_info("[ADSP] set reserve memory illegal addr:%llu, size:%zu",
-			phys_addr, size);
-		return NULL;
+	if (!mem->phys_addr || !mem->size) {
+		pr_info("%s() reserve memory illegal addr:%llx, size:%zx\n",
+			__func__, mem->phys_addr, mem->size);
+		return;
 	}
 
-	mem->phys_addr = phys_addr;
-	mem->size = size;
 	mem->virt_addr = ioremap_wc(mem->phys_addr, mem->size);
 
-	if (!mem->virt_addr)
-		return NULL;
+	if (!mem->virt_addr) {
+		pr_info("%s() ioremap fail\n", __func__);
+		return;
+	}
 
 	/* assign to each memory block */
-	for (id = ADSP_A_SHARED_MEM_BEGIN; id < ADSP_NUMS_MEM_ID; id++) {
+	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
 		adsp_reserve_mblocks[id].phys_addr = mem->phys_addr + acc_size;
 		adsp_reserve_mblocks[id].virt_addr = mem->virt_addr + acc_size;
 		acc_size += adsp_reserve_mblocks[id].size;
+#ifdef MEM_DEBUG
+		pr_info("adsp_reserve_mblocks[%d] phys_addr:%llx, size:0x%zx\n",
+			id,
+			adsp_reserve_mblocks[id].phys_addr,
+			adsp_reserve_mblocks[id].size);
+#endif
 	}
 
 	WARN_ON(acc_size > mem->size);
-
-	return mem->virt_addr;
 }
 
 ssize_t adsp_reserve_memory_dump(char *buffer, int size)
@@ -160,8 +168,8 @@ ssize_t adsp_reserve_memory_dump(char *buffer, int size)
 
 static int __init adsp_reserve_mem_of_init(struct reserved_mem *rmem)
 {
-	adspreg.sharedram = (phys_addr_t) rmem->base;
-	adspreg.shared_size = (size_t) rmem->size;
+	adsp_reserve_mem.phys_addr = (phys_addr_t) rmem->base;
+	adsp_reserve_mem.size = (size_t) rmem->size;
 
 	return 0;
 }
@@ -169,4 +177,20 @@ static int __init adsp_reserve_mem_of_init(struct reserved_mem *rmem)
 RESERVEDMEM_OF_DECLARE(adsp_reserve_mem_init,
 		       ADSP_MEM_RESERVED_KEY, adsp_reserve_mem_of_init);
 #endif  /* defined(CONFIG_OF_RESERVED_MEM) */
+
+void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
+{
+	struct adsp_mpu_info_t mpu_info;
+
+	adsp_copy_from_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
+		&mpu_info, sizeof(struct adsp_mpu_info_t));
+
+	mpu_info.share_dram_addr = (u32)adsp_reserve_mem.phys_addr;
+	mpu_info.share_dram_size = (u32)adsp_reserve_mem.size;
+
+	pr_info("[ADSP] mpu info=(0x%x, 0x%x)\n",
+		 mpu_info.share_dram_addr, mpu_info.share_dram_size);
+	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
+		&mpu_info, sizeof(struct adsp_mpu_info_t));
+}
 

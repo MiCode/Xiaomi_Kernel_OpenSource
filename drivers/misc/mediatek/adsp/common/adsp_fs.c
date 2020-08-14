@@ -22,30 +22,32 @@ static inline ssize_t dev_dump_show(struct device *dev,
 {
 	struct adsp_priv *pdata = container_of(dev_get_drvdata(dev),
 					struct adsp_priv, mdev);
-	int n = 0;
+	int n = 0, i = 0;
 
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "name:%s id = %d\n",
-			pdata->name, pdata->id);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg = %p, size = %zu\n",
-			pdata->cfg, pdata->cfg_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "itcm = %p, size = %zu\n",
-			pdata->itcm, pdata->itcm_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "dtcm = %p, size = %zu\n",
-			pdata->dtcm, pdata->dtcm_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "sysram = %p, size = %zu\n",
-			pdata->sysram, pdata->sysram_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "irq = %d, %d, %d\n",
-			pdata->irq[0].seq, pdata->irq[1].seq,
-			pdata->irq[2].seq);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n,
-			"status = %d, feature_set = %X\n",
-			pdata->state, pdata->feature_set);
+	n += scnprintf(buf + n, PAGE_SIZE - n, "name:%s id = %d\n",
+		       pdata->name, pdata->id);
+	n += scnprintf(buf + n, PAGE_SIZE - n, "cfg = %p, size = %zu\n",
+		       pdata->cfg, pdata->cfg_size);
+	n += scnprintf(buf + n, PAGE_SIZE - n, "itcm = %p, size = %zu\n",
+		       pdata->itcm, pdata->itcm_size);
+	n += scnprintf(buf + n, PAGE_SIZE - n, "dtcm = %p, size = %zu\n",
+		       pdata->dtcm, pdata->dtcm_size);
+	n += scnprintf(buf + n, PAGE_SIZE - n, "sysram = %p, size = %zu\n",
+		       pdata->sysram, pdata->sysram_size);
+
+	for (i = 0; i < ADSP_IRQ_NUM; i++)
+		n += scnprintf(buf + n, PAGE_SIZE - n, "%d ", pdata->irq[i].seq);
+	n += scnprintf(buf + n, PAGE_SIZE - n, "\n");
+
+	n += scnprintf(buf + n, PAGE_SIZE - n,
+		       "status = %d, feature_set = %X\n",
+		       pdata->state, pdata->feature_set);
 
 	if (pdata->send_mbox)
-		n +=  scnprintf(buf + n, PAGE_SIZE - n, "mailbox send = %d\n",
+		n += scnprintf(buf + n, PAGE_SIZE - n, "mailbox send = %d\n",
 			pdata->send_mbox->mbox);
 	if (pdata->recv_mbox)
-		n +=  scnprintf(buf + n, PAGE_SIZE - n, "mailbox recv = %d\n",
+		n += scnprintf(buf + n, PAGE_SIZE - n, "mailbox recv = %d\n",
 			pdata->recv_mbox->mbox);
 
 	return n;

@@ -138,6 +138,10 @@ static void adsp_logger_init_handler(int id, void *data, unsigned int len)
 
 	struct adsp_priv *pdata = get_adsp_core_by_id(*ptr);
 
+	if (!pdata) {
+		pr_info("%s, pdata is NULL\n", __func__);
+		return;
+	}
 	if (len > sizeof(unsigned int)) {
 		/* sync error, show error message, add delay for re-sync */
 		delay = msecs_to_jiffies(100);

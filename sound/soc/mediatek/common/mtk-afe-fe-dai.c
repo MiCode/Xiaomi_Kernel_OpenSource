@@ -617,11 +617,11 @@ int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id)
 {
 	int ret = 0, adsp_sem_ret = 0;
 
-	adsp_sem_ret = get_adsp_semaphore(SEMA_3WAY_AUDIOREG);
+	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
 	/* get sem ok*/
 	if (!adsp_sem_ret) {
 		ret = mtk_memif_set_enable(afe, id);
-		release_adsp_semaphore(SEMA_3WAY_AUDIOREG);
+		release_adsp_semaphore(SEMA_AUDIOREG);
 	} else {
 		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
 			pr_info("%s adsp_sem_ret[%d]\n",
@@ -636,11 +636,11 @@ int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id)
 {
 	int ret = 0, adsp_sem_ret = 0;
 
-	adsp_sem_ret = get_adsp_semaphore(SEMA_3WAY_AUDIOREG);
+	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
 	/* get sem ok*/
 	if (!adsp_sem_ret) {
 		ret = mtk_memif_set_disable(afe, id);
-		release_adsp_semaphore(SEMA_3WAY_AUDIOREG);
+		release_adsp_semaphore(SEMA_AUDIOREG);
 	} else {
 		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
 			pr_info("%s adsp_sem_ret[%d]\n",

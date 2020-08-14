@@ -27,4 +27,10 @@ struct audio_dsp_dram *mtk_get_adsp_sharemem_block(int audio_task_id);
 struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id);
 bool mtk_adsp_dai_id_support_share_mem(int dai_id);
 
+/* base on dsp type get core_id */
+int mtk_get_core_id(int dsp_type);
+
+/* if this platform is commom memory and enable MPU */
+bool get_mtk_enable_common_mem_mpu(void);
+
 #endif

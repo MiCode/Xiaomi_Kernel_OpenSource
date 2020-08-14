@@ -50,3 +50,4 @@ endif
 # common code
 obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_buf.o
 obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += mtk-dsp-dai.o mtk-dsp-pcm.o mtk-dsp-common.o mtk-dsp-platform-driver.o mtk-dsp-mem-control.o
+obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += mtk-dsp-core.o
