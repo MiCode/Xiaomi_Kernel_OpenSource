@@ -100,6 +100,7 @@ static void d_work_power_info_func(struct work_struct *work);
 static void d_work_power_init_func(struct work_struct *work);
 static DECLARE_WORK(d_work_power_info, d_work_power_info_func);
 static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
+struct delayed_work d_work_power;
 
 #ifdef CONFIG_PM_SLEEP
 struct wakeup_source pwr_wake_lock;
@@ -292,8 +293,8 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 {
 	int ret = 0;
-	char time_stmp[32];
 #if !BYPASS_POWER_OFF
+	char time_stmp[32];
 	struct power_device *pwr_dev = NULL;
 #if TIME_PROFILING
 	struct profiling_timestamp power_profiling;
@@ -379,13 +380,13 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
 							user, is_suspend);
 		return -ENODEV;
-	}
+	} else {
 #if TIME_PROFILING
-	power_profiling.end = sched_clock();
-	apu_profiling(&power_profiling, __func__);
+		power_profiling.end = sched_clock();
+		apu_profiling(&power_profiling, __func__);
 #endif
-	return 0;
-
+		return 0;
+	}
 }
 EXPORT_SYMBOL(apu_device_power_suspend);
 
@@ -473,13 +474,13 @@ int apu_device_power_on(enum DVFS_USER user)
 #endif
 		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;
-	}
+	} else {
 #if TIME_PROFILING
-	power_profiling.end = sched_clock();
-	apu_profiling(&power_profiling, __func__);
+		power_profiling.end = sched_clock();
+		apu_profiling(&power_profiling, __func__);
 #endif
-	return 0;
-
+		return 0;
+	}
 }
 EXPORT_SYMBOL(apu_device_power_on);
 
@@ -617,8 +618,15 @@ static void default_power_on_func(void)
 
 static void d_work_power_init_func(struct work_struct *work)
 {
-	apusys_power_init(VPU0, (void *)&init_power_data);
+	int ret = 0;
 
+	ret = apusys_power_init(VPU0, (void *)&init_power_data);
+	if (ret == -EPROBE_DEFER) {
+		INIT_DEFERRABLE_WORK(&d_work_power, d_work_power_init_func);
+		queue_delayed_work(wq, &d_work_power,
+				   msecs_to_jiffies(100));
+		return;
+	}
 #if DEFAULT_POWER_ON
 	default_power_on_func();
 #endif // DEFAULT_POWER_ON
@@ -810,17 +818,15 @@ err_exit:
 static int apu_power_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	struct hal_param_pm pm;
+	enum DVFS_USER user;
 
 	LOG_PM("%s begin\n", __func__);
 
 	if (power_on_off_stress) {
 		LOG_PM("%s, power_on_off_stress: %d\n",
 				__func__, power_on_off_stress);
-		apu_device_power_suspend(0, 1);
-		apu_device_power_suspend(1, 1);
-		apu_device_power_suspend(2, 1);
-		apu_device_power_suspend(3, 1);
-		apu_device_power_suspend(4, 1);
+		for (user = VPU0; user < APUSYS_DVFS_USER_NUM; user++)
+			apu_device_power_suspend(user, 1);
 	}
 
 	mutex_lock(&power_ctl_mtx);
@@ -835,6 +841,7 @@ static int apu_power_suspend(struct platform_device *pdev, pm_message_t mesg)
 static int apu_power_resume(struct platform_device *pdev)
 {
 	struct hal_param_pm pm;
+	enum DVFS_USER user;
 
 	LOG_PM("%s begin\n", __func__);
 
@@ -847,11 +854,8 @@ static int apu_power_resume(struct platform_device *pdev)
 	if (power_on_off_stress) {
 		LOG_PM("%s, power_on_off_stress: %d\n",
 				__func__, power_on_off_stress);
-		apu_device_power_on(0);
-		apu_device_power_on(1);
-		apu_device_power_on(2);
-		apu_device_power_on(3);
-		apu_device_power_on(4);
+		for (user = VPU0; user < APUSYS_DVFS_USER_NUM; user++)
+			apu_device_power_on(user);
 	}
 
 	LOG_PM("%s end\n", __func__);

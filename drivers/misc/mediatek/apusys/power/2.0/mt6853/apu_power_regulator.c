@@ -525,7 +525,6 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 int config_vcore(enum DVFS_USER user, int vcore_opp)
 {
 	int ret = 0;
-
 	LOG_DBG("%s %s, vcore_opp:%d\n", __func__, user_str[user], vcore_opp);
 
 	pm_qos_update_request(&pm_qos_vcore_request[user], vcore_opp);

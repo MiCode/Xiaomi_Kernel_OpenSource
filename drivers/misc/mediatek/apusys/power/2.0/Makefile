@@ -40,7 +40,7 @@ obj-y:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
 		$(PDIR)/apu_power_table.o $(PDIR)/apu_platform_resource.o \
 		$(PDIR)/apu_platform_debug.o $(PDIR)/apusys_power_rule_check.o
 
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6873 mt6853))
+ifeq (,$(filter $(strip $(MTK_PLATFORM)), mt6885))
 obj-y += $(PDIR)/apu_power_tag.o
 endif
 

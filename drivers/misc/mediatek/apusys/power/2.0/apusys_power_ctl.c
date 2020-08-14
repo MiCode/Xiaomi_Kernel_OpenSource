@@ -1085,15 +1085,18 @@ int apusys_power_off(enum DVFS_USER user)
 	return ret;
 }
 
-void apusys_power_init(enum DVFS_USER user, void *init_power_data)
+int apusys_power_init(enum DVFS_USER user, void *init_power_data)
 {
 	int i = 0, j = 0;
 	struct hal_param_seg_support  seg_data;
 	enum DVFS_VOLTAGE_DOMAIN domain;
+	int ret = 0;
 
 	mutex_init(&power_dvfs_mtx);
 	spin_lock_init(&ipuif_lock);
-	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
+	ret = hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
+	if (ret)
+		goto out;
 
 	if (seg_data.seg == SEGMENT_0)
 		apusys_opps.opps = dvfs_table_0;
@@ -1102,7 +1105,9 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	else
 		apusys_opps.opps = dvfs_table_1;
 
-	hal_config_power(PWR_CMD_BINNING_CHECK, VPU0, NULL);
+	ret = hal_config_power(PWR_CMD_BINNING_CHECK, VPU0, NULL);
+	if (ret)
+		goto out;
 
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
 		seg_data.user = i;
@@ -1139,9 +1144,10 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 
 	apusys_opps.power_bit_mask = 0;
 
-
-	hal_config_power(PWR_CMD_INIT_POWER, user, init_power_data);
-	PWR_LOG_INF("%s done,\n", __func__);
+	ret = hal_config_power(PWR_CMD_INIT_POWER, user, init_power_data);
+out:
+	PWR_LOG_INF("%s done ret %d\n", __func__, ret);
+	return ret;
 }
 
 
