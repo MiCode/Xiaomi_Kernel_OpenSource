@@ -756,19 +756,6 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 
 	/* init for dsp-audio task share memory address */
 	for (task_id = 0; task_id < AUDIO_TASK_DAI_NUM; task_id++) {
-		struct audio_dsp_dram *adsp_share_mem;
-
-		adsp_share_mem =
-			mtk_get_adsp_sharemem_block(AUDIO_DSP_AFE_SHARE_MEM_ID);
-
-		pr_info("%s task_id = %d\n", __func__, task_id);
-
-		if (adsp_share_mem == NULL) {
-			pr_warn("%s adsp_share_mem = NULL task_id = %d\n",
-				__func__,
-				task_id);
-			continue;
-		}
 		dsp->dsp_mem[task_id].gen_pool_buffer =
 			mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
 
@@ -781,8 +768,7 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 		for (i = 0; i < ADSP_TASK_SHAREMEM_NUM; i++) {
 			ret = aud_genppol_allocate_sharemem_msg(
 				&dsp->dsp_mem[task_id],
-				mtk_get_adsp_sharemem_size(task_id,
-				i),
+				mtk_get_adsp_sharemem_size(task_id, i),
 				i);
 
 			if (ret < 0) {

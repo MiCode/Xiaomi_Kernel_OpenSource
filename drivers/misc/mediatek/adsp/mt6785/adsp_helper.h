@@ -65,6 +65,7 @@ enum semaphore_2way_flag {
 	SEMA_2WAY_NUM      = 4,
 };
 
+#define SEMA_AUDIO             SEMA_2WAY_NUM
 #define SEMA_AUDIOREG          SEMA_2WAY_AUDIOREG
 #define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)
 
