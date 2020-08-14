@@ -431,6 +431,7 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 	kfree(to_mtk_domain(domain));
 }
 
+static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				   struct device *dev)
 {
@@ -443,16 +444,23 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 
 	/* Update the pgtable base address register of the M4U HW */
 	if (!data->m4u_dom) {
-		data->m4u_dom = dom;
-		ret = mtk_iommu_rpm_get(dev);
+		ret = mtk_iommu_rpm_get(data->dev);
 		if (ret < 0) {
 			dev_err(data->dev, "pm runtime get fail %d in attach\n",
 				ret);
 			return ret;
 		}
+		ret = mtk_iommu_hw_init(data);
+		if (ret) {
+			dev_err(data->dev, "HW init fail %d in attach\n",
+				ret);
+			mtk_iommu_rpm_put(data->dev);
+			return ret;
+		}
 		writel(dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK,
 		       data->base + REG_MMU_PT_BASE_ADDR);
-		mtk_iommu_rpm_put(dev);
+		mtk_iommu_rpm_put(data->dev);
+		data->m4u_dom = dom;
 	}
 
 	if (!data->plat_data->is_apu)
@@ -825,17 +833,6 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	}
 skip_smi:
 	platform_set_drvdata(pdev, data);
-
-
-	ret = mtk_iommu_rpm_get(dev);
-	if (ret < 0)
-		return ret;
-
-	ret = mtk_iommu_hw_init(data);
-	mtk_iommu_rpm_put(dev);
-	if (ret)
-		return ret;
-
 	ret = iommu_device_sysfs_add(&data->iommu, dev, NULL,
 				     "mtk-iommu.%pa", &ioaddr);
 	if (ret)
