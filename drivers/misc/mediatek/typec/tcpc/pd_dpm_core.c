@@ -1519,33 +1519,6 @@ void pd_dpm_drs_change_role(struct pd_port *pd_port, uint8_t role)
 
 #ifdef CONFIG_USB_PD_PR_SWAP
 
-static bool __maybe_unused pd_dpm_evaluate_source_cap_match(
-							struct pd_port *pd_port)
-{
-	int i, j;
-	bool find_cap = false;
-	struct dpm_pdo_info_t sink, source;
-	struct pd_port_power_caps *snk_cap = &pd_port->local_snk_cap;
-	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
-
-	if ((src_cap->nr <= 0) || (snk_cap->nr <= 0))
-		return false;
-
-	for (j = 0; (j < snk_cap->nr) && (!find_cap); j++) {
-		dpm_extract_pdo_info(snk_cap->pdos[j], &sink);
-
-		for (i = 0; (i < src_cap->nr) && (!find_cap); i++) {
-			dpm_extract_pdo_info(src_cap->pdos[i], &source);
-
-			/* TODO: need check argument policy */
-			find_cap = dpm_is_valid_pdo_pair(&sink, &source,
-					DPM_CHARGING_POLICY_MAX_POWER_HV);
-		}
-	}
-
-	return find_cap;
-}
-
 /*
  * Rules:
  * External Sources -> EXS
