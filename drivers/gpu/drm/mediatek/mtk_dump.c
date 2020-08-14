@@ -41,6 +41,8 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 		break;
 	case DDP_COMPONENT_RDMA0:
 	case DDP_COMPONENT_RDMA1:
+	case DDP_COMPONENT_RDMA4:
+	case DDP_COMPONENT_RDMA5:
 		mtk_rdma_dump(comp);
 		break;
 	case DDP_COMPONENT_WDMA0:
@@ -55,6 +57,11 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_DSI1:
 		mtk_dsi_dump(comp);
 		break;
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	case DDP_COMPONENT_DP_INTF0:
+		mtk_dp_intf_dump(comp);
+		break;
+#endif
 	case DDP_COMPONENT_COLOR0:
 	case DDP_COMPONENT_COLOR1:
 	case DDP_COMPONENT_COLOR2:
@@ -86,6 +93,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_DSC0:
 		mtk_dsc_dump(comp);
 		break;
+	case DDP_COMPONENT_MERGE0:
+	case DDP_COMPONENT_MERGE1:
+		mtk_merge_dump(comp);
+		break;
 	default:
 		return 0;
 	}
@@ -106,6 +117,8 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 		break;
 	case DDP_COMPONENT_RDMA0:
 	case DDP_COMPONENT_RDMA1:
+	case DDP_COMPONENT_RDMA4:
+	case DDP_COMPONENT_RDMA5:
 		mtk_rdma_analysis(comp);
 		break;
 	case DDP_COMPONENT_WDMA0:
@@ -120,6 +133,11 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_DSI1:
 		mtk_dsi_analysis(comp);
 		break;
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	case DDP_COMPONENT_DP_INTF0:
+		mtk_dp_intf_analysis(comp);
+		break;
+#endif
 	case DDP_COMPONENT_POSTMASK0:
 	case DDP_COMPONENT_POSTMASK1:
 		mtk_postmask_analysis(comp);
@@ -127,6 +145,9 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_DSC0:
 		mtk_dsc_analysis(comp);
 		break;
+	case DDP_COMPONENT_MERGE0:
+	case DDP_COMPONENT_MERGE1:
+		mtk_merge_analysis(comp);
 	default:
 		return 0;
 	}

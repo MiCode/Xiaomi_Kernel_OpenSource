@@ -965,6 +965,9 @@ long drm_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	 * work.  This may not always be a good assumption, but it's better
 	 * than always failing.
 	 */
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	file_priv->authenticated = 1;
+#endif
 	if (nr >= ARRAY_SIZE(drm_compat_ioctls))
 		return drm_ioctl(filp, cmd, arg);
 

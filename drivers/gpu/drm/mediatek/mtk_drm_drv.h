@@ -139,7 +139,7 @@ struct mtk_drm_private {
 	struct drm_gem_object *fbdev_bo;
 	struct list_head lyeblob_head;
 	struct mutex lyeblob_list_mutex;
-	struct task_struct *fence_release_thread;
+	struct task_struct *fence_release_thread[MAX_CRTC-1];
 
 	/* variable for repaint */
 	struct {
@@ -227,11 +227,16 @@ extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
+extern struct platform_driver mtk_disp_merge_driver;
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+extern struct platform_driver mtk_dp_tx_driver;
+extern struct platform_driver mtk_dp_intf_driver;
+#endif
 
 void mtk_atomic_state_get(struct drm_atomic_state *state);
 void mtk_atomic_state_put(struct drm_atomic_state *state);
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
-void mtk_drm_fence_update(unsigned int fence_idx);
+void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
 void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,
 			 struct drm_device *drm_dev);
 int mtk_drm_suspend_release_fence(struct device *dev);

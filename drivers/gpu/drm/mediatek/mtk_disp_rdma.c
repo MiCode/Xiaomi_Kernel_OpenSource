@@ -280,6 +280,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	if (rdma->id == DDP_COMPONENT_RDMA0)
 		DRM_MMP_MARK(rdma0, val, 0);
+	if (rdma->id == DDP_COMPONENT_RDMA4)
+		DRM_MMP_MARK(rdma4, val, 0);
+	if (rdma->id == DDP_COMPONENT_RDMA5)
+		DRM_MMP_MARK(rdma5, val, 0);
 
 	if (val & 0x18)
 		DRM_MMP_MARK(abnormal_irq,
@@ -328,6 +332,12 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		       readl(DISP_REG_RDMA_IN_LINE_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
 		       readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
+		mtk_rdma_analysis(rdma);
+		mtk_rdma_dump(rdma);
+		if (rdma->mtk_crtc) {
+			mtk_drm_crtc_analysis(&(rdma->mtk_crtc->base));
+			mtk_drm_crtc_dump(&(rdma->mtk_crtc->base));
+		}
 
 		if (rdma->mtk_crtc) {
 			struct mtk_drm_private *drm_priv = NULL;
@@ -470,6 +480,15 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
+
+	if (if_fps == 0) {
+		DDPPR_ERR("%s invalid vrefresh %u\n",
+			__func__, if_fps);
+		if_fps = 60;
+	}
+
+	if (comp->mtk_crtc->is_dual_pipe)
+		width /= 2;
 
 	switch (cfg->bpc) {
 	case 8:
@@ -616,7 +635,9 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	unsigned int gs[GS_RDMA_FLD_NUM] = {0};
 	unsigned int val = 0;
 
-	if (comp->id != DDP_COMPONENT_RDMA0) {
+	if ((comp->id != DDP_COMPONENT_RDMA0)
+		&& (comp->id != DDP_COMPONENT_RDMA4)
+		&& (comp->id != DDP_COMPONENT_RDMA5)) {
 		DDPPR_ERR("unsupport golden setting, id:%d\n", comp->id);
 		return;
 	}
@@ -720,22 +741,29 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 	unsigned long long threshold;
 	unsigned int reg;
 #endif
+	unsigned int w;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	bool *rdma_memory_mode = comp->comp_mode;
 
+	//for dual pipe one layer
+	if (comp->mtk_crtc->is_dual_pipe) {
+		w = cfg->w / 2;
+		DDPFUNC();
+	} else
+		w = cfg->w;
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_RDMA_SIZE_CON_0, cfg->w,
+		       comp->regs_pa + DISP_REG_RDMA_SIZE_CON_0, w,
 		       0x1fff);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RDMA_SIZE_CON_1, cfg->h,
 		       0xfffff);
 
 	if (*rdma_memory_mode == true) {
-		rdma->dummy_w = cfg->w;
+		rdma->dummy_w = w;
 		rdma->dummy_h = cfg->h;
 		mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 				   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
-		mtk_ddp_write_relaxed(comp, RDMA_DUMMY_BUFFER_PITCH(cfg->w),
+		mtk_ddp_write_relaxed(comp, RDMA_DUMMY_BUFFER_PITCH(w),
 				      DISP_RDMA_MEM_SRC_PITCH, handle);
 		mtk_ddp_write_mask(comp, RDMA_MODE_MEMORY,
 				   DISP_REG_RDMA_GLOBAL_CON, RDMA_MODE_MEMORY,

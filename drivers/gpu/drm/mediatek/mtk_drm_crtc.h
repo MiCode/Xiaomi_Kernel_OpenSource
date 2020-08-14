@@ -29,6 +29,7 @@
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_wakeup.h>
+#include "mtk_disp_pmqos.h"
 
 
 #define OVL_LAYER_NR 12L
@@ -310,6 +311,28 @@ enum DISP_PMQOS_SLOT {
 				1);                           \
 				(__j)++)
 
+#define for_each_comp_id_in_dual_pipe(comp_id, path_data, __i, __j)    \
+	for ((__i) = 0; (__i) < DDP_SECOND_PATH; (__i)++) \
+		for ((__j) = 0;				  \
+			(__j) <					  \
+			(path_data)->dual_path_len[__i] &&  \
+			((comp_id) = (path_data)	  \
+			->dual_path[__i][__j],	  \
+			1);						  \
+			(__j)++)
+
+#define for_each_comp_in_dual_pipe(comp, mtk_crtc, __i, __j)       \
+	for ((__i) = 0; (__i) < DDP_SECOND_PATH; (__i)++)		   \
+		for ((__j) = 0; (__j) <		  \
+			(mtk_crtc)->dual_pipe_ddp_ctx   \
+			.ddp_comp_nr[__i] &&		  \
+			((comp) = (mtk_crtc)		  \
+			->dual_pipe_ddp_ctx			  \
+			.ddp_comp[__i][__j],		  \
+			1);						  \
+			(__j)++)					  \
+			for_each_if(comp)
+
 #define for_each_wb_comp_id_in_path_data(comp_id, path_data, __i, p_mode)      \
 	for ((p_mode) = 0; (p_mode) < DDP_MODE_NR; (p_mode)++)        \
 		for ((__i) = 0;                       \
@@ -447,6 +470,9 @@ struct mtk_crtc_path_data {
 	const enum mtk_ddp_comp_id *wb_path[DDP_MODE_NR];
 	unsigned int wb_path_len[DDP_MODE_NR];
 	const struct mtk_addon_scenario_data *addon_data;
+	//for dual path
+	const enum mtk_ddp_comp_id *dual_path[DDP_PATH_NR];
+	unsigned int dual_path_len[DDP_PATH_NR];
 };
 
 struct mtk_crtc_gce_obj {
@@ -546,6 +572,8 @@ struct mtk_drm_crtc {
 	bool wb_hw_enable;
 
 	const struct mtk_crtc_path_data *path_data;
+	struct mtk_crtc_ddp_ctx dual_pipe_ddp_ctx;
+	bool is_dual_pipe;
 
 	struct mtk_drm_idlemgr *idlemgr;
 	wait_queue_head_t crtc_status_wq;

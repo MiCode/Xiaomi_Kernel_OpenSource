@@ -109,6 +109,10 @@ void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
+void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_disp_mutex *mutex);
+void mtk_disp_mutex_submit_sof(struct mtk_disp_mutex *mutex);
+void mtk_ddp_dual_pipe_dump(struct mtk_drm_crtc *mtk_crtc);
 
 void mutex_dump_reg_mt6873(struct mtk_disp_mutex *mutex);
 void mutex_dump_analysis_mt6873(struct mtk_disp_mutex *mutex);
