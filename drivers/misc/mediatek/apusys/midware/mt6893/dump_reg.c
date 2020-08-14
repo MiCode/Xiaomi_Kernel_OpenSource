@@ -34,7 +34,11 @@ static struct mutex dbg_lock;
 static struct mutex dump_lock;
 
 #define DBG_MUX_SEL_COUNT (13)
+
 #define TOTAL_DBG_MUX_COUNT (38)
+#define DBG_MUX_VPU_START_IDX (29)
+#define DBG_MUX_VPU_END_IDX (34)
+
 #define SEGMENT_COUNT (38)
 
 
@@ -58,19 +62,19 @@ struct reg_dump_info {
 
 struct dbg_mux_sel_info info_table[DBG_MUX_SEL_COUNT] = {
 
-	{0x29010, .start_bit = 1,  .end_bit = 1 }, //vcore_dbg_sel
-	{0x29010, .start_bit = 4,  .end_bit = 2 }, //vcore_dbg_sel0
-	{0x29010, .start_bit = 7,  .end_bit = 5 }, //vcore_dbg_sel1
-	{0x20138, .start_bit = 2,  .end_bit = 0 }, //conn_dbg0_sel
-	{0x20138, .start_bit = 11, .end_bit = 9 }, //conn_dbg3_sel
-	{0x20138, .start_bit = 14, .end_bit = 12}, //conn_dbg4_sel
-	{0x20138, .start_bit = 17, .end_bit = 15}, //conn_dbg5_sel
-	{0x20138, .start_bit = 20, .end_bit = 18}, //conn_dbg6_sel
-	{0x34130, .start_bit = 10, .end_bit = 10}, //mdla0_axi_gals_dbg_sel
-	{0x38130, .start_bit = 10, .end_bit = 10}, //mdla1_axi_gals_dbg_sel
-	{0x30a10, .start_bit = 10, .end_bit = 10}, //vpu0_apu_gals_m_ctl_sel
-	{0x31a10, .start_bit = 10, .end_bit = 10}, //vpu1_apu_gals_m_ctl_sel
-	{0x32a10, .start_bit = 10, .end_bit = 10}, //vpu2_apu_gals_m_ctl_sel
+	{0x29010, 1,  1 }, //vcore_dbg_sel
+	{0x29010, 4,  2 }, //vcore_dbg_sel0
+	{0x29010, 7,  5 }, //vcore_dbg_sel1
+	{0x20138, 2,  0 }, //conn_dbg0_sel
+	{0x20138, 11, 9 }, //conn_dbg3_sel
+	{0x20138, 14, 12}, //conn_dbg4_sel
+	{0x20138, 17, 15}, //conn_dbg5_sel
+	{0x20138, 20, 18}, //conn_dbg6_sel
+	{0x34130, 10, 10}, //mdla0_axi_gals_dbg_sel
+	{0x38130, 10, 10}, //mdla1_axi_gals_dbg_sel
+	{0x30a10, 10, 10}, //vpu0_apu_gals_m_ctl_sel
+	{0x31a10, 10, 10}, //vpu1_apu_gals_m_ctl_sel
+	{0x32a10, 10, 10}, //vpu2_apu_gals_m_ctl_sel
 };
 
 
@@ -233,15 +237,24 @@ u32 dbg_read(struct dbg_mux_sel_value sel)
 
 static u32 gals_reg[TOTAL_DBG_MUX_COUNT];
 
-void dump_gals_reg(void)
+void dump_gals_reg(bool dump_vpu)
 {
 	int i;
 
-	for (i = 0; i < TOTAL_DBG_MUX_COUNT; ++i)
+	for (i = 0; i < TOTAL_DBG_MUX_COUNT; ++i) {
+
+		/* skip dump vpu gals reg */
+		if (false == dump_vpu &&
+			i >= DBG_MUX_VPU_START_IDX &&
+			i <= DBG_MUX_VPU_END_IDX) {
+			continue;
+		}
+
 		gals_reg[i] = dbg_read(value_table[i]);
+	}
 }
 
-void dump_gals(struct seq_file *sfile)
+void show_gals(struct seq_file *sfile)
 {
 	int i;
 
@@ -262,13 +275,14 @@ void apusys_dump_reg_skip_gals(int onoff)
 void apusys_reg_dump(void)
 {
 	int i, offset, size;
+	bool dump_vpu = false;
 	mutex_lock(&dump_lock);
 
 	if (reg_all_mem == NULL)
 		reg_all_mem = vzalloc(APUSYS_REG_SIZE);
 
 	if (!apusys_dump_skip_gals)
-		dump_gals_reg();
+		dump_gals_reg(dump_vpu);
 
 	for (i = 0; i < SEGMENT_COUNT; ++i) {
 		offset = range_table[i].base - APUSYS_BASE;
@@ -301,7 +315,7 @@ int dump_show(struct seq_file *sfile, void *v)
 	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
 
-	dump_gals(sfile);
+	show_gals(sfile);
 
 	seq_puts(sfile, "---- dump from 0x1900_0000 to 0x190F_FFFF ----\n");
 	for (i = 0; i < SEGMENT_COUNT; ++i)
