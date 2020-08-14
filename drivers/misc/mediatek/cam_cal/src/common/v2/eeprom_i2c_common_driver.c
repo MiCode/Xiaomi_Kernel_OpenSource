@@ -137,7 +137,7 @@ static int Erase_I2C_CAM_CAL(struct i2c_client *client)
 	struct i2c_msg msg;
 
 	puCmd[0] = (char)(0x81);
-	puCmd[1] = (char)(0xFF);
+	puCmd[1] = (char)(0xEE);
 
 	msg.addr = client->addr;
 	msg.flags = client->flags & I2C_M_TEN;
