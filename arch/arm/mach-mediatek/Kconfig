@@ -87,6 +87,7 @@ config MACH_MT8168
 	select GENERIC_CLOCKEVENTS
 	select ARCH_HAS_CPUFREQ
 	select ARM_AMBA
+	select ARM_CPUIDLE
 	select CPU_V7
 	select HAVE_SMP
 	select IRQ_DOMAIN
@@ -95,6 +96,7 @@ config MACH_MT8168
 	select ARMV7_COMPAT
 	select ARMV7_COMPAT_CPUINFO
 	select CPU_IDLE
+	select CPU_IDLE_NO_MTK
 	select PINCTRL
 	select PINCTRL_MT8168
 	select MFD_SYSCON

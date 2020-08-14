@@ -398,6 +398,7 @@ config MACH_MT8168
 	bool "MediaTek MT8168"
 	select GENERIC_CLOCKEVENTS
 	select ARM_AMBA
+	select ARM_CPUIDLE
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG if IRQ_DOMAIN && DEBUG_FS
 	select GENERIC_SCHED_CLOCK
@@ -405,6 +406,7 @@ config MACH_MT8168
 	select PINCTRL_MT8168
 	select MFD_SYSCON
 	select CPU_IDLE
+	select CPU_IDLE_NO_MTK
 	select MTK_BASE_POWER
 	select MTK_GIC_V3_EXT
 	select MTK_SYSIRQ
