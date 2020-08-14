@@ -504,11 +504,16 @@ void __attribute__ ((weak)) register_battery_oc_notify(
  *******************************************************************/
 #ifndef DISABLE_BATTERY_PERCENT_PROTECT
 #define BATTERY_PERCENT_PROTECT
+#define BATTERY_PERCENT_NOTIFY_EXT
 #endif
 
 #ifdef BATTERY_PERCENT_PROTECT
 static struct task_struct *bat_percent_notify_thread;
 static bool bat_percent_notify_flag;
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+static bool bat_percent_notify_flag_ext;
+#endif
+
 static DECLARE_WAIT_QUEUE_HEAD(bat_percent_notify_waiter);
 
 struct wakeup_source bat_percent_notify_lock;
@@ -518,8 +523,15 @@ static DEFINE_MUTEX(bat_percent_notify_mutex);
 
 int g_battery_percent_level;
 int g_battery_percent_stop;
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+int g_battery_percent_level_ext;
+#endif
 
 #define BAT_PERCENT_LINIT 15
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+#define BAT_PERCENT_LINIT_EXT_LOW 20
+#define BAT_PERCENT_LINIT_EXT_HIGH 25
+#endif
 
 struct battery_percent_callback_table {
 	void (*bpcb)(enum BATTERY_PERCENT_LEVEL_TAG);
@@ -529,6 +541,13 @@ struct battery_percent_callback_table bpcb_tb[] = {
 	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL},
 	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}
 };
+
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+struct battery_percent_callback_table bpcb_tb_ext[] = {
+	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL},
+	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}
+};
+#endif
 
 static struct notifier_block dlpt_nb = {0};
 
@@ -593,19 +612,77 @@ void exec_battery_percent_callback(
 	}
 }
 
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+void register_battery_percent_notify_ext(
+	void (*battery_percent_callback)(enum BATTERY_PERCENT_LEVEL_TAG),
+	BATTERY_PERCENT_PRIO prio_val)
+{
+	PMICLOG("[%s] start\n", __func__);
+
+	bpcb_tb_ext[prio_val].bpcb = battery_percent_callback;
+
+	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
+
+	if ((g_battery_percent_stop == 0) &&
+		(g_battery_percent_level_ext == 1)) {
+		pr_info("[%s] level l happen\n", __func__);
+		if (battery_percent_callback != NULL)
+			battery_percent_callback(BATTERY_PERCENT_LEVEL_1);
+	}
+}
+
+void exec_battery_percent_callback_ext(
+	enum BATTERY_PERCENT_LEVEL_TAG battery_percent_level)
+{				/*0:no limit */
+	int i = 0;
+
+	if (g_battery_percent_stop == 1) {
+		pr_info("[%s] g_battery_percent_stop=%d\n"
+			, __func__, g_battery_percent_stop);
+	} else {
+		for (i = 0; i < BPCB_NUM; i++) {
+			if (bpcb_tb_ext[i].bpcb != NULL) {
+				bpcb_tb_ext[i].bpcb(battery_percent_level);
+				pr_info("[%s] prio_val=%d,battery_percent_level=%d\n"
+					, __func__, i, battery_percent_level);
+			}
+		}
+	}
+}
+#endif
+
 int bat_percent_notify_handler(void *unused)
 {
 	do {
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+		wait_event_interruptible(bat_percent_notify_waiter,
+				(bat_percent_notify_flag == true) ||
+				(bat_percent_notify_flag_ext == true));
+#else
 		wait_event_interruptible(bat_percent_notify_waiter,
 					 (bat_percent_notify_flag == true));
+#endif
 
 		__pm_stay_awake(&bat_percent_notify_lock);
 		mutex_lock(&bat_percent_notify_mutex);
 
-		exec_battery_percent_callback(g_battery_percent_level);
-		bat_percent_notify_flag = false;
+		if (bat_percent_notify_flag) {
+			exec_battery_percent_callback(g_battery_percent_level);
+			bat_percent_notify_flag = false;
+		}
+
 		PMICLOG("[%s] bat_per_level=%d\n", __func__,
 			g_battery_percent_level);
+
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+		if (bat_percent_notify_flag_ext) {
+			exec_battery_percent_callback_ext(
+				g_battery_percent_level_ext);
+			bat_percent_notify_flag_ext = false;
+		}
+		PMICLOG("[%s] bat_per_level_ext=%d\n", __func__,
+			g_battery_percent_level_ext);
+#endif
 
 		mutex_unlock(&bat_percent_notify_mutex);
 		__pm_relax(&bat_percent_notify_lock);
@@ -638,7 +715,6 @@ int dlpt_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 			(uisoc <= BAT_PERCENT_LINIT && uisoc > 0)) {
 			g_battery_percent_level = BATTERY_PERCENT_LEVEL_1;
 			bat_percent_notify_flag = true;
-			wake_up_interruptible(&bat_percent_notify_waiter);
 			PMICLOG("bat_percent_notify called, l=%d s=%d soc=%d\n",
 				g_battery_percent_level, bat_status, uisoc);
 		} else if (((bat_status == POWER_SUPPLY_STATUS_CHARGING) ||
@@ -646,10 +722,37 @@ int dlpt_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 			(g_battery_percent_level == BATTERY_PERCENT_LEVEL_1)) {
 			g_battery_percent_level = BATTERY_PERCENT_LEVEL_0;
 			bat_percent_notify_flag = true;
-			wake_up_interruptible(&bat_percent_notify_waiter);
 			PMICLOG("bat_percent_notify called, l=%d s=%d soc=%d\n",
 				g_battery_percent_level, bat_status, uisoc);
 		}
+
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+		if ((bat_status != -1) &&
+			(g_battery_percent_level_ext ==
+			BATTERY_PERCENT_LEVEL_0) &&
+			(uisoc <= BAT_PERCENT_LINIT_EXT_LOW &&
+			uisoc > 0)) {
+			g_battery_percent_level_ext = BATTERY_PERCENT_LEVEL_1;
+			bat_percent_notify_flag_ext = true;
+			PMICLOG("bat_percent_notify_ext, l=%d s=%d soc=%d\n",
+				g_battery_percent_level, bat_status, uisoc);
+		} else if ((uisoc >= BAT_PERCENT_LINIT_EXT_HIGH) &&
+			(g_battery_percent_level_ext ==
+			BATTERY_PERCENT_LEVEL_1)) {
+			g_battery_percent_level_ext = BATTERY_PERCENT_LEVEL_0;
+			bat_percent_notify_flag_ext = true;
+			PMICLOG("bat_percent_notify_ext, l=%d s=%d soc=%d\n",
+				g_battery_percent_level, bat_status, uisoc);
+		}
+#endif
+
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+		if (bat_percent_notify_flag_ext || bat_percent_notify_flag)
+#else
+		if (bat_percent_notify_flag)
+#endif
+			wake_up_interruptible(&bat_percent_notify_waiter);
+
 	}
 
 	return NOTIFY_DONE;
@@ -1570,6 +1673,9 @@ static ssize_t store_battery_percent_ut(
 		if (val <= 1) {
 			pr_info("[%s] your input is %d\n", __func__, val);
 			exec_battery_percent_callback(val);
+#ifdef BATTERY_PERCENT_NOTIFY_EXT
+			exec_battery_percent_callback_ext(val);
+#endif
 		} else {
 			pr_info("[%s] wrong number (%d)\n", __func__, val);
 		}

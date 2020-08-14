@@ -138,7 +138,10 @@ extern void
 register_battery_percent_notify(
 		void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag),
 		BATTERY_PERCENT_PRIO prio_val);
-
+extern void
+register_battery_percent_notify_ext(
+		void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag),
+		BATTERY_PERCENT_PRIO prio_val);
 /*=============================================================================
  * DLPT define
  *=============================================================================
