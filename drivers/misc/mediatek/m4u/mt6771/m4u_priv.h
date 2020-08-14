@@ -33,11 +33,19 @@
 #define M4UMSG(string, args...)		pr_notice("[M4U][ERR] "string, ##args)
 #define M4UINFO(string, args...)	pr_debug("[M4U] "string, ##args)
 
+#define m4u_info(string, args...)       pr_info("[M4U] "string, ##args)
+#define m4u_notice(string, args...)     pr_notice("[M4U] "string, ##args)
+#define m4u_debug(string, args...)      pr_debug("[M4U] "string, ##args)
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_TEE_GP_SUPPORT)
 #define M4U_TEE_SERVICE_ENABLE
+#endif
+
+/* m4u mtee support relay on geniezone */
+#if defined(CONFIG_MTK_ENABLE_GENIEZONE)
+#define M4U_GZ_SERVICE_ENABLE
 #endif
 
 #include "m4u_hw.h"
@@ -428,6 +436,7 @@ struct M4U_DMA_STRUCT {
 #define MTK_M4U_T_DMA_OP	      _IOW(MTK_M4U_MAGICNO, 29, int)
 
 #define MTK_M4U_T_SEC_INIT	    _IOW(MTK_M4U_MAGICNO, 50, int)
+#define MTK_M4U_GZ_SEC_INIT	    _IOW(MTK_M4U_MAGICNO, 60, int)
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 int m4u_config_port_tee(
