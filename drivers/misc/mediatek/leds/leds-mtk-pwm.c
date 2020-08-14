@@ -117,17 +117,24 @@ static void led_debug_log(struct mtk_led_data *s_led,
 {
 	unsigned long cur_time_mod = 0;
 	unsigned long long cur_time_display = 0;
+	int ret = 0;
 
 	s_led->debug.current_t = sched_clock();
 	cur_time_display = s_led->debug.current_t;
-	cur_time_mod = do_div(cur_time_display, 1000000000);
+	do_div(cur_time_display, 1000000);
+	cur_time_mod = do_div(cur_time_display, 1000);
 
-	sprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		"T:%lld.%ld,L:%d L:%d map:%d    ",
-		cur_time_display, cur_time_mod/1000000,
+	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
+		4096, "T:%lld.%ld,L:%d L:%d map:%d    ",
+		cur_time_display, cur_time_mod,
 		s_led->conf.cdev.brightness, level, mappingLevel);
 
 	s_led->debug.count++;
+
+	if (ret < 0 || ret >= 4096) {
+		pr_info("print log error!");
+		s_led->debug.count == 5;
+	}
 
 	if (level == 0 || s_led->debug.count >= 5 ||
 		(s_led->debug.current_t - s_led->debug.last_t) > 1000000000) {
@@ -345,10 +352,13 @@ static int led_data_init(struct device *dev, struct mtk_led_data *s_led)
 	pr_info("%s devm_led_classdev_register ok! ", s_led->conf.cdev.name);
 
 	INIT_WORK(&s_led->work, mtk_led_work);
-	sprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		"[Light] Set %s directly ", s_led->conf.cdev.name);
-	return 0;
+	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
+		4096, "[Light] Set %s directly ", s_led->conf.cdev.name);
 
+	if (ret < 0 || ret >= 4096)
+		pr_info("print log init error!");
+
+	return 0;
 }
 
 static int led_pwm_config_add(struct device *dev,
