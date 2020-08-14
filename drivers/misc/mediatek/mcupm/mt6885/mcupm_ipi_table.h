@@ -155,7 +155,7 @@ struct mtk_mbox_pin_recv mcupm_mbox_pin_recv[] = {
 		PIN_R_MSG_SIZE_PLATFORM, 0,
 		CH_S_PLATFORM, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
-	{1, PIN_R_OFFSET_CPU_DVFS, 1, 0, 1, 0,
+	{1, PIN_R_OFFSET_CPU_DVFS, 0, 0, 1, 0,
 		PIN_R_MSG_SIZE_CPU_DVFS, 1,
 		CH_S_CPU_DVFS, { 0 }, 0, 0, 0, { { { { 0 } } } },
 		{0, 0, 0, 0, 0, 0} },
