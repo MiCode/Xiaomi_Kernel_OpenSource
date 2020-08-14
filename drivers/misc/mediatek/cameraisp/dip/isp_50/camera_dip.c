@@ -683,8 +683,8 @@ pr_debug(IRQTag fmt,  ##args)
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int logT = 0;\
+	unsigned int ppb = 0;\
+	unsigned int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} else{\
@@ -2314,11 +2314,14 @@ static signed int DIP_P2_BufQue_Update_ListCIdx
 	enum DIP_P2_BUFQUE_LIST_TAG listTag)
 {
 	signed int ret = 0;
-	signed int tmpIdx = 0;
+	unsigned int tmpIdx = 0;
 	signed int cnt = 0;
 	bool stop = false;
 	int i = 0;
 	enum DIP_P2_BUF_STATE_ENUM cIdxSts = DIP_P2_BUF_STATE_NONE;
+
+	if (property < 0)
+		return MFALSE;
 
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_UNIT:
@@ -2424,6 +2427,9 @@ static signed int DIP_P2_BufQue_Erase
 	int i = 0;
 	signed int cnt = 0;
 	int tmpIdx = 0;
+
+	if (property < 0)
+		return MFALSE;
 
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_PACKAGE:
@@ -2540,7 +2546,7 @@ static signed int DIP_P2_BufQue_GetMatchIdx
 {
 	int idx = -1;
 	int i = 0;
-	int property;
+	unsigned int property;
 
 	if (param.property >= DIP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_ERR("property err(%d)\n", param.property);
@@ -2755,6 +2761,8 @@ static inline unsigned int DIP_P2_BufQue_WaitEventState(
 		return ret;
 	}
 	property = param.property;
+	if (property < 0)
+		return MFALSE;
 	/*  */
 	switch (type) {
 	case DIP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
@@ -2769,6 +2777,8 @@ static inline unsigned int DIP_P2_BufQue_WaitEventState(
 	case DIP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		spin_lock(&(SpinLock_P2FrameList));
 		index = *idx;
+		if (index < 0)
+			return MFALSE;
 		if (P2_FramePackage_List[property][index].dequedNum ==
 			P2_FramePackage_List[property][index].frameNum)
 			ret = MTRUE;
@@ -2825,7 +2835,7 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 	int i = 0, q = 0;
 	int idx =  -1, idx2 =  -1;
 	signed int restTime = 0;
-	int property;
+	unsigned int property;
 
 	if (param.property >= DIP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_ERR("property err(%d)\n", param.property);
