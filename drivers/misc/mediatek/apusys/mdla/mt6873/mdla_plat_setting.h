@@ -32,8 +32,16 @@
 
 #ifdef CONFIG_MTK_APUSYS_RT_SUPPORT
 #define PRIORITY_LEVEL 2 //now support pripority level
+enum MDLA_PRIORITY {
+	MDLA_LOW_PRIORITY  = 0,
+	MDLA_HIGH_PRIORITY = 1,
+};
 #else//MTK_APUSYS_RT_SUPPORT
 #define PRIORITY_LEVEL 1
+enum MDLA_PRIORITY {
+	MDLA_LOW_PRIORITY  = 0,
+	MDLA_HIGH_PRIORITY = 1,
+};
 #endif//MTK_APUSYS_RT_SUPPORT
 
 #include "apusys_device.h"

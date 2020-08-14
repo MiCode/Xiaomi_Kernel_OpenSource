@@ -579,7 +579,389 @@ static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)
 	return (core_id >= MTK_MDLA_MAX_NUM) ?
 		NULL : mdla_devices[core_id].sched;
 }
+#if 1
+static void mdla_issue_ce_cdma_error(
+	uint32_t core_id,
+	struct command_entry *ce,
+	uint32_t cmda1_golden,
+	uint32_t cmda2_golden)
+{
+	uint32_t cdma1, cdma2;
 
+	cdma1 = mdla_reg_read_with_mdlaid(
+			core_id, MREG_TOP_G_CDMA1);
+
+	cdma2 = mdla_reg_read_with_mdlaid(
+			core_id, MREG_TOP_G_CDMA2);
+
+	if (cdma1 != cmda1_golden) {
+		ce->state |= (1 << CE_ISSUE_ERROR1);
+		ce_func_trace(ce, F_ISSUE|1);
+	}
+	if (cdma2 != cmda2_golden) {
+		ce->state |= (1 << CE_ISSUE_ERROR2);
+		ce_func_trace(ce, F_ISSUE|2);
+	}
+}
+
+/*
+ * Enqueue one CE and start scheduler
+ * resume = 0: add tail
+ * resume = 1: add begin
+ */
+void mdla_enqueue_ce_2_1(
+	unsigned int core_id,
+	struct command_entry *ce,
+	uint32_t resume)
+{
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+
+	/* ce == NULL will occur when mdla_normal_dual_cmd_issue call it */
+	if (unlikely(sched == NULL || ce == NULL))
+		return;
+
+	if (resume == 0) {
+		list_add_tail(&ce->node, &(sched->ce_list[ce->priority]));
+		ce->state |= (1 << CE_QUEUE);
+	} else if (resume > 0) {
+		list_add(&ce->node, &(sched->ce_list[ce->priority]));
+		ce->state |= (1 << CE_QUEUE_RESUME);
+	}
+	ce_func_trace(ce, (F_ENQUEUE|resume));
+}
+
+/*
+ * Dequeue a prioritized CE from active CE queue, handle the context switch of
+ * the original processing_ce, and set the prioritized CE as processing_ce.
+ *
+ * NOTE: sched->lock should be acquired by caller
+ */
+struct command_entry *mdla_dequeue_ce_2_1(unsigned int core_id)
+{
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+	struct command_entry *new_ce = NULL;
+	int16_t i = 0;
+
+	if (unlikely(sched == NULL))
+		return NULL;
+
+	for (i = PRIORITY_LEVEL - 1; i >= 0; i--) {
+		/* get one CE from the active CE queue */
+		new_ce = list_first_entry_or_null(
+					&(sched->ce_list[i]),
+					struct command_entry,
+					node);
+		if (new_ce != NULL) {
+			/* remove prioritized CE from active CE queue */
+			list_del(&new_ce->node);
+			new_ce->state |= (1 << CE_DEQUE);
+			ce_func_trace(new_ce, F_DEQUEUE);
+			return new_ce;
+		}
+	}
+
+	return new_ce;
+}
+
+void mdla_preempt_ce_2_1(unsigned int core_id, struct command_entry *high_ce)
+{
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+	struct command_entry *low_ce = sched->pro_ce;
+	uint64_t deadline =
+		get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
+
+	sched->pro_ce->req_end_t = sched_clock();
+	sched->pro_ce->state |= (1 << CE_PREEMPTED);
+	mdla_preemption_times++;
+	sched->enqueue_ce(core_id, low_ce, 1);
+	low_ce->deadline_t = deadline;
+	high_ce->state |= (1 << CE_PREEMPTING);
+	sched->pro_ce = high_ce;
+}
+
+/*
+ * Consume the processing_ce:
+ * 1. get the finished command id and tile id from HW RGs
+ * 2. check whether this batch completed
+ *
+ * Return value:
+ * 1. return CE_DONE if all the batches in the CE completed.
+ * 2. return CE_RUN if a batch completed, and we can go on to issue the next.
+ * 3. return CE_NONE if the batch is still under processing.
+ *
+ * NOTE: sched->lock should be acquired by caller
+ */
+unsigned int mdla_process_ce_2_1(unsigned int core_id)
+{
+	unsigned long flags;
+	unsigned int ret = CE_NONE;
+	struct command_entry *ce;
+	struct command_batch *cb;
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+	u32 fin_cid;
+
+	if (unlikely(sched == NULL))
+		return ret;
+
+	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
+	mdla_reg_write_with_mdlaid(core_id, 1, MREG_TOP_G_CDMA4);
+	fin_cid = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3);
+#ifdef __APUSYS_MDLA_PMU_SUPPORT__
+	/* handle PMU */
+	pmu_reg_save(core_id, (u16)sched->pro_ce->priority);
+#endif
+	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
+
+	ce = sched->pro_ce;
+	if (unlikely(ce == NULL))
+		return ret;
+
+	ce->fin_cid = fin_cid;
+	if (unlikely(fin_cid < ce->wish_fin_cid)) {
+		ce->irq_state |= IRQ_TWICE;
+		ce_func_trace(ce, F_CMDDONE_CE_FIN3ERROR);
+		return ret;
+	}
+
+	if (ce->batch_list_head != NULL) {
+		if (likely(!list_empty(ce->batch_list_head))) {
+			cb = list_first_entry(ce->batch_list_head,
+						struct command_batch, node);
+			list_del(&cb->node);
+			kfree(cb);
+		}
+	}
+
+	/* all command done for command-based scheduling */
+	if (fin_cid >= ce->count) {
+		ret = CE_DONE;
+		ce->state |= (1 << CE_DONE);
+	} else {
+		ret = CE_SCHED;
+		ce->state |= (1 << CE_SCHED);
+	}
+	return ret;
+}
+
+/*
+ * Issue the processing_ce to HW engine
+ * NOTE: sched->lock should be acquired by caller
+ */
+void mdla_issue_ce_2_1(unsigned int core_id)
+{
+	dma_addr_t addr;
+	u32 nr_cmd_to_issue;
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+	struct command_entry *ce;
+	struct command_batch *cb;
+	unsigned long flags;
+	u32 irq_status;
+
+	if (unlikely(sched == NULL))
+		return;
+
+	ce = sched->pro_ce;
+	if (unlikely(ce == NULL))
+		return;
+
+	if (ce->poweron_t == 0) {
+		ce->poweron_t = sched_clock();
+		ce->req_start_t = ce->poweron_t;
+	}
+
+	addr = ce->mva + ((dma_addr_t)ce->fin_cid) * MREG_CMD_SIZE;
+	nr_cmd_to_issue = ce->count - ce->fin_cid;
+	if (ce->batch_list_head != NULL) {
+		if (!list_empty(ce->batch_list_head)) {
+			cb = list_first_entry(ce->batch_list_head,
+						struct command_batch, node);
+			nr_cmd_to_issue = cb->size;
+		}
+	}
+	ce->wish_fin_cid = ce->fin_cid + nr_cmd_to_issue;
+
+	spin_lock_irqsave(&mdla_devices[core_id].hw_lock, flags);
+
+	irq_status =
+		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0);
+	if (likely(irq_status&MDLA_IRQ_CDMA_FIFO_EMPTY)) {
+		uint64_t deadline =
+			get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
+
+#ifdef __APUSYS_MDLA_PMU_SUPPORT__
+		/* reset pmu and set register */
+		pmu_set_reg(core_id, (u16)ce->priority);
+#endif
+		ce->state |= (1 << CE_RUN);
+		/* update deadline value */
+		ce->deadline_t = deadline;
+
+		if (likely(ce->context_callback != NULL))
+			ce->context_callback(
+				APUSYS_DEVICE_MDLA,
+				core_id, ce->ctx_id);
+
+		/* set command address */
+		mdla_reg_write_with_mdlaid(core_id,
+			addr, MREG_TOP_G_CDMA1);
+
+		/* set command number */
+		mdla_reg_write_with_mdlaid(core_id,
+			nr_cmd_to_issue, MREG_TOP_G_CDMA2);
+
+		/* trigger engine */
+		mdla_reg_write_with_mdlaid(
+			core_id, ce->csn, MREG_TOP_G_CDMA3);
+
+		if (unlikely(mdla_timeout_dbg)) {
+			mdla_issue_ce_cdma_error(
+				core_id,
+				ce, addr,
+				nr_cmd_to_issue);
+		} else
+			ce_func_trace(ce, F_ISSUE);
+	} else {
+		if ((ce->irq_state & IRQ_N_EMPTY_IN_SCHED) == 0)
+			ce->irq_state |= IRQ_NE_ISSUE_FIRST;
+		ce->irq_state |= IRQ_N_EMPTY_IN_ISSUE;
+		ce->state |= (1 << CE_SKIP);
+		if (in_interrupt()) {
+			ce->irq_state |= IRQ_IN_IRQ;
+			ce_func_trace(ce, F_ISSUE|3);
+		} else {
+			ce->irq_state |= IRQ_NOT_IN_IRQ;
+			ce_func_trace(ce, F_ISSUE|4);
+		}
+	}
+	spin_unlock_irqrestore(&mdla_devices[core_id].hw_lock, flags);
+}
+
+/*
+ * Set the status of completed CE as CE_FIN
+ * NOTE: sched->lock should be acquired by caller
+ */
+void mdla_complete_ce_2_1(unsigned int core_id)
+{
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+
+	if (unlikely(sched == NULL))
+		return;
+
+	sched->pro_ce->req_end_t = sched_clock();
+	sched->pro_ce->state |= (1 << CE_FIN);
+
+	ce_func_trace(sched->pro_ce, F_COMPLETE);
+
+	complete(&sched->pro_ce->swcmd_done_wait);
+	sched->pro_ce = NULL;
+}
+
+void mdla_normal_dual_cmd_issue(
+	uint32_t core_id,
+	uint64_t dual_cmd_id)
+{
+	/* Margaux don't support SMP cmd */
+	mdla_cmd_debug("Margaux don't support dual cmd\n");
+}
+
+/*
+ * Scheduler to process the current CE, and pick the next one to issue
+ * NOTE: mdla_scheduler would be invoked in ISR
+ */
+irqreturn_t mdla_scheduler_2_1(unsigned int core_id)
+{
+	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
+	unsigned long flags;
+	unsigned int status;
+	struct mdla_dev *mdla_info = &mdla_devices[core_id];
+	u32 irq_status = 0;
+	u32 cdma4 = 0;
+	struct command_entry *new_ce;
+
+	/* clear intp0 to avoid irq fire twice */
+	spin_lock_irqsave(&mdla_info->hw_lock, flags);
+	irq_status =
+		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0);
+	mdla_reg_write_with_mdlaid(
+		core_id,
+		MDLA_IRQ_SWCMD_DONE | MDLA_IRQ_PMU_INTE,
+		MREG_TOP_G_INTP0);
+	cdma4 = mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_CDMA4);
+	spin_unlock_irqrestore(&mdla_info->hw_lock, flags);
+
+	/* interrupt error check start */
+	if (unlikely(sched == NULL)) {
+		mdla_info->error_bit |= IRQ_NO_SCHEDULER;
+		goto end;
+	}
+
+	spin_lock_irqsave(&sched->lock, flags);
+	if (unlikely(sched->pro_ce == NULL)) {
+		mdla_info->error_bit |= IRQ_NO_PROCESSING_CE;
+		goto unlock;
+	}
+
+	if (unlikely(sched->pro_ce->state & (1 << CE_FAIL))) {
+		mdla_info->error_bit |= IRQ_TIMEOUT;
+		ce_func_trace(sched->pro_ce, F_TIMEOUT|1);
+		goto unlock;
+	}
+
+	if (unlikely(time_after64(
+		get_jiffies_64(),
+		sched->pro_ce->deadline_t)
+		)) {
+		sched->pro_ce->state |= (1 << CE_TIMEOUT);
+		ce_func_trace(sched->pro_ce, F_TIMEOUT);
+		goto unlock;
+	}
+	if (unlikely((irq_status&MDLA_IRQ_SWCMD_DONE) == 0)) {
+		ce_func_trace(sched->pro_ce, F_INIRQ_ERROR);
+		goto unlock;
+	}
+
+	if (unlikely(cdma4 != (sched->pro_ce->csn))) {
+		sched->pro_ce->irq_state |= IRQ_RECORD_ERROR;
+		ce_func_trace(sched->pro_ce, F_INIRQ_CDMA4ERROR);
+		goto unlock;
+	}
+	/* interrupt error check end */
+
+	sched->pro_ce->state |= (1 << CE_SCHED);
+
+	/* process the current CE */
+	status = sched->process_ce(core_id);
+
+	if (status == CE_DONE) {
+		sched->complete_ce(core_id);
+	} else if (status == CE_NONE) {
+		/* nothing to do but wait for the engine completed */
+		goto unlock;
+	}
+	/* get the next CE to be processed */
+	new_ce = sched->dequeue_ce(core_id);
+
+	if (new_ce != NULL) {
+		if (sched->pro_ce != NULL) {
+			sched->preempt_ce(core_id, new_ce);
+			sched->issue_ce(core_id);
+		} else {
+			sched->pro_ce = new_ce;
+			sched->issue_ce(core_id);
+		}
+	} else {
+		if (sched->pro_ce != NULL) {
+			/* Issue next cmd batch */
+			sched->issue_ce(core_id);
+		}
+	}
+
+unlock:
+	spin_unlock_irqrestore(&sched->lock, flags);
+end:
+	return IRQ_HANDLED;
+}
+#else
 /*
  * Enqueue one CE and start scheduler
  *
@@ -936,6 +1318,7 @@ unlock:
 end:
 	return IRQ_HANDLED;
 }
+#endif
 
 void dump_timeout_debug_info(int core_id)
 {
