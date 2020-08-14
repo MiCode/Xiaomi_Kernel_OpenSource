@@ -88,6 +88,15 @@
 	};
 };
 
+&mt6360_pmu {
+	mt6360,intr_gpio_num = <10>; /* direct defined GPIO num */
+	mt6360,intr_gpio = <&pio 10 0x0>;
+};
+
+&mt6360_pmic {
+	pwr_off_seq = [04 00 00 02];
+};
+
 &mt6360_typec {
 	mt6360pd,intr_gpio_num = <9>; /* direct defined GPIO num */
 	mt6360pd,intr_gpio = <&pio 9 0x0>;
