@@ -22,6 +22,8 @@
 
 &touch {
 	tpd-resolution = <1080 2400>;
+	interrupt-parent = <&pio>;
+	interrupts = <14 IRQ_TYPE_EDGE_FALLING 14 0>;
 	use-tpd-button = <0>;
 	tpd-key-num = <3>;
 	tpd-key-local= <139 172 158 0>;
