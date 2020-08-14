@@ -64,8 +64,8 @@
 			 *	pd,id-vdo-data = <0xd60029cf 0x0 0x63600000>;
 			 */
 
-			pd,id-vdo-size = <3>;
-			pd,id-vdo-data = <0xd10029cf 0x0 0x63600000>;
+			pd,id-vdo-size = <4>;
+			pd,id-vdo-data = <0xec0029cf 0x0 0x00010000 0x11000001>;
 
 			bat,nr = <1>;
 			bat-info0 {
