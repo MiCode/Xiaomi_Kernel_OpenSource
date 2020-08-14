@@ -46,7 +46,6 @@ ccflags-y += \
 	-I$(srctree)/drivers/devfreq/helio-dvfsrc-v4/ \
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/ \
-	-I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/inc \
 	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/src/mach/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include \
@@ -71,8 +70,10 @@ obj-y += mtk_cm_mgr_mt8168.o
 endif
 
 ifeq ($(CONFIG_MACH_MT6893),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/mt6893
 obj-y += mt6893/
 else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/$(CONFIG_MTK_PLATFORM)
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 
