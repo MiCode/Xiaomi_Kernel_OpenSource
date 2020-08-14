@@ -585,6 +585,7 @@ static int mtkfb_pan_display_impl(struct fb_var_screeninfo *var,
 		return -1;
 	}
 
+	session_input->config_layer_num = 0;
 	/* pan display use layer 0 */
 	input = &session_input->config[0];
 	input->layer_id = 0;

@@ -151,7 +151,7 @@ unsigned int mtkfb_query_buf_va(unsigned int session_id, unsigned int layer_id,
 unsigned int mtkfb_update_buf_ticket(unsigned int session_id,
 				     unsigned int layer_id, unsigned int idx,
 				     unsigned int ticket);
-unsigned int mtkfb_query_idx_by_ticket(unsigned int session_id,
+int mtkfb_query_idx_by_ticket(unsigned int session_id,
 				       unsigned int layer_id,
 				       unsigned int ticket);
 bool mtkfb_update_buf_info_new(unsigned int session_id, unsigned int mva_offset,
