@@ -512,18 +512,15 @@ static void qti_flash_led_brightness_set(struct led_classdev *led_cdev,
 	led = fnode->led;
 
 	if (!brightness) {
-		rc = qti_flash_led_disable(fnode);
-		if (rc < 0) {
-			pr_err("Failed to set brightness %d to LED\n",
-				brightness);
-			return;
-		}
-
 		rc = qti_flash_led_strobe(fnode->led,
 			FLASH_LED_ENABLE(fnode->id), 0);
 		if (rc < 0)
 			pr_err("Failed to destrobe LED, rc=%d\n", rc);
 
+		rc = qti_flash_led_disable(fnode);
+		if (rc < 0)
+			pr_err("Failed to disable %d LED\n",
+				brightness);
 		return;
 	}
 
@@ -644,6 +641,21 @@ static int qti_flash_switch_disable(struct flash_switch_data *snode)
 	u8 led_dis = 0;
 
 	for (i = 0; i < led->num_fnodes; i++) {
+		if (!(snode->led_mask & BIT(led->fnode[i].id)) ||
+				!led->fnode[i].configured)
+			continue;
+
+		led_dis |= BIT(led->fnode[i].id);
+	}
+
+	rc = qti_flash_led_strobe(led, led_dis, ~led_dis);
+	if (rc < 0) {
+		pr_err("Failed to destrobe LEDs under with switch, rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	for (i = 0; i < led->num_fnodes; i++) {
 		/*
 		 * Do not turn OFF flash/torch device if
 		 * i. the device is not under this switch or
@@ -660,10 +672,9 @@ static int qti_flash_switch_disable(struct flash_switch_data *snode)
 			break;
 		}
 
-		led_dis |= (1 << led->fnode[i].id);
 	}
 
-	return qti_flash_led_strobe(led, led_dis, ~led_dis);
+	return rc;
 }
 
 static void qti_flash_led_switch_brightness_set(
@@ -1040,14 +1051,25 @@ static int qti_flash_strobe_set(struct led_classdev_flash *fdev,
 	if (fnode->enabled == state)
 		return 0;
 
+	if (state && !fnode->configured)
+		return -EINVAL;
+
 	mask = FLASH_LED_ENABLE(fnode->id);
 	value = state ? FLASH_LED_ENABLE(fnode->id) : 0;
 
 	rc = qti_flash_led_strobe(fnode->led, mask, value);
-	if (!rc) {
-		fnode->enabled = state;
-		if (!state)
-			fnode->configured = false;
+	if (rc < 0) {
+		pr_err("Failed to %s LED, rc=%d\n",
+			state ? "strobe" : "desrobe", rc);
+		return rc;
+	}
+
+	fnode->enabled = state;
+
+	if (!state) {
+		rc = qti_flash_led_disable(fnode);
+		if (rc < 0)
+			pr_err("Failed to disable LED %u\n", fnode->id);
 	}
 
 	return rc;
