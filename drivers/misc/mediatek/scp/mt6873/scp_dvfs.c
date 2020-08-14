@@ -89,6 +89,14 @@ int scp_dvfs_flag = 1;
  */
 static int scp_dvfs_debug_flag = -1;
 
+/*
+ * -1: SCP Req init state,
+ * 0: SCP Request Release,
+ * 1-4: SCP Request source.
+ */
+static int scp_resrc_req_cmd = -1;
+static int scp_resrc_current_req = -1;
+
 static int pre_pll_sel = -1;
 static struct mt_scp_pll_t *mt_scp_pll;
 static struct wakeup_source scp_suspend_lock;
@@ -203,9 +211,14 @@ int scp_resource_req(unsigned int req_type)
 	unsigned long ret = 0;
 
 #if SCP_ATF_RESOURCE_REQUEST
+	if (req_type < 0 || req_type >= SCP_REQ_MAX)
+		return ret;
+
 	ret = mt_secure_call(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
 			req_type,
 			0, 0, 0);
+	if (!ret)
+		scp_resrc_current_req = req_type;
 #endif
 	return ret;
 }
@@ -976,6 +989,77 @@ static ssize_t mt_scp_sleep_cnt1_proc_write(
 	return count;
 }
 
+/****************************
+ * show scp dvfs request
+ *****************************/
+static int mt_scp_resrc_req_proc_show(struct seq_file *m, void *v)
+{
+	if (scp_resrc_req_cmd == -1)
+		seq_puts(m, "SCP Req CMD is not configured yet.\n");
+	else if (scp_resrc_req_cmd == SCP_REQ_RELEASE)
+		seq_puts(m, "SCP Req CMD release\n");
+	else {
+		if ((scp_resrc_req_cmd & SCP_REQ_26M) == SCP_REQ_26M)
+			seq_puts(m, "SCP Req CMD: 26M on\n");
+		if ((scp_resrc_req_cmd & SCP_REQ_IFR) == SCP_REQ_IFR)
+			seq_puts(m, "SCP Req CMD: infra bus on\n");
+		if ((scp_resrc_req_cmd & SCP_REQ_SYSPLL1) == SCP_REQ_SYSPLL1)
+			seq_puts(m, "SCP Req CMD: univpll on\n");
+	}
+
+	seq_printf(m, "scp current req: %d\n", scp_resrc_current_req);
+
+	return 0;
+}
+
+/**********************************
+ * write scp dvfs request
+ ***********************************/
+static ssize_t mt_scp_resrc_req_proc_write(
+					struct file *file,
+					const char __user *buffer,
+					size_t count,
+					loff_t *data)
+{
+	char desc[64], cmd[8];
+	int req_opp = 0;
+	int len = 0;
+	int ret = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%7s %d", cmd, &req_opp) == 2) {
+		if (strcmp(cmd, "req_on")) {
+			pr_info("invalid command %s\n", cmd);
+			return count;
+		}
+
+		if (req_opp >= 0  && req_opp < SCP_REQ_MAX) {
+			if (req_opp != scp_resrc_req_cmd) {
+				pr_info("scp_resrc_req_cmd = %d\n",
+						req_opp);
+
+				ret = scp_resource_req(req_opp);
+				if (ret)
+					pr_err("%s: SCP send req fail - %d\n",
+						__func__, ret);
+				else
+					scp_resrc_req_cmd = req_opp;
+			} else
+				pr_info("SCP Req CMD  is not changed\n");
+		} else {
+			pr_info("Warning: invalid input value %d\n", req_opp);
+		}
+	} else {
+		pr_info("Warning: invalid input number\n");
+	}
+
+	return count;
+}
+
 #define PROC_FOPS_RW(name) \
 static int mt_ ## name ## _proc_open(\
 					struct inode *inode, \
@@ -1020,6 +1104,7 @@ PROC_FOPS_RW(scp_sleep_ctrl0);
 PROC_FOPS_RW(scp_sleep_ctrl1);
 PROC_FOPS_RW(scp_sleep_cnt0);
 PROC_FOPS_RW(scp_sleep_cnt1);
+PROC_FOPS_RW(scp_resrc_req);
 
 static int mt_scp_dvfs_create_procfs(void)
 {
@@ -1038,6 +1123,7 @@ static int mt_scp_dvfs_create_procfs(void)
 		PROC_ENTRY(scp_sleep_ctrl1),
 		PROC_ENTRY(scp_sleep_cnt0),
 		PROC_ENTRY(scp_sleep_cnt1),
+		PROC_ENTRY(scp_resrc_req),
 	};
 
 	dir = proc_mkdir("scp_dvfs", NULL);

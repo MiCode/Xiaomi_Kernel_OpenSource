@@ -54,7 +54,7 @@ enum scp_req_r {
 	SCP_REQ_26M = 1 << 0,
 	SCP_REQ_IFR = 1 << 1,
 	SCP_REQ_SYSPLL1 = 1 << 2,
-	SCP_REQ_MAX = 0xffff,
+	SCP_REQ_MAX = 1 << 3,
 };
 
 enum {
