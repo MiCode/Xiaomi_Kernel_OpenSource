@@ -71,3 +71,7 @@ endmenu # Modem
 menu "Other Peripherals"
 source "drivers/misc/mediatek/typec/Kconfig"
 endmenu # Other Peripheral
+
+menu "CCU"
+source "drivers/misc/mediatek/ccu/src/Kconfig"
+endmenu # CCU
