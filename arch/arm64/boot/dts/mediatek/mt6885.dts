@@ -46,12 +46,16 @@ page_owner=on loop.max_part=7";
 
 	aliases {
 		ovl0 = &disp_ovl0;
+		ovl1 = &disp_ovl1;
 		ovl3 = &disp_ovl0_2l;
+		ovl4 = &disp_ovl1_2l;
 		ovl5 = &disp_ovl2_2l;
 		ovl6 = &disp_ovl3_2l;
 		rdma0 = &disp_rdma0;
 		rdma4 = &disp_rdma4;
 		rdma5 = &disp_rdma5;
+		wdma0 = &disp_wdma0;
+		wdma1 = &disp_wdma1;
 		dsi0 = &dsi0;
 		merge1=&disp_merge1;
 	};
@@ -3736,13 +3740,16 @@ page_owner=on loop.max_part=7";
 			<&dispsys_config MM_SMI_INFRA>,
 			<&dispsys_config MM_SMI_IOMMU>,
 			<&dispsys_config MM_DISP_OVL0>,
+			<&dispsys_config MM_DISP_OVL1>,
 			<&dispsys_config MM_DISP_OVL0_2L>,
+			<&dispsys_config MM_DISP_OVL1_2L>,
 			<&dispsys_config MM_DISP_OVL2_2L>,
 			<&dispsys_config MM_DISP_OVL3_2L>,
 			<&dispsys_config MM_DISP_RDMA0>,
 			<&dispsys_config MM_DISP_RDMA4>,
 			<&dispsys_config MM_DISP_RDMA5>,
 			<&dispsys_config MM_DISP_WDMA0>,
+			<&dispsys_config MM_DISP_WDMA1>,
 			<&dispsys_config MM_DISP_COLOR0>,
 			<&dispsys_config MM_DISP_CCORR0>,
 			<&dispsys_config MM_DISP_AAL0>,
@@ -3773,13 +3780,16 @@ page_owner=on loop.max_part=7";
 			"MMSYS_SMI_INFRA",
 			"MMSYS_SMI_IOMMU",
 			"MMSYS_DISP_OVL0",
+			"MMSYS_DISP_OVL1",
 			"MMSYS_DISP_OVL0_2L",
+			"MMSYS_DISP_OVL1_2L",
 			"MMSYS_DISP_OVL2_2L",
 			"MMSYS_DISP_OVL3_2L",
 			"MMSYS_DISP_RDMA0",
 			"MMSYS_DISP_RDMA4",
 			"MMSYS_DISP_RDMA5",
 			"MMSYS_DISP_WDMA0",
+			"MMSYS_DISP_WDMA1",
 			"MMSYS_DISP_COLOR0",
 			"MMSYS_DISP_CCORR0",
 			"MMSYS_DISP_AAL0",
@@ -4011,8 +4021,9 @@ page_owner=on loop.max_part=7";
 		clocks = <&dispsys_config MM_DISP_MERGE0>;
 	};
 
-	disp_ovl1@14100000 {
-		compatible = "mediatek,disp_ovl1";
+	disp_ovl1: disp_ovl@14100000 {
+		compatible = "mediatek,disp_ovl1",
+					"mediatek,mt6885-disp-ovl";
 		reg = <0 0x14100000 0 0x1000>;
 		interrupts = <GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL1>;
@@ -4022,8 +4033,9 @@ page_owner=on loop.max_part=7";
 			 <&iommu0 M4U_PORT_L1_OVL_RDMA1_HDR>;
 	};
 
-	disp_ovl1_2l@14101000 {
-		compatible = "mediatek,disp_ovl1_2l";
+	disp_ovl1_2l: disp_ovl@14101000 {
+		compatible = "mediatek,disp_ovl1_2l",
+					"mediatek,mt6885-disp-ovl";
 		reg = <0 0x14101000 0 0x1000>;
 		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL1_2L>;
@@ -4067,10 +4079,15 @@ page_owner=on loop.max_part=7";
 		iommus = <&iommu0 M4U_PORT_L1_DISP_FAKE1>;
 	};
 
-	disp_wdma1@14106000 {
-		compatible = "mediatek,disp_wdma1";
+	disp_wdma1: disp_wdma@14106000 {
+		compatible = "mediatek,disp_wdma1",
+					"mediatek,mt6885-disp-wdma";
 		reg = <0 0x14106000 0 0x1000>;
 		interrupts = <GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&dispsys_config MM_DISP_WDMA1>;
+		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <0>;
+		iommus = <&iommu0 M4U_PORT_L1_DISP_WDMA1>;
 	};
 
 	disp_color1@14107000 {
@@ -4227,6 +4244,7 @@ page_owner=on loop.max_part=7";
 			"disp_wait_dp_intf0_te",
 			"disp_dp_intf0_eof",
 			"disp_mutex2_eof",
+			"disp_wdma1_eof2",
 			"disp_dsi0_sof0";
 
 		gce-events = <&gce_mbox CMDQ_EVENT_DISP_STREAM_DONE_0>,
@@ -4244,6 +4262,7 @@ page_owner=on loop.max_part=7";
 			<&gce_mbox CMDQ_EVENT_DP_INTF_SOF>,
 			<&gce_mbox CMDQ_EVENT_DP_INTF_FRAME_DONE_MM>,
 			<&gce_mbox CMDQ_EVENT_DP_INTF_FRAME_DONE_MM>,
+			<&gce_mbox CMDQ_EVENT_DISP_WDMA1_FRAME_DONE>,
 			<&gce_mbox CMDQ_EVENT_DSI0_SOF>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
