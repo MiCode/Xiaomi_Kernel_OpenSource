@@ -774,7 +774,8 @@ static int mdw_cmd_sc_exec_num(struct mdw_apu_sc *sc)
 	if (dbg_multi == HDR_FLAG_MULTI_SINGLE ||
 		sc->parent->multi == HDR_FLAG_MULTI_SINGLE)
 		exec_num = 1;
-	else if (sc->type == APUSYS_DEVICE_MDLA) {
+	else if (sc->type == APUSYS_DEVICE_MDLA ||
+		sc->type == APUSYS_DEVICE_MDLA_RT) {
 		h = (struct apu_mdla_hdr *)mdw_cmd_get_dev_hdr(sc);
 		if (h->ofs_codebuf_info_dual0 && h->ofs_codebuf_info_dual1)
 			exec_num = 2;
