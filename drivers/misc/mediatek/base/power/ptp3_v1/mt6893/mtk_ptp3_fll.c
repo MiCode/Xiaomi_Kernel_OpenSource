@@ -97,15 +97,6 @@
 /************************************************
  * static Variable
  ************************************************/
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF
-
-/* B-DOE use */
-static unsigned int fll_doe_fllCtrl;
-
-#endif
-#endif
-
 static const char FLL_LIST_NAME[][40] = {
 	FllFastKpOnline,
 	FllFastKiOnline,
@@ -931,44 +922,12 @@ int fll_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
-	struct device_node *node = NULL;
-	int rc = 0;
-	unsigned int cpu, option, value;
-
-	node = pdev->dev.of_node;
-	if (!node) {
-		fll_err("get fll device node err\n");
-		return -ENODEV;
-	}
-
-	/* fll_doe_fllCtrl */
-	rc = of_property_read_u32(node,
-		"fll_doe_fllCtrl", &fll_doe_fllCtrl);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_fllCtrl from DTree; rc(%d) fll_doe_fllCtrl(0x%x)\n",
-			rc,
-			fll_doe_fllCtrl);
-
-		cpu = (fll_doe_fllCtrl & FLL_CFG_BITMASK_CPU) >> FLL_CFG_OFFSET_CPU;
-		option = (fll_doe_fllCtrl & FLL_CFG_BITMASK_OPTION) >> FLL_CFG_OFFSET_OPTION;
-		value = (fll_doe_fllCtrl & FLL_CFG_BITMASK_VALUE) >> FLL_CFG_OFFSET_VALUE;
-
-		if (fll_doe_fllCtrl != 0xFFFFFFFF) {
-			/* update via atf */
-			ptp3_smc_handle(
-				FLL_NODE_LIST_WRITE,
-				cpu,
-				option,
-				value);
-		}
-	}
-
+/* TO BE FIXED: avoid system reboot */
+#if 0
 	/* dump reg status into PICACHU dram for DB */
 	fll_reserve_memory_dump(
 		fll_buf, fll_mem_size, FLL_TRIGGER_STAGE_PROBE);
-
+#endif
 	fll_debug("fll probe ok!!\n");
 #endif
 #endif
@@ -977,25 +936,11 @@ int fll_probe(struct platform_device *pdev)
 
 int fll_suspend(struct platform_device *pdev, pm_message_t state)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	fll_reserve_memory_dump(
-		fll_buf+0x1000, fll_mem_size, FLL_TRIGGER_STAGE_SUSPEND);
-#endif
-#endif
 	return 0;
 }
 
 int fll_resume(struct platform_device *pdev)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	/* dump reg status into PICACHU dram for DB */
-	fll_reserve_memory_dump(
-		fll_buf+0x2000, fll_mem_size, FLL_TRIGGER_STAGE_RESUME);
-#endif
-#endif
 	return 0;
 }
 

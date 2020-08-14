@@ -542,11 +542,12 @@ int dt_probe(struct platform_device *pdev)
 for (dt_n = 0; dt_n < DT_NUM; dt_n++)
 	ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_WRITE, (dt_state_pinctl >> dt_n) & 0x1, dt_n);
 		}
-
+/* TO BE FIXED: avoid system reboot */
+#if 0
 		/* dump reg status into PICACHU dram for DB */
 			dt_reserve_memory_dump(dt_buf, dt_mem_size,
 				DT_TRIGGER_STAGE_PROBE);
-
+#endif
 			dt_msg("dt probe ok!!\n");
 #endif
 #endif
