@@ -29,6 +29,7 @@
 #include "mdw_usr.h"
 #include "mdw_rsc.h"
 #include "mdw_sched.h"
+#include "midware_trace.h"
 
 #define MDW_CMD_DEFAULT_TIMEOUT (30*1000) //30s
 
@@ -631,6 +632,7 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 	struct mdw_apu_sc *sc;
 	int ret = 0;
 
+	trace_tag_begin("parse apusys cmd");
 	while (1) {
 		ret = cmd_parser->parse_cmd(c, &sc);
 		/* check return value */
@@ -649,6 +651,7 @@ static int mdw_usr_par_apu_cmd(struct mdw_apu_cmd *c)
 			break;
 		}
 	}
+	trace_tag_end();
 
 	return ret;
 }
