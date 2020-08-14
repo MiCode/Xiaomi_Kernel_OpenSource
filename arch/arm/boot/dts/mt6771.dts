@@ -1283,6 +1283,12 @@
 			"infra-ccif2-md";
 	};
 
+	md_auxadc:md_auxadc {
+		compatible = "mediatek,md_auxadc";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "md-channel";
+	};
+
 	infra_md_cfg@1021d000 {
 		compatible = "mediatek,infra_md_cfg";
 		reg = <0 0x1021d000 0 0x1000>;
