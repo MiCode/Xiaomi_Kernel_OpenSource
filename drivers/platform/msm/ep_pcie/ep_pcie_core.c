@@ -2208,6 +2208,16 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld change to D0 state\n",
 			dev->rev, dev->d0_counter);
+		/*
+		 * During device bootup, there will not be any PERT-deassert,
+		 * so aquire wakelock from D0 event
+		 */
+		if (!atomic_read(&dev->ep_pcie_dev_wake)) {
+			pm_stay_awake(&dev->pdev->dev);
+			atomic_set(&dev->ep_pcie_dev_wake, 1);
+			EP_PCIE_DBG(dev, "PCIe V%d: Acquired wakelock in D0\n",
+				dev->rev);
+		}
 		ep_pcie_notify_event(dev, EP_PCIE_EVENT_PM_D0);
 	} else {
 		EP_PCIE_ERR(dev,
@@ -3334,11 +3344,44 @@ static const struct of_device_id ep_pcie_match[] = {
 	{}
 };
 
+static int ep_pcie_suspend_noirq(struct device *pdev)
+{
+	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+
+
+	/* Allow suspend if autonomous M2 is enabled  */
+	if (dev->m2_autonomous) {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Autonomous M2 is enabled, allow suspend\n",
+			dev->rev);
+		return 0;
+	}
+
+	/* Allow suspend only after D3 cold is received */
+	if (atomic_read(&dev->perst_deast)) {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: Perst not asserted, fail suspend\n",
+			dev->rev);
+		return -EBUSY;
+	}
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: Perst asserted, allow suspend\n",
+		dev->rev);
+
+	return 0;
+}
+
+static const struct dev_pm_ops ep_pcie_pm_ops = {
+	.suspend_noirq = ep_pcie_suspend_noirq,
+};
+
 static struct platform_driver ep_pcie_driver = {
 	.probe	= ep_pcie_probe,
 	.remove	= ep_pcie_remove,
 	.driver	= {
 		.name		= "pcie-ep",
+		.pm             = &ep_pcie_pm_ops,
 		.of_match_table	= ep_pcie_match,
 	},
 };
