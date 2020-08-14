@@ -585,6 +585,8 @@ static struct mtk_panel_params ext_params = {
 	.dyn_fps = {
 		.switch_en = 0,
 		.vact_timing_fps = MODE_0_FPS,
+		.lfr_enable = 1,
+		.lfr_minimum_fps = 60,
 	},
 	.data_rate = DATA_RATE,
 };
@@ -643,6 +645,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	.dyn_fps = {
 		.switch_en = 0,
 		.vact_timing_fps = MODE_1_FPS,
+		.lfr_enable = 1,
+		.lfr_minimum_fps = 60,
 	},
 	.data_rate = DATA_RATE,
 };
@@ -700,6 +704,8 @@ static struct mtk_panel_params ext_params_60hz = {
 	.dyn_fps = {
 		.switch_en = 0,
 		.vact_timing_fps = MODE_2_FPS,
+		.lfr_enable = 1,
+		.lfr_minimum_fps = 60,
 	},
 	.data_rate = DATA_RATE,
 };

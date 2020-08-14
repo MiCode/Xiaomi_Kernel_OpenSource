@@ -44,6 +44,7 @@
 #include "mtk_log.h"
 #include "mtk_drm_lowpower.h"
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_arr.h"
 #include "mtk_panel_ext.h"
 /* ************ Panel Master ********** */
 #include "mtk_drm_fbdev.h"
@@ -119,9 +120,14 @@
 #define DSI_SIZE_CON 0x38
 #define DSI_VACT_NL 0x2C
 #define DSI_LFR_CON 0x30
+#define DSI_LFR_STA 0x34
+#define LFR_STA_FLD_REG_LFR_SKIP_STA REG_FLD_MSB_LSB(8, 8)
+#define LFR_STA_FLD_REG_LFR_SKIP_CNT REG_FLD_MSB_LSB(5, 0)
 #define LFR_CON_FLD_REG_LFR_MODE REG_FLD_MSB_LSB(1, 0)
 #define LFR_CON_FLD_REG_LFR_TYPE REG_FLD_MSB_LSB(3, 2)
 #define LFR_CON_FLD_REG_LFR_EN REG_FLD_MSB_LSB(4, 4)
+#define LFR_CON_FLD_REG_LFR_UPDATE REG_FLD_MSB_LSB(5, 5)
+#define LFR_CON_FLD_REG_LFR_VSE_DIS REG_FLD_MSB_LSB(6, 6)
 #define LFR_CON_FLD_REG_LFR_SKIP_NUM REG_FLD_MSB_LSB(13, 8)
 
 #define DSI_HSA_WC 0x50
@@ -671,6 +677,100 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 
 	return data_rate;
 }
+static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
+	void *handle)
+{
+	u32 val = 0, mask = 0;
+
+	//lfr_dbg: setting value form debug mode
+	unsigned int lfr_dbg = mtk_dbg_get_lfr_dbg_value();
+	unsigned int lfr_mode = LFR_MODE_BOTH_MODE;
+	unsigned int lfr_type = 0;
+	unsigned int lfr_enable = 1;
+	unsigned int lfr_skip_num = 0;
+
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		return -1;
+
+	if (comp == NULL)
+		DDPPR_ERR("%s mtk_ddp_comp is null\n", __func__);
+
+	if (handle == NULL)
+		DDPPR_ERR("%s cmdq handle is null\n", __func__);
+	//Settings lfr settings to LFR_CON_REG
+	if (dsi->ext && dsi->ext->params &&
+		dsi->ext->params->dyn_fps.lfr_minimum_fps != 0 &&
+		dsi->ext->params->dyn_fps.lfr_enable == 1) {
+		lfr_skip_num =
+			(dsi->ext->params->dyn_fps.vact_timing_fps /
+			dsi->ext->params->dyn_fps.lfr_minimum_fps) - 1;
+	}
+
+	if (lfr_dbg) {
+		lfr_mode = mtk_dbg_get_lfr_mode_value();
+		lfr_type = mtk_dbg_get_lfr_type_value();
+		lfr_enable = mtk_dbg_get_lfr_enable_value();
+		lfr_skip_num = mtk_dbg_get_lfr_skip_num_value();
+	}
+
+
+	SET_VAL_MASK(val, mask, lfr_mode, LFR_CON_FLD_REG_LFR_MODE);
+	SET_VAL_MASK(val, mask, lfr_type, LFR_CON_FLD_REG_LFR_TYPE);
+	SET_VAL_MASK(val, mask, lfr_enable, LFR_CON_FLD_REG_LFR_EN);
+	SET_VAL_MASK(val, mask, 0, LFR_CON_FLD_REG_LFR_UPDATE);
+	SET_VAL_MASK(val, mask, 1, LFR_CON_FLD_REG_LFR_VSE_DIS);
+	SET_VAL_MASK(val, mask, lfr_skip_num, LFR_CON_FLD_REG_LFR_SKIP_NUM);
+
+	if (handle == NULL)
+		mtk_dsi_mask(dsi, DSI_LFR_CON, mask, val);
+
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DSI_LFR_CON, val, mask);
+
+	return 0;
+}
+
+static int mtk_dsi_LFR_update(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
+	void *handle)
+{
+	u32 val = 0, mask = 0;
+
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		return -1;
+
+	if (comp == NULL) {
+		DDPPR_ERR("%s mtk_ddp_comp is null\n", __func__);
+		return -1;
+	}
+
+	if (handle == NULL) {
+		DDPPR_ERR("%s cmdq handle is null\n", __func__);
+		return -1;
+	}
+
+	SET_VAL_MASK(val, mask, 0, LFR_CON_FLD_REG_LFR_UPDATE);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_LFR_CON, val, mask);
+
+	SET_VAL_MASK(val, mask, 1, LFR_CON_FLD_REG_LFR_UPDATE);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_LFR_CON, val, mask);
+	return 0;
+}
+static int mtk_dsi_LFR_status_check(struct mtk_dsi *dsi)
+{
+	u32 dsi_LFR_sta;
+	u32 dsi_LFR_skip_cnt;
+	u32 data;
+
+	data = readl(dsi->regs + DSI_LFR_STA);
+	dsi_LFR_sta = REG_FLD_VAL_GET(LFR_STA_FLD_REG_LFR_SKIP_STA, data);
+	dsi_LFR_skip_cnt = REG_FLD_VAL_GET(LFR_STA_FLD_REG_LFR_SKIP_CNT, data);
+	DDPINFO("%s dsi_LFR_sta=%d, dsi_LFR_skip_cnt=%d\n",
+		__func__, dsi_LFR_sta, dsi_LFR_skip_cnt);
+	return 0;
+}
 
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
@@ -715,7 +815,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		dev_err(dev, "Failed to enable digital clock: %d\n", ret);
 		goto err_disable_engine_clk;
 	}
-
+	mtk_dsi_set_LFR(dsi, NULL, NULL);
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
 	if (dsi->driver_data->support_shadow) {
 		/* Enable shadow register and read shadow register */
@@ -2532,8 +2632,10 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(TXRX_CTRL_FLD_REG_HSTX_CKLP_EN, reg_val));
 
 	reg_val = readl(DSI_LFR_CON + baddr);
-	DDPDUMP("LFR_en:%d,LFR_MODE:%d,LFR_TYPE:%d,LFR_SKIP_NUMBER:%d\n",
+	DDPDUMP("LFR_en:%d, LFR_VSE_DIS:%d, LFR_UPDATE:%d, LFR_MODE:%d, LFR_TYPE:%d, LFR_SKIP_NUMBER:%d\n",
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_EN, reg_val),
+		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_VSE_DIS, reg_val),
+		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_UPDATE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_MODE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_TYPE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_SKIP_NUM, reg_val));
@@ -4770,6 +4872,22 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		return mtk_dsi_get_virtual_width(dsi, &crtc->base);
 	}
 		break;
+	case DSI_LFR_SET:
+	{
+		mtk_dsi_set_LFR(dsi, comp, handle);
+	}
+		break;
+	case DSI_LFR_UPDATE:
+	{
+		mtk_dsi_LFR_update(dsi, comp, handle);
+	}
+		break;
+	case DSI_LFR_STATUS_CHECK:
+	{
+		mtk_dsi_LFR_status_check(dsi);
+	}
+		break;
+
 	default:
 		break;
 	}

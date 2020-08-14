@@ -239,6 +239,9 @@ enum mtk_ddp_io_cmd {
 	DSI_GET_VIRTUAL_HEIGH,
 	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,
+	DSI_LFR_SET,
+	DSI_LFR_UPDATE,
+	DSI_LFR_STATUS_CHECK,
 };
 
 struct golden_setting_context {
