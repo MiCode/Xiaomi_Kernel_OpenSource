@@ -1786,6 +1786,7 @@ static void task_rotate_work_func(struct work_struct *work)
 	struct task_rotate_work *wr = container_of(work,
 				struct task_rotate_work, w);
 	int ret = -1;
+	struct rq *src_rq, *dst_rq;
 
 	ret = migrate_swap(wr->src_task, wr->dst_task);
 
@@ -1801,8 +1802,16 @@ static void task_rotate_work_func(struct work_struct *work)
 
 	put_task_struct(wr->src_task);
 	put_task_struct(wr->dst_task);
-	clear_reserved(wr->src_cpu);
-	clear_reserved(wr->dst_cpu);
+
+	src_rq = cpu_rq(wr->src_cpu);
+	dst_rq = cpu_rq(wr->dst_cpu);
+
+	local_irq_disable();
+	double_rq_lock(src_rq, dst_rq);
+	src_rq->active_balance = 0;
+	dst_rq->active_balance = 0;
+	double_rq_unlock(src_rq, dst_rq);
+	local_irq_enable();
 }
 
 static void task_rotate_reset_uclamp_work_func(struct work_struct *work)
@@ -1834,6 +1843,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	struct rq *dst_rq;
 	struct task_rotate_work *wr = NULL;
 	int heavy_task = 0;
+	int force = 0;
 
 	if (!sysctl_sched_rotation_enable)
 		return;
@@ -1910,35 +1920,38 @@ void task_check_for_rotation(struct rq *src_rq)
 
 	double_rq_lock(src_rq, dst_rq);
 	if (dst_rq->curr->sched_class == &fair_sched_class) {
-		get_task_struct(src_rq->curr);
-		get_task_struct(dst_rq->curr);
 
 		if (!cpumask_test_cpu(dst_cpu,
 					&(src_rq->curr)->cpus_allowed) ||
 			!cpumask_test_cpu(src_cpu,
 					&(dst_rq->curr)->cpus_allowed)) {
-			put_task_struct(src_rq->curr);
-			put_task_struct(dst_rq->curr);
 			double_rq_unlock(src_rq, dst_rq);
 			return;
 		}
 
-		mark_reserved(src_cpu);
-		mark_reserved(dst_cpu);
-		wr = &per_cpu(task_rotate_works, src_cpu);
+		if (!src_rq->active_balance && !dst_rq->active_balance) {
+			src_rq->active_balance = MIGR_ROTATION;
+			dst_rq->active_balance = MIGR_ROTATION;
 
-		wr->src_task = src_rq->curr;
-		wr->dst_task = dst_rq->curr;
+			get_task_struct(src_rq->curr);
+			get_task_struct(dst_rq->curr);
 
-		wr->src_cpu = src_cpu;
-		wr->dst_cpu = dst_cpu;
+			wr = &per_cpu(task_rotate_works, src_cpu);
+
+			wr->src_task = src_rq->curr;
+			wr->dst_task = dst_rq->curr;
+
+			wr->src_cpu = src_rq->cpu;
+			wr->dst_cpu = dst_rq->cpu;
+			force = 1;
+		}
 	}
 	double_rq_unlock(src_rq, dst_rq);
 
-	if (wr) {
+	if (force) {
 		queue_work_on(src_cpu, system_highpri_wq, &wr->w);
-		trace_sched_big_task_rotation(src_cpu, dst_cpu,
-					src_rq->curr->pid, dst_rq->curr->pid,
+		trace_sched_big_task_rotation(wr->src_cpu, wr->dst_cpu,
+					wr->src_task->pid, wr->dst_task->pid,
 					false, set_uclamp);
 	}
 }

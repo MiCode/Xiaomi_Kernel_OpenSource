@@ -7718,7 +7718,6 @@ void __init sched_init(void)
 #endif /* CONFIG_SMP */
 		init_rq_hrtick(rq);
 		atomic_set(&rq->nr_iowait, 0);
-		rq->rotate_flags = 0;
 	}
 
 	set_load_weight(&init_task);

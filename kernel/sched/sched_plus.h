@@ -60,8 +60,8 @@ inline unsigned int freq_util(unsigned long util);
 #define MIGR_UP_MIGRATE        2
 #define MIGR_DOWN_MIGRATE      3
 #define MIGR_IDLE_RUNNING      4
+#define MIGR_ROTATION          5
 
-#define CPU_RESERVED 1
 #define TASK_ROTATION_THRESHOLD_NS      6000000
 #define HEAVY_TASK_NUM  4
 
@@ -80,21 +80,7 @@ static inline int is_reserved(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	return test_bit(CPU_RESERVED, &rq->rotate_flags);
-}
-
-static inline int mark_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return test_and_set_bit(CPU_RESERVED, &rq->rotate_flags);
-}
-
-static inline void clear_reserved(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	clear_bit(CPU_RESERVED, &rq->rotate_flags);
+	return (rq->active_balance != 0);
 }
 
 static inline bool is_max_capacity_cpu(int cpu)

@@ -928,7 +928,6 @@ struct rq {
 	struct cpuidle_state *idle_state;
 	int idle_state_idx;
 #endif
-	unsigned long rotate_flags;
 };
 
 static inline int cpu_of(struct rq *rq)
