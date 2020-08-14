@@ -365,7 +365,9 @@ reset:
 int pdc_check_leave(void)
 {
 	struct pd_cap *cap;
-	int ibus = 0;
+	int ibus = 0, vbus = 0;
+	unsigned int mivr1 = 0;
+	bool mivr_state = false;
 	int max_mv = 0;
 
 	cap = &pd->cap;
@@ -373,9 +375,13 @@ int pdc_check_leave(void)
 
 	charger_get_ibus(&ibus);
 	ibus = ibus / 1000;
+	vbus = battery_get_vbus();
+	charger_get_mivr_state(&mivr_state);
+	charger_get_mivr(&mivr1);
 
-	chr_err("[%s]mv:%d ibus:%d idx:%d min_watt:%d\n",
-			__func__, max_mv, ibus, pd->pd_idx, PD_MIN_WATT);
+	chr_err("[%s]mv:%d vbus:%d ibus:%d idx:%d min_watt:%d mivr:%d mivr_state:%d\n",
+		__func__, max_mv, vbus, ibus, pd->pd_idx,
+		PD_MIN_WATT, mivr1 / 1000, mivr_state);
 
 	if (max_mv * ibus <= PD_MIN_WATT)
 		goto leave;
