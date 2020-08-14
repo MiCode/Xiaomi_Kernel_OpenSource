@@ -333,6 +333,15 @@ static int ssusb_role_sw_set(struct usb_role_switch *sw, enum usb_role role)
 	u32 sw_state = otg_sx->sw_state;
 	bool vbus_event, id_event;
 
+	dev_info(dev, "role_sw_set role %d\n", role);
+
+	otg_sx->latest_role = role;
+
+	if (otg_sx->op_mode != MTU3_DR_OPERATION_DUAL) {
+		dev_info(dev, "op_mode %d, skip set role\n", otg_sx->op_mode);
+		return 0;
+	}
+
 	vbus_event = (role == USB_ROLE_DEVICE);
 	id_event = (role == USB_ROLE_HOST);
 
@@ -397,6 +406,71 @@ static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	return PTR_ERR_OR_ZERO(otg_sx->role_sw);
 }
 
+static ssize_t mode_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+	enum usb_role role = otg_sx->latest_role;
+	int mode;
+
+	if (kstrtoint(buf, 10, &mode))
+		return -EINVAL;
+
+	dev_info(dev, "store mode %d op_mode %d\n", mode, otg_sx->op_mode);
+
+	if (otg_sx->op_mode != mode) {
+		/* set switch role */
+		switch (mode) {
+		case MTU3_DR_OPERATION_OFF:
+			otg_sx->latest_role = USB_ROLE_NONE;
+			break;
+		case MTU3_DR_OPERATION_DUAL:
+			/* switch usb role to latest role */
+			break;
+		case MTU3_DR_OPERATION_HOST:
+			otg_sx->latest_role = USB_ROLE_HOST;
+			break;
+		case MTU3_DR_OPERATION_DEVICE:
+			otg_sx->latest_role = USB_ROLE_DEVICE;
+			break;
+		default:
+			return -EINVAL;
+		}
+		/* switch operation mode to normal temporarily */
+		otg_sx->op_mode = MTU3_DR_OPERATION_DUAL;
+		/* switch usb role */
+		ssusb_role_sw_set(ssusb->dev, otg_sx->latest_role);
+		/* update operation mode */
+		otg_sx->op_mode = mode;
+		/* restore role */
+		otg_sx->latest_role = role;
+	}
+
+	return count;
+}
+
+static ssize_t mode_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+
+	return sprintf(buf, "%d\n", otg_sx->op_mode);
+}
+static DEVICE_ATTR_RW(mode);
+
+static struct attribute *ssusb_dr_attrs[] = {
+	&dev_attr_mode.attr,
+	NULL
+};
+
+static const struct attribute_group ssusb_dr_group = {
+	.attrs = ssusb_dr_attrs,
+};
+
 int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 {
 	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
@@ -408,6 +482,13 @@ int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 	/* default as host, update state */
 	otg_sx->sw_state = ssusb->is_host ?
 			MTU3_SW_ID_GROUND : MTU3_SW_VBUS_VALID;
+
+	/* initial operation mode */
+	otg_sx->op_mode = MTU3_DR_OPERATION_DUAL;
+
+	ret = sysfs_create_group(&ssusb->dev->kobj, &ssusb_dr_group);
+	if (ret)
+		dev_info(ssusb->dev, "error creating sysfs attributes\n");
 
 	if (otg_sx->manual_drd_enabled)
 		ssusb_dr_debugfs_init(ssusb);
@@ -426,4 +507,5 @@ void ssusb_otg_switch_exit(struct ssusb_mtk *ssusb)
 	cancel_work_sync(&otg_sx->id_work);
 	cancel_work_sync(&otg_sx->vbus_work);
 	usb_role_switch_unregister(otg_sx->role_sw);
+	sysfs_remove_group(&ssusb->dev->kobj, &ssusb_dr_group);
 }
