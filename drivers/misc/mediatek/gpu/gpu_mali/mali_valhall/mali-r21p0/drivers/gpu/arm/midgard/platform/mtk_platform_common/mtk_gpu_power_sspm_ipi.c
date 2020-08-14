@@ -87,11 +87,10 @@ static void MTKGPUPower_model_kbase_setup(int flag, unsigned int interval_ns) {
 }
 
 void MTKGPUPower_model_sspm_enable(void) {
-	if (init_flag == gpm_kernel_side) {
-		MTKGPUPower_model_suspend();
-		MTKGPUPower_model_stop();
+	int pm_tool = MTK_get_mtk_pm();
+	if (pm_tool == pm_non){
+		MTKGPUPower_model_kbase_setup(pm_swpm, 0);
 	}
-	MTKGPUPower_model_kbase_setup(pm_swpm, 0);
 	gpu_send_enable_ipi(GPU_PM_SWITCH, 1);
 	init_flag = gpm_sspm_side;
 }
@@ -100,18 +99,19 @@ void MTKGPUPower_model_start(unsigned int interval_ns) {
 	int pm_tool = MTK_get_mtk_pm();
 
 	mutex_lock(&gpu_pmu_info_lock);
-	if (init_flag == gpm_off && pm_tool == pm_non) {
-		//gpu stall counter on
-		mtk_gpu_stall_create_subfs();
-		mtk_gpu_stall_start();
-		MTKGPUPower_model_kbase_setup(pm_ltr, interval_ns);
-	} else if (pm_tool == pm_swpm) {
+
+	if (pm_tool == pm_swpm) {
 		//gpu stall counter on
 		mtk_gpu_stall_create_subfs();
 		mtk_gpu_stall_start();
 		MTK_kbasep_vinstr_hwcnt_set_interval(0);
 		MTK_update_mtk_pm(pm_ltr);
 		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
+	} else {
+		//gpu stall counter on
+		mtk_gpu_stall_create_subfs();
+		mtk_gpu_stall_start();
+		MTKGPUPower_model_kbase_setup(pm_ltr, interval_ns);
 	}
 	if (init_flag != gpm_sspm_side)
 		init_flag = gpm_kernel_side;
@@ -170,9 +170,10 @@ void MTKGPUPower_model_suspend(void){
 	if (ipi_register_flag && init_flag == gpm_sspm_side)
 		gpu_send_enable_ipi(GPU_PM_POWER_STATUE, 0);
 
-	if (init_flag != gpm_kernel_side) {
+	if (MTK_get_mtk_pm() == pm_non) {
 		return;
 	}
+
 	kbase_vinstr_suspend(pm_kbdev->vinstr_ctx);
 }
 EXPORT_SYMBOL(MTKGPUPower_model_suspend);
@@ -181,9 +182,10 @@ void MTKGPUPower_model_resume(void){
 	if (ipi_register_flag && init_flag == gpm_sspm_side)
 		gpu_send_enable_ipi(GPU_PM_POWER_STATUE, 1);
 
-	if (init_flag != gpm_kernel_side) {
+	if (MTK_get_mtk_pm() == pm_non) {
 		return;
 	}
+
 	kbase_vinstr_resume(pm_kbdev->vinstr_ctx);
 }
 EXPORT_SYMBOL(MTKGPUPower_model_resume);
