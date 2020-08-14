@@ -554,15 +554,13 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 			return;
 		}
 	}
-	if (state == TX_FULL
 #if MD_GENERATION > (6293)
-		&& hif_empty_query(qno)
-#endif
-	) {
+	if (state == TX_FULL && hif_empty_query(qno)) {
 		if (dir == OUT)
 			spin_unlock_irqrestore(&port->flag_lock, flags);
 		return;
 	}
+#endif
 	ccmni_ops.queue_state_callback(port->md_id,
 		GET_CCMNI_IDX(port), state, is_ack);
 
