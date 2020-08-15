@@ -32,6 +32,9 @@ msm_gpu: qcom,kgsl-3d0@5900000 {
 		vdd-supply = <&gpu_gx_gdsc>;
 		qcom,chipid = <0x06010900>;
 
+		nvmem-cells = <&gpu_gaming_bin>;
+		nvmem-cell-names = "gaming_bin";
+
 		qcom,initial-pwrlevel = <4>;
 		qcom,gpu-quirk-secvid-set-once;
 		qcom,min-access-length = <32>;

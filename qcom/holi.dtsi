@@ -2548,6 +2548,11 @@
 			reg = <0x6024 0x2>;
 			bits = <21 1>;
 		};
+
+		gpu_gaming_bin: gpu_gaming_bin@6026 {
+			reg = <0x6026 0x1>;
+			bits = <5 1>;
+		};
 	};
 };
 
