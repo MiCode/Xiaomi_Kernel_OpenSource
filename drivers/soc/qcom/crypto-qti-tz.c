@@ -35,10 +35,21 @@ int crypto_qti_program_key(struct crypto_vops_qti_entry *ice_entry,
 	uint32_t smc_id = 0;
 	char *tzbuf = NULL;
 	struct scm_desc desc = {0};
+	int i;
+	union {
+		u8 bytes[BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE];
+		u32 words[BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE / sizeof(u32)];
+	} key_new;
 
 	tzbuf = ice_buffer;
 
-	memcpy(tzbuf, key->raw, key->size);
+	memcpy(key_new.bytes, key->raw, key->size);
+	if (!key->is_hw_wrapped) {
+		for (i = 0; i < ARRAY_SIZE(key_new.words); i++)
+			__cpu_to_be32s(&key_new.words[i]);
+	}
+
+	memcpy(tzbuf, key_new.bytes, key->size);
 	dmac_flush_range(tzbuf, tzbuf + key->size);
 
 	smc_id = TZ_ES_CONFIG_SET_ICE_KEY_ID;
