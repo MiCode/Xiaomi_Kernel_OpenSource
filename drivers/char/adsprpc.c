@@ -3663,12 +3663,11 @@ static int fastrpc_get_info_from_kernel(
 		struct fastrpc_file *fl)
 {
 	int err = 0;
-	uint32_t domain_support;
-	uint32_t domain = cap->domain;
-	uint32_t async_capability = IS_ASYNC_FASTRPC_AVAILABLE;
-	struct fastrpc_dsp_capabilities *dsp_cap_ptr;
+	uint32_t domain = cap->domain, attribute_ID = cap->attribute_ID;
+	uint32_t async_capability = 0;
+	struct fastrpc_dsp_capabilities *dsp_cap_ptr = NULL;
 
-	VERIFY(err, cap->domain < NUM_CHANNELS);
+	VERIFY(err, domain < NUM_CHANNELS);
 	if (err) {
 		err = -ECHRNG;
 		goto bail;
@@ -3679,18 +3678,17 @@ static int fastrpc_get_info_from_kernel(
 	 * is less than the number of attribute IDs supported by
 	 * kernel
 	 */
-	if (cap->attribute_ID >= FASTRPC_MAX_ATTRIBUTES) {
+	if (attribute_ID >= FASTRPC_MAX_ATTRIBUTES) {
 		err = -EOVERFLOW;
-		cap->capability = 0;
 		goto bail;
 	}
 
 	dsp_cap_ptr = &gcinfo[domain].dsp_cap_kernel;
 
-	if (cap->attribute_ID >= FASTRPC_MAX_DSP_ATTRIBUTES) {
+	if (attribute_ID >= FASTRPC_MAX_DSP_ATTRIBUTES) {
 		// Driver capability, pass it to user
 		memcpy(&cap->capability,
-			&kernel_capabilities[cap->attribute_ID -
+			&kernel_capabilities[attribute_ID -
 			FASTRPC_MAX_DSP_ATTRIBUTES],
 			sizeof(cap->capability));
 	} else if (!dsp_cap_ptr->is_cached) {
@@ -3705,43 +3703,20 @@ static int fastrpc_get_info_from_kernel(
 		if (err)
 			goto bail;
 
-		domain_support =
-			dsp_cap_ptr->dsp_attributes[0];
-
-		switch (domain_support) {
-		case 0:
-			memset(&dsp_cap_ptr->dsp_attributes,
-				0,
-				sizeof(dsp_cap_ptr->dsp_attributes));
-			memset(&cap->capability,
-				0, sizeof(cap->capability));
-			break;
-		case 1:
-			async_capability =
-				async_capability &&
-				dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP];
-			dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP] =
-				async_capability;
-			memcpy(&cap->capability,
-			&dsp_cap_ptr->dsp_attributes[cap->attribute_ID],
+		/* Async capability support depends on both kernel and DSP */
+		async_capability = IS_ASYNC_FASTRPC_AVAILABLE &&
+			dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP];
+		dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP]
+			= async_capability;
+		memcpy(&cap->capability,
+			&dsp_cap_ptr->dsp_attributes[attribute_ID],
 			sizeof(cap->capability));
-			break;
-		default:
-			err = -1;
-			/*
-			 * Reset is_cached flag to 0 so subsequent calls
-			 * can try to query dsp again
-			 */
-			dsp_cap_ptr->is_cached = 0;
-			ADSPRPC_WARN("returned bad domain support value %d\n",
-					domain_support);
-			goto bail;
-		}
+
 		dsp_cap_ptr->is_cached = 1;
 	} else {
 		// Information on Kernel, pass it to user
 		memcpy(&cap->capability,
-			&dsp_cap_ptr->dsp_attributes[cap->attribute_ID],
+			&dsp_cap_ptr->dsp_attributes[attribute_ID],
 			sizeof(cap->capability));
 	}
 bail:
@@ -5489,17 +5464,13 @@ static int fastrpc_get_dsp_info(
 		err = -ECHRNG;
 		goto bail;
 	}
+	cap->capability = 0;
 
 	err = fastrpc_get_info_from_kernel(cap, fl);
 	if (err)
 		goto bail;
-	K_COPY_TO_USER(
-			err,
-			0,
-			&((struct fastrpc_ioctl_capability *)
-				param)->capability,
-			&cap->capability,
-			sizeof(cap->capability));
+	K_COPY_TO_USER(err, 0, &((struct fastrpc_ioctl_capability *)
+		param)->capability, &cap->capability, sizeof(cap->capability));
 bail:
 	return err;
 }
