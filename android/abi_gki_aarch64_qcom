@@ -1417,6 +1417,7 @@
   netdev_pick_tx
   netdev_rx_handler_register
   netdev_rx_handler_unregister
+  netdev_update_features
   netdev_upper_dev_link
   netdev_upper_dev_unlink
   netdev_warn
