@@ -2113,7 +2113,6 @@ int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data)
 
 	if (test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state)) {
 		cnss_pr_err("Unexpected WLFW server arrive\n");
-		CNSS_ASSERT(0);
 		return -EINVAL;
 	}
 

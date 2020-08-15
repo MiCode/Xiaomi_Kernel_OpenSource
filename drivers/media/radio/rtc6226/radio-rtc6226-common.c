@@ -333,7 +333,7 @@ void rtc6226_scan(struct work_struct *work)
 		goto seek_tune_fail;
 	/* wait for tune to complete. */
 	if (!wait_for_completion_timeout(&radio->completion,
-				msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
+				msecs_to_jiffies(TUNE_TIMEOUT_MSEC))) {
 		FMDERR("In %s, didn't receive STC for tune\n", __func__);
 		rtc6226_q_event(radio, RTC6226_EVT_ERROR);
 		return;
@@ -360,7 +360,7 @@ void rtc6226_scan(struct work_struct *work)
 		}
 			/* wait for seek to complete */
 		if (!wait_for_completion_timeout(&radio->completion,
-					msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
+					msecs_to_jiffies(SEEK_TIMEOUT_MSEC))) {
 			FMDERR("%s:timeout didn't receive STC for seek\n",
 						__func__);
 			rtc6226_get_all_registers(radio);
@@ -433,7 +433,7 @@ void rtc6226_scan(struct work_struct *work)
 				goto seek_tune_fail;
 			}
 			if (!wait_for_completion_timeout(&radio->completion,
-					msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
+					msecs_to_jiffies(SEEK_TIMEOUT_MSEC))) {
 				FMDERR("timeout didn't receive STC for seek\n");
 				rtc6226_q_event(radio, RTC6226_EVT_ERROR);
 				return;
@@ -489,11 +489,13 @@ seek_cancelled:
 				__func__, retval);
 	else {
 		if (!wait_for_completion_timeout(&radio->completion,
-			msecs_to_jiffies(WAIT_TIMEOUT_MSEC)))
+			msecs_to_jiffies(TUNE_TIMEOUT_MSEC)))
 			FMDERR("%s: didn't receive STD for tune\n", __func__);
 		else
 			FMDERR("%s: received STD for tune\n", __func__);
 	}
+	/* Enable the RDS as it was disabled before scan */
+	rtc6226_rds_on(radio);
 	rtc6226_q_event(radio, RTC6226_EVT_SEEK_COMPLETE);
 	rtc6226_q_event(radio, RTC6226_EVT_TUNE_SUCC);
 	radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
@@ -1357,7 +1359,7 @@ void rtc6226_rds_handler(struct work_struct *worker)
 /*
  * rtc6226_rds_on - switch on rds reception
  */
-static int rtc6226_rds_on(struct rtc6226_device *radio)
+int rtc6226_rds_on(struct rtc6226_device *radio)
 {
 	int retval;
 
@@ -2270,6 +2272,14 @@ static int rtc6226_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 		return -EWOULDBLOCK;
 
 	radio->is_search_cancelled = false;
+
+	/* Disable the rds before seek */
+	radio->registers[SYSCFG] &= ~SYSCFG_CSR0_RDS_EN;
+	retval = rtc6226_set_register(radio, SYSCFG);
+	if (retval < 0) {
+		FMDERR("%s fail to disable RDS\n", __func__);
+		return retval;
+	}
 
 	if (radio->g_search_mode == SEEK) {
 		/* seek */

@@ -1946,6 +1946,14 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 		return rc;
 	}
 
+	/* Configure window (Vin/2 - Vout) UV level to 10mV */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			DIV2_WIN_UV_SEL_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set WIN_UV_10_MV rc=%d\n", rc);
+		return rc;
+	}
+
 	/* Configure master TEMP pin to output Vtemp signal by default */
 	rc = smb1398_masked_write(chip, SSUPLY_TEMP_CTRL_REG,
 			SEL_OUT_TEMP_MAX_MASK, SEL_OUT_VTEMP);
@@ -2276,6 +2284,14 @@ static int smb1398_div2_cp_slave_probe(struct smb1398_chip *chip)
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read slave MODE_STATUS_REG, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	/* Configure window (Vin/2 - Vout) UV level to 10mV */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			DIV2_WIN_UV_SEL_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set WIN_UV_10_MV rc=%d\n", rc);
 		return rc;
 	}
 

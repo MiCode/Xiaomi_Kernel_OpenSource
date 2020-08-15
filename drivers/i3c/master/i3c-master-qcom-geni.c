@@ -806,10 +806,10 @@ static int _i3c_geni_execute_command
 		if (gi3c->err) {
 			if (rnw == READ_TRANSACTION)
 				writel_relaxed(1, gi3c->se.base +
-					SE_DMA_TX_FSM_RST);
+					SE_DMA_RX_FSM_RST);
 			else
 				writel_relaxed(1, gi3c->se.base +
-					SE_DMA_RX_FSM_RST);
+					SE_DMA_TX_FSM_RST);
 			wait_for_completion_timeout(&gi3c->done, XFER_TIMEOUT);
 		}
 		geni_se_rx_dma_unprep(gi3c->se.i3c_rsc.wrapper_dev,

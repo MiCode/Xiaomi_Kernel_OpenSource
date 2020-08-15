@@ -1871,10 +1871,13 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		goto err_nobulk;
 	}
 
-	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret) {
-		dev_err(&pdev->dev, "could not set 32 bit DMA mask\n");
-		goto err_nobulk;
+		dev_err(&pdev->dev, "could not set 64 bit DMA mask,trying 32\n");
+		if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+			dev_err(&pdev->dev, "could not set 32 bit DMA mask\n");
+			goto err_nobulk;
+		}
 	}
 
 	/* typical txn numbers and size used in bulk operation */
