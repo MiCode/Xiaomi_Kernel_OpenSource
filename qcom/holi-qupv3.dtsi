@@ -56,6 +56,23 @@
 		status = "ok";
 	};
 
+	/* Debug UART Instance */
+	qupv3_se9_2uart: qcom,qup_uart@4c8c000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x4c8c000 0x4000>;
+		reg-names = "se_phys";
+		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>,
+			<&gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se9_2uart_active>;
+		pinctrl-1 = <&qupv3_se9_2uart_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
+
 	qupv3_se0_i2c: i2c@4a80000 {
 		compatible = "qcom,i2c-geni";
 		reg = <0x4a80000 0x4000>;
@@ -281,23 +298,6 @@
 		dmas = <&gpi_dma1 0 2 3 64 0>,
 			<&gpi_dma1 1 2 3 64 0>;
 		dma-names = "tx", "rx";
-		qcom,wrapper-core = <&qupv3_1>;
-		status = "disabled";
-	};
-
-	/* Debug UART Instance */
-	qupv3_se9_2uart: qcom,qup_uart@4c8c000 {
-		compatible = "qcom,msm-geni-console";
-		reg = <0x4c8c000 0x4000>;
-		reg-names = "se_phys";
-		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH>;
-		clock-names = "se-clk", "m-ahb", "s-ahb";
-		clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>,
-			<&gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
-			<&gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&qupv3_se9_2uart_active>;
-		pinctrl-1 = <&qupv3_se9_2uart_sleep>;
 		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
