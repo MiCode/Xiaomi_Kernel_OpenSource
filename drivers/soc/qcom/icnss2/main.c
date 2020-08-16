@@ -1888,7 +1888,7 @@ int icnss_thermal_cdev_register(struct device *dev, unsigned long max_state,
 	struct device_node *dev_node;
 	int ret = 0;
 
-	icnss_tcdev = devm_kzalloc(dev, sizeof(*icnss_tcdev), GFP_KERNEL);
+	icnss_tcdev = kzalloc(sizeof(*icnss_tcdev), GFP_KERNEL);
 	if (!icnss_tcdev)
 		return -ENOMEM;
 
@@ -1935,7 +1935,10 @@ void icnss_thermal_cdev_unregister(struct device *dev, int tcdev_id)
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 	struct icnss_thermal_cdev *icnss_tcdev = NULL;
 
-	list_for_each_entry(icnss_tcdev, &priv->icnss_tcdev_list, tcdev_list) {
+	while (!list_empty(&priv->icnss_tcdev_list)) {
+		icnss_tcdev = list_first_entry(&priv->icnss_tcdev_list,
+					       struct icnss_thermal_cdev,
+					       tcdev_list);
 		thermal_cooling_device_unregister(icnss_tcdev->tcdev);
 		list_del(&icnss_tcdev->tcdev_list);
 		kfree(icnss_tcdev);
