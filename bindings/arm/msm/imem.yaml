@@ -69,6 +69,9 @@ patternProperties:
         - const: qcom,msm-imem-diag-dload
           description: USB Diag download mode region
 
+        - const: qcom,msm-imem-pil-disable-timeout
+          description: Offset to set PIL debug cookie
+
     reg:
       description: Start address and the size of the region
 
