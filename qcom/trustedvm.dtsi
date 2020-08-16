@@ -40,77 +40,6 @@
 			cpu-idle-states = <0x2>;
 		};
 
-		CPU2: cpu@200 {
-			compatible = "arm,armv8";
-			reg = <0x0 0x200>;
-			device_type = "cpu";
-			enable-method = "psci";
-			cpu-idle-states = <0x2>;
-		};
-
-		CPU3: cpu@300 {
-			compatible = "arm,armv8";
-			reg = <0x0 0x300>;
-			device_type = "cpu";
-			enable-method = "psci";
-			cpu-idle-states = <0x2>;
-		};
-
-		CPU4: cpu@400 {
-			compatible = "arm,armv8";
-			reg = <0x0 0x400>;
-			device_type = "cpu";
-			enable-method = "psci";
-			cpu-idle-states = <0x2>;
-		};
-
-		CPU5: cpu@500 {
-			compatible = "arm,armv8";
-			reg = <0x0 0x500>;
-			device_type = "cpu";
-			enable-method = "psci";
-			cpu-idle-states = <0x2>;
-		};
-
-		CPU6: cpu@600 {
-			compatible = "arm,armv8";
-			reg = <0x0 0x600>;
-			device_type = "cpu";
-			enable-method = "psci";
-			cpu-idle-states = <0x2>;
-		};
-
-		CPU7: cpu@700 {
-			compatible = "arm,armv8";
-			reg = <0x0 0x700>;
-			device_type = "cpu";
-			enable-method = "psci";
-			cpu-idle-states = <0x2>;
-		};
-	};
-
-	reserved_memory: reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		qrtr_shbuf: qrtr-shmem {
-			no-map;
-			reg = <0x0 0x2fef7000 0x0 0x9000>;
-			qcom,label = <3>;
-		};
-
-		chan0_shbuf: neuron-block@0 {
-			no-map;
-			reg = <0x0 0x2ff00000 0x0 0x80000>;
-			qcom,label = <1>;
-		};
-
-		chan1_shbuf: neuron-block@1 {
-			no-map;
-			reg = <0x0 0x2ff80000 0x0 0x80000>;
-			qcom,label = <2>;
-		};
 	};
 
 	neuron-client-block {
@@ -133,7 +62,6 @@
 			class = "message-queue";
 			direction = "send";
 			max-size = <0 65536>;
-			shared-buffer = <&chan0_shbuf>;
 			haven-label = <1>;
 		};
 
@@ -143,7 +71,6 @@
 			class = "message-queue";
 			direction = "receive";
 			max-size = <0 65536>;
-			shared-buffer = <&chan1_shbuf>;
 			haven-label = <2>;
 		};
 	};
@@ -151,7 +78,6 @@
 	qrtr-haven {
 		compatible = "qcom,qrtr-haven";
 		haven-label = <3>;
-		shared-buffer = <&qrtr_shbuf>;
 	};
 
 	qcom,vm-config {
@@ -189,7 +115,7 @@
 		vcpus {
 			config = "/cpus";
 			affinity = "static";
-			affinity-map = <0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7>;
+			affinity-map = <0x4 0x5>;
 			sched-priority = < (-1) >;  /* relative to PVM */
 			sched-timeslice = <2000>;   /* in ms */
 		};
