@@ -326,6 +326,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Lito ID */
 	[400] = {MSM_CPU_LITO, "LITO"},
 
+	/* Orchid ID */
+	[476] = {MSM_CPU_ORCHID, "ORCHID"},
+
 	/* Bengal ID */
 	[417] = {MSM_CPU_BENGAL, "BENGAL"},
 	[444] = {MSM_CPU_BENGAL, "BENGAL"},
@@ -1218,6 +1221,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_lito()) {
 		dummy_socinfo.id = 400;
 		strlcpy(dummy_socinfo.build_id, "lito - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_orchid()) {
+		dummy_socinfo.id = 476;
+		strlcpy(dummy_socinfo.build_id, "orchid - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_bengal()) {
 		dummy_socinfo.id = 417;
