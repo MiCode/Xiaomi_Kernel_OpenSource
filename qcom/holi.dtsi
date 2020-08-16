@@ -1200,7 +1200,7 @@
 	};
 
 	cpu0_cpu_ddr_latfloor: qcom,cpu0-cpu-ddr-latfloor {
-		compatible = "qcom,devfreq-icc-ddr";
+		compatible = "qcom,devfreq-icc";
 		governor = "compute";
 		interconnects = <&bimc MASTER_AMPSS_M0 &bimc SLAVE_EBI>;
 		qcom,active-only;
@@ -1228,7 +1228,7 @@
 	};
 
 	cpu0_cpu_ddr_lat: qcom,cpu0-cpu-ddr-lat {
-		compatible = "qcom,devfreq-icc-ddr";
+		compatible = "qcom,devfreq-icc";
 		governor = "mem_latency";
 		interconnects = <&bimc MASTER_AMPSS_M0 &bimc SLAVE_EBI>;
 		qcom,active-only;
@@ -1236,7 +1236,7 @@
 	};
 
 	cpu6_cpu_ddr_lat: qcom,cpu6-cpu-ddr-lat {
-		compatible = "qcom,devfreq-icc-ddr";
+		compatible = "qcom,devfreq-icc";
 		governor = "mem_latency";
 		interconnects = <&bimc MASTER_AMPSS_M0 &bimc SLAVE_EBI>;
 		qcom,active-only;
@@ -1244,7 +1244,7 @@
 	};
 
 	cpu6_cpu_ddr_latfloor: qcom,cpu6-cpu-ddr-latfloor {
-		compatible = "qcom,devfreq-icc-ddr";
+		compatible = "qcom,devfreq-icc";
 		governor = "compute";
 		interconnects = <&bimc MASTER_AMPSS_M0 &bimc SLAVE_EBI>;
 		qcom,active-only;
