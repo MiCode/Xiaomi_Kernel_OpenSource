@@ -5143,9 +5143,7 @@
 		qcom,hlos-ce-hw-instance = <0>;
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,disk-encrypt-pipe-pair = <2>;
-		qcom,support-fde;
 		qcom,no-clock-support;
-		qcom,fde-key-size;
 		qcom,appsbl-qseecom-support;
 		qcom,commonlib64-loaded-by-uefi;
 		qcom,qsee-reentrancy-support = <2>;
