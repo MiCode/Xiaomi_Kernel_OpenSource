@@ -12,3 +12,6 @@ config ARM_PSCI_CHECKER
 	  The torture tests may interfere with the PSCI checker by turning CPUs
 	  on and off through hotplug, so for now torture tests and PSCI checker
 	  are mutually exclusive.
+
+config QGKI_PSCI_OSI_SUPPORT
+	bool "Set PSCI OSI mode"
