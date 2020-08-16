@@ -1758,8 +1758,6 @@ static int lpm_probe(struct platform_device *pdev)
 	 * core.  BUG in existing code but no known issues possibly because of
 	 * how late lpm_levels gets initialized.
 	 */
-	suspend_set_ops(&lpm_suspend_ops);
-	s2idle_set_ops(&lpm_s2idle_ops);
 	for_each_possible_cpu(cpu) {
 		cpu_histtimer = &per_cpu(histtimer, cpu);
 		hrtimer_init(cpu_histtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -1807,11 +1805,15 @@ static int lpm_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
+	suspend_set_ops(&lpm_suspend_ops);
+	s2idle_set_ops(&lpm_s2idle_ops);
 
 	return 0;
 failed:
 	free_cluster_node(lpm_root_node);
 	lpm_root_node = NULL;
+	dma_free_coherent(&pdev->dev, size, lpm_debug, lpm_debug_phys);
+
 	return ret;
 }
 
