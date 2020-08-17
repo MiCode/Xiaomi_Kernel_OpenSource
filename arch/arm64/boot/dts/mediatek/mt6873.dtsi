@@ -3758,7 +3758,8 @@
 			/* SCP_SYS_MDP */
 			power-domains = <&scpsys MT6873_POWER_DOMAIN_MDP>;
 			mediatek,larbs = <&larb16 &larb17 &larb18>;
-
+			operating-points-v2 = <&opp_table_cam>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		cam1@1a030000 {
