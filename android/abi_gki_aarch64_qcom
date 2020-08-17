@@ -1098,6 +1098,7 @@
   init_net
   __init_rwsem
   init_special_inode
+  init_srcu_struct
   init_timer_key
   init_uts_ns
   init_wait_entry
@@ -2275,6 +2276,8 @@
   srcu_notifier_call_chain
   srcu_notifier_chain_register
   srcu_notifier_chain_unregister
+  __srcu_read_lock
+  __srcu_read_unlock
   sscanf
   __stack_chk_fail
   __stack_chk_guard
@@ -2317,6 +2320,7 @@
   synchronize_irq
   synchronize_net
   synchronize_rcu
+  synchronize_srcu
   syscon_node_to_regmap
   syscon_regmap_lookup_by_phandle
   sysfs_create_bin_file
