@@ -147,6 +147,7 @@ static int init_sensor_mode(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT res;
 
+	memset(&res, 0, sizeof(res));
 	subdrv_call(ctx, get_resolution, &res);
 
 	// preview
@@ -232,8 +233,11 @@ static int init_sensor_mode(struct adaptor_ctx *ctx)
 	return 0;
 }
 
-static int set_sensor_mode(struct adaptor_ctx *ctx, struct sensor_mode *mode)
+static int set_sensor_mode(struct adaptor_ctx *ctx,
+		struct sensor_mode *mode, char update_ctrl_defs)
 {
+	s64 min, max, def;
+
 	if (ctx->cur_mode == mode)
 		return 0;
 
@@ -244,13 +248,33 @@ static int set_sensor_mode(struct adaptor_ctx *ctx, struct sensor_mode *mode)
 			&ctx->sensor_info,
 			&ctx->sensor_cfg);
 
+	if (update_ctrl_defs) {
+		/* pixel rate */
+		min = max = def = mode->mipi_pixel_rate;
+		__v4l2_ctrl_modify_range(ctx->pixel_rate, min, max, 1, def);
+
+		/* hblank */
+		min = max = def = mode->llp - mode->width;
+		__v4l2_ctrl_modify_range(ctx->hblank, min, max, 1, def);
+
+		/* vblank */
+		min = def = mode->fll - mode->height;
+		max = ctx->subctx.max_frame_length - mode->height;
+		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
+		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
+	}
+
+	dev_info(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
+		mode->width, mode->height, mode->max_framerate,
+		mode->llp, mode->fll, mode->mipi_pixel_rate);
+
 	return 0;
 }
 
 static int init_sensor_info(struct adaptor_ctx *ctx)
 {
 	init_sensor_mode(ctx);
-	set_sensor_mode(ctx, &ctx->mode[0]);
+	set_sensor_mode(ctx, &ctx->mode[0], 0);
 	ctx->fmt_code = get_outfmt_code(ctx);
 	return 0;
 }
@@ -386,6 +410,29 @@ static int imgsensor_enum_frame_size(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int imgsensor_enum_frame_interval(struct v4l2_subdev *sd,
+		struct v4l2_subdev_pad_config *cfg,
+		struct v4l2_subdev_frame_interval_enum *fie)
+{
+	struct adaptor_ctx *ctx = to_ctx(sd);
+	struct sensor_mode *mode;
+	u32 i, index = fie->index;
+
+	for (i = 0; i < ctx->mode_cnt; i++) {
+		mode = &ctx->mode[i];
+		if (fie->width != mode->width ||
+			fie->height != mode->height)
+			continue;
+		if (index-- == 0) {
+			fie->interval.numerator = mode->max_framerate;
+			fie->interval.denominator = 10;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
 static int imgsensor_get_selection(struct v4l2_subdev *sd,
 		struct v4l2_subdev_pad_config *cfg,
 		struct v4l2_subdev_selection *sel)
@@ -453,7 +500,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	struct sensor_mode *mode;
 	struct v4l2_mbus_framefmt *framefmt;
-	s64 min, max, def;
 
 	mutex_lock(&ctx->mutex);
 
@@ -467,23 +513,8 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		framefmt = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 		*framefmt = fmt->format;
-	} else {
-		set_sensor_mode(ctx, mode);
-
-		/* pixel rate */
-		min = max = def = mode->mipi_pixel_rate;
-		__v4l2_ctrl_modify_range(ctx->pixel_rate, min, max, 1, def);
-
-		/* hblank */
-		min = max = def = mode->llp - mode->width;
-		__v4l2_ctrl_modify_range(ctx->hblank, min, max, 1, def);
-
-		/* vblank */
-		min = def = mode->fll - mode->height;
-		max = ctx->subdrv->max_frame_length - mode->height;
-		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
-		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
-	}
+	} else
+		set_sensor_mode(ctx, mode, 1);
 
 	mutex_unlock(&ctx->mutex);
 
@@ -581,6 +612,33 @@ static int imgsensor_get_frame_interval(struct v4l2_subdev *sd,
 	mutex_lock(&ctx->mutex);
 	fi->interval.numerator = ctx->cur_mode->max_framerate;
 	fi->interval.denominator = 10;
+	mutex_unlock(&ctx->mutex);
+
+	return 0;
+}
+
+static int imgsensor_set_frame_interval(struct v4l2_subdev *sd,
+		struct v4l2_subdev_frame_interval *fi)
+{
+	struct adaptor_ctx *ctx = to_ctx(sd);
+	struct sensor_mode *mode;
+	u32 i, w, h, fps;
+
+	mutex_lock(&ctx->mutex);
+
+	w = ctx->cur_mode->width;
+	h = ctx->cur_mode->height;
+	fps = fi->interval.numerator * 10 / fi->interval.denominator;
+
+	for (i = 0; i < ctx->mode_cnt; i++) {
+		mode = &ctx->mode[i];
+		if (mode->width == w && mode->height == h &&
+			mode->max_framerate == fps) {
+			set_sensor_mode(ctx, mode, 1);
+			break;
+		}
+	}
+
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
@@ -760,6 +818,7 @@ static const struct v4l2_subdev_core_ops imgsensor_core_ops = {
 
 static const struct v4l2_subdev_video_ops imgsensor_video_ops = {
 	.g_frame_interval = imgsensor_get_frame_interval,
+	.s_frame_interval = imgsensor_set_frame_interval,
 	.s_stream = imgsensor_set_stream,
 	.g_mbus_config = imgsensor_g_mbus_config,
 };
@@ -769,6 +828,7 @@ static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
 	.get_fmt = imgsensor_get_pad_format,
 	.set_fmt = imgsensor_set_pad_format,
 	.enum_frame_size = imgsensor_enum_frame_size,
+	.enum_frame_interval = imgsensor_enum_frame_interval,
 	.get_selection = imgsensor_get_selection,
 #ifdef IMGSENSOR_VC_ROUTING
 	.get_frame_desc = imgsensor_get_frame_desc,
@@ -833,7 +893,7 @@ static int notify_fsync_mgr(struct adaptor_ctx *ctx)
 	seninf_idx <<= 1;
 	seninf_idx += (ret == 2 && (c_ab == 'b' || c_ab == 'B'));
 
-	dev_info(dev, "sensor_idx %d seninf_port \'%s\' seninf_idx %d\n",
+	dev_info(dev, "sensor_idx %d seninf_port %s seninf_idx %d\n",
 		ctx->idx, seninf_port, seninf_idx);
 
 	/* notify frame-sync mgr of sensor-idx and seninf-idx */

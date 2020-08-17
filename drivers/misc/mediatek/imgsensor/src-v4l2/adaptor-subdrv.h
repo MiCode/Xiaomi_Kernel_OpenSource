@@ -125,21 +125,6 @@ struct subdrv_entry {
 	unsigned int hdr_cap;
 	unsigned int pdaf_cap;
 	int pw_seq_cnt;
-	int max_frame_length;
-	int ana_gain_min;
-	int ana_gain_max;
-	int ana_gain_step;
-	int ana_gain_def;
-	int exposure_min;
-	int exposure_max;
-	int exposure_step;
-	int exposure_def;
-	int le_shutter_def;
-	int me_shutter_def;
-	int se_shutter_def;
-	int le_gain_def;
-	int me_gain_def;
-	int se_gain_def;
 };
 
 #define subdrv_call(ctx, o, args...) \
