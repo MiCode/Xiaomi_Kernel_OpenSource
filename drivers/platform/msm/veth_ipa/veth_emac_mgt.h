@@ -13,15 +13,33 @@
 #ifndef _VETH_EMAC_MGT_H_
 #define _VETH_EMAC_MGT_H_
 
-#include <linux/ipc_logging.h>
+
 #include "veth_ipa.h"
 
-#define  MM_MISC_VM_HAB_MINOR_ID 10
+#define  MM_DATA_NETWORK_1_VM_HAB_MINOR_ID 10
 
-int veth_emac_init(struct veth_emac_export_mem *veth_emac_mem);
+
+int veth_emac_init(struct veth_emac_export_mem *veth_emac_mem,
+				   struct veth_ipa_dev *pdata);
 
 int veth_alloc_emac_export_mem(struct veth_emac_export_mem *veth_emac_mem,
 	struct veth_ipa_dev *pdata);
+
+int veth_emac_start_offload(struct veth_emac_export_mem *veth_emac_mem,
+					struct veth_ipa_dev *pdata);
+
+int veth_emac_setup_be(struct veth_emac_export_mem *veth_emac_mem,
+					struct veth_ipa_dev *pdata);
+
+int veth_emac_ipa_hab_init(int mmid);
+int veth_alloc_emac_dealloc_mem(struct veth_emac_export_mem *veth_emac_mem,
+					struct veth_ipa_dev *pdata);
+int veth_emac_stop_offload(struct veth_emac_export_mem *veth_emac_mem,
+					struct veth_ipa_dev *pdata);
+int veth_emac_open_notify(struct veth_emac_export_mem *veth_emac_mem,
+					struct veth_ipa_dev *pdata);
+int veth_emac_ipa_setup_complete(struct veth_emac_export_mem *veth_emac_mem,
+					struct veth_ipa_dev *pdata);
 
 
 #endif /* _VETH_EMAC_MGT_H_ */

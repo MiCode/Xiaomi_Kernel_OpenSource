@@ -24,6 +24,9 @@
 #include <linux/ipa_uc_offload.h>
 #include <linux/if_ether.h>
 #include <linux/msm_ipa.h>
+#include <linux/habmm.h>
+#include <linux/habmmid.h>
+
 
 #include "veth_ipa.h"
 #include "./veth_emac_mgt.h"
@@ -68,23 +71,26 @@ static void veth_ipa_debugfs_init(struct veth_ipa_dev *veth_ipa_ctx);
 static void veth_ipa_debugfs_destroy(struct veth_ipa_dev *veth_ipa_ctx);
 static int veth_ipa_set_device_ethernet_addr
 	(u8 *dev_ethaddr, u8 device_ethaddr[]);
-static enum veth_ipa_state veth_ipa_next_state
-	(enum veth_ipa_state current_state, enum veth_ipa_operation operation);
+//static enum veth_ipa_state veth_ipa_next_state
+//	(enum veth_ipa_state current_state, enum veth_ipa_operation operation);
 static const char *veth_ipa_state_string(enum veth_ipa_state state);
 static int veth_ipa_init_module(void);
 static void veth_ipa_cleanup_module(void);
 
 static int  veth_ipa_ready(struct veth_ipa_dev *pdata);
 static void veth_ipa_ready_cb(void *user_data);
+
 static int  veth_ipa_uc_ready(struct veth_ipa_dev *pdata);
 static void veth_ipa_uc_ready_cb(void *user_data);
 
 static int  veth_enable_ipa_offload(struct veth_ipa_dev *pdata);
 static int  veth_disable_ipa_offload(struct veth_ipa_dev *pdata);
+static int veth_ipa_emac_evt_mgmt(void *arg);
+static int veth_ipa_send_msg(struct veth_ipa_dev *pdata,
+	enum ipa_peripheral_event event);
 
 static struct veth_ipa_dev *veth_pdata_p;
 static struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = { 0 };
-static struct veth_emac_export_mem veth_emac_mem;
 
 static void veth_ipa_offload_event_handler(struct veth_ipa_dev *pdata,
 	enum IPA_OFFLOAD_EVENT ev);
@@ -115,13 +121,10 @@ static const char * const IPA_OFFLOAD_EVENT_string[] = {
 	"EV_DEV_CLOSE",
 	"EV_IPA_READY",
 	"EV_IPA_UC_READY",
+	"EV_IPA_EMAC_INIT",
+	"EV_IPA_EMAC_SETUP",
 	"EV_PHY_LINK_UP",
-	"EV_PHY_LINK_DOWN",
-	"EV_DPM_SUSPEND",
-	"EV_DPM_RESUME",
-	"EV_USR_SUSPEND",
-	"EV_USR_RESUME",
-	"EV_IPA_OFFLOAD_MAX"
+	"EV_EMAC_DEINIT"
 };
 
 
@@ -169,7 +172,10 @@ static int veth_ipa_offload_init(struct veth_ipa_dev *pdata)
 	ipa_vlan_mode = 1;
 
 	VETH_IPA_DEBUG("IPA VLAN mode %d\n", ipa_vlan_mode);
-
+	VETH_IPA_DEBUG("IPA VLAN mode %d vlan id %d mac %pM\n",
+				   ipa_vlan_mode, pdata->prv_ipa.vlan_id,
+				   pdata->device_ethaddr);
+	pdata->prv_ipa.vlan_id = 1;
 	memset(&in, 0, sizeof(in));
 	memset(&out, 0, sizeof(out));
 
@@ -216,17 +222,26 @@ static int veth_ipa_offload_init(struct veth_ipa_dev *pdata)
 	in.notify = veth_ipa_packet_receive_notify;
 	in.proto = IPA_UC_NTN;
 	in.hdr_info[0].dst_mac_addr_offset = 0;
-	in.hdr_info[0].hdr_type = IPA_HDR_L2_ETHERNET_II;
+	//in.hdr_info[0].hdr_type = IPA_HDR_L2_ETHERNET_II;
+	in.hdr_info[0].hdr_type = IPA_HDR_L2_802_1Q;
 	in.hdr_info[1].dst_mac_addr_offset = 0;
-	in.hdr_info[1].hdr_type = IPA_HDR_L2_ETHERNET_II;
+	//in.hdr_info[1].hdr_type = IPA_HDR_L2_ETHERNET_II;
+	in.hdr_info[1].hdr_type =  IPA_HDR_L2_802_1Q;
 
 	ret = ipa_uc_offload_reg_intf(&in, &out);
 	if (ret) {
-		VETH_IPA_ERROR(
-			"Could not register offload interface ret %d\n", ret);
+		VETH_IPA_ERROR("Could not register offload interface ret %d\n",
+						ret);
 		return -EAGAIN;
 	}
 
+	veth_ipa_send_msg(pdata, IPA_PERIPHERAL_CONNECT);
+	if (ret < 0) {
+		VETH_IPA_ERROR("%s : eth_ipa_send_msg connect failed\n",
+					    __func__);
+		return ret;
+	}
+	VETH_IPA_DEBUG("IPA offload connect event sent\n");
 	VETH_IPA_DEBUG("Recevied IPA Offload Client Handle %d", out.clnt_hndl);
 	ntn_ipa->ipa_client_hndl = out.clnt_hndl;
 	VETH_IPA_DEBUG("Recevied IPA Offload Client Handle %d",
@@ -236,13 +251,51 @@ static int veth_ipa_offload_init(struct veth_ipa_dev *pdata)
 
 int veth_ipa_offload_cleanup(struct veth_ipa_dev *pdata)
 {
-	/* Implement in Phase 2 checkin*/
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+	int ret = 0;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("Could not register offload interface ret %d\n",
+					   ret);
+		return -EINVAL;
+	}
+
+	ret = ipa_uc_offload_cleanup(ntn_ipa->ipa_client_hndl);
+
+	if (ret) {
+		VETH_IPA_ERROR("Could not disconnect the uC pipes %d\n",
+					   ret);
+		return ret;
+	}
+
+	VETH_IPA_INFO("uC pipes cleaned up successfully ");
+
 	return 0;
 }
 
 int veth_ipa_offload_disconnect(struct veth_ipa_dev *pdata)
 {
-	/* Implement in Phase 2 checkin*/
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+	int ret = 0;
+
+	VETH_IPA_INFO("Enter : veth_ipa_offload_disconnect");
+
+	if (!pdata) {
+		VETH_IPA_ERROR("Offload iface not registered %d\n",
+						ret);
+		return -EINVAL;
+	}
+
+	ret = ipa_uc_offload_disconn_pipes(ntn_ipa->ipa_client_hndl);
+
+	if (ret) {
+		VETH_IPA_ERROR("Can't disconnect the uC pipes %d\n",
+						ret);
+		return ret;
+	}
+
+	VETH_IPA_INFO("uC pipes disconnected successfully ");
+
 	return 0;
 }
 
@@ -433,6 +486,7 @@ static int veth_map_rx_tx_setup_info_params(
 	tx_setup_info->data_buff_size = VETH_ETH_FRAME_LEN_IPA;
 
 	/* Allocate RX Buff List*/
+	//Todo: Free this correctly
 	rx_setup_info->data_buff_list = kcalloc(rx_setup_info->num_buffers,
 		sizeof(struct ntn_buff_smmu_map), GFP_KERNEL);
 	if (rx_setup_info->data_buff_list == NULL) {
@@ -441,6 +495,7 @@ static int veth_map_rx_tx_setup_info_params(
 	}
 
 	/* Allocate TX Buff List*/
+	//Todo: Free this correctly
 	tx_setup_info->data_buff_list = kcalloc(tx_setup_info->num_buffers,
 		sizeof(struct ntn_buff_smmu_map), GFP_KERNEL);
 	if (tx_setup_info->data_buff_list == NULL) {
@@ -454,13 +509,15 @@ static int veth_map_rx_tx_setup_info_params(
 	if (!rx_setup_info->smmu_enabled) {
 		rx_setup_info->data_buff_list[0].pa =
 			rx_setup_info->data_buff_list[0].iova;
-		VETH_IPA_INFO("rx_setup_info->data_buff_list[0].pa = 0x%lx",
-			rx_setup_info->data_buff_list[0].pa);
+		//VETH_IPA_DEBUG
+		//("rx_setup_info->data_buff_list[0].pa = 0x%lx",
+		//	rx_setup_info->data_buff_list[0].pa);
 	} else {
 		rx_setup_info->data_buff_list[0].pa =
 			veth_emac_mem->rx_buf_mem_paddr;
-		VETH_IPA_INFO("rx_setup_info->data_buff_list[0].pa = 0x%lx",
-			rx_setup_info->data_buff_list[0].pa);
+		//VETH_IPA_DEBUG
+		//("rx_setup_info->data_buff_list[0].pa = 0x%lx",
+		//	rx_setup_info->data_buff_list[0].pa);
 	}
 
 	for (i = 0; i <= rx_setup_info->num_buffers; i++) {
@@ -468,8 +525,9 @@ static int veth_map_rx_tx_setup_info_params(
 			veth_emac_mem->rx_buff_pool_base[i];
 		rx_setup_info->data_buff_list[i].pa =
 			veth_emac_mem->rx_buff_pool_base[i];
-		VETH_IPA_INFO("rx_setup_info->data_buff_list[%d].pa = 0x%lx",
-			i, rx_setup_info->data_buff_list[i].pa);
+		//VETH_IPA_DEBUG
+		//("rx_setup_info->data_buff_list[%d].pa = 0x%lx",
+		//	 i, rx_setup_info->data_buff_list[i].pa);
 	}
 
 	/*Populate TX Buff list. */
@@ -478,13 +536,15 @@ static int veth_map_rx_tx_setup_info_params(
 	if (!tx_setup_info->smmu_enabled) {
 		tx_setup_info->data_buff_list[0].pa =
 			tx_setup_info->data_buff_list[0].iova;
-		VETH_IPA_INFO("tx_setup_info->data_buff_list[0].pa = 0x%lx",
-			tx_setup_info->data_buff_list[0].pa);
+		//VETH_IPA_DEBUG
+		//("tx_setup_info->data_buff_list[0].pa = 0x%lx",
+		//	 tx_setup_info->data_buff_list[0].pa);
 	} else {
 		tx_setup_info->data_buff_list[0].pa =
 			veth_emac_mem->tx_buf_mem_paddr;
-		VETH_IPA_INFO("tx_setup_info->data_buff_list[0].pa = 0x%lx",
-			tx_setup_info->data_buff_list[0].pa);
+		 //VETH_IPA_INFO
+		 //("tx_setup_info->data_buff_list[0].pa = 0x%lx",
+		//tx_setup_info->data_buff_list[0].pa);
 	}
 
 	for (i = 0; i <= tx_setup_info->num_buffers; i++) {
@@ -492,9 +552,9 @@ static int veth_map_rx_tx_setup_info_params(
 			veth_emac_mem->tx_buff_pool_base[i];
 		tx_setup_info->data_buff_list[i].pa =
 			veth_emac_mem->tx_buff_pool_base[i];
-		VETH_IPA_INFO("tx_setup_info->data_buff_list[%d].pa = 0x%lx",
-			i,
-			tx_setup_info->data_buff_list[i].pa);
+		//VETH_IPA_DEBUG(
+		//"tx_setup_info->data_buff_list[%d].pa = 0x%lx",
+		// i,tx_setup_info->data_buff_list[i].pa);
 	}
 
 	return ret;
@@ -522,40 +582,25 @@ int veth_ipa_offload_connect(struct veth_ipa_dev *pdata)
 		return -EINVAL;
 	}
 
-	/* Configure interrupt route for EMAC TX DMA channel to IPA */
-	/* Configure interrupt route for EMAC RX DMA channel to IPA */
-
 	memset(&in, 0, sizeof(in));
 	memset(&out, 0, sizeof(out));
 	memset(&profile, 0, sizeof(profile));
 	memset(&tx_setup_info, 0, sizeof(tx_setup_info));
 	memset(&rx_setup_info, 0, sizeof(rx_setup_info));
 
-	/* Allocate memory that is to be exported to back end*/
-	ret = veth_alloc_emac_export_mem(&veth_emac_mem, pdata);
+	/* Call for Export into Backend*/
+    /*Map allocated memory to setup info structure*/
+	ret = veth_map_rx_tx_setup_info_params(&rx_setup_info,
+						&tx_setup_info,
+						&(pdata->veth_emac_mem),
+						pdata);
 	if (ret) {
 		pr_err("%s: veth_alloc_emac_export_mem failed error %d",
-			__func__,
-			ret);
+				__func__,
+				ret);
 		ret = -1;
 		goto mem_free;
 	}
-
-	ret = veth_emac_init(&veth_emac_mem);
-	if (ret) {
-		pr_err("%s: veth_emac_init failed error %d",
-			__func__,
-			ret);
-		ret = -1;
-		goto mem_free;
-	}
-
-	/*Map allocated memory to setup info structure*/
-	ret = veth_map_rx_tx_setup_info_params(&rx_setup_info,
-		&tx_setup_info, &veth_emac_mem, pdata);
-
-	/* Call for Export into Backend*/
-
 	in.clnt_hndl = ipa_cdata->ipa_client_hndl;
 
 	rx_setup_info.client = IPA_CLIENT_ETHERNET_PROD;
@@ -563,10 +608,11 @@ int veth_ipa_offload_connect(struct veth_ipa_dev *pdata)
 
 	if (emac_emb_smmu_ctx.valid) {
 		ret = veth_set_ul_dl_smmu_ipa_params(
-			pdata, &veth_emac_mem, &rx_setup_info, &tx_setup_info);
+			pdata, &(pdata->veth_emac_mem),
+			&rx_setup_info, &tx_setup_info);
 
 		if (ret) {
-			VETH_IPA_ERROR(
+			pr_err(
 				"Failed to build UL DL ipa_ntn_setup_info err:%d\n",
 				ret);
 			ret = -1;
@@ -651,7 +697,7 @@ int veth_ipa_offload_connect(struct veth_ipa_dev *pdata)
 	ret = ipa_uc_offload_conn_pipes(&in, &out);
 
 	if (ret) {
-		VETH_IPA_ERROR("Could not connect IPA Offload Pipes %d\n", ret);
+		pr_err("Could not connect IPA Offload Pipes %d\n", ret);
 		ret = -1;
 		goto mem_free;
 	}
@@ -667,7 +713,7 @@ int veth_ipa_offload_connect(struct veth_ipa_dev *pdata)
 
 	ret = ipa_set_perf_profile(&profile);
 	if (ret) {
-		VETH_IPA_ERROR(
+		pr_err(
 			"Err to set BW: IPA_RM_RESOURCE_ETHERNET_CONS err:%d\n",
 			ret);
 		ret = -1;
@@ -675,13 +721,6 @@ int veth_ipa_offload_connect(struct veth_ipa_dev *pdata)
 	}
 
 mem_free:
-
-	kfree(rx_setup_info.data_buff_list);
-	rx_setup_info.data_buff_list = NULL;
-
-	kfree(tx_setup_info.data_buff_list);
-	tx_setup_info.data_buff_list = NULL;
-
 	if (emac_emb_smmu_ctx.valid) {
 		if (rx_setup_info.ring_base_sgt) {
 			sg_free_table(rx_setup_info.ring_base_sgt);
@@ -756,15 +795,6 @@ int veth_enable_ipa_offload(struct veth_ipa_dev *pdata)
 			goto fail;
 		}
 	}
-
-	VETH_IPA_DEBUG("VETH_IPA_CONNECTED_AND_UP\n");
-	pdata->state = VETH_IPA_CONNECTED_AND_UP;
-	netif_carrier_on(pdata->net);
-	VETH_IPA_DEBUG("netif_carrier_on() was called\n");
-
-	netif_start_queue(pdata->net);
-	VETH_IPA_DEBUG("netif_start_queue() was called");
-
 	VETH_IPA_DEBUG("IPA Offload Enabled successfully\n");
 	return ret;
 
@@ -790,45 +820,83 @@ fail:
 
 int veth_disable_ipa_offload(struct veth_ipa_dev *pdata)
 {
+	int ret = 0;
+
+	if (pdata->prv_ipa.ipa_offload_conn) {
+		if (veth_ipa_offload_disconnect(pdata)) {
+			VETH_IPA_DEBUG("IPA Offload Disconnect Failed\n");
+			return -EINVAL;
+		}
+		VETH_IPA_DEBUG("IPA Offload Disconnect Successfully\n");
+		pdata->prv_ipa.ipa_offload_conn = false;
+	}
+
+	if (pdata->prv_ipa.ipa_offload_init) {
+		if (veth_ipa_offload_cleanup(pdata)) {
+			VETH_IPA_DEBUG("IPA Offload Cleanup Failed\n");
+			return -EINVAL;
+		}
+		VETH_IPA_DEBUG("IPA Offload Cleanup Success\n");
+		pdata->prv_ipa.ipa_offload_init = false;
+	}
+
+	ret = veth_ipa_send_msg(pdata, IPA_PERIPHERAL_DISCONNECT);
+	if (ret < 0) {
+		VETH_IPA_ERROR("%s: eth_ipa_send_msg failed\n", __func__);
+		return ret;
+	}
+	VETH_IPA_DEBUG("eth_ipa_send_msg complete\n");
 	return 0;
 }
+
 
 static void veth_ipa_offload_event_handler(
 	struct veth_ipa_dev *pdata,
 	enum IPA_OFFLOAD_EVENT ev
 	)
 {
+	int ret = 0;
 	VETH_IPA_LOCK();
-
 	VETH_IPA_LOG_ENTRY();
-	VETH_IPA_DEBUG(" Enter: event=%s\n", IPA_OFFLOAD_EVENT_string[ev]);
+	VETH_IPA_DEBUG(" Enter: event=%\n", IPA_OFFLOAD_EVENT_string[ev]);
 
 	switch (ev) {
 	case EV_DEV_OPEN:
 		{
-			pdata->veth_emac_dev_ready = true;
-
-			if (!pdata->prv_ipa.ipa_ready)
+		   VETH_IPA_DEBUG("%s:%d EV_DEV_OPEN offload handler\n",
+						  __func__,
+						  __LINE__);
+			if (!pdata->prv_ipa.ipa_ready) {
 				veth_ipa_ready(pdata); /*register */
+				VETH_IPA_DEBUG("%s:%d VETH IPA registered\n",
+							  __func__, __LINE__);
+			}
 
 			if (pdata->prv_ipa.ipa_ready) {
 				if (!pdata->prv_ipa.ipa_offload_init) {
 					if (!veth_ipa_offload_init(pdata))
 						pdata->prv_ipa.ipa_offload_init
-						= true;
+									= true;
 				}
 
 				if (!pdata->prv_ipa.ipa_uc_ready)
 					veth_ipa_uc_ready(pdata);
 
-				if (pdata->prv_ipa.ipa_uc_ready)
-					veth_enable_ipa_offload(pdata);
+				ret = veth_emac_open_notify(
+					&(pdata->veth_emac_mem),
+					pdata);
+				if (ret < 0) {
+					pr_err("%s: veth_emac_open_notify failed error %d",
+						__func__,
+						ret);
+				}
 			}
 		}
 		break;
 
 	case EV_IPA_READY:
 		{
+
 			pdata->prv_ipa.ipa_ready = true;
 
 			if (!pdata->prv_ipa.ipa_offload_init) {
@@ -838,71 +906,340 @@ static void veth_ipa_offload_event_handler(
 
 			if (!pdata->prv_ipa.ipa_uc_ready)
 				veth_ipa_uc_ready(pdata);
-
-			if (pdata->prv_ipa.ipa_uc_ready)
-				veth_enable_ipa_offload(pdata);
 		}
 		break;
 
 	case EV_IPA_UC_READY:
 		{
+
+			if (!pdata->prv_ipa.ipa_uc_ready)
+				veth_ipa_uc_ready(pdata);
+
 			pdata->prv_ipa.ipa_uc_ready = true;
 			VETH_IPA_DEBUG("%s:%d ipa uC is ready\n",
-				__func__, __LINE__);
+						   __func__,
+						   __LINE__);
 
 			if (!pdata->veth_emac_dev_ready)
 				break;
+		}
+		break;
+	case EV_IPA_EMAC_INIT:{
+			VETH_IPA_DEBUG("%s:%d EV_IPA_EMAC_INIT\n",
+						   __func__,
+						   __LINE__);
+			/* Allocate memory that is to be exported to back end*/
+			VETH_IPA_DEBUG("%s - veth_alloc_emac_export_mem  %p\n",
+						   __func__,
+						   pdata->pdev);
 
-			veth_enable_ipa_offload(pdata);
+			ret = veth_alloc_emac_export_mem(
+						&(pdata->veth_emac_mem),
+						pdata);
+			if (ret) {
+				pr_err("%s: veth_alloc_emac_export_mem failed %d",
+					  __func__,
+					  ret);
+				ret = -1;
+			}
+
+			/* Allocate memory that is to be exported to back end*/
+			VETH_IPA_DEBUG("%s - veth_emac_init\n",
+						   __func__);
+
+			ret = veth_emac_init(&(pdata->veth_emac_mem), pdata);
+			if (ret) {
+				pr_err("%s: veth_alloc_emac_export_mem failed error %d",
+						__func__,
+						ret);
+				ret = -1;
+			}
+			ret = veth_emac_setup_be(&(pdata->veth_emac_mem),
+									 pdata);
+			if (ret) {
+				pr_err("%s: veth_emac_setup_offload failed error %d",
+						__func__,
+						ret);
+				ret = -1;
+				//return ret;
+			}
+
+			pdata->state = VETH_IPA_CONNECTED;
+			VETH_IPA_DEBUG("%s - veth_emac_setup_offload %p\n",
+							__func__, pdata->pdev);
 		}
 		break;
 
+
+	case EV_IPA_EMAC_SETUP:{
+		if (pdata->prv_ipa.ipa_uc_ready)
+			veth_enable_ipa_offload(pdata);
+
+		ret = veth_emac_ipa_setup_complete(
+						&(pdata->veth_emac_mem),
+						pdata);
+		if (ret) {
+			pr_err("%s: veth_emac_setup_offload failed error %d",
+					__func__,
+					ret);
+			ret = -1;
+		}
+	}
+	break;
+
+	case EV_PHY_LINK_UP:{
+		VETH_IPA_DEBUG("%s:%d EV_PHY_LINK_UP offload handler\n",
+						   __func__,
+						   __LINE__);
+		ret = veth_emac_start_offload(&(pdata->veth_emac_mem),
+									pdata);
+		if (ret) {
+			pr_err("%s: veth_emac_setup_offload failed error %d",
+					__func__,
+					ret);
+			ret = -1;
+		}
+	}
+	break;
+
+	case EV_START_OFFLOAD:
+	{
+
+		VETH_IPA_DEBUG("%s:%d EV_START_OFFLOAD offload handler\n",
+						__func__, __LINE__);
+
+		netif_carrier_on(pdata->net);
+
+		VETH_IPA_DEBUG("netif_carrier_on() was called\n");
+
+		netif_start_queue(pdata->net);
+
+		VETH_IPA_DEBUG("netif_start_queue() was called");
+
+		pdata->state = VETH_IPA_CONNECTED_AND_UP;
+
+		pdata->veth_emac_dev_ready = true;
+	}
+	break;
 	case EV_DEV_CLOSE:
 		{
-			pdata->veth_emac_dev_ready = false;
-
-			if (pdata->prv_ipa.ipa_uc_ready)
+			if (pdata->prv_ipa.ipa_uc_ready) {
+				pr_info("%s: EV_DEV_CLOSE veth_disable_ipa_offload",
+						__func__);
+				veth_disable_ipa_offload(pdata);
 				ipa_uc_offload_dereg_rdyCB(IPA_UC_NTN);
+			}
 
-			veth_disable_ipa_offload(pdata);
+			VETH_IPA_DEBUG("%s:veth_alloc_emac_dealloc_mem",
+							__func__);
+			if (pdata->veth_emac_dev_ready) {
+				veth_alloc_emac_dealloc_mem(
+					&(pdata->veth_emac_mem),
+					pdata);
+				pdata->veth_emac_dev_ready = false;
+			}
 
-			/* reset link down on dev close */
+			pdata->state = VETH_IPA_DOWN;
 		}
 		break;
 
 	case EV_INVALID:
+		break;
 
 	default:
 		break;
 	}
 
-	VETH_IPA_DEBUG("Exit: event=%s\n", IPA_OFFLOAD_EVENT_string[ev]);
 	VETH_IPA_UNLOCK();
+	VETH_IPA_DEBUG("Exit: event=%s\n", IPA_OFFLOAD_EVENT_string[ev]);
 }
+
+static void  veth_ipa_emac_deinit_wq(struct work_struct *work)
+{
+	struct veth_ipa_client_data *ntn_ipa = container_of(work,
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
+	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
+					 struct veth_ipa_dev,
+					 prv_ipa);
+
+	veth_ipa_offload_event_handler(pdata, EV_DEV_CLOSE);
+}
+
+static void veth_ipa_emac_deinit_cb(void *user_data)
+{
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)user_data;
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
+		return;
+	}
+	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_deinit_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+}
+
+
+static void  veth_ipa_emac_start_offload_wq(struct work_struct *work)
+{
+	struct veth_ipa_client_data *ntn_ipa = container_of(work,
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
+	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
+					 struct veth_ipa_dev,
+					 prv_ipa);
+
+	veth_ipa_offload_event_handler(pdata, EV_START_OFFLOAD);
+}
+
+static void veth_ipa_emac_start_offload_cb(void *user_data)
+{
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)user_data;
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
+		return;
+	}
+
+	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_start_offload_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+}
+
+
+
+static void  veth_ipa_emac_link_up_wq(struct work_struct *work)
+{
+
+	struct veth_ipa_client_data *ntn_ipa = container_of(work,
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
+	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
+					 struct veth_ipa_dev,
+					 prv_ipa);
+	VETH_IPA_DEBUG("%s:%d\n", __func__, __LINE__);
+	veth_ipa_offload_event_handler(pdata, EV_PHY_LINK_UP);
+}
+
+static void veth_ipa_emac_link_up_cb(void *user_data)
+{
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)user_data;
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
+		return;
+	}
+
+	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_link_up_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+}
+
+
+static void  veth_ipa_emac_setup_done_wq(struct work_struct *work)
+{
+	struct veth_ipa_client_data *ntn_ipa = container_of(work,
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
+	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
+					 struct veth_ipa_dev,
+					 prv_ipa);
+
+
+	VETH_IPA_DEBUG("%s:%d\n", __func__, __LINE__);
+	veth_ipa_offload_event_handler(pdata, EV_IPA_EMAC_SETUP);
+}
+
+static void veth_ipa_emac_setup_done_cb(void *user_data)
+{
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)user_data;
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
+		return;
+	}
+
+	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_setup_done_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+}
+
+static void  veth_ipa_open_wq(struct work_struct *work)
+{
+	struct veth_ipa_client_data *ntn_ipa = container_of(work,
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
+	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
+					 struct veth_ipa_dev,
+					 prv_ipa);
+
+	veth_ipa_offload_event_handler(pdata, EV_DEV_OPEN);
+}
+
+static void veth_ipa_open_cb(void *user_data)
+{
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)user_data;
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
+		return;
+	}
+
+	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_open_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+}
+
+
+static void  veth_ipa_emac_init_done_wq(struct work_struct *work)
+{
+	struct veth_ipa_client_data *ntn_ipa = container_of(work,
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
+	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
+					 struct veth_ipa_dev,
+					 prv_ipa);
+
+	veth_ipa_offload_event_handler(pdata, EV_IPA_EMAC_INIT);
+}
+
+static void veth_ipa_emac_init_done_cb(void *user_data)
+{
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)user_data;
+	struct veth_ipa_client_data *ntn_ipa = &pdata->prv_ipa;
+
+	if (!pdata) {
+		VETH_IPA_ERROR("%s Null Param pdata\n", __func__);
+		return;
+	}
+	INIT_WORK(&ntn_ipa->ntn_ipa_rdy_work, veth_ipa_emac_init_done_wq);
+	queue_work(system_unbound_wq, &ntn_ipa->ntn_ipa_rdy_work);
+}
+
 
 static void veth_ipa_ready_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
-		struct veth_ipa_client_data,
-		ntn_ipa_rdy_work);
+						   struct veth_ipa_client_data,
+						   ntn_ipa_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
-		struct veth_ipa_dev,
-		prv_ipa);
+					 struct veth_ipa_dev,
+					 prv_ipa);
 
-	VETH_IPA_DEBUG("%s:%d iDWC_ETH_QOS_ipa_ready_wq\n", __func__, __LINE__);
+	VETH_IPA_DEBUG("%s:%d veth_ipa_ready_wq\n", __func__, __LINE__);
 	veth_ipa_offload_event_handler(pdata, EV_IPA_READY);
 }
 
 static void veth_ipa_uc_ready_wq(struct work_struct *work)
 {
 	struct veth_ipa_client_data *ntn_ipa = container_of(work,
-		struct veth_ipa_client_data,
-		ntn_ipa_rdy_work);
+					   struct veth_ipa_client_data,
+					   ntn_ipa_rdy_work);
 	struct veth_ipa_dev *pdata = container_of(ntn_ipa,
-		struct veth_ipa_dev,
-		prv_ipa);
+					 struct veth_ipa_dev,
+					 prv_ipa);
 
-	VETH_IPA_DEBUG("%s:%d iDWC_ETH_QOS_ipa_ready_wq\n", __func__, __LINE__);
+	VETH_IPA_DEBUG("%s:%d veth_ipa_ready_wq\n", __func__, __LINE__);
 	veth_ipa_offload_event_handler(pdata, EV_IPA_UC_READY);
 }
 
@@ -1012,6 +1349,67 @@ static int veth_ipa_uc_ready(struct veth_ipa_dev *pdata)
 	return ret;
 }
 
+
+/**
+ * veth_ipa_emac_evt_mgmt() - Called from driver for receiving
+ * event from the BE driver regarding the EMAC
+ *
+ * IN: @arg: argument sent from kthread create, contains n/w
+ * device info
+ * OUT: 0 on success and
+ * -1 on failure
+ */
+static int veth_ipa_emac_evt_mgmt(void *arg)
+{
+	int ret = 0;
+	int timeout_ms = 100;
+	int pdata_recv = 0;
+	int pdate_size = sizeof(pdata_recv);
+	struct veth_ipa_dev *pdata = (struct veth_ipa_dev *)arg;
+
+	VETH_IPA_INFO("%s: vc_id %d\n", __func__, pdata->veth_emac_mem.vc_id);
+	while (1) {
+		ret = habmm_socket_recv(pdata->veth_emac_mem.vc_id,
+				 &pdata_recv,
+				 &pdate_size,
+				 timeout_ms,
+				 HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING);
+		if (!ret) {
+			VETH_IPA_INFO("%s: pdata_recv %d\n", __func__,
+					pdata_recv);
+			switch (pdata_recv) {
+			case EV_IPA_EMAC_INIT:
+				if (!pdata->prv_ipa.emac_init) {
+					VETH_IPA_INFO("EMAC_INIT\n");
+					veth_ipa_emac_init_done_cb(pdata);
+					pdata->prv_ipa.emac_init = true;
+				}
+				break;
+			case EV_IPA_EMAC_SETUP:
+			VETH_IPA_INFO("EMAC_SETUP event received\n");
+			veth_ipa_emac_setup_done_cb(pdata);
+			break;
+			case EV_PHY_LINK_UP:
+			VETH_IPA_INFO("EMAC_PHY_LINK_UP event received\n");
+			veth_ipa_emac_link_up_cb(pdata);
+			break;
+			case EV_START_OFFLOAD:
+			VETH_IPA_INFO("EV_START_OFFLOAD event received\n");
+			veth_ipa_emac_start_offload_cb(pdata);
+			break;
+			case EV_EMAC_DEINIT:
+			VETH_IPA_INFO("EMAC_DEINIT event received\n");
+			veth_ipa_emac_deinit_cb(pdata);
+			pdata->prv_ipa.emac_init = false;
+			break;
+			default:
+			VETH_IPA_ERROR("Unknown event received\n");
+			break;
+			}
+		}
+	}
+	return 0;
+}
 /**
  * veth_ipa_init() - create network device and initializes
  *  internal data structures
@@ -1039,9 +1437,8 @@ static int veth_ipa_init(struct platform_device *pdev)
 	int                  result = 0;
 	struct net_device   *dev = NULL;
 	struct veth_ipa_dev *veth_ipa_pdata = NULL;
-
-	unsigned char        dev_ethaddr[ETH_ALEN] = {
-		 0x0, 0x55, 0x7B, 0xB5, 0x7D, 0xF9 };
+	unsigned char        dev_ethaddr[ETH_ALEN] = {0x0, 0x55, 0x7B,
+						0xB5, 0x7D, 0xF9};
 
 	VETH_IPA_LOG_ENTRY();
 	pr_info("veth start initialization\n");
@@ -1074,6 +1471,7 @@ static int veth_ipa_init(struct platform_device *pdev)
 		result = -ENOMEM;
 		goto fail_netdev_priv;
 	}
+
 	veth_pdata_p = veth_ipa_pdata;
 
 	memset(veth_ipa_pdata, 0, sizeof(*veth_ipa_pdata));
@@ -1100,6 +1498,8 @@ static int veth_ipa_init(struct platform_device *pdev)
 		VETH_IPA_ERROR("set device MAC failed\n");
 		goto fail_set_device_ethernet;
 	}
+
+
 	VETH_IPA_DEBUG("Device Ethernet address set %pM\n", dev->dev_addr);
 
 	VETH_IPA_DEBUG("is vlan mode %d\n", veth_ipa_pdata->is_vlan_mode);
@@ -1121,14 +1521,19 @@ static int veth_ipa_init(struct platform_device *pdev)
 	veth_ipa_pdata->state = VETH_IPA_INITIALIZED;
 #endif
 
+	mutex_init(&veth_ipa_pdata->prv_ipa.ipa_lock);
+	veth_ipa_pdata->prv_ipa.emac_init = false;
+	veth_ipa_pdata->veth_emac_mem.init_complete = false;
 	VETH_IPA_STATE_DEBUG(veth_ipa_pdata);
 
 	VETH_IPA_INFO("VETH_IPA was initialized successfully\n");
+
 
 	if (veth_ipa_pdata->prv_ipa.ipa_ready)
 		veth_ipa_ready(veth_ipa_pdata);
 
 	VETH_IPA_LOG_EXIT();
+
 	return 0;
 
 fail_register_netdev:
@@ -1154,8 +1559,10 @@ fail_alloc_etherdev:
 static int veth_ipa_open(struct net_device *net)
 {
 	struct veth_ipa_dev *veth_ipa_ctx;
+	struct task_struct  *emac_evt;
+	unsigned int mmid;
 #ifndef INT_NOIPA
-	int next_state;
+	//int next_state;
 #endif
 
 	VETH_IPA_LOG_ENTRY();
@@ -1167,13 +1574,13 @@ static int veth_ipa_open(struct net_device *net)
 	veth_ipa_offload_event_handler(veth_ipa_ctx, EV_DEV_OPEN);
 #else
 
-	next_state = veth_ipa_next_state(veth_ipa_ctx->state, VETH_IPA_OPEN);
+	//next_state = veth_ipa_next_state(veth_ipa_ctx->state, VETH_IPA_OPEN);
 
-	if (next_state == VETH_IPA_INVALID) {
-		VETH_IPA_ERROR("can't bring driver up before initialize\n");
-		return -EPERM;
-	}
-	veth_ipa_ctx->state = next_state;
+	//if (next_state == VETH_IPA_INVALID) {
+	//	VETH_IPA_ERROR("can't bring driver up before initialize\n");
+	//	return -EPERM;
+	//}
+	veth_ipa_ctx->state = VETH_IPA_UP;
 	VETH_IPA_STATE_DEBUG(veth_ipa_ctx);
 
 	if (veth_ipa_ctx->state == VETH_IPA_CONNECTED_AND_UP)
@@ -1181,7 +1588,25 @@ static int veth_ipa_open(struct net_device *net)
 	else
 		VETH_IPA_DEBUG("data path was not enabled yet\n");
 
+	if (!veth_ipa_ctx->veth_emac_mem.init_complete) {
+		mmid = HAB_MMID_CREATE(MM_DATA_NETWORK_1,
+					   MM_DATA_NETWORK_1_VM_HAB_MINOR_ID);
+		veth_ipa_ctx->veth_emac_mem.vc_id =
+		   veth_emac_ipa_hab_init(mmid);
+		if (veth_ipa_ctx->veth_emac_mem.vc_id < 0) {
+			VETH_IPA_ERROR("%s: HAB init failed, returning error\n",
+							__func__);
+			return -EAGAIN;
+		}
+		emac_evt =  kthread_run(&veth_ipa_emac_evt_mgmt,
+						(void *)veth_ipa_ctx,
+						"veth_ipa_emac_evt_mgmt");
+		VETH_IPA_INFO("%s: Starting EMAC kthread\n", __func__);
+		veth_ipa_ctx->veth_emac_mem.init_complete = true;
+	}
 	veth_ipa_offload_event_handler(veth_ipa_ctx, EV_DEV_OPEN);
+
+
 #endif
 
 	VETH_IPA_LOG_EXIT();
@@ -1219,8 +1644,6 @@ static netdev_tx_t veth_ipa_start_xmit
 	netdev_tx_t status = NETDEV_TX_BUSY;
 
 	struct veth_ipa_dev *veth_ipa_ctx = netdev_priv(net);
-
-	pr_debug(" %s: entry", __func__);
 	netif_trans_update(net);
 
 	VETH_IPA_DEBUG_XMIT("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
@@ -1234,7 +1657,6 @@ static netdev_tx_t veth_ipa_start_xmit
 	}
 
 	if (unlikely(veth_ipa_ctx->state != VETH_IPA_CONNECTED_AND_UP)) {
-		VETH_IPA_ERROR("Missing pipe connected and/or iface up\n");
 		return NETDEV_TX_BUSY;
 	}
 
@@ -1313,10 +1735,9 @@ static void veth_ipa_packet_receive_notify
 	}
 
 	packet_len = skb->len;
-	VETH_IPA_DEBUG("packet RX, len=%d\n", skb->len);
 
 	if (unlikely(veth_ipa_ctx->state != VETH_IPA_CONNECTED_AND_UP)) {
-		VETH_IPA_DEBUG("Missing pipe connected and/or iface up\n");
+		//VETH_IPA_DEBUG("Missing pipe connected and/or iface up\n");
 		return;
 	}
 
@@ -1337,6 +1758,35 @@ static void veth_ipa_packet_receive_notify
 	veth_ipa_ctx->net->stats.rx_bytes += packet_len;
 }
 
+
+static void __ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
+
+
+static int veth_ipa_send_msg(struct veth_ipa_dev *pdata,
+	enum ipa_peripheral_event event)
+{
+	struct ipa_msg_meta msg_meta;
+	struct ipa_ecm_msg emac_msg;
+
+	if (!pdata || !pdata->net) {
+		VETH_IPA_ERROR("wrong pdata\n");
+		return -EFAULT;
+	}
+
+	memset(&msg_meta, 0, sizeof(msg_meta));
+	memset(&emac_msg, 0, sizeof(emac_msg));
+	VETH_IPA_ERROR("ifindex  %d\n", pdata->net->ifindex);
+
+	emac_msg.ifindex = pdata->net->ifindex;
+	strlcpy(emac_msg.name, pdata->net->name, IPA_RESOURCE_NAME_MAX);
+
+	msg_meta.msg_type = event;
+	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
+
+	return ipa_send_msg(&msg_meta, &emac_msg, __ipa_eth_free_msg);
+}
+
+
 /** VETH_ipa_stop() - called when network device transitions to the down
  *     state.
  *  @net: the network device being stopped.
@@ -1348,23 +1798,46 @@ static void veth_ipa_packet_receive_notify
  */
 static int veth_ipa_stop(struct net_device *net)
 {
-	struct veth_ipa_dev *veth_ipa_ctx = netdev_priv(net);
-	int next_state;
-
+	struct veth_ipa_dev *pdata = netdev_priv(net);
+	int ret = 0;
 	VETH_IPA_LOG_ENTRY();
+	VETH_IPA_LOCK();
 
-	next_state = veth_ipa_next_state(veth_ipa_ctx->state, VETH_IPA_STOP);
-
-	if (next_state == VETH_IPA_INVALID) {
+	if (pdata->state == VETH_IPA_DOWN) {
 		VETH_IPA_ERROR("can't do network interface down without up\n");
 		return -EPERM;
 	}
 
-	veth_ipa_ctx->state = next_state;
-	VETH_IPA_STATE_DEBUG(veth_ipa_ctx);
-
+	pdata->state = VETH_IPA_DOWN;
+	VETH_IPA_DEBUG("veth_ipa_ctx->state = %d\n", pdata->state);
+	VETH_IPA_STATE_DEBUG(pdata);
+	netif_carrier_off(net);
+	VETH_IPA_DEBUG("Carrier off called\n");
 	netif_stop_queue(net);
 	VETH_IPA_DEBUG("network device stopped\n");
+
+	if (pdata->prv_ipa.ipa_uc_ready) {
+		pr_info("%s: veth_ipa_stop veth_disable_ipa_offload",
+				__func__);
+		veth_disable_ipa_offload(pdata);
+		ipa_uc_offload_dereg_rdyCB(IPA_UC_NTN);
+		pdata->prv_ipa.ipa_uc_ready = false;
+		pdata->prv_ipa.ipa_ready = false;
+	}
+
+	if (pdata->veth_emac_dev_ready) {
+		veth_alloc_emac_dealloc_mem(&(pdata->veth_emac_mem), pdata);
+		pdata->veth_emac_dev_ready = false;
+	}
+
+	VETH_IPA_UNLOCK();
+
+	//HAB call for BE driver in the mutex lock causes a deadlock
+	ret = veth_emac_stop_offload(&(pdata->veth_emac_mem), pdata);
+	if (ret < 0) {
+		pr_err("%s: veth_emac_stop_offload failed", __func__);
+		return ret;
+	}
 
 	VETH_IPA_LOG_EXIT();
 	return 0;
@@ -1386,27 +1859,14 @@ static int veth_ipa_stop(struct net_device *net)
  *  - deregister the network interface from Linux network stack
  *  - free all internal data structs
  */
-void veth_ipa_cleanup(void *priv)
+void veth_ipa_cleanup(struct veth_ipa_dev *veth_ipa_ctx)
 {
-	struct veth_ipa_dev *veth_ipa_ctx = priv;
-	int next_state;
-
 	VETH_IPA_LOG_ENTRY();
-
-	VETH_IPA_DEBUG("priv=0x%pK\n", priv);
 
 	if (!veth_ipa_ctx) {
 		VETH_IPA_ERROR("veth_ipa_ctx NULL pointer\n");
 		return;
 	}
-
-	next_state = veth_ipa_next_state(veth_ipa_ctx->state, VETH_IPA_CLEANUP);
-	if (next_state == VETH_IPA_INVALID) {
-		VETH_IPA_ERROR("can't clean driver without cable disconnect\n");
-		return;
-	}
-
-	veth_ipa_ctx->state = next_state;
 	VETH_IPA_STATE_DEBUG(veth_ipa_ctx);
 
 	/*consider destroy rules*/
@@ -1578,8 +2038,12 @@ static int veth_ipa_set_device_ethernet_addr
  * In case the operation is invalid this state machine will return
  * the value VETH_IPA_INVALID to inform the caller for a forbidden sequence.
  */
+/*
 static enum veth_ipa_state veth_ipa_next_state
-(enum veth_ipa_state current_state, enum veth_ipa_operation operation)
+(
+  enum veth_ipa_state current_state,
+  enum veth_ipa_operation operation
+)
 {
 	int next_state = VETH_IPA_INVALID;
 
@@ -1629,7 +2093,7 @@ static enum veth_ipa_state veth_ipa_next_state
 
 	return next_state;
 }
-
+*/
 /**
  * VETH_ipa_state_string - return the state string representation
  * @state: enum which describe the state
@@ -1647,6 +2111,8 @@ static const char *veth_ipa_state_string(enum veth_ipa_state state)
 		return "VETH_IPA_UP";
 	case VETH_IPA_CONNECTED_AND_UP:
 		return "VETH_IPA_CONNECTED_AND_UP";
+	case VETH_IPA_DOWN:
+		return "VETH_IPA_DOWN";
 	default:
 		return "Not supported";
 	}
@@ -1658,30 +2124,58 @@ static const char *veth_ipa_state_string(enum veth_ipa_state state)
  */
 static int veth_ipa_probe(struct platform_device *pdev)
 {
-	pr_debug("%s: veth probe start\n", __func__);
-
 	/*Initialize and Register VETH iface*/
 	veth_ipa_init(pdev);
 	pr_debug("veth initialization probe complete\n");
 	/*Clean up for init failure.*/
 	return 0;
-
 }
 
 static int veth_ipa_remove(struct platform_device *pdev)
 {
+	int ret = 0;
+	struct veth_ipa_dev *pdata = veth_pdata_p;
+
+	ret = veth_ipa_stop(pdata->net);
+	if (ret < 0) {
+		pr_err("%s: failed");
+		return ret;
+	}
+
+	veth_ipa_cleanup(pdata);
 	return 0;
 }
+
 
 static int veth_ipa_ap_suspend(struct device *dev)
 {
-	return 0;
+	int    ret = 0;
+	struct veth_ipa_dev *pdata = veth_pdata_p;
+
+
+	pr_info("%s: veth_global_pdata->state = %d\n",
+			__func__,
+			veth_pdata_p->state);
+	ret = veth_ipa_stop(pdata->net);
+	pr_info("%s: veth_ipa_ap_suspend %d\n",
+			__func__,
+			ret);
+	return ret;
 }
+
 
 static int veth_ipa_ap_resume(struct device *dev)
 {
+	struct veth_ipa_dev *pdata = veth_pdata_p;
+
+	pr_info("veth_ipa_ap_resume\n");
+	pr_info("%s: veth_global_pdata->state = %d\n",
+			__func__,
+			veth_pdata_p->state);
+	veth_ipa_open_cb(pdata);
 	return 0;
 }
+
 
 static const struct of_device_id veth_ipa_dt_match[] = {
 	{ .compatible = "qcom,veth-ipa" },
@@ -1691,16 +2185,16 @@ static const struct of_device_id veth_ipa_dt_match[] = {
 MODULE_DEVICE_TABLE(of, veth_ipa_dt_match);
 
 static const struct dev_pm_ops veth_ipa_pm_ops = {
-	.suspend_noirq = veth_ipa_ap_suspend,
-	.resume_noirq = veth_ipa_ap_resume,
+	.suspend = veth_ipa_ap_suspend,
+	.resume = veth_ipa_ap_resume,
 };
 
 static struct platform_driver veth_ipa_driver = {
 	.driver = {
 		.name = "veth_ipa",
 		.owner = THIS_MODULE,
-		.pm = &veth_ipa_pm_ops,
 		.of_match_table = veth_ipa_dt_match,
+		.pm = &veth_ipa_pm_ops,
 	},
 	.probe = veth_ipa_probe,
 	.remove = veth_ipa_remove,
