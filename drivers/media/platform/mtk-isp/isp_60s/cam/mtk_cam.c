@@ -221,8 +221,9 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 
 	out_fmt->crop.p.x = 0;
 	out_fmt->crop.p.y = 0;
-	out_fmt->crop.s.w = sd_width;
-	out_fmt->crop.s.h = sd_height;
+	/*FIXME for crop size */
+	out_fmt->crop.s.w = out_fmt->fmt.s.w;
+	out_fmt->crop.s.h = out_fmt->fmt.s.h;
 
 	dev_dbg(cam->dev,
 		"ctx: %d node:%d size=%0dx%0d, stride:%d, crop=%0dx%0d\n",
@@ -754,7 +755,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 	cfg_in_param = &config_param.input;
 	mtk_cam_seninf_get_pixelmode(ctx->seninf, PAD_SRC_RAW0, &pixel_mode);
 	cfg_in_param->pixel_mode = pixel_mode;
-		/* TODO: data pattern from meta buffer per frame setting */
+	/* TODO: data pattern from meta buffer per frame setting */
 	cfg_in_param->data_pattern = MTKCAM_IPI_SENSOR_PATTERN_NORMAL;
 	img_fmt = &pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
 		.active_fmt;
@@ -1314,8 +1315,7 @@ static int mtk_cam_master_bind(struct device *dev)
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_entities;
 	}
-	mtk_cam_pmqos_add_req(cam_dev);
-	mtk_cam_pmqos_get_clkinfo(cam_dev);
+	mtk_cam_dvfs_init(cam_dev);
 	pm_runtime_set_autosuspend_delay(dev, 2 * MTK_CAM_STOP_HW_TIMEOUT);
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
@@ -1347,7 +1347,7 @@ static void mtk_cam_master_unbind(struct device *dev)
 	dev_info(dev, "%s\n", __func__);
 
 	mtk_raw_unregister_entities(&cam_dev->raw);
-
+	mtk_cam_dvfs_uninit(cam_dev);
 	component_unbind_all(dev, cam_dev);
 
 	media_device_unregister(&cam_dev->media_dev);
