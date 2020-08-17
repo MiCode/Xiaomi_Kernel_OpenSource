@@ -992,20 +992,12 @@ static struct clk_rcg2 gcc_camss_csi2phytimer_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_gcc_camss_csi3phytimer_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(133333333, P_GPLL0_OUT_ODD, 1.5, 0, 0),
-	F(200000000, P_GPLL0_OUT_ODD, 1, 0, 0),
-	F(268800000, P_GPLL4_OUT_EVEN, 3, 0, 0),
-	{ }
-};
-
 static struct clk_rcg2 gcc_camss_csi3phytimer_clk_src = {
 	.cmd_rcgr = 0x59054,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_4,
-	.freq_tbl = ftbl_gcc_camss_csi3phytimer_clk_src,
+	.freq_tbl = ftbl_gcc_camss_csi0phytimer_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_camss_csi3phytimer_clk_src",
@@ -1018,8 +1010,7 @@ static struct clk_rcg2 gcc_camss_csi3phytimer_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 19200000,
-			[VDD_LOW] = 133333333,
-			[VDD_LOW_L1] = 200000000,
+			[VDD_LOW] = 200000000,
 			[VDD_NOMINAL] = 268800000},
 	},
 };
@@ -3181,6 +3172,7 @@ static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_memnoc_gfx_clk",
+			.flags = CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
