@@ -244,8 +244,13 @@ static enum mhi_ee mhi_translate_dev_ee(struct mhi_controller *mhi_cntrl,
 
 enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 {
+	int ret;
 	u32 exec;
-	int ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_EXECENV, &exec);
+
+	if (!mhi_cntrl || !mhi_cntrl->bhi)
+		return MHI_EE_MAX;
+
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_EXECENV, &exec);
 
 	return (ret) ? MHI_EE_MAX : mhi_translate_dev_ee(mhi_cntrl, exec);
 }
