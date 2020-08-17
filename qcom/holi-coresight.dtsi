@@ -267,7 +267,7 @@
 
 	audio_etm {
 		compatible = "qcom,coresight-remote-etm";
-		coresight-name = "coresight-audio-etm";
+		coresight-name = "coresight-audio-etm0";
 
 		qcom,inst-id = <5>;
 
