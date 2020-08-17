@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
 
 
 #ifndef _DT_BINDINGS_CLK_MSM_RPMH_H
@@ -31,5 +31,6 @@
 #define RPMH_IPA_CLK				22
 #define RPMH_PKA_CLK				23
 #define RPMH_HWKM_CLK				24
+#define RPMH_QPIC_CLK				25
 
 #endif
