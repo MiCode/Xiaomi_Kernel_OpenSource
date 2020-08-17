@@ -22,3 +22,4 @@ obj-$(CONFIG_INTERCONNECT_QCOM_SMD_RPM) += icc-smd-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_BCM_VOTER) += icc-bcm-voter.o
 obj-$(CONFIG_INTERCONNECT_QCOM_RPMH) += icc-rpmh.o
 obj-$(CONFIG_INTERCONNECT_QCOM_EPSS_L3) += epss-l3.o
+obj-$(CONFIG_INTERCONNECT_QCOM_CPUCP_L3) += cpucp-l3.o
