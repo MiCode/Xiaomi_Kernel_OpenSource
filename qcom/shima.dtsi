@@ -1186,7 +1186,8 @@
 
 			qcom,adsp_glink_ssr {
 				qcom,glink-channels = "glink_ssr";
-				qcom,notify-edges = <&glink_modem>;
+				qcom,notify-edges = <&glink_modem>,
+						    <&glink_cdsp>;
 			};
 
 			qcom,pmic_glink_rpmsg {
@@ -1219,6 +1220,11 @@
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
+			};
+
+			qcom,cdsp_glink_ssr {
+				qcom,glink-channels = "glink_ssr";
+				qcom,notify-edges = <&glink_adsp>;
 			};
 		};
 	};
