@@ -1330,7 +1330,7 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 	return status;
 }
 
-static void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
+void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 

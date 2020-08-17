@@ -2821,25 +2821,21 @@ error:
 void a6xx_enable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 
 	adreno_irqctrl(adreno_dev, 1);
-	enable_irq(pwr->interrupt_num);
-
-	trace_kgsl_irq(device, 1);
 }
 
 void a6xx_disable_gpu_irq(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
-	disable_irq(pwr->interrupt_num);
+	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 	if (a6xx_gmu_gx_is_on(device))
 		adreno_irqctrl(adreno_dev, 0);
 
-	trace_kgsl_irq(device, 0);
 }
 
 static int a6xx_gpu_boot(struct adreno_device *adreno_dev)
@@ -3112,14 +3108,19 @@ static void gmu_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
+	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
+		goto done;
+
 	if (!atomic_read(&device->active_cnt)) {
 		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 			a6xx_power_off(adreno_dev);
 	} else {
+		kgsl_pwrscale_update(device);
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
 	}
 
+done:
 	mutex_unlock(&device->mutex);
 }
 
