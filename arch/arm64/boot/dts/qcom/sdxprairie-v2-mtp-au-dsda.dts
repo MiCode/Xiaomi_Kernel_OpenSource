@@ -21,4 +21,10 @@
 	qcom,board-id = <0x08010008 0x0>;
 };
 
+&usb {
+	extcon = <&vbus_detect>;
+};
 
+&vbus_detect {
+	status = "okay";
+};
