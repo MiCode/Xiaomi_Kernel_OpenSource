@@ -34,7 +34,7 @@
 
 #define MEM_BUF_MAX_DEVS 1
 #define MEM_BUF_MHP_ALIGNMENT (1UL << SUBSECTION_SHIFT)
-#define MEM_BUF_TIMEOUT_MS 2000
+#define MEM_BUF_TIMEOUT_MS 3500
 #define to_rmt_msg(_work) container_of(_work, struct mem_buf_rmt_msg, work)
 
 #define MEM_BUF_CAP_SUPPLIER	BIT(0)
@@ -59,6 +59,7 @@ static DEFINE_IDR(mem_buf_txn_idr);
 static struct task_struct *mem_buf_msgq_recv_thr;
 static void *mem_buf_hh_msgq_hdl;
 static unsigned char mem_buf_capability;
+static struct workqueue_struct *mem_buf_wq;
 
 /**
  * struct mem_buf_txn: Represents a transaction (request/response pair) in the
@@ -782,7 +783,7 @@ static void mem_buf_process_msg(void *buf, size_t size)
 		work_fn = hdr->msg_type == MEM_BUF_ALLOC_REQ ?
 			mem_buf_alloc_req_work : mem_buf_relinquish_work;
 		INIT_WORK(&rmt_msg->work, work_fn);
-		schedule_work(&rmt_msg->work);
+		queue_work(mem_buf_wq, &rmt_msg->work);
 	} else {
 		pr_err("%s: received message of unknown type: %d\n", __func__,
 		       hdr->msg_type);
@@ -2124,12 +2125,19 @@ static int mem_buf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	mem_buf_wq = alloc_workqueue("mem_buf_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
+	if (!mem_buf_wq) {
+		dev_err(dev, "Unable to initialize workqueue\n");
+		return -EINVAL;
+	}
+
 	mem_buf_msgq_recv_thr = kthread_create(mem_buf_msgq_recv_fn, NULL,
 					       "mem_buf_rcvr");
 	if (IS_ERR(mem_buf_msgq_recv_thr)) {
 		dev_err(dev, "Failed to create msgq receiver thread rc: %d\n",
 			PTR_ERR(mem_buf_msgq_recv_thr));
-		return PTR_ERR(mem_buf_msgq_recv_thr);
+		ret = PTR_ERR(mem_buf_msgq_recv_thr);
+		goto err_kthread_create;
 	}
 
 	mem_buf_hh_msgq_hdl = hh_msgq_register(HH_MSGQ_LABEL_MEMBUF);
@@ -2167,6 +2175,9 @@ err_cdev_add:
 err_msgq_register:
 	kthread_stop(mem_buf_msgq_recv_thr);
 	mem_buf_msgq_recv_thr = NULL;
+err_kthread_create:
+	destroy_workqueue(mem_buf_wq);
+	mem_buf_wq = NULL;
 	return ret;
 }
 
@@ -2191,6 +2202,8 @@ static int mem_buf_remove(struct platform_device *pdev)
 	mem_buf_hh_msgq_hdl = NULL;
 	kthread_stop(mem_buf_msgq_recv_thr);
 	mem_buf_msgq_recv_thr = NULL;
+	destroy_workqueue(mem_buf_wq);
+	mem_buf_wq = NULL;
 	return 0;
 }
 
