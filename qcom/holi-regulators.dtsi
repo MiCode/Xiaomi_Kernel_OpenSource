@@ -50,7 +50,7 @@
 			qcom,use-voltage-level;
 		};
 
-		gfx_cdev: gfx-reg-cdev {
+		gfx_cdev: gfx-cdev {
 			compatible = "qcom,regulator-cooling-device";
 			regulator-cdev-supply = <&VDD_GFX_LEVEL_AO>;
 			regulator-levels = <RPM_SMD_REGULATOR_LEVEL_RETENTION
