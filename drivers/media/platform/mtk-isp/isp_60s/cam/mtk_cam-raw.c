@@ -683,9 +683,9 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 {
 	struct mtk_cam_device *cam =
 		container_of(pipe->raw, struct mtk_cam_device, raw);
-	struct mtk_camsys_clkinfo *clk = &cam->camsys_ctrl.clk_info;
+	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
 	struct mtk_cam_resource_config *res = &pipe->res_config;
-	u64 eq_throughput = clk->clklv[clk->clklv_num - 1] * MHz;
+	u64 eq_throughput = clk->clklv[0];
 	int res_step_type = 0;
 	int tgo_pxl_mode = 1;
 	int pixel_mode[MTK_CAMSYS_RES_STEP_NUM] = {0};
@@ -700,7 +700,7 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 	mtk_cam_seninf_get_pixelrate(pipe->res_config.seninf,
 				     &pipe->res_config.pixel_rate);
 	dev_dbg(cam->dev,
-		"[Res-PARAM] PR = %lld, in_w/in_h = %d/%d Limit[HWN(%d)/BIN(%d)/FRZ(%d)],Plan:%d\n",
+		"[Res] PR = %lld, w/h=%d/%d HWN(%d)/BIN(%d)/FRZ(%d),Plan:%d\n",
 		res->pixel_rate, in_w, in_h,
 		res->hwn_limit, res->bin_limit, res->frz_limit, res->res_plan);
 	memcpy(res->res_strategy, raw_resource_strategy_plan + res->res_plan,
@@ -755,8 +755,7 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 		 * (compared with pixel rate)
 		 */
 		pixel_mode[idx] = tgo_pxl_mode;
-		eq_throughput = ((u64)tgo_pxl_mode) *
-			clk->clklv[clk->clklv_num - clk_cur - 1] * MHz;
+		eq_throughput = ((u64)tgo_pxl_mode) * clk->clklv[clk_cur];
 		if (eq_throughput > res->pixel_rate &&
 		    lb_chk_res == LB_CHECK_OK) {
 			if (!res_found) {
@@ -765,25 +764,21 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 				res->raw_num_used = twin_en ? 2 : 1;
 				clk_res = clk_cur;
 				idx_res = idx;
-				clk->clklv_target =
-					clk->clklv[clk->clklv_num -
-						   clk_res - 1];
+				res->clk_target = clk->clklv[clk_res];
 				res_found = true;
 			}
 		}
-		dev_dbg(cam->dev, "[Res-STEP_%d] BIN/FRZ/HWN/CLK = %d/%d/%d/%d -> %d/%d/%d/%d,throughput=%10llu, LB=%d\n",
+		dev_dbg(cam->dev, "Res-%d BIN/FRZ/HWN/CLK=%d/%d/%d/%d -> %d/%d/%d/%d:%10llu\n",
 			idx, bin_temp, frz_temp, hwn_temp, clk_cur, bin_en,
-			frz_en, twin_en, clk_cur, eq_throughput, lb_chk_res);
+			frz_en, twin_en, clk_cur, eq_throughput);
 	}
 	tgo_pxl_mode = pixel_mode[idx_res];
-	eq_throughput = ((u64)tgo_pxl_mode) * clk->clklv_target * MHz;
+	eq_throughput = ((u64)tgo_pxl_mode) * res->clk_target;
 	if (res_found)
-		dev_dbg(cam->dev, "[Res-Final:%d] BIN/FRZ/HWN/CLK/tgo_pxl = %d/%d(%d)/%d/%d/%d ,EQ_PR=%lld (throughput=%10llu) clk_target:%d\n",
-			idx_res,
-			res->bin_enable, res->frz_enable, res->frz_ratio,
-			res->raw_num_used,
-			clk_res, tgo_pxl_mode, res->pixel_rate, eq_throughput,
-			clk->clklv_target);
+		dev_dbg(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d:%10llu, clk:%d\n",
+			idx_res, res->bin_enable, res->frz_enable, res->frz_ratio,
+			res->raw_num_used, clk_res, tgo_pxl_mode, eq_throughput,
+			res->clk_target);
 	else
 		dev_dbg(cam->dev, "[%s] Error resource result\n", __func__);
 	if (res->bin_enable) {
@@ -844,15 +839,11 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
 	dev_dbg(dev,
-		"%i status 0x%x(err 0x%x) dmao/dmai_done:0x%x/0x%x drop:0x%x\n",
+		"%i INT:0x%x(err:0x%x) INT2/3/4/5/6 0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		raw_dev->id,
 		irq_status, err_status,
-		dma_done_status, dmai_done_status, drop_status);
-
-	dev_dbg(dev,
-		"dma_err:0x%x cq_done:0x%x scq_deadline/trig_time/cq_ctrl:0x%x/0x%x/0x%x\n",
-		dma_err_status,
-		cq_done_status, scq_deadline, trig_time, cq_ctl);
+		dma_done_status, dmai_done_status, drop_status,
+		dma_err_status, cq_done_status);
 
 	/*
 	 * In normal case, the next SOF ISR should come after HW PASS1 DONE ISR.
@@ -907,7 +898,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev)
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);
 	wmb(); /* TBC */
 	dev_dbg_ratelimited(raw_dev->dev,
-			    "TG_PATH_CFG:0x%x, TG_SEN_MODE:0x%xTG_FRMSIZE_ST:0x%8x, TG_FRMSIZE_ST_R:0x%8xTG_SEN_GRAB_PXL:0x%8x, TG_SEN_GRAB_LIN:0x%8x\n",
+		"TG PATHCFG/SENMODE/FRMSIZE/RGRABPXL/LIN:%x/%x/%x/%x/%x/%x\n",
 		readl_relaxed(raw_dev->base + REG_TG_PATH_CFG),
 		readl_relaxed(raw_dev->base + REG_TG_SEN_MODE),
 		readl_relaxed(raw_dev->base + REG_TG_FRMSIZE_ST),

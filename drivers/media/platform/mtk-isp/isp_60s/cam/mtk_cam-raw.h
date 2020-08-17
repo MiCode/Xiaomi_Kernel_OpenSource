@@ -95,6 +95,7 @@ struct mtk_cam_resource_config {
 	u32 hwn_limit;
 	u32 res_plan;
 	u32 res_strategy[MTK_CAMSYS_RES_STEP_NUM];
+	u32 clk_target;
 	u32 raw_num_used;
 	u32 bin_enable;
 	u32 frz_enable;

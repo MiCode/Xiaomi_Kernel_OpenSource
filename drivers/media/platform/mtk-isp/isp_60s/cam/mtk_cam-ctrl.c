@@ -5,6 +5,8 @@
 
 #include <linux/of.h>
 #include <linux/list.h>
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 
 #include <media/v4l2-event.h>
 #include <media/v4l2-subdev.h>
@@ -15,9 +17,8 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-regs.h"
 
-#ifdef CONFIG_MTK_MMDVFS
-#include "mmdvfs_pmqos.h"
-#endif
+
+
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -36,36 +37,50 @@ enum MTK_CAMSYS_STATE_RESULT {
 	STATE_RESULT_PASS_CQ_HW_DELAY,
 };
 
-static void mtk_cam_pmqos_get_clk(struct mtk_cam_device *cam)
+static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_clkinfo *clk = &cam->camsys_ctrl.clk_info;
+	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	int clk_streaming_max = dvfs->clklv[0];
+	int i;
+
+	for (i = 0;  i < cam->max_stream_num; i++) {
+		if (cam->ctxs[i].streaming) {
+			struct mtk_cam_resource_config *res =
+				&cam->ctxs[i].pipe->res_config;
+			if (clk_streaming_max < res->clk_target)
+				clk_streaming_max = res->clk_target;
+			dev_dbg(cam->dev, "on ctx:%d clk needed:%d", i, res->clk_target);
+		}
+	}
+	dvfs->clklv_target = clk_streaming_max;
+	dev_dbg(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
+}
+
+static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
+{
+	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
 
 	u64 freq_cur = 0;
 	int i;
-#ifdef CONFIG_MTK_MMDVFS
-	freq_cur = mmdvfs_qos_get_freq(PM_QOS_CAM_FREQ);
-#else
-	freq_cur = clk->clklv_target;
-#endif
-	for (i = 0 ; i < clk->clklv_num; i++) {
-		if (freq_cur == clk->clklv[i])
-			clk->clklv_idx = i;
+	freq_cur = dvfs->clklv_target;
+	for (i = 0 ; i < dvfs->clklv_num; i++) {
+		if (freq_cur == dvfs->clklv[i])
+			dvfs->clklv_idx = i;
 	}
-	dev_info(cam->dev, "[%s] get clk=%d, idx=%d, target=%d",
-		 __func__, freq_cur,
-		 clk->clklv_idx, clk->clklv_target);
+	dev_dbg(cam->dev, "[%s] get clk=%d, idx=%d",
+		 __func__, dvfs->clklv_target, dvfs->clklv_idx);
 }
 
-static void mtk_cam_pmqos_update_clk(struct mtk_cam_device *cam)
+static void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_ctrl *camsys_ctrl = &cam->camsys_ctrl;
-#ifdef CONFIG_MTK_MMDVFS
-	pm_qos_update_request(&camsys_ctrl->isp_pmqos_req,
-			      camsys_ctrl->clk_info.clklv_target);
-#endif
-	dev_dbg(cam->dev, "[%s] update clk=%d", __func__,
-		camsys_ctrl->clk_info.clklv_target);
-	mtk_cam_pmqos_get_clk(cam);
+	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+
+	mtk_cam_dvfs_enumget_clktarget(cam);
+	mtk_cam_dvfs_get_clkidx(cam);
+	regulator_set_voltage(dvfs->reg, dvfs->voltlv[dvfs->clklv_idx], INT_MAX);
+	dev_dbg(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
+		dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
+
 }
 
 static void state_transition(struct mtk_camsys_ctrl_state *state_entry,
@@ -216,10 +231,10 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 				"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
 				time_after_sof, req->frame_seq_no,
 				ctx->stream_id);
+			state_transition(&req->state, E_STATE_READY, E_STATE_SENSOR);
 			v4l2_ctrl_request_complete(&req->req, parent_hdl);
 		}
 	}
-	state_transition(&req->state, E_STATE_READY, E_STATE_SENSOR);
 	if (ctx->prev_sensor)
 		ctx->prev_sensor = NULL;
 	dev_dbg(cam->dev, "sensor try set done\n");
@@ -355,19 +370,19 @@ static int mtk_camsys_state_handle(struct mtk_raw_device *raw_dev,
 		req = container_of(state_temp, struct mtk_cam_request, state);
 		stateidx = sensor_ctrl->sensor_request_seq_no -
 			   req->frame_seq_no;
-		if (stateidx < STATE_NUM_AT_SOF) {
+		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
 			state_rec[stateidx] = state_temp;
 			/* Find outer state element */
 			if (state_temp->estate == E_STATE_OUTER ||
 			    state_temp->estate == E_STATE_OUTER_HW_DELAY)
 				state_outer = state_temp;
-		}
-		/* counter for state queue*/
-		que_cnt++;
-		dev_dbg(raw_dev->dev,
+			dev_dbg(raw_dev->dev,
 			"[SOF] STATE_CHECK [N-%d] Req:%d / State:%d\n",
 			stateidx, req->frame_seq_no,
 			state_rec[stateidx]->estate);
+		}
+		/* counter for state queue*/
+		que_cnt++;
 	}
 	/* HW imcomplete case */
 	if (que_cnt >= STATE_NUM_AT_SOF) {
@@ -587,7 +602,7 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 				if (camsys_sensor_ctrl->isp_request_seq_no ==
 				    0) {
 					val = readl_relaxed(raw_dev->base +
-						REG_CAMCTL_FBC_RCNT_INC);
+						REG_CTL_DMA_EN);
 					writel_relaxed(val |
 						       CAMCTL_IMGO_R1_RCNT_INC,
 						       raw_dev->base +
@@ -597,7 +612,7 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 							 E_STATE_CQ,
 							 E_STATE_OUTER);
 					dev_dbg(raw_dev->dev,
-						"[SWD] Forced write READCNT for next frame image\n");
+						"[SWD] Forced write READCNT:0x%x\n", val);
 				}
 			}
 		}
@@ -621,37 +636,48 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 	mtk_cam_dev_req_try_queue(cam);
 }
 
-void mtk_cam_pmqos_get_clkinfo(struct mtk_cam_device *cam)
+void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
 {
-	struct mtk_camsys_clkinfo *clk = &cam->camsys_ctrl.clk_info;
-	u64 freq[ISP_CLK_LEVEL_CNT] = {0};
-	int clk_num, i;
-#ifdef CONFIG_MTK_MMDVFS
-	mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ, freq, &clk_num);
-#else
-	clk_num = 4;
-	freq[0] = 624;
-	freq[1] = 499;
-	freq[2] = 392;
-	freq[3] = 312;
-#endif
-	memset((void *)clk, 0x0, sizeof(struct mtk_camsys_clkinfo));
-	clk->clklv_num = clk_num;
-	clk->clklv_target = (u32)freq[clk_num - 1];
-	for (i = 0 ; i < clk_num; i++) {
-		dev_info(cam->dev, "[%s] clk_%d:%d", __func__, i, freq[i]);
-		clk->clklv[i] = freq[i];
-	}
-	mtk_cam_pmqos_get_clk(cam);
+	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
+
+	if (dvfs_info->clklv_num)
+		dev_pm_opp_of_remove_table(dvfs_info->dev);
 }
 
-void mtk_cam_pmqos_add_req(struct mtk_cam_device *cam)
+void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
 {
-#ifdef CONFIG_MTK_MMDVFS
-	struct mtk_camsys_ctrl *camsys_ctrl = &cam->camsys_ctrl;
+	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
+	struct dev_pm_opp *opp;
+	unsigned long freq = 0;
+	int ret = 0, clk_num = 0, i = 0;
 
-	pm_qos_add_request(&camsys_ctrl->isp_pmqos_req, PM_QOS_CAM_FREQ, 0);
-#endif
+	memset((void *)dvfs_info, 0x0, sizeof(struct mtk_camsys_dvfs));
+	dvfs_info->dev = cam->dev;
+	ret = dev_pm_opp_of_add_table(dvfs_info->dev);
+	if (ret < 0) {
+		dev_dbg(dvfs_info->dev, "fail to init opp table: %d\n", ret);
+		return;
+	}
+	dvfs_info->reg = devm_regulator_get_optional(dvfs_info->dev, "dvfsrc-vcore");
+	if (IS_ERR(dvfs_info->reg)) {
+		dev_dbg(dvfs_info->dev, "can't get dvfsrc-vcore\n");
+		return;
+	}
+	clk_num = dev_pm_opp_get_opp_count(dvfs_info->dev);
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dvfs_info->dev, &freq))) {
+		dvfs_info->clklv[i] = freq;
+		dvfs_info->voltlv[i] = dev_pm_opp_get_voltage(opp);
+		freq++;
+		i++;
+		dev_pm_opp_put(opp);
+	}
+	dvfs_info->clklv_num = clk_num;
+	dvfs_info->clklv_target = dvfs_info->clklv[0];
+	dvfs_info->clklv_idx = 0;
+	for (i = 0; i < dvfs_info->clklv_num; i++) {
+		dev_info(cam->dev, "[%s] idx=%d, clk=%d volt=%d\n",
+			 __func__, i, dvfs_info->clklv[i], dvfs_info->voltlv[i]);
+	}
 }
 
 int mtk_camsys_isr_event(struct mtk_cam_device *cam,
@@ -757,7 +783,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 		}
 	}
 	camsys_ctrl->link_change_state = LINK_CHANGE_IDLE;
-	mtk_cam_pmqos_update_clk(ctx->cam);
+	mtk_cam_dvfs_update_clk(ctx->cam);
 	dev_dbg(ctx->cam->dev, "[camsys:start]  ctx:%d/raw_dev:%d\n",
 		ctx->stream_id, camsys_ctrl->raw_dev[ctx->pipe->id]->id);
 
@@ -779,6 +805,7 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 		list_del(&state_entry->state_element);
 	}
 	spin_unlock_irqrestore(&camsys_sensor_ctrl->camsys_state_lock, flags);
+	mtk_cam_dvfs_update_clk(ctx->cam);
 	if (ctx->sensor) {
 		hrtimer_cancel(&camsys_sensor_ctrl->sensor_deadline_timer);
 		drain_workqueue(camsys_sensor_ctrl->sensorsetting_wq);

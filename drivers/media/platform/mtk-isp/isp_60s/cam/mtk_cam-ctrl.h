@@ -7,7 +7,6 @@
 #define __MTK_CAM_CTRL_H
 
 #include <linux/hrtimer.h>
-#include <linux/pm_qos.h>
 #include <linux/timer.h>
 
 #define MAX_STREAM_NUM 4 /* rawx2, mrawx2 */
@@ -95,9 +94,12 @@ struct mtk_camsys_link_ctrl {
 	u8 active;
 };
 
-struct mtk_camsys_clkinfo {
+struct mtk_camsys_dvfs {
+	struct device *dev;
+	struct regulator *reg;
 	unsigned int clklv_num;
 	unsigned int clklv[ISP_CLK_LEVEL_CNT];
+	unsigned int voltlv[ISP_CLK_LEVEL_CNT];
 	unsigned int clklv_idx;
 	unsigned int clklv_target;
 };
@@ -121,13 +123,13 @@ struct mtk_camsys_ctrl {
 	u8 link_change_state;
 	spinlock_t link_change_lock;
 	/* resource ctrl */
-	struct mtk_camsys_clkinfo clk_info;
-	struct pm_qos_request isp_pmqos_req;
+	struct mtk_camsys_dvfs dvfs_info;
 
 };
 
-void mtk_cam_pmqos_get_clkinfo(struct mtk_cam_device *cam);
-void mtk_cam_pmqos_add_req(struct mtk_cam_device *cam);
+void mtk_cam_dvfs_init(struct mtk_cam_device *cam);
+void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam);
+
 
 int mtk_camsys_isr_event(struct mtk_cam_device *cam,
 			 struct mtk_camsys_irq_info *irq_info);
