@@ -9,6 +9,23 @@
 #include "msm_cvp_core.h"
 #include "msm_cvp_dsp.h"
 
+#define CLEAR_USE_BITMAP(idx, inst) \
+	do { \
+		clear_bit(idx, &inst->dma_cache.usage_bitmap); \
+		dprintk(CVP_MEM, "clear %x bit %d dma_cache bitmap 0x%llx\n", \
+			hash32_ptr(inst->session), smem->bitmap_index, \
+			inst->dma_cache.usage_bitmap); \
+	} while (0)
+
+#define SET_USE_BITMAP(idx, inst) \
+	do { \
+		set_bit(idx, &inst->dma_cache.usage_bitmap); \
+		dprintk(CVP_MEM, "Set %x bit %d dma_cache bitmap 0x%llx\n", \
+			hash32_ptr(inst->session), idx, \
+			inst->dma_cache.usage_bitmap); \
+	} while (0)
+
+
 void print_smem(u32 tag, const char *str, struct msm_cvp_inst *inst,
 		struct msm_cvp_smem *smem)
 {
@@ -16,9 +33,11 @@ void print_smem(u32 tag, const char *str, struct msm_cvp_inst *inst,
 		return;
 
 	if (smem->dma_buf) {
-		dprintk(tag, "%s: %x : %s size %d flags %#x iova %#x", str,
-			hash32_ptr(inst->session), smem->dma_buf->name,
-			smem->size, smem->flags, smem->device_addr);
+		dprintk(tag,
+			"%s: %x : %s size %d flags %#x iova %#x idx %d ref %d",
+			str, hash32_ptr(inst->session), smem->dma_buf->name,
+			smem->size, smem->flags, smem->device_addr,
+			smem->bitmap_index, smem->refcount);
 	}
 }
 
@@ -126,7 +145,7 @@ int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst, struct cvp_kmd_buffer *buf)
 
 	smem->dma_buf = dma_buf;
 	smem->bitmap_index = MAX_DMABUF_NUMS;
-	dprintk(CVP_DSP, "%s: dma_buf = %llx\n", __func__, dma_buf);
+	dprintk(CVP_MEM, "%s: dma_buf = %llx\n", __func__, dma_buf);
 	rc = msm_cvp_map_smem(inst, smem, "map dsp");
 	if (rc) {
 		print_client_buffer(CVP_ERR, "map failed", inst, buf);
@@ -274,7 +293,7 @@ static struct msm_cvp_smem *msm_cvp_session_find_smem(struct msm_cvp_inst *inst,
 	mutex_lock(&inst->dma_cache.lock);
 	for (i = 0; i < inst->dma_cache.nr; i++)
 		if (inst->dma_cache.entries[i]->dma_buf == dma_buf) {
-			set_bit(i, &inst->dma_cache.usage_bitmap);
+			SET_USE_BITMAP(i, inst);
 			smem = inst->dma_cache.entries[i];
 			smem->bitmap_index = i;
 			atomic_inc(&smem->refcount);
@@ -303,7 +322,7 @@ static int msm_cvp_session_add_smem(struct msm_cvp_inst *inst,
 	mutex_lock(&inst->dma_cache.lock);
 	if (inst->dma_cache.nr < MAX_DMABUF_NUMS) {
 		inst->dma_cache.entries[inst->dma_cache.nr] = smem;
-		set_bit(inst->dma_cache.nr, &inst->dma_cache.usage_bitmap);
+		SET_USE_BITMAP(inst->dma_cache.nr, inst);
 		smem->bitmap_index = inst->dma_cache.nr;
 		inst->dma_cache.nr++;
 		i = smem->bitmap_index;
@@ -318,7 +337,7 @@ static int msm_cvp_session_add_smem(struct msm_cvp_inst *inst,
 
 			inst->dma_cache.entries[i] = smem;
 			smem->bitmap_index = i;
-			set_bit(i, &inst->dma_cache.usage_bitmap);
+			SET_USE_BITMAP(i, inst);
 		} else {
 			dprintk(CVP_WARN, "%s: not enough memory\n", __func__);
 			mutex_unlock(&inst->dma_cache.lock);
@@ -495,13 +514,14 @@ static void msm_cvp_unmap_frame_buf(struct msm_cvp_inst *inst,
 			dma_buf_put(smem->dma_buf);
 			kmem_cache_free(cvp_driver->smem_cache, smem);
 			buf->smem = NULL;
-		} else if (atomic_dec_and_test(&smem->refcount)) {
-			clear_bit(smem->bitmap_index,
-				&inst->dma_cache.usage_bitmap);
-			dprintk(CVP_MEM, "smem %x %d iova %#x to be reused\n",
-					hash32_ptr(inst->session),
-					smem->size,
-					smem->device_addr);
+		} else {
+			mutex_lock(&inst->dma_cache.lock);
+			if (atomic_dec_and_test(&smem->refcount)) {
+				CLEAR_USE_BITMAP(smem->bitmap_index, inst);
+				print_smem(CVP_MEM, "Map dereference",
+					inst, smem);
+			}
+			mutex_unlock(&inst->dma_cache.lock);
 		}
 	}
 
@@ -550,7 +570,7 @@ int msm_cvp_unmap_user_persist(struct msm_cvp_inst *inst,
 	struct msm_cvp_smem *smem = NULL;
 
 	if (!offset || !buf_num)
-		return 0;
+		return rc;
 
 	cmd_hdr = (struct cvp_hfi_cmd_session_hdr *)in_pkt;
 	ktid = cmd_hdr->client_data.kdata & (FENCE_BIT - 1);
@@ -574,10 +594,13 @@ int msm_cvp_unmap_user_persist(struct msm_cvp_inst *inst,
 					cvp_driver->smem_cache,
 					smem);
 				pbuf->smem = NULL;
-			} else if (atomic_dec_and_test(
-						&smem->refcount)) {
-				clear_bit(smem->bitmap_index,
-					&inst->dma_cache.usage_bitmap);
+			} else {
+				mutex_lock(&inst->dma_cache.lock);
+				if (atomic_dec_and_test(&smem->refcount))
+					CLEAR_USE_BITMAP(
+						smem->bitmap_index,
+						inst);
+				mutex_unlock(&inst->dma_cache.lock);
 			}
 
 			kmem_cache_free(cvp_driver->buf_cache, pbuf);
