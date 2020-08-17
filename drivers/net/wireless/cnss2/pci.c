@@ -2024,7 +2024,7 @@ retry:
 	}
 
 	cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, false, false);
-	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_QMI);
 
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
@@ -2310,11 +2310,12 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 
 	cnss_pr_dbg("Start to wait for calibration to complete\n");
 
-	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_CALIBRATION);
 	ret = wait_for_completion_timeout(&plat_priv->cal_complete,
-					  msecs_to_jiffies(timeout) << 2);
+					  msecs_to_jiffies(timeout));
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for calibration to complete\n");
+		cnss_pr_err("Timeout (%ums) waiting for calibration to complete\n",
+			    timeout);
 		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
 			cnss_pci_dump_bl_sram_mem(pci_priv);
 			CNSS_ASSERT(0);
@@ -2362,12 +2363,12 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto skip_wait_power_up;
 
-	timeout = cnss_get_qmi_timeout(plat_priv);
+	timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_WLAN_WATCHDOG);
 	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
-					  msecs_to_jiffies((timeout << 1) +
-							   WLAN_WD_TIMEOUT_MS));
+					  msecs_to_jiffies(timeout));
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for driver power up to complete\n");
+		cnss_pr_err("Timeout (%ums) waiting for driver power up to complete\n",
+			    timeout);
 		CNSS_ASSERT(0);
 	}
 
@@ -2380,7 +2381,8 @@ skip_wait_power_up:
 	ret = wait_for_completion_timeout(&plat_priv->recovery_complete,
 					  msecs_to_jiffies(RECOVERY_TIMEOUT));
 	if (!ret) {
-		cnss_pr_err("Timeout waiting for recovery to complete\n");
+		cnss_pr_err("Timeout (%ums) waiting for recovery to complete\n",
+			    RECOVERY_TIMEOUT);
 		CNSS_ASSERT(0);
 	}
 

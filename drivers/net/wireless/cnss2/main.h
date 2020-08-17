@@ -331,6 +331,14 @@ enum cnss_ce_index {
 	CNSS_CE_COMMON,
 };
 
+enum cnss_timeout_type {
+	CNSS_TIMEOUT_QMI,
+	CNSS_TIMEOUT_POWER_UP,
+	CNSS_TIMEOUT_IDLE_RESTART,
+	CNSS_TIMEOUT_CALIBRATION,
+	CNSS_TIMEOUT_WLAN_WATCHDOG,
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -466,5 +474,7 @@ int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 				enum cnss_fw_dump_type type, int seg_no,
 				void *va, phys_addr_t pa, size_t size);
+unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
+			      enum cnss_timeout_type);
 
 #endif /* _CNSS_MAIN_H */
