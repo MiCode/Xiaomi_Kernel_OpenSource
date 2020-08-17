@@ -1887,9 +1887,10 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
-			dr_mode = "peripheral";
+			dr_mode = "otg";
 			maximum-speed = "high-speed";
 			mediatek,force-vbus;
+			mediatek,clk-mgr;
 			usb-role-switch;
 		};
 
