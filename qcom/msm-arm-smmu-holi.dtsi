@@ -120,10 +120,12 @@
 		qcom,active-only;
 
 		qcom,actlr =
-			/* For rt TBU +3 deep PF */
-			<0x800 0x3ff 0x103>,
+			/* For rt TBU camera +3 deep PF */
+			<0x800 0x1f 0x103>,
 			/* For nrt TBU +3 deep PF */
-			<0xc00 0x3ff 0x103>;
+			<0xc00 0x3ff 0x103>,
+			/* For anoc_1 TBU disable PF */
+			<0x0 0x3ff 0x001>;
 
 		anoc_1_tbu: anoc_1_tbu@0c705000 {
 			compatible = "qcom,qsmmuv500-tbu";
