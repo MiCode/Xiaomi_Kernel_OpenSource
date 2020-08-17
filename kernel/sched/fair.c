@@ -6587,7 +6587,8 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	}
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 
-		for_each_cpu(i, &cpu_array[order_index][cluster]) {
+		for_each_cpu_and(i, &p->cpus_mask,
+				&cpu_array[order_index][cluster]) {
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_util, new_util, new_util_cuml;
 			long spare_cap;
