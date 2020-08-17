@@ -414,7 +414,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=msm_geni_serial,0x994000";
+		bootargs = "log_buf_len=256K earlycon=msm_geni_serial,0x994000";
 	};
 
 	soc: soc { };
