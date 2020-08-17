@@ -338,6 +338,15 @@
 
 	pm6155-1-tz {
 		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm6155_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
 			trip1_cpu0 {
 				trip = <&pm6155_trip1>;
 				cooling-device =
