@@ -206,13 +206,6 @@ static inline struct device *ccci_md_get_dev_by_id(int md_id)
 	return &modem_sys[md_id]->plat_dev->dev;
 }
 
-static inline int ccci_md_in_ee_dump(int md_id)
-{
-	if (md_id >= MAX_MD_NUM)
-		return -CCCI_ERR_MD_INDEX_NOT_FOUND;
-	return modem_sys[md_id]->per_md_data.is_in_ee_dump;
-}
-
 static inline void *ccci_md_get_hw_info(int md_id)
 {
 	if (md_id >= MAX_MD_NUM)
@@ -253,7 +246,7 @@ extern int get_md_customer_val(unsigned char *value, unsigned int len);
 #endif
 extern bool spm_is_md1_sleep(void);
 
-extern unsigned int trace_sample_time;
+//extern unsigned int trace_sample_time;
 
 extern u32 mt_irq_get_pending(unsigned int irq);
 
@@ -262,5 +255,8 @@ extern int gf_port_list_reg[GF_PORT_LIST_MAX];
 extern int gf_port_list_unreg[GF_PORT_LIST_MAX];
 extern int ccci_ipc_set_garbage_filter(struct ccci_modem *md, int reg);
 void ccci_md_config_layout_6293(struct ccci_modem *md);
+
+extern int ccci_modem_init_common(struct platform_device *plat_dev,
+	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *md_hw);
 
 #endif	/* __CCCI_MODEM_H__ */

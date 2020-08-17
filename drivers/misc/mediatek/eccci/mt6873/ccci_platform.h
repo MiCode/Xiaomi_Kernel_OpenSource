@@ -9,7 +9,7 @@
 #include <linux/io.h>
 #include "ccci_config.h"
 #include "ccci_common_config.h"
-#include "modem_sys.h"
+//#include "modem_sys.h"
 
 #define ccci_write32(b, a, v)  \
 do { \
@@ -35,6 +35,8 @@ do { \
 #define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
 #define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
+
+struct ccci_modem;
 
 #ifdef SET_EMI_STEP_BY_STAGE
 void ccci_set_mem_access_protection_1st_stage(struct ccci_modem *md);

@@ -20,7 +20,6 @@
 #include "ccci_bm.h"
 #include "modem_sys.h"
 #include "ccci_hif.h"
-#include "ccci_platform.h"
 #include "md_sys1_platform.h"
 
 #ifdef CONFIG_OF

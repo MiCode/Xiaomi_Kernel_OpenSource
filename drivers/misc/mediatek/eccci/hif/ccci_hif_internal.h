@@ -79,7 +79,7 @@ struct ccci_hif_ops {
 	int (*suspend)(unsigned char hif_id);
 	int (*resume)(unsigned char hif_id);
 
-	int (*init)(unsigned char hif_id);
+	int (*init)(unsigned char md_id, unsigned int hif_flag);
 	int (*late_init)(unsigned char hif_id);
 	int (*start)(unsigned char hif_id);
 	int (*pre_stop)(unsigned char hif_id);
@@ -90,6 +90,12 @@ struct ccci_hif_ops {
 	void* (*fill_rt_header)(unsigned char hif_id,
 		int packet_size, unsigned int tx_ch, unsigned int txqno);
 
+	int (*stop_for_ee)(unsigned char hif_id);
+	int (*all_q_reset)(unsigned char hif_id);
+	int (*clear_all_queue)(unsigned char hif_id, enum DIRECTION dir);
+	int (*clear)(unsigned char hif_id);
+	void (*set_clk_cg)(unsigned char md_id, unsigned int on);
+	void (*hw_reset)(unsigned char md_id);
 };
 
 enum RX_COLLECT_RESULT {

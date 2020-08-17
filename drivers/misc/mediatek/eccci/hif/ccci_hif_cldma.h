@@ -19,7 +19,8 @@
 #include "ccci_common_config.h"
 #include "ccci_bm.h"
 #include "ccci_hif_internal.h"
-#include "modem_sys.h"
+//#include "modem_sys.h"
+#include "ccci_cldma_plat.h"
 /*
  * hardcode, max queue number should be synced with port array in port_cfg.c
  * and macros in ccci_core.h following number should sync with MAX_TXQ/RXQ_NUM
@@ -52,6 +53,18 @@
 /* #define ENABLE_CLDMA_TIMER */
 #endif
 #define CLDMA_NET_TX_BD
+
+#define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
+
+enum hif_cldma_state {
+	HIF_CLDMA_STATE_NONE = 0,
+	HIF_CLDMA_STATE_INIT,
+	HIF_CLDMA_STATE_PWROFF,
+	HIF_CLDMA_STATE_PWRON,
+	HIF_CLDMA_STATE_EXCEPTION,
+	HIF_CLDMA_STATE_MAX,
+};
+
 
 struct cldma_request {
 	void *gpd;		/* virtual address for CPU */
@@ -273,6 +286,11 @@ struct md_cd_ctrl {
 	unsigned long cldma_irq_flags;
 	struct ccci_hif_ops *ops;
 	struct ccci_hif_cldma_val plat_val;
+	enum hif_cldma_state cldma_state;
+	int cldma_platform;
+
+	struct ccci_cldma_plat_ops cldma_plat_ops;
+	struct platform_device *plat_dev; /* maybe: no need. */
 };
 
 struct cldma_tgpd {
@@ -361,6 +379,10 @@ static inline void md_cd_queue_struct_init(struct md_cd_queue *queue,
 #endif
 }
 
+struct ccci_cldma_clk_node {
+	struct clk *clk_ref;
+	unsigned char *clk_name;
+};
 
 static inline int ccci_cldma_hif_send_skb(unsigned char hif_id, int tx_qno,
 	struct sk_buff *skb, int from_pool, int blocking)
@@ -427,25 +449,20 @@ static inline int ccci_cldma_hif_set_wakeup_src(unsigned char hif_id,
 
 }
 
-int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id);
-int md_cd_late_init(unsigned char hif_id);
-/*API for modem sys1*/
-void cldma_start(unsigned char hif_id);
-void cldma_stop(unsigned char hif_id);
-void cldma_stop_for_ee(unsigned char hif_id);
-void md_cldma_clear(unsigned char hif_id, struct ccci_modem *md);
-void cldma_reset(unsigned char hif_id);
-void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir);
-void md_cd_ccif_allQreset_work(unsigned char hif_id);
 extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
-extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
+
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 
-extern void mt_irq_dump_status(int irq);
 
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];
 /* used for throttling feature - end */
+
+extern struct md_cd_ctrl *cldma_ctrl;
+extern struct ccci_cldma_clk_node cldma_clk_table[];
+
+extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
+extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 
 #endif				/* __MODEM_CD_H__ */
