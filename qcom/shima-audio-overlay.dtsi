@@ -242,7 +242,7 @@
 };
 
 &shima_snd {
-	qcom,model = "shima-idp-snd-card";
+	qcom,model = "lahaina-shimaidp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
 	qcom,wcn-btfm = <0>;
 	qcom,ext-disp-audio-rx = <0>;
@@ -308,12 +308,10 @@
 	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
 	asoc-codec  = <&stub_codec>, <&bolero>,
 		      <&wcd938x_codec>, <&swr_haptics>,
-		      <&wsa883x_0221>, <&wsa883x_0222>,
-		      <&ext_disp_audio_codec>;
+		      <&wsa883x_0221>, <&wsa883x_0222>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 			   "wcd938x_codec", "swr-haptics",
-			   "wsa-codec1", "wsa-codec2",
-			   "msm-ext-disp-audio-codec-rx";
+			   "wsa-codec1", "wsa-codec2";
 	qcom,wsa-max-devs = <2>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>, <&lpi_tlmm>,
 				  <&bolero>;
