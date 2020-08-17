@@ -2,7 +2,7 @@
 #include <dt-bindings/clock/qcom,gcc-holi.h>
 #include <dt-bindings/clock/qcom,gpucc-holi.h>
 #include <dt-bindings/clock/qcom,rpmcc.h>
-#include <dt-bindings/interconnect/qcom,epss-l3.h>
+#include <dt-bindings/interconnect/qcom,cpucp-l3.h>
 #include <dt-bindings/interconnect/qcom,holi.h>
 #include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -990,13 +990,12 @@
 			<&rpmcc RPM_SMD_BIMC_A_CLK>;
 	};
 
-	epss_l3_cpu: l3_cpu@fd91000 {
-		reg = <0x0fd91000 0x4000>;
-		compatible = "qcom,holi-epss-l3-cpu";
+	cpucp_l3_cpu: l3_cpu@fd90000 {
+		reg = <0x0fd90000 0x3000>;
+		compatible = "qcom,holi-cpucp-l3-cpu";
 		#interconnect-cells = <1>;
 		clock-names = "xo", "alternate";
 		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>, <&gcc GPLL0>;
-		status = "disabled";
 	};
 
 	qcom,memshare {
@@ -1165,8 +1164,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU0>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU0>;
 	};
 
 	cpu1_cpu_l3_lat: qcom,cpu1-cpu-l3-lat {
@@ -1175,8 +1174,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU1>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU1>;
 	};
 
 	cpu2_cpu_l3_lat: qcom,cpu2-cpu-l3-lat {
@@ -1185,8 +1184,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU2>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU2>;
 	};
 
 	cpu3_cpu_l3_lat: qcom,cpu3-cpu-l3-lat {
@@ -1195,8 +1194,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU3>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU3>;
 	};
 
 	cpu4_cpu_l3_lat: qcom,cpu4-cpu-l3-lat {
@@ -1205,8 +1204,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU4>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU4>;
 	};
 
 	cpu5_cpu_l3_lat: qcom,cpu5-cpu-l3-lat {
@@ -1215,8 +1214,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU5>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU5>;
 	};
 
 	cpu0_cpu_ddr_latfloor: qcom,cpu0-cpu-ddr-latfloor {
@@ -1233,8 +1232,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU6>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU6>;
 	};
 
 	cpu7_cpu_l3_lat: qcom,cpu7-cpu-l3-lat {
@@ -1243,8 +1242,8 @@
 		reg-names = "ftbl-base";
 		governor = "mem_latency";
 		interconnects =
-			<&epss_l3_cpu MASTER_EPSS_L3_APPS
-			 &epss_l3_cpu SLAVE_EPSS_L3_CPU7>;
+			<&cpucp_l3_cpu MASTER_CPUCP_L3_APPS
+			 &cpucp_l3_cpu SLAVE_CPUCP_L3_CPU7>;
 	};
 
 	cpu0_cpu_ddr_lat: qcom,cpu0-cpu-ddr-lat {
