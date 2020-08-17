@@ -630,6 +630,11 @@
 		compatible = "qcom,secure-buffer";
 	};
 
+	qcom-mem-buf {
+		compatible = "qcom,mem-buf";
+		qcom,mem-buf-capabilities = "supplier";
+	};
+
 	qcom,memshare {
 		compatible = "qcom,memshare";
 
