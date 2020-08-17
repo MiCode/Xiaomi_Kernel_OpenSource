@@ -936,6 +936,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619 = {
 			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_IFPC |
 			ADRENO_IOCOHERENT,
 		.gpudev = &adreno_a630_gpudev,
+		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
 		.snapshot_size = SZ_2M,
@@ -961,6 +962,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
 		.compatible = "qcom,adreno-gpu-a619-holi",
 		.features =  ADRENO_PREEMPTION | ADRENO_CONTENT_PROTECTION,
 		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
 		.snapshot_size = SZ_2M,
