@@ -193,10 +193,12 @@ EXPORT_SYMBOL_GPL(md_cooling_register);
 
 void md_cooling_unregister(enum md_cooling_type type)
 {
+	struct list_head *pos, *next;
 	struct md_cooling_device *md_cdev;
 
 	mutex_lock(&md_cdev_list_lock);
-	list_for_each_entry(md_cdev, &md_cdev_list, node) {
+	list_for_each_safe(pos, next, &md_cdev_list) {
+		md_cdev = list_entry(pos, struct md_cooling_device, node);
 		if (md_cdev->type == type) {
 			thermal_cooling_device_unregister(md_cdev->cdev);
 			list_del(&md_cdev->node);
