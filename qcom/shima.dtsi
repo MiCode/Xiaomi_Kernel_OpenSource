@@ -1329,6 +1329,7 @@
 		reg = <0x0 0x280000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
+		qcom,vm-nav-path;
 	};
 
 	qcom_hwkm: hwkm@10c0000 {
