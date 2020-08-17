@@ -5,7 +5,7 @@
  */
 
 /dts-v1/;
-#include "mediatek/mt6873.dtsi"
+#include "mediatek/mt6853.dtsi"
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/bat_setting/mt6873_battery_prop.dtsi"
 
