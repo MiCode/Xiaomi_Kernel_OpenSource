@@ -332,6 +332,12 @@
 	status = "ok";
 };
 
+&usb0 {
+	dwc3@a600000 {
+		snps,usb3-u1u2-disable;
+	};
+};
+
 &L16A {
 	regulator-max-microvolt = <3304000>;
 };
