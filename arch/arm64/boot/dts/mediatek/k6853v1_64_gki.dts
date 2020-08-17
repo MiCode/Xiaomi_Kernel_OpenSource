@@ -5,11 +5,9 @@
  */
 /dts-v1/;
 /plugin/;
-#include <dt-bindings/pinctrl/mt6873-pinfunc.h>
-
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
-#include <dt-bindings/pinctrl/mt6873-pinfunc.h>
+#include <dt-bindings/pinctrl/mt6853-pinfunc.h>
 #include <dt-bindings/clock/mt6873-clk.h>
 
 &gpio_usage_mapping {
@@ -244,8 +242,6 @@
 		<227 0 0 0 1 0 0>;
 };
 
-#include "mediatek/cust_mt6873_touch_1080x2280.dtsi"
-
 &chosen {
 	atag,videolfb-fb_base_l = <0x7e605000>;
 	atag,videolfb-fb_base_h = <0x0>;
@@ -307,7 +303,7 @@
 	};
 	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO41__FUNC_DSI_TE>;
+			/* pinmux = <PINMUX_GPIO41__FUNC_DSI_TE>; */
 		};
 	};
 };
@@ -385,7 +381,6 @@
 	};
 };
 
-#include "mediatek/cust_mt6873_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
 /* CONSYS GPIO standardization */
