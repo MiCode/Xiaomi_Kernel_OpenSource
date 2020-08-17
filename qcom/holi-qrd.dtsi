@@ -3,6 +3,7 @@
 #include <dt-bindings/input/linux-event-codes.h>
 #include "holi-pmic-overlay.dtsi"
 #include "holi-thermal-overlay.dtsi"
+#include "camera/holi-camera-sensor-qrd.dtsi"
 
 &sdhc_1 {
 	status = "ok";
