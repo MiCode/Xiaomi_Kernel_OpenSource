@@ -326,6 +326,47 @@ void mtu3_dev_on_off(struct mtu3 *mtu, int is_on)
 		usb_speed_string(mtu->speed), is_on ? "+" : "-");
 }
 
+static void mtu3_regs_init(struct mtu3 *mtu)
+{
+
+	void __iomem *mbase = mtu->mac_base;
+
+	/* be sure interrupts are disabled before registration of ISR */
+	mtu3_intr_disable(mtu);
+	mtu3_intr_status_clear(mtu);
+
+	if (mtu->is_u3_ip) {
+		/* disable LGO_U1/U2 by default */
+		mtu3_clrbits(mbase, U3D_LINK_POWER_CONTROL,
+				SW_U1_REQUEST_ENABLE | SW_U2_REQUEST_ENABLE);
+		/* enable accept LGO_U1/U2 link command from host */
+		mtu3_setbits(mbase, U3D_LINK_POWER_CONTROL,
+				SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
+		/* device responses to u3_exit from host automatically */
+		mtu3_clrbits(mbase, U3D_LTSSM_CTRL, SOFT_U3_EXIT_EN);
+		/* automatically build U2 link when U3 detect fail */
+		mtu3_setbits(mbase, U3D_USB2_TEST_MODE, U2U3_AUTO_SWITCH);
+		/* auto clear SOFT_CONN when clear USB3_EN if work as HS */
+		mtu3_setbits(mbase, U3D_U3U2_SWITCH_CTRL, SOFTCON_CLR_AUTO_EN);
+	}
+
+	mtu3_set_speed(mtu, mtu->speed);
+
+	/* delay about 0.1us from detecting reset to send chirp-K */
+	mtu3_clrbits(mbase, U3D_LINK_RESET_INFO, WTCHRP_MSK);
+	/* U2/U3 detected by HW */
+	mtu3_writel(mbase, U3D_DEVICE_CONF, 0);
+	/* vbus detected by HW */
+	mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
+	/* enable automatical HWRW from L1 */
+	mtu3_setbits(mbase, U3D_POWER_MANAGEMENT, LPM_HRWE);
+
+	ssusb_set_force_vbus(mtu->ssusb, true);
+	/* use new QMU format when HW version >= 0x1003 */
+	if (mtu->gen2cp)
+		mtu3_writel(mbase, U3D_QFCR, ~0x0);
+}
+
 void mtu3_start(struct mtu3 *mtu)
 {
 	void __iomem *mbase = mtu->mac_base;
@@ -335,8 +376,8 @@ void mtu3_start(struct mtu3 *mtu)
 
 	mtu3_clrbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
 
-	mtu3_csr_init(mtu);
-	mtu3_set_speed(mtu, mtu->speed);
+	/* Initialize the device capability */
+	mtu3_regs_init(mtu);
 
 	/* Initialize the default interrupts */
 	mtu3_intr_enable(mtu);
@@ -605,28 +646,6 @@ static void mtu3_mem_free(struct mtu3 *mtu)
 {
 	mtu3_qmu_exit(mtu);
 	kfree(mtu->ep_array);
-}
-
-static void mtu3_regs_init(struct mtu3 *mtu)
-{
-	void __iomem *mbase = mtu->mac_base;
-
-	/* be sure interrupts are disabled before registration of ISR */
-	mtu3_intr_disable(mtu);
-
-	mtu3_csr_init(mtu);
-
-	/* U2/U3 detected by HW */
-	mtu3_writel(mbase, U3D_DEVICE_CONF, 0);
-	/* vbus detected by HW */
-	mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
-	/* enable automatical HWRW from L1 */
-	mtu3_setbits(mbase, U3D_POWER_MANAGEMENT, LPM_HRWE);
-
-	ssusb_set_force_vbus(mtu->ssusb, true);
-	/* use new QMU format when HW version >= 0x1003 */
-	if (mtu->gen2cp)
-		mtu3_writel(mbase, U3D_QFCR, ~0x0);
 }
 
 static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
