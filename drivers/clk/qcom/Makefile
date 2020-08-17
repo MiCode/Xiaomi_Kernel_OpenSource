@@ -58,6 +58,7 @@ obj-$(CONFIG_QCS_GCC_404) += gcc-qcs404.o
 obj-$(CONFIG_QCS_TURING_404) += turingcc-qcs404.o
 obj-$(CONFIG_SC_CAMCC_SHRIKE) += camcc-scshrike.o
 obj-$(CONFIG_SC_DISPCC_SHRIKE) += dispcc-scshrike.o
+obj-$(CONFIG_SC_DEBUGCC_SHRIKE) += debugcc-scshrike.o
 obj-$(CONFIG_SC_GCC_SHRIKE) += gcc-scshrike.o
 obj-$(CONFIG_SDM_CAMCC_845) += camcc-sdm845.o
 obj-$(CONFIG_SDM_DISPCC_845) += dispcc-sdm845.o

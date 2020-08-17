@@ -638,4 +638,13 @@ config SC_DISPCC_SHRIKE
 	  Say Y if you want to support display devices and functionality such as
 	  splash pictures.
 
+config SC_DEBUGCC_SHRIKE
+	tristate "SCSHRIKE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SCSHRIKE devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
