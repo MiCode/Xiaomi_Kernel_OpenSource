@@ -294,6 +294,7 @@ void ccci_skb_enqueue(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 	}
 	spin_unlock_irqrestore(&queue->skb_list.lock, flags);
 }
+EXPORT_SYMBOL(ccci_skb_enqueue);
 
 void ccci_skb_queue_init(struct ccci_skb_queue *queue, unsigned int skb_size,
 	unsigned int max_len, char fill_now)
@@ -449,6 +450,7 @@ void ccci_dump_skb_pool_usage(int md_id)
 	skb_pool_16.enq_count = 0;
 	skb_pool_16.deq_count = 0;
 }
+EXPORT_SYMBOL(ccci_dump_skb_pool_usage);
 
 static void __4K_reload_work(struct work_struct *work)
 {

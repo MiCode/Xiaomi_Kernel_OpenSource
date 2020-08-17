@@ -20,6 +20,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/mt6873
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/mt6873
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif/
 
 # fsm objects
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci_fsm_all.o

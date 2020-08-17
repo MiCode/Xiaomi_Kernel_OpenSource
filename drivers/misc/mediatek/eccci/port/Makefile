@@ -28,6 +28,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/udc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/udc/udc_lib_inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/clkbuf_v1
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif
 
 # port objects
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci_port.o

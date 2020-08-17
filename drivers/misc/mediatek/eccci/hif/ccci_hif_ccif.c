@@ -27,6 +27,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/clk.h> /* for clk_prepare/un* */
+#include <linux/syscore_ops.h>
 
 #include "ccci_core.h"
 #include "ccci_modem.h"
@@ -206,6 +207,12 @@ static int tx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 //void __iomem *infra_ao_base;
 #endif
+
+void ccci_hif_set_devapc_flag(unsigned int value)
+{
+	devapc_check_flag = value;
+}
+EXPORT_SYMBOL(ccci_hif_set_devapc_flag);
 
 static void md_ccif_dump(unsigned char *title, unsigned char hif_id)
 {
@@ -622,7 +629,8 @@ static void md_ccif_sram_rx_work(struct work_struct *work)
 		&md_ctrl->traffic_info, &ccci_hdr, 0);
 
  RETRY:
-	ret = ccci_md_recv_skb(md_ctrl->md_id, md_ctrl->hif_id, skb);
+	ret = ccci_port_recv_skb(md_ctrl->md_id, md_ctrl->hif_id, skb,
+			NORMAL_DATA);
 	CCCI_DEBUG_LOG(md_ctrl->md_id, TAG, "Rx msg %x %x %x %x ret=%d\n",
 		ccci_hdr.data[0], ccci_hdr.data[1],
 		*(((u32 *)&ccci_hdr) + 2), ccci_hdr.reserved, ret);
@@ -2071,6 +2079,29 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 
 }
 
+static int ccci_ccif_syssuspend(void)
+{
+
+	return 0;
+}
+
+static void ccci_ccif_sysresume(void)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(CCIF_HIF_ID);
+
+	if (md_ctrl  && md_ctrl->plat_val.md_gen == 6293)
+		ccif_write32(md_ctrl->ccif_ap_base, APCCIF_CON, 0x01);
+	else
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: ccci_hif_get_by_id failed.");
+}
+
+static struct syscore_ops ccci_ccif_sysops = {
+	.suspend = ccci_ccif_syssuspend,
+	.resume = ccci_ccif_sysresume,
+};
+
 int ccci_ccif_hif_init(struct platform_device *pdev,
 	unsigned char hif_id, unsigned char md_id)
 {
@@ -2123,6 +2154,9 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 		CCCI_ERROR_LOG(-1, TAG, "ccci ccif hw init fail");
 		return ret;
 	}
+
+	/* register SYS CORE suspend resume call back */
+	register_syscore_ops(&ccci_ccif_sysops);
 
 	ccci_hif_register(md_ctrl->hif_id, (void *)md_ctrl, &ccci_hif_ccif_ops);
 

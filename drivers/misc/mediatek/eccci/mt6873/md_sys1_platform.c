@@ -39,6 +39,7 @@
 
 #include "ccci_core.h"
 #include "ccci_platform.h"
+#include "modem_sys.h"
 
 #include "md_sys1_platform.h"
 #include "modem_secure_base.h"
@@ -100,7 +101,7 @@ static int ccci_modem_pm_restore_noirq(struct device *device);
 static struct ccci_plat_ops md_cd_plat_ptr = {
 	.init = &ccci_platform_init_6873,
 	.md_dump_reg = &md_dump_register_6873,
-	.cldma_hw_rst = &md_cldma_hw_reset,
+	//.cldma_hw_rst = &md_cldma_hw_reset,
 	.set_clk_cg = &ccci_set_clk_cg,
 	.remap_md_reg = &md_cd_io_remap_md_side_register,
 	.lock_cldma_clock_src = &md_cd_lock_cldma_clock_src,
@@ -117,11 +118,6 @@ static struct ccci_plat_ops md_cd_plat_ptr = {
 	.power_off = &md_cd_power_off,
 	.vcore_config = NULL,
 };
-
-
-static void md_cldma_hw_reset(unsigned char md_id)
-{
-}
 
 #ifdef ENABLE_DEBUG_DUMP /* Fix me! */
 void md1_subsys_debug_dump(enum subsys_id sys)

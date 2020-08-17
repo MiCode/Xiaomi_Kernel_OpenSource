@@ -31,6 +31,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-amms
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif/
 ifeq ($(CCCI_OBJ), m)
 ccflags-y += -DCCCI_KMODULE_ENABLE
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif
@@ -45,7 +46,7 @@ endif
 obj-$(CCCI_OBJ) += ccci_md_all.o
 ccci_md_all-$(CCCI_OBJ) := ccci_core.o ccci_bm.o ccci_modem.o modem_sys1.o \
 		udc/udc.o \
-		hif/ccci_hif.o hif/ccci_hif_cldma.o
+		hif/ccci_hif.o
 
 # port start
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/port/
@@ -135,6 +136,10 @@ obj-$(CCCI_OBJ) += ccci_ccif.o
 ccci_dpmaif-y := hif/ccci_hif_dpmaif.o hif/dpmaif_drv.o
 # hif/net_speed_monitor.o
 obj-$(CCCI_OBJ) += ccci_dpmaif.o
+
+# ccci_cldma.ko
+ccci_cldma-y := hif/ccci_cldma_plat.o hif/ccci_hif_cldma.o
+obj-$(CCCI_OBJ) += ccci_cldma.o
 
 else
 
