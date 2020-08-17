@@ -95,7 +95,7 @@ static int ssusb_phy_exit(struct ssusb_mtk *ssusb)
 	return 0;
 }
 
-static int ssusb_phy_power_on(struct ssusb_mtk *ssusb)
+int ssusb_phy_power_on(struct ssusb_mtk *ssusb)
 {
 	int i;
 	int ret;
@@ -114,7 +114,7 @@ power_off_phy:
 	return ret;
 }
 
-static void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
+void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
 {
 	unsigned int i;
 
@@ -122,7 +122,7 @@ static void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
 		phy_power_off(ssusb->phys[i]);
 }
 
-static int ssusb_clks_enable(struct ssusb_mtk *ssusb)
+int ssusb_clks_enable(struct ssusb_mtk *ssusb)
 {
 	int ret;
 
@@ -162,7 +162,7 @@ sys_clk_err:
 	return ret;
 }
 
-static void ssusb_clks_disable(struct ssusb_mtk *ssusb)
+void ssusb_clks_disable(struct ssusb_mtk *ssusb)
 {
 	clk_disable_unprepare(ssusb->dma_clk);
 	clk_disable_unprepare(ssusb->mcu_clk);
@@ -216,7 +216,7 @@ static void ssusb_rscs_exit(struct ssusb_mtk *ssusb)
 	ssusb_phy_exit(ssusb);
 }
 
-static void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
+void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
 {
 	/* reset whole ip (xhci & u3d) */
 	mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
@@ -229,7 +229,9 @@ static void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
 	 * power down device ip, otherwise ip-sleep will fail when working as
 	 * host only mode
 	 */
-	mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
+	if (ssusb->dr_mode == USB_DR_MODE_HOST)
+		mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_PW_CTRL2,
+				SSUSB_IP_DEV_PDN);
 }
 
 static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
@@ -288,6 +290,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 		return PTR_ERR(ssusb->ippc_base);
 
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
+	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)
@@ -374,12 +377,12 @@ static int mtu3_probe(struct platform_device *pdev)
 	if (ret)
 		goto comm_init_err;
 
-	ssusb_ip_sw_reset(ssusb);
-
 	if (IS_ENABLED(CONFIG_USB_MTU3_HOST))
 		ssusb->dr_mode = USB_DR_MODE_HOST;
 	else if (IS_ENABLED(CONFIG_USB_MTU3_GADGET))
 		ssusb->dr_mode = USB_DR_MODE_PERIPHERAL;
+
+	ssusb_ip_sw_reset(ssusb);
 
 	/* default as host */
 	ssusb->is_host = !(ssusb->dr_mode == USB_DR_MODE_PERIPHERAL);
