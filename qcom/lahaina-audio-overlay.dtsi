@@ -317,10 +317,10 @@
 		"TX SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC2 SWR_DMIC_OUTPUT",
 		"TX SWR_INPUT", "SWR_MIC3 SWR_DMIC_OUTPUT",
-		"VA SWR_INPUT", "SWR_MIC0 SWR_DMIC_OUTPUT",
-		"VA SWR_INPUT", "SWR_MIC1 SWR_DMIC_OUTPUT",
-		"VA SWR_INPUT", "SWR_MIC2 SWR_DMIC_OUTPUT",
-		"VA SWR_INPUT", "SWR_MIC3 SWR_DMIC_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC0 SWR_DMIC_VA_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC1 SWR_DMIC_VA_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC2 SWR_DMIC_VA_OUTPUT",
+		"VA SWR_INPUT", "SWR_MIC3 SWR_DMIC_VA_OUTPUT",
 		"WSA_TX DEC0_INP", "TX DEC0 MUX",
 		"WSA_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC0_INP", "TX DEC0 MUX",
@@ -355,14 +355,14 @@
 	asoc-codec  = <&stub_codec>, <&bolero>,
 		      <&wcd938x_codec>, <&swr_haptics>,
 		      <&wsa883x_0221>, <&wsa883x_0222>,
-		      <&swr_dmic_01>, <&swr_dmic_02>,
-		      <&swr_dmic_03>, <&swr_dmic_04>,
+		      <&swr_dmic_04>, <&swr_dmic_03>,
+		      <&swr_dmic_02>, <&swr_dmic_01>,
 		      <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 			   "wcd938x_codec", "swr-haptics",
 			   "wsa-codec1", "wsa-codec2",
-			   "swr-dmic.01", "swr-dmic.02",
-			   "swr-dmic.03", "swr-dmic.04",
+			   "swr-dmic.04", "swr-dmic.03",
+			   "swr-dmic.02", "swr-dmic.01",
 			   "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
 	qcom,cps_reg_phy_addr = <0x3250300 0x3250304 0x3250318>;
