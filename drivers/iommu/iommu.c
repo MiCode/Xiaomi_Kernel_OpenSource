@@ -2030,7 +2030,6 @@ size_t iommu_unmap(struct iommu_domain *domain,
 
 	iommu_iotlb_gather_init(&iotlb_gather);
 	ret = __iommu_unmap(domain, iova, size, &iotlb_gather);
-	iommu_tlb_sync(domain, &iotlb_gather);
 
 	return ret;
 }
