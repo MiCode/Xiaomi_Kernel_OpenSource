@@ -67,3 +67,7 @@ source "drivers/misc/mediatek/btif/Kconfig"
 source "drivers/misc/mediatek/connectivity/Kconfig"
 source "drivers/misc/mediatek/conn_md/Kconfig"
 endmenu # Modem
+
+menu "Other Peripherals"
+source "drivers/misc/mediatek/typec/Kconfig"
+endmenu # Other Peripheral
