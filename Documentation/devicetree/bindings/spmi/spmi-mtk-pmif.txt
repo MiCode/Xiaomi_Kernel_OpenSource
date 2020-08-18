@@ -1,0 +1,33 @@
+Mediatek SPMI Controller
+
+This document describes the binding for the MediaTek SPMI controller.
+
+On MediaTek SoCs the PMIC is connected via SPMI and the controller allows
+for multiple SoCs to control a single SPMI master.
+
+Required properties:
+- compatible : "mediatek,mt6873-spmi".
+- reg-names  : must contain:
+     "pmif" - pmif registers
+     "spmimst" - spmi controller registers
+- reg: Must contain an entry for each entry in reg-names.
+- clock-names: Must include the following entries:
+  "pmif_sys_ck": pmif system clock
+  "pmif_tmr_ck": pmif timer clock
+  "spmimst_clk_mux": spmi master clk mux
+- clocks: Must contain an entry for each entry in clock-names.
+
+Example:
+
+	spmi: spmi@10027000 {
+		compatible = "mediatek,mt6873-spmi";
+		reg = <0 0x10027000 0 0x000e00>,
+		      <0 0x10029000 0 0x000100>;
+		reg-names = "pmif", "spmimst";
+		clocks = <&infracfg CLK_INFRA_PMIC_AP>,
+			 <&infracfg CLK_INFRA_PMIC_TMR>,
+			 <&topckgen CLK_TOP_SPMI_MST_SEL>;
+		clock-names = "pmif_sys_ck",
+			      "pmif_tmr_ck",
+			      "spmimst_clk_mux";
+	};
