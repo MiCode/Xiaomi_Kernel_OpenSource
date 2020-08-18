@@ -30,6 +30,8 @@
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 #define MAX_VP9D_INST_COUNT 6
 #define MAX_4K_MBPF 38736 /* (4096 * 2304 / 256) */
+#define NUM_MBS_720P (((1280 + 15) >> 4) * ((720 + 15) >> 4))
+#define MAX_5k_MBPF 64800 /*(5760 * 2880 / 256) */
 
 static const char *const mpeg_video_stream_format[] = {
 	"NAL Format Start Codes",
@@ -431,17 +433,30 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 					const struct msm_vidc_format *fmt,
 					int fmt_type, int plane)
 {
-	u32 frame_size = 0;
+	u32 frame_size = 0, num_mbs = 0;
+	u32 max_mbps = 0;
 
 	if (fmt_type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		frame_size = fmt->get_frame_size(plane,
 					inst->capability.mbs_per_frame.max,
 					MB_SIZE_IN_PIXEL);
 		if (inst->flags & VIDC_SECURE) {
+			num_mbs = msm_vidc_get_mbs_per_frame(inst);
 			dprintk(VIDC_DBG,
-				"Change secure input buffer size from %u to %u\n",
-				frame_size, ALIGN(frame_size/2, SZ_4K));
-			frame_size = ALIGN(frame_size/2, SZ_4K);
+				"wxh= %dx%d num_mbs = %d max_mbpf = %d\n",
+				inst->prop.width[OUTPUT_PORT],
+				inst->prop.height[OUTPUT_PORT],
+				num_mbs, inst->capability.mbs_per_frame.max);
+
+			max_mbps = inst->capability.mbs_per_frame.max;
+			if (num_mbs < NUM_MBS_720P && max_mbps <= MAX_5k_MBPF)
+				frame_size = ALIGN(frame_size, SZ_4K);
+			else
+				frame_size = ALIGN(frame_size/2, SZ_4K);
+
+			dprintk(VIDC_DBG,
+					"Change secure input buffer size to %u\n",
+					frame_size);
 		}
 
 		if (inst->buffer_size_limit &&
