@@ -415,6 +415,7 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
+	#gpio-cells = <2>;
 	compatible = "simple-bus";
 
 	psci {
@@ -468,6 +469,7 @@
 		reg = <0xf200000 0x10000>,     /* GICD */
 		      <0xf240000 0x100000>;    /* GICR * 8 */
 		interrupts = <GIC_PPI 8 IRQ_TYPE_LEVEL_HIGH>;
+		#gpio-cells = <0>;
 	};
 
 	spmi_bus: qcom,spmi@1c40000 {

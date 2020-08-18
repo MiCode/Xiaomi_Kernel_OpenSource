@@ -2,6 +2,7 @@
 #include <dt-bindings/sound/qcom,bolero-clk-rsc.h>
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/gpio.h>
 
 &bolero {
 	qcom,num-macros = <3>;
@@ -13,7 +14,7 @@
 		qcom,fs-gen-sequence = <0x3000 0x1>,
 					<0x3004 0x1>, <0x3080 0x2>;
 	qcom,rx_mclk_mode_muxsel = <0x0A5640D8>;
-	qcom,va_mclk_mode_muxsel = <0x0A730000>;
+	qcom,va_mclk_mode_muxsel = <0x0A7A0000>;
 	clock-names = "tx_core_clk", "tx_npl_clk", "rx_core_clk", "rx_npl_clk",
 		 "va_core_clk", "va_npl_clk";
 	clocks = <&clock_audio_tx_1 0>, <&clock_audio_tx_2 0>,
@@ -42,7 +43,7 @@
 			swrm-io-base = <0xA740000 0x0>;
 			interrupts-extended =
 				<&wakegic 5 IRQ_TYPE_LEVEL_HIGH>,
-				<&wakegic 66 IRQ_TYPE_LEVEL_HIGH>;
+				<&tlmm 128 GPIO_ACTIVE_HIGH>;
 			interrupt-names = "swr_master_irq", "swr_wake_irq";
 			qcom,swr-num-ports = <3>;
 			qcom,swr-port-mapping = <1 SWRM_TX1_CH1 0x1>,
@@ -89,7 +90,7 @@
 		qcom,rx_mclk_mode_muxsel = <0xA5640D8>;
 		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x03 0x48>;
 		qcom,default-clk-id = <TX_CORE_CLK>;
-		swri: rx_swr_master {
+		swr1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
@@ -230,7 +231,7 @@
 &holi_snd {
 	qcom,model = "holi-mtp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
-	qcom,wcn-btfm = <0>;
+	qcom,wcn-btfm = <1>;
 	qcom,tdm-max-slots = <4>;
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
@@ -346,6 +347,7 @@
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_2_sd_n_active>;
 		pinctrl-1 = <&spkr_2_sd_n_sleep>;
+		#gpio-cells = <0>;
 	};
 
 	wsa881x_analog_clk: wsa_ana_clk {
