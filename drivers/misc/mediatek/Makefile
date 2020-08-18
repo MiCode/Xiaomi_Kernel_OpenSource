@@ -13,6 +13,7 @@ obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += geniezone/
 obj-${CONFIG_MTK_ATF_LOGGER} += atf/
+obj-$(CONFIG_MTK_USB_TYPEC) += typec/
 obj-$(CONFIG_MTPROF) += mtprof/
 obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += cameraisp/
 obj-$(CONFIG_MTK_CAM_TIMESYNC) += cam_timesync/
