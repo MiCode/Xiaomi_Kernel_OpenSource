@@ -363,6 +363,8 @@ int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 	struct sg_table *in_sgt_ptr)
 {
 	unsigned int nents;
+	int i;
+	struct scatterlist *in_sg, *out_sg;
 
 	if (in_sgt_ptr != NULL) {
 		*out_ch_ptr = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
@@ -380,8 +382,12 @@ int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 			return -ENOMEM;
 		}
 
-		memcpy((*out_ch_ptr)->sgl, in_sgt_ptr->sgl,
-				nents*sizeof(struct scatterlist));
+		out_sg = (*out_ch_ptr)->sgl;
+		for_each_sg(in_sgt_ptr->sgl, in_sg, in_sgt_ptr->nents, i) {
+			memcpy(out_sg, in_sg, sizeof(struct scatterlist));
+			out_sg++;
+		}
+
 		(*out_ch_ptr)->nents = nents;
 		(*out_ch_ptr)->orig_nents = in_sgt_ptr->orig_nents;
 	}
