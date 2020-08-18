@@ -961,7 +961,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a619_variant = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A619, 6, 1, 9, ANY_ID),
 		.compatible = "qcom,adreno-gpu-a619-holi",
 		.features =  ADRENO_PREEMPTION | ADRENO_CONTENT_PROTECTION,
-		.gpudev = &adreno_a6xx_gpudev,
+		.gpudev = &adreno_a619_holi_gpudev,
 		.gmem_base = 0x100000,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
