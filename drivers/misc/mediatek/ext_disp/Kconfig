@@ -1,0 +1,18 @@
+config SINGLE_PANEL_OUTPUT
+	bool "Decide whether to support single panel display feature"
+	default n
+	help
+	  Decide whether to support single panel display feature.
+	  Panel and tv can't not display at the same time.
+	  When hdmi plug in, only show display in tv, panle will be black screen.
+	  And when hdmi plug out, panel will resume.
+
+config MTK_DUAL_DISPLAY_SUPPORT
+	int "Select external display device"
+	range 0 2
+	default "0"
+	help
+	  To select vendor driver.
+	  If choose "0", phone can't support external display or can support MHL/DP.
+	  If choose "1", phone can support epaper panel.
+	  If choose "2", phone can support dual LCD panel.

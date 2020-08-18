@@ -1,0 +1,43 @@
+config MTK_WATCHDOG
+	tristate "Enable MTK watchDog"
+	default y
+	help
+	  MTK watchdog driver enable/disable in the kernel.
+
+	  Say Y here if you want to use Mediatek watchdog driver.
+
+	  Please note that Mediatek watchdog driver doesn't use
+	  watchdog core defined by WATCHDOG_CORE.
+
+config MTK_WATCHDOG_COMMON
+	bool "Use MTK watchdog common driver"
+	help
+	  Use Mediatek watchdog common driver. Common driver
+	  version may be different on different platforms and shall
+	  be seleted by proper kernel option.
+
+	  Say Y here if you want to use Mediatek watchdog common driver.
+	  Please note that driver version shall be properly selected in
+	  below menu as well.
+
+choice
+	prompt "MTK watchdog common driver version"
+	depends on MTK_WATCHDOG_COMMON
+	help
+	  Select Mediatek watchdog common driver version.
+
+	config MTK_WATCHDOG_COMMON_V1
+		bool "Use MTK watchdog common driver v1"
+
+	config MTK_WATCHDOG_COMMON_V2
+		bool "Use MTK watchdog common driver v2"
+endchoice
+
+config MTK_WD_KICKER
+	tristate "Enable MTK watchdog kicker"
+	default y
+	help
+	  Medaitek watchdog kicker is a kernel module to detect possible hang
+	  issue.
+
+	  Say Y here if you want to enable Mediatek watchdog kicker.

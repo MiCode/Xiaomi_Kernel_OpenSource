@@ -1,0 +1,7 @@
+config MTK_IN_HOUSE_TEE_SUPPORT
+	bool "Enable MTK In House TEE Support"
+	help
+	  This option decides if the support MTK in-house TEE
+	  (Trusted Execution Environment)
+	  Set to yes if MTK TEE is supported.
+	  If you are not sure if it is supported, set it to no.

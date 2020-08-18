@@ -1,0 +1,20 @@
+#
+# Himax Touchscreen driver configuration
+#
+
+config TOUCHSCREEN_HIMAX_I2C
+	bool "HIMAX chipset i2c touchscreen"
+	help
+	  This enables support for HIMAX CHIPSET over I2C based touchscreens.
+	  when turn this option on, TOUCHSCREEN_HIMAX_I2C touch driver
+	  will open.
+	  If unsure,say N.
+
+config TOUCHSCREEN_HIMAX_DEBUG
+	bool "HIMAX debug function"
+	depends on TOUCHSCREEN_HIMAX_I2C
+	help
+	  This enables support for HIMAX debug function.
+	  when turn this option on, driver will open some debug function.
+	  will open.
+	  If unsure,say N.

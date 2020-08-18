@@ -1,0 +1,874 @@
+/*
+this file is only for attribution of begonia
+*/
+#include "xiaomi-mt6889-common.dtsi"
+
+&bat_gm30 {
+	suppld-maxim;
+	#include "bat_setting/mt6885_battery_table_cezanne.dtsi"
+};
+
+&lk_charger {
+	max_charger_voltage = <14500000>;
+
+	/* charging current */
+	usb_charger_current = <500000>;
+	ac_charger_current = <1500000>;
+	ac_charger_input_current = <1500000>;
+	non_std_ac_charger_current = <1000000>;
+	charging_host_charger_current = <1500000>;
+	ta_ac_charger_current = <1500000>;
+	pd_charger_current = <1500000>;
+};
+
+&charger {
+	algorithm_name = "SwitchCharging2";
+
+	battery_cv = <4450000>;
+
+	/* vote */
+	enable_vote;
+	//enable_cv_step;
+	step_a = <4250000>;
+	step_b = <4450000>;
+	current_a = <5400000>;
+	current_b = <3520000>;
+	current_max = <6000000>;
+	step_hy_down_a = <150000>;
+	step_hy_down_b = <150000>;
+
+	/* ffc */
+	enable_ffc;
+	non_ffc_ieoc = <200000>;
+	non_ffc_cv = <4450000>;
+	ffc_ieoc = <660000>;
+	ffc_ieoc_warm_temp_thres = <35>;
+	ffc_ieoc_warm = <750000>;
+	ffc_cv = <4480000>;
+
+	/* battery verify */
+	mi,fcc-batt-unverify-ua = <2000000>;
+
+	enable_sw_jeita;
+	/* sw jeita */
+	jeita_temp_above_t4_cv = <4100000>;
+	jeita_temp_t3_to_t4_cv = <4100000>;
+	jeita_temp_t2_to_t3_cv = <4450000>;
+	jeita_temp_t1p5_to_t2_cv = <4450000>;
+	jeita_temp_t1_to_t1p5_cv = <4450000>;
+	jeita_temp_t0_to_t1_cv = <4450000>;
+	jeita_temp_tn1_to_t0_cv = <4450000>;
+	jeita_temp_below_t0_cv = <4450000>;
+	temp_t4_thres = <60>;
+	temp_t4_thres_minus_x_degree = <58>;
+	temp_t3_thres = <48>;
+	temp_t3_thres_minus_x_degree = <46>;
+	temp_t2_thres = <15>;
+	temp_t2_thres_plus_x_degree = <17>;
+	temp_t1p5_thres = <10>;
+	temp_t1p5_thres_plus_x_degree = <11>;
+	temp_t1_thres = <5>;
+	temp_t1_thres_plus_x_degree = <6>;
+	temp_t0_thres = <0>;
+	temp_t0_thres_plus_x_degree = <1>;
+	temp_tn1_thres = <(-10)>;
+	temp_tn1_thres_plus_x_degree = <(-9)>;
+	temp_neg_10_thres = <(-10)>;
+	temp_t3_to_t4_fcc = <2200000>;
+	temp_t2_to_t3_fcc = <6000000>;
+	temp_t1p5_to_t2_fcc = <3520000>;
+	temp_t1_to_t1p5_fcc = <2200000>;
+	temp_t0_to_t1_fcc = <900000>;
+	temp_tn1_to_t0_fcc = <440000>;
+	/* battery temperature protection */
+	enable_min_charge_temp;
+	min_charge_temp = <0>;
+	min_charge_temp_plus_x_degree = <2>;
+	max_charge_temp = <60>;
+	max_charge_temp_minus_x_degree = <58>;
+
+	qcom,thermal-mitigation-dcp
+		= <1600000 1600000 1600000 1600000 1600000 1600000 1600000
+		1600000 1600000 1600000 1600000 1600000 1500000 1400000
+		1200000 1000000>;
+	qcom,thermal-mitigation-qc3p5
+		= <4500000 4200000 4000000 3800000 3600000 3400000 3200000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc3
+		= <3600000 3600000 3600000 3500000 3400000 3300000 3200000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc3-classb
+		= <5100000 4700000 4300000 4000000 3600000 3500000 3400000
+		3400000 3400000 3200000 2500000 2200000 2000000 1300000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc2
+		= <1500000 1500000 1500000 1500000 1500000 1500000 1400000
+		1300000 1200000 1100000 1000000 900000 800000 700000
+		600000 500000>;
+	qcom,thermal-mitigation-pd-base
+		= <6000000 5700000 5400000 5000000 4700000 4300000 4100000
+		3800000 3500000 3200000 2800000 2400000 2000000 1400000
+		700000 500000>;
+
+	/* enable_pe_plus; */
+	/* enable_pe_2; */
+	bc12_charger = <1>;
+
+	charging_host_charger_current = <1500000>;
+	/* common */
+	max_charger_voltage = <6500000>;
+
+	/* xiaomi pps */
+	xm_pps_single_charger_input_current = <3000000>;
+	xm_pps_single_charger_current = <6000000>;
+	xm_pps_dual_charger_input_current = <3000000>;
+	xm_pps_dual_charger_chg1_current = <500000>;
+	xm_pps_dual_charger_chg2_current = <2500000>;
+	xm_pps_max_vbus = <12000000>;
+	xm_pps_max_ibus = <3000000>;
+	xm_pps_single_charger_current_non_verified_pps = <4800000>;
+
+	/* PD */
+	pd_vbus_upper_bound = <9000000>;
+	ac_charger_input_current = <1500000>;
+	/* float charger */
+	non_std_ac_charger_current = <1000000>;
+	/* default ac charger charge current */
+	ac_charger_current = <2000000>;
+
+	use_xmusb350_do_apsd;
+
+	qcom,soc_decimal_rate = <
+		0	38
+		10	35
+		20	33
+		30	33
+		40	33
+		50	33
+		60	33
+		70	33
+		80	25
+		90	20
+		95	10
+		99	5	>;
+};
+
+&mt6360_pmu {
+	chg {
+		cv = <4450000>;			/* uA */
+		ieoc = <200000>;		/* uA */
+	};
+	core {
+		sda_sizesel = <3>;
+		sda_drvsrsel = <1>;
+	};
+};
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 43 0>;
+	};
+};
+
+
+&pio {
+	/* bq25970 */
+	bq2597x_int_default: bq2597x_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	bq2597x_int_suspend: bq2597x_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	/* xmusb350 */
+	xmusb350_int_normal: xmusb350_int_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_int_isp: xmusb350_int_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_rst_normal: xmusb350_rst_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO126__FUNC_GPIO126>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_rst_isp: xmusb350_rst_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO126__FUNC_GPIO126>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_sda_normal: xmusb350_sda_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO121__FUNC_SDA9>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_sda_isp: xmusb350_sda_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO121__FUNC_GPIO121>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_scl_normal: xmusb350_scl_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO120__FUNC_SCL9>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_scl_isp: xmusb350_scl_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO120__FUNC_GPIO120>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+/* TOUCH start */
+&i2c0 {
+	clock-frequency = <400000>;
+
+	gt9896@5d {
+		compatible = "goodix,gt9896";
+		reg = <0x5d>;
+		status = "ok";
+		interrupt-parent = <&pio>;
+		interrupts = <21 IRQ_TYPE_EDGE_FALLING 21 0>;
+		vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_boot";
+		pinctrl-0 = <&ctp_ts_int_active &ctp_ts_reset_active>;
+		pinctrl-1 = <&ctp_ts_int_active &ctp_ts_reset_suspend>;
+		pinctrl-2 = <&ctp_ts_int_boot>;
+		/*goodix,vdd-gpio = <&pio 3 0x0>;*/
+		goodix,avdd-name = "vtouch";
+		goodix,reset-gpio = <&pio 20 0x0>;
+		goodix,irq-gpio = <&pio 21 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <1079>;
+		goodix,panel-max-y = <2399>;
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <256>;
+		goodix,input-max-x = <1079>;
+		goodix,input-max-y = <2399>;
+		/*goodix,panel-key-map = <158 172 217>;*/ /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-version = "6885b1";
+		goodix,config-version = "6885v9c";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		/*goodix,pen-enable;*/
+		/*goodix,key-of-pen = <331 332>;*//*BTN_STYLUS, BTN_STYLUS2*/
+		tpd-filter-enable = <1>;
+		tpd-filter-pixel-density = <161>;
+		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		tpd-filter-custom-speed = <0 0 0>;
+		sensor0 {
+			normal-cfg = [
+			];
+		};
+	};
+
+};
+&pio {
+	ctp_pins_default: eintdefault {
+	};
+	ctp_ts_int_active: int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <0>;
+			bias-disable;
+			/*bias-pull-up = <11>;*/
+		};
+	};
+	ctp_ts_reset_active: reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_ts_int_suspend: int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_reset_suspend: reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_int_boot: int_boot {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+};
+/* TOUCH end */
+
+/* AW8697 Haptic start */
+&pio {
+	aw8697_reset_high: aw8697_reset_reset {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO129__FUNC_GPIO129>;
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+	aw8697_reset_low: aw8697_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO129__FUNC_GPIO129>;
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+	aw8697_interrupt: aw8697_interrupt_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};
+&i2c7 {
+	status = "ok";
+	aw8697_haptic@5a {
+		compatible = "awinic,aw8697_haptic";
+		reg = <0x5A>;
+		reset-gpio = <&pio 129 0>;
+		irq-gpio = <&pio 22 0>;
+		vib_mode = < 0 >;   /*mode:   RAM mode->0; CONT mode -> 1*/
+		vib_f0_pre = < 1700 >;
+		vib_f0_cali_percen = < 7 >;
+		vib_cont_drv_lev = < 106 >;
+		vib_cont_drv_lvl_ov = < 106 >;
+		vib_cont_td = < 0xef >;
+		vib_cont_zc_thr = < 0x08f8 >;  /*hq 0x08F8 */
+		vib_cont_num_brk = < 3 >;
+		vib_f0_coeff = < 260 >; /*Don't modify it    2.604167*/
+		vib_f0_trace_parameter = < 9 3 1 31 >;
+		vib_bemf_config = < 0 0x08 0x03 0xf8 >;
+		vib_sw_brake = < 0x2c >;
+		vib_tset = < 0x1a >;
+		vib_r_spare = < 0x68 >;
+		vib_bstdbg = < 0x30 0xeb 0xd4 0 0 0 >;
+		vib_effect_id_boundary = < 10 >;
+		vib_effect_max = < 170 >;
+		vib_trig_config = < 0 1 0 1 2
+						0 1 0 1 2
+						0 1 0 1 2 >;
+		vib_bst_vol_default = < 0x10 >;
+		vib_bst_vol_ram = < 0x11 >;
+		vib_bst_vol_rtp = < 0x10 >;
+		vib_rtp_time = < 20 20 20 20 20 20 20 20 20000 15000
+				 15000 20000 25000 15000 30000 25000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 20000 20000 20000 20000 20000
+				 20000 20000 20000 20000 20000 >;
+		pinctrl-names = "aw8697_reset_reset","aw8697_reset_active","aw8697_interrupt_active";
+		pinctrl-0 = <&aw8697_reset_low>;
+		pinctrl-1 = <&aw8697_reset_high>;
+		pinctrl-2 = <&aw8697_interrupt>;
+		status = "ok";
+		wf_0 {
+			/*CLICK*/
+			mtk,effect-id = <0>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_1 {
+			/*DOUBLE CLICK*/
+			mtk,effect-id = <1>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [7e 3e];
+			mtk,wf-brake-pattern = [03 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_2 {
+			/*TICK*/
+			mtk,effect-id = <2>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [7e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_3 {
+			/*THUD*/
+			mtk,effect-id = <3>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_4 {
+			/*POP*/
+			mtk,effect-id = <4>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <28000>;
+		};
+		wf_5 {
+			/*HEAVY CLICK*/
+			mtk,effect-id = <5>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [7e 7e 7e];
+			mtk,wf-brake-pattern = [03 03 01 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_6 {
+			/*id 6*/
+			mtk,effect-id = <6>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_7 {
+			/*id 7*/
+			mtk,effect-id = <7>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_8 {
+			/*id 8*/
+			mtk,effect-id = <8>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+		wf_9 {
+			/*id 9*/
+			mtk,effect-id = <9>;
+			mtk,wf-vmax-mv = <3600>;
+			mtk,wf-pattern = [3e 3e];
+			mtk,wf-brake-pattern = [02 01 00 00];
+			mtk,wf-play-rate-us = <20000>;
+		};
+	};
+};
+/* AW8697 Haptic end */
+
+&i2c9 {
+	clock-frequency = <100000>;
+	bq2597x-standalone@66 {
+		compatible = "ti,bq2597x-standalone";
+		reg = <0x66>;
+		interrupt-parent = <&pio>;
+		interrupts = <3 IRQ_TYPE_EDGE_FALLING 3 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bq2597x_int_default &bq2597x_int_suspend>;
+
+		//ti,bq2597x,bat-ovp-disable;
+		ti,bq2597x,bat-ovp-alarm-disable;
+		//ti,bq2597x,bat-ocp-disable;
+		//ti,bq2597x,bat-ocp-alarm-disable;
+		ti,bq2597x,bat-ucp-alarm-disable;
+		ti,bq2597x,bat-ucp-disable;
+
+		//ti,bq2597x,bus-ovp-alarm-disable;
+		//ti,bq2597x,bus-ocp-disable;
+		//ti,bq2597x,bus-ocp-alarm-disable;
+		ti,bq2597x,bat-therm-disable;
+		ti,bq2597x,bus-therm-disable;
+		ti,bq2597x,die-therm-disable;
+
+		ti,bq2597x,bat-ovp-threshold = <4525>;
+		ti,bq2597x,bat-ovp-alarm-threshold = <4490>;
+		ti,bq2597x,bat-ocp-threshold = <7000>;
+		ti,bq2597x,bat-ocp-alarm-threshold = <6000>;
+
+		ti,bq2597x,bus-ovp-threshold = <12000>;
+		ti,bq2597x,bus-ovp-alarm-threshold = <11000>;
+		//ti,bq2597x,bus-ocp-threshold = <2200>;
+		//ti,bq2597x,bus-ocp-alarm-threshold = <2000>;
+		ti,bq2597x,bus-ocp-threshold = <3750>;
+		ti,bq2597x,bus-ocp-alarm-threshold = <3500>;
+
+		//ti,bq2597x,bat-ucp-alarm-threshold = <2000>;
+
+		ti,bq2597x,bat-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,bus-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,die-therm-threshold = <145>;
+
+		ti,bq2597x,ac-ovp-threshold = <14>;
+		ti,bq2597x,sense-resistor-mohm = <5>;
+
+		//sc8551,bypass-enable;
+		sc8551,ac-ovp-threshold = <13>;
+	};
+
+	xmusb350-charger@35 {
+		compatible = "xm,xmusb350-charger";
+		reg = <0x35>;
+		interrupt-parent = <&pio>;
+		interrupts = <110 IRQ_TYPE_EDGE_FALLING 110 0>;
+		pinctrl-names = "xmusb350_normal", "xmusb350_isp";
+		pinctrl-0 = <&xmusb350_rst_normal &xmusb350_sda_normal &xmusb350_scl_normal>;
+		pinctrl-1 = <&xmusb350_rst_isp &xmusb350_sda_isp &xmusb350_scl_isp>;
+		xm,xmusb350_rst_gpio = <&pio 126 0x00>;
+		xm,xmusb350_sda_gpio = <&pio 121 0x00>;
+		xm,xmusb350_scl_gpio = <&pio 120 0x00>;
+		mi,connect_therm = <&pio 127 0x00>;
+
+		charger_name = "secondary_chg";
+		alias_name  = "xmusb350";
+		en_bc12;
+		en_hvdcp;
+		en_intb;
+		en_sleep;
+	};
+};
+
+&cp_qc30 {
+	compatible = "xiaomi,cp-qc30";
+	status = "okay";
+	mi,qc3-bat-volt-max = <4480>;
+	mi,qc3-bat-curr-max = <3600>;
+	mi,qc3-bus-volt-max = <12000>;
+	mi,qc3-bus-curr-max = <2100>;
+	mi,qc3-non-ffc-bat-volt-max = <4450>;
+
+	mi,qc3-27w-bat-curr-max = <5400>;
+	mi,qc3-27w-bus-curr-max = <2700>;
+	mi,qc3p-bat-curr-max = <4500>;
+	mi,qc3p-bus-curr-max = <2300>;
+	//mi,cp-sec-enable;
+};
+
+&usbpd_pm {
+	compatible = "xiaomi,usbpd-pm";
+	status = "okay";
+	mi,pd-bat-volt-max = <4480>;
+	mi,pd-bat-curr-max = <6000>;
+	mi,pd-bus-volt-max = <12000>;
+	mi,pd-bus-curr-max = <3000>;
+	mi,pd-non-ffc-bat-volt-max = <4450>;
+	//mi,cp-sec-enable;
+};
+
+&usb0phy {
+	usb_phy_tuning {
+		compatible = "mediatek,phy_tuning";
+
+		u2_vrt_ref_cn  = <3>;
+		u2_term_ref_cn = <3>;
+		u2_enhance_cn  = <2>;
+		u2_intr_cal_cn = <30>;
+		u2_discth_cn  = <7>;
+
+		u2_vrt_ref_gl_india  = <3>;
+		u2_term_ref_gl_india = <3>;
+		u2_enhance_gl_india  = <3>;
+		u2_intr_cal_gl_india = <30>;
+		u2_discth_gl_india  = <7>;
+	};
+};
+
+&pio {
+	/* One wire GPIO Settings Start */
+	/* default: GPIO28, output, high */
+	onewire_gpio_active: onewire_gpio_active@gpio28 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			slew-rate = <1>;
+			bias-disable;
+			drive-strength = <MTK_DRIVE_4mA>;
+			output-high;
+		};
+	};
+
+	onewire_gpio_sleep: onewire_gpio_sleep@gpio28 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			slew-rate = <1>;
+			bias-disable;
+			drive-strength = <MTK_DRIVE_4mA>;
+			output-high;
+		};
+	};
+};
+
+&onewire_gpio {
+	compatible = "xiaomi,onewire_gpio";
+	label = "xm_onewire";
+	xiaomi,version = <1>;
+	xiaomi,ow_gpio = <&pio 28 0x00>;
+	xiaomi,gpio_number = <28>;//
+	mi,onewire-gpio-dir-addr = <0x10005000>;//
+	mi,onewire-gpio-dir-set-addr = <0x10005004>;//
+	mi,onewire-gpio-dir-clr-addr = <0x10005008>;//
+	mi,onewire-gpio-dout-addr = <0x10005100>;//
+	mi,onewire-gpio-dout-set-addr = <0x10005104>;//
+	mi,onewire-gpio-dout-clr-addr = <0x10005108>;//
+	mi,onewire-gpio-din-addr = <0x10005200>;//
+	pinctrl-names = "onewire_active", "onewire_sleep";
+	pinctrl-0 = <&onewire_gpio_active>;
+	pinctrl-1 = <&onewire_gpio_sleep>;
+	status = "ok";
+};
+
+&maxim_ds28e16 {
+	compatible = "maxim,ds28e16";
+	label = "max_ds28e16";
+	maxim,version = <1>;
+	status = "ok";
+};
+
+&pd_adapter {
+	mi,non-mtk-pps-ctrl;
+};
+
+&thermal_message {
+	board-sensor = "VIRTUAL-SENSOR";
+};
+
+/* Audio Start */
+&i2c7 {
+	status = "okay";
+	cs35l41@40 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x40>;
+		reset-gpio = <&pio 30 0>;
+		interrupt-parent = <&pio>;
+		interrupts = <31 IRQ_TYPE_LEVEL_LOW 31 0>;
+		irq-gpio = <&pio 31 0>;
+		cirrus,boost-peak-milliamp = <4500>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <1>;
+		cirrus,invert-pcm;
+		cirrus,gpio-config2 {
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+	};
+
+	cs35l41@41 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x41>;
+		reset-gpio = <&pio 30 0>;
+		interrupt-parent = <&pio>;
+		interrupts = <113 IRQ_TYPE_LEVEL_LOW 113 0>;
+		irq-gpio = <&pio 113 0>;
+		cirrus,boost-peak-milliamp = <4500>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <1>;
+		cirrus,tuning-has-prefix;
+		cirrus,gpio-config2 {
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+	};
+};
+/* Audio End */
+
+&i2c9 {
+	status = "ok";
+	aw2015@64 {
+		compatible = "awinic,aw2015_led";
+		reg = <0x64>;
+
+		aw2015,red {
+			aw2015,name = "red";
+			aw2015,id = <0>;
+			aw2015,imax = <0>;
+			aw2015,led-current = <255>;
+			aw2015,max-brightness = <30>;
+			aw2015,rise-time-ms = <6>;
+			aw2015,hold-time-ms = <0>;
+			aw2015,fall-time-ms = <6>;
+			aw2015,off-time-ms = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		aw2015,green {
+			aw2015,name = "green";
+			aw2015,id = <1>;
+			aw2015,imax = <0>;
+			aw2015,led-current = <255>;
+			aw2015,max-brightness = <30>;
+			aw2015,rise-time-ms = <6>;
+			aw2015,hold-time-ms = <0>;
+			aw2015,fall-time-ms = <6>;
+			aw2015,off-time-ms = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		aw2015,blue {
+			aw2015,name = "blue";
+			aw2015,id = <2>;
+			aw2015,imax = <0>;
+			aw2015,led-current = <255>;
+			aw2015,max-brightness = <30>;
+			aw2015,rise-time-ms = <6>;
+			aw2015,hold-time-ms = <0>;
+			aw2015,fall-time-ms = <6>;
+			aw2015,off-time-ms = <4>;
+			linux,default-trigger = "timer";
+		};
+	};
+};
+
+&i2c7 {
+	status = "ok";
+	aw2015@64 {
+		compatible = "awinic,aw2015_led";
+		reg = <0x64>;
+
+		aw2015,red {
+			aw2015,name = "red-right";
+			aw2015,id = <0>;
+			aw2015,imax = <1>;
+			aw2015,led-current = <255>;
+			aw2015,max-brightness = <255>;
+			aw2015,rise-time-ms = <6>;
+			aw2015,hold-time-ms = <0>;
+			aw2015,fall-time-ms = <6>;
+			aw2015,off-time-ms = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		aw2015,green {
+			aw2015,name = "green-right";
+			aw2015,id = <1>;
+			aw2015,imax = <1>;
+			aw2015,led-current = <255>;
+			aw2015,max-brightness = <255>;
+			aw2015,rise-time-ms = <6>;
+			aw2015,hold-time-ms = <0>;
+			aw2015,fall-time-ms = <6>;
+			aw2015,off-time-ms = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		aw2015,blue {
+			aw2015,name = "blue-right";
+			aw2015,id = <2>;
+			aw2015,imax = <1>;
+			aw2015,led-current = <255>;
+			aw2015,max-brightness = <255>;
+			aw2015,rise-time-ms = <6>;
+			aw2015,hold-time-ms = <0>;
+			aw2015,fall-time-ms = <6>;
+			aw2015,off-time-ms = <4>;
+			linux,default-trigger = "timer";
+		};
+	};
+};
+
+&pio {
+	uart_gpio_enable: uart_gpio_enable@gpio101 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO101__FUNC_GPIO101>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	uart_gpio_disable: uart_gpio_disable@gpio101 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO101__FUNC_GPIO101>;
+			slew-rate = <1>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+
+
+&i2c9 {
+	fsa4480: fsa4480@42 {
+		status = "ok";
+		compatible = "mediatek,fsa4480-audioswitch";
+		reg = <0x42>;
+		pinctrl-names = "uart_enable", "uart_disable";
+		pinctrl-0 = <&uart_gpio_enable>;
+		pinctrl-1 = <&uart_gpio_disable>;
+	};
+};
+
+&accdet {
+	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,
+	 * 2.7v;0x05,2.5v;0x02,1.9v
+	 */
+	accdet-mic-vol = <5>;
+
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <2>;
+
+	fsa4480-i2c-handle = <&fsa4480>;
+};

@@ -1,0 +1,57 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+&i2c7 {
+	rt-swchg@53 {
+		compatible = "richtek,swchg";
+		reg = <0x53>;
+		status = "okay";
+
+		rt,intr_gpio_num = <42>; /* direct defined GPIO num */
+		rt,intr_gpio = <&pio 42 0x0>; /* GPIO */
+		rt9471 {
+			/*
+			 * Charger name
+			 * Main charger: primary_chg
+			 * Slave charger: secondary_chg
+			 */
+			charger_name = "primary_chg";
+			chg_alias_name = "rt9471_chg";
+			rm-slave-addr = /bits/ 8 <0x53>;
+			rm-name = "rt9471";
+			interrupt-names = "wdt", "chg_mivr", "vbus_gd",
+					  "bc12_done", "detach", "vac_ov",
+					  "otg_fault";
+			ichg = <1000000>;		/* uA */
+			aicr = <500000>;		/* uA */
+			mivr = <4400000>;		/* uV */
+			cv = <4350000>;			/* uV */
+			ieoc = <200000>;		/* uA */
+			safe-tmr = <10>;		/* hour */
+			wdt = <40>;			/* sec */
+			/*
+			 * 0: MIVR register
+			 * 1: MIVR = VBAT + 200mV
+			 * 2: MIVR = VBAT + 250mV
+			 * >= 3: MIVR = VBAT + 300mV
+			 */
+			mivr-track = <0>;
+			en-te;
+			/* en-jeita; */
+			/* ceb-invert; */
+			/* dis-i2c-tout; */
+			en-qon-rst;
+			/* auto-aicr; */
+		};
+	};
+};

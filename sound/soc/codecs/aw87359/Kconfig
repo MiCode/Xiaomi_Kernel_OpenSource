@@ -1,0 +1,5 @@
+config SND_SOC_AW87359
+	tristate "SoC Audio for awinic AW87359 Smart K PA"
+	depends on I2C
+	help
+	This option enables support for AW87359 Smart K PA

@@ -1,0 +1,9 @@
+
+config MTK_WAKEHUB
+	bool "wakehub for MediaTek package"
+	default n
+	help
+	  A wake is a device,
+	  usually portable and electronic
+	  or electromechanical,
+	  that detect device is picked up with 35 degree.

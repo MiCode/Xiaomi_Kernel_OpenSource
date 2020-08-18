@@ -1,0 +1,8 @@
+config MTK_PSEUDO_M4U
+	bool "PSEUDO m4u driver for MTK m4u"
+	depends on IOMMU_API && (!MTK_M4U)
+	help
+	  enable to support MTK iommu.
+	  PSEUDO M4U driver is used to support
+	  multimedia hardware use non-physical continuous memory
+	  and adapt to standard iommu driver.

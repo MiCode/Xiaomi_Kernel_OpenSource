@@ -1,0 +1,59 @@
+config DRM_MEDIATEK
+	tristate "DRM Support for Mediatek SoCs"
+	depends on DRM
+	depends on COMMON_CLK
+	depends on HAVE_ARM_SMCCC
+	depends on OF
+	select DRM_GEM_CMA_HELPER
+	select DRM_KMS_HELPER
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+	select MEMORY
+	select MTK_SMI
+        select FONT_SUPPORT
+	select GENERIC_PHY
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  The module will be called mediatek-drm
+	  This driver provides kernel mode setting and
+	  buffer management to userspace.
+
+config DRM_MEDIATEK_HDMI
+	tristate "DRM HDMI Support for Mediatek SoCs"
+	depends on DRM_MEDIATEK
+	select SND_SOC_HDMI_CODEC if SND_SOC
+	select GENERIC_PHY
+	help
+	  DRM/KMS HDMI driver for Mediatek SoCs
+
+config MTK_PQ_COLOR_MODE
+	string "Config PQ_COLOR_MODE (MDP & DISP COLOR on/off)"
+	default "DISP"
+	help
+	  This control mdp color on/off and disp color on/off
+	  if value equals to DISP, only display color is on.
+	  if value equals to MDP, only mdp color is on.
+	  if value equals to DISP_MDP, mdp and display color are both on.
+	  if value equals to OFF, mdp and display color are both off.
+
+config DRM_MTK_SHADOW_REGISTER_SUPPORT
+	bool "DRM shadow register Support for Mediatek SoCs"
+	depends on DRM_MEDIATEK
+	help
+	  DRM shadow register Support for Mediatek SoCs.
+	  define CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT to
+	  enable Shadow Register on display.
+	  This feature will de-risk configuration time shortage.
+	  If you want to use Shadow Register on display,
+	  please make sure it is Y in xxx_defconfig.
+	  This feature depends on Mediatek SoCs HW spec.
+	  If unsure, set N.
+
+config DRM_MTK_DISABLE_AEE_LAYER
+	bool "Disable AEE Layer for the customer who don't want to produce AEE"
+	help
+	  Disable AEE Layer if you do not want to produce AEE.
+	  Default Mediatek SoCs will produce AEE when exception occurred.
+	  if this value is y, will not produce AEE.
+	  if this value is n, will produce AEE.
+	  If you do not produce AEE, please set it to Y in xxx_defconfig.
