@@ -1074,6 +1074,17 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 	gmu_core_regwrite(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, state);
 }
 
+static bool a619_holi_hw_isidle(struct adreno_device *adreno_dev)
+{
+	unsigned int reg;
+
+	adreno_read_gmu_wrapper(adreno_dev,
+		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+
+	/* Bit 23 is GPUBUSYIGNAHB */
+	return (reg & BIT(23)) ? false : true;
+}
+
 static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -2860,6 +2871,43 @@ struct adreno_gpudev adreno_a6xx_rgmu_gpudev = {
 #endif
 	.read_alwayson = a6xx_read_alwayson,
 	.power_ops = &a6xx_rgmu_power_ops,
+};
+
+struct adreno_gpudev adreno_a619_holi_gpudev = {
+	.reg_offsets = a6xx_register_offsets,
+	.probe = a6xx_probe,
+	.start = a6xx_start,
+	.snapshot = a6xx_snapshot,
+	.init = a6xx_init,
+	.irq_handler = a6xx_irq_handler,
+	.rb_start = a6xx_rb_start,
+	.regulator_enable = a6xx_sptprac_enable,
+	.regulator_disable = a6xx_sptprac_disable,
+	.perfcounters = &a6xx_perfcounters,
+	.read_throttling_counters = a6xx_read_throttling_counters,
+	.microcode_read = a6xx_microcode_read,
+	.gpu_keepalive = a6xx_gpu_keepalive,
+	.hw_isidle = a619_holi_hw_isidle,
+	.iommu_fault_block = a6xx_iommu_fault_block,
+	.reset = a6xx_reset,
+	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
+	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
+	.preemption_init = a6xx_preemption_init,
+	.preemption_schedule = a6xx_preemption_schedule,
+	.set_marker = a6xx_set_marker,
+	.preemption_context_init = a6xx_preemption_context_init,
+	.preemption_context_destroy = a6xx_preemption_context_destroy,
+	.sptprac_is_on = a6xx_sptprac_is_on,
+	.ccu_invalidate = a6xx_ccu_invalidate,
+	.perfcounter_update = a6xx_perfcounter_update,
+#ifdef CONFIG_QCOM_KGSL_CORESIGHT
+	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
+#endif
+#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
+	.clk_set_options = a6xx_clk_set_options,
+#endif
+	.read_alwayson = a6xx_read_alwayson,
+	.power_ops = &adreno_power_operations,
 };
 
 struct adreno_gpudev adreno_a630_gpudev = {

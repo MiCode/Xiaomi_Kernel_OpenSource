@@ -900,6 +900,7 @@ extern struct adreno_gpudev adreno_a5xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gmu_gpudev;
 extern struct adreno_gpudev adreno_a6xx_rgmu_gpudev;
+extern struct adreno_gpudev adreno_a619_holi_gpudev;
 extern struct adreno_gpudev adreno_a630_gpudev;
 
 extern int adreno_wake_nice;
