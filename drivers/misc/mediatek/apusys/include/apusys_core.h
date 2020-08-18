@@ -24,6 +24,9 @@ int mdw_mem_drv_init(struct apusys_core_info *info);
 void mdw_mem_drv_exit(void);
 int apu_power_drv_init(struct apusys_core_info *info);
 void apu_power_drv_exit(void);
+int debug_init(struct apusys_core_info *info);
+void debug_exit(void);
+
 
 /*
  * init function at other modulses
@@ -40,6 +43,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	vpu_init,
 #endif
+	debug_init,
 };
 
 /*
@@ -47,6 +51,7 @@ static int (*apusys_init_func[])(struct apusys_core_info *) = {
  * call exit function in order at apusys.ko exit stage
  */
 static void (*apusys_exit_func[])(void) = {
+	debug_exit,
 #if IS_ENABLED(CONFIG_MTK_APUSYS_VPU)
 	vpu_exit,
 #endif

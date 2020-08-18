@@ -17,6 +17,7 @@ UTIL_DIR = util
 # declare apusys version
 APUSYS_VERSION_MIDWARE = 1.5
 APUSYS_VERSION_SAMPLE = 1.5
+APUSYS_VERSION_DEBUG = 1.0
 APUSYS_VERSION_MNOC = 1.5
 APUSYS_VERSION_VPU = 4.5
 APUSYS_VERSION_POWER_PLATFORM = mt6873
@@ -62,12 +63,6 @@ ifeq ($(CONFIG_MTK_ION), y)
 apusys-objs += midware/$(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
 endif
 
-# debug makefile
-ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
-apusys-objs += debug/apu_tags.o
-apusys-objs += debug/apu_tp.o
-endif
-
 # sample driver makefile
 apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_drv.o
 apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_inf.o
@@ -100,6 +95,23 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos.o
 apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos_sys.o
 endif
+
+# debug makefile
+ifeq ($(CONFIG_MTK_APUSYS_DEBUG),y)
+apusys-objs += debug/apu_tags.o
+apusys-objs += debug/apu_tp.o
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DEBUG)/common/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DEBUG)/interface/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/$(APUSYS_VERSION_DEBUG)/platform/
+
+apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/common/debug_drv.o
+apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/debug_plat_device.o
+apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/mt6853/debug_mt6853.o
+apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/mt6873/debug_mt6873.o
+apusys-objs += debug/$(APUSYS_VERSION_DEBUG)/platform/mt6885/debug_mt6885.o
+endif
+
 # power driver makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include/
