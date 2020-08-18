@@ -26,6 +26,10 @@ int mt6873_dbg_spm_fs_init(void);
 
 int mt6873_dbg_spm_fs_deinit(void);
 
+int mt6873_dbg_cpuidle_fs_init(void);
+
+int mt6873_dbg_cpuidle_fs_deinit(void);
+
 int mt6873_dbg_fs_init(void);
 
 void mt6873_dbg_fs_exit(void);

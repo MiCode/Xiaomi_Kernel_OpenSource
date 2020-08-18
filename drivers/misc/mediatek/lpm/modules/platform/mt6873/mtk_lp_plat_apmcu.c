@@ -28,8 +28,6 @@ void __iomem *cpu_pm_syssram_base;
 #define BOOT_TIME_LIMIT         60
 #define PSCI_E_SUCCESS          0
 
-static struct task_struct *mtk_lp_plat_task;
-
 /* qos */
 static struct pm_qos_request mtk_lp_plat_qos_req;
 

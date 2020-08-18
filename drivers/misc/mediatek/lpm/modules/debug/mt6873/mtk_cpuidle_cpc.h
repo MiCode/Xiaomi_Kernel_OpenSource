@@ -6,7 +6,8 @@
 #ifndef __MTK_CPUIDLE_CPC_H__
 #define __MTK_CPUIDLE_CPC_H__
 
-#include <linux/seq_file.h>
+#include <linux/types.h>
+#include <linux/init.h>
 #include <mtk_lpm_module.h>
 
 enum {
@@ -92,7 +93,7 @@ enum {
 
 void mtk_cpc_prof_start(void);
 void mtk_cpc_prof_stop(void);
-void mtk_cpc_prof_lat_dump(struct seq_file *m);
+void mtk_cpc_prof_lat_dump(char **ToUserBuf, size_t *sz);
 
 int __init mtk_cpc_init(void);
 void __exit mtk_cpc_exit(void);

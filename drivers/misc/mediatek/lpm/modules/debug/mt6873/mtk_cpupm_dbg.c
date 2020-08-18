@@ -13,7 +13,6 @@
 
 #include "mtk_cpuidle_status.h"
 #include "mtk_cpuidle_cpc.h"
-#include "mtk_idle_procfs.h"
 
 static void __iomem *cpupm_mcusys_base_addr;
 static void __iomem *cpupm_syssram_base_addr;
@@ -136,7 +135,6 @@ int __init mtk_cpupm_dbg_init(void)
 
 	mtk_cpuidle_status_init();
 	mtk_cpc_init();
-	mtk_idle_procfs_init();
 	cpc_time_sync();
 
 	return 0;
@@ -144,8 +142,6 @@ int __init mtk_cpupm_dbg_init(void)
 
 void __exit mtk_cpupm_dbg_exit(void)
 {
-	mtk_idle_procfs_exit();
-
 	mtk_cpuidle_status_exit();
 	mtk_cpc_exit();
 

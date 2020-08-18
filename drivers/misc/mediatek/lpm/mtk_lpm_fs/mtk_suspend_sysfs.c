@@ -55,17 +55,3 @@ int mtk_suspend_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_suspend_sysfs_entry_root_get);
-
-int mtk_suspend_sysfs_power_create_group(struct attribute_group *grp)
-{
-	return 0;
-	//return mtk_lp_kernfs_create_group(power_kobj, grp);
-}
-EXPORT_SYMBOL(mtk_suspend_sysfs_power_create_group);
-
-size_t get_mtk_suspend_sysfs_power_bufsz_max(void)
-{
-	return 0;
-	//return get_mtk_lp_kernfs_bufsz_max();
-}
-

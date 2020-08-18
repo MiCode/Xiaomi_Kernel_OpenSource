@@ -21,7 +21,7 @@
 #include <mt6873_spm_comm.h>
 
 /* Determine for node route */
-#define MT_LP_RQ_NODE	"/sys/kernel/debug/spm/spm_resource_req"
+#define MT_LP_RQ_NODE	"/proc/mtk_lpm/spm/spm_resource_req"
 
 #define DEFINE_ATTR_RO(_name)			\
 	static struct kobj_attribute _name##_attr = {	\
@@ -41,8 +41,6 @@
 		.store	= _name##_store,		\
 	}
 #define __ATTR_OF(_name)	(&_name##_attr.attr)
-
-
 
 #undef mtk_dbg_spm_log
 #define mtk_dbg_spm_log(fmt, args...) \
@@ -980,7 +978,7 @@ static ssize_t mt6873_store_pwr_ctrl(int id,	const char *buf, size_t count)
 	char cmd[64];
 
 	if (sscanf(buf, "%63s %x", cmd, &val) != 2)
-		return -EPERM;
+		return -EINVAL;
 	pr_info("[SPM] pwr_ctrl: cmd = %s, val = 0x%x\n", cmd, val);
 	if (!strcmp(cmd,
 		mt6873_pwr_ctrl_str[PW_PCM_FLAGS])) {
@@ -1708,7 +1706,7 @@ struct mt6873_SPM_ENTERY mt6873_spm_root = {
 };
 
 struct mt6873_SPM_NODE mt6873_spm_idle = {
-	.name = "idle",
+	.name = "idle_ctrl",
 	.mode = 0644,
 	.op = {
 		.fs_read = mt6873_generic_spm_read,
@@ -1718,7 +1716,7 @@ struct mt6873_SPM_NODE mt6873_spm_idle = {
 };
 
 struct mt6873_SPM_NODE mt6873_spm_suspend = {
-	.name = "suspend",
+	.name = "suspend_ctrl",
 	.mode = 0644,
 	.op = {
 		.fs_read = mt6873_generic_spm_read,

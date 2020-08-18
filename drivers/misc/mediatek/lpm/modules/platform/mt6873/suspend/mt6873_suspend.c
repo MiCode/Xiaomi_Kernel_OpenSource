@@ -29,12 +29,6 @@
 unsigned int mt6873_suspend_status;
 struct cpumask s2idle_cpumask;
 
-#define MD_SLEEP_INFO_SMEM_OFFEST (4)
-static u64 get_md_sleep_time(void)
-{
-	return 0;
-}
-
 static inline int mt6873_suspend_common_enter(unsigned int *susp_status)
 {
 	unsigned int status = PLAT_VCORE_LP_MODE
