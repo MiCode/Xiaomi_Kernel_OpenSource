@@ -1114,6 +1114,10 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 		}
 		mhi_deinit_dev_ctxt(mhi_cntrl);
 	}
+
+	/* reset set bhi and bhie to prevent reg access */
+	mhi_cntrl->bhi = NULL;
+	mhi_cntrl->bhie = NULL;
 }
 EXPORT_SYMBOL(mhi_power_down);
 
