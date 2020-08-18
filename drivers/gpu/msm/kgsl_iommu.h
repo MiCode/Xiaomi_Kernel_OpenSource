@@ -69,9 +69,6 @@
 /* FSR fields */
 #define KGSL_IOMMU_FSR_SS_SHIFT		30
 
-/* Max number of iommu clks per IOMMU unit */
-#define KGSL_IOMMU_MAX_CLKS 7
-
 /* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
 
@@ -118,7 +115,8 @@ struct kgsl_iommu {
 	void __iomem *regbase;
 	struct kgsl_memdesc *setstate;
 	atomic_t clk_enable_count;
-	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
+	struct clk **clks;
+	int num_clks;
 	struct kgsl_memdesc *smmu_info;
 	/** @pdev: Pointer to the platform device for the IOMMU device */
 	struct platform_device *pdev;
