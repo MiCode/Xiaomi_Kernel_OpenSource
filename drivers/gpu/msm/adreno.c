@@ -60,6 +60,19 @@ int adreno_wake_nice = -7;
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
 
+static u32 get_ucode_version(const u32 *data)
+{
+	u32 version;
+
+	version = data[1];
+
+	if ((version & 0xf) != 0xa)
+		return version;
+
+	version &= ~0xfff;
+	return  version | ((data[3] & 0xfff000) >> 12);
+}
+
 int adreno_get_firmware(struct adreno_device *adreno_dev,
 		const char *fwfile, struct adreno_firmware *firmware)
 {
@@ -86,7 +99,7 @@ int adreno_get_firmware(struct adreno_device *adreno_dev,
 	if (!ret) {
 		memcpy(firmware->memdesc->hostptr, &fw->data[4], fw->size - 4);
 		firmware->size = (fw->size - 4) / sizeof(u32);
-		firmware->version = *((u32 *)&fw->data[4]);
+		firmware->version = get_ucode_version((u32 *)fw->data);
 	}
 
 	release_firmware(fw);
