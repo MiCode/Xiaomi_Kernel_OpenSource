@@ -719,11 +719,10 @@ static void mem_buf_relinquish_work(struct work_struct *work)
 	kfree(rmt_msg);
 }
 
-static int mem_buf_decode_alloc_resp(struct mem_buf_txn *txn, void *buf,
-				      size_t size)
+static int mem_buf_decode_alloc_resp(void *buf, size_t size,
+				     hh_memparcel_handle_t *ret_hdl)
 {
 	struct mem_buf_alloc_resp *alloc_resp = buf;
-	hh_memparcel_handle_t *hdl = txn->resp_buf;
 
 	if (size != sizeof(*alloc_resp)) {
 		pr_err("%s response received is not of correct size\n",
@@ -736,15 +735,42 @@ static int mem_buf_decode_alloc_resp(struct mem_buf_txn *txn, void *buf,
 		pr_err("%s remote allocation failed rc: %d\n", __func__,
 		       alloc_resp->ret);
 	else
-		*hdl = alloc_resp->hdl;
+		*ret_hdl = alloc_resp->hdl;
 
 	return alloc_resp->ret;
+}
+
+static void mem_buf_relinquish_mem(u32 memparcel_hdl);
+
+static void mem_buf_process_alloc_resp(struct mem_buf_msg_hdr *hdr, void *buf,
+				       size_t size)
+{
+	struct mem_buf_txn *txn;
+	hh_memparcel_handle_t hdl;
+
+	mutex_lock(&mem_buf_idr_mutex);
+	txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
+	if (!txn) {
+		pr_err("%s no txn associated with id: %d\n", __func__,
+		       hdr->txn_id);
+		/*
+		 * If this was a legitimate allocation, we should let the
+		 * allocator know that the memory is not in use, so that
+		 * it can be reclaimed.
+		 */
+		if (!mem_buf_decode_alloc_resp(buf, size, &hdl))
+			mem_buf_relinquish_mem(hdl);
+	} else {
+		txn->txn_ret = mem_buf_decode_alloc_resp(buf, size,
+							 txn->resp_buf);
+		complete(&txn->txn_done);
+	}
+	mutex_unlock(&mem_buf_idr_mutex);
 }
 
 static void mem_buf_process_msg(void *buf, size_t size)
 {
 	struct mem_buf_msg_hdr *hdr = buf;
-	struct mem_buf_txn *txn;
 	struct mem_buf_rmt_msg *rmt_msg;
 	work_func_t work_fn;
 
@@ -758,17 +784,7 @@ static void mem_buf_process_msg(void *buf, size_t size)
 
 	if ((hdr->msg_type == MEM_BUF_ALLOC_RESP) &&
 	    (mem_buf_capability & MEM_BUF_CAP_CONSUMER)) {
-		mutex_lock(&mem_buf_idr_mutex);
-		txn = idr_find(&mem_buf_txn_idr, hdr->txn_id);
-		if (!txn) {
-			pr_err("%s no txn associated with id: %d\n", __func__,
-			       hdr->txn_id);
-		} else {
-			txn->txn_ret = mem_buf_decode_alloc_resp(txn, buf,
-								 size);
-			complete(&txn->txn_done);
-		}
-		mutex_unlock(&mem_buf_idr_mutex);
+		mem_buf_process_alloc_resp(hdr, buf, size);
 		kfree(buf);
 	} else if ((hdr->msg_type == MEM_BUF_ALLOC_REQ ||
 		    hdr->msg_type == MEM_BUF_ALLOC_RELINQUISH) &&
@@ -916,7 +932,7 @@ out:
 	return ret;
 }
 
-static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
+static void mem_buf_relinquish_mem(u32 memparcel_hdl)
 {
 	struct mem_buf_alloc_relinquish *msg;
 	int ret;
@@ -926,7 +942,7 @@ static void mem_buf_relinquish_mem(struct mem_buf_desc *membuf)
 		return;
 
 	msg->hdr.msg_type = MEM_BUF_ALLOC_RELINQUISH;
-	msg->hdl = membuf->memparcel_hdl;
+	msg->hdl = memparcel_hdl;
 
 	trace_send_relinquish_msg(msg);
 	ret = hh_msgq_send(mem_buf_hh_msgq_hdl, msg, sizeof(*msg), 0);
@@ -1339,7 +1355,7 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 	if (ret < 0)
 		goto out_free_mem;
 
-	mem_buf_relinquish_mem(membuf);
+	mem_buf_relinquish_mem(membuf->memparcel_hdl);
 
 out_free_mem:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
@@ -1451,7 +1467,7 @@ err_map_mem_s1:
 	if (mem_buf_unmap_mem_s2(membuf->memparcel_hdl) < 0)
 		goto err_mem_req;
 err_map_mem_s2:
-	mem_buf_relinquish_mem(membuf);
+	mem_buf_relinquish_mem(membuf->memparcel_hdl);
 err_mem_req:
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 err_alloc_dst_data:
