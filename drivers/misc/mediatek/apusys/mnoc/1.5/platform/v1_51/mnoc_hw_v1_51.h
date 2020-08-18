@@ -6,34 +6,6 @@
 #ifndef __APUSYS_MNOC_HW_H__
 #define __APUSYS_MNOC_HW_H__
 
-/*
- * BIT Operation
- */
-#undef  BIT
-#define BIT(_bit_) (unsigned int)(1 << (_bit_))
-#define BITS(_bits_, _val_) ((((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
-& ~((1U << ((0) ? _bits_)) - 1)) & ((_val_)<<((0) ? _bits_)))
-#define BITMASK(_bits_) (((unsigned int) -1 >> (31 - ((1) ? _bits_))) \
-& ~((1U << ((0) ? _bits_)) - 1))
-#define GET_BITS_VAL(_bits_, _val_) (((_val_) & \
-(BITMASK(_bits_))) >> ((0) ? _bits_))
-
-
-/**
- * Read/Write a field of a register.
- * @addr:       Address of the register
- * @range:      The field bit range in the form of MSB:LSB
- * @val:        The value to be written to the field
- */
-//#define mnoc_read(addr)	ioread32((void*) (uintptr_t) addr)
-#define mnoc_read(addr)	__raw_readl((void __iomem *) (uintptr_t) (addr))
-#define mnoc_write(addr,  val) \
-__raw_writel(val, (void __iomem *) (uintptr_t) addr)
-#define mnoc_read_field(addr, range) GET_BITS_VAL(range, mnoc_read(addr))
-#define mnoc_write_field(addr, range, val) mnoc_write(addr, (mnoc_read(addr) \
-& ~(BITMASK(range))) | BITS(range, val))
-#define mnoc_set_bit(addr, set) mnoc_write(addr, (mnoc_read(addr) | (set)))
-#define mnoc_clr_bit(addr, clr) mnoc_write(addr, (mnoc_read(addr) & ~(clr)))
 
 enum apu_qos_mni {
 	MNI_VPU0,
@@ -197,21 +169,5 @@ struct mnoc_int_dump {
 	struct int_sta_info sw_irq_sta;
 };
 
-int mnoc_check_int_status(void);
-int apusys_dev_to_core_id(int dev_type, int dev_core);
-void mnoc_get_pmu_counter(unsigned int *buf);
-void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);
-void mnoc_hw_reinit(void);
-void mnoc_clear_pmu_counter(unsigned int grp);
-bool mnoc_pmu_reg_in_range(unsigned int addr);
-void mnoc_int_endis(bool endis);
-void infra2apu_sram_en(void);
-void infra2apu_sram_dis(void);
-void apu2infra_bus_protect_en(void);
-void apu2infra_bus_protect_dis(void);
-void print_int_sta(struct seq_file *m);
-void mnoc_hw_init(void);
-void mnoc_hw_exit(void);
-int mnoc_alloc_iommu_tfrp(void);
 
 #endif

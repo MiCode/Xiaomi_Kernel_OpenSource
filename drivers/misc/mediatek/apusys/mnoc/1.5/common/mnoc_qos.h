@@ -10,6 +10,17 @@
 #include <linux/device.h>
 #include <linux/pm_qos.h>
 
+enum apu_qos_engine {
+	APU_QOS_ENGINE_VPU0,
+	APU_QOS_ENGINE_VPU1,
+	APU_QOS_ENGINE_MDLA0,
+	APU_QOS_ENGINE_EDMA0,
+	APU_QOS_ENGINE_MD32,
+
+	NR_APU_QOS_ENGINE
+};
+
+
 struct engine_pm_qos_counter {
 	struct pm_qos_request qos_req;
 	struct icc_path *emi_icc_path;

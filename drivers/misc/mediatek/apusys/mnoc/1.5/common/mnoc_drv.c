@@ -30,22 +30,20 @@
 #endif
 
 #include "apusys_core.h"
-
-#ifdef APUSYS_OPTIONS_INF_POWERARCH
 #include "apusys_power.h"
 #include "apusys_power_cust.h"
-#endif
-
-
 
 #include "mnoc_drv.h"
-#include "mnoc_hw.h"
 #include "mnoc_qos.h"
 #include "mnoc_qos_sys.h"
 #include "mnoc_dbg.h"
 #include "mnoc_pmu.h"
-#include "mnoc_option.h"
+#include "mnoc_util.h"
+#include "mnoc_api.h"
 
+#ifdef MNOC_TAG_TP
+#include "mnoc_tag.h"
+#endif
 
 DEFINE_SPINLOCK(mnoc_spinlock);
 
@@ -66,20 +64,43 @@ unsigned int mnoc_irq_number;
 bool is_first_isr_after_pwr_on;
 static struct work_struct mnoc_isr_work;
 
+struct mnoc_plat_drv mnoc_drv;
+
+
+phys_addr_t get_apu_iommu_tfrp(unsigned int id)
+{
+	return mnoc_drv.get_apu_iommu_tfrp(id);
+}
+EXPORT_SYMBOL(get_apu_iommu_tfrp);
+
+
+void mnoc_set_mni_pre_ultra(int dev_type, int dev_core, bool endis)
+{
+	mnoc_drv.set_mni_pre_ultra(dev_type, dev_core, endis);
+}
+
+void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
+{
+	mnoc_drv.set_lt_guardian_pre_ultra(dev_type, dev_core, endis);
+}
+
+
+
+
 static void mnoc_isr_work_func(struct work_struct *work)
 {
 	LOG_DEBUG("+\n");
 #if MNOC_AEE_WARN_ENABLE
 	mutex_lock(&mnoc_pwr_mtx);
-
-#ifdef APUSYS_REG_DUMP
-	if (mnoc_pwr_is_on)
-		apusys_reg_dump();
-#endif
+//	if (mnoc_pwr_is_on)
+//		apusys_reg_dump(); TODO: wati reg dump porting done
 	mutex_unlock(&mnoc_pwr_mtx);
 	mnoc_aee_warn("MNOC", "MNOC Exception");
 #endif
-	print_int_sta(NULL);
+
+	//print_int_sta(NULL);
+	mnoc_drv.print_int_sta(NULL);
+
 	LOG_DEBUG("-\n");
 }
 #endif
@@ -92,7 +113,8 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 
 	mnoc_pmu_reg_init();
 	infra2apu_sram_en();
-	mnoc_hw_reinit();
+	//mnoc_hw_reinit();
+	mnoc_drv.hw_reinit();
 	apu_qos_on();
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
@@ -106,7 +128,8 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	mnoc_pwr_is_on = true;
 	mutex_unlock(&mnoc_pwr_mtx);
 
-	mnoc_int_endis(true);
+	//mnoc_int_endis(true);
+	mnoc_drv.int_endis(true);
 
 	LOG_DEBUG("-\n");
 }
@@ -117,7 +140,8 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 
 	LOG_DEBUG("+\n");
 
-	mnoc_int_endis(false);
+	//mnoc_int_endis(false);
+	mnoc_drv.int_endis(false);
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 	mnoc_reg_valid = false;
@@ -154,7 +178,8 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	mnoc_irq_triggered = mnoc_check_int_status();
+	//mnoc_irq_triggered = mnoc_check_int_status();
+	mnoc_irq_triggered = mnoc_drv.chk_int_status();
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
@@ -168,7 +193,6 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-
 	LOG_DEBUG("INT NOT triggered by mnoc\n");
 
 	LOG_DEBUG("-\n");
@@ -180,12 +204,7 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 static int mnoc_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-#if MNOC_INT_ENABLE
-	struct device *dev = &pdev->dev;
-#endif
 	struct device_node *node;
-	struct device_node *sub_node;
-	struct platform_device *sub_pdev;
 	struct apu_mnoc *p_mnoc = NULL;
 
 	mnoc_reg_valid = false;
@@ -199,27 +218,14 @@ static int mnoc_probe(struct platform_device *pdev)
 
 	p_mnoc->dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, p_mnoc);
-#ifdef APUSYS_OPTIONS_INF_POWERARCH
+
+#if MNOC_APU_PWR_CHK
 	if (!apusys_power_check())
-		return 0;
-
-	/* make sure apusys_power driver initiallized before
-	 * calling apu_power_callback_device_register
-	 */
-	sub_node = of_find_compatible_node(NULL, NULL, "mediatek,apusys_power");
-	if (!sub_node) {
-		LOG_ERR("DT,mediatek,apusys_power not found\n");
-		return -EINVAL;
-	}
-
-	sub_pdev = of_find_device_by_node(sub_node);
-
-	if (!sub_pdev || !sub_pdev->dev.driver) {
-		LOG_DEBUG("Waiting for %s\n",
-			 sub_node->full_name);
-		return -EPROBE_DEFER;
-	}
+		return -1;
 #endif
+	mnoc_drv = *(struct mnoc_plat_drv *)of_device_get_match_data(&pdev->dev);
+
+
 	mutex_init(&mnoc_pwr_mtx);
 	mnoc_pwr_is_on = false;
 
@@ -228,7 +234,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	spin_lock_init(&mnoc_spinlock);
 	apu_qos_counter_init(&pdev->dev);
 	mnoc_pmu_init();
-	mnoc_hw_init();
+	mnoc_drv.init();
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -244,21 +250,22 @@ static int mnoc_probe(struct platform_device *pdev)
 	mnoc_slp_prot_base2 = of_iomap(node, 4);
 
 #if MNOC_INT_ENABLE
+
 	INIT_WORK(&mnoc_isr_work, &mnoc_isr_work_func);
 	mnoc_irq_number = irq_of_parse_and_map(node, 0);
 	LOG_DEBUG("mnoc_irq_number = %d\n", mnoc_irq_number);
 
 	/* set mnoc IRQ(GIC SPI pin shared with axi-reviser/devapc) */
 	ret = request_irq(mnoc_irq_number, mnoc_isr,
-			IRQF_TRIGGER_HIGH | IRQF_SHARED,
-			APUSYS_MNOC_DEV_NAME, dev);
+			//IRQF_TRIGGER_HIGH | IRQF_SHARED,
+			irq_get_trigger_type(mnoc_irq_number),
+			APUSYS_MNOC_DEV_NAME, &pdev->dev);
 	if (ret)
 		LOG_ERR("IRQ register failed (%d)\n", ret);
 	else
 		LOG_DEBUG("Set IRQ OK.\n");
 #endif
 
-#if APUSYS_OPTIONS_INF_POWERARCH
 	ret = apu_power_callback_device_register(MNOC,
 		mnoc_apusys_top_after_pwr_on, mnoc_apusys_top_before_pwr_off);
 	if (ret) {
@@ -266,7 +273,11 @@ static int mnoc_probe(struct platform_device *pdev)
 			ret);
 		return -EINVAL;
 	}
+
+#ifdef MNOC_TAG_TP
+	mnoc_init_drv_tags();
 #endif
+
 	LOG_DEBUG("-\n");
 
 	return ret;
@@ -288,25 +299,22 @@ static int mnoc_resume(struct platform_device *pdev)
 
 static int mnoc_remove(struct platform_device *pdev)
 {
-#if MNOC_INT_ENABLE
-	struct device *dev = &pdev->dev;
-#endif
 	struct device_node *node = NULL;
 	struct apu_mnoc *p_mnoc = NULL;
 
 	LOG_DEBUG("+\n");
 
-#ifdef APUSYS_OPTIONS_INF_POWERARCH
+#if MNOC_APU_PWR_CHK
 	if (!apusys_power_check())
 		return 0;
+#endif
 
 	apu_power_callback_device_unregister(MNOC);
-#endif
+
 	remove_debugfs();
 	mnoc_qos_remove_sys(&pdev->dev);
 	apu_qos_counter_destroy(&pdev->dev);
 	mnoc_pmu_exit();
-	mnoc_hw_exit();
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -315,7 +323,7 @@ static int mnoc_remove(struct platform_device *pdev)
 	}
 
 #if MNOC_INT_ENABLE
-	free_irq(mnoc_irq_number, dev);
+	free_irq(mnoc_irq_number, &pdev->dev);
 	cancel_work_sync(&mnoc_isr_work);
 #endif
 	iounmap(mnoc_base);
@@ -327,15 +335,14 @@ static int mnoc_remove(struct platform_device *pdev)
 	p_mnoc = dev_get_drvdata(&pdev->dev);
 	kfree(p_mnoc);
 
+#ifdef MNOC_TAG_TP
+	mnoc_exit_drv_tags();
+#endif
+
 	LOG_DEBUG("-\n");
 
 	return 0;
 }
-
-static const struct of_device_id apusys_mnoc_of_match[] = {
-	{.compatible = "mediatek,apusys_mnoc",},
-	{/* end of list */},
-};
 
 static struct platform_driver mnoc_driver = {
 	.probe		= mnoc_probe,
@@ -345,23 +352,18 @@ static struct platform_driver mnoc_driver = {
 	.driver		= {
 		.name   = APUSYS_MNOC_DEV_NAME,
 		.owner = THIS_MODULE,
-		.of_match_table = apusys_mnoc_of_match,
 	},
 };
 
 int mnoc_init(struct apusys_core_info *info)
 {
-	LOG_DEBUG("driver init start\n");
+	LOG_DEBUG("mnoc driver init start\n");
 
-	if (info == NULL)
-		return -EINVAL;
+	LOG_ERR("mnoc driver init start");
 
-#ifdef APUSYS_OPTIONS_INF_POWERARCH
-	if (!apusys_power_check()) {
-		mdw_drv_err("apusys disable\n");
-		return -ENODEV;
-	}
-#endif
+	memset(&mnoc_drv, 0, sizeof(struct mnoc_plat_drv));
+
+	mnoc_driver.driver.of_match_table = mnoc_util_get_device_id();
 
 	if (platform_driver_register(&mnoc_driver)) {
 		LOG_ERR("failed to register %s driver", APUSYS_MNOC_DEV_NAME);

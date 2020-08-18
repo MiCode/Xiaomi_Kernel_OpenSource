@@ -12,6 +12,7 @@ int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id,
 	int dev_type, int dev_core);
 int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	int dev_type, int dev_core);
+
 void mnoc_set_mni_pre_ultra(int dev_type, int dev_core, bool endis);
 void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis);
 
