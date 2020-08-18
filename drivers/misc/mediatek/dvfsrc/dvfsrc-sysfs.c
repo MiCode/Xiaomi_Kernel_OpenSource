@@ -135,7 +135,7 @@ static ssize_t dvfsrc_dump_show(struct device *dev,
 	p = dvfsrc->dump_info(dvfsrc, p, dump_size);
 	p = config->dump_reg(dvfsrc, p, dump_size - (p - buf));
 	p = config->dump_record(dvfsrc, p, dump_size - (p - buf));
-	if (config->dump_spm_info) {
+	if (config->dump_spm_info && dvfsrc->spm_regs) {
 		p = config->dump_spm_info(dvfsrc, p,
 			dump_size - (p - buf));
 	}

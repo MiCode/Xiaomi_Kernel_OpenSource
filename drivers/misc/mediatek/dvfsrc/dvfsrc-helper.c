@@ -21,6 +21,10 @@
 #include "dvfsrc-helper.h"
 #include "dvfsrc-common.h"
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <aee.h>
+#endif
+
 static struct mtk_dvfsrc *dvfsrc_drv;
 
 /* OPP */
@@ -224,6 +228,15 @@ static int dvfsrc_query_debug_info(u32 id)
 	return ret;
 }
 
+
+#define DVFSRC_DEBUG_DUMP 0
+#define DVFSRC_DEBUG_AEE 1
+#define DVFSRC_DEBUG_VCORE_CHK 2
+
+#define DVFSRC_AEE_LEVEL_ERROR 0
+#define DVFSRC_AEE_FORCE_ERROR 1
+#define DVFSRC_AEE_VCORE_CHK_ERROR 2
+
 static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
 {
@@ -254,6 +267,111 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	p += snprintf(p, buff_end - p, "\n");
 
 	return p;
+}
+
+static int dvfsrc_aee_trigger(struct mtk_dvfsrc *dvfsrc, u32 aee_type)
+{
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	switch (aee_type) {
+	case DVFSRC_AEE_LEVEL_ERROR:
+		aee_kernel_warning("DVFSRC", "LEVEL Change fail");
+	break;
+	case DVFSRC_AEE_FORCE_ERROR:
+		aee_kernel_warning("DVFSRC", "Force opp fail");
+	break;
+	case DVFSRC_AEE_VCORE_CHK_ERROR:
+		aee_kernel_warning("DVFSRC", "vcore check fail");
+	break;
+	default:
+		dev_info(dvfsrc->dev, "unknown aee type\n");
+	break;
+	}
+#endif
+	return NOTIFY_DONE;
+}
+
+static int dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 vcore_level)
+{
+	int vcore_uv = 0;
+	int predict_uv;
+
+	if (!dvfsrc->vcore_power)
+		return NOTIFY_DONE;
+
+	if (vcore_level > dvfsrc->opp_desc->num_vcore_opp) {
+		dev_info(dvfsrc->dev, "VCORE OPP ERROR = %d\n",
+			vcore_level);
+		return NOTIFY_BAD;
+	}
+
+	predict_uv = dvfsrc->vopp_uv_tlb[vcore_level];
+	vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
+
+	if (vcore_uv < predict_uv) {
+		dev_info(dvfsrc->dev, "VCORE CHECK FAIL= %d %d, %d\n",
+			vcore_level, vcore_uv, predict_uv);
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static void dvfsrc_dump(struct mtk_dvfsrc *dvfsrc)
+{
+	char *p;
+	ssize_t dump_size = DUMP_BUF_SIZE - 1;
+	const struct dvfsrc_config *config;
+
+	config = dvfsrc->dvd->config;
+	mutex_lock(&dvfsrc->dump_lock);
+	p = dvfsrc->dump_buf;
+	dvfsrc->dump_info(dvfsrc, p, dump_size);
+	pr_info("%s", dvfsrc->dump_buf);
+	p = dvfsrc->dump_buf;
+	config->dump_reg(dvfsrc, p, dump_size);
+	pr_info("%s", dvfsrc->dump_buf);
+	p = dvfsrc->dump_buf;
+	config->dump_record(dvfsrc, p, dump_size);
+	pr_info("%s", dvfsrc->dump_buf);
+
+	if (config->dump_spm_info && dvfsrc->spm_regs) {
+		p = dvfsrc->dump_buf;
+		config->dump_spm_info(dvfsrc, p, dump_size);
+		pr_info("%s", dvfsrc->dump_buf);
+	}
+	mutex_unlock(&dvfsrc->dump_lock);
+}
+
+static int dvfsrc_debug_notifier_handler(struct notifier_block *b,
+					 unsigned long l, void *v)
+{
+	int ret = NOTIFY_DONE;
+	struct mtk_dvfsrc *dvfsrc;
+
+	dvfsrc = container_of(b, struct mtk_dvfsrc, debug_notifier);
+
+	switch (l) {
+	case DVFSRC_DEBUG_DUMP:
+		dvfsrc_dump(dvfsrc);
+	break;
+	case DVFSRC_DEBUG_AEE:
+		ret = dvfsrc_aee_trigger(dvfsrc, *(u32 *) v);
+	break;
+	case DVFSRC_DEBUG_VCORE_CHK:
+		ret = dvfsrc_vcore_check(dvfsrc, *(u32 *) v);
+	break;
+	default:
+		dev_info(dvfsrc->dev, "unknown debug type\n");
+	break;
+	}
+
+	return ret;
+}
+
+static void dvfsrc_debug_notifier_register(struct mtk_dvfsrc *dvfsrc)
+{
+	dvfsrc->debug_notifier.notifier_call = dvfsrc_debug_notifier_handler;
+	register_dvfsrc_debug_notifier(&dvfsrc->debug_notifier);
 }
 
 static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
@@ -446,6 +564,7 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	dvfsrc_debug_notifier_register(dvfsrc);
 	dvfsrc_register_sysfs(dev);
 	register_dvfsrc_debug_handler(dvfsrc_query_debug_info);
 	platform_set_drvdata(pdev, dvfsrc);
@@ -457,7 +576,9 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 static int mtk_dvfsrc_helper_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
 
+	unregister_dvfsrc_debug_notifier(&dvfsrc->debug_notifier);
 	dvfsrc_unregister_sysfs(dev);
 	dvfsrc_drv = NULL;
 	return 0;
