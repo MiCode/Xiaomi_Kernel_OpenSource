@@ -30,6 +30,8 @@
 #include <linux/vmalloc.h>
 #include <linux/seq_file.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-buf.h>
+#include <linux/pm_runtime.h>
 /*#include <mach/irqs.h>*/
 /* For clock mgr APIS. enable_clock()/disable_clock(). */
 /*#include <mach/mt_clkmgr.h>*/
@@ -55,7 +57,8 @@
 //#include <cmdq_helper_ext.h>
 #endif
 
-//#include <cmdq-util.h>
+#include <cmdq_helper_ext.h>
+#include <cmdq-util.h>
 #ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
 #include <smi_public.h>
 #endif
@@ -63,6 +66,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/list.h>
 
 /*for SMI BW debug log*/
 /*#include"../../../smi/smi_debug.h" YWclose*/
@@ -89,6 +93,7 @@
 #include <linux/of_platform.h>  /* for device tree */
 #include <linux/of_irq.h>       /* for device tree */
 #include <linux/of_address.h>   /* for device tree */
+#include <soc/mediatek/smi.h>   /* for GKI larb open*/
 #endif
 
 #if defined(DIP_MET_READY)
@@ -96,7 +101,16 @@
 #include <mt-plat/met_drv.h>
 #endif
 
+struct dip_fd_list_template {
+	int fd;
+	struct dma_buf *buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	unsigned int dma_addr;
+	struct list_head list;
+};
 
+struct dip_fd_list_template *dip_fd_list;
 #define CAMSV_DBG
 #ifdef CAMSV_DBG
 #define CAM_TAG "CAM:"
@@ -135,7 +149,6 @@
 #include <linux/workqueue.h>
 #endif
 
-#define GKI_MODIFY_WORKAROUND
 /* ----------------------------------------------------------- */
 
 #define MyTag "[DIP]"
@@ -417,6 +430,7 @@ static struct IspWorkqueTable dip_workque[DIP_IRQ_TYPE_AMOUNT] = {
 #endif
 
 static DEFINE_MUTEX(gDipMutex);
+static DEFINE_MUTEX(DipMutexbuf); /*GKI AOSP ION*/
 
 #ifdef CONFIG_OF
 
@@ -443,6 +457,7 @@ struct dip_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
+	struct device *larb9, *larb11;
 };
 
 static struct dip_device *dip_devs;
@@ -969,8 +984,7 @@ static inline unsigned int DIP_JiffiesToMs(unsigned int Jiffies)
 	return ((Jiffies * 1000) / HZ);
 }
 
-#if !defined(GKI_MODIFY_WORKAROUND)
-GKI Modify
+
 static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 {
 	signed int Ret = 0;
@@ -3984,17 +3998,24 @@ static signed int DIP_DumpDIPReg(void)
 
 	return Ret;
 }
-#endif
+
 #ifndef CONFIG_MTK_CLKMGR /*CCF*/
 
 static inline void Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 	/* enable through smi API */
-#ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
-	smi_bus_prepare_enable(SMI_LARB9, DIP_DEV_NAME);
-#endif
-#if !defined(GKI_MODIFY_WORKAROUND)
+	pm_runtime_get_sync(dip_devs->dev);
+	LOG_INF("larb9 %p, larb11 %p", dip_devs->larb9, dip_devs->larb11);
+	ret = mtk_smi_larb_get(dip_devs->larb9);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
+
+	ret = mtk_smi_larb_get(dip_devs->larb11);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get larb11 fail %d\n", ret);
+
+
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB9);
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_LARB9 clock\n");
@@ -4005,7 +4026,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 
 #if ((MTK_DIP_COUNT == 2) || (MTK_MSF_OFFSET == 1))
-	smi_bus_prepare_enable(SMI_LARB11, DIP_DEV_NAME);
+	LOG_INF("enable dip img larb11\n");
 
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB11);
 	if (ret)
@@ -4025,23 +4046,21 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_MFB_DIP);
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_MFB_DIP clock\n");
-#endif
+
 
 }
 #endif
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
-#if !defined(GKI_MODIFY_WORKAROUND)
+
 	clk_disable_unprepare(dip_clk.DIP_IMG_MFB_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP_MSS);
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB9);
-#endif
-#ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
-	smi_bus_disable_unprepare(SMI_LARB9, DIP_DEV_NAME);
-#endif
-#if !defined(GKI_MODIFY_WORKAROUND)
+
+
+
 #if (MTK_DIP_COUNT == 2)
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP2);
 #endif
@@ -4050,9 +4069,13 @@ static inline void Disable_Unprepare_ccf_clock(void)
 
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB11);
 
-	smi_bus_disable_unprepare(SMI_LARB11, DIP_DEV_NAME);
+	mtk_smi_larb_put(dip_devs->larb9);
+
+	mtk_smi_larb_put(dip_devs->larb11);
+
+	pm_runtime_put_sync(dip_devs->dev);
 #endif
-#endif
+
 }
 
 
@@ -5860,10 +5883,15 @@ static long DIP_ioctl(
 	struct DIP_CLEAR_IRQ_STRUCT    ClearIrq;
 	struct DIP_USER_INFO_STRUCT *pUserInfo;
 	struct  DIP_P2_BUFQUE_STRUCT    p2QueBuf;
+	struct DIP_ION_MEM_INFO      ion_mem_info;
 	unsigned int                 wakelock_ctrl;
 	unsigned int                 module;
 	unsigned long flags;
 	int i;
+	int fd, bufpa;
+	struct dip_fd_list_template *dip_ion_list, *dip_ion_list_temp, *tmp;
+	struct list_head *pos;
+
 
 	/*  */
 	if (pFile->private_data == NULL) {
@@ -6114,6 +6142,63 @@ static long DIP_ioctl(
 			sizeof(unsigned int)) == 0) {
 		} else {
 			LOG_ERR("DIP_GET_GCE_FIRST_ERR failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+	}
+	case DIP_SET_BUF_PA: {
+		if (copy_from_user(&ion_mem_info,
+			(void *)Param,
+			sizeof(struct DIP_ION_MEM_INFO)) == 0) {
+			if (ion_mem_info.buf_fd == 0) {
+				LOG_ERR("buf fd equal 0\n");
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+		mutex_lock(&(DipMutexbuf));
+		dip_ion_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
+		dip_ion_list->buf = dma_buf_get(ion_mem_info.buf_fd);
+		dip_ion_list->attach = dma_buf_attach(dip_ion_list->buf, dip_devs->dev);
+		dip_ion_list->sgt = dma_buf_map_attachment(dip_ion_list->attach, DMA_BIDIRECTIONAL);
+		dip_ion_list->dma_addr = (unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
+		ion_mem_info.buf_pa = (unsigned int)sg_dma_address(dip_ion_list->sgt->sgl);
+		list_add_tail(&dip_ion_list->list, &dip_fd_list->list);
+
+		if (copy_to_user((void *)Param,
+			&ion_mem_info,
+			sizeof(struct DIP_ION_MEM_INFO)) != 0) {
+			LOG_ERR("DIP_SET_BUF_PA copy to user failed\n");
+		}
+		mutex_unlock(&(DipMutexbuf));
+
+		} else {
+			LOG_ERR("DIP_SET_BUF_PA failed\n");
+			Ret = -EFAULT;
+		}
+		break;
+	}
+	/* unmap delete dip fd list */
+	case DIP_DET_BUF_FD: {
+		if (copy_from_user(&fd,
+			(void *)Param,
+			sizeof(unsigned int)) == 0) {
+			if (fd == 0) {
+				LOG_ERR("buf fd equal 0\n");
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+			mutex_lock(&(DipMutexbuf));
+			tmp = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
+			list_for_each(pos, &dip_fd_list->list) {
+				tmp = list_entry(pos, struct dip_fd_list_template, list);
+				if (fd == tmp->fd) {
+					list_del(pos);
+					kfree(tmp);
+				}
+			}
+			mutex_unlock(&(DipMutexbuf));
+		} else {
+			LOG_ERR("DIP_GET_BUF_PA failed\n");
 			Ret = -EFAULT;
 		}
 		break;
@@ -6897,6 +6982,8 @@ static signed int DIP_probe(struct platform_device *pDev)
 #ifdef CONFIG_OF
 	struct dip_device *dip_dev;
 	struct device *dev = NULL;
+	struct device_node *node_larb9, *node_larb11;
+	struct platform_device *pdev_larb9, *pdev_larb11;
 #endif
 
 	LOG_INF("- E. DIP driver probe. nr_dip_devs : %d.\n", nr_dip_devs);
@@ -6933,6 +7020,26 @@ static signed int DIP_probe(struct platform_device *pDev)
 		return -ENOMEM;
 	}
 
+	if (nr_dip_devs == 1) {
+		pm_runtime_enable(dip_devs->dev);
+		/* parse larb node*/
+		node_larb9 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 0);
+		node_larb11 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 1);
+		if (!node_larb9 || !node_larb11)
+			return -EINVAL;
+		pdev_larb9 = of_find_device_by_node(node_larb9);
+		pdev_larb11 = of_find_device_by_node(node_larb11);
+		if (WARN_ON(!pdev_larb9) || WARN_ON(!pdev_larb11)) {
+			of_node_put(node_larb9);
+			of_node_put(node_larb11);
+			return -EINVAL;
+		}
+		of_node_put(node_larb9);
+		of_node_put(node_larb11);
+		dip_devs->larb9 = &pdev_larb9->dev;
+		dip_devs->larb11 = &pdev_larb11->dev;
+	}
+
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		*(dip_dev->dev->dma_mask) =
@@ -6940,6 +7047,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 		dip_dev->dev->coherent_dma_mask =
 			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
 #endif
+	dma_set_mask_and_coherent(dip_devs->dev, DMA_BIT_MASK(34));
 	LOG_INF("nr_dip_devs=%d, devnode(%s), map_addr=0x%lx\n",
 		nr_dip_devs,
 		pDev->dev.of_node->name,
@@ -7152,6 +7260,10 @@ static signed int DIP_probe(struct platform_device *pDev)
 			IspInfo.IrqCntInfo.m_int_usec[i] = 0;
 		}
 
+		/* Init ION FD LIST*/
+		dip_fd_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
+		INIT_LIST_HEAD(&dip_fd_list->list);
+
 		g_DIP_PMState = 0;
 EXIT:
 		if (Ret < 0)
@@ -7186,37 +7298,6 @@ static signed int DIP_remove(struct platform_device *pDev)
 	for (i = 0; i < DIP_IRQ_TYPE_AMOUNT; i++)
 		tasklet_kill(dip_tasklet[i].pIsp_tkt);
 
-#if !defined(GKI_MODIFY_WORKAROUND)
-	/* free all registered irq(child nodes) */
-	DIP_UnRegister_AllregIrq();
-	/* free father nodes of irq user list */
-	struct my_list_head *head;
-	struct my_list_head *father;
-
-	head = ((struct my_list_head *)(&SupIrqUserListHead.list));
-	while (1) {
-		father = head;
-		if (father->nextirq != father) {
-			father = father->nextirq;
-			REG_IRQ_NODE *accessNode;
-
-			typeof(((REG_IRQ_NODE *)0)->list) * __mptr = (father);
-			accessNode = ((REG_IRQ_NODE *)((char *)__mptr -
-				offsetof(REG_IRQ_NODE, list)));
-			LOG_INF("free father,reg_T(%d)\n", accessNode->reg_T);
-			if (father->nextirq != father) {
-				head->nextirq = father->nextirq;
-				father->nextirq = father;
-			} else {
-				/* last father node */
-				head->nextirq = head;
-				LOG_INF("break\n");
-				break;
-			}
-			kfree(accessNode);
-		}
-	}
-#endif
 	/*  */
 	device_destroy(pIspClass, IspDevNo);
 	/*  */
@@ -7642,68 +7723,6 @@ static const struct proc_ops dip_p2_dump_proc_fops = {
 static int dip_dump_read(struct seq_file *m, void *v)
 {
 /* fix unexpected close clock issue */
-#if !defined(GKI_MODIFY_WORKAROUND)
-	int i;
-
-	if (G_u4DipEnClkCnt <= 0)
-		return 0;
-
-	seq_puts(m, "\n============ dip dump register============\n");
-	seq_puts(m, "dip top control\n");
-	for (i = 0; i < 0xFC; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_puts(m, "dma error\n");
-	for (i = 0x744; i < 0x7A4; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_puts(m, "dma setting\n");
-	for (i = 0x304; i < 0x6D8; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_puts(m, "cq info\n");
-	for (i = 0x204; i < 0x218; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_puts(m, "crz setting\n");
-	for (i = 0x5300; i < 0x5334; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_puts(m, "mdp crop1\n");
-	for (i = 0x5500; i < 0x5508; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_puts(m, "mdp crop2\n");
-	for (i = 0x2B80; i < 0x2B88; i = i + 4) {
-		seq_printf(m, "[0x%08X %08X]\n",
-			(unsigned int)(DIP_A_BASE_HW+i),
-			(unsigned int)DIP_RD32(DIP_A_BASE + i));
-	}
-
-	seq_printf(m, "[0x%08X %08X]\n",
-		(unsigned int)(DIP_IMGSYS_BASE_HW),
-		(unsigned int)DIP_RD32(DIP_IMGSYS_CONFIG_BASE));
-
-	seq_puts(m, "\n============ dip dump debug ============\n");
-#endif
 	return 0;
 }
 static int proc_dip_dump_open(
@@ -7733,20 +7752,6 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 	pr_info("[ISP_M4U]fault call port=%d, mva=0x%lx", port, mva);
 
 	switch (port) {
-#if !defined(GKI_MODIFY_WORKAROUND)
-	case M4U_PORT_IMGI_D1:
-	case M4U_PORT_IMGBI_D1:
-	case M4U_PORT_DMGI_D1:
-	case M4U_PORT_DEPI_D1:
-	case M4U_PORT_LCEI_D1:
-	case M4U_PORT_SMTI_D1:
-	case M4U_PORT_SMTO_D1:
-	case M4U_PORT_SMTO_D2:
-	case M4U_PORT_CRZO_D1:
-	case M4U_PORT_IMG3O_D1:
-	case M4U_PORT_VIPI_D1:
-	case M4U_PORT_TIMGO_D1:
-#endif
 	default:  //DIP_A_BASE = 0x15021000
 		pr_info("imgi:0x%08x, imgbi:0x%08x, imgci:0x%08x, vipi:0x%08x,",
 			DIP_RD32(DIP_A_BASE + 0x200),
@@ -8176,9 +8181,6 @@ static signed int __init DIP_Init(void)
 {
 	signed int Ret = 0, j;
 	void *tmp;
-#if !defined(GKI_MODIFY_WORKAROUND)
-	struct device_node *node = NULL;
-#endif
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *dip_p2_dir;
 
@@ -8193,19 +8195,6 @@ static signed int __init DIP_Init(void)
 	}
 	/*  */
 
-#if !defined(GKI_MODIFY_WORKAROUND)
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mmsys_config");
-	if (!node) {
-		LOG_ERR("find mmsys_config node failed!!!\n");
-		return -ENODEV;
-	}
-	DIP_MMSYS_CONFIG_BASE = of_iomap(node, 0);
-	if (!DIP_MMSYS_CONFIG_BASE) {
-		LOG_ERR("unable to map DIP_MMSYS_CONFIG_BASE registers!!!\n");
-		return -ENODEV;
-	}
-	LOG_DBG("DIP_MMSYS_CONFIG_BASE: %p\n", DIP_MMSYS_CONFIG_BASE);
-#endif
 
 	/* FIX-ME: linux-3.10 procfs API changed */
 	dip_p2_dir = proc_mkdir("isp_p2", NULL);
@@ -8272,9 +8261,8 @@ static signed int __init DIP_Init(void)
 	}
 
 #ifndef EP_CODE_MARK_CMDQ
-#if !defined(GKI_MODIFY_WORKAROUND)
 	/* Register DIP callback */
-	LOG_DBG("register dip callback for MDP");
+	LOG_INF("register dip callback for MDP");
 	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
 			   DIP_MDPClockOnCallback,
 			   DIP_MDPDumpCallback,
@@ -8284,7 +8272,6 @@ static signed int __init DIP_Init(void)
 	LOG_DBG("register dip callback for GCE");
 	cmdqCoreRegisterDebugRegDumpCB
 		(DIP_BeginGCECallback, DIP_EndGCECallback);
-#endif
 #endif
 	/* m4u_enable_tf(M4U_PORT_CAM_IMGI, 0);*/
 #ifdef CONFIG_MTK_ION /* [GKI Modify]+ */
@@ -8467,7 +8454,6 @@ static void __exit DIP_Exit(void)
 	platform_driver_unregister(&DipDriver);
 	/*  */
 #ifndef EP_CODE_MARK_CMDQ
-#if !defined(GKI_MODIFY_WORKAROUND)
 	/* Unregister DIP callback */
 	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
 			   NULL,
@@ -8477,7 +8463,6 @@ static void __exit DIP_Exit(void)
 	/* Un-Register GCE callback */
 	LOG_DBG("Un-register dip callback for GCE");
 	cmdqCoreRegisterDebugRegDumpCB(NULL, NULL);
-#endif
 #endif
 
 
@@ -8520,9 +8505,6 @@ int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 // Justin Todo, check mt6885 support cmdq_core_query or not support
 	const char *pCmdq1stErrCmd;
 
-	LOG_DBG("DIP_MDPDumpCallback");
-#if !defined(GKI_MODIFY_WORKAROUND)
-
 	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
 	if (pCmdq1stErrCmd != NULL) {
 		cmdq_util_err("Cmdq 1st Error:%s", pCmdq1stErrCmd);
@@ -8563,7 +8545,6 @@ int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 	}
 
 	DIP_DumpDIPReg();
-#endif
 	return 0;
 }
 int32_t DIP_MDPResetCallback(uint64_t engineFlag)
