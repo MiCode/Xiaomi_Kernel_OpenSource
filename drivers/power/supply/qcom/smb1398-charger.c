@@ -2014,6 +2014,7 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 	return rc;
 }
 
+#define DIV2_CP_MIN_ILIM_UA 1000000
 static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 {
 	int rc = 0;
@@ -2036,9 +2037,14 @@ static int smb1398_div2_cp_parse_dt(struct smb1398_chip *chip)
 		return rc;
 	}
 
-	chip->div2_cp_min_ilim_ua = 750000;
 	of_property_read_u32(chip->dev->of_node, "qcom,div2-cp-min-ilim-ua",
 			&chip->div2_cp_min_ilim_ua);
+	/*
+	 * Set minimum allowed ilim configuration to 1A for DIV2_CP
+	 * operation.
+	 */
+	if (chip->div2_cp_min_ilim_ua < DIV2_CP_MIN_ILIM_UA)
+		chip->div2_cp_min_ilim_ua = DIV2_CP_MIN_ILIM_UA;
 
 	chip->max_cutoff_soc = 85;
 	of_property_read_u32(chip->dev->of_node, "qcom,max-cutoff-soc",
