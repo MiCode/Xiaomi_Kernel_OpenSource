@@ -332,7 +332,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -346,7 +345,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -360,7 +358,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -374,7 +371,6 @@
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			capacity-dmips-mhz = <365>;
-			dynamic-power-coefficient = <87>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -388,7 +384,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -402,7 +397,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -416,7 +410,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
@@ -430,7 +423,6 @@
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <450>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
 			#cooling-cells = <2>;
