@@ -230,6 +230,10 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 			&& dwc3_is_usb31(dwc))
 		mult = 6;
 
+	if ((dep->endpoint.maxburst > 6) &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc))
+		mult = 6;
+
 	tmp = ((max_packet + mdwidth) * mult) + mdwidth;
 	fifo_size = DIV_ROUND_UP(tmp, mdwidth);
 	dep->fifo_depth = fifo_size;
