@@ -864,16 +864,13 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 				dev_err(ctx->kgsldev->dev, "*EMPTY*\n");
 		}
 	}
-	if (fault_ret_flag)
-		return ret;
-
 
 	/*
 	 * We do not want the h/w to resume fetching data from an iommu
 	 * that has faulted, this is better for debugging as it will stall
 	 * the GPU and trigger a snapshot. Return EBUSY error.
 	 */
-	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+	if (!fault_ret_flag && test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 		&adreno_dev->ft_pf_policy) &&
 		(flags & IOMMU_FAULT_TRANSACTION_STALLED)) {
 		uint32_t sctlr_val;
