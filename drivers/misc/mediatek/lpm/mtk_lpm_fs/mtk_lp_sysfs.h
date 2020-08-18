@@ -10,7 +10,7 @@
 #define MTK_LP_SYSFS_HAS_ENTRY		(1)
 
 #define MTK_LP_SYSFS_ENTRY_NAME		"mtk_lpm"
-#define MTK_LP_SYSFS_BUF_READSZ		4096
+#define MTK_LP_SYSFS_BUF_READSZ		8192
 #define MTK_LP_SYSFS_BUF_WRITESZ	512
 
 typedef ssize_t (*f_mtk_idle_sysfs_show)(char *ToUserBuf
@@ -120,8 +120,5 @@ int mtk_lp_sysfs_entry_func_group_create(const char *name,
 		int mode, struct mtk_lp_sysfs_group *_group,
 		struct mtk_lp_sysfs_handle *parent,
 		struct mtk_lp_sysfs_handle *handle);
-
-int mtk_lp_sysfs_get_path(struct mtk_lp_sysfs_handle *handle,
-		char *name, int namelen);
 
 #endif

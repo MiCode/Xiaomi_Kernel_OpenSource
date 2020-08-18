@@ -15,6 +15,7 @@
 
 #include <mtk_lpm.h>
 #include <mtk_lp_plat_reg.h>
+#include <mtk_cpuidle_sysfs.h>
 
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
@@ -262,16 +263,19 @@ void mtk_cpuidle_prof_ratio_stop(void)
 	mtk_cpupm_allow();
 }
 
-void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
+void mtk_cpuidle_prof_ratio_dump(char **ToUserBuf, size_t *size)
 {
+	char *p = *ToUserBuf;
+	size_t sz = *size;
 	int i, cpu;
 	struct mtk_cpuidle_device *mtk_idle;
 
-	seq_printf(m, "%6s%12s%12s%12s\n",
+	mtk_dbg_cpuidle_log("%6s%12s%12s%12s%12s\n",
 			"",
 			"cpu_off",
 			"cluster_off",
-			"mcusys_off");
+			"mcusys_off",
+			"s2idle");
 
 	for_each_possible_cpu(cpu) {
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, cpu);
@@ -279,24 +283,27 @@ void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
 		if (!mtk_idle)
 			continue;
 
-		seq_printf(m, "cpu%d: ", cpu);
+		mtk_dbg_cpuidle_log("cpu%d: ", cpu);
 		for (i = 1; i < mtk_idle->state_count; i++) {
-			seq_printf(m, "%5s%3u.%02u%%",
+			mtk_dbg_cpuidle_log("%5s%3u.%02u%%",
 				"",
 				mtk_idle->ratio.bp[i] / 100,
 				mtk_idle->ratio.bp[i] % 100);
 
 		}
-		seq_puts(m, "\n");
+		mtk_dbg_cpuidle_log("\n");
 	}
 
-	seq_puts(m, "All core off ratio :\n");
+	mtk_dbg_cpuidle_log("All core off ratio :\n");
 
 	for (i = 0; i < CPU_OFF_MAX_LV; i++)
-		seq_printf(m, "\t C_%d = %3u.%02u%%\n",
+		mtk_dbg_cpuidle_log("\t C_%d = %3u.%02u%%\n",
 				i + 1,
 				all_core_off.lv[i].bp / 100,
 				all_core_off.lv[i].bp % 100);
+
+	*ToUserBuf = p;
+	*size = sz;
 }
 
 #define MTK_CPUIDLE_STATE_EN_GET	(0)
@@ -304,7 +311,7 @@ void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
 
 struct MTK_CSTATE_INFO {
 	unsigned int type;
-	int val;
+	long val;
 };
 
 static long mtk_per_cpuidle_state_param(void *pData)
@@ -334,7 +341,7 @@ void mtk_cpuidle_state_enable(bool en)
 	int cpu;
 	struct MTK_CSTATE_INFO state_info = {
 		.type = MTK_CPUIDLE_STATE_EN_SET,
-		.val = (unsigned int)en,
+		.val = (long)en,
 	};
 
 	mtk_cpupm_block();
@@ -345,7 +352,7 @@ void mtk_cpuidle_state_enable(bool en)
 	mtk_cpupm_allow();
 }
 
-int mtk_cpuidle_state_enabled(void)
+long mtk_cpuidle_state_enabled(void)
 {
 	int cpu;
 	struct MTK_CSTATE_INFO state_info = {

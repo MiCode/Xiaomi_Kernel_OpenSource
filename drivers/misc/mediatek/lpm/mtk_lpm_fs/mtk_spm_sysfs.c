@@ -56,19 +56,6 @@ int mtk_spm_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle)
 }
 EXPORT_SYMBOL(mtk_spm_sysfs_entry_root_get);
 
-int mtk_spm_sysfs_power_create_group(struct attribute_group *grp)
-{
-	return 0;
-	//return mtk_lp_kernfs_create_group(power_kobj, grp);
-}
-EXPORT_SYMBOL(mtk_spm_sysfs_power_create_group);
-
-size_t get_mtk_spm_sysfs_power_bufsz_max(void)
-{
-	return 0;
-	//return get_mtk_lp_kernfs_bufsz_max();
-}
-
 int mtk_spm_sysfs_remove(void)
 {
 	return mtk_lp_sysfs_entry_func_node_remove(&mtk_spm_fs_root);

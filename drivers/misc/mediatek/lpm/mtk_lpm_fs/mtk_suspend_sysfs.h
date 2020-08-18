@@ -27,7 +27,4 @@ int mtk_suspend_sysfs_entry_node_remove(
 
 int mtk_suspend_sysfs_root_entry_create(void);
 
-int mtk_suspend_sysfs_power_create_group(struct attribute_group *grp);
-size_t get_mtk_suspend_sysfs_power_bufsz_max(void);
-
 #endif

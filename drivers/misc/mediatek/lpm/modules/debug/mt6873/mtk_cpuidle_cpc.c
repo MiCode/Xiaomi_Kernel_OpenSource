@@ -3,11 +3,11 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/kernel.h>
-#include <linux/pm_qos.h>
+#include <linux/notifier.h>
 
 #include <mtk_lpm.h>
 #include <mtk_lp_plat_reg.h>
+#include <mtk_cpuidle_sysfs.h>
 
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_cpc.h"
@@ -176,34 +176,39 @@ static void mtk_cpc_save_latency(int cpu)
 	mtk_cpc_save_cpusys_lat();
 }
 
-void mtk_cpc_prof_lat_dump(struct seq_file *m)
+void mtk_cpc_prof_lat_dump(char **ToUserBuf, size_t *size)
 {
+	char *p = *ToUserBuf;
+	size_t sz = *size;
 	struct mtk_cpc_lat_data *lat;
 	int i;
 
 	for (i = 0; i < DEV_TYPE_NUM; i++) {
 		lat = &cpc.p[i];
 
-		seq_printf(m, "%s\n", lat->name);
+		mtk_dbg_cpuidle_log("%s\n", lat->name);
 
 		if (lat->off_cnt) {
-			seq_printf(m, "\toff : avg = %2dus, max = %3dus, cnt = %d\n",
+			mtk_dbg_cpuidle_log("\toff : avg = %2dus, max = %3dus, cnt = %d\n",
 				cpc_tick_to_us(lat->off_sum / lat->off_cnt),
 				cpc_tick_to_us(lat->off_max),
 				lat->off_cnt);
 		} else {
-			seq_puts(m, "\toff : None\n");
+			mtk_dbg_cpuidle_log("\toff : None\n");
 		}
 
 		if (lat->on_cnt) {
-			seq_printf(m, "\ton  : avg = %2dus, max = %3dus, cnt = %d\n",
+			mtk_dbg_cpuidle_log("\ton  : avg = %2dus, max = %3dus, cnt = %d\n",
 				cpc_tick_to_us(lat->on_sum / lat->on_cnt),
 				cpc_tick_to_us(lat->on_max),
 				lat->on_cnt);
 		} else {
-			seq_puts(m, "\ton  : None\n");
+			mtk_dbg_cpuidle_log("\ton  : None\n");
 		}
 	}
+
+	*ToUserBuf = p;
+	*size = sz;
 }
 
 void mtk_cpc_prof_start(void)

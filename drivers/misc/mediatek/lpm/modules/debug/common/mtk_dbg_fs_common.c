@@ -17,7 +17,7 @@
 #include <mtk_suspend_sysfs.h>
 #include <mtk_spm_sysfs.h>
 
-#define MTK_DGB_SUSP_NODE	"/sys/kernel/debug/suspend/suspend_state"
+#define MTK_DGB_SUSP_NODE	"/proc/mtk_lpm/suspend/suspend_state"
 
 #undef mtk_dbg_log
 #define mtk_dbg_log(fmt, args...) \
@@ -242,4 +242,3 @@ int __init mtk_dbg_common_fs_init(void)
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }
-
