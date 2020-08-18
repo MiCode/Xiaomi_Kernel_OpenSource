@@ -8,6 +8,8 @@
 
 #include <dvfsrc-exp.h>
 
+#define DUMP_BUF_SIZE 4096
+
 struct mtk_dvfsrc;
 
 /* opp */
@@ -76,6 +78,9 @@ struct mtk_dvfsrc {
 	const struct dvfsrc_debug_data *dvd;
 	char *(*dump_info)(struct mtk_dvfsrc *dvfsrc, char *p, u32 size);
 	void (*force_opp)(struct mtk_dvfsrc *dvfsrc, u32 opp);
+	struct mutex dump_lock;
+	struct notifier_block debug_notifier;
+	char dump_buf[DUMP_BUF_SIZE];
 };
 
 extern int dvfsrc_register_sysfs(struct device *dev);

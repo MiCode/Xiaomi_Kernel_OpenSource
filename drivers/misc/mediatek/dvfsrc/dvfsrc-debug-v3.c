@@ -80,9 +80,43 @@ static const int mt6873_regs[] = {
 	[DVFSRC_95MD_SCEN_BW0_T] = 0x534,
 };
 
+enum dvfsrc_spm_regs {
+	POWERON_CONFIG_EN,
+	SPM_PC_STA,
+	SPM_SW_FLAG,
+	SPM_DVFS_LEVEL,
+	SPM_DVFS_STA,
+	SPM_DVS_DFS_LEVEL,
+	SPM_DVFS_HISTORY_STA0,
+	SPM_DVFS_HISTORY_STA1,
+	SPM_DVFS_CMD0,
+	SPM_DVFS_CMD1,
+	SPM_DVFS_CMD2,
+	SPM_DVFS_CMD3,
+	SPM_DVFS_CMD4,
+};
+static const int mt6873_spm_regs[] = {
+	[POWERON_CONFIG_EN] = 0x0,
+	[SPM_PC_STA] = 0x0194,
+	[SPM_SW_FLAG] = 0x600,
+	[SPM_DVFS_LEVEL] = 0x04A4,
+	[SPM_DVFS_STA] = 0x01F8,
+	[SPM_DVS_DFS_LEVEL] = 0x04F8,
+	[SPM_DVFS_CMD0] = 0x710,
+	[SPM_DVFS_CMD1] = 0x714,
+	[SPM_DVFS_CMD2] = 0x718,
+	[SPM_DVFS_CMD3] = 0x71C,
+	[SPM_DVFS_CMD4] = 0x720,
+};
+
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
 {
 	return readl(dvfs->regs + dvfs->dvd->config->regs[reg] + offset);
+}
+
+static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
+{
+	return readl(dvfs->spm_regs + dvfs->dvd->config->spm_regs[reg]);
 }
 
 static u32 dvfsrc_get_scp_req(struct mtk_dvfsrc *dvfsrc)
@@ -274,7 +308,7 @@ static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc,
 	int i, rec_offset, offset;
 	char *buff_end = p + size;
 
-	p += sprintf(p, "%-11s: 0x%08x\n",
+	p += sprintf(p, "%-11s: %d\n",
 			"DVFSRC_LAST",
 			dvfsrc_read(dvfsrc, DVFSRC_LAST, 0));
 
@@ -286,27 +320,27 @@ static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc,
 	for (i = 0; i < 8; i++) {
 		offset = i * rec_offset;
 		p += snprintf(p, buff_end - p,
-			"[%d]%-8s: %08x,%08x,%08x,%08x\n",
+			"[%d]%-4s:%08x,%08x,%08x,%08x\n",
 			i,
-			"REC 0~3",
+			"0~3",
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x0),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x4),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x8),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0xC));
 		if (dvfsrc->dvd->config->ip_verion > 0) {
 			p += snprintf(p, buff_end - p,
-			"[%d]%-8s: %08x,%08x,%08x,%08x\n",
+			"[%d]%-4s:%08x,%08x,%08x,%08x\n",
 			i,
-			"REC 4~7",
+			"4~7",
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x10),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x14),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x18),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x1C));
 		} else {
 			p += snprintf(p, buff_end - p,
-			"[%d]%-8s: %08x,%08x,%08x\n",
+			"[%d]%-4s:%08x,%08x,%08x\n",
 			i,
-			"REC 4~6",
+			"4~6",
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x10),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x14),
 			dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x18));
@@ -421,6 +455,42 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 	return p;
 }
 
+static char *dvfsrc_dump_mt6873_spm_info(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
+{
+	char *buff_end = p + size;
+
+	if (!dvfsrc->spm_regs)
+		return p;
+
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"POWERON_CONFIG_EN",
+			spm_read(dvfsrc, POWERON_CONFIG_EN));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_SW_FLAG_0",
+			spm_read(dvfsrc, SPM_SW_FLAG));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_PC_STA",
+			spm_read(dvfsrc, SPM_PC_STA));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DVFS_LEVEL",
+			spm_read(dvfsrc, SPM_DVFS_LEVEL));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DVS_DFS_LEVEL",
+			spm_read(dvfsrc, SPM_DVS_DFS_LEVEL));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DVFS_STA",
+			spm_read(dvfsrc, SPM_DVFS_STA));
+	p += snprintf(p, buff_end - p,
+			"%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+			"SPM_DVFS_CMD0~4",
+			spm_read(dvfsrc, SPM_DVFS_CMD0),
+			spm_read(dvfsrc, SPM_DVFS_CMD1),
+			spm_read(dvfsrc, SPM_DVFS_CMD2),
+			spm_read(dvfsrc, SPM_DVFS_CMD3));
+	return p;
+}
+
 static int dvfsrc_query_request_status(struct mtk_dvfsrc *dvfsrc, u32 id)
 {
 	int ret = 0;
@@ -466,8 +536,10 @@ const struct dvfsrc_config mt6779_dvfsrc_config = {
 const struct dvfsrc_config mt6873_dvfsrc_config = {
 	.ip_verion = 2, /*mt6873 series*/
 	.regs = mt6873_regs,
+	.spm_regs = mt6873_spm_regs,
 	.dump_record = dvfsrc_dump_record,
 	.dump_reg = dvfsrc_dump_reg,
 	.query_request = dvfsrc_query_request_status,
+	.dump_spm_info = dvfsrc_dump_mt6873_spm_info,
 };
 
