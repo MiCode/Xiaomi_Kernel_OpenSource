@@ -17,7 +17,7 @@
 #include "mdw_rsc.h"
 #include "mdw_cmd.h"
 #include "mdw_sched.h"
-#include "mdw_pack.h"
+#include "mdw_dispr.h"
 #include "midware_trace.h"
 #include "mdw_import.h"
 #include "mdw_tag.h"
@@ -268,8 +268,8 @@ int mdw_sched_dev_routine(void *arg)
 		}
 
 		/* construct cmd hnd */
-		mdw_queue_deadline_boost(sc);
-		cmd_parser->set_hnd(sc, &h);
+		mdw_queue_boost(sc);
+		cmd_parser->set_hnd(sc, d->idx, &h);
 
 		/*
 		 * Execute reviser to switch VLM:
@@ -284,7 +284,7 @@ int mdw_sched_dev_routine(void *arg)
 		}
 
 		/* count qos start */
-		mdw_cmd_qos_start(sc->parent->kid, sc->idx,
+		mdw_qos_cmd_start(sc->parent->kid, sc->idx,
 			sc->type, d->idx, h.boost_val);
 
 		/* execute */
@@ -298,10 +298,11 @@ int mdw_sched_dev_routine(void *arg)
 
 		/* count qos end */
 		mutex_lock(&sc->mtx);
-		sc->bw += mdw_cmd_qos_end(sc->parent->kid, sc->idx,
+		sc->bw += mdw_qos_cmd_end(sc->parent->kid, sc->idx,
 			sc->type, d->idx);
 		sc->ip_time = sc->ip_time > h.ip_time ? sc->ip_time : h.ip_time;
 		sc->boost = h.boost_val;
+		sc->status = ret;
 		mdw_flw_debug("multi bmp(0x%llx)\n", sc->multi_bmp);
 		mutex_unlock(&sc->mtx);
 
@@ -325,126 +326,34 @@ next:
 
 static int mdw_sched_get_type(uint64_t bmp)
 {
-	return find_last_bit((unsigned long *)&bmp, APUSYS_DEVICE_MAX);
+	unsigned long tmp[BITS_TO_LONGS(APUSYS_DEVICE_MAX)];
+
+	memset(&tmp, 0, sizeof(tmp));
+	bitmap_from_arr32(tmp, (const uint32_t *)&bmp, APUSYS_DEVICE_MAX);
+
+	return find_last_bit((unsigned long *)&tmp, APUSYS_DEVICE_MAX);
 }
 
-int mdw_sched_dispatch_pack(struct mdw_apu_sc *sc)
+static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 {
-	return mdw_pack_dispatch(sc);
-}
-
-static int mdw_sched_dispatch_norm(struct mdw_apu_sc *sc)
-{
-	struct mdw_rsc_req r;
-	struct mdw_dev_info *d = NULL;
-	struct list_head *tmp = NULL, *list_ptr = NULL;
 	int ret = 0, dev_num = 0, exec_num = 0;
 
+	/* get dev num */
 	dev_num =  mdw_rsc_get_dev_num(sc->type);
 
-	memset(&r, 0, sizeof(r));
+	/* check exec #dev */
 	exec_num = cmd_parser->exec_core_num(sc);
 	exec_num = exec_num < dev_num ? exec_num : dev_num;
-	r.num[sc->type] = exec_num;
-	r.total_num = exec_num;
-	r.acq_bmp |= (1ULL << sc->type);
-	r.mode = MDW_DEV_INFO_GET_MODE_TRY;
-	if (cmd_parser->is_deadline(sc))
-		r.policy = MDW_DEV_INFO_GET_POLICY_RR;
+	sc->multi_total = exec_num;
+
+	/* select dispatch policy */
+	if (sc->hdr->pack_id)
+		ret = mdw_dispr_pack(sc);
+	else if (sc->parent->multi == HDR_FLAG_MULTI_MULTI && exec_num >= 2)
+		ret = mdw_dispr_multi(sc);
 	else
-		r.policy = MDW_DEV_INFO_GET_POLICY_SEQ;
+		ret = mdw_dispr_norm(sc);
 
-	ret = mdw_rsc_get_dev(&r);
-	if (ret)
-		goto out;
-
-	mutex_lock(&sc->mtx);
-	sc->multi_total = r.get_num[sc->type];
-	refcount_set(&sc->multi_ref.refcount, r.get_num[sc->type]);
-
-	/* power on each device if multicore */
-	if (r.get_num[sc->type] > 1) {
-		list_for_each_safe(list_ptr, tmp, &r.d_list) {
-			d = list_entry(list_ptr, struct mdw_dev_info, r_item);
-			d->pwr_on(d, sc->boost, MDW_RSC_SET_PWR_TIMEOUT);
-			sc->multi_idx = d->idx;
-		}
-	}
-	mutex_unlock(&sc->mtx);
-	mdw_flw_debug("sc(0x%llx-#%d) #dev(%u/%u) ref(%d)\n",
-		sc->parent->kid, sc->idx, r.get_num[sc->type],
-		r.num[sc->type], kref_read(&sc->multi_ref));
-
-	/* dispatch cmd */
-	list_for_each_safe(list_ptr, tmp, &r.d_list) {
-		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
-		ret = d->exec(d, sc);
-		if (ret)
-			goto fail_exec_sc;
-		list_del(&d->r_item);
-	}
-
-	goto out;
-
-fail_exec_sc:
-	list_for_each_safe(list_ptr, tmp, &r.d_list) {
-		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
-		list_del(&d->r_item);
-		mdw_rsc_put_dev(d);
-	}
-out:
-	return ret;
-}
-
-static struct mdw_apu_sc *mdw_sched_pop_sc(int type)
-{
-	struct mdw_queue *mq = NULL;
-	struct mdw_apu_sc *sc = NULL;
-
-	/* get queue */
-	mq = mdw_rsc_get_queue(type);
-	if (!mq)
-		return NULL;
-
-	/* get sc */
-	if (mq->deadline.ops.len(&mq->deadline))
-		sc = mq->deadline.ops.pop(&mq->deadline);
-	else
-		sc = mq->norm.ops.pop(&mq->norm);
-
-	if (sc) {
-		ktime_get_ts64(&sc->ts_deque);
-		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
-			sc->parent->kid, sc->idx, sc->type, sc->period);
-	}
-	return sc;
-}
-
-static int mdw_sched_insert_sc(struct mdw_apu_sc *sc, int type)
-{
-	struct mdw_queue *mq = NULL;
-	int ret = 0;
-
-	/* get queue */
-	mq = mdw_rsc_get_queue(sc->type);
-	if (!mq) {
-		mdw_drv_err("invalid sc(%d) type\n", sc->type);
-		ret = -ENODEV;
-		goto out;
-	}
-
-	mdw_flw_debug("insert sc(0x%llx-#%d/%d/%llu)\n",
-		sc->parent->kid, sc->idx, sc->type, sc->period);
-
-	ktime_get_ts64(&sc->ts_enque);
-
-	if (cmd_parser->is_deadline(sc))
-		ret = mq->deadline.ops.insert(sc, &mq->deadline,
-			type);
-	else
-		ret = mq->norm.ops.insert(sc, &mq->norm, type);
-
-out:
 	return ret;
 }
 
@@ -470,7 +379,7 @@ static int mdw_sched_routine(void *arg)
 			goto next;
 		}
 
-		mdw_pack_check();
+		mdw_dispr_check();
 
 		bmp = mdw_rsc_get_avl_bmp();
 		t = mdw_sched_get_type(bmp);
@@ -480,18 +389,17 @@ static int mdw_sched_routine(void *arg)
 		}
 
 		/* get queue */
-		sc = mdw_sched_pop_sc(t);
+		sc = mdw_queue_pop(t);
 		if (!sc) {
 			mdw_drv_err("pop sc(%d) fail\n", t);
 			goto fail_pop_sc;
 		}
+		ktime_get_ts64(&sc->ts_deque);
+		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
+			sc->parent->kid, sc->idx, sc->type, sc->period);
 
 		/* dispatch cmd */
-		if (sc->hdr->pack_id)
-			ret = mdw_sched_dispatch_pack(sc);
-		else
-			ret = mdw_sched_dispatch_norm(sc);
-
+		ret = mdw_sched_dispatch(sc);
 		if (ret) {
 			mdw_flw_debug("sc(0x%llx-#%d) dispatch fail",
 				sc->parent->kid, sc->idx);
@@ -501,7 +409,7 @@ static int mdw_sched_routine(void *arg)
 		goto next;
 
 fail_exec_sc:
-	if (mdw_sched_insert_sc(sc, MDW_QUEUE_INSERT_FRONT)) {
+	if (mdw_queue_insert(sc, true)) {
 		mdw_drv_err("sc(0x%llx-#%d) insert fail\n",
 			sc->parent->kid, sc->idx);
 	}
@@ -528,7 +436,7 @@ int mdw_sched(struct mdw_apu_sc *sc)
 	}
 
 	/* insert sc to queue */
-	ret = mdw_sched_insert_sc(sc, MDW_QUEUE_INSERT_NORM);
+	ret = mdw_queue_insert(sc, false);
 	if (ret) {
 		mdw_drv_err("sc(0x%llx-#%d) enque fail\n",
 			sc->parent->kid, sc->idx);
@@ -664,7 +572,7 @@ int mdw_sched_init(void)
 		return -ENOMEM;
 	}
 
-	mdw_pack_init();
+	mdw_dispr_init();
 
 	return 0;
 }
@@ -673,5 +581,5 @@ void mdw_sched_exit(void)
 {
 	ms_mgr.stop = true;
 	mdw_sched(NULL);
-	mdw_pack_exit();
+	mdw_dispr_exit();
 }

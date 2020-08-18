@@ -86,6 +86,26 @@ static void mdw_cmd_show_sc_perf(struct mdw_apu_sc *sc)
 	mdw_pef_debug("-------------------------\n");
 }
 
+static void mdw_cmd_show_hnd(struct apusys_cmd_hnd *h)
+{
+	mdw_cmd_debug("-------------------------\n");
+	mdw_cmd_debug(" kva             = 0x%llx\n", h->kva);
+	mdw_cmd_debug(" iova            = 0x%x\n", h->iova);
+	mdw_cmd_debug(" size            = %u\n", h->size);
+	mdw_cmd_debug(" cmd_id          = 0x%llx\n", h->cmd_id);
+	mdw_cmd_debug(" subcmd_idx      = %u\n", h->subcmd_idx);
+	mdw_cmd_debug(" priority        = %u\n", h->priority);
+	mdw_cmd_debug(" ip_time         = %u\n", h->ip_time);
+	mdw_cmd_debug(" boost_val       = %d\n", h->boost_val);
+	mdw_cmd_debug(" cluster_size    = %d\n", h->cluster_size);
+	mdw_cmd_debug(" multicore_total = %u\n", h->multicore_total);
+	mdw_cmd_debug(" multicore_idx   = %u\n", h->multicore_idx);
+	mdw_cmd_debug(" pmu_kva         = 0x%llx\n", h->pmu_kva);
+	mdw_cmd_debug(" cmd_entry       = 0x%llx\n", h->cmd_entry);
+	mdw_cmd_debug(" ctx_id          = %d\n", h->ctx_id);
+	mdw_cmd_debug("-------------------------\n");
+}
+
 static uint32_t mdw_cmd_get_pdr_num(struct mdw_apu_sc *sc)
 {
 	struct mdw_apu_cmd *cmd = sc->parent;
@@ -136,7 +156,8 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 			(uint64_t)c->u_hdr + sizeof(struct apu_cmd_hdr) +
 			(c->hdr->num_sc - 1) * sizeof(uint32_t));
 		c->file = NULL;
-		apu_sync_file_create(c);
+		if (apu_sync_file_create(c) < 0)
+			return -EINVAL;
 	}
 
 	return 0;
@@ -183,6 +204,18 @@ static uint64_t mdw_cmd_get_scr(struct mdw_apu_sc *sc)
 	return scr_bmp;
 }
 
+static int mdw_cmd_hdr_get_status(struct mdw_apu_cmd *c)
+{
+	return ((int)(c->u_hdr->flags & HDR_FlAG_MASK_STATUS_BMP)
+		>> HDR_FLAG_MASK_STATUS_OFS);
+}
+
+static void mdw_cmd_hdr_set_status(struct mdw_apu_cmd *c, int status)
+{
+	c->u_hdr->flags = (c->u_hdr->flags & ~(HDR_FlAG_MASK_STATUS_BMP))
+		| status << HDR_FLAG_MASK_STATUS_OFS;
+}
+
 static void mdw_cmd_set_sc_hdr(struct mdw_apu_sc *sc)
 {
 	/* execution time */
@@ -193,11 +226,15 @@ static void mdw_cmd_set_sc_hdr(struct mdw_apu_sc *sc)
 	sc->u_hdr->bandwidth = sc->bw;
 	/* boost val */
 	sc->u_hdr->boost_val = sc->boost;
+	/* cmd status */
+	if (sc->status)
+		mdw_cmd_hdr_set_status(sc->parent,
+		HDR_FLAG_EXEC_STATUS_HWERROR);
 }
 
 static void *mdw_cmd_get_dev_hdr(struct mdw_apu_sc *sc)
 {
-	return (void *)((uint64_t)sc->u_hdr + sizeof(struct mdw_apu_sc));
+	return (void *)((uint64_t)sc->u_hdr + sizeof(struct apu_sc_hdr_cmn));
 }
 
 static inline int mdw_cmd_valid(struct mdw_apu_cmd *c)
@@ -350,7 +387,7 @@ static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
 
 	/* init sc list */
 	INIT_LIST_HEAD(&c->sc_list);
-	INIT_LIST_HEAD(&c->pack_list);
+	INIT_LIST_HEAD(&c->di_list);
 
 	/* init mutex*/
 	mutex_init(&c->mtx);
@@ -463,10 +500,7 @@ static void mdw_cmd_delete_sc(struct mdw_apu_sc *sc)
 		return;
 	}
 
-	if (mdw_cmd_is_deadline(sc))
-		mq->deadline.ops.task_end(sc, &mq->deadline);
-	else
-		mq->norm.ops.task_end(sc, &mq->norm);
+	mdw_queue_task_end(sc);
 
 	mdw_cmd_show_sc_perf(sc);
 
@@ -503,7 +537,8 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 	sc->idx = c->parsed_sc_num;
 	sc->pdr_num = mdw_cmd_get_pdr_num(sc);
 	sc->scr_bmp = mdw_cmd_get_scr(sc);
-	sc->runtime = sc->hdr->driver_time;
+	sc->runtime = sc->hdr->ip_time;
+	kref_init(&sc->multi_ref);
 	sc->d_hdr = (void *)((uint64_t)(sc->u_hdr) +
 		sizeof(struct apu_sc_hdr_cmn));
 	if (mdw_cmd_get_codebuf_info(sc))
@@ -530,10 +565,8 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 		mdw_drv_err("can't find mq(%d)\n", sc->type);
 		goto fail_get_mq;
 	}
-	if (mdw_cmd_is_deadline(sc))
-		mq->deadline.ops.task_start(sc, &mq->deadline);
-	else
-		mq->norm.ops.task_start(sc, &mq->norm);
+
+	mdw_queue_task_start(sc);
 
 	ktime_get_ts64(&sc->ts_create);
 
@@ -561,6 +594,11 @@ static int mdw_cmd_abort_cmd(struct mdw_apu_cmd *c)
 
 	mutex_lock(&c->mtx);
 	c->state = MDW_CMD_STATE_ABORT;
+	if (!mdw_cmd_hdr_get_status(c))
+		mdw_cmd_hdr_set_status(c, HDR_FLAG_EXEC_STATUS_ABORT);
+
+	mdw_flw_debug("exec status in flag(%d)\n", mdw_cmd_hdr_get_status(c));
+
 	list_for_each_safe(list_ptr, tmp, &c->sc_list) {
 		sc = list_entry(list_ptr, struct mdw_apu_sc, cmd_item);
 		list_del(&sc->cmd_item);
@@ -740,7 +778,7 @@ static int mdw_cmd_sc_exec_num(struct mdw_apu_sc *sc)
 	return exec_num;
 }
 
-static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, void *hnd)
+static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, int d_idx, void *hnd)
 {
 	struct apusys_cmd_hnd *h = (struct apusys_cmd_hnd *)hnd;
 	struct apu_mdla_hdr *m_hdr = NULL;
@@ -757,7 +795,7 @@ static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, void *hnd)
 	h->ip_time = 0;
 	h->boost_val = sc->boost;
 	h->multicore_total = sc->multi_total;
-	h->multicore_idx = sc->multi_idx;
+	h->multicore_idx = 0;
 	h->cmd_entry = c->cmdbuf->kva;
 	h->ctx_id = sc->ctx;
 	h->context_callback = mdw_rvs_set_ctx;
@@ -780,12 +818,19 @@ static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, void *hnd)
 		goto out;
 
 	m_hdr = mdw_cmd_get_dev_hdr(sc);
-	if (sc->multi_idx == 0)
+	if (d_idx == 0)
 		h->kva = c->cmdbuf->kva + m_hdr->ofs_codebuf_info_dual0;
 	else
 		h->kva = c->cmdbuf->kva + m_hdr->ofs_codebuf_info_dual1;
 
+	h->multicore_idx = d_idx;
+	mdw_flw_debug("multi(%d/%d) kva(0x%llx), offset(%u/%u)\n",
+		d_idx, sc->multi_total, h->kva,
+		m_hdr->ofs_codebuf_info_dual0,
+		m_hdr->ofs_codebuf_info_dual1);
+
 out:
+	mdw_cmd_show_hnd(h);
 	mutex_unlock(&sc->mtx);
 }
 

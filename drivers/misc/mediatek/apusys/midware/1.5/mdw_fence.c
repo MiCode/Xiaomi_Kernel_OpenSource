@@ -34,12 +34,22 @@ static const struct file_operations apu_sync_file_fops = {
 	.poll = apu_file_poll,
 };
 
-
-void apu_sync_file_create(struct mdw_apu_cmd *c)
+int apu_sync_file_create(struct mdw_apu_cmd *c)
 {
+	int ret = 0;
 	int fd = get_unused_fd_flags(O_CLOEXEC);
 
+	if (fd < 0)
+		return -EINVAL;
+
 	c->file = anon_inode_getfile("apu_file", &apu_sync_file_fops, c, 0);
-	fd_install(fd, c->file);
-	c->uf_hdr->fd = fd;
+
+	if (c->file == NULL) {
+		put_unused_fd(fd);
+		ret = -EINVAL;
+	} else {
+		fd_install(fd, c->file);
+		c->uf_hdr->fd = fd;
+	}
+	return 0;
 }

@@ -171,7 +171,7 @@ out:
 	return sc;
 }
 
-static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
+static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int is_front)
 {
 	int ret = 0, prio = 0;
 	struct mdw_queue_norm *nq = (struct mdw_queue_norm *)q;
@@ -201,14 +201,17 @@ static int mdw_queue_norm_insert(struct mdw_apu_sc *sc, void *q, int type)
 	/* add pitem to normal task queue/pid pi queue */
 	mdw_flw_debug("vzalloc pi(%p)\n", pi);
 	pi->pid = p;
-	if (type == MDW_QUEUE_INSERT_FRONT) {
+	if (is_front) {
 		list_add(&pi->q_item, &nq->pi_list);
 		list_add(&pi->p_item, &p->pi_list);
 
 		/* add sc to pid's prority queue */
 		list_add(&sc->q_item, &p->q.list[prio]);
 	} else {
-		list_add_tail(&pi->q_item, &nq->pi_list);
+		if (pi->pid == 0)
+			list_add(&pi->q_item, &nq->pi_list);
+		else
+			list_add_tail(&pi->q_item, &nq->pi_list);
 		list_add_tail(&pi->p_item, &p->pi_list);
 
 		/* add sc to pid's prority queue */
@@ -257,9 +260,9 @@ static int mdw_queue_norm_delete(struct mdw_apu_sc *sc, void *q)
 	}
 
 	/* get p item from the last of pid's pi list and delete it */
+	if (list_empty(&p->pi_list))
+		goto fail_pi_empty;
 	pi = list_last_entry(&p->pi_list, struct mdw_pid_item, p_item);
-	if (!pi)
-		goto fail_get_pi;
 
 	list_del(&pi->p_item);
 	list_del(&pi->q_item);
@@ -283,7 +286,8 @@ static int mdw_queue_norm_delete(struct mdw_apu_sc *sc, void *q)
 	/* update mdw q's bitmap */
 	mdw_rsc_update_avl_bmp(sc->type);
 
-fail_get_pi:
+fail_pi_empty:
+	mdw_drv_warn("no pid item in p(%d)\n", p->pid);
 	mdw_queue_norm_pid_put(p);
 out:
 	mutex_unlock(&nq->mtx);
