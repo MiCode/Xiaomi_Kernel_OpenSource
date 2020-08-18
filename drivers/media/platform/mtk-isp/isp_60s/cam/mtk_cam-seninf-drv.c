@@ -635,7 +635,7 @@ static int update_isp_clk(struct seninf_ctx *ctx)
 {
 	int i, ret, pixelmode;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
-	s64 pixel_rate = -1;
+	s64 pixel_rate = -1, dfs_freq;
 	struct seninf_vc *vc;
 
 	if (!dfs->cnt)
@@ -658,7 +658,10 @@ static int update_isp_clk(struct seninf_ctx *ctx)
 
 	pixelmode = vc->pixel_mode;
 	for (i = 0; i < dfs->cnt; i++) {
-		if ((dfs->freqs[i] << pixelmode) >= pixel_rate)
+		dfs_freq = dfs->freqs[i];
+		dfs_freq = dfs_freq * (100 - SENINF_CLK_MARGIN_IN_PERCENT);
+		do_div(dfs_freq, 100);
+		if ((dfs_freq << pixelmode) >= pixel_rate)
 			break;
 	}
 
