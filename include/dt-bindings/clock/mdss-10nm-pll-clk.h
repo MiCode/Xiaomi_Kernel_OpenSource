@@ -52,6 +52,4 @@
 #define	DP_VCO_DIVIDED_SIX_CLK_SRC	4
 #define	DP_PHY_PLL_VCO_DIV_CLK		5
 
-#define DP_LINK_CLK_DIVSEL_TEN		1
-#define DP_VCO_DIVIDED_CLK_SRC_MUX	5
 #endif
