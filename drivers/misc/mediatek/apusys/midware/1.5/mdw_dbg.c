@@ -28,9 +28,7 @@ struct dentry *mdw_dbg_user;
 struct dentry *mdw_dbg_devinfo;
 struct dentry *mdw_dbg_device;
 struct dentry *mdw_dbg_mem;
-struct dentry *mdw_dbg_trace;
 struct dentry *mdw_dbg_test;
-struct dentry *mdw_dbg_log;
 struct dentry *mdw_dbg_boost;
 
 struct dentry *mdw_dbg_debug_root;
@@ -375,12 +373,12 @@ int mdw_dbg_init(struct apusys_core_info *info)
 		mdw_dbg_root, NULL, &mdw_dbg_fops_test);
 
 	/* create log level */
-	mdw_dbg_log = debugfs_create_u32("klog", 0644,
+	debugfs_create_u32("klog", 0644,
 		mdw_dbg_root, &g_mdw_klog);
 
 	/* create trace enable */
 	cfg_apusys_trace = 0;
-	mdw_dbg_trace = debugfs_create_u8("trace_en", 0644,
+	debugfs_create_u8("trace_en", 0644,
 		mdw_dbg_root, &cfg_apusys_trace);
 
 	/* tmp log dump node */

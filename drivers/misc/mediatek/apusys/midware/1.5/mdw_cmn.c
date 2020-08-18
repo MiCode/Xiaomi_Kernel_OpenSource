@@ -11,7 +11,7 @@
 #include "mdw_cmn.h"
 
 
-uint32_t mdw_cmn_get_time_diff(struct timespec *prev, struct timespec *next)
+uint32_t mdw_cmn_get_time_diff(struct timespec64 *prev, struct timespec64 *next)
 {
 	uint32_t diff = 0;
 

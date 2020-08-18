@@ -289,9 +289,9 @@ int mdw_sched_dev_routine(void *arg)
 
 		/* execute */
 		mdw_sched_trace(sc, d, &h, ret, 0);
-		getnstimeofday(&sc->ts_start);
+		ktime_get_ts64(&sc->ts_start);
 		ret = d->dev->send_cmd(APUSYS_CMD_EXECUTE, &h, d->dev);
-		getnstimeofday(&sc->ts_end);
+		ktime_get_ts64(&sc->ts_end);
 		sc->driver_time = mdw_cmn_get_time_diff(&sc->ts_start,
 			&sc->ts_end);
 		mdw_sched_trace(sc, d, &h, ret, 1);
@@ -411,7 +411,7 @@ static struct mdw_apu_sc *mdw_sched_pop_sc(int type)
 		sc = mq->norm.ops.pop(&mq->norm);
 
 	if (sc) {
-		getnstimeofday(&sc->ts_deque);
+		ktime_get_ts64(&sc->ts_deque);
 		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
 			sc->parent->kid, sc->idx, sc->type, sc->period);
 	}
@@ -434,7 +434,7 @@ static int mdw_sched_insert_sc(struct mdw_apu_sc *sc, int type)
 	mdw_flw_debug("insert sc(0x%llx-#%d/%d/%llu)\n",
 		sc->parent->kid, sc->idx, sc->type, sc->period);
 
-	getnstimeofday(&sc->ts_enque);
+	ktime_get_ts64(&sc->ts_enque);
 
 	if (cmd_parser->is_deadline(sc))
 		ret = mq->deadline.ops.insert(sc, &mq->deadline,

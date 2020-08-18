@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/dma-mapping.h>
+#include <linux/compat.h>
 
 #include "apusys_drv.h"
 #include "mdw_dbg.h"

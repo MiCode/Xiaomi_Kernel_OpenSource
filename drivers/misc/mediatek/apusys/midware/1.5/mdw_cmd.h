@@ -53,7 +53,7 @@ struct mdw_apu_cmd {
 	struct completion cmplt;
 
 	/* perf info */
-	struct timespec ts_create;
+	struct timespec64 ts_create;
 };
 
 struct mdw_apu_sc {
@@ -101,11 +101,11 @@ struct mdw_apu_sc {
 	int cluster_size; // cluster size of preemption
 
 	/* perf info */
-	struct timespec ts_create;
-	struct timespec ts_enque;
-	struct timespec ts_deque;
-	struct timespec ts_start;
-	struct timespec ts_end;
+	struct timespec64 ts_create;
+	struct timespec64 ts_enque;
+	struct timespec64 ts_deque;
+	struct timespec64 ts_start;
+	struct timespec64 ts_end;
 };
 
 struct mdw_cmd_parser {
