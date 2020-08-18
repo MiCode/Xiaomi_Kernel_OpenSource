@@ -60,7 +60,7 @@
 #define KGSL_IOMMU_FSR_SS_SHIFT		30
 
 /* Max number of iommu clks per IOMMU unit */
-#define KGSL_IOMMU_MAX_CLKS 5
+#define KGSL_IOMMU_MAX_CLKS 7
 
 /* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
