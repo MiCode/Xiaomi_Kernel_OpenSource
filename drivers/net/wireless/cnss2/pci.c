@@ -46,7 +46,6 @@
 
 #define WAKE_MSI_NAME			"WAKE"
 
-#define FW_ASSERT_TIMEOUT		5000
 #define DEV_RDDM_TIMEOUT		5000
 
 #ifdef CONFIG_CNSS_EMULATION
@@ -3830,8 +3829,8 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	}
 
 	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
-		mod_timer(&plat_priv->fw_boot_timer,
-			  jiffies + msecs_to_jiffies(FW_ASSERT_TIMEOUT));
+		mod_timer(&pci_priv->dev_rddm_timer,
+			  jiffies + msecs_to_jiffies(DEV_RDDM_TIMEOUT));
 	}
 
 	return 0;
