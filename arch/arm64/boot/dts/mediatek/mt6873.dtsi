@@ -3257,10 +3257,20 @@
 		};
 
 		apusys_mnoc: apusys_mnoc {
-			compatible = "mediatek,apusys_mnoc";
+			compatible = "mediatek,mt6873-mnoc";
+			reg = <0 0x1906e000 0 0xa000>,	/* mnoc reg  */
+				<0 0x19001000 0 0x1000>,	/* apusys int */
+				<0 0x19020000 0 0x1000>,	/* apu_conn_config */
+				<0 0x10001000 0 0x1000>,	/* slp prot 1 */
+				<0 0x10215000 0 0x1000>;	/* slp prot 2 */
+			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
 			interconnects = <&dvfsrc MT6873_MASTER_VPUSYS
-					 &dvfsrc MT6873_SLAVE_DDR_EMI>;
+							&dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "apu-bw";
+		};
+
+		apusys_debug: apusys_debug {
+			compatible = "mediatek,mt6873-debug";
 		};
 
 		apu_top: apu_top@0x190f0000 {
