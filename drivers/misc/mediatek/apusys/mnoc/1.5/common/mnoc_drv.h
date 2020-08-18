@@ -2,9 +2,11 @@
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
-
 #ifndef __APUSYS_MNOC_DRV_H__
 #define __APUSYS_MNOC_DRV_H__
+
+#include "mnoc_plat_internal.h"
+
 
 /* struct for put mnoc relate information, such as qos, pmu, register, etc.
  * then set and get with dev_set_drvdata/dev_get_drvdata
@@ -17,6 +19,7 @@ struct apu_mnoc {
 
 	struct engine_pm_qos_counter *engines;
 };
+
 
 #define APUSYS_MNOC_DEV_NAME "apusys_mnoc"
 
@@ -63,7 +66,7 @@ extern bool mnoc_reg_valid;
 
 extern int mnoc_log_level;
 
-void infra2apu_sram_en(void);
-void infra2apu_sram_dis(void);
+extern struct mnoc_plat_drv mnoc_drv;
+
 
 #endif

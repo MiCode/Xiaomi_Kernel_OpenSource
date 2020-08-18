@@ -79,17 +79,26 @@ apusys-objs += edma/edma_cmd_hnd.o
 apusys-objs += edma/edma_plat_device.o
 apusys-objs += edma/edma_v20.o
 #apusys-objs += edma/apusys_power_dummy.o
-# mnoc makefile
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/
 
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_dbg.o
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_drv.o
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_hw.o
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_pmu.o
+# mnoc makefile
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/common/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/platform/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/utilities/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/interface/
+
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_dbg.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_drv.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_pmu.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_tag.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/mnoc_plat_device.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/v1_50/mnoc_hw_v1_50.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/v1_51/mnoc_hw_v1_51.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/platform/v1_52/mnoc_hw_v1_52.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/utilities/mnoc_util.o
 ifneq (, $(CONFIG_MTK_QOS_FRAMEWORK))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos.o
-apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/mnoc_qos_sys.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos.o
+apusys-objs += mnoc/$(APUSYS_VERSION_MNOC)/common/mnoc_qos_sys.o
 endif
 # power driver makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug/

@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
-
 #ifndef __APUSYS_MNOC_DBG_H__
 #define __APUSYS_MNOC_DBG_H__
 

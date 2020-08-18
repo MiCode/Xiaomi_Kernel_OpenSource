@@ -3,12 +3,12 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-
 /*
  *=============================================================
  * Include files
  *=============================================================
  */
+
 
 /* system includes */
 #include <linux/printk.h>
@@ -18,16 +18,11 @@
 #include <linux/sched/clock.h>
 
 #include "apusys_device.h"
-#include "mnoc_hw.h"
+
+#include "v1_51/mnoc_hw_v1_51.h"
 #include "mnoc_drv.h"
+#include "mnoc_util.h"
 
-#define USE_MTK_SECURE_API (0)
-
-/* for Kernel Native SMC API */
-#include <linux/arm-smccc.h>
-#if USE_MTK_SECURE_API
-#include <mt-plat/mtk_secure_api.h>
-#endif
 
 enum APUSYS_MNOC_SMC_ID {
 	MNOC_INFRA2APU_SRAM_EN,
@@ -138,39 +133,8 @@ static bool arr_mni_pre_ultra[NR_APU_QOS_MNI] = {0};
 static bool arr_mni_lt_guardian_pre_ultra[NR_APU_QOS_MNI] = {0};
 
 static struct mnoc_int_dump mnoc_int_dump[NR_GROUP];
-struct int_sta_info apusys_int_sta_dump;
+struct int_sta_info apusys_int_sta_dump_v1_51;
 
-int apusys_dev_to_core_id(int dev_type, int dev_core)
-{
-	int ret = -1;
-
-	switch (dev_type) {
-	case APUSYS_DEVICE_VPU:
-	case APUSYS_DEVICE_VPU_RT:
-		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_VPU)
-			ret = dev_core;
-		break;
-	case APUSYS_DEVICE_MDLA:
-	case APUSYS_DEVICE_MDLA_RT:
-		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_MDLA)
-			ret = NR_APU_ENGINE_VPU + dev_core;
-		break;
-	case APUSYS_DEVICE_EDMA:
-		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_EDMA)
-			ret = NR_APU_ENGINE_VPU + NR_APU_ENGINE_MDLA + dev_core;
-		break;
-	/* for midware UT */
-	case APUSYS_DEVICE_SAMPLE:
-	case APUSYS_DEVICE_SAMPLE_RT:
-		ret = NR_APU_QOS_ENGINE;
-		break;
-	default:
-		ret = -1;
-		break;
-	}
-
-	return ret;
-}
 
 /* register to apusys power on callback */
 static void mnoc_qos_reg_init(void)
@@ -231,27 +195,6 @@ static void mnoc_qos_reg_init(void)
 	LOG_DEBUG("-\n");
 }
 
-void mnoc_int_endis(bool endis)
-{
-	unsigned long flags;
-
-	LOG_DEBUG("+\n");
-
-	spin_lock_irqsave(&mnoc_spinlock, flags);
-
-	if (!mnoc_reg_valid) {
-		spin_unlock_irqrestore(&mnoc_spinlock, flags);
-		return;
-	}
-	if (endis)
-		mnoc_set_bit(APUSYS_INT_EN, MNOC_INT_MAP);
-	else
-		mnoc_clr_bit(APUSYS_INT_EN, MNOC_INT_MAP);
-
-	spin_unlock_irqrestore(&mnoc_spinlock, flags);
-
-	LOG_DEBUG("-\n");
-}
 
 /* register to apusys power on callback */
 static void mnoc_reg_init(void)
@@ -297,206 +240,6 @@ static void mnoc_reg_init(void)
 	LOG_DEBUG("-\n");
 }
 
-int mnoc_check_int_status(void)
-{
-	int mnoc_irq_triggered = 0;
-	unsigned int val, int_sta;
-	int grp_idx, int_idx, ni_idx;
-	struct mnoc_int_dump *d;
-	uint64_t cur_timestamp;
-
-	LOG_DEBUG("+\n");
-
-	int_sta = mnoc_read(APUSYS_INT_STA);
-
-	LOG_DEBUG("APUSYS INT STA = 0x%x\n", int_sta);
-
-	cur_timestamp = sched_clock();
-
-	if (int_sta != 0) {
-		apusys_int_sta_dump.reg_val = int_sta;
-		apusys_int_sta_dump.timestamp = cur_timestamp;
-	}
-
-	if ((int_sta & MNOC_INT_MAP) == 0)
-		return mnoc_irq_triggered;
-
-	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
-		if ((int_sta & grp_int_map[grp_idx]) == 0)
-			continue;
-		d = &(mnoc_int_dump[grp_idx]);
-		d->count++;
-
-		for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
-			val = mnoc_read(MNOC_REG(grp_idx,
-				mni_int_sta_offset[int_idx]));
-			if ((val & 0xFFFF) != 0) {
-				d->mni_int_sta[int_idx].reg_val = val;
-				d->mni_int_sta[int_idx].timestamp =
-					cur_timestamp;
-				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
-					mni_int_sta_string[int_idx], val);
-				for (ni_idx = 0; ni_idx < grp_nr_mni[grp_idx];
-					ni_idx++)
-					if ((val & (1 << ni_idx)) != 0)
-						LOG_DEBUG("From %s\n",
-							mni_map_string[grp_idx]
-							[ni_idx]);
-				mnoc_write_field(
-					MNOC_REG(grp_idx,
-						mni_int_sta_offset[int_idx]),
-						15:0, 0xFFFF);
-				mnoc_irq_triggered = 1;
-			}
-		}
-
-		for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
-			val = mnoc_read(MNOC_REG(grp_idx,
-				sni_int_sta_offset[int_idx]));
-			if ((val & 0xFFFF) != 0) {
-				d->sni_int_sta[int_idx].reg_val = val;
-				d->sni_int_sta[int_idx].timestamp =
-					cur_timestamp;
-				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
-					sni_int_sta_string[int_idx], val);
-				for (ni_idx = 0; ni_idx < grp_nr_sni[grp_idx];
-					ni_idx++)
-					if ((val & (1 << ni_idx)) != 0)
-						LOG_DEBUG("From %s\n",
-							sni_map_string[grp_idx]
-							[ni_idx]);
-				mnoc_write_field(
-					MNOC_REG(grp_idx,
-						sni_int_sta_offset[int_idx]),
-						15:0, 0xFFFF);
-				mnoc_irq_triggered = 1;
-			}
-		}
-
-		for (int_idx = 0; int_idx < NR_RT_INT_STA; int_idx++) {
-			val = mnoc_read(MNOC_REG(grp_idx,
-				rt_int_sta_offset[int_idx]));
-			if ((val & 0x1F) != 0) {
-				d->rt_int_sta[int_idx].reg_val = val;
-				d->rt_int_sta[int_idx].timestamp =
-					cur_timestamp;
-				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
-					rt_int_sta_string[int_idx], val);
-				mnoc_write_field(
-					MNOC_REG(grp_idx,
-						rt_int_sta_offset[int_idx]),
-						4:0, 0x1F);
-				/* timeout interrupt may be only perf
-				 * hint but not actually hang
-				 */
-				if (mnoc_irq_triggered != 1 && (
-					int_idx == MNOC_INT_REQRT_TO_ERR_FLAG ||
-					int_idx == MNOC_INT_RSPRT_TO_ERR_FLAG))
-					mnoc_irq_triggered = 2;
-				else
-					mnoc_irq_triggered = 1;
-			}
-		}
-
-		/* additional check: sw triggered irq */
-		val = mnoc_read_field(MNOC_REG(grp_idx,
-			MISC_CTRL), 18:16);
-		if (val != 0) {
-			d->sw_irq_sta.reg_val = val;
-			d->sw_irq_sta.timestamp = cur_timestamp;
-			LOG_DEBUG("RT(%d): From SW_IRQ = 0x%x\n",
-				grp_idx, val);
-			mnoc_write_field(MNOC_REG(grp_idx, MISC_CTRL),
-				18:16, 0x0);
-			mnoc_irq_triggered = 1;
-		}
-	}
-
-	LOG_DEBUG("-\n");
-
-	return mnoc_irq_triggered;
-}
-
-/* read PMU_COUNTER_OUT 0~15 value to pmu buffer */
-void mnoc_get_pmu_counter(unsigned int *buf)
-{
-	int grp_idx, cntr_idx;
-	unsigned long flags;
-
-	LOG_DEBUG("+\n");
-
-	spin_lock_irqsave(&mnoc_spinlock, flags);
-	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
-		if (mnoc_reg_valid)
-			for (cntr_idx = 0; cntr_idx < NR_PMU_CNTR_PER_GRP;
-				cntr_idx++)
-				buf[grp_idx*NR_PMU_CNTR_PER_GRP+cntr_idx] =
-				mnoc_read(MNOC_RT_PMU_REG(grp_idx,
-					PMU_COUNTER0_OUT, cntr_idx));
-		else
-			for (cntr_idx = 0; cntr_idx < NR_PMU_CNTR_PER_GRP;
-				cntr_idx++)
-				buf[grp_idx*NR_PMU_CNTR_PER_GRP+cntr_idx] = 0;
-	}
-	spin_unlock_irqrestore(&mnoc_spinlock, flags);
-
-	LOG_DEBUG("-\n");
-}
-
-void mnoc_clear_pmu_counter(unsigned int grp)
-{
-	unsigned long flags;
-
-	LOG_DEBUG("+\n");
-
-	if (grp >= NR_GROUP)
-		return;
-
-	spin_lock_irqsave(&mnoc_spinlock, flags);
-	if (mnoc_reg_valid) {
-		mnoc_write_field(MNOC_REG(grp, APU_NOC_PMU_CTRL0),
-			29:29, 1);
-		mnoc_write_field(MNOC_REG(grp, APU_NOC_PMU_CTRL0),
-			29:29, 0);
-	}
-	spin_unlock_irqrestore(&mnoc_spinlock, flags);
-
-	LOG_DEBUG("-\n");
-}
-
-bool mnoc_pmu_reg_in_range(unsigned int addr)
-{
-	int grp_idx;
-	unsigned int start, end;
-
-	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
-		start = APU_NOC_PMU_ADDR + grp_idx*APU_NOC_GRP_REG_SZ;
-		end = start + APU_NOC_PMU_RANGE;
-		if (addr >= start && addr < end)
-			return true;
-	}
-
-	return false;
-}
-
-
-void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1)
-{
-	unsigned long flags;
-
-	LOG_DEBUG("+\n");
-
-	spin_lock_irqsave(&mnoc_spinlock, flags);
-	mnoc_write_field(APU_TCM_HASH_TRUNCATE_CTRL0, 2:0, sel);
-	mnoc_write_field(APU_TCM_HASH_TRUNCATE_CTRL0, 6:3, en0);
-	mnoc_write_field(APU_TCM_HASH_TRUNCATE_CTRL0, 10:7, en1);
-	spin_unlock_irqrestore(&mnoc_spinlock, flags);
-
-	LOG_DEBUG("APU_TCM_HASH_TRUNCATE_CTRL0 = 0x%x\n",
-		mnoc_read(APU_TCM_HASH_TRUNCATE_CTRL0));
-
-	LOG_DEBUG("-\n");
-}
 
 static void set_mni_pre_ultra_locked(unsigned int idx, bool endis)
 {
@@ -523,7 +266,7 @@ static void set_mni_pre_ultra_locked(unsigned int idx, bool endis)
 	LOG_DEBUG("-\n");
 }
 
-void mnoc_set_mni_pre_ultra(int dev_type, int dev_core, bool endis)
+void mnoc_set_mni_pre_ultra_v1_51(int dev_type, int dev_core, bool endis)
 {
 	unsigned long flags;
 	unsigned int idx;
@@ -531,7 +274,8 @@ void mnoc_set_mni_pre_ultra(int dev_type, int dev_core, bool endis)
 
 	LOG_DEBUG("+\n");
 
-	core = apusys_dev_to_core_id(dev_type, dev_core);
+	//core = apusys_dev_to_core_id(dev_type, dev_core);
+	core = mnoc_drv.dev_2_core_id(dev_type, dev_core);
 
 	if (core == -1) {
 		LOG_ERR("illegal dev_type(%d), dev_core(%d)\n",
@@ -635,7 +379,7 @@ static void set_lt_guardian_pre_ultra_locked(unsigned int idx, bool endis)
 	LOG_DEBUG("-\n");
 }
 
-void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
+void mnoc_set_lt_guardian_pre_ultra_v1_51(int dev_type, int dev_core, bool endis)
 {
 	unsigned long flags;
 	unsigned int idx;
@@ -643,7 +387,8 @@ void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
 
 	LOG_DEBUG("+\n");
 
-	core = apusys_dev_to_core_id(dev_type, dev_core);
+	//core = apusys_dev_to_core_id(dev_type, dev_core);
+	core = mnoc_drv.dev_2_core_id(dev_type, dev_core);
 
 	if (core == -1) {
 		LOG_ERR("illegal dev_type(%d), dev_core(%d)\n",
@@ -686,115 +431,6 @@ void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
 	LOG_DEBUG("-\n");
 }
 
-/* After APUSYS top power on */
-void infra2apu_sram_en(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-#if USE_MTK_SECURE_API
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_INFRA2APU_SRAM_EN,
-		0, 0, 0, 0, 0, 0, &res);
-#endif
-	LOG_DEBUG("-\n");
-}
-
-/* Before APUSYS top power off */
-void infra2apu_sram_dis(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-#if USE_MTK_SECURE_API
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_INFRA2APU_SRAM_DIS,
-		0, 0, 0, 0, 0, 0, &res);
-#endif
-
-	LOG_DEBUG("-\n");
-}
-
-/* Before APUSYS reset */
-void apu2infra_bus_protect_en(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-#if USE_MTK_SECURE_API
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_APU2INFRA_BUS_PROTECT_EN,
-		0, 0, 0, 0, 0, 0, &res);
-#endif
-
-	LOG_DEBUG("-\n");
-}
-
-/* After APUSYS reset */
-void apu2infra_bus_protect_dis(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-#if USE_MTK_SECURE_API
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_APU2INFRA_BUS_PROTECT_DIS,
-		0, 0, 0, 0, 0, 0, &res);
-#endif
-
-	LOG_DEBUG("-\n");
-}
-
-void mnoc_hw_reinit(void)
-{
-	unsigned long flags;
-	int idx;
-
-	LOG_DEBUG("+\n");
-
-	mnoc_qos_reg_init();
-	mnoc_reg_init();
-
-	spin_lock_irqsave(&mnoc_spinlock, flags);
-	for (idx = 0; idx < NR_APU_QOS_MNI; idx++) {
-		if (arr_mni_pre_ultra[idx])
-			set_mni_pre_ultra_locked(idx, 1);
-		if (arr_mni_lt_guardian_pre_ultra[idx])
-			set_lt_guardian_pre_ultra_locked(idx, 1);
-	}
-	spin_unlock_irqrestore(&mnoc_spinlock, flags);
-
-	LOG_DEBUG("-\n");
-}
-
 static void print_int_sta_info(struct seq_file *m,
 	const char *str, struct int_sta_info *info)
 {
@@ -810,11 +446,74 @@ static void print_int_sta_info(struct seq_file *m,
 		(unsigned long) (nanosec_rem / 1000));
 }
 
+
+phys_addr_t get_apu_iommu_tfrp_v1_51(unsigned int id)
+{
+	return 0;
+}
+
+
+int apusys_dev_to_core_id_v1_51(int dev_type, int dev_core)
+{
+	int ret = -1;
+
+	switch (dev_type) {
+	case APUSYS_DEVICE_VPU:
+	case APUSYS_DEVICE_VPU_RT:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_VPU)
+			ret = dev_core;
+		break;
+	case APUSYS_DEVICE_MDLA:
+	case APUSYS_DEVICE_MDLA_RT:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_MDLA)
+			ret = NR_APU_ENGINE_VPU + dev_core;
+		break;
+	case APUSYS_DEVICE_EDMA:
+		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_EDMA)
+			ret = NR_APU_ENGINE_VPU + NR_APU_ENGINE_MDLA + dev_core;
+		break;
+	/* for midware UT */
+	case APUSYS_DEVICE_SAMPLE:
+	case APUSYS_DEVICE_SAMPLE_RT:
+		ret = NR_APU_QOS_ENGINE;
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
+
+
+void mnoc_int_endis_v1_51(bool endis)
+{
+	unsigned long flags;
+
+	LOG_DEBUG("+\n");
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+
+	if (!mnoc_reg_valid) {
+		spin_unlock_irqrestore(&mnoc_spinlock, flags);
+		return;
+	}
+	if (endis)
+		mnoc_set_bit(APUSYS_INT_EN, MNOC_INT_MAP);
+	else
+		mnoc_clr_bit(APUSYS_INT_EN, MNOC_INT_MAP);
+
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+
 /*
  * print mnoc interrupt count and
  * last snapshot when each type of interrupt happened
  */
-void print_int_sta(struct seq_file *m)
+void print_int_sta_v1_51(struct seq_file *m)
 {
 	int grp_idx, idx, ni_idx;
 	uint64_t t, nanosec_rem;
@@ -827,7 +526,7 @@ void print_int_sta(struct seq_file *m)
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
 
 	print_int_sta_info(m, "apusys_int_sta",
-		&(apusys_int_sta_dump));
+		&(apusys_int_sta_dump_v1_51));
 
 	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
 		INT_STA_PRINTF(m, "========= Group %d =========\n", grp_idx);
@@ -862,14 +561,218 @@ void print_int_sta(struct seq_file *m)
 	}
 }
 
-void mnoc_hw_init(void)
+int mnoc_check_int_status_v1_51(void)
+{
+	int mnoc_irq_triggered = 0;
+	unsigned int val, int_sta;
+	int grp_idx, int_idx, ni_idx;
+	struct mnoc_int_dump *d;
+	uint64_t cur_timestamp;
+
+	LOG_DEBUG("+\n");
+
+	int_sta = mnoc_read(APUSYS_INT_STA);
+
+	LOG_DEBUG("APUSYS INT STA = 0x%x\n", int_sta);
+
+	cur_timestamp = sched_clock();
+
+	if (int_sta != 0) {
+		apusys_int_sta_dump_v1_51.reg_val = int_sta;
+		apusys_int_sta_dump_v1_51.timestamp = cur_timestamp;
+	}
+
+	if ((int_sta & MNOC_INT_MAP) == 0)
+		return mnoc_irq_triggered;
+
+	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
+		if ((int_sta & grp_int_map[grp_idx]) == 0)
+			continue;
+		d = &(mnoc_int_dump[grp_idx]);
+		d->count++;
+
+		for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
+			val = mnoc_read(MNOC_REG(grp_idx,
+				mni_int_sta_offset[int_idx]));
+			if ((val & 0xFFFF) != 0) {
+				d->mni_int_sta[int_idx].reg_val = val;
+				d->mni_int_sta[int_idx].timestamp =
+					cur_timestamp;
+				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
+					mni_int_sta_string[int_idx], val);
+				for (ni_idx = 0; ni_idx < grp_nr_mni[grp_idx];
+					ni_idx++)
+					if ((val & (1 << ni_idx)) != 0)
+						LOG_DEBUG("From %s\n",
+							mni_map_string[grp_idx]
+							[ni_idx]);
+				mnoc_write_field(
+					MNOC_REG(grp_idx,
+						mni_int_sta_offset[int_idx]),
+						15:0, 0xFFFF);
+				mnoc_irq_triggered = 1;
+			}
+		}
+
+		for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
+			val = mnoc_read(MNOC_REG(grp_idx,
+				sni_int_sta_offset[int_idx]));
+			if ((val & 0xFFFF) != 0) {
+				d->sni_int_sta[int_idx].reg_val = val;
+				d->sni_int_sta[int_idx].timestamp =
+					cur_timestamp;
+				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
+					sni_int_sta_string[int_idx], val);
+				for (ni_idx = 0; ni_idx < grp_nr_sni[grp_idx];
+					ni_idx++)
+					if ((val & (1 << ni_idx)) != 0)
+						LOG_DEBUG("From %s\n",
+							sni_map_string[grp_idx]
+							[ni_idx]);
+				mnoc_write_field(
+					MNOC_REG(grp_idx,
+						sni_int_sta_offset[int_idx]),
+						15:0, 0xFFFF);
+				mnoc_irq_triggered = 1;
+			}
+		}
+
+		for (int_idx = 0; int_idx < NR_RT_INT_STA; int_idx++) {
+			val = mnoc_read(MNOC_REG(grp_idx,
+				rt_int_sta_offset[int_idx]));
+			if ((val & 0x1F) != 0) {
+				d->rt_int_sta[int_idx].reg_val = val;
+				d->rt_int_sta[int_idx].timestamp =
+					cur_timestamp;
+				LOG_DEBUG("RT(%d): %s = 0x%x\n", grp_idx,
+					rt_int_sta_string[int_idx], val);
+				mnoc_write_field(
+					MNOC_REG(grp_idx,
+						rt_int_sta_offset[int_idx]),
+						4:0, 0x1F);
+				/* timeout interrupt may be only perf
+				 * hint but not actually hang
+				 */
+				if (mnoc_irq_triggered != 1 && (
+					int_idx == MNOC_INT_REQRT_TO_ERR_FLAG ||
+					int_idx == MNOC_INT_RSPRT_TO_ERR_FLAG))
+					mnoc_irq_triggered = 2;
+				else
+					mnoc_irq_triggered = 1;
+			}
+		}
+
+		/* additional check: sw triggered irq */
+		val = mnoc_read_field(MNOC_REG(grp_idx,
+			MISC_CTRL), 18:16);
+		if (val != 0) {
+			d->sw_irq_sta.reg_val = val;
+			d->sw_irq_sta.timestamp = cur_timestamp;
+			LOG_DEBUG("RT(%d): From SW_IRQ = 0x%x\n",
+				grp_idx, val);
+			mnoc_write_field(MNOC_REG(grp_idx, MISC_CTRL),
+				18:16, 0x0);
+			mnoc_irq_triggered = 1;
+		}
+	}
+
+	LOG_DEBUG("-\n");
+
+	return mnoc_irq_triggered;
+}
+
+void mnoc_hw_reinit_v1_51(void)
+{
+	unsigned long flags;
+	int idx;
+
+	LOG_DEBUG("+\n");
+
+	mnoc_qos_reg_init();
+	mnoc_reg_init();
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	for (idx = 0; idx < NR_APU_QOS_MNI; idx++) {
+		if (arr_mni_pre_ultra[idx])
+			set_mni_pre_ultra_locked(idx, 1);
+		if (arr_mni_lt_guardian_pre_ultra[idx])
+			set_lt_guardian_pre_ultra_locked(idx, 1);
+	}
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+/* read PMU_COUNTER_OUT 0~15 value to pmu buffer */
+void mnoc_get_pmu_counter_v1_51(unsigned int *buf)
+{
+	int grp_idx, cntr_idx;
+	unsigned long flags;
+
+	LOG_DEBUG("+\n");
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
+		if (mnoc_reg_valid)
+			for (cntr_idx = 0; cntr_idx < NR_PMU_CNTR_PER_GRP;
+				cntr_idx++)
+				buf[grp_idx*NR_PMU_CNTR_PER_GRP+cntr_idx] =
+				mnoc_read(MNOC_RT_PMU_REG(grp_idx,
+					PMU_COUNTER0_OUT, cntr_idx));
+		else
+			for (cntr_idx = 0; cntr_idx < NR_PMU_CNTR_PER_GRP;
+				cntr_idx++)
+				buf[grp_idx*NR_PMU_CNTR_PER_GRP+cntr_idx] = 0;
+	}
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+void mnoc_clear_pmu_counter_v1_51(unsigned int grp)
+{
+	unsigned long flags;
+
+	LOG_DEBUG("+\n");
+
+	if (grp >= NR_GROUP)
+		return;
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+	if (mnoc_reg_valid) {
+		mnoc_write_field(MNOC_REG(grp, APU_NOC_PMU_CTRL0),
+			29:29, 1);
+		mnoc_write_field(MNOC_REG(grp, APU_NOC_PMU_CTRL0),
+			29:29, 0);
+	}
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+bool mnoc_pmu_reg_in_range_v1_51(unsigned int addr)
+{
+	int grp_idx;
+	unsigned int start, end;
+
+	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
+		start = APU_NOC_PMU_ADDR + grp_idx*APU_NOC_GRP_REG_SZ;
+		end = start + APU_NOC_PMU_RANGE;
+		if (addr >= start && addr < end)
+			return true;
+	}
+
+	return false;
+}
+
+void mnoc_hw_v1_51_init(void)
 {
 	int grp_idx, idx;
 
 	LOG_DEBUG("+\n");
 
-	apusys_int_sta_dump.reg_val = 0;
-	apusys_int_sta_dump.timestamp = 0;
+	apusys_int_sta_dump_v1_51.reg_val = 0;
+	apusys_int_sta_dump_v1_51.timestamp = 0;
 
 	for (grp_idx = 0; grp_idx < NR_GROUP; grp_idx++) {
 		mnoc_int_dump[grp_idx].count = 0;
@@ -892,11 +795,8 @@ void mnoc_hw_init(void)
 	LOG_DEBUG("-\n");
 }
 
-void mnoc_hw_exit(void)
+void mnoc_hw_v1_51_exit(void)
 {
 }
 
-phys_addr_t get_apu_iommu_tfrp(unsigned int id)
-{
-	return 0;
-}
+

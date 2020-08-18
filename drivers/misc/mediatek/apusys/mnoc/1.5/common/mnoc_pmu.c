@@ -16,10 +16,11 @@
 #include <linux/io.h>
 
 #include "mnoc_drv.h"
-#include "mnoc_hw.h"
 #include "mnoc_pmu.h"
 #define CREATE_TRACE_POINTS
-#include "mnoc_met_events.h"
+//#include "mnoc_met_events.h"
+
+#include "mnoc_util.h"
 
 /* in micro-seconds (us) */
 #define PERIOD_DEFAULT 1000
@@ -30,6 +31,12 @@ static struct hrtimer hr_timer;
 
 struct pmu_reg_list pmu_reg_list;
 
+
+#define APU_NOC_TOP_ADDR (0x1906E000)
+
+#define NR_GROUP (5)
+#define NR_PMU_CNTR_PER_GRP (16)
+#define NR_MNOC_PMU_CNTR (NR_PMU_CNTR_PER_GRP*NR_GROUP)
 
 void enque_pmu_reg(unsigned int addr, unsigned int val)
 {
@@ -141,13 +148,15 @@ static enum hrtimer_restart mnoc_pmu_polling(struct hrtimer *timer)
 
 	LOG_DEBUG("+\n");
 
+
 	if (!cfg_period || !mnoc_cfg_timer_en)
 		return HRTIMER_NORESTART;
 
 	/* call functions need to be called periodically */
 	memset(mnoc_pmu_buf, 0, NR_MNOC_PMU_CNTR * sizeof(unsigned int));
-	mnoc_get_pmu_counter(mnoc_pmu_buf);
-	trace_mnoc_pmu_polling(mnoc_pmu_buf);
+	//oc_get_pmu_counter(mnoc_pmu_buf);
+	mnoc_drv.get_pmu_counter(mnoc_pmu_buf);
+	//trace_mnoc_pmu_polling(mnoc_pmu_buf);
 
 	hrtimer_forward_now(&hr_timer, ns_to_ktime(cfg_period * 1000));
 

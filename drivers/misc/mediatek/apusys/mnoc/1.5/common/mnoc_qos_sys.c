@@ -17,7 +17,7 @@
 #include "mnoc_qos.h"
 #include "mnoc_api.h"
 #include "mnoc_drv.h"
-#include "mnoc_hw.h"
+
 
 static ssize_t mnoc_apu_qos_boost_show(struct kobject *kobj,
 				       struct kobj_attribute *attr,
@@ -175,7 +175,6 @@ static ssize_t mnoc_apu_qos_bw_store(struct device *dev,
 						   avg_bw, peak_bw));
 		}
 
-out:
 	return count;
 }
 static DEVICE_ATTR_WO(mnoc_apu_qos_bw);

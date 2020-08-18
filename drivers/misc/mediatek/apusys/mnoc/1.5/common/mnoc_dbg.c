@@ -3,8 +3,6 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-
-
 /*
  *=============================================================
  * Include files
@@ -21,26 +19,24 @@
 #include <linux/mutex.h>
 
 #include "mnoc_drv.h"
-#include "mnoc_hw.h"
 #include "mnoc_qos.h"
 #include "mnoc_api.h"
 #include "mnoc_pmu.h"
-#include "mnoc_option.h"
 
-static unsigned int mnoc_addr_phy;
+#include "mnoc_util.h"
 
 static int mnoc_log_level_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "mnoc_log_level = %d\n", mnoc_log_level);
 
 #if MNOC_TIME_PROFILE
-	/* dump cmd qos profile info */
-	seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
-		sum_start, cnt_start, sum_start/cnt_start);
-	seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
-		sum_end, cnt_end, sum_end/cnt_end);
-	seq_printf(m, "sum_work_func = %lu, cnt_work_func = %d, avg = %lu\n",
-		sum_work_func, cnt_work_func, sum_work_func/cnt_work_func);
+		/* dump cmd qos profile info */
+		seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
+			sum_start, cnt_start, sum_start/cnt_start);
+		seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
+			sum_end, cnt_end, sum_end/cnt_end);
+		seq_printf(m, "sum_work_func = %lu, cnt_work_func = %d, avg = %lu\n",
+			sum_work_func, cnt_work_func, sum_work_func/cnt_work_func);
 #endif
 
 	return 0;
@@ -74,160 +70,13 @@ out:
 
 static int mnoc_reg_rw_show(struct seq_file *m, void *v)
 {
-	void *addr = 0;
-	unsigned int val = 0;
-	unsigned long flags;
-
-	if (mnoc_addr_phy < APU_NOC_TOP_ADDR ||
-		mnoc_addr_phy >= (APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
-		LOG_DEBUG("Reg[%08X] not in mnoc driver reg map\n",
-			mnoc_addr_phy);
-	} else {
-		addr = (void *) ((uintptr_t) mnoc_base +
-					(mnoc_addr_phy - APU_NOC_TOP_ADDR));
-		spin_lock_irqsave(&mnoc_spinlock, flags);
-		if (mnoc_reg_valid)
-			val = mnoc_read(addr);
-		spin_unlock_irqrestore(&mnoc_spinlock, flags);
-		seq_printf(m, "Reg[%08X] = 0x%08X\n",
-			mnoc_addr_phy, val);
-	}
-
 	return 0;
 }
 
 static ssize_t mnoc_reg_rw_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	void *addr = 0;
-	unsigned long flags;
-	unsigned int val = 0;
-	char *buf = (char *) __get_free_page(GFP_USER);
-	unsigned int mnoc_value = 0;
-	unsigned char mnoc_rw = 0;
-	unsigned int addr_phy;
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	if (sscanf(buf, "%c %x %x", &mnoc_rw, &addr_phy,
-		&mnoc_value) == 3) {
-		if (mnoc_rw != 'w' && mnoc_rw != 'W')
-			goto out;
-		if (addr_phy < APU_NOC_TOP_ADDR ||
-			addr_phy >=
-			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
-			LOG_DEBUG("Reg[%08X] not in mnoc driver reg map\n",
-				addr_phy);
-		} else {
-#if MNOC_DBG_ENABLE
-			addr = (void *) ((uintptr_t) mnoc_base +
-					(addr_phy - APU_NOC_TOP_ADDR));
-			spin_lock_irqsave(&mnoc_spinlock, flags);
-			mnoc_addr_phy = addr_phy;
-			if (mnoc_reg_valid)
-				mnoc_write(addr, mnoc_value);
-			spin_unlock_irqrestore(&mnoc_spinlock, flags);
-#endif
-		}
-	} else if (sscanf(buf, "%c %x", &mnoc_rw, &addr_phy) == 2) {
-		if (mnoc_rw != 'r' && mnoc_rw != 'R')
-			goto out;
-		if (addr_phy < APU_NOC_TOP_ADDR ||
-			addr_phy >=
-			(APU_NOC_TOP_ADDR + APU_NOC_TOP_RANGE)) {
-			LOG_DEBUG("Reg[%08X] not in mnoc driver reg map\n",
-				addr_phy);
-		} else {
-			addr = (void *) ((uintptr_t) mnoc_base +
-					(addr_phy - APU_NOC_TOP_ADDR));
-			spin_lock_irqsave(&mnoc_spinlock, flags);
-			mnoc_addr_phy = addr_phy;
-			if (mnoc_reg_valid)
-				val = mnoc_read(addr);
-			spin_unlock_irqrestore(&mnoc_spinlock, flags);
-			LOG_DEBUG("Read back, Reg[%08X] = 0x%08X\n",
-					addr_phy, val);
-		}
-	}
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-}
-
-static int mnoc_pmu_reg_show(struct seq_file *m, void *v)
-{
-	seq_puts(m, "Print pmu_reg list\n");
-	print_pmu_reg_list(m);
-
 	return 0;
-}
-
-/* usage:
- * pmu reg setting: echo w phys_addr > mnoc_pmu_reg
- * clear pmu reg list: echo 0 > mnoc_pmu_reg
- * clear pmu counter to zero: echo c grp_num > mnoc_pmu_reg
- */
-static ssize_t mnoc_pmu_reg_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	void *addr = 0;
-	unsigned long flags;
-	char *buf = (char *) __get_free_page(GFP_USER);
-	unsigned int mnoc_value = 0;
-	unsigned char mnoc_op = 0;
-	unsigned int pmu_addr_phy = 0;
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	if (sscanf(buf, "%c %x %x", &mnoc_op, &pmu_addr_phy,
-		&mnoc_value) == 3) {
-		if (mnoc_op != 'w' && mnoc_op != 'W')
-			goto out;
-		if (!mnoc_pmu_reg_in_range(pmu_addr_phy)) {
-			LOG_DEBUG("Reg[%08X] not in pmu reg map\n",
-				pmu_addr_phy);
-		} else {
-			addr = (void *) ((uintptr_t) mnoc_base +
-					(pmu_addr_phy - APU_NOC_TOP_ADDR));
-			spin_lock_irqsave(&mnoc_spinlock, flags);
-			if (mnoc_reg_valid)
-				mnoc_write(addr, mnoc_value);
-			spin_unlock_irqrestore(&mnoc_spinlock, flags);
-			enque_pmu_reg(pmu_addr_phy, mnoc_value);
-		}
-	} else if (sscanf(buf, "%c %d", &mnoc_op,
-		&mnoc_value) == 2) {
-		if (mnoc_op != 'c' && mnoc_op != 'C')
-			goto out;
-		if (mnoc_value < NR_GROUP)
-			mnoc_clear_pmu_counter(mnoc_value);
-	} else if (kstrtoint(buf, 10, &mnoc_value) == 0) {
-		if (mnoc_value == 0)
-			clear_pmu_reg_list();
-	}
-
-out:
-	free_page((unsigned long)buf);
-	return count;
 }
 
 static int mnoc_pmu_timer_en_show(struct seq_file *m, void *v)
@@ -255,11 +104,54 @@ static ssize_t mnoc_pmu_timer_en_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtoint(buf, 10, &val) == 0) {
-		if (val == 0)
+		if (val == 0) {
 			mnoc_cfg_timer_en = false;
-		else if (val == 1) {
+		} else if (val == 1) {
 			mnoc_cfg_timer_en = true;
 			mnoc_pmu_timer_start();
+		}
+	}
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int mnoc_apu_qos_boost_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "apu_qos_boost_flag = %d\n", apu_qos_boost_flag);
+
+	return 0;
+}
+
+static ssize_t mnoc_apu_qos_boost_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	char *buf = (char *) __get_free_page(GFP_USER);
+	unsigned int val;
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &val) == 0) {
+		if (val == 0) {
+			mutex_lock(&apu_qos_boost_mtx);
+			apu_qos_boost_flag = false;
+			apu_qos_boost_end();
+			mutex_unlock(&apu_qos_boost_mtx);
+		} else if (val == 1) {
+			mutex_lock(&apu_qos_boost_mtx);
+			apu_qos_boost_flag = true;
+			apu_qos_boost_start();
+			mutex_unlock(&apu_qos_boost_mtx);
 		}
 	}
 
@@ -283,7 +175,7 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 {
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int cmd_id, sub_cmd_id;
-	unsigned int dev_type, devcore, boost;
+	unsigned int dev_type, devcore, boost_val;
 
 	if (!buf)
 		return -ENOMEM;
@@ -297,9 +189,9 @@ static ssize_t mnoc_cmd_qos_start_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%d %d %d %d %d", &cmd_id, &sub_cmd_id,
-		&dev_type, &devcore, &boost) == 4)
+		&dev_type, &devcore, &boost_val) == 5)
 		apu_cmd_qos_start((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id, dev_type, devcore, boost);
+			(uint64_t) sub_cmd_id, dev_type, devcore, boost_val);
 
 out:
 	free_page((unsigned long)buf);
@@ -431,7 +323,8 @@ static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 static int mnoc_int_sta_dump_show(struct seq_file *m, void *v)
 {
 	seq_puts(m, "Print interrupt count and last snapshot\n");
-	print_int_sta(m);
+	//print_int_sta(m);
+	mnoc_drv.print_int_sta(m);
 
 	return 0;
 }
@@ -481,8 +374,10 @@ static int mnoc_int_sta_dump_show(struct seq_file *m, void *v)
 
 DBG_FOPS_RW(mnoc_log_level);
 DBG_FOPS_RW(mnoc_reg_rw);
-DBG_FOPS_RW(mnoc_pmu_reg);
 DBG_FOPS_RW(mnoc_pmu_timer_en);
+#if MNOC_QOS_BOOST_ENABLE
+DBG_FOPS_RW(mnoc_apu_qos_boost);
+#endif
 #if MNOC_DBG_ENABLE
 DBG_FOPS_RW(mnoc_cmd_qos_start);
 DBG_FOPS_RW(mnoc_cmd_qos_suspend);
@@ -509,8 +404,13 @@ int create_debugfs(void)
 
 	CREATE_DBGFS(mnoc_log_level);
 	CREATE_DBGFS(mnoc_reg_rw);
-	CREATE_DBGFS(mnoc_pmu_reg);
+	//CREATE_DBGFS(mnoc_pmu_reg);
 	CREATE_DBGFS(mnoc_pmu_timer_en);
+
+#if MNOC_QOS_BOOST_ENABLE
+	CREATE_DBGFS(mnoc_apu_qos_boost);
+#endif
+
 #if MNOC_DBG_ENABLE
 	CREATE_DBGFS(mnoc_cmd_qos_start);
 	CREATE_DBGFS(mnoc_cmd_qos_suspend);
