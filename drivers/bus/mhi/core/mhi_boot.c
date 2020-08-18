@@ -217,6 +217,9 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	 * waiting for image download completion.
 	 */
 	ee = mhi_get_exec_env(mhi_cntrl);
+	if (ee == MHI_EE_MAX)
+		goto err_no_rddm;
+
 	if (ee != MHI_EE_RDDM) {
 
 		MHI_CNTRL_LOG("Trigger device into RDDM mode using SYSERR\n");
@@ -265,9 +268,11 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	ee = mhi_get_exec_env(mhi_cntrl);
 	ret = mhi_read_reg(mhi_cntrl, base, BHIE_RXVECSTATUS_OFFS, &rx_status);
 
-	MHI_CNTRL_ERR("Did not complete RDDM transfer\n");
-	MHI_CNTRL_ERR("Current EE:%s\n", TO_MHI_EXEC_STR(ee));
 	MHI_CNTRL_ERR("RXVEC_STATUS:0x%x, ret:%d\n", rx_status, ret);
+
+err_no_rddm:
+	MHI_CNTRL_ERR("Current EE:%s\n", TO_MHI_EXEC_STR(ee));
+	MHI_CNTRL_ERR("Did not complete RDDM transfer\n");
 
 	return -EIO;
 }
