@@ -1478,8 +1478,9 @@
 		qcom,iommu-dma = "bypass";
 		dma-coherent;
 
-		rpm-level = <3>;
-		spm-level = <5>;
+		qcom,disable-lpm;
+		rpm-level = <0>;
+		spm-level = <0>;
 
 		status = "disabled";
 
