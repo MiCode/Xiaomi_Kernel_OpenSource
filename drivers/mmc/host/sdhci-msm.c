@@ -482,6 +482,7 @@ struct sdhci_msm_host {
 	u32 pm_qos_delay;
 	bool cqhci_offset_changed;
 	bool reg_store;
+	bool vbias_skip_wa;
 	struct reset_control *core_reset;
 	bool pltfm_init_done;
 	bool core_3_0v_support;
@@ -1894,6 +1895,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 				msm_host->ice_clk_max, msm_host->ice_clk_min);
 		}
 	}
+
+	msm_host->vbias_skip_wa =
+		of_property_read_bool(np, "qcom,vbias-skip-wa");
 
 	sdhci_msm_parse_reset_data(dev, msm_host);
 
