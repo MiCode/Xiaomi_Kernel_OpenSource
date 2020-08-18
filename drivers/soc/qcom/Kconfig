@@ -486,6 +486,16 @@ config MINIDUMP_MAX_ENTRIES
 	  This defines maximum number of entries to be allocated for application
 	  subsytem in Minidump table.
 
+config QCOM_MICRODUMP
+	tristate "Qualcomm Technologies, Inc. Microdump Support"
+	depends on MSM_SUBSYSTEM_RESTART
+	depends on QCOM_SMEM
+	help
+	  This enables microdump feature. It collects
+	  crash data from SMEM whenever modem subsytem
+	  crashes and stores it under /dev to expose
+	  to user space.
+
 config QCOM_APR
 	tristate "Qualcomm APR Bus (Asynchronous Packet Router)"
 	depends on ARCH_QCOM || COMPILE_TEST
