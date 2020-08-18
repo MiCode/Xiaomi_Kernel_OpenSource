@@ -55,6 +55,6 @@ int mdw_debug_on(int mask)
 			mdw_drv_debug(x, ##args); \
 	}
 
-uint32_t mdw_cmn_get_time_diff(struct timespec *prev, struct timespec *next);
+uint32_t mdw_cmn_get_time_diff(struct timespec64 *prev, struct timespec64 *next);
 
 #endif

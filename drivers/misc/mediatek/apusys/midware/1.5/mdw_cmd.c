@@ -354,7 +354,7 @@ static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
 
 	/* init mutex*/
 	mutex_init(&c->mtx);
-	getnstimeofday(&c->ts_create);
+	ktime_get_ts64(&c->ts_create);
 
 	/* init sc state bmp */
 	c->sc_status_bmp = (1ULL << c->hdr->num_sc) - 1;
@@ -535,7 +535,7 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 	else
 		mq->norm.ops.task_start(sc, &mq->norm);
 
-	getnstimeofday(&sc->ts_create);
+	ktime_get_ts64(&sc->ts_create);
 
 	mdw_drv_debug("sc(0x%llx-#%d) create\n", c->kid, sc->idx);
 	mdw_cmd_show_sc(sc);
