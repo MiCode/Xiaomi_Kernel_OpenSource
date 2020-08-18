@@ -1021,7 +1021,6 @@ void thermal_zone_of_sensor_unregister(struct device *dev,
 		pos_tzd->ops->get_temp = NULL;
 		pos_tzd->ops->get_trend = NULL;
 		pos_tzd->ops->set_emul_temp = NULL;
-		pos_tzd->ops = NULL;
 		mutex_unlock(&pos_tzd->lock);
 	}
 	kfree(sens_param->tz_list);
