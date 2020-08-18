@@ -4,7 +4,7 @@
  */
 
 #include <linux/slab.h>
-
+#include <soc/qcom/msm_performance.h>
 #include "adreno.h"
 #include "adreno_trace.h"
 #include "kgsl_gmu_core.h"
@@ -294,6 +294,10 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	info.wptr = rb->wptr;
 	info.timestamp = drawobj->timestamp;
 
+	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
+				context->proc_priv->pid,
+				context->id, drawobj->timestamp);
+
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
 	 * rptr scratch out address. At this point GPU clocks turned off.
@@ -546,6 +550,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);
+	struct kgsl_context *context = drawobj->context;
 	struct adreno_dispatcher_drawqueue *dispatch_q =
 				ADRENO_DRAWOBJ_DISPATCH_DRAWQUEUE(drawobj);
 	struct adreno_submit_time time;
@@ -666,6 +671,10 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	info.rptr = adreno_get_rptr(drawctxt->rb);
 	info.wptr = drawctxt->rb->wptr;
 	info.gmu_dispatch_queue = -1;
+
+	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_SUBMIT,
+			       context->proc_priv->pid,
+			       context->id, drawobj->timestamp);
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info,
 			time.ticks, (unsigned long) secs, nsecs / 1000,
@@ -1242,11 +1251,16 @@ static unsigned int _check_context_state_to_queue_cmds(
 static void _queue_drawobj(struct adreno_context *drawctxt,
 	struct kgsl_drawobj *drawobj)
 {
+	struct kgsl_context *context = drawobj->context;
+
 	/* Put the command into the queue */
 	drawctxt->drawqueue[drawctxt->drawqueue_tail] = drawobj;
 	drawctxt->drawqueue_tail = (drawctxt->drawqueue_tail + 1) %
 			ADRENO_CONTEXT_DRAWQUEUE_SIZE;
 	drawctxt->queued++;
+	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_QUEUE,
+				context->proc_priv->pid,
+				context->id, drawobj->timestamp);
 	trace_adreno_cmdbatch_queued(drawobj, drawctxt->queued);
 }
 
@@ -2347,6 +2361,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);
 	struct adreno_ringbuffer *rb = drawctxt->rb;
+	struct kgsl_context *context = drawobj->context;
 	uint64_t start = 0, end = 0;
 	struct retire_info info = {0};
 
@@ -2364,6 +2379,10 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	info.timestamp = drawobj->timestamp;
 	info.sop = start;
 	info.eop = end;
+
+	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
+			       context->proc_priv->pid,
+			       context->id, drawobj->timestamp);
 
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
