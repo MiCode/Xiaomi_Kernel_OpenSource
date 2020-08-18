@@ -1676,7 +1676,7 @@ ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	struct media_link *link;
 	struct media_pad *pad;
 	struct mtk_cam_seninf_mux_meter meter;
-	void *csi2;
+	void *csi2, *pmux;
 
 	core = dev_get_drvdata(dev);
 	len = 0;
@@ -1717,14 +1717,16 @@ ssize_t mtk_cam_seninf_show_status(struct device *dev,
 
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
+			pmux = ctx->reg_if_mux[vc->mux];
 			SHOW(buf, len,
 			     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
 				i, vc->vc, vc->dt, vc->mux, vc->cam);
 			SHOW(buf, len,
-			     "\tmux[%d] en %d src %d\n",
+			     "\tmux[%d] en %d src %d irq_stat 0x%x\n",
 				vc->mux,
 				mtk_cam_seninf_is_mux_used(ctx, vc->mux),
-				mtk_cam_seninf_get_top_mux_ctrl(ctx, vc->mux));
+				mtk_cam_seninf_get_top_mux_ctrl(ctx, vc->mux),
+				SENINF_READ_REG(pmux, SENINF_MUX_IRQ_STATUS));
 			SHOW(buf, len,
 			     "\tcam[%d] en %d src %d exp 0x%x res 0x%x\n",
 				vc->cam,
