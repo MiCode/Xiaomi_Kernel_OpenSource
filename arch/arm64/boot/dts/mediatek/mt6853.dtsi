@@ -43,6 +43,11 @@
 		dsi0  = &dsi0;
 	};
 
+	/* ATF logger */
+	atf_logger {
+		compatible = "mediatek,atf_logger";
+	};
+
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram vmalloc=400M slub_debug=OFZPU swiotlb=noforce firmware_class.path=/vendor/firmware page_owner=on loop.max_part=7";
