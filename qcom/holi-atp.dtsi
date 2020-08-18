@@ -157,6 +157,7 @@
 		synaptics,extend_report;
 		synaptics,firmware-name = "synaptics_firmware.img";
 
-		panel = <&dsi_rm69299_visionox_amoled_video>;
+		panel = <&dsi_rm69299_visionox_amoled_video
+			&dsi_rm69299_visionox_amoled_cmd>;
 	};
 };
