@@ -1575,6 +1575,10 @@ static int cnss_wlfw_wfc_call_status_send_sync
 	struct qmi_txn txn;
 	int ret = 0;
 
+	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		cnss_pr_err("Drop IMS WFC indication as FW not initialized\n");
+		return -EINVAL;
+	}
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
 		return -ENOMEM;
@@ -2094,6 +2098,11 @@ static int cnss_ims_wfc_call_twt_cfg_send_sync
 	struct ims_private_service_wfc_call_twt_config_rsp_msg_v01 *resp;
 	struct qmi_txn txn;
 	int ret = 0;
+
+	if (!test_bit(CNSS_IMS_CONNECTED, &plat_priv->driver_state)) {
+		cnss_pr_err("Drop FW WFC indication as IMS QMI not connected\n");
+		return -EINVAL;
+	}
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
