@@ -831,7 +831,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 
 	rb->_wptr = rb->_wptr - (42 - (cmds - start));
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	ret = adreno_ringbuffer_submit_spin_nosync(rb, NULL, 2000);
 	if (ret)
 		adreno_spin_idle_debug(adreno_dev,
 			"hw preemption initialization failed to idle\n");
@@ -859,6 +859,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
  */
 static int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
@@ -875,7 +876,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 	 * representation of the size in quadwords (sizedwords / 2).
 	 */
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
-					A6XX_CP_RB_CNTL_DEFAULT);
+					gpudev->cp_rb_cntl);
 
 	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
 			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
@@ -994,7 +995,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	if (!ret) {
 		memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
 		firmware->size = (fw->size - 4) / sizeof(uint32_t);
-		firmware->version = *(unsigned int *)&fw->data[4];
+		firmware->version = adreno_get_ucode_version((u32 *)fw->data);
 	}
 
 	release_firmware(fw);
@@ -2408,6 +2409,9 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
 		set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
 
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		gpudev->cp_rb_cntl |= (1 << 27);
+
 	/* Check efuse bits for various capabilties */
 	a6xx_check_features(adreno_dev);
 }
@@ -2701,6 +2705,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.irq = &a6xx_irq,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
+	.cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT,
 	.platform_setup = a6xx_platform_setup,
 	.init = a6xx_init,
 	.rb_start = a6xx_rb_start,
