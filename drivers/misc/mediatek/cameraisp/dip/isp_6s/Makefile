@@ -19,8 +19,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
-ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
 obj-$(CONFIG_MTK_CAMERA_ISP_DIP_SUPPORT) += camera_dip.o

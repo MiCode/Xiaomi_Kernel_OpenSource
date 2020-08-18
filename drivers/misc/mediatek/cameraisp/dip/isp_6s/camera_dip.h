@@ -189,6 +189,12 @@ struct DIP_MEM_INFO_STRUCT {
 	unsigned int MemSizeDiff;
 };
 
+struct DIP_ION_MEM_INFO {
+	unsigned int buf_fd;
+	unsigned int buf_offset;
+	unsigned int buf_pa;
+};
+
 #ifdef CONFIG_COMPAT
 struct compat_DIP_DUMP_BUFFER_STRUCT {
 	unsigned int DumpCmd;
@@ -299,7 +305,9 @@ enum DIP_CMD_ENUM {
 	DIP_CMD_DUMP_BUFFER,
 	DIP_CMD_GET_DUMP_INFO,
 	DIP_CMD_SET_MEM_INFO,
-	DIP_CMD_GET_GCE_FIRST_ERR
+	DIP_CMD_GET_GCE_FIRST_ERR,
+	DIP_CMD_SET_BUF_PA,
+	DIP_CMD_DET_BUF_FD
 };
 
 
@@ -338,6 +346,14 @@ enum DIP_CMD_ENUM {
 
 #define DIP_GET_GCE_FIRST_ERR \
 	_IOWR(DIP_MAGIC, DIP_CMD_GET_GCE_FIRST_ERR, unsigned int)
+
+#define DIP_SET_BUF_PA \
+	_IOWR(DIP_MAGIC, DIP_CMD_SET_BUF_PA, struct DIP_ION_MEM_INFO)
+
+#define DIP_DET_BUF_FD \
+	_IOWR(DIP_MAGIC, DIP_CMD_DET_BUF_FD, unsigned int)
+
+
 
 
 
