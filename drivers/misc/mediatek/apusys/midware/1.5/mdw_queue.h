@@ -8,16 +8,11 @@
 
 #include "mdw_cmd.h"
 
-enum {
-	MDW_QUEUE_INSERT_NORM,
-	MDW_QUEUE_INSERT_FRONT,
-};
-
 struct mdw_queue_ops {
 	int (*task_start)(struct mdw_apu_sc *sc, void *q);
 	int (*task_end)(struct mdw_apu_sc *sc, void *q);
 	struct mdw_apu_sc *(*pop)(void *q);
-	int (*insert)(struct mdw_apu_sc *sc, void *q, int type);
+	int (*insert)(struct mdw_apu_sc *sc, void *q, int is_front);
 	int (*delete)(struct mdw_apu_sc *sc, void *q);
 	int (*len)(void *q);
 	void (*destroy)(void *q);
@@ -43,7 +38,6 @@ struct deadline_root {
 };
 
 int mdw_queue_deadline_init(struct deadline_root *root);
-int mdw_queue_deadline_boost(struct mdw_apu_sc *sc);
 
 /* normal sched */
 struct mdw_queue_norm {
@@ -58,9 +52,22 @@ int mdw_queue_norm_init(struct mdw_queue_norm *nq);
 
 /* mdw queue */
 struct mdw_queue {
+	struct mutex mtx;
+	uint32_t normal_task_num;
+	uint32_t deadline_task_num;
 	struct mdw_queue_norm norm;
 	struct deadline_root deadline;
 };
+
+int mdw_queue_task_start(struct mdw_apu_sc *sc);
+int mdw_queue_task_end(struct mdw_apu_sc *sc);
+struct mdw_apu_sc *mdw_queue_pop(int type);
+int mdw_queue_insert(struct mdw_apu_sc *sc, int is_front);
+int mdw_queue_len(int type, int is_deadline);
+int mdw_queue_delete(struct mdw_apu_sc *sc);
+int mdw_queue_boost(struct mdw_apu_sc *sc);
+void mdw_queue_destroy(struct mdw_queue *mq);
+int mdw_queue_init(struct mdw_queue *mq);
 
 extern struct dentry *mdw_dbg_root;
 

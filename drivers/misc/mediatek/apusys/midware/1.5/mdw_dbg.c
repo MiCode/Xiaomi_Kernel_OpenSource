@@ -157,29 +157,29 @@ static const struct file_operations mdw_dbg_fops_mem = {
 static int mdw_dbg_test_dump(struct seq_file *s, void *unused)
 {
 	mdw_con_info(s, "-------------------------------------------------\n");
-	mdw_con_info(s, " multi policy(%d):\n",
+	mdw_con_info(s, " multicore(%d):\n",
 		g_dbg_prop[MDW_DBG_PROP_MULTICORE]);
 	mdw_con_info(s, "    0: scheduler decide\n");
 	mdw_con_info(s, "    1: force single\n");
 	mdw_con_info(s, "    2: force multi\n");
 	mdw_con_info(s, " tcm_default(0x%x):\n",
 		g_dbg_prop[MDW_DBG_PROP_TCM_DEFAULT]);
-	mdw_con_info(s, "    set indicate default tcm size if user don't set\n");
+	mdw_con_info(s, "    set default tcm size if user doesn't set\n");
 	mdw_con_info(s, "    1MB: 1048546\n");
 	mdw_con_info(s, " query_mem(%d):\n",
 		g_dbg_prop[MDW_DBG_PROP_QUERY_MEM]);
 	mdw_con_info(s, "    0: disable, can't query kva/iova from code\n");
 	mdw_con_info(s, "    1: enable, can query kva/iova from code\n");
-	mdw_con_info(s, " lockdev <uint32_t>\n");
-	mdw_con_info(s, "    first 16 bit: device type\n");
-	mdw_con_info(s, "    last  16 bit: device index\n");
-	mdw_con_info(s, " unlockdev <uint32_t>\n");
-	mdw_con_info(s, "    first 16 bit: device type\n");
-	mdw_con_info(s, "    last  16 bit: device index\n");
+	mdw_con_info(s, " lockdev <device_type> <index>\n");
+	mdw_con_info(s, "    device_type/index: check /d/apusys_midware/devinfo\n");
+	mdw_con_info(s, " unlockdev <device_type> <index>\n");
+	mdw_con_info(s, "    device_type/index: check /d/apusys_midware/devinfo\n");
+	mdw_con_info(s, " aee_test:\n");
+	mdw_con_info(s, "    1: trigger aee to dump information\n");
 	mdw_con_info(s, " aee_cmd_timeout(%d):\n",
 		g_dbg_prop[MDW_DBG_PROP_CMD_TIMEOUT_AEE]);
 	mdw_con_info(s, "    0: disable\n");
-	mdw_con_info(s, "    1: enable, trigger aee for debug\n");
+	mdw_con_info(s, "    1: enable, trigger aee when cmd timeout\n");
 	mdw_con_info(s, "-------------------------------------------------\n");
 
 	return 0;
@@ -198,8 +198,10 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 
 	switch (test) {
 	case APUSYS_DBG_TEST_SUSPEND:
-		if (count < 1)
+		if (count != 1) {
 			mdw_drv_warn("suspend test need 1 arg\n");
+			break;
+		}
 		if (arg[0])
 			mdw_sched_pause();
 		else
@@ -207,8 +209,12 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 		break;
 
 	case APUSYS_DBG_TEST_LOCKDEV:
-		type = arg[0] >> 16;
-		idx = arg[0] & 0xffff;
+		if (count != 2) {
+			mdw_drv_warn("lock test need 2 arg\n");
+			break;
+		}
+		type = arg[0];
+		idx = arg[1];
 		d = mdw_rsc_get_dinfo(type, idx);
 		if (!d)
 			return;
@@ -218,8 +224,12 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 		break;
 
 	case APUSYS_DBG_TEST_UNLOCKDEV:
-		type = arg[0] >> 16;
-		idx = arg[0] & 0xffff;
+		if (count != 2) {
+			mdw_drv_warn("unlock test need 2 args\n");
+			break;
+		}
+		type = arg[0];
+		idx = arg[1];
 		d = mdw_rsc_get_dinfo(type, idx);
 		if (!d)
 			return;
@@ -229,6 +239,10 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 		break;
 
 	case APUSYS_DBG_TEST_MULTITEST:
+		if (count != 1) {
+			mdw_drv_warn("multi test need 1 arg\n");
+			break;
+		}
 		if (arg[0] > 2) {
 			mdw_drv_warn("multicore not support(%d)\n", arg[0]);
 		} else {
@@ -238,6 +252,10 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 		break;
 
 	case APUSYS_DBG_TEST_TCM_DEFAULT:
+		if (count != 1) {
+			mdw_drv_warn("default tcm test need 1 arg\n");
+			break;
+		}
 		mdw_mem_get_vlm(&vlm_start, &vlm_size);
 
 		g_dbg_prop[MDW_DBG_PROP_TCM_DEFAULT] = vlm_size <
@@ -247,6 +265,10 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 		break;
 
 	case APUSYS_DBG_TEST_QUERY_MEM:
+		if (count != 1) {
+			mdw_drv_warn("query mem test need 1 arg\n");
+			break;
+		}
 		mdw_drv_warn("query mem(%d)\n", arg[0]);
 		g_dbg_prop[MDW_DBG_PROP_QUERY_MEM] = arg[0];
 		break;
@@ -256,6 +278,10 @@ static void mdw_dbg_test_func(int test, int *arg, int count)
 		break;
 
 	case APUSYS_DBG_CMD_TIMEOUT_AEE:
+		if (count != 1) {
+			mdw_drv_warn("timeout aee enable need 1 arg\n");
+			break;
+		}
 		mdw_drv_warn("timeout aee(%d)\n", arg[0]);
 		g_dbg_prop[MDW_DBG_PROP_CMD_TIMEOUT_AEE] = arg[0];
 		break;

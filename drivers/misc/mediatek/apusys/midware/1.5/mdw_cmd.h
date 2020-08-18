@@ -43,7 +43,7 @@ struct mdw_apu_cmd {
 	uint8_t ctx_cnt[MDW_CMD_SC_MAX]; // ctx count
 	uint8_t ctx_repo[MDW_CMD_SC_MAX]; // ctx tmp storage
 	uint8_t pack_cnt[MDW_CMD_SC_MAX]; // pack count
-	struct list_head pack_list; //for pack item
+	struct list_head di_list; //for dispr item
 
 	int state;
 
@@ -78,15 +78,15 @@ struct mdw_apu_sc {
 	uint32_t ip_time;
 	uint32_t bw;
 	uint32_t boost;
+	int status;
 
 	/* multi */
 	uint8_t multi_total;
-	uint8_t multi_idx;
 	uint64_t multi_bmp;
 	struct kref multi_ref;
 
 	struct list_head ds_item; // to done sc q
-	struct list_head pk_item; // to pack item
+	struct list_head di_item; // to dispr item
 
 	struct mutex mtx;
 
@@ -117,7 +117,7 @@ struct mdw_cmd_parser {
 	int (*get_ctx)(struct mdw_apu_sc *sc);
 	void (*put_ctx)(struct mdw_apu_sc *sc);
 	int (*exec_core_num)(struct mdw_apu_sc *sc);
-	void (*set_hnd)(struct mdw_apu_sc *sc, void *h);
+	void (*set_hnd)(struct mdw_apu_sc *sc, int d_idx, void *h);
 	bool (*is_deadline)(struct mdw_apu_sc *sc);
 };
 struct mdw_cmd_parser *mdw_cmd_get_parser(void);

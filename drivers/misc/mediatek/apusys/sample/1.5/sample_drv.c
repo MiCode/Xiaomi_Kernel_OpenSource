@@ -140,7 +140,7 @@ static void sample_device_release(struct device *dev)
 
 static struct platform_device sample_device = {
 	.name = APUSYS_SAMPLE_DEV_NAME,
-	.id = 0,
+	.id = -1,
 	.dev = {
 		.release = sample_device_release,
 	},

@@ -371,4 +371,3 @@ int apusys_mem_invalidate(struct apusys_kmem *km)
 {
 	return mdw_mem_invalidate(km);
 }
-

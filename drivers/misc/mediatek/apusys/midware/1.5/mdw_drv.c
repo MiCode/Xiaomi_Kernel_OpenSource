@@ -26,6 +26,7 @@
 #include "mdw_sched.h"
 #include "mdw_import.h"
 #include "mdw_tag.h"
+#include "mdw_sysfs.h"
 
 /* define */
 #define APUSYS_DEV_NAME "apusys"
@@ -34,7 +35,7 @@
 static dev_t mdw_devt;
 static struct cdev *mdw_cdev;
 static struct class *mdw_class;
-struct device *g_mdw_device;
+struct device *mdw_device;
 
 struct apusys_core_info *core_info;
 
@@ -86,7 +87,7 @@ static int mdw_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	g_mdw_device = &pdev->dev;
+	mdw_device = &pdev->dev;
 
 	/* get major */
 	ret = alloc_chrdev_region(&mdw_devt, 0, 1, APUSYS_DEV_NAME);
@@ -132,6 +133,7 @@ static int mdw_probe(struct platform_device *pdev)
 	}
 
 	mdw_dbg_init(core_info);
+	mdw_sysfs_init(mdw_device);
 	mdw_tag_init();
 	mdw_mem_init();
 	mdw_rsc_init();
@@ -139,8 +141,8 @@ static int mdw_probe(struct platform_device *pdev)
 	mdw_drv_info("-\n");
 
 	return 0;
-out:
 
+out:
 	/* Release device */
 	if (dev != NULL)
 		device_destroy(mdw_class, mdw_devt);
@@ -167,6 +169,7 @@ static int mdw_remove(struct platform_device *pdev)
 	mdw_rsc_exit();
 	mdw_mem_exit();
 	mdw_tag_exit();
+	mdw_sysfs_exit();
 	mdw_dbg_exit();
 
 	/* Release device */
@@ -550,7 +553,7 @@ static void mdw_dev_release(struct device *dev)
 
 static struct platform_device mdw_dev = {
 	.name = APUSYS_DEV_NAME,
-	.id = 0,
+	.id = -1,
 	.dev = {
 			.release = mdw_dev_release,
 		},

@@ -56,7 +56,7 @@ int mdw_rvs_get_vlm(uint32_t req_size, bool force,
 #endif
 }
 
-int mdw_cmd_qos_start(uint64_t cmd_id, uint64_t sc_id,
+int mdw_qos_cmd_start(uint64_t cmd_id, uint64_t sc_id,
 		int type, int core, uint32_t boost)
 {
 #ifdef APUSYS_MDW_MNOC_SUPPORT
@@ -66,7 +66,7 @@ int mdw_cmd_qos_start(uint64_t cmd_id, uint64_t sc_id,
 #endif
 }
 
-int mdw_cmd_qos_end(uint64_t cmd_id, uint64_t sc_id,
+int mdw_qos_cmd_end(uint64_t cmd_id, uint64_t sc_id,
 		int type, int core)
 {
 #ifdef APUSYS_MDW_MNOC_SUPPORT

@@ -184,7 +184,7 @@ static void mdw_usr_ws_init(void)
 	}
 	ws_cnt = 0;
 	mutex_init(&ws_mtx);
-	mdw_usr_ws = wakeup_source_register(NULL, ws_name);
+	mdw_usr_ws = wakeup_source_register(NULL, (const char *)ws_name);
 	if (!mdw_usr_ws)
 		mdw_drv_err("register ws lock fail!\n");
 #else

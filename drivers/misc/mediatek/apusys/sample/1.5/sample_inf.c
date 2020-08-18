@@ -239,20 +239,17 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 
 	/* memory api test */
 	if (hnd->cmdbuf != NULL) {
-		spl_drv_info("flush memory test\n");
-		ret = apusys_mem_flush(hnd->cmdbuf);
-		if (ret)
-			spl_drv_err("flush memory fail: %d\n", ret);
+		spl_drv_dbg("flush memory test\n");
+		if (apusys_mem_flush(hnd->cmdbuf))
+			spl_drv_err("flush memory fail");
 		else
-			spl_drv_info("flush memory done\n");
+			spl_drv_dbg("flush memory done");
 
-		spl_drv_info("invalidate memory test\n");
-
-		ret = apusys_mem_invalidate(hnd->cmdbuf);
-		if (ret)
-			spl_drv_err("invalidate memory fail: %d\n", ret);
+		spl_drv_dbg("invalidate memory test\n");
+		if (apusys_mem_invalidate(hnd->cmdbuf))
+			spl_drv_err("invalidate memory fail");
 		else
-			spl_drv_info("invalidate memory done\n");
+			spl_drv_dbg("invalidate memory done");
 	} else {
 		spl_drv_warn("no cmdbuf\n");
 	}
@@ -483,7 +480,9 @@ int sample_device_init(void)
 
 		/* assign private info */
 		sample_private[i]->idx = 0;
-		snprintf(sample_private[i]->name, 21, "apusys sample driver");
+		if (snprintf(sample_private[i]->name, 21,
+			"apusys sample driver") < 0)
+			goto fail_set_name;
 
 		/* assign sample dev */
 		sample_private[i]->dev->dev_type = APUSYS_DEVICE_SAMPLE;
@@ -508,6 +507,7 @@ int sample_device_init(void)
 
 register_device_fail:
 	kfree(sample_private[i]->dev);
+fail_set_name:
 alloc_dev_fail:
 	kfree(sample_private[i]);
 alloc_info_fail:
