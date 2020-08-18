@@ -29,9 +29,6 @@ enum {
 
 static int rpm_vreg_debug_mask;
 
-#ifdef CONFIG_DEBUG_FS
-static bool is_debugfs_created;
-#endif
 
 #define vreg_err(req, fmt, ...) \
 	pr_err("%s: " fmt, req->rdesc.name, ##__VA_ARGS__)
@@ -1664,29 +1661,6 @@ static int rpm_vreg_device_set_voltage_index(struct device *dev,
 	return rc;
 }
 
-#ifdef CONFIG_DEBUG_FS
-static void rpm_vreg_create_debugfs(struct rpm_regulator *reg)
-{
-	struct dentry *entry;
-
-	if (!is_debugfs_created) {
-		reg->dfs_root = debugfs_create_dir("rpm_vreg_debugfs", NULL);
-		if (IS_ERR_OR_NULL(reg->dfs_root)) {
-			pr_err("Failed to create debugfs directory rc=%ld\n",
-			(long)reg->dfs_root);
-			return;
-		}
-		entry = debugfs_create_u32("debug_mask", 0600, reg->dfs_root,
-						&rpm_vreg_debug_mask);
-		if (IS_ERR_OR_NULL(entry)) {
-			pr_err("Failed to create debug_mask rc=%ld\n",
-							(long)entry);
-			debugfs_remove_recursive(reg->dfs_root);
-		}
-		is_debugfs_created = true;
-	}
-}
-#endif
 
 /*
  * This probe is called for child rpm-regulator devices which have
@@ -1855,7 +1829,6 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, reg);
 
-	rpm_vreg_create_debugfs(reg);
 
 	pr_debug("successfully probed: %s\n", reg->rdesc.name);
 
