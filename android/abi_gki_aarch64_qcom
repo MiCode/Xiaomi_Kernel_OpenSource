@@ -29,6 +29,7 @@
   __arch_copy_to_user
   arch_set_freq_scale
   arch_setup_dma_ops
+  arch_timer_read_counter
   arm64_const_caps_ready
   __arm_smccc_smc
   atomic_notifier_call_chain
@@ -837,6 +838,7 @@
   eth_commit_mac_addr_change
   ether_setup
   eth_mac_addr
+  eth_platform_get_mac_address
   eth_prepare_mac_addr_change
   __ethtool_get_link_ksettings
   ethtool_op_get_link
@@ -907,11 +909,14 @@
   generic_file_read_iter
   generic_file_splice_read
   generic_handle_irq
+  generic_mii_ioctl
+  generic_permission
   generic_read_dir
   generic_shutdown_super
   genlmsg_put
   genl_register_family
   genl_unregister_family
+  genphy_resume
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_avail
@@ -1048,12 +1053,16 @@
   idr_preload
   idr_remove
   idr_replace
+  ieee80211_channel_to_freq_khz
+  ieee80211_freq_khz_to_channel
+  ieee80211_get_channel_khz
   ieee80211_hdrlen
   iget5_locked
   ihold
   iio_channel_get
   iio_channel_release
   iio_read_channel_processed
+  iio_write_channel_raw
   import_iovec
   in_egroup_p
   init_dummy_netdev
@@ -1306,6 +1315,10 @@
   mbox_free_channel
   mbox_request_channel
   mbox_send_message
+  mdiobus_alloc_size
+  mdiobus_free
+  __mdiobus_register
+  mdiobus_unregister
   media_create_pad_link
   media_device_cleanup
   media_device_init
@@ -1326,6 +1339,12 @@
   __memset_io
   memunmap
   memweight
+  mii_check_media
+  mii_ethtool_get_link_ksettings
+  mii_ethtool_gset
+  mii_ethtool_set_link_ksettings
+  mii_link_ok
+  mii_nway_restart
   mipi_dsi_create_packet
   mipi_dsi_dcs_set_display_brightness
   mipi_dsi_dcs_set_tear_off
@@ -1599,13 +1618,22 @@
   perf_trace_run_bpf_submit
   pfn_valid
   phy_calibrate
+  phy_connect
+  phy_disconnect
+  phy_ethtool_get_link_ksettings
+  phy_ethtool_nway_reset
+  phy_ethtool_set_link_ksettings
   phy_exit
   phy_init
+  phy_mii_ioctl
   phy_pm_runtime_get_sync
   phy_pm_runtime_put_sync
   phy_power_off
   phy_power_on
+  phy_print_status
   phy_set_mode_ext
+  phy_start
+  phy_stop
   physvirt_offset
   pinconf_generic_dt_node_to_map
   pinctrl_dev_get_drvdata
@@ -2500,6 +2528,33 @@
   usb_kill_urb
   usb_lock_device_for_reset
   usb_match_one_id
+  usbnet_change_mtu
+  usbnet_disconnect
+  usbnet_get_drvinfo
+  usbnet_get_endpoints
+  usbnet_get_link
+  usbnet_get_link_ksettings
+  usbnet_get_msglevel
+  usbnet_get_stats64
+  usbnet_link_change
+  usbnet_nway_reset
+  usbnet_open
+  usbnet_probe
+  usbnet_read_cmd
+  usbnet_read_cmd_nopm
+  usbnet_resume
+  usbnet_set_link_ksettings
+  usbnet_set_msglevel
+  usbnet_skb_return
+  usbnet_start_xmit
+  usbnet_stop
+  usbnet_suspend
+  usbnet_tx_timeout
+  usbnet_unlink_rx_urbs
+  usbnet_update_max_qlen
+  usbnet_write_cmd
+  usbnet_write_cmd_async
+  usbnet_write_cmd_nopm
   usb_os_desc_prepare_interf_dir
   usb_poison_urb
   usb_put_dev
@@ -2512,6 +2567,8 @@
   usb_remove_phy
   usb_reset_device
   usb_reset_endpoint
+  usb_role_switch_get
+  usb_role_switch_put
   usb_role_switch_register
   usb_role_switch_set_role
   usb_role_switch_unregister
