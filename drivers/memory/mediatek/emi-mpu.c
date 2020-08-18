@@ -204,7 +204,7 @@ ignore_violation:
 	return IRQ_HANDLED;
 }
 
-static int __init emimpu_ap_region_init(void)
+static int emimpu_ap_region_init(void)
 {
 	struct emi_mpu *mpu;
 
