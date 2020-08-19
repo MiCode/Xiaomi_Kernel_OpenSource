@@ -1483,7 +1483,6 @@
 		      <0x1662000 0x2000>;
 
 		qcom,transaction_timeout = <0>;
-		status = "disabled";
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x6000>;
 	};
