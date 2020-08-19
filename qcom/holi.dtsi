@@ -2522,21 +2522,19 @@
 			qcom,additional-mapping =
 			/* modem tables in IMEM */
 			<0x0C123000 0x0C123000 0x2000>;
-			qcom,iommu-dma = "bypass";
+			qcom,iommu-dma = "fastmap";
 			qcom,ipa-q6-smem-size = <36864>;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
 			compatible = "qcom,ipa-smmu-wlan-cb";
 			iommus = <&apps_smmu 0x04A1 0x0>;
-			qcom,iommu-dma = "bypass";
 		};
 
 		ipa_smmu_uc: ipa_smmu_uc {
 			compatible = "qcom,ipa-smmu-uc-cb";
 			iommus = <&apps_smmu 0x04A2 0x0>;
 			qcom,iommu-dma-addr-pool = <0x20000000 0x20000000>;
-			qcom,iommu-dma = "bypass";
 		};
 
 		ipa_smmu_11ad: ipa_smmu_11ad {
