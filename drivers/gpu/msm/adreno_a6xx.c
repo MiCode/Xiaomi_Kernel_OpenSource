@@ -423,9 +423,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	unsigned int rgb565_predicator = 0;
 	static bool patch_reglist;
 
-	/* enable hardware clockgating */
-	a6xx_hwcg_set(adreno_dev, true);
-
 	/* Enable 64 bit addressing */
 	kgsl_regwrite(device, A6XX_CP_ADDR_MODE_CNTL, 0x1);
 	kgsl_regwrite(device, A6XX_VSC_ADDR_MODE_CNTL, 0x1);
@@ -656,6 +653,12 @@ void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
 
 	a6xx_set_secvid(device);
+
+	/*
+	 * Enable hardware clock gating here to prevent any register access
+	 * issue due to internal clock gating.
+	 */
+	a6xx_hwcg_set(adreno_dev, true);
 
 	/*
 	 * All registers must be written before this point so that we don't
