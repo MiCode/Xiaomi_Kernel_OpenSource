@@ -1115,39 +1115,35 @@ static const struct iommu_pgtable_ops arm_smmu_pgtable_ops = {
 	.free_pgtable  = arm_smmu_free_pages_exact,
 };
 
-#define ARM_SMMU_INIT_MSM_TLB_OPS(_tlb_flush_all) \
-	{\
-		.tlb_ops = { \
-			.tlb_flush_all = _tlb_flush_all, \
-			.tlb_flush_walk = arm_smmu_tlb_inv_walk, \
-			.tlb_flush_leaf = arm_smmu_tlb_inv_leaf, \
-			.tlb_add_page = arm_smmu_tlb_add_page, \
-		} \
-	}
-
-#define ARM_SMMU_MSM_TLB_OPS_S1	\
-	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s1)
-
-#define ARM_SMMU_MSM_TLB_OPS_S2_V2 \
-	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s2)
-
-#define ARM_SMMU_MSM_TLB_OPS_S2_V1 \
-	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s2)
-
 static const struct arm_smmu_flush_ops arm_smmu_s1_tlb_ops = {
-	.tlb			= ARM_SMMU_MSM_TLB_OPS_S1,
+	.tlb = {
+		.tlb_flush_all  = arm_smmu_tlb_inv_context_s1,
+		.tlb_flush_walk = arm_smmu_tlb_inv_walk,
+		.tlb_flush_leaf = arm_smmu_tlb_inv_leaf,
+		.tlb_add_page   = arm_smmu_tlb_add_page,
+	},
 	.tlb_inv_range		= arm_smmu_tlb_inv_range_s1,
 	.tlb_sync		= arm_smmu_tlb_sync_context,
 };
 
 static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v2 = {
-	.tlb			= ARM_SMMU_MSM_TLB_OPS_S2_V2,
+	.tlb = {
+		.tlb_flush_all  = arm_smmu_tlb_inv_context_s2,
+		.tlb_flush_walk = arm_smmu_tlb_inv_walk,
+		.tlb_flush_leaf = arm_smmu_tlb_inv_leaf,
+		.tlb_add_page   = arm_smmu_tlb_add_page,
+	},
 	.tlb_inv_range		= arm_smmu_tlb_inv_range_s2,
 	.tlb_sync		= arm_smmu_tlb_sync_context,
 };
 
 static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
-	.tlb			= ARM_SMMU_MSM_TLB_OPS_S2_V1,
+	.tlb = {
+		.tlb_flush_all  = arm_smmu_tlb_inv_context_s2,
+		.tlb_flush_walk = arm_smmu_tlb_inv_walk,
+		.tlb_flush_leaf = arm_smmu_tlb_inv_leaf,
+		.tlb_add_page   = arm_smmu_tlb_add_page,
+	},
 	.tlb_inv_range		= arm_smmu_tlb_inv_vmid_nosync,
 	.tlb_sync		= arm_smmu_tlb_sync_vmid,
 };
@@ -2176,7 +2172,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.ias		= ias,
 		.oas		= oas,
 		.coherent_walk	= is_iommu_pt_coherent(smmu_domain),
-		.tlb		= &smmu_domain->flush_ops->tlb.tlb_ops,
+		.tlb		= &smmu_domain->flush_ops->tlb,
 		.iommu_pgtable_ops = &arm_smmu_pgtable_ops,
 		.iommu_dev	= smmu->dev,
 	};
@@ -3242,7 +3238,7 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 			arm_smmu_rpm_put(smmu);
 			return;
 		}
-		smmu_domain->flush_ops->tlb.tlb_ops.tlb_flush_all(smmu_domain);
+		smmu_domain->flush_ops->tlb.tlb_flush_all(smmu_domain);
 		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
