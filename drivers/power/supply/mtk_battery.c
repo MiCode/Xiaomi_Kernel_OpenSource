@@ -370,7 +370,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 	static int pre_fg_r_value;
 	static int pre_bat_temperature_val2;
 	ktime_t ctime = 0, dtime = 0, pre_time = 0;
-	struct timespec tmp_time;
+	struct timespec64 tmp_time;
 
 	if (update == true || pre_bat_temperature_val == -1) {
 		/* Get V_BAT_Temperature */
@@ -444,7 +444,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 		} else {
 			ctime = ktime_get_boottime();
 			dtime = ktime_sub(ctime, pre_time);
-			tmp_time = ktime_to_timespec(dtime);
+			tmp_time = ktime_to_timespec64(dtime);
 
 			if (((tmp_time.tv_sec <= 20) &&
 				(abs(pre_bat_temperature_val2 -
@@ -477,7 +477,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 			pre_bat_temperature_val2 = bat_temperature_val;
 			pre_time = ctime;
 
-			tmp_time = ktime_to_timespec(dtime);
+			tmp_time = ktime_to_timespec64(dtime);
 
 			bm_err("[%s] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
 				__func__,
@@ -1781,7 +1781,7 @@ static int uisoc_set(struct mtk_battery *gm,
 	int daemon_ui_soc;
 	int old_uisoc;
 	ktime_t now_time, diff;
-	struct timespec tmp_time;
+	struct timespec64 tmp_time;
 	struct mtk_battery_algo *algo;
 	struct fuel_gauge_table_custom_data *ptable;
 	struct fuel_gauge_custom_data *pdata;
@@ -1811,7 +1811,7 @@ static int uisoc_set(struct mtk_battery *gm,
 		now_time = ktime_get_boottime();
 		diff = ktime_sub(now_time, gm->uisoc_oldtime);
 
-		tmp_time = ktime_to_timespec(diff);
+		tmp_time = ktime_to_timespec64(diff);
 
 		bm_debug("[%s] FG_DAEMON_CMD_SET_KERNEL_UISOC = %d %d GM3:%d old:%d diff=%ld\n",
 			__func__,
@@ -2042,7 +2042,7 @@ void fg_nafg_monitor(struct mtk_battery *gm)
 {
 	int nafg_cnt = 0;
 	ktime_t now_time = 0, dtime = 0;
-	struct timespec tmp_dtime, tmp_now_time, tmp_last_time;
+	struct timespec64 tmp_dtime, tmp_now_time, tmp_last_time;
 
 	if (gm->disableGM30 || gm->cmd_disable_nafg || gm->ntc_disable_nafg)
 		return;
@@ -2060,7 +2060,7 @@ void fg_nafg_monitor(struct mtk_battery *gm)
 	} else {
 		now_time = ktime_get_boottime();
 		dtime = ktime_sub(now_time, gm->last_nafg_update_time);
-		tmp_dtime = ktime_to_timespec(dtime);
+		tmp_dtime = ktime_to_timespec64(dtime);
 
 		if (tmp_dtime.tv_sec >= 600) {
 			gm->is_nafg_broken = true;
@@ -2072,8 +2072,8 @@ void fg_nafg_monitor(struct mtk_battery *gm)
 		}
 	}
 
-	tmp_now_time = ktime_to_timespec(now_time);
-	tmp_last_time = ktime_to_timespec(gm->last_nafg_update_time);
+	tmp_now_time = ktime_to_timespec64(now_time);
+	tmp_last_time = ktime_to_timespec64(gm->last_nafg_update_time);
 
 	bm_debug("[%s]diff_time:%d nafg_cnt:%d, now:%d, last_t:%d\n",
 		__func__,
@@ -2455,7 +2455,7 @@ int next_waketime(int polling)
 static int shutdown_event_handler(struct mtk_battery *gm)
 {
 	ktime_t now, duraction;
-	struct timespec tmp_duraction;
+	struct timespec64 tmp_duraction;
 	int polling = 0;
 	static int ui_zero_time_flag;
 	static int down_to_low_bat;
@@ -2483,7 +2483,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 			duraction = ktime_sub(
 				now, sdd->pre_time[SOC_ZERO_PERCENT]);
 
-			tmp_duraction = ktime_to_timespec(duraction);
+			tmp_duraction = ktime_to_timespec64(duraction);
 			polling++;
 			if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
 				bm_debug("soc zero shutdown\n");
@@ -2507,7 +2507,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 				ktime_sub(
 				now, sdd->pre_time[UISOC_ONE_PERCENT]);
 
-			tmp_duraction = ktime_to_timespec(duraction);
+			tmp_duraction = ktime_to_timespec64(duraction);
 			if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
 				bm_debug("uisoc one percent shutdown\n");
 				kernel_power_off();
@@ -2527,7 +2527,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 
 	if (sdd->shutdown_status.is_dlpt_shutdown) {
 		duraction = ktime_sub(now, sdd->pre_time[DLPT_SHUTDOWN]);
-		tmp_duraction = ktime_to_timespec(duraction);
+		tmp_duraction = ktime_to_timespec64(duraction);
 		polling++;
 		if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
 			bm_debug("dlpt shutdown count, %d\n",
@@ -2597,7 +2597,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 				duraction = ktime_sub(
 					now, sdd->pre_time[LOW_BAT_VOLT]);
 
-				tmp_duraction  = ktime_to_timespec(duraction);
+				tmp_duraction  = ktime_to_timespec64(duraction);
 				ui_zero_time_flag = 1;
 				if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
 					bm_debug("low bat shutdown, over %d second\n",
@@ -2655,14 +2655,14 @@ static void power_misc_handler(void *arg)
 {
 	struct mtk_battery *gm = arg;
 	struct shutdown_controller *sdd = &gm->sdc;
-	struct timespec end_time, tmp_time_now;
+	struct timespec64 end_time, tmp_time_now;
 	ktime_t ktime, time_now;
 	int secs = 0;
 
 	secs = shutdown_event_handler(gm);
 	if (secs != 0 && gm->disableGM30 == false) {
 		time_now  = ktime_get_boottime();
-		tmp_time_now  = ktime_to_timespec(time_now);
+		tmp_time_now  = ktime_to_timespec64(time_now);
 		end_time.tv_sec = tmp_time_now.tv_sec + secs;
 		ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
 

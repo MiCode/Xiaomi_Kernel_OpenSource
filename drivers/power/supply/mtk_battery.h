@@ -828,7 +828,7 @@ struct mtk_battery {
 	struct gauge_consumer uisoc_minus;
 
 	/* charge full interrupt */
-	struct timespec chr_full_handler_time;
+	struct timespec64 chr_full_handler_time;
 	bool b_EOC;
 
 	/* battery temperature interrupt */

@@ -21,11 +21,11 @@ void set_fg_bat_tmp_c_gap(int tmp)
 
 void set_fg_time(struct mtk_battery *gm, int _time)
 {
-	struct timespec tmp_time_now, end_time;
+	struct timespec64 tmp_time_now, end_time;
 	ktime_t ktime, time_now;
 
 	time_now = ktime_get_boottime();
-	tmp_time_now = ktime_to_timespec(time_now);
+	tmp_time_now = ktime_to_timespec64(time_now);
 	end_time.tv_sec = tmp_time_now.tv_sec + _time;
 
 	ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
