@@ -76,6 +76,8 @@ apusys-objs += sample/$(APUSYS_VERSION_SAMPLE)/sample_inf.o
 apusys-objs += edma/edma_driver.o
 apusys-objs += edma/edma_dbgfs.o
 apusys-objs += edma/edma_cmd_hnd.o
+apusys-objs += edma/edma_plat_device.o
+apusys-objs += edma/edma_v20.o
 #apusys-objs += edma/apusys_power_dummy.o
 # mnoc makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/

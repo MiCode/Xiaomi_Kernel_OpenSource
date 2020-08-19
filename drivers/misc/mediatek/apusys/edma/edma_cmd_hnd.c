@@ -19,12 +19,11 @@
 
 #include "edma_driver.h"
 #include "edma_cmd_hnd.h"
-#include "edma_reg.h"
 
 #include "apusys_power.h"
 #include "edma_dbgfs.h"
+#include "edma_plat_internal.h"
 
-#define NO_INTERRUPT		0
 #define EDMA_POWEROFF_TIME_DEFAULT 2000
 
 static inline void lock_command(struct edma_sub *edma_sub)
@@ -47,137 +46,6 @@ static inline void unlock_command(struct edma_sub *edma_sub)
 	mutex_unlock(&edma_sub->cmd_mutex);
 }
 
-static void print_error_status(struct edma_sub *edma_sub,
-				struct edma_request *req)
-{
-	u32 status, i, j;
-	unsigned int *ext_reg = NULL;
-
-	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_ERR_STATUS);
-	pr_notice("%s error status %x\n", edma_sub->sub_name,
-		status);
-
-	for (i = 0; i < (EDMA_REG_SHOW_RANGE >> 2); i++) {
-		status = edma_read_reg32(edma_sub->base_addr, i*4);
-		pr_notice("edma error dump register[0x%x] = 0x%x\n",
-		i*4, status);
-	}
-	if (req->ext_reg_addr != 0) {
-		ext_reg = (unsigned int *)
-			apusys_mem_query_kva(req->ext_reg_addr);
-
-		pr_notice("kva ext_reg =  0x%p, req->ext_count = %d\n",
-			ext_reg, req->ext_count);
-
-		if (ext_reg !=  0)
-			for (i = 0; i < req->ext_count; i++) {
-				for (j = 0; j < EDMA_EXT_MODE_SIZE/4; j++)
-					pr_notice("descriptor%d [0x%x] = 0x%x\n",
-						i, j*4, *(ext_reg + j));
-			}
-		else
-			pr_notice("not support ext_reg dump!!\n");
-	}
-	edma_sw_reset(edma_sub);
-}
-
-irqreturn_t edma_isr_handler(int irq, void *edma_sub_info)
-{
-	struct edma_sub *edma_sub = (struct edma_sub *)edma_sub_info;
-	u32 status;
-	u32 desp0_done;
-	u32 desp0_intr;
-	u32 desp1_done;
-	u32 desp1_intr;
-	u32 desp2_done;
-	u32 desp2_intr;
-	u32 desp3_done;
-	u32 desp3_intr;
-	u32 desp4_done;
-	u32 desp4_intr;
-
-	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_INT_STATUS);
-	desp0_done = status & DESP0_DONE_STATUS;
-	desp1_done = status & DESP1_DONE_STATUS;
-	desp2_done = status & DESP2_DONE_STATUS;
-	desp3_done = status & DESP3_DONE_STATUS;
-	desp4_done = status & EXT_DESP_DONE_STATUS;
-	desp0_intr = status & DESP0_DONE_INT_STATUS;
-	desp1_intr = status & DESP1_DONE_INT_STATUS;
-	desp2_intr = status & DESP2_DONE_INT_STATUS;
-	desp3_intr = status & DESP3_DONE_INT_STATUS;
-	desp4_intr = status & EXT_DESP_DONE_INT_STATUS;
-
-	edma_sub->is_cmd_done = true;
-	if (desp0_done | desp1_done | desp2_done | desp3_done | desp4_done)
-		wake_up_interruptible(&edma_sub->cmd_wait);
-
-	if (desp0_intr)
-		edma_set_reg32(edma_sub->base_addr, APU_EDMA2_INT_STATUS,
-						DESP0_DONE_INT_STATUS);
-	else if (desp1_intr)
-		edma_set_reg32(edma_sub->base_addr, APU_EDMA2_INT_STATUS,
-						DESP1_DONE_INT_STATUS);
-	else if (desp2_intr)
-		edma_set_reg32(edma_sub->base_addr, APU_EDMA2_INT_STATUS,
-						DESP2_DONE_INT_STATUS);
-	else if (desp3_intr)
-		edma_set_reg32(edma_sub->base_addr, APU_EDMA2_INT_STATUS,
-						DESP3_DONE_INT_STATUS);
-	else if (desp4_intr)
-		edma_set_reg32(edma_sub->base_addr, APU_EDMA2_INT_STATUS,
-						EXT_DESP_DONE_INT_STATUS);
-
-	return IRQ_HANDLED;
-}
-
-void edma_enable_sequence(struct edma_sub *edma_sub)
-{
-	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, CLK_ENABLE);
-	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
-	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
-}
-
-void edma_sw_reset(struct edma_sub *edma_sub)
-{
-
-	pr_notice("%s\n", __func__);
-
-	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, AXI_PROT_EN);
-	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, RST_PROT_IDLE);
-
-	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, CLK_ENABLE);
-	edma_set_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
-	mdelay(5);
-	edma_clear_reg32(edma_sub->base_addr, APU_EDMA2_CTL_0, DMA_SW_RST);
-	mdelay(5);
-
-}
-
-/**
- * @brief trigger edma external mode
- *  parameters:
- *    base_addr: each edma base address
- *    ext_addr:  external descriptor mem addr
- *    num_desp: number of desc.
- *    desp_iommu_en: enable iommu or not
- */
-void edma_trigger_external(void __iomem *base_addr, u32 ext_addr, u32 num_desp,
-					u8 desp_iommu_en)
-{
-	edma_set_reg32(base_addr, APU_EDMA2_CTL_0, EDMA_DESCRIPTOR_MODE);
-
-	num_desp--;
-	if (desp_iommu_en)
-		edma_write_reg32(base_addr, APU_EDMA2_EXT_DESP_CFG_0,
-			EXT_DESP_INT_ENABLE | EXT_DESP_USER_IOMMU | num_desp);
-	else
-		edma_write_reg32(base_addr, APU_EDMA2_EXT_DESP_CFG_0,
-				EXT_DESP_INT_ENABLE | num_desp);
-
-	edma_write_reg32(base_addr, APU_EDMA2_EXT_DESP_CFG_1, ext_addr);
-	edma_set_reg32(base_addr, APU_EDMA2_CFG_0, EXT_DESP_START);
-}
 
 /**
  * @brief excute request by each edma_sub
@@ -187,31 +55,25 @@ void edma_trigger_external(void __iomem *base_addr, u32 ext_addr, u32 num_desp,
 int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 {
 	int ret = 0;
-	void __iomem *base_addr;
 	unsigned long long get_port_time = 0;
+	struct edma_plat_drv *drv = (struct edma_plat_drv *)edma_sub->plat_drv;
 
-
-	base_addr = edma_sub->base_addr;
 	ret = edma_power_on(edma_sub);
 	if (ret != 0)
 		return ret;
 
-	edma_enable_sequence(edma_sub);
-
 	get_port_time = sched_clock();
 
 	lock_command(edma_sub);
-	edma_write_reg32(base_addr, APU_EDMA2_FILL_VALUE, req->fill_value);
-	edma_trigger_external(edma_sub->base_addr,
-				req->ext_reg_addr,
-				req->ext_count,
-				req->desp_iommu_en);
+
+	if (drv)
+		ret = drv->exe_sub(edma_sub, req);
 
 	ret = wait_command(edma_sub, CMD_WAIT_TIME_MS);
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub, req);
+		drv->prt_error(edma_sub, req);
 	}
 
 	get_port_time = sched_clock() - get_port_time; //ns
@@ -376,6 +238,7 @@ void edma_setup_ext_mode_request(struct edma_request *req,
 
 #endif
 
+
 int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 {
 	int ret = 0;
@@ -387,7 +250,8 @@ int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 	t1 = ktime_get_ns();
 #endif
 	edma_setup_ext_mode_request(&req, edma_ext, EDMA_PROC_EXT_MODE);
-	ret = edma_ext_by_sub(edma_sub, &req);
+
+	edma_ext_by_sub(edma_sub, &req);
 
 #ifdef DEBUG
 	t2 = ktime_get_ns();

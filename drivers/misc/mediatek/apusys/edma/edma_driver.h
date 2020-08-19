@@ -8,6 +8,7 @@
 #define __EDMA_DRIVER_H__
 
 #include "apusys_device.h"
+#include <linux/cdev.h>
 
 #define DEBUG
 
@@ -47,6 +48,8 @@ struct edma_sub {
 	enum edma_power_state power_state;
 
 	struct task_struct *enque_task;
+	const void *plat_drv;
+
 	u8 sub_name[EDMA_SUB_NAME_SIZE];
 	uint32_t ip_time;
 };

@@ -22,6 +22,7 @@
 #include "edma_cmd_hnd.h"
 #include "apusys_power.h"
 #include "apusys_core.h"
+#include "edma_plat_internal.h"
 
 #define EDMA_DEV_NAME		"edma"
 
@@ -97,10 +98,6 @@ out:
 	return ret;
 }
 #endif
-static const struct of_device_id mtk_edma_sub_of_ids[] = {
-	{.compatible = "mtk,edma-sub",    NULL},
-	{}
-};
 
 int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 {
@@ -164,6 +161,7 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct edma_sub *edma_sub;
 	struct device *dev = &pdev->dev;
+	struct edma_plat_drv *drv;
 
 	edma_sub = devm_kzalloc(dev, sizeof(*edma_sub), GFP_KERNEL);
 	if (!edma_sub)
@@ -176,12 +174,22 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+	edma_sub->plat_drv = of_device_get_match_data(&pdev->dev);
+
+	if (edma_sub->plat_drv == NULL) {
+		dev_notice(dev, "cannot get plat_drv\n");
+		return -ENOENT;
+	}
+
+	drv = (struct edma_plat_drv *)edma_sub->plat_drv;
+
 	/* interrupt resource */
 	irq = platform_get_irq(pdev, 0);
+
 	if (irq < 0)
 		return irq;
 
-	ret = devm_request_irq(dev, irq, edma_isr_handler,
+	ret = devm_request_irq(dev, irq, drv->edma_isr,
 			       IRQF_TRIGGER_NONE,
 			       dev_name(dev),
 			       edma_sub);
@@ -207,7 +215,6 @@ static struct platform_driver mtk_edma_sub_driver = {
 	.remove = mtk_edma_sub_remove,
 	.driver = {
 		   .name = "mtk,edma-sub",
-		   .of_match_table = mtk_edma_sub_of_ids,
 		   .pm = NULL,
 	}
 };
@@ -377,6 +384,7 @@ int edma_init(struct apusys_core_info *info)
 		return -ENODEV;
 	}
 
+	mtk_edma_sub_driver.driver.of_match_table = edma_plat_get_device();
 
 	ret = platform_driver_register(&mtk_edma_sub_driver);
 	if (ret != 0) {
