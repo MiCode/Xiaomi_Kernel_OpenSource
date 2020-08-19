@@ -61,7 +61,7 @@ static int fhctl_to_tinysys_command(unsigned int cmd,
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_FHCTL,
-		IPI_SEND_WAIT, ipi_data, FHCTL_D_LEN, 10);
+		IPI_SEND_POLLING, ipi_data, FHCTL_D_LEN, 10);
 		if (ret != 0) {
 			pr_info("[Error]mtk_ipi_send_compl err(%x) ret:%d-%d\n",
 					cmd, ret, ack_data);
