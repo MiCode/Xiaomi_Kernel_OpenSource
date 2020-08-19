@@ -156,12 +156,6 @@ static struct platform_driver devfreq_qcom_qoslat_driver = {
 		.of_match_table = devfreq_qoslat_match_table,
 	},
 };
-
-static int __init register_devfreq_qcom_qoslat_driver(void)
-{
-	return platform_driver_register(&devfreq_qcom_qoslat_driver);
-}
-
-late_initcall(register_devfreq_qcom_qoslat_driver);
+module_platform_driver(devfreq_qcom_qoslat_driver);
 MODULE_DESCRIPTION("Device driver for setting memory latency qos level");
 MODULE_LICENSE("GPL v2");
