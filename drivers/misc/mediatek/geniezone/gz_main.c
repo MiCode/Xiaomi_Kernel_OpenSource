@@ -33,6 +33,7 @@
 #include <tz_cross/ta_test.h>
 #include <tz_cross/trustzone.h>
 #include <linux/vmalloc.h>
+#include <linux/compat.h>
 
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
