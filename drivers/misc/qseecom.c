@@ -4396,11 +4396,6 @@ static int __qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
 	/* Allocate kernel buffer for request and response*/
 	ret = __qseecom_alloc_coherent_buf(req.cmd_req_len + req.resp_len,
 					&va, &pa);
-	if (ret) {
-		pr_err("Failed to allocate coherent buf, ret %d\n", ret);
-		return ret;
-	}
-
 	req.cmd_req_buf = va;
 	send_cmd_req.cmd_req_buf = (void *)pa;
 
@@ -9372,14 +9367,6 @@ static int qseecom_init_dev(struct platform_device *pdev)
 		}
 	}
 	dma_set_max_seg_size(qseecom.dev, DMA_BIT_MASK(32));
-
-	rc = of_reserved_mem_device_init_by_idx(&pdev->dev,
-					(&pdev->dev)->of_node, 0);
-	if (rc) {
-		pr_err("Failed to initialize reserved mem, ret %d\n", rc);
-		goto exit_del_cdev;
-	}
-
 	return 0;
 
 exit_del_cdev:
@@ -9549,15 +9536,10 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 		return -EINVAL;
 	}
 	rmem = of_reserved_mem_lookup(node);
+	of_node_put(node);
 	if (!rmem) {
 		pr_err("unable to acquire memory-region of heap %d\n", heapid);
 		return -EINVAL;
-	}
-	ret = of_reserved_mem_device_init_by_idx(ion_dev, node, 0);
-	of_node_put(node);
-	if (ret) {
-		pr_err("Failed to initialize reserved mem, ret %d\n", ret);
-		return ret;
 	}
 	heap_pa = rmem->base;
 	heap_size = (size_t)rmem->size;
