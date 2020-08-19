@@ -2379,7 +2379,7 @@ static void a6xx_gmu_acd_probe(struct kgsl_device *device,
 	cmd->stride = 1;
 	cmd->enable_by_level = 0;
 
-	for (i = 0, cmd_idx = 0; i <= numlvl; i++) {
+	for (i = 0, cmd_idx = 0; i < numlvl; i++) {
 		acd_level = pwr->pwrlevels[numlvl - i].acd_level;
 		if (acd_level) {
 			cmd->enable_by_level |= (1 << i);
