@@ -2290,18 +2290,10 @@ static signed int MSS_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq,
 			     /* FIX to avoid build warning */
 	unsigned int irqStatus;
 	/*int cnt = 0;*/
-	struct timeval time_getrequest;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
+	struct timespec64 time_getrequest;
 	unsigned int p;
 
-	/* do_gettimeofday(&time_getrequest); */
-	sec = cpu_clock(0);	/* ns */
-	do_div(sec, 1000);	/* usec */
-	usec = do_div(sec, 1000000);	/* sec and usec */
-	time_getrequest.tv_usec = usec;
-	time_getrequest.tv_sec = sec;
-
+	ktime_get_ts64(&time_getrequest);
 
 	/* Debug interrupt */
 	if (MFBInfo.DebugMaskMss & MFB_DBG_INT) {
@@ -2497,18 +2489,10 @@ static signed int MSF_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq)
 			     /* FIX to avoid build warning */
 	unsigned int irqStatus;
 	/*int cnt = 0;*/
-	struct timeval time_getrequest;
-	unsigned long long sec = 0;
-	unsigned long usec = 0;
+	struct timespec64 time_getrequest;
 	unsigned int p;
 
-	/* do_gettimeofday(&time_getrequest); */
-	sec = cpu_clock(0);	/* ns */
-	do_div(sec, 1000);	/* usec */
-	usec = do_div(sec, 1000000);	/* sec and usec */
-	time_getrequest.tv_usec = usec;
-	time_getrequest.tv_sec = sec;
-
+	ktime_get_ts64(&time_getrequest);
 
 	/* Debug interrupt */
 	if (MFBInfo.DebugMaskMsf & MFB_DBG_INT) {
