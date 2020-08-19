@@ -129,7 +129,7 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 	policy->driver_data = info;
 	policy->freq_table = freq_table;
 	policy->transition_delay_us = 1000; /* us */
-	dev_pm_opp_of_register_em(policy->cpus);
+	dev_pm_opp_of_register_em(info->cpu_dev, policy->cpus);
 
 	return 0;
 
