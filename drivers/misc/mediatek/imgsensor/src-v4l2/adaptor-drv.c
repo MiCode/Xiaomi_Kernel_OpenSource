@@ -424,8 +424,8 @@ static int imgsensor_enum_frame_interval(struct v4l2_subdev *sd,
 			fie->height != mode->height)
 			continue;
 		if (index-- == 0) {
-			fie->interval.numerator = mode->max_framerate;
-			fie->interval.denominator = 10;
+			fie->interval.numerator = 10;
+			fie->interval.denominator = mode->max_framerate;
 			return 0;
 		}
 	}
@@ -610,8 +610,8 @@ static int imgsensor_get_frame_interval(struct v4l2_subdev *sd,
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
 	mutex_lock(&ctx->mutex);
-	fi->interval.numerator = ctx->cur_mode->max_framerate;
-	fi->interval.denominator = 10;
+	fi->interval.numerator = 10;
+	fi->interval.denominator = ctx->cur_mode->max_framerate;
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
@@ -628,7 +628,7 @@ static int imgsensor_set_frame_interval(struct v4l2_subdev *sd,
 
 	w = ctx->cur_mode->width;
 	h = ctx->cur_mode->height;
-	fps = fi->interval.numerator * 10 / fi->interval.denominator;
+	fps = fi->interval.denominator * 10 / fi->interval.numerator;
 
 	for (i = 0; i < ctx->mode_cnt; i++) {
 		mode = &ctx->mode[i];
