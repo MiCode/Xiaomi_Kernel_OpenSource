@@ -3232,7 +3232,13 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
+		if (arm_smmu_domain_power_on(domain, smmu)) {
+			WARN_ON(1);
+			arm_smmu_rpm_put(smmu);
+			return;
+		}
 		smmu_domain->flush_ops->tlb.tlb_ops.tlb_flush_all(smmu_domain);
+		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
 }
@@ -3245,7 +3251,13 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
+		if (arm_smmu_domain_power_on(domain, smmu)) {
+			WARN_ON(1);
+			arm_smmu_rpm_put(smmu);
+			return;
+		}
 		smmu_domain->flush_ops->tlb_sync(smmu_domain);
+		arm_smmu_domain_power_off(domain, smmu);
 		arm_smmu_rpm_put(smmu);
 	}
 }
