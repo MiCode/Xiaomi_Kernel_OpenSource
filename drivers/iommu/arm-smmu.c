@@ -1059,50 +1059,57 @@ static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
 	}
 }
 
-static void *arm_smmu_alloc_pages_exact(void *cookie, int order, gfp_t gfp_mask)
+static void *arm_smmu_alloc_pgtable(void *cookie, int order, gfp_t gfp_mask)
 {
 	int ret;
-	void *page;
+	struct page *page;
+	void *page_addr;
 	size_t size = (1UL << order) * PAGE_SIZE;
 	struct arm_smmu_domain *smmu_domain = cookie;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		struct page *pg;
 		/* size is expected to be 4K with current configuration */
 		if (size == PAGE_SIZE) {
-			pg = list_first_entry_or_null(
+			page = list_first_entry_or_null(
 				&smmu_domain->nonsecure_pool, struct page, lru);
-			if (pg) {
-				list_del_init(&pg->lru);
-				return page_address(pg);
+			if (page) {
+				list_del_init(&page->lru);
+				return page_address(page);
 			}
 		}
-		return alloc_pages_exact(size, gfp_mask);
-	}
 
-	page = arm_smmu_secure_pool_remove(smmu_domain, size);
-	if (page)
-		return page;
-
-	page = alloc_pages_exact(size, gfp_mask);
-	if (page) {
-		ret = arm_smmu_prepare_pgtable(page, cookie);
-		if (ret) {
-			free_pages_exact(page, size);
+		page = alloc_pages(gfp_mask, order);
+		if (!page)
 			return NULL;
-		}
+
+		return page_address(page);
 	}
 
-	return page;
+	page_addr = arm_smmu_secure_pool_remove(smmu_domain, size);
+	if (page_addr)
+		return page_addr;
+
+	page = alloc_pages(gfp_mask, order);
+	if (!page)
+		return NULL;
+
+	page_addr = page_address(page);
+	ret = arm_smmu_prepare_pgtable(page_addr, cookie);
+	if (ret) {
+		free_pages((unsigned long)page_addr, order);
+		return NULL;
+	}
+
+	return page_addr;
 }
 
-static void arm_smmu_free_pages_exact(void *cookie, void *virt, int order)
+static void arm_smmu_free_pgtable(void *cookie, void *virt, int order)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	size_t size = (1UL << order) * PAGE_SIZE;
 
 	if (!arm_smmu_has_secure_vmid(smmu_domain)) {
-		free_pages_exact(virt, size);
+		free_pages((unsigned long)virt, order);
 		return;
 	}
 
@@ -1111,8 +1118,8 @@ static void arm_smmu_free_pages_exact(void *cookie, void *virt, int order)
 }
 
 static const struct iommu_pgtable_ops arm_smmu_pgtable_ops = {
-	.alloc_pgtable = arm_smmu_alloc_pages_exact,
-	.free_pgtable  = arm_smmu_free_pages_exact,
+	.alloc_pgtable = arm_smmu_alloc_pgtable,
+	.free_pgtable  = arm_smmu_free_pgtable,
 };
 
 static const struct arm_smmu_flush_ops arm_smmu_s1_tlb_ops = {
@@ -2744,7 +2751,8 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 
 		if (WARN_ON(ret))
 			break;
-		free_pages_exact(pte_info->virt_addr, pte_info->size);
+		free_pages((unsigned long)pte_info->virt_addr,
+			   get_order(pte_info->size));
 	}
 
 	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
