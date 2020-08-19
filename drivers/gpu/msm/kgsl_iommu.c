@@ -608,6 +608,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	unsigned int no_page_fault_log = 0;
 	char *fault_type = "unknown";
 	char *comm = "unknown";
+	bool skip_fault = false;
 	struct kgsl_process_private *private;
 
 	static DEFINE_RATELIMIT_STATE(_rs,
@@ -648,14 +649,22 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		 * Turn off GPU IRQ so we don't get faults from it too.
 		 * The device mutex must be held to change power state
 		 */
-		mutex_lock(&device->mutex);
+		if (mutex_trylock(&device->mutex)) {
+			if (gmu_core_isenabled(device))
+				kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+			else
+				kgsl_pwrctrl_change_state(device,
+							KGSL_STATE_AWARE);
 
-		if (gmu_core_isenabled(device))
-			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
-		else
-			kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
-
-		mutex_unlock(&device->mutex);
+			mutex_unlock(&device->mutex);
+		} else
+			/*
+			 * skip_fault: If there is contention on device mutex,
+			 * don't attempt to fault on stall. set skip_fault to
+			 * true then return by printing the fault info and
+			 * decrement refcount of private.
+			 */
+			skip_fault = true;
 	}
 
 	contextidr = KGSL_IOMMU_GET_CTX_REG(ctx, KGSL_IOMMU_CTX_CONTEXTIDR);
@@ -731,7 +740,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	 * that has faulted, this is better for debugging as it will stall
 	 * the GPU and trigger a snapshot. Return EBUSY error.
 	 */
-	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+	if (!skip_fault && test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 		&adreno_dev->ft_pf_policy) &&
 		(flags & IOMMU_FAULT_TRANSACTION_STALLED)) {
 		uint32_t sctlr_val;
