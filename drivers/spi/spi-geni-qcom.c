@@ -1162,9 +1162,21 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 					struct spi_transfer *xfer)
 {
 	unsigned long timeout;
+	u32 rx_fifo_status;
+	int rx_wc, i;
 
 	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
 	reinit_completion(&mas->xfer_done);
+
+	/* Dummy read the rx fifo for any spurious data*/
+	if (xfer->rx_buf) {
+		rx_fifo_status = geni_read_reg(mas->base,
+					SE_GENI_RX_FIFO_STATUS);
+		rx_wc = (rx_fifo_status & RX_FIFO_WC_MSK);
+		for (i = 0; i < rx_wc; i++)
+			geni_read_reg(mas->base, SE_GENI_RX_FIFOn);
+	}
+
 	geni_cancel_m_cmd(mas->base);
 	if (mas->cur_xfer_mode == FIFO_MODE)
 		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
