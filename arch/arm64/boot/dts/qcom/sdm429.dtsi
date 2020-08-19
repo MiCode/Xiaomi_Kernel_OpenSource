@@ -598,6 +598,12 @@
 	};
 
 
+	qcom,mpm2-sleep-counter@4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x4a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-imem@8600000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x08600000 0x1000>; /* Address and size of IMEM */
