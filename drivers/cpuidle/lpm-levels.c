@@ -251,8 +251,13 @@ static uint32_t get_next_event(struct lpm_cpu *cpu)
 {
 	ktime_t next_event = KTIME_MAX;
 	unsigned int next_cpu;
+	struct cpumask cpu_lpm_mask;
 
-	for_each_cpu(next_cpu, &cpu->related_cpus) {
+	cpumask_and(&cpu_lpm_mask, &cpu->related_cpus, cpu_online_mask);
+	if (cpumask_empty(&cpu_lpm_mask))
+		return 0;
+
+	for_each_cpu(next_cpu, &cpu_lpm_mask) {
 		ktime_t next_event_c = per_cpu(cpu_lpm, next_cpu)->next_hrtimer;
 
 		if (next_event > next_event_c)
