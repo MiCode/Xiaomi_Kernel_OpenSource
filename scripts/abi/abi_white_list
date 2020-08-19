@@ -9,5 +9,11 @@ bypass_arr=(\
 "function int clocksource_mmio_init" \
 "function u64 clocksource_mmio_readl_up" \
 "function void sched_clock_register" \
+"function void ion_page_pool_free" \
+"function void ion_page_pool_destroy" \
+"function int ion_page_pool_nr_pages" \
+"function int ion_page_pool_shrink" \
+"function ion_page_pool\* ion_page_pool_create" \
+"function page\* ion_page_pool_alloc" \
 "struct cpuidle_state " \
 "struct dma_async_tx_descriptor ")
