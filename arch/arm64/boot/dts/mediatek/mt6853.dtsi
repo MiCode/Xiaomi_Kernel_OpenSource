@@ -1098,11 +1098,6 @@
 				mediatek,fh-pll-id = <CLK_APMIXED_ADSPPLL>;
 			};
 
-			apupll {
-				mediatek,fh-id = <13>;
-				mediatek,fh-pll-id = <CLK_APMIXED_APUPLL>;
-			};
-
 			tvdpll {
 				mediatek,fh-id = <14>;
 				mediatek,fh-pll-id = <CLK_APMIXED_TVDPLL>;
