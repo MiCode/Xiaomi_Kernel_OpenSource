@@ -17,6 +17,8 @@
 
 #define RPM_SLEEP_SET		MSM_RPM_CTX_SLEEP_SET
 #define RPM_ACTIVE_SET		MSM_RPM_CTX_ACTIVE_SET
+#define RPM_CLK_MAX_LEVEL		INT_MAX
+#define RPM_CLK_MIN_LEVEL               19200000
 
 #define to_qcom_provider(_provider) \
 	container_of(_provider, struct qcom_icc_provider, provider)
@@ -45,14 +47,19 @@ enum qcom_icc_rpm_context {
  * @bus_clks: the clk_bulk_data table of bus clocks
  * @num_clks: the total number of clk_bulk_data entries
  * @bus_clk_cur_rate: current frequency of bus clock
+ * @keepalive: flag used to indicate whether a keepalive is required
+ * @init: flag to determine when init has completed.
  */
 struct qcom_icc_provider {
 	struct icc_provider provider;
 	struct device *dev;
 	struct regmap *regmap;
+	struct list_head probe_list;
 	struct clk_bulk_data *bus_clks;
 	int num_clks;
 	u64 bus_clk_cur_rate[RPM_NUM_CXT];
+	bool keepalive;
+	bool init;
 };
 
 /**
