@@ -157,57 +157,58 @@ static void mmstat_trace_meminfo(void)
 	/* kernel memory usage */
 	meminfo[num_entries++] = P2K(global_node_page_state(NR_SHMEM));
 	meminfo[num_entries++] =
-		P2K(global_node_page_state(NR_SLAB_UNRECLAIMABLE) +
-				global_node_page_state(NR_SLAB_RECLAIMABLE));
-	meminfo[num_entries++] = global_zone_page_state(NR_KERNEL_STACK_KB);
-	meminfo[num_entries++] = P2K(global_zone_page_state(NR_PAGETABLE));
+		B2K(global_node_page_state(NR_SLAB_UNRECLAIMABLE_B) +
+				global_node_page_state(NR_SLAB_RECLAIMABLE_B));
+		meminfo[num_entries++] = global_zone_page_state(NR_KERNEL_STACK_KB);
+		meminfo[num_entries++] = P2K(global_zone_page_state(NR_PAGETABLE));
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-	/* HW memory */
-	if (mtk_get_gpu_memory_usage(&gpuuse))
-		gpuuse = B2K(gpuuse);
+		/* HW memory */
+		if (mtk_get_gpu_memory_usage(&gpuuse))
+			gpuuse = B2K(gpuuse);
 #endif
-	meminfo[num_entries++] = gpuuse;
+		meminfo[num_entries++] = gpuuse;
 #if IS_ENABLED(CONFIG_MTK_ION)
-	ionuse = B2K((unsigned long)ion_mm_heap_total_memory());
+		ionuse = B2K((unsigned long)ion_mm_heap_total_memory());
 #endif
-	meminfo[num_entries++] = ionuse;
+		meminfo[num_entries++] = ionuse;
 
-	/* misc */
+		/* misc */
 #if IS_ENABLED(CONFIG_ZSMALLOC)
-	meminfo[num_entries++] = P2K(global_zone_page_state(NR_ZSPAGES));
+		meminfo[num_entries++] = P2K(global_zone_page_state(NR_ZSPAGES));
 #else
-	meminfo[num_entries++] = 0;
+		meminfo[num_entries++] = 0;
 #endif
 
-	trace_mmstat_trace_meminfo((unsigned long *)meminfo, num_entries,
-			NR_MEMINFO_ITEMS);
-}
-
-/*
- * Entry for recording vmstat - record partial VM status
- */
-static void mmstat_trace_vmstat(void)
-{
-	int cpu;
-	unsigned long v[NR_VMSTAT_PARTIAL_ITEMS] = {0};
-	unsigned int nr_vm_events = NR_VMSTAT_PARTIAL_ITEMS - 1;
-	size_t num_entries = 0;
-
-	for_each_online_cpu(cpu) {
-		struct vm_event_state *this = &per_cpu(vm_event_states, cpu);
-
-		v[num_entries++ % nr_vm_events] +=
-			this->event[PSWPIN];
-		v[num_entries++ % nr_vm_events] +=
-			this->event[PSWPOUT];
-		v[num_entries++ % nr_vm_events] +=
-			this->event[PGMAJFAULT];
+		trace_mmstat_trace_meminfo((unsigned long *)meminfo, num_entries,
+				NR_MEMINFO_ITEMS);
 	}
 
-	/* workingset_refsult */
-	v[NR_VMSTAT_PARTIAL_ITEMS - 1] =
-		global_node_page_state(WORKINGSET_REFAULT);
+	/*
+	 * Entry for recording vmstat - record partial VM status
+	 */
+	static void mmstat_trace_vmstat(void)
+	{
+		int cpu;
+		unsigned long v[NR_VMSTAT_PARTIAL_ITEMS] = {0};
+		unsigned int nr_vm_events = NR_VMSTAT_PARTIAL_ITEMS - 1;
+		size_t num_entries = 0;
+
+		for_each_online_cpu(cpu) {
+			struct vm_event_state *this = &per_cpu(vm_event_states, cpu);
+
+			v[num_entries++ % nr_vm_events] +=
+				this->event[PSWPIN];
+			v[num_entries++ % nr_vm_events] +=
+				this->event[PSWPOUT];
+			v[num_entries++ % nr_vm_events] +=
+				this->event[PGMAJFAULT];
+		}
+
+		/* workingset_refsult */
+		v[NR_VMSTAT_PARTIAL_ITEMS - 1] =
+			global_node_page_state(WORKINGSET_REFAULT_ANON) +
+			global_node_page_state(WORKINGSET_REFAULT_FILE);
 
 	trace_mmstat_trace_vmstat((unsigned long *)v, NR_VMSTAT_PARTIAL_ITEMS,
 			NR_VMSTAT_PARTIAL_ITEMS);
