@@ -1055,7 +1055,7 @@ TRY_LOAD_IMG:
 			"Firmware:read_size=%d, size_per_read=%d\n",
 			read_size, size_per_read);
 		/* size_per_read 8 bytes aligned remap memory */
-		start = ioremap_nocache((load_addr + read_size),
+		start = ioremap_wc((load_addr + read_size),
 					roundup(size_per_read, 8));
 		if (start == 0) {
 			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
@@ -1077,7 +1077,7 @@ TRY_LOAD_IMG:
 		"Firmware check header:load_addr=%lx, size=%d\n",
 		load_addr, img->size);
 	if (img->type == IMG_MD) {
-		start = ioremap_nocache(
+		start = ioremap_wc(
 				round_down(load_addr
 					+ img->size - 0x4000, 0x4000),
 				round_up(img->size, 0x4000)
@@ -1092,7 +1092,7 @@ TRY_LOAD_IMG:
 			goto out;
 		}
 	} else if (img->type == IMG_DSP) {
-		start = ioremap_nocache(load_addr, dsp_header_size);
+		start = ioremap_wc(load_addr, dsp_header_size);
 		check_ret = check_dsp_header(md_id, start, img);
 		if (check_ret < 0) {
 			ret = check_ret;

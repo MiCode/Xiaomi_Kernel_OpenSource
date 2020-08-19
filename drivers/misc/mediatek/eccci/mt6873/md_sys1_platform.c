@@ -190,7 +190,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		 irq_of_parse_and_map(dev_ptr->dev.of_node, 2);
 #endif
 		hw_info->md_pcore_pccif_base =
-		 ioremap_nocache(MD_PCORE_PCCIF_BASE, 0x20);
+		 ioremap_wc(MD_PCORE_PCCIF_BASE, 0x20);
 		CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
 		 "pccif:%x\n", MD_PCORE_PCCIF_BASE);
 
@@ -353,9 +353,9 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
 
 	md_info->md_boot_slave_En =
-	 ioremap_nocache(md->hw_info->md_boot_slave_En, 0x4);
+	 ioremap_wc(md->hw_info->md_boot_slave_En, 0x4);
 	md_info->md_rgu_base =
-	 ioremap_nocache(md->hw_info->md_rgu_base, 0x300);
+	 ioremap_wc(md->hw_info->md_rgu_base, 0x300);
 
 	md_reg = kzalloc(sizeof(struct md_pll_reg), GFP_KERNEL);
 	if (md_reg == NULL) {
@@ -365,14 +365,14 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	}
 
 	md_reg->md_boot_stats_select =
-		ioremap_nocache(MD1_BOOT_STATS_SELECT, 4);
-	md_reg->md_boot_stats = ioremap_nocache(MD1_CFG_BOOT_STATS, 4);
+		ioremap_wc(MD1_BOOT_STATS_SELECT, 4);
+	md_reg->md_boot_stats = ioremap_wc(MD1_CFG_BOOT_STATS, 4);
 	/*just for dump end*/
 
 	md_info->md_pll_base = md_reg;
 
 #ifdef MD_PEER_WAKEUP
-	md_info->md_peer_wakeup = ioremap_nocache(MD_PEER_WAKEUP, 0x4);
+	md_info->md_peer_wakeup = ioremap_wc(MD_PEER_WAKEUP, 0x4);
 #endif
 	return 0;
 }
@@ -609,7 +609,7 @@ static int md_start_platform(struct ccci_modem *md)
 			return -1;
 		}
 	} else {
-		sec_ao_base = ioremap_nocache(0x1001a000, 4);
+		sec_ao_base = ioremap_wc(0x1001a000, 4);
 		if (sec_ao_base == NULL) {
 			CCCI_ERROR_LOG(md->index, TAG, "sec_ao NULL\n");
 			return -1;

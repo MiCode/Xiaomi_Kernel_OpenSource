@@ -27,7 +27,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	void __iomem *dump_reg0;
 
 	/* dump AP_MDSRC_REQ */
-	dump_reg0 = ioremap_nocache(0x10006434, 0x4);
+	dump_reg0 = ioremap_wc(0x10006434, 0x4);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x4 bytes from 0x10006434\n");
@@ -39,7 +39,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* Set DBGSYS Time out */
-	dump_reg0 = ioremap_nocache(0x0D10111C, 0x4);
+	dump_reg0 = ioremap_wc(0x0D10111C, 0x4);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x4 bytes from 0x0D10111C\n");
@@ -53,7 +53,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* PC Monitor */
-	dump_reg0 = ioremap_nocache(0x0D11C000, 0x21B0);
+	dump_reg0 = ioremap_wc(0x0D11C000, 0x21B0);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x21B0 bytes from 0x0D11C000\n");
@@ -92,7 +92,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* PLL reg (clock control) */
-	dump_reg0 = ioremap_nocache(0x0D103800, 0x248A0);
+	dump_reg0 = ioremap_wc(0x0D103800, 0x248A0);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x248A0 bytes from 0x0D103800\n");
@@ -167,7 +167,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* BUS */
-	dump_reg0 = ioremap_nocache(0x0D102000, 0x37140);
+	dump_reg0 = ioremap_wc(0x0D102000, 0x37140);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x37140 bytes from 0x0D102000\n");
@@ -192,7 +192,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* BUSMON */
-	dump_reg0 = ioremap_nocache(0x0D108000, 0x30F24);
+	dump_reg0 = ioremap_wc(0x0D108000, 0x30F24);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x30F24 bytes from 0x0D108000\n");
@@ -347,7 +347,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* ECT */
-	dump_reg0 = ioremap_nocache(0x0D101100, 0xCF48);
+	dump_reg0 = ioremap_wc(0x0D101100, 0xCF48);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0xCF48 bytes from 0x0D101100\n");
@@ -374,7 +374,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* TOPSM reg */
-	dump_reg0 = ioremap_nocache(0x0D110000, 0x8E8);
+	dump_reg0 = ioremap_wc(0x0D110000, 0x8E8);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x8E8 bytes from 0x0D110000\n");
@@ -387,7 +387,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* MD RGU reg */
-	dump_reg0 = ioremap_nocache(0x0D112100, 0x25C);
+	dump_reg0 = ioremap_wc(0x0D112100, 0x25C);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x25C bytes from 0x0D112100\n");
@@ -402,7 +402,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* OST status */
-	dump_reg0 = ioremap_nocache(0x0D111000, 0x20C);
+	dump_reg0 = ioremap_wc(0x0D111000, 0x20C);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x20C bytes from 0x0D111000\n");
@@ -417,7 +417,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* CSC reg */
-	dump_reg0 = ioremap_nocache(0x0D113000, 0x224);
+	dump_reg0 = ioremap_wc(0x0D113000, 0x224);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x224 bytes from 0x0D113000\n");
@@ -430,7 +430,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* ELM reg */
-	dump_reg0 = ioremap_nocache(0x20350000, 0x721);
+	dump_reg0 = ioremap_wc(0x20350000, 0x721);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x721 bytes from 0x20350000\n");
@@ -448,7 +448,7 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 
 	/* USIP */
-	dump_reg0 = ioremap_nocache(0x0D104400, 0x52478);
+	dump_reg0 = ioremap_wc(0x0D104400, 0x52478);
 	if (dump_reg0 == NULL) {
 		CCCI_MEM_LOG_TAG(md_index, TAG,
 			"Dump MD failed to ioremap 0x52478 bytes from 0x0D104400\n");

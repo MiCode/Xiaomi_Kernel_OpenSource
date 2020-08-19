@@ -125,8 +125,8 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			SMEM_USER_RAW_MDSS_DBG);
 	struct rtc_time tm;
 	struct timespec64 time_spec64;
-	struct timeval tv = { 0 };
-	struct timeval tv_android = { 0 };
+	struct timespec64 tv = { 0 };
+	struct timespec64 tv_android = { 0 };
 	struct rtc_time tm_android;
 	struct ccci_per_md *per_md_data =
 			ccci_get_per_md_data(mdee->md_id);
@@ -134,18 +134,18 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 
 	ktime_get_ts64(&time_spec64); /* ktime_get_ts64 maybe we should use */
 	tv.tv_sec = time_spec64.tv_sec;
-	tv.tv_usec = time_spec64.tv_nsec/NSEC_PER_USEC;
+	tv.tv_nsec = time_spec64.tv_nsec;
 	tv_android = tv;
-	rtc_time_to_tm(tv.tv_sec, &tm);
+	rtc_time64_to_tm(tv.tv_sec, &tm);
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
-	rtc_time_to_tm(tv_android.tv_sec, &tm_android);
+	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 	CCCI_ERROR_LOG(md_id, FSM,
 	"Sync:%d%02d%02d %02d:%02d:%02d.%u(%02d:%02d:%02d.%03d(TZone))\n",
 	tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 	tm.tm_hour, tm.tm_min, tm.tm_sec,
-	(unsigned int)tv.tv_usec,
+	(unsigned int)tv.tv_nsec,
 	tm_android.tm_hour, tm_android.tm_min, tm_android.tm_sec,
-	(unsigned int)tv_android.tv_usec);
+	(unsigned int)tv_android.tv_nsec);
 
 	ex_info = kmalloc(EE_BUF_LEN, GFP_ATOMIC);
 	if (ex_info == NULL) {

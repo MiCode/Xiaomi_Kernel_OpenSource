@@ -256,11 +256,11 @@ static int ccci_log_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations ccci_log_fops = {
-	.read = ccci_log_read,
-	.open = ccci_log_open,
-	.release = ccci_log_close,
-	.poll = ccci_log_poll,
+static const struct proc_ops ccci_log_fops = {
+	.proc_read = ccci_log_read,
+	.proc_open = ccci_log_open,
+	.proc_release = ccci_log_close,
+	.proc_poll = ccci_log_poll,
 };
 
 
@@ -771,11 +771,11 @@ static int ccci_dump_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations ccci_dump_fops = {
-	.read = ccci_dump_read,
-	.open = ccci_dump_open,
-	.release = ccci_dump_close,
-	.poll = ccci_dump_poll,
+static const struct proc_ops ccci_dump_fops = {
+	.proc_read = ccci_dump_read,
+	.proc_open = ccci_dump_open,
+	.proc_release = ccci_dump_close,
+	.proc_poll = ccci_dump_poll,
 };
 
 static void ccci_dump_buffer_init(void)
@@ -1020,7 +1020,7 @@ int ccci_event_log(const char *fmt, ...)
 	int can_be_write;
 	struct rtc_time tm;
 	struct timespec64 tv;
-	struct timeval tv_android = { 0 };
+	struct timespec64 tv_android = { 0 };
 	struct rtc_time tm_android;
 
 	if (ccci_event_buffer.buffer == NULL)
@@ -1041,11 +1041,11 @@ int ccci_event_log(const char *fmt, ...)
 	/* prepare andorid time info */
 	ktime_get_ts64(&tv); /* ktime_get_ts64 maybe we should use */
 	tv_android.tv_sec = tv.tv_sec;
-	tv_android.tv_usec = tv.tv_nsec/NSEC_PER_USEC;
+	tv_android.tv_nsec = tv.tv_nsec;
 
-	rtc_time_to_tm(tv.tv_sec, &tm);
+	rtc_time64_to_tm(tv.tv_sec, &tm);
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
-	rtc_time_to_tm(tv_android.tv_sec, &tm_android);
+	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 
 	write_len = snprintf(temp_log, CCCI_LOG_MAX_WRITE,
 			"%d%02d%02d-%02d:%02d:%02d.%03d [%5lu.%06lu]%c(%x)[%d:%s]",
@@ -1055,7 +1055,7 @@ int ccci_event_log(const char *fmt, ...)
 			tm_android.tm_hour,
 			tm_android.tm_min,
 			tm_android.tm_sec,
-			(unsigned int)tv_android.tv_usec,
+			(unsigned int)tv_android.tv_nsec,
 			(unsigned long)ts_nsec,
 			rem_nsec / 1000,
 			state,
