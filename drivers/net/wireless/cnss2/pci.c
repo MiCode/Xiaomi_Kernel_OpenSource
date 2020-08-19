@@ -3854,6 +3854,7 @@ static void cnss_pci_disable_bus(struct cnss_pci_data *pci_priv)
 
 	pci_clear_master(pci_dev);
 	pci_load_and_free_saved_state(pci_dev, &pci_priv->saved_state);
+	pci_load_and_free_saved_state(pci_dev, &pci_priv->default_state);
 
 	if (pci_priv->bar) {
 		pci_iounmap(pci_dev, pci_priv->bar);
