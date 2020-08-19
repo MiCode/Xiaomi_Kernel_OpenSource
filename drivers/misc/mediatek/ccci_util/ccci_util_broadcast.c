@@ -27,7 +27,7 @@
 
 /* Broadcast event defination */
 struct md_status_event {
-	struct timeval time_stamp;
+	struct timespec64 time_stamp;
 	int md_id;
 	int event_type;
 	char reason[32];
@@ -35,7 +35,10 @@ struct md_status_event {
 
 #ifdef CONFIG_COMPAT
 struct md_status_compat_event {
-	struct compat_timeval time_stamp;
+	struct {
+		compat_s64              tv_sec;
+		compat_s64              tv_nsec;
+	} time_stamp;
 	int md_id;
 	int event_type;
 	char reason[32];
@@ -61,7 +64,7 @@ struct cdev s_bd_char_dev;
 struct last_md_status_event {
 	int has_value;
 	int md_id;
-	struct timeval time_stamp;
+	struct timespec64 time_stamp;
 	int event_type;
 	char reason[32];
 };
@@ -96,7 +99,7 @@ struct ccci_util_bc_user_ctlb {
 };
 
 static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
-	int md_id, const struct timeval *ev_rtime,
+	int md_id, const struct timespec64 *ev_rtime,
 	int event_type, char reason[])
 {
 	if (user_ctlb->pending_event_cnt == user_ctlb->buff_cnt) {
@@ -123,7 +126,7 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 }
 
 static void save_last_md_status(int md_id,
-		const struct timeval *time_stamp, int event_type, char reason[])
+		const struct timespec64 *time_stamp, int event_type, char reason[])
 {
 	/* MD_STA_EV_HS1 = 9
 	 * ignore events before MD_STA_EV_HS1
@@ -171,7 +174,7 @@ static void send_last_md_status_to_user(int md_id,
 void inject_md_status_event(int md_id, int event_type, char reason[])
 {
 	struct timespec64 time_spec64;
-	struct timeval time_stamp;
+	struct timespec64 time_stamp;
 	struct ccci_util_bc_user_ctlb *user_ctlb = NULL;
 	unsigned int md_mark;
 	int i;
@@ -185,7 +188,7 @@ void inject_md_status_event(int md_id, int event_type, char reason[])
 		md_mark = 0;
 	ktime_get_ts64(&time_spec64);
 	time_stamp.tv_sec = time_spec64.tv_sec;
-	time_stamp.tv_usec = time_spec64.tv_nsec/NSEC_PER_USEC;
+	time_stamp.tv_nsec = time_spec64.tv_nsec;
 	spin_lock_irqsave(&s_event_update_lock, flag);
 	save_last_md_status(md_id, &time_stamp, event_type, reason);
 	for (i = 0; i < MD_BC_MAX_NUM; i++) {
@@ -374,7 +377,7 @@ static int cpy_compat_event_to_user(char __user *buf, size_t size,
 		if (size < event_size)
 			return -EINVAL;
 		compat_event.time_stamp.tv_sec = event->time_stamp.tv_sec;
-		compat_event.time_stamp.tv_usec = event->time_stamp.tv_usec;
+		compat_event.time_stamp.tv_nsec = event->time_stamp.tv_nsec;
 		compat_event.md_id = event->md_id;
 		compat_event.event_type = event->event_type;
 		memcpy(compat_event.reason, event->reason, 32);

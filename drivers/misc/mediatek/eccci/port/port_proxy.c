@@ -1824,10 +1824,10 @@ static int ccci_lp_mem_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-const struct file_operations ccci_dbm_ops = {
-	.open = ccci_lp_mem_open,
-	.read = ccci_lp_mem_read,
-	.release = ccci_lp_mem_close,
+const struct proc_ops ccci_dbm_ops = {
+	.proc_open = ccci_lp_mem_open,
+	.proc_read = ccci_lp_mem_read,
+	.proc_release = ccci_lp_mem_close,
 };
 
 static void ccci_proc_init(void)

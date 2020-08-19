@@ -620,7 +620,7 @@ static int ccmni_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
-static void ccmni_tx_timeout(struct net_device *dev)
+static void ccmni_tx_timeout(struct net_device *dev, unsigned int txqueue)
 {
 	struct ccmni_instance *ccmni =
 		(struct ccmni_instance *)netdev_priv(dev);
