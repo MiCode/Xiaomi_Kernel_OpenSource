@@ -26,7 +26,7 @@ int kgsl_devfreq_del_notifier(struct device *device,
 	struct notifier_block *block);
 
 /* same as KGSL_MAX_PWRLEVELS */
-#define MSM_ADRENO_MAX_PWRLEVELS 15
+#define MSM_ADRENO_MAX_PWRLEVELS 10
 
 struct xstats {
 	u64 ram_time;
