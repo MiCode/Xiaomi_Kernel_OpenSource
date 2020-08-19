@@ -111,7 +111,7 @@ static int mdw_mem_aosp_map_kva(struct apusys_kmem *mem)
 		goto err;
 	}
 	/* map kernel va*/
-	buffer = dma_buf_kmap(d, 0);
+	buffer = dma_buf_vmap(d);
 	if (IS_ERR_OR_NULL(buffer)) {
 		mdw_drv_err("map kernel va fail(%p)\n",	d);
 		ret = -ENOMEM;
@@ -232,7 +232,7 @@ static int mdw_mem_aosp_unmap_kva(struct apusys_kmem *mem)
 	if (check_arg(mem) || IS_ERR_OR_NULL(mem->d))
 		return -EINVAL;
 
-	dma_buf_kunmap(mem->d, 0, (void *)mem->kva);
+	dma_buf_vunmap(mem->d, (void *)mem->kva);
 
 	ret = dma_buf_end_cpu_access(mem->d, DMA_FROM_DEVICE);
 	if (ret)
