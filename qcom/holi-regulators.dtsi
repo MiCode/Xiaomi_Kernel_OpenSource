@@ -198,10 +198,13 @@
 
 	rpm-regulator-ldoa8 {
 		status = "okay";
+		proxy-supply = <&pm6350_l8>;
 		L8A: pm6350_l8: regulator-l8 {
 			regulator-min-microvolt = <2500000>;
 			regulator-max-microvolt = <3544000>;
 			qcom,init-voltage = <2500000>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <857000>;
 			status = "okay";
 		};
 	};
@@ -450,10 +453,13 @@
 
 	rpm-regulator-ldoe1 {
 		status = "okay";
+		proxy-supply = <&pm6150a_l1>;
 		L1E: pm6150a_l1: regulator-l1 {
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <1980000>;
 			qcom,init-voltage = <1650000>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <62000>;
 			status = "okay";
 		};
 	};
@@ -565,5 +571,7 @@
 		reg = <0x162F000 0x60>;
 		regulator-name = "refgen";
 		regulator-enable-ramp-delay = <5>;
+		proxy-supply = <&refgen>;
+		qcom,proxy-consumer-enable;
 	};
 };
