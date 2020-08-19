@@ -360,6 +360,7 @@ s32 cmdqCoreRegisterDebugRegDumpCB(
 	cmdq_debug_cb.endDebugRegDump = endCB;
 	return 0;
 }
+EXPORT_SYMBOL(cmdqCoreRegisterDebugRegDumpCB);
 
 s32 cmdqCoreRegisterTrackTaskCB(enum CMDQ_GROUP_ENUM engGroup,
 	CmdqTrackTaskCB trackTask)
@@ -1393,6 +1394,7 @@ const char *cmdq_core_query_first_err_mod(void)
 				cmdq_clients[i]->chan);
 	return NULL;
 }
+EXPORT_SYMBOL(cmdq_core_query_first_err_mod);
 
 void cmdq_core_hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
 	int groupsize, char *linebuf, size_t linebuflen)
