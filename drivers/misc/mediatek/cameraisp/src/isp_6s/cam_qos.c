@@ -132,7 +132,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 		SLAVE_COMMON(0));
 		break;
 	default:
-		LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
+		LOG_NOTICE("unsupported port:%d\n", portID);
 		break;
 	}
 	break;
@@ -149,7 +149,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
 		SLAVE_COMMON(0));
 		break;
 	default:
-		LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
+		LOG_NOTICE("unsupported port:%d\n", portID);
 		break;
 	}
 	break;
@@ -162,7 +162,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 		SLAVE_COMMON(0));
 		break;
 	default:
-		LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
+		LOG_NOTICE("unsupported port:%d\n", portID);
 		break;
 	}
 	break;
@@ -206,7 +206,7 @@ default:
 				SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -230,7 +230,7 @@ default:
 				SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -252,7 +252,7 @@ default:
 				SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -274,7 +274,7 @@ default:
 				SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -296,7 +296,7 @@ default:
 				SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -318,7 +318,7 @@ default:
 				SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -341,7 +341,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -364,7 +364,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -389,7 +389,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -413,7 +413,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -437,7 +437,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -459,7 +459,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -481,7 +481,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -506,7 +506,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -529,7 +529,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -551,7 +551,7 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
@@ -573,12 +573,12 @@ default:
 			SLAVE_COMMON(0));
 			break;
 		default:
-			LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
+			LOG_NOTICE("unsupported module:%d\n", module);
 			break;
 		}
 		break;
 	default:
-		LOG_NOTICE("module(%d): unsupported port:%d\n", module, portID);
+		LOG_NOTICE("unsupported port:%d\n", portID);
 		break;
 	}
 break;
@@ -942,8 +942,8 @@ int ISP_SetPMQOS(
 		}
 		for (i = 0; i < num_available; i++)
 			pvalue[i] = speeds[i];
-		if (num_available > 0)
-			target_clk = pvalue[num_available - 1];
+			if (num_available > 0)
+				target_clk = pvalue[num_available - 1];
 
 		for (i = 0 ; i < num_available; i++)
 			LOG_DBG("2:DFS Clk_%d:%d", i, pvalue[i]);
@@ -1118,7 +1118,7 @@ static int cam_qos_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id of_match_cam_qos[] = {
-	{ .compatible = "mediatek,cam_qos_legacy", },
+	{ .compatible = "mediatek,cam_qos", },
 	{}
 };
 
