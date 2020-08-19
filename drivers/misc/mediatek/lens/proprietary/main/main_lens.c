@@ -341,7 +341,7 @@ static long AF_SetMotorName(__user struct stAF_MotorName *pstMotorName)
 static inline int64_t getCurNS(void)
 {
 	int64_t ns;
-	struct timespec time;
+	struct timespec64 time;
 
 	time.tv_sec = time.tv_nsec = 0;
 	/* get_monotonic_boottime(&time); */
