@@ -4,6 +4,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -34,7 +35,8 @@ static int bring_up_probe(struct platform_device *pdev)
 				pr_notice("get clk %d fail, ret=%d, clk_con=%d\n",
 				       i, (int)ret, clk_con);
 		} else {
-			pr_notice("get clk %d ok\n", i);
+			pr_notice("get clk [%d]: %s ok\n", i,
+					__clk_get_name(clk));
 			clk_prepare_enable(clk);
 		}
 	}
