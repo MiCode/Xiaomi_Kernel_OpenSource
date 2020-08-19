@@ -348,12 +348,11 @@ static unsigned int gz_log_poll(struct file *file, poll_table *wait)
 	return mask;
 }
 
-static const struct file_operations proc_gz_log_fops = {
-	.owner = THIS_MODULE,
-	.open = gz_log_open,
-	.read = gz_log_read,
-	.release = gz_log_release,
-	.poll = gz_log_poll,
+static const struct proc_ops proc_gz_log_fops = {
+	.proc_open = gz_log_open,
+	.proc_read = gz_log_read,
+	.proc_release = gz_log_release,
+	.proc_poll = gz_log_poll,
 };
 
 static int trusty_gz_log_probe(struct platform_device *pdev)

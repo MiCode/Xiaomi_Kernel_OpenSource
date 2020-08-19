@@ -42,6 +42,7 @@
 #include <linux/virtio_ring.h>
 #include <linux/atomic.h>
 #include <linux/mod_devicetable.h>
+#include <linux/slab.h>
 
 #define  RSC_DESCR_VER  1
 
