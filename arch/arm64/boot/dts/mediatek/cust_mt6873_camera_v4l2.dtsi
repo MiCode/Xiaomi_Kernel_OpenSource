@@ -498,6 +498,7 @@
 
 	sensor0 {
 		compatible = "mediatek,imgsensor";
+		#thermal-sensor-cells = <0>;
 		reg = <0x1a>;
 		pinctrl-names = "mclk_off",
 			"mclk_2mA",
@@ -552,6 +553,7 @@
 
 	sensor1 {
 		compatible = "mediatek,imgsensor";
+		#thermal-sensor-cells = <0>;
 		reg = <0x1a>;
 		pinctrl-names = "mclk_off",
 			"mclk_2mA",
@@ -613,6 +615,7 @@
 
 	sensor2 {
 		compatible = "mediatek,imgsensor";
+		#thermal-sensor-cells = <0>;
 		reg = <0x10>;
 		pinctrl-names = "mclk_off",
 			"mclk_2mA",
@@ -668,6 +671,7 @@
 
 	sensor4 {
 		compatible = "mediatek,imgsensor";
+		#thermal-sensor-cells = <0>;
 		reg = <0x10>;
 		pinctrl-names = "mclk_off",
 			"mclk_2mA",

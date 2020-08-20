@@ -485,6 +485,7 @@
 	};
 	camera_main_two_mtk:camera_main_two@10 {
 		compatible = "mediatek,camera_main_two";
+		#thermal-sensor-cells = <0>;
 		reg = <0x10>;
 		status = "okay";
 	};
@@ -497,6 +498,7 @@
 	};
 	camera_sub_mtk:camera_sub@1a {
 		compatible = "mediatek,camera_sub";
+		#thermal-sensor-cells = <0>;
 		reg = <0x1a>;
 		status = "okay";
 	};
@@ -509,6 +511,7 @@
 	};
 	camera_main_mtk:camera_main@1a {
 		compatible = "mediatek,camera_main";
+		#thermal-sensor-cells = <0>;
 		reg = <0x1a>;
 		status = "okay";
 	};
@@ -521,6 +524,7 @@
 	};
 	camera_main_three_mtk:camera_main_three@10 {
 		compatible = "mediatek,camera_main_three";
+		#thermal-sensor-cells = <0>;
 		reg = <0x10>;
 		status = "okay";
 	};
