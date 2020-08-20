@@ -287,14 +287,15 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 		irq_cnt = irq_count;
 
 		reg_orig = arm_smmu_cb_read(smmu, cb, ARM_SMMU_CB_SCTLR);
-		reg = reg_orig | SCTLR_CFIE | SCTLR_CFRE;
+		reg = reg_orig | ARM_SMMU_SCTLR_CFIE | ARM_SMMU_SCTLR_CFRE;
 
 		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_SCTLR, reg);
 		dev_info(smmu->dev, "Testing cntx %d irq %d\n", cb, irq);
 
 		/* Make sure ARM_SMMU_CB_SCTLR is configured */
 		wmb();
-		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE, FSR_TF);
+		arm_smmu_cb_write(smmu, cb, ARM_SMMU_CB_FSRRESTORE,
+				ARM_SMMU_FSR_TF);
 
 		wait_event_timeout(wait_int, (irq_count > irq_cnt),
 			msecs_to_jiffies(1000));
