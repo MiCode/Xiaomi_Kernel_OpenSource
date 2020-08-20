@@ -22,8 +22,6 @@ enum {
 	((drv)->states[idx].target_residency)
 #define get_latency(drv, idx)\
 	((drv)->states[idx].exit_latency)
-#define get_disabled(drv, idx)\
-	((drv)->states[idx].disabled)
 
 #define mtk_cpuidle_get_param(drv, state, param)                \
 ({                                                              \
@@ -32,8 +30,6 @@ enum {
 		val = (int)get_latency(drv, state);             \
 	else if (param == IDLE_PARAM_RES)                       \
 		val = (int)get_residency(drv, state);           \
-	else if (param == IDLE_PARAM_EN)                        \
-		val = get_disabled(drv, state) ? 0 : 1 ;        \
 	val;                                                    \
 })
 
@@ -43,8 +39,6 @@ do {                                                            \
 		get_latency(drv, state) = val;                  \
 	else if (param == IDLE_PARAM_RES)                       \
 		get_residency(drv, state) = val;                \
-	else if (param == IDLE_PARAM_EN)                        \
-		get_disabled(drv, state) = !val ;               \
 } while (0)
 
 void mtk_cpuidle_set_stress_test(bool en);

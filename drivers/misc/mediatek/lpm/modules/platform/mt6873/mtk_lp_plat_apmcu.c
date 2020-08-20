@@ -34,14 +34,14 @@ static struct task_struct *mtk_lp_plat_task;
 static struct pm_qos_request mtk_lp_plat_qos_req;
 
 #define mtk_lp_plat_qos_init()\
-	pm_qos_add_request(&mtk_lp_plat_qos_req,\
-		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE)
+	cpu_latency_qos_add_request(&mtk_lp_plat_qos_req,\
+		PM_QOS_DEFAULT_VALUE)
 #define mtk_cpu_off_block()\
-	pm_qos_update_request(&mtk_lp_plat_qos_req, 2)
+	cpu_latency_qos_update_request(&mtk_lp_plat_qos_req, 2)
 #define mtk_cpu_off_allow()\
-	pm_qos_update_request(&mtk_lp_plat_qos_req, PM_QOS_DEFAULT_VALUE)
+	cpu_latency_qos_update_request(&mtk_lp_plat_qos_req, PM_QOS_DEFAULT_VALUE)
 #define mtk_lp_plat_qos_uninit()\
-	pm_qos_remove_request(&mtk_lp_plat_qos_req)
+	cpu_latency_qos_remove_request(&mtk_lp_plat_qos_req)
 
 #define CHK(cond) WARN_ON(cond)
 
@@ -221,14 +221,14 @@ static void mtk_lp_plat_cpuhp_init(void)
 /*
  * Timespec interfaces utilizing the ktime based ones
  */
-static inline void get_monotonic_boottime(struct timespec *ts)
+static inline void get_monotonic_boottime(struct timespec64 *ts)
 {
-	*ts = ktime_to_timespec(ktime_get_boottime());
+	*ts = ktime_to_timespec64(ktime_get_boottime());
 }
 
 static int mtk_lp_plat_wait_depd_condition(void *arg)
 {
-	struct timespec uptime;
+	struct timespec64 uptime;
 	bool mcupm_rdy = false;
 	bool boot_time_pass = false;
 

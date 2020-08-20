@@ -30,9 +30,8 @@
 
 typedef int (*state_enter)(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx);
-typedef void (*s2idle_enter)(struct cpuidle_device *dev,
+typedef int (*s2idle_enter)(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx);
-
 
 struct mtk_lpm_state_enter_fp {
 	state_enter state;
@@ -99,10 +98,11 @@ enum mtk_lpm_state_type {
 static int mtk_lpm_state_enter(int type, struct cpuidle_device *dev,
 			     struct cpuidle_driver *drv, int idx);
 
-void mtk_lpm_s2idle_state_enter(struct cpuidle_device *dev,
+int mtk_lpm_s2idle_state_enter(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv, int idx)
 {
 	mtk_lpm_state_enter(mtk_lpm_state_s2idle, dev, drv, idx);
+	return 0;
 }
 
 int mtk_lpm_cpuidle_state_enter(struct cpuidle_device *dev,
