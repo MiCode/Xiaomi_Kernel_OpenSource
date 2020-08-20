@@ -743,8 +743,8 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 	unsigned int left_len = 0;
 	unsigned long base = p_dma_info->base;
 	static int flush_irq_counter;
-	static struct timeval start_timer;
-	static struct timeval end_timer;
+	static struct timespec64 start_timer;
+	static struct timespec64 end_timer;
 	unsigned long flag = 0;
 
 	spin_lock_irqsave(&(g_clk_cg_spinlock), flag);
@@ -787,8 +787,8 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 			BTIF_ERR_FUNC(
 			     "Tx happened %d times, between %ld.%ld and %ld.%ld\n",
 			     MAX_CONTINUOUS_TIMES, start_timer.tv_sec,
-			     start_timer.tv_usec, end_timer.tv_sec,
-			     end_timer.tv_usec);
+			     start_timer.tv_nsec, end_timer.tv_sec,
+			     end_timer.tv_nsec);
 		}
 	} else if (vff_len == left_len) {
 		flush_irq_counter = 0;

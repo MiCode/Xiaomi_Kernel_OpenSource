@@ -198,7 +198,7 @@ int g_enable_btif_rxd_test;
 #endif
 static int mtk_btif_dbg_lvl = BTIF_LOG_INFO;
 #if BTIF_RXD_BE_BLOCKED_DETECT
-static struct timeval btif_rxd_time_stamp[MAX_BTIF_RXD_TIME_REC];
+static struct timespec64 btif_rxd_time_stamp[MAX_BTIF_RXD_TIME_REC];
 #endif
 /*-----------Platform bus related structures----------------*/
 #define DRV_NAME "mtk_btif"
@@ -1728,8 +1728,8 @@ int _btif_enter_dpidle_from_on(struct _mtk_btif_ *p_btif)
 	unsigned int retry = 0;
 	unsigned int wait_period = 1;
 	unsigned int max_retry = MAX_WAIT_TIME_MS / wait_period;
-	struct timeval timer_start;
-	struct timeval timer_now;
+	struct timespec64 timer_start;
+	struct timespec64 timer_now;
 
 	btif_do_gettimeofday(&timer_start);
 
@@ -2175,7 +2175,7 @@ static int mtk_btif_rxd_be_blocked_by_timer(void)
 	int ret = 0;
 	int counter = 0;
 	unsigned int i;
-	struct timeval now;
+	struct timespec64 now;
 	int time_gap[MAX_BTIF_RXD_TIME_REC];
 
 	btif_do_gettimeofday(&now);
@@ -2183,17 +2183,17 @@ static int mtk_btif_rxd_be_blocked_by_timer(void)
 	for (i = 0; i < MAX_BTIF_RXD_TIME_REC; i++) {
 		BTIF_INFO_FUNC("btif_rxd_time_stamp[%d]=%ld.%ld\n", i,
 				btif_rxd_time_stamp[i].tv_sec,
-				btif_rxd_time_stamp[i].tv_usec);
+				btif_rxd_time_stamp[i].tv_nsec);
 		if (now.tv_sec >= btif_rxd_time_stamp[i].tv_sec) {
 			time_gap[i] = now.tv_sec -
 					btif_rxd_time_stamp[i].tv_sec;
 			time_gap[i] *= 1000000; /*second*/
-			if (now.tv_usec >= btif_rxd_time_stamp[i].tv_usec)
-				time_gap[i] += now.tv_usec -
-						btif_rxd_time_stamp[i].tv_usec;
+			if (now.tv_nsec >= btif_rxd_time_stamp[i].tv_nsec)
+				time_gap[i] += now.tv_nsec -
+						btif_rxd_time_stamp[i].tv_nsec;
 			else
-				time_gap[i] += 1000000 - now.tv_usec +
-						btif_rxd_time_stamp[i].tv_usec;
+				time_gap[i] += 1000000 - now.tv_nsec +
+						btif_rxd_time_stamp[i].tv_nsec;
 
 			if (time_gap[i] > 1000000)
 				counter++;
@@ -2203,7 +2203,7 @@ static int mtk_btif_rxd_be_blocked_by_timer(void)
 			time_gap[i] = 0;
 			BTIF_ERR_FUNC("!!!now[%ld]<time_stamp[%d]:%ld\n",
 					now.tv_sec, i,
-					btif_rxd_time_stamp[i].tv_usec);
+					btif_rxd_time_stamp[i].tv_nsec);
 		}
 	}
 	if (counter > (MAX_BTIF_RXD_TIME_REC - 2))
@@ -2940,10 +2940,10 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 {
 	struct _btif_log_buf_t_ *p_log_buf = NULL;
 	char *dir = NULL;
-	struct timeval *p_timer = NULL;
+	struct timespec64 *p_timer = NULL;
 	unsigned long flags;
 	bool output_flag = false;
-	struct timespec *p_ts = NULL;
+	struct timespec64 *p_ts = NULL;
 
 	BTIF_DBG_FUNC("++\n");
 
@@ -2967,7 +2967,7 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 
 /*log time stamp*/
 	btif_do_gettimeofday(p_timer);
-	*p_ts = ktime_to_timespec(ktime_get());
+	*p_ts = ktime_to_timespec64(ktime_get());
 
 /*record data information including length and content*/
 	p_log_buf->len = len;
@@ -2987,7 +2987,7 @@ int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que,
 /*check if log dynamic output function is enabled or not*/
 	if (output_flag) {
 		pr_debug("BTIF-DBG, dir:%s, %d.%ds(%lld.%.9ld) len:%d\n",
-			 dir, (int)p_timer->tv_sec, (int)p_timer->tv_usec,
+			 dir, (int)p_timer->tv_sec, (int)p_timer->tv_nsec,
 			 (long long)p_ts->tv_sec, p_ts->tv_nsec, len);
 /*output buffer content*/
 		btif_dump_data((char *)p_buf, len);
@@ -3006,8 +3006,8 @@ static void btif_log_buf_dmp_out_work(struct work_struct *work)
 	unsigned int len = 0;
 	unsigned int pkt_count = 0;
 	unsigned char *p_dir = NULL;
-	struct timeval *p_timer = NULL;
-	struct timespec *p_ts = NULL;
+	struct timespec64 *p_timer = NULL;
+	struct timespec64 *p_ts = NULL;
 	int i;
 
 	if (p_log_que == NULL || p_log_que->p_dump_queue == NULL)
@@ -3031,7 +3031,7 @@ static void btif_log_buf_dmp_out_work(struct work_struct *work)
 			p_dir,
 			pkt_count++,
 			(int)p_timer->tv_sec,
-			(int)p_timer->tv_usec,
+			(int)p_timer->tv_nsec,
 			(long long)p_ts->tv_sec,
 			p_ts->tv_nsec, len);
 		/*output buffer content*/
@@ -3569,13 +3569,13 @@ static int btif_block_rx_dma_irq_test(void)
 }
 #endif
 
-void btif_do_gettimeofday(struct timeval *tv)
+void btif_do_gettimeofday(struct timespec64 *tv)
 {
 	struct timespec64 now;
 
 	ktime_get_real_ts64(&now);
 	tv->tv_sec = now.tv_sec;
-	tv->tv_usec = now.tv_nsec / NSEC_PER_USEC;
+	tv->tv_nsec = now.tv_nsec;
 }
 /*---------------------------------------------------------------------------*/
 
