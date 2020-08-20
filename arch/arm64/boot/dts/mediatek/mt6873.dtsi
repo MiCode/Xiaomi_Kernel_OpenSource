@@ -3177,7 +3177,7 @@
 		};
 
 		edma0: edma0@19027000 {
-			compatible = "mtk,edma-sub";
+			compatible = "mtk,edma-sub-v20";
 			reg = <0x0 0x19027000 0x0 0x1000>;
 			interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
