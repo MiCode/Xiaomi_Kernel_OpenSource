@@ -24,6 +24,8 @@ qcom-pdc.ko
 iommu-logger.ko
 arm_smmu.ko
 qcom-arm-smmu-mod.ko
+msm-geni-se.ko
+msm_geni_serial.ko
 #phy-qcom-ufs.ko
 #phy-qcom-ufs-qmp-v4-lahaina.ko
 #phy-qcom-ufs-qmp-14nm.ko
