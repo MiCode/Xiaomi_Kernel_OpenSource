@@ -1934,6 +1934,10 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 					       priv->ioaddr +
 					       (0x00000d00 + 0x2c));
 			}
+
+			if (priv->rx_queue[chan].en_fep)
+				priv->hw->dma->enable_rx_fep(priv->ioaddr,
+							     true, chan);
 		}
 
 		for (chan = 0; chan < tx_channels_count; chan++) {

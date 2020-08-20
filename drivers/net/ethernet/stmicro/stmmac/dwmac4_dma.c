@@ -396,6 +396,23 @@ static void dwmac4_enable_tso(void __iomem *ioaddr, bool en, u32 chan)
 	}
 }
 
+static void dwmac4_dma_rx_chan_fep(void __iomem *ioaddr, bool en, u32 chan)
+{
+	u32 value;
+
+	if (en) {
+		/* enable FEP */
+		value = readl_relaxed(ioaddr + MTL_CHAN_RX_OP_MODE(chan));
+		writel_relaxed(value | MTL_OP_MODE_FEP,
+			       ioaddr + MTL_CHAN_RX_OP_MODE(chan));
+	} else {
+		/* disable FEP */
+		value = readl_relaxed(ioaddr + MTL_CHAN_RX_OP_MODE(chan));
+		writel_relaxed(value & ~MTL_OP_MODE_FEP,
+			       ioaddr + MTL_CHAN_RX_OP_MODE(chan));
+	}
+}
+
 const struct stmmac_dma_ops dwmac4_dma_ops = {
 	.reset = dwmac4_dma_reset,
 	.init = dwmac4_dma_init,
@@ -420,6 +437,7 @@ const struct stmmac_dma_ops dwmac4_dma_ops = {
 	.set_rx_tail_ptr = dwmac4_set_rx_tail_ptr,
 	.set_tx_tail_ptr = dwmac4_set_tx_tail_ptr,
 	.enable_tso = dwmac4_enable_tso,
+	.enable_rx_fep = dwmac4_dma_rx_chan_fep,
 };
 
 const struct stmmac_dma_ops dwmac410_dma_ops = {
@@ -446,4 +464,5 @@ const struct stmmac_dma_ops dwmac410_dma_ops = {
 	.set_rx_tail_ptr = dwmac4_set_rx_tail_ptr,
 	.set_tx_tail_ptr = dwmac4_set_tx_tail_ptr,
 	.enable_tso = dwmac4_enable_tso,
+	.enable_rx_fep = dwmac4_dma_rx_chan_fep,
 };

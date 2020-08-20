@@ -398,6 +398,12 @@ enum current_phy_state {
 	RGMII_IO_MACRO_CONFIG_RGWR(v);\
 } while (0)
 
+enum CV2X_MODE {
+	CV2X_MODE_DISABLE = 0x0,
+	CV2X_MODE_MDM,
+	CV2X_MODE_AP
+};
+
 struct ethqos_vlan_info {
 	u16 vlan_id;
 	u32 vlan_offset;
@@ -518,6 +524,9 @@ struct qcom_ethqos {
 	/* QMI over ethernet parameter */
 	u32 qoe_mode;
 	struct ethqos_vlan_info qoe_vlan;
+	u32 cv2x_mode;
+	struct ethqos_vlan_info cv2x_vlan;
+	unsigned char cv2x_dev_addr[ETH_ALEN];
 };
 
 struct pps_cfg {
@@ -592,6 +601,7 @@ u16 dwmac_qcom_select_queue(
 #define IPA_DMA_TX_CH 0
 #define IPA_DMA_RX_CH 0
 
+#define CV2X_TAG_TX_CHANNEL 3
 #define QMI_TAG_TX_CHANNEL 2
 
 #define VLAN_TAG_UCP_SHIFT 13

@@ -275,6 +275,8 @@ enum power_event {
 #define MTL_OP_MODE_RFA_SHIFT		8
 
 #define MTL_OP_MODE_EHFC		BIT(7)
+#define MTL_OP_MODE_FEP			BIT(4)
+#define MTL_OP_MODE_FUP			BIT(3)
 
 #define MTL_OP_MODE_RTC_MASK		0x18
 #define MTL_OP_MODE_RTC_SHIFT		3
