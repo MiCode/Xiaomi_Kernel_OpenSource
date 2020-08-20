@@ -164,11 +164,11 @@ struct mtk_lpm_model mt6873_model_suspend = {
 static int mt6873_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
-	struct timespec ts;
+	struct timespec64 ts;
 	struct rtc_time tm;
 
-	getnstimeofday(&ts);
-	rtc_time_to_tm(ts.tv_sec, &tm);
+	ktime_get_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &tm);
 
 	switch (pm_event) {
 	case PM_HIBERNATION_PREPARE:
