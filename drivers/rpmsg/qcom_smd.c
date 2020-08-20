@@ -626,7 +626,7 @@ static bool qcom_smd_channel_intr(struct qcom_smd_channel *channel)
 	}
 
 	/* Indicate that we have seen and updated tail */
-	SET_RX_CHANNEL_FLAG(channel, fTAIL, 1);
+	SET_TX_CHANNEL_FLAG(channel, fTAIL, 1);
 
 	/* Signal the remote that we've consumed the data (if requested) */
 	if (!GET_RX_CHANNEL_FLAG(channel, fBLOCKREADINTR)) {
