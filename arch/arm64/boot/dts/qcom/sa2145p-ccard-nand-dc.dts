@@ -81,3 +81,33 @@
 		rx-dll-bypass;
 	};
 };
+
+&tlmm {
+	/delete-node/ mdss_hdmi_ddc_active;
+	/delete-node/ mdss_hdmi_ddc_suspend;
+	rgmii_level_shifter: rgmii_level_shifter {
+		mux {
+			pins = "gpio16";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio16";
+			drive-strength = <2>;
+			bias-pull-down;
+			output-low;
+		};
+	};
+};
+
+&ethqos_hw {
+	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state",
+		"dev-emac-rgmii_lvl_shift_state";
+	pinctrl-16 = <&rgmii_level_shifter>;
+};
