@@ -67,6 +67,13 @@
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+	qcom,linein-det-swh = <1>;
+	qcom,lineout-det-swh = <1>;
+	qcom,linein-det-gpio = <&tlmm 1 0>;
+	qcom,lineout-det-gpio = <&tlmm 60 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&jack_det_linein_default
+		     &jack_det_lineout_default>;
 };
 
 &pm6150_charger {
