@@ -286,6 +286,12 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct phy_device *phy = dev->phydev;
 
+	if (!phy) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return -ENODEV;
+	}
+
 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
 		struct rgmii_adv adv;
@@ -365,11 +371,6 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
 		return 0;
 	}
 
-	if (phy == NULL) {
-		pr_err("%s: %s: PHY is not registered\n",
-		       __func__, dev->name);
-		return -ENODEV;
-	}
 	if (!netif_running(dev)) {
 		pr_err("%s: interface is disabled: we cannot track "
 		"link speed / duplex setting\n", dev->name);
@@ -387,6 +388,12 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 	struct phy_device *phy = dev->phydev;
 	int rc;
 	u32 cmd_speed = cmd->base.speed;
+
+	if (!phy) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return -ENODEV;
+	}
 
 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
@@ -504,6 +511,12 @@ stmmac_set_pauseparam(struct net_device *netdev,
 	u32 tx_cnt = priv->plat->tx_queues_to_use;
 	struct phy_device *phy = netdev->phydev;
 	int new_pause = FLOW_OFF;
+
+	if (!phy) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, netdev->name);
+		return -ENODEV;
+	}
 
 	if (priv->hw->pcs && priv->hw->mac->pcs_get_adv_lp) {
 		struct rgmii_adv adv_lp;
@@ -634,6 +647,12 @@ static void stmmac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
+	if (!priv->phydev) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return;
+	}
+
 	phy_ethtool_get_wol(priv->phydev, wol);
 	mutex_lock(&priv->lock);
 	if (device_can_wakeup(priv->device)) {
@@ -649,6 +668,12 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
 	u32 emac_wol_support = 0;
 	int ret;
+
+	if (!priv->phydev) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return -ENODEV;
+	}
 
 	if (ethqos->phy_state == PHY_IS_OFF) {
 		ETHQOSINFO("Phy is in off state Wol set not possible\n");

@@ -2736,9 +2736,10 @@ static int stmmac_open(struct net_device *dev)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int ret;
 
-	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
-	    priv->hw->pcs != STMMAC_PCS_TBI &&
-	    priv->hw->pcs != STMMAC_PCS_RTBI) {
+	if (!priv->plat->mac2mac_en &&
+	    (priv->hw->pcs != STMMAC_PCS_RGMII &&
+	     priv->hw->pcs != STMMAC_PCS_TBI &&
+	     priv->hw->pcs != STMMAC_PCS_RTBI)) {
 		ret = stmmac_init_phy(dev);
 		if (ret) {
 			netdev_err(priv->dev,
@@ -2825,6 +2826,26 @@ static int stmmac_open(struct net_device *dev)
 	stmmac_start_all_queues(priv);
 	if (priv->tx_queue[IPA_DMA_TX_CH].skip_sw)
 		ethqos_ipa_offload_event_handler(priv, EV_DEV_OPEN);
+
+	if (priv->plat->mac2mac_en) {
+		u32 ctrl = readl_relaxed(priv->ioaddr + MAC_CTRL_REG);
+
+		ctrl &= ~priv->hw->link.speed_mask;
+
+		if (priv->plat->mac2mac_rgmii_speed == SPEED_1000) {
+			ctrl |= priv->hw->link.speed1000;
+			priv->speed = SPEED_1000;
+		} else if (priv->plat->mac2mac_rgmii_speed == SPEED_100) {
+			ctrl |= priv->hw->link.speed100;
+			priv->speed = SPEED_100;
+		} else {
+			ctrl |= priv->hw->link.speed10;
+			priv->speed = SPEED_10;
+		}
+
+		stmmac_hw_fix_mac_speed(priv);
+		writel_relaxed(ctrl, priv->ioaddr + MAC_CTRL_REG);
+	}
 
 	return 0;
 
@@ -4595,9 +4616,10 @@ int stmmac_dvr_probe(struct device *device,
 
 	stmmac_check_pcs_mode(priv);
 
-	if (priv->hw->pcs != STMMAC_PCS_RGMII  &&
-	    priv->hw->pcs != STMMAC_PCS_TBI &&
-	    priv->hw->pcs != STMMAC_PCS_RTBI) {
+	if (!priv->plat->mac2mac_en &&
+	    (priv->hw->pcs != STMMAC_PCS_RGMII &&
+	     priv->hw->pcs != STMMAC_PCS_TBI &&
+	     priv->hw->pcs != STMMAC_PCS_RTBI)) {
 		/* MDIO bus Registration */
 		ret = stmmac_mdio_register(ndev);
 		if (ret < 0) {
