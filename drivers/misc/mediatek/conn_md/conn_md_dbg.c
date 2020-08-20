@@ -18,9 +18,9 @@
 static struct proc_dir_entry *gConnMdDbgEntry;
 
 #if USE_NEW_PROC_FS_FLAG
-static const struct  file_operations conn_md_dbg_fops = {
-	.read = conn_md_dbg_read,
-	.write = conn_md_dbg_write,
+static const struct  proc_ops conn_md_dbg_fops = {
+	.proc_read = conn_md_dbg_read,
+	.proc_write = conn_md_dbg_write,
 };
 #endif
 

@@ -13,6 +13,7 @@
 #include <linux/sched/clock.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sched/debug.h>
 //#include <mtk-clkbuf-bridge.h>
 
 /*******************************************************************************
@@ -161,7 +162,6 @@ void connectivity_export_mt6306_set_gpio_dir(unsigned long pin,
 #define KERNEL_spm_resource_req
 #endif
 extern void tracing_record_cmdline(struct task_struct *tsk);
-extern void show_stack(struct task_struct *tsk, unsigned long *sp);
 #ifdef CPU_BOOST
 extern void mt_ppm_sysboost_freq(enum ppm_sysboost_user user,
 				 unsigned int freq);
