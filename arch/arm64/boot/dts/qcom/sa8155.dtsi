@@ -761,6 +761,38 @@
 	status="disabled";
 };
 
+&cti_cpu0 {
+	status = "disabled";
+};
+
+&cti_cpu1 {
+	status = "disabled";
+};
+
+&cti_cpu2 {
+	status = "disabled";
+};
+
+&cti_cpu3 {
+	status = "disabled";
+};
+
+&cti_cpu4 {
+	status = "disabled";
+};
+
+&cti_cpu5 {
+	status = "disabled";
+};
+
+&cti_cpu6 {
+	status = "disabled";
+};
+
+&cti_cpu7 {
+	status = "disabled";
+};
+
 #include "sa8155-audio.dtsi"
 #include "sa8155-camera.dtsi"
 #include "sa8155-camera-sensor.dtsi"
