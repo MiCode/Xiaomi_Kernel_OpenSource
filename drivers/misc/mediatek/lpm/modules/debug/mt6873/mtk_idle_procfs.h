@@ -11,7 +11,7 @@
 
 struct idle_proc_entry {
 	const char *name;
-	const struct file_operations *fops;
+	const struct proc_ops *fops;
 };
 
 
@@ -20,13 +20,12 @@ static int idle_proc_ ## name ## _open(struct inode *inode, struct file *file) \
 {                                                                              \
 	return single_open(file, idle_proc_ ## name ## _show, PDE_DATA(inode));\
 }                                                                              \
-static const struct file_operations idle_proc_ ## name ## _fops = {            \
-	.owner   = THIS_MODULE,                                                \
-	.open    = idle_proc_ ## name ## _open,                                \
-	.read    = seq_read,                                                   \
-	.llseek  = seq_lseek,                                                  \
-	.release = single_release,                                             \
-	.write   = idle_proc_ ## name ## _write,                               \
+static const struct proc_ops idle_proc_ ## name ## _fops = {            \
+	.proc_open    = idle_proc_ ## name ## _open,                                \
+	.proc_read    = seq_read,                                                   \
+	.proc_lseek  = seq_lseek,                                                  \
+	.proc_release = single_release,                                             \
+	.proc_write   = idle_proc_ ## name ## _write,                               \
 }
 
 #define PROC_ENTRY(name) {__stringify(name), &idle_proc_ ## name ## _fops}

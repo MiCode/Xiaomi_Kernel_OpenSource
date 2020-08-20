@@ -71,12 +71,12 @@ unsigned int mtk_cpupm_syssram_read(int ofs)
 
 void mtk_cpupm_block(void)
 {
-	pm_qos_update_request(&cpuidle_dbg_qos_req, 2);
+	cpu_latency_qos_update_request(&cpuidle_dbg_qos_req, 2);
 }
 
 void mtk_cpupm_allow(void)
 {
-	pm_qos_update_request(&cpuidle_dbg_qos_req, PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_update_request(&cpuidle_dbg_qos_req, PM_QOS_DEFAULT_VALUE);
 }
 
 int mtk_cpupm_get_idle_state_count(int cpu)
@@ -129,8 +129,8 @@ static void __init mtk_cpupm_node_init(void)
 
 int __init mtk_cpupm_dbg_init(void)
 {
-	pm_qos_add_request(&cpuidle_dbg_qos_req,
-		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+	cpu_latency_qos_add_request(&cpuidle_dbg_qos_req,
+		PM_QOS_DEFAULT_VALUE);
 
 	mtk_cpupm_node_init();
 
@@ -149,5 +149,5 @@ void __exit mtk_cpupm_dbg_exit(void)
 	mtk_cpuidle_status_exit();
 	mtk_cpc_exit();
 
-	pm_qos_remove_request(&cpuidle_dbg_qos_req);
+	cpu_latency_qos_remove_request(&cpuidle_dbg_qos_req);
 }
