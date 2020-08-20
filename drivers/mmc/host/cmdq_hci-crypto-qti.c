@@ -221,6 +221,8 @@ int cmdq_host_init_crypto_qti_spec(struct cmdq_host *host,
 		err = -ENOMEM;
 		goto out;
 	}
+	keyslot_manager_set_max_dun_bytes(host->ksm, sizeof(u32));
+
 	/*
 	 * In case host controller supports cryptographic operations
 	 * then, it uses 128bit task descriptor. Upper 64 bits of task
