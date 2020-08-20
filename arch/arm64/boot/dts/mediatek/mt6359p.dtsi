@@ -491,5 +491,9 @@
 			pmic-auxout-bblpm-en = <27>;
 			pmic-auxout-bblpm-o = <39>;
 		};
+
+		pmic_lbat_service {
+			compatible = "mediatek,mt6359p-lbat_service";
+		};
 	};
 };
