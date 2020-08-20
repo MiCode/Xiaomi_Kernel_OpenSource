@@ -4062,6 +4062,7 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 	case SIOCSHWTSTAMP:
 		ret = stmmac_hwtstamp_ioctl(dev, rq);
+		break;
 	case SIOCDEVPRIVATE:
 		ret = ethqos_handle_prv_ioctl(dev, rq, cmd);
 		break;
