@@ -28,13 +28,19 @@
 			<&gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
 			<&gpucc GPU_CC_AHB_CLK>,
 			<&aopcc QDSS_CLK>,
-			<&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>;
+			<&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>,
+			<&gpucc GPU_CC_CX_GMU_CLK>,
+			<&gpucc GPU_CC_HUB_AON_CLK>,
+			<&gpucc GPU_CC_HUB_CX_INT_CLK>;
 
 		clock-names = "gcc_gpu_memnoc_gfx",
 				"gcc_gpu_snoc_dvm_gfx",
 				"gpu_cc_ahb",
 				"apb_pclk",
-				"gpu_cc_hlos1_vote_gpu_smmu_clk";
+				"gpu_cc_hlos1_vote_gpu_smmu_clk",
+				"gpu_cc_cx_gmu",
+				"gpu_cc_hub_aon",
+				"gpu_cc_hub_cx_int";
 
 		qcom,chipid = <0x06060001>;
 
