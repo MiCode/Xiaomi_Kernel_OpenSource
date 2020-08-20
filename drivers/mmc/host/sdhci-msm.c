@@ -2055,7 +2055,7 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		}
 	}
 
-	if (sdhci_msm_dt_get_array(dev, "qcom,ice-clk-rates",
+	if (!sdhci_msm_dt_get_array(dev, "qcom,ice-clk-rates",
 			&ice_clk_table, &ice_clk_table_len, 0)) {
 		if (ice_clk_table && ice_clk_table_len) {
 			if (ice_clk_table_len != 2) {
