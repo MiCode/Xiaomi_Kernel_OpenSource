@@ -2402,7 +2402,8 @@
 			     <GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH /* CE9 */ >,
 			     <GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH /* CE10 */ >,
 			     <GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH /* CE11 */ >;
-		qcom,iommu-dma = "bypass";
+		qcom,iommu-dma = "fastmap";
+		qcom,iommu-faults = "stall-disable", "HUPCF", "non-fatal";
 		qcom,wlan-msa-fixed-region = <&pil_wlan_mem>;
 		qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
 		vdd-cx-mx-supply = <&L4A>;
