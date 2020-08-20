@@ -491,79 +491,68 @@ static int imgsensor_proc_status_info_open(struct inode *inode,
 	return single_open(file, imgsensor_proc_status_info_read, NULL);
 };
 
-static const struct file_operations fcamera_proc_fops1 = {
-	.owner = THIS_MODULE,
-	.open = proc_camera_info_open,
-	.read = seq_read,
+static const struct proc_ops fcamera_proc_fops1 = {
+	.proc_open = proc_camera_info_open,
+	.proc_read = seq_read,
 };
 
-static const struct file_operations fcamera_proc_fops = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug
+static const struct proc_ops fcamera_proc_fops = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug
 };
 
-static const struct file_operations fcamera_proc_fops2 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug2
+static const struct proc_ops fcamera_proc_fops2 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug2
 };
 
-static const struct file_operations fcamera_proc_fops3 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug3
+static const struct proc_ops fcamera_proc_fops3 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug3
 };
 
-static const struct file_operations fcamera_proc_fops4 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug4
+static const struct proc_ops fcamera_proc_fops4 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug4
 };
 
-static const struct file_operations fcamera_proc_fops5 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug5
+static const struct proc_ops fcamera_proc_fops5 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug5
 };
 
-static const struct file_operations fcamera_proc_fops6 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug6
+static const struct proc_ops fcamera_proc_fops6 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug6
 };
 
-static const struct file_operations fcamera_proc_fops7 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug7
+static const struct proc_ops fcamera_proc_fops7 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug7
 };
 
-static const struct file_operations fcamera_proc_fops8 = {
-	.owner = THIS_MODULE,
-	.read = seq_read,
-	.open = proc_camsensor_open,
-	.write = CAMERA_HW_Reg_Debug8
+static const struct proc_ops fcamera_proc_fops8 = {
+	.proc_read = seq_read,
+	.proc_open = proc_camsensor_open,
+	.proc_write = CAMERA_HW_Reg_Debug8
 };
 
-static const struct file_operations fcamera_proc_fops_set_pdaf_type = {
-	.owner = THIS_MODULE,
-	.open = proc_SensorType_open,
-	.read = seq_read,
-	.write = proc_SensorType_write
+static const struct proc_ops fcamera_proc_fops_set_pdaf_type = {
+	.proc_open = proc_SensorType_open,
+	.proc_read = seq_read,
+	.proc_write = proc_SensorType_write
 };
 
-static const struct file_operations fcamera_proc_fops_status_info = {
-	.owner = THIS_MODULE,
-	.open  = imgsensor_proc_status_info_open,
-	.read = seq_read,
+static const struct proc_ops fcamera_proc_fops_status_info = {
+	.proc_open  = imgsensor_proc_status_info_open,
+	.proc_read = seq_read,
 };
 
 enum IMGSENSOR_RETURN imgsensor_proc_init(void)
