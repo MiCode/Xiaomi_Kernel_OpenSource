@@ -11,7 +11,7 @@
 #include <linux/types.h>
 #include <linux/if_ether.h>
 #include <linux/ipa_qmi_service_v01.h>
-#include "linux/msm_gsi.h"
+#include <linux/msm_gsi.h>
 
 #define IPA_APPS_MAX_BW_IN_MBPS 700
 #define IPA_BW_THRESHOLD_MAX 3
@@ -764,45 +764,6 @@ struct ipa_rm_perf_profile {
 #define A2_MUX_HDR_NAME_V6_PREF "dmux_hdr_v6_"
 
 /**
- * enum teth_tethering_mode - Tethering mode (Rmnet / MBIM)
- */
-enum teth_tethering_mode {
-	TETH_TETHERING_MODE_RMNET,
-	TETH_TETHERING_MODE_MBIM,
-	TETH_TETHERING_MODE_MAX,
-};
-
-/**
- * teth_bridge_init_params - Parameters used for in/out USB API
- * @usb_notify_cb:	Callback function which should be used by the caller.
- * Output parameter.
- * @private_data:	Data for the callback function. Should be used by the
- * caller. Output parameter.
- * @skip_ep_cfg: boolean field that determines if Apps-processor
- *  should or should not confiugre this end-point.
- */
-struct teth_bridge_init_params {
-	ipa_notify_cb usb_notify_cb;
-	void *private_data;
-	enum ipa_client_type client;
-	bool skip_ep_cfg;
-};
-
-/**
- * struct teth_bridge_connect_params - Parameters used in teth_bridge_connect()
- * @ipa_usb_pipe_hdl:	IPA to USB pipe handle, returned from ipa_connect()
- * @usb_ipa_pipe_hdl:	USB to IPA pipe handle, returned from ipa_connect()
- * @tethering_mode:	Rmnet or MBIM
- * @ipa_client_type:    IPA "client" name (IPA_CLIENT_USB#_PROD)
- */
-struct teth_bridge_connect_params {
-	u32 ipa_usb_pipe_hdl;
-	u32 usb_ipa_pipe_hdl;
-	enum teth_tethering_mode tethering_mode;
-	enum ipa_client_type client_type;
-};
-
-/**
  * struct  ipa_tx_data_desc - information needed
  * to send data packet to HW link: link to data descriptors
  * priv: client specific private data
@@ -825,19 +786,6 @@ struct ipa_tx_data_desc {
 struct ipa_rx_data {
 	struct sk_buff *skb;
 	dma_addr_t dma_addr;
-};
-
-/**
- * struct  ipa_rx_page_data - information needed
- * to send to wlan driver on receiving data from ipa hw
- * @page: skb page
- * @dma_addr: DMA address of this Rx packet
- * @is_tmp_alloc: skb page from tmp_alloc or recycle_list
- */
-struct ipa_rx_page_data {
-	struct page *page;
-	dma_addr_t dma_addr;
-	bool is_tmp_alloc;
 };
 
 /**
@@ -880,16 +828,6 @@ enum ipa_irq_type {
 };
 
 /**
- * struct ipa_tx_suspend_irq_data - interrupt data for IPA_TX_SUSPEND_IRQ
- * @endpoints: bitmask of endpoints which case IPA_TX_SUSPEND_IRQ interrupt
- * @dma_addr: DMA address of this Rx packet
- */
-struct ipa_tx_suspend_irq_data {
-	u32 endpoints;
-};
-
-
-/**
  * typedef ipa_irq_handler_t - irq handler/callback type
  * @param ipa_irq_type - [in] interrupt type
  * @param private_data - [in, out] the client private data
@@ -925,33 +863,6 @@ struct IpaHwBamStats_t {
 } __packed;
 
 /**
- * struct IpaOffloadStatschannel_info - channel info for uC
- * stats
- * @dir: Direction of the channel ID DIR_CONSUMER =0,
- * DIR_PRODUCER = 1
- * @ch_id: GSI ch_id of the IPA endpoint for which stats need
- * to be calculated, 0xFF means invalid channel or disable stats
- * on already stats enabled channel
- */
-struct IpaOffloadStatschannel_info {
-	u8 dir;
-	u8 ch_id;
-} __packed;
-
-/**
- * struct IpaHwOffloadStatsAllocCmdData_t - protocol info for uC
- * stats start
- * @protocol: Enum that indicates the protocol type
- * @ch_id_info: GSI ch_id and dir of the IPA endpoint for which stats
- * need to be calculated
- */
-struct IpaHwOffloadStatsAllocCmdData_t {
-	u32 protocol;
-	struct IpaOffloadStatschannel_info
-		ch_id_info[IPA_MAX_CH_STATS_SUPPORTED];
-} __packed;
-
-/**
  * struct IpaHwRingStats_t - Structure holding the Ring statistics
  *
  * @ringFull : Number of times Transfer Ring got full - For In Ch: Good,
@@ -970,17 +881,6 @@ struct IpaHwRingStats_t {
 	u32 ringUsageLow;
 	u32 RingUtilCount;
 } __packed;
-
-/**
- * struct ipa_uc_dbg_ring_stats - uC dbg stats info for each
- * offloading protocol
- * @ring: ring stats for each channel
- * @ch_num: number of ch supported for given protocol
- */
-struct ipa_uc_dbg_ring_stats {
-	struct IpaHwRingStats_t ring[IPA_MAX_CH_STATS_SUPPORTED];
-	u8 num_ch;
-};
 
 /**
  * struct IpaHwStatsWDIRxInfoData_t - Structure holding the WDI Rx channel
@@ -1269,16 +1169,6 @@ struct ipa_gsi_ep_config {
 	int ee;
 	enum gsi_prefetch_mode prefetch_mode;
 	uint8_t prefetch_threshold;
-};
-
-/**
- * struct ipa_tz_unlock_reg_info - Used in order unlock regions of memory by TZ
- * @reg_addr - Physical address of the start of the region
- * @size - Size of the region in bytes
- */
-struct ipa_tz_unlock_reg_info {
-	u64 reg_addr;
-	u64 size;
 };
 
 /**

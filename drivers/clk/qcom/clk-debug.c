@@ -22,10 +22,12 @@ static DEFINE_MUTEX(clk_debug_lock);
 
 #define TCXO_DIV_4_HZ		4800000
 #define SAMPLE_TICKS_1_MS	0x1000
-#define SAMPLE_TICKS_14_MS	0x10000
+#define SAMPLE_TICKS_27_MS	0x20000
 
 #define XO_DIV4_CNT_DONE	BIT(25)
 #define CNT_EN			BIT(20)
+#define CLR_CNT			BIT(21)
+#define XO_DIV4_TERM_CNT_MASK	GENMASK(19, 0)
 #define MEASURE_CNT		GENMASK(24, 0)
 #define CBCR_ENA		BIT(0)
 
@@ -35,19 +37,31 @@ static u32 run_measurement(unsigned int ticks, struct regmap *regmap,
 {
 	u32 regval;
 
-	/* Stop counters and set the XO4 counter start value. */
-	regmap_write(regmap, ctl_reg, ticks);
+	/*
+	 * Clear CNT_EN to bring it to good known state and
+	 * set CLK_CNT to clear previous count.
+	 */
+	regmap_update_bits(regmap, ctl_reg, CNT_EN, 0x0);
+	regmap_update_bits(regmap, ctl_reg, CLR_CNT, CLR_CNT);
 
-	regmap_read(regmap, status_reg, &regval);
+	/*
+	 * Wait for timer to become ready
+	 * Ideally SW should poll for MEASURE_CNT
+	 * but since CLR_CNT is not available across targets
+	 * add 1 us delay to let CNT clear /
+	 * counter will clear within 3 reference cycle of 4.8 MHz.
+	 */
+	udelay(1);
 
-	/* Wait for timer to become ready. */
-	while ((regval & XO_DIV4_CNT_DONE) != 0) {
-		cpu_relax();
-		regmap_read(regmap, status_reg, &regval);
-	}
+	regmap_update_bits(regmap, ctl_reg, CLR_CNT, 0x0);
 
-	/* Run measurement and wait for completion. */
-	regmap_write(regmap, ctl_reg, (CNT_EN|ticks));
+	/*
+	 * Run measurement and wait for completion.
+	 */
+	regmap_update_bits(regmap, ctl_reg, XO_DIV4_TERM_CNT_MASK,
+			   ticks & XO_DIV4_TERM_CNT_MASK);
+
+	regmap_update_bits(regmap, ctl_reg, CNT_EN, CNT_EN);
 
 	regmap_read(regmap, status_reg, &regval);
 
@@ -56,12 +70,10 @@ static u32 run_measurement(unsigned int ticks, struct regmap *regmap,
 		regmap_read(regmap, status_reg, &regval);
 	}
 
-	/* Return measured ticks. */
+	regmap_update_bits(regmap, ctl_reg, CNT_EN, 0x0);
+
 	regmap_read(regmap, status_reg, &regval);
 	regval &= MEASURE_CNT;
-
-	/* Stop the counters */
-	regmap_write(regmap, ctl_reg, ticks);
 
 	return regval;
 }
@@ -94,12 +106,12 @@ static unsigned long clk_debug_mux_measure_rate(struct clk_hw *hw)
 	 * then the clock must be off.
 	 */
 
-	/* Run a short measurement. (~1 ms) */
+	/* Run a short measurement. (~1ms) */
 	raw_count_short = run_measurement(SAMPLE_TICKS_1_MS, meas->regmap,
 				data->ctl_reg, data->status_reg);
 
-	/* Run a full measurement. (~14 ms) */
-	raw_count_full = run_measurement(SAMPLE_TICKS_14_MS, meas->regmap,
+	/* Run a full measurement. (~27ms) */
+	raw_count_full = run_measurement(SAMPLE_TICKS_27_MS, meas->regmap,
 				data->ctl_reg, data->status_reg);
 
 	gcc_xo4_reg &= ~BIT(0);
@@ -111,7 +123,7 @@ static unsigned long clk_debug_mux_measure_rate(struct clk_hw *hw)
 	else {
 		/* Compute rate in Hz. */
 		raw_count_full = ((raw_count_full * 10) + 15) * TCXO_DIV_4_HZ;
-		do_div(raw_count_full, ((SAMPLE_TICKS_14_MS * 10) + 35));
+		do_div(raw_count_full, ((SAMPLE_TICKS_27_MS * 10) + 35));
 		ret = (raw_count_full * multiplier);
 	}
 
@@ -254,8 +266,11 @@ static u32 get_mux_divs(struct clk_hw *mux)
 
 static int clk_debug_measure_get(void *data, u64 *val)
 {
+	struct clk_debug_mux *mux;
 	struct clk_hw *hw = data;
+	struct clk_hw *parent;
 	int ret = 0;
+	u32 regval;
 
 	mutex_lock(&clk_debug_lock);
 
@@ -265,89 +280,41 @@ static int clk_debug_measure_get(void *data, u64 *val)
 		goto exit;
 	}
 
-	enable_debug_clks(measure);
-	*val = clk_debug_mux_measure_rate(measure);
+	parent = clk_hw_get_parent(measure);
+	if (!parent) {
+		pr_err("Failed to get the debug mux's parent.\n");
+		goto exit;
+	}
 
-	/* recursively calculate actual freq */
-	*val *= get_mux_divs(measure);
-	disable_debug_clks(measure);
+	mux = to_clk_measure(parent);
+
+	if ((clk_hw_get_flags(parent) & CLK_IS_MEASURE) && !mux->mux_sels) {
+		regmap_read(mux->regmap, mux->period_offset, &regval);
+		if (!regval) {
+			pr_err("Error reading mccc period register\n");
+			goto exit;
+		}
+		*val = 1000000000000UL;
+		do_div(*val, regval);
+	} else {
+		enable_debug_clks(measure);
+		*val = clk_debug_mux_measure_rate(measure);
+
+		/* recursively calculate actual freq */
+		*val *= get_mux_divs(measure);
+		disable_debug_clks(measure);
+	}
 exit:
 	mutex_unlock(&clk_debug_lock);
 	return ret;
 }
 
 DEFINE_DEBUGFS_ATTRIBUTE(clk_measure_fops, clk_debug_measure_get,
-							NULL, "%lld\n");
-
-static int clk_debug_read_period(void *data, u64 *val)
-{
-	struct clk_hw *hw = data;
-	struct clk_hw *parent;
-	struct clk_debug_mux *mux;
-	int ret = 0;
-	u32 regval;
-
-	mutex_lock(&clk_debug_lock);
-
-	ret = clk_find_and_set_parent(measure, hw);
-	if (!ret) {
-		parent = clk_hw_get_parent(measure);
-		if (!parent) {
-			mutex_unlock(&clk_debug_lock);
-			return -EINVAL;
-		}
-		mux = to_clk_measure(parent);
-		regmap_read(mux->regmap, mux->period_offset, &regval);
-		if (!regval) {
-			pr_err("Error reading mccc period register, ret = %d\n",
-			       ret);
-			mutex_unlock(&clk_debug_lock);
-			return 0;
-		}
-		*val = 1000000000000UL;
-		do_div(*val, regval);
-	} else {
-		pr_err("Failed to set the debug mux's parent.\n");
-	}
-
-	mutex_unlock(&clk_debug_lock);
-	return ret;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(clk_read_period_fops, clk_debug_read_period,
-							NULL, "%lld\n");
+			 NULL, "%lld\n");
 
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 {
-	int ret;
-	struct clk_hw *parent;
-	struct clk_debug_mux *meas;
-	struct clk_debug_mux *meas_parent;
-
-	if (IS_ERR_OR_NULL(measure)) {
-		pr_err_once("Please check if `measure` clk is registered.\n");
-		return;
-	}
-
-	meas = to_clk_measure(measure);
-	ret = clk_find_and_set_parent(measure, hw);
-	if (ret) {
-		pr_debug("Unable to set %s as %s's parent, ret=%d\n",
-			clk_hw_get_name(hw), clk_hw_get_name(measure), ret);
-		return;
-	}
-
-	parent = clk_hw_get_parent(measure);
-	if (!parent)
-		return;
-	meas_parent = to_clk_measure(parent);
-
-	if (clk_hw_get_flags(parent) & CLK_IS_MEASURE && !meas_parent->mux_sels)
-		debugfs_create_file("clk_measure", 0444, dentry, hw,
-					&clk_read_period_fops);
-	else
-		debugfs_create_file("clk_measure", 0444, dentry, hw,
-					&clk_measure_fops);
+	debugfs_create_file("clk_measure", 0444, dentry, hw, &clk_measure_fops);
 }
 EXPORT_SYMBOL(clk_debug_measure_add);
 

@@ -932,28 +932,25 @@ static int _disp_encrpted_log_stats(struct encrypted_log_info *enc_log_info,
 
 static int _disp_tz_log_stats(size_t count)
 {
-	if (!tzdbg.is_enlarged_buf) {
-		static struct tzdbg_log_pos_t log_start = {0};
-		struct tzdbg_log_t *log_ptr;
+	static struct tzdbg_log_pos_v2_t log_start_v2 = {0};
+	static struct tzdbg_log_pos_t log_start = {0};
+	struct tzdbg_log_v2_t *log_v2_ptr;
+	struct tzdbg_log_t *log_ptr;
 
-		log_ptr = (struct tzdbg_log_t *)(
-				(unsigned char *)tzdbg.diag_buf +
-				tzdbg.diag_buf->ring_off -
-				offsetof(struct tzdbg_log_t, log_buf));
+	log_ptr = (struct tzdbg_log_t *)((unsigned char *)tzdbg.diag_buf +
+			tzdbg.diag_buf->ring_off -
+			offsetof(struct tzdbg_log_t, log_buf));
 
+	log_v2_ptr = (struct tzdbg_log_v2_t *)((unsigned char *)tzdbg.diag_buf +
+			tzdbg.diag_buf->ring_off -
+			offsetof(struct tzdbg_log_v2_t, log_buf));
+
+	if (!tzdbg.is_enlarged_buf)
 		return _disp_log_stats(log_ptr, &log_start,
 				tzdbg.diag_buf->ring_len, count, TZDBG_LOG);
-	} else {
-		static struct tzdbg_log_pos_v2_t log_start_v2 = {0};
-		struct tzdbg_log_v2_t *log_v2_ptr;
 
-		log_v2_ptr = (struct tzdbg_log_v2_t *)(
-				(unsigned char *)tzdbg.diag_buf +
-				tzdbg.diag_buf->ring_off -
-				offsetof(struct tzdbg_log_v2_t, log_buf));
-		return _disp_log_stats_v2(log_v2_ptr, &log_start_v2,
-				tzdbg.diag_buf->ring_len, count, TZDBG_LOG);
-	}
+	return _disp_log_stats_v2(log_v2_ptr, &log_start_v2,
+			tzdbg.diag_buf->ring_len, count, TZDBG_LOG);
 }
 
 static int _disp_hyp_log_stats(size_t count)
@@ -970,19 +967,17 @@ static int _disp_hyp_log_stats(size_t count)
 
 static int _disp_qsee_log_stats(size_t count)
 {
-	if (!tzdbg.is_enlarged_buf) {
-		static struct tzdbg_log_pos_t log_start = {0};
+	static struct tzdbg_log_pos_t log_start = {0};
+	static struct tzdbg_log_pos_v2_t log_start_v2 = {0};
 
+	if (!tzdbg.is_enlarged_buf)
 		return _disp_log_stats(g_qsee_log, &log_start,
 			QSEE_LOG_BUF_SIZE - sizeof(struct tzdbg_log_pos_t),
 			count, TZDBG_QSEE_LOG);
-	} else {
-		static struct tzdbg_log_pos_v2_t log_start_v2 = {0};
 
-		return _disp_log_stats_v2(g_qsee_log_v2, &log_start_v2,
-			QSEE_LOG_BUF_SIZE - sizeof(struct tzdbg_log_pos_v2_t),
-			count, TZDBG_QSEE_LOG);
-	}
+	return _disp_log_stats_v2(g_qsee_log_v2, &log_start_v2,
+		QSEE_LOG_BUF_SIZE_V2 - sizeof(struct tzdbg_log_pos_v2_t),
+		count, TZDBG_QSEE_LOG);
 }
 
 static int _disp_hyp_general_stats(size_t count)
@@ -1321,13 +1316,6 @@ err:
 static void tzdbgfs_exit(struct platform_device *pdev)
 {
 	struct dentry *dent_dir;
-
-	if (g_qsee_log) {
-		qtee_shmbridge_deregister(qseelog_shmbridge_handle);
-		dma_free_coherent(&pdev->dev, QSEE_LOG_BUF_SIZE,
-					 (void *)g_qsee_log, coh_pmem);
-	}
-	kzfree(tzdbg.disp_buf);
 	dent_dir = platform_get_drvdata(pdev);
 	debugfs_remove_recursive(dent_dir);
 }
@@ -1557,10 +1545,10 @@ exit_free_diag_buf:
 static int tz_log_remove(struct platform_device *pdev)
 {
 	tzdbgfs_exit(pdev);
-	tzdbg_free_encrypted_log_buf(pdev);
-	tzdbg_free_qsee_log_buf(pdev);
 	dma_free_coherent(&pdev->dev, display_buf_size,
 			(void *)tzdbg.disp_buf, disp_buf_paddr);
+	tzdbg_free_encrypted_log_buf(pdev);
+	tzdbg_free_qsee_log_buf(pdev);
 	if (!tzdbg.is_encrypted_log_enabled)
 		kfree(tzdbg.diag_buf);
 	return 0;

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 menuconfig RC_CORE
-	tristate "Remote Controller support"
+	bool "Remote Controller support"
 	depends on INPUT
 	help
 	  Enable support for Remote Controllers on Linux. This is

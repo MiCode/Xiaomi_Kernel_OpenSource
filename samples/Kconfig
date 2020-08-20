@@ -42,6 +42,7 @@ config SAMPLE_KRETPROBES
 config SAMPLE_HW_BREAKPOINT
 	tristate "Build kernel hardware breakpoint examples -- loadable module only"
 	depends on HAVE_HW_BREAKPOINT && m
+	depends on BROKEN
 	help
 	  This builds kernel hardware breakpoint example modules.
 

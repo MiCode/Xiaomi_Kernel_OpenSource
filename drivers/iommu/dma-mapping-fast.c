@@ -116,6 +116,9 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 					    mapping->num_4k_pages);
 				mapping->have_stale_tlbs = false;
 				av8l_fast_clear_stale_ptes(mapping->pgtbl_ops,
+							   mapping->base,
+							   mapping->base +
+							   mapping->size - 1,
 							   skip_sync);
 				bit = bitmap_find_next_zero_area(
 							mapping->clean_bitmap,
@@ -345,6 +348,8 @@ static int fast_smmu_map_sg(struct device *dev, struct scatterlist *sg,
 	if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
 		fast_smmu_sync_sg_for_device(dev, sg, nents, dir);
 
+	trace_map_sg(to_msm_iommu_domain(mapping->domain), iova, iova_len,
+		     prot);
 	return ret;
 fail:
 	iommu_dma_invalidate_sg(sg, nents);
@@ -376,13 +381,15 @@ static void fast_smmu_unmap_sg(struct device *dev,
 			break;
 		sg = tmp;
 	}
-	len = sg_dma_address(sg) + sg_dma_len(sg) - start;
+	len = ALIGN(sg_dma_address(sg) + sg_dma_len(sg) - start,
+		    FAST_PAGE_SIZE);
 
 	av8l_fast_unmap_public(mapping->pgtbl_ops, start, len);
 
 	spin_lock_irqsave(&mapping->lock, flags);
 	__fast_smmu_free_iova(mapping, start, len);
 	spin_unlock_irqrestore(&mapping->lock, flags);
+	trace_unmap(to_msm_iommu_domain(mapping->domain), start, len, len);
 }
 
 static void __fast_smmu_free_pages(struct page **pages, int count)
@@ -731,15 +738,15 @@ static void fast_smmu_dma_unmap_resource(
 }
 
 static void __fast_smmu_mapped_over_stale(struct dma_fast_smmu_mapping *fast,
-					  void *data)
+					  void *priv)
 {
-	av8l_fast_iopte *pmds, *ptep = data;
+	av8l_fast_iopte *pmds, *ptep = priv;
 	dma_addr_t iova;
 	unsigned long bitmap_idx;
-	struct io_pgtable *tbl;
+	struct av8l_fast_io_pgtable *data;
 
-	tbl  = container_of(fast->pgtbl_ops, struct io_pgtable, ops);
-	pmds = tbl->cfg.av8l_fast_cfg.pmds;
+	data  = iof_pgtable_ops_to_data(fast->pgtbl_ops);
+	pmds = data->pmds;
 
 	bitmap_idx = (unsigned long)(ptep - pmds);
 	iova = bitmap_idx << FAST_PAGE_SHIFT;
@@ -791,7 +798,7 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
  *
  * Creates a mapping structure which holds information about used/unused IO
  * address ranges, which is required to perform mapping with IOMMU aware
- * functions.  The only VA range supported is [0, 4GB).
+ * functions. The only VA range supported is [0, 4GB).
  *
  * The client device need to be attached to the mapping with
  * fast_smmu_attach_device function.

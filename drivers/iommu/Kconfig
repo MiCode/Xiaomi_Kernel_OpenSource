@@ -146,6 +146,20 @@ config IOMMU_IO_PGTABLE_FAST_PROVE_TLB
 
 	  If unsure, say N here.
 
+config IOMMU_DYNAMIC_DOMAINS
+	bool "Enable support for dynamic domains"
+	depends on ARM_SMMU && QGKI
+	help
+	  Enables support for clients to create dynamic domains. Some IOMMU
+	  clients require the ability to create and attach to N child domains.
+	  The purpose of these domains is to model process separation between
+	  different processes running in hardware that sits behind an IOMMU.
+	  Enable this feature if it is required for IOMMU clients to create
+	  dynamic domains. Note: creation of dynamic domains through the
+	  devicetree to configure the ARM SMMU's stream-matching registers
+	  for clients will still be supported, independent of this config's
+	  state.
+
 config QCOM_IOMMU_IO_PGTABLE_QUIRKS
 	bool "IO Pagetable quirks for performance"
 	depends on ARM || ARM64
@@ -311,7 +325,7 @@ config INTEL_IOMMU_DEBUGFS
 
 config INTEL_IOMMU_SVM
 	bool "Support for Shared Virtual Memory with Intel IOMMU"
-	depends on INTEL_IOMMU && X86
+	depends on INTEL_IOMMU && X86_64
 	select PCI_PASID
 	select MMU_NOTIFIER
 	help

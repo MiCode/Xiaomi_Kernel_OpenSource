@@ -2,7 +2,7 @@
 /*
  * QTI TEE shared memory bridge driver
  *
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -15,6 +15,7 @@
 #include <linux/dma-mapping.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
+#include <linux/of_platform.h>
 
 #include "qtee_shmbridge_internal.h"
 
@@ -80,6 +81,7 @@ struct bridge_list_entry {
 static struct bridge_info default_bridge;
 static struct bridge_list bridge_list_head;
 static bool qtee_shmbridge_enabled;
+static bool support_hyp;
 
 /* enable shared memory bridge mechanism in HYP */
 static int32_t qtee_shmbridge_enable(bool enable)
@@ -206,6 +208,11 @@ int32_t qtee_shmbridge_register(
 	ipfn_and_s_perm_flags = UPDATE_IPFN_AND_S_PERM_FLAGS(paddr, tz_perm);
 	size_and_flags = UPDATE_SIZE_AND_FLAGS(size, ns_vmid_num);
 
+	if (support_hyp) {
+		size_and_flags |= SELF_OWNER_BIT << 1;
+		size_and_flags |= (VM_PERM_R | VM_PERM_W) << 2;
+	}
+
 	pr_debug("%s: desc.args[0] %llx, args[1] %llx, args[2] %llx, args[3] %llx\n",
 		__func__, pfn_and_ns_perm_flags, ipfn_and_s_perm_flags,
 		size_and_flags, ns_vmids);
@@ -328,8 +335,17 @@ EXPORT_SYMBOL(qtee_shmbridge_inv_shm_buf);
 static int qtee_shmbridge_init(struct platform_device *pdev)
 {
 	int ret = 0;
-	uint32_t ns_vm_ids[] = {VMID_HLOS};
+	uint32_t *ns_vm_ids;
+	uint32_t ns_vm_ids_hlos[] = {VMID_HLOS};
+	uint32_t ns_vm_ids_hyp[] = {};
 	uint32_t ns_vm_perms[] = {VM_PERM_R|VM_PERM_W};
+
+	support_hyp = of_property_read_bool((&pdev->dev)->of_node,
+			"qcom,support-hypervisor");
+	if (support_hyp)
+		ns_vm_ids = ns_vm_ids_hyp;
+	else
+		ns_vm_ids = ns_vm_ids_hlos;
 
 	if (default_bridge.vaddr) {
 		pr_warn("qtee shmbridge is already initialized\n");
@@ -374,8 +390,7 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 	mutex_init(&bridge_list_head.lock);
 	INIT_LIST_HEAD(&bridge_list_head.head);
 
-	/* temporarily disable shm bridge mechanism */
-	ret = qtee_shmbridge_enable(false);
+	ret = qtee_shmbridge_enable(true);
 	if (ret) {
 		/* keep the mem pool and return if failed to enable bridge */
 		ret = 0;
@@ -383,10 +398,17 @@ static int qtee_shmbridge_init(struct platform_device *pdev)
 	}
 
 	/*register default bridge*/
-	ret = qtee_shmbridge_register(default_bridge.paddr,
+	if (support_hyp)
+		ret = qtee_shmbridge_register(default_bridge.paddr,
+			default_bridge.size, ns_vm_ids,
+			ns_vm_perms, 0, VM_PERM_R|VM_PERM_W,
+			&default_bridge.handle);
+	else
+		ret = qtee_shmbridge_register(default_bridge.paddr,
 			default_bridge.size, ns_vm_ids,
 			ns_vm_perms, 1, VM_PERM_R|VM_PERM_W,
 			&default_bridge.handle);
+
 	if (ret) {
 		pr_err("Failed to register default bridge, size %zu\n",
 			default_bridge.size);

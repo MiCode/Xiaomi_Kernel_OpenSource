@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config VIDEO_EM28XX
-	tristate "Empia EM28xx USB devices support"
+	bool "Empia EM28xx USB devices support"
 	depends on VIDEO_DEV && I2C
 	select VIDEO_TUNER
 	select VIDEO_TVEEPROM
@@ -36,7 +36,7 @@ config VIDEO_EM28XX_ALSA
 	  module will be called em28xx-alsa
 
 config VIDEO_EM28XX_DVB
-	tristate "DVB/ATSC Support for em28xx based TV cards"
+	bool "DVB/ATSC Support for em28xx based TV cards"
 	depends on VIDEO_EM28XX && DVB_CORE
 	select DVB_LGDT330X if MEDIA_SUBDRV_AUTOSELECT
 	select DVB_LGDT3305 if MEDIA_SUBDRV_AUTOSELECT
@@ -75,7 +75,7 @@ config VIDEO_EM28XX_RC
 	tristate "EM28XX Remote Controller support"
 	depends on RC_CORE
 	depends on VIDEO_EM28XX
-	depends on !(RC_CORE=m && VIDEO_EM28XX=y)
+	#depends on !(RC_CORE=m && VIDEO_EM28XX=y)
 	default VIDEO_EM28XX
 	help
 	  Enables Remote Controller support on em28xx driver.

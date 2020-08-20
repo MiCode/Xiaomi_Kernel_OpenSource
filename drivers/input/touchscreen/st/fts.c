@@ -78,8 +78,10 @@
 
 #define FTS_DVDD_VOL_MIN 1800000
 #define FTS_DVDD_VOL_MAX 1800000
+#define FTS_DVDD_LOAD 20000
 #define FTS_AVDD_VOL_MIN 3000000
 #define FTS_AVDD_VOL_MAX 3300000
+#define FTS_AVDD_LOAD 20000
 
 /*
  * Uncomment to use polling mode instead of interrupt mode.
@@ -5205,7 +5207,7 @@ static int fts_get_reg(struct fts_ts_info *info, bool get)
 			goto regulator_put;
 		}
 
-		retval = regulator_set_load(info->pwr_reg, 62000);
+		retval = regulator_set_load(info->pwr_reg, FTS_DVDD_LOAD);
 		if (retval < 0) {
 			logError(1, "%s %s: Failed to set power load\n",
 				tag, __func__);
@@ -5232,7 +5234,7 @@ static int fts_get_reg(struct fts_ts_info *info, bool get)
 			goto regulator_put;
 		}
 
-		retval = regulator_set_load(info->bus_reg, 20000);
+		retval = regulator_set_load(info->bus_reg, FTS_AVDD_LOAD);
 		if (retval < 0) {
 			logError(1, "%s %s: Failed to set power load\n",
 				tag, __func__);

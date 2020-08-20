@@ -753,7 +753,7 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 	reg = &(grp->regs[counter]);
 
 	if (_perfcounter_inline_update(adreno_dev, group) &&
-		test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
+		(device->state == KGSL_STATE_ACTIVE)) {
 		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
 		unsigned int buf[4];
 		unsigned int *cmds = buf;

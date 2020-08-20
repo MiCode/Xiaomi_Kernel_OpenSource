@@ -580,7 +580,8 @@ enum holi_functions {
 	msm_mux_qup10,
 	msm_mux_qup11,
 	msm_mux_qup12,
-	msm_mux_qup13,
+	msm_mux_qup13_f1,
+	msm_mux_qup13_f2,
 	msm_mux_qup14,
 	msm_mux_sd_write,
 	msm_mux_sdc1_tb,
@@ -1031,7 +1032,10 @@ static const char * const qup11_groups[] = {
 static const char * const qup12_groups[] = {
 	"gpio19", "gpio20",
 };
-static const char * const qup13_groups[] = {
+static const char * const qup13_f1_groups[] = {
+	"gpio25", "gpio26",
+};
+static const char * const qup13_f2_groups[] = {
 	"gpio25", "gpio26",
 };
 static const char * const qup14_groups[] = {
@@ -1138,7 +1142,8 @@ static const struct msm_function holi_functions[] = {
 	FUNCTION(gcc_gp2),
 	FUNCTION(gcc_gp3),
 	FUNCTION(edp_lcd),
-	FUNCTION(qup13),
+	FUNCTION(qup13_f1),
+	FUNCTION(qup13_f2),
 	FUNCTION(qup11),
 	FUNCTION(PLL_BIST),
 	FUNCTION(qdss_gpio14),
@@ -1321,9 +1326,10 @@ static const struct msm_pingroup holi_groups[] = {
 			0x9C00C, 13),
 	[24] = PINGROUP(24, MDP_VSYNC, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 14),
-	[25] = PINGROUP(25, qup13, qup13, NA, NA, NA, NA, NA, NA, NA,
+	[25] = PINGROUP(25, qup13_f1, qup13_f2, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 15),
-	[26] = PINGROUP(26, qup13, qup13, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[26] = PINGROUP(26, qup13_f1, qup13_f2, NA, NA, NA, NA, NA, NA, NA,
+			0, -1),
 	[27] = PINGROUP(27, qup11, qup11, MDP_VSYNC, PLL_BIST, NA, qdss_gpio14,
 			NA, NA, NA, 0x9C010, 0),
 	[28] = PINGROUP(28, qup11, qup11, MDP_VSYNC, NA, qdss_gpio15, NA, NA,
@@ -1526,6 +1532,10 @@ static const struct msm_pingroup holi_groups[] = {
 	[163] = SDC_QDSD_PINGROUP(sdc2_data, 0x1a2000, 9, 0),
 };
 
+static const int holi_reserved_gpios[] = {
+	13, 14, 15, 16, 45, 46, 56, 57, -1
+};
+
 static const struct msm_gpio_wakeirq_map holi_mpm_map[] = {
 	{0, 84},
 	{3, 6},
@@ -1603,6 +1613,7 @@ static const struct msm_pinctrl_soc_data holi_pinctrl = {
 	.nfunctions = ARRAY_SIZE(holi_functions),
 	.groups = holi_groups,
 	.ngroups = ARRAY_SIZE(holi_groups),
+	.reserved_gpios = holi_reserved_gpios,
 	.ngpios = 157,
 	.wakeirq_map = holi_mpm_map,
 	.nwakeirq_map = ARRAY_SIZE(holi_mpm_map),

@@ -116,10 +116,10 @@ static int cvp_wait_process_message(struct msm_cvp_inst *inst,
 		goto exit;
 	}
 
-	memcpy(out, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
-	kmem_cache_free(cvp_driver->msg_cache, msg);
-	hdr = (struct cvp_hfi_msg_session_hdr *)out;
+	hdr = (struct cvp_hfi_msg_session_hdr *)&msg->pkt;
+	memcpy(out, &msg->pkt, get_msg_size(hdr));
 	msm_cvp_unmap_frame(inst, hdr->client_data.kdata);
+	kmem_cache_free(cvp_driver->msg_cache, msg);
 
 exit:
 	return rc;
@@ -282,6 +282,166 @@ static bool cvp_fence_wait(struct cvp_fence_queue *q,
 	return true;
 }
 
+static int cvp_readjust_clock(struct msm_cvp_core *core,
+			u32 avg_cycles, enum hfi_hw_thread i)
+{
+	int rc = 0;
+	struct allowed_clock_rates_table *tbl = NULL;
+	unsigned int tbl_size = 0;
+	unsigned int cvp_min_rate = 0, cvp_max_rate = 0;
+	unsigned long tmp = core->curr_freq;
+	unsigned long lo_freq = 0;
+	u32 j;
+
+	dprintk(CVP_PWR,
+		"%s:%d - %d - avg_cycles %u > hi_tresh %u\n",
+		__func__, __LINE__, i, avg_cycles,
+		core->dyn_clk.hi_ctrl_lim[i]);
+
+	core->curr_freq = ((avg_cycles * core->dyn_clk.sum_fps[i]) << 1)/3;
+	dprintk(CVP_PWR,
+		"%s - cycles tot %u, avg %u. sum_fps %u, cur_freq %u\n",
+		__func__,
+		core->dyn_clk.cycle[i].total,
+		avg_cycles,
+		core->dyn_clk.sum_fps[i],
+		core->curr_freq);
+
+	tbl = core->resources.allowed_clks_tbl;
+	tbl_size = core->resources.allowed_clks_tbl_size;
+	cvp_min_rate = tbl[0].clock_rate;
+	cvp_max_rate = tbl[tbl_size - 1].clock_rate;
+
+	if (core->curr_freq > cvp_max_rate) {
+		core->curr_freq = cvp_max_rate;
+		lo_freq = (tbl_size > 1) ?
+			tbl[tbl_size - 2].clock_rate :
+			cvp_min_rate;
+	} else  if (core->curr_freq <= cvp_min_rate) {
+		core->curr_freq = cvp_min_rate;
+		lo_freq = cvp_min_rate;
+	} else {
+		for (j = 1; j < tbl_size; j++)
+			if (core->curr_freq <= tbl[j].clock_rate)
+				break;
+		core->curr_freq = tbl[j].clock_rate;
+		lo_freq = tbl[j-1].clock_rate;
+	}
+
+	dprintk(CVP_PWR,
+			"%s:%d - %d - Readjust to %u\n",
+			__func__, __LINE__, i, core->curr_freq);
+	rc = msm_cvp_set_clocks(core);
+	if (rc) {
+		dprintk(CVP_ERR,
+			"Failed to set clock rate %u: %d %s\n",
+			core->curr_freq, rc, __func__);
+		core->curr_freq = tmp;
+	} else {
+		lo_freq = (lo_freq < core->dyn_clk.conf_freq) ?
+			core->dyn_clk.conf_freq : lo_freq;
+		core->dyn_clk.hi_ctrl_lim[i] = core->dyn_clk.sum_fps[i] ?
+			((core->curr_freq*3)>>1)/core->dyn_clk.sum_fps[i] : 0;
+		core->dyn_clk.lo_ctrl_lim[i] =
+			core->dyn_clk.sum_fps[i] ?
+			((lo_freq*3)>>1)/core->dyn_clk.sum_fps[i] : 0;
+
+		dprintk(CVP_PWR,
+			"%s - Readjust clk to %u. New lim [%d] hi %u lo %u\n",
+			__func__, core->curr_freq, i,
+			core->dyn_clk.hi_ctrl_lim[i],
+			core->dyn_clk.lo_ctrl_lim[i]);
+	}
+
+	return rc;
+}
+
+static int cvp_check_clock(struct msm_cvp_inst *inst,
+			struct cvp_hfi_msg_session_hdr_ext *hdr)
+{
+	int rc = 0;
+	u32 i, j;
+	u32 hw_cycles[HFI_MAX_HW_THREADS] = {0};
+	u32 fw_cycles = 0;
+	struct msm_cvp_core *core = inst->core;
+
+	for (i = 0; i < HFI_MAX_HW_ACTIVATIONS_PER_FRAME; ++i)
+		fw_cycles += hdr->fw_cycles[i];
+
+	for (i = 0; i < HFI_MAX_HW_THREADS; ++i)
+		for (j = 0; j < HFI_MAX_HW_ACTIVATIONS_PER_FRAME; ++j)
+			hw_cycles[i] += hdr->hw_cycles[i][j];
+
+	dprintk(CVP_PWR, "%s - cycles fw %u. FDU %d MPU %d ODU %d ICA %d\n",
+		__func__, fw_cycles, hw_cycles[0],
+		hw_cycles[1], hw_cycles[2], hw_cycles[3]);
+
+	mutex_lock(&core->dyn_clk.lock);
+	for (i = 0; i < HFI_MAX_HW_THREADS; ++i) {
+		dprintk(CVP_PWR, "%s - %d: hw_cycles %u, tens_thresh %u\n",
+			__func__, i, hw_cycles[i],
+			core->dyn_clk.hi_ctrl_lim[i]);
+		if (core->dyn_clk.hi_ctrl_lim[i]) {
+			if (core->dyn_clk.cycle[i].size < CVP_CYCLE_STAT_SIZE)
+				core->dyn_clk.cycle[i].size++;
+			else
+				core->dyn_clk.cycle[i].total -=
+					core->dyn_clk.cycle[i].busy[
+					core->dyn_clk.cycle[i].idx];
+			if (hw_cycles[i]) {
+				core->dyn_clk.cycle[i].busy[
+					core->dyn_clk.cycle[i].idx]
+					= hw_cycles[i] + fw_cycles;
+				core->dyn_clk.cycle[i].total
+					+= hw_cycles[i] + fw_cycles;
+				dprintk(CVP_PWR,
+					"%s: busy (hw + fw) cycles = %u\n",
+					__func__,
+					core->dyn_clk.cycle[i].busy[
+						core->dyn_clk.cycle[i].idx]);
+				dprintk(CVP_PWR, "total cycles %u\n",
+					core->dyn_clk.cycle[i].total);
+			} else {
+				core->dyn_clk.cycle[i].busy[
+					core->dyn_clk.cycle[i].idx] =
+					hdr->busy_cycles;
+				core->dyn_clk.cycle[i].total +=
+					hdr->busy_cycles;
+				dprintk(CVP_PWR,
+					"%s - busy cycles = %u total %u\n",
+					__func__,
+					core->dyn_clk.cycle[i].busy[
+						core->dyn_clk.cycle[i].idx],
+					core->dyn_clk.cycle[i].total);
+			}
+
+			core->dyn_clk.cycle[i].idx =
+				(core->dyn_clk.cycle[i].idx ==
+				  CVP_CYCLE_STAT_SIZE-1) ?
+				0 : core->dyn_clk.cycle[i].idx+1;
+
+			dprintk(CVP_PWR, "%s - %d: size %u, tens_thresh %u\n",
+				__func__, i, core->dyn_clk.cycle[i].size,
+				core->dyn_clk.hi_ctrl_lim[i]);
+			if (core->dyn_clk.cycle[i].size == CVP_CYCLE_STAT_SIZE
+				&& core->dyn_clk.hi_ctrl_lim[i] != 0) {
+				u32 avg_cycles =
+					core->dyn_clk.cycle[i].total>>3;
+				if ((avg_cycles > core->dyn_clk.hi_ctrl_lim[i])
+				    || (avg_cycles <=
+					 core->dyn_clk.lo_ctrl_lim[i])) {
+					rc = cvp_readjust_clock(core,
+								avg_cycles,
+								i);
+				}
+			}
+		}
+	}
+	mutex_unlock(&core->dyn_clk.lock);
+
+	return rc;
+}
+
 static int cvp_fence_proc(struct msm_cvp_inst *inst,
 			struct cvp_fence_command *fc,
 			struct cvp_hfi_cmd_session_hdr *pkt)
@@ -293,7 +453,8 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 	struct cvp_hfi_device *hdev;
 	struct cvp_session_queue *sq;
 	u32 hfi_err = HFI_ERR_NONE;
-	struct cvp_hfi_msg_session_hdr hdr;
+	struct cvp_hfi_msg_session_hdr_ext hdr;
+	bool clock_check = false;
 
 	dprintk(CVP_SYNX, "%s %s\n", current->comm, __func__);
 
@@ -301,7 +462,8 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 	sq = &inst->session_queue_fence;
 	ktid = pkt->client_data.kdata;
 
-	if (cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state)) {
+	rc = cvp_synx_ops(inst, CVP_INPUT_SYNX, fc, &synx_state);
+	if (rc) {
 		msm_cvp_unmap_frame(inst, pkt->client_data.kdata);
 		goto exit;
 	}
@@ -318,6 +480,14 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 	timeout = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
 	rc = cvp_wait_process_message(inst, sq, &ktid, timeout,
 				(struct cvp_kmd_hfi_packet *)&hdr);
+	if (get_msg_size((struct cvp_hfi_msg_session_hdr *) &hdr)
+		== sizeof(struct cvp_hfi_msg_session_hdr_ext)) {
+		struct cvp_hfi_msg_session_hdr_ext *fhdr =
+			(struct cvp_hfi_msg_session_hdr_ext *)&hdr;
+		dprintk(CVP_HFI, "busy cycle 0x%x, total 0x%x\n",
+			fhdr->busy_cycles, fhdr->total_cycles);
+		clock_check = true;
+	}
 	hfi_err = hdr.error_type;
 	if (rc) {
 		dprintk(CVP_ERR, "%s %s: cvp_wait_process_message rc %d\n",
@@ -341,19 +511,23 @@ static int cvp_fence_proc(struct msm_cvp_inst *inst,
 
 exit:
 	rc = cvp_synx_ops(inst, CVP_OUTPUT_SYNX, fc, &synx_state);
-
+	if (clock_check)
+		cvp_check_clock(inst,
+			(struct cvp_hfi_msg_session_hdr_ext *)&hdr);
 	return rc;
 }
 
 static int cvp_alloc_fence_data(struct cvp_fence_command **f, u32 size)
 {
 	struct cvp_fence_command *fcmd;
+	int alloc_size = sizeof(struct cvp_hfi_msg_session_hdr_ext);
 
 	fcmd = kzalloc(sizeof(struct cvp_fence_command), GFP_KERNEL);
 	if (!fcmd)
 		return -ENOMEM;
 
-	fcmd->pkt = kzalloc(size, GFP_KERNEL);
+	alloc_size = (alloc_size >= size) ? alloc_size : size;
+	fcmd->pkt = kzalloc(alloc_size, GFP_KERNEL);
 	if (!fcmd->pkt) {
 		kfree(fcmd);
 		return -ENOMEM;
@@ -416,12 +590,16 @@ wait:
 	mutex_lock(&q->lock);
 	cvp_release_synx(inst, f);
 	list_del_init(&f->list);
+	state = q->state;
 	mutex_unlock(&q->lock);
 
 	dprintk(CVP_SYNX, "%s done with %d ktid %llu frameID %llu rc %d\n",
 		current->comm, pkt->packet_type, ktid, f->frame_id, rc);
 
 	cvp_free_fence_data(f);
+
+	if (rc && state != QUEUE_ACTIVE)
+		goto exit;
 
 	goto wait;
 
@@ -589,7 +767,7 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 		} else {
 			i = 1;
 		}
-		dprintk(CVP_PROF, "pwrUpdate %pK fdu %u od %u mpu %u ica %u\n",
+		dprintk(CVP_PROF, "pwrUpdate fdu %u od %u mpu %u ica %u\n",
 			inst->prop.fdu_cycles,
 			inst->prop.od_cycles,
 			inst->prop.mpu_cycles,
@@ -631,6 +809,21 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 		op_bw_max[i] =
 			(op_bw_max[i] >= inst->prop.ddr_op_bw) ?
 			op_bw_max[i] : inst->prop.ddr_op_bw;
+
+		dprintk(CVP_PWR, "%s:%d - fps fdu %d mpu %d od %d ica %d\n",
+			__func__, __LINE__,
+			inst->prop.fps[HFI_HW_FDU], inst->prop.fps[HFI_HW_MPU],
+			inst->prop.fps[HFI_HW_OD], inst->prop.fps[HFI_HW_ICA]);
+		core->dyn_clk.sum_fps[HFI_HW_FDU] += inst->prop.fps[HFI_HW_FDU];
+		core->dyn_clk.sum_fps[HFI_HW_MPU] += inst->prop.fps[HFI_HW_MPU];
+		core->dyn_clk.sum_fps[HFI_HW_OD] += inst->prop.fps[HFI_HW_OD];
+		core->dyn_clk.sum_fps[HFI_HW_ICA] += inst->prop.fps[HFI_HW_ICA];
+		dprintk(CVP_PWR, "%s:%d - sum_fps fdu %d mpu %d od %d ica %d\n",
+			__func__, __LINE__,
+			core->dyn_clk.sum_fps[HFI_HW_FDU],
+			core->dyn_clk.sum_fps[HFI_HW_MPU],
+			core->dyn_clk.sum_fps[HFI_HW_OD],
+			core->dyn_clk.sum_fps[HFI_HW_ICA]);
 	}
 
 	for (i = 0; i < 2; i++) {
@@ -682,6 +875,7 @@ static int adjust_bw_freqs(void)
 	struct cvp_power_level rt_pwr = {0}, nrt_pwr = {0};
 	unsigned long tmp, core_sum, op_core_sum, bw_sum;
 	int i, rc = 0;
+	unsigned long ctrl_freq;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
 
@@ -716,7 +910,7 @@ static int adjust_bw_freqs(void)
 
 	if (core_sum > cvp_max_rate) {
 		core_sum = cvp_max_rate;
-	} else	if (core_sum < cvp_min_rate) {
+	} else  if (core_sum <= cvp_min_rate) {
 		core_sum = cvp_min_rate;
 	} else {
 		for (i = 1; i < tbl_size; i++)
@@ -747,6 +941,18 @@ static int adjust_bw_freqs(void)
 		core->curr_freq = tmp;
 		return rc;
 	}
+
+	ctrl_freq = (core->curr_freq*3)>>1;
+	mutex_lock(&core->dyn_clk.lock);
+	core->dyn_clk.conf_freq = core->curr_freq;
+	for (i = 0; i < HFI_MAX_HW_THREADS; ++i) {
+		core->dyn_clk.hi_ctrl_lim[i] = core->dyn_clk.sum_fps[i] ?
+			ctrl_freq/core->dyn_clk.sum_fps[i] : 0;
+		core->dyn_clk.lo_ctrl_lim[i] =
+			core->dyn_clk.hi_ctrl_lim[i];
+	}
+	mutex_unlock(&core->dyn_clk.lock);
+
 	hdev->clk_freq = core->curr_freq;
 	rc = icc_set_bw(bus->client, bw_sum, 0);
 	if (rc)
@@ -1124,7 +1330,7 @@ static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (props->prop_num >= MAX_KMD_PROP_NUM_PER_PACKET) {
+	if (props->prop_num > MAX_KMD_PROP_NUM_PER_PACKET) {
 		dprintk(CVP_ERR, "Too many properties %d to set\n",
 			props->prop_num);
 		return -E2BIG;
@@ -1195,6 +1401,18 @@ static int msm_cvp_set_sysprop(struct msm_cvp_inst *inst,
 			break;
 		case CVP_KMD_PROP_PWR_SYSCACHE_OP:
 			session_prop->ddr_op_cache = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FPS_FDU:
+			session_prop->fps[HFI_HW_FDU] = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FPS_MPU:
+			session_prop->fps[HFI_HW_MPU] = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FPS_OD:
+			session_prop->fps[HFI_HW_OD] = prop_array[i].data;
+			break;
+		case CVP_KMD_PROP_PWR_FPS_ICA:
+			session_prop->fps[HFI_HW_ICA] = prop_array[i].data;
 			break;
 		default:
 			dprintk(CVP_ERR,
@@ -1277,10 +1495,8 @@ static int cvp_drain_fence_sched_list(struct msm_cvp_inst *inst)
 	mutex_lock(&q->lock);
 	list_for_each_entry(f, &q->sched_list, list) {
 		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
-		dprintk(CVP_SYNX, "%s: frame %llu is in sched_list\n",
-			__func__, ktid);
-		dprintk(CVP_SYNX, "%s: frameID %llu is in sched_list\n",
-			__func__, f->frame_id);
+		dprintk(CVP_SYNX, "%s: frame %llu %llu is in sched_list\n",
+			__func__, ktid, f->frame_id);
 		++count;
 	}
 	mutex_unlock(&q->lock);
@@ -1312,14 +1528,71 @@ retry:
 	return rc;
 }
 
+static void cvp_clean_fence_queue(struct msm_cvp_inst *inst, int synx_state)
+{
+	struct cvp_fence_queue *q;
+	struct cvp_fence_command *f, *d;
+	u64 ktid;
+
+	q = &inst->fence_cmd_queue;
+
+	mutex_lock(&q->lock);
+	q->mode = OP_DRAINING;
+
+	list_for_each_entry_safe(f, d, &q->wait_list, list) {
+		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
+
+		dprintk(CVP_SYNX, "%s: (%#x) flush frame %llu %llu wait_list\n",
+			__func__, hash32_ptr(inst->session), ktid, f->frame_id);
+
+		list_del_init(&f->list);
+		msm_cvp_unmap_frame(inst, f->pkt->client_data.kdata);
+		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f, synx_state);
+		cvp_release_synx(inst, f);
+		cvp_free_fence_data(f);
+	}
+
+	list_for_each_entry(f, &q->sched_list, list) {
+		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
+
+		dprintk(CVP_SYNX, "%s: (%#x)flush frame %llu %llu sched_list\n",
+			__func__, hash32_ptr(inst->session), ktid, f->frame_id);
+		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f, synx_state);
+	}
+
+	mutex_unlock(&q->lock);
+}
+
+int cvp_stop_clean_fence_queue(struct msm_cvp_inst *inst)
+{
+	struct cvp_fence_queue *q;
+	u32 count = 0, max_retries = 100;
+
+	cvp_clean_fence_queue(inst, SYNX_STATE_SIGNALED_ERROR);
+	cvp_fence_thread_stop(inst);
+
+	/* Waiting for all output synx sent */
+	q = &inst->fence_cmd_queue;
+retry:
+	mutex_lock(&q->lock);
+	if (list_empty(&q->sched_list)) {
+		mutex_unlock(&q->lock);
+		return 0;
+	}
+	mutex_unlock(&q->lock);
+	usleep_range(500, 1000);
+	if (++count > max_retries)
+		return -EBUSY;
+
+	goto retry;
+}
+
 static int cvp_flush_all(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
 	struct msm_cvp_inst *s;
 	struct cvp_fence_queue *q;
-	struct cvp_fence_command *f, *d;
 	struct cvp_hfi_device *hdev;
-	u64 ktid;
 
 	if (!inst || !inst->core) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -1330,40 +1603,15 @@ static int cvp_flush_all(struct msm_cvp_inst *inst)
 	if (!s)
 		return -ECONNRESET;
 
+	dprintk(CVP_SESS, "session %llx (%#x)flush all starts\n",
+			inst, hash32_ptr(inst->session));
 	q = &inst->fence_cmd_queue;
 	hdev = inst->core->device;
 
-	mutex_lock(&q->lock);
-	q->mode = OP_DRAINING;
+	cvp_clean_fence_queue(inst, SYNX_STATE_SIGNALED_CANCEL);
 
-	list_for_each_entry_safe(f, d, &q->wait_list, list) {
-		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
-
-		dprintk(CVP_SESS, "%s: flush frame %llu from wait_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from wait_list\n",
-			__func__, f->frame_id);
-
-		list_del_init(&f->list);
-		msm_cvp_unmap_frame(inst, f->pkt->client_data.kdata);
-		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f);
-		cvp_release_synx(inst, f);
-		cvp_free_fence_data(f);
-	}
-
-	list_for_each_entry(f, &q->sched_list, list) {
-		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
-
-		dprintk(CVP_SESS, "%s: flush frame %llu from sched_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from sched_list\n",
-			__func__, f->frame_id);
-		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f);
-	}
-
-	mutex_unlock(&q->lock);
-
-	dprintk(CVP_SESS, "%s: send flush to fw\n", __func__);
+	dprintk(CVP_SESS, "%s: (%#x) send flush to fw\n",
+			__func__, hash32_ptr(inst->session));
 
 	/* Send flush to FW */
 	rc = call_hfi_op(hdev, session_flush, (void *)inst->session);
@@ -1379,7 +1627,8 @@ static int cvp_flush_all(struct msm_cvp_inst *inst)
 		dprintk(CVP_WARN, "%s: wait for signal failed, rc %d\n",
 		__func__, rc);
 
-	dprintk(CVP_SESS, "%s: received flush from fw\n", __func__);
+	dprintk(CVP_SESS, "%s: (%#x) received flush from fw\n",
+			__func__, hash32_ptr(inst->session));
 
 exit:
 	rc = cvp_drain_fence_sched_list(inst);
@@ -1442,6 +1691,8 @@ static int cvp_flush_frame(struct msm_cvp_inst *inst, u64 frame_id)
 	if (!s)
 		return -ECONNRESET;
 
+	dprintk(CVP_SESS, "Session %llx, flush frame with id %llu\n",
+			inst, frame_id);
 	q = &inst->fence_cmd_queue;
 
 	mutex_lock(&q->lock);
@@ -1455,14 +1706,13 @@ static int cvp_flush_frame(struct msm_cvp_inst *inst, u64 frame_id)
 
 		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
 
-		dprintk(CVP_SESS, "%s: flush frame %llu from wait_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from wait_list\n",
-			__func__, f->frame_id);
+		dprintk(CVP_SYNX, "%s: flush frame %llu %llu from wait_list\n",
+			__func__, ktid, f->frame_id);
 
 		list_del_init(&f->list);
 		msm_cvp_unmap_frame(inst, f->pkt->client_data.kdata);
-		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f);
+		cvp_cancel_synx(inst, CVP_OUTPUT_SYNX, f,
+				SYNX_STATE_SIGNALED_CANCEL);
 		cvp_release_synx(inst, f);
 		cvp_free_fence_data(f);
 	}
@@ -1473,11 +1723,10 @@ static int cvp_flush_frame(struct msm_cvp_inst *inst, u64 frame_id)
 
 		ktid = f->pkt->client_data.kdata & (FENCE_BIT - 1);
 
-		dprintk(CVP_SESS, "%s: flush frame %llu from sched_list\n",
-			__func__, ktid);
-		dprintk(CVP_SESS, "%s: flush frameID %llu from sched_list\n",
-			__func__, f->frame_id);
-		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f);
+		dprintk(CVP_SYNX, "%s: flush frame %llu %llu from sched_list\n",
+			__func__, ktid, f->frame_id);
+		cvp_cancel_synx(inst, CVP_INPUT_SYNX, f,
+				SYNX_STATE_SIGNALED_CANCEL);
 	}
 
 	mutex_unlock(&q->lock);
@@ -1642,7 +1891,7 @@ int msm_cvp_session_init(struct msm_cvp_inst *inst)
 	inst->prop.priority = 0;
 	inst->prop.is_secure = 0;
 	inst->prop.dsp_mask = 0;
-	inst->prop.fthread_nr = 2;
+	inst->prop.fthread_nr = 3;
 
 	return rc;
 }

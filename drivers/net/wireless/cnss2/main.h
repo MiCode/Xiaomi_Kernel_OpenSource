@@ -5,7 +5,7 @@
 #define _CNSS_MAIN_H
 
 #include <asm/arch_timer.h>
-#ifdef CONFIG_ESOC
+#if IS_ENABLED(CONFIG_ESOC)
 #include <linux/esoc_client.h>
 #endif
 #include <linux/etherdevice.h>
@@ -14,7 +14,11 @@
 #include <linux/platform_device.h>
 #include <net/cnss2.h>
 #include <soc/qcom/memory_dump.h>
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
+#include <soc/qcom/ramdump.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/subsystem_restart.h>
+#endif
 
 #include "qmi.h"
 
@@ -26,7 +30,7 @@
 #define RECOVERY_TIMEOUT		60000
 #define WLAN_WD_TIMEOUT_MS		60000
 #define WLAN_COLD_BOOT_CAL_TIMEOUT	60000
-#define WLAN_DRIVER_LOAD_TIMEOUT	90000
+#define WLAN_MISSION_MODE_TIMEOUT	30000
 #define TIME_CLOCK_FREQ_HZ		19200000
 #define CNSS_RAMDUMP_MAGIC		0x574C414E
 #define CNSS_RAMDUMP_VERSION		0
@@ -83,14 +87,16 @@ struct cnss_pinctrl_info {
 	struct pinctrl_state *wlan_en_sleep;
 };
 
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 struct cnss_subsys_info {
 	struct subsys_device *subsys_device;
 	struct subsys_desc subsys_desc;
 	void *subsys_handle;
 };
+#endif
 
 struct cnss_ramdump_info {
-	struct ramdump_device *ramdump_dev;
+	void *ramdump_dev;
 	unsigned long ramdump_size;
 	void *ramdump_va;
 	phys_addr_t ramdump_pa;
@@ -114,14 +120,14 @@ struct cnss_dump_data {
 };
 
 struct cnss_ramdump_info_v2 {
-	struct ramdump_device *ramdump_dev;
+	void *ramdump_dev;
 	unsigned long ramdump_size;
 	void *dump_data_vaddr;
 	u8 dump_data_valid;
 	struct cnss_dump_data dump_data;
 };
 
-#ifdef CONFIG_ESOC
+#if IS_ENABLED(CONFIG_ESOC)
 struct cnss_esoc_info {
 	struct esoc_desc *esoc_desc;
 	u8 notify_modem_status;
@@ -138,6 +144,8 @@ struct cnss_bus_bw_cfg {
 struct cnss_bus_bw_info {
 	struct icc_path *cnss_path;
 	int current_bw_vote;
+	u32 num_cfg;
+	struct cnss_bus_bw_cfg *cfg_table;
 };
 
 struct cnss_fw_mem {
@@ -305,10 +313,13 @@ struct cnss_control_params {
 	unsigned int time_sync_period;
 };
 
+struct cnss_tcs_info {
+	resource_size_t cmd_base_addr;
+	void __iomem *cmd_base_addr_io;
+};
+
 struct cnss_cpr_info {
-	resource_size_t tcs_cmd_base_addr;
 	resource_size_t tcs_cmd_data_addr;
-	void __iomem *tcs_cmd_base_addr_io;
 	void __iomem *tcs_cmd_data_addr_io;
 	u32 cpr_pmic_addr;
 	u32 voltage;
@@ -337,26 +348,31 @@ struct cnss_plat_data {
 	struct list_head vreg_list;
 	struct list_head clk_list;
 	struct cnss_pinctrl_info pinctrl_info;
+#if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 	struct cnss_subsys_info subsys_info;
+#endif
 	struct cnss_ramdump_info ramdump_info;
 	struct cnss_ramdump_info_v2 ramdump_info_v2;
-#ifdef CONFIG_ESOC
+#if IS_ENABLED(CONFIG_ESOC)
 	struct cnss_esoc_info esoc_info;
 #endif
 	struct cnss_bus_bw_info bus_bw_info;
 	struct notifier_block modem_nb;
 	struct notifier_block reboot_nb;
+	struct notifier_block panic_nb;
 	struct cnss_platform_cap cap;
 	struct pm_qos_request qos_request;
 	struct cnss_device_version device_version;
 	unsigned long device_id;
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
+	u8 recovery_enabled;
 	unsigned long driver_state;
 	struct list_head event_list;
 	spinlock_t event_lock; /* spinlock for driver work event handling */
 	struct work_struct event_work;
 	struct workqueue_struct *event_wq;
+	struct work_struct recovery_work;
 	struct qmi_handle qmi_wlfw;
 	struct wlfw_rf_chip_info chip_info;
 	struct wlfw_rf_board_info board_info;
@@ -401,6 +417,9 @@ struct cnss_plat_data {
 	bool cbc_enabled;
 	u8 use_nv_mac;
 	u8 set_wlaon_pwr_ctrl;
+	struct cnss_tcs_info tcs_info;
+	bool fw_pcie_gen_switch;
+	u8 pcie_gen_speed;
 };
 
 #ifdef CONFIG_ARCH_QCOM
@@ -458,5 +477,7 @@ int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 				enum cnss_fw_dump_type type, int seg_no,
 				void *va, phys_addr_t pa, size_t size);
+int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv);
+int cnss_get_tcs_info(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

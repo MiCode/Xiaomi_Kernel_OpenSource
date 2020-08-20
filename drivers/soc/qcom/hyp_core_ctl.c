@@ -33,7 +33,7 @@ static DEFINE_PER_CPU(unsigned int, qos_min_freq);
 
 /**
  * struct hyp_core_ctl_cpumap - vcpu to pcpu mapping for the other guest
- * @sid: System call id to be used while referring to this vcpu
+ * @cap_id: System call id to be used while referring to this vcpu
  * @pcpu: The physical CPU number corresponding to this vcpu
  * @curr_pcpu: The current physical CPU number corresponding to this vcpu.
  *             The curr_pcu is set to another CPU when the original assigned
@@ -41,7 +41,7 @@ static DEFINE_PER_CPU(unsigned int, qos_min_freq);
  *
  */
 struct hyp_core_ctl_cpu_map {
-	hh_capid_t sid;
+	hh_capid_t cap_id;
 	hh_label_t pcpu;
 	hh_label_t curr_pcpu;
 };
@@ -162,7 +162,7 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 	 * maintained in vcpu_adjust_mask and processed in the 2nd pass.
 	 */
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].sid == 0)
+		if (hcd->cpumap[i].cap_id == 0)
 			break;
 
 		orig_cpu = hcd->cpumap[i].pcpu;
@@ -179,11 +179,11 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 			 * is available in final_reserved_cpus. so restore
 			 * the assignment.
 			 */
-			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].sid,
+			err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 								orig_cpu);
 			if (err != HH_ERROR_OK) {
-				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d sid=%d cpu=%d\n",
-					i, err, hcd->cpumap[i].sid, orig_cpu);
+				pr_err("restore: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+					i, err, hcd->cpumap[i].cap_id, orig_cpu);
 				continue;
 			}
 
@@ -224,11 +224,11 @@ static void finalize_reservation(struct hyp_core_ctl_data *hcd, cpumask_t *temp)
 		replacement_cpu = cpumask_any(temp);
 		cpumask_clear_cpu(replacement_cpu, temp);
 
-		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].sid,
+		err = hh_hcall_vcpu_affinity_set(hcd->cpumap[i].cap_id,
 							replacement_cpu);
 		if (err != HH_ERROR_OK) {
-			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d sid=%d cpu=%d\n",
-				i, err, hcd->cpumap[i].sid, replacement_cpu);
+			pr_err("adjust: fail to assign pcpu for vcpu#%d err=%d cap_id=%d cpu=%d\n",
+				i, err, hcd->cpumap[i].cap_id, replacement_cpu);
 			continue;
 		}
 
@@ -635,10 +635,10 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	cpumask_clear(&hcd->reserve_cpus);
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hh_cpumap[i].sid == 0)
+		if (hh_cpumap[i].cap_id == 0)
 			break;
 
-		hcd->cpumap[i].sid = hh_cpumap[i].sid;
+		hcd->cpumap[i].cap_id = hh_cpumap[i].cap_id;
 		hcd->cpumap[i].pcpu = hh_cpumap[i].pcpu;
 		hcd->cpumap[i].curr_pcpu = hh_cpumap[i].curr_pcpu;
 		cpumask_set_cpu(hcd->cpumap[i].pcpu, &hcd->reserve_cpus);
@@ -650,6 +650,10 @@ static void hyp_core_ctl_init_reserve_cpus(struct hyp_core_ctl_data *hcd)
 	pr_info("reserve_cpus=%*pbl\n", cpumask_pr_args(&hcd->reserve_cpus));
 }
 
+/*
+ * Called when vm_status is STATUS_READY, multiple times before status
+ * moves to STATUS_RUNNING
+ */
 int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
 {
 	if (!init_done) {
@@ -657,13 +661,16 @@ int hh_vcpu_populate_affinity_info(u32 cpu_idx, u64 cap_id)
 		return -ENXIO;
 	}
 
-	hh_cpumap[nr_vcpus].sid = cap_id;
-	hh_cpumap[nr_vcpus].pcpu = cpu_idx;
-	hh_cpumap[nr_vcpus].curr_pcpu = cpu_idx;
+	if (!is_vcpu_info_populated) {
+		hh_cpumap[nr_vcpus].cap_id = cap_id;
+		hh_cpumap[nr_vcpus].pcpu = cpu_idx;
+		hh_cpumap[nr_vcpus].curr_pcpu = cpu_idx;
 
-	nr_vcpus++;
-	pr_debug("cpu_index:%u vcpu_cap_id:%llu nr_vcpus:%d\n",
+		nr_vcpus++;
+		pr_debug("cpu_index:%u vcpu_cap_id:%llu nr_vcpus:%d\n",
 					cpu_idx, cap_id, nr_vcpus);
+	}
+
 	return 0;
 }
 
@@ -673,15 +680,15 @@ static int hh_vcpu_done_populate_affinity_info(struct notifier_block *nb,
 	struct hh_rm_notif_vm_status_payload *vm_status_payload = data;
 	u8 vm_status = vm_status_payload->vm_status;
 
-	if (cmd != HH_RM_NOTIF_VM_STATUS ||
-					vm_status != HH_RM_VM_STATUS_RUNNING)
-		goto done;
+	if (cmd == HH_RM_NOTIF_VM_STATUS &&
+			vm_status == HH_RM_VM_STATUS_RUNNING &&
+			!is_vcpu_info_populated) {
+		mutex_lock(&the_hcd->reservation_mutex);
+		hyp_core_ctl_init_reserve_cpus(the_hcd);
+		is_vcpu_info_populated = true;
+		mutex_unlock(&the_hcd->reservation_mutex);
+	}
 
-	mutex_lock(&the_hcd->reservation_mutex);
-	hyp_core_ctl_init_reserve_cpus(the_hcd);
-	is_vcpu_info_populated = true;
-	mutex_unlock(&the_hcd->reservation_mutex);
-done:
 	return NOTIFY_DONE;
 }
 
@@ -776,7 +783,7 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 			   "Vcpu to Pcpu mappings:\n");
 
 	for (i = 0; i < MAX_RESERVE_CPUS; i++) {
-		if (hcd->cpumap[i].sid == 0)
+		if (hcd->cpumap[i].cap_id == 0)
 			break;
 
 		count += scnprintf(buf + count, PAGE_SIZE - count,
@@ -792,6 +799,44 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(status);
 
+static bool freq_qos_init_done;
+static int init_freq_qos_req(void)
+{
+	int cpu, ret;
+	struct cpufreq_policy *policy;
+	struct freq_qos_request *qos_req;
+
+	for_each_possible_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_err("cpufreq policy not found for cpu%d\n", cpu);
+			ret = -ESRCH;
+			goto remove_qos_req;
+		}
+
+		qos_req = &per_cpu(qos_min_req, cpu);
+		ret = freq_qos_add_request(&policy->constraints, qos_req,
+				FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("Failed to add min freq constraint (%d)\n", ret);
+			cpufreq_cpu_put(policy);
+			goto remove_qos_req;
+		}
+		cpufreq_cpu_put(policy);
+	}
+
+	return 0;
+
+remove_qos_req:
+	for_each_possible_cpu(cpu) {
+		qos_req = &per_cpu(qos_min_req, cpu);
+		if (freq_qos_request_active(qos_req))
+			freq_qos_remove_request(qos_req);
+	}
+
+	return ret;
+}
+
 static ssize_t hcc_min_freq_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -804,6 +849,12 @@ static ssize_t hcc_min_freq_store(struct device *dev,
 	if (!is_vcpu_info_populated) {
 		pr_err("VCPU info isn't populated\n");
 		goto err_out;
+	}
+
+	if (!freq_qos_init_done) {
+		if (init_freq_qos_req())
+			goto err_out;
+		freq_qos_init_done = true;
 	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
@@ -947,37 +998,15 @@ static int hyp_core_ctl_probe(struct platform_device *pdev)
 	int ret;
 	struct hyp_core_ctl_data *hcd;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
-	int cpu;
-	struct cpufreq_policy *policy;
-	struct freq_qos_request *qos_req;
 
 	ret = hh_rm_register_notifier(&hh_vcpu_nb);
 	if (ret)
 		return ret;
 
-	for_each_possible_cpu(cpu) {
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy) {
-			pr_err("cpufreq policy not found for cpu%d\n", cpu);
-			ret = -ESRCH;
-			goto remove_qos_req;
-		}
-
-		qos_req = &per_cpu(qos_min_req, cpu);
-		ret = freq_qos_add_request(&policy->constraints, qos_req,
-				FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
-		if (ret < 0) {
-			pr_err("Failed to add min freq constraint (%d)\n", ret);
-			cpufreq_cpu_put(policy);
-			goto remove_qos_req;
-		}
-		cpufreq_cpu_put(policy);
-	}
-
 	hcd = kzalloc(sizeof(*hcd), GFP_KERNEL);
 	if (!hcd) {
 		ret = -ENOMEM;
-		goto remove_qos_req;
+		goto unregister_rm_notifier;
 	}
 
 	spin_lock_init(&hcd->lock);
@@ -1018,13 +1047,7 @@ stop_task:
 	kthread_stop(hcd->task);
 free_hcd:
 	kfree(hcd);
-remove_qos_req:
-	for_each_possible_cpu(cpu) {
-		qos_req = &per_cpu(qos_min_req, cpu);
-		if (freq_qos_request_active(qos_req))
-			freq_qos_remove_request(qos_req);
-	}
-
+unregister_rm_notifier:
 	hh_rm_unregister_notifier(&hh_vcpu_nb);
 
 	return ret;

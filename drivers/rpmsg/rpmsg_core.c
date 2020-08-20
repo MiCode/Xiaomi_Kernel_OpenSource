@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2011 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
  * Brian Swetland <swetland@google.com>
@@ -285,40 +285,40 @@ int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
 EXPORT_SYMBOL(rpmsg_trysend_offchannel);
 
 /**
- * rpmsg_get_sigs() - get the signals for this endpoint
+ * rpmsg_get_signals() - get the signals for this endpoint
  * @ept:	the rpmsg endpoint
- * @sigs:	serial signals bitmask
  *
- * Returns 0 on success and an appropriate error value on failure.
+ * Returns signal bits on success and an appropriate error value on failure.
  */
-int rpmsg_get_sigs(struct rpmsg_endpoint *ept, u32 *lsigs, u32 *rsigs)
+int rpmsg_get_signals(struct rpmsg_endpoint *ept)
 {
 	if (WARN_ON(!ept))
 		return -EINVAL;
-	if (!ept->ops->get_sigs)
+	if (!ept->ops->get_signals)
 		return -ENXIO;
 
-	return ept->ops->get_sigs(ept, lsigs, rsigs);
+	return ept->ops->get_signals(ept);
 }
-EXPORT_SYMBOL(rpmsg_get_sigs);
+EXPORT_SYMBOL(rpmsg_get_signals);
 
 /**
- * rpmsg_set_sigs() - set the remote signals for this endpoint
+ * rpmsg_set_signals() - set the remote signals for this endpoint
  * @ept:	the rpmsg endpoint
- * @sigs:	serial signals bitmask
+ * @set:	set mask for signals
+ * @clear:	clear mask for signals
  *
  * Returns 0 on success and an appropriate error value on failure.
  */
-int rpmsg_set_sigs(struct rpmsg_endpoint *ept, u32 sigs)
+int rpmsg_set_signals(struct rpmsg_endpoint *ept, u32 set, u32 clear)
 {
 	if (WARN_ON(!ept))
 		return -EINVAL;
-	if (!ept->ops->set_sigs)
+	if (!ept->ops->set_signals)
 		return -ENXIO;
 
-	return ept->ops->set_sigs(ept, sigs);
+	return ept->ops->set_signals(ept, set, clear);
 }
-EXPORT_SYMBOL(rpmsg_set_sigs);
+EXPORT_SYMBOL(rpmsg_set_signals);
 
 /*
  * match an rpmsg channel with a channel info struct.

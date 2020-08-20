@@ -336,6 +336,29 @@ struct cvp_hfi_msg_session_hdr {
 	u32 stream_idx;
 } __packed;
 
+#define HFI_MAX_HW_ACTIVATIONS_PER_FRAME (6)
+#define HFI_MAX_HW_THREADS (4)
+
+enum hfi_hw_thread {
+	HFI_HW_FDU,
+	HFI_HW_MPU,
+	HFI_HW_OD,
+	HFI_HW_ICA
+};
+
+struct cvp_hfi_msg_session_hdr_ext {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	u32 error_type;
+	struct cvp_hfi_client client_data;
+	u32 stream_idx;
+	u32 busy_cycles;
+	u32 total_cycles;
+	u32 hw_cycles[HFI_MAX_HW_THREADS][HFI_MAX_HW_ACTIVATIONS_PER_FRAME];
+	u32 fw_cycles[HFI_MAX_HW_ACTIVATIONS_PER_FRAME];
+} __packed;
+
 struct cvp_hfi_buffer_mapping_type {
 	u32 index;
 	u32 device_addr;

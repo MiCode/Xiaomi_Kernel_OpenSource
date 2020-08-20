@@ -12,6 +12,12 @@
 #define WDOG_BITE_ON_PANIC 0
 #endif
 
+#ifdef CONFIG_QCOM_WDOG_BITE_EARLY_PANIC
+#define WDOG_BITE_EARLY_PANIC 1
+#else
+#define WDOG_BITE_EARLY_PANIC 0
+#endif
+
 #if IS_ENABLED(CONFIG_QCOM_WATCHDOG)
 void msm_trigger_wdog_bite(void);
 #else

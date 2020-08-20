@@ -1229,13 +1229,6 @@ exit:
 	return ret;
 }
 
-typedef int (*dma_buf_destructor)(struct dma_buf *dmabuf, void *dtor_data);
-static void dma_buf_set_destructor(struct dma_buf *dmabuf,
-				dma_buf_destructor dtor,
-				void *dtor_data)
-{
-}
-
 static int qseecom_destroy_bridge_callback(
 				struct dma_buf *dmabuf, void *dtor_data)
 {
@@ -1293,14 +1286,14 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 		pr_debug("bridge exists\n");
 		return 0;
 	}
-/*
- *	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
- *	if (nelems == 0) {
- *		pr_err("failed to get vm num from flag = %x\n", dma_buf_flags);
- *		ret = -EINVAL;
- *		goto exit;
- *	}
- */
+
+	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
+	if (nelems == 0) {
+		pr_err("failed to get vm num from flag = %x\n", dma_buf_flags);
+		ret = -EINVAL;
+		goto exit;
+	}
+
 
 	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
 	if (!vmid_list) {
@@ -1308,11 +1301,11 @@ static int qseecom_create_bridge_for_secbuf(int ion_fd, struct dma_buf *dmabuf,
 		goto exit;
 	}
 
-/*
- *	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
- *	if (ret)
- *		goto exit_free_vmid_list;
- */
+
+	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
+	if (ret)
+		goto exit_free_vmid_list;
+
 
 	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
 	if (!perms_list) {
@@ -4396,6 +4389,11 @@ static int __qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
 	/* Allocate kernel buffer for request and response*/
 	ret = __qseecom_alloc_coherent_buf(req.cmd_req_len + req.resp_len,
 					&va, &pa);
+	if (ret) {
+		pr_err("Failed to allocate coherent buf, ret %d\n", ret);
+		return ret;
+	}
+
 	req.cmd_req_buf = va;
 	send_cmd_req.cmd_req_buf = (void *)pa;
 
@@ -9367,6 +9365,14 @@ static int qseecom_init_dev(struct platform_device *pdev)
 		}
 	}
 	dma_set_max_seg_size(qseecom.dev, DMA_BIT_MASK(32));
+
+	rc = of_reserved_mem_device_init_by_idx(&pdev->dev,
+					(&pdev->dev)->of_node, 0);
+	if (rc) {
+		pr_err("Failed to initialize reserved mem, ret %d\n", rc);
+		goto exit_del_cdev;
+	}
+
 	return 0;
 
 exit_del_cdev:
@@ -9536,10 +9542,15 @@ static int qseecom_register_heap_shmbridge(uint32_t heapid, uint64_t *handle)
 		return -EINVAL;
 	}
 	rmem = of_reserved_mem_lookup(node);
-	of_node_put(node);
 	if (!rmem) {
 		pr_err("unable to acquire memory-region of heap %d\n", heapid);
 		return -EINVAL;
+	}
+	ret = of_reserved_mem_device_init_by_idx(ion_dev, ion_dev->of_node, 0);
+	of_node_put(node);
+	if (ret) {
+		pr_err("Failed to initialize reserved mem, ret %d\n", ret);
+		return ret;
 	}
 	heap_pa = rmem->base;
 	heap_size = (size_t)rmem->size;

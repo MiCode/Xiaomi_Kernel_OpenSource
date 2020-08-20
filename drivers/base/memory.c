@@ -419,51 +419,55 @@ static DEVICE_ATTR_RO(valid_zones);
 #endif
 
 #ifdef CONFIG_MEMORY_HOTPLUG
-static int count_num_free_block_pages(struct zone *zone, int bid)
+/*
+ * Returns the number of free pages in a movable memory block, or 0 for other
+ * types of memory blocks.
+ */
+static unsigned long count_free_pages_blk(struct memory_block *memory_blk)
 {
-	int order, type;
-	unsigned long freecount = 0;
-	unsigned long flags;
+	unsigned long block_sz = memory_block_size_bytes();
+	unsigned long pages_per_blk = block_sz / PAGE_SIZE;
+	unsigned long tot_free_pages = 0, pfn, end_pfn, flags;
+	struct zone *movable_zone =
+		&NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
+	struct page *page;
 
-	spin_lock_irqsave(&zone->lock, flags);
-	for (type = 0; type < MIGRATE_TYPES; type++) {
-		for (order = 0; order < MAX_ORDER; ++order) {
-			struct free_area *area;
-			struct page *page;
+	pfn = section_nr_to_pfn(memory_blk->start_section_nr);
+	if (!zone_intersects(movable_zone, pfn, pages_per_blk))
+		return 0;
 
-			area = &(zone->free_area[order]);
-			list_for_each_entry(page, &area->free_list[type], lru) {
-				unsigned long pfn = page_to_pfn(page);
-				int section_nr = pfn_to_section_nr(pfn);
-
-				if (bid == base_memory_block_id(section_nr))
-					freecount += (1 << order);
-			}
-
+	end_pfn = pfn + pages_per_blk;
+	spin_lock_irqsave(&movable_zone->lock, flags);
+	while (pfn < end_pfn) {
+		if (!pfn_valid(pfn) || !PageBuddy(pfn_to_page(pfn))) {
+			pfn++;
+			continue;
 		}
-	}
-	spin_unlock_irqrestore(&zone->lock, flags);
 
-	return freecount;
+		page = pfn_to_page(pfn);
+		tot_free_pages += 1 << page_private(page);
+		pfn += 1 << page_private(page);
+	}
+	spin_unlock_irqrestore(&movable_zone->lock, flags);
+
+	return tot_free_pages;
 }
 
 static ssize_t allocated_bytes_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	struct memory_block *mem = to_memory_block(dev);
-	int block_id, free_pages;
 	struct zone *movable_zone =
 		&NODE_DATA(numa_node_id())->node_zones[ZONE_MOVABLE];
-	unsigned long used, block_sz = memory_block_size_bytes();
+	unsigned long tot_free_pages, block_sz = memory_block_size_bytes();
+	unsigned long used;
 
 	if (!populated_zone(movable_zone) || mem->state != MEM_ONLINE)
-		return snprintf(buf, 100, "0\n");
+		return scnprintf(buf, PAGE_SIZE, "0\n");
 
-	block_id = base_memory_block_id(mem->start_section_nr);
-	free_pages = count_num_free_block_pages(movable_zone, block_id);
-	used =  block_sz - (free_pages * PAGE_SIZE);
-
-	return snprintf(buf, 100, "%lu\n", used);
+	tot_free_pages = count_free_pages_blk(mem);
+	used = block_sz - (tot_free_pages * PAGE_SIZE);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", used);
 }
 #endif
 

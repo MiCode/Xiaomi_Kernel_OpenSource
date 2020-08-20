@@ -140,7 +140,8 @@ static void qcom_ipcc_unmask_irq(struct irq_data *irqd)
 static struct irq_chip qcom_ipcc_irq_chip = {
 	.name = "ipcc",
 	.irq_mask = qcom_ipcc_mask_irq,
-	.irq_unmask = qcom_ipcc_unmask_irq
+	.irq_unmask = qcom_ipcc_unmask_irq,
+	.flags = IRQCHIP_SKIP_SET_WAKE,
 };
 
 static int qcom_ipcc_domain_map(struct irq_domain *d, unsigned int irq,

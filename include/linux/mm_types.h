@@ -15,6 +15,7 @@
 #include <linux/page-flags-layout.h>
 #include <linux/workqueue.h>
 #include <linux/android_kabi.h>
+#include <linux/android_vendor.h>
 
 #include <asm/mmu.h>
 
@@ -369,6 +370,7 @@ struct vm_area_struct {
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
+	ANDROID_VENDOR_DATA(1);
 } __randomize_layout;
 
 struct core_thread {
@@ -543,6 +545,7 @@ struct mm_struct {
 		atomic_long_t hugetlb_usage;
 #endif
 		struct work_struct async_put_work;
+		ANDROID_VENDOR_DATA(1);
 	} __randomize_layout;
 
 	/*

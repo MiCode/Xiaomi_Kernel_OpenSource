@@ -21,7 +21,6 @@
 #include <linux/soc/qcom/llcc-qcom.h>
 #include <linux/qcom_scm.h>
 #include <linux/soc/qcom/smem.h>
-#include <soc/qcom/subsystem_restart.h>
 #include <linux/dma-mapping.h>
 #include <linux/reset.h>
 #include "hfi_packetization.h"
@@ -304,6 +303,7 @@ static void power_off_iris2(struct iris_hfi_device *device);
 
 static int __set_ubwc_config(struct iris_hfi_device *device);
 static void __noc_error_info_iris2(struct iris_hfi_device *device);
+static int __enable_hw_power_collapse(struct iris_hfi_device *device);
 
 static struct iris_hfi_vpu_ops iris2_ops = {
 	.interrupt_init = interrupt_init_iris2,
@@ -364,9 +364,34 @@ int get_hfi_version(void)
 	return hfi->version;
 }
 
-unsigned int get_msg_size(void)
+unsigned int get_msg_size(struct cvp_hfi_msg_session_hdr *hdr)
 {
-	return sizeof(struct cvp_hfi_msg_session_hdr);
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *device;
+	u32 minor_ver;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	if (core)
+		device = core->device->hfi_device_data;
+	else
+		return 0;
+
+	if (!device) {
+		dprintk(CVP_ERR, "%s: NULL device\n", __func__);
+		return 0;
+	}
+
+	minor_ver = (device->version & HFI_VERSION_MINOR_MASK) >>
+				HFI_VERSION_MINOR_SHIFT;
+
+	if (minor_ver < 2)
+		return sizeof(struct cvp_hfi_msg_session_hdr);
+
+	if (hdr->packet_type == HFI_MSG_SESSION_CVP_FD)
+		return sizeof(struct cvp_hfi_msg_session_hdr_ext);
+	else
+		return sizeof(struct cvp_hfi_msg_session_hdr);
+
 }
 
 unsigned int get_msg_session_id(void *msg)
@@ -1102,8 +1127,31 @@ static int __tzbsp_set_cvp_state(enum tzbsp_subsys_state state)
 
 static inline int __boot_firmware(struct iris_hfi_device *device)
 {
-	int rc = 0;
+	int rc = 0, loop = 10;
 	u32 ctrl_init_val = 0, ctrl_status = 0, count = 0, max_tries = 1000;
+	u32 reg_gdsc;
+
+	/*
+	 * Hand off control of regulators to h/w _after_ enabling clocks.
+	 * Note that the GDSC will turn off when switching from normal
+	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
+	 * present. Since Iris isn't up yet, the GDSC will be off briefly.
+	 */
+	if (__enable_hw_power_collapse(device))
+		dprintk(CVP_ERR, "Failed to enabled inter-frame PC\n");
+
+	while (loop) {
+		reg_gdsc = __read_register(device, CVP_CC_MVS1_GDSCR);
+		if (reg_gdsc & 0x80000000) {
+			usleep_range(100, 200);
+			loop--;
+		} else {
+			break;
+		}
+	}
+
+	if (!loop)
+		dprintk(CVP_ERR, "fail to power off CORE during resume\n");
 
 	ctrl_init_val = BIT(0);
 	__write_register(device, CVP_CTRL_INIT, ctrl_init_val);
@@ -3323,7 +3371,7 @@ static int reset_ahb2axi_bridge(struct iris_hfi_device *device)
 		}
 
 		/* wait for deassert */
-		usleep_range(400, 450);
+		usleep_range(1000, 1050);
 
 		rc = __handle_reset_clk(device->res, i, DEASSERT, s);
 		if (rc) {
@@ -3596,11 +3644,6 @@ static void __deinit_resources(struct iris_hfi_device *device)
 	__deinit_regulators(device);
 	kfree(device->sys_init_capabilities);
 	device->sys_init_capabilities = NULL;
-}
-
-static int __protect_cp_mem(struct iris_hfi_device *device)
-{
-	return device ? 0 : -EINVAL;
 }
 
 static int __disable_regulator(struct regulator_info *rinfo,
@@ -3987,15 +4030,6 @@ static int __iris_power_on(struct iris_hfi_device *device)
 	device->intr_status = 0;
 	enable_irq(device->cvp_hal_data->irq);
 
-	/*
-	 * Hand off control of regulators to h/w _after_ enabling clocks.
-	 * Note that the GDSC will turn off when switching from normal
-	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
-	 * present. Since Iris isn't up yet, the GDSC will be off briefly.
-	 */
-	if (__enable_hw_power_collapse(device))
-		dprintk(CVP_ERR, "Failed to enabled inter-frame PC\n");
-
 	return rc;
 
 fail_enable_clks:
@@ -4148,10 +4182,10 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	/* HPG 6.1.2 Step 6 */
 	__disable_unprepare_clks(device);
 
-	/* HPG 6.1.2 Step 7 & 8 */
-	if (call_iris_op(device, reset_ahb2axi_bridge, device))
-		dprintk(CVP_ERR, "Failed to reset ahb2axi\n");
-
+	/*
+	 * HPG 6.1.2 Step 7 & 8
+	 * per new HPG update, core clock reset will be unnecessary
+	 */
 	if (__unvote_buses(device))
 		dprintk(CVP_WARN, "Failed to unvote for buses\n");
 
@@ -4185,8 +4219,6 @@ static inline int __resume(struct iris_hfi_device *device)
 		goto err_iris_power_on;
 	}
 
-
-
 	reg_gdsc = __read_register(device, CVP_CC_MVS1C_GDSCR);
 	reg_cbcr = __read_register(device, CVP_CC_MVS1C_CBCR);
 	if (!(reg_gdsc & 0x80000000) || (reg_cbcr & 0x80000000))
@@ -4201,6 +4233,7 @@ static inline int __resume(struct iris_hfi_device *device)
 	}
 
 	__setup_ucregion_memory_map(device);
+
 	/* Wait for boot completion */
 	rc = __boot_firmware(device);
 	if (rc) {
@@ -4266,31 +4299,13 @@ static int __load_fw(struct iris_hfi_device *device)
 
 	if ((!device->res->use_non_secure_pil && !device->res->firmware_base)
 			|| device->res->use_non_secure_pil) {
-		if (!device->resources.fw.cookie)
-			device->resources.fw.cookie =
-				subsystem_get_with_fwname("evass",
-				device->res->fw_name);
-
-		if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
-			dprintk(CVP_ERR, "Failed to download firmware\n");
-			device->resources.fw.cookie = NULL;
-			rc = -ENOMEM;
+		rc = load_cvp_fw_impl(device);
+		if (rc)
 			goto fail_load_fw;
-		}
 	}
 
-	if (!device->res->firmware_base) {
-		rc = __protect_cp_mem(device);
-		if (rc) {
-			dprintk(CVP_ERR, "Failed to protect memory\n");
-			goto fail_protect_mem;
-		}
-	}
 	return rc;
-fail_protect_mem:
-	if (device->resources.fw.cookie)
-		subsystem_put(device->resources.fw.cookie);
-	device->resources.fw.cookie = NULL;
+
 fail_load_fw:
 	call_iris_op(device, power_off, device);
 fail_iris_power_on:
@@ -4309,10 +4324,9 @@ static void __unload_fw(struct iris_hfi_device *device)
 	if (device->state != IRIS_STATE_DEINIT)
 		flush_workqueue(device->iris_pm_workq);
 
-	subsystem_put(device->resources.fw.cookie);
+	unload_cvp_fw_impl(device);
 	__interface_queues_release(device);
 	call_iris_op(device, power_off, device);
-	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 
 	dprintk(CVP_WARN, "Firmware unloaded\n");
@@ -4362,9 +4376,12 @@ static int iris_hfi_get_core_capabilities(void *dev)
 	return 0;
 }
 
+static u32 cvp_arp_test_regs[16];
+static u32 cvp_dma_test_regs[512];
+
 static void __noc_error_info_iris2(struct iris_hfi_device *device)
 {
-	u32 val = 0;
+	u32 val = 0, regi, i;
 
 	val = __read_register(device, CVP_NOC_ERR_SWID_LOW_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_ERL_MAIN_SWID_LOW:     %#x\n", val);
@@ -4419,6 +4436,32 @@ static void __noc_error_info_iris2(struct iris_hfi_device *device)
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG3_HIGH_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_HIGH:     %#x\n", val);
+#define CVP_SS_CLK_HALT 0x8
+#define CVP_SS_CLK_EN 0xC
+#define CVP_SS_ARP_TEST_BUS_CONTROL 0x700
+#define CVP_SS_ARP_TEST_BUS_REGISTER 0x704
+#define CVP_DMA_TEST_BUS_CONTROL 0x66A0
+#define CVP_DMA_TEST_BUS_REGISTER 0x66A4
+#define CVP_VPU_WRAPPER_CORE_CONFIG 0xB0088
+	__write_register(device, CVP_SS_CLK_HALT, 0);
+	__write_register(device, CVP_SS_CLK_EN, 0x3f);
+	__write_register(device, CVP_VPU_WRAPPER_CORE_CONFIG, 0);
+
+	for (i = 0; i < 15; i++) {
+		regi = 0xC0000000 + i;
+		__write_register(device, CVP_SS_ARP_TEST_BUS_CONTROL, regi);
+		val = __read_register(device, CVP_SS_ARP_TEST_BUS_REGISTER);
+		cvp_arp_test_regs[i] = val;
+		dprintk(CVP_ERR, "ARP_CTL:%x - %x\n", regi, val);
+	}
+
+	for (i = 0; i < 512; i++) {
+		regi = 0x40000000 + i;
+		__write_register(device, CVP_DMA_TEST_BUS_CONTROL, regi);
+		val = __read_register(device, CVP_DMA_TEST_BUS_REGISTER);
+		cvp_dma_test_regs[i] = val;
+		dprintk(CVP_ERR, "DMA_CTL:%x - %x\n", regi, val);
+	}
 }
 
 static int iris_hfi_noc_error_info(void *dev)

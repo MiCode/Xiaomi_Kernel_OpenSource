@@ -18,6 +18,7 @@
 #include <linux/cpu_pm.h>
 #include <linux/platform_device.h>
 #include <linux/wait.h>
+#include <linux/reboot.h>
 #include <linux/qcom_scm.h>
 #include <soc/qcom/minidump.h>
 #include <soc/qcom/watchdog.h>
@@ -68,8 +69,10 @@ struct msm_watchdog_data {
 	cpumask_t alive_mask;
 	struct mutex disable_lock;
 	bool irq_ppi;
+	bool in_panic;
 	struct msm_watchdog_data __percpu **wdog_cpu_dd;
 	struct notifier_block panic_blk;
+	struct notifier_block restart_blk;
 
 	bool enabled;
 	bool user_pet_enabled;
@@ -168,6 +171,11 @@ static int panic_wdog_handler(struct notifier_block *this,
 {
 	struct msm_watchdog_data *wdog_dd = container_of(this,
 				struct msm_watchdog_data, panic_blk);
+	wdog_dd->in_panic = true;
+	if (WDOG_BITE_EARLY_PANIC) {
+		pr_info("Triggering early bite\n");
+		msm_trigger_wdog_bite();
+	}
 	if (panic_timeout == 0) {
 		__raw_writel(0, wdog_dd->base + WDT0_EN);
 		/* Make sure watchdog is enabled before notifying the caller */
@@ -204,6 +212,22 @@ static void wdog_disable(struct msm_watchdog_data *wdog_dd)
 	mb();
 	wdog_dd->enabled = false;
 	dev_err(wdog_dd->dev, "MSM Apps Watchdog deactivated\n");
+}
+
+static int restart_wdog_handler(struct notifier_block *this,
+			       unsigned long event, void *ptr)
+{
+	struct msm_watchdog_data *wdog_dd = container_of(this,
+				struct msm_watchdog_data, restart_blk);
+	if (WDOG_BITE_ON_PANIC && wdog_dd->in_panic) {
+		/*
+		 * Trigger a watchdog bite here and if this fails,
+		 * device will take the usual restart path.
+		 */
+		pr_info("Triggering late bite\n");
+		msm_trigger_wdog_bite();
+	}
+	return NOTIFY_DONE;
 }
 
 static ssize_t wdog_disable_get(struct device *dev,
@@ -587,9 +611,13 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
 	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
 
+	wdog_dd->panic_blk.priority = WDOG_BITE_EARLY_PANIC ? INT_MAX - 1 : 0;
 	wdog_dd->panic_blk.notifier_call = panic_wdog_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &wdog_dd->panic_blk);
+	wdog_dd->restart_blk.priority = 255;
+	wdog_dd->restart_blk.notifier_call = restart_wdog_handler;
+	register_restart_handler(&wdog_dd->restart_blk);
 	mutex_init(&wdog_dd->disable_lock);
 	init_waitqueue_head(&wdog_dd->pet_complete);
 	wdog_dd->timer_expired = false;

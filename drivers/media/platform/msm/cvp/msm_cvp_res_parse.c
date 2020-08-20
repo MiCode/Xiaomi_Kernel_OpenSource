@@ -237,6 +237,14 @@ err_qdss_addr_tbl:
 	return rc;
 }
 
+static int msm_cvp_load_fw_name(struct msm_cvp_platform_resources *res)
+{
+	struct platform_device *pdev = res->pdev;
+
+	return of_property_read_string_index(pdev->dev.of_node,
+				"cvp,firmware-name", 0, &res->fw_name);
+}
+
 static int msm_cvp_load_subcache_info(struct msm_cvp_platform_resources *res)
 {
 	int rc = 0, num_subcaches = 0, c;
@@ -720,10 +728,6 @@ int cvp_read_platform_resources_from_drv_data(
 
 	res->sku_version = platform_data->sku_version;
 
-	res->fw_name = "evass";
-
-	dprintk(CVP_CORE, "Firmware filename: %s\n", res->fw_name);
-
 	res->auto_pil = find_key_value(platform_data,
 			"qcom,auto-pil");
 
@@ -787,6 +791,11 @@ int cvp_read_platform_resources_from_dt(
 
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
+
+	rc = msm_cvp_load_fw_name(res);
+	dprintk(CVP_CORE, "EVA fw: %s found.\n", res->fw_name);
+	if (rc)
+		dprintk(CVP_WARN, "Failed to load fw name info: %d\n", rc);
 
 	rc = msm_cvp_load_subcache_info(res);
 	if (rc)

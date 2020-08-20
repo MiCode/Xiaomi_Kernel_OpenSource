@@ -105,6 +105,7 @@ struct walt_sched_stats {
 	int nr_big_tasks;
 	u64 cumulative_runnable_avg_scaled;
 	u64 pred_demands_sum_scaled;
+	unsigned int nr_rtg_high_prio_tasks;
 };
 
 struct walt_task_group {
@@ -2989,6 +2990,12 @@ static inline unsigned int task_pl(struct task_struct *p)
 static inline bool task_in_related_thread_group(struct task_struct *p)
 {
 	return (rcu_access_pointer(p->wts.grp) != NULL);
+}
+
+static inline bool task_rtg_high_prio(struct task_struct *p)
+{
+	return task_in_related_thread_group(p) &&
+		(p->prio <= sysctl_walt_rtg_cfs_boost_prio);
 }
 
 static inline struct walt_related_thread_group

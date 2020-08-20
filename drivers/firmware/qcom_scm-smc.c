@@ -1919,6 +1919,19 @@ int __qcom_scm_tsens_reinit(struct device *dev, int *tsens_ret)
 	return ret;
 }
 
+int __qcom_scm_reboot(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_OEM_POWER,
+		.cmd = QCOM_SCM_OEM_POWER_REBOOT,
+		.owner = ARM_SMCCC_OWNER_OEM,
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(0);
+
+	return qcom_scm_call_atomic(dev, &desc);
+}
+
 int __qcom_scm_ice_restore_cfg(struct device *dev)
 {
 	struct qcom_scm_desc desc = {

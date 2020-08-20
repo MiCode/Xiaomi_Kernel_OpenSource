@@ -12,7 +12,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
 #include <linux/completion.h>
-#include <soc/qcom/ramdump.h>
 
 #include "main.h"
 #include "bus.h"
@@ -357,21 +356,6 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 	{0, QCA6390_SYSPM_WCSSAON_SR_STATUS, 0},
 };
 
-static struct cnss_bus_bw_cfg cnss_bus_bw_table[] = {
-	/* no vote */
-	{0, 0},
-	/* idle: 0-18 Mbps, ddr freq: 100 MHz */
-	{2250, 400000},
-	/* low: 18-60 Mbps, ddr freq: 200 MHz*/
-	{7500, 800000},
-	/* medium: 60-240 Mbps, ddr freq: 451.2 MHz */
-	{30000, 1804800},
-	/* high: 240 - 800 Mbps, ddr freq: 451.2 MHz */
-	{100000, 1804800},
-	/* very high: 800 - 1400 Mbps, ddr freq: 1555.2 MHz */
-	{175000, 6220800},
-};
-
 #define WCSS_REG_SIZE ARRAY_SIZE(wcss_reg_access_seq)
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
@@ -531,7 +515,7 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 		return -ENODEV;
 
 	bus_bw_info = &plat_priv->bus_bw_info;
-	if (!bus_bw_info->cnss_path)
+	if (!bus_bw_info->cnss_path || bandwidth > bus_bw_info->num_cfg)
 		return -EINVAL;
 
 	switch (bandwidth) {
@@ -541,9 +525,10 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 	case CNSS_BUS_WIDTH_MEDIUM:
 	case CNSS_BUS_WIDTH_HIGH:
 	case CNSS_BUS_WIDTH_VERY_HIGH:
+	case CNSS_BUS_WIDTH_LOW_LATENCY:
 		ret = icc_set_bw(bus_bw_info->cnss_path,
-				 cnss_bus_bw_table[bandwidth].ab,
-				 cnss_bus_bw_table[bandwidth].ib);
+				 bus_bw_info->cfg_table[bandwidth].ab,
+				 bus_bw_info->cfg_table[bandwidth].ib);
 		if (!ret)
 			bus_bw_info->current_bw_vote = bandwidth;
 		else
@@ -1720,6 +1705,7 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 {
 	int i;
 	u32 mem_addr, val, pbl_stage, sbl_log_start, sbl_log_size;
+	u32 pbl_wlan_boot_cfg, pbl_bootstrap_status;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
 	if (plat_priv->device_id != QCA6490_DEVICE_ID)
@@ -1733,8 +1719,14 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 			  &sbl_log_start);
 	cnss_pci_reg_read(pci_priv, QCA6490_PCIE_BHI_ERRDBG3_REG,
 			  &sbl_log_size);
-	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: 0x%08x 0x%08x",
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_WLAN_BOOT_CFG,
+			  &pbl_wlan_boot_cfg);
+	cnss_pci_reg_read(pci_priv, QCA6490_PBL_BOOTSTRAP_STATUS,
+			  &pbl_bootstrap_status);
+	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x",
 		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x PBL_BOOTSTRAP_STATUS: 0x%08x",
+		    pbl_wlan_boot_cfg, pbl_bootstrap_status);
 
 	cnss_pr_dbg("Dumping PBL log data");
 	/* cnss_pci_reg_read provides 32bit register values */
@@ -1745,28 +1737,30 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
 
-	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
-		if (sbl_log_start > QCA6490_V2_SBL_DATA_START &&
-		    (sbl_log_start + sbl_log_size) < QCA6490_V2_SBL_DATA_END)
-			goto dump_sbl_log;
-	} else {
-		if (sbl_log_start > QCA6490_V1_SBL_DATA_START &&
-		    (sbl_log_start + sbl_log_size) < QCA6490_V1_SBL_DATA_END)
-			goto dump_sbl_log;
-	}
-	cnss_pr_err("Invalid SBL log data");
-	return;
-
-dump_sbl_log:
-	cnss_pr_dbg("Dumping SBL log data");
 	sbl_log_size = (sbl_log_size > QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE ?
 			QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE : sbl_log_size);
+	if (plat_priv->device_version.major_version == FW_V2_NUMBER) {
+		if (sbl_log_start < QCA6490_V2_SBL_DATA_START ||
+		    sbl_log_start > QCA6490_V2_SBL_DATA_END ||
+		    (sbl_log_start + sbl_log_size) > QCA6490_V2_SBL_DATA_END)
+			goto out;
+	} else {
+		if (sbl_log_start < QCA6490_V1_SBL_DATA_START ||
+		    sbl_log_start > QCA6490_V1_SBL_DATA_END ||
+		    (sbl_log_start + sbl_log_size) > QCA6490_V1_SBL_DATA_END)
+			goto out;
+	}
+
+	cnss_pr_dbg("Dumping SBL log data");
 	for (i = 0; i < sbl_log_size; i += sizeof(val)) {
 		mem_addr = sbl_log_start + i;
 		if (cnss_pci_reg_read(pci_priv, mem_addr, &val))
 			break;
 		cnss_pr_dbg("SRAM[0x%x] = 0x%x\n", mem_addr, val);
 	}
+	return;
+out:
+	cnss_pr_err("Invalid SBL log data");
 }
 
 static int cnss_qca6174_powerup(struct cnss_pci_data *pci_priv)
@@ -1919,7 +1913,7 @@ retry:
 		if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state))
 			timeout += WLAN_COLD_BOOT_CAL_TIMEOUT;
 		else
-			timeout += WLAN_DRIVER_LOAD_TIMEOUT;
+			timeout += WLAN_MISSION_MODE_TIMEOUT;
 		mod_timer(&plat_priv->fw_boot_timer,
 			  jiffies + msecs_to_jiffies(timeout));
 	}
@@ -2673,6 +2667,9 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	if (!pci_priv)
 		goto out;
 
+	if (!cnss_is_device_powered_on(pci_priv->plat_priv))
+		goto out;
+
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
@@ -2689,6 +2686,9 @@ static int cnss_pci_resume_noirq(struct device *dev)
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
+		goto out;
+
+	if (!cnss_is_device_powered_on(pci_priv->plat_priv))
 		goto out;
 
 	driver_ops = pci_priv->driver_ops;
@@ -2957,6 +2957,7 @@ int cnss_auto_suspend(struct device *dev)
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
 	struct cnss_plat_data *plat_priv;
+	struct cnss_bus_bw_info *bus_bw_info;
 
 	if (!pci_priv)
 		return -ENODEV;
@@ -2977,10 +2978,18 @@ int cnss_auto_suspend(struct device *dev)
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, true);
 
-	icc_set_bw(plat_priv->bus_bw_info.cnss_path,
-		   cnss_bus_bw_table[CNSS_BUS_WIDTH_NONE].ab,
-		   cnss_bus_bw_table[CNSS_BUS_WIDTH_NONE].ib);
+	bus_bw_info = &plat_priv->bus_bw_info;
+	if (!bus_bw_info->cnss_path)
+		goto out;
 
+	/* For suspend temporarily set bandwidth vote to NONE and dont save in
+	 * current_bw_vote as in resume path we should vote for last used
+	 * bandwidth vote. Also ignore error if bw voting is not setup.
+	 */
+	icc_set_bw(bus_bw_info->cnss_path,
+		   bus_bw_info->cfg_table[CNSS_BUS_WIDTH_NONE].ab,
+		   bus_bw_info->cfg_table[CNSS_BUS_WIDTH_NONE].ib);
+out:
 	return 0;
 }
 EXPORT_SYMBOL(cnss_auto_suspend);
@@ -3918,7 +3927,6 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
-	cnss_pci_dump_bl_sram_mem(pci_priv);
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
@@ -4200,6 +4208,14 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 
 	plat_priv->ramdump_info_v2.dump_data.nentries = 0;
 	plat_priv->ramdump_info_v2.dump_data_valid = false;
+}
+
+void cnss_pci_device_crashed(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return;
+
+	cnss_device_crashed(&pci_priv->pci_dev->dev);
 }
 
 static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)

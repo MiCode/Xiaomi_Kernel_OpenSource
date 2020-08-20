@@ -41,7 +41,6 @@
 #define TSENS_TM_UPPER_LOWER_INT_MASK(n)	((n) + 0x10)
 #define TSENS_TM_UPPER_INT_SET(n)		(1 << (n + 16))
 #define TSENS_TM_SN_CRITICAL_THRESHOLD_MASK	0xfff
-#define TSENS_TM_MIN_TEMP_VALID_BIT		BIT(16)
 #define TSENS_TM_SN_STATUS_VALID_BIT		BIT(21)
 #define TSENS_TM_SN_STATUS_CRITICAL_STATUS	BIT(19)
 #define TSENS_TM_SN_STATUS_UPPER_STATUS		BIT(18)
@@ -61,7 +60,6 @@
 #define TSENS_TM_TRDY_FIRST_ROUND_COMPLETE	BIT(3)
 #define TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT	3
 #define TSENS_TM_0C_INT_STATUS(n)	((n) + 0xe0)
-#define TSENS_TM_MIN_TEMP(n)	((n) + 0xec)
 #define TSENS_TM_0C_THRESHOLDS(n)		((n) + 0x1c)
 #define TSENS_MAX_READ_FAIL			50
 
@@ -226,71 +224,19 @@ dbg:
 	return 0;
 }
 
-int tsens_2xxx_get_min_temp(struct tsens_sensor *sensor, int *temp)
+int tsens_2xxx_get_zeroc_status(struct tsens_sensor *sensor, int *status)
 {
 	struct tsens_device *tmdev = NULL;
-	unsigned int code;
-	void __iomem *sensor_addr, *trdy;
-	int last_temp = 0, last_temp2 = 0, last_temp3 = 0, valid_bit;
+	void __iomem *addr;
 
 	if (!sensor)
 		return -EINVAL;
 
 	tmdev = sensor->tmdev;
-	trdy = TSENS_TM_TRDY(tmdev->tsens_tm_addr);
+	addr = TSENS_TM_0C_INT_STATUS(tmdev->tsens_tm_addr);
+	*status = readl_relaxed(addr);
 
-	valid_bit = TSENS_TM_MIN_TEMP_VALID_BIT;
-	sensor_addr = TSENS_TM_MIN_TEMP(tmdev->tsens_tm_addr);
-
-	code = readl_relaxed_no_log(trdy);
-	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
-			TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
-		pr_err("tsens device first round not complete0x%x, ctr is %d\n",
-			code, tmdev->trdy_fail_ctr);
-		tmdev->trdy_fail_ctr++;
-		if (tmdev->trdy_fail_ctr >= TSENS_MAX_READ_FAIL) {
-			if (tmdev->ops->dbg)
-				tmdev->ops->dbg(tmdev, 0,
-					TSENS_DBG_LOG_BUS_ID_DATA, NULL);
-			BUG();
-		}
-		return -ENODATA;
-	}
-
-	tmdev->trdy_fail_ctr = 0;
-
-	code = readl_relaxed_no_log(sensor_addr);
-	last_temp = code & TSENS_TM_SN_LAST_TEMP_MASK;
-	if (code & valid_bit) {
-		msm_tsens_convert_temp(last_temp, temp);
-		goto dbg;
-	}
-
-	code = readl_relaxed_no_log(sensor_addr);
-	last_temp2 = code & TSENS_TM_SN_LAST_TEMP_MASK;
-	if (code & valid_bit) {
-		last_temp = last_temp2;
-		msm_tsens_convert_temp(last_temp, temp);
-		goto dbg;
-	}
-
-	code = readl_relaxed_no_log(sensor_addr);
-	last_temp3 = code & TSENS_TM_SN_LAST_TEMP_MASK;
-	if (code & valid_bit) {
-		last_temp = last_temp3;
-		msm_tsens_convert_temp(last_temp, temp);
-		goto dbg;
-	}
-
-	if (last_temp == last_temp2)
-		last_temp = last_temp2;
-	else if (last_temp2 == last_temp3)
-		last_temp = last_temp3;
-
-	msm_tsens_convert_temp(last_temp, temp);
-
-dbg:
-	TSENS_DBG(tmdev, "Min temp: %d\n", *temp);
+	TSENS_DBG(tmdev, "ZeroC status: %d\n", *status);
 
 	return 0;
 }
@@ -667,7 +613,7 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t tsens_tm_0C_irq_thread(int irq, void *data)
+static irqreturn_t tsens_tm_zeroc_irq_thread(int irq, void *data)
 {
 	struct tsens_device *tm = data;
 	int status, thrs, set_thr, reset_thr;
@@ -680,16 +626,12 @@ static irqreturn_t tsens_tm_0C_irq_thread(int irq, void *data)
 	thrs = readl_relaxed(TSENS_TM_0C_THRESHOLDS(srot_addr));
 
 	msm_tsens_convert_temp(thrs & TSENS_TM_0C_THR_MASK, &reset_thr);
-	msm_tsens_convert_temp(
-		((thrs >> TSENS_TM_0C_THR_OFFSET) &
-				TSENS_TM_0C_THR_MASK), &set_thr);
+	msm_tsens_convert_temp(((thrs >> TSENS_TM_0C_THR_OFFSET)
+			& TSENS_TM_0C_THR_MASK), &set_thr);
 
-	if (status)
-		of_thermal_handle_trip_temp(tm->dev,
-			tm->min_temp.tzd, set_thr);
-	else
-		of_thermal_handle_trip_temp(tm->dev,
-			tm->min_temp.tzd, reset_thr);
+	TSENS_DBG(tm, "Tsens ZeroC status: %d set_t:%d reset_t:%d\n",
+		status, set_thr, reset_thr);
+	of_thermal_handle_trip_temp(tm->dev, tm->zeroc.tzd, status);
 
 	return IRQ_HANDLED;
 }
@@ -778,7 +720,7 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 static const struct tsens_irqs tsens2xxx_irqs[] = {
 	{ "tsens-upper-lower", tsens_tm_irq_thread},
 	{ "tsens-critical", tsens_tm_critical_irq_thread},
-	{ "tsens-0C", tsens_tm_0C_irq_thread},
+	{ "tsens-0C", tsens_tm_zeroc_irq_thread},
 };
 
 static int tsens2xxx_register_interrupts(struct tsens_device *tmdev)
@@ -790,7 +732,7 @@ static int tsens2xxx_register_interrupts(struct tsens_device *tmdev)
 	if (!tmdev)
 		return -EINVAL;
 
-	if (tmdev->min_temp_sensor_id != MIN_TEMP_DEF_OFFSET)
+	if (tmdev->zeroc_sensor_id != MIN_TEMP_DEF_OFFSET)
 		irq_no = ARRAY_SIZE(tsens2xxx_irqs);
 	else
 		irq_no = ARRAY_SIZE(tsens2xxx_irqs) - 1;

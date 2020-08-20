@@ -47,6 +47,7 @@ config GKI_HIDDEN_SND_SOC_CONFIGS
 	select SND_PCM_IEC958
 	select SND_SOC_COMPRESS if (SND_SOC && SND)
 	select SND_SOC_TOPOLOGY if (SND_SOC && SND)
+	select DMA_VIRTUAL_CHANNELS
 	help
 	  Dummy config option used to enable hidden SND_SOC configs.
 	  These are normally selected implicitly when a module
@@ -80,20 +81,12 @@ config GKI_HIDDEN_QCOM_CONFIGS
 	  These are normally selected implicitly when a module
 	  that relies on it is configured.
 
-config GKI_QCOM_CLKS_CONFIGS
-	bool "QCOM clk drivers needed for GKI due to powerdomain restrictions"
-	select QCOM_RPMHPD	if (ARCH_QCOM)
-	help
-	  This config option selects various QCOM clk drivers that
-	  cannot be built as a module currently due to power-domain
-	  deferred probing limitations.
-	  See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=e01afc32502555beb2057ddd74401be38475d851
-
 config GKI_HIDDEN_MEDIA_CONFIGS
 	bool "Hidden Media configs needed for GKI"
 	select VIDEOBUF2_CORE
 	select MEDIA_SUPPORT
 	select FRAME_VECTOR
+	select VIDEOBUF2_DMA_CONTIG
 	help
 	  Dummy config option used to enable hidden media configs.
 	  These are normally selected implicitly when a module
@@ -106,25 +99,6 @@ config GKI_HIDDEN_VIRTUAL_CONFIGS
 	  Dummy config option used to enable hidden virtual device configs.
 	  These are normally selected implicitly when a module
 	  that relies on it is configured.
-
-# LEGACY_WEXT_ALLCONFIG Discussed upstream, soundly rejected as a unique
-# problem for GKI to solve.  It should be noted that these extensions are
-# in-effect deprecated and generally unsupported and we should pressure
-# the SOC vendors to drop any modules that require these extensions.
-config GKI_LEGACY_WEXT_ALLCONFIG
-	bool "Hidden wireless extension configs needed for GKI"
-	select WIRELESS_EXT
-	select WEXT_CORE
-	select WEXT_PROC
-	select WEXT_SPY
-	select WEXT_PRIV
-	help
-	  Dummy config option used to enable all the hidden legacy wireless
-	  extensions to the core wireless network functionality used by
-	  add-in modules.
-
-	  If you are not building a kernel to be used for a variety of
-	  out-of-kernel built wireless modules, say N here.
 
 config GKI_HIDDEN_USB_CONFIGS
 	bool "Hiddel USB configurations needed for GKI"
@@ -199,10 +173,8 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_MMC_CONFIGS
 	select GKI_HIDDEN_GPIO_CONFIGS
 	select GKI_HIDDEN_QCOM_CONFIGS
-	select GKI_LEGACY_WEXT_ALLCONFIG
 	select GKI_HIDDEN_MEDIA_CONFIGS
 	select GKI_HIDDEN_VIRTUAL_CONFIGS
-	select GKI_QCOM_CLKS_CONFIGS
 	select GKI_HIDDEN_USB_CONFIGS
 	select GKI_HIDDEN_SOC_BUS_CONFIGS
 	select GKI_HIDDEN_RPMSG_CONFIGS

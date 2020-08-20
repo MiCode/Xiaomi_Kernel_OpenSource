@@ -49,7 +49,9 @@ config ARCH_SDXLEMUR
 	select CPU_V7
 	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
+	select HAVE_PCI
 	select MSM_CORTEX_A7
+	select PCI
 	select PINCTRL
 	select QCOM_SCM if SMP
 	select MSM_JTAG_MM if CORESIGHT_ETM

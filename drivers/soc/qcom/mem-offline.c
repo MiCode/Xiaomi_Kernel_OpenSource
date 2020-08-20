@@ -19,7 +19,9 @@
 #include <linux/mailbox/qmp.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
+#include <soc/qcom/rpm-smd.h>
 
+#define RPM_DDR_REQ 0x726464
 #define AOP_MSG_ADDR_MASK		0xffffffff
 #define AOP_MSG_ADDR_HIGH_SHIFT		32
 #define MAX_LEN				96
@@ -28,8 +30,8 @@ static unsigned long start_section_nr, end_section_nr;
 static struct kobject *kobj;
 static unsigned int sections_per_block;
 static u32 offline_granule;
+static bool is_rpm_controller;
 #define MODULE_CLASS_NAME	"mem-offline"
-#define BUF_LEN			100
 
 struct section_stat {
 	unsigned long success_count;
@@ -39,6 +41,8 @@ struct section_stat {
 	unsigned long worst_time;
 	unsigned long total_time;
 	unsigned long last_recorded_time;
+	ktime_t resident_time;
+	ktime_t resident_since;
 };
 
 enum memory_states {
@@ -53,6 +57,15 @@ static struct mem_offline_mailbox {
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
 } mailbox;
+
+struct memory_refresh_request {
+	u64 start;	/* Lower bit signifies action
+			 * 0 - disable self-refresh
+			 * 1 - enable self-refresh
+			 * upper bits are for base address
+			 */
+	u32 size;	/* size of memory region */
+};
 
 static struct section_stat *mem_info;
 
@@ -115,6 +128,7 @@ static void record_stat(unsigned long sec, ktime_t delay, int mode)
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
 	unsigned int blk_nr = (sec - start_section_nr + mode * total_sec) /
 				sections_per_block;
+	ktime_t now, delta;
 
 	if (sec > end_section_nr)
 		return;
@@ -135,6 +149,37 @@ static void record_stat(unsigned long sec, ktime_t delay, int mode)
 		mem_info[blk_nr].total_time / mem_info[blk_nr].success_count;
 
 	mem_info[blk_nr].last_recorded_time = delay;
+
+	now = ktime_get();
+	mem_info[blk_nr].resident_since = now;
+
+	/* since other state has gone inactive, update the stats */
+	mode = mode ? MEMORY_ONLINE : MEMORY_OFFLINE;
+	blk_nr = (sec - start_section_nr + mode * total_sec) /
+				sections_per_block;
+	delta = ktime_sub(now, mem_info[blk_nr].resident_since);
+	mem_info[blk_nr].resident_time =
+			ktime_add(mem_info[blk_nr].resident_time, delta);
+	mem_info[blk_nr].resident_since = 0;
+}
+
+static int mem_region_refresh_control(unsigned long pfn,
+				      unsigned long nr_pages,
+				      bool enable)
+{
+	struct memory_refresh_request mem_req;
+	struct msm_rpm_kvp rpm_kvp;
+
+	mem_req.start = enable;
+	mem_req.start |= pfn << PAGE_SHIFT;
+	mem_req.size = nr_pages * PAGE_SIZE;
+
+	rpm_kvp.key = RPM_DDR_REQ;
+	rpm_kvp.data = (void *)&mem_req;
+	rpm_kvp.length = sizeof(mem_req);
+
+	return msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET, RPM_DDR_REQ, 0,
+				    &rpm_kvp, 1);
 }
 
 static int aop_send_msg(unsigned long addr, bool online)
@@ -181,9 +226,16 @@ static int send_msg(struct memory_notify *mn, bool online, int count)
 	start = section_nr_to_pfn(base_sec_nr);
 
 	for (i = 0; i < count; ++i) {
-		ret = aop_send_msg(__pfn_to_phys(start), online);
+		if (is_rpm_controller)
+			ret = mem_region_refresh_control(start,
+						 segment_size >> PAGE_SHIFT,
+						 online);
+		else
+			ret = aop_send_msg(__pfn_to_phys(start), online);
+
 		if (ret) {
-			pr_err("PASR: AOP %s request addr:0x%llx failed\n",
+			pr_err("PASR: %s %s request addr:0x%llx failed\n",
+			       is_rpm_controller ? "RPM" : "AOP",
 			       online ? "online" : "offline",
 			       __pfn_to_phys(start));
 			goto undo;
@@ -198,7 +250,13 @@ undo:
 	while (i-- > 0) {
 		int ret;
 
-		ret = aop_send_msg(__pfn_to_phys(start), !online);
+		if (is_rpm_controller)
+			ret = mem_region_refresh_control(start,
+						 segment_size >> PAGE_SHIFT,
+						 !online);
+		else
+			ret = aop_send_msg(__pfn_to_phys(start), !online);
+
 		if (ret)
 			panic("Failed to completely online/offline a hotpluggable segment. A quasi state of memblock can cause randomn system failures.");
 		start = __phys_to_pfn(__pfn_to_phys(start) + segment_size);
@@ -434,75 +492,184 @@ static int mem_online_remaining_blocks(void)
 static ssize_t show_mem_offline_granule(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, BUF_LEN, "%lu\n", (unsigned long)offline_granule *
-									SZ_1M);
+	return scnprintf(buf, PAGE_SIZE, "%lu\n",
+			(unsigned long)offline_granule * SZ_1M);
 }
 
-static ssize_t show_mem_perf_stats(struct kobject *kobj,
+
+static unsigned int print_blk_residency_percentage(char *buf, size_t sz,
+			unsigned int tot_blks, ktime_t *total_time,
+			enum memory_states mode)
+{
+	unsigned int i;
+	unsigned int c = 0;
+	int percent;
+	unsigned int idx = tot_blks + 1;
+
+	for (i = 0; i <= tot_blks; i++) {
+		percent = (int)ktime_divns(total_time[i + mode * idx] * 100,
+			ktime_add(total_time[i + MEMORY_ONLINE * idx],
+					total_time[i + MEMORY_OFFLINE * idx]));
+
+		c += scnprintf(buf + c, sz - c, "%d%%\t\t", percent);
+	}
+	return c;
+}
+static unsigned int print_blk_residency_times(char *buf, size_t sz,
+			unsigned int tot_blks, ktime_t *total_time,
+			enum memory_states mode)
+{
+	unsigned int i;
+	unsigned int c = 0;
+	ktime_t now, delta;
+	unsigned int idx = tot_blks + 1;
+
+	now = ktime_get();
+	for (i = 0; i <= tot_blks; i++) {
+		if (mem_sec_state[i] == mode)
+			delta = ktime_sub(now,
+				mem_info[i + mode * idx].resident_since);
+		else
+			delta = 0;
+		delta = ktime_add(delta,
+			mem_info[i + mode * idx].resident_time);
+		c += scnprintf(buf + c, sz - c, "%lus\t\t",
+				ktime_to_ms(delta) / MSEC_PER_SEC);
+		total_time[i + mode * idx] = delta;
+	}
+	return c;
+}
+
+static ssize_t show_mem_stats(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
 
 	unsigned int blk_start = start_section_nr / sections_per_block;
 	unsigned int blk_end = end_section_nr / sections_per_block;
-	unsigned int idx = blk_end - blk_start + 1;
-	unsigned int char_count = 0;
+	unsigned int tot_blks = blk_end - blk_start;
+	ktime_t *total_time;
+	unsigned int idx = tot_blks + 1;
+	unsigned int c = 0;
 	unsigned int i, j;
 
+	size_t sz = PAGE_SIZE;
+	ktime_t total = 0, total_online = 0, total_offline = 0;
+
+	total_time = kcalloc(idx * MAX_STATE, sizeof(*total_time), GFP_KERNEL);
+
+	if (!total_time)
+		return -ENOMEM;
+
 	for (j = 0; j < MAX_STATE; j++) {
-		char_count += snprintf(buf + char_count,  BUF_LEN,
+		c += scnprintf(buf + c, sz - c,
 			"\n\t%s\n\t\t\t", j == 0 ? "ONLINE" : "OFFLINE");
 		for (i = blk_start; i <= blk_end; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
+			c += scnprintf(buf + c, sz - c,
 							"%s%d\t\t", "mem", i);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
-		char_count += snprintf(buf + char_count, BUF_LEN,
+		c += scnprintf(buf + c, sz - c, "\n");
+		c += scnprintf(buf + c, sz - c,
 							"\tLast recd time:\t");
-		for (i = 0; i <= blk_end - blk_start; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
-			     "%lums\t\t", mem_info[i+j*idx].last_recorded_time);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
-		char_count += snprintf(buf + char_count, BUF_LEN,
+		for (i = 0; i <= tot_blks; i++)
+			c += scnprintf(buf + c, sz - c, "%lums\t\t",
+				mem_info[i + j * idx].last_recorded_time);
+		c += scnprintf(buf + c, sz - c, "\n");
+		c += scnprintf(buf + c, sz - c,
 							"\tAvg time:\t");
-		for (i = 0; i <= blk_end - blk_start; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
-				"%lums\t\t", mem_info[i+j*idx].avg_time);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
-		char_count += snprintf(buf + char_count, BUF_LEN,
+		for (i = 0; i <= tot_blks; i++)
+			c += scnprintf(buf + c, sz - c,
+				"%lums\t\t", mem_info[i + j * idx].avg_time);
+		c += scnprintf(buf + c, sz - c, "\n");
+		c += scnprintf(buf + c, sz - c,
 							"\tBest time:\t");
-		for (i = 0; i <= blk_end - blk_start; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
-				"%lums\t\t", mem_info[i+j*idx].best_time);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
-		char_count += snprintf(buf + char_count, BUF_LEN,
+		for (i = 0; i <= tot_blks; i++)
+			c += scnprintf(buf + c, sz - c,
+				"%lums\t\t", mem_info[i + j * idx].best_time);
+		c += scnprintf(buf + c, sz - c, "\n");
+		c += scnprintf(buf + c, sz - c,
 							"\tWorst time:\t");
-		for (i = 0; i <= blk_end - blk_start; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
-				"%lums\t\t", mem_info[i+j*idx].worst_time);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
-		char_count += snprintf(buf + char_count, BUF_LEN,
+		for (i = 0; i <= tot_blks; i++)
+			c += scnprintf(buf + c, sz - c,
+				"%lums\t\t", mem_info[i + j * idx].worst_time);
+		c += scnprintf(buf + c, sz - c, "\n");
+		c += scnprintf(buf + c, sz - c,
 							"\tSuccess count:\t");
-		for (i = 0; i <= blk_end - blk_start; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
-				"%lu\t\t", mem_info[i+j*idx].success_count);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
-		char_count += snprintf(buf + char_count, BUF_LEN,
+		for (i = 0; i <= tot_blks; i++)
+			c += scnprintf(buf + c, sz - c,
+				"%lu\t\t", mem_info[i + j * idx].success_count);
+		c += scnprintf(buf + c, sz - c, "\n");
+		c += scnprintf(buf + c, sz - c,
 							"\tFail count:\t");
-		for (i = 0; i <= blk_end - blk_start; i++)
-			char_count += snprintf(buf + char_count, BUF_LEN,
-				"%lu\t\t", mem_info[i+j*idx].fail_count);
-		char_count += snprintf(buf + char_count, BUF_LEN, "\n");
+		for (i = 0; i <= tot_blks; i++)
+			c += scnprintf(buf + c, sz - c,
+				"%lu\t\t", mem_info[i + j * idx].fail_count);
+		c += scnprintf(buf + c, sz - c, "\n");
 	}
-	return char_count;
+
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tState:\t\t");
+	for (i = 0; i <= tot_blks; i++) {
+		c += scnprintf(buf + c, sz - c, "%s\t\t",
+			mem_sec_state[i] == MEMORY_ONLINE ?
+			"Online" : "Offline");
+	}
+	c += scnprintf(buf + c, sz - c, "\n");
+
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tOnline time:\t");
+	c += print_blk_residency_times(buf + c, sz - c,
+			tot_blks, total_time, MEMORY_ONLINE);
+
+
+	c += scnprintf(buf + c, sz - c, "\n");
+	c += scnprintf(buf + c, sz - c, "\tOffline time:\t");
+	c += print_blk_residency_times(buf + c, sz - c,
+			tot_blks, total_time, MEMORY_OFFLINE);
+
+	c += scnprintf(buf + c, sz, "\n");
+
+	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz, "\tOnline %%:\t");
+	c += print_blk_residency_percentage(buf + c, sz - c,
+			tot_blks, total_time, MEMORY_ONLINE);
+
+	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz, "\tOffline %%:\t");
+	c += print_blk_residency_percentage(buf + c, sz - c,
+			tot_blks, total_time, MEMORY_OFFLINE);
+	c += scnprintf(buf + c, sz, "\n");
+	c += scnprintf(buf + c, sz, "\n");
+
+	for (i = 0; i <= tot_blks; i++)
+		total = ktime_add(total,
+			ktime_add(total_time[i + MEMORY_ONLINE * idx],
+					total_time[i + MEMORY_OFFLINE * idx]));
+
+	for (i = 0; i <= tot_blks; i++)
+		total_online =  ktime_add(total_online,
+				total_time[i + MEMORY_ONLINE * idx]);
+
+	total_offline = ktime_sub(total, total_online);
+
+	c += scnprintf(buf + c, sz,
+					"\tAvg Online %%:\t%d%%\n",
+					((int)total_online * 100) / total);
+	c += scnprintf(buf + c, sz,
+					"\tAvg Offline %%:\t%d%%\n",
+					((int)total_offline * 100) / total);
+
+	c += scnprintf(buf + c, sz, "\n");
+	kfree(total_time);
+	return c;
 }
 
-static struct kobj_attribute perf_stats_attr =
-		__ATTR(perf_stats, 0444, show_mem_perf_stats, NULL);
+static struct kobj_attribute stats_attr =
+		__ATTR(stats, 0444, show_mem_stats, NULL);
 
 static struct kobj_attribute offline_granule_attr =
 		__ATTR(offline_granule, 0444, show_mem_offline_granule, NULL);
 
 static struct attribute *mem_root_attrs[] = {
-		&perf_stats_attr.attr,
+		&stats_attr.attr,
 		&offline_granule_attr.attr,
 		NULL,
 };
@@ -548,6 +715,11 @@ static int mem_parse_dt(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	if (!of_find_property(node, "mboxes", NULL)) {
+		is_rpm_controller = true;
+		return 0;
+	}
+
 	mailbox.cl.dev = &pdev->dev;
 	mailbox.cl.tx_block = true;
 	mailbox.cl.tx_tout = 1000;
@@ -573,6 +745,7 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 {
 	unsigned int total_blks;
 	int ret, i;
+	ktime_t now;
 
 	ret = mem_parse_dt(pdev);
 	if (ret)
@@ -591,6 +764,11 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 			   GFP_KERNEL);
 	if (!mem_info)
 		return -ENOMEM;
+
+	/* record time of online for all blocks */
+	now = ktime_get();
+	for (i = 0; i < total_blks; i++)
+		mem_info[i].resident_since = now;
 
 	mem_sec_state = kcalloc(total_blks, sizeof(*mem_sec_state), GFP_KERNEL);
 	if (!mem_sec_state) {

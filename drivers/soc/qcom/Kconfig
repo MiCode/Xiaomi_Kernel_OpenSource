@@ -17,7 +17,7 @@ config QCOM_AOSS_QMP
 	  Subsystem (AOSS) using Qualcomm Messaging Protocol (QMP).
 
 config QCOM_COMMAND_DB
-	bool "Qualcomm Technologies, Inc. Command DB driver"
+	tristate "Qualcomm Technologies, Inc. Command DB driver"
 	depends on ARCH_QCOM || COMPILE_TEST
 	depends on OF_RESERVED_MEM
 	help
@@ -348,7 +348,7 @@ config MSM_CORE_HANG_DETECT
 	  enabled or disabled dynamically.
 
 config QCOM_RPMH
-	bool "Qualcomm RPM-Hardened (RPMH) Communication"
+	tristate "Qualcomm RPM-Hardened (RPMH) Communication"
 	depends on ARCH_QCOM || COMPILE_TEST
 	help
 	  Support for communication with the hardened-RPM blocks in
@@ -358,7 +358,7 @@ config QCOM_RPMH
 	  help apply the aggregated state on the resource.
 
 config QCOM_RPMHPD
-	bool "Qualcomm RPMh Power domain driver"
+	tristate "Qualcomm RPMh Power domain driver"
 	depends on QCOM_RPMH && QCOM_COMMAND_DB
 	help
 	  QCOM RPMh Power domain driver to support power-domains with
@@ -709,7 +709,6 @@ config QTI_RPM_STATS_LOG
 config QTI_DDR_STATS_LOG
 	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
 	depends on QCOM_RPMH
-	depends on QGKI
 	help
 	  This option enables a driver which reads DDR statistical information
 	  from AOP shared memory location such as DDR low power modes and DDR
@@ -750,7 +749,6 @@ config QCOM_FSA4480_I2C
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
-	depends on QGKI
 	help
 	  Qualcomm Technologies Inc (QTI) SoC sleep stats driver to read
 	  the shared memory exported by the remote processor related to
@@ -785,13 +783,23 @@ config QCOM_WATCHDOG
           not catch any early lockups.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
-	bool "QCOM force watchdog bite"
+	bool "QCOM force watchdog bite on panic"
 	depends on QCOM_WATCHDOG
 	help
 	  This forces a watchdog bite when the device restarts
 	  due to a kernel panic. On certain MSM SoCs,
 	  this provides additional debugging
 	  information.
+
+config QCOM_WDOG_BITE_EARLY_PANIC
+	bool "QCOM early panic watchdog bite"
+	depends on QCOM_WATCHDOG && QCOM_FORCE_WDOG_BITE_ON_PANIC
+	help
+	  This forces a watchdog bite early in panic sequence. On certain
+	  MSM SoCs, this provides us additional debugging information at the
+	  context of the crash. If this option is disabled, then bite occurs
+	  later in panic, which permits more of the restart sequence to run
+	  (e.g. more dmesg to flushed to console).
 
 config MSM_SPCOM
          depends on QCOM_GLINK

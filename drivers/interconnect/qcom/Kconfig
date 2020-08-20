@@ -5,6 +5,17 @@ config INTERCONNECT_QCOM
 	help
 	  Support for Qualcomm's Network-on-Chip interconnect hardware.
 
+config INTERCONNECT_QCOM_HOLI
+	tristate "Qualcomm HOLI interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on MSM_RPM_SMD
+	select INTERCONNECT_QCOM_RPM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on holi-based platforms. The interconnect provider collects and
+	  aggreagates the cosumer bandwidth requests to satisfy constraints
+	  placed on Network-on-Chip performance states.
+
 config INTERCONNECT_QCOM_QCS404
 	tristate "Qualcomm QCS404 interconnect driver"
 	depends on INTERCONNECT_QCOM
@@ -70,3 +81,6 @@ config INTERCONNECT_QCOM_SDXLEMUR
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on sdxlemur-based platforms.
+
+config INTERCONNECT_QCOM_RPM
+	tristate

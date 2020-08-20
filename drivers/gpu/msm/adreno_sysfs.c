@@ -81,7 +81,7 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 	mutex_lock(&device->mutex);
 	val &= KGSL_FT_PAGEFAULT_MASK;
 
-	if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
+	if (device->state == KGSL_STATE_ACTIVE)
 		ret = kgsl_mmu_set_pagefault_policy(&device->mmu,
 			(unsigned long) val);
 

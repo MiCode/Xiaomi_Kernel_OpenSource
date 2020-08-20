@@ -753,7 +753,7 @@ static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
 			(flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
 
-		if (IS_ERR_OR_NULL(device->l3_clk)) {
+		if (device->l3_clk == NULL) {
 			dev_err_once(device->dev,
 				"l3_vote clk not available\n");
 			return;

@@ -63,6 +63,7 @@ struct pil_desc {
 	int *aux_minidump_ids;
 	int num_aux_minidump_ids;
 	u32 extra_size;
+	bool minidump_as_elf32;
 };
 
 /**

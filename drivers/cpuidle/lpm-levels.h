@@ -24,6 +24,18 @@
 #define PREMATURE_CNT_LOW 1
 #define PREMATURE_CNT_HIGH 5
 
+/* RIMPS registers */
+#define TIMER_CTRL		0x0
+#define TIMER_VAL		0x4
+#define TIMER_PENDING		0x18
+#define TIMER_THRESHOLD		0x1C
+
+/* RIMPS registers offset */
+#define TIMER_CONTROL_EN	0x1
+
+/* RIMPS timer clock */
+#define ARCH_TIMER_HZ	19200000
+
 struct power_params {
 	uint32_t entry_latency;		/* Entry latency */
 	uint32_t exit_latency;		/* Exit latency */
@@ -50,6 +62,8 @@ struct lpm_cpu {
 	uint32_t ref_premature_cnt;
 	uint32_t tmr_add;
 	bool lpm_prediction;
+	void __iomem *rimps_tmr_base;
+	spinlock_t cpu_lock;
 	bool ipi_prediction;
 	uint64_t bias;
 	struct cpuidle_driver *drv;
@@ -122,6 +136,7 @@ struct lpm_cluster {
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev);
 void free_cluster_node(struct lpm_cluster *cluster);
 void cluster_dt_walkthrough(struct lpm_cluster *cluster);
+uint32_t us_to_ticks(uint64_t sleep_val);
 
 int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj);
 int lpm_cpu_mode_allow(unsigned int cpu,

@@ -1023,9 +1023,11 @@ l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
 
 	device->l3_clk = devm_clk_get(&device->pdev->dev, "l3_vote");
 
-	if (IS_ERR_OR_NULL(device->l3_clk))
+	if (IS_ERR_OR_NULL(device->l3_clk)) {
 		dev_err(&device->pdev->dev,
 			"Unable to get the l3_vote clock\n");
+		device->l3_clk = NULL;
+	}
 }
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
@@ -1274,6 +1276,12 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	}
 }
 
+static const struct of_device_id adreno_gmu_match[] = {
+	{ .compatible = "qcom,gpu-gmu" },
+	{ .compatible = "qcom,gpu-rgmu" },
+	{},
+};
+
 int adreno_device_probe(struct platform_device *pdev,
 		struct adreno_device *adreno_dev)
 {
@@ -1310,10 +1318,12 @@ int adreno_device_probe(struct platform_device *pdev,
 	 * Bind the GMU components (if applicable) before doing the KGSL
 	 * platform probe
 	 */
-	status = component_bind_all(dev, NULL);
-	if (status) {
-		kgsl_bus_close(device);
-		return status;
+	if (of_find_matching_node(dev->of_node, adreno_gmu_match)) {
+		status = component_bind_all(dev, NULL);
+		if (status) {
+			kgsl_bus_close(device);
+			return status;
+		}
 	}
 
 	/*
@@ -1418,7 +1428,9 @@ int adreno_device_probe(struct platform_device *pdev,
 err:
 	device->pdev = NULL;
 
-	component_unbind_all(dev, NULL);
+	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
+		component_unbind_all(dev, NULL);
+
 	kgsl_bus_close(device);
 
 	return status;
@@ -1511,7 +1523,8 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_device_platform_remove(device);
 
-	component_unbind_all(dev, NULL);
+	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
+		component_unbind_all(dev, NULL);
 
 	clear_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
@@ -1626,7 +1639,8 @@ int adreno_clear_pending_transactions(struct kgsl_device *device)
 	if (adreno_has_gbif(adreno_dev)) {
 
 		/* Halt GBIF GX traffic and poll for halt ack */
-		if (adreno_is_a615_family(adreno_dev)) {
+		if (adreno_is_a615_family(adreno_dev) &&
+			!adreno_is_a619_holi(adreno_dev)) {
 			adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_GPR0_CNTL,
 				GBIF_HALT_REQUEST);
@@ -2993,6 +3007,33 @@ static void adreno_regwrite(struct kgsl_device *device,
 	__raw_writel(value, reg);
 }
 
+void adreno_read_gmu_wrapper(struct adreno_device *adreno_dev,
+		u32 offsetwords, u32 *val)
+{
+	if (!adreno_dev->gmu_wrapper_virt)
+		return;
+
+	*val = __raw_readl(adreno_dev->gmu_wrapper_virt +
+			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
+	/* Order this read with respect to the following memory accesses */
+	rmb();
+}
+
+void adreno_write_gmu_wrapper(struct adreno_device *adreno_dev,
+		u32 offsetwords, u32 value)
+{
+	if (!adreno_dev->gmu_wrapper_virt)
+		return;
+
+	/*
+	 * ensure previous writes post before this one,
+	 * i.e. act like normal writel()
+	 */
+	wmb();
+	__raw_writel(value, adreno_dev->gmu_wrapper_virt +
+			(offsetwords << 2) - adreno_dev->gmu_wrapper_base);
+}
+
 /*
  * adreno_gmu_fenced_write() - Check if there is a GMU and it is enabled
  * @adreno_dev: Pointer to the Adreno device that owns the GMU
@@ -3367,12 +3408,22 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 	int64_t adj = 0;
-	u64 gpu_busy;
+	u64 gpu_busy = 0;
+	unsigned int val;
 
 	memset(stats, 0, sizeof(*stats));
 
-	gpu_busy = counter_delta(device, adreno_dev->perfctr_pwr_lo,
-		&busy->gpu_busy);
+	if (adreno_is_a619_holi(adreno_dev))
+		adreno_read_gmu_wrapper(adreno_dev,
+			adreno_dev->perfctr_pwr_lo, &val);
+	else
+		kgsl_regread(device, adreno_dev->perfctr_pwr_lo, &val);
+
+	if (busy->gpu_busy)
+		gpu_busy = (val >= busy->gpu_busy) ? val - busy->gpu_busy :
+			(~0UL - busy->gpu_busy) + val;
+
+	busy->gpu_busy = val;
 
 	if (gpudev->read_throttling_counters) {
 		adj = gpudev->read_throttling_counters(adreno_dev);
@@ -3755,12 +3806,6 @@ const struct adreno_power_ops adreno_power_operations = {
 	.touch_wakeup = adreno_touch_wakeup,
 };
 
-static const struct of_device_id adreno_gmu_match[] = {
-	{ .compatible = "qcom,gpu-gmu" },
-	{ .compatible = "qcom,gpu-rgmu" },
-	{},
-};
-
 static int _compare_of(struct device *dev, void *data)
 {
 	return (dev->of_node == data);
@@ -3795,12 +3840,20 @@ static int adreno_probe(struct platform_device *pdev)
 
 	adreno_add_gmu_components(&pdev->dev, &match);
 
-	return component_master_add_with_match(&pdev->dev, &adreno_ops, match);
+	if (match)
+		return component_master_add_with_match(&pdev->dev,
+				&adreno_ops, match);
+	else
+		return adreno_bind(&pdev->dev);
 }
 
 static int adreno_remove(struct platform_device *pdev)
 {
-	component_master_del(&pdev->dev, &adreno_ops);
+	if (of_find_matching_node(NULL, adreno_gmu_match))
+		component_master_del(&pdev->dev, &adreno_ops);
+	else
+		adreno_unbind(&pdev->dev);
+
 	return 0;
 }
 

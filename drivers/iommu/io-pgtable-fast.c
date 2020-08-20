@@ -13,30 +13,13 @@
 #include <linux/types.h>
 #include <linux/io-pgtable.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/mm.h>
 #include <asm/cacheflush.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
 
 
 #define AV8L_FAST_MAX_ADDR_BITS		48
-
-/* Struct accessors */
-#define iof_pgtable_to_data(x)						\
-	container_of((x), struct av8l_fast_io_pgtable, iop)
-
-#define iof_pgtable_ops_to_pgtable(x)					\
-	container_of((x), struct io_pgtable, ops)
-
-#define iof_pgtable_ops_to_data(x)					\
-	iof_pgtable_to_data(iof_pgtable_ops_to_pgtable(x))
-
-struct av8l_fast_io_pgtable {
-	struct io_pgtable	  iop;
-	av8l_fast_iopte		 *pgd;
-	av8l_fast_iopte		 *puds[4];
-	av8l_fast_iopte		 *pmds;
-	struct page		**pages; /* page table memory */
-};
 
 /* Page table bits */
 #define AV8L_FAST_PTE_TYPE_SHIFT	0
@@ -144,7 +127,7 @@ struct av8l_fast_io_pgtable {
 
 #define PTE_SH_IDX(pte) (pte & AV8L_FAST_PTE_SH_MASK)
 
-#define iopte_pmd_offset(pmds, iova) (pmds + (iova >> 12))
+#define iopte_pmd_offset(pmds, base, iova) (pmds + ((iova - base) >> 12))
 
 static inline dma_addr_t av8l_dma_addr(void *addr)
 {
@@ -211,14 +194,16 @@ static void __av8l_check_for_stale_tlb(av8l_fast_iopte *ptep)
 	}
 }
 
-void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, bool skip_sync)
+void av8l_fast_clear_stale_ptes(struct io_pgtable_ops *ops, u64 base,
+		u64 end, bool skip_sync)
 {
 	int i;
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
 	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
-	av8l_fast_iopte *pmdp = data->pmds;
+	av8l_fast_iopte *pmdp = iopte_pmd_offset(data->pmds, data->base, base);
 
-	for (i = 0; i < ((SZ_1G * 4UL) >> AV8L_FAST_PAGE_SHIFT); ++i) {
+	for (i = base >> AV8L_FAST_PAGE_SHIFT;
+			i <= (end >> AV8L_FAST_PAGE_SHIFT); ++i) {
 		if (!(*pmdp & AV8L_FAST_PTE_VALID)) {
 			*pmdp = 0;
 			if (!skip_sync)
@@ -265,7 +250,7 @@ static int av8l_fast_map(struct io_pgtable_ops *ops, unsigned long iova,
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
 	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
-	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, iova);
+	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, data->base, iova);
 	unsigned long i, nptes = size >> AV8L_FAST_PAGE_SHIFT;
 	av8l_fast_iopte pte;
 
@@ -298,7 +283,7 @@ __av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 		? AV8L_FAST_PTE_UNMAPPED_NEED_TLBI
 		: 0;
 
-	ptep = iopte_pmd_offset(data->pmds, iova);
+	ptep = iopte_pmd_offset(data->pmds, data->base, iova);
 	nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
 	memset(ptep, val, sizeof(*ptep) * nptes);
@@ -396,7 +381,7 @@ static bool av8l_fast_iova_coherent(struct io_pgtable_ops *ops,
 					unsigned long iova)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
-	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, iova);
+	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, data->base, iova);
 
 	return ((PTE_MAIR_IDX(*ptep) == AV8L_FAST_MAIR_ATTR_IDX_CACHE) &&
 		((PTE_SH_IDX(*ptep) == AV8L_FAST_PTE_SH_OS) ||
@@ -431,7 +416,7 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 }
 
 /*
- * We need 1 page for the pgd, 4 pages for puds (1GB VA per pud page) and
+ * We need max 1 page for the pgd, 4 pages for puds (1GB VA per pud page) and
  * 2048 pages for pmds (each pud page contains 512 table entries, each
  * pointing to a pmd).
  */
@@ -440,12 +425,39 @@ av8l_fast_alloc_pgtable_data(struct io_pgtable_cfg *cfg)
 #define NUM_PMD_PAGES 2048
 #define NUM_PGTBL_PAGES (NUM_PGD_PAGES + NUM_PUD_PAGES + NUM_PMD_PAGES)
 
+/* undefine arch specific definitions which depends on page table format */
+#undef pud_index
+#undef pud_mask
+#undef pud_next
+#undef pmd_index
+#undef pmd_mask
+#undef pmd_next
+
+#define pud_index(addr)		(((addr) >> 30) & 0x3)
+#define pud_mask(addr)		((addr) & ~((1UL << 30) - 1))
+#define pud_next(addr, end)					\
+({	unsigned long __boundary = pud_mask(addr + (1UL << 30));\
+	(__boundary - 1 < (end) - 1) ? __boundary : (end);	\
+})
+
+#define pmd_index(addr)		(((addr) >> 21) & 0x1ff)
+#define pmd_mask(addr)		((addr) & ~((1UL << 21) - 1))
+#define pmd_next(addr, end)					\
+({	unsigned long __boundary = pmd_mask(addr + (1UL << 21));\
+	(__boundary - 1 < (end) - 1) ? __boundary : (end);	\
+})
+
 static int
 av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 			       struct io_pgtable_cfg *cfg, void *cookie)
 {
 	int i, j, pg = 0;
 	struct page **pages, *page;
+	dma_addr_t pud, pmd;
+	int pmd_pg_index;
+	struct msm_io_pgtable_info *pgtbl_info = to_msm_io_pgtable_info(cfg);
+	dma_addr_t base = pgtbl_info->iova_base;
+	dma_addr_t end = pgtbl_info->iova_end;
 
 	pages = kmalloc(sizeof(*pages) * NUM_PGTBL_PAGES, __GFP_NOWARN |
 							__GFP_NORETRY);
@@ -463,10 +475,11 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 	data->pgd = page_address(page);
 
 	/*
-	 * We need 2048 entries at level 2 to map 4GB of VA space. A page
-	 * can hold 512 entries, so we need 4 pages.
+	 * We need max 2048 entries at level 2 to map 4GB of VA space. A page
+	 * can hold 512 entries, so we need max 4 pages.
 	 */
-	for (i = 0; i < 4; ++i) {
+	for (i = pud_index(base), pud = base; pud < end;
+			++i, pud = pud_next(pud, end)) {
 		av8l_fast_iopte pte, *ptep;
 
 		page = alloc_page(GFP_KERNEL | __GFP_ZERO);
@@ -481,12 +494,15 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 	av8l_clean_range(cfg, data->pgd, data->pgd + 4);
 
 	/*
-	 * We have 4 puds, each of which can point to 512 pmds, so we'll
-	 * have 2048 pmds, each of which can hold 512 ptes, for a grand
+	 * We have max 4 puds, each of which can point to 512 pmds, so we'll
+	 * have max 2048 pmds, each of which can hold 512 ptes, for a grand
 	 * total of 2048*512=1048576 PTEs.
 	 */
-	for (i = 0; i < 4; ++i) {
-		for (j = 0; j < 512; ++j) {
+	pmd_pg_index = pg;
+	for (i = pud_index(base), pud = base; pud < end;
+			++i, pud = pud_next(pud, end)) {
+		for (j = pmd_index(pud), pmd = pud; pmd < pud_next(pud, end);
+				++j, pmd = pmd_next(pmd, end)) {
 			av8l_fast_iopte pte, *pudp;
 			void *addr;
 
@@ -505,21 +521,21 @@ av8l_fast_prepopulate_pgtables(struct av8l_fast_io_pgtable *data,
 		av8l_clean_range(cfg, data->puds[i], data->puds[i] + 512);
 	}
 
-	if (WARN_ON(pg != NUM_PGTBL_PAGES))
-		goto err_free_pages;
-
 	/*
 	 * We map the pmds into a virtually contiguous space so that we
 	 * don't have to traverse the first two levels of the page tables
 	 * to find the appropriate pud.  Instead, it will be a simple
 	 * offset from the virtual base of the pmds.
 	 */
-	data->pmds = vmap(&pages[NUM_PGD_PAGES + NUM_PUD_PAGES], NUM_PMD_PAGES,
+	data->pmds = vmap(&pages[pmd_pg_index], pg - pmd_pg_index,
 			  VM_IOREMAP, PAGE_KERNEL);
 	if (!data->pmds)
 		goto err_free_pages;
 
 	data->pages = pages;
+	data->base = base;
+	data->end = end;
+	data->nr_pages = pg;
 	return 0;
 
 err_free_pages:
@@ -588,7 +604,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 #if defined(CONFIG_ARM)
 	reg |= ARM_32_LPAE_TCR_EAE;
 #endif
-	cfg->av8l_fast_cfg.tcr = reg;
+	cfg->arm_lpae_s1_cfg.tcr = reg;
 
 	/* MAIRs */
 	reg = (AV8L_FAST_MAIR_ATTR_NC
@@ -600,18 +616,16 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 	      (AV8L_FAST_MAIR_ATTR_UPSTREAM
 	       << AV8L_FAST_MAIR_ATTR_SHIFT(AV8L_FAST_MAIR_ATTR_IDX_UPSTREAM));
 
-	cfg->av8l_fast_cfg.mair[0] = reg;
-	cfg->av8l_fast_cfg.mair[1] = 0;
+	cfg->arm_lpae_s1_cfg.mair[0] = reg;
+	cfg->arm_lpae_s1_cfg.mair[1] = 0;
 
 	/* Allocate all page table memory! */
 	if (av8l_fast_prepopulate_pgtables(data, cfg, cookie))
 		goto out_free_data;
 
-	cfg->av8l_fast_cfg.pmds = data->pmds;
-
 	/* TTBRs */
-	cfg->av8l_fast_cfg.ttbr[0] = virt_to_phys(data->pgd);
-	cfg->av8l_fast_cfg.ttbr[1] = 0;
+	cfg->arm_lpae_s1_cfg.ttbr[0] = virt_to_phys(data->pgd);
+	cfg->arm_lpae_s1_cfg.ttbr[1] = 0;
 	return &data->iop;
 
 out_free_data:
@@ -625,7 +639,7 @@ static void av8l_fast_free_pgtable(struct io_pgtable *iop)
 	struct av8l_fast_io_pgtable *data = iof_pgtable_to_data(iop);
 
 	vunmap(data->pmds);
-	for (i = 0; i < NUM_PGTBL_PAGES; ++i)
+	for (i = 0; i < data->nr_pages; ++i)
 		__free_page(data->pages[i]);
 	kvfree(data->pages);
 	kfree(data);
@@ -694,12 +708,15 @@ static int __init av8l_fast_positive_testing(void)
 	int failed = 0;
 	u64 iova;
 	struct io_pgtable_ops *ops;
-	struct io_pgtable_cfg cfg;
+	struct msm_io_pgtable_info pgtable_info;
 	struct av8l_fast_io_pgtable *data;
 	av8l_fast_iopte *pmds;
 	u64 max = SZ_1G * 4ULL - 1;
+	u64 base = 0;
 
-	cfg = (struct io_pgtable_cfg) {
+	pgtable_info.iova_base = base;
+	pgtable_info.iova_end = max;
+	pgtable_info.pgtbl_cfg = (struct io_pgtable_cfg) {
 		.quirks = 0,
 		.tlb = &dummy_tlb_ops,
 		.ias = 32,
@@ -708,8 +725,9 @@ static int __init av8l_fast_positive_testing(void)
 		.coherent_walk = true,
 	};
 
-	cfg_cookie = &cfg;
-	ops = alloc_io_pgtable_ops(ARM_V8L_FAST, &cfg, &cfg);
+	cfg_cookie = &pgtable_info.pgtbl_cfg;
+	ops = alloc_io_pgtable_ops(ARM_V8L_FAST, &pgtable_info.pgtbl_cfg,
+				   &pgtable_info.pgtbl_cfg);
 
 	if (WARN_ON(!ops))
 		return 1;
@@ -718,81 +736,81 @@ static int __init av8l_fast_positive_testing(void)
 	pmds = data->pmds;
 
 	/* map the entire 4GB VA space with 4K map calls */
-	for (iova = 0; iova < max; iova += SZ_4K) {
+	for (iova = base; iova < max; iova += SZ_4K) {
 		if (WARN_ON(ops->map(ops, iova, iova, SZ_4K, IOMMU_READ))) {
 			failed++;
 			continue;
 		}
 	}
-	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, 0, 0,
-							  max)))
+	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, base,
+					base, max - base)))
 		failed++;
 
 	/* unmap it all */
-	for (iova = 0; iova < max; iova += SZ_4K) {
+	for (iova = base; iova < max; iova += SZ_4K) {
 		if (WARN_ON(ops->unmap(ops, iova, SZ_4K, NULL) != SZ_4K))
 			failed++;
 	}
 
 	/* sweep up TLB proving PTEs */
-	av8l_fast_clear_stale_ptes(ops, false);
+	av8l_fast_clear_stale_ptes(ops, base, max, false);
 
 	/* map the entire 4GB VA space with 8K map calls */
-	for (iova = 0; iova < max; iova += SZ_8K) {
+	for (iova = base; iova < max; iova += SZ_8K) {
 		if (WARN_ON(ops->map(ops, iova, iova, SZ_8K, IOMMU_READ))) {
 			failed++;
 			continue;
 		}
 	}
 
-	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, 0, 0,
-							  max)))
+	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, base,
+					base, max - base)))
 		failed++;
 
 	/* unmap it all with 8K unmap calls */
-	for (iova = 0; iova < max; iova += SZ_8K) {
+	for (iova = base; iova < max; iova += SZ_8K) {
 		if (WARN_ON(ops->unmap(ops, iova, SZ_8K, NULL) != SZ_8K))
 			failed++;
 	}
 
 	/* sweep up TLB proving PTEs */
-	av8l_fast_clear_stale_ptes(ops, false);
+	av8l_fast_clear_stale_ptes(ops, base, max, false);
 
 	/* map the entire 4GB VA space with 16K map calls */
-	for (iova = 0; iova < max; iova += SZ_16K) {
+	for (iova = base; iova < max; iova += SZ_16K) {
 		if (WARN_ON(ops->map(ops, iova, iova, SZ_16K, IOMMU_READ))) {
 			failed++;
 			continue;
 		}
 	}
 
-	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, 0, 0,
-							  max)))
+	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, base,
+					base, max - base)))
 		failed++;
 
 	/* unmap it all */
-	for (iova = 0; iova < max; iova += SZ_16K) {
+	for (iova = base; iova < max; iova += SZ_16K) {
 		if (WARN_ON(ops->unmap(ops, iova, SZ_16K, NULL) != SZ_16K))
 			failed++;
 	}
 
 	/* sweep up TLB proving PTEs */
-	av8l_fast_clear_stale_ptes(ops, false);
+	av8l_fast_clear_stale_ptes(ops, base, max, false);
 
 	/* map the entire 4GB VA space with 64K map calls */
-	for (iova = 0; iova < max; iova += SZ_64K) {
+	for (iova = base; iova < max; iova += SZ_64K) {
 		if (WARN_ON(ops->map(ops, iova, iova, SZ_64K, IOMMU_READ))) {
 			failed++;
 			continue;
 		}
 	}
 
-	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, 0, 0,
-							  max)))
+	if (WARN_ON(!av8l_fast_range_has_specific_mapping(ops, base,
+					base, max - base)))
 		failed++;
 
 	/* unmap it all at once */
-	if (WARN_ON(ops->unmap(ops, 0, max, NULL) != max))
+	if (WARN_ON(ops->unmap(ops, base, max - base, NULL) != (max - base)))
 		failed++;
 
 	free_io_pgtable_ops(ops);

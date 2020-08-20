@@ -59,6 +59,67 @@ static unsigned int curr_cap[CLUSTER_MAX];
 static cpumask_var_t limit_mask_min;
 static cpumask_var_t limit_mask_max;
 
+static bool ready_for_freq_updates;
+
+static int freq_qos_request_init(void)
+{
+	unsigned int cpu;
+	int ret;
+
+	struct cpufreq_policy *policy;
+	struct freq_qos_request *req;
+
+	for_each_present_cpu(cpu) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_err("%s: Failed to get cpufreq policy for cpu%d\n",
+				__func__, cpu);
+			ret = -EAGAIN;
+			goto cleanup;
+		}
+		per_cpu(msm_perf_cpu_stats, cpu).min = 0;
+		req = &per_cpu(qos_req_min, cpu);
+		ret = freq_qos_add_request(&policy->constraints, req,
+			FREQ_QOS_MIN, FREQ_QOS_MIN_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("%s: Failed to add min freq constraint (%d)\n",
+				__func__, ret);
+			cpufreq_cpu_put(policy);
+			goto cleanup;
+		}
+
+		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
+		req = &per_cpu(qos_req_max, cpu);
+		ret = freq_qos_add_request(&policy->constraints, req,
+			FREQ_QOS_MAX, FREQ_QOS_MAX_DEFAULT_VALUE);
+		if (ret < 0) {
+			pr_err("%s: Failed to add max freq constraint (%d)\n",
+				__func__, ret);
+			cpufreq_cpu_put(policy);
+			goto cleanup;
+		}
+
+		cpufreq_cpu_put(policy);
+	}
+	return 0;
+
+cleanup:
+	for_each_present_cpu(cpu) {
+		req = &per_cpu(qos_req_min, cpu);
+		if (req)
+			freq_qos_remove_request(req);
+
+
+		req = &per_cpu(qos_req_max, cpu);
+		if (req)
+			freq_qos_remove_request(req);
+
+		per_cpu(msm_perf_cpu_stats, cpu).min = 0;
+		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
+	}
+	return ret;
+}
+
 /*******************************sysfs start************************************/
 static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 {
@@ -68,6 +129,17 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
 	struct freq_qos_request *req;
+	int ret = 0;
+
+	if (!ready_for_freq_updates) {
+		ret = freq_qos_request_init();
+		if (ret) {
+			pr_err("%s: Failed to init qos requests policy for ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		ready_for_freq_updates = true;
+	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
@@ -108,7 +180,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 			continue;
 
 		if (cpu_online(i) && (policy.min != i_cpu_stats->min)) {
-			req = &per_cpu(qos_req_min, cpu);
+			req = &per_cpu(qos_req_min, i);
 			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
 				break;
 		}
@@ -148,7 +220,17 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
 	struct freq_qos_request *req;
+	int ret = 0;
 
+	if (!ready_for_freq_updates) {
+		ret = freq_qos_request_init();
+		if (ret) {
+			pr_err("%s: Failed to init qos requests policy for ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		ready_for_freq_updates = true;
+	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
@@ -181,7 +263,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 			continue;
 
 		if (cpu_online(i) && (policy.max != i_cpu_stats->max)) {
-			req = &per_cpu(qos_req_max, cpu);
+			req = &per_cpu(qos_req_max, i);
 			if (freq_qos_update_request(req, i_cpu_stats->max) < 0)
 				break;
 		}
@@ -474,35 +556,7 @@ module_param_cb(core_ctl_register, &param_ops_cc_register,
 
 static int __init msm_performance_init(void)
 {
-	unsigned int cpu;
 	int ret;
-
-	struct cpufreq_policy *policy;
-	struct freq_qos_request *req;
-
-	for_each_present_cpu(cpu) {
-		per_cpu(msm_perf_cpu_stats, cpu).max = UINT_MAX;
-		req = &per_cpu(qos_req_min, cpu);
-		policy = cpufreq_cpu_get(cpu);
-		if (!policy)
-			continue;
-		ret = freq_qos_add_request(&policy->constraints, req,
-			FREQ_QOS_MIN, policy->min);
-		if (ret < 0) {
-			pr_err("%s: Failed to add min freq constraint (%d)\n",
-				__func__, ret);
-			return ret;
-		}
-		req = &per_cpu(qos_req_max, cpu);
-		ret = freq_qos_add_request(&policy->constraints, req,
-			FREQ_QOS_MAX, policy->max);
-		if (ret < 0) {
-			pr_err("%s: Failed to add max freq constraint (%d)\n",
-				__func__, ret);
-			return ret;
-		}
-	}
-
 	if (!alloc_cpumask_var(&limit_mask_min, GFP_KERNEL))
 		return -ENOMEM;
 

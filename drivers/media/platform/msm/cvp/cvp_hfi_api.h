@@ -369,7 +369,7 @@ void cvp_hfi_deinitialize(enum msm_cvp_hfi_type hfi_type,
 int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr);
 int get_signal_from_pkt_type(unsigned int type);
 int get_hfi_version(void);
-unsigned int get_msg_size(void);
+unsigned int get_msg_size(struct cvp_hfi_msg_session_hdr *hdr);
 unsigned int get_msg_session_id(void *msg);
 unsigned int get_msg_errorcode(void *msg);
 int get_msg_opconfigs(void *msg, unsigned int *session_id,

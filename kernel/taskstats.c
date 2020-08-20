@@ -644,6 +644,13 @@ static int taskstats2_cmd_attr_pid(struct genl_info *info)
 	size_t size;
 	u32 pid;
 	int rc;
+	u64 utime, stime;
+	const struct cred *tcred;
+#ifdef CONFIG_CPUSETS
+	struct cgroup_subsys_state *css;
+#endif //CONFIG_CPUSETS
+	unsigned long flags;
+	struct signal_struct *sig;
 
 	size = nla_total_size_64bit(sizeof(struct taskstats2));
 
@@ -690,6 +697,37 @@ static int taskstats2_cmd_attr_pid(struct genl_info *info)
 #undef K
 		task_unlock(p);
 	}
+
+	/* version 2 fields begin here */
+	task_cputime(tsk, &utime, &stime);
+	stats->utime = div_u64(utime, NSEC_PER_USEC);
+	stats->stime = div_u64(stime, NSEC_PER_USEC);
+
+	if (lock_task_sighand(tsk, &flags)) {
+		sig = tsk->signal;
+		stats->cutime = sig->cutime;
+		stats->cstime = sig->cstime;
+		unlock_task_sighand(tsk, &flags);
+	}
+
+	rcu_read_lock();
+	tcred = __task_cred(tsk);
+	stats->uid = from_kuid_munged(current_user_ns(), tcred->uid);
+	stats->ppid = pid_alive(tsk) ?
+		task_tgid_nr_ns(rcu_dereference(tsk->real_parent),
+			task_active_pid_ns(current)) : 0;
+	rcu_read_unlock();
+
+	strlcpy(stats->name, tsk->comm, sizeof(stats->name));
+
+#ifdef CONFIG_CPUSETS
+	css = task_get_css(tsk, cpuset_cgrp_id);
+	cgroup_path_ns(css->cgroup, stats->state, sizeof(stats->state),
+				current->nsproxy->cgroup_ns);
+	css_put(css);
+#endif //CONFIG_CPUSETS
+	/* version 2 fields end here */
+
 	put_task_struct(tsk);
 
 	return send_reply(rep_skb, info);

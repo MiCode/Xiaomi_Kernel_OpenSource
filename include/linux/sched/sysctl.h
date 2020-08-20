@@ -55,6 +55,7 @@ extern unsigned int __weak sysctl_sched_ravg_window_nr_ticks;
 extern unsigned int __weak sysctl_sched_many_wakeup_threshold;
 extern unsigned int __weak sysctl_sched_dynamic_ravg_window_enable;
 extern unsigned int sysctl_sched_prefer_spread;
+extern unsigned int sysctl_walt_rtg_cfs_boost_prio;
 
 extern int
 walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
@@ -80,16 +81,6 @@ extern int sched_boost_handler(struct ctl_table *table, int write,
 
 extern int sched_busy_hyst_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
-#endif
-
-#if defined(CONFIG_PREEMPTIRQ_EVENTS) || defined(CONFIG_PREEMPT_TRACER)
-extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
-#endif
-#if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER)
-extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
-extern unsigned int sysctl_irqsoff_dmesg_output_enabled;
-extern unsigned int sysctl_irqsoff_crash_sentinel_value;
-extern unsigned int sysctl_irqsoff_crash_threshold_ns;
 #endif
 
 enum sched_tunable_scaling {

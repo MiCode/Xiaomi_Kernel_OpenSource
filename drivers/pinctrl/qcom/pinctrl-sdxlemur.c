@@ -1035,6 +1035,18 @@ static const struct msm_pingroup sdxlemur_groups[] = {
 	[112] = UFS_RESET(ufs_reset, 0x0),
 };
 
+static const struct msm_gpio_wakeirq_map sdxlemur_pdc_map[] = {
+	{1, 20}, {2, 21}, {5, 22}, {6, 23}, {9, 24}, {10, 25},
+	{11, 26}, {12, 27}, {13, 28}, {14, 29}, {15, 30}, {16, 31},
+	{17, 32}, {18, 33}, {19, 34}, {21, 35}, {22, 36}, {23, 70},
+	{24, 37}, {25, 38}, {35, 40}, {43, 41}, {46, 44}, {48, 45},
+	{49, 57}, {50, 46}, {52, 47}, {54, 49}, {55, 50}, {60, 53},
+	{61, 54}, {64, 55}, {65, 81}, {68, 56}, {71, 58}, {73, 59},
+	{77, 77}, {81, 65}, {83, 63}, {84, 64}, {86, 66}, {88, 67},
+	{89, 68}, {90, 69}, {93, 71}, {94, 72}, {95, 73}, {96, 74},
+	{99, 75}, {103, 78}, {104, 79}
+};
+
 static const struct msm_pinctrl_soc_data sdxlemur_pinctrl = {
 	.pins = sdxlemur_pins,
 	.npins = ARRAY_SIZE(sdxlemur_pins),
@@ -1043,6 +1055,8 @@ static const struct msm_pinctrl_soc_data sdxlemur_pinctrl = {
 	.groups = sdxlemur_groups,
 	.ngroups = ARRAY_SIZE(sdxlemur_groups),
 	.ngpios = 108,
+	.wakeirq_map = sdxlemur_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sdxlemur_pdc_map),
 };
 
 static int sdxlemur_pinctrl_probe(struct platform_device *pdev)

@@ -313,7 +313,7 @@ static int hfi_process_session_set_buf_done(u32 device_id,
 	struct cvp_hfi_msg_session_hdr *pkt =
 			(struct cvp_hfi_msg_session_hdr *)hdr;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
-	unsigned int pkt_size = get_msg_size();
+	unsigned int pkt_size = get_msg_size(pkt);
 
 	if (!pkt || pkt->size < pkt_size) {
 		dprintk(CVP_ERR, "bad packet/packet size %d\n",
@@ -367,7 +367,7 @@ static int hfi_process_session_rel_buf_done(u32 device_id,
 	struct cvp_hfi_msg_session_hdr *pkt =
 			(struct cvp_hfi_msg_session_hdr *)hdr;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
-	unsigned int pkt_size = get_msg_size();
+	unsigned int pkt_size = get_msg_size(pkt);
 
 	if (!pkt || pkt->size < pkt_size) {
 		dprintk(CVP_ERR, "bad packet/packet size %d\n",
@@ -393,6 +393,8 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 {
 	struct cvp_hfi_msg_session_op_cfg_packet *pkt =
 		(struct cvp_hfi_msg_session_op_cfg_packet *)hdr;
+	struct cvp_hfi_msg_session_hdr *lhdr =
+		(struct cvp_hfi_msg_session_hdr *)hdr;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	int signal;
 	unsigned int conf_id, session_id, error_type;
@@ -400,7 +402,7 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;
-	} else if (pkt->size < get_msg_size()) {
+	} else if (pkt->size < get_msg_size(lhdr)) {
 		dprintk(CVP_ERR,
 				"%s: bad_pkt_size\n", __func__);
 		return -E2BIG;
@@ -514,7 +516,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 		return -ENOMEM;
 	}
 
-	memcpy(&sess_msg->pkt, pkt, get_msg_size());
+	memcpy(&sess_msg->pkt, pkt, get_msg_size(pkt));
 
 	dprintk(CVP_HFI,
 		"%s: Received msg %x cmd_done.status=%d sessionid=%x\n",

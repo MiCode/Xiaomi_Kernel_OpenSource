@@ -13,8 +13,7 @@
 static DEFINE_MUTEX(iommu_debug_attachments_lock);
 static LIST_HEAD(iommu_debug_attachments);
 
-static unsigned int iommu_logger_pgtable_levels(struct iommu_domain *domain,
-						struct io_pgtable *iop)
+static unsigned int iommu_logger_pgtable_levels(struct io_pgtable *iop)
 {
 	unsigned int va_bits, pte_size, bits_per_level, pg_shift;
 	unsigned long ias = iop->cfg.ias;
@@ -31,7 +30,7 @@ static unsigned int iommu_logger_pgtable_levels(struct iommu_domain *domain,
 		return 0;
 	}
 
-	pg_shift = __ffs(domain->pgsize_bitmap);
+	pg_shift = __ffs(iop->cfg.pgsize_bitmap);
 	bits_per_level = pg_shift - ilog2(pte_size);
 	va_bits = ias - pg_shift;
 	return DIV_ROUND_UP(va_bits, bits_per_level);
@@ -62,17 +61,13 @@ static int iommu_logger_domain_ttbrs(struct io_pgtable *iop, void **ttbr0_ptr,
 	switch (iop->fmt) {
 	case ARM_32_LPAE_S1:
 	case ARM_64_LPAE_S1:
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
+	case ARM_V8L_FAST:
+#endif
 		ttbr0 = iop->cfg.arm_lpae_s1_cfg.ttbr[0];
 		ttbr1 = iop->cfg.arm_lpae_s1_cfg.ttbr[1];
 		ret = 0;
 		break;
-#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
-	case ARM_V8L_FAST:
-		ttbr0 = iop->cfg.av8l_fast_cfg.ttbr[0];
-		ttbr1 = iop->cfg.av8l_fast_cfg.ttbr[1];
-		ret = 0;
-		break;
-#endif
 	default:
 		ret = -EINVAL;
 	}
@@ -87,11 +82,13 @@ static int iommu_logger_domain_ttbrs(struct io_pgtable *iop, void **ttbr0_ptr,
 
 static struct iommu_debug_attachment *iommu_logger_init(
 						struct iommu_domain *domain,
-						struct iommu_group *group,
+						struct device *dev,
 						struct io_pgtable *iop)
 {
 	struct iommu_debug_attachment *logger;
-	unsigned int levels = iommu_logger_pgtable_levels(domain, iop);
+	char *client_name;
+	struct iommu_group *group;
+	unsigned int levels = iommu_logger_pgtable_levels(iop);
 	enum iommu_logger_pgtable_fmt fmt = iommu_logger_pgtable_fmt_lut(
 								iop->fmt);
 	void *ttbr0, *ttbr1;
@@ -108,9 +105,19 @@ static struct iommu_debug_attachment *iommu_logger_init(
 	if (!logger)
 		return ERR_PTR(-ENOMEM);
 
+	client_name = kasprintf(GFP_KERNEL, "%s", kobject_name(&dev->kobj));
+	if (!client_name) {
+		kfree(logger);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	group = iommu_group_get_for_dev(dev);
+	iommu_group_put(group);
+
 	INIT_LIST_HEAD(&logger->list);
 	logger->domain = domain;
 	logger->group = group;
+	logger->client_name = client_name;
 	logger->fmt = fmt;
 	logger->levels = levels;
 	logger->ttbr0 = ttbr0;
@@ -120,17 +127,16 @@ static struct iommu_debug_attachment *iommu_logger_init(
 }
 
 int iommu_logger_register(struct iommu_debug_attachment **logger_out,
-			  struct iommu_domain *domain,
-			  struct iommu_group *group,
+			  struct iommu_domain *domain, struct device *dev,
 			  struct io_pgtable *iop)
 {
 	struct iommu_debug_attachment *logger;
 
-	if (!logger_out || !domain || !group || !iop ||
+	if (!logger_out || !dev || !iop ||
 	    iop->fmt >= IO_PGTABLE_NUM_FMTS)
 		return -EINVAL;
 
-	logger = iommu_logger_init(domain, group, iop);
+	logger = iommu_logger_init(domain, dev, iop);
 	if (IS_ERR(logger))
 		return PTR_ERR(logger);
 
@@ -151,6 +157,7 @@ void iommu_logger_unregister(struct iommu_debug_attachment *logger)
 	mutex_lock(&iommu_debug_attachments_lock);
 	list_del(&logger->list);
 	mutex_unlock(&iommu_debug_attachments_lock);
+	kfree(logger->client_name);
 	kfree(logger);
 }
 EXPORT_SYMBOL(iommu_logger_unregister);

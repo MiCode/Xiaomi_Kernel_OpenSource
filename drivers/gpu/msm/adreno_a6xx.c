@@ -121,10 +121,32 @@ static u32 a615_pwrup_reglist[] = {
 
 static int a6xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
 
+static void a6xx_gmu_wrapper_init(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct resource *res;
+
+	if (adreno_dev->gmu_wrapper_virt)
+		return;
+
+	res = platform_get_resource_byname(device->pdev,
+		IORESOURCE_MEM, "gmu_wrapper");
+	if (!res)
+		return;
+
+	adreno_dev->gmu_wrapper_base = res->start - device->reg_phys;
+	adreno_dev->gmu_wrapper_virt = devm_ioremap(&device->pdev->dev,
+		res->start, resource_size(res));
+
+	if (!adreno_dev->gmu_wrapper_virt)
+		dev_warn(device->dev, "gmu_wrapper ioremap failed\n");
+}
+
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 
+	a6xx_gmu_wrapper_init(adreno_dev);
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
 	/* If the memory type is DDR 4, override the existing configuration */
@@ -605,10 +627,27 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	 * Enable GMU power counter 0 to count GPU busy. This is applicable to
 	 * all a6xx targets
 	 */
-	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
-	kgsl_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0xff, 0x20);
-	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+	if (adreno_is_a619_holi(adreno_dev)) {
+		unsigned int val;
 
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0xff000000);
+		adreno_read_gmu_wrapper(adreno_dev,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, &val);
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			(val & 0xff) | 0x20);
+		adreno_write_gmu_wrapper(adreno_dev,
+			A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+
+	} else {
+		kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK,
+			0xff000000);
+		kgsl_regrmw(device, A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0,
+			0xff, 0x20);
+		kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE,
+			0x1);
+	}
 	a6xx_protect_init(adreno_dev);
 	/*
 	 * We start LM here because we want all the following to be up
@@ -627,7 +666,7 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
-		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x90);
+		kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x66906);
 	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
@@ -645,27 +684,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 		patch_reglist = true;
 	}
 }
-
-/*
- * a6xx_microcode_load() - Load microcode
- * @adreno_dev: Pointer to adreno device
- */
-static int a6xx_microcode_load(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
-	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	uint64_t gpuaddr;
-
-	gpuaddr = fw->memdesc->gpuaddr;
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
-				lower_32_bits(gpuaddr));
-	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
-				upper_32_bits(gpuaddr));
-
-	return adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
-}
-
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -862,6 +880,8 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 
 int a6xx_rb_start(struct adreno_device *adreno_dev)
 {
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	uint64_t addr;
@@ -900,14 +920,21 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_RB_BASE_HI,
 		upper_32_bits(rb->buffer_desc->gpuaddr));
 
-	ret = a6xx_microcode_load(adreno_dev);
-	if (ret)
-		return ret;
+	/* Program the ucode base for CP */
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
+			lower_32_bits(fw->memdesc->gpuaddr));
+
+	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
+			upper_32_bits(fw->memdesc->gpuaddr));
 
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
 
 	ret = a6xx_send_cp_init(adreno_dev, rb);
+	if (ret)
+		return ret;
+
+	ret = adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
 	if (ret)
 		return ret;
 
@@ -917,11 +944,11 @@ int a6xx_rb_start(struct adreno_device *adreno_dev)
 	 */
 	if (!adreno_dev->zap_loaded)
 		kgsl_regwrite(device, A6XX_RBBM_SECVID_TRUST_CNTL, 0);
-	else
+	else {
 		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
-
-	if (ret)
-		return ret;
+		if (ret)
+			return ret;
+	}
 
 	return a6xx_post_start(adreno_dev);
 }

@@ -34,11 +34,12 @@ enum {
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
-	{ 249600000, 1750000000, 0 },
+	{ 249600000, 1800000000, 0 },
 };
 
+/* 604.8MHz Configuration */
 static const struct alpha_pll_config video_pll0_config = {
-	.l = 0x25,
+	.l = 0x1F,
 	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
@@ -72,11 +73,13 @@ static struct clk_alpha_pll video_pll0 = {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
-				[VDD_NOMINAL] = 1750000000},
+				[VDD_NOMINAL] = 1750000000,
+				[VDD_HIGH] = 1800000000},
 		},
 	},
 };
 
+/* 840MHz Configuration */
 static const struct alpha_pll_config video_pll1_config = {
 	.l = 0x2B,
 	.alpha = 0xC000,
@@ -112,7 +115,8 @@ static struct clk_alpha_pll video_pll1 = {
 				[VDD_MIN] = 615000000,
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
-				[VDD_NOMINAL] = 1750000000},
+				[VDD_NOMINAL] = 1750000000,
+				[VDD_HIGH] = 1800000000},
 		},
 	},
 };
@@ -348,7 +352,7 @@ static struct clk_regmap_div video_cc_mvs1c_div2_div_clk_src = {
 
 static struct clk_branch video_cc_ahb_clk = {
 	.halt_reg = 0xe58,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.hwcg_reg = 0xe58,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -446,7 +450,7 @@ static struct clk_branch video_cc_mvs1_div2_clk = {
 
 static struct clk_branch video_cc_mvs1c_clk = {
 	.halt_reg = 0xcd4,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xcd4,
 		.enable_mask = BIT(0),

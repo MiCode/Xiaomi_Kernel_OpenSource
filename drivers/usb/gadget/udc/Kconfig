@@ -449,7 +449,7 @@ source "drivers/usb/gadget/udc/aspeed-vhub/Kconfig"
 
 config USB_DUMMY_HCD
 	tristate "Dummy HCD (DEVELOPMENT)"
-	depends on USB=y || (USB=m && USB_GADGET=m)
+	depends on USB=y
 	help
 	  This host controller driver emulates USB, looping all data transfer
 	  requests back to a USB "gadget driver" in the same host.  The host

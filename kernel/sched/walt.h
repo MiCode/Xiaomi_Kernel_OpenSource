@@ -78,6 +78,10 @@ static inline void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	if (p->wts.misfit)
 		rq->wrq.walt_stats.nr_big_tasks++;
 
+	p->wts.rtg_high_prio = task_rtg_high_prio(p);
+	if (p->wts.rtg_high_prio)
+		rq->wrq.walt_stats.nr_rtg_high_prio_tasks++;
+
 	walt_inc_cumulative_runnable_avg(rq, p);
 }
 
@@ -85,6 +89,9 @@ static inline void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
 	if (p->wts.misfit)
 		rq->wrq.walt_stats.nr_big_tasks--;
+
+	if (p->wts.rtg_high_prio)
+		rq->wrq.walt_stats.nr_rtg_high_prio_tasks--;
 
 	BUG_ON(rq->wrq.walt_stats.nr_big_tasks < 0);
 
@@ -190,6 +197,11 @@ static inline void walt_try_to_wake_up(struct task_struct *p)
 	if (update_preferred_cluster(grp, p, old_load, false))
 		set_preferred_cluster(grp);
 	rcu_read_unlock();
+}
+
+static inline unsigned int walt_nr_rtg_high_prio(int cpu)
+{
+	return cpu_rq(cpu)->wrq.walt_stats.nr_rtg_high_prio_tasks;
 }
 
 #else /* CONFIG_SCHED_WALT */

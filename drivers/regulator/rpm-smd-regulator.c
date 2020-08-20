@@ -18,6 +18,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/proxy-consumer.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <soc/qcom/rpm-smd.h>
 #include <linux/debugfs.h>
 /* Debug Definitions */
@@ -47,11 +48,13 @@ enum rpm_regulator_type {
 	RPM_REGULATOR_TYPE_MAX,
 };
 
-/* Supported PMIC regulator LDO types */
+/* Supported PMIC regulator LDO and BOB types */
 enum rpm_regulator_hw_type {
 	RPM_REGULATOR_HW_TYPE_UNKNOWN,
 	RPM_REGULATOR_HW_TYPE_PMIC4_LDO,
 	RPM_REGULATOR_HW_TYPE_PMIC5_LDO,
+	RPM_REGULATOR_HW_TYPE_PMIC4_BOB,
+	RPM_REGULATOR_HW_TYPE_PMIC5_BOB,
 	RPM_REGULATOR_HW_TYPE_MAX,
 };
 
@@ -80,22 +83,18 @@ enum rpm_regulator_param_index {
 	RPM_REGULATOR_PARAM_MAX,
 };
 
-enum rpm_regulator_smps_mode {
-	RPM_REGULATOR_SMPS_MODE_AUTO	= 0,
-	RPM_REGULATOR_SMPS_MODE_IPEAK	= 1,
-	RPM_REGULATOR_SMPS_MODE_PWM	= 2,
+enum rpm_regulator_bob_mode_pmic4 {
+	RPM_REGULATOR_PMIC4_BOB_MODE_PASS	= 0,
+	RPM_REGULATOR_PMIC4_BOB_MODE_PFM	= 1,
+	RPM_REGULATOR_PMIC4_BOB_MODE_AUTO	= 2,
+	RPM_REGULATOR_PMIC4_BOB_MODE_PWM	= 3,
 };
 
-enum rpm_regulator_ldo_mode {
-	RPM_REGULATOR_LDO_MODE_IPEAK	= 0,
-	RPM_REGULATOR_LDO_MODE_HPM	= 1,
-};
-
-enum rpm_regulator_bob_mode {
-	RPM_REGULATOR_BOB_MODE_PASS	= 0,
-	RPM_REGULATOR_BOB_MODE_PFM	= 1,
-	RPM_REGULATOR_BOB_MODE_AUTO	= 2,
-	RPM_REGULATOR_BOB_MODE_PWM	= 3,
+enum rpm_regulator_bob_mode_pmic5 {
+	RPM_REGULATOR_PMIC5_BOB_MODE_PASS	= 2,
+	RPM_REGULATOR_PMIC5_BOB_MODE_PFM	= 4,
+	RPM_REGULATOR_PMIC5_BOB_MODE_AUTO	= 6,
+	RPM_REGULATOR_PMIC5_BOB_MODE_PWM	= 7,
 };
 
 #define RPM_SET_CONFIG_ACTIVE			BIT(0)
@@ -161,6 +160,11 @@ struct rpm_vreg_request {
 	u32			modified;
 };
 
+struct rpm_reg_mode_info {
+	u32				mode;
+	int				min_load_ua;
+};
+
 struct rpm_vreg {
 	struct rpm_vreg_request	aggr_req_active;
 	struct rpm_vreg_request	aggr_req_sleep;
@@ -170,6 +174,8 @@ struct rpm_vreg {
 	bool			allow_atomic;
 	int			regulator_type;
 	int			hpm_min_load;
+	struct rpm_reg_mode_info	*mode;
+	int			mode_count;
 	int			enable_time;
 	spinlock_t		slock;
 	struct mutex		mlock;
@@ -1041,30 +1047,59 @@ static int rpm_vreg_set_bob_mode(struct regulator_dev *rdev, unsigned int mode)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 	int rc;
-	u32 prev_mode;
+	u32 hw_mode, hw_type, prev_mode;
 
 	rpm_vreg_lock(reg->rpm_vreg);
 
 	prev_mode = reg->req.param[RPM_REGULATOR_PARAM_MODE_BOB];
+	hw_type = reg->rpm_vreg->regulator_hw_type;
 
-	switch (mode) {
-	case REGULATOR_MODE_FAST:
-		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PWM);
-		break;
-	case REGULATOR_MODE_NORMAL:
-		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_AUTO);
-		break;
-	case REGULATOR_MODE_IDLE:
-		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PFM);
-		break;
-	case REGULATOR_MODE_STANDBY:
-		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PASS);
-		break;
-	default:
-		vreg_err(reg, "invalid mode: %u\n", mode);
+	if (hw_type == RPM_REGULATOR_HW_TYPE_PMIC4_BOB) {
+		switch (mode) {
+		case REGULATOR_MODE_FAST:
+			hw_mode = RPM_REGULATOR_PMIC4_BOB_MODE_PWM;
+			break;
+		case REGULATOR_MODE_NORMAL:
+			hw_mode = RPM_REGULATOR_PMIC4_BOB_MODE_AUTO;
+			break;
+		case REGULATOR_MODE_IDLE:
+			hw_mode = RPM_REGULATOR_PMIC4_BOB_MODE_PFM;
+			break;
+		case REGULATOR_MODE_STANDBY:
+			hw_mode = RPM_REGULATOR_PMIC4_BOB_MODE_PASS;
+			break;
+		default:
+			vreg_err(reg, "invalid mode: %u\n", mode);
+			rpm_vreg_unlock(reg->rpm_vreg);
+			return -EINVAL;
+		}
+	} else if (hw_type == RPM_REGULATOR_HW_TYPE_PMIC5_BOB) {
+		switch (mode) {
+		case REGULATOR_MODE_FAST:
+			hw_mode = RPM_REGULATOR_PMIC5_BOB_MODE_PWM;
+			break;
+		case REGULATOR_MODE_NORMAL:
+			hw_mode = RPM_REGULATOR_PMIC5_BOB_MODE_AUTO;
+			break;
+		case REGULATOR_MODE_IDLE:
+			hw_mode = RPM_REGULATOR_PMIC5_BOB_MODE_PFM;
+			break;
+		case REGULATOR_MODE_STANDBY:
+			hw_mode = RPM_REGULATOR_PMIC5_BOB_MODE_PASS;
+			break;
+		default:
+			vreg_err(reg, "invalid mode: %u\n", mode);
+			rpm_vreg_unlock(reg->rpm_vreg);
+			return -EINVAL;
+		}
+	} else {
+		vreg_err(reg, "unsupported bob hw type: %d\n",
+				reg->rpm_vreg->regulator_hw_type);
 		rpm_vreg_unlock(reg->rpm_vreg);
 		return -EINVAL;
 	}
+
+	RPM_VREG_SET_PARAM(reg, MODE_BOB, hw_mode);
 
 	rc = rpm_vreg_aggregate_requests(reg);
 	if (rc) {
@@ -1080,27 +1115,73 @@ static int rpm_vreg_set_bob_mode(struct regulator_dev *rdev, unsigned int mode)
 static unsigned int rpm_vreg_get_bob_mode(struct regulator_dev *rdev)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	unsigned int mode;
+	unsigned int mode = REGULATOR_MODE_NORMAL;
+	u32 hw_type = reg->rpm_vreg->regulator_hw_type;
 
-	switch (reg->req.param[RPM_REGULATOR_PARAM_MODE_BOB]) {
-	case RPM_REGULATOR_BOB_MODE_PWM:
-		mode = REGULATOR_MODE_FAST;
-		break;
-	case RPM_REGULATOR_BOB_MODE_AUTO:
-		mode = REGULATOR_MODE_NORMAL;
-		break;
-	case RPM_REGULATOR_BOB_MODE_PFM:
-		mode = REGULATOR_MODE_IDLE;
-		break;
-	case RPM_REGULATOR_BOB_MODE_PASS:
-		mode = REGULATOR_MODE_STANDBY;
-		break;
-	default:
-		vreg_err(reg, "BoB mode unknown\n");
-		mode = REGULATOR_MODE_NORMAL;
+	if (hw_type == RPM_REGULATOR_HW_TYPE_PMIC4_BOB) {
+		switch (reg->req.param[RPM_REGULATOR_PARAM_MODE_BOB]) {
+		case RPM_REGULATOR_PMIC4_BOB_MODE_PWM:
+			mode = REGULATOR_MODE_FAST;
+			break;
+		case RPM_REGULATOR_PMIC4_BOB_MODE_AUTO:
+			mode = REGULATOR_MODE_NORMAL;
+			break;
+		case RPM_REGULATOR_PMIC4_BOB_MODE_PFM:
+			mode = REGULATOR_MODE_IDLE;
+			break;
+		case RPM_REGULATOR_PMIC4_BOB_MODE_PASS:
+			mode = REGULATOR_MODE_STANDBY;
+			break;
+		default:
+			vreg_err(reg, "BoB mode unknown\n");
+		}
+	} else if (hw_type == RPM_REGULATOR_HW_TYPE_PMIC4_BOB) {
+		switch (reg->req.param[RPM_REGULATOR_PARAM_MODE_BOB]) {
+		case RPM_REGULATOR_PMIC5_BOB_MODE_PWM:
+			mode = REGULATOR_MODE_FAST;
+			break;
+		case RPM_REGULATOR_PMIC5_BOB_MODE_AUTO:
+			mode = REGULATOR_MODE_NORMAL;
+			break;
+		case RPM_REGULATOR_PMIC5_BOB_MODE_PFM:
+			mode = REGULATOR_MODE_IDLE;
+			break;
+		case RPM_REGULATOR_PMIC5_BOB_MODE_PASS:
+			mode = REGULATOR_MODE_STANDBY;
+			break;
+		default:
+			vreg_err(reg, "BoB mode unknown\n");
+		}
 	}
 
 	return mode;
+}
+
+#define RPM_SMD_REGULATOR_MAX_MODES		5
+
+static const int bob_supported_modes[RPM_SMD_REGULATOR_MAX_MODES] = {
+	[RPM_SMD_REGULATOR_MODE_PASS] = REGULATOR_MODE_STANDBY,
+	[RPM_SMD_REGULATOR_MODE_RET] = REGULATOR_MODE_INVALID,
+	[RPM_SMD_REGULATOR_MODE_LPM] = REGULATOR_MODE_IDLE,
+	[RPM_SMD_REGULATOR_MODE_AUTO] = REGULATOR_MODE_NORMAL,
+	[RPM_SMD_REGULATOR_MODE_HPM] = REGULATOR_MODE_FAST,
+};
+
+static int rpm_vreg_bob_set_load(struct regulator_dev *rdev, int load_ua)
+{
+	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
+	int rc = 0, i;
+	unsigned int mode;
+
+	for (i = reg->rpm_vreg->mode_count - 1; i > 0; i--)
+		if (reg->rpm_vreg->mode[i].min_load_ua <= load_ua)
+			break;
+
+	mode = reg->rpm_vreg->mode[i].mode;
+
+	rc = rpm_vreg_set_bob_mode(rdev, mode);
+
+	return rc;
 }
 
 static int rpm_vreg_enable_time(struct regulator_dev *rdev)
@@ -1210,6 +1291,7 @@ static struct regulator_ops bob_ops = {
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage,
 	.get_voltage		= rpm_vreg_get_voltage,
+	.set_load		= rpm_vreg_bob_set_load,
 	.set_mode		= rpm_vreg_set_bob_mode,
 	.get_mode		= rpm_vreg_get_bob_mode,
 	.enable_time		= rpm_vreg_enable_time,
@@ -1459,6 +1541,11 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 		goto fail_free_reg;
 	}
 
+	rc = of_property_read_u32(node, "qcom,min-dropout-voltage",
+		&val);
+	if (!rc)
+		reg->rdesc.min_dropout_uV = val;
+
 	reg->set_active = !!(val & RPM_SET_CONFIG_ACTIVE);
 	reg->set_sleep = !!(val & RPM_SET_CONFIG_SLEEP);
 
@@ -1582,6 +1669,71 @@ fail_free_reg:
 	return rc;
 }
 
+int init_thresholds(struct device_node *node, struct device *dev,
+		struct rpm_vreg *rpm_vreg, int len)
+{
+	int rc, i;
+	u32 *buf;
+	const char *prop = "qcom,supported-modes";
+
+	len /= sizeof(u32);
+	rpm_vreg->mode = devm_kcalloc(dev, len,
+					sizeof(*rpm_vreg->mode), GFP_KERNEL);
+	if (!rpm_vreg->mode)
+		return -ENOMEM;
+	rpm_vreg->mode_count = len;
+
+	buf = kcalloc(len, sizeof(*buf), GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(node, prop, buf, len);
+	if (rc) {
+		pr_err("unable to read %s, rc=%d\n",
+			prop, rc);
+		return rc;
+	}
+
+	for (i = 0; i < len; i++) {
+		if (buf[i] < RPM_SMD_REGULATOR_MODE_PASS ||
+			buf[i] > RPM_SMD_REGULATOR_MODE_HPM) {
+			dev_err(dev, "element %d of %s = %u is invalid for BOB\n",
+				i, prop, buf[i]);
+			return -EINVAL;
+		}
+
+		rpm_vreg->mode[i].mode = bob_supported_modes[buf[i]];
+
+		if (i > 0 && buf[i] <= buf[i - 1]) {
+			dev_err(dev, "%s elements are not in ascending order\n",
+				prop);
+			return -EINVAL;
+		}
+	}
+
+	prop = "qcom,mode-threshold-currents";
+
+	rc = of_property_read_u32_array(node, prop, buf, len);
+	if (rc) {
+		dev_err(dev, "unable to read %s, rc=%d\n",
+			prop, rc);
+		return rc;
+	}
+
+	for (i = 0; i < len; i++) {
+		rpm_vreg->mode[i].min_load_ua = buf[i];
+
+		if (i > 0 && rpm_vreg->mode[i].min_load_ua
+				<= rpm_vreg->mode[i - 1].min_load_ua) {
+			dev_err(dev, "%s elements are not in ascending order\n",
+				prop);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * This probe is called for parent rpm-regulator devices which have
  * properties which are required to identify a given RPM resource.
@@ -1595,7 +1747,7 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 	const char *prop;
 	int val = 0;
 	u32 resource_type;
-	int rc;
+	int rc, len;
 
 
 	/* Create new rpm_vreg entry. */
@@ -1660,6 +1812,29 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (rpm_vreg->regulator_type == RPM_REGULATOR_TYPE_BOB) {
+		prop = "qcom,regulator-hw-type";
+		rpm_vreg->regulator_hw_type = RPM_REGULATOR_HW_TYPE_UNKNOWN;
+		rc = of_property_read_string(node, prop, &type);
+		if (rc) {
+			dev_err(dev, "%s is missing in DT node rc=%d\n",
+				prop, rc);
+			goto fail_free_vreg;
+		}
+
+		if (!strcmp(type, "pmic4-bob")) {
+			rpm_vreg->regulator_hw_type
+				= RPM_REGULATOR_HW_TYPE_PMIC4_BOB;
+		} else if (!strcmp(type, "pmic5-bob")) {
+			rpm_vreg->regulator_hw_type
+				= RPM_REGULATOR_HW_TYPE_PMIC5_BOB;
+		} else {
+			dev_err(dev, "unknown %s = %s\n",
+				prop, type);
+			goto fail_free_vreg;
+		}
+	}
+
 	/* Optional device tree properties: */
 	of_property_read_u32(node, "qcom,allow-atomic", &val);
 	rpm_vreg->allow_atomic = !!val;
@@ -1669,6 +1844,12 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 	rpm_vreg->apps_only = of_property_read_bool(node, "qcom,apps-only");
 	rpm_vreg->always_wait_for_ack
 		= of_property_read_bool(node, "qcom,always-wait-for-ack");
+
+	if (of_find_property(node, "qcom,supported-modes", &len)) {
+		rc = init_thresholds(node, dev, rpm_vreg, len);
+		if (rc < 0)
+			goto fail_free_vreg;
+	}
 
 	rpm_vreg->handle_active = msm_rpm_create_request(RPM_SET_ACTIVE,
 		resource_type, rpm_vreg->resource_id, RPM_REGULATOR_PARAM_MAX);

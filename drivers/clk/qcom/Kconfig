@@ -482,4 +482,23 @@ config SM_DEBUGCC_HOLI
 	  HOLI devices.
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
+
+config SDX_GCC_LEMUR
+	tristate "SDXLEMUR Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  SDXLEMUR devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SDX_DEBUGCC_LEMUR
+	tristate "SDXLEMUR Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc.
+	  sdxlemur devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif

@@ -54,6 +54,8 @@ enum {
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
 	HW_PLATFORM_HDK = 31,
+	HW_PLATFORM_ATP = 33,
+	HW_PLATFORM_IDP = 34,
 	HW_PLATFORM_INVALID
 };
 
@@ -75,6 +77,8 @@ static const char * const hw_platform[] = {
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
 	[HW_PLATFORM_HDK] = "HDK",
+	[HW_PLATFORM_ATP] = "ATP",
+	[HW_PLATFORM_IDP] = "IDP",
 };
 
 enum {
@@ -650,6 +654,7 @@ static const struct soc_id soc_id[] = {
 	{ 356, "KONA" },
 	{ 415, "LAHAINA" },
 	{ 439, "LAHAINAP" },
+	{ 456, "LAHAINA-ATP" },
 	{ 450, "SHIMA" },
 	{ 454, "HOLI" },
 	{ 458, "SDXLEMUR" },
@@ -1212,6 +1217,8 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 
 	qs->attr.machine = socinfo_machine(le32_to_cpu(info->id));
 	qs->attr.family = "Snapdragon";
+	qs->attr.soc_id = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%u",
+					 le32_to_cpu(info->id));
 	qs->attr.revision = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%u.%u",
 					   SOCINFO_MAJOR(le32_to_cpu(info->ver)),
 					   SOCINFO_MINOR(le32_to_cpu(info->ver)));

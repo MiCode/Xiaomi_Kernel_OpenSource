@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 config FSL_ENETC
-	tristate "ENETC PF driver"
+	bool "ENETC PF driver"
 	depends on PCI && PCI_MSI && (ARCH_LAYERSCAPE || COMPILE_TEST)
 	select PHYLIB
 	help
@@ -11,7 +11,7 @@ config FSL_ENETC
 	  If compiled as module (M), the module name is fsl-enetc.
 
 config FSL_ENETC_VF
-	tristate "ENETC VF driver"
+	bool "ENETC VF driver"
 	depends on PCI && PCI_MSI && (ARCH_LAYERSCAPE || COMPILE_TEST)
 	select PHYLIB
 	help

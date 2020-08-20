@@ -155,6 +155,10 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
 	ret = dpcm_be_dai_startup(fe, stream);
+#ifdef CONFIG_AUDIO_QGKI
+	if (ret < 0)
+		goto out;
+#else
 	if (ret < 0) {
 		/* clean up all links */
 		for_each_dpcm_be(fe, stream, dpcm)
@@ -164,14 +168,18 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 		fe->dpcm[stream].runtime = NULL;
 		goto out;
 	}
-
+#endif
 	if (cpu_dai->driver->cops && cpu_dai->driver->cops->startup) {
 		ret = cpu_dai->driver->cops->startup(cstream, cpu_dai);
 		if (ret < 0) {
 			dev_err(cpu_dai->dev,
 				"Compress ASoC: can't open interface %s: %d\n",
 				cpu_dai->name, ret);
+#ifdef CONFIG_AUDIO_QGKI
+			goto be_unwind;
+#else
 			goto out;
+#endif
 		}
 	}
 
@@ -205,8 +213,21 @@ machine_err:
 open_err:
 	if (cpu_dai->driver->cops && cpu_dai->driver->cops->shutdown)
 		cpu_dai->driver->cops->shutdown(cstream, cpu_dai);
+#ifdef CONFIG_AUDIO_QGKI
+be_unwind:
+	dpcm_be_dai_shutdown(fe, stream);
+out:
+	/* clean up all links */
+	for_each_dpcm_be(fe, stream, dpcm)
+		dpcm->state = SND_SOC_DPCM_LINK_STATE_FREE;
+
+	dpcm_be_disconnect(fe, stream);
+	fe->dpcm[stream].runtime = NULL;
+	dpcm_path_put(&list);
+#else
 out:
 	dpcm_path_put(&list);
+#endif
 be_err:
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_NO;
 	mutex_unlock(&fe->card->mutex);
@@ -670,6 +691,11 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				cstream, &async_domain);
 			} else {
 				be_list[j++] = be;
+				if (j == DPCM_MAX_BE_USERS) {
+					dev_dbg(fe->dev,
+						"ASoC: MAX backend users!\n");
+					break;
+				}
 			}
 		}
 		for (i = 0; i < j; i++) {
@@ -925,7 +951,7 @@ static int soc_compr_set_next_track_param(struct snd_compr_stream *cstream,
 		component = rtdcom->component;
 
 		if (!component->driver->compr_ops ||
-			component->driver->compr_ops->set_next_track_param)
+			!component->driver->compr_ops->set_next_track_param)
 			continue;
 
 		ret = component->driver->compr_ops->set_next_track_param(

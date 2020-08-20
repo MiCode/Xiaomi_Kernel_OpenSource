@@ -6,6 +6,8 @@
 #include <linux/slab.h>
 
 #include "a3xx_reg.h"
+#include "a5xx_reg.h"
+#include "a6xx_reg.h"
 #include "adreno.h"
 #include "adreno_iommu.h"
 #include "adreno_pm4types.h"
@@ -185,12 +187,19 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
 
+
+	*cmds++ = cp_type4_packet(A5XX_CP_CNTL, 1);
+	*cmds++ = 1;
+
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc->gpuaddr +
 		PT_INFO_OFFSET(ttbr0)));
 	*cmds++ = lower_32_bits(ttbr0);
 	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
+
+	*cmds++ = cp_type4_packet(A5XX_CP_CNTL, 1);
+	*cmds++ = 0;
 
 	return cmds - cmds_orig;
 }
@@ -211,12 +220,22 @@ static unsigned int _adreno_iommu_set_pt_v2_a6xx(struct kgsl_device *device,
 	*cmds++ = contextidr;
 	*cmds++ = cb_num;
 
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		*cmds++ = cp_type4_packet(A6XX_CP_MISC_CNTL, 1);
+		*cmds++ = 1;
+	}
+
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc->gpuaddr +
 		PT_INFO_OFFSET(ttbr0)));
 	*cmds++ = lower_32_bits(ttbr0);
 	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV)) {
+		*cmds++ = cp_type4_packet(A6XX_CP_MISC_CNTL, 1);
+		*cmds++ = 0;
+	}
 
 	return cmds - cmds_orig;
 }

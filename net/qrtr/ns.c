@@ -167,7 +167,7 @@ static int service_announce_del(struct sockaddr_qrtr *dest,
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
 	if (ret < 0 && ret != -ENODEV)
-		pr_err("failed to announce del service %d\n", ret);
+		pr_err_ratelimited("failed to announce del service %d\n", ret);
 
 	return ret;
 }
@@ -198,7 +198,8 @@ static void lookup_notify(struct sockaddr_qrtr *to, struct qrtr_server *srv,
 
 	ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
 	if (ret < 0 && ret != -ENODEV)
-		pr_err("failed to send lookup notification %d\n", ret);
+		pr_err_ratelimited("failed to send lookup notification %d\n",
+				   ret);
 }
 
 static int announce_servers(struct sockaddr_qrtr *sq)
@@ -387,8 +388,9 @@ static int ctrl_cmd_bye(struct sockaddr_qrtr *from)
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
 		if (ret < 0 && ret != -ENODEV)
-			pr_err("send bye failed: [0x%x:0x%x] 0x%x ret: %d\n",
-			       srv->service, srv->instance, srv->port, ret);
+			pr_err_ratelimited("send bye failed: [0x%x:0x%x] 0x%x ret: %d\n",
+					   srv->service, srv->instance,
+					   srv->port, ret);
 	}
 
 	return 0;
@@ -458,8 +460,9 @@ static int ctrl_cmd_del_client(struct sockaddr_qrtr *from,
 
 		ret = kernel_sendmsg(qrtr_ns.sock, &msg, &iv, 1, sizeof(pkt));
 		if (ret < 0 && ret != -ENODEV)
-			pr_err("del client cmd failed: [0x%x:0x%x] 0x%x %d\n",
-			       srv->service, srv->instance, srv->port, ret);
+			pr_err_ratelimited("del client cmd failed: [0x%x:0x%x] 0x%x %d\n",
+					   srv->service, srv->instance,
+					   srv->port, ret);
 	}
 
 	return 0;
@@ -608,9 +611,9 @@ static void ns_log_msg(const struct qrtr_ctrl_pkt *pkt,
 	unsigned int cmd = le32_to_cpu(pkt->cmd);
 
 	if (cmd == QRTR_TYPE_HELLO || cmd == QRTR_TYPE_BYE)
-		NS_INFO("cmd:0x%x addr[0x%x]\n", cmd, sq->sq_node, sq->sq_port);
+		NS_INFO("cmd:0x%x node[0x%x]\n", cmd, sq->sq_node);
 	else if (cmd == QRTR_TYPE_DEL_CLIENT)
-		NS_INFO("cmd:0x%x addr[0x%x]\n", cmd,
+		NS_INFO("cmd:0x%x addr[0x%x:0x%x]\n", cmd,
 			le32_to_cpu(pkt->client.node),
 			le32_to_cpu(pkt->client.port));
 	else if (cmd == QRTR_TYPE_NEW_SERVER || cmd == QRTR_TYPE_DEL_SERVER)
@@ -727,12 +730,13 @@ static void qrtr_ns_data_ready(struct sock *sk)
 void qrtr_ns_init(void)
 {
 	struct sockaddr_qrtr sq;
+	int rx_buf_sz = INT_MAX;
 	int ret;
 
 	INIT_LIST_HEAD(&qrtr_ns.lookups);
 	INIT_WORK(&qrtr_ns.work, qrtr_ns_worker);
 
-	ns_ilc = ipc_log_context_create(NS_LOG_PAGE_CNT, "ns", 0);
+	ns_ilc = ipc_log_context_create(NS_LOG_PAGE_CNT, "qrtr_ns", 0);
 
 	ret = sock_create_kern(&init_net, AF_QIPCRTR, SOCK_DGRAM,
 			       PF_QIPCRTR, &qrtr_ns.sock);
@@ -759,6 +763,8 @@ void qrtr_ns_init(void)
 		pr_err("failed to bind to socket\n");
 		goto err_wq;
 	}
+	kernel_setsockopt(qrtr_ns.sock, SOL_SOCKET, SO_RCVBUF,
+			  (char *)&rx_buf_sz, sizeof(rx_buf_sz));
 
 	qrtr_ns.bcast_sq.sq_family = AF_QIPCRTR;
 	qrtr_ns.bcast_sq.sq_node = QRTR_NODE_BCAST;
