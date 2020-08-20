@@ -482,6 +482,7 @@ static void put_crypt_info(struct fscrypt_info *ci)
 		    FSCRYPT_MODE_PRIVATE) {
 			fscrypt_destroy_prepared_key(&ci->ci_key);
 		} else {
+			crypto_free_skcipher(ci->ci_key.tfm);
 #ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
 			if (ci->ci_key.blk_key)
 				kzfree(ci->ci_key.blk_key);
