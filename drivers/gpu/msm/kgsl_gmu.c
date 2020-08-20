@@ -964,6 +964,8 @@ static int gmu_rpmh_init(struct kgsl_device *device,
 
 static void send_nmi_to_gmu(struct adreno_device *adreno_dev)
 {
+	u32 val;
+
 	/* Mask so there's no interrupt caused by NMI */
 	adreno_write_gmureg(adreno_dev,
 			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
@@ -972,9 +974,10 @@ static void send_nmi_to_gmu(struct adreno_device *adreno_dev)
 	wmb();
 	adreno_write_gmureg(adreno_dev,
 		ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
-	adreno_write_gmureg(adreno_dev,
-		ADRENO_REG_GMU_CM3_CFG,
-		(1 << GMU_CM3_CFG_NONMASKINTR_SHIFT));
+
+	adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_CM3_CFG, &val);
+	val |= 1 << GMU_CM3_CFG_NONMASKINTR_SHIFT;
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_CM3_CFG, val);
 
 	/* Make sure the NMI is invoked before we proceed*/
 	wmb();
