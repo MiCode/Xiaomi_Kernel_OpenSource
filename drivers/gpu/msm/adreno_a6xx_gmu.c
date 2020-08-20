@@ -1192,6 +1192,8 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 	/* Check no outstanding RPMh voting */
 	a6xx_complete_rpmh_votes(device);
 
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+
 	/*
 	 * This is based on the assumption that GMU is the only one controlling
 	 * the GX HS. This code path is the only client voting for GX through
