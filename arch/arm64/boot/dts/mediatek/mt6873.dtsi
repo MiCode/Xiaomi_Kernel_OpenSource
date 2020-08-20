@@ -2147,12 +2147,15 @@
 				 <&infracfg CLK_INFRA_UFS_TICK>,
 				 <&infracfg CLK_INFRA_UFS_AXI>,
 				 <&infracfg CLK_INFRA_UNIPRO_TICK>,
-				 <&infracfg CLK_INFRA_UNIPRO_MBIST>;
+				 <&infracfg CLK_INFRA_UNIPRO_MBIST>,
+				 <&topckgen CLK_TOP_AES_UFSFDE_SEL>,
+				 <&infracfg CLK_INFRA_AES_UFSFDE>;
 			clock-names = "ufs", "ufs_tick", "ufs_axi",
-				      "unipro_tick", "unipro_mbist";
+				      "unipro_tick", "unipro_mbist",
+				      "aes_top", "aes_infra";
 
 			freq-table-hz = <0 0>, <0 0>, <0 0>,
-					<0 0>, <0 0>;
+					<0 0>, <0 0>, <0 0>, <0 0>;
 
 			vcc-supply = <&mt6359p_vemc_reg>;
 
