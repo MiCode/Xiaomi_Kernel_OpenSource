@@ -630,9 +630,10 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG_CK_OUT_EN,
 		      0, SDCC_HC_REG_DLL_CONFIG);
 
-	/* Set DLL_EN */
-	rgmii_updatel(ethqos, SDCC_DLL_CONFIG_DLL_EN,
-		      SDCC_DLL_CONFIG_DLL_EN, SDCC_HC_REG_DLL_CONFIG);
+	if (!ethqos->io_macro.rx_dll_bypass)
+		/* Set DLL_EN */
+		rgmii_updatel(ethqos, SDCC_DLL_CONFIG_DLL_EN,
+			      SDCC_DLL_CONFIG_DLL_EN, SDCC_HC_REG_DLL_CONFIG);
 
 	if (ethqos->emac_ver != EMAC_HW_v2_3_2 &&
 	    ethqos->emac_ver != EMAC_HW_v2_1_2) {
@@ -677,8 +678,9 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 
 	if (ethqos->emac_ver != EMAC_HW_v2_3_2 &&
 	    ethqos->emac_ver != EMAC_HW_v2_1_2) {
-		rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_DLL_CLOCK_DIS,
-			      0, SDCC_HC_REG_DLL_CONFIG2);
+		if (!ethqos->io_macro.rx_dll_bypass)
+			rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_DLL_CLOCK_DIS,
+				      0, SDCC_HC_REG_DLL_CONFIG2);
 
 		rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_MCLK_FREQ_CALC,
 			      0x1A << 10, SDCC_HC_REG_DLL_CONFIG2);
@@ -728,15 +730,19 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      RGMII_IO_MACRO_CONFIG2);
 
 		/* Set PRG_RCLK_DLY to 57 for 1.8 ns delay */
-		if (ethqos->emac_ver == EMAC_HW_v2_3_2)
+		if (ethqos->emac_ver == EMAC_HW_v2_3_2) {
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      69, SDCC_HC_REG_DDR_CONFIG);
-		else if (ethqos->emac_ver == EMAC_HW_v2_1_2)
+		} else if (ethqos->emac_ver == EMAC_HW_v2_1_2) {
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      52, SDCC_HC_REG_DDR_CONFIG);
-		else
-			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
-				      57, SDCC_HC_REG_DDR_CONFIG);
+		} else {
+			if (!ethqos->io_macro.rx_dll_bypass)
+				rgmii_updatel(ethqos,
+					      SDCC_DDR_CONFIG_PRG_RCLK_DLY,
+					      57, SDCC_HC_REG_DDR_CONFIG);
+		}
+
 		rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_DLY_EN,
 			      SDCC_DDR_CONFIG_PRG_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
@@ -770,8 +776,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      BIT(6), RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
-		if (ethqos->emac_ver == EMAC_HW_v2_3_2 ||
-		    ethqos->emac_ver == EMAC_HW_v2_1_2)
+		if (ethqos->io_macro.rx_prog_swap)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -825,8 +830,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
-		if (ethqos->emac_ver == EMAC_HW_v2_3_2 ||
-		    ethqos->emac_ver == EMAC_HW_v2_1_2)
+		if (ethqos->io_macro.rx_prog_swap)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -890,33 +894,56 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 		      SDCC_HC_REG_DLL_CONFIG);
 
 	if (ethqos->speed != SPEED_100 && ethqos->speed != SPEED_10) {
-		/* Set DLL_EN */
-		rgmii_updatel(ethqos, SDCC_DLL_CONFIG_DLL_EN,
-			      SDCC_DLL_CONFIG_DLL_EN, SDCC_HC_REG_DLL_CONFIG);
+		if (ethqos->io_macro.rx_dll_bypass) {
+			/* Set DLL_CLOCK_DISABLE */
+			rgmii_updatel(ethqos,
+				      SDCC_DLL_CONFIG2_DLL_CLOCK_DIS,
+				      SDCC_DLL_CONFIG2_DLL_CLOCK_DIS,
+				      SDCC_HC_REG_DLL_CONFIG2);
 
-		/* Set CK_OUT_EN */
-		rgmii_updatel(ethqos, SDCC_DLL_CONFIG_CK_OUT_EN,
-			      SDCC_DLL_CONFIG_CK_OUT_EN,
-			      SDCC_HC_REG_DLL_CONFIG);
+			/* Clear DLL_EN */
+			rgmii_updatel(ethqos, SDCC_DLL_CONFIG_DLL_EN,
+				      0, SDCC_HC_REG_DLL_CONFIG);
 
-		/* Set USR_CTL bit 26 with mask of 3 bits */
-		rgmii_updatel(ethqos, GENMASK(26, 24), BIT(26), SDCC_USR_CTL);
+			/* Set PDN */
+			rgmii_updatel(ethqos,
+				      SDCC_DLL_CONFIG_PDN,
+				      SDCC_DLL_CONFIG_PDN,
+				      SDCC_HC_REG_DLL_CONFIG);
 
-		/* wait for DLL LOCK */
-		do {
-			mdelay(1);
-			dll_lock = rgmii_readl(ethqos, SDC4_STATUS);
-			if (dll_lock & SDC4_STATUS_DLL_LOCK)
-				break;
-			retry--;
-		} while (retry > 0);
-		if (!retry)
-			dev_err(&ethqos->pdev->dev,
-				"Timeout while waiting for DLL lock\n");
-	}
+			/* Set USR_CTL bit 30 */
+			rgmii_updatel(ethqos, BIT(30), BIT(30), SDCC_USR_CTL);
+		} else {
+			/* Set DLL_EN */
+			rgmii_updatel(ethqos,
+				      SDCC_DLL_CONFIG_DLL_EN,
+				      SDCC_DLL_CONFIG_DLL_EN,
+				      SDCC_HC_REG_DLL_CONFIG);
 
-	if (ethqos->speed == SPEED_1000)
+			/* Set CK_OUT_EN */
+			rgmii_updatel(ethqos, SDCC_DLL_CONFIG_CK_OUT_EN,
+				      SDCC_DLL_CONFIG_CK_OUT_EN,
+				      SDCC_HC_REG_DLL_CONFIG);
+
+			/* Set USR_CTL bit 26 with mask of 3 bits */
+			rgmii_updatel(ethqos, GENMASK(26, 24), BIT(26),
+				      SDCC_USR_CTL);
+
+			/* wait for DLL LOCK */
+			do {
+				mdelay(1);
+				dll_lock = rgmii_readl(ethqos, SDC4_STATUS);
+				if (dll_lock & SDC4_STATUS_DLL_LOCK)
+					break;
+				retry--;
+			} while (retry > 0);
+			if (!retry)
+				dev_err(&ethqos->pdev->dev,
+					"Timeout while waiting for DLL lock\n");
+		}
+
 		ethqos_dll_configure(ethqos);
+	}
 
 	ethqos_rgmii_macro_init(ethqos);
 
@@ -2330,6 +2357,7 @@ bool qcom_ethqos_ipa_enabled(void)
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *io_macro_node = NULL;
 	struct plat_stmmacenet_data *plat_dat;
 	struct stmmac_resources stmmac_res;
 	struct qcom_ethqos *ethqos;
@@ -2474,6 +2502,24 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 	ETHQOSINFO("emac-phy-off-suspend = %d\n",
 		   ethqos->current_phy_mode);
+
+	io_macro_node = of_find_node_by_name(pdev->dev.of_node,
+					     "io-macro-info");
+
+	if (ethqos->emac_ver == EMAC_HW_v2_3_2 ||
+	    ethqos->emac_ver == EMAC_HW_v2_1_2) {
+		ethqos->io_macro.rx_prog_swap = 1;
+	} else if (!io_macro_node) {
+		ethqos->io_macro.rx_prog_swap = 0;
+	} else {
+		if (of_property_read_bool(io_macro_node, "rx-prog-swap"))
+			ethqos->io_macro.rx_prog_swap = 1;
+	}
+
+	if (io_macro_node) {
+		if (of_property_read_bool(io_macro_node, "rx-dll-bypass"))
+			ethqos->io_macro.rx_dll_bypass = 1;
+	}
 
 	ethqos->ioaddr = (&stmmac_res)->addr;
 	ethqos_update_rgmii_tx_drv_strength(ethqos);

@@ -408,6 +408,11 @@ struct ethqos_emac_driver_data {
 	unsigned int num_por;
 };
 
+struct ethqos_io_macro {
+	bool rx_prog_swap;
+	bool rx_dll_bypass;
+};
+
 struct qcom_ethqos {
 	struct platform_device *pdev;
 	void __iomem *rgmii_base;
@@ -495,6 +500,9 @@ struct qcom_ethqos {
 	int backup_suspend_speed;
 	u32 backup_bmcr;
 	unsigned backup_autoneg:1;
+
+	/* IO Macro parameters */
+	struct ethqos_io_macro io_macro;
 };
 
 struct pps_cfg {
