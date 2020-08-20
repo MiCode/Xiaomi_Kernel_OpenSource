@@ -1159,6 +1159,7 @@
 		watchdog: watchdog@10007000 {
 			compatible = "mediatek,mt6873-wdt",
 				     "mediatek,mt6589-wdt";
+			mediatek,rg_dfd_timeout = <0xa0>;
 			reg = <0 0x10007000 0 0x100>;
 		};
 
