@@ -8,7 +8,7 @@ $(info mtk-Kbuild CONFIG_MALI_MIDGARD := $(CONFIG_MALI_MIDGARD))
 
 # use mtk platform
 CONFIG_MALI_PLATFORM_THIRDPARTY := y
-CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := mt6873
+CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(MTK_PLATFORM)
 
 $(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY := $(CONFIG_MALI_PLATFORM_THIRDPARTY))
 $(info mtk-Kbuild CONFIG_MALI_PLATFORM_THIRDPARTY_NAME := $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME))
@@ -31,7 +31,7 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq_v1/include
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r25p0/drivers/gpu/arm/midgard/backend/gpu
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r25p0/drivers/gpu/arm/midgard/include
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r25p0/drivers/gpu/arm/midgard/platform/mt6873
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r25p0/drivers/gpu/arm/midgard/platform/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_mali/mali_valhall/mali-r25p0/drivers/gpu/arm/midgard/debug
 
 

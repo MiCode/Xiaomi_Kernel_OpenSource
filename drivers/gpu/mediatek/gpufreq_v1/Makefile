@@ -17,9 +17,9 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
-obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6873.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq.o
 
-mtk_gpufreq_mt6873-y += \
+mtk_gpufreq-y += \
 	mtk_gpufreq_common.o \
-	mt6873/mtk_gpufreq_plat.o
+	$(MTK_PLATFORM)/mtk_gpufreq_plat.o
 
