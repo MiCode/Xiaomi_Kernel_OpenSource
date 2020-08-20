@@ -130,6 +130,7 @@ enum fps {
 	FPS60 = 60,
 	FPS90 = 90,
 	FPS120 = 120,
+	FPS144 = 144,
 };
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
