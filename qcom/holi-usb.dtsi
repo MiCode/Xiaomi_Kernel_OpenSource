@@ -12,9 +12,9 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts-extended = <&intc GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>,
+			<&wakegic 12 IRQ_TYPE_LEVEL_HIGH>,
+			<&wakegic 93 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pwr_event_irq", "ss_phy_irq", "hs_phy_irq";
 
 		clocks = <&gcc GCC_USB30_PRIM_MASTER_CLK>,
