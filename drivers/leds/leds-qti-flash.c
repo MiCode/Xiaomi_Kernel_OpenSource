@@ -364,6 +364,18 @@ static int qti_flash_led_strobe(struct qti_flash_led *led,
 		if (rc < 0)
 			goto error;
 
+		for (i = 0; i < led->num_fnodes; i++) {
+			if ((mask & BIT(led->fnode[i].id)) &&
+				led->fnode[i].configured &&
+				led->fnode[i].type == FLASH_LED_TYPE_TORCH &&
+						led->subtype == 0x6) {
+				rc = qti_flash_led_masked_write(led,
+						FORCE_TORCH_MODE,
+					FORCE_TORCH, FORCE_TORCH);
+				if (rc < 0)
+					goto error;
+			}
+		}
 		rc = qti_flash_led_masked_write(led, FLASH_EN_LED_CTRL,
 				mask, value);
 		if (rc < 0)
@@ -379,6 +391,17 @@ static int qti_flash_led_strobe(struct qti_flash_led *led,
 		if (rc < 0)
 			goto error;
 
+		for (i = 0; i < led->num_fnodes; i++) {
+			if ((mask & BIT(led->fnode[i].id)) &&
+				led->fnode[i].configured &&
+				led->fnode[i].type == FLASH_LED_TYPE_TORCH &&
+					led->subtype == 0x6) {
+				rc = qti_flash_led_masked_write(led,
+					FORCE_TORCH_MODE, FORCE_TORCH, 0);
+				if (rc < 0)
+					goto error;
+			}
+		}
 		rc = qti_flash_led_module_control(led, enable);
 		if (rc < 0)
 			goto error;
@@ -434,13 +457,6 @@ static int qti_flash_led_enable(struct flash_node_data *fnode)
 			goto out;
 	}
 
-	if (fnode->type == FLASH_LED_TYPE_TORCH && led->subtype == 0x6) {
-		rc = qti_flash_led_masked_write(led, FORCE_TORCH_MODE,
-					FORCE_TORCH, FORCE_TORCH);
-		if (rc < 0)
-			goto out;
-	}
-
 	fnode->configured = true;
 
 	if ((fnode->strobe_sel == HW_STROBE) &&
@@ -475,13 +491,6 @@ static int qti_flash_led_disable(struct flash_node_data *fnode)
 		FLASH_LED_SAFETY_TIMER_EN_MASK, 0);
 	if (rc < 0)
 		goto out;
-
-	if (fnode->type == FLASH_LED_TYPE_TORCH && led->subtype == 0x6) {
-		rc = qti_flash_led_masked_write(led, FORCE_TORCH_MODE,
-						FORCE_TORCH, 0);
-		if (rc < 0)
-			goto out;
-	}
 
 	fnode->configured = false;
 	fnode->current_ma = 0;
