@@ -97,32 +97,21 @@
 #define MREG_TOP_ENG11     (0x057C)
 
 #define MREG_CMD_SIZE      (0x180)
-#define MREG_CMD_SWCMD_ID  (0x150)
-#define MREG_CMD_EXE_FLOW  (0x158)
-#define MREG_CMD_CBL_FUNC  (0x0AC)
-#define MREG_CMD_SBL_FUNC  (0x11C)
-#define MREG_CMD_CONV_FUNC (0x0BC)
-#define MREG_CMD_ELW_FUNC  (0x0CC)
-#define MREG_CMD_ACTI_FUNC (0x0E0)
-#define MREG_CMD_POOL_FUNC_0 (0x0F8)
-#define MREG_CMD_STE_FUNC  (0x118)
+//#define MREG_CMD_SWCMD_ID  (0x150)
+//#define MREG_CMD_EXE_FLOW  (0x158)
+//#define MREG_CMD_CBL_FUNC  (0x0AC)
+//#define MREG_CMD_SBL_FUNC  (0x11C)
+//#define MREG_CMD_CONV_FUNC (0x0BC)
+//#define MREG_CMD_ELW_FUNC  (0x0CC)
+//#define MREG_CMD_ACTI_FUNC (0x0E0)
+//#define MREG_CMD_POOL_FUNC_0 (0x0F8)
+//#define MREG_CMD_STE_FUNC  (0x118)
 
 /* MDLA PMU */
 
 #define CFG_PMCR_DEFAULT   (0x1F021)
 #define PMU_CNT_SHIFT      (0x0010)
 #define PMU_CLR_CMDE_SHIFT (0x5)
-
-//#define PMU_PMCR_CCNT_EN   (0x10000)
-//#define PMU_PMCR_CCNT_RST  (0x4)
-//#define PMU_PMCR_CNT_RST   (0x2)
-
-//#define PMU_CFG_PMCR       (0x0E00)
-//#define PMU_CYCLE          (0x0E04)
-//#define PMU_START_TSTAMP   (0x0E08)
-//#define PMU_END_TSTAMP     (0x0E0C)
-//#define PMU_EVENT_OFFSET   (0x0E10)
-//#define PMU_CNT_OFFSET     (0x0E14)
 
 #define CFG_PMCR          (0x0E00)
 #define PMU_CLK_CNT       (0x0E04)

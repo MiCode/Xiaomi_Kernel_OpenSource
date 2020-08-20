@@ -24,8 +24,8 @@ static struct mdla_plat_drv mt6779_drv = {
 };
 
 static struct mdla_plat_drv mt6873_drv = {
-	.init           = mdla_v1_7_init,
-	.deinit         = mdla_v1_7_deinit,
+	.init           = mdla_v1_x_init,
+	.deinit         = mdla_v1_x_deinit,
 	.sw_cfg         = BIT(CFG_NN_PMU_SUPPORT)
 				| BIT(CFG_SW_PREEMPTION_SUPPORT),
 	.klog           = (MDLA_DBG_CMD | MDLA_DBG_TIMEOUT),
@@ -37,8 +37,8 @@ static struct mdla_plat_drv mt6873_drv = {
 };
 
 static struct mdla_plat_drv mt6885_drv = {
-	.init           = mdla_v1_5_init,
-	.deinit         = mdla_v1_5_deinit,
+	.init           = mdla_v1_x_init,
+	.deinit         = mdla_v1_x_deinit,
 	.sw_cfg         = BIT(CFG_NN_PMU_SUPPORT)
 				| BIT(CFG_SW_PREEMPTION_SUPPORT),
 	.klog           = (MDLA_DBG_CMD | MDLA_DBG_TIMEOUT),

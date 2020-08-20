@@ -16,6 +16,8 @@
 #include <utilities/mdla_util.h>
 #include <utilities/mdla_profile.h>
 
+#include <interface/mdla_cmd_data_v2_0.h>
+
 #include <platform/mdla_plat_api.h>
 
 #include "mdla_hw_reg_v2_0.h"
@@ -34,62 +36,9 @@ static struct mdla_irq *mdla_irq_desc;
 
 static void mdla_irq_sched(struct mdla_dev *mdla_device, u32 intr_status)
 {
-	struct mdla_scheduler *sched = mdla_device->sched;
-	unsigned long flags;
-	u32 status, core_id;
+	/* Not support any scheuling policy yet */
 
-	core_id = mdla_device->mdla_id;
-
-	if (unlikely(sched == NULL)) {
-		mdla_device->error_bit |= IRQ_NO_SCHEDULER;
-		return;
-	}
-
-	spin_lock_irqsave(&sched->lock, flags);
-
-	if (unlikely(sched->pro_ce == NULL)) {
-		mdla_device->error_bit |= IRQ_NO_PROCESSING_CE;
-		goto unlock;
-	}
-
-	if (unlikely(sched->pro_ce->state & (1 << CE_FAIL))) {
-		mdla_device->error_bit |= IRQ_TIMEOUT;
-		goto unlock;
-	}
-
-	if (unlikely(time_after64(get_jiffies_64(),
-					sched->pro_ce->deadline_t))) {
-		sched->pro_ce->state |= (1 << CE_TIMEOUT);
-		goto unlock;
-	}
-
-	sched->pro_ce->state |= (1 << CE_SCHED);
-
-	/* process the current CE */
-	status = sched->process_ce(core_id);
-
-	if (status == CE_DONE) {
-		sched->complete_ce(core_id);
-	} else if (status == CE_NONE) {
-		/* nothing to do but wait for the engine completed */
-		goto unlock;
-	}
-
-	if (sched->pro_ce != NULL) {
-		if ((intr_status & INTR_CDMA_FIFO_EMPTY) == 0) {
-			if ((sched->pro_ce->irq_state & IRQ_N_EMPTY_IN_ISSUE))
-				sched->pro_ce->irq_state |= IRQ_NE_SCHED_FIRST;
-			sched->pro_ce->irq_state |= IRQ_N_EMPTY_IN_SCHED;
-		}
-	}
-
-	/* get the next CE to be processed */
-	sched->dequeue_ce(core_id);
-	//if (likely(sched->pro_ce != NULL))
-	sched->issue_ce(core_id);
-
-unlock:
-	spin_unlock_irqrestore(&sched->lock, flags);
+	complete(&mdla_device->command_done);
 }
 
 static void mdla_irq_intr(struct mdla_dev *mdla_device, u32 intr_status)
@@ -114,8 +63,7 @@ static void mdla_irq_intr(struct mdla_dev *mdla_device, u32 intr_status)
 	mdla_device->max_cmd_id = id;
 
 	if (intr_status & INTR_PMU_INT)
-		io->cmde.write(core_id,
-				MREG_TOP_G_INTP0, INTR_PMU_INT);
+		io->cmde.write(core_id, MREG_TOP_G_INTP0, INTR_PMU_INT);
 
 	spin_unlock_irqrestore(&mdla_device->hw_lock, flags);
 
@@ -179,8 +127,7 @@ int mdla_v2_0_irq_request(struct device *dev, int irqdesc_num)
 		return -1;
 	}
 
-	mdla_irq_desc = kcalloc(irqdesc_num, sizeof(struct mdla_irq),
-					GFP_KERNEL);
+	mdla_irq_desc = kcalloc(irqdesc_num, sizeof(struct mdla_irq), GFP_KERNEL);
 
 	if (!mdla_irq_desc)
 		return -1;

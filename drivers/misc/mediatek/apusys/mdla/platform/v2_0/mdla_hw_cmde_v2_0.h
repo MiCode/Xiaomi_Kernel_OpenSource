@@ -5,22 +5,6 @@
 #ifndef __MDLA_HW_CMDE_V2_0_H__
 #define __MDLA_HW_CMDE_V2_0_H__
 
-/**
- * mdla0_cmde_mreg_top
- * mdla1_cmde_mreg_top
- *     0x000: CMDE debug register
- *     0x500: CMDE register
- *     0x600: CFLD debug register
- *     0x700: CBLD debug register
- *     0x800: SBLD debug register
- *     0x900: RQU debug register
- *     0xA00: HSLD debug register
- *     0xB00: POLL debug register
- *     0xC00: CONV debug register
- *     0xD00: DDE debug register
- *     0xE00: STE debug register
- *     0xF00: EWE debug register
- */
 #define MREG_TOP_G_DBG_CMDE01           (0x0004)
 #define MREG_TOP_G_DBG_CMDE28           (0x0088)
 #define MREG_TOP_G_DBG_CMDE29           (0x008c)

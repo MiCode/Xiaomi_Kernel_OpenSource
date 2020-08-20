@@ -86,11 +86,11 @@ static int mdla_dbgfs_u32_create[NF_MDLA_DEBUG_FS_U32] = {
 
 static int mdla_plat_hw_e1_timeout_detect(u32 core_id)
 {
-	u32 ste_debug_if_1;
+	u32 debug_intf;
 
-	ste_debug_if_1 = mdla_util_io_ops_get()->cmde.read(core_id, 0x0EA8);
-	if (((ste_debug_if_1 & 0x1C0) != 0x0 &&
-			(ste_debug_if_1 & 0x3) == 0x3)) {
+	debug_intf = mdla_util_io_ops_get()->cmde.read(core_id, 0x0EA8);
+	if (((debug_intf & 0x1C0) != 0x0 &&
+			(debug_intf & 0x3) == 0x3)) {
 		mdla_timeout_debug("%s: match E1 timeout issue\n",
 				__func__);
 		fs_e1_detect_count++;
@@ -102,7 +102,7 @@ static int mdla_plat_hw_e1_timeout_detect(u32 core_id)
 
 static void mdla_plat_print_post_cmd_info(u32 core_id)
 {
-	mdla_verbose("STE dst addr:%.8x\n",
+	mdla_verbose("dst addr:%.8x\n",
 			mdla_util_io_ops_get()->cmde.read(core_id, 0xE3C));
 }
 

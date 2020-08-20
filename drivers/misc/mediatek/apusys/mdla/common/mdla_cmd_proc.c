@@ -11,7 +11,7 @@
 
 static int mdla_cmd_dummy_run(struct mdla_run_cmd_sync *run_cmd,
 			struct mdla_dev *mdla_info,
-			struct apusys_cmd_hnd *apusys_hd, bool enable_preempt)
+			struct apusys_cmd_hnd *apusys_hd, int data)
 {
 	mdla_cmd_debug("%s() !!!\n", __func__);
 	return 0;
@@ -89,6 +89,7 @@ static struct mdla_cmd_cb_func mdla_command_callback = {
 	.process_command      = mdla_cmd_dummy_ce_ops,
 	.post_cmd_handle      = mdla_cmd_dummy_ce_ops,
 	.post_cmd_info        = mdla_cmd_dummy_info,
+	.wait_cmd_handle      = mdla_cmd_dummy_ce_ops,
 	.get_wait_time        = mdla_cmd_dummy_uint_int,
 	.get_irq_num          = mdla_cmd_dummy_ops,
 	.wait_cmd_hw_detect   = mdla_cmd_dummy_ops,

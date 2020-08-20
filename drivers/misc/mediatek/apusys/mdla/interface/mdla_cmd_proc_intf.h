@@ -11,7 +11,7 @@
 int mdla_cmd_run_sync_v1_0(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				bool can_be_preempted);
+				int priority);
 int mdla_cmd_ut_run_sync_v1_0(void *run_cmd, void *wait_cmd,
 				struct mdla_dev *mdla_info);
 
@@ -19,7 +19,7 @@ int mdla_cmd_ut_run_sync_v1_0(void *run_cmd, void *wait_cmd,
 int mdla_cmd_run_sync_v1_x(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				bool can_be_preempted);
+				int priority);
 int mdla_cmd_ut_run_sync_v1_x(void *run_cmd, void *wait_cmd,
 				struct mdla_dev *mdla_info);
 
@@ -27,7 +27,7 @@ int mdla_cmd_ut_run_sync_v1_x(void *run_cmd, void *wait_cmd,
 int mdla_cmd_run_sync_v1_x_sched(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				bool can_be_preempted);
+				int priority);
 int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
 				struct mdla_dev *mdla_info);
 
@@ -35,7 +35,7 @@ int mdla_cmd_ut_run_sync_v1_x_sched(void *run_cmd, void *wait_cmd,
 int mdla_cmd_run_sync_v2_0(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				bool can_be_preempted);
+				int priority);
 int mdla_cmd_ut_run_sync_v2_0(void *run_cmd, void *wait_cmd,
 				struct mdla_dev *mdla_info);
 

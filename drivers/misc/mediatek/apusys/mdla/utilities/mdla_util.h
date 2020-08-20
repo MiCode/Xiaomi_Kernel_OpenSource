@@ -10,6 +10,15 @@
 
 #include <common/mdla_device.h>
 
+/* MDLA command priority level */
+enum MDLA_PRIORITY {
+	MDLA_LOW_PRIORITY,
+	MDLA_HIGH_PRIORITY,
+
+	MDLA_PRIORITY_MAX
+};
+
+/* apusys MDLA device priority level */
 #ifdef CONFIG_MTK_APUSYS_RT_SUPPORT
 #define PRIORITY_LEVEL      2
 #else

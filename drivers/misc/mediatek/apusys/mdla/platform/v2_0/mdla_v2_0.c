@@ -82,8 +82,7 @@ static inline unsigned long mdla_plat_get_wait_time(u32 core_id)
 	unsigned long time;
 
 	if (mdla_prof_pmu_timer_is_running(core_id))
-		time = usecs_to_jiffies(
-				mdla_dbg_read_u64(FS_CFG_PMU_PERIOD));
+		time = usecs_to_jiffies(mdla_dbg_read_u64(FS_CFG_PMU_PERIOD));
 	else
 		time = msecs_to_jiffies(mdla_dbg_read_u32(FS_POLLING_CMD_DONE));
 
@@ -95,7 +94,7 @@ static void mdla_plat_destroy_dump_cmdbuf(struct mdla_dev *mdla_device)
 	mutex_lock(&mdla_device->cmd_buf_dmp_lock);
 
 	if (mdla_device->cmd_buf_len) {
-		devm_kfree(mdla_device->dev, mdla_device->cmd_buf_dmp);
+		kvfree(mdla_device->cmd_buf_dmp);
 		mdla_device->cmd_buf_len = 0;
 	}
 
@@ -111,8 +110,7 @@ static void mdla_plat_destroy_dump_cmdbuf(struct mdla_dev *mdla_device)
  *      - debugfs node : cat /d/mdla/mdla_memory
  *      - db (only command timeout) : SYS_MDLA_MEMORY
  */
-static int mdla_plat_create_dump_cmdbuf(struct mdla_dev *mdla_device,
-	struct command_entry *ce)
+static int mdla_plat_create_dump_cmdbuf(struct mdla_dev *mdla_device, struct command_entry *ce)
 {
 	int ret = 0;
 
@@ -122,10 +120,9 @@ static int mdla_plat_create_dump_cmdbuf(struct mdla_dev *mdla_device,
 	mutex_lock(&mdla_device->cmd_buf_dmp_lock);
 
 	if (mdla_device->cmd_buf_len)
-		devm_kfree(mdla_device->dev, mdla_device->cmd_buf_dmp);
+		kvfree(mdla_device->cmd_buf_dmp);
 
-	mdla_device->cmd_buf_dmp = devm_kzalloc(mdla_device->dev, ce->count * MREG_CMD_SIZE,
-						GFP_KERNEL);
+	mdla_device->cmd_buf_dmp = kvmalloc(ce->count * MREG_CMD_SIZE, GFP_KERNEL);
 
 	if (!mdla_device->cmd_buf_dmp) {
 		ret = -ENOMEM;
@@ -169,8 +166,6 @@ static void mdla_plat_print_post_cmd_info(u32 core_id)
 			io->cmde.read(core_id, MREG_TOP_G_FIN0),
 			io->cmde.read(core_id, MREG_TOP_G_FIN1),
 			io->cmde.read(core_id, MREG_TOP_G_FIN3));
-	mdla_verbose("STE dst addr:%.8x\n",
-						io->cmde.read(core_id, 0xE3C));
 
 	mdla_pmu_debug("%s: CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
 		__func__,
@@ -194,8 +189,7 @@ static void mdla_plat_verbose_log(u32 core_id, const struct mdla_util_io_ops *io
 	pr_info("%d: TOP_G_IDLE=0x%x\n", core_id, io->cmde.read(core_id, MREG_TOP_G_IDLE));
 }
 
-static void mdla_plat_raw_process_command(u32 core_id, u32 evt_id,
-						dma_addr_t addr, u32 count)
+static void mdla_plat_raw_process_command(u32 core_id, u32 evt_id, dma_addr_t addr, u32 count)
 {
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
 
@@ -315,18 +309,12 @@ static int mdla_plat_register_show(struct seq_file *s, void *data)
 
 static int mdla_plat_dbgfs_usage(struct seq_file *s, void *data)
 {
-	seq_puts(s, "---- Kernel debug log maks (default = 0x46) ----\n");
+	seq_printf(s, "---- Kernel debug log maks (current = 0x%x) ----\n",
+				mdla_dbg_read_u32(FS_KLOG));
 	seq_printf(s, "echo [mask(hex)] > /d/mdla/%s\n",
 				mdla_dbg_get_u32_node_str(FS_KLOG));
-	seq_puts(s, "\tbit0 = MDLA_DBG_DRV\n");
-	seq_puts(s, "\tbit1 = MDLA_DBG_MEM\n");
-	seq_puts(s, "\tbit2 = MDLA_DBG_CMD\n");
-	seq_puts(s, "\tbit3 = MDLA_DBG_PMU\n");
-	seq_puts(s, "\tbit4 = MDLA_DBG_PERF\n");
-	seq_puts(s, "\tbit5 = MDLA_DBG_PWR\n");
-	seq_puts(s, "\tbit6 = MDLA_DBG_TIMEOUT\n");
-	seq_puts(s, "\tbit7 = MDLA_DBG_RSV\n");
-	seq_puts(s, "\tset 0xff -> enable verbose log\n");
+
+	mdla_dbg_show_klog_info(s, "\t");
 
 	seq_puts(s, "\n---- Dump MDLA HW register ----\n");
 	seq_printf(s, "cat /d/mdla/%s\n", DBGFS_HW_REG_NAME);
@@ -369,9 +357,7 @@ static void mdla_plat_dbgfs_init(struct device *dev, struct dentry *parent)
 				mdla_plat_dbgfs_usage);
 }
 
-
-static int mdla_plat_get_base_addr(struct platform_device *pdev,
-					void **reg, int num)
+static int mdla_plat_get_base_addr(struct platform_device *pdev, void **reg, int num)
 {
 	struct resource *res;
 
@@ -405,8 +391,7 @@ static int mdla_dts_map(struct platform_device *pdev)
 
 	dev_info(dev, "Device Tree Probing\n");
 
-	mdla_reg_control = kcalloc(nr_core_ids, sizeof(struct mdla_reg_ctl),
-					GFP_KERNEL);
+	mdla_reg_control = kcalloc(nr_core_ids, sizeof(struct mdla_reg_ctl), GFP_KERNEL);
 
 	if (!mdla_reg_control)
 		return -1;
@@ -471,8 +456,7 @@ static int mdla_sw_multi_devices_init(struct device *dev)
 	int i;
 	u32 nr_core_ids = mdla_util_get_core_num();
 
-	mdla_plat_devices = devm_kzalloc(dev, nr_core_ids * sizeof(struct mdla_dev),
-					GFP_KERNEL);
+	mdla_plat_devices = devm_kzalloc(dev, nr_core_ids * sizeof(struct mdla_dev), GFP_KERNEL);
 
 	if (!mdla_plat_devices)
 		return -1;
@@ -534,19 +518,15 @@ static void mdla_v2_0_reset(u32 core_id, const char *str)
 
 	spin_lock_irqsave(&dev->hw_lock, flags);
 	io->cfg.write(core_id, MDLA_CG_CLR, 0xffffffff);
-	io->cmde.write(core_id,
-		MREG_TOP_G_INTP2, MDLA_IRQ_MASK & ~(INTR_SWCMD_DONE));
+	io->cmde.write(core_id, MREG_TOP_G_INTP2, MDLA_IRQ_MASK & ~(INTR_SWCMD_DONE));
 
 	/* for DCM and CG */
-	io->cmde.write(core_id,
-		MREG_TOP_ENG0, mdla_dbg_read_u32(FS_CFG_ENG0));
-	io->cmde.write(core_id,
-		MREG_TOP_ENG1, mdla_dbg_read_u32(FS_CFG_ENG1));
-	io->cmde.write(core_id,
-		MREG_TOP_ENG2, mdla_dbg_read_u32(FS_CFG_ENG2));
+	io->cmde.write(core_id, MREG_TOP_ENG0, mdla_dbg_read_u32(FS_CFG_ENG0));
+	io->cmde.write(core_id, MREG_TOP_ENG1, mdla_dbg_read_u32(FS_CFG_ENG1));
+	io->cmde.write(core_id, MREG_TOP_ENG2, mdla_dbg_read_u32(FS_CFG_ENG2));
+
 	/* TODO, 0x0 after verification */
-	io->cmde.write(core_id,
-		MREG_TOP_ENG11, mdla_dbg_read_u32(FS_CFG_ENG11));
+	io->cmde.write(core_id, MREG_TOP_ENG11, mdla_dbg_read_u32(FS_CFG_ENG11));
 
 	if (mdla_plat_iommu_enable()) {
 		io->cfg.set_b(core_id, MDLA_AXI_CTRL, MDLA_AXI_CTRL_MASK);
@@ -574,8 +554,7 @@ int mdla_v2_0_init(struct platform_device *pdev)
 		goto err;
 
 	if (mdla_plat_pwr_drv_ready()) {
-		if (mdla_pwr_device_register(pdev, mdla_pwr_on_v2_0,
-					mdla_pwr_off_v2_0))
+		if (mdla_pwr_device_register(pdev, mdla_pwr_on_v2_0, mdla_pwr_off_v2_0))
 			goto err_pwr;
 	}
 
@@ -585,8 +564,7 @@ int mdla_v2_0_init(struct platform_device *pdev)
 		goto err_sched;
 
 	/* set command strategy */
-	mdla_cmd_setup(mdla_cmd_run_sync_v2_0,
-					mdla_cmd_ut_run_sync_v2_0);
+	mdla_cmd_setup(mdla_cmd_run_sync_v2_0, NULL);
 
 	/* set command callback */
 	cmd_cb->pre_cmd_handle      = mdla_plat_pre_cmd_handle;
@@ -629,8 +607,10 @@ void mdla_v2_0_deinit(struct platform_device *pdev)
 
 	mdla_v2_0_sched_deinit();
 
-	for_each_mdla_core(i)
+	for_each_mdla_core(i) {
 		mdla_pwr_ops_get()->off(i, 0, true);
+		mdla_plat_destroy_dump_cmdbuf(&mdla_plat_devices[i]);
+	}
 
 	if (mdla_plat_pwr_drv_ready()
 			&& mdla_pwr_device_unregister(pdev))

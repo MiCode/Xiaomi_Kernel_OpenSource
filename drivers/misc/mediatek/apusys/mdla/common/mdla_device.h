@@ -65,6 +65,7 @@ enum command_entry_state {
 	CE_ISSUE_ERROR1 = 13,
 	CE_ISSUE_ERROR2 = 14,
 	CE_ISSUE_ERROR3 = 15,
+	CE_QUEUE_RESUME = 16,
 };
 
 enum interrupt_error {
@@ -90,7 +91,6 @@ enum REASON_QUEUE_STATE_ENUM {
 	REASON_QUEUE_NULLSCHEDULER = 3,
 	REASON_QUEUE_MAX,
 };
-
 
 /*mdla dev info, register to apusys callback*/
 struct mdla_dev {
@@ -134,11 +134,13 @@ struct command_entry {
 	int flags;
 	int state;
 	u32 irq_state;
+	u64 footprint;
 	int sync;
 
 	void *kva;    /* Virtual Address for Kernel */
 	u32 mva;      /* Physical Address for Device */
 	u32 count;
+	u32 csn;
 	int boost_val;
 
 	u32 bandwidth;
@@ -150,6 +152,8 @@ struct command_entry {
 	u64 req_start_t; /* request start time (ns) */
 	u64 req_end_t;   /* request end time (ns) */
 	u64 wait_t;      /* time waited by user */
+	u64 cmd_id;
+	u32 multicore_total;
 
 	u64 deadline_t;
 
@@ -157,13 +161,12 @@ struct command_entry {
 	u32 wish_fin_cid;
 	u32 cmd_batch_size;  /* command batch size */
 	bool cmd_batch_en;       /* enable command batch or not */
+	u32 priority;
 	struct list_head *batch_list_head;/* list of command batch */
-	//struct command_batch *batch_list;	/* list of command batch */
 	struct apusys_kmem *cmdbuf;
 	int ctx_id;
 	int (*context_callback)(int a, int b, unsigned char c);
 };
-
 
 struct mdla_dev *mdla_get_device(int id);
 void mdla_set_device(struct mdla_dev *dev, u32 num);

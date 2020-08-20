@@ -14,10 +14,12 @@
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_util.h>
 
+#include <interface/mdla_cmd_data_v1_x.h>
+
 #include <platform/mdla_plat_api.h>
 
-#include "mdla_hw_reg_v1_7.h"
-#include "mdla_sched_v1_7.h"
+#include "mdla_hw_reg_v1_x.h"
+#include "mdla_sched_v1_x.h"
 
 
 struct mdla_irq {
@@ -34,8 +36,10 @@ static void mdla_irq_sched(struct mdla_dev *mdla_device)
 {
 	struct mdla_scheduler *sched = mdla_device->sched;
 	unsigned long flags;
-	u32 status, core_id, irq_status = 0;
+	u32 status, core_id, cdma4 = 0, irq_status = 0;
 	const struct mdla_util_io_ops *io = mdla_util_io_ops_get();
+	struct command_entry *new_ce;
+	bool issue_smp = false;
 
 	core_id = mdla_device->mdla_id;
 
@@ -43,7 +47,8 @@ static void mdla_irq_sched(struct mdla_dev *mdla_device)
 	spin_lock_irqsave(&mdla_device->hw_lock, flags);
 
 	irq_status = io->cmde.read(core_id, MREG_TOP_G_INTP0);
-	io->cmde.write(core_id, MREG_TOP_G_INTP0, MDLA_IRQ_SWCMD_DONE);
+	io->cmde.write(core_id, MREG_TOP_G_INTP0, MDLA_IRQ_SWCMD_DONE | MDLA_IRQ_PMU_INTE);
+	cdma4 = io->cmde.read(core_id, MREG_TOP_G_CDMA4);
 
 	spin_unlock_irqrestore(&mdla_device->hw_lock, flags);
 
@@ -61,12 +66,25 @@ static void mdla_irq_sched(struct mdla_dev *mdla_device)
 
 	if (unlikely(sched->pro_ce->state & (1 << CE_FAIL))) {
 		mdla_device->error_bit |= IRQ_TIMEOUT;
+		ce_func_trace(sched->pro_ce, F_TIMEOUT | 1);
 		goto unlock;
 	}
 
 	if (unlikely(time_after64(get_jiffies_64(),
 					sched->pro_ce->deadline_t))) {
 		sched->pro_ce->state |= (1 << CE_TIMEOUT);
+		ce_func_trace(sched->pro_ce, F_TIMEOUT);
+		goto unlock;
+	}
+
+	if (unlikely((irq_status & MDLA_IRQ_SWCMD_DONE) == 0)) {
+		ce_func_trace(sched->pro_ce, F_INIRQ_ERROR);
+		goto unlock;
+	}
+
+	if (unlikely(cdma4 != sched->pro_ce->csn)) {
+		sched->pro_ce->irq_state |= IRQ_RECORD_ERROR;
+		ce_func_trace(sched->pro_ce, F_INIRQ_CDMA4ERROR);
 		goto unlock;
 	}
 
@@ -82,21 +100,30 @@ static void mdla_irq_sched(struct mdla_dev *mdla_device)
 		goto unlock;
 	}
 
-	if (sched->pro_ce != NULL) {
-		if ((irq_status & MDLA_IRQ_CDMA_FIFO_EMPTY) == 0) {
-			if ((sched->pro_ce->irq_state & IRQ_N_EMPTY_IN_ISSUE))
-				sched->pro_ce->irq_state |= IRQ_NE_SCHED_FIRST;
-			sched->pro_ce->irq_state |= IRQ_N_EMPTY_IN_SCHED;
-		}
-	}
-
 	/* get the next CE to be processed */
-	sched->dequeue_ce(core_id);
-	//if (likely(sched->pro_ce != NULL))
-	sched->issue_ce(core_id);
+	new_ce = sched->dequeue_ce(core_id);
+
+	if (new_ce) {
+		if (sched->pro_ce) {
+			sched->preempt_ce(core_id, new_ce);
+			sched->issue_ce(core_id);
+		} else if ((new_ce->multicore_total > 1)
+				&& (new_ce->priority == MDLA_LOW_PRIORITY)) {
+			sched->enqueue_ce(core_id, new_ce, 1);
+			issue_smp = true;
+		} else {
+			sched->pro_ce = new_ce;
+			sched->issue_ce(core_id);
+		}
+	} else if (sched->pro_ce) {
+		sched->issue_ce(core_id);
+	}
 
 unlock:
 	spin_unlock_irqrestore(&sched->lock, flags);
+
+	if (issue_smp)
+		sched->issue_dual_lowce(core_id, new_ce->cmd_id);
 }
 
 static void mdla_irq_intr(struct mdla_dev *mdla_device)
@@ -147,7 +174,7 @@ static irqreturn_t mdla_irq_handler(int irq, void *dev_id)
 
 /* platform public function */
 
-int mdla_v1_7_get_irq_num(u32 core_id)
+int mdla_v1_x_get_irq_num(u32 core_id)
 {
 	int i;
 
@@ -159,7 +186,7 @@ int mdla_v1_7_get_irq_num(u32 core_id)
 	return 0;
 }
 
-int mdla_v1_7_irq_request(struct device *dev, int irqdesc_num)
+int mdla_v1_x_irq_request(struct device *dev, int irqdesc_num)
 {
 	int i;
 	struct mdla_irq *irq_desc;
@@ -170,8 +197,7 @@ int mdla_v1_7_irq_request(struct device *dev, int irqdesc_num)
 		return -1;
 	}
 
-	mdla_irq_desc = kcalloc(irqdesc_num, sizeof(struct mdla_irq),
-					GFP_KERNEL);
+	mdla_irq_desc = kcalloc(irqdesc_num, sizeof(struct mdla_irq), GFP_KERNEL);
 
 	if (!mdla_irq_desc)
 		return -1;
@@ -192,16 +218,6 @@ int mdla_v1_7_irq_request(struct device *dev, int irqdesc_num)
 			DRIVER_NAME, irq_desc->dev)) {
 			dev_info(dev, "mtk_mdla[%d]: Could not allocate interrupt %d.\n",
 					i, irq_desc->irq);
-			/* IRQF_TRIGGER_HIGH for Simulator workaroud only */
-			//if (request_irq(irq_desc->irq,
-			//			irq_desc->handler,
-			//			IRQF_TRIGGER_HIGH,
-			//			DRIVER_NAME, dev)) {
-			//	dev_info(dev, "mtk_mdla[%d]: %s %d.\n",
-			//			"Could not allocate interrupt",
-			//			i, irq_desc->irq);
-			//	goto err;
-			//}
 		}
 		dev_info(dev, "request_irq %d done\n", irq_desc->irq);
 	}
@@ -213,7 +229,7 @@ err:
 	return -1;
 }
 
-void mdla_v1_7_irq_release(struct device *dev)
+void mdla_v1_x_irq_release(struct device *dev)
 {
 	int i;
 
