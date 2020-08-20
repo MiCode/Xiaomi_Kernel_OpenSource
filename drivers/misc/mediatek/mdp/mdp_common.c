@@ -1826,11 +1826,11 @@ void cmdq_mdp_deinit(void)
 		mm_qos_remove_all_request(&qos_isp_module_request_list[i]);
 #endif	/* CONFIG_MTK_SMI_EXT */
 #else
-		pm_qos_remove_request(&isp_bw_qos_request[i]);
-		pm_qos_remove_request(&mdp_bw_qos_request[i]);
+		cpu_latency_qos_remove_request(&isp_bw_qos_request[i]);
+		cpu_latency_qos_remove_request(&mdp_bw_qos_request[i]);
 #endif	/* PMQOS_VERSION2 */
-		pm_qos_remove_request(&isp_clk_qos_request[i]);
-		pm_qos_remove_request(&mdp_clk_qos_request[i]);
+		cpu_latency_qos_remove_request(&isp_clk_qos_request[i]);
+		cpu_latency_qos_remove_request(&mdp_clk_qos_request[i]);
 	}
 
 	cmdq_mdp_pool_clear();

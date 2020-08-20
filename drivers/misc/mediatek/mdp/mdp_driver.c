@@ -65,20 +65,18 @@ static int cmdq_proc_record_open(struct inode *inode, struct file *file)
 	return single_open(file, cmdq_core_print_record_seq, inode->i_private);
 }
 
-static const struct file_operations cmdqDebugStatusOp = {
-	.owner = THIS_MODULE,
-	.open = cmdq_proc_status_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops cmdqDebugStatusOp = {
+	.proc_open = cmdq_proc_status_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
-static const struct file_operations cmdqDebugRecordOp = {
-	.owner = THIS_MODULE,
-	.open = cmdq_proc_record_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static const struct proc_ops cmdqDebugRecordOp = {
+	.proc_open = cmdq_proc_record_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static int cmdq_open(struct inode *pInode, struct file *pFile)

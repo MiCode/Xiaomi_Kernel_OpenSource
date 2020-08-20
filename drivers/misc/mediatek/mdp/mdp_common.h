@@ -138,8 +138,8 @@ struct cmdqMDPFuncStruct {
 
 struct mdp_pmqos_record {
 	uint32_t mdp_throughput;
-	struct timeval submit_tm;
-	struct timeval end_tm;
+	struct timespec64 submit_tm;
+	struct timespec64 end_tm;
 };
 
 /* track MDP task */
