@@ -1,5 +1,4 @@
-#include "shima-pmic-overlay.dtsi"
-#include "shima-audio-overlay.dtsi"
+#include "shima-idp.dtsi"
 
 &soc {
 };
