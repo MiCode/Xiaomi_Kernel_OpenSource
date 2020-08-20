@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 #include <linux/uaccess.h>
+#include <linux/compat.h>
 
 #include <common/mdla_device.h>
 #include <common/mdla_ioctl.h>
