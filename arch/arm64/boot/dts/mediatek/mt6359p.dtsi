@@ -448,6 +448,9 @@
 			compatible = "mediatek,mt6359p-efuse";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			thermal_efuse_data1: e_data1 {
+				reg = <0x3e 10>;
+			};
 		};
 		mtk_gauge: mtk_gauge {
 			compatible = "mediatek,mt6359p-gauge";
