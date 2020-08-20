@@ -1166,6 +1166,10 @@ static int a6xx_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
+	unsigned long flags = device->pwrctrl.ctrl_flags;
+
+	/* Clear ctrl_flags to ensure clocks and regulators are turned off */
+	device->pwrctrl.ctrl_flags = 0;
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 
@@ -1177,6 +1181,8 @@ static int a6xx_reset(struct kgsl_device *device)
 		return ret;
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+
+	device->pwrctrl.ctrl_flags = flags;
 
 	/* Toggle GX CPR on demand */
 	 a6xx_gx_cpr_toggle(device);
