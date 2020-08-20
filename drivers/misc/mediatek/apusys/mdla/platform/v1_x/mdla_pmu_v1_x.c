@@ -20,8 +20,8 @@
 
 #include <platform/mdla_plat_api.h>
 
-#include "mdla_pmu_v1_5.h"
-#include "mdla_hw_reg_v1_5.h"
+#include "mdla_pmu_v1_x.h"
+#include "mdla_hw_reg_v1_x.h"
 
 
 #define biu_read(id, ofs) \
@@ -555,7 +555,7 @@ out:
 	return retval;
 }
 
-void mdla_v1_5_pmu_info_show(struct seq_file *s)
+void mdla_v1_x_pmu_info_show(struct seq_file *s)
 {
 	int i, p, c;
 	struct mdla_pmu_info *pmu;
@@ -608,7 +608,7 @@ void mdla_v1_5_pmu_info_show(struct seq_file *s)
 }
 
 
-void mdla_v1_5_pmu_init(struct mdla_dev *mdla_info)
+void mdla_v1_x_pmu_init(struct mdla_dev *mdla_info)
 {
 	int i;
 	struct mdla_pmu_info *info;
@@ -671,7 +671,7 @@ void mdla_v1_5_pmu_init(struct mdla_dev *mdla_info)
 		mdla_util_apusys_pmu_support(false);
 }
 
-void mdla_v1_5_pmu_deinit(struct mdla_dev *mdla_info)
+void mdla_v1_x_pmu_deinit(struct mdla_dev *mdla_info)
 {
 	mdla_util_apusys_pmu_support(false);
 	mdla_ioctl_unregister_perf_handle();

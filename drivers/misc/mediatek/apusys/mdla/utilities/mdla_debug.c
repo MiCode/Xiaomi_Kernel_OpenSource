@@ -9,6 +9,8 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 
+#include <apusys_debug_api.h>
+
 #include <utilities/mdla_util.h>
 #include <utilities/mdla_debug.h>
 #include <utilities/mdla_profile.h>
@@ -185,9 +187,35 @@ void mdla_dbg_dump(struct mdla_dev *mdla_info, struct command_entry *ce)
 {
 	mdla_debug_callback.dump_reg(mdla_info->mdla_id, NULL);
 	mdla_debug_callback.create_dump_cmdbuf(mdla_info, ce);
-	/* FIXME: apusys platform code doesn't ready */
-	//apusys_reg_dump();
+	apusys_reg_dump("mdla", false);
 	mdla_aee_warn("MDLA", "MDLA timeout");
+}
+
+void mdla_dbg_ce_info(u32 core_id, struct command_entry *ce)
+{
+	mdla_timeout_debug("core_id: %x, ce(%x) IRQ status: %x, footprint: %llx\n",
+		core_id,
+		ce->priority,
+		ce->irq_state,
+		ce->footprint);
+	mdla_timeout_debug("core_id: %x, ce(%x): total cmd count: %u, mva: %x",
+		core_id,
+		ce->priority,
+		ce->count,
+		ce->mva);
+	mdla_timeout_debug("core_id: %x, ce(%x): fin_cid: %u, ce state: %x\n",
+		core_id,
+		ce->priority,
+		ce->fin_cid, ce->state);
+	mdla_timeout_debug("core_id: %x, ce(%x): wish fin_cid: %u, dual: %d\n",
+		core_id,
+		ce->priority,
+		ce->wish_fin_cid,
+		ce->multicore_total);
+	mdla_timeout_debug("core_id: %x, ce(%x): batch size = %u\n",
+		core_id,
+		ce->priority,
+		ce->cmd_batch_size);
 }
 
 static int mdla_dbg_register_show(struct seq_file *s, void *data)
@@ -203,6 +231,19 @@ static int mdla_dbg_memory_show(struct seq_file *s, void *data)
 {
 	mdla_debug_callback.memory_show(s);
 	return 0;
+}
+
+void mdla_dbg_show_klog_info(struct seq_file *s, char *prefix)
+{
+	seq_printf(s, "%s bit0 = MDLA_DBG_DRV\n", prefix);
+	seq_printf(s, "%s bit1 = MDLA_DBG_MEM\n", prefix);
+	seq_printf(s, "%s bit2 = MDLA_DBG_CMD\n", prefix);
+	seq_printf(s, "%s bit3 = MDLA_DBG_PMU\n", prefix);
+	seq_printf(s, "%s bit4 = MDLA_DBG_PERF\n", prefix);
+	seq_printf(s, "%s bit5 = MDLA_DBG_PWR\n", prefix);
+	seq_printf(s, "%s bit6 = MDLA_DBG_TIMEOUT\n", prefix);
+	seq_printf(s, "%s bit7 = MDLA_DBG_RSV\n", prefix);
+	seq_printf(s, "%s set 0xff -> enable verbose log\n", prefix);
 }
 
 struct dentry *mdla_dbg_get_fs_root(void)

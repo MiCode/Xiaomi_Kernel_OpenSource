@@ -34,11 +34,8 @@ struct mdla_plat_drv {
 int mdla_v1_0_init(struct platform_device *pdev);
 void mdla_v1_0_deinit(struct platform_device *pdev);
 
-int mdla_v1_7_init(struct platform_device *pdev);
-void mdla_v1_7_deinit(struct platform_device *pdev);
-
-int mdla_v1_5_init(struct platform_device *pdev);
-void mdla_v1_5_deinit(struct platform_device *pdev);
+int mdla_v1_x_init(struct platform_device *pdev);
+void mdla_v1_x_deinit(struct platform_device *pdev);
 
 int mdla_v2_0_init(struct platform_device *pdev);
 void mdla_v2_0_deinit(struct platform_device *pdev);

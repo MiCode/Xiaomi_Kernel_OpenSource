@@ -3,8 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#ifndef _MDLA_V1_5_HW_REG_H__
-#define _MDLA_V1_5_HW_REG_H__
+#ifndef _MDLA_V1_X_HW_REG_H__
+#define _MDLA_V1_X_HW_REG_H__
 
 #define MDLA_IRQ_SWCMD_TILECNT_INT BIT(1)
 #define MDLA_IRQ_TILECNT_DONE      BIT(1)
@@ -26,20 +26,6 @@
 #define MDLA_AXI_BIST_CTL	(0x01C)
 #define MDLA_AXI_BIST_STA	(0x020)
 #define MDLA_MBIST_DEFAULT_DELSEL	(0x024)
-#define MDLA_SRAM_DELSEL_CMDE	(0x028)
-#define MDLA_SRAM_DELSEL_CONV	(0x02C)
-#define MDLA_SRAM_DELSEL_CBLD	(0x030)
-#define MDLA_SRAM_DELSEL_CB_0	(0x034)
-#define MDLA_SRAM_DELSEL_CB_1	(0x038)
-#define MDLA_SRAM_DELSEL_STE	(0x03C)
-#define MDLA_SRAM_DELSEL_SB_0	(0x040)
-#define MDLA_SRAM_DELSEL_SB_1	(0x044)
-#define MDLA_SRAM_DELSEL_EWE_0	(0x048)
-#define MDLA_SRAM_DELSEL_EWE_1	(0x04C)
-#define MDLA_SRAM_DELSEL_EWE_2	(0x050)
-#define MDLA_SRAM_DELSEL_WDEC	(0x054)
-#define MDLA_SRAM_DELSEL_RQU_0	(0x058)
-#define MDLA_SRAM_DELSEL_RQU_1	(0x05C)
 #define MDLA_RP_RST		(0x060)
 #define MDLA_RP_CON		(0x064)
 #define MDLA_RP_PRE_FUSE_0	(0x068)
@@ -103,15 +89,7 @@
 #define MREG_CMD_SIZE      (0x1C0)
 #define MREG_CMD_SWCMD_ID  (0x150)
 #define MREG_CMD_TILE_CNT_INT  (0x154)
-#define MREG_CMD_EXE_FLOW  (0x158)//need refine for 6885
 #define MREG_CMD_GENERAL_CTRL_1  (0x15C)
-#define MREG_CMD_CBL_FUNC  (0x0AC)
-#define MREG_CMD_SBL_FUNC  (0x11C)
-#define MREG_CMD_CONV_FUNC (0x0BC)
-#define MREG_CMD_ELW_FUNC  (0x0CC)
-#define MREG_CMD_ACTI_FUNC (0x0E0)
-#define MREG_CMD_POOL_FUNC_0 (0x0F8)
-#define MREG_CMD_STE_FUNC  (0x118)
 
 #define MSK_MREG_TOP_G_STREAM0_PROD_CMD_ID GENMASK(31, 0)
 #define MSK_MREG_TOP_G_STREAM1_HALT_EN BIT(31)
@@ -124,17 +102,6 @@
 
 /* MDLA PMU */
 #define CFG_PMCR_DEFAULT   (0x1F021)
-//#define PMU_CNT_SHIFT      (0x0010)
-//#define PMU_CLR_CMDE_SHIFT (0x5)
-
-//#define PMU_CFG_PMCR            (0x0E00)
-//#define PMU_CYCLE               (0x0E04)
-//#define PMU_START_TSTAMP        (0x0E08)
-//#define PMU_END_TSTAMP          (0x0E0C)
-//#define PMU_EVENT_OFFSET        (0x0E10)
-//#define PMU_CNT_OFFSET          (0x0E14)
-//#define PMU_CNT_LATCH_OFFSET    (0x0E18)
-//#define PMU_CMDID_LATCH         (0x0F00)
 
 #define CFG_PMCR          (0x0E00)
 #define PMU_CLK_CNT       (0x0E04)
@@ -153,9 +120,6 @@
 
 
 /* CFG_PMCR : 0xE00 */
-//#define PMU_PMCR_CCNT_EN   BIT(16)
-//#define PMU_PMCR_CCNT_RST  BIT(2)
-//#define PMU_PMCR_CNT_RST   BIT(1)
 #define PMU_CNT_EN(i)   BIT(17 + (i))
 #define PMU_CCNT_EN     BIT(16)
 #define PMU_PERCMD_MODE BIT(5)
@@ -165,12 +129,4 @@
 #define PMU_ENABLE      BIT(0)
 
 
-
-/* MDLA Debug Reg*/
-#define MREG_STE_DEBUG_IF_1  (0x0ED8)
-
-#define MREG_DDE_IT_FRONT_C_INVALID  (0x0D74)
-#define MREG_DDE_DEBUG_IF_0  (0x0DB0)
-#define MREG_DDE_DEBUG_IF_2  (0x0DB8)
-
-#endif /* _MDLA_V1_5_HW_REG_H__ */
+#endif /* _MDLA_V1_X_HW_REG_H__ */

@@ -550,12 +550,15 @@ void mdla_util_io_set_addr(struct mdla_reg_ctl *reg_ctl)
 void mdla_util_io_set_extra_addr(int type,
 		void *addr1, void *addr2, void *addr3)
 {
-	if (EXTRA_ADDR_V1P0) {
+	switch (type) {
+	case EXTRA_ADDR_V1P0:
 		apu_conn_top    = addr1;
 		infracfg_ao_top = addr2;
-	} else if (EXTRA_ADDR_V1PX) {
+		break;
+	case EXTRA_ADDR_V1PX:
 		apu_conn_top    = addr1;
-	} else {
+		break;
+	default:
 		return;
 	}
 

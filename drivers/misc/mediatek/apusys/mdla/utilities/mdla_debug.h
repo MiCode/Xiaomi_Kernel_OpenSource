@@ -25,6 +25,40 @@ enum REASON_MDLA_RETVAL_ENUM {
 	REASON_MAX,
 };
 
+enum FUNC_FOOT_PRINT {
+	/*
+	 * F_ENQUEUE: for enqueue_ce, val = (F_ENQUEUE|resume)
+	 *      0x10: first add in list
+	 *      0x11: add in list because preemption occur
+	 */
+	F_ENQUEUE               = 0x10,
+	F_DEQUEUE               = 0x20,
+	/*
+	 * F_ISSUE:
+	 *    0x30: Success
+	 *    0x31: Issue cdma1 fail
+	 *    0x32: Issue cdma2 fail
+	 *    0x33: Issue cmd fail because HW queue is not empty and in irq
+	 *    0x34: Issue cmd fail because HW queue is not empty and not in irq
+	 */
+	F_ISSUE                 = 0x30,
+	F_CMDDONE_CE_PASS       = 0x40,
+	F_CMDDONE_GO_TO_ISSUE   = 0x41,
+	F_CMDDONE_CE_FIN3ERROR  = 0x42,
+
+	F_COMPLETE              = 0x50,
+
+	/*
+	 * F_TIMEOUT:
+	 *      0x60: cmd timeout and enter irq
+	 *      0x61: others timeout and enter irq
+	 */
+	F_TIMEOUT               = 0x60,
+	F_INIRQ_PASS            = 0x70,
+	F_INIRQ_ERROR           = 0x71,
+	F_INIRQ_CDMA4ERROR      = 0x72,
+};
+
 enum MDLA_DEBUG_FS_NODE_U64 {
 	FS_CFG_PMU_PERIOD,
 
@@ -105,6 +139,10 @@ enum MDLA_DEBUG_MASK {
 	MDLA_DBG_ALL         = (1U << 8) - 1,
 };
 
+void mdla_dbg_show_klog_info(struct seq_file *s, char *prefix);
+
+#define ce_func_trace(ce, val) (ce)->footprint = ((ce)->footprint << 8) | (val & 0xFF)
+
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #define mdla_aee_warn(key, format, args...) \
@@ -156,6 +194,7 @@ const char *mdla_dbg_get_u32_node_str(int node);
 #define DBGFS_CMDBUF_NAME   "mdla_memory"
 
 void mdla_dbg_dump(struct mdla_dev *mdla_info, struct command_entry *ce);
+void mdla_dbg_ce_info(u32 core_id, struct command_entry *ce);
 
 struct dentry *mdla_dbg_get_fs_root(void);
 

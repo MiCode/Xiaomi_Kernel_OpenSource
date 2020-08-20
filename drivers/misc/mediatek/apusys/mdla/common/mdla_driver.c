@@ -71,7 +71,7 @@ static int apusys_mdla_handler(int type,
 			cmd_data,
 			mdla_info,
 			cmd_hnd,
-			true);
+			MDLA_LOW_PRIORITY);
 		break;
 	case APUSYS_CMD_PREEMPT:
 		ret = -EINVAL;
@@ -116,7 +116,7 @@ static int apusys_mdla_rt_handler(int type,
 			cmd_data,
 			mdla_info,
 			cmd_hnd,
-			false);
+			MDLA_HIGH_PRIORITY);
 
 	return ret;
 }

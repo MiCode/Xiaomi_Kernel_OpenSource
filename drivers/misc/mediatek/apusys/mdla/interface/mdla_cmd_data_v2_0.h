@@ -2,10 +2,13 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#ifndef __MDLA_CMD_V2_0_H__
-#define __MDLA_CMD_V2_0_H__
+#ifndef __MDLA_CMD_DATA_V2_0_H__
+#define __MDLA_CMD_DATA_V2_0_H__
 
 #include <linux/types.h>
+#include <linux/list.h>
+
+struct command_entry;
 
 struct mdla_wait_cmd {
 	uint32_t id;           /* [in] command id */
@@ -37,5 +40,5 @@ struct mdla_wait_entry {
 	struct mdla_wait_cmd wt;
 };
 
-#endif /* __MDLA_CMD_V2_0_H__ */
+#endif /* __MDLA_CMD_DATA_V2_0_H__ */
 

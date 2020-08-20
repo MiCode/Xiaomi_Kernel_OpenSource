@@ -80,10 +80,6 @@ static void mdla_cmd_ut_prepare_v1_0(struct ioctl_run_cmd *cd,
 	ce->bandwidth = 0;
 	ce->result = MDLA_CMD_SUCCESS;
 	ce->count = cd->count;
-	//ce->khandle = cd->buf.ion_khandle;
-	//ce->type = cd->buf.type;
-	//ce->priority = cd->priority;
-	//ce->boost_value = cd->boost_value;
 	ce->receive_t = sched_clock();
 	ce->kva = NULL;
 }
@@ -92,7 +88,7 @@ static void mdla_cmd_ut_prepare_v1_0(struct ioctl_run_cmd *cd,
 int mdla_cmd_run_sync_v1_0(struct mdla_run_cmd_sync *cmd_data,
 				struct mdla_dev *mdla_info,
 				struct apusys_cmd_hnd *apusys_hd,
-				bool can_be_preempted)
+				int priority)
 {
 	u64 deadline = 0;
 	struct mdla_run_cmd *cd = &cmd_data->req;
