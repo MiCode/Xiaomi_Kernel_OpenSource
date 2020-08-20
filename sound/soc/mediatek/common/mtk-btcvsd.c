@@ -1321,7 +1321,15 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 			       IRQF_TRIGGER_NONE, "BTCVSD_ISR_Handle",
 			       (void *)btcvsd);
 	if (ret) {
-		dev_err(dev, "could not request_irq for BTCVSD_ISR_Handle\n");
+		dev_err(dev,
+			"could not request_irq %d for BTCVSD_ISR_Handle\n",
+			irq_id);
+		return ret;
+	}
+
+	ret = enable_irq_wake(irq_id);
+	if (ret < 0) {
+		dev_err(dev, "enable_irq_wake %d err: %d\n", irq_id, ret);
 		return ret;
 	}
 
