@@ -3637,7 +3637,7 @@ void scheduler_tick(void)
 	trigger_load_balance(rq);
 #endif
 
-	trace_android_rvh_scheduler_tick(rq);
+	trace_android_vh_scheduler_tick(rq);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
