@@ -31,6 +31,16 @@ config MTK_SOC_THERMAL_LVTS
           configures LVTS thermal controllers to collect temperatures
           via ASIF interface.
 
+config MTK_PMIC_THERMAL
+	tristate "PMIC thermal sensor driver for Mediatek SoCs"
+	depends on MT635X_EFUSE
+	depends on MEDIATEK_MT635X_AUXADC
+	help
+	  Enable this option if you want to get PMIC temperature
+	  for Mediatek platforms.
+	  This driver reads the voltage value from PMIC AUXADC channels,
+	  and converts raw value to PMIC temperature via PMIC efuse data.
+
 config MTK_MD_THERMAL
 	tristate "Mediatek Modem cooling framework"
 	depends on MTK_ECCCI_DRIVER
