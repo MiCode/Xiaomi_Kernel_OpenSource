@@ -119,7 +119,6 @@ config COMMON_CLK_MT6765
        bool "Clock driver for MediaTek MT6765"
        depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
        select COMMON_CLK_MEDIATEK
-       default ARCH_MEDIATEK && ARM64
        help
          This driver supports MediaTek MT6765 basic clocks.
 
