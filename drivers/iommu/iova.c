@@ -207,6 +207,8 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 	} while (curr && new_pfn <= curr_iova->pfn_hi);
 
 	if (limit_pfn < size || new_pfn < iovad->start_pfn) {
+		pr_info("[iommu_debug] %s fail, size:0x%lx,linmit:0x%lx\n, new:0x%lx, start::0x%lx",
+			__func__, size, limit_pfn, new_pfn, iovad->start_pfn);
 		iovad->max32_alloc_size = size;
 		goto iova32_full;
 	}
@@ -394,7 +396,11 @@ free_iova(struct iova_domain *iovad, unsigned long pfn)
 
 	if (iova)
 		__free_iova(iovad, iova);
-
+	else {
+		pr_info("[iommu_debug] find iova fail!! start:0x%lx, cur:0x%lx\n",
+			iovad->start_pfn, pfn);
+		dump_stack();
+	}
 }
 EXPORT_SYMBOL_GPL(free_iova);
 

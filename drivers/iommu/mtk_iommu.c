@@ -27,6 +27,10 @@
 #include <asm/barrier.h>
 #include <soc/mediatek/smi.h>
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+#include <../misc/mediatek/iommu/iommu_debug.h>
+#endif
+
 #include "mtk_iommu.h"
 
 #define REG_MMU_PT_BASE_ADDR			0x000
@@ -293,6 +297,8 @@ static const struct iommu_flush_ops mtk_iommu_flush_ops = {
 	.tlb_add_page = mtk_iommu_tlb_flush_page_nosync,
 };
 
+static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
+					  dma_addr_t iova);
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
@@ -323,6 +329,25 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 	fault_larb = data->plat_data->larbid_remap[fault_larb][sub_comm];
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	int i;
+	u64 tf_iova_tmp;
+	phys_addr_t fault_pgpa;
+	#define TF_IOVA_DUMP_NUM	5
+
+	for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
+		if (i > 0)
+			tf_iova_tmp -= SZ_4K;
+		fault_pgpa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
+		pr_info("%s error, index:%d, falut_iova:0x%lx, fault_pa(pg):%pa\n",
+			data->plat_data->is_apu ? "apu_iommu" : "mm_iommu",
+			i, tf_iova_tmp, &fault_pgpa);
+		if (!fault_pgpa && i > 0)
+			break;
+	}
+	report_custom_iommu_fault(fault_iova, fault_pa, regval,
+				  data->plat_data->is_apu ? true : false);
+#endif
 	if (report_iommu_fault(&dom->domain, data->dev, fault_iova,
 			       write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ)) {
 		dev_err_ratelimited(
@@ -717,6 +742,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	void                    *protect;
 	int                     i, larb_nr, ret;
 
+	pr_info("%s start dev:%s\n", __func__, dev_name(dev));
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
@@ -854,6 +880,7 @@ skip_smi:
 	if (!data->plat_data->is_apu)
 		ret = component_master_add_with_match(dev, &mtk_iommu_com_ops,
 						      match);
+	pr_info("%s done dev:%s\n", __func__, dev_name(dev));
 	return ret;
 }
 
