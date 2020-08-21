@@ -1265,6 +1265,7 @@ static bool __purge_vmap_area_lazy(unsigned long start, unsigned long end)
 	struct llist_node *valist;
 	struct vmap_area *va;
 	struct vmap_area *n_va;
+	unsigned long flush_all_threshold = VMALLOC_END - VMALLOC_START;
 
 	lockdep_assert_held(&vmap_purge_lock);
 
@@ -1283,7 +1284,10 @@ static bool __purge_vmap_area_lazy(unsigned long start, unsigned long end)
 			end = va->va_end;
 	}
 
-	flush_tlb_kernel_range(start, end);
+	if (end - start <= flush_all_threshold)
+		flush_tlb_kernel_range(start, end);
+	else
+		flush_tlb_all();
 	resched_threshold = lazy_max_pages() << 1;
 
 	spin_lock(&vmap_area_lock);
