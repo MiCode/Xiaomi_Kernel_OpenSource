@@ -17,6 +17,16 @@
 #include <linux/mod_devicetable.h>
 #include <linux/nvmem-provider.h>
 
+static u16 rtc_pwron_reg[RTC_OFFSET_COUNT][3] = {
+	{RTC_PWRON_SEC, RTC_PWRON_SEC_MASK, RTC_PWRON_SEC_SHIFT},
+	{RTC_PWRON_MIN, RTC_PWRON_MIN_MASK, RTC_PWRON_MIN_SHIFT},
+	{RTC_PWRON_HOU, RTC_PWRON_HOU_MASK, RTC_PWRON_HOU_SHIFT},
+	{RTC_PWRON_DOM, RTC_PWRON_DOM_MASK, RTC_PWRON_DOM_SHIFT},
+	{0, 0, 0},
+	{RTC_PWRON_MTH, RTC_PWRON_MTH_MASK, RTC_PWRON_MTH_SHIFT},
+	{RTC_PWRON_YEA, RTC_PWRON_YEA_MASK, RTC_PWRON_YEA_SHIFT},
+};
+
 static const struct reg_field mtk_rtc_spare_reg_fields[SPARE_RG_MAX] = {
 	[SPARE_AL_HOU] = REG_FIELD(RTC_AL_HOU, 8, 15),
 	[SPARE_AL_MTH] = REG_FIELD(RTC_AL_MTH, 8, 15),
@@ -134,6 +144,65 @@ exit:
 	return ret;
 }
 
+static void mtk_rtc_set_pwron_time(struct mt6397_rtc *rtc, struct rtc_time *tm)
+{
+	u32 data[RTC_OFFSET_COUNT];
+	int ret, i;
+
+	data[RTC_OFFSET_SEC] =
+		((tm->tm_sec << RTC_PWRON_SEC_SHIFT) & RTC_PWRON_SEC_MASK);
+	data[RTC_OFFSET_MIN] =
+		((tm->tm_min << RTC_PWRON_MIN_SHIFT) & RTC_PWRON_MIN_MASK);
+	data[RTC_OFFSET_HOUR] =
+		((tm->tm_hour << RTC_PWRON_HOU_SHIFT) & RTC_PWRON_HOU_MASK);
+	data[RTC_OFFSET_DOM] =
+		((tm->tm_mday << RTC_PWRON_DOM_SHIFT) & RTC_PWRON_DOM_MASK);
+	data[RTC_OFFSET_MTH] =
+		((tm->tm_mon << RTC_PWRON_MTH_SHIFT) & RTC_PWRON_MTH_MASK);
+	data[RTC_OFFSET_YEAR] =
+		((tm->tm_year << RTC_PWRON_YEA_SHIFT) & RTC_PWRON_YEA_MASK);
+
+	for (i = RTC_OFFSET_SEC; i < RTC_OFFSET_COUNT; i++) {
+		if (i == RTC_OFFSET_DOW)
+			continue;
+		ret = regmap_update_bits(rtc->regmap,
+			rtc->addr_base + rtc_pwron_reg[i][RTC_REG],
+			rtc_pwron_reg[i][RTC_MASK], data[i]);
+		if (ret < 0)
+			goto exit;
+		mtk_rtc_write_trigger(rtc);
+	}
+	return;
+exit:
+	dev_err(rtc->dev, "%s error\n", __func__);
+}
+
+void mtk_rtc_save_pwron_time(struct mt6397_rtc *rtc,
+	bool enable, struct rtc_time *tm)
+{
+	u32 pdn1 = 0;
+	int ret;
+
+	/* set power on time */
+	mtk_rtc_set_pwron_time(rtc, tm);
+
+	/* update power on alarm related flags */
+	if (enable)
+		pdn1 = RTC_PDN1_PWRON_TIME;
+	ret = regmap_update_bits(rtc->regmap,
+				rtc->addr_base + RTC_PDN1,
+				RTC_PDN1_PWRON_TIME, pdn1);
+	if (ret < 0)
+		goto exit;
+
+	mtk_rtc_write_trigger(rtc);
+
+	return;
+
+exit:
+	dev_err(rtc->dev, "%s error\n", __func__);
+}
+
 static int mtk_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	time64_t time;
@@ -243,11 +312,39 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
 	u16 data[RTC_OFFSET_COUNT];
+	ktime_t target;
+
+	if (alm->enabled == 1) {
+		/* Add one more second to postpone wake time. */
+		target = rtc_tm_to_ktime(*tm);
+		target = ktime_add_ns(target, NSEC_PER_SEC);
+		*tm = rtc_ktime_to_tm(target);
+	}
 
 	tm->tm_year -= RTC_MIN_YEAR_OFFSET;
 	tm->tm_mon++;
 
 	mutex_lock(&rtc->lock);
+
+	switch (alm->enabled) {
+	case 3:
+		/* enable power-on alarm with logo */
+		mtk_rtc_save_pwron_time(rtc, true, tm);
+		break;
+	case 4:
+		/* disable power-on alarm */
+		mtk_rtc_save_pwron_time(rtc, false, tm);
+		break;
+	default:
+		break;
+	}
+
+	ret = regmap_update_bits(rtc->regmap,
+			rtc->addr_base + RTC_PDN2, RTC_PDN2_PWRON_ALARM, 0);
+	if (ret < 0)
+		goto exit;
+	mtk_rtc_write_trigger(rtc);
+
 	ret = regmap_bulk_read(rtc->regmap, rtc->addr_base + RTC_AL_SEC,
 			       data, RTC_OFFSET_COUNT);
 	if (ret < 0)
@@ -300,7 +397,54 @@ exit:
 	return ret;
 }
 
+int alarm_set_power_on(struct device *dev, struct rtc_wkalrm *alm)
+{
+	int err = 0;
+	struct rtc_time tm;
+	time64_t now, scheduled;
+
+	err = rtc_valid_tm(&alm->time);
+	if (err != 0)
+		return err;
+	scheduled = rtc_tm_to_time64(&alm->time);
+
+	err = mtk_rtc_read_time(dev, &tm);
+	if (err != 0)
+		return err;
+	now = rtc_tm_to_time64(&tm);
+
+	if (scheduled <= now)
+		alm->enabled = 4;
+	else
+		alm->enabled = 3;
+
+	mtk_rtc_set_alarm(dev, alm);
+
+	return err;
+}
+
+static int mtk_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
+{
+	void __user *uarg = (void __user *) arg;
+	int err = 0;
+	struct rtc_wkalrm alm;
+
+	switch (cmd) {
+	case RTC_POFF_ALM_SET:
+		if (copy_from_user(&alm.time, uarg, sizeof(alm.time)))
+			return -EFAULT;
+		err = alarm_set_power_on(dev, &alm);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
 static const struct rtc_class_ops mtk_rtc_ops = {
+	.ioctl      = mtk_rtc_ioctl,
 	.read_time  = mtk_rtc_read_time,
 	.set_time   = mtk_rtc_set_time,
 	.read_alarm = mtk_rtc_read_alarm,
