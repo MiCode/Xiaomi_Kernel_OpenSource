@@ -2563,6 +2563,11 @@
 		read-only;
 		ranges;
 
+		gpu_speed_bin: gpu_speed_bin@6015 {
+			reg = <0x6015 0x1>;
+			bits = <0 8>;
+		};
+
 		adsp_variant: adsp_variant@1E6 {
 			reg = <0x1E6 0x2>;
 			bits = <6 9>;
