@@ -109,7 +109,6 @@ static int
 nfs4_file_flush(struct file *file, fl_owner_t id)
 {
 	struct inode	*inode = file_inode(file);
-	errseq_t since;
 
 	dprintk("NFS: flush(%pD2)\n", file);
 
@@ -125,9 +124,7 @@ nfs4_file_flush(struct file *file, fl_owner_t id)
 		return filemap_fdatawrite(file->f_mapping);
 
 	/* Flush writes to the server and return any errors */
-	since = filemap_sample_wb_err(file->f_mapping);
-	nfs_wb_all(inode);
-	return filemap_check_wb_err(file->f_mapping, since);
+	return nfs_wb_all(inode);
 }
 
 #ifdef CONFIG_NFS_V4_2

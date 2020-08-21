@@ -5699,11 +5699,8 @@ static int referenced_filters(struct dyn_ftrace *rec)
 	int cnt = 0;
 
 	for (ops = ftrace_ops_list; ops != &ftrace_list_end; ops = ops->next) {
-		if (ops_references_rec(ops, rec)) {
-			cnt++;
-			if (ops->flags & FTRACE_OPS_FL_SAVE_REGS)
-				rec->flags |= FTRACE_FL_REGS;
-		}
+		if (ops_references_rec(ops, rec))
+		    cnt++;
 	}
 
 	return cnt;
@@ -5880,8 +5877,8 @@ void ftrace_module_enable(struct module *mod)
 		if (ftrace_start_up)
 			cnt += referenced_filters(rec);
 
-		rec->flags &= ~FTRACE_FL_DISABLED;
-		rec->flags += cnt;
+		/* This clears FTRACE_FL_DISABLED */
+		rec->flags = cnt;
 
 		if (ftrace_start_up && cnt) {
 			int failed = __ftrace_replace_code(rec, 1);
@@ -6462,12 +6459,12 @@ void ftrace_pid_follow_fork(struct trace_array *tr, bool enable)
 	if (enable) {
 		register_trace_sched_process_fork(ftrace_pid_follow_sched_process_fork,
 						  tr);
-		register_trace_sched_process_free(ftrace_pid_follow_sched_process_exit,
+		register_trace_sched_process_exit(ftrace_pid_follow_sched_process_exit,
 						  tr);
 	} else {
 		unregister_trace_sched_process_fork(ftrace_pid_follow_sched_process_fork,
 						    tr);
-		unregister_trace_sched_process_free(ftrace_pid_follow_sched_process_exit,
+		unregister_trace_sched_process_exit(ftrace_pid_follow_sched_process_exit,
 						    tr);
 	}
 }

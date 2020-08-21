@@ -5221,14 +5221,7 @@ int btrfs_drop_snapshot(struct btrfs_root *root,
 		goto out;
 	}
 
-	/*
-	 * Use join to avoid potential EINTR from transaction start. See
-	 * wait_reserve_ticket and the whole reservation callchain.
-	 */
-	if (for_reloc)
-		trans = btrfs_join_transaction(tree_root);
-	else
-		trans = btrfs_start_transaction(tree_root, 0);
+	trans = btrfs_start_transaction(tree_root, 0);
 	if (IS_ERR(trans)) {
 		err = PTR_ERR(trans);
 		goto out_free;

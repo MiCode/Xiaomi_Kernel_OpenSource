@@ -70,6 +70,9 @@ void dm_start_queue(struct request_queue *q)
 
 void dm_stop_queue(struct request_queue *q)
 {
+	if (blk_mq_queue_stopped(q))
+		return;
+
 	blk_mq_quiesce_queue(q);
 }
 

@@ -519,19 +519,15 @@ void bcache_dev_sectors_dirty_add(struct cache_set *c, unsigned int inode,
 				  uint64_t offset, int nr_sectors)
 {
 	struct bcache_device *d = c->devices[inode];
-	unsigned int stripe_offset, sectors_dirty;
-	int stripe;
+	unsigned int stripe_offset, stripe, sectors_dirty;
 
 	if (!d)
-		return;
-
-	stripe = offset_to_stripe(d, offset);
-	if (stripe < 0)
 		return;
 
 	if (UUID_FLASH_ONLY(&c->uuids[inode]))
 		atomic_long_add(nr_sectors, &c->flash_dev_dirty_sectors);
 
+	stripe = offset_to_stripe(d, offset);
 	stripe_offset = offset & (d->stripe_size - 1);
 
 	while (nr_sectors) {
@@ -571,12 +567,12 @@ static bool dirty_pred(struct keybuf *buf, struct bkey *k)
 static void refill_full_stripes(struct cached_dev *dc)
 {
 	struct keybuf *buf = &dc->writeback_keys;
-	unsigned int start_stripe, next_stripe;
-	int stripe;
+	unsigned int start_stripe, stripe, next_stripe;
 	bool wrapped = false;
 
 	stripe = offset_to_stripe(&dc->disk, KEY_OFFSET(&buf->last_scanned));
-	if (stripe < 0)
+
+	if (stripe >= dc->disk.nr_stripes)
 		stripe = 0;
 
 	start_stripe = stripe;
