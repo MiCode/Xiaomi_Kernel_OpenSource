@@ -213,11 +213,39 @@
 	extcon = <&usb2_extcon>;
 };
 
+&mtl_rx_setup {
+	queue2 {
+		snps,dcb-algorithm;
+	};
+
+	queue3 {
+		snps,dcb-algorithm;
+	};
+};
+
+&mtl_tx_setup {
+	queue2 {
+		snps,dcb-algorithm;
+	};
+
+	queue3 {
+		snps,dcb-algorithm;
+	};
+};
+
 &ethqos_hw {
 	status = "okay";
 	vreg_emac_phy-supply = <&vreg_emac_phy>;
 	vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
 	rxc-skew-ps = <0>;
+	qcom,qoe_mode = <1>;
+	qcom,qoe-queue = <2>;
+	qcom,qoe-vlan-offset = <0>;
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
+	qcom,cv2x_mode = <2>;
+	qcom,cv2x-queue = <3>;
+	qcom,cv2x-vlan-offset = <1>;
 
 	pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
 		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
