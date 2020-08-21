@@ -32,7 +32,7 @@ struct dev_info {
 	unsigned long		map_attrs;
 };
 
-struct ion_iommu_buf_info {
+struct ion_mm_buf_info {
 	bool			mapped[MTK_M4U_DOM_NR_MAX];
 	struct dev_info		dev_class[MTK_M4U_DOM_NR_MAX];
 	struct sg_table		*table[MTK_M4U_DOM_NR_MAX];
@@ -59,12 +59,12 @@ static inline unsigned int order_to_size(int order)
 	return PAGE_SIZE << order;
 }
 
-struct ion_mtk_iommu_heap {
+struct ion_mtk_mm_heap {
 	struct ion_heap heap;
 	struct ion_page_pool *pools[NUM_ORDERS];
 };
 
-static struct page *alloc_buffer_page(struct ion_mtk_iommu_heap *heap,
+static struct page *alloc_buffer_page(struct ion_mtk_mm_heap *heap,
 				      struct ion_buffer *buffer,
 				      unsigned long order)
 {
@@ -73,7 +73,7 @@ static struct page *alloc_buffer_page(struct ion_mtk_iommu_heap *heap,
 	return ion_page_pool_alloc(pool);
 }
 
-static void free_buffer_page(struct ion_mtk_iommu_heap *heap,
+static void free_buffer_page(struct ion_mtk_mm_heap *heap,
 			     struct ion_buffer *buffer, struct page *page)
 {
 	struct ion_page_pool *pool;
@@ -90,7 +90,7 @@ static void free_buffer_page(struct ion_mtk_iommu_heap *heap,
 	ion_page_pool_free(pool, page);
 }
 
-static struct page *alloc_largest_available(struct ion_mtk_iommu_heap *heap,
+static struct page *alloc_largest_available(struct ion_mtk_mm_heap *heap,
 					    struct ion_buffer *buffer,
 					    unsigned long size,
 					    unsigned int max_order)
@@ -114,16 +114,16 @@ static struct page *alloc_largest_available(struct ion_mtk_iommu_heap *heap,
 	return NULL;
 }
 
-static int ion_iommu_heap_allocate(struct ion_heap *heap,
-				   struct ion_buffer *buffer,
-				   unsigned long size,
-				   unsigned long flags)
+static int ion_mm_heap_allocate(struct ion_heap *heap,
+				struct ion_buffer *buffer,
+				unsigned long size,
+				unsigned long flags)
 {
-	struct ion_mtk_iommu_heap *iommu_heap =
+	struct ion_mtk_mm_heap *mm_heap =
 				container_of(heap,
-					     struct ion_mtk_iommu_heap,
+					     struct ion_mtk_mm_heap,
 					     heap);
-	struct ion_iommu_buf_info *buf_info;
+	struct ion_mm_buf_info *buf_info;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	struct list_head pages;
@@ -138,7 +138,7 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 
 	INIT_LIST_HEAD(&pages);
 	while (size_remaining > 0) {
-		page = alloc_largest_available(iommu_heap, buffer,
+		page = alloc_largest_available(mm_heap, buffer,
 					       size_remaining,
 					       max_order);
 		if (!page)
@@ -184,15 +184,15 @@ free_table:
 	kfree(table);
 free_pages:
 	list_for_each_entry_safe(page, tmp_page, &pages, lru)
-		free_buffer_page(iommu_heap, buffer, page);
+		free_buffer_page(mm_heap, buffer, page);
 	return -ENOMEM;
 }
 
-static void ion_iommu_heap_free(struct ion_buffer *buffer)
+static void ion_mm_heap_free(struct ion_buffer *buffer)
 {
-	struct ion_mtk_iommu_heap *iommu_heap =
+	struct ion_mtk_mm_heap *mm_heap =
 				container_of(buffer->heap,
-					     struct ion_mtk_iommu_heap,
+					     struct ion_mtk_mm_heap,
 					     heap);
 	struct sg_table *table = buffer->sg_table;
 	struct scatterlist *sg;
@@ -203,27 +203,27 @@ static void ion_iommu_heap_free(struct ion_buffer *buffer)
 		ion_buffer_zero(buffer);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
-		free_buffer_page(iommu_heap, buffer, sg_page(sg));
+		free_buffer_page(mm_heap, buffer, sg_page(sg));
 	sg_free_table(table);
 	kfree(table);
 }
 
-static int ion_iommu_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
-				 int nr_to_scan)
+static int ion_mm_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
+			      int nr_to_scan)
 {
 	struct ion_page_pool *pool;
-	struct ion_mtk_iommu_heap *iommu_heap;
+	struct ion_mtk_mm_heap *mm_heap;
 	int nr_total = 0;
 	int i, nr_freed;
 	int only_scan = 0;
 
-	iommu_heap = container_of(heap, struct ion_mtk_iommu_heap, heap);
+	mm_heap = container_of(heap, struct ion_mtk_mm_heap, heap);
 
 	if (!nr_to_scan)
 		only_scan = 1;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
-		pool = iommu_heap->pools[i];
+		pool = mm_heap->pools[i];
 
 		if (only_scan) {
 			nr_total += ion_page_pool_shrink(pool,
@@ -243,20 +243,20 @@ static int ion_iommu_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 	return nr_total;
 }
 
-static long ion_iommu_get_pool_size(struct ion_heap *heap)
+static long ion_mm_get_pool_size(struct ion_heap *heap)
 {
-	struct ion_mtk_iommu_heap *iommu_heap;
+	struct ion_mtk_mm_heap *mm_heap;
 	long total_pages = 0;
 	int i;
 
-	iommu_heap = container_of(heap, struct ion_mtk_iommu_heap, heap);
+	mm_heap = container_of(heap, struct ion_mtk_mm_heap, heap);
 	for (i = 0; i < NUM_ORDERS; i++)
-		total_pages += ion_page_pool_nr_pages(iommu_heap->pools[i]);
+		total_pages += ion_page_pool_nr_pages(mm_heap->pools[i]);
 
 	return total_pages;
 }
 
-static void ion_iommu_heap_destroy_pools(struct ion_page_pool **pools)
+static void ion_mm_heap_destroy_pools(struct ion_page_pool **pools)
 {
 	int i;
 
@@ -265,7 +265,7 @@ static void ion_iommu_heap_destroy_pools(struct ion_page_pool **pools)
 			ion_page_pool_destroy(pools[i]);
 }
 
-static int ion_iommu_heap_create_pools(struct ion_page_pool **pools)
+static int ion_mm_heap_create_pools(struct ion_page_pool **pools)
 {
 	int i;
 
@@ -285,7 +285,7 @@ static int ion_iommu_heap_create_pools(struct ion_page_pool **pools)
 	return 0;
 
 err_create_pool:
-	ion_iommu_heap_destroy_pools(pools);
+	ion_mm_heap_destroy_pools(pools);
 	return -ENOMEM;
 }
 
@@ -307,7 +307,7 @@ static int copy_sg_table(struct sg_table *source, struct sg_table *dest)
 	return 0;
 };
 
-static int update_buffer_info(struct ion_iommu_buf_info *buf_info,
+static int update_buffer_info(struct ion_mm_buf_info *buf_info,
 			      struct sg_table *table,
 			      struct dma_buf_attachment *attachment,
 			      enum dma_data_direction direction,
@@ -343,7 +343,7 @@ sg_table *mtk_ion_map_dma_buf(struct dma_buf_attachment *attachment,
 			      enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
-	struct ion_iommu_buf_info *buf_info = buffer->priv_virt;
+	struct ion_mm_buf_info *buf_info = buffer->priv_virt;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(attachment->dev);
 	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
@@ -407,7 +407,7 @@ static void mtk_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 		a->mapped = false;
 	}
 	/* Do nothing for iommu-dev.
-	 * For ion_mtk_iommu_heap, we will unmap all the iova
+	 * For ion_mtk_mm_heap, we will unmap all the iova
 	 * in dma_buf_release
 	 */
 
@@ -416,7 +416,7 @@ static void mtk_ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 static void mtk_ion_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_iommu_buf_info *buf_info = buffer->priv_virt;
+	struct ion_mm_buf_info *buf_info = buffer->priv_virt;
 	int i;
 
 	/* unmap iova */
@@ -443,45 +443,45 @@ static const struct dma_buf_ops mtk_dma_buf_ops = {
 	.release = mtk_ion_dma_buf_release,
 };
 
-static struct ion_heap_ops iommu_heap_ops = {
-	.allocate = ion_iommu_heap_allocate,
-	.free = ion_iommu_heap_free,
-	.shrink = ion_iommu_heap_shrink,
-	.get_pool_size = ion_iommu_get_pool_size,
+static struct ion_heap_ops mm_heap_ops = {
+	.allocate = ion_mm_heap_allocate,
+	.free = ion_mm_heap_free,
+	.shrink = ion_mm_heap_shrink,
+	.get_pool_size = ion_mm_get_pool_size,
 };
 
-static struct ion_mtk_iommu_heap iommu_heap = {
+static struct ion_mtk_mm_heap mm_heap = {
 	.heap = {
-		.ops = &iommu_heap_ops,
+		.ops = &mm_heap_ops,
 		.type = ION_HEAP_TYPE_CUSTOM,
 		.flags = ION_HEAP_FLAG_DEFER_FREE,
-		.name = "ion_mtk_iommu_heap",
+		.name = "mtk_ion_mm_heap",
 	}
 };
 
-static int __init mtk_ion_iommu_heap_init(void)
+static int __init mtk_ion_mm_heap_init(void)
 {
-	int ret = ion_iommu_heap_create_pools(iommu_heap.pools);
+	int ret = ion_mm_heap_create_pools(mm_heap.pools);
 
 	if (ret)
 		return ret;
 
-	ret = ion_device_add_heap(&iommu_heap.heap);
+	ret = ion_device_add_heap(&mm_heap.heap);
 	if (ret)
 		return ret;
 
-	memcpy(&iommu_heap.heap.buf_ops,
+	memcpy(&mm_heap.heap.buf_ops,
 	       &mtk_dma_buf_ops, sizeof(struct dma_buf_ops));
 
 	return ret;
 }
 
-static void __exit mtk_ion_iommu_heap_exit(void)
+static void __exit mtk_ion_mm_heap_exit(void)
 {
-	ion_device_remove_heap(&iommu_heap.heap);
-	ion_iommu_heap_destroy_pools(iommu_heap.pools);
+	ion_device_remove_heap(&mm_heap.heap);
+	ion_mm_heap_destroy_pools(mm_heap.pools);
 }
 
-module_init(mtk_ion_iommu_heap_init);
-module_exit(mtk_ion_iommu_heap_exit);
+module_init(mtk_ion_mm_heap_init);
+module_exit(mtk_ion_mm_heap_exit);
 MODULE_LICENSE("GPL v2");
