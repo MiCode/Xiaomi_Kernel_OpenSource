@@ -54,3 +54,34 @@
 	qcom,default-policy-nop;
 	status = "okay";
 };
+
+&mtl_rx_setup {
+	queue2 {
+		snps,dcb-algorithm;
+	};
+
+	queue3 {
+		snps,dcb-algorithm;
+	};
+};
+
+&mtl_tx_setup {
+	queue2 {
+		snps,dcb-algorithm;
+	};
+
+	queue3 {
+		snps,dcb-algorithm;
+	};
+};
+
+&ethqos_hw {
+	qcom,qoe_mode = <1>;
+	qcom,qoe-queue = <2>;
+	qcom,qoe-vlan-offset = <0>;
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
+	qcom,cv2x_mode = <1>;
+	qcom,cv2x-queue = <3>;
+	qcom,cv2x-vlan-offset = <1>;
+};
