@@ -3,8 +3,10 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
-#ifndef M4U_DEBUG_H
-#define M4U_DEBUG_H
+#define pr_fmt(fmt)    "[iommu_debug] " fmt
+
+#ifndef IOMMU_DEBUG_H
+#define IOMMU_DEBUG_H
 
 #include <linux/ioctl.h>
 #include <linux/fs.h>
@@ -14,8 +16,8 @@ typedef int (*mtk_iommu_fault_callback_t)(int port,
 				dma_addr_t mva, void *cb_data);
 
 void report_custom_iommu_fault(
-	u32 fault_iova,
-	u32 fault_pa,
+	u64 fault_iova,
+	u64 fault_pa,
 	u32 fault_id, bool is_vpu);
 
 int mtk_iommu_register_fault_callback(int port,
@@ -24,11 +26,5 @@ int mtk_iommu_register_fault_callback(int port,
 
 /* port: comes from "include/dt-binding/memort/mtxxx-larb-port.h" */
 int mtk_iommu_unregister_fault_callback(int port, bool is_vpu);
-
-void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size);
-
-void mtk_iova_dbg_free(dma_addr_t iova, size_t size);
-
-void mtk_iova_dbg_dump(struct seq_file *s);
 
 #endif

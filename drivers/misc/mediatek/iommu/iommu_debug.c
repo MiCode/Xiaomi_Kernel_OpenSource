@@ -2,9 +2,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
  */
-
-#define pr_fmt(fmt)    "[iommu_debug] " fmt
-
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/of.h>
@@ -23,6 +20,7 @@
 
 #define ERROR_LARB_PORT_ID		0xFFFF
 #define F_MMU_INT_TF_MSK		GENMASK(11, 2)
+#define F_MMU_INT_TF_CCU		GENMASK(11, 7)
 #define F_APU_MMU_INT_TF_MSK(id)	FIELD_GET(GENMASK(10, 7), id)
 
 enum mtk_iommu_type {
@@ -81,21 +79,9 @@ struct mtk_m4u_data {
 	const struct mtk_m4u_plat_data	*plat_data;
 };
 
-struct iova_info {
-	struct device *dev;
-	dma_addr_t iova;
-	size_t size;
-	struct list_head list_node;
-};
-
 struct mtk_m4u_plat_data {
 	const struct mtk_iommu_port	*port_list[TYPE_NUM];
 	u32				port_nr[TYPE_NUM];
-};
-
-struct iova_buf_list {
-	struct list_head head;
-	struct mutex lock;
 };
 
 static const struct mtk_iommu_port iommu_port_mt6779[] = {
@@ -494,69 +480,6 @@ static const struct mtk_iommu_port apu_port_mt6873[] = {
 };
 
 static struct mtk_m4u_data *m4u_data;
-static struct iova_buf_list iova_list;
-
-void mtk_iova_dbg_alloc(struct device *dev, dma_addr_t iova, size_t size)
-{
-	struct iova_info *iova_buf;
-
-	iova_buf = kzalloc(sizeof(*iova_buf), GFP_KERNEL);
-	if (!iova_buf)
-		return;
-
-	iova_buf->dev = dev;
-	iova_buf->iova = iova;
-	iova_buf->size = size;
-	mutex_lock(&iova_list.lock);
-	list_add(&iova_buf->list_node, &iova_list.head);
-	mutex_unlock(&iova_list.lock);
-}
-EXPORT_SYMBOL_GPL(mtk_iova_dbg_alloc);
-
-void mtk_iova_dbg_free(dma_addr_t iova, size_t size)
-{
-	struct iova_info *plist;
-	struct iova_info *tmp_plist;
-
-	mutex_lock(&iova_list.lock);
-	list_for_each_entry_safe(plist, tmp_plist,
-				 &iova_list.head, list_node) {
-		if (plist->iova == iova && plist->size == size) {
-			list_del(&plist->list_node);
-			kfree(plist);
-			break;
-		}
-	}
-	mutex_unlock(&iova_list.lock);
-}
-EXPORT_SYMBOL_GPL(mtk_iova_dbg_free);
-
-void mtk_iova_dbg_dump(struct seq_file *s)
-{
-	struct iova_info *plist = NULL;
-	struct iova_info *n = NULL;
-
-	mutex_lock(&iova_list.lock);
-
-	if (s)
-		seq_printf(s, "%18s %8s %18s\n", "iova", "size", "dev");
-	else
-		pr_info("%18s %8s %18s\n", "iova", "size", "dev");
-	list_for_each_entry_safe(plist, n, &iova_list.head,
-				 list_node) {
-		if (s)
-			seq_printf(s, "%pa %8zu %18s\n",
-				   &plist->iova,
-				   plist->size,
-				   dev_name(plist->dev));
-		else
-			pr_info("%pa %8zu %18s\n",
-				   &plist->iova,
-				   plist->size,
-				   dev_name(plist->dev));
-	}
-	mutex_unlock(&iova_list.lock);
-}
 
 static int mtk_iommu_get_tf_port_idx(int tf_id, bool is_vpu)
 {
@@ -575,6 +498,8 @@ static int mtk_iommu_get_tf_port_idx(int tf_id, bool is_vpu)
 	port_list = m4u_data->plat_data->port_list[type];
 	for (i = 0; i < port_nr; i++) {
 		if (port_list[i].tf_id == vld_id)
+			return i;
+		if (port_list[i].tf_id == vld_id & F_MMU_INT_TF_CCU)
 			return i;
 	}
 
@@ -597,8 +522,8 @@ static int mtk_iommu_port_idx(int id, enum mtk_iommu_type type)
 }
 
 void report_custom_iommu_fault(
-	u32 fault_iova,
-	u32 fault_pa,
+	u64 fault_iova,
+	u64 fault_pa,
 	u32 fault_id, bool is_vpu)
 {
 	int idx;
@@ -607,7 +532,7 @@ void report_custom_iommu_fault(
 	u32 port_nr = m4u_data->plat_data->port_nr[type];
 	const struct mtk_iommu_port *port_list;
 
-	pr_info("tf report start fault_id:0x%x\n", fault_id);
+	pr_info("error, tf report start fault_id:0x%x\n", fault_id);
 	port_list = m4u_data->plat_data->port_list[type];
 	if (is_vpu) {
 		idx = mtk_iommu_get_tf_port_idx(fault_id, true);
@@ -615,7 +540,6 @@ void report_custom_iommu_fault(
 			      port_list[idx].name,
 			      port_list[idx].name,
 			      fault_iova, fault_pa);
-		goto dump_pg;
 	}
 
 	idx = mtk_iommu_get_tf_port_idx(fault_id, false);
@@ -626,7 +550,7 @@ void report_custom_iommu_fault(
 	}
 	port = MTK_M4U_ID(port_list[idx].larb_id,
 			  port_list[idx].port_id);
-	pr_info("tf report port:0x%x\n", port);
+	pr_info("error, tf report port:0x%x\n", port);
 	if (port_list[idx].enable_tf &&
 		m4u_data->m4u_cb[idx].fault_fn)
 		m4u_data->m4u_cb[idx].fault_fn(port,
@@ -636,9 +560,6 @@ void report_custom_iommu_fault(
 		port_list[idx].name,
 		port_list[idx].name, fault_iova,
 		fault_pa);
-
-dump_pg:
-	mtk_iova_dbg_dump(NULL);
 }
 EXPORT_SYMBOL_GPL(report_custom_iommu_fault);
 
@@ -683,11 +604,6 @@ static int m4u_debug_set(void *data, u64 val)
 	pr_info("%s:val=%llu\n", __func__, val);
 
 	switch (val) {
-	case 1: /* dump iova info */
-	{
-		mtk_iova_dbg_dump(NULL);
-		break;
-	}
 	case 2: /* mm translation fault test */
 	{
 		report_custom_iommu_fault(0, 0, 0x500000f, false);
@@ -751,8 +667,6 @@ static int mtk_m4u_dbg_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	m4u_debug_init(m4u_data);
-	mutex_init(&iova_list.lock);
-	INIT_LIST_HEAD(&iova_list.head);
 	pr_info("%s done: total:%u, apu:%u -- %s, mm:%u -- %s, 0x%x\n", __func__,
 		total_port,
 		m4u_data->plat_data->port_nr[APU_IOMMU],
