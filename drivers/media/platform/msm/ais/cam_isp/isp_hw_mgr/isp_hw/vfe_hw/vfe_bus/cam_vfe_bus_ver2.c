@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +113,8 @@ struct cam_vfe_bus_ver2_common_data {
 	void                                       *vfe_irq_controller;
 	struct cam_vfe_bus_ver2_reg_offset_common  *common_reg;
 	struct cam_vfe_bus_ver2_reg_data           *reg_data;
+	uint32_t                                    io_buf_update[
+		MAX_REG_VAL_PAIR_SIZE];
 	struct cam_vfe_bus_irq_evt_payload          evt_payload[
 		CAM_VFE_BUS_VER2_PAYLOAD_MAX];
 	struct list_head                            free_payload_list;
@@ -3074,6 +3076,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 	}
 
 	io_cfg = update_buf->wm_update->io_cfg;
+	reg_val_pair = &vfe_out_data->common_data->io_buf_update[0];
 
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
 		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
@@ -3084,8 +3087,15 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 		}
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
-		reg_val_pair = &wm_data->io_buf_update[0];
 		ubwc_client = wm_data->hw_regs->ubwc_regs;
+
+		if (wm_data->index < 3 ||
+			(wm_data->is_lite && wm_data->index == 3)) {
+			reg_val_pair = &wm_data->io_buf_update[0];
+			loop_size = wm_data->irq_subsample_period + 1;
+		} else {
+			loop_size = 1;
+		}
 
 		/* update width register */
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
@@ -3150,12 +3160,6 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 			frame_inc = io_cfg->planes[i].plane_stride *
 				io_cfg->planes[i].slice_height;
 		}
-
-		if (wm_data->index < 3 ||
-			(wm_data->is_lite && wm_data->index == 3))
-			loop_size = wm_data->irq_subsample_period + 1;
-		else
-			loop_size = 1;
 
 		/* WM Image address */
 		for (k = 0; k < loop_size; k++) {
@@ -3229,6 +3233,7 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 	}
 
 	hfr_cfg = update_hfr->hfr_update;
+	reg_val_pair = &vfe_out_data->common_data->io_buf_update[0];
 
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
 		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
@@ -3239,7 +3244,10 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 		}
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
-		reg_val_pair = &wm_data->io_buf_update[0];
+
+		if (wm_data->index < 3 ||
+			(wm_data->is_lite && wm_data->index == 3))
+			reg_val_pair = &wm_data->io_buf_update[0];
 
 		if (wm_data->index <= 2 && hfr_cfg->subsample_period > 3) {
 			CAM_ERR(CAM_ISP,
