@@ -443,22 +443,6 @@ static int deque_cmd_qos(struct cmd_qos *cmd_qos)
 	return avg_bw;
 }
 
-#ifdef APU_QOS_IPUIF_ADJUST
-static unsigned int apu_bw_round_down(unsigned int bw)
-{
-	unsigned int ret;
-
-	/* PMQoS will do rounding to SW BW */
-	if (bw % 100 == 0)
-		ret = bw;
-	else
-		ret = (bw / 100) * 100;
-		/* ret = ((bw / 100) + 1) * 100; */
-
-	return ret;
-}
-#endif
-
 static void qos_work_func(struct work_struct *work)
 {
 	struct qos_bound *qos_info = NULL;
@@ -524,7 +508,7 @@ static void qos_work_func(struct work_struct *work)
 #endif
 
 #ifdef APU_QOS_IPUIF_ADJUST
-		report_bw = apu_bw_round_down(report_bw);
+		report_bw = rounddown(report_bw, 100);
 		total_apu_bw += report_bw;
 #endif
 		/* update peak bw */
