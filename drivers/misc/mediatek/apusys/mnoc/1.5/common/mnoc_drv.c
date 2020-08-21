@@ -32,6 +32,7 @@
 #include "apusys_core.h"
 #include "apusys_power.h"
 #include "apusys_power_cust.h"
+#include "apusys_debug_api.h"
 
 #include "mnoc_drv.h"
 #include "mnoc_qos.h"
@@ -84,21 +85,17 @@ void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
 	mnoc_drv.set_lt_guardian_pre_ultra(dev_type, dev_core, endis);
 }
 
-
-
-
 static void mnoc_isr_work_func(struct work_struct *work)
 {
 	LOG_DEBUG("+\n");
 #if MNOC_AEE_WARN_ENABLE
 	mutex_lock(&mnoc_pwr_mtx);
-//	if (mnoc_pwr_is_on)
-//		apusys_reg_dump(); TODO: wati reg dump porting done
+	if (mnoc_pwr_is_on)
+		apusys_reg_dump("apusys-mnoc", false);
 	mutex_unlock(&mnoc_pwr_mtx);
 	mnoc_aee_warn("MNOC", "MNOC Exception");
 #endif
 
-	//print_int_sta(NULL);
 	mnoc_drv.print_int_sta(NULL);
 
 	LOG_DEBUG("-\n");
@@ -113,10 +110,8 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 
 	mnoc_pmu_reg_init();
 	infra2apu_sram_en();
-	//mnoc_hw_reinit();
 	mnoc_drv.hw_reinit();
-
-	//apu_qos_on(); disable for debug
+	apu_qos_on();
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 #if MNOC_INT_ENABLE
@@ -129,7 +124,6 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	mnoc_pwr_is_on = true;
 	mutex_unlock(&mnoc_pwr_mtx);
 
-	//mnoc_int_endis(true);
 	mnoc_drv.int_endis(true);
 
 	LOG_DEBUG("-\n");
@@ -141,7 +135,6 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 
 	LOG_DEBUG("+\n");
 
-	//mnoc_int_endis(false);
 	mnoc_drv.int_endis(false);
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
@@ -149,7 +142,7 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	infra2apu_sram_dis();
-	//apu_qos_off(); disable for debug
+	apu_qos_off();
 
 	mutex_lock(&mnoc_pwr_mtx);
 	mnoc_pwr_is_on = false;
@@ -359,8 +352,6 @@ static struct platform_driver mnoc_driver = {
 int mnoc_init(struct apusys_core_info *info)
 {
 	LOG_DEBUG("mnoc driver init start\n");
-
-	LOG_ERR("mnoc driver init start");
 
 	memset(&mnoc_drv, 0, sizeof(struct mnoc_plat_drv));
 

@@ -665,7 +665,6 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 	getnstimeofday(&begin);
 #endif
 
-	//core = apusys_dev_to_core_id(dev_type, dev_core);
 	core = mnoc_drv.dev_2_core_id(dev_type, dev_core);
 	if (core == -1) {
 		LOG_ERR("Invalid device(%d/%d)", dev_type, dev_core);
@@ -750,7 +749,6 @@ int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id,
 	getnstimeofday(&begin);
 #endif
 
-	//core = apusys_dev_to_core_id(dev_type, dev_core);
 	core = mnoc_drv.dev_2_core_id(dev_type, dev_core);
 
 
@@ -832,7 +830,6 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	getnstimeofday(&begin);
 #endif
 
-	//core = apusys_dev_to_core_id(dev_type, dev_core);
 	core = mnoc_drv.dev_2_core_id(dev_type, dev_core);
 
 

@@ -111,7 +111,7 @@ int dump_show(struct seq_file *sfile, void *v)
 	mutex_lock(&dbg_lock);
 
 	if (apusys_dump_force)
-		apusys_reg_dump("force_dump", false);
+		apusys_reg_dump("force_dump", true);
 
 	mutex_lock(&dump_lock);
 
