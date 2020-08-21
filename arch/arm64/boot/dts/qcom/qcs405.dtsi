@@ -1642,7 +1642,6 @@
 		qcom,bus-vector-names = "0", "10", "100", "1000";
 		snps,tso;
 		snps,pbl = <32>;
-		mac-address = [00 55 7B B5 7D f7];
 		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
 			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>,
 			<&clock_gcc GCC_ETH_PTP_CLK>,

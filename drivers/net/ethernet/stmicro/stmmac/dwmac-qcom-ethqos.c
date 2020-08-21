@@ -68,7 +68,7 @@ int stmmac_enable_ipc_low;
 char tmp_buff[MAX_PROC_SIZE];
 static struct qmp_pkt pkt;
 static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
-static struct ip_params pparams = {"", "", "", ""};
+static struct ip_params pparams;
 
 static void qcom_ethqos_read_iomacro_por_values(struct qcom_ethqos *ethqos)
 {
@@ -2301,8 +2301,9 @@ static void ethqos_is_ipv6_NW_stack_ready(struct work_struct *work)
 	flush_delayed_work(&ethqos->ipv6_addr_assign_wq);
 }
 
-static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
-				      struct qcom_ethqos *ethqos)
+static void ethqos_set_early_eth_param(
+				struct stmmac_priv *priv,
+				struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
 
@@ -2329,12 +2330,7 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 			schedule_delayed_work(&ethqos->ipv6_addr_assign_wq,
 					      msecs_to_jiffies(1000));
 	}
-
-	if (pparams.is_valid_mac_addr) {
-		ether_addr_copy(dev_addr, pparams.mac_addr);
-		memcpy(priv->dev->dev_addr, dev_addr, ETH_ALEN);
-	}
-	return ret;
+	return;
 }
 
 bool qcom_ethqos_ipa_enabled(void)
@@ -2555,6 +2551,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ndev = dev_get_drvdata(&ethqos->pdev->dev);
 	priv = netdev_priv(ndev);
+
+	if (pparams.is_valid_mac_addr) {
+		ether_addr_copy(dev_addr, pparams.mac_addr);
+		memcpy(priv->dev->dev_addr, dev_addr, ETH_ALEN);
+	}
 
 	if (ethqos->early_eth_enabled) {
 		/* Initialize work*/
