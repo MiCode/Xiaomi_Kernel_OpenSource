@@ -839,9 +839,10 @@ static int trusty_task_kick(void *data)
 	while (!kthread_should_stop()) {
 		wait_for_completion_interruptible_timeout(
 				&tctx->task_info[TRUSTY_TASK_KICK_ID].run, timeout);
-		if (atomic_read(&tctx->task_info[TRUSTY_TASK_KICK_ID].task_num))
+		if (atomic_read(&tctx->task_info[TRUSTY_TASK_KICK_ID].task_num)) {
 			kick_vqs(tctx);
-		else
+			trusty_dump_systrace(tctx->trusty_dev, NULL);
+		} else
 			timeout = msecs_to_jiffies(1000);
 	}
 	pr_info("tee%d/%s_%d -<\n", tctx->tee_id, __func__, task_idx);

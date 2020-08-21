@@ -47,7 +47,11 @@ int trusty_adjust_task_attr(struct device *dev,
 		struct trusty_task_attr *manual_task_attr);
 enum {
 	TRUSTY_CALLBACK_VIRTIO_WQ_ATTR = 1,
+	TRUSTY_CALLBACK_SYSTRACE,
 };
+
+#define ENABLE_GZ_TRACE_DUMP (IS_ENABLED(CONFIG_FTRACE) & 0)
+int trusty_dump_systrace(struct device *dev, void *data);
 
 struct ns_mem_page_info {
 	uint64_t attr;
