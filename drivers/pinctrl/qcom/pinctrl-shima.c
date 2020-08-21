@@ -1853,7 +1853,7 @@ static const struct msm_pingroup shima_groups[] = {
 };
 
 static const int shima_reserved_gpios[] = {
-	24, 25, 26, 27, 40, 41, 42, 43, -1
+	4, 5, 6, 7, 40, 41, 52, 53, 54, 55, 56, 57, 58, 59, -1
 };
 
 static struct pinctrl_qup shima_qup_regs[] = {
