@@ -245,6 +245,8 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 		err = -ENOMEM;
 		goto out;
 	}
+	keyslot_manager_set_max_dun_bytes(hba->ksm, sizeof(u64));
+
 	pr_debug("%s: keyslot manager created\n", __func__);
 
 	return 0;
