@@ -72,6 +72,7 @@ static void dump_gals_reg(bool dump_vpu, void *apu_top, u32 *gals_reg)
 		if (false == dump_vpu &&
 			i >= DBG_MUX_VPU_START_IDX &&
 			i <= DBG_MUX_VPU_END_IDX) {
+			gals_reg[i] = NO_READ_VALUE;
 			continue;
 		}
 

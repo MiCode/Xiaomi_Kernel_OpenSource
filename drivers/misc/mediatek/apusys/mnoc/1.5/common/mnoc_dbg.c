@@ -323,7 +323,6 @@ static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 static int mnoc_int_sta_dump_show(struct seq_file *m, void *v)
 {
 	seq_puts(m, "Print interrupt count and last snapshot\n");
-	//print_int_sta(m);
 	mnoc_drv.print_int_sta(m);
 
 	return 0;

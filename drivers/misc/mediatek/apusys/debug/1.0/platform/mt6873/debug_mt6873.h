@@ -10,6 +10,8 @@
 #define APUSYS_BASE (0x19000000)
 #define APUSYS_TO_INFRA_BASE (0x10000000)
 #define NA	(-1)
+#define NO_READ_VALUE (0xcdcdcdcd)
+
 
 #define DBG_MUX_SEL_COUNT (9)
 #define TOTAL_DBG_MUX_COUNT (22)
