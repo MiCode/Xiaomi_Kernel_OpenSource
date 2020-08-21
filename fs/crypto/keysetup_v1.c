@@ -25,6 +25,7 @@
 #include <keys/user-type.h>
 #include <linux/hashtable.h>
 #include <linux/scatterlist.h>
+#include <linux/bio-crypt-ctx.h>
 
 #include "fscrypt_private.h"
 
@@ -268,14 +269,23 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 {
 	u8 *derived_key;
 	int err;
+	int i;
+	union {
+		u8 bytes[FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE];
+		u32 words[FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE / sizeof(u32)];
+	} key_new;
 
 	/*Support legacy ice based content encryption mode*/
 	if ((fscrypt_policy_contents_mode(&ci->ci_policy) ==
 					  FSCRYPT_MODE_PRIVATE) &&
 					  fscrypt_using_inline_encryption(ci)) {
+		memcpy(key_new.bytes, raw_master_key, ci->ci_mode->keysize);
+
+		for (i = 0; i < ARRAY_SIZE(key_new.words); i++)
+			__cpu_to_be32s(&key_new.words[i]);
 
 		err = fscrypt_prepare_inline_crypt_key(&ci->ci_key,
-						       raw_master_key,
+						       key_new.bytes,
 						       ci->ci_mode->keysize,
 						       false,
 						       ci);
