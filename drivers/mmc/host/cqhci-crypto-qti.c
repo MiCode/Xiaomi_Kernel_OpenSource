@@ -19,6 +19,7 @@
 #include "sdhci-msm.h"
 #include "cqhci-crypto-qti.h"
 #include <linux/crypto-qti-common.h>
+#include <linux/pm_runtime.h>
 
 #define RAW_SECRET_SIZE 32
 #define MINIMUM_DUN_SIZE 512
@@ -84,9 +85,12 @@ static int cqhci_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 	crypto_alg_id = cqhci_crypto_cap_find(host, key->crypto_mode,
 					       key->data_unit_size);
 
+	pm_runtime_get_sync(&host->mmc->card->dev);
+
 	if (!cqhci_is_crypto_enabled(host) ||
 	    !cqhci_keyslot_valid(host, slot) ||
 	    !ice_cap_idx_valid(host, crypto_alg_id)) {
+		pm_runtime_put_sync(&host->mmc->card->dev);
 		return -EINVAL;
 	}
 
@@ -94,6 +98,7 @@ static int cqhci_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 
 	if (!(data_unit_mask &
 	      host->crypto_cap_array[crypto_alg_id].sdus_mask)) {
+		pm_runtime_put_sync(&host->mmc->card->dev);
 		return -EINVAL;
 	}
 
@@ -102,6 +107,7 @@ static int cqhci_crypto_qti_keyslot_program(struct keyslot_manager *ksm,
 	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
 
+	pm_runtime_put_sync(&host->mmc->card->dev);
 	return err;
 }
 
@@ -111,14 +117,19 @@ static int cqhci_crypto_qti_keyslot_evict(struct keyslot_manager *ksm,
 {
 	int err = 0;
 	struct cqhci_host *host = keyslot_manager_private(ksm);
+	pm_runtime_get_sync(&host->mmc->card->dev);
 
 	if (!cqhci_is_crypto_enabled(host) ||
-	    !cqhci_keyslot_valid(host, slot))
+	    !cqhci_keyslot_valid(host, slot)) {
+		pm_runtime_put_sync(&host->mmc->card->dev);
 		return -EINVAL;
+	}
 
 	err = crypto_qti_keyslot_evict(host->crypto_vops->priv, slot);
 	if (err)
 		pr_err("%s: failed with error %d\n", __func__, err);
+
+	pm_runtime_put_sync(&host->mmc->card->dev);
 
 	return err;
 }
