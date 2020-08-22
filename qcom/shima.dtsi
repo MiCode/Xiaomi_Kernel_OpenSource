@@ -3389,7 +3389,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_sleep>;
 		qcom,bt-reset-gpio = <&tlmm 65 0>; /* BT_EN */
-		qcom,bt-sw-ctrl-gpio = <&tlmm 66 0>; /* SW_CTRL */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 91 0>; /* SW_CTRL */
 
 		qcom,bt-vdd-io-supply = <&S10B>;
 		qcom,bt-vdd-aon-supply = <&S2C>;
