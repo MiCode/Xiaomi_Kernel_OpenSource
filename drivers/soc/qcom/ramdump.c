@@ -213,9 +213,7 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	copy_size = min_t(size_t, count, (size_t)MAX_IOREMAP_SIZE);
 	copy_size = min_t(unsigned long, (unsigned long)copy_size, data_left);
 
-	device_mem = (void __iomem *) vaddr;
-	origdevice_mem = device_mem;
-
+	device_mem = vaddr ? : ioremap_wc(addr, copy_size);
 	if (device_mem == NULL) {
 		pr_err("Ramdump(%s): Virtual addr is NULL:addr %lx, size %zd\n",
 			rd_dev->name, addr, copy_size);
@@ -223,6 +221,8 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 		ret = -ENOMEM;
 		goto ramdump_done;
 	}
+
+	origdevice_mem = device_mem;
 
 	alignbuf = kzalloc(copy_size, GFP_KERNEL);
 	if (!alignbuf) {
