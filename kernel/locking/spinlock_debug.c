@@ -68,7 +68,7 @@ static void spin_dump(raw_spinlock_t *lock, const char *msg)
 		READ_ONCE(lock->owner_cpu));
 
 #ifdef CONFIG_DEBUG_SPINLOCK_BITE_ON_BUG
-	msm_trigger_wdog_bite();
+	qcom_wdt_trigger_bite();
 #elif defined(CONFIG_DEBUG_SPINLOCK_PANIC_ON_BUG)
 	BUG();
 #endif
