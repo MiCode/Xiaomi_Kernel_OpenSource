@@ -226,7 +226,6 @@ static int put_v4l2_window32(struct v4l2_window __user *p64,
 
 struct v4l2_format32 {
 	__u32	type;	/* enum v4l2_buf_type */
-	__s32   request_fd;
 	union {
 		struct v4l2_pix_format	pix;
 		struct v4l2_pix_format_mplane	pix_mp;
@@ -310,15 +309,8 @@ static int __get_v4l2_format32(struct v4l2_format __user *p64,
 				    sizeof(p64->fmt.pix)) ? -EFAULT : 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-#ifdef CONFIG_VIDEO_MTK_ISP_COMMON
-		return copy_in_user(&p64->fmt.pix_mp, &p32->fmt.pix_mp,
-				    sizeof(p64->fmt.pix_mp)) ||
-			assign_in_user(&p64->request_fd,
-				       &p32->request_fd) ? -EFAULT : 0;
-#else
 		return copy_in_user(&p64->fmt.pix_mp, &p32->fmt.pix_mp,
 				    sizeof(p64->fmt.pix_mp)) ? -EFAULT : 0;
-#endif
 	case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY:
 		return get_v4l2_window32(&p64->fmt.win, &p32->fmt.win,

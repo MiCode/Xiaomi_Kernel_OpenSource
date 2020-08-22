@@ -2360,7 +2360,6 @@ struct v4l2_meta_format {
  */
 struct v4l2_format {
 	__u32	 type;
-	__s32    request_fd;
 	union {
 		struct v4l2_pix_format		pix;     /* V4L2_BUF_TYPE_VIDEO_CAPTURE */
 		struct v4l2_pix_format_mplane	pix_mp;  /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
