@@ -44,35 +44,6 @@ properties:
      Value type: <prop-encoded-array>
      Definition: should contain bark and bite irq numbers
 
-  qcom,pet-time:
-     Usage: required
-     Value type: <u32>
-     Definition: Non zero time interval at which watchdog should be pet in ms.
-
-  qcom,bark-time:
-     Usage: required
-     Value type: <u32>
-     Definition: Non zero timeout value for a watchdog bark in ms.
-
-  qcom,userspace-watchdog:
-     Usage: optional
-     Value type: <boolean>
-     Definition: Allow enabling the userspace-watchdog feature. This feature
-          requires userspace to pet the watchdog every qcom,pet-time interval
-          in addition to the existing kernel-level checks.
-          This feature is supported through device sysfs files.
-
-  qcom,ipi-ping:
-     Usage: optional
-     Value type: <boolean>
-     Definition: send keep alive ping to other cpus if present
-
-  qcom,wakeup-enable:
-     Usage: optional
-     Value type: <boolean>
-     Definition: enable non secure watchdog to freeze / unfreeze
-          automatically across suspend / resume path.
-
 example:
   - |
     wdog: qcom,wdt@17c10000{
@@ -81,9 +52,5 @@ example:
 	reg-names = "wdt-base";
 	interrupts = <0 0 IRQ_TYPE_LEVEL_HIGH>,
                 <0 1 IRQ_TYPE_LEVEL_HIGH>;
-	qcom,bark-time = <11000>;
-	qcom,pet-time = <9360>;
-	qcom,ipi-ping;
-	qcom,wakeup-enable;
     };
 ...
