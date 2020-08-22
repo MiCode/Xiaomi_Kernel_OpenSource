@@ -224,4 +224,8 @@ struct mtk_cam_request *mtk_cam_dev_get_req(struct mtk_cam_device *cam,
 					    unsigned int frame_seq_no);
 void isp_composer_create_session(struct mtk_cam_device *cam,
 					struct mtk_cam_ctx *ctx);
+
+s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp);
+void set_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp, s32 request_fd);
+
 #endif /*__MTK_CAM_H*/

@@ -234,6 +234,31 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 	return 0;
 }
 
+s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp)
+{
+	int field;
+	int reserved_fields = 4;
+	s32 request_fd = 0;
+
+	for (field = 0; field < reserved_fields; field++) {
+		request_fd +=
+			fmt_mp->reserved[field] << BITS_PER_BYTE * field;
+		fmt_mp->reserved[field] = 0;
+	}
+
+	return request_fd;
+}
+
+void set_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp, s32 request_fd)
+{
+	u8 *reserved = fmt_mp->reserved;
+
+	reserved[0] = request_fd & 0x000000FF;
+	reserved[1] = request_fd & 0x0000FF00;
+	reserved[2] = request_fd & 0x00FF0000;
+	reserved[3] = request_fd & 0xFF000000;
+}
+
 static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			      struct mtk_cam_request *req)
 {
@@ -272,7 +297,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				return ret;
 			}
 
-			fd = node->pending_fmt.request_fd;
+			fd = get_format_request_fd(&node->pending_fmt.fmt.pix_mp);
 			if (fd > 0) {
 				request = media_request_get_by_fd
 						(&cam->media_dev, fd);
@@ -281,7 +306,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 					fmt = &node->pending_fmt;
 					video_try_fmt(node, fmt);
 					node->active_fmt = *fmt;
-					node->pending_fmt.request_fd = 0;
 				}
 			}
 
@@ -310,7 +334,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				return ret;
 			}
 
-			fd = node->pending_fmt.request_fd;
+			fd = get_format_request_fd(&node->pending_fmt.fmt.pix_mp);
 			if (fd > 0) {
 				request = media_request_get_by_fd(
 					&cam->media_dev, fd);
@@ -319,7 +343,6 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 					fmt = &node->pending_fmt;
 					video_try_fmt(node, fmt);
 					node->active_fmt = *fmt;
-					node->pending_fmt.request_fd = 0;
 				}
 			}
 

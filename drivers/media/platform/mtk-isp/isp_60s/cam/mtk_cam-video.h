@@ -89,6 +89,7 @@ struct mtk_cam_video_device {
 	struct video_device vdev;
 	struct media_pad pad;
 	struct v4l2_format active_fmt;
+	/* use first 4 elements of reserved of v4l2_pix_format_mplane as request fd */
 	struct v4l2_format pending_fmt;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
