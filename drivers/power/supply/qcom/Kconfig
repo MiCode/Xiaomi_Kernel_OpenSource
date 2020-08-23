@@ -36,7 +36,7 @@ config QPNP_SMB5
 
 config SMB1398_CHARGER
 	tristate "SMB1398 power supply framework based driver"
-	depends on MFD_I2C_PMIC
+	depends on MFD_I2C_PMIC && IIO
 	help
 	  Say Y to include the support of SMB1398 Charge driver based on power
 	  supply framework.
