@@ -481,6 +481,13 @@
 		#interrupt-cells = <2>;
 	};
 
+	cache-controller@19200000 {
+		compatible = "qcom,waipio-llcc", "qcom,llcc-v2";
+		reg = <0x19200000 0x580000> , <0x19A00000 0x80000>;
+		reg-names = "llcc_base", "llcc_broadcast_base";
+		cap-based-alloc-and-pwr-collapse;
+	};
+
 	clocks {
 		xo_board: xo_board {
 			compatible = "fixed-clock";
