@@ -22,6 +22,8 @@
 			compatible = "qcom,lpi-pinctrl";
 			reg = <0xa7c0000 0x0>;
 			qcom,slew-reg = <0x0a95a000 0x0>;
+			clock-names = "lpass_audio_hw_vote";
+			clocks = <&lpass_audio_hw_vote 0>;
 			qcom,gpios-count = <19>;
 			gpio-controller;
 			#gpio-cells = <2>;
