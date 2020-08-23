@@ -1,0 +1,358 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+
+#include <linux/errno.h>
+#include <linux/slab.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
+#include <linux/dma-mapping.h>
+#include <linux/highmem.h>
+#include <asm/mman.h>
+#include <linux/iommu.h>
+#include <linux/module.h>
+
+#include "reviser_cmn.h"
+#include "reviser_mem.h"
+#include "reviser_drv.h"
+
+static struct reviser_mem g_mem_sys;
+
+static int __reviser_free_iova(struct device *dev, size_t len,
+		dma_addr_t given_iova)
+{
+	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
+	struct iommu_domain *domain;
+	dma_addr_t iova;
+	size_t size = len;
+	size_t ret;
+
+	domain = iommu_get_domain_for_dev(dev);
+	iova = given_iova;
+
+	ret = iommu_unmap(domain, iova, size);
+	if (ret != size) {
+		LOG_ERR("iommu_unmap iova: %llx, returned: %zx, expected: %zx\n",
+					(u64)iova, ret, size);
+
+		return -1;
+	}
+
+	return 0;
+}
+
+
+static int __reviser_get_sgt(const char *buf,
+		size_t len, struct sg_table *sgt)
+{
+	struct page **pages = NULL;
+	unsigned int nr_pages;
+	unsigned int index;
+	const char *p;
+	int ret;
+
+	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
+		- ((unsigned long)buf / PAGE_SIZE);
+	pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
+
+	if (!pages)
+		return -ENOMEM;
+
+	p = buf - offset_in_page(buf);
+	LOG_DEBUG("start p: %llx buf: %llx\n",
+			(uint64_t)p, (uint64_t)buf);
+
+	for (index = 0; index < nr_pages; index++) {
+		if (is_vmalloc_addr(p))
+			pages[index] = vmalloc_to_page(p);
+		else
+			pages[index] = kmap_to_page((void *)p);
+		if (!pages[index]) {
+			kfree(pages);
+			LOG_ERR("map failed\n");
+			return -EFAULT;
+		}
+		p += PAGE_SIZE;
+	}
+
+
+	ret = sg_alloc_table_from_pages(sgt, pages, index,
+		offset_in_page(buf), len, GFP_KERNEL);
+	kfree(pages);
+	if (ret) {
+		LOG_ERR("sg_alloc_table_from_pages: %d\n", ret);
+		return ret;
+	}
+
+
+
+	LOG_DEBUG("buf: %p, len: %lx, sgt: %p nr_pages: %d\n",
+		buf, len, sgt, nr_pages);
+
+	return 0;
+}
+
+static dma_addr_t __reviser_get_iova(
+	struct device *dev, struct scatterlist *sg,
+	unsigned int nents, size_t len, dma_addr_t given_iova)
+{
+	struct iommu_domain *domain;
+	dma_addr_t iova = 0;
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	uint32_t addr;
+	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
+	dma_addr_t boundary_mask;
+	size_t iova_size;
+
+	domain = iommu_get_domain_for_dev(dev);
+
+	iova = given_iova;
+	//Need to check boundary region with iommu team every project
+	boundary_mask = (dma_addr_t) rdv->plat.boundary << 32;
+	iova |= boundary_mask;
+
+	iova_size = iommu_map_sg(domain, iova, sg, nents, prot);
+
+	if (iova_size == 0) {
+		LOG_ERR("iommu_map_sg: len: %zx, iova: %llx, failed\n",
+			len, (u64)iova);
+		goto err;
+	} else if (iova_size != len) {
+		LOG_ERR("iommu_map_sg: len: %zx, iova: %llx, mismatch with mapped size: %zx\n",
+			len, (u64)iova, iova_size);
+		goto err;
+	}
+	LOG_INFO("sg_dma_address: size: %lx, mapped iova: 0x%llx iova_size: %lx\n",
+		len, (uint64_t)iova, iova_size);
+
+	return iova;
+
+err:
+	return 0;
+}
+
+int reviser_mem_free(struct device *dev, struct reviser_mem *mem)
+{
+	int ret = 0;
+	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
+
+
+	LOG_ERR("iova dram_offset (0x%llx)\n", rdv->plat.dram_offset);
+
+	kvfree((void *) mem->kva);
+
+	if (!__reviser_free_iova(dev, mem->size, mem->iova)) {
+		sg_free_table(&mem->sgt);
+		ret = 0;
+		LOG_INFO("mem free (0x%x/%d/0x%llx)\n",
+				mem->iova, mem->size, mem->kva);
+	} else {
+		ret = -1;
+		LOG_INFO("mem free fail(0x%x/%d/0x%llx)\n",
+				mem->iova, mem->size, mem->kva);
+	}
+
+	return 0;
+}
+
+int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem)
+{
+	int ret = 0;
+	void *kva;
+	dma_addr_t iova;
+	struct reviser_dev_info *rdv = dev_get_drvdata(dev);
+
+	kva = kvmalloc(mem->size, GFP_KERNEL);
+
+	if (!kva) {
+		LOG_ERR("kvmalloc: failed\n");
+		ret = -ENOMEM;
+		goto error;
+	}
+	memset((void *)kva, 0, mem->size);
+
+	if (__reviser_get_sgt(kva, mem->size, &mem->sgt)) {
+		LOG_ERR("get sgt: failed\n");
+		ret = -ENOMEM;
+		goto error;
+	}
+
+	iova = __reviser_get_iova(dev, mem->sgt.sgl, mem->sgt.nents,
+			mem->size, rdv->plat.dram_offset);
+	if ((!iova) || ((uint32_t)iova != rdv->plat.dram_offset)) {
+		LOG_ERR("iova wrong (0x%llx)\n", iova);
+		goto error;
+	}
+
+#ifndef MODULE
+	/*
+	 * Avoid a kmemleak false positive.
+	 * The pointer is using for debugging,
+	 * but it will be used by other apusys HW
+	 */
+	kmemleak_no_scan(kva);
+#endif
+	mem->kva = (uint64_t)kva;
+	mem->iova = (uint64_t)iova;
+
+	LOG_INFO("mem(0x%x/%d/0x%llx)\n",
+			mem->iova, mem->size, mem->kva);
+
+	goto out;
+
+error:
+	kvfree(kva);
+out:
+	return ret;
+
+}
+
+int reviser_mem_invalidate(struct device *dev, struct reviser_mem *mem)
+{
+	dma_sync_sg_for_cpu(dev, mem->sgt.sgl, mem->sgt.nents,
+		DMA_FROM_DEVICE);
+
+	return 0;
+}
+
+
+int reviser_dram_remap_init(void *drvinfo)
+{
+	struct reviser_dev_info *rdv = NULL;
+	unsigned int ctx_max = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
+			+ rdv->plat.edma_max + rdv->plat.up_max;
+	//g_mem_sys.size = REMAP_DRAM_SIZE;
+	g_mem_sys.size = rdv->plat.vlm_size * ctx_max;
+	if (reviser_mem_alloc(rdv->dev, &g_mem_sys)) {
+		LOG_ERR("alloc fail\n");
+		return -ENOMEM;
+	}
+
+	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
+
+	rdv->dram_base = (void *) g_mem_sys.kva;
+
+	return 0;
+}
+int reviser_dram_remap_destroy(void *drvinfo)
+{
+	struct reviser_dev_info *rdv = NULL;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
+	rdv = (struct reviser_dev_info *)drvinfo;
+
+	reviser_mem_free(rdv->dev, &g_mem_sys);
+	rdv->dram_base = NULL;
+	return 0;
+}
+
+void reviser_print_dram(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *rdv = NULL;
+	int index;
+	unsigned char *data;
+	struct seq_file *s = (struct seq_file *)s_file;
+	unsigned int ctx_max = 0;
+	unsigned int vlm_size = 0;
+	unsigned int vlm_bank_size = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+	data = (unsigned char *)rdv->dram_base;
+
+	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
+			+ rdv->plat.edma_max + rdv->plat.up_max;
+	vlm_size = rdv->plat.vlm_size;
+	vlm_bank_size = rdv->plat.bank_size;
+
+	reviser_mem_invalidate(rdv->dev, &g_mem_sys);
+
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser dram table info\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "== PAGE[NUM] == [BANK0][BANK1][BANK2][BANK3]\n");
+	LOG_CON(s, "-----------------------------\n");
+
+	for (index = 0; index < ctx_max; index++) {
+		LOG_CON(s, "== PAGE[%02d] == [%02x][%02x][%02x][%02x]\n",
+				index,
+				*(data + vlm_size*index + vlm_bank_size*0),
+				*(data + vlm_size*index + vlm_bank_size*1),
+				*(data + vlm_size*index + vlm_bank_size*2),
+				*(data + vlm_size*index + vlm_bank_size*3));
+
+	}
+
+
+	LOG_CON(s, "=============================\n");
+	return;
+
+}
+
+void reviser_print_tcm(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *rdv = NULL;
+	uint8_t bank0[32], bank1[32], bank2[32], bank3[32];
+	struct seq_file *s = (struct seq_file *)s_file;
+	unsigned int vlm_bank_size = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	rdv = (struct reviser_dev_info *)drvinfo;
+	vlm_bank_size = rdv->plat.bank_size;
+
+	if (rdv->plat.tcm_size == 0) {
+		LOG_ERR("invalid TCM\n");
+		return;
+	}
+
+	memcpy_fromio(bank0, rdv->tcm_base + vlm_bank_size*0, 32);
+	memcpy_fromio(bank1, rdv->tcm_base + vlm_bank_size*1, 32);
+	memcpy_fromio(bank2, rdv->tcm_base + vlm_bank_size*2, 32);
+	memcpy_fromio(bank3, rdv->tcm_base + vlm_bank_size*3, 32);
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser tcm table info\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "== BANK[NUM] == [DATA][DATA][DATA][DATA]\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "== BANK[0] == [%02x][%02x][%02x]\n",
+					*(bank0), *(bank0 + 1), *(bank0 + 2));
+	LOG_CON(s, "== BANK[1] == [%02x][%02x][%02x]\n",
+					*(bank1), *(bank1 + 1), *(bank1 + 2));
+	LOG_CON(s, "== BANK[2] == [%02x][%02x][%02x]\n",
+					*(bank2), *(bank2 + 1), *(bank2 + 2));
+	LOG_CON(s, "== BANK[3] == [%02x][%02x][%02x]\n",
+					*(bank3), *(bank3 + 1), *(bank3 + 2));
+	LOG_CON(s, "=============================\n");
+	return;
+
+}
+
+

@@ -21,6 +21,7 @@ APUSYS_VERSION_DEBUG = 1.0
 APUSYS_VERSION_MNOC = 1.5
 APUSYS_VERSION_VPU = 4.5
 APUSYS_VERSION_POWER_PLATFORM = mt6873
+APUSYS_VERSION_REVISER = 1.5
 
 # target object
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += apusys.o
@@ -74,6 +75,33 @@ apusys-objs += edma/edma_cmd_hnd.o
 apusys-objs += edma/edma_plat_device.o
 apusys-objs += edma/edma_v20.o
 #apusys-objs += edma/apusys_power_dummy.o
+
+
+# reviser driver makefile
+REVISER=$(srctree)/drivers/misc/mediatek/apusys/
+REVISER_PLAT=reviser/$(APUSYS_VERSION_REVISER)/platform
+REVISER_COMN=reviser/$(APUSYS_VERSION_REVISER)/common
+
+ccflags-y += -I$(REVISER)/$(REVISER_PLAT)
+ccflags-y += -I$(REVISER)/$(REVISER_COMN)
+ccflags-y += -I$(REVISER)/$(REVISER_PLAT)/v_1_0
+
+apusys-objs += $(REVISER_COMN)/reviser_drv.o
+apusys-objs += $(REVISER_COMN)/reviser_dbg.o
+apusys-objs += $(REVISER_COMN)/reviser_export.o
+apusys-objs += $(REVISER_COMN)/reviser_hw_mgt.o
+apusys-objs += $(REVISER_COMN)/reviser_mem.o
+apusys-objs += $(REVISER_COMN)/reviser_power.o
+apusys-objs += $(REVISER_COMN)/reviser_table_mgt.o
+
+apusys-objs += $(REVISER_PLAT)/reviser_device.o
+apusys-objs += $(REVISER_PLAT)/reviser_plat.o
+
+apusys-objs += $(REVISER_PLAT)/v_1_0/reviser_hw_v1_0.o
+apusys-objs += $(REVISER_PLAT)/v_1_0/reviser_plat_v1_0.o
+apusys-objs += $(REVISER_PLAT)/v_1_0/reviser_reg_v1_0.o
+
+
 
 # mnoc makefile
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(APUSYS_VERSION_MNOC)/common/
@@ -163,3 +191,4 @@ apusys-objs += $(VPU)/vpu_mem.o
 apusys-objs += $(VPU)/vpu_power.o
 apusys-objs += $(VPU)/vpu_cfg.o
 endif
+
