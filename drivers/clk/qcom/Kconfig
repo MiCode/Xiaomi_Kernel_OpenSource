@@ -523,4 +523,13 @@ config MSM_VIDEOCC_WAIPIO
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config MSM_GPUCC_WAIPIO
+	tristate "Waipio Graphics Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  WAIPIO devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
 endif
