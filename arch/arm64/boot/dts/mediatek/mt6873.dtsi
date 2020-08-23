@@ -3177,6 +3177,19 @@
 			#clock-cells = <1>;
 		};
 
+		apusys_reviser@19021000 {
+			compatible = "mediatek, mt6873-reviser";
+			reg = <0 0x19021000 0 0x1000>,		/* apu_sctrl_reviser  */
+				  <0 0x1d800000 0 0x200000>,	/* VLM          */
+				  <0 0x1d000000 0 0x100000>,	/* TCM          */
+				  <0 0x19001000 0 0x1000>;		/* apusys int */
+			interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH 0>;
+			default-dram = <0x4000000>;
+			boundary = <0x3>;
+			dma-ranges = <0x3 0x0 0x3 0x0 0x1 0x0>;
+			iommus = <&iommu1 M4U_PORT_L22_APU_VLM>;
+		};
+
 		edma0: edma0@19027000 {
 			compatible = "mtk,edma-sub-v20";
 			reg = <0x0 0x19027000 0x0 0x1000>;
