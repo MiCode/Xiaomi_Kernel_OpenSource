@@ -606,7 +606,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	}
 
 	/* unmap the DL pipe */
-	result = ipa3_smmu_map_uc_ntn_pipes(&params->dl, false, true);
+	result = ipa3_smmu_map_uc_ntn_pipes(&params->dl, false, false);
 	if (result) {
 		IPAERR("failed to unmap SMMU for DL %d\n", result);
 		goto fail;
@@ -627,7 +627,7 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 	}
 
 	/* unmap the UL pipe */
-	result = ipa3_smmu_map_uc_ntn_pipes(&params->ul, false, false);
+	result = ipa3_smmu_map_uc_ntn_pipes(&params->ul, false, true);
 	if (result) {
 		IPAERR("failed to unmap SMMU for UL %d\n", result);
 		goto fail;
