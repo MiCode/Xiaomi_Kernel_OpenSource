@@ -2411,10 +2411,11 @@
 	};
 
 	icnss: qcom,icnss@C800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
-		reg = <0xC800000 0x800000>;
-		reg-names = "membase";
+		reg = <0xC800000 0x800000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_ipa";
+		iommus = <&apps_smmu 0x80 0x1>;
 		interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH /* CE0 */ >,
 			     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH /* CE1 */ >,
 			     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH /* CE2 */ >,
@@ -2429,6 +2430,15 @@
 			     <GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH /* CE11 */ >;
 		qcom,iommu-dma = "bypass";
 		qcom,wlan-msa-fixed-region = <&pil_wlan_mem>;
+		qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
+		vdd-cx-mx-supply = <&L4A>;
+		vdd-1.8-xo-supply = <&L7A>;
+		vdd-1.3-rfa-supply = <&L2E>;
+		vdd-3.3-ch1-supply = <&L11E>;
+		vdd-3.3-ch0-supply = <&L10E>;
+		qcom,vdd-cx-mx-config = <0 0>;
+		qcom,vdd-3.3-ch1-config = <3000000 3312000>;
+		qcom,vdd-3.3-ch0-config = <3000000 3312000>;
 		qcom,smp2p_map_wlan_1_in {
 			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
 					      <&smp2p_wlan_1_in 1 0>;
