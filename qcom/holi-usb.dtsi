@@ -8,9 +8,13 @@
 		reg = <0x4e00000 0x100000>;
 		reg-names = "core_base";
 
+		iommus = <&apps_smmu 0xe0 0x0>;
+		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
+		dma-ranges;
 
 		interrupts-extended = <&intc GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>,
 			<&wakegic 12 IRQ_TYPE_LEVEL_HIGH>,
