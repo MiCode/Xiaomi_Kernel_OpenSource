@@ -7,6 +7,7 @@
 #include <linux/errno.h>
 #include <linux/list.h>
 #include <linux/slab.h>
+#include "mdw_import.h"
 
 #ifdef APUSYS_MDW_MNOC_SUPPORT
 #include "mnoc_api.h"
