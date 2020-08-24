@@ -139,12 +139,19 @@ extern void *g_APU_APMIXED_BASE;
 
 #define	APU0_BASE			(g_APU_VPU0_BASE)
 #define APU0_APU_CG_CON			(void *)(APU0_BASE+0x100)
+#define APU0_APU_CG_SET			(void *)(APU0_BASE + 0x104)
+#define APU0_APU_CG_CLR			(void *)(APU0_BASE + 0x108)
 
 #define	APU1_BASE			(g_APU_VPU1_BASE)
 #define APU1_APU_CG_CON			(void *)(APU1_BASE+0x100)
+#define APU1_APU_CG_SET			(void *)(APU1_BASE + 0x104)
+#define APU1_APU_CG_CLR			(void *)(APU1_BASE + 0x108)
 
 #define	APU_MDLA0_BASE			(g_APU_MDLA0_BASE)
 #define APU_MDLA0_APU_MDLA_CG_CON	(void *)(APU_MDLA0_BASE+0x000)
+#define APU_MDLA0_APU_MDLA_CG_SET	(void *)(APU_MDLA0_BASE+0x004)
+#define APU_MDLA0_APU_MDLA_CG_CLR	(void *)(APU_MDLA0_BASE+0x008)
+
 
 /**************************************************
  * Clock Setting

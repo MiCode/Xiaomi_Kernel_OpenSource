@@ -634,7 +634,8 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	int rpc_alive = 0;
 
 	// Async APU_TOP off
-	if (domain_idx == 0 && mode == 0)
+	if (domain_idx == 0 &&
+		((mode == 0) || (mode == 2)))
 		return 0;
 
 	// check SPM_CROSS_WAKE_M01_REQ
