@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -417,12 +417,12 @@ int ipa3_dma_enable(void)
 	IPADMA_FUNC_ENTRY();
 	if ((ipa3_dma_ctx == NULL) ||
 		(ipa3_dma_init_refcnt_ctrl->ref_cnt < 1)) {
-		IPADMA_ERR("IPADMA isn't initialized, can't enable\n");
+		IPAERR_RL("IPADMA isn't initialized, can't enable\n");
 		return -EINVAL;
 	}
 	mutex_lock(&ipa3_dma_ctx->enable_lock);
 	if (ipa3_dma_ctx->enable_ref_cnt > 0) {
-		IPADMA_ERR("Already enabled refcnt=%d\n",
+		IPAERR_RL("Already enabled refcnt=%d\n",
 			ipa3_dma_ctx->enable_ref_cnt);
 		ipa3_dma_ctx->enable_ref_cnt++;
 		mutex_unlock(&ipa3_dma_ctx->enable_lock);
@@ -475,26 +475,26 @@ int ipa3_dma_disable(void)
 	IPADMA_FUNC_ENTRY();
 	if ((ipa3_dma_ctx == NULL) ||
 		(ipa3_dma_init_refcnt_ctrl->ref_cnt < 1)) {
-		IPADMA_ERR("IPADMA isn't initialized, can't disable\n");
+		IPAERR_RL("IPADMA isn't initialized, can't disable\n");
 		return -EINVAL;
 	}
 	mutex_lock(&ipa3_dma_ctx->enable_lock);
 	spin_lock_irqsave(&ipa3_dma_ctx->pending_lock, flags);
 	if (ipa3_dma_ctx->enable_ref_cnt > 1) {
-		IPADMA_DBG("Multiple enablement done. refcnt=%d\n",
+		IPAERR_RL("Multiple enablement done. refcnt=%d\n",
 			ipa3_dma_ctx->enable_ref_cnt);
 		ipa3_dma_ctx->enable_ref_cnt--;
 		goto completed;
 	}
 
 	if (ipa3_dma_ctx->enable_ref_cnt == 0) {
-		IPADMA_ERR("Already disabled\n");
+		IPAERR_RL("Already disabled\n");
 		res = -EPERM;
 		goto completed;
 	}
 
 	if (ipa3_dma_work_pending()) {
-		IPADMA_ERR("There is pending work, can't disable.\n");
+		IPAERR_RL("There is pending work, can't disable.\n");
 		res = -EFAULT;
 		goto completed;
 	}
