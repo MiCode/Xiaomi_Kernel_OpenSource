@@ -5398,3 +5398,6 @@
 		compatible = "mediatek,atf_logger";
 	};
 };
+
+#include "trusty.dtsi"
+
