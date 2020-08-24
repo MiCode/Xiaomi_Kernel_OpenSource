@@ -41,6 +41,7 @@ static int convert_prio(int prio)
 	return cpupri;
 }
 
+#ifdef CONFIG_SCHED_WALT
 /**
  * drop_nopreempt_cpus - remove a cpu from the mask if it is likely
  *			 non-preemptible
@@ -61,9 +62,16 @@ drop_nopreempt_cpus(struct cpumask *lowest_mask)
 		cpu = cpumask_next(cpu, lowest_mask);
 	}
 }
+#endif /* CONFIG_SCHED_WALT */
 
+#ifndef CONFIG_SCHED_WALT
 static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
 				struct cpumask *lowest_mask, int idx)
+#else
+static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
+				struct cpumask *lowest_mask, int idx,
+				bool drop_nopreempts)
+#endif
 {
 	struct cpupri_vec *vec  = &cp->pri_to_cpu[idx];
 	int skip = 0;
@@ -100,6 +108,13 @@ static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
 	if (lowest_mask) {
 		cpumask_and(lowest_mask, p->cpus_ptr, vec->mask);
 
+#ifdef CONFIG_SCHED_WALT
+		if (drop_nopreempts)
+			drop_nopreempt_cpus(lowest_mask);
+
+		cpumask_andnot(lowest_mask, lowest_mask,
+			       cpu_isolated_mask);
+#endif
 		/*
 		 * We have to ensure that we have at least one bit
 		 * still set in the array, since the map could have
@@ -144,25 +159,27 @@ int cpupri_find_fitness(struct cpupri *cp, struct task_struct *p,
 {
 	int task_pri = convert_prio(p->prio);
 	int idx, cpu;
+
+#ifdef CONFIG_SCHED_WALT
 	bool drop_nopreempts = task_pri <= MAX_RT_PRIO;
+#endif
 
 	BUG_ON(task_pri >= CPUPRI_NR_PRIORITIES);
 
+#ifdef CONFIG_SCHED_WALT
 retry:
+#endif
 	for (idx = 0; idx < task_pri; idx++) {
 
+#ifndef CONFIG_SCHED_WALT
 		if (!__cpupri_find(cp, p, lowest_mask, idx))
+#else
+		if (!__cpupri_find(cp, p, lowest_mask, idx, drop_nopreempts))
 			continue;
+#endif
 
 		if (!lowest_mask || !fitness_fn)
 			return 1;
-
-#ifdef CONFIG_SCHED_WALT
-		cpumask_andnot(lowest_mask, lowest_mask,
-			       cpu_isolated_mask);
-#endif
-		if (drop_nopreempts)
-			drop_nopreempt_cpus(lowest_mask);
 
 		/* Ensure the capacity of the CPUs fit the task */
 		for_each_cpu(cpu, lowest_mask) {
@@ -179,6 +196,8 @@ retry:
 
 		return 1;
 	}
+
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * If we can't find any non-preemptible cpu's, retry so we can
 	 * find the lowest priority target and avoid priority inversion.
@@ -187,6 +206,7 @@ retry:
 		drop_nopreempts = false;
 		goto retry;
 	}
+#endif
 
 	/*
 	 * If we failed to find a fitting lowest_mask, kick off a new search
