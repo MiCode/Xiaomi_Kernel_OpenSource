@@ -101,6 +101,32 @@ static unsigned int emi_a2d_con_offset[] = {
 static struct emi_cen *global_emi_cen;
 
 /*
+ * NoteXXX: emimpu_ap_region_init() will initialize the latest EMI MPU
+ * region for AP CPU. It must be called after initialization of drivers
+ * in which call mtk_emimpu_set_protection() to initialize other EMI
+ * MPU regions.
+ *
+ * For guaranteeing the call sequence, emimpu_ap_region_init() is
+ * either called via late_initcall_sync (when EMI drivers are not built
+ * as kernel modules) or called in emicen_init() (When EMI drivers are
+ * kernel modules).
+ *
+ * Scenario #1: EMI drivers are kernel modules:
+ * Other drivers (which call mtk_emimpu_set_protection()) must be
+ * loaded before emi-cen.ko is loaded.
+ *
+ * Scenario #2. EMI drivers are NOT kernel modules:
+ * Other drivers must be initialized before kernel's initcall stage.
+ */
+#if !defined(MODULE)
+static int __init emicen_init_mpu_ap_region(void)
+{
+	emimpu_ap_region_init();
+}
+late_initcall_sync(emicen_init_mpu_ap_region);
+#endif
+
+/*
  * mtk_emicen_get_ch_cnt - get the channel count
  *
  * Returns the channel count
@@ -766,6 +792,9 @@ static __init int emicen_init(void)
 		return ret;
 	}
 
+#if defined(MODULE)
+	emimpu_ap_region_init();
+#endif
 	return 0;
 }
 

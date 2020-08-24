@@ -204,11 +204,7 @@ ignore_violation:
 	return IRQ_HANDLED;
 }
 
-#if !defined(MODULE)
-static int __init emimpu_ap_region_init(void)
-#else
-static int emimpu_ap_region_init(void)
-#endif
+int emimpu_ap_region_init(void)
 {
 	struct emi_mpu *mpu;
 
@@ -229,9 +225,7 @@ static int emimpu_ap_region_init(void)
 
 	return 0;
 }
-#if !defined(MODULE)
-late_initcall_sync(emimpu_ap_region_init);
-#endif
+EXPORT_SYMBOL(emimpu_ap_region_init);
 
 /*
  * mtk_emimpu_init_region - init rg_info's apc data with default forbidden
@@ -830,10 +824,6 @@ static int emimpu_probe(struct platform_device *pdev)
 		"dram_start", mpu->dram_start,
 		"dram_end", mpu->dram_end,
 		"ctrl_intf", mpu->ctrl_intf);
-
-#if defined(MODULE)
-	emimpu_ap_region_init();
-#endif
 
 	return 0;
 
