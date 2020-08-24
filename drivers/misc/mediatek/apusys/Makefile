@@ -192,3 +192,6 @@ apusys-objs += $(VPU)/vpu_power.o
 apusys-objs += $(VPU)/vpu_cfg.o
 endif
 
+# devapc
+apusys-objs += devapc/dapc.o
+apusys-objs += devapc/dapc_cfg.o

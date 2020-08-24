@@ -28,6 +28,8 @@ int debug_init(struct apusys_core_info *info);
 void debug_exit(void);
 int reviser_init(struct apusys_core_info *info);
 void reviser_exit(void);
+int devapc_init(struct apusys_core_info *info);
+void devapc_exit(void);
 
 /*
  * init function at other modulses
@@ -35,6 +37,7 @@ void reviser_exit(void);
  */
 static int (*apusys_init_func[])(struct apusys_core_info *) = {
 	apu_power_drv_init,
+	devapc_init,
 	mnoc_init,
 	reviser_init,
 	mdw_mem_drv_init,
@@ -64,6 +67,7 @@ static void (*apusys_exit_func[])(void) = {
 	mdw_mem_drv_exit,
 	reviser_exit,
 	mnoc_exit,
+	devapc_exit,
 	apu_power_drv_exit,
 };
 #endif
