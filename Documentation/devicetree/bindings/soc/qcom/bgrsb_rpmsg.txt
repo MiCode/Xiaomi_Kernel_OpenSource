@@ -1,0 +1,20 @@
+Qualcomm technologies, Inc. bgrsb-rpmsg
+
+BGRSB-RPMSG : bgrsb-rpmsg is used as an interface between
+BG-RSB and Blackghost for Glink communication. bg-rsb is
+used to communicate with Blackghost over Glink to
+configure the RSB events.
+
+Required properties:
+- compatible : should be "qcom,bgrsb-rpmsg"
+- glink-channels : RSB_CTRL
+- glinkpkt-edge : bg
+- intents : <0x200 20>
+
+Example:
+	qcom,bg-rsb {
+		compatible = "qcom,bgrsb-rpmsg";
+		qcom,glink-channels = "RSB_CTRL";
+		qcom,glinkpkt-edge = "bg";
+		intents = <0x200 20>;
+	};

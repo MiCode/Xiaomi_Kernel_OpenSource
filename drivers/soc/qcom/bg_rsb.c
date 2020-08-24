@@ -582,9 +582,13 @@ static int split_bg_work(struct bgrsb_priv *dev, char *str)
 		return ret;
 
 	switch (val) {
+	case BGRSB_IN_TWM:
+		dev->is_in_twm = true;
 	case BGRSB_POWER_DISABLE:
 		queue_work(dev->bgrsb_wq, &dev->rsb_down_work);
 		break;
+	case BGRSB_OUT_TWM:
+		dev->is_in_twm = false;
 	case BGRSB_POWER_ENABLE:
 		queue_work(dev->bgrsb_wq, &dev->rsb_up_work);
 		break;
@@ -622,14 +626,6 @@ static int split_bg_work(struct bgrsb_priv *dev, char *str)
 
 		dev->bttn_configs = (uint8_t)val;
 		queue_work(dev->bgrsb_wq, &dev->bttn_configr_work);
-		break;
-	case BGRSB_IN_TWM:
-		dev->is_in_twm = true;
-	case BGRSB_GLINK_POWER_DISABLE:
-		break;
-	case BGRSB_OUT_TWM:
-		dev->is_in_twm = false;
-	case BGRSB_GLINK_POWER_ENABLE:
 		break;
 	}
 	return 0;
