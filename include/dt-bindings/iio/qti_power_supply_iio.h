@@ -119,4 +119,7 @@
 #define PSY_IIO_SCALE_MODE_EN			0x61
 #define PSY_IIO_BATT_AGE_LEVEL			0x62
 #define PSY_IIO_FG_TYPE				0x63
+
+#define PSY_IIO_TYPEC_ACCESSORY_MODE	0x64
+
 #endif /* __QTI_POWER_SUPPLY_IIO_H__ */
