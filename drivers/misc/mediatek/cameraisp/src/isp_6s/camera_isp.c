@@ -42,6 +42,13 @@
 
 #define EP_NO_K_LOG_ADJUST
 
+/* Device link is not ready. So, we should use smi api to get smi. */
+#define USE_MTK_SMI_LARB_API
+
+#ifdef USE_MTK_SMI_LARB_API
+#include <soc/mediatek/smi.h>
+#endif
+
 /* #define EP_STAGE */
 #ifdef EP_STAGE
 //#define EP_MARK_SMI /* disable SMI related for EP */
@@ -361,6 +368,9 @@ struct isp_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
+#ifdef USE_MTK_SMI_LARB_API
+	struct device *larb;
+#endif
 };
 
 struct isp_sec_dapc_reg {
@@ -1874,7 +1884,28 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 	/* must keep this clk open order: */
 	/* ISP PM domain -> CAMTG/CAMSV clock */
+#ifdef USE_MTK_SMI_LARB_API
+	if (isp_devs[ISP_CAM_A_IDX].larb) {
+		ret = mtk_smi_larb_get(isp_devs[ISP_CAM_A_IDX].larb);
+		if (ret)
+			LOG_NOTICE("mtk_smi_larb_get cam a larb fail %d\n", ret);
+	} else
+		LOG_NOTICE("No larb device for cam a\n");
 
+	if (isp_devs[ISP_CAM_B_IDX].larb) {
+		ret = mtk_smi_larb_get(isp_devs[ISP_CAM_B_IDX].larb);
+		if (ret)
+			LOG_NOTICE("mtk_smi_larb_get cam b larb fail %d\n", ret);
+	} else
+		LOG_NOTICE("No larb device for cam b\n");
+
+	if (isp_devs[ISP_CAM_C_IDX].larb) {
+		ret = mtk_smi_larb_get(isp_devs[ISP_CAM_C_IDX].larb);
+		if (ret)
+			LOG_NOTICE("mtk_smi_larb_get cam c larb fail %d\n", ret);
+	} else
+		LOG_NOTICE("No larb device for cam c\n");
+#endif
 	ret = pm_runtime_get_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime get ISP_CAMSYS_CONFIG_IDX mtcmos\n");
@@ -2009,6 +2040,20 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	if (ret < 0)
 		LOG_NOTICE("cannot pm runtime put ISP_CAMSYS_CONFIG_IDX mtcmos\n");
 
+#ifdef USE_MTK_SMI_LARB_API
+	if (isp_devs[ISP_CAM_C_IDX].larb)
+		mtk_smi_larb_put(isp_devs[ISP_CAM_C_IDX].larb);
+	else
+		LOG_NOTICE("isp_devs[ISP_CAM_C_IDX].larb is NULL!\n");
+	if (isp_devs[ISP_CAM_B_IDX].larb)
+		mtk_smi_larb_put(isp_devs[ISP_CAM_B_IDX].larb);
+	else
+		LOG_NOTICE("isp_devs[ISP_CAM_B_IDX].larb is NULL!\n");
+	if (isp_devs[ISP_CAM_A_IDX].larb)
+		mtk_smi_larb_put(isp_devs[ISP_CAM_A_IDX].larb);
+	else
+		LOG_NOTICE("isp_devs[ISP_CAM_A_IDX].larb is NULL!\n");
+#endif
 }
 
 /*******************************************************************************
@@ -6769,6 +6814,47 @@ static int ISP_probe(struct platform_device *pDev)
 			pDev->dev.of_node->name,
 			isp_devs[dev_idx].irq);
 	}
+
+#ifdef USE_MTK_SMI_LARB_API
+	if ((strncmp(pDev->dev.of_node->name, "cam1_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam2_legacy", 11) == 0) ||
+		(strncmp(pDev->dev.of_node->name, "cam3_legacy", 11) == 0)) {
+		/**
+		 * Before common kernel 5.4 iommu's device link ready.
+		 * we need to use SMI API to power on bus directly.
+		 */
+		struct device_node *node;
+		struct platform_device *larb_pdev;
+		unsigned int larb_id = 0;
+
+		node = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 0);
+		if (!node) {
+			LOG_NOTICE("%s: no mediatek,larb found\n",
+				pDev->dev.of_node->name);
+			return -EINVAL;
+		}
+		larb_pdev = of_find_device_by_node(node);
+
+		if (of_property_read_u32(node, "mediatek,larb-id", &larb_id))
+			LOG_NOTICE("Error: get larb id from DTS fail!!\n");
+		else
+			LOG_NOTICE("%s gets larb_id=%d\n", pDev->dev.of_node->name, larb_id);
+
+		of_node_put(node);
+		if (!larb_pdev) {
+			LOG_NOTICE("%s: no mediatek,larb device found\n",
+				pDev->dev.of_node->name);
+			return -ENODEV;
+		}
+		isp_devs[dev_idx].larb = &larb_pdev->dev;
+
+		LOG_NOTICE("%s: get %s\n", pDev->dev.of_node->name, larb_pdev->dev.of_node->name);
+	}
+#endif
+
+	if (dma_set_mask_and_coherent(&pDev->dev, DMA_BIT_MASK(34)))
+		LOG_NOTICE("%s: No suitable DMA available\n",
+			pDev->dev.of_node->name);
 
 	/* Only register char driver in the 1st time */
 	if (atomic_read(&G_u4DevNodeCt) == 1) {
