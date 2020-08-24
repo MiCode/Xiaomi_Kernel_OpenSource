@@ -209,20 +209,10 @@ int mnoc_qos_create_sys(struct device *dev)
 		goto out;
 	}
 
-	ret = kobject_uevent(p_mnoc->root_dir, KOBJ_ADD);
-	if (ret) {
-		LOG_ERR("%s kobject_uevent boost fail, ret %d\n", __func__, ret);
-		goto out;
-	}
-
 	/* create /sys/devices/platform/xxxx/qos */
 	ret = sysfs_create_group(&dev->kobj, &mnoc_qos_attr_group);
-	if (ret) {
-		LOG_ERR("%s create qos attribute fail, ret %d\n", __func__, ret);
-		goto out;
-	}
-
-	ret = kobject_uevent(&dev->kobj, KOBJ_CHANGE);
+	if (ret)
+		LOG_ERR("%s create platform/xxx/qos attribute fail, ret %d\n", __func__, ret);
 out:
 	return ret;
 }
@@ -231,6 +221,7 @@ void mnoc_qos_remove_sys(struct device *dev)
 {
 	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
 
-	sysfs_remove_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
 	sysfs_remove_group(&dev->kobj, &mnoc_qos_attr_group);
+	sysfs_remove_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
+	kobject_put(p_mnoc->root_dir);
 }
