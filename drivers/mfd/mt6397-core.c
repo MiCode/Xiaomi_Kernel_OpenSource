@@ -77,6 +77,11 @@ static const struct resource mt6359p_battery_oc_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_CUR_L, "fg_cur_l"),
 };
 
+static const struct resource mt6359p_lbat_service_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT_H, "bat_h"),
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT_L, "bat_l"),
+};
+
 static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
@@ -177,6 +182,11 @@ static const struct mfd_cell mt6359p_devs[] = {
 		.of_compatible = "mediatek,mt6359p-battery_oc_throttling",
 		.num_resources = ARRAY_SIZE(mt6359p_battery_oc_resources),
 		.resources = mt6359p_battery_oc_resources,
+	}, {
+		.name = "mtk-lbat_service",
+		.of_compatible = "mediatek,mt6359p-lbat_service",
+		.num_resources = ARRAY_SIZE(mt6359p_lbat_service_resources),
+		.resources = mt6359p_lbat_service_resources,
 	}, {
 		.name = "mtk-pmic-keys",
 		.num_resources = ARRAY_SIZE(mt6359p_keys_resources),
