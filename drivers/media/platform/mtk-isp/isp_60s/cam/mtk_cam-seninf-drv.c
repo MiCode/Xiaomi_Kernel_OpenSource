@@ -569,21 +569,22 @@ static int get_buffered_pixel_rate(struct seninf_ctx *ctx,
 
 	vblank = v4l2_ctrl_g_ctrl(ctrl);
 
+	/* update fps */
+	ctx->fps_n = fi.interval.denominator;
+	ctx->fps_d = fi.interval.numerator;
+
 	/* calculate pclk */
-	pclk = (width + hblank) * (height + vblank) * fi.interval.numerator;
-	do_div(pclk, fi.interval.denominator);
+	pclk = (width + hblank) * (height + vblank) * ctx->fps_n;
+	do_div(pclk, ctx->fps_d);
 
 	/* calculate buffered pixel_rate */
 	buffered_pixel_rate = pclk * width;
 	do_div(buffered_pixel_rate, (width + hblank - HW_BUF_EFFECT));
 	*result = buffered_pixel_rate;
 
-	ctx->fps_n = fi.interval.numerator;
-	ctx->fps_d = fi.interval.denominator;
-
 	dev_info(ctx->dev, "w %d h %d hb %d vb %d fps %d/%d pclk %lld->%lld\n",
 		 width, height, hblank, vblank,
-			fi.interval.numerator, fi.interval.denominator,
+			ctx->fps_n, ctx->fps_d,
 			pclk, buffered_pixel_rate);
 
 	return 0;
