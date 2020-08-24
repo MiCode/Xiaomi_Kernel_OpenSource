@@ -148,7 +148,7 @@ static void send_input_events(struct work_struct *work)
 	list_for_each_safe(pos, temp, &pr_lst_hd) {
 		node = list_entry(pos, struct event_list, list);
 		evnt = node->evnt;
-//		bgrsb_send_input(evnt);
+		bgrsb_send_input(evnt);
 		kfree(evnt);
 		spin_lock(&lst_setup_lock);
 		list_del(&node->list);
