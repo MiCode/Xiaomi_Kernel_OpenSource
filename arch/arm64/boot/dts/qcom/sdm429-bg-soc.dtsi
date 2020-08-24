@@ -79,12 +79,6 @@
 			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_data";
 		};
 
-		qcom,glinkpkt-bg-rsb-ctrl {
-			qcom,glinkpkt-edge = "bg";
-			qcom,glinkpkt-ch-name = "RSB_CTRL";
-			qcom,glinkpkt-dev-name = "glink_pkt_bg_rsb_ctrl";
-		};
-
 		qcom,glinkpkt-bg-sso-ctrl {
 			qcom,glinkpkt-edge = "bg";
 			qcom,glinkpkt-ch-name = "sso-ctrl";
@@ -96,6 +90,19 @@
 			qcom,glinkpkt-ch-name = "buzzer-ctrl";
 			qcom,glinkpkt-dev-name = "glink_pkt_bg_buzzer_ctrl";
 		};
+	};
+
+	qcom,bg-rsb {
+		compatible = "qcom,bg-rsb";
+		vdd-ldo1-supply = <&pm660_l11>;
+		qcom,bg-rsb-gpio = <&tlmm 40 1>;
+		qcom,rsb-use-msm-gpio;
+	};
+	qcom,bgrsb-rpmsg {
+		compatible = "qcom,bgrsb-rpmsg";
+		qcom,glink-channels = "RSB_CTRL";
+		qcom,glinkpkt-edge = "bg";
+		intents = <0x200 20>;
 	};
 
 };
