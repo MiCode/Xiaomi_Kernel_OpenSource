@@ -167,6 +167,30 @@ static const struct llcc_slice_config shima_data[] =  {
 	{LLCC_WRTCH,    31,  256, 1, 1, 0xFFF, 0x0,   0, 0, 0, 0, 1},
 };
 
+static const struct llcc_slice_config waipio_data[] =  {
+	{LLCC_CPUSS,     1, 3072, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1 },
+	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDMHPGRW,  7, 1024, 3, 0, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDMHW,     9, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_GPUHTW,   11, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_GPU,      12, 1024, 1, 0, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MMUHWT,   13, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1 },
+	{LLCC_DISP,     16, 4096, 2, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_MDMPNG,   21, 1024, 0, 1, 0xF,    0x0,   0, 0, 0, 1, 0 },
+	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CVP,      28,  512, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_APTCM,    30, 1024, 3, 1, 0x0,    0xF0,  1, 0, 0, 1, 0 },
+	{LLCC_CVPFW,    17,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 0, 1 },
+	{LLCC_CPUSS1,    3, 1024, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CAMSHDR,   4,  256, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+	{LLCC_CPUMTE,   23,  256, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1 },
+	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 1 },
+	{LLCC_MDMCLAD2, 25,  128, 3, 1, 0xFFFF, 0x0,   0, 0, 0, 1, 0 },
+};
+
 static const struct qcom_llcc_config sc7180_cfg = {
 	.sct_data	= sc7180_data,
 	.size		= ARRAY_SIZE(sc7180_data),
@@ -185,6 +209,11 @@ static const struct qcom_llcc_config lahaina_cfg = {
 static const struct qcom_llcc_config shima_cfg = {
 	.sct_data	= shima_data,
 	.size		= ARRAY_SIZE(shima_data),
+};
+
+static const struct qcom_llcc_config waipio_cfg = {
+	.sct_data	= waipio_data,
+	.size		= ARRAY_SIZE(waipio_data),
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -590,6 +619,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,sdm845-llcc", .data = &sdm845_cfg },
 	{ .compatible = "qcom,lahaina-llcc", .data = &lahaina_cfg },
 	{ .compatible = "qcom,shima-llcc", .data = &shima_cfg },
+	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
 	{ }
 };
 
