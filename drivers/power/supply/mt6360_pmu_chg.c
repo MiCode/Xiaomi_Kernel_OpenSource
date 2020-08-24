@@ -126,8 +126,6 @@ struct mt6360_chg_info {
 	struct work_struct chgdet_work;
 	/* power supply */
 	struct power_supply_desc psy_desc;
-	/* for new framework get self-power_supply */
-	struct power_supply *psy_self;
 
 	struct completion aicc_done;
 	struct completion pumpx_done;
@@ -591,7 +589,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 		mci->attach = attach;
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-		power_supply_changed(mci->psy_self);
+		power_supply_changed(mci->psy);
 		return 0;
 	}
 	return __mt6360_enable_usbchgen(mci, attach);
@@ -667,7 +665,7 @@ out:
 		mt6360_set_usbsw_state(mci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
-	power_supply_changed(mci->psy_self);
+	power_supply_changed(mci->psy);
 	return ret;
 }
 
@@ -1853,16 +1851,11 @@ static int mt6360_do_event(struct charger_device *chg_dev, u32 event,
 
 	mt_dbg(mci->dev, "%s\n", __func__);
 
-	if (!mci->psy_self) {
-		dev_notice(mci->dev, "%s: cannot get psy\n", __func__);
-		return -ENODEV;
-	}
-
 	switch (event) {
 	case EVENT_FULL:
 	case EVENT_RECHARGE:
 	case EVENT_DISCHARGE:
-		power_supply_changed(mci->psy_self);
+		power_supply_changed(mci->psy);
 		break;
 	default:
 		break;
@@ -1893,14 +1886,6 @@ static int mt6360_plug_in(struct charger_device *chg_dev)
 	}
 
 	/* Workaround for ibus stuck in pe/pe20 pattern */
-	if (!mci->psy)
-		mci->psy = power_supply_get_by_name("charger");
-	if (!mci->psy) {
-		dev_notice(mci->dev,
-			"%s: get power supply failed\n", __func__);
-		return -EINVAL;
-	}
-
 	ret = power_supply_get_property(mci->psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE,
 					&propval);
@@ -2220,13 +2205,6 @@ static irqreturn_t mt6360_pmu_chg_rechgi_handler(int irq, void *data)
 	struct mt6360_chg_info *mci = data;
 
 	dev_dbg(mci->dev, "%s\n", __func__);
-	if (!mci->psy)
-		mci->psy = power_supply_get_by_name("charger");
-	if (!mci->psy) {
-		dev_notice(mci->dev,
-			"%s: get power supply failed\n", __func__);
-		return -EINVAL;
-	}
 	power_supply_changed(mci->psy);
 	return IRQ_HANDLED;
 }
@@ -2253,13 +2231,6 @@ static irqreturn_t mt6360_pmu_chg_ieoci_handler(int irq, void *data)
 	ieoc_stat = (regval & BIT(7));
 	if (!ieoc_stat)
 		goto out;
-	if (!mci->psy)
-		mci->psy = power_supply_get_by_name("charger");
-	if (!mci->psy) {
-		dev_notice(mci->dev,
-			"%s: get power supply failed\n", __func__);
-		return -EINVAL;
-	}
 	power_supply_changed(mci->psy);
 out:
 	return IRQ_HANDLED;
@@ -3342,25 +3313,24 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	charger_cfg.of_node = pdev->dev.of_node;
 	charger_cfg.supplied_to = mt6360_charger_supplied_to;
 	charger_cfg.num_supplicants = ARRAY_SIZE(mt6360_charger_supplied_to);
-	mci->psy_self = devm_power_supply_register(&pdev->dev,
-					&mci->psy_desc, &charger_cfg);
+	mci->psy = devm_power_supply_register(&pdev->dev,
+					      &mci->psy_desc, &charger_cfg);
 	if (IS_ERR(mci->psy)) {
 		dev_notice(&pdev->dev, "Fail to register power supply dev\n");
-		ret = PTR_ERR(mci->psy_self);
+		ret = PTR_ERR(mci->psy);
 		goto err_register_psy;
 	}
 
-	if (!IS_ENABLED(CONFIG_TCPC_CLASS))
-		goto bypass_tcpc_init;
-
-	/*get bc1.2 power supply:chg_psy*/
-	mci->chg_psy = devm_power_supply_get_by_phandle(&pdev->dev,
-							     "charger");
+	/* get bc1.2 power supply: chg_psy */
+	mci->chg_psy = devm_power_supply_get_by_phandle(&pdev->dev, "charger");
 	if (IS_ERR(mci->chg_psy)) {
 		dev_notice(&pdev->dev, "Failed to get charger psy\n");
 		ret = PTR_ERR(mci->chg_psy);
 		goto err_psy_get_phandle;
 	}
+
+	if (!IS_ENABLED(CONFIG_TCPC_CLASS))
+		goto bypass_tcpc_init;
 
 	mci->attach_task = kthread_run(typec_attach_thread, mci,
 					"attach_thread");
