@@ -8,12 +8,14 @@
 
 #include <linux/module.h>
 #include <linux/clk.h>
-#include "mtk_ram_console.h"
+
+/* TODO: porting*/
+/* #include "mtk_ram_console.h" */
 
 #define MT_GPUFREQ_BRINGUP                      0
-#define MT_GPUFREQ_KICKER_PBM_READY             1
-#define MT_GPUFREQ_STATIC_PWR_READY2USE         1
-#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
+#define MT_GPUFREQ_KICKER_PBM_READY             0
+#define MT_GPUFREQ_STATIC_PWR_READY2USE         0
+#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   0
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
