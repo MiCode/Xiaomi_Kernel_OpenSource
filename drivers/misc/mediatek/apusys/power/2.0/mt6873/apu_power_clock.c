@@ -257,31 +257,13 @@ int enable_apu_device_clock(enum DVFS_USER user)
 
 	switch (user) {
 	case VPU0:
-		ENABLE_CLK(clk_apu_core0_jtag_cg);
-		ENABLE_CLK(clk_apu_core0_axi_m_cg);
-		ENABLE_CLK(clk_apu_core0_apu_cg);
+		DRV_WriteReg32(APU0_APU_CG_CLR, 0x7);
 		break;
 	case VPU1:
-		ENABLE_CLK(clk_apu_core1_jtag_cg);
-		ENABLE_CLK(clk_apu_core1_axi_m_cg);
-		ENABLE_CLK(clk_apu_core1_apu_cg);
+		DRV_WriteReg32(APU1_APU_CG_CLR, 0x7);
 		break;
 	case MDLA0:
-		ENABLE_CLK(clk_apu_mdla0_cg_b0);
-		ENABLE_CLK(clk_apu_mdla0_cg_b1);
-		ENABLE_CLK(clk_apu_mdla0_cg_b2);
-		ENABLE_CLK(clk_apu_mdla0_cg_b3);
-		ENABLE_CLK(clk_apu_mdla0_cg_b4);
-		ENABLE_CLK(clk_apu_mdla0_cg_b5);
-		ENABLE_CLK(clk_apu_mdla0_cg_b6);
-		ENABLE_CLK(clk_apu_mdla0_cg_b7);
-		ENABLE_CLK(clk_apu_mdla0_cg_b8);
-		ENABLE_CLK(clk_apu_mdla0_cg_b9);
-		ENABLE_CLK(clk_apu_mdla0_cg_b10);
-		ENABLE_CLK(clk_apu_mdla0_cg_b11);
-		ENABLE_CLK(clk_apu_mdla0_cg_b12);
-		ENABLE_CLK(clk_apu_mdla0_apb_cg);
-		ENABLE_CLK(clk_apu_mdla0_axi_m_cg);
+		DRV_WriteReg32(APU_MDLA0_APU_MDLA_CG_CLR, 0x7FFF);
 		break;
 	default:
 		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
@@ -308,31 +290,13 @@ void disable_apu_device_clock(enum DVFS_USER user)
 {
 	switch (user) {
 	case VPU0:
-		DISABLE_CLK(clk_apu_core0_jtag_cg);
-		DISABLE_CLK(clk_apu_core0_axi_m_cg);
-		DISABLE_CLK(clk_apu_core0_apu_cg);
+		DRV_WriteReg32(APU0_APU_CG_SET, 0x7);
 		break;
 	case VPU1:
-		DISABLE_CLK(clk_apu_core1_jtag_cg);
-		DISABLE_CLK(clk_apu_core1_axi_m_cg);
-		DISABLE_CLK(clk_apu_core1_apu_cg);
+		DRV_WriteReg32(APU1_APU_CG_SET, 0x7);
 		break;
 	case MDLA0:
-		DISABLE_CLK(clk_apu_mdla0_cg_b0);
-		DISABLE_CLK(clk_apu_mdla0_cg_b1);
-		DISABLE_CLK(clk_apu_mdla0_cg_b2);
-		DISABLE_CLK(clk_apu_mdla0_cg_b3);
-		DISABLE_CLK(clk_apu_mdla0_cg_b4);
-		DISABLE_CLK(clk_apu_mdla0_cg_b5);
-		DISABLE_CLK(clk_apu_mdla0_cg_b6);
-		DISABLE_CLK(clk_apu_mdla0_cg_b7);
-		DISABLE_CLK(clk_apu_mdla0_cg_b8);
-		DISABLE_CLK(clk_apu_mdla0_cg_b9);
-		DISABLE_CLK(clk_apu_mdla0_cg_b10);
-		DISABLE_CLK(clk_apu_mdla0_cg_b11);
-		DISABLE_CLK(clk_apu_mdla0_cg_b12);
-		DISABLE_CLK(clk_apu_mdla0_apb_cg);
-		DISABLE_CLK(clk_apu_mdla0_axi_m_cg);
+		DRV_WriteReg32(APU_MDLA0_APU_MDLA_CG_SET, 0x7FFF);
 		break;
 	default:
 		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
