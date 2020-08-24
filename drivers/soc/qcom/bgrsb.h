@@ -30,7 +30,7 @@
 #include <linux/wait.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
-
+#include "bgrsb_rpmsg.h"
 struct event {
 	uint8_t sub_id;
 	int16_t evnt_data;
