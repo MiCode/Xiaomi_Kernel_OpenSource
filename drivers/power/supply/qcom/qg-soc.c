@@ -332,14 +332,13 @@ skip_entry_count:
 static int qg_process_bass_soc(struct qpnp_qg *chip, int sys_soc)
 {
 	int bass_soc = sys_soc, msoc = chip->msoc;
-	int batt_soc = CAP(0, 100, DIV_ROUND_CLOSEST(chip->batt_soc, 100));
 
 	if (!chip->dt.bass_enable && !(qg_ss_feature & QG_BASS))
 		goto exit_soc_scale;
 
 	qg_dbg(chip, QG_DEBUG_SOC, "BASS Entry: fifo_i=%d sys_soc=%d msoc=%d batt_soc=%d fvss_active=%d\n",
 			chip->last_fifo_i_ua, sys_soc, msoc,
-			batt_soc, chip->fvss_active);
+			chip->batt_soc, chip->fvss_active);
 
 	/* Skip BASS if FVSS is active */
 	if (chip->fvss_active)
@@ -351,11 +350,11 @@ static int qg_process_bass_soc(struct qpnp_qg *chip, int sys_soc)
 
 	if (!chip->bass_active) {
 		chip->bass_active = true;
-		chip->bsoc_bass_entry = batt_soc;
+		chip->bsoc_bass_entry = chip->batt_soc;
 	}
 
 	/* Drop the sys_soc by 1% if batt_soc has dropped */
-	if ((chip->bsoc_bass_entry - batt_soc) >= 1) {
+	if ((chip->bsoc_bass_entry - chip->batt_soc) >= 100) {
 		bass_soc = (msoc > 0) ? msoc - 1 : 0;
 		chip->bass_active = false;
 	}
