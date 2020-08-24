@@ -974,14 +974,13 @@
 		};
 	};
 
-	gpuss-max-step {
+	gpuss-0-step {
 		polling-delay-passive = <10>;
-		polling-delay = <100>;
+		polling-delay = <0>;
 		thermal-governor = "step_wise";
-		thermal-sensors = <&tsens1 1>, <&tsens1 2>;
-		sensor-aggregation = <AGGREGATE_MAX_VALUE>;
+		thermal-sensors = <&tsens1 1>;
 		trips {
-			gpuss_config: active-config0 {
+			gpuss0_config: active-config0 {
 				temperature = <95000>;
 				hysteresis = <0>;
 				type = "passive";
@@ -990,7 +989,29 @@
 
 		cooling-maps {
 			gpu_cdev {
-				trip = <&gpuss_config>;
+				trip = <&gpuss0_config>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	gpuss-1-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&tsens1 2>;
+		trips {
+			gpuss1_config: active-config0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu_cdev {
+				trip = <&gpuss1_config>;
 				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
 							THERMAL_NO_LIMIT>;
 			};
