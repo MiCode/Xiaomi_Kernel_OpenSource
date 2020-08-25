@@ -20,6 +20,7 @@
 #define DVFSRC_OPP_BW_QUERY
 #define DVFSRC_FORCE_OPP_SUPPORT
 #define DVFSRC_DEBUG_ENHANCE
+#define DVFSRC_PROPERTY_ENABLE
 /* End */
 
 #define DVFSRC_IDLE     0x00
@@ -681,6 +682,12 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct mtk_dvfsrc *dvfsrc;
 	int ret;
+#ifdef DVFSRC_PROPERTY_ENABLE
+	u32 is_bringup = 0;
+	u32 dvfsrc_flag = 0;
+	u32 dvfsrc_vmode = 0;
+	struct device_node *np = pdev->dev.of_node;
+#endif
 
 	dvfsrc = devm_kzalloc(&pdev->dev, sizeof(*dvfsrc), GFP_KERNEL);
 	if (!dvfsrc)
@@ -699,18 +706,36 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 	spin_lock_init(&dvfsrc->force_lock);
 #endif
+
+#ifdef DVFSRC_PROPERTY_ENABLE
+	of_property_read_u32(np, "dvfsrc,bringup", &is_bringup);
+	of_property_read_u32(np, "dvfsrc_flag", &dvfsrc_flag);
+	of_property_read_u32(np, "dvfsrc_vmode", &dvfsrc_vmode);
+
+	if (!is_bringup) {
+		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_DVFSRC_INIT,
+			      dvfsrc_flag, dvfsrc_vmode, 0, 0, 0, 0, &ares);
+		if (!ares.a0) {
+			dvfsrc->dram_type = ares.a1;
+			dvfsrc->dvfsrc_enable = true;
+		} else
+			dev_info(dvfsrc->dev, "dvfs mode is disabled\n");
+	} else
+		dev_info(dvfsrc->dev, "dvfs mode is bringup mode\n");
+#else
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_DVFSRC_INIT, 0, 0, 0,
 		0, 0, 0, &ares);
 
 	if (!ares.a0) {
 		dvfsrc->dram_type = ares.a1;
-#ifdef DVFSRC_OPP_BW_QUERY
-		dram_type = dvfsrc->dram_type;
-#endif
 		dvfsrc->dvfsrc_enable = true;
 	} else
 		dev_info(dvfsrc->dev, "dvfs mode is disabled\n");
+#endif
 
+#ifdef DVFSRC_OPP_BW_QUERY
+	dram_type = dvfsrc->dram_type;
+#endif
 	dvfsrc->curr_opps = &dvfsrc->dvd->opps_desc[dvfsrc->dram_type];
 	platform_set_drvdata(pdev, dvfsrc);
 	if (dvfsrc->dvd->num_domains)
