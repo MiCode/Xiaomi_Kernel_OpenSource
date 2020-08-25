@@ -118,29 +118,6 @@ int prepare_apu_clock(struct device *dev)
 	LOG_DBG("%s pm_runtime_enable -\n", __func__);
 #endif
 
-	PREPARE_CLK(clk_apu_core0_jtag_cg);
-	PREPARE_CLK(clk_apu_core0_axi_m_cg);
-	PREPARE_CLK(clk_apu_core0_apu_cg);
-
-	PREPARE_CLK(clk_apu_core1_jtag_cg);
-	PREPARE_CLK(clk_apu_core1_axi_m_cg);
-	PREPARE_CLK(clk_apu_core1_apu_cg);
-
-	PREPARE_CLK(clk_apu_mdla0_cg_b0);
-	PREPARE_CLK(clk_apu_mdla0_cg_b1);
-	PREPARE_CLK(clk_apu_mdla0_cg_b2);
-	PREPARE_CLK(clk_apu_mdla0_cg_b3);
-	PREPARE_CLK(clk_apu_mdla0_cg_b4);
-	PREPARE_CLK(clk_apu_mdla0_cg_b5);
-	PREPARE_CLK(clk_apu_mdla0_cg_b6);
-	PREPARE_CLK(clk_apu_mdla0_cg_b7);
-	PREPARE_CLK(clk_apu_mdla0_cg_b8);
-	PREPARE_CLK(clk_apu_mdla0_cg_b9);
-	PREPARE_CLK(clk_apu_mdla0_cg_b10);
-	PREPARE_CLK(clk_apu_mdla0_cg_b11);
-	PREPARE_CLK(clk_apu_mdla0_cg_b12);
-	PREPARE_CLK(clk_apu_mdla0_apb_cg);
-	PREPARE_CLK(clk_apu_mdla0_axi_m_cg);
 
 	PREPARE_CLK(clk_top_dsp_sel);
 	PREPARE_CLK(clk_top_dsp1_sel);
@@ -290,13 +267,10 @@ void disable_apu_device_clock(enum DVFS_USER user)
 {
 	switch (user) {
 	case VPU0:
-		DRV_WriteReg32(APU0_APU_CG_SET, 0x7);
 		break;
 	case VPU1:
-		DRV_WriteReg32(APU1_APU_CG_SET, 0x7);
 		break;
 	case MDLA0:
-		DRV_WriteReg32(APU_MDLA0_APU_MDLA_CG_SET, 0x7FFF);
 		break;
 	default:
 		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
