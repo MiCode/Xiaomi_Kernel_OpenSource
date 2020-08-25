@@ -41,10 +41,9 @@
 /* TODO: porting*/
 /* #include "mtk_devinfo.h" */
 
-/* TODO: porting*/
-/* #include "upmu_common.h" */
-/* #include "upmu_sw.h" */
-/* #include "upmu_hw.h" */
+#include "mtk_bp_thl.h"
+#include "mtk_low_battery_throttling.h"
+#include "mtk_battery_oc_throttling.h"
 
 /* TODO: porting*/
 #ifdef CONFIG_THERMAL
@@ -1712,7 +1711,7 @@ static unsigned int mt_gpufreq_get_limited_idx_by_freq(
 }
 
 #if MT_GPUFREQ_BATT_OC_PROTECT
-void mt_gpufreq_batt_oc_callback(BATTERY_OC_LEVEL battery_oc_level)
+void mt_gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 {
 	unsigned int batt_oc_limited_idx = LIMIT_IDX_DEFAULT;
 
@@ -1771,7 +1770,7 @@ void mt_gpufreq_batt_percent_callback(
 #endif
 
 #if MT_GPUFREQ_LOW_BATT_VOLT_PROTECT
-void mt_gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_battery_level)
+void mt_gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_battery_level)
 {
 	unsigned int low_batt_limited_idx = LIMIT_IDX_DEFAULT;
 
@@ -3499,7 +3498,7 @@ static void __mt_gpufreq_init_power(void)
 #endif
 
 #if MT_GPUFREQ_BATT_PERCENT_PROTECT
-	register_battery_percent_notify(
+	register_bp_thl_notify(
 			&mt_gpufreq_batt_percent_callback,
 			BATTERY_PERCENT_PRIO_GPU);
 #endif
