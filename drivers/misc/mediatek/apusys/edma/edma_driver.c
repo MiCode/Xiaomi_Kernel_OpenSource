@@ -84,6 +84,8 @@ static inline int edma_reg_chardev(struct edma_device *edma_device)
 
 	edma_device->edma_chardev.owner = THIS_MODULE;
 
+	cdev_init(&edma_device->edma_chardev, NULL);
+
 	/* Add to system */
 	ret = cdev_add(&edma_device->edma_chardev, edma_device->edma_devt, 1);
 	if ((ret) < 0) {
