@@ -725,7 +725,7 @@
 		clock-names = "spi", "wrap", "ulposc", "ulposc_osc";
 	};
 
-	thermal-zones {
+	thermal_zones: thermal-zones {
 		soc_max {
 			polling-delay = <100>; /* milliseconds */
 			polling-delay-passive = <25>; /* milliseconds */
