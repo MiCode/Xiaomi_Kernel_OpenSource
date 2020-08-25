@@ -23,9 +23,6 @@ Optional clocks:
 			Not present on "qcom,msm8996-dwc3" compatible.
   "cfg_noc"		System Config NOC clock.
 			Not present on "qcom,msm8996-dwc3" compatible.
-  "core_csr"		Allows to set/clear FORCE_MEM_CORE_ON with USB core
-                        clock to retain USB controller CSR across system deep
-			sleep.
 - assigned-clocks:	Should be:
 				MOCK_UTMI_CLK
 				MASTER_CLK
