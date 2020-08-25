@@ -15,7 +15,7 @@
 
 int reviser_v1_0_init(struct platform_device *pdev)
 {
-	//struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
+	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
 	struct reviser_hw_ops *cb;
 
 	cb = (struct reviser_hw_ops *) reviser_mgt_get_cb();
@@ -35,6 +35,8 @@ int reviser_v1_0_init(struct platform_device *pdev)
 
 	cb->isr_cb = reviser_isr;
 	cb->set_int = reviser_enable_interrupt;
+
+	rdv->plat.hw_ver = 0x100;
 
 	return 0;
 }

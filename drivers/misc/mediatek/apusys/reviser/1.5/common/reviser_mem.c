@@ -36,7 +36,7 @@ static int __reviser_free_iova(struct device *dev, size_t len,
 		LOG_ERR("iommu_unmap iova: %llx, returned: %zx, expected: %zx\n",
 					(u64)iova, ret, size);
 
-		return -1;
+		return -ENOMEM;
 	}
 
 	return 0;
@@ -226,7 +226,7 @@ int reviser_dram_remap_init(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
@@ -241,7 +241,7 @@ int reviser_dram_remap_init(void *drvinfo)
 
 	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 
-	rdv->dram_base = (void *) g_mem_sys.kva;
+	rdv->rsc.dram.base = (void *) g_mem_sys.kva;
 
 	return 0;
 }
@@ -253,12 +253,12 @@ int reviser_dram_remap_destroy(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	reviser_mem_free(rdv->dev, &g_mem_sys);
-	rdv->dram_base = NULL;
+	rdv->rsc.dram.base = NULL;
 	return 0;
 }
 
@@ -280,7 +280,7 @@ void reviser_print_dram(void *drvinfo, void *s_file)
 	}
 
 	rdv = (struct reviser_dev_info *)drvinfo;
-	data = (unsigned char *)rdv->dram_base;
+	data = (unsigned char *)rdv->rsc.dram.base;
 
 	ctx_max = rdv->plat.mdla_max + rdv->plat.vpu_max
 			+ rdv->plat.edma_max + rdv->plat.up_max;
@@ -333,10 +333,10 @@ void reviser_print_tcm(void *drvinfo, void *s_file)
 		return;
 	}
 
-	memcpy_fromio(bank0, rdv->tcm_base + vlm_bank_size*0, 32);
-	memcpy_fromio(bank1, rdv->tcm_base + vlm_bank_size*1, 32);
-	memcpy_fromio(bank2, rdv->tcm_base + vlm_bank_size*2, 32);
-	memcpy_fromio(bank3, rdv->tcm_base + vlm_bank_size*3, 32);
+	memcpy_fromio(bank0, rdv->rsc.tcm.base + vlm_bank_size*0, 32);
+	memcpy_fromio(bank1, rdv->rsc.tcm.base + vlm_bank_size*1, 32);
+	memcpy_fromio(bank2, rdv->rsc.tcm.base + vlm_bank_size*2, 32);
+	memcpy_fromio(bank3, rdv->rsc.tcm.base + vlm_bank_size*3, 32);
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser tcm table info\n");
 	LOG_CON(s, "-----------------------------\n");

@@ -26,12 +26,12 @@ bool reviser_is_power(void *drvinfo)
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	spin_lock_irqsave(&rdv->lock_power, flags);
-	if (rdv->power) {
+	spin_lock_irqsave(&rdv->lock.lock_power, flags);
+	if (rdv->power.power) {
 		//LOG_ERR("Can Not Read when power disable\n");
 		is_power = true;
 	}
-	spin_unlock_irqrestore(&rdv->lock_power, flags);
+	spin_unlock_irqrestore(&rdv->lock.lock_power, flags);
 
 	return is_power;
 }
@@ -43,16 +43,16 @@ int reviser_power_on(void *drvinfo)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_power);
-	if (rdv->power_count == 0) {
+	mutex_lock(&rdv->lock.mutex_power);
+	if (rdv->power.power_count == 0) {
 
 		ret = apu_device_power_on(REVISER);
 		if (ret < 0)
 			LOG_ERR("PowerON Fail (%d)\n", ret);
 
 	}
-	rdv->power_count++;
-	mutex_unlock(&rdv->mutex_power);
+	rdv->power.power_count++;
+	mutex_unlock(&rdv->lock.mutex_power);
 
 	return ret;
 }
@@ -64,17 +64,17 @@ int reviser_power_off(void *drvinfo)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_power);
-	rdv->power_count--;
+	mutex_lock(&rdv->lock.mutex_power);
+	rdv->power.power_count--;
 
-	if (rdv->power_count == 0) {
+	if (rdv->power.power_count == 0) {
 
 		ret = apu_device_power_off(REVISER);
 		if (ret < 0)
 			LOG_ERR("PowerON Fail (%d)\n", ret);
 
 	}
-	mutex_unlock(&rdv->mutex_power);
+	mutex_unlock(&rdv->lock.mutex_power);
 
 	return ret;
 }

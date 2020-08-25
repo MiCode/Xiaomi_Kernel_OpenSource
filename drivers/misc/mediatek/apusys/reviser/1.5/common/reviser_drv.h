@@ -34,41 +34,46 @@ struct reviser_platform {
 	unsigned int dram_offset;
 	unsigned int tcm_addr;
 	unsigned int vlm_addr;
-	int hw_ver;
+	unsigned int hw_ver;
 };
-
-
-/* reviser driver's private structure */
-struct reviser_dev_info {
-	void *pctrl_top;
-	void *vlm_base;
-	void *tcm_base;
-
-	void *dram_base;
-	void *int_base;
-
-	bool init_done;
-	struct device *dev;
-	bool power;
-	int power_count;
-	dev_t reviser_devt;
-	struct cdev reviser_cdev;
-	struct dentry *debug_root;
-
+struct reviser_lock {
 	struct mutex mutex_tcm;
 	struct mutex mutex_ctx;
 	struct mutex mutex_ctx_pgt;
 	struct mutex mutex_remap;
 	struct mutex mutex_power;
-
 	spinlock_t lock_power;
 	spinlock_t lock_dump;
-
-	struct ctx_pgt *pvlm;
-
 	wait_queue_head_t wait_ctx;
 	wait_queue_head_t wait_tcm;
+};
+struct reviser_resource {
+	unsigned int addr;
+	unsigned int size;
+	void *base;
+};
+struct reviser_power {
+	bool power;
+	int power_count;
+};
+struct reviser_resource_mgt {
+	struct reviser_resource ctrl;
+	struct reviser_resource vlm;
+	struct reviser_resource tcm;
+	struct reviser_resource isr;
+	struct reviser_resource dram;
+};
+/* reviser driver's private structure */
+struct reviser_dev_info {
+	bool init_done;
+	struct device *dev;
+	dev_t reviser_devt;
+	struct cdev reviser_cdev;
 
+	struct reviser_resource_mgt rsc;
+	struct reviser_power power;
+	struct reviser_lock lock;
+	struct ctx_pgt *pvlm;
 	struct reviser_dump dump;
 	struct reviser_platform plat;
 

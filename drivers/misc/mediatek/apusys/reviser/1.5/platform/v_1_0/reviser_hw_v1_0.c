@@ -60,14 +60,14 @@ int reviser_isr(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	if (!reviser_is_power(rdv)) {
 		//LOG_ERR("Can Not Read when power disable\n");
-		return -1;
+		return -ENODEV;
 	}
 
 	// Check if INT is for reviser
@@ -79,9 +79,9 @@ int reviser_isr(void *drvinfo)
 	if (!reviser_get_interrupt_offset(rdv)) {
 		//reviser_print_remap_table(private_data, NULL);
 		//reviser_print_context_ID(private_data, NULL);
-		spin_lock_irqsave(&rdv->lock_dump, flags);
+		spin_lock_irqsave(&rdv->lock.lock_dump, flags);
 		rdv->dump.err_count++;
-		spin_unlock_irqrestore(&rdv->lock_dump, flags);
+		spin_unlock_irqrestore(&rdv->lock.lock_dump, flags);
 		ret = 0;
 	} else {
 		//LOG_ERR("INT NOT triggered by reviser\n");
@@ -360,7 +360,7 @@ static uint32_t _reviser_ctrl_reg_read(void *drvinfo, uint32_t offset)
 	}
 
 #else
-	value = _reviser_reg_read(rdv->pctrl_top, offset);
+	value = _reviser_reg_read(rdv->rsc.ctrl.base, offset);
 
 #endif
 
@@ -379,7 +379,7 @@ static uint32_t _reviser_int_reg_read(void *drvinfo, uint32_t offset)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	return _reviser_reg_read(rdv->int_base, offset);
+	return _reviser_reg_read(rdv->rsc.isr.base, offset);
 }
 
 static uint32_t _reviser_reg_read(void *base, uint32_t offset)
@@ -446,9 +446,9 @@ static void _reviser_set_contex_boundary(void *drvinfo,
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, VLM_CTXT_BDY_SELECT);
-	_reviser_reg_set(rdv->pctrl_top,
+	_reviser_reg_set(rdv->rsc.ctrl.base,
 			offset, boundary & VLM_CTXT_BDY_SELECT);
 
 }
@@ -459,9 +459,9 @@ static void _reviser_set_context_ID(void *drvinfo, uint32_t offset, uint8_t ID)
 	DEBUG_TAG;
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, VLM_CTXT_CTX_ID);
-	_reviser_reg_set(rdv->pctrl_top,
+	_reviser_reg_set(rdv->rsc.ctrl.base,
 			offset, (ID << VLM_CTXT_CTX_ID_OFFSET));
 
 }
@@ -475,24 +475,24 @@ static void  _reviser_set_remap_table(void *drvinfo,
 	DEBUG_TAG;
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, VLM_REMAP_VALID);
 
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, VLM_REMAP_CTX_ID);
-	_reviser_reg_set(rdv->pctrl_top,
+	_reviser_reg_set(rdv->rsc.ctrl.base,
 			offset, (ID << VLM_REMAP_CTX_ID_OFFSET));
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, VLM_REMAP_CTX_SRC);
-	_reviser_reg_set(rdv->pctrl_top,
+	_reviser_reg_set(rdv->rsc.ctrl.base,
 			offset, (src_page << VLM_REMAP_CTX_SRC_OFFSET));
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, VLM_REMAP_CTX_DST);
-	_reviser_reg_set(rdv->pctrl_top,
+	_reviser_reg_set(rdv->rsc.ctrl.base,
 			offset, (dst_page << VLM_REMAP_CTX_DST_OFFSET));
 
 	if (valid)
-		_reviser_reg_set(rdv->pctrl_top,
+		_reviser_reg_set(rdv->rsc.ctrl.base,
 				offset, (1 << VLM_REMAP_VALID_OFFSET));
 }
 static uint32_t  _reviser_get_remap_table_reg(
@@ -557,28 +557,28 @@ int reviser_set_remap_table(void *drvinfo,
 	if (index > VLM_REMAP_TABLE_DST_MAX) {
 		LOG_ERR("invalid index (out of range) %d\n",
 				index);
-		return -1;
+		return -EINVAL;
 	}
 	if (ID >= VLM_CTXT_CTX_ID_MAX) {
 		LOG_ERR("invalid ID (out of range) %d\n",
 				ID);
-		return -1;
+		return -EINVAL;
 	}
 	if (src_page > VLM_REMAP_TABLE_SRC_MAX) {
 		LOG_ERR("invalid src page (out of range) %d\n",
 				src_page);
-		return -1;
+		return -EINVAL;
 	}
 
 	if (dst_page > VLM_REMAP_TABLE_DST_MAX) {
 		LOG_ERR("invalid dst page (out of range) %d\n",
 				dst_page);
-		return -1;
+		return -EINVAL;
 	}
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	LOG_DEBUG("index: %u valid: %u ID: %u src: %u dst: %u\n",
 			index, valid, ID,	src_page, dst_page);
@@ -586,7 +586,7 @@ int reviser_set_remap_table(void *drvinfo,
 	offset = _reviser_get_remap_offset(index);
 	if (offset == REVISER_FAIL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 #if APUSYS_SECURE
 
@@ -599,7 +599,7 @@ int reviser_set_remap_table(void *drvinfo,
 	ret = res.a0;
 	if (ret) {
 		LOG_ERR("Set HW RemapTable Fail\n");
-		return -1;
+		return ret;
 	}
 #else
 	_reviser_set_remap_table(drvinfo,
@@ -620,16 +620,16 @@ int reviser_set_boundary(void *drvinfo,
 	if (boundary > VLM_CTXT_BDY_SELECT_MAX) {
 		LOG_ERR("invalid boundary (out of range) %d\n",
 				VLM_CTXT_BDY_SELECT_MAX);
-		return -1;
+		return -EINVAL;
 	}
 	if (type >= REVISER_DEVICE_MAX) {
 		LOG_ERR("invalid type (out of range) %d\n",
 				type);
-		return -1;
+		return -EINVAL;
 	}
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 #if APUSYS_SECURE
 	value = ((BOUNDARY_ALL_NO_CHANGE) & ~(BOUNDARY_BIT_MASK << (index*4)));
@@ -657,14 +657,14 @@ int reviser_set_boundary(void *drvinfo,
 		break;
 	default:
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 #else
 	offset = _reviser_get_contex_offset(type, index);
 	if (offset == REVISER_FAIL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	_reviser_set_contex_boundary(drvinfo, offset, boundary);
 #endif
@@ -694,17 +694,17 @@ int reviser_set_context_ID(void *drvinfo, int type,
 	if (ctx >= VLM_CTXT_CTX_ID_MAX) {
 		LOG_ERR("invalid ID (out of range %d) %d\n",
 				VLM_CTXT_CTX_ID_MAX, ctx);
-		return -1;
+		return -EINVAL;
 	}
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	offset = _reviser_get_contex_offset(reviser_type, index);
 	if (offset == REVISER_FAIL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 #if APUSYS_SECURE
 	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
@@ -738,9 +738,9 @@ static void _reviser_set_default_iova(void *drvinfo,
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	offset = reviser_get_default_offset();
-	_reviser_reg_clr(rdv->pctrl_top,
+	_reviser_reg_clr(rdv->rsc.ctrl.base,
 			offset, REVISER_DEFAULT);
-	_reviser_reg_set(rdv->pctrl_top,
+	_reviser_reg_set(rdv->rsc.ctrl.base,
 			offset, iova);
 
 }
@@ -803,7 +803,7 @@ int reviser_get_interrupt_offset(void *drvinfo)
 		ret = res.a0;
 		reg_value = res.a1;
 #else
-		_reviser_reg_set(rdv->pctrl_top,
+		_reviser_reg_set(rdv->rsc.ctrl.base,
 				offset, 1);
 #endif
 	}
@@ -825,7 +825,7 @@ int reviser_set_default_iova(void *drvinfo)
 
 	if (rdv->plat.dram_offset == 0) {
 		LOG_ERR("invalid iova\n");
-		return -1;
+		return -EINVAL;
 	}
 #if APUSYS_SECURE
 	arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
@@ -855,7 +855,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
@@ -866,7 +866,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_MDLA,
 			i, boundary)) {
-			return -1;
+			return -EIO;
 		}
 	}
 
@@ -874,7 +874,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_VPU,
 			i, boundary)) {
-			return -1;
+			return -EIO;
 		}
 	}
 
@@ -883,7 +883,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 		if (reviser_set_boundary(
 			drvinfo, REVISER_DEVICE_EDMA,
 			i, boundary)) {
-			return -1;
+			return -EIO;
 		}
 	}
 
@@ -898,17 +898,17 @@ int reviser_enable_interrupt(void *drvinfo,
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	if (enable) {
-		_reviser_reg_set(rdv->int_base,
+		_reviser_reg_set(rdv->rsc.isr.base,
 						REVISER_INT_EN,
 						REVISER_INT_EN_MASK);
 	} else {
-		_reviser_reg_clr(rdv->int_base,
+		_reviser_reg_clr(rdv->rsc.isr.base,
 						REVISER_INT_EN,
 						REVISER_INT_EN_MASK);
 	}
@@ -935,10 +935,10 @@ int reviser_check_int_valid(void *drvinfo)
 		ret = 0;
 	} else {
 		//LOG_ERR("Not Reviser INT (%x)\n", value);
-		spin_lock_irqsave(&rdv->lock_dump, flags);
+		spin_lock_irqsave(&rdv->lock.lock_dump, flags);
 		rdv->dump.unknown_count++;
 		unknown_count = rdv->dump.unknown_count;
-		spin_unlock_irqrestore(&rdv->lock_dump, flags);
+		spin_unlock_irqrestore(&rdv->lock.lock_dump, flags);
 
 		//Show unknown INT
 		if (unknown_count % UNKNOWN_INT_MAX == UNKNOWN_INT_MAX - 1) {

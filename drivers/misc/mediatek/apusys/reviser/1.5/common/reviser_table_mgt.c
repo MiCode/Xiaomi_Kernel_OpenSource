@@ -125,13 +125,16 @@ static int _reviser_alloc_pgt(struct pgt_tcm *pgt, unsigned long nbits)
 {
 	unsigned long size = 0;
 
+	pgt->page_num = 0;
 	size = BITS_TO_LONGS(nbits);
 	//LOG_DEBUG("size %x\n", size);
 	if (!size) {
 		//Set Min size to avoid access zero length array
-		LOG_ERR("size is Zero\n");
+		//LOG_ERR("size is Zero\n");
+		pgt->pgt = NULL;
+		return 0;
 	}
-	pgt->page_num = 0;
+
 	pgt->pgt = kcalloc(size, sizeof(unsigned long), GFP_KERNEL);
 	if (!pgt->pgt) {
 		LOG_ERR("allocate fail\n");
@@ -142,7 +145,7 @@ static int _reviser_alloc_pgt(struct pgt_tcm *pgt, unsigned long nbits)
 }
 static int _reviser_free_pgt(struct pgt_tcm *pgt)
 {
-
+	//kfree(NULL) is safe
 	kfree(pgt->pgt);
 	pgt->page_num = 0;
 
@@ -153,14 +156,18 @@ static int _reviser_copy_pgt(struct pgt_tcm *dst, struct pgt_tcm *src, unsigned 
 {
 	unsigned long size = 0;
 
+	if (!nbits) {
+		dst->page_num = src->page_num;
+		return 0;
+	}
 
 	if (!dst->pgt) {
 		LOG_ERR("invalid dst pgt\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (!src->pgt) {
 		LOG_ERR("invalid src pgt\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	size = BITS_TO_LONGS(nbits);
@@ -245,11 +252,11 @@ int reviser_table_init_ctx(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_ctx);
+	mutex_lock(&rdv->lock.mutex_ctx);
 
 	g_ctx_nbits = rdv->plat.ctx_max;
 	g_ctx_size = BITS_TO_LONGS(g_ctx_nbits);
@@ -263,7 +270,7 @@ int reviser_table_init_ctx(void *drvinfo)
 	g_ctx_empty = false;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_ctx);
+	mutex_unlock(&rdv->lock.mutex_ctx);
 	return ret;
 }
 int reviser_table_uninit_ctx(void *drvinfo)
@@ -274,17 +281,17 @@ int reviser_table_uninit_ctx(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_ctx);
+	mutex_lock(&rdv->lock.mutex_ctx);
 	kfree(g_table_ctx);
 	g_ctx_nbits = 0;
 	g_ctx_size = 0;
 	g_ctx_empty = false;
 
-	mutex_unlock(&rdv->mutex_ctx);
+	mutex_unlock(&rdv->lock.mutex_ctx);
 
 	return 0;
 }
@@ -296,14 +303,14 @@ int reviser_table_get_ctx_sync(void *drvinfo, unsigned long *ctx)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	while (1) {
 		if (reviser_table_get_ctx(drvinfo, ctx)) {
 			LOG_DEBUG("Wait for Getting ctx\n");
-			wait_event_interruptible(rdv->wait_ctx,
+			wait_event_interruptible(rdv->lock.wait_ctx,
 					!g_ctx_empty);
 		} else {
 			break;
@@ -318,17 +325,18 @@ int reviser_table_get_ctx(void *drvinfo, unsigned long *ctx)
 {
 	unsigned long fist_zero = 0;
 	struct reviser_dev_info *rdv = NULL;
+	int ret = 0;
 
 	DEBUG_TAG;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 
-	mutex_lock(&rdv->mutex_ctx);
+	mutex_lock(&rdv->lock.mutex_ctx);
 
 	fist_zero = find_first_zero_bit(g_table_ctx, g_ctx_nbits);
 	if (fist_zero < g_ctx_nbits) {
@@ -338,61 +346,64 @@ int reviser_table_get_ctx(void *drvinfo, unsigned long *ctx)
 	} else {
 		LOG_ERR("No free ctx %lu\n", fist_zero);
 		g_ctx_empty = true;
+		ret = -EBUSY;
 		goto free_mutex;
 	}
 	LOG_DEBUG("[out] ctx(%lu) g_table_ctx(%08lx)\n",
 			*ctx, g_table_ctx[0]);
 
-	mutex_unlock(&rdv->mutex_ctx);
+	mutex_unlock(&rdv->lock.mutex_ctx);
 
 
 	return 0;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_ctx);
-	return -1;
+	mutex_unlock(&rdv->lock.mutex_ctx);
+	return ret;
 }
 
 int reviser_table_free_ctx(void *drvinfo, unsigned long ctx)
 {
 	struct reviser_dev_info *rdv = NULL;
+	int ret = 0;
 
 	DEBUG_TAG;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (ctx >= g_ctx_nbits) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 
-	mutex_lock(&rdv->mutex_ctx);
+	mutex_lock(&rdv->lock.mutex_ctx);
 
 	if (ctx < g_ctx_nbits) {
 
 		bitmap_clear(g_table_ctx, ctx, 1);
 		g_ctx_empty = false;
 		//LOG_DEBUG("Clear table for ctx %lu\n", ctx);
-		wake_up_interruptible(&rdv->wait_ctx);
+		wake_up_interruptible(&rdv->lock.wait_ctx);
 	} else {
 		LOG_ERR("Out of range %lu\n", ctx);
+		ret = -EINVAL;
 		goto free_mutex;
 	}
 	LOG_DEBUG("[in] ctx(%lu) [out] g_table_ctx(%08lx)\n"
 			, ctx, g_table_ctx[0]);
 
-	mutex_unlock(&rdv->mutex_ctx);
+	mutex_unlock(&rdv->lock.mutex_ctx);
 
 	return 0;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_ctx);
-	return -1;
+	mutex_unlock(&rdv->lock.mutex_ctx);
+	return ret;
 }
 void reviser_table_print_ctx(void *drvinfo, void *s_file)
 {
@@ -408,7 +419,7 @@ void reviser_table_print_ctx(void *drvinfo, void *s_file)
 
 
 	rdv = (struct reviser_dev_info *)drvinfo;
-	mutex_lock(&rdv->mutex_ctx);
+	mutex_lock(&rdv->lock.mutex_ctx);
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " Contex Table\n");
@@ -419,7 +430,7 @@ void reviser_table_print_ctx(void *drvinfo, void *s_file)
 
 	LOG_CON(s, "=============================\n");
 
-	mutex_unlock(&rdv->mutex_ctx);
+	mutex_unlock(&rdv->lock.mutex_ctx);
 }
 
 
@@ -432,11 +443,11 @@ int reviser_table_init_tcm(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_tcm);
+	mutex_lock(&rdv->lock.mutex_tcm);
 
 	g_tcm_nbits = rdv->plat.tcm_bank_max;
 	g_tcm_size = BITS_TO_LONGS(g_tcm_nbits);
@@ -454,7 +465,7 @@ int reviser_table_init_tcm(void *drvinfo)
 
 	g_tcm_free = g_tcm_nbits;
 free_mutex:
-	mutex_unlock(&rdv->mutex_tcm);
+	mutex_unlock(&rdv->lock.mutex_tcm);
 
 	return ret;
 }
@@ -466,11 +477,11 @@ int reviser_table_uninit_tcm(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_tcm);
+	mutex_lock(&rdv->lock.mutex_tcm);
 
 
 	kfree(g_table_tcm);
@@ -478,7 +489,7 @@ int reviser_table_uninit_tcm(void *drvinfo)
 	g_tcm_size = 0;
 	g_tcm_nbits = 0;
 
-	mutex_unlock(&rdv->mutex_tcm);
+	mutex_unlock(&rdv->lock.mutex_tcm);
 
 	return 0;
 }
@@ -492,22 +503,22 @@ int reviser_table_get_tcm_sync(void *drvinfo,
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (page_num > g_tcm_nbits) {
 		LOG_ERR("invalid page_num %d\n", page_num);
-		return -1;
+		return -EINVAL;
 	}
 	if (pgt_tcm == NULL) {
 		LOG_ERR("invalid pgt_tcm\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 	while (1) {
 		if (reviser_table_get_tcm(drvinfo, page_num, pgt_tcm)) {
 			LOG_DEBUG("Wait for Getting tcm\n");
-			wait_event_interruptible(rdv->wait_tcm,
+			wait_event_interruptible(rdv->lock.wait_tcm,
 					g_tcm_free >= page_num);
 		} else {
 			break;
@@ -524,18 +535,19 @@ int reviser_table_get_tcm(void *drvinfo,
 	struct reviser_dev_info *rdv = NULL;
 	uint32_t i;
 	unsigned long setbits = 0;
+	int ret = 0;
 
 	DEBUG_TAG;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
 
 
-	mutex_lock(&rdv->mutex_tcm);
+	mutex_lock(&rdv->lock.mutex_tcm);
 
 	if (g_tcm_free == 0) {
 		LOG_DEBUG("No free TCM (%u/%u)\n",
@@ -567,35 +579,35 @@ int reviser_table_get_tcm(void *drvinfo,
 	LOG_DEBUG("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d) tcm_pgtb(%lx)\n",
 			page_num,
 			g_table_tcm[0], g_tcm_free, pgt_tcm->pgt[0]);
-	mutex_unlock(&rdv->mutex_tcm);
+	mutex_unlock(&rdv->lock.mutex_tcm);
 
 
 	return 0;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_tcm);
+	mutex_unlock(&rdv->lock.mutex_tcm);
 	return -1;
 }
 
 int reviser_table_free_tcm(void *drvinfo, struct pgt_tcm *pgt_tcm)
 {
 	struct reviser_dev_info *rdv = NULL;
-
+	int ret = 0;
 
 	DEBUG_TAG;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (pgt_tcm == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	if (pgt_tcm->page_num == 0) {
-		LOG_DEBUG("[in] pg(%u) tcm_pgtb(%lx)\n",
-				pgt_tcm->page_num, pgt_tcm->pgt[0]);
+		LOG_DEBUG("[in] pg(%u)\n",
+				pgt_tcm->page_num);
 		return 0;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
@@ -603,7 +615,7 @@ int reviser_table_free_tcm(void *drvinfo, struct pgt_tcm *pgt_tcm)
 
 
 
-	mutex_lock(&rdv->mutex_tcm);
+	mutex_lock(&rdv->lock.mutex_tcm);
 
 
 	if (pgt_tcm->page_num <= g_tcm_nbits) {
@@ -611,24 +623,25 @@ int reviser_table_free_tcm(void *drvinfo, struct pgt_tcm *pgt_tcm)
 		bitmap_andnot(g_table_tcm, g_table_tcm, pgt_tcm->pgt,
 				g_tcm_nbits);
 		g_tcm_free = g_tcm_free + pgt_tcm->page_num;
-		wake_up_interruptible(&rdv->wait_tcm);
+		wake_up_interruptible(&rdv->lock.wait_tcm);
 	} else {
 		LOG_ERR("Out of range %u\n", pgt_tcm->page_num);
+		ret = -EINVAL;
 		goto free_mutex;
 	}
 
-	LOG_DEBUG("[in] pg(%u) tcm_pgtb(%lx) [out] g_tcm(%lx) g_tcm_free(%d)\n",
-			pgt_tcm->page_num, pgt_tcm->pgt[0],
+	LOG_DEBUG("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d)\n",
+			pgt_tcm->page_num,
 			g_table_tcm[0], g_tcm_free);
 
-	mutex_unlock(&rdv->mutex_tcm);
+	mutex_unlock(&rdv->lock.mutex_tcm);
 
 
-	return 0;
+	return ret;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_tcm);
-	return -1;
+	mutex_unlock(&rdv->lock.mutex_tcm);
+	return ret;
 }
 
 void reviser_table_print_tcm(void *drvinfo, void *s_file)
@@ -645,7 +658,7 @@ void reviser_table_print_tcm(void *drvinfo, void *s_file)
 
 
 	rdv = (struct reviser_dev_info *)drvinfo;
-	mutex_lock(&rdv->mutex_tcm);
+	mutex_lock(&rdv->lock.mutex_tcm);
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " TCM Table\n");
@@ -656,7 +669,7 @@ void reviser_table_print_tcm(void *drvinfo, void *s_file)
 
 	LOG_CON(s, "=============================\n");
 
-	mutex_unlock(&rdv->mutex_tcm);
+	mutex_unlock(&rdv->lock.mutex_tcm);
 }
 
 int reviser_table_init_ctx_pgt(void *drvinfo)
@@ -668,11 +681,11 @@ int reviser_table_init_ctx_pgt(void *drvinfo)
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	g_ctxpgt_max = rdv->plat.ctx_max;
 	g_bank_max = rdv->plat.vlm_bank_max;
@@ -699,7 +712,7 @@ int reviser_table_init_ctx_pgt(void *drvinfo)
 
 	rdv->pvlm = g_ctx_pgt;
 free_mutex:
-	mutex_unlock(&rdv->mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 
 	return ret;
 }
@@ -712,11 +725,11 @@ int reviser_table_uninit_ctx_pgt(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	for (i = 0; i < g_ctxpgt_max; i++) {
 		_reviser_free_pgt_vlm(&g_ctx_pgt[i].vlm);
@@ -727,7 +740,7 @@ int reviser_table_uninit_ctx_pgt(void *drvinfo)
 	kfree(g_ctx_pgt);
 	g_ctxpgt_max = 0;
 
-	mutex_unlock(&rdv->mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 
 	return 0;
 }
@@ -744,17 +757,17 @@ static int _reviser_set_ctx_pgt(void *drvinfo,
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (ctx >= g_ctxpgt_max) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	/* Set TCM Info */
 	for (i = 0; i < pgt_vlm->tcm.page_num; i++) {
@@ -782,14 +795,13 @@ static int _reviser_set_ctx_pgt(void *drvinfo,
 	g_ctx_pgt[ctx].vlm.sys_num = g_ctx_pgt[ctx].vlm.tcm.page_num;
 
 	DEBUG_TAG;
-	LOG_DEBUG("[out] ctx(%lu) sys(%u) pg(%d) tcm_pg(%d) tcm_pgtb(%lx)\n",
+	LOG_DEBUG("[out] ctx(%lu) sys(%u) pg(%d) tcm_pg(%d)\n",
 			ctx,
 			g_ctx_pgt[ctx].vlm.sys_num,
 			g_ctx_pgt[ctx].vlm.page_num,
-			g_ctx_pgt[ctx].vlm.tcm.page_num,
-			g_ctx_pgt[ctx].vlm.tcm.pgt[0]
+			g_ctx_pgt[ctx].vlm.tcm.page_num
 			);
-	mutex_unlock(&rdv->mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 
 	DEBUG_TAG;
 	DEBUG_TAG;
@@ -803,22 +815,22 @@ static int _reviser_clear_ctx_pgt(void *drvinfo,
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (ctx >= g_ctxpgt_max) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (pgt_vlm == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 
 
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	/* Return TCM page table for clearing TCM */
 	_reviser_copy_pgt_vlm(pgt_vlm, &g_ctx_pgt[ctx].vlm);
@@ -828,7 +840,7 @@ static int _reviser_clear_ctx_pgt(void *drvinfo,
 	_reviser_clear_pgt_vlm(&g_ctx_pgt[ctx].vlm);
 
 	LOG_DEBUG("ctx(%lu)\n", ctx);
-	mutex_unlock(&rdv->mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 
 	return 0;
 }
@@ -843,7 +855,7 @@ int reviser_table_get_vlm(void *drvinfo,
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
@@ -906,9 +918,9 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto free_vlm;
 	}
 
-	LOG_DEBUG("[out] vlm page_num(%u) tcm_valid(%lx) ctx(%lu)\n",
+	LOG_DEBUG("[out] vlm page_num(%u) ctx(%lu)\n",
 			pgt_vlm.tcm.page_num,
-			pgt_vlm.tcm.pgt[0], ctx);
+			ctx);
 
 	*tcm_size = pgt_vlm.tcm.page_num * rdv->plat.bank_size;
 	*id = ctx;
@@ -949,12 +961,12 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctx)
 	//LOG_DEBUG("free ctx: %u\n", ctx);
 	if (ctx >= g_ctxpgt_max) {
 		LOG_ERR("invalid argument\n");
-		ret = -1;
+		ret = -EINVAL;
 		goto power_off;
 	}
 	if (reviser_table_clear_remap(drvinfo, ctx)) {
 		LOG_ERR("Clear Remap Fail\n");
-		ret = -1;
+		ret = -EINVAL;
 		goto power_off;
 	}
 
@@ -999,11 +1011,11 @@ int reviser_table_init_remap(void *drvinfo)
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_remap);
+	mutex_lock(&rdv->lock.mutex_remap);
 
 	g_rmp_valid = 0;
 	g_rmp_nbits = rdv->plat.rmp_max;
@@ -1022,7 +1034,7 @@ int reviser_table_init_remap(void *drvinfo)
 	}
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_remap);
+	mutex_unlock(&rdv->lock.mutex_remap);
 	return ret;
 }
 int reviser_table_uninit_remap(void *drvinfo)
@@ -1032,18 +1044,18 @@ int reviser_table_uninit_remap(void *drvinfo)
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_remap);
+	mutex_lock(&rdv->lock.mutex_remap);
 	g_rmp_valid = 0;
 	g_rmp_size = 0;
 	g_rmp_nbits = 0;
 	kfree(g_rmp.valid);
 	kfree(g_rmp.remap);
 
-	mutex_unlock(&rdv->mutex_remap);
+	mutex_unlock(&rdv->lock.mutex_remap);
 
 	return 0;
 }
@@ -1057,12 +1069,12 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctx)
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_remap);
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_remap);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	if (g_ctx_pgt[ctx].vlm.sys_num + g_rmp_valid > g_rmp_nbits) {
 
@@ -1100,14 +1112,14 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctx)
 	/* DEBUG and force set remap to specific value*/
 	_reviser_force_remap(drvinfo);
 
-	mutex_unlock(&rdv->mutex_ctx_pgt);
-	mutex_unlock(&rdv->mutex_remap);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_remap);
 
 	return 0;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_ctx_pgt);
-	mutex_unlock(&rdv->mutex_remap);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_remap);
 
 	return -1;
 }
@@ -1120,16 +1132,16 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctx)
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	if (ctx >= g_ctxpgt_max) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	mutex_lock(&rdv->mutex_remap);
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_remap);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	if (g_rmp_valid < g_ctx_pgt[ctx].vlm.sys_num) {
 		LOG_ERR("Clear fail(%u)[%lu][%u]\n",
@@ -1153,14 +1165,14 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctx)
 
 	LOG_DEBUG("ctx [%lu]\n", ctx);
 
-	mutex_unlock(&rdv->mutex_ctx_pgt);
-	mutex_unlock(&rdv->mutex_remap);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_remap);
 
 	return 0;
 
 free_mutex:
-	mutex_unlock(&rdv->mutex_ctx_pgt);
-	mutex_unlock(&rdv->mutex_remap);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_remap);
 
 	return -1;
 }
@@ -1184,7 +1196,7 @@ void reviser_table_print_vlm(void *drvinfo, uint32_t ctx, void *s_file)
 		return;
 	}
 
-	mutex_lock(&rdv->mutex_ctx_pgt);
+	mutex_lock(&rdv->lock.mutex_ctx_pgt);
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " vlm [%d] page_num[%d]\n",
@@ -1211,7 +1223,7 @@ void reviser_table_print_vlm(void *drvinfo, uint32_t ctx, void *s_file)
 	}
 	LOG_CON(s, "=============================\n");
 
-	mutex_unlock(&rdv->mutex_ctx_pgt);
+	mutex_unlock(&rdv->lock.mutex_ctx_pgt);
 }
 
 
@@ -1224,7 +1236,7 @@ int reviser_table_init(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
@@ -1258,7 +1270,7 @@ int reviser_table_uninit(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
