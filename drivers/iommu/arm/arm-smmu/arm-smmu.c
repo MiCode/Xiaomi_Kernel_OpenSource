@@ -4162,6 +4162,46 @@ static inline int arm_smmu_device_acpi_probe(struct platform_device *pdev,
 }
 #endif
 
+
+static int arm_smmu_device_dt_probe(struct platform_device *pdev,
+				    struct arm_smmu_device *smmu)
+{
+	const struct arm_smmu_match_data *data;
+	struct device *dev = &pdev->dev;
+	bool legacy_binding;
+
+	if (of_property_read_u32(dev->of_node, "#global-interrupts",
+				 &smmu->num_global_irqs)) {
+		dev_err(dev, "missing #global-interrupts property\n");
+		return -ENODEV;
+	}
+
+	data = of_device_get_match_data(dev);
+	smmu->version = data->version;
+	smmu->model = data->model;
+
+	legacy_binding = of_find_property(dev->of_node, "mmu-masters", NULL);
+	if (legacy_binding && !using_generic_binding) {
+		if (!using_legacy_binding) {
+			pr_notice("deprecated \"mmu-masters\" DT property in use; %s support unavailable\n",
+				IS_ENABLED(CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS) ?
+				"DMA API" : "SMMU");
+		}
+		using_legacy_binding = true;
+	} else if (!legacy_binding && !using_legacy_binding) {
+		using_generic_binding = true;
+	} else {
+		dev_err(dev, "not probing due to mismatched DT properties\n");
+		return -ENODEV;
+	}
+
+	if (of_dma_is_coherent(dev->of_node))
+		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
+
+	return 0;
+}
+
+
 static int arm_smmu_bus_init(struct iommu_ops *ops)
 {
 	int err;
@@ -4208,59 +4248,34 @@ err_reset_platform_ops: __maybe_unused;
 	return err;
 }
 
-static int arm_smmu_device_dt_probe(struct platform_device *pdev)
+static int arm_smmu_device_probe(struct platform_device *pdev)
 {
-	const struct arm_smmu_match_data *data;
 	struct resource *res;
 	resource_size_t ioaddr;
 	struct arm_smmu_device *smmu;
 	struct device *dev = &pdev->dev;
 	int num_irqs, i, err;
-	bool legacy_binding;
 	irqreturn_t (*global_fault)(int irq, void *dev);
 
 	/* We depend on this device for fastmap */
 	if (!qcom_dma_iommu_is_ready())
 		return -EPROBE_DEFER;
 
-	legacy_binding = of_find_property(dev->of_node, "mmu-masters", NULL);
-	if (legacy_binding && !using_generic_binding) {
-		if (!using_legacy_binding) {
-			pr_notice("deprecated \"mmu-masters\" DT property in use; %s support unavailable\n",
-				  IS_ENABLED(CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS) ? "DMA API" : "SMMU");
-		}
-		using_legacy_binding = true;
-	} else if (!legacy_binding && !using_legacy_binding) {
-		using_generic_binding = true;
-	} else {
-		dev_err(dev, "not probing due to mismatched DT properties\n");
-		return -ENODEV;
-	}
-
 	smmu = devm_kzalloc(dev, sizeof(*smmu), GFP_KERNEL);
 	if (!smmu)
 		return -ENOMEM;
-
 	smmu->dev = dev;
 
-	data = of_device_get_match_data(dev);
-	smmu->version = data->version;
-	smmu->model = data->model;
+	if (dev->of_node)
+		err = arm_smmu_device_dt_probe(pdev, smmu);
+	else
+		err = arm_smmu_device_acpi_probe(pdev, smmu);
 
-	if (of_dma_is_coherent(dev->of_node))
-		smmu->features |= ARM_SMMU_FEAT_COHERENT_WALK;
-
-	idr_init(&smmu->asid_idr);
-	mutex_init(&smmu->idr_mutex);
+	if (err)
+		return err;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ioaddr = res->start;
-	if (res == NULL) {
-		dev_err(dev, "no MEM resource info\n");
-		return -EINVAL;
-	}
-
-	smmu->phys_addr = res->start;
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
@@ -4269,12 +4284,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	 * stash that temporarily until we know PAGESIZE to validate it with.
 	 */
 	smmu->numpage = resource_size(res);
-
-	if (of_property_read_u32(dev->of_node, "#global-interrupts",
-				 &smmu->num_global_irqs)) {
-		dev_err(dev, "missing #global-interrupts property\n");
-		return -ENODEV;
-	}
 
 	smmu = arm_smmu_impl_init(smmu);
 	if (IS_ERR(smmu))
@@ -4295,18 +4304,20 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	smmu->irqs = devm_kcalloc(dev, num_irqs, sizeof(*smmu->irqs),
 				  GFP_KERNEL);
-	if (!smmu->irqs)
+	if (!smmu->irqs) {
+		dev_err(dev, "failed to allocate %d irqs\n", num_irqs);
 		return -ENOMEM;
+	}
 
 	for (i = 0; i < num_irqs; ++i) {
 		int irq = platform_get_irq(pdev, i);
 
-		if (irq < 0)
+		if (irq < 0) {
+			dev_err(dev, "failed to get irq index %d\n", i);
 			return -ENODEV;
+		}
 		smmu->irqs[i] = irq;
 	}
-
-	parse_driver_options(smmu);
 
 	smmu->pwr = arm_smmu_init_power_resources(pdev);
 	if (IS_ERR(smmu->pwr))
@@ -4320,10 +4331,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_power_off;
 
-	err = arm_smmu_handoff_cbs(smmu);
-	if (err)
-		goto out_power_off;
-
 	err = arm_smmu_parse_impl_def_registers(smmu);
 	if (err)
 		goto out_power_off;
@@ -4331,12 +4338,12 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (smmu->version == ARM_SMMU_V2) {
 		if (smmu->num_context_banks > smmu->num_context_irqs) {
 			dev_err(dev,
-				"found %d context interrupt(s) but have %d context banks. assuming %d context interrupts.\n",
-				smmu->num_context_irqs, smmu->num_context_banks,
-				smmu->num_context_banks);
+			      "found only %d context irq(s) but %d required\n",
+			      smmu->num_context_irqs, smmu->num_context_banks);
 			err = -ENODEV;
 			goto out_power_off;
 		}
+
 		/* Ignore superfluous interrupts */
 		smmu->num_context_irqs = smmu->num_context_banks;
 	}
@@ -4348,15 +4355,27 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	for (i = 0; i < smmu->num_global_irqs; ++i) {
 		err = devm_request_threaded_irq(smmu->dev, smmu->irqs[i],
-					NULL, global_fault,
-					IRQF_ONESHOT | IRQF_SHARED,
-					"arm-smmu global fault", smmu);
+				       NULL,
+				       global_fault,
+				       IRQF_ONESHOT | IRQF_SHARED,
+				       "arm-smmu global fault",
+				       smmu);
 		if (err) {
 			dev_err(dev, "failed to request global IRQ %d (%u)\n",
 				i, smmu->irqs[i]);
 			goto out_power_off;
 		}
 	}
+
+	/* QCOM Additions */
+	idr_init(&smmu->asid_idr);
+	mutex_init(&smmu->idr_mutex);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	smmu->phys_addr = res->start;
+	parse_driver_options(smmu);
+	err = arm_smmu_handoff_cbs(smmu);
+	if (err)
+		goto out_power_off;
 
 	err = iommu_device_sysfs_add(&smmu->iommu, smmu->dev, NULL,
 				     "smmu.%pa", &ioaddr);
@@ -4369,11 +4388,11 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	iommu_device_set_fwnode(&smmu->iommu, dev->fwnode);
 
 	err = iommu_device_register(&smmu->iommu);
-
 	if (err) {
 		dev_err(dev, "Failed to register iommu\n");
 		goto out_power_off;
 	}
+
 	platform_set_drvdata(pdev, smmu);
 	arm_smmu_device_reset(smmu);
 	arm_smmu_test_smr_masks(smmu);
@@ -4439,6 +4458,11 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_exit_power_resources(smmu->pwr);
 
 	return 0;
+}
+
+static void arm_smmu_device_shutdown(struct platform_device *pdev)
+{
+	arm_smmu_device_remove(pdev);
 }
 
 static int __maybe_unused arm_smmu_runtime_resume(struct device *dev)
@@ -4561,8 +4585,9 @@ static struct platform_driver arm_smmu_driver = {
 		.pm			= &arm_smmu_pm_ops,
 		.suppress_bind_attrs    = true,
 	},
-	.probe	= arm_smmu_device_dt_probe,
+	.probe	= arm_smmu_device_probe,
 	.remove	= arm_smmu_device_remove,
+	.shutdown = arm_smmu_device_shutdown,
 };
 
 static int __init arm_smmu_init(void)
