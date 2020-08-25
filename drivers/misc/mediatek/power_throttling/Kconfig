@@ -56,3 +56,13 @@ config MTK_LOW_BATTERY_POWER_THROTTLING
 	  Select "y" if you want to enable low battery power throttling
 	  feature.
 	  Select "n" if unsure.
+
+config MTK_MD_POWER_THROTTLING
+	tristate "MTK modem power throttling"
+	depends on MTK_ECCCI_DRIVER
+	help
+	  For MediaTek modem power throttling.
+	  Throttle MTK modem power when MTK power throttling triggers
+	  Select "y" if you want to enable MTK modem power throttling
+	  feature
+	  Select "n" if unsure.
