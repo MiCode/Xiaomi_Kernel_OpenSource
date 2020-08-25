@@ -209,6 +209,9 @@ struct qcom_smd_endpoint {
  * @pkt_size:		size of the currently handled packet
  * @drvdata:		driver private data
  * @list:		lite entry for @channels in qcom_smd_edge
+ * @extended_buf:	buffer for reading data greater than fifo size
+ * @ext_buf:		helper pointer for reading data greater than fifo size
+ * @ext_pkt_size:	size of data greater than fifo size
  */
 struct qcom_smd_channel {
 	struct qcom_smd_edge *edge;
@@ -241,6 +244,10 @@ struct qcom_smd_channel {
 
 	struct list_head list;
 	u32 rsigs;
+
+	void *extended_buf;
+	void *ext_buf;
+	int ext_pkt_size;
 };
 
 /*
@@ -568,6 +575,62 @@ static void qcom_smd_channel_advance(struct qcom_smd_channel *channel,
 	SET_RX_CHANNEL_INFO(channel, tail, tail);
 }
 
+/* Read the data of size greater than fifo size */
+static size_t qcom_smd_channel_ext_read(struct qcom_smd_channel *channel)
+{
+	struct rpmsg_endpoint *ept = &channel->qsept->ept;
+	size_t len;
+	void *ptr;
+	int ret;
+	int avail;
+
+	if (!channel->extended_buf) {
+		channel->ext_pkt_size = channel->pkt_size;
+		channel->extended_buf = kmalloc(channel->ext_pkt_size,
+								GFP_ATOMIC);
+		if (!channel->extended_buf) {
+			smd_ipc(channel->edge->ipc, true, NULL,
+				"%s: mem alloc failed\n", __func__);
+			return 0;
+		}
+		ptr = channel->extended_buf;
+		channel->ext_buf = ptr;
+	} else {
+		ptr = channel->ext_buf;
+	}
+
+	if (channel->pkt_size > channel->fifo_size) {
+		avail = qcom_smd_channel_get_rx_avail(channel);
+		len = qcom_smd_channel_peek(channel, ptr, avail);
+	} else {
+		len = qcom_smd_channel_peek(channel, ptr, channel->pkt_size);
+	}
+
+	qcom_smd_channel_advance(channel, len);
+	channel->pkt_size = channel->pkt_size - len;
+	channel->ext_buf = ptr + len;
+
+	if (channel->pkt_size == 0) {
+		ptr = channel->extended_buf;
+		len = channel->ext_pkt_size;
+		ret = ept->cb(ept->rpdev, ptr, len, ept->priv, RPMSG_ADDR_ANY);
+		if (ret < 0) {
+			smd_ipc(channel->edge->ipc, false, NULL,
+			"%s: ret %d len %d ch %s\n", __func__, ret, len,
+								channel->name);
+		}
+		kfree(channel->extended_buf);
+		channel->extended_buf = NULL;
+		channel->ext_buf = NULL;
+		channel->ext_pkt_size = 0;
+	}
+
+	/* Indicate that we have seen and updated tail */
+	SET_TX_CHANNEL_FLAG(channel, fTAIL, 1);
+
+	return len;
+}
+
 /*
  * Read out a single packet from the rx fifo and deliver it to the device
  */
@@ -581,6 +644,15 @@ static int qcom_smd_channel_recv_single(struct qcom_smd_channel *channel)
 
 	tail = GET_RX_CHANNEL_INFO(channel, tail);
 
+	/* use extended buffer if data size is greter than fifo size */
+	if ((channel->pkt_size > channel->fifo_size) ||
+					channel->ext_pkt_size) {
+		len = qcom_smd_channel_ext_read(channel);
+		if (len == 0)
+			return -ENOMEM;
+		goto exit;
+	}
+
 	/* Use bounce buffer if the data wraps */
 	if (tail + channel->pkt_size >= channel->fifo_size) {
 		ptr = channel->bounce_buffer;
@@ -591,14 +663,19 @@ static int qcom_smd_channel_recv_single(struct qcom_smd_channel *channel)
 	}
 
 	ret = ept->cb(ept->rpdev, ptr, len, ept->priv, RPMSG_ADDR_ANY);
-	if (ret < 0)
+	if (ret < 0) {
+		smd_ipc(channel->edge->ipc, false, NULL,
+			"%s: ret %d len %d ch %s\n", __func__, ret, len,
+								channel->name);
 		return ret;
+	}
 
 	/* Only forward the tail if the client consumed the data */
 	qcom_smd_channel_advance(channel, len);
 
 	channel->pkt_size = 0;
 
+exit:
 	smd_ipc(channel->edge->ipc, false, NULL, "%s: len %d ch %s ed %s\n",
 			__func__, len, channel->name, channel->edge->name);
 	return 0;
@@ -658,7 +735,8 @@ static bool qcom_smd_channel_intr(struct qcom_smd_channel *channel)
 			smd_ipc(channel->edge->ipc, false, NULL,
 			"%s: pkt_size: %d ch %s ed %s\n", __func__,
 			channel->pkt_size, channel->name, channel->edge->name);
-		} else if (channel->pkt_size && avail >= channel->pkt_size) {
+		} else if (channel->pkt_size && (avail >= channel->pkt_size ||
+				channel->pkt_size > channel->fifo_size)) {
 			ret = qcom_smd_channel_recv_single(channel);
 			if (ret) {
 				smd_ipc(channel->edge->ipc, false, NULL,
