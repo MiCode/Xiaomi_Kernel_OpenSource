@@ -945,7 +945,7 @@ static void pl_taper_work(struct work_struct *work)
 		}
 
 		chip->charge_type = pval.intval;
-		if (pval.intval == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+		if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE) {
 			fcc_ua = get_client_vote(chip->fcc_votable,
 					TAPER_STEPPER_VOTER);
 			if (fcc_ua < 0) {
@@ -1558,7 +1558,7 @@ static int pl_disable_vote_callback(struct votable *votable,
 		if (rc < 0) {
 			pr_err("Couldn't get batt charge type rc=%d\n", rc);
 		} else {
-			if (pval.intval == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER
+			if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE
 				&& !chip->taper_work_running) {
 				pl_dbg(chip, PR_PARALLEL,
 					"pl enabled in Taper scheduing work\n");
@@ -1761,7 +1761,7 @@ static void handle_main_charge_type(struct pl_data *chip)
 
 	/* not fast/not taper state to disables parallel */
 	if ((pval.intval != POWER_SUPPLY_CHARGE_TYPE_FAST)
-		&& (pval.intval != QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER)) {
+		&& (pval.intval != POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE)) {
 		vote(chip->pl_disable_votable, CHG_STATE_VOTER, true, 0);
 		chip->charge_type = pval.intval;
 		return;
@@ -1769,7 +1769,7 @@ static void handle_main_charge_type(struct pl_data *chip)
 
 	/* handle taper charge entry */
 	if (chip->charge_type == POWER_SUPPLY_CHARGE_TYPE_FAST
-		&& (pval.intval == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER)) {
+		&& (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE)) {
 		chip->charge_type = pval.intval;
 		if (!chip->taper_work_running) {
 			pl_dbg(chip, PR_PARALLEL, "taper entry scheduling work\n");
@@ -1780,7 +1780,7 @@ static void handle_main_charge_type(struct pl_data *chip)
 	}
 
 	/* handle fast/taper charge entry */
-	if (pval.intval == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER
+	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE
 			|| pval.intval == POWER_SUPPLY_CHARGE_TYPE_FAST) {
 		/*
 		 * Undo parallel charging termination if entered taper in
@@ -1895,7 +1895,7 @@ static void handle_parallel_in_taper(struct pl_data *chip)
 	 * if parallel is seen in taper mode ever, that is an anomaly and
 	 * we disable parallel charger
 	 */
-	if (pval.intval == QTI_POWER_SUPPLY_CHARGE_TYPE_TAPER) {
+	if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE) {
 		vote(chip->pl_disable_votable, PL_TAPER_EARLY_BAD_VOTER,
 				true, 0);
 		return;
