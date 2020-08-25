@@ -219,11 +219,12 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 	/* TODO: support multi-plane stride */
 	out_fmt->fmt.stride[0] = cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
 
-	out_fmt->crop.p.x = 0;
-	out_fmt->crop.p.y = 0;
-	/*FIXME for crop size */
-	out_fmt->crop.s.w = out_fmt->fmt.s.w;
-	out_fmt->crop.s.h = out_fmt->fmt.s.h;
+	if (out_fmt->crop.p.x == 0 && out_fmt->crop.s.w == 0) {
+		out_fmt->crop.p.x = 0;
+		out_fmt->crop.p.y = 0;
+		out_fmt->crop.s.w = out_fmt->fmt.s.w;
+		out_fmt->crop.s.h = out_fmt->fmt.s.h;
+	}
 
 	dev_dbg(cam->dev,
 		"ctx: %d node:%d size=%0dx%0d, stride:%d, crop=%0dx%0d\n",
@@ -232,6 +233,23 @@ static int config_img_fmt(struct mtk_cam_device *cam,
 		out_fmt->crop.s.h);
 
 	return 0;
+}
+
+s32 get_crop_request_fd(struct v4l2_selection *crop)
+{
+	s32 request_fd = 0;
+
+	request_fd = crop->reserved[0];
+	crop->reserved[0] = 0;
+
+	return request_fd;
+}
+
+void set_crop_request_fd(struct v4l2_selection *crop, s32 request_fd)
+{
+	u32 *reserved = crop->reserved;
+
+	reserved[0] = request_fd;
 }
 
 s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp)
@@ -353,6 +371,29 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 					.img_outs[node->desc.id-MTK_RAW_SOURCE_BEGIN];
 			out_fmt->uid.pipe_id = node->uid.pipe_id;
 			out_fmt->uid.id = MTKCAM_IPI_RAW_RRZO;
+
+			fd = get_crop_request_fd(&node->pending_crop);
+			if (fd > 0) {
+				request = media_request_get_by_fd(
+					&cam->media_dev, fd);
+
+				if (request == &req->req) {
+					out_fmt->crop.p.x =
+						node->pending_crop.r.left;
+					out_fmt->crop.p.y =
+						node->pending_crop.r.top;
+					out_fmt->crop.s.w =
+						node->pending_crop.r.width;
+					out_fmt->crop.s.h =
+						node->pending_crop.r.height;
+				}
+			} else {
+				out_fmt->crop.p.x = node->pending_crop.r.left;
+				out_fmt->crop.p.y = node->pending_crop.r.top;
+				out_fmt->crop.s.w = node->pending_crop.r.width;
+				out_fmt->crop.s.h = node->pending_crop.r.height;
+			}
+
 			ret = config_img_fmt(cam, node, out_fmt,
 					     sd_width, sd_height);
 			if (ret)

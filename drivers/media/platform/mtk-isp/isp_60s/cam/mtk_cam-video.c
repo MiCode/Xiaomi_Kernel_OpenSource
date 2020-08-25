@@ -890,3 +890,24 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	return 0;
 }
 
+int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
+				struct v4l2_selection *s)
+{
+	struct mtk_cam_device *cam = video_drvdata(file);
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+
+	if (vb2_is_busy(node->vdev.queue)) {
+		s32 fd = get_crop_request_fd(s);
+
+		if (fd > 0) {
+			node->pending_crop = *s;
+			set_crop_request_fd(&node->pending_crop, fd);
+		} else {
+			dev_dbg(cam->dev, "%s: queue is busy\n", __func__);
+			return -EBUSY;
+		}
+	} else
+		node->pending_crop = *s;
+
+	return 0;
+}

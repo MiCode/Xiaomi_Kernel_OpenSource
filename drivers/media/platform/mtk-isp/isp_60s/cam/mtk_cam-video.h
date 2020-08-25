@@ -89,8 +89,10 @@ struct mtk_cam_video_device {
 	struct video_device vdev;
 	struct media_pad pad;
 	struct v4l2_format active_fmt;
-	/* use first 4 elements of reserved of v4l2_pix_format_mplane as request fd */
+	/* use first 4 elements of reserved field of v4l2_pix_format_mplane as request fd */
 	struct v4l2_format pending_fmt;
+	/* use first elements of reserved field of v4l2_selection as request fd*/
+	struct v4l2_selection pending_crop;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
 
@@ -150,6 +152,9 @@ int video_try_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f);
 
 int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 				 struct v4l2_fmtdesc *f);
+
+int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
+				struct v4l2_selection *s);
 
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f);

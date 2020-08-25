@@ -1427,6 +1427,7 @@ static const struct v4l2_ioctl_ops mtk_cam_v4l2_vcap_ioctl_ops = {
 	.vidioc_g_fmt_vid_cap_mplane = mtk_cam_vidioc_g_fmt,
 	.vidioc_s_fmt_vid_cap_mplane = mtk_cam_vidioc_s_fmt,
 	.vidioc_try_fmt_vid_cap_mplane = mtk_cam_vidioc_try_fmt,
+	.vidioc_s_selection = mtk_cam_vidioc_s_selection,
 	.vidioc_reqbufs = vb2_ioctl_reqbufs,
 	.vidioc_create_bufs = vb2_ioctl_create_bufs,
 	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
