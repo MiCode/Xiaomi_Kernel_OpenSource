@@ -1592,8 +1592,10 @@ int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
-		mtk_cam_seninf_disable_mux(ctx, vc->mux);
-		mtk_cam_seninf_disable_cammux(ctx, vc->cam);
+		if (vc->enable) {
+			mtk_cam_seninf_disable_mux(ctx, vc->mux);
+			mtk_cam_seninf_disable_cammux(ctx, vc->cam);
+		}
 	}
 
 	return 0;

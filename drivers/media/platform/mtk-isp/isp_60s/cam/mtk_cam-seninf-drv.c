@@ -422,6 +422,7 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			return -EBUSY;
 		vc->mux = mux->idx;
 		vc->cam = ctx->pad2cam[vc->out_pad];
+		vc->enable = 1;
 		pm_runtime_get_sync(ctx->dev);
 		clk_prepare_enable(ctx->core->clk[CLK_TOP_CAMTM]);
 		if (dfs->cnt)
@@ -465,7 +466,8 @@ static int config_hw(struct seninf_ctx *ctx)
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
 
-		if (!mtk_cam_seninf_is_vc_enabled(ctx, vc)) {
+		vc->enable = mtk_cam_seninf_is_vc_enabled(ctx, vc);
+		if (!vc->enable) {
 			dev_info(ctx->dev, "vc[%d] pad %d. skip\n",
 				 i, vc->feature, vc->out_pad);
 			continue;

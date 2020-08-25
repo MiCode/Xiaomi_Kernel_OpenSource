@@ -33,6 +33,7 @@ struct seninf_vc {
 	u8 group;
 	u8 mux; // allocated per group
 	u8 cam; // assigned by cam driver
+	u8 enable;
 	u16 exp_hsize;
 	u16 exp_vsize;
 };
