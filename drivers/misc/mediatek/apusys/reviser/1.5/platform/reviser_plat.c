@@ -19,13 +19,13 @@ int reviser_plat_init(struct platform_device *pdev)
 
 	if (!rdv) {
 		LOG_ERR("No reviser_dev_info!\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	rplat = (struct reviser_plat *)of_device_get_match_data(dev);
 	if (!rplat) {
 		LOG_ERR("No reviser_plat!\n");
-		return -1;
+		return -EINVAL;
 	}
 
 
@@ -61,13 +61,13 @@ int reviser_plat_uninit(struct platform_device *pdev)
 
 	if (!rdv) {
 		LOG_ERR("No reviser_dev_info!\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	rplat = (struct reviser_plat *)of_device_get_match_data(dev);
 	if (!rplat) {
 		LOG_ERR("No reviser_plat!\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	return rplat->uninit(pdev);

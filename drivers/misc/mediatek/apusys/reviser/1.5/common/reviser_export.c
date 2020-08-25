@@ -10,6 +10,7 @@
 #include "reviser_export.h"
 #include "reviser_table_mgt.h"
 #include "reviser_hw_mgt.h"
+#include "reviser_drv.h"
 
 
 
@@ -109,4 +110,26 @@ int reviser_set_context(int type,
 	return ret;
 }
 
+/**
+ * reviser_get_resource_vlm - get vlm address and available TCM size
+ * @addr: the address of specific hardware (VLM)
+ * @size: the size of specific hardware (TCM)
+ *
+ * This function get vlm address and size from dts.
+ */
 
+int reviser_get_resource_vlm(uint32_t *addr, uint32_t *size)
+{
+	int ret = 0;
+
+	if (g_rdv == NULL) {
+		LOG_ERR("Invalid reviser_device\n");
+		ret = -EINVAL;
+		return ret;
+	}
+
+	*addr = (uint32_t) g_rdv->plat.vlm_addr;
+	*size = (uint32_t) g_rdv->plat.tcm_size;
+
+	return 0;
+}

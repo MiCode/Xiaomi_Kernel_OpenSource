@@ -246,6 +246,10 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 	int res = 0;
 	unsigned char *vbuffer;
 
+	if (!rdv->rsc.tcm.base) {
+		LOG_ERR("No TCM\n");
+		return -EINVAL;
+	}
 	if (g_reviser_mem_tcm_bank >= rdv->plat.tcm_bank_max) {
 		LOG_ERR("copy TCM out of range. %d\n", g_reviser_mem_tcm_bank);
 		return -EINVAL;
@@ -266,7 +270,7 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 	LOG_DEBUG("copy buffer size 0x%x ...\n", rdv->plat.bank_size);
 
 	memcpy_fromio(vbuffer,
-			rdv->tcm_base +
+			rdv->rsc.tcm.base +
 			g_reviser_mem_tcm_bank * rdv->plat.bank_size,
 			rdv->plat.bank_size);
 
@@ -325,7 +329,7 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 
 
 	res = simple_read_from_buffer(buffer, length, offset,
-			rdv->dram_base + dram_offset, rdv->plat.bank_size);
+			rdv->rsc.dram.base + dram_offset, rdv->plat.bank_size);
 
 	return res;
 }
@@ -419,9 +423,9 @@ static void reviser_print_error(void *drvinfo, void *s_file)
 
 	rdv = (struct reviser_dev_info *)drvinfo;
 
-	spin_lock_irqsave(&rdv->lock_dump, flags);
+	spin_lock_irqsave(&rdv->lock.lock_dump, flags);
 	count = rdv->dump.err_count;
-	spin_unlock_irqrestore(&rdv->lock_dump, flags);
+	spin_unlock_irqrestore(&rdv->lock.lock_dump, flags);
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser error info\n");
 	LOG_CON(s, "-----------------------------\n");
@@ -509,7 +513,7 @@ static const struct file_operations reviser_dbg_fops_err_reg = {
 	//.write = seq_write,
 };
 //----------------------------------------------
-int reviser_dbg_init(struct reviser_dev_info *rdv)
+int reviser_dbg_init(struct reviser_dev_info *rdv, struct dentry *apu_dbg_root)
 {
 	int ret = 0;
 
@@ -518,7 +522,7 @@ int reviser_dbg_init(struct reviser_dev_info *rdv)
 	g_reviser_mem_dram_bank = 0;
 	g_reviser_mem_dram_ctx = 0;
 
-	reviser_dbg_root = debugfs_create_dir(REVISER_DBG_DIR, NULL);
+	reviser_dbg_root = debugfs_create_dir(REVISER_DBG_DIR, apu_dbg_root);
 	reviser_dbg_table = debugfs_create_dir(REVISER_DBG_SUBDIR_TABLE,
 			reviser_dbg_root);
 	reviser_dbg_mem = debugfs_create_dir(REVISER_DBG_SUBDIR_MEM,

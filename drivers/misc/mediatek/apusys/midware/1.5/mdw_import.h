@@ -16,6 +16,8 @@ int mdw_rvs_set_ctx(int type, int idx, uint8_t ctx);
 int mdw_rvs_free_vlm(uint32_t ctx);
 int mdw_rvs_get_vlm(uint32_t req_size, bool force,
 		unsigned long *id, uint32_t *tcm_size);
+int mdw_rvs_get_vlm_property(unsigned int *start,
+		unsigned int *size);
 int mdw_qos_cmd_start(uint64_t cmd_id, uint64_t sc_id,
 		int type, int core, uint32_t boost);
 int mdw_qos_cmd_end(uint64_t cmd_id, uint64_t sc_id,

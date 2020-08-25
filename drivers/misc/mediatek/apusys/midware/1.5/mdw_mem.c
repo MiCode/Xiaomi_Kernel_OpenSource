@@ -10,10 +10,8 @@
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 #include "mdw_mem_cmn.h"
+#include "mdw_import.h"
 
-// TODO: get VLM config from DTS
-#define APUSYS_VLM_START 0x1D800000
-#define APUSYS_VLM_SIZE 0x100000
 
 struct mdw_mem_mgr {
 	struct list_head list;
@@ -291,8 +289,7 @@ unsigned int mdw_mem_get_support(void)
 
 void mdw_mem_get_vlm(unsigned int *start, unsigned int *size)
 {
-	*start = APUSYS_VLM_START;
-	*size = APUSYS_VLM_SIZE;
+	mdw_rvs_get_vlm_property(start, size);
 }
 
 int mdw_mem_init(void)

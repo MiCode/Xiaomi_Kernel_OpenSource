@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #endif
+#include "apusys_core.h"
 
 #include "reviser_drv.h"
 #include "reviser_cmn.h"
@@ -44,6 +45,7 @@
 static struct class *reviser_class;
 struct reviser_dev_info *g_rdv;
 static struct task_struct *mem_task;
+static struct apusys_core_info *g_apusys;
 
 /* function declaration */
 static int reviser_open(struct inode *, struct file *);
@@ -102,9 +104,9 @@ static void reviser_power_on_cb(void *para)
 		LOG_ERR("Not Found rdv\n");
 		return;
 	}
-	spin_lock_irqsave(&g_rdv->lock_power, flags);
-	g_rdv->power = true;
-	spin_unlock_irqrestore(&g_rdv->lock_power, flags);
+	spin_lock_irqsave(&g_rdv->lock.lock_power, flags);
+	g_rdv->power.power = true;
+	spin_unlock_irqrestore(&g_rdv->lock.lock_power, flags);
 
 
 	reviser_mgt_set_int(g_rdv, 1);
@@ -130,9 +132,9 @@ static void reviser_power_off_cb(void *para)
 	}
 	reviser_mgt_set_int(g_rdv, 0);
 
-	spin_lock_irqsave(&g_rdv->lock_power, flags);
-	g_rdv->power = false;
-	spin_unlock_irqrestore(&g_rdv->lock_power, flags);
+	spin_lock_irqsave(&g_rdv->lock.lock_power, flags);
+	g_rdv->power.power = false;
+	spin_unlock_irqrestore(&g_rdv->lock.lock_power, flags);
 }
 
 
@@ -164,15 +166,15 @@ static int reviser_release(struct inode *inode, struct file *filp)
 }
 static int reviser_init_para(struct reviser_dev_info *rdv)
 {
-	mutex_init(&rdv->mutex_ctx);
-	mutex_init(&rdv->mutex_tcm);
-	mutex_init(&rdv->mutex_ctx_pgt);
-	mutex_init(&rdv->mutex_remap);
-	mutex_init(&rdv->mutex_power);
-	init_waitqueue_head(&rdv->wait_ctx);
-	init_waitqueue_head(&rdv->wait_tcm);
-	spin_lock_init(&rdv->lock_power);
-	spin_lock_init(&rdv->lock_dump);
+	mutex_init(&rdv->lock.mutex_ctx);
+	mutex_init(&rdv->lock.mutex_tcm);
+	mutex_init(&rdv->lock.mutex_ctx_pgt);
+	mutex_init(&rdv->lock.mutex_remap);
+	mutex_init(&rdv->lock.mutex_power);
+	init_waitqueue_head(&rdv->lock.wait_ctx);
+	init_waitqueue_head(&rdv->lock.wait_tcm);
+	spin_lock_init(&rdv->lock.lock_power);
+	spin_lock_init(&rdv->lock.lock_dump);
 
 	return 0;
 }
@@ -186,6 +188,17 @@ static int reviser_get_addr(struct platform_device *pdev, void **reg, int num,
 	if (!res) {
 		dev_info(&pdev->dev, "invalid address (num = %d)\n", num);
 		return -ENODEV;
+	}
+
+	if (res->start > res->end) {
+		*base = res->start;
+		*size = 0;
+		*reg = NULL;
+		dev_info(&pdev->dev,
+			"(num = %d) at 0x%08lx map 0x%08lx base:0x%08lx size:0x%08lx\n",
+			num, (unsigned long __force)res->start,
+			(unsigned long __force)res->end, *base, *size);
+		return -ENOMEM;
 	}
 
 	*reg = ioremap(res->start, res->end - res->start + 1);
@@ -208,38 +221,43 @@ static int reviser_map_dts(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = &pdev->dev;
 	int irq;
-	unsigned int ctrl_base, ctrl_size;
-	unsigned int int_base, int_size;
 	struct reviser_dev_info *rdv = platform_get_drvdata(pdev);
 
 	DEBUG_TAG;
 
 	if (!rdv) {
 		LOG_ERR("No reviser_dev_info!\n");
-		return -1;
+		return -EINVAL;
 	}
 
-	if (reviser_get_addr(pdev, &rdv->pctrl_top, 0, &ctrl_base, &ctrl_size)) {
+	if (reviser_get_addr(pdev, &rdv->rsc.ctrl.base, 0,
+			&rdv->rsc.ctrl.addr, &rdv->rsc.ctrl.size)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto out;
 	}
-	if (reviser_get_addr(pdev, &rdv->vlm_base, 1, &rdv->plat.vlm_addr, &rdv->plat.vlm_size)) {
+	if (reviser_get_addr(pdev, &rdv->rsc.vlm.base, 1, &rdv->rsc.vlm.addr, &rdv->rsc.vlm.size)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_ctrl;
 	}
+	rdv->plat.vlm_addr = rdv->rsc.vlm.addr;
+	rdv->plat.vlm_size = rdv->rsc.vlm.size;
 	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
 
 
-	if (reviser_get_addr(pdev, &rdv->tcm_base, 2, &rdv->plat.tcm_addr, &rdv->plat.tcm_size)) {
+	ret = reviser_get_addr(pdev, &rdv->rsc.tcm.base, 2, &rdv->rsc.tcm.addr, &rdv->rsc.tcm.size);
+	if (ret && (ret != -ENOMEM)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_vlm;
 	}
+	rdv->plat.tcm_addr = rdv->rsc.tcm.addr;
+	rdv->plat.tcm_size = rdv->rsc.tcm.size;
+	rdv->plat.vlm_bank_max = rdv->plat.vlm_size / rdv->plat.bank_size;
 	rdv->plat.tcm_bank_max = rdv->plat.tcm_size / rdv->plat.bank_size;
 
-	if (reviser_get_addr(pdev, &rdv->int_base, 3, &int_base, &int_size)) {
+	if (reviser_get_addr(pdev, &rdv->rsc.isr.base, 3, &rdv->rsc.isr.addr, &rdv->rsc.isr.size)) {
 		LOG_ERR("invalid address\n");
 		ret = -ENODEV;
 		goto free_tcm;
@@ -279,13 +297,14 @@ static int reviser_map_dts(struct platform_device *pdev)
 	return ret;
 
 free_int:
-	iounmap(rdv->int_base);
+	iounmap(rdv->rsc.isr.base);
 free_tcm:
-	iounmap(rdv->tcm_base);
+	if (!rdv->rsc.tcm.base)
+		iounmap(rdv->rsc.tcm.base);
 free_vlm:
-	iounmap(rdv->vlm_base);
+	iounmap(rdv->rsc.vlm.base);
 free_ctrl:
-	iounmap(rdv->pctrl_top);
+	iounmap(rdv->rsc.ctrl.base);
 out:
 	return ret;
 
@@ -299,12 +318,12 @@ static int reviser_unmap_dts(struct platform_device *pdev)
 
 	if (!rdv) {
 		LOG_ERR("No reviser_dev_info!\n");
-		return -1;
+		return -EINVAL;
 	}
-
-	iounmap(rdv->tcm_base);
-	iounmap(rdv->vlm_base);
-	iounmap(rdv->pctrl_top);
+	if (!rdv->rsc.tcm.base)
+		iounmap(rdv->rsc.tcm.base);
+	iounmap(rdv->rsc.vlm.base);
+	iounmap(rdv->rsc.ctrl.base);
 
 	return ret;
 
@@ -318,7 +337,7 @@ static int reviser_create_node(struct platform_device *pdev)
 
 	if (!rdv) {
 		LOG_ERR("No reviser_dev_info!\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	/* get major */
@@ -381,7 +400,7 @@ static int reviser_delete_node(void *drvinfo)
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		return -EINVAL;
 	}
 	rdv = (struct reviser_dev_info *)drvinfo;
 
@@ -466,11 +485,13 @@ static int reviser_probe(struct platform_device *pdev)
 	DEBUG_TAG;
 
 	if (reviser_table_init(rdv)) {
+		LOG_ERR("table init fail\n");
 		ret = -EINVAL;
 		goto free_map;
 	}
 
-	if (reviser_dbg_init(rdv)) {
+	if (reviser_dbg_init(rdv, g_apusys->dbg_root)) {
+		LOG_ERR("dbg init fail\n");
 		ret = -EINVAL;
 		goto free_table;
 	}
@@ -494,7 +515,7 @@ static int reviser_probe(struct platform_device *pdev)
 
 	rdv->init_done = true;
 
-	DEBUG_TAG;
+	LOG_INFO("probe done\n");
 
 	return ret;
 free_dbg:
@@ -524,6 +545,8 @@ static int reviser_remove(struct platform_device *pdev)
 	reviser_delete_node(rdv);
 
 	g_rdv = NULL;
+
+	LOG_INFO("remove done\n");
 
 	return 0;
 }
@@ -565,6 +588,7 @@ int reviser_init(struct apusys_core_info *info)
 		LOG_ERR("reviser is disabled by apusys\n");
 		return -ENODEV;
 	}
+	g_apusys = info;
 
 	reviser_driver.driver.of_match_table = reviser_get_of_device_id();
 
