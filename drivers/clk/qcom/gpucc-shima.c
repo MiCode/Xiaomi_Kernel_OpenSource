@@ -263,19 +263,6 @@ static struct clk_branch gpu_cc_ahb_clk = {
 	},
 };
 
-static struct clk_branch gpu_cc_cb_clk = {
-	.halt_reg = 0x1170,
-	.halt_check = BRANCH_HALT_SKIP,
-	.clkr = {
-		.enable_reg = 0x1170,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_cb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gpu_cc_crc_ahb_clk = {
 	.halt_reg = 0x107c,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -460,7 +447,6 @@ static struct clk_branch gpu_cc_sleep_clk = {
 
 static struct clk_regmap *gpu_cc_shima_clocks[] = {
 	[GPU_CC_AHB_CLK] = &gpu_cc_ahb_clk.clkr,
-	[GPU_CC_CB_CLK] = &gpu_cc_cb_clk.clkr,
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
 	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
 	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
@@ -537,6 +523,9 @@ static int gpu_cc_shima_probe(struct platform_device *pdev)
 
 	clk_lucid_5lpe_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 	clk_lucid_5lpe_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
+	/* gpu_cc_cb_clk */
+	regmap_update_bits(regmap, 0x1170, BIT(0), BIT(0));
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_shima_desc, regmap);
 	if (ret) {
