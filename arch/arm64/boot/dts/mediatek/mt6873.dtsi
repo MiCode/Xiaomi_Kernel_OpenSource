@@ -57,6 +57,11 @@
 		kaslr-seed = <0 0>;
 	};
 
+	memory {
+		device_type = "memory";
+		reg = <0 0x40000000 0 0x20000000>;
+	};
+
 	clocks {
 		clk_null: clk_null {
 			compatible = "fixed-clock";
