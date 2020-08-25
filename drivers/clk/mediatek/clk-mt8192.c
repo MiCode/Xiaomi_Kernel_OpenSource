@@ -1274,7 +1274,7 @@ static const struct mtk_gate peri_clks[] = {
 			_rst_bar_mask, _pcwbits, _pd_reg, _pd_shift,	\
 			_tuner_reg, _tuner_en_reg, _tuner_en_bit,	\
 			_pcw_reg, _pcw_shift, _pcw_chg_reg,		\
-			_en_reg, _base_en_bit) {			\
+			_en_reg, _pll_en_bit) {			\
 		.id = _id,						\
 		.name = _name,						\
 		.reg = _reg,						\
@@ -1295,7 +1295,7 @@ static const struct mtk_gate peri_clks[] = {
 		.pcw_shift = _pcw_shift,				\
 		.pcw_chg_reg = _pcw_chg_reg,				\
 		.en_reg = _en_reg,					\
-		.base_en_bit = _base_en_bit,				\
+		.pll_en_bit = _pll_en_bit,				\
 	}
 
 #define PLL_B(_id, _name, _reg, _pwr_reg, _en_mask, _flags,	\
