@@ -13,11 +13,6 @@
 #define ARM_SMMU_ICC_PEAK_BW_LOW	0
 #define ARM_SMMU_ICC_ACTIVE_ONLY_TAG	0x3
 
-static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
-{
-	return container_of(dom, struct arm_smmu_domain, domain);
-}
-
 /*
  * Theoretically, our interconnect does not guarantee the order between
  * writes to different "register blocks" even with device memory type.
@@ -160,7 +155,7 @@ err:
 }
 
 /* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
-int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
+static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 {
 	int ret = 0;
 	unsigned long flags;
@@ -181,7 +176,7 @@ int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 }
 
 /* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
-void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
+static void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
 				      struct arm_smmu_power_resources *pwr)
 {
 	unsigned long flags;
@@ -287,42 +282,6 @@ void arm_smmu_power_off(struct arm_smmu_device *smmu,
 {
 	arm_smmu_power_off_atomic(smmu, pwr);
 	arm_smmu_power_off_slow(pwr);
-}
-
-/*
- * Must be used instead of arm_smmu_power_on if it may be called from
- * atomic context
- */
-int arm_smmu_domain_power_on(struct iommu_domain *domain,
-				struct arm_smmu_device *smmu)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	bool atomic_domain = test_bit(DOMAIN_ATTR_ATOMIC,
-				      smmu_domain->attributes);
-
-	if (atomic_domain)
-		return arm_smmu_power_on_atomic(smmu->pwr);
-
-	return arm_smmu_power_on(smmu->pwr);
-}
-
-/*
- * Must be used instead of arm_smmu_power_on if it may be called from
- * atomic context
- */
-void arm_smmu_domain_power_off(struct iommu_domain *domain,
-				struct arm_smmu_device *smmu)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	bool atomic_domain = test_bit(DOMAIN_ATTR_ATOMIC,
-				      smmu_domain->attributes);
-
-	if (atomic_domain) {
-		arm_smmu_power_off_atomic(smmu, smmu->pwr);
-		return;
-	}
-
-	arm_smmu_power_off(smmu, smmu->pwr);
 }
 
 static int arm_smmu_init_clocks(struct arm_smmu_power_resources *pwr)

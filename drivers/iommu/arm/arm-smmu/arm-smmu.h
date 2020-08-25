@@ -509,6 +509,11 @@ struct arm_smmu_domain {
 	struct list_head		nonsecure_pool;
 	struct iommu_debug_attachment	*logger;
 	struct iommu_domain		domain;
+	/*
+	 * test_bit(DOMAIN_ATTR_ATOMIC, aattributes) indicates that
+	 * runtime power management should be disabled.
+	 */
+	bool				rpm_always_on;
 };
 
 struct arm_smmu_master_cfg {
@@ -683,13 +688,6 @@ int arm_mmu500_reset(struct arm_smmu_device *smmu);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
-int arm_smmu_domain_power_on(struct iommu_domain *domain,
-				struct arm_smmu_device *smmu);
-void arm_smmu_domain_power_off(struct iommu_domain *domain,
-				struct arm_smmu_device *smmu);
-int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr);
-void arm_smmu_power_off_atomic(struct arm_smmu_device *smmu,
-				      struct arm_smmu_power_resources *pwr);
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 			struct platform_device *pdev);
 void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr);
