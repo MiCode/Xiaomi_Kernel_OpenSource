@@ -1002,17 +1002,24 @@ static const struct iommu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
 	.tlb_add_page	= arm_smmu_tlb_add_page_s2_v1,
 };
 
-static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
-			   *cfg, unsigned int fsr)
+static void print_fault_regs(struct arm_smmu_domain *smmu_domain,
+		struct arm_smmu_device *smmu, int idx)
 {
-	u32 fsynr0;
-	int idx = cfg->cbndx;
+	u32 fsr, fsynr0, fsynr1, cbfrsynra;
+	unsigned long iova;
+	struct arm_smmu_cfg *cfg = smmu->cbs[idx].cfg;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
 	fsynr0 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
+	fsynr1 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR1);
+	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+	cbfrsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(idx));
 
-	dev_err(smmu->dev, "FAR    = 0x%016llx\n",
-		arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR));
+	dev_err(smmu->dev, "Unhandled arm-smmu context fault from %s!\n",
+		dev_name(smmu_domain->dev));
+	dev_err(smmu->dev, "FAR    = 0x%016lx\n",
+		iova);
 	dev_err(smmu->dev, "PAR    = 0x%pK\n",
 		(void *) arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_PAR));
 
@@ -1032,6 +1039,10 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 		(fsr & ARM_SMMU_FSR_SS) ? "SS " : "",
 		(fsr & ARM_SMMU_FSR_MULTI) ? "MULTI " : "");
 
+	dev_err(smmu->dev, "FSYNR0    = 0x%x\n", fsynr0);
+	dev_err(smmu->dev, "FSYNR1    = 0x%x\n", fsynr1);
+	dev_err(smmu->dev, "context bank#    = 0x%x\n", idx);
+
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
 		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
 			(void *) (unsigned long)
@@ -1049,33 +1060,56 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 							   ARM_SMMU_CB_TTBR1));
 	}
 
-
 	dev_err(smmu->dev, "SCTLR  = 0x%08x ACTLR  = 0x%08x\n",
 	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_SCTLR),
 	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_ACTLR));
 	dev_err(smmu->dev, "CBAR  = 0x%08x\n",
-		arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBAR(cfg->cbndx)));
+		arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBAR(idx)));
 	dev_err(smmu->dev, "MAIR0   = 0x%08x MAIR1   = 0x%08x\n",
 	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_S1_MAIR0),
 	       arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_S1_MAIR1));
 
+	dev_err(smmu->dev, "SID = 0x%x\n",
+		cbfrsynra & CBFRSYNRA_SID_MASK);
+	dev_err(smmu->dev, "Client info: BID=0x%lx, PID=0x%lx, MID=0x%lx\n",
+		FIELD_GET(ARM_SMMU_FSYNR1_BID, fsynr1),
+		FIELD_GET(ARM_SMMU_FSYNR1_PID, fsynr1),
+		FIELD_GET(ARM_SMMU_FSYNR1_MID, fsynr1));
 }
 
-static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
-					 dma_addr_t iova, u32 fsr, u32 fsynr0)
+/*
+ * Iommu HW has generated a fault. If HW and SW states are in sync,
+ * then a SW page table walk should yield 0.
+ *
+ * WARNING!!! This check is racy!!!!
+ * For a faulting address x, the dma layer mapping may map address x
+ * into the iommu page table in parallel to the fault handler running.
+ * This is frequently seen due to dma-iommu's address reuse policy.
+ * Thus, arm_smmu_iova_to_phys() returning nonzero is not necessarily
+ * indicative of an issue.
+ */
+static void arm_smmu_verify_fault(struct arm_smmu_domain *smmu_domain,
+	struct arm_smmu_device *smmu, int idx)
 {
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	phys_addr_t phys_hard_priv = 0;
-	phys_addr_t phys_stimu, phys_stimu_post_tlbiall;
+	u32 fsynr;
+	unsigned long iova;
+	struct iommu_domain *domain = &smmu_domain->domain;
+	phys_addr_t phys_soft;
+	phys_addr_t phys_stimu, phys_hard_priv, phys_stimu_post_tlbiall;
 	unsigned long flags = 0;
 
+	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
+	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
+
+	phys_soft = arm_smmu_iova_to_phys(domain, iova);
+	dev_err(smmu->dev, "soft iova-to-phys=%pa\n", &phys_soft);
+
 	/* Get the transaction type */
-	if (fsynr0 & ARM_SMMU_FSYNR0_WNR)
+	if (fsynr & ARM_SMMU_FSYNR0_WNR)
 		flags |= IOMMU_TRANS_WRITE;
-	if (fsynr0 & ARM_SMMU_FSYNR0_PNU)
+	if (fsynr & ARM_SMMU_FSYNR0_PNU)
 		flags |= IOMMU_TRANS_PRIV;
-	if (fsynr0 & ARM_SMMU_FSYNR0_IND)
+	if (fsynr & ARM_SMMU_FSYNR0_IND)
 		flags |= IOMMU_TRANS_INST;
 
 	/* Now replicate the faulty transaction */
@@ -1093,7 +1127,7 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 						       IOMMU_TRANS_PRIV);
 
 	/* Now replicate the faulty transaction post tlbiall */
-	smmu_domain->pgtbl_info.cfg.tlb->tlb_flush_all(smmu_domain);
+	iommu_flush_iotlb_all(domain);
 	phys_stimu_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova,
 							     flags);
 
@@ -1111,47 +1145,23 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 						&phys_stimu_post_tlbiall);
 	}
 
-	return (phys_stimu == 0 ? phys_stimu_post_tlbiall : phys_stimu);
+	dev_err(smmu->dev, "hard iova-to-phys (ATOS)=%pa\n",
+		phys_stimu ? &phys_stimu : &phys_stimu_post_tlbiall);
 }
 
-static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
+static int report_iommu_fault_helper(struct arm_smmu_domain *smmu_domain,
+	struct arm_smmu_device *smmu, int idx)
 {
-	int flags, ret, tmp;
-	u32 fsr, fsynr0, fsynr1, frsynra, resume;
+	u32 fsr, fsynr;
 	unsigned long iova;
-	struct iommu_domain *domain = dev;
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
-	phys_addr_t phys_soft;	
-	bool non_fatal_fault = test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS,
-					smmu_domain->attributes);
-
-	static DEFINE_RATELIMIT_STATE(_rs,
-				      DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-	int idx = smmu_domain->cfg.cbndx;
-
-	ret = arm_smmu_power_on(smmu->pwr);
-	if (ret)
-		return IRQ_NONE;
+	int ret, flags;
 
 	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
-	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
-		ret = IRQ_NONE;
-		goto out_power_off;
-	}
+	fsynr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
+	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
 
-	if (fatal_asf && (fsr & ARM_SMMU_FSR_ASF)) {
-		dev_err(smmu->dev,
-			"Took an address size fault.  Refusing to recover.\n");
-		BUG();
-	}
-
-	fsynr0 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR0);
-	fsynr1 = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSYNR1);
-	flags = fsynr0 & ARM_SMMU_FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
+	flags = fsynr & ARM_SMMU_FSYNR0_WNR ?
+		IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
 	if (fsr & ARM_SMMU_FSR_TF)
 		flags |= IOMMU_FAULT_TRANSLATION;
 	if (fsr & ARM_SMMU_FSR_PF)
@@ -1161,61 +1171,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	if (fsr & ARM_SMMU_FSR_SS)
 		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
-	iova = arm_smmu_cb_readq(smmu, idx, ARM_SMMU_CB_FAR);
-	phys_soft = arm_smmu_iova_to_phys(domain, iova);
-	frsynra = arm_smmu_gr1_read(smmu, ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
-	frsynra &= CBFRSYNRA_SID_MASK;
-	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
-	if (!tmp || (tmp == -EBUSY)) {
-		dev_dbg(smmu->dev,
-			"Context fault handled by client: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
-			iova, cfg->cbndx, fsr, fsynr0, fsynr1);
-		dev_dbg(smmu->dev,
-			"Client info: BID=0x%lx, PID=0x%lx, MID=0x%lx\n",
-			FIELD_GET(ARM_SMMU_FSYNR1_BID, fsynr1),
-			FIELD_GET(ARM_SMMU_FSYNR1_PID, fsynr1),
-			FIELD_GET(ARM_SMMU_FSYNR1_MID, fsynr1));
-		dev_dbg(smmu->dev,
-			"soft iova-to-phys=%pa\n", &phys_soft);
-		ret = IRQ_HANDLED;
-		resume = ARM_SMMU_RESUME_TERMINATE;
-	} else {
-		if (__ratelimit(&_rs)) {
-			phys_addr_t phys_atos;
 
-			print_ctx_regs(smmu, cfg, fsr);
-			phys_atos = arm_smmu_verify_fault(domain, iova, fsr,
-							  fsynr0);
-			dev_err(smmu->dev,
-				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
-				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
-			dev_err(smmu->dev,
-				"Client info: BID=0x%lx, PID=0x%lx, MID=0x%lx\n",
-				FIELD_GET(ARM_SMMU_FSYNR1_BID, fsynr1),
-				FIELD_GET(ARM_SMMU_FSYNR1_PID, fsynr1),
-				FIELD_GET(ARM_SMMU_FSYNR1_MID, fsynr1));
-
-			dev_err(smmu->dev,
-				"soft iova-to-phys=%pa\n", &phys_soft);
-			if (!phys_soft)
-				dev_err(smmu->dev,
-					"SOFTWARE TABLE WALK FAILED! Looks like %s accessed an unmapped address!\n",
-					dev_name(smmu->dev));
-			if (phys_atos)
-				dev_err(smmu->dev, "hard iova-to-phys (ATOS)=%pa\n",
-					&phys_atos);
-			else
-				dev_err(smmu->dev, "hard iova-to-phys (ATOS) failed\n");
-			dev_err(smmu->dev, "SID=0x%x\n", frsynra);
-		}
-		ret = IRQ_HANDLED;
-		resume = ARM_SMMU_RESUME_TERMINATE;
-		if (!non_fatal_fault) {
-			dev_err(smmu->dev,
-				"Unhandled arm-smmu context fault!\n");
-			BUG();
-		}
-	}
+	ret = report_iommu_fault(&smmu_domain->domain,
+				 smmu->dev, iova, flags);
 
 	/*
 	 * If the client returns -EBUSY, do not clear FSR and do not RESUME
@@ -1231,25 +1189,65 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	 *    SCTLR.HUPCF has the desired effect if subsequent transactions also
 	 *    need to be terminated.
 	 */
-	if (tmp != -EBUSY) {
-		/* Clear the faulting FSR */
-		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+	if (!ret || (ret == -EBUSY))
+		return IRQ_HANDLED;
 
-		/*
-		 * Barrier required to ensure that the FSR is cleared
-		 * before resuming SMMU operation
-		 */
-		wmb();
+	return IRQ_NONE;
+}
 
-		/* Retry or terminate any stalled transactions */
-		if (fsr & ARM_SMMU_FSR_SS)
-			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
-					  resume);
+static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
+{
+	u32 fsr;
+	int ret;
+	struct iommu_domain *domain = dev;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	int idx = smmu_domain->cfg.cbndx;
+	static DEFINE_RATELIMIT_STATE(_rs,
+				      DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+
+	ret = arm_smmu_power_on(smmu->pwr);
+	if (ret)
+		return IRQ_NONE;
+
+	fsr = arm_smmu_cb_read(smmu, idx, ARM_SMMU_CB_FSR);
+	if (!(fsr & ARM_SMMU_FSR_FAULT)) {
+		ret = IRQ_NONE;
+		goto out_power_off;
 	}
 
+	if ((smmu->options & ARM_SMMU_OPT_FATAL_ASF) &&
+			(fsr & ARM_SMMU_FSR_ASF)) {
+		dev_err(smmu->dev,
+			"Took an address size fault.  Refusing to recover.\n");
+		BUG();
+	}
+
+	ret = report_iommu_fault_helper(smmu_domain, smmu, idx);
+	if (ret == IRQ_HANDLED)
+		goto out_power_off;
+
+	if (__ratelimit(&_rs)) {
+		print_fault_regs(smmu_domain, smmu, idx);
+		arm_smmu_verify_fault(smmu_domain, smmu, idx);
+	}
+	BUG_ON(!test_bit(DOMAIN_ATTR_NON_FATAL_FAULTS, smmu_domain->attributes));
+
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_FSR, fsr);
+
+	/*
+	 * Barrier required to ensure that the FSR is cleared
+	 * before resuming SMMU operation
+	 */
+	wmb();
+
+	if (fsr & ARM_SMMU_FSR_SS)
+		arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
+				  ARM_SMMU_RESUME_TERMINATE);
+	ret = IRQ_HANDLED;
 out_power_off:
 	arm_smmu_power_off(smmu, smmu->pwr);
-
 	return ret;
 }
 
