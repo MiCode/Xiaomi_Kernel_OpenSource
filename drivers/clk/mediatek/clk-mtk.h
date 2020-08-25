@@ -125,7 +125,7 @@ struct mtk_composite {
 		.divider_shift = -1,					\
 		.parent_names = _parents,				\
 		.num_parents = ARRAY_SIZE(_parents),			\
-		.flags = _flags,				\
+		.flags = _flags,					\
 	}
 
 #define DIV_GATE(_id, _name, _parent, _gate_reg, _gate_shift, _div_reg,	\
@@ -215,6 +215,7 @@ struct mtk_pll_data {
 	const char *name;
 	uint32_t reg;
 	uint32_t pwr_reg;
+	uint32_t en_reg;
 	uint32_t en_mask;
 	uint32_t pd_reg;
 	uint32_t tuner_reg;
@@ -233,8 +234,7 @@ struct mtk_pll_data {
 	uint32_t pcw_chg_reg;
 	const struct mtk_pll_div_table *div_table;
 	const char *parent_name;
-	uint32_t en_reg;
-	uint8_t base_en_bit;
+	uint8_t pll_en_bit;
 };
 
 void mtk_clk_register_plls(struct device_node *node,
