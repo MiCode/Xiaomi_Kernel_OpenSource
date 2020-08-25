@@ -184,7 +184,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000101,
 	.user_ctl_hi_val = 0x00004805,
 };
@@ -364,9 +364,9 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
 	.test_ctl_val = 0x40000000,
-	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi_val = 0x00000002,
 	.user_ctl_val = 0x00000001,
-	.user_ctl_hi_val = 0x00004805,
+	.user_ctl_hi_val = 0x00014805,
 };
 
 static struct clk_alpha_pll cam_cc_pll3 = {
