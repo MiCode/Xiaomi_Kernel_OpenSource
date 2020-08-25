@@ -562,7 +562,7 @@
 		};
 	};
 
-	thermal-zones {
+	thermal_zones: thermal-zones {
 		ap_ntc: ap_ntc {
 			polling-delay = <1000>; /* milliseconds */
 			polling-delay-passive = <1000>; /* milliseconds */

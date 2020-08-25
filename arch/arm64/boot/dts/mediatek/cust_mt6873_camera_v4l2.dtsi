@@ -725,3 +725,60 @@
 	};
 
 };
+
+/* CAMERA TZ config */
+&thermal_zones {
+	camera_main: camera_main {
+		polling-delay = <1000>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&sensor0>;
+
+		trips {
+			cam_main_crit: cam_main_crit@0 {
+				temperature = <100000>;
+				hysteresis = <2000>;
+				type = "critical";
+			};
+		};
+	};
+	camera_sub: camera_sub {
+		polling-delay = <1000>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&sensor1>;
+
+		trips {
+			cam_sub_crit: cam_sub_crit@0 {
+				temperature = <100000>;
+				hysteresis = <2000>;
+				type = "critical";
+			};
+		};
+	};
+	camera_main2: camera_main2 {
+		polling-delay = <1000>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&sensor2>;
+
+		trips {
+			cam_main2_crit: cam_main2_crit@0 {
+				temperature = <100000>;
+				hysteresis = <2000>;
+				type = "critical";
+			};
+		};
+	};
+	camera_main3: camera_main3 {
+		polling-delay = <1000>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&sensor4>;
+
+		trips {
+			cam_main3_crit: cam_main3_crit@0 {
+				temperature = <100000>;
+				hysteresis = <2000>;
+				type = "critical";
+			};
+		};
+	};
+};
+/* CAMERA TZ config end */
