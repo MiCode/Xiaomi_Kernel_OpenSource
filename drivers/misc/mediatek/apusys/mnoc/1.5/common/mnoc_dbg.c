@@ -30,13 +30,13 @@ static int mnoc_log_level_show(struct seq_file *m, void *v)
 	seq_printf(m, "mnoc_log_level = %d\n", mnoc_log_level);
 
 #if MNOC_TIME_PROFILE
-		/* dump cmd qos profile info */
-		seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
-			sum_start, cnt_start, sum_start/cnt_start);
-		seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
-			sum_end, cnt_end, sum_end/cnt_end);
-		seq_printf(m, "sum_work_func = %lu, cnt_work_func = %d, avg = %lu\n",
-			sum_work_func, cnt_work_func, sum_work_func/cnt_work_func);
+	/* dump cmd qos profile info */
+	seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
+		sum_start, cnt_start, sum_start/cnt_start);
+	seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
+		sum_end, cnt_end, sum_end/cnt_end);
+	seq_printf(m, "sum_work_func = %lu, cnt_work_func = %d, avg = %lu\n",
+		sum_work_func, cnt_work_func, sum_work_func/cnt_work_func);
 #endif
 
 	return 0;
@@ -388,13 +388,13 @@ DBG_FOPS_RO(mnoc_int_sta_dump);
 
 struct dentry *mnoc_dbg_root;
 
-int create_debugfs(void)
+int create_debugfs(struct dentry *root)
 {
 	int ret = 0;
 
 	LOG_DEBUG("+\n");
 
-	mnoc_dbg_root = debugfs_create_dir(APUSYS_MNOC_DEV_NAME, NULL);
+	mnoc_dbg_root = debugfs_create_dir("mnoc", root);
 	ret = IS_ERR_OR_NULL(mnoc_dbg_root);
 	if (ret) {
 		LOG_ERR("failed to create debugfs dir\n");
@@ -403,7 +403,6 @@ int create_debugfs(void)
 
 	CREATE_DBGFS(mnoc_log_level);
 	CREATE_DBGFS(mnoc_reg_rw);
-	//CREATE_DBGFS(mnoc_pmu_reg);
 	CREATE_DBGFS(mnoc_pmu_timer_en);
 
 #if MNOC_QOS_BOOST_ENABLE

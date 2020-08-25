@@ -67,6 +67,9 @@ static struct work_struct mnoc_isr_work;
 
 struct mnoc_plat_drv mnoc_drv;
 
+struct apusys_core_info *mnoc_core_info;
+
+
 
 phys_addr_t get_apu_iommu_tfrp(unsigned int id)
 {
@@ -202,7 +205,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	struct apu_mnoc *p_mnoc = NULL;
 
 	mnoc_reg_valid = false;
-	mnoc_log_level = 2;
+	mnoc_log_level = 0;
 
 	LOG_DEBUG("+\n");
 
@@ -223,7 +226,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	mutex_init(&mnoc_pwr_mtx);
 	mnoc_pwr_is_on = false;
 
-	create_debugfs();
+	create_debugfs(mnoc_core_info->dbg_root);
 	mnoc_qos_create_sys(&pdev->dev);
 	spin_lock_init(&mnoc_spinlock);
 	apu_qos_counter_init(&pdev->dev);
@@ -352,6 +355,8 @@ static struct platform_driver mnoc_driver = {
 int mnoc_init(struct apusys_core_info *info)
 {
 	LOG_DEBUG("mnoc driver init start\n");
+
+	mnoc_core_info = info;
 
 	memset(&mnoc_drv, 0, sizeof(struct mnoc_plat_drv));
 

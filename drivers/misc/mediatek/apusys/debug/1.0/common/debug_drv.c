@@ -58,6 +58,9 @@ static struct mutex dump_lock;
 
 struct dentry *apusys_dump_root;
 
+struct apusys_core_info *dbg_core_info;
+
+
 void apusys_reg_dump_skip_gals(int onoff)
 {
 	LOG_DEBUG("+\n");
@@ -155,7 +158,7 @@ static int debug_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	debug_log_level = 2;
+	debug_log_level = 0;
 
 	LOG_DEBUG("+\n");
 
@@ -164,7 +167,7 @@ static int debug_probe(struct platform_device *pdev)
 	mutex_init(&dbg_lock);
 	mutex_init(&dump_lock);
 
-	apusys_dump_root = debugfs_create_dir(APUSYS_DEBUG_DEV_NAME, NULL);
+	apusys_dump_root = debugfs_create_dir("dump", dbg_core_info->dbg_root);
 	ret = IS_ERR_OR_NULL(apusys_dump_root);
 	if (ret) {
 		LOG_ERR("failed to create debugfs dir\n");
@@ -232,7 +235,9 @@ static struct platform_driver debug_driver = {
 
 int debug_init(struct apusys_core_info *info)
 {
-	LOG_ERR("debug driver init start\n");
+	LOG_DEBUG("debug driver init start\n");
+
+	dbg_core_info = info;
 
 	memset(&debug_drv, 0, sizeof(struct debug_plat_drv));
 
@@ -250,10 +255,7 @@ void debug_exit(void)
 {
 	LOG_DEBUG("+\n");
 
-	LOG_DEBUG("de-initialization\n");
 	platform_driver_unregister(&debug_driver);
 
 	LOG_DEBUG("-\n");
 }
-
-

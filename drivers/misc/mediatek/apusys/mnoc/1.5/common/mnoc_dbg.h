@@ -18,7 +18,7 @@
 #define mnoc_aee_warn(key, format, args...)
 #endif
 
-int create_debugfs(void);
+int create_debugfs(struct dentry *root);
 void remove_debugfs(void);
 
 #endif
