@@ -8,6 +8,7 @@ ADDITIONAL_KMI_SYMBOL_LISTS="
 android/abi_gki_aarch64_cuttlefish
 android/abi_gki_aarch64_db845c
 android/abi_gki_aarch64_exynos
+android/abi_gki_aarch64_galaxy
 android/abi_gki_aarch64_goldfish
 android/abi_gki_aarch64_hikey960
 android/abi_gki_aarch64_oplus
