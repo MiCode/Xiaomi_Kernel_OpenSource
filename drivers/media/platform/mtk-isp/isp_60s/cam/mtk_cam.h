@@ -227,5 +227,7 @@ void isp_composer_create_session(struct mtk_cam_device *cam,
 
 s32 get_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp);
 void set_format_request_fd(struct v4l2_pix_format_mplane *fmt_mp, s32 request_fd);
+s32 get_crop_request_fd(struct v4l2_selection *crop);
+void set_crop_request_fd(struct v4l2_selection *crop, s32 request_fd);
 
 #endif /*__MTK_CAM_H*/
