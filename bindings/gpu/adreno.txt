@@ -198,9 +198,9 @@ Optional Properties:
 				baseAddr - base address of the qtimer memory region
 				size     - size of the qtimer region
 
-- qcom,tsens-name:
-				Specify the name of GPU temperature sensor. This name will be used
-				to get the temperature from the thermal driver API.
+- qcom,tzone-names:
+				Specify the names of GPU thermal zones. These will be used
+				to get gpu temperature from the thermal driver API.
 
 - qcom,enable-midframe-timer:
 				Boolean. Enables the use of midframe sampling timer. This timer
