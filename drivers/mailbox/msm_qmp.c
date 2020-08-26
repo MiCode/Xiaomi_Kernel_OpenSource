@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -41,6 +41,12 @@ do {									    \
 	printk_ratelimited("%s[%s]: "x, KERN_ERR, __func__, ##__VA_ARGS__); \
 	ipc_log_string(ctxt, "%s[%s]: "x, "", __func__, ##__VA_ARGS__);	    \
 } while (0)
+
+#ifdef CONFIG_QMP_DEBUGFS_CLIENT
+#define QMP_BUG(x) BUG_ON(x)
+#else
+#define QMP_BUG(x) do {} while (0)
+#endif
 
 /**
  * enum qmp_local_state - definition of the local state machine
@@ -264,6 +270,7 @@ static void qmp_notify_timeout(struct work_struct *work)
 		return;
 	}
 	QMP_ERR(mbox->mdev->ilc, "tx timeout for %d\n", mbox->idx_in_flight);
+	QMP_BUG(mbox->tx_sent);
 	iowrite32(0, mbox->desc + mbox->mcore_mbox_offset);
 	mbox->tx_sent = false;
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
