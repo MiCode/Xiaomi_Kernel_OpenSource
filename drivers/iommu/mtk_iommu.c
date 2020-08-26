@@ -248,15 +248,9 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 	u32 tmp;
 
 	for_each_m4u(data) {
-		/* skip tlb flush when pm is not active
-		 * if (!pm_runtime_active(data->dev))
-		 *	continue;
-		 */
-		if (data->plat_data->is_apu && !pm_runtime_active(data->dev))
+		if (!pm_runtime_active(data->dev))
 			continue;
 
-		if (!data->plat_data->is_apu)
-			mtk_iommu_rpm_get(data->dev);
 		spin_lock_irqsave(&data->tlb_lock, flags);
 		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
 			       data->base + data->plat_data->inv_sel_reg);
@@ -290,8 +284,6 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		/* Clear the CPE status */
 		writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
 		spin_unlock_irqrestore(&data->tlb_lock, flags);
-		if (!data->plat_data->is_apu)
-			mtk_iommu_rpm_put(data->dev);
 	}
 }
 
