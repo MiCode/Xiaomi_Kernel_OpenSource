@@ -17,19 +17,11 @@ struct dbgtop_drm {
 	void __iomem *base;
 
 	unsigned int mode_offset;
-	unsigned int latch_ctl2_offset;
 };
 
 #define DRMDRM_MODE_OFFSET			(0x0000)
 #define DRMDRM_MODE_KEY				(0x22000000)
 #define DRMDRM_MODE_DDR_RESERVE			(0x00000001)
-
-#define DRMDRM_LATCH_CTL2_OFFSET		(0x0044)
-#define DRMDRM_LATCH_CTL2_KEY			(0x95000000)
-#define DRMDRM_LATCH_CTL2_DFD_EN		(0x00020000)
-#define DRMDRM_LATCH_CTL2_DFD_TIMEOUT_MASK	(0x0001ffff)
-
-#define DFD_TIMEOUT				(0x1ffff)
 
 /* global pointer for exported functions */
 static struct dbgtop_drm *global_dbgtop_drm;
@@ -43,15 +35,6 @@ int mtk_dbgtop_dram_reserved(int enable)
 		return -1;
 
 	drm = global_dbgtop_drm;
-
-	if (enable) {
-		tmp = readl(drm->base + drm->latch_ctl2_offset);
-		tmp &= ~DRMDRM_LATCH_CTL2_DFD_TIMEOUT_MASK;
-		tmp = tmp | DRMDRM_LATCH_CTL2_DFD_EN
-			| (DRMDRM_LATCH_CTL2_DFD_TIMEOUT_MASK & DFD_TIMEOUT);
-		tmp |= DRMDRM_LATCH_CTL2_KEY;
-		writel(tmp, drm->base + drm->latch_ctl2_offset);
-	}
 
 	tmp = readl(drm->base + drm->mode_offset);
 	tmp = (enable) ? (tmp | DRMDRM_MODE_DDR_RESERVE)
@@ -96,18 +79,11 @@ static int mtk_dbgtop_drm_probe(struct platform_device *pdev)
 		drm->mode_offset = DRMDRM_MODE_OFFSET;
 	}
 
-	ret = of_property_read_u32(node, "latch_ctl2_offset",
-		&drm->latch_ctl2_offset);
-	if (ret) {
-		dev_info(&pdev->dev, "No latch_ctl2_offset\n");
-		drm->latch_ctl2_offset = DRMDRM_LATCH_CTL2_OFFSET;
-	}
-
 	global_dbgtop_drm = drm;
 
 	dev_info(&pdev->dev,
-		"base %p, mode_offset 0x%x, latch_ctl2_offset 0x%x\n",
-		drm->base, drm->mode_offset, drm->latch_ctl2_offset);
+		"base %p, mode_offset 0x%x\n",
+		drm->base, drm->mode_offset);
 
 	return 0;
 }
