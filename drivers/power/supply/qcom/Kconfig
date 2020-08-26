@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 menuconfig QCOM_POWER_SUPPLY
-	tristate "Support for Qualcomm Technologies, Inc. power supply"
+	bool "Support for Qualcomm Technologies, Inc. power supply"
 	depends on ARCH_QCOM
 
 if QCOM_POWER_SUPPLY
@@ -17,16 +17,19 @@ config QPNP_QG
 
 config QPNP_SMB5
 	tristate "SMB5 Battery Charger"
-	depends on MFD_SPMI_PMIC
+	depends on MFD_SPMI_PMIC && IIO
 	help
 	  Say Y to enables support for the SMB5 charging peripheral.
 	  The QPNP SMB5 charger driver supports the charger peripheral
 	  present in the chip.
-	  The power supply framework is used to communicate battery and
-	  usb properties to userspace and other driver consumers such
+	  The power supply and iio frameworks are used to communicate battery
+	  and usb properties to userspace and other driver consumers such
 	  as fuel gauge, USB, and USB-PD.
 	  VBUS and VCONN regulators are registered for supporting OTG,
 	  and powered Type-C cables respectively.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qpnp-smb5-main.
 
 config SMB1398_CHARGER
 	tristate "SMB1398 power supply framework based driver"

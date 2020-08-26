@@ -12,8 +12,10 @@ struct charger_param {
 	u32 hvdcp2_max_icl_ua;
 	u32 hvdcp3_max_icl_ua;
 	u32 forced_main_fcc;
+	int (*iio_read)(struct device *dev, int iio_chan, int *val);
+	int (*iio_write)(struct device *dev, int iio_chan, int val);
 };
 
-int qcom_batt_init(struct charger_param *param);
+int qcom_batt_init(struct device *dev, struct charger_param *param);
 void qcom_batt_deinit(void);
 #endif /* __BATTERY_H */
