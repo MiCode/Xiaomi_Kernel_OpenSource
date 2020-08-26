@@ -311,6 +311,10 @@ static const unsigned int a6xx_registers[] = {
 static const unsigned int a660_registers[] = {
 	/* UCHE */
 	0x0E3C, 0x0E3C,
+	/* LPAC RBBM */
+	0x05FC, 0x05FF,
+	/* LPAC CP */
+	0x0B00, 0x0B40, 0x0B80, 0x0B83,
 };
 
 /*
@@ -1839,6 +1843,28 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		A6XX_CP_SQE_UCODE_DBG_ADDR, A6XX_CP_SQE_UCODE_DBG_DATA,
 		0, 0x8000);
 
+	/* CP LPAC indexed registers */
+	if (adreno_is_a660(adreno_dev)) {
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			 A6XX_CP_SQE_AC_STAT_ADDR, A6XX_CP_SQE_AC_STAT_DATA,
+				0, 0x33);
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_LPAC_DRAW_STATE_ADDR,
+				A6XX_CP_LPAC_DRAW_STATE_DATA, 0, 0x100);
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_SQE_AC_UCODE_DBG_ADDR,
+				A6XX_CP_SQE_AC_UCODE_DBG_DATA, 0, 0x8000);
+
+		kgsl_regread(device, A6XX_CP_LPAC_ROQ_THRESHOLDS_2, &roq_size);
+		roq_size = roq_size >> 14;
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_LPAC_ROQ_DBG_ADDR,
+				A6XX_CP_LPAC_ROQ_DBG_DATA, 0, roq_size);
+
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			A6XX_CP_LPAC_FIFO_DBG_ADDR, A6XX_CP_LPAC_FIFO_DBG_DATA,
+			0, 0x40);
+	}
 	/*
 	 * CP ROQ dump units is 4dwords. The number of units is stored
 	 * in CP_ROQ_THRESHOLDS_2[31:16]. Read the value and convert to

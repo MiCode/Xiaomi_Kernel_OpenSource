@@ -119,7 +119,19 @@
 #define A6XX_VSC_ADDR_MODE_CNTL          0xC01
 
 /* LPAC registers */
+#define A6XX_CP_LPAC_DRAW_STATE_ADDR     0xB0A
+#define A6XX_CP_LPAC_DRAW_STATE_DATA     0xB0B
+#define A6XX_CP_LPAC_ROQ_DBG_ADDR        0xB0C
+#define A6XX_CP_SQE_AC_UCODE_DBG_ADDR    0xB27
+#define A6XX_CP_SQE_AC_UCODE_DBG_DATA    0xB28
+#define A6XX_CP_SQE_AC_STAT_ADDR         0xB29
+#define A6XX_CP_SQE_AC_STAT_DATA         0xB2A
+#define A6XX_CP_LPAC_ROQ_THRESHOLDS_1    0xB32
+#define A6XX_CP_LPAC_ROQ_THRESHOLDS_2    0xB33
 #define A6XX_CP_LPAC_PROG_FIFO_SIZE      0xB34
+#define A6XX_CP_LPAC_ROQ_DBG_DATA        0xB35
+#define A6XX_CP_LPAC_FIFO_DBG_DATA       0xB36
+#define A6XX_CP_LPAC_FIFO_DBG_ADDR       0xB40
 
 /* RBBM registers */
 #define A6XX_RBBM_INT_0_STATUS                   0x201
