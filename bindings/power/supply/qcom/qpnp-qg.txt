@@ -19,13 +19,20 @@ First Level Node - QGAUGE device
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: Should be "qcom,qpnp-qg" or "qcom,qpnp-qg-lite".
+	Definition: Should be "qcom,qpnp-qg-lite" for PM2250.
+			Should be "qcom,pm6150-qg" for PM6150.
+			Should be "qcom,pmi632-qg" for PMI632.
+			Should be "qcom,pm7250b-qg" for PM7250B.
 
-- qcom,pmic-revid
+- io-channels
 	Usage:      required
-	Value type: <phandle>
-	Definition: Should specify the phandle of PMIC revid module. This is
-		    used to identify the PMIC subtype.
+	Value type: <phandle-array>
+	Definition: IIO channel specifiers for each name in io-channel-names.
+
+- io-channel-names
+	Usage:      required
+	Value type: <string-array>
+	Definition: Names of the IIO channels that are used by QG device.
 
 - qcom,qg-vadc
 	Usage:      required
@@ -473,13 +480,17 @@ Example
 ========
 
 pmi632_qg: qpnp,qg {
-	compatible = "qcom,qpnp-qg";
-	qcom,pmic-revid = <&pmi632_revid>;
+	compatible = "qcom,pm7250b-qg";
 	qcom,qg-vadc = <&pmi632_vadc>;
 	qcom,vbatt-empty-mv = <3200>;
 	qcom,vbatt-low-mv = <3500>;
 	qcom,vbatt-cutoff-mv = <3400>;
 	qcom,qg-iterm-ma = <100>;
+	#io-channel-cells = <1>;
+	io-channels = <&pm7250b_charger PSY_IIO_RECHARGE_SOC>,
+		<&pm7250b_charger PSY_IIO_CHARGE_DONE>;
+	io-channel-names = "recharge_soc",
+			"charge_done";
 
 	qcom,qgauge@4800 {
 		status = "okay";
