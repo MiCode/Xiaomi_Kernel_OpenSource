@@ -1,5 +1,5 @@
 config MTK_DEVMPU
-	tristate "Enable MTK Device MPU driver"
+	tristate "MTK Device MPU driver"
 	help
 	  Device MPU is a kernel driver providing
 	  non-continuous memory protection in the
@@ -7,4 +7,11 @@ config MTK_DEVMPU
 	  This driver is combined with SUB, ACP of
 	  Device MPU in the platfom.
 
-
+config MTK_DEVMPU_DEBUG
+	bool "MTK Device MPU debug mechanism"
+	depends on MTK_DEVMPU
+	help
+	  Enable debug mechanism of Device MPU driver.
+	  You would use it to confirm Device MPU correctly.
+	  Say Y if you would like to enable debug mechanism.
+	  If unsure, say N.
