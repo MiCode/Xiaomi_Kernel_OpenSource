@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-only
-
 menuconfig QCOM_POWER_SUPPLY
 	bool "Support for Qualcomm Technologies, Inc. power supply"
 	depends on ARCH_QCOM
@@ -7,13 +6,17 @@ menuconfig QCOM_POWER_SUPPLY
 if QCOM_POWER_SUPPLY
 
 config QPNP_QG
-	bool "QPNP Qgauge driver"
+	tristate "QPNP Qgauge driver"
 	depends on MFD_SPMI_PMIC
+	depends on IIO
 	help
 	  Say Y here to enable the Qualcomm Technologies, Inc. QGauge driver
 	  which uses the periodic sampling of the battery voltage and current
 	  to determine the battery state-of-charge (SOC) and supports other
 	  battery management features.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qcom-qpnp-qg.
 
 config QPNP_SMB5
 	tristate "SMB5 Battery Charger"
