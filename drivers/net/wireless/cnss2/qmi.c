@@ -650,7 +650,9 @@ err_send:
 	if (bdf_type != CNSS_BDF_DUMMY)
 		release_firmware(fw_entry);
 err_req_fw:
-	if (bdf_type != CNSS_BDF_REGDB)
+	if (!(bdf_type == CNSS_BDF_REGDB ||
+	      test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state) ||
+	      ret == -EAGAIN))
 		CNSS_ASSERT(0);
 	kfree(req);
 	kfree(resp);
