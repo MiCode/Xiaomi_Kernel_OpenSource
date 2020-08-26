@@ -488,7 +488,7 @@ static int __init devmpu_init(void)
 				__func__, __LINE__, ret);
 	}
 
-#if !defined(USER_BUILD_KERNEL)
+#if IS_ENABLED(CONFIG_MTK_DEVMPU_DEBUG)
 	ret = driver_create_file(&devmpu_drv.driver,
 			&driver_attr_devmpu_config);
 	if (ret) {
@@ -502,7 +502,7 @@ static int __init devmpu_init(void)
 
 static void __exit devmpu_exit(void)
 {
-#if !defined(USER_BUILD_KERNEL)
+#if IS_ENABLED(CONFIG_MTK_DEVMPU_DEBUG)
 	driver_remove_file(&devmpu_drv.driver,
 			&driver_attr_devmpu_config);
 #endif
@@ -510,7 +510,8 @@ static void __exit devmpu_exit(void)
 	platform_driver_unregister(&devmpu_drv);
 }
 
-module_platform_driver(devmpu_drv);
+module_init(devmpu_init);
+module_exit(devmpu_exit);
 
 MODULE_DESCRIPTION("Mediatek Device MPU Driver");
 MODULE_AUTHOR("Calvin Liao <calvin.liao@mediatek.com>");
