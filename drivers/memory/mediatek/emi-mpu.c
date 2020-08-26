@@ -124,7 +124,8 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *emi_cen_base;
 	unsigned int emi_id, i;
 	ssize_t msg_len;
-	int n, has_vio, nr_vio;
+	int n, nr_vio;
+	bool violation;
 
 	if (mpu->in_msg_dump)
 		goto ignore_violation;
@@ -134,7 +135,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 	nr_vio = 0;
 	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
-		has_vio = 0;
+		violation = false;
 		emi_cen_base = mpu->emi_cen_base[emi_id];
 
 		for (i = 0; i < mpu->dump_cnt; i++) {
@@ -151,10 +152,11 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				msg_len += (n < 0) ? 0 : (ssize_t)n;
 			}
 
-			has_vio = (dump_reg[i].value) ? 1 : 0;
+			if (dump_reg[i].value)
+				violation = true;
 		}
 
-		if (!has_vio)
+		if (!violation)
 			continue;
 
 		/*
