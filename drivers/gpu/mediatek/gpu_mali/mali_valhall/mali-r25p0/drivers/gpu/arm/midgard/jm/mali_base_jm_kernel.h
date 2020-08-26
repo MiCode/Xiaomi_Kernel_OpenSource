@@ -787,9 +787,9 @@ struct base_jd_atom_v2 {
 	u8 padding[7];
 
 /* MTK - Fix Stride 64 passed to job_submit */
-//#if defined(MTK_GPU_BM_2)
+#if defined(MTK_GPU_BM_2)
 	u32 frame_nr;  /* frame number to the atom */
-//#endif
+#endif
 };
 
 /* Job chain event code bits

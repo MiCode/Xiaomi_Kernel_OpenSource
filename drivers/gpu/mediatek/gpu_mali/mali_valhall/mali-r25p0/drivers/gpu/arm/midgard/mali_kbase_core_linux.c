@@ -123,13 +123,13 @@
 
 #if defined(MTK_GPU_BM_2)
 #include <gpu_bm.h>
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_reservedmem_define.h>
+#endif
 
 static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 struct v1_data *gpu_info_ref;
-#endif
 #endif
 
 #ifdef ENABLE_COMMON_DVFS
@@ -161,7 +161,7 @@ void mtk_gpu_dvfs_commit(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eComm
 #if defined(MTK_GPU_BM_2)
 static void get_rec_addr(void)
 {
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	   int i;
 	   unsigned char *ptr;
 
@@ -184,8 +184,8 @@ static int mtk_bandwith_resource_init(struct kbase_device *kbdev)
 		int err = 0;
 
 		get_rec_addr();
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 		if(gpu_info_ref == NULL) {
 				err = -1;
 				pr_debug("%s: get sspm reserved memory fail\n", __func__);

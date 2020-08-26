@@ -9,7 +9,6 @@
 #include <linux/seq_file.h>
 #include <linux/proc_fs.h>
 #include <linux/io.h>
-#include <linux/timer.h>
 
 #ifdef MTK_QOS_FRAMEWORK
 #include <mtk_qos_ipi.h>
@@ -81,24 +80,24 @@ static int _MTKGPUQoS_initDebugFS(void)
 	return 0;
 }
 
-struct timer_list timer_setupFW;
-
 struct setupfw_t {
 	phys_addr_t phyaddr;
 	size_t size;
 };
 
-static void setupfw_timer_callback(unsigned long _data)
+static struct setupfw_t setupfw_data;
+static void setupfw_work_handler(struct work_struct *work);
+static DECLARE_DELAYED_WORK(g_setupfw_work, setupfw_work_handler);
+
+static void setupfw_work_handler(struct work_struct *work)
 {
-#ifdef MTK_QOS_FRAMEWORK
 	struct qos_ipi_data qos_d;
 	int ret;
-	struct setupfw_t data = *(struct setupfw_t *)_data;
 
 	qos_d.cmd = QOS_IPI_SETUP_GPU_INFO;
-	qos_d.u.gpu_info.addr = (unsigned int)data.phyaddr;
-	qos_d.u.gpu_info.addr_hi = (unsigned int)(data.phyaddr >> 32);
-	qos_d.u.gpu_info.size = (unsigned int)data.size;
+	qos_d.u.gpu_info.addr = (unsigned int)setupfw_data.phyaddr;
+	qos_d.u.gpu_info.addr_hi = (unsigned int)(setupfw_data.phyaddr >> 32);
+	qos_d.u.gpu_info.size = (unsigned int)setupfw_data.size;
 	ret = qos_ipi_to_sspm_command(&qos_d, 4);
 
 	pr_debug("%s: addr:0x%x, addr_hi:0x%x, ret:%d\n",
@@ -107,35 +106,21 @@ static void setupfw_timer_callback(unsigned long _data)
 		qos_d.u.gpu_info.addr_hi,
 		ret);
 
-	if (ret == 0) {
-		kfree((void *)_data);
+	if (ret == 1) {
+		pr_debug("%s: sspm_ipi success! (%d)\n", __func__, ret);
 	} else {
 		pr_debug("%s: sspm_ipi fail (%d)\n", __func__, ret);
-
-		timer_setupFW.expires = jiffies + HZ * 5;
-		add_timer(&timer_setupFW);
+		schedule_delayed_work(&g_setupfw_work, 5 * HZ);
 	}
-#endif
 }
 
 static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 {
-	struct setupfw_t *_data = (struct setupfw_t *)
-			kmalloc(sizeof(struct setupfw_t), GFP_KERNEL);
 
-	if (_data == NULL) {
-		pr_debug("%s: kmalloc fail\n", __func__);
-		return;
-	}
-	_data->phyaddr = phyaddr;
-	_data->size = size;
+	setupfw_data.phyaddr = phyaddr;
+	setupfw_data.size = size;
 
-	init_timer(&timer_setupFW);
-	timer_setupFW.function = setupfw_timer_callback;
-	timer_setupFW.data = (unsigned long)_data;
-	timer_setupFW.expires = jiffies;
-
-	setupfw_timer_callback(timer_setupFW.data);
+	schedule_delayed_work(&g_setupfw_work, 1);
 }
 
 static void bw_v1_gpu_power_change_notify(int power_on)
@@ -181,4 +166,23 @@ uint32_t MTKGPUQoS_getBW(uint32_t offset)
 	return 0;
 }
 EXPORT_SYMBOL(MTKGPUQoS_getBW);
+
+static int mtk_gpu_qos_init(void)
+{
+	/*Do Nothing*/
+	return 0;
+}
+
+static void mtk_gpu_qos_exit(void)
+{
+	/*Do Nothing*/
+	;
+}
+
+arch_initcall(mtk_gpu_qos_init);
+module_exit(mtk_gpu_qos_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek GPU QOS");
+MODULE_AUTHOR("MediaTek Inc.");
 
