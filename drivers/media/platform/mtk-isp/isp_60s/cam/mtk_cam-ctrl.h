@@ -68,6 +68,14 @@ struct mtk_camsys_ctrl_state {
 
 #define ISP_CLK_LEVEL_CNT 10
 
+struct mtk_camsys_link_ctrl {
+	struct mtk_raw_pipeline *pipe;
+	struct media_pad remote;
+	struct mtk_cam_ctx *swapping_ctx;
+	u8 active;
+	u8 wait_exchange;
+};
+
 /*per stream (sensor) */
 struct mtk_camsys_sensor_ctrl {
 	struct mtk_cam_ctx *ctx;
@@ -80,6 +88,11 @@ struct mtk_camsys_sensor_ctrl {
 	int isp_request_seq_no;
 	struct list_head camsys_state_list;
 	spinlock_t camsys_state_lock;
+	/* link change ctrl */
+	struct mtk_camsys_link_ctrl link_ctrl;
+	struct mtk_cam_request *link_change_req;
+	u8 link_change_state;
+	spinlock_t link_change_lock;
 };
 
 enum {
@@ -88,11 +101,6 @@ enum {
 	LINK_CHANGE_QUEUED,
 };
 
-struct mtk_camsys_link_ctrl {
-	struct mtk_raw_pipeline *pipe;
-	struct media_pad remote;
-	u8 active;
-};
 
 struct mtk_camsys_dvfs {
 	struct device *dev;
@@ -116,12 +124,6 @@ struct mtk_camsys_ctrl {
 	 * struct mtk_camsv_device *
 	 *	camsv_dev[CAMSYS_ENGINE_CAMSV_END-CAMSYS_ENGINE_CAMSV_BEGIN];
 	 */
-	/* link change ctrl */
-	struct mtk_camsys_link_ctrl link_ctrl[CAMSYS_ENGINE_RAW_END -
-		CAMSYS_ENGINE_RAW_BEGIN];
-	struct mtk_cam_request *link_change_req;
-	u8 link_change_state;
-	spinlock_t link_change_lock;
 	/* resource ctrl */
 	struct mtk_camsys_dvfs dvfs_info;
 

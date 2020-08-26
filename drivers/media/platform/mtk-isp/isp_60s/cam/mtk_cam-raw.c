@@ -223,12 +223,18 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_ENGINE_RESOURCE_USAGE_LIMITATION:
 		ctrl->val = pipeline->res_config.raw_num_used;
-		dev_dbg(dev, "get_ctrl (id:%s, val:%d)\n", ctrl->name,
-			ctrl->val);
+		break;
+	case V4L2_CID_BIN_LIMITATION:
+		ctrl->val = pipeline->res_config.bin_enable;
+		break;
+	case V4L2_CID_FRZ_LIMITATION:
+		ctrl->val = pipeline->res_config.frz_enable ?
+				pipeline->res_config.frz_ratio:100;
 		break;
 	default:
 		break;
 	}
+	dev_dbg(dev, "get_ctrl (id:%s, val:%d)\n", ctrl->name, ctrl->val);
 	mutex_unlock(&pipeline->res_config.resource_lock);
 	return ret;
 }
@@ -368,7 +374,7 @@ void reset(struct mtk_raw_device *dev)
 		usleep_range(10, 20);
 	}
 
-	dev_dbg(dev->dev, "s%: hw timeout\n", __func__);
+	dev_dbg(dev->dev, "%s: hw timeout\n", __func__);
 }
 
 static void init_dma_fifosize(struct mtk_raw_device *dev)
@@ -773,11 +779,27 @@ static bool mtk_raw_resource_calc(struct mtk_raw_pipeline *pipe,
 			frz_en, twin_en, clk_cur, eq_throughput);
 	}
 	tgo_pxl_mode = pixel_mode[idx_res];
+	switch (tgo_pxl_mode) {
+	case 1:
+		res->tgo_pxl_mode = 0;
+		break;
+	case 2:
+		res->tgo_pxl_mode = 1;
+		break;
+	case 3:
+		res->tgo_pxl_mode = 2;
+		break;
+	case 4:
+		res->tgo_pxl_mode = 3;
+		break;
+	default:
+		break;
+	}
 	eq_throughput = ((u64)tgo_pxl_mode) * res->clk_target;
 	if (res_found)
 		dev_dbg(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d:%10llu, clk:%d\n",
 			idx_res, res->bin_enable, res->frz_enable, res->frz_ratio,
-			res->raw_num_used, clk_res, tgo_pxl_mode, eq_throughput,
+			res->raw_num_used, clk_res, res->tgo_pxl_mode, eq_throughput,
 			res->clk_target);
 	else
 		dev_dbg(cam->dev, "[%s] Error resource result\n", __func__);
@@ -1195,7 +1217,7 @@ static int mtk_raw_try_fmt(struct v4l2_subdev *sd,
 		}
 	}
 
-	return MTK_CAM_IMG_FMT_UNKNOWN;
+	return MTKCAM_IPI_INPUT_FMT_UNKNOWN;
 }
 
 static struct v4l2_mbus_framefmt *get_fmt(struct mtk_raw_pipeline *pipe,
@@ -1304,8 +1326,8 @@ static int mtk_cam_update_sensor(struct mtk_cam_ctx *ctx,
 			ctx->prev_sensor = ctx->sensor;
 			target_sd = &ctx->sensor;
 			*target_sd = media_entity_to_v4l2_subdev(entity);
-			ctx->sensor->entity.stream_count++;
-			ctx->sensor->entity.pipe = &ctx->pipeline;
+			dev_dbg(ctx->cam->dev, "sensor:%s->%s\n",
+				ctx->prev_sensor->entity.name, ctx->sensor->entity.name);
 			break;
 		default:
 			break;
@@ -1327,10 +1349,13 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 	struct mtk_raw *raw = pipe->raw;
 	struct mtk_cam_device *cam = dev_get_drvdata(raw->cam_dev);
 	struct mtk_cam_ctx *ctx = mtk_cam_find_ctx(cam, entity);
+	struct mtk_cam_ctx *swapping_ctx = NULL;
 	u32 pad = local->index;
+	int i;
 
-	dev_dbg(raw->cam_dev, "%s: raw %d: %d->%d flags:0x%x\n",
-		__func__, pipe->id, remote->index, local->index, flags);
+	dev_dbg(raw->cam_dev, "%s: raw %d: remote:%s:%d->local:%s:%d flags:0x%x\n",
+		__func__, pipe->id, remote->entity->name, remote->index,
+		local->entity->name, local->index, flags);
 
 	if (pad < MTK_RAW_PIPELINE_PADS_NUM && pad != MTK_RAW_SINK)
 		pipe->vdev_nodes[pad - MTK_RAW_SINK_NUM].enabled =
@@ -1342,21 +1367,18 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 		pipe->res_config.seninf =
 			media_entity_to_v4l2_subdev(remote->entity);
 	if (cam->streaming_ctx && ctx && pad == MTK_RAW_SINK) {
-		if (flags & MEDIA_LNK_FL_ENABLED) {
-			struct mtk_camsys_ctrl *camsys_ctrl =
-				&ctx->cam->camsys_ctrl;
+		if (flags & MEDIA_LNK_FL_ENABLED && (remote->entity != &ctx->seninf->entity)) {
+			struct mtk_camsys_sensor_ctrl *camsys_ctrl =
+				&ctx->cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
 			u8 *state = &camsys_ctrl->link_change_state;
 			unsigned long flags;
 
-			spin_lock_irqsave(&camsys_ctrl->link_change_lock,
-					  flags);
+			spin_lock_irqsave(&camsys_ctrl->link_change_lock, flags);
 			if (*state == LINK_CHANGE_IDLE ||
-			    *state == LINK_CHANGE_PREPARING) {
-				struct mtk_camsys_link_ctrl *link_ctrl;
+					*state == LINK_CHANGE_PREPARING) {
+				struct mtk_camsys_link_ctrl *link_ctrl =
+					&camsys_ctrl->link_ctrl;
 				struct media_entity *entity;
-
-				link_ctrl =
-					&camsys_ctrl->link_ctrl[ctx->stream_id];
 				if (*state == LINK_CHANGE_IDLE)
 					*state = LINK_CHANGE_PREPARING;
 
@@ -1365,24 +1387,38 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 				link_ctrl->active = 1;
 				entity = remote->entity;
 
+				for (i = 0;  i < cam->max_stream_num; i++) {
+					if (remote->entity ==
+						&cam->ctxs[i].seninf->entity ||
+						remote->entity ==
+						&cam->ctxs[i].prev_seninf->entity) {
+						swapping_ctx = &cam->ctxs[i];
+						link_ctrl->wait_exchange = 1;
+						link_ctrl->swapping_ctx = swapping_ctx;
+						dev_dbg(raw->cam_dev, "ctx:%d link change with ctx:%d\n",
+							ctx->stream_id, swapping_ctx->stream_id);
+					}
+				}
 				if (entity->function ==
 						MEDIA_ENT_F_VID_IF_BRIDGE) {
+					ctx->prev_seninf = ctx->seninf;
 					ctx->seninf = (struct v4l2_subdev *)
-						media_entity_to_v4l2_subdev
-						(entity);
-					ctx->seninf->entity.stream_count++;
-					ctx->seninf->entity.pipe =
-							&ctx->pipeline;
+						media_entity_to_v4l2_subdev(
+								entity);
+					dev_dbg(ctx->cam->dev, "seninf:%s->%s\n",
+						ctx->prev_seninf->entity.name,
+						ctx->seninf->entity.name);
 					mtk_cam_update_sensor(ctx, entity);
 				}
 
-				dev_dbg(raw->cam_dev, "link preparing:%d\n",
-					ctx->stream_id);
+				dev_dbg(raw->cam_dev, "link preparing (ctx:%d stream_ctx:0x%x)\n",
+					ctx->stream_id, cam->streaming_ctx);
 			} else if (camsys_ctrl->link_change_state ==
 							LINK_CHANGE_QUEUED) {
 				dev_dbg(raw->cam_dev, "link queued");
-				spin_unlock_irqrestore
-					(&camsys_ctrl->link_change_lock, flags);
+				spin_unlock_irqrestore(
+						&camsys_ctrl->link_change_lock,
+						flags);
 				return -EINVAL;
 			}
 			spin_unlock_irqrestore(&camsys_ctrl->link_change_lock,
@@ -2274,8 +2310,14 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
-	v4l2_ctrl_new_custom(ctrl_hdlr, &frz_limit, NULL);
-	v4l2_ctrl_new_custom(ctrl_hdlr, &bin_limit, NULL);
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frz_limit, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &bin_limit, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 	v4l2_ctrl_new_custom(ctrl_hdlr, &res_plan_policy, NULL);
 	pipe->res_config.hwn_limit = hwn_limit.def;
 	pipe->res_config.frz_limit = frz_limit.def;

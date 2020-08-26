@@ -424,7 +424,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
 		if (likely(req->ctx_used)) {
 			if (cam->running_job_count >=
-			    MTK_CAM_MAX_RUNNING_JOBS) {
+			    2 * MTK_CAM_MAX_RUNNING_JOBS) {
 				dev_dbg(cam->dev, "jobs are full\n");
 				break;
 			}
@@ -467,7 +467,6 @@ static void mtk_cam_req_queue(struct media_request *req)
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
-	struct mtk_camsys_ctrl *camsys_ctrl = &cam->camsys_ctrl;
 	unsigned long flags;
 	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
 	vb2_request_queue(req);
@@ -475,10 +474,6 @@ static void mtk_cam_req_queue(struct media_request *req)
 	/* add to pending job list */
 	spin_lock_irqsave(&cam->pending_job_lock, flags);
 	list_add_tail(&cam_req->list, &cam->pending_job_list);
-	if (camsys_ctrl->link_change_state == LINK_CHANGE_PREPARING) {
-		camsys_ctrl->link_change_state = LINK_CHANGE_QUEUED;
-		camsys_ctrl->link_change_req = cam_req;
-	}
 	spin_unlock_irqrestore(&cam->pending_job_lock, flags);
 
 	mtk_cam_dev_req_try_queue(cam);
@@ -684,16 +679,24 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 {
 	struct mtk_cam_ctx *ctx;
 	unsigned int i;
+	struct mtk_camsys_sensor_ctrl *camsys_ctrl;
 	/* Accumulated frame sequence number */
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->ctx_used & (1 << cam->ctxs[i].stream_id)) {
 			ctx = &cam->ctxs[i];
-
+			camsys_ctrl = &cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
 			/* FIXME: for 1 request 2 stream case */
 			req->frame_seq_no = ++ctx->enqueued_frame_seq_no;
 			req->state.estate = E_STATE_READY;
 			if (ctx->sensor && req->frame_seq_no == 1)
 				mtk_cam_initial_sensor_setup(req, ctx);
+
+			if (camsys_ctrl->link_change_state == LINK_CHANGE_PREPARING) {
+				camsys_ctrl->link_change_state = LINK_CHANGE_QUEUED;
+				camsys_ctrl->link_change_req = req;
+				dev_dbg(cam->dev, "link_change ctx:%d, req_no:%d\n",
+						ctx->stream_id, req->frame_seq_no);
+			}
 			break;
 		}
 	}
@@ -828,7 +831,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, unsigned int streaming)
 	dev_dbg(dev, "sink pad code:0x%x\n", mf->code);
 	cfg_in_param->raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param->fmt = mtk_cam_get_sensor_fmt(mf->code);
-	if (cfg_in_param->fmt == MTK_CAM_IMG_FMT_UNKNOWN ||
+	if (cfg_in_param->fmt == MTKCAM_IPI_INPUT_FMT_UNKNOWN ||
 	    cfg_in_param->raw_pixel_id == MTK_CAM_RAW_PXL_ID_UNKNOWN) {
 		dev_dbg(dev, "unknown sd code:%d\n", mf->code);
 		return -EINVAL;
@@ -1128,6 +1131,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->sensor = NULL;
 	ctx->prev_sensor = NULL;
 	ctx->seninf = NULL;
+	ctx->prev_seninf = NULL;
 	ctx->enqueued_frame_seq_no = 0;
 	ctx->composed_frame_seq_no = 0;
 
@@ -1159,18 +1163,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	}
 
 	cam->composer_cnt++;
-
-	mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0, ctx->stream_id);
-	/* todo: backend support one pixel mode only */
-	dev_info(cam->dev, "only support pixel mode 0");
-	mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0, 0x0);
-	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
-	if (ret) {
-		dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
-			ctx->seninf->name, ret);
-		return ret;
-	}
-
 	for (i = 0; i < MAX_PIPES_PER_STREAM && ctx->pipe_subdevs[i]; i++) {
 		ret = v4l2_subdev_call(ctx->pipe_subdevs[i], video,
 				       s_stream, 1);
@@ -1179,6 +1171,17 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 				ctx->pipe_subdevs[i]->name, ret);
 			goto fail_pipe_off;
 		}
+	}
+	mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0,
+		ctx->stream_id);
+	/* todo: backend support one pixel mode only */
+	mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0,
+		ctx->pipe->res_config.tgo_pxl_mode);
+	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
+	if (ret) {
+		dev_dbg(cam->dev, "failed to stream on seninf %s:%d\n",
+			ctx->seninf->name, ret);
+		return ret;
 	}
 
 	/**
@@ -1492,7 +1495,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	ctx->stream_id = stream_id;
 	ctx->sensor = NULL;
 	ctx->prev_sensor = NULL;
-
+	ctx->prev_seninf = NULL;
 	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
 	INIT_LIST_HEAD(&ctx->processing_buffer_list.list);
@@ -1569,7 +1572,6 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	cam_dev->running_job_count = 0;
 	spin_lock_init(&cam_dev->pending_job_lock);
 	spin_lock_init(&cam_dev->running_job_lock);
-	spin_lock_init(&cam_dev->camsys_ctrl.link_change_lock);
 	INIT_LIST_HEAD(&cam_dev->pending_job_list);
 	INIT_LIST_HEAD(&cam_dev->running_job_list);
 
