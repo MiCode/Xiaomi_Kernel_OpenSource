@@ -16,10 +16,8 @@
 #include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
-
-/* FIXME: un-comment after AEE is ready */
-//#include <mt-plat/aee.h>
 
 struct emi_mpu {
 	unsigned long long dram_start;
@@ -109,9 +107,8 @@ static void emimpu_vio_dump(struct work_struct *work)
 		curr_dbg_cb = curr_dbg_cb->next_dbg_cb)
 		curr_dbg_cb->func();
 
-	/* FIXME: un-comment after AEE is ready */
-	//if (mpu->vio_msg)
-		//aee_kernel_exception("EMIMPU", mpu->vio_msg);
+	if (mpu->vio_msg)
+		aee_kernel_exception("EMIMPU", mpu->vio_msg);
 
 	mpu->in_msg_dump = 0;
 }
