@@ -9,6 +9,7 @@
 #ifdef BUILD_POLICY_TEST
 #include <stdbool.h>
 #endif
+#include "apusys_core.h"
 
 extern bool is_power_debug_lock;
 extern int fixed_opp;
@@ -29,7 +30,7 @@ enum APUSYS_POWER_PARAM {
 };
 
 
-void apusys_power_debugfs_init(void);
+void apusys_power_debugfs_init(struct apusys_core_info *info);
 void apusys_power_debugfs_exit(void);
 void fix_dvfs_debug(void);
 

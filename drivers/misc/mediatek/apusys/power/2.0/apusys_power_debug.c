@@ -568,7 +568,7 @@ static const struct file_operations apusys_debug_power_fops = {
 
 struct dentry *apusys_power_dir;
 
-void apusys_power_debugfs_init(void)
+void apusys_power_debugfs_init(struct apusys_core_info *info)
 {
 //	struct dentry *apusys_power_dir;
 	int ret;
@@ -577,7 +577,7 @@ void apusys_power_debugfs_init(void)
 
 	mutex_init(&power_fix_dvfs_mtx);
 
-	apusys_power_dir = debugfs_create_dir("apusys_power", NULL);
+	apusys_power_dir = debugfs_create_dir("power", info->dbg_root);
 
 	ret = IS_ERR_OR_NULL(apusys_power_dir);
 	if (ret) {

@@ -52,6 +52,7 @@ static int apu_power_counter;
 static int apusys_power_broken;
 static uint64_t power_info_id;
 static uint8_t power_info_force_print;
+struct apusys_core_info *apu_core_info;
 
 bool apusys_power_check(void)
 {
@@ -800,7 +801,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	pmic_ldo_vsram_md_lp(SRCLKEN2, 1, 1, HW_OFF);
 	#endif
 
-	apusys_power_debugfs_init();
+	apusys_power_debugfs_init(apu_core_info);
 	#ifdef APUPWR_TAG_TP
 	apupwr_init_drv_tags();
 	#endif
@@ -925,6 +926,7 @@ static struct platform_driver apu_power_driver = {
 
 int apu_power_drv_init(struct apusys_core_info *info)
 {
+	apu_core_info = info;
 	return platform_driver_register(&apu_power_driver);
 }
 
