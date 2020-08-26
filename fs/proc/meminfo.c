@@ -6,6 +6,7 @@
 #include <linux/hugetlb.h>
 #include <linux/mman.h>
 #include <linux/mmzone.h>
+#include <linux/memory.h>
 #include <linux/proc_fs.h>
 #include <linux/percpu.h>
 #include <linux/seq_file.h>
@@ -53,6 +54,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		pages[lru] = global_node_page_state(NR_LRU_BASE + lru);
 
 	available = si_mem_available();
+	i.totalram += get_offlined_pages_count();
 	sreclaimable = global_node_page_state(NR_SLAB_RECLAIMABLE);
 	sunreclaim = global_node_page_state(NR_SLAB_UNRECLAIMABLE);
 

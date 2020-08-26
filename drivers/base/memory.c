@@ -982,3 +982,32 @@ int for_each_memory_block(void *arg, walk_memory_blocks_func_t func)
 	return bus_for_each_dev(&memory_subsys, NULL, &cb_data,
 				for_each_memory_block_cb);
 }
+
+static int check_memblock_offlined(struct memory_block *mem, void *arg)
+{
+	unsigned long *nr_pages_offlined = (unsigned long *)arg;
+
+	if (is_memblock_offlined(mem))
+		*nr_pages_offlined += memory_block_size_bytes() / PAGE_SIZE;
+
+	return 0;
+}
+
+/**
+ * get_offlined_pages_count - get total pages offlined in the system
+ *
+ * This function walks through all the memory blocks present and gives
+ * the total offlined pages count in the system.
+ *
+ */
+unsigned long get_offlined_pages_count(void)
+{
+	unsigned long nr_pages_offlined = 0;
+
+	lock_device_hotplug_sysfs();
+	for_each_memory_block(&nr_pages_offlined, check_memblock_offlined);
+	unlock_device_hotplug();
+
+	return nr_pages_offlined;
+
+}
