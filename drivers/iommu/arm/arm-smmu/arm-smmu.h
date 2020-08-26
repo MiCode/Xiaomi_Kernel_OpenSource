@@ -612,7 +612,7 @@ static inline int __arm_smmu_alloc_bitmap(unsigned long *map, int start, int end
 }
 
 int __arm_smmu_alloc_cb(unsigned long *map, int start, int end,
-			struct device *dev);
+			struct device *dev, struct arm_smmu_domain *smmu_domain);
 
 static inline void __iomem *arm_smmu_page(struct arm_smmu_device *smmu, int n)
 {

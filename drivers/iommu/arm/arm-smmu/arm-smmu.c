@@ -443,13 +443,27 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 #endif /* CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS */
 
 int __arm_smmu_alloc_cb(unsigned long *map, int start, int end,
-			struct device *dev)
+			struct device *dev, struct arm_smmu_domain *smmu_domain)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = dev_iommu_priv_get(dev);
 	struct arm_smmu_device *smmu = cfg->smmu;
 	int idx;
 	int i;
+	bool dynamic;
+
+	/*
+	 * Dynamic domains have already set cbndx through domain attribute.
+	 * Verify that they picked a valid value.
+	 */
+	dynamic = is_dynamic_domain(&smmu_domain->domain);
+	if (dynamic) {
+		idx = smmu_domain->cfg.cbndx;
+		if (idx < smmu->num_context_banks)
+			return idx;
+		else
+			return -EINVAL;
+	}
 
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (smmu->s2crs[idx].pinned)
@@ -1314,7 +1328,8 @@ static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
 	if (smmu->impl && smmu->impl->alloc_context_bank)
 		return smmu->impl->alloc_context_bank(smmu_domain, smmu, dev, start);
 
-	return __arm_smmu_alloc_cb(smmu->context_map, start, smmu->num_context_banks, dev);
+	return __arm_smmu_alloc_cb(smmu->context_map, start, smmu->num_context_banks, dev,
+				smmu_domain);
 }
 
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
