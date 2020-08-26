@@ -22,6 +22,7 @@
 #include <dt-bindings/power/mt2701-power.h>
 #include <dt-bindings/power/mt2712-power.h>
 #include <dt-bindings/power/mt6797-power.h>
+#include <dt-bindings/power/mt6853-power.h>
 #include <dt-bindings/power/mt6873-power.h>
 #include <dt-bindings/power/mt7622-power.h>
 #include <dt-bindings/power/mt7623a-power.h>
@@ -1274,6 +1275,253 @@ static const struct scp_subdomain scp_subdomain_mt6797[] = {
 };
 
 /*
+ * MT6853 power domain support
+ */
+
+static const struct scp_domain_data scp_domain_data_mt6853[] = {
+	[MT6853_POWER_DOMAIN_MD] = {
+		.name = "md",
+		.sta_mask = BIT(0),
+		.ctl_offs = 0x300,
+		.caps = MTK_SCPD_MD_OPS,
+		.extb_iso_offs = 0x398,
+		.extb_iso_bits = 0x3,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6853_TOP_AXI_PROT_EN_MD),
+			BUS_PROT(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
+				MT6853_TOP_AXI_PROT_EN_VDNR_MD),
+		},
+	},
+	[MT6853_POWER_DOMAIN_CONN] = {
+		.name = "conn",
+		.sta_mask = BIT(1),
+		.ctl_offs = 0x304,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6853_TOP_AXI_PROT_EN_CONN),
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6853_TOP_AXI_PROT_EN_CONN_2ND),
+			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+				MT6853_TOP_AXI_PROT_EN_1_CONN),
+		},
+	},
+	[MT6853_POWER_DOMAIN_MFG0] = {
+		.name = "mfg0",
+		.sta_mask = BIT(2),
+		.ctl_offs = 0x308,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"mfg"},
+	},
+	[MT6853_POWER_DOMAIN_MFG1] = {
+		.name = "mfg1",
+		.sta_mask = BIT(3),
+		.ctl_offs = 0x30C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+				MT6853_TOP_AXI_PROT_EN_1_MFG1),
+			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+				MT6853_TOP_AXI_PROT_EN_2_MFG1),
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6853_TOP_AXI_PROT_EN_MFG1),
+			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+				MT6853_TOP_AXI_PROT_EN_2_MFG1_2ND),
+		},
+	},
+	[MT6853_POWER_DOMAIN_MFG2] = {
+		.name = "mfg2",
+		.sta_mask = BIT(4),
+		.ctl_offs = 0x310,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6853_POWER_DOMAIN_MFG3] = {
+		.name = "mfg3",
+		.sta_mask = BIT(5),
+		.ctl_offs = 0x314,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6853_POWER_DOMAIN_MFG5] = {
+		.name = "mfg5",
+		.sta_mask = BIT(7),
+		.ctl_offs = 0x31C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+	},
+	[MT6853_POWER_DOMAIN_ISP] = {
+		.name = "isp",
+		.sta_mask = BIT(12),
+		.ctl_offs = 0x330,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"isp"},
+		.subsys_clk_prefix = "isp",
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+				MT6853_TOP_AXI_PROT_EN_MM_2_ISP),
+			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+				MT6853_TOP_AXI_PROT_EN_MM_2_ISP_2ND),
+		},
+	},
+	[MT6853_POWER_DOMAIN_ISP2] = {
+		.name = "isp2",
+		.sta_mask = BIT(13),
+		.ctl_offs = 0x334,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"isp2"},
+		.subsys_clk_prefix = "isp2",
+	},
+	[MT6853_POWER_DOMAIN_IPE] = {
+		.name = "ipe",
+		.sta_mask = BIT(14),
+		.ctl_offs = 0x338,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"ipe"},
+		.subsys_clk_prefix = "ipe",
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_IPE),
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_IPE_2ND),
+		},
+	},
+	[MT6853_POWER_DOMAIN_VDEC] = {
+		.name = "vdec",
+		.sta_mask = BIT(15),
+		.ctl_offs = 0x33C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"vdec"},
+		.subsys_clk_prefix = "vdec",
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_VDEC),
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_VDEC_2ND),
+		},
+	},
+	[MT6853_POWER_DOMAIN_VENC] = {
+		.name = "venc",
+		.sta_mask = BIT(17),
+		.ctl_offs = 0x344,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"venc"},
+		.subsys_clk_prefix = "venc",
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_VENC),
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_VENC_2ND),
+		},
+	},
+	[MT6853_POWER_DOMAIN_DISP] = {
+		.name = "disp",
+		.sta_mask = BIT(20),
+		.ctl_offs = 0x350,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"disp", "mdp"},
+		.subsys_clk_prefix = "disp",
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_DISP),
+			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+				MT6853_TOP_AXI_PROT_EN_MM_2_DISP),
+			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+				MT6853_TOP_AXI_PROT_EN_DISP),
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_DISP_2ND),
+			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+				MT6853_TOP_AXI_PROT_EN_MM_2_DISP_2ND),
+		},
+	},
+	[MT6853_POWER_DOMAIN_AUDIO] = {
+		.name = "audio",
+		.sta_mask = BIT(21),
+		.ctl_offs = 0x354,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"audio", "audio1", "audio2"},
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+				MT6853_TOP_AXI_PROT_EN_2_AUDIO),
+		},
+	},
+	[MT6853_POWER_DOMAIN_ADSP_DORMANT] = {
+		.name = "adsp_dormant",
+		.sta_mask = BIT(22),
+		.ctl_offs = 0x358,
+		.sram_slp_bits = GENMASK(9, 9),
+		.sram_slp_ack_bits = GENMASK(13, 13),
+		.basic_clk_name = {"adsp"},
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+				MT6853_TOP_AXI_PROT_EN_2_ADSP_DORMANT),
+		},
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
+	},
+	[MT6853_POWER_DOMAIN_CAM] = {
+		.name = "cam",
+		.sta_mask = BIT(23),
+		.ctl_offs = 0x35C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"cam"},
+		.subsys_clk_prefix = "cam",
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+				MT6853_TOP_AXI_PROT_EN_2_CAM),
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_CAM),
+			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+				MT6853_TOP_AXI_PROT_EN_1_CAM),
+			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+				MT6853_TOP_AXI_PROT_EN_MM_CAM_2ND),
+			BUS_PROT(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
+				MT6853_TOP_AXI_PROT_EN_VDNR_CAM),
+		},
+	},
+	[MT6853_POWER_DOMAIN_CAM_RAWA] = {
+		.name = "cam_rawa",
+		.sta_mask = BIT(24),
+		.ctl_offs = 0x360,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam_rawa",
+	},
+	[MT6853_POWER_DOMAIN_CAM_RAWB] = {
+		.name = "cam_rawb",
+		.sta_mask = BIT(25),
+		.ctl_offs = 0x0364,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.subsys_clk_prefix = "cam_rawb",
+	},
+};
+
+static const struct scp_subdomain scp_subdomain_mt6853[] = {
+	{MT6853_POWER_DOMAIN_MFG0, MT6853_POWER_DOMAIN_MFG1},
+	{MT6853_POWER_DOMAIN_MFG1, MT6853_POWER_DOMAIN_MFG2},
+	{MT6853_POWER_DOMAIN_MFG1, MT6853_POWER_DOMAIN_MFG3},
+	{MT6853_POWER_DOMAIN_MFG1, MT6853_POWER_DOMAIN_MFG5},
+	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_ISP},
+	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_ISP2},
+	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_IPE},
+	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_VDEC},
+	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_VENC},
+	{MT6853_POWER_DOMAIN_DISP, MT6853_POWER_DOMAIN_CAM},
+	{MT6853_POWER_DOMAIN_CAM, MT6853_POWER_DOMAIN_CAM_RAWA},
+	{MT6853_POWER_DOMAIN_CAM, MT6853_POWER_DOMAIN_CAM_RAWB},
+};
+
+/*
  * MT7622 power domain support
  */
 
@@ -1829,6 +2077,17 @@ static const struct scp_soc_data mt6873_data = {
 	}
 };
 
+static const struct scp_soc_data mt6853_data = {
+	.domains = scp_domain_data_mt6853,
+	.num_domains = MT6853_POWER_DOMAIN_NR,
+	.subdomains = scp_subdomain_mt6853,
+	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt6853),
+	.regs = {
+		.pwr_sta_offs = 0x16C,
+		.pwr_sta2nd_offs = 0x170
+	}
+};
+
 static const struct scp_soc_data mt7622_data = {
 	.domains = scp_domain_data_mt7622,
 	.num_domains = ARRAY_SIZE(scp_domain_data_mt7622),
@@ -1883,6 +2142,9 @@ static const struct of_device_id of_scpsys_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6797-scpsys",
 		.data = &mt6797_data,
+	}, {
+		.compatible = "mediatek,mt6853-scpsys",
+		.data = &mt6853_data,
 	}, {
 		.compatible = "mediatek,mt6873-scpsys",
 		.data = &mt6873_data,
