@@ -30,7 +30,8 @@
 			reg = <0x0 0x0>;
 			device_type = "cpu";
 			enable-method = "psci";
-			cpu-idle-states = <&CPU_PWR_DWN>;
+			cpu-idle-states = <&CPU_PWR_DWN
+					   &CLUSTER_PWR_DWN>;
 		};
 
 		CPU1: cpu@100 {
@@ -38,7 +39,8 @@
 			reg = <0x0 0x100>;
 			device_type = "cpu";
 			enable-method = "psci";
-			cpu-idle-states = <&CPU_PWR_DWN>;
+			cpu-idle-states = <&CPU_PWR_DWN
+					   &CLUSTER_PWR_DWN>;
 		};
 	};
 
@@ -50,6 +52,16 @@
 			exit-latency-us = <1061>;
 			min-residency-us = <4488>;
 			arm,psci-suspend-param = <0x40000004>;
+			local-timer-stop;
+		};
+
+		CLUSTER_PWR_DWN: d4 { /* C4+D4 */
+			compatible = "arm,idle-state";
+			idle-state-name = "l3-pc";
+			entry-latency-us = <2752>;
+			exit-latency-us = <3048>;
+			min-residency-us = <6118>;
+			arm,psci-suspend-param = <0x40000044>;
 			local-timer-stop;
 		};
 	};
