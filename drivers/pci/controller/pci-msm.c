@@ -6775,6 +6775,8 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 	/* disable global irq - no more linkdown/aer detection */
 	disable_irq(pcie_dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
 
+	drv_info->drv_enable.pkt.dword[2] = options & MSM_PCIE_CONFIG_NO_DRV_PC;
+
 	ret = msm_pcie_drv_send_rpmsg(pcie_dev, &drv_info->drv_enable);
 	if (ret) {
 		ret = -EBUSY;
