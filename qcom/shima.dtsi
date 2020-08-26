@@ -341,9 +341,24 @@
 			reg = <0x0 0xc0000000 0x0 0x5100000>;
 		};
 
-		pil_trustedvm_mem: pil_trustedvm_region@d0000000 {
+		pil_trustedvm_mem: pil_trustedvm_region@d0800000 {
 			no-map;
-			reg = <0x0 0xd0000000 0x0 0xa600000>;
+			reg = <0x0 0xd0800000 0x0 0x76f7000>;
+		};
+
+		qrtr_shbuf: qrtr-shmem {
+			no-map;
+			reg = <0x0 0xd7ef7000 0x0 0x9000>;
+		};
+
+		chan0_shbuf: neuron_block@0 {
+			no-map;
+			reg = <0x0 0xd7f00000 0x0 0x80000>;
+		};
+
+		chan1_shbuf: neuron_block@1 {
+			no-map;
+			reg = <0x0 0xd7f80000 0x0 0x80000>;
 		};
 
 		user_contig_mem: user_contig_region {
@@ -985,6 +1000,65 @@
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		#mbox-cells = <2>;
+	};
+	qcom,trustedvm@d0800000 {
+		compatible = "qcom,pil-tz-generic";
+		status = "ok";
+		qcom,pas-id = <28>;
+		qcom,firmware-name = "trustedvm";
+		memory-region = <&pil_trustedvm_mem>;
+	};
+
+	qcom,guestvm_loader {
+		compatible = "qcom,guestvm-loader";
+		image_to_be_loaded = "trustedvm";
+	};
+
+
+	qcom,svm_neuron_block {
+		compatible = "qcom,neuron-service";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		protocol {
+			compatible = "qcom,neuron-protocol-block";
+			processes = "server";
+		};
+
+		application {
+			compatible = "qcom,neuron-block-server";
+		};
+
+		channel@0 {
+			compatible = "qcom,neuron-channel-haven-shmem";
+			reg = <0>;
+			class = "message-queue";
+			direction = "receive";
+			max-size = <0 65536>;
+			shared-buffer = <&chan0_shbuf>;
+			qcom,primary;
+			haven-label = <1>;
+			peer-name = <2>;
+		};
+
+		channel@1 {
+			compatible = "qcom,neuron-channel-haven-shmem";
+			reg = <1>;
+			class = "message-queue";
+			direction = "send";
+			max-size = <0 65536>;
+			shared-buffer = <&chan1_shbuf>;
+			qcom,primary;
+			haven-label = <2>;
+			peer-name = <2>;
+		};
+	};
+
+	qrtr-haven {
+		compatible = "qcom,qrtr-haven";
+		qcom,master;
+		haven-label = <3>;
+		peer-name = <2>;
+		shared-buffer = <&qrtr_shbuf>;
 	};
 
 	tcsr_mutex_block: syscon@1f40000 {
