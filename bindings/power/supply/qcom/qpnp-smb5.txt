@@ -19,13 +19,19 @@ Charger specific properties:
 - compatible
   Usage:      required
   Value type: <string>
-  Definition: "qcom,qpnp-smb5".
+  Definition: "qcom,pm8150-smb5" for SMB5 on PM8150.
+	      "qcom,pm7250b-smb5" for SMB5 on PM7250B.
+	      "qcom,pm6150-smb5" for SMB5 on PM6150.
+	      "qcom,pmi632-smb5" for SMB5 on PMI632.
 
-- qcom,pmic-revid
-  Usage:      required
-  Value type: phandle
-  Definition: Should specify the phandle of PMI's revid module. This is used to
-		identify the PMI subtype.
+- #io-channel-cells:
+    Usage: required
+    Value type: <u32>
+    Definition: Number of cells in an IIO specifier.
+            Needed to indicate other clients can query charger for
+            IIO channels.
+            For details about IIO bindings see:
+            Documentation/devicetree/bindings/iio/iio-bindings.txt
 
 - qcom,sec-charger-config
   Usage:      optional
@@ -419,8 +425,7 @@ pm8150b_charger: qcom,qpnp-smb5 {
 	compatible = "qcom,qpnp-smb5";
 	#address-cells = <1>;
 	#size-cells = <1>;
-
-	qcom,pmic-revid = <&pm8150b_revid>;
+	#io-channel-cells = <1>;
 
 	dpdm-supply = <&qusb_phy0>;
 
@@ -428,10 +433,16 @@ pm8150b_charger: qcom,qpnp-smb5 {
 
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,
 	              <&pm8150b_vadc ADC_USB_IN_I>,
-	              <&pm8150b_vadc ADC_CHG_TEMP>;
+	              <&pm8150b_vadc ADC_CHG_TEMP>,
+	              <&pm7250b_qg PSY_IIO_RESISTANCE_ID>,
+	              <&pm7250b_qg PSY_IIO_CHARGE_COUNTER>,
+	              <&pm7250b_qg PSY_IIO_CHARGE_FULL>;
 	io-channel-names = "usb_in_voltage",
 	                   "usb_in_current",
-	                   "chg_temp";
+	                   "chg_temp",
+	                   "resistance_id",
+	                   "charge_counter",
+	                   "charge_full";
 
 	qcom,chgr@1000 {
 		reg = <0x1000 0x100>;
