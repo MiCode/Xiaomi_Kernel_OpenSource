@@ -1127,15 +1127,15 @@ static const struct attribute *pwrctrl_attr_list[] = {
 	NULL,
 };
 
-static GPU_SYSFS_ATTR(gpu_model, 0200, _gpu_model_show, NULL);
-static GPU_SYSFS_ATTR(gpu_busy, 0200, _gpu_busy_show, NULL);
+static GPU_SYSFS_ATTR(gpu_model, 0444, _gpu_model_show, NULL);
+static GPU_SYSFS_ATTR(gpu_busy, 0444, _gpu_busy_show, NULL);
 static GPU_SYSFS_ATTR(gpu_min_clock, 0644, _min_clock_mhz_show,
 		_min_clock_mhz_store);
 static GPU_SYSFS_ATTR(gpu_max_clock, 0644, _max_clock_mhz_show,
 		_max_clock_mhz_store);
-static GPU_SYSFS_ATTR(gpu_clock, 0200, _clock_mhz_show, NULL);
-static GPU_SYSFS_ATTR(gpu_freq_table, 0200, _freq_table_mhz_show, NULL);
-static GPU_SYSFS_ATTR(gpu_tmu, 0200, _gpu_tmu_show, NULL);
+static GPU_SYSFS_ATTR(gpu_clock, 0444, _clock_mhz_show, NULL);
+static GPU_SYSFS_ATTR(gpu_freq_table, 0444, _freq_table_mhz_show, NULL);
+static GPU_SYSFS_ATTR(gpu_tmu, 0444, _gpu_tmu_show, NULL);
 
 static const struct attribute *gpu_sysfs_attr_list[] = {
 	&gpu_sysfs_attr_gpu_model.attr,
