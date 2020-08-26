@@ -130,8 +130,21 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 
 	for (i = 0; i < RPM_NUM_CXT; i++) {
 		if (qp->bus_clk_cur_rate[i] != bus_clk_rate[i]) {
-			ret = clk_set_rate(qp->bus_clks[i].clk,
-					bus_clk_rate[i]);
+			if (qp->keepalive && i == RPM_ACTIVE_CXT) {
+				if (qp->init)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							RPM_CLK_MAX_LEVEL);
+				else if (bus_clk_rate[i] == 0)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							RPM_CLK_MIN_LEVEL);
+				else
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							bus_clk_rate[i]);
+			} else {
+				ret = clk_set_rate(qp->bus_clks[i].clk,
+							bus_clk_rate[i]);
+			}
+
 			if (ret) {
 				pr_err("%s clk_set_rate error: %d\n",
 					qp->bus_clks[i].id, ret);
