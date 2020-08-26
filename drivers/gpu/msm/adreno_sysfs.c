@@ -264,6 +264,21 @@ static int _acd_store(struct adreno_device *adreno_dev, bool val)
 	return gmu_core_dev_acd_set(KGSL_DEVICE(adreno_dev), val);
 }
 
+static bool _bcl_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->bcl_enabled;
+}
+
+static int _bcl_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_BCL) ||
+				adreno_dev->bcl_enabled == val)
+		return 0;
+
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->bcl_enabled,
+					val);
+}
+
 static ssize_t _sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -376,6 +391,7 @@ static ADRENO_SYSFS_BOOL(throttling);
 static ADRENO_SYSFS_BOOL(ifpc);
 static ADRENO_SYSFS_RO_U32(ifpc_count);
 static ADRENO_SYSFS_BOOL(acd);
+static ADRENO_SYSFS_BOOL(bcl);
 
 
 static const struct attribute *_attr_list[] = {
@@ -399,6 +415,7 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_ifpc_count.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
 	&adreno_attr_acd.attr.attr,
+	&adreno_attr_bcl.attr.attr,
 	NULL,
 };
 

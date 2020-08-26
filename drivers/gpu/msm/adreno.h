@@ -110,6 +110,8 @@
 #define ADRENO_DEPRECATED BIT(19)
 /* The target supports ringbuffer level APRIV */
 #define ADRENO_APRIV BIT(20)
+/* The GMU supports Battery Current Limiting */
+#define ADRENO_BCL BIT(21)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */
@@ -529,6 +531,8 @@ struct adreno_device {
 	bool throttling_enabled;
 	/** @sptp_pc_enabled: True if SPTP power collapse is enabled on a5xx */
 	bool sptp_pc_enabled;
+	/** @bcl_enabled: True if BCL is enabled */
+	bool bcl_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;

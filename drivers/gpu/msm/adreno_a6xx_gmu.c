@@ -2697,6 +2697,9 @@ static int a6xx_gmu_probe(struct kgsl_device *device,
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
+		adreno_dev->bcl_enabled = true;
+
 	a6xx_gmu_acd_probe(device, gmu, pdev->dev.of_node);
 
 	set_bit(GMU_ENABLED, &device->gmu_core.flags);
