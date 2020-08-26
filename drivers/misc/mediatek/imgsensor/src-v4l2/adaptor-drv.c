@@ -851,8 +851,10 @@ static int imgsensor_get_temp(void *data, int *temperature)
 {
 	struct adaptor_ctx *ctx = data;
 
-	if (pm_runtime_get_if_in_use(ctx->dev) == 0)
-		return THERMAL_TEMP_INVALID;
+	if (pm_runtime_get_if_in_use(ctx->dev) == 0) {
+		*temperature = THERMAL_TEMP_INVALID;
+		return 0;
+	}
 
 	subdrv_call(ctx, get_temp, temperature);
 

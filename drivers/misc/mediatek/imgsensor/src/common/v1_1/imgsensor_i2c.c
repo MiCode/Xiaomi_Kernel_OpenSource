@@ -80,8 +80,10 @@ static int imgsensor_get_temp(void *data, int *temperature)
 		&valid, &temp);
 
 	if (ret != IMGSENSOR_RETURN_SUCCESS ||
-		!(valid & SENSOR_TEMPERATURE_VALID))
-		return THERMAL_TEMP_INVALID;
+		!(valid & SENSOR_TEMPERATURE_VALID)) {
+		*temperature = THERMAL_TEMP_INVALID;
+		return 0;
+	}
 
 	*temperature = temp * 1000;
 
