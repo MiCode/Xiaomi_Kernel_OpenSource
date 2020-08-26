@@ -411,6 +411,7 @@ struct cnss_plat_data {
 	struct qmi_handle coex_qmi;
 	struct qmi_handle ims_qmi;
 	struct qmi_txn txn;
+	struct wakeup_source *recovery_ws;
 	u64 dynamic_feature;
 	void *get_info_cb_ctx;
 	int (*get_info_cb)(void *ctx, void *event, int event_len);
