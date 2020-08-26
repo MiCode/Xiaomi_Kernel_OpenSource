@@ -119,6 +119,7 @@ struct mtk_cam_ctx {
 	struct v4l2_subdev *sensor;
 	struct v4l2_subdev *prev_sensor;
 	struct v4l2_subdev *seninf;
+	struct v4l2_subdev *prev_seninf;
 	struct v4l2_subdev *pipe_subdevs[MAX_PIPES_PER_STREAM];
 
 	unsigned int used_raw_dev;

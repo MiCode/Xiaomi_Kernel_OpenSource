@@ -100,6 +100,7 @@ struct mtk_cam_resource_config {
 	u32 bin_enable;
 	u32 frz_enable;
 	u32 frz_ratio;
+	u32 tgo_pxl_mode;
 };
 
 struct mtk_raw_pad_config {

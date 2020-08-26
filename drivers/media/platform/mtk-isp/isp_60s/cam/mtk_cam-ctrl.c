@@ -109,53 +109,125 @@ static void mtk_cam_event_request_drained(struct mtk_raw_device *raw_dev)
 	v4l2_event_queue(raw_dev->pipeline->subdev.devnode, &event);
 }
 
+static void mtk_cam_link_try_swap(struct mtk_cam_request *req)
+{
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_ctx *ctx, *ctx_swap;
+	struct mtk_camsys_sensor_ctrl *camsys_ctrl, *camsys_ctrl_swap;
+	struct mtk_camsys_link_ctrl *link_ctrl, *link_ctrl_swap;
+	int i, ret;
+
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->ctx_used & (1 << cam->ctxs[i].stream_id))
+			ctx = &cam->ctxs[i];
+	}
+	camsys_ctrl = &cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
+	link_ctrl = &camsys_ctrl->link_ctrl;
+	ctx_swap = link_ctrl->swapping_ctx;
+	camsys_ctrl_swap = &cam->camsys_ctrl.sensor_ctrl[ctx_swap->stream_id];
+	link_ctrl_swap = &camsys_ctrl_swap->link_ctrl;
+	if (camsys_ctrl->link_change_state == LINK_CHANGE_QUEUED &&
+					req == camsys_ctrl->link_change_req) {
+		if (link_ctrl->active && link_ctrl_swap->active) {
+			// stream_off both seninf
+			ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
+			if (ret)
+				dev_info(cam->dev,
+					"failed to stream off seninf %s:%d\n",
+					ctx->seninf->name, ret);
+			ret = v4l2_subdev_call(ctx_swap->seninf, video, s_stream, 0);
+			if (ret)
+				dev_info(cam->dev,
+					"failed to stream off seninf %s:%d\n",
+					ctx_swap->seninf->name, ret);
+			// set both cam_mux
+			mtk_cam_seninf_set_pixelmode(ctx->seninf, PAD_SRC_RAW0,
+					ctx->pipe->res_config.tgo_pxl_mode);
+			mtk_cam_seninf_set_camtg(ctx->seninf, PAD_SRC_RAW0,
+					ctx->stream_id);
+			mtk_cam_seninf_set_pixelmode(ctx_swap->seninf, PAD_SRC_RAW0,
+					ctx_swap->pipe->res_config.tgo_pxl_mode);
+			mtk_cam_seninf_set_camtg(ctx_swap->seninf, PAD_SRC_RAW0,
+					ctx_swap->stream_id);
+			// stream_on both seninf
+			ret = v4l2_subdev_call(ctx->seninf, video,
+				s_stream, 1);
+			if (ret)
+				dev_info(cam->dev,
+					"failed to stream on seninf %s:%d\n",
+					ctx->seninf->name, ret);
+			ret = v4l2_subdev_call(ctx_swap->seninf, video,
+				s_stream, 1);
+			if (ret)
+				dev_info(cam->dev,
+					"failed to stream on seninf %s:%d\n",
+					ctx_swap->seninf->name, ret);
+			mtk_cam_dev_config(ctx, 1);
+			mtk_cam_dev_config(ctx_swap, 1);
+			link_ctrl->active = 0;
+			link_ctrl_swap->active = 0;
+
+		}
+		camsys_ctrl->link_change_state = LINK_CHANGE_IDLE;
+		camsys_ctrl_swap->link_change_state = LINK_CHANGE_IDLE;
+	}
+	if (ctx->prev_sensor || ctx->prev_seninf) {
+		ctx->prev_sensor = NULL;
+		ctx->prev_seninf = NULL;
+	}
+	if (ctx_swap->prev_sensor || ctx_swap->prev_seninf) {
+		ctx_swap->prev_sensor = NULL;
+		ctx_swap->prev_seninf = NULL;
+	}
+	dev_dbg(cam->dev, "link swap done\n");
+}
+
 static void mtk_cam_link_try_change(struct mtk_cam_request *req)
 {
-	struct mtk_cam_device *cam = container_of(req->req.mdev,
-						  struct mtk_cam_device,
-						  media_dev);
-	struct mtk_camsys_ctrl *camsys_ctrl = &cam->camsys_ctrl;
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_ctx *ctx;
+	struct mtk_camsys_sensor_ctrl *camsys_ctrl;
+	struct mtk_camsys_link_ctrl *link_ctrl;
+	int i, ret;
 
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->ctx_used & (1 << cam->ctxs[i].stream_id))
+			ctx = &cam->ctxs[i];
+	}
+	camsys_ctrl = &cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
+	link_ctrl = &camsys_ctrl->link_ctrl;
 	if (camsys_ctrl->link_change_state == LINK_CHANGE_QUEUED &&
-	    req == camsys_ctrl->link_change_req) {
-		unsigned int i;
+					req == camsys_ctrl->link_change_req) {
+		if (link_ctrl->active) {
+			mtk_cam_dvfs_update_clk(ctx->cam);
+			mtk_cam_seninf_set_pixelmode(ctx->seninf,
+					PAD_SRC_RAW0, ctx->pipe->res_config.tgo_pxl_mode);
+			mtk_cam_seninf_set_camtg(ctx->seninf,
+					PAD_SRC_RAW0, ctx->stream_id);
+			if (ctx->seninf->entity.stream_count == 0)
+				ctx->seninf->entity.stream_count++;
+			if (ctx->sensor->entity.stream_count == 0)
+				ctx->sensor->entity.stream_count++;
+			ctx->seninf->entity.pipe = &ctx->pipeline;
+			ctx->sensor->entity.pipe = &ctx->pipeline;
+			ret = v4l2_subdev_call(ctx->seninf, video,
+				s_stream, 1);
+			if (ret)
+				dev_info(cam->dev,
+					"failed to stream on seninf %s:%d\n",
+					ctx->seninf->name, ret);
+			mtk_cam_dev_config(ctx, 1);
+			link_ctrl->active = 0;
 
-		for (i = 0; i < cam->max_stream_num; i++) {
-			struct mtk_camsys_link_ctrl *link_ctrl;
-
-			link_ctrl = &camsys_ctrl->link_ctrl[i];
-			if ((cam->streaming_ctx & (1 << i)) &&
-			    link_ctrl->active) {
-				struct mtk_raw_pipeline *pipe;
-				struct mtk_cam_ctx *ctx;
-				int ret;
-
-				pipe = link_ctrl->pipe;
-				dev_dbg(cam->dev,
-					"link changing:%d(%d)\n", i, pipe->id);
-
-				ctx = &cam->ctxs[i];
-
-				mtk_cam_seninf_set_camtg(ctx->seninf,
-							 PAD_SRC_RAW0,
-						ctx->stream_id);
-
-				ret = v4l2_subdev_call(ctx->seninf, video,
-						       s_stream, 1);
-				if (ret) {
-					dev_dbg(cam->dev,
-						"failed to stream on seninf %s:%d\n",
-						ctx->seninf->name, ret);
-					break;
-				}
-
-				mtk_cam_dev_config(ctx, 1);
-				link_ctrl->active = 0;
-			}
 		}
 		camsys_ctrl->link_change_state = LINK_CHANGE_IDLE;
 	}
-
+	if (ctx->prev_sensor || ctx->prev_seninf) {
+		ctx->prev_sensor = NULL;
+		ctx->prev_seninf = NULL;
+	}
 	dev_dbg(cam->dev, "link change done\n");
 }
 
@@ -163,8 +235,31 @@ static void mtk_cam_link_change_worker(struct work_struct *work)
 {
 	struct mtk_cam_request *req =
 		container_of(work, struct mtk_cam_request, link_work);
+	struct mtk_cam_device *cam =
+		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_ctx *ctx;
+	struct mtk_camsys_sensor_ctrl *camsys_ctrl, *ctrl_swap;
+	struct mtk_camsys_link_ctrl *link_ctrl, *link_ctrl_swap;
+	int i;
 
-	mtk_cam_link_try_change(req);
+	for (i = 0; i < cam->max_stream_num; i++) {
+		if (req->ctx_used & (1 << cam->ctxs[i].stream_id))
+			ctx = &cam->ctxs[i];
+	}
+	camsys_ctrl = &cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
+	link_ctrl = &camsys_ctrl->link_ctrl;
+	if (link_ctrl->wait_exchange) {
+		ctrl_swap = &cam->camsys_ctrl.sensor_ctrl[link_ctrl->swapping_ctx->stream_id];
+		link_ctrl_swap = &ctrl_swap->link_ctrl;
+		dev_dbg(cam->dev, "link change worker (ctx:%d/%d) wait_exchange:%d/%d\n",
+					ctx->stream_id, link_ctrl->swapping_ctx->stream_id,
+					link_ctrl->wait_exchange, link_ctrl_swap->wait_exchange);
+		mtk_cam_link_try_swap(req);
+		link_ctrl->wait_exchange = 0;
+		link_ctrl_swap->wait_exchange = 0;
+	} else {
+		mtk_cam_link_try_change(req);
+	}
 }
 
 static void mtk_cam_request_drained(struct mtk_raw_device *raw_dev,
@@ -203,10 +298,6 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 	struct v4l2_ctrl_handler *parent_hdl;
 	struct mtk_cam_ctx *ctx;
 	unsigned int i = 0, time_after_sof = 0;
-
-	if (cam->camsys_ctrl.link_change_state == LINK_CHANGE_QUEUED)
-		mtk_cam_link_try_change(req); /* TODO: align with SCQ */
-
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->ctx_used & (1 << cam->ctxs[i].stream_id)) {
 			ctx = &cam->ctxs[i];
@@ -235,8 +326,6 @@ static void mtk_cam_sensor_worker(struct work_struct *work)
 			v4l2_ctrl_request_complete(&req->req, parent_hdl);
 		}
 	}
-	if (ctx->prev_sensor)
-		ctx->prev_sensor = NULL;
 	dev_dbg(cam->dev, "sensor try set done\n");
 }
 
@@ -270,14 +359,17 @@ static enum hrtimer_restart sensor_set_handler(struct hrtimer *t)
 			   camsys->sensor_ctrl[ctx->stream_id].sof_time;
 
 	spin_lock(&sensor_ctrl->camsys_state_lock);
-	/* Check if previous state was without cq done (STATE !=OUTER) */
+	/* Check if previous state was without cq done */
 	list_for_each_entry(state_entry, &sensor_ctrl->camsys_state_list,
-			    state_element) {
-		state_req = container_of(state_entry,
-					 struct mtk_cam_request, state);
-		if (state_req->frame_seq_no ==
-		    sensor_ctrl->sensor_request_seq_no) {
-			if (state_entry->estate == E_STATE_CQ && USINGSCQ &&
+				state_element) {
+		state_req = container_of(state_entry, struct mtk_cam_request, state);
+		if (state_req->frame_seq_no == sensor_ctrl->sensor_request_seq_no) {
+			if (sensor_ctrl->link_change_state == LINK_CHANGE_QUEUED) {
+				spin_unlock(&sensor_ctrl->camsys_state_lock);
+				dev_dbg(cam->dev, "[TimerIRQ] LINK CHANGE STATE, ctx:%d req:%d\n",
+				ctx->stream_id, state_req->frame_seq_no);
+				return HRTIMER_NORESTART;
+			} else if (state_entry->estate == E_STATE_CQ && USINGSCQ &&
 			    state_req->frame_seq_no >
 			    SENSOR_SET_COUNT_BEFORE_STREAMON) {
 				state_entry->estate = E_STATE_CQ_SCQ_DELAY;
@@ -453,7 +545,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 				       unsigned int dequeued_frame_seq_no)
 {
 	struct mtk_cam_device *cam = raw_dev->cam;
-	struct mtk_cam_request *req = NULL;
+	struct mtk_cam_request *req = NULL, *req_cq = NULL;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl =
 		&cam->camsys_ctrl.sensor_ctrl[ctx->stream_id];
 	struct mtk_cam_working_buf_entry *buf_entry;
@@ -473,8 +565,8 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 						dequeued_frame_seq_no);
 		if (state_handle_ret != STATE_RESULT_TRIGGER_CQ)
 			return;
-	} else if (req == camsys_ctrl->link_change_req &&
-			camsys_ctrl->link_change_state == LINK_CHANGE_QUEUED) {
+	} else if (req == sensor_ctrl->link_change_req &&
+			sensor_ctrl->link_change_state == LINK_CHANGE_QUEUED) {
 		INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
 		queue_work(cam->link_change_wq, &req->link_work);
 	}
@@ -516,9 +608,10 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		if (ctx->sensor)
 			state_transition(current_state, E_STATE_SENSOR,
 					 E_STATE_CQ);
+		req_cq = container_of(current_state, struct mtk_cam_request, state);
 		dev_dbg(raw_dev->dev,
-			"SOF[ctx:%d-#%d], CQ is update, composed_frame_seq:%d, cq_addr:0x%x\n",
-			ctx->stream_id, dequeued_frame_seq_no,
+			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x\n",
+			ctx->stream_id, dequeued_frame_seq_no, req_cq->frame_seq_no,
 			ctx->composed_frame_seq_no, base_addr);
 	}
 }
@@ -576,6 +669,9 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_camsys_ctrl_state *state_entry;
 	struct mtk_cam_request *state_req;
+	struct mtk_cam_request *req;
+	struct mtk_cam_ctx *ctx_swap;
+	struct mtk_camsys_sensor_ctrl *sensor_ctrl_swap;
 	int val;
 
 	if (ctx->sensor) {
@@ -634,6 +730,43 @@ static void mtk_camsys_raw_frame_done(struct mtk_raw_device *raw_dev,
 	spin_unlock(&ctx->processing_buffer_list.lock);
 	mtk_cam_dequeue_req_frame(cam, ctx);
 	mtk_cam_dev_req_try_queue(cam);
+	// handle monitoring 1st request after dynamic change
+	if (camsys_sensor_ctrl->link_change_state == LINK_CHANGE_QUEUED) {
+		if (camsys_sensor_ctrl->link_ctrl.wait_exchange) {
+			ctx_swap = camsys_sensor_ctrl->link_ctrl.swapping_ctx;
+			sensor_ctrl_swap = &cam->camsys_ctrl.sensor_ctrl[ctx_swap->stream_id];
+			if (sensor_ctrl_swap->link_change_state == LINK_CHANGE_QUEUED) {
+				if ((ctx->dequeued_frame_seq_no ==
+					camsys_sensor_ctrl->link_change_req->frame_seq_no - 1) &&
+					(ctx_swap->dequeued_frame_seq_no ==
+					sensor_ctrl_swap->link_change_req->frame_seq_no - 1)) {
+					req = mtk_cam_dev_get_req(cam, ctx,
+							dequeued_frame_seq_no + 1);
+					INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
+					queue_work(cam->link_change_wq, &req->link_work);
+					dev_dbg(raw_dev->dev, "[SWD] exchange streams [req ctx:%d ctx_swap:%d]\n",
+							ctx->stream_id, ctx_swap->stream_id);
+				} else
+					dev_dbg(raw_dev->dev, "[SWD] wait both done ctx:%d:%d (swapctx:%d:%d)\n",
+						ctx->stream_id, ctx->dequeued_frame_seq_no,
+						ctx_swap->stream_id,
+						ctx_swap->dequeued_frame_seq_no);
+			} else
+				dev_dbg(raw_dev->dev, "[SWD] wait both enQed ctx:%d:%d (swapctx:%d:%d)\n",
+					ctx->stream_id, ctx->dequeued_frame_seq_no,
+					ctx_swap->stream_id, ctx_swap->dequeued_frame_seq_no);
+		} else {
+			req = mtk_cam_dev_get_req(cam, ctx, dequeued_frame_seq_no + 1);
+			if (req == NULL)
+				return;
+			if (ctx->dequeued_frame_seq_no ==
+				camsys_sensor_ctrl->link_change_req->frame_seq_no - 1) {
+				INIT_WORK(&req->link_work, mtk_cam_link_change_worker);
+				queue_work(cam->link_change_wq, &req->link_work);
+			}
+		}
+	}
+	return;
 }
 
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
@@ -767,6 +900,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			SENSOR_SET_RESERVED_MS;
 	INIT_LIST_HEAD(&camsys_sensor_ctrl->camsys_state_list);
 	spin_lock_init(&camsys_sensor_ctrl->camsys_state_lock);
+	spin_lock_init(&camsys_sensor_ctrl->link_change_lock);
 	if (ctx->sensor) {
 		hrtimer_init(&camsys_sensor_ctrl->sensor_deadline_timer,
 			     CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -782,7 +916,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			return -ENOMEM;
 		}
 	}
-	camsys_ctrl->link_change_state = LINK_CHANGE_IDLE;
+	camsys_sensor_ctrl->link_change_state = LINK_CHANGE_IDLE;
 	mtk_cam_dvfs_update_clk(ctx->cam);
 	dev_dbg(ctx->cam->dev, "[camsys:start]  ctx:%d/raw_dev:%d\n",
 		ctx->stream_id, camsys_ctrl->raw_dev[ctx->pipe->id]->id);
