@@ -29,7 +29,7 @@
 			reg = <0x0 0x0>;
 			device_type = "cpu";
 			enable-method = "psci";
-			cpu-idle-states = <0x2>;
+			cpu-idle-states = <&CPU_PWR_DWN>;
 		};
 
 		CPU1: cpu@100 {
@@ -37,9 +37,20 @@
 			reg = <0x0 0x100>;
 			device_type = "cpu";
 			enable-method = "psci";
-			cpu-idle-states = <0x2>;
+			cpu-idle-states = <&CPU_PWR_DWN>;
 		};
+	};
 
+	idle-states {
+		CPU_PWR_DWN: c4 {  /* Using Gold C4 latencies */
+			compatible = "arm,idle-state";
+			idle-state-name = "rail-pc";
+			entry-latency-us = <702>;
+			exit-latency-us = <1061>;
+			min-residency-us = <4488>;
+			arm,psci-suspend-param = <0x40000004>;
+			local-timer-stop;
+		};
 	};
 
 	neuron-client-block {
