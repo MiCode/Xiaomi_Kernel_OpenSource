@@ -24,8 +24,21 @@
 				qcom,psci-mode = <0x1>;
 			};
 
-			CLUSTER_OFF: qcom,pm-cluster-level@1 { /* AOSS sleep */
+			CLUSTER_OFF: qcom,pm-cluster-level@1 { /* D4 */
 				reg = <1>;
+				compatible = "arm,idle-state";
+				idle-state-name = "l3-pc";
+				entry-latency-us = <2752>;
+				exit-latency-us = <3048>;
+				min-residency-us = <6118>;
+				arm,psci-suspend-param = <0x40>;
+				qcom,psci-mode = <0x4>;
+				qcom,is-reset;
+				qcom,min-child-idx = <1>;
+			};
+
+			LLCC_OFF: qcom,pm-cluster-level@2 { /* AOSS sleep */
+				reg = <2>;
 				compatible = "arm,idle-state";
 				idle-state-name = "llcc-off";
 				entry-latency-us = <3263>;
