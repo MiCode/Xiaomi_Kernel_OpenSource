@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 obj-$(CONFIG_MTK_EMI)	+= emi-cen.o
 obj-$(CONFIG_MTK_EMI)  += emi-mpu.o
 obj-$(CONFIG_MTK_EMI)  += emi-dbg.o
