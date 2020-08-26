@@ -86,6 +86,7 @@ static struct regulator *mmdvfsRegulator;
 #endif
 #endif
 
+/* Unit of target_clk: MHz */
 static u32 target_clk;
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
@@ -798,7 +799,7 @@ unsigned int mtk_dfs_get_cur_freq(void)
 	dev_pm_opp_put(opp); \
 	ret = regulator_set_voltage(mmdvfsRegulator, volt, INT_MAX);\
 	if (ret) \
-		LOG_NOTICE("Error: E_CLK_UPDATE fail"); \
+		LOG_NOTICE("Error: E_CLK_UPDATE fail\n"); \
 } while (0)
 
 #define mtk_dfs_supported(frq, step) do { \
@@ -902,11 +903,12 @@ int ISP_SetPMQOS(
 	{
 		unsigned long freq = 0;
 
-		LOG_INF("E_CLK_UPDATE %d", *pvalue);
-		freq = *(u32 *)pvalue; //need to check unit
+		LOG_INF("E_CLK_UPDATE %d MHz", *pvalue);
+		freq = (*(u32 *)pvalue) * 1000000; /* MHz to Hz */
 		mtk_dfs_update(freq);
+		do_div(freq, 1000000); /* Hz to MHz*/
 		target_clk = (u32)freq;
-		LOG_INF("DFS Set clock :%d", target_clk);
+		LOG_INF("DFS Set clock :%d MHz", target_clk);
 	}
 		break;
 	case E_CLK_SUPPORTED:
@@ -914,7 +916,7 @@ int ISP_SetPMQOS(
 #ifdef EP_PMQOS
 		*pvalue = target_clk = 624;
 
-		LOG_DBG("1:DFS Clk_0:%d", pvalue[0]);
+		LOG_DBG("1:DFS Clk_0:%d\n", pvalue[0]);
 		return 1;
 #else
 		unsigned int num_available, i = 0;
@@ -940,13 +942,15 @@ int ISP_SetPMQOS(
 				}
 			}
 		}
-		for (i = 0; i < num_available; i++)
+		for (i = 0; i < num_available; i++) {
+			do_div(speeds[i], 1000000); /* Hz to MHz */
 			pvalue[i] = speeds[i];
+		}
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
 
 		for (i = 0 ; i < num_available; i++)
-			LOG_DBG("2:DFS Clk_%d:%d", i, pvalue[i]);
+			LOG_DBG("2:DFS Clk_%d:%d MHz\n", i, pvalue[i]);
 
 		return (int)num_available;
 #endif
@@ -956,14 +960,16 @@ int ISP_SetPMQOS(
 #ifdef EP_PMQOS
 		pvalue[0] = (unsigned int)target_clk;
 #else
-		pvalue[0] = (unsigned int)mtk_dfs_cur();
+		pvalue[0] = mtk_dfs_cur();
+		/* Hz to MHz */
+		do_div(pvalue[0], 1000000);
 #endif
 		pvalue[1] = (unsigned int)target_clk;
-		LOG_INF("cur clk:%d,tar clk:%d", pvalue[0], pvalue[1]);
+		LOG_INF("cur clk:%d MHz,tar clk:%d MHz\n", pvalue[0], pvalue[1]);
 		break;
 	case E_QOS_UNKNOWN:
 	default:
-		LOG_NOTICE("unsupport cmd:%d", cmd);
+		LOG_NOTICE("unsupport cmd:%d\n", cmd);
 		Ret = -1;
 		break;
 	}
@@ -1032,29 +1038,31 @@ int SV_SetPMQOS(
 	{
 		unsigned long freq;
 
-		freq = *(u32 *)pvalue; //need to check unit
-		LOG_INF("E_CLK_UPDATE %d", *pvalue);
+		freq = (*(u32 *)pvalue) * 1000000; // MHz to Hz
+		LOG_INF("E_CLK_UPDATE %d MHz\n", *pvalue);
 		mtk_dfs_update(freq);
-
+		do_div(freq, 1000000); // Hz to MHz
 		target_clk = (u32)freq;
-		LOG_INF("DFS Set clock :%d", target_clk);
+		LOG_INF("DFS Set clock :%d MHz\n", target_clk);
 	}
 		break;
 	case E_CLK_CUR:
 #ifdef EP_PMQOS
 		pvalue[0] = (unsigned int)target_clk;
 #else
-		pvalue[0] = (unsigned int)mtk_dfs_cur();
+		pvalue[0] = mtk_dfs_cur();
+		/* Hz to MHz */
+		do_div(pvalue[0], 1000000);
 #endif
 		pvalue[1] = (unsigned int)target_clk;
-		LOG_INF("cur clk:%d,tar clk:%d", pvalue[0], pvalue[1]);
+		LOG_INF("cur clk:%d MHz,tar clk:%d MHz\n", pvalue[0], pvalue[1]);
 		break;
 	case E_CLK_SUPPORTED:
 	{
 #ifdef EP_PMQOS
 		*pvalue = target_clk = 624;
 
-		LOG_DBG("1:DFS Clk_0:%d", pvalue[0]);
+		LOG_DBG("1:DFS Clk_0:%d\n", pvalue[0]);
 		return 1;
 #else
 		unsigned int num_available, i = 0;
@@ -1080,13 +1088,15 @@ int SV_SetPMQOS(
 				}
 			}
 		}
-		for (i = 0; i < num_available; i++)
+		for (i = 0; i < num_available; i++) {
+			do_div(speeds[i], 1000000); /* Hz to MHz */
 			pvalue[i] = speeds[i];
+		}
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
 
 		for (i = 0 ; i < num_available; i++)
-			LOG_INF("2:DFS Clk_%d:%d", i, pvalue[i]);
+			LOG_INF("2:DFS Clk_%d:%d MHz\n", i, pvalue[i]);
 
 		return (int)num_available;
 #endif
@@ -1098,7 +1108,7 @@ int SV_SetPMQOS(
 	case E_CLK_REMOVE:
 #endif
 	default:
-		LOG_NOTICE("unsupport cmd:%d", cmd);
+		LOG_NOTICE("unsupport cmd:%d\n", cmd);
 		Ret = -1;
 		break;
 	}
