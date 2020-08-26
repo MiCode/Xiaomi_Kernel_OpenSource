@@ -615,19 +615,24 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	u64 ctxt_record_size = A6XX_CP_CTXRECORD_SIZE_IN_BYTES;
 	u32 cp_rb_cntl = A6XX_CP_RB_CNTL_DEFAULT |
 		(ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? 0 : (1 << 27));
 
+	if (a6xx_core->ctxt_record_size)
+		ctxt_record_size = a6xx_core->ctxt_record_size;
+
 	if (IS_ERR_OR_NULL(rb->preemption_desc))
 		rb->preemption_desc = kgsl_allocate_global(device,
-			A6XX_CP_CTXRECORD_SIZE_IN_BYTES, 0,
+			ctxt_record_size, 0,
 			KGSL_MEMDESC_PRIVILEGED, "preemption_desc");
 	if (IS_ERR(rb->preemption_desc))
 		return PTR_ERR(rb->preemption_desc);
 
 	if (IS_ERR_OR_NULL(rb->secure_preemption_desc))
 		rb->secure_preemption_desc = kgsl_allocate_global(device,
-			A6XX_CP_CTXRECORD_SIZE_IN_BYTES,
+			ctxt_record_size,
 			KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED,
 			"secure_preemption_desc");
 

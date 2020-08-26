@@ -1577,6 +1577,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660 = {
 	.disable_tseskip = true,
 	.highest_bank_bit = 16,
 	.pdc_in_aop = true,
+	.ctxt_record_size = 2496 * 1024,
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a660_shima = {
@@ -1606,6 +1607,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a660_shima = {
 	.disable_tseskip = true,
 	.highest_bank_bit = 15,
 	.pdc_in_aop = true,
+	.ctxt_record_size = 2496 * 1024,
 };
 
 static const struct adreno_gpu_core *adreno_gpulist[] = {
