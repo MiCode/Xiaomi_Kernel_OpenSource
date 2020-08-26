@@ -152,7 +152,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <950000>;
 			regulator-max-microvolt = <1500000>;
-			qcom,init-voltage = <950000>;
+			qcom,init-voltage = <952000>;
 		};
 	};
 
@@ -165,7 +165,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <2040000>;
-			qcom,init-voltage = <1200000>;
+			qcom,init-voltage = <1800000>;
 		};
 	};
 
@@ -178,7 +178,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1700000>;
 			regulator-max-microvolt = <2040000>;
-			qcom,init-voltage = <1700000>;
+			qcom,init-voltage = <1880000>;
 		};
 	};
 
@@ -191,7 +191,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <382000>;
 			regulator-max-microvolt = <1654000>;
-			qcom,init-voltage = <382000>;
+			qcom,init-voltage = <1256000>;
 		};
 	};
 
@@ -209,7 +209,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <825000>;
 			regulator-max-microvolt = <925000>;
-			qcom,init-voltage = <825000>;
+			qcom,init-voltage = <912000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -228,7 +228,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <3544000>;
-			qcom,init-voltage = <2700000>;
+			qcom,init-voltage = <3072000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -247,7 +247,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <470000>;
 			regulator-max-microvolt = <910000>;
-			qcom,init-voltage = <470000>;
+			qcom,init-voltage = <504000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -299,7 +299,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1140000>;
 			regulator-max-microvolt = <1260000>;
-			qcom,init-voltage = <1140000>;
+			qcom,init-voltage = <1200000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -318,7 +318,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2400000>;
 			regulator-max-microvolt = <3544000>;
-			qcom,init-voltage = <2400000>;
+			qcom,init-voltage = <2952000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -337,7 +337,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <870000>;
 			regulator-max-microvolt = <970000>;
-			qcom,init-voltage = <870000>;
+			qcom,init-voltage = <904000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -357,7 +357,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1080000>;
 			regulator-max-microvolt = <1304000>;
-			qcom,init-voltage = <1080000>;
+			qcom,init-voltage = <1200000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -412,7 +412,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <3008000>;
 			regulator-max-microvolt = <3960000>;
-			qcom,init-voltage = <3008000>;
+			qcom,init-voltage = <3296000>;
 		};
 	};
 
@@ -430,8 +430,27 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1620000>;
 			regulator-max-microvolt = <1980000>;
-			qcom,init-voltage = <1620000>;
+			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		L1C_AO: pm8350c_l1_ao: regulator-pm8350c-l1-ao {
+			regulator-name = "pm8350c_l1_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <1980000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		L1C_SO: pm8350c_l1_so: regulator-pm8350c-l1-so {
+			regulator-name = "pm8350c_l1_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <1980000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-enable = <0>;
 		};
 	};
 
@@ -525,7 +544,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <3544000>;
-			qcom,init-voltage = <1650000>;
+			qcom,init-voltage = <2960000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -582,7 +601,7 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <3544000>;
-			qcom,init-voltage = <2700000>;
+			qcom,init-voltage = <2960000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
@@ -601,8 +620,29 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <720000>;
 			regulator-max-microvolt = <1050000>;
-			qcom,init-voltage = <720000>;
+			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		L10C_AO:
+		pm8350c_l10_ao: regulator-pm8350c-l10-ao {
+			regulator-name = "pm8350c_l10_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <720000>;
+			regulator-max-microvolt = <1050000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		L10C_SO:
+		pm8350c_l10_so: regulator-pm8350c-l10-so {
+			regulator-name = "pm8350c_l10_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <720000>;
+			regulator-max-microvolt = <1050000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-enable = <0>;
 		};
 	};
 
