@@ -4379,6 +4379,35 @@ static int iris_hfi_get_core_capabilities(void *dev)
 static u32 cvp_arp_test_regs[16];
 static u32 cvp_dma_test_regs[512];
 
+static const char * const mid_names[16] = {
+	"CVP_FW",
+	"ARP_DATA",
+	"CVP_OD_NON_PIXEL",
+	"CVP_OD_ORIG_PIXEL",
+	"CVP_OD_WR_PIXEL",
+	"CVP_MPU_ORIG_PIXEL",
+	"CVP_MPU_REF_PIXEL",
+	"CVP_MPU_NON_PIXEL",
+	"CVP_MPU_DFS",
+	"CVP_FDU_NON_PIXEL",
+	"CVP_FDU_PIXEL",
+	"CVP_ICA_PIXEL",
+	"Invalid",
+	"Invalid",
+	"Invalid",
+	"Invalid"
+};
+
+static void __print_reg_details(u32 val)
+{
+	u32 mid, sid;
+
+	mid = (val >> 5) & 0xF;
+	sid = (val >> 2) & 0x7;
+	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
+	dprintk(CVP_ERR, "Sub-client:%s, SID: %d\n", mid_names[mid], sid);
+}
+
 static void __noc_error_info_iris2(struct iris_hfi_device *device)
 {
 	u32 val = 0, regi, i;
@@ -4433,7 +4462,7 @@ static void __noc_error_info_iris2(struct iris_hfi_device *device)
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG2_HIGH_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG2_HIGH:     %#x\n", val);
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG3_LOW_OFFS);
-	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
+	__print_reg_details(val);
 	val = __read_register(device, CVP_NOC_CORE_ERR_ERRLOG3_HIGH_OFFS);
 	dprintk(CVP_ERR, "CVP_NOC_CORE_ERL_MAIN_ERRLOG3_HIGH:     %#x\n", val);
 #define CVP_SS_CLK_HALT 0x8
