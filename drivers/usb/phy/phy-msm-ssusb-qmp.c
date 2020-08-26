@@ -75,6 +75,9 @@ enum core_ldo_levels {
 #define DP_MODE			BIT(1) /* enables DP mode */
 #define USB3_DP_COMBO_MODE	(USB3_MODE | DP_MODE) /*enables combo mode */
 
+/* USB3_DP_COM_TYPEC_STATUS */
+#define PORTSELECT_RAW		BIT(0)
+
 enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
 	USB3_PHY_AUTONOMOUS_MODE_CTRL,
@@ -93,8 +96,10 @@ enum qmp_phy_rev_reg {
 	USB3_DP_COM_PHY_MODE_CTRL,
 	USB3_DP_COM_TYPEC_CTRL,
 	USB3_PCS_MISC_CLAMP_ENABLE,
+	USB3_DP_COM_TYPEC_STATUS,
 	USB3_PHY_REG_MAX,
 };
+#define PHY_REG_SIZE (USB3_PHY_REG_MAX * sizeof(u32))
 
 enum qmp_phy_type {
 	USB3,
@@ -369,6 +374,7 @@ static void usb_qmp_update_hw_portselect(struct msm_ssphy_qmp *phy)
 {
 	struct pinctrl		*portselect_pinctrl;
 	struct pinctrl_state	*portselect_state;
+	u32 status;
 
 	if (phy->phy.dev->pins) {
 		portselect_pinctrl = phy->phy.dev->pins->p;
@@ -390,8 +396,6 @@ static void usb_qmp_update_hw_portselect(struct msm_ssphy_qmp *phy)
 		}
 	}
 
-	dev_dbg(phy->phy.dev, "use hw port select\n");
-
 	writel_relaxed(0x01,
 		phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
@@ -402,6 +406,13 @@ static void usb_qmp_update_hw_portselect(struct msm_ssphy_qmp *phy)
 
 	if (!phy->phy.dev->pins)
 		pinctrl_put(portselect_pinctrl);
+
+	if (phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]) {
+		status = readl_relaxed(phy->base +
+				phy->phy_reg[USB3_DP_COM_TYPEC_STATUS]);
+		dev_dbg(phy->phy.dev, "hw port select %s\n",
+			status & PORTSELECT_RAW ? "CC2" : "CC1");
+	}
 }
 
 static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
@@ -940,7 +951,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	of_get_property(dev->of_node, "qcom,qmp-phy-reg-offset", &size);
 	if (size) {
-		phy->phy_reg = devm_kzalloc(dev, size, GFP_KERNEL);
+		phy->phy_reg = devm_kzalloc(dev, PHY_REG_SIZE, GFP_KERNEL);
 		if (phy->phy_reg) {
 			phy->reg_offset_cnt = (size / sizeof(*phy->phy_reg));
 			if (phy->reg_offset_cnt > USB3_PHY_REG_MAX) {
