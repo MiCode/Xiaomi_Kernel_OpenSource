@@ -87,10 +87,10 @@
 #define DTS_FWDN_GPIO_STR	"qcom,sn-firm"
 #define DTS_CLKREQ_GPIO_STR	"qcom,sn-clkreq"
 #define DTS_CLKSRC_GPIO_STR	"qcom,clk-src"
-#define NFC_LDO_SUPPLY_DT_NAME	"qcom,nq-vdd-1p8"
-#define NFC_LDO_SUPPLY_NAME	"qcom,nq-vdd-1p8-supply"
-#define NFC_LDO_VOL_DT_NAME	"qcom,nq-vdd-1p8-voltage"
-#define NFC_LDO_CUR_DT_NAME	"qcom,nq-vdd-1p8-current"
+#define NFC_LDO_SUPPLY_DT_NAME	"qcom,sn-vdd-1p8"
+#define NFC_LDO_SUPPLY_NAME	"qcom,sn-vdd-1p8-supply"
+#define NFC_LDO_VOL_DT_NAME	"qcom,sn-vdd-1p8-voltage"
+#define NFC_LDO_CUR_DT_NAME	"qcom,sn-vdd-1p8-current"
 
 //as per SN1x0 datasheet
 #define NFC_VDDIO_MIN		1650000 //in uV
