@@ -285,9 +285,9 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Not all TX queues were configured\n");
 		goto out;
 	}
-#endif
 
 out:
+#endif
 	of_node_put(rx_node);
 	of_node_put(tx_node);
 	of_node_put(q_node);
