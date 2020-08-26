@@ -135,7 +135,7 @@ struct se_geni_rsc {
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK      (GENMASK(6, 0))
-#define GENI_IO_MUX_0_EN		BIT(1)
+#define GENI_IO_MUX_0_EN		BIT(0)
 #define GENI_IO_MUX_1_EN		BIT(2)
 
 /* GENI_CFG_REG80 fields */
