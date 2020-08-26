@@ -1166,7 +1166,7 @@
 			compatible = "mediatek,mt6873-wdt",
 				     "mediatek,mt6589-wdt",
 				     "syscon", "simple-mfd";
-			mediatek,rg_dfd_timeout = <0xa0>;
+			mediatek,rg_dfd_timeout = <0xea60>;
 			reg = <0 0x10007000 0 0x100>;
 			reboot-mode {
 				compatible = "syscon-reboot-mode";
