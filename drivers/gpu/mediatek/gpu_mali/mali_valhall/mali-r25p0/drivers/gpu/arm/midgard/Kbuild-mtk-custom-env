@@ -24,6 +24,7 @@ ccflags-y += -I$(srctree)/drivers/staging/android
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_bm
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_bm
@@ -46,18 +47,6 @@ ccflags-y += -DENABLE_MTK_MEMINFO
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS
 
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885"))
-ccflags-y += -DMTK_GPU_BM_2
-$(info *GPU defined GPU BM QoS 2.0)
-endif
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6873"))
-ccflags-y += -DMTK_GPU_BM_2
-$(info *GPU defined GPU BM QoS 2.0)
-endif
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6853"))
-ccflags-y += -DMTK_GPU_BM_2
-$(info *GPU defined GPU BM QoS 2.0)
-endif
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885"))
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6873"))
@@ -68,3 +57,16 @@ ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
 
 
+ifeq ($(MTK_PLATFORM), mt6873)
+ccflags-y += -DMTK_GPU_BM_2
+#ccflags-y +=-DCONFIG_GPU_TRACEPOINTS=y
+$(info *GPU defined GPU BM QoS 2.0)
+endif
+ifeq ($(MTK_PLATFORM), mt6885)
+ccflags-y += -DMTK_GPU_BM_2
+$(info *GPU defined GPU BM QoS 2.0)
+endif
+ifeq ($(MTK_PLATFORM), mt6853)
+ccflags-y += -DMTK_GPU_BM_2
+$(info *GPU defined GPU BM QoS 2.0)
+endif

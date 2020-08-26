@@ -596,6 +596,10 @@ struct kbase_jd_atom {
 #ifdef CONFIG_GPU_TRACEPOINTS
 	int work_id;
 #endif
+
+#if defined(MTK_GPU_BM_2)
+	int work_id;
+#endif
 	int slot_nr;
 
 	u32 atom_flags;
@@ -801,6 +805,9 @@ struct kbase_jd_context {
 	atomic_t work_id;
 #endif
 
+#if defined(MTK_GPU_BM_2)
+	atomic_t work_id;
+#endif
 	struct list_head jit_atoms_head;
 	struct list_head jit_pending_alloc;
 };

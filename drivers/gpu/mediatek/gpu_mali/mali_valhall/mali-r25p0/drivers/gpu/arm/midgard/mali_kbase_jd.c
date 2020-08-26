@@ -1193,7 +1193,9 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 	trace_gpu_job_enqueue(kctx->id, katom->work_id,
 			kbasep_map_core_reqs_to_string(katom->core_req));
 #endif
-
+#if defined(MTK_GPU_BM_2)
+	katom->work_id = atomic_inc_return(&jctx->work_id);
+#endif
 	if (queued && !IS_GPU_ATOM(katom))
 		return false;
 

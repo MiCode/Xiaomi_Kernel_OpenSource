@@ -1247,6 +1247,21 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, int js,
 	}
 #endif
 
+#if defined(MTK_GPU_BM_2)
+		/* The atom in the HEAD */
+		struct kbase_jd_atom *next_katom = kbase_gpu_inspect(kbdev, js,
+									0);
+
+		if (next_katom && next_katom->gpu_rb_state ==
+						KBASE_ATOM_GPU_RB_SUBMITTED) {
+			if (js == 0) {
+				kbdev->v1->ctx = (u32)next_katom->kctx->id;
+				kbdev->v1->job = next_katom->work_id;
+				kbdev->v1->freq = js;
+				kbdev->v1->frame = (u32)next_katom->frame_nr;
+			}
+		}
+#endif
 	if (kbdev->serialize_jobs & KBASE_SERIALIZE_RESET)
 		kbase_reset_gpu_silent(kbdev);
 
