@@ -7,7 +7,9 @@
 &shima_snd {
 	qcom,model = "lahaina-shimaidps-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
-	qcom,wcn-btfm = <0>;
+	qcom,wcn-bt = <1>;
+	qcom,tdm-max-slots = <8>;
+	qcom,wcd-disabled = <0>;
 	qcom,ext-disp-audio-rx = <0>;
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
