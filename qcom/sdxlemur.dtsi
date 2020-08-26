@@ -306,7 +306,7 @@
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
-			clock-frequency = <38400000>;
+			clock-frequency = <76800000>;
 			clock-output-names = "xo_board";
 			#clock-cells = <0>;
 		};
@@ -317,12 +317,26 @@
 			clock-output-names = "sleep_clk";
 			#clock-cells = <0>;
 		};
+
+		pcie_pipe_clk: pcie-0-pipe-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <1000>;
+			clock-output-names = "pcie_pipe_clk";
+			#clock-cells = <0>;
+		};
+
+		usb3_phy_wrapper_gcc_usb30_pipe_clk: usb3-phy-wrapper-gcc-usb30-pipe-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <1000>;
+			clock-output-names = "usb3_phy_wrapper_gcc_usb30_pipe_clk";
+			#clock-cells = <0>;
+		};
 	};
 
 	bi_tcxo: bi_tcxo {
 		compatible = "fixed-factor-clock";
 		clock-mult = <1>;
-		clock-div = <2>;
+		clock-div = <4>;
 		clocks = <&xo_board>;
 		#clock-cells = <0>;
 	};
@@ -330,7 +344,7 @@
 	bi_tcxo_ao: bi_tcxo_ao {
 		compatible = "fixed-factor-clock";
 		clock-mult = <1>;
-		clock-div = <2>;
+		clock-div = <4>;
 		clocks = <&xo_board>;
 		#clock-cells = <0>;
 	};
