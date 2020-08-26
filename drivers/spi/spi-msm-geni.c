@@ -336,6 +336,14 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 			cpha |= CPHA;
 	}
 
+	/* SPI slave supports only mode 1, log unsuppoted mode and exit */
+	if (spi->slave && !(cpol == 0 && cpha == 1)) {
+		GENI_SE_DBG(mas->ipc, false, mas->dev,
+		"%s: Unsupported SPI Slave mode cpol %d cpha %d\n",
+		__func__, cpol, cpha);
+		return -EINVAL;
+	}
+
 	if (spi_slv->mode & SPI_CS_HIGH)
 		demux_output_inv |= BIT(spi_slv->chip_select);
 
