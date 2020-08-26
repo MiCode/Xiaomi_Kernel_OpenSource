@@ -3456,7 +3456,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 
 	if (busy->gpu_busy)
 		gpu_busy = (val >= busy->gpu_busy) ? val - busy->gpu_busy :
-			(~0UL - busy->gpu_busy) + val;
+			(UINT_MAX - busy->gpu_busy) + val;
 
 	busy->gpu_busy = val;
 
