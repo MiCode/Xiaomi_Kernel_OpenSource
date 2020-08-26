@@ -91,7 +91,7 @@ if (print) { \
 /* GENI_OUTPUT_CTRL fields */
 #define GENI_CFG_REG80		0x240
 #define GENI_IO_MUX_0_EN	BIT(0)
-#define GENI_IO_MUX_1_EN	BIT(2)
+#define GENI_IO_MUX_1_EN	BIT(1)
 
 /* GENI_CFG_REG80 fields */
 #define IO1_SEL_TX		BIT(2)
