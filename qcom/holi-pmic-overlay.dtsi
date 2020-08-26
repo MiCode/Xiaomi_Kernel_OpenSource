@@ -1,5 +1,6 @@
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/qti_power_supply_iio.h>
 
 #include "pm6350.dtsi"
 #include "pm7250b.dtsi"
@@ -242,6 +243,20 @@
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};
+};
+
+&flash_led {
+	status = "ok";
+	io-channels = <&pm7250b_qg PSY_IIO_RESISTANCE>,
+		      <&pm7250b_qg PSY_IIO_VOLTAGE_OCV>,
+		      <&pm7250b_qg PSY_IIO_CURRENT_NOW>,
+		      <&pm7250b_charger PSY_IIO_FLASH_TRIGGER>,
+		      <&pm7250b_charger PSY_IIO_FLASH_ACTIVE>;
+	io-channel-names = "rbatt",
+			   "voltage_ocv",
+			   "current_now",
+			   "flash_trigger",
+			   "flash_active";
 };
 
 &thermal_zones {
