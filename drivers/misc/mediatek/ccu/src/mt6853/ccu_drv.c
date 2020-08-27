@@ -859,7 +859,8 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 		if (freq_level == CCU_REQ_CAM_FREQ_NONE)
 			pm_qos_update_request(&_ccu_qos_request, 0);
-		else
+		else if ((freq_level < _step_size) &&
+				 (freq_level < MAX_FREQ_STEP))
 			pm_qos_update_request(&_ccu_qos_request,
 				_g_freq_steps[freq_level]);
 

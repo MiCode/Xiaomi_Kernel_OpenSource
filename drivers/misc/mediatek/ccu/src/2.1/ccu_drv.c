@@ -855,7 +855,8 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		LOG_DBG_MUST("request freq level: %d\n", freq_level);
 		if (freq_level == CCU_REQ_CAM_FREQ_NONE)
 			pm_qos_update_request(&_ccu_qos_request, 0);
-		else
+		else if ((freq_level < _step_size) &&
+				 (freq_level < MAX_FREQ_STEP))
 			pm_qos_update_request(&_ccu_qos_request,
 				_g_freq_steps[freq_level]);
 
